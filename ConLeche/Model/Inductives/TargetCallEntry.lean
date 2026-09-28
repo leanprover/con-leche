@@ -38,7 +38,7 @@ open ConLeche.SetModel
 open SetTheory
 open ConLeche.Term ConLeche.Verify
 open ConLeche (CheckMode Env Expr Name Level ConstantVal ConstantInfo BlockShape TargetMajor
-  NestCtx NestHole NestCtorNf NestNodes BinderMeta PosD PosTree PosKind PosNodeOk nestHoleConst
+  NestCtx NestHole NestCtorNf BinderMeta PosD PosTree PosKind PosNodeOk nestHoleConst
   closeTelescope targetPiDomsWith targetMajorNfs targetFieldNfs openPisAtFvars)
 
 /-- **K.53′ at a recorded entry** (see the module docstring): an entry of
@@ -53,10 +53,10 @@ theorem k53_entry {μ : CheckMode} {env : Env} {p : BlockShape} {formerTys : Lis
     (hcall : ConLeche.targetCallOk (ConLeche.fueledOps μ F) env p formerTys cn fam fvsPref fvsF
       teles absM mvF base k dA pw (targetFieldNfs M cn fvsF) ih = .ok ())
     (C : ConLeche.TargetCallRun μ F env fam fvsPref fvsF teles absM mvF base k dA pw ih)
-    {aux : NestNodes}
+    {tbl : List NestCtorNf}
     (hnfs : targetMajorNfs (ConLeche.fueledOps μ F) env p formerTys M.pfvs M.lvls M.ds M.ctors
-      aux.ctors = .ok M.nfs)
-    {e : NestCtorNf} (he : e ∈ aux.ctors) (hcn : e.ctor = cn)
+      tbl = .ok M.nfs)
+    {e : NestCtorNf} (he : e ∈ tbl) (hcn : e.ctor = cn)
     (hcM : M.ctors.any (·.1.name == cn) = true)
     (hCM : ConLeche.targetClassMatch (ConLeche.fueledOps μ F) env p formerTys M.pfvs M.lvls M.ds
       e.lvls e.ds = .ok true) :

@@ -20,6 +20,7 @@ import ConLeche.Verify.Inductives.NestContInv
 import ConLeche.Model.Inductives.TargetNodeCover
 import ConLeche.Model.Inductives.PosDerivMono
 import ConLeche.Model.Inductives.BlockDeclRun
+import ConLeche.Verify.EnvBound
 import ConLeche.Model.Inductives.TargetCallAdm
 import ConLeche.Model.Inductives.TargetCallData
 import ConLeche.Model.Inductives.TargetCallEntry
@@ -62,7 +63,7 @@ open ConLeche.SetModel
 open ConLeche.Term ConLeche.Verify SetTheory
 open ConLeche.Semantics (AnnotTerm)
 open ConLeche (CheckMode Env Expr Name Level ConstantInfo ConstantVal IndCaps CheckM NestCtx
-  NestHole NestCtorNf NestNodes BinderMeta BlockParts BlockShape TargetMajor fueledOps PosD PosTree
+  NestHole NestCtorNf BinderMeta BlockParts BlockShape TargetMajor fueledOps PosD PosTree
   PosKind PosNodeOk nestHoleConst closeTelescope targetPiDomsWith targetMajorNfs targetFieldNfs
   openPisAtFvars)
 
@@ -119,14 +120,14 @@ node's frame is recorded (`FrameRec`); its entry is the node's key read
 back, which the class matches (`NodeMajor`), so it is among the class's
 recorded normal forms and its called field, opened at the rule's fields,
 passed K.53′ (`k53_entry`). -/
-theorem k53_pos {F : Nat} {envI : Env} {ctx : NestCtx} {aux : NestNodes}
+theorem k53_pos {F : Nat} {envI : Env} {ctx : NestCtx} {tbl : List NestCtorNf}
     {u : PosTree} (hok : PosNodeOk (fueledOps .verified F) envI ctx u)
-    (hfrec : ConLeche.FrameRec (fueledOps .verified F) envI ctx aux.ctors u.anc u.key.lvls
+    (hfrec : ConLeche.FrameRec (fueledOps .verified F) envI ctx tbl u.anc u.key.lvls
       u.key.ds u.grp)
     {envW : Env} {p : BlockShape} {formerTys : List Expr}
     {M : TargetMajor} (hNM : NodeMajor F envW p formerTys ctx M u)
     (hnfs : targetMajorNfs (fueledOps .verified F) envW p formerTys M.pfvs M.lvls M.ds M.ctors
-      aux.ctors = .ok M.nfs)
+      tbl = .ok M.nfs)
     {ctors : List (ConstantVal × Nat)}
     (hctors : ConLeche.groupCtors ctx u.key.ds.length (u.grp.map (·.1)) = some ctors)
     {x : ConstantVal × Nat} (hx : x ∈ ctors) {crest : Expr} {ks : List PosKind}
@@ -506,9 +507,9 @@ theorem nestedNodeCalls {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : N
     {mpC : EnvModelM V μ envC} {dR : BlockData V} {isRecR : Bool}
     {A : Nat → (Name → Nat) → AnnotTerm}
     {kindsR : List (List (List ConLeche.NestFieldKind))} {nfsR : List (List Expr)}
-    {nodesR : ConLeche.NestNodes}
+    {posR : ConLeche.NestState} {tblR : List ConLeche.NestCtorNf}
     (hctx : NestedRecCtx V μ F block envC envI pp cvTasR ctorsAsR out mpC dR isRecR A kindsR nfsR
-      nodesR)
+      posR tblR)
     {mk : EnvModelM V μ envI} (hmkC : LfpCover mk pp.toBlockShape.memberNames)
     (hmk : ∀ D ∈ mk.lfpBlocks, D ∈ mpC.lfpBlocks)
     (hag : ∀ n, (envI.find? n).isSome = true → mpC.base2.acval n = mk.base2.acval n)
@@ -525,7 +526,7 @@ theorem nestedNodeCalls {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : N
     (hsem : ∀ t ∈ ns, ∀ ψ, NodeSemAt mk.base2 ψ (pp.nestCtx fvsP envI.find? envI.consts)
       (dR.holeCtx ψ).reverse t)
     (hfrec : ∀ t ∈ ns, ConLeche.FrameRec (fueledOps .verified F) envI
-      (pp.nestCtx fvsP envI.find? envI.consts) nodesR.ctors t.anc t.key.lvls t.key.ds t.grp)
+      (pp.nestCtx fvsP envI.find? envI.consts) tblR t.anc t.key.lvls t.key.ds t.grp)
     (hmemF : MemberForests F envI pp cvTasR ctorsAsR nfsR fvsP ns)
     {par : Nat → Nat} (hPP : ParentPtrs ns par)
     (hF : NodeListFacts mpC (pp.nestCtx fvsP envI.find? envI.consts) ns)
@@ -566,9 +567,11 @@ theorem nestedNodeCalls {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : N
   obtain rfl := CheckMode.eq_verified hμ
   have H := dynCtx_of hctx hmkC hmk hag hsubC htr hcoreK hok hown hkids hpar hsem hF
   have hctx' := hctx
-  obtain ⟨hRec, hPos, henvC, hnames, hndM, hN, hS, hcore, hctorsAs, hdR, hlfp, hcov, -, -⟩ := hctx'
-  obtain ⟨R, hRaux⟩ := ConLeche.targetRecCheck_run_aux
-    (ConLeche.checkBlockRecT_run (ConLeche.checkBlockRecT_of_rec hRec))
+  obtain ⟨hRec, hPos, henvC, hnames, hndM, hN, hS, hcore, hctorsAs, hdR, hlfp, hcov, -, -,
+    ⟨R, hR₁, hRe, hRn, hRp, hRaux⟩, -⟩ := hctx'
+  have hseeds := R.hseeds
+  rw [hR₁, hRe, hRn, hRp, hRaux, show (ConLeche.mkFEnv envI).find? = envI.find? from
+    funext (ConLeche.mkFEnv_find? envI)] at hseeds
   have h := ConLeche.recStage_of_targetG R (ConLeche.ctorsLen_of_names hnames)
   have hmr : BlockMembersRun mpC.base2 dR pp.toBlockShape cvTasR := by
     obtain ⟨pk, uOfD, ppsOf, rfl⟩ := hdR; exact blockMembersRun_seam hN hS hcore
@@ -807,7 +810,7 @@ theorem nestedNodeCalls {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : N
         hcoreK hnamesD rfl hnPD hnIdxsD hkD hcv0 hop0 hholes0 hcj hw.1 hw.2.2.2.1 hcrest hty hd
       -- the entry: the member constructor's recorded normal form
       obtain ⟨cvTa0', fvsP', rest', hcv0', hop0', hent⟩ :=
-        ConLeche.checkBlockPositivity_memberEntry hPos
+        ConLeche.checkBlockPositivity_memberEntry hPos hseeds
       rw [hcv0] at hcv0'
       obtain rfl := Option.some.inj hcv0'
       rw [hop0] at hop0'
@@ -817,7 +820,7 @@ theorem nestedNodeCalls {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : N
       obtain ⟨hMl, hMd, hEop, hEle⟩ := tyEntry_member EC hmem
       have hnfs : targetMajorNfs (fueledOps .verified F) envC pp.toBlockShape
           (cvTasR.map (·.type)) (tgtMajor out c).pfvs (tgtMajor out c).lvls (tgtMajor out c).ds
-          (tgtMajor out c).ctors nodesR.ctors = .ok (tgtMajor out c).nfs := by
+          (tgtMajor out c).ctors tblR = .ok (tgtMajor out c).nfs := by
         have hmemO : out.getD c default ∈ out := by
           have hco : c < out.length := by simpa [tgtRs] using hc
           rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hco, Option.getD_some]
@@ -960,7 +963,7 @@ theorem nestedNodeCalls {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : N
         exact e1.trans e2.symm
       have hnfs : targetMajorNfs (fueledOps .verified F) envC pp.toBlockShape
           (cvTasR.map (·.type)) (tgtMajor out c).pfvs (tgtMajor out c).lvls (tgtMajor out c).ds
-          (tgtMajor out c).ctors nodesR.ctors = .ok (tgtMajor out c).nfs := by
+          (tgtMajor out c).ctors tblR = .ok (tgtMajor out c).nfs := by
         have hmem : out.getD c default ∈ out := by
           have hco : c < out.length := by simpa [tgtRs] using hc
           rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hco, Option.getD_some]

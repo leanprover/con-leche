@@ -2544,6 +2544,21 @@
 # reverted fused traversal ran stage (b) first and reported 2.)
 0 corner_fuseloop_order_base.ndjson
 1 corner_fuseloop_order_decline.ndjson
+# RPTIE ORDER (lane RPTIE; the forger `scripts/mk_rptie_fixtures.py`, source
+# of the twin `tests/e2e/src/corner_rptie_order_base.lean`).  The class
+# `P (T α)` occurs only under a redex whnf erases (`K (P (T α))`), so the
+# positivity walk meets it only as the SEED of `T.rec_1`.  The twin: official
+# 0, ours 0.  The forged stream makes `P`'s constructor non-positive at that
+# class (`(α → E) → P α`) AND gives `T.rec_1` the parameter domain
+# `Sort (M+1)`, `M` a `max` chain exhausting the level comparison's fuel (K6,
+# a decline).  Official 1 (the auxiliary type is non-positive); ours 2: the
+# recursor check resolves every major (stage (b), which declines here)
+# before it walks the resolved classes as seeds.  Before lane RPTIE the seeds
+# were read off the raw records and walked in the pass: 1.  A move between
+# reject and decline on a stream failing two checks, toward our resource
+# limit; no stream of the corpus moves.
+0 corner_rptie_order_base.ndjson
+2 corner_rptie_order_decline.ndjson
 # ERASED READ OF AN EARLIER RECURSIVE FIELD (lane RP-ANNOT, finding F-RPW-1
 # of RPWHNF; sources `tests/e2e/src/corner_rpwhnf_erasedread_*.lean`,
 # official = arena official, measured).  `mk : (x : T) → K2 T x → T` with

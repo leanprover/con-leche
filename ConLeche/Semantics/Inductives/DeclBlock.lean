@@ -33,7 +33,7 @@ open ConLeche (Env Expr Name Level CheckMode ConstantVal ConstantInfo
   checkBlockInds checkBlockCtors checkBlockPositivity checkBlockIdxSorts
   checkBlockRec checkBlockTables checkBlockPass checkBlockTail checkBlock
   consBlockCtors consBlockRecs consBlockRecsT blockCapsAt nestKindsFlat
-  blockNestedBit blockRawRec BlockPass TargetMajor NestKey)
+  blockNestedBit blockRawRec BlockPass TargetMajor NestKey NestState)
 
 /-- **The uniform inductive declaration, as checked**: the stage runs
 of `checkBlock`.  `env` is the pre-block environment; `p₀` the
@@ -44,7 +44,7 @@ def DeclBlockRun (μ : CheckMode) (F : Nat) (env : Env) (block : List ConstantIn
   (p₀.allCtors.map (·.1.name)).Nodup ∧ p₀.memberNames.Nodup ∧
   ∃ (isRec : Bool) (env₁ : Env) (cvTas : List ConstantVal) (p₁ : BlockShape) (p : BlockParts)
     (ctorsAs : List (List (ConstantVal × Nat))) (sortsss : List (List (List Level)))
-    (kinds : List (List (List NestFieldKind))) (nfs : List (List Expr)) (nodes : NestNodes)
+    (kinds : List (List (List NestFieldKind))) (nfs : List (List Expr)) (pos : NestState)
     (isorts : List (List Level))
     (out : List (ConstantVal × TargetMajor × List Expr)),
     -- 1  the k formers: the constant check, official's telescope loop, the
@@ -61,7 +61,7 @@ def DeclBlockRun (μ : CheckMode) (F : Nat) (env : Env) (block : List ConstantIn
     --    kinds are the block's `is_rec`, its normal forms the model's fields
     --    with holes
     checkBlockPositivity (m := ConLeche.CheckM) (fueledOps μ F) env₁ env₁.find? env₁.consts p
-      cvTas ctorsAs = .ok (kinds, nfs, nodes) ∧
+      cvTas ctorsAs = .ok (kinds, nfs, pos) ∧
     -- 4  the formers carry the record at official's `is_rec`, the syntactic one
     isRec = blockRawRec p₀ ∧
     -- 5  the elimination restriction (official `elim_only_at_universe_zero`)
@@ -73,9 +73,9 @@ def DeclBlockRun (μ : CheckMode) (F : Nat) (env : Env) (block : List ConstantIn
     --    majors at the auxiliary types, the block's container bit), then —
     --    where every kind is flat — the reject-only conformance check (on the
     --    constructors at their positivity normal forms)
-    checkBlockRec (m := ConLeche.CheckM) (fueledOps μ F)
+    checkBlockRec (m := ConLeche.CheckM) (fueledOps μ F) env₁
       (consBlockCtors p.nP ctorsAs env₁) p (blockNestedBit p.toBlockShape kinds)
-      (nestKindsFlat kinds) nodes block cvTas ctorsAs nfs = .ok out ∧
+      (nestKindsFlat kinds) nfs pos block cvTas ctorsAs = .ok out ∧
     -- 9  the install spine: the recursors with their rules at their majors,
     --    then the tables
     checkBlockTables (m := ConLeche.CheckM) p.toBlockShape
@@ -106,7 +106,7 @@ theorem declBlockRun_of {μ : CheckMode} {F : Nat} {env env₂ : Env}
   obtain ⟨p₁, hInd, hCtors, hK, hp⟩ := ConLeche.checkBlockPass_inv hP
   obtain ⟨isorts, rs, helim, hsorts, hRec, hTbl⟩ := ConLeche.checkBlockTail_inv h
   refine ⟨hnd.1, hnd.2, blockRawRec p₀, q.env₁, q.cvTas, p₁, q.p, q.ctorsAs, q.sortsss, q.kinds,
-    q.nfs, q.nodes, isorts, rs, hInd, hp, ?_, ?_, rfl, helim, hsorts, hRec, hTbl⟩
+    q.nfs, q.pos, isorts, rs, hInd, hp, ?_, ?_, rfl, helim, hsorts, hRec, hTbl⟩
   · rw [hp]; exact hCtors
   · rw [hp]; exact hK
 

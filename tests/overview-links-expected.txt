@@ -358,10 +358,10 @@
    101    pw : PropWhen
    102    deriving DecidableEq, Repr, Hashable
 
-== ConLeche/Verify/Cached/AgreeFloor.lean#L1305-L1307
-  1305  theorem checkDecls_skels {mode : CheckMode} {ds : Array Declaration}
-  1306      {env : Env} (h : checkDecls mode pins ds = .ok env) :
-  1307      envSkels env = streamSkels ds.toList := by
+== ConLeche/Verify/Cached/AgreeFloor.lean#L1340-L1342
+  1340  theorem checkDecls_skels {mode : CheckMode} {ds : Array Declaration}
+  1341      {env : Env} (h : checkDecls mode pins ds = .ok env) :
+  1342      envSkels env = streamSkels ds.toList := by
 
 == ConLeche/Kernel/Exclusive.lean#L6-L42
      6  # `withExclusive`: the reference-count read behind the walk memo
@@ -866,39 +866,44 @@
    613      | .ctorInfo _ nPc _ => nPc == nP
    614      | _ => true
 
-== ConLeche/Kernel/Inductives/Positivity.lean#L1578
-  1578  def nestMemberCtors (ops : CheckerOps m) (env : Env) (ctx : NestCtx) (holes : List Expr) :
+== ConLeche/Kernel/Inductives/Positivity.lean#L1551
+  1551  def nestMemberCtors (ops : CheckerOps m) (env : Env) (ctx : NestCtx) (holes : List Expr) :
 
-== ConLeche/Kernel/Inductives/BlockInstall.lean#L272
-   272  def checkBlockPositivity (ops : CheckerOps m) (env₁ : Env) (find? : Name → Option ConstantInfo)
+== ConLeche/Kernel/Inductives/BlockInstall.lean#L284
+   284  def checkBlockPositivity (ops : CheckerOps m) (env₁ : Env) (find? : Name → Option ConstantInfo)
 
-== ConLeche/Kernel/Inductives/RecCheck.lean#L1232-L1251
-  1232  def targetRecCheck (so : ShadowOps m) (fe : FEnv) (p : BlockShape) (nested : Bool)
-  1233      (aux : NestNodes)
-  1234      (block : List ConstantInfo) (cvTas : List ConstantVal)
-  1235      (ctorsAs : List (List (ConstantVal × Nat))) :
-  1236      m (List (ConstantVal × TargetMajor × List Expr)) := do
-  1237    targetRecPins p block
-  1238    let tys ← targetRecTys (so.opsAt fe) fe p nested aux cvTas ctorsAs p.recs
-  1239    let us := tys.map (·.2.2)
-  1240    -- the elimination guard's container
-  1241    -- bit also holds when ANY checked major is outside the block — read off the
-  1242    -- check's own resolved majors, not the recogniser's reading
-  1243    checkBlockRecSmallElim p (nested || tys.any (fun t => t.2.1.member.isNone)) us
-  1244    checkBlockRecElimPin p us
-  1245    checkBlockRecPrefixAgree (so.opsAt fe) fe.env p (tys.map (·.1))
-  1246    targetRulePinsAll tys (targetRecRules block)
-  1247    let feR := consBlockRecsBareF p 0 (tys.map fun t => (t.1, t.2.1.nIdx)) fe
-  1248    let out ← targetRecsRules (so.opsRuleR feR) so.walkers feR (so.opsAt fe) fe p
-  1249      (cvTas.map (·.type)) (targetFamilyOf p tys) p.recs tys
-  1250    so.flush
-  1251    pure out
+== ConLeche/Kernel/Inductives/RecCheck.lean#L1249-L1273
+  1249  def targetRecCheck (so : ShadowOps m) (fe₁ : FEnv) (env₁ : Env) (fe : FEnv) (p : BlockShape)
+  1250      (nested : Bool) (nfs : List (List Expr)) (pos : NestState)
+  1251      (block : List ConstantInfo) (cvTas : List ConstantVal)
+  1252      (ctorsAs : List (List (ConstantVal × Nat))) :
+  1253      m (List (ConstantVal × TargetMajor × List Expr)) := do
+  1254    targetRecPins p block
+  1255    let tys₀ ← targetRecTys (so.opsAt fe) fe p nested cvTas ctorsAs p.recs
+  1256    -- the seeds, at the formers' environment (the positivity walk's)
+  1257    so.flush
+  1258    let tbl ← checkBlockSeeds (so.opsAt fe₁) env₁ fe₁.find? env₁.consts p cvTas ctorsAs nfs pos tys₀
+  1259    so.flush
+  1260    let tys ← targetMajorsNfs (so.opsAt fe) fe.env p (cvTas.map (·.type)) tbl tys₀
+  1261    let us := tys.map (·.2.2)
+  1262    -- the elimination guard's container
+  1263    -- bit also holds when ANY checked major is outside the block — read off the
+  1264    -- check's own resolved majors, not the recogniser's reading
+  1265    checkBlockRecSmallElim p (nested || tys.any (fun t => t.2.1.member.isNone)) us
+  1266    checkBlockRecElimPin p us
+  1267    checkBlockRecPrefixAgree (so.opsAt fe) fe.env p (tys.map (·.1))
+  1268    targetRulePinsAll tys (targetRecRules block)
+  1269    let feR := consBlockRecsBareF p 0 (tys.map fun t => (t.1, t.2.1.nIdx)) fe
+  1270    let out ← targetRecsRules (so.opsRuleR feR) so.walkers feR (so.opsAt fe) fe p
+  1271      (cvTas.map (·.type)) (targetFamilyOf p tys) p.recs tys
+  1272    so.flush
+  1273    pure out
 
 == ConLeche/Conformance/RecConform.lean#L114
    114  def checkBlockRecConform (ops : CheckerOps m) (env : Env) (p : BlockParts)
 
-== ConLeche/Kernel/Inductives/BlockTail.lean#L119
-   119  def checkBlock (ops : CheckerOps m) (env : Env) (block : List ConstantInfo) (p₀ : BlockParts) :
+== ConLeche/Kernel/Inductives/BlockTail.lean#L121
+   121  def checkBlock (ops : CheckerOps m) (env : Env) (block : List ConstantInfo) (p₀ : BlockParts) :
 
 == ConLeche/SetModel/Value.lean#L388-L395
    388  noncomputable def lfpFamSpace (w : Nat) (I : V) : V := piR (w + 1) I fun _ => univ w
@@ -921,23 +926,25 @@
    340      (hrun : ConLeche.Semantics.DeclBlockRun μ F env block p₀ env₂) (hcov : LfpCover mp []) :
    341      ∃ mp' : EnvModelM V μ env₂, LfpCover mp' [] := by
 
-== ConLeche/Kernel/Inductives/Positivity.lean#L1352-L1354
-  1352  def nestContNew (ctx : NestCtx) (ops : CheckerOps m) (env : Env)
-  1353      (rec : List NestHole → Nat → Nat → Expr → NestState → m (NestFieldKind × Expr × NestState))
-  1354      (prog : List NestHole) (kb : Nat) (n : Name) (us : List Level) (ds : List Expr) (nPc : Nat)
+== ConLeche/Kernel/Inductives/Positivity.lean#L1328-L1330
+  1328  def nestContNew (ctx : NestCtx) (ops : CheckerOps m) (env : Env)
+  1329      (rec : List NestHole → Nat → Nat → Expr → NestState → m (NestFieldKind × Expr × NestState))
+  1330      (prog : List NestHole) (kb : Nat) (n : Name) (us : List Level) (ds : List Expr) (nPc : Nat)
 
-== ConLeche/Kernel/Inductives/Positivity.lean#L1688-L1689
-  1688  def nestSeeds (ops : CheckerOps m) (env : Env) (ctx : NestCtx) :
-  1689      List (NestKey × Nat) → NestState → m NestState
+== ConLeche/Kernel/Inductives/RecCheck.lean#L420-L422
+   420  def targetMajorOf (fe : FEnv) (p : BlockShape)
+   421      (ctorsAs : List (List (ConstantVal × Nat))) (pfvs fvs : List Expr)
+   422      (mty : Expr) : m TargetMajor := do
 
-== ConLeche/Kernel/Inductives/RecCheck.lean#L428-L430
-   428  def targetMajorOf (ops : CheckerOps m) (fe : FEnv) (p : BlockShape) (aux : NestNodes)
-   429      (formerTys : List Expr) (ctorsAs : List (List (ConstantVal × Nat))) (pfvs fvs : List Expr)
-   430      (mty : Expr) : m TargetMajor := do
+== ConLeche/Kernel/Inductives/RecCheck.lean#L1115-L1118
+  1115  def checkBlockSeeds (ops : CheckerOps m) (env₁ : Env) (find? : Name → Option ConstantInfo)
+  1116      (consts : List ConstantInfo) (p : BlockShape) (cvTas : List ConstantVal)
+  1117      (ctorsAs : List (List (ConstantVal × Nat))) (nfs : List (List Expr)) (st : NestState)
+  1118      (tys : List (ConstantVal × TargetMajor × Level)) : m (List NestCtorNf) := do
 
-== ConLeche/Kernel/Inductives/RecCheck.lean#L1191-L1192
-  1191  def tgtStoredRules (find? : Name → Option ConstantInfo) (resolves : Expr → Bool)
-  1192      (cv : ConstantVal) (mI rP : Nat) (M : TargetMajor) (rhss : List Expr) : List RecRule :=
+== ConLeche/Kernel/Inductives/RecCheck.lean#L1204-L1205
+  1204  def tgtStoredRules (find? : Name → Option ConstantInfo) (resolves : Expr → Bool)
+  1205      (cv : ConstantVal) (mI rP : Nat) (M : TargetMajor) (rhss : List Expr) : List RecRule :=
 
 == ConLeche/SetModel/Access.lean#L242-L243
    242  theorem closed_of_acc (hw : w ≠ 0) (hA : A ∈ˢ (univ w : V)) (hmaps : MapsTuple w k Is Φ)

@@ -298,9 +298,9 @@ instantiations is unbounded: every entry is a frame the walk completed.
 
 **The seeds**: the stream's recursor family names official's
 auxiliary types as its outside majors (the recursor check's classes);
-every one is walked at the root like a container instance met there
-(`nestSeeds`, "The seeds" below), so the walk's nodes cover every class
-the recursor check ties to a node — an occurrence whnf erases among
+the recursor check walks every class it resolved at the root like a
+container instance met there (`nestSeeds`, "The seeds" below), so every
+class is a node BY CONSTRUCTION — an occurrence whnf erases among
 them.
 
 **Accepted superset of official** (the charter's item 8; with an e2e
@@ -863,10 +863,6 @@ environment, not a fact about the container. -/
 structure NestState where
   keys : Array NestKey := #[]
   ctorsOf : List (Name × Option (Nat × List (ConstantVal × Nat))) := []
-  /-- the CLASSES of every node the walk met (walked or a cache hit), in
-  the recursor's representation (`NestCtx.concreteKey`): a walked node's
-  whole group at its instantiation, a hit's own container -/
-  nodes : Array NestKey := #[]
   /-- the instantiations whose frames are being walked (every group
   member at the key), outermost last: an instantiation walked at the
   EMPTY stack (`nestWalkStack`) is still in progress for the cycle check
@@ -886,21 +882,9 @@ structure NestedPositivity where
   walk's context (the positivity function's output; the install stores
   the declared type) -/
   normals : List (List Expr) := []
-  /-- the classes of every node (`NestState.nodes`): official's auxiliary
-  types, the ones the recursor stage admits as outside majors -/
-  nodes : Array NestKey := #[]
   /-- every derived node's constructors, normalised and read back
   (`NestState.ctorNfs`, K.53′) -/
   ctorNfs : Array NestCtorNf := #[]
-  deriving Inhabited
-
-/-- **What the recursor stage reads off the positivity walk** (K.53′):
-the classes of every node (official's
-auxiliary types, the outside majors the stage admits) and every node's
-constructors' normal forms (a call's callee). -/
-structure NestNodes where
-  keys : List NestKey := []
-  ctors : List NestCtorNf := []
   deriving Inhabited
 
 /-- The constructors of the inductive `C` and its parameter count, read
@@ -946,14 +930,13 @@ the parameters are `0 ..< nP`, the member holes `nP ..< nP + k`, and
 frame `i`'s hole `nP + k + i`. -/
 def NestCtx.hiAt (ctx : NestCtx) (nf : Nat) : Nat := ctx.nP + ctx.names.length + nf
 
-/-! ### The classes' concrete keys
+/-! ### Reading a walked term back
 
-Every node of the walk is recorded by the CLASSES it stands for: its
-group's members at its instantiation, in the recursor's representation
-— the members and every frame's group back to their constants
-(`NestCtx.concreteKey`).  That is official's auxiliary type
-`J.{us} Ds` exactly as `restore_nested` writes it into the auxiliary
-recursor's major, which the recursor stage compares against. -/
+A walked constructor's normal form is recorded for the recursor check
+(K.53′, `NestCtorNf`) in the recursor's representation: the members and
+every frame's group back to their constants (`nestHoleConst`) — the
+auxiliary constructor's type exactly as `restore_nested` writes it into
+official's auxiliary recursor. -/
 
 /-- Replace the free variables `f` maps (their annotations are not
 descended into: a mapped variable is replaced whole, an unmapped one is
@@ -1104,13 +1087,6 @@ def nestHoleConst (ctx : NestCtx) (prog : List NestHole) (i : Nat) : Option Expr
   else if ctx.hiAt 0 ≤ i ∧ i < ctx.hiAt prog.length then
     (prog.reverse[i - ctx.hiAt 0]?).map fun h => .const h.key.cname h.key.lvls
   else none
-
-/-- **A class's concrete key**: the member `c` of a node's group at the
-node's instantiation `key` under the frames `prog`, the holes back to
-their constants (`nestHoleConst`). -/
-def NestCtx.concreteKey (ctx : NestCtx) (prog : List NestHole) (c : Name) (key : NestKey) :
-    NestKey :=
-  ⟨c, key.lvls, key.ds.map (·.replaceFVars (nestHoleConst ctx prog))⟩
 
 /-- The instantiation's type former, checked as official checks the
 auxiliary type BEFORE the block exists: (N2) its index telescope at
@@ -1362,11 +1338,9 @@ def nestContNew (ctx : NestCtx) (ops : CheckerOps m) (env : Env)
   let act := st.active
   let st := { st with active := grp.map (fun p => ({ cname := p.1, lvls := us, ds := ds } : NestKey)) ++ act }
   let st ← nestFrame ctx ops env rec wp (ctx.hiAt wp.length) us ds nPc grp st
-  -- the group is accepted with it; the node's classes: its whole group at
-  -- the instantiation
-  let nodes := (grp.map fun p => ctx.concreteKey prog p.1 ⟨n, us, ds⟩).toArray
+  -- the group is accepted with it
   return (.nested (kb != 0),
-    { st with active := act, keys := nestAcceptGroup us ds grp st.keys, nodes := st.nodes ++ nodes })
+    { st with active := act, keys := nestAcceptGroup us ds grp st.keys })
 
 /-- The instantiation `(n, us, ds)` met (`nestCont` after its checks): IN
 PROGRESS (`active`: every frame being walked, the enclosing frames among
@@ -1387,8 +1361,7 @@ def nestContKey (ctx : NestCtx) (ops : CheckerOps m) (env : Env)
     throw (.invalid "nested positivity: non valid occurrence of the datatypes being \
       declared (an instantiation in progress, reached through reduction)")
   else if ds.all (fun x => x.fvarB ≤ ctx.hiAt 0) && st.keys.contains ⟨n, us, ds⟩ then
-    pure (.nested (kb != 0),
-      { st with nodes := st.nodes.push (ctx.concreteKey prog n ⟨n, us, ds⟩) })
+    pure (.nested (kb != 0), st)
   else nestContNew ctx ops env rec prog kb n us ds nPc cty st
 
 /-- **The container case** of `nestPos`: the reduct `w` is the stored
@@ -1612,86 +1585,44 @@ def nestBlockCtors (ops : CheckerOps m) (env : Env) (ctx : NestCtx) (holes : Lis
 
 The stream's recursor family names the classes it eliminates: every
 recursor's major `I.{us} D⃗ ı⃗`.  An outside one — `I` a stored inductive
-that is no member and not `Quot` — is official's auxiliary type, which
-the recursor check ties to a node of this walk (`targetMajorOf`).  Every
-such class SEEDS the walk: it is walked at the root like a container
-instance met there (`nestContKey` at the empty frame stack: a cache hit,
-or its frame walked), after the members' constructors, sharing the cache.
-So an occurrence whnf erases (`K (List T)` with `K _ := Nat`) is a node
-when the stream eliminates it, and the walk reads no syntactic
-occurrence.
+that is no member and not `Quot` — is official's auxiliary type.  The
+recursor check RESOLVES every major first (`targetMajorOf`: the head,
+the levels, the parameters `D⃗` over the recursor's parameter binders),
+and every outside class it resolved SEEDS the walk (`nestSeedOf`): it is
+walked at the root like a container instance met there (`nestContKey`
+at the empty frame stack: a cache hit, or its frame walked), after the
+members' constructors, sharing the cache.  So every class of the
+family is a node by construction — an occurrence whnf erases
+(`K (List T)` with `K _ := Nat`) among them — and the walk reads no
+syntactic occurrence.
 
-A seed is read in the walk's representation: the recursor's type with
-the members abstracted to their holes (`nestAbstract`) and its first
-`nP` binders instantiated at the canonical parameter variables, its
-major's domain read off the next binders; the class's parameters must
-mention none of them (they are official's closed parameter terms), and
-are annotated at the walk's depth.  A major that is not of that shape,
-or a member's (a hole after the abstraction), seeds nothing — the
-recursor check judges it.  Nothing here trusts the stream: every seed
-is walked as the positivity check walks any container instance, and
-the proofs read a seed's key only through its frame's derivation and
-its leaves (the canonical variables). -/
+A class is moved to the walk's representation (`nestSeedOf`): its
+parameters' members abstracted to their holes (`nestAbstract`) and
+every free variable — a recursor parameter binder — replaced WHOLE by
+the canonical parameter variable of its index (`ctx.params`), so the
+key's leaves are the canonical variables' and the holes'.  Nothing
+here trusts the stream: every seed is walked as the positivity check
+walks any container instance, and the proofs read a seed's key only
+through its frame's derivation and its leaves. -/
 
-/-- **A recursor's outside major class**, in the walk's representation
-(see "The seeds"): `ty` the recursor's (closed) type, `nB` its binders
-after the parameters up to and including the major.  With the class's
-parameter count. -/
-def nestSeedKey? (ctx : NestCtx) (holes : List Expr) (nB : Nat) (ty : Expr) :
-    Option (NestKey × Nat) :=
-  if ty.hasFvar then none else
-  match instPisWith ctx.params (nestAbstract ctx holes ty) with
-  | none => none
-  | some body =>
-    match body.stripPis nB with
-    | none => none
-    | some (bs, _) =>
-      match bs.getLast? with
-      | none => none
-      | some (mdom, _) =>
-        match mdom.getAppFn with
-        | .const I us =>
-          if ctx.names.contains I || I == quotName then none else
-          match nestContainer ctx I with
-          | none => none
-          | some (nPc, _) =>
-            let ds := mdom.getAppArgs.take nPc
-            if ds.length == nPc && ds.all (·.bvarB == 0) then some (⟨I, us, ds⟩, nPc) else none
-        | _ => none
-
-/-- Terms annotated at depth `d`, in order. -/
-def nestAnnotAll (ops : CheckerOps m) (env : Env) (d : Nat) : List Expr → m (List Expr)
-  | [] => pure []
-  | x :: xs => do
-    let x' ← ops.annotate env d x
-    let xs' ← nestAnnotAll ops env d xs
-    pure (x' :: xs')
-
-/-- **The seeds of a recursor family**: every recursor's outside major
-class (`nestSeedKey?`), its parameters annotated at the walk's depth, in
-the family's order. -/
-def nestSeedKeys (ops : CheckerOps m) (env : Env) (ctx : NestCtx) (holes : List Expr) :
-    List (Nat × Expr) → m (List (NestKey × Nat))
-  | [] => pure []
-  | (nB, ty) :: rs => do
-    let rest ← nestSeedKeys ops env ctx holes rs
-    match nestSeedKey? ctx holes nB ty with
-    | none => pure rest
-    | some (k, nPc) => do
-      let ds ← nestAnnotAll ops env (ctx.hiAt 0) k.ds
-      pure ((⟨k.cname, k.lvls, ds⟩, nPc) :: rest)
+/-- **A resolved class as a seed**: the outside class `I.{us} ds`
+(`ds` over the recursor's parameter binders `0 ..< nP`) in the walk's
+representation, with its parameter count (see "The seeds"). -/
+def nestSeedOf (ctx : NestCtx) (holes : List Expr) (I : Name) (us : List Level)
+    (ds : List Expr) (nPc : Nat) : NestKey × Nat :=
+  (⟨I, us, ds.map fun x => (nestAbstract ctx holes x).replaceFVars fun i => ctx.params[i]?⟩,
+    nPc)
 
 /-- **The seeds walked**, in order, at the root (see "The seeds"): each
 class a container instance met at the empty frame stack
-(`nestContKey`), its parameters without loose bound variables and
-below the frame holes. -/
+(`nestContKey`).  A seed's parameters are closed and below the frame
+holes by construction (`nestSeedOf` of a class whose parameters mention
+only the recursor's parameter binders, `targetMajorOf`), so nothing about
+them is checked here. -/
 def nestSeeds (ops : CheckerOps m) (env : Env) (ctx : NestCtx) :
     List (NestKey × Nat) → NestState → m NestState
   | [], st => pure st
   | (key, nPc) :: ks, st => do
-    unless key.ds.all (fun x => x.bvarB == 0 && x.fvarB ≤ ctx.hiAt 0) do
-      throw (.invalid "nested positivity: nested inductive datatypes parameters \
-        cannot contain local variables")
     let F := key.ds.foldl (fun a d => max a (whnfWalkFuel d)) fuelSlack
     let (_, cty) ← nestInstType ctx (ctx.hiAt 0) key
     let (_, st) ← nestContKey ctx ops env (nestPos ops env ctx F) [] 0 key.cname key.lvls
@@ -1722,7 +1653,7 @@ def nestedBlockPositivity (ops : CheckerOps m) (env : Env) (ctx : NestCtx)
   let holes ← unwrapOr (nestHoles ctx)
     (.internal "nested positivity: a member is not a stored former")
   let (kinds, nfs, st) ← nestBlockCtors ops env ctx holes ctorss {}
-  pure ⟨st.keys, kinds, nfs, st.nodes, (nestMemberNfs ctx ctorss nfs).toArray ++ st.ctorNfs⟩
+  pure ⟨st.keys, kinds, nfs, (nestMemberNfs ctx ctorss nfs).toArray ++ st.ctorNfs⟩
 
 end Nested
 

@@ -286,7 +286,7 @@ theorem checkBlockPass_inv {env : Env} {p₀ : BlockParts} {isRec : Bool}
       checkBlockCtors (fueledOps mode F) q.env₁ q.env₁ (p₀.complete p₁).toBlockShape
         ((p₀.complete p₁).members.zip q.cvTas) = .ok (q.ctorsAs, q.sortsss) ∧
       checkBlockPositivity (m := CheckM) (fueledOps mode F) q.env₁ q.env₁.find? q.env₁.consts
-        (p₀.complete p₁) q.cvTas q.ctorsAs = .ok (q.kinds, q.nfs, q.nodes) ∧
+        (p₀.complete p₁) q.cvTas q.ctorsAs = .ok (q.kinds, q.nfs, q.pos) ∧
       q.p = p₀.complete p₁ := by
   unfold checkBlockPass at h
   obtain ⟨r₁, hInd, h⟩ := exceptBind_ok h
@@ -295,7 +295,7 @@ theorem checkBlockPass_inv {env : Env} {p₀ : BlockParts} {isRec : Bool}
   obtain ⟨r₂, hCtors, h⟩ := exceptBind_ok h
   obtain ⟨ctorsAs, sortsss⟩ := r₂
   try simp only at h
-  obtain ⟨⟨kinds, nfs, nodes⟩, hK, h⟩ := exceptBind_ok h
+  obtain ⟨⟨kinds, nfs, pos⟩, hK, h⟩ := exceptBind_ok h
   simp only [pure, Except.pure, Except.ok.injEq] at h
   subst h
   exact ⟨p₁, hInd, hCtors, hK, rfl⟩
@@ -355,9 +355,9 @@ theorem checkBlockTail_inv {env₂ : Env} {block : List ConstantInfo} {q : Block
       (q.p.large = true → q.p.resSort.isNeverZero = true ∨ (q.p.k < 2 ∧ q.p.numCtors < 2)) ∧
       checkBlockIdxSorts (fueledOps mode F) q.env₁ q.p.toBlockShape
         (q.p.members.zip q.cvTas) = .ok isorts ∧
-      checkBlockRec (fueledOps mode F) (consBlockCtors q.p.nP q.ctorsAs q.env₁)
+      checkBlockRec (fueledOps mode F) q.env₁ (consBlockCtors q.p.nP q.ctorsAs q.env₁)
         q.p (blockNestedBit q.p.toBlockShape q.kinds) (nestKindsFlat q.kinds)
-        q.nodes block q.cvTas q.ctorsAs q.nfs
+        q.nfs q.pos block q.cvTas q.ctorsAs
           = .ok out ∧
       checkBlockTables (m := CheckM) q.p.toBlockShape
         (q.p.members.zip (q.ctorsAs.zip q.sortsss))
@@ -388,10 +388,10 @@ theorem checkBlockTail_inv {env₂ : Env} {block : List ConstantInfo} {q : Block
   | ok isorts =>
   rw [hsorts] at h
   dsimp only at h
-  cases hRec : checkBlockRec (m := CheckM) (fueledOps mode F)
+  cases hRec : checkBlockRec (m := CheckM) (fueledOps mode F) q.env₁
       (consBlockCtors q.p.nP q.ctorsAs q.env₁) q.p
-      (blockNestedBit q.p.toBlockShape q.kinds) (nestKindsFlat q.kinds) q.nodes block q.cvTas
-      q.ctorsAs q.nfs with
+      (blockNestedBit q.p.toBlockShape q.kinds) (nestKindsFlat q.kinds) q.nfs q.pos block q.cvTas
+      q.ctorsAs with
   | error e => rw [hRec] at h; exact nomatch h
   | ok out =>
   rw [hRec] at h

@@ -92,6 +92,14 @@ FALLBACK = {
     # at `StructBodyFrames.lean:295` and `FixEntryLaw.lean:261`, then
     # `denoteMeta_mkAppN_of` at `BlockRecTyShapeRun.lean:242`).
     ('ConLeche.Model.Inductives.StructRecKit', 'ConLeche.Model.IndPinGrade'),
+    # lane RPTIE: two re-exports the model calls demotable, each MEASURED by
+    # demoting it alone.  `NestScope`'s public statements name `TargetMajor`
+    # and `targetSeeds` (`mem_targetSeeds`, `targetSeeds_mem`; unknown
+    # identifier `TargetMajor`, `NestScope.lean:517`) from `RecCheck`;
+    # `StructFrameKit`'s name `PiTeleAV` (`StructFrameKit.lean:762`) from
+    # `IndTowerRead` — the census now attributes it elsewhere.
+    ('ConLeche.Verify.Inductives.NestScope', 'ConLeche.Kernel.Inductives.RecCheck'),
+    ('ConLeche.Model.Inductives.StructFrameKit', 'ConLeche.Model.IndTowerRead'),
     # lane SEEDDEFEQ M2: `ClassMatchRun`'s public statements reach
     # `Expr.replaceFVars` by dot-notation (`targetCanonParams`' unfolding,
     # `:85`) through `RecCheck`, and `Expr.ErasedEq` (`:35`) through
