@@ -1,7 +1,6 @@
 module
 
 public import ConLeche.Verify.BridgeDecl
-public import ConLeche.Kernel.Inductives.ClassCheck
 public import ConLeche.Verify.Inductives.ClassInv
 
 public section
