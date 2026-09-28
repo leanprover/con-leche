@@ -279,15 +279,15 @@ theorem f13_Ψ2 (w : Nat) (v : Nat → V) :
       opAt (fun m => m = 0) (f13rd 2) ((f13 w : ClassSys V).T 0 ((f13 w : ClassSys V).T 1 v)) := by
   unfold ClassSys.Ψ
   rw [show (f13 w : ClassSys V).fl 2 = [1, 0] from rfl]
-  simp only [ClassSys.fillL, dif_pos (show (1 : Nat) < 2 by omega),
-    dif_pos (show (0 : Nat) < 2 by omega)]
+  simp only [ClassSys.fillL, dif_pos (show (f13 w : ClassSys V).rk 1 < (f13 w : ClassSys V).rk 2 from Nat.lt_of_sub_eq_succ rfl),
+    dif_pos (show (f13 w : ClassSys V).rk 0 < (f13 w : ClassSys V).rk 2 from Nat.lt_of_sub_eq_succ rfl)]
   rfl
 
 theorem f13_Ψ1 (w : Nat) (v : Nat → V) :
     (f13 w : ClassSys V).Ψ 1 v = opAt (fun m => m = 1) (f13rd 1) ((f13 w : ClassSys V).T 0 v) := by
   unfold ClassSys.Ψ
   rw [show (f13 w : ClassSys V).fl 1 = [0] from rfl]
-  simp only [ClassSys.fillL, dif_pos (show (0 : Nat) < 1 by omega)]
+  simp only [ClassSys.fillL, dif_pos (show (f13 w : ClassSys V).rk 0 < (f13 w : ClassSys V).rk 1 from Nat.lt_of_sub_eq_succ rfl)]
   rfl
 
 theorem f13_Ψ0 (w : Nat) (v : Nat → V) :
@@ -297,16 +297,16 @@ theorem f13_Ψ0 (w : Nat) (v : Nat → V) :
 /-- The class `λ` spliced in, read at its position: its carrier. -/
 theorem f13_T0_2 (w : Nat) (u : Nat → V) :
     (f13 w : ClassSys V).T 0 u 2 = (f13 w : ClassSys V).car 0 u 2 := by
-  rw [ClassSys.T_eq]; unfold cfix
+  rw [ClassSys.T_eq]; unfold cfixP
   exact mixT_apply_pos (show ((f13 w : ClassSys V).grp 0) 2 from rfl)
 
 theorem f13_T1_1 (w : Nat) (u : Nat → V) :
     (f13 w : ClassSys V).T 1 u 1 = (f13 w : ClassSys V).car 1 u 1 := by
-  rw [ClassSys.T_eq]; unfold cfix
+  rw [ClassSys.T_eq]; unfold cfixP
   exact mixT_apply_pos (show ((f13 w : ClassSys V).grp 1) 1 from rfl)
 
 theorem f13_T0_0 (w : Nat) (u : Nat → V) : (f13 w : ClassSys V).T 0 u 0 = u 0 := by
-  rw [ClassSys.T_eq]; unfold cfix
+  rw [ClassSys.T_eq]; unfold cfixP
   exact mixT_apply_neg (show ¬ ((f13 w : ClassSys V).grp 0) 0 by simp [f13])
 
 theorem app_opAt_pos {P : Nat → Prop} {r : (Nat → V) → V} {X : Nat → V} {m : Nat} (h : P m) :

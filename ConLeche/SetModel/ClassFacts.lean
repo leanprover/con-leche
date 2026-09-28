@@ -5,7 +5,7 @@ public import ConLeche.SetModel.Access
 @[expose] public section
 
 /-!
-# Class facts: monotonicity and accessibility of a class, by container age
+# Class facts: monotonicity and accessibility of a class, by rank
 
 The CLASSCHECK proof plan's class facts (`classMono`/`classAcc`, PROOFPLAN
 §2.4/§3), at the set level: no `Expr`, no frames, no fullness, no Bekić.
@@ -280,16 +280,33 @@ theorem cfix_ok (hbase : InTupleSpace w K Is base) (hΨ : OpOk w K Is Ψ) :
     exact ⟨accPaths A, accPaths_mem hw hA, ccar_acc hbase hΨ hacc⟩
   exact OpOk.mixT (G := G) OpOk.id hcar
 
+variable (w K Is G F base Ψ) in
+/-- The class spliced into the frame at the positions `P` only (a fill
+writes the class it reads coherently, not its whole group). -/
+noncomputable def cfixP (P : Nat → Prop) (u : Nat → V) : Nat → V :=
+  mixT P u (ccar w K Is G F base Ψ u)
+
+/-- **… at any positions, a good operator.** -/
+theorem cfixP_ok (P : Nat → Prop) (hbase : InTupleSpace w K Is base) (hΨ : OpOk w K Is Ψ) :
+    OpOk w K Is (cfixP w K Is G F base Ψ P) := by
+  have hcar : OpOk w K Is (ccar w K Is G F base Ψ) := by
+    refine ⟨fun u _ => lfpTuple_mem _ _ _ _, fun u u' hu hu' hle =>
+      ccar_mono_free hbase hΨ hu hu' fun m hm _ => hle m hm, fun hw => ?_⟩
+    obtain ⟨A, hA, hacc⟩ := hΨ.2.2 hw
+    exact ⟨accPaths A, accPaths_mem hw hA, ccar_acc hbase hΨ hacc⟩
+  exact OpOk.mixT (G := P) OpOk.id hcar
+
 end CFix
 
-/-! ## A system of classes, by age -/
+/-! ## A system of classes, by rank -/
 
 /-- **A class system** over one valuation space: per class `c` its group
 `grp c`, its free holes `free c`, its flat operator `Φ c` (the abstracted
 crests' fields over the whole valuation) and its FILL LIST `fl c` — the
-classes its coherent valuation reads TRUE, in splicing order.  Only the
-fill entries with a SMALLER index (older containers) are spliced; the
-plan's occurrence lemma A1 says there are no others. -/
+classes its coherent valuation reads, in splicing order — with a RANK
+`rk` (the class check's order of coherent reads; by default the index,
+E1's container age): only the fill entries of a smaller rank are
+spliced, each at its positions `spl` (by default its group). -/
 structure ClassSys (V : Type u) [SetTheory V] where
   w : Nat
   K : Nat
@@ -300,6 +317,8 @@ structure ClassSys (V : Type u) [SetTheory V] where
   free : Nat → Nat → Prop
   Φ : Nat → (Nat → V) → Nat → V
   fl : Nat → List Nat
+  rk : Nat → Nat := fun c => c
+  spl : Nat → Nat → Prop := grp
 
 namespace ClassSys
 
@@ -311,17 +330,19 @@ noncomputable def fillL (T : Nat → (Nat → V) → Nat → V) : List Nat → (
 variable (S : ClassSys V)
 
 /-- **Class `c` spliced into a frame**, by well-founded recursion on the
-class index (the container's AGE: a class read true is older). -/
+class's rank (a class read coherently has a smaller one). -/
 noncomputable def T : Nat → (Nat → V) → Nat → V
-  | c => cfix S.w S.K S.Is (S.grp c) (S.free c) S.base
-      (fun v => S.Φ c (fillL (fun d => if _h : d < c then T d else fun v => v) (S.fl c) v))
-termination_by c => c
+  | c => cfixP S.w S.K S.Is (S.grp c) (S.free c) S.base
+      (fun v => S.Φ c (fillL (fun d => if _h : S.rk d < S.rk c then T d else fun v => v) (S.fl c) v))
+      (S.spl c)
+termination_by c => S.rk c
 
 /-- Class `c`'s operator after the coherent fill. -/
 noncomputable def Ψ (c : Nat) : (Nat → V) → Nat → V :=
-  fun v => S.Φ c (fillL (fun d => if _h : d < c then S.T d else fun v => v) (S.fl c) v)
+  fun v => S.Φ c (fillL (fun d => if _h : S.rk d < S.rk c then S.T d else fun v => v) (S.fl c) v)
 
-theorem T_eq (c : Nat) : S.T c = cfix S.w S.K S.Is (S.grp c) (S.free c) S.base (S.Ψ c) := by
+theorem T_eq (c : Nat) :
+    S.T c = cfixP S.w S.K S.Is (S.grp c) (S.free c) S.base (S.Ψ c) (S.spl c) := by
   rw [T]; rfl
 
 /-- **Class `c`'s carrier at a frame** (`T_c(ζ)`). -/
@@ -338,21 +359,25 @@ every class spliced into the frame is good: it maps, is monotone, and is
 accessible at `w ≠ 0` — composition through the older classes it reads
 true, accessibility only ever over the whole space. -/
 theorem good (hΦ : ∀ c, OpOk S.w S.K S.Is (S.Φ c)) : ∀ c, OpOk S.w S.K S.Is (S.T c) := by
-  intro c
-  induction c using Nat.strongRecOn with
-  | ind c ih =>
+  suffices h : ∀ r c, S.rk c = r → OpOk S.w S.K S.Is (S.T c) from fun c => h _ c rfl
+  intro r
+  induction r using Nat.strongRecOn with
+  | ind r ih =>
+    intro c hr
     rw [T_eq]
-    refine cfix_ok S.hbase (OpOk.comp (Φ := S.Φ c)
-      (Ψ := fillL (fun d => if _h : d < c then S.T d else fun v => v) (S.fl c)) (S.fillL_ok (fun d => ?_) (S.fl c)) (hΦ c))
-    by_cases h : d < c
-    · simp only [dif_pos h]; exact ih d h
+    refine cfixP_ok _ S.hbase (OpOk.comp (Φ := S.Φ c)
+      (Ψ := fillL (fun d => if _h : S.rk d < S.rk c then S.T d else fun v => v) (S.fl c))
+      (S.fillL_ok (fun d => ?_) (S.fl c)) (hΦ c))
+    by_cases h : S.rk d < S.rk c
+    · simp only [dif_pos h]; exact ih _ (hr ▸ h) d rfl
     · simp only [dif_neg h]; exact OpOk.id
 
 /-- Class `c`'s filled operator is good. -/
 theorem Ψ_ok (hΦ : ∀ c, OpOk S.w S.K S.Is (S.Φ c)) (c : Nat) : OpOk S.w S.K S.Is (S.Ψ c) :=
   OpOk.comp (Φ := S.Φ c)
-    (Ψ := fillL (fun d => if _h : d < c then S.T d else fun v => v) (S.fl c)) (S.fillL_ok (fun d => by
-    by_cases h : d < c
+    (Ψ := fillL (fun d => if _h : S.rk d < S.rk c then S.T d else fun v => v) (S.fl c))
+    (S.fillL_ok (fun d => by
+    by_cases h : S.rk d < S.rk c
     · simp only [dif_pos h]; exact S.good hΦ d
     · simp only [dif_neg h]; exact OpOk.id) (S.fl c)) (hΦ c)
 

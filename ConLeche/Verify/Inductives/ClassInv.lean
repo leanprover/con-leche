@@ -610,28 +610,23 @@ theorem ClassInfosD.getElem {holes : List Expr} {ctorsAs : List (List (ConstantV
         cases hm : c.member <;> simp [hm] <;> omega
       rw [← this]; exact h'
 
-/-! ## R6: the keys typed with their cyclic inner classes abstracted -/
+/-! ## R6: the keys typed with their free classes abstracted -/
 
-/-- A class's CYCLIC inner classes: the container classes whose
-inductive is younger (`age`) than its own. -/
-@[expose] def classCyc (age : Name → Nat) (cls : List ClassInfo) (c : ClassInfo) : List ClassInfo :=
-  cls.filter fun d => d.member.isNone && age c.key.ind < age d.key.ind
-
-/-- **R6, inverted**: every container class whose key names a cyclic
-inner class is typed at the holes' context with those abstracted. -/
-theorem classKeysCyclic_run {age : Name → Nat} {cls : List ClassInfo} {hi : Nat} :
-    ∀ {cs : List ClassInfo}, classKeysCyclic ops env age cls hi cs = .ok () →
-      ∀ c ∈ cs, c.member = none → c.dsA.map (classAbs (classCyc age cls c)) ≠ c.dsA →
-        ∃ ty, ops.inferType env hi (Expr.mkAppN (.const c.key.ind c.key.lvls)
-          (c.dsA.map (classAbs (classCyc age cls c)))) = .ok ty
+/-- **R6, inverted**: every container class whose key names a free class
+is typed at the holes' context with those abstracted (`dsF`). -/
+theorem classKeysCyclic_run {cls : List ClassInfo} {dsF : Nat → List Expr} {hi : Nat} :
+    ∀ {cs : List Nat}, classKeysCyclic ops env cls dsF hi cs = .ok () →
+      ∀ c ∈ cs, (cls.getD c default).member = none → dsF c ≠ (cls.getD c default).dsA →
+        ∃ ty, ops.inferType env hi (Expr.mkAppN (.const (cls.getD c default).key.ind
+          (cls.getD c default).key.lvls) (dsF c)) = .ok ty
   | [], _ => fun _ h => nomatch h
   | c :: cs, h => by
     unfold classKeysCyclic at h
     dsimp only at h
-    have key : classKeysCyclic ops env age cls hi cs = .ok () ∧
-        (c.member = none → c.dsA.map (classAbs (classCyc age cls c)) ≠ c.dsA →
-          ∃ ty, ops.inferType env hi (Expr.mkAppN (.const c.key.ind c.key.lvls)
-            (c.dsA.map (classAbs (classCyc age cls c)))) = .ok ty) := by
+    have key : classKeysCyclic ops env cls dsF hi cs = .ok () ∧
+        ((cls.getD c default).member = none → dsF c ≠ (cls.getD c default).dsA →
+          ∃ ty, ops.inferType env hi (Expr.mkAppN (.const (cls.getD c default).key.ind
+            (cls.getD c default).key.lvls) (dsF c)) = .ok ty) := by
       split at h
       · split at h
         · obtain ⟨u, hu, h⟩ := exceptBind_ok h
@@ -642,9 +637,9 @@ theorem classKeysCyclic_run {age : Name → Nat} {cls : List ClassInfo} {hi : Na
           · exact nomatch hu
           · rename_i ty hty; exact ⟨ty, hty⟩
         · rename_i hne
-          exact ⟨h, fun _ hne' => absurd (by simpa [classCyc] using hne) hne'⟩
+          exact ⟨h, fun _ hne' => absurd (by simpa using hne) hne'⟩
       · rename_i hm
-        exact ⟨h, fun hm' => absurd (by simp [hm']) hm⟩
+        exact ⟨h, fun hm' => absurd (by rw [hm']; rfl) hm⟩
     intro c' hc'
     rcases List.mem_cons.mp hc' with rfl | hc'
     · exact key.2
@@ -1051,6 +1046,63 @@ the aliases it may use (`classAliasesFor`). -/
   (cls.zip crests0).map fun (c, cs) =>
     cs.map (classAliasAbs (classAliasesFor (classAge fe₁) (classMates fe₁) c al))
 
+/-- The free-set certificate's vocabulary at the run. -/
+@[expose] def classFreeVOf (fe₁ : FEnv) (cls : List ClassInfo) (al : List ClassAlias)
+    (crests0 : List (List Expr)) (Fl : Nat → List Nat) : ClassFreeV :=
+  ClassFreeV.build cls (classMates fe₁) (classCrestsAl fe₁ cls al crests0) Fl
+
+/-- A container class's parameters with its free classes abstracted (R6's key). -/
+@[expose] def classDsF (V : ClassFreeV) (c : Nat) : List Expr :=
+  (V.cls.getD c default).dsA.map (classAbsIf V.cls (classHoleOf V.cls (V.isFree c)))
+
+/-- **The free-set certificate, as propositions** (`classFreeOk`). -/
+structure ClassFreeCert (V : ClassFreeV) (hi : Nat) (aliasesOf : ClassInfo → List ClassAlias)
+    (inn dep : Nat → List Nat) (rank : Nat → Nat) : Prop where
+  innClosed : classClosedOk V.cls.length (fun x => classInner V.cls (V.cls.getD x default)) inn
+    = true
+  demand : ∀ x, x < V.cls.length → ∀ y ∈ dep x, ∀ e ∈ inn y, V.stage x e = true →
+    V.isFree y e = true
+  commutes : ∀ c, c < V.cls.length → (V.cls.getD c default).member = none →
+    ∀ j, j < V.cls.length → V.own c j = true → ∀ cv nF, (cv, nF) ∈ (V.cls.getD j default).ctors →
+      classCommutes V.cls V.mates hi (classHoleOf V.cls (V.isFree c))
+        (classHoleOf V.cls (V.own c)) (V.cls.getD c default) (V.cls.getD j default) cv = true
+  aliases : ∀ c, c < V.cls.length → (V.cls.getD c default).member = none →
+    ∀ a ∈ aliasesOf (V.cls.getD c default), classHoleOf V.cls (V.isFree c) a.hole = false
+  mentions : ∀ c, c < V.cls.length → (V.cls.getD c default).member = none →
+    ∀ d ∈ V.mentions c, V.stage c d = true ∨ d ∈ dep c
+  deps : ∀ c, c < V.cls.length → (V.cls.getD c default).member = none → ∀ d ∈ dep c,
+    V.stage c d = false ∧ rank d < rank c ∧ ∀ e ∈ V.depStep c d, e ∈ dep c
+
+theorem classFreeOk_cert {V : ClassFreeV} {hi : Nat} {aliasesOf : ClassInfo → List ClassAlias}
+    {inn dep : Nat → List Nat} {rank : Nat → Nat}
+    (h : classFreeOk V hi aliasesOf inn dep rank = true) :
+    ClassFreeCert V hi aliasesOf inn dep rank := by
+  unfold classFreeOk at h
+  simp only [Bool.and_eq_true] at h
+  obtain ⟨⟨hinn, hdem⟩, hall⟩ := h
+  have hc : ∀ c, c < V.cls.length → (V.cls.getD c default).member = none → _ := fun c hc hm => by
+    have := List.all_eq_true.mp hall c (List.mem_range.mpr hc)
+    simp only [hm, Option.isSome_none, Bool.false_or, Bool.and_eq_true] at this
+    exact this
+  refine ⟨hinn, fun x hx y hy e he hs => ?_, fun c hcl hm j hj ho cv nF hcv => ?_,
+    fun c hcl hm a ha => ?_, fun c hcl hm d hd => ?_, fun c hcl hm d hd => ?_⟩
+  · unfold ClassFreeV.demandOk at hdem
+    have := List.all_eq_true.mp (List.all_eq_true.mp (List.all_eq_true.mp hdem x
+      (List.mem_range.mpr hx)) y hy) e he
+    simpa [hs] using this
+  · have := List.all_eq_true.mp (hc c hcl hm).1.1.1 j (List.mem_range.mpr hj)
+    simp only [ho, Bool.not_true, Bool.false_or] at this
+    exact List.all_eq_true.mp this (cv, nF) hcv
+  · have := List.all_eq_true.mp (hc c hcl hm).1.1.2 a ha
+    simpa using this
+  · have := List.all_eq_true.mp (hc c hcl hm).1.2 d hd
+    simp only [Bool.or_eq_true, List.contains_iff_mem] at this
+    exact this
+  · have := List.all_eq_true.mp (hc c hcl hm).2 d hd
+    simp only [Bool.and_eq_true, Bool.not_eq_eq_eq_not, Bool.not_true, decide_eq_true_eq,
+      List.all_eq_true, List.contains_iff_mem] at this
+    exact ⟨this.1.1, this.1.2, this.2⟩
+
 /-- The identification check 5 uses. -/
 @[expose] def classSameIdx (cls : List ClassInfo) (pairs : List (Nat × Nat)) (i j : Nat) : Bool :=
   i == j || (cls.getD i default).same (cls.getD j default) || pairs.contains (i, j)
@@ -1066,11 +1118,16 @@ container's at the class's levels and member-abstracted parameters. -/
 
 theorem classCrest_run {holes : List Expr} {cls : List ClassInfo} {c : ClassInfo} {cv : ConstantVal}
     {e : Expr} (h : classCrest (m := CheckM) ctx holes cls c cv = .ok e) :
-    ∃ e0, classCrestInst ctx holes c cv = some e0 ∧ e = classAbs cls e0 := by
+    ∃ e0, classCrestInst ctx holes c cv = some e0 ∧ e = classAbs cls e0 ∧
+      (c.member.isSome = true → e0.holesApplied ctx.names ctx.nP (ctx.hiAt 0) = true) := by
   unfold classCrest at h
   obtain ⟨e0, h0, h⟩ := exceptBind_ok h
-  simp only [pure, Except.pure, Except.ok.injEq] at h
-  exact ⟨e0, unwrapOr_ok h0, h.symm⟩
+  split at h
+  · close_throw h
+  · rename_i hm3
+    simp only [pure, Except.pure, Except.ok.injEq] at h
+    refine ⟨e0, unwrapOr_ok h0, h.symm, fun hs => ?_⟩
+    simpa [hs] using hm3
 
 /-- **The class check, as run** (see the module docstring): the pre-pass's
 reading, the context, the classes (check 1) and R6, the crests and the
@@ -1105,12 +1162,6 @@ structure ClassRun (ops : CheckerOps CheckM) (fe₁ : FEnv) (env₁ : Env) (fe :
     (fun t => (cls.filter (·.member == some t)).length == 1) = true
   /-- every container class's block mates at its instantiation are classes -/
   hmates : classMatesOk cls (classMates fe₁) = true
-  /-- R6 -/
-  r6 : ∀ c ∈ cls, c.member = none →
-    c.dsA.map (classAbs (classCyc (classAge fe₁) cls c)) ≠ c.dsA →
-    ∃ ty, ops.inferType env₁ (classHi (classCtxOf p fe₁ env₁ pq.1) cls)
-      (Expr.mkAppN (.const c.key.ind c.key.lvls)
-        (c.dsA.map (classAbs (classCyc (classAge fe₁) cls c)))) = .ok ty
   /-- the crests, instantiated and syntactically abstracted -/
   hcrests : cls.mapM (fun c => c.ctors.mapM fun x =>
     classCrest (m := CheckM) (classCtxOf p fe₁ env₁ pq.1) holes cls c x.1) = .ok crests0
@@ -1125,8 +1176,19 @@ structure ClassRun (ops : CheckerOps CheckM) (fe₁ : FEnv) (env₁ : Env) (fe :
   halFrom : ∀ a ∈ al, ClassAliasFrom ops env₁ (classHi (classCtxOf p fe₁ env₁ pq.1) cls) cls cands a
   hpairs : ∀ q ∈ pairs, ClassSameOk ops env₁ (classHi (classCtxOf p fe₁ env₁ pq.1) cls) cls q.1 q.2 ∨
     ClassSameOk ops env₁ (classHi (classCtxOf p fe₁ env₁ pq.1) cls) cls q.2 q.1
-  /-- a kept class in a container class's crest contains no group occurrence -/
-  hgf : classGroupFree (classAge fe₁) (classMates fe₁) cls (classCrestsAl fe₁ cls al crests0) = true
+  /-- the class facts' free sets and their certificate (DESIGN CLASSCHECK / P2D3) -/
+  Fl : Nat → List Nat
+  inn : Nat → List Nat
+  dep : Nat → List Nat
+  rank : Nat → Nat
+  hfree : classFreeOk (classFreeVOf fe₁ cls al crests0 Fl) (classHi (classCtxOf p fe₁ env₁ pq.1) cls)
+    (fun c => classAliasesFor (classAge fe₁) (classMates fe₁) c al) inn dep rank = true
+  /-- R6, at the free classes -/
+  r6 : ∀ c ∈ List.range cls.length, (cls.getD c default).member = none →
+    classDsF (classFreeVOf fe₁ cls al crests0 Fl) c ≠ (cls.getD c default).dsA →
+    ∃ ty, ops.inferType env₁ (classHi (classCtxOf p fe₁ env₁ pq.1) cls)
+      (Expr.mkAppN (.const (cls.getD c default).key.ind (cls.getD c default).key.lvls)
+        (classDsF (classFreeVOf fe₁ cls al crests0 Fl) c)) = .ok ty
   /-- reachability -/
   reached : (List.range cls.length).all (classReached
     (classCrestsAl fe₁ cls al crests0) cls (classMates fe₁)
@@ -1187,11 +1249,11 @@ theorem classRecCheck_run {fe₁ : FEnv} {env₁ : Env} {fe : FEnv} {p : BlockPa
   obtain ⟨cls, hcls, h⟩ := exceptBind_ok h
   obtain ⟨hone, h⟩ := unless_jp_ok h
   obtain ⟨hmates, h⟩ := unless_jp_ok h
-  obtain ⟨u2, hr6, h⟩ := exceptBind_ok h
   obtain ⟨crests0, hcr, h⟩ := exceptBind_ok h
   obtain ⟨al, hal, h⟩ := exceptBind_ok h
   obtain ⟨pairs, hpairs, h⟩ := exceptBind_ok h
-  obtain ⟨hgf, h⟩ := unless_jp_ok h
+  obtain ⟨hfree, h⟩ := unless_jp_ok h
+  obtain ⟨u2, hr6, h⟩ := exceptBind_ok h
   split at h
   case isFalse => close_throw h
   rename_i hreach
@@ -1215,8 +1277,9 @@ theorem classRecCheck_run {fe₁ : FEnv} {env₁ : Env} {fe : FEnv} {p : BlockPa
   cases u0
   refine ⟨⟨rd, pq, holes, cls, crests0, al, pairs, walked, formerTys, pre, cvRis, hpins,
     unwrapOr_ok hrd, ⟨cvTa0, unwrapOr_ok hcv, unwrapOr_ok hpq⟩, unwrapOr_ok hholes,
-    classInfos_run hcls, hone, hmates, classKeysCyclic_run hr6, hcr, classAliases_run hal,
-    _, fun e he => ?_, classAliases_from hal, classSamePairs_run hpairs, hgf, hreach, hwalk, h5, hmin,
+    classInfos_run hcls, hone, hmates, hcr, classAliases_run hal,
+    _, fun e he => ?_, classAliases_from hal, classSamePairs_run hpairs, _, _, _, _, hfree,
+    classKeysCyclic_run hr6, hreach, hwalk, h5, hmin,
     by simpa using hel, hformer, unwrapOr_ok hpre, htys, hout⟩⟩
   rcases classCands_foldl_mem _ _ e he with hx | hx
   · exact nomatch hx
@@ -1259,7 +1322,7 @@ theorem ClassRun.ctor {fe₁ : FEnv} {env₁ : Env} {fe : FEnv} {p : BlockParts}
   obtain ⟨crs, hcrs, hcrsRun⟩ := hcr c ci hc
   obtain ⟨hlc, hce⟩ := except_mapM_ok hcrsRun
   obtain ⟨e, he, heRun⟩ := hce j (cv, nF) hj
-  obtain ⟨e0, he0, rfl⟩ := classCrest_run heRun
+  obtain ⟨e0, he0, rfl, -⟩ := classCrest_run heRun
   -- the walk
   obtain ⟨hlw, hw⟩ := classAllCtors_run R.hwalk
   have hcl : c < R.cls.length := (List.getElem?_eq_some_iff.mp hc).1

@@ -115,14 +115,15 @@ theorem classInfos_datF (env : Env) (ctx : NestCtx) (holes : List Expr)
     unfold classInfos
     datF_x [classInfo_datF, classInfos_datF env ctx holes ctorsAs F _ ks]
 
-theorem classKeysCyclic_datF (env : Env) (age : Name → Nat) (cls : List ClassInfo) (hi F : Nat) :
-    ∀ (cs : List ClassInfo),
-      (classKeysCyclic (fueledOpsM mode) env age cls hi cs).val F =
-        classKeysCyclic (fueledOps mode F) env age cls hi cs
+theorem classKeysCyclic_datF (env : Env) (cls : List ClassInfo) (dsF : Nat → List Expr)
+    (hi F : Nat) :
+    ∀ (cs : List Nat),
+      (classKeysCyclic (fueledOpsM mode) env cls dsF hi cs).val F =
+        classKeysCyclic (fueledOps mode F) env cls dsF hi cs
   | [] => rfl
   | c :: cs => by
     unfold classKeysCyclic
-    datF_x [classKeysCyclic_datF env age cls hi F cs]
+    datF_x [classKeysCyclic_datF env cls dsF hi F cs]
 
 /-! ## The defeq tier -/
 
@@ -229,7 +230,7 @@ theorem classCrest_datF (ctx : NestCtx) (holes : List Expr) (cls : List ClassInf
     (cv : ConstantVal) (F : Nat) :
     (classCrest (m := FueledM) ctx holes cls c cv).val F = classCrest (m := CheckM) ctx holes cls c cv := by
   unfold classCrest
-  simp only [FueledM.atF_bind, FueledM.atF_pure, unwrapOr_atF]
+  datF_x [unwrapOr_atF]
 
 theorem classRuleOk_datF (feT feR : FEnv) (cvR : ConstantVal) (pw : PropWhen) (n : Nat)
     (rhs gen : Expr) (F : Nat) :

@@ -212,6 +212,7 @@
 0 e2e corner_classcheck_idd.ndjson
 0 e2e corner_classcheck_mates.ndjson
 1 e2e corner_classcheck_mates_bad.ndjson
+0 e2e corner_classcheck_wrapcross.ndjson
 0 e2e corner_fuseloop_order_base.ndjson
 1 e2e corner_fuseloop_order_decline.ndjson.gz
 0 e2e corner_idx_container.ndjson

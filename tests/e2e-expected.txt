@@ -2586,3 +2586,10 @@
 # parameters, of an inductive younger than the container (CLASSCHECK / P2D).
 # Official 0, the default route 0, the class checker 0.
 0 corner_classcheck_hoparam.ndjson
+# corner_classcheck_wrapcross: `Wrap RL T (RL T)` has the inner class
+# `RL T`, which the constructor it reads, `Ap2 RL T (RL T)`, ALSO forms
+# across the instantiation (`f α`).  No reader holds `RL T` at a stage
+# value when reading `Wrap …`, so it is not free there: the free classes
+# are the demand's least solution, not "inner, younger, commuting"
+# (CLASSCHECK / P2D3).  Official 0, the default route 0, the class checker 0.
+0 corner_classcheck_wrapcross.ndjson

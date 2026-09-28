@@ -5,29 +5,26 @@ public import ConLeche.Model.Inductives.ClassSubst
 public section
 
 /-!
-# A class fact's kept holes, and the coarser tier at stage values (P2d)
+# A class fact's stage holes, and the coarser tier at stage values (P2d)
 
-A container class `c`'s fact (PROOFPLAN §3) reads `c`'s abstracted
-constructors at STAGE values: `c`'s group (the block mates of `c`'s
-inductive at `c`'s instantiation) at the lfp variable, `c`'s cyclic inner
-classes (younger inductives) free, every other class coherent — its hole
-reads its key in hole form (`StageCoh`, `ClassSubst.lean` §7).  This file
-fixes the KEPT holes of that fact and closes P2B's open item, the defeq
-tier at stage values:
+A container class `c`'s fact (PROOFPLAN §3, DESIGN CLASSCHECK / P2D3)
+reads `c`'s abstracted constructors at STAGE values: `c`'s group (the
+block mates of `c`'s inductive at `c`'s instantiation) at the lfp
+variable, `c`'s FREE classes (the class check's free-set certificate,
+`classFreeOk`) arbitrary, every other class coherent — its hole reads its
+key in hole form (`StageCoh`, `ClassSubst.lean` §7).  This file:
 
-* `classKept` — the holes `c`'s fact keeps free: its group's and every
-  class of an inductive not strictly older than `c`'s.  Closed under same keys (`classKept_fclosed`,
+* `classStageHoles` — the holes held at a stage value: the free classes'
+  and the group's.  Closed under same keys (`classStageHoles_fclosed`,
   given that a hole names one class).
 * The defeq tier in a container class's crest identifies only with
   classes of a strictly OLDER inductive outside its block
-  (`classAliasesFor`, the class check), so its holes are never kept
-  (`classAliasesFor_notKept`): an alias hole reads its target's key in
-  hole form, which the occurrence it replaced reads too — the
+  (`classAliasesFor`) and — the certificate — never with a free class,
+  so its holes are never stage holes: an alias hole reads its target's
+  key in hole form, which the occurrence it replaced reads too — the
   per-component defeq, read (`AliasKeySem`).  So the whole abstraction —
   syntactic tier, then the defeq tier — reads as its restriction to the
-  kept holes at every stage-coherent valuation (`crestAbs_read_stage`).
-
-DESIGN record CLASSCHECK / P2D.
+  stage holes at every stage-coherent valuation (`crestAbs_read_stage`).
 -/
 
 namespace ConLeche.Model
@@ -36,42 +33,35 @@ open ConLeche.SetModel
 open ConLeche.Term ConLeche.Verify SetTheory
 open ConLeche.Semantics (AnnotTerm)
 open ConLeche (Env Expr Name Level ClassInfo ClassAlias aliasOcc? classAbs classAbsGo
-  classAliasesFor classOwn classKeptBy)
+  classAliasesFor classOwn classSameKey classHoleOf ClassFreeV)
 
 universe w
 
-/-! ## 1. The kept holes -/
-
-/-- The holes class `c`'s fact keeps free. -/
-@[expose] def classKept (age : Name → Nat) (mates : Name → List Name) (cls : List ClassInfo)
-    (c : ClassInfo) : Expr → Bool := fun h =>
-  cls.any fun d => d.hole == some h && classKeptBy age mates c d
+/-! ## 1. The stage holes -/
 
 /-- **A hole names one class.** -/
 @[expose] def HolesUniq (cls : List ClassInfo) : Prop :=
   ∀ d ∈ cls, ∀ d' ∈ cls, ∀ h, d.hole = some h → d'.hole = some h → d = d'
 
-theorem classKept_eq {age : Name → Nat} {mates : Name → List Name} {cls : List ClassInfo}
-    (hu : HolesUniq cls) {c d : ClassInfo} (hd : d ∈ cls) {h : Expr} (hh : d.hole = some h) :
-    classKept age mates cls c h = classKeptBy age mates c d := by
-  unfold classKept
-  cases hk : classKeptBy age mates c d
-  · rw [Bool.eq_false_iff]
-    intro hany
-    obtain ⟨d', hd', hp⟩ := List.any_eq_true.mp hany
-    simp only [Bool.and_eq_true, beq_iff_eq] at hp
-    rw [hu d' hd' d hd h hp.1 hh] at hp
-    rw [hk] at hp
-    exact Bool.false_ne_true hp.2
-  · exact List.any_eq_true.mpr ⟨d, hd, by simp [hh, hk]⟩
+/-- The holes container class `c`'s fact holds at a STAGE value: its free
+classes' and its group's (DESIGN CLASSCHECK / P2D3). -/
+@[expose] def classStageHoles (V : ClassFreeV) (c : Nat) : Expr → Bool :=
+  classHoleOf V.cls (V.stage c)
 
-theorem lvEqL_of_zipAll {as bs : List Expr} (hl : as.length = bs.length)
-    (h : ((as.zip bs).all fun (a, b) => a.eqUpToLevels b) = true) : LvEqL as bs :=
-  lvEqL_of_zip hl h
+theorem classSameKey_iff {c d : ClassInfo} : classSameKey c d = true ↔ SameKey c d := by
+  unfold classSameKey SameKey
+  simp only [Bool.and_eq_true, beq_iff_eq]
+  constructor
+  · rintro ⟨⟨⟨h1, h2⟩, h3⟩, h4⟩
+    exact ⟨h1, h2, lvEqL_of_zip h3 h4⟩
+  · rintro ⟨h1, h2, h3⟩
+    exact ⟨⟨⟨h1, h2⟩, h3.1⟩, zip_of_lvEqL h3⟩
 
-theorem zipAll_of_lvEqL {as bs : List Expr} (h : LvEqL as bs) :
-    ((as.zip bs).all fun (a, b) => a.eqUpToLevels b) = true :=
-  zip_of_lvEqL h
+theorem SameKey.symm {c d : ClassInfo} (h : SameKey c d) : SameKey d c :=
+  ⟨h.1.symm, h.2.1.symm, h.2.2.symm⟩
+
+theorem SameKey.trans {c d e : ClassInfo} (h1 : SameKey c d) (h2 : SameKey d e) : SameKey c e :=
+  ⟨h1.1.trans h2.1, h1.2.1.trans h2.2.1, h1.2.2.trans h2.2.2⟩
 
 theorem classOwn_iff {mates : Name → List Name} {c d : ClassInfo} :
     classOwn mates c d = true ↔ (mates c.key.ind).contains d.key.ind = true ∧
@@ -80,9 +70,9 @@ theorem classOwn_iff {mates : Name → List Name} {c d : ClassInfo} :
   simp only [Bool.and_eq_true, beq_iff_eq]
   constructor
   · rintro ⟨⟨⟨h1, h2⟩, h3⟩, h4⟩
-    exact ⟨h1, h2, lvEqL_of_zipAll h3 h4⟩
+    exact ⟨h1, h2, lvEqL_of_zip h3 h4⟩
   · rintro ⟨h1, h2, h3⟩
-    exact ⟨⟨⟨h1, h2⟩, h3.1⟩, zipAll_of_lvEqL h3⟩
+    exact ⟨⟨⟨h1, h2⟩, h3.1⟩, zip_of_lvEqL h3⟩
 
 /-- Group membership reads the class only up to same keys. -/
 theorem classOwn_sameKey {mates : Name → List Name} {c d d' : ClassInfo} (hs : SameKey d d') :
@@ -93,36 +83,150 @@ theorem classOwn_sameKey {mates : Name → List Name} {c d d' : ClassInfo} (hs :
   exact and_congr_right fun _ => and_congr_right fun _ =>
     ⟨fun h => hps.symm.trans h, fun h => hps.trans h⟩
 
-theorem classKeptBy_sameKey {age : Name → Nat} {mates : Name → List Name} {c d d' : ClassInfo}
-    (hs : SameKey d d') : classKeptBy age mates c d = classKeptBy age mates c d' := by
-  unfold classKeptBy
-  rw [classOwn_sameKey hs, hs.1]
+section Build
 
-/-- **The kept holes are closed under same keys.** -/
-theorem classKept_fclosed {age : Name → Nat} {mates : Name → List Name} {cls : List ClassInfo}
-    (hu : HolesUniq cls) (c : ClassInfo) : FClosed cls (classKept age mates cls c) := by
+variable {cls : List ClassInfo} {mates : Name → List Name} {crests : List (List Expr)}
+  {Fl : Nat → List Nat}
+
+theorem ClassFreeV.build_own (c d : Nat) :
+    (ClassFreeV.build cls mates crests Fl).own c d =
+      (decide (c < cls.length) && decide (d < cls.length) &&
+        classOwn mates (cls.getD c default) (cls.getD d default)) := by
+  unfold ClassFreeV.own ClassFreeV.build
+  simp only [Array.getD_eq_getD_getElem?, Array.getElem?_ofFn]
+  by_cases hc : c < cls.length <;> by_cases hd : d < cls.length <;> simp [hc, hd]
+
+theorem ClassFreeV.build_sk (d e : Nat) :
+    ((ClassFreeV.build cls mates crests Fl).skT.getD d #[]).getD e false =
+      (decide (d < cls.length) && decide (e < cls.length) &&
+        classSameKey (cls.getD d default) (cls.getD e default)) := by
+  unfold ClassFreeV.build
+  simp only [Array.getD_eq_getD_getElem?, Array.getElem?_ofFn]
+  by_cases hd : d < cls.length <;> by_cases he : e < cls.length <;> simp [hd, he]
+
+/-- Freeness reads the class only up to same keys. -/
+theorem ClassFreeV.build_isFree_sameKey {c j j' : Nat} (hj : j < cls.length) (hj' : j' < cls.length)
+    (hs : SameKey (cls.getD j default) (cls.getD j' default)) :
+    (ClassFreeV.build cls mates crests Fl).isFree c j =
+      (ClassFreeV.build cls mates crests Fl).isFree c j' := by
+  unfold ClassFreeV.isFree
+  apply Bool.eq_iff_iff.mpr
+  simp only [List.any_eq_true, ClassFreeV.build_sk, hj, hj', decide_true, Bool.true_and,
+    Bool.and_eq_true, decide_eq_true_eq, classSameKey_iff]
+  exact ⟨fun ⟨e, he, hl, h⟩ => ⟨e, he, hl, hs.symm.trans h⟩,
+    fun ⟨e, he, hl, h⟩ => ⟨e, he, hl, hs.trans h⟩⟩
+
+theorem ClassFreeV.build_own_sameKey {c j j' : Nat} (hj : j < cls.length) (hj' : j' < cls.length)
+    (hs : SameKey (cls.getD j default) (cls.getD j' default)) :
+    (ClassFreeV.build cls mates crests Fl).own c j =
+      (ClassFreeV.build cls mates crests Fl).own c j' := by
+  rw [ClassFreeV.build_own, ClassFreeV.build_own, classOwn_sameKey hs]
+  simp [hj, hj']
+
+theorem ClassFreeV.build_stage_sameKey {c j j' : Nat} (hj : j < cls.length) (hj' : j' < cls.length)
+    (hs : SameKey (cls.getD j default) (cls.getD j' default)) :
+    (ClassFreeV.build cls mates crests Fl).stage c j =
+      (ClassFreeV.build cls mates crests Fl).stage c j' := by
+  unfold ClassFreeV.stage
+  rw [ClassFreeV.build_isFree_sameKey hj hj' hs, ClassFreeV.build_own_sameKey hj hj' hs]
+
+end Build
+
+/-- A hole-selected predicate reads the class of the hole. -/
+theorem classHoleOf_eq {cls : List ClassInfo} (hu : HolesUniq cls) {P : Nat → Bool}
+    (hP : ∀ j j', j < cls.length → j' < cls.length → cls.getD j default = cls.getD j' default →
+      P j = P j') {j : Nat} {d : ClassInfo}
+    (hd : cls[j]? = some d) {h : Expr} (hh : d.hole = some h) : classHoleOf cls P h = P j := by
+  unfold classHoleOf
+  cases hk : P j
+  · rw [Bool.eq_false_iff]
+    intro hany
+    obtain ⟨j', hj', hp⟩ := List.any_eq_true.mp hany
+    simp only [Bool.and_eq_true, beq_iff_eq] at hp
+    have hj'l : j' < cls.length := List.mem_range.mp hj'
+    have hmem' : cls.getD j' default ∈ cls := by
+      rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hj'l]; exact List.getElem_mem _
+    have hdm : d ∈ cls := List.mem_of_getElem? hd
+    have heq := hu _ hmem' d hdm h hp.1 hh
+    have : cls.getD j default = d := by simp [List.getD_eq_getElem?_getD, hd]
+    have hjl : j < cls.length := (List.getElem?_eq_some_iff.mp hd).1
+    rw [hP j' j hj'l hjl (by rw [heq, this]), hk] at hp
+    exact Bool.false_ne_true hp.2
+  · have hjl : j < cls.length := (List.getElem?_eq_some_iff.mp hd).1
+    exact List.any_eq_true.mpr ⟨j, List.mem_range.mpr hjl, by
+      simp [List.getD_eq_getElem?_getD, hd, hh, hk]⟩
+
+theorem LvEqL_refl (as : List Expr) : LvEqL as as :=
+  ⟨rfl, fun _ a b ha hb => by rw [ha] at hb; cases hb; exact Expr.eqUpToLevels_refl a⟩
+
+/-- A class's index, from its membership. -/
+theorem exists_index_of_mem {cls : List ClassInfo} {d : ClassInfo} (hd : d ∈ cls) :
+    ∃ j : Nat, cls[j]? = some d := by
+  obtain ⟨j, hj, rfl⟩ := List.getElem_of_mem hd
+  exact ⟨j, List.getElem?_eq_getElem hj⟩
+
+/-- **The stage holes are closed under same keys.** -/
+theorem classStageHoles_fclosed {cls : List ClassInfo} {mates : Name → List Name}
+    {crests : List (List Expr)} {Fl : Nat → List Nat} (hu : HolesUniq cls) (c : Nat) :
+    FClosed cls (classStageHoles (ClassFreeV.build cls mates crests Fl) c) := by
   intro d hd d' hd' h h' hh hh' hs
-  rw [classKept_eq hu hd hh, classKept_eq hu hd' hh', classKeptBy_sameKey hs]
+  obtain ⟨j, hj⟩ := exists_index_of_mem hd
+  obtain ⟨j', hj'⟩ := exists_index_of_mem hd'
+  have hP : ∀ i i', i < cls.length → i' < cls.length → cls.getD i default = cls.getD i' default →
+      (ClassFreeV.build cls mates crests Fl).stage c i =
+        (ClassFreeV.build cls mates crests Fl).stage c i' :=
+    fun i i' hi hi' he => ClassFreeV.build_stage_sameKey hi hi' (by rw [he]; exact ⟨rfl, rfl, LvEqL_refl _⟩)
+  unfold classStageHoles
+  show classHoleOf cls _ h = classHoleOf cls _ h'
+  rw [classHoleOf_eq hu hP hj hh, classHoleOf_eq hu hP hj' hh']
+  apply ClassFreeV.build_stage_sameKey (List.getElem?_eq_some_iff.mp hj).1
+    (List.getElem?_eq_some_iff.mp hj').1
+  simpa [List.getD_eq_getElem?_getD, hj, hj'] using hs
 
-/-- **The defeq tier of a container class's crest keeps no hole**: its
-aliases identify only with classes of strictly older inductives outside
-the block, neither in the group nor cyclic. -/
-theorem classAliasesFor_notKept {age : Name → Nat} {mates : Name → List Name}
-    {cls : List ClassInfo} (hu : HolesUniq cls) {c : ClassInfo} (hc : c.member = none)
-    {al : List ClassAlias}
-    (hal : ∀ a ∈ al, ∃ ci ∈ cls, ci.hole = some a.hole ∧ ci.key.ind = a.ind) :
-    ∀ a ∈ classAliasesFor age mates c al, classKept age mates cls c a.hole = false := by
+/-- **The defeq tier of a container class's crest keeps no stage hole**:
+its aliases identify only with classes of strictly older inductives
+outside the block (not the group), and — the certificate — never with a
+free class. -/
+theorem classAliasesFor_notStage {cls : List ClassInfo} {mates : Name → List Name}
+    {crests : List (List Expr)} {Fl : Nat → List Nat} {age : Name → Nat} (hu : HolesUniq cls)
+    {c : Nat} {al : List ClassAlias}
+    (hal : ∀ a ∈ al, ∃ di ∈ cls, di.hole = some a.hole ∧ di.key.ind = a.ind)
+    (hc : (cls.getD c default).member = none)
+    (hnf : ∀ a ∈ classAliasesFor age mates (cls.getD c default) al,
+      classHoleOf cls ((ClassFreeV.build cls mates crests Fl).isFree c) a.hole = false) :
+    ∀ a ∈ classAliasesFor age mates (cls.getD c default) al,
+      classStageHoles (ClassFreeV.build cls mates crests Fl) c a.hole = false := by
   intro a ha
-  unfold classAliasesFor at ha
-  rw [hc] at ha
+  have hnf' := hnf a ha
+  have ha' := ha
+  unfold classAliasesFor at ha'
+  rw [hc] at ha'
   simp only [Option.isSome_none, Bool.false_eq_true, ↓reduceIte, List.mem_filter,
-    Bool.and_eq_true, decide_eq_true_eq, Bool.not_eq_eq_eq_not, Bool.not_true] at ha
-  obtain ⟨ha, hage, hmate⟩ := ha
-  obtain ⟨ci, hci, hh, hI⟩ := hal a ha
-  rw [classKept_eq hu hci hh]
-  unfold classKeptBy classOwn
+    Bool.and_eq_true, decide_eq_true_eq, Bool.not_eq_eq_eq_not, Bool.not_true] at ha'
+  obtain ⟨ha0, -, hmate⟩ := ha'
+  obtain ⟨di, hdi, hh, hI⟩ := hal a ha0
+  obtain ⟨j, hj⟩ := exists_index_of_mem hdi
+  have hPf : ∀ i i', i < cls.length → i' < cls.length → cls.getD i default = cls.getD i' default →
+      (ClassFreeV.build cls mates crests Fl).isFree c i =
+        (ClassFreeV.build cls mates crests Fl).isFree c i' :=
+    fun i i' hi hi' he => ClassFreeV.build_isFree_sameKey hi hi'
+      (by rw [he]; exact ⟨rfl, rfl, LvEqL_refl _⟩)
+  have hPs : ∀ i i', i < cls.length → i' < cls.length → cls.getD i default = cls.getD i' default →
+      (ClassFreeV.build cls mates crests Fl).stage c i =
+        (ClassFreeV.build cls mates crests Fl).stage c i' :=
+    fun i i' hi hi' he => ClassFreeV.build_stage_sameKey hi hi'
+      (by rw [he]; exact ⟨rfl, rfl, LvEqL_refl _⟩)
+  unfold classStageHoles
+  show classHoleOf cls _ a.hole = false
+  rw [classHoleOf_eq hu hPs hj hh]
+  rw [classHoleOf_eq hu hPf hj hh] at hnf'
+  unfold ClassFreeV.stage
+  rw [hnf', ClassFreeV.build_own]
+  have hdj : cls.getD j default = di := by simp [List.getD_eq_getElem?_getD, hj]
+  rw [hdj]
+  unfold classOwn
   rw [hI, hmate]
-  simp [hage]
+  simp
 
 /-! ## 2. The defeq tier at stage values -/
 

@@ -286,6 +286,14 @@ def classCrest (ctx : NestCtx) (holes : List Expr) (cls : List ClassInfo) (c : C
       | none => instPisWith c.dsA (cv.type.instantiateLevelParams cv.levelParams c.key.lvls))
     (.invalid "class check: a constructor type does not bind its parameters (official: \
       ill-formed constructor)")
+  -- M3 on the constructor's TEXT (official ≥ v4.33.1, `check_uniform_ind_occs`):
+  -- every member occurrence is the member applied to exactly the parameters
+  -- — the recorded block's syntactic fact a later class's crest reads
+  -- (DESIGN CLASSCHECK / P2D3)
+  if c.member.isSome && !crest.holesApplied ctx.names ctx.nP (ctx.hiAt 0) then
+    throw (.invalid "class check: invalid occurrence of a datatype being declared: it must \
+      be applied to the parameters and universe levels of the mutual declaration (official: \
+      check_uniform_ind_occs)")
   pure (classAbs cls crest)
 
 /-- The class holes occurring in `e`. -/
@@ -431,32 +439,6 @@ def classOwn (mates : Name → List Name) (c d : ClassInfo) : Bool :=
     d.key.lvls.map Level.canon == c.key.lvls.map Level.canon &&
     d.dsA.length == c.dsA.length && (d.dsA.zip c.dsA).all fun (a, b) => a.eqUpToLevels b
 
-/-- **Class `d`'s hole is kept free by class `c`'s fact**: `d` is in
-`c`'s group, or `d`'s inductive is not strictly OLDER than `c`'s (DESIGN
-CLASSCHECK / P2D). -/
-def classKeptBy (age : Name → Nat) (mates : Name → List Name) (c d : ClassInfo) : Bool :=
-  classOwn mates c d || !decide (age d.key.ind < age c.key.ind)
-
-/-- **A kept class in a container class's crest contains no occurrence of
-the container class's group** (REDUNDANT for every container our checker
-or official installs: a group occurrence enters a crest only through the
-container's own constructor text — at its uniform parameters, never under
-a parameter head, which the container's positivity check rejects,
-`f (Ap f α)` — or through the key's parameters, which cannot contain the
-key).  Stated here because the proof cannot read that syntactic fact off
-the RECORDED container (its clause is semantic): at a member-true frame a
-kept class carries its true value, which must not depend on the group's
-stage value (DESIGN CLASSCHECK / P2D2). -/
-def classGroupFree (age : Name → Nat) (mates : Name → List Name) (cls : List ClassInfo)
-    (crests : List (List Expr)) : Bool :=
-  (List.range cls.length).all fun i =>
-    let c := cls.getD i default
-    c.member.isSome ||
-      ((crests.getD i []).flatMap (classHolesIn cls)).all fun j =>
-        let d := cls.getD j default
-        classOwn mates c d || !classKeptBy age mates c d ||
-          d.dsA.all fun x => classAbs (cls.filter (classOwn mates c)) x == x
-
 /-- **Every block mate of a container class at its instantiation is a
 class** (official copies a container's whole mutual block,
 `elim_nested_inductive`): each mate at the class's levels and
@@ -466,6 +448,264 @@ the container's whole block at the key, every component a walked class
 def classMatesOk (cls : List ClassInfo) (mates : Name → List Name) : Bool :=
   cls.all fun c => c.member.isSome || (mates c.key.ind).all fun I =>
     (classOcc? cls (Expr.mkAppN (.const I c.key.lvls) c.dsA)).isSome
+
+/-! ### The class facts' free holes and their order (DESIGN CLASSCHECK / P2D3)
+
+The proof reads a container class `c` as its container's TRUE carrier at
+its key in hole form, a function of its FREE classes `F c`; its own group
+`G c` (`classOwn`) is the fact's lfp variable; every other class it reads
+COHERENTLY (the class's carrier at its own hole-form key), in an order.
+What `c`'s fact reads coherently (`dep c`): the classes its group's crests
+mention and, closed, the classes those keep free — none free or in the
+group at `c`.  A stage value reaches a class only through such a read:
+`y` read coherently at `x` keeps free every class inside its key
+(`inn y`, at any depth) that `x` holds at a stage value (`F x ∪ G x`) —
+the DEMAND (`classDemandOk`); the free sets are its least solution,
+computed here by iteration (unverified) and CHECKED, as are the closures
+and four syntactic facts the reading needs (`classFreeOk`):
+* the free classes COMMUTE with the instantiation (`classCommutes`): the
+  crest with its free classes and its group abstracted is the container's
+  own constructor text, group atomised, instantiated at the key with its
+  free classes abstracted — so the crest reads as the container's recorded
+  clause at every value of the free holes;
+* no alias of a container crest targets a free class;
+* the key is typed with its free classes abstracted (R6, `classKeysCyclic`);
+* the coherent reads are RANKED (acyclic).
+None of this is derivable from the recorded blocks' own-name syntax: a
+cycle of coherent reads, a free class formed across the instantiation, or
+a group occurrence formed through the key each needs a key naming a
+container under-applied at its own parameter's kind, excluded by TYPING
+only (DESIGN CLASSCHECK / P2D3).  Official has no such notion; for
+well-typed input the checks are redundant (`tests/classcheck.sh`). -/
+
+/-- Two container classes are one up to spelling. -/
+def classSameKey (c d : ClassInfo) : Bool :=
+  c.key.ind == d.key.ind && c.key.lvls.map Level.canon == d.key.lvls.map Level.canon &&
+    c.dsA.length == d.dsA.length && (c.dsA.zip d.dsA).all fun (a, b) => a.eqUpToLevels b
+
+/-- The classes recognised at the outermost level of a container class's
+key in hole form. -/
+def classInner (cls : List ClassInfo) (c : ClassInfo) : List Nat :=
+  if c.member.isSome then [] else (c.holeForm cls).flatMap (classHolesIn cls)
+
+/-- A closure by fuelled iteration (unverified; `classClosedOk` checks it). -/
+def classClose (step : Nat → List Nat) : Nat → List Nat → List Nat
+  | 0, r => r
+  | fuel + 1, r =>
+    let r' := r ++ ((r.flatMap step).filter (!r.contains ·)).eraseDups
+    if r'.length == r.length then r else classClose step fuel r'
+
+/-- `R x` contains `x`'s successors and is closed under them. -/
+def classClosedOk (n : Nat) (step R : Nat → List Nat) : Bool :=
+  (List.range n).all fun x =>
+    (step x).all (R x).contains && (R x).all fun y => (step y).all (R x).contains
+
+/-- The holes of the classes `P` selects. -/
+def classHoleOf (cls : List ClassInfo) (P : Nat → Bool) (h : Expr) : Bool :=
+  (List.range cls.length).any fun j => (cls.getD j default).hole == some h && P j
+
+/-- The recogniser restricted to the holes `P` keeps. -/
+def classOccIf (cls : List ClassInfo) (P : Expr → Bool) (e : Expr) : Option (Expr × Nat) :=
+  match classOcc? cls e with
+  | some (h, n) => if P h then some (h, n) else none
+  | none => none
+
+/-- The class abstraction restricted to the holes `P` keeps. -/
+def classAbsIf (cls : List ClassInfo) (P : Expr → Bool) (e : Expr) : Expr :=
+  (classAbsGo (classOccIf cls P) none {} e).1
+
+/-- The canonical parameters `fvar 0 … nPc-1` (annotation `Sort 0`). -/
+def classCanonParams (nPc : Nat) : List Expr := (List.range nPc).map fun i => .fvar i (.sort .zero)
+
+/-- A container constructor's text at the canonical parameters, its
+block's members (`names`, at the constructor's own levels) the holes
+`fvar (nPc + m)`: what the recorded clause reads (`canonAbs`). -/
+def classCanonText (names : List Name) (nPc : Nat) (cv : ConstantVal) : Option Expr :=
+  instPisWith (classCanonParams nPc)
+    (nestAbstract ⟨names, cv.levelParams, nPc, [], classCanonParams nPc, .zero, fun _ => none, []⟩
+      ((List.range names.length).map fun m => .fvar (nPc + m) (.sort .zero)) cv.type)
+
+/-- The group ATOMISED: a member hole (placeholder `fvar (hi + m)`, above
+every hole) applied to exactly the key's parameters `ps` becomes the class
+hole `hs m`. -/
+def classGrpOcc (hi k : Nat) (ps : List Expr) (hs : Nat → Option Expr) (e : Expr) :
+    Option (Expr × Nat) :=
+  match e.getAppFn with
+  | .fvar i _ =>
+    let args := e.getAppArgs
+    if hi ≤ i && i < hi + k && ps.length ≤ args.length &&
+        (args.take ps.length).map Expr.eraseFVarTys == ps.map Expr.eraseFVarTys then
+      (hs (i - hi)).map (·, args.length - ps.length)
+    else none
+  | _ => none
+
+/-- **The free classes commute with the instantiation** at container
+class `c` (free holes `isF`, group holes `isG`, every hole below `hi`),
+for the constructor `cv` of a group mate `d`: `d`'s crest (instantiated,
+the free classes and the group abstracted) is the container's canonical
+text at `c`'s levels and at `c`'s key with its free classes abstracted,
+the group atomised. -/
+def classCommutes (cls : List ClassInfo) (mates : Name → List Name) (hi : Nat)
+    (isF isG : Expr → Bool) (c d : ClassInfo) (cv : ConstantVal) : Bool :=
+  let names := mates c.key.ind
+  let hs : Nat → Option Expr := fun m =>
+    (classOcc? cls (Expr.mkAppN (.const (names.getD m .anonymous) c.key.lvls) c.dsA)).map (·.1)
+  let dsF := c.dsA.map (classAbsIf cls isF)
+  match instPisWith d.dsA (cv.type.instantiateLevelParams cv.levelParams d.key.lvls),
+      classCanonText names c.nPc cv with
+  | some e0, some A =>
+    let lhs := classAbsIf cls (fun h => isF h || isG h) e0
+    let rhs := (classAbsGo (classGrpOcc hi names.length dsF hs) none {}
+      ((A.instantiateLevelParams cv.levelParams c.key.lvls).replaceFVars fun i =>
+        if i < c.nPc then dsF[i]? else some (.fvar (hi + (i - c.nPc)) (.sort .zero)))).1
+    lhs.eraseFVarTys == rhs.eraseFVarTys
+  | _, _ => false
+
+/-- The free-set certificate's vocabulary over the class indices: the
+free sets `Fl` (up to spelling), and three tables computed once
+(`ClassFreeV.build`): the groups, same keys, and the classes each crest
+mentions. -/
+structure ClassFreeV where
+  cls : List ClassInfo
+  mates : Name → List Name
+  crests : List (List Expr)
+  Fl : Nat → List Nat
+  ownT : Array (Array Bool)
+  skT : Array (Array Bool)
+  holesT : Array (List Nat)
+
+namespace ClassFreeV
+
+/-- The vocabulary, its tables computed. -/
+def build (cls : List ClassInfo) (mates : Name → List Name) (crests : List (List Expr))
+    (Fl : Nat → List Nat) : ClassFreeV :=
+  { cls, mates, crests, Fl
+    ownT := Array.ofFn (n := cls.length) fun c => Array.ofFn (n := cls.length) fun d =>
+      classOwn mates (cls.getD c default) (cls.getD d default)
+    skT := Array.ofFn (n := cls.length) fun c => Array.ofFn (n := cls.length) fun d =>
+      classSameKey (cls.getD c default) (cls.getD d default)
+    holesT := Array.ofFn (n := cls.length) fun j =>
+      (crests.getD j []).flatMap (classHolesIn cls) }
+
+variable (V : ClassFreeV)
+
+/-- `d` is in container class `c`'s group. -/
+def own (c d : Nat) : Bool := (V.ownT.getD c #[]).getD d false
+
+/-- `d` is free in container class `c`'s fact (up to spelling). -/
+def isFree (c d : Nat) : Bool := (V.Fl c).any fun e => (V.skT.getD d #[]).getD e false
+
+/-- `c`'s fact holds `d` at a stage value. -/
+def stage (c d : Nat) : Bool := V.isFree c d || V.own c d
+
+/-- What `c`'s group's crests mention. -/
+def mentions (c : Nat) : List Nat :=
+  ((List.range V.cls.length).filter (V.own c ·)).flatMap fun j => V.holesT.getD j []
+
+/-- The coherent-read step at `c`: a class read coherently brings in the
+classes it keeps free that `c` does not hold at a stage value. -/
+def depStep (c d : Nat) : List Nat :=
+  (List.range V.cls.length).filter fun e => V.isFree d e && !V.stage c e
+
+/-- **The demand**: a class `y` read coherently at `x` keeps free every
+class inside its key `x` holds at a stage value. -/
+def demandOk (inn dep : Nat → List Nat) : Bool :=
+  (List.range V.cls.length).all fun x => (dep x).all fun y =>
+    (inn y).all fun e => !V.stage x e || V.isFree y e
+
+end ClassFreeV
+
+/-- **The free-set certificate** (see the section header). -/
+def classFreeOk (V : ClassFreeV) (hi : Nat) (aliasesOf : ClassInfo → List ClassAlias)
+    (inn dep : Nat → List Nat) (rank : Nat → Nat) : Bool :=
+  let n := V.cls.length
+  classClosedOk n (fun x => classInner V.cls (V.cls.getD x default)) inn && V.demandOk inn dep &&
+    (List.range n).all fun c =>
+      let ci := V.cls.getD c default
+      ci.member.isSome || (
+        -- commuting, at every group mate's constructors
+        ((List.range n).all fun j => !V.own c j ||
+          ((V.cls.getD j default).ctors.all fun (cv, _) =>
+            classCommutes V.cls V.mates hi (classHoleOf V.cls (V.isFree c))
+              (classHoleOf V.cls (V.own c)) ci (V.cls.getD j default) cv)) &&
+        -- no alias onto a free class
+        ((aliasesOf ci).all fun a => !classHoleOf V.cls (V.isFree c) a.hole) &&
+        -- the coherent reads: closed, no stage class among them, ranked
+        (V.mentions c).all (fun d => V.stage c d || (dep c).contains d) &&
+        (dep c).all fun d => !V.stage c d && decide (rank d < rank c) &&
+          (V.depStep c d).all (dep c).contains)
+
+/-- Which part of the certificate fails (the error message only). -/
+def classFreeDiag (V : ClassFreeV) (hi : Nat) (aliasesOf : ClassInfo → List ClassAlias)
+    (inn dep : Nat → List Nat) (rank : Nat → Nat) : String :=
+  let n := V.cls.length
+  if !classClosedOk n (fun x => classInner V.cls (V.cls.getD x default)) inn then "inner closure" else
+  if !V.demandOk inn dep then "demand" else
+  let bad := (List.range n).filterMap fun c =>
+    let ci := V.cls.getD c default
+    if ci.member.isSome then none else
+    if !((List.range n).all fun j => !V.own c j ||
+          ((V.cls.getD j default).ctors.all fun (cv, _) =>
+            classCommutes V.cls V.mates hi (classHoleOf V.cls (V.isFree c))
+              (classHoleOf V.cls (V.own c)) ci (V.cls.getD j default) cv)) then
+      some s!"class {c}: its free classes do not commute" else
+    if !((aliasesOf ci).all fun a => !classHoleOf V.cls (V.isFree c) a.hole) then
+      some s!"class {c}: an alias onto a free class" else
+    if !((V.mentions c).all fun d => V.stage c d || (dep c).contains d) then
+      some s!"class {c}: reads not closed" else
+    if !((dep c).all fun d => !V.stage c d) then some s!"class {c}: reads a stage class" else
+    if !((dep c).all fun d => decide (rank d < rank c)) then
+      some s!"class {c}: the coherent reads are cyclic" else
+    if !((dep c).all fun d => (V.depStep c d).all (dep c).contains) then
+      some s!"class {c}: reads not closed under free classes" else none
+  s!"{bad}; free {(List.range n).map V.Fl}"
+
+/-- The coherent reads at the free sets `Fl`, closed (unverified). -/
+def classDeps (V : ClassFreeV) : List (List Nat) :=
+  (List.range V.cls.length).map fun r =>
+    classClose (V.depStep r) (V.cls.length + 1) ((V.mentions r).filter (!V.stage r ·)).eraseDups
+
+/-- The free sets: the demand's least solution, by fuelled iteration
+(unverified). -/
+def classFreeGo (V0 : ClassFreeV) (inn : Nat → List Nat) : Nat → List (List Nat) → List (List Nat)
+  | 0, fl => fl
+  | fuel + 1, fl =>
+    let V : ClassFreeV := { V0 with Fl := fun c => fl.getD c [] }
+    let depL := classDeps V
+    let dep : Nat → List Nat := fun x => depL.getD x []
+    let n := V0.cls.length
+    let fl' := (List.range n).map fun y =>
+      let old := fl.getD y []
+      let new := (List.range n).flatMap fun x =>
+        if (V0.cls.getD x default).member.isNone && (dep x).contains y then
+          (inn y).filter fun e => V.stage x e && !V.isFree y e
+        else []
+      old ++ new.eraseDups
+    if (List.range n).all (fun y => (fl'.getD y []).length == (fl.getD y []).length) then fl
+    else classFreeGo V0 inn fuel fl'
+
+/-- The ranks, by fuelled iteration (unverified). -/
+def classRankGo (n : Nat) (dep : Nat → List Nat) : Nat → List Nat → List Nat
+  | 0, rk => rk
+  | fuel + 1, rk => classRankGo n dep fuel ((List.range n).map fun r =>
+      (dep r).foldl (fun a d => max a (rk.getD d 0 + 1)) 0)
+
+/-- The certificate's data, computed (unverified): the free sets, the
+inner-class closures, the coherent reads, the ranks. -/
+def classFreeData (mates : Name → List Name) (cls : List ClassInfo) (crests : List (List Expr)) :
+    (Nat → List Nat) × (Nat → List Nat) × (Nat → List Nat) × (Nat → Nat) :=
+  let n := cls.length
+  let innL := (List.range n).map fun x =>
+    classClose (fun y => classInner cls (cls.getD y default)) (n + 1)
+      (classInner cls (cls.getD x default))
+  let inn : Nat → List Nat := fun x => innL.getD x []
+  let V0 := ClassFreeV.build cls mates crests fun _ => []
+  let fl := classFreeGo V0 inn (n * n + 1) ((List.range n).map fun _ => [])
+  let V : ClassFreeV := { V0 with Fl := fun c => fl.getD c [] }
+  let depL := classDeps V
+  let dep : Nat → List Nat := fun x => depL.getD x []
+  let rankL := classRankGo n dep (n + 1) ((List.range n).map fun _ => 0)
+  (fun c => fl.getD c [], inn, dep, fun r => rankL.getD r 0)
 
 /-- Which pairs of container classes are the same class: syntactically
 (`ClassInfo.same`), else per component in hole form. -/
@@ -482,26 +722,23 @@ def classSamePairs (ops : CheckerOps m) (env : Env) (hi : Nat) (cls : List Class
           out := (i, j) :: (j, i) :: out
   pure out
 
-/-- **R6: every container class's key typed with its CYCLIC inner classes
-abstracted** (PROOFPLAN R6): the inner classes (class occurrences in the
-key's parameters) whose container is YOUNGER than the class's own
-(`age`: the installation counter) replaced by their holes, the key
-inferred at the holes' context `hi`.  Official types every auxiliary
-constructor with all nested occurrences abstracted, never the keys
-themselves; this is the Sat premise the proof needs at stage values. -/
-def classKeysCyclic (ops : CheckerOps m) (env : Env) (age : Name → Nat) (cls : List ClassInfo)
-    (hi : Nat) : List ClassInfo → m Unit
+/-- **R6: every container class's key typed with its FREE classes
+abstracted** (`dsF c`; PROOFPLAN R6, DESIGN CLASSCHECK / P2D3), inferred
+at the holes' context `hi`.  Official types every auxiliary constructor
+with all nested occurrences abstracted, never the keys themselves; this is
+the Sat premise the proof needs at the free holes' stage values. -/
+def classKeysCyclic (ops : CheckerOps m) (env : Env) (cls : List ClassInfo)
+    (dsF : Nat → List Expr) (hi : Nat) : List Nat → m Unit
   | [] => pure ()
   | c :: cs => do
-    if c.member.isNone then
-      let cyc := cls.filter fun d => d.member.isNone && age c.key.ind < age d.key.ind
-      let dsZ := c.dsA.map (classAbs cyc)
+    let ci := cls.getD c default
+    if ci.member.isNone then
       -- no `tryCatch` to re-word the error: the verified tiers' monads
       -- (`FueledM`, `PairM`) do not support catching (the bodies never
       -- catch), so a caught error here would break the fueled bridge
-      if dsZ != c.dsA then
-        discard <| ops.inferType env hi (Expr.mkAppN (.const c.key.ind c.key.lvls) dsZ)
-    classKeysCyclic ops env age cls hi cs
+      if dsF c != ci.dsA then
+        discard <| ops.inferType env hi (Expr.mkAppN (.const ci.key.ind ci.key.lvls) (dsF c))
+    classKeysCyclic ops env cls dsF hi cs
 
 /-! ## Check 3: positivity over the classes -/
 
@@ -952,8 +1189,6 @@ def classRecCheck (so : ShadowOps m) (fe₁ : FEnv) (env₁ : Env) (fe : FEnv) (
     throw (.invalid "class check: a block mate of a container class at its instantiation is no \
       class of the recursor family (official copies the whole block, and generates a recursor \
       for every mate)")
-  -- R6
-  classKeysCyclic ops₁ env₁ age cls hi cls
   -- the abstracted constructors, and reachability
   let crests0 ← cls.mapM fun c => c.ctors.mapM fun (cv, _) => classCrest ctx holes cls c cv
   -- coarser identification: aliases for the unmatched occurrences, and
@@ -973,10 +1208,15 @@ def classRecCheck (so : ShadowOps m) (fe₁ : FEnv) (env₁ : Env) (fe : FEnv) (
   let pairs ← classSamePairs ops₁ env₁ hi cls
   let sameIdx : Nat → Nat → Bool := fun i j =>
     i == j || (cls.getD i default).same (cls.getD j default) || pairs.contains (i, j)
-  unless classGroupFree age mates cls crests do
-    throw (.invalid "class check: a class kept free by a container class's fact contains an \
-      occurrence of the container class's group (official: non positive occurrence at the \
-      container's own declaration)")
+  -- the class facts' free holes and their order; R6 at the free holes
+  let (Fl, inn, dep, rank) := classFreeData mates cls crests
+  let V := ClassFreeV.build cls mates crests Fl
+  unless classFreeOk V hi (fun c => classAliasesFor age mates c al) inn dep rank do
+    throw (.invalid s!"class check: the class facts' free holes do not commute with their keys, or \
+      the classes' coherent reads are cyclic (official: no such notion; ill-typed keys only): \
+      {classFreeDiag V hi (fun c => classAliasesFor age mates c al) inn dep rank}")
+  classKeysCyclic ops₁ env₁ cls (fun c => (cls.getD c default).dsA.map
+    (classAbsIf cls (classHoleOf cls (V.isFree c)))) hi (List.range cls.length)
   let roots := (List.range cls.length).filter fun c => (cls.getD c default).member.isSome
   let reached := classReached crests cls mates sameIdx (cls.length + 1) roots
   unless (List.range cls.length).all reached.contains do

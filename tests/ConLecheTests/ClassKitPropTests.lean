@@ -99,26 +99,26 @@ theorem nn_Ψ2 (v : Nat → V) :
       opAt (fun m => m = 0) (nnrd 2) ((nn : ClassSys V).T 0 ((nn : ClassSys V).T 1 v)) := by
   unfold ClassSys.Ψ
   rw [show (nn : ClassSys V).fl 2 = [1, 0] from rfl]
-  simp only [ClassSys.fillL, dif_pos (show (1 : Nat) < 2 by omega),
-    dif_pos (show (0 : Nat) < 2 by omega)]
+  simp only [ClassSys.fillL, dif_pos (show (nn : ClassSys V).rk 1 < (nn : ClassSys V).rk 2 from Nat.lt_of_sub_eq_succ rfl),
+    dif_pos (show (nn : ClassSys V).rk 0 < (nn : ClassSys V).rk 2 from Nat.lt_of_sub_eq_succ rfl)]
   rfl
 
 theorem nn_Ψ1 (v : Nat → V) :
     (nn : ClassSys V).Ψ 1 v = opAt (fun m => m = 1) (nnrd 1) ((nn : ClassSys V).T 0 v) := by
   unfold ClassSys.Ψ
   rw [show (nn : ClassSys V).fl 1 = [0] from rfl]
-  simp only [ClassSys.fillL, dif_pos (show (0 : Nat) < 1 by omega)]
+  simp only [ClassSys.fillL, dif_pos (show (nn : ClassSys V).rk 0 < (nn : ClassSys V).rk 1 from Nat.lt_of_sub_eq_succ rfl)]
   rfl
 
 theorem nn_Ψ0 (v : Nat → V) : (nn : ClassSys V).Ψ 0 v = opAt (fun m => m = 2) (nnrd 0) v := by
   unfold ClassSys.Ψ; rfl
 
 theorem nn_T0_2 (u : Nat → V) : (nn : ClassSys V).T 0 u 2 = (nn : ClassSys V).car 0 u 2 := by
-  rw [ClassSys.T_eq]; unfold cfix
+  rw [ClassSys.T_eq]; unfold cfixP
   exact mixT_apply_pos (show ((nn : ClassSys V).grp 0) 2 from rfl)
 
 theorem nn_T1_1 (u : Nat → V) : (nn : ClassSys V).T 1 u 1 = (nn : ClassSys V).car 1 u 1 := by
-  rw [ClassSys.T_eq]; unfold cfix
+  rw [ClassSys.T_eq]; unfold cfixP
   exact mixT_apply_pos (show ((nn : ClassSys V).grp 1) 1 from rfl)
 
 theorem mem_image_pt {S x : V} : x ∈ˢ image (fun _ => (pt : V)) S ↔ x = pt ∧ ∃ y, y ∈ˢ S := by

@@ -843,13 +843,21 @@ theorem classRun_classOccWF (R : ClassRun ops fe₁ env₁ fe p block cvTas ctor
     ClassOccWF R.cls (classHi (classCtxOf p fe₁ env₁ R.pq.1) R.cls) :=
   classOccWF_of_infos R.hcls hks
 
-/-- **At the run, a container class's crest's defeq tier keeps no hole**
-of its class fact. -/
-theorem classRun_aliases_notKept (R : ClassRun ops fe₁ env₁ fe p block cvTas ctorsAs out ctors)
-    {c : ClassInfo} (hc : c.member = none) :
-    ∀ a ∈ ConLeche.classAliasesFor (classAge fe₁) (classMates fe₁) c R.al,
-      classKept (classAge fe₁) (classMates fe₁) R.cls c a.hole = false :=
-  classAliasesFor_notKept (classRun_holesUniq R) hc fun a ha => classAliasOk_target (R.hal a ha)
+/-- **The free-set certificate, at the run.** -/
+theorem classRun_freeCert (R : ClassRun ops fe₁ env₁ fe p block cvTas ctorsAs out ctors) :
+    ConLeche.ClassFreeCert (ConLeche.classFreeVOf fe₁ R.cls R.al R.crests0 R.Fl)
+      (classHi (classCtxOf p fe₁ env₁ R.pq.1) R.cls)
+      (fun c => ConLeche.classAliasesFor (classAge fe₁) (classMates fe₁) c R.al) R.inn R.dep R.rank :=
+  ConLeche.classFreeOk_cert R.hfree
+
+/-- **At the run, a container class's crest's defeq tier keeps no stage
+hole** of its class fact. -/
+theorem classRun_aliases_notStage (R : ClassRun ops fe₁ env₁ fe p block cvTas ctorsAs out ctors)
+    {c : Nat} (hcl : c < R.cls.length) (hc : (R.cls.getD c default).member = none) :
+    ∀ a ∈ ConLeche.classAliasesFor (classAge fe₁) (classMates fe₁) (R.cls.getD c default) R.al,
+      classStageHoles (ConLeche.classFreeVOf fe₁ R.cls R.al R.crests0 R.Fl) c a.hole = false :=
+  classAliasesFor_notStage (classRun_holesUniq R) (fun a ha => classAliasOk_target (R.hal a ha)) hc
+    ((classRun_freeCert R).aliases c hcl hc)
 
 theorem lookup_mem {α β : Type} [BEq α] [LawfulBEq α] {a : α} {b : β} :
     ∀ {l : List (α × β)}, l.lookup a = some b → (a, b) ∈ l
@@ -909,27 +917,6 @@ theorem classRun_aliasWF (R : ClassRun ops fe₁ env₁ fe p block cvTas ctorsAs
     (hwf : ClassOccWF R.cls (classHi (classCtxOf p fe₁ env₁ R.pq.1) R.cls)) :
     AliasWF R.al (classHi (classCtxOf p fe₁ env₁ R.pq.1) R.cls) :=
   aliasWF_of_run hwf R.hal (classRun_aliasKeysScoped R hwf)
-
-/-- **The group-free check, inverted**: in container class `c`'s crest
-(after the defeq tier), a kept class `d` outside `c`'s group has no
-occurrence of `c`'s group in its member-abstracted parameters. -/
-theorem classRun_groupFree (R : ClassRun ops fe₁ env₁ fe p block cvTas ctorsAs out ctors)
-    {i : Nat} {c : ClassInfo} (hc : R.cls[i]? = some c) (hm : c.member = none)
-    {e : Expr} (he : e ∈ (classCrestsAl fe₁ R.cls R.al R.crests0).getD i [])
-    {j : Nat} (hj : j ∈ ConLeche.classHolesIn R.cls e)
-    (hk : ConLeche.classKeptBy (classAge fe₁) (classMates fe₁) c (R.cls.getD j default) = true)
-    (ho : ConLeche.classOwn (classMates fe₁) c (R.cls.getD j default) = false) :
-    ∀ x ∈ (R.cls.getD j default).dsA,
-      ConLeche.classAbs (R.cls.filter (ConLeche.classOwn (classMates fe₁) c)) x = x := by
-  have h := R.hgf
-  unfold ConLeche.classGroupFree at h
-  have hi : i < R.cls.length := (List.getElem?_eq_some_iff.mp hc).1
-  have h1 := List.all_eq_true.mp h i (List.mem_range.mpr hi)
-  have hcd : R.cls.getD i default = c := by simp [List.getD_eq_getElem?_getD, hc]
-  simp only [hcd, hm, Option.isSome_none, Bool.false_or] at h1
-  have h2 := List.all_eq_true.mp h1 j (List.mem_flatMap.mpr ⟨e, he, hj⟩)
-  simp only [ho, hk, Bool.not_true, Bool.false_or, List.all_eq_true, beq_iff_eq] at h2
-  exact h2
 
 end Run
 
