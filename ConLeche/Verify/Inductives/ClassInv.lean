@@ -43,6 +43,17 @@ namespace ConLeche
 
 open Expr
 
+local syntax "close_throw" term : tactic
+local macro_rules
+  | `(tactic| close_throw $h:term) =>
+    `(tactic| first
+        | exact absurd $h (by
+            simp only [bind, Except.bind, throw, throwThe, MonadExceptOf.throw]
+            exact fun hh => nomatch hh)
+        | exact absurd $h
+            (by simp [bind, Except.bind, throw, throwThe, MonadExceptOf.throw])
+        | exact nomatch $h)
+
 /-! ## Generic run lemmas -/
 
 /-- A successful `mapM` in `Except` is a pointwise run. -/
@@ -244,5 +255,127 @@ theorem classFields_deriv {cls : List ClassInfo} {hi fuel : Nat} {base : Nat} :
       obtain ⟨rfl, rfl, rfl⟩ := h
       exact .teleCons (classPos_deriv hk) (classFields_deriv hr)
     · exact nomatch h
+
+/-! ## Checks 3 and 4 at one constructor -/
+
+/-- The constructor's result is headed by its class's OWN hole: a
+member's hole, or a container class's. -/
+@[expose] def ClassResOk (ctx : NestCtx) (c : ClassInfo) (cur : Expr) : Prop :=
+  (∃ t ty, c.member = some t ∧ cur.getAppFn = .fvar (ctx.nP + t) ty) ∨
+    (c.member = none ∧ ∃ h hty ty, c.hole = some (.fvar h hty) ∧ cur.getAppFn = .fvar h ty)
+
+/-- **One constructor's walk** (check 3), at its walked telescope `nds` and
+result `cur`: every field derived, U4, the result the class's own hole
+with hole-free indices, and at a member's constructor U2 (the field
+universes at the holes), M3 on the walked form and M2′. -/
+structure ClassCtorWalk (ops : CheckerOps CheckM) (env : Env) (ctx : NestCtx)
+    (holes : List Expr) (cls : List ClassInfo) (hi : Nat) (c : ClassInfo) (cv : ConstantVal)
+    (nF : Nat) (crest : Expr) (ks : List ClassField) (nds : List (Expr × BinderMeta))
+    (cur : Expr) : Prop where
+  tele : FieldD ops env ctx cls hi (.tele hi nF 0 crest ks nds cur)
+  u4 : ((List.range nF).any fun i => ks.getD i .ordinary != .ordinary &&
+    structUsedLater (closeTelescope nds hi cur) 0 i) = false
+  res : ClassResOk ctx c cur
+  resIdx : (cur.getAppArgs.drop (if c.member.isSome then ctx.nP else 0)).all
+    (fun x => !x.nestOcc ctx.names ctx.nP hi) = true
+  member : c.member.isSome = true →
+    (∃ xq, openPisAtFvars nF (closeTelescope nds hi cur) hi = some xq ∧
+      ∃ r, checkStructFieldSortsI ops env (Level.isEquiv ctx.sort .zero == some true) false
+        ctx.sort hi xq.1 [] nF = .ok r) ∧
+    (closeTelescope nds hi cur).holesApplied ctx.names ctx.nP (ctx.hiAt 0) = true ∧
+    (nestAbstract ctx holes cv.type).nestOcc ctx.names 0 0 = false
+
+/-- **Checks 3 and 4 at one constructor, as run**: the abstracted crest
+typed at the holes' context (check 4), its walk (check 3), and the
+output — the constructor, its field count, the walked kinds (R4) and the
+walked telescope read back (R5). -/
+structure ClassCtorRun (ops : CheckerOps CheckM) (env : Env) (ctx : NestCtx)
+    (holes : List Expr) (cls : List ClassInfo) (hi : Nat) (c : ClassInfo) (cv : ConstantVal)
+    (nF : Nat) (crest : Expr) (x : ClassCtor) : Prop where
+  nodup : Name.nodup cv.levelParams = true
+  typed : ∃ ty s, ops.inferType env hi crest = .ok ty ∧ ops.ensureSort env hi ty = .ok s
+  walk : ∃ nds cur, ClassCtorWalk ops env ctx holes cls hi c cv nF crest x.kinds nds cur ∧
+    x.tyN = classReadBack ctx cls (closeTelescope nds hi cur)
+  cv : x.cv = cv
+  nF : x.nF = nF
+
+/-- **`classCtor`, inverted.** -/
+theorem classCtor_run {holes : List Expr} {cls : List ClassInfo} {hi : Nat} {c : ClassInfo}
+    {cv : ConstantVal} {nF : Nat} {crest : Expr} {x : ClassCtor}
+    (h : classCtor ops env ctx holes cls hi c cv nF crest = .ok x) :
+    ClassCtorRun ops env ctx holes cls hi c cv nF crest x := by
+  unfold classCtor at h
+  simp only [bind, Except.bind] at h
+  split at h
+  case isFalse => close_throw h
+  rename_i hnd
+  split at h
+  · close_throw h
+  rename_i ty hty
+  split at h
+  · close_throw h
+  rename_i s hs
+  split at h
+  · close_throw h
+  rename_i r hf
+  obtain ⟨ks, nds, cur⟩ := r
+  simp only at h
+  split at h
+  case isTrue => close_throw h
+  rename_i hu4
+  split at h
+  case h_2 => simp at h
+  rename_i i ty0 h0 hfn hown
+  have hres : i = h0 → ClassResOk ctx c cur := by
+    rintro rfl
+    rcases hm : c.member with _ | t
+    · rcases hh : c.hole with _ | hv
+      · simp [hm, hh] at hown
+      · cases hv <;> simp [hm, hh] at hown
+        subst hown
+        exact Or.inr ⟨hm, _, _, ty0, hh, hfn⟩
+    · simp only [hm, Option.some.injEq] at hown
+      exact Or.inl ⟨t, ty0, hm, by rw [hfn, hown]⟩
+  have hu4' : ((List.range nF).any fun i => ks.getD i .ordinary != .ordinary &&
+      structUsedLater (closeTelescope nds hi cur) 0 i) = false := by simpa using hu4
+  have hfd := classFields_deriv hf
+  split at h
+  · rename_i hm
+    split at h
+    case isFalse => close_throw h
+    rename_i hcond
+    simp only [Bool.and_eq_true, beq_iff_eq] at hcond
+    obtain ⟨hih, hidx⟩ := hcond
+    split at h
+    · close_throw h
+    rename_i xq hxq
+    split at h
+    · close_throw h
+    rename_i r hr
+    split at h
+    case isFalse => close_throw h
+    rename_i hha
+    split at h
+    · close_throw h
+    rename_i u hnm
+    simp only [pure, Except.pure, Except.ok.injEq] at h
+    subst h
+    refine ⟨hnd, ⟨ty, s, hty, hs⟩, ⟨nds, cur, ⟨hfd, hu4', hres hih, by simpa [hm] using hidx,
+      fun _ => ?_⟩, rfl⟩, rfl, rfl⟩
+    refine ⟨⟨xq, unwrapOr_ok hxq, r, hr⟩, hha, ?_⟩
+    unfold nestNoMemberConst at hnm
+    split at hnm
+    · close_throw hnm
+    · rename_i hn; simpa using hn
+  · rename_i hm
+    split at h
+    case isFalse => close_throw h
+    rename_i hcond
+    simp only [Bool.and_eq_true, beq_iff_eq] at hcond
+    obtain ⟨hih, hidx⟩ := hcond
+    simp only [pure, Except.pure, Except.ok.injEq] at h
+    subst h
+    exact ⟨hnd, ⟨ty, s, hty, hs⟩, ⟨nds, cur, ⟨hfd, hu4', hres hih, by simpa [hm] using hidx,
+      fun h' => absurd h' hm⟩, rfl⟩, rfl, rfl⟩
 
 end ConLeche
