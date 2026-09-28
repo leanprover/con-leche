@@ -1615,15 +1615,14 @@ def nestSeedOf (ctx : NestCtx) (holes : List Expr) (I : Name) (us : List Level)
 
 /-- **The seeds walked**, in order, at the root (see "The seeds"): each
 class a container instance met at the empty frame stack
-(`nestContKey`), its parameters without loose bound variables and
-below the frame holes. -/
+(`nestContKey`).  A seed's parameters are closed and below the frame
+holes by construction (`nestSeedOf` of a class whose parameters mention
+only the recursor's parameter binders, `targetMajorOf`), so nothing about
+them is checked here. -/
 def nestSeeds (ops : CheckerOps m) (env : Env) (ctx : NestCtx) :
     List (NestKey × Nat) → NestState → m NestState
   | [], st => pure st
   | (key, nPc) :: ks, st => do
-    unless key.ds.all (fun x => x.bvarB == 0 && x.fvarB ≤ ctx.hiAt 0) do
-      throw (.invalid "nested positivity: nested inductive datatypes parameters \
-        cannot contain local variables")
     let F := key.ds.foldl (fun a d => max a (whnfWalkFuel d)) fuelSlack
     let (_, cty) ← nestInstType ctx (ctx.hiAt 0) key
     let (_, st) ← nestContKey ctx ops env (nestPos ops env ctx F) [] 0 key.cname key.lvls

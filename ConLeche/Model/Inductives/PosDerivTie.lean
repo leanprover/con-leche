@@ -495,13 +495,26 @@ theorem outsideClass_reachedNode {envC envI : Env} (hwf : ConLeche.EnvWF envI) {
       rw [hnP]; exact ConLeche.Expr.fvarB_le (hsc x hx).2
     have hw := ConLeche.nestSeedOf_ds (I := t.2.1.ind) (us := t.2.1.lvls) (nPc := t.2.1.nPc)
       h3 hlenP hds
+    have hW : ∀ x ∈ (nestSeedOf ctx holes t.2.1.ind t.2.1.lvls t.2.1.ds t.2.1.nPc).1.ds,
+        Expr.WScoped (ctx.hiAt 0) x := fun x hx => (hw x hx).2 (fun y hy => (hholes y hy).1)
+          (fun y hy => hpar y (by rw [← hctxE] at hy; exact hy))
+    have hB := ConLeche.nestSeedOf_closed (I := t.2.1.ind) (us := t.2.1.lvls) (nPc := t.2.1.nPc)
+      h3 (fun a ha => by
+        rw [← hctxE] at ha
+        obtain ⟨i, hi⟩ := List.getElem?_of_mem ha
+        obtain ⟨ty, rfl⟩ := ConLeche.openPisAtFvars_index _ _ _ h2 i _ hi
+        exact ⟨_, ty, rfl⟩)
+      (fun x hx => ConLeche.Expr.bvarB_le (Nat.le_of_eq (hsc x hx).1))
     refine ⟨by simp only [nestSeedOf]; rw [hnames]; simpa using hnm, hnq, ⟨_, hct⟩,
       by simp [nestSeedOf, hdsLen],
-      fun x hx => ⟨fun hs' hh' l hl => ?_, (hw x hx).2 (fun y hy => (hholes y hy).1)
-        (fun y hy => hpar y (by rw [← hctxE] at hy; exact hy))⟩⟩
-    rw [h3] at hh'
-    obtain rfl := Option.some.inj hh'
-    exact (hw x hx).1 l hl
+      fun x hx => ⟨fun hs' hh' l hl => ?_, hW x hx⟩, fun x hx => ⟨?_, ?_⟩⟩
+    · rw [h3] at hh'
+      obtain rfl := Option.some.inj hh'
+      exact (hw x hx).1 l hl
+    · have := ConLeche.Expr.looseBVarsBounded_iff.mp (hB x hx)
+      rw [ConLeche.Expr.bvarB_eq]; omega
+    · rw [ConLeche.Expr.fvarB_eq]
+      exact ConLeche.Expr.fvarsBelow_iff.mp (ConLeche.Expr.WScoped.fvarsBelow (hW x hx))
   obtain ⟨st', htbl, ⟨l, hl⟩, -, hall⟩ := hsd hctx hok hIpos
   have hsub : ∀ e ∈ st'.ctorNfs.toList, e ∈ R.tbl := fun e he => by
     rw [htbl]; exact List.mem_append_right _ he

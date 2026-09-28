@@ -511,6 +511,70 @@ theorem nestSeedOf_ds {ctx : NestCtx} {holes : List Expr} (hh : nestHoles ctx = 
   · exact hP a ha
   · exact hH a ha
 
+/-- Replacing variables by closed terms keeps the loose-bvar bound. -/
+theorem looseBVarsBounded_replaceFVars {g : Nat → Option Expr}
+    (hg : ∀ i r, g i = some r → r.looseBVarsBounded 0 = true) :
+    ∀ (e : Expr) (k : Nat), e.looseBVarsBounded k = true →
+      (e.replaceFVars g).looseBVarsBounded k = true := by
+  intro e
+  induction e with
+  | bvar i => intro k h; simpa [Expr.replaceFVars] using h
+  | fvar idx ty _ =>
+    intro k _
+    simp only [Expr.replaceFVars]
+    cases hc : g idx with
+    | none => simp [looseBVarsBounded]
+    | some r => exact looseBVarsBounded_mono (Nat.zero_le k) (hg idx r hc)
+  | sort u => intro k _; simp [Expr.replaceFVars, looseBVarsBounded]
+  | lit v => intro k _; simp [Expr.replaceFVars, looseBVarsBounded]
+  | const c us => intro k _; simp [Expr.replaceFVars, looseBVarsBounded]
+  | app a b iha ihb =>
+    intro k h
+    simp only [looseBVarsBounded, Bool.and_eq_true] at h
+    simp only [Expr.replaceFVars, looseBVarsBounded, Bool.and_eq_true]
+    exact ⟨iha k h.1, ihb k h.2⟩
+  | lam ty b m iht ihb =>
+    intro k h
+    simp only [looseBVarsBounded, Bool.and_eq_true] at h
+    simp only [Expr.replaceFVars, looseBVarsBounded, Bool.and_eq_true]
+    exact ⟨iht k h.1, ihb (k + 1) h.2⟩
+  | forallE ty b m iht ihb =>
+    intro k h
+    simp only [looseBVarsBounded, Bool.and_eq_true] at h
+    simp only [Expr.replaceFVars, looseBVarsBounded, Bool.and_eq_true]
+    exact ⟨iht k h.1, ihb (k + 1) h.2⟩
+  | letE ty v b iht ihv ihb =>
+    intro k h
+    simp only [looseBVarsBounded, Bool.and_eq_true] at h
+    simp only [Expr.replaceFVars, looseBVarsBounded, Bool.and_eq_true]
+    exact ⟨⟨iht k h.1.1, ihv k h.1.2⟩, ihb (k + 1) h.2⟩
+  | proj s i e ihe =>
+    intro k h
+    simp only [looseBVarsBounded] at h
+    simp only [Expr.replaceFVars, looseBVarsBounded]
+    exact ihe k h
+
+/-- **A seed's parameters are closed** under binders: the class's are,
+and the holes and the canonical variables they are replaced by are
+variables. -/
+theorem nestSeedOf_closed {ctx : NestCtx} {holes : List Expr} (hh : nestHoles ctx = some holes)
+    (hparF : ∀ a ∈ ctx.params, ∃ i ty, a = .fvar i ty) {I : Name} {us : List Level}
+    {ds : List Expr} {nPc : Nat} (hds : ∀ x ∈ ds, x.looseBVarsBounded 0 = true) :
+    ∀ y ∈ (nestSeedOf ctx holes I us ds nPc).1.ds, y.looseBVarsBounded 0 = true := by
+  intro y hy
+  simp only [nestSeedOf, List.mem_map] at hy
+  obtain ⟨x, hx, rfl⟩ := hy
+  refine looseBVarsBounded_replaceFVars (fun i r hr => ?_) _ 0
+    (looseBVarsBounded_replaceConsts (fun c us' r hr => ?_) x 0 (hds x hx))
+  · obtain ⟨j, ty, rfl⟩ := hparF r (List.mem_of_getElem? hr)
+    simp [looseBVarsBounded]
+  · split at hr
+    · split at hr
+      · obtain ⟨j, cv, caps, -, rfl⟩ := nestHoles_mem hh r (List.mem_of_getElem? hr)
+        simp [looseBVarsBounded]
+      · exact nomatch hr
+    · exact nomatch hr
+
 /-- **A seed of a resolved family** (`targetSeeds`): an outside class
 stage (b) resolved, moved to the walk's representation. -/
 theorem mem_targetSeeds {ctx : NestCtx} {holes : List Expr} :

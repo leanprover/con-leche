@@ -691,8 +691,6 @@ theorem nestSeedsS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) {ct
   | [], st, _, hs, _, hst => SimC.pure hs ⟨rfl, hst⟩
   | (key, nPc) :: ks, st, _, hs, hw, hst => by
     unfold nestSeeds
-    split
-    case isFalse => exact SimC.throw_bind
     refine SimC.bind (nestInstTypeS_sim hc hs _ _) (fun s₀' ni ni' hs₀' hN => ?_)
     obtain ⟨rfl, hni⟩ := hN
     refine SimC.bind (nestContKeyS_sim hμ henv hc (nestPosS_sim hμ henv hc _) [] 0 key.cname

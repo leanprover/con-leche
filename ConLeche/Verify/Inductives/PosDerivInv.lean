@@ -941,7 +941,8 @@ scoped at the walk's depth. -/
 @[expose] def SeedOk (ctx : NestCtx) (s : NestKey × Nat) : Prop :=
   ctx.names.contains s.1.cname = false ∧ s.1.cname ≠ quotName ∧
     (∃ L, nestContainer ctx s.1.cname = some (s.2, L)) ∧ s.1.ds.length = s.2 ∧
-    ∀ x ∈ s.1.ds, SeedLeaves ctx x ∧ WScoped (ctx.hiAt 0) x
+    (∀ x ∈ s.1.ds, SeedLeaves ctx x ∧ WScoped (ctx.hiAt 0) x) ∧
+    ∀ x ∈ s.1.ds, x.bvarB = 0 ∧ x.fvarB ≤ ctx.hiAt 0
 
 /-- **The seeds, derived**: the cache invariant kept, every seed's frame
 derived at the root (`PosD.seed`, its one node the seed's own key, whose
@@ -963,11 +964,6 @@ theorem nestSeeds_deriv (hctx : NestCtxOk ctx)
     obtain ⟨n, us, ds⟩ := key
     simp only [nestSeeds, bind, Except.bind] at h
     split at h
-    rotate_left
-    · simp [throw, throwThe, MonadExceptOf.throw] at h
-    rename_i hchk
-    have hchk' : ∀ x ∈ ds, x.bvarB = 0 ∧ x.fvarB ≤ ctx.hiAt 0 := by simpa using hchk
-    split at h
     · simp at h
     rename_i ni hni
     obtain ⟨nI, cty⟩ := ni
@@ -975,7 +971,7 @@ theorem nestSeeds_deriv (hctx : NestCtxOk ctx)
     · simp at h
     rename_i r hr
     obtain ⟨k₁, st₁⟩ := r
-    obtain ⟨hnm, hquot, ⟨L, hC⟩, hlen, hds⟩ := hok (⟨n, us, ds⟩, nPc) List.mem_cons_self
+    obtain ⟨hnm, hquot, ⟨L, hC⟩, hlen, hds, hchk'⟩ := hok (⟨n, us, ds⟩, nPc) List.mem_cons_self
     obtain ⟨hI₁, -, hcase⟩ := nestContKey_deriv hctx (nestPos_deriv hctx hwsc _) ProgScoped.nil
       hnm hquot (fun x hx => (hds x hx).2) hlen ⟨L, hC⟩ hni hr hI
     have hC' : nestContainer ctx n = some (ds.length, L) := by rw [hlen]; exact hC
