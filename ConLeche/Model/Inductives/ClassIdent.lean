@@ -89,7 +89,7 @@ theorem substRead_eq (m : EnvModel V env) {H b D : Nat} {L A : Expr} {gL gR : Na
       ((gR i).getD (.fvar i (.sort .zero))).looseBVarsBounded 0 = true ∧
       denoteMeta m.acval env φ D ((gR i).getD (.fvar i (.sort .zero))) = some (xR i))
     (hL : Expr.fvarsBelow H L) (hA : Expr.fvarsBelow b A)
-    (heq : (L.replaceFVars gL).eraseFVarTys = (A.replaceFVars gR).eraseFVarTys)
+    (heq : Expr.SemEq (L.replaceFVars gL) (A.replaceFVars gR))
     {aL aA : AnnotTerm} (haL : denoteMeta m.acval env φ H L = some aL)
     (haA : denoteMeta m.acval env φ b A = some aA) :
     AnnotTerm.substAV (substTau H D xL) aL 0 = AnnotTerm.substAV (substTau b D xR) aA 0 := by
@@ -97,9 +97,7 @@ theorem substRead_eq (m : EnvModel V env) {H b D : Nat} {L A : Expr} {gL gR : Na
   have h2 := denoteMeta_replaceFVars (φ := φ) m hgR hA
   rw [haL, Option.map_some] at h1
   rw [haA, Option.map_some] at h2
-  have hsem : Expr.SemEq (L.replaceFVars gL) (A.replaceFVars gR) :=
-    Expr.semEq_of_erasedEq ((Expr.erasedEq_of_eraseFVarTys heq))
-  rw [denoteMeta_semEq hsem, h2] at h1
+  rw [denoteMeta_semEq heq, h2] at h1
   exact (Option.some.inj h1).symm
 
 /-! ## 3. Agreement of Π-towers, field by field -/
@@ -220,7 +218,7 @@ theorem commute_spineFit (m : EnvModel V env) {H b D : Nat} {L A : Expr}
       ((gR i).getD (.fvar i (.sort .zero))).looseBVarsBounded 0 = true ∧
       denoteMeta m.acval env φ D ((gR i).getD (.fvar i (.sort .zero))) = some (xR i))
     (hL : Expr.fvarsBelow H L) (hA : Expr.fvarsBelow b A)
-    (heq : (L.replaceFVars gL).eraseFVarTys = (A.replaceFVars gR).eraseFVarTys)
+    (heq : Expr.SemEq (L.replaceFVars gL) (A.replaceFVars gR))
     {abL ab : List (Nat × Nat × AnnotTerm)} {rL r : AnnotTerm}
     (haL : denoteMeta m.acval env φ H L = some (mkPisAV abL rL))
     (haA : denoteMeta m.acval env φ b A = some (mkPisAV ab r)) (hlen : abL.length = ab.length)
@@ -255,6 +253,20 @@ theorem classCommutes_spec {cls : List ClassInfo} {mates : Name → List Name} {
     | some A =>
       rw [he0, hA] at h
       exact ⟨e0, A, rfl, rfl, by simpa using h⟩
+
+/-- **`classCommutes`, as the `SemEq`-level statement the class facts
+consume**: the two sides agree up to what the reading does not read. -/
+theorem classCommutes_semEq {cls : List ClassInfo} {mates : Name → List Name} {H : Nat}
+    {isF isG : Expr → Bool} {c d : ClassInfo} {cv : ConLeche.ConstantVal}
+    (h : ConLeche.classCommutes cls mates H isF isG c d cv = true) :
+    ∃ e0 A, ConLeche.instPisWith d.dsA (cv.type.instantiateLevelParams cv.levelParams d.key.lvls)
+        = some e0 ∧ ConLeche.classCanonText (mates c.key.ind) c.nPc cv = some A ∧
+      Expr.SemEq ((ConLeche.classAbsIf cls (fun h => isF h || isG h) e0).replaceFVars
+          (ConLeche.classGL cls (mates c.key.ind) c H (c.dsA.map (ConLeche.classAbsIf cls isF))))
+        ((A.instantiateLevelParams cv.levelParams c.key.lvls).replaceFVars
+          (ConLeche.classGR c.nPc H (c.dsA.map (ConLeche.classAbsIf cls isF)))) := by
+  obtain ⟨e0, A, h0, hA, heq⟩ := classCommutes_spec h
+  exact ⟨e0, A, h0, hA, Expr.semEq_of_erasedEq (Expr.erasedEq_of_eraseFVarTys heq)⟩
 
 /-- The restricted recogniser is `occRestrict`: `classAbsIf` is `classAbsF`. -/
 theorem classAbsIf_eq (cls : List ClassInfo) (P : Expr → Bool) (e : Expr) :
@@ -334,7 +346,7 @@ theorem crest_spineFit_canon (m : EnvModel V env)
       ((gR i).getD (.fvar i (.sort .zero))).looseBVarsBounded 0 = true ∧
       denoteMeta m.acval env φ (H + k) ((gR i).getD (.fvar i (.sort .zero))) = some (xR i))
     (hL : Expr.fvarsBelow H (classAbsF cls F e0)) (hA : Expr.fvarsBelow (nPc + k) A)
-    (heq : ((classAbsF cls F e0).replaceFVars gL).eraseFVarTys = (A.replaceFVars gR).eraseFVarTys)
+    (heq : Expr.SemEq ((classAbsF cls F e0).replaceFVars gL) (A.replaceFVars gR))
     {abC abL ab : List (Nat × Nat × AnnotTerm)} {rC rL r : AnnotTerm}
     (hCr : denoteMeta m.acval env φ H (ConLeche.classAliasAbs al (ConLeche.classAbs cls e0))
       = some (mkPisAV abC rC))
@@ -430,10 +442,10 @@ theorem classCrest_spineFit_frame (m : EnvModel V env)
     (hsem : AliasKeySem V m.acval env φ cls al H Good)
     {names : List Name} {c : ClassInfo} {e0 A : Expr} {n : Nat} (hPis : IsPisN n e0)
     {lps : List Name} {us : List Level}
-    (heq : ((classAbsF cls (fun h => isF h || isG h) e0).replaceFVars
-        (ConLeche.classGL cls names c H (c.dsA.map (classAbsF cls isF)))).eraseFVarTys
-      = ((A.instantiateLevelParams lps us).replaceFVars
-        (ConLeche.classGR c.nPc H (c.dsA.map (classAbsF cls isF)))).eraseFVarTys)
+    (heq : Expr.SemEq ((classAbsF cls (fun h => isF h || isG h) e0).replaceFVars
+        (ConLeche.classGL cls names c H (c.dsA.map (classAbsF cls isF))))
+      ((A.instantiateLevelParams lps us).replaceFVars
+        (ConLeche.classGR c.nPc H (c.dsA.map (classAbsF cls isF)))))
     {pF : List AnnotTerm} (hlp : c.dsA.length = c.nPc) (hlpF : pF.length = c.nPc)
     (hpF : ∀ i, i < c.nPc → Expr.fvarsBelow H ((c.dsA.map (classAbsF cls isF)).getD i default) ∧
       ((c.dsA.map (classAbsF cls isF)).getD i default).looseBVarsBounded 0 = true ∧
@@ -612,10 +624,10 @@ theorem classCrest_spineFit_recorded {μ : ConLeche.CheckMode} (mp : EnvModelM V
     (hsem : AliasKeySem V mp.base2.acval env φ cls al H Good)
     {D : LfpDatum V} (hD : D ∈ mp.lfpBlocks) (hk : D.names.length = D.k)
     {c : ClassInfo} {cv : ConLeche.ConstantVal} {e0 A : Expr} {n : Nat} (hPis : IsPisN n e0)
-    (heq : ((classAbsF cls (fun h => isF h || isG h) e0).replaceFVars
-        (ConLeche.classGL cls D.names c H (c.dsA.map (classAbsF cls isF)))).eraseFVarTys
-      = ((A.instantiateLevelParams cv.levelParams c.key.lvls).replaceFVars
-        (ConLeche.classGR c.nPc H (c.dsA.map (classAbsF cls isF)))).eraseFVarTys)
+    (heq : Expr.SemEq ((classAbsF cls (fun h => isF h || isG h) e0).replaceFVars
+        (ConLeche.classGL cls D.names c H (c.dsA.map (classAbsF cls isF))))
+      ((A.instantiateLevelParams cv.levelParams c.key.lvls).replaceFVars
+        (ConLeche.classGR c.nPc H (c.dsA.map (classAbsF cls isF)))))
     {pF : List AnnotTerm} (hlp : c.dsA.length = c.nPc) (hlpF : pF.length = c.nPc)
     (hpF : ∀ i, i < c.nPc → Expr.fvarsBelow H ((c.dsA.map (classAbsF cls isF)).getD i default) ∧
       ((c.dsA.map (classAbsF cls isF)).getD i default).looseBVarsBounded 0 = true ∧

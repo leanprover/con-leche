@@ -241,7 +241,7 @@ theorem commute_body (m : EnvModel V env) {H b D : Nat} {L A : Expr}
       ((gR i).getD (.fvar i (.sort .zero))).looseBVarsBounded 0 = true ∧
       denoteMeta m.acval env φ D ((gR i).getD (.fvar i (.sort .zero))) = some (xR i))
     (hL : Expr.fvarsBelow H L) (hA : Expr.fvarsBelow b A)
-    (heq : (L.replaceFVars gL).eraseFVarTys = (A.replaceFVars gR).eraseFVarTys)
+    (heq : Expr.SemEq (L.replaceFVars gL) (A.replaceFVars gR))
     {abL ab : List (Nat × Nat × AnnotTerm)} {rL r : AnnotTerm}
     (haL : denoteMeta m.acval env φ H L = some (mkPisAV abL rL))
     (haA : denoteMeta m.acval env φ b A = some (mkPisAV ab r)) (hlen : abL.length = ab.length) :
@@ -295,10 +295,10 @@ theorem classCrest_result_frame (m : EnvModel V env)
     (hsem : AliasKeySem V m.acval env φ cls al H Good)
     {names : List Name} {c : ClassInfo} {e0 A : Expr} {n : Nat} (hPis : IsPisN n e0)
     {lps : List Name} {us : List Level}
-    (heq : ((classAbsF cls (fun h => isF h || isG h) e0).replaceFVars
-        (ConLeche.classGL cls names c H (c.dsA.map (classAbsF cls isF)))).eraseFVarTys
-      = ((A.instantiateLevelParams lps us).replaceFVars
-        (ConLeche.classGR c.nPc H (c.dsA.map (classAbsF cls isF)))).eraseFVarTys)
+    (heq : Expr.SemEq ((classAbsF cls (fun h => isF h || isG h) e0).replaceFVars
+        (ConLeche.classGL cls names c H (c.dsA.map (classAbsF cls isF))))
+      ((A.instantiateLevelParams lps us).replaceFVars
+        (ConLeche.classGR c.nPc H (c.dsA.map (classAbsF cls isF)))))
     {pF : List AnnotTerm} (hlp : c.dsA.length = c.nPc) (hlpF : pF.length = c.nPc)
     (hpF : ∀ i, i < c.nPc → Expr.fvarsBelow H ((c.dsA.map (classAbsF cls isF)).getD i default) ∧
       ((c.dsA.map (classAbsF cls isF)).getD i default).looseBVarsBounded 0 = true ∧

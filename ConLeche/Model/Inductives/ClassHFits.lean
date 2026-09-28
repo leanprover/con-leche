@@ -54,10 +54,10 @@ theorem classCrest_hfits_iff {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env)
     (hsem : AliasKeySem V mp.base2.acval env φ cls al H Good)
     {D : LfpDatum V} (hD : D ∈ mp.lfpBlocks) (hk : D.names.length = D.k)
     {c : ClassInfo} {cv : ConLeche.ConstantVal} {e0 A : Expr} {n : Nat} (hPis : IsPisN n e0)
-    (heq : ((classAbsF cls (fun h => isF h || isG h) e0).replaceFVars
-        (ConLeche.classGL cls D.names c H (c.dsA.map (classAbsF cls isF)))).eraseFVarTys
-      = ((A.instantiateLevelParams cv.levelParams c.key.lvls).replaceFVars
-        (ConLeche.classGR c.nPc H (c.dsA.map (classAbsF cls isF)))).eraseFVarTys)
+    (heq : Expr.SemEq ((classAbsF cls (fun h => isF h || isG h) e0).replaceFVars
+        (ConLeche.classGL cls D.names c H (c.dsA.map (classAbsF cls isF))))
+      ((A.instantiateLevelParams cv.levelParams c.key.lvls).replaceFVars
+        (ConLeche.classGR c.nPc H (c.dsA.map (classAbsF cls isF)))))
     {pF : List AnnotTerm} (hlp : c.dsA.length = c.nPc) (hlpF : pF.length = c.nPc)
     (hpF : ∀ i, i < c.nPc → Expr.fvarsBelow H ((c.dsA.map (classAbsF cls isF)).getD i default) ∧
       ((c.dsA.map (classAbsF cls isF)).getD i default).looseBVarsBounded 0 = true ∧
