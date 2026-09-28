@@ -94913,3 +94913,113 @@ equality of least fixed points (the crest's reading depends only on the
 holes it mentions, so the fill's valuation and a globally locally-coherent
 one read it alike — `interp_congr_noBVar`); then carrier mono / fitMono /
 acc / (W), and ClassPres's container nodes on the crest clause.
+
+## CLASSCHECK / P2D4 — the ClassSys instance, milestone 1: the set level, the space, the node, and the identification's parts (2026-09-28, `agent/cc-P2D4`)
+
+PROOFPLAN P2d (I4/I5 of CLASSCHECK / P2D3), route (B) — confirmed by the
+translation spike (`_tmp/classcheck/TRANSLATE.md`).  Sorry-free, standard
+axioms only, no checker change.  This milestone lands the pieces; the
+assembly (the instance, the rank induction, `ClassD`) is milestone 2.
+
+**Architecture (as built).**
+* **The valuation space has one position per HOLE** (`ClassSpace.lean`):
+  position `t` is the variable `nP + t` — the members' holes, then the
+  container classes' (atomic) holes.  A valuation is read at the holes as
+  an lfp datum's HOLE FRAME (`LfpDatum.frame`) of `classSpace` (members'
+  own telescope = parameters ++ indices, a class hole's = its indices).
+  So the datum's hole order and accessibility relation (`tupRel`,
+  `accRel`, with `holeOn_tupRel`, `accRel_rich`) ARE T4's hole relations:
+  `classHoleRel_tupRel`, `classHoleRelA_accRel` (only the arity
+  correspondence and the hole context's `Sat` at the space's frames are
+  asked).
+* **A container class's operator is its container's RECORDED operator**
+  at the frame the valuation reads (`ClassNode.op`: `D.Φ ψ (fr X)` on the
+  group, the group read back through a section `s`, component `e g`;
+  empty elsewhere) — not a crest operator.  Consequences:
+  - **the identification is an equality of least fixed points**, no
+    fill involved (`ClassNode.ccar_eq`/`car_eq`, from the set-level
+    `lfpTuple_group_eq`: a group's lfp over the whole space is its
+    container's lfp, re-indexed, duplicates of a component included);
+  - **goodness is proved from a spine predicate at a FILLED valuation**
+    (`ClassNode.Ident`: `HFits (fr X, thr X) ↔ P (fill X)`, P = the
+    crests' fit at the fill's hole frame, `opOk_of_pred`): P is monotone
+    and accessible in every hole (T4 at the space's relations), the
+    filler (the coherent classes' carriers, the duplicates' representatives)
+    is a good operator by the rank induction (`ClassSys.good_step`,
+    `OpOk.through`) — accessibility is only ever asked of free holes;
+  - carrier mono / acc / (W) and the class kit's `fitMono` follow
+    (`ClassNode.carrier_mono`, `carrier_acc`, `closed`,
+    `Ident.hfits_mono`).
+* **`ClassPres`'s container nodes need NO re-basing**: under P2D3's
+  commutation certificate the recorded clause at the frame `fr X` IS the
+  crest at every value of the free holes, so a node stays "the recorded
+  clause at a frame", its admissible frames the frames `fr X` of
+  valuations, its `Le` the valuation order, its `fitMono` =
+  `Ident.hfits_mono` (P2D's re-basing was forced by the age-based kept
+  sets, gone since P2D3).
+
+**Proved (the identification's parts).**
+* `ClassRestrict.lean` — **P1 between two restrictions**
+  (`classAbsF_read_restrict`): the `F1`- and `F`-restricted abstractions
+  (`F ⊆ F1`) read alike at every valuation holding the classes of
+  `F1 \ F` at their `F`-keys — what a coherent class's fill value needs
+  (the reader's view vs the class's own free-hole form).
+* `ClassRecIn.lean` — the classes recognised inside a term (`RecIn`),
+  two restrictions agreeing on them abstract alike
+  (`classAbsSpec_restrict_congr`), a level- and annotation-blind size
+  (`Expr.shape`, `eqUpToLevels_shape`) for the fill order.
+* `ClassComplete.lean` — a reading ignores the variables its term does not
+  mention (`interp_congr_unmentioned`); the **coherent completion** of a
+  valuation (`completeF`, `stageCohF_completeF`): the identification
+  (P2D3's `classCrest_spineFit_recorded`, stated at GLOBALLY coherent
+  valuations) is applied at the completion of the fill's frame and moved
+  back by congruence (the crest mentions only stage and coherent holes).
+* `ClassBody.lean` — **the crest's RESULT identified**: a hole-headed
+  abstraction recognised the whole conclusion (`classAbs_head_hole`,
+  `classOcc_app_succ`, `classAbsSpec_some_spine`), a Π-tower's body is its
+  term's body read under the opened binders (`pis_body_read`), the
+  commutation equation's bodies agree (`commute_body`), and
+  `classCrest_result_frame`: the crest's index readings at `τ` are the
+  canonical text's at the frame (and the crest's hole is member `c'`'s
+  group hole) — the result half of `HFits`.
+
+**Finding (for the coordinator / maintainer): aliases in container crests
+need a restriction.**  P2D3's identification is stated at valuations that
+are coherent for EVERY class outside the stage set (`StageCohF`) AND
+satisfy the whole hole context (`AliasKeySem` is `defeq_sound` at the
+hole context).  No such valuation need exist: a class `e` NOT read by `c`
+may have an ill-typed key with `c`'s stage classes abstracted (a later
+parameter whose type mentions a stage class concretely — the reason R6
+exists), so its coherent value leaves the hole context.  The completion
+trick (coherent everywhere, `stageCohF_completeF`) plus congruence
+confines coherence to the classes `c`'s crest reads (`dep c`, typed via
+the demand + R6) — EXCEPT the defeq tier: an alias's key and its target's
+hole-form key are compared with all their inner classes as holes, so the
+identification needs those inner classes coherent AND typed, and they
+need not be in `dep c` (`mentions` is computed after the alias pass).
+Proposed checker restriction (class route, container crests only): **an
+alias used in a container class `c`'s crest mentions only `c`'s stage
+holes, in its own hole-form parameters and in its target's hole form**
+(then the alias's key and the target's reads need no coherent class).
+Probe (a scratch copy of `classFreeOk` with that conjunct):
+`tests/classcheck.sh` 610/610 as expected — no verdict moves.  It
+restricts our coarser-identification superset (official identifies
+syntactically only).  To land with milestone 2 (with its inversion), if
+the maintainer agrees; the alternative is localising P2D3's P1 chain to
+the classes a crest visits and the defeq soundness to the mentioned
+variables' context (larger, and the typing of an alias's inner classes
+stays unproven).
+
+**Next (milestone 2).**  (1) `ClassD`, the declarative record (the
+coordinator's request: key facts, the crests' `FieldD` telescopes, the
+free-set certificate as propositions with commutation at `SemEq`-level,
+any demand solution, any well-founded rank, R6's semantic `Sat`, check 5's
+kinds), with its producer from `ClassRun`; (2) the node identification
+`Ident.hid` from `classCrest_spineFit_recorded` + `classCrest_result_frame`
+at the completion, the fill values (`former_app_eq` + the N2 reading,
+re-homed from the delete-listed `ContN2`); (3) the spine predicate's
+monotonicity (T4 at `tupRel`) and accessibility (T4 at `accRel`,
+`teleBound`); (4) the rank induction (`good_step`) and the consumers'
+statements; (5) the `ClassPres` `fitMono`/`Le` in its shape.
+Estimate ≈ 2–3 sessions (the accessibility of the spine predicate and
+`ClassD`'s producer are the large parts).

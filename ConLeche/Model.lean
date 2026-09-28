@@ -122,6 +122,10 @@ public import ConLeche.Model.Inductives.ClassStageF
 public import ConLeche.Model.Inductives.ClassIdent
 public import ConLeche.Model.Inductives.ClassSpace
 public import ConLeche.Model.Inductives.ClassNode
+public import ConLeche.Model.Inductives.ClassRecIn
+public import ConLeche.Model.Inductives.ClassRestrict
+public import ConLeche.Model.Inductives.ClassComplete
+public import ConLeche.Model.Inductives.ClassBody
 public import ConLeche.Model.Inductives.ClassRunWF
 public import ConLeche.Model.Inductives.ClassAliasSem
 public import ConLeche.Model.Annot.EnvModelM
