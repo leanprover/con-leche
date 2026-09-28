@@ -79410,7 +79410,8 @@ this block wins.
      whnf.  Fixture: `corner_nestpos_redex_bad`.  A possible conformance
      check: every accepted container application occurs syntactically
      in the original constructor type.  The walk is SEEDED with the
-     stream's outside majors (`nestSeeds`, lane SEEDDEFEQ; it walked
+     stream's outside majors as the recursor check resolved them
+     (`checkBlockSeeds`, lane RPTIE; `nestSeeds`, lane SEEDDEFEQ; it walked
      official's syntactic occurrences, `nestSyn`, from POSDERIV session 5
      until then), so every auxiliary type the stream eliminates is a node
      of the walk; D1 stays a superset.
