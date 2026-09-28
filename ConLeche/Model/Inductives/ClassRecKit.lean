@@ -764,6 +764,48 @@ theorem genIhs_hihRead {K : Nat} {ρ : Nat → V} {nCt : Nat → Nat}
     rw [hargs]
     exact heq
 
+/-- **`hcallTy`, at the generated `ih`s**: a call's callee is in the
+family, it shares the caller's prefix (the generated prefix is ONE for
+the whole family), and its spine fits the callee's type as soon as the
+`ih`'s arguments fit the callee's index and major domains — the `ih`
+binder `Π a⃗, motive_t e⃗ (f a⃗)` typed (the class side, or the
+generated type's own inference). -/
+theorem genIhs_hcallTy {K : Nat} {ρ : Nat → V} {nCt rP : Nat → Nat}
+    {pre idxB : Nat → List (Nat × Nat × AnnotTerm)} {majB : Nat → Nat × Nat × AnnotTerm}
+    {fdoms : Nat → Nat → List AnnotTerm} {ihd : Nat → Nat → List IhDatum}
+    (hpl : ∀ c, c < K → (pre c).length = rP c)
+    (hcal : ∀ c, c < K → ∀ j, j < nCt c → ∀ q ∈ ihd c j, q.1 < K)
+    (hpre : ∀ c t, c < K → t < K → pre t = pre c)
+    (hfitρ : ∀ (a : Nat → V), ∀ c, c < K → ∀ j, j < nCt c → ∀ xs fs : List V,
+      SpineFit (chainFrame K a ρ) (genPdoms pre c ++ fdoms c j) (xs ++ fs) →
+      SpineFit ρ (genPdoms pre c ++ fdoms c j) (xs ++ fs))
+    (hihTy : ∀ c, c < K → ∀ j, j < nCt c → ∀ xs fs : List V,
+      xs.length = (genPdoms pre c).length →
+      SpineFit ρ (genPdoms pre c ++ fdoms c j) (xs ++ fs) →
+      ∀ q ∈ ihd c j, ∀ bs, SpineFit (consList (xs ++ fs) ρ) (q.2.1.map (·.2)) bs →
+        SpineFit (consList xs ρ) (genIdxDoms idxB q.1)
+            (q.2.2.1.map (interp V (consList bs (consList (xs ++ fs) ρ)))) ∧
+          interp V (consList bs (consList (xs ++ fs) ρ)) q.2.2.2
+            ∈ˢ interp V (consList (q.2.2.1.map (interp V (consList bs (consList (xs ++ fs) ρ))))
+                (consList xs ρ)) (majB q.1).2.2) :
+    ∀ c, c < K → ∀ j, j < nCt c → ∀ (xs fs : List V) (a : Nat → V),
+      xs.length = (genPdoms pre c).length →
+      SpineFit (chainFrame K a ρ) (genPdoms pre c ++ fdoms c j) (xs ++ fs) →
+      ∀ t is x, genIhCallAt ρ ihd xs c j fs t is x →
+        t < K ∧ xs.length = rP t ∧
+          SpineFit ρ ((genRds pre idxB majB t).map (·.2.2)) (xs ++ (is ++ [x])) := by
+  intro c hc j hj xs fs a hxl hsp t is x hcall
+  obtain ⟨q, hq, rfl, bs, hbs, rfl, rfl⟩ := hcall
+  have ht := hcal c hc j hj q hq
+  have hspρ := hfitρ a c hc j hj xs fs hsp
+  have hxs : SpineFit ρ (genPdoms pre q.1) xs := by
+    rw [genPdoms, hpre c q.1 hc ht]
+    exact (spineFit_append_at hxl hspρ).1
+  refine ⟨ht, ?_, ?_⟩
+  · rw [hxl, genPdoms, List.length_map, ← hpl q.1 ht, hpre c q.1 hc ht]
+  · obtain ⟨his, hx⟩ := hihTy c hc j hj xs fs hxl hspρ q hq bs hbs
+    exact genRds_fit hxs his hx
+
 end Ihs
 
 end ConLeche.Model
