@@ -93644,3 +93644,97 @@ tightenings: one per-class pass instead of crests/aliases/reach/walk
 passes, `classSamePairs` is quadratic in the classes.  (3) The coarser
 tier compares only closed parameters (no field variables), as official
 (`nested inductive datatypes parameters cannot contain local variables`).
+
+## CLASSCHECK / P3A — the recursor side at the generated family (2026-09-28, `agent/cc-P3A`)
+
+PROOFPLAN §2.6/§4, lane P3a (G1) with the core of P3b (G2).  Sorry-free,
+standard axioms only.  Three modules:
+
+* `Verify/Inductives/ClassGenRun.lean` — check 6's two comparison runs
+  inverted at the fueled operations: `classRuleOk_inv` (the stored rule
+  annotated and inferred at the rule-less recursors' environment, the
+  generated one annotated and inferred there, the two `isDefEq`),
+  `classRecTyOk_inv` (+ `checkConstantValF_inv`).
+* `Model/Inductives/ClassRecTransfer.lean` — G2.
+  `closedDefEq_read_eq(_inst)`: two closed terms the verified checker
+  inferred and found defeq read alike, graded, at every level
+  instantiation (accepted-reads + the rules tier's infer/defeq claims at
+  the empty context).  `classRuleOk_read_eq`/`classRecTyOk_read_eq`: the
+  same at check 6's runs (the stored rule/type vs the ANNOTATED generated
+  one).  `blockRuleRhsOk_of_read_eq`: the stored rule's obligation
+  (`BlockRuleRhsOk`, what `blockRecRuleLaw_run` consumes) follows from the
+  generated rule's plus equal readings — a rule enters the model only
+  through its closed reading (application-spine congruences
+  `interp_mkAppN_congr`, `wellDenotedV_mkAppN_congr`).
+  `spineFit_of_teleFit_readEq`: see finding 2.
+* `Model/Inductives/ClassRecKit.lean` — G1.  `graphRecPre_coreR`:
+  `graphRecPre_core` over the kit's STEP premise `hstep` instead of
+  `BlockRuleCerts` (finding 1).  The classes read off the GENERATED type:
+  `genIs` (index tuples of the generated index domains, guarded by the
+  prefix fit), `genCr` (the major domain's reading), `genFit` (the rule's
+  own binder fit + the constructor's index tuple), `genCall`/`genF`/
+  `genIhv` (the calls and `ih` values of the generated `ih`s; `genF g` is
+  the chain valuation reading the graph `g` through a graph-regime
+  λ-tower).  `graphRecPre_gen`: the recursor model at the generated family
+  — `hsplit`, `hconcl`, `hspF`, `hdec`, `hrule` and `hchain` PROVED; no
+  K.53′, no call tie, no node landing (the callee is the class the
+  generator used).  `genHchain`; at the generated `ih` shape (`IhDatum`,
+  `genIhAV`, `genIhCallAt`): `genIhs_hihRead` (an `ih` reads the chain only
+  at its calls' spines, `interp_ihShape_congr`) and `genIhs_hcallTy` (a
+  call's spine fits the callee's type from the `ih` binder's typing and
+  the ONE shared prefix).
+
+**Findings (mismatches with PROOFPLAN as written).**
+1. *G3 as planned does not hold for the checker as built*: PROOFPLAN
+   reads the step typing off "check 2's typing of the GIVEN rule, as
+   today" (`BlockRuleCerts`, `residueOk_blockFrame`) — but the class
+   check runs no per-part rule typing (whole-rhs inference, CHECKER
+   deviation (b)), so there is no `BlockRuleCerts` to read.  Resolution
+   (built): the producer takes the step's typing directly
+   (`graphRecPre_coreR`); at the generated rule it is the MINOR PREMISE's
+   own type (a minor applied to the fields and the `ih` values lands in
+   the motive at the constructor) — by construction, no typing run
+   needed.  `graphRecPre_core` (hcerts form) dies with `TargetClasses` at
+   the flip.
+2. *G2 for TYPES is not "defeq_sound, done"*: the stored type enters the
+   model through its SYNTACTIC telescope (the ι firing's `TeleFitPA` in
+   `RecRuleLaw`/`BlockRuleFire`), while `defeq_sound` gives only equal
+   READINGS, and equal Π-readings do not determine domains in general (a
+   `Prop`-valued Π forgets its domain; an empty Π forgets it too).
+   Resolution (built, `spineFit_of_teleFit_readEq`): at nonzero bits and a
+   NONEMPTY reading a graph-regime product determines its domain (a
+   member's graph) and fibres (a member modified at one point), so a
+   `TeleFitPA` against the stored type is a `SpineFit` against the
+   generated telescope.  Both conditions hold where the ι law is
+   consulted: at `ℓ ≠ 0` every bit is nonzero (`OneElimLevel`) and the
+   family's leaf inhabits the type; at `ℓ = 0` the rule law's point arm
+   needs no telescope.  Consequence for P4: the model's `rds`/`pdoms` are
+   the GENERATED type's; the stored type is read only through its reading.
+3. G2 for RULES works as planned, and the rule-defeq superset
+   (CLASSCHECK/CHECKER "NEW accepted superset") is proof-neutral: the
+   stored rule is consumed only through its reading.
+4. Closedness of the generated terms (`hasFvar = false`, no loose bvar) is
+   a G1 obligation the transfer at the run takes as a premise (the
+   generator closes every variable it opens); cheap alternative: a
+   reject-only guard in check 6.
+
+**What is left (next: P3a-2, "G1-syn", then P3c).**  `graphRecPre_gen`'s
+premises, by source: (i) SYNTAX of the generator (read `classGenRecTy`
+and `classGenRule` as the components — the type by the Π-peel
+`denoteMeta_openPis`, the rule by its λ-peel with `rec_t` read as the
+chain variable — and discharge `hchI`, `IhDatumBelow`, `hbits`, the shared
+prefix, closedness from it); (ii) `hstep` from the minor's domain (the
+minor's field domains are the rule's, lifted; its `ih` domains the
+`genIhv` values' types); (iii) CLASS side (T3′): `hctorTy` (the rule's own
+spine fits the type — the constructor typed at the class), `hmk` (the
+constructor's value is parameter-blind, the recorded clause's injection),
+`hihTy` (an `ih`'s arguments fit the callee's domains — syntactic at a
+same class, the per-component tie at a defeq-same one), `hIdx`;
+(iv) P3c: `hind` (the class kit), `huniq` (check 5), `hconclTy`;
+(v) P4: the environment crossing bare→stored (`denoteMeta_swap`, as today)
+and `blockRuleRhsOk` wiring.  Estimate: G1-syn 1.5–2 sessions, the rest as
+planned (P3 total unchanged at 4–6).
+
+Gates: `lake build`/`lake test` 0 warnings; `tests/arena.sh` green
+(shake: ClassCheck's `Std.Data.HashSet.Basic` made `public` — a public
+signature names it, surfaced once ClassCheck entered a shake root).
