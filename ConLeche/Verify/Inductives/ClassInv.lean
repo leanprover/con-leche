@@ -880,4 +880,180 @@ theorem classIhsAgree_run {sameIdx : Nat → Nat → Bool} {ctor : Name} {ihs : 
       obtain ⟨k1, h1, h2⟩ := hall l k0 (by simpa using hk0)
       exact ⟨k1, by simpa using h1, by rw [show i + (l + 1) = i + 1 + l by omega]; exact h2⟩
 
+/-! ## The whole check -/
+
+/-- The class check's context: the canonical parameters `params`, the
+members' holes after them. -/
+@[expose] def classCtxOf (p : BlockParts) (fe₁ : FEnv) (env₁ : Env) (params : List Expr) : NestCtx :=
+  ⟨p.toBlockShape.memberNames, p.toBlockShape.lps, p.toBlockShape.nP, p.toBlockShape.nIdxs, params,
+    p.toBlockShape.resSort, fe₁.find?, env₁.consts⟩
+
+/-- The end of the holes: the members', then one per container class. -/
+@[expose] def classHi (ctx : NestCtx) (cls : List ClassInfo) : Nat :=
+  ctx.hiAt 0 + (cls.filter (·.member.isNone)).length
+
+/-- The crests after the defeq tier's second abstraction. -/
+@[expose] def classAliasAbs (al : List ClassAlias) (e : Expr) : Expr :=
+  (classAbsGo (aliasOcc? al) none {} e).1
+
+/-- The identification check 5 uses. -/
+@[expose] def classSameIdx (cls : List ClassInfo) (pairs : List (Nat × Nat)) (i j : Nat) : Bool :=
+  i == j || (cls.getD i default).same (cls.getD j default) || pairs.contains (i, j)
+
+/-- A class's constructor instantiated (before the class abstraction): a
+member's at the canonical parameters with the members abstracted, a
+container's at the class's levels and member-abstracted parameters. -/
+@[expose] def classCrestInst (ctx : NestCtx) (holes : List Expr) (c : ClassInfo) (cv : ConstantVal) :
+    Option Expr :=
+  match c.member with
+  | some _ => instPisWith ctx.params (nestAbstract ctx holes cv.type)
+  | none => instPisWith c.dsA (cv.type.instantiateLevelParams cv.levelParams c.key.lvls)
+
+theorem classCrest_run {holes : List Expr} {cls : List ClassInfo} {c : ClassInfo} {cv : ConstantVal}
+    {e : Expr} (h : classCrest (m := CheckM) ctx holes cls c cv = .ok e) :
+    ∃ e0, classCrestInst ctx holes c cv = some e0 ∧ e = classAbs cls e0 := by
+  unfold classCrest at h
+  obtain ⟨e0, h0, h⟩ := exceptBind_ok h
+  simp only [pure, Except.pure, Except.ok.injEq] at h
+  exact ⟨e0, unwrapOr_ok h0, h.symm⟩
+
+/-- **The class check, as run** (see the module docstring): the pre-pass's
+reading, the context, the classes (check 1) and R6, the crests and the
+defeq tier, reachability, checks 3/4 (`walked`), check 5 (`ctors`, the
+output), the elimination guard, and check 6's two runs. -/
+structure ClassRun (ops : CheckerOps CheckM) (fe₁ : FEnv) (env₁ : Env) (fe : FEnv) (p : BlockParts)
+    (block : List ConstantInfo) (cvTas : List ConstantVal)
+    (ctorsAs : List (List (ConstantVal × Nat)))
+    (out : List (ConstantVal × TargetMajor × List Expr)) (ctors : List (List ClassCtor)) : Type where
+  rd : ClassRead
+  pq : List Expr × Expr
+  holes : List Expr
+  cls : List ClassInfo
+  crests0 : List (List Expr)
+  al : List ClassAlias
+  pairs : List (Nat × Nat)
+  walked : List (List ClassCtor)
+  formerTys : List Expr
+  pre : List (Expr × BinderMeta)
+  cvRis : List ConstantVal
+  pins : targetRecPins (m := CheckM) p.toBlockShape block = .ok ()
+  hrd : classRead p.toBlockShape.nP (fun I =>
+      if p.toBlockShape.memberNames.contains I then p.toBlockShape.nP else
+        match fe₁.find? I with
+        | some (.indInfo _ caps) => caps.nparams
+        | _ => 0) p.toBlockShape.recs = some rd
+  hpq : ∃ cvTa0, cvTas.head? = some cvTa0 ∧ openPisAtFvars p.toBlockShape.nP cvTa0.type 0 = some pq
+  hholes : nestHoles (classCtxOf p fe₁ env₁ pq.1) = some holes
+  /-- check 1 -/
+  hcls : ClassInfosD ops env₁ (classCtxOf p fe₁ env₁ pq.1) holes ctorsAs 0 rd.classes cls
+  hone : (List.range p.toBlockShape.k).all
+    (fun t => (cls.filter (·.member == some t)).length == 1) = true
+  /-- R6 -/
+  r6 : ∀ c ∈ cls, c.member = none →
+    c.dsA.map (classAbs (classCyc (fun I => ((fe₁.idx[I]?).map (·.1)).getD 0) cls c)) ≠ c.dsA →
+    ∃ ty, ops.inferType env₁ (classHi (classCtxOf p fe₁ env₁ pq.1) cls)
+      (Expr.mkAppN (.const c.key.ind c.key.lvls)
+        (c.dsA.map (classAbs (classCyc (fun I => ((fe₁.idx[I]?).map (·.1)).getD 0) cls c)))) = .ok ty
+  /-- the crests, instantiated and syntactically abstracted -/
+  hcrests : cls.mapM (fun c => c.ctors.mapM fun x =>
+    classCrest (m := CheckM) (classCtxOf p fe₁ env₁ pq.1) holes cls c x.1) = .ok crests0
+  /-- the defeq tier -/
+  hal : ∀ a ∈ al, ClassAliasOk ops env₁ (classHi (classCtxOf p fe₁ env₁ pq.1) cls) cls a
+  hpairs : ∀ q ∈ pairs, ClassSameOk ops env₁ (classHi (classCtxOf p fe₁ env₁ pq.1) cls) cls q.1 q.2 ∨
+    ClassSameOk ops env₁ (classHi (classCtxOf p fe₁ env₁ pq.1) cls) cls q.2 q.1
+  /-- reachability -/
+  reached : (List.range cls.length).all (classReached
+    (crests0.map (·.map (classAliasAbs al))) cls
+    (fun I => match fe₁.find? I with
+      | some (.indInfo _ caps) => caps.all
+      | _ => [])
+    (classSameIdx cls pairs) (cls.length + 1)
+    ((List.range cls.length).filter fun c => (cls.getD c default).member.isSome)).contains = true
+  /-- checks 3 and 4 -/
+  hwalk : classAllCtors ops env₁ (classCtxOf p fe₁ env₁ pq.1) holes cls
+    (classHi (classCtxOf p fe₁ env₁ pq.1) cls) cls (crests0.map (·.map (classAliasAbs al)))
+      = .ok walked
+  /-- check 5 -/
+  h5 : (List.range cls.length).mapM (fun c => (walked.getD c []).mapM fun x => do
+    let (_, ihs) ← classMinorSlot (m := CheckM) rd c x.cv.name
+    let ks ← classIhsAgree (m := CheckM) (classSameIdx cls pairs) x.cv.name ihs 0 x.kinds
+    pure { x with kinds := ks }) = .ok ctors
+  hminors : ((rd.slots.filter fun | .minor .. => true | _ => false).length ==
+    (ctors.map List.length).sum) = true
+  /-- the elimination guard -/
+  elim : (p.toBlockShape.large &&
+    !blockLargeElimAllowed p.toBlockShape (cls.any (·.member.isNone))) = false
+  /-- check 6: the family generated, every recursor's type and rules -/
+  hformer : cls.mapM (fun c => match c.member with
+    | some t => pure ((cvTas.getD t default).type)
+    | none => match fe₁.find? c.key.ind with
+      | some (.indInfo cv _) => pure (cv.type.instantiateLevelParams cv.levelParams c.key.lvls)
+      | _ => throw (.internal "class check: class former vanished")) = (.ok formerTys : CheckM _)
+  hpre : ClassGen.prefixBinders ⟨p.toBlockShape.nP, pq.1, cls, formerTys, rd.slots, ctors,
+    structElimLevel p.toBlockShape.elim p.toBlockShape.large, []⟩ = some pre
+  htys : classRecTysOk ops fe ⟨p.toBlockShape.nP, pq.1, cls, formerTys, rd.slots, ctors,
+    structElimLevel p.toBlockShape.elim p.toBlockShape.large, pre⟩ p.toBlockShape.k
+    p.toBlockShape.recs (targetRecRules block) rd.recCls = .ok cvRis
+  hrules : classRecsRulesOk ops StructWalkers.plain fe
+    (consBlockRecsBareF p.toBlockShape 0
+      ((cvRis.zip rd.recCls).map fun (cv, c) => (cv, (cls.getD c default).nIdx)) fe)
+    ⟨p.toBlockShape.nP, pq.1, cls, formerTys, rd.slots, ctors,
+      structElimLevel p.toBlockShape.elim p.toBlockShape.large, pre⟩
+    (fun t => ((List.range p.toBlockShape.recs.length).find? fun r => rd.recCls.getD r 0 == t).map
+      fun r => (p.toBlockShape.recs.getD r default).cvR.name)
+    (Level.zeronessOf (structElimLevel p.toBlockShape.elim p.toBlockShape.large))
+    p.toBlockShape.recs cvRis rd.recCls = .ok out
+
+/-- **The class check, inverted** — the ONE unfolding of `classRecCheck`
+(at the pure install's shadow operations `ShadowOps.ofOps ops`; the
+model's `ShadowOps.fueled mode F` is one). -/
+theorem classRecCheck_run {fe₁ : FEnv} {env₁ : Env} {fe : FEnv} {p : BlockParts}
+    {block : List ConstantInfo} {cvTas : List ConstantVal}
+    {ctorsAs : List (List (ConstantVal × Nat))}
+    {out : List (ConstantVal × TargetMajor × List Expr)} {ctors : List (List ClassCtor)}
+    (h : classRecCheck (ShadowOps.ofOps ops) fe₁ env₁ fe p block cvTas ctorsAs = .ok (out, ctors)) :
+    Nonempty (ClassRun ops fe₁ env₁ fe p block cvTas ctorsAs out ctors) := by
+  unfold classRecCheck at h
+  simp only [ShadowOps.ofOps] at h
+  obtain ⟨u0, hpins, h⟩ := exceptBind_ok h
+  obtain ⟨rd, hrd, h⟩ := exceptBind_ok h
+  obtain ⟨cvTa0, hcv, h⟩ := exceptBind_ok h
+  obtain ⟨pq, hpq, h⟩ := exceptBind_ok h
+  obtain ⟨holes, hholes, h⟩ := exceptBind_ok h
+  obtain ⟨u1, -, h⟩ := exceptBind_ok h
+  obtain ⟨cls, hcls, h⟩ := exceptBind_ok h
+  split at h
+  case isFalse => close_throw h
+  rename_i hone
+  obtain ⟨u2, hr6, h⟩ := exceptBind_ok h
+  obtain ⟨crests0, hcr, h⟩ := exceptBind_ok h
+  obtain ⟨al, hal, h⟩ := exceptBind_ok h
+  obtain ⟨pairs, hpairs, h⟩ := exceptBind_ok h
+  split at h
+  case isFalse => close_throw h
+  rename_i hreach
+  obtain ⟨walked, hwalk, h⟩ := exceptBind_ok h
+  obtain ⟨u3, -, h⟩ := exceptBind_ok h
+  obtain ⟨ctors', h5, h⟩ := exceptBind_ok h
+  split at h
+  case isFalse => close_throw h
+  rename_i hmin
+  split at h
+  case isTrue => close_throw h
+  rename_i hel
+  obtain ⟨formerTys, hformer, h⟩ := exceptBind_ok h
+  obtain ⟨pre, hpre, h⟩ := exceptBind_ok h
+  obtain ⟨cvRis, htys, h⟩ := exceptBind_ok h
+  obtain ⟨u4, -, h⟩ := exceptBind_ok h
+  obtain ⟨out', hout, h⟩ := exceptBind_ok h
+  obtain ⟨u5, -, h⟩ := exceptBind_ok h
+  simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
+  obtain ⟨rfl, rfl⟩ := h
+  cases u0
+  exact ⟨⟨rd, pq, holes, cls, crests0, al, pairs, walked, formerTys, pre, cvRis, hpins,
+    unwrapOr_ok hrd, ⟨cvTa0, unwrapOr_ok hcv, unwrapOr_ok hpq⟩, unwrapOr_ok hholes,
+    classInfos_run hcls, hone, classKeysCyclic_run hr6, hcr, classAliases_run hal,
+    classSamePairs_run hpairs, hreach, hwalk, h5, hmin, by simpa using hel, hformer,
+    unwrapOr_ok hpre, htys, hout⟩⟩
+
 end ConLeche
