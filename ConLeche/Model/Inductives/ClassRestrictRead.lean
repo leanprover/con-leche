@@ -1,9 +1,8 @@
 module
 
-public import ConLeche.Model.Inductives.ClassRestrict
+import ConLeche.Model.Inductives.ClassRestrict
 public import ConLeche.Model.Inductives.ClassComplete
 public import ConLeche.Model.Inductives.ClassRecIn
-import ConLeche.Model.Inductives.HoleKit
 
 public section
 

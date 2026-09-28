@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.Model.Inductives.ClassHFits
-public import ConLeche.Model.Inductives.ClassSpace
+public import ConLeche.Model.Inductives.HoleKit
 
 public section
 

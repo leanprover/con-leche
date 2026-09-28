@@ -2,9 +2,7 @@ module
 
 public import ConLeche.Model.Inductives.NestPosAcc
 public import ConLeche.Model.Annot.LfpAcc
-public import ConLeche.Model.Inductives.ClassAccTele
 public import ConLeche.Model.Inductives.BlockPosRun
-import ConLeche.Model.Inductives.StructEntryKit
 
 public section
 

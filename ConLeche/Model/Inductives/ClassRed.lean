@@ -13,7 +13,6 @@ import ConLeche.Semantics.Frame
 import ConLeche.Verify.Leaves
 import ConLeche.Verify.Abstract
 import ConLeche.Verify.InferLeaves
-public import ConLeche.Semantics.ConstsBound
 import ConLeche.Model.Inductives.ErasureKit
 
 public section

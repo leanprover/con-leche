@@ -1,7 +1,8 @@
 module
 
 public import ConLeche.Model.Inductives.ClassBlock
-public import ConLeche.Model.Inductives.ClassCrestFit
+import ConLeche.Model.Inductives.ClassCrestFit
+public import ConLeche.Model.Inductives.ClassHFits
 
 public section
 

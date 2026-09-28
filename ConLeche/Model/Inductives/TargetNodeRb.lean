@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.Model.Inductives.HoleSubst
-public import ConLeche.Model.Inductives.ContN2
+public import ConLeche.Model.Inductives.ClassN2
 public import ConLeche.Model.Inductives.BlockHoleRead
 public import ConLeche.Verify.Inductives.PosNodes
 public import ConLeche.Kernel.Inductives.RecCheck

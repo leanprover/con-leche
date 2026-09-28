@@ -4,7 +4,7 @@ public import ConLeche.Model.Inductives.ContAccFrame
 import ConLeche.Model.Inductives.ContSem
 import ConLeche.Model.Inductives.NestPosAccKit
 import ConLeche.Model.Inductives.ContLeaf
-import ConLeche.Model.Inductives.ContN2
+import ConLeche.Model.Inductives.ClassN2
 public import ConLeche.Model.Inductives.ContFrame
 import ConLeche.Verify.Cached.Erase
 import ConLeche.Model.Rules.IotaSoundKit

@@ -30,7 +30,7 @@ the levels and the parameters, opened at the rule prefix
 side, the twin of `blockRecIdxConv_run` (`BlockRecIdxConv.lean`) at a
 container:
 
-* `instFormer_read` (`ContN2.lean`) reads the instantiated former as the
+* `instFormer_read` (`ClassN2.lean`) reads the instantiated former as the
   recorded index telescope `D.ids` substituted at the parameters'
   readings, so a spine fits the opened domains at the prefix exactly
   when it fits `D.ids` at the key frame;

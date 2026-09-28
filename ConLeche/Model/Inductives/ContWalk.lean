@@ -1,6 +1,7 @@
 module
 
 import ConLeche.Model.Inductives.ContCtor
+public import ConLeche.Model.Inductives.NestPosMono
 public import ConLeche.Model.Inductives.ContLeaf
 import ConLeche.Model.Annot.LfpFormer
 import ConLeche.Model.Inductives.ContFrame

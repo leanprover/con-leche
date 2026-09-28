@@ -16,6 +16,7 @@ import ConLeche.Model.IndSubst
 import ConLeche.Verify.Inductives.DirectInv
 import ConLeche.Verify.Inductives.DirectGen
 public import ConLeche.Model.Inductives.StoredShapes
+public import ConLeche.Model.Inductives.ClassWalkShape
 import ConLeche.Verify.Inductives.ScopeKit
 import ConLeche.Model.Inductives.ErasureKit
 
@@ -104,36 +105,6 @@ theorem holeLeafOk_crest {ctx : NestCtx} {holes : List Expr} {cty crest : Expr}
 section Producer
 
 variable {V : Type w} [SetTheory V] {env : Env} {m : EnvModel V env} {ψ : Name → Nat}
-
-/-- **U4, read**: a field whose variable no later binder and not the result
-uses is read by no later field — at any base depth (a container frame's
-telescope). -/
-theorem u4_fieldSlotAt {b nF l l' : Nat} {crest rest : Expr} {xs : List Expr}
-    {x : Expr} {ea : AnnotTerm}
-    (hop : openPisAtFvars nF crest (b) = some (xs, rest))
-    (hW : Expr.WScoped (b) crest) (hU : structUsedLater crest 0 l = false)
-    (hl : l < nF) (hll : l < l') (hx : xs[l']? = some x)
-    (hr : denoteMeta m.acval env ψ (b + l') x.fvarTypeD = some ea) :
-    NoBVar (LfpDatum.fieldSlot l l') ea := by
-  obtain ⟨⟨bs, r⟩, hst⟩ := Option.isSome_iff_exists.mp
-    (stripPis_of_openPis nF hop (l + 1) (by omega))
-  have hfree : r.hasLooseBVar 0 = false := by
-    unfold structUsedLater at hU
-    rw [Nat.zero_add, hst] at hU
-    simpa [Expr.hasLooseBVarB_eq] using hU
-  obtain ⟨h1, -⟩ := openPisAtFvars_leaf_free nF l hop hl hst hfree fun z hz => by
-    have := Expr.fvarLeaves_lt_of_wscoped hW z hz
-    omega
-  have hxfree : ∀ z ∈ x.fvarTypeD.fvarLeaves, z.1 ≠ b + l := by
-    intro z hz
-    obtain ⟨ty, rfl⟩ := ConLeche.openPisAtFvars_index nF crest (b) hop l' x hx
-    exact h1 l' hll _ hx z (by simp only [Expr.fvarTypeD] at hz; simp [Expr.fvarLeaves, hz])
-  have hwx := openPisAtFvars_typeWScoped nF hop hW l' x hx
-  obtain ⟨X, rfl⟩ := denoteMeta_liftN_of_leaf_free m _ _ hwx (q := b + l) (by omega)
-    hxfree hr
-  refine NoBVar.mono (fun i hi => ?_) (noBVar_liftN_one X _)
-  simp only [LfpDatum.fieldSlot] at hi
-  omega
 
 /-- **U4, read**: a field whose variable no later binder and not the result
 uses is read by no later field. -/

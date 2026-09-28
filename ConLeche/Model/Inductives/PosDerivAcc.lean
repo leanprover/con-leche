@@ -3,7 +3,7 @@ module
 public import ConLeche.Model.Inductives.ContAcc
 import ConLeche.Verify.Inductives.PosNodes
 import ConLeche.Model.Inductives.NestPosAccKit
-import ConLeche.Model.Inductives.ContN2
+import ConLeche.Model.Inductives.ClassN2
 import ConLeche.Verify.Cached.Erase
 import ConLeche.Model.Rules.Sound
 import ConLeche.Verify.Rules.Bridge

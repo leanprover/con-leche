@@ -1,8 +1,8 @@
 module
 
-public import ConLeche.Model.Annot.LfpFormer
-public import ConLeche.Model.Annot.LfpHoleOp
-import ConLeche.Model.NatEqs
+public import ConLeche.Model.Annot.EnvModelM
+import ConLeche.Model.Annot.LfpFormer
+import ConLeche.Model.Annot.LfpHoleOp
 public import ConLeche.Model.Annot.BitLemmas
 import ConLeche.Semantics.Tower.FixTower
 
