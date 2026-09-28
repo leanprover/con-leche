@@ -12,6 +12,7 @@ public import ConLeche.Verify.Cached.NestPosC
 import ConLeche.Verify.Inductives.NestedRuleSyn
 import ConLeche.Verify.Inductives.DirectInv
 import ConLeche.Verify.Cached.KnotCongr
+import ConLeche.Verify.Inductives.RecCheckRun
 
 public section
 

@@ -14,8 +14,10 @@ import ConLeche.Model.Inductives.BlockRecPreRun
 import ConLeche.Model.Inductives.BlockRecRule
 import ConLeche.Model.Inductives.PosDerivTie
 import ConLeche.Verify.Inductives.NestCallSyn
-public import ConLeche.Verify.Inductives.RecStage
+import ConLeche.Verify.Inductives.RecStage
+public import ConLeche.Verify.Inductives.RecStageRun
 public import ConLeche.Model.Inductives.TargetRuleData
+import ConLeche.Model.Inductives.NestPosOut
 
 public section
 

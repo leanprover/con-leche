@@ -57,10 +57,32 @@ private def runEnum (rt rf : Expr) : Except CheckError Env :=
 -- a class spelled at an equivalent level is the same class
 #guard (Expr.const (nm "List") [.max .zero .zero]).eqUpToLevels (.const (nm "List") [.zero])
 #guard !(Expr.const (nm "List") [.succ .zero]).eqUpToLevels (.const (nm "List") [.zero])
--- levels compare by their simplified forms (transitive): `max u u` is not
--- simplified to `u`, so it is no spelling of `u` here
-#guard !(Expr.const (nm "List") [.max (.param (nm "u")) (.param (nm "u"))]).eqUpToLevels
-  (.const (nm "List") [.param (nm "u")])
+-- levels compare by their canonical forms (`Level.canon`, transitive), which
+-- subsume official's `mk_max`/`mk_imax`: `max u u`, absorption, offsets,
+-- `imax` rules, and the order of `max` arguments
+#guard (Expr.const (nm "List") [.max (.param (nm "u")) (.param (nm "u"))]).eqUpToLevels
+  (.const (nm "List") [(.param (nm "u"))])
+#guard (Expr.const (nm "List") [.max (.param (nm "u")) (.max (.param (nm "u")) (.param (nm "v")))]).eqUpToLevels
+  (.const (nm "List") [.max (.param (nm "v")) (.param (nm "u"))])
+#guard (Expr.const (nm "List") [.max (.param (nm "u")) (.succ (.param (nm "u")))]).eqUpToLevels
+  (.const (nm "List") [.succ (.param (nm "u"))])
+#guard (Expr.const (nm "List") [.max (.succ .zero) (.succ (.param (nm "u")))]).eqUpToLevels
+  (.const (nm "List") [.succ (.param (nm "u"))])
+#guard (Expr.const (nm "List") [.imax (.param (nm "u")) (.param (nm "u"))]).eqUpToLevels
+  (.const (nm "List") [(.param (nm "u"))])
+#guard (Expr.const (nm "List") [.imax (.succ .zero) (.param (nm "u"))]).eqUpToLevels
+  (.const (nm "List") [(.param (nm "u"))])
+#guard (Expr.const (nm "List") [.imax (.param (nm "v")) (.max (.param (nm "u")) (.succ .zero))]).eqUpToLevels
+  (.const (nm "List") [.max (.succ .zero) (.max (.param (nm "u")) (.param (nm "v")))])
+#guard (Expr.const (nm "List") [.imax (.param (nm "u")) .zero]).eqUpToLevels
+  (.const (nm "List") [.zero])
+-- distinct values stay distinct
+#guard !(Expr.const (nm "List") [.max (.param (nm "u")) (.param (nm "v"))]).eqUpToLevels
+  (.const (nm "List") [(.param (nm "u"))])
+#guard !(Expr.const (nm "List") [.imax (.param (nm "u")) (.param (nm "v"))]).eqUpToLevels
+  (.const (nm "List") [.max (.param (nm "u")) (.param (nm "v"))])
+#guard !(Expr.const (nm "List") [.max (.succ (.succ .zero)) (.succ (.param (nm "u")))]).eqUpToLevels
+  (.const (nm "List") [.succ (.param (nm "u"))])
 -- binder data is compared (the reading reads it)
 #guard !(Expr.forallE (.sort .zero) (.sort .zero) ⟨.never⟩).eqUpToLevels
   (.forallE (.sort .zero) (.sort .zero) ⟨.ifAllZero []⟩)

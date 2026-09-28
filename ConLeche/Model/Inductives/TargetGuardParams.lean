@@ -3,13 +3,13 @@ module
 import ConLeche.Model.Inductives.DeclBlock
 public import ConLeche.Model.Inductives.TargetClasses
 import ConLeche.Verify.Inductives.RecStage
-import ConLeche.Verify.Inductives.RecCheckRun
 import ConLeche.Verify.Inductives.BlockWF
 import ConLeche.Model.Inductives.BlockRecMem
 import ConLeche.Model.Inductives.BlockRecPreRun
 import ConLeche.Model.Inductives.BlockRecTyShapeRun
 import ConLeche.Model.Inductives.BlockDeclRun
 import ConLeche.Model.Inductives.DeclNative
+public import ConLeche.Model.Inductives.NestedRecCtx
 
 public section
 

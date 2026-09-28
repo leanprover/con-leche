@@ -13,6 +13,7 @@ import ConLeche.Model.Inductives.TargetClassFrame
 import ConLeche.Verify.Inductives.NestCallRun
 public import ConLeche.Model.Inductives.TargetClass
 public import ConLeche.Model.Inductives.TargetIhData
+public import ConLeche.Verify.Inductives.RecStageRun
 
 public section
 

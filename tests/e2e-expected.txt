@@ -2501,6 +2501,23 @@
 # `D.{u,v} | mk (l : List (β × γ))` (elaborated `List.{max u v}`), nested
 # at `D.{0,0} R R`.  Official 0; ours 0 (was a false reject, 1).
 0 corner_keynamed_level_inst.ndjson
+# LEVEL NORMAL FORM (lane CC-LEVELNF; official = arena official, measured):
+# spellings official's `instantiate` (`mk_max`/`mk_imax`) identifies at a
+# level PARAMETER.  d3_param: `corner_keynamed_d3_level` nested at
+# `D.{w} R`.  Official 0, ours 0.
+0 corner_levelnf_d3_param.ndjson
+# d3_param_dup: its binder forged `List.{max u u} β`
+# (`scripts/mk_levelnf_fixtures.py`); official `mk_max(w, w) = w`.
+# Official 0; ours 0 (class route 1 while it matched levels by
+# `Level.simplify`).
+0 corner_levelnf_d3_param_dup.ndjson
+# d3_param_imax1: forged `List.{imax 1 u} β`; official `mk_imax(1, w) = w`.
+# Official 0, ours 0.
+0 corner_levelnf_d3_param_imax1.ndjson
+# param_inst: `corner_keynamed_level_inst` nested at `D.{w,w} R R` (source,
+# no forging): official's key `List.{w}`, ours `List.{max w w}`.
+# Official 0, ours 0.
+0 corner_levelnf_param_inst.ndjson
 # RECPOS ROBUSTNESS (lane SEEDDEFEQ; forged by `scripts/mk_recpos_fixtures.py`
 # from exported twins, official = arena official v4.34.0-rc2, measured).
 # Variations of official's auxiliary recursor family.  The positivity check

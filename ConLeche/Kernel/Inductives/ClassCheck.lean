@@ -149,23 +149,24 @@ def classInfos (ops : CheckerOps m) (env : Env) (ctx : NestCtx) (holes : List Ex
 
 /-! ## The class abstraction (official's `replace_all_nested`) -/
 
-/-- Structural equality up to universe levels with equal SIMPLIFIED
-forms (and free variables' annotations): official's instantiation
-simplifies levels (`mk_max`: `max 0 0 = 0`), ours does not, so a class
-official spells `List.{0} R` may occur as `List.{max 0 0} R` — or deep
-inside another class's parameters.  The levels are compared by their
-`Level.simplify` normal forms, not by `Level.isEquiv`: equality of normal
-forms is TRANSITIVE, so two spellings of one class are recognised alike
-wherever they occur (the class abstraction's reading needs this,
-DESIGN CLASSCHECK / P2B; no stream of the class sweep needs more).
-Binder data (`BinderMeta`, the codomain's zero-condition, which the
-reading reads) must be EQUAL.  Equal-up-to terms read alike
+/-- Structural equality up to universe levels with equal CANONICAL forms
+(`Level.canon`; and free variables' annotations): official's
+instantiation simplifies levels (`mk_max`/`mk_imax`: `max 0 0 = 0`,
+`max w w = w`, …), ours does not, so a class official spells
+`List.{0} R` may occur as `List.{max 0 0} R` — or deep inside another
+class's parameters.  The levels are compared by EQUALITY of normal forms,
+not by `Level.isEquiv`: that is TRANSITIVE, so two spellings of one class
+are recognised alike wherever they occur (the class abstraction's reading
+needs this, DESIGN CLASSCHECK / P2B); `canon` subsumes every
+simplification official's instantiation performs (DESIGN CLASSCHECK /
+LEVELNF).  Binder data (`BinderMeta`, the codomain's zero-condition, which
+the reading reads) must be EQUAL.  Equal-up-to terms read alike
 (`denoteMeta_semEq`, `Expr.semEq_of_eqUpToLevels`). -/
 def Expr.eqUpToLevels : Expr → Expr → Bool
   | .bvar i, .bvar j => i == j
   | .fvar i _, .fvar j _ => i == j
-  | .sort u, .sort v => Level.simplify u == Level.simplify v
-  | .const n us, .const n' us' => n == n' && us.map Level.simplify == us'.map Level.simplify
+  | .sort u, .sort v => Level.canon u == Level.canon v
+  | .const n us, .const n' us' => n == n' && us.map Level.canon == us'.map Level.canon
   | .lit a, .lit b => a == b
   | .app f a, .app g b => Expr.eqUpToLevels f g && Expr.eqUpToLevels a b
   | .lam t b bm, .lam t' b' bm' => bm == bm' && Expr.eqUpToLevels t t' && Expr.eqUpToLevels b b'
@@ -185,9 +186,10 @@ def classParamsEq (as bs : List Expr) : Bool :=
 /-- A class occurrence `I.{us} D⃗ ı⃗`: the FIRST class (container classes
 only; the members are holes already) whose parameters are `D⃗` up to the
 free variables' annotations, at structurally equal levels, else at
-levels with equal simplified forms, the parameters up to annotations or
-`Expr.eqUpToLevels` (official's instantiation simplifies `max 0 0`; our
-`Level.subst` does not).  Its hole and the number of index arguments. -/
+levels with equal canonical forms (`Level.canon`), the parameters up to
+annotations or `Expr.eqUpToLevels` (official's instantiation simplifies
+`max 0 0`, `max w w`; our `Level.subst` does not).  Its hole and the
+number of index arguments. -/
 def classOcc? (cls : List ClassInfo) (e : Expr) : Option (Expr × Nat) :=
   match e.getAppFn with
   | .const I us =>
@@ -201,7 +203,7 @@ def classOcc? (cls : List ClassInfo) (e : Expr) : Option (Expr × Nat) :=
       match cs.find? (fun c => us == c.key.lvls && psE == c.dsE) with
       | some c => pick c
       | none =>
-        match cs.find? (fun c => us.map Level.simplify == c.key.lvls.map Level.simplify &&
+        match cs.find? (fun c => us.map Level.canon == c.key.lvls.map Level.canon &&
             (psE == c.dsE || (ps.length == c.dsA.length &&
               (ps.zip c.dsA).all fun (a, b) => a.eqUpToLevels b))) with
         | some c => pick c

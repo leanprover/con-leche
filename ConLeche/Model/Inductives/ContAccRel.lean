@@ -9,7 +9,7 @@ import ConLeche.Model.Annot.BitLevels
 import ConLeche.Model.Annot.LfpFormer
 import ConLeche.Model.Inductives.SumKit
 import ConLeche.Model.Inductives.TargetOutIdx
-import ConLeche.Verify.Inductives.NestContInv
+import ConLeche.Verify.Inductives.InstTypeInv
 
 public section
 

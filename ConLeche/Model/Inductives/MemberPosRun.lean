@@ -6,6 +6,9 @@ import ConLeche.Model.Inductives.BlockHoleGrade
 import ConLeche.Model.Inductives.BlockPosRunCont
 import ConLeche.Model.Inductives.BlockAccRunCont
 import ConLeche.Model.Inductives.BlockAbsRead
+import ConLeche.Model.Annot.CanonCrest
+import ConLeche.Verify.Inductives.PositivityInv
+import ConLeche.Verify.Inductives.ScopeKit
 
 public section
 
@@ -26,11 +29,44 @@ namespace ConLeche.Model
 open ConLeche.Semantics
 open ConLeche.SetModel
 open ConLeche.Term ConLeche.Verify SetTheory
-open ConLeche (Env Expr Name ConstantVal CheckM BlockParts fueledOps)
+open ConLeche (Env Expr Name ConstantInfo ConstantVal CheckM BlockParts fueledOps)
 
 universe w
 
 variable {V : Type w} [SetTheory V]
+
+omit [SetTheory V] in
+/-- **M2′ at the canonical holes, from the positivity stage's run**: the
+stage checked every constructor's member-abstracted type for a member
+constant (`nestNoMemberConst`) at its own holes; the check does not see
+the holes' annotations. -/
+theorem canonOcc_of_positivity {ops : ConLeche.CheckerOps ConLeche.CheckM} {env₁ : Env}
+    {find? : Name → Option ConstantInfo} {consts : List ConstantInfo} {p : BlockParts}
+    {cvTas : List ConstantVal} {ctorsAs : List (List (ConstantVal × Nat))}
+    {hook : ConLeche.NestHook ConLeche.CheckM}
+    {posKs : List (List (List ConLeche.NestFieldKind)) × List (List Expr) × List ConLeche.NestKey ×
+      List (Nat × Nat × Expr)}
+    (hrun : ConLeche.checkBlockPositivity ops env₁ find? consts p cvTas ctorsAs hook = .ok posKs)
+    {d : BlockData V} {lps : List Name}
+    (hnames : p.memberNames = d.memberNames) (hlps : p.lps = lps)
+    (hk : d.k = d.memberNames.length)
+    (hctorsAs : ∀ c, c < d.k → ctorsAs[c]? = some (d.ctorsM c)) :
+    ∀ c, c < d.k → ∀ (j : Nat) (cA : ConstantVal × Nat), (d.ctorsM c)[j]? = some cA →
+      (canonAbs d.memberNames lps d.nP d.k cA.1.type).nestOcc d.memberNames 0 0 = false := by
+  obtain ⟨cvTa0, fvsP, rest, holes, -, -, hholes, hall⟩ :=
+    ConLeche.checkBlockPositivity_inv_gen hrun
+  intro c hc j cA hcj
+  obtain ⟨-, -, -, -, -, -, -, hocc⟩ := hall c (d.ctorsM c) (hctorsAs c hc) j cA hcj
+  have hn : (p.nestCtx fvsP find? consts).names = d.memberNames := hnames
+  rw [hn] at hocc
+  rw [← hocc]
+  refine nestOcc_nestAbstract_blind (by rw [hn]; rfl) (by rw [← hlps]; rfl) ?_
+    (fun h hm => ?_) (fun h hm => ?_) _ _
+  · rw [canonHoles_length, ConLeche.nestHoles_length hholes, hn, hk]
+  · obtain ⟨mm, -, rfl⟩ := mem_canonHoles hm
+    exact ⟨_, _, rfl⟩
+  · obtain ⟨i, cv, caps, -, rfl⟩ := ConLeche.nestHoles_mem hholes h hm
+    exact ⟨_, _, rfl⟩
 
 /-- **The member block's positivity facts, from the positivity check's
 run** at the formers' environment. -/

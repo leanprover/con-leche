@@ -19,6 +19,7 @@ import ConLeche.Model.Inductives.BlockKitRuleRun
 import ConLeche.Model.Inductives.BlockRecPreRun
 import ConLeche.Model.Annot.BitRename
 import ConLeche.Verify.Inductives.RecStage
+public import ConLeche.Verify.Inductives.RecStageRun
 import ConLeche.Verify.Subst
 import ConLeche.Verify.BridgeWfImp
 

@@ -3,7 +3,7 @@ module
 public import ConLeche.Kernel.Inductives.ClassCheck
 import ConLeche.Verify.ExceptBind
 import ConLeche.Verify.Inductives.DirectInv
-import ConLeche.Verify.Inductives.NestContInv
+import ConLeche.Verify.Inductives.InstTypeInv
 
 public section
 

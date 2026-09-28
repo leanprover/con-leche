@@ -2,7 +2,7 @@ module
 
 public import ConLeche.Model.Inductives.TargetClass
 public import ConLeche.Model.Inductives.TargetRuleData
-import ConLeche.Model.Inductives.ContN2
+public import ConLeche.Model.Inductives.ContN2
 import ConLeche.Model.Inductives.BlockRecTyping
 public import ConLeche.Model.Inductives.BlockRecData
 import ConLeche.Model.Inductives.BlockRecPreRun
@@ -18,9 +18,9 @@ import ConLeche.Verify.Leaves
 import ConLeche.Verify.InferLeaves
 import ConLeche.Verify.InferLemmas
 import ConLeche.Verify.Denote.IndFrame
-import ConLeche.Verify.Inductives.NestScope
 import ConLeche.Verify.Cached.Erase
 import ConLeche.Verify.BridgeWfImp
+import ConLeche.Verify.Inductives.ScopeKit
 
 public section
 

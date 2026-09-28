@@ -15,6 +15,7 @@ import ConLeche.Model.Inductives.BlockRecData
 import ConLeche.Model.Inductives.BlockRecPreRun
 import ConLeche.Model.Inductives.BlockRecTyShapeRun
 import ConLeche.Verify.Inductives.RecStage
+public import ConLeche.Verify.Inductives.RecStageRun
 
 public section
 

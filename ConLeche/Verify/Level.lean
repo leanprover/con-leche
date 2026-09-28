@@ -51,6 +51,132 @@ theorem eval_simplify (φ : Name → Nat) (l : Level) :
     eval φ (simplify l) = eval φ l := by
   fun_induction simplify with grind [eval, eval_combining]
 
+/-! ### `canon` preserves evaluation -/
+
+/-- The value of a term list: the `max` of its terms' values. -/
+@[expose] def evalTerms (φ : Name → Nat) : List (Level × Nat) → Nat
+  | [] => 0
+  | (a, k) :: L => Max.max (eval φ a + k) (evalTerms φ L)
+
+theorem eval_addOffset (φ : Name → Nat) (a : Level) (k : Nat) :
+    eval φ (addOffset a k) = eval φ a + k := by
+  induction k with
+  | zero => rfl
+  | succ k ih => simp [addOffset, eval, ih]; omega
+
+theorem eval_ofTerms (φ : Name → Nat) (L : List (Level × Nat)) :
+    eval φ (ofTerms L) = evalTerms φ L := by
+  fun_induction ofTerms with
+  | case1 => rfl
+  | case2 => simp [evalTerms, eval_addOffset]
+  | case3 a k L _ ih => simp [eval, evalTerms, eval_addOffset, ih]
+
+theorem evalTerms_insertTerm (φ : Name → Nat) (a : Level) (k : Nat) :
+    ∀ L : List (Level × Nat),
+      evalTerms φ (insertTerm a k L) = Max.max (eval φ a + k) (evalTerms φ L)
+  | [] => by simp [insertTerm, evalTerms]
+  | (b, j) :: L => by
+    unfold insertTerm
+    split
+    · rename_i h; subst h; simp only [evalTerms]; omega
+    split
+    · simp [evalTerms]
+    · simp only [evalTerms, evalTerms_insertTerm φ a k L]; omega
+
+theorem evalTerms_flatTerms (φ : Name → Nat) (l : Level) (k : Nat) (acc : List (Level × Nat)) :
+    evalTerms φ (flatTerms l k acc) = Max.max (eval φ l + k) (evalTerms φ acc) := by
+  fun_induction flatTerms with
+  | case1 l k acc ih => rw [ih]; simp only [eval]; omega
+  | case2 a b k acc iha ihb => rw [ihb, iha]; simp only [eval]; omega
+  | case3 l k acc => exact evalTerms_insertTerm φ l k acc
+
+private theorem le_evalTerms_of_any (φ : Name → Nat) (c : Nat) :
+    ∀ L : List (Level × Nat), L.any (fun t => decide (c ≤ t.2)) = true → c ≤ evalTerms φ L
+  | [], h => by simp at h
+  | (a, k) :: L, h => by
+    simp only [List.any_cons, Bool.or_eq_true, decide_eq_true_eq] at h
+    simp only [evalTerms]
+    rcases h with h | h
+    · omega
+    · have := le_evalTerms_of_any φ c L h; omega
+
+theorem evalTerms_dropConst (φ : Name → Nat) (L : List (Level × Nat)) :
+    evalTerms φ (dropConst L) = evalTerms φ L := by
+  unfold dropConst
+  split
+  · rename_i c L
+    split
+    · rename_i h
+      have := le_evalTerms_of_any φ c L h
+      simp only [evalTerms, eval]; omega
+    · rfl
+  · rfl
+
+theorem eval_ne_zero_of_isNeverZero (φ : Name → Nat) :
+    ∀ l : Level, l.isNeverZero = true → eval φ l ≠ 0
+  | .zero, h | .param _, h => by simp [isNeverZero] at h
+  | .succ _, _ => by simp [eval]
+  | .max a b, h => by
+    simp only [isNeverZero, Bool.or_eq_true] at h
+    simp only [eval]
+    rcases h with h | h
+    · have := eval_ne_zero_of_isNeverZero φ a h; omega
+    · have := eval_ne_zero_of_isNeverZero φ b h; omega
+  | .imax a b, h => by
+    simp only [isNeverZero] at h
+    have := eval_ne_zero_of_isNeverZero φ b h
+    simp only [eval, if_neg this]; omega
+
+/-- The canonical sides of an `imax` keep their values. -/
+private theorem eval_canonSide (φ : Name → Nat) (a : Level)
+    (ih : ∀ k acc, evalTerms φ (canonTerms a k acc) = Max.max (eval φ a + k) (evalTerms φ acc)) :
+    eval φ (ofTerms (dropConst (canonTerms a 0 []))) = eval φ a := by
+  simp only [eval_ofTerms, evalTerms_dropConst, ih, evalTerms]; omega
+
+theorem evalTerms_canonTerms (φ : Name → Nat) (l : Level) :
+    ∀ (k : Nat) (acc : List (Level × Nat)),
+      evalTerms φ (canonTerms l k acc) = Max.max (eval φ l + k) (evalTerms φ acc) := by
+  induction l with
+  | zero => intro k acc; exact evalTerms_insertTerm φ _ k acc
+  | param n => intro k acc; exact evalTerms_insertTerm φ _ k acc
+  | succ l ih => intro k acc; simp only [canonTerms, ih, eval]; omega
+  | max a b iha ihb => intro k acc; simp only [canonTerms, ihb, iha, eval]; omega
+  | imax a b iha ihb =>
+    intro k acc
+    have ha := eval_canonSide φ a iha
+    have hb := eval_canonSide φ b ihb
+    simp only [canonTerms]
+    generalize ofTerms (dropConst (canonTerms a 0 [])) = a' at ha ⊢
+    generalize ofTerms (dropConst (canonTerms b 0 [])) = b' at hb ⊢
+    split
+    · rename_i h0
+      have : eval φ b = 0 := by rw [← hb, h0]; rfl
+      rw [evalTerms_insertTerm]; simp only [eval, if_pos this]
+    split
+    · rename_i hnz
+      have := eval_ne_zero_of_isNeverZero φ b' hnz
+      rw [evalTerms_flatTerms, evalTerms_flatTerms, ha, hb]
+      simp only [eval, if_neg (hb ▸ this)]; omega
+    split
+    · rename_i hc
+      rw [evalTerms_flatTerms, hb]
+      simp only [Bool.or_eq_true, decide_eq_true_eq] at hc
+      simp only [eval]
+      split
+      · omega
+      · rcases hc with (hc | hc) | hc
+        · have : eval φ a = 0 := by rw [← ha, hc]; rfl
+          omega
+        · have : eval φ a = 1 := by rw [← ha, hc]; rfl
+          omega
+        · have : eval φ a = eval φ b := by rw [← ha, ← hb, hc]
+          omega
+    · rw [evalTerms_insertTerm]; simp only [eval, ha, hb]
+
+/-- **`canon` preserves evaluation.** -/
+theorem eval_canon (φ : Name → Nat) (l : Level) : eval φ (canon l) = eval φ l := by
+  simp only [canon, eval_ofTerms, evalTerms_dropConst, evalTerms_canonTerms, evalTerms]; omega
+
 /-- The semantic statement decided by `leqCore fuel l r diff = some true`. -/
 def Sem (l r : Level) (diff : Int) : Prop :=
   ∀ φ : Name → Nat, (eval φ l : Int) ≤ eval φ r + diff

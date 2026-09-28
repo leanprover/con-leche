@@ -5,7 +5,7 @@ import ConLeche.Semantics.Tower.SumTower
 public import ConLeche.Verify.Inductives.DirectInv
 public import ConLeche.Model.Inductives.StructEntryKit
 import ConLeche.Model.Annot.BitInst
-import ConLeche.Model.Inductives.NestPosMono
+import ConLeche.Model.Inductives.HoleKit
 import ConLeche.Model.Annot.BitLevels
 import ConLeche.Model.IndPointKit
 

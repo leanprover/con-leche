@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.SetModel.ClassKit
-public import ConLeche.Model.Inductives.TargetNestKit
+public import ConLeche.Model.Inductives.ClauseKit
 public import ConLeche.Model.Inductives.ClassRecKit
 
 public section

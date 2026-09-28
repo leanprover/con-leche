@@ -6,7 +6,6 @@ import ConLeche.Model.Inductives.StoredShapes
 import ConLeche.Model.Inductives.PosDerivShape
 import ConLeche.Verify.Inductives.PosDerivInv
 import ConLeche.Verify.Denote.Shift
-import ConLeche.Verify.Inductives.NestScope
 import ConLeche.Model.Annot.BitRename
 import ConLeche.Model.Inductives.ContWalk
 import ConLeche.Model.Inductives.ContCtor
@@ -15,6 +14,8 @@ import ConLeche.Model.Inductives.ContFrame
 import ConLeche.Model.Rules.Inputs
 import ConLeche.Model.Rules.Sound
 import ConLeche.Verify.Rules.Bridge
+import ConLeche.Model.Inductives.StoredShapesWalk
+import ConLeche.Verify.Inductives.ScopeKit
 
 public section
 

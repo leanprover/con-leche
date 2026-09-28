@@ -3,6 +3,7 @@ module
 public import ConLeche.Model.Annot.BlockLfpTup
 public import ConLeche.Model.Inductives.BlockStageCtors
 public import ConLeche.Model.Inductives.MemberPosFacts
+import ConLeche.Model.Inductives.BlockHoleChains
 import ConLeche.Model.Rules.Inputs
 public import ConLeche.Verify.Inductives.PositivityInv
 public import ConLeche.Model.Inductives.BlockHoleRead
@@ -12,7 +13,6 @@ import ConLeche.Model.Inductives.NestPosRed
 import ConLeche.Verify.Inductives.NestScope
 import ConLeche.Semantics.Tower.FixTower
 import ConLeche.Model.Rules.Sound
-import ConLeche.Model.Rules.InferSoundKit
 import ConLeche.Verify.Rules.Bridge
 import ConLeche.Semantics.Kit
 import ConLeche.Semantics.Tower.SumTower
@@ -64,23 +64,6 @@ universe w
 variable {V : Type w} [SetTheory V]
 
 /-! ## Reading pieces -/
-
-/-- A Π-tower's domains are graded along it. -/
-theorem wellDenotedV_mkPisAV_dom :
-    ∀ {ab : List (Nat × Nat × AnnotTerm)} {Δa : List AnnotTerm} {B : AnnotTerm},
-      (∀ ρ : Nat → V, Sat V Δa ρ → WellDenotedV V ρ (mkPisAV ab B)) →
-      ∀ (i : Nat) (x : Nat × Nat × AnnotTerm), ab[i]? = some x →
-      ∀ ρ : Nat → V, Sat V (((ab.take i).map (·.2.2)).reverse ++ Δa) ρ →
-        WellDenotedV V ρ x.2.2
-  | [], _, _, _, i, x, hx, _, _ => by simp at hx
-  | y :: ab, Δa, B, h, 0, x, hx, ρ, hρ => by
-    simp only [List.getElem?_cons_zero, Option.some.injEq] at hx
-    subst hx
-    exact (Rules.WellDenotedV.hoist_pi (V := V) h).1 ρ (by simpa using hρ)
-  | y :: ab, Δa, B, h, i + 1, x, hx, ρ, hρ => by
-    simp only [List.getElem?_cons_succ] at hx
-    refine wellDenotedV_mkPisAV_dom (Rules.WellDenotedV.hoist_pi (V := V) h).2 i x hx ρ ?_
-    simpa [List.take_succ_cons, List.reverse_cons, List.append_assoc] using hρ
 
 /-- A spine of values fits a spine of closed types componentwise. -/
 theorem spineFit_range_closed {T : Nat → AnnotTerm} {f : Nat → V} :

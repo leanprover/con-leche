@@ -6,7 +6,6 @@ import ConLeche.Model.Inductives.TargetNodeDyn
 import ConLeche.Model.Inductives.ContSem
 import ConLeche.Model.Inductives.ContFrame
 import ConLeche.Model.Inductives.PosDerivMono
-import ConLeche.Verify.Inductives.NestContInv
 import ConLeche.Model.Inductives.BlockHoleGrade
 import ConLeche.Verify.Level
 import ConLeche.Model.Inductives.StructRecKit
@@ -15,6 +14,7 @@ import ConLeche.Model.Inductives.SumKit
 import ConLeche.Model.Inductives.LfpCover
 import ConLeche.Verify.Inductives.PositivityInv
 import ConLeche.Verify.Inductives.PosAnn
+import ConLeche.Verify.Inductives.InstTypeInv
 
 public section
 

@@ -1,6 +1,6 @@
 module
 
-public import ConLeche.Model.Inductives.NestPosMono
+public import ConLeche.Model.Inductives.HoleKit
 public import ConLeche.Verify.Inductives.ClassInv
 import ConLeche.Model.Rules.Sound
 import ConLeche.Verify.Rules.Bridge

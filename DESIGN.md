@@ -94259,7 +94259,8 @@ of the delete-list `TargetRecRead` into `Model/Annot/LocList.lean`
    `max w w` of a key's `w` at a level PARAMETER `w` (official's `mk_max`
    simplifies it) is no longer recognised; no stream has it.  A stronger
    normal form (dedupe `max` arguments) would lift it at no proof cost —
-   the proof needs only that the comparison is an equivalence.
+   the proof needs only that the comparison is an equivalence.  LIFTED by
+   CLASSCHECK / LEVELNF (`Level.canon`).
 Unit tests: `tests/ConLecheTests/ClassCheckTests.lean` (binder data,
 `max u u`).
 
@@ -94346,3 +94347,185 @@ reading equality.
 **Estimate.**  P2b done (1 session, planned 1.5–2), bar the P2d-side
 identification with the recorded clause and the alias-at-stage item.
 Total unchanged (≈ 13–19 sessions).
+
+## CLASSCHECK / LEVELNF — the class matching's level normal form (2026-09-28, `agent/cc-LEVELNF`)
+
+Lifts P2B's restriction (a crest spelling `max w w` of a key's `w` at a
+level PARAMETER was not recognised).  Sorry-free, no new axioms.
+
+**Checker change (class route only).**  The class matching
+(`Expr.eqUpToLevels`, `classOcc?`'s fallback) compares levels by EQUALITY
+of `Level.canon` normal forms (was `Level.simplify`).  `canon`
+(`Kernel/Level.lean`) reads a level as a `max` of terms `succ^k a`, atoms
+`a` = `zero` / a parameter / an `imax` that does not resolve (its sides
+canonical); the terms are kept sorted by a structural order (`cmpAtom`),
+one per atom at the largest offset, and the constant term is dropped when
+another term's offset dominates it.  An `imax a b` (sides canonical)
+resolves as official's `mk_imax`: `b = 0` → `0`; `b` never zero
+(`isNeverZero`) → `max a b`; `a ∈ {0, 1}` or `a = b` → `b`.  Still a
+FUNCTION, so the matching stays transitive (P2B's reason for normal
+forms); `Level.simplify`, `isEquiv` and the rest of the checker are
+untouched.
+
+**Official's simplification, subsumed** (`src/kernel/level.cpp`, lean4
+master d8b18978 2026-08-03, identical to `_tmp/lean4-master-kernel`):
+`instantiate` rebuilds only the nodes above a substituted parameter
+(`replace` + `update_max`), through `mk_max` — both explicit → the larger;
+`l1 == l2` → `l1`; zero units; absorption `max l (max l l')` (either
+side); equal bases at different offsets → the larger — and `mk_imax` —
+`is_not_zero(l2)` → `mk_max`; `l2 = 0` → `0`; `l1 ∈ {0, 1}` → `l2`;
+`l1 == l2` → `l1`.  Every rule is an identity of `canon` (dedupe, sorted
+atoms, offset merge, dominated constant, the `imax` cases); `canon` also
+identifies more (commuted `max` arguments, `max 1 (succ u)`), all
+value-preserving — on `imax`-free levels it is complete.
+
+**Proof.**  `Verify/Level.lean`: `eval_canon` (`eval φ (canon l) = eval φ
+l`) via `evalTerms` (the term list's value) and one lemma per step
+(`evalTerms_insertTerm/flatTerms/dropConst/canonTerms`,
+`eval_ne_zero_of_isNeverZero`).  P2B's lemmas needed only value
+preservation: `Level.eval_eq_of_canon`, `Level.evalEqList_of_canon` and
+the `ClassMatch`/`SameKey`/`classOcc_*` statements
+(`Model/Inductives/ClassSubst.lean`) now say `Level.canon` where they
+said `Level.simplify`; no proof changed beyond the rename.
+
+**Evidence** (`_tmp/classcheck/LEVELNF/`).  Unit tests
+(`tests/ConLecheTests/ClassCheckTests.lean`): `max u u`, absorption,
+offsets, dominated constant, `imax u u`, `imax 1 u`, `imax` with a
+never-zero right side, `imax u 0`, and three distinct-value pairs kept
+apart.  Fixtures (official = arena official, measured):
+`corner_levelnf_d3_param` (source: `corner_keynamed_d3_level` nested at
+`D.{w} R`) 0/0; `corner_levelnf_d3_param_dup` (forged binder
+`List.{max u u} β`, `scripts/mk_levelnf_fixtures.py`) official 0, ours 0
+— 1 under `simplify` (THE restriction, now lifted);
+`corner_levelnf_d3_param_imax1` (forged `List.{imax 1 u} β`) 0/0, also 0
+under `simplify`; `corner_levelnf_param_inst` (source:
+`corner_keynamed_level_inst` at `D.{w,w} R R`, official's key
+`List.{w}`, ours `List.{max w w}`) 0/0, also 0 under `simplify` (not a
+spelling the level comparison alone must identify).
+`tests/classcheck.sh` and `tests/arena.sh`: no verdict moves besides the
+new rows.
+
+## CLASSCHECK / HELPERS — the delete set made wholesale-deletable (2026-09-28, `agent/cc-HELPERS`)
+
+P4 preparation, proof-only, zero semantics change (kernel untouched).
+The class-path modules and the PROOFPLAN-reused block library imported
+general helpers from files on the §5 delete list; those helpers now
+live in surviving modules, and the delete-list files import them back.
+
+**New surviving modules (kits).**
+* `Model/Inductives/HoleKit` — `NestPosMono` minus `HoleRel`: `holeP`,
+  `holeP_succ`, hole-free readings (`denoteMeta_noBVar_of_nestOcc`,
+  `noBVar_*`, `nestOcc_instantiate1_fvar`), spines (`wScoped_mkAppN`,
+  `DenoteMetaSpine.{length_eq,split,weaken_top}`, `constOn_spine`),
+  `PiPosThen(.mono)`, `piPosThen_mkPisAV`, `ResultAt`, `ResultIdxConst`,
+  `spineLenAV`, `mkAppN_bvar_inj`.
+* `Model/Inductives/HoleAccKit` — `NestPosAcc`'s prog-free part:
+  `MentNH`, `MentP`, `mentP_body`, `noBVar_not_mentNH`, `noBVar_exists'`,
+  `mentNH_body`, `InvOn.mono`, `holdsLe_congrQ`, `RichOn.congrQ`,
+  `AccOn.congrQ`, `transfer_of_constOn`/`_accOn`, `TeleSmall`.
+* `Model/Inductives/ErasureKit` — `NestPosOut` minus `erasedEq_nestOcc`:
+  `erasedEq_abstract1_instantiate1`, `nestOcc_abstract1`,
+  `erasedEq_getApp`, `open_of_erasedEq_closeTelescope`.
+* `Verify/Inductives/ScopeKit` — `NestScope` minus `NestCtxOk`,
+  `nestHoles_ok`, `stripPis_dom`, `nestSeedKey?_spec`; plus
+  `closeTelescope_bounded` from `NestCallSyn`.
+* `Verify/Inductives/InstTypeInv` — `nestInstType_inv`/`_lvls` from
+  `NestContInv` (the class check's key inversion reads them).
+* `Model/Inductives/BlockHoleChains` — the walk-free half of
+  `BlockHoleGrade` (`fieldsOkB_of_prefix`, `fieldsValid_of_prefix`,
+  `blockHoleChains_facts` and its congruences, `teleTake_ok`) plus
+  `wellDenotedV_mkPisAV_dom` from `BlockPosRun`.
+* `Model/Inductives/ClauseKit` — `lfpSClause`, `lfpSClause_okAt`,
+  `lfpSClause_carrier` out of `TargetNestKit` (CC-P3C's `ClassInd`
+  imported the whole node-kit file for them; `lfpNestKit` stays there).
+* `spineFit_of_sat_consList` → `Model/Annot/BlockLfp` (next to
+  `spineFit_frameIdx_of_sat`), out of `ContLeaf`.
+
+**Splits (the reading-the-old-run half goes to a new delete-set file).**
+`StoredShapes` → `StoredShapesWalk` (`storedFieldShapes_of_walk`,
+`HoleLeafOk`, `u4_fieldSlot*`; `StoredCtorFacts` stays); `RecStage` →
+`RecStageRun` (`recStage_of_targetG`, `recTyEntry_of_targetG`,
+`targetRecRun_at`, `tgtMemAt`, cons-at-majors `consBlockRecsT_eq_R`,
+`recRulesShape_tgt`, `tgtFireOf*`; the record and `ctorsLen_of_names`
+stay); `DeclBlock` → `NestedRecCtx` (`NestedRecCtx`, `recHookOf`);
+`DeclBlockEta` → `DeclBlockEtaRun` (`declBlockRun_etaClosed`; survives
+but reads the old run, see below); `canonOcc_of_positivity`
+`BlockAbsRead` → `MemberPosRun`.  `BlockHoleGrade` (now only the run
+half) joins the delete set.  `BlockDatum` no longer re-exports
+`BlockPosRunCont` (the CC-P1 allowlist pair is gone).
+
+**The delete set (104 modules; `_tmp/classcheck/DELETESET.txt`).**
+PROOFPLAN §5's list, expanded, plus `MemberPosRun` (CC-P1),
+`BlockHoleGrade`, `StoredShapesWalk`, `RecStageRun`, `NestedRecCtx`:
+`Verify/Inductives/{HookOuts, NestCallRun, NestCallSyn, NestContInv,
+NestScope, PosDeriv, PosDerivFun, PosDerivInv, PosNodes, PositivityInv,
+RecCheckRun, RecCheckScope, RecStageRun, TargetAuxFire}`,
+`Verify/Cached/{NestPosC, TargetRecC}`, `Complete/PosDerivComplete`,
+`Model/Inductives/{BlockAccRun, BlockAccRunCont, BlockHoleGrade,
+BlockPosRun, BlockPosRunCont, Cont{Acc, AccFrame, AccRel, Ctor, Frame,
+InstRule, Leaf, N2, Walk}, MemberPosRun, NestPos{Acc, AccKit, Mono, Out,
+Red}, NestedRec{Ctx, Data, Eqs, Pins, Rest}, PosDeriv{Acc, Mono, Nodes,
+Shape, Tie}, PosFieldLeaf, StoredShapesWalk, TargetCall* (18),
+TargetClass{Call, Frame, Nodes, Rows, es}, TargetFrame,
+TargetGuardParams, TargetIh{Data, Slot}, TargetNestKit, TargetNode* (11),
+TargetOut* (10), TargetRecRead, TargetResidue, TargetRowCerts{, Run, W},
+TargetRuleData, TargetSeam}`.
+
+**Measured result.**  The import closure of every class-path module
+(`Class*` in Kernel/Cached/Verify/Model/SetModel incl. CC-P2B's
+`ClassSubst`/`ClassInd`, `MemberPosFacts`) now contains NO delete-set
+module (it contained 26 before; `ClassInd` added `TargetNestKit` on
+merge, split as above), so those files build unchanged when the delete
+set is removed.  436 non-root modules have a D-free closure.
+
+**Remaining cross-dependencies (the flip's rewiring, not helpers).**
+Live modules that import a delete-set module directly:
+* `Model/Inductives/DeclBlockStep` — the member-block step's glue:
+  `memberPosFacts_of_run` (MemberPosRun), `NestedRecCtx`, `RecStageRun`,
+  `RecCheckRun`, the node/call route (`TargetNode*`, `TargetGuardParams`,
+  `TargetClassRows`, `TargetSeam`, `TargetResidue`, `NestedRec*`), and
+  through it `TargetMatchFrame`/`TargetDefeqTie` (live only via
+  DeclBlockStep).  Downstream: `InstallRun`, `Fold`, `StreamConsts`.
+* `Semantics/Inductives/DeclBlockEtaRun` (→ `Semantics/Bridge/Sound`):
+  `declBlockRun_etaClosed` reads `DeclBlockRun`'s recursor stage through
+  `recStage_of_targetG` — re-prove over the class run's record.
+* `Verify/Cached/{BlockRunC, BridgeC, BridgeCS3}` (→ `BridgeCS4`,
+  `BridgeCSDecl`, `InstalledC`, `MainC`, `StreamThm`, the `Cached` root):
+  the cached bridge's positivity/recursor-check parts (`NestPosC`,
+  `TargetRecC`).
+* roots: `ConLeche.Model` (imports ~45 D modules as roots),
+  `ConLeche.Semantics` (`TargetAuxFire`, `RecCheckRun`),
+  `ConLeche.Complete` (`PosDerivComplete`).
+Transitively dead today (only D modules or roots import them):
+`Model/Inductives/{ContInst, ContSem, ContSubst, LfpCover, TargetClass,
+TargetGraph, BlockDeclRun, BlockRuleParams}`, `Model/Annot/{LfpAcc,
+BitSubstFvars}`, `Semantics/Inductives/TeleAcc`, `Verify/SubstFvars`,
+`Verify/Inductives/PosAnn`.  Of these PROOFPLAN §5 lists as REUSED:
+`LfpAcc`, `TeleAcc`, `ContSubst` — D-free, usable as they are;
+`ContSem` (`ContCover`), `LfpCover` (`contCover_of`), `ContInst`
+(`instCtor_*`), `TargetClass` (`lfpSel`, `TgtOutCls`), `TargetDefeqTie`
+(`param_read_eq`, `keyFrame_eq_of_params`) — NOT usable as they are:
+their closures reach the Cont*/Target* frame machinery (`ContWalk`,
+`ContN2`'s `keyFrame`, `ContFrame`, `ContLeaf`, `TargetCallKit`,
+`RecCheckRun`'s `TargetMajor`); the lane that consumes them must
+re-prove per class or salvage.  Not moved (no surviving consumer):
+`keyFrame` (`ContN2:269`), `blockHoleCtx_canon` (`BlockPosRun:86`,
+needs `NestCtxOk`/`nestHoles_ok` from `NestScope`), `spineFit_range_closed`.
+
+**Other lanes' files.**  None of CC-P2B's (substitution law) or CC-P3C's
+(`ClassKit`/`ClassRecKit` wiring) files hold a moved helper; this lane
+edited only IMPORT lines of `ClassFieldAcc`, `ClassFieldMono`,
+`ClassGenMinor`, `ClassGenRead`, `ClassGenAnnot`, `ClassGenMinorSyn`,
+`ClassGenScope`, `ClassInv` (not `ClassKit`, `ClassRecKit`,
+`ClassRecTransfer`, `ClassCheck`).  Duplicate noted, not merged:
+`Expr.erasedEq_abstract1_instantiate1` (`ClassGenAnnot:44`, Verify) is a
+copy of `ErasureKit`'s `erasedEq_abstract1_instantiate1` (Model).
+
+**Gates.**  `lake build`/`lake test` 0 warnings; shake (483 allowlisted:
+17 new compensated re-exports of the split, three stale lines removed —
+the flip removes the lines naming deleted files), pub-imports none
+demotable (9 new MEASURED fallbacks: `ScopeKit`×2, `ErasureKit`×2,
+`BlockHoleChains`, `StoredShapesWalk`×2, `NestedRecPins`,
+`TargetClassCall`); layering, overview links (two `declBlock` anchors
+repointed), quote gate, trust surface; `tests/arena.sh` — see the
+landing commit.

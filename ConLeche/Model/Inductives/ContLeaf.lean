@@ -41,14 +41,6 @@ universe w
 
 variable {V : Type w} [SetTheory V] {env : Env} {φ : Name → Nat}
 
-/-- A fitting spine, from the satisfaction of the reversed list at its
-own frame. -/
-theorem spineFit_of_sat_consList {Ds : List AnnotTerm} {as : List V} {ρ : Nat → V}
-    (hlen : as.length = Ds.length) (h : Sat V Ds.reverse (consList as ρ)) :
-    SpineFit ρ Ds as := by
-  have := spineFit_frameIdx_of_sat h
-  rwa [← hlen, shiftE_consList, frameIdx_consList'] at this
-
 /-- **The key's arguments fit the container's former telescope** (the
 former's reading, M4, at the key's levels), at every valuation where the
 application is graded. -/

@@ -2,7 +2,6 @@ module
 
 public import ConLeche.Model.Inductives.ContSem
 import ConLeche.Verify.Inductives.PosDerivInv
-import ConLeche.Verify.Inductives.NestContInv
 import ConLeche.Model.Inductives.ContFrame
 import ConLeche.Verify.Cached.Erase
 import ConLeche.Model.Rules.Sound
@@ -10,6 +9,8 @@ import ConLeche.Verify.Rules.Bridge
 import ConLeche.Semantics.Frame
 import ConLeche.Model.Rules.IotaSoundKit
 import ConLeche.Model.Rules.InferSoundKit
+import ConLeche.Verify.Inductives.InstTypeInv
+import ConLeche.Verify.Inductives.ScopeKit
 
 public section
 
