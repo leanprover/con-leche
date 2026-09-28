@@ -247,6 +247,184 @@ theorem genHchain {nCt : Nat → Nat} {fdoms ihs : Nat → Nat → List AnnotTer
   rw [app_graph hpred]
   exact (hr t ht is' x' hxlT hfitT).symm
 
+/-- A fit of an appended chain whose first part has the first chain's
+length splits there. -/
+theorem spineFit_append_at {Ds₁ Ds₂ : List AnnotTerm} {σ : Nat → V} {xs fs : List V}
+    (hl : xs.length = Ds₁.length) (h : SpineFit σ (Ds₁ ++ Ds₂) (xs ++ fs)) :
+    SpineFit σ Ds₁ xs ∧ SpineFit (consList xs σ) Ds₂ fs := by
+  obtain ⟨as₁, as₂, heq, h1, h2⟩ := spineFit_append_split h
+  have hl1 : as₁.length = xs.length := by rw [h1.length_eq, hl]
+  obtain ⟨rfl, rfl⟩ := List.append_inj heq.symm hl1
+  exact ⟨h1, h2⟩
+
 end Rows
+
+/-! ## 3. The producer at the generated family -/
+
+section Main
+
+variable {K : Nat} {ρ : Nat → V} {rP nCt : Nat → Nat}
+  {pre idxB : Nat → List (Nat × Nat × AnnotTerm)} {majB : Nat → Nat × Nat × AnnotTerm}
+  {uX : Nat → Nat} {concl : Nat → AnnotTerm}
+  {fdoms es ihs ihdoms : Nat → Nat → List AnnotTerm} {mk Rb0 Ca : Nat → Nat → AnnotTerm}
+  {injX : Nat → Nat → List V → V}
+  {callAt : List V → Nat → Nat → List V → Nat → List V → V → Prop}
+  {envT : Env} {mp : EnvModelM V μ envT} {F : Nat} {ψ : Name → Nat} {ℓ : Nat}
+
+set_option maxHeartbeats 1000000 in
+/-- **THE RECURSOR MODEL AT THE GENERATED FAMILY** (G1) —
+`graphRecPre_core` with the classes read off the generated type
+(`genIs`/`genCr`), the decoding fit the rule's own binder fit, the calls
+and `ih` values the generated `ih`s' (§1).  The type split, the
+conclusion, the fields' fit, the decoding, the rule's own spine and the
+`ih` chain are proved here; the premises are the constructor's typing
+and value at the class (`hctorTy`, `hmk`), the calls' typing and the
+`ih` terms' chain reading (`hcallTy`, `hihRead`), the rows' chain
+independence (`hchI`), the index grading (`hIdx`), and the kit's
+typing, uniqueness and induction rows. -/
+theorem graphRecPre_gen (hμ : μ.verifiedChecks = true)
+    (hbits : OneElimLevel ℓ K (genRds pre idxB majB))
+    (hpl : ∀ c, c < K → (pre c).length = rP c)
+    (hIdx : ∀ c, c < K → ∀ xs, SpineFit ρ (genPdoms pre c) xs →
+      IdxOk (uX c) (consList xs ρ) (genIdxDoms idxB c))
+    (hchI : ∀ (a : Nat → V), ∀ c, c < K → ∀ j, j < nCt c → ∀ xs fs : List V,
+      xs.length = (genPdoms pre c).length →
+      SpineFit (chainFrame K a ρ) (genPdoms pre c ++ fdoms c j) (xs ++ fs) →
+      SpineFit ρ (genPdoms pre c ++ fdoms c j) (xs ++ fs) ∧
+      (es c j).map (interp V (consList (xs ++ fs) (chainFrame K a ρ)))
+        = (es c j).map (interp V (consList (xs ++ fs) ρ)) ∧
+      interp V (consList (xs ++ fs) (chainFrame K a ρ)) (mk c j)
+        = interp V (consList (xs ++ fs) ρ) (mk c j))
+    (hctorTy : ∀ c, c < K → ∀ j, j < nCt c → ∀ xs fs : List V,
+      xs.length = (genPdoms pre c).length →
+      SpineFit ρ (genPdoms pre c ++ fdoms c j) (xs ++ fs) →
+      SpineFit (consList xs ρ) (genIdxDoms idxB c)
+          ((es c j).map (interp V (consList (xs ++ fs) ρ))) ∧
+        interp V (consList (xs ++ fs) ρ) (mk c j)
+          ∈ˢ interp V (consList ((es c j).map (interp V (consList (xs ++ fs) ρ)))
+              (consList xs ρ)) (majB c).2.2)
+    (hmk : ∀ c, c < K → ∀ j, j < nCt c → ∀ xs fs : List V,
+      xs.length = (genPdoms pre c).length →
+      SpineFit ρ (genPdoms pre c ++ fdoms c j) (xs ++ fs) →
+      interp V (consList (xs ++ fs) ρ) (mk c j) = injX c j fs)
+    (hcallTy : ∀ c, c < K → ∀ j, j < nCt c → ∀ (xs fs : List V) (a : Nat → V),
+      xs.length = (genPdoms pre c).length →
+      SpineFit (chainFrame K a ρ) (genPdoms pre c ++ fdoms c j) (xs ++ fs) →
+      ∀ t is x, callAt xs c j fs t is x →
+        t < K ∧ xs.length = rP t ∧
+          SpineFit ρ ((genRds pre idxB majB t).map (·.2.2)) (xs ++ (is ++ [x])))
+    (hihRead : ∀ c, c < K → ∀ j, j < nCt c → ∀ (xs fs : List V) (a a' : Nat → V),
+      xs.length = (genPdoms pre c).length →
+      SpineFit (chainFrame K a ρ) (genPdoms pre c ++ fdoms c j) (xs ++ fs) →
+      (∀ t is x, callAt xs c j fs t is x →
+        (xs ++ (is ++ [x])).foldl SetTheory.app (a t)
+          = (xs ++ (is ++ [x])).foldl SetTheory.app (a' t)) →
+      (ihs c j).map (interp V (consList (xs ++ fs) (chainFrame K a ρ)))
+        = (ihs c j).map (interp V (consList (xs ++ fs) (chainFrame K a' ρ))))
+    (hconclTy : ∀ xs : List V, ∀ c, c < K → ∀ i, i ∈ˢ genIs ρ pre idxB uX xs c →
+      ∀ x, x ∈ˢ app (genCr ρ pre idxB majB uX xs c) i →
+      interp V (consList (xs ++ (isOfW (uX c) (idxB c).length i ++ [x])) ρ) (concl c)
+        ∈ˢ (univ ℓ : V))
+    (hcerts : ∀ c, c < K → ∀ j, j < nCt c →
+      BlockRuleCerts V mp F ψ (rP c) (fdoms c j).length (ihdoms c j).length
+        (genPdoms pre c) (fdoms c j) (ihdoms c j) (Rb0 c j) (Ca c j))
+    (hihF : ∀ xs : List V, ∀ c, c < K → ∀ j, j < nCt c → ∀ (i : V) (fs : List V),
+      i ∈ˢ genIs ρ pre idxB uX xs c → genFit ρ uX fdoms es xs c i j fs → ∀ g : V,
+      (∀ v, v ∈ˢ graphPredG (genIs ρ pre idxB uX) (genCr ρ pre idxB majB uX) K
+          (genCall uX callAt) xs (c, j, fs) →
+        app g v ∈ˢ blockRecMot K concl uX (fun c => (idxB c).length) ρ xs v) →
+      SpineFit (consList (xs ++ fs) ρ) (ihdoms c j)
+        (genIhv K ρ rP pre idxB majB uX ihs xs c j fs g))
+    (hCaB : ∀ xs : List V, ∀ c, c < K → ∀ j, j < nCt c → ∀ (i : V) (fs : List V),
+      i ∈ˢ genIs ρ pre idxB uX xs c → genFit ρ uX fdoms es xs c i j fs → ∀ g : V,
+      interp V (consList (genIhv K ρ rP pre idxB majB uX ihs xs c j fs g)
+          (consList (xs ++ fs) ρ)) (Ca c j)
+        = blockRecMot K concl uX (fun c => (idxB c).length) ρ xs (tagged c i (injX c j fs)))
+    (huniq : ∀ xs : List V, ∀ u,
+      u ∈ˢ unionSet K (genIs ρ pre idxB uX xs) (genCr ρ pre idxB majB uX xs) →
+      ∀ e e', graphDecG (genIs ρ pre idxB uX) injX nCt K (genFit ρ uX fdoms es) xs u e →
+        graphDecG (genIs ρ pre idxB uX) injX nCt K (genFit ρ uX fdoms es) xs u e' →
+      e = e' ∨ ∀ v v',
+        v ∈ˢ blockRecMot K concl uX (fun c => (idxB c).length) ρ xs u →
+        v' ∈ˢ blockRecMot K concl uX (fun c => (idxB c).length) ρ xs u →
+        v = v')
+    (hind : ∀ xs : List V, ∀ P : V → Prop,
+      (∀ u, u ∈ˢ unionSet K (genIs ρ pre idxB uX xs) (genCr ρ pre idxB majB uX xs) →
+        (∃ e, graphDecG (genIs ρ pre idxB uX) injX nCt K (genFit ρ uX fdoms es) xs u e ∧
+          ∀ v, v ∈ˢ graphPredG (genIs ρ pre idxB uX) (genCr ρ pre idxB majB uX) K
+            (genCall uX callAt) xs e → P v) → P u) →
+      ∀ u, u ∈ˢ unionSet K (genIs ρ pre idxB uX xs) (genCr ρ pre idxB majB uX xs) → P u) :
+    ∃ a : Nat → V,
+      (∀ c, c < K → a c ∈ˢ interp V ρ (mkPisAV (genRds pre idxB majB c) (concl c))) ∧
+      ∀ e ∈ iotaEqsAV K nCt (genPdoms pre) fdoms es mk ihs
+          (fun c j => (Rb0 c j).liftN K ((genPdoms pre c).length + (fdoms c j).length
+            + (ihs c j).length)),
+        (pt : V) ∈ˢ interp V (chainFrame K a ρ) e := by
+  have hplP : ∀ c, c < K → (genPdoms pre c).length = rP c := fun c hc => by
+    simp only [genPdoms, List.length_map]; exact hpl c hc
+  -- the type split
+  have hsplit : ∀ c, c < K → ∀ ys, SpineFit ρ ((genRds pre idxB majB c).map (·.2.2)) ys →
+      (prefOf (rP c) ys).length = rP c ∧
+      ys = prefOf (rP c) ys ++ (idxOf (rP c) ys ++ [majOf ys]) ∧
+      tupW (uX c) (idxOf (rP c) ys) ∈ˢ genIs ρ pre idxB uX (prefOf (rP c) ys) c ∧
+      majOf ys ∈ˢ app (genCr ρ pre idxB majB uX (prefOf (rP c) ys) c)
+        (tupW (uX c) (idxOf (rP c) ys)) := by
+    intro c hc ys hys
+    obtain ⟨xs, is, x, rfl, hxs, his, hx⟩ := genRds_split hys
+    have hxl : xs.length = rP c := by rw [hxs.length_eq, hplP c hc]
+    rw [prefOf_split hxl, idxOf_split hxl, majOf_split]
+    exact ⟨hxl, rfl, genMajor_mem (hIdx c hc) hxs his hx⟩
+  -- the conclusion
+  have hconcl : ∀ c, c < K → ∀ ys, SpineFit ρ ((genRds pre idxB majB c).map (·.2.2)) ys →
+      blockRecMot K concl uX (fun c => (idxB c).length) ρ (prefOf (rP c) ys)
+          (tagged c (tupW (uX c) (idxOf (rP c) ys)) (majOf ys))
+        = interp V (consList ys ρ) (concl c) := by
+    intro c hc ys hys
+    obtain ⟨xs, is, x, rfl, hxs, his, -⟩ := genRds_split hys
+    have hxl : xs.length = rP c := by rw [hxs.length_eq, hplP c hc]
+    rw [prefOf_split hxl, idxOf_split hxl, majOf_split, blockRecMot_tagged hc]
+    have hl : (idxB c).length = (genIdxDoms idxB c).length := by simp [genIdxDoms]
+    rw [hl, isOfW_tupW (hIdx c hc xs hxs) his]
+  -- the fields' fit
+  have hspF : ∀ xs : List V, ∀ c, c < K → ∀ j, j < nCt c → ∀ (i : V) (fs : List V),
+      i ∈ˢ genIs ρ pre idxB uX xs c → genFit ρ uX fdoms es xs c i j fs →
+      SpineFit ρ (genPdoms pre c ++ fdoms c j) (xs ++ fs) :=
+    fun xs c _ j _ i fs hi hf => SpineFit.append (genIs_fits hi) hf.1
+  -- the rule's own spine
+  have hrule : ∀ a : Nat → V, ∀ c, c < K → ∀ j, j < nCt c → ∀ xs fs : List V,
+      xs.length = (genPdoms pre c).length →
+      SpineFit (chainFrame K a ρ) (genPdoms pre c ++ fdoms c j) (xs ++ fs) →
+      SpineFit ρ ((genRds pre idxB majB c).map (·.2.2))
+        (xs ++ ((es c j).map (interp V (consList (xs ++ fs) (chainFrame K a ρ)))
+          ++ [interp V (consList (xs ++ fs) (chainFrame K a ρ)) (mk c j)])) := by
+    intro a c hc j hj xs fs hxl hsp
+    obtain ⟨hspρ, hes, hmkE⟩ := hchI a c hc j hj xs fs hxl hsp
+    rw [hes, hmkE]
+    obtain ⟨his, hx⟩ := hctorTy c hc j hj xs fs hxl hspρ
+    exact genRds_fit (spineFit_append_at hxl hspρ).1 his hx
+  -- the decoding
+  have hdec : ∀ a : Nat → V, ∀ c, c < K → ∀ j, j < nCt c → ∀ xs fs : List V,
+      xs.length = (genPdoms pre c).length →
+      SpineFit (chainFrame K a ρ) (genPdoms pre c ++ fdoms c j) (xs ++ fs) →
+      genFit ρ uX fdoms es xs c
+          (tupW (uX c) ((es c j).map (interp V (consList (xs ++ fs) (chainFrame K a ρ))))) j fs ∧
+        interp V (consList (xs ++ fs) (chainFrame K a ρ)) (mk c j) = injX c j fs := by
+    intro a c hc j hj xs fs hxl hsp
+    obtain ⟨hspρ, hes, hmkE⟩ := hchI a c hc j hj xs fs hxl hsp
+    rw [hes, hmkE]
+    exact ⟨⟨(spineFit_append_at hxl hspρ).2, rfl⟩, hmk c hc j hj xs fs hxl hspρ⟩
+  exact graphRecPre_core (ℓ := ℓ) (K := K) (ψ := ψ) (ρ := ρ) (nCt := nCt) (rP := rP)
+    (rds := genRds pre idxB majB) (concl := concl)
+    (RecTy := fun c => mkPisAV (genRds pre idxB majB c) (concl c))
+    (pdoms := genPdoms pre) (fdoms := fdoms) (es := es) (ihs := ihs) (mk := mk) (Rb0 := Rb0)
+    (ihv := genIhv K ρ rP pre idxB majB uX ihs) (call := genCall uX callAt)
+    (ihdoms := ihdoms) (Ca := Ca) (mp := mp) (F := F) hμ
+    (genIs ρ pre idxB uX) (genCr ρ pre idxB majB uX) injX uX (fun c => (idxB c).length)
+    (fun c => tupW (uX c)) (genFit ρ uX fdoms es)
+    (fun _ _ => rfl) hbits hplP hsplit hconcl hconclTy hcerts hspF hihF hCaB huniq hind
+    hrule hdec
+    (genHchain hpl hIdx hcallTy hihRead)
+
+end Main
 
 end ConLeche.Model
