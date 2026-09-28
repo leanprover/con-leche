@@ -3,9 +3,9 @@ module
 public import ConLeche.Model.Inductives.TargetRecRead
 public import ConLeche.Verify.Inductives.PosNodes
 import ConLeche.Model.Inductives.TargetNodeRead
-import ConLeche.Model.Inductives.NestPosOut
 import ConLeche.Verify.Abstract
 import ConLeche.Verify.InstList
+import ConLeche.Model.Inductives.ErasureKit
 
 public section
 

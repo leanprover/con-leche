@@ -4,9 +4,6 @@ public import ConLeche.Model.Inductives.NestPosMono
 public import ConLeche.Model.Inductives.HoleAccKit
 public import ConLeche.Semantics.Inductives.HoleAcc
 public import ConLeche.Verify.Inductives.PosDeriv
-import ConLeche.Kernel.Inductives.Positivity
-import ConLeche.Verify.Denote.Shift
-import ConLeche.Model.Inductives.NestPosOut
 
 public section
 

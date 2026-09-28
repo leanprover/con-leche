@@ -3,10 +3,8 @@ module
 import ConLeche.Model.Annot.LfpHoleOp
 public import ConLeche.Model.Inductives.BlockLfpHoles
 import ConLeche.Model.Inductives.BlockHoleValid
-import ConLeche.Model.IndDomGrade
 import ConLeche.Model.Rules.InferSoundKit
 import ConLeche.Model.Inductives.StructFrameKit
-import ConLeche.Model.Inductives.BlockData
 
 public section
 

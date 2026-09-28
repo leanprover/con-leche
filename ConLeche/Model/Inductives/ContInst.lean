@@ -1,7 +1,6 @@
 module
 
 public import ConLeche.Model.Inductives.ContWalk
-import ConLeche.Model.Inductives.ContN2
 import ConLeche.Model.Annot.LfpFormer
 import ConLeche.Model.Inductives.ContCtor
 import ConLeche.Model.NatEqs

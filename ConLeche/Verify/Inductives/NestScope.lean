@@ -3,7 +3,6 @@ module
 public import ConLeche.Kernel.Inductives.Positivity
 public import ConLeche.Verify.Shift
 public import ConLeche.Verify.Inductives.ScopeKit
-import ConLeche.Verify.Leaves
 import ConLeche.Verify.InferLemmas
 import ConLeche.Verify.InferLeaves
 

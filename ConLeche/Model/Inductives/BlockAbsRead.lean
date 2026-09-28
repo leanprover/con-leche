@@ -8,7 +8,6 @@ import ConLeche.Model.Annot.CanonCrest
 import ConLeche.Model.Install
 import ConLeche.Model.Inductives.StoredShapes
 import ConLeche.Model.Inductives.BlockHoleRead
-import ConLeche.Verify.Inductives.ScopeKit
 
 public section
 

@@ -1,6 +1,5 @@
 module
 
-import ConLeche.Model.Inductives.NestPosOut
 public import ConLeche.Verify.Inductives.PosDeriv
 import ConLeche.Semantics.Inductives.FieldsEqOn
 public import ConLeche.Model.Rules.Inputs
@@ -16,6 +15,7 @@ import ConLeche.Verify.Abstract
 import ConLeche.Verify.InferLeaves
 import ConLeche.Model.Inductives.TargetIhSlot
 public import ConLeche.Semantics.ConstsBound
+import ConLeche.Model.Inductives.ErasureKit
 
 public section
 

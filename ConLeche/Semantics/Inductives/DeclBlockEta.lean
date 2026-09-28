@@ -6,7 +6,6 @@ public import ConLeche.Semantics.Inductives.DeclBlock
 import ConLeche.Verify.Extend.Inversions
 import ConLeche.Verify.ExceptBind
 import ConLeche.Kernel.Inductives.FieldTele
-import ConLeche.Verify.Inductives.BlockWF
 
 @[expose] public section
 

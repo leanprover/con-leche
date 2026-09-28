@@ -7,7 +7,6 @@ public import ConLeche.Model.CtxOkP
 import ConLeche.Model.Annot.BitLemmas
 import ConLeche.Model.Annot.BitShift
 import ConLeche.Verify.Denote.Shift
-import ConLeche.Verify.InferLemmas
 import ConLeche.Model.IndPointKit
 
 public section
