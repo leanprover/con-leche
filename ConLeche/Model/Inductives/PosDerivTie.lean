@@ -3,7 +3,6 @@ module
 public import ConLeche.Verify.Inductives.PosDerivInv
 import ConLeche.Kernel.Inductives.BlockTail
 import ConLeche.Verify.EnvWF
-import ConLeche.Verify.Inductives.BlockWF
 import ConLeche.Verify.Denote.IndFrame
 import ConLeche.Verify.BridgeWfImp
 import ConLeche.Verify.InferLemmas

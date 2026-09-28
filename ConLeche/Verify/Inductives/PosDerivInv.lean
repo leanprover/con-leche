@@ -4,12 +4,10 @@ public import ConLeche.Verify.Inductives.PosDerivFun
 public import ConLeche.Verify.Inductives.NestScope
 import ConLeche.Verify.Inductives.NestContInv
 public import ConLeche.Verify.Inductives.PositivityInv
-public import ConLeche.Kernel.Inductives.RecCheck
+import ConLeche.Kernel.Inductives.RecCheck
 import ConLeche.Verify.Cached.Erase
 import ConLeche.Verify.InstLevels
 import ConLeche.Verify.Inductives.DirectInv
-import ConLeche.Verify.Abstract
-import ConLeche.Verify.Leaves
 
 public section
 
