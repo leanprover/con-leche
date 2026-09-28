@@ -93645,6 +93645,70 @@ passes, `classSamePairs` is quadratic in the classes.  (3) The coarser
 tier compares only closed parameters (no field variables), as official
 (`nested inductive datatypes parameters cannot contain local variables`).
 
+## CLASSCHECK/P1 — the `MemberPosFacts` seam, carved out of the positivity run (2026-09-28, `agent/cc-P1`)
+
+PROOFPLAN phase P1: a pure proof refactor (kernel untouched, zero
+semantics change).  The member block's stage now reads the positivity
+check ONLY through one record; the flip swaps its producer.
+
+**The record** (`Model/Inductives/MemberPosFacts.lean`, survives the flip).
+`MemberPosFacts V μ env p cvTas ctorsAs nfs` — at the formers' environment,
+for the block's parts `p`, formers `cvTas`, stored constructors `ctorsAs`
+and the check's WALKED normal forms `nfs` — five fields, each quantified
+over ANY model `mp : EnvModelM V μ env` and ANY datum `d` that is the
+block's (`MemberPosFit d lps p ctorsAs nfs`: names/levels/`nP`/indices/sort
+agree, `d.k`, nodup, `nInst = 0`, constructors positional and closed,
+`d.nfFF c j = nfs[c][j]`):
+* `occ` — M2′ (canonical crest names no member constant);
+* `link` — the walked normal form and the declared crest read as Π-towers
+  with the datum's body, fields `FieldsEqOn` the hole context, `ConstsBound`,
+  M3 (`nestOcc = false`), `lpDefF`, and `StoredFieldShapes` (U4, result
+  indices) — premises `BlockNamesOk`, the formers' data, `StoredCtorFacts`;
+* `grade` — U2 (closed, graded, bit-valid, small at every tuple's hole frame);
+* `pos` — `CtorPos (tupRel …)` under coverage `LfpCover mk p.memberNames`;
+* `acc` — `AccTuple … holeOp` at `w ≠ 0` under coverage, `IdxOk`, grading.
+`MemberPosFacts.absRead`/`.storedShapes` (the former `blockAbsRead_of_run`/
+`blockStoredShapes_of_run`, moved) derive `BlockAbsRead`/`StoredFieldShapes`
+from `link`.  `BlockHoleCtxFacts` (+ `BlockCtorsCore.holeCtx`) moved here
+from `BlockPosRun.lean` (dead list), since the record's premises use it.
+Nothing in the file mentions a run, derivation, frame or node.  Class-side
+producers (PROOFPLAN): `link`/`occ` ← T2 (+R5: the class check's walked
+telescope, class holes read back), `pos` ← T7, `acc` ← T8, `grade` ← T9.
+The class side must prove `link`'s `FieldsEqOn` on the MEMBER hole context
+although its walk ran at the class-hole context — that is exactly T2/T3.
+
+**The producer** (`MemberPosRun.lean`, dead at the flip):
+`memberPosFacts_of_run hμ hrun : MemberPosFacts V μ env p cvTas ctorsAs
+posKs.2.1` — one line per field from `canonOcc_of_positivity`,
+`blockRunLink`, `blockHoleGrade_of_run`, `blockCtorPos_of_run`,
+`blockAcc_of_run` (all unchanged).
+
+**Consumers moved.**  `blockTablesStage_of` takes `hMP` (and `nfs`) instead
+of `hPos`; its seven reads (absRead ×2, link, storedShapes ×2, grade, pos,
+acc, occ) go through two `MemberPosFit`s (dummy and real datum).  Finding:
+`declBlock` itself read `hPos` at THREE more seams (S2 `blockCtorPos_of_run`,
+S4's grading `blockHoleGrade_of_run`, S5 `canonOcc_of_positivity`); those
+now read `hMP` too.  After P1 `hPos` in `declBlock` feeds only
+`memberPosFacts_of_run` and `NestedRecCtx` (S6, the recursors' stage).
+`BlockDatum`/`DeclBlockStep` no longer import `BlockPosRun`, `BlockPosRunCont`
+(DeclBlockStep), `BlockAccRunCont`, `BlockHoleGrade` (DeclBlockStep).
+
+**For the flip (P4)** — survivor files still reaching dead-list code:
+`BlockDatum` keeps `public import BlockPosRunCont` because downstream
+survivors rely on its re-export chain (`spineFit_of_sat_consList`,
+`ContLeaf.lean:46`, used by `BlockRecPreRun`/`BlockRecTyShapeRun`;
+`keyFrame`, `ContN2`, by `TargetOutSat`; `TargetNodeCover`/`TargetCallPatch`
+on `BlockPosRun`) — measured by shake's compensation list, allowlisted
+(`tests/shake-allowlist.txt`, two CC-P1 lines).  `BlockDatum` imports
+`BlockHoleGrade` for `blockHoleChains_facts` (survivor content in a file
+that also holds `blockRunLink`/`blockHoleGrade_of_run`): split it at the
+flip.
+
+Gates: `lake build`/`lake test` 0 warnings; shake (468 allowlisted),
+pub-imports (none demotable), layering, overview links, quote gate;
+`tests/arena.sh` — see the landing commit.  LOC: +304 (record 244,
+producer 60), −163 elsewhere.
+
 ## CLASSCHECK / P3A — the recursor side at the generated family (2026-09-28, `agent/cc-P3A`)
 
 PROOFPLAN §2.6/§4, lane P3a (G1) with the core of P3b (G2).  Sorry-free,
