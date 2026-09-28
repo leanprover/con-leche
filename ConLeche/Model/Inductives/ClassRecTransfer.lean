@@ -1,10 +1,10 @@
 module
 
 public import ConLeche.Model.Inductives.BlockRecData
-public import ConLeche.Verify.Inductives.ClassGenRun
+public import ConLeche.Kernel.Inductives.ClassCheck
+import ConLeche.Verify.Inductives.ClassGenRun
 import ConLeche.Semantics.DeclRun
 import ConLeche.Model.Capstone
-import ConLeche.Model.Tiers
 import ConLeche.Model.Rules.Recompose
 
 public section

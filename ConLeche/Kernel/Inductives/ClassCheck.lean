@@ -2,7 +2,7 @@ module
 
 public import ConLeche.Kernel.Inductives.BlockTail
 public import ConLeche.Kernel.Inductives.ClassRead
-import Std.Data.HashSet.Basic
+public import Std.Data.HashSet.Basic
 
 @[expose] public section
 
