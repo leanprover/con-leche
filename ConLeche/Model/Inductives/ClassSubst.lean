@@ -1106,4 +1106,47 @@ theorem aliasAbs_read
 
 end Alias
 
+/-! ## 6. Hole form (P1): the abstraction against a partial one -/
+
+section Hole
+
+open ConLeche (ClassInfo classOcc? classAbs)
+
+variable {V : Type w} [SetTheory V] {env : Env} {φ : Name → Nat}
+  {acval : Name → (Name → Nat) → AnnotTerm}
+
+/-- The class abstraction restricted to the holes `F` (a class fact's
+free holes and own group): the other classes' occurrences stay
+concrete. -/
+@[expose] def classAbsF (cls : List ClassInfo) (F : Expr → Bool) (e : Expr) : Expr :=
+  classAbsSpec (occRestrict (classOcc? cls) F) none e
+
+/-- **P1 in hole form**: at every valuation `Good` admits, the class
+abstraction reads as its restriction to the holes `F`, provided every
+occurrence of a class outside `F` reads (at `Good`) as its
+`F`-abstracted head.  At `F = ∅` this is `classAbs_read`; at a class
+fact's `F` it is the reading of the abstracted crest at a STAGE value
+(own group and free holes arbitrary, every other class read as its key
+in hole form) — the head obligation is where the other classes'
+coherence enters (DESIGN CLASSCHECK / P2B). -/
+theorem classAbs_read_hole {cls : List ClassInfo} {H : Nat} (hwf : ClassOccWF cls H)
+    {F : Expr → Bool} {Good : (Nat → V) → Prop}
+    (hhead : ∀ x h, classOcc? cls x = some (h, 0) → F h = false →
+      ∀ d as2 as1, LocList H d as2 → LocList H d as1 →
+        OptAgree (ValAgree V Good d) (denoteMeta acval env φ (H + d) h)
+          (denoteMeta acval env φ (H + d) ((classAbsF cls F x).instantiateList as1 0)))
+    (e : Expr) {d : Nat} {as2 as1 : List Expr} (h2 : LocList H d as2) (h1 : LocList H d as1) :
+    OptAgree (ValAgree V Good d)
+      (denoteMeta acval env φ (H + d) ((classAbs cls e).instantiateList as2 0))
+      (denoteMeta acval env φ (H + d) ((classAbsF cls F e).instantiateList as1 0)) := by
+  have hyp : AbsReadHyps V acval env φ H Good (classOcc? cls) F := by
+    refine ⟨fun x h n hx => classOcc_app hwf hx, fun x h n hx => ?_, hhead⟩
+    obtain ⟨c, hc, hch, -⟩ := classOcc_spec hwf hx
+    obtain ⟨i, ty, rfl, -⟩ := hwf.hole c hc h hch
+    exact ⟨i, ty, rfl⟩
+  rw [classAbs_eq_spec]
+  exact classAbsSpec_read hyp e h2 h1
+
+end Hole
+
 end ConLeche.Model
