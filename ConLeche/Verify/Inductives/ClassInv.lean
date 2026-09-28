@@ -3,6 +3,7 @@ module
 public import ConLeche.Kernel.Inductives.ClassCheck
 import ConLeche.Verify.ExceptBind
 import ConLeche.Verify.Inductives.DirectInv
+import ConLeche.Verify.Inductives.NestContInv
 
 public section
 
@@ -538,5 +539,115 @@ theorem classInfo_run {holes : List Expr} {ctorsAs : List (List (ConstantVal × 
     subst h
     exact .container hsc' hann hlp ht (by simpa using hq) hC (by simpa using hlen) hocc hM2 hM3 hnI
       ⟨ty, hK⟩ (unwrapOr_ok hhty)
+
+/-- **R2**: a container class's index telescope (its inductive's, at the
+member-abstracted parameters) mentions no member and no member hole. -/
+theorem ClassKeyOk.idxFree {holes : List Expr} {ctorsAs : List (List (ConstantVal × Nat))}
+    {a : Nat} {key : ClassKey} {ci : ClassInfo}
+    (h : ClassKeyOk ops env ctx holes ctorsAs a key ci) (hc : ci.member = none) :
+    ∃ cvC caps ty s, ctx.find? key.ind = some (.indInfo cvC caps) ∧
+      instPisWith ci.dsA (cvC.type.instantiateLevelParams cvC.levelParams key.lvls) = some ty ∧
+      ty.piBinders.2 = .sort s ∧
+      (ty.piBinders.1.any fun b => b.1.nestOcc ctx.names ctx.nP (ctx.hiAt 0)) = false ∧
+      ci.nIdx = ty.piBinders.1.length ∧
+      Level.isEquiv s ctx.sort = some true ∧
+      key.lvls.length = cvC.levelParams.length := by
+  cases h with
+  | member => exact nomatch hc
+  | container _ _ _ _ _ _ _ _ _ _ hnI =>
+    obtain ⟨cvC, caps, hf, -, -, ty, s, hty, hs, hocc, hn, hsort⟩ := nestInstType_inv hnI
+    obtain ⟨cvC', caps', hf', hl⟩ := nestInstType_lvls hnI
+    rw [hf] at hf'
+    cases hf'
+    exact ⟨cvC, caps, ty, s, hf, hty, hs, hocc, hn, hsort, hl⟩
+
+/-- **Check 1 at every class, as run**: the hole counter `a` counts the
+container classes before. -/
+inductive ClassInfosD (ops : CheckerOps CheckM) (env : Env) (ctx : NestCtx) (holes : List Expr)
+    (ctorsAs : List (List (ConstantVal × Nat))) : Nat → List ClassKey → List ClassInfo → Prop where
+  | nil {a : Nat} : ClassInfosD ops env ctx holes ctorsAs a [] []
+  | cons {a : Nat} {k : ClassKey} {ks : List ClassKey} {c : ClassInfo} {cs : List ClassInfo}
+      (hk : ClassKeyOk ops env ctx holes ctorsAs a k c)
+      (hr : ClassInfosD ops env ctx holes ctorsAs (if c.member.isSome then a else a + 1) ks cs) :
+      ClassInfosD ops env ctx holes ctorsAs a (k :: ks) (c :: cs)
+
+theorem classInfos_run {holes : List Expr} {ctorsAs : List (List (ConstantVal × Nat))} :
+    ∀ {a : Nat} {ks : List ClassKey} {cs : List ClassInfo},
+      classInfos ops env ctx holes ctorsAs a ks = .ok cs → ClassInfosD ops env ctx holes ctorsAs a ks cs
+  | _, [], cs, h => by
+    simp only [classInfos, pure, Except.pure, Except.ok.injEq] at h
+    subst h; exact .nil
+  | a, k :: ks, cs, h => by
+    unfold classInfos at h
+    obtain ⟨c, hc, h⟩ := exceptBind_ok h
+    obtain ⟨rest, hr, h⟩ := exceptBind_ok h
+    simp only [pure, Except.pure, Except.ok.injEq] at h
+    subst h
+    exact .cons (classInfo_run hc) (classInfos_run hr)
+
+/-- Every class, at its position: check 1 at the number of container
+classes before it. -/
+theorem ClassInfosD.getElem {holes : List Expr} {ctorsAs : List (List (ConstantVal × Nat))} :
+    ∀ {a : Nat} {ks : List ClassKey} {cs : List ClassInfo},
+      ClassInfosD ops env ctx holes ctorsAs a ks cs →
+      ks.length = cs.length ∧ ∀ (i : Nat) (c : ClassInfo), cs[i]? = some c → ∃ k, ks[i]? = some k ∧
+        ClassKeyOk ops env ctx holes ctorsAs (a + ((cs.take i).filter (·.member.isNone)).length) k c
+  | _, _, _, .nil => ⟨rfl, fun _ _ h => by simp at h⟩
+  | a, k :: ks, c :: cs, .cons hk hr => by
+    obtain ⟨hl, hall⟩ := hr.getElem
+    refine ⟨by simp [hl], fun i c' hc' => ?_⟩
+    cases i with
+    | zero =>
+      simp only [List.getElem?_cons_zero, Option.some.injEq] at hc'
+      subst hc'
+      exact ⟨k, rfl, by simpa using hk⟩
+    | succ i =>
+      obtain ⟨k', hk', h'⟩ := hall i c' (by simpa using hc')
+      refine ⟨k', by simpa using hk', ?_⟩
+      have : (if c.member.isSome then a else a + 1) +
+          ((cs.take i).filter (·.member.isNone)).length =
+          a + (((c :: cs).take (i + 1)).filter (·.member.isNone)).length := by
+        cases hm : c.member <;> simp [hm, List.filter_cons] <;> omega
+      rw [← this]; exact h'
+
+/-! ## R6: the keys typed with their cyclic inner classes abstracted -/
+
+/-- A class's CYCLIC inner classes: the container classes whose
+inductive is younger (`age`) than its own. -/
+@[expose] def classCyc (age : Name → Nat) (cls : List ClassInfo) (c : ClassInfo) : List ClassInfo :=
+  cls.filter fun d => d.member.isNone && age c.key.ind < age d.key.ind
+
+/-- **R6, inverted**: every container class whose key names a cyclic
+inner class is typed at the holes' context with those abstracted. -/
+theorem classKeysCyclic_run {age : Name → Nat} {cls : List ClassInfo} {hi : Nat} :
+    ∀ {cs : List ClassInfo}, classKeysCyclic ops env age cls hi cs = .ok () →
+      ∀ c ∈ cs, c.member = none → c.dsA.map (classAbs (classCyc age cls c)) ≠ c.dsA →
+        ∃ ty, ops.inferType env hi (Expr.mkAppN (.const c.key.ind c.key.lvls)
+          (c.dsA.map (classAbs (classCyc age cls c)))) = .ok ty
+  | [], _ => fun _ h => nomatch h
+  | c :: cs, h => by
+    unfold classKeysCyclic at h
+    dsimp only at h
+    have key : classKeysCyclic ops env age cls hi cs = .ok () ∧
+        (c.member = none → c.dsA.map (classAbs (classCyc age cls c)) ≠ c.dsA →
+          ∃ ty, ops.inferType env hi (Expr.mkAppN (.const c.key.ind c.key.lvls)
+            (c.dsA.map (classAbs (classCyc age cls c)))) = .ok ty) := by
+      split at h
+      · split at h
+        · obtain ⟨u, hu, h⟩ := exceptBind_ok h
+          refine ⟨h, fun _ _ => ?_⟩
+          simp only [discard, Functor.discard, Functor.mapConst, Except.map, Function.comp_apply]
+            at hu
+          split at hu
+          · exact nomatch hu
+          · rename_i ty hty; exact ⟨ty, hty⟩
+        · rename_i hne
+          exact ⟨h, fun _ hne' => absurd (by simpa [classCyc] using hne) hne'⟩
+      · rename_i hm
+        exact ⟨h, fun hm' => absurd (by simp [hm']) hm⟩
+    intro c' hc'
+    rcases List.mem_cons.mp hc' with rfl | hc'
+    · exact key.2
+    · exact classKeysCyclic_run key.1 c' hc'
 
 end ConLeche
