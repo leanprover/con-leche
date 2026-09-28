@@ -129,6 +129,7 @@ public import ConLeche.Model.Inductives.ClassBody
 public import ConLeche.Model.Inductives.ClassHFits
 public import ConLeche.Model.Inductives.ClassFill
 public import ConLeche.Model.Inductives.ClassN2
+public import ConLeche.Model.Inductives.ClassCrestFit
 public import ConLeche.Model.Inductives.ClassRunWF
 public import ConLeche.Model.Inductives.ClassAliasSem
 public import ConLeche.Model.Annot.EnvModelM

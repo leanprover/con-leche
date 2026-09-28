@@ -269,4 +269,33 @@ theorem Ident.hfits_mono (I : N.Ident) (hfill : OpOk w K Is I.fill)
 
 end ClassNode
 
+
+
+/-! ## The class system of the nodes, by rank -/
+
+namespace ClassNode
+
+variable {acval : Name → (Name → Nat) → AnnotTerm}
+
+/-- **Every node's operator is good, by rank**: in a class system whose
+classes are nodes (nothing filled in the operators), if every node's
+identification has a filler that is good as soon as every class of a
+smaller rank spliced in is, and a spine predicate monotone and (at a
+positive level) accessible, then every class's operator — and every
+class spliced into the frame — is good. -/
+theorem sys_good (S : ClassSys V) (N : Nat → ClassNode acval S.w S.K S.Is)
+    (hΦ : ∀ c, S.Φ c = (N c).op) (I : ∀ c, (N c).Ident)
+    (hfill : ∀ c, (∀ d, S.rk d < S.rk c → OpOk S.w S.K S.Is (S.T d)) →
+      OpOk S.w S.K S.Is (I c).fill)
+    (hmono : ∀ c Z Z', InTupleSpace S.w S.K S.Is Z → InTupleSpace S.w S.K S.Is Z' →
+      TupleLe S.K S.Is Z Z' → ∀ g, g < S.K → (N c).G g → ∀ t, t ∈ˢ S.Is g → ∀ j fs,
+        (I c).P Z g t j fs → (I c).P Z' g t j fs)
+    (hacc : ∀ c, S.w ≠ 0 → ∃ A, A ∈ˢ (univ S.w : V) ∧ AccPred S.w S.K S.Is (I c).Pel A) :
+    ∀ c, OpOk S.w S.K S.Is (S.Φ c) ∧ OpOk S.w S.K S.Is (S.T c) :=
+  S.good_step fun c hlow => by
+    rw [hΦ c]
+    exact (N c).opOk (I c) (hfill c hlow) (hmono c) (hacc c)
+
+end ClassNode
+
 end ConLeche.Model
