@@ -296,8 +296,8 @@ reject-only conformance check after it. -/
 theorem checkBlockRecS_fresh (mode : CheckMode) (fe₁ : FEnv) (env₁ : Env) (fe : FEnv)
     (p : BlockParts) (nested conf : Bool) (nfs : List (List Expr)) (pos : NestState)
     (block : List ConstantInfo) (cvTas : List ConstantVal)
-    (ctorsAs ctorsN : List (List (ConstantVal × Nat))) :
-    Yields (checkBlockRecS mode fe₁ env₁ fe p nested conf nfs pos block cvTas ctorsAs ctorsN)
+    (ctorsAs : List (List (ConstantVal × Nat))) :
+    Yields (checkBlockRecS mode fe₁ env₁ fe p nested conf nfs pos block cvTas ctorsAs)
       (fun out => (out.map (·.1.name)).Nodup ∧ ∀ o ∈ out, fe.find? o.1.name = none) := by
   unfold checkBlockRecS
   refine Yields.thenConform (Yields.mono (targetRecCheck_names (shadowOpsC mode) fe₁ env₁ fe
@@ -386,7 +386,7 @@ theorem checkBlockTailS_push (mode : CheckMode) {env : Env}
     obtain ⟨c, hc, rfl⟩ := List.mem_map.mp hn
     rw [← h₁.find?]
     exact hfrs c hc
-  refine Yields.bind' (checkBlockRecS_fresh mode _ _ _ q.p _ _ _ _ block q.cvTas q.ctorsAs _)
+  refine Yields.bind' (checkBlockRecS_fresh mode _ _ _ q.p _ _ _ _ block q.cvTas q.ctorsAs)
     fun out hrs => ?_
   refine checkBlockTablesF_push _ _ (consBlockRecsTF_push _ _ _ h₂ ⟨hrs.1, ?_⟩)
   intro n hn

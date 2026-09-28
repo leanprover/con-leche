@@ -1863,8 +1863,8 @@ theorem checkBlockTailS_run (hμ : mode.verifiedChecks = true)
   subst out'
   -- the conformance branch: its run, or nothing
   obtain ⟨hs₅, F₅, hF₅⟩ : CSOKF s₅ ∧ ∃ F₅, (if nestKindsFlat kinds then
-      checkBlockRecConform (fueledOps mode F₅) (consBlockCtors p.nP ctorsAs env₁) p cvTas
-        (blockNormalCtors p.toBlockShape ctorsAs nfs) else pure ()) = .ok () := by
+      checkBlockRecConform (fueledOps mode F₅) (consBlockCtors p.nP ctorsAs env₁) p block cvTas
+        ctorsAs nfs else pure ()) = .ok () := by
     cases hk : nestKindsFlat kinds with
     | true =>
       rw [hk] at hconf
@@ -1889,7 +1889,7 @@ theorem checkBlockTailS_run (hμ : mode.verifiedChecks = true)
     rw [← checkBlockIdxSorts_datF]; exact FueledM.up hle₀ hF₀
   have g₃ : checkBlockRec (fueledOps mode G) env₁ (consBlockCtors p.nP ctorsAs env₁) p
       (blockNestedBit p.toBlockShape kinds) (nestKindsFlat kinds) nfs pos block
-      cvTas ctorsAs (blockNormalCtors p.toBlockShape ctorsAs nfs) = .ok out := by
+      cvTas ctorsAs = .ok out := by
     have gK : targetRecCheck (ShadowOps.fueled mode G) (mkFEnv env₁) env₁
         (mkFEnv (consBlockCtors p.nP ctorsAs env₁))
         p.toBlockShape (blockNestedBit p.toBlockShape kinds) nfs pos block cvTas ctorsAs
@@ -1897,8 +1897,8 @@ theorem checkBlockTailS_run (hμ : mode.verifiedChecks = true)
       rw [← targetRecCheck_datF]
       exact FueledM.up hle₃ (by rw [targetRecCheck_datF]; exact hF₃)
     have gC : (if nestKindsFlat kinds then
-        checkBlockRecConform (fueledOps mode G) (consBlockCtors p.nP ctorsAs env₁) p cvTas
-          (blockNormalCtors p.toBlockShape ctorsAs nfs) else pure ()) = .ok () := by
+        checkBlockRecConform (fueledOps mode G) (consBlockCtors p.nP ctorsAs env₁) p block cvTas
+          ctorsAs nfs else pure ()) = .ok () := by
       cases hk : nestKindsFlat kinds with
       | true =>
         rw [hk] at hF₅

@@ -29,9 +29,9 @@ The three pieces:
   `blockParts?`) — official's `add_inductive` reads the type formers,
   the constructors and the parameter count and GENERATES the recursors,
   so nothing the recursor records claim is a condition of recognition:
-  their structural pin travels with the record (`blockRecPinOk`,
-  `blockRecLpsOk`) and the install throws on it (task #220's
-  arrangement, at k members);
+  the recursor check pins them (`targetRecPins`, `targetRulePinsAll`),
+  and the one-member conformance check compares them with the generated
+  recursor (`blockRecPinOk`, `ConLeche/Conformance/RecGen.lean`);
 * **positivity** lives in its own module
   (`ConLeche/Kernel/Inductives/Positivity.lean`) and runs at
   install (`checkBlockPositivity`); the record carries no field kinds.
@@ -42,8 +42,8 @@ type its result names.  A head that is no member of the block leaves
 the constructor in member 0's group, where the install rejects it with
 official's message ("invalid return type", `structCtorResidOk`); a
 grouping that is not monotone in block order contradicts the generated
-recursors' minor order and is rejected by the recursor pin
-(`blockRecPinOk`'s last conjunct).
+recursors' minor order and is rejected by the recursor check's pin
+(`targetRecPins`, "constructor grouping").
 -/
 
 -- the `simp only` sets below are written for robustness against the
@@ -198,28 +198,19 @@ def withSort (p : BlockShape) (s : Level) : BlockShape :=
 
 end BlockShape
 
-/-- The pieces of a recognised block: its shape and the recursor
-records' structural pin. -/
+/-- A recognised block: its shape.  (The recursor records' structural
+pin, `blockRecPinOk`, is the conformance check's and lives with it,
+`ConLeche/Conformance/RecGen.lean`.) -/
 structure BlockParts extends BlockShape where
-  /-- **the stream's recursor records passed the structural pin**
-  (task #220 at k members): each recursor's two argument sums, its rule
-  count, each rule's constructor and field count, and the constructors'
-  grouping being monotone in block order (the generated minors are in
-  block order, so a permuted export cannot match them).  The recogniser
-  records the verdict; the recursor stage THROWS on `false`. -/
-  recPinned : Bool
   deriving Repr, Inhabited
 
 /-- **The record completed by the formers' stage**: the shape the
-formers' run returned (its result sort read through `whnf`) with the
-recogniser's pin. -/
-def BlockParts.complete (p₀ : BlockParts) (p₁ : BlockShape) : BlockParts :=
-  ⟨p₁, p₀.recPinned⟩
+formers' run returned (its result sort read through `whnf`). -/
+def BlockParts.complete (_p₀ : BlockParts) (p₁ : BlockShape) : BlockParts :=
+  ⟨p₁⟩
 
 @[simp] theorem BlockParts.complete_toBlockShape (p₀ : BlockParts) (p₁ : BlockShape) :
     (p₀.complete p₁).toBlockShape = p₁ := rfl
-@[simp] theorem BlockParts.complete_recPinned (p₀ : BlockParts) (p₁ : BlockShape) :
-    (p₀.complete p₁).recPinned = p₀.recPinned := rfl
 @[simp] theorem BlockParts.complete_members (p₀ : BlockParts) (p₁ : BlockShape) :
     (p₀.complete p₁).members = p₁.members := rfl
 @[simp] theorem BlockParts.complete_recs (p₀ : BlockParts) (p₁ : BlockShape) :
@@ -328,35 +319,12 @@ thrown by the constructor stage (`structCtorResidOk`,
 `ConLeche/Kernel/Inductives/SumInstall.lean`).  At two or more members the
 group is read off the result head; a
 constructor whose head is no member of the block stays in NO group and
-is caught by the recursor pin's grouping conjunct
-(`blockRecPinOk`) — a `.invalid`, as official's is. -/
+is caught by the recursor check's pin (`targetRecPins`, "constructor
+grouping") — a `.invalid`, as official's is. -/
 def blockGroups (names : List Name) (lps : List Name) (nP k : Nat)
     (cs : List (ConstantVal × Nat)) : List (List (ConstantVal × Nat)) :=
   if k == 1 then [cs]
   else (List.range k).map fun m => cs.filter fun c => ctorMember? names lps nP c == some m
-
-/-- **The recursor records' structural pin** (task #220 at k members),
-thrown at the recursor stage: every recursor's two argument sums, one
-rule per constructor of ITS member in block order, each rule naming its
-constructor with its field count — and the grouping itself, which must
-exhaust the block's constructors in block order (the generated minors
-are the block's constructors in block order, so a grouping that is not
-monotone cannot match any generated recursor). -/
-def blockRecPinOk (p : BlockShape) (block : List ConstantInfo) : Bool :=
-  match blockSplit block with
-  | some (cvTs, cs, rs) =>
-    cvTs.length == p.k && rs.length == p.recs.length &&
-    (p.allCtors.map (·.1.name) == cs.map (·.1.name)) &&
-    (List.range p.recs.length).all fun r =>
-      match rs[r]?, p.members[p.recTgtAt r]? with
-      | some (_, _mI, _rP, rules), some ms =>
-        rules.length == ms.ctors.length &&
-        (List.range ms.ctors.length).all fun j =>
-          match rules[j]?, cs[p.offs (p.recTgtAt r) + j]? with
-          | some rule, some (cvC, _, nF) => rule.ctor == cvC.name && rule.nfields == nF
-          | _, _ => false
-      | _, _ => false
-  | none => false
 
 /-- **The recursor records' level-parameter pin** (task #220 at k
 members, per RECURSOR): official
@@ -421,9 +389,9 @@ def blockMemberCounts? (nPd k nC : Nat) (names : List Name)
 /-- The block's shape: the members with their counts, the shared
 parameter count, the result sort read off member 0 (or the placeholder
 the install replaces, task #195) and which eliminator the recursor
-records claim.  Nothing of the recursor records is pinned here
-(`blockRecPinOk`/`blockRecLpsOk` travel with the record and the install
-throws on them) — the arrangement of task #220, so that a block whose
+records claim.  Nothing of the recursor records is pinned here (the
+recursor check and the conformance check throw on them) — the
+arrangement of task #220, so that a block whose
 recursor record is a stub is REJECTED by its own type and constructors
 rather than declined. -/
 def blockShape? (nPd : Nat) (block : List ConstantInfo) : Option BlockShape :=
@@ -478,11 +446,10 @@ def blockShape? (nPd : Nat) (block : List ConstantInfo) : Option BlockShape :=
   | none => none
 
 /-- Recognise a block for the uniform fixpoint route, at any number of
-members: its SHAPE (`blockShape?`) and the recursor records'
-structural pin (`blockRecPinOk`), which the recursor stage throws on. -/
+members: its SHAPE (`blockShape?`). -/
 def blockParts? (nPd : Nat) (block : List ConstantInfo) : Option BlockParts :=
   match blockShape? nPd block with
-  | some p => some ⟨p, blockRecPinOk p block⟩
+  | some p => some ⟨p⟩
   | none => none
 
 end ConLeche

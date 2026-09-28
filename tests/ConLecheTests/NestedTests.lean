@@ -60,17 +60,17 @@ name must exist). -/
   | .error _ => none
 
 @[expose] def keysOf : Except CheckError NestedPositivity → Option (List Name)
-  | .ok r => some (r.keys.toList.map (·.key.cname))
+  | .ok r => some (r.keys.toList.map (·.cname))
   | .error _ => none
 
 -- a plain recursive field: no instance located
 #guard kindsOf (runT cT) == some [.recursive 0]
 #guard keysOf (runT cT) == some []
 -- `L T`: one instance, the field nests through it
-#guard kindsOf (runT (.app cL cT)) == some [.nested 0 false]
+#guard kindsOf (runT (.app cL cT)) == some [.nested false]
 #guard keysOf (runT (.app cL cT)) == some [nm "L"]
 -- `Nat → L T`: a reflexive nested field
-#guard kindsOf (runT (pi cNat (.app cL cT))) == some [.nested 0 true]
+#guard kindsOf (runT (pi cNat (.app cL cT))) == some [.nested true]
 -- `L (L T)`: outermost first, then the instance its constructors reach
 #guard keysOf (runT (.app cL (.app cL cT))) == some [nm "L", nm "L"]
 -- `N T`: the instantiated constructor `(T → Nat) → …` is negative
@@ -100,7 +100,7 @@ reduces with the kernel's whnf (`(fun _ => T) Nat ⇝ T`). -/
   nestedBlockPositivity (pureOps .verified) envF ctxF [[(⟨nm "T.mk", [], pi dom cT⟩, 1)]]
 
 -- `LF (fun _ => T)`: the λ-pin is an ordinary instantiation
-#guard kindsOf (runF (.app cLF (.lam ty1 cT default))) == some [.nested 0 false]
+#guard kindsOf (runF (.app cLF (.lam ty1 cT default))) == some [.nested false]
 -- `LF (fun _ => T → Nat)`: negative AT this instantiation
 #guard runF (.app cLF (.lam ty1 (pi cT cNat) default)) matches .error (.invalid _)
 
@@ -133,7 +133,7 @@ the frame's holes. -/
 -- `A T`: accepted; `A T`'s frame abstracts the whole block `[A, B]`, so
 -- both are walked in one frame
 #guard (runM (.app cA cT)) matches .ok _
-#guard keysOf (runM (.app cA cT)) == some [nm "B", nm "A"]
+#guard keysOf (runM (.app cA cT)) == some [nm "A", nm "B"]
 
 /-- A container whose own constructor uses it at ANOTHER parameter
 (`W α | mk : W Nat → W α`, which no installed inductive has): the
@@ -307,7 +307,8 @@ official accepts, a later field's normal form never mentions a
 recursive field (anything applied to it would mention the block, which
 official rejects).  The normal form: `nestedBlockPositivity` returns
 every constructor's type in official's `check_positivity` form (a
-field `Id' T` stored as `T`), the one function's product. -/
+field `Id' T` normalised to `T`, the member abstracted to its hole),
+the one function's product. -/
 
 @[expose] def cF4 : Expr := .const (nm "F4") []
 @[expose] def cId : Expr := .const (nm "Id'") []
@@ -321,10 +322,11 @@ field `Id' T` stored as `T`), the one function's product. -/
 #guard (nestedBlockPositivity (pureOps .verified) envU ctxU
     [[(⟨nm "T.mk", [], pi cT (pi (.app cF4 (.bvar 0)) cT)⟩, 2)]])
   matches .error (.invalid _)
--- `Id' T → T`: recursive after δβ; stored as `T → T`
+-- `Id' T → T`: recursive after δβ; normalised to `T → T` (the member
+-- abstracted to its hole, the free variable `0`)
 #guard (nestedBlockPositivity (pureOps .verified) envU ctxU
     [[(⟨nm "T.mk", [], pi (.app cId cT) cT⟩, 1)]]).toOption.map (·.normals)
-  == some [[pi cT cT]]
+  == some [[pi (.fvar 0 ty1) (.fvar 0 ty1)]]
 
 
 end ConLecheTests.Nested

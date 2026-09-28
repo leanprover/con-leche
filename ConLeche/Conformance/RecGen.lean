@@ -423,12 +423,67 @@ def confKinds (T : Name) (lps : List Name) (nP nIdx : Nat) (ctorsA : List (Const
 
 end Classify
 
+/-- **The recursor records' structural pin** (task #220 at k members),
+read by the conformance check only (`BlockParts.toNative`): every recursor's two argument sums, one
+rule per constructor of ITS member in block order, each rule naming its
+constructor with its field count — and the grouping itself, which must
+exhaust the block's constructors in block order (the generated minors
+are the block's constructors in block order, so a grouping that is not
+monotone cannot match any generated recursor). -/
+def blockRecPinOk (p : BlockShape) (block : List ConstantInfo) : Bool :=
+  match blockSplit block with
+  | some (cvTs, cs, rs) =>
+    cvTs.length == p.k && rs.length == p.recs.length &&
+    (p.allCtors.map (·.1.name) == cs.map (·.1.name)) &&
+    (List.range p.recs.length).all fun r =>
+      match rs[r]?, p.members[p.recTgtAt r]? with
+      | some (_, _mI, _rP, rules), some ms =>
+        rules.length == ms.ctors.length &&
+        (List.range ms.ctors.length).all fun j =>
+          match rules[j]?, cs[p.offs (p.recTgtAt r) + j]? with
+          | some rule, some (cvC, _, nF) => rule.ctor == cvC.name && rule.nfields == nF
+          | _, _ => false
+      | _, _ => false
+  | none => false
+
 /-- **The one-member reading of the record**: the shape's, with the
 conformance check's own field kinds and the recursor record's two
-argument SUMS added to the pin — at `k = 1` the generate-and-compare
-arm is where they belong, and `toNative` IS that check's reading. -/
-def BlockParts.toNative (p : BlockParts) (kinds : List (List RecFieldKind)) : NativeParts :=
-  ⟨p.toBlockShape.toInductive, kinds, p.toBlockShape.recSumsOk && p.recPinned⟩
+argument SUMS added to the structural pin (`blockRecPinOk`, read off the
+raw `block`) — at `k = 1` the generate-and-compare arm is where they
+belong, and `toNative` IS that check's reading. -/
+def BlockParts.toNative (p : BlockParts) (block : List ConstantInfo)
+    (kinds : List (List RecFieldKind)) : NativeParts :=
+  ⟨p.toBlockShape.toInductive, kinds,
+    p.toBlockShape.recSumsOk && blockRecPinOk p.toBlockShape block⟩
+
+/-! ## The constructors at the positivity check's normal forms -/
+
+/-- The member holes back to the members (`nP + m ↦ T_m.{lps}`), on a
+term with no loose bound variable. -/
+def nestConcrete (ctx : NestCtx) (e : Expr) : Expr :=
+  (List.range ctx.names.length).foldl (fun e mm =>
+    (e.abstract1 (ctx.nP + mm) 0).instantiate1
+      (.const (ctx.names.getD mm .anonymous) (ctx.lps.map .param))) e
+
+/-- A constructor's normal form made concrete again: the members
+restored (`nestConcrete`) and the parameters closed back over the
+declared type's own parameter binders (reads only `ctx`'s names, levels
+and parameter count). -/
+def nestConcreteCtor (ctx : NestCtx) (cty tyN : Expr) : Option Expr :=
+  (cty.stripPis ctx.nP).map fun cq => closeTelescope cq.1 0 (nestConcrete ctx tyN)
+
+/-- **The constructors at the positivity check's normal forms**:
+each annotated constructor with its type replaced by its
+normal form `nf` (member-abstracted at the walk's context, the pass's
+`nfs`) made concrete again (`nestConcreteCtor`).  The one-member
+generator classifies and generates on the telescope official's
+`check_positivity` sees (the fields whnf'd); nothing the model reads. -/
+def blockNormalCtors (p : BlockShape) (ctorsAs : List (List (ConstantVal × Nat)))
+    (nfs : List (List Expr)) : List (List (ConstantVal × Nat)) :=
+  let ctx : NestCtx := ⟨p.memberNames, p.lps, p.nP, p.nIdxs, [], p.resSort, fun _ => none, []⟩
+  (ctorsAs.zip nfs).map fun (cs, ns) => (cs.zip ns).map fun (c, n) =>
+    let ty := (nestConcreteCtor ctx c.1.type n).getD c.1.type
+    ({ c.1 with type := ty }, c.2)
 
 @[simp] theorem BlockShape.toInductive_withSort (p : BlockShape) (s : Level) :
     (p.withSort s).toInductive = p.toInductive.withSort s := rfl

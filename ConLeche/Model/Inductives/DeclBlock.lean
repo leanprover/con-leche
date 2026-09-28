@@ -194,8 +194,7 @@ over the input environment. -/
     (posR : ConLeche.NestState) (tblR : List ConLeche.NestCtorNf) : Prop :=
   ConLeche.checkBlockRec (m := ConLeche.CheckM) (ConLeche.fueledOps μ F) envI envC pp
       (ConLeche.blockNestedBit pp.toBlockShape kindsR)
-      (ConLeche.nestKindsFlat kindsR) nfsR posR block cvTasR ctorsAsR
-      (ConLeche.blockNormalCtors pp.toBlockShape ctorsAsR nfsR) = .ok out ∧
+      (ConLeche.nestKindsFlat kindsR) nfsR posR block cvTasR ctorsAsR = .ok out ∧
   ConLeche.checkBlockPositivity (m := ConLeche.CheckM) (ConLeche.fueledOps μ F) envI
       envI.find? envI.consts pp cvTasR ctorsAsR = .ok (kindsR, nfsR, posR) ∧
   envC = ConLeche.consBlockCtors pp.nP ctorsAsR envI ∧

@@ -31,7 +31,7 @@ open ConLeche.Term ConLeche.Verify SetTheory
 open ConLeche.Model.Rules
 open ConLeche.Semantics (AnnotTerm)
 open ConLeche (Env Expr Name Level ConstantVal IndCaps CheckM NestCtx NestKey NestHole NestState
-  NestKeyInfo NestFieldKind CheckError instPisWith fueledOps)
+  NestFieldKind CheckError instPisWith fueledOps)
 
 universe w
 

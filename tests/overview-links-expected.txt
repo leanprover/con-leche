@@ -853,8 +853,8 @@
     64    ([BasisKind.eqK, .natK, .punitK, .emptyK, .falseK].find? fun k =>
     65        k.decls.map (·.name) == block.map (·.name)).filter fun k =>
 
-== ConLeche/Kernel/Inductives/BlockParts.lean#L483
-   483  def blockParts? (nPd : Nat) (block : List ConstantInfo) : Option BlockParts :=
+== ConLeche/Kernel/Inductives/BlockParts.lean#L450
+   450  def blockParts? (nPd : Nat) (block : List ConstantInfo) : Option BlockParts :=
 
 == ConLeche/Kernel/Env.lean#L607-L614
    607  def indParamsOk (nP : Nat) (block : List ConstantInfo) : Bool :=
@@ -866,8 +866,8 @@
    613      | .ctorInfo _ nPc _ => nPc == nP
    614      | _ => true
 
-== ConLeche/Kernel/Inductives/Positivity.lean#L1577
-  1577  def nestMemberCtors (ops : CheckerOps m) (env : Env) (ctx : NestCtx) (holes : List Expr) :
+== ConLeche/Kernel/Inductives/Positivity.lean#L1551
+  1551  def nestMemberCtors (ops : CheckerOps m) (env : Env) (ctx : NestCtx) (holes : List Expr) :
 
 == ConLeche/Kernel/Inductives/BlockInstall.lean#L284
    284  def checkBlockPositivity (ops : CheckerOps m) (env₁ : Env) (find? : Name → Option ConstantInfo)
@@ -899,11 +899,11 @@
   1272    so.flush
   1273    pure out
 
-== ConLeche/Conformance/RecConform.lean#L110
-   110  def checkBlockRecConform (ops : CheckerOps m) (env : Env) (p : BlockParts)
+== ConLeche/Conformance/RecConform.lean#L114
+   114  def checkBlockRecConform (ops : CheckerOps m) (env : Env) (p : BlockParts)
 
-== ConLeche/Kernel/Inductives/BlockTail.lean#L122
-   122  def checkBlock (ops : CheckerOps m) (env : Env) (block : List ConstantInfo) (p₀ : BlockParts) :
+== ConLeche/Kernel/Inductives/BlockTail.lean#L121
+   121  def checkBlock (ops : CheckerOps m) (env : Env) (block : List ConstantInfo) (p₀ : BlockParts) :
 
 == ConLeche/SetModel/Value.lean#L388-L395
    388  noncomputable def lfpFamSpace (w : Nat) (I : V) : V := piR (w + 1) I fun _ => univ w
@@ -926,10 +926,10 @@
    340      (hrun : ConLeche.Semantics.DeclBlockRun μ F env block p₀ env₂) (hcov : LfpCover mp []) :
    341      ∃ mp' : EnvModelM V μ env₂, LfpCover mp' [] := by
 
-== ConLeche/Kernel/Inductives/Positivity.lean#L1339-L1341
-  1339  def nestContNew (ctx : NestCtx) (ops : CheckerOps m) (env : Env)
-  1340      (rec : List NestHole → Nat → Nat → Expr → NestState → m (NestFieldKind × Expr × NestState))
-  1341      (prog : List NestHole) (kb : Nat) (n : Name) (us : List Level) (ds : List Expr) (nPc : Nat)
+== ConLeche/Kernel/Inductives/Positivity.lean#L1328-L1330
+  1328  def nestContNew (ctx : NestCtx) (ops : CheckerOps m) (env : Env)
+  1329      (rec : List NestHole → Nat → Nat → Expr → NestState → m (NestFieldKind × Expr × NestState))
+  1330      (prog : List NestHole) (kb : Nat) (n : Name) (us : List Level) (ds : List Expr) (nPc : Nat)
 
 == ConLeche/Kernel/Inductives/RecCheck.lean#L420-L422
    420  def targetMajorOf (fe : FEnv) (p : BlockShape)

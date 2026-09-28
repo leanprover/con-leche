@@ -351,7 +351,7 @@ theorem checkStructFieldSortsI_datF (env : Env) (isProp large : Bool)
 section NestPos
 
 open ConLeche (NestCtx NestKey NestHole NestState NestFieldKind nestInstType nestGrowGroup
-  nestAcceptGroup nestGroupCtors nestFields nestCtors nestFrame nestCont nestPos nestMemberCtor
+  nestGroupCtors nestFields nestCtors nestFrame nestCont nestPos nestMemberCtor
   nestMemberCtors nestBlockCtors nestedBlockPositivity nestContainerC)
 
 theorem nestInstType_datF (ctx : NestCtx) (hi : Nat) (key : NestKey) (F : Nat) :
@@ -372,21 +372,6 @@ theorem nestGrowGroup_datF (ctx : NestCtx) (hi : Nat) (us : List Level) (ds : Li
     congr 1
     funext q
     exact nestGrowGroup_datF ctx hi us ds F cs _
-
-theorem nestAcceptGroup_datF (ctx : NestCtx) (hi : Nat) (us : List Level) (ds : List Expr)
-    (F : Nat) :
-    ∀ (grp : List (Name × Expr)) (st : NestState),
-      (nestAcceptGroup (m := FueledM) ctx hi us ds grp st).val F
-        = nestAcceptGroup (m := CheckM) ctx hi us ds grp st
-  | [], _ => rfl
-  | (c, _) :: rest, st => by
-    unfold nestAcceptGroup
-    simp only [FueledM.atF_ite, FueledM.atF_bind, nestInstType_datF]
-    split
-    · congr 1
-      funext q
-      exact nestAcceptGroup_datF ctx hi us ds F rest _
-    · exact nestAcceptGroup_datF ctx hi us ds F rest st
 
 theorem nestGroupCtors_datF (ctx : NestCtx) (nPc : Nat) (F : Nat) :
     ∀ (cs : List Name) (st : NestState),
@@ -445,27 +430,23 @@ theorem nestFrame_datF {F : Nat} (hrec : ∀ a b c d e, (rec a b c d e).val F = 
 
 theorem nestContNew_datF {F : Nat} (hrec : ∀ a b c d e, (rec a b c d e).val F = rec' a b c d e)
     (ctx : NestCtx) (env : Env) (prog : List NestHole) (kb : Nat) (n : Name) (us : List Level)
-    (ds : List Expr) (nPc : Nat) (old : Option Nat) (st : NestState) :
-    (ConLeche.nestContNew ctx (fueledOpsM mode) env rec prog kb n us ds nPc old st).val F
-      = ConLeche.nestContNew ctx (fueledOps mode F) env rec' prog kb n us ds nPc old st := by
+    (ds : List Expr) (nPc : Nat) (cty : Expr) (st : NestState) :
+    (ConLeche.nestContNew ctx (fueledOpsM mode) env rec prog kb n us ds nPc cty st).val F
+      = ConLeche.nestContNew ctx (fueledOps mode F) env rec' prog kb n us ds nPc cty st := by
   unfold ConLeche.nestContNew
-  cases old <;>
-  simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw, FueledM.atF_ite,
-    nestInstType_datF, nestGrowGroup_datF, nestFrame_datF hrec, nestAcceptGroup_datF]
+  simp only [FueledM.atF_bind, FueledM.atF_pure, nestGrowGroup_datF, nestFrame_datF hrec]
 
 theorem nestContKey_datF {F : Nat} (hrec : ∀ a b c d e, (rec a b c d e).val F = rec' a b c d e)
     (ctx : NestCtx) (env : Env) (prog : List NestHole) (kb : Nat) (n : Name) (us : List Level)
-    (ds : List Expr) (nPc : Nat) (st : NestState) :
-    (ConLeche.nestContKey ctx (fueledOpsM mode) env rec prog kb n us ds nPc st).val F
-      = ConLeche.nestContKey ctx (fueledOps mode F) env rec' prog kb n us ds nPc st := by
+    (ds : List Expr) (nPc : Nat) (cty : Expr) (st : NestState) :
+    (ConLeche.nestContKey ctx (fueledOpsM mode) env rec prog kb n us ds nPc cty st).val F
+      = ConLeche.nestContKey ctx (fueledOps mode F) env rec' prog kb n us ds nPc cty st := by
   unfold ConLeche.nestContKey
   split
   · simp only [FueledM.atF_throw]
   · split
-    · split
-      · rfl
-      · exact nestContNew_datF hrec ctx env prog kb n us ds nPc _ st
-    · exact nestContNew_datF hrec ctx env prog kb n us ds nPc none st
+    · rfl
+    · exact nestContNew_datF hrec ctx env prog kb n us ds nPc cty st
 
 theorem nestCont_datF {F : Nat} (hrec : ∀ a b c d e, (rec a b c d e).val F = rec' a b c d e)
     (ctx : NestCtx) (env : Env) (prog : List NestHole) (kb : Nat) (n : Name) (us : List Level)
@@ -723,10 +704,11 @@ theorem confKinds_datF (T : Name) (lps : List Name) (nP nIdx : Nat)
     unwrapOr_atF]
 
 /-- The reject-only conformance check at fuel `F`. -/
-theorem checkBlockRecConform_datF (env : Env) (p : BlockParts) (cvTas : List ConstantVal)
-    (ctorsAs : List (List (ConstantVal × Nat))) (F : Nat) :
-    (checkBlockRecConform (fueledOpsM mode) env p cvTas ctorsAs).val F =
-      checkBlockRecConform (fueledOps mode F) env p cvTas ctorsAs := by
+theorem checkBlockRecConform_datF (env : Env) (p : BlockParts) (block : List ConstantInfo)
+    (cvTas : List ConstantVal) (ctorsAs : List (List (ConstantVal × Nat)))
+    (nfs : List (List Expr)) (F : Nat) :
+    (checkBlockRecConform (fueledOpsM mode) env p block cvTas ctorsAs nfs).val F =
+      checkBlockRecConform (fueledOps mode F) env p block cvTas ctorsAs nfs := by
   unfold checkBlockRecConform
   split
   · simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw, FueledM.atF_ite,
@@ -1067,6 +1049,7 @@ theorem nestSeeds_datF (env : Env) (ctx : ConLeche.NestCtx) (F : Nat) :
   | (key, nPc) :: ks, st => by
     unfold ConLeche.nestSeeds
     simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw, FueledM.atF_ite,
+      ConLeche.nestInstType_datF,
       nestContKey_datF (rec := ConLeche.nestPos (fueledOpsM mode) env ctx _)
         (rec' := ConLeche.nestPos (fueledOps mode F) env ctx _) (nestPos_datF env ctx F _),
       nestSeeds_datF env ctx F ks]
@@ -1116,11 +1099,9 @@ theorem checkBlockRecT_datF (env₁ env : Env) (p : BlockParts) (nested : Bool)
 theorem checkBlockRec_datF (env₁ env : Env) (p : BlockParts) (nested conf : Bool)
     (nfs : List (List Expr)) (pos : ConLeche.NestState)
     (block : List ConstantInfo)
-    (cvTas : List ConstantVal) (ctorsAs ctorsN : List (List (ConstantVal × Nat))) (F : Nat) :
-    (checkBlockRec (fueledOpsM mode) env₁ env p nested conf nfs pos block cvTas ctorsAs
-        ctorsN).val F =
-      checkBlockRec (fueledOps mode F) env₁ env p nested conf nfs pos block cvTas ctorsAs
-        ctorsN := by
+    (cvTas : List ConstantVal) (ctorsAs : List (List (ConstantVal × Nat))) (F : Nat) :
+    (checkBlockRec (fueledOpsM mode) env₁ env p nested conf nfs pos block cvTas ctorsAs).val F =
+      checkBlockRec (fueledOps mode F) env₁ env p nested conf nfs pos block cvTas ctorsAs := by
   unfold checkBlockRec thenConform
   cases conf <;>
   simp only [FueledM.atF_bind, FueledM.atF_pure, checkBlockRecT_datF,

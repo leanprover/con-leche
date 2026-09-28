@@ -72,8 +72,8 @@ The ONE inversion of the run is `nestPos_deriv` (`PosDerivInv.lean`).
 
 namespace ConLeche
 
-/-- A field's kind, declaratively: the run's `NestFieldKind` without the
-cache's table index. -/
+/-- A field's kind, declaratively: the run's `NestFieldKind`, constructor
+for constructor (`NestFieldKind.erase`). -/
 inductive PosKind where
   | ordinary
   | recursive (t : Nat)
@@ -82,13 +82,13 @@ inductive PosKind where
   | nested (refl : Bool)
   deriving DecidableEq, Inhabited
 
-/-- The run's kind, its table index forgotten. -/
+/-- The run's kind, as the derivation reads it. -/
 @[expose] def NestFieldKind.erase : NestFieldKind → PosKind
   | .ordinary => .ordinary
   | .recursive t => .recursive t
   | .reflexive t => .reflexive t
   | .inProgress => .inProgress
-  | .nested _ r => .nested r
+  | .nested r => .nested r
 
 /-- A FLAT kind: hole-free, a member, a member under binders — no
 container instantiation. -/

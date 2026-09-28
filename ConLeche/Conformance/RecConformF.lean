@@ -132,12 +132,12 @@ here, beside the generator it runs, rather than with the block mirrors
 (`BlockInstallF.lean`): those do not import the one-member mirror. -/
 def checkBlockRecConformF (ops : CheckerOps m) (w : StructWalkers) (fe : FEnv)
     (hint : Option (ConstantVal × Nat × Nat × FEnv))
-    (p : BlockParts) (cvTas : List ConstantVal) (ctorsAs : List (List (ConstantVal × Nat))) :
-    m Unit :=
-  match p.members, p.recs, cvTas, ctorsAs with
+    (p : BlockParts) (block : List ConstantInfo) (cvTas : List ConstantVal)
+    (ctorsAs : List (List (ConstantVal × Nat))) (nfs : List (List Expr)) : m Unit :=
+  match p.members, p.recs, cvTas, blockNormalCtors p.toBlockShape ctorsAs nfs with
   | [ms], [_], [cvTa], [ctorsA] => do
     let kinds ← confKinds ms.cvT.name p.lps p.nP ms.nIdx ctorsA
-    let pn := p.toNative kinds
+    let pn := p.toNative block kinds
     unless nativeRulesOk pn.cvR.name (pn.cvR.levelParams.map .param) .never pn.nP
         pn.ctors.length ctorsA pn.kinds pn.rhss pn.cvR.type do
       throw (.invalid "direct rec: recursor rules are not the generated ones")

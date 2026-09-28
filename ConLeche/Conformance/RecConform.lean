@@ -106,13 +106,18 @@ compared (`checkNativeRec`), with the results discarded.
 **Coverage: ONE member with ONE recursor only.**  For a mutual block
 (`k ≥ 2`) the kernel has NO generator, so the check is SKIPPED there, and
 such a block's recursors are held to the primitive-recursion check
-and the records' pins (`targetRecPins`, `targetRulePinsAll`) alone. -/
+and the records' pins (`targetRecPins`, `targetRulePinsAll`) alone.
+
+It reads the raw `block` (the records' structural pin, `blockRecPinOk`)
+and the constructors at the positivity check's normal forms `nfs`
+(`blockNormalCtors`). -/
 def checkBlockRecConform (ops : CheckerOps m) (env : Env) (p : BlockParts)
-    (cvTas : List ConstantVal) (ctorsAs : List (List (ConstantVal × Nat))) : m Unit :=
-  match p.members, p.recs, cvTas, ctorsAs with
+    (block : List ConstantInfo) (cvTas : List ConstantVal)
+    (ctorsAs : List (List (ConstantVal × Nat))) (nfs : List (List Expr)) : m Unit :=
+  match p.members, p.recs, cvTas, blockNormalCtors p.toBlockShape ctorsAs nfs with
   | [ms], [_], [cvTa], [ctorsA] => do
     let kinds ← confKinds ms.cvT.name p.lps p.nP ms.nIdx ctorsA
-    let pn := p.toNative kinds
+    let pn := p.toNative block kinds
     unless nativeRulesOk pn.cvR.name (pn.cvR.levelParams.map .param) .never pn.nP
         pn.ctors.length ctorsA pn.kinds pn.rhss pn.cvR.type do
       throw (.invalid "direct rec: recursor rules are not the generated ones")
