@@ -1477,4 +1477,491 @@ theorem classOcc_some_of_match {cls : List ClassInfo} {H : Nat} (hwf : ClassOccW
 
 end Match
 
+/-! ## 8. P1 at stage values: the abstraction against its restriction, discharged -/
+
+section Stage
+
+open ConLeche (ClassInfo classOcc? classAbs)
+
+variable {V : Type w} [SetTheory V] {env : Env} {φ : Name → Nat}
+  {acval : Name → (Name → Nat) → AnnotTerm}
+
+theorem optAgree_trans {Good : (Nat → V) → Prop} {d : Nat} {o1 o2 o3 : Option AnnotTerm}
+    (h1 : OptAgree (ValAgree V Good d) o1 o2) (h2 : OptAgree (ValAgree V Good d) o2 o3) :
+    OptAgree (ValAgree V Good d) o1 o3 := by
+  cases o1 <;> cases o2 <;> cases o3 <;> simp_all [OptAgree]
+  intro vals τ hvl hτ
+  rw [h1 vals τ hvl hτ, h2 vals τ hvl hτ]
+
+theorem Expr.instantiateList_mkAppN' (σ : List Expr) (k : Nat) :
+    ∀ (as : List Expr) (f : Expr), (Expr.mkAppN f as).instantiateList σ k
+      = Expr.mkAppN (f.instantiateList σ k) (as.map (·.instantiateList σ k))
+  | [], _ => rfl
+  | a :: as, f => by
+    rw [Expr.mkAppN, Expr.instantiateList_mkAppN' σ k as]
+    simp [Expr.instantiateList, Expr.mkAppN]
+
+theorem Expr.getAppFn_mkAppN' : ∀ (as : List Expr) (f : Expr),
+    (Expr.mkAppN f as).getAppFn = f.getAppFn
+  | [], _ => rfl
+  | a :: as, f => by rw [Expr.mkAppN, Expr.getAppFn_mkAppN' as]; rfl
+
+theorem Expr.getAppArgs_mkAppN' : ∀ (as : List Expr) (f : Expr),
+    (Expr.mkAppN f as).getAppArgs = f.getAppArgs ++ as
+  | [], _ => by simp [Expr.mkAppN]
+  | a :: as, f => by
+    rw [Expr.mkAppN, Expr.getAppArgs_mkAppN' as]
+    simp [Expr.getAppArgs]
+
+/-- Agreement of application spines, argument by argument. -/
+theorem optAgree_mkAppN {Good : (Nat → V) → Prop} {d D : Nat} :
+    ∀ (as2 as1 : List Expr) {f2 f1 : Expr}, as2.length = as1.length →
+      OptAgree (ValAgree V Good d) (denoteMeta acval env φ D f2) (denoteMeta acval env φ D f1) →
+      (∀ (i : Nat) (a2 a1 : Expr), as2[i]? = some a2 → as1[i]? = some a1 →
+        OptAgree (ValAgree V Good d) (denoteMeta acval env φ D a2)
+          (denoteMeta acval env φ D a1)) →
+      OptAgree (ValAgree V Good d) (denoteMeta acval env φ D (Expr.mkAppN f2 as2))
+        (denoteMeta acval env φ D (Expr.mkAppN f1 as1))
+  | [], [], _, _, _, hf, _ => hf
+  | a2 :: as2, a1 :: as1, f2, f1, hl, hf, ha => by
+    apply optAgree_mkAppN as2 as1 (by simpa using hl) _ (fun i x y hx hy => ha (i + 1) x y hx hy)
+    rw [denoteMeta_app, denoteMeta_app]
+    exact optAgree_app hf (ha 0 a2 a1 rfl rfl)
+  | [], _ :: _, _, _, hl, _, _ => by simp at hl
+  | _ :: _, [], _, _, hl, _, _ => by simp at hl
+
+/-- Two `SemEq` terms opened at the same local indices stay `SemEq`. -/
+theorem semEq_instantiateList_loc {H d : Nat} {as2 as1 : List Expr} (h2 : LocList H d as2)
+    (h1 : LocList H d as1) : ∀ (p q : Expr) (k : Nat), Expr.SemEq p q →
+      Expr.SemEq (p.instantiateList as2 k) (q.instantiateList as1 k) := by
+  intro p
+  induction p with
+  | bvar j =>
+    intro q k hpq
+    cases q <;> simp only [Expr.SemEq] at hpq
+    subst hpq
+    by_cases hjk : j < k
+    · simp only [Expr.instantiateList, if_pos hjk]
+      exact Expr.SemEq.refl _
+    · by_cases hj : j - k < d
+      · obtain ⟨ty2, hty2⟩ := h2.2 (j - k) hj
+        obtain ⟨ty1, hty1⟩ := h1.2 (j - k) hj
+        obtain ⟨hl2, hg2⟩ := List.getElem?_eq_some_iff.mp hty2
+        obtain ⟨hl1, hg1⟩ := List.getElem?_eq_some_iff.mp hty1
+        simp only [Expr.instantiateList, if_neg hjk, dif_pos hl2, dif_pos hl1, hg2, hg1]
+        exact rfl
+      · simp only [Expr.instantiateList, if_neg hjk, h2.1, h1.1, dif_neg hj]
+        exact Expr.SemEq.refl _
+  | app f a ihf iha =>
+    intro q k hpq
+    cases q <;> simp only [Expr.SemEq] at hpq
+    simp only [Expr.instantiateList]
+    exact ⟨ihf _ k hpq.1, iha _ k hpq.2⟩
+  | lam t b m iht ihb =>
+    intro q k hpq
+    cases q <;> simp only [Expr.SemEq] at hpq
+    simp only [Expr.instantiateList]
+    exact ⟨hpq.1, iht _ k hpq.2.1, ihb _ (k + 1) hpq.2.2⟩
+  | forallE t b m iht ihb =>
+    intro q k hpq
+    cases q <;> simp only [Expr.SemEq] at hpq
+    simp only [Expr.instantiateList]
+    exact ⟨hpq.1, iht _ k hpq.2.1, ihb _ (k + 1) hpq.2.2⟩
+  | letE t v b iht ihv ihb =>
+    intro q k hpq
+    cases q <;> simp only [Expr.SemEq] at hpq
+    simp only [Expr.instantiateList]
+    exact ⟨iht _ k hpq.1, ihv _ k hpq.2.1, ihb _ (k + 1) hpq.2.2⟩
+  | proj s i x ih =>
+    intro q k hpq
+    cases q <;> simp only [Expr.SemEq] at hpq
+    simp only [Expr.instantiateList]
+    exact ⟨hpq.1, hpq.2.1, ih _ k hpq.2.2⟩
+  | _ =>
+    intro q k hpq
+    cases q <;> simp only [Expr.SemEq] at hpq <;> simp only [Expr.instantiateList] <;>
+      exact hpq
+
+/-- An argument of a spine is smaller than the spine. -/
+theorem sizeOf_lt_of_mem_getAppArgs : ∀ {q a : Expr}, a ∈ q.getAppArgs → sizeOf a < sizeOf q
+  | .app f x, a, h => by
+    simp only [Expr.getAppArgs, List.mem_append, List.mem_singleton] at h
+    rcases h with h | rfl
+    · have := sizeOf_lt_of_mem_getAppArgs h
+      simp; omega
+    · simp; omega
+  | .bvar _, _, h | .fvar .., _, h | .sort _, _, h | .const .., _, h | .lam .., _, h
+  | .forallE .., _, h | .letE .., _, h | .lit _, _, h | .proj .., _, h => by
+    simp [Expr.getAppArgs] at h
+
+/-- The abstraction descends a spine whose prefixes it does not
+recognise. -/
+theorem classAbsSpec_spine (occ : Expr → Option (Expr × Nat)) :
+    ∀ (as : List Expr) (f : Expr), (∀ j, 1 ≤ j → j ≤ as.length →
+      occ (Expr.mkAppN f (as.take j)) = none) →
+      classAbsSpec occ none (Expr.mkAppN f as)
+        = Expr.mkAppN (classAbsSpec occ none f) (as.map (classAbsSpec occ none))
+  | [], _, _ => rfl
+  | a :: as, f, h => by
+    have h1 := h 1 (Nat.le_refl _) (by simp)
+    simp only [List.take_succ_cons, List.take_zero, Expr.mkAppN] at h1
+    rw [Expr.mkAppN, classAbsSpec_spine occ as (.app f a) (fun j hj1 hj => by
+      have := h (j + 1) (by omega) (by simp; omega)
+      simpa [Expr.mkAppN] using this)]
+    simp only [classAbsSpec, h1, List.map_cons, Expr.mkAppN]
+
+/-- A class's key in hole form. -/
+@[expose] def holeKey (cls : List ClassInfo) (c : ClassInfo) : Expr :=
+  Expr.mkAppN (.const c.key.ind c.key.lvls) (c.holeForm cls)
+
+/-- The kept holes are closed under same keys. -/
+@[expose] def FClosed (cls : List ClassInfo) (F : Expr → Bool) : Prop :=
+  ∀ c ∈ cls, ∀ c' ∈ cls, ∀ h h', c.hole = some h → c'.hole = some h' → SameKey c c' → F h = F h'
+
+/-- **The stage coherence**: a class outside `F` reads as its key in hole
+form; classes in `F` the same up to spelling carry one value. -/
+@[expose] def StageCoh (V : Type w) [SetTheory V] (acval : Name → (Name → Nat) → AnnotTerm)
+    (env : Env) (φ : Name → Nat) (cls : List ClassInfo) (F : Expr → Bool) (H : Nat)
+    (τ : Nat → V) : Prop :=
+  (∀ c ∈ cls, ∀ i ty, c.hole = some (.fvar i ty) → F (.fvar i ty) = false → ∀ a,
+      denoteMeta acval env φ H (holeKey cls c) = some a → τ (H - 1 - i) = interp V τ a) ∧
+  (∀ c ∈ cls, ∀ c' ∈ cls, ∀ i ty i' ty', c.hole = some (.fvar i ty) →
+      c'.hole = some (.fvar i' ty') → F (.fvar i ty) = true → SameKey c c' →
+      τ (H - 1 - i) = τ (H - 1 - i'))
+
+/-- The hole-form keys are frame-scoped, closed, and read. -/
+@[expose] def HoleKeysOk (acval : Name → (Name → Nat) → AnnotTerm) (env : Env) (φ : Name → Nat)
+    (cls : List ClassInfo) (H : Nat) : Prop :=
+  ∀ c ∈ cls, c.hole.isSome → Expr.WScoped H (holeKey cls c) ∧
+    (holeKey cls c).looseBVarsBounded 0 = true ∧
+    (denoteMeta acval env φ H (holeKey cls c)).isSome
+
+/-- Related spellings are recognised alike, with the same index count and
+classes the same up to spelling. -/
+theorem classOcc_both {cls : List ClassInfo} {H : Nat} (hwf : ClassOccWF cls H) {p q h : Expr}
+    {n : Nat} (hpq : Expr.eqUpToLevels p q = true) (hp : classOcc? cls p = some (h, n)) :
+    ∃ h', classOcc? cls q = some (h', n) ∧ ∃ c ∈ cls, ∃ c' ∈ cls, c.hole = some h ∧
+      c'.hole = some h' ∧ SameKey c c' ∧ ClassMatch p c ∧ ClassMatch q c ∧
+      n = q.getAppArgs.length - c.nPc := by
+  obtain ⟨c, hc, hch, hmp, hn⟩ := classOcc_match hwf hp
+  have hchs : c.hole.isSome := by rw [hch]; rfl
+  have hmq := hmp.transport hpq
+  obtain ⟨h', n', hq⟩ := classOcc_some_of_match hwf hc hchs hmq
+  obtain ⟨c', hc', hch', hmq', hn'⟩ := classOcc_match hwf hq
+  have hch's : c'.hole.isSome := by rw [hch']; rfl
+  have hsk := hmq.sameKey hwf hc hc' hchs hch's hmq'
+  have hN := hwf.nPc c hc c' hc' hchs hch's hsk.1
+  have hlen := (Expr.eqUpToLevels_spine hpq).2.1
+  refine ⟨h', ?_, c, hc, c', hc', hch, hch', hsk, hmp, hmq, by rw [hn, hlen]⟩
+  rw [hq, hn', hn, ← hN, hlen]
+
+theorem classOcc_none_of {cls : List ClassInfo} {H : Nat} (hwf : ClassOccWF cls H) {p q : Expr}
+    (hpq : Expr.eqUpToLevels p q = true) (hp : classOcc? cls p = none) : classOcc? cls q = none := by
+  cases hq : classOcc? cls q with
+  | none => rfl
+  | some x =>
+    obtain ⟨h', n⟩ := x
+    obtain ⟨h, hp', -⟩ := classOcc_both hwf (Expr.eqUpToLevels_symm hpq) hq
+    rw [hp] at hp'
+    exact nomatch hp'
+
+/-- The value a hole variable reads at, `d` locals above the frame. -/
+theorem interp_hole_read {H d i : Nat} (hi : i < H) (vals : List V) (τ : Nat → V)
+    (hvl : vals.length = d) : interp V (consList vals τ) (.bvar (H + d - 1 - i)) = τ (H - 1 - i) := by
+  rw [interp_bvar, show H + d - 1 - i = (H - 1 - i) + vals.length by omega, consList_apply_add]
+
+/-- A spelling shorter than its class's parameter list is no occurrence. -/
+theorem classOcc_short {cls : List ClassInfo} {H : Nat} (hwf : ClassOccWF cls H) {x : Expr}
+    {c : ClassInfo} (hc : c ∈ cls) (hch : c.hole.isSome) {us : List Level}
+    (hfn : x.getAppFn = .const c.key.ind us) (hlt : x.getAppArgs.length < c.nPc) :
+    classOcc? cls x = none := by
+  cases hx : classOcc? cls x with
+  | none => rfl
+  | some r =>
+    obtain ⟨h, n⟩ := r
+    obtain ⟨c0, hc0, hch0, ⟨us0, hfn0, -, hle0, -⟩, -⟩ := classOcc_match hwf hx
+    have hch0s : c0.hole.isSome := by rw [hch0]; rfl
+    rw [hfn] at hfn0
+    simp only [Expr.const.injEq] at hfn0
+    have := hwf.nPc c0 hc0 c hc hch0s hch hfn0.1.symm
+    omega
+
+/-- Non-application terms are left alone by the abstraction. -/
+theorem classAbsSpec_none_atom (occ : Expr → Option (Expr × Nat)) {e : Expr}
+    (he : ∀ f a, e ≠ .app f a) (hl : ∀ t b m, e ≠ .lam t b m) (hf : ∀ t b m, e ≠ .forallE t b m)
+    (hlt : ∀ t v b, e ≠ .letE t v b) (hp : ∀ s i x, e ≠ .proj s i x) :
+    classAbsSpec occ none e = e := by
+  cases e with
+  | app f a => exact absurd rfl (he f a)
+  | lam t b m => exact absurd rfl (hl t b m)
+  | forallE t b m => exact absurd rfl (hf t b m)
+  | letE t v b => exact absurd rfl (hlt t v b)
+  | proj s i x => exact absurd rfl (hp s i x)
+  | _ => simp [classAbsSpec]
+
+set_option maxHeartbeats 8000000 in
+/-- **P1 at stage values, discharged**: for related spellings `p`, `q`,
+the class abstraction of `p` and the `F`-restricted abstraction of `q`
+read alike at every valuation with the stage coherence — every class
+outside `F` read as its key in hole form, the classes in `F` free (one
+value per class up to spelling).  With the `some` mode's version. -/
+theorem classAbs_read_stage_both
+    (hacl : ∀ (n : Name) (ψ : Name → Nat) (k : Nat), (acval n ψ).liftN 1 k = acval n ψ)
+    {cls : List ClassInfo} {H : Nat} (hwf : ClassOccWF cls H)
+    (hhk : HoleKeysOk acval env φ cls H) {F : Expr → Bool} (hF : FClosed cls F) :
+    ∀ (N : Nat) (q p : Expr), sizeOf q < N → Expr.eqUpToLevels p q = true →
+      (∀ (d : Nat) (as2 as1 : List Expr), LocList H d as2 → LocList H d as1 →
+        OptAgree (ValAgree V (StageCoh V acval env φ cls F H) d)
+          (denoteMeta acval env φ (H + d)
+            ((classAbsSpec (classOcc? cls) none p).instantiateList as2 0))
+          (denoteMeta acval env φ (H + d)
+            ((classAbsSpec (occRestrict (classOcc? cls) F) none q).instantiateList as1 0))) ∧
+      (∀ h n h', classOcc? cls p = some (h, n) → classOcc? cls q = some (h', n) →
+        ∀ (d : Nat) (as2 as1 : List Expr), LocList H d as2 → LocList H d as1 →
+        OptAgree (ValAgree V (StageCoh V acval env φ cls F H) d)
+          (denoteMeta acval env φ (H + d)
+            ((classAbsSpec (classOcc? cls) (some (h, n)) p).instantiateList as2 0))
+          (denoteMeta acval env φ (H + d)
+            ((if F h' then classAbsSpec (occRestrict (classOcc? cls) F) (some (h', n)) q
+              else classAbsSpec (occRestrict (classOcc? cls) F) none q).instantiateList
+                as1 0))) := by
+  intro N
+  induction N with
+  | zero => intro q p hN; omega
+  | succ N ihN =>
+  intro q p hN hpq
+  -- the `some` mode
+  have hsome : ∀ h n h', classOcc? cls p = some (h, n) → classOcc? cls q = some (h', n) →
+      ∀ (d : Nat) (as2 as1 : List Expr), LocList H d as2 → LocList H d as1 →
+      OptAgree (ValAgree V (StageCoh V acval env φ cls F H) d)
+        (denoteMeta acval env φ (H + d)
+          ((classAbsSpec (classOcc? cls) (some (h, n)) p).instantiateList as2 0))
+        (denoteMeta acval env φ (H + d)
+          ((if F h' then classAbsSpec (occRestrict (classOcc? cls) F) (some (h', n)) q
+            else classAbsSpec (occRestrict (classOcc? cls) F) none q).instantiateList as1 0)) := by
+    intro h n h' hp hq d as2 as1 h2 h1
+    obtain ⟨h'', hq', c, hc, c', hc', hch, hch', hsk, hmp, hmq, hnq⟩ := classOcc_both hwf hpq hp
+    rw [hq] at hq'
+    obtain rfl : h' = h'' := by simp at hq'; exact hq'
+    have hchs : c.hole.isSome := by rw [hch]; rfl
+    obtain ⟨i, ty, rfl, hi⟩ := hwf.hole c hc h hch
+    obtain ⟨i', ty', rfl, hi'⟩ := hwf.hole c' hc' h' hch'
+    have hFF : F (.fvar i ty) = F (.fvar i' ty') := hF c hc c' hc' _ _ hch hch' hsk
+    rcases n with _ | n
+    · -- a head part
+      simp only [classAbsSpec]
+      cases hFq : F (.fvar i' ty') with
+      | true =>
+        simp only [if_true, Expr.instantiateList, denoteMeta_fvar, OptAgree]
+        intro vals τ hvl hτ
+        rw [interp_hole_read hi vals τ hvl, interp_hole_read hi' vals τ hvl]
+        exact hτ.2 c hc c' hc' i ty i' ty' hch hch' (hFF.trans hFq) hsk
+      | false =>
+        simp only [Bool.false_eq_true, if_false]
+        have hFp : F (.fvar i ty) = false := hFF.trans hFq
+        obtain ⟨us', hfn, hlv, hle, hps⟩ := hmq
+        have hlen : q.getAppArgs.length = c.nPc := by omega
+        have hqe : q = Expr.mkAppN (.const c.key.ind us') q.getAppArgs := by
+          rw [← hfn]; exact (Expr.mkAppN_getAppFn_getAppArgs q).symm
+        -- the restriction descends `q`'s spine
+        have hdesc : classAbsSpec (occRestrict (classOcc? cls) F) none q
+            = Expr.mkAppN (.const c.key.ind us')
+                (q.getAppArgs.map (classAbsSpec (occRestrict (classOcc? cls) F) none)) := by
+          conv => lhs; rw [hqe]
+          rw [classAbsSpec_spine _ q.getAppArgs (.const c.key.ind us') (fun j hj1 hj => ?_)]
+          · simp [classAbsSpec]
+          · rcases Nat.lt_or_ge j q.getAppArgs.length with hjl | hjl
+            · apply occRestrict_eq_none
+              apply classOcc_short hwf hc hchs (us := us')
+              · rw [Expr.getAppFn_mkAppN']; rfl
+              · rw [Expr.getAppArgs_mkAppN']
+                simp only [Expr.getAppArgs, List.nil_append, List.length_take]
+                omega
+            · have hj' : j = q.getAppArgs.length := by omega
+              rw [hj', List.take_length, ← hqe]
+              exact occRestrict_eq_none_of hq hFq
+        rw [hdesc]
+        have hK := hhk c hc hchs
+        rw [show (Expr.fvar i ty).instantiateList as2 0 = .fvar i ty from by
+          simp [Expr.instantiateList]]
+        refine optAgree_trans (hole_agree_lift (V := V) (Good := StageCoh V acval env φ cls F H)
+          (d := d) (as1 := as2) hacl hi ty hK.1 hK.2.1
+          (Expr.SemEq.refl _) hK.2.2
+          (fun τ (hτ : StageCoh V acval env φ cls F H τ) a ha => hτ.1 c hc i ty hch hFp a ha)) ?_
+        unfold holeKey
+        rw [Expr.instantiateList_mkAppN', Expr.instantiateList_mkAppN']
+        have hdl : c.dsA.length = c.nPc := hwf.len c hc hchs
+        have hqa : q.getAppArgs.take c.nPc = q.getAppArgs := List.take_of_length_le (by omega)
+        rw [hqa] at hps
+        apply optAgree_mkAppN
+        · simp only [List.length_map, ConLeche.ClassInfo.holeForm]
+          omega
+        · simp only [Expr.instantiateList]
+          rw [denoteMeta_semEq (show Expr.SemEq (.const c.key.ind c.key.lvls)
+            (.const c.key.ind us') from ⟨rfl, (Level.evalEqList_of_simplify hlv.symm).1,
+              (Level.evalEqList_of_simplify hlv.symm).2⟩)]
+          exact optAgree_refl' (V := V) _
+        · intro k a2 a1 ha2 ha1
+          simp only [List.getElem?_map, ConLeche.ClassInfo.holeForm, Option.map_eq_some_iff] at ha2 ha1
+          obtain ⟨b2, hb2, rfl⟩ := ha2
+          obtain ⟨x2', hx2', rfl⟩ := ha1
+          obtain ⟨x2, hx2, rfl⟩ := hx2'
+          obtain ⟨y2, hy2, rfl⟩ := hb2
+          have hR : Expr.eqUpToLevels y2 x2 = true := Expr.eqUpToLevels_symm (hps.2 k x2 y2 hx2 hy2)
+          have hlt : sizeOf x2 < sizeOf q :=
+            sizeOf_lt_of_mem_getAppArgs (List.mem_of_getElem? hx2)
+          rw [classAbs_eq_spec]
+          exact (ihN x2 y2 (by omega) hR).1 d as2 as1 h2 h1
+    · -- one more index argument
+      obtain ⟨pf, pa, rfl, hpf⟩ := classOcc_app hwf hp
+      obtain ⟨qf, qa, rfl, hqf⟩ := classOcc_app hwf hq
+      simp only [Expr.eqUpToLevels, Bool.and_eq_true] at hpq
+      have hsf := (ihN qf pf (by simp at hN; omega) hpq.1).2 _ n _ hpf hqf d as2 as1
+        h2 h1
+      have hsa := (ihN qa pa (by simp at hN; omega) hpq.2).1 d as2 as1 h2 h1
+      cases hFq : F (.fvar i' ty') with
+      | true =>
+        simp only [hFq, if_true] at hsf ⊢
+        simp only [classAbsSpec, Expr.instantiateList, denoteMeta_app]
+        exact optAgree_app hsf hsa
+      | false =>
+        simp only [hFq, Bool.false_eq_true, if_false] at hsf ⊢
+        have hR : occRestrict (classOcc? cls) F (.app qf qa) = none := occRestrict_eq_none_of hq hFq
+        simp only [classAbsSpec, hR, Expr.instantiateList, denoteMeta_app]
+        exact optAgree_app hsf hsa
+  refine ⟨fun d as2 as1 h2 h1 => ?_, hsome⟩
+  cases q with
+  | app qf qa =>
+    cases p with
+    | app pf pa =>
+      have hpq0 := hpq
+      simp only [Expr.eqUpToLevels, Bool.and_eq_true] at hpq
+      cases hp : classOcc? cls (.app pf pa) with
+      | none =>
+        have hq : classOcc? cls (.app qf qa) = none := classOcc_none_of hwf hpq0 hp
+        have hR : occRestrict (classOcc? cls) F (.app qf qa) = none := occRestrict_eq_none hq
+        simp only [classAbsSpec, hp, hR, Expr.instantiateList, denoteMeta_app]
+        exact optAgree_app ((ihN qf pf (by simp at hN; omega) hpq.1).1 d as2 as1 h2 h1)
+          ((ihN qa pa (by simp at hN; omega) hpq.2).1 d as2 as1 h2 h1)
+      | some r =>
+        obtain ⟨h, n⟩ := r
+        obtain ⟨h', hq, -⟩ := classOcc_both hwf hpq0 hp
+        have hs := hsome h n h' hp hq d as2 as1 h2 h1
+        have hL : classAbsSpec (classOcc? cls) none (.app pf pa)
+            = classAbsSpec (classOcc? cls) (some (h, n)) (.app pf pa) := by
+          rcases n with _ | n <;> simp [classAbsSpec, hp]
+        rw [hL]
+        cases hF' : F h' with
+        | true =>
+          have hR : occRestrict (classOcc? cls) F (.app qf qa) = some (h', n) :=
+            occRestrict_eq_some_of hq hF'
+          have hL' : classAbsSpec (occRestrict (classOcc? cls) F) none (.app qf qa)
+              = classAbsSpec (occRestrict (classOcc? cls) F) (some (h', n)) (.app qf qa) := by
+            rcases n with _ | n <;> simp [classAbsSpec, hR]
+          rw [hL']
+          simpa [hF'] using hs
+        | false => simpa [hF'] using hs
+    | _ => simp [Expr.eqUpToLevels] at hpq
+  | lam qt qb qm | forallE qt qb qm =>
+    cases p <;> simp only [Expr.eqUpToLevels, Bool.and_eq_true, beq_iff_eq, reduceCtorEq] at hpq
+    rename_i pt pb pm
+    obtain ⟨⟨rfl, hT⟩, hB⟩ := hpq
+    have hTa := (ihN qt pt (by simp at hN; omega) hT).1 d as2 as1 h2 h1
+    simp only [classAbsSpec, Expr.instantiateList]
+    first
+    | rw [denoteMeta_lam, denoteMeta_lam]
+    | rw [denoteMeta_forallE, denoteMeta_forallE]
+    revert hTa
+    cases denoteMeta acval env φ (H + d)
+        ((classAbsSpec (classOcc? cls) none pt).instantiateList as2 0)
+      <;> cases denoteMeta acval env φ (H + d)
+        ((classAbsSpec (occRestrict (classOcc? cls) F) none qt).instantiateList as1 0)
+      <;> simp [OptAgree]
+    rename_i A2 A1
+    intro hA
+    rw [← Expr.instantiateList_cons, ← Expr.instantiateList_cons]
+    have hB' := (ihN qb pb (by simp at hN; omega) hB).1 (d + 1) _ _
+      (h2.cons ((classAbsSpec (classOcc? cls) none pt).instantiateList as2 0))
+      (h1.cons ((classAbsSpec (occRestrict (classOcc? cls) F) none qt).instantiateList as1 0))
+    rw [show H + (d + 1) = H + d + 1 by omega] at hB'
+    revert hB'
+    cases denoteMeta acval env φ (H + d + 1)
+        ((classAbsSpec (classOcc? cls) none pb).instantiateList
+          (Expr.fvar (H + d) ((classAbsSpec (classOcc? cls) none pt).instantiateList as2 0)
+            :: as2) 0)
+      <;> cases denoteMeta acval env φ (H + d + 1)
+        ((classAbsSpec (occRestrict (classOcc? cls) F) none qb).instantiateList
+          (Expr.fvar (H + d)
+            ((classAbsSpec (occRestrict (classOcc? cls) F) none qt).instantiateList as1 0)
+            :: as1) 0)
+      <;> simp [OptAgree]
+    rename_i b2 b1
+    intro hb vals τ hvl hτ
+    have hbx : ∀ x : V, interp V (cons x (consList vals τ)) b2
+        = interp V (cons x (consList vals τ)) b1 := by
+      intro x
+      have := hb (vals ++ [x]) τ (by simp [hvl]) hτ
+      simpa [consList_append] using this
+    first
+    | (simp only [interp_lam, hA vals τ hvl hτ]; exact lamR_congr fun x _ => hbx x)
+    | (simp only [interp_pi, hA vals τ hvl hτ]; exact piR_congr fun x _ => hbx x)
+  | proj sn si qx =>
+    cases p <;> simp only [Expr.eqUpToLevels, Bool.and_eq_true, beq_iff_eq, reduceCtorEq] at hpq
+    rename_i ps pi px
+    obtain ⟨⟨hs, hi⟩, hX⟩ := hpq
+    subst hs hi
+    have hXa := (ihN qx px (by simp at hN; omega) hX).1 d as2 as1 h2 h1
+    simp only [classAbsSpec, Expr.instantiateList, denoteMeta_proj]
+    revert hXa
+    cases denoteMeta acval env φ (H + d) ((classAbsSpec (classOcc? cls) none px).instantiateList as2 0)
+      <;> cases denoteMeta acval env φ (H + d)
+        ((classAbsSpec (occRestrict (classOcc? cls) F) none qx).instantiateList as1 0)
+      <;> simp [OptAgree]
+    rename_i e2 e1
+    intro he
+    cases env.findProj? ps pi with
+    | some entry =>
+      intro vals τ hvl hτ
+      exact interp_projAV_congr _ (he vals τ hvl hτ)
+    | none =>
+      rcases pi with _ | _ | pi
+      · intro vals τ hvl hτ
+        simp [he vals τ hvl hτ]
+      · intro vals τ hvl hτ
+        simp [he vals τ hvl hτ]
+      · simp [AnnotTerm.projPair?]
+  | letE qt qv qb =>
+    cases p <;> simp only [Expr.eqUpToLevels, reduceCtorEq] at hpq
+    simp only [classAbsSpec, Expr.instantiateList]
+    rw [denoteMeta, denoteMeta]
+    trivial
+  | _ =>
+    have hsem := Expr.semEq_of_eqUpToLevels hpq
+    rw [classAbsSpec_none_atom _ (by intro f a h; subst h; simp [Expr.eqUpToLevels] at hpq)
+        (by intro t b m h; subst h; simp [Expr.eqUpToLevels] at hpq)
+        (by intro t b m h; subst h; simp [Expr.eqUpToLevels] at hpq)
+        (by intro t v b h; subst h; simp [Expr.eqUpToLevels] at hpq)
+        (by intro s i x h; subst h; simp [Expr.eqUpToLevels] at hpq),
+      classAbsSpec_none_atom _ (by intro f a h; cases h) (by intro t b m h; cases h)
+        (by intro t b m h; cases h) (by intro t v b h; cases h) (by intro s i x h; cases h),
+      denoteMeta_semEq (semEq_instantiateList_loc h2 h1 _ _ 0 hsem)]
+    exact optAgree_refl' (V := V) _
+
+/-- **P1 at stage values**: the class abstraction reads as its
+restriction to the holes `F` at every valuation with the stage
+coherence. -/
+theorem classAbs_read_stage
+    (hacl : ∀ (n : Name) (ψ : Name → Nat) (k : Nat), (acval n ψ).liftN 1 k = acval n ψ)
+    {cls : List ClassInfo} {H : Nat} (hwf : ClassOccWF cls H)
+    (hhk : HoleKeysOk acval env φ cls H) {F : Expr → Bool} (hF : FClosed cls F) (e : Expr)
+    {d : Nat} {as2 as1 : List Expr} (h2 : LocList H d as2) (h1 : LocList H d as1) :
+    OptAgree (ValAgree V (StageCoh V acval env φ cls F H) d)
+      (denoteMeta acval env φ (H + d) ((classAbs cls e).instantiateList as2 0))
+      (denoteMeta acval env φ (H + d) ((classAbsF cls F e).instantiateList as1 0)) := by
+  rw [classAbs_eq_spec]
+  exact (classAbs_read_stage_both hacl hwf hhk hF (sizeOf e + 1) e e (by omega)
+    (Expr.eqUpToLevels_refl e)).1 d as2 as1 h2 h1
+
+end Stage
+
 end ConLeche.Model
