@@ -676,15 +676,125 @@ theorem classGenMinor_read (m : EnvModel V env) {φ : Name → Nat} {g : ClassGe
   · rw [hmcP, ← hmpd]; omega
   · intro l q hq
     simp only [List.getElem?_map] at hq
-    rw [List.getElem?_range] at hq
-    · sorry
-    · sorry
-  · sorry
-  · sorry
-  · sorry
-  · sorry
-  · sorry
-
+    by_cases hl : l < IB.length
+    · rw [List.getElem?_range hl, Option.map_some, Option.some.injEq] at hq
+      subst hq
+      obtain ⟨-, hrec, hmot, -, -⟩ := hfq l hl
+      exact ⟨hrec, hmot⟩
+    · rw [List.getElem?_eq_none (by simpa using hl)] at hq
+      exact nomatch hq
+  · have := fieldsBelow_liftDoms δ (k := mp) (c := 0) (domsBelow_of_getElem? hfdB)
+    rwa [show mp + δ = rP by omega] at this
+  · intro e he
+    have he' : e ∈ rs.map fun a => a.liftN δ x.nF := by
+      rw [hesmk]; exact List.mem_append_left _ he
+    obtain ⟨a, ha, rfl⟩ := List.mem_map.mp he'
+    exact bvarsBelow_liftN_add (hrsB a ha) (by omega) _
+  · have he' : mkT ∈ rs.map fun a => a.liftN δ x.nF := by
+      rw [hesmk]; exact List.mem_append_right _ (List.mem_singleton_self _)
+    obtain ⟨a, ha, he⟩ := List.mem_map.mp he'
+    rw [← he]
+    exact bvarsBelow_liftN_add (hrsB a ha) (by omega) _
+  · intro q hq
+    obtain ⟨l, hl, rfl⟩ := List.mem_map.mp hq
+    have := (hfq l (List.mem_range.mp hl)).2.2.2.2
+    rwa [show mp + x.nF + δ = rP + x.nF by omega] at this
+  · intro ρ xs hxs fs hfs hs hhl hhs
+    have hppsl : pps.length = rP + (g.cls.getD c default).nIdx + 1 :=
+      (stripPisAV_eq_mkPis hst).2
+    have hxl : xs.length = rP := by
+      rw [hxs.length_eq, List.length_map, List.length_take]; omega
+    have hfl : fs.length = x.nF := by
+      rw [hfs.length_eq, List.length_map, liftDoms_length, List.length_take]; omega
+    have hfdl : ((liftDoms δ 0 (pm.take x.nF)).map (·.2.2)).length = x.nF := by
+      rw [List.length_map, liftDoms_length, List.length_take]; omega
+    have hhl' : hs.length = IB.length := by rw [hhl]; simp
+    -- the frames
+    have hsh : ∀ ys : List V, shiftE δ ys.length (consList ys (consList xs ρ))
+        = consList ys (consList (xs.take mp) ρ) := by
+      intro ys
+      rw [shiftE_consList rfl (by omega), show xs.length - δ = mp by omega]
+    -- the minor's value lies in its domain, which is valid there
+    have hmpl : mp < ((pps.take rP).map (·.2.2)).length := by
+      simp only [List.length_map, List.length_take]; omega
+    have hgetM : ((pps.take rP).map (·.2.2)).getD mp default = pM.2.2 := by
+      rw [List.getD_eq_getElem?_getD, List.getElem?_map, List.getElem?_take, if_pos (by omega),
+        hpM]
+      rfl
+    have hmem := FixKI.spineFit_getD_mem' hxs hmpl
+    rw [hgetM] at hmem
+    have hea := (stripPisAV_eq_mkPis hst).1
+    have hv := hval ρ
+    rw [hea, ← List.take_append_drop rP pps, mkPisAV_append'] at hv
+    have hvM := annotValid_piDom_at hv hxs mp (by simpa using hmpl)
+    rw [hgetM] at hvM
+    obtain ⟨hMeq, -⟩ := stripPisAV_eq_mkPis hstm
+    rw [hMeq] at hmem hvM
+    -- the fields and the `ih` values fit the minor's domain
+    have hfit : SpineFit (consList (xs.take mp) ρ) (pm.map (·.2.2)) (fs ++ hs) := by
+      refine spineFit_of_getD (by simp [hfl, hhl', hpmL]) fun r hr => ?_
+      rw [List.length_map] at hr
+      rcases Nat.lt_or_ge r x.nF with hrF | hrF
+      · -- a field
+        have hfr := FixKI.spineFit_getD_mem' hfs (l := r) (by rw [hfdl]; exact hrF)
+        have hpr : r < pm.length := by omega
+        have hfdr : ((liftDoms δ 0 (pm.take x.nF)).map (·.2.2)).getD r default
+            = (pm[r].2.2).liftN δ r := by
+          rw [List.getD_eq_getElem?_getD, List.getElem?_map, liftDoms_getElem?,
+            List.getElem?_take, if_pos hrF, List.getElem?_eq_getElem hpr]
+          simp
+        have hsh' : shiftE δ r (consList (fs.take r) (consList xs ρ))
+            = consList (fs.take r) (consList (xs.take mp) ρ) := by
+          have := hsh (fs.take r)
+          rwa [List.length_take, Nat.min_eq_left (by omega)] at this
+        rw [hfdr, interp_liftN, hsh'] at hfr
+        have hL : (fs ++ hs).getD r pt = fs.getD r pt := by
+          rw [List.getD_eq_getElem?_getD, List.getElem?_append_left (by omega),
+            ← List.getD_eq_getElem?_getD]
+        have hD : (pm.map (·.2.2)).getD r default = pm[r].2.2 := by
+          rw [List.getD_eq_getElem?_getD, List.getElem?_map, List.getElem?_eq_getElem hpr]; rfl
+        rw [hL, take_append_of_le (by omega), hD]
+        exact hfr
+      · -- an `ih` value
+        obtain ⟨l, rfl⟩ : ∃ l, r = x.nF + l := ⟨r - x.nF, by omega⟩
+        have hl : l < IB.length := by omega
+        obtain ⟨hpmr, -, -, hgen, -⟩ := hfq l hl
+        have hq : ((List.range IB.length).map fun l => (fq l).1)[l]? = some (fq l).1 := by
+          simp [hl]
+        have hhsl : hs[l]? = some (hs.getD l pt) := by
+          rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem (by omega)]; rfl
+        have hh := hhs l _ _ hq hhsl
+        rw [hfdl, show rP + x.nF = mp + x.nF + δ by omega, hgen, consList_append,
+          interp_liftN, ← hfl, hsh] at hh
+        rw [List.getD_eq_getElem?_getD, List.getElem?_append_right (by omega), hfl,
+          Nat.add_sub_cancel_left, ← List.getD_eq_getElem?_getD]
+        rw [List.take_append, List.take_of_length_le (by omega), hfl,
+          Nat.add_sub_cancel_left, consList_append]
+        have hget : (pm.map (·.2.2)).getD (x.nF + l) default = (fq l).2.liftN l 0 := by
+          rw [List.getD_eq_getElem?_getD, List.getElem?_map, hpmr]; rfl
+        rw [hget, interp_liftN, shiftE_zero_consList (by simp; omega)]
+        exact hh
+    have happ := foldl_app_mem_mkPisAV hvM hfit hmem
+    -- the conclusion
+    rw [interp_liftN, consList_append, shiftE_zero_consList hhl', interp_mkAppN,
+      ← List.foldl_map (f := interp V (consList fs (consList (xs.take mp) ρ)))
+        (g := SetTheory.app)] at happ
+    have hhd : interp V (consList fs (consList (xs.take mp) ρ))
+        (.bvar (mp + x.nF - 1 - (g.nP + sc))) = xs.getD (classMotPos g cm) pt := by
+      show consList fs (consList (xs.take mp) ρ) _ = _
+      have hmcl : g.nP + sc < (xs.take mp).length := by simp; omega
+      rw [← consList_append, show mp + x.nF - 1 - (g.nP + sc)
+        = fs.length + (xs.take mp).length - 1 - (g.nP + sc) by simp; omega,
+        consList_prefix_getD hmcl, hmcP, List.getD_eq_getElem?_getD, List.getElem?_take,
+        if_pos (by omega), ← List.getD_eq_getElem?_getD]
+    have hargs : rs.map (interp V (consList fs (consList (xs.take mp) ρ)))
+        = (esL ++ [mkT]).map (interp V (consList (xs ++ fs) ρ)) := by
+      rw [← hesmk, List.map_map]
+      refine List.map_congr_left fun a _ => ?_
+      simp only [Function.comp]
+      rw [consList_append, interp_liftN, ← hfl, hsh]
+    rw [hhd, hargs, List.map_append] at happ
+    simpa using happ
 end Minor
 
 end ConLeche.Model
