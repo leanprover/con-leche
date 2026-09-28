@@ -1118,16 +1118,11 @@ container's at the class's levels and member-abstracted parameters. -/
 
 theorem classCrest_run {holes : List Expr} {cls : List ClassInfo} {c : ClassInfo} {cv : ConstantVal}
     {e : Expr} (h : classCrest (m := CheckM) ctx holes cls c cv = .ok e) :
-    ∃ e0, classCrestInst ctx holes c cv = some e0 ∧ e = classAbs cls e0 ∧
-      (c.member.isSome = true → e0.holesApplied ctx.names ctx.nP (ctx.hiAt 0) = true) := by
+    ∃ e0, classCrestInst ctx holes c cv = some e0 ∧ e = classAbs cls e0 := by
   unfold classCrest at h
   obtain ⟨e0, h0, h⟩ := exceptBind_ok h
-  split at h
-  · close_throw h
-  · rename_i hm3
-    simp only [pure, Except.pure, Except.ok.injEq] at h
-    refine ⟨e0, unwrapOr_ok h0, h.symm, fun hs => ?_⟩
-    simpa [hs] using hm3
+  simp only [pure, Except.pure, Except.ok.injEq] at h
+  exact ⟨e0, unwrapOr_ok h0, h.symm⟩
 
 /-- **The class check, as run** (see the module docstring): the pre-pass's
 reading, the context, the classes (check 1) and R6, the crests and the
@@ -1322,7 +1317,7 @@ theorem ClassRun.ctor {fe₁ : FEnv} {env₁ : Env} {fe : FEnv} {p : BlockParts}
   obtain ⟨crs, hcrs, hcrsRun⟩ := hcr c ci hc
   obtain ⟨hlc, hce⟩ := except_mapM_ok hcrsRun
   obtain ⟨e, he, heRun⟩ := hce j (cv, nF) hj
-  obtain ⟨e0, he0, rfl, -⟩ := classCrest_run heRun
+  obtain ⟨e0, he0, rfl⟩ := classCrest_run heRun
   -- the walk
   obtain ⟨hlw, hw⟩ := classAllCtors_run R.hwalk
   have hcl : c < R.cls.length := (List.getElem?_eq_some_iff.mp hc).1

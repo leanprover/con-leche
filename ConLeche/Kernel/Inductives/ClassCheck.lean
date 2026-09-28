@@ -286,14 +286,6 @@ def classCrest (ctx : NestCtx) (holes : List Expr) (cls : List ClassInfo) (c : C
       | none => instPisWith c.dsA (cv.type.instantiateLevelParams cv.levelParams c.key.lvls))
     (.invalid "class check: a constructor type does not bind its parameters (official: \
       ill-formed constructor)")
-  -- M3 on the constructor's TEXT (official ≥ v4.33.1, `check_uniform_ind_occs`):
-  -- every member occurrence is the member applied to exactly the parameters
-  -- — the recorded block's syntactic fact a later class's crest reads
-  -- (DESIGN CLASSCHECK / P2D3)
-  if c.member.isSome && !crest.holesApplied ctx.names ctx.nP (ctx.hiAt 0) then
-    throw (.invalid "class check: invalid occurrence of a datatype being declared: it must \
-      be applied to the parameters and universe levels of the mutual declaration (official: \
-      check_uniform_ind_occs)")
   pure (classAbs cls crest)
 
 /-- The class holes occurring in `e`. -/
@@ -464,10 +456,11 @@ the DEMAND (`classDemandOk`); the free sets are its least solution,
 computed here by iteration (unverified) and CHECKED, as are the closures
 and four syntactic facts the reading needs (`classFreeOk`):
 * the free classes COMMUTE with the instantiation (`classCommutes`): the
-  crest with its free classes and its group abstracted is the container's
-  own constructor text, group atomised, instantiated at the key with its
-  free classes abstracted — so the crest reads as the container's recorded
-  clause at every value of the free holes;
+  crest with its free classes and its group abstracted, the group holes
+  written back as placeholder members applied to the key, is the
+  container's own constructor text (what its recorded clause reads) at
+  the key with its free classes abstracted — so the crest reads as the
+  recorded clause at every value of the free holes;
 * no alias of a container crest targets a free class;
 * the key is typed with its free classes abstracted (R6, `classKeysCyclic`);
 * the coherent reads are RANKED (acyclic).
@@ -525,39 +518,32 @@ def classCanonText (names : List Name) (nPc : Nat) (cv : ConstantVal) : Option E
     (nestAbstract ⟨names, cv.levelParams, nPc, [], classCanonParams nPc, .zero, fun _ => none, []⟩
       ((List.range names.length).map fun m => .fvar (nPc + m) (.sort .zero)) cv.type)
 
-/-- The group ATOMISED: a member hole (placeholder `fvar (hi + m)`, above
-every hole) applied to exactly the key's parameters `ps` becomes the class
-hole `hs m`. -/
-def classGrpOcc (hi k : Nat) (ps : List Expr) (hs : Nat → Option Expr) (e : Expr) :
-    Option (Expr × Nat) :=
-  match e.getAppFn with
-  | .fvar i _ =>
-    let args := e.getAppArgs
-    if hi ≤ i && i < hi + k && ps.length ≤ args.length &&
-        (args.take ps.length).map Expr.eraseFVarTys == ps.map Expr.eraseFVarTys then
-      (hs (i - hi)).map (·, args.length - ps.length)
-    else none
-  | _ => none
-
 /-- **The free classes commute with the instantiation** at container
 class `c` (free holes `isF`, group holes `isG`, every hole below `hi`),
 for the constructor `cv` of a group mate `d`: `d`'s crest (instantiated,
-the free classes and the group abstracted) is the container's canonical
-text at `c`'s levels and at `c`'s key with its free classes abstracted,
-the group atomised. -/
+the free classes and the group abstracted) — with each group hole
+written back as a placeholder member `fvar (hi + m)` (above every hole)
+applied to `c`'s key with its free classes abstracted — is the
+container's canonical text at `c`'s levels, its parameters that key, its
+members the placeholders.  So the crest reads as the recorded clause at
+the key's free-hole values, the group at its lfp stage: substitutions on
+both sides, nothing else (DESIGN CLASSCHECK / P2D3). -/
 def classCommutes (cls : List ClassInfo) (mates : Name → List Name) (hi : Nat)
     (isF isG : Expr → Bool) (c d : ClassInfo) (cv : ConstantVal) : Bool :=
   let names := mates c.key.ind
-  let hs : Nat → Option Expr := fun m =>
-    (classOcc? cls (Expr.mkAppN (.const (names.getD m .anonymous) c.key.lvls) c.dsA)).map (·.1)
   let dsF := c.dsA.map (classAbsIf cls isF)
+  -- the group hole of mate `m`: the class `D_m` at `c`'s instantiation is recognised as
+  let grpOf : Nat → Option Nat := fun i => (List.range names.length).find? fun m =>
+    match classOcc? cls (Expr.mkAppN (.const (names.getD m .anonymous) c.key.lvls) c.dsA) with
+    | some (.fvar j _, _) => j == i
+    | _ => false
   match instPisWith d.dsA (cv.type.instantiateLevelParams cv.levelParams d.key.lvls),
       classCanonText names c.nPc cv with
   | some e0, some A =>
-    let lhs := classAbsIf cls (fun h => isF h || isG h) e0
-    let rhs := (classAbsGo (classGrpOcc hi names.length dsF hs) none {}
-      ((A.instantiateLevelParams cv.levelParams c.key.lvls).replaceFVars fun i =>
-        if i < c.nPc then dsF[i]? else some (.fvar (hi + (i - c.nPc)) (.sort .zero)))).1
+    let lhs := (classAbsIf cls (fun h => isF h || isG h) e0).replaceFVars fun i =>
+      (grpOf i).map fun m => Expr.mkAppN (.fvar (hi + m) (.sort .zero)) dsF
+    let rhs := (A.instantiateLevelParams cv.levelParams c.key.lvls).replaceFVars fun i =>
+      if i < c.nPc then dsF[i]? else some (.fvar (hi + (i - c.nPc)) (.sort .zero))
     lhs.eraseFVarTys == rhs.eraseFVarTys
   | _, _ => false
 
