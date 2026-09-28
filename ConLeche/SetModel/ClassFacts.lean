@@ -312,20 +312,40 @@ to spelling). -/
 section Reindex
 
 variable {w K N : Nat} {Is IsD : Nat → V} {Θ ΦD : (Nat → V) → Nat → V} {G : Nat → Prop}
-  {e s : Nat → Nat} {C : Nat → V}
+  {e s : Nat → Nat} {C C0 : Nat → V}
+
+open Classical in
+/-- **A tuple read back through a section** below `N` (junk `C0` above). -/
+noncomputable def thruT (N : Nat) (s : Nat → Nat) (C0 Y : Nat → V) : Nat → V :=
+  fun m => if m < N then Y (s m) else C0 m
+
+omit [SetTheory V] in
+theorem thruT_lt {s : Nat → Nat} {C0 Y : Nat → V} {m : Nat} (hm : m < N) :
+    thruT N s C0 Y m = Y (s m) := by
+  unfold thruT; rw [if_pos hm]
+
+omit [SetTheory V] in
+/-- Reading back sees only the section's positions. -/
+theorem thruT_congr {s : Nat → Nat} {C0 Y Y' : Nat → V} (h : ∀ m, m < N → Y (s m) = Y' (s m)) :
+    thruT N s C0 Y = thruT N s C0 Y' := by
+  funext m; unfold thruT; split
+  · exact h m ‹_›
+  · rfl
 
 theorem inTupleSpace_through (hs : ∀ m, m < N → s m < K ∧ G (s m) ∧ e (s m) = m)
     (he : ∀ g, g < K → G g → e g < N ∧ Is g = IsD (e g)) {Y : Nat → V}
-    (hY : InTupleSpace w K Is Y) : InTupleSpace w N IsD (fun m => Y (s m)) := by
+    (hY : InTupleSpace w K Is Y) : InTupleSpace w N IsD (thruT N s C0 Y) := by
   intro m hm
+  rw [thruT_lt hm]
   obtain ⟨h1, h2, h3⟩ := hs m hm
   have := hY (s m) h1
   rwa [(he (s m) h1 h2).2, h3] at this
 
 theorem tupleLe_through (hs : ∀ m, m < N → s m < K ∧ G (s m) ∧ e (s m) = m)
     (he : ∀ g, g < K → G g → e g < N ∧ Is g = IsD (e g)) {Y Y' : Nat → V}
-    (h : TupleLe K Is Y Y') : TupleLe N IsD (fun m => Y (s m)) (fun m => Y' (s m)) := by
+    (h : TupleLe K Is Y Y') : TupleLe N IsD (thruT N s C0 Y) (thruT N s C0 Y') := by
   intro m hm
+  rw [thruT_lt hm, thruT_lt hm]
   obtain ⟨h1, h2, h3⟩ := hs m hm
   have := h (s m) h1
   rwa [(he (s m) h1 h2).2, h3] at this
@@ -336,7 +356,7 @@ theorem lfpTuple_group_eq
     (he : ∀ g, g < K → G g → e g < N ∧ Is g = IsD (e g))
     (hC : InTupleSpace w K Is C)
     (hΘG : ∀ Y, InTupleSpace w K Is Y → ∀ g, g < K → G g →
-      Θ Y g = ΦD (fun m => Y (s m)) (e g))
+      Θ Y g = ΦD (thruT N s C0 Y) (e g))
     (hΘC : ∀ Y, InTupleSpace w K Is Y → ∀ g, g < K → ¬ G g → Θ Y g = C g)
     (hcl : ∃ L, IsClosedTuple w N IsD ΦD L) (hmono : MonoTuple w N IsD ΦD)
     (hmaps : MapsTuple w N IsD ΦD) :
@@ -373,9 +393,9 @@ theorem lfpTuple_group_eq
     refine ⟨hL1, fun g hg => ?_⟩
     by_cases hG : G g
     · rw [hΘG L1 hL1 g hg hG]
-      have hle : TupleLe N IsD (fun m => L1 (s m)) L' := fun m hm => by
-        show FamLe (IsD m) (L1 (s m)) (L' m)
-        rw [hL1s m hm]; exact FamLe.refl _ _
+      have hle : TupleLe N IsD (thruT N s C0 L1) L' := fun m hm => by
+        show FamLe (IsD m) (thruT N s C0 L1 m) (L' m)
+        rw [thruT_lt hm, hL1s m hm]; exact FamLe.refl _ _
       have h1 := hmono _ _ (inTupleSpace_through hs he hL1) hL' hle _ (he g hg hG).1
       have h2 := lfpTuple_closed hcl hmono _ (he g hg hG).1
       simp only [L1, if_pos hG, (he g hg hG).2]
@@ -387,13 +407,14 @@ theorem lfpTuple_group_eq
   -- `≥`: the least tuple read back is closed for the container
   let L := lfpTuple w K Is Θ
   have hL : InTupleSpace w K Is L := lfpTuple_mem w K Is Θ
-  have hLs : IsClosedTuple w N IsD ΦD (fun m => L (s m)) := by
+  have hLs : IsClosedTuple w N IsD ΦD (thruT N s C0 L) := by
     refine ⟨inTupleSpace_through hs he hL, fun m hm => ?_⟩
     obtain ⟨h1, h2, h3⟩ := hs m hm
     have := lfpTuple_closed hclΘ hΘmono (s m) h1
     rw [hΘG L hL (s m) h1 h2, h3, (he (s m) h1 h2).2, h3] at this
+    rw [thruT_lt hm]
     exact this
-  have hle2 : TupleLe N IsD L' (fun m => L (s m)) := lfpTuple_le hLs
+  have hle2 : TupleLe N IsD L' (thruT N s C0 L) := lfpTuple_le hLs
   intro g hg hG
   have heN := (he g hg hG).1
   have hIs := (he g hg hG).2
@@ -401,17 +422,15 @@ theorem lfpTuple_group_eq
   refine Subset.antisymm ?_ ?_
   · have := hle1 g hg i hi
     simpa only [L1, if_pos hG] using this
-  · rw [hIs] at hi
-    have hfix := lfpTuple_fixed hclΘ hΘmono hΘmaps g hg
+  · have hfix := lfpTuple_fixed hclΘ hΘmono hΘmaps g hg
     rw [hΘG L hL g hg hG] at hfix
     have hΦ := hmono _ _ hL' (inTupleSpace_through hs he hL) hle2 _ heN
     have hL'fix := lfpTuple_fixed hcl hmono hmaps _ heN
-    rw [← hIs] at hi
     intro x hx
     have hx1 := hL'fix i (hIs ▸ hi) x hx
     have hx2 := hΦ i (hIs ▸ hi) x hx1
     -- the lfp's fixed point at `g`
-    have hfix' : app (lfpTuple w K Is Θ g) i = app (ΦD (fun m => L (s m)) (e g)) i := by
+    have hfix' : app (lfpTuple w K Is Θ g) i = app (ΦD (thruT N s C0 L) (e g)) i := by
       apply Subset.antisymm (hfix i hi)
       have := lfpTuple_closed hclΘ hΘmono g hg i hi
       rwa [hΘG L hL g hg hG] at this
@@ -610,6 +629,20 @@ theorem opOk_of_pred {Φ fill : (Nat → V) → Nat → V} {P : (Nat → V) → 
       refine (hsk b hb).2.2 X' hX' fun q hq => ?_
       have := h' (kpair b q) (mem_sigmaPairs.mpr ⟨b, hb, q, hq, rfl⟩)
       simpa only [sfst_kpair, ssnd_kpair] using this
+
+/-- **Reading every position through a representative** (classes the
+same up to spelling carry one value): a good operator when the
+representative has the same index set. -/
+theorem OpOk.through {rep : Nat → Nat} (hrep : ∀ t, t < K → rep t < K ∧ Is (rep t) = Is t) :
+    OpOk w K Is (fun Z t => Z (rep t)) := by
+  refine ⟨fun Z hZ t ht => ?_, fun Z Z' _ _ hle t ht => ?_, fun _ => ⟨unitSet, unitSet_mem_univ w, ?_⟩⟩
+  · rw [← (hrep t ht).2]; exact hZ _ (hrep t ht).1
+  · have := hle _ (hrep t ht).1
+    rwa [(hrep t ht).2] at this
+  · intro Z hZ m hm i hi x hx
+    refine ⟨unitSet, fun _ => (rep m, i, x), Subset.refl _, fun _ _ => ?_, fun Z' _ h' => ?_⟩
+    · exact ⟨(hrep m hm).1, by rw [(hrep m hm).2]; exact hi, hx⟩
+    · exact (h' pt pt_mem_unitSet).2.2
 
 end Pred
 
