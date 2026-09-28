@@ -11,6 +11,8 @@ import ConLeche.Verify.Mono
 import ConLeche.Verify.Denote.IndFrame
 import ConLeche.Verify.Leaves
 import ConLeche.Semantics.DeclRun
+public import ConLeche.Model.Inductives.ClassRecKit
+import ConLeche.Verify.Denote.Shift
 
 public section
 
@@ -447,5 +449,101 @@ theorem oneElimLevel_of_bits {φ : Name → Nat} {elim : Level} {K : Nat}
     OneElimLevel (Level.eval φ elim) K rds := by
   intro c hc p hp
   rw [h c hc p hp, pwBit_zeronessOf]
+
+/-! ## Chain independence and the `ih` data's bounds, from readings
+
+The graph route's rows at the generated family read the prefix and
+field domains, the index expressions, the fired spine and the `ih` data
+at frames that carry the recursors' CHAIN below the base (`chainFrame`).
+They are the model's readings of SCOPED terms — every generated piece
+is (`ClassGenScope.lean`) — so they read no chain variable. -/
+
+section Rows
+
+variable {V : Type w} [SetTheory V] {env : Env}
+
+/-- `a` is the model's reading, at depth `D`, of a term scoped at `D`. -/
+@[expose] def IsReadingAt (m : EnvModel V env) (φ : Name → Nat) (D : Nat) (a : AnnotTerm) :
+    Prop :=
+  ∃ e : Expr, ScB D e ∧ denoteMeta m.acval env φ D e = some a
+
+/-- A reading of a scoped term names no variable at or above its depth. -/
+theorem IsReadingAt.below {m : EnvModel V env} {φ : Name → Nat} {D : Nat} {a : AnnotTerm}
+    (h : IsReadingAt m φ D a) : Term.bvarsBelow D a.erase := by
+  obtain ⟨e, ⟨hw, hb⟩, hd⟩ := h
+  exact ConLeche.Verify.denote_bvarsBelow m.cval_closedL D e hw hb
+    (denoteMeta_erase (cval := fun n ψ => (m.acval n ψ).erase) (fun _ _ => rfl) D e hd)
+
+theorem fieldsBelow_of_readings {m : EnvModel V env} {φ : Name → Nat} :
+    ∀ {b : Nat} {Ds : List AnnotTerm},
+      (∀ (k : Nat) (D : AnnotTerm), Ds[k]? = some D → IsReadingAt m φ (b + k) D) →
+      FieldsBelow b Ds
+  | _, [], _ => trivial
+  | b, D :: Ds, h => by
+    refine ⟨by simpa using (h 0 D rfl).below,
+      fieldsBelow_of_readings (m := m) (φ := φ) fun k D' hk => ?_⟩
+    have := h (k + 1) D' (by simpa using hk)
+    rwa [show b + (k + 1) = b + 1 + k by omega] at this
+
+/-- Two frames sharing a spine agree below its length. -/
+theorem consList_agree_below {σ σ' : Nat → V} (zs : List V) :
+    ∀ i, i < zs.length → consList zs σ i = consList zs σ' i := by
+  intro i hi
+  rw [consList_getD_of_lt _ _ _ hi, consList_getD_of_lt _ _ _ hi]
+
+/-- **`hchI`, from readings.**  The prefix and field domains, the index
+expressions and the fired spine of the generated family are readings of
+scoped terms, so they read alike at the chain frame and at its base. -/
+theorem genHchI_of_readings {m : EnvModel V env} {φ : Name → Nat} {K : Nat} {ρ : Nat → V}
+    {nCt : Nat → Nat} {pdoms : Nat → List AnnotTerm} {fdoms es : Nat → Nat → List AnnotTerm}
+    {mk : Nat → Nat → AnnotTerm}
+    (hP : ∀ c, c < K → ∀ (k : Nat) (D : AnnotTerm), (pdoms c)[k]? = some D →
+      IsReadingAt m φ k D)
+    (hF : ∀ c, c < K → ∀ j, j < nCt c → ∀ (k : Nat) (D : AnnotTerm), (fdoms c j)[k]? = some D →
+      IsReadingAt m φ ((pdoms c).length + k) D)
+    (hE : ∀ c, c < K → ∀ j, j < nCt c → ∀ e ∈ es c j,
+      IsReadingAt m φ ((pdoms c).length + (fdoms c j).length) e)
+    (hM : ∀ c, c < K → ∀ j, j < nCt c →
+      IsReadingAt m φ ((pdoms c).length + (fdoms c j).length) (mk c j)) :
+    ∀ (a : Nat → V), ∀ c, c < K → ∀ j, j < nCt c → ∀ xs fs : List V,
+      xs.length = (pdoms c).length →
+      SpineFit (chainFrame K a ρ) (pdoms c ++ fdoms c j) (xs ++ fs) →
+      SpineFit ρ (pdoms c ++ fdoms c j) (xs ++ fs) ∧
+      (es c j).map (interp V (consList (xs ++ fs) (chainFrame K a ρ)))
+        = (es c j).map (interp V (consList (xs ++ fs) ρ)) ∧
+      interp V (consList (xs ++ fs) (chainFrame K a ρ)) (mk c j)
+        = interp V (consList (xs ++ fs) ρ) (mk c j) := by
+  intro a c hc j hj xs fs hxl hsp
+  have hbelow : FieldsBelow 0 (pdoms c ++ fdoms c j) := by
+    refine fieldsBelow_append (fieldsBelow_of_readings (m := m) (φ := φ) fun k D hk => ?_)
+      (fieldsBelow_of_readings (m := m) (φ := φ) fun k D hk => ?_)
+    · simpa using hP c hc k D hk
+    · simpa using hF c hc j hj k D hk
+  have hlen : (xs ++ fs).length = (pdoms c).length + (fdoms c j).length := by
+    have := hsp.length_eq
+    simpa using this
+  refine ⟨spineFit_congr_fieldsBelow (k := 0) hbelow (fun i hi => absurd hi (Nat.not_lt_zero _))
+    hsp, List.map_congr_left fun e he => ?_, ?_⟩
+  · exact interp_congr_below V e _ _ _ (hlen ▸ (hE c hc j hj e he).below)
+      (consList_agree_below _)
+  · exact interp_congr_below V _ _ _ _ (hlen ▸ (hM c hc j hj).below) (consList_agree_below _)
+
+/-- **`IhDatumBelow`, from readings**: a generated `ih`'s telescope
+domains and its index and major arguments are readings of scoped terms
+at the rule's depth `D`. -/
+theorem ihDatumBelow_of_readings {m : EnvModel V env} {φ : Name → Nat} {D : Nat} {q : IhDatum}
+    (hT : ∀ (k : Nat) (p : Nat × AnnotTerm), q.2.1[k]? = some p → IsReadingAt m φ (D + k) p.2)
+    (hA : ∀ e ∈ q.2.2.1 ++ [q.2.2.2], IsReadingAt m φ (D + q.2.1.length) e) :
+    IhDatumBelow D q := by
+  refine ⟨fieldsBelow_of_readings (m := m) (φ := φ) fun k T hk => ?_, fun e he => (hA e he).below⟩
+  rw [List.getElem?_map] at hk
+  cases hp : q.2.1[k]? with
+  | none => rw [hp] at hk; exact nomatch hk
+  | some p =>
+    rw [hp] at hk
+    obtain rfl := (Option.some.inj hk).symm
+    exact hT k p hp
+
+end Rows
 
 end ConLeche.Model
