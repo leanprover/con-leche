@@ -877,7 +877,7 @@ theorem classRun_aliasKeysScoped (R : ClassRun ops fe₁ env₁ fe p block cvTas
     ∀ a ∈ R.al, Expr.fvarsBelow (classHi (classCtxOf p fe₁ env₁ R.pq.1) R.cls) (aliasKey a) ∧
       (aliasKey a).looseBVarsBounded 0 = true := by
   intro a ha
-  obtain ⟨e, he, us, hfn, -, hps⟩ := R.halFrom a ha
+  obtain ⟨e, he, us, hfn, -, hps, -⟩ := R.halFrom a ha
   obtain ⟨I, us', nPc, hfn', hl, -, hx⟩ := R.hcand e he
   rw [hfn] at hfn'
   simp only [Expr.const.injEq] at hfn'

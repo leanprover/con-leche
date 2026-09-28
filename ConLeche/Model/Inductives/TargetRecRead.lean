@@ -521,44 +521,6 @@ theorem constsBound_instantiateList_allFvars {envT : Env} {xs : List Expr} (h : 
     simp only [Expr.instantiateList, constsBound_proj]
     exact ihe k hc
 
-/-- A term whose every leaf is an entry of a frame list is scoped by it. -/
-theorem wscoped_of_leaves_mem {D : Nat} {L : List Expr} (hL : FvarList D L) :
-    ∀ (E : Expr), (∀ l ∈ E.fvarLeaves, Expr.fvar l.1 l.2 ∈ L) → Expr.WScoped D E := by
-  intro E
-  induction E with
-  | fvar i ty _ =>
-    intro hl
-    exact hL.2.2 _ (hl (i, ty) (by simp [Expr.fvarLeaves]))
-  | app f a ihf iha =>
-    intro hl
-    simp only [Expr.WScoped]
-    exact ⟨ihf fun l h => hl l (by simp [Expr.fvarLeaves, h]),
-      iha fun l h => hl l (by simp [Expr.fvarLeaves, h])⟩
-  | lam ty b _ ihty ihb =>
-    intro hl
-    simp only [Expr.WScoped]
-    exact ⟨ihty fun l h => hl l (by simp [Expr.fvarLeaves, h]),
-      ihb fun l h => hl l (by simp [Expr.fvarLeaves, h])⟩
-  | forallE ty b _ ihty ihb =>
-    intro hl
-    simp only [Expr.WScoped]
-    exact ⟨ihty fun l h => hl l (by simp [Expr.fvarLeaves, h]),
-      ihb fun l h => hl l (by simp [Expr.fvarLeaves, h])⟩
-  | letE ty v b ihty ihv ihb =>
-    intro hl
-    simp only [Expr.WScoped]
-    exact ⟨ihty fun l h => hl l (by simp [Expr.fvarLeaves, h]),
-      ihv fun l h => hl l (by simp [Expr.fvarLeaves, h]),
-      ihb fun l h => hl l (by simp [Expr.fvarLeaves, h])⟩
-  | proj _ _ e ihe =>
-    intro hl
-    simp only [Expr.WScoped]
-    exact ihe fun l h => hl l (by simpa [Expr.fvarLeaves] using h)
-  | bvar _ => intro _; simp [Expr.WScoped]
-  | sort _ => intro _; simp [Expr.WScoped]
-  | const _ _ => intro _; simp [Expr.WScoped]
-  | lit _ => intro _; simp [Expr.WScoped]
-
 /-! ## The walk's context, over a frame that carries its own variables
 
 `WalkCtx` (`BlockRecRule.lean`) is stated over a list `L` of opened
@@ -569,23 +531,6 @@ variables, which the residue already mentions as free variables). -/
 section Ctx
 
 variable {V : Type uv} [SetTheory V]
-
-/-- A subject that carries free variables, its leaves entries of the frame
-list, is framed, in the context and graded. -/
-theorem WalkCtx.subjOkL {envT : Env} {mT : EnvModel V envT} {φ : Name → Nat} {D : Nat}
-    (hacl : ∀ (n : Name) (ψ : Name → Nat) (k : Nat), (mT.acval n ψ).liftN 1 k = mT.acval n ψ)
-    (hin : Rules.RulesInputs V mT φ) {ρfull : Nat → V} {Δa : List AnnotTerm} {L : List Expr}
-    (h2 : FvarList D L) (h : WalkCtx V mT φ D ρfull Δa L)
-    {E : Expr} (hcll : ∀ l ∈ E.fvarLeaves, Expr.fvar l.1 l.2 ∈ L)
-    (hlbb : E.looseBVarsBounded 0 = true) {ea : AnnotTerm}
-    (hea : denoteMeta mT.acval envT φ D E = some ea) (hty : IhTyped envT D E) :
-    Rules.Frame D E ∧ CtxOk mT φ D Δa E ∧ Rules.Graded V Δa ea := by
-  have hLB : Expr.LeavesBounded E := fun l hl => h.2.2.2.2.1 _ (hcll l hl)
-  have hFr : Rules.Frame D E := ⟨wscoped_of_leaves_mem h2 E hcll, hlbb, hLB⟩
-  have hctx := h.ctxOk hacl h2 hcll
-  obtain ⟨t, hInf⟩ := hty
-  obtain ⟨-, -, ta, -, hG, -, -⟩ := Rules.infer_sound hin hInf hFr hctx hea
-  exact ⟨hFr, hctx, hG⟩
 
 /-- The context extended by a domain that carries free variables. -/
 theorem WalkCtx.consOpenL {envT : Env} {mT : EnvModel V envT} {φ : Name → Nat} {D : Nat}

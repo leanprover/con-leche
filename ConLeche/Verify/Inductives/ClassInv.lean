@@ -825,20 +825,24 @@ theorem classCands_foldl_mem {isCand : Expr → Bool} :
 
 /-- **An alias comes from a candidate**: its inductive the candidate's
 head, its parameters the candidate's first `nPc` arguments, erased. -/
-@[expose] def ClassAliasFrom (es : List Expr) (a : ClassAlias) : Prop :=
+@[expose] def ClassAliasFrom (ops : CheckerOps CheckM) (env : Env) (hi : Nat) (cls : List ClassInfo)
+    (es : List Expr) (a : ClassAlias) : Prop :=
   ∃ e ∈ es, ∃ us, e.getAppFn = .const a.ind us ∧ a.nPc ≤ e.getAppArgs.length ∧
-    a.ps = (e.getAppArgs.take a.nPc).map Expr.eraseFVarTys
+    a.ps = (e.getAppArgs.take a.nPc).map Expr.eraseFVarTys ∧ a.lvls = us ∧
+    ∃ ci ∈ cls, ci.key.ind = a.ind ∧ ci.nPc = a.nPc ∧ ci.hole = some a.hole ∧
+      Level.isEquivList us ci.key.lvls = some true ∧
+      classParamsDefEq ops env hi (e.getAppArgs.take a.nPc) (ci.holeForm cls) = .ok true
 
 theorem classAliases_from {hi : Nat} {cls : List ClassInfo} :
     ∀ {es : List Expr} {al : List ClassAlias}, classAliases ops env hi cls es = .ok al →
-      ∀ a ∈ al, ClassAliasFrom es a
+      ∀ a ∈ al, ClassAliasFrom ops env hi cls es a
   | [], al, h => by
     simp only [classAliases, pure, Except.pure, Except.ok.injEq] at h
     subst h; intro _ h; exact nomatch h
   | e :: es, al, h => by
     unfold classAliases at h
     obtain ⟨rest, hr, h⟩ := exceptBind_ok h
-    have ih : ∀ a ∈ rest, ClassAliasFrom (e :: es) a := fun a ha => by
+    have ih : ∀ a ∈ rest, ClassAliasFrom ops env hi cls (e :: es) a := fun a ha => by
       obtain ⟨e', he', hrest⟩ := classAliases_from hr a ha
       exact ⟨e', List.mem_cons_of_mem _ he', hrest⟩
     split at h
@@ -846,18 +850,24 @@ theorem classAliases_from {hi : Nat} {cls : List ClassInfo} :
       dsimp only at h
       obtain ⟨found, hloop, h⟩ := exceptBind_ok h
       have hP := except_forIn_inv (fun f : Option ClassAlias => ∀ a, f = some a →
-          ClassAliasFrom (e :: es) a) (by intro a h; simp at h) (fun c hc s s' hs hst => by
+          ClassAliasFrom ops env hi cls (e :: es) a) (by intro a h; simp at h)
+          (fun c hc s s' hs hst => by
         split at hst
         · rename_i hcond
           obtain ⟨b0, hb, hst⟩ := exceptBind_ok hst
           split at hst
-          · simp only [pure, Except.pure, Except.ok.injEq] at hst
+          · rename_i hb0
+            simp only [pure, Except.pure, Except.ok.injEq] at hst
             subst hst
             intro a ha
             simp only [ForInStep.value, Option.some.injEq] at ha
             subst ha
-            simp only [Bool.and_eq_true, beq_iff_eq, decide_eq_true_eq] at hcond
-            exact ⟨e, List.mem_cons_self, us, hfn, hcond.1.1.2, rfl⟩
+            simp only [Bool.and_eq_true, beq_iff_eq, decide_eq_true_eq, Option.isSome_iff_exists]
+              at hcond
+            obtain ⟨⟨⟨⟨-, hI⟩, hle⟩, hv, hhv⟩, hlv⟩ := hcond
+            refine ⟨e, List.mem_cons_self, us, hfn, hle, rfl, rfl, c, hc, hI, rfl, ?_, hlv,
+              by rw [hb, hb0]⟩
+            simp [hhv]
           · simp only [pure, Except.pure, Except.ok.injEq] at hst
             subst hst; exact hs
         · simp only [pure, Except.pure, Except.ok.injEq] at hst
@@ -1112,7 +1122,7 @@ structure ClassRun (ops : CheckerOps CheckM) (fe₁ : FEnv) (env₁ : Env) (fe :
     (cls.filterMap fun c => if c.member.isNone then some (c.key.ind, c.nPc) else none).lookup I
       = some nPc ∧ nPc ≤ e.getAppArgs.length ∧
     ∀ x ∈ e.getAppArgs.take nPc, x.bvarB = 0 ∧ x.fvarB ≤ classHi (classCtxOf p fe₁ env₁ pq.1) cls
-  halFrom : ∀ a ∈ al, ClassAliasFrom cands a
+  halFrom : ∀ a ∈ al, ClassAliasFrom ops env₁ (classHi (classCtxOf p fe₁ env₁ pq.1) cls) cls cands a
   hpairs : ∀ q ∈ pairs, ClassSameOk ops env₁ (classHi (classCtxOf p fe₁ env₁ pq.1) cls) cls q.1 q.2 ∨
     ClassSameOk ops env₁ (classHi (classCtxOf p fe₁ env₁ pq.1) cls) cls q.2 q.1
   /-- a kept class in a container class's crest contains no group occurrence -/
