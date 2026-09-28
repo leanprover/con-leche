@@ -1,6 +1,8 @@
 module
 
-public import ConLeche.Model.Inductives.TargetCallRead
+public import ConLeche.Model.Inductives.TargetRecRead
+public import ConLeche.Model.Annot.BitSubstFvars
+import ConLeche.Model.Inductives.TargetCallRead
 import ConLeche.Verify.Inductives.NestCallSyn
 import ConLeche.Model.Annot.BitRename
 import ConLeche.Model.Annot.BitLemmas

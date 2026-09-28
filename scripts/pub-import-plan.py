@@ -119,6 +119,14 @@ FALLBACK = {
     ('ConLeche.Model.Inductives.TargetCallRead', 'ConLeche.Model.Inductives.NestPosMono'),
     ('ConLeche.Model.Inductives.TargetCallRead', 'ConLeche.Model.Inductives.TargetNodeRead'),
     ('ConLeche.Verify.Inductives.NestCallRun', 'ConLeche.Verify.Inductives.RecCheckRun'),
+    # lane RP-ANNOT: `TargetCallGen` gained private imports (the move kit),
+    # which changed the census's attribution; the model then calls its two
+    # re-exports demotable.  Each MEASURED by demoting it alone: without
+    # `TargetNodeRead`, `variable [SetTheory V]` fails (unknown identifier
+    # `SetTheory`, `TargetCallGen.lean:59`); without `RecCheckRun`, the
+    # statements' `TargetCallRun` (unknown identifier, `:381`).
+    ('ConLeche.Model.Inductives.TargetCallGen', 'ConLeche.Model.Inductives.TargetNodeRead'),
+    ('ConLeche.Model.Inductives.TargetCallGen', 'ConLeche.Verify.Inductives.RecCheckRun'),
     # lane NESTIND s23: `TargetNodeSem`'s public statements name `NodesSem`/
     # `NodeSemAt` (PosDerivNodes) and `BlockData`/`BlockNamesOk`/
     # `BlockHoleCtxFacts` (TargetNodeCover's re-exports); MEASURED by

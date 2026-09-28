@@ -1,19 +1,8 @@
 module
 
-import ConLeche.Model.Rules.Sound
-import ConLeche.Model.CtxOkKit
-import ConLeche.Model.IndDomGrade
-import ConLeche.Verify.Rules.Bridge
-import ConLeche.Verify.Abstract
-import ConLeche.Verify.Leaves
-import ConLeche.Verify.InferLeaves
-import ConLeche.Verify.ExceptBind
-import ConLeche.Verify.InstList
 import ConLeche.Verify.Subst
 import ConLeche.Verify.Inductives.BlockRecInv
 public import ConLeche.Model.Inductives.TargetRecRead
-import ConLeche.Model.Inductives.StructFrameKit
-import ConLeche.Verify.BetaGate
 
 public section
 

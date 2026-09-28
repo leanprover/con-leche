@@ -84890,6 +84890,13 @@ A/B cycle, a cycle through `L`, a three-member cycle.
   (today's `structUsedLater`), DECLINES in `nestMemberCtor`.  Finding:
   the class is EMPTY on streams official accepts.  Anything applied to a
   recursive field's value mentions the block, which official rejects.
+  **CORRECTED (lane RP-ANNOT, 2026-09-28, finding F-RPW-1 of RPWHNF):**
+  not so.  Official ACCEPTS a read of a recursive field's value when whnf
+  erases it: `mk : (x : T) → K2 T x → T` with `def K2 (β) (_ : β) := β`
+  is official 0 (fixtures `corner_rpwhnf_erasedread_{member,frame}`); the
+  read mentions the block syntactically, but official checks the field
+  after whnf, where it is `T`.  (On the NORMALISED telescope the read is
+  gone, so U4's class as stated there is not the witness; see RPANNOT.)
   E2E-DESIGN's `Vec ((fun _ => Nat) t) 3` is REJECTED by official
   ("nested inductive datatypes parameters cannot contain local
   variables", probed with Lean v4.29.1 via `scripts/export-fixture.sh`).
@@ -93667,3 +93674,94 @@ goes with the tie; it does not — K.53′'s callee landing reads it (S5 territo
 (K.53′); S5 (the narrowed whnf commutation) would remove it and `NodeMajor`'s
 `ClassMatches` with it.  `SeedLeaves`/`SeedOk` could shrink to "the seed is
 `nestSeedOf` of a class over the parameters" if a consumer ever wants less.
+
+## RPANNOT — the recursor check types calls at the abstract frame (F-RPW-1) (2026-09-28, `agent/uinds-RPANNOT`)
+
+**Maintainer decision (2026-09-28): option (a)** of RPWHNF's F-RPW-1 — make
+the recursor check abstract the earlier fields' annotations too,
+consistently with the positivity check.
+
+**The bug.**  `mk : (x : T) → K2 T x → T`, `def K2 (β) (_ : β) := β`:
+official 0, ours 1 ("application type mismatch"), plain and as a container
+nested in another block (rejected at the container itself).  The call
+typing (`targetCallOk`) inferred `targetAbs(fieldType)`: members became
+holes in the SYNTAX, but a free variable's annotation stayed concrete
+(`targetAbs` does not enter annotations, on purpose — the `ih` types and
+the telescopes must stay concrete), so `K2 X (x : T)` is ill-typed at the
+hole `X`.  The positivity check abstracts the whole constructor type,
+binders included (`nestAbstract`), so it accepted.
+
+**The fix (kernel, `Kernel/Inductives/RecCheck.lean`, +17 executed lines).**
+The call typing runs at the ABSTRACT frame: the rule's frame (prefix,
+fields; `base = rP + nF`), the member holes (`base … base + k - 1`), then
+every field AGAIN as a copy `fvar (base + k + j)` whose annotation is the
+field's type member-abstracted and moved to the copies before it
+(`targetAbsFields`).  `targetMoveF rP fvsA` moves the fields to their
+copies (a memoised `replaceFVars`).  In `targetCallOk`, `fld =
+mvF (absM fieldType)`, `want = Π (tele moved). mvF (absM majDom)`, both
+inferred and compared at `dA = base + k + nF` (the old comparison used the
+whnf-telescope `fnorm` at `base + k`; `fnorm` now only supplies the
+telescope).  The copies' annotations are inferred once per rule, each at
+its own position (`targetAbsFieldsOk`), and only when the rule has a call
+(`fvsA := if ihs.isEmpty then [] else …`, so no cost elsewhere).
+`targetAbs` itself is unchanged (K5, the class match, the telescopes and
+the `ih` types keep concrete annotations).  The holes stay AFTER the rule's
+fields (the rule frame's layout is untouched); the copies after the holes
+are what lets an abstracted annotation mention a hole in a well-ordered
+telescope.
+
+**Proof.**
+* Run inversions (`RecCheckRun`): `TargetCallRun` takes `mvF`, `dA` (and
+  no longer `fnorm`); `hfld`/`hwant`/`hdeq` at the abstract frame;
+  `TargetRuleRun` records `fvsA`, `hfvsA`, `hfA`; `fvsA_eq` (at a rule
+  with a call the copies are `targetAbsFields`'); `targetAbsFieldsOk_run`.
+  datF bridges (`BridgeDecl`), cached sims (`TargetRecC`: the copies scoped
+  at their positions, `targetAbsFieldsOkS_sim`).  Scoping lemmas
+  (`RecCheckScope`): `replaceFVars_WScoped`, `targetMoveF_WScoped`,
+  `replaceFVars_fvarLeaves`, `targetMoveF_fvarLeaves`,
+  `targetAbsFields_spec/_nil/_WScoped`.
+* The model (`Model/Inductives/TargetCallMove.lean`, new): the move is,
+  up to annotations, the parallel substitution `moveS`
+  (`targetMoveF_erasedEq`, via `replaceFVars_erasedEq_substFvars`), so its
+  reading is the unmoved reading substituted (`move_read`,
+  `denoteMeta_substFvars`); at the valuation giving each copy its field's
+  own value the substituted valuation IS the holes' frame's
+  (`substE_moveTau`), so value and grading agree (`move_interp`).
+* `TargetCallGen`: `walkCtx_absFields` builds the abstract frame's context
+  slot by slot (each copy's annotation inferred there, its leaves the
+  frame's, the holes' or the copies' before it, its field's value in it);
+  `targetCall_genW` then runs as before at the abstract frame and reads its
+  conclusion back at the holes' frame — its statement is unchanged except
+  that `hii` is now asked for EVERY field (the copies' slots need it), which
+  the callers (`TargetCallCarrier`, `TargetClassCall`) get from the same
+  `field_mem_absRead`.  The telescope's spine transfers through
+  `teleDoms_substFvars` + `spineFit_substAt`.  `targetWhnfPis_sem` and
+  `tgtIh_fnorm` (the whnf telescope's value) are no longer needed and are
+  deleted, with `fvarConsistent_of_leaves`.
+* No sorry, no new axiom.  Proof side: +950 / −425 (Model + Verify,
+  18 files).  Imports: the whnf section's eleven imports left
+  `TargetCallKit` (shake criterion clean); `TargetCallGen`'s two
+  re-exports (`TargetNodeRead`, `RecCheckRun`) are recorded in
+  `scripts/pub-import-plan.py`'s FALLBACK, each measured by demoting it
+  alone (the census's attribution moved with the new imports).
+
+**Verdicts.**  668-stream sweep (e2e, arena, RECPOS/FUSEPOS/FUSELOOP/RPWHNF
+fx), uniform-inds tip `b393ebcbd` vs the lane (`RPANNOT/sweep-base2.txt`,
+`sweep-k2.txt`): exactly the expected moves, 1 → 0:
+`corner_rpwhnf_erasedread_member`, `corner_rpwhnf_erasedread_frame` (and
+their RPWHNF originals); official 0 (arena official, measured).  Every
+other stream: exit code AND output hash identical.  Control
+`corner_rpwhnf_erasedread_nonrec` 0 (official 0).
+
+**New fixtures** (`tests/e2e/src/corner_rpwhnf_erasedread_*.lean`,
+`scripts/export-fixture.sh`): `_member` 0, `_frame` 0, `_nonrec` 0.
+
+**Executed checker lines** (SIZEAUDIT method, `RPANNOT/loc`): 10821 →
+10838 (+17), all `Kernel/Inductives` (1909 → 1926).
+**Perf** (instructions:u): `complete_c05b_nest30_pi1000` 69.11 G → 69.43 G
+(+0.5 %); `init-prelude` 2.563 G → 2.566 G; `grind-ring-5` 17.54 G →
+17.53 G.
+
+**Also corrected:** the POSPROOF U4 record's claim that official rejects
+anything applied to a recursive field's value (official accepts when whnf
+erases the read; correction note in place).

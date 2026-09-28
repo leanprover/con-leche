@@ -585,7 +585,7 @@ Inductive blocks are not trusted from the stream. Three cases:
   equivalent levels, definitionally equal parameters (official, which
   generates the recursors from the normal forms, identifies classes
   syntactically, a finer identification)
-  ([function `targetRecCheck` in `ConLeche/Kernel/Inductives/RecCheck.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/RecCheck.lean#L1249-L1273)).
+  ([function `targetRecCheck` in `ConLeche/Kernel/Inductives/RecCheck.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/RecCheck.lean#L1294-L1318)).
   Soundness rests on that check alone. For a block with one member
   the checker additionally generates official's recursor and rejects a
   record that is not it — a reject-only conformance check, with no role
@@ -626,17 +626,17 @@ Inductive blocks are not trusted from the stream. Three cases:
   not mirrored. The stream's auxiliary recursors (`T.rec_1`, …) name the
   instantiations they eliminate: the recursor check reads each one's
   major first
-  ([function `targetMajorOf` in `ConLeche/Kernel/Inductives/RecCheck.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/RecCheck.lean#L420-L422)),
+  ([function `targetMajorOf` in `ConLeche/Kernel/Inductives/RecCheck.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/RecCheck.lean#L456-L458)),
   and every such outside major then SEEDS the positivity function: it
   is walked at the root like a container instance met there, so every
   class the recursors eliminate is a walked instantiation, one that weak
   head normal form erases from every field included
-  ([function `checkBlockSeeds` in the same file](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/RecCheck.lean#L1115-L1118)).
+  ([function `checkBlockSeeds` in the same file](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/RecCheck.lean#L1160-L1163)).
   The auxiliary recursors are then checked like the block's own, at
   their outside majors.
   Their rules fire at the major's instantiation, read off the recursor
   type
-  ([function `tgtStoredRules` in the same file](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/RecCheck.lean#L1204-L1205)).
+  ([function `tgtStoredRules` in the same file](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/RecCheck.lean#L1249-L1250)).
   In the model a nested block is still the least fixed point of its
   constructor types with holes at its members; a container field reads
   the container's own least fixed point at the holes' values, and the
