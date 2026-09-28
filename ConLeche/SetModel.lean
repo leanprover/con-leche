@@ -11,6 +11,7 @@ public import ConLeche.SetModel.HoleClose
 public import ConLeche.SetModel.NestRec
 public import ConLeche.SetModel.NestRecCls
 public import ConLeche.SetModel.Access
+public import ConLeche.SetModel.ClassFacts
 
 @[expose] public section
 
