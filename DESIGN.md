@@ -93575,3 +93575,94 @@ stays for the older citations.
 **Follow-ups (proof-only or small):** `PosKind` ≅ `NestFieldKind` now (constructor for
 constructor; `NestFieldKind.erase` is a relabelling) — unify; keys whose parameters
 mention a frame hole are cached but can never hit (`nestContKey`) — could be left out.
+
+## RPTIE — the class↔node tie by construction (2026-09-28, `agent/uinds-RPTIE`)
+
+Brief: REVIEWPOS rec. 2 (S4, `_tmp/uniform-inds/REVIEWPOS.md` §3): seed the
+positivity check with the classes the recursor check has ALREADY resolved, so
+the tie "every outside class is a node" holds by construction and the proof
+takes it from the seeding — without FUSELOOP's hook (no rule typing inside the
+positivity traversal), keeping the two passes, the constructor normal-form
+table installer-local.  Artifacts: `_tmp/uniform-inds/RPTIE/` (sweeps, binaries,
+LOC census `loc/`, perf).
+
+**Kernel.**
+* The pass (`checkBlockPass`) runs the positivity check on the members'
+  constructors only; `checkBlockPositivity` returns the walk's STATE
+  (`BlockPass.pos : NestState`: cache, container lookups, recorded
+  constructor normal forms) instead of `NestNodes`.  Its context is
+  `blockNestCtx` (shared with the seeds).
+* The recursor check (`targetRecCheck`, `RecCheck.lean`): pins → stage (b)
+  (`targetRecTys`; `targetMajorOf` no longer takes the table, checks no tie
+  and reads no normal forms) → **the seeds** `checkBlockSeeds`: every
+  OUTSIDE class stage (b) resolved (`targetSeeds`), moved to the walk's
+  representation (`nestSeedOf`: members to their holes, the recursor's
+  parameter binders replaced WHOLE by the canonical variables), walked at the
+  root (`nestSeeds`) at the FORMERS' environment, continuing the pass's state;
+  it returns the table (members' entries, then every frame's) → every class's
+  entries read (`targetMajorsNfs`) → the rest unchanged.  The cached driver
+  runs the seeds at the O(1) prefix view `fe₂.restrictTo |env₁|` (FUSELOOP's
+  `restrictTo` lemmas salvaged), flushing on either side.
+* Deleted: `targetNodeTie` (and the tie's `&& tie` in the `is_nested`
+  `unless`), `NestState.nodes` and its pushes in `nestContNew`/`nestContKey`,
+  `NestCtx.concreteKey`, `NestNodes`, `NestedPositivity.nodes`, the raw-record
+  seed parsing `nestSeedKey?`/`nestAnnotAll`/`nestSeedKeys`, and `nestSeeds`'
+  scope guard (a seed's parameters are closed and below the frame holes by
+  construction; proved, `nestSeedOf_closed`).  `is_nested` stays (a verdict
+  check, official's).
+
+**Proof.**
+* The tie (`outsideClass_reachedNode`, `Model/Inductives/PosDerivTie.lean`):
+  for an outside class `M` of the output, its resolved class `t₀ ∈ tys₀`
+  (`TargetRecRun.tys_of`) seeds the walk (`targetSeeds_mem`), whose derivation
+  `PosD.seed` has the seed key as its root node; the key READ BACK is `M`'s
+  parameters up to the free variables' annotations (`seed_readback`, one
+  induction: constants→holes→constants and variables→canonical variables are
+  inverse up to annotations), so `targetClassMatch_self` gives `NodeMajor`.
+  The seeds' `SeedOk` premises come from stage (b)'s entry (`outside_of`) and
+  `nestContainer_consBlockCtors` (an outside inductive reads alike at the
+  formers' and the constructors' environments: the block's constructors
+  conclude in its members, a new `NestedRecCtx` conjunct built in `declBlock`
+  from `hheadK`).  `checkBlockPositivity_nodesM`, `NodeAtCtor`, `NodeAtSeed`,
+  `NodeOf`, `targetRecCheck_aux`, `targetRecTys_aux`, `targetNodeTie_true`,
+  `nestSeedKey?_spec`, `nestSeedKeys_ok`, `nestAnnotAll_inv` are gone;
+  `NodesIn` lost its class half.
+* `TargetRecRun` carries the seeds' data as FIELDS (`fe₁ env₁ nfs pos tys₀
+  tbl`, `hseeds`, `hfill`), so its parameters and its ~30 consumers are
+  unchanged; `R.tysRun`/`R.nfsRun` replace `targetRecTys_run R.htys`.
+  `NestedRecCtx` takes `posR`/`tblR` (the check's table) for `nodesR`.
+* Cached: `checkBlockSeedsS_sim`, `blockNestCtxS_sim`, `targetMajorsNfsS_sim`,
+  the check's sim with the env switch (`flushC_simG_to`, `sharedOpsC_congr`),
+  `checkBlockCtors_fresh` + the `restrictTo` view (from FUSELOOP).
+* Standard axioms only (`model_exists`, `no_False_declaration`).
+
+**Verdicts.**  660-stream sweep (e2e, arena, RECPOS/FUSEPOS/FUSELOOP fx; exit
+code AND message), pre-lane binary vs the lane's, both before and after merging
+RPCLEAN: **0 exit-code moves**; 5 message-only changes (1 → 1: a major failing
+`is_nested` is now refused by stage (b) before any walk of it, where the old
+raw-record seed walked it and failed N3 first).  **One designed order effect,
+forged** (`scripts/mk_rptie_fixtures.py`, twin
+`tests/e2e/src/corner_rptie_order_base.lean`, official 0 / ours 0):
+`corner_rptie_order_decline` — a class only a seed reaches, made non-positive,
+AND a recursor parameter domain exhausting the level comparison's fuel (K6):
+official 1, before 1 (the raw seed walked in the pass), now **2** (stage (b)
+runs before the seeds).  Only streams failing two checks, one of them a
+decline, can move, and only between reject and decline.
+
+**Executed checker LOC** (SIZEAUDIT method, build and text of one revision):
+10842 → **10821 (−21)**; `Kernel/Inductives` 1939 → 1909 (−30), `Cached`
+2917 → 2926 (+9: the prefix view and the seeds' call in the fast twin).
+**Proof** (`git diff --shortstat` vs `uniform-inds`, Verify + Model +
+Semantics): +1595 −1066 (**+529**): the cached seeds-in-the-tail simulation
+(~+170), the read-back/closedness/container lemmas and the coverage proof
+(~+320 in `PosDerivTie`/`NestScope`) outweigh the deleted tie plumbing.
+REVIEWPOS's estimate (−1.5k…−3k) assumed the `NodeMajor`/`TargetNode*` chain
+goes with the tie; it does not — K.53′'s callee landing reads it (S5 territory).
+**Perf** (instructions:u): `complete_c05b_nest30_pi1000` 71.6 G → **69.1 G
+(−3.5 %)** (no per-major tie matching, no raw-record parsing/annotation);
+`corner_nestind_f13_listrose` 37.2 M → 36.7 M.
+
+**Follow-ups.**  With the tie gone the recursor check reads only the table
+(K.53′); S5 (the narrowed whnf commutation) would remove it and `NodeMajor`'s
+`ClassMatches` with it.  `SeedLeaves`/`SeedOk` could shrink to "the seed is
+`nestSeedOf` of a class over the parameters" if a consumer ever wants less.
