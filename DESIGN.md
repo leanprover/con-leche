@@ -93907,3 +93907,90 @@ lemma over `classReadSlots`): 0.5–1 session, P4 (with P2A).
 unchanged from P3A's estimate.
 
 Gates: `lake build`/`lake test` 0 warnings; `tests/arena.sh` green.
+
+## CLASSCHECK / HMINOR — `hminor` and the rule frame from the generator (2026-09-28, `agent/cc-HMINOR`)
+
+G1-SYN's open item (a).  Sorry-free, standard axioms only (the `ih` data
+are picked per index by `Classical.choose`).  Two modules:
+
+* `Verify/Inductives/ClassGenMinorSyn.lean` — syntax.
+  `ClassGen.prefixBinders_minor` (the prefix entry at a minor slot is
+  `minorTy c x (nP + s)`), `ClassGen.minorTy_spec` (the minor type spelled
+  out: fields and `ih`s closed at `nP + s` over the class's motive
+  variable applied to a nonempty spine; each `ih` domain a telescope over
+  its callee's motive variable applied to a nonempty spine, callee = the
+  kind's class, motive slot before the minor), and the fact that makes
+  the `ih` binders non-dependent: **an `ih` domain names no `ih`
+  variable** (`fvarsBelow (nP + s + nF)`, via `Expr.FvGap`, a shallow
+  "nothing in the gap `[lo, i)`" predicate kept by
+  instantiate/abstract/open/close — the generator opens the `ih`'s own
+  telescope at `nP + s + nF + l` and closes it again there).
+  `annotateCore_closeTelescope_gen`: the annotated-telescope lemma over a
+  NON-plain body (the body annotated at its depth; every piece scoped
+  there); `annotateCore_mkAppN_fvar` (a variable applied to a spine
+  annotates to the same variable over a spine of the same length);
+  `annotateCore_WScoped_below` (annotation keeps a tighter scope).
+* `Model/Inductives/ClassGenMinor.lean` — the reading.
+  `classGenMinor_read`: from the generated type of ANY class `c`
+  (annotated, read, peeled to `pps`) and a minor slot `sm` (class `cm`,
+  constructor `x`), the rule frame's components at depth `rP` — field
+  domains `fd`, `ih` data `ihd` (callees = `x.recs`' classes), the
+  conclusion's `es`/`mk` — with their bounds (`FieldsBelow rP fd`,
+  `bvarsBelow (rP + nF)` for `es`/`mk`, `IhDatumBelow (rP + nF)` per
+  `ih`), the motive positions below the minor (`classMotPos`, genHstep's
+  `hmot`/`hmin`), and **`hminor` exactly as `genHstep` consumes it**
+  (`P := pps.take rP`, `minPos := nP + sm`, `motPos := classMotPos g`).
+  Pieces: `classGenIh_read` (one `ih` domain: its reading at
+  `mp + nF + l` is the lift by `l` of a reading `A0` at `mp + nF`, and
+  `A0` lifted to `rP + nF` IS `genIhDomAV (rP + nF) mt q`),
+  `classGenConcl_read` (the conclusion: the lift over the `ih`s of the
+  motive variable over `es ++ [mk]`), `classGenRecTy_prefix_below` (the
+  `hP` rows).  `ClassGenRead.genHchI_of_below`: `hchI` from BOUNDS
+  (`genHchI_of_readings` now a corollary).
+
+**How the depths meet.**  The minor's domain lives at `mp = nP + sm`
+(its prefix position); the rule frame at `rP`.  The domain is peeled at
+`mp`, where the generator's own `closeTelescope` lives, so the opened
+pieces are the annotated raw pieces up to erasure
+(`open_of_erasedEq_closeTelescope` needs the SAME depth); the move to
+`rP` is the de Bruijn lift over the `rP - mp` later prefix binders,
+done on READINGS (`stripPisAV_liftN_inv`, `liftN_mkAppN_bvar_inv`,
+`shiftE_consList`) — never on `Expr`s.  Fields: read at `mp + k`, lifted
+at cutoff `k`.  `ih` `l`: read at `mp + nF + l`, lowered by `l` (names
+no `ih` variable), lifted at cutoff `nF`.  Conclusion: read at
+`mp + nF + nIh`, lowered by `nIh`, lifted at cutoff `nF`.
+
+**Findings.**
+1. *The components are not readings of scoped terms at `rP`* (G1-SYN's
+   `IsReadingAt` premises as stated): opening the minor's domain at
+   `rP` gives the generator's pieces RENAMED, whose shape no lemma
+   relates to the generator's (`open_of_erasedEq_closeTelescope` works
+   only at the closing depth).  `IsReadingAt` was only ever consumed
+   for its bound (`IsReadingAt.below`), so the consumers are now stated
+   over bounds (`genHchI_of_below`; `IhDatumBelow` is delivered
+   directly) and the lifted readings carry them.  No renaming lemma was
+   needed anywhere.
+2. *No bit case split*: `hminor` needs the Π-tower's `v = 0` fibres to be
+   truth values; the generated type's reading is bit-VALID
+   (`AnnotValid`, the `WellDenotedV` half `classRecTyOk_read_eq` already
+   hands out), validity descends the prefix to the minor's domain
+   (`annotValid_piDom_at`) and `foldl_app_mem_mkPisAV` applies.  One
+   extra premise, `hval : ∀ ρ, AnnotValid V ρ ea` — P4 has it at the run.
+3. *For P4 (the rule)*: `ihd` is read off the TYPE's minor domain; the
+   generated RULE builds its `ih` λs by `ihParts` at `rP + nF` (a
+   different opening depth, fields opened at `rP`).  P4's tie of the
+   rule's reading to `genRb0`/`genIhAV` compares the rule's λ-telescope
+   and argument readings with `ihd`'s: the same raw pieces read at
+   different depths, i.e. this lane's lift relation, plus the λ bits law
+   (G1-SYN's (c)).  Expect ≈ 0.5 session on top of (c).
+4. Flip re-homing: `ClassGenMinorSyn` uses `NestScope`/`NestCallSyn`
+   (`closeTelescope_wscoped`, `closeTelescope_bounded`,
+   `WScoped.of_fvarsBelow`, `option_mapM_*`) and `ClassGenMinor` uses
+   `NestPosOut.open_of_erasedEq_closeTelescope` — all dead-listed
+   modules, as `ClassGenScope`/`ClassGenRead` already do.
+
+**Open (unchanged otherwise).** (b) `ClassGenScoped` from the run (P4
+with P2A); (c) P4's rule wiring (+ finding 3); class side `hctorTy`,
+`hmk`, `hihTy`, `hIdx`, `hesFit`; P3c.
+
+Gates: `lake build`/`lake test` 0 warnings; `tests/arena.sh` green.
