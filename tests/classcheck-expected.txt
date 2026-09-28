@@ -206,6 +206,7 @@
 0 e2e corner_checkdel_d_anc_bad.ndjson
 0 e2e corner_checkdel_d_anc_nocall.ndjson
 0 e2e corner_checkdel_d_anc_nocall_bad.ndjson
+0 e2e corner_classcheck_idd.ndjson
 0 e2e corner_fuseloop_order_base.ndjson
 1 e2e corner_fuseloop_order_decline.ndjson.gz
 0 e2e corner_idx_container.ndjson

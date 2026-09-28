@@ -2544,3 +2544,9 @@
 # between a reject and a decline, no acceptance.
 0 corner_fuseloop_order_base.ndjson
 2 corner_fuseloop_order_decline.ndjson
+# ---- CLASSCHECK/CHECKER (2026-09-28): PROOFPLAN experiment E3 / risk X5.
+# corner_classcheck_idd: `RLI α ::= node α (List (Idd (RLI α)))` (`Idd` a
+# definition) entered by `TLI ::= node (List (RLI TLI))`: a class
+# occurrence under a δ-redex, abstracted before whnf.  Official 0, the
+# default route 0, the class checker 0.
+0 corner_classcheck_idd.ndjson
