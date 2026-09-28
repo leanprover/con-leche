@@ -267,6 +267,88 @@ theorem Expr.SemEq.looseBVarsBounded : ∀ {a b : Expr}, Expr.SemEq a b →
     simp [Expr.looseBVarsBounded, ih h.2.2]
   | _ => intro b h k; cases b <;> simp_all [Expr.SemEq, Expr.looseBVarsBounded]
 
+theorem Expr.eqUpToLevels_refl : ∀ e : Expr, Expr.eqUpToLevels e e = true := by
+  intro e; induction e <;> simp_all [Expr.eqUpToLevels]
+
+theorem Expr.eqUpToLevels_symm : ∀ {a b : Expr}, Expr.eqUpToLevels a b = true →
+    Expr.eqUpToLevels b a = true := by
+  intro a
+  induction a with
+  | app f x ihf ihx =>
+    intro b h; cases b <;> simp only [Expr.eqUpToLevels, Bool.and_eq_true, reduceCtorEq] at h ⊢
+    exact ⟨ihf h.1, ihx h.2⟩
+  | lam t bd m iht ihb =>
+    intro b h; cases b <;> simp only [Expr.eqUpToLevels, Bool.and_eq_true, reduceCtorEq, beq_iff_eq] at h ⊢
+    exact ⟨⟨h.1.1.symm, iht h.1.2⟩, ihb h.2⟩
+  | forallE t bd m iht ihb =>
+    intro b h; cases b <;> simp only [Expr.eqUpToLevels, Bool.and_eq_true, reduceCtorEq, beq_iff_eq] at h ⊢
+    exact ⟨⟨h.1.1.symm, iht h.1.2⟩, ihb h.2⟩
+  | letE t v bd iht ihv ihb =>
+    intro b h; cases b <;> simp only [Expr.eqUpToLevels, Bool.and_eq_true, reduceCtorEq] at h ⊢
+    exact ⟨⟨iht h.1.1, ihv h.1.2⟩, ihb h.2⟩
+  | proj s i x ih =>
+    intro b h; cases b <;> simp only [Expr.eqUpToLevels, Bool.and_eq_true, reduceCtorEq, beq_iff_eq] at h ⊢
+    exact ⟨⟨h.1.1.symm, h.1.2.symm⟩, ih h.2⟩
+  | bvar i => intro b h; cases b <;> simp_all [Expr.eqUpToLevels]
+  | fvar i ty => intro b h; cases b <;> simp_all [Expr.eqUpToLevels]
+  | sort u =>
+    intro b h; cases b <;> simp only [Expr.eqUpToLevels, beq_iff_eq, reduceCtorEq] at h ⊢
+    exact h.symm
+  | const n us =>
+    intro b h; cases b <;> simp only [Expr.eqUpToLevels, Bool.and_eq_true, beq_iff_eq,
+      reduceCtorEq] at h ⊢
+    exact ⟨h.1.symm, h.2.symm⟩
+  | lit l =>
+    intro b h; cases b <;> simp only [Expr.eqUpToLevels, beq_iff_eq, reduceCtorEq] at h ⊢
+    exact h.symm
+
+theorem Expr.eqUpToLevels_trans : ∀ {a b c : Expr}, Expr.eqUpToLevels a b = true →
+    Expr.eqUpToLevels b c = true → Expr.eqUpToLevels a c = true := by
+  intro a
+  induction a with
+  | app f x ihf ihx =>
+    intro b c h1 h2; cases b <;> cases c <;>
+      simp only [Expr.eqUpToLevels, Bool.and_eq_true, reduceCtorEq] at h1 h2 ⊢
+    exact ⟨ihf h1.1 h2.1, ihx h1.2 h2.2⟩
+  | lam t bd m iht ihb =>
+    intro b c h1 h2; cases b <;> cases c <;>
+      simp only [Expr.eqUpToLevels, Bool.and_eq_true, reduceCtorEq, beq_iff_eq] at h1 h2 ⊢
+    exact ⟨⟨h1.1.1.trans h2.1.1, iht h1.1.2 h2.1.2⟩, ihb h1.2 h2.2⟩
+  | forallE t bd m iht ihb =>
+    intro b c h1 h2; cases b <;> cases c <;>
+      simp only [Expr.eqUpToLevels, Bool.and_eq_true, reduceCtorEq, beq_iff_eq] at h1 h2 ⊢
+    exact ⟨⟨h1.1.1.trans h2.1.1, iht h1.1.2 h2.1.2⟩, ihb h1.2 h2.2⟩
+  | letE t v bd iht ihv ihb =>
+    intro b c h1 h2; cases b <;> cases c <;>
+      simp only [Expr.eqUpToLevels, Bool.and_eq_true, reduceCtorEq] at h1 h2 ⊢
+    exact ⟨⟨iht h1.1.1 h2.1.1, ihv h1.1.2 h2.1.2⟩, ihb h1.2 h2.2⟩
+  | proj s i x ih =>
+    intro b c h1 h2; cases b <;> cases c <;>
+      simp only [Expr.eqUpToLevels, Bool.and_eq_true, reduceCtorEq, beq_iff_eq] at h1 h2 ⊢
+    exact ⟨⟨h1.1.1.trans h2.1.1, h1.1.2.trans h2.1.2⟩, ih h1.2 h2.2⟩
+  | _ => intro b c h1 h2; cases b <;> cases c <;> simp_all [Expr.eqUpToLevels]
+
+theorem Expr.eqUpToLevels_of_erasedEq : ∀ {a b : Expr}, Expr.ErasedEq a b →
+    Expr.eqUpToLevels a b = true := by
+  intro a
+  induction a with
+  | app f x ihf ihx =>
+    intro b h; cases b <;> simp only [Expr.ErasedEq, Expr.eqUpToLevels, Bool.and_eq_true] at h ⊢
+    exact ⟨ihf h.1, ihx h.2⟩
+  | lam t bd m iht ihb =>
+    intro b h; cases b <;> simp only [Expr.ErasedEq, Expr.eqUpToLevels, Bool.and_eq_true, beq_iff_eq] at h ⊢
+    exact ⟨⟨h.1, iht h.2.1⟩, ihb h.2.2⟩
+  | forallE t bd m iht ihb =>
+    intro b h; cases b <;> simp only [Expr.ErasedEq, Expr.eqUpToLevels, Bool.and_eq_true, beq_iff_eq] at h ⊢
+    exact ⟨⟨h.1, iht h.2.1⟩, ihb h.2.2⟩
+  | letE t v bd iht ihv ihb =>
+    intro b h; cases b <;> simp only [Expr.ErasedEq, Expr.eqUpToLevels, Bool.and_eq_true] at h ⊢
+    exact ⟨⟨iht h.1, ihv h.2.1⟩, ihb h.2.2⟩
+  | proj s i x ih =>
+    intro b h; cases b <;> simp only [Expr.ErasedEq, Expr.eqUpToLevels, Bool.and_eq_true, beq_iff_eq] at h ⊢
+    exact ⟨⟨h.1, h.2.1⟩, ih h.2.2⟩
+  | _ => intro b h; cases b <;> simp_all [Expr.ErasedEq, Expr.eqUpToLevels]
+
 end ConLeche
 
 namespace ConLeche.Model
@@ -1165,5 +1247,234 @@ theorem classAbs_read_hole {cls : List ClassInfo} {H : Nat} (hwf : ClassOccWF cl
   exact classAbsSpec_read hyp e h2 h1
 
 end Hole
+
+/-! ## 7. Two spellings of one class are recognised alike -/
+
+section Match
+
+open ConLeche (ClassInfo classOcc? classAbs)
+
+/-- Pointwise `eqUpToLevels`. -/
+@[expose] def LvEqL (as bs : List Expr) : Prop :=
+  as.length = bs.length ∧
+    ∀ (i : Nat) (a b : Expr), as[i]? = some a → bs[i]? = some b → Expr.eqUpToLevels a b = true
+
+theorem LvEqL.symm {as bs : List Expr} (h : LvEqL as bs) : LvEqL bs as :=
+  ⟨h.1.symm, fun i a b ha hb => Expr.eqUpToLevels_symm (h.2 i b a hb ha)⟩
+
+theorem LvEqL.trans {as bs cs : List Expr} (h1 : LvEqL as bs) (h2 : LvEqL bs cs) : LvEqL as cs := by
+  refine ⟨h1.1.trans h2.1, fun i a c ha hc => ?_⟩
+  have hi : i < bs.length := by
+    have := (List.getElem?_eq_some_iff.mp ha).1
+    have := h1.1
+    omega
+  obtain ⟨b, hb⟩ : ∃ b, bs[i]? = some b := ⟨bs[i], List.getElem?_eq_getElem hi⟩
+  exact Expr.eqUpToLevels_trans (h1.2 i a b ha hb) (h2.2 i b c hb hc)
+
+theorem lvEqL_of_zip {as bs : List Expr} (hl : as.length = bs.length)
+    (h : ((as.zip bs).all fun (a, b) => a.eqUpToLevels b) = true) : LvEqL as bs := by
+  refine ⟨hl, fun i a b ha hb => ?_⟩
+  rw [List.all_eq_true] at h
+  have hz : (as.zip bs)[i]? = some (a, b) := by simp [List.getElem?_zip_eq_some, ha, hb]
+  exact h (a, b) (List.mem_of_getElem? hz)
+
+theorem zip_of_lvEqL {as bs : List Expr} (h : LvEqL as bs) :
+    ((as.zip bs).all fun (a, b) => a.eqUpToLevels b) = true := by
+  rw [List.all_eq_true]
+  intro ab hab
+  obtain ⟨i, hi, hget⟩ := List.getElem_of_mem hab
+  have h1 : as[i]? = some ab.1 := by
+    have := List.getElem?_eq_getElem hi
+    rw [hget, List.getElem?_zip_eq_some] at this
+    exact this.1
+  have h2 : bs[i]? = some ab.2 := by
+    have := List.getElem?_eq_getElem hi
+    rw [hget, List.getElem?_zip_eq_some] at this
+    exact this.2
+  exact h.2 i ab.1 ab.2 h1 h2
+
+theorem lvEqL_of_map_erase {as bs : List Expr}
+    (h : as.map Expr.eraseFVarTys = bs.map Expr.eraseFVarTys) : LvEqL as bs := by
+  refine ⟨by simpa using congrArg List.length h, fun i a b ha hb => ?_⟩
+  have := congrArg (·[i]?) h
+  simp only [List.getElem?_map, ha, hb, Option.map_some, Option.some.injEq] at this
+  exact Expr.eqUpToLevels_of_erasedEq (Expr.erasedEq_of_eraseFVarTys this)
+
+theorem LvEqL.take {as bs : List Expr} (h : LvEqL as bs) (n : Nat) :
+    LvEqL (as.take n) (bs.take n) := by
+  refine ⟨by simp [h.1], fun i a b ha hb => ?_⟩
+  rw [List.getElem?_take] at ha hb
+  split at ha
+  · rw [if_pos (by assumption)] at hb
+    exact h.2 i a b ha hb
+  · exact nomatch ha
+
+theorem LvEqL.append {as bs cs ds : List Expr} (h1 : LvEqL as bs) (h2 : LvEqL cs ds) :
+    LvEqL (as ++ cs) (bs ++ ds) := by
+  refine ⟨by simp [h1.1, h2.1], fun i a b ha hb => ?_⟩
+  rw [List.getElem?_append] at ha hb
+  split at ha
+  · rename_i hi
+    rw [if_pos (by rw [← h1.1]; exact hi)] at hb
+    exact h1.2 i a b ha hb
+  · rename_i hi
+    rw [if_neg (by rw [← h1.1]; exact hi), ← h1.1] at hb
+    exact h2.2 _ a b ha hb
+
+/-- The spine of related terms: related heads, related arguments. -/
+theorem Expr.eqUpToLevels_spine : ∀ {x y : Expr}, Expr.eqUpToLevels x y = true →
+    Expr.eqUpToLevels x.getAppFn y.getAppFn = true ∧ LvEqL x.getAppArgs y.getAppArgs
+  | .app f a, y, h => by
+    cases y with
+    | app g b =>
+      simp only [Expr.eqUpToLevels, Bool.and_eq_true] at h
+      obtain ⟨h1, h2⟩ := Expr.eqUpToLevels_spine h.1
+      refine ⟨h1, ?_⟩
+      exact LvEqL.append h2 ⟨rfl, fun i a' b' ha hb => by
+        cases i with
+        | zero => simp at ha hb; subst ha hb; exact h.2
+        | succ i => simp at ha⟩
+    | _ => simp [Expr.eqUpToLevels] at h
+  | .bvar _, y, h | .fvar .., y, h | .sort _, y, h | .const .., y, h | .lam .., y, h
+  | .forallE .., y, h | .letE .., y, h | .lit _, y, h | .proj .., y, h => by
+    cases y with
+    | app g b => simp [Expr.eqUpToLevels] at h
+    | _ => exact ⟨h, rfl, fun _ _ _ ha _ => by simp [Expr.getAppArgs] at ha⟩
+
+/-- **A class matches a spelling**: its inductive at levels with the same
+simplified forms, its (member-abstracted) parameters `eqUpToLevels` the
+spelling's. -/
+@[expose] def ClassMatch (x : Expr) (c : ClassInfo) : Prop :=
+  ∃ us, x.getAppFn = .const c.key.ind us ∧ us.map Level.simplify = c.key.lvls.map Level.simplify ∧
+    c.nPc ≤ x.getAppArgs.length ∧ LvEqL (x.getAppArgs.take c.nPc) c.dsA
+
+/-- Two classes are the same up to spelling. -/
+@[expose] def SameKey (c c' : ClassInfo) : Prop :=
+  c.key.ind = c'.key.ind ∧ c.key.lvls.map Level.simplify = c'.key.lvls.map Level.simplify ∧
+    LvEqL c.dsA c'.dsA
+
+theorem ClassMatch.transport {x y : Expr} {c : ClassInfo} (hxy : Expr.eqUpToLevels x y = true)
+    (h : ClassMatch x c) : ClassMatch y c := by
+  obtain ⟨us, hfn, hlv, hle, hps⟩ := h
+  obtain ⟨hf, ha⟩ := Expr.eqUpToLevels_spine hxy
+  rw [hfn] at hf
+  cases hy : y.getAppFn with
+  | const n us' =>
+    rw [hy] at hf
+    simp only [Expr.eqUpToLevels, Bool.and_eq_true, beq_iff_eq] at hf
+    obtain ⟨rfl, hl⟩ := hf
+    exact ⟨us', hy, hl.symm.trans hlv, by rw [← ha.1]; exact hle, (ha.take c.nPc).symm.trans hps⟩
+  | _ => rw [hy] at hf; simp [Expr.eqUpToLevels] at hf
+
+theorem ClassMatch.sameKey {cls : List ClassInfo} {H : Nat} (hwf : ClassOccWF cls H) {x : Expr}
+    {c c' : ClassInfo} (hc : c ∈ cls) (hc' : c' ∈ cls) (hch : c.hole.isSome)
+    (hch' : c'.hole.isSome) (h : ClassMatch x c) (h' : ClassMatch x c') : SameKey c c' := by
+  obtain ⟨us, hfn, hlv, -, hps⟩ := h
+  obtain ⟨us', hfn', hlv', -, hps'⟩ := h'
+  rw [hfn] at hfn'
+  simp only [Expr.const.injEq] at hfn'
+  obtain ⟨hI, rfl⟩ := hfn'
+  have hN := hwf.nPc c hc c' hc' hch hch' hI
+  rw [hN] at hps
+  exact ⟨hI, hlv.symm.trans hlv', hps.symm.trans hps'⟩
+
+/-- **What the recogniser returns is a match.** -/
+theorem classOcc_match {cls : List ClassInfo} {H : Nat} (hwf : ClassOccWF cls H) {x h : Expr}
+    {n : Nat} (hx : classOcc? cls x = some (h, n)) :
+    ∃ c ∈ cls, c.hole = some h ∧ ClassMatch x c ∧ n = x.getAppArgs.length - c.nPc := by
+  unfold classOcc? at hx
+  split at hx
+  · rename_i I us hI
+    dsimp only at hx
+    split at hx
+    · exact nomatch hx
+    · rename_i cs c0 rest hcs
+      have hmem : ∀ c ∈ c0 :: rest, c ∈ cls ∧ c.hole.isSome ∧ c.key.ind = I ∧
+          c.nPc ≤ x.getAppArgs.length := by
+        intro c hc
+        rw [← hcs] at hc
+        simp only [List.mem_filter, Bool.and_eq_true, beq_iff_eq, decide_eq_true_eq] at hc
+        exact ⟨hc.1, hc.2.1.1, hc.2.1.2, hc.2.2⟩
+      obtain ⟨hc0, hc0h, hc0I, -⟩ := hmem c0 (List.mem_cons_self ..)
+      have hpick : ∀ c, c ∈ c0 :: rest →
+          (c.hole.map fun h' => (h', x.getAppArgs.length - c.nPc)) = some (h, n) →
+          us.map Level.simplify = c.key.lvls.map Level.simplify →
+          LvEqL (x.getAppArgs.take c0.nPc) c.dsA →
+          ∃ c ∈ cls, c.hole = some h ∧ ClassMatch x c ∧ n = x.getAppArgs.length - c.nPc := by
+        intro c hc hp hlv hps
+        obtain ⟨hcc, hch, hcI, hcle⟩ := hmem c hc
+        have hN : c0.nPc = c.nPc := hwf.nPc c0 hc0 c hcc hc0h hch (hc0I.trans hcI.symm)
+        obtain ⟨h', hh'⟩ := Option.isSome_iff_exists.mp hch
+        rw [hh'] at hp
+        simp only [Option.map_some, Option.some.injEq, Prod.mk.injEq] at hp
+        obtain ⟨rfl, rfl⟩ := hp
+        exact ⟨c, hcc, hh', ⟨us, by rw [hI, hcI], hlv, hcle, by rw [← hN]; exact hps⟩, rfl⟩
+      split at hx
+      · rename_i c hfind
+        have hc := List.mem_of_find?_eq_some hfind
+        have hcond := List.find?_some hfind
+        simp only [Bool.and_eq_true, beq_iff_eq] at hcond
+        obtain ⟨hcc, hch, -, -⟩ := hmem c hc
+        refine hpick c hc hx (by rw [hcond.1]) ?_
+        rw [hwf.dsE c hcc hch] at hcond
+        exact lvEqL_of_map_erase hcond.2
+      · split at hx
+        · rename_i c hfind
+          have hc := List.mem_of_find?_eq_some hfind
+          have hcond := List.find?_some hfind
+          simp only [Bool.and_eq_true, beq_iff_eq, Bool.or_eq_true] at hcond
+          obtain ⟨hcc, hch, -, -⟩ := hmem c hc
+          obtain ⟨hlv, hps⟩ := hcond
+          refine hpick c hc hx hlv ?_
+          rcases hps with hps | ⟨hl, hz⟩
+          · rw [hwf.dsE c hcc hch] at hps
+            exact lvEqL_of_map_erase hps
+          · exact lvEqL_of_zip (by simpa using hl) hz
+        · exact nomatch hx
+  · exact nomatch hx
+
+/-- **A match is recognised** (by some class). -/
+theorem classOcc_some_of_match {cls : List ClassInfo} {H : Nat} (hwf : ClassOccWF cls H)
+    {x : Expr} {c : ClassInfo} (hc : c ∈ cls) (hch : c.hole.isSome) (hm : ClassMatch x c) :
+    ∃ h n, classOcc? cls x = some (h, n) := by
+  obtain ⟨us, hfn, hlv, hle, hps⟩ := hm
+  have hin : c ∈ cls.filter (fun c' => c'.hole.isSome && c'.key.ind == c.key.ind &&
+      decide (c'.nPc ≤ x.getAppArgs.length)) := by
+    simp [List.mem_filter, hc, hch, hle]
+  have hmem : ∀ c', c' ∈ cls.filter (fun c' => c'.hole.isSome && c'.key.ind == c.key.ind &&
+      decide (c'.nPc ≤ x.getAppArgs.length)) → c' ∈ cls ∧ c'.hole.isSome ∧ c'.nPc = c.nPc := by
+    intro c' hc'
+    simp only [List.mem_filter, Bool.and_eq_true, beq_iff_eq, decide_eq_true_eq] at hc'
+    exact ⟨hc'.1, hc'.2.1.1, hwf.nPc c' hc'.1 c hc hc'.2.1.1 hch hc'.2.1.2⟩
+  unfold classOcc?
+  rw [hfn]
+  dsimp only
+  revert hin hmem
+  generalize cls.filter (fun c' => c'.hole.isSome && c'.key.ind == c.key.ind &&
+      decide (c'.nPc ≤ x.getAppArgs.length)) = cs
+  intro hin hmem
+  match cs, hin, hmem with
+  | c0 :: rest, hin, hmem =>
+    simp only
+    have hN := (hmem c0 (List.mem_cons_self ..)).2.2
+    have hpk : ∀ c', c' ∈ c0 :: rest →
+        ∃ h n, (c'.hole.map fun h' => (h', x.getAppArgs.length - c'.nPc)) = some (h, n) := by
+      intro c' hc'
+      obtain ⟨h', hh'⟩ := Option.isSome_iff_exists.mp (hmem c' hc').2.1
+      exact ⟨h', _, by rw [hh']; rfl⟩
+    split
+    · rename_i c1 hf1
+      exact hpk c1 (List.mem_of_find?_eq_some hf1)
+    · split
+      · rename_i c1 hf1
+        exact hpk c1 (List.mem_of_find?_eq_some hf1)
+      · rename_i hnone
+        exfalso
+        have := List.find?_eq_none.mp hnone c hin
+        rw [hN] at this
+        simp only [Bool.and_eq_true, beq_iff_eq, Bool.or_eq_true, not_and, not_or] at this
+        exact (this hlv).2 (by simpa using hps.1) (zip_of_lvEqL hps)
+
+end Match
 
 end ConLeche.Model
