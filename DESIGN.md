@@ -93738,7 +93738,7 @@ telescope.
   `teleDoms_substFvars` + `spineFit_substAt`.  `targetWhnfPis_sem` and
   `tgtIh_fnorm` (the whnf telescope's value) are no longer needed and are
   deleted, with `fvarConsistent_of_leaves`.
-* No sorry, no new axiom.  Proof side: +950 / −425 (Model + Verify,
+* No sorry, no new axiom.  Proof side: +948 / −426 (Model + Verify,
   18 files).  Imports: the whnf section's eleven imports left
   `TargetCallKit` (shake criterion clean); `TargetCallGen`'s two
   re-exports (`TargetNodeRead`, `RecCheckRun`) are recorded in
