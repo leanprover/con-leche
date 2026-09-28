@@ -340,4 +340,112 @@ theorem classGenRecTy_bits (hμ : μ.verifiedChecks = true) {acval : Name → (N
   obtain rfl := inferTypeCore_mkAppN_sort as' htf hbsT hbt
   rw [ensureSortCore_sort_eq hu]
 
+/-! ## The shared prefix -/
+
+set_option maxHeartbeats 800000 in
+/-- **The prefix is shared**: two classes' generated types, annotated and
+inferred by the same runs, read to the same first `nP + #slots` binder
+data — the same domains (a domain's annotation reads only the domains
+before it) and the same numeral (the one bit). -/
+theorem classGenRecTy_prefix_eq (hμ : μ.verifiedChecks = true)
+    {acval : Name → (Name → Nat) → AnnotTerm} {env envK : Env} {φ : Name → Nat} {g : ClassGen}
+    (hg : ClassGenScoped g) {F : Nat} {c₁ c₂ s₁ s₂ : Nat}
+    (hm₁ : ConLeche.ClassRead.motiveSlot ⟨g.slots, []⟩ c₁ = some s₁)
+    (hm₂ : ConLeche.ClassRead.motiveSlot ⟨g.slots, []⟩ c₂ = some s₂)
+    {gty₁ gty₂ gtyA₁ gtyA₂ S₁ S₂ : Expr} {ea₁ ea₂ : AnnotTerm}
+    (hgty₁ : classGenRecTy g c₁ = some gty₁) (hgty₂ : classGenRecTy g c₂ = some gty₂)
+    (hann₁ : ConLeche.annotateCore μ envK F 0 gty₁ = .ok gtyA₁)
+    (hann₂ : ConLeche.annotateCore μ envK F 0 gty₂ = .ok gtyA₂)
+    (hinf₁ : ConLeche.inferTypeCore μ envK F 0 gtyA₁ = .ok S₁)
+    (hinf₂ : ConLeche.inferTypeCore μ envK F 0 gtyA₂ = .ok S₂)
+    (hread₁ : denoteMeta acval env φ 0 gtyA₁ = some ea₁)
+    (hread₂ : denoteMeta acval env φ 0 gtyA₂ = some ea₂)
+    {pps₁ pps₂ : List (Nat × Nat × AnnotTerm)} {b₁ b₂ : AnnotTerm}
+    (hst₁ : stripPisAV (g.pre.length + (g.cls.getD c₁ default).nIdx + 1) ea₁ = some (pps₁, b₁))
+    (hst₂ : stripPisAV (g.pre.length + (g.cls.getD c₂ default).nIdx + 1) ea₂ = some (pps₂, b₂)) :
+    pps₁.take g.pre.length = pps₂.take g.pre.length := by
+  obtain ⟨q₁, b₁', hq₁, hql₁, hbits₁⟩ := classGenRecTy_bits hμ (acval := acval) (env := env)
+    (φ := φ) hg hm₁ hgty₁ hann₁ hinf₁ hread₁
+  obtain ⟨q₂, b₂', hq₂, hql₂, hbits₂⟩ := classGenRecTy_bits hμ (acval := acval) (env := env)
+    (φ := φ) hg hm₂ hgty₂ hann₂ hinf₂ hread₂
+  obtain ⟨rfl, rfl⟩ := Prod.mk.inj (Option.some.inj (hst₁.symm.trans hq₁))
+  obtain ⟨rfl, rfl⟩ := Prod.mk.inj (Option.some.inj (hst₂.symm.trans hq₂))
+  obtain ⟨ifs₁, maj₁, -, hifl₁, rfl, -, -⟩ := ConLeche.classGenRecTy_spec hg hgty₁
+  obtain ⟨ifs₂, maj₂, -, hifl₂, rfl, -, -⟩ := ConLeche.classGenRecTy_spec hg hgty₂
+  -- the same first domains, annotated
+  have hsd : SameDoms g.pre.length
+      (closeTelescope (g.pre ++ ifs₁.map classBinder ++ [(maj₁, default)]) 0
+        (Expr.mkAppN (g.motVar c₁) (ifs₁ ++ [.fvar (g.pre.length + ifs₁.length) maj₁])))
+      (closeTelescope (g.pre ++ ifs₂.map classBinder ++ [(maj₂, default)]) 0
+        (Expr.mkAppN (g.motVar c₂) (ifs₂ ++ [.fvar (g.pre.length + ifs₂.length) maj₂]))) := by
+    simp only [List.append_assoc]
+    exact ConLeche.SameDoms.closeTelescope_append _ _ _ 0 _ _
+  have hsdA := ConLeche.SameDoms.annotate _ hsd hann₁ hann₂
+  -- both open along the full telescope, hence along the prefix
+  have hsdF₁ : SameDoms (g.pre.length + (g.cls.getD c₁ default).nIdx + 1) gtyA₁ gtyA₁ := by
+    refine ConLeche.SameDoms.annotate _ ?_ hann₁ hann₁
+    have := ConLeche.SameDoms.closeTelescope_append
+      (g.pre ++ ifs₁.map classBinder ++ [(maj₁, default)]) [] [] 0
+      (Expr.mkAppN (g.motVar c₁) (ifs₁ ++ [.fvar (g.pre.length + ifs₁.length) maj₁]))
+      (Expr.mkAppN (g.motVar c₁) (ifs₁ ++ [.fvar (g.pre.length + ifs₁.length) maj₁]))
+    have hlen : (g.pre ++ ifs₁.map classBinder ++ [(maj₁, (default : ConLeche.BinderMeta))]).length
+        = g.pre.length + (g.cls.getD c₁ default).nIdx + 1 := by
+      simp only [List.length_append, List.length_map, List.length_singleton, hifl₁]
+    rw [hlen] at this
+    simpa only [List.append_nil] using this
+  have hsdF₂ : SameDoms (g.pre.length + (g.cls.getD c₂ default).nIdx + 1) gtyA₂ gtyA₂ := by
+    refine ConLeche.SameDoms.annotate _ ?_ hann₂ hann₂
+    have := ConLeche.SameDoms.closeTelescope_append
+      (g.pre ++ ifs₂.map classBinder ++ [(maj₂, default)]) [] [] 0
+      (Expr.mkAppN (g.motVar c₂) (ifs₂ ++ [.fvar (g.pre.length + ifs₂.length) maj₂]))
+      (Expr.mkAppN (g.motVar c₂) (ifs₂ ++ [.fvar (g.pre.length + ifs₂.length) maj₂]))
+    have hlen : (g.pre ++ ifs₂.map classBinder ++ [(maj₂, (default : ConLeche.BinderMeta))]).length
+        = g.pre.length + (g.cls.getD c₂ default).nIdx + 1 := by
+      simp only [List.length_append, List.length_map, List.length_singleton, hifl₂]
+    rw [hlen] at this
+    simpa only [List.append_nil] using this
+  obtain ⟨fvs₁, o₁, hop₁⟩ := ConLeche.SameDoms.open_isSome _ (d := 0) hsdF₁
+  obtain ⟨fvs₂, o₂, hop₂⟩ := ConLeche.SameDoms.open_isSome _ (d := 0) hsdF₂
+  rw [Nat.add_assoc] at hop₁ hop₂
+  obtain ⟨pf₁, rf₁, po₁, hpo₁, -, hF₁⟩ := openPisAtFvars_split g.pre.length hop₁
+  obtain ⟨pf₂, rf₂, po₂, hpo₂, -, hF₂⟩ := openPisAtFvars_split g.pre.length hop₂
+  have hpf : pf₁ = pf₂ := ConLeche.SameDoms.open _ hsdA hpo₁ hpo₂
+  rw [← Nat.add_assoc] at hop₁ hop₂
+  obtain ⟨pp₁, bb₁, hs₁, -, -, hpp₁⟩ := denoteMeta_openPis _ hop₁ hread₁
+  obtain ⟨pp₂, bb₂, hs₂, -, -, hpp₂⟩ := denoteMeta_openPis _ hop₂ hread₂
+  obtain ⟨rfl, -⟩ := Prod.mk.inj (Option.some.inj (hs₁.symm.trans hq₁))
+  obtain ⟨rfl, -⟩ := Prod.mk.inj (Option.some.inj (hs₂.symm.trans hq₂))
+  have hpfl : pf₁.length = g.pre.length := ConLeche.Verify.openPisAtFvars_length _ hpo₁
+  refine List.ext_getElem? fun i => ?_
+  rw [List.getElem?_take, List.getElem?_take]
+  split
+  · next hi =>
+    have hx₁ : fvs₁[i]? = pf₁[i]? := by
+      rw [hF₁, List.getElem?_append_left (by omega)]
+    have hx₂ : fvs₂[i]? = pf₁[i]? := by
+      rw [hF₂, ← hpf, List.getElem?_append_left (by omega)]
+    obtain ⟨x, hx⟩ : ∃ x, pf₁[i]? = some x := ⟨pf₁[i]'(by omega), List.getElem?_eq_getElem _⟩
+    rw [hx] at hx₁ hx₂
+    obtain ⟨p₁, hp₁, hp₁1, hp₁3⟩ := hpp₁ i x hx₁
+    obtain ⟨p₂, hp₂, hp₂1, hp₂3⟩ := hpp₂ i x hx₂
+    rw [hp₁, hp₂]
+    congr 1
+    have hb₁ := (hbits₁ p₁ (List.mem_of_getElem? hp₁)).2
+    have hb₂ := (hbits₂ p₂ (List.mem_of_getElem? hp₂)).2
+    have hr := Option.some.inj (hp₁3.symm.trans hp₂3)
+    obtain ⟨a₁, b₁, c₁'⟩ := p₁
+    obtain ⟨a₂, b₂, c₂'⟩ := p₂
+    simp only at hp₁1 hp₂1 hb₁ hb₂ hr
+    rw [hp₁1, hp₂1, hb₁, hb₂, hr]
+  · rfl
+
+/-- **`hbits`**: binder data whose every numeral is the elimination
+level's zero bit have ONE elimination level, `Level.eval φ elim`. -/
+theorem oneElimLevel_of_bits {φ : Name → Nat} {elim : Level} {K : Nat}
+    {rds : Nat → List (Nat × Nat × AnnotTerm)}
+    (h : ∀ c, c < K → ∀ p ∈ rds c, p.2.1 = pwBit φ (Level.zeronessOf elim)) :
+    OneElimLevel (Level.eval φ elim) K rds := by
+  intro c hc p hp
+  rw [h c hc p hp, pwBit_zeronessOf]
+
 end ConLeche.Model
