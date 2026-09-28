@@ -3,7 +3,7 @@ module
 public import ConLeche.SetModel.ClassKit
 public import ConLecheTests.ClassFactsTests
 
-@[expose] public section
+public section
 
 /-!
 # The class kit on F13 (CLASSCHECK experiment E2)
@@ -216,7 +216,7 @@ theorem kcl_fibre (b : Nat) (hb : b < 3) (u : Nat → V) (Y : Nat → V) (c : Na
     · rw [if_neg hc]
       exact ⟨fun h => absurd h (not_mem_empty _), fun ⟨_, _, ⟨h, _⟩, _⟩ => absurd h hc⟩
 
-theorem kcl_carrier (b : Nat) (u : Nat → V) : (kcl w b).carrier u = (f13 w : ClassSys V).car b u := rfl
+theorem kcl_carrier (b : Nat) (u : Nat → V) : (kcl w b).carrier u = (f13 w : ClassSys V).car b u := by rfl
 
 /-- Every node's clause holds at every frame of the space (E1: mono, (W)). -/
 theorem kcl_ok (hw : w ≠ 0) {b : Nat} (hb : b < 3) {u : Nat → V} (hu : InTupleSpace w 3 is1 u) :

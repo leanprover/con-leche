@@ -2,7 +2,7 @@ module
 
 public import ConLeche.SetModel.ClassFacts
 
-@[expose] public section
+public section
 
 /-!
 # Class facts on examples (CLASSCHECK experiment E1)
@@ -38,14 +38,14 @@ variable {V : Type u} [SetTheory V]
 /-! ## Operators with one fibre per position, over `{pt}` -/
 
 /-- Every position is indexed by `{pt}`. -/
-noncomputable def is1 : Nat → V := fun _ => unitSet
+@[expose] noncomputable def is1 : Nat → V := fun _ => unitSet
 
 /-- The operator whose position `m` has the single fibre `R m X`. -/
 noncomputable def opR (R : Nat → (Nat → V) → V) : (Nat → V) → Nat → V :=
   fun X m => graph (fun _ => R m X) unitSet
 
 /-- A hole read at `pt`. -/
-noncomputable def hole (m : Nat) (X : Nat → V) : V := app (X m) pt
+@[expose] noncomputable def hole (m : Nat) (X : Nat → V) : V := app (X m) pt
 
 /-- The empty valuation. -/
 noncomputable def base0 : Nat → V := fun _ => graph (fun _ => empty) unitSet
@@ -87,10 +87,10 @@ theorem opR_ok {w K : Nat} {R : Nat → (Nat → V) → V}
 /-! ## Type-valued encodings (`w ≠ 0`) -/
 
 /-- The nullary constructor's value. -/
-noncomputable def nilV : V := kpair empty empty
+@[expose] noncomputable def nilV : V := kpair empty empty
 
 /-- A `nil`-or-tagged fibre. -/
-noncomputable def nilOr (S : V) : V := binUnion (sing nilV) (image (kpair pt) S)
+@[expose] noncomputable def nilOr (S : V) : V := binUnion (sing nilV) (image (kpair pt) S)
 
 open Classical in
 /-- The support bound used by every reading below. -/
@@ -227,7 +227,7 @@ end One
 
 /-- The readings.  Positions: `0` the member `TL`, `1` the class
 `ρ = RL TL`, `2` the class `λ = List (RL TL)`. -/
-noncomputable def f13rd : Nat → (Nat → V) → V
+@[expose] noncomputable def f13rd : Nat → (Nat → V) → V
   -- λ = List α at α := z_ρ: nil | cons (a : z_ρ) (l : λ)
   | 0 => fun X => nilOr (sigmaPairs (hole 1 X) fun _ => hole 2 X)
   -- ρ = RL TL: node (a : TL) (l : List (RL TL))
@@ -239,7 +239,7 @@ noncomputable def f13rd : Nat → (Nat → V) → V
 hole `z_ρ` — `RL` is younger, so `ρ` is a CYCLIC inner class), `1 = ρ`
 (RL; free hole the member; reads `λ` true), `2 = TL` (the member block;
 reads `ρ`, then `λ`, true). -/
-noncomputable def f13 (w : Nat) : ClassSys V where
+@[expose] noncomputable def f13 (w : Nat) : ClassSys V where
   w := w
   K := 3
   Is := is1
