@@ -93413,3 +93413,180 @@ semantic Sat field in `LfpClause`); R7 (optional) the generated recursor inferre
 `classMono`/`classAcc`; E2 `NestKit` + `ExtG`; E3/E4 probes on CC-CHECKER's binary (R1 order, R1′,
 hole-form key typing) against official.  **Estimate 16–23 sessions** total (P0 2–3, P1 seam 1–1.5,
 class side 7–10, recursors 4–6, flip 2–3).
+
+## CLASSCHECK/CHECKER — the class checker, Phase C (2026-09-28, `agent/cc-CHECKER`)
+
+The checker of `_tmp/classcheck/PLAN.md`, built as a NEW installer path
+beside the default one (not wired into the fold).  Evidence and sweeps:
+`_tmp/classcheck/CHECKER/` (`sweep.sh`, `sweep-{base,v1…v6,e4probe,e4all}.txt`,
+`cmp.py`, `loc/`).
+
+**Modules.**
+* `Kernel/Inductives/ClassRead.lean` — the UNVERIFIED pre-pass (68 executed
+  lines): the classes are the MOTIVES of the first recursor's prefix (a
+  motive's major domain `I.{us} D⃗`), the prefix layout (which binder is
+  which motive / which minor of which `(class, constructor)`), each minor's
+  inductive hypotheses `(field, class)`, each recursor's class (the motive
+  its conclusion applies).  Reading the classes off the MOTIVES rather than
+  the recursors' majors keeps an omitted auxiliary recursor's class
+  (ruling (a): accepted when unreached).
+* `Kernel/Inductives/ClassCheck.lean` — the checks (`classRecCheck`, over
+  `ShadowOps` like `targetRecCheck`; pure tail `checkBlockClass`).
+* `Cached/ClassC.lean` — `checkBlockClassKS`, `checkBlockKS` with the class
+  check in place of `checkBlockRecS` (and no conformance check).
+* `tests/ClassSweep.lean` — exe `class-sweep [--both|--old] FILE` (lakefile,
+  not a default target): the sequential cached fold (no install/check
+  split, no pool) with every recognised block on the class checker;
+  `--both` prints a `CLASSDIFF` line per block whose verdict differs from
+  the default route's; `--old` is the same fold on the default route.
+* `tests/ConLecheTests/ClassCheckTests.lean` (unit tests, built by `lake
+  test`), `tests/classcheck.sh` + `tests/classcheck-expected.txt` (600 e2e
+  + arena streams; NOT in `tests/arena.sh`).
+
+**The checks, as built** (PLAN numbering), and the facts each run
+establishes (for the proof lane):
+1. `classInfo`/`classInfos`.  Per class (motive) `c` with key
+   `I.{us} D⃗`: `D⃗` closed over the block's parameters (`bvarB = 0`,
+   `fvarB ≤ nP`), moved to the canonical parameter variables and
+   ANNOTATED at depth `nP` (a raw recursor type carries unwritten binder
+   data); the key's levels name only the block's parameters.  Member head:
+   `us = lps` and `D⃗ = p⃗` exactly.  Otherwise: not `Quot`, a stored
+   inductive (`nestContainer`), `|D⃗| = nPc`, some `Dᵢ` names a member
+   (`is_nested`), `dsA := D⃗` member-abstracted names no member constant
+   (M2′) and every member hole applied to `p⃗` (M3); `nestInstType` at the
+   member holes (level count, N2 = R2 index telescope member-free, N3 = R3
+   sort `isEquiv` the block's); K.52 `inferType (I us dsA)` at the member
+   holes; the class hole `z_c := fvar (nP + k + a)` typed
+   `instPisWith dsA (I's type)` (ATOMIC, over the indices).  Exactly one
+   class per member.
+   **R6** (`classKeysCyclic`): every container key with its CYCLIC inner
+   classes (syntactic class occurrences in `dsA` whose inductive was
+   installed LATER than the class's own, by the `FEnv` counter) abstracted
+   to their holes is inferred at the full hole context.
+2. Formers, constructors, index sorts, capability records, tables: today's
+   (`checkBlockPass`, `checkBlockIdxSorts`, `checkBlockTables`).  Every
+   stream recursor type: `checkConstantValF`; every stream rule:
+   annotated, resolved, INFERRED at the rule-less recursors' environment
+   (whole-term inference, not today's per-part rule typing), its λ-domains
+   resolve at the constructors' environment (no recursor), its λ-binders
+   carry the elimination datum.
+3.+4. Per class `c`, per constructor: the CREST (a member's at `p⃗`, members
+   abstracted; a container's at `(us, dsA)`, `instPisWith`, no β), then the
+   CLASS ABSTRACTION (`classAbs`, R1): top-down, every syntactic class
+   occurrence (first class with the same inductive, parameters equal up to
+   annotations at equal levels, else up to level EQUIVALENCE anywhere
+   inside, `Expr.eqUpToLevels` — official simplifies `max 0 0` at
+   instantiation, we do not) becomes `z_c ı⃗`.  Then the COARSER tier
+   (`classAliases`, R1′): an unmatched application of a container class's
+   inductive whose closed parameters name a hole is matched to a class by
+   PER-COMPONENT DEFEQ in hole form (its parameters as they stand in the
+   abstracted crest, i.e. inner occurrences already holes, against the
+   class's `holeForm`; both inferred, `isDefEq` at the hole context), and
+   abstracted in a second pass.  REACHABILITY: every class is a member, or
+   its hole occurs in a reached class's abstracted crest, or it is the
+   same class as a reached one (`ClassInfo.same`, or per-component defeq in
+   hole form, `classSamePairs`), or it is a group mate of a reached
+   container class at the same instantiation (`IndCaps.all`, official
+   copies the whole block).  Then each abstracted crest is INFERRED to a
+   sort at the holes' context (check 4), and each field walked
+   (`classPos`, official's `check_positivity`): whnf at the holes; no hole
+   ⇒ ordinary; Π with hole-free domain; leaf a member hole at exactly `p⃗`
+   or a class hole, indices hole-free, full index count; anything else is
+   "non valid" (so a class created by reduction rejects: "expose, never
+   create").  U4 on the walked telescope; the result is the class's OWN
+   hole with hole-free indices; at members' constructors U2 (field sorts at
+   the holes), M3 on the walked form, M2′.  Output per constructor
+   (`ClassCtor`, R5): kinds (`ordinary | recursive cls tele`, R4 — the
+   landing class recorded by the check) and the walked telescope, holes
+   read back to their classes.
+5. Every `(class, constructor)` has exactly one minor; its inductive
+   hypotheses are exactly the recursive fields, each at a class the same
+   as the landing one (syntactically or per-component, as above); the
+   generator then uses the ih's class (a same class).  No other minor.
+   Elimination: `p.large ⇒ blockLargeElimAllowed p nested`.
+6. The family GENERATED (`ClassGen`, prefix computed once): parameters as
+   the first former's, the slots in the stream's order, motive `∀ ı⃗ (t :
+   I us D⃗ ı⃗), Sort ℓ`, minor over the walked fields + one ih per
+   recursive field `∀ a⃗, motive_t e⃗ (f a⃗)`, concluding
+   `motive_c e⃗ (C.{us} D⃗ f⃗)`; the recursor at class `c`; rule
+   `λ prefix f⃗, minor f⃗ (λ a⃗, rec_t prefix e⃗ (f a⃗))…` with `rec_t` the
+   first stream recursor at class `t` (none: reject — an omitted recursor
+   that is REACHED).  Per recursor: record member / `rP` / `mI` the
+   generated ones; generated type annotated, inferred (R7), and `isDefEq`
+   the stream's; rule pins.  Per rule: generated rule annotated,
+   inferred (R7), `isDefEq` the stream's annotated rule (stored).
+
+**PROOFPLAN requirements**: R1, R1′, R2, R3, R4, R5, R6 (cyclic inner
+classes only), R7 — all built in; confirmed.  Deviations to note for the
+proof lane: (a) the occurrence match is TOP-DOWN (atomic, outermost
+first) and syntactic; the hole-form comparison is used only by the defeq
+tier; (b) check 2's rule typing is whole-rhs inference (+ λ-domain
+resolution), not today's per-part `targetRule` run — G3 must read typing
+off that, or off the generated rule (typed, R7) via the defeq.
+
+**E4 (R6), measured.**  R6 as built (cyclic inner classes only) is
+EXERCISED (some inner class abstracted) on 56 streams (the `fp_nestnest_*`,
+`corner_frame_nestnest_prop*`, `corner_nestkn_{kn5_stage,kn5_swallow,
+levels,mutual,noseed,r3,rigid_flex_stage,rigid_stage}`, F13 pair, the
+`nested_*`/`restrict_a*` nest rows…; `sweep-e4probe.txt`) and REJECTS
+NONE.  The variant typing EVERY inner class abstracted (maintainer's
+option-A wording) rejects 7 streams official ACCEPTS — NESTKN's trap:
+`corner_keynamed_ctor_occ`, `corner_keynamed_d3_phantom{,_deep}`,
+`corner_nestkn_{flex_stage,levels,rigid_flex_stage,rigid_stage}`
+(`sweep-e4all.txt`; each an inner class of an OLDER container rigidly
+depended on by another parameter).  So "cyclic only" is necessary.
+
+**Sweep** (660 streams: e2e, arena, RECPOS fx, FUSEPOS fx + primrec-only,
+FUSELOOP fx; base = default route, official = arena v4.34.0-rc2).  No
+stream official accepts is rejected or declined by the class checker that
+the default route accepts.  Moves (base → class, official):
+* toward official, 1: `corner_nestpos_redex_bad`, `corner_nestind_d_redex_bad`
+  (D1, lost — PLAN's "expose, never create"), `corner_rcc_create_{prop,type}`
+  (created classes), `primrec_nest_missing_class` (a reached class missing);
+  `corner_fuseloop_order_decline` 2 → 1.
+* toward official, 0: `corner_recpos_missing_unreached`,
+  `rp_missing_unreached` (the omitted recursor's class is a motive, never
+  reached by a call — ruling (a)).
+* NEW accepted superset (official 1, base 1, class 0): a rule `isDefEq` to
+  the generated one but not syntactically it — `corner_rec_body_redex`,
+  `corner_rec_call_redex`, `corner_rec_redex_nonindex`,
+  `corner_rec_wtype_redex`, `corner_tshadow_aux_nonfield_bad`,
+  `primrec_member_k53_bad` (and `mutual_rec_body_redex` stays 0).  Sound:
+  the stored rule is definitionally the generated one.  If unwanted, a
+  reject-only syntactic comparison goes into `Conformance/` (it must
+  compare against official's DECLARED field types, not the walked ones).
+* Kept supersets (charter item 8): D3 (`corner_checkdel_d_anc{,_nocall}_bad`,
+  `corner_keynamed_ctor_occ_bad`: 0, via the defeq tier — without it they
+  are 1), coarser identification (`corner_nestind_k53_callee_bad`,
+  `corner_recpos_merge_defeq`, `rp_merge_defeq`: 0), aux order / finer
+  identification (`corner_recpos_perm_names`, `_split_copy`,
+  `corner_keynamed_d3_level_split`: 0).
+* Unchanged restriction: `corner_recpos_missing_rec_{1,2}` 1 (official 0).
+* The NESTKN/KEYNAMED rows (`corner_keynamed_ctor_occ`, `d3_phantom*`,
+  `level_inst`, `corner_nestkn_*`), F13, the nested-in-nested cycles
+  (`fp_nestnest_*`, `corner_frame_nestnest_prop*`): 0, official 0.
+* New fixture `corner_classcheck_idd` (E3/X5, a class occurrence under a
+  δ-redex): official 0, base 0, class 0.
+init-full: 53 093 accepted, `--both` reports NO block whose verdict
+differs.
+
+**Performance** (instructions:u, the same sequential fold, `--old` vs the
+class checker): init-full 489.46 G → 488.98 G; `complete_c05b_nest30_pi1000`
+76.2 G → 72.9 G (was 255 G before the prefix was built once and the class
+comparisons pre-erased); `corner_nestind_f13_listrose` 38.2 M → 36.0 M;
+`nested_comp_tower` 31.6 M → 30.7 M.
+
+**Executed lines** (SIZEAUDIT method, from the block install's root:
+`checkBlockClassKS` vs `checkBlockKS`; `_tmp/classcheck/CHECKER/loc`):
+shared 4 726; ONLY the class path 749 (`ClassCheck` 657, `ClassRead` 68,
+`ClassC` 24); ONLY the default path 1 473 (`RecCheck` 557, `Positivity`
+353, `Conformance` 249, `BlockInstall` 94, `ExprOps` 94, `CheckerC` 58,
+`FieldTele` 32, others 36).  So the positivity check + recursor check +
+conformance (1 473) become 749.
+
+**Open.**  (1) The rule-defeq superset (above): maintainer's call.
+(2) `ClassCheck.lean` is written for correctness first; obvious
+tightenings: one per-class pass instead of crests/aliases/reach/walk
+passes, `classSamePairs` is quadratic in the classes.  (3) The coarser
+tier compares only closed parameters (no field variables), as official
+(`nested inductive datatypes parameters cannot contain local variables`).
