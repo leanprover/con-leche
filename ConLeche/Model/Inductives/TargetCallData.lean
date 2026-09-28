@@ -88,11 +88,13 @@ theorem tgtCall_data (hμ : μ.verifiedChecks = true) (hcov : LfpCover mpC [])
       ih ∈ Q.ihs.toList ∧ ih.field < cA.2 ∧ fs.length = cA.2 ∧ xs.length = rc.rP ∧
       ConLeche.targetCallOk (ConLeche.fueledOps μ F) envC pp.toBlockShape (cvTas.map (·.type))
         cA.1.name
-        (tgtFam pp.toBlockShape out) Q.fvsPref Q.fvsF Q.fnorm
+        (tgtFam pp.toBlockShape out) Q.fvsPref Q.fvsF
         (Q.fnorm.map fun t => t.piBinders.1)
         (ConLeche.targetAbs pp.toBlockShape.memberNames (pp.toBlockShape.lps.map .param)
           (ConLeche.targetHoles (cvTas.map (·.type)) (rc.rP + cA.2)))
+        (ConLeche.targetMoveF rc.rP Q.fvsA)
         (rc.rP + cA.2) (cvTas.map (·.type)).length
+        (rc.rP + cA.2 + (cvTas.map (·.type)).length + cA.2)
         (Level.zeronessOf (ConLeche.structElimLevel pp.toBlockShape.elim pp.toBlockShape.large))
         (ConLeche.targetFieldNfs (tgtMajor out c) cA.1.name Q.fvsF) ih = .ok () ∧
       ih.idx.length + rc.rP = (tgtFam pp.toBlockShape out).mIs.getD ih.callee 0 ∧

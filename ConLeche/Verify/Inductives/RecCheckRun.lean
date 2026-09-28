@@ -552,13 +552,30 @@ theorem targetFieldNorms_run {env : Env} {depth F : Nat} {absM : Expr → Expr} 
       obtain ⟨t', ht', hrun⟩ := hall i f' (by simpa using hi)
       exact ⟨t', by simpa using ht', hrun⟩
 
-/-- **One call's typing, as run**: the field's abstract whnf-telescope
-`fty`, its hole-free telescope, the callee's stored type instantiated
-at the call's arguments, both abstract sides inferred, and the
-field-vs-major defeq at the depth past the holes. -/
+/-- **The abstract fields' typing, inverted**: each annotation inferred at
+its own position. -/
+theorem targetAbsFieldsOk_run {env : Env} {F : Nat} :
+    ∀ {d : Nat} {l : List Expr}, targetAbsFieldsOk (fueledOps mode F) env d l = .ok () →
+      ∀ j x, l[j]? = some x → ∃ t, inferTypeCore mode env F (d + j) x.fvarTypeD = .ok t
+  | _, [], _, _, _, hx => nomatch hx
+  | d, f :: fs, h, j, x, hx => by
+    unfold targetAbsFieldsOk at h
+    obtain ⟨t, ht, h⟩ := exceptBind_ok h
+    cases j with
+    | zero =>
+      obtain rfl : f = x := by simpa using hx
+      exact ⟨t, ht⟩
+    | succ j =>
+      obtain ⟨t', ht'⟩ := targetAbsFieldsOk_run h j x (by simpa using hx)
+      exact ⟨t', by rwa [show d + (j + 1) = d + 1 + j from by omega]⟩
+
+/-- **One call's typing, as run**: the field's hole-free telescope, the
+callee's stored type instantiated at the call's arguments, both sides
+abstracted at the abstract frame (`mvF`) and inferred, and the
+field-vs-major defeq at its depth `dA`. -/
 structure TargetCallRun (mode : CheckMode) (F : Nat) (env : Env) (fam : TargetFamily)
-    (fvsPref fvsF fnorm : List Expr) (teles : List (List (Expr × BinderMeta)))
-    (absM : Expr → Expr) (base k : Nat) (pw : PropWhen) (ih : TargetIh) : Type where
+    (fvsPref fvsF : List Expr) (teles : List (List (Expr × BinderMeta)))
+    (absM mvF : Expr → Expr) (base k dA : Nat) (pw : PropWhen) (ih : TargetIh) : Type where
   calleeAt : Expr
   majDom : Expr
   majBody : Expr
@@ -572,15 +589,17 @@ structure TargetCallRun (mode : CheckMode) (F : Nat) (env : Env) (fam : TargetFa
   hcallee : Expr.instPisAtLift (fvsPref ++ ih.idx) (fam.recTys.getD ih.callee (.sort .zero))
     = some calleeAt
   hmajDom : calleeAt = .forallE majDom majBody majBm
-  /-- both abstract sides inferred at the depth past the holes -/
-  hfld : inferTypeCore mode env F (base + k) (absM ((fvsF.getD ih.field default).fvarTypeD))
+  /-- both abstract sides inferred at the abstract frame -/
+  hfld : inferTypeCore mode env F dA (mvF (absM ((fvsF.getD ih.field default).fvarTypeD)))
     = .ok fldTy
-  hwant : inferTypeCore mode env F (base + k)
-    (Expr.mkPisOf (teles.getD ih.field []) (absM majDom)) = .ok wantTy
-  /-- THE CALL'S TYPING: the field's abstract telescope is the callee's
+  hwant : inferTypeCore mode env F dA
+    (Expr.mkPisOf ((teles.getD ih.field []).map fun b => (mvF b.1, b.2)) (mvF (absM majDom)))
+      = .ok wantTy
+  /-- THE CALL'S TYPING: the field's abstract type is the callee's
   abstract major type at the call's arguments -/
-  hdeq : isDefEqCore mode env F (base + k) (fnorm.getD ih.field default)
-    (Expr.mkPisOf (teles.getD ih.field []) (absM majDom)) = .ok true
+  hdeq : isDefEqCore mode env F dA (mvF (absM ((fvsF.getD ih.field default).fvarTypeD)))
+    (Expr.mkPisOf ((teles.getD ih.field []).map fun b => (mvF b.1, b.2)) (mvF (absM majDom)))
+      = .ok true
   /-- the call's own type at the frame and the telescope -/
   callTy : Expr
   /-- THE CALL IS WELL-TYPED: `λ a⃗ : A⃗, c x⃗ e⃗ (f a⃗)`, the callee a
@@ -600,12 +619,12 @@ structure TargetCallRun (mode : CheckMode) (F : Nat) (env : Env) (fam : TargetFa
 /-- **One call's typing, inverted.** -/
 theorem targetCallOk_run {env : Env} {p : BlockShape} {formerTys : List Expr} {cn : Name}
     {fam : TargetFamily}
-    {fvsPref fvsF fnorm : List Expr} {teles : List (List (Expr × BinderMeta))}
-    {absM : Expr → Expr} {base k F : Nat} {pw : PropWhen} {fwss : List (List Expr)}
+    {fvsPref fvsF : List Expr} {teles : List (List (Expr × BinderMeta))}
+    {absM mvF : Expr → Expr} {base k dA F : Nat} {pw : PropWhen} {fwss : List (List Expr)}
     {ih : TargetIh}
-    (h : targetCallOk (fueledOps mode F) env p formerTys cn fam fvsPref fvsF fnorm teles absM base
-      k pw fwss ih = .ok ()) :
-    Nonempty (TargetCallRun mode F env fam fvsPref fvsF fnorm teles absM base k pw ih) := by
+    (h : targetCallOk (fueledOps mode F) env p formerTys cn fam fvsPref fvsF teles absM mvF
+      base k dA pw fwss ih = .ok ()) :
+    Nonempty (TargetCallRun mode F env fam fvsPref fvsF teles absM mvF base k dA pw ih) := by
   unfold targetCallOk at h
   by_cases htele : ((teles.getD ih.field []).all fun b => targetHoleFree base k b.1) = true
   case neg => rw [if_neg htele] at h; close_throw h
@@ -644,13 +663,13 @@ theorem targetCallOk_run {env : Env} {p : BlockShape} {formerTys : List Expr} {c
 /-- **Every call's typing, inverted**: one `TargetCallRun` per call. -/
 theorem targetCallsOk_run {env : Env} {p : BlockShape} {formerTys : List Expr} {cn : Name}
     {fam : TargetFamily}
-    {fvsPref fvsF fnorm : List Expr} {teles : List (List (Expr × BinderMeta))}
-    {absM : Expr → Expr} {base k F : Nat} {pw : PropWhen} {fwss : List (List Expr)} :
+    {fvsPref fvsF : List Expr} {teles : List (List (Expr × BinderMeta))}
+    {absM mvF : Expr → Expr} {base k dA F : Nat} {pw : PropWhen} {fwss : List (List Expr)} :
     ∀ {ihs : List TargetIh},
-      targetCallsOk (fueledOps mode F) env p formerTys cn fam fvsPref fvsF fnorm teles absM base k
-        pw fwss ihs = .ok () →
+      targetCallsOk (fueledOps mode F) env p formerTys cn fam fvsPref fvsF teles absM mvF base k
+        dA pw fwss ihs = .ok () →
       ∀ ih ∈ ihs,
-        Nonempty (TargetCallRun mode F env fam fvsPref fvsF fnorm teles absM base k pw ih)
+        Nonempty (TargetCallRun mode F env fam fvsPref fvsF teles absM mvF base k dA pw ih)
   | [], _, ih, hih => nomatch hih
   | ih0 :: ihs, h, ih, hih => by
     unfold targetCallsOk at h
@@ -720,12 +739,12 @@ recorded at least one normal form of the rule's constructor at its class,
 and every one passed `targetK53` against the callee's class. -/
 theorem targetCallOk_k53 {env : Env} {p : BlockShape} {formerTys : List Expr} {cn : Name}
     {fam : TargetFamily}
-    {fvsPref fvsF fnorm : List Expr} {teles : List (List (Expr × BinderMeta))}
-    {absM : Expr → Expr} {base k F : Nat} {pw : PropWhen} {fwss : List (List Expr)}
+    {fvsPref fvsF : List Expr} {teles : List (List (Expr × BinderMeta))}
+    {absM mvF : Expr → Expr} {base k dA F : Nat} {pw : PropWhen} {fwss : List (List Expr)}
     {ih : TargetIh}
-    (h : targetCallOk (fueledOps mode F) env p formerTys cn fam fvsPref fvsF fnorm teles absM base
-      k pw fwss ih = .ok ())
-    (C : TargetCallRun mode F env fam fvsPref fvsF fnorm teles absM base k pw ih) :
+    (h : targetCallOk (fueledOps mode F) env p formerTys cn fam fvsPref fvsF teles absM mvF
+      base k dA pw fwss ih = .ok ())
+    (C : TargetCallRun mode F env fam fvsPref fvsF teles absM mvF base k dA pw ih) :
     fwss ≠ [] ∧ ∀ fws ∈ fwss, ∃ f, fws[ih.field]? = some f ∧
       targetK53 (fueledOps mode F) env p formerTys (fam.majs.getD ih.callee default)
         (teles.getD ih.field []) C.majDom f = .ok true := by
@@ -826,11 +845,20 @@ structure TargetRuleRun (mode : CheckMode) (F : Nat) (feR feT : FEnv) (p : Block
   habs : targetAbstract (targetFrameOf fam rP fvsPref fvsF fnorm
       (Level.zeronessOf (structElimLevel p.elim p.large))) (rP + c.2) 0
     (body.instantiateList (fvsPref ++ fvsF).reverse) #[] = some (bodyO, ihs)
+  /-- the abstract fields (`targetAbsFields`, when a call needs them) -/
+  fvsA : List Expr
+  hfvsA : fvsA = if ihs.isEmpty then [] else
+    targetAbsFields p.memberNames (p.lps.map .param) (targetHoles formerTys (rP + c.2)) rP
+      (rP + c.2 + formerTys.length) [] fvsF
+  /-- the abstract fields are typed at the abstract frame -/
+  hfA : targetAbsFieldsOk (fueledOps mode F) feT.env (rP + c.2 + formerTys.length) fvsA = .ok ()
   /-- every call's typing, on the member-abstracted terms -/
-  hcalls : targetCallsOk (fueledOps mode F) feT.env p formerTys c.1.name fam fvsPref fvsF fnorm
+  hcalls : targetCallsOk (fueledOps mode F) feT.env p formerTys c.1.name fam fvsPref fvsF
     (fnorm.map fun t => t.piBinders.1)
     (targetAbs p.memberNames (p.lps.map .param) (targetHoles formerTys (rP + c.2)))
-    (rP + c.2) formerTys.length (Level.zeronessOf (structElimLevel p.elim p.large))
+    (targetMoveF rP fvsA)
+    (rP + c.2) formerTys.length (rP + c.2 + formerTys.length + c.2)
+    (Level.zeronessOf (structElimLevel p.elim p.large))
     (targetFieldNfs M c.1.name fvsF) ihs.toList = .ok ()
   hty : inferTypeCore mode feT.env F (rP + c.2 + ihs.size) bodyO = .ok ty
   hconcl : Expr.instPisAtLift
@@ -848,11 +876,26 @@ variable {F : Nat} {feR feT : FEnv} {p : BlockShape} {formerTys : List Expr}
 /-- Every call's typing record, at the rule's own frame. -/
 theorem call (R : TargetRuleRun mode F feR feT p formerTys fam cvR rP recTy M c rhs out)
     {ih : TargetIh} (hih : ih ∈ R.ihs.toList) :
-    Nonempty (TargetCallRun mode F feT.env fam R.fvsPref R.fvsF R.fnorm
+    Nonempty (TargetCallRun mode F feT.env fam R.fvsPref R.fvsF
       (R.fnorm.map fun t => t.piBinders.1)
       (targetAbs p.memberNames (p.lps.map .param) (targetHoles formerTys (rP + c.2)))
-      (rP + c.2) formerTys.length (Level.zeronessOf (structElimLevel p.elim p.large)) ih) :=
+      (targetMoveF rP R.fvsA)
+      (rP + c.2) formerTys.length (rP + c.2 + formerTys.length + c.2)
+      (Level.zeronessOf (structElimLevel p.elim p.large)) ih) :=
   targetCallsOk_run R.hcalls ih hih
+
+/-- At a rule with a call, the abstract fields are `targetAbsFields`'. -/
+theorem fvsA_eq (R : TargetRuleRun mode F feR feT p formerTys fam cvR rP recTy M c rhs out)
+    {ih : TargetIh} (hih : ih ∈ R.ihs.toList) :
+    R.fvsA = targetAbsFields p.memberNames (p.lps.map .param) (targetHoles formerTys (rP + c.2))
+      rP (rP + c.2 + formerTys.length) [] R.fvsF := by
+  rw [R.hfvsA]
+  have hne : R.ihs.isEmpty = false := by
+    cases h : R.ihs with
+    | mk l => cases l with
+      | nil => rw [h] at hih; exact nomatch hih
+      | cons _ _ => rfl
+  rw [hne]; rfl
 
 end TargetRuleRun
 
@@ -899,6 +942,9 @@ theorem targetRule_run {feR feT : FEnv} {p : BlockShape} {formerTys : List Expr}
   case neg => rw [if_neg hflp] at h; close_throw h
   rw [if_pos hflp] at h
   obtain ⟨x9, hx9, h⟩ := exceptBind_ok h; obtain ⟨bodyO, ihs⟩ := x9
+  dsimp only at h
+  obtain ⟨u4, hfA, h⟩ := exceptBind_ok h
+  cases u4
   obtain ⟨u3, hcalls, h⟩ := exceptBind_ok h
   cases u3
   obtain ⟨ty, hty, h⟩ := exceptBind_ok h
@@ -922,7 +968,8 @@ theorem targetRule_run {feR feT : FEnv} {p : BlockShape} {formerTys : List Expr}
           hlams := unwrapOr_ok hx5, hldomsRes := List.all_eq_true.mp hcbd,
           hG2len := hG2len, hG2 := hG2all, hfnorm := hfnorm,
           hfnormLp := List.all_eq_true.mp hflp, habs := unwrapOr_ok hx9,
-          hcalls := hcalls, hty := hty, hconcl := unwrapOr_ok hconcl, hdeq := hb }⟩
+          fvsA := _, hfvsA := rfl, hfA := hfA, hcalls := hcalls, hty := hty,
+          hconcl := unwrapOr_ok hconcl, hdeq := hb }⟩
 
 /-! ## Stage (c): one recursor's rules, and every recursor's -/
 

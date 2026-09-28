@@ -47,12 +47,12 @@ recorded normal forms (`targetMajorNfs`), so its called field passed the
 call's K.53′ comparison (`targetK53`). -/
 theorem k53_entry {μ : CheckMode} {env : Env} {p : BlockShape} {formerTys : List Expr} {cn : Name}
     {fam : ConLeche.TargetFamily}
-    {fvsPref fvsF fnorm : List Expr} {teles : List (List (Expr × BinderMeta))}
-    {absM : Expr → Expr} {base k F : Nat} {pw : ConLeche.PropWhen} {M : TargetMajor}
+    {fvsPref fvsF : List Expr} {teles : List (List (Expr × BinderMeta))}
+    {absM mvF : Expr → Expr} {base k dA F : Nat} {pw : ConLeche.PropWhen} {M : TargetMajor}
     {ih : ConLeche.TargetIh}
     (hcall : ConLeche.targetCallOk (ConLeche.fueledOps μ F) env p formerTys cn fam fvsPref fvsF
-      fnorm teles absM base k pw (targetFieldNfs M cn fvsF) ih = .ok ())
-    (C : ConLeche.TargetCallRun μ F env fam fvsPref fvsF fnorm teles absM base k pw ih)
+      teles absM mvF base k dA pw (targetFieldNfs M cn fvsF) ih = .ok ())
+    (C : ConLeche.TargetCallRun μ F env fam fvsPref fvsF teles absM mvF base k dA pw ih)
     {aux : NestNodes}
     (hnfs : targetMajorNfs (ConLeche.fueledOps μ F) env p formerTys M.pfvs M.lvls M.ds M.ctors
       aux.ctors = .ok M.nfs)

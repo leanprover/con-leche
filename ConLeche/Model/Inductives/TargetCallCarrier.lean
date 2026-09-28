@@ -310,24 +310,20 @@ theorem tgtCall_carrierG (hμ : μ.verifiedChecks = true)
   have hvget' : ∀ t, t < cvTas.length → hv.getD t pt = interp V ρ (mpC.base2.acval
       ((blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf).memberName t) ψ) := hvget
   have hvTy := memberHoles_ty hmr ψ ρ hvget'
-  -- the called field lies in its member-abstracted type's reading
-  have hii : ∀ Aty : AnnotTerm,
+  -- every field lies in its member-abstracted type's reading
+  have hii : ∀ q, q < cA.2 → ∀ Aty : AnnotTerm,
       denoteMeta mpC.base2.acval fe.env ψ
           (tgtB pp.toBlockShape out c j + cvTas.length)
           (tgtAbsM pp.toBlockShape (cvTas.map (·.type)) out c j
-            ((tgtFieldFvs pp.toBlockShape out c j).getD
-              ((tgtIhL μ F fe pp.toBlockShape (cvTas.map (·.type)) out c j).getD r
-                default).field default).fvarTypeD) = some Aty →
-      fs.getD ((tgtIhL μ F fe pp.toBlockShape (cvTas.map (·.type)) out c j).getD r
-          default).field pt
-        ∈ˢ interp V (consList (xs ++ fs ++ hv) ρ) Aty := by
-    intro Aty hA
+            ((tgtFieldFvs pp.toBlockShape out c j).getD q default).fvarTypeD) = some Aty →
+      fs.getD q pt ∈ˢ interp V (consList (xs ++ fs ++ hv) ρ) Aty := by
+    intro q hq Aty hA
     have hFF : tgtFieldFvs pp.toBlockShape out c j = Q.fvsF := congrArg (·.fields) hFrEq
     rw [hFF, tgtAbsM, hB] at hA
     rw [show consList (xs ++ fs ++ hv) ρ = consList hv (consList (xs ++ fs) ρ) from
       consList_append _ _ _]
     exact field_mem_absRead hN hmr ψ ρ hFr hlp hlf hpl hfl hF hsp hxl hfsl hvl hvget'
-      (tgtIh_field_lt Q hihMem) Aty (by rw [List.length_map]; exact hA)
+      hq Aty (by rw [List.length_map]; exact hA)
   obtain ⟨h1, h2⟩ := tgtCall_coreFitG hμ h hdR' hN hmr hnd hformerF ψ ρ Q hrP hnP hdsOk hCf hCb
     hCc hbf hTf hTb hTc hle hRT3 hB hFrEq hAbs hW hxs hfsl hr hm1 hv hvl hvTy hii bs hbs
   rw [hvget _ (by rw [hkN]; exact hmemk)] at h2

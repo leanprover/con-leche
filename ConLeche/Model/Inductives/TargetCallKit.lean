@@ -22,9 +22,6 @@ public section
 
 Generic facts the call's typing (`TargetCallCore.lean`) is read with:
 
-* `targetWhnfPis_sem` — a field's telescope read through whnf
-  (`targetWhnfPis`) keeps the reading's value at every satisfying
-  valuation, is framed, reads and is graded;
 * `interp_mkPisAV_congr` — a Π-tower's value reads only the bits and
   the domains of its binder data.
 -/
@@ -55,48 +52,6 @@ theorem interp_mkPisAV_congr {X : AnnotTerm} :
       = interp V ρ (.pi d'.1 d'.2.1 d'.2.2 (mkPisAV ds' X))
     rw [interp_pi, interp_pi, show d.2 = d'.2 from h1]
     exact piR_congr fun x _ => interp_mkPisAV_congr h2 _
-
-/-! ## Scoping of an opened binder body -/
-
-/-- Every `fvar d` node of `e` carries `ty` when every leaf at `d` does. -/
-theorem fvarConsistent_of_leaves {d : Nat} {ty : Expr} :
-    ∀ (e : Expr), (∀ l ∈ e.fvarLeaves, l.1 = d → l.2 = ty) → Expr.fvarConsistent d ty e := by
-  intro e
-  induction e with
-  | fvar idx ty' _ =>
-    intro h
-    simp only [Expr.fvarConsistent]
-    intro hidx
-    exact h (idx, ty') (by simp [Expr.fvarLeaves]) hidx
-  | app f a ihf iha =>
-    intro h
-    simp only [Expr.fvarConsistent]
-    exact ⟨ihf fun l hl => h l (by simp [Expr.fvarLeaves, hl]),
-      iha fun l hl => h l (by simp [Expr.fvarLeaves, hl])⟩
-  | lam t b _ iht ihb =>
-    intro h
-    simp only [Expr.fvarConsistent]
-    exact ⟨iht fun l hl => h l (by simp [Expr.fvarLeaves, hl]),
-      ihb fun l hl => h l (by simp [Expr.fvarLeaves, hl])⟩
-  | forallE t b _ iht ihb =>
-    intro h
-    simp only [Expr.fvarConsistent]
-    exact ⟨iht fun l hl => h l (by simp [Expr.fvarLeaves, hl]),
-      ihb fun l hl => h l (by simp [Expr.fvarLeaves, hl])⟩
-  | letE t v b iht ihv ihb =>
-    intro h
-    simp only [Expr.fvarConsistent]
-    exact ⟨iht fun l hl => h l (by simp [Expr.fvarLeaves, hl]),
-      ihv fun l hl => h l (by simp [Expr.fvarLeaves, hl]),
-      ihb fun l hl => h l (by simp [Expr.fvarLeaves, hl])⟩
-  | proj s i e ih =>
-    intro h
-    simp only [Expr.fvarConsistent]
-    exact ih fun l hl => h l (by simpa [Expr.fvarLeaves] using hl)
-  | bvar => intro _; simp [Expr.fvarConsistent]
-  | sort => intro _; simp [Expr.fvarConsistent]
-  | const => intro _; simp [Expr.fvarConsistent]
-  | lit => intro _; simp [Expr.fvarConsistent]
 
 /-! ## Syntax helpers -/
 
@@ -307,138 +262,6 @@ theorem instPisAt_replF {g : Nat → Option Expr}
           (fun j hj hj' => hrep (j + 1) (by simpa using hj) (by simpa using hj'))
         rw [replF_instantiate1 hg, hf] at ih
         simp only [replF, Expr.instPisAt, ih, Option.map_some, List.map_cons]
-
-/-! ## A field's telescope read through whnf -/
-
-section Whnf
-
-variable {μ : CheckMode} {env : Env} {m : EnvModel V env} {φ : Name → Nat}
-
-/-- **`targetWhnfPis` keeps the value.**  At a framed, readable,
-graded subject: the result is framed, adds no leaf, reads, is graded,
-and has the subject's value at every satisfying valuation — the whnf
-steps' own soundness (`Rules.red_sound`), and at each opened binder
-the recursion under the binder's domain. -/
-theorem targetWhnfPis_sem (hμ : μ.verifiedChecks = true) (hin : Rules.RulesInputs V m φ)
-    {F : Nat} :
-    ∀ (fuel d : Nat) (e r : Expr),
-      ConLeche.targetWhnfPis (ConLeche.fueledOps μ F) env d fuel e = .ok r →
-      Rules.Frame d e →
-      ∀ {Δ : List AnnotTerm} {ea : AnnotTerm}, CtxOk m φ d Δ e →
-        denoteMeta m.acval env φ d e = some ea → Rules.Graded V Δ ea →
-        Rules.Frame d r ∧ Rules.LeavesSub r e ∧
-          ∃ ra, denoteMeta m.acval env φ d r = some ra ∧ Rules.Graded V Δ ra ∧
-            ∀ ρ : Nat → V, Sat V Δ ρ → interp V ρ ea = interp V ρ ra
-  | 0, d, e, r, h, _, _, _, _, _, _ => by
-    simp [ConLeche.targetWhnfPis, throw, throwThe, MonadExceptOf.throw] at h
-  | fuel + 1, d, e, r, h, hFr, Δ, ea, hC, hea, hG => by
-    have hver : μ = .verified := CheckMode.eq_verified hμ
-    simp only [ConLeche.targetWhnfPis] at h
-    obtain ⟨w, hwr, h⟩ := ConLeche.exceptBind_ok h
-    have hwr0 : ConLeche.whnf μ env F d e = .ok w := hwr
-    have hwr' : ConLeche.whnf .verified env F d e = .ok w := hver ▸ hwr0
-    obtain ⟨hFw, hLw, wa, hwa, hGw, hEw⟩ :=
-      Rules.red_sound hin (Rules.whnf_bridge hwr') hFr hC hea hG
-    split at h
-    · rename_i dom body bm
-      obtain ⟨body', hb', h⟩ := ConLeche.exceptBind_ok h
-      simp only [pure, Except.pure, Except.ok.injEq] at h
-      subst h
-      obtain ⟨hwsW, hlbW, hLBW⟩ := hFw
-      unfold Expr.WScoped at hwsW
-      obtain ⟨hwsD, hwsB⟩ := hwsW
-      simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hlbW
-      obtain ⟨hlbD, hlbB⟩ := hlbW
-      obtain ⟨doma, ba, hdoma, hba, rfl⟩ := denoteMeta_forallE_inv hwa
-      have hCw : CtxOk m φ d Δ (.forallE dom body bm) := hC.of_subset hLw
-      have hGd : Rules.Graded V Δ doma := fun ρ hρ => WellDenotedV_pi_dom (hGw ρ hρ)
-      -- the opened body: framed, in context, graded
-      have hFb : Rules.Frame (d + 1) (body.instantiate1 (.fvar d dom)) := by
-        refine ⟨Expr.WScoped.instantiate1 hwsD 0 hwsB, ConLeche.looseBVarsBounded_instantiate1 _ 0 hlbB,
-          fun l hl => ?_⟩
-        rcases ConLeche.Expr.fvarLeaves_instantiate1 body 0 hl with h1 | h1
-        · exact hLBW l (by simp [Expr.fvarLeaves, h1])
-        · simp only [Expr.fvarLeaves, List.mem_cons] at h1
-          rcases h1 with rfl | h1
-          · exact hlbD
-          · exact hLBW l (by simp [Expr.fvarLeaves, h1])
-      have hCb : CtxOk m φ (d + 1) (doma :: Δ) (body.instantiate1 (.fvar d dom)) :=
-        CtxOk.open hCw.forallE_body hCw.forallE_ty hdoma hGd
-      have hGb : Rules.Graded V (doma :: Δ) ba := by
-        intro σ hσ
-        obtain ⟨hx, hs⟩ := Sat_cons_inv hσ
-        have h1 := WellDenotedV_pi_body (hGw _ hs) hx
-        rwa [cons_eta] at h1
-      obtain ⟨hFb', hLb', rb, hrb, hGrb, hErb⟩ :=
-        targetWhnfPis_sem hμ hin fuel (d + 1) _ body' hb' hFb hCb hba hGb
-      obtain ⟨hwsb', hlbb', hLBb'⟩ := hFb'
-      -- every leaf of the new body at `d` is the opener
-      have hcons : Expr.fvarConsistent d dom body' := by
-        refine fvarConsistent_of_leaves body' fun l hl hld => ?_
-        rcases ConLeche.Expr.fvarLeaves_instantiate1 body 0 (hLb' l hl) with h1 | h1
-        · exfalso
-          have := ConLeche.Expr.fvarLeaves_lt_of_wscoped hwsB l h1
-          omega
-        · simp only [Expr.fvarLeaves, List.mem_cons] at h1
-          rcases h1 with rfl | h1
-          · rfl
-          · exfalso
-            have := ConLeche.Expr.fvarLeaves_lt_of_wscoped hwsD l h1
-            omega
-      have hround : (body'.abstract1 d 0).instantiate1 (.fvar d dom) 0 = body' :=
-        ConLeche.abstract1_instantiate1 body' 0 hcons hlbb'
-      have hleafR : ∀ l ∈ (Expr.forallE dom (body'.abstract1 d 0) bm).fvarLeaves,
-          l ∈ e.fvarLeaves := by
-        intro l hl
-        simp only [Expr.fvarLeaves, List.mem_append] at hl
-        rcases hl with hl | hl
-        · exact hLw l (by simp [Expr.fvarLeaves, hl])
-        · obtain ⟨hl1, hne⟩ := ConLeche.Expr.fvarLeaves_abstract1_ne body' 0 hwsb' l hl
-          rcases ConLeche.Expr.fvarLeaves_instantiate1 body 0 (hLb' l hl1) with h1 | h1
-          · exact hLw l (by simp [Expr.fvarLeaves, h1])
-          · simp only [Expr.fvarLeaves, List.mem_cons] at h1
-            rcases h1 with rfl | h1
-            · exact absurd rfl hne
-            · exact hLw l (by simp [Expr.fvarLeaves, h1])
-      refine ⟨⟨by unfold Expr.WScoped; exact ⟨hwsD, ConLeche.WScoped.abstract1 0 hwsb'⟩,
-          by simp only [Expr.looseBVarsBounded, Bool.and_eq_true]
-             exact ⟨hlbD, ConLeche.looseBVarsBounded_abstract1 body' 0 hlbb'⟩,
-          fun l hl => hLBW l ?_⟩, hleafR, ?_⟩
-      · simp only [Expr.fvarLeaves, List.mem_append] at hl ⊢
-        rcases hl with hl | hl
-        · exact Or.inl hl
-        · obtain ⟨hl1, hne⟩ := ConLeche.Expr.fvarLeaves_abstract1_ne body' 0 hwsb' l hl
-          rcases ConLeche.Expr.fvarLeaves_instantiate1 body 0 (hLb' l hl1) with h1 | h1
-          · exact Or.inr h1
-          · simp only [Expr.fvarLeaves, List.mem_cons] at h1
-            rcases h1 with rfl | h1
-            · exact absurd rfl hne
-            · exact Or.inl h1
-      · refine ⟨.pi 0 (pwBit φ bm.pw) doma rb, ?_, ?_, ?_⟩
-        · rw [denoteMeta_forallE, hdoma]
-          simp only [Option.bind_eq_bind, Option.bind_some]
-          rw [hround, hrb]
-          rfl
-        · intro ρ hρ
-          have hW := hGw ρ hρ
-          refine ⟨?_, ?_⟩
-          · rw [WellDenoted_pi]
-            refine ⟨(hGd ρ hρ).1, fun x hx => ?_⟩
-            exact (hGrb _ (Sat_cons V hρ hx)).1
-          · rw [AnnotValid_pi]
-            have hWv := hW.2
-            rw [AnnotValid_pi] at hWv
-            refine ⟨hWv.1, fun x hx => (hGrb _ (Sat_cons V hρ hx)).2, fun hv0 x hx => ?_⟩
-            rw [← hErb _ (Sat_cons V hρ hx)]
-            exact hWv.2.2 hv0 x hx
-        · intro ρ hρ
-          rw [hEw ρ hρ, interp_pi, interp_pi]
-          exact piR_congr fun x hx => hErb _ (Sat_cons V hρ hx)
-    · simp only [pure, Except.pure, Except.ok.injEq] at h
-      subst h
-      exact ⟨hFr, fun l hl => hl, ea, hea, hG, fun _ _ => rfl⟩
-
-end Whnf
 
 /-! ## The member abstraction, read at the members' own values -/
 

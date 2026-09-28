@@ -65,10 +65,10 @@ theorem callMajor_open {F : Nat} {envC : Env} {pp : BlockParts} {cvTas : List Co
     (h : ConLeche.RecStageG μ F envC pp cvTas ctorsAs (tgtRs out) (ConLeche.tgtMemAt out))
     (R : ConLeche.TargetRecRun μ F (ConLeche.mkFEnv envC) pp.toBlockShape nested block
       cvTas ctorsAs out)
-    {env : Env} {fvsPref fvsF fnorm : List Expr} {teles : List (List (Expr × BinderMeta))}
-    {absM : Expr → Expr} {base k : Nat} {pw : ConLeche.PropWhen} {ih : ConLeche.TargetIh}
-    (C : ConLeche.TargetCallRun μ F env (tgtFam pp.toBlockShape out) fvsPref fvsF fnorm
-      teles absM base k pw ih)
+    {env : Env} {fvsPref fvsF : List Expr} {teles : List (List (Expr × BinderMeta))}
+    {absM mvF : Expr → Expr} {base k dA : Nat} {pw : ConLeche.PropWhen} {ih : ConLeche.TargetIh}
+    (C : ConLeche.TargetCallRun μ F env (tgtFam pp.toBlockShape out) fvsPref fvsF
+      teles absM mvF base k dA pw ih)
     {rP : Nat} (hlp : fvsPref.length = rP)
     (hfvP : ∀ l, l < rP → ∃ ty, fvsPref[l]? = some (.fvar l ty))
     (hcal : ih.callee < (tgtRs out).length)

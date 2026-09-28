@@ -85,10 +85,10 @@ theorem targetCall_ihTy_graded (hμ : μ.verifiedChecks = true) {envT : Env}
     {mT : EnvModel V envT} {φ : Name → Nat}
     (hacl : ∀ (n : Name) (ψ : Name → Nat) (m k : Nat), (mT.acval n ψ).liftN m k = mT.acval n ψ)
     (hin : Rules.RulesInputs V mT φ)
-    {F B k : Nat} {fam : ConLeche.TargetFamily} {fvsPref fvsF fnorm : List Expr}
-    {teles : List (List (Expr × ConLeche.BinderMeta))} {absM : Expr → Expr}
+    {F B k dA : Nat} {fam : ConLeche.TargetFamily} {fvsPref fvsF : List Expr}
+    {teles : List (List (Expr × ConLeche.BinderMeta))} {absM mvF : Expr → Expr}
     {pw : ConLeche.PropWhen} {ih : TargetIh}
-    (C : ConLeche.TargetCallRun μ F envT fam fvsPref fvsF fnorm teles absM B k pw ih)
+    (C : ConLeche.TargetCallRun μ F envT fam fvsPref fvsF teles absM mvF B k dA pw ih)
     {L : List Expr} (hL : FvarList B L) {ρ : Nat → V} {Δ : List AnnotTerm}
     (hW : WalkCtx V mT φ B ρ Δ L)
     (hlT : ∀ l ∈ ih.ty.fvarLeaves, Expr.fvar l.1 l.2 ∈ L)
@@ -108,10 +108,10 @@ theorem targetCall_ihTy_graded (hμ : μ.verifiedChecks = true) {envT : Env}
 
 /-- **An `ih` type reads** at the frame (it was inferred there). -/
 theorem targetCall_ihTy_reads {envT : Env} (mT : EnvModel V envT) (φ : Name → Nat)
-    {F B k : Nat} {fam : ConLeche.TargetFamily} {fvsPref fvsF fnorm : List Expr}
-    {teles : List (List (Expr × ConLeche.BinderMeta))} {absM : Expr → Expr}
+    {F B k dA : Nat} {fam : ConLeche.TargetFamily} {fvsPref fvsF : List Expr}
+    {teles : List (List (Expr × ConLeche.BinderMeta))} {absM mvF : Expr → Expr}
     {pw : ConLeche.PropWhen} {ih : TargetIh}
-    (C : ConLeche.TargetCallRun μ F envT fam fvsPref fvsF fnorm teles absM B k pw ih)
+    (C : ConLeche.TargetCallRun μ F envT fam fvsPref fvsF teles absM mvF B k dA pw ih)
     (hws : Expr.WScoped B ih.ty) (hbT : ih.ty.looseBVarsBounded 0 = true)
     (hLB : Expr.LeavesBounded ih.ty) :
     ∃ T : AnnotTerm, denoteMeta mT.acval envT φ B ih.ty = some T :=

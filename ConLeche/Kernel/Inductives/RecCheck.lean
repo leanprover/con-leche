@@ -116,7 +116,11 @@ hole-free abstract term IS a concrete one.  Memoised on the node (tower-shaped D
 rewrites free variables' annotations too, and here the frame's fields
 must keep their concrete types (see below) — an abstracted annotation
 would make every domain that names an earlier recursive field look
-holed, and put hole variables into the `ih` types. -/
+holed, and put hole variables into the `ih` types.  The call's TYPING,
+though, reads the fields' annotations at the holes too, as the
+positivity check does: it runs at the abstract frame, where each field is
+moved to a copy past the holes whose annotation is abstracted
+(`targetMoveF`, `targetAbsFields`, F-RPW-1). -/
 
 /-- The member abstraction of one term: every member at the block's
 levels becomes its hole; `fvar` annotations are not entered. -/
@@ -281,6 +285,38 @@ def targetAbsFast (names : List Name) (lvls : List Level) (holes : List Expr) (e
 `.fvar (base + t)` at its former's type. -/
 def targetHoles (formerTys : List Expr) (base : Nat) : List Expr :=
   (List.range formerTys.length).map fun t => .fvar (base + t) (formerTys.getD t default)
+
+/-- **The call frame's field move** (F-RPW-1): every field of the rule's
+frame (`rP + j`) moved to its ABSTRACT copy `fvsA[j]` — a variable past
+the holes whose annotation is the field's type member-abstracted
+(`targetAbs`) and moved the same way.  So an earlier field's annotation
+reads at the holes too, as the positivity check reads the constructor
+(`nestAbstract` abstracts the constructor type, binders included): a
+field type that applies something to an earlier recursive field's value
+(`K2 T x`, `x : T`) is `K2 X x'` with `x' : X`, well-typed, where the
+concrete annotation `x : T` would not fit the hole.  A field `rP + j`
+with `j ≥ |fvsA|` and every other variable stay as they are. -/
+def targetMoveF (rP : Nat) (fvsA : List Expr) (e : Expr) : Expr :=
+  e.replaceFVars fun i => if rP ≤ i then fvsA[i - rP]? else none
+
+/-- **The abstract fields**: field `j` (of `fs`, the rule's fields in
+order) becomes `.fvar (D + j)` at its type member-abstracted and moved
+(`targetMoveF`) over the abstract fields before it (`acc`). -/
+def targetAbsFields (names : List Name) (lvls : List Level) (holes : List Expr) (rP D : Nat) :
+    List Expr → List Expr → List Expr
+  | acc, [] => acc
+  | acc, f :: fs => targetAbsFields names lvls holes rP D
+      (acc ++ [.fvar (D + acc.length)
+        (targetMoveF rP acc (targetAbs names lvls holes f.fvarTypeD))]) fs
+
+/-- **The abstract fields are typed**: each one's annotation is inferred at
+its own position `D + j` (the frame below it: the prefix, the concrete
+fields, the holes and the abstract fields before it). -/
+def targetAbsFieldsOk (ops : CheckerOps m) (env : Env) : Nat → List Expr → m Unit
+  | _, [] => pure ()
+  | d, f :: fs => do
+    let _ ← ops.inferType env d f.fvarTypeD
+    targetAbsFieldsOk ops env (d + 1) fs
 
 /-- No hole of the frame `base … base + k - 1` occurs in `e`. -/
 def targetHoleFree (base k : Nat) (e : Expr) : Bool :=
@@ -891,20 +927,21 @@ def targetK53All (ops : CheckerOps m) (env : Env) (p : BlockShape) (formerTys : 
 
 /-- **One call's typing**, on the member-abstracted terms: the field
 is a value of the callee's major type at the call's arguments, under
-the field's own telescope, which is hole-free.  Both abstract sides
-are INFERRED first — the model's defeq reading needs them well-denoted
-at every value of the holes, which only an inference run at the
-abstract context supplies (the concrete terms' checks say nothing
-about the holes).  Then the call itself, `λ a⃗, c x⃗ e⃗ (f a⃗)` with the
-callee a variable of its stored type, is inferred at the frame: its
-index arguments fit the callee's binders at every value of the
-telescope. -/
+the field's own telescope, which is hole-free.  The typing runs at the
+ABSTRACT frame (the holes, then the abstract fields `base + k …`, so
+depth `dA = base + k + nF`; `mvF` moves the fields there,
+`targetMoveF`), where the fields' annotations are abstracted too.  Both abstract sides are INFERRED
+first — the model's defeq reading needs them well-denoted at every
+value of the holes, which only an inference run at the abstract context
+supplies (the concrete terms' checks say nothing about the holes).
+Then the call itself, `λ a⃗, c x⃗ e⃗ (f a⃗)` with the callee a variable of
+its stored type, is inferred at the frame: its index arguments fit the
+callee's binders at every value of the telescope. -/
 def targetCallOk (opsT : CheckerOps m) (env : Env) (p : BlockShape) (formerTys : List Expr)
     (cn : Name) (fam : TargetFamily)
-    (fvsPref fvsF fnorm : List Expr) (teles : List (List (Expr × BinderMeta)))
-    (absM : Expr → Expr) (base k : Nat) (pw : PropWhen) (fwss : List (List Expr))
+    (fvsPref fvsF : List Expr) (teles : List (List (Expr × BinderMeta)))
+    (absM mvF : Expr → Expr) (base k dA : Nat) (pw : PropWhen) (fwss : List (List Expr))
     (ih : TargetIh) : m Unit := do
-  let fty := fnorm.getD ih.field default
   let tele := teles.getD ih.field []
   unless tele.all (fun b => targetHoleFree base k b.1) do
     throw (.invalid s!"target rec: the rule of {cn} calls a recursor on a field whose \
@@ -926,11 +963,11 @@ def targetCallOk (opsT : CheckerOps m) (env : Env) (p : BlockShape) (formerTys :
   let .forallE majDom _ _ := calleeAt
     | throw (.invalid s!"target rec: the rule of {cn} recurses into a recursor whose \
         type does not bind the call's major")
-  let fld := absM ((fvsF.getD ih.field default).fvarTypeD)
-  let want := Expr.mkPisOf tele (absM majDom)
-  let _ ← opsT.inferType env (base + k) fld
-  let _ ← opsT.inferType env (base + k) want
-  unless ← opsT.isDefEq env (base + k) fty want do
+  let fld := mvF (absM ((fvsF.getD ih.field default).fvarTypeD))
+  let want := Expr.mkPisOf (tele.map fun b => (mvF b.1, b.2)) (mvF (absM majDom))
+  let _ ← opsT.inferType env dA fld
+  let _ ← opsT.inferType env dA want
+  unless ← opsT.isDefEq env dA fld want do
     throw (.invalid s!"target rec: the rule of {cn} calls a recursor on a field that \
       is not a value of its major type")
   -- the call is WELL-TYPED at the frame and the field's telescope
@@ -980,13 +1017,13 @@ def targetCallOk (opsT : CheckerOps m) (env : Env) (p : BlockShape) (formerTys :
 /-- Every call's typing (`targetCallOk`), in order of first occurrence. -/
 def targetCallsOk (opsT : CheckerOps m) (env : Env) (p : BlockShape) (formerTys : List Expr)
     (cn : Name) (fam : TargetFamily)
-    (fvsPref fvsF fnorm : List Expr) (teles : List (List (Expr × BinderMeta)))
-    (absM : Expr → Expr) (base k : Nat) (pw : PropWhen) (fwss : List (List Expr)) :
+    (fvsPref fvsF : List Expr) (teles : List (List (Expr × BinderMeta)))
+    (absM mvF : Expr → Expr) (base k dA : Nat) (pw : PropWhen) (fwss : List (List Expr)) :
     List TargetIh → m Unit
   | [] => pure ()
   | ih :: ihs => do
-    targetCallOk opsT env p formerTys cn fam fvsPref fvsF fnorm teles absM base k pw fwss ih
-    targetCallsOk opsT env p formerTys cn fam fvsPref fvsF fnorm teles absM base k pw fwss ihs
+    targetCallOk opsT env p formerTys cn fam fvsPref fvsF teles absM mvF base k dA pw fwss ih
+    targetCallsOk opsT env p formerTys cn fam fvsPref fvsF teles absM mvF base k dA pw fwss ihs
 /-- The domains of the first `|xs|` `∀` binders, each instantiated at the
 earlier `xs` (a telescope's field types at given field variables). -/
 def targetPiDomsWith : List Expr → Expr → Option (List Expr)
@@ -1082,9 +1119,17 @@ def targetRule (opsR : CheckerOps m) (w : StructWalkers) (feR : FEnv)
   -- member-ABSTRACTED, so the defeq holds at every value of the holes;
   -- the telescope the call applies the field along is hole-free (it is
   -- then a concrete telescope, the one the `ih` variable's type binds)
-  targetCallsOk opsT feT.env p formerTys c.1.name fam fvsPref fvsF fnorm fr.teles absM base k
-    (Level.zeronessOf (structElimLevel p.elim p.large)) (targetFieldNfs M c.1.name fvsF)
-    ihs.toList
+  -- ... at the ABSTRACT frame: the holes, then every field again with its
+  -- annotation abstracted (`targetAbsFields`), each annotation typed there
+  -- (only when some call reads the frame)
+  let fvsA := if ihs.isEmpty then [] else
+    targetAbsFields p.memberNames (p.lps.map .param) (targetHoles formerTys base) rP (base + k)
+      [] fvsF
+  targetAbsFieldsOk opsT feT.env (base + k) fvsA
+  targetCallsOk opsT feT.env p formerTys c.1.name fam fvsPref fvsF fr.teles absM
+    (targetMoveF rP fvsA) base k
+    (base + k + nF) (Level.zeronessOf (structElimLevel p.elim p.large))
+    (targetFieldNfs M c.1.name fvsF) ihs.toList
   let depth := rP + nF + ihs.size
   let tyB ← opsT.inferType feT.env depth bodyO
   let concl ← unwrapOr

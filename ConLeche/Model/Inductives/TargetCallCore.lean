@@ -198,26 +198,6 @@ theorem tgtIh_field_lt (hih : ih ∈ Q.ihs.toList) : ih.field < c.2 := by
   rw [hg] at h0
   exact inferTypeCore_bvar_absurd' h0
 
-/-- The called field's member-abstracted type through whnf is the run's
-recorded telescope. -/
-theorem tgtIh_fnorm (hfi : ih.field < c.2) :
-    ConLeche.targetWhnfPis (ConLeche.fueledOps μ F) feT.env (rP + c.2 + formerTys.length)
-      (ConLeche.whnfWalkFuel
-        (ConLeche.targetAbs p.memberNames (p.lps.map .param)
-          (ConLeche.targetHoles formerTys (rP + c.2)) (Q.fvsF.getD ih.field default).fvarTypeD))
-      (ConLeche.targetAbs p.memberNames (p.lps.map .param)
-        (ConLeche.targetHoles formerTys (rP + c.2)) (Q.fvsF.getD ih.field default).fvarTypeD)
-      = .ok (Q.fnorm.getD ih.field default) := by
-  have hlf : Q.fvsF.length = c.2 := openPisAtFvars_length _ Q.hfld
-  obtain ⟨-, hallN⟩ := ConLeche.targetFieldNorms_run Q.hfnorm
-  obtain ⟨t0, ht0, hrun0⟩ := hallN ih.field _ (List.getElem?_eq_getElem (by omega))
-  have e1 : Q.fnorm.getD ih.field default = t0 := by
-    rw [List.getD_eq_getElem?_getD, ht0]; rfl
-  have e2 : Q.fvsF.getD ih.field default = Q.fvsF[ih.field]'(by omega) := by
-    rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem (by omega)]; rfl
-  rw [e1, e2]
-  exact hrun0
-
 /-- The call's index arguments' leaves are the frame's entries. -/
 theorem tgtIh_idxLeaves (hle : ∀ c', fam.rPs.getD c' 0 ≤ fam.mIs.getD c' 0)
     (hbf : Q.body.hasFvar = false) (hFr : FvarList (rP + c.2) (Q.fvsPref ++ Q.fvsF).reverse)
@@ -406,16 +386,12 @@ theorem tgtCall_coreFitG (hμ : μ.verifiedChecks = true)
     (hvTy : ∀ t, t < cvTas.length → ∃ T : AnnotTerm,
       denoteMeta mpC.base2.acval fe.env ψ 0 (cvTas.getD t default).type = some T ∧
       hv.getD t pt ∈ˢ interp V ρ T)
-    (hii : ∀ Aty : AnnotTerm,
+    (hii : ∀ q, q < cA.2 → ∀ Aty : AnnotTerm,
       denoteMeta mpC.base2.acval fe.env ψ
           (tgtB pp.toBlockShape out c j + cvTas.length)
           (tgtAbsM pp.toBlockShape (cvTas.map (·.type)) out c j
-            ((tgtFieldFvs pp.toBlockShape out c j).getD
-              ((tgtIhL μ F fe pp.toBlockShape (cvTas.map (·.type)) out c j).getD r
-                default).field default).fvarTypeD) = some Aty →
-      fs.getD ((tgtIhL μ F fe pp.toBlockShape (cvTas.map (·.type)) out c j).getD r
-          default).field pt
-        ∈ˢ interp V (consList (xs ++ fs ++ hv) ρ) Aty)
+            ((tgtFieldFvs pp.toBlockShape out c j).getD q default).fvarTypeD) = some Aty →
+      fs.getD q pt ∈ˢ interp V (consList (xs ++ fs ++ hv) ρ) Aty)
     (bs : List V)
     (hbs : SpineFit (consList (xs ++ fs) ρ)
       ((tgtTlA μ F fe pp.toBlockShape (cvTas.map (·.type)) out mpC.base2.acval fe.env ψ
@@ -452,8 +428,6 @@ theorem tgtCall_coreFitG (hμ : μ.verifiedChecks = true)
   have hxl : xs.length = rc.rP := by rw [hxs, hrP]
   -- the called field is a field of the constructor
   have hfi : ih.field < cA.2 := tgtIh_field_lt Q hihMem
-  -- the field's abstract telescope through whnf
-  have hfnorm := tgtIh_fnorm Q hfi
   -- the telescope's and the index arguments' leaves
   have hscope := targetIh_scope hμ Q mpC.base2.wf hle hbf hFr hher hcbF hformerF
     (fun c' => (hRT3 c').1) hihMem
@@ -539,15 +513,16 @@ theorem tgtCall_coreFitG (hμ : μ.verifiedChecks = true)
   have hFF : tgtFieldFvs pp.toBlockShape out c j = Q.fvsF := congrArg (·.fields) hFrEq
   have hTel : (tgtFrame μ F fe pp.toBlockShape (cvTas.map (fun cv : ConstantVal => cv.type)) out c j).teles
       = Q.fnorm.map fun t => t.piBinders.1 := congrArg (·.teles) hFrEq
-  have hiiG : ∀ Aty : AnnotTerm,
-      denoteMeta mpC.base2.acval fe.env ψ (rc.rP + cA.2 + (cvTas.map (fun cv : ConstantVal => cv.type)).length)
+  have hiiG : ∀ q, q < cA.2 → ∀ Aty : AnnotTerm,
+      denoteMeta mpC.base2.acval fe.env ψ
+        (rc.rP + cA.2 + (cvTas.map (fun cv : ConstantVal => cv.type)).length)
         (ConLeche.targetAbs pp.toBlockShape.memberNames (pp.toBlockShape.lps.map .param)
           (ConLeche.targetHoles (cvTas.map (fun cv : ConstantVal => cv.type)) (rc.rP + cA.2))
-          (Q.fvsF.getD ih.field default).fvarTypeD) = some Aty →
-      fs.getD ih.field pt ∈ˢ interp V (consList hv (consList (xs ++ fs) ρ)) Aty := by
-    intro Aty hA
+          (Q.fvsF.getD q default).fvarTypeD) = some Aty →
+      fs.getD q pt ∈ˢ interp V (consList hv (consList (xs ++ fs) ρ)) Aty := by
+    intro q hq Aty hA
     rw [← consList_append]
-    refine hii Aty ?_
+    refine hii q hq Aty ?_
     rw [tgtAbsM, hB, hFF, List.length_map] at *
     exact hA
   have hbs' : SpineFit (consList (xs ++ fs) ρ)
@@ -560,7 +535,8 @@ theorem tgtCall_coreFitG (hμ : μ.verifiedChecks = true)
   have hacl : ∀ (n : Name) (ψ' : Name → Nat) (m k : Nat),
       (mpC.base2.acval n ψ').liftN m k = mpC.base2.acval n ψ' :=
     fun n ψ' m k => liftN_eq_self_of_closed (mpC.base2.cval_closedL n ψ') k m
-  obtain ⟨hspP, hmemF⟩ := targetCall_gen hμ hacl (Rules.RulesInputs.ofSem mpC ψ) C hfnorm hlp hlf
+  obtain ⟨hspP, hmemF⟩ := targetCall_gen hμ hacl (Rules.RulesInputs.ofSem mpC ψ) C
+    (Q.fvsA_eq hihMem) Q.hfA hlp hlf
     hFr hxl hfsl hW hfi htL hidxL (by rw [hvl, List.length_map]) hformerG hiiG
     (nP := pp.toBlockShape.nP) hnP ((hRT3 ih.callee).1) hmaj hI htk hTt
     (hFD.bits ψ) hpdsLen bs hbs'

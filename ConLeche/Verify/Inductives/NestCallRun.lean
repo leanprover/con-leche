@@ -58,13 +58,13 @@ theorem targetRecRun_nfs {fe : FEnv} {p : BlockShape} {nested : Bool}
 /-- **Every call's typing ran**, one by one. -/
 theorem targetCallsOk_each {env : Env} {p : BlockShape} {formerTys : List Expr} {cn : Name}
     {fam : TargetFamily}
-    {fvsPref fvsF fnorm : List Expr} {teles : List (List (Expr × BinderMeta))}
-    {absM : Expr → Expr} {base k F : Nat} {pw : PropWhen} {fwss : List (List Expr)} :
+    {fvsPref fvsF : List Expr} {teles : List (List (Expr × BinderMeta))}
+    {absM mvF : Expr → Expr} {base k dA F : Nat} {pw : PropWhen} {fwss : List (List Expr)} :
     ∀ {ihs : List TargetIh},
-      targetCallsOk (fueledOps mode F) env p formerTys cn fam fvsPref fvsF fnorm teles absM base k
-        pw fwss ihs = .ok () →
-      ∀ ih ∈ ihs, targetCallOk (fueledOps mode F) env p formerTys cn fam fvsPref fvsF fnorm teles
-        absM base k pw fwss ih = .ok ()
+      targetCallsOk (fueledOps mode F) env p formerTys cn fam fvsPref fvsF teles absM mvF base k
+        dA pw fwss ihs = .ok () →
+      ∀ ih ∈ ihs, targetCallOk (fueledOps mode F) env p formerTys cn fam fvsPref fvsF teles
+        absM mvF base k dA pw fwss ih = .ok ()
   | [], _, ih, hih => nomatch hih
   | ih0 :: ihs, h, ih, hih => by
     unfold targetCallsOk at h

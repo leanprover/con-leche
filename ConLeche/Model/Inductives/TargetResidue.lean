@@ -57,9 +57,9 @@ variable {V : Type w} [SetTheory V] {μ : CheckMode}
 opened past the prefix and index arguments to a `∀`, which the default
 `Sort 0` past the family is not. -/
 theorem targetCall_callee_lt {F : Nat} {env : Env} {fam : ConLeche.TargetFamily}
-    {fvsPref fvsF fnorm : List Expr} {teles : List (List (Expr × ConLeche.BinderMeta))}
-    {absM : Expr → Expr} {base k : Nat} {pw : ConLeche.PropWhen} {ih : TargetIh}
-    (C : ConLeche.TargetCallRun μ F env fam fvsPref fvsF fnorm teles absM base k pw ih) :
+    {fvsPref fvsF : List Expr} {teles : List (List (Expr × ConLeche.BinderMeta))}
+    {absM mvF : Expr → Expr} {base k dA : Nat} {pw : ConLeche.PropWhen} {ih : TargetIh}
+    (C : ConLeche.TargetCallRun μ F env fam fvsPref fvsF teles absM mvF base k dA pw ih) :
     ih.callee < fam.recTys.length := by
   refine Nat.lt_of_not_le fun hc => ?_
   have hg : fam.recTys.getD ih.callee (.sort .zero) = .sort .zero := by

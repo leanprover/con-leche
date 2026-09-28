@@ -67,10 +67,10 @@ theorem targetCall_ihSlot (hμ : μ.verifiedChecks = true) {envT : Env} {mT : En
     {φ : Name → Nat}
     (hacl : ∀ (n : Name) (ψ : Name → Nat) (m k : Nat), (mT.acval n ψ).liftN m k = mT.acval n ψ)
     (hin : Rules.RulesInputs V mT φ)
-    {F B k : Nat} {fam : TargetFamily} {fvsPref fvsF fnorm : List Expr}
-    {teles : List (List (Expr × ConLeche.BinderMeta))} {absM : Expr → Expr}
+    {F B k dA : Nat} {fam : TargetFamily} {fvsPref fvsF : List Expr}
+    {teles : List (List (Expr × ConLeche.BinderMeta))} {absM mvF : Expr → Expr}
     {pw : ConLeche.PropWhen} {ih : TargetIh}
-    (C : ConLeche.TargetCallRun μ F envT fam fvsPref fvsF fnorm teles absM B k pw ih)
+    (C : ConLeche.TargetCallRun μ F envT fam fvsPref fvsF teles absM mvF B k dA pw ih)
     {L : List Expr} (hL : FvarList B L) {ρ : Nat → V} {Δ : List AnnotTerm}
     (hW : WalkCtx V mT φ B ρ Δ L)
     -- the `ih` type and the call's λ: their leaves are the frame's (and the callee's)
@@ -281,11 +281,11 @@ theorem walkCtx_targetEntry (hμ : μ.verifiedChecks = true) {envT : Env} {mT : 
     {φ : Name → Nat}
     (hacl : ∀ (n : Name) (ψ : Name → Nat) (m k : Nat), (mT.acval n ψ).liftN m k = mT.acval n ψ)
     (hin : Rules.RulesInputs V mT φ)
-    {F B k : Nat} {fam : TargetFamily} {fvsPref fvsF fnorm : List Expr}
-    {teles : List (List (Expr × ConLeche.BinderMeta))} {absM : Expr → Expr}
+    {F B k dA : Nat} {fam : TargetFamily} {fvsPref fvsF : List Expr}
+    {teles : List (List (Expr × ConLeche.BinderMeta))} {absM mvF : Expr → Expr}
     {pw : ConLeche.PropWhen} {fr : ConLeche.TargetFrame} {ihs : Array TargetIh}
     (hcalls : ∀ ih ∈ ihs.toList,
-      Nonempty (ConLeche.TargetCallRun μ F envT fam fvsPref fvsF fnorm teles absM B k pw ih))
+      Nonempty (ConLeche.TargetCallRun μ F envT fam fvsPref fvsF teles absM mvF B k dA pw ih))
     (hwf : TargetIhWF fr B ihs)
     {L : List Expr} (hL : FvarList B L) {ρ : Nat → V} {Δ : List AnnotTerm}
     (hW : WalkCtx V mT φ B ρ Δ L)

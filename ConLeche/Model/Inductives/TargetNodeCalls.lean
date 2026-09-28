@@ -139,11 +139,11 @@ theorem k53_pos {F : Nat} {envI : Env} {ctx : NestCtx} {aux : NestNodes}
       0 crest ks nds cur) ts')
     {cn : Name} (hcn : x.1.name = cn) (hcM : M.ctors.any (·.1.name == cn) = true)
     {fam : ConLeche.TargetFamily}
-    {fvsPref fvsF fnorm : List Expr} {teles : List (List (Expr × BinderMeta))}
-    {absM : Expr → Expr} {base k : Nat} {pw : ConLeche.PropWhen} {ih : ConLeche.TargetIh}
+    {fvsPref fvsF : List Expr} {teles : List (List (Expr × BinderMeta))}
+    {absM mvF : Expr → Expr} {base k dA : Nat} {pw : ConLeche.PropWhen} {ih : ConLeche.TargetIh}
     (hcall : ConLeche.targetCallOk (ConLeche.fueledOps .verified F) envW p formerTys cn fam
-      fvsPref fvsF fnorm teles absM base k pw (targetFieldNfs M cn fvsF) ih = .ok ())
-    (C : ConLeche.TargetCallRun .verified F envW fam fvsPref fvsF fnorm teles absM base k pw ih) :
+      fvsPref fvsF teles absM mvF base k dA pw (targetFieldNfs M cn fvsF) ih = .ok ())
+    (C : ConLeche.TargetCallRun .verified F envW fam fvsPref fvsF teles absM mvF base k dA pw ih) :
     ∃ f, ((targetPiDomsWith fvsF ((closeTelescope nds (ctx.hiAt ((ConLeche.grpNews u.key.lvls
         u.key.ds (ctx.hiAt u.anc.length) u.grp).reverse ++ u.anc).length) cur).replaceFVars
         (nestHoleConst ctx ((ConLeche.grpNews u.key.lvls u.key.ds (ctx.hiAt u.anc.length)

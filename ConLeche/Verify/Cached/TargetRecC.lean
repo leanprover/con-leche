@@ -983,28 +983,47 @@ theorem targetK53AllS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) 
       · exact SimC.pure hs₁ rfl
       · exact targetK53AllS_sim hμ henv hformer hMc fwss hs₁
 
+/-- **The abstract fields' typing, simulated**: each annotation scoped at
+its own position. -/
+theorem targetAbsFieldsOkS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) :
+    ∀ (d : Nat) (l : List Expr) {s₀ : CState},
+      (∀ j x, l[j]? = some x → WScoped (d + j) x.fvarTypeD) → CSOK mode env s₀ →
+      SimC mode env s₀ (fun v w => v = w)
+        (targetAbsFieldsOk (sharedOpsC mode (mkFEnv env)) env d l)
+        (targetAbsFieldsOk (fueledOpsM mode) env d l)
+  | _, [], _, _, hs => SimC.pure hs rfl
+  | d, f :: fs, _, hl, hs => by
+    unfold targetAbsFieldsOk
+    dsimp only [sharedOpsC]
+    refine SimC.bind (opE_infer_sim hμ henv hs (by simpa using hl 0 f rfl))
+      (fun s₁ _ _ hs₁ _ => ?_)
+    exact targetAbsFieldsOkS_sim hμ henv (d + 1) fs
+      (fun j x hx => by
+        have := hl (j + 1) x (by simpa using hx)
+        rwa [show d + (j + 1) = d + 1 + j from by omega] at this) hs₁
+
 /-- **One call's typing, simulated**; the call's telescope is hole-free
 (the check's first guard). -/
 theorem targetCallOkS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) {p : BlockShape}
     {formerTys : List Expr} (hformer : ∀ t ∈ formerTys, WScoped 0 t) {cn : Name}
     {fam : TargetFamily} (hmajs : ∀ M ∈ fam.majs, TargetMajScoped M)
-    {fvsPref fvsF fnorm : List Expr}
-    {teles : List (List (Expr × BinderMeta))} {absM : Expr → Expr} {base k : Nat}
+    {fvsPref fvsF : List Expr}
+    {teles : List (List (Expr × BinderMeta))} {absM mvF : Expr → Expr} {base k dA : Nat}
     {pw : PropWhen} {fwss : List (List Expr)} {ih : TargetIh}
     (hpref : ∀ x ∈ fvsPref, WScoped base x) (hflds : ∀ x ∈ fvsF, WScoped base x)
-    (hfn : ∀ t ∈ fnorm, WScoped (base + k) t)
     (htl : ∀ tele ∈ teles, ∀ b ∈ tele, WScoped (base + k) b.1)
     (hrec : ∀ t ∈ fam.recTys, WScoped 0 t)
-    (habs : ∀ e, WScoped (base + k) e → WScoped (base + k) (absM e))
+    (hmvF : ∀ e, WScoped base e → WScoped dA (mvF (absM e)))
+    (hmv : ∀ e, WScoped base e → WScoped dA (mvF e))
     (hidx : ∀ x ∈ ih.idx, WScoped base x)
     (hihTy : (∀ b ∈ teles.getD ih.field [], WScoped base b.1) → WScoped base ih.ty)
     {s₀ : CState} (hs : CSOK mode env s₀) :
     SimC mode env s₀
       (fun v w => v = w ∧ (teles.getD ih.field []).all (fun b => targetHoleFree base k b.1))
-      (targetCallOk (sharedOpsC mode (mkFEnv env)) env p formerTys cn fam fvsPref fvsF fnorm
-        teles absM base k pw fwss ih)
-      (targetCallOk (fueledOpsM mode) env p formerTys cn fam fvsPref fvsF fnorm teles absM base
-        k pw fwss ih) := by
+      (targetCallOk (sharedOpsC mode (mkFEnv env)) env p formerTys cn fam fvsPref fvsF
+        teles absM mvF base k dA pw fwss ih)
+      (targetCallOk (fueledOpsM mode) env p formerTys cn fam fvsPref fvsF teles absM mvF base
+        k dA pw fwss ih) := by
   unfold targetCallOk
   dsimp only
   have htele : ∀ b ∈ teles.getD ih.field [], WScoped (base + k) b.1 := by
@@ -1041,13 +1060,16 @@ theorem targetCallOkS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) 
   simp only [WScoped] at hwC
   have hfF : WScoped base (fvsF.getD ih.field default) := getD_WScoped hflds _
   dsimp only [sharedOpsC]
-  have hfld : WScoped (base + k) (absM (fvsF.getD ih.field default).fvarTypeD) :=
-    habs _ ((fvarTypeD_WScoped hfF).mono (by omega))
+  have hfld : WScoped dA (mvF (absM (fvsF.getD ih.field default).fvarTypeD)) :=
+    hmvF _ (fvarTypeD_WScoped hfF)
   refine SimC.bind (opE_infer_sim hμ henv hs hfld) (fun s₁ _ _ hs₁ _ => ?_)
-  have hwant : WScoped (base + k) (Expr.mkPisOf (teles.getD ih.field []) (absM majDom)) :=
-    mkPisOf_WScoped htele (habs _ (hwC.1.mono (by omega)))
+  have hwant : WScoped dA (Expr.mkPisOf ((teles.getD ih.field []).map fun b => (mvF b.1, b.2))
+      (mvF (absM majDom))) := by
+    refine mkPisOf_WScoped (fun b hb => ?_) (hmvF _ hwC.1)
+    obtain ⟨b', hb', rfl⟩ := List.mem_map.mp hb
+    exact hmv _ (htele0 b' hb')
   refine SimC.bind (opE_infer_sim hμ henv hs₁ hwant) (fun s₂ _ _ hs₂ _ => ?_)
-  refine SimC.bind (opB_sim hμ henv hs₂ (getD_WScoped hfn _) hwant) (fun s₃ b b' hs₃ hB => ?_)
+  refine SimC.bind (opB_sim hμ henv hs₂ hfld hwant) (fun s₃ b b' hs₃ hB => ?_)
   obtain rfl : b = b' := hB
   cases b with
   | false => simp only [Bool.false_eq_true, ↓reduceIte]; exact SimC.throw_bind
@@ -1092,14 +1114,14 @@ theorem targetCallOkS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) 
 theorem targetCallsOkS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) {p : BlockShape}
     {formerTys : List Expr} (hformer : ∀ t ∈ formerTys, WScoped 0 t) {cn : Name}
     {fam : TargetFamily} (hmajs : ∀ M ∈ fam.majs, TargetMajScoped M)
-    {fvsPref fvsF fnorm : List Expr}
-    {teles : List (List (Expr × BinderMeta))} {absM : Expr → Expr} {base k : Nat}
+    {fvsPref fvsF : List Expr}
+    {teles : List (List (Expr × BinderMeta))} {absM mvF : Expr → Expr} {base k dA : Nat}
     {pw : PropWhen} {fwss : List (List Expr)}
     (hpref : ∀ x ∈ fvsPref, WScoped base x) (hflds : ∀ x ∈ fvsF, WScoped base x)
-    (hfn : ∀ t ∈ fnorm, WScoped (base + k) t)
     (htl : ∀ tele ∈ teles, ∀ b ∈ tele, WScoped (base + k) b.1)
     (hrec : ∀ t ∈ fam.recTys, WScoped 0 t)
-    (habs : ∀ e, WScoped (base + k) e → WScoped (base + k) (absM e)) :
+    (hmvF : ∀ e, WScoped base e → WScoped dA (mvF (absM e)))
+    (hmv : ∀ e, WScoped base e → WScoped dA (mvF e)) :
     ∀ {ihs : List TargetIh} {s₀ : CState},
       (∀ ih ∈ ihs, (∀ x ∈ ih.idx, WScoped base x) ∧
         ((∀ b ∈ teles.getD ih.field [], WScoped base b.1) → WScoped base ih.ty)) →
@@ -1107,19 +1129,19 @@ theorem targetCallsOkS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env)
       SimC mode env s₀
         (fun v w => v = w ∧
           ∀ ih ∈ ihs, (teles.getD ih.field []).all (fun b => targetHoleFree base k b.1) = true)
-        (targetCallsOk (sharedOpsC mode (mkFEnv env)) env p formerTys cn fam fvsPref fvsF fnorm
-          teles absM base k pw fwss ihs)
-        (targetCallsOk (fueledOpsM mode) env p formerTys cn fam fvsPref fvsF fnorm teles absM
-          base k pw fwss ihs)
+        (targetCallsOk (sharedOpsC mode (mkFEnv env)) env p formerTys cn fam fvsPref fvsF
+          teles absM mvF base k dA pw fwss ihs)
+        (targetCallsOk (fueledOpsM mode) env p formerTys cn fam fvsPref fvsF teles absM mvF
+          base k dA pw fwss ihs)
   | [], s₀, _, hs => SimC.pure hs ⟨rfl, fun _ h => nomatch h⟩
   | ih :: ihs, s₀, hih, hs => by
     unfold targetCallsOk
     obtain ⟨hidx, hty⟩ := hih ih List.mem_cons_self
-    refine SimC.bind (targetCallOkS_sim hμ henv hformer hmajs hpref hflds hfn htl hrec habs hidx
+    refine SimC.bind (targetCallOkS_sim hμ henv hformer hmajs hpref hflds htl hrec hmvF hmv hidx
       hty hs)
       (fun s₁ _ _ hs₁ hP => ?_)
     obtain ⟨-, hh⟩ := hP
-    refine SimC.mono ?_ (targetCallsOkS_sim hμ henv hformer hmajs hpref hflds hfn htl hrec habs
+    refine SimC.mono ?_ (targetCallsOkS_sim hμ henv hformer hmajs hpref hflds htl hrec hmvF hmv
       (fun x hx => hih x (List.mem_cons_of_mem _ hx)) hs₁)
     rintro v w ⟨rfl, hall⟩
     refine ⟨rfl, fun x hx => ?_⟩
@@ -1250,9 +1272,59 @@ theorem targetRuleS_simG (hμ : mode.verifiedChecks = true) {envR envT : Env}
     · exact nomatch h
     · exact ⟨hidx, fun htele => targetIhTy_WScoped hty htele
         (fun a ha => (hwy a ha).mono (by omega)) hidx hwz.1 hrec⟩
+  -- the abstract fields, scoped at their positions past the holes
+  have hlf : fvsF.length = c.2 := ConLeche.Verify.openPisAtFvars_length _ hz
+  have hfvsA : ∀ j x, (if ihs.isEmpty = true then [] else
+      targetAbsFields p.memberNames (p.lps.map .param) (targetHoles formerTys (rP + c.2)) rP
+        (rP + c.2 + formerTys.length) [] fvsF)[j]? = some x →
+      j < c.2 ∧ ∃ ty, x = .fvar (rP + c.2 + formerTys.length + j) ty ∧
+        WScoped (rP + c.2 + formerTys.length + j) ty := by
+    intro j x hx
+    split at hx
+    · exact nomatch hx
+    have hj : j < fvsF.length := by
+      have := (List.getElem?_eq_some_iff.mp hx).1
+      rwa [(targetAbsFields_nil fvsF).1] at this
+    obtain ⟨ty, hty, hw⟩ := targetAbsFields_WScoped (names := p.memberNames)
+      (lvls := p.lps.map .param) (rP := rP) hholes
+      (fun f hf => (fvarTypeD_WScoped (hwz.1 f hf)).mono (by omega)) j hj
+    rw [hty] at hx
+    exact ⟨by omega, ty, (Option.some.inj hx).symm, hw⟩
+  refine SimG.bind (SimG.ofC (fun s hs => targetAbsFieldsOkS_sim hμ henvT _ _
+    (fun j x hx => by
+      obtain ⟨-, ty, rfl, hw⟩ := hfvsA j x hx
+      exact hw) hs))
+    (fun u u' hU => ?_)
+  obtain rfl : u = u' := hU
+  have hmvF : ∀ e, WScoped (rP + c.2) e →
+      WScoped (rP + c.2 + formerTys.length + c.2)
+        (targetMoveF rP
+          (if ihs.isEmpty = true then [] else
+            targetAbsFields p.memberNames (p.lps.map .param) (targetHoles formerTys (rP + c.2))
+              rP (rP + c.2 + formerTys.length) [] fvsF)
+          (targetAbs p.memberNames (p.lps.map .param) (targetHoles formerTys (rP + c.2)) e)) := by
+    intro e he
+    refine targetMoveF_WScoped (fun x hx => ?_)
+      ((targetAbs_WScoped hholes _ (he.mono (by omega))).mono (by omega))
+    obtain ⟨j, hj, hget⟩ := List.getElem_of_mem hx
+    obtain ⟨hjc, ty, rfl, hw⟩ := hfvsA j x (by rw [List.getElem?_eq_getElem hj, hget])
+    simp only [WScoped]
+    exact ⟨by omega, hw⟩
+  have hmv : ∀ e, WScoped (rP + c.2) e →
+      WScoped (rP + c.2 + formerTys.length + c.2)
+        (targetMoveF rP
+          (if ihs.isEmpty = true then [] else
+            targetAbsFields p.memberNames (p.lps.map .param) (targetHoles formerTys (rP + c.2))
+              rP (rP + c.2 + formerTys.length) [] fvsF) e) := by
+    intro e he
+    refine targetMoveF_WScoped (fun x hx => ?_) (he.mono (by omega))
+    obtain ⟨j, hj, hget⟩ := List.getElem_of_mem hx
+    obtain ⟨hjc, ty, rfl, hw⟩ := hfvsA j x (by rw [List.getElem?_eq_getElem hj, hget])
+    simp only [WScoped]
+    exact ⟨by omega, hw⟩
   refine SimG.bind (SimG.ofC (fun s hs => targetCallsOkS_sim (cn := c.1.name) (pw :=
     Level.zeronessOf (structElimLevel p.elim p.large)) hμ henvT hformer hmajs
-    (fun a ha => (hwy a ha).mono (by omega)) hwz.1 hfn htl hrec habs hihs hs))
+    (fun a ha => (hwy a ha).mono (by omega)) hwz.1 htl hrec hmvF hmv hihs hs))
     (fun u u' hU => ?_)
   obtain ⟨-, hfree⟩ := hU
   have hwO : WScoped (rP + c.2 + ihs.size) bodyO := by

@@ -889,6 +889,15 @@ theorem targetFieldNorms_datF (env : Env) (depth : Nat) (absM : Expr → Expr) (
     simp only [FueledM.atF_bind, FueledM.atF_pure, targetWhnfPis_datF,
       targetFieldNorms_datF env depth absM F fs]
 
+theorem targetAbsFieldsOk_datF (env : Env) (F : Nat) :
+    ∀ (d : Nat) (l : List Expr),
+      (targetAbsFieldsOk (fueledOpsM mode) env d l).val F =
+        targetAbsFieldsOk (fueledOps mode F) env d l
+  | _, [] => rfl
+  | d, f :: fs => by
+    unfold targetAbsFieldsOk
+    simp only [FueledM.atF_bind, fueledOpsM_inferType_atF, targetAbsFieldsOk_datF env F (d + 1) fs]
+
 theorem targetK53_datF (env : Env) (p : BlockShape) (formerTys : List Expr) (Mc : TargetMajor)
     (tele : List (Expr × BinderMeta)) (majDom f : Expr) (F : Nat) :
     (targetK53 (fueledOpsM mode) env p formerTys Mc tele majDom f).val F =
@@ -912,13 +921,13 @@ theorem targetK53All_datF (env : Env) (p : BlockShape) (formerTys : List Expr) (
 
 theorem targetCallOk_datF (env : Env) (p : BlockShape) (formerTys : List Expr) (cn : Name)
     (fam : TargetFamily)
-    (fvsPref fvsF fnorm : List Expr) (teles : List (List (Expr × BinderMeta)))
-    (absM : Expr → Expr) (base k : Nat) (pw : PropWhen) (fwss : List (List Expr))
+    (fvsPref fvsF : List Expr) (teles : List (List (Expr × BinderMeta)))
+    (absM mvF : Expr → Expr) (base k dA : Nat) (pw : PropWhen) (fwss : List (List Expr))
     (ih : TargetIh) (F : Nat) :
-    (targetCallOk (fueledOpsM mode) env p formerTys cn fam fvsPref fvsF fnorm teles absM base k
-        pw fwss ih).val F =
-      targetCallOk (fueledOps mode F) env p formerTys cn fam fvsPref fvsF fnorm teles absM base k
-        pw fwss ih := by
+    (targetCallOk (fueledOpsM mode) env p formerTys cn fam fvsPref fvsF teles absM mvF base k
+        dA pw fwss ih).val F =
+      targetCallOk (fueledOps mode F) env p formerTys cn fam fvsPref fvsF teles absM mvF base k
+        dA pw fwss ih := by
   unfold targetCallOk
   repeat' (first
     | rfl
@@ -929,18 +938,19 @@ theorem targetCallOk_datF (env : Env) (p : BlockShape) (formerTys : List Expr) (
 
 theorem targetCallsOk_datF (env : Env) (p : BlockShape) (formerTys : List Expr) (cn : Name)
     (fam : TargetFamily)
-    (fvsPref fvsF fnorm : List Expr) (teles : List (List (Expr × BinderMeta)))
-    (absM : Expr → Expr) (base k : Nat) (pw : PropWhen) (fwss : List (List Expr)) (F : Nat) :
+    (fvsPref fvsF : List Expr) (teles : List (List (Expr × BinderMeta)))
+    (absM mvF : Expr → Expr) (base k dA : Nat) (pw : PropWhen) (fwss : List (List Expr))
+    (F : Nat) :
     ∀ (ihs : List TargetIh),
-      (targetCallsOk (fueledOpsM mode) env p formerTys cn fam fvsPref fvsF fnorm teles absM base
-          k pw fwss ihs).val F =
-        targetCallsOk (fueledOps mode F) env p formerTys cn fam fvsPref fvsF fnorm teles absM base
-          k pw fwss ihs
+      (targetCallsOk (fueledOpsM mode) env p formerTys cn fam fvsPref fvsF teles absM mvF base
+          k dA pw fwss ihs).val F =
+        targetCallsOk (fueledOps mode F) env p formerTys cn fam fvsPref fvsF teles absM mvF base
+          k dA pw fwss ihs
   | [] => rfl
   | ih :: ihs => by
     unfold targetCallsOk
     simp only [FueledM.atF_bind, targetCallOk_datF,
-      targetCallsOk_datF env p formerTys cn fam fvsPref fvsF fnorm teles absM base k pw fwss F
+      targetCallsOk_datF env p formerTys cn fam fvsPref fvsF teles absM mvF base k dA pw fwss F
         ihs]
 
 theorem targetRule_datF (feR : FEnv) (feT : FEnv) (p : BlockShape) (formerTys : List Expr)
@@ -954,7 +964,7 @@ theorem targetRule_datF (feR : FEnv) (feT : FEnv) (p : BlockShape) (formerTys : 
   simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw, FueledM.atF_ite,
     unwrapOr_atF, checkBlockDefEqList_datF, fueledOpsM_isDefEq_atF,
     fueledOpsM_inferType_atF, fueledOpsM_annotate_atF, targetFieldNorms_datF,
-    targetCallsOk_datF]
+    targetAbsFieldsOk_datF, targetCallsOk_datF]
 
 theorem targetRules_datF (feR feT : FEnv) (p : BlockShape) (formerTys : List Expr)
     (fam : TargetFamily) (cvRi : ConstantVal) (rP : Nat) (M : TargetMajor) (F : Nat) :

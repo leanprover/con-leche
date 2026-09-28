@@ -352,6 +352,203 @@ theorem targetAbs_WScoped {names : List Name} {lvls : List Level} {holes : List 
     intro hw; unfold WScoped at hw ⊢; exact ih hw
   | _ => intro hw; simpa [targetAbs] using hw
 
+/-! ## The abstract frame (`targetMoveF`, `targetAbsFields`) -/
+
+/-- Replacing free variables by scoped terms keeps the scope. -/
+theorem replaceFVars_WScoped {g : Nat → Option Expr} {d : Nat}
+    (hg : ∀ i r, g i = some r → WScoped d r) :
+    ∀ (e : Expr), WScoped d e → WScoped d (e.replaceFVars g) := by
+  intro e
+  induction e with
+  | fvar i ty _ =>
+    intro hw
+    simp only [Expr.replaceFVars]
+    cases hgi : g i with
+    | none => exact hw
+    | some r => exact hg i r hgi
+  | app a b iha ihb =>
+    intro hw; unfold WScoped at hw; simp only [Expr.replaceFVars]; unfold WScoped
+    exact ⟨iha hw.1, ihb hw.2⟩
+  | lam ty b m iht ihb =>
+    intro hw; unfold WScoped at hw; simp only [Expr.replaceFVars]; unfold WScoped
+    exact ⟨iht hw.1, ihb hw.2⟩
+  | forallE ty b m iht ihb =>
+    intro hw; unfold WScoped at hw; simp only [Expr.replaceFVars]; unfold WScoped
+    exact ⟨iht hw.1, ihb hw.2⟩
+  | letE ty v b iht ihv ihb =>
+    intro hw; unfold WScoped at hw; simp only [Expr.replaceFVars]; unfold WScoped
+    exact ⟨iht hw.1, ihv hw.2.1, ihb hw.2.2⟩
+  | proj s i sub ih =>
+    intro hw; unfold WScoped at hw; simp only [Expr.replaceFVars]; unfold WScoped; exact ih hw
+  | _ => intro hw; simpa [Expr.replaceFVars] using hw
+
+/-- Replacing free variables adds only the replacements' leaves. -/
+theorem replaceFVars_fvarLeaves {g : Nat → Option Expr} :
+    ∀ (e : Expr) (l : Nat × Expr), l ∈ (e.replaceFVars g).fvarLeaves →
+      l ∈ e.fvarLeaves ∨ ∃ i r, g i = some r ∧ l ∈ r.fvarLeaves := by
+  intro e
+  induction e with
+  | fvar i ty _ =>
+    intro l hl
+    simp only [Expr.replaceFVars] at hl
+    cases hgi : g i with
+    | none => rw [hgi, Option.getD_none] at hl; exact Or.inl hl
+    | some r => rw [hgi, Option.getD_some] at hl; exact Or.inr ⟨i, r, hgi, hl⟩
+  | app a b iha ihb =>
+    intro l hl
+    simp only [Expr.replaceFVars, fvarLeaves, List.mem_append] at hl ⊢
+    rcases hl with hl | hl
+    · rcases iha l hl with h | h
+      · exact Or.inl (Or.inl h)
+      · exact Or.inr h
+    · rcases ihb l hl with h | h
+      · exact Or.inl (Or.inr h)
+      · exact Or.inr h
+  | lam ty b m iht ihb =>
+    intro l hl
+    simp only [Expr.replaceFVars, fvarLeaves, List.mem_append] at hl ⊢
+    rcases hl with hl | hl
+    · rcases iht l hl with h | h
+      · exact Or.inl (Or.inl h)
+      · exact Or.inr h
+    · rcases ihb l hl with h | h
+      · exact Or.inl (Or.inr h)
+      · exact Or.inr h
+  | forallE ty b m iht ihb =>
+    intro l hl
+    simp only [Expr.replaceFVars, fvarLeaves, List.mem_append] at hl ⊢
+    rcases hl with hl | hl
+    · rcases iht l hl with h | h
+      · exact Or.inl (Or.inl h)
+      · exact Or.inr h
+    · rcases ihb l hl with h | h
+      · exact Or.inl (Or.inr h)
+      · exact Or.inr h
+  | letE ty v b iht ihv ihb =>
+    intro l hl
+    simp only [Expr.replaceFVars, fvarLeaves, List.mem_append] at hl ⊢
+    rcases hl with (hl | hl) | hl
+    · rcases iht l hl with h | h
+      · exact Or.inl (Or.inl (Or.inl h))
+      · exact Or.inr h
+    · rcases ihv l hl with h | h
+      · exact Or.inl (Or.inl (Or.inr h))
+      · exact Or.inr h
+    · rcases ihb l hl with h | h
+      · exact Or.inl (Or.inr h)
+      · exact Or.inr h
+  | proj s i sub ih =>
+    intro l hl
+    simp only [Expr.replaceFVars, fvarLeaves] at hl ⊢
+    exact ih l hl
+  | _ => intro l hl; simp [Expr.replaceFVars, fvarLeaves] at hl
+
+/-- The field move adds only the copies' leaves. -/
+theorem targetMoveF_fvarLeaves {rP : Nat} {L : List Expr} (e : Expr) (l : Nat × Expr)
+    (hl : l ∈ (targetMoveF rP L e).fvarLeaves) :
+    l ∈ e.fvarLeaves ∨ ∃ r ∈ L, l ∈ r.fvarLeaves := by
+  rcases replaceFVars_fvarLeaves e l hl with h | ⟨i, r, hr, h⟩
+  · exact Or.inl h
+  · refine Or.inr ⟨r, ?_, h⟩
+    split at hr
+    · exact List.mem_of_getElem? hr
+    · exact nomatch hr
+
+/-- **The field move keeps the scope**: into the abstract frame `dA`
+when the abstract fields are scoped there. -/
+theorem targetMoveF_WScoped {rP dA : Nat} {fvsA : List Expr}
+    (hA : ∀ x ∈ fvsA, WScoped dA x) {e : Expr} (he : WScoped dA e) :
+    WScoped dA (targetMoveF rP fvsA e) := by
+  refine replaceFVars_WScoped (fun i r hr => ?_) _ he
+  split at hr
+  · exact hA r (List.mem_of_getElem? hr)
+  · exact nomatch hr
+
+/-- **The abstract fields, entry by entry**: `targetAbsFields` appends, per
+field, a variable at the next position whose annotation is the field's
+type abstracted over the entries before it. -/
+theorem targetAbsFields_spec {names : List Name} {lvls : List Level} {holes : List Expr}
+    {rP D : Nat} :
+    ∀ (fs acc : List Expr),
+      (targetAbsFields names lvls holes rP D acc fs).length = acc.length + fs.length ∧
+      (targetAbsFields names lvls holes rP D acc fs).take acc.length = acc ∧
+      ∀ j, j < fs.length → (targetAbsFields names lvls holes rP D acc fs)[acc.length + j]? =
+        some (.fvar (D + acc.length + j) (targetMoveF rP
+          ((targetAbsFields names lvls holes rP D acc fs).take (acc.length + j))
+          (targetAbs names lvls holes (fs.getD j default).fvarTypeD)))
+  | [], acc => by
+    refine ⟨by simp [targetAbsFields], by simp [targetAbsFields], fun j hj => ?_⟩
+    simp at hj
+  | f :: fs, acc => by
+    obtain ⟨h1, h2, h3⟩ := targetAbsFields_spec fs
+      (acc ++ [.fvar (D + acc.length)
+        (targetMoveF rP acc (targetAbs names lvls holes f.fvarTypeD))])
+    simp only [targetAbsFields]
+    generalize targetAbsFields names lvls holes rP D
+      (acc ++ [.fvar (D + acc.length)
+        (targetMoveF rP acc (targetAbs names lvls holes f.fvarTypeD))]) fs = r
+      at h1 h2 h3
+    simp only [List.length_append, List.length_singleton] at h1 h2 h3
+    have hacc : r.take acc.length = acc := by
+      have := congrArg (List.take acc.length) h2
+      rwa [List.take_take, Nat.min_eq_left (by omega), List.take_left'] at this
+      rfl
+    refine ⟨by simp [h1]; omega, hacc, fun j hj => ?_⟩
+    cases j with
+    | zero =>
+      have hx := congrArg (fun l => l[acc.length]?) h2
+      simp only [List.getElem?_take, show acc.length < acc.length + 1 from by omega, if_true,
+        List.getElem?_append_right (Nat.le_refl _), Nat.sub_self,
+        List.getElem?_cons_zero] at hx
+      simp only [Nat.add_zero, List.getD_cons_zero, hacc]
+      simpa using hx
+    | succ j =>
+      have := h3 j (by simpa using hj)
+      rw [show acc.length + (j + 1) = acc.length + 1 + j from by omega,
+        show D + acc.length + (j + 1) = D + (acc.length + 1) + j from by omega]
+      simpa using this
+
+/-- `targetAbsFields_spec` from the empty accumulator. -/
+theorem targetAbsFields_nil {names : List Name} {lvls : List Level} {holes : List Expr}
+    {rP D : Nat} (fs : List Expr) :
+    (targetAbsFields names lvls holes rP D [] fs).length = fs.length ∧
+      ∀ j, j < fs.length → (targetAbsFields names lvls holes rP D [] fs)[j]? =
+        some (.fvar (D + j) (targetMoveF rP
+          ((targetAbsFields names lvls holes rP D [] fs).take j)
+          (targetAbs names lvls holes (fs.getD j default).fvarTypeD))) := by
+  obtain ⟨h1, -, h3⟩ := targetAbsFields_spec (names := names) (lvls := lvls) (holes := holes)
+    (rP := rP) (D := D) fs []
+  refine ⟨by simpa using h1, fun j hj => ?_⟩
+  simpa using h3 j hj
+
+/-- **The abstract fields are scoped**: entry `j` is a variable at `D + j`
+whose annotation is scoped below it, when the fields' types are scoped by
+`D` and the holes are. -/
+theorem targetAbsFields_WScoped {names : List Name} {lvls : List Level} {holes : List Expr}
+    {rP D : Nat} (hh : ∀ h ∈ holes, WScoped D h) {fs : List Expr}
+    (hf : ∀ f ∈ fs, WScoped D f.fvarTypeD) :
+    ∀ j, j < fs.length → ∃ ty, (targetAbsFields names lvls holes rP D [] fs)[j]? =
+      some (.fvar (D + j) ty) ∧ WScoped (D + j) ty := by
+  obtain ⟨hlen, hget⟩ := targetAbsFields_nil (names := names) (lvls := lvls) (holes := holes)
+    (rP := rP) (D := D) fs
+  intro j
+  induction j using Nat.strongRecOn with
+  | _ j ih =>
+    intro hj
+    refine ⟨_, hget j hj, targetMoveF_WScoped (fun x hx => ?_)
+      ((targetAbs_WScoped hh _ ?_).mono (by omega))⟩
+    · obtain ⟨i, hi, rfl⟩ := List.getElem_of_mem hx
+      simp only [List.length_take] at hi
+      obtain ⟨ty, hty, hw⟩ := ih i (by omega) (by omega)
+      obtain ⟨_, h2⟩ := List.getElem?_eq_some_iff.mp hty
+      rw [List.getElem_take, h2]
+      simp only [WScoped]
+      exact ⟨by omega, hw⟩
+    · have hfj : fs.getD j default ∈ fs := by
+        rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hj, Option.getD_some]
+        exact List.getElem_mem hj
+      exact hf _ hfj
+
 /-- Closing a binder body back: an opened body without loose bound
 variables past `k` had none past `k + 1`. -/
 theorem looseBVarsBounded_of_instantiate1_fvar {d : Nat} {ty : Expr} :

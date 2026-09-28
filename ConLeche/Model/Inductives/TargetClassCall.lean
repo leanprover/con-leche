@@ -320,8 +320,6 @@ theorem tgtCall_memVal {pd fd : List AnnotTerm} (hpl : pd.length = rc.rP) (hfl :
   have hformerF := hmr.formers_noFvar
   -- the called field is a field of the constructor
   have hfi : ih.field < cA.2 := tgtIh_field_lt Q hihMem
-  -- the field's abstract telescope through whnf
-  have hfnorm := tgtIh_fnorm Q hfi
   -- the telescope's and the index arguments' leaves
   have hscope := targetIh_scope hμ Q mpC.base2.wf hle hbf hFr hher hcbF hformerF
     (fun c' => (hRT3 c').1) hihMem
@@ -332,7 +330,8 @@ theorem tgtCall_memVal {pd fd : List AnnotTerm} (hpl : pd.length = rc.rP) (hfl :
   have hvTy := memberHoles_ty hmr ψ ρ hvget
   have hnames := memberHoles_names (pp := pp) hN hmr ψ ρ (hvC := fun t => hv.getD t pt) hvget
   -- the called field lies in its member-abstracted type's reading
-  have hiiG := field_mem_absRead hN hmr ψ ρ hFr hlp hlf hpl hfl hF hsp hxl hfsl hvl hvget hfi
+  have hiiG : ∀ q, q < cA.2 → _ := fun q hq =>
+    field_mem_absRead hN hmr ψ ρ hFr hlp hlf hpl hfl hF hsp hxl hfsl hvl hvget hq
   -- the holes' values at their formers' types
   have hformerG := memberHoles_formers (mpC := mpC) hmr ψ ρ hvTy
   have hTel : (tgtFrame μ F (mkFEnv envC) pp.toBlockShape (cvTas.map (fun cv : ConstantVal => cv.type)) out c j).teles
@@ -348,7 +347,7 @@ theorem tgtCall_memVal {pd fd : List AnnotTerm} (hpl : pd.length = rc.rP) (hfl :
       (mpC.base2.acval n ψ').liftN m k = mpC.base2.acval n ψ' :=
     fun n ψ' m k => liftN_eq_self_of_closed (mpC.base2.cval_closedL n ψ') k m
   obtain ⟨os', Xr, hos', hXr, hbl, hwdX, hfoldX⟩ := targetCall_genW hμ hacl
-    (Rules.RulesInputs.ofSem mpC ψ) C hfnorm hlf hFr hxl hfsl hW hfi htL hidxL
+    (Rules.RulesInputs.ofSem mpC ψ) C (Q.fvsA_eq hihMem) Q.hfA hlf hFr hxl hfsl hW hfi htL hidxL
     (by rw [hvl, List.length_map]) hformerG hiiG ((hRT3 ih.callee).1) bs hbs'
   -- the abstraction read back at the members' values
   rw [← hbl] at hos' hXr hidxB
