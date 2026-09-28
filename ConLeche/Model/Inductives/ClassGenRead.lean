@@ -1,11 +1,8 @@
 module
 
-public import ConLeche.Model.Inductives.BlockRecPreRun
-public import ConLeche.Kernel.Inductives.ClassCheck
 public import ConLeche.Verify.Inductives.ClassGenScope
 public import ConLeche.Verify.Inductives.ClassGenAnnot
 import ConLeche.Model.Inductives.NestPosOut
-import ConLeche.Model.Inductives.StructFrameKit
 import ConLeche.Verify.Rules.InferBridge
 import ConLeche.Verify.Mono
 import ConLeche.Verify.Denote.IndFrame

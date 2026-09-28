@@ -92,6 +92,14 @@ FALLBACK = {
     # at `StructBodyFrames.lean:295` and `FixEntryLaw.lean:261`, then
     # `denoteMeta_mkAppN_of` at `BlockRecTyShapeRun.lean:242`).
     ('ConLeche.Model.Inductives.StructRecKit', 'ConLeche.Model.IndPinGrade'),
+    # lane CC-G1SYN: `ClassGenAnnot`'s public statements name
+    # `closeTelescope`/`Env`/`annotateCore` (Positivity) and `Expr.ErasedEq`
+    # (Subst); `ClassGenScope`'s exposed `ScB` names `WScoped` (Shift).
+    # MEASURED by demoting each alone (unknown identifier/constant,
+    # `ClassGenAnnot.lean:166`/`:46`, `ClassGenScope.lean:56`).
+    ('ConLeche.Verify.Inductives.ClassGenAnnot', 'ConLeche.Kernel.Inductives.Positivity'),
+    ('ConLeche.Verify.Inductives.ClassGenAnnot', 'ConLeche.Verify.Subst'),
+    ('ConLeche.Verify.Inductives.ClassGenScope', 'ConLeche.Verify.Shift'),
     # lane SEEDDEFEQ M2: `ClassMatchRun`'s public statements reach
     # `Expr.replaceFVars` by dot-notation (`targetCanonParams`' unfolding,
     # `:85`) through `RecCheck`, and `Expr.ErasedEq` (`:35`) through
