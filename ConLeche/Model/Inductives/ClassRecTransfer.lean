@@ -1,6 +1,8 @@
 module
 
 public import ConLeche.Model.Inductives.BlockRecData
+public import ConLeche.Verify.Inductives.ClassGenRun
+import ConLeche.Semantics.DeclRun
 import ConLeche.Model.Capstone
 import ConLeche.Model.Tiers
 import ConLeche.Model.Rules.Recompose
@@ -122,6 +124,62 @@ theorem closedDefEq_read_eq_inst (hμ : μ.verifiedChecks = true) {env : Env}
   rw [denoteMeta_instLevels (acvalParamsAt_of_core mp.base2) φ,
     denoteMeta_instLevels (acvalParamsAt_of_core mp.base2) φ]
   exact closedDefEq_read_eq hμ mp hfa hba hfb hbb hta htb hd _
+
+/-! ### At check 6's runs -/
+
+/-- **G2 at a checked rule, at the run.**  `classRuleOk` passed: the
+stored rule `rhsA` and the ANNOTATED generated rule `genA` read alike at
+every level instantiation, in any model of the rule-less recursors'
+environment the comparison ran in.  The generated rule's closedness is
+the generator's (G1: `classGenRule` closes every variable it opens). -/
+theorem classRuleOk_read_eq (hμ : μ.verifiedChecks = true) {F : Nat}
+    {w : ConLeche.StructWalkers} {feT feR : ConLeche.FEnv} {cvR : ConstantVal}
+    {pw : ConLeche.PropWhen} {n : Nat} {rhs gen rhsA : Expr}
+    (h : ConLeche.classRuleOk (ConLeche.fueledOps μ F) w feT feR cvR pw n rhs gen = .ok rhsA)
+    (hgf : gen.hasFvar = false) (hgb : gen.looseBVarsBounded 0 = true)
+    (mpR : EnvModelM V μ feR.env) :
+    ∃ genA : Expr, ConLeche.annotateCore μ feR.env F 0 gen = .ok genA ∧
+      ∀ (φ : Name → Nat) (ks : List Name) (us : List Level),
+      ∃ Ra Ga : AnnotTerm,
+        denoteMeta mpR.base2.acval feR.env φ 0 (rhsA.instantiateLevelParams ks us) = some Ra ∧
+        denoteMeta mpR.base2.acval feR.env φ 0 (genA.instantiateLevelParams ks us) = some Ga ∧
+        (∀ ρ : Nat → V, WellDenotedV V ρ Ra) ∧ (∀ ρ : Nat → V, WellDenotedV V ρ Ga) ∧
+        ∀ ρ : Nat → V, interp V ρ Ra = interp V ρ Ga := by
+  obtain ⟨hlb, hfv, hann, -, ⟨t, hinf⟩, genA, tg, hgann, hginf, hdq⟩ :=
+    ConLeche.classRuleOk_inv h
+  obtain ⟨hrf, hrb⟩ := annotate_syntax hann hfv hlb
+  obtain ⟨hGf, hGb⟩ := annotate_syntax hgann hgf hgb
+  exact ⟨genA, hgann, fun φ ks us =>
+    closedDefEq_read_eq_inst hμ mpR hrf hrb hGf hGb hinf hginf hdq φ ks us⟩
+
+/-- **G2 at a checked recursor type, at the run.**  `classRecTyOk`
+passed: the stored type (the checked constant's) and the ANNOTATED
+generated type read alike at every level instantiation, in any model of
+the constructors' environment.  The generated type's closedness is the
+generator's (G1). -/
+theorem classRecTyOk_read_eq (hμ : μ.verifiedChecks = true) {F : Nat}
+    {fe : ConLeche.FEnv} {g : ConLeche.ClassGen} {k : Nat} {rc : ConLeche.RecShape}
+    {rules : List ConLeche.RecRule} {c : Nat} {cvRi : ConstantVal}
+    (h : ConLeche.classRecTyOk (ConLeche.fueledOps μ F) fe g k rc rules c = .ok cvRi)
+    (hgen : ∀ gty, ConLeche.classGenRecTy g c = some gty →
+      gty.hasFvar = false ∧ gty.looseBVarsBounded 0 = true)
+    (mp : EnvModelM V μ fe.env) :
+    ∃ gty gtyA : Expr, ConLeche.classGenRecTy g c = some gty ∧
+      ConLeche.annotateCore μ fe.env F 0 gty = .ok gtyA ∧
+      ∀ (φ : Name → Nat) (ks : List Name) (us : List Level),
+      ∃ Ta Ga : AnnotTerm,
+        denoteMeta mp.base2.acval fe.env φ 0 (cvRi.type.instantiateLevelParams ks us)
+          = some Ta ∧
+        denoteMeta mp.base2.acval fe.env φ 0 (gtyA.instantiateLevelParams ks us) = some Ga ∧
+        (∀ ρ : Nat → V, WellDenotedV V ρ Ta) ∧ (∀ ρ : Nat → V, WellDenotedV V ρ Ga) ∧
+        ∀ ρ : Nat → V, interp V ρ Ta = interp V ρ Ga := by
+  obtain ⟨hcv, gty, gtyA, s, u, hg, hgann, hginf, -, hdq⟩ := ConLeche.classRecTyOk_inv h
+  obtain ⟨hlb, hfv, type, stype, u', hann, -, hinf, -, rfl⟩ := ConLeche.checkConstantValF_inv hcv
+  obtain ⟨hrf, hrb⟩ := annotate_syntax hann hfv hlb
+  obtain ⟨hgf, hgb⟩ := hgen gty hg
+  obtain ⟨hGf, hGb⟩ := annotate_syntax hgann hgf hgb
+  exact ⟨gty, gtyA, hg, hgann, fun φ ks us =>
+    closedDefEq_read_eq_inst hμ mp hrf hrb hGf hGb hinf hginf hdq φ ks us⟩
 
 /-! ## 2. The rules: a rule enters the model only through its reading -/
 
