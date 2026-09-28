@@ -18,9 +18,9 @@ import ConLeche.Verify.Leaves
 import ConLeche.Verify.InferLeaves
 import ConLeche.Verify.InferLemmas
 import ConLeche.Verify.Denote.IndFrame
-import ConLeche.Verify.Inductives.NestScope
 import ConLeche.Verify.Cached.Erase
 import ConLeche.Verify.BridgeWfImp
+import ConLeche.Verify.Inductives.ScopeKit
 
 public section
 

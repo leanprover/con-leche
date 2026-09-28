@@ -4,14 +4,14 @@ public import ConLeche.Model.Inductives.NestPosMono
 import ConLeche.Model.Annot.EnvModelM
 import ConLeche.Semantics.SubstAV
 public import ConLeche.Model.Annot.BitSubstFvars
-import ConLeche.Verify.Inductives.NestContInv
 import ConLeche.Model.Inductives.ContSubst
 import ConLeche.Model.Annot.CanonCrest
 import ConLeche.Model.Inductives.BlockHoleRead
 import ConLeche.Model.Inductives.StructFrameKit
 import ConLeche.Model.Inductives.StructRecKit
 import ConLeche.Model.Annot.BitRename
-import ConLeche.Verify.Inductives.NestScope
+import ConLeche.Verify.Inductives.InstTypeInv
+import ConLeche.Verify.Inductives.ScopeKit
 
 public section
 

@@ -17,10 +17,10 @@ import ConLeche.Model.Annot.LfpFormer
 import ConLeche.Model.IndPointKit
 import ConLeche.Model.Annot.BitRename
 import ConLeche.Model.IndSubst
-import ConLeche.Verify.Inductives.NestScope
 import ConLeche.Verify.Inductives.DirectInv
 import ConLeche.Verify.Inductives.DirectGen
 public import ConLeche.Model.Inductives.StoredShapes
+import ConLeche.Verify.Inductives.ScopeKit
 
 public section
 

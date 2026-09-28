@@ -3,7 +3,6 @@ module
 public import ConLeche.Kernel.Inductives.Positivity
 public import ConLeche.Verify.Subst
 public import ConLeche.Model.Inductives.ErasureKit
-import ConLeche.Verify.Inductives.NestCallSyn
 
 public section
 

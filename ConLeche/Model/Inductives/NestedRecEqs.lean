@@ -24,8 +24,8 @@ import ConLeche.Model.Inductives.NestedRecRest
 import ConLeche.Model.Rules.InferSoundKit
 import ConLeche.Model.Annot.BitInst
 import ConLeche.Model.Inductives.BlockRuleFit
-import ConLeche.Model.Inductives.BlockHoleGrade
 import ConLeche.Semantics.Tower.BlockRecTower
+import ConLeche.Model.Inductives.BlockHoleChains
 
 public section
 

@@ -5,7 +5,6 @@ public import ConLeche.Verify.ProjSlots
 import ConLeche.Verify.CheckerF
 import ConLeche.Verify.Extend.Inversions
 public import ConLeche.Verify.Inductives.BlockWF
-import ConLeche.Verify.Inductives.NestedRuleSyn
 import ConLeche.Verify.Inductives.DirectGen
 import ConLeche.Verify.Denote.IndFrame
 

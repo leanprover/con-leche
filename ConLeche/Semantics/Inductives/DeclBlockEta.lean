@@ -7,7 +7,6 @@ import ConLeche.Verify.Extend.Inversions
 import ConLeche.Verify.ExceptBind
 import ConLeche.Kernel.Inductives.FieldTele
 import ConLeche.Verify.Inductives.BlockWF
-import ConLeche.Verify.Inductives.RecStage
 
 @[expose] public section
 

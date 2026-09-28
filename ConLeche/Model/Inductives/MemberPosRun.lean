@@ -8,7 +8,7 @@ import ConLeche.Model.Inductives.BlockAccRunCont
 import ConLeche.Model.Inductives.BlockAbsRead
 import ConLeche.Model.Annot.CanonCrest
 import ConLeche.Verify.Inductives.PositivityInv
-import ConLeche.Verify.Inductives.NestScope
+import ConLeche.Verify.Inductives.ScopeKit
 
 public section
 

@@ -7,7 +7,6 @@ import ConLeche.Model.IndDomGrade
 import ConLeche.Model.Rules.InferSoundKit
 import ConLeche.Model.Inductives.StructFrameKit
 import ConLeche.Model.Inductives.BlockData
-import ConLeche.Model.Annot.BitRename
 
 public section
 

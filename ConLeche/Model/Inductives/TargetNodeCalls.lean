@@ -16,7 +16,6 @@ import ConLeche.Verify.InferLeaves
 import ConLeche.Model.IndPointKit
 import ConLeche.Model.Inductives.ContFrame
 import ConLeche.Model.Rules.IotaSoundKit
-import ConLeche.Verify.Inductives.NestContInv
 import ConLeche.Model.Inductives.TargetNodeCover
 import ConLeche.Model.Inductives.PosDerivMono
 import ConLeche.Model.Inductives.BlockDeclRun
@@ -33,6 +32,7 @@ import ConLeche.Model.Inductives.TargetCallWalk
 public import ConLeche.Model.Inductives.TargetCallTie
 public import ConLeche.Model.Inductives.TargetNodeDynOf
 public import ConLeche.Model.Inductives.NestedRecCtx
+import ConLeche.Verify.Inductives.InstTypeInv
 
 public section
 

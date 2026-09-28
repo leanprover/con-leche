@@ -12,10 +12,10 @@ import ConLeche.Model.Inductives.StructRecKit
 import ConLeche.Semantics.Tower.BlockTower
 import ConLeche.Verify.ExceptBind
 import ConLeche.Verify.Inductives.DirectInv
-import ConLeche.Verify.Inductives.NestScope
 import ConLeche.Verify.Denote.IndFrame
 import ConLeche.Verify.EnvBound
 import ConLeche.Model.Rules.IotaSoundKit
+import ConLeche.Verify.Inductives.ScopeKit
 
 public section
 

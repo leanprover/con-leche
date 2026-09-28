@@ -13,7 +13,6 @@ import ConLeche.Model.Inductives.NestPosRed
 import ConLeche.Verify.Inductives.NestScope
 import ConLeche.Semantics.Tower.FixTower
 import ConLeche.Model.Rules.Sound
-import ConLeche.Model.Rules.InferSoundKit
 import ConLeche.Verify.Rules.Bridge
 import ConLeche.Semantics.Kit
 import ConLeche.Semantics.Tower.SumTower

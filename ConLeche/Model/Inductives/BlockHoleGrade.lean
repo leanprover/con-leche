@@ -4,15 +4,14 @@ public import ConLeche.Model.Inductives.BlockPosRun
 public import ConLeche.Model.Inductives.BlockHoleChains
 import ConLeche.Model.Annot.LfpHoleOp
 public import ConLeche.Model.Inductives.BlockLfpHoles
-import ConLeche.Model.Inductives.BlockHoleValid
 import ConLeche.Verify.Inductives.DirectInv
 import ConLeche.Model.IndDomGrade
 import ConLeche.Model.Rules.InferSoundKit
 import ConLeche.Model.Inductives.StructFrameKit
 import ConLeche.Model.Inductives.BlockData
-import ConLeche.Verify.Inductives.NestScope
 import ConLeche.Model.Annot.BitRename
 import ConLeche.Model.Inductives.StoredShapesWalk
+import ConLeche.Verify.Inductives.ScopeKit
 
 public section
 

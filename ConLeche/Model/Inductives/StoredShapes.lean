@@ -2,18 +2,14 @@ module
 
 public import ConLeche.Model.Annot.LfpHoleOp
 public import ConLeche.Semantics.NoBVar
-import ConLeche.Semantics.Inductives.HoleApp
 public import ConLeche.Model.Inductives.BlockData
 public import ConLeche.Model.Inductives.ErasureKit
 public import ConLeche.Model.Inductives.HoleSubst
 public import ConLeche.Model.Inductives.HoleKit
-import ConLeche.Model.Inductives.BlockHoleRead
 import ConLeche.Model.Inductives.StructFrameKit
 import ConLeche.Model.Inductives.StructEntryKit
 import ConLeche.Model.Annot.BitLemmas
-import ConLeche.Model.Annot.LfpFormer
 import ConLeche.Model.IndPointKit
-import ConLeche.Model.Annot.BitRename
 import ConLeche.Model.IndSubst
 import ConLeche.Verify.Inductives.ScopeKit
 import ConLeche.Verify.Inductives.DirectInv
