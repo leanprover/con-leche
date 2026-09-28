@@ -3,6 +3,7 @@ module
 public import ConLeche.Model.Inductives.DeclNative
 public import ConLeche.Model.Inductives.BlockDatum
 public import ConLeche.Semantics.Inductives.DeclBlock
+public import ConLeche.Verify.Inductives.RecCheckRun
 public section
 
 /-!
@@ -189,13 +190,14 @@ over the input environment. -/
     (out : List (ConstantVal × ConLeche.TargetMajor × List Expr))
     (mpC : EnvModelM V μ envC) (dR : BlockData V) (isRecR : Bool)
     (A : Nat → (Name → Nat) → AnnotTerm)
-    (kindsR : List (List (List ConLeche.NestFieldKind))) (nfsR : List (List Expr)) (nodesR : ConLeche.NestNodes) : Prop :=
-  ConLeche.checkBlockRec (m := ConLeche.CheckM) (ConLeche.fueledOps μ F) envC pp
+    (kindsR : List (List (List ConLeche.NestFieldKind))) (nfsR : List (List Expr))
+    (posR : ConLeche.NestState) (tblR : List ConLeche.NestCtorNf) : Prop :=
+  ConLeche.checkBlockRec (m := ConLeche.CheckM) (ConLeche.fueledOps μ F) envI envC pp
       (ConLeche.blockNestedBit pp.toBlockShape kindsR)
-      (ConLeche.nestKindsFlat kindsR) nodesR block cvTasR ctorsAsR
+      (ConLeche.nestKindsFlat kindsR) nfsR posR block cvTasR ctorsAsR
       (ConLeche.blockNormalCtors pp.toBlockShape ctorsAsR nfsR) = .ok out ∧
   ConLeche.checkBlockPositivity (m := ConLeche.CheckM) (ConLeche.fueledOps μ F) envI
-      envI.find? envI.consts pp cvTasR ctorsAsR = .ok (kindsR, nfsR, nodesR) ∧
+      envI.find? envI.consts pp cvTasR ctorsAsR = .ok (kindsR, nfsR, posR) ∧
   envC = ConLeche.consBlockCtors pp.nP ctorsAsR envI ∧
   ctorsAsR.map (·.map (fun cA => (cA.1.name, cA.2)))
     = pp.members.map (fun ms => ms.ctors.map (fun c => (c.1.name, c.2))) ∧
@@ -211,6 +213,14 @@ over the input environment. -/
   LfpCover mpC [] ∧
   FormersModelAt (V := V) envI pp.toBlockShape.memberNames mpC dR pp.lps cvTasR
     pp.toBlockShape isRecR ∧
-  BlockOverEnv envC pp.toBlockShape.memberNames
+  BlockOverEnv envC pp.toBlockShape.memberNames ∧
+  -- the recursor check's run: its seeds walked at `envI`, continuing the
+  -- positivity run's state, its table `tblR`
+  (∃ R : ConLeche.TargetRecRun μ F (mkFEnv envC) pp.toBlockShape
+      (ConLeche.blockNestedBit pp.toBlockShape kindsR) block cvTasR ctorsAsR out,
+    R.fe₁ = mkFEnv envI ∧ R.env₁ = envI ∧ R.nfs = nfsR ∧ R.pos = posR ∧ R.tbl = tblR) ∧
+  -- the block's constructors conclude in its members
+  (∀ c ∈ ctorsAsR.flatten, ∀ C, (ctorEntry C (.ctorInfo c.1 pp.nP c.2)).isSome = true →
+    C ∈ pp.toBlockShape.memberNames)
 
 end ConLeche.Model

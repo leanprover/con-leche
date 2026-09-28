@@ -93,9 +93,9 @@ theorem nestedClassNodes (hμ : μ.verifiedChecks = true) {F : Nat}
     {mpC : EnvModelM V μ envC} {dR : BlockData V} {isRecR : Bool}
     {A : Nat → (Name → Nat) → AnnotTerm}
     {kindsR : List (List (List ConLeche.NestFieldKind))} {nfsR : List (List Expr)}
-    {nodesR : ConLeche.NestNodes}
+    {posR : ConLeche.NestState} {tblR : List ConLeche.NestCtorNf}
     (hctx : NestedRecCtx V μ F block envC envI pp cvTasR ctorsAsR out mpC dR isRecR A kindsR nfsR
-      nodesR)
+      posR tblR)
     {Dc : Nat → LfpDatum V} {mc : Nat → Nat} {cvc : Nat → ConstantVal}
     (hcls : ∀ c, c < (tgtRs out).length → (tgtMajor out c).member = none →
       TgtOutCls mpC (tgtMajor out c) (Dc c) (mc c) (cvc c))
@@ -215,9 +215,9 @@ theorem nestedRecStage (hμ : μ.verifiedChecks = true) {F : Nat}
     {mpC : EnvModelM V μ envC} {dR : BlockData V} {isRecR : Bool}
     {A : Nat → (Name → Nat) → AnnotTerm}
     {kindsR : List (List (List ConLeche.NestFieldKind))} {nfsR : List (List Expr)}
-    {nodesR : ConLeche.NestNodes}
+    {posR : ConLeche.NestState} {tblR : List ConLeche.NestCtorNf}
     (hctx : NestedRecCtx V μ F block envC envI pp cvTasR ctorsAsR out mpC dR isRecR A kindsR nfsR
-      nodesR) :
+      posR tblR) :
     BlockRecStagedT (V := V) μ envC pp.toBlockShape out mpC := by
   have hctx' := hctx
   obtain ⟨hRec, hPos, henvC, hnames, hndM, hN, hS, hcore, hctorsAs, hdR, hlfp, hcov, hmk,
@@ -918,11 +918,31 @@ theorem declBlock (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
       rw [denoteMeta_acval_congr (env := env₁) (acval₂ := mk.base2.acval) hagk]
       exact h
   -- ## the recursors' stage, and the tables' invariant across it
+  -- the check's run (its seeds' table) and the block's constructors' heads
+  obtain ⟨R, hR₁, hRe, hRn, hRp⟩ := ConLeche.targetRecCheck_run_aux
+    (ConLeche.checkBlockRecT_run (ConLeche.checkBlockRecT_of_rec hRec))
+  have hheads : ∀ c ∈ ctorsAs.flatten, ∀ C,
+      (ctorEntry C (.ctorInfo c.1 (p₀.complete p₁).nP c.2)).isSome = true →
+      C ∈ (p₀.complete p₁).toBlockShape.memberNames := by
+    intro c hc C hC
+    obtain ⟨l, hl, hcl⟩ := List.mem_flatten.mp hc
+    obtain ⟨m, hm, rfl⟩ := List.getElem_of_mem hl
+    have hmk : m < p₁.k := by rw [← hlenCtorsAs]; exact hm
+    obtain ⟨bs, body, us, hs, hg⟩ := hheadK m hmk c (by
+      rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hm]; exact hcl)
+    rw [ctorEntry_head rfl hs hg hC]
+    have hml : m < p₁.memberNames.length := by
+      simpa [ConLeche.BlockShape.memberNames, ConLeche.BlockShape.k] using hmk
+    simp only [BlockData.memberName, blockDataOf, blockDataPre, BlockData.withPhi,
+      BlockParts.complete_toBlockShape]
+    rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hml, Option.getD_some]
+    exact List.getElem_mem hml
   obtain ⟨mpR₀, hag, hfindMono, hden, hnpMono⟩ :=
     nestedRecStage (mpC := mpC) (A := blockLeafH (blockDataOf V p₁ ctorsAs pk uOf ppsOf)) hμ
       ⟨hRec, hPos, rfl, hnames, hndM, hN, hS.toBlockCtorsStage, hcoreC,
         fun c hc => hctorsAs c hc, ⟨pk, uOf, ppsOf, rfl⟩,
-        EnvModelM.mem_addLfp mpC₀ _ hLC hstC hrdC hcrC, hcovMpC, hmkI, hover⟩
+        EnvModelM.mem_addLfp mpC₀ _ hLC hstC hrdC hcrC, hcovMpC, hmkI, hover,
+        ⟨R, hR₁, hRe, hRn, hRp, rfl⟩, hheads⟩
   have hcoreT :=
     (blockTablesCore_of hN hcoreC hnpEnvC).consRecs hag hfindMono hden hnpMono hslotC
   -- ## coverage across the recursors' conses: only recursors

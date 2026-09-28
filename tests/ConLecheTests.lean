@@ -565,7 +565,8 @@ private def zRecK (block : List ConstantInfo) : Except CheckError Nat := do
   let some p₀ := blockParts? 0 block | throw (.internal "blockParts?")
   let q ← checkBlockPass (pureOps .verified) Env.empty p₀ false
   let env₂ := consBlockCtors q.p.nP q.ctorsAs q.env₁
-  let out ← checkBlockRecT (pureOps .verified) env₂ q.p false q.nodes block q.cvTas q.ctorsAs
+  let out ← checkBlockRecT (pureOps .verified) q.env₁ env₂ q.p false q.nfs q.pos block q.cvTas
+    q.ctorsAs
   pure out.length
 
 -- The check ACCEPTS the zero-motive recursor and its correct rule.

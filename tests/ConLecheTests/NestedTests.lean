@@ -198,10 +198,11 @@ environment). -/
 
 A frame walks every member of the container's recorded block, reached or
 not (official copies the whole block).  The walk reads fields after whnf:
-an occurrence whnf ERASES is no node of the walk itself — the install
-stage walks it as a SEED when the stream's recursor family eliminates it
-(`nestSeeds`, `checkBlockPositivity`; e2e `corner_posderiv_major_delta`),
-and the recursor check refuses a family naming a class that is no node. -/
+an occurrence whnf ERASES is no node of the walk itself — the recursor
+check walks it as a SEED when the stream's recursor family eliminates it
+(`checkBlockSeeds`, every class stage (b) resolved; e2e
+`corner_posderiv_major_delta`), so every class of the family is a node by
+construction. -/
 
 @[expose] def cA2 : Expr := .const (nm "A2") []
 @[expose] def cB2 : Expr := .const (nm "B2") []
