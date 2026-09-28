@@ -1,12 +1,13 @@
 module
 
-public import ConLeche.Model.Inductives.ClassRunWF
+import ConLeche.Model.Inductives.ClassRunWF
+public import ConLeche.Model.Inductives.ClassStage
+public import ConLeche.Verify.Inductives.ClassInv
 public import ConLeche.Model.Inductives.BlockRecRule
 public import ConLeche.Model.Rules.Inputs
 import ConLeche.Model.Rules.Sound
 import ConLeche.Verify.Rules.Bridge
 import ConLeche.Verify.InferLeaves
-import ConLeche.Model.Tiers
 import ConLeche.Verify.Cached.Erase
 
 public section

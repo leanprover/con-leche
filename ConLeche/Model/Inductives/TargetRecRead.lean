@@ -3,7 +3,6 @@ module
 import ConLeche.Model.Annot.Bit
 import ConLeche.Model.Annot.BitLemmas
 import ConLeche.Model.Inductives.StructEntryKit
-import ConLeche.Model.Rules.Sound
 public import ConLeche.Model.Inductives.BlockRecRule
 public import ConLeche.Model.Annot.LocList
 import ConLeche.Kernel.Inductives.RecCheck
