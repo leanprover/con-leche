@@ -20,10 +20,10 @@ public section
 One stage at a time: the formers' run (`blockFormerFacts_of`), the DUMMY pass
 (`blockDummyPass`), every member's constructors read at its carrier
 (`blockCtorFunsAt`), the fields with holes as the walked term's reading
-there (`nfFieldsRead`, `blockAbsRead_of_run`) with the stored field
-shape facts (`blockStoredShapes_of_run`), the members' index telescopes
-(`blockIdxFacts_of`), the HOLE chains graded by U2 — the install's
-positivity stage, run at the dummy carrier (`blockHoleGrade_of_run`,
+there (`nfFieldsRead`, `MemberPosFacts.absRead`) with the stored field
+shape facts (`MemberPosFacts.storedShapes`), the members' index telescopes
+(`blockIdxFacts_of`), the HOLE chains graded by U2 — the member block's
+positivity facts at the dummy carrier (`MemberPosFacts.grade`,
 `blockHoleChains_facts`) — the REAL pass at the
 formers' HOLE leaves (`blockRealPass`, `blockLeafH`), the constructors
 read again at ITS carrier, where the walked term reads alike

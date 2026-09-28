@@ -44,9 +44,11 @@ carrier at the installed environment.  It is the fold's block step
 read off its own run:
 
 * the formers' and the constructors' stage (`blockTablesStage_of`), the
-  operator's monotonicity from positivity (`blockCtorPos_of_run`) and
-  the fields' grading (`blockHoleGrade_of_run`), under coverage at the
-  formers' carrier (`lfpCover_formers`);
+  operator's monotonicity from positivity (`MemberPosFacts.pos`) and
+  the fields' grading (`MemberPosFacts.grade`), under coverage at the
+  formers' carrier (`lfpCover_formers`) — all read through ONE record,
+  `MemberPosFacts`, produced from the positivity check's run
+  (`memberPosFacts_of_run`);
 * the constructors consed (`stageBlockCtors`), the block's lfp clause
   recorded, coverage across the conses;
 * the recursors' stage (`nestedRecStage`, the four cons-monotonicities
