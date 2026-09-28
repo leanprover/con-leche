@@ -650,4 +650,98 @@ theorem classKeysCyclic_run {age : Name → Nat} {cls : List ClassInfo} {hi : Na
     · exact key.2
     · exact classKeysCyclic_run key.1 c' hc'
 
+/-! ## The per-component defeq tier -/
+
+/-- **Parameters per component**: equal up to the free variables'
+annotations, or both inferred and `isDefEq` at depth `d`. -/
+@[expose] def ClassParamDefEq (ops : CheckerOps CheckM) (env : Env) (d : Nat) (a b : Expr) : Prop :=
+  a.eraseFVarTys = b.eraseFVarTys ∨
+    ((∃ t, ops.inferType env d a = .ok t) ∧ (∃ t, ops.inferType env d b = .ok t) ∧
+      ops.isDefEq env d a b = .ok true)
+
+/-- **`classParamsDefEq`, inverted**: pairwise `ClassParamDefEq`. -/
+theorem classParamsDefEq_true {d : Nat} :
+    ∀ {as bs : List Expr}, classParamsDefEq ops env d as bs = .ok true →
+      as.length = bs.length ∧ ∀ (i : Nat) (a b : Expr), as[i]? = some a → bs[i]? = some b →
+        ClassParamDefEq ops env d a b
+  | [], [], _ => ⟨rfl, fun _ _ _ h => by simp at h⟩
+  | [], _ :: _, h => by simp [classParamsDefEq, pure, Except.pure] at h
+  | _ :: _, [], h => by simp [classParamsDefEq, pure, Except.pure] at h
+  | a :: as, b :: bs, h => by
+    unfold classParamsDefEq at h
+    have key : ClassParamDefEq ops env d a b ∧ classParamsDefEq ops env d as bs = .ok true := by
+      split at h
+      · rename_i he; exact ⟨Or.inl (by simpa using he), h⟩
+      · obtain ⟨t1, h1, h⟩ := exceptBind_ok h
+        obtain ⟨t2, h2, h⟩ := exceptBind_ok h
+        obtain ⟨b0, hb, h⟩ := exceptBind_ok h
+        cases b0
+        · simp [pure, Except.pure] at h
+        · exact ⟨Or.inr ⟨⟨t1, h1⟩, ⟨t2, h2⟩, hb⟩, by simpa using h⟩
+    obtain ⟨hl, hall⟩ := classParamsDefEq_true key.2
+    refine ⟨by simp [hl], fun i a' b' ha hb => ?_⟩
+    cases i with
+    | zero =>
+      simp only [List.getElem?_cons_zero, Option.some.injEq] at ha hb
+      subst ha hb; exact key.1
+    | succ i => exact hall i a' b' (by simpa using ha) (by simpa using hb)
+
+/-- **An alias, as found**: some container class with the alias's
+inductive, parameter count and hole, at equivalent levels, whose
+hole-form parameters the occurrence's (the alias's, up to annotations)
+match per component. -/
+@[expose] def ClassAliasOk (ops : CheckerOps CheckM) (env : Env) (hi : Nat) (cls : List ClassInfo)
+    (al : ClassAlias) : Prop :=
+  ∃ ci ∈ cls, ∃ ps : List Expr, ci.key.ind = al.ind ∧ ci.nPc = al.nPc ∧ ci.hole = some al.hole ∧
+    Level.isEquivList al.lvls ci.key.lvls = some true ∧ al.ps = ps.map Expr.eraseFVarTys ∧
+    classParamsDefEq ops env hi ps (ci.holeForm cls) = .ok true
+
+/-- **`classAliases`, inverted.** -/
+theorem classAliases_run {hi : Nat} {cls : List ClassInfo} :
+    ∀ {es : List Expr} {al : List ClassAlias}, classAliases ops env hi cls es = .ok al →
+      ∀ a ∈ al, ClassAliasOk ops env hi cls a
+  | [], al, h => by
+    simp only [classAliases, pure, Except.pure, Except.ok.injEq] at h
+    subst h; intro _ h; exact nomatch h
+  | e :: es, al, h => by
+    unfold classAliases at h
+    obtain ⟨rest, hr, h⟩ := exceptBind_ok h
+    have ih := classAliases_run hr
+    split at h
+    · rename_i I us hfn
+      dsimp only at h
+      obtain ⟨found, hloop, h⟩ := exceptBind_ok h
+      have hP := except_forIn_inv (fun f : Option ClassAlias => ∀ a, f = some a →
+          ClassAliasOk ops env hi cls a) (by intro a h; simp at h) (fun c hc s s' hs hst => by
+        split at hst
+        · rename_i hcond
+          obtain ⟨b0, hb, hst⟩ := exceptBind_ok hst
+          split at hst
+          · rename_i hb0
+            simp only [pure, Except.pure, Except.ok.injEq] at hst
+            subst hst
+            intro a ha
+            simp only [ForInStep.value, Option.some.injEq] at ha
+            subst ha
+            simp only [Bool.and_eq_true, beq_iff_eq, decide_eq_true_eq, Option.isSome_iff_exists]
+              at hcond
+            obtain ⟨⟨⟨⟨-, hI⟩, -⟩, hv, hhv⟩, hlv⟩ := hcond
+            refine ⟨c, hc, _, hI, rfl, ?_, hlv, rfl, by rw [hb, hb0]⟩
+            simp [hhv]
+          · simp only [pure, Except.pure, Except.ok.injEq] at hst
+            subst hst; exact hs
+        · simp only [pure, Except.pure, Except.ok.injEq] at hst
+          subst hst; exact hs) hloop
+      simp only [pure, Except.pure, Except.ok.injEq] at h
+      subst h
+      intro a ha
+      cases found with
+      | none => exact ih a ha
+      | some a0 =>
+        rcases List.mem_cons.mp ha with rfl | ha
+        · exact hP _ rfl
+        · exact ih a ha
+    · simp only [pure, Except.pure, Except.ok.injEq] at h
+      subst h; exact ih
+
 end ConLeche
