@@ -1,6 +1,7 @@
 module
 
 import ConLeche.Verify.Inductives.RecStage
+public import ConLeche.Verify.Inductives.RecStageRun
 import ConLeche.Verify.Inductives.TargetAuxFire
 import ConLeche.Verify.Inductives.DirectGen
 import ConLeche.Verify.InstSpine

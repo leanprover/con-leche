@@ -8,6 +8,7 @@ import ConLeche.Verify.ExceptBind
 import ConLeche.Kernel.Inductives.FieldTele
 import ConLeche.Verify.Inductives.BlockWF
 import ConLeche.Verify.Inductives.RecStage
+import ConLeche.Verify.Inductives.RecStageRun
 
 @[expose] public section
 

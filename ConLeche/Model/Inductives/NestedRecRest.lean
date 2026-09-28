@@ -1,6 +1,7 @@
 module
 
 import ConLeche.Verify.Inductives.RecStage
+public import ConLeche.Verify.Inductives.RecStageRun
 import ConLeche.Model.Inductives.BlockRecAssembly
 import Std.Data.String.ToNat
 public import ConLeche.Model.Inductives.BlockDeclRun

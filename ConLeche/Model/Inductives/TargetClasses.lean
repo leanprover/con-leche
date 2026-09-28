@@ -4,6 +4,7 @@ import ConLeche.Model.Inductives.TargetOutRows
 public import ConLeche.Model.Inductives.TargetOutChain
 import ConLeche.Model.Inductives.BlockRecGraph
 import ConLeche.Verify.Inductives.RecStage
+public import ConLeche.Verify.Inductives.RecStageRun
 import ConLeche.Model.Inductives.TargetOutConv
 import ConLeche.Model.Inductives.TargetOutConcl
 import ConLeche.Model.Inductives.TargetOutCa
