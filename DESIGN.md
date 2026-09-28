@@ -93485,4 +93485,7 @@ pre-FUSELOOP by construction.  Fixtures kept:
 and its proofs (`unitLike_eq_punit`, `Verify/PinnedShapes.lean`); stream-declared unit-like types go
 through `structUnitCert` (`caps.unitlike`), so the special path serves no purpose any more.  Measure
 that no verdict moves (arena, e2e, init-full) and perf.  Also: never rely on this narrowness in
-arguments (maintainer, same day).
+arguments (maintainer, same day).  AND install `PUnit` through the NORMAL installer instead of the
+pinned basis block (`Kernel/Basis/PUnit.lean`, `reservedBasisNames`): check first why it was pinned
+(prelude, pin/basis proofs, `BasisPinnedTT`, model shortcuts) and move whatever depends on the pin
+onto the ordinary installed facts.
