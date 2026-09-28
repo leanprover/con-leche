@@ -93479,3 +93479,14 @@ pre-FUSELOOP by construction.  Fixtures kept:
 * Gates: `lake build`/`lake test` warning-free, full `tests/arena.sh`
   green (e2e 414/414, shake all allowlisted, pub-imports none demotable,
   layering, links, quote gate).
+
+**DOCKET (maintainer, 2026-09-28) — for when we are back on master:** remove the `PUnit` special case
+`isUnitLikeTy` (`Kernel/CoreDefs.lean:89`, used only by `proofIrrel`'s fallback, `Kernel/Core.lean:292`)
+and its proofs (`unitLike_eq_punit`, `Verify/PinnedShapes.lean`); stream-declared unit-like types go
+through `structUnitCert` (`caps.unitlike`), so the special path serves no purpose any more.  Measure
+that no verdict moves (arena, e2e, init-full) and perf.  Also: never rely on this narrowness in
+arguments (maintainer, same day).  AND install `PUnit` through the NORMAL installer instead of the
+pinned basis block (`Kernel/Basis/PUnit.lean`, `reservedBasisNames`): check first why it was pinned
+(prelude, pin/basis proofs, `BasisPinnedTT`, model shortcuts) and move whatever depends on the pin
+onto the ordinary installed facts.  (Maintainer: the pin dates from when simple inductives were still
+MODELLED; that ended ~3 weeks ago, so the reason is gone — expect only leftover dependents.)
