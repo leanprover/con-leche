@@ -466,6 +466,41 @@ theorem classGenConcl_read (m : EnvModel V env) {φ : Name → Nat} {F lo n mc :
 
 end Pieces
 
+/-! ## The prefix's bound -/
+
+theorem fieldsBelow_take_of_domsBelow :
+    ∀ (n : Nat) {k : Nat} {ps : List (Nat × Nat × AnnotTerm)}, DomsBelow k ps →
+      FieldsBelow k ((ps.take n).map (·.2.2))
+  | 0, _, _, _ => by simp [FieldsBelow]
+  | _ + 1, _, [], _ => by simp [FieldsBelow]
+  | n + 1, k, p :: ps, h => ⟨h.1, fieldsBelow_take_of_domsBelow n h.2⟩
+
+section Prefix
+
+variable {V : Type w} [SetTheory V] {μ : CheckMode} {env envK : Env}
+
+/-- **The shared prefix's domains are bounded at their positions** (the
+`hP` rows of `genHchI_of_below`): the generated type is closed, so its
+reading names no variable, and neither does any of its domains beyond
+the binders before it. -/
+theorem classGenRecTy_prefix_below (m : EnvModel V env) {φ : Name → Nat} {g : ClassGen}
+    (hg : ClassGenScoped g) {c s : Nat}
+    (hm : ConLeche.ClassRead.motiveSlot ⟨g.slots, []⟩ c = some s) {F : Nat}
+    {gty gtyA : Expr} {ea : AnnotTerm}
+    (hgty : classGenRecTy g c = some gty)
+    (hann : ConLeche.annotateCore μ envK F 0 gty = .ok gtyA)
+    (hread : denoteMeta m.acval env φ 0 gtyA = some ea)
+    {n : Nat} {pps : List (Nat × Nat × AnnotTerm)} {b : AnnotTerm}
+    (hst : stripPisAV n ea = some (pps, b)) (k : Nat) :
+    FieldsBelow 0 ((pps.take k).map (·.2.2)) := by
+  have hclosed := ConLeche.classGenRecTy_closed hg hm hgty
+  have hgA := annotate_syntax hann hclosed.1 hclosed.2
+  have hB := bvarsBelow_of_reading (m := m) (Expr.WScoped.of_not_hasFvar hgA.1) hgA.2 hread
+  rw [(stripPisAV_eq_mkPis hst).1] at hB
+  exact fieldsBelow_take_of_domsBelow k (bvarsBelow_mkPisAV_inv hB).1
+
+end Prefix
+
 /-! ## The minor premise's typing -/
 
 /-- The prefix position of class `t`'s motive. -/

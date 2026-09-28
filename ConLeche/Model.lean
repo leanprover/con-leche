@@ -113,6 +113,7 @@ public import ConLeche.Model.Inductives.ClassRecTransfer
 public import ConLeche.Model.Inductives.ClassRecKit
 public import ConLeche.Model.Inductives.ClassGenRead
 public import ConLeche.Model.Inductives.ClassGenStep
+public import ConLeche.Model.Inductives.ClassGenMinor
 public import ConLeche.Model.Annot.EnvModelM
 public import ConLeche.Model.BasisLfp
 public import ConLeche.Model.Rules.Recompose
