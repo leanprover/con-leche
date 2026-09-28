@@ -93996,3 +93996,70 @@ change needed):**
 (T3 semantic: the `targetAbs_read` pattern over `classAbsSpec` with
 spine-headed occurrences, (b), (c), and the alias tier through
 `defeq_sound`).  Total ≈ 13–19 sessions (was 14–20).
+
+## CLASSCHECK / P2C — the flat facts of a field (T4), ported (2026-09-28, `agent/cc-P2C`)
+
+PROOFPLAN phase P2c (T4) done, sorry-free, 700 lines in two new modules
+(base build via `ConLeche/Model.lean`):
+
+* `Model/Inductives/ClassFieldMono.lean` — `fieldD_mono`: every
+  judgment of `FieldD` (at `fueledOps .verified F`) reads monotonically
+  (`ClassMonoJ`: a field `MonoOn R`, a telescope `PiPosThen (ResultAt …)`)
+  along `ClassHoleRel ctx cls hi d Δa R` — related frames satisfy the
+  context, agree off `holeP d nP hi`, and EVERY hole grows at its full
+  arity (`HoleOn`).  `classCtorWalk_mono`: one constructor of a class
+  from its `ClassCtorWalk`, conclusion
+  `PiPosThen (ResultIdxConst (if c.member.isSome then nP else 0)) nF R ca`
+  (the old `memberCtorD_mono`'s shape, at a container class's
+  constructor too).
+* `Model/Inductives/ClassFieldAcc.lean` — `fieldD_acc` (`w ≠ 0`):
+  `ClassAccConcl` per field (type regime; `AccOn` with a bound of the
+  level, `SizeOn`, `InvOn (MentP nP hi dep nf)` — the U4 uniformity) and
+  `PiAccThenC` per telescope (the old `PiAccThen` with `HoleQ ctx prog`
+  replaced by `ClassHoleQ ctx cls hi`), along `ClassHoleRelA` (dom,
+  agree, `Symm`, `RichOn (ClassHoleQ …)` — no `FrameBlind`, no `lrefl`:
+  no hole is ever pinned).  `classCtorWalk_acc`: the constructor, as
+  above, under `TeleSmall`.
+
+**The holes** (`ClassHoleAr ctx cls hi i n`): `nP ≤ i < hi` and some
+class `c` with either `i < hiAt 0`, `c.member = some (i - nP)`,
+`n = nP + c.nIdx` (a member hole: parameters then indices), or
+`hiAt 0 ≤ i`, `c.hole = some (fvar i _)`, `n = c.nIdx` (a container
+class's hole: indices only).  Read off the class list exactly as the
+two hole rules record them; `hiAt 0 ≤ hi` is never assumed (the leaf's
+`i < hi` comes from the occurrence, `holeHead_bounds`).
+
+**Deviations / notes for P2d/P2e.**
+1. Two context premises the old `PosD.hole` did not need: `hparL :
+   ctx.params.length = nP`, `hparF : ∀ x ∈ ctx.params, x.nestOcc names
+   nP hi = false` — `FieldD.memberHole` checks only the indices
+   hole-free and the parameters syntactically (`take nP = ctx.params`).
+   Both are facts of the canonical parameter variables (`fvar 0 ..<
+   nP`), for P2e to supply.
+2. A member hole's arity is the CLASS's `nIdx` (not `ctx.nIdxs`); by
+   `ClassKeyOk.member` they agree — the consumer's relation proves
+   `HoleOn` at `nP + ctx.nIdxs.getD t 0` and rewrites.
+3. Dropped from the old acc motive (container-only): `OutOk`/`OutTele`
+   (the walk's output reads as its input — used only to run a
+   container frame's telescope) and `OutMent`.  The consumer's link
+   between the walked crest and the datum's fields stays `FieldsEqOn`
+   (as `teleAccP_of_piAccThen` today).
+4. Left to the consumers (P2d/P2e): the move from these term-level
+   facts to the set-level `OpOk` of `ClassSys` (old pattern:
+   `blockCtorPos_of_run` → `CtorPos`/`blockMono_of_pos`, and
+   `teleAccP_of_piAccThen` → `TeleAccP` → `accTuple_holeOp`); a
+   `PiAccThenC` twin of `teleAccP_of_piAccThen` is a mechanical copy
+   (its only `HoleQ` use is `shiftQ_holeQ`, here `shiftQ_classHoleQ`),
+   and the relation's richness at free holes is `accRel_rich`.
+5. Flip: these modules import vocabulary from delete-list files —
+   `NestPosMono` (`holeP`, `holeP_succ`, `constOn_spine`,
+   `wScoped_mkAppN`, `DenoteMetaSpine.*`, `denoteMeta_noBVar_of_nestOcc`,
+   `PiPosThen(.mono)`, `ResultAt`, `ResultIdxConst`) and `NestPosAcc`
+   (`MentP`, `mentP_body`, `noBVar_not_mentNH`, `TeleSmall`,
+   `transfer_of_constOn`/`_accOn`, `RichOn.congrQ`, `InvOn.mono`).
+   P4 must move them (generic, prog-free) before deleting those files.
+   Nothing from `PosDeriv*` is used (`classMono_of_whnf`,
+   `classAcc_of_whnf`, `resultIdxConst_of_resultAtC` are fresh copies).
+
+**Estimate.**  P2c done (1 session, planned 1).  Total unchanged
+(≈ 13–19 sessions).
