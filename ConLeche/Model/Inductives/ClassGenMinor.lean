@@ -1,8 +1,8 @@
 module
 
 public import ConLeche.Model.Inductives.ClassGenStep
-public import ConLeche.Model.Inductives.ClassGenRead
 public import ConLeche.Verify.Inductives.ClassGenMinorSyn
+import ConLeche.Model.Inductives.ClassGenRead
 import ConLeche.Model.Inductives.NestPosOut
 import ConLeche.Model.Inductives.StoredShapes
 import ConLeche.Model.Inductives.StructFrameKit
@@ -16,7 +16,6 @@ import ConLeche.Model.Annot.BitRename
 import ConLeche.Model.Annot.Valid
 import ConLeche.Model.Annot.LfpFormer
 import ConLeche.Semantics.DeclRun
-import ConLeche.Verify.Leaves
 import ConLeche.Verify.Abstract
 import ConLeche.Semantics.Kit
 import ConLeche.Semantics.Tower.FixTower
