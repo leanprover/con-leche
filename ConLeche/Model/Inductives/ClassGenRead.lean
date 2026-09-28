@@ -498,6 +498,40 @@ theorem classGenRecTy_concl
       List.getElem?_append_right (by simp [hxl, hzl, hifl])]
     simp [hxl, hzl, hifl]
 
+open ConLeche.SetTheory SetTheory in
+set_option maxHeartbeats 800000 in
+/-- **The generated type's conclusion is a type of the elimination
+level** (`hconclTy`'s content): at every fit of the type's binder data
+(prefix, index spine, major) the conclusion reads into
+`univ (Level.eval φ elim)` — the claims' sort semantics at the type's
+opened frame (`piConcl_univ`), the sort being `Sort elim`
+(`classGenRecTy_conclSort`). -/
+theorem classGenRecTy_conclTy (hμ : μ.verifiedChecks = true) {envK : Env}
+    (mpC : EnvModelM V μ envK) {φ : Name → Nat} {g : ClassGen} (hg : ClassGenScoped g)
+    {c s : Nat} (hm : ConLeche.ClassRead.motiveSlot ⟨g.slots, []⟩ c = some s) {F : Nat}
+    {gty gtyA S : Expr} {ea : AnnotTerm}
+    (hgty : classGenRecTy g c = some gty)
+    (hann : ConLeche.annotateCore μ envK F 0 gty = .ok gtyA)
+    (hinf : ConLeche.inferTypeCore μ envK F 0 gtyA = .ok S)
+    (hread : denoteMeta mpC.base2.acval envK φ 0 gtyA = some ea)
+    (hwd : ∀ ρ : Nat → V, WellDenotedV V ρ ea) :
+    ∃ pps b, stripPisAV (g.pre.length + (g.cls.getD c default).nIdx + 1) ea = some (pps, b) ∧
+      ∀ (ρ : Nat → V) (ys : List V), SpineFit ρ (pps.map (·.2.2)) ys →
+        interp V (consList ys ρ) b ∈ˢ (univ (Level.eval φ g.elim) : V) := by
+  obtain ⟨fvs, o, bt, hop, hbt, hu⟩ := classGenRecTy_conclSort hμ hg hm hgty hann hinf
+  rw [Nat.zero_add] at hbt hu
+  obtain ⟨pps, b, hst, hb, hlen, hpp⟩ := denoteMeta_openPis _ hop hread
+  rw [Nat.zero_add] at hb
+  obtain ⟨hcf, hcb⟩ := annotate_syntax hann (ConLeche.classGenRecTy_closed hg hm hgty).1
+    (ConLeche.classGenRecTy_closed hg hm hgty).2
+  have huniv := piConcl_univ hμ mpC φ (Expr.WScoped.of_not_hasFvar hcf) hcb
+    (stripPisAV_eq_mkPis hst).1 hlen
+    (fun j x hx => by
+      obtain ⟨p, hp, hp1, hpr⟩ := hpp j x hx
+      exact ⟨p, hp, hp1, by simpa using hpr⟩) hb hwd hop hbt hu
+  refine ⟨pps, b, hst, fun ρ ys hys => huniv _ ?_⟩
+  simpa using sat_of_spineFit (Sat_nil V ρ) hys
+
 end Concl
 
 /-! ## The shared prefix -/
