@@ -9,13 +9,15 @@ public import ConLeche.Cached.ParsedC
 /-!
 # `class-sweep`: the class checker on a stream (TEST DRIVER, not shipped)
 
-`class-sweep [--both] FILE.ndjson` checks a raw export like `con-leche`
+`class-sweep [--both|--old] FILE.ndjson` checks a raw export like `con-leche`
 at `--verified`, one declaration after the other (no install/check
 split, no worker pool), with every recognised inductive block installed
 by the CLASS checker (`checkBlockClassKS`) instead of the default route.
 Exit codes are the arena's.  `--both` also runs the default route at
 every block from the same state and prints a `CLASSDIFF` line where the
-two verdicts differ (the class checker's result is the one kept).
+two verdicts differ (the class checker's result is the one kept);
+`--old` runs the default route everywhere (the same sequential fold, for
+measurements).
 -/
 
 open ConLeche ConLeche.Cached
@@ -37,12 +39,13 @@ def classBlock? (d : Declaration) : Option (List ConstantInfo × BlockParts) :=
 def declName : Declaration → String := declCLabel
 
 def main (args : List String) : IO UInt32 := do
-  let (both, file) := match args with
-    | ["--both", f] => (true, f)
-    | [f] => (false, f)
-    | _ => (false, "")
+  let (both, old, file) := match args with
+    | ["--both", f] => (true, false, f)
+    | ["--old", f] => (false, true, f)
+    | [f] => (false, false, f)
+    | _ => (false, false, "")
   if file == "" then
-    IO.eprintln "usage: class-sweep [--both] FILE.ndjson"
+    IO.eprintln "usage: class-sweep [--both|--old] FILE.ndjson"
     return 3
   let .ok prelude := Frontend.builtinPreludeE
     | IO.eprintln "class-sweep: the built-in prelude does not parse"; return 3
@@ -55,7 +58,7 @@ def main (args : List String) : IO UInt32 := do
     for d in ds do
       let stepNew : CheckCM FEnv := do
         flushC
-        match classBlock? d with
+        match (if old then none else classBlock? d) with
         | some (block, p) => checkBlockClassKS .verified fe block p
         | none => checkDeclC .verified natOpPinSets fe d
       let rNew := stepNew.run s
