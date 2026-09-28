@@ -94150,6 +94150,89 @@ two hole rules record them; `hiAt 0 ≤ hi` is never assumed (the leaf's
 **Estimate.**  P2c done (1 session, planned 1).  Total unchanged
 (≈ 13–19 sessions).
 
+## CLASSCHECK / P3C — the class kit wired into the recursor side (2026-09-28, `agent/cc-P3C`)
+
+PROOFPLAN §4.2 / §7 P3c.  Sorry-free, standard axioms only.  The three
+premises of `graphRecPre_gen` (`ClassRecKit.lean`) that are not the
+generator's — `hind`, `huniq`, `hconclTy` — are produced.
+
+* `Model/Inductives/ClassInd.lean` (new).
+  - `lfpClassKit` — `lfpNestKit` over `ClassKit` (the `extN` call case);
+    `lfpCl` the node clause.
+  - `ClassPres` — the recursor classes at a prefix spine as recorded lfp
+    clauses, ONE NODE PER CLASS: class `c` is component `mOf c` of node
+    `nd c` (`Rel c b ↔ b = nd c`; a class GROUP — a mutual container at
+    one key — shares its node, one component per class, so a call into a
+    group-mate is the kit's own-tuple case).  Its fields are the class
+    side's facts in PROOFPLAN §2.4–2.5's shape: `hcl`/`hAdm` (recorded
+    clause, admissible frames Sat with the true index sets — R2),
+    `fitMono`/`hAdmLe` (T5's `classMono` at the FIT, i.e.
+    `carrier_le_on_group'`'s `hwalk`, along a per-node frame order `Le`;
+    together they ARE the kit's `trans`), `top`, the class tie
+    `hIs`/`hCr`/`hinj`/`hfit` (T3′ at the generated family), and `hcall`
+    (`ClassLands`: own group / free hole / a deeper class at a frame
+    admissible for some layer of `extN`).
+  - `ClassPres.ind` — **`hind`** in `graphRecPre_gen`'s form
+    (`ClassKit.toNodeInd` + `NestNodeInd.ind_recNodesOn`).
+  - `ClassPres.uniq` — **`huniq`**: `ℓ = 0` from `hconclTy`; `w ≠ 0` by
+    `LfpClause.mkInj` (lengths and `j < nctors` from the true fit); at a
+    `Prop`-valued class under `ℓ ≠ 0` a per-major LICENCE hypothesis
+    (fits at one index tuple coincide — check 5's large-elimination
+    criterion; official never eliminates a nested `Prop` block large, so
+    it is a member-class fact).
+  - `genConclTy_of` — **`hconclTy`** at the generated classes from the
+    conclusion's typing at every fit of the generated binder data (`hty`).
+  - `graphRecPre_class` — `graphRecPre_gen` with the three discharged:
+    premises `hty`, and at every `xs` a `ClassPres` with its licence.
+* `Model/Inductives/ClassGenRead.lean`: `classGenRecTy_conclSort` (the
+  annotated generated type opens and its conclusion infers to a sort
+  `ensureSort` reads as EXACTLY `g.elim`) — `classGenRecTy_bits` is now
+  its corollary; `classGenRecTy_conclTy` — **`hty` from the generated
+  type** (given its reading `WellDenotedV`, `classRecTyOk_read_eq`'s half):
+  the conclusion reads into `univ (Level.eval φ g.elim)` at every fit.
+* `Model/Inductives/BlockRecPreRun.lean`: `piConcl_univ` —
+  `blockRecConcl_univ` generalised to any checked closed Π-type (the old
+  lemma is now a 9-line wrapper).
+* `tests/ConLecheTests/ClassKitPropTests.lean` — **the class kit at
+  `Prop`** (CC-DERISK's untested case): `nnkit`, E1's nested-in-nested
+  `Prop` cycle (`Foo | mk : List (Tree Foo)`, `Tree α | node : List (Tree
+  α) → Tree α`) one node per class, every injection `pt`, the member's
+  call at layer 1 of `extN`; `nnkit_ind` holds; `nn_decodings_not_unique`
+  exhibits a major with two decodings (`nil` and `cons a l`).  NO
+  countermodel: the kit never reads uniqueness (`claim_step` inducts over
+  the carrier's lfp with the fibre law's decoding); uniqueness is only the
+  recursor's `huniq`, handled above.  (`ClassFactsTests`: `nn`, `nnrd`,
+  `ptOr` now `@[expose]`.)
+
+**Findings.**
+1. `ind_recNodesOn`'s decoding fit has no index-set membership, but
+   `genFit`'s tie to the true `HFits` needs one (a result-index reading
+   determines the tuple only inside the index set); the wiring passes the
+   fit `t ∈ Is → fit` — no change to the generic lemma.
+2. "One node per class" must let a group share a node: with a node per
+   class a call into a group-mate would land at the caller's node under
+   another class, which `hpredR` cannot express.  `nd` is many-to-one on
+   exactly the groups.
+3. The kit's `trans` factors cleanly as `hAdmLe` (admissible ⇒ below the
+   true frame) + `fitMono` (fit monotone in frame and tuple) — the latter
+   is the fit-level `classMono` P2d proves anyway (`hwalk`); P2d should
+   deliver it in that shape.
+
+**For P4 (the wiring left).**  Build a `ClassPres` at every prefix spine:
+nodes from the recorded clauses (members: the block datum at the prefix's
+parameters, `Le` = equality, `fitMono` = `LfpClause.fitsMono`; containers:
+`D_c` at the key frame, `Le` = free holes grow, from P2d), `Gd c` = the
+prefix fits `c`'s prefix domains, the tie from T3′ (P2B), `hcall` from
+T1's hole rule + A1; the licence from check 5; `hty` =
+`classGenRecTy_conclTy` with `genRds = pps` (P3A finding 2).  Flip
+re-homing: `ClassInd` imports `TargetNestKit` (dead-listed) for
+`lfpSClause`/`lfpSClause_okAt`/`lfpSClause_carrier` — move them first.
+
+**Estimate.**  P3c done (1 session, planned 1).  P3 complete but for P4's
+wiring; total unchanged (≈ 13–19 sessions).
+
+Gates: `lake build`/`lake test` 0 warnings; `tests/arena.sh` green.
+
 ## CLASSCHECK / P2B — the class abstraction, read: P1 at true and at stage values (2026-09-28, `agent/cc-P2B`)
 
 PROOFPLAN T3 (P2A deviation 2: T3 is the SUBSTITUTION LAW P1 in hole
