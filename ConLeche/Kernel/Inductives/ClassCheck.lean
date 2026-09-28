@@ -518,6 +518,25 @@ def classCanonText (names : List Name) (nPc : Nat) (cv : ConstantVal) : Option E
     (nestAbstract ⟨names, cv.levelParams, nPc, [], classCanonParams nPc, .zero, fun _ => none, []⟩
       ((List.range names.length).map fun m => .fvar (nPc + m) (.sort .zero)) cv.type)
 
+/-- The group hole of mate `m` of `c`'s block (`names`): the class the
+recogniser finds for `D_m` at `c`'s key. -/
+def classGrpOf (cls : List ClassInfo) (names : List Name) (c : ClassInfo) (i : Nat) : Option Nat :=
+  (List.range names.length).find? fun m =>
+    match classOcc? cls (Expr.mkAppN (.const (names.getD m .anonymous) c.key.lvls) c.dsA) with
+    | some (.fvar j _, _) => j == i
+    | _ => false
+
+/-- The crest side's write-back: a group hole to its placeholder member
+(`fvar (hi + m)`, above every hole) applied to the key's free-hole form. -/
+def classGL (cls : List ClassInfo) (names : List Name) (c : ClassInfo) (hi : Nat)
+    (dsF : List Expr) (i : Nat) : Option Expr :=
+  (classGrpOf cls names c i).map fun m => Expr.mkAppN (.fvar (hi + m) (.sort .zero)) dsF
+
+/-- The canonical side's substitution: the parameters to the key's
+free-hole form, the members to the placeholders. -/
+def classGR (nPc hi : Nat) (dsF : List Expr) (i : Nat) : Option Expr :=
+  if i < nPc then dsF[i]? else some (.fvar (hi + (i - nPc)) (.sort .zero))
+
 /-- **The free classes commute with the instantiation** at container
 class `c` (free holes `isF`, group holes `isG`, every hole below `hi`),
 for the constructor `cv` of a group mate `d`: `d`'s crest (instantiated,
@@ -530,21 +549,14 @@ the key's free-hole values, the group at its lfp stage: substitutions on
 both sides, nothing else (DESIGN CLASSCHECK / P2D3). -/
 def classCommutes (cls : List ClassInfo) (mates : Name → List Name) (hi : Nat)
     (isF isG : Expr → Bool) (c d : ClassInfo) (cv : ConstantVal) : Bool :=
-  let names := mates c.key.ind
   let dsF := c.dsA.map (classAbsIf cls isF)
-  -- the group hole of mate `m`: the class `D_m` at `c`'s instantiation is recognised as
-  let grpOf : Nat → Option Nat := fun i => (List.range names.length).find? fun m =>
-    match classOcc? cls (Expr.mkAppN (.const (names.getD m .anonymous) c.key.lvls) c.dsA) with
-    | some (.fvar j _, _) => j == i
-    | _ => false
   match instPisWith d.dsA (cv.type.instantiateLevelParams cv.levelParams d.key.lvls),
-      classCanonText names c.nPc cv with
+      classCanonText (mates c.key.ind) c.nPc cv with
   | some e0, some A =>
-    let lhs := (classAbsIf cls (fun h => isF h || isG h) e0).replaceFVars fun i =>
-      (grpOf i).map fun m => Expr.mkAppN (.fvar (hi + m) (.sort .zero)) dsF
-    let rhs := (A.instantiateLevelParams cv.levelParams c.key.lvls).replaceFVars fun i =>
-      if i < c.nPc then dsF[i]? else some (.fvar (hi + (i - c.nPc)) (.sort .zero))
-    lhs.eraseFVarTys == rhs.eraseFVarTys
+    ((classAbsIf cls (fun h => isF h || isG h) e0).replaceFVars
+        (classGL cls (mates c.key.ind) c hi dsF)).eraseFVarTys ==
+      ((A.instantiateLevelParams cv.levelParams c.key.lvls).replaceFVars
+        (classGR c.nPc hi dsF)).eraseFVarTys
   | _, _ => false
 
 /-- The free-set certificate's vocabulary over the class indices: the
