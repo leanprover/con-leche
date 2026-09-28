@@ -93366,3 +93366,76 @@ lost; (D) keep frames, do FUSELOOP's next simplifications 1, 2, 4 (rule
 typed once with K.53′ per node, tie by construction, flush per node),
 2–4 sessions — "nodes = classes" not reached.  Recommendation: D now, A
 only if nodes = classes is worth P3/P4.
+
+
+#### CLASSCHECK — PARKED (maintainer, 2026-09-28)
+
+**What was tried.**  Branch `classcheck` (tag `classcheck-parked`; unbuilt WIP of the last lane: tag
+`classcheck-p2d4-wip`).  Plan, proof plan and coordinator log: `_tmp/classcheck/{PLAN,PROOFPLAN,LOG,
+TRANSLATE}.md`; each lane appended a "CLASSCHECK / …" DESIGN record on that branch.  A class-driven
+inductive checker: an unverified pre-pass reads the CLASSES (the recursor family's majors) and which
+fields recurse into which class; verified checks: class keys (members only in parameters as `T p⃗`,
+closed, R2 member-free index telescopes, R3 block sort), a flat per-field strict-positivity rule over
+the classes (class occurrences abstracted to holes BEFORE whnf — "expose, never create"), typing of
+each class's constructors with its CYCLIC inner classes abstracted (R6; abstracting every inner class
+rejects 7 official-accepted streams), universes/large-elim, then GENERATE the recursor from the classes
+and defeq it against the given one.  No separate graph-exploring positivity check.
+* **Checker:** 749 executed lines replacing 1,473 (net −724) before the proof forced `classFreeOk`
+  (+285 −47).  660–671-stream sweeps: never rejected what official accepts; moves were to official's
+  verdict (D1 superset lost; RCC create; missing class) plus one new sound superset (stream rules only
+  defeq to the generated ones — accepted by ruling on that branch only).
+* **Proved there, sorry-free:** the recursor side almost entirely — check-6 inversions, defeq transfer
+  (`ClassRecTransfer`: the rule-defeq superset costs nothing), graph-route premises BY CONSTRUCTION for
+  the generated family (`ClassRecKit`, `ClassGen*`: closedness from syntax, bits, prefix, minor typing),
+  the class kit with one node per class GROUP incl. Prop (`ClassKit`/`ClassInd`, `ExtG` = layered
+  `extN`); the set-level class facts without Bekić/fullness (`SetModel/ClassFacts`); the class check's
+  run inversion (`ClassInv`, `FieldD`), per-field mono/acc (`ClassFieldMono/Acc`), the substitution law
+  T3 (`ClassSubst`), stage identification at every frame (`ClassStageF`, `ClassIdent`); `Level.canon`
+  (official's `mk_max`/`mk_imax` normal form, value-preserving) for transitive level matching;
+  `MemberPosFacts` (the member block's positivity evidence as one run-free record); helper re-homing so
+  a 104-module delete set could go wholesale.
+
+**Why parked: the class view loses the frame information the old proof got for free.**
+* The OLD positivity check (path frames) ABSTRACTS FIRST, THEN INSTANTIATES: every node's constructor
+  type is literally the container's own recorded text at a key that already has the enclosing
+  under-construction types as holes, so `crest_read` identifies it with the recorded clause at ANY hole
+  values (incl. stage values) by substitution.  Price: path-dependent nodes (F13: `List` walked as
+  `List (RL z_TL)` and `List [z_R]`), and on the recursor side a class↔node bridge (`TargetNode*`,
+  ~10k lines).
+* The CLASS check walks each class ONCE in official's order — INSTANTIATE AT THE CONCRETE KEY, THEN
+  ABSTRACT the class occurrences.  At stage values (F13: ρ's field `z_λ` must mean List's fixpoint at
+  ρ's stage) the proof needs the class identified with the container's clause at hole-form frames, i.e.
+  that abstract∘instantiate = instantiate∘abstract.  That COMMUTATION fails for occurrences BUILT ACROSS
+  the instantiation (`corner_classcheck_hoparam`: `Ap (f) α | mk : f α` at `Ap RL T` makes `RL T` only
+  after instantiation; `corner_classcheck_wrapcross`).  Recovering it cost: kept/free sets (P2D: the
+  planned occurrence lemma A1 was false), a "demand" least solution for free sets (P2D3: the naive and
+  reachability versions are wrong/falsely reject 3 official-accepted streams), a ranking of coherent
+  reads, and ultimately the kernel check `classFreeOk` — proof-driven checker growth, against the goal
+  of a simple copyable algorithm.  Recorded per-block syntactic facts (own-name positivity, M3) could
+  NOT replace these checks: the excluded cases are excluded only by TYPING, and defeq-tier aliases have
+  no syntactic history.
+* **Translation to PosD (spike CC-TRANSLATE, `_tmp/classcheck/TRANSLATE.md`): not cheap.**  Proving
+  that the class check's run implies the old `PosD` (so the old tower applies) needs, per node, facts
+  about "container text at the holed key, whnf'd" — a term the class check never looked at.  Bridging =
+  either the commutation check (`classFreeOk` mostly stays) or a whnf renaming/lockstep lemma (F17 /
+  FRAME F4 / OPENIND's head-data sites), plus typing premises at intermediate node forms and the
+  one-class-many-nodes bridge again.  Estimated 7–12 sessions.
+* **Insight worth keeping (whnf commutation, narrowed):** class holes always stand for TYPES (inductive
+  applications).  Lean's reduction is parametric in type arguments (no typecase: β/δ/ι/proj/literals
+  never branch on a type argument), so "whnf commutes with replacing a type-valued rigid subterm by a
+  variable of the same sort" should hold except at the kernel's head-data peeks: proof irrelevance
+  (same sort by R3 — agrees), unit-like/structure η inside the β/proj/ι certificates' defeq (can
+  differ), and the Nat-op fallback.  A much narrower and likely affordable form of F17 if ever needed.
+  It does NOT cover occurrences built across instantiation (substitution, not reduction).
+* **Insight worth keeping (a declarative target for checkers):** the maintainer's framing — one
+  declarative notion of "positivity proven" (today `PosD`), a big proof behind it, and per checker a
+  proof that its run establishes it; generalise the notion to fit slightly different checkers.  On the
+  class side this would have been a record `ClassD` (per class: key facts, the `FieldD` telescope, the
+  free-set certificate as propositions, R6's Sat, check-5 kinds); unchecked conjecture: an old
+  positivity run produces it too, making PosD the special case.
+* **Other findings:** a class GROUP (a container's mutual group) must share one node on the recursor
+  side; `Level.isEquiv` is not provably transitive (its `leq` is incomplete), so matching needs a normal
+  form; the existing `datF_tac` is exponential in the number of guards (linear replacement `datF_x`).
+
+**Back on `uniform-inds`** (the old checker and proof, with SEEDDEFEQ + FUSELOOP landed) — the
+classcheck rulings (rule-defeq superset, D1 dropped) do NOT apply here.
