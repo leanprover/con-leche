@@ -36,30 +36,11 @@ open ConLeche.SetModel
 open ConLeche.Term ConLeche.Verify SetTheory
 open ConLeche.Semantics (AnnotTerm)
 open ConLeche (Env Expr Name Level ClassInfo ClassAlias aliasOcc? classAbs classAbsGo
-  classAliasesFor)
+  classAliasesFor classOwn classKeptBy)
 
 universe w
 
 /-! ## 1. The kept holes -/
-
-/-- **Class `d` is in class `c`'s group**: its inductive one of the block
-mates of `c`'s, at `c`'s levels (canonical forms) and parameters (up to
-levels). -/
-@[expose] def classOwn (mates : Name → List Name) (c d : ClassInfo) : Bool :=
-  (mates c.key.ind).contains d.key.ind &&
-    d.key.lvls.map Level.canon == c.key.lvls.map Level.canon &&
-    d.dsA.length == c.dsA.length && (d.dsA.zip c.dsA).all fun (a, b) => a.eqUpToLevels b
-
-/-- **Class `d`'s hole is kept free by class `c`'s fact**: `d` is in
-`c`'s group, or `d`'s inductive is not strictly OLDER than `c`'s.  Only
-the strictly older classes are read coherently (as functions of the
-kept holes and the group), so the facts are defined by recursion on the
-container's age; a younger class is kept free even where it is formed
-by instantiating the container's parameters (a higher-order parameter,
-`Ap RL T` reading `f α` at `f := RL`, fixture `p2d_hoparam`), which the
-key in hole form does not contain (DESIGN CLASSCHECK / P2D). -/
-@[expose] def classKeptBy (age : Name → Nat) (mates : Name → List Name) (c d : ClassInfo) : Bool :=
-  classOwn mates c d || !decide (age d.key.ind < age c.key.ind)
 
 /-- The holes class `c`'s fact keeps free. -/
 @[expose] def classKept (age : Name → Nat) (mates : Name → List Name) (cls : List ClassInfo)

@@ -1115,6 +1115,8 @@ structure ClassRun (ops : CheckerOps CheckM) (fe₁ : FEnv) (env₁ : Env) (fe :
   halFrom : ∀ a ∈ al, ClassAliasFrom cands a
   hpairs : ∀ q ∈ pairs, ClassSameOk ops env₁ (classHi (classCtxOf p fe₁ env₁ pq.1) cls) cls q.1 q.2 ∨
     ClassSameOk ops env₁ (classHi (classCtxOf p fe₁ env₁ pq.1) cls) cls q.2 q.1
+  /-- a kept class in a container class's crest contains no group occurrence -/
+  hgf : classGroupFree (classAge fe₁) (classMates fe₁) cls (classCrestsAl fe₁ cls al crests0) = true
   /-- reachability -/
   reached : (List.range cls.length).all (classReached
     (classCrestsAl fe₁ cls al crests0) cls (classMates fe₁)
@@ -1179,6 +1181,7 @@ theorem classRecCheck_run {fe₁ : FEnv} {env₁ : Env} {fe : FEnv} {p : BlockPa
   obtain ⟨crests0, hcr, h⟩ := exceptBind_ok h
   obtain ⟨al, hal, h⟩ := exceptBind_ok h
   obtain ⟨pairs, hpairs, h⟩ := exceptBind_ok h
+  obtain ⟨hgf, h⟩ := unless_jp_ok h
   split at h
   case isFalse => close_throw h
   rename_i hreach
@@ -1203,7 +1206,7 @@ theorem classRecCheck_run {fe₁ : FEnv} {env₁ : Env} {fe : FEnv} {p : BlockPa
   refine ⟨⟨rd, pq, holes, cls, crests0, al, pairs, walked, formerTys, pre, cvRis, hpins,
     unwrapOr_ok hrd, ⟨cvTa0, unwrapOr_ok hcv, unwrapOr_ok hpq⟩, unwrapOr_ok hholes,
     classInfos_run hcls, hone, hmates, classKeysCyclic_run hr6, hcr, classAliases_run hal,
-    _, fun e he => ?_, classAliases_from hal, classSamePairs_run hpairs, hreach, hwalk, h5, hmin,
+    _, fun e he => ?_, classAliases_from hal, classSamePairs_run hpairs, hgf, hreach, hwalk, h5, hmin,
     by simpa using hel, hformer, unwrapOr_ok hpre, htys, hout⟩⟩
   rcases classCands_foldl_mem _ _ e he with hx | hx
   · exact nomatch hx

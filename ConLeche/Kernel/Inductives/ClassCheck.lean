@@ -423,6 +423,40 @@ def classAliasesFor (age : Name → Nat) (mates : Name → List Name) (c : Class
   if c.member.isSome then al else
     al.filter fun a => age a.ind < age c.key.ind && !(mates c.key.ind).contains a.ind
 
+/-- **Class `d` is in class `c`'s group**: its inductive one of the block
+mates of `c`'s, at `c`'s levels (canonical forms) and parameters (up to
+levels). -/
+def classOwn (mates : Name → List Name) (c d : ClassInfo) : Bool :=
+  (mates c.key.ind).contains d.key.ind &&
+    d.key.lvls.map Level.canon == c.key.lvls.map Level.canon &&
+    d.dsA.length == c.dsA.length && (d.dsA.zip c.dsA).all fun (a, b) => a.eqUpToLevels b
+
+/-- **Class `d`'s hole is kept free by class `c`'s fact**: `d` is in
+`c`'s group, or `d`'s inductive is not strictly OLDER than `c`'s (DESIGN
+CLASSCHECK / P2D). -/
+def classKeptBy (age : Name → Nat) (mates : Name → List Name) (c d : ClassInfo) : Bool :=
+  classOwn mates c d || !decide (age d.key.ind < age c.key.ind)
+
+/-- **A kept class in a container class's crest contains no occurrence of
+the container class's group** (REDUNDANT for every container our checker
+or official installs: a group occurrence enters a crest only through the
+container's own constructor text — at its uniform parameters, never under
+a parameter head, which the container's positivity check rejects,
+`f (Ap f α)` — or through the key's parameters, which cannot contain the
+key).  Stated here because the proof cannot read that syntactic fact off
+the RECORDED container (its clause is semantic): at a member-true frame a
+kept class carries its true value, which must not depend on the group's
+stage value (DESIGN CLASSCHECK / P2D2). -/
+def classGroupFree (age : Name → Nat) (mates : Name → List Name) (cls : List ClassInfo)
+    (crests : List (List Expr)) : Bool :=
+  (List.range cls.length).all fun i =>
+    let c := cls.getD i default
+    c.member.isSome ||
+      ((crests.getD i []).flatMap (classHolesIn cls)).all fun j =>
+        let d := cls.getD j default
+        classOwn mates c d || !classKeptBy age mates c d ||
+          d.dsA.all fun x => classAbs (cls.filter (classOwn mates c)) x == x
+
 /-- **Every block mate of a container class at its instantiation is a
 class** (official copies a container's whole mutual block,
 `elim_nested_inductive`): each mate at the class's levels and
@@ -939,6 +973,10 @@ def classRecCheck (so : ShadowOps m) (fe₁ : FEnv) (env₁ : Env) (fe : FEnv) (
   let pairs ← classSamePairs ops₁ env₁ hi cls
   let sameIdx : Nat → Nat → Bool := fun i j =>
     i == j || (cls.getD i default).same (cls.getD j default) || pairs.contains (i, j)
+  unless classGroupFree age mates cls crests do
+    throw (.invalid "class check: a class kept free by a container class's fact contains an \
+      occurrence of the container class's group (official: non positive occurrence at the \
+      container's own declaration)")
   let roots := (List.range cls.length).filter fun c => (cls.getD c default).member.isSome
   let reached := classReached crests cls mates sameIdx (cls.length + 1) roots
   unless (List.range cls.length).all reached.contains do

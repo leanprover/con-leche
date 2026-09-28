@@ -910,6 +910,27 @@ theorem classRun_aliasWF (R : ClassRun ops fe₁ env₁ fe p block cvTas ctorsAs
     AliasWF R.al (classHi (classCtxOf p fe₁ env₁ R.pq.1) R.cls) :=
   aliasWF_of_run hwf R.hal (classRun_aliasKeysScoped R hwf)
 
+/-- **The group-free check, inverted**: in container class `c`'s crest
+(after the defeq tier), a kept class `d` outside `c`'s group has no
+occurrence of `c`'s group in its member-abstracted parameters. -/
+theorem classRun_groupFree (R : ClassRun ops fe₁ env₁ fe p block cvTas ctorsAs out ctors)
+    {i : Nat} {c : ClassInfo} (hc : R.cls[i]? = some c) (hm : c.member = none)
+    {e : Expr} (he : e ∈ (classCrestsAl fe₁ R.cls R.al R.crests0).getD i [])
+    {j : Nat} (hj : j ∈ ConLeche.classHolesIn R.cls e)
+    (hk : ConLeche.classKeptBy (classAge fe₁) (classMates fe₁) c (R.cls.getD j default) = true)
+    (ho : ConLeche.classOwn (classMates fe₁) c (R.cls.getD j default) = false) :
+    ∀ x ∈ (R.cls.getD j default).dsA,
+      ConLeche.classAbs (R.cls.filter (ConLeche.classOwn (classMates fe₁) c)) x = x := by
+  have h := R.hgf
+  unfold ConLeche.classGroupFree at h
+  have hi : i < R.cls.length := (List.getElem?_eq_some_iff.mp hc).1
+  have h1 := List.all_eq_true.mp h i (List.mem_range.mpr hi)
+  have hcd : R.cls.getD i default = c := by simp [List.getD_eq_getElem?_getD, hc]
+  simp only [hcd, hm, Option.isSome_none, Bool.false_or] at h1
+  have h2 := List.all_eq_true.mp h1 j (List.mem_flatMap.mpr ⟨e, he, hj⟩)
+  simp only [ho, hk, Bool.not_true, Bool.false_or, List.all_eq_true, beq_iff_eq] at h2
+  exact h2
+
 end Run
 
 end ConLeche.Model
