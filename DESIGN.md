@@ -94763,3 +94763,96 @@ check + its read 0.5 + `ClassSys` instance 1 + `ClassPres` re-base 1 ≈ 4;
 (B) kernel order/free sets 0.5–1 + identification 1.5 + instance 1 +
 re-base 1 ≈ 4–4.5 (and ClassStage's kept-set lemmas are replaced).
 Total ≈ 15–21 sessions (was 13–19).
+
+## CLASSCHECK / P2D3 — option (B): free sets by demand, a free-set certificate, ClassSys by rank (2026-09-28, `agent/cc-P2D3`)
+
+Maintainer decision (2026-09-28): option (B) of CLASSCHECK / P2D2 — free
+sets instead of kept sets, facts ordered by "reads coherently", the
+identification at EVERY `ClassSys` frame — plus: replace redundant kernel
+checks by a RECORDED per-block syntactic fact (own-name positivity `FieldD`,
+M3), derive `classGroupFree` and the coherence condition from it by a
+substitution lemma, and derive the order if possible.  This record:
+milestone 1 (kernel, inversion, set level).  Sorry-free, standard axioms.
+
+**Finding 1 — (B)'s free sets as stated are wrong.**  "Free(c) = own group
+∪ the inner younger classes whose occurrences commute" breaks the
+coherence condition: `corner_classcheck_wrapcross` (official 0, both our
+routes 0): `r := Wrap RL T (RL T)` has the inner, younger, commuting class
+`ρ := RL T`, and reads `d := Ap2 RL T (RL T)`, in whose constructor `ρ` is
+formed across the instantiation (`f α`).  With `ρ` free in `r`, `r`'s
+identification at a stage value of `ρ` fails (`d`'s carrier reads `RL X`
+whatever `ρ`'s hole holds).  But no reader ever holds `ρ` at a stage when
+reading `r`.  The right free sets are the DEMAND's least solution: a
+class `y` read coherently in `x`'s fact keeps free every class inside its
+key (any depth) that `x` holds at a stage value (`F x ∪ G x`).  F13: `λ`
+keeps `ρ` (read by `ρ`'s fact at `ρ`'s stage).  A reachability version
+("inner classes on a mention cycle with the key") over-approximates and
+FALSELY REJECTS three official-accepted FUSEPOS fixtures
+(`corner_nestkn_{levels,rigid_stage,rigid_flex_stage}`: `List (G T)`
+inside `C (G T) (λ x : List (G T), 0)`'s key reaches it through `G T`, but
+is only ever read at `G T`'s coherent value); the demand version accepts.
+
+**Finding 2 — the recorded own-name facts cannot replace the checks.**
+What the identification needs, beyond the demand: (a) the free classes
+commute with the instantiation (no free class formed across it), (b) the
+group occurs in a crest only where the container's text has `Dᵢ p⃗`
+(M3 of the text gives the text's occurrences; a group occurrence can also
+be formed THROUGH the key: `p_j args` with `dsA[j] = D Q⃗` under-applied),
+(c) an acyclic order of coherent reads.  Each of (a)–(c) fails only on keys
+naming a container under-applied at its own parameter's kind (`B Q (B Q)`
+at `B`'s own levels, the parameter's kind would contain itself) — excluded
+by TYPING (finite kinds), not by any block's own-name syntax; and
+alias-identified classes (the defeq tier) have keys with no syntactic
+provenance, so no key-shape induction orders the reads.  So the order is
+kernel-checked (the maintainer's fallback), and so are (a)/(b).  The
+`classGroupFree` CONTENT ("a free class contains no group occurrence") is
+by term size now (free classes lie inside the key) and not needed as
+such: (a)'s equation covers it.
+
+**Checker (class route only; `ClassCheck.lean` §"The class facts' free
+holes and their order").**  `classGroupFree`, `classKeptBy` and the
+age-based R6 set deleted.  New: `classFreeOk`, one Bool certificate over
+data the kernel computes by fuelled iteration (unverified) —
+the inner-class closure `inn` (checked closed), the free sets `Fl`
+(`classFreeGo`, the demand's least solution; the demand CHECKED), the
+coherent reads `dep` (closed under "what a read class keeps free", no
+stage class among them, CHECKED) and their ranks (strictly decreasing,
+CHECKED), plus per container class and group mate constructor the
+commutation equation `classCommutes`: the crest with its free classes and
+its group abstracted equals the container's canonical text (members as
+`fvar (nPc+m)`, what the recorded clause reads — `canonAbs`), group
+atomised, at the key with its free classes abstracted; and no container
+alias onto a free class.  R6 (`classKeysCyclic`) now types the key with its
+FREE classes abstracted.  M3 on the member constructors' TEXT (official ≥
+v4.33.1 `check_uniform_ind_occs`, v4.34.0 `inductive.cpp:134`) — the
+recorded fact a later crest's commutation reads.  Tables (`ClassFreeV.build`:
+groups, same keys, crest mentions) keep it at 2.6 s on
+`complete_c04a_restart_70` (71-member group; the untabled first version
+did not finish in 600 s; the profile is now the generator's instantiate).
+`tests/classcheck.sh` 610/610 (the new fixture added), the 671-stream
+sweep (`_tmp/classcheck/P2D3/sweep.txt`): no verdict moves.  Kernel lines
+(ClassCheck.lean) +287 −47, of which ~35 the error-message diagnosis
+(`classFreeDiag`) and ~45 documentation.
+
+**Proof side.**  `ClassRun` carries `Fl/inn/dep/rank` and `hfree`;
+`classFreeOk_cert` turns it into `ClassFreeCert` (propositions);
+`classKeysCyclic_run` at the free classes.  `ClassStage.lean`: the kept
+holes are replaced by `classStageHoles` (free ∪ group), FClosed
+(`classStageHoles_fclosed`) and never an alias target
+(`classAliasesFor_notStage`, `classRun_aliases_notStage`); the generic
+readings (`aliasAbs_read_stage`, `crestAbs_read_stage`) unchanged.
+`classCrest_run` returns the member text's M3.  `SetModel/ClassFacts.lean`:
+`ClassSys` ordered by a rank `rk` (default: the index) and splicing chosen
+positions `spl` (default: the group) — a fill writes the class it reads,
+not its whole group (a group mate may be free at the reader).
+
+**Next (P2d continues).**  The identification (I1–I5): (I1) a LOCAL stage
+coherence — a coherent class's hole reads its key with only the stage
+classes abstracted (`classAbsF`), which needs no recursion over keys and
+holds at the fill's valuation; (I2) the commutation equation read: the
+crest at `(u, Y)` reads as the canonical text at `(⟦classAbsF F dsA⟧ u,
+holeVal Y)`; (I3) that as the recorded fields (`LfpCtorReads`'
+`FieldsEqOn`); (I4) the fill values as recorded carriers (`LfpClause.leaf`)
+and d's identification (IH on rank); (I5) the `ClassSys` instance and the
+identification as equality of least fixed points, then carrier mono /
+fitMono / acc / (W), and ClassPres's container nodes on the crest clause.
