@@ -117,7 +117,7 @@ theorem BlockCtorsCore.holeCtx {env : Env} {m : EnvModel V env} {d : BlockData V
 canonical parameter variables' and the member holes' leaves (the head
 former's opened telescope, then one hole per member) is in the block's
 hole context (`CtxOkP`, through `ctxOkP_of_openers`) with bounded leaves
-— a SEED's parameters (`SeedLeaves`, `nestSeedKey?`) among them. -/
+— a SEED's parameters (`SeedLeaves`, `nestSeedOf`) among them. -/
 theorem blockHoleCtx_canon {env : Env} {m : EnvModel V env} {ψ : Name → Nat}
     {d : BlockData V} {lps : List Name} {cvTas : List ConstantVal} {p₁ : BlockShape}
     {isRec : Bool}

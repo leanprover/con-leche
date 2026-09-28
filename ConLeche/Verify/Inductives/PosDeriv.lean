@@ -30,8 +30,8 @@ The judgments (`PosJ`):
 * `frame prog us ds grp` — the container frame at the key `(us, ds)`
   whose group is `grp` (the container's whole recorded block, at the
   holes `hiAt prog.length + i`);
-* `seed key` — the frame of a SEED (`nestSeeds`: a stream recursor's
-  outside major class, walked at the root).
+* `seed key` — the frame of a SEED (`nestSeeds`: an outside class the
+  recursor check resolved, `checkBlockSeeds`, walked at the root).
 
 The rules:
 
@@ -138,8 +138,8 @@ scoped below the frames' holes. -/
 
 /-- **A seed's leaves are the canonical variables'**: every free-variable
 leaf of `x` is a leaf of a canonical parameter variable or of a member
-hole (`nestHoles`) — the term was read in the walk's representation
-(`nestSeedKey?`). -/
+hole (`nestHoles`) — the term was moved to the walk's representation
+(`nestSeedOf`). -/
 @[expose] def SeedLeaves (ctx : NestCtx) (x : Expr) : Prop :=
   ∀ hs, nestHoles ctx = some hs → ∀ l ∈ x.fvarLeaves, ∃ a ∈ ctx.params ++ hs, l ∈ a.fvarLeaves
 

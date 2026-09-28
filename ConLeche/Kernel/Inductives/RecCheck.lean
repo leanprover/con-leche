@@ -331,10 +331,12 @@ annotations their variables carry), both sides inferred first.  The head is
 compared by the caller.  Whole-application defeq would not do: at `Prop`
 two instances read alike (`P Nat`, `P Bool`: both `{pt}`) without
 sharing a frame; per component, the frames agree at every value of the
-holes.  The three comparisons of the recursor check against the
-positivity check — the major → node tie, the class's recorded normal
-forms, a call's callee against its field (K.53′) — all run this one
-function, so a match found at one is a match at the others. -/
+holes.  The two comparisons of the recursor check against the
+positivity check — the class's recorded normal forms, a call's callee
+against its field (K.53′) — both run this one function, so a match
+found at one is a match at the other.  (A class is a node of the walk by
+construction — its seed, `checkBlockSeeds` — and matches that node's key
+syntactically, up to the free variables' annotations.) -/
 
 /-- A term over the walk's canonical parameter variables, moved to the
 class's openers `pfvs` (variables `0 … |pfvs|-1`, the rest kept). -/
@@ -453,7 +455,7 @@ def targetMajorOf (fe : FEnv) (p : BlockShape)
       -- entering a free variable's annotation (`nestOcc` at an empty hole
       -- range).  Every class resolved here SEEDS the positivity walk
       -- (`checkBlockSeeds`, after stage (b)), so it is a node of the walk by
-      -- construction: there is no major → node tie to check.
+      -- construction: nothing ties it to a node here.
       unless ds.any (fun x => x.nestOcc p.memberNames 0 0) do
         throw (.invalid "target rec: the recursor's major is an outside inductive at an \
           instantiation that is no auxiliary type of the block (official generates no such \
