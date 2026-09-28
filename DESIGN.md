@@ -93813,3 +93813,97 @@ signature names it, surfaced once ClassCheck entered a shake root).
    abstracted before whnf ("expose, never create"); occurrences CREATED by reduction reject, as official
    (`corner_nestpos_redex_bad`, `corner_nestind_d_redex_bad`: 0 → 1). Exposed occurrences (e.g.
    `corner_classcheck_idd`) stay accepted.
+
+## CLASSCHECK / G1-SYN — the generator's syntax, read (2026-09-28, `agent/cc-G1SYN`)
+
+P3A's open list (i)–(ii): read `classGenRecTy`/`classGenRule` as the
+generator's components and discharge `graphRecPre_gen`'s generator-side
+premises by construction.  Sorry-free, standard axioms only.  Four
+modules:
+
+* `Verify/Inductives/ClassGenScope.lean` — **closedness, PROVED from the
+  generator's syntax** (no checker guard): `classGenRecTy_closed`,
+  `classGenRule_closed` (`hasFvar = false ∧ looseBVarsBounded 0`, exactly
+  `classRecTyOk_read_eq`'s `hgen` / `classRuleOk_read_eq`'s `hgf hgb`),
+  via `ScB` (well scoped + bvar-bounded) through `closeTelescope`,
+  `closeLams`, `openPisAtFvars`, `instPisWith`, the prefix
+  (`ClassGen.prefixBinders_scoped`), the motive and minor types.  Given
+  the generator's INPUTS scoped: `ClassGenScoped g`.  Also
+  `classGenRecTy_spec` (the type spelled out) and
+  `ClassGen.prefixBinders_motive` (the prefix entry at a motive slot).
+* `Verify/Inductives/ClassGenAnnot.lean` — the annotation pass on a
+  generated telescope: `SameDoms` (same first domains) survives
+  `abstract1`/`instantiate1`/`annotate`, and opening two such telescopes
+  gives the SAME variables; `annotateCore_plain` (a variable applied to
+  variables is left alone); `annotateCore_closeTelescope` (the annotated
+  telescope is, up to erasure, the telescope of the annotated domains);
+  `EndsInSort` (a motive type's `∀ …, Sort u` survives everything).
+* `Model/Inductives/ClassGenRead.lean` — the TYPE side:
+  `classGenRecTy_bits` (every binder numeral of the generated type's
+  reading is `pwBit φ (zeronessOf elim)`: the bits law
+  `stripPisAV_denoteMeta_pw` at the type's own inference, the conclusion
+  inferred at `Sort elim` — its head is the motive's variable, typed by
+  the annotated motive type), `oneElimLevel_of_bits` (**`hbits`** at
+  `Level.eval φ elim`), `classGenRecTy_prefix_eq` (**the shared prefix**:
+  two classes' first `rP` binder data are EQUAL, domains and numerals),
+  `classGenRecTy_concl` (**`hconcl`**, a bonus: the conclusion reads as
+  the motive's value applied to the index spine and the major),
+  `genHchI_of_readings` (**`hchI`**) and `ihDatumBelow_of_readings`
+  (**`IhDatumBelow`**) from "every component is a reading of a scoped
+  term" (`IsReadingAt`).
+* `Model/Inductives/ClassGenStep.lean` — **`hstep`** (`genHstep`): the
+  generated residue `genRb0` (the minor premise applied to the fields
+  and the `ih` values), the `ih` binders' types `genIhDomAV` (the `ih`'s
+  own telescope over the callee's motive at its arguments — BY
+  CONSTRUCTION the type of `genIhAV`); the graph's `ih` values inhabit
+  them (the tower's fold at the call, the call a predecessor), and the
+  minor premise's typing lands the residue in the motive at the
+  constructor.  Premises: `hminor` (the minor premise's typing,
+  semantic), the class side's `hihTy`/`hmk`/index fit, `hconcl`.
+
+**Findings.**
+1. *Closedness needs an ORDER fact about the inputs.*  A generated minor
+   type names the motives of its own class and of its `ih`s' callees;
+   closing the prefix telescope leaves such a variable FREE if its motive
+   comes after the minor (`closeTelescope` abstracts a binder's variable
+   only below it).  Annotation and inference at depth `0` would NOT
+   reject it (they check a variable only against the depth it occurs at,
+   and type it by its own annotation).  The pre-pass guarantees the
+   order (`classReadMinor` reads a minor's classes off the motives BEFORE
+   it) and check 5 ties the walked kinds to the unique minor slot, so the
+   fact is a run fact, not a guard: `ClassGenScoped.order`.  The other
+   input facts (parameters `fvar i`, class parameters over the block's
+   parameters, closed former types, walked telescopes over the
+   parameters, `pre = prefixBinders`) are run facts of checks 1, 3 and the
+   block pass (P2A's `ClassRun` / P4).
+2. *The annotated type's binder DATA differ per class syntactically*
+   (each is computed from its own body), but the bits law pins all of
+   them to `zeronessOf elim`, and the DOMAINS' annotation reads only
+   earlier domains, so the prefix is shared EXACTLY — `genIhs_hcallTy`'s
+   `hpre` holds as stated.
+3. *The rule-frame components are best read off the MINOR PREMISE's
+   domain in the generated TYPE*, not off the generated rule: its field
+   binders give `fdoms`, its `ih` binders (`genIhDomAV`-shaped) give
+   `ihd`, its conclusion's arguments give `es`/`mk`; the residue is the
+   syntactic `genRb0`.  Then `hstep` is the minor's own typing and needs
+   no rule typing at all; the generated RULE enters only P4's
+   `BlockRuleRhsOk` (its λ-reading β-reduces to `genRb0` at the
+   `genIhAV` values — the λ binders' data are `zeronessOf` of the body
+   type's sort, i.e. `elim`'s again: a λ bits law, P4).
+
+**Open (next).**
+(a) `hminor` and the `IsReadingAt` premises FROM THE GENERATOR: open the
+annotated minor domain (the shared prefix entry at the minor's slot) at
+`rP`; its field binders' readings are `fdoms`, its `ih` binders' readings
+are `genIhDomAV` of the `ih` data read at `rP + nF` lifted over the
+earlier `ih` binders (the `ih` types name no `ih` variable), its
+conclusion is `motive_c es mk` lifted over the `ih` binders.  Tools:
+`denoteMeta_lift`, `annotateCore_closeTelescope` generalised to a
+non-plain body (a variable applied to annotated arguments), AnnotValid
+along the prefix fit, `foldl_app_mem_mkPisAV`.  1–1.5 sessions.
+(b) `ClassGenScoped` from the run (`ClassRun`, the pre-pass's order
+lemma over `classReadSlots`): 0.5–1 session, P4 (with P2A).
+(c) P4's wiring of the rule (`BlockRuleRhsOk` at `genA`, the λ bits law)
+unchanged from P3A's estimate.
+
+Gates: `lake build`/`lake test` 0 warnings; `tests/arena.sh` green.
