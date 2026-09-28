@@ -131,6 +131,7 @@ public import ConLeche.Model.Inductives.ClassFill
 public import ConLeche.Model.Inductives.ClassN2
 public import ConLeche.Model.Inductives.ClassCrestFit
 public import ConLeche.Model.Inductives.ClassRed
+public import ConLeche.Model.Inductives.ClassRestrictRead
 public import ConLeche.Model.Inductives.ClassRunWF
 public import ConLeche.Model.Inductives.ClassAliasSem
 public import ConLeche.Model.Annot.EnvModelM
