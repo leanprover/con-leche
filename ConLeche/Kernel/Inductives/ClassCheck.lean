@@ -2,6 +2,7 @@ module
 
 public import ConLeche.Kernel.Inductives.BlockTail
 public import ConLeche.Kernel.Inductives.ClassRead
+import Std.Data.HashSet.Basic
 
 @[expose] public section
 
@@ -193,16 +194,16 @@ def classOcc? (cls : List ClassInfo) (e : Expr) : Option (Expr × Nat) :=
       | none => none
   | _ => none
 
-/-- The class abstraction, memoised on the node: every syntactic class
-occurrence, outermost first, becomes its hole applied to the (abstracted)
+/-- The class abstraction, memoised on the node: every occurrence `occ`
+recognises, outermost first, becomes its hole applied to the (abstracted)
 indices.  `hd = some (h, n)`: `e` is the head part of an occurrence, the
 last `n` arguments to keep. -/
-def classAbsGo (cls : List ClassInfo) :
+def classAbsGo (occ : Expr → Option (Expr × Nat)) :
     Option (Expr × Nat) → Std.HashMap Expr Expr → Expr → Expr × Std.HashMap Expr Expr
   | some (h, 0), memo, _ => (h, memo)
   | some (h, n + 1), memo, .app f a =>
-    let (f', memo) := classAbsGo cls (some (h, n)) memo f
-    let (a', memo) := classAbsGo cls none memo a
+    let (f', memo) := classAbsGo occ (some (h, n)) memo f
+    let (a', memo) := classAbsGo occ none memo a
     (.app f' a', memo)
   | some _, memo, e => (e, memo)
   | none, memo, e@(.bvar _) => (e, memo)
@@ -215,48 +216,48 @@ def classAbsGo (cls : List ClassInfo) :
     | some r => (r, memo)
     | none =>
       let (r, memo) : Expr × Std.HashMap Expr Expr :=
-        match classOcc? cls e with
+        match occ e with
         | some (h, 0) => (h, memo)
         | some (h, n + 1) =>
-          let (f', memo) := classAbsGo cls (some (h, n)) memo f
-          let (a', memo) := classAbsGo cls none memo a
+          let (f', memo) := classAbsGo occ (some (h, n)) memo f
+          let (a', memo) := classAbsGo occ none memo a
           (.app f' a', memo)
         | none =>
-          let (f', memo) := classAbsGo cls none memo f
-          let (a', memo) := classAbsGo cls none memo a
+          let (f', memo) := classAbsGo occ none memo f
+          let (a', memo) := classAbsGo occ none memo a
           (.app f' a', memo)
       (r, memo.insert e r)
   | none, memo, e@(.lam ty b bm) =>
     match memo[e]? with
     | some r => (r, memo)
     | none =>
-      let (t, memo) := classAbsGo cls none memo ty
-      let (b', memo) := classAbsGo cls none memo b
+      let (t, memo) := classAbsGo occ none memo ty
+      let (b', memo) := classAbsGo occ none memo b
       (.lam t b' bm, memo.insert e (.lam t b' bm))
   | none, memo, e@(.forallE ty b bm) =>
     match memo[e]? with
     | some r => (r, memo)
     | none =>
-      let (t, memo) := classAbsGo cls none memo ty
-      let (b', memo) := classAbsGo cls none memo b
+      let (t, memo) := classAbsGo occ none memo ty
+      let (b', memo) := classAbsGo occ none memo b
       (.forallE t b' bm, memo.insert e (.forallE t b' bm))
   | none, memo, e@(.letE ty v b) =>
     match memo[e]? with
     | some r => (r, memo)
     | none =>
-      let (t, memo) := classAbsGo cls none memo ty
-      let (v', memo) := classAbsGo cls none memo v
-      let (b', memo) := classAbsGo cls none memo b
+      let (t, memo) := classAbsGo occ none memo ty
+      let (v', memo) := classAbsGo occ none memo v
+      let (b', memo) := classAbsGo occ none memo b
       (.letE t v' b', memo.insert e (.letE t v' b'))
   | none, memo, e@(.proj s i x) =>
     match memo[e]? with
     | some r => (r, memo)
     | none =>
-      let (x', memo) := classAbsGo cls none memo x
+      let (x', memo) := classAbsGo occ none memo x
       (.proj s i x', memo.insert e (.proj s i x'))
 
 /-- The class abstraction of one term. -/
-def classAbs (cls : List ClassInfo) (e : Expr) : Expr := (classAbsGo cls none {} e).1
+def classAbs (cls : List ClassInfo) (e : Expr) : Expr := (classAbsGo (classOcc? cls) none {} e).1
 
 /-- **A class's constructor, abstracted**: a member's at the canonical
 parameters with the members abstracted, a container's at the class's
@@ -293,19 +294,120 @@ constructors; every class of a reached container's BLOCK at the same
 instantiation (official copies a container's whole mutual block,
 `elim_nested_inductive`); every class the same as a reached one.  The
 closure, `fuel` rounds; `mates I` is `I`'s block. -/
-def classReached (crests : List (List Expr)) (cls : List ClassInfo) (mates : Name → List Name) :
-    Nat → List Nat → List Nat
+def classReached (crests : List (List Expr)) (cls : List ClassInfo) (mates : Name → List Name)
+    (sameIdx : Nat → Nat → Bool) : Nat → List Nat → List Nat
   | 0, r => r
   | fuel + 1, r =>
     let occ := r.flatMap fun c => (crests.getD c []).flatMap (classHolesIn cls)
     let grp := (List.range cls.length).filter fun d => r.any fun c =>
       let ci := cls.getD c default
       let di := cls.getD d default
-      ci.same di || (ci.member.isNone && di.member.isNone && (mates ci.key.ind).contains di.key.ind &&
+      sameIdx c d || (ci.member.isNone && di.member.isNone && (mates ci.key.ind).contains di.key.ind &&
         Level.isEquivList ci.key.lvls di.key.lvls == some true && classParamsEq ci.dsA di.dsA)
     let new := occ ++ grp
     let r' := r ++ (new.filter (!r.contains ·)).eraseDups
-    if r'.length == r.length then r else classReached crests cls mates fuel r'
+    if r'.length == r.length then r else classReached crests cls mates sameIdx fuel r'
+
+/-! ### Coarser identification: per-component defeq, in hole form
+
+A class occurrence the syntactic abstraction does not match, or two
+classes it does not identify, may still be the SAME class per component
+(PLAN: robust to coarser identification): same inductive, equivalent
+levels, every parameter defeq — compared in HOLE FORM (every syntactic
+class occurrence inside the parameters already its hole, PROOFPLAN R1′),
+both sides inferred first, at the holes' context, so the equation holds at
+every value of the holes.  Official identifies syntactically only; this
+is the charter's "coarser identification" superset. -/
+
+/-- Parameters per component: equal up to annotations, else inferred and
+defeq at depth `d`. -/
+def classParamsDefEq (ops : CheckerOps m) (env : Env) (d : Nat) : List Expr → List Expr → m Bool
+  | [], [] => pure true
+  | a :: as, b :: bs => do
+    if a.eraseFVarTys == b.eraseFVarTys then classParamsDefEq ops env d as bs
+    else
+      let _ ← ops.inferType env d a
+      let _ ← ops.inferType env d b
+      if ← ops.isDefEq env d a b then classParamsDefEq ops env d as bs else pure false
+  | _, _ => pure false
+
+/-- A class's parameters in hole form. -/
+def ClassInfo.holeForm (cls : List ClassInfo) (c : ClassInfo) : List Expr := c.dsA.map (classAbs cls)
+
+/-- An occurrence identified with a class by per-component defeq: its
+inductive, levels and hole-form parameters (annotations erased), the
+class's hole. -/
+structure ClassAlias where
+  ind : Name
+  lvls : List Level
+  ps : List Expr
+  nPc : Nat
+  hole : Expr
+
+/-- An aliased occurrence. -/
+def aliasOcc? (al : List ClassAlias) (e : Expr) : Option (Expr × Nat) :=
+  match e.getAppFn with
+  | .const I us =>
+    let args := e.getAppArgs
+    (al.find? fun a => a.ind == I && a.nPc ≤ args.length &&
+        Level.isEquivList us a.lvls == some true &&
+        (args.take a.nPc).map Expr.eraseFVarTys == a.ps).map fun a =>
+      (a.hole, args.length - a.nPc)
+  | _ => none
+
+/-- The candidates for an alias in an abstracted term: applications of a
+container class's inductive whose closed parameters name a hole (member
+or class), every node visited once. -/
+def classCandsGo (isCand : Expr → Bool) :
+    Std.HashSet Expr × List Expr → Expr → Std.HashSet Expr × List Expr
+  | acc, e@(.app f a) =>
+    if acc.1.contains e then acc else
+    let acc := (acc.1.insert e, if isCand e then e :: acc.2 else acc.2)
+    classCandsGo isCand (classCandsGo isCand acc f) a
+  | acc, e@(.lam t b _) =>
+    if acc.1.contains e then acc else classCandsGo isCand (classCandsGo isCand (acc.1.insert e, acc.2) t) b
+  | acc, e@(.forallE t b _) =>
+    if acc.1.contains e then acc else classCandsGo isCand (classCandsGo isCand (acc.1.insert e, acc.2) t) b
+  | acc, e@(.letE t v b) =>
+    if acc.1.contains e then acc else
+    classCandsGo isCand (classCandsGo isCand (classCandsGo isCand (acc.1.insert e, acc.2) t) v) b
+  | acc, e@(.proj _ _ x) =>
+    if acc.1.contains e then acc else classCandsGo isCand (acc.1.insert e, acc.2) x
+  | acc, _ => acc
+
+/-- Resolve candidates to classes by per-component defeq. -/
+def classAliases (ops : CheckerOps m) (env : Env) (hi : Nat) (cls : List ClassInfo) :
+    List Expr → m (List ClassAlias)
+  | [] => pure []
+  | e :: es => do
+    let rest ← classAliases ops env hi cls es
+    match e.getAppFn with
+    | .const I us =>
+      let args := e.getAppArgs
+      let mut found : Option ClassAlias := none
+      for c in cls do
+        if found.isNone && c.key.ind == I && c.nPc ≤ args.length && c.hole.isSome &&
+            Level.isEquivList us c.key.lvls == some true then
+          if ← classParamsDefEq ops env hi (args.take c.nPc) (c.holeForm cls) then
+            found := some ⟨I, us, (args.take c.nPc).map Expr.eraseFVarTys, c.nPc,
+              c.hole.getD default⟩
+      pure (match found with | some a => a :: rest | none => rest)
+    | _ => pure rest
+
+/-- Which pairs of container classes are the same class: syntactically
+(`ClassInfo.same`), else per component in hole form. -/
+def classSamePairs (ops : CheckerOps m) (env : Env) (hi : Nat) (cls : List ClassInfo) :
+    m (List (Nat × Nat)) := do
+  let mut out := []
+  for i in List.range cls.length do
+    for j in List.range cls.length do
+      let a := cls.getD i default
+      let b := cls.getD j default
+      if i < j && a.member.isNone && b.member.isNone && a.key.ind == b.key.ind &&
+          Level.isEquivList a.key.lvls b.key.lvls == some true then
+        if a.same b || (← classParamsDefEq ops env hi (a.holeForm cls) (b.holeForm cls)) then
+          out := (i, j) :: (j, i) :: out
+  pure out
 
 /-- **R6: every container class's key typed with its CYCLIC inner classes
 abstracted** (PROOFPLAN R6): the inner classes (class occurrences in the
@@ -496,7 +598,7 @@ def classMinorSlot (rd : ClassRead) (c : Nat) (C : Name) : m (Nat × List (Nat �
 has none; a recursive one exactly one, at the class it lands at or one the
 same (`ClassInfo.same`).  Returns the kinds at the ih's class (the
 generator's calls). -/
-def classIhsAgree (cls : List ClassInfo) (ctor : Name) (ihs : List (Nat × Nat)) :
+def classIhsAgree (sameIdx : Nat → Nat → Bool) (ctor : Name) (ihs : List (Nat × Nat)) :
     Nat → List ClassField → m (List ClassField)
   | _, [] => pure []
   | i, k :: ks => do
@@ -504,14 +606,14 @@ def classIhsAgree (cls : List ClassInfo) (ctor : Name) (ihs : List (Nat × Nat))
     let k' ← match k, mine with
       | .ordinary, [] => pure ClassField.ordinary
       | .recursive c tele, [(_, t)] =>
-        unless c == t || (cls.getD c default).same (cls.getD t default) do
+        unless sameIdx c t do
           throw (.invalid s!"class check: field {i} of {ctor} recurses at another class than \
             its inductive hypothesis names (official: invalid recursor)")
         pure (.recursive t tele)
       | _, _ =>
         throw (.invalid s!"class check: the inductive hypotheses of {ctor}'s minor premise \
           are not its recursive fields (official: invalid recursor)")
-    let ks' ← classIhsAgree cls ctor ihs (i + 1) ks
+    let ks' ← classIhsAgree sameIdx ctor ihs (i + 1) ks
     pure (k' :: ks')
 
 /-! ## Check 6: the recursors generated -/
@@ -771,12 +873,28 @@ def classRecCheck (so : ShadowOps m) (fe₁ : FEnv) (env₁ : Env) (fe : FEnv) (
   -- R6
   classKeysCyclic ops₁ env₁ (fun I => ((fe₁.idx[I]?).map (·.1)).getD 0) cls hi cls
   -- the abstracted constructors, and reachability
-  let crests ← cls.mapM fun c => c.ctors.mapM fun (cv, _) => classCrest ctx holes cls c cv
+  let crests0 ← cls.mapM fun c => c.ctors.mapM fun (cv, _) => classCrest ctx holes cls c cv
+  -- coarser identification: aliases for the unmatched occurrences, and
+  -- the classes that are the same per component
+  let heads := cls.filterMap fun c => if c.member.isNone then some (c.key.ind, c.nPc) else none
+  let isCand : Expr → Bool := fun e => match e.getAppFn with
+    | .const I _ => match heads.lookup I with
+      | some nPc => nPc ≤ e.getAppArgs.length && (e.getAppArgs.take nPc).all fun x =>
+          x.bvarB == 0 && x.fvarB ≤ hi
+        && (e.getAppArgs.take nPc).any (·.nestOcc ctx.names ctx.nP hi)
+      | none => false
+    | _ => false
+  let cands := (crests0.foldl (fun acc cs => cs.foldl (classCandsGo isCand) acc) ({}, [])).2
+  let al ← classAliases ops₁ env₁ hi cls cands
+  let crests := crests0.map (·.map fun e => (classAbsGo (aliasOcc? al) none {} e).1)
+  let pairs ← classSamePairs ops₁ env₁ hi cls
+  let sameIdx : Nat → Nat → Bool := fun i j =>
+    i == j || (cls.getD i default).same (cls.getD j default) || pairs.contains (i, j)
   let roots := (List.range cls.length).filter fun c => (cls.getD c default).member.isSome
   let mates : Name → List Name := fun I => match fe₁.find? I with
     | some (.indInfo _ caps) => caps.all
     | _ => []
-  let reached := classReached crests cls mates (cls.length + 1) roots
+  let reached := classReached crests cls mates sameIdx (cls.length + 1) roots
   unless (List.range cls.length).all reached.contains do
     throw (.invalid "class check: a class of the recursor family is no auxiliary type of the \
       block (not a syntactic nested occurrence, or a duplicate; official generates no such \
@@ -787,7 +905,7 @@ def classRecCheck (so : ShadowOps m) (fe₁ : FEnv) (env₁ : Env) (fe : FEnv) (
   -- check 5
   let ctors ← (List.range cls.length).mapM fun c => (ctors.getD c []).mapM fun x => do
     let (_, ihs) ← classMinorSlot rd c x.cv.name
-    let ks ← classIhsAgree cls x.cv.name ihs 0 x.kinds
+    let ks ← classIhsAgree sameIdx x.cv.name ihs 0 x.kinds
     pure { x with kinds := ks }
   unless (rd.slots.filter fun | .minor .. => true | _ => false).length ==
       (ctors.map List.length).sum do
