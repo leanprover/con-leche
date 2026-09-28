@@ -18,7 +18,7 @@ enough fuel)" — is FALSE for `PosD` as it stands, for two reasons, each a
 place where `PosD` forgets something the run checks:
 
 1. **Freshness.**  The run rejects an instantiation met as a CONSTANT while
-   it is in progress (`nestContKey`: in the frame stack `prog`, or in the
+   it is in progress (`nestContKey`: in the
    run's `active` list — the frames being walked, including those walked
    at the empty stack).  `PosD.contNew` has no such premise.
 2. **The walk stack.**  The run walks an instantiation whose parameters
@@ -122,7 +122,6 @@ inductive PosDR (ops : CheckerOps CheckM) (env : Env) (ctx : NestCtx) : Nat → 
       (hsc : ProgScoped ctx prog)
       (hnI : nestInstType (m := CheckM) ctx (ctx.hiAt prog.length)
         ⟨c, us, w.getAppArgs.take nPc⟩ = .ok (nI, cty))
-      (hfresh : ∀ h ∈ prog, h.key ≠ ⟨c, us, w.getAppArgs.take nPc⟩)
       (hact : ⟨c, us, w.getAppArgs.take nPc⟩ ∉ act)
       (hhead : (grp.headD default).1 = c)
       (hm : m < n)
@@ -214,8 +213,8 @@ theorem PosDR.mono {ops : CheckerOps CheckM} {env : Env} {ctx : NestCtx} {n n' :
   | frameHole hw hocc hfn hlo hhi hk hle' hpar hfree har =>
     obtain ⟨n'', rfl⟩ : ∃ n'', n' = n'' + 1 := ⟨n' - 1, by omega⟩
     exact .frameHole hw hocc hfn hlo hhi hk hle' hpar hfree har
-  | cont hw hocc hfn hnm hC hlen hquot hidx hds hdsw hsc hnI hfresh hact hhead hm hfr =>
-    exact .cont hw hocc hfn hnm hC hlen hquot hidx hds hdsw hsc hnI hfresh hact hhead (by omega) hfr
+  | cont hw hocc hfn hnm hC hlen hquot hidx hds hdsw hsc hnI hact hhead hm hfr =>
+    exact .cont hw hocc hfn hnm hC hlen hquot hidx hds hdsw hsc hnI hact hhead (by omega) hfr
   | frame hne hhd hhdC hnd hinst hblk hgrp hctors hkty hm hwalk =>
     exact .frame hne hhd hhdC hnd hinst hblk hgrp hctors hkty (by omega) hwalk
   | ctorsNil => exact .ctorsNil
@@ -381,18 +380,14 @@ theorem nestContKey_ok {prog : List NestHole} {kb : Nat} {c : Name} {us : List L
     {ds : List Expr} {nPc nI : Nat} {cty : Expr} {st : NestState} {act : List NestKey}
     (hI : RInv ctx st act) (hnPc : ds.length = nPc)
     (hnI : nestInstType (m := CheckM) ctx (ctx.hiAt prog.length) ⟨c, us, ds⟩ = .ok (nI, cty))
-    (hfresh : ∀ h ∈ prog, h.key ≠ ⟨c, us, ds⟩) (hact : (⟨c, us, ds⟩ : NestKey) ∉ act)
+    (hact : (⟨c, us, ds⟩ : NestKey) ∉ act)
     (hnew : NewOk ops env ctx rec act prog c us ds) :
     ∃ k st', nestContKey ctx ops env rec prog kb c us ds nPc cty st = .ok (k, st') ∧
       k.erase = .nested (kb != 0) ∧ RInv ctx st' act := by
   unfold nestContKey
-  have hprog : prog.any (·.key == (⟨c, us, ds⟩ : NestKey)) = false := by
-    rw [List.any_eq_false]
-    intro h hh
-    simpa using hfresh h hh
   have hactc : st.active.contains ⟨c, us, ds⟩ = false := by
     rw [hI.1]; simpa using hact
-  rw [if_neg (by rw [hprog, hactc]; simp)]
+  rw [if_neg (by rw [hactc]; simp)]
   split
   · exact ⟨_, _, rfl, rfl, hI.1, hI.2⟩
   · exact nestContNew_ok' hI hnPc hnI hnew
@@ -407,7 +402,6 @@ theorem nestCont_ok {prog : List NestHole} {kb : Nat} {c : Name} {us : List Leve
     (hds : ∀ x ∈ args.take nPc, x.bvarB = 0 ∧ x.fvarB ≤ ctx.hiAt prog.length)
     (hnI : nestInstType (m := CheckM) ctx (ctx.hiAt prog.length) ⟨c, us, args.take nPc⟩
       = .ok (nI, cty))
-    (hfresh : ∀ h ∈ prog, h.key ≠ ⟨c, us, args.take nPc⟩)
     (hact : (⟨c, us, args.take nPc⟩ : NestKey) ∉ act)
     (hnew : NewOk ops env ctx rec act prog c us (args.take nPc)) :
     ∃ k st', nestCont ctx ops env rec prog kb c us args st = .ok (k, st') ∧
@@ -426,7 +420,7 @@ theorem nestCont_ok {prog : List NestHole} {kb : Nat} {c : Name} {us : List Leve
     exact hds x hx)]
   simp only [hnI]
   rw [if_pos (by simp [hlen])]
-  exact nestContKey_ok (hI.insert c) (by simp; omega) hnI hfresh hact hnew
+  exact nestContKey_ok (hI.insert c) (by simp; omega) hnI hact hnew
 
 /-- **The claim of (B) at a judgment**: the corresponding run, at every
 fuel at least the index, from every state the judgment's in-progress list
@@ -525,10 +519,10 @@ theorem posDR_run {n : Nat} {J : PosJR} (h : PosDR ops env ctx n J) : RunOK ops 
     · simp [Expr.getAppFn] at hfn
     · rfl
   | @cont n m act prog dep kb e w c us L nPc nI cty grp hw hocc hfn hnm hC hlen hquot hidx hds
-      hdsw hsc hnI hfresh hact hhead hm hfr ih =>
+      hdsw hsc hnI hact hhead hm hfr ih =>
     intro fuel hf st hI
     obtain ⟨f, rfl⟩ : ∃ f, fuel = f + 1 := ⟨fuel - 1, by omega⟩
-    obtain ⟨k', st', hr, hk, hI'⟩ := nestCont_ok (rec := nestPos ops env ctx f) (kb := kb) (us := us) hI hC hlen hquot hidx hds hnI hfresh hact
+    obtain ⟨k', st', hr, hk, hI'⟩ := nestCont_ok (rec := nestPos ops env ctx f) (kb := kb) (us := us) hI hC hlen hquot hidx hds hnI hact
       (newOk_of hfr hhead (ih f (by omega)))
     refine ⟨k', st', ?_, hk, hI'⟩
     rw [nestPos]
@@ -726,7 +720,7 @@ theorem posDR_posD {n : Nat} {J : PosJR} (h : PosDR ops env ctx n J) :
     exact ⟨[], .hole hw hocc hfn hlo hhi hlen hpar hfree⟩
   | frameHole hw hocc hfn hlo hhi hk hle hpar hfree har =>
     exact ⟨[], .frameHole hw hocc hfn hlo hhi hk hle hpar hfree har⟩
-  | cont hw hocc hfn hnm hC hlen hquot hidx hds hdsw hsc hnI hfresh hact hhead hm hfr ih =>
+  | cont hw hocc hfn hnm hC hlen hquot hidx hds hdsw hsc hnI hact hhead hm hfr ih =>
     obtain ⟨ts, hd⟩ := ih
     rcases walkStack_split hdsw hhead hfr hd with ⟨-, nI', hnI', hhd, hd'⟩ |
       ⟨-, hfree, hdsw', hmem, hd'⟩

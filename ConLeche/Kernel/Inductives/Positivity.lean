@@ -1369,11 +1369,12 @@ def nestContNew (ctx : NestCtx) (ops : CheckerOps m) (env : Env)
     { st with active := act, keys := nestAcceptGroup us ds grp st.keys, nodes := st.nodes ++ nodes })
 
 /-- The instantiation `(n, us, ds)` met (`nestCont` after its checks): IN
-PROGRESS — met as a CONSTANT, which only reduction can produce (the
-frame abstracts its whole group, so a syntactic occurrence of a
-group-mate at the key is its hole): official's "non valid occurrence"
-(its `check_positivity` reads the reduct, where a copied type's
-constant is no member of the auxiliary block); cached — a hit, but only
+PROGRESS (`active`: every frame being walked, the enclosing frames among
+them — `Complete/ProgActive.lean`) — met as a CONSTANT, which only
+reduction can produce (the frame abstracts its whole group, so a
+syntactic occurrence of a group-mate at the key is its hole): official's
+"non valid occurrence" (its `check_positivity` reads the reduct, where a
+copied type's constant is no member of the auxiliary block); cached — a hit, but only
 when its parameters mention no FRAME hole (a frame hole's variable is reused
 by a later frame, with other
 parameters, so such a key is walked again); else a new frame.  `cty`:
@@ -1382,7 +1383,7 @@ def nestContKey (ctx : NestCtx) (ops : CheckerOps m) (env : Env)
     (rec : List NestHole → Nat → Nat → Expr → NestState → m (NestFieldKind × Expr × NestState))
     (prog : List NestHole) (kb : Nat) (n : Name) (us : List Level) (ds : List Expr) (nPc : Nat)
     (cty : Expr) (st : NestState) : m (NestFieldKind × NestState) :=
-  if prog.any (·.key == ⟨n, us, ds⟩) || st.active.contains ⟨n, us, ds⟩ then
+  if st.active.contains ⟨n, us, ds⟩ then
     throw (.invalid "nested positivity: non valid occurrence of the datatypes being \
       declared (an instantiation in progress, reached through reduction)")
   else if ds.all (fun x => x.fvarB ≤ ctx.hiAt 0) && st.keys.contains ⟨n, us, ds⟩ then
