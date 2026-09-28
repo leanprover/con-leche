@@ -179,8 +179,7 @@ theorem memberHole_ar {ctx : NestCtx} {cls : List ClassInfo} {hi : Nat} {w : Exp
     {ty : Expr} {c : Nat} {ci : ClassInfo}
     (hocc : w.nestOcc ctx.names ctx.nP hi = true) (hfn : w.getAppFn = .fvar i ty)
     (hhi' : i < ctx.hiAt 0) (hc : cls[c]? = some ci) (hmem : ci.member = some (i - ctx.nP))
-    (_hpar : w.getAppArgs.take ctx.nP = ctx.params)
-    (hlen : (w.getAppArgs.drop ctx.nP).length = ci.nIdx) (_hparL : ctx.params.length = ctx.nP)
+    (hlen : (w.getAppArgs.drop ctx.nP).length = ci.nIdx)
     (hle : ctx.nP ≤ w.getAppArgs.length)
     (hfree : ∀ x ∈ w.getAppArgs, x.nestOcc ctx.names ctx.nP hi = false) :
     ClassHoleAr ctx cls hi i w.getAppArgs.length := by
@@ -263,7 +262,7 @@ theorem fieldD_mono {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env)
     refine classMono_of_whnf hin hw hfr hC hea hgr hR.dom fun hfrw _ wa hwa _ => ?_
     have hall := memberHole_args hparL hparF hpar hfree
     exact classMono_holeLeaf hhi hfn
-      (memberHole_ar hocc hfn hhi' hc hmem hpar hlen hparL hall.1 hall.2) hall.2 hfrw.1 hwa hR
+      (memberHole_ar hocc hfn hhi' hc hmem hlen hall.1 hall.2) hall.2 hfrw.1 hwa hR
   | @classHole dep kb e w i ty hty c ci hw hocc hfn hout hc hhole hlen hfree =>
     intro hhi hfr Δa ea R hC hea hgr hR
     refine classMono_of_whnf hin hw hfr hC hea hgr hR.dom fun hfrw _ wa hwa _ => ?_
