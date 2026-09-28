@@ -94856,3 +94856,60 @@ holeVal Y)`; (I3) that as the recorded fields (`LfpCtorReads`'
 and d's identification (IH on rank); (I5) the `ClassSys` instance and the
 identification as equality of least fixed points, then carrier mono /
 fitMono / acc / (W), and ClassPres's container nodes on the crest clause.
+
+### CLASSCHECK / P2D3 — milestone 2: the identification at every frame (I1–I3)
+
+**Checker (refined).**  The commutation equation is now TWO
+substitutions and nothing else: the crest with its stage classes (free ∪
+group) abstracted, each group hole written back as a placeholder member
+`fvar (hi + m)` (above every hole) applied to the key's free-hole form
+(`classGL`), equals — up to annotations — the container's canonical text
+(`classCanonText` = the recorded `canonAbs` at `canonParams`) at `c`'s
+levels, its parameters replaced by the key's free-hole form and its
+members by the placeholders (`classGR`).  Consequence: the text-M3 check
+of milestone 1 is DROPPED (the equation needs no fact about the text:
+a group occurrence formed through the key, or a member unapplied in an
+erased redex, makes the two sides differ and rejects), and neither of the
+maintainer's recorded facts (own-name `FieldD`, text M3) is consumed by
+the proof: the crest's own `FieldD` (its class check) gives monotonicity,
+the equation gives the identification.  `tests/classcheck.sh` 610/610,
+the 671-stream sweep unchanged.
+
+**Proved (`Model/Inductives/ClassStageF.lean`, `ClassIdent.lean`).**
+* I1 — the LOCAL stage coherence `StageCohF`: a coherent class's hole
+  holds its key read with only the stage classes abstracted
+  (`classKeyF`) — no recursion over keys, so a class fact's valuation
+  satisfies it by construction.  `classAbsF_read_rel` (the restriction
+  reads related spellings alike), `classAbs_read_stageF`,
+  `aliasAbs_read_stageF`, `crestAbs_read_stageF` (the crest reads as its
+  restriction to the stage holes).
+* I2 — `denoteMeta_replaceFVars` (a replacement reads as the parallel
+  substitution of its readings), `substRead_eq` (the equation's two sides
+  read as equal substitutions), `teleAgree_spineFit` (Π-towers whose
+  opened subterms agree fit the same spines), `crest_spineFit_canon`,
+  and in the class check's vocabulary `classCrest_spineFit_frame`: a
+  spine fits the crest's fields at a locally coherent valuation whose
+  group holes hold the placeholder values applied to the key's
+  free-hole form iff it fits the canonical text's at the frame
+  `consList hv ρP`.
+* I3 — `classCrest_spineFit_recorded`: with the container's recorded
+  `LfpCtorReads` (`FieldsEqOn` at the frame's hole context,
+  `frame_sat_holes` from `holeVal_mem_type`) — the crest fits exactly as
+  the RECORDED fields at `D.frame ψ ρP Y`, `Y` the group's stage tuple,
+  at EVERY value of the free holes.  The atomic/applied hole bridge is
+  `hgrp`: a group hole holds `holeVal` applied to the key.
+Re-homed out of the delete set: `replaceFVars_erasedEq_substFvars`
+(`NestCallSyn` → `Verify/SubstFvars`); local copies of three small
+old-route lemmas (`sat_of_spineFitC`, `mkPisAV_injC`, `substTele_len`).
+
+**Next.**  I5: the `ClassSys` instance — positions = the classes (index
+sets fixed: N2 makes every class's index telescope member- and
+class-free), the hole valuation of a tuple (a class hole holds its
+component's λ-tower over its indices; a group hole the container's
+`holeVal` applied to the key), `Φ c` the crest fibre (OpOk from T4:
+`classCtorWalk_mono` / `fieldD_acc`), fills `dep c` in key-size order
+at ranks, then the identification `car c u = D_c.carrier ψ ρP(u)` by
+equality of least fixed points (the crest's reading depends only on the
+holes it mentions, so the fill's valuation and a globally locally-coherent
+one read it alike — `interp_congr_noBVar`); then carrier mono / fitMono /
+acc / (W), and ClassPres's container nodes on the crest clause.
