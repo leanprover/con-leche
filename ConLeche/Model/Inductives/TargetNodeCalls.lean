@@ -31,7 +31,7 @@ import ConLeche.Model.Inductives.TargetCallPatch
 import ConLeche.Model.Inductives.TargetCallWalk
 public import ConLeche.Model.Inductives.TargetCallTie
 public import ConLeche.Model.Inductives.TargetNodeDynOf
-public import ConLeche.Model.Inductives.NestedRecCtx
+import ConLeche.Model.Inductives.NestedRecCtx
 import ConLeche.Verify.Inductives.InstTypeInv
 
 public section

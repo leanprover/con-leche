@@ -1,9 +1,9 @@
 module
 
-public import ConLeche.Model.Rules.Inputs
+import ConLeche.Model.Rules.Inputs
 public import ConLeche.Model.Inductives.HoleKit
 import ConLeche.Model.Rules.Sound
-public import ConLeche.Model.CtxOkP
+import ConLeche.Model.CtxOkP
 import ConLeche.Verify.Rules.Bridge
 import ConLeche.Model.Rules.InferSoundKit
 import ConLeche.Semantics.Frame

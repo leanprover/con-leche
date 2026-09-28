@@ -3,7 +3,7 @@ module
 public import ConLeche.Model.Annot.LfpHoleOp
 public import ConLeche.Semantics.NoBVar
 public import ConLeche.Model.Inductives.BlockData
-public import ConLeche.Model.Inductives.ErasureKit
+import ConLeche.Model.Inductives.ErasureKit
 public import ConLeche.Model.Inductives.HoleSubst
 public import ConLeche.Model.Inductives.HoleKit
 import ConLeche.Verify.Denote.TeleOpen

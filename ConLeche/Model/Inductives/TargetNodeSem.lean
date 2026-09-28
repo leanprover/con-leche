@@ -9,7 +9,7 @@ import ConLeche.Model.Rules.Inputs
 import ConLeche.Model.Inductives.PosDerivTie
 import ConLeche.Model.Inductives.LfpCover
 import ConLeche.Verify.Inductives.PosAnn
-public import ConLeche.Model.Inductives.NestedRecCtx
+import ConLeche.Model.Inductives.NestedRecCtx
 
 public section
 

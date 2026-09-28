@@ -4,7 +4,7 @@ import ConLeche.Model.Inductives.TargetClassCall
 import ConLeche.Model.Inductives.TargetClassFrame
 public import ConLeche.Model.Inductives.TargetClasses
 import ConLeche.Verify.Inductives.RecStage
-public import ConLeche.Verify.Inductives.RecStageRun
+import ConLeche.Verify.Inductives.RecStageRun
 import ConLeche.Model.Inductives.TargetCallKey
 import ConLeche.Model.Inductives.BlockRuleFit
 import ConLeche.Model.Inductives.TargetFrame

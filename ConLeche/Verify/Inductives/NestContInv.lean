@@ -1,6 +1,6 @@
 module
 
-public import ConLeche.Kernel.Inductives.Positivity
+import ConLeche.Kernel.Inductives.Positivity
 public import ConLeche.Verify.Inductives.InstTypeInv
 import ConLeche.Verify.Inductives.DirectInv
 

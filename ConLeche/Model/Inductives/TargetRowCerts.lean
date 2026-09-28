@@ -1,7 +1,7 @@
 module
 
 import ConLeche.Verify.Inductives.RecStage
-public import ConLeche.Verify.Inductives.RecStageRun
+import ConLeche.Verify.Inductives.RecStageRun
 public import ConLeche.Model.Inductives.TargetIhData
 import ConLeche.Model.Inductives.TargetResidue
 import ConLeche.Model.Inductives.TargetRowCertsW

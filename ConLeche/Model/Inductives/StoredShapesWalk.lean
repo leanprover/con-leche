@@ -1,14 +1,14 @@
 module
 
-public import ConLeche.Model.Annot.LfpHoleOp
-public import ConLeche.Semantics.NoBVar
+import ConLeche.Model.Annot.LfpHoleOp
+import ConLeche.Semantics.NoBVar
 import ConLeche.Semantics.Inductives.HoleApp
-public import ConLeche.Model.Inductives.BlockData
-public import ConLeche.Model.Inductives.NestPosOut
+import ConLeche.Model.Inductives.BlockData
+import ConLeche.Model.Inductives.NestPosOut
 import ConLeche.Verify.Inductives.PosNodes
 public import ConLeche.Verify.Inductives.PosDeriv
-public import ConLeche.Model.Inductives.HoleSubst
-public import ConLeche.Model.Inductives.NestPosMono
+import ConLeche.Model.Inductives.HoleSubst
+import ConLeche.Model.Inductives.NestPosMono
 import ConLeche.Model.Inductives.BlockHoleRead
 import ConLeche.Model.Inductives.StructFrameKit
 import ConLeche.Model.Inductives.StructEntryKit

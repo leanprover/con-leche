@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.Model.Inductives.BlockPosRun
-public import ConLeche.Model.Inductives.BlockHoleChains
+import ConLeche.Model.Inductives.BlockHoleChains
 import ConLeche.Model.Annot.LfpHoleOp
 public import ConLeche.Model.Inductives.BlockLfpHoles
 import ConLeche.Verify.Inductives.DirectInv

@@ -2,7 +2,7 @@ module
 
 public import ConLeche.Verify.Cached.BlockRunC
 import ConLeche.Verify.Inductives.RecStage
-public import ConLeche.Verify.Inductives.RecStageRun
+import ConLeche.Verify.Inductives.RecStageRun
 import ConLeche.Verify.Inductives.BlockWF
 import ConLeche.Verify.Inductives.RecCheckScope
 import ConLeche.Verify.BridgeWfImp

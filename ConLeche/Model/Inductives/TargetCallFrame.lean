@@ -16,6 +16,7 @@ import ConLeche.Model.Annot.BitRename
 import ConLeche.Verify.BridgeWfImp
 import ConLeche.Verify.Inductives.NestScope
 import ConLeche.Model.Inductives.PosFieldLeaf
+import ConLeche.Model.Inductives.ErasureKit
 
 public section
 

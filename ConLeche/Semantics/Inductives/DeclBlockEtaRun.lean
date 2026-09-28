@@ -1,8 +1,8 @@
 module
 
 public import ConLeche.Semantics.Inductives.DeclBlockEta
-public import ConLeche.Verify.EnvGuards
-public import ConLeche.Semantics.Inductives.DeclBlock
+import ConLeche.Verify.EnvGuards
+import ConLeche.Semantics.Inductives.DeclBlock
 import ConLeche.Kernel.Inductives.FieldTele
 import ConLeche.Verify.Inductives.BlockWF
 import ConLeche.Verify.Inductives.RecStage
