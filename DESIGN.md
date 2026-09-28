@@ -94577,6 +94577,21 @@ read — and `HoleKeysOk`), `crestAbs_read_stage` (the whole abstraction,
 syntactic then defeq tier, reads as its restriction to the kept holes:
 P2B's open item closed at the proof level).
 
+**Proved (`Model/Inductives/ClassRunWF.lean`, item 1 in part).**  From
+check 1 (`ClassInfosD`): a container class's hole is `fvar (hiAt 0 +
+#containers before it)` below `classHi` — `HolesUniq`, and
+`ClassOccWF` but for the keys' scoping (`KeysScoped`, a premise:
+`classCanon` + annotation + member abstraction; helper lemmas
+`wscoped_replaceFVars`/`looseBVars_replaceFVars` are in place, the
+param-annotation types' scoping is the missing piece); from the defeq
+tier (`ClassAliasOk`): `AliasWF` (alias keys' scoping a premise), and
+`classRun_aliases_notKept` (at the run, a container crest's aliases
+keep no hole).  Still open in item 1: `KeysScoped`, the alias keys'
+scoping (the candidates' `isCand` guard, not yet retained by
+`classAliases_run`), `HoleKeysOk` (the denotation half from K.52 via
+`acceptedReads_of`), `AliasKeySem` (`defeq_sound` at a hole-context
+valuation).
+
 **Finding: PROOFPLAN's occurrence lemma A1 is false (higher-order
 container parameters).**  `Ap (f : Type → Type) α | mk : f α`, class
 `Ap RL T` (`corner_classcheck_hoparam`, official 0, default 0, class 0):
