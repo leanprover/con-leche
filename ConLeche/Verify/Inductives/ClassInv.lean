@@ -607,7 +607,7 @@ theorem ClassInfosD.getElem {holes : List Expr} {ctorsAs : List (List (ConstantV
       have : (if c.member.isSome then a else a + 1) +
           ((cs.take i).filter (·.member.isNone)).length =
           a + (((c :: cs).take (i + 1)).filter (·.member.isNone)).length := by
-        cases hm : c.member <;> simp [hm, List.filter_cons] <;> omega
+        cases hm : c.member <;> simp [hm] <;> omega
       rw [← this]; exact h'
 
 /-! ## R6: the keys typed with their cyclic inner classes abstracted -/
@@ -743,5 +743,141 @@ theorem classAliases_run {hi : Nat} {cls : List ClassInfo} :
         · exact ih a ha
     · simp only [pure, Except.pure, Except.ok.injEq] at h
       subst h; exact ih
+
+/-- **Two container classes identified**, in the order compared: one
+inductive, equivalent levels, syntactically the same (`ClassInfo.same`) or
+per component in hole form. -/
+@[expose] def ClassSameOk (ops : CheckerOps CheckM) (env : Env) (hi : Nat) (cls : List ClassInfo)
+    (i j : Nat) : Prop :=
+  (cls.getD i default).member = none ∧ (cls.getD j default).member = none ∧
+    (cls.getD i default).key.ind = (cls.getD j default).key.ind ∧
+    Level.isEquivList (cls.getD i default).key.lvls (cls.getD j default).key.lvls = some true ∧
+    ((cls.getD i default).same (cls.getD j default) = true ∨
+      classParamsDefEq ops env hi ((cls.getD i default).holeForm cls)
+        ((cls.getD j default).holeForm cls) = .ok true)
+
+/-- **`classSamePairs`, inverted**: every recorded pair identified, in one
+order or the other. -/
+theorem classSamePairs_run {hi : Nat} {cls : List ClassInfo} {out : List (Nat × Nat)}
+    (h : classSamePairs ops env hi cls = .ok out) :
+    ∀ p ∈ out, ClassSameOk ops env hi cls p.1 p.2 ∨ ClassSameOk ops env hi cls p.2 p.1 := by
+  unfold classSamePairs at h
+  dsimp only at h
+  obtain ⟨r, hloop, h⟩ := exceptBind_ok h
+  simp only [pure, Except.pure, Except.ok.injEq] at h
+  subst h
+  let P : List (Nat × Nat) → Prop := fun o =>
+    ∀ p ∈ o, ClassSameOk ops env hi cls p.1 p.2 ∨ ClassSameOk ops env hi cls p.2 p.1
+  refine except_forIn_inv (P := P) (by intro p hp; exact nomatch hp) (fun i _ s s' hs hst => ?_) hloop
+  obtain ⟨r', hin, hst⟩ := exceptBind_ok hst
+  simp only [pure, Except.pure, Except.ok.injEq] at hst
+  subst hst
+  refine except_forIn_inv (P := P) hs (fun j _ s s' hs hst => ?_) hin
+  split at hst
+  · rename_i hcond
+    obtain ⟨b0, hb, hst⟩ := exceptBind_ok hst
+    split at hst
+    · rename_i hor
+      simp only [pure, Except.pure, Except.ok.injEq] at hst
+      subst hst
+      simp only [Bool.and_eq_true, decide_eq_true_eq, Option.isNone_iff_eq_none, beq_iff_eq]
+        at hcond
+      obtain ⟨⟨⟨⟨-, hm1⟩, hm2⟩, hI⟩, hlv⟩ := hcond
+      have hQ : ClassSameOk ops env hi cls i j := by
+        refine ⟨hm1, hm2, hI, hlv, ?_⟩
+        rcases Bool.or_eq_true_iff.mp hor with h1 | h1
+        · exact Or.inl h1
+        · exact Or.inr (h1 ▸ hb)
+      intro p hp
+      simp only [ForInStep.value, List.mem_cons] at hp
+      rcases hp with rfl | rfl | hp
+      · exact Or.inl hQ
+      · exact Or.inr hQ
+      · exact hs p hp
+    · simp only [pure, Except.pure, Except.ok.injEq] at hst
+      subst hst; exact hs
+  · simp only [pure, Except.pure, Except.ok.injEq] at hst
+    subst hst; exact hs
+
+/-! ## Check 5: the walk against the inductive hypotheses -/
+
+/-- **`classMinorSlot`, inverted**: the slot is a minor premise of class
+`c` for constructor `C`, with inductive hypotheses `ihs`. -/
+theorem classMinorSlot_run {rd : ClassRead} {c : Nat} {C : Name} {s : Nat}
+    {ihs : List (Nat × Nat)} (h : classMinorSlot (m := CheckM) rd c C = .ok (s, ihs)) :
+    rd.slots[s]? = some (.minor c C ihs) := by
+  unfold classMinorSlot at h
+  dsimp only at h
+  split at h
+  · rename_i x hx
+    simp only [pure, Except.pure, Except.ok.injEq] at h
+    subst h
+    have hm : (s, ihs) ∈ [(s, ihs)] := List.mem_singleton_self _
+    rw [← hx] at hm
+    obtain ⟨s', -, hs'⟩ := List.mem_filterMap.mp hm
+    split at hs'
+    · rename_i c' C' ihs' heq
+      split at hs'
+      · rename_i hcc
+        simp only [Option.some.injEq, Prod.mk.injEq] at hs'
+        obtain ⟨rfl, rfl⟩ := hs'
+        simp only [Bool.and_eq_true, beq_iff_eq] at hcc
+        obtain ⟨rfl, rfl⟩ := hcc
+        exact heq
+      · exact nomatch hs'
+    · exact nomatch hs'
+  · close_throw h
+
+/-- One field's inductive hypothesis against its walk: an ordinary field
+has none; a recursive one exactly one, at a class the same as the one it
+lands at, and the generator's kind names the ih's class. -/
+@[expose] def ClassIhAgree (sameIdx : Nat → Nat → Bool) (ihs : List (Nat × Nat)) (i : Nat)
+    (k k' : ClassField) : Prop :=
+  (k = .ordinary ∧ k' = .ordinary ∧ ihs.filter (·.1 == i) = []) ∨
+    ∃ c tele i' t, k = .recursive c tele ∧ ihs.filter (·.1 == i) = [(i', t)] ∧
+      sameIdx c t = true ∧ k' = .recursive t tele
+
+/-- **`classIhsAgree`, inverted.** -/
+theorem classIhsAgree_run {sameIdx : Nat → Nat → Bool} {ctor : Name} {ihs : List (Nat × Nat)} :
+    ∀ {i : Nat} {ks ks' : List ClassField},
+      classIhsAgree (m := CheckM) sameIdx ctor ihs i ks = .ok ks' →
+      ks'.length = ks.length ∧ ∀ (l : Nat) (k : ClassField), ks[l]? = some k →
+        ∃ k', ks'[l]? = some k' ∧ ClassIhAgree sameIdx ihs (i + l) k k'
+  | _, [], ks', h => by
+    simp only [classIhsAgree, pure, Except.pure, Except.ok.injEq] at h
+    subst h; exact ⟨rfl, fun _ _ h => by simp at h⟩
+  | i, k :: ks, ks', h => by
+    unfold classIhsAgree at h
+    dsimp only at h
+    have key : ∃ k' ks'', ClassIhAgree sameIdx ihs i k k' ∧
+        classIhsAgree (m := CheckM) sameIdx ctor ihs (i + 1) ks = .ok ks'' ∧ ks' = k' :: ks'' := by
+      split at h
+      · rename_i hf
+        obtain ⟨k0, hk0, h⟩ := exceptBind_ok h
+        obtain ⟨ks'', hks, h⟩ := exceptBind_ok h
+        simp only [pure, Except.pure, Except.ok.injEq] at hk0 h
+        subst hk0
+        exact ⟨_, ks'', Or.inl ⟨rfl, rfl, hf⟩, hks, h.symm⟩
+      · rename_i c tele i' t hf
+        split at h
+        · rename_i hs
+          obtain ⟨k0, hk0, h⟩ := exceptBind_ok h
+          obtain ⟨ks'', hks, h⟩ := exceptBind_ok h
+          simp only [pure, Except.pure, Except.ok.injEq] at hk0 h
+          subst hk0
+          exact ⟨_, ks'', Or.inr ⟨c, tele, i', t, rfl, hf, hs, rfl⟩, hks, h.symm⟩
+        · close_throw h
+      · close_throw h
+    obtain ⟨k', ks'', hagree, hks, rfl⟩ := key
+    obtain ⟨hl, hall⟩ := classIhsAgree_run hks
+    refine ⟨by simp [hl], fun l k0 hk0 => ?_⟩
+    cases l with
+    | zero =>
+      simp only [List.getElem?_cons_zero, Option.some.injEq] at hk0
+      subst hk0
+      exact ⟨k', rfl, by simpa using hagree⟩
+    | succ l =>
+      obtain ⟨k1, h1, h2⟩ := hall l k0 (by simpa using hk0)
+      exact ⟨k1, by simpa using h1, by rw [show i + (l + 1) = i + 1 + l by omega]; exact h2⟩
 
 end ConLeche
