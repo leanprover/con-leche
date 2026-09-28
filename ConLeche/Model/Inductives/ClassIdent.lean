@@ -4,6 +4,8 @@ public import ConLeche.Model.Inductives.ClassStageF
 public import ConLeche.Model.Annot.BitSubstFvars
 public import ConLeche.Verify.Inductives.ClassInv
 import ConLeche.Model.IndReduct
+import ConLeche.Model.Annot.BitLevels
+public import ConLeche.Model.Annot.LfpFormer
 
 public section
 
@@ -527,5 +529,147 @@ theorem classCrest_spineFit_frame (m : EnvModel V env)
       show j = (j - names.length) + hv.length by omega, consList_apply_add, if_neg (by omega)]
     congr 1
     omega
+
+/-! ## 8. … and as the RECORDED clause's fields (I3) -/
+
+theorem fvarsBelow_instLevelsC (ks : List Name) (us : List Level) {d : Nat} :
+    ∀ {e : Expr}, Expr.fvarsBelow d e → Expr.fvarsBelow d (e.instantiateLevelParams ks us) := by
+  intro e
+  induction e <;> intro h <;> simp_all [Expr.fvarsBelow, Expr.instantiateLevelParams]
+
+/-- The class check's canonical text is the recorded clause's canonical
+crest (`canonAbs` at the canonical parameters). -/
+theorem classCanonText_eq (names : List Name) (nPc : Nat) (cv : ConLeche.ConstantVal) :
+    ConLeche.classCanonText names nPc cv
+      = ConLeche.instPisWith (canonParams nPc) (canonAbs names cv.levelParams nPc names.length cv.type) :=
+  rfl
+
+/-- A fitting spine satisfies the entries it fits, pushed onto the
+ambient context. -/
+theorem sat_of_spineFitC :
+    ∀ {Ds : List AnnotTerm} {as : List V} {Δ₀ : List AnnotTerm} {ρ : Nat → V},
+      Sat V Δ₀ ρ → SpineFit ρ Ds as →
+      Sat V (Ds.reverse ++ Δ₀) (consList as ρ)
+  | [], [], _, _, h, _ => by simpa using h
+  | [], _ :: _, _, _, _, hsp => hsp.elim
+  | _ :: _, [], _, _, _, hsp => hsp.elim
+  | D :: Ds, a :: as, Δ₀, ρ, h, hsp => by
+    rw [consList_cons, List.reverse_cons, List.append_assoc,
+      List.singleton_append]
+    exact sat_of_spineFitC (Sat_cons V h hsp.1) hsp.2
+
+/-- **The frame satisfies the recorded reading's hole context**: the
+parameters, then each member's hole value in its former type. -/
+theorem frame_sat_holes {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) {D : LfpDatum V}
+    (hD : D ∈ mp.lfpBlocks) {ψ : Name → Nat} {ρp : Nat → V} (hs : Sat V (D.params ψ).reverse ρp)
+    {Tys : List AnnotTerm} (hlT : Tys.length = D.k)
+    (hTys : ∀ mm, mm < D.k → ∃ cvm caps, env.find? (D.member mm) = some (.indInfo cvm caps) ∧
+      denoteMeta mp.base2.acval env ψ 0 cvm.type = some (Tys.getD mm default))
+    (X : Nat → V) (hX : InTupleSpace (D.w ψ) D.N (D.idx ψ ρp) X) :
+    Sat V (D.params ψ ++ Tys).reverse (D.frame ψ ρp X) := by
+  unfold LfpDatum.frame
+  rw [List.reverse_append]
+  refine sat_of_spineFitC hs ?_
+  have key : ∀ (n : Nat), n ≤ D.k →
+      SpineFit ρp (Tys.take n) ((List.range n).map (D.holeVal ψ ρp X)) := by
+    intro n
+    induction n with
+    | zero => intro _; simp [SpineFit]
+    | succ n ih =>
+      intro hn
+      rw [List.range_succ, List.map_append, List.take_add_one]
+      have hTn : Tys[n]? = some (Tys.getD n default) := by
+        rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem (by omega)]; rfl
+      rw [hTn]
+      refine (ih (by omega)).append ⟨?_, trivial⟩
+      obtain ⟨cvm, caps, hfm, hr⟩ := hTys n (by omega)
+      exact holeVal_mem_type mp hD (by omega) hfm hr hX _
+  have := key D.k (Nat.le_refl _)
+  rwa [List.take_of_length_le (by omega)] at this
+
+set_option maxHeartbeats 3200000 in
+/-- **The identification with the recorded clause** (I2 + I3): at every
+locally coherent valuation `τ` whose group holes hold the container's
+member hole values at the frame `(ρP, Y)` applied to the key's free-hole
+form, a spine fits container class `c`'s crest (for the recorded
+constructor `(c', j')` of `D`, `c`'s container block) exactly when it
+fits `D`'s recorded fields at the frame `D.frame ψ ρP Y` — `ρP` the
+key's free-hole form, read. -/
+theorem classCrest_spineFit_recorded {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env)
+    (hacl : ∀ (n : Name) (ψ : Name → Nat) (k : Nat),
+      (mp.base2.acval n ψ).liftN 1 k = mp.base2.acval n ψ)
+    {cls : List ClassInfo} {H : Nat} (hwf : ClassOccWF cls H)
+    (hhk : HoleKeysOk mp.base2.acval env φ cls H) {isF isG : Expr → Bool}
+    (hkf : KeysFOk mp.base2.acval env φ cls (fun h => isF h || isG h) H)
+    (hFc : FClosed cls (fun h => isF h || isG h))
+    {al : List ConLeche.ClassAlias} (hawf : AliasWF al H)
+    (hden : ∀ a ∈ al, (denoteMeta mp.base2.acval env φ H (aliasKey a)).isSome)
+    (hF : ∀ a ∈ al, (isF a.hole || isG a.hole) = false) {Good : (Nat → V) → Prop}
+    (hG : ∀ τ, Good τ → StageCohF V mp.base2.acval env φ cls (fun h => isF h || isG h) H τ)
+    (hsem : AliasKeySem V mp.base2.acval env φ cls al H Good)
+    {D : LfpDatum V} (hD : D ∈ mp.lfpBlocks) (hk : D.names.length = D.k)
+    {c : ClassInfo} {cv : ConLeche.ConstantVal} {e0 A : Expr} {n : Nat} (hPis : IsPisN n e0)
+    (heq : ((classAbsF cls (fun h => isF h || isG h) e0).replaceFVars
+        (ConLeche.classGL cls D.names c H (c.dsA.map (classAbsF cls isF)))).eraseFVarTys
+      = ((A.instantiateLevelParams cv.levelParams c.key.lvls).replaceFVars
+        (ConLeche.classGR c.nPc H (c.dsA.map (classAbsF cls isF)))).eraseFVarTys)
+    {pF : List AnnotTerm} (hlp : c.dsA.length = c.nPc) (hlpF : pF.length = c.nPc)
+    (hpF : ∀ i, i < c.nPc → Expr.fvarsBelow H ((c.dsA.map (classAbsF cls isF)).getD i default) ∧
+      ((c.dsA.map (classAbsF cls isF)).getD i default).looseBVarsBounded 0 = true ∧
+      denoteMeta mp.base2.acval env φ H ((c.dsA.map (classAbsF cls isF)).getD i default)
+        = some (pF.getD i default))
+    (hL : Expr.fvarsBelow H (classAbsF cls (fun h => isF h || isG h) e0))
+    (hA : Expr.fvarsBelow (c.nPc + D.k) A)
+    {abC abL ab : List (Nat × Nat × AnnotTerm)} {rC rL r : AnnotTerm}
+    (hCr : denoteMeta mp.base2.acval env φ H (ConLeche.classAliasAbs al (ConLeche.classAbs cls e0))
+      = some (mkPisAV abC rC))
+    (hLr : denoteMeta mp.base2.acval env φ H (classAbsF cls (fun h => isF h || isG h) e0)
+      = some (mkPisAV abL rL))
+    (hAr : denoteMeta mp.base2.acval env (Level.substFn φ cv.levelParams c.key.lvls) (c.nPc + D.k) A
+      = some (mkPisAV ab r))
+    (hlC : abC.length = n) (hlL : abL.length = n) (hlA : ab.length = n)
+    {Tys : List AnnotTerm} (hlT : Tys.length = D.k)
+    (hTys : ∀ mm, mm < D.k → ∃ cvm caps, env.find? (D.member mm) = some (.indInfo cvm caps) ∧
+      denoteMeta mp.base2.acval env (Level.substFn φ cv.levelParams c.key.lvls) 0 cvm.type
+        = some (Tys.getD mm default))
+    {c' j' : Nat}
+    (hEq : FieldsEqOn V (D.params (Level.substFn φ cv.levelParams c.key.lvls) ++ Tys).reverse
+      (ab.map (·.2.2)) (D.fields (Level.substFn φ cv.levelParams c.key.lvls) c' j'))
+    {τ : Nat → V} (hτ : Good τ)
+    (hSat : Sat V (D.params (Level.substFn φ cv.levelParams c.key.lvls)).reverse
+      (fun j => if j < c.nPc then interp V τ (pF.getD (c.nPc - 1 - j) default) else τ (j - c.nPc + H)))
+    {Y : Nat → V}
+    (hY : InTupleSpace (D.w (Level.substFn φ cv.levelParams c.key.lvls)) D.N
+      (D.idx (Level.substFn φ cv.levelParams c.key.lvls)
+        (fun j => if j < c.nPc then interp V τ (pF.getD (c.nPc - 1 - j) default)
+          else τ (j - c.nPc + H))) Y)
+    (hgrp : ∀ i mm, i < H → ConLeche.classGrpOf cls D.names c i = some mm →
+      τ (H - 1 - i) = (pF.map (interp V τ)).foldl SetTheory.app
+        (D.holeVal (Level.substFn φ cv.levelParams c.key.lvls)
+          (fun j => if j < c.nPc then interp V τ (pF.getD (c.nPc - 1 - j) default)
+            else τ (j - c.nPc + H)) Y mm))
+    (fs : List V) :
+    SpineFit τ (abC.map (·.2.2)) fs ↔
+      SpineFit (D.frame (Level.substFn φ cv.levelParams c.key.lvls)
+        (fun j => if j < c.nPc then interp V τ (pF.getD (c.nPc - 1 - j) default)
+          else τ (j - c.nPc + H)) Y)
+        (D.fields (Level.substFn φ cv.levelParams c.key.lvls) c' j') fs := by
+  have hAr' : denoteMeta mp.base2.acval env φ (c.nPc + D.names.length)
+      (A.instantiateLevelParams cv.levelParams c.key.lvls) = some (mkPisAV ab r) := by
+    rw [denotePInstLevels mp.base2 φ cv.levelParams c.key.lvls, hk]; exact hAr
+  have hA' : Expr.fvarsBelow (c.nPc + D.names.length)
+      (A.instantiateLevelParams cv.levelParams c.key.lvls) := by
+    rw [hk]; exact fvarsBelow_instLevelsC cv.levelParams c.key.lvls hA
+  have h1 := classCrest_spineFit_frame (φ := φ) mp.base2 hacl hwf hhk hkf hFc hawf hden hF hG hsem
+    hPis heq hlp hlpF hpF hL hA' hCr hLr hAr' hlC hlL hlA
+    (hv := (List.range D.k).map (D.holeVal (Level.substFn φ cv.levelParams c.key.lvls)
+      (fun j => if j < c.nPc then interp V τ (pF.getD (c.nPc - 1 - j) default)
+        else τ (j - c.nPc + H)) Y)) (by simp [hk]) hτ
+    (fun i mm hi hg => by
+      rw [hgrp i mm hi hg, List.getD_eq_getElem?_getD, List.getElem?_map,
+        List.getElem?_range (by rw [← hk]; exact classGrpOf_lt hg)]
+      rfl) fs
+  rw [h1]
+  exact FieldsEqOn.spineFit_iff hEq (frame_sat_holes mp hD hSat hlT hTys Y hY) fs
 
 end ConLeche.Model
