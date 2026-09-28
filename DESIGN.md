@@ -94529,3 +94529,103 @@ demotable (9 new MEASURED fallbacks: `ScopeKit`×2, `ErasureKit`×2,
 `TargetClassCall`); layering, overview links (two `declBlock` anchors
 repointed), quote gate, trust surface; `tests/arena.sh` — see the
 landing commit.
+
+## CLASSCHECK / P2D — class facts from the run: the gap closed, a design finding (2026-09-28, `agent/cc-P2D`)
+
+PROOFPLAN P2d (T5/T6).  This record: the checker changes that close
+P2B's open item, the kept-hole machinery, and a finding that moves the
+class facts' design.  Sorry-free, standard axioms only.
+
+**Checker changes (class route only; both official-imposed, charter item 9).**
+1. `classMatesOk`: every block mate of a container class at its
+   instantiation (`IndCaps.all`, the class's levels and member-abstracted
+   parameters) is recognised as a class.  Official copies the whole block
+   (`elim_nested_inductive`) and generates a recursor per mate.  Needed:
+   a class fact's lfp node is the container's WHOLE block at the key; a
+   mate occurrence left concrete in a crest (no class: `K1 (B α)`, erased
+   by whnf, so the walk passes) reads the TRUE mate where the recorded
+   clause reads the node's hole — no proof can bridge that without
+   "whnf commutes with abstraction" (F17).
+2. `classAliasesFor`: in a CONTAINER class's crest the defeq tier
+   identifies an occurrence only with a class of a strictly OLDER
+   inductive outside the container's block — never a hole the class fact
+   keeps free.  P2B's open item was exactly an alias onto a kept hole
+   (`P (RL T) (RL (Id' T))`: `RL (Id' X)` identified with the cyclic
+   `RL T`; the stage value of the hole ≠ the true value the occurrence
+   reads).  The coordinator's suggestion (`holeForm` running the alias
+   pass) does not suffice: R6 types the syntactic cyclic form, so Sat at
+   the alias-abstracted frame is unestablished (a dependent parameter
+   `P α β (f : α → β)` rejects via R6 while the non-dependent twin is
+   accepted), and making R6 alias-aware needs a second defeq resolution
+   whose map must coincide with the crest's (incomplete defeq) — no
+   minimal form.  Member crests keep the full tier (a member fact keeps
+   no container hole).
+   Fixtures (`scripts/mk_classcheck_p2d_fixtures.py`, sources
+   `tests/e2e/src/corner_classcheck_{alias_cyc,mates}.lean`): the
+   forged twins `…_bad` — official 1 ("Invalid recursor T.rec_1"),
+   default route 0, class checker 0 → 1; twins 0/0/0.  `tests/
+   classcheck.sh` 605/605; the 665-stream sweep (`_tmp/classcheck/P2D/
+   sweep-c12.txt`): no other verdict moves (the D3/merge/k53 alias rows
+   stay 0: their targets are older containers).
+
+**Proved (`Model/Inductives/ClassStage.lean`).**  `classKept` (the
+holes a container class's fact keeps free), `classKept_fclosed`
+(`FClosed`, given `HolesUniq`), `classAliasesFor_notKept`,
+`aliasAbs_read_stage` (the defeq tier reads as its input at every
+stage-coherent valuation, from `AliasKeySem` — the per-component defeq
+read — and `HoleKeysOk`), `crestAbs_read_stage` (the whole abstraction,
+syntactic then defeq tier, reads as its restriction to the kept holes:
+P2B's open item closed at the proof level).
+
+**Finding: PROOFPLAN's occurrence lemma A1 is false (higher-order
+container parameters).**  `Ap (f : Type → Type) α | mk : f α`, class
+`Ap RL T` (`corner_classcheck_hoparam`, official 0, default 0, class 0):
+its crest's field `RL X` is a class occurrence formed by instantiating
+TWO parameters — a subterm of neither, so not in the key's hole form —
+of an inductive (`RL`) YOUNGER than the container.  Consequences for
+the design of the class facts:
+* with the age-based kept set ("cyclic = younger"), the crest reads
+  `z_ρ` free while the recorded clause at the frame `⟦Ap RL X⟧` reads
+  `⟦RL⟧ ⟦X⟧`: T3′ (identification with the recorded clause at the hole
+  form frame, at every stage value) FAILS;
+* with "cyclic = younger AND in the hole form" (R6's set), the class
+  fact reads the younger `RL T` coherently, and "strong induction on
+  container age" no longer orders the facts (`Ap` older than `RL`).
+**Resolution (adopted, `classKeptBy`):** keep free every class not of a
+strictly older inductive (and the group); read coherently only the
+strictly older ones — the facts are by age again (E1's `ClassSys`,
+index = age).  The identification with the recorded clause is then
+needed ONLY at MEMBER-TRUE frames: members arbitrary `S`, every kept
+class at its true value over `S` (`ClassesTrue`), the group at the lfp
+variable `Y`, the older classes coherent (`StageCoh` at
+`F = classKept`).  There the kept holes read what the concrete crest
+reads (`classAbs_read`), so the crest reads as `classAbsF own e0`, which
+is the recorded clause at the CONCRETE key frame `⟦dsA_c⟧[S]` with the
+group at `Y` (`frameCrest_read`) — no hole-form frame, no Sat at stage
+frames: **R6 is not needed by this design** (not removed here).  Every
+use of a container class's carrier the member block and the recursor
+kit make is at a member-true frame (F13's `λ` at `ρ := T_ρ(S)`), and the
+facts' monotonicity/accessibility in the kept holes (all values) come
+from the crest operator (T4 + `ClassSys`), with the true carriers'
+monotonicity in the members by induction on (−age, key size) through the
+kept classes (no Bekić: a kept class never depends on the group).
+Consequence for P3C's wiring: a container node's clause at a non-true
+frame is the CREST clause (the `ClassSys` section operator), not the
+recorded datum at a parameter frame (a kept param-formed class has no
+parameter-frame reading); `ClassPres`'s `lfpCl` nodes are exact only at
+member-true frames — P4 (or a P3C follow-up) re-bases the container
+nodes on the crest clause, the recorded clause entering through the
+identification at the true frame (`hCr`/`hfit`).
+
+**Open (P2d continues):** (1) the run-level premises (`ClassOccWF`,
+`AliasWF`, `HoleKeysOk`, `HolesUniq`, `AliasKeySem` from `ClassAliasOk`
++ `defeq_sound` at the hole context); (2) the member-true stage
+valuation (existence by recursion on key size, `StageCoh` at
+`classKept`); (3) the identification at member-true frames
+(`classAbsF own e0` against the record, `frameCrest_read` with the group
+as holes at the concrete key); (4) `ClassSys` instantiated (positions =
+holes, `Φ c` = the crest fibre operator, `OpOk` from T4) → carrier mono
+/ fit mono / acc / (W); the crest-clause node for `ClassPres`.
+Estimate: 3–4 sessions (was 1.5–2): the identification and the set-level
+instance are each a session, the premises and the valuation one, the
+node re-basing one.

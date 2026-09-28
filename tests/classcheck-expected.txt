@@ -208,6 +208,7 @@
 0 e2e corner_checkdel_d_anc_nocall_bad.ndjson
 0 e2e corner_classcheck_alias_cyc.ndjson
 1 e2e corner_classcheck_alias_cyc_bad.ndjson
+0 e2e corner_classcheck_hoparam.ndjson
 0 e2e corner_classcheck_idd.ndjson
 0 e2e corner_classcheck_mates.ndjson
 1 e2e corner_classcheck_mates_bad.ndjson

@@ -2581,3 +2581,8 @@
 0 corner_classcheck_alias_cyc_bad.ndjson
 0 corner_classcheck_mates.ndjson
 0 corner_classcheck_mates_bad.ndjson
+# corner_classcheck_hoparam: a higher-order container parameter (`Ap RL T`
+# reads `f α` at `f := RL`): a class occurrence formed by instantiating two
+# parameters, of an inductive younger than the container (CLASSCHECK / P2D).
+# Official 0, the default route 0, the class checker 0.
+0 corner_classcheck_hoparam.ndjson

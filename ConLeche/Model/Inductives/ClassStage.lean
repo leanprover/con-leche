@@ -16,7 +16,7 @@ fixes the KEPT holes of that fact and closes P2B's open item, the defeq
 tier at stage values:
 
 * `classKept` — the holes `c`'s fact keeps free: its group's and every
-  younger inductive's.  Closed under same keys (`classKept_fclosed`,
+  class of an inductive not strictly older than `c`'s.  Closed under same keys (`classKept_fclosed`,
   given that a hole names one class).
 * The defeq tier in a container class's crest identifies only with
   classes of a strictly OLDER inductive outside its block
@@ -51,9 +51,15 @@ levels). -/
     d.dsA.length == c.dsA.length && (d.dsA.zip c.dsA).all fun (a, b) => a.eqUpToLevels b
 
 /-- **Class `d`'s hole is kept free by class `c`'s fact**: `d` is in
-`c`'s group, or a cyclic class (a younger inductive). -/
+`c`'s group, or `d`'s inductive is not strictly OLDER than `c`'s.  Only
+the strictly older classes are read coherently (as functions of the
+kept holes and the group), so the facts are defined by recursion on the
+container's age; a younger class is kept free even where it is formed
+by instantiating the container's parameters (a higher-order parameter,
+`Ap RL T` reading `f α` at `f := RL`, fixture `p2d_hoparam`), which the
+key in hole form does not contain (DESIGN CLASSCHECK / P2D). -/
 @[expose] def classKeptBy (age : Name → Nat) (mates : Name → List Name) (c d : ClassInfo) : Bool :=
-  classOwn mates c d || decide (age c.key.ind < age d.key.ind)
+  classOwn mates c d || !decide (age d.key.ind < age c.key.ind)
 
 /-- The holes class `c`'s fact keeps free. -/
 @[expose] def classKept (age : Name → Nat) (mates : Name → List Name) (cls : List ClassInfo)
@@ -135,8 +141,7 @@ theorem classAliasesFor_notKept {age : Name → Nat} {mates : Name → List Name
   rw [classKept_eq hu hci hh]
   unfold classKeptBy classOwn
   rw [hI, hmate]
-  simp only [Bool.false_and, Bool.false_or, decide_eq_false_iff_not, Nat.not_lt]
-  exact Nat.le_of_lt hage
+  simp [hage]
 
 /-! ## 2. The defeq tier at stage values -/
 
