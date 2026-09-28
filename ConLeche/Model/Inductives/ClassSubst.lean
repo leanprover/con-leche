@@ -1964,4 +1964,158 @@ theorem classAbs_read_stage
 
 end Stage
 
+/-! ## 9. The true valuation: exists, is stage-coherent, identifies same classes (iii) -/
+
+section TrueVal
+
+open ConLeche (ClassInfo ClassAlias classOcc? classAbs)
+
+variable {V : Type w} [SetTheory V] {env : Env} {φ : Name → Nat}
+  {acval : Name → (Name → Nat) → AnnotTerm}
+
+/-- At the true valuation a class's key in hole form reads as its
+member-abstracted key. -/
+theorem holeKey_read_true
+    (hacl : ∀ (n : Name) (ψ : Name → Nat) (k : Nat), (acval n ψ).liftN 1 k = acval n ψ)
+    {cls : List ClassInfo} {H : Nat} (hwf : ClassOccWF cls H)
+    (hden : ∀ c ∈ cls, c.hole.isSome → (denoteMeta acval env φ H (classKeyA c)).isSome)
+    (c : ClassInfo) :
+    OptAgree (ValAgree V (ClassesTrue V acval env φ cls H) 0)
+      (denoteMeta acval env φ H (holeKey cls c)) (denoteMeta acval env φ H (classKeyA c)) := by
+  unfold holeKey classKeyA ConLeche.ClassInfo.holeForm
+  apply optAgree_mkAppN _ _ (by simp) (optAgree_refl' (V := V) _)
+  intro i a2 a1 ha2 ha1
+  simp only [List.getElem?_map, Option.map_eq_some_iff] at ha2
+  obtain ⟨b, hb, rfl⟩ := ha2
+  have hab : a1 = b := by rw [ha1] at hb; exact Option.some.inj hb
+  subst hab
+  have h := classAbs_read (V := V) hacl hwf hden a1 (LocList.nil H) (LocList.nil H)
+  simpa [Expr.instantiateList_nil] using h
+
+/-- **The true valuation is stage-coherent with no kept hole.** -/
+theorem stageCoh_of_classesTrue
+    (hacl : ∀ (n : Name) (ψ : Name → Nat) (k : Nat), (acval n ψ).liftN 1 k = acval n ψ)
+    {cls : List ClassInfo} {H : Nat} (hwf : ClassOccWF cls H)
+    (hden : ∀ c ∈ cls, c.hole.isSome → (denoteMeta acval env φ H (classKeyA c)).isSome)
+    {τ : Nat → V} (hτ : ClassesTrue V acval env φ cls H τ) :
+    StageCoh V acval env φ cls (fun _ => false) H τ := by
+  refine ⟨fun c hc i ty hch _ a ha => ?_, fun _ _ _ _ _ _ _ _ _ _ hF _ => absurd hF (by simp)⟩
+  have hchs : c.hole.isSome := by rw [hch]; rfl
+  obtain ⟨a1, ha1⟩ := Option.isSome_iff_exists.mp (hden c hc hchs)
+  have h := holeKey_read_true (V := V) hacl hwf hden c
+  rw [ha, ha1] at h
+  have := h [] τ rfl hτ
+  simp only [consList_nil] at this
+  rw [this]
+  exact hτ c hc i ty hch a1 ha1
+
+/-- **(iii) Same classes carry one true value.** -/
+theorem classesTrue_sameKey {cls : List ClassInfo} {H : Nat} {τ : Nat → V}
+    (hτ : ClassesTrue V acval env φ cls H τ) {c c' : ClassInfo} (hc : c ∈ cls) (hc' : c' ∈ cls)
+    {i i' : Nat} {ty ty' : Expr} (hch : c.hole = some (.fvar i ty))
+    (hch' : c'.hole = some (.fvar i' ty')) (hsk : SameKey c c')
+    (hden : (denoteMeta acval env φ H (classKeyA c)).isSome) :
+    τ (H - 1 - i) = τ (H - 1 - i') := by
+  have hsem : Expr.SemEq (classKeyA c) (classKeyA c') := by
+    unfold classKeyA
+    obtain ⟨hI, hlv, hps⟩ := hsk
+    rw [hI]
+    exact Expr.SemEq.mkAppN ⟨rfl, Level.evalEqList_of_simplify hlv⟩ hps.1
+      (fun k a b ha hb => Expr.semEq_of_eqUpToLevels (hps.2 k a b ha hb))
+  obtain ⟨a, ha⟩ := Option.isSome_iff_exists.mp hden
+  have ha' : denoteMeta acval env φ H (classKeyA c') = some a := by
+    rw [← denoteMeta_semEq hsem]; exact ha
+  rw [hτ c hc i ty hch a ha, hτ c' hc' i' ty' hch' a ha']
+
+/-- **The alias holes read their keys at the true valuation**, given
+that every alias's own parameters read as its class's hole-form key (the
+per-component defeq of the coarser tier, `ClassAliasOk`, read at the
+valuation). -/
+theorem aliasTrue_of_classesTrue
+    (hacl : ∀ (n : Name) (ψ : Name → Nat) (k : Nat), (acval n ψ).liftN 1 k = acval n ψ)
+    {cls : List ClassInfo} {H : Nat} (hwf : ClassOccWF cls H)
+    (hden : ∀ c ∈ cls, c.hole.isSome → (denoteMeta acval env φ H (classKeyA c)).isSome)
+    (hhk : HoleKeysOk acval env φ cls H) {al : List ClassAlias} {τ : Nat → V}
+    (hτ : ClassesTrue V acval env φ cls H τ)
+    (hal : ∀ a ∈ al, ∃ ci ∈ cls, ∃ ps : List Expr, ci.hole = some a.hole ∧
+      a.ps = ps.map Expr.eraseFVarTys ∧
+      ∀ r r', denoteMeta acval env φ H (Expr.mkAppN (.const a.ind a.lvls) ps) = some r →
+        denoteMeta acval env φ H (holeKey cls ci) = some r' → interp V τ r = interp V τ r') :
+    AliasTrue V acval env φ al H τ := by
+  intro a ha i ty hhole r hr
+  obtain ⟨ci, hci, ps, hch, hps, hdef⟩ := hal a ha
+  have hchs : ci.hole.isSome := by rw [hch]; rfl
+  have hsem : Expr.SemEq (Expr.mkAppN (.const a.ind a.lvls) ps) (aliasKey a) := by
+    unfold aliasKey
+    obtain ⟨hl, hpw⟩ := semEq_of_map_erase (as := ps) (bs := a.ps) (by
+      rw [hps, List.map_map]
+      apply List.map_congr_left
+      intro p _
+      exact (Expr.eraseFVarTys_idem p).symm)
+    exact Expr.SemEq.mkAppN (Expr.SemEq.refl _) hl hpw
+  have hr0 : denoteMeta acval env φ H (Expr.mkAppN (.const a.ind a.lvls) ps) = some r := by
+    rw [denoteMeta_semEq hsem]; exact hr
+  obtain ⟨r', hr'⟩ := Option.isSome_iff_exists.mp (hhk ci hci hchs).2.2
+  rw [hdef r r' hr0 hr']
+  have hs := stageCoh_of_classesTrue (V := V) hacl hwf hden hτ
+  rw [hhole] at hch
+  exact hs.1 ci hci i ty hch rfl r' hr'
+
+/-- **The true valuation exists** over any valuation `ρ` of the frame
+below the class holes (`K`: the parameters and the members' holes): the
+class holes' values are their keys' readings at `ρ`. -/
+theorem exists_classesTrue
+    (hacl : ∀ (n : Name) (ψ : Name → Nat) (k : Nat), (acval n ψ).liftN 1 k = acval n ψ)
+    {cls : List ClassInfo} {K H : Nat} (hKH : K ≤ H)
+    (hhole : ∀ c ∈ cls, ∀ h, c.hole = some h → ∃ i ty, h = .fvar i ty ∧ K ≤ i ∧ i < H)
+    (hkey : ∀ c ∈ cls, c.hole.isSome → Expr.WScoped K (classKeyA c))
+    (huniq : ∀ c ∈ cls, ∀ c' ∈ cls, ∀ i ty ty', c.hole = some (.fvar i ty) →
+      c'.hole = some (.fvar i ty') → classKeyA c = classKeyA c')
+    (ρ : Nat → V) :
+    ∃ vals : List V, vals.length = H - K ∧
+      ClassesTrue V acval env φ cls H (consList vals ρ) := by
+  let holeIdx : ClassInfo → Nat → Bool := fun c i => match c.hole with
+    | some (.fvar i' _) => i' == i
+    | _ => false
+  let val : Nat → V := fun j => match cls.find? (holeIdx · (K + j)) with
+    | some c => ((denoteMeta acval env φ K (classKeyA c)).map (interp V ρ)).getD pt
+    | none => pt
+  refine ⟨(List.range (H - K)).map val, by simp, fun c hc i ty hch a ha => ?_⟩
+  obtain ⟨i0, ty0, hi0, hKi, hiH⟩ := hhole c hc _ hch
+  simp only [Expr.fvar.injEq] at hi0
+  obtain ⟨rfl, rfl⟩ := hi0
+  have hlen : ((List.range (H - K)).map val).length = H - K := by simp
+  rw [consList_getD_of_lt _ _ _ (by rw [hlen]; omega), hlen,
+    show H - K - 1 - (H - 1 - i) = i - K by omega, List.getD_eq_getElem?_getD,
+    List.getElem?_map, List.getElem?_range (by omega), Option.map_some, Option.getD_some]
+  have hchs : c.hole.isSome := by rw [hch]; rfl
+  -- the class the construction found at this index has the same key
+  have hfind : ∃ c', cls.find? (holeIdx · (K + (i - K))) = some c' ∧ classKeyA c' = classKeyA c := by
+    have hsome : (cls.find? (holeIdx · (K + (i - K)))).isSome := by
+      rw [List.find?_isSome]
+      exact ⟨c, hc, by simp [holeIdx, hch]; omega⟩
+    obtain ⟨c', hc'⟩ := Option.isSome_iff_exists.mp hsome
+    refine ⟨c', hc', ?_⟩
+    have hmem := List.mem_of_find?_eq_some hc'
+    have hp := List.find?_some hc'
+    simp only [holeIdx] at hp
+    split at hp
+    · rename_i i' ty' hh'
+      simp only [beq_iff_eq] at hp
+      exact huniq c' hmem c hc i' ty' ty hh' (by rw [hch]; congr 2; omega)
+    · exact nomatch hp
+  obtain ⟨c', hc', hkey'⟩ := hfind
+  simp only [val, hc', hkey']
+  rw [denoteMeta_lift hacl (hkey c hc hchs) H hKH] at ha
+  obtain ⟨aK, haK, rfl⟩ := Option.map_eq_some_iff.mp ha
+  rw [haK, Option.map_some, Option.getD_some]
+  have key : ∀ (xs : List V) (a : AnnotTerm),
+      interp V (consList xs ρ) (a.liftN xs.length 0) = interp V ρ a := fun xs a => by
+    rw [interp_liftN, shiftE_consList]
+  have := key ((List.range (H - K)).map val) aK
+  rw [hlen] at this
+  exact this.symm
+
+end TrueVal
+
 end ConLeche.Model
