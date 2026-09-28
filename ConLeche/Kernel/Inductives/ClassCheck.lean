@@ -97,7 +97,7 @@ def classInfo (ops : CheckerOps m) (env : Env) (ctx : NestCtx) (holes : List Exp
     throw (.invalid "class check: a class's parameters mention more than the block's \
       parameters (official: nested inductive datatypes parameters cannot contain local \
       variables)")
-  let ds := key.ds.map (classCanon ctx.params)
+  let ds ← key.ds.mapM fun d => ops.annotate env ctx.nP (classCanon ctx.params d)
   unless (Expr.mkAppN (.const key.ind key.lvls) ds).allLevelParamsDefined ctx.lps do
     throw (.invalid "class check: a class names a universe parameter the block does not declare")
   match ctx.names.findIdx? (· == key.ind) with
@@ -251,15 +251,35 @@ def classHolesIn (cls : List ClassInfo) (e : Expr) : List Nat :=
     | some (.fvar h _) => e.mentionsFvar h
     | _ => false
 
-/-- **Every class is reached**: the members, and every class whose hole
-occurs in a reached class's abstracted constructors (the closure,
-`fuel` rounds). -/
-def classReached (crests : List (List Expr)) (cls : List ClassInfo) : Nat → List Nat → List Nat
+/-- **Two classes are the same instance**: one inductive, equivalent
+levels, the parameters equal up to the free variables' annotations — a
+FINER identification than official's (a forged stream may split one
+auxiliary type into two recursors; official splits nothing it could
+merge).  No defeq: coarser identification is not accepted. -/
+def ClassInfo.same (c d : ClassInfo) : Bool :=
+  c.key.ind == d.key.ind && Level.isEquivList c.key.lvls d.key.lvls == some true &&
+    c.dsA.map Expr.eraseFVarTys == d.dsA.map Expr.eraseFVarTys
+
+/-- **Every class is reached** (official's auxiliary types): the members;
+every class whose hole occurs in a reached class's abstracted
+constructors; every class of a reached container's BLOCK at the same
+instantiation (official copies a container's whole mutual block,
+`elim_nested_inductive`); every class the same as a reached one.  The
+closure, `fuel` rounds; `mates I` is `I`'s block. -/
+def classReached (crests : List (List Expr)) (cls : List ClassInfo) (mates : Name → List Name) :
+    Nat → List Nat → List Nat
   | 0, r => r
   | fuel + 1, r =>
-    let new := r.flatMap fun c => (crests.getD c []).flatMap (classHolesIn cls)
+    let occ := r.flatMap fun c => (crests.getD c []).flatMap (classHolesIn cls)
+    let grp := (List.range cls.length).filter fun d => r.any fun c =>
+      let ci := cls.getD c default
+      let di := cls.getD d default
+      ci.same di || (ci.member.isNone && di.member.isNone && (mates ci.key.ind).contains di.key.ind &&
+        Level.isEquivList ci.key.lvls di.key.lvls == some true &&
+        ci.dsA.map Expr.eraseFVarTys == di.dsA.map Expr.eraseFVarTys)
+    let new := occ ++ grp
     let r' := r ++ (new.filter (!r.contains ·)).eraseDups
-    if r'.length == r.length then r else classReached crests cls fuel r'
+    if r'.length == r.length then r else classReached crests cls mates fuel r'
 
 /-- **R6: every container class's key typed with its CYCLIC inner classes
 abstracted** (PROOFPLAN R6): the inner classes (class occurrences in the
@@ -447,21 +467,26 @@ def classMinorSlot (rd : ClassRead) (c : Nat) (C : Name) : m (Nat × List (Nat �
       premise for {C} (official: invalid recursor)")
 
 /-- A field's inductive hypothesis agrees with its walk: an ordinary field
-has none; a recursive one exactly one, at the class it lands at. -/
-def classIhsAgree (ctor : Name) (ihs : List (Nat × Nat)) : Nat → List ClassField → m Unit
-  | _, [] => pure ()
+has none; a recursive one exactly one, at the class it lands at or one the
+same (`ClassInfo.same`).  Returns the kinds at the ih's class (the
+generator's calls). -/
+def classIhsAgree (cls : List ClassInfo) (ctor : Name) (ihs : List (Nat × Nat)) :
+    Nat → List ClassField → m (List ClassField)
+  | _, [] => pure []
   | i, k :: ks => do
     let mine := ihs.filter (·.1 == i)
-    match k, mine with
-    | .ordinary, [] => pure ()
-    | .recursive c _, [(_, t)] =>
-      unless c == t do
-        throw (.invalid s!"class check: field {i} of {ctor} recurses at another class than its \
-          inductive hypothesis names (official: invalid recursor)")
-    | _, _ =>
-      throw (.invalid s!"class check: the inductive hypotheses of {ctor}'s minor premise are \
-        not its recursive fields (official: invalid recursor)")
-    classIhsAgree ctor ihs (i + 1) ks
+    let k' ← match k, mine with
+      | .ordinary, [] => pure ClassField.ordinary
+      | .recursive c tele, [(_, t)] =>
+        unless c == t || (cls.getD c default).same (cls.getD t default) do
+          throw (.invalid s!"class check: field {i} of {ctor} recurses at another class than \
+            its inductive hypothesis names (official: invalid recursor)")
+        pure (.recursive t tele)
+      | _, _ =>
+        throw (.invalid s!"class check: the inductive hypotheses of {ctor}'s minor premise \
+          are not its recursive fields (official: invalid recursor)")
+    let ks' ← classIhsAgree cls ctor ihs (i + 1) ks
+    pure (k' :: ks')
 
 /-! ## Check 6: the recursors generated -/
 
@@ -586,7 +611,7 @@ checked as today's rule stage checks it (scoping, annotation, resolution,
 inference at the rule-less recursors' environment `feR`, the λ-binders'
 elimination datum), the generated rule annotated and inferred there too,
 and the two `isDefEq`.  Returns the annotated stream rule (stored). -/
-def classRuleOk (ops : CheckerOps m) (w : StructWalkers) (feR : FEnv) (cvR : ConstantVal)
+def classRuleOk (ops : CheckerOps m) (w : StructWalkers) (feT feR : FEnv) (cvR : ConstantVal)
     (pw : PropWhen) (n : Nat) (rhs gen : Expr) : m Expr := do
   unless rhs.looseBVarsBounded 0 do
     throw (.invalid s!"loose bound variable in rule of {cvR.name}")
@@ -601,6 +626,11 @@ def classRuleOk (ops : CheckerOps m) (w : StructWalkers) (feR : FEnv) (cvR : Con
   let (rbs, _) ← unwrapOr (rhsA.stripLams n)
     (.invalid s!"class check: a rule of {cvR.name} is not a λ-telescope over the recursor's \
       prefix and the constructor's fields")
+  -- the λ-domains name no recursor (they resolve at the constructors'
+  -- environment `feT`): a generated rule's domains are the prefix's and
+  -- the fields' types
+  unless rbs.all (fun b => w.resolve feT b.1) do
+    throw (unresolvedConstsError s!"the domains of a rule of {cvR.name}" rhsA)
   unless rbs.all (fun b => b.2.pw == pw) do
     throw (.invalid s!"class check: a rule of {cvR.name} does not annotate its λ-binders with \
       the family's elimination datum")
@@ -612,15 +642,15 @@ def classRuleOk (ops : CheckerOps m) (w : StructWalkers) (feR : FEnv) (cvR : Con
   pure rhsA
 
 /-- A recursor's rules, pairwise with its class's walked constructors. -/
-def classRulesOk (ops : CheckerOps m) (w : StructWalkers) (feR : FEnv) (g : ClassGen)
+def classRulesOk (ops : CheckerOps m) (w : StructWalkers) (feT feR : FEnv) (g : ClassGen)
     (recOf : Nat → Option Name) (cvR : ConstantVal) (pw : PropWhen) (c : Nat) :
     List ClassCtor → List Expr → m (List Expr)
   | x :: xs, rhs :: rhss => do
     let gen ← unwrapOr (classGenRule g recOf (cvR.levelParams.map .param) c x)
       (.invalid s!"class check: the rule of {x.cv.name} calls a class whose recursor the \
         stream omits (official: unknown constant)")
-    let r ← classRuleOk ops w feR cvR pw (g.nP + g.slots.length + x.nF) rhs gen
-    let rs ← classRulesOk ops w feR g recOf cvR pw c xs rhss
+    let r ← classRuleOk ops w feT feR cvR pw (g.nP + g.slots.length + x.nF) rhs gen
+    let rs ← classRulesOk ops w feT feR g recOf cvR pw c xs rhss
     pure (r :: rs)
   | _, _ => pure []
 
@@ -663,12 +693,12 @@ def classRecTysOk (ops : CheckerOps m) (fe : FEnv) (g : ClassGen) (k : Nat) :
   | _, _, _ => throw (.internal "class check: recursor list")
 
 /-- Every recursor's rules, at the rule-less recursors' environment `feR`. -/
-def classRecsRulesOk (ops : CheckerOps m) (w : StructWalkers) (feR : FEnv) (g : ClassGen)
+def classRecsRulesOk (ops : CheckerOps m) (w : StructWalkers) (feT feR : FEnv) (g : ClassGen)
     (recOf : Nat → Option Name) (pw : PropWhen) :
     List RecShape → List ConstantVal → List Nat → m (List (ConstantVal × TargetMajor × List Expr))
   | rc :: rcs, cvRi :: cvs, c :: cs => do
-    let rhss ← classRulesOk ops w feR g recOf cvRi pw c (g.ctors.getD c []) rc.rhss
-    let xs ← classRecsRulesOk ops w feR g recOf pw rcs cvs cs
+    let rhss ← classRulesOk ops w feT feR g recOf cvRi pw c (g.ctors.getD c []) rc.rhss
+    let xs ← classRecsRulesOk ops w feT feR g recOf pw rcs cvs cs
     pure ((cvRi, (g.cls.getD c default).toMajor, rhss) :: xs)
   | _, _, _ => pure []
 
@@ -717,7 +747,10 @@ def classRecCheck (so : ShadowOps m) (fe₁ : FEnv) (env₁ : Env) (fe : FEnv) (
   -- the abstracted constructors, and reachability
   let crests ← cls.mapM fun c => c.ctors.mapM fun (cv, _) => classCrest ctx holes cls c cv
   let roots := (List.range cls.length).filter fun c => (cls.getD c default).member.isSome
-  let reached := classReached crests cls (cls.length + 1) roots
+  let mates : Name → List Name := fun I => match fe₁.find? I with
+    | some (.indInfo _ caps) => caps.all
+    | _ => []
+  let reached := classReached crests cls mates (cls.length + 1) roots
   unless (List.range cls.length).all reached.contains do
     throw (.invalid "class check: a class of the recursor family is no auxiliary type of the \
       block (not a syntactic nested occurrence, or a duplicate; official generates no such \
@@ -726,10 +759,10 @@ def classRecCheck (so : ShadowOps m) (fe₁ : FEnv) (env₁ : Env) (fe : FEnv) (
   let ctors ← classAllCtors ops₁ env₁ ctx holes cls hi cls crests
   so.flush
   -- check 5
-  for c in List.range cls.length do
-    for x in ctors.getD c [] do
-      let (_, ihs) ← classMinorSlot rd c x.cv.name
-      classIhsAgree x.cv.name ihs 0 x.kinds
+  let ctors ← (List.range cls.length).mapM fun c => (ctors.getD c []).mapM fun x => do
+    let (_, ihs) ← classMinorSlot rd c x.cv.name
+    let ks ← classIhsAgree cls x.cv.name ihs 0 x.kinds
+    pure { x with kinds := ks }
   unless (rd.slots.filter fun | .minor .. => true | _ => false).length ==
       (ctors.map List.length).sum do
     throw (.invalid "class check: the recursors' prefix has a minor premise for no \
@@ -754,7 +787,7 @@ def classRecCheck (so : ShadowOps m) (fe₁ : FEnv) (env₁ : Env) (fe : FEnv) (
   let feR := consBlockRecsBareF q 0
     ((cvRis.zip rd.recCls).map fun (cv, c) => (cv, (cls.getD c default).nIdx)) fe
   so.flush
-  let out ← classRecsRulesOk (so.opsRuleR feR) so.walkers feR g recOf (Level.zeronessOf elim)
+  let out ← classRecsRulesOk (so.opsRuleR feR) so.walkers fe feR g recOf (Level.zeronessOf elim)
     q.recs cvRis rd.recCls
   so.flush
   -- R5: the walked constructors (the members' normal forms first)
