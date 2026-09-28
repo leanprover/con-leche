@@ -10,11 +10,8 @@ import ConLeche.Model.Inductives.TargetNodeDynOf
 import ConLeche.Model.Inductives.TargetNodeCover
 import ConLeche.Model.Inductives.TargetGuardParams
 import ConLeche.Model.Inductives.TargetClassRows
-import ConLeche.Model.Inductives.BlockPosRun
-import ConLeche.Model.Inductives.BlockPosRunCont
 import ConLeche.Model.Inductives.MemberPosRun
 import ConLeche.Model.Inductives.BlockModelRecords
-import ConLeche.Model.Inductives.BlockHoleGrade
 import ConLeche.Model.Annot.BlockLfpMono
 import ConLeche.Model.Annot.BlockLfpTup
 import ConLeche.Model.Inductives.BlockCtorReads

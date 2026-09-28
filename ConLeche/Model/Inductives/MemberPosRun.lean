@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.Model.Inductives.MemberPosFacts
-public import ConLeche.Kernel.Inductives.BlockInstall
+import ConLeche.Kernel.Inductives.BlockInstall
 import ConLeche.Model.Inductives.BlockHoleGrade
 import ConLeche.Model.Inductives.BlockPosRunCont
 import ConLeche.Model.Inductives.BlockAccRunCont

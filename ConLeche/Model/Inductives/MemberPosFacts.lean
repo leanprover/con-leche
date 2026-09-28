@@ -2,10 +2,7 @@ module
 
 public import ConLeche.Model.Inductives.BlockStageCtors
 public import ConLeche.Model.Annot.BlockLfpTup
-public import ConLeche.Model.Annot.LfpHoleOp
-public import ConLeche.Model.Cover
 public import ConLeche.SetModel.Access
-public import ConLeche.Kernel.Inductives.BlockParts
 
 public section
 
