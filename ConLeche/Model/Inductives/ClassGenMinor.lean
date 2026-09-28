@@ -14,6 +14,8 @@ import ConLeche.Model.Inductives.SumKit
 import ConLeche.Model.Annot.BitInst
 import ConLeche.Model.Annot.BitRename
 import ConLeche.Model.Annot.Valid
+import ConLeche.Model.Annot.LfpFormer
+import ConLeche.Semantics.DeclRun
 import ConLeche.Verify.Leaves
 import ConLeche.Verify.Abstract
 import ConLeche.Semantics.Kit
@@ -463,5 +465,226 @@ theorem classGenConcl_read (m : EnvModel V env) {φ : Name → Nat} {F lo n mc :
   exact List.eq_nil_of_length_eq_zero (by simp at hlrs; omega)
 
 end Pieces
+
+/-! ## The minor premise's typing -/
+
+/-- The prefix position of class `t`'s motive. -/
+@[expose] def classMotPos (g : ClassGen) (t : Nat) : Nat :=
+  g.nP + (ConLeche.ClassRead.motiveSlot ⟨g.slots, []⟩ t).getD 0
+
+section Minor
+
+variable {V : Type w} [SetTheory V] {μ : CheckMode} {env envK : Env}
+
+set_option maxHeartbeats 6400000 in
+/-- **`hminor`, from the generator.**  Read the generated recursor type
+of any class `c` (annotated, read, peeled to its binder data `pps`); the
+minor premise at slot `sm` (class `cm`, constructor `x`) sits in the
+shared prefix at `mp = nP + sm`.  Its domain's pieces, moved to the rule
+frame's depth `rP` (the whole prefix), are the rule frame's components:
+the field domains `fd`, the `ih` data `ihd` (callees the constructor's
+recursive fields' classes), the conclusion's index spine `es` and
+constructor term `mk` — each bounded at its depth (the chain
+independence rows' premises), and the minor premise's own typing holds
+over them in exactly the form `genHstep` consumes: at every prefix
+spine fitting the shared prefix, fields fitting `fd` and `ih` values of
+the generated `ih` binder types, the minor applied to the fields and the
+`ih` values lands in the motive of `cm` at `es` and `mk`.  The one
+semantic premise is the reading's bit validity (`hval`, the inference
+claim's `AnnotValid` half). -/
+theorem classGenMinor_read (m : EnvModel V env) {φ : Name → Nat} {g : ClassGen}
+    (hg : ClassGenScoped g) {c s : Nat}
+    (hm : ConLeche.ClassRead.motiveSlot ⟨g.slots, []⟩ c = some s) {F : Nat}
+    {gty gtyA : Expr} {ea : AnnotTerm}
+    (hgty : classGenRecTy g c = some gty)
+    (hann : ConLeche.annotateCore μ envK F 0 gty = .ok gtyA)
+    (hread : denoteMeta m.acval env φ 0 gtyA = some ea)
+    {pps : List (Nat × Nat × AnnotTerm)} {b : AnnotTerm}
+    (hst : stripPisAV (g.pre.length + (g.cls.getD c default).nIdx + 1) ea = some (pps, b))
+    (hval : ∀ ρ : Nat → V, AnnotValid V ρ ea)
+    {sm cm : Nat} {C : Name} {ihs0 : List (Nat × Nat)}
+    (hsl : g.slots[sm]? = some (.minor cm C ihs0)) :
+    ∃ (x : ClassCtor) (fd : List AnnotTerm) (ihd : List IhDatum) (es : List AnnotTerm)
+      (mk : AnnotTerm),
+      (g.ctors.getD cm []).find? (·.cv.name == C) = some x ∧
+      fd.length = x.nF ∧ ihd.length = x.recs.length ∧
+      classMotPos g cm < g.nP + sm ∧
+      (∀ (l : Nat) (q : IhDatum), ihd[l]? = some q →
+        (∃ i tele, x.recs.getD l default = (i, q.1, tele)) ∧ classMotPos g q.1 < g.nP + sm) ∧
+      FieldsBelow g.pre.length fd ∧
+      (∀ e ∈ es, Term.bvarsBelow (g.pre.length + x.nF) e.erase) ∧
+      Term.bvarsBelow (g.pre.length + x.nF) mk.erase ∧
+      (∀ q ∈ ihd, IhDatumBelow (g.pre.length + x.nF) q) ∧
+      ∀ (ρ : Nat → V) (xs : List V), SpineFit ρ ((pps.take g.pre.length).map (·.2.2)) xs →
+      ∀ fs : List V, SpineFit (consList xs ρ) fd fs →
+      ∀ hs : List V, hs.length = ihd.length →
+      (∀ (l : Nat) (q : IhDatum) (h : V), ihd[l]? = some q → hs[l]? = some h →
+        h ∈ˢ interp V (consList (xs ++ fs) ρ)
+          (genIhDomAV (g.pre.length + fd.length) (classMotPos g q.1) q)) →
+      (fs ++ hs).foldl SetTheory.app (xs.getD (g.nP + sm) pt)
+        ∈ˢ (es.map (interp V (consList (xs ++ fs) ρ))
+            ++ [interp V (consList (xs ++ fs) ρ) mk]).foldl SetTheory.app
+            (xs.getD (classMotPos g cm) pt) := by
+  obtain ⟨hpl, -⟩ := ConLeche.ClassGen.prefixBinders_scoped hg hg.pre
+  obtain ⟨x, T, hxf, hT, hpreT⟩ := ConLeche.ClassGen.prefixBinders_minor hg hsl
+  have hxm := List.mem_of_find?_eq_some hxf
+  have hxC : x.cv.name = C := by simpa using List.find?_some hxf
+  obtain ⟨FB, IB, cargs, sc, rfl, hFBl, hIBl, hscB, hmc, hsc, hcne, hconclS, hih⟩ :=
+    ConLeche.ClassGen.minorTy_spec hg hsl hxm hxC hT
+  have hslen : sm < g.slots.length := (List.getElem?_eq_some_iff.mp hsl).1
+  have hmcP : classMotPos g cm = g.nP + sc := by simp [classMotPos, hmc]
+  -- the generated type, annotated and opened
+  have hclosed := ConLeche.classGenRecTy_closed hg hm hgty
+  obtain ⟨ifs, maj, hmaj, hifl, rfl, hcl, hbb⟩ := ConLeche.classGenRecTy_spec hg hgty
+  generalize hnds : g.pre ++ ifs.map classBinder ++ [(maj, (default : ConLeche.BinderMeta))]
+    = nds at hann hcl hclosed
+  generalize hbody : Expr.mkAppN (g.motVar c) (ifs ++ [.fvar (g.pre.length + ifs.length) maj])
+    = body at hann hbb hclosed
+  have hn : nds.length = g.pre.length + (g.cls.getD c default).nIdx + 1 := by
+    rw [← hnds]
+    simp only [List.length_append, List.length_map, List.length_singleton, hifl]
+  have hw0 : Expr.WScoped 0 (closeTelescope nds 0 body) :=
+    Expr.WScoped.of_not_hasFvar hclosed.1
+  obtain ⟨nds', B', hl', he', ⟨B₀g, F₀g, hB₀g, -, hannBg⟩, hdoms⟩ :=
+    ConLeche.annotateCore_closeTelescope_gen nds hcl hbb (ConLeche.Expr.ErasedEq.rfl _) hw0 hann
+  have hcl' : ∀ p ∈ nds', p.1.looseBVarsBounded 0 = true := by
+    intro p hp
+    obtain ⟨k, hk, rfl⟩ := List.getElem_of_mem hp
+    obtain ⟨X, F', nd, hnd, hX, -, hann'⟩ := hdoms k _ (List.getElem?_eq_getElem hk)
+    exact ConLeche.annotateCore_looseBVars F' X hann'
+      (looseBVarsBounded_of_erasedEq hX (hcl nd (List.mem_of_getElem? hnd)))
+  have hB'b : B'.looseBVarsBounded 0 = true :=
+    ConLeche.annotateCore_looseBVars F₀g B₀g hannBg (looseBVarsBounded_of_erasedEq hB₀g hbb)
+  obtain ⟨fvs, o, hop, -, hxs⟩ := open_of_erasedEq_closeTelescope nds' 0 B' gtyA hcl' hB'b he'
+  rw [hl', hn] at hop
+  obtain ⟨pps', b', hst', -, -, hpp'⟩ := denoteMeta_openPis _ hop hread
+  obtain ⟨rfl, rfl⟩ := Prod.mk.inj (Option.some.inj (hst.symm.trans hst'))
+  have hgA := annotate_syntax hann hclosed.1 hclosed.2
+  obtain ⟨hfvl, hfvs, -⟩ := ScB.openPis hop ⟨Expr.WScoped.of_not_hasFvar hgA.1, hgA.2⟩
+  -- the minor's slot
+  have hmpP : g.nP + sm < g.pre.length := by omega
+  have hndmp : nds[g.nP + sm]? = some (closeTelescope (FB ++ IB) (g.nP + sm)
+      (Expr.mkAppN (.fvar (g.nP + sc) (.sort .zero)) cargs), default) := by
+    rw [← hnds, List.append_assoc, List.getElem?_append_left hmpP]; exact hpreT
+  have hk' : g.nP + sm < nds'.length := by rw [hl', hn]; omega
+  obtain ⟨X, FX, nd, hnd, hX, hwX, hannX⟩ := hdoms (g.nP + sm) _ (List.getElem?_eq_getElem hk')
+  rw [hndmp] at hnd
+  obtain rfl := (Option.some.inj hnd).symm
+  simp only [Nat.zero_add] at hX hwX hannX
+  have hfmp : g.nP + sm < fvs.length := by omega
+  obtain ⟨tyM, hfe, hScM⟩ := hfvs (g.nP + sm) _ (List.getElem?_eq_getElem hfmp)
+  obtain ⟨pM, hpM, -, hMm⟩ := hpp' (g.nP + sm) _ (List.getElem?_eq_getElem hfmp)
+  have hMoE : Expr.ErasedEq fvs[g.nP + sm].fvarTypeD nds'[g.nP + sm].1 :=
+    hxs (g.nP + sm) _ _ (List.getElem?_eq_getElem hfmp) (by simp [List.getElem?_eq_getElem hk'])
+  rw [hfe] at hMoE hMm
+  simp only [Expr.fvarTypeD, Nat.zero_add] at hMoE hMm hScM
+  -- the minor's domain, annotated: the telescope of the annotated pieces
+  have hFIb : ∀ p ∈ FB ++ IB, p.1.looseBVarsBounded 0 = true := by
+    intro p hp
+    obtain ⟨k, hk, rfl⟩ := List.getElem_of_mem hp
+    exact (hscB k _ (List.getElem?_eq_getElem hk)).2
+  obtain ⟨nds'', B'', hl'', he'', ⟨B₀, F₀, hB₀, hwB₀, hannB⟩, hdoms''⟩ :=
+    ConLeche.annotateCore_closeTelescope_gen (FB ++ IB) hFIb hconclS.2 hX hwX hannX
+  have hcl'' : ∀ p ∈ nds'', p.1.looseBVarsBounded 0 = true := by
+    intro p hp
+    obtain ⟨k, hk, rfl⟩ := List.getElem_of_mem hp
+    obtain ⟨X', F', nd, hnd, hX', -, hann'⟩ := hdoms'' k _ (List.getElem?_eq_getElem hk)
+    exact ConLeche.annotateCore_looseBVars F' X' hann'
+      (looseBVarsBounded_of_erasedEq hX' (hFIb nd (List.mem_of_getElem? hnd)))
+  have hB''b : B''.looseBVarsBounded 0 = true :=
+    ConLeche.annotateCore_looseBVars F₀ B₀ hannB (looseBVarsBounded_of_erasedEq hB₀ hconclS.2)
+  obtain ⟨Zs, rest, hopM, hrest, hZs⟩ :=
+    open_of_erasedEq_closeTelescope nds'' (g.nP + sm) B'' tyM hcl'' hB''b (hMoE.trans he'')
+  rw [hl''] at hopM
+  obtain ⟨pm, bm, hstm, hbm, hlm, hppm⟩ := denoteMeta_openPis _ hopM hMm
+  obtain ⟨hZl, hZs', -⟩ := ScB.openPis hopM hScM
+  -- abbreviations
+  have hnF : FB.length = x.nF := hFBl
+  generalize hmpd : g.nP + sm = mp at *
+  generalize hrPd : g.pre.length = rP at *
+  generalize hδ : rP - mp = δ
+  have hFIl : (FB ++ IB).length = x.nF + IB.length := by simp [hFBl]
+  -- the conclusion
+  rw [denoteMeta_erasedEq hrest, hFIl, ← Nat.add_assoc] at hbm
+  rw [hFIl, ← Nat.add_assoc] at hwB₀ hannB
+  obtain ⟨rs, rfl, hrsne, hrsB⟩ := classGenConcl_read m (lo := mp + x.nF) (n := IB.length) hcne
+    hconclS hB₀ hwB₀ hannB hbm
+  obtain ⟨esL, mkT, hesmk⟩ : ∃ esL mkT,
+      rs.map (fun a => a.liftN δ x.nF) = esL ++ [mkT] := by
+    rcases List.eq_nil_or_concat (rs.map fun a => a.liftN δ x.nF) with h | h
+    · exact absurd (List.map_eq_nil_iff.mp h) hrsne
+    · obtain ⟨L, b, h⟩ := h
+      exact ⟨L, b, by rw [h, List.concat_eq_append]⟩
+  -- the `ih` domains
+  have hihR : ∀ l, ∃ (q : IhDatum) (A0 : AnnotTerm), l < IB.length →
+      (pm[x.nF + l]?).map (·.2.2) = some (A0.liftN l 0) ∧
+      (∃ i tele, x.recs.getD l default = (i, q.1, tele)) ∧ classMotPos g q.1 < mp ∧
+      genIhDomAV (mp + x.nF + δ) (classMotPos g q.1) q = A0.liftN δ x.nF ∧
+      IhDatumBelow (mp + x.nF + δ) q := by
+    intro l
+    by_cases hl : l < IB.length
+    · obtain ⟨i, t, tele, st, TB, bargs, hrec, hmt, hst, hbne, hIB, hTB, hbodyT, hbelowT⟩ :=
+        hih l hl
+      have hkl : x.nF + l < nds''.length := by rw [hl'']; simp [hFBl]; omega
+      obtain ⟨Y, FY, ndY, hndY, hYE, hwY, hannY⟩ :=
+        hdoms'' (x.nF + l) _ (List.getElem?_eq_getElem hkl)
+      rw [List.getElem?_append_right (by omega), hFBl, Nat.add_sub_cancel_left, hIB] at hndY
+      obtain rfl := (Option.some.inj hndY).symm
+      have hZk : x.nF + l < Zs.length := by rw [hZl]; simp [hFBl]; omega
+      obtain ⟨p, hp, -, hpd⟩ := hppm (x.nF + l) _ (List.getElem?_eq_getElem hZk)
+      rw [denoteMeta_erasedEq (hZs _ _ nds''[x.nF + l].1 (List.getElem?_eq_getElem hZk)
+        (by simp [List.getElem?_eq_getElem hkl]))] at hpd
+      rw [← Nat.add_assoc] at hpd hwY hannY
+      obtain ⟨A0, q, hA0, hq1, hgen, hqb⟩ := classGenIh_read m (lo := mp + x.nF) (l := l)
+        (c := x.nF) (δ := δ) (mt := g.nP + st) (t := t) (by omega) hbne hTB hbodyT hbelowT hYE hwY
+        hannY hpd
+      have hmtP : classMotPos g t = g.nP + st := by simp [classMotPos, hmt]
+      refine ⟨q, A0, fun _ => ⟨by rw [hp, Option.map_some, hA0], ⟨i, tele, by rw [hq1]; exact hrec⟩,
+        by rw [hq1, hmtP]; omega, by rw [hq1, hmtP]; exact hgen, hqb⟩⟩
+    · exact ⟨default, default, fun h => absurd h hl⟩
+  obtain ⟨fq, hfq⟩ : ∃ fq : Nat → IhDatum × AnnotTerm, ∀ l, l < IB.length →
+      (pm[x.nF + l]?).map (·.2.2) = some ((fq l).2.liftN l 0) ∧
+      (∃ i tele, x.recs.getD l default = (i, (fq l).1.1, tele)) ∧
+      classMotPos g (fq l).1.1 < mp ∧
+      genIhDomAV (mp + x.nF + δ) (classMotPos g (fq l).1.1) (fq l).1 = (fq l).2.liftN δ x.nF ∧
+      IhDatumBelow (mp + x.nF + δ) (fq l).1 :=
+    ⟨fun l => (Classical.choose (hihR l), Classical.choose (Classical.choose_spec (hihR l))),
+      fun l => Classical.choose_spec (Classical.choose_spec (hihR l))⟩
+  -- the field domains
+  have hfdB : ∀ (i : Nat) (p : Nat × Nat × AnnotTerm), (pm.take x.nF)[i]? = some p →
+      Term.bvarsBelow (mp + i) p.2.2.erase := by
+    intro i p hp
+    rw [List.getElem?_take] at hp
+    split at hp
+    · have hiZ : i < Zs.length := by
+        have := (List.getElem?_eq_some_iff.mp hp).1
+        rw [hlm] at this; rw [hZl]; exact this
+      obtain ⟨p', hp', -, hpd⟩ := hppm i _ (List.getElem?_eq_getElem hiZ)
+      rw [hp] at hp'
+      obtain rfl := Option.some.inj hp'
+      obtain ⟨ty, hze, hty⟩ := hZs' i _ (List.getElem?_eq_getElem hiZ)
+      rw [hze] at hpd
+      simp only [Expr.fvarTypeD] at hpd
+      exact bvarsBelow_of_reading (m := m) hty.1 hty.2 hpd
+    · exact nomatch hp
+  have hpmL : pm.length = x.nF + IB.length := by rw [hlm, hFIl]
+  have hmpr : mp ≤ rP := by omega
+  refine ⟨x, (liftDoms δ 0 (pm.take x.nF)).map (·.2.2),
+    (List.range IB.length).map fun l => (fq l).1, esL, mkT, hxf, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
+  · simp [liftDoms_length, hpmL]
+  · simp [hIBl]
+  · rw [hmcP, ← hmpd]; omega
+  · intro l q hq
+    simp only [List.getElem?_map] at hq
+    rw [List.getElem?_range] at hq
+    · sorry
+    · sorry
+  · sorry
+  · sorry
+  · sorry
+  · sorry
+  · sorry
+
+end Minor
 
 end ConLeche.Model
