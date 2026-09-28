@@ -127,6 +127,23 @@ theorem Level.evalEqList_of_isEquivList {us vs : List Level}
     | nil => simp [Level.EvalEqList] at h0
     | cons v vs => simp [ih h0.2]
 
+/-- Levels with equal simplified forms have equal values. -/
+theorem Level.eval_eq_of_simplify {u v : Level} (h : Level.simplify u = Level.simplify v)
+    (φ : Name → Nat) : Level.eval φ u = Level.eval φ v := by
+  rw [← Level.eval_simplify φ u, h, Level.eval_simplify]
+
+/-- Pointwise equal simplified forms: pointwise equal values. -/
+theorem Level.evalEqList_of_simplify : ∀ {us vs : List Level},
+    us.map Level.simplify = vs.map Level.simplify →
+    us.length = vs.length ∧ ∀ φ, Level.EvalEqList φ us vs
+  | [], [], _ => ⟨rfl, fun _ => trivial⟩
+  | [], _ :: _, h => by simp at h
+  | _ :: _, [], h => by simp at h
+  | u :: us, v :: vs, h => by
+    simp only [List.map_cons, List.cons.injEq] at h
+    obtain ⟨hl, hr⟩ := Level.evalEqList_of_simplify h.2
+    exact ⟨by simp [hl], fun φ => ⟨Level.eval_eq_of_simplify h.1 φ, hr φ⟩⟩
+
 /-- **The level-equivalence comparison lands in `SemEq`.** -/
 theorem Expr.semEq_of_eqUpToLevels : ∀ {a b : Expr},
     Expr.eqUpToLevels a b = true → Expr.SemEq a b := by
@@ -136,14 +153,14 @@ theorem Expr.semEq_of_eqUpToLevels : ∀ {a b : Expr},
   | fvar i ty => intro b h; cases b <;> simp_all [Expr.eqUpToLevels, Expr.SemEq]
   | sort u =>
     intro b h
-    cases b <;> simp only [Expr.eqUpToLevels, Expr.SemEq, reduceCtorEq] at h ⊢
-    exact Level.isEquiv_sound (by simpa using h)
+    cases b <;> simp only [Expr.eqUpToLevels, Expr.SemEq, reduceCtorEq, beq_iff_eq] at h ⊢
+    exact Level.eval_eq_of_simplify h
   | const n us =>
     intro b h
     cases b <;> simp only [Expr.eqUpToLevels, Expr.SemEq, reduceCtorEq, Bool.and_eq_true,
       beq_iff_eq] at h ⊢
     obtain ⟨h1, h2⟩ := h
-    exact ⟨h1, Level.evalEqList_of_isEquivList (by simpa using h2)⟩
+    exact ⟨h1, Level.evalEqList_of_simplify h2⟩
   | lit l => intro b h; cases b <;> simp_all [Expr.eqUpToLevels, Expr.SemEq]
   | app f a ihf iha =>
     intro b h
@@ -761,7 +778,7 @@ theorem classOcc_spec {cls : List ClassInfo} {H : Nat} (hwf : ClassOccWF cls H) 
       -- the pick, from either search
       have hpick : ∀ c, c ∈ c0 :: rest →
           (c.hole.map fun h' => (h', x.getAppArgs.length - c.nPc)) = some (h, n) →
-          (Level.isEquivList us c.key.lvls = some true ∨ us = c.key.lvls) →
+          (us.map Level.simplify = c.key.lvls.map Level.simplify ∨ us = c.key.lvls) →
           ((x.getAppArgs.take c0.nPc).map Expr.eraseFVarTys = c.dsE ∨
             ((x.getAppArgs.take c0.nPc).length = c.dsA.length ∧
               (((x.getAppArgs.take c0.nPc).zip c.dsA).all fun (a, b) => a.eqUpToLevels b) =
@@ -782,7 +799,7 @@ theorem classOcc_spec {cls : List ClassInfo} {H : Nat} (hwf : ClassOccWF cls H) 
         unfold classKeyA
         have hlvl : us.length = c.key.lvls.length ∧ ∀ φ, Level.EvalEqList φ us c.key.lvls := by
           rcases hlv with hlv | rfl
-          · exact Level.evalEqList_of_isEquivList hlv
+          · exact Level.evalEqList_of_simplify hlv
           · exact ⟨rfl, fun φ => Level.evalEqList_refl φ _⟩
         rcases hps with hps | ⟨hl, hz⟩
         · rw [hwf.dsE c hcc hch] at hps
