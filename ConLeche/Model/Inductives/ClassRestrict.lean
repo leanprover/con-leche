@@ -1,7 +1,6 @@
 module
 
 public import ConLeche.Model.Inductives.ClassStageF
-public import ConLeche.Model.Inductives.ClassRecIn
 
 public section
 

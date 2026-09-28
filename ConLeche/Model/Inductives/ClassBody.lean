@@ -1,8 +1,8 @@
 module
 
 public import ConLeche.Model.Inductives.ClassIdent
-public import ConLeche.Model.Inductives.ClassComplete
 import ConLeche.Model.IndReduct
+import ConLeche.Model.Inductives.HoleKit
 
 public section
 

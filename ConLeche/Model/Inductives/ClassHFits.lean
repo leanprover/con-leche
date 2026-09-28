@@ -2,6 +2,7 @@ module
 
 public import ConLeche.Model.Inductives.ClassBody
 import ConLeche.Model.Annot.BitLevels
+import ConLeche.Model.Inductives.HoleKit
 
 public section
 

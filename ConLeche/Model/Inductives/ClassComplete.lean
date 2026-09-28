@@ -1,7 +1,9 @@
 module
 
 public import ConLeche.Model.Inductives.ClassStageF
-public import ConLeche.Model.Inductives.HoleAccKit
+public import ConLeche.Semantics.NoBVar
+public import ConLeche.Model.Annot.EnvModel
+import ConLeche.Model.Inductives.HoleAccKit
 
 public section
 
