@@ -3,6 +3,7 @@ module
 public import ConLeche.Verify.Inductives.ClassGenScope
 public import ConLeche.Verify.Inductives.ClassGenAnnot
 import ConLeche.Verify.Abstract
+import ConLeche.Verify.Leaves
 import ConLeche.Verify.Inductives.NestScope
 import ConLeche.Verify.Inductives.NestCallSyn
 
@@ -276,6 +277,54 @@ theorem annotateCore_mkAppN_fvar {env : Env} {F d i : Nat} {T : Expr} {as : List
   obtain ⟨F', f', as', hf, rfl, hl⟩ := annotateCore_mkAppN_inv as h
   obtain rfl := annotateCore_plain F' (e := .fvar i T) trivial hf
   exact ⟨as', rfl, hl⟩
+
+/-! ## A tighter scope survives annotation -/
+
+/-- A term scoped at `d` whose closure leaves all lie below `lo` is
+scoped at `lo`. -/
+theorem WScoped.of_leaves_below {lo : Nat} :
+    ∀ {e : Expr} {d : Nat}, WScoped d e → (∀ l ∈ e.fvarLeaves, l.1 < lo) → WScoped lo e := by
+  intro e
+  induction e with
+  | fvar i ty _ =>
+    intro d hw hl
+    simp only [WScoped] at hw ⊢
+    exact ⟨hl (i, ty) (by simp [fvarLeaves]), hw.2⟩
+  | app f a ihf iha =>
+    intro d hw hl
+    simp only [WScoped] at hw ⊢
+    exact ⟨ihf hw.1 fun l h => hl l (by simp [fvarLeaves, h]),
+      iha hw.2 fun l h => hl l (by simp [fvarLeaves, h])⟩
+  | lam ty b m iht ihb =>
+    intro d hw hl
+    simp only [WScoped] at hw ⊢
+    exact ⟨iht hw.1 fun l h => hl l (by simp [fvarLeaves, h]),
+      ihb hw.2 fun l h => hl l (by simp [fvarLeaves, h])⟩
+  | forallE ty b m iht ihb =>
+    intro d hw hl
+    simp only [WScoped] at hw ⊢
+    exact ⟨iht hw.1 fun l h => hl l (by simp [fvarLeaves, h]),
+      ihb hw.2 fun l h => hl l (by simp [fvarLeaves, h])⟩
+  | letE ty v b iht ihv ihb =>
+    intro d hw hl
+    simp only [WScoped] at hw ⊢
+    exact ⟨iht hw.1 fun l h => hl l (by simp [fvarLeaves, h]),
+      ihv hw.2.1 fun l h => hl l (by simp [fvarLeaves, h]),
+      ihb hw.2.2 fun l h => hl l (by simp [fvarLeaves, h])⟩
+  | proj s i x ih =>
+    intro d hw hl
+    simp only [WScoped] at hw ⊢
+    exact ih hw fun l h => hl l (by simpa [fvarLeaves] using h)
+  | _ => intro _ _ _; simp [WScoped]
+
+/-- **Annotation keeps a tighter scope**: annotating at `d` a term scoped
+at `lo ≤ d` gives a term scoped at `lo` (annotation only shrinks the
+leaf closure). -/
+theorem annotateCore_WScoped_below {env : Env} {F d lo : Nat} {e e' : Expr}
+    (h : annotateCore mode env F d e = .ok e') (hw : WScoped d e)
+    (hb : e.looseBVarsBounded 0 = true) (hlo : WScoped lo e) : WScoped lo e' :=
+  WScoped.of_leaves_below (annotateCore_WScoped F e h hw) fun l hl =>
+    (WScoped_leaves e hlo l (annotateCore_leaves_sub F e h hw hb l hl)).1
 
 /-! ## The minor premise, spelled out -/
 
