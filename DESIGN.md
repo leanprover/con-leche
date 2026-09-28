@@ -94149,3 +94149,117 @@ two hole rules record them; `hiAt 0 ≤ hi` is never assumed (the leaf's
 
 **Estimate.**  P2c done (1 session, planned 1).  Total unchanged
 (≈ 13–19 sessions).
+
+## CLASSCHECK / P2B — the class abstraction, read: P1 at true and at stage values (2026-09-28, `agent/cc-P2B`)
+
+PROOFPLAN T3 (P2A deviation 2: T3 is the SUBSTITUTION LAW P1 in hole
+form).  Sorry-free, standard axioms only.  One module,
+`Model/Inductives/ClassSubst.lean`, in the base build; `LocList` moved out
+of the delete-list `TargetRecRead` into `Model/Annot/LocList.lean`
+(survivor); `Level.EvalEqList` exposed (the compiler asked).
+
+**Checker changes (two, class route only).**
+1. `Expr.eqUpToLevels` compares BINDER DATA (`bm == bm'`): the reading
+   reads `pwBit φ m.pw`, so terms differing only there do not read alike
+   ((ii) was false as built).  `PropWhen` is canonical, so validated
+   annotations of level-equivalent binders are equal.
+2. The class matching (`eqUpToLevels`, `classOcc?`'s fallback) compares
+   levels by `Level.simplify` normal forms, not `Level.isEquiv`.  Needed:
+   P1 at STAGE values requires that two spellings of one class be
+   recognised alike wherever they occur (a crest spelling vs the spelling
+   inside another class's key) — a transitivity `isEquiv` (whose `leq`
+   is incomplete) does not have.  Evidence (`_tmp/classcheck/P2B/`):
+   `tests/classcheck.sh` 600/600 as expected before and after; a probe
+   with the fallback OFF (strict only) moves exactly one stream,
+   `corner_keynamed_d3_level_split` (0 → 1), which `simplify` handles
+   (`max 0 0`).  RESTRICTION (finding, forged-only): a crest spelling
+   `max w w` of a key's `w` at a level PARAMETER `w` (official's `mk_max`
+   simplifies it) is no longer recognised; no stream has it.  A stronger
+   normal form (dedupe `max` arguments) would lift it at no proof cost —
+   the proof needs only that the comparison is an equivalence.
+Unit tests: `tests/ConLecheTests/ClassCheckTests.lean` (binder data,
+`max u u`).
+
+**What is proved** (all generic in the model's `acval`, closed under
+lifting).
+* (i)/(ii): `Expr.SemEq` (fvars by index, levels by value at every
+  assignment, binder data equal) reads alike (`denoteMeta_semEq`);
+  `ErasedEq`, erased-equal lists and `eqUpToLevels` land in it.
+  `eqUpToLevels` is an equivalence (`_refl/_symm/_trans`).
+* The replacement congruence, generic in the recogniser
+  (`classAbsSpec_read`, over `AbsReadHyps`: spine coherence, holes are
+  variables, and the HEAD OBLIGATION — an occurrence of a hole outside
+  the kept set `F` reads, at every admissible valuation, as its head
+  abstracted by the restriction `occRestrict occ F`).  Value agreement
+  `ValAgree` (interp equality at `consList vals τ`, `Good τ`), opened at
+  any `d` locals (`LocList`), both-or-neither readings (`OptAgree`).
+  No `WellDenoted` transfer: `FieldsEqOn` (the consumer) needs values only.
+* `classOcc?`: `classOcc_spec`/`classOcc_head` (an occurrence is its
+  class's member-abstracted key `classKeyA` up to `SemEq`),
+  `classOcc_app` (spine coherence), `classOcc_match` /
+  `classOcc_some_of_match` / `ClassMatch.transport` / `.sameKey` (two
+  related spellings are recognised alike, by classes the same up to
+  spelling, `SameKey`).  Run-fact premise `ClassOccWF` (holes are
+  variables below the frame, `dsE = dsA` erased, `|dsA| = nPc`, keys
+  frame-scoped and closed, one `nPc` per inductive).
+* **T3 at true values** `classAbs_read`: at every valuation whose class
+  holes carry their member-abstracted keys' values (`ClassesTrue`),
+  `⟦classAbs cls e⟧ = ⟦e⟧`.  `exists_classesTrue` builds that valuation
+  over any valuation of the parameters + member holes (keys scoped below
+  the class holes, one key per hole index).
+* **Coarser tier**: `aliasAbs_read` (at `AliasTrue`: alias holes read their
+  hole-form keys) and `aliasAbs_read_hole` (restricted);
+  `aliasTrue_of_classesTrue` from the per-alias reading equality
+  `⟦I.{a.lvls} ps⟧ = ⟦holeKey ci⟧` (the defeq of `ClassAliasOk`, read).
+* **P1 at stage values** `classAbs_read_stage`: `⟦classAbs cls e⟧ =
+  ⟦classAbsF cls F e⟧` (the abstraction vs its restriction to the kept
+  holes `F`: a fact's own group and free cyclic inner classes) at every
+  valuation with `StageCoh`: every class OUTSIDE `F` reads as its key in
+  HOLE FORM (`holeKey = I.{lvls} (holeForm)`), and classes in `F` the
+  same up to spelling carry one value (P2A's (iii): the first-match may
+  pick either of two such classes).  Premises: `ClassOccWF`,
+  `HoleKeysOk` (hole-form keys frame-scoped, closed, read), `FClosed F`
+  (F closed under `SameKey`).  The head obligation is DISCHARGED inside
+  (strong induction on the concrete side's size: the key's parameters in
+  hole form against the occurrence's parameters `F`-abstracted — the
+  same theorem at the smaller spelling).  `classAbs_read_hole` is the
+  undischarged generic form.
+* (iii) at true values: `classesTrue_sameKey`; `stageCoh_of_classesTrue`
+  (the true valuation is stage-coherent at `F = ∅`); `holeKey_read_true`.
+
+**What P2d/P2e consume, and what is open for them.**
+* P2e (member clause, `MemberPosFacts.link`): extend a member-context
+  valuation by `exists_classesTrue`, read the member crest's abstraction
+  as the crest (`classAbs_read`, then `aliasAbs_read`, composed by
+  `optAgree_trans`); the whnf'd walk and `classReadBack` stay theirs.
+  To supply: `ClassOccWF`/`AliasWF` from `ClassRun` (P2A's `ClassKeyOk`,
+  `classInfosD`), key denotation; the alias reading equality = the
+  defeq's soundness at the hole context (`checkSoundAt` needs the hole
+  context `CtxOk` + `Sat` at the valuation: at true values the class
+  holes' types `instPisWith dsA fty` hold the keys' readings).
+* P2d (class facts): `classAbs_read_stage` at `F` = own group ∪ free
+  holes; show P2d's coherent valuation satisfies `StageCoh` (a non-`F`
+  class = `T_d` at its hole-form key frame + the leaf law) and `FClosed`;
+  then identify `classAbsF … (crest c j)` with `D_c`'s recorded field
+  reading at the hole-form key frame (`frameCrest_read` with the own group
+  as `sub`; Sat at stage values = R6) — not done here.
+* OPEN (finding): the coarser tier at STAGE values for an `F`-class
+  reached only through an alias (a defeq-identified own-group or cyclic
+  occurrence): at stage values its hole is free while its hole-form key
+  reads true, so `AliasTrue` fails there; `aliasAbs_read_hole` keeps such
+  holes, but relating the alias-restricted term to `classAbsF` is not
+  done.  Own-group occurrences in a container's crest are its literal
+  instantiated key (always a syntactic match); the risk is a cyclic inner
+  class matched in a crest only by the defeq tier while `holeForm` (no
+  alias pass) keeps it concrete.
+
+**Mismatches with PROOFPLAN.**  T3 as stated (`⟦abs e⟧[X, v] = ⟦e⟧[X]`
+at every coherent `v`) holds only at TRUE values; at stage values it is
+the abstraction against its restriction (P2A).  The match is top-down
+syntactic (CHECKER deviation (a)), so the defeq tie `param_read_eq` is
+not used; the per-component defeq enters only through the alias tier's
+reading equality.
+
+**Estimate.**  P2b done (1 session, planned 1.5–2), bar the P2d-side
+identification with the recorded clause and the alias-at-stage item.
+Total unchanged (≈ 13–19 sessions).

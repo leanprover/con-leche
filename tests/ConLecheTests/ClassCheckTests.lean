@@ -57,5 +57,14 @@ private def runEnum (rt rf : Expr) : Except CheckError Env :=
 -- a class spelled at an equivalent level is the same class
 #guard (Expr.const (nm "List") [.max .zero .zero]).eqUpToLevels (.const (nm "List") [.zero])
 #guard !(Expr.const (nm "List") [.succ .zero]).eqUpToLevels (.const (nm "List") [.zero])
+-- levels compare by their simplified forms (transitive): `max u u` is not
+-- simplified to `u`, so it is no spelling of `u` here
+#guard !(Expr.const (nm "List") [.max (.param (nm "u")) (.param (nm "u"))]).eqUpToLevels
+  (.const (nm "List") [.param (nm "u")])
+-- binder data is compared (the reading reads it)
+#guard !(Expr.forallE (.sort .zero) (.sort .zero) ⟨.never⟩).eqUpToLevels
+  (.forallE (.sort .zero) (.sort .zero) ⟨.ifAllZero []⟩)
+#guard (Expr.forallE (.sort (.max .zero .zero)) (.sort .zero) ⟨.never⟩).eqUpToLevels
+  (.forallE (.sort .zero) (.sort .zero) ⟨.never⟩)
 
 end ConLecheTests.ClassCheck

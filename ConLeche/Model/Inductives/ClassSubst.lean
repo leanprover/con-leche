@@ -16,33 +16,33 @@ The class check abstracts every recognised class occurrence of a
 constructor's crest to the class's hole (`classAbs`, spec
 `classAbsSpec`, `ClassAbs.lean`), top-down, the occurrence matched
 SYNTACTICALLY: parameters equal up to the free variables' annotations
-(`Expr.eraseFVarTys`) at equal levels, else up to level equivalence
-(`Expr.eqUpToLevels`).  This file is the model's reading of that
-abstraction.
+(`Expr.eraseFVarTys`) at equal levels, else up to levels with equal
+simplified forms (`Expr.eqUpToLevels`); then the coarser tier
+(`aliasOcc?`) abstracts the occurrences found per component by defeq.
+This file is the model's reading of both passes.
 
-1. **Equal-up-to readings.**  `Expr.SemEq` — structural equality with
-   free variables compared by index, levels by their values at EVERY
-   assignment, binder data equal — is what the reading cannot see
-   (`denoteMeta_semEq`); both comparisons the abstraction runs land in it
-   (`Expr.semEq_of_erasedEq`, `Expr.semEq_of_eqUpToLevels`).
-2. **The replacement congruence** (`classAbsSpec_read`), generic in the
-   occurrence recogniser `occ`: the abstraction by `occ` and the one by
-   its restriction to a set `F` of holes (`occF`) read alike at every
-   valuation `Good` admits, PROVIDED every occurrence of a hole outside
-   `F` reads (at `Good`) as its head part abstracted by `occF`.  With
-   `F = ∅` the second side is the term itself (`classAbsSpec_none`):
-   the abstracted term reads as the concrete one when every hole outside
-   `F` carries the reading of what it replaced.  With `F` the free holes
-   and the own group of a class fact it is the hole form (P1) — see the
-   module's last section and the DESIGN record CLASSCHECK / P2B.
-3. **The class check's recogniser** (`classOcc?`): an occurrence is its
-   class's key up to `SemEq` (`classOcc_spec`), and the recogniser is
-   spine-coherent (`classOcc_app`).  Hence `classAbs_read`: at a
-   valuation carrying, in every container class's hole slot, the value of
-   the class's member-abstracted key, the abstracted term reads as the
-   concrete one.  The coarser (defeq) tier `aliasOcc?` is the same
-   congruence, its head obligation the defeq's soundness
-   (`aliasAbs_read`).
+1. **What the reading cannot see** (§1): `Expr.SemEq` — free variables
+   by index, levels by value, binder data equal — reads alike
+   (`denoteMeta_semEq`); the abstraction's comparisons land in it.
+   `eqUpToLevels` is an equivalence.
+2. **The replacement congruence** (§2, `classAbsSpec_read`), generic in
+   the recogniser: the abstraction and its restriction to kept holes `F`
+   read alike wherever every occurrence of a hole outside `F` reads as its
+   head abstracted by the restriction.
+3. **The recogniser** (§3): an occurrence is its class's key up to
+   `SemEq`, the recogniser is spine-coherent, and two spellings related by
+   `eqUpToLevels` are recognised alike by classes the same up to spelling.
+4. **At true values** (§4, `classAbs_read`): with every class hole holding
+   its key's value, the abstracted term reads as the concrete one; the
+   coarser tier likewise (§5, `aliasAbs_read`).
+5. **At stage values** (§6–§7, `classAbs_read_stage`): the abstraction
+   reads as its restriction to a class fact's kept holes (own group, free
+   cyclic inner classes), every other class read as its key in hole form
+   — P1 in hole form, the head obligation discharged.
+6. **The true valuation** (§8): it exists over any parameter and member
+   valuation, is stage-coherent, and gives same classes one value (iii).
+
+DESIGN record CLASSCHECK / P2B.
 -/
 
 /-! ## 1. What the reading cannot see -/
@@ -836,13 +836,136 @@ structure ClassOccWF (cls : List ClassInfo) (H : Nat) : Prop where
 /-- A class's member-abstracted key. -/
 @[expose] def classKeyA (c : ClassInfo) : Expr := Expr.mkAppN (.const c.key.ind c.key.lvls) c.dsA
 
-/-- **An occurrence is its class's key**, up to `SemEq`, applied to the
-index arguments. -/
-theorem classOcc_spec {cls : List ClassInfo} {H : Nat} (hwf : ClassOccWF cls H) {x h : Expr}
+/-! ### Two spellings of one class are recognised alike -/
+
+/-- Pointwise `eqUpToLevels`. -/
+@[expose] def LvEqL (as bs : List Expr) : Prop :=
+  as.length = bs.length ∧
+    ∀ (i : Nat) (a b : Expr), as[i]? = some a → bs[i]? = some b → Expr.eqUpToLevels a b = true
+
+theorem LvEqL.symm {as bs : List Expr} (h : LvEqL as bs) : LvEqL bs as :=
+  ⟨h.1.symm, fun i a b ha hb => Expr.eqUpToLevels_symm (h.2 i b a hb ha)⟩
+
+theorem LvEqL.trans {as bs cs : List Expr} (h1 : LvEqL as bs) (h2 : LvEqL bs cs) : LvEqL as cs := by
+  refine ⟨h1.1.trans h2.1, fun i a c ha hc => ?_⟩
+  have hi : i < bs.length := by
+    have := (List.getElem?_eq_some_iff.mp ha).1
+    have := h1.1
+    omega
+  obtain ⟨b, hb⟩ : ∃ b, bs[i]? = some b := ⟨bs[i], List.getElem?_eq_getElem hi⟩
+  exact Expr.eqUpToLevels_trans (h1.2 i a b ha hb) (h2.2 i b c hb hc)
+
+theorem lvEqL_of_zip {as bs : List Expr} (hl : as.length = bs.length)
+    (h : ((as.zip bs).all fun (a, b) => a.eqUpToLevels b) = true) : LvEqL as bs := by
+  refine ⟨hl, fun i a b ha hb => ?_⟩
+  rw [List.all_eq_true] at h
+  have hz : (as.zip bs)[i]? = some (a, b) := by simp [List.getElem?_zip_eq_some, ha, hb]
+  exact h (a, b) (List.mem_of_getElem? hz)
+
+theorem zip_of_lvEqL {as bs : List Expr} (h : LvEqL as bs) :
+    ((as.zip bs).all fun (a, b) => a.eqUpToLevels b) = true := by
+  rw [List.all_eq_true]
+  intro ab hab
+  obtain ⟨i, hi, hget⟩ := List.getElem_of_mem hab
+  have h1 : as[i]? = some ab.1 := by
+    have := List.getElem?_eq_getElem hi
+    rw [hget, List.getElem?_zip_eq_some] at this
+    exact this.1
+  have h2 : bs[i]? = some ab.2 := by
+    have := List.getElem?_eq_getElem hi
+    rw [hget, List.getElem?_zip_eq_some] at this
+    exact this.2
+  exact h.2 i ab.1 ab.2 h1 h2
+
+theorem lvEqL_of_map_erase {as bs : List Expr}
+    (h : as.map Expr.eraseFVarTys = bs.map Expr.eraseFVarTys) : LvEqL as bs := by
+  refine ⟨by simpa using congrArg List.length h, fun i a b ha hb => ?_⟩
+  have := congrArg (·[i]?) h
+  simp only [List.getElem?_map, ha, hb, Option.map_some, Option.some.injEq] at this
+  exact Expr.eqUpToLevels_of_erasedEq (Expr.erasedEq_of_eraseFVarTys this)
+
+theorem LvEqL.take {as bs : List Expr} (h : LvEqL as bs) (n : Nat) :
+    LvEqL (as.take n) (bs.take n) := by
+  refine ⟨by simp [h.1], fun i a b ha hb => ?_⟩
+  rw [List.getElem?_take] at ha hb
+  split at ha
+  · rw [if_pos (by assumption)] at hb
+    exact h.2 i a b ha hb
+  · exact nomatch ha
+
+theorem LvEqL.append {as bs cs ds : List Expr} (h1 : LvEqL as bs) (h2 : LvEqL cs ds) :
+    LvEqL (as ++ cs) (bs ++ ds) := by
+  refine ⟨by simp [h1.1, h2.1], fun i a b ha hb => ?_⟩
+  rw [List.getElem?_append] at ha hb
+  split at ha
+  · rename_i hi
+    rw [if_pos (by rw [← h1.1]; exact hi)] at hb
+    exact h1.2 i a b ha hb
+  · rename_i hi
+    rw [if_neg (by rw [← h1.1]; exact hi), ← h1.1] at hb
+    exact h2.2 _ a b ha hb
+
+/-- The spine of related terms: related heads, related arguments. -/
+theorem Expr.eqUpToLevels_spine : ∀ {x y : Expr}, Expr.eqUpToLevels x y = true →
+    Expr.eqUpToLevels x.getAppFn y.getAppFn = true ∧ LvEqL x.getAppArgs y.getAppArgs
+  | .app f a, y, h => by
+    cases y with
+    | app g b =>
+      simp only [Expr.eqUpToLevels, Bool.and_eq_true] at h
+      obtain ⟨h1, h2⟩ := Expr.eqUpToLevels_spine h.1
+      refine ⟨h1, ?_⟩
+      exact LvEqL.append h2 ⟨rfl, fun i a' b' ha hb => by
+        cases i with
+        | zero => simp at ha hb; subst ha hb; exact h.2
+        | succ i => simp at ha⟩
+    | _ => simp [Expr.eqUpToLevels] at h
+  | .bvar _, y, h | .fvar .., y, h | .sort _, y, h | .const .., y, h | .lam .., y, h
+  | .forallE .., y, h | .letE .., y, h | .lit _, y, h | .proj .., y, h => by
+    cases y with
+    | app g b => simp [Expr.eqUpToLevels] at h
+    | _ => exact ⟨h, rfl, fun _ _ _ ha _ => by simp [Expr.getAppArgs] at ha⟩
+
+/-- **A class matches a spelling**: its inductive at levels with the same
+simplified forms, its (member-abstracted) parameters `eqUpToLevels` the
+spelling's. -/
+@[expose] def ClassMatch (x : Expr) (c : ClassInfo) : Prop :=
+  ∃ us, x.getAppFn = .const c.key.ind us ∧ us.map Level.simplify = c.key.lvls.map Level.simplify ∧
+    c.nPc ≤ x.getAppArgs.length ∧ LvEqL (x.getAppArgs.take c.nPc) c.dsA
+
+/-- Two classes are the same up to spelling. -/
+@[expose] def SameKey (c c' : ClassInfo) : Prop :=
+  c.key.ind = c'.key.ind ∧ c.key.lvls.map Level.simplify = c'.key.lvls.map Level.simplify ∧
+    LvEqL c.dsA c'.dsA
+
+theorem ClassMatch.transport {x y : Expr} {c : ClassInfo} (hxy : Expr.eqUpToLevels x y = true)
+    (h : ClassMatch x c) : ClassMatch y c := by
+  obtain ⟨us, hfn, hlv, hle, hps⟩ := h
+  obtain ⟨hf, ha⟩ := Expr.eqUpToLevels_spine hxy
+  rw [hfn] at hf
+  cases hy : y.getAppFn with
+  | const n us' =>
+    rw [hy] at hf
+    simp only [Expr.eqUpToLevels, Bool.and_eq_true, beq_iff_eq] at hf
+    obtain ⟨rfl, hl⟩ := hf
+    exact ⟨us', hy, hl.symm.trans hlv, by rw [← ha.1]; exact hle, (ha.take c.nPc).symm.trans hps⟩
+  | _ => rw [hy] at hf; simp [Expr.eqUpToLevels] at hf
+
+theorem ClassMatch.sameKey {cls : List ClassInfo} {H : Nat} (hwf : ClassOccWF cls H) {x : Expr}
+    {c c' : ClassInfo} (hc : c ∈ cls) (hc' : c' ∈ cls) (hch : c.hole.isSome)
+    (hch' : c'.hole.isSome) (h : ClassMatch x c) (h' : ClassMatch x c') : SameKey c c' := by
+  obtain ⟨us, hfn, hlv, -, hps⟩ := h
+  obtain ⟨us', hfn', hlv', -, hps'⟩ := h'
+  rw [hfn] at hfn'
+  simp only [Expr.const.injEq] at hfn'
+  obtain ⟨hI, rfl⟩ := hfn'
+  have hN := hwf.nPc c hc c' hc' hch hch' hI
+  rw [hN] at hps
+  exact ⟨hI, hlv.symm.trans hlv', hps.symm.trans hps'⟩
+
+/-- **What the recogniser returns is a match.** -/
+theorem classOcc_match {cls : List ClassInfo} {H : Nat} (hwf : ClassOccWF cls H) {x h : Expr}
     {n : Nat} (hx : classOcc? cls x = some (h, n)) :
-    ∃ c ∈ cls, c.hole = some h ∧ ∃ us, x.getAppFn = .const c.key.ind us ∧
-      c.nPc ≤ x.getAppArgs.length ∧ n = x.getAppArgs.length - c.nPc ∧
-      Expr.SemEq (Expr.mkAppN (.const c.key.ind us) (x.getAppArgs.take c.nPc)) (classKeyA c) := by
+    ∃ c ∈ cls, c.hole = some h ∧ ClassMatch x c ∧ n = x.getAppArgs.length - c.nPc := by
   unfold classOcc? at hx
   split at hx
   · rename_i I us hI
@@ -857,18 +980,11 @@ theorem classOcc_spec {cls : List ClassInfo} {H : Nat} (hwf : ClassOccWF cls H) 
         simp only [List.mem_filter, Bool.and_eq_true, beq_iff_eq, decide_eq_true_eq] at hc
         exact ⟨hc.1, hc.2.1.1, hc.2.1.2, hc.2.2⟩
       obtain ⟨hc0, hc0h, hc0I, -⟩ := hmem c0 (List.mem_cons_self ..)
-      -- the pick, from either search
       have hpick : ∀ c, c ∈ c0 :: rest →
           (c.hole.map fun h' => (h', x.getAppArgs.length - c.nPc)) = some (h, n) →
-          (us.map Level.simplify = c.key.lvls.map Level.simplify ∨ us = c.key.lvls) →
-          ((x.getAppArgs.take c0.nPc).map Expr.eraseFVarTys = c.dsE ∨
-            ((x.getAppArgs.take c0.nPc).length = c.dsA.length ∧
-              (((x.getAppArgs.take c0.nPc).zip c.dsA).all fun (a, b) => a.eqUpToLevels b) =
-                true)) →
-          ∃ c ∈ cls, c.hole = some h ∧ ∃ us, x.getAppFn = .const c.key.ind us ∧
-            c.nPc ≤ x.getAppArgs.length ∧ n = x.getAppArgs.length - c.nPc ∧
-            Expr.SemEq (Expr.mkAppN (.const c.key.ind us) (x.getAppArgs.take c.nPc))
-              (classKeyA c) := by
+          us.map Level.simplify = c.key.lvls.map Level.simplify →
+          LvEqL (x.getAppArgs.take c0.nPc) c.dsA →
+          ∃ c ∈ cls, c.hole = some h ∧ ClassMatch x c ∧ n = x.getAppArgs.length - c.nPc := by
         intro c hc hp hlv hps
         obtain ⟨hcc, hch, hcI, hcle⟩ := hmem c hc
         have hN : c0.nPc = c.nPc := hwf.nPc c0 hc0 c hcc hc0h hch (hc0I.trans hcI.symm)
@@ -876,36 +992,87 @@ theorem classOcc_spec {cls : List ClassInfo} {H : Nat} (hwf : ClassOccWF cls H) 
         rw [hh'] at hp
         simp only [Option.map_some, Option.some.injEq, Prod.mk.injEq] at hp
         obtain ⟨rfl, rfl⟩ := hp
-        refine ⟨c, hcc, hh', us, by rw [hI, hcI], hcle, rfl, ?_⟩
-        rw [← hN]
-        unfold classKeyA
-        have hlvl : us.length = c.key.lvls.length ∧ ∀ φ, Level.EvalEqList φ us c.key.lvls := by
-          rcases hlv with hlv | rfl
-          · exact Level.evalEqList_of_simplify hlv
-          · exact ⟨rfl, fun φ => Level.evalEqList_refl φ _⟩
-        rcases hps with hps | ⟨hl, hz⟩
-        · rw [hwf.dsE c hcc hch] at hps
-          obtain ⟨hl, hpw⟩ := semEq_of_map_erase hps
-          exact Expr.SemEq.mkAppN ⟨rfl, hlvl⟩ hl hpw
-        · exact Expr.SemEq.mkAppN ⟨rfl, hlvl⟩ hl (semEq_of_zip_eqUpToLevels hz)
+        exact ⟨c, hcc, hh', ⟨us, by rw [hI, hcI], hlv, hcle, by rw [← hN]; exact hps⟩, rfl⟩
       split at hx
       · rename_i c hfind
         have hc := List.mem_of_find?_eq_some hfind
         have hcond := List.find?_some hfind
         simp only [Bool.and_eq_true, beq_iff_eq] at hcond
-        exact hpick c hc hx (Or.inr hcond.1) (Or.inl hcond.2)
+        obtain ⟨hcc, hch, -, -⟩ := hmem c hc
+        refine hpick c hc hx (by rw [hcond.1]) ?_
+        rw [hwf.dsE c hcc hch] at hcond
+        exact lvEqL_of_map_erase hcond.2
       · split at hx
         · rename_i c hfind
           have hc := List.mem_of_find?_eq_some hfind
           have hcond := List.find?_some hfind
           simp only [Bool.and_eq_true, beq_iff_eq, Bool.or_eq_true] at hcond
+          obtain ⟨hcc, hch, -, -⟩ := hmem c hc
           obtain ⟨hlv, hps⟩ := hcond
-          refine hpick c hc hx (Or.inl hlv) ?_
+          refine hpick c hc hx hlv ?_
           rcases hps with hps | ⟨hl, hz⟩
-          · exact Or.inl hps
-          · exact Or.inr ⟨hl, hz⟩
+          · rw [hwf.dsE c hcc hch] at hps
+            exact lvEqL_of_map_erase hps
+          · exact lvEqL_of_zip (by simpa using hl) hz
         · exact nomatch hx
   · exact nomatch hx
+
+/-- **A match is recognised** (by some class). -/
+theorem classOcc_some_of_match {cls : List ClassInfo} {H : Nat} (hwf : ClassOccWF cls H)
+    {x : Expr} {c : ClassInfo} (hc : c ∈ cls) (hch : c.hole.isSome) (hm : ClassMatch x c) :
+    ∃ h n, classOcc? cls x = some (h, n) := by
+  obtain ⟨us, hfn, hlv, hle, hps⟩ := hm
+  have hin : c ∈ cls.filter (fun c' => c'.hole.isSome && c'.key.ind == c.key.ind &&
+      decide (c'.nPc ≤ x.getAppArgs.length)) := by
+    simp [List.mem_filter, hc, hch, hle]
+  have hmem : ∀ c', c' ∈ cls.filter (fun c' => c'.hole.isSome && c'.key.ind == c.key.ind &&
+      decide (c'.nPc ≤ x.getAppArgs.length)) → c' ∈ cls ∧ c'.hole.isSome ∧ c'.nPc = c.nPc := by
+    intro c' hc'
+    simp only [List.mem_filter, Bool.and_eq_true, beq_iff_eq, decide_eq_true_eq] at hc'
+    exact ⟨hc'.1, hc'.2.1.1, hwf.nPc c' hc'.1 c hc hc'.2.1.1 hch hc'.2.1.2⟩
+  unfold classOcc?
+  rw [hfn]
+  dsimp only
+  revert hin hmem
+  generalize cls.filter (fun c' => c'.hole.isSome && c'.key.ind == c.key.ind &&
+      decide (c'.nPc ≤ x.getAppArgs.length)) = cs
+  intro hin hmem
+  match cs, hin, hmem with
+  | c0 :: rest, hin, hmem =>
+    simp only
+    have hN := (hmem c0 (List.mem_cons_self ..)).2.2
+    have hpk : ∀ c', c' ∈ c0 :: rest →
+        ∃ h n, (c'.hole.map fun h' => (h', x.getAppArgs.length - c'.nPc)) = some (h, n) := by
+      intro c' hc'
+      obtain ⟨h', hh'⟩ := Option.isSome_iff_exists.mp (hmem c' hc').2.1
+      exact ⟨h', _, by rw [hh']; rfl⟩
+    split
+    · rename_i c1 hf1
+      exact hpk c1 (List.mem_of_find?_eq_some hf1)
+    · split
+      · rename_i c1 hf1
+        exact hpk c1 (List.mem_of_find?_eq_some hf1)
+      · rename_i hnone
+        exfalso
+        have := List.find?_eq_none.mp hnone c hin
+        rw [hN] at this
+        simp only [Bool.and_eq_true, beq_iff_eq, Bool.or_eq_true, not_and, not_or] at this
+        exact (this hlv).2 (by simpa using hps.1) (zip_of_lvEqL hps)
+
+
+/-! ### The recogniser's occurrences -/
+
+/-- **An occurrence is its class's key**, up to `SemEq`, applied to the
+index arguments. -/
+theorem classOcc_spec {cls : List ClassInfo} {H : Nat} (hwf : ClassOccWF cls H) {x h : Expr}
+    {n : Nat} (hx : classOcc? cls x = some (h, n)) :
+    ∃ c ∈ cls, c.hole = some h ∧ ∃ us, x.getAppFn = .const c.key.ind us ∧
+      c.nPc ≤ x.getAppArgs.length ∧ n = x.getAppArgs.length - c.nPc ∧
+      Expr.SemEq (Expr.mkAppN (.const c.key.ind us) (x.getAppArgs.take c.nPc)) (classKeyA c) := by
+  obtain ⟨c, hc, hch, ⟨us, hfn, hlv, hle, hps⟩, hn⟩ := classOcc_match hwf hx
+  refine ⟨c, hc, hch, us, hfn, hle, hn, ?_⟩
+  exact Expr.SemEq.mkAppN ⟨rfl, Level.evalEqList_of_simplify hlv⟩ hps.1
+    (fun k a b ha hb => Expr.semEq_of_eqUpToLevels (hps.2 k a b ha hb))
 
 /-- **The recogniser is spine-coherent**: an occurrence with index
 arguments left is an application whose function part is the same
@@ -1203,6 +1370,30 @@ theorem aliasAbs_read
   rw [occRestrict_false, classAbsSpec_none] at h
   rwa [(classAbsGo_spec _ e none {} (fun _ _ h => by simp at h)).1]
 
+/-- **The alias pass against its restriction to the holes `F`** (the
+coarser tier at stage values): provided every alias occurrence of a hole
+outside `F` reads as its head abstracted by the restriction. -/
+theorem aliasAbs_read_hole {al : List ClassAlias} {H : Nat} (hwf : AliasWF al H)
+    {F : Expr → Bool} {Good : (Nat → V) → Prop}
+    (hhead : ∀ x h, aliasOcc? al x = some (h, 0) → F h = false →
+      ∀ d as2 as1, LocList H d as2 → LocList H d as1 →
+        OptAgree (ValAgree V Good d) (denoteMeta acval env φ (H + d) h)
+          (denoteMeta acval env φ (H + d)
+            ((classAbsSpec (occRestrict (aliasOcc? al) F) none x).instantiateList as1 0)))
+    (e : Expr) {d : Nat} {as2 as1 : List Expr} (h2 : LocList H d as2) (h1 : LocList H d as1) :
+    OptAgree (ValAgree V Good d)
+      (denoteMeta acval env φ (H + d)
+        ((classAbsGo (aliasOcc? al) none {} e).1.instantiateList as2 0))
+      (denoteMeta acval env φ (H + d)
+        ((classAbsSpec (occRestrict (aliasOcc? al) F) none e).instantiateList as1 0)) := by
+  have hyp : AbsReadHyps V acval env φ H Good (aliasOcc? al) F := by
+    refine ⟨fun x h n hx => aliasOcc_app hx, fun x h n hx => ?_, hhead⟩
+    obtain ⟨a, ha, rfl, -⟩ := aliasOcc_spec hx
+    obtain ⟨i, ty, hi, -⟩ := hwf.hole a ha
+    exact ⟨i, ty, hi⟩
+  rw [(classAbsGo_spec _ e none {} (fun _ _ h => by simp at h)).1]
+  exact classAbsSpec_read hyp e h2 h1
+
 end Alias
 
 /-! ## 6. Hole form (P1): the abstraction against a partial one -/
@@ -1248,236 +1439,8 @@ theorem classAbs_read_hole {cls : List ClassInfo} {H : Nat} (hwf : ClassOccWF cl
 
 end Hole
 
-/-! ## 7. Two spellings of one class are recognised alike -/
 
-section Match
-
-open ConLeche (ClassInfo classOcc? classAbs)
-
-/-- Pointwise `eqUpToLevels`. -/
-@[expose] def LvEqL (as bs : List Expr) : Prop :=
-  as.length = bs.length ∧
-    ∀ (i : Nat) (a b : Expr), as[i]? = some a → bs[i]? = some b → Expr.eqUpToLevels a b = true
-
-theorem LvEqL.symm {as bs : List Expr} (h : LvEqL as bs) : LvEqL bs as :=
-  ⟨h.1.symm, fun i a b ha hb => Expr.eqUpToLevels_symm (h.2 i b a hb ha)⟩
-
-theorem LvEqL.trans {as bs cs : List Expr} (h1 : LvEqL as bs) (h2 : LvEqL bs cs) : LvEqL as cs := by
-  refine ⟨h1.1.trans h2.1, fun i a c ha hc => ?_⟩
-  have hi : i < bs.length := by
-    have := (List.getElem?_eq_some_iff.mp ha).1
-    have := h1.1
-    omega
-  obtain ⟨b, hb⟩ : ∃ b, bs[i]? = some b := ⟨bs[i], List.getElem?_eq_getElem hi⟩
-  exact Expr.eqUpToLevels_trans (h1.2 i a b ha hb) (h2.2 i b c hb hc)
-
-theorem lvEqL_of_zip {as bs : List Expr} (hl : as.length = bs.length)
-    (h : ((as.zip bs).all fun (a, b) => a.eqUpToLevels b) = true) : LvEqL as bs := by
-  refine ⟨hl, fun i a b ha hb => ?_⟩
-  rw [List.all_eq_true] at h
-  have hz : (as.zip bs)[i]? = some (a, b) := by simp [List.getElem?_zip_eq_some, ha, hb]
-  exact h (a, b) (List.mem_of_getElem? hz)
-
-theorem zip_of_lvEqL {as bs : List Expr} (h : LvEqL as bs) :
-    ((as.zip bs).all fun (a, b) => a.eqUpToLevels b) = true := by
-  rw [List.all_eq_true]
-  intro ab hab
-  obtain ⟨i, hi, hget⟩ := List.getElem_of_mem hab
-  have h1 : as[i]? = some ab.1 := by
-    have := List.getElem?_eq_getElem hi
-    rw [hget, List.getElem?_zip_eq_some] at this
-    exact this.1
-  have h2 : bs[i]? = some ab.2 := by
-    have := List.getElem?_eq_getElem hi
-    rw [hget, List.getElem?_zip_eq_some] at this
-    exact this.2
-  exact h.2 i ab.1 ab.2 h1 h2
-
-theorem lvEqL_of_map_erase {as bs : List Expr}
-    (h : as.map Expr.eraseFVarTys = bs.map Expr.eraseFVarTys) : LvEqL as bs := by
-  refine ⟨by simpa using congrArg List.length h, fun i a b ha hb => ?_⟩
-  have := congrArg (·[i]?) h
-  simp only [List.getElem?_map, ha, hb, Option.map_some, Option.some.injEq] at this
-  exact Expr.eqUpToLevels_of_erasedEq (Expr.erasedEq_of_eraseFVarTys this)
-
-theorem LvEqL.take {as bs : List Expr} (h : LvEqL as bs) (n : Nat) :
-    LvEqL (as.take n) (bs.take n) := by
-  refine ⟨by simp [h.1], fun i a b ha hb => ?_⟩
-  rw [List.getElem?_take] at ha hb
-  split at ha
-  · rw [if_pos (by assumption)] at hb
-    exact h.2 i a b ha hb
-  · exact nomatch ha
-
-theorem LvEqL.append {as bs cs ds : List Expr} (h1 : LvEqL as bs) (h2 : LvEqL cs ds) :
-    LvEqL (as ++ cs) (bs ++ ds) := by
-  refine ⟨by simp [h1.1, h2.1], fun i a b ha hb => ?_⟩
-  rw [List.getElem?_append] at ha hb
-  split at ha
-  · rename_i hi
-    rw [if_pos (by rw [← h1.1]; exact hi)] at hb
-    exact h1.2 i a b ha hb
-  · rename_i hi
-    rw [if_neg (by rw [← h1.1]; exact hi), ← h1.1] at hb
-    exact h2.2 _ a b ha hb
-
-/-- The spine of related terms: related heads, related arguments. -/
-theorem Expr.eqUpToLevels_spine : ∀ {x y : Expr}, Expr.eqUpToLevels x y = true →
-    Expr.eqUpToLevels x.getAppFn y.getAppFn = true ∧ LvEqL x.getAppArgs y.getAppArgs
-  | .app f a, y, h => by
-    cases y with
-    | app g b =>
-      simp only [Expr.eqUpToLevels, Bool.and_eq_true] at h
-      obtain ⟨h1, h2⟩ := Expr.eqUpToLevels_spine h.1
-      refine ⟨h1, ?_⟩
-      exact LvEqL.append h2 ⟨rfl, fun i a' b' ha hb => by
-        cases i with
-        | zero => simp at ha hb; subst ha hb; exact h.2
-        | succ i => simp at ha⟩
-    | _ => simp [Expr.eqUpToLevels] at h
-  | .bvar _, y, h | .fvar .., y, h | .sort _, y, h | .const .., y, h | .lam .., y, h
-  | .forallE .., y, h | .letE .., y, h | .lit _, y, h | .proj .., y, h => by
-    cases y with
-    | app g b => simp [Expr.eqUpToLevels] at h
-    | _ => exact ⟨h, rfl, fun _ _ _ ha _ => by simp [Expr.getAppArgs] at ha⟩
-
-/-- **A class matches a spelling**: its inductive at levels with the same
-simplified forms, its (member-abstracted) parameters `eqUpToLevels` the
-spelling's. -/
-@[expose] def ClassMatch (x : Expr) (c : ClassInfo) : Prop :=
-  ∃ us, x.getAppFn = .const c.key.ind us ∧ us.map Level.simplify = c.key.lvls.map Level.simplify ∧
-    c.nPc ≤ x.getAppArgs.length ∧ LvEqL (x.getAppArgs.take c.nPc) c.dsA
-
-/-- Two classes are the same up to spelling. -/
-@[expose] def SameKey (c c' : ClassInfo) : Prop :=
-  c.key.ind = c'.key.ind ∧ c.key.lvls.map Level.simplify = c'.key.lvls.map Level.simplify ∧
-    LvEqL c.dsA c'.dsA
-
-theorem ClassMatch.transport {x y : Expr} {c : ClassInfo} (hxy : Expr.eqUpToLevels x y = true)
-    (h : ClassMatch x c) : ClassMatch y c := by
-  obtain ⟨us, hfn, hlv, hle, hps⟩ := h
-  obtain ⟨hf, ha⟩ := Expr.eqUpToLevels_spine hxy
-  rw [hfn] at hf
-  cases hy : y.getAppFn with
-  | const n us' =>
-    rw [hy] at hf
-    simp only [Expr.eqUpToLevels, Bool.and_eq_true, beq_iff_eq] at hf
-    obtain ⟨rfl, hl⟩ := hf
-    exact ⟨us', hy, hl.symm.trans hlv, by rw [← ha.1]; exact hle, (ha.take c.nPc).symm.trans hps⟩
-  | _ => rw [hy] at hf; simp [Expr.eqUpToLevels] at hf
-
-theorem ClassMatch.sameKey {cls : List ClassInfo} {H : Nat} (hwf : ClassOccWF cls H) {x : Expr}
-    {c c' : ClassInfo} (hc : c ∈ cls) (hc' : c' ∈ cls) (hch : c.hole.isSome)
-    (hch' : c'.hole.isSome) (h : ClassMatch x c) (h' : ClassMatch x c') : SameKey c c' := by
-  obtain ⟨us, hfn, hlv, -, hps⟩ := h
-  obtain ⟨us', hfn', hlv', -, hps'⟩ := h'
-  rw [hfn] at hfn'
-  simp only [Expr.const.injEq] at hfn'
-  obtain ⟨hI, rfl⟩ := hfn'
-  have hN := hwf.nPc c hc c' hc' hch hch' hI
-  rw [hN] at hps
-  exact ⟨hI, hlv.symm.trans hlv', hps.symm.trans hps'⟩
-
-/-- **What the recogniser returns is a match.** -/
-theorem classOcc_match {cls : List ClassInfo} {H : Nat} (hwf : ClassOccWF cls H) {x h : Expr}
-    {n : Nat} (hx : classOcc? cls x = some (h, n)) :
-    ∃ c ∈ cls, c.hole = some h ∧ ClassMatch x c ∧ n = x.getAppArgs.length - c.nPc := by
-  unfold classOcc? at hx
-  split at hx
-  · rename_i I us hI
-    dsimp only at hx
-    split at hx
-    · exact nomatch hx
-    · rename_i cs c0 rest hcs
-      have hmem : ∀ c ∈ c0 :: rest, c ∈ cls ∧ c.hole.isSome ∧ c.key.ind = I ∧
-          c.nPc ≤ x.getAppArgs.length := by
-        intro c hc
-        rw [← hcs] at hc
-        simp only [List.mem_filter, Bool.and_eq_true, beq_iff_eq, decide_eq_true_eq] at hc
-        exact ⟨hc.1, hc.2.1.1, hc.2.1.2, hc.2.2⟩
-      obtain ⟨hc0, hc0h, hc0I, -⟩ := hmem c0 (List.mem_cons_self ..)
-      have hpick : ∀ c, c ∈ c0 :: rest →
-          (c.hole.map fun h' => (h', x.getAppArgs.length - c.nPc)) = some (h, n) →
-          us.map Level.simplify = c.key.lvls.map Level.simplify →
-          LvEqL (x.getAppArgs.take c0.nPc) c.dsA →
-          ∃ c ∈ cls, c.hole = some h ∧ ClassMatch x c ∧ n = x.getAppArgs.length - c.nPc := by
-        intro c hc hp hlv hps
-        obtain ⟨hcc, hch, hcI, hcle⟩ := hmem c hc
-        have hN : c0.nPc = c.nPc := hwf.nPc c0 hc0 c hcc hc0h hch (hc0I.trans hcI.symm)
-        obtain ⟨h', hh'⟩ := Option.isSome_iff_exists.mp hch
-        rw [hh'] at hp
-        simp only [Option.map_some, Option.some.injEq, Prod.mk.injEq] at hp
-        obtain ⟨rfl, rfl⟩ := hp
-        exact ⟨c, hcc, hh', ⟨us, by rw [hI, hcI], hlv, hcle, by rw [← hN]; exact hps⟩, rfl⟩
-      split at hx
-      · rename_i c hfind
-        have hc := List.mem_of_find?_eq_some hfind
-        have hcond := List.find?_some hfind
-        simp only [Bool.and_eq_true, beq_iff_eq] at hcond
-        obtain ⟨hcc, hch, -, -⟩ := hmem c hc
-        refine hpick c hc hx (by rw [hcond.1]) ?_
-        rw [hwf.dsE c hcc hch] at hcond
-        exact lvEqL_of_map_erase hcond.2
-      · split at hx
-        · rename_i c hfind
-          have hc := List.mem_of_find?_eq_some hfind
-          have hcond := List.find?_some hfind
-          simp only [Bool.and_eq_true, beq_iff_eq, Bool.or_eq_true] at hcond
-          obtain ⟨hcc, hch, -, -⟩ := hmem c hc
-          obtain ⟨hlv, hps⟩ := hcond
-          refine hpick c hc hx hlv ?_
-          rcases hps with hps | ⟨hl, hz⟩
-          · rw [hwf.dsE c hcc hch] at hps
-            exact lvEqL_of_map_erase hps
-          · exact lvEqL_of_zip (by simpa using hl) hz
-        · exact nomatch hx
-  · exact nomatch hx
-
-/-- **A match is recognised** (by some class). -/
-theorem classOcc_some_of_match {cls : List ClassInfo} {H : Nat} (hwf : ClassOccWF cls H)
-    {x : Expr} {c : ClassInfo} (hc : c ∈ cls) (hch : c.hole.isSome) (hm : ClassMatch x c) :
-    ∃ h n, classOcc? cls x = some (h, n) := by
-  obtain ⟨us, hfn, hlv, hle, hps⟩ := hm
-  have hin : c ∈ cls.filter (fun c' => c'.hole.isSome && c'.key.ind == c.key.ind &&
-      decide (c'.nPc ≤ x.getAppArgs.length)) := by
-    simp [List.mem_filter, hc, hch, hle]
-  have hmem : ∀ c', c' ∈ cls.filter (fun c' => c'.hole.isSome && c'.key.ind == c.key.ind &&
-      decide (c'.nPc ≤ x.getAppArgs.length)) → c' ∈ cls ∧ c'.hole.isSome ∧ c'.nPc = c.nPc := by
-    intro c' hc'
-    simp only [List.mem_filter, Bool.and_eq_true, beq_iff_eq, decide_eq_true_eq] at hc'
-    exact ⟨hc'.1, hc'.2.1.1, hwf.nPc c' hc'.1 c hc hc'.2.1.1 hch hc'.2.1.2⟩
-  unfold classOcc?
-  rw [hfn]
-  dsimp only
-  revert hin hmem
-  generalize cls.filter (fun c' => c'.hole.isSome && c'.key.ind == c.key.ind &&
-      decide (c'.nPc ≤ x.getAppArgs.length)) = cs
-  intro hin hmem
-  match cs, hin, hmem with
-  | c0 :: rest, hin, hmem =>
-    simp only
-    have hN := (hmem c0 (List.mem_cons_self ..)).2.2
-    have hpk : ∀ c', c' ∈ c0 :: rest →
-        ∃ h n, (c'.hole.map fun h' => (h', x.getAppArgs.length - c'.nPc)) = some (h, n) := by
-      intro c' hc'
-      obtain ⟨h', hh'⟩ := Option.isSome_iff_exists.mp (hmem c' hc').2.1
-      exact ⟨h', _, by rw [hh']; rfl⟩
-    split
-    · rename_i c1 hf1
-      exact hpk c1 (List.mem_of_find?_eq_some hf1)
-    · split
-      · rename_i c1 hf1
-        exact hpk c1 (List.mem_of_find?_eq_some hf1)
-      · rename_i hnone
-        exfalso
-        have := List.find?_eq_none.mp hnone c hin
-        rw [hN] at this
-        simp only [Bool.and_eq_true, beq_iff_eq, Bool.or_eq_true, not_and, not_or] at this
-        exact (this hlv).2 (by simpa using hps.1) (zip_of_lvEqL hps)
-
-end Match
-
-/-! ## 8. P1 at stage values: the abstraction against its restriction, discharged -/
+/-! ## 7. P1 at stage values: the abstraction against its restriction, discharged -/
 
 section Stage
 
@@ -1964,7 +1927,7 @@ theorem classAbs_read_stage
 
 end Stage
 
-/-! ## 9. The true valuation: exists, is stage-coherent, identifies same classes (iii) -/
+/-! ## 8. The true valuation: exists, is stage-coherent, identifies same classes (iii) -/
 
 section TrueVal
 
