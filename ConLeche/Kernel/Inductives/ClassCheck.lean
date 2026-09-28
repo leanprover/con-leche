@@ -144,6 +144,31 @@ def classInfos (ops : CheckerOps m) (env : Env) (ctx : NestCtx) (holes : List Ex
 
 /-! ## The class abstraction (official's `replace_all_nested`) -/
 
+/-- Structural equality up to universe-level EQUIVALENCE (and free
+variables' annotations, binder data): official's instantiation
+simplifies levels (`mk_max`: `max 0 0 = 0`), ours does not, so a class
+official spells `List.{0} R` may occur as `List.{max 0 0} R` — or deep
+inside another class's parameters.  Level-equivalent terms read alike. -/
+def Expr.eqUpToLevels : Expr → Expr → Bool
+  | .bvar i, .bvar j => i == j
+  | .fvar i _, .fvar j _ => i == j
+  | .sort u, .sort v => Level.isEquiv u v == some true
+  | .const n us, .const n' us' => n == n' && Level.isEquivList us us' == some true
+  | .lit a, .lit b => a == b
+  | .app f a, .app g b => Expr.eqUpToLevels f g && Expr.eqUpToLevels a b
+  | .lam t b _, .lam t' b' _ => Expr.eqUpToLevels t t' && Expr.eqUpToLevels b b'
+  | .forallE t b _, .forallE t' b' _ => Expr.eqUpToLevels t t' && Expr.eqUpToLevels b b'
+  | .letE t v b, .letE t' v' b' =>
+    Expr.eqUpToLevels t t' && Expr.eqUpToLevels v v' && Expr.eqUpToLevels b b'
+  | .proj s i x, .proj s' i' x' => s == s' && i == i' && Expr.eqUpToLevels x x'
+  | _, _ => false
+
+/-- Parameter lists equal: up to annotations, else up to level
+equivalence. -/
+def classParamsEq (as bs : List Expr) : Bool :=
+  as.map Expr.eraseFVarTys == bs.map Expr.eraseFVarTys ||
+    (as.length == bs.length && (as.zip bs).all fun (a, b) => a.eqUpToLevels b)
+
 /-- A class occurrence `I.{us} D⃗ ı⃗`: the FIRST class (container classes
 only; the members are holes already) whose parameters are `D⃗` up to the
 free variables' annotations, at structurally equal levels, else at
@@ -153,15 +178,17 @@ def classOcc? (cls : List ClassInfo) (e : Expr) : Option (Expr × Nat) :=
   match e.getAppFn with
   | .const I us =>
     let args := e.getAppArgs
-    let same (c : ClassInfo) : Bool :=
-      c.key.ind == I && c.nPc ≤ args.length &&
+    let exact (c : ClassInfo) : Bool :=
+      c.key.ind == I && c.nPc ≤ args.length && us == c.key.lvls &&
         (args.take c.nPc).map Expr.eraseFVarTys == c.dsA.map Expr.eraseFVarTys
+    let equiv (c : ClassInfo) : Bool :=
+      c.key.ind == I && c.nPc ≤ args.length && Level.isEquivList us c.key.lvls == some true &&
+        classParamsEq (args.take c.nPc) c.dsA
     let pick (c : ClassInfo) : Option (Expr × Nat) := c.hole.map (·, args.length - c.nPc)
-    match cls.find? (fun c => c.hole.isSome && same c && us == c.key.lvls) with
+    match cls.find? (fun c => c.hole.isSome && exact c) with
     | some c => pick c
     | none =>
-      match cls.find? (fun c => c.hole.isSome && same c &&
-          Level.isEquivList us c.key.lvls == some true) with
+      match cls.find? (fun c => c.hole.isSome && equiv c) with
       | some c => pick c
       | none => none
   | _ => none
@@ -258,7 +285,7 @@ auxiliary type into two recursors; official splits nothing it could
 merge).  No defeq: coarser identification is not accepted. -/
 def ClassInfo.same (c d : ClassInfo) : Bool :=
   c.key.ind == d.key.ind && Level.isEquivList c.key.lvls d.key.lvls == some true &&
-    c.dsA.map Expr.eraseFVarTys == d.dsA.map Expr.eraseFVarTys
+    classParamsEq c.dsA d.dsA
 
 /-- **Every class is reached** (official's auxiliary types): the members;
 every class whose hole occurs in a reached class's abstracted
@@ -275,8 +302,7 @@ def classReached (crests : List (List Expr)) (cls : List ClassInfo) (mates : Nam
       let ci := cls.getD c default
       let di := cls.getD d default
       ci.same di || (ci.member.isNone && di.member.isNone && (mates ci.key.ind).contains di.key.ind &&
-        Level.isEquivList ci.key.lvls di.key.lvls == some true &&
-        ci.dsA.map Expr.eraseFVarTys == di.dsA.map Expr.eraseFVarTys)
+        Level.isEquivList ci.key.lvls di.key.lvls == some true && classParamsEq ci.dsA di.dsA)
     let new := occ ++ grp
     let r' := r ++ (new.filter (!r.contains ·)).eraseDups
     if r'.length == r.length then r else classReached crests cls mates fuel r'
