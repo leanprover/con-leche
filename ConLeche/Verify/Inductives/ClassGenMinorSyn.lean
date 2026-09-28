@@ -5,8 +5,7 @@ public import ConLeche.Verify.Subst
 import ConLeche.Verify.Inductives.ClassGenAnnot
 import ConLeche.Verify.Abstract
 import ConLeche.Verify.Leaves
-import ConLeche.Verify.Inductives.NestScope
-import ConLeche.Verify.Inductives.NestCallSyn
+import ConLeche.Verify.Inductives.ScopeKit
 
 public section
 

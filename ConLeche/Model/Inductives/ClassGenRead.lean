@@ -2,7 +2,7 @@ module
 
 public import ConLeche.Verify.Inductives.ClassGenScope
 public import ConLeche.Verify.Inductives.ClassGenAnnot
-import ConLeche.Model.Inductives.NestPosOut
+import ConLeche.Model.Inductives.ErasureKit
 import ConLeche.Verify.Rules.InferBridge
 import ConLeche.Verify.Mono
 import ConLeche.Verify.Denote.IndFrame

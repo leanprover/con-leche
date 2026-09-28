@@ -6,6 +6,7 @@ import ConLeche.Model.Inductives.PosDerivShape
 import ConLeche.Model.Inductives.LfpCover
 import ConLeche.Verify.Denote.IndFrame
 import ConLeche.Model.Rules.Inputs
+import ConLeche.Model.Inductives.StoredShapesWalk
 
 public section
 

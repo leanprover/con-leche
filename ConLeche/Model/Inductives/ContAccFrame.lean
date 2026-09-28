@@ -15,6 +15,7 @@ import ConLeche.Model.Inductives.ContFrame
 import ConLeche.Model.Rules.Inputs
 import ConLeche.Model.Rules.Sound
 import ConLeche.Verify.Rules.Bridge
+import ConLeche.Model.Inductives.StoredShapesWalk
 
 public section
 

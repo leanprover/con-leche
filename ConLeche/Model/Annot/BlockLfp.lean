@@ -119,6 +119,14 @@ theorem spineFit_frameIdx_of_sat {Ds : List AnnotTerm} {σ : Nat → V}
     SpineFit (shiftE Ds.length 0 σ) Ds (frameIdx Ds.length σ) :=
   spineFit_frameIdx_of_sat_len _ rfl h
 
+/-- A fitting spine, from the satisfaction of the reversed list at its
+own frame. -/
+theorem spineFit_of_sat_consList {Ds : List AnnotTerm} {as : List V} {ρ : Nat → V}
+    (hlen : as.length = Ds.length) (h : Sat V Ds.reverse (consList as ρ)) :
+    SpineFit ρ Ds as := by
+  have := spineFit_frameIdx_of_sat h
+  rwa [← hlen, shiftE_consList, frameIdx_consList'] at this
+
 end HoleFam
 
 /-- **The part of a block's representation the lfp clause reads** (see

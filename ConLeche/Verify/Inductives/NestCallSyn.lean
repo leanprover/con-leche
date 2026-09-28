@@ -5,6 +5,7 @@ public import ConLeche.Verify.Subst
 import ConLeche.Verify.Abstract
 import ConLeche.Verify.Shift
 public import ConLeche.Verify.SubstFvars
+public import ConLeche.Verify.Inductives.ScopeKit
 
 public section
 
@@ -90,18 +91,6 @@ theorem replaceFVars_abstract1_instantiate1 {f : Nat → Option Expr} {v : Nat}
 
 end Expr
 
-/-- A closed telescope has no loose bound variable, when its domains and
-body have none. -/
-theorem closeTelescope_bounded :
-    ∀ (nds : List (Expr × BinderMeta)) (hi : Nat) (cur : Expr),
-      (∀ nd ∈ nds, nd.1.looseBVarsBounded 0 = true) → cur.looseBVarsBounded 0 = true →
-      (closeTelescope nds hi cur).looseBVarsBounded 0 = true
-  | [], _, _, _, hc => hc
-  | (nd, bm) :: rest, hi, cur, hn, hc => by
-    simp only [closeTelescope, Expr.looseBVarsBounded, Bool.and_eq_true]
-    exact ⟨hn _ List.mem_cons_self, looseBVarsBounded_abstract1 _ 0
-      (closeTelescope_bounded rest (hi + 1) cur (fun x hx => hn x (List.mem_cons_of_mem _ hx)) hc)⟩
-
 /-- The substitution a recorded telescope's `l`-th domain, opened at the
 rule's fields `xs`, carries: the fields `hi ..< hi + l` to `xs`, the rest
 as `f` (the read-back). -/
@@ -184,7 +173,6 @@ theorem targetPiDomsWith_close :
           rw [show hi + 1 + k - (hi + 1) = k by omega, show hi + 1 + k - hi = k + 1 by omega]
           rfl
         · rw [if_neg h2, if_neg h1, if_neg (by omega)]
-
 
 /-! ## One substitution for the read-back and the renaming -/
 

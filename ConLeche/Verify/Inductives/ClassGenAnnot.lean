@@ -3,7 +3,7 @@ module
 public import ConLeche.Verify.Subst
 import ConLeche.Verify.Abstract
 public import ConLeche.Kernel.Inductives.Positivity
-import ConLeche.Verify.Inductives.NestCallSyn
+import ConLeche.Verify.Inductives.ScopeKit
 
 public section
 

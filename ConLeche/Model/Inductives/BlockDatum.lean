@@ -4,7 +4,7 @@ public import ConLeche.Model.Inductives.BlockAssembly
 public import ConLeche.Model.Inductives.BlockStageTables
 import ConLeche.Model.Annot.LfpHoleOp
 import ConLeche.Model.Inductives.BlockCaps
-import ConLeche.Model.Inductives.BlockHoleGrade
+import ConLeche.Model.Inductives.BlockHoleChains
 import ConLeche.Model.Inductives.MemberPosFacts
 public import ConLeche.Model.Inductives.BlockPosRunCont
 import ConLeche.Model.Inductives.BlockCover

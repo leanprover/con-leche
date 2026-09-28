@@ -7,8 +7,7 @@ import ConLeche.Verify.BridgeWfImp
 import ConLeche.Verify.Denote.IndFrame
 import ConLeche.Verify.InferLemmas
 import ConLeche.Verify.InferLeaves
-import ConLeche.Verify.Inductives.NestScope
-import ConLeche.Verify.Inductives.NestCallSyn
+import ConLeche.Verify.Inductives.ScopeKit
 
 public section
 

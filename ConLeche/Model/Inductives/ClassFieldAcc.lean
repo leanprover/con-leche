@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.Model.Inductives.ClassFieldMono
-public import ConLeche.Model.Inductives.NestPosAcc
+public import ConLeche.Model.Inductives.HoleAccKit
 import ConLeche.Model.Rules.Sound
 import ConLeche.Verify.Rules.Bridge
 import ConLeche.Semantics.Frame
