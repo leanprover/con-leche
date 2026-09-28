@@ -93490,3 +93490,88 @@ pinned basis block (`Kernel/Basis/PUnit.lean`, `reservedBasisNames`): check firs
 (prelude, pin/basis proofs, `BasisPinnedTT`, model shortcuts) and move whatever depends on the pin
 onto the ordinary installed facts.  (Maintainer: the pin dates from when simple inductives were still
 MODELLED; that ended ~3 weeks ago, so the reason is gone — expect only leftover dependents.)
+
+## RPCLEAN — REVIEWPOS rec. 1: dead data, duplicated work, conformance code out of the kernel (2026-09-28, `agent/uinds-RPCLEAN`)
+
+Brief: REVIEWPOS S1 (`_tmp/uniform-inds/REVIEWPOS.md` §3), no verdict change.  Artifacts:
+`_tmp/uniform-inds/RPCLEAN/` (sweeps, LOC census, binaries).
+
+**Deleted — dead data** (`Kernel/Inductives/Positivity.lean`):
+* `NestKeyInfo` (its `nIdx` was written, never read): `NestState.keys : Array NestKey`.
+* the table index in `NestFieldKind.nested` (every proof reads the kind through
+  `NestFieldKind.erase`, which dropped it): `.nested (refl : Bool)`.
+* `nestContNew`'s `old` (it kept that dead index stable).  `nestContKey` is now
+  `if active then reject else if (below every frame hole && cached) then hit else walk`;
+  `nestAcceptGroup` is a pure push of the group's keys not yet cached (the key itself
+  included, formerly pushed separately).  The cache is a set now: key ORDER is no
+  longer observable (`tests/ConLecheTests/NestedTests.lean` `runM` guard reordered).
+
+**Deleted — duplicated work:**
+* `nestInstType` runs ONCE per group member.  `nestCont` runs it at the occurrence
+  (`hiAt prog.length`) and threads the hole type `cty` into `nestContKey`/`nestContNew`;
+  `nestContNew` no longer re-runs it at the walk stack's range (`hiAt wp.length ≤ hiAt
+  prog.length`, and only the N2 occurrence test reads the range, monotonically:
+  `nestInstType_mono_hi`, `Verify/Inductives/NestContInv.lean`, via `Expr.nestOcc_mono_hi`
+  and the converse `nestInstType_of`); `nestAcceptGroup` no longer re-runs it for the
+  group-mates (`nestGrowGroup` did).  The seeds (`nestSeeds`) call `nestInstType`
+  themselves before `nestContKey` (at a cache hit this is an extra, passing call: the
+  cached key's frame ran the same call at the same range).
+* the frame-stack disjunct of the in-progress test (`prog.any (·.key == key)`) is gone:
+  every frame-stack entry is a key of an enclosing `nestContNew`'s group, pushed to
+  `active` for its frame.  **Proved**, not by inspection: `Complete/ProgActive.lean`
+  keeps the older walk as a spec (`nestContKeyP` = the frame-stack test, then
+  `nestContKey`; `nestContP`/`nestPosP` = `nestCont`/`nestPos` verbatim with it) and
+  proves `nestPosP_eq` (equal at every state whose frame stack is in `active`,
+  `ProgActive`; `nestPosP_eq_nil` at the walk's entries), with `nestPos_active` (the walk
+  restores `active`).  457 lines (≈110 of them the spec copy), standard axioms only, at the
+  pure monad (the executed
+  run is the same function at other operations).  `PosDR`'s frame-stack freshness
+  premise (`Complete/PosDerivComplete.lean`) dropped with it.
+
+**KEPT (not provably redundant): the recogniser half of the nested bit** (`blockNestedBit`'s
+`p.recs.any (rc.tgt ≥ k)`).  The check half (`tys.any member.isNone`, `targetRecCheck`)
+covers it only AFTER stage (b): the bit is also read INSIDE stage (b), per recursor,
+by `targetRecTy`'s `blockLargeElimAllowed p nested` guard (`isDefEq sty Prop`), before
+the aux recursor's own major is resolved.  Dropping it moves that per-recursor pin to
+the family's `checkBlockRecSmallElim` (`Level.isEquiv u 0`, a different — fuelled,
+incomplete — test) and changes which check fires first (reject ↔ decline on streams
+failing twice).  Not verdict-equal by construction; left in place.
+
+**Moved into `Conformance/` (charter item 6, decided by consumers):** `blockRecPinOk`
+(and `BlockParts.recPinned`, which is gone: `BlockParts` is the shape alone),
+`blockNormalCtors`, `nestConcrete`, `nestConcreteCtor` → `Conformance/RecGen.lean`.
+`checkBlockRecConform(F)` now takes the raw `block` and the walk's normal forms `nfs`
+and builds both itself, so neither runs on every block any more (only on the flat
+one-member blocks the conformance check covers).  `NestedPositivity.normals` (never
+executed; `Complete` and the tests read it) now carries the member-abstracted normal
+forms.  Observation (not acted on): at k = 1 `blockRecPinOk` looks subsumed by the
+recursor check's `targetRecPins` (grouping) + `targetRulePinsAll` (per-rule constructor
+and field count at the major) — a deletion candidate after a fixture hunt.
+
+**Verdicts: zero moves.**  660-stream sweep (e2e, arena, RECPOS/FUSEPOS/FUSELOOP fx;
+`RPCLEAN/sweep.sh`): exit code AND output hash (timing stripped) identical, pre-lane
+binary vs the lane's (`sweep-base2.txt` vs `sweep-k2.txt`).
+
+**Executed checker LOC** (SIZEAUDIT method, `RPCLEAN/loc`): 10862 → 10842 (−20);
+`Kernel/Inductives` 1987 → 1939 (−48, of which ~29 moved), `Conformance` 249 → 278,
+`Cached` 2918 → 2917.  **Correction to UNFUSE's LOC line:** `execlines.py` reads the
+source TEXT from `$REPO` (default: the main checkout) at the rev given; UNFUSE's
+"after" summary paired the unfused build's ranges with the fused tip's text.  Matched
+(build and text of the same revision): fused `3285b67ab` 10895 → unfused `8d9e53f14`
+**10862** (−33; `Kernel/Inductives` 2017 → 1987, `Cached` 2921 → 2918).  Run it as
+`REPO=<worktree> python3 execlines.py <tsv> <that worktree's rev>`.
+Perf: `complete_c05b_nest30_pi1000` 71.62 G → 71.61 G instructions:u.  Tree
+(`ConLeche/`, `tests/`): +877 −484 lines, the coverage proof (`ProgActive.lean`, 457)
+included; without it the lane's proofs shrank.
+
+**Official reference source.**  `_tmp/lean4-src` (d8b18978, 2026-08-03) predates
+`check_uniform_ind_occs`.  NEW: `_tmp/lean4-src-latest` — lean4 `master` 8dd5d4482
+(2026-09-28), with the tags `v4.34.1` (newest release) and `v4.35.0-rc3` fetched
+(`git -C _tmp/lean4-src-latest show v4.34.1:src/kernel/inductive.cpp`).  The DESIGN
+rows' `check_uniform_ind_occs` line numbers (:134, called at :1248) are v4.34.1's;
+master has :122/:1236.  **Use `_tmp/lean4-src-latest`** (cite the tag); `_tmp/lean4-src`
+stays for the older citations.
+
+**Follow-ups (proof-only or small):** `PosKind` ≅ `NestFieldKind` now (constructor for
+constructor; `NestFieldKind.erase` is a relabelling) — unify; keys whose parameters
+mention a frame hole are cached but can never hit (`nestContKey`) — could be left out.
