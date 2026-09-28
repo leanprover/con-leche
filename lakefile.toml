@@ -165,6 +165,13 @@ srcDir = "tests"
 name = "con-leche"
 root = "Main"
 
+# The class checker's sweep driver (CLASSCHECK, test-only, not a default
+# target): `lake build class-sweep`; see `tests/ClassSweep.lean`.
+[[lean_exe]]
+name = "class-sweep"
+srcDir = "tests"
+root = "ClassSweep"
+
 # The pin dump generator (task #176).  Lives in the certificate
 # library's world — its root imports `ConLeche.PinGen.Certs`, so the
 # proof bodies are visible to `importModules` at `OLeanLevel.private`
