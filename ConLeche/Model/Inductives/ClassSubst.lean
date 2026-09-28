@@ -698,6 +698,9 @@ theorem Expr.erasedEq_eraseFVarTys : ∀ e : Expr, Expr.ErasedEq e e.eraseFVarTy
   intro e
   induction e <;> simp_all [Expr.eraseFVarTys, Expr.replaceFVars, Expr.ErasedEq]
 
+theorem Expr.eraseFVarTys_idem (e : Expr) : e.eraseFVarTys.eraseFVarTys = e.eraseFVarTys := by
+  induction e <;> simp_all [Expr.eraseFVarTys, Expr.replaceFVars]
+
 /-- Erasure-equal lists are pointwise `SemEq`. -/
 theorem semEq_of_map_erase {as bs : List Expr}
     (h : as.map Expr.eraseFVarTys = bs.map Expr.eraseFVarTys) :
@@ -959,5 +962,148 @@ theorem classAbs_read
   rwa [occRestrict_false, classAbsSpec_none, ← classAbs_eq_spec] at h
 
 end True
+
+/-! ## 5. The coarser tier: aliases -/
+
+section Alias
+
+open ConLeche (ClassInfo ClassAlias aliasOcc? classAbs classAbsGo)
+
+variable {V : Type w} [SetTheory V] {env : Env} {φ : Name → Nat}
+  {acval : Name → (Name → Nat) → AnnotTerm}
+
+/-- An alias's key: its inductive at its levels, applied to its
+(hole-form, annotation-erased) parameters. -/
+@[expose] def aliasKey (a : ClassAlias) : Expr := Expr.mkAppN (.const a.ind a.lvls) a.ps
+
+/-- **What the alias recogniser needs**: every alias's hole a variable
+below the frame, its parameters as many as its parameter count, its key
+frame-scoped with no loose bound variable. -/
+structure AliasWF (al : List ClassAlias) (H : Nat) : Prop where
+  hole : ∀ a ∈ al, ∃ i ty, a.hole = .fvar i ty ∧ i < H
+  len : ∀ a ∈ al, a.ps.length = a.nPc
+  keyScoped : ∀ a ∈ al, Expr.WScoped H (aliasKey a) ∧ (aliasKey a).looseBVarsBounded 0 = true
+
+theorem aliasOcc_spec {al : List ClassAlias} {x h : Expr} {n : Nat}
+    (hx : aliasOcc? al x = some (h, n)) :
+    ∃ a ∈ al, a.hole = h ∧ ∃ us, x.getAppFn = .const a.ind us ∧ a.nPc ≤ x.getAppArgs.length ∧
+      n = x.getAppArgs.length - a.nPc ∧ Level.isEquivList us a.lvls = some true ∧
+      (x.getAppArgs.take a.nPc).map Expr.eraseFVarTys = a.ps := by
+  unfold aliasOcc? at hx
+  split at hx
+  · rename_i I us hI
+    dsimp only at hx
+    obtain ⟨a, hfind, hpa⟩ := Option.map_eq_some_iff.mp hx
+    have ha := List.mem_of_find?_eq_some hfind
+    have hc := List.find?_some hfind
+    simp only [Bool.and_eq_true, beq_iff_eq, decide_eq_true_eq] at hc
+    obtain ⟨⟨⟨hI', hle⟩, hlv⟩, hps⟩ := hc
+    simp only [Prod.mk.injEq] at hpa
+    exact ⟨a, ha, hpa.1, us, by rw [hI, hI'], hle, hpa.2.symm, hlv, hps⟩
+  · exact nomatch hx
+
+theorem aliasOcc_app {al : List ClassAlias} {x h : Expr} {n : Nat}
+    (hx : aliasOcc? al x = some (h, n + 1)) :
+    ∃ f a, x = .app f a ∧ aliasOcc? al f = some (h, n) := by
+  obtain ⟨b, hb, hbh, us, hfn, hle, hn, -⟩ := aliasOcc_spec hx
+  cases x with
+  | app f a =>
+    refine ⟨f, a, rfl, ?_⟩
+    have hargs : (Expr.app f a).getAppArgs = f.getAppArgs ++ [a] := rfl
+    unfold aliasOcc? at hx ⊢
+    rw [show (Expr.app f a).getAppFn = f.getAppFn from rfl] at hx
+    split at hx
+    · rename_i I us' hI
+      try rw [hI]
+      dsimp only at hx ⊢
+      rw [hargs] at hx
+      obtain ⟨a0, hfind, hpa⟩ := Option.map_eq_some_iff.mp hx
+      simp only [Prod.mk.injEq, List.length_append, List.length_singleton] at hpa
+      have hc0 := List.find?_some hfind
+      simp only [Bool.and_eq_true, beq_iff_eq, decide_eq_true_eq, List.length_append,
+        List.length_singleton] at hc0
+      have hN : a0.nPc ≤ f.getAppArgs.length := by omega
+      -- the first alias for `x` is the first for its function part
+      have hfind' : al.find? (fun b => b.ind == I && decide (b.nPc ≤ f.getAppArgs.length) &&
+          Level.isEquivList us' b.lvls == some true &&
+          (f.getAppArgs.take b.nPc).map Expr.eraseFVarTys == b.ps) = some a0 := by
+        rw [List.find?_eq_some_iff_append] at hfind ⊢
+        obtain ⟨-, pre, post, hsplit, hpre⟩ := hfind
+        refine ⟨?_, pre, post, hsplit, fun b hbm => ?_⟩
+        · simp only [Bool.and_eq_true, beq_iff_eq, decide_eq_true_eq]
+          rw [List.take_append_of_le_length hN] at hc0
+          exact ⟨⟨⟨hc0.1.1.1, hN⟩, hc0.1.2⟩, hc0.2⟩
+        · have := hpre b hbm
+          simp only [Bool.not_eq_true', Bool.and_eq_false_iff, beq_eq_false_iff_ne, ne_eq,
+            decide_eq_false_iff_not, Nat.not_le, List.length_append,
+            List.length_singleton] at this ⊢
+          by_cases hbN : b.nPc ≤ f.getAppArgs.length
+          · rw [List.take_append_of_le_length hbN] at this
+            rcases this with ((h1 | h1) | h1) | h1
+            · exact Or.inl (Or.inl (Or.inl h1))
+            · omega
+            · exact Or.inl (Or.inr h1)
+            · exact Or.inr h1
+          · exact Or.inl (Or.inl (Or.inr (by omega)))
+      rw [hfind']
+      simp only [Option.map_some, Option.some.injEq, Prod.mk.injEq]
+      exact ⟨hpa.1, by omega⟩
+    · exact nomatch hx
+  | _ =>
+    simp only [Expr.getAppArgs, List.length_nil] at hn hle
+    omega
+
+/-- **The alias holes read their keys**: every alias's hole slot holds
+the value of its (hole-form) key. -/
+@[expose] def AliasTrue (V : Type w) [SetTheory V] (acval : Name → (Name → Nat) → AnnotTerm)
+    (env : Env) (φ : Name → Nat) (al : List ClassAlias) (H : Nat) (τ : Nat → V) : Prop :=
+  ∀ a ∈ al, ∀ i ty, a.hole = .fvar i ty → ∀ r,
+    denoteMeta acval env φ H (aliasKey a) = some r → τ (H - 1 - i) = interp V τ r
+
+/-- **The alias pass reads as its input** at every valuation whose
+alias holes read their keys. -/
+theorem aliasAbs_read
+    (hacl : ∀ (n : Name) (ψ : Name → Nat) (k : Nat), (acval n ψ).liftN 1 k = acval n ψ)
+    {al : List ClassAlias} {H : Nat} (hwf : AliasWF al H)
+    (hden : ∀ a ∈ al, (denoteMeta acval env φ H (aliasKey a)).isSome)
+    (e : Expr) {d : Nat} {as2 as1 : List Expr} (h2 : LocList H d as2) (h1 : LocList H d as1) :
+    OptAgree (ValAgree V (AliasTrue V acval env φ al H) d)
+      (denoteMeta acval env φ (H + d)
+        ((classAbsGo (aliasOcc? al) none {} e).1.instantiateList as2 0))
+      (denoteMeta acval env φ (H + d) (e.instantiateList as1 0)) := by
+  have hyp : AbsReadHyps V acval env φ H (AliasTrue V acval env φ al H) (aliasOcc? al)
+      (fun _ => false) := by
+    refine ⟨fun x h n hx => aliasOcc_app hx, fun x h n hx => ?_,
+      fun x h hx _ d' as2' as1' _ _ => ?_⟩
+    · obtain ⟨a, ha, rfl, -⟩ := aliasOcc_spec hx
+      obtain ⟨i, ty, hi, -⟩ := hwf.hole a ha
+      exact ⟨i, ty, hi⟩
+    · obtain ⟨a, ha, rfl, us, hfn, hle, hn, hlv, hps⟩ := aliasOcc_spec hx
+      obtain ⟨i, ty, hi, hiH⟩ := hwf.hole a ha
+      have hsem : Expr.SemEq x (aliasKey a) := by
+        have hlen : x.getAppArgs.length = a.nPc := by omega
+        have hx' : x = Expr.mkAppN (.const a.ind us) (x.getAppArgs.take a.nPc) := by
+          rw [List.take_of_length_le (by omega), ← hfn, Expr.mkAppN_getAppFn_getAppArgs]
+        rw [hx']
+        unfold aliasKey
+        have hlvl := Level.evalEqList_of_isEquivList hlv
+        have hps' : (x.getAppArgs.take a.nPc).map Expr.eraseFVarTys
+            = a.ps.map Expr.eraseFVarTys := by
+          rw [hps]
+          -- the alias's parameters are erased already
+          rw [← hps, List.map_map]
+          apply List.map_congr_left
+          intro p _
+          exact (Expr.eraseFVarTys_idem p).symm
+        obtain ⟨hl, hpw⟩ := semEq_of_map_erase hps'
+        exact Expr.SemEq.mkAppN ⟨rfl, hlvl⟩ hl hpw
+      rw [hi, occRestrict_false, classAbsSpec_none]
+      exact hole_agree_lift hacl hiH ty (hwf.keyScoped a ha).1 (hwf.keyScoped a ha).2 hsem
+        (hden a ha) (fun τ hτ r hr => hτ a ha i ty hi r hr)
+  have h := classAbsSpec_read hyp e h2 h1
+  rw [occRestrict_false, classAbsSpec_none] at h
+  rwa [(classAbsGo_spec _ e none {} (fun _ _ h => by simp at h)).1]
+
+end Alias
 
 end ConLeche.Model
