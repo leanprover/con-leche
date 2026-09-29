@@ -301,4 +301,127 @@ theorem classGenRecTy_conclSort_reset (hμ : μ.verifiedChecks = true)
   rw [hn] at hop hbt hu
   exact ⟨fvs, o, hop, hbt, hu⟩
 
+/-- **Syntactically equal terms are definitionally equal at any positive
+fuel** (the defeq loop's syntactic fast path). -/
+theorem isDefEqCore_self {envK : Env} {F d : Nat} (a : Expr) :
+    ConLeche.isDefEqCore μ envK (F + 1) d a a = .ok true := by
+  rw [ConLeche.isDefEqCore_succ]
+  obtain ⟨n, hn⟩ : ∃ n, ConLeche.defeqLoopFuel = n + 1 := ⟨99999, by unfold ConLeche.defeqLoopFuel; rfl⟩
+  simp only [ConLeche.defeqBody, hn, ConLeche.defeqLoop, ConLeche.defeqStep, beq_self_eq_true,
+    if_true]
+  rfl
+
+/-! ## The stage record from the run -/
+
+open ConLeche (BlockParts BlockShape RecShape GenRecRun ClassRecTyRun FEnv mkFEnv NestState
+  ConstantInfo TargetMajor RecStageG RecStage RecTyGen RecPrefixSame RuleOutOk tgtRs
+  structElimLevel fueledOps consBlockRecsBare consBlockRecsBareF classFeR classRecOf
+  classRulesOk classRuleOk StructWalkers)
+
+section Stage
+
+variable {F : Nat} {env₁ envC : Env} {p : BlockParts} {nestedBit : Bool} {pos : NestState}
+  {cvTas : List ConstantVal} {block : List ConstantInfo}
+  {ctorsAs : List (List (ConstantVal × Nat))}
+  {out : List (ConstantVal × TargetMajor × List Expr)}
+
+/-- The stage-(b) list of a generated run: each generated constant, its
+class's index count, the family's elimination level. -/
+@[expose] def genCvRus (cvGs : List ConstantVal) (recCls : List Nat) (Ms : List TargetMajor)
+    (elim : Level) : List (ConstantVal × Nat × Level) :=
+  (cvGs.zip recCls).map fun q => (q.1, (Ms.getD q.2 default).nIdx, elim)
+
+/-- **The run at one recursor**: its class, its generated (stored)
+constant and type run, its stored entry and its rules' run. -/
+theorem genRecRun_at
+    (R : GenRecRun μ F (mkFEnv env₁) env₁ (mkFEnv envC) p.toBlockShape nestedBit pos cvTas
+      block ctorsAs out)
+    {i : Nat} {rc : RecShape} (hrc : p.recs[i]? = some rc) :
+    ∃ c cvG rhss, R.rd.recCls[i]? = some c ∧ R.cvGs[i]? = some cvG ∧
+      Nonempty (ClassRecTyRun μ F (mkFEnv envC) R.g p.k rc c cvG) ∧
+      out[i]? = some (cvG, R.Ms.getD c default, rhss) ∧
+      classRulesOk (fueledOps μ F) .plain (mkFEnv envC)
+        (classFeR p.toBlockShape R.Ms R.cvGs R.rd.recCls (mkFEnv envC)) R.g
+        (classRecOf R.rd.recCls R.cvGs) cvG
+        (Level.zeronessOf (structElimLevel p.elim p.large)) c (R.ctors.getD c []) = .ok rhss ∧
+      (genCvRus R.cvGs R.rd.recCls R.Ms (structElimLevel p.elim p.large))[i]?
+        = some (cvG, (R.Ms.getD c default).nIdx, structElimLevel p.elim p.large) := by
+  have hcvGs := R.hcvGs
+  have hrules := R.hrules
+  obtain ⟨-, hallG⟩ := ConLeche.classRecTysOk_run hcvGs
+  obtain ⟨-, hallO⟩ := ConLeche.classRecsRulesOk_run hrules
+  obtain ⟨c, cvG, hc, hG, T⟩ := hallG i rc hrc
+  obtain ⟨rhss, ho, hr⟩ := hallO i cvG c hG hc
+  refine ⟨c, cvG, rhss, hc, hG, T, ho, hr, ?_⟩
+  have hz : (R.cvGs.zip R.rd.recCls)[i]? = some (cvG, c) :=
+    List.getElem?_zip_eq_some.mpr ⟨hG, hc⟩
+  simp only [genCvRus, List.getElem?_map, hz, Option.map_some]
+
+/-- The large-elimination guard of the run, read at the plain block. -/
+theorem genRecRun_small
+    (R : GenRecRun μ F (mkFEnv env₁) env₁ (mkFEnv envC) p.toBlockShape nestedBit pos cvTas
+      block ctorsAs out)
+    (hL : p.large = true) : ConLeche.blockLargeElimAllowed p.toBlockShape false = true := by
+  have h := R.helim
+  have hL' : p.toBlockShape.large = true := hL
+  rw [hL'] at h
+  simp only [Bool.true_and, Bool.not_eq_false'] at h
+  exact ConLeche.blockLargeElimAllowed_plain h
+
+set_option maxHeartbeats 800000 in
+/-- **One recursor's generated type, as stage (b)'s major-free record**:
+the checked constant is the generated one (`cv0`, under the record's name
+and level parameters), it opens `mI + 1` binders, its conclusion is
+sorted at the family's elimination level, and the generated type is,
+annotated, a telescope over the RESET shared prefix. -/
+theorem genRecTy_run (hμ : μ.verifiedChecks = true)
+    (R : GenRecRun μ F (mkFEnv env₁) env₁ (mkFEnv envC) p.toBlockShape nestedBit pos cvTas
+      block ctorsAs out)
+    (hg : ClassGenScoped R.g) {i c : Nat} {rc : RecShape} {cvG : ConstantVal}
+    (hrc : p.recs[i]? = some rc) (hc : R.rd.recCls[i]? = some c)
+    (T : ClassRecTyRun μ F (mkFEnv envC) R.g p.k rc c cvG) :
+    rc.rP = R.pre.length ∧
+    (∃ Y B, ConLeche.annotateCore μ envC F 0 (closeTelescope (R.pre.map genRm ++ Y) 0 B)
+      = .ok cvG.type) ∧
+    Nonempty (RecTyGen μ F envC p.toBlockShape false i rc cvG (R.Ms.getD c default).nIdx
+      (structElimLevel p.elim p.large)) := by
+  have hcv : ConLeche.checkConstantVal (fueledOps μ F) envC
+      { rc.cvR with type := T.gty.resetMeta } = .ok cvG := by
+    rw [← ConLeche.checkConstantValF_eq]; exact T.hcv
+  obtain ⟨-, -, -, -, -, hfv0, type, stype, u0, hann, -, -, hinf, -, hcvEq⟩ :=
+    ConLeche.checkConstantVal_inv hcv
+  have htype : cvG.type = type := by rw [hcvEq]
+  dsimp only at hann hfv0
+  have hpl : R.pre.length = p.nP + R.rd.slots.length :=
+    (ConLeche.ClassGen.prefixBinders_scoped hg hg.pre).1
+  obtain ⟨s, hm⟩ := ConLeche.classRead_recCls_motive R.hrd c (List.mem_of_getElem? hc)
+  obtain ⟨fvs, o, hop, hbt, hu⟩ := classGenRecTy_conclSort_reset hμ hg hm T.hgty hfv0 hann hinf
+  obtain ⟨-, hM, hR⟩ := ConLeche.recShape_at (q := p.toBlockShape) hrc
+  have hrP : rc.rP = R.pre.length := by rw [T.hrP, hpl]; rfl
+  have hmI : rc.mI = R.pre.length + (R.Ms.getD c default).nIdx := by rw [T.hmI, hrP]; rfl
+  have hfl : fvs.length = rc.mI + 1 := by
+    rw [ConLeche.Verify.openPisAtFvars_length _ hop, hmI]; rfl
+  refine ⟨hrP, ?_, ⟨{
+    fvs := fvs, concl := o, maj := fvs[rc.mI]'(by omega),
+    sty := .sort (structElimLevel p.elim p.large),
+    cv0 := { rc.cvR with type := T.gty.resetMeta }, hcv0 := ⟨rfl, rfl⟩, hcv := hcv,
+    hroom := (by rw [hR, hrP, hpl]; omega),
+    hmI' := (by rw [hM, hR, hmI, hrP]),
+    hopen := (by rw [hM, hmI, htype]; exact hop),
+    hmaj := (by rw [hM]; exact List.getElem?_eq_getElem _),
+    hsty := (by rw [hM, hmI]; exact hbt),
+    hu := (by rw [hM, hmI]; exact hu),
+    hsmall := ?_ }⟩⟩
+  · obtain ⟨Y, B, hY⟩ := classGenRecTy_reset_prefix hg T.hgty
+    rw [hY] at hann
+    exact ⟨Y, B, by rw [htype]; exact hann⟩
+  · cases hL : p.large
+    · right
+      have hF : 1 ≤ F := inferTypeCore_pos hbt
+      obtain ⟨F₀, rfl⟩ : ∃ F₀, F = F₀ + 1 := ⟨F - 1, by omega⟩
+      exact isDefEqCore_self _
+    · exact .inl (genRecRun_small R hL)
+
+end Stage
+
 end ConLeche.Model
