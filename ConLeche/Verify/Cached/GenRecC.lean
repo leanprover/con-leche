@@ -2,6 +2,7 @@ module
 
 public import ConLeche.Verify.Cached.TargetRecC
 public import ConLeche.Kernel.Inductives.GenRec
+import ConLeche.Verify.Inductives.RecCheckScope
 import ConLeche.Verify.Inductives.GenRecRun
 import ConLeche.Verify.Inductives.GenRecDatF
 import ConLeche.Verify.Inductives.RecStage
@@ -261,6 +262,37 @@ the parameters. -/
 @[expose] def ClassMajScoped (nP : Nat) (M : TargetMajor) : Prop :=
   TargetMajScoped M ∧ (M.member = none → ∀ x ∈ M.ds, x.fvarB ≤ nP) ∧ M.pfvs.length = nP
 
+/-- `blockNestCtx` at the shared operations, its lookups the formers'
+environment `env₁`, the state the constructors' environment's: the same
+value, the canonical parameters scoped at the parameter count. -/
+theorem blockNestCtxS_sim₂ {env₁ env₂ : Env} (henv₁ : EnvWF env₁) (p : BlockShape)
+    (cvTas : List ConstantVal) (hT : ∀ cv ∈ cvTas, WScoped 0 cv.type) {s₀ : CState}
+    (hs : CSOK mode env₂ s₀) :
+    SimC mode env₂ s₀
+      (fun v w => v = w ∧ NestCtxOk v.1 ∧
+        (∀ x ∈ v.2, WScoped (v.1.hiAt 0) x ∧ ∃ i ty, x = .fvar i ty) ∧
+        (∀ x ∈ v.1.params, WScoped p.nP x) ∧ v.1.params.length = v.1.nP ∧
+        nestHoles v.1 = some v.2 ∧ v.1.nP = p.nP)
+      (blockNestCtx (m := CheckCM) p cvTas env₁.find? env₁.consts)
+      (blockNestCtx (m := FueledM) p cvTas env₁.find? env₁.consts) := by
+  unfold blockNestCtx
+  refine SimC.bind (SimC.unwrapOr' hs) (fun s₁ cvTa0 cvTa0' hs₁ hP => ?_)
+  obtain ⟨rfl, h0⟩ := hP
+  have hw0 : WScoped 0 cvTa0.type := hT _ (List.mem_of_mem_head? h0)
+  refine SimC.bind (SimC.unwrapOr' hs₁) (fun s₂ pq pq' hs₂ hP => ?_)
+  obtain ⟨rfl, hpq⟩ := hP
+  have hctx : NestCtxOk (p.nestCtx pq.1 env₁.find? env₁.consts) :=
+    ⟨fun ci hci => (henv₁ ci hci).1,
+      fun n ci hf => (henv₁ ci (List.mem_of_find?_eq_some hf)).1⟩
+  have hpar : ∀ x ∈ pq.1, WScoped p.nP x := by
+    intro x hx
+    have := (openPisAtFvars_WScoped p.nP cvTa0.type 0 hpq hw0).1 x hx
+    rwa [Nat.zero_add] at this
+  refine SimC.bind (SimC.unwrapOr' hs₂) (fun s₃ holes holes' hs₃ hP => ?_)
+  obtain ⟨rfl, hh⟩ := hP
+  exact SimC.pure hs₃ ⟨rfl, hctx, nestHoles_ok hctx hh, hpar,
+    ConLeche.Verify.openPisAtFvars_length _ hpq, hh, rfl⟩
+
 /-- **The classes, each checked as a major**: every class scoped. -/
 theorem classMajorsS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) {p : BlockShape}
     {ctorsAs : List (List (ConstantVal × Nat))} {pfvs : List Expr}
@@ -365,6 +397,11 @@ theorem classFieldsAgreeS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF e
     unfold classFieldsAgree
     refine SimC.bind (SimC.unwrapOr' hs) (fun s₁ x x' hs₁ hX => ?_)
     obtain ⟨rfl, -⟩ := hX
+    rcases x with ⟨teleB, leaf⟩
+    dsimp only
+    by_cases hl : classLeafAt (Ms.getD t default) leaf = true
+    case neg => simp only [hl, Bool.false_eq_true, if_false]; exact SimC.throw_bind
+    simp only [hl, if_true]
     refine SimC.bind (classNodesAgreeS_sim hμ henv hformer (TargetMajScoped.getD hMs t) E hs₁)
       (fun s₂ u u' hs₂ hU => ?_)
     obtain rfl : u = u' := hU
@@ -608,24 +645,28 @@ theorem genRecCheckS_simG (hμ : mode.verifiedChecks = true) {env₁ env₂ : En
   obtain ⟨rfl, hwRis⟩ := hC
   refine SimG.bind (SimG.ofC fun s hs => SimC.unwrapOr' hs) fun rd rd' hR => ?_
   obtain ⟨rfl, hrd⟩ := hR
-  refine SimG.bind (SimG.ofC fun s hs => SimC.unwrapOr' hs) fun cv0 cv0' hC0 => ?_
-  obtain ⟨rfl, hcv0⟩ := hC0
-  refine SimG.bind (SimG.ofC fun s hs => SimC.unwrapOr' hs) fun y y' hY => ?_
-  obtain ⟨rfl, hy⟩ := hY
-  obtain ⟨pfvs, o0⟩ := y
-  dsimp only
-  -- the parameter openers, scoped
-  have hw0 : WScoped 0 cv0.type := hwRis cv0 (List.mem_of_mem_head? hcv0)
-  have hpl : pfvs.length = p.nP := ConLeche.Verify.openPisAtFvars_length _ hy
-  have hp : ∀ x ∈ pfvs, WScoped p.nP x := by
-    have := (openPisAtFvars_WScoped p.nP cv0.type 0 hy hw0).1
-    simpa using this
-  -- the pre-pass's classes, scoped
-  have hkeys : ∀ key ∈ rd.classes, ∀ x ∈ key.ds, ∃ D, WScoped D x := by
+  refine SimG.bind (SimG.ofC fun s hs => blockNestCtxS_sim₂ henv₁ p cvTas hT hs)
+    fun r r' hR => ?_
+  obtain ⟨rfl, hctx, hholes, hpar, hlen, hh, hnP⟩ := hR
+  rcases r with ⟨ctx, holes⟩
+  dsimp only at hctx hholes hpar hlen hh hnP ⊢
+  -- the pre-pass's classes, scoped, and moved to the canonical parameters
+  have hkeys₀ : ∀ key ∈ rd.classes, ∀ x ∈ key.ds, ∃ D, WScoped D x := by
     refine classRead_keys_scoped (fun rc hrc => ?_) hrd
     obtain ⟨⟨rc', cv⟩, hmem, rfl⟩ := List.mem_map.mp hrc
     exact hwRis cv (List.of_mem_zip hmem).2
-  refine SimG.bind (SimG.ofC fun s hs => classMajorsS_sim hμ henv₂ hpl hp rd.classes hs hkeys)
+  have hkeys : ∀ key ∈ rd.classes.map (classKeyCanon ctx.params), ∀ x ∈ key.ds,
+      ∃ D, WScoped D x := by
+    intro key hkey x hx
+    obtain ⟨k0, hk0, rfl⟩ := List.mem_map.mp hkey
+    obtain ⟨y, hy, rfl⟩ := List.mem_map.mp hx
+    obtain ⟨D, hD⟩ := hkeys₀ k0 hk0 y hy
+    refine ⟨max D p.nP, replaceFVars_WScoped (fun i r hr => ?_) _
+      (WScoped.mono (Nat.le_max_left _ _) hD)⟩
+    exact WScoped.mono (Nat.le_max_right _ _) (hpar r (List.mem_of_getElem? hr))
+  have hpl : ctx.params.length = p.nP := by rw [hlen, hnP]
+  have hp : ∀ x ∈ ctx.params, WScoped p.nP x := hpar
+  refine SimG.bind (SimG.ofC fun s hs => classMajorsS_sim hμ henv₂ hpl hp _ hs hkeys)
     fun Ms₀ Ms₀' hM => ?_
   obtain ⟨rfl, hMs₀⟩ := hM
   by_cases h1 : ((List.range p.k).all fun t =>
@@ -642,16 +683,13 @@ theorem genRecCheckS_simG (hμ : mode.verifiedChecks = true) {env₁ env₂ : En
   -- the seeds, at the formers' environment
   refine SimG.bind (flushC_simG_to (mode := mode)
     (fun s h => (h : CSOK mode env₂ s).residue) env₁) fun _ _ _ => ?_
-  refine SimG.bind (SimG.ofC fun s hs => blockNestCtxS_sim henv₁ p cvTas hT hs)
-    fun r r' hR => ?_
-  obtain ⟨rfl, hctx, hholes, hpar, hlen, hh, hnP⟩ := hR
-  rcases r with ⟨ctx, holes⟩
-  dsimp only at hctx hholes hpar hlen hh hnP ⊢
+  have hpar' : ∀ x ∈ ctx.params, WScoped (ctx.hiAt 0) x := fun x hx =>
+    WScoped.mono (by rw [← hnP]; simp [NestCtx.hiAt]) (hpar x hx)
   refine SimG.bind (SimG.ofC fun s hs => nestSeedsS_sim hμ henv₁ hctx _ pos hs
     (fun k hk x hx => ?_) hpos) fun st st' hS => ?_
   · obtain ⟨M, hM, hMn, rfl⟩ := mem_classSeeds hk
     exact (nestSeedOf_ds hh hlen (fun y hy => Expr.fvarB_le (by
-      rw [hnP]; exact (hMs₀ M hM).2.1 hMn y hy)) x hx).2 (fun y hy => (hholes y hy).1) hpar
+      rw [hnP]; exact (hMs₀ M hM).2.1 hMn y hy)) x hx).2 (fun y hy => (hholes y hy).1) hpar'
   obtain ⟨rfl, -⟩ := hS
   refine SimG.bind (flushC_simG_to (mode := mode)
     (fun s h => (h : CSOK mode env₁ s).residue) env₂) fun _ _ _ => ?_
