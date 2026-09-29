@@ -6,6 +6,7 @@ public import ConLeche.Verify.Inductives.BlockRecRun
 import ConLeche.Verify.ExceptBind
 import ConLeche.Verify.Inductives.DirectInv
 import ConLeche.Verify.CheckerF
+import ConLeche.Verify.InferProjSlots
 
 public section
 
@@ -329,30 +330,20 @@ theorem classConstOk_typeWF {env : Env} {cv cvA : ConstantVal} {F : Nat}
   exact ⟨hfv, hlp, hcr, hlb⟩
 
 /-- **A `classConstOk` run's facts** (`ConstChecked`): the guards and the
-inference are the run's; the stored type is the checked one, so its
-empty-slot freshness is the generated type's own (`hno`). -/
+inference are the run's; the stored type is the checked one, and its
+empty-slot freshness is the full inference's (`inferTypeCore_noProjAt`:
+a successful inference of a closed subject names only occupied slots —
+the generated type is stored without an annotation pass). -/
 theorem classConstOk_checked {env : Env} {cv0 cv : ConstantVal} {F : Nat}
-    (h : classConstOk (fueledOps mode F) (mkFEnv env) cv0 = .ok cv)
-    (hno : ∀ (T : Name) (i : Nat), env.findProj? T i = none → Expr.NoProjAt T i cv0.type) :
+    (h : classConstOk (fueledOps mode F) (mkFEnv env) cv0 = .ok cv) :
     ConstChecked mode F env cv0 cv := by
   obtain ⟨hfr, hres, hps, hnd, hlb, hfv, hlp, hcr, stype, u, hinf, hsort, rfl⟩ :=
     classConstOk_inv h
   exact {
     name := rfl, lps := rfl, fresh := hfr, unreserved := hres, notProjShape := hps,
     nodup := hnd, bounded := hlb, noFvar := hfv, lpsDef := hlp, resolves := hcr,
-    sorted := ⟨stype, u, hinf, hsort⟩, noProj := hno }
-
-/-- **No generated term has a `.proj` node at an empty table slot of
-`env`**: neither a generated recursor type nor a generated rule.  With
-the generated terms stored as generated (no annotation pass), this is
-the fact annotation used to supply (`annotateCore_noProjAt`); the stage
-record asks it of every stored term (`ConstChecked.noProj`,
-`RuleOutOk.hnoProj`). -/
-@[expose] def GenNoProj (env : Env) (g : ClassGen) : Prop :=
-  ∀ (T : Name) (i : Nat), env.findProj? T i = none →
-    (∀ (c : Nat) (gty : Expr), classGenRecTy g c = some gty → Expr.NoProjAt T i gty) ∧
-    ∀ (recOf : Nat → Option Name) (rlvls : List Level) (c : Nat) (x : ClassCtor) (gen : Expr),
-      x ∈ g.ctors.getD c [] → classGenRule g recOf rlvls c x = some gen → Expr.NoProjAt T i gen
+    sorted := ⟨stype, u, hinf, hsort⟩,
+    noProj := fun _ _ hslot => inferTypeCore_noProjAt hinf hfv hslot }
 
 /-- **One recursor's generated type, as `classRecTyOk` ran**: the record's
 member, rule prefix and major index are the generated ones; the
