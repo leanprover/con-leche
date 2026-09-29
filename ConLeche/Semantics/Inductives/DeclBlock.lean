@@ -21,9 +21,8 @@ recursors consed with their rules, a projection table per
 structure-like member).
 
 **The recursor stage is one opaque conjunct** — `checkBlockRec … =
-.ok rs`, the target CHECK (`checkBlockRecT`, on the raw `block`: its
-pins read the stream's recursor records) followed by the reject-only
-conformance check.
+.ok rs`, the generated recursor stage (`genRecCheck`, on the raw
+`block`: its pins read the stream's recursor records).
 -/
 
 namespace ConLeche.Semantics
@@ -32,7 +31,7 @@ open ConLeche (Env Expr Name Level CheckMode ConstantVal ConstantInfo
   BlockShape BlockParts MemberShape NestFieldKind RecRule fueledOps
   checkBlockInds checkBlockCtors checkBlockPositivity checkBlockIdxSorts
   checkBlockRec checkBlockTables checkBlockPass checkBlockTail checkBlock
-  consBlockCtors consBlockRecs consBlockRecsT blockCapsAt nestKindsFlat
+  consBlockCtors consBlockRecs consBlockRecsT blockCapsAt
   blockNestedBit blockRawRec BlockPass TargetMajor NestKey NestState)
 
 /-- **The uniform inductive declaration, as checked**: the stage runs
@@ -69,13 +68,12 @@ def DeclBlockRun (μ : CheckMode) (F : Nat) (env : Env) (block : List ConstantIn
     -- 6  every member's index binders' sorts
     checkBlockIdxSorts (m := ConLeche.CheckM) (fueledOps μ F) env₁ p.toBlockShape
       (p.members.zip cvTas) = .ok isorts ∧
-    -- 8  the recursor stage: the target CHECK on the stream's family (outside
-    --    majors at the auxiliary types, the block's container bit), then —
-    --    where every kind is flat — the reject-only conformance check (on the
-    --    constructors at their positivity normal forms)
+    -- 8  the recursor stage: the GENERATED recursors, one per record of the
+    --    stream's family (outside classes at the auxiliary types, the block's
+    --    container bit)
     checkBlockRec (m := ConLeche.CheckM) (fueledOps μ F) env₁
       (consBlockCtors p.nP ctorsAs env₁) p (blockNestedBit p.toBlockShape kinds)
-      (nestKindsFlat kinds) nfs pos block cvTas ctorsAs = .ok out ∧
+      pos block cvTas ctorsAs = .ok out ∧
     -- 9  the install spine: the recursors with their rules at their majors,
     --    then the tables
     checkBlockTables (m := ConLeche.CheckM) p.toBlockShape

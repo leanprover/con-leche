@@ -4,7 +4,7 @@ public import ConLeche.Model.Inductives.GenRecAssembly
 import ConLeche.Verify.Inductives.GenRecRun
 import ConLeche.Model.Inductives.BlockRecData
 import ConLeche.Model.Inductives.BlockRecAssembly
-import ConLeche.Model.Inductives.BlockDeclRun
+public import ConLeche.Model.Inductives.BlockDeclRun
 import ConLeche.Model.Inductives.StructFrameKit
 import ConLeche.Verify.Inductives.ClassGenScope
 import ConLeche.Verify.Abstract

@@ -7,7 +7,6 @@ import ConLeche.Verify.Denote.IndFrame
 import ConLeche.Verify.Inductives.ClassMatchRun
 import ConLeche.Verify.InferLemmas
 public import ConLeche.Model.Inductives.TargetNodeRb
-public import ConLeche.Verify.Inductives.RecCheckRun
 
 public section
 
@@ -39,33 +38,7 @@ open SetTheory
 open ConLeche.Term ConLeche.Verify
 open ConLeche (CheckMode Env Expr Name Level ConstantVal ConstantInfo BlockShape TargetMajor
   NestCtx NestHole NestCtorNf BinderMeta PosD PosTree NestFieldKind PosNodeOk nestHoleConst
-  closeTelescope targetPiDomsWith targetMajorNfs targetFieldNfs openPisAtFvars)
-
-/-- **K.53′ at a recorded entry** (see the module docstring): an entry of
-one of the class's constructors that the class matches is among its
-recorded normal forms (`targetMajorNfs`), so its called field passed the
-call's K.53′ comparison (`targetK53`). -/
-theorem k53_entry {μ : CheckMode} {env : Env} {p : BlockShape} {formerTys : List Expr} {cn : Name}
-    {fam : ConLeche.TargetFamily}
-    {fvsPref fvsF : List Expr} {teles : List (List (Expr × BinderMeta))}
-    {absM mvF : Expr → Expr} {base k dA F : Nat} {pw : ConLeche.PropWhen} {M : TargetMajor}
-    {ih : ConLeche.TargetIh}
-    (hcall : ConLeche.targetCallOk (ConLeche.fueledOps μ F) env p formerTys cn fam fvsPref fvsF
-      teles absM mvF base k dA pw (targetFieldNfs M cn fvsF) ih = .ok ())
-    (C : ConLeche.TargetCallRun μ F env fam fvsPref fvsF teles absM mvF base k dA pw ih)
-    {tbl : List NestCtorNf}
-    (hnfs : targetMajorNfs (ConLeche.fueledOps μ F) env p formerTys M.pfvs M.lvls M.ds M.ctors
-      tbl = .ok M.nfs)
-    {e : NestCtorNf} (he : e ∈ tbl) (hcn : e.ctor = cn)
-    (hcM : M.ctors.any (·.1.name == cn) = true)
-    (hCM : ConLeche.targetClassMatch (ConLeche.fueledOps μ F) env p formerTys M.pfvs M.lvls M.ds
-      e.lvls e.ds = .ok true) :
-    ∃ f, ((targetPiDomsWith fvsF e.ty).getD [])[ih.field]? = some f ∧
-      ConLeche.targetK53 (ConLeche.fueledOps μ F) env p formerTys (fam.majs.getD ih.callee default)
-        (teles.getD ih.field []) C.majDom f = .ok true := by
-  have hmem := ConLeche.targetMajorNfs_mem hnfs e he (by rw [hcn]; exact hcM) hCM
-  exact (ConLeche.targetCallOk_k53 hcall C).2 _
-    (List.mem_map.mpr ⟨e, List.mem_filter.mpr ⟨hmem, by simp [hcn]⟩, rfl⟩)
+  closeTelescope targetPiDomsWith targetMajorNfs openPisAtFvars)
 
 /-! ## K.53′'s comparison, as one erasure equation -/
 

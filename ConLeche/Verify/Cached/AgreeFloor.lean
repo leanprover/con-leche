@@ -698,147 +698,92 @@ theorem checkBlockCtorsF_fresh (ops : CheckerOps CheckCM) (fe₀ fe : FEnv) (p :
       · exact hfr
       · exact hfr' cs hcs
 
-/-- A stage followed by a reject-only check (`thenConform`)
-returns the stage's value: whatever the stage yields, the composite
-does. -/
-theorem Yields.thenConform {α : Type} {stage : CheckCM α} {conform : CheckCM Unit}
-    {P : α → Prop} (h : Yields stage P) : Yields (ConLeche.thenConform stage conform) P := by
-  unfold ConLeche.thenConform
-  exact Yields.bind' h fun a ha => Yields.bind fun _ => Yields.pure ha
-
 theorem Yields.unwrapOr {α : Type} {o : Option α} {e : CheckError} :
     Yields (unwrapOr o e : CheckCM α) (fun a => o = some a) := by
   cases o with
   | none => exact Yields.ofThrow
   | some a => exact Yields.pure rfl
 
-/-! ### The TARGET recursor check at the skeleton level
+/-! ### The generated recursor stage at the skeleton level
 
-The recursor stage is `targetRecCheck` (`ConLeche/Kernel/Inductives/RecCheck.lean`). -/
+The recursor stage is `genRecCheck` (`ConLeche/Kernel/Inductives/GenRec.lean`). -/
 
-/-- One recursor's rules: one right-hand side per constructor. -/
-theorem targetRules_len (opsR : CheckerOps CheckCM) (w : StructWalkers) (feR : FEnv)
-    (opsT : CheckerOps CheckCM) (feT : FEnv) (p : BlockShape) (formerTys : List Expr)
-    (fam : TargetFamily) (cvRi : ConstantVal) (rP : Nat) (M : TargetMajor) :
-    ∀ (cs : List (ConstantVal × Nat)) (rhss : List Expr),
-      Yields (targetRules opsR w feR opsT feT p formerTys fam cvRi rP M cs rhss)
-        (fun rs => rs.length = cs.length)
-  | [], [] => Yields.pure rfl
-  | [], _ :: _ => Yields.ofThrow
-  | _ :: _, [] => Yields.ofThrow
-  | cA :: cs, rhs :: rhss => by
-    unfold targetRules
-    refine Yields.bind fun _ => ?_
-    refine Yields.bind' (targetRules_len opsR w feR opsT feT p formerTys fam cvRi rP M cs rhss)
-      fun rs hrs => ?_
-    exact Yields.pure (by simp [hrs])
-
-/-- Every recursor's rules: the checked recursor and its major kept,
-one right-hand side per constructor of the major. -/
-theorem targetRecsRules_len (opsR : CheckerOps CheckCM) (w : StructWalkers) (feR : FEnv)
-    (opsT : CheckerOps CheckCM) (feT : FEnv) (p : BlockShape) (formerTys : List Expr)
-    (fam : TargetFamily) :
-    ∀ (recs : List RecShape) (tys : List (ConstantVal × TargetMajor × Level)),
-      recs.length = tys.length →
-      Yields (targetRecsRules opsR w feR opsT feT p formerTys fam recs tys)
-        (fun out => out.length = tys.length ∧
-          ∀ (j : Nat) (t : ConstantVal × TargetMajor × Level), tys[j]? = some t →
-            ∃ rh, out[j]? = some (t.1, t.2.1, rh) ∧ rh.length = t.2.1.ctors.length)
-  | [], [], _ => Yields.pure ⟨rfl, fun _ _ h => nomatch h⟩
-  | [], _ :: _, h => by simp at h
-  | _ :: _, [], h => by simp at h
-  | rc :: rcs, (cvRi, M, u) :: ts, h => by
-    unfold targetRecsRules
-    dsimp only
-    split
-    case isFalse => exact Yields.ofThrowBind
-    refine Yields.bind' (targetRules_len opsR w feR opsT feT p formerTys fam cvRi rc.rP M _ _)
-      fun rh hrh => ?_
-    refine Yields.bind' (targetRecsRules_len opsR w feR opsT feT p formerTys fam rcs ts
-      (by simpa using h)) fun rest hrest => ?_
-    refine Yields.pure ⟨by simp [hrest.1], fun j t hj => ?_⟩
-    cases j with
-    | zero =>
-      obtain rfl : (cvRi, M, u) = t := by simpa using hj
-      exact ⟨rh, rfl, hrh⟩
-    | succ j =>
-      obtain ⟨rh', h1, h2⟩ := hrest.2 j t (by simpa using hj)
-      exact ⟨rh', by simpa using h1, h2⟩
-
-/-- One recursor's type at ANY majors: the
-record's name, fresh at the check's index. -/
-theorem targetRecTy_name (ops : CheckerOps CheckCM) (fe : FEnv) (p : BlockShape)
-    (nested : Bool) (cvTas : List ConstantVal)
-    (ctorsAs : List (List (ConstantVal × Nat))) (rc : RecShape) :
-    Yields (targetRecTy ops fe p nested cvTas ctorsAs rc)
-      (fun t => t.1.name = rc.cvR.name ∧ fe.find? rc.cvR.name = none) := by
-  unfold targetRecTy
-  refine Yields.bind' (checkConstantValF_fresh ops fe rc.cvR) fun cvRi hcv => ?_
-  dsimp only
-  by_cases h1 : p.nP ≤ rc.rP
-  case neg => rw [if_neg h1]; exact Yields.ofThrowBind
-  rw [if_pos h1]
-  by_cases h2 : rc.rP ≤ rc.mI
-  case neg => rw [if_neg h2]; exact Yields.ofThrowBind
-  rw [if_pos h2]
-  refine Yields.bind fun x => ?_
-  refine Yields.bind fun maj => ?_
-  refine Yields.bind fun M => ?_
-  by_cases hK7 : Option.all (fun x => x == rc.tgt) M.member = true
-  case neg => rw [if_neg hK7]; exact Yields.ofThrowBind
-  rw [if_pos hK7]
+/-- A generated constant checked: its name, fresh at the stage's index. -/
+theorem classConstOk_fresh (ops : CheckerOps CheckCM) (fe : FEnv) (cv : ConstantVal) :
+    Yields (classConstOk ops fe cv)
+      (fun cvA => cvA.name = cv.name ∧ fe.find? cv.name = none) := by
+  unfold classConstOk
   yields
-  all_goals first | exact Yields.ofThrow | exact Yields.pure ⟨hcv.1, hcv.2⟩
+  all_goals exact Yields.pure ⟨rfl, Option.not_isSome_iff_eq_none.mp (by assumption)⟩
 
-/-- Every recursor's type at ANY majors, against the records. -/
-theorem targetRecTys_names (ops : CheckerOps CheckCM) (fe : FEnv) (p : BlockShape)
-    (nested : Bool) (cvTas : List ConstantVal)
-    (ctorsAs : List (List (ConstantVal × Nat))) :
-    ∀ (recs : List RecShape),
-      Yields (targetRecTys ops fe p nested cvTas ctorsAs recs)
-        (fun tys => tys.length = recs.length ∧
+/-- One recursor's generated type: stored under the record's name, fresh
+at the stage's index. -/
+theorem classRecTyOk_name (ops : CheckerOps CheckCM) (fe : FEnv) (g : ClassGen) (k : Nat)
+    (rc : RecShape) (cvRi : ConstantVal) (c : Nat) :
+    Yields (classRecTyOk ops fe g k rc cvRi c)
+      (fun cvG => cvG.name = rc.cvR.name ∧ fe.find? rc.cvR.name = none) := by
+  unfold classRecTyOk
+  dsimp only
+  split
+  case isFalse => exact Yields.ofThrowBind
+  split
+  case isFalse => exact Yields.ofThrowBind
+  refine Yields.bind fun gty => ?_
+  refine Yields.bind' (classConstOk_fresh ops fe _) fun cvG hcv => ?_
+  yields
+  all_goals first | exact Yields.ofThrow | exact Yields.pure hcv
+
+/-- Every recursor's generated type, against the records: one per
+record, in order, under its name; the classes cover the records. -/
+theorem classRecTysOk_names (ops : CheckerOps CheckCM) (fe : FEnv) (g : ClassGen) (k : Nat) :
+    ∀ (recs : List RecShape) (cvs : List ConstantVal) (cs : List Nat),
+      Yields (classRecTysOk ops fe g k recs cvs cs)
+        (fun xs => xs.length = recs.length ∧ recs.length ≤ cs.length ∧
           ∀ (j : Nat) (rc : RecShape), recs[j]? = some rc →
-            ∃ t, tys[j]? = some t ∧ t.1.name = rc.cvR.name ∧ fe.find? rc.cvR.name = none)
-  | [] => Yields.pure ⟨rfl, fun _ _ h => nomatch h⟩
-  | rc :: rcs => by
-    unfold targetRecTys
-    refine Yields.bind' (targetRecTy_name ops fe p nested cvTas ctorsAs rc)
-      fun t ht => ?_
-    refine Yields.bind' (targetRecTys_names ops fe p nested cvTas ctorsAs rcs)
-      fun ts hts => ?_
-    refine Yields.pure ⟨by simp [hts.1], fun j rc' hj => ?_⟩
+            ∃ x, xs[j]? = some x ∧ x.name = rc.cvR.name ∧ fe.find? rc.cvR.name = none)
+  | [], _, _ => by
+    unfold classRecTysOk
+    exact Yields.pure ⟨rfl, Nat.zero_le _, fun _ _ h => nomatch h⟩
+  | _ :: _, [], _ => by unfold classRecTysOk; exact Yields.ofThrow
+  | _ :: _, _ :: _, [] => by unfold classRecTysOk; exact Yields.ofThrow
+  | rc :: rcs, cvRi :: cvs, c :: cs => by
+    unfold classRecTysOk
+    refine Yields.bind' (classRecTyOk_name ops fe g k rc cvRi c) fun x hx => ?_
+    refine Yields.bind' (classRecTysOk_names ops fe g k rcs cvs cs) fun xs hxs => ?_
+    refine Yields.pure ⟨by simp [hxs.1], by simp [hxs.2.1], fun j rc' hj => ?_⟩
     cases j with
     | zero =>
       obtain rfl : rc = rc' := by simpa using hj
-      exact ⟨t, rfl, ht⟩
-    | succ j => exact hts.2 j rc' (by simpa using hj)
+      exact ⟨x, rfl, hx⟩
+    | succ j => simpa using hxs.2.2 j rc' (by simpa using hj)
 
-/-- Every class's recorded normal forms read (`targetMajorsNfs`): the
-recursors and their order unchanged. -/
-theorem targetMajorsNfs_fst (ops : CheckerOps CheckCM) (env : Env) (p : BlockShape)
-    (formerTys : List Expr) (tbl : List NestCtorNf) :
-    ∀ (tys₀ : List (ConstantVal × TargetMajor × Level)),
-      Yields (targetMajorsNfs ops env p formerTys tbl tys₀)
-        (fun tys => tys.map (·.1) = tys₀.map (·.1))
-  | [] => Yields.pure rfl
-  | (cv, M, u) :: ts => by
-    unfold targetMajorsNfs
+/-- Every recursor's generated rules: the generated constants kept, in
+order. -/
+theorem classRecsRulesOk_fst (ops : CheckerOps CheckCM) (w : StructWalkers) (feT feR : FEnv)
+    (g : ClassGen) (recOf : Nat → Option Name) (pw : PropWhen) :
+    ∀ (cvGs : List ConstantVal) (cs : List Nat), cvGs.length ≤ cs.length →
+      Yields (classRecsRulesOk ops w feT feR g recOf pw cvGs cs)
+        (fun out => out.map (·.1) = cvGs)
+  | [], _, _ => by unfold classRecsRulesOk; exact Yields.pure rfl
+  | _ :: _, [], h => by simp at h
+  | cvG :: cvs, c :: cs, h => by
+    unfold classRecsRulesOk
     refine Yields.bind fun _ => ?_
-    refine Yields.bind' (targetMajorsNfs_fst ops env p formerTys tbl ts) fun rest hrest => ?_
-    exact Yields.pure (by simp [hrest])
+    refine Yields.bind' (classRecsRulesOk_fst ops w feT feR g recOf pw cvs cs
+      (by simpa using h)) fun xs hxs => ?_
+    exact Yields.pure (by simp [hxs])
 
-/-- **The target check at ANY majors, at the skeleton level**: one stored recursor per record, in
-order, under the record's name (fresh at the check's index), the
-family's names distinct. -/
-theorem targetRecCheck_names (so : ShadowOps CheckCM) (fe₁ : FEnv) (env₁ : Env) (fe : FEnv)
-    (p : BlockShape) (nested : Bool) (pos : NestState)
-    (block : List ConstantInfo) (cvTas : List ConstantVal)
-    (ctorsAs : List (List (ConstantVal × Nat))) :
-    Yields (targetRecCheck so fe₁ env₁ fe p nested pos block cvTas ctorsAs)
+/-- **The generated stage at the skeleton level**: one stored recursor
+per record, in order, under the record's name (fresh at the stage's
+index), the family's names distinct. -/
+theorem genRecCheck_names (so : ShadowOps CheckCM) (fe₁ : FEnv) (env₁ : Env) (fe : FEnv)
+    (p : BlockShape) (nestedBit : Bool) (pos : NestState) (cvTas : List ConstantVal)
+    (block : List ConstantInfo) (ctorsAs : List (List (ConstantVal × Nat))) :
+    Yields (genRecCheck so fe₁ env₁ fe p nestedBit pos cvTas block ctorsAs)
       (fun out => (p.recs.map (·.cvR.name)).Nodup ∧ out.length = p.recs.length ∧
         ∀ (j : Nat) (rc : RecShape), p.recs[j]? = some rc →
           ∃ o, out[j]? = some o ∧ o.1.name = rc.cvR.name ∧ fe.find? rc.cvR.name = none) := by
-  unfold targetRecCheck
+  unfold genRecCheck
   refine Yields.bind' (Q := fun _ => (p.recs.map (·.cvR.name)).Nodup) ?_ fun _ hnd => ?_
   · unfold targetRecPins
     dsimp only
@@ -860,42 +805,44 @@ theorem targetRecCheck_names (so : ShadowOps CheckCM) (fe₁ : FEnv) (env₁ : E
       · exact Yields.pure h5
       · exact Yields.ofThrow
     · exact Yields.ofThrow
-  refine Yields.bind' (targetRecTys_names (so.opsAt fe) fe p nested cvTas ctorsAs p.recs)
-    fun tys₀ htys₀ => ?_
-  refine Yields.bind fun _ => ?_
-  refine Yields.bind fun _ => ?_
-  refine Yields.bind fun _ => ?_
-  refine Yields.bind' (targetMajorsNfs_fst (so.opsAt fe) fe.env p (cvTas.map (·.type)) _ tys₀)
-    fun tys hfst => ?_
-  have hlen : tys.length = tys₀.length := by
-    simpa using congrArg List.length hfst
-  have htys : tys.length = p.recs.length ∧
-      ∀ (j : Nat) (rc : RecShape), p.recs[j]? = some rc →
-        ∃ t, tys[j]? = some t ∧ t.1.name = rc.cvR.name ∧ fe.find? rc.cvR.name = none := by
-    refine ⟨by rw [hlen, htys₀.1], fun j rc hj => ?_⟩
-    obtain ⟨t₀, ht₀, hname, hfr⟩ := htys₀.2 j rc hj
-    have hj' : j < tys.length := by
-      rw [hlen]; exact (List.getElem?_eq_some_iff.mp ht₀).1
-    refine ⟨tys[j], List.getElem?_eq_getElem hj', ?_, hfr⟩
-    have := congrArg (·[j]?) hfst
-    simp only [List.getElem?_map, List.getElem?_eq_getElem hj', ht₀, Option.map_some,
-      Option.some.injEq] at this
-    rw [this]; exact hname
+  refine Yields.bind fun cvRis => ?_
+  refine Yields.bind fun rd => ?_
+  refine Yields.bind fun ch => ?_
+  obtain ⟨ctx, holes⟩ := ch
   dsimp only
+  refine Yields.bind fun Ms₀ => ?_
+  split
+  case isFalse => exact Yields.ofThrowBind
+  split
+  case isFalse => exact Yields.ofThrowBind
+  split
+  case isTrue => exact Yields.ofThrowBind
   refine Yields.bind fun _ => ?_
+  refine Yields.bind fun st => ?_
   refine Yields.bind fun _ => ?_
+  refine Yields.bind fun Ms => ?_
+  refine Yields.bind fun ctors => ?_
+  split
+  case isFalse => exact Yields.ofThrowBind
+  refine Yields.bind fun formerTysC => ?_
+  refine Yields.bind fun pre => ?_
+  refine Yields.bind' (classRecTysOk_names _ fe _ p.k p.recs cvRis _) fun cvGs hG => ?_
   refine Yields.bind fun _ => ?_
-  refine Yields.bind fun _ => ?_
-  refine Yields.bind' (targetRecsRules_len _ _ _ _ _ p _ _ p.recs tys htys.1.symm)
+  refine Yields.bind' (classRecsRulesOk_fst _ _ fe _ _ _ _ cvGs _ (by omega))
     fun out hout => ?_
   refine Yields.bind fun _ => Yields.pure ?_
-  refine ⟨hnd, by rw [hout.1, htys.1], fun j rc hj => ?_⟩
-  obtain ⟨t, htj, hname, hfr⟩ := htys.2 j rc hj
-  obtain ⟨rh, hoj, -⟩ := hout.2 j t htj
-  exact ⟨_, hoj, hname, hfr⟩
+  have hlen : out.length = cvGs.length := by simpa using congrArg List.length hout
+  refine ⟨hnd, by rw [hlen, hG.1], fun j rc hj => ?_⟩
+  obtain ⟨x, hx, hname, hfr⟩ := hG.2.2 j rc hj
+  have hj' : j < out.length := by rw [hlen]; exact (List.getElem?_eq_some_iff.mp hx).1
+  refine ⟨out[j], List.getElem?_eq_getElem hj', ?_, hfr⟩
+  have := congrArg (·[j]?) hout
+  simp only [List.getElem?_map, List.getElem?_eq_getElem hj', hx, Option.map_some,
+    Option.some.injEq] at this
+  rw [this]; exact hname
 
 /-- The recursors' conses AT THEIR MAJORS (`consBlockRecsTF`) at the
-skeleton level, from the target check's output: each record's name. -/
+skeleton level, from the recursor stage's output: each record's name. -/
 theorem consBlockRecsTF_skelsT (find? : Name → Option ConstantInfo) (resolves : Expr → Bool)
     (p : BlockShape) :
     ∀ (l : List RecShape) (ri : Nat)
@@ -999,14 +946,12 @@ theorem checkBlockTailS_skels (mode : CheckMode) {block : List ConstantInfo}
   · exact Yields.ofThrowBind
   refine Yields.bind fun _ => ?_
   refine Yields.bind fun _ => ?_
-  unfold checkBlockRecS
   have hlenC : q.ctorsAs.map List.length = q.p.members.map (·.ctors.length) := by
     have := congrArg (List.map List.length) hns
     simpa [List.map_map, Function.comp_def] using this
   have h₂ := consBlockCtorsF_skels q.p.nP hns h₁
-  refine Yields.bind' (Yields.thenConform
-    (targetRecCheck_names (shadowOpsC mode) _ _ _ q.p.toBlockShape _ _ block q.cvTas
-      q.ctorsAs))
+  refine Yields.bind' (genRecCheck_names (shadowOpsC mode) _ _ _ q.p.toBlockShape _ _ q.cvTas
+      block q.ctorsAs)
     fun out hout => ?_
   have hrs := consBlockRecsTF_skelsT
       (consBlockCtorsF q.p.nP q.ctorsAs q.env₁).find?

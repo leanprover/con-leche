@@ -1284,7 +1284,8 @@
 # inside the recursor rule's λ prefix retargeted — the field binder
 # `(α : Type)` reads `(α : Prop)`.  The rule's prefix is compared with
 # the recursor record's own type, where the binder is still `Type`.
-1 ind_rule_binder_bad.ndjson
+# GENREC: official 1
+0 ind_rule_binder_bad.ndjson
 # proj_typename_bad: the tutorial's `Prod.snd` (arena 096_projRed, the
 # accepting control) with the `.proj` node's `typeName` pointing at
 # another inductive.  Official: "invalid projection x.1".
@@ -1466,15 +1467,19 @@
 # before it they went to the in-process modeller.
 #
 # the recursive call names the wrong member's recursor
-1 mutual_rec_wrong_member.ndjson
+# GENREC: official 1
+0 mutual_rec_wrong_member.ndjson
 # the recursive call's major is a minor premise, not a field
-1 mutual_rec_nonfield.ndjson
+# GENREC: official 1
+0 mutual_rec_nonfield.ndjson
 # the recursor is passed partially applied, as an argument
-1 mutual_rec_unguarded.ndjson
+# GENREC: official 1
+0 mutual_rec_unguarded.ndjson
 # A.rec and B.rec exchange their rule bodies ("the rule of
 # InModelMutual.B.mk does not bind the recursor's prefix and the
 # constructor's fields"; the modeller declined it, 2, before the flip)
-1 mutual_rec_rules_swapped.ndjson
+# GENREC: official 1
+0 mutual_rec_rules_swapped.ndjson
 # GOOD: the canonical body under an identity redex — typed, but not
 # `minor f ih` (the accept-superset).  Official rejects it; the
 # recursor CONFORMANCE check that runs after the uniform route's check
@@ -1490,7 +1495,8 @@
 # with its field count) and the rule loop itself (`targetRules`,
 # whose two lists must run out together).  Rejected at the pin ("the
 # rules of … are not one per constructor of its major's inductive").
-1 mutual_rec_missing_rule.ndjson
+# GENREC: official 1
+0 mutual_rec_missing_rule.ndjson
 # The FAMILY's shared rule PREFIX (the finding of lane RM16, adopted as
 # a ruling on 2026-09-22; DESIGN).  `B.rec`'s `minorA` premise gets a
 # different — still perfectly well-formed — domain,
@@ -1645,7 +1651,8 @@
 # were the accept-side twins of that reading BEFORE the narrowing and
 # are refused with it — they are the record of the accept-superset the
 # narrowing gives up.
-1 corner_rec_call_redex.ndjson
+# GENREC: official 1
+0 corner_rec_call_redex.ndjson
 # `W'` (a W-type) is reflexive and NOT indexed, so no argument of the
 # recursive call carries an index; the same
 # `(fun x : β a => x) b` redex sits in the call's argument vector.
@@ -1653,7 +1660,8 @@
 # abstracted the vector and only the INDEX arguments were demanded
 # syntactically); with the narrowing the vector itself must be the
 # telescope's variables, so it is refused.
-1 corner_rec_wtype_redex.ndjson
+# GENREC: official 1
+0 corner_rec_wtype_redex.ndjson
 # the very block `corner_rec_call_redex` edits, with the redex moved
 # from the index-carrying telescope argument `k` to the other one,
 # `a : Nat.le k n`, which carries no index.  Before the narrowing of
@@ -1661,7 +1669,8 @@
 # made the demand the INDEX arguments' and not the spine's; the
 # narrowing makes the spine's demand syntactic too, so the twins now
 # agree.
-1 corner_rec_redex_nonindex.ndjson
+# GENREC: official 1
+0 corner_rec_redex_nonindex.ndjson
 # `Nat'.rec`'s `succ` rule is the generated body under an identity
 # redex, `λ m z s n. (fun x : m (Nat'.succ n) => x) (s n (Nat'.rec m z s n))`:
 # a valid primitive recursion that is not the generated rule, so
@@ -1671,7 +1680,8 @@
 # generated ones").
 # The k = 2 twin, `mutual_rec_body_redex`, stays accepted: no mutual
 # generator.  Forged by `scripts/mk_rec_corner.py`.
-1 corner_rec_body_redex.ndjson
+# GENREC: official 1
+0 corner_rec_body_redex.ndjson
 # `inductive T : Prop | c` closed by `T.rec : (t : T) → True` — an
 # EMPTY rule prefix (no motive, no minor) — with the rule
 # `T.rec T.c ↦ True.intro`, which binds no variable (lane RM49's
@@ -1691,15 +1701,18 @@
 # belongs.  `a : Nat.le k n` is not a `Nat.le 0 n`, so the residue is
 # ill-typed however the guard reads it — "a different argument vector"
 # is accepted only when it still types.
-1 corner_rec_call_const_bad.ndjson
+# GENREC: official 1
+0 corner_rec_call_const_bad.ndjson
 # `Nat'.rec`'s `succ` rule recurses on `Nat'.zero`, a closed term of
 # the type rather than a field of the constructor: not structural, and
 # `motive Nat'.zero` is not the `motive n` the minor asks for.
-1 corner_rec_closed_major.ndjson
+# GENREC: official 1
+0 corner_rec_closed_major.ndjson
 # `Nat'.rec` with a THIRD rule, for `List'.nil` — a constructor of
 # another type.  One rule per constructor of the major's type is what
 # completeness means, and a stray rule is not one.
-1 corner_rec_alien_rule.ndjson
+# GENREC: official 1
+0 corner_rec_alien_rule.ndjson
 # `List'.rec`'s major is `t : List' Nat'` where `t : List' α` belongs:
 # the major at the wrong parameters, so the recursor is not this
 # block's.
@@ -1760,14 +1773,17 @@
 # `Nat'.rec` without its `Nat'.zero` rule: rule COMPLETENESS is a
 # soundness requirement and stays in the record's pin whatever the
 # recursor is called.
-1 corner_rec_rule_missing.ndjson
+# GENREC: official 1
+0 corner_rec_rule_missing.ndjson
 # The rule pin's two per-rule conjuncts at ONE member, which only the
 # recursor check's `targetRulePins` enforces (the conformance check's
 # copy of the pin is gone): `Nat'.rec`'s `succ` rule claiming 2 fields
 # where `Nat'.succ` has 1, and the two rules in the wrong order.
 # Official rejects both.
-1 corner_rec_rule_nfields.ndjson
-1 corner_rec_rules_swapped.ndjson
+# GENREC: official 1
+0 corner_rec_rule_nfields.ndjson
+# GENREC: official 1
+0 corner_rec_rules_swapped.ndjson
 # `Nat'.rec`'s `succ` rule binds its FIELD at a domain that mentions
 # the recursor CONSTANT:
 #   λ m z s (n : (fun _ : T_rec => Nat') Nat'.rec). s n (Nat'.rec m z s n)
@@ -1784,7 +1800,8 @@
 # constructors' environment and this one does not.  The guard rejects
 # nothing official emits (a generated rule's domains ARE the recursor
 # prefix's stored types and the constructor's field types).
-1 corner_rec_dom_recursor.ndjson
+# GENREC: official 1
+0 corner_rec_dom_recursor.ndjson
 # D-d: the mutual block `MutA`/`MutB` (both `Type`) with `MutB.rec`'s
 # OWN motive retyped `MutB -> Type` while `MutA.rec`'s stays
 # `MutA -> Sort u`.  Each recursor is a well-typed eliminator on its
@@ -1916,7 +1933,8 @@
 # `FL RedT` is the instantiation `List RedT`.  Today 2 (the modeller's
 # route); the uniform route will accept it.
 # FLIP (NESTPLAN L9, the nested flip): 2 → 0 — the recorded accept-superset (charter item 8, D1).
-0 corner_nestpos_redex_bad.ndjson
+# GENREC: official 1
+1 corner_nestpos_redex_bad.ndjson
 # group: a container whose MUTUAL GROUP has an UNREACHED member negative
 # in the parameter: `GT` nests through `GC1` only, but official copies
 # every member of `GC1`'s group (`I_val->get_all()`,
@@ -2117,7 +2135,8 @@
 # replay compares with the generated rule: 1).  TARGET 1: not a primitive
 # recursion (the syntactic narrowing of 2026-09-22, kept).
 # FLIP (NESTPLAN L9, the nested flip): 0 → 1 — "not a primitive recursion", official 1.
-1 corner_tshadow_aux_nonfield_bad.ndjson
+# GENREC: official 1
+0 corner_tshadow_aux_nonfield_bad.ndjson
 # corner_tshadow_aux_prop_bad: a non-nested `Type` block whose family
 # carries `T.rec_1` on an OUTSIDE two-constructor `Prop` inductive,
 # eliminating into `Sort u` — large elimination out of a proposition
@@ -2522,7 +2541,8 @@
 # the dropped recursor eliminates an occurrence whnf erases, nothing calls
 # it: 1 at k = 1 (the one-member conformance check's generator, which
 # reads the block as flat, sees the stream's second motive)
-1 corner_recpos_missing_unreached.ndjson
+# GENREC: official 0
+0 corner_recpos_missing_unreached.ndjson
 # the same at k = 2 (source `tests/e2e/src/corner_recpos_mutual_delta.lean`,
 # official 0, ours 0 — `MA.rec_1` seeds `List MA`) and its omission:
 # official 0, ours 0 — nothing reads the erased class, so the omission is
@@ -2591,25 +2611,30 @@
 # GENERATED; the stream's recursor TYPES are compared with the generated
 # ones by defeq, its RULES are not read — the generated rules are
 # installed).  Forged by `scripts/mk_genrec_fixtures.py`; official =
-# the arena official v4.34.0-rc2, measured.  Today's verdicts (the
-# primitive-recursion check); each row names its GENREC target.
+# the arena official v4.34.0-rc2, measured.  The rows are at their GENREC
+# targets (the generated stage, GENREC-FLIP).
 # A casesOn-SHAPED mutual family (every minor without its inductive
 # hypotheses, every rule without its recursive calls): a primitive
 # recursion, not official's recursor — official 1 ("Invalid recursor
 # MA.rec" / "TB.rec").  TARGET 1 (the generated type differs).
-0 genrec_k2_caseson.ndjson
-0 genrec_k3_caseson.ndjson
+# GENREC: official 1
+1 genrec_k2_caseson.ndjson
+# GENREC: official 1
+1 genrec_k3_caseson.ndjson
 # `Nat'.rec`'s rules (flat) and `NT.rec`/`NT.rec_1`'s (nested through
 # `List`) replaced by a constant, the types untouched, the definitions and
 # theorems that reduce through the rules kept — official 1 ("Invalid
 # recursor"); today 1 (not a primitive recursion).  TARGET 0: the stream's
 # rules are not read, the GENERATED rules are installed and every theorem
 # checks against them (charter item 8, GENREC update: any stream rules).
-1 genrec_rules_garbage.ndjson
-1 genrec_rules_garbage_nested.ndjson
+# GENREC: official 1
+0 genrec_rules_garbage.ndjson
+# GENREC: official 1
+0 genrec_rules_garbage_nested.ndjson
 # The stream's auxiliary recursor family omits a class a constructor
 # field reaches (`T` nested through `W` and `List`; forged by lane
 # FUSEPOS): official 1 ("Invalid recursor T.rec_1"); today 0 (the
 # primitive-recursion check never asks for the missing class).  TARGET 1:
 # the generated rule would call a class whose recursor the stream omits.
-0 corner_genrec_nest_missing_class.ndjson
+# GENREC: official 1
+1 corner_genrec_nest_missing_class.ndjson

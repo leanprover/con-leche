@@ -1,7 +1,6 @@
 module
 
-public import ConLeche.Conformance.RecConformF
-public import ConLeche.Kernel.Inductives.RecCheck
+public import ConLeche.Kernel.Inductives.GenRec
 public import ConLeche.Cached.CoreC
 
 @[expose] public section
@@ -113,8 +112,8 @@ constructors' environment, where the recursor is absent.  The flushes
 are the drivers' own discipline (`flushC` at every environment
 transition), placed where the transitions are: the stage's `feR` half
 is exactly those two operations, the `annotate` first and the
-`inferType` last (`targetRule`,
-`ConLeche/Kernel/Inductives/RecCheck.lean`).  Every other
+`inferType` last (`classRuleOk`,
+`ConLeche/Kernel/Inductives/GenRec.lean`, infers only).  Every other
 operation is `sharedOpsC`'s. -/
 def sharedOpsRuleR (fe : FEnv) : CheckerOps CheckCM :=
   { sharedOpsC mode fe with
@@ -130,111 +129,9 @@ def sharedOpsRuleR (fe : FEnv) : CheckerOps CheckCM :=
 operations `sharedOpsC`, the rule variant `sharedOpsRuleR` (a flush at
 each of a rule's two environment transitions), `flushC` at every
 environment change, and the memoised walkers.  The recursor stage
-(`checkBlockRecS`) runs `targetRecCheck` at them. -/
+(`checkBlockTailS`) runs `genRecCheck` at them. -/
 def shadowOpsC : ShadowOps CheckCM :=
   ⟨sharedOpsC mode, sharedOpsRuleR mode, flushC, structWalkersC⟩
-
-/-- `checkBlockRec` through the index: the CHECK — `targetRecCheck`, the
-function the pure install runs (`checkBlockRecT`), at the cached shadow
-operations, its seeds walked at the formers' view `fe₁` of the
-constructors' index — then, where every kind is flat (`conf`), the
-reject-only conformance check at the constructors' index
-(`checkBlockRecConformF`).
-The `flushC` is there because the check finishes with its
-caches at the recursors' index. -/
-def checkBlockRecS (fe₁ : FEnv) (env₁ : Env) (fe : FEnv) (p : BlockParts) (nested conf : Bool)
-    (nfs : List (List Expr)) (pos : NestState)
-    (block : List ConstantInfo) (cvTas : List ConstantVal)
-    (ctorsAs : List (List (ConstantVal × Nat))) :
-    CheckCM (List (ConstantVal × TargetMajor × List Expr)) :=
-  thenConform
-    (targetRecCheck (shadowOpsC mode) fe₁ env₁ fe p.toBlockShape nested pos block cvTas
-      ctorsAs)
-    (if conf then
-      flushC *> checkBlockRecConformF (sharedOpsC mode fe) structWalkersC fe none p cvTas
-        ctorsAs nfs
-    else pure ())
-
-/-- The rule-less recursor environment the recursor stage built, offered
-to the conformance check (`FEnv.pushRecBare`): at ONE recursor, its
-record and the environment holding it; `none` otherwise. -/
-def recBareHint (p : BlockShape) (cvRas : List (ConstantVal × Nat)) (feR : FEnv) :
-    Option (ConstantVal × Nat × Nat × FEnv) :=
-  match cvRas with
-  | [(cv, _)] => some (cv, p.majorIdxAt 0, p.rulePrefixAt 0, feR)
-  | _ => none
-
-/-- **`checkBlockRecS` as it runs** (`@[csimp]`
-`checkBlockRecS_eq_fast`): the check's stages inline, so that the
-rule-less recursor environment `feR` it builds is still in hand when the
-conformance check runs, which then reuses it (`recBareHint`) where it
-would push the same record onto `fe` again.  That push is onto the
-constructors' index while the caller (`checkBlockTailS`) still holds it
-for the install that follows, so it copied the whole index — once per
-one-member block.  When the generated recursor type differs from the
-stream's, the conformance check pushes as before. -/
-def checkBlockRecSFast (fe₁ : FEnv) (env₁ : Env) (fe : FEnv) (p : BlockParts)
-    (nested conf : Bool) (nfs : List (List Expr)) (pos : NestState)
-    (block : List ConstantInfo) (cvTas : List ConstantVal)
-    (ctorsAs : List (List (ConstantVal × Nat))) :
-    CheckCM (List (ConstantVal × TargetMajor × List Expr)) := do
-  targetRecPins (m := CheckCM) p.toBlockShape block
-  let tys₀ ← targetRecTys ((shadowOpsC mode).opsAt fe) fe p.toBlockShape nested cvTas
-    ctorsAs p.recs
-  (shadowOpsC mode).flush
-  let tbl ← checkBlockSeeds ((shadowOpsC mode).opsAt fe₁) env₁ fe₁.find? env₁.consts
-    p.toBlockShape cvTas pos tys₀
-  (shadowOpsC mode).flush
-  let tys ← targetMajorsNfs ((shadowOpsC mode).opsAt fe) fe.env p.toBlockShape
-    (cvTas.map (·.type)) tbl tys₀
-  let us := tys.map (·.2.2)
-  checkBlockRecSmallElim (m := CheckCM) p.toBlockShape
-    (nested || tys.any (fun t => t.2.1.member.isNone)) us
-  checkBlockRecElimPin (m := CheckCM) p.toBlockShape us
-  checkBlockRecPrefixAgree ((shadowOpsC mode).opsAt fe) fe.env p.toBlockShape (tys.map (·.1))
-  targetRulePinsAll (m := CheckCM) tys (targetRecRules block)
-  let cvRas := tys.map fun t => (t.1, t.2.1.nIdx)
-  let feR := consBlockRecsBareF p.toBlockShape 0 cvRas fe
-  let out ← targetRecsRules ((shadowOpsC mode).opsRuleR feR) (shadowOpsC mode).walkers feR
-    ((shadowOpsC mode).opsAt fe) fe p.toBlockShape (cvTas.map (·.type))
-    (targetFamilyOf p.toBlockShape tys) p.recs tys
-  (shadowOpsC mode).flush
-  if conf then
-    flushC
-    checkBlockRecConformF (sharedOpsC mode fe) structWalkersC fe
-      (recBareHint p.toBlockShape cvRas feR) p cvTas ctorsAs nfs
-  pure out
-
-/-- The hint `checkBlockRecSFast` offers is the environment the push
-would build, so the conformance check reads the same environment. -/
-theorem checkBlockRecConformF_recBareHint {m : Type → Type} [Monad m]
-    [MonadExceptOf CheckError m] (ops : CheckerOps m) (w : StructWalkers) (fe : FEnv)
-    (q : BlockShape) (cvRas : List (ConstantVal × Nat)) (p : BlockParts)
-    (cvTas : List ConstantVal)
-    (ctorsAs : List (List (ConstantVal × Nat))) (nfs : List (List Expr)) :
-    checkBlockRecConformF ops w fe (recBareHint q cvRas (consBlockRecsBareF q 0 cvRas fe)) p
-      cvTas ctorsAs nfs = checkBlockRecConformF ops w fe none p cvTas ctorsAs nfs := by
-  have hv : ∀ cv' mI' rP' feH,
-      recBareHint q cvRas (consBlockRecsBareF q 0 cvRas fe) = some (cv', mI', rP', feH) →
-      feH = fe.push (.recInfo cv' mI' rP' []) := by
-    intro cv' mI' rP' feH h
-    unfold recBareHint at h
-    split at h
-    · simp only [Option.some.injEq, Prod.mk.injEq] at h
-      obtain ⟨rfl, rfl, rfl, rfl⟩ := h
-      rfl
-    · exact nomatch h
-  unfold checkBlockRecConformF
-  split
-  · simp only [checkNativeRecF_hint ops w fe hv]
-  · rfl
-
-@[csimp] theorem checkBlockRecS_eq_fast : @checkBlockRecS = @checkBlockRecSFast := by
-  funext mode fe₁ env₁ fe p nested conf nfs pos block cvTas ctorsAs
-  unfold checkBlockRecS checkBlockRecSFast thenConform targetRecCheck
-  cases conf <;>
-    simp only [bind_assoc, seqRight_eq_bind, pure_bind, checkBlockRecConformF_recBareHint,
-      Bool.false_eq_true, ↓reduceIte]
 
 /-- **`checkBlockPass` through the index**: the k
 formers checked and consed — one flush entering the environment that
@@ -252,7 +149,7 @@ def checkBlockPassS (fe : FEnv) (p₀ : BlockParts) (isRec : Bool) :
   pure ⟨fe₁, cvTas, pC, ctorsAs, sortsss, kinds, nfs, pos⟩
 
 /-- **`checkBlockTail` through the index**: one flush
-entering the recursors' environment.  The recursor check's seeds walk at
+entering the recursors' environment.  The recursor stage's seeds walk at
 the formers' environment through the O(1) prefix view of the
 constructors' index (`FEnv.restrictTo`: the formers' index is not held
 past the constructors' pushes, which would copy it). -/
@@ -268,9 +165,8 @@ def checkBlockTailS (block : List ConstantInfo) (q : BlockPass FEnv) :
   let env₁ := q.env₁.env
   let fe₂ := consBlockCtorsF p.nP q.ctorsAs q.env₁
   flushC
-  let out ← checkBlockRecS mode (fe₂.restrictTo vis₁) env₁ fe₂ p
-    (blockNestedBit p.toBlockShape q.kinds) (nestKindsFlat q.kinds) q.nfs q.pos block q.cvTas
-    q.ctorsAs
+  let out ← genRecCheck (shadowOpsC mode) (fe₂.restrictTo vis₁) env₁ fe₂ p.toBlockShape
+    (blockNestedBit p.toBlockShape q.kinds) q.pos q.cvTas block q.ctorsAs
   let fe₃ := consBlockRecsTF fe₂.find? (·.constsResolveF fe₂) p.toBlockShape 0 out fe₂
   checkBlockTablesF (m := CheckCM) structWalkersC p.toBlockShape
     (p.members.zip (q.ctorsAs.zip q.sortsss)) fe₃

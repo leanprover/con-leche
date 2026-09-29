@@ -31,7 +31,6 @@ public import ConLeche.Model.Inductives.TargetRuleData
 public import ConLeche.Model.Inductives.TargetIhSlot
 public import ConLeche.Model.Inductives.TargetFrame
 public import ConLeche.Model.Inductives.TargetResidue
-public import ConLeche.Model.Inductives.TargetSeam
 public import ConLeche.Model.Inductives.TargetNestKit
 public import ConLeche.Model.Inductives.BlockRecOpenerRead
 public import ConLeche.Model.Inductives.BlockCallCerts
@@ -77,16 +76,9 @@ public import ConLeche.Model.Inductives.TargetClass
 public import ConLeche.Model.Inductives.TargetOutRow
 public import ConLeche.Model.Inductives.TargetOutSat
 public import ConLeche.Model.Inductives.TargetOutRows
-public import ConLeche.Model.Inductives.TargetOutConv
 public import ConLeche.Model.Inductives.TargetOutChain
-public import ConLeche.Model.Inductives.TargetOutConcl
 public import ConLeche.Model.Inductives.TargetOutIdx
-public import ConLeche.Model.Inductives.TargetOutCa
-public import ConLeche.Model.Inductives.TargetOutGrade
-public import ConLeche.Model.Inductives.TargetOutCerts
 public import ConLeche.Model.Inductives.TargetClasses
-public import ConLeche.Model.Inductives.TargetClassFrame
-public import ConLeche.Model.Inductives.TargetClassCall
 public import ConLeche.Model.Inductives.TargetClassRows
 public import ConLeche.Model.Inductives.TargetClassNodes
 public import ConLeche.Model.Inductives.TargetNodePres
@@ -97,7 +89,6 @@ public import ConLeche.Model.Inductives.TargetNodeDyn
 public import ConLeche.Model.Inductives.TargetNodeCover
 public import ConLeche.Model.Inductives.TargetNodeSem
 public import ConLeche.Model.Inductives.TargetNodeAdm
-public import ConLeche.Model.Inductives.TargetGuardParams
 public import ConLeche.Model.Inductives.TargetNodeDynOf
 public import ConLeche.Model.Inductives.TargetNodeCalls
 public import ConLeche.Model.Inductives.LfpCover

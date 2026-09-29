@@ -7,10 +7,7 @@ public import ConLeche.Kernel.Inductives.StructParts
 /-!
 # The one-member shape record (task #175)
 
-`InductiveShape` is a block member read as one inductive (the uniform
-route's `BlockShape.toInductive`; the conformance check's
-`NativeParts`, `ConLeche/Conformance/RecGen.lean`, extends it with the
-fields' kinds).  Its recursor has `numIndices` indices, one motive,
+`InductiveShape` is a block member read as one inductive.  Its recursor has `numIndices` indices, one motive,
 one minor per constructor (`rulePrefix = numParams + 1 + n`,
 `majorIdx = rulePrefix + numIndices`) and one rule per constructor in
 constructor order (lean4lean `Lean4Lean/Inductive/Add.lean`, the

@@ -1,6 +1,6 @@
 module
 
-public import ConLeche.Kernel.Inductives.GenRec
+public import ConLeche.Kernel.Inductives.BlockTail
 public import ConLeche.Verify.Inductives.RecCheckRun
 public import ConLeche.Verify.Inductives.BlockRecRun
 import ConLeche.Verify.ExceptBind
@@ -669,5 +669,45 @@ theorem genRecCheck_run {fe₁ : FEnv} {env₁ : Env} {fe : FEnv} {p : BlockShap
     hst := hst, hMs := hMs, hctors := hctors,
     hminors := by simpa using hminors, hformer := hformer,
     hpre := unwrapOr_ok hpre, hcvGs := hcvGs, hrules := hout }⟩
+
+/-- **The install's recursor stage, inverted**: `checkBlockRec` at the
+fueled operations IS the generated stage at `ShadowOps.fueled`. -/
+theorem checkBlockRec_run {env₁ env : Env} {p : BlockParts} {nested : Bool}
+    {pos : NestState} {block : List ConstantInfo}
+    {cvTas : List ConstantVal} {ctorsAs : List (List (ConstantVal × Nat))}
+    {out : List (ConstantVal × TargetMajor × List Expr)} {F : Nat}
+    (h : checkBlockRec (fueledOps mode F) env₁ env p nested pos block cvTas ctorsAs = .ok out) :
+    Nonempty (GenRecRun mode F (mkFEnv env₁) env₁ (mkFEnv env) p.toBlockShape nested pos cvTas
+      block ctorsAs out) :=
+  genRecCheck_run h
+
+/-- **The stored recursors are fresh**: every generated constant was
+checked (`classConstOk`) at the constructors' environment, whose first
+guard is its name's absence there. -/
+theorem genRecCheck_out_fresh {fe₁ : FEnv} {env₁ : Env} {env : Env} {p : BlockShape}
+    {nestedBit : Bool} {pos : NestState} {cvTas : List ConstantVal} {block : List ConstantInfo}
+    {ctorsAs : List (List (ConstantVal × Nat))}
+    {out : List (ConstantVal × TargetMajor × List Expr)} {F : Nat}
+    (h : genRecCheck (ShadowOps.fueled mode F) fe₁ env₁ (mkFEnv env) p nestedBit pos cvTas block
+      ctorsAs = .ok out) :
+    ∀ o ∈ out, env.find? o.1.name = none := by
+  obtain ⟨R⟩ := genRecCheck_run h
+  have hcvGs := R.hcvGs
+  have hrules := R.hrules
+  obtain ⟨hlenG, hallG⟩ := classRecTysOk_run hcvGs
+  obtain ⟨hlenO, hallO⟩ := classRecsRulesOk_run hrules
+  intro o ho
+  obtain ⟨i, hoi⟩ := List.getElem?_of_mem ho
+  have hil : i < p.recs.length := by
+    have := (List.getElem?_eq_some_iff.mp hoi).1; rw [hlenO] at this; omega
+  obtain ⟨c, cvG, hc, hG, ⟨T⟩⟩ := hallG i p.recs[i] (List.getElem?_eq_getElem hil)
+  obtain ⟨rhss, hoi', -⟩ := hallO i cvG c hG hc
+  rw [hoi] at hoi'
+  obtain rfl := Option.some.inj hoi'
+  obtain ⟨hfr, -, -, -, -, -, -, -, -, -, -, -, hcv⟩ := classConstOk_inv T.hcv
+  have hn : cvG.name = p.recs[i].cvR.name := by rw [hcv]
+  show env.find? cvG.name = none
+  rw [hn]
+  exact hfr
 
 end ConLeche

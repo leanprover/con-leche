@@ -9,10 +9,10 @@ meta import ConLeche
 public section
 
 /-!
-# The recursor check, unit tests
+# The recursor stage, unit tests
 
-The uniform install's recursor stage (`targetRecCheck`,
-`ConLeche/Kernel/Inductives/RecCheck.lean`) through the pure fold step
+The uniform install's recursor stage (`genRecCheck`,
+`ConLeche/Kernel/Inductives/GenRec.lean`) through the pure fold step
 (`checkDecl` at `pureOps`) on a hand-built block — `U : Type | u : U`
 with its recursor — so the pure instantiation is exercised beside the
 cached one the e2e corpus runs.
@@ -53,11 +53,11 @@ open ConLeche
 -- the generated rule `fun motive h => h`: accepted
 #guard run (lam (pi cU (.sort (.param (nm "v")))) (lam (.app (.bvar 0) cUu) (.bvar 0)))
   == "accept"
--- a rule recursing on a CLOSED major (`U.rec motive h U.u`): not a
--- field of the constructor, so not a primitive recursion — REJECTED by
--- the target recursor check
+-- a stream rule recursing on a CLOSED major (`U.rec motive h U.u`):
+-- the stage never reads the stream's rules (it stores the generated
+-- ones), so the block is ACCEPTED, with the generated rule installed
 #guard run (lam (pi cU (.sort (.param (nm "v")))) (lam (.app (.bvar 0) cUu)
     (.app (.app (.app cRec (.bvar 1)) (.bvar 0)) cUu)))
-  == "reject"
+  == "accept"
 
 end ConLecheTests.RecCheck

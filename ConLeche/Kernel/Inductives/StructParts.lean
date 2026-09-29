@@ -9,9 +9,8 @@ public import ConLeche.Kernel.Core
 
 The syntactic pieces the block install reads and compares against the
 stream: the family and constructor spines and the Π-rewrites of the
-generated recursor shape (read by the recursor check,
-`ConLeche/Kernel/Inductives/RecCheck.lean`, and the conformance
-generator, `ConLeche/Conformance/RecGen.lean`), the projection table's
+generated recursor shape (read by the recursor stage,
+`ConLeche/Kernel/Inductives/GenRec.lean`), the projection table's
 bodies and guard levels (`structProjBodies`, `structProjGuards`, stored
 by `checkStructProjTable` at a structure-like member), and the
 memoized occurrence walks (`hasLooseBVarB`, `mentionsConst`).

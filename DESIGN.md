@@ -94371,3 +94371,59 @@ in the skeleton's spelling (`genRecHeqB`, `genRecHtower`, `genRecHRaZ`,
   the earlier `ih` positions padded with `Sort 0` as in
   `storedMajorArg_graded`.  That is the same renaming bridge `hrowV`
   needs for the declared fields, so it belongs with the class side.
+
+## GENREC-FLIP — the generated recursor stage wired in, the target check deleted (2026-09-29, `agent/uinds-GENREC-FLIP`)
+
+**The flip.**  `checkBlockRec` (`Kernel/Inductives/BlockTail.lean`) IS
+`genRecCheck (ShadowOps.ofOps ops) (mkFEnv env₁) env₁ (mkFEnv env) …`;
+the cached `checkBlockTailS` runs `genRecCheck (shadowOpsC mode)
+(fe₂.restrictTo vis₁) env₁ fe₂ …` (no fast twin).  `DeclBlockRun`'s
+conjunct 8 is that run; `declBlock` calls the skeleton's `genRecStage`
+over `GenRecCtx` (its run from `checkBlockRec_run`, `GenRecRun.lean`);
+`NestedRecCtx`/`nestedRecStage`/`nestedClassNodes` are gone
+(`RecCtxBase` stays).  `sorry`s remain ONLY in `genRecStage`
+(`GenRecAssembly.lean`, now in the build through `declBlock`).
+
+**Re-sourced from the generated run:** the fueled bridge
+(`checkBlockRec_datF`; `GenRecDatF.lean` folded into `BridgeDecl.lean`),
+the cached simulation (`checkBlockTailS_run`/`checkBlockKS_run`/
+`checkModeledOrNativeSF_run` moved to `GenRecC.lean`, with
+`genRecCheck_recsWF`), the skeleton level (`genRecCheck_names`,
+`AgreeFloor.lean`), the push chain (`genRecCheckS_fresh`), η-closure
+(`genRecCheck_out_fresh`, `DeclBlockEta.lean`).  `RecFamFacts.prefixAgree`
+is `RecPrefixSame` only (the checked alternative's kernel function is
+gone).
+
+**Deleted:** `targetRecCheck` and its stages (primitive-recursion parse,
+call typing, stage (b)/(c), the rule pins, `checkBlockSeeds`,
+`checkBlockRecElimPin`/`SmallElim`/`PrefixAgree`, `thenConform`), the
+whole `ConLeche/Conformance/`, their run records/bridges/simulations and
+the model modules that only served the old rule/call proof (20 modules;
+≈ 24k lines net across the tree; kernel+cached −1.8k).  Kept: the class
+kit in `RecCheck.lean` (`targetMajorOf`, `targetMajorPins`,
+`targetMajorNfs`, `targetClassMatch`, `targetK53`, `targetAbs`,
+`targetRecPins`, `tgtRs`, `tgtStoredRules`, `consBlockRecsT(F)`,
+`blockNestedBit`, `ShadowOps`) and every `Target*`/`Nested*` model lemma
+a generated-route module (also the out-of-root B2/CLS ones) names.  No
+executable definition lost its last caller.
+
+**Verdicts** (`tests/arena.sh`): exactly GENREC M1's measured moves and
+the GENREC fixtures' targets, rows marked `# GENREC: official N`; e2e
+427/427, arena/annot/trusted/jobs sweeps as expected.  `RecCheckTests`:
+a stream rule on a closed major is now ACCEPTED (the stream's rules are
+not read).
+
+**Gates.**  `lake build` warning-free but the skeleton's `sorry`;
+`lake test` fails only in `Axioms.lean` (`sorryAx` from the skeleton);
+`tests/trust-surface.sh` lists the two skeleton `sorry`s;
+`tests/layering.sh` green (Conformance dir dropped from `IMPL_DIRS`);
+`tests/shake.sh` half (a) green (allowlist: 25 stale lines out, 115
+build-verified compensated proposals in, BlockInstall's
+`SumParts`/`BlockRec` re-export — formerly through `Conformance/RecGen` —
+recorded); half (b) cannot run while `GenClassNodes`/`GenRecPreRun` (lane
+CLS) do not compile (the census needs every module's `.olean`; with them
+hidden it lists 47 demotable `public import`s, most in the Gen modules —
+re-measure at integration); overview-links (anchors only, §5 prose left
+for its rewrite) and quote gate green.  CLAUDE.md's layering paragraph
+still names `ConLeche/Conformance/` and the conformance check — to be
+edited by the maintainer.

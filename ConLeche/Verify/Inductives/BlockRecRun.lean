@@ -1,7 +1,7 @@
 module
 
-public import ConLeche.Kernel.Inductives.BlockInstall
 public import ConLeche.Verify.ProjSlots
+public import ConLeche.Kernel.Inductives.BlockInstall
 import ConLeche.Verify.Inductives.BlockWF
 import ConLeche.Verify.ExceptBind
 import ConLeche.Verify.Extend.Inversions
@@ -10,14 +10,13 @@ import ConLeche.Verify.Shift
 public section
 
 /-!
-# Stage (b)'s record and the shared prefix's inversion
+# Stage (b)'s record
 
 `RecTyEntry`: one recursor's type as checked against its MAJOR member —
 the checked constant, the member's former and its parameter domains, the
-major at the index binders, the conclusion's sort.  The target check's
-run produces it (`recTyEntry_of_targetG`, `Verify/Inductives/RecStage.lean`),
-and the stage record `RecStage` hands it out per recursor.  Also the
-inversion of the family's shared rule prefix (`checkBlockRecPrefixAgree`).
+major at the index binders, the conclusion's sort.  The stage record
+`RecStage` hands it out per recursor in its member set `memR` (empty at
+the generated stage, `recStage_of_gen`).
 -/
 
 namespace ConLeche
@@ -124,22 +123,6 @@ structure ConstChecked (mode : CheckMode) (F : Nat) (env : Env) (cv0 cv : Consta
     ensureSortCore mode env F 0 stype = .ok u
   noProj : ∀ (T : Name) (i : Nat), env.findProj? T i = none → Expr.NoProjAt T i cv.type
 
-/-- **A `checkConstantVal` run's facts**: the annotation keeps the type
-closed and puts no `.proj` node at an empty slot
-(`annotateCore_noProjAt`). -/
-theorem checkConstantVal_checked {env : Env} {F : Nat} {cv0 cv : ConstantVal}
-    (h : checkConstantVal (fueledOps mode F) env cv0 = .ok cv) :
-    ConstChecked mode F env cv0 cv := by
-  obtain ⟨hfr, hres, hps, hnd, hlb, hfv, type, stype, u, hann, hlp, hcr, hinf, hsort, rfl⟩ :=
-    checkConstantVal_inv h
-  exact {
-    name := rfl, lps := rfl, fresh := hfr, unreserved := hres, notProjShape := hps,
-    nodup := hnd, bounded := annotateCore_looseBVars F _ hann hlb,
-    noFvar := Expr.not_hasFvar_of_fvarsBelow_zero
-      ((annotateCore_WScoped F _ hann (Expr.WScoped.of_not_hasFvar hfv)).fvarsBelow),
-    lpsDef := hlp, resolves := hcr, sorted := ⟨stype, u, hinf, hsort⟩,
-    noProj := fun _ _ hslot => annotateCore_noProjAt mode hann hfv hslot }
-
 /-- **Stage (b) at ONE recursor, at ANY major**: the part
 of `RecTyEntry` that does not name the major's inductive — the checked
 constant, the prefix and the major's position, the recursor type's
@@ -185,85 +168,5 @@ theorem lps_eq (E : RecTyGen mode F env p nested ri rc cvRi nIdx u) :
     cvRi.levelParams = rc.cvR.levelParams := E.hcv.lps.trans E.hcv0.2
 
 end RecTyGen
-
-/-! ## Stage (b'): the family's agreements -/
-
-/-- **The walk, inverted**: at every position of the tail the prefix
-LENGTH is the reference's and the opened domains are defeq to it. -/
-theorem checkBlockRecPrefixAt_inv {env : Env} {p : BlockShape} {rP0 F : Nat}
-    {doms0 : List Expr} :
-    ∀ {cvRs : List ConstantVal} {ri : Nat},
-      checkBlockRecPrefixAt (fueledOps mode F) env p rP0 doms0 cvRs ri = .ok () →
-      ∀ (i : Nat) (cv : ConstantVal), cvRs[i]? = some cv →
-        p.rulePrefixAt (ri + i) = rP0 ∧
-        ∃ (fvs : List Expr) (o : Expr),
-          openPisAtFvars rP0 cv.type 0 = some (fvs, o) ∧
-          doms0.length = fvs.length ∧
-          ∀ l, l < doms0.length →
-            isDefEqCore mode env F rP0 (doms0.getD l default)
-              ((fvs.map Expr.fvarTypeD).getD l default) = .ok true
-  | [], _, _, i, _, hi => by simp at hi
-  | cv :: rest, ri, h, i, cvi, hi => by
-    rw [checkBlockRecPrefixAt] at h
-    by_cases hlen : (p.rulePrefixAt ri == rP0) = true
-    case neg =>
-      rw [if_neg hlen] at h
-      simp only [throw, throwThe, MonadExceptOf.throw, Bind.bind, Except.bind] at h
-      exact nomatch h
-    rw [if_pos hlen] at h
-    simp only [Bind.bind, Except.bind] at h
-    obtain ⟨x1, hx1, h⟩ := exceptBind_ok h
-    obtain ⟨fvs, o⟩ := x1
-    have hop : openPisAtFvars rP0 cv.type 0 = some (fvs, o) := unwrapOr_ok hx1
-    obtain ⟨u, hu, h⟩ := exceptBind_ok h
-    obtain ⟨hl, hall⟩ := checkBlockDefEqList_inv (what := "the block's recursors do not \
-      share their rule prefix") (by cases u; exact hu)
-    cases i with
-    | zero =>
-      have hcv : cv = cvi := by simpa using hi
-      subst hcv
-      refine ⟨by simpa using eq_of_beq hlen, fvs, o, hop, by simpa using hl, ?_⟩
-      intro l hll
-      exact hall l hll
-    | succ i =>
-      obtain ⟨hr, hrest⟩ := checkBlockRecPrefixAt_inv h i cvi (by simpa using hi)
-      exact ⟨by rw [show ri + (i + 1) = ri + 1 + i from by omega]; exact hr, hrest⟩
-
-/-- **Stage (b'), inverted**: the FIRST recursor's opening is the
-reference, and every later recursor's prefix has its length and is
-defeq to it binder by binder. -/
-theorem checkBlockRecPrefixAgree_inv {env : Env} {p : BlockShape} {F : Nat}
-    {cvRs : List ConstantVal} {cv0 : ConstantVal}
-    (h : checkBlockRecPrefixAgree (fueledOps mode F) env p cvRs = .ok ())
-    (h0 : cvRs[0]? = some cv0) :
-    ∃ (fvs0 : List Expr) (o0 : Expr),
-      openPisAtFvars (p.rulePrefixAt 0) cv0.type 0 = some (fvs0, o0) ∧
-      ∀ (i : Nat) (cv : ConstantVal), cvRs[i]? = some cv → 0 < i →
-        p.rulePrefixAt i = p.rulePrefixAt 0 ∧
-        ∃ (fvs : List Expr) (o : Expr),
-          openPisAtFvars (p.rulePrefixAt 0) cv.type 0 = some (fvs, o) ∧
-          fvs0.length = fvs.length ∧
-          ∀ l, l < fvs0.length →
-            isDefEqCore mode env F (p.rulePrefixAt 0)
-              ((fvs0.map Expr.fvarTypeD).getD l default)
-              ((fvs.map Expr.fvarTypeD).getD l default) = .ok true := by
-  match cvRs, h0 with
-  | cv :: rest, h0 =>
-    have hcv : cv = cv0 := by simpa using h0
-    rw [checkBlockRecPrefixAgree] at h
-    simp only [Bind.bind, Except.bind] at h
-    obtain ⟨x1, hx1, h⟩ := exceptBind_ok h
-    obtain ⟨fvs0, o0⟩ := x1
-    have hop : openPisAtFvars (p.rulePrefixAt 0) cv0.type 0 = some (fvs0, o0) := by
-      rw [← hcv]; exact unwrapOr_ok hx1
-    refine ⟨fvs0, o0, hop, fun i cvi hi hipos => ?_⟩
-    match i, hipos with
-    | i + 1, _ =>
-      obtain ⟨hr, fvs, o, hop', hlen, hall⟩ :=
-        checkBlockRecPrefixAt_inv h i cvi (by simpa using hi)
-      refine ⟨by rw [show i + 1 = 1 + i from by omega]; exact hr, fvs, o, hop',
-        by simpa using hlen, fun l hl => ?_⟩
-      have := hall l (by simpa using hl)
-      simpa using this
 
 end ConLeche

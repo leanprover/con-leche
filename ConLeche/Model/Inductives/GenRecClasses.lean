@@ -1,8 +1,11 @@
 module
 
 public import ConLeche.Verify.Inductives.GenRecRun
-public import ConLeche.Model.Inductives.NestedRecRest
 import ConLeche.Verify.Inductives.NestScope
+public import ConLeche.Model.Inductives.NestedRecRest
+public import ConLeche.Model.Inductives.BlockDeclRun
+public import ConLeche.Model.Inductives.TargetRuleData
+public import ConLeche.Model.Inductives.TargetClass
 
 public section
 

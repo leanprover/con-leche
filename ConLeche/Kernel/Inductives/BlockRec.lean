@@ -7,11 +7,10 @@ public import ConLeche.Kernel.Inductives.BlockParts
 /-!
 # The recursor stage's shared pieces (the uniform route)
 
-The uniform route CHECKS the stream's recursors instead of generating
-them (charter item 5); the check itself is `targetRecCheck`
-(`ConLeche/Kernel/Inductives/RecCheck.lean`, classification-free
-primitive recursion).  What lives here is what that check and the
-conformance check share:
+The uniform route GENERATES the recursors (charter item 5, as amended
+by GENREC); the stage itself is `genRecCheck`
+(`ConLeche/Kernel/Inductives/GenRec.lean`).  What lives here is what
+that stage shares with the rest of the install:
 
 * the ELIMINATION guard, official's `elim_only_at_universe_zero` said
   declaratively (`blockLargeElimAllowed`): unless the block's sort is

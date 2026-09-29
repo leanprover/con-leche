@@ -1,7 +1,6 @@
 module
 
 public import ConLeche.Model.Inductives.TargetCallKit
-import ConLeche.Model.Inductives.TargetRecRead
 public import ConLeche.Model.Inductives.ContN2
 public import ConLeche.Verify.Inductives.ClassMatchRun
 import ConLeche.Model.Inductives.TargetFrame

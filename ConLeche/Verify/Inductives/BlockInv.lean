@@ -356,8 +356,7 @@ theorem checkBlockTail_inv {env₂ : Env} {block : List ConstantInfo} {q : Block
       checkBlockIdxSorts (fueledOps mode F) q.env₁ q.p.toBlockShape
         (q.p.members.zip q.cvTas) = .ok isorts ∧
       checkBlockRec (fueledOps mode F) q.env₁ (consBlockCtors q.p.nP q.ctorsAs q.env₁)
-        q.p (blockNestedBit q.p.toBlockShape q.kinds) (nestKindsFlat q.kinds)
-        q.nfs q.pos block q.cvTas q.ctorsAs
+        q.p (blockNestedBit q.p.toBlockShape q.kinds) q.pos block q.cvTas q.ctorsAs
           = .ok out ∧
       checkBlockTables (m := CheckM) q.p.toBlockShape
         (q.p.members.zip (q.ctorsAs.zip q.sortsss))
@@ -390,8 +389,7 @@ theorem checkBlockTail_inv {env₂ : Env} {block : List ConstantInfo} {q : Block
   dsimp only at h
   cases hRec : checkBlockRec (m := CheckM) (fueledOps mode F) q.env₁
       (consBlockCtors q.p.nP q.ctorsAs q.env₁) q.p
-      (blockNestedBit q.p.toBlockShape q.kinds) (nestKindsFlat q.kinds) q.nfs q.pos block q.cvTas
-      q.ctorsAs with
+      (blockNestedBit q.p.toBlockShape q.kinds) q.pos block q.cvTas q.ctorsAs with
   | error e => rw [hRec] at h; exact nomatch h
   | ok out =>
   rw [hRec] at h

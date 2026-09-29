@@ -1,19 +1,18 @@
 module
 
-public import ConLeche.Kernel.Inductives.RecCheck
+public import ConLeche.Kernel.Inductives.GenRec
 
 @[expose] public section
 
 /-!
-# The uniform install's tail: the recursor CHECK and the install after the pass
+# The uniform install's tail: the recursor stage and the install after the pass
 
 `checkBlock` (the uniform route's entry, dispatched from `checkDecl`)
 and the stages after the pass over the formers and the constructors
 (`BlockInstall.lean`): the elimination restriction, the index sorts,
 the constructors consed, the recursor stage —
-the classification-free `targetRecCheck` (`RecCheck.lean`, charter
-item 5) followed by the reject-only conformance check — the recursors
-consed and the projection tables.  Its own module because the check is
+the generated recursors (`genRecCheck`, `GenRec.lean`, charter item 5)
+— the recursors consed and the projection tables.  Its own module because the check is
 written over the index (`FEnv`), whose operations sit above the pure
 checker's stages.
 -/
@@ -22,41 +21,24 @@ namespace ConLeche
 
 variable {m : Type -> Type} [Monad m] [MonadExceptOf CheckError m]
 
-/-- **The recursor CHECK on the uniform route** (charter item 5):
-`targetRecCheck` — primitive recursion, classification-free — at the
-constructors' environment, on the stream's own recursor family (the
-raw `block`: the pins read it), with outside majors admitted at the
-block's auxiliary types, each walked by the positivity check at the
-formers' environment `env₁` (its state `pos` after the root frame), and
-the elimination guard's
-container bit `nested` (`blockNestedBit`).  Returns the check's output: every recursor with its
-resolved major and its annotated rules (`tgtRs` is the install's
-recursor-list format of it).  The pure operations run it at every
-index (`ShadowOps.ofOps`); the cached driver runs the SAME function at
-its own shadow operations (`checkBlockRecS`,
-`ConLeche/Cached/CheckerC.lean`). -/
-def checkBlockRecT (ops : CheckerOps m) (env₁ env : Env) (p : BlockParts) (nested : Bool)
+/-- **The recursor stage on the uniform route** (charter item 5): the
+GENERATED recursor stage `genRecCheck` (`GenRec.lean`) at the
+constructors' environment `env`, on the stream's own recursor family
+(the raw `block`: the pins read it), its classes' seeds walked by the
+positivity check at the formers' environment `env₁` (its state `pos`
+after the root frame), and the elimination guard's container bit
+`nested` (`blockNestedBit`).  Returns every generated recursor with its
+class and its generated rules (`tgtRs` is the install's recursor-list
+format of it).  The pure operations run it at every index
+(`ShadowOps.ofOps`); the cached driver runs the SAME function at its own
+shadow operations (`checkBlockTailS`, `ConLeche/Cached/CheckerC.lean`). -/
+def checkBlockRec (ops : CheckerOps m) (env₁ env : Env) (p : BlockParts) (nested : Bool)
     (pos : NestState)
     (block : List ConstantInfo) (cvTas : List ConstantVal)
     (ctorsAs : List (List (ConstantVal × Nat))) :
     m (List (ConstantVal × TargetMajor × List Expr)) :=
-  targetRecCheck (ShadowOps.ofOps ops) (mkFEnv env₁) env₁ (mkFEnv env) p.toBlockShape nested
-    pos block cvTas ctorsAs
-
-/-- **The recursor stage**: the CHECK (`checkBlockRecT`, primitive
-recursion) at every `k`, on the constructors as declared (`ctorsAs`),
-then — where every field kind is flat (`conf`: the generator has no
-container arm) — the reject-only conformance check
-(`checkBlockRecConform`, which reads the constructors at their
-positivity normal forms `nfs`), returning the check's result
-unchanged (`thenConform`). -/
-def checkBlockRec (ops : CheckerOps m) (env₁ env : Env) (p : BlockParts) (nested conf : Bool)
-    (nfs : List (List Expr)) (pos : NestState)
-    (block : List ConstantInfo) (cvTas : List ConstantVal)
-    (ctorsAs : List (List (ConstantVal × Nat))) :
-    m (List (ConstantVal × TargetMajor × List Expr)) :=
-  thenConform (checkBlockRecT ops env₁ env p nested pos block cvTas ctorsAs)
-    (if conf then checkBlockRecConform ops env p cvTas ctorsAs nfs else pure ())
+  genRecCheck (ShadowOps.ofOps ops) (mkFEnv env₁) env₁ (mkFEnv env) p.toBlockShape nested
+    pos cvTas block ctorsAs
 
 /-- **The checked family consed, at its majors**: each
 recursor with its rules at ITS major (`tgtStoredRules`: the major's
@@ -109,8 +91,8 @@ def checkBlockTail (ops : CheckerOps m) (block : List ConstantInfo)
       whose sort may be Prop")
   let _isorts ← checkBlockIdxSorts ops q.env₁ p.toBlockShape (p.members.zip q.cvTas)
   let env₂ := consBlockCtors p.nP q.ctorsAs q.env₁
-  let out ← checkBlockRec ops q.env₁ env₂ p (blockNestedBit p.toBlockShape q.kinds)
-    (nestKindsFlat q.kinds) q.nfs q.pos block q.cvTas q.ctorsAs
+  let out ← checkBlockRec ops q.env₁ env₂ p (blockNestedBit p.toBlockShape q.kinds) q.pos
+    block q.cvTas q.ctorsAs
   let env₃ := consBlockRecsT env₂.find? (·.constsResolve env₂) p.toBlockShape 0 out env₂
   checkBlockTables p.toBlockShape
     (p.members.zip (q.ctorsAs.zip q.sortsss)) env₃

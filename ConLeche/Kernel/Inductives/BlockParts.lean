@@ -11,10 +11,7 @@ public import ConLeche.Kernel.Inductives.Positivity
 `BlockParts` is the shape a block on the fixpoint route is read into,
 at ANY number `k` of mutually recursive members: the members with
 their own index counts, constructors and recursors, the shared
-parameter count, the shared elimination level and result sort.  Its
-one-member reading `BlockParts.toNative` (`NativeParts`,
-`ConLeche/Conformance/RecGen.lean`) is used only by the reject-only
-conformance check (`checkBlockRecConform`).
+parameter count, the shared elimination level and result sort.
 
 **The route takes every block the recogniser reads**, at any number
 of members, nested blocks included; a block `blockParts?` does not
@@ -29,9 +26,9 @@ The three pieces:
   `blockParts?`) — official's `add_inductive` reads the type formers,
   the constructors and the parameter count and GENERATES the recursors,
   so nothing the recursor records claim is a condition of recognition:
-  the recursor check pins them (`targetRecPins`, `targetRulePinsAll`),
-  and the one-member conformance check compares them with the generated
-  recursor (`checkBlockRecConform`, `ConLeche/Conformance/`);
+  the recursor stage pins them (`targetRecPins`) and stores the
+  generated recursors (`genRecCheck`), the records' types compared,
+  their rules never read;
 * **positivity** lives in its own module
   (`ConLeche/Kernel/Inductives/Positivity.lean`) and runs at
   install (`checkBlockPositivity`); the record carries no field kinds.

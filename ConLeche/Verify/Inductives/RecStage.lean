@@ -1,24 +1,22 @@
 module
 
-public import ConLeche.Verify.Inductives.RecCheckRun
 public import ConLeche.Verify.Inductives.BlockRecRun
 import ConLeche.Verify.ProjSlots
 import ConLeche.Verify.CheckerF
 public import ConLeche.Verify.Inductives.BlockWF
 import ConLeche.Verify.Inductives.NestedRuleSyn
 import ConLeche.Verify.Inductives.DirectGen
-import ConLeche.Verify.Denote.IndFrame
 
 public section
 
 /-!
 # The recursor stage's KIND-FREE facts
 
-The recursor stage is the classification-free target
-check (`checkBlockRecT`, `targetRecCheck` at the constructors' index).
-Every proof about the stage reads ONE record of what that check
+The recursor stage is the generated one (`genRecCheck` at the
+constructors' index, `recStage_of_gen`, `Model/Inductives/GenRecStage.lean`).
+Every proof about the stage reads ONE record of what the stage
 guarantees about the family it stores — `RecStage` — and never unfolds
-the check:
+it:
 
 * the records' pins (the level parameters, the reserved names, the
   name set);
@@ -119,22 +117,6 @@ structure RuleOutOk (mode : CheckMode) (F : Nat) (envR : Env) (cvR : ConstantVal
 namespace RuleOutOk
 
 variable {F : Nat} {envR : Env} {cvR : ConstantVal} {rhs out : Expr}
-
-/-- **An annotated rule's facts**: the annotation keeps the closed
-right-hand side closed and puts no `.proj` node at an empty slot. -/
-theorem of_annotate (hbv : rhs.looseBVarsBounded 0 = true) (hfv : rhs.hasFvar = false)
-    (hann : annotateCore mode envR F 0 rhs = .ok out)
-    (hlp : out.allLevelParamsDefined cvR.levelParams = true)
-    (hres : out.constsResolve envR = true)
-    (htyR : ∃ tyR, inferTypeCore mode envR F 0 out = .ok tyR) :
-    RuleOutOk mode F envR cvR out where
-  hbv := annotateCore_looseBVars F rhs hann hbv
-  hfv := Expr.not_hasFvar_of_fvarsBelow_zero
-    ((annotateCore_WScoped F rhs hann (Expr.WScoped.of_not_hasFvar hfv)).fvarsBelow)
-  hlp := hlp
-  hres := hres
-  htyR := htyR
-  hnoProj := fun _ _ hslot => annotateCore_noProjAt mode hann hfv hslot
 
 end RuleOutOk
 
@@ -243,10 +225,8 @@ structure RecFamFacts (mode : CheckMode) (F : Nat) (env : Env) (p : BlockShape)
         (((tfvs.drop p.nP).map Expr.fvarTypeD).getD q default)
         ((((fvs.drop (p.rulePrefixAt i)).take nIdx).map Expr.fvarTypeD).getD q default)
         = .ok true
-  /-- the shared rule prefix: checked (`checkBlockRecPrefixAgree`), or
-  shared syntactically (a generated family) -/
-  prefixAgree : checkBlockRecPrefixAgree (fueledOps mode F) env p (cvRus.map (·.1)) = .ok () ∨
-    RecPrefixSame p (cvRus.map (·.1))
+  /-- the shared rule prefix, shared syntactically (a generated family) -/
+  prefixAgree : RecPrefixSame p (cvRus.map (·.1))
 
 /-- **The recursor stage, as checked** — its kind-free facts.  `env` is
 the constructors' environment, `rs` the stored family (install format).
@@ -548,51 +528,6 @@ theorem targetRecPins_inv {q : BlockShape}
     simp only [h1, h2, h3, h4] at h; exact nomatch h
   exact ⟨h1, h2, h3, h4⟩
 
-/-- **A member major's facts**, off a `TargetTyEntry`: the member the record
-names, its shape and constructors, the
-checked former that the parameters were compared against. -/
-theorem TargetTyEntry.member_facts_of {fe : FEnv} {q : BlockShape} {nested : Bool}
-    {rc : RecShape} {cvRi : ConstantVal} {M : TargetMajor} {u : Level}
-    (E : TargetTyEntry mode F fe q nested cvTas ctorsAs rc cvRi M u)
-    (hMs : M.member.isSome = true) :
-    ∃ ms, M.member = some rc.tgt ∧ q.members[rc.tgt]? = some ms ∧ M.nIdx = ms.nIdx ∧
-      M.nPc = q.nP ∧ ctorsAs[rc.tgt]? = some M.ctors ∧ cvTas[rc.tgt]? = some E.cvTP ∧
-      E.maj.fvarTypeD.getAppFn = .const ms.cvT.name (q.lps.map .param) ∧
-      E.maj.fvarTypeD.getAppArgs.take q.nP = E.fvs.take q.nP := by
-  obtain ⟨cvTP, fvs, concl, tfvs, trest, maj, idoms, sty, hcv, hroom, hle, hopen, hmaj, major,
-    htgt, hcvTP, _, _, _, _, _, _, _, _, _, _, _, _⟩ := E
-  cases major with
-  | member I t ms ctorsA hfn ht hms hctors hpar =>
-    simp only [Option.all_some, beq_iff_eq] at htgt
-    subst htgt
-    simp only [Option.elim_some] at hcvTP
-    have hI : ms.cvT.name = I := by
-      have hlt := (List.findIdx?_eq_some_iff_getElem.mp ht)
-      obtain ⟨hlt, hget, -⟩ := hlt
-      have hmem : q.memberNames[rc.tgt]'hlt = ms.cvT.name := by
-        have hlt' : rc.tgt < q.members.length := (List.getElem?_eq_some_iff.mp hms).1
-        have hms' : q.members[rc.tgt]'hlt' = ms := (List.getElem?_eq_some_iff.mp hms).2
-        simp only [BlockShape.memberNames, List.getElem_map, hms']
-      rw [hmem] at hget
-      exact eq_of_beq hget
-    refine ⟨ms, rfl, hms, rfl, rfl, hctors, hcvTP, ?_, hpar⟩
-    rw [hfn, hI]
-  | outside => simp at hMs
-
-/-- At a member major, the major's parameters are the
-recursor type's first `nP` openers. -/
-theorem targetDs_eq_prefTake_of {fe : FEnv} {q : BlockShape} {nested : Bool}
-    {rc : RecShape} {cvRi : ConstantVal} {M : TargetMajor} {u : Level}
-    (E : TargetTyEntry mode F fe q nested cvTas ctorsAs rc cvRi M u)
-    (hMs : M.member.isSome = true) {fvsPref : List Expr} {oP : Expr}
-    (hpref : openPisAtFvars rc.rP cvRi.type 0 = some (fvsPref, oP)) :
-    M.ds = fvsPref.take q.nP := by
-  rw [TargetTyEntry.ds_eq_of E hMs]
-  obtain ⟨o', ho'⟩ := openPisAtFvars_prefix rc.rP (rc.mI + 1) _ 0 (by have := E.hle; omega) E.hopen
-  rw [hpref] at ho'
-  obtain ⟨rfl, -⟩ := Prod.mk.inj (Option.some.inj ho')
-  rw [List.take_take, Nat.min_eq_left E.hroom]
-
 /-- A stored entry of the check's output, at its index. -/
 theorem tgtRs_getElem? {out : List (ConstantVal × TargetMajor × List Expr)} {i : Nat}
     {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
@@ -602,32 +537,6 @@ theorem tgtRs_getElem? {out : List (ConstantVal × TargetMajor × List Expr)} {i
   cases ho : out[i]? with
   | none => rw [ho] at hr; exact nomatch hr
   | some t => rw [ho] at hr; exact ⟨t, rfl, (Option.some.inj hr).symm⟩
-
-/-- **The run at a stored recursor**: its record, stage (b)'s entry, its
-rules' run, and the stored entry — the checked constant, the annotated
-rules, the major's index count and constructors. -/
-theorem targetRecRun_at {fe : FEnv} {q : BlockShape} {nested : Bool}
-    (R : TargetRecRun mode F fe q nested block cvTas ctorsAs out) {i : Nat}
-    {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
-    (hr : (tgtRs out)[i]? = some r) :
-    ∃ (rc : RecShape) (cvRi : ConstantVal) (M : TargetMajor) (u : Level) (rhssA : List Expr),
-      q.recs[i]? = some rc ∧ R.tys[i]? = some (cvRi, M, u) ∧
-      out[i]? = some (cvRi, M, rhssA) ∧ r = (cvRi, rhssA, M.nIdx, M.ctors) ∧
-      rc.rhss.length = M.ctors.length ∧
-      TargetRulesRun mode F (consBlockRecsBareF q 0 (R.tys.map fun t => (t.1, t.2.1.nIdx)) fe) fe
-        q (cvTas.map (·.type)) (targetFamilyOf q R.tys) cvRi rc.rP M M.ctors rc.rhss rhssA ∧
-      Nonempty (TargetTyEntry mode F fe q nested cvTas ctorsAs rc cvRi M u) := by
-  obtain ⟨hlenT, hallT⟩ := R.tysRun
-  obtain ⟨hlenO, hallO⟩ := targetRecsRules_run R.rules
-  obtain ⟨t', ht', rfl⟩ := tgtRs_getElem? hr
-  have hj : i < q.recs.length := by
-    have := (List.getElem?_eq_some_iff.mp ht').1
-    rw [hlenO] at this; omega
-  obtain ⟨rc, hrc⟩ : ∃ rc, q.recs[i]? = some rc := ⟨_, List.getElem?_eq_getElem hj⟩
-  obtain ⟨cvRi, M, u, ht, E⟩ := hallT i rc hrc
-  obtain ⟨rhssA, ho, hlenR, RR⟩ := hallO i rc (cvRi, M, u) hrc ht
-  obtain rfl := Option.some.inj (ht'.symm.trans ho)
-  exact ⟨rc, cvRi, M, u, rhssA, hrc, ht, ho, rfl, hlenR, RR, E⟩
 
 /-- Recursor `i`'s record readings. -/
 theorem recShape_at {q : BlockShape} {i : Nat} {rc : RecShape} (hrc : q.recs[i]? = some rc) :
@@ -645,61 +554,6 @@ theorem blockLargeElimAllowed_plain {q : BlockShape} {nested : Bool}
       Bool.false_eq_true, and_false, false_and, or_false] at h
     simp [blockLargeElimAllowed, h]
 
-/-- **Stage (b)'s major-free entry, from the target check's** (any major). -/
-theorem recTyGen_of_target {q : BlockShape} {nested : Bool} {i : Nat} {rc : RecShape}
-    {cvRi : ConstantVal} {M : TargetMajor} {u : Level} (hrc : q.recs[i]? = some rc)
-    (E : TargetTyEntry mode F (mkFEnv env) q nested cvTas ctorsAs rc cvRi M u) :
-    Nonempty (RecTyGen mode F env q false i rc cvRi M.nIdx u) := by
-  obtain ⟨-, hM, hR⟩ := recShape_at hrc
-  have hmI := E.hmI
-  have hcv : checkConstantVal (fueledOps mode F) env rc.cvR = .ok cvRi := by
-    rw [← checkConstantValF_eq]; exact E.hcv
-  refine ⟨{
-    fvs := E.fvs, concl := E.concl, maj := E.maj, sty := E.sty, cv0 := rc.cvR,
-    hcv0 := ⟨rfl, rfl⟩, hcv := checkConstantVal_checked hcv,
-    hroom := (by rw [hR]; exact E.hroom), hmI' := (by rw [hM, hR, hmI]),
-    hopen := (by rw [hM]; exact E.hopen), hmaj := (by rw [hM]; exact E.hmaj),
-    hsty := (by rw [hM]; exact E.hsty), hu := (by rw [hM]; exact E.hu),
-    hsmall := (by
-      rw [hM]
-      rcases E.hsmall with h | h
-      · exact .inl (blockLargeElimAllowed_plain h)
-      · exact .inr h) }⟩
-
-/-- **Stage (b)'s entry, from the target check's**: the type checked
-against its major member (a member major). -/
-theorem recTyEntry_of_targetG {q : BlockShape} {nested : Bool} {i : Nat}
-    {rc : RecShape} {cvRi : ConstantVal}
-    {M : TargetMajor} {u : Level} (hrc : q.recs[i]? = some rc)
-    (E : TargetTyEntry mode F (mkFEnv env) q nested cvTas ctorsAs rc cvRi M u)
-    (hMs : M.member.isSome = true) :
-    Nonempty (RecTyEntry mode F env q false cvTas i rc cvRi M.nIdx u) := by
-  obtain ⟨hT, hM, hR⟩ := recShape_at hrc
-  obtain ⟨ms, hMm, hms, hnIdx, hnPc, -, hcvTa, hfn, hpar⟩ := E.member_facts_of hMs
-  have hmI := E.hmI
-  have htl : E.tfvs.length = q.nP := Verify.openPisAtFvars_length _ E.hopenT
-  have hcv : checkConstantVal (fueledOps mode F) env rc.cvR = .ok cvRi := by
-    rw [← checkConstantValF_eq]; exact E.hcv
-  refine ⟨{
-    ms := ms, cvTa := E.cvTP, fvs := E.fvs, concl := E.concl, tfvs := E.tfvs,
-    trest := E.trest, maj := E.maj, sty := E.sty,
-    hms := (by rw [hT]; exact hms), hcvTa := (by rw [hT]; exact hcvTa), hcv := hcv,
-    hnIdx := hnIdx, hroom := (by rw [hR]; exact E.hroom),
-    hmI := (by rw [hM, hR, hmI, hnIdx]), hopen := (by rw [hM]; exact E.hopen),
-    hopenT := E.hopenT, htfvs := htl,
-    hparams := fun l hl => E.hparams l (by rw [List.length_map, htl]; exact hl),
-    hmaj := (by rw [hM]; exact E.hmaj), hmajFn := hfn,
-    hmajLen := (by rw [E.hmajLen, hnPc, hnIdx]),
-    hmajParams := hpar,
-    hmajIdx := (by
-      rw [← hnPc, E.hmajIdx, hR, hmI, ← hnIdx, Nat.add_sub_cancel_left]),
-    hsty := (by rw [hM]; exact E.hsty), hu := (by rw [hM]; exact E.hu),
-    hsmall := (by
-      rw [hM]
-      rcases E.hsmall with h | h
-      · exact .inl (blockLargeElimAllowed_plain h)
-      · exact .inr h) }⟩
-
 /-- **The recursors whose CHECKED major is a member of the block**: the
 stage's `mem` at the target check's output. -/
 @[expose] def tgtMemAt (out : List (ConstantVal × TargetMajor × List Expr)) (i : Nat) : Prop :=
@@ -714,191 +568,6 @@ def RecStage.mono {rs : List (ConstantVal × List Expr × Nat × List (ConstantV
     tyEntry := fun i hi hm => R.tyEntry i hi (h i hm)
     ctorsAt := fun i r hm hr => R.ctorsAt i r (h i hm) hr
     ruleTower := fun c r i cA rhs hm => R.ruleTower c r i cA rhs (h c hm) }
-
-/-- **The stage record, from the target check's run, at ANY majors**:
-the member-shaped facts at the recursors whose checked
-major is a member (`tgtMemAt out`), the rest at every recursor.
-`hctorsLen`: each member's checked constructors are its declared ones,
-one for one (the constructors' stage). -/
-theorem recStage_of_targetG {nested : Bool}
-    (R : TargetRecRun mode F (mkFEnv env) p.toBlockShape nested block cvTas ctorsAs out)
-    (hctorsLen : ∀ (t : Nat) (ms : MemberShape) (ctorsA : List (ConstantVal × Nat)),
-      p.members[t]? = some ms → ctorsAs[t]? = some ctorsA → ctorsA.length = ms.ctors.length) :
-    RecStageG mode F env p cvTas ctorsAs (tgtRs out) (tgtMemAt out) := by
-  obtain ⟨hlenT, hallT⟩ := R.tysRun
-  obtain ⟨hlenO, hallO⟩ := targetRecsRules_run R.rules
-  have hpinsF := targetRecPins_inv R.pins
-  have hlenT' : R.tys.length = p.recs.length := hlenT
-  have hlenOut : (tgtRs out).length = p.recs.length := by
-    simp only [tgtRs, List.length_map, hlenO, hlenT']
-    exact Nat.min_self _
-  -- the major at a position, member or not
-  have hmemAt : ∀ (i : Nat) (rc : RecShape) (cvRi : ConstantVal) (M : TargetMajor) (u : Level),
-      p.recs[i]? = some rc → R.tys[i]? = some (cvRi, M, u) → tgtMemAt out i →
-      M.member.isSome = true := by
-    intro i rc cvRi M u hrc ht hm
-    obtain ⟨rhssA, ho, -, -⟩ := hallO i rc (cvRi, M, u) hrc ht
-    simp only [tgtMemAt, ho, Option.all_some] at hm
-    exact hm
-  have hbare := targetRecRun_bare_eq R
-  have hfeR : consBlockRecsBareF p.toBlockShape 0 (R.tys.map fun t => (t.1, t.2.1.nIdx))
-      (mkFEnv env) = mkFEnv (consBlockRecsBare p.toBlockShape 0
-        ((tgtRs out).map fun r => (r.1, r.2.2.1)) env) := by
-    rw [consBlockRecsBareF_mkFEnv, hbare]
-  refine ⟨{
-    cvRus := R.tys.map fun t => (t.1, t.2.1.nIdx, t.2.2),
-    pins := hpinsF,
-    fam := ?_, lenT := (by rw [List.length_map]; exact hlenT'), len := hlenOut,
-    stored := ?_, tyGen := ?_, tyEntry := ?_, ctorsAt := ?_, rulesLenAt := ?_,
-    ruleOut := ?_, ruleTower := ?_ }⟩
-  · -- the family's agreements
-    have hus : (R.tys.map fun t => (t.1, t.2.1.nIdx, t.2.2)).map (·.2.2) = R.tys.map (·.2.2) := by
-      simp [List.map_map, Function.comp_def]
-    have hcs : (R.tys.map fun t => (t.1, t.2.1.nIdx, t.2.2)).map (·.1) = R.tys.map (·.1) := by
-      simp [List.map_map, Function.comp_def]
-    refine ⟨R.small.1, ?_, ?_, ?_, ?_⟩
-    · rw [hus]
-      rcases R.small.2 with h | h
-      · exact .inl (blockLargeElimAllowed_plain h)
-      · exact .inr h
-    · rw [hus]; exact R.pin
-    · intro i hi hm
-      rw [List.length_map, hlenT'] at hi
-      obtain ⟨rc, hrc⟩ : ∃ rc, p.recs[i]? = some rc := ⟨_, List.getElem?_eq_getElem hi⟩
-      obtain ⟨cvRi, M, u, ht, ⟨E⟩⟩ := hallT i rc hrc
-      obtain ⟨hT, hM, hR⟩ := recShape_at (q := p.toBlockShape) hrc
-      obtain ⟨ms, hMm, hms, hnIdx, hnPc, -, hcvTa, -⟩ :=
-        E.member_facts_of (hmemAt i rc cvRi M u hrc ht hm)
-      obtain ⟨cvTa, tfs, trest, hcvTa', hopI, hidoms⟩ := targetIdxDoms_member hMm E.hidoms
-      have hil := E.hidxLen
-      have hix := E.hidx
-      rw [hidoms] at hil hix
-      have hsub : rc.mI - rc.rP = M.nIdx := by rw [E.hmI]; omega
-      rw [hsub] at hil hix
-      refine ⟨cvRi, M.nIdx, u, cvTa, E.fvs, tfs, E.concl, trest, ?_, ?_, ?_, ?_,
-        by rw [hR]; exact hil, ?_⟩
-      · simp only [List.getElem?_map, ht, Option.map_some]
-      · rw [hT]; exact hcvTa'
-      · rw [hM]; exact E.hopen
-      · rw [hR]; exact hopI
-      · intro q hq
-        rw [hM, hR]
-        exact hix q hq
-    · rw [hcs]; exact .inl R.prefixAgree
-  · -- the stored records are stage (b)'s
-    rw [← hbare]
-    simp [List.map_map, Function.comp_def]
-  · -- stage (b) at every recursor, major-free
-    intro i hi
-    obtain ⟨rc, hrc⟩ : ∃ rc, p.recs[i]? = some rc := ⟨_, List.getElem?_eq_getElem hi⟩
-    obtain ⟨cvRi, M, u, ht, ⟨E⟩⟩ := hallT i rc hrc
-    refine ⟨rc, cvRi, M.nIdx, u, hrc, ?_, recTyGen_of_target (q := p.toBlockShape) hrc E⟩
-    simp only [List.getElem?_map, ht, Option.map_some]
-  · -- stage (b) at every member-major recursor
-    intro i hi hm
-    obtain ⟨rc, hrc⟩ : ∃ rc, p.recs[i]? = some rc := ⟨_, List.getElem?_eq_getElem hi⟩
-    obtain ⟨cvRi, M, u, ht, ⟨E⟩⟩ := hallT i rc hrc
-    refine ⟨rc, cvRi, M.nIdx, u, hrc, ?_,
-      recTyEntry_of_targetG (q := p.toBlockShape) hrc E (hmemAt i rc cvRi M u hrc ht hm)⟩
-    simp only [List.getElem?_map, ht, Option.map_some]
-  · -- each stored member-major recursor's constructors
-    intro i r hm hr
-    obtain ⟨rc, cvRi, M, u, rhssA, hrc, ht, -, rfl, -, -, ⟨E⟩⟩ := targetRecRun_at R hr
-    obtain ⟨hT, -, -⟩ := recShape_at (q := p.toBlockShape) hrc
-    obtain ⟨ms, -, hms, -, -, hctors, -⟩ := E.member_facts_of (hmemAt i rc cvRi M u hrc ht hm)
-    rw [hT]
-    exact ⟨ms, hms, hctors, hctorsLen _ _ _ hms hctors⟩
-  · -- one stored rule per constructor
-    intro i r hr
-    obtain ⟨rc, cvRi, M, u, rhssA, -, -, -, rfl, -, RR, -⟩ := targetRecRun_at R hr
-    exact RR.len
-  · -- every stored rule, annotated
-    intro c r i rhs hr hrhs
-    obtain ⟨rc, cvRi, M, u, rhssA, hrc, -, -, rfl, hlenR, RR, ⟨E⟩⟩ := targetRecRun_at R hr
-    simp only at hrhs
-    have hiA : i < M.ctors.length := by
-      rw [← RR.len]; exact (List.getElem?_eq_some_iff.mp hrhs).1
-    have hcA : M.ctors[i]? = some M.ctors[i] := List.getElem?_eq_getElem hiA
-    obtain ⟨rhs0, hrhs0⟩ : ∃ rhs0, rc.rhss[i]? = some rhs0 :=
-      ⟨_, List.getElem?_eq_getElem (by rw [hlenR]; exact hiA)⟩
-    obtain ⟨o, hoi, hrun⟩ := RR.rule i _ rhs0 hcA hrhs0
-    obtain rfl : rhs = o := Option.some.inj (hrhs.symm.trans hoi)
-    obtain ⟨Q⟩ := targetRule_run hrun
-    rw [hfeR] at Q
-    have hlp : cvRi.levelParams = rc.cvR.levelParams :=
-      (checkConstantVal_lps (by rw [← checkConstantValF_eq]; exact E.hcv)).2
-    refine ⟨rc, hrc, RuleOutOk.of_annotate Q.hbv Q.hfv Q.hann (by rw [← hlp]; exact Q.hlp) ?_
-      ⟨Q.tyR, Q.htyR⟩⟩
-    have h := Q.hres
-    simp only [StructWalkers.plain, constsResolveF_eq] at h
-    exact h
-  · -- every stored member-major rule's λ-tower
-    intro c r i cA rhs hm hr hcA hrhs
-    obtain ⟨rc, cvRi, M, u, rhssA, hrc, ht, ho, rfl, hlenR, RR, ⟨E⟩⟩ := targetRecRun_at R hr
-    have hMs := hmemAt c rc cvRi M u hrc ht hm
-    obtain ⟨-, -, hR⟩ := recShape_at (q := p.toBlockShape) hrc
-    obtain ⟨ms, hMm, -, -, -, -, -⟩ := E.member_facts_of hMs
-    simp only at hcA hrhs
-    obtain ⟨rhs0, hrhs0⟩ : ∃ rhs0, rc.rhss[i]? = some rhs0 :=
-      ⟨_, List.getElem?_eq_getElem (by
-        rw [hlenR]; exact (List.getElem?_eq_some_iff.mp hcA).1)⟩
-    obtain ⟨o, hoi, hrun⟩ := RR.rule i cA rhs0 hcA hrhs0
-    obtain rfl : rhs = o := Option.some.inj (hrhs.symm.trans hoi)
-    obtain ⟨Q⟩ := targetRule_run hrun
-    rw [hfeR] at Q
-    have hlp : cvRi.levelParams = rc.cvR.levelParams :=
-      (checkConstantVal_lps (by rw [← checkConstantValF_eq]; exact E.hcv)).2
-    have hds := targetDs_eq_prefTake_of E hMs Q.hpref
-    obtain ⟨hnPc, hlvls⟩ := targetTyEntry_major_of E hMs
-    have hct : targetCtorAt M cA.1 = cA.1.type := by simp [targetCtorAt, hMm]
-    have hc := Q.hcrest
-    rw [hct, hds, instPisWith_eq_instPisAt] at hc
-    obtain ⟨cpref, hcpar⟩ : ∃ cpref, Expr.instPisAt (Q.fvsPref.take p.nP) cA.1.type
-        = some (cpref, Q.crest) := by
-      cases hq : Expr.instPisAt (Q.fvsPref.take p.nP) cA.1.type with
-      | none => rw [hq] at hc; exact nomatch hc
-      | some pr =>
-        rw [hq] at hc
-        exact ⟨pr.1, by rw [← Option.some.inj hc]⟩
-    have hrecTy : ((tgtRs out).map (·.1.type))[c]? = some cvRi.type := by
-      simp only [tgtRs, List.map_map, List.getElem?_map, ho, Option.map_some,
-        Function.comp_def]
-    refine ⟨rc, rhs0, hrc, hrhs0, ⟨{
-      recTy := cvRi.type, tyR := Q.tyR, rbs := Q.rbs, body := Q.body, fvsPref := Q.fvsPref, oPref := Q.oPref, cpref := cpref, crest := Q.crest,
-      fvsF := Q.fvsF, cbody := Q.cbody, ldoms := Q.ldoms, lrest := Q.lrest, concl := Q.concl,
-      hrecTy := hrecTy, hbv := Q.hbv, hfv := Q.hfv, hann := Q.hann,
-      hlp := (by rw [← hlp]; exact Q.hlp),
-      hres := (by
-        have h := Q.hres
-        simp only [StructWalkers.plain, constsResolveF_eq] at h
-        exact h),
-      htyR := Q.htyR, hstrip := (by rw [hR]; exact Q.hstrip), hpw := Q.hpw,
-      hpref := (by rw [hR]; exact Q.hpref), hcpar := hcpar,
-      hfld := (by rw [hR]; exact Q.hfld), hlams := Q.hlams,
-      hldomsRes := fun t ht => (by
-        have h := Q.hldomsRes t ht
-        simp only [StructWalkers.plain, constsResolveF_eq] at h
-        exact h),
-      hG2len := Q.hG2len, hG2 := fun l hl => (by rw [hR]; exact Q.hG2 l hl),
-      hconcl := (by
-        have hc := Q.hconcl
-        rw [hnPc, hlvls, hds] at hc
-        exact hc) }⟩⟩
-
-
-/-- Each member's stored constructors, one for one with its declared
-ones: the constructors' stage's name-and-arity record gives the lengths. -/
-theorem ctorsLen_of_names
-    (hnames : ctorsAs.map (·.map (fun cA => (cA.1.name, cA.2)))
-      = p.members.map (fun ms => ms.ctors.map (fun c => (c.1.name, c.2)))) :
-    ∀ (t : Nat) (ms : MemberShape) (ctorsA : List (ConstantVal × Nat)),
-      p.members[t]? = some ms → ctorsAs[t]? = some ctorsA → ctorsA.length = ms.ctors.length := by
-  intro t ms ctorsA hms hct
-  have h := congrArg (·[t]?) hnames
-  simp only [List.getElem?_map, hms, hct, Option.map_some, Option.some.injEq] at h
-  have := congrArg List.length h
-  simpa using this
-
 
 end Producer
 

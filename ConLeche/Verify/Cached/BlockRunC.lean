@@ -3,11 +3,7 @@ module
 public import ConLeche.Verify.Cached.BridgeCSDecl
 import ConLeche.Verify.Inductives.BlockWF
 import ConLeche.Verify.Inductives.BlockRecRun
-import ConLeche.Verify.Inductives.BlockRecInv
 import ConLeche.Verify.BridgeWfImp
-import ConLeche.Verify.Inductives.DirectGen
-import ConLeche.Verify.Denote.IndFrame
-import ConLeche.Verify.Cached.WalkersC
 import ConLeche.Verify.Inductives.BlockInv
 import ConLeche.Verify.Inductives.DirectInv
 public import ConLeche.Verify.Cached.NestPosC
@@ -236,20 +232,6 @@ theorem mkPisOf_WScoped {d : Nat} :
     exact ⟨hbs _ List.mem_cons_self,
       mkPisOf_WScoped (fun b hb' => hbs b (List.mem_cons_of_mem _ hb')) hb⟩
 
-theorem structTeleVars_WScoped {d m : Nat} : ∀ x ∈ structTeleVars m, WScoped d x := by
-  intro x hx
-  simp only [structTeleVars, List.mem_map] at hx
-  obtain ⟨k, -, rfl⟩ := hx
-  simp [WScoped]
-
-/-- `instantiateList` at well-scoped values keeps a scoped term scoped. -/
-theorem instantiateList_WScoped {d : Nat} {vs : List Expr} {e : Expr}
-    (hvs : ∀ v ∈ vs, WScoped d v) (he : WScoped d e) : WScoped d (e.instantiateList vs 0) := by
-  by_cases hne : vs = []
-  · subst hne; rw [Expr.instantiateList_nil]; exact he
-  · rw [instantiateList_eq_instSeq hne]
-    exact Expr.instSeq_WScoped _ _ (fun a ha => hvs a (List.mem_reverse.mp ha)) he
-
 /-- An opened telescope's variables carry types scoped at their own
 frame. -/
 theorem openers_typeD_WScoped {n off : Nat} {e : Expr} {fvs : List Expr} {body : Expr}
@@ -260,16 +242,6 @@ theorem openers_typeD_WScoped {n off : Nat} {e : Expr} {fvs : List Expr} {body :
   have hw := (openPisAtFvars_WScoped n e off h he).1 _ (List.mem_of_getElem? hx)
   simp only [WScoped] at hw
   exact hw.2
-
-/-- The same, read at a common frame. -/
-theorem openers_typeD_WScoped' {n off d : Nat} {e : Expr} {fvs : List Expr} {body : Expr}
-    (h : openPisAtFvars n e off = some (fvs, body)) (he : WScoped off e) (hd : off + n ≤ d) :
-    ∀ x ∈ fvs, WScoped d x.fvarTypeD := by
-  intro x hx
-  obtain ⟨i, hi⟩ := List.getElem?_of_mem hx
-  have hil : i < fvs.length := (List.getElem?_eq_some_iff.mp hi).1
-  have hlen : fvs.length = n := ConLeche.Verify.openPisAtFvars_length n h
-  exact (openers_typeD_WScoped h he i x hi).mono (by omega)
 
 /-! ## 3. The single-environment stages, simulated -/
 
@@ -477,100 +449,6 @@ section Sims3
 
 variable {env : Env}
 
-/-- The member's parameter-and-index telescope at the recursor's own
-numbering: the index openers carry types scoped at their own frame,
-provided the parameters come first. -/
-theorem openPisParamsIdx_typeD_WScoped {nP nIdx rP : Nat} {ty : Expr} {tfvs : List Expr}
-    {rest : Expr} (h : openPisParamsIdx nP nIdx rP ty = some (tfvs, rest))
-    (hw : WScoped 0 ty) (hle : nP ≤ rP) :
-    ∀ (i : Nat) (x : Expr), (tfvs.drop nP)[i]? = some x →
-      i < nIdx ∧ WScoped (rP + i) x.fvarTypeD := by
-  unfold openPisParamsIdx at h
-  split at h
-  · exact nomatch h
-  · next pfvs body hp =>
-    split at h
-    · exact nomatch h
-    · next ifvs rest' hi =>
-      simp only [Option.some.injEq, Prod.mk.injEq] at h
-      obtain ⟨rfl, -⟩ := h
-      have hpl : pfvs.length = nP := ConLeche.Verify.openPisAtFvars_length _ hp
-      have hil : ifvs.length = nIdx := ConLeche.Verify.openPisAtFvars_length _ hi
-      have hbody : WScoped rP body :=
-        ((openPisAtFvars_WScoped _ _ 0 hp hw).2).mono (by omega)
-      intro i x hx
-      rw [List.drop_left' hpl] at hx
-      exact ⟨by have := (List.getElem?_eq_some_iff.mp hx).1; omega,
-        openers_typeD_WScoped hi hbody i x hx⟩
-
-theorem checkBlockRecPrefixAtS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env)
-    {p : BlockShape} {rP0 : Nat} {doms0 : List Expr} (hd : ∀ x ∈ doms0, WScoped rP0 x) :
-    ∀ {l : List ConstantVal} {ri : Nat} {s₀ : CState},
-      (∀ cv ∈ l, WScoped 0 cv.type) → CSOK mode env s₀ →
-      SimC mode env s₀ RelVC
-        (checkBlockRecPrefixAt (sharedOpsC mode (mkFEnv env)) env p rP0 doms0 l ri)
-        (checkBlockRecPrefixAt (fueledOpsM mode) env p rP0 doms0 l ri)
-  | [], _, s₀, _, hs => SimC.pure hs rfl
-  | cv :: rest, ri, s₀, hl, hs => by
-    unfold checkBlockRecPrefixAt
-    by_cases h1 : (p.rulePrefixAt ri == rP0) = true
-    case neg => simp only [h1]; exact SimC.throw_bind
-    simp only [h1, if_true]
-    refine SimC.bind (SimC.unwrapOr' hs) (fun s₁ x x' hs₁ hX => ?_)
-    obtain ⟨rfl, hx⟩ := hX
-    obtain ⟨fvs, body⟩ := x
-    dsimp only
-    refine SimC.bind (checkBlockDefEqListS_sim hμ henv ?_ hs₁) (fun s₂ _ _ hs₂ _ => ?_)
-    · intro i a b ha hb
-      rw [List.getElem?_map] at hb
-      obtain ⟨b', hb', rfl⟩ := Option.map_eq_some_iff.mp hb
-      exact ⟨hd a (List.mem_of_getElem? ha),
-        openers_typeD_WScoped' hx (hl cv List.mem_cons_self) (by omega) b'
-          (List.mem_of_getElem? hb')⟩
-    exact checkBlockRecPrefixAtS_sim hμ henv hd (fun c hc => hl c (List.mem_cons_of_mem _ hc)) hs₂
-
-theorem checkBlockRecPrefixAgreeS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env)
-    {p : BlockShape} {cvRs : List ConstantVal} {s₀ : CState}
-    (hl : ∀ cv ∈ cvRs, WScoped 0 cv.type) (hs : CSOK mode env s₀) :
-    SimC mode env s₀ RelVC
-      (checkBlockRecPrefixAgree (sharedOpsC mode (mkFEnv env)) env p cvRs)
-      (checkBlockRecPrefixAgree (fueledOpsM mode) env p cvRs) := by
-  unfold checkBlockRecPrefixAgree
-  split
-  · exact SimC.pure hs rfl
-  · next cv0 rest =>
-    refine SimC.bind (SimC.unwrapOr' hs) (fun s₁ x x' hs₁ hX => ?_)
-    obtain ⟨rfl, hx⟩ := hX
-    obtain ⟨fvs0, body0⟩ := x
-    dsimp only
-    refine checkBlockRecPrefixAtS_sim hμ henv ?_ (fun c hc => hl c (List.mem_cons_of_mem _ hc)) hs₁
-    intro y hy
-    obtain ⟨x, hx', rfl⟩ := List.mem_map.mp hy
-    exact openers_typeD_WScoped' hx (hl cv0 List.mem_cons_self) (by omega) x hx'
-
-theorem checkBlockRecSmallElimS_sim {p : BlockShape} {nested : Bool} {us : List Level}
-    {s₀ : CState} (hs : CSOK mode env s₀) :
-    SimC mode env s₀ RelVC (checkBlockRecSmallElim (m := CheckCM) p nested us)
-      (checkBlockRecSmallElim (m := FueledM) p nested us) := by
-  unfold checkBlockRecSmallElim
-  by_cases h1 : 0 < p.k
-  case neg => simp only [h1]; exact SimC.throw_bind
-  simp only [h1, if_true]
-  split
-  · exact SimC.pure hs rfl
-  · exact SimC.throw
-
-theorem checkBlockRecElimPinS_sim {p : BlockShape} {us : List Level} {s₀ : CState}
-    (hs : CSOK mode env s₀) :
-    SimC mode env s₀ RelVC (checkBlockRecElimPin (m := CheckCM) p us)
-      (checkBlockRecElimPin (m := FueledM) p us) := by
-  unfold checkBlockRecElimPin
-  refine SimC.bind (SimC.liftFueled _ _ hs) (fun s₁ b b' hs₁ hb => ?_)
-  obtain rfl : b = b' := hb
-  split
-  · exact SimC.pure hs₁ rfl
-  · exact SimC.throw
-
 end Sims3
 
 /-! ## 4. The rule stage: two environments, one state
@@ -650,21 +528,6 @@ theorem mono {β α : Type} {P : β → α → Prop} {c : CheckCM β} {p : Fuele
     ⟨hB s' h1, h2⟩
 
 end SimG
-
-/-- The rule stage's `annotate` at the rule-less recursors'
-environment: it flushes first, so it simulates from any residue. -/
-theorem ruleR_annotate_simG (hμ : mode.verifiedChecks = true) {envR : Env} (henvR : EnvWF envR)
-    {d : Nat} {e : Expr} (hw : WScoped d e) :
-    SimG CSOKF (CSOK mode envR) (RelW d)
-      ((sharedOpsRuleR mode (mkFEnv envR)).annotate envR d e)
-      ((fueledOpsM mode).annotate envR d e) := by
-  intro s₀ hs v' s' hr
-  simp only [sharedOpsRuleR] at hr
-  obtain ⟨u, s₁, hfl, hr⟩ := bindC_ok hr
-  rw [flushC_run] at hfl
-  injection hfl with hfl
-  obtain rfl : s₀.flushed = s₁ := congrArg Prod.snd hfl
-  exact opE_annotate_sim hμ henvR (flushC_csok hs) hw v' s' hr
 
 /-- The rule stage's `inferType` at the rule-less recursors'
 environment: it flushes last, so it hands on a state that is an
@@ -942,107 +805,5 @@ theorem checkBlockPassS_run (hμ : mode.verifiedChecks = true) {env : Env} (henv
   rw [g₂]
   simp only [Except.bind]
   rw [gK]
-
-/-- The conformance check's own classification is operation-free: in
-the cached monad it leaves the state alone and computes what the pure
-one does. -/
-theorem confKindsC_ok {T : Name} {lps : List Name} {nP nIdx : Nat}
-    {ctorsA : List (ConstantVal × Nat)} {s₀ s' : CState} {kinds : List (List RecFieldKind)}
-    (h : confKinds (m := CheckCM) T lps nP nIdx ctorsA s₀ = .ok (kinds, s')) :
-    s' = s₀ ∧ confKinds (m := CheckM) T lps nP nIdx ctorsA = .ok kinds := by
-  unfold confKinds at h ⊢
-  obtain ⟨ks, s₁, hu, h⟩ := bindC_ok h
-  cases hk : ctorsA.mapM (confCtorKinds T lps nP nIdx) with
-  | none => rw [hk] at hu; exact nomatch hu
-  | some ks' =>
-  rw [hk] at hu
-  simp only [unwrapOr] at hu
-  obtain ⟨rfl, rfl⟩ := pureC_ok hu
-  simp only [unwrapOr, hk]
-  try dsimp only at h
-  split at h
-  · exact absurd h throwC_bind_ok
-  · try dsimp only at h
-    split at h
-    · exact absurd h throwC_bind_ok
-    · obtain ⟨rfl, rfl⟩ := pureC_ok h
-      simp only [*, bind, Except.bind, ↓reduceIte, pure, Except.pure]
-      exact ⟨trivial, rfl⟩
-
-/-- **The reject-only conformance check at the cached
-driver** is reproduced by the pure fueled one.  It opens with its own
-`flushC`, so it starts from any residue: the rule stage before it ends
-at the constructors' index (the `feR` half of every rule is closed by
-`sharedOpsRuleR`'s trailing flush), and this flush only drops what that
-stage cached there — no invariant is carried across it. -/
-theorem checkBlockRecConformS_run (hμ : mode.verifiedChecks = true) {env₂ : Env}
-    (henv₂ : EnvWF env₂) {p : BlockParts} {cvTas : List ConstantVal}
-    {ctorsAs : List (List (ConstantVal × Nat))} {nfs : List (List Expr)} {s₀ : CState}
-    (hwf : CSOKF s₀) {u : Unit} {s' : CState}
-    (h : (flushC *> checkBlockRecConformF (sharedOpsC mode (mkFEnv env₂)) structWalkersC
-      (mkFEnv env₂) none p cvTas ctorsAs nfs) s₀ = .ok (u, s')) :
-    CSOKF s' ∧ ∃ F, checkBlockRecConform (fueledOps mode F) env₂ p cvTas ctorsAs nfs
-      = .ok () := by
-  simp only [SeqRight.seqRight, bind_pure_comp] at h
-  obtain ⟨u0, s₁, hfl, h⟩ := bindC_ok h
-  rw [flushC_run] at hfl
-  injection hfl with hfl
-  obtain rfl : s₀.flushed = s₁ := congrArg Prod.snd hfl
-  have hs₁ : CSOK mode env₂ s₀.flushed := flushC_csok hwf
-  rw [structWalkersC_eq_plain] at h
-  by_cases hone : ∃ ms rc cvTa ctorsA, p.members = [ms] ∧ p.recs = [rc] ∧
-      cvTas = [cvTa] ∧ blockNormalCtors p.toBlockShape ctorsAs nfs = [ctorsA]
-  · obtain ⟨ms, rc, cvTa, ctorsA, hm, hr, hc, hct⟩ := hone
-    unfold checkBlockRecConformF at h
-    unfold checkBlockRecConform
-    simp only [hm, hr, hc, hct] at h ⊢
-    obtain ⟨kinds, sK, hK, h⟩ := bindC_ok h
-    obtain ⟨rfl, hKp⟩ := confKindsC_ok hK
-    rw [hKp]
-    simp only [bind, Except.bind]
-    try dsimp only at h
-    by_cases hok : nativeRulesOk (p.toNative kinds).cvR.name
-        ((p.toNative kinds).cvR.levelParams.map .param) .never (p.toNative kinds).nP
-        (p.toNative kinds).ctors.length ctorsA (p.toNative kinds).kinds (p.toNative kinds).rhss
-        (p.toNative kinds).cvR.type = true
-    case neg =>
-      simp only [hok, Bool.false_eq_true, ↓reduceIte] at h
-      exact absurd h throwC_bind_ok
-    simp only [hok, ↓reduceIte] at h ⊢
-    simp only [discard, Functor.discard, Functor.mapConst, Function.comp_def] at h
-    rw [checkNativeRecF_eq] at h
-    cases hrc : checkNativeRec (sharedOpsC mode (mkFEnv env₂)) env₂ (p.toNative kinds) cvTa ctorsA
-        s₀.flushed with
-    | error e =>
-      simp only [StateT.map, hrc, bind, Except.bind] at h
-      exact nomatch h
-    | ok r =>
-    obtain ⟨q, s₂⟩ := r
-    have hs' : s₂ = s' := by
-      simp only [StateT.map, hrc, bind, Except.bind, pure, Except.pure, Except.ok.injEq,
-        Prod.mk.injEq] at h
-      exact h.2
-    subst hs'
-    obtain ⟨hs₂, q', hP, F, hF⟩ := checkNativeRecS_sim hμ henv₂ hs₁ q s₂ hrc
-    obtain rfl : q = q' := hP
-    refine ⟨hs₂.residue, F, ?_⟩
-    have hF' : checkNativeRec (fueledOps mode F) env₂ (p.toNative kinds) cvTa ctorsA = .ok q := by
-      rw [← checkNativeRec_datF]; exact hF
-    simp only [discard, Functor.discard, Functor.mapConst, Function.comp_def]
-    rw [hF']
-    rfl
-  · have eF : checkBlockRecConformF (sharedOpsC mode (mkFEnv env₂)) StructWalkers.plain
-        (mkFEnv env₂) none p cvTas ctorsAs nfs = pure () := by
-      unfold checkBlockRecConformF
-      split
-      · exfalso; exact hone ⟨_, _, _, _, by assumption, by assumption, rfl, by assumption⟩
-      · rfl
-    rw [eF] at h
-    obtain ⟨-, rfl⟩ := pureC_ok h
-    refine ⟨hs₁.residue, 0, ?_⟩
-    unfold checkBlockRecConform
-    split
-    · exfalso; exact hone ⟨_, _, _, _, by assumption, by assumption, rfl, by assumption⟩
-    · rfl
 
 end ConLeche.Cached
