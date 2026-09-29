@@ -109,6 +109,8 @@ public import ConLeche.Model.Inductives.ContAccFrame
 public import ConLeche.Model.Inductives.ContAcc
 public import ConLeche.Model.Inductives.BlockAccRun
 public import ConLeche.Model.Inductives.BlockAccRunCont
+public import ConLeche.Model.Inductives.ClassGenMinor
+public import ConLeche.Model.Inductives.ClassGenUniq
 public import ConLeche.Model.Annot.EnvModelM
 public import ConLeche.Model.BasisLfp
 public import ConLeche.Model.Rules.Recompose
