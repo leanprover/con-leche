@@ -110,7 +110,11 @@ structure RecTyGen (mode : CheckMode) (F : Nat) (env : Env) (p : BlockShape)
   concl : Expr
   maj : Expr
   sty : Expr
-  hcv : checkConstantVal (fueledOps mode F) env rc.cvR = .ok cvRi
+  /-- the constant checked: the record's own, or (a generated recursor)
+  one under the record's name and level parameters -/
+  cv0 : ConstantVal
+  hcv0 : cv0.name = rc.cvR.name ∧ cv0.levelParams = rc.cvR.levelParams
+  hcv : checkConstantVal (fueledOps mode F) env cv0 = .ok cvRi
   hroom : p.nP ≤ p.rulePrefixAt ri
   hmI' : p.majorIdxAt ri = p.rulePrefixAt ri + nIdx
   hopen : openPisAtFvars (p.majorIdxAt ri + 1) cvRi.type 0 = some (fvs, concl)
@@ -132,10 +136,10 @@ theorem mI_eq (E : RecTyGen mode F env p nested ri rc cvRi nIdx u) :
     p.majorIdxAt ri = p.rulePrefixAt ri + nIdx := E.hmI'
 
 theorem name_eq (E : RecTyGen mode F env p nested ri rc cvRi nIdx u) :
-    cvRi.name = rc.cvR.name := (checkConstantVal_lps E.hcv).1
+    cvRi.name = rc.cvR.name := (checkConstantVal_lps E.hcv).1.trans E.hcv0.1
 
 theorem lps_eq (E : RecTyGen mode F env p nested ri rc cvRi nIdx u) :
-    cvRi.levelParams = rc.cvR.levelParams := (checkConstantVal_lps E.hcv).2
+    cvRi.levelParams = rc.cvR.levelParams := (checkConstantVal_lps E.hcv).2.trans E.hcv0.2
 
 end RecTyGen
 

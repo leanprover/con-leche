@@ -121,14 +121,25 @@ theorem recStage_prefixAgree {envC : Env} {p : ConLeche.BlockParts}
           ConLeche.openPisAtFvars (p.toBlockShape.rulePrefixAt 0) r.1.type 0
               = some (fvs, o) ∧
           fvs0.length = fvs.length ∧
-          ∀ l, l < fvs0.length →
+          ((∀ l, l < fvs0.length →
             ConLeche.isDefEqCore μ envC F (p.toBlockShape.rulePrefixAt 0)
               ((fvs0.map Expr.fvarTypeD).getD l default)
-              ((fvs.map Expr.fvarTypeD).getD l default) = .ok true := by
+              ((fvs.map Expr.fvarTypeD).getD l default) = .ok true) ∨
+            fvs.map Expr.fvarTypeD = fvs0.map Expr.fvarTypeD) := by
   obtain ⟨R⟩ := id h
-  obtain ⟨fvs0, o0, hop0, hall⟩ :=
-    ConLeche.checkBlockRecPrefixAgree_inv R.fam.prefixAgree (R.stored_fst hr0)
-  exact ⟨fvs0, o0, hop0, fun i r hr hi => hall i r.1 (R.stored_fst hr) hi⟩
+  rcases R.fam.prefixAgree with hpa | hsame
+  · obtain ⟨fvs0, o0, hop0, hall⟩ :=
+      ConLeche.checkBlockRecPrefixAgree_inv hpa (R.stored_fst hr0)
+    refine ⟨fvs0, o0, hop0, fun i r hr hi => ?_⟩
+    obtain ⟨hrP, fvs, o, hop, hlen, hdeq⟩ := hall i r.1 (R.stored_fst hr) hi
+    exact ⟨hrP, fvs, o, hop, hlen, .inl hdeq⟩
+  · obtain ⟨fvs0, o0, hop0, hall⟩ := hsame r0.1 (R.stored_fst hr0)
+    refine ⟨fvs0, o0, hop0, fun i r hr _ => ?_⟩
+    obtain ⟨hrP, fvs, o, hop, hdoms⟩ := hall i r.1 (R.stored_fst hr)
+    have hlen : fvs0.length = fvs.length := by
+      have := congrArg List.length hdoms
+      simpa using this.symm
+    exact ⟨hrP, fvs, o, hop, hlen, .inr hdoms⟩
 
 /-- **The identification**: at every `ψ`, the `i`-th stored
 recursor type READS, its reading is GRADED, and it IS the Π-tower

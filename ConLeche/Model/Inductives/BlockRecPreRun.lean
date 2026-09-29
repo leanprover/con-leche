@@ -2010,6 +2010,26 @@ theorem blockRecHpref_run (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V μ
     have hdI := blockRulePdomsAV_reads hμ mpC h hri ψ hopI'
     have hokI := blockRulePdomsAV_graded hμ mpC h hri ψ
     obtain ⟨hwI, hbI⟩ := recStage_tyClosed h hri
+    rcases hdeqI with hdeqI | hsame
+    case inr =>
+      -- a syntactically shared prefix: the two prefixes READ alike
+      have heq : blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ i
+          = blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ 0 := by
+        apply List.ext_getElem (by rw [hlenI, hlen0])
+        intro l hl1 hl2
+        have hlI' : l < fvsI.length := by rw [hlI]; omega
+        have hl0' : l < fvs0.length := by rw [hl0]; omega
+        have h1 := hdI l fvsI[l] (List.getElem?_eq_getElem hlI')
+        have h2 := hd0 l fvs0[l] (List.getElem?_eq_getElem hl0')
+        have hty : Expr.fvarTypeD fvsI[l] = Expr.fvarTypeD fvs0[l] := by
+          have := congrArg (·[l]?) hsame
+          simpa [List.getElem?_map, List.getElem?_eq_getElem hlI',
+            List.getElem?_eq_getElem hl0'] using this
+        rw [hty, h2] at h1
+        simp only [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hl1,
+          List.getElem?_eq_getElem hl2, Option.getD_some] at h1
+        exact (Option.some.inj h1).symm
+      exact ⟨fun hz => heq ▸ hz, fun hz => heq ▸ hz⟩
     have hdeq0I : ∀ l, l < p.toBlockShape.rulePrefixAt 0 →
         ConLeche.isDefEqCore μ envC F (p.toBlockShape.rulePrefixAt 0)
           ((fvs0.map Expr.fvarTypeD).getD l default)

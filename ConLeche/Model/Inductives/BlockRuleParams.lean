@@ -48,12 +48,12 @@ theorem recStage_lpsPin
   have hnl : i < p.recs.length := by
     have hql := (List.getElem?_eq_some_iff.mp hr).1
     omega
-  obtain ⟨rc, q', hrc, hq', -, hcv, -, -⟩ := hall i hnl
+  obtain ⟨rc, q', hrc, hq', -, ⟨cv0, -, hl0, hcv⟩, -, -⟩ := hall i hnl
   obtain rfl := Option.some.inj (hr.symm.trans hq')
   obtain ⟨-, -, -, -, -, -, type, -, -, -, -, -, -, -, hcv'⟩ :=
     ConLeche.checkConstantVal_inv hcv
   have hlps := List.all_eq_true.mp hpins.1 rc (List.mem_of_getElem? hrc)
-  rw [show r.1.levelParams = rc.cvR.levelParams by rw [hcv']]
+  rw [show r.1.levelParams = rc.cvR.levelParams by rw [hcv', ← hl0]]
   by_cases hb : p.toBlockShape.large = true
   · rw [if_pos hb] at hlps ⊢
     exact eq_of_beq hlps

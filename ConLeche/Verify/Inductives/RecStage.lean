@@ -192,6 +192,19 @@ theorem RecPinsF.toOk {p : BlockShape} (h : RecPinsF p) (hall : ∀ rc ∈ p.rec
   rw [hown] at this
   exact this
 
+/-- **The family's rule prefix, shared SYNTACTICALLY** (a generated
+family): every recursor type, opened at the first recursor's rule
+prefix, has the first recursor's opened binder domains, and every
+recursor's prefix has that length. -/
+@[expose] def RecPrefixSame (p : BlockShape) (cvRs : List ConstantVal) : Prop :=
+  ∀ cv0, cvRs[0]? = some cv0 → ∃ (fvs0 : List Expr) (o0 : Expr),
+    openPisAtFvars (p.rulePrefixAt 0) cv0.type 0 = some (fvs0, o0) ∧
+    ∀ (i : Nat) (cv : ConstantVal), cvRs[i]? = some cv →
+      p.rulePrefixAt i = p.rulePrefixAt 0 ∧
+      ∃ (fvs : List Expr) (o : Expr),
+        openPisAtFvars (p.rulePrefixAt 0) cv.type 0 = some (fvs, o) ∧
+        fvs.map Expr.fvarTypeD = fvs0.map Expr.fvarTypeD
+
 /-- **The family's agreements**, over stage (b)'s list: the counting
 half of the elimination guard, the elimination-level PIN, the index
 binder domains (each recursor's against its major member's index
@@ -221,8 +234,10 @@ structure RecFamFacts (mode : CheckMode) (F : Nat) (env : Env) (p : BlockShape)
         (((tfvs.drop p.nP).map Expr.fvarTypeD).getD q default)
         ((((fvs.drop (p.rulePrefixAt i)).take nIdx).map Expr.fvarTypeD).getD q default)
         = .ok true
-  /-- the shared rule prefix -/
-  prefixAgree : checkBlockRecPrefixAgree (fueledOps mode F) env p (cvRus.map (·.1)) = .ok ()
+  /-- the shared rule prefix: checked (`checkBlockRecPrefixAgree`), or
+  shared syntactically (a generated family) -/
+  prefixAgree : checkBlockRecPrefixAgree (fueledOps mode F) env p (cvRus.map (·.1)) = .ok () ∨
+    RecPrefixSame p (cvRus.map (·.1))
 
 /-- **The recursor stage, as checked** — its kind-free facts.  `env` is
 the constructors' environment, `rs` the stored family (install format).
@@ -264,7 +279,7 @@ structure RecStage (mode : CheckMode) (F : Nat) (env : Env) (p : BlockParts)
   /-- (c) every stored rule, annotated at the rule-less recursors -/
   ruleOut : ∀ (c : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)) (i : Nat)
     (rhs : Expr), rs[c]? = some r → r.2.1[i]? = some rhs →
-    ∃ rc rhs0, p.recs[c]? = some rc ∧ rc.rhss[i]? = some rhs0 ∧
+    ∃ rc rhs0, p.recs[c]? = some rc ∧
       RuleOutOk mode F (consBlockRecsBare p.toBlockShape 0 (rs.map fun r => (r.1, r.2.2.1)) env)
         rc.cvR rhs0 rhs
   /-- (c) every stored MEMBER-major rule's λ-tower -/
@@ -370,7 +385,7 @@ theorem ruleOutOf (R : RecStage mode F env p cvTas ctorsAs rs mem)
       RuleOutOk mode F (consBlockRecsBare p.toBlockShape 0 (rs.map fun r => (r.1, r.2.2.1)) env)
         rc.cvR rhs0 rhs := by
   obtain ⟨i, hi⟩ := List.getElem?_of_mem hrhs
-  obtain ⟨rc, rhs0, hrc, -, hQ⟩ := R.ruleOut c r i rhs hr hi
+  obtain ⟨rc, rhs0, hrc, hQ⟩ := R.ruleOut c r i rhs hr hi
   exact ⟨i, rc, rhs0, hi, hrc, hQ⟩
 
 /-- **The pins at `mem := fun _ => True`**: every major a member, every record
@@ -462,7 +477,8 @@ theorem recStageG_recNames {mem : Nat → Prop} (h : RecStageG mode F env p cvTa
     RecPinsF p.toBlockShape ∧ rs.length = p.recs.length ∧
     ∀ i, i < p.recs.length → ∃ rc r, p.recs[i]? = some rc ∧ rs[i]? = some r ∧
       r.1.name = rc.cvR.name ∧
-      checkConstantVal (fueledOps mode F) env rc.cvR = .ok r.1 ∧
+      (∃ cv0, cv0.name = rc.cvR.name ∧ cv0.levelParams = rc.cvR.levelParams ∧
+        checkConstantVal (fueledOps mode F) env cv0 = .ok r.1) ∧
       p.nP ≤ p.toBlockShape.rulePrefixAt i ∧
       ∃ nIdx, p.toBlockShape.majorIdxAt i = p.toBlockShape.rulePrefixAt i + nIdx := by
   obtain ⟨R⟩ := h
@@ -470,7 +486,7 @@ theorem recStageG_recNames {mem : Nat → Prop} (h : RecStageG mode F env p cvTa
   have hi' : i < rs.length := by rw [R.len]; exact hil
   have hr : rs[i]? = some rs[i] := List.getElem?_eq_getElem hi'
   obtain ⟨rc, u, hrc, -, ⟨E⟩⟩ := R.tyGenAt hr
-  exact ⟨rc, _, hrc, hr, E.name_eq, E.hcv, E.nP_le, _, E.mI_eq⟩
+  exact ⟨rc, _, hrc, hr, E.name_eq, ⟨E.cv0, E.hcv0.1, E.hcv0.2, E.hcv⟩, E.nP_le, _, E.mI_eq⟩
 
 /-- **The stored recursors' name facts and `hnoTy`**, from the
 per-recursor `checkConstantVal` run: freshness at the constructors'
@@ -488,13 +504,14 @@ theorem recStage_cvFacts {mem : Nat → Prop} (h : RecStageG mode F env p cvTas 
   have hil : i < p.recs.length := by
     have := (List.getElem?_eq_some_iff.mp hi).1
     omega
-  obtain ⟨rc, r', hrc, hr', hname, hcv, -, -⟩ := hall i hil
+  obtain ⟨rc, r', hrc, hr', hname, ⟨cv0, hn0, -, hcv⟩, -, -⟩ := hall i hil
   obtain rfl := Option.some.inj (hi.symm.trans hr')
   obtain ⟨hfresh, hres, hpsh, -, -, hfv, type, -, -, hann, -, -, -, -, hcv'⟩ :=
     checkConstantVal_inv hcv
   have htype : r.1.type = type := by rw [hcv']
-  refine ⟨by rw [hname]; exact hfresh, by rw [hname]; exact hres,
-    by rw [hname]; exact hpsh, fun T i hslot => ?_⟩
+  have hname' : r.1.name = cv0.name := by rw [hname, hn0]
+  refine ⟨by rw [hname']; exact hfresh, by rw [hname']; exact hres,
+    by rw [hname']; exact hpsh, fun T i hslot => ?_⟩
   rw [htype]
   exact annotateCore_noProjAt mode hann hfv hslot
 
@@ -635,7 +652,8 @@ theorem recTyGen_of_target {q : BlockShape} {nested : Bool} {i : Nat} {rc : RecS
   have hcv : checkConstantVal (fueledOps mode F) env rc.cvR = .ok cvRi := by
     rw [← checkConstantValF_eq]; exact E.hcv
   refine ⟨{
-    fvs := E.fvs, concl := E.concl, maj := E.maj, sty := E.sty, hcv := hcv,
+    fvs := E.fvs, concl := E.concl, maj := E.maj, sty := E.sty, cv0 := rc.cvR,
+    hcv0 := ⟨rfl, rfl⟩, hcv := hcv,
     hroom := (by rw [hR]; exact E.hroom), hmI' := (by rw [hM, hR, hmI]),
     hopen := (by rw [hM]; exact E.hopen), hmaj := (by rw [hM]; exact E.hmaj),
     hsty := (by rw [hM]; exact E.hsty), hu := (by rw [hM]; exact E.hu),
@@ -763,7 +781,7 @@ theorem recStage_of_targetG {nested : Bool}
       · intro q hq
         rw [hM, hR]
         exact hix q hq
-    · rw [hcs]; exact R.prefixAgree
+    · rw [hcs]; exact .inl R.prefixAgree
   · -- the stored records are stage (b)'s
     rw [← hbare]
     simp [List.map_map, Function.comp_def]
@@ -806,7 +824,7 @@ theorem recStage_of_targetG {nested : Bool}
     rw [hfeR] at Q
     have hlp : cvRi.levelParams = rc.cvR.levelParams :=
       (checkConstantVal_lps (by rw [← checkConstantValF_eq]; exact E.hcv)).2
-    refine ⟨rc, rhs0, hrc, hrhs0, ⟨Q.hbv, Q.hfv, Q.hann, by rw [← hlp]; exact Q.hlp, ?_,
+    refine ⟨rc, rhs0, hrc, ⟨Q.hbv, Q.hfv, Q.hann, by rw [← hlp]; exact Q.hlp, ?_,
       Q.tyR, Q.htyR⟩⟩
     have h := Q.hres
     simp only [StructWalkers.plain, constsResolveF_eq] at h

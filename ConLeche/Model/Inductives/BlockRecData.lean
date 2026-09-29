@@ -548,11 +548,11 @@ theorem recStage_lps {envC : Env} {p : ConLeche.BlockParts}
     have hnl : n < p.recs.length := by
       have hql := (List.getElem?_eq_some_iff.mp hq).1
       omega
-    obtain ⟨rc, q', hrc, hq', -, hcv, -, -⟩ := hall n hnl
+    obtain ⟨rc, q', hrc, hq', -, ⟨cv0, -, hl0, hcv⟩, -, -⟩ := hall n hnl
     obtain rfl := Option.some.inj (hq.symm.trans hq')
     obtain ⟨-, -, -, -, -, -, type, -, -, -, -, -, -, -, hcv'⟩ :=
       ConLeche.checkConstantVal_inv hcv
-    exact ⟨rc, List.mem_of_getElem? hrc, by rw [hcv']⟩
+    exact ⟨rc, List.mem_of_getElem? hrc, by rw [hcv', ← hl0]⟩
   obtain ⟨rc, hrcm, hlv⟩ := hone i r hr
   obtain ⟨rc', hrcm', hlv'⟩ := hone j r' hr'
   have hlps := List.all_eq_true.mp hpins.1 rc hrcm

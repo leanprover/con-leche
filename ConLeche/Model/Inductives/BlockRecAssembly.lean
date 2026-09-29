@@ -75,7 +75,7 @@ theorem recStage_rhsNoProj {envC : Env} {p : BlockParts} {cvTas : List ConstantV
     obtain ⟨i, hi⟩ := List.getElem?_of_mem hy
     obtain ⟨rc, u, -, -, ⟨E⟩⟩ := R.tyGenAt hi
     obtain ⟨-, -, hps, -⟩ := ConLeche.checkConstantVal_inv E.hcv
-    rw [E.name_eq]
+    rw [E.name_eq, ← E.hcv0.1]
     exact hps
   intro r hr rhsA hrhsA T i hslot
   obtain ⟨c, hc⟩ := List.getElem?_of_mem hr
