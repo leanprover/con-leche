@@ -1,0 +1,613 @@
+module
+
+public import ConLeche.Verify.Inductives.GenRecRun
+public import ConLeche.Verify.Inductives.RecStage
+public import ConLeche.Verify.Inductives.ClassGenScope
+public import ConLeche.Verify.Inductives.ClassGenAnnot
+import ConLeche.Model.Inductives.ClassGenRead
+import ConLeche.Model.Inductives.NestPosOut
+import ConLeche.Model.Inductives.StructFrameKit
+import ConLeche.Model.Inductives.BlockRecPreRun
+import ConLeche.Model.StreamConsts
+import ConLeche.Verify.Inductives.NestScope
+import ConLeche.Verify.Inductives.NestCallSyn
+import ConLeche.Verify.Rules.InferBridge
+import ConLeche.Verify.Denote.IndFrame
+import ConLeche.Verify.BridgeWfImp
+import ConLeche.Verify.Leaves
+import ConLeche.Verify.Knot
+import ConLeche.Verify.CheckerF
+import ConLeche.Verify.Extend.Inversions
+import ConLeche.Verify.Level
+import ConLeche.Semantics.DeclRun
+
+public section
+
+/-!
+# The recursor stage's record, from the GENERATED stage's run
+
+`recStage_of_gen`: the generated recursor stage's run (`GenRecRun`,
+`Verify/Inductives/GenRecRun.lean`) supplies the kind-free stage record
+`RecStageG` (`Verify/Inductives/RecStage.lean`) at the stored family
+`tgtRs out`, with no member-shaped fact (`mem := fun _ => False`): the
+generic recursor-stage proof (`blockRecStaged_runR`) reads it.
+
+Per recursor the checked constant is the GENERATED type
+`{ rc.cvR with type := (classGenRecTy g c).resetMeta }` (`RecTyGen.cv0`),
+annotated by `checkConstantVal`.  What the record asks of it:
+
+* it opens `mI + 1` binders and its conclusion `motive_c ı⃗ t` infers to
+  `Sort elim` (`genConclSort_core`: the conclusion's head is the motive's
+  variable, whose annotated domain is still `∀ ı⃗ t, Sort elim`) — the
+  generated type is annotated AFTER `resetMeta`, so the ported
+  `classGenRecTy_conclSort` (stated at the raw type) is re-derived here
+  over the reset telescope;
+* the elimination level is `structElimLevel p.elim p.large` at every
+  recursor, syntactically, so the pin is `isEquiv` reflexivity and the
+  counting half is the run's guard (or, at a small eliminator, the level
+  `0` itself);
+* the family's rule prefix is SHARED SYNTACTICALLY (`RecPrefixSame`): every
+  generated type is a telescope over the same reset prefix `g.pre`, and
+  annotating a domain reads only the domains before it (`SameDoms`);
+* every stored rule is the annotated generated rule (`ClassRuleRun`).
+-/
+
+namespace ConLeche
+
+/-! ## `resetMeta` through the generator's syntax -/
+
+theorem resetMeta_closeTelescope :
+    ∀ (nds : List (Expr × BinderMeta)) (i : Nat) (B : Expr),
+      (closeTelescope nds i B).resetMeta
+        = closeTelescope (nds.map fun q => (q.1.resetMeta, (⟨.never⟩ : BinderMeta))) i
+            B.resetMeta
+  | [], _, _ => rfl
+  | (dom, bm) :: nds, i, B => by
+    simp only [closeTelescope, List.map_cons, Expr.resetMeta, resetMeta_abstract1,
+      resetMeta_closeTelescope nds (i + 1) B]
+
+theorem resetMeta_mkAppN : ∀ (as : List Expr) (f : Expr),
+    (Expr.mkAppN f as).resetMeta = Expr.mkAppN f.resetMeta (as.map Expr.resetMeta)
+  | [], _ => rfl
+  | a :: as, f => by
+    simp only [Expr.mkAppN, List.map_cons]
+    rw [resetMeta_mkAppN as (.app f a)]
+    rfl
+
+theorem Expr.Plain.resetMeta : ∀ {e : Expr}, Expr.Plain e → Expr.Plain e.resetMeta
+  | .bvar _, _ => trivial
+  | .fvar _ _, _ => trivial
+  | .sort _, _ => trivial
+  | .const _ _, _ => trivial
+  | .app _ _, h => ⟨Expr.Plain.resetMeta h.1, Expr.Plain.resetMeta h.2⟩
+
+theorem EndsInSort.resetMeta {u : Level} :
+    ∀ (m : Nat) {e : Expr}, EndsInSort m u e → EndsInSort m u e.resetMeta
+  | 0, e, h => by
+    simp only [EndsInSort] at h ⊢
+    subst h; rfl
+  | m + 1, .forallE _ b _, h => EndsInSort.resetMeta m (e := b) h
+
+/-! ## The pre-pass's classes have motives -/
+
+/-- **Every recursor's class, as the pre-pass reads it, has a motive**:
+`classRead` reads a recursor's class as the motive ordinal of its
+conclusion's head (`classOfMotiveVar`), an index into the very list of
+motive slots `ClassRead.motiveSlot` indexes.  (A fact about the
+pre-pass's OUTPUT shape, not about the stream.) -/
+theorem classRead_recCls_motive {nP : Nat} {nPc : Name → Nat} {recs : List RecShape}
+    {rd : ClassRead} (h : classRead nP nPc recs = some rd) :
+    ∀ c ∈ rd.recCls, ∃ s, ClassRead.motiveSlot ⟨rd.slots, []⟩ c = some s := by
+  unfold classRead at h
+  obtain ⟨rc0, -, h⟩ := Option.bind_eq_some_iff.mp h
+  obtain ⟨⟨_, body⟩, -, h⟩ := Option.bind_eq_some_iff.mp h
+  obtain ⟨slots, -, h⟩ := Option.bind_eq_some_iff.mp h
+  obtain ⟨recCls, hrc, h⟩ := Option.bind_eq_some_iff.mp h
+  simp only [Option.pure_def, Option.some.injEq] at h
+  subst h
+  intro c hc
+  obtain ⟨rc, -, hf⟩ := option_mapM_mem hrc c hc
+  obtain ⟨⟨_, concl⟩, -, hf⟩ := Option.bind_eq_some_iff.mp hf
+  simp only at hf
+  split at hf
+  · rename_i q _ _
+    unfold classOfMotiveVar at hf
+    split at hf
+    · obtain ⟨hlt, -⟩ := List.findIdx?_eq_some_iff_getElem.mp hf
+      exact ⟨_, List.getElem?_eq_getElem hlt⟩
+    · exact nomatch hf
+  · exact nomatch hf
+
+end ConLeche
+
+namespace ConLeche.Model
+open ConLeche.Semantics
+open ConLeche.Verify
+open ConLeche (CheckMode Env Expr Name Level ConstantVal openPisAtFvars closeTelescope
+  ClassGen ClassGenScoped SameDoms EndsInSort classGenRecTy classBinder BinderMeta)
+
+variable {μ : CheckMode}
+
+set_option maxHeartbeats 800000 in
+/-- **A telescope over a variable applied, its conclusion sorted**: the
+annotated `closeTelescope nds 0 (x_k a⃗)` — the head `x_k` one of the
+telescope's own binders, its domain `∀ …, Sort u` with one binder per
+argument — opens at its binder count, and its conclusion infers to
+`Sort u`.  (`classGenRecTy_conclSort`'s argument, over any telescope: the
+annotation of the head's domain keeps its shape, and the head's
+annotated variable is what the inference types.) -/
+theorem genConclSort_core (hμ : μ.verifiedChecks = true) {envK : Env}
+    {nds : List (Expr × BinderMeta)} {k : Nat} {T0 Tm : Expr} {bm : BinderMeta}
+    {as : List Expr} {u : Level} {F : Nat} {gtyA S : Expr}
+    (hcl : ∀ p ∈ nds, p.1.looseBVarsBounded 0 = true)
+    (hbb : (Expr.mkAppN (.fvar k T0) as).looseBVarsBounded 0 = true)
+    (hPlain : ConLeche.Expr.Plain (Expr.mkAppN (.fvar k T0) as))
+    (hk : nds[k]? = some (Tm, bm)) (hTm : EndsInSort as.length u Tm)
+    (hfv : (closeTelescope nds 0 (Expr.mkAppN (.fvar k T0) as)).hasFvar = false)
+    (hann : ConLeche.annotateCore μ envK F 0 (closeTelescope nds 0 (Expr.mkAppN (.fvar k T0) as))
+      = .ok gtyA)
+    (hinf : ConLeche.inferTypeCore μ envK F 0 gtyA = .ok S) :
+    ∃ fvs o, openPisAtFvars nds.length gtyA 0 = some (fvs, o) ∧
+      ConLeche.inferTypeCore μ envK F nds.length o = .ok (.sort u) ∧
+      ConLeche.ensureSortCore μ envK F nds.length (.sort u) = .ok u := by
+  have hklt : k < nds.length := (List.getElem?_eq_some_iff.mp hk).1
+  generalize hbody : Expr.mkAppN (.fvar k T0) as = body at hbb hPlain hfv hann
+  -- the annotated type opens
+  have hsd : SameDoms nds.length (closeTelescope nds 0 body) (closeTelescope nds 0 body) := by
+    have := ConLeche.SameDoms.closeTelescope_append nds [] [] 0 body body
+    simpa using this
+  have hsdA := ConLeche.SameDoms.annotate nds.length hsd hann hann
+  obtain ⟨fvs, o, hop⟩ := ConLeche.SameDoms.open_isSome nds.length (d := 0) hsdA
+  obtain ⟨n', hn'⟩ : ∃ n', nds.length = n' + 1 := ⟨nds.length - 1, by omega⟩
+  rw [hn'] at hop
+  obtain ⟨bt, u', hbt, hu⟩ := inferTypeCore_openPis_body hμ n' hop hinf
+  rw [← hn', Nat.zero_add] at hbt hu
+  rw [← hn'] at hop
+  -- the annotated telescope, piece by piece
+  obtain ⟨nds', B', hl', he', hB', hdoms⟩ := ConLeche.annotateCore_closeTelescope nds
+    hcl hbb hPlain (Expr.ErasedEq.rfl _) hann
+  have hcl' : ∀ p ∈ nds', p.1.looseBVarsBounded 0 = true := by
+    intro p hp
+    obtain ⟨j, hj, rfl⟩ := List.getElem_of_mem hp
+    obtain ⟨X, F', nd, hnd, hX, hann'⟩ := hdoms j _ (List.getElem?_eq_getElem hj)
+    exact ConLeche.annotateCore_looseBVars F' X hann'
+      (looseBVarsBounded_of_erasedEq hX (hcl nd (List.mem_of_getElem? hnd)))
+  have hB'b : B'.looseBVarsBounded 0 = true := looseBVarsBounded_of_erasedEq hB' hbb
+  obtain ⟨xs, rest, hop', hrest, hxs⟩ :=
+    open_of_erasedEq_closeTelescope nds' 0 B' gtyA hcl' hB'b he'
+  rw [hl'] at hop'
+  obtain ⟨hxf, hro⟩ : fvs = xs ∧ o = rest := by
+    have := Option.some.inj (hop.symm.trans hop')
+    exact ⟨congrArg Prod.fst this, congrArg Prod.snd this⟩
+  subst hxf hro
+  -- the conclusion: the head variable, applied
+  have hoE : Expr.ErasedEq o body := hrest.trans hB'
+  rw [← hbody] at hoE
+  obtain ⟨f', as', rfl, hf', has'⟩ := erasedEq_mkAppN_inv _ hoE
+  obtain ⟨T, rfl⟩ : ∃ T, f' = .fvar k T := by
+    match f', hf' with
+    | .fvar j T, hf' => exact ⟨T, by rw [show j = k from hf']⟩
+  have hgA := annotate_syntax hann hfv (ConLeche.closeTelescope_bounded nds 0 body hcl hbb)
+  have hleaf : (k, T) ∈ (Expr.mkAppN (.fvar k T) as').fvarLeaves :=
+    fvarLeaves_mkAppN_head as' (by simp [Expr.fvarLeaves])
+  rcases ConLeche.Verify.openPisAtFvars_leaves _ hop _ (Or.inl hleaf) with hl | hl
+  · rw [Expr.fvarLeaves_eq_nil_of_not_hasFvar hgA.1] at hl; exact nomatch hl
+  obtain ⟨j, hj⟩ := List.getElem?_of_mem hl
+  obtain ⟨ty, hty⟩ := ConLeche.openPisAtFvars_index _ _ _ hop j _ hj
+  simp only [Expr.fvar.injEq, Nat.zero_add] at hty
+  obtain ⟨rfl, rfl⟩ := hty
+  -- the head's domain keeps its shape
+  have hk' : k < nds'.length := by rw [hl']; exact hklt
+  obtain ⟨X, F', nd, hnd, hX, hann'⟩ := hdoms k _ (List.getElem?_eq_getElem hk')
+  rw [hk] at hnd
+  obtain rfl := Option.some.inj hnd
+  have hTA := EndsInSort.annotate _ (EndsInSort.of_erasedEq _ hX hTm) hann'
+  have hTx := hxs k _ nds'[k].1 hj (by simp [List.getElem?_eq_getElem hk'])
+  have hTT : EndsInSort as.length u T := EndsInSort.of_erasedEq _ hTx hTA
+  obtain ⟨bsT, hbsT⟩ := EndsInSort.stripPis _ hTT
+  -- the inference of the conclusion
+  have hF : 1 ≤ F := inferTypeCore_pos hbt
+  obtain ⟨F₀, rfl⟩ : ∃ F₀, F = F₀ + 1 := ⟨F - 1, by omega⟩
+  obtain ⟨tf, htf⟩ := inferTypeCore_mkAppN_fn_inv as' hbt
+  obtain ⟨-, rfl⟩ := ConLeche.Rules.inferTypeCore_fvar_inv htf
+  rw [← has'] at hbsT
+  obtain rfl := inferTypeCore_mkAppN_sort as' htf hbsT hbt
+  obtain rfl := ensureSortCore_sort_eq hu
+  exact ⟨_, _, hop, hbt, hu⟩
+
+/-- The reset binder of the generated telescopes. -/
+@[expose] def genRm (q : Expr × BinderMeta) : Expr × BinderMeta := (q.1.resetMeta, ⟨.never⟩)
+
+/-- **The reset generated type is a telescope over the reset prefix.** -/
+theorem classGenRecTy_reset_prefix {g : ClassGen} (hg : ClassGenScoped g) {c : Nat}
+    {gty : Expr} (hgty : classGenRecTy g c = some gty) :
+    ∃ Y B, gty.resetMeta = closeTelescope (g.pre.map genRm ++ Y) 0 B := by
+  obtain ⟨ifs, maj, -, -, rfl, -, -⟩ := ConLeche.classGenRecTy_spec hg hgty
+  refine ⟨(ifs.map classBinder ++ [(maj, default)]).map genRm,
+    ((g.motVar c).mkAppN (ifs ++ [Expr.fvar (g.pre.length + ifs.length) maj])).resetMeta, ?_⟩
+  rw [ConLeche.resetMeta_closeTelescope, List.append_assoc, List.map_append]
+  rfl
+
+set_option maxHeartbeats 800000 in
+/-- **The generated type, reset and annotated, opens and its conclusion is
+sorted at `Sort elim`** — `classGenRecTy_conclSort` at the type
+`checkConstantVal` annotates (the RESET one, `classRecTyOk`). -/
+theorem classGenRecTy_conclSort_reset (hμ : μ.verifiedChecks = true)
+    {envK : Env} {g : ClassGen} (hg : ClassGenScoped g) {c s : Nat}
+    (hm : ConLeche.ClassRead.motiveSlot ⟨g.slots, []⟩ c = some s) {F : Nat}
+    {gty gtyA S : Expr}
+    (hgty : classGenRecTy g c = some gty) (hfv : gty.resetMeta.hasFvar = false)
+    (hann : ConLeche.annotateCore μ envK F 0 gty.resetMeta = .ok gtyA)
+    (hinf : ConLeche.inferTypeCore μ envK F 0 gtyA = .ok S) :
+    ∃ fvs o, openPisAtFvars (g.pre.length + (g.cls.getD c default).nIdx + 1) gtyA 0
+        = some (fvs, o) ∧
+      ConLeche.inferTypeCore μ envK F (g.pre.length + (g.cls.getD c default).nIdx + 1) o
+        = .ok (.sort g.elim) ∧
+      ConLeche.ensureSortCore μ envK F (g.pre.length + (g.cls.getD c default).nIdx + 1)
+        (.sort g.elim) = .ok g.elim := by
+  obtain ⟨ifs, maj, hmaj, hifl, rfl, hcl, hbb⟩ := ConLeche.classGenRecTy_spec hg hgty
+  have hmv := ConLeche.ClassGen.motVar_eq hm
+  rw [hmv] at hbb hann hfv
+  have hPlain : ConLeche.Expr.Plain
+      (Expr.mkAppN (.fvar (g.nP + s) (.sort .zero))
+        (ifs ++ [.fvar (g.pre.length + ifs.length) maj])) := by
+    refine ConLeche.Expr.Plain.mkAppN (by simp [ConLeche.Expr.Plain]) fun a ha => ?_
+    rcases List.mem_append.mp ha with ha | ha
+    · obtain ⟨k, hk, rfl⟩ := List.getElem_of_mem ha
+      obtain ⟨ty, hxe, -⟩ := (ConLeche.ClassGen.major_scoped hg (by
+        have := (ConLeche.ClassGen.prefixBinders_scoped hg hg.pre).1; omega) hmaj).1 k _
+        (List.getElem?_eq_getElem hk)
+      rw [hxe]; trivial
+    · simp only [List.mem_singleton] at ha
+      subst ha; trivial
+  -- the motive's domain
+  obtain ⟨hcount, key, hkey⟩ := motiveSlot_count hm
+  have hslen : s < g.slots.length := ConLeche.ClassRead.motiveSlot_lt hm
+  have hpl := (ConLeche.ClassGen.prefixBinders_scoped hg hg.pre).1
+  obtain ⟨Tm, hTm, hpreT⟩ := ConLeche.ClassGen.prefixBinders_motive hg hkey
+  rw [hcount] at hTm
+  have hTmS := ClassGen.motiveTy_endsInSort hTm
+  generalize hnds : g.pre ++ ifs.map classBinder ++ [(maj, (default : BinderMeta))] = nds
+    at hann hcl hfv
+  have hkP : g.nP + s < g.pre.length := by omega
+  have hndk : (nds.map genRm)[g.nP + s]? = some (Tm.resetMeta, ⟨.never⟩) := by
+    rw [List.getElem?_map, ← hnds, List.append_assoc, List.getElem?_append_left hkP, hpreT]
+    rfl
+  have hn : (nds.map genRm).length = g.pre.length + (g.cls.getD c default).nIdx + 1 := by
+    rw [← hnds]
+    simp only [List.length_map, List.length_append, List.length_singleton, hifl]
+  rw [ConLeche.resetMeta_closeTelescope, ConLeche.resetMeta_mkAppN] at hann hfv
+  have hTmR : EndsInSort ((ifs ++ [Expr.fvar (g.pre.length + ifs.length) maj]).map
+      Expr.resetMeta).length g.elim Tm.resetMeta := by
+    rw [List.length_map, List.length_append, List.length_singleton, hifl]
+    exact ConLeche.EndsInSort.resetMeta _ hTmS
+  have hclR : ∀ p ∈ nds.map genRm, p.1.looseBVarsBounded 0 = true := by
+    intro p hp
+    obtain ⟨q, hq, rfl⟩ := List.mem_map.mp hp
+    exact looseBVarsBounded_resetMeta _ 0 (hcl q hq)
+  have hbbR := looseBVarsBounded_resetMeta _ 0 hbb
+  rw [ConLeche.resetMeta_mkAppN] at hbbR
+  have hPlainR := ConLeche.Expr.Plain.resetMeta hPlain
+  rw [ConLeche.resetMeta_mkAppN] at hPlainR
+  obtain ⟨fvs, o, hop, hbt, hu⟩ := genConclSort_core hμ (nds := nds.map genRm)
+    (k := g.nP + s) (T0 := .sort .zero) hclR hbbR hPlainR hndk hTmR hfv hann hinf
+  rw [hn] at hop hbt hu
+  exact ⟨fvs, o, hop, hbt, hu⟩
+
+/-- **Syntactically equal terms are definitionally equal at any positive
+fuel** (the defeq loop's syntactic fast path). -/
+theorem isDefEqCore_self {envK : Env} {F d : Nat} (a : Expr) :
+    ConLeche.isDefEqCore μ envK (F + 1) d a a = .ok true := by
+  rw [ConLeche.isDefEqCore_succ]
+  obtain ⟨n, hn⟩ : ∃ n, ConLeche.defeqLoopFuel = n + 1 := ⟨99999, by unfold ConLeche.defeqLoopFuel; rfl⟩
+  simp only [ConLeche.defeqBody, hn, ConLeche.defeqLoop, ConLeche.defeqStep, beq_self_eq_true,
+    if_true]
+  rfl
+
+/-! ## The stage record from the run -/
+
+open ConLeche (BlockParts BlockShape RecShape GenRecRun ClassRecTyRun FEnv mkFEnv NestState
+  ConstantInfo TargetMajor RecStageG RecStage RecTyGen RecPrefixSame RuleOutOk tgtRs
+  structElimLevel fueledOps consBlockRecsBare consBlockRecsBareF classFeR classRecOf
+  classRulesOk classRuleOk StructWalkers)
+
+section Stage
+
+variable {F : Nat} {env₁ envC : Env} {p : BlockParts} {nestedBit : Bool} {pos : NestState}
+  {cvTas : List ConstantVal} {block : List ConstantInfo}
+  {ctorsAs : List (List (ConstantVal × Nat))}
+  {out : List (ConstantVal × TargetMajor × List Expr)}
+
+/-- The stage-(b) list of a generated run: each generated constant, its
+class's index count, the family's elimination level. -/
+@[expose] def genCvRus (cvGs : List ConstantVal) (recCls : List Nat) (Ms : List TargetMajor)
+    (elim : Level) : List (ConstantVal × Nat × Level) :=
+  (cvGs.zip recCls).map fun q => (q.1, (Ms.getD q.2 default).nIdx, elim)
+
+/-- **The run at one recursor**: its class, its generated (stored)
+constant and type run, its stored entry and its rules' run. -/
+theorem genRecRun_at
+    (R : GenRecRun μ F (mkFEnv env₁) env₁ (mkFEnv envC) p.toBlockShape nestedBit pos cvTas
+      block ctorsAs out)
+    {i : Nat} {rc : RecShape} (hrc : p.recs[i]? = some rc) :
+    ∃ c cvG rhss, R.rd.recCls[i]? = some c ∧ R.cvGs[i]? = some cvG ∧
+      Nonempty (ClassRecTyRun μ F (mkFEnv envC) R.g p.k rc c cvG) ∧
+      out[i]? = some (cvG, R.Ms.getD c default, rhss) ∧
+      classRulesOk (fueledOps μ F) .plain (mkFEnv envC)
+        (classFeR p.toBlockShape R.Ms R.cvGs R.rd.recCls (mkFEnv envC)) R.g
+        (classRecOf R.rd.recCls R.cvGs) cvG
+        (Level.zeronessOf (structElimLevel p.elim p.large)) c (R.ctors.getD c []) = .ok rhss ∧
+      (genCvRus R.cvGs R.rd.recCls R.Ms (structElimLevel p.elim p.large))[i]?
+        = some (cvG, (R.Ms.getD c default).nIdx, structElimLevel p.elim p.large) := by
+  have hcvGs := R.hcvGs
+  have hrules := R.hrules
+  obtain ⟨-, hallG⟩ := ConLeche.classRecTysOk_run hcvGs
+  obtain ⟨-, hallO⟩ := ConLeche.classRecsRulesOk_run hrules
+  obtain ⟨c, cvG, hc, hG, T⟩ := hallG i rc hrc
+  obtain ⟨rhss, ho, hr⟩ := hallO i cvG c hG hc
+  refine ⟨c, cvG, rhss, hc, hG, T, ho, hr, ?_⟩
+  have hz : (R.cvGs.zip R.rd.recCls)[i]? = some (cvG, c) :=
+    List.getElem?_zip_eq_some.mpr ⟨hG, hc⟩
+  simp only [genCvRus, List.getElem?_map, hz, Option.map_some]
+
+/-- The large-elimination guard of the run, read at the plain block. -/
+theorem genRecRun_small
+    (R : GenRecRun μ F (mkFEnv env₁) env₁ (mkFEnv envC) p.toBlockShape nestedBit pos cvTas
+      block ctorsAs out)
+    (hL : p.large = true) : ConLeche.blockLargeElimAllowed p.toBlockShape false = true := by
+  have h := R.helim
+  have hL' : p.toBlockShape.large = true := hL
+  rw [hL'] at h
+  simp only [Bool.true_and, Bool.not_eq_false'] at h
+  exact ConLeche.blockLargeElimAllowed_plain h
+
+set_option maxHeartbeats 800000 in
+/-- **One recursor's generated type, as stage (b)'s major-free record**:
+the checked constant is the generated one (`cv0`, under the record's name
+and level parameters), it opens `mI + 1` binders, its conclusion is
+sorted at the family's elimination level, and the generated type is,
+annotated, a telescope over the RESET shared prefix. -/
+theorem genRecTy_run (hμ : μ.verifiedChecks = true)
+    (R : GenRecRun μ F (mkFEnv env₁) env₁ (mkFEnv envC) p.toBlockShape nestedBit pos cvTas
+      block ctorsAs out)
+    (hg : ClassGenScoped R.g) {i c : Nat} {rc : RecShape} {cvG : ConstantVal}
+    (hrc : p.recs[i]? = some rc) (hc : R.rd.recCls[i]? = some c)
+    (T : ClassRecTyRun μ F (mkFEnv envC) R.g p.k rc c cvG) :
+    rc.rP = R.pre.length ∧
+    (∃ Y B, ConLeche.annotateCore μ envC F 0 (closeTelescope (R.pre.map genRm ++ Y) 0 B)
+      = .ok cvG.type) ∧
+    Nonempty (RecTyGen μ F envC p.toBlockShape false i rc cvG (R.Ms.getD c default).nIdx
+      (structElimLevel p.elim p.large)) := by
+  have hcv : ConLeche.checkConstantVal (fueledOps μ F) envC
+      { rc.cvR with type := T.gty.resetMeta } = .ok cvG := by
+    rw [← ConLeche.checkConstantValF_eq]; exact T.hcv
+  obtain ⟨-, -, -, -, -, hfv0, type, stype, u0, hann, -, -, hinf, -, hcvEq⟩ :=
+    ConLeche.checkConstantVal_inv hcv
+  have htype : cvG.type = type := by rw [hcvEq]
+  dsimp only at hann hfv0
+  have hpl : R.pre.length = p.nP + R.rd.slots.length :=
+    (ConLeche.ClassGen.prefixBinders_scoped hg hg.pre).1
+  obtain ⟨s, hm⟩ := ConLeche.classRead_recCls_motive R.hrd c (List.mem_of_getElem? hc)
+  obtain ⟨fvs, o, hop, hbt, hu⟩ := classGenRecTy_conclSort_reset hμ hg hm T.hgty hfv0 hann hinf
+  obtain ⟨-, hM, hR⟩ := ConLeche.recShape_at (q := p.toBlockShape) hrc
+  have hrP : rc.rP = R.pre.length := by rw [T.hrP, hpl]; rfl
+  have hmI : rc.mI = R.pre.length + (R.Ms.getD c default).nIdx := by rw [T.hmI, hrP]; rfl
+  have hfl : fvs.length = rc.mI + 1 := by
+    rw [ConLeche.Verify.openPisAtFvars_length _ hop, hmI]; rfl
+  refine ⟨hrP, ?_, ⟨{
+    fvs := fvs, concl := o, maj := fvs[rc.mI]'(by omega),
+    sty := .sort (structElimLevel p.elim p.large),
+    cv0 := { rc.cvR with type := T.gty.resetMeta }, hcv0 := ⟨rfl, rfl⟩, hcv := hcv,
+    hroom := (by rw [hR, hrP, hpl]; omega),
+    hmI' := (by rw [hM, hR, hmI, hrP]),
+    hopen := (by rw [hM, hmI, htype]; exact hop),
+    hmaj := (by rw [hM]; exact List.getElem?_eq_getElem _),
+    hsty := (by rw [hM, hmI]; exact hbt),
+    hu := (by rw [hM, hmI]; exact hu),
+    hsmall := ?_ }⟩⟩
+  · obtain ⟨Y, B, hY⟩ := classGenRecTy_reset_prefix hg T.hgty
+    rw [hY] at hann
+    exact ⟨Y, B, by rw [htype]; exact hann⟩
+  · cases hL : p.large
+    · right
+      have hF : 1 ≤ F := inferTypeCore_pos hbt
+      obtain ⟨F₀, rfl⟩ : ∃ F₀, F = F₀ + 1 := ⟨F - 1, by omega⟩
+      exact isDefEqCore_self _
+    · exact .inl (genRecRun_small R hL)
+
+set_option maxHeartbeats 1600000 in
+/-- **The recursor stage's record, from the GENERATED stage's run**, at no
+member-shaped recursor (`mem := fun _ => False`): the stored family is
+`tgtRs out`, each recursor's checked constant the generated type under the
+record's name and level parameters, the elimination level
+`structElimLevel p.elim p.large` throughout, the rule prefix shared
+syntactically, every rule the annotated generated one.
+
+* `hμ`: the verified modes — the conclusion's sort is read off the
+  inference of the generated type through its ∀ clauses
+  (`inferTypeCore_openPis_body`), which validates binder data there only;
+* `hg`: the generator's inputs scoped (`ClassGenScoped`: canonical
+  parameters, class parameters over the block's, closed former types,
+  constructor telescopes over the parameters, minors after their
+  motives, the stored prefix the generator's own) — what the ported
+  generator lemmas take throughout (`classGenRecTy_spec`, the prefix's
+  motive entry), a fact of the run's earlier binds (the plan's open item
+  (b), shared with the family premise). -/
+theorem recStage_of_gen (hμ : μ.verifiedChecks = true)
+    (R : GenRecRun μ F (mkFEnv env₁) env₁ (mkFEnv envC) p.toBlockShape nestedBit pos cvTas
+      block ctorsAs out)
+    (hg : ClassGenScoped R.g) :
+    RecStageG μ F envC p cvTas ctorsAs (tgtRs out) (fun _ => False) := by
+  have hcvGs := R.hcvGs
+  have hrules := R.hrules
+  obtain ⟨hlenG, hallG⟩ := ConLeche.classRecTysOk_run hcvGs
+  obtain ⟨hlenO, -⟩ := ConLeche.classRecsRulesOk_run hrules
+  have hlenC : p.recs.length ≤ R.rd.recCls.length := by
+    rcases Nat.eq_zero_or_pos p.recs.length with h0 | hpos
+    · omega
+    · obtain ⟨c, -, hc, -⟩ := hallG (p.recs.length - 1) _
+        (List.getElem?_eq_getElem (show p.recs.length - 1 < p.recs.length by omega))
+      have := (List.getElem?_eq_some_iff.mp hc).1
+      omega
+  have hlenG' : R.cvGs.length = p.recs.length := hlenG
+  have hlenOut : out.length = p.recs.length := by rw [hlenO, hlenG']; omega
+  generalize hEl : structElimLevel p.elim p.large = elimL
+  have hlenR : (genCvRus R.cvGs R.rd.recCls R.Ms elimL).length = p.recs.length := by
+    simp only [genCvRus, List.length_map, List.length_zip, hlenG']; omega
+  have hlenT : (tgtRs out).length = p.recs.length := by simp [tgtRs, hlenOut]
+  -- the run at a stored index
+  have hat : ∀ i, i < p.recs.length → ∃ rc c cvG rhss, p.recs[i]? = some rc ∧
+      R.rd.recCls[i]? = some c ∧ R.cvGs[i]? = some cvG ∧
+      Nonempty (ClassRecTyRun μ F (mkFEnv envC) R.g p.k rc c cvG) ∧
+      out[i]? = some (cvG, R.Ms.getD c default, rhss) ∧
+      classRulesOk (fueledOps μ F) .plain (mkFEnv envC)
+        (classFeR p.toBlockShape R.Ms R.cvGs R.rd.recCls (mkFEnv envC)) R.g
+        (classRecOf R.rd.recCls R.cvGs) cvG
+        (Level.zeronessOf elimL) c (R.ctors.getD c []) = .ok rhss ∧
+      (genCvRus R.cvGs R.rd.recCls R.Ms elimL)[i]? = some (cvG, (R.Ms.getD c default).nIdx, elimL) ∧
+      (tgtRs out)[i]? = some (cvG, rhss, (R.Ms.getD c default).nIdx, (R.Ms.getD c default).ctors) := by
+    intro i hi
+    obtain ⟨rc, hrc⟩ : ∃ rc, p.recs[i]? = some rc := ⟨_, List.getElem?_eq_getElem hi⟩
+    obtain ⟨c, cvG, rhss, hc, hG, T, ho, hr, hcu⟩ := genRecRun_at R hrc
+    rw [hEl] at hr hcu
+    refine ⟨rc, c, cvG, rhss, hrc, hc, hG, T, ho, hr, hcu, ?_⟩
+    simp [tgtRs, List.getElem?_map, ho]
+  -- the rule-less recursors' environment
+  have hfeR : classFeR p.toBlockShape R.Ms R.cvGs R.rd.recCls (mkFEnv envC) =
+      mkFEnv (consBlockRecsBare p.toBlockShape 0 ((tgtRs out).map fun r => (r.1, r.2.2.1)) envC) := by
+    unfold classFeR
+    rw [ConLeche.consBlockRecsBareF_mkFEnv]
+    congr 2
+    apply List.ext_getElem?
+    intro i
+    by_cases hi : i < p.recs.length
+    · obtain ⟨rc, c, cvG, rhss, -, hc, hG, -, -, -, -, ht⟩ := hat i hi
+      have hz : (R.cvGs.zip R.rd.recCls)[i]? = some (cvG, c) :=
+        List.getElem?_zip_eq_some.mpr ⟨hG, hc⟩
+      simp [List.getElem?_map, hz, ht]
+    · rw [List.getElem?_eq_none (by simp [List.length_zip]; omega),
+        List.getElem?_eq_none (by simp [hlenT]; omega)]
+  -- every stage-(b) level is the elimination level
+  have hels : ∀ u ∈ (genCvRus R.cvGs R.rd.recCls R.Ms elimL).map (·.2.2), u = elimL := by
+    intro u hu
+    simp only [genCvRus, List.map_map, List.mem_map, Function.comp_def] at hu
+    obtain ⟨_, -, rfl⟩ := hu
+    rfl
+  -- the prefix, per recursor
+  have hpre : ∀ (i : Nat) (cv : ConstantVal),
+      ((genCvRus R.cvGs R.rd.recCls R.Ms elimL).map (·.1))[i]? = some cv →
+      ∃ rc : RecShape, p.recs[i]? = some rc ∧ rc.rP = R.pre.length ∧
+        ∃ Y B, ConLeche.annotateCore μ envC F 0 (closeTelescope (R.pre.map genRm ++ Y) 0 B)
+          = .ok cv.type := by
+    intro i cv hcv
+    have hi : i < p.recs.length := by
+      have := (List.getElem?_eq_some_iff.mp hcv).1
+      simp only [List.length_map] at this; omega
+    obtain ⟨rc, c, cvG, rhss, hrc, hc, hG, ⟨T⟩, -, -, hcu, -⟩ := hat i hi
+    rw [List.getElem?_map, hcu] at hcv
+    obtain rfl : cvG = cv := Option.some.inj hcv
+    obtain ⟨hrP, hY, -⟩ := genRecTy_run hμ R hg hrc hc T
+    exact ⟨rc, hrc, hrP, hY⟩
+  have hself : ∀ (Y : List (Expr × BinderMeta)) (B : Expr),
+      SameDoms R.pre.length (closeTelescope (R.pre.map genRm ++ Y) 0 B)
+        (closeTelescope (R.pre.map genRm ++ Y) 0 B) := by
+    intro Y B
+    have := ConLeche.SameDoms.closeTelescope_append (R.pre.map genRm) Y Y 0 B B
+    rwa [List.length_map] at this
+  refine ⟨{
+    cvRus := genCvRus R.cvGs R.rd.recCls R.Ms elimL,
+    pins := ConLeche.targetRecPins_inv R.pins,
+    fam := ⟨R.hk, ?_, ?_, fun _ _ h => h.elim, .inr ?_⟩,
+    lenT := hlenR, len := hlenT, stored := ?_, tyGen := ?_,
+    tyEntry := fun _ _ h => h.elim, ctorsAt := fun _ _ h => h.elim,
+    rulesLenAt := ?_, ruleOut := ?_, ruleTower := fun _ _ _ _ _ h => h.elim }⟩
+  · -- the counting half
+    cases hL : p.large
+    · right
+      intro u hu
+      rw [hels u hu, ← hEl, hL]
+      exact ConLeche.Level.isEquiv_of_beq (beq_self_eq_true _)
+    · exact .inl (genRecRun_small R hL)
+  · -- the pin
+    intro u hu
+    rw [hels u hu, ← hEl]
+    exact ConLeche.Level.isEquiv_of_beq (beq_self_eq_true _)
+  · -- the prefix, shared syntactically
+    intro cv0 h0
+    obtain ⟨rc0, hrc0, hrP0, Y0, B0, hann0⟩ := hpre 0 cv0 h0
+    obtain ⟨-, -, hR0⟩ := ConLeche.recShape_at (q := p.toBlockShape) hrc0
+    have hs0 := ConLeche.SameDoms.annotate _ (hself Y0 B0) hann0 hann0
+    obtain ⟨fvs0, o0, hop0⟩ := ConLeche.SameDoms.open_isSome _ (d := 0) hs0
+    refine ⟨fvs0, o0, by rw [hR0, hrP0]; exact hop0, fun i cv hcv => ?_⟩
+    obtain ⟨rc, hrc, hrP, Y, B, hann⟩ := hpre i cv hcv
+    obtain ⟨-, -, hR⟩ := ConLeche.recShape_at (q := p.toBlockShape) hrc
+    have hs := ConLeche.SameDoms.annotate _ (hself Y B) hann hann
+    obtain ⟨fvs, o, hop⟩ := ConLeche.SameDoms.open_isSome _ (d := 0) hs
+    have hst : SameDoms R.pre.length (closeTelescope (R.pre.map genRm ++ Y) 0 B)
+        (closeTelescope (R.pre.map genRm ++ Y0) 0 B0) := by
+      have := ConLeche.SameDoms.closeTelescope_append (R.pre.map genRm) Y Y0 0 B B0
+      rwa [List.length_map] at this
+    have hfe := ConLeche.SameDoms.open _ (ConLeche.SameDoms.annotate _ hst hann hann0) hop hop0
+    refine ⟨by rw [hR, hR0, hrP, hrP0], fvs, o, by rw [hR0, hrP0]; exact hop, by rw [hfe]⟩
+  · -- the stored records are stage (b)'s
+    apply List.ext_getElem?
+    intro i
+    by_cases hi : i < p.recs.length
+    · obtain ⟨_rc, _c, _cvG, _rhss, -, -, -, -, -, -, hcu, ht⟩ := hat i hi
+      simp [List.getElem?_map, hcu, ht]
+    · rw [List.getElem?_eq_none (by simp [hlenT]; omega),
+        List.getElem?_eq_none (by simp [hlenR]; omega)]
+  · -- stage (b) at every recursor
+    intro i hi
+    obtain ⟨rc, c, cvG, rhss, hrc, hc, -, ⟨T⟩, -, -, hcu, -⟩ := hat i hi
+    obtain ⟨-, -, E⟩ := genRecTy_run hμ R hg hrc hc T
+    rw [hEl] at E
+    exact ⟨rc, cvG, _, _, hrc, hcu, E⟩
+  · -- one stored rule per constructor
+    intro i r hr
+    have hi : i < p.recs.length := by
+      have := (List.getElem?_eq_some_iff.mp hr).1; omega
+    obtain ⟨_rc, c, _cvG, rhss, -, -, -, -, -, hrl, -, ht⟩ := hat i hi
+    rw [ht] at hr
+    obtain rfl := Option.some.inj hr
+    obtain ⟨hl, -⟩ := ConLeche.classRulesOk_run hrl
+    simp only
+    rw [hl]
+    obtain ⟨hlC, hallC⟩ := ConLeche.classesCtors_run R.hctors
+    by_cases hc : c < R.Ms.length
+    · obtain ⟨xs, hxs, hrun⟩ := hallC c _ (List.getElem?_eq_getElem hc)
+      rw [List.getD_eq_getElem?_getD, hxs, Option.getD_some,
+        List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hc, Option.getD_some]
+      exact (ConLeche.classCtorsOf_run hrun).1
+    · rw [List.getD_eq_getElem?_getD, List.getElem?_eq_none (by omega),
+        List.getD_eq_getElem?_getD, List.getElem?_eq_none (by omega)]
+      rfl
+  · -- every stored rule, annotated at the rule-less recursors
+    intro c r i rhs hr hrhs
+    have hi : c < p.recs.length := by
+      have := (List.getElem?_eq_some_iff.mp hr).1; omega
+    obtain ⟨rc, cc, cvG, rhss, hrc, hc, -, ⟨T⟩, -, hrl, -, ht⟩ := hat c hi
+    rw [ht] at hr
+    obtain rfl := Option.some.inj hr
+    simp only at hrhs
+    obtain ⟨-, -, ⟨E⟩⟩ := genRecTy_run hμ R hg hrc hc T
+    obtain ⟨hl, hall⟩ := ConLeche.classRulesOk_run hrl
+    have hiX : i < (R.ctors.getD cc []).length := by
+      rw [← hl]; exact (List.getElem?_eq_some_iff.mp hrhs).1
+    obtain ⟨gen, rhs', hrhs', -, ⟨Q⟩⟩ := hall i _ (List.getElem?_eq_getElem hiX)
+    obtain rfl : rhs' = rhs := Option.some.inj (hrhs'.symm.trans hrhs)
+    have hann := Q.hann
+    have hres := Q.hres
+    obtain ⟨tyR, htyR⟩ : ∃ t, (fueledOps μ F).inferType
+        (classFeR p.toBlockShape R.Ms R.cvGs R.rd.recCls (mkFEnv envC)).env 0 rhs' = .ok t :=
+      ⟨_, Q.htyR⟩
+    rw [hfeR, ConLeche.mkFEnv_env, ConLeche.fueledOps_annotate] at hann
+    rw [hfeR] at hres
+    simp only [StructWalkers.plain, ConLeche.constsResolveF_eq] at hres
+    rw [hfeR, ConLeche.mkFEnv_env, ConLeche.fueledOps_inferType] at htyR
+    exact ⟨rc, _, hrc, ⟨Q.hbv, Q.hfv, hann, by rw [← E.lps_eq]; exact Q.hlp, hres,
+      ⟨_, htyR⟩⟩⟩
+
+end Stage
+
+end ConLeche.Model
