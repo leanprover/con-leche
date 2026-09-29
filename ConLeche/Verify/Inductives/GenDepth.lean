@@ -5,6 +5,7 @@ public import ConLeche.Verify.Shift
 public import ConLeche.Verify.Inductives.ClassGenScope
 public import ConLeche.Verify.Inductives.ClassGenMinorSyn
 import ConLeche.Verify.BridgeWfImp
+import ConLeche.Verify.Inductives.NestScope
 
 public section
 
@@ -333,5 +334,53 @@ theorem ClassGen.ihTy_depth {g : ClassGen} {t tele : Nat} {w f : Expr} {e₀ : N
             List.map_append, List.map_cons, List.map_nil, shiftFrom_mkAppN,
             shiftFrom_eq_self (fvarsBelow_mono (by omega) hf)]
       _ = T := by rw [ih]; exact shiftFrom_eq_self (fvarsBelow_mono (by omega) hT)
+
+
+set_option maxHeartbeats 800000 in
+/-- **A minor premise's type, spelled out** at any depth `d`: the
+constructor's declared telescope opened at `d`, the walked field types
+there, one inductive hypothesis type (`ClassGen.ihTy`) per recursive
+field, the conclusion the class's motive at the declared result's
+indices and the constructor applied. -/
+theorem ClassGen.minorTy_unfold {g : ClassGen} {c : Nat} {x : ClassCtor} {d : Nat} {T : Expr}
+    (h : g.minorTy c x d = some T) :
+    ∃ (fvs : List Expr) (res : Expr) (ws : List Expr) (ihs : List (Expr × BinderMeta)),
+      openPisAtFvars x.nF x.tyD d = some (fvs, res) ∧
+      targetPiDomsWith fvs x.tyN = some ws ∧
+      ihs.length = x.recs.length ∧
+      (∀ (l i t tele : Nat), x.recs[l]? = some (i, t, tele) → ∃ ty,
+        g.ihTy t tele (ws.getD i default) (fvs.getD i default) (d + x.nF + l) = some ty ∧
+        ihs[l]? = some (ty, g.bm)) ∧
+      T = closeTelescope (fvs.map g.binder ++ ihs) d
+        (Expr.mkAppN (g.motVar c) (res.getAppArgs.drop (g.cls.getD c default).nPc ++
+          [Expr.mkAppN (.const x.cv.name (g.cls.getD c default).lvls)
+            ((g.cls.getD c default).ds ++ fvs)])) := by
+  unfold ClassGen.minorTy at h
+  obtain ⟨⟨fvs, res⟩, hop, h⟩ := Option.bind_eq_some_iff.mp h
+  obtain ⟨ws, hws, h⟩ := Option.bind_eq_some_iff.mp h
+  obtain ⟨ihs, hihs, h⟩ := Option.bind_eq_some_iff.mp h
+  simp only [Option.pure_def, Option.some.injEq] at h
+  subst h
+  have hihl := option_mapM_length hihs
+  simp only [List.length_range] at hihl
+  refine ⟨fvs, res, ws, ihs, hop, hws, hihl, fun l i t tele hrl => ?_, rfl⟩
+  have hl : l < x.recs.length := (List.getElem?_eq_some_iff.mp hrl).1
+  obtain ⟨y, hy, hyb⟩ := option_mapM_getElem? hihs l l (List.getElem?_range (by
+    exact lt_of_lt_of_eq hl rfl))
+  have hq : x.recs.getD l default = (i, t, tele) := by
+    rw [List.getD_eq_getElem?_getD, hrl]; rfl
+  split at hy
+  next i' t' tele' hq' =>
+  obtain ⟨rfl, rfl, rfl⟩ : i = i' ∧ t = t' ∧ tele = tele' := by
+    have : x.recs.getD l default = (i', t', tele') := hq'
+    rw [hq] at this
+    injection this with h1 h2; injection h2 with h2 h3; exact ⟨h1, h2, h3⟩
+  obtain ⟨⟨xs, idx⟩, hip, hy⟩ := Option.bind_eq_some_iff.mp hy
+  simp only [Option.pure_def, Option.some.injEq] at hy
+  subst hy
+  refine ⟨_, ?_, hyb⟩
+  unfold ClassGen.ihTy
+  rw [hip]
+  rfl
 
 end ConLeche
