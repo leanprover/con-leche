@@ -196,6 +196,181 @@ theorem substFvars_erasedEq_self {b D : Nat} {s : Nat → Expr}
   | letE t v body iht ihv ihb => intro h; exact ⟨iht h.1, ihv h.2.1, ihb h.2.2⟩
   | proj n i e ih => intro h; exact ⟨rfl, rfl, ih h⟩
 
+/-! ## Erasure, spines and towers -/
+
+private theorem gk_erase_mkAppN : ∀ (as : List Expr) (f : Expr),
+    (Expr.mkAppN f as).eraseFVarTys = Expr.mkAppN f.eraseFVarTys (as.map Expr.eraseFVarTys)
+  | [], _ => rfl
+  | a :: as, f => by
+    show (Expr.mkAppN (.app f a) as).eraseFVarTys = _
+    rw [gk_erase_mkAppN as]; rfl
+
+private theorem gk_erase_mkPisOf : ∀ (bs : List (Expr × BinderMeta)) (b : Expr),
+    (Expr.mkPisOf bs b).eraseFVarTys
+      = Expr.mkPisOf (bs.map fun x => (x.1.eraseFVarTys, x.2)) b.eraseFVarTys
+  | [], _ => rfl
+  | (ty, m) :: bs, b => by
+    show Expr.eraseFVarTys (.forallE ty (Expr.mkPisOf bs b) m) = _
+    rw [List.map_cons, Expr.mkPisOf, ← gk_erase_mkPisOf bs b]; rfl
+
+private theorem gk_stripPis_eq_mkPisOf : ∀ {n : Nat} {e r : Expr} {bs : List (Expr × BinderMeta)},
+    e.stripPis n = some (bs, r) → e = Expr.mkPisOf bs r
+  | 0, e, r, bs, h => by
+    simp only [Expr.stripPis, Option.some.injEq, Prod.mk.injEq] at h
+    obtain ⟨rfl, rfl⟩ := h; rfl
+  | n + 1, e, r, bs, h => by
+    cases e with
+    | forallE ty b m =>
+      simp only [Expr.stripPis] at h
+      obtain ⟨⟨bs', r'⟩, h1, h2⟩ := Option.map_eq_some_iff.mp h
+      simp only [Prod.mk.injEq] at h2
+      obtain ⟨rfl, rfl⟩ := h2
+      rw [gk_stripPis_eq_mkPisOf h1]; rfl
+    | _ => simp [Expr.stripPis] at h
+
+private theorem gk_stripPis_length : ∀ {n : Nat} {e r : Expr} {bs : List (Expr × BinderMeta)},
+    e.stripPis n = some (bs, r) → bs.length = n
+  | 0, e, r, bs, h => by
+    simp only [Expr.stripPis, Option.some.injEq, Prod.mk.injEq] at h
+    obtain ⟨rfl, rfl⟩ := h; rfl
+  | n + 1, e, r, bs, h => by
+    cases e with
+    | forallE ty b m =>
+      simp only [Expr.stripPis] at h
+      obtain ⟨⟨bs', r'⟩, h1, h2⟩ := Option.map_eq_some_iff.mp h
+      simp only [Prod.mk.injEq] at h2
+      obtain ⟨rfl, rfl⟩ := h2
+      simp [gk_stripPis_length h1]
+    | _ => simp [Expr.stripPis] at h
+
+private theorem gk_erase_getAppFn :
+    ∀ (x : Expr), x.eraseFVarTys.getAppFn = x.getAppFn.eraseFVarTys := by
+  intro x
+  induction x with
+  | app f a ihf _ => exact ihf
+  | _ => rfl
+
+private theorem gk_erase_getAppArgs :
+    ∀ (x : Expr), x.eraseFVarTys.getAppArgs = x.getAppArgs.map Expr.eraseFVarTys := by
+  intro x
+  induction x with
+  | app f a ihf _ =>
+    show (Expr.app f.eraseFVarTys a.eraseFVarTys).getAppArgs = _
+    simp only [Expr.getAppArgs, ihf, List.map_append, List.map_cons, List.map_nil]
+  | _ => rfl
+
+private theorem gk_erase_erase : ∀ (x : Expr), x.eraseFVarTys.eraseFVarTys = x.eraseFVarTys := by
+  intro x
+  induction x <;> simp_all [Expr.eraseFVarTys, Expr.replaceFVars]
+
+private theorem gk_erase_eq_const {x : Expr} {I : Name} {us : List Level}
+    (h : x.eraseFVarTys = .const I us) : x = .const I us := by
+  cases x <;> simp_all [Expr.eraseFVarTys, Expr.replaceFVars]
+
+private theorem gk_erasedEqs_iff : ∀ {as bs : List Expr},
+    ErasedEqs as bs ↔ as.map Expr.eraseFVarTys = bs.map Expr.eraseFVarTys
+  | [], [] => by simp [ErasedEqs]
+  | [], _ :: _ => by simp [ErasedEqs]
+  | _ :: _, [] => by simp [ErasedEqs]
+  | a :: as, b :: bs => by
+    simp only [ErasedEqs, List.map_cons, List.cons.injEq, Expr.eraseFVarTys_eq_iff,
+      gk_erasedEqs_iff]
+
+private theorem gk_erasedEqs_get : ∀ {as bs : List Expr}, ErasedEqs as bs →
+    ∀ {l : Nat} {x : Expr}, as[l]? = some x → ∃ y, bs[l]? = some y ∧ Expr.ErasedEq x y
+  | [], [], _, l, x, h => by simp at h
+  | [], _ :: _, hf, _, _, _ => by simp [ErasedEqs] at hf
+  | _ :: _, [], hf, _, _, _ => by simp [ErasedEqs] at hf
+  | a :: as, b :: bs, hf, l, x, h => by
+    obtain ⟨hab, hr⟩ := hf
+    cases l with
+    | zero =>
+      simp only [List.getElem?_cons_zero, Option.some.injEq] at h
+      subst h; exact ⟨b, rfl, hab⟩
+    | succ l => exact gk_erasedEqs_get hr (by simpa using h)
+
+private theorem gk_teleMap_eq : ∀ {tA tB : List (Expr × BinderMeta)}, tA.length = tB.length →
+    (∀ (l : Nat) (q q' : Expr × BinderMeta), tA[l]? = some q → tB[l]? = some q' →
+      q.2 = q'.2 ∧ Expr.ErasedEq q.1 q'.1) →
+    tA.map (fun b => (b.1.eraseFVarTys, b.2)) = tB.map (fun b => (b.1.eraseFVarTys, b.2))
+  | [], [], _, _ => rfl
+  | [], _ :: _, hl, _ => by simp at hl
+  | _ :: _, [], hl, _ => by simp at hl
+  | q :: tA, q' :: tB, hl, h => by
+    obtain ⟨h2, h1⟩ := h 0 q q' rfl rfl
+    simp only [List.map_cons, List.cons.injEq, Prod.mk.injEq]
+    exact ⟨⟨Expr.eraseFVarTys_eq_iff.mpr h1, h2⟩, gk_teleMap_eq (by simpa using hl)
+      (fun l p p' hp hp' => h (l + 1) p p' (by simpa using hp) (by simpa using hp'))⟩
+
+private theorem gk_substFvars_mkAppN {b D : Nat} {s : Nat → Expr} : ∀ (as : List Expr) (f : Expr),
+    Expr.substFvars b D s (Expr.mkAppN f as)
+      = Expr.mkAppN (Expr.substFvars b D s f) (as.map (Expr.substFvars b D s))
+  | [], _ => rfl
+  | a :: as, f => by
+    show Expr.substFvars b D s (Expr.mkAppN (.app f a) as) = _
+    rw [gk_substFvars_mkAppN as]; rfl
+
+private theorem gk_erase_substFvars_erase {b D : Nat} {s : Nat → Expr} (x : Expr) :
+    (Expr.substFvars b D s x.eraseFVarTys).eraseFVarTys = (Expr.substFvars b D s x).eraseFVarTys :=
+  Expr.eraseFVarTys_eq_iff.mpr
+    (Expr.ErasedEq.substFvars (Expr.eraseFVarTys_eq_iff.mp (gk_erase_erase x)))
+
+private theorem gk_teleSubst_erase {b D : Nat} {s : Nat → Expr} (t : List (Expr × BinderMeta)) :
+    (t.map fun p => (Expr.substFvars b D s p.1, p.2)).map (fun q => (q.1.eraseFVarTys, q.2))
+      = (t.map fun q => (q.1.eraseFVarTys, q.2)).map
+          (fun p => ((Expr.substFvars b D s p.1).eraseFVarTys, p.2)) := by
+  simp only [List.map_map]
+  apply List.map_congr_left
+  intro p _
+  simp [gk_erase_substFvars_erase]
+
+private theorem gk_argsSubst_erase {b D : Nat} {s : Nat → Expr} (t : List Expr) :
+    (t.map (Expr.substFvars b D s)).map Expr.eraseFVarTys
+      = (t.map Expr.eraseFVarTys).map (fun x => (Expr.substFvars b D s x).eraseFVarTys) := by
+  simp only [List.map_map]
+  apply List.map_congr_left
+  intro p _
+  simp [gk_erase_substFvars_erase]
+
+/-- One `instantiate1` pushed through a telescope's binders. -/
+private def gk_teleInst1 : List (Expr × BinderMeta) → Expr → Nat → List (Expr × BinderMeta)
+  | [], _, _ => []
+  | (t, m) :: r, x, k => (t.instantiate1 x k, m) :: gk_teleInst1 r x (k + 1)
+
+private theorem gk_teleInst1_length : ∀ (tel : List (Expr × BinderMeta)) (x : Expr) (k : Nat),
+    (gk_teleInst1 tel x k).length = tel.length
+  | [], _, _ => rfl
+  | (_, _) :: r, x, k => by simp [gk_teleInst1, gk_teleInst1_length r x (k + 1)]
+
+private theorem gk_instantiate1_mkPisOf : ∀ (tel : List (Expr × BinderMeta)) (B x : Expr) (k : Nat),
+    (Expr.mkPisOf tel B).instantiate1 x k
+      = Expr.mkPisOf (gk_teleInst1 tel x k) (B.instantiate1 x (k + tel.length))
+  | [], B, x, k => rfl
+  | (t, m) :: r, B, x, k => by
+    show Expr.forallE (t.instantiate1 x k) ((Expr.mkPisOf r B).instantiate1 x (k + 1)) m = _
+    rw [gk_instantiate1_mkPisOf r B x (k + 1)]
+    simp only [gk_teleInst1, Expr.mkPisOf, List.length_cons]
+    rw [Nat.add_assoc, Nat.add_comm 1]
+
+/-- `targetPiDomsWith` at no more variables than a tower's binders does not
+read the tower's body. -/
+private theorem gk_targetPiDomsWith_mkPisOf_body : ∀ (fvs : List Expr) (tel : List (Expr × BinderMeta))
+    (B B' : Expr), fvs.length ≤ tel.length →
+    targetPiDomsWith fvs (Expr.mkPisOf tel B) = targetPiDomsWith fvs (Expr.mkPisOf tel B')
+  | [], _, _, _, _ => rfl
+  | _ :: _, [], _, _, h => by simp at h
+  | x :: xs, (t, m) :: r, B, B', h => by
+    simp only [Expr.mkPisOf, targetPiDomsWith, gk_instantiate1_mkPisOf]
+    rw [gk_targetPiDomsWith_mkPisOf_body xs (gk_teleInst1 r x 0) _
+      (B'.instantiate1 x (0 + r.length)) (by simp [gk_teleInst1_length] at h ⊢; omega)]
+
+private theorem gk_fvarsBelow_mkPisOf {a : Nat} : ∀ (tel : List (Expr × BinderMeta)) (B : Expr),
+    (∀ q ∈ tel, q.1.fvarsBelow a) → B.fvarsBelow a → (Expr.mkPisOf tel B).fvarsBelow a
+  | [], _, _, hB => hB
+  | (t, m) :: r, B, h, hB =>
+    ⟨h (t, m) List.mem_cons_self,
+      gk_fvarsBelow_mkPisOf r B (fun q hq => h q (List.mem_cons_of_mem _ hq)) hB⟩
+
 /-! ## K.53′ at the rule's fields -/
 
 /-- **K.53′, moved from the datum's variables to the rule's** (see the
@@ -212,7 +387,9 @@ theorem k53_rename {ops : CheckerOps CheckM} {env : Env} {p : BlockShape}
     {n a bR : Nat} {fvs0 fvsR : List Expr} {T T0 o0 : Expr} {i tele : Nat}
     (hop0 : openPisAtFvars n T0 a = some (fvs0, o0))
     (hR : ∀ l, l < n → ∃ ty, fvsR[l]? = some (.fvar (bR + l) ty)) (hlR : fvsR.length = n)
-    (hT : T.fvarsBelow a) (hT0 : T0.fvarsBelow a)
+    (hT : ∃ (tel : List (Expr × BinderMeta)) (body : Expr),
+      T.stripPis n = some (tel, body) ∧ ∀ q ∈ tel, q.1.fvarsBelow a)
+    (hT0 : T0.fvarsBelow a) (hpf : Mt.pfvs.length ≤ a)
     {teleB : List (Expr × BinderMeta)} {leaf : Expr}
     (hst : (fvs0.getD i default).fvarTypeD.stripPis tele = some (teleB, leaf))
     (hleaf : classLeafAt Mt leaf = true)
@@ -229,7 +406,126 @@ theorem k53_rename {ops : CheckerOps CheckM} {env : Env} {p : BlockShape}
       (Expr.mkAppN (.const I us') Pw).nestOcc p.memberNames 0 0 = true ∧
       targetClassMatch ops env p formerTys Mt.pfvs Mt.lvls Mt.ds us' Pw = .ok true ∧
       (∀ x ∈ Pw, x.looseBVarsBounded 0 = true) := by
-  sorry
+  obtain ⟨s, hsd⟩ : ∃ s : Nat → Expr, s = fun v => .fvar v (.sort .zero) := ⟨_, rfl⟩
+  have hsF : ∀ v, v < a → ∃ ty, s v = .fvar v ty := fun v _ => ⟨.sort .zero, by rw [hsd]⟩
+  have hsB : ∀ v, v < a → (s v).looseBVarsBounded 0 = true := fun v _ => by rw [hsd]; rfl
+  -- the entry's telescope, cut to its first `n` binders
+  obtain ⟨tel, body, hstT, htel⟩ := hT
+  have htelL : tel.length = n := gk_stripPis_length hstT
+  have hPre : ∀ fvs : List Expr, fvs.length = n →
+      targetPiDomsWith fvs T = targetPiDomsWith fvs (Expr.mkPisOf tel (.sort .zero)) :=
+    fun fvs hl => by
+      rw [gk_stripPis_eq_mkPisOf hstT]
+      exact gk_targetPiDomsWith_mkPisOf_body fvs tel _ _ (by omega)
+  have hT' : (Expr.mkPisOf tel (.sort .zero)).fvarsBelow a :=
+    gk_fvarsBelow_mkPisOf tel _ htel trivial
+  generalize Expr.mkPisOf tel (.sort .zero) = T' at hPre hT'
+  -- the datum's opening
+  have hl0 : fvs0.length = n := Verify.openPisAtFvars_length n hop0
+  have hidx0 := openPisAtFvars_index n T0 a hop0
+  have hws0 := openPisAtFvars_targetPiDomsWith hop0
+  -- the renamed fields are the rule's
+  have hF : ErasedEqs (fvs0.map (Expr.substFvars a bR s)) fvsR := by
+    rw [gk_erasedEqs_iff]
+    apply List.ext_getElem?
+    intro l
+    simp only [List.getElem?_map]
+    by_cases hl : l < n
+    · obtain ⟨ty', hR'⟩ := hR l hl
+      obtain ⟨x, hx⟩ : ∃ x, fvs0[l]? = some x := ⟨fvs0[l], List.getElem?_eq_getElem (by omega)⟩
+      obtain ⟨ty, rfl⟩ := hidx0 l x hx
+      rw [hx, hR']
+      simp only [Option.map_some, Option.some.injEq]
+      rw [Expr.substFvars_fvar_ge (by omega)]
+      simp only [Expr.eraseFVarTys, Expr.replaceFVars, Option.getD_some, Expr.fvar.injEq, and_true]
+      omega
+    · rw [List.getElem?_eq_none (by omega), List.getElem?_eq_none (by omega)]
+      rfl
+  -- the entry's field, renamed
+  rw [hPre fvs0 hl0] at hf0
+  obtain ⟨wT, hwT⟩ : ∃ wT, targetPiDomsWith fvs0 T' = some wT := by
+    cases h : targetPiDomsWith fvs0 T' with
+    | none => rw [h] at hf0; simp at hf0
+    | some wT => exact ⟨wT, rfl⟩
+  rw [hwT, Option.getD_some] at hf0
+  have hwTl : wT.length = n := by rw [targetPiDomsWith_length _ _ _ hwT, hl0]
+  have hi : i < n := by
+    have := (List.getElem?_eq_some_iff.mp hf0).1
+    omega
+  have hwTσ := targetPiDomsWith_substFvars (D := bR) hsB hwT
+  obtain ⟨wR, hwR, hwRe⟩ :=
+    targetPiDomsWith_erasedEq hF (substFvars_erasedEq_self hsF T' hT') hwTσ
+  obtain ⟨fR, hfR, hfRe⟩ := gk_erasedEqs_get hwRe (l := i) (by rw [List.getElem?_map, hf0]; rfl)
+  -- the datum's field, renamed
+  have hws0σ := targetPiDomsWith_substFvars (D := bR) hsB hws0
+  obtain ⟨ws, hws, hwse⟩ :=
+    targetPiDomsWith_erasedEq hF (substFvars_erasedEq_self hsF T0 hT0) hws0σ
+  have hx0 : fvs0[i]? = some (fvs0.getD i default) := by
+    rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem (by omega)]; rfl
+  obtain ⟨wi, hwi, hwie⟩ := gk_erasedEqs_get hwse (l := i)
+    (x := Expr.substFvars a bR s (fvs0.getD i default).fvarTypeD)
+    (by rw [List.getElem?_map, List.getElem?_map, hx0]; rfl)
+  have hwsD : ws.getD i default = wi := by rw [List.getD_eq_getElem?_getD, hwi]; rfl
+  have hstσ := stripPis_substFvars (D := bR) hsF tele (fvs0.getD i default).fvarTypeD
+  rw [hst, Option.map_some] at hstσ
+  simp only at hstσ
+  obtain ⟨teleR, leafR, hstR, hlenR, hallR, hleafR⟩ := stripPis_erasedEq hwie hstσ
+  -- K.53′ at the datum
+  obtain ⟨teleW, leafW, I, us', us, hstrip, htele, hW, hM, -, hidx, hment, hcm⟩ :=
+    targetK53_true hK
+  have hI : I = Mt.ind := by
+    unfold classLeafAt at hleaf
+    rw [hM] at hleaf
+    simpa using hleaf
+  have hPw : ∀ x ∈ leafW.getAppArgs.take Mt.nPc, x.bvarB = 0 ∧ x.fvarB ≤ Mt.pfvs.length := by
+    intro x hx
+    obtain ⟨-, hpd⟩ := targetClassMatch_true hcm
+    obtain ⟨hl, hall⟩ := targetParamsDefEq_true hpd
+    obtain ⟨j, hj, rfl⟩ := List.getElem_of_mem hx
+    obtain ⟨y, hy⟩ : ∃ y, Mt.ds[j]? = some y := ⟨Mt.ds[j], List.getElem?_eq_getElem (by omega)⟩
+    obtain ⟨-, hb, -, hbf, -⟩ := hall j y _ hy (List.getElem?_eq_getElem hj)
+    exact ⟨hb, hbf⟩
+  -- the leaf's spine, renamed
+  have hleafE : leaf = Expr.mkAppN (.const I us) leaf.getAppArgs := by
+    rw [← hM, Expr.mkAppN_getApp]
+  have hσleaf : Expr.substFvars a bR s leaf
+      = Expr.mkAppN (.const I us) (leaf.getAppArgs.map (Expr.substFvars a bR s)) := by
+    conv => lhs; rw [hleafE]
+    rw [gk_substFvars_mkAppN]; rfl
+  have hEleafR : leafR.eraseFVarTys = (Expr.substFvars a bR s leaf).eraseFVarTys :=
+    (Expr.eraseFVarTys_eq_iff.mpr hleafR).symm
+  have hRfn : leafR.getAppFn = .const I us := by
+    apply gk_erase_eq_const
+    rw [← gk_erase_getAppFn, hEleafR, hσleaf, gk_erase_mkAppN, Expr.getAppFn_mkAppN]; rfl
+  have hRargs : leafR.getAppArgs.map Expr.eraseFVarTys
+      = (leaf.getAppArgs.map (Expr.substFvars a bR s)).map Expr.eraseFVarTys := by
+    rw [← gk_erase_getAppArgs, hEleafR, hσleaf, gk_erase_mkAppN, Expr.getAppArgs_mkAppN]; rfl
+  refine ⟨ws, teleR, leafR, I, us, us', leafW.getAppArgs.take Mt.nPc, fR, hws,
+    by rw [hwsD]; exact hstR, hRfn, hI,
+    by rw [hPre fvsR hlR, hwR, Option.getD_some]; exact hfR, ?_, hment, hcm, fun x hx => ?_⟩
+  · rw [← Expr.eraseFVarTys_eq_iff.mpr hfRe, gk_stripPis_eq_mkPisOf hstrip]
+    have hleafW : leafW = Expr.mkAppN (.const I us')
+        (leafW.getAppArgs.take Mt.nPc ++ leafW.getAppArgs.drop Mt.nPc) := by
+      rw [List.take_append_drop, ← hW, Expr.mkAppN_getApp]
+    conv => lhs; rw [hleafW]
+    rw [Expr.substFvars_mkPisOf, gk_substFvars_mkAppN, gk_erase_mkPisOf, gk_erase_mkPisOf,
+      gk_erase_mkAppN, gk_erase_mkAppN]
+    congr 1
+    · rw [gk_teleSubst_erase, htele, ← gk_teleSubst_erase]
+      exact gk_teleMap_eq hlenR hallR
+    · congr 1
+      rw [List.map_append, List.map_append, List.map_append]
+      congr 1
+      · rw [List.map_map]
+        apply List.map_congr_left
+        intro x hx
+        obtain ⟨-, hf⟩ := hPw x hx
+        exact Expr.eraseFVarTys_eq_iff.mpr (substFvars_erasedEq_self hsF x
+          (Expr.fvarsBelow_iff.mpr (by rw [← Expr.fvarB_eq]; omega)))
+      · rw [gk_argsSubst_erase, hidx, ← gk_argsSubst_erase, List.map_drop, List.map_drop,
+          ← hRargs, List.map_drop]
+  · obtain ⟨hb, -⟩ := hPw x hx
+    exact Expr.looseBVarsBounded_iff.mpr (by rw [← Expr.bvarB_eq]; omega)
 
 /-! ## The generated rule's inductive hypotheses -/
 
