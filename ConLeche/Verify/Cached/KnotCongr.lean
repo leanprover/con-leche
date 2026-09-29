@@ -505,7 +505,7 @@ theorem annotateBodyI_congr (hfe : fe₁.find? = fe₂.find?) (r : CoreFnsI) :
   funext depth e; unfold annotateBodyI
   simp only [natLitSupportedF_congr hfe, strLitSupportedF_congr hfe,
     annotatePisI_congr hfe, annotateLamsI_congr hfe, annotPwLamI_congr hfe,
-    findProj?_congr hfe]
+    findProj?_congr hfe, hfe]
 
 /-! ## The knot, and the operation records built on it -/
 

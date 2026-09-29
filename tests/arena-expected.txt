@@ -191,7 +191,11 @@
 1 bad/tutorial/059_typeWithTooHighTypeField.mk.ndjson
 1 bad/tutorial/071_BogusRecursor.ndjson
 1 bad/tutorial/085_projOutOfRange.ndjson
-2 bad/tutorial/086_projNotStruct.ndjson
+# 086: a `.proj` out of a two-constructor type.  Official's `infer_proj`
+# rejects (one constructor required); so do we since the maintainer's
+# ruling of 2026-09-29 (lane PROJREJ, `projMissError`,
+# ConLeche/Kernel/Core.lean) — it used to decline (2).
+1 bad/tutorial/086_projNotStruct.ndjson
 1 bad/tutorial/088_projProp2.ndjson
 1 bad/tutorial/090_projProp4.ndjson
 1 bad/tutorial/091_projProp5.ndjson

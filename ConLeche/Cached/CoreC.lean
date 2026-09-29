@@ -1848,10 +1848,10 @@ def annotateBodyI (r : CoreFnsI) (fe : FEnv) : Nat → Expr → CheckCM Expr :=
             throw (.invalid "projection parameter mismatch")
           pure (Expr.proj T i e')
         | none =>
-          throw (if (fe.findProj? Tn 0).isSome then
-              CheckError.invalid "projection index out of range"
-            else .notImplemented "projection on a non-structure-like type")
-      | _ => throw (.notImplemented "projection on a non-structure type")
+          -- official's `infer_proj` verdict, as in the pure twin
+          throw (projMissError fe.find? (fe.find? (projTableName Tn)).isSome Tn sn i
+            (Expr.getAppArgsC te).length)
+      | _ => throw (.invalid "invalid projection: not a structure-like type, or no such field")
 
 /-! ## The memoized knot -/
 

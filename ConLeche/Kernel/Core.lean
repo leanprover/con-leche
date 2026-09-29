@@ -98,6 +98,48 @@ def unknownConstError (n : Name) : CheckError :=
   if n = sorryAxName then .notImplemented "use of the sorryAx axiom"
   else .invalid s!"unknown constant {n}"
 
+/-- **Could official's `infer_proj` type `.proj sn i _` at a subject
+of type `T a⃗` where we store no projection table for `T`?**  Only at a
+single-constructor inductive `T` named by the node, applied to MORE
+arguments than its parameters (official's premise is `#ctors = 1` and
+`#args = nparams + nindices`, so indices are allowed), at a field index
+below the constructor's field count: an INDEXED structure-like type,
+where official projects and we store no table (the uniform install
+stores one at an index-free single-constructor member only,
+`checkBlockTables`).  Every other shape official rejects
+(`invalid_proj_exception`): a head that is no inductive (an axiom, an
+opaque, `Quot`), a constructor count other than one, a node naming
+another type, an index-free one-constructor type without a table
+(`PUnit`: no fields), a field index beyond the fields (`Eq`). -/
+def projIndexedStructLike (find? : Name → Option ConstantInfo) (T sn : Name)
+    (i nArgs : Nat) : Bool :=
+  T == sn &&
+    match find? T with
+    | some (.indInfo _ caps) =>
+      match caps.ctors with
+      | [c] =>
+        caps.nparams < nArgs &&
+          match find? c with
+          | some (.ctorInfo _ _ nF) => decide (i < nF)
+          | _ => false
+      | _ => false
+    | _ => false
+
+/-- **The verdict at a `.proj sn i _` whose subject type is headed by
+the constant `T` (applied to `nArgs` arguments) and has no
+projection-table entry at field `i`** (`hasTable`: whether `T` has a
+table at all).  A table without field `i` is an out-of-range index; a
+positively detected indexed structure-like type
+(`projIndexedStructLike`) is the one shape official accepts and we do
+not support (DECLINE); everything else official rejects, and so do
+we. -/
+def projMissError (find? : Name → Option ConstantInfo) (hasTable : Bool)
+    (T sn : Name) (i nArgs : Nat) : CheckError :=
+  if hasTable then .invalid "projection index out of range"
+  else if projIndexedStructLike find? T sn i nArgs then
+    .notImplemented "projection on an indexed structure-like type"
+  else .invalid "invalid projection: not a structure-like type, or no such field"
+
 /-- The record of mutually recursive core entry points.  `whnfCore`
 computes a head normal form without delta; `whnf` is the full reduction
 loop; `infer` is type inference;
@@ -1886,13 +1928,13 @@ def annotateBody (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
         | none =>
           -- task #175 wiring W5: the elimination fallbacks are gone —
           -- every supported projection is a native table entry.
-          -- An out-of-range index on a projectable structure (its
-          -- field 0 has an entry) is invalid; a shape without any
-          -- projection support declines
-          throw (if (env.findProj? T 0).isSome then
-              CheckError.invalid "projection index out of range"
-            else .notImplemented "projection on a non-structure-like type")
-      | _ => throw (.notImplemented "projection on a non-structure type")
+          -- Without one, official's `infer_proj` verdict
+          -- (`projMissError`): reject, except at an indexed
+          -- structure-like type, which declines
+          throw (projMissError env.find? (env.find? (projTableName T)).isSome T sn i
+            te.getAppArgs.length)
+      -- official `infer_proj`: the whnf'd type's head is no constant
+      | _ => throw (.invalid "invalid projection: not a structure-like type, or no such field")
 
 end Bodies
 

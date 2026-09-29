@@ -861,11 +861,35 @@
 # hand-written `def IdxHom.badProj := fun h => h.0` — a `.proj` node on
 # the indexed family.  No projection table exists for it, so the node is
 # a positive decline (user ruling: indexed types get no projections;
-# decline if a `.proj` occurs).  NB the official kernel ACCEPTS this
+# decline if a `.proj` occurs; "projection on an indexed structure-like
+# type", `projIndexedStructLike`).  NB the official kernel ACCEPTS this
 # stream: `infer_proj` (type_checker.cpp) requires one constructor and
 # `args = nparams + nindices`, not `is_non_rec_structure` — a
 # conservative decline on our side, recorded as a finding in DESIGN.md.
+# Target verdict 0.  It is the ONLY `.proj` decline left (lane PROJREJ,
+# 2026-09-29): every other table-less shape rejects as official does.
 2 indexed_one_ctor_proj.ndjson
+# indexed_one_ctor_proj_oob.ndjson (forged from the stream above: the
+# `.proj` index 0 → 7, beyond IdxHom's 4 fields): official's
+# `infer_proj` runs off the constructor telescope and rejects; so do we
+# (the decline is only at an in-range field).  Was 2 before lane PROJREJ.
+1 indexed_one_ctor_proj_oob.ndjson
+# proj_non_structure.ndjson (= arena `bad/bugs/proj-non-structure`):
+# `theorem bad : False := (Bad.mk2 True.intro).0` with `Bad : Prop` of
+# two constructors.  Official rejects (`infer_proj`: one constructor
+# required); so do we since lane PROJREJ (maintainer ruling 2026-09-29;
+# was 2, "projection on a non-structure-like type").
+1 proj_non_structure.ndjson
+# proj_zero_field.ndjson (forged from the stream above): `.proj True 0
+# True.intro` — one constructor, no index, NO fields.  Its table exists
+# with zero entries; official's field walk finds no binder and rejects.
+# Was 2 ("non-structure-like": the old test asked for field 0's entry).
+1 proj_zero_field.ndjson
+# proj_pi_subject.ndjson (forged from the same stream): `.proj True 0
+# (fun x : True => x)` — the subject's type `True → True` has no
+# constant head; official rejects (`!is_constant(I)`).  Was 2
+# ("projection on a non-structure type").
+1 proj_pi_subject.ndjson
 # proj_share.ndjson (tests/e2e/src/proj_share.lean; the affine frontier,
 # 2026-09-06): raw `.proj Box 0 b` nodes on a structure whose parameter
 # is a 27-node DAG with a 2^27-node tree (`big% 26`, lean4export

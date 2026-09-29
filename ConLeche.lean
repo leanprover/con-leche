@@ -18,6 +18,7 @@ public import ConLeche.Verify.EnvWF
 public import ConLeche.Verify.InferLemmas
 public import ConLeche.Verify.InferIOLemmas
 public import ConLeche.Verify.InferIOLeaves
+public import ConLeche.Verify.ProjVerdict
 public import ConLeche.SetTheory.Basic
 public import ConLeche.SetTheory.Core
 public import ConLeche.Verify.Mono

@@ -2803,7 +2803,10 @@ private theorem annotate_step (henv : EnvWF env)
     case const T cus =>
     simp only [shiftFrom]
     cases hfp : env.findProj? T i with
-    | none => rfl
+    | none =>
+      -- the table-less verdict reads the argument count
+      simp only [getAppArgs_shiftFrom, List.length_map]
+      rfl
     | some entry =>
       dsimp only
       simp only [getAppArgs_shiftFrom, List.length_map]
