@@ -262,14 +262,14 @@
     53  def annotateCore (env : Env) (fuel depth : Nat) (e : Expr) : CheckM Expr :=
     54    (pureFns mode env fuel).annotate depth e
 
-== ConLeche/Kernel/Core.lean#L1907-L1913
-  1907      (wrap : CoreFns m → CoreFns m) : Nat → CoreFns m
-  1908    | 0 =>
-  1909      { whnfCore := fun _ _ => throw (.internal "fuel exhausted: whnfCore")
-  1910        whnf := fun _ _ => throw (.internal "fuel exhausted: whnf")
-  1911        infer := fun _ _ => throw (.internal "fuel exhausted: infer")
-  1912        defeq := fun _ _ _ => throw (.internal "fuel exhausted: defeq")
-  1913        annotate := fun _ _ => throw (.internal "fuel exhausted: annotate")
+== ConLeche/Kernel/Core.lean#L1949-L1955
+  1949      (wrap : CoreFns m → CoreFns m) : Nat → CoreFns m
+  1950    | 0 =>
+  1951      { whnfCore := fun _ _ => throw (.internal "fuel exhausted: whnfCore")
+  1952        whnf := fun _ _ => throw (.internal "fuel exhausted: whnf")
+  1953        infer := fun _ _ => throw (.internal "fuel exhausted: infer")
+  1954        defeq := fun _ _ _ => throw (.internal "fuel exhausted: defeq")
+  1955        annotate := fun _ _ => throw (.internal "fuel exhausted: annotate")
 
 == ConLeche/Model/Fold.lean#L277-L284
    277  theorem no_proof_of_False_pure (V : Type w) [SetTheory V]
@@ -305,11 +305,11 @@
 == ConLeche/Kernel/Env.lean#L57
     57  inductive CheckMode where
 
-== ConLeche/Kernel/Core.lean#L1089
-  1089  /-- The reduction loop's body: run `whnfLoop` at its own step budget. -/
+== ConLeche/Kernel/Core.lean#L1131
+  1131  /-- The reduction loop's body: run `whnfLoop` at its own step budget. -/
 
-== ConLeche/Kernel/Core.lean#L1785
-  1785  datum is `never`, never a typing it does not redo. -/
+== ConLeche/Kernel/Core.lean#L1827
+  1827  datum is `never`, never a typing it does not redo. -/
 
 == ConLeche/Kernel/PropWhen.lean#L1-L40
      1  module

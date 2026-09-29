@@ -95069,3 +95069,74 @@ Gates: `lake build`/`lake test` warning-free; `tests/arena.sh` green
 (e2e 436/436, shake: 45+1 removals applied, 9 allowlisted, 9 demotions,
 7 pub-import FALLBACKs; links, quote gate, layering, axioms,
 no-local-paths).
+
+## PROJREJ — a table-less `.proj` rejects as official does (2026-09-29, `agent/uinds-PROJREJ`)
+
+**Maintainer decision (2026-09-29): reject such projections.**  Before,
+`annotateBody`'s `.proj` clause (`Kernel/Core.lean`, cached twin
+`Cached/CoreC.lean`) DECLINED whenever the subject type's whnf head had
+no projection-table entry ("projection on a non-structure-like type")
+or was no constant ("projection on a non-structure type") — so arena
+`bad/bugs/proj-non-structure` and `tutorial/086_projNotStruct` (arena
+numbering now 088) declined where official rejects (CSLIB.md,
+"projection rows").
+
+**Official's condition** (v4.34.1 `type_checker.cpp` `infer_proj`;
+there is no `is_structure_like` in the kernel): whnf'd type's head a
+constant, equal to the node's struct name, an inductive, with exactly
+ONE constructor and `#args = nparams + nindices` (indices ALLOWED;
+recursion NOT checked), then a field walk over the constructor
+telescope (out-of-range → reject) and the Prop guards.
+
+**Our side.**  The uniform install stores a table at every
+single-constructor, index-free member (`checkBlockTables`) — recursive
+and mutual ones included; the pinned basis stores none (`PUnit`: 0
+fields, `Eq`: indexed, 0 fields; `Nat`/`Empty`/`False`: ≠1 ctor;
+`Quot`: 0 ctors).  So the ONE shape official may accept and we have no
+table for is an **indexed one-constructor type at an in-range field**
+(`indexed_one_ctor_proj`, standing ruling: indexed types get no
+projections).  New `projMissError find? hasTable T sn i nArgs` (Core.lean,
+next to `unknownConstError`; both twins throw it, `find?` = `env.find?` /
+`fe.find?`):
+
+* table present (`projTableName T` stored) → `.invalid "projection
+  index out of range"` (a ZERO-field table now lands here; the old test
+  asked for field 0's entry and so declined at `True`-like types);
+* `projIndexedStructLike`: `T = sn`, `T` an `indInfo` with `caps.ctors =
+  [c]`, `caps.nparams < nArgs` (i.e. indices), `c`'s `ctorInfo`
+  `numFields > i` → `.notImplemented "projection on an indexed
+  structure-like type"` (the only decline left);
+* otherwise → `.invalid "invalid projection: not a structure-like type,
+  or no such field"`; a non-constant head throws the same `.invalid`.
+
+The decline is an over-approximation of official's acceptance only on
+the Prop-guard side (official may still reject a data field of an
+indexed Prop type; we decline).
+
+**Proofs.**  `Verify/ProjVerdict.lean` (imported by the `ConLeche`
+root): `projIndexedStructLike_spec`, `projMissError_decline` (a
+`.notImplemented` result ⇒ no table ∧ `projIndexedStructLike`),
+`projMissError_invalid`, `projMissError_invalid_of_ctors` (any head not
+a stored inductive with a single constructor rejects).  The soundness
+tiers see only a throw (the cached simulation relates successes only;
+`SimC.throw`); two congruence proofs needed a touch: `Deep.lean`'s
+shift bisimulation (the `none` arm now reads the argument count:
+`getAppArgs_shiftFrom`) and `KnotCongr.annotateBodyI_congr` (`hfe` in the
+simp set for the `find?` argument).
+
+**Verdicts.**  Only error paths changed, so no accepting stream can
+move.  Moves: arena `086_projNotStruct` 2 → 1; e2e new rows
+`proj_non_structure` (= arena bugs row), `proj_zero_field` (forged,
+`.proj True 0 True.intro`), `proj_pi_subject` (forged, subject of type
+`True → True`), `indexed_one_ctor_proj_oob` (forged, index 7 of 4
+fields) — all 1, all 2 on the old binary; `indexed_one_ctor_proj`
+stays 2 (message now "indexed structure-like type").  Sweep of the
+current arena tarball (the CSLIB list, 193 streams, `--verified
+--jobs=4`) uniform-inds 66d4f2af vs lane: exactly two moves,
+`bad/bugs/proj-non-structure` 2 → 1 and `bad/tutorial/088_projNotStruct`
+2 → 1 (`_tmp/uniform-inds/PROJREJ/sweep.log`).
+
+Gates: `lake build`/`lake test` warning-free; `tests/arena.sh` green
+(arena 90/92 good, e2e 440/440, trusted/jobs sweeps, shake, pub-imports,
+layering, quote gate, no-local-paths, axioms) after repointing
+OVERVIEW's three `Core.lean` anchors (+42 lines, text unchanged).
