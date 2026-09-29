@@ -839,6 +839,8 @@ structure NestCtorNf where
   lvls : List Level
   ds : List Expr
   ty : Expr
+  /-- the walk's field kinds at this entry (the generated recursor's datum reads them) -/
+  kinds : List NestFieldKind := []
   deriving Inhabited
 
 /-- The block, as the function needs it: the members, their level
@@ -1163,10 +1165,11 @@ the frame's key `(us, ds)` under the frames `prog`, its walked field
 telescope `nds` (opened at `hi, hi + 1, …`) onto `cur` closed back, all
 read back (`nestHoleConst`). -/
 def nestCtorNf (ctx : NestCtx) (prog : List NestHole) (hi : Nat) (us : List Level)
-    (ds : List Expr) (cv : ConstantVal) (nds : List (Expr × BinderMeta)) (cur : Expr) :
+    (ds : List Expr) (cv : ConstantVal) (nds : List (Expr × BinderMeta)) (cur : Expr)
+    (ks : List NestFieldKind := []) :
     NestCtorNf :=
-  ⟨cv.name, us, ds.map (·.replaceFVars (nestHoleConst ctx prog)),
-    (closeTelescope nds hi cur).replaceFVars (nestHoleConst ctx prog)⟩
+  { ctor := cv.name, lvls := us, ds := ds.map (·.replaceFVars (nestHoleConst ctx prog)),
+    ty := (closeTelescope nds hi cur).replaceFVars (nestHoleConst ctx prog), kinds := ks }
 
 /-- A frame's constructors: each with the frame's group abstracted
 (`sub`), instantiated at `ds`, TYPED at the frame's context (the holes
@@ -1221,7 +1224,7 @@ def nestCtors (ctx : NestCtx) (ops : CheckerOps m) (env : Env)
         container constructor (an index mentions the block)")
     -- K.53′: the constructor's walked normal form at the
     -- frame's key, read back (`NestCtorNf`)
-    let st := { st with ctorNfs := st.ctorNfs.push (nestCtorNf ctx prog hi us ds cv nds cur) }
+    let st := { st with ctorNfs := st.ctorNfs.push (nestCtorNf ctx prog hi us ds cv nds cur ks) }
     nestCtors ctx ops env rec prog hi us ds nPc sub cs st
 
 /-- The constructors of every container in `cs` (at one parameter
@@ -1641,7 +1644,8 @@ the frames' (`NestState.ctorNfs`). -/
 def nestMemberNfs (ctx : NestCtx) (ctorss : List (List (ConstantVal × Nat)))
     (nfs : List (List Expr)) : List NestCtorNf :=
   (ctorss.zip nfs).flatMap fun (cs, ns) => (cs.zip ns).map fun (c, n) =>
-    ⟨c.1.name, ctx.lps.map .param, ctx.params, n.replaceFVars (nestHoleConst ctx [])⟩
+    { ctor := c.1.name, lvls := ctx.lps.map .param, ds := ctx.params,
+      ty := n.replaceFVars (nestHoleConst ctx []) }
 
 /-- **Positivity through containers, for a whole block**: every member
 constructor's fields through `nestPos`, sharing one cache.  `ctorss`
