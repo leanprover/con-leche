@@ -535,15 +535,13 @@ example : ConLeche.AnnotOf
 
 /-! ## Zero-motive recursors
 
-A motive is a parameter like any other: the recursor check asks only
-that the rule prefix start
-with the block's parameters (`nP ≤ rP`), never that it hold one motive
-per member.  The witness is `inductive ZT : Prop | c` closed by
-`ZT.rec : (t : ZT) → ZT` with the rule `ZT.rec ZT.c ↦ ZT.c` — an EMPTY
-rule prefix, a rule binding no variable (the model reads it as the
-point by the family's ι law, `tgtRuleRaZ_empty`).  From a stream the
-frontend still refuses such a record ("declares 0 motives", e2e
-`corner_rec_empty_prefix`), so these drive the kernel directly. -/
+The recursor stage GENERATES the family and compares the stream's
+recursors with it, so a recursor record without the generated motive is
+rejected — official's verdict ("invalid recursor").  The witness is
+`inductive ZT : Prop | c` closed by `ZT.rec : (t : ZT) → ZT` with the
+rule `ZT.rec ZT.c ↦ ZT.c` — an EMPTY rule prefix, no motive.  From a
+stream the frontend already refuses such a record ("declares 0 motives",
+e2e `corner_rec_empty_prefix`), so these drive the kernel directly. -/
 
 private def zNm (s : String) : Name := .str .anonymous s
 
@@ -558,34 +556,28 @@ private def zBlock (T : Name) (rhs : Expr) : List ConstantInfo :=
     .recInfo ⟨T.str "rec", [], .forallE (.const T []) (.const T []) default⟩ 0 0
       [zRule (T.str "c") rhs]]
 
-/-- The kernel's recursor CHECK (`checkBlockRecT`, the target check the
-soundness proof rests on) on a one-member block, after the pass over
-the formers and the constructors: the number of recursors it stores. -/
+/-- The kernel's recursor stage (`checkBlockRec`, the generated stage) on
+a one-member block, after the pass over the formers and the
+constructors: the number of recursors it stores. -/
 private def zRecK (block : List ConstantInfo) : Except CheckError Nat := do
   let some p₀ := blockParts? 0 block | throw (.internal "blockParts?")
   let q ← checkBlockPass (pureOps .verified) Env.empty p₀ false
   let env₂ := consBlockCtors q.p.nP q.ctorsAs q.env₁
-  let out ← checkBlockRecT (pureOps .verified) q.env₁ env₂ q.p false q.pos block q.cvTas
+  let out ← checkBlockRec (pureOps .verified) q.env₁ env₂ q.p false q.pos block q.cvTas
     q.ctorsAs
   pure out.length
 
--- The check ACCEPTS the zero-motive recursor and its correct rule.
-#guard zRecK (zBlock (zNm "ZT") (.const ((zNm "ZT").str "c") [])) matches .ok 1
-
--- A zero-motive recursor with a WRONG rule is still rejected: `ZT` is
--- not a proof of `ZT`.
+-- The stage REJECTS the zero-motive recursor, whatever its rule.
+#guard zRecK (zBlock (zNm "ZT") (.const ((zNm "ZT").str "c") [])) matches .error (.invalid _)
 #guard zRecK (zBlock (zNm "ZT") (.const (zNm "ZT") [])) matches .error (.invalid _)
 
--- The whole fold on the one-member witness: the check passes and the
--- reject-only CONFORMANCE check (the generated recursor has a motive)
--- brings the verdict back to official's.
+-- And so does the whole fold.
 #guard checkDeclsPure .verified (pureOps .verified) natOpPinSets
     [.indDecl (zBlock (zNm "ZT") (.const ((zNm "ZT").str "c") [])) 0]
   matches .error (.invalid _)
 
 /-- The MUTUAL twin: `ZA ZB : Prop`, one constructor each, each with a
-zero-motive recursor.  The conformance check is skipped at two members,
-so the fold's verdict is the check's. -/
+zero-motive recursor. -/
 private def zMutual (rA rB : Expr) : Declaration :=
   let A := zNm "ZA"; let B := zNm "ZB"
   .indDecl [.indInfo ⟨A, [], .sort .zero⟩ {}, .indInfo ⟨B, [], .sort .zero⟩ {},
@@ -595,11 +587,12 @@ private def zMutual (rA rB : Expr) : Declaration :=
     .recInfo ⟨B.str "rec", [], .forallE (.const B []) (.const B []) default⟩ 0 0
       [zRule (B.str "c") rB]] 0
 
--- Accepted end to end by the kernel's fold.
-#guard (checkDeclsPure .verified (pureOps .verified) natOpPinSets
-    [zMutual (.const ((zNm "ZA").str "c") []) (.const ((zNm "ZB").str "c") [])]).toBool
+-- Rejected at two members too, with the right rules …
+#guard checkDeclsPure .verified (pureOps .verified) natOpPinSets
+    [zMutual (.const ((zNm "ZA").str "c") []) (.const ((zNm "ZB").str "c") [])]
+  matches .error (.invalid _)
 
--- And rejected when one rule is wrong.
+-- … and with a wrong one.
 #guard checkDeclsPure .verified (pureOps .verified) natOpPinSets
     [zMutual (.const ((zNm "ZA").str "c") []) (.const (zNm "ZB") [])]
   matches .error (.invalid _)
