@@ -219,6 +219,42 @@ theorem replaceFVars_WScoped {g : Nat → Option Expr} {d : Nat}
     intro hw; unfold WScoped at hw; simp only [Expr.replaceFVars]; unfold WScoped; exact ih hw
   | _ => intro hw; simpa [Expr.replaceFVars] using hw
 
+/-- **Replacing every free variable below `d` by a term scoped at `d`**
+scopes the result at `d` whenever its free variables are below `d`
+(no well-scopedness of the input is needed: every free variable the
+result keeps is below `d`, hence replaced). -/
+theorem replaceFVars_WScoped_of_below {g : Nat → Option Expr} {d : Nat}
+    (hg : ∀ i r, g i = some r → WScoped d r) (hall : ∀ i, i < d → (g i).isSome = true) :
+    ∀ (e : Expr), Expr.fvarsBelow d (e.replaceFVars g) → WScoped d (e.replaceFVars g) := by
+  intro e
+  induction e with
+  | fvar i ty _ =>
+    intro hb
+    simp only [Expr.replaceFVars] at hb ⊢
+    cases hgi : g i with
+    | none =>
+      rw [hgi] at hb
+      simp only [Option.getD_none, Expr.fvarsBelow] at hb
+      have := hall i hb
+      rw [hgi] at this
+      exact nomatch this
+    | some r => exact hg i r hgi
+  | app a b iha ihb =>
+    intro hb; simp only [Expr.replaceFVars, Expr.fvarsBelow] at hb ⊢; unfold WScoped
+    exact ⟨iha hb.1, ihb hb.2⟩
+  | lam ty b m iht ihb =>
+    intro hb; simp only [Expr.replaceFVars, Expr.fvarsBelow] at hb ⊢; unfold WScoped
+    exact ⟨iht hb.1, ihb hb.2⟩
+  | forallE ty b m iht ihb =>
+    intro hb; simp only [Expr.replaceFVars, Expr.fvarsBelow] at hb ⊢; unfold WScoped
+    exact ⟨iht hb.1, ihb hb.2⟩
+  | letE ty v b iht ihv ihb =>
+    intro hb; simp only [Expr.replaceFVars, Expr.fvarsBelow] at hb ⊢; unfold WScoped
+    exact ⟨iht hb.1, ihv hb.2.1, ihb hb.2.2⟩
+  | proj s i sub ih =>
+    intro hb; simp only [Expr.replaceFVars, Expr.fvarsBelow] at hb ⊢; unfold WScoped; exact ih hb
+  | _ => intro _; simp [Expr.replaceFVars, WScoped]
+
 /-- Closing a binder body back: an opened body without loose bound
 variables past `k` had none past `k + 1`. -/
 theorem looseBVarsBounded_of_instantiate1_fvar {d : Nat} {ty : Expr} :

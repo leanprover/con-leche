@@ -173,10 +173,10 @@ theorem genRec_memberClass
     (R.Ms.getD c default).ds = R.ctx.params.take p.nP := by
   by_cases hc : c < R.Ms.length
   · obtain ⟨hlenN, hallN⟩ := ConLeche.classesNfs_run R.hMs
-    obtain ⟨hlenK, hallK⟩ := ConLeche.classMajors_run R.hMs₀
+    obtain ⟨hlenK, hallK⟩ := R.majors
     have hc₀ : c < R.Ms₀.length := by omega
     obtain ⟨nfs, hMc, -⟩ := hallN c _ (List.getElem?_eq_getElem hc₀)
-    have hck : c < (R.rd.classes.map (ConLeche.classKeyCanon R.ctx.params)).length := by
+    have hck : c < R.keys.length := by
       omega
     obtain ⟨M, hM, ⟨CM⟩⟩ := hallK c _ (List.getElem?_eq_getElem hck)
     rw [List.getElem?_eq_getElem hc₀, Option.some.injEq] at hM

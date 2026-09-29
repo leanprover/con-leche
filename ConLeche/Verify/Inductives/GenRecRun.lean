@@ -29,7 +29,9 @@ records and never unfolds a stage.
 | every recursor's generated type | `classRecTysOk` | `classRecTysOk_run` |
 | one generated rule | `classRuleOk` | `ClassRuleRun` / `classRuleOk_run` |
 | every generated rule | `classRecsRulesOk` | `classRecsRulesOk_run` |
-| the whole stage | `genRecCheck` | `GenRecRun` / `genRecCheck_run` |
+| the classes, in the pass | `checkBlockClasses` | `ClassesRun` / `checkBlockClasses_run` |
+| the whole stage | `genRecCheck` | `GenStageRun` / `genRecCheck_run` |
+| the stage with the pass's classes and walk | — | `GenRecRun` / `genRecRun_of` |
 
 The records are stated at the fueled pure instantiation
 (`ShadowOps.fueled mode F`).  What the UNVERIFIED pre-pass returned
@@ -85,14 +87,13 @@ theorem classStreamRecs_run {fe : FEnv} {F : Nat} :
 /-! ## The classes -/
 
 /-- **One class, checked as a major**: `targetMajorOf`'s arm at the
-class key's application, and the outside class's parameter typing. -/
+class key's application. -/
 structure ClassMajorRun (mode : CheckMode) (F : Nat) (fe : FEnv) (p : BlockShape)
     (ctorsAs : List (List (ConstantVal × Nat))) (pfvs : List Expr) (key : ClassKey)
     (M : TargetMajor) : Type where
   major : TargetMajorRun fe p ctorsAs pfvs pfvs (Expr.mkAppN (.const key.ind key.lvls) key.ds) M
   hmaj : targetMajorOf (m := CheckM) fe p ctorsAs pfvs pfvs
     (Expr.mkAppN (.const key.ind key.lvls) key.ds) = .ok M
-  hpins : targetMajorPins (fueledOps mode F) fe.env p.nP M = .ok ()
 
 /-- **`classMajors`, inverted**: one checked major per class key. -/
 theorem classMajors_run {fe : FEnv} {p : BlockShape}
@@ -109,7 +110,7 @@ theorem classMajors_run {fe : FEnv} {p : BlockShape}
   | key :: keys, Ms, h => by
     unfold classMajors at h
     obtain ⟨M, hM, h⟩ := exceptBind_ok h
-    obtain ⟨u, hpins, h⟩ := exceptBind_ok h
+    obtain ⟨u, -, h⟩ := exceptBind_ok h
     obtain ⟨Ms', hMs, h⟩ := exceptBind_ok h
     simp only [pure, Except.pure, Except.ok.injEq] at h
     subst h
@@ -119,8 +120,153 @@ theorem classMajors_run {fe : FEnv} {p : BlockShape}
     | zero =>
       obtain rfl : key = key' := by simpa using hi
       obtain ⟨⟨R⟩, -⟩ := targetMajorOf_run hM
-      exact ⟨M, rfl, ⟨⟨R, hM, by cases u; exact hpins⟩⟩⟩
+      exact ⟨M, rfl, ⟨⟨R, hM⟩⟩⟩
     | succ i => simpa using hall i key' (by simpa using hi)
+
+/-- **The class check moves between environments** that agree on every
+stored inductive of the first: its lookup and its constructor reading
+(`targetMajorOf` reads the environment nowhere else). -/
+@[expose] def ClassEnvAgree (p : BlockShape) (fe₁ fe : FEnv) : Prop :=
+  ∀ I cv caps, I ∉ p.memberNames → fe₁.find? I = some (.indInfo cv caps) →
+    fe.find? I = fe₁.find? I ∧ targetCtorsOf fe I = targetCtorsOf fe₁ I
+
+theorem targetOutsideInst_congr {fe fe' : FEnv} {I : Name} (h : fe.find? I = fe'.find? I)
+    (us : List Level) (ds : List Expr) :
+    targetOutsideInst (m := CheckM) fe I us ds = targetOutsideInst (m := CheckM) fe' I us ds := by
+  unfold targetOutsideInst
+  rw [h]
+
+theorem targetCtorsOf_indInfo {fe : FEnv} {I : Name} {q : Nat × List (ConstantVal × Nat)}
+    (h : targetCtorsOf fe I = some q) : ∃ cv caps, fe.find? I = some (.indInfo cv caps) := by
+  unfold targetCtorsOf nestContainer at h
+  dsimp only at h
+  split at h
+  · rename_i cv caps hf
+    exact ⟨cv, caps, hf⟩
+  · exact nomatch h
+
+/-- **`targetMajorOf` moved between agreeing environments.** -/
+theorem targetMajorOf_transport {fe₁ fe : FEnv} {p : BlockShape} (hag : ClassEnvAgree p fe₁ fe)
+    {ctorsAs : List (List (ConstantVal × Nat))} {pfvs fvs : List Expr} {mty : Expr}
+    {M : TargetMajor}
+    (h : targetMajorOf (m := CheckM) fe₁ p ctorsAs pfvs fvs mty = .ok M) :
+    targetMajorOf (m := CheckM) fe p ctorsAs pfvs fvs mty = .ok M := by
+  obtain ⟨⟨R⟩, hpf⟩ := targetMajorOf_run h
+  cases R with
+  | member I t ms ctorsA hfn ht hms hctors hpar nfs =>
+    unfold targetMajorOf at h ⊢
+    rw [hfn] at h ⊢
+    simp only [ht] at h ⊢
+    exact h
+  | outside I us nPc nIdx ctors sI hfn ht hnq hct hdsLen hdsSc hment hinst hsort nfs =>
+    obtain ⟨cv, caps, hf⟩ := targetCtorsOf_indInfo hct
+    have hI : I ∉ p.memberNames := fun hm => by
+      have := List.findIdx?_eq_none_iff.mp ht I hm
+      simp at this
+    obtain ⟨hfind, hctors⟩ := hag I cv caps hI hf
+    have hct' : targetCtorsOf fe I = some (nPc, ctors) := by rw [hctors, hct]
+    have hinst' := (targetOutsideInst_congr hfind us _).trans hinst
+    unfold targetMajorOf at h ⊢
+    rw [hfn] at h ⊢
+    simp only [ht] at h ⊢
+    have hq : (I == quotName) = false := by simpa using hnq
+    simp only [hq, hct, hct', Bool.false_eq_true, ↓reduceIte] at h ⊢
+    rw [hinst] at h
+    rw [hinst']
+    exact h
+
+/-- A class checked as a major, moved between agreeing environments. -/
+theorem ClassMajorRun.transport {fe₁ fe : FEnv} {p : BlockShape} (hag : ClassEnvAgree p fe₁ fe)
+    {F : Nat} {ctorsAs : List (List (ConstantVal × Nat))} {pfvs : List Expr}
+    {key : ClassKey} {M : TargetMajor} (C : ClassMajorRun mode F fe₁ p ctorsAs pfvs key M) :
+    Nonempty (ClassMajorRun mode F fe p ctorsAs pfvs key M) := by
+  have h := targetMajorOf_transport hag C.hmaj
+  obtain ⟨⟨R⟩, -⟩ := targetMajorOf_run h
+  exact ⟨⟨R, h⟩⟩
+
+/-! ## The class keys and the classes, in the pass -/
+
+/-- **`classKeyOf`, inverted**: the key moved to the canonical
+parameters, every parameter closed below them, and annotated at depth
+`nP`. -/
+theorem classKeyOf_run {env : Env} {nP : Nat} {params : List Expr} {k k' : ClassKey}
+    {F : Nat} (h : classKeyOf (fueledOps mode F) env nP params k = .ok k') :
+    k'.ind = k.ind ∧ k'.lvls = k.lvls ∧
+    (∀ x ∈ (classKeyCanon params k).ds, x.bvarB = 0 ∧ x.fvarB ≤ nP) ∧
+    (classKeyCanon params k).ds.mapM ((fueledOps mode F).annotate env nP) = .ok k'.ds := by
+  unfold classKeyOf at h
+  simp only at h
+  by_cases hg : ((classKeyCanon params k).ds.all fun x => x.bvarB == 0 && x.fvarB ≤ nP) = true
+  case neg => rw [if_neg hg] at h; close_throw h
+  rw [if_pos hg] at h
+  try simp only [bind, Except.bind] at h
+  obtain ⟨ds, hds, h⟩ := exceptBind_ok h
+  simp only [pure, Except.pure, Except.ok.injEq] at h
+  subst h
+  refine ⟨rfl, rfl, fun x hx => ?_, hds⟩
+  have := List.all_eq_true.mp hg x hx
+  simp only [Bool.and_eq_true, beq_iff_eq, decide_eq_true_eq] at this
+  exact this
+
+/-- **The classes, read and checked** (`checkBlockClasses`, in the pass):
+the pre-pass's reading `rd` of the stream's raw recursor types, the keys
+made checkable `keys`, the classes `Ms` checked as majors at `fe₁`, one
+per member. -/
+structure ClassesRun (mode : CheckMode) (F : Nat) (fe₁ : FEnv) (env₁ : Env) (p : BlockShape)
+    (params : List Expr) (ctorsAs : List (List (ConstantVal × Nat))) (rd : ClassRead)
+    (Ms : List TargetMajor) : Type where
+  keys : List ClassKey
+  hrd : classRead p.nP (classNPcOf p fe₁) p.recs = some rd
+  hkeys : rd.classes.mapM (classKeyOf (fueledOps mode F) env₁ p.nP params) = .ok keys
+  hMs : classMajors (fueledOps mode F) fe₁ p ctorsAs params keys = .ok Ms
+  hone : ∀ t, t < p.k → (Ms.filter (·.member == some t)).length = 1
+
+theorem checkBlockClasses_run {fe₁ : FEnv} {env₁ : Env} {p : BlockShape} {params : List Expr}
+    {ctorsAs : List (List (ConstantVal × Nat))} {rd : ClassRead} {Ms : List TargetMajor}
+    {F : Nat}
+    (h : checkBlockClasses (fueledOps mode F) fe₁ env₁ p params ctorsAs = .ok (rd, Ms)) :
+    Nonempty (ClassesRun mode F fe₁ env₁ p params ctorsAs rd Ms) := by
+  unfold checkBlockClasses at h
+  obtain ⟨rd', hrd, h⟩ := exceptBind_ok h
+  obtain ⟨keys, hkeys, h⟩ := exceptBind_ok h
+  obtain ⟨Ms', hMs, h⟩ := exceptBind_ok h
+  by_cases hone : ((List.range p.k).all fun t =>
+      (Ms'.filter (·.member == some t)).length == 1) = true
+  case neg => rw [if_neg hone] at h; close_throw h
+  rw [if_pos hone] at h
+  simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
+  obtain ⟨rfl, rfl⟩ := h
+  simp only [List.all_eq_true, List.mem_range, beq_iff_eq] at hone
+  exact ⟨⟨keys, unwrapOr_ok hrd, hkeys, hMs, hone⟩⟩
+
+theorem mapM_ok_length {α β ε : Type} {f : α → Except ε β} :
+    ∀ {l : List α} {l' : List β}, l.mapM f = .ok l' → l'.length = l.length
+  | [], l', h => by
+    simp only [List.mapM_nil, pure, Except.pure, Except.ok.injEq] at h
+    subst h; rfl
+  | a :: l, l', h => by
+    rw [List.mapM_cons] at h
+    obtain ⟨b, -, h⟩ := exceptBind_ok h
+    obtain ⟨bs, hbs, h⟩ := exceptBind_ok h
+    simp only [pure, Except.pure, Except.ok.injEq] at h
+    subst h
+    simp [mapM_ok_length hbs]
+
+theorem mapM_ok_getElem? {α β ε : Type} {f : α → Except ε β} :
+    ∀ {l : List α} {l' : List β}, l.mapM f = .ok l' →
+      ∀ (i : Nat) (a : α), l[i]? = some a → ∃ b, l'[i]? = some b ∧ f a = .ok b
+  | [], _, _, _, _, hi => nomatch hi
+  | a :: l, l', h, i, a', hi => by
+    rw [List.mapM_cons] at h
+    obtain ⟨b, hb, h⟩ := exceptBind_ok h
+    obtain ⟨bs, hbs, h⟩ := exceptBind_ok h
+    simp only [pure, Except.pure, Except.ok.injEq] at h
+    subst h
+    cases i with
+    | zero =>
+      obtain rfl : a = a' := by simpa using hi
+      exact ⟨b, rfl, hb⟩
+    | succ i => simpa using mapM_ok_getElem? hbs i a' (by simpa using hi)
 
 /-- **`classesNfs`, inverted**: the same classes, each with its table
 entries (`targetMajorNfs`). -/
@@ -537,10 +683,113 @@ by the caller). -/
   ⟨p.nP, params, Ms, formerTysC, rd.slots, ctors, structElimLevel p.elim p.large, pre⟩
 
 /-- **The generated recursor stage, as run** — every bind of
-`genRecCheck` named.  `rd` is the unverified pre-pass's reading; `Ms`
-the checked classes with their table entries; `ctors` the generator's
-constructors; `g` the generator; `cvGs` the generated (stored)
-recursor constants; `out` the stored family. -/
+`genRecCheck` named, on the pass's canonical parameters `params`, table
+`tbl` and classes (`rd`, `Ms₀`).  `Ms` the classes with their table
+entries; `ctors` the generator's constructors; `g` the generator; `cvGs`
+the generated (stored) recursor constants; `out` the stored family. -/
+structure GenStageRun (mode : CheckMode) (F : Nat) (fe : FEnv) (p : BlockShape)
+    (nestedBit : Bool) (params : List Expr) (tbl : List NestCtorNf) (rd : ClassRead)
+    (Ms₀ : List TargetMajor) (cvTas : List ConstantVal) (block : List ConstantInfo)
+    (out : List (ConstantVal × TargetMajor × List Expr)) : Type where
+  cvRis : List ConstantVal
+  Ms : List TargetMajor
+  ctors : List (List ClassCtor)
+  formerTysC : List Expr
+  pre : List (Expr × BinderMeta)
+  cvGs : List ConstantVal
+  /-- the records' pins -/
+  pins : targetRecPins (m := CheckM) p block = .ok ()
+  /-- the stream's recursor types, checked -/
+  hcvRis : classStreamRecs (fueledOps mode F) fe p.recs = .ok cvRis
+  /-- the elimination guard -/
+  hk : 0 < p.k
+  helim : (p.large && !blockLargeElimAllowed p (nestedBit || Ms₀.any (·.member.isNone))) = false
+  /-- every class's table entries -/
+  hMs : classesNfs (fueledOps mode F) fe.env p (cvTas.map (·.type)) tbl Ms₀ = .ok Ms
+  /-- per class and constructor: datum, `ih`s, node agreement -/
+  hctors : classesCtors (fueledOps mode F) fe.env p (cvTas.map (·.type)) rd Ms 0 Ms = .ok ctors
+  /-- no minor premise beyond the classes' constructors -/
+  hminors : (rd.slots.filter ClassSlot.isMinor).length = (ctors.map List.length).sum
+  /-- the classes' formers -/
+  hformer : Ms.mapM (classFormerTy (m := CheckM) fe cvTas) = .ok formerTysC
+  /-- the shared prefix -/
+  hpre : ClassGen.prefixBinders (genRecGen p params Ms formerTysC rd ctors []) = some pre
+  /-- the generated types -/
+  hcvGs : classRecTysOk (fueledOps mode F) fe (genRecGen p params Ms formerTysC rd ctors pre)
+    p.k p.recs cvRis rd.recCls = .ok cvGs
+  /-- the generated rules -/
+  hrules : classRecsRulesOk (fueledOps mode F) .plain fe (classFeR p Ms cvGs rd.recCls fe)
+    (genRecGen p params Ms formerTysC rd ctors pre) (classRecOf rd.recCls cvGs)
+    (Level.zeronessOf (structElimLevel p.elim p.large)) cvGs rd.recCls = .ok out
+
+/-- The generator of a stage run. -/
+@[expose] def GenStageRun.g {F : Nat} {fe : FEnv} {p : BlockShape} {nestedBit : Bool}
+    {params : List Expr} {tbl : List NestCtorNf} {rd : ClassRead} {Ms₀ : List TargetMajor}
+    {cvTas : List ConstantVal} {block : List ConstantInfo}
+    {out : List (ConstantVal × TargetMajor × List Expr)}
+    (R : GenStageRun mode F fe p nestedBit params tbl rd Ms₀ cvTas block out) : ClassGen :=
+  genRecGen p params R.Ms R.formerTysC rd R.ctors R.pre
+
+/-- **The generated recursor stage, inverted** — the ONE unfolding of
+`genRecCheck`. -/
+theorem genRecCheck_run {fe : FEnv} {p : BlockShape} {nestedBit : Bool} {params : List Expr}
+    {tbl : List NestCtorNf} {rd : ClassRead} {Ms₀ : List TargetMajor}
+    {cvTas : List ConstantVal} {block : List ConstantInfo}
+    {out : List (ConstantVal × TargetMajor × List Expr)} {F : Nat}
+    (h : genRecCheck (ShadowOps.fueled mode F) fe p nestedBit params tbl rd Ms₀ cvTas block
+      = .ok out) :
+    Nonempty (GenStageRun mode F fe p nestedBit params tbl rd Ms₀ cvTas block out) := by
+  unfold genRecCheck at h
+  obtain ⟨u0, hpins, h⟩ := exceptBind_ok h
+  obtain ⟨cvRis, hcvRis, h⟩ := exceptBind_ok h
+  by_cases hk : 0 < p.k
+  case neg => rw [if_neg hk] at h; close_throw h
+  rw [if_pos hk] at h
+  by_cases helim : (p.large && !blockLargeElimAllowed p (nestedBit || Ms₀.any (·.member.isNone)))
+    = true
+  case pos => rw [if_pos helim] at h; close_throw h
+  rw [if_neg helim] at h
+  obtain ⟨Ms, hMs, h⟩ := exceptBind_ok h
+  obtain ⟨ctors, hctors, h⟩ := exceptBind_ok h
+  by_cases hminors : ((rd.slots.filter ClassSlot.isMinor).length ==
+      (ctors.map List.length).sum) = true
+  case neg => rw [if_neg hminors] at h; close_throw h
+  rw [if_pos hminors] at h
+  obtain ⟨formerTysC, hformer, h⟩ := exceptBind_ok h
+  obtain ⟨pre, hpre, h⟩ := exceptBind_ok h
+  obtain ⟨cvGs, hcvGs, h⟩ := exceptBind_ok h
+  obtain ⟨u7, -, h⟩ := exceptBind_ok h
+  obtain ⟨out', hout, h⟩ := exceptBind_ok h
+  obtain ⟨u8, -, h⟩ := exceptBind_ok h
+  simp only [pure, Except.pure, Except.ok.injEq] at h
+  subst h
+  simp only [Bool.not_eq_true] at helim
+  exact ⟨{
+    cvRis := cvRis, Ms := Ms, ctors := ctors, formerTysC := formerTysC, pre := pre,
+    cvGs := cvGs, pins := by cases u0; exact hpins, hcvRis := hcvRis,
+    hk := hk, helim := helim, hMs := hMs, hctors := hctors,
+    hminors := by simpa using hminors, hformer := hformer,
+    hpre := unwrapOr_ok hpre, hcvGs := hcvGs, hrules := hout }⟩
+
+/-- **The install's recursor stage, inverted**: `checkBlockRec` at the
+fueled operations IS the generated stage at `ShadowOps.fueled`. -/
+theorem checkBlockRec_run {env : Env} {p : BlockParts} {nested : Bool} {params : List Expr}
+    {tbl : List NestCtorNf} {rd : ClassRead} {Ms₀ : List TargetMajor}
+    {block : List ConstantInfo} {cvTas : List ConstantVal}
+    {out : List (ConstantVal × TargetMajor × List Expr)} {F : Nat}
+    (h : checkBlockRec (fueledOps mode F) env p nested params tbl rd Ms₀ block cvTas
+      = .ok out) :
+    Nonempty (GenStageRun mode F (mkFEnv env) p.toBlockShape nested params tbl rd Ms₀ cvTas
+      block out) :=
+  genRecCheck_run h
+
+/-- **The generated recursor stage with the pass's classes and walk** —
+the record every proof about the family reads: the pass's context
+(`blockNestCtx`), its classes (`checkBlockClasses`, at the formers'
+environment `fe₁`; `majC`: each also a checked major at the constructors'
+environment `fe`), the positivity check's walk of every outside class
+from the root frame's state `pos` (`nestSeeds`), and the stage's run on
+the resulting table. -/
 structure GenRecRun (mode : CheckMode) (F : Nat) (fe₁ : FEnv) (env₁ : Env) (fe : FEnv)
     (p : BlockShape) (nestedBit : Bool) (pos : NestState) (cvTas : List ConstantVal)
     (block : List ConstantInfo) (ctorsAs : List (List (ConstantVal × Nat)))
@@ -549,6 +798,7 @@ structure GenRecRun (mode : CheckMode) (F : Nat) (fe₁ : FEnv) (env₁ : Env) (
   rd : ClassRead
   ctx : NestCtx
   holes : List Expr
+  keys : List ClassKey
   Ms₀ : List TargetMajor
   st : NestState
   Ms : List TargetMajor
@@ -560,20 +810,23 @@ structure GenRecRun (mode : CheckMode) (F : Nat) (fe₁ : FEnv) (env₁ : Env) (
   pins : targetRecPins (m := CheckM) p block = .ok ()
   /-- the stream's recursor types, checked -/
   hcvRis : classStreamRecs (fueledOps mode F) fe p.recs = .ok cvRis
-  /-- the pre-pass (UNVERIFIED: data only) -/
-  hrd : classRead p.nP (classNPcOf p fe)
-    ((p.recs.zip cvRis).map fun (rc, cv) => { rc with cvR := cv }) = some rd
+  /-- the pre-pass on the stream's RAW recursor types (UNVERIFIED: data only) -/
+  hrd : classRead p.nP (classNPcOf p fe₁) p.recs = some rd
   /-- the block's canonical parameters and holes (the positivity check's context) -/
   hctx : blockNestCtx (m := CheckM) p cvTas fe₁.find? env₁.consts = .ok (ctx, holes)
+  /-- the class keys, moved to the canonical parameters and annotated -/
+  hkeys : rd.classes.mapM (classKeyOf (fueledOps mode F) env₁ p.nP ctx.params) = .ok keys
   /-- the classes, each a checked major over the canonical parameters -/
-  hMs₀ : classMajors (fueledOps mode F) fe p ctorsAs ctx.params
-    (rd.classes.map (classKeyCanon ctx.params)) = .ok Ms₀
+  hMs₀ : classMajors (fueledOps mode F) fe₁ p ctorsAs ctx.params keys = .ok Ms₀
+  /-- each class, a checked major at the constructors' environment too -/
+  majC : ∀ (i : Nat) (key : ClassKey), keys[i]? = some key →
+    ∃ M, Ms₀[i]? = some M ∧ Nonempty (ClassMajorRun mode F fe p ctorsAs ctx.params key M)
   /-- one class per member -/
   hone : ∀ t, t < p.k → (Ms₀.filter (·.member == some t)).length = 1
   /-- the elimination guard -/
   hk : 0 < p.k
   helim : (p.large && !blockLargeElimAllowed p (nestedBit || Ms₀.any (·.member.isNone))) = false
-  /-- the seeds, walked at the formers' environment -/
+  /-- the outside classes, walked at the formers' environment from the root frame's state -/
   hst : nestSeeds (fueledOps mode F) env₁ ctx (classSeeds ctx holes Ms₀) pos = .ok st
   /-- every class's table entries -/
   hMs : classesNfs (fueledOps mode F) fe.env p (cvTas.map (·.type)) st.ctorNfs.toList Ms₀ = .ok Ms
@@ -601,81 +854,65 @@ structure GenRecRun (mode : CheckMode) (F : Nat) (fe₁ : FEnv) (env₁ : Env) (
     ClassGen :=
   genRecGen p R.ctx.params R.Ms R.formerTysC R.rd R.ctors R.pre
 
-/-- **The generated recursor stage, inverted** — the ONE unfolding of
-`genRecCheck`. -/
-theorem genRecCheck_run {fe₁ : FEnv} {env₁ : Env} {fe : FEnv} {p : BlockShape}
-    {nestedBit : Bool} {pos : NestState} {cvTas : List ConstantVal} {block : List ConstantInfo}
-    {ctorsAs : List (List (ConstantVal × Nat))}
+/-- **The record from the pass and the stage**: the context, the classes
+and the walk of the outside classes are the pass's; the stage ran on the
+walk's table.  `hag`: the formers' and the constructors' environments
+agree on every stored inductive (the classes' check moves between them). -/
+theorem genRecRun_of {fe₁ : FEnv} {env₁ : Env} {fe : FEnv} {p : BlockShape}
+    (hag : ClassEnvAgree p fe₁ fe) {nestedBit : Bool} {pos : NestState} {cvTas : List ConstantVal}
+    {block : List ConstantInfo} {ctorsAs : List (List (ConstantVal × Nat))}
     {out : List (ConstantVal × TargetMajor × List Expr)} {F : Nat}
-    (h : genRecCheck (ShadowOps.fueled mode F) fe₁ env₁ fe p nestedBit pos cvTas block
-      ctorsAs = .ok out) :
+    {ctx : NestCtx} {holes : List Expr} {rd : ClassRead} {Ms₀ : List TargetMajor}
+    {st : NestState}
+    (hctx : blockNestCtx (m := CheckM) p cvTas fe₁.find? env₁.consts = .ok (ctx, holes))
+    (hcls : checkBlockClasses (fueledOps mode F) fe₁ env₁ p ctx.params ctorsAs = .ok (rd, Ms₀))
+    (hst : nestSeeds (fueledOps mode F) env₁ ctx (classSeeds ctx holes Ms₀) pos = .ok st)
+    (h : genRecCheck (ShadowOps.fueled mode F) fe p nestedBit ctx.params st.ctorNfs.toList rd
+      Ms₀ cvTas block = .ok out) :
     Nonempty (GenRecRun mode F fe₁ env₁ fe p nestedBit pos cvTas block ctorsAs out) := by
-  unfold genRecCheck at h
-  obtain ⟨u0, hpins, h⟩ := exceptBind_ok h
-  obtain ⟨cvRis, hcvRis, h⟩ := exceptBind_ok h
-  obtain ⟨rd, hrd, h⟩ := exceptBind_ok h
-  obtain ⟨⟨ctx, holes⟩, hctx, h⟩ := exceptBind_ok h
-  simp only at h
-  obtain ⟨Ms₀, hMs₀, h⟩ := exceptBind_ok h
-  by_cases hone : ((List.range p.k).all fun t =>
-      (Ms₀.filter (·.member == some t)).length == 1) = true
-  case neg => rw [if_neg hone] at h; close_throw h
-  rw [if_pos hone] at h
-  by_cases hk : 0 < p.k
-  case neg => rw [if_neg hk] at h; close_throw h
-  rw [if_pos hk] at h
-  by_cases helim : (p.large && !blockLargeElimAllowed p (nestedBit || Ms₀.any (·.member.isNone)))
-    = true
-  case pos => rw [if_pos helim] at h; close_throw h
-  rw [if_neg helim] at h
-  obtain ⟨u4, -, h⟩ := exceptBind_ok h
-  obtain ⟨st, hst, h⟩ := exceptBind_ok h
-  obtain ⟨u5, -, h⟩ := exceptBind_ok h
-  obtain ⟨Ms, hMs, h⟩ := exceptBind_ok h
-  obtain ⟨ctors, hctors, h⟩ := exceptBind_ok h
-  by_cases hminors : ((rd.slots.filter ClassSlot.isMinor).length ==
-      (ctors.map List.length).sum) = true
-  case neg => rw [if_neg hminors] at h; close_throw h
-  rw [if_pos hminors] at h
-  obtain ⟨formerTysC, hformer, h⟩ := exceptBind_ok h
-  obtain ⟨pre, hpre, h⟩ := exceptBind_ok h
-  obtain ⟨cvGs, hcvGs, h⟩ := exceptBind_ok h
-  obtain ⟨u7, -, h⟩ := exceptBind_ok h
-  obtain ⟨out', hout, h⟩ := exceptBind_ok h
-  obtain ⟨u8, -, h⟩ := exceptBind_ok h
-  simp only [pure, Except.pure, Except.ok.injEq] at h
-  subst h
-  simp only [List.all_eq_true, List.mem_range, beq_iff_eq] at hone
-  simp only [Bool.not_eq_true] at helim
+  obtain ⟨C⟩ := checkBlockClasses_run hcls
+  obtain ⟨S⟩ := genRecCheck_run h
+  obtain ⟨-, hall⟩ := classMajors_run C.hMs
   exact ⟨{
-    cvRis := cvRis, rd := rd, ctx := ctx, holes := holes, Ms₀ := Ms₀, st := st, Ms := Ms, ctors := ctors, formerTysC := formerTysC, pre := pre,
-    cvGs := cvGs, pins := by cases u0; exact hpins, hcvRis := hcvRis,
-    hrd := unwrapOr_ok hrd,
-    hMs₀ := hMs₀, hone := hone, hk := hk, helim := helim, hctx := hctx,
-    hst := hst, hMs := hMs, hctors := hctors,
-    hminors := by simpa using hminors, hformer := hformer,
-    hpre := unwrapOr_ok hpre, hcvGs := hcvGs, hrules := hout }⟩
+    cvRis := S.cvRis, rd := rd, ctx := ctx, holes := holes, keys := C.keys, Ms₀ := Ms₀, st := st,
+    Ms := S.Ms, ctors := S.ctors, formerTysC := S.formerTysC, pre := S.pre, cvGs := S.cvGs,
+    pins := S.pins, hcvRis := S.hcvRis, hrd := C.hrd, hctx := hctx, hkeys := C.hkeys,
+    hMs₀ := C.hMs,
+    majC := fun i key hk => by
+      obtain ⟨M, hM, ⟨R⟩⟩ := hall i key hk
+      exact ⟨M, hM, R.transport hag⟩,
+    hone := C.hone, hk := S.hk, helim := S.helim, hst := hst, hMs := S.hMs,
+    hctors := S.hctors, hminors := S.hminors, hformer := S.hformer, hpre := S.hpre,
+    hcvGs := S.hcvGs, hrules := S.hrules }⟩
 
-/-- **The install's recursor stage, inverted**: `checkBlockRec` at the
-fueled operations IS the generated stage at `ShadowOps.fueled`. -/
-theorem checkBlockRec_run {env₁ env : Env} {p : BlockParts} {nested : Bool}
-    {pos : NestState} {block : List ConstantInfo}
-    {cvTas : List ConstantVal} {ctorsAs : List (List (ConstantVal × Nat))}
-    {out : List (ConstantVal × TargetMajor × List Expr)} {F : Nat}
-    (h : checkBlockRec (fueledOps mode F) env₁ env p nested pos block cvTas ctorsAs = .ok out) :
-    Nonempty (GenRecRun mode F (mkFEnv env₁) env₁ (mkFEnv env) p.toBlockShape nested pos cvTas
-      block ctorsAs out) :=
-  genRecCheck_run h
+/-- **Every class checked as a major at the constructors' environment**:
+`classMajors_run`'s shape, over the run's keys. -/
+theorem GenRecRun.majors {F : Nat} {fe₁ : FEnv} {env₁ : Env} {fe : FEnv} {p : BlockShape}
+    {nestedBit : Bool} {pos : NestState} {cvTas : List ConstantVal} {block : List ConstantInfo}
+    {ctorsAs : List (List (ConstantVal × Nat))} {out : List (ConstantVal × TargetMajor × List Expr)}
+    (R : GenRecRun mode F fe₁ env₁ fe p nestedBit pos cvTas block ctorsAs out) :
+    R.Ms₀.length = R.keys.length ∧
+      ∀ (i : Nat) (key : ClassKey), R.keys[i]? = some key →
+        ∃ M, R.Ms₀[i]? = some M ∧ Nonempty (ClassMajorRun mode F fe p ctorsAs R.ctx.params key M) :=
+  ⟨(classMajors_run R.hMs₀).1, R.majC⟩
+
+/-- The run's keys are the pre-pass's classes, one each. -/
+theorem GenRecRun.keys_length {F : Nat} {fe₁ : FEnv} {env₁ : Env} {fe : FEnv} {p : BlockShape}
+    {nestedBit : Bool} {pos : NestState} {cvTas : List ConstantVal} {block : List ConstantInfo}
+    {ctorsAs : List (List (ConstantVal × Nat))} {out : List (ConstantVal × TargetMajor × List Expr)}
+    (R : GenRecRun mode F fe₁ env₁ fe p nestedBit pos cvTas block ctorsAs out) :
+    R.keys.length = R.rd.classes.length :=
+  mapM_ok_length R.hkeys
 
 /-- **The stored recursors are fresh**: every generated constant was
 checked (`classConstOk`) at the constructors' environment, whose first
 guard is its name's absence there. -/
-theorem genRecCheck_out_fresh {fe₁ : FEnv} {env₁ : Env} {env : Env} {p : BlockShape}
-    {nestedBit : Bool} {pos : NestState} {cvTas : List ConstantVal} {block : List ConstantInfo}
-    {ctorsAs : List (List (ConstantVal × Nat))}
+theorem genRecCheck_out_fresh {env : Env} {p : BlockShape} {nestedBit : Bool}
+    {params : List Expr} {tbl : List NestCtorNf} {rd : ClassRead} {Ms₀ : List TargetMajor}
+    {cvTas : List ConstantVal} {block : List ConstantInfo}
     {out : List (ConstantVal × TargetMajor × List Expr)} {F : Nat}
-    (h : genRecCheck (ShadowOps.fueled mode F) fe₁ env₁ (mkFEnv env) p nestedBit pos cvTas block
-      ctorsAs = .ok out) :
+    (h : genRecCheck (ShadowOps.fueled mode F) (mkFEnv env) p nestedBit params tbl rd Ms₀ cvTas
+      block = .ok out) :
     ∀ o ∈ out, env.find? o.1.name = none := by
   obtain ⟨R⟩ := genRecCheck_run h
   have hcvGs := R.hcvGs

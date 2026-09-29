@@ -405,6 +405,41 @@ theorem genRun_cvRis_closed
   rw [checkConstantValF_eq] at hchk
   exact WScoped.of_not_hasFvar (checkConstantVal_typeWF hchk).1
 
+/-- **The run's class keys are scoped** over the canonical parameters:
+each parameter moved to them, kept below them by the guard, then
+annotated (`classKeyOf`). -/
+theorem genRun_keys_scoped
+    (R : GenRecRun mode F (mkFEnv env₁) env₁ (mkFEnv envC) p nestedBit pos cvTas block ctorsAs out)
+    (hT : ∀ cv ∈ cvTas, ScB 0 cv.type) :
+    ∀ key ∈ R.keys, ∀ x ∈ key.ds, WScoped p.nP x := by
+  have hpar := genRun_params_scb R hT
+  obtain ⟨hlP, -⟩ := genRun_params R hT
+  intro key hk x hx
+  obtain ⟨i, hi⟩ := List.getElem?_of_mem hk
+  have hl := mapM_ok_length R.hkeys
+  have hil : i < R.rd.classes.length := by
+    rw [← hl]; exact (List.getElem?_eq_some_iff.mp hi).1
+  obtain ⟨key', hkey', hrun⟩ := mapM_ok_getElem? R.hkeys i _ (List.getElem?_eq_getElem hil)
+  rw [hi] at hkey'
+  obtain rfl := Option.some.inj hkey'
+  obtain ⟨-, -, hg, hann⟩ := classKeyOf_run hrun
+  obtain ⟨j, hj⟩ := List.getElem?_of_mem hx
+  have hlj := mapM_ok_length hann
+  have hjl : j < (classKeyCanon R.ctx.params R.rd.classes[i]).ds.length := by
+    rw [← hlj]; exact (List.getElem?_eq_some_iff.mp hj).1
+  obtain ⟨x', hx', hax⟩ := mapM_ok_getElem? hann j _ (List.getElem?_eq_getElem hjl)
+  rw [hj] at hx'
+  obtain rfl := Option.some.inj hx'
+  have hmem := List.getElem_mem hjl
+  have hyg := hg _ hmem
+  have hyw : WScoped p.nP (classKeyCanon R.ctx.params R.rd.classes[i]).ds[j] := by
+    generalize hy : (classKeyCanon R.ctx.params R.rd.classes[i]).ds[j] = y at hmem hyg
+    simp only [classKeyCanon, List.mem_map] at hmem
+    obtain ⟨y0, -, rfl⟩ := hmem
+    exact replaceFVars_WScoped_of_below (fun i r hr => (hpar r (List.mem_of_getElem? hr)).1)
+      (fun i hi => by simp [hlP, hi]) y0 (Expr.fvarB_le hyg.2)
+  exact annotateCore_WScoped _ _ hax hyw
+
 /-- **Every class checked as a major**, scoped: its parameters scoped over
 the canonical parameters (an outside class's below them), its
 constructors closed, a member's index a member. -/
@@ -417,22 +452,16 @@ theorem genRun_Ms₀
       (∀ t, M.member = some t → t < p.memberNames.length) ∧
       (M.member = none → ∃ cv caps, envC.find? M.ind = some (.indInfo cv caps)) := by
   have hpar := genRun_params_scb R hT
-  obtain ⟨hlP, -⟩ := genRun_params R hT
-  obtain ⟨hlen, hall⟩ := classMajors_run R.hMs₀
-  -- the pre-pass's keys, scoped, moved to the canonical parameters
-  have hkeys₀ : ∀ key ∈ R.rd.classes, ∀ x ∈ key.ds, ∃ D, WScoped D x := by
-    refine Cached.classRead_keys_scoped (fun rc hrc => ?_) R.hrd
-    obtain ⟨⟨rc', cv⟩, hmem, rfl⟩ := List.mem_map.mp hrc
-    exact genRun_cvRis_closed R cv (List.of_mem_zip hmem).2
+  obtain ⟨hlen, hall⟩ := R.majors
+  have hkeys := genRun_keys_scoped R hT
   intro M hM
   obtain ⟨i, hi, hMi⟩ := List.getElem_of_mem hM
-  have hik : i < (R.rd.classes.map (classKeyCanon R.ctx.params)).length := by omega
+  have hik : i < R.keys.length := by omega
   obtain ⟨M', hM', ⟨C⟩⟩ := hall i _ (List.getElem?_eq_getElem hik)
   rw [List.getElem?_eq_getElem hi, hMi] at hM'
   obtain rfl := Option.some.inj hM'
-  have hkey : (R.rd.classes.map (classKeyCanon R.ctx.params))[i] ∈
-      R.rd.classes.map (classKeyCanon R.ctx.params) := List.getElem_mem _
-  generalize (R.rd.classes.map (classKeyCanon R.ctx.params))[i] = key at hkey C
+  have hkey : R.keys[i] ∈ R.keys := List.getElem_mem _
+  generalize R.keys[i] = key at hkey C
   cases C.major with
   | member I t ms ctorsA hfn ht hms hctors hpar' nfs =>
     dsimp only
@@ -448,12 +477,7 @@ theorem genRun_Ms₀
     · have hxa := List.mem_of_mem_take hx
       rw [Expr.getAppArgs_mkAppN] at hxa
       simp only [Expr.getAppArgs, List.nil_append] at hxa
-      obtain ⟨k0, hk0, rfl⟩ := List.mem_map.mp hkey
-      obtain ⟨y, hy, rfl⟩ := List.mem_map.mp hxa
-      obtain ⟨D, hD⟩ := hkeys₀ k0 hk0 y hy
-      have hw : WScoped (max D p.nP) (targetCanonParams R.ctx.params y) :=
-        replaceFVars_WScoped (fun j r hr => (hpar r (List.mem_of_getElem? hr)).1.mono
-          (Nat.le_max_right _ _)) _ (WScoped.mono (Nat.le_max_left _ _) hD)
+      have hw := hkeys key hkey x hxa
       exact ⟨WScoped.of_fvarsBelow hw (Expr.fvarB_le (hdsSc _ hx).2),
         Expr.bvarB_le (by rw [(hdsSc _ hx).1]; exact Nat.le_refl 0)⟩
     · have hc : NestCtxOk (⟨[], [], 0, [], [], .zero, (mkFEnv envC).find?,

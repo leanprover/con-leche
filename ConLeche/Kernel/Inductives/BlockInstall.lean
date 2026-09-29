@@ -256,8 +256,9 @@ def checkAbsCtorSortsAll (ops : CheckerOps m) (env : Env) (ctx : NestCtx) :
 /-- **The walk's context** of a block: the canonical parameter variables
 are the first former's opened telescope, `find?`/`consts` the
 environment's lookup (the pure `Env`'s or the index's), with the
-members' holes (`nestHoles`).  Built by the positivity check and again by
-the recursor stage's seeds (`genRecCheck`), from the same inputs. -/
+members' holes (`nestHoles`).  Built by the positivity check and by the
+pass for the classes and their walk (`checkBlockPass`), from the same
+inputs. -/
 def blockNestCtx (p : BlockShape) (cvTas : List ConstantVal)
     (find? : Name → Option ConstantInfo) (consts : List ConstantInfo) :
     m (NestCtx × List Expr) := do
@@ -273,8 +274,8 @@ section docstring), at the walk's context (`blockNestCtx`): the root
 frame and its own lines.  Returns the walk's field kinds, its normal
 forms (member-abstracted, at the walk's context; OUTPUT only: nothing is
 stored from them) and its state — the cache and the recorded constructor
-normal forms, which the recursor stage's seeds continue
-(`genRecCheck`); the walk's verdict is the install's. -/
+normal forms, which the walk of the other classes continues
+(`checkBlockPass`, `BlockTail.lean`); the walk's verdict is the install's. -/
 def checkBlockPositivity (ops : CheckerOps m) (env₁ : Env) (find? : Name → Option ConstantInfo)
     (consts : List ConstantInfo) (p : BlockParts) (cvTas : List ConstantVal)
     (ctorsAs : List (List (ConstantVal × Nat))) :
@@ -285,44 +286,6 @@ def checkBlockPositivity (ops : CheckerOps m) (env₁ : Env) (find? : Name → O
   nestRootLinesAll ctx holes ctorsAs outs
   checkAbsCtorSortsAll ops env₁ ctx ctorsAs outs
   pure (outs.map (·.map (·.1)), outs.map (·.map (·.2)), st)
-
-/-- **What one pass over the formers and the constructors yields**. -/
-structure BlockPass (E : Type) where
-  /-- the environment holding all k formers, at the record the pass ran at -/
-  env₁ : E
-  /-- the annotated formers, in block order -/
-  cvTas : List ConstantVal
-  /-- the completed record: the sort read -/
-  p : BlockParts
-  /-- the annotated constructors, per member, AS DECLARED -/
-  ctorsAs : List (List (ConstantVal × Nat))
-  /-- the fields' sorts, per member, per constructor -/
-  sortsss : List (List (List Level))
-  /-- the positivity function's field kinds, per member, per constructor -/
-  kinds : List (List (List NestFieldKind))
-  /-- the positivity function's normal forms, per member, per constructor
-  (member-abstracted at the walk's context) -/
-  nfs : List (List Expr)
-  /-- the positivity walk's state after the members' constructors (its
-  cache and the recorded constructor normal forms, `NestCtorNf`), which
-  the recursor stage's seeds continue (`genRecCheck`);
-  installer-local, never stored -/
-  pos : NestState
-
-/-- **One pass over the formers and the constructors** at the block's
-`is_rec` verdict (`blockRawRec`, known before any constructor is
-looked at, as official's `declare_inductive_types` stores it): the
-formers, the constructors, and the positivity function on the stored
-constructors. -/
-def checkBlockPass (ops : CheckerOps m) (env : Env) (p₀ : BlockParts) (isRec : Bool) :
-    m (BlockPass Env) := do
-  let (env₁, cvTas, p₁) ← checkBlockInds ops env p₀ isRec
-  let pC := p₀.complete p₁
-  let (ctorsAs, sortsss) ← checkBlockCtors ops env₁ env₁ pC.toBlockShape
-    (pC.members.zip cvTas)
-  -- positivity: the one function, its root frame the stored constructors
-  let (kinds, nfs, pos) ← checkBlockPositivity ops env₁ env₁.find? env₁.consts pC cvTas ctorsAs
-  pure ⟨env₁, cvTas, pC, ctorsAs, sortsss, kinds, nfs, pos⟩
 
 /-! ## Stage 2: the tail -/
 

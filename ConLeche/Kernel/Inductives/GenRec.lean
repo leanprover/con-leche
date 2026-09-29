@@ -493,6 +493,43 @@ def classSeeds (ctx : NestCtx) (holes : List Expr) (Ms : List TargetMajor) :
   Ms.filterMap fun M =>
     if M.member.isNone then some (nestSeedOf ctx holes M.ind M.lvls M.ds M.nPc) else none
 
+/-- **A class key, made checkable** (the pre-pass reads it off the
+stream's RAW recursor types): moved to the block's canonical parameter
+variables `params` (`classKeyCanon`), its parameters closed over them
+(no loose bound variable, no free variable past the parameters — the
+guard `targetMajorOf` repeats at an outside class), and annotated at the
+formers' environment `env` over the parameters (depth `nP`): the raw
+stream carries no binder datum, and both the positivity check's seed and
+the generated recursor types read the annotated parameters. -/
+def classKeyOf (ops : CheckerOps m) (env : Env) (nP : Nat) (params : List Expr)
+    (k : ClassKey) : m ClassKey := do
+  let k := classKeyCanon params k
+  unless k.ds.all (fun x => x.bvarB == 0 && x.fvarB ≤ nP) do
+    throw (.invalid "target rec: the major's parameters mention more than the \
+      recursor's parameters")
+  let ds ← k.ds.mapM (ops.annotate env nP)
+  pure { k with ds := ds }
+
+/-- **The classes, read and checked** (before the positivity check, at the
+formers' environment `fe₁`/`env₁`): the UNVERIFIED pre-pass on the
+stream's raw recursor types (`classRead`), every class key made checkable
+(`classKeyOf`), every class checked as a major over the block's canonical
+parameters `params` (`classMajors`), exactly one class per member.
+Returns the pre-pass's reading and the classes. -/
+def checkBlockClasses (ops : CheckerOps m) (fe₁ : FEnv) (env₁ : Env) (p : BlockShape)
+    (params : List Expr) (ctorsAs : List (List (ConstantVal × Nat))) :
+    m (ClassRead × List TargetMajor) := do
+  -- [UNVERIFIED] the pre-pass: the classes, the layout, each recursor's class
+  let rd ← unwrapOr (classRead p.nP (classNPcOf p fe₁) p.recs)
+    (.invalid "generated recursor: the recursor family is not of the generated shape \
+      (official: invalid recursor)")
+  let keys ← rd.classes.mapM (classKeyOf ops env₁ p.nP params)
+  let Ms ← classMajors ops fe₁ p ctorsAs params keys
+  unless (List.range p.k).all (fun t => (Ms.filter (·.member == some t)).length == 1) do
+    throw (.invalid "generated recursor: the recursor family does not have exactly one class \
+      per member (official: invalid recursor)")
+  pure (rd, Ms)
+
 /-- The recursor a call at class `t` names: the family's first recursor
 at that class (`recCls` the pre-pass's reading, `cvGs` the generated
 constants). -/
@@ -507,46 +544,30 @@ def classFeR (p : BlockShape) (Ms : List TargetMajor) (cvGs : List ConstantVal)
   consBlockRecsBareF p 0 ((cvGs.zip recCls).map fun (cv, c) => (cv, (Ms.getD c default).nIdx)) fe
 
 /-- **The generated recursor stage** (charter item 5, see the module
-header), at the constructors' environment `fe`; the seeds walk at the
-formers' environment `fe₁`/`env₁`, continuing the positivity check's
-state `pos` after its root frame (the members' constructors, whose
-entries the table holds already); `nestedBit` is the elimination guard's
-container bit as the caller reads it (`blockNestedBit`), to which every
-outside class adds.  Returns every recursor, generated, with its class
-and its generated annotated rules (what the install stores). -/
-def genRecCheck (so : ShadowOps m) (fe₁ : FEnv) (env₁ : Env) (fe : FEnv) (p : BlockShape)
-    (nestedBit : Bool) (pos : NestState) (cvTas : List ConstantVal) (block : List ConstantInfo)
-    (ctorsAs : List (List (ConstantVal × Nat))) :
+header), at the constructors' environment `fe`, on the CLASSES (the
+pre-pass's reading `rd` and the checked classes `Ms`, `checkBlockClasses`)
+and the positivity check's TABLE `tbl` (every class is one of its walked
+nodes: the pass walked every class from the empty stack); `params` are
+the block's canonical parameter variables, `nestedBit` the elimination
+guard's container bit as the caller reads it (`blockNestedBit`), to which
+every outside class adds.  Returns every recursor, generated, with its
+class and its generated annotated rules (what the install stores). -/
+def genRecCheck (so : ShadowOps m) (fe : FEnv) (p : BlockShape) (nestedBit : Bool)
+    (params : List Expr) (tbl : List NestCtorNf) (rd : ClassRead) (Ms : List TargetMajor)
+    (cvTas : List ConstantVal) (block : List ConstantInfo) :
     m (List (ConstantVal × TargetMajor × List Expr)) := do
   targetRecPins p block
   let ops := so.opsAt fe
-  -- the stream's recursor types, checked: the pre-pass reads them, the
-  -- generated types are compared with them
+  -- the stream's recursor types, checked: the generated types are compared with them
   let cvRis ← classStreamRecs ops fe p.recs
-  -- [UNVERIFIED] the pre-pass: the classes, the layout, each recursor's class
-  let rd ← unwrapOr (classRead p.nP (classNPcOf p fe)
-      ((p.recs.zip cvRis).map fun (rc, cv) => { rc with cvR := cv }))
-    (.invalid "generated recursor: the recursor family is not of the generated shape \
-      (official: invalid recursor)")
-  -- the classes, each checked as a major over the block's canonical
-  -- parameters (the generated prefix's); one per member
-  let (ctx, holes) ← blockNestCtx p cvTas fe₁.find? env₁.consts
-  let Ms ← classMajors ops fe p ctorsAs ctx.params (rd.classes.map (classKeyCanon ctx.params))
-  unless (List.range p.k).all (fun t => (Ms.filter (·.member == some t)).length == 1) do
-    throw (.invalid "generated recursor: the recursor family does not have exactly one class \
-      per member (official: invalid recursor)")
   -- the elimination guard
   unless 0 < p.k do
     throw (.invalid "generated recursor: the block declares no family")
   if p.large && !blockLargeElimAllowed p (nestedBit || Ms.any (·.member.isNone)) then
     throw (.invalid "generated recursor: large eliminator on a block whose sort may be Prop \
       (official: elim_only_at_universe_zero)")
-  -- the seeds, at the formers' environment: every class a node
-  so.flush
-  let st ← nestSeeds (so.opsAt fe₁) env₁ ctx (classSeeds ctx holes Ms) pos
-  so.flush
   let formerTys := cvTas.map (·.type)
-  let Ms ← classesNfs ops fe.env p formerTys st.ctorNfs.toList Ms
+  let Ms ← classesNfs ops fe.env p formerTys tbl Ms
   -- per class and constructor: the datum, the inductive hypotheses, node agreement
   let ctors ← classesCtors ops fe.env p formerTys rd Ms 0 Ms
   unless (rd.slots.filter ClassSlot.isMinor).length == (ctors.map List.length).sum do
@@ -555,7 +576,7 @@ def genRecCheck (so : ShadowOps m) (fe₁ : FEnv) (env₁ : Env) (fe : FEnv) (p 
   -- generation
   let formerTysC ← Ms.mapM (classFormerTy fe cvTas)
   let elim := structElimLevel p.elim p.large
-  let g0 : ClassGen := ⟨p.nP, ctx.params, Ms, formerTysC, rd.slots, ctors, elim, []⟩
+  let g0 : ClassGen := ⟨p.nP, params, Ms, formerTysC, rd.slots, ctors, elim, []⟩
   let pre ← unwrapOr g0.prefixBinders (.internal "generated recursor: recursor prefix")
   let g := { g0 with pre := pre }
   let cvGs ← classRecTysOk ops fe g p.k p.recs cvRis rd.recCls

@@ -124,10 +124,10 @@ theorem genRecClassAt {F : Nat} {fe₁ : FEnv} {env₁ : Env} {fe : FEnv} {p : B
   obtain rfl := Option.some.inj (ho.symm.trans ho')
   have hcl : c < R.rd.classes.length :=
     classRead_recCls_lt R.hrd c (List.mem_of_getElem? hc)
-  obtain ⟨hlen₀, hall₀⟩ := classMajors_run R.hMs₀
+  obtain ⟨hlen₀, hall₀⟩ := R.majors
   obtain ⟨hlenN, hallN⟩ := classesNfs_run R.hMs
-  obtain ⟨key, hkey⟩ : ∃ key, (R.rd.classes.map (classKeyCanon R.ctx.params))[c]? = some key :=
-    ⟨_, List.getElem?_eq_getElem (by simpa using hcl)⟩
+  obtain ⟨key, hkey⟩ : ∃ key, R.keys[c]? = some key :=
+    ⟨_, List.getElem?_eq_getElem (by rw [R.keys_length]; exact hcl)⟩
   obtain ⟨M₀, hM₀, ⟨Rc⟩⟩ := hall₀ c key hkey
   obtain ⟨nfs, hMs, -⟩ := hallN c M₀ hM₀
   refine ⟨key, M₀, nfs, ?_, ⟨Rc⟩⟩

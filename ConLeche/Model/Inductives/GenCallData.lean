@@ -47,7 +47,7 @@ theorem genCtor_at
       R.Ms₀[cls]? = some M₀ ∧ R.Ms[cls]? = some { M₀ with nfs := nfs } ∧
       tgtMajor out c = { M₀ with nfs := nfs } ∧
       Nonempty (ClassMajorRun μ F (mkFEnv envC) p.toBlockShape ctorsAs R.ctx.params
-        (ConLeche.classKeyCanon R.ctx.params (R.rd.classes.getD cls default)) M₀) ∧
+        (R.keys.getD cls default) M₀) ∧
       ConLeche.targetMajorNfs (fueledOps μ F) envC p.toBlockShape (cvTas.map (·.type))
         M₀.pfvs M₀.lvls M₀.ds M₀.ctors R.st.ctorNfs.toList = .ok nfs ∧
       M₀.ctors[j]? = some cA ∧ (R.ctors.getD cls [])[j]? = some x ∧
@@ -102,7 +102,7 @@ theorem genCall_data
       R.Ms₀[cls]? = some M₀ ∧ R.Ms[cls]? = some { M₀ with nfs := nfs } ∧
       tgtMajor out c = { M₀ with nfs := nfs } ∧
       Nonempty (ClassMajorRun μ F (mkFEnv envC) p.toBlockShape ctorsAs R.ctx.params
-        (ConLeche.classKeyCanon R.ctx.params (R.rd.classes.getD cls default)) M₀) ∧
+        (R.keys.getD cls default) M₀) ∧
       ConLeche.targetMajorNfs (fueledOps μ F) envC p.toBlockShape (cvTas.map (·.type))
         M₀.pfvs M₀.lvls M₀.ds M₀.ctors R.st.ctorNfs.toList = .ok nfs ∧
       M₀.ctors[j]? = some cA ∧ (R.ctors.getD cls [])[j]? = some x ∧

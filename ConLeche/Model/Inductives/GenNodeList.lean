@@ -111,7 +111,7 @@ theorem _root_.ConLeche.ClassMajorRun.outside_of {mode : CheckMode} {F : Nat} {f
       (∀ x ∈ M.ds, x.bvarB = 0 ∧ x.fvarB ≤ p.nP) ∧
       ConLeche.targetOutsideInst (m := ConLeche.CheckM) fe M.ind M.lvls M.ds = .ok (M.nIdx, sI) ∧
       M.pfvs = pfvs := by
-  obtain ⟨major, -, -⟩ := C
+  obtain ⟨major, -⟩ := C
   cases major with
   | member => exact nomatch hM
   | outside I us nPc nIdx ctors sI hfn ht hnq hct hl hsc _ hinst hs =>
@@ -121,7 +121,7 @@ theorem _root_.ConLeche.ClassMajorRun.outside_of {mode : CheckMode} {F : Nat} {f
 theorem _root_.ConLeche.ClassMajorRun.pfvs_eq {mode : CheckMode} {F : Nat} {fe : FEnv} {p : BlockShape}
     {ctorsAs : List (List (ConstantVal × Nat))} {pfvs : List Expr} {key : ClassKey}
     {M : TargetMajor} (C : ClassMajorRun mode F fe p ctorsAs pfvs key M) : M.pfvs = pfvs := by
-  obtain ⟨major, -, -⟩ := C
+  obtain ⟨major, -⟩ := C
   cases major <;> rfl
 
 section Run
@@ -137,9 +137,9 @@ theorem genRecCls_lt
     c < R.Ms.length ∧ R.Ms.length = R.Ms₀.length ∧ R.Ms₀.length = R.rd.classes.length := by
   obtain ⟨s, hs⟩ := ConLeche.classRead_recCls_motive R.hrd c (List.mem_of_getElem? hc)
   have h1 := motiveSlot_lt_classes hs
-  have hl0 := (ConLeche.classMajors_run R.hMs₀).1
+  have hl0 := (R.majors).1
+  rw [R.keys_length] at hl0
   have hl1 := (ConLeche.classesNfs_run R.hMs).1
-  simp only [List.length_map] at hl0
   have e : (ClassRead.classes ⟨R.rd.slots, []⟩) = R.rd.classes := rfl
   rw [e] at h1
   exact ⟨by omega, hl1, hl0⟩
@@ -155,7 +155,7 @@ theorem genOut_cls
       out[i]? = some (cvG, { M₀ with nfs := nfs }, rhss) ∧
       Nonempty (ConLeche.ClassRecTyRun μ F (mkFEnv envC) R.g p.k rc cls cvG) ∧
       Nonempty (ClassMajorRun μ F (mkFEnv envC) p.toBlockShape ctorsAs R.ctx.params
-        (ConLeche.classKeyCanon R.ctx.params (R.rd.classes.getD cls default)) M₀) ∧
+        (R.keys.getD cls default) M₀) ∧
       ConLeche.targetMajorNfs (fueledOps μ F) envC p.toBlockShape (cvTas.map (·.type))
         M₀.pfvs M₀.lvls M₀.ds M₀.ctors R.st.ctorNfs.toList = .ok nfs := by
   have hlenO := (ConLeche.classRecsRulesOk_run R.hrules).1
@@ -164,12 +164,12 @@ theorem genOut_cls
   obtain ⟨rc, hrc⟩ : ∃ rc, p.recs[i]? = some rc := ⟨_, List.getElem?_eq_getElem hir⟩
   obtain ⟨cls, cvG, rhss, hc, -, T, ho, -, -⟩ := genRecRun_at R hrc
   obtain ⟨hlt, hl1, hl0⟩ := genRecCls_lt R hc
-  obtain ⟨-, hallM⟩ := ConLeche.classMajors_run R.hMs₀
+  obtain ⟨-, hallM⟩ := R.majors
   obtain ⟨-, hallN⟩ := ConLeche.classesNfs_run R.hMs
-  have hk : (R.rd.classes.map (ConLeche.classKeyCanon R.ctx.params))[cls]?
-      = some (ConLeche.classKeyCanon R.ctx.params (R.rd.classes.getD cls default)) := by
-    rw [List.getElem?_map, List.getElem?_eq_getElem (by omega), Option.map_some,
-      List.getD_eq_getElem?_getD, List.getElem?_eq_getElem (by omega), Option.getD_some]
+  have hk : R.keys[cls]?
+      = some (R.keys.getD cls default) := by
+    have hkl := R.keys_length
+    rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem (by omega), Option.getD_some]
   obtain ⟨M₀, hM₀, hMR⟩ := hallM cls _ hk
   obtain ⟨nfs, hMs, hnfs⟩ := hallN cls M₀ hM₀
   have hgd : R.Ms.getD cls default = { M₀ with nfs := nfs } := by
@@ -186,7 +186,7 @@ theorem genTgtMajor
       R.Ms[cls]? = some { M₀ with nfs := nfs } ∧
       tgtMajor out i = { M₀ with nfs := nfs } ∧
       Nonempty (ClassMajorRun μ F (mkFEnv envC) p.toBlockShape ctorsAs R.ctx.params
-        (ConLeche.classKeyCanon R.ctx.params (R.rd.classes.getD cls default)) M₀) ∧
+        (R.keys.getD cls default) M₀) ∧
       ConLeche.targetMajorNfs (fueledOps μ F) envC p.toBlockShape (cvTas.map (·.type))
         M₀.pfvs M₀.lvls M₀.ds M₀.ctors R.st.ctorNfs.toList = .ok nfs := by
   have hi' : i < out.length := by simpa [ConLeche.tgtRs] using hi
@@ -203,7 +203,7 @@ theorem _root_.ConLeche.ClassMajorRun.member_of {mode : CheckMode} {F : Nat} {fe
     p.memberNames.findIdx? (· == M.ind) = some m ∧ ctorsAs[m]? = some M.ctors ∧
       M.lvls = p.lps.map .param ∧ M.ds = pfvs.take p.nP ∧ M.nPc = p.nP ∧ M.pfvs = pfvs ∧
       (∃ ms, p.members[m]? = some ms ∧ M.nIdx = ms.nIdx) := by
-  obtain ⟨major, -, -⟩ := C
+  obtain ⟨major, -⟩ := C
   cases major with
   | member I t ms ctorsA hfn ht hms hctors hpar nfs =>
     obtain rfl : t = m := Option.some.inj hM
@@ -258,13 +258,13 @@ theorem genMs_pfvs_len
   | some M =>
     simp only [Option.getD_some]
     obtain ⟨hl1, hallN⟩ := ConLeche.classesNfs_run R.hMs
-    obtain ⟨hl0, hallM⟩ := ConLeche.classMajors_run R.hMs₀
+    obtain ⟨hl0, hallM⟩ := R.majors
     have ht : t < R.Ms₀.length := by rw [← hl1]; exact (List.getElem?_eq_some_iff.mp hMt).1
     obtain ⟨M₀, hM₀⟩ : ∃ M₀, R.Ms₀[t]? = some M₀ := ⟨_, List.getElem?_eq_getElem ht⟩
     obtain ⟨nfs, hMs, -⟩ := hallN t M₀ hM₀
     rw [hMs] at hMt
     obtain rfl := Option.some.inj hMt
-    have hk : t < (R.rd.classes.map (ConLeche.classKeyCanon R.ctx.params)).length := by
+    have hk : t < R.keys.length := by
       rw [← hl0]; exact ht
     obtain ⟨M₀', hM₀', ⟨C⟩⟩ := hallM t _ (List.getElem?_eq_getElem hk)
     rw [hM₀] at hM₀'
@@ -370,12 +370,12 @@ theorem genOutsideClass_reachedNode {envC envI : Env} (hwf : ConLeche.EnvWF envI
   have hnames : ctx.names = pp.toBlockShape.memberNames := by rw [← hctxE]; rfl
   have hparams : ctx.params = fvsP := by rw [← hctxE]; rfl
   -- the classes as majors
-  obtain ⟨hlenM₀, hallM₀⟩ := ConLeche.classMajors_run R.hMs₀
+  obtain ⟨hlenM₀, hallM₀⟩ := R.majors
   have hMR : ∀ M ∈ R.Ms₀, ∃ key, Nonempty (ClassMajorRun .verified F (mkFEnv envC)
       pp.toBlockShape ctorsAs R.ctx.params key M) := by
     intro M hM
     obtain ⟨i, hi⟩ := List.getElem?_of_mem hM
-    have hil : i < (R.rd.classes.map (ConLeche.classKeyCanon R.ctx.params)).length := by
+    have hil : i < R.keys.length := by
       rw [← hlenM₀]; exact (List.getElem?_eq_some_iff.mp hi).1
     obtain ⟨M', hM', hC⟩ := hallM₀ i _ (List.getElem?_eq_getElem hil)
     rw [hi] at hM'

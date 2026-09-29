@@ -42,7 +42,8 @@ def DeclBlockRun (μ : CheckMode) (F : Nat) (env : Env) (block : List ConstantIn
   (p₀.allCtors.map (·.1.name)).Nodup ∧ p₀.memberNames.Nodup ∧
   ∃ (isRec : Bool) (env₁ : Env) (cvTas : List ConstantVal) (p₁ : BlockShape) (p : BlockParts)
     (ctorsAs : List (List (ConstantVal × Nat))) (sortsss : List (List (List Level)))
-    (kinds : List (List (List NestFieldKind))) (nfs : List (List Expr)) (pos : NestState)
+    (ctx : NestCtx) (holes : List Expr) (rd : ClassRead) (Ms : List TargetMajor)
+    (kinds : List (List (List NestFieldKind))) (nfs : List (List Expr)) (pos st : NestState)
     (isorts : List (List Level))
     (out : List (ConstantVal × TargetMajor × List Expr)),
     -- 1  the k formers: the constant check, official's telescope loop, the
@@ -54,24 +55,31 @@ def DeclBlockRun (μ : CheckMode) (F : Nat) (env : Env) (block : List ConstantIn
     --    each stored as declared
     checkBlockCtors (m := ConLeche.CheckM) (fueledOps μ F) env₁ env₁ p.toBlockShape
       (p.members.zip cvTas) = .ok (ctorsAs, sortsss) ∧
-    -- 3  the positivity function on the stored constructors, and their
-    --    member-abstracted types typed at the holes' context; its field
+    -- 3  the walk's context; the classes the stream's recursor family eliminates
+    --    (read off its raw recursor types, each checked as a major)
+    blockNestCtx (m := ConLeche.CheckM) p.toBlockShape cvTas env₁.find? env₁.consts
+      = .ok (ctx, holes) ∧
+    checkBlockClasses (fueledOps μ F) (mkFEnv env₁) env₁ p.toBlockShape ctx.params ctorsAs
+      = .ok (rd, Ms) ∧
+    -- 4  the positivity function on the stored constructors (the root frame), and
+    --    their member-abstracted types typed at the holes' context; its field
     --    kinds are the block's `is_rec`, its normal forms the model's fields
-    --    with holes
+    --    with holes; then every outside class walked from its state
     checkBlockPositivity (m := ConLeche.CheckM) (fueledOps μ F) env₁ env₁.find? env₁.consts p
       cvTas ctorsAs = .ok (kinds, nfs, pos) ∧
-    -- 4  the formers carry the record at official's `is_rec`, the syntactic one
+    nestSeeds (fueledOps μ F) env₁ ctx (classSeeds ctx holes Ms) pos = .ok st ∧
+    -- 5  the formers carry the record at official's `is_rec`, the syntactic one
     isRec = blockRawRec p₀ ∧
-    -- 5  every member's index binders' sorts
+    -- 6  every member's index binders' sorts
     checkBlockIdxSorts (m := ConLeche.CheckM) (fueledOps μ F) env₁ p.toBlockShape
       (p.members.zip cvTas) = .ok isorts ∧
-    -- 6  the recursor stage: the GENERATED recursors, one per record of the
-    --    stream's family (outside classes at the auxiliary types, the block's
+    -- 7  the recursor stage: the GENERATED recursors, one per record of the
+    --    stream's family, on the classes and the walk's table (the block's
     --    container bit)
-    checkBlockRec (m := ConLeche.CheckM) (fueledOps μ F) env₁
+    checkBlockRec (m := ConLeche.CheckM) (fueledOps μ F)
       (consBlockCtors p.nP ctorsAs env₁) p (blockNestedBit p.toBlockShape kinds)
-      pos block cvTas ctorsAs = .ok out ∧
-    -- 7  the install spine: the recursors with their rules at their majors,
+      ctx.params st.ctorNfs.toList rd Ms block cvTas = .ok out ∧
+    -- 8  the install spine: the recursors with their rules at their majors,
     --    then the tables
     checkBlockTables (m := ConLeche.CheckM) p.toBlockShape
       (p.members.zip (ctorsAs.zip sortsss))
@@ -98,11 +106,16 @@ theorem declBlockRun_of {μ : CheckMode} {F : Nat} {env env₂ : Env}
   | ok q =>
   rw [hP] at h
   dsimp only at h
-  obtain ⟨p₁, hInd, hCtors, hK, hp⟩ := ConLeche.checkBlockPass_inv hP
+  obtain ⟨p₁, ctx, holes, pos, st, hInd, hCtors, hctx, hcls, hK, hst, hpar, htbl, hp⟩ :=
+    ConLeche.checkBlockPass_inv hP
   obtain ⟨isorts, rs, hsorts, hRec, hTbl⟩ := ConLeche.checkBlockTail_inv h
-  refine ⟨hnd.1, hnd.2, blockRawRec p₀, q.env₁, q.cvTas, p₁, q.p, q.ctorsAs, q.sortsss, q.kinds,
-    q.nfs, q.pos, isorts, rs, hInd, hp, ?_, ?_, rfl, hsorts, hRec, hTbl⟩
+  rw [hpar, htbl] at hRec
+  refine ⟨hnd.1, hnd.2, blockRawRec p₀, q.env₁, q.cvTas, p₁, q.p, q.ctorsAs, q.sortsss, ctx,
+    holes, q.rd, q.cls, q.kinds, q.nfs, pos, st, isorts, rs, hInd, hp, ?_, ?_, ?_, ?_, hst, rfl,
+    hsorts, hRec, hTbl⟩
   · rw [hp]; exact hCtors
+  · rw [hp]; exact hctx
+  · rw [hp]; exact hcls
   · rw [hp]; exact hK
 
 end ConLeche.Semantics

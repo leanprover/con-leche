@@ -2578,13 +2578,14 @@
 # class (`(α → E) → P α`) AND gives `T.rec_1` the parameter domain
 # `Sort (M+1)`, `M` a `max` chain exhausting the level comparison's fuel (K6,
 # a decline).  Official 1 (the auxiliary type is non-positive); ours 2: the
-# recursor check resolves every major (stage (b), which declines here)
-# before it walks the resolved classes as seeds.  Before lane RPTIE the seeds
-# were read off the raw records and walked in the pass: 1.  A move between
-# reject and decline on a stream failing two checks, toward our resource
-# limit; no stream of the corpus moves.
+# recursor check resolved every major (stage (b), which declined here)
+# before it walked the resolved classes as seeds: 2 from lane RPTIE until
+# lane SIMP-AD.  Since SIMP-AD the classes are read off the raw records and
+# walked in the pass again (before the stream's recursor types are checked):
+# 1, official's verdict.  A move between reject and decline on a stream
+# failing two checks; no stream of the corpus moves.
 0 corner_rptie_order_base.ndjson
-2 corner_rptie_order_decline.ndjson
+1 corner_rptie_order_decline.ndjson
 # ERASED READ OF AN EARLIER RECURSIVE FIELD (lane RP-ANNOT, finding F-RPW-1
 # of RPWHNF; sources `tests/e2e/src/corner_rpwhnf_erasedread_*.lean`,
 # official = arena official, measured).  `mk : (x : T) → K2 T x → T` with

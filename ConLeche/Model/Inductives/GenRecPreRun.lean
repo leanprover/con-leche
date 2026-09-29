@@ -49,7 +49,7 @@ theorem genRun_recCls_length
       block ctorsAs out) :
     R.rd.recCls.length = p.recs.length := by
   have hrd := R.hrd
-  obtain ⟨hlc, -⟩ := ConLeche.classStreamRecs_run R.hcvRis
+  -- the pre-pass reads the stream's raw records, one class per record
   unfold ConLeche.classRead at hrd
   obtain ⟨rc0, -, hrd⟩ := Option.bind_eq_some_iff.mp hrd
   obtain ⟨⟨_, body⟩, -, hrd⟩ := Option.bind_eq_some_iff.mp hrd
@@ -59,7 +59,6 @@ theorem genRun_recCls_length
   rw [← hrd]
   show recCls.length = _
   rw [ConLeche.option_mapM_length hrc]
-  simp [List.length_zip, hlc]
 
 /-- The stored family has one entry per recursor, as do the generated
 constants. -/
@@ -203,9 +202,9 @@ theorem genRun_class
     ∃ key M₀ nfs, R.Ms[i]? = some { M₀ with nfs := nfs } ∧ R.Ms₀[i]? = some M₀ ∧
       Nonempty (ConLeche.ClassMajorRun μ F (mkFEnv envC) p.toBlockShape ctorsAs R.ctx.params key M₀) := by
   obtain ⟨hlN, hallN⟩ := ConLeche.classesNfs_run R.hMs
-  obtain ⟨hlM, hallM⟩ := ConLeche.classMajors_run R.hMs₀
+  obtain ⟨hlM, hallM⟩ := R.majors
   have hi0 : i < R.Ms₀.length := by omega
-  have hik : i < (R.rd.classes.map (ConLeche.classKeyCanon R.ctx.params)).length := by omega
+  have hik : i < R.keys.length := by omega
   obtain ⟨M, hM, hrun⟩ := hallM i _ (List.getElem?_eq_getElem hik)
   obtain ⟨nfs, hMs, -⟩ := hallN i M hM
   exact ⟨_, M, nfs, hMs, hM, hrun⟩
@@ -643,8 +642,8 @@ theorem genRun_cls_lt
   obtain ⟨-, cls, -, -, -, hcls, -, -, -, -, hgc⟩ := genRun_at R hc
   obtain ⟨s, hs⟩ := ConLeche.classRead_recCls_motive R.hrd cls (List.mem_of_getElem? hcls)
   obtain ⟨hlN, -⟩ := ConLeche.classesNfs_run R.hMs
-  obtain ⟨hlM, -⟩ := ConLeche.classMajors_run R.hMs₀
-  rw [hgc, hlN, hlM, List.length_map]
+  obtain ⟨hlM, -⟩ := R.majors
+  rw [hgc, hlN, hlM, R.keys_length]
   exact motiveSlot_lt_classesR R.rd.slots [] cls s hs
 
 /-- **An outside class's sort is the block's** at every level assignment

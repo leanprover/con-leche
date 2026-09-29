@@ -776,10 +776,11 @@ theorem classRecsRulesOk_fst (ops : CheckerOps CheckCM) (w : StructWalkers) (feT
 /-- **The generated stage at the skeleton level**: one stored recursor
 per record, in order, under the record's name (fresh at the stage's
 index), the family's names distinct. -/
-theorem genRecCheck_names (so : ShadowOps CheckCM) (fe₁ : FEnv) (env₁ : Env) (fe : FEnv)
-    (p : BlockShape) (nestedBit : Bool) (pos : NestState) (cvTas : List ConstantVal)
-    (block : List ConstantInfo) (ctorsAs : List (List (ConstantVal × Nat))) :
-    Yields (genRecCheck so fe₁ env₁ fe p nestedBit pos cvTas block ctorsAs)
+theorem genRecCheck_names (so : ShadowOps CheckCM) (fe : FEnv)
+    (p : BlockShape) (nestedBit : Bool) (params : List Expr) (tbl : List NestCtorNf)
+    (rd : ClassRead) (Ms₀ : List TargetMajor) (cvTas : List ConstantVal)
+    (block : List ConstantInfo) :
+    Yields (genRecCheck so fe p nestedBit params tbl rd Ms₀ cvTas block)
       (fun out => (p.recs.map (·.cvR.name)).Nodup ∧ out.length = p.recs.length ∧
         ∀ (j : Nat) (rc : RecShape), p.recs[j]? = some rc →
           ∃ o, out[j]? = some o ∧ o.1.name = rc.cvR.name ∧ fe.find? rc.cvR.name = none) := by
@@ -806,20 +807,13 @@ theorem genRecCheck_names (so : ShadowOps CheckCM) (fe₁ : FEnv) (env₁ : Env)
       · exact Yields.ofThrow
     · exact Yields.ofThrow
   refine Yields.bind fun cvRis => ?_
-  refine Yields.bind fun rd => ?_
-  refine Yields.bind fun ch => ?_
-  obtain ⟨ctx, holes⟩ := ch
-  dsimp only
-  refine Yields.bind fun Ms₀ => ?_
-  split
-  case isFalse => exact Yields.ofThrowBind
-  split
-  case isFalse => exact Yields.ofThrowBind
-  split
-  case isTrue => exact Yields.ofThrowBind
-  refine Yields.bind fun _ => ?_
-  refine Yields.bind fun st => ?_
-  refine Yields.bind fun _ => ?_
+  by_cases h2 : 0 < p.k
+  case neg => simp only [h2, if_false]; exact Yields.ofThrowBind
+  simp only [h2, if_true]
+  by_cases h3 : (p.large && !blockLargeElimAllowed p (nestedBit || Ms₀.any fun x =>
+      x.member.isNone)) = true
+  case pos => simp only [h3, if_true]; exact Yields.ofThrowBind
+  simp only [h3]
   refine Yields.bind fun Ms => ?_
   refine Yields.bind fun ctors => ?_
   split
@@ -948,8 +942,8 @@ theorem checkBlockTailS_skels (mode : CheckMode) {block : List ConstantInfo}
     have := congrArg (List.map List.length) hns
     simpa [List.map_map, Function.comp_def] using this
   have h₂ := consBlockCtorsF_skels q.p.nP hns h₁
-  refine Yields.bind' (genRecCheck_names (shadowOpsC mode) _ _ _ q.p.toBlockShape _ _ q.cvTas
-      block q.ctorsAs)
+  refine Yields.bind' (genRecCheck_names (shadowOpsC mode) _ q.p.toBlockShape _ _ _ _ _ q.cvTas
+      block)
     fun out hout => ?_
   have hrs := consBlockRecsTF_skelsT
       (consBlockCtorsF q.p.nP q.ctorsAs q.env₁).find?
@@ -989,7 +983,10 @@ theorem checkBlockPassS_skels (mode : CheckMode) {fe : FEnv} {sk : List InstallS
   obtain ⟨ctorsAs, sortsss⟩ := r
   obtain ⟨hns, hlS, -⟩ := hr
   try simp only []
+  refine Yields.bind fun _ => ?_
+  refine Yields.bind fun _ => ?_
   refine Yields.bind fun kinds => ?_
+  refine Yields.bind fun _ => ?_
   refine Yields.pure ⟨?_, ⟨s, rfl⟩, ?_, ?_⟩
   · rw [hfe₁]
     exact consBlockIndsF_skels _ isRec hn h

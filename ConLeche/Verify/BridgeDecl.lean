@@ -924,6 +924,25 @@ theorem classFormerTys_datF (fe : FEnv) (cvTas : List ConstantVal) (F : Nat)
   rw [mapM_atF]
   simp only [classFormerTy_datF]
 
+theorem fueledOpsM_annotate_atF (env : Env) (d : Nat) (a : Expr) (F : Nat) :
+    ((fueledOpsM mode).annotate env d a).val F = (fueledOps mode F).annotate env d a := by rfl
+
+theorem classKeyOf_datF (env : Env) (nP : Nat) (params : List Expr) (k : ClassKey)
+    (F : Nat) :
+    (classKeyOf (fueledOpsM mode) env nP params k).val F =
+      classKeyOf (fueledOps mode F) env nP params k := by
+  unfold classKeyOf
+  simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw, FueledM.atF_ite, mapM_atF,
+    fueledOpsM_annotate_atF]
+
+theorem checkBlockClasses_datF (fe₁ : FEnv) (env₁ : Env) (p : BlockShape) (params : List Expr)
+    (ctorsAs : List (List (ConstantVal × Nat))) (F : Nat) :
+    (checkBlockClasses (fueledOpsM mode) fe₁ env₁ p params ctorsAs).val F =
+      checkBlockClasses (fueledOps mode F) fe₁ env₁ p params ctorsAs := by
+  unfold checkBlockClasses
+  simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw, FueledM.atF_ite,
+    unwrapOr_atF, mapM_atF, classKeyOf_datF, classMajors_datF]
+
 theorem classConstOk_datF (fe : FEnv) (cv : ConstantVal) (F : Nat) :
     (classConstOk (fueledOpsM mode) fe cv).val F = classConstOk (fueledOps mode F) fe cv := by
   unfold classConstOk
@@ -991,23 +1010,23 @@ theorem classStreamRecs_datF (fe : FEnv) (F : Nat) :
 
 /-- **The generated recursor stage at fuel `F`**: the pure install's run
 (`ShadowOps.ofOps` at the fueled family) is the model's fueled run. -/
-theorem genRecCheck_datF (fe₁ : FEnv) (env₁ : Env) (fe : FEnv) (p : BlockShape)
-    (nestedBit : Bool) (pos : NestState) (cvTas : List ConstantVal)
-    (block : List ConstantInfo) (ctorsAs : List (List (ConstantVal × Nat))) (F : Nat) :
-    (genRecCheck (ShadowOps.ofOps (fueledOpsM mode)) fe₁ env₁ fe p nestedBit pos cvTas block
-        ctorsAs).val F =
-      genRecCheck (ShadowOps.fueled mode F) fe₁ env₁ fe p nestedBit pos cvTas block ctorsAs := by
+theorem genRecCheck_datF (fe : FEnv) (p : BlockShape) (nestedBit : Bool) (params : List Expr)
+    (tbl : List NestCtorNf) (rd : ClassRead) (Ms : List TargetMajor) (cvTas : List ConstantVal)
+    (block : List ConstantInfo) (F : Nat) :
+    (genRecCheck (ShadowOps.ofOps (fueledOpsM mode)) fe p nestedBit params tbl rd Ms cvTas
+        block).val F =
+      genRecCheck (ShadowOps.fueled mode F) fe p nestedBit params tbl rd Ms cvTas block := by
   unfold genRecCheck
   simp only [ShadowOps.ofOps, ShadowOps.fueled, FueledM.atF_bind, FueledM.atF_pure,
     FueledM.atF_throw, FueledM.atF_ite, unwrapOr_atF, targetRecPins_datF, classStreamRecs_datF,
-    classMajors_datF, blockNestCtx_datF, nestSeeds_datF, classesNfs_datF, classesCtors_datF,
-    classFormerTys_datF, classRecTysOk_datF, classRecsRulesOk_datF]
+    classesNfs_datF, classesCtors_datF, classFormerTys_datF, classRecTysOk_datF,
+    classRecsRulesOk_datF]
 
-theorem checkBlockRec_datF (env₁ env : Env) (p : BlockParts) (nested : Bool)
-    (pos : ConLeche.NestState) (block : List ConstantInfo)
-    (cvTas : List ConstantVal) (ctorsAs : List (List (ConstantVal × Nat))) (F : Nat) :
-    (checkBlockRec (fueledOpsM mode) env₁ env p nested pos block cvTas ctorsAs).val F =
-      checkBlockRec (fueledOps mode F) env₁ env p nested pos block cvTas ctorsAs := by
+theorem checkBlockRec_datF (env : Env) (p : BlockParts) (nested : Bool) (params : List Expr)
+    (tbl : List NestCtorNf) (rd : ClassRead) (Ms : List TargetMajor) (block : List ConstantInfo)
+    (cvTas : List ConstantVal) (F : Nat) :
+    (checkBlockRec (fueledOpsM mode) env p nested params tbl rd Ms block cvTas).val F =
+      checkBlockRec (fueledOps mode F) env p nested params tbl rd Ms block cvTas := by
   unfold checkBlockRec
   exact genRecCheck_datF _ _ _ _ _ _ _ _ _ F
 
@@ -1025,7 +1044,8 @@ theorem checkBlockPass_datF (env : Env) (p : BlockParts) (isRec : Bool) (F : Nat
       checkBlockPass (fueledOps mode F) env p isRec := by
   unfold checkBlockPass
   simp only [FueledM.atF_bind, FueledM.atF_pure, checkBlockInds_datF, checkBlockCtors_datF,
-    checkBlockPositivity_datF, unwrapOr_atF]
+    blockNestCtx_datF, checkBlockClasses_datF, checkBlockPositivity_datF, nestSeeds_datF,
+    unwrapOr_atF]
 
 theorem checkBlockTail_datF (block : List ConstantInfo) (q : BlockPass Env)
     (F : Nat) :

@@ -1,6 +1,6 @@
 module
 
-public import ConLeche.Kernel.Inductives.GenRec
+public import ConLeche.Kernel.Inductives.BlockTail
 public import ConLeche.Cached.CoreC
 
 @[expose] public section
@@ -136,7 +136,8 @@ def shadowOpsC : ShadowOps CheckCM :=
 /-- **`checkBlockPass` through the index**: the k
 formers checked and consed — one flush entering the environment that
 holds them all — then the constructors per member at that
-environment, and the positivity function on the stored constructors. -/
+environment, the classes, and the positivity check walking every class
+(the members' root frame first). -/
 def checkBlockPassS (fe : FEnv) (p₀ : BlockParts) (isRec : Bool) :
     CheckCM (BlockPass FEnv) := do
   let (fe₁, cvTas, p₁) ← checkBlockIndsF (sharedOpsC mode fe) fe p₀ isRec
@@ -144,26 +145,25 @@ def checkBlockPassS (fe : FEnv) (p₀ : BlockParts) (isRec : Bool) :
   flushC
   let (ctorsAs, sortsss) ← checkBlockCtorsF (sharedOpsC mode fe₁) fe₁ fe₁ pC.toBlockShape
     (pC.members.zip cvTas)
+  let (ctx, holes) ← blockNestCtx pC.toBlockShape cvTas fe₁.find? fe₁.env.consts
+  let (rd, Ms) ← checkBlockClasses (sharedOpsC mode fe₁) fe₁ fe₁.env pC.toBlockShape
+    ctx.params ctorsAs
   let (kinds, nfs, pos) ← checkBlockPositivity (sharedOpsC mode fe₁) fe₁.env fe₁.find?
     fe₁.env.consts pC cvTas ctorsAs
-  pure ⟨fe₁, cvTas, pC, ctorsAs, sortsss, kinds, nfs, pos⟩
+  let st ← nestSeeds (sharedOpsC mode fe₁) fe₁.env ctx (classSeeds ctx holes Ms) pos
+  pure ⟨fe₁, cvTas, pC, ctorsAs, sortsss, kinds, nfs, ctx.params, rd, Ms, st.ctorNfs⟩
 
 /-- **`checkBlockTail` through the index**: one flush
-entering the recursors' environment.  The recursor stage's seeds walk at
-the formers' environment through the O(1) prefix view of the
-constructors' index (`FEnv.restrictTo`: the formers' index is not held
-past the constructors' pushes, which would copy it). -/
+entering the recursors' environment. -/
 def checkBlockTailS (block : List ConstantInfo) (q : BlockPass FEnv) :
     CheckCM FEnv := do
   let p := q.p
   let _isorts ← checkBlockIdxSortsF (sharedOpsC mode q.env₁) q.env₁ p.toBlockShape
     (p.members.zip q.cvTas)
-  let vis₁ := q.env₁.visibleBelow
-  let env₁ := q.env₁.env
   let fe₂ := consBlockCtorsF p.nP q.ctorsAs q.env₁
   flushC
-  let out ← genRecCheck (shadowOpsC mode) (fe₂.restrictTo vis₁) env₁ fe₂ p.toBlockShape
-    (blockNestedBit p.toBlockShape q.kinds) q.pos q.cvTas block q.ctorsAs
+  let out ← genRecCheck (shadowOpsC mode) fe₂ p.toBlockShape
+    (blockNestedBit p.toBlockShape q.kinds) q.params q.tbl.toList q.rd q.cls q.cvTas block
   let fe₃ := consBlockRecsTF fe₂.find? (·.constsResolveF fe₂) p.toBlockShape 0 out fe₂
   checkBlockTablesF (m := CheckCM) structWalkersC p.toBlockShape
     (p.members.zip (q.ctorsAs.zip q.sortsss)) fe₃
