@@ -144,7 +144,11 @@ theorem genMinorSetup
         (∃ ty, R.g.ihTy t tele (ws.getD i default)
           ((tgtFieldFvs pp.toBlockShape out c j).getD i default)
           (R.g.pre.length + x.nF + l) = some ty ∧ ihs[l]? = some (ty, R.g.bm)) ∧
-        ∃ n, ConLeche.classRecOf R.rd.recCls R.cvGs t = some n) ∧
+        (∃ n, ConLeche.classRecOf R.rd.recCls R.cvGs t = some n) ∧
+        (∃ xs idx, R.g.ihParts t tele (ws.getD i default) (R.g.pre.length + x.nF)
+          = some (xs, idx)) ∧
+        ∃ st, ConLeche.ClassRead.motiveSlot ⟨R.g.slots, []⟩ t = some st ∧ st < s) ∧
+      (∃ sc, ConLeche.ClassRead.motiveSlot ⟨R.g.slots, []⟩ cls = some sc ∧ sc < s) ∧
       T = closeTelescope ((tgtFieldFvs pp.toBlockShape out c j).map R.g.binder ++ ihs)
         R.g.pre.length
         (Expr.mkAppN (R.g.motVar cls) (res.getAppArgs.drop (R.g.cls.getD cls default).nPc ++
@@ -234,10 +238,19 @@ theorem genMinorSetup
   obtain ⟨rfl, rfl⟩ := Prod.mk.inj (Option.some.inj (hop'.symm.trans hopR))
   refine ⟨cls, s, x, T, res', ws', ihs', hgc, hgx, hms, hxmem, hMaj, ⟨_, hsS⟩, hpreT, hTs, hrP,
     by rw [hFF]; exact hop', hCB, by rw [hCt]; exact hnF.symm, by rw [hCt]; exact hxcv.symm,
-    by rw [hFF]; exact hws', hihl', fun l i t tele hq => ⟨?_, ?_⟩, by rw [hFF]; exact hTE⟩
+    by rw [hFF]; exact hws', hihl', fun l i t tele hq => ⟨?_, ?_, ?_, ?_⟩, ⟨sc, hmc, hsc⟩,
+    by rw [hFF]; exact hTE⟩
   · rw [hFF]; exact hih' l i t tele hq
   · obtain ⟨xs, idx, n, ih, -, -, hrec, -⟩ := hihsG l (i, t, tele) hq
     exact ⟨n, hrec⟩
+  · obtain ⟨xs, idx, n, ih, -, hparts, -, -⟩ := hihsG l (i, t, tele) hq
+    obtain ⟨rfl, rfl⟩ := Prod.mk.inj (Option.some.inj (hopG.symm.trans hop'))
+    have hwq : wsG = ws' := Option.some.inj (hwsG.symm.trans hws')
+    subst hwq
+    exact ⟨xs, idx, hparts⟩
+  · obtain ⟨hi, hk⟩ := ConLeche.ClassGen.recs_mem (List.mem_of_getElem? hq)
+    obtain ⟨st, hst, hmt'⟩ := hmt x hxmem rfl t tele (ConLeche.ClassField.mem_of_getD hk)
+    exact ⟨st, hmt', hst⟩
 
 end Setup
 
@@ -335,5 +348,68 @@ theorem genIhTy_read {acval : Name → (Name → Nat) → AnnotTerm} {env : Env}
     rw [hr]
     rfl
   · rw [hvsE, List.map_append, List.map_cons, List.map_nil]
+
+/-! ## `GenPreSem.minor` -/
+
+section Minor
+
+variable {F : Nat} {env₁ envC : Env} {pp : BlockParts} {nestedBit : Bool} {pos : NestState}
+  {cvTas : List ConstantVal} {block : List ConstantInfo}
+  {ctorsAs : List (List (ConstantVal × Nat))}
+  {out : List (ConstantVal × TargetMajor × List Expr)}
+
+set_option maxHeartbeats 8000000 in
+/-- **`GenPreSem.minor` from the run**: the minor premise of recursor
+`c`'s `j`-th constructor, at a prefix spine, fields fitting the rule
+frame's declared field domains and `ih` values of the generated `ih`
+binder types, lands in the motive at the declared result's indices and
+the constructor applied.  The prefix's entry is the minor premise's type
+built at the slot, which IS the one built at the rule prefix
+(`genMinorSetup`); read at the rule prefix it is the Π-tower of exactly
+the rule frame's pieces. -/
+theorem genCls_minor (hμ : μ.verifiedChecks = true)
+    (R : GenRecRun μ F (mkFEnv env₁) env₁ (mkFEnv envC) pp.toBlockShape nestedBit pos cvTas
+      block ctorsAs out) (hg : ClassGenScoped R.g) {memR : Nat → Prop}
+    (h : ConLeche.RecStageG μ F envC pp cvTas ctorsAs (tgtRs out) memR) (mpC : EnvModelM V μ envC)
+    (hfind : ∀ (j : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
+      (tgtRs out)[j]? = some r → ∀ (i : Nat) (cA : ConstantVal × Nat), r.2.2.2[i]? = some cA →
+        envC.find? cA.1.name = some (.ctorInfo cA.1 (ConLeche.tgtMajorsOf out j).nPc cA.2))
+    (ψ : Name → Nat) (ρ : Nat → V) :
+    ∀ c, c < (tgtRs out).length → ∀ j, j < blockRecNCt (tgtRs out) c → ∀ xs,
+    SpineFit ρ (blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c) xs →
+    ∀ fs, SpineFit (consList xs ρ) (tgtFdomsAV pp.toBlockShape out mpC.base2.acval envC ψ c j) fs →
+    ∀ hs : List V, hs.length = (genIhdAV mpC.base2.acval envC R.g R.rd (genBit pp ψ) ψ c j).length →
+    (∀ (l : Nat) (q : IhDatum) (hv : V),
+      (genIhdAV mpC.base2.acval envC R.g R.rd (genBit pp ψ) ψ c j)[l]? = some q → hs[l]? = some hv →
+      hv ∈ˢ interp V (consList (xs ++ fs) ρ)
+        (genIhDomAV ((blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c).length
+            + (tgtFdomsAV pp.toBlockShape out mpC.base2.acval envC ψ c j).length)
+          (classMotPos R.g (genClsOf R.rd q.1)) q)) →
+    (fs ++ hs).foldl SetTheory.app (xs.getD (R.g.nP + genMinorSlot R.g R.rd c j) pt)
+      ∈ˢ ((tgtEsAV pp.toBlockShape out mpC.base2.acval envC ψ c j).map
+            (interp V (consList (xs ++ fs) ρ))
+          ++ [interp V (consList (xs ++ fs) ρ)
+            (tgtMkAV pp.toBlockShape out mpC.base2.acval envC ψ c j)]).foldl SetTheory.app
+          (xs.getD (classMotPos R.g (genClsOf R.rd c)) pt) := by
+  intro c hc j hj xs hxs fs hfs hs hhl hhs
+  obtain ⟨cls, s, x, T, res, ws, ihs, hgc, hgx, hms, hxmem, hMaj, ⟨ihs0, hsS⟩, hpreT, hTs, hrP,
+    hopR, hCB, hnF, hcv, hwsR, hihl, hih, hTE⟩ := genMinorSetup R hg h hfind hc hj
+  rw [hms, hgc]
+  have hr : (tgtRs out)[c]? = some ((tgtRs out)[c]'hc) := List.getElem?_eq_getElem hc
+  have hpl : R.g.pre.length = R.g.nP + R.g.slots.length :=
+    (ConLeche.ClassGen.prefixBinders_scoped hg hg.pre).1
+  have hsl : s < R.g.slots.length := (List.getElem?_eq_some_iff.mp hsS).1
+  generalize hrPd : R.g.pre.length = rP at hopR hTE hrP hpl hih
+  generalize hmpd : R.g.nP + s = mp at hpreT hTs
+  have hmp : mp < rP := by omega
+  -- the stored type's entry at the minor's slot
+  obtain ⟨-, -, -, -, -, -, -, -, -, -, -, -, -, -, fvs0, o0, hop0, hE⟩ :=
+    genRun_binders hμ R hg h mpC ψ hc
+  obtain ⟨fvs1, concl1, hop1, hta, hTyE, hlenRds, -, hdomsR, -, hwdTy⟩ :=
+    recStage_tyPis (V := V) hμ mpC h hr ψ
+  obtain ⟨rfl, rfl⟩ := Prod.mk.inj (Option.some.inj (hop1.symm.trans hop0))
+  sorry
+
+end Minor
 
 end ConLeche.Model
