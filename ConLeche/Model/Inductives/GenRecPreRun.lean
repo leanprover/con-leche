@@ -332,7 +332,7 @@ and constructor `j`, the class's constructor `cA`, the generator's
 constructor `x` (`genCtorAt`), its run (`ClassCtorRun`), the declared
 type at the class (`tgtCrest`) is `x.tyD`, and it opens at the rule
 prefix to the rule's field openers (the rule was generated). -/
-theorem genRun_frame (hμ : μ.verifiedChecks = true)
+theorem genRun_frame (_hμ : μ.verifiedChecks = true)
     (R : GenRecRun μ F (mkFEnv env₁) env₁ (mkFEnv envC) p.toBlockShape nestedBit pos cvTas
       block ctorsAs out) (hg : ClassGenScoped R.g)
     {c j : Nat} (hc : c < (tgtRs out).length) (hj : j < blockRecNCt (tgtRs out) c) :
