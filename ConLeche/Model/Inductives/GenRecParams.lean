@@ -1,34 +1,14 @@
 module
 
 public import ConLeche.Model.Inductives.GenRecStage
-public import ConLeche.Model.Inductives.BlockRecPreRun
-import ConLeche.Model.Inductives.BlockRecMem
 public import ConLeche.Model.Inductives.BlockRecData
 public import ConLeche.Model.Inductives.BlockRecTyShapeRun
 import ConLeche.Model.Inductives.BlockDeclRun
-import ConLeche.Model.Inductives.BlockHoleRead
 import ConLeche.Model.Inductives.ClassGenRead
-import ConLeche.Model.Inductives.NestPosOut
-import ConLeche.Model.Inductives.StructFrameKit
-import ConLeche.Model.Inductives.StructRecKit
-import ConLeche.Model.Inductives.DeclNative
-import ConLeche.Model.Inductives.ContLeaf
 import ConLeche.Model.Annot.BitRename
 import ConLeche.Model.StreamConsts
-import ConLeche.Verify.Inductives.ClassGenAnnot
-import ConLeche.Verify.Inductives.ClassGenScope
-import ConLeche.Verify.Inductives.NestScope
-import ConLeche.Verify.Inductives.RecCheckRun
 import ConLeche.Verify.Inductives.NestCallSyn
 import ConLeche.Verify.Rules.InferBridge
-import ConLeche.Verify.Denote.IndFrame
-import ConLeche.Verify.BridgeWfImp
-import ConLeche.Verify.InferLemmas
-import ConLeche.Verify.InstLevels
-import ConLeche.Verify.Extend.Inversions
-import ConLeche.Verify.Deep
-import ConLeche.Verify.Shift
-import ConLeche.Verify.Knot
 
 public section
 
@@ -42,7 +22,7 @@ old target check had this from its K6 `isDefEqCore` run (the stream's
 parameter domains against the major's former, `tgtGuard_params`); the
 generated stage runs no such comparison, and none is needed:
 
-* the generated prefix is SHARED (every generated type is the reset
+* the generated prefix is SHARED (every generated type is the shared
   prefix's telescope, annotated: `SameDoms`), so it suffices to look at
   ONE recursor whose class is a MEMBER `T_t` (one exists: the member
   recursors' name pins);
@@ -60,10 +40,10 @@ generated stage runs no such comparison, and none is needed:
   terms over the FIRST opening's variables), and the members' parameter
   agreement moves `T_t`'s parameters to the block's.
 
-(Syntactic identity of the stored and the former's domains is NOT
-available: annotation keeps an input's written binder data, so the
-reset-and-reannotated domains need not equal the former's annotated ones;
-the application rule's comparison is what ties them.)
+The route reads no syntactic identity between the stored prefix's
+domains and the former's: annotation keeps an input's written binder
+data and recomputes the placeholders, so the two annotated domains are
+tied by the application rule's comparison, not by construction.
 -/
 
 namespace ConLeche
@@ -271,7 +251,7 @@ theorem genMemberRec_paramDefeq (hμ : μ.verifiedChecks = true) (hwf : ConLeche
   -- nothing to compare without parameters
   by_cases hnP : p.nP = 0
   · refine ⟨[], cvG.type, 0, by rw [hnP]; rfl, fun l hl => absurd hl (by omega)⟩
-  -- the reset telescope, annotated
+  -- the generated telescope, annotated
   obtain ⟨s, hm⟩ := ConLeche.classRead_recCls_motive R.hrd c (List.mem_of_getElem? hc)
   have hmv := ConLeche.ClassGen.motVar_eq (g := R.g) hm
   generalize hnds : R.g.pre ++ ifs.map classBinder ++ [(maj, (default : BinderMeta))] = nds
@@ -459,7 +439,7 @@ theorem genMemberRec_paramDefeq (hμ : μ.verifiedChecks = true) (hwf : ConLeche
   exact hde
 
 /-- **The generated recursors share their parameter openers**: every
-generated type is a telescope over the same reset prefix, annotated
+generated type is a telescope over the same prefix, annotated
 (`SameDoms`), so its first `nP` opened variables are the same. -/
 theorem genRec_paramOpeners_eq (hμ : μ.verifiedChecks = true)
     (R : GenRecRun μ F (mkFEnv env₁) env₁ (mkFEnv envC) p.toBlockShape nestedBit pos cvTas
@@ -905,6 +885,32 @@ theorem genParams_fit_run (hμ : μ.verifiedChecks = true) {F : Nat} {envI envC 
   rw [hnPq']
   exact spineFit_of_sat_consList (by rw [hfitB.length_eq, hlenB, hlenPD, hnPq'])
     ((hparIff _ hkt ψ _).mp hsat)
+
+/-- **The generated recursors' parameter domains fit the block's** — at
+the context's conjuncts (`GenRecCtx`'s: the members' names, the
+constructors' stage and core, the datum's shape), the generated run and
+its generator's scoping. -/
+theorem genParams_fit (hμ : μ.verifiedChecks = true) {F : Nat} {envI envC : Env}
+    {pp : BlockParts} {nestedBit : Bool} {pos : NestState} {cvTasR : List ConstantVal}
+    {block : List ConstantInfo} {ctorsAsR : List (List (ConstantVal × Nat))}
+    {out : List (ConstantVal × TargetMajor × List Expr)} {mpC : EnvModelM V μ envC}
+    {dR : BlockData V} {isRecR : Bool} {A : Nat → (Name → Nat) → AnnotTerm}
+    (R : GenRecRun μ F (mkFEnv envI) envI (mkFEnv envC) pp.toBlockShape nestedBit pos cvTasR
+      block ctorsAsR out)
+    (hg : ClassGenScoped R.g)
+    (hN : BlockNamesOk (V := V) dR cvTasR)
+    (hS : BlockCtorsStage (V := V) μ F dR pp.lps cvTasR pp.toBlockShape isRecR A envI
+      pp.ctorNamesAt)
+    (hcore : BlockCtorsCore mpC.base2 dR pp.lps cvTasR pp.toBlockShape isRecR A dR.k)
+    (hdR : ∃ (pk : Nat → BlockMemberPick) (uOfD : Nat → (Name → Nat) → Nat)
+      (ppsOf : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)),
+      dR = blockDataOf V pp.toBlockShape ctorsAsR pk uOfD ppsOf) :
+    ∀ c, c < (ConLeche.tgtRs out).length → ∀ (ψ : Name → Nat) (ρ : Nat → V) (xs : List V),
+      SpineFit ρ (blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (ConLeche.tgtRs out) ψ c)
+        xs →
+      SpineFit ρ (dR.params ψ) (xs.take dR.nP) := by
+  obtain ⟨pk, uOfD, ppsOf, rfl⟩ := hdR
+  exact genParams_fit_run hμ mpC R hg (blockMembersRun_seam hN hS hcore)
 
 end Fit
 
