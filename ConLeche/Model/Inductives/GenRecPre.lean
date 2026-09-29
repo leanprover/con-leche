@@ -885,6 +885,148 @@ theorem genRow_hrule (hμ : μ.verifiedChecks = true) {memR : Nat → Prop}
   rw [hes, hmk]
   exact hfit
 
+section RowsIh
+
+variable {g : ClassGen} {rd : ClassRead}
+
+/-- The generated `ih` terms are the generic ones at the rule frame's
+depths: the shared prefix is the rule prefix (`hgpre`), the constructor's
+field count the declared fields' (`hnF`). -/
+theorem genIhsAV_eq (ψ : Name → Nat) {c j : Nat}
+    (hgpre : g.pre.length
+      = (blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c).length)
+    (hnF : (genCtorAt g rd c j).nF = (tgtFdomsAV pp.toBlockShape out mpC.base2.acval envC ψ c j).length)
+    (K : Nat) (fl : Nat)
+    (hfl : fl = (tgtFdomsAV pp.toBlockShape out mpC.base2.acval envC ψ c j).length) :
+    genIhsAV mpC.base2.acval envC K g rd (genBit pp ψ) ψ c j
+      = (genIhdAV mpC.base2.acval envC g rd (genBit pp ψ) ψ c j).map
+        (genIhAV K (blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c).length
+          ((blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c).length + fl)) := by
+  rw [genIhsAV, hgpre, hnF, hfl]
+
+set_option maxHeartbeats 2000000 in
+/-- **Row `hchain`**, from the `ih` calls' typing at the rule frame
+(`hcallTy`), the class split and the `ih` data's bounds. -/
+theorem genRow_hchain (hμ : μ.verifiedChecks = true) {memR : Nat → Prop}
+    (h : ConLeche.RecStageG μ F envC pp cvTas ctorsAs (tgtRs out) memR) (ψ : Name → Nat)
+    (ρ : Nat → V) (hS : GenClsSplit pp out mpC d Dc mc cvc ψ ρ)
+    (hgpre : ∀ c, c < (tgtRs out).length → g.pre.length
+      = (blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c).length)
+    (hnF : ∀ c, c < (tgtRs out).length → ∀ j, j < blockRecNCt (tgtRs out) c →
+      (genCtorAt g rd c j).nF = (tgtFdomsAV pp.toBlockShape out mpC.base2.acval envC ψ c j).length)
+    (hcal : ∀ c, c < (tgtRs out).length → ∀ j, j < blockRecNCt (tgtRs out) c →
+      ∀ q ∈ genIhdAV mpC.base2.acval envC g rd (genBit pp ψ) ψ c j, q.1 < (tgtRs out).length)
+    (hbelow : ∀ c, c < (tgtRs out).length → ∀ j, j < blockRecNCt (tgtRs out) c →
+      ∀ q ∈ genIhdAV mpC.base2.acval envC g rd (genBit pp ψ) ψ c j,
+        IhDatumBelow ((blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c).length
+          + (tgtFdomsAV pp.toBlockShape out mpC.base2.acval envC ψ c j).length) q)
+    (hcallTy : ∀ c, c < (tgtRs out).length → ∀ j, j < blockRecNCt (tgtRs out) c →
+      ∀ xs fs : List V,
+      xs.length = (blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c).length →
+      SpineFit ρ (blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c
+        ++ tgtFdomsAV pp.toBlockShape out mpC.base2.acval envC ψ c j) (xs ++ fs) →
+      ∀ q ∈ genIhdAV mpC.base2.acval envC g rd (genBit pp ψ) ψ c j,
+      ∀ bs, SpineFit (consList (xs ++ fs) ρ) (q.2.1.map (·.2)) bs →
+        q.1 < (tgtRs out).length ∧ xs.length = pp.toBlockShape.rulePrefixAt q.1 ∧
+        SpineFit ρ ((blockRecRdsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ q.1).map
+            (·.2.2))
+          (xs ++ (q.2.2.1.map (interp V (consList bs (consList (xs ++ fs) ρ)))
+            ++ [interp V (consList bs (consList (xs ++ fs) ρ)) q.2.2.2]))) :
+    ∀ (a : Nat → V) (xs : List V) (r : V → V),
+      (∀ c', c' < (tgtRs out).length → ∀ (is : List V) (x : V),
+        xs.length = pp.toBlockShape.rulePrefixAt c' →
+        SpineFit ρ ((blockRecRdsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c').map
+          (·.2.2)) (xs ++ (is ++ [x])) →
+        r (tagged c' (tgtClsTup d Dc mc cvc pp.toBlockShape out ψ c' is) x)
+          = (xs ++ (is ++ [x])).foldl SetTheory.app (a c')) →
+      ∀ c, c < (tgtRs out).length → ∀ j, j < blockRecNCt (tgtRs out) c → ∀ fs : List V,
+        xs.length = (blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c).length →
+        SpineFit (chainFrame (tgtRs out).length a ρ)
+          (blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c
+            ++ tgtFdomsK (tgtRs out).length mpC.base2.acval envC pp.toBlockShape out ψ c j)
+          (xs ++ fs) →
+        genIhvT (tgtRs out).length ρ pp.toBlockShape.rulePrefixAt
+            (blockRecRdsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ)
+            (tgtClsTup d Dc mc cvc pp.toBlockShape out ψ)
+            (genIhsAV mpC.base2.acval envC (tgtRs out).length g rd (genBit pp ψ) ψ) xs c j fs
+            (graph r (graphPredG (tgtClsIs d Dc mc cvc mpC.base2.acval envC pp.toBlockShape out ψ ρ)
+              (tgtClsCr d Dc mc cvc mpC.base2.acval envC pp.toBlockShape out ψ ρ)
+              (tgtRs out).length
+              (genCallT (tgtClsTup d Dc mc cvc pp.toBlockShape out ψ) ρ
+                (fun c j => genIhdAV mpC.base2.acval envC g rd (genBit pp ψ) ψ c j)) xs
+              (c, j, fs)))
+          = (genIhsAV mpC.base2.acval envC (tgtRs out).length g rd (genBit pp ψ) ψ c j).map
+              (interp V (consList (xs ++ fs) (chainFrame (tgtRs out).length a ρ))) := by
+  intro a xs r hr c hc j hj fs hxl hsp
+  have hih : ∀ c', c' < (tgtRs out).length → ∀ j', j' < blockRecNCt (tgtRs out) c' →
+      genIhsAV mpC.base2.acval envC (tgtRs out).length g rd (genBit pp ψ) ψ c' j'
+        = (genIhdAV mpC.base2.acval envC g rd (genBit pp ψ) ψ c' j').map
+          (genIhAV (tgtRs out).length
+            (blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c').length
+            ((blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c').length
+              + (tgtFdomsK (tgtRs out).length mpC.base2.acval envC pp.toBlockShape out ψ c'
+                j').length)) :=
+    fun c' hc' j' hj' => genIhsAV_eq ψ (hgpre c' hc') (hnF c' hc' j' hj') _ _
+      (by simp [tgtFdomsK, liftDomsK_length])
+  -- the chain-frame call typing, from the base one
+  have hcallC : ∀ c', c' < (tgtRs out).length → ∀ j', j' < blockRecNCt (tgtRs out) c' →
+      ∀ (xs fs : List V) (a : Nat → V),
+      xs.length = (blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c').length →
+      SpineFit (chainFrame (tgtRs out).length a ρ)
+        (blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c'
+          ++ tgtFdomsK (tgtRs out).length mpC.base2.acval envC pp.toBlockShape out ψ c' j')
+        (xs ++ fs) →
+      ∀ t is x, genIhCallAt ρ (fun c j => genIhdAV mpC.base2.acval envC g rd (genBit pp ψ) ψ c j)
+          xs c' j' fs t is x →
+        t < (tgtRs out).length ∧ xs.length = pp.toBlockShape.rulePrefixAt t ∧
+        SpineFit ρ ((blockRecRdsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ t).map
+          (·.2.2)) (xs ++ (is ++ [x])) := by
+    intro c' hc' j' hj' xs fs a hxl hsp t is x hcall
+    obtain ⟨hbase, -, -⟩ := genRec_chainBase hμ h ψ ρ a hc' hxl hsp
+    obtain ⟨q, hq, rfl, bs, hbs, rfl, rfl⟩ := hcall
+    exact hcallTy c' hc' j' hj' xs fs hxl hbase q hq bs hbs
+  -- `hihRead`, by construction
+  have hpre : ∀ c', (blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c')
+      = genPdoms (fun c'' => (blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ
+          c'').map fun D => ((0 : Nat), (0 : Nat), D)) c' := by
+    intro c'; simp [genPdoms, List.map_map, Function.comp_def]
+  have hread := genIhs_hihRead (K := (tgtRs out).length) (ρ := ρ) (nCt := blockRecNCt (tgtRs out))
+    (pre := fun c'' => (blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ
+          c'').map fun D => ((0 : Nat), (0 : Nat), D))
+    (fdoms := tgtFdomsK (tgtRs out).length mpC.base2.acval envC pp.toBlockShape out ψ)
+    (ihd := fun c j => genIhdAV mpC.base2.acval envC g rd (genBit pp ψ) ψ c j) hcal
+    (fun c' hc' j' hj' q hq => by
+      rw [← hpre c']
+      simpa [tgtFdomsK, liftDomsK_length] using hbelow c' hc' j' hj' q hq)
+  have H := genHchainG (K := (tgtRs out).length) (ρ := ρ) (rP := pp.toBlockShape.rulePrefixAt)
+    (nCt := blockRecNCt (tgtRs out))
+    (rds := blockRecRdsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ)
+    (Is := tgtClsIs d Dc mc cvc mpC.base2.acval envC pp.toBlockShape out ψ ρ)
+    (Cr := tgtClsCr d Dc mc cvc mpC.base2.acval envC pp.toBlockShape out ψ ρ)
+    (tup := tgtClsTup d Dc mc cvc pp.toBlockShape out ψ)
+    (pdoms := blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ)
+    (fdoms := tgtFdomsK (tgtRs out).length mpC.base2.acval envC pp.toBlockShape out ψ)
+    (ihd := fun c j => genIhdAV mpC.base2.acval envC g rd (genBit pp ψ) ψ c j)
+    (fun c' hc' xs is x hxl hfit => by
+      have hisl : is.length = (tgtMajor out c').nIdx := by
+        have := hfit.length_eq
+        simp only [List.length_append, List.length_singleton, List.length_map,
+          genRds_length hμ h ψ hc', hxl] at this
+        omega
+      obtain ⟨h1, h2, -⟩ := hS c' hc' xs is x hxl hisl hfit
+      exact ⟨h1, h2⟩)
+    hcallC
+    (fun c' hc' j' hj' xs fs a a' hxl hsp hcall => by
+      have := hread c' hc' j' hj' xs fs a a' (by rw [hxl, hpre c']) (by rw [← hpre c']; exact hsp)
+        hcall
+      rwa [← hpre c'] at this)
+    a xs r hr c hc j hj fs hxl hsp
+  rw [genIhvT, hih c hc j hj]
+  rw [genIhvT] at H
+  exact H
+
+end RowsIh
+
 end Rows
 
 end ConLeche.Model
