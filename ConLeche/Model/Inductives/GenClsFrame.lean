@@ -661,32 +661,50 @@ theorem mem_take_of_fvar_lt {L : List Expr} {b n : Nat}
   exact List.mem_of_getElem? hpt
 
 set_option maxHeartbeats 8000000 in
-/-- **The declared index expressions and the fired spine are graded** at
-every spine fitting the rule frame (`hargs` of the family premise; the
-validity half of `hrowV`): each is erasure-equal to an argument of the
-minor premise's conclusion, which the stored type's inference infers. -/
-theorem genArgs_graded (hμ : μ.verifiedChecks = true)
+/-- **The rule frame is a graded frame of openers**: the stored type's
+prefix openers, then the minor premise's field openers at the rule prefix
+(`genMinorOpen`'s data), over the rule frame's domains. -/
+theorem genFieldFrame (hμ : μ.verifiedChecks = true)
     (R : GenRecRun μ F (mkFEnv env₁) env₁ (mkFEnv envC) pp.toBlockShape nestedBit pos cvTas
       block ctorsAs out) (hg : ClassGenScoped R.g) {memR : Nat → Prop}
     (h : ConLeche.RecStageG μ F envC pp cvTas ctorsAs (tgtRs out) memR) (mpC : EnvModelM V μ envC)
     (hfind : ∀ (j : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
       (tgtRs out)[j]? = some r → ∀ (i : Nat) (cA : ConstantVal × Nat), r.2.2.2[i]? = some cA →
         envC.find? cA.1.name = some (.ctorInfo cA.1 (ConLeche.tgtMajorsOf out j).nPc cA.2))
-    (ψ : Name → Nat) (ρ : Nat → V) {c j : Nat} (hc : c < (tgtRs out).length)
-    (hj : j < blockRecNCt (tgtRs out) c) (ys : List V)
-    (hys : SpineFit ρ (blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c
-      ++ tgtFdomsAV pp.toBlockShape out mpC.base2.acval envC ψ c j) ys) :
-    (∀ e ∈ tgtEsAV pp.toBlockShape out mpC.base2.acval envC ψ c j,
-      WellDenotedV V (consList ys ρ) e) ∧
-    WellDenotedV V (consList ys ρ) (tgtMkAV pp.toBlockShape out mpC.base2.acval envC ψ c j) := by
-  obtain ⟨cls, s, x, res, ws, ihs, fvs1, o1, xs', rest, hgc, hgx, hms, hxmem, hMaj, hrP, hmp,
-    hopR, hCB, hnF, hcv, hwsR, hihl, hih, -, hop1, hle, hlenF, hshF, hwbF, hPd, hxl', hshX,
-    hwbX, hdF, -, hrest, hbbS, hinfX, ⟨tR, hinfR⟩, hwsRest, hbRest, hleafs⟩ :=
-    genMinorOpen hμ R hg h mpC hfind ψ hc hj
+    (ψ : Name → Nat) {c j : Nat} (hc : c < (tgtRs out).length)
+    (hj : j < blockRecNCt (tgtRs out) c) {x : ClassCtor} {res : Expr}
+    {ihs : List (Expr × BinderMeta)} {fvs1 xs' : List Expr} {rest : Expr}
+    (hrP : pp.toBlockShape.rulePrefixAt c = R.g.pre.length)
+    (hopR : ConLeche.openPisAtFvars x.nF x.tyD R.g.pre.length
+        = some (tgtFieldFvs pp.toBlockShape out c j, res))
+    (hle : R.g.pre.length ≤ pp.toBlockShape.majorIdxAt c)
+    (hlenF : fvs1.length = pp.toBlockShape.majorIdxAt c + 1)
+    (hshF : ∀ (i : Nat) (y : Expr), fvs1[i]? = some y → ∃ ty, y = Expr.fvar i ty)
+    (hwbF : ∀ y ∈ fvs1, Expr.WScoped (pp.toBlockShape.majorIdxAt c + 1) y ∧
+        (Expr.fvarTypeD y).looseBVarsBounded 0 = true)
+    (hPd : ∀ (i : Nat) (y : Expr), i < R.g.pre.length → fvs1[i]? = some y →
+        denoteMeta mpC.base2.acval envC ψ i (Expr.fvarTypeD y)
+          = some ((blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c).getD i
+              default))
+    (hxl' : xs'.length = x.nF + ihs.length)
+    (hshX : ∀ (k : Nat) (y : Expr), xs'[k]? = some y → ∃ ty, y = Expr.fvar (R.g.pre.length + k) ty)
+    (hwbX : ∀ y ∈ xs', Expr.WScoped (R.g.pre.length + x.nF + ihs.length) y ∧
+        (Expr.fvarTypeD y).looseBVarsBounded 0 = true)
+    (hdF : ∀ (k : Nat) (y : Expr), k < x.nF → xs'[k]? = some y →
+        Expr.ErasedEq (Expr.fvarTypeD y)
+          (Expr.fvarTypeD ((tgtFieldFvs pp.toBlockShape out c j).getD k default)))
+    (hinfX : ∀ (k : Nat) (y : Expr), xs'[k]? = some y →
+        ∃ t, ConLeche.inferTypeCore μ envC F (R.g.pre.length + k) (Expr.fvarTypeD y) = .ok t)
+    (hleafs : ∀ l, (l ∈ rest.fvarLeaves ∨ ∃ y ∈ xs', l ∈ y.fvarLeaves) →
+        Expr.fvar l.1 l.2 ∈ fvs1.take R.g.pre.length ++ xs') :
+    GradedFrame mpC ψ (R.g.pre.length + x.nF)
+      (fvs1.take R.g.pre.length ++ xs'.take x.nF)
+      (blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c
+        ++ tgtFdomsAV pp.toBlockShape out mpC.base2.acval envC ψ c j) := by
   have hr : (tgtRs out)[c]? = some ((tgtRs out)[c]'hc) := List.getElem?_eq_getElem hc
   generalize hPd0 : blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c = pdoms
-    at hys hPd
-  generalize hFd0 : tgtFdomsAV pp.toBlockShape out mpC.base2.acval envC ψ c j = fdoms at hys
+    at hPd ⊢
+  generalize hFd0 : tgtFdomsAV pp.toBlockShape out mpC.base2.acval envC ψ c j = fdoms
   have hlenPd : pdoms.length = R.g.pre.length := by
     rw [← hPd0, blockRulePdomsAV_length hμ mpC h hr ψ, hrP]
   have hfl : (tgtFieldFvs pp.toBlockShape out c j).length = x.nF :=
@@ -786,6 +804,33 @@ theorem genArgs_graded (hμ : μ.verifiedChecks = true)
     rwa [hPd0, hFd0] at this
   have hDl : (pdoms ++ fdoms).length = R.g.pre.length + x.nF := by
     rw [List.length_append, hlenPd, hlenFd]
+  exact ⟨hDl, hfrl, hshape, hwsfr, hlbfr, hdomsfr, hok⟩
+
+set_option maxHeartbeats 8000000 in
+/-- **The declared index expressions and the fired spine are graded** at
+every spine fitting the rule frame (`hargs` of the family premise; the
+validity half of `hrowV`): each is erasure-equal to an argument of the
+minor premise's conclusion, which the stored type's inference infers. -/
+theorem genArgs_graded (hμ : μ.verifiedChecks = true)
+    (R : GenRecRun μ F (mkFEnv env₁) env₁ (mkFEnv envC) pp.toBlockShape nestedBit pos cvTas
+      block ctorsAs out) (hg : ClassGenScoped R.g) {memR : Nat → Prop}
+    (h : ConLeche.RecStageG μ F envC pp cvTas ctorsAs (tgtRs out) memR) (mpC : EnvModelM V μ envC)
+    (hfind : ∀ (j : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
+      (tgtRs out)[j]? = some r → ∀ (i : Nat) (cA : ConstantVal × Nat), r.2.2.2[i]? = some cA →
+        envC.find? cA.1.name = some (.ctorInfo cA.1 (ConLeche.tgtMajorsOf out j).nPc cA.2))
+    (ψ : Name → Nat) (ρ : Nat → V) {c j : Nat} (hc : c < (tgtRs out).length)
+    (hj : j < blockRecNCt (tgtRs out) c) (ys : List V)
+    (hys : SpineFit ρ (blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c
+      ++ tgtFdomsAV pp.toBlockShape out mpC.base2.acval envC ψ c j) ys) :
+    (∀ e ∈ tgtEsAV pp.toBlockShape out mpC.base2.acval envC ψ c j,
+      WellDenotedV V (consList ys ρ) e) ∧
+    WellDenotedV V (consList ys ρ) (tgtMkAV pp.toBlockShape out mpC.base2.acval envC ψ c j) := by
+  obtain ⟨cls, s, x, res, ws, ihs, fvs1, o1, xs', rest, hgc, hgx, hms, hxmem, hMaj, hrP, hmp,
+    hopR, hCB, hnF, hcv, hwsR, hihl, hih, -, hop1, hle, hlenF, hshF, hwbF, hPd, hxl', hshX,
+    hwbX, hdF, -, hrest, hbbS, hinfX, ⟨tR, hinfR⟩, hwsRest, hbRest, hleafs⟩ :=
+    genMinorOpen hμ R hg h mpC hfind ψ hc hj
+  have G := genFieldFrame hμ R hg h mpC hfind ψ hc hj hrP hopR hle hlenF hshF hwbF hPd hxl' hshX
+    hwbX hdF hinfX hleafs
   -- one argument of the conclusion, graded
   have hconcl := hrest
   obtain ⟨f', as', hrE, -, hasl⟩ := erasedEq_mkAppN_inv _ hconcl
@@ -814,15 +859,15 @@ theorem genArgs_graded (hμ : μ.verifiedChecks = true)
         (Expr.WScoped.to_wscopedB (hwa.mono
           (show R.g.pre.length + x.nF ≤ R.g.pre.length + x.nF + ihs.length by omega)))]
       exact hta
-    have hleafA : ∀ l ∈ a.fvarLeaves, Expr.fvar l.1 l.2 ∈ fr := by
+    have hleafA : ∀ l ∈ a.fvarLeaves,
+        Expr.fvar l.1 l.2 ∈ fvs1.take R.g.pre.length ++ xs'.take x.nF := by
       intro l hl
       have hm := hleafs l (Or.inl (fvarLeaves_getAppArgs haA l hl))
       have hlt : l.1 < R.g.pre.length + x.nF := Expr.fvarLeaves_lt_of_wscoped hwa l hl
       rcases List.mem_append.mp hm with hm | hm
       · exact List.mem_append_left _ hm
       · exact List.mem_append_right _ (mem_take_of_fvar_lt hshX hm hlt)
-    obtain ⟨w, hw, hgr⟩ := graded_of_infer_openers hμ mpC ψ hDl hshape hwsfr hlbfr hdomsfr hok
-      hta' hwa hba hleafA
+    obtain ⟨w, hw, hgr⟩ := G.graded hμ hta' hwa hba hleafA
     exact ⟨w, by rw [denoteMeta_erasedEq hEa] at hw; exact hw, hgr ρ ys hys⟩
   have hB : tgtB pp.toBlockShape out c j = R.g.pre.length + x.nF := by
     simp only [tgtB, tgtRP]
