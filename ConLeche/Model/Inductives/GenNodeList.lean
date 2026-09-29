@@ -246,6 +246,33 @@ theorem genRec_at
   show (M₀.member).getD _ = m
   rw [hm']; rfl
 
+
+/-- Every class's parameter openers are at most the block's parameters. -/
+theorem genMs_pfvs_len
+    (R : GenRecRun μ F (mkFEnv env₁) env₁ (mkFEnv envC) p.toBlockShape nestedBit pos cvTas
+      block ctorsAs out) (hg : ConLeche.ClassGenScoped R.g) (t : Nat) :
+    (R.Ms.getD t default).pfvs.length ≤ p.nP := by
+  rw [List.getD_eq_getElem?_getD]
+  cases hMt : R.Ms[t]? with
+  | none => exact Nat.zero_le _
+  | some M =>
+    simp only [Option.getD_some]
+    obtain ⟨hl1, hallN⟩ := ConLeche.classesNfs_run R.hMs
+    obtain ⟨hl0, hallM⟩ := ConLeche.classMajors_run R.hMs₀
+    have ht : t < R.Ms₀.length := by rw [← hl1]; exact (List.getElem?_eq_some_iff.mp hMt).1
+    obtain ⟨M₀, hM₀⟩ : ∃ M₀, R.Ms₀[t]? = some M₀ := ⟨_, List.getElem?_eq_getElem ht⟩
+    obtain ⟨nfs, hMs, -⟩ := hallN t M₀ hM₀
+    rw [hMs] at hMt
+    obtain rfl := Option.some.inj hMt
+    have hk : t < (R.rd.classes.map (ConLeche.classKeyCanon R.ctx.params)).length := by
+      rw [← hl0]; exact ht
+    obtain ⟨M₀', hM₀', ⟨C⟩⟩ := hallM t _ (List.getElem?_eq_getElem hk)
+    rw [hM₀] at hM₀'
+    obtain rfl := Option.some.inj hM₀'
+    show M₀.pfvs.length ≤ p.nP
+    rw [C.pfvs_eq]
+    exact Nat.le_of_eq hg.params_len
+
 end Run
 
 

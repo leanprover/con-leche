@@ -182,8 +182,8 @@ theorem genK53_entry {μ : CheckMode} {F : Nat} {envI envC : Env} {pp : BlockPar
   have hT : e.ty.fvarsBelow (pp.nP + pp.toBlockShape.k) :=
     ConLeche.Expr.fvarsBelow_mono (Nat.le_add_right _ _)
       (ConLeche.Expr.WScoped.fvarsBelow (hTbl e he).1)
-  have hpf : (R.Ms.getD tt default).pfvs.length ≤ pp.nP + pp.toBlockShape.k := by
-    sorry
+  have hpf : (R.Ms.getD tt default).pfvs.length ≤ pp.nP + pp.toBlockShape.k :=
+    Nat.le_trans (genMs_pfvs_len R hg tt) (Nat.le_add_right _ _)
   have hK' := ConLeche.k53_rename (n := cA.2) (bR := R.pre.length) (fvsR := fvsR) Rc.hopen
     (fun l hl => by
       obtain ⟨z, hz⟩ : ∃ z, fvsR[l]? = some z :=
