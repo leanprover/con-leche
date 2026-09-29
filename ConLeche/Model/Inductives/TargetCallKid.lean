@@ -68,7 +68,7 @@ theorem admVal_kid (H : DynCtx F mk mpC ctx d ns) {ψ : Name → Nat} {ρ : Nat 
     (hub : ns.getD (b - 1) default = u)
     {G : Nat → Nat → V → V → Prop} {σ : Nat → V}
     (hσ : AdmVal mk mpC ctx d ns ψ ρ xs (holeOwner ns par b) G u.anc σ) {Y : Nat → V}
-    (hsatN : Sat V ((grpTys mk.base2 ψ u.grp).reverse
+    (hsatN : Sat V ((grpTys mk.base2 ψ (ctx.hiAt u.anc.length) u.grp).reverse
         ++ stackCtx mk.base2 ψ ctx u.anc (d.holeCtx ψ).reverse)
       (consList (grpVals (lfpSel mpC d.toLfp u.key.cname) (nodeψ envC ψ u) u.grp
         (keyFrame (nodeDsaI mk ctx ψ u) (ctx.hiAt u.anc.length) σ) Y) σ))
@@ -112,13 +112,12 @@ theorem admVal_kid (H : DynCtx F mk mpC ctx d ns) {ψ : Name → Nat} {ρ : Nat 
   have hhi' : ctx.hiAt u'.anc.length = ctx.hiAt u.anc.length + u.grp.length := by
     rw [hanc, List.length_append, List.length_reverse, hGl]
     simp only [ConLeche.NestCtx.hiAt]; omega
-  generalize hVS : ((ConLeche.grpNews u.key.lvls u.key.ds (ctx.hiAt u.anc.length)
-    u.grp).reverse.reverse.map fun h =>
-      (denoteMeta mpC.base2.acval envC ψ 0 (.const h.key.cname h.key.lvls)).getD default).map
-        (interp V ρ) = VS
-  have hVSl : VS.length = u.grp.length := by rw [← hVS]; simp [hGl]
-  have htv : trueVal mpC ctx ψ ρ xs u'.anc = consList VS (trueVal mpC ctx ψ ρ xs u.anc) := by
-    rw [hanc, trueVal_append, hVS]
+  obtain ⟨VS, hVSl, htv⟩ : ∃ VS : List V, VS.length = u.grp.length ∧
+      trueVal mpC ctx ψ ρ xs u'.anc = consList VS (trueVal mpC ctx ψ ρ xs u.anc) := by
+    have h0 := trueVal_append mpC ctx ψ ρ xs
+      (ConLeche.grpNews u.key.lvls u.key.ds (ctx.hiAt u.anc.length) u.grp).reverse u.anc
+    rw [← hanc] at h0
+    exact ⟨_, by simp [hGl], h0⟩
   have hσN : ∀ q, consList GV σ (q + u.grp.length) = σ q := fun q => by
     rw [← hVl]; exact consList_apply_add GV σ q
   have htvq : ∀ q, trueVal mpC ctx ψ ρ xs u'.anc (q + u.grp.length)
@@ -148,7 +147,7 @@ theorem admVal_kid (H : DynCtx F mk mpC ctx d ns) {ψ : Name → Nat} {ρ : Nat 
       rw [hhi']; omega
     rw [hidx, hσN] at hy
     obtain ⟨h1, h2⟩ := hσ.member t ht as has y hy
-    refine ⟨fun a c => Or.inl (h1 a c), fun hn => ?_⟩
+    refine ⟨fun a => Or.inl (h1 a), fun hn => ?_⟩
     rw [hidx, htvq]; exact h2 hn
   · -- a frame hole
     intro i hk hi
@@ -158,42 +157,42 @@ theorem admVal_kid (H : DynCtx F mk mpC ctx d ns) {ψ : Name → Nat} {ρ : Nat 
     · -- below the parent's group: the parent's owner
       rw [if_pos hin]
       rw [List.getElem?_append_left (by simpa using hin)] at hi
-      obtain ⟨h0, hl, hm, hfr⟩ := hσ.frame i hk hi
-      refine ⟨h0, hl, hm, fun dsa' hdsa' => ?_⟩
-      have hws : ∀ x ∈ hk.key.ds, Expr.WScoped (ctx.hiAt u.anc.length) x := hps i hk hi
-      obtain ⟨dsa, hdsaA, rfl⟩ := DenoteMetaSpine.unlift (m := mk.base2) (by rw [hhi']; omega)
-        hws hdsa'
-      obtain ⟨hkf, hland⟩ := hfr dsa hdsaA
-      have hlen' : ctx.hiAt u'.anc.length - ctx.hiAt u.anc.length = VS.length := by
-        rw [hhi', hVSl]; omega
-      have hlenG : ctx.hiAt u'.anc.length - ctx.hiAt u.anc.length = GV.length := by
-        rw [hhi', hVl]; omega
-      refine ⟨?_, fun is his y hy => ?_⟩
-      · rw [htv, hlen', show ctx.hiAt u'.anc.length = ctx.hiAt u.anc.length + VS.length by
+      obtain ⟨h0, hl, hm, ⟨Ys, hYs⟩, hkf, hland⟩ := hσ.frame i hk hi
+      have hGl' : (ConLeche.grpNews u.key.lvls u.key.ds (ctx.hiAt u.anc.length)
+          u.grp).reverse.length = u.grp.length := by rw [List.length_reverse, hGl]
+      refine ⟨h0, hl, hm, ⟨Ys, ?_⟩, fun dsa' hdsa' => ?_, fun is his y hy => ?_⟩
+      · have hle : (ConLeche.grpNews u.key.lvls u.key.ds (ctx.hiAt u.anc.length)
+            u.grp).reverse.length ≤ (ConLeche.grpNews u.key.lvls u.key.ds (ctx.hiAt u.anc.length)
+            u.grp).reverse.length + u.anc.length - i := by omega
+        rw [hanc, List.length_append, List.drop_append, List.drop_eq_nil_of_le hle, List.nil_append,
+          show (ConLeche.grpNews u.key.lvls u.key.ds (ctx.hiAt u.anc.length) u.grp).reverse.length
+            + u.anc.length - i - (ConLeche.grpNews u.key.lvls u.key.ds (ctx.hiAt u.anc.length)
+              u.grp).reverse.length = u.anc.length - i by omega, hYs]
+      · have hws : ∀ x ∈ hk.key.ds, Expr.WScoped (ctx.hiAt u.anc.length) x := hps i hk hi
+        obtain ⟨dsa, hdsaA, rfl⟩ := DenoteMetaSpine.unlift (m := mk.base2) (by rw [hhi']; omega)
+          hws hdsa'
+        have hlen' : ctx.hiAt u'.anc.length - ctx.hiAt u.anc.length = VS.length := by
+          rw [hhi', hVSl]; omega
+        rw [htv, hlen', show ctx.hiAt u'.anc.length = ctx.hiAt u.anc.length + VS.length by
           rw [hhi', hVSl], keyFrame_lift]
-        exact hkf
+        exact hkf dsa hdsaA
       · have hlt1 : ctx.hiAt 0 + i < ctx.hiAt u.anc.length := by
           simp only [ConLeche.NestCtx.hiAt] at hA0 ⊢; omega
         have hidx : ctx.hiAt u'.anc.length - 1 - (ctx.hiAt 0 + i)
             = (ctx.hiAt u.anc.length - 1 - (ctx.hiAt 0 + i)) + u.grp.length := by
           rw [hhi']; omega
-        rw [hidx, hσN, List.map_map, hlenG] at hy
-        have hmapσ : List.map (interp V (consList GV σ) ∘ fun x => x.liftN GV.length 0) dsa
-            = dsa.map (interp V σ) :=
-          List.map_congr_left fun a _ => interp_liftN_consList GV σ a
-        rw [hmapσ] at hy
+        rw [hidx, hσN] at hy
         obtain ⟨g1, g2⟩ := hland is his y hy
         refine ⟨fun f => Or.inl (g1 f), fun nf => ?_⟩
-        have hmapT : List.map (interp V (trueVal mpC ctx ψ ρ xs u'.anc)) (dsa.map
-            fun x => x.liftN (ctx.hiAt u'.anc.length - ctx.hiAt u.anc.length) 0)
-            = dsa.map (interp V (trueVal mpC ctx ψ ρ xs u.anc)) := by
-          rw [List.map_map, htv, hlen']
-          exact List.map_congr_left fun a _ => interp_liftN_consList VS _ a
-        rw [hmapT, hidx, htvq]
+        rw [hidx, htvq]
         exact g2 nf
     · -- on the parent's group: the parent
       rw [if_neg hin]
       have hge : u.anc.length ≤ i := Nat.le_of_not_lt hin
+      have hilt : i ≤ u'.anc.length := by
+        have := (List.getElem?_eq_some_iff.mp hi).1
+        simp only [List.length_append, List.length_reverse] at this
+        rw [hanc]; simp only [List.length_append, List.length_reverse]; omega
       rw [List.getElem?_append_right (by simpa using hge), List.length_reverse] at hi
       have hkmem : hk ∈ ConLeche.grpNews u.key.lvls u.key.ds (ctx.hiAt u.anc.length) u.grp :=
         List.mem_of_getElem? hi
@@ -205,13 +204,15 @@ theorem admVal_kid (H : DynCtx F mk mpC ctx d ns) {ψ : Name → Nat} {ρ : Nat 
         simp only [ConLeche.grpNews, List.getElem?_map, List.getElem?_eq_getElem hil,
           Option.map_some, Option.some.injEq] at hi
         exact hi.symm
-      refine ⟨hb0, hbl, by rw [hub]; exact hkmem, fun dsa' hdsa' => ?_⟩
-      have hkf := dyn_ownerFrame H ψ ρ xs hb00 (hub ▸ hu) (prog := u'.anc) (X := [])
-        (by rw [hub, hanc, List.nil_append]) (by rw [hub]; exact hkmem) hdsa'
-      refine ⟨hkf, fun is his y hy => ?_⟩
+      have hsuf := stack_suffix (prog := u'.anc) (X := []) (by rw [hanc, List.nil_append])
+        hge hilt
+      refine ⟨hb0, hbl, by rw [hub]; exact hkmem, by rw [hub]; exact hsuf,
+        fun dsa' hdsa' => ?_, fun is his y hy => ?_⟩
+      · exact dyn_ownerFrame H ψ ρ xs hb00 (hub ▸ hu) (prog := u'.anc) (X := [])
+          (by rw [hub, hanc, List.nil_append]) (by rw [hub]; exact hkmem) hdsa'
       rw [hnlFr, hdsaE]
       -- the hole's value: the group's
-      obtain ⟨mm', hmm', hpm, hidx, -, -, -, -, -, hte⟩ :=
+      obtain ⟨mm', hmm', hpm, hidx, -, -, -, -, -, -, hte⟩ :=
         grpMember mk hD hnN hkN H.hcov.find hlps hndl hul hds hdsa (hlenP _) hg hpi
       rw [hψu] at hte
       have hkk : ctx.hiAt u'.anc.length - 1 - (ctx.hiAt 0 + i) < GV.length := by
@@ -225,37 +226,17 @@ theorem admVal_kid (H : DynCtx F mk mpC ctx d ns) {ψ : Name → Nat} {ρ : Nat 
         simp only [grpVals, List.getElem?_map, List.getElem?_eq_getElem hil, Option.map_some,
           Option.getD_some, hidx]
       rw [hval] at hy
-      -- the key's parameters, read at the walk valuation, are the key frame's
-      have hdsaL := DenoteMetaSpine.lift (m := mk.base2) (φ := ψ)
-        (h := ctx.hiAt u.anc.length) (D := ctx.hiAt u'.anc.length) (by rw [hhi']; omega)
-        (fun x hx => (hds x hx).1) hdsa
-      rw [hkeq] at hdsa'
-      obtain rfl := DenoteMetaSpine.unique hdsa' hdsaL
-      have hlenG : ctx.hiAt u'.anc.length - ctx.hiAt u.anc.length = GV.length := by
-        rw [hhi', hVl]; omega
-      rw [List.map_map, hlenG] at hy
-      have hmapσ : List.map (interp V (consList GV σ) ∘ fun x => x.liftN GV.length 0) dsaU
-          = dsaU.map (interp V σ) :=
-        List.map_congr_left fun a _ => interp_liftN_consList GV σ a
       have hpl := (mk.lfpClause_of_mem hD).parsLen mm' hmm' ψu
       have hdl := DenoteMetaSpine.length_eq hdsa
       have hlenP' := hlenP ψu
       rw [← hψu] at hlenP'
       rw [hψu] at hlenP'
-      have hfi : frameIdx (D.params ψu).length ρ' = dsaU.map (interp V σ) := by
-        rw [← hρ']
-        exact frameIdx_consList (by rw [List.length_map]; omega) _
-      rw [hmapσ, ← hfi] at hy
       -- the arity
       have harity := grp_arity mk hD hnN hkN H.hcov.find hg ψu _ hpi
       rw [hidx] at harity
       have hisl : is.length = (D.ids mm' ψu).length := by
         rw [hkeq] at his; simp only at his; omega
-      have hsatρ' : Sat V (D.params ψu).reverse ρ' := by
-        rw [← hρ', ← hψu]
-        exact nodeKeyFit mk (H.hΔ0 ψ) hok (H.hsem u hu ψ) (hDdef ▸ hD) hmm hmmH hfc0 (hlenP _).symm
-          (hdsaE ▸ dyn_dsaI H hu ψ) σ hσ.sat
-      obtain ⟨hfitA, hyY⟩ := holeVal_foldl_mem (mk.lfpClause_of_mem hD) hmm' hsatρ' hisl hy
+      obtain ⟨hfitA, hyY⟩ := holeVal_foldl_mem hisl hy
       -- the fit at the TRUE frame (the index telescope sees no hole)
       have hfitT : SpineFit (keyFrame dsaU (ctx.hiAt u.anc.length)
           (trueVal mpC ctx ψ ρ xs u.anc)) (D.ids mm' ψu) is := by
@@ -273,14 +254,11 @@ theorem AdmVal.drop {ψ : Name → Nat} {ρ : Nat → V} {xs : List V} {own : Na
     {G : Nat → Nat → V → V → Prop} {prog : List NestHole} {σ : Nat → V}
     (hσ : AdmVal mk mpC ctx d ns ψ ρ xs own G prog σ) (own' : Nat → Nat) :
     AdmVal mk mpC ctx d ns ψ ρ xs own' G [] (fun q => σ (q + prog.length)) := by
-  generalize hVS : ((prog.reverse.map fun h =>
-      (denoteMeta mpC.base2.acval envC ψ 0 (.const h.key.cname h.key.lvls)).getD default).map
-        (interp V ρ)) = VS
-  have hVSl : VS.length = prog.length := by rw [← hVS]; simp
-  have htv : trueVal mpC ctx ψ ρ xs prog = consList VS (trueVal mpC ctx ψ ρ xs []) := by
+  obtain ⟨VS, hVSl, htv⟩ : ∃ VS : List V, VS.length = prog.length ∧
+      trueVal mpC ctx ψ ρ xs prog = consList VS (trueVal mpC ctx ψ ρ xs []) := by
     have := trueVal_append mpC ctx ψ ρ xs prog []
     rw [List.append_nil] at this
-    rw [this, hVS]
+    exact ⟨_, by simp, this⟩
   have htvq : ∀ q, trueVal mpC ctx ψ ρ xs prog (q + prog.length)
       = trueVal mpC ctx ψ ρ xs [] q := fun q => by
     rw [htv, ← hVSl]; exact consList_apply_add VS _ q

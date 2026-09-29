@@ -251,11 +251,10 @@ bvar-closed), U4 on its normal form, its result the hole applied
 with hole-free indices, the walked fields accessible along the frame
 relation and their outputs read like the inputs. -/
 @[expose] def CtorWalkedA (m : EnvModel V env) (φ : Name → Nat) (w : Nat) (ctx : NestCtx)
-    (prog : List NestHole) (hi : Nat) (us : List Level) (ds : List Expr) (nPc : Nat)
-    (sub : Name → List Level → Option Expr)
-    (Δ : List AnnotTerm) (R : FrameRel V) (x : ConstantVal × Nat) : Prop :=
+    (prog : List NestHole) (hi : Nat) (us : List Level) (ds : List Expr) (names : List Name)
+    (holes : List Expr) (Δ : List AnnotTerm) (R : FrameRel V) (x : ConstantVal × Nat) : Prop :=
   x.1.levelParams.Nodup ∧ ∃ crest ca, ∃ ks : List ConLeche.NestFieldKind, ∃ nds cur,
-    ConLeche.instPisWith ds ((x.1.type.instantiateLevelParams x.1.levelParams us).replaceConsts sub)
+    ConLeche.nestCrest names us ds holes (x.1.type.instantiateLevelParams x.1.levelParams us)
       = some crest ∧
     crest.looseBVarsBounded 0 = true ∧
     denoteMeta m.acval env φ hi crest = some ca ∧
@@ -263,7 +262,7 @@ relation and their outputs read like the inputs. -/
     (∀ i, i < x.2 → ks.getD i .ordinary ≠ .ordinary →
       ConLeche.structUsedLater (ConLeche.closeTelescope nds hi cur) 0 i = false) ∧
     ConLeche.nestResHead cur = true ∧
-    (cur.getAppArgs.drop nPc).all (fun a => !a.nestOcc ctx.names ctx.nP hi) = true ∧
+    cur.getAppArgs.all (fun a => !a.nestOcc ctx.names ctx.nP hi) = true ∧
     PiAccThen w ctx prog (ResultAt m φ ctx.nP hi (hi + x.2) cur) x.2 hi (nds.map (·.1)) R ca ∧
     OutTele m φ ctx prog ks (nds.map (·.1)) hi Δ ca
 
@@ -281,21 +280,6 @@ theorem FieldsBound.of_eqOn' {w : Nat} :
     exact FieldsBound.of_eqOn' hrest (Sat_cons V hs ha) (hBs a (by rw [← h0 ρ hs]; exact ha))
   | _, [], _ :: _, _, hE, _, _ => hE.elim
   | _, _ :: _, [], _, hE, _, _ => hE.elim
-
-/-- Hereditary sizes cross frames related at the applied holes. -/
-theorem fieldsBound_congr_holeApp {k nP w : Nat} :
-    ∀ (Fs : List AnnotTerm) {lo : Nat}, (∀ l F, Fs[l]? = some F → HoleApp k nP (lo + l) F) →
-      ∀ {σ σ' : Nat → V}, HoleAgree k nP lo σ σ' → FieldsBound w σ Fs → FieldsBound w σ' Fs
-  | [], _, _, _, _, _, _ => trivial
-  | F :: Fs, lo, hF, σ, σ', h, hok => by
-    have h0 : HoleApp k nP lo F := by simpa using hF 0 F rfl
-    have ht : ∀ l F', Fs[l]? = some F' → HoleApp k nP (lo + 1 + l) F' := by
-      intro l F' hl
-      have := hF (l + 1) F' (by simpa using hl)
-      rwa [show lo + (l + 1) = lo + 1 + l by omega] at this
-    have he := interp_congr_holeApp h0 h
-    refine ⟨he ▸ hok.1, fun a ha => ?_⟩
-    exact fieldsBound_congr_holeApp Fs ht (h.cons a) (hok.2 a (he ▸ ha))
 
 /-- Hereditary sizes through a substitution. -/
 theorem fieldsBound_substTele {w : Nat} (τ : Nat → AnnotTerm) :
@@ -318,57 +302,49 @@ theorem fieldsBound_substTele {w : Nat} (τ : Nat → AnnotTerm) :
 /-! ## The hole fit through a frame's normal form -/
 
 /-- **A hole fit of a recorded constructor is a fit of the walked normal
-form** at a frame whose substituted valuation agrees with the hole frame
-at the applied holes. -/
+form** at a frame whose substituted valuation IS the hole frame. -/
 theorem spineFitN_of_hfits {D : LfpDatum V} {ψ : Name → Nat} {c j : Nat}
     {ab : List (Nat × Nat × AnnotTerm)} {Δ Δ' : List AnnotTerm} {N : List AnnotTerm}
     (hEq : FieldsEqOn V Δ (ab.map (·.2.2)) (D.fields ψ c j)) {τ : Nat → AnnotTerm}
     (hEN : FieldsEqOn V Δ' ((AnnotTerm.substTele τ 0 ab).map (·.2.2)) N)
-    (hha : D.HolesApplied ψ c j)
-    {σ ρp X : Nat → V} {vs : List V} (hv : substE V τ 0 σ = consList vs ρp)
-    (hag : HoleAgree D.k (D.params ψ).length 0 (D.frame ψ ρp X) (consList vs ρp))
-    (hsat : Sat V Δ (consList vs ρp)) (hsat' : Sat V Δ' σ) {t : V} {fs : List V}
+    {σ ρp X : Nat → V} (hv : substE V τ 0 σ = D.frame ψ ρp X)
+    (hsat : Sat V Δ (D.frame ψ ρp X)) (hsat' : Sat V Δ' σ) {t : V} {fs : List V}
     (hf : D.HFits ψ ρp X t c j fs) : SpineFit σ N fs := by
-  obtain ⟨-, hsp, -⟩ := (LfpDatum.hfits_iff_of_holeAgree hha hag).mp hf
+  obtain ⟨-, hsp, -⟩ := hf
   refine (hEN.spineFit_iff hsat' fs).mp ((spineFit_substTele V τ ab 0 σ fs).mpr ?_)
   rw [hv]; exact (hEq.spineFit_iff hsat fs).mpr hsp
 
 /-- **The hole fit moves along the walk's relation** once the normal form
 fits at the target (the result's indices are hole-free along the relation
 under the normal form). -/
-theorem hfits_of_spineFitN {D : LfpDatum V} {ψ : Name → Nat} {c j nF nPc : Nat}
+theorem hfits_of_spineFitN {D : LfpDatum V} {ψ : Name → Nat} {c j nF : Nat}
     {ctx : NestCtx} {hi' : Nat} {cur : Expr}
     {ab : List (Nat × Nat × AnnotTerm)} {Δ Δ' : List AnnotTerm} {N : List AnnotTerm}
     (hEq : FieldsEqOn V Δ (ab.map (·.2.2)) (D.fields ψ c j))
-    (hlen : ab.length = nF) (hnP : (D.params ψ).length = nPc)
+    (hlen : ab.length = nF)
     {τ : Nat → AnnotTerm} {p : Nat} (hhead : (τ (D.k - 1 - c)).liftN nF 0 = .bvar p)
     (hEN : FieldsEqOn V Δ' ((AnnotTerm.substTele τ 0 ab).map (·.2.2)) N)
     {R' : FrameRel V}
     (hresAt : ResultAt m φ ctx.nP hi' (hi' + nF) cur (R'.underBothTele N)
-      (AnnotTerm.substAV τ (AnnotTerm.mkAppN (.bvar (nF + (D.k - 1 - c)))
-          ((List.range nPc).map (fun i => AnnotTerm.bvar (nPc + D.k + nF - 1 - i))
-            ++ D.resIdx ψ c j)) ab.length))
+      (AnnotTerm.substAV τ (AnnotTerm.mkAppN (.bvar (nF + (D.k - 1 - c))) (D.resIdx ψ c j))
+        ab.length))
     (hres : ConLeche.nestResHead cur = true)
-    (hidx : (cur.getAppArgs.drop nPc).all (fun x => !x.nestOcc ctx.names ctx.nP hi') = true)
-    (hha : D.HolesApplied ψ c j)
-    {σS σL ρpS ρpL XS XL : Nat → V} {vsS vsL : List V} (hR : R' σS σL)
-    (hvS : substE V τ 0 σS = consList vsS ρpS) (hvL : substE V τ 0 σL = consList vsL ρpL)
-    (hagS : HoleAgree D.k nPc 0 (D.frame ψ ρpS XS) (consList vsS ρpS))
-    (hagL : HoleAgree D.k nPc 0 (D.frame ψ ρpL XL) (consList vsL ρpL))
-    (hsatS : Sat V Δ (consList vsS ρpS)) (hsatL : Sat V Δ (consList vsL ρpL))
+    (hidx : cur.getAppArgs.all (fun x => !x.nestOcc ctx.names ctx.nP hi') = true)
+    {σS σL ρpS ρpL XS XL : Nat → V} (hR : R' σS σL)
+    (hvS : substE V τ 0 σS = D.frame ψ ρpS XS) (hvL : substE V τ 0 σL = D.frame ψ ρpL XL)
+    (hsatS : Sat V Δ (D.frame ψ ρpS XS)) (hsatL : Sat V Δ (D.frame ψ ρpL XL))
     (hsatS' : Sat V Δ' σS) (hsatL' : Sat V Δ' σL)
     {t : V} {fs : List V} (hf : D.HFits ψ ρpS XS t c j fs) (hL : SpineFit σL N fs) :
     D.HFits ψ ρpL XL t c j fs := by
-  rw [← hnP] at hagS hagL
-  obtain ⟨hjS, -, hresS⟩ := (LfpDatum.hfits_iff_of_holeAgree hha hagS).mp hf
-  have hS : SpineFit σS N fs := spineFitN_of_hfits hEq hEN hha hvS hagS hsatS hsatS' hf
+  have hS : SpineFit σS N fs := spineFitN_of_hfits hEq hEN hvS hsatS hsatS' hf
+  obtain ⟨hjS, -, hresS⟩ := hf
   have hlenS : (AnnotTerm.substTele τ 0 ab).length = nF := by
     rw [substTele_length, hlen]
-  have hspL : SpineFit (consList vsL ρpL) (D.fields ψ c j) fs := by
+  have hspL : SpineFit (D.frame ψ ρpL XL) (D.fields ψ c j) fs := by
     refine (hEq.spineFit_iff hsatL fs).mp ?_
     rw [← hvL]
     exact (spineFit_substTele V τ ab 0 σL fs).mp ((hEN.spineFit_iff hsatL' fs).mpr hL)
-  refine (LfpDatum.hfits_iff_of_holeAgree hha hagL).mpr ⟨hjS, hspL, fun l hl => ?_⟩
+  refine ⟨hjS, hspL, fun l hl => ?_⟩
   obtain ⟨e, he, heq⟩ := hresS l hl
   refine ⟨e, he, ?_⟩
   rw [← heq]
@@ -394,9 +370,7 @@ item's position, the index tuple of the spine's indices, the value. -/
 @[expose] noncomputable def frameOcc (D : LfpDatum V) (ψ : Name → Nat) (grp : List (Name × Expr))
     (o : Occ V) : Nat × V × V :=
   (D.names.idxOf (grp.getD (grp.length - 1 - o.1) default).1,
-    tupW (D.u (D.names.idxOf (grp.getD (grp.length - 1 - o.1) default).1) ψ)
-      (o.2.1.drop (D.pars (D.names.idxOf (grp.getD (grp.length - 1 - o.1) default).1) ψ).length),
-    o.2.2)
+    tupW (D.u (D.names.idxOf (grp.getD (grp.length - 1 - o.1) default).1) ψ) o.2.1, o.2.2)
 
 theorem frameVal_lt {D : LfpDatum V} {ψ : Name → Nat} {grp : List (Name × Expr)}
     {dsa : List AnnotTerm} {hi : Nat} (ρ Y : Nat → V) {i : Nat} (hi' : i < grp.length) :
@@ -487,6 +461,28 @@ theorem mixT_grp_eq (Y C : Nat → V) :
   unfold mixT
   by_cases h : InGrp D grp c <;> simp [h]
 
+omit hD hnN hfind hlps hnd hul hds hdsa hlenP in
+/-- **The hole frame reads a tuple mixed into another on the group as the
+tuple** (every member is in the group). -/
+theorem frame_mixT_grp (ψ : Name → Nat) (ρp C Y : Nat → V) :
+    D.frame ψ ρp (mixT (InGrp D grp) C Y) = D.frame ψ ρp Y := by
+  unfold LfpDatum.frame
+  congr 1
+  refine List.map_congr_left fun c hc => ?_
+  have hc' : c < D.k := List.mem_range.mp hc
+  have hm : mixT (InGrp D grp) C Y c = Y c := by
+    unfold mixT; rw [if_pos (inGrp_of_lt hg.2.1 hkN hc')]
+  unfold LfpDatum.holeVal
+  simp only [hm]
+
+omit hD hnN hfind hlps hnd hul hds hdsa hlenP in
+/-- The hole fit at a tuple mixed into another on the group is the fit
+at the tuple. -/
+theorem hfits_mixT_grp {ψ : Name → Nat} {ρp C Y : Nat → V} {t : V} {c j : Nat} {fs : List V} :
+    D.HFits ψ ρp (mixT (InGrp D grp) C Y) t c j fs ↔ D.HFits ψ ρp Y t c j fs := by
+  unfold LfpDatum.HFits
+  rw [frame_mixT_grp hkN hg]
+
 set_option maxHeartbeats 1600000 in
 /-- **One constructor of a frame's group is accessible** (the accessibility
 twin of `frameIter`'s per-constructor transfer): a bound of the level
@@ -502,7 +498,7 @@ theorem frameCtor_acc {w : Nat} (hw : w ≠ 0) (hwD : D.w (Level.substFn φ lps 
     {g j : Nat} (hG : InGrp D grp g) (hj : j < D.nctors g) {cv : ConstantVal} {nF : Nat}
     (hfc : env.find? (D.ctorName g j) = some (.ctorInfo cv ds.length nF))
     (hwk : CtorWalkedA mp.base2 φ w ctx ((grpNews us ds hi grp).reverse ++ prog) (hi + grp.length)
-      us ds ds.length (grpSub us hi grp) ((grpTys mp.base2 φ grp).reverse ++ Δh)
+      us ds (grp.map (·.1)) (grpHoles hi grp) ((grpTys mp.base2 φ hi grp).reverse ++ Δh)
       (frameRelA R₀ D (Level.substFn φ lps us) grp dsa hi) (cv, nF)) :
     FrameCtorAcc w (hi + grp.length) ctx.nP
       (HoleQ ctx ((grpNews us ds hi grp).reverse ++ prog) (hi + grp.length)) R₀ D
@@ -520,49 +516,35 @@ theorem frameCtor_acc {w : Nat} (hw : w ≠ 0) (hwD : D.w (Level.substFn φ lps 
   rw [hca] at hrd
   obtain rfl := Option.some.inj hrd
   have hRA := frameRelA_holeRelA mp hD hnN hkN hfind hlps hnd hul hds hdsa
-    hlenP hg hhi hR₀ hfit hw' (grp_arity mp hD hnN hkN hfind hg _)
-  have hha := h.holeApp (Level.substFn φ lps us) g (Nat.lt_of_lt_of_le hG.1 hkNN) j hj
-  -- the substituted valuation and the hole agreement at a frame and a tuple
+    hlenP hg hhi hR₀ hw' (grp_arity mp hD hnN hkN hfind hg _)
+  -- the substituted valuation IS the hole frame at a frame and a tuple
   have hvals : ∀ ρ Y, Sat V (D.params (Level.substFn φ lps us)).reverse (keyFrame dsa hi ρ) →
-      InTupleSpace (D.w (Level.substFn φ lps us)) D.N (D.idx (Level.substFn φ lps us) (keyFrame dsa hi ρ)) Y →
-      ∃ vs : List V, substE V (substTau (ds.length + D.k) (hi + grp.length)
-          (grpX mp.base2 φ D us hi grp ds (hi + grp.length))) 0
-          (frameVal D (Level.substFn φ lps us) grp dsa hi ρ Y) = consList vs (keyFrame dsa hi ρ) ∧
-        HoleAgree D.k ds.length 0
-          (D.frame (Level.substFn φ lps us) (keyFrame dsa hi ρ) (mixT (InGrp D grp) (D.carrier (Level.substFn φ lps us) (keyFrame dsa hi ρ)) Y))
-          (consList vs (keyFrame dsa hi ρ)) ∧
-        Sat V (D.params (Level.substFn φ lps us) ++ Tys).reverse (consList vs (keyFrame dsa hi ρ)) := by
-    intro ρ Y hs hY
-    have hS := substE_grp mp hD hnN hkN hfind hlps hnd hul hds hdsa hlenP hg
-      (keyFrame dsa hi ρ) Y ρ
-    refine ⟨_, hS, ?_, ?_⟩
-    · have hagS := holeAgree_instance mp hD hs ρ (fun mm => decide (InGrp D grp mm)) Y
-        (vs := (List.range D.k).map fun mm =>
-          if decide (InGrp D grp mm) = true then D.holeVal (Level.substFn φ lps us) (keyFrame dsa hi ρ) Y mm
-          else interp V ρ (mp.base2.acval (D.member mm) (Level.substFn φ lps us)))
-        (by simp) (fun m hm => by simp)
-      rw [mixT_grp_eq, hlenP] at hagS
-      exact hagS
-    · exact frameVals_sat mp hD hs hlT hTys (fun mm => decide (InGrp D grp mm)) Y hY ρ
+      InTupleSpace (D.w (Level.substFn φ lps us)) D.N
+        (D.idx (Level.substFn φ lps us) (keyFrame dsa hi ρ)) Y →
+      substE V (substTau (ds.length + D.k) (hi + grp.length)
+          (grpX mp.base2 φ D hi grp ds (hi + grp.length))) 0
+          (frameVal D (Level.substFn φ lps us) grp dsa hi ρ Y)
+        = D.frame (Level.substFn φ lps us) (keyFrame dsa hi ρ) Y ∧
+      Sat V (D.params (Level.substFn φ lps us) ++ Tys).reverse
+        (D.frame (Level.substFn φ lps us) (keyFrame dsa hi ρ) Y) := fun ρ Y hs hY =>
+    ⟨substE_grp mp hD hnN hkN hfind hlps hnd hul hds hdsa hlenP hg Y ρ,
+      frameVals_sat mp hD hs hlenP hlT hTys Y hY⟩
   -- the walked fields are small at every related frame
   have hbd : ∀ σ σ₀, frameRelA R₀ D (Level.substFn φ lps us) grp dsa hi σ σ₀ →
       FieldsBound w σ ((AnnotTerm.substTele (substTau (ds.length + D.k) (hi + grp.length)
-        (grpX mp.base2 φ D us hi grp ds (hi + grp.length))) 0 ab).map (·.2.2)) := by
+        (grpX mp.base2 φ D hi grp ds (hi + grp.length))) 0 ab).map (·.2.2)) := by
     rintro _ _ ⟨ρ, ρ', Y, Y', hR, hY, -, rfl, -⟩
-    obtain ⟨vs, hS, hag, hsat⟩ := hvals ρ Y (hfit ρ ρ' hR).1 hY
-    have hok := (mp.lfp_ok D hD).1.fieldsOk (Level.substFn φ lps us) (keyFrame dsa hi ρ) (hfit ρ ρ' hR).1 hw'
-      (mixT (InGrp D grp) (D.carrier (Level.substFn φ lps us) (keyFrame dsa hi ρ)) Y)
-      (mixT_mem (G := InGrp D grp) (lfpTuple_mem _ _ _ _) hY) g (Nat.lt_of_lt_of_le hG.1 hkNN) j hj
+    obtain ⟨hS, hsat⟩ := hvals ρ Y (hfit ρ ρ' hR).1 hY
+    have hok := h.fieldsOk (Level.substFn φ lps us) (keyFrame dsa hi ρ) (hfit ρ ρ' hR).1 hw'
+      Y hY g (Nat.lt_of_lt_of_le hG.1 hkNN) j hj
     have hb := hok.toBound hw'
     rw [hwD] at hb
-    have hb' := fieldsBound_congr_holeApp (D.fields (Level.substFn φ lps us) g j) (lo := 0)
-      (fun l F hl => by simpa using hha.1 l F hl) (by rw [hlenP]; exact hag) hb
     refine fieldsBound_substTele _ ab 0 _ ?_
     unfold frameVal at hS
     rw [hS]
-    exact FieldsBound.of_eqOn' hEqF hsat hb'
+    exact FieldsBound.of_eqOn' hEqF hsat hb
   have hlenW : (AnnotTerm.substTele (substTau (ds.length + D.k) (hi + grp.length)
-      (grpX mp.base2 φ D us hi grp ds (hi + grp.length))) 0 ab).length = nF := by
+      (grpX mp.base2 φ D hi grp ds (hi + grp.length))) 0 ab).length = nF := by
     rw [substTele_length, hlen]
   have hb : ctx.hiAt ((grpNews us ds hi grp).reverse ++ prog).length = hi + grp.length := by
     rw [List.length_append, List.length_reverse, grpNews_length, ← hhi]
@@ -572,7 +554,7 @@ theorem frameCtor_acc {w : Nat} (hw : w ≠ 0) (hwD : D.w (Level.substFn φ lps 
   let ord : Nat → Bool := fun l => ks.getD l .ordinary == .ordinary
   -- the substituted result head is the member's hole
   have hhead : ∃ p, ((substTau (ds.length + D.k) (hi + grp.length)
-      (grpX mp.base2 φ D us hi grp ds (hi + grp.length))) (D.k - 1 - g)).liftN nF 0
+      (grpX mp.base2 φ D hi grp ds (hi + grp.length))) (D.k - 1 - g)).liftN nF 0
         = .bvar p := by
     have hgk := hG.1
     simp only [substTau, if_pos (show D.k - 1 - g < ds.length + D.k by omega)]
@@ -581,10 +563,8 @@ theorem frameCtor_acc {w : Nat} (hw : w ≠ 0) (hwD : D.w (Level.substFn φ lps 
       (by omega)).2.2
     unfold grpS at hr'
     rw [if_neg (by omega), show ds.length + g - ds.length = g by omega] at hr'
-    obtain ⟨i, hi', hgi⟩ : ∃ i, ∃ hi' : i < grp.length, grp[i].1 = D.member g := by
-      obtain ⟨i, hi', h'⟩ := List.getElem_of_mem (List.contains_iff_mem.mp hG.2)
-      exact ⟨i, by simpa using hi', by simpa using h'⟩
-    rw [← hgi, grpSub_mem hg.1 hi', Option.getD_some, denoteMeta_fvar] at hr'
+    obtain ⟨i, hi', -, hidx', hget⟩ := grpHoles_member (hi := hi) hg.2.1 hkN hgk
+    rw [hidx', hget, denoteMeta_fvar] at hr'
     rw [← Option.some.inj hr']
     exact ⟨hi + grp.length - 1 - (hi + i) + nF, by simp⟩
   obtain ⟨p, hp⟩ := hhead
@@ -594,23 +574,26 @@ theorem frameCtor_acc {w : Nat} (hw : w ≠ 0) (hwD : D.w (Level.substFn φ lps 
         (by simpa using hτ)) σ σ' fun i => ⟨fun h => absurd h (Nat.not_lt_zero _),
           fun _ hm => hq i (by simpa using hm)⟩
   intro ρ ρ₀ Y hR hY t fs hf
-  have hRσ : frameRelA R₀ D (Level.substFn φ lps us) grp dsa hi (frameVal D (Level.substFn φ lps us) grp dsa hi ρ Y)
+  rw [hfits_mixT_grp hkN hg] at hf
+  have hRσ : frameRelA R₀ D (Level.substFn φ lps us) grp dsa hi
+      (frameVal D (Level.substFn φ lps us) grp dsa hi ρ Y)
       (frameVal D (Level.substFn φ lps us) grp dsa hi ρ Y) :=
     ⟨ρ, ρ, Y, Y, hR₀.lrefl ρ ρ₀ hR, hY, hY, rfl, rfl⟩
-  obtain ⟨vs, hS, hag, hsat⟩ := hvals ρ Y (hfit ρ ρ₀ hR).1 hY
-  have hspN := spineFitN_of_hfits hEqF hEN hha hS (by rw [hlenP]; exact hag) hsat
-    (hRA.dom _ _ hRσ).1 hf
+  obtain ⟨hS, hsat⟩ := hvals ρ Y (hfit ρ ρ₀ hR).1 hY
+  have hspN := spineFitN_of_hfits hEqF hEN hS hsat (hRA.dom _ _ hRσ).1 hf
   obtain ⟨B, gi, hB, hgi, hs⟩ := teleBound_support hw (k := 0) (ord := ord)
     (fun l τ τ' hτ => hAf l τ τ' (hτ.toM _)) N 0 _ _
     (fun i G hG' ho τ τ' hτ => hF i G (by simpa using hG') (by rw [Nat.zero_add] at ho; exact ho)
       τ τ' (by rw [Nat.zero_add] at hτ; exact hτ.toM _))
     htele _ hRσ fs hspN
   refine ⟨B, gi, hB, hgi, fun ρ' Y' hR' hY' hheld => ?_⟩
-  have hRσL : frameRelA R₀ D (Level.substFn φ lps us) grp dsa hi (frameVal D (Level.substFn φ lps us) grp dsa hi ρ Y)
+  rw [hfits_mixT_grp hkN hg]
+  have hRσL : frameRelA R₀ D (Level.substFn φ lps us) grp dsa hi
+      (frameVal D (Level.substFn φ lps us) grp dsa hi ρ Y)
       (frameVal D (Level.substFn φ lps us) grp dsa hi ρ' Y') := ⟨ρ, ρ', Y, Y', hR', hY, hY', rfl, rfl⟩
   have hL := hs _ hRσL hheld
-  obtain ⟨vsL, hSL, hagL, hsatL⟩ := hvals ρ' Y' (hfit ρ ρ' hR').2 hY'
-  exact hfits_of_spineFitN hEqF hlen hlenP hp hEN hRes hres hidx hha hRσL hS hSL hag hagL hsat hsatL
+  obtain ⟨hSL, hsatL⟩ := hvals ρ' Y' (hfit ρ ρ' hR').2 hY'
+  exact hfits_of_spineFitN hEqF hlen hp hEN hRes hres hidx hRσL hS hSL hsat hsatL
     (hRA.dom _ _ hRσL).1 (hRA.dom _ _ hRσL).2 hf hL
 
 /-- **A frame item is a group occurrence or an enclosing item.** -/
@@ -622,13 +605,12 @@ theorem frame_item_fwd {prog : List NestHole} (hhi : ctx.hiAt prog.length = hi) 
     (o.1 < grp.length ∧ InGrp D grp (frameOcc D (Level.substFn φ lps us) grp o).1 ∧
       InTup D.N (D.idx (Level.substFn φ lps us) (keyFrame dsa hi ρ)) Y
         (frameOcc D (Level.substFn φ lps us) grp o) ∧
-      SpineFit (fun j => ρ (j + hi))
-        (D.pars (frameOcc D (Level.substFn φ lps us) grp o).1 (Level.substFn φ lps us)
-          ++ D.ids (frameOcc D (Level.substFn φ lps us) grp o).1 (Level.substFn φ lps us)) o.2.1) ∨
+      ∀ ρ', AgreeOff (holeP hi ctx.nP hi) ρ ρ' →
+        SpineFit (keyFrame dsa hi ρ')
+          (D.ids (frameOcc D (Level.substFn φ lps us) grp o).1 (Level.substFn φ lps us)) o.2.1) ∨
     (grp.length ≤ o.1 ∧ Adm (HoleQ ctx prog hi) (o.1 - grp.length, o.2) ∧
       Holds ρ (o.1 - grp.length, o.2)) := by
   obtain ⟨i, vs, y⟩ := o
-  have hkNN := (mp.lfp_ok D hD).1.kN
   have hnl := grpNews_length us ds hi grp
   have hQ' : HoleQ ctx ((grpNews us ds hi grp).reverse ++ prog)
       (ctx.hiAt prog.length + (grpNews us ds hi grp).length) i vs.length := by
@@ -642,60 +624,60 @@ theorem frame_item_fwd {prog : List NestHole} (hhi : ctx.hiAt prog.length = hi) 
     have hjk : (grp.getD (grp.length - 1 - (grp.length - 1 - j)) default) = grp[j] := by
       rw [show grp.length - 1 - (grp.length - 1 - j) = j by omega,
         List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hjl, Option.getD_some]
-    have hkey : hk.key.cname = grp[j].1 := by
+    have hkey : hk.key.cname = grp[j].1 ∧ hk.key.ds = ds := by
       simp only [grpNews, List.getElem?_map, List.getElem?_eq_getElem hjl, Option.map_some,
         Option.some.injEq] at hj
       rw [← hj]
+      exact ⟨rfl, rfl⟩
     have hmem : grp[j] ∈ grp := List.getElem_mem hjl
-    have hck := grp_idx_lt mp hD hnN hkN hfind hlps hnd hul hds hdsa hlenP hg hmem
+    obtain ⟨mm, hmm, -, hidx, -, -, -, -, -, -, hte⟩ :=
+      grpMember mp hD hnN hkN hfind hlps hnd hul hds hdsa hlenP hg hmem
     have har := grp_arity mp hD hnN hkN hfind hg (Level.substFn φ lps us) _ hmem
-    rw [hkey] at hn
+    rw [hkey.1, hkey.2] at hn
+    rw [hidx, parsLen_dsa mp hD hdsa hlenP hmm, ← DenoteMetaSpine.length_eq hdsa] at har
     unfold Holds at hH
     simp only at hH
-    rw [frameVal_lt ρ Y (by omega), hjk] at hH
+    rw [frameVal_lt ρ Y (by omega), hjk, hidx] at hH
     unfold frameOcc
     simp only
-    rw [hjk]
-    refine Or.inl ⟨by omega, grp_inGrp mp hD hnN hkN hfind hlps hnd hul hds hdsa hlenP hg hmem, ?_⟩
-    rcases grp_hole_full mp hD hdsa hlenP hck ρ Y (vs := vs) (by rw [← har, hn]) with
-      ⟨hfit, he⟩ | he
+    rw [hjk, hidx]
+    refine Or.inl ⟨by omega, ?_, ?_⟩
+    · have := grp_inGrp mp hD hnN hkN hfind hlps hnd hul hds hdsa hlenP hg hmem
+      rwa [hidx] at this
+    rcases grp_hole_full (D := D) (lps := lps) (us := us) (φ := φ) (mm := mm) (keyFrame dsa hi ρ) Y
+        (vs := vs) (by rw [har] at hn; omega) with ⟨hfit, he⟩ | he
     · rw [he] at hH
-      refine ⟨⟨by omega, Classical.byContradiction fun hni => ?_, hH⟩, hfit⟩
-      rw [app_off_dom_of_mem_piSet (hY _ (by omega)) hni] at hH
+      refine ⟨⟨Nat.lt_of_lt_of_le hmm (mp.lfp_ok D hD).1.kN,
+        Classical.byContradiction fun hni => ?_, hH⟩,
+        fun ρ' hag => ((hte ρ ρ' hag).spineFit vs).mp hfit⟩
+      rw [app_off_dom_of_mem_piSet (hY _ (Nat.lt_of_lt_of_le hmm (mp.lfp_ok D hD).1.kN)) hni] at hH
       exact not_mem_empty _ hH
     · rw [he] at hH; exact absurd hH (not_mem_empty _)
   · exact Or.inr ⟨by rw [hnl] at hle; exact hle,
       by show HoleQ ctx prog hi (i - grp.length) vs.length; rw [hnl, hhi] at hQo; exact hQo,
       (holds_frameVal_ge (by rw [hnl] at hle; exact hle)).mp hH⟩
 
-omit hnN hkN hfind hlps hnd hul hds hg in
+omit hD hnN hkN hfind hlps hnd hul hds hdsa hlenP hg in
 /-- **A group occurrence held by another tuple holds the item at its frame**
-(the spine fits at the key's tail). -/
+(the spine fits the member's index telescope at the key frame). -/
 theorem frame_item_bwd {ρ' Y' : Nat → V} {o : Occ V} (hlt : o.1 < grp.length)
-    (hck : (frameOcc D (Level.substFn φ lps us) grp o).1 < D.k)
-    (hfit : SpineFit (fun j => ρ' (j + hi))
-        (D.pars (frameOcc D (Level.substFn φ lps us) grp o).1 (Level.substFn φ lps us)
-          ++ D.ids (frameOcc D (Level.substFn φ lps us) grp o).1 (Level.substFn φ lps us)) o.2.1)
+    (hfit : SpineFit (keyFrame dsa hi ρ')
+      (D.ids (frameOcc D (Level.substFn φ lps us) grp o).1 (Level.substFn φ lps us)) o.2.1)
     (hin : InTup D.N (D.idx (Level.substFn φ lps us) (keyFrame dsa hi ρ')) Y'
       (frameOcc D (Level.substFn φ lps us) grp o)) :
     Holds (frameVal D (Level.substFn φ lps us) grp dsa hi ρ' Y') o := by
   obtain ⟨i, vs, y⟩ := o
+  have h2 := LfpDatum.holeVal_app (X := Y') hfit
+  unfold frameOcc at h2 hin
   unfold Holds
-  simp only at hlt hfit hin ⊢
-  have hck' : D.names.idxOf (grp.getD (grp.length - 1 - i) default).1 < D.k := hck
-  have hfit' : SpineFit (fun j => ρ' (j + hi))
-      (D.pars (D.names.idxOf (grp.getD (grp.length - 1 - i) default).1) (Level.substFn φ lps us)
-        ++ D.ids (D.names.idxOf (grp.getD (grp.length - 1 - i) default).1) (Level.substFn φ lps us))
-      vs := hfit
-  rw [frameVal_lt ρ' Y' hlt, holeVal_keyFrame (parsLen_dsa mp hD hdsa hlenP hck'),
-    holeFam_app _ hfit']
+  simp only at hlt h2 hin ⊢
+  rw [frameVal_lt ρ' Y' hlt, h2]
   exact hin.2.2
 
 /-- **The walked fields of a frame constructor are small** at every frame
 of the frame relation: they read like the recorded fields at the
-substituted valuation (`crest_read`), which agrees with the hole frame of
-a tuple mixed into the carrier at the applied holes, where the clause's
-`fieldsOk` bounds them. -/
+substituted valuation (`crest_read`), which IS the hole frame of a tuple,
+where the clause's `fieldsOk` bounds them. -/
 theorem frame_fieldsBound {w : Nat} (hwD : D.w (Level.substFn φ lps us) = w) (hw : w ≠ 0)
     {R₀ : FrameRel V}
     (hfit : ∀ ρ ρ', R₀ ρ ρ' →
@@ -703,41 +685,29 @@ theorem frame_fieldsBound {w : Nat} (hwD : D.w (Level.substFn φ lps us) = w) (h
       Sat V (D.params (Level.substFn φ lps us)).reverse (keyFrame dsa hi ρ'))
     {g j : Nat} (hG : InGrp D grp g) (hj : j < D.nctors g)
     {ab : List (Nat × Nat × AnnotTerm)} {Tys : List AnnotTerm} (hlT : Tys.length = D.k)
-    (hTys : ∀ mm, mm < D.k → ∃ cvm caps, env.find? (D.member mm) = some (.indInfo cvm caps) ∧
-      denoteMeta mp.base2.acval env (Level.substFn φ lps us) 0 cvm.type
+    (hTys : ∀ mm, mm < D.k → ∃ cvm caps ty, env.find? (D.member mm) = some (.indInfo cvm caps) ∧
+      instPisWith (canonParams ds.length) cvm.type = some ty ∧
+      denoteMeta mp.base2.acval env (Level.substFn φ lps us) (ds.length + mm) ty
         = some (Tys.getD mm default))
     (hEqF : FieldsEqOn V (D.params (Level.substFn φ lps us) ++ Tys).reverse (ab.map (·.2.2))
       (D.fields (Level.substFn φ lps us) g j)) :
     ∀ σ σ₀, frameRelA R₀ D (Level.substFn φ lps us) grp dsa hi σ σ₀ →
       FieldsBound w σ ((AnnotTerm.substTele (substTau (ds.length + D.k) (hi + grp.length)
-        (grpX mp.base2 φ D us hi grp ds (hi + grp.length))) 0 ab).map (·.2.2)) := by
-  classical
+        (grpX mp.base2 φ D hi grp ds (hi + grp.length))) 0 ab).map (·.2.2)) := by
   obtain ⟨h, -, -, -⟩ := mp.lfp_ok D hD
   have hkNN := h.kN
   have hw' : D.w (Level.substFn φ lps us) ≠ 0 := by rw [hwD]; exact hw
-  have hha := h.holeApp (Level.substFn φ lps us) g (Nat.lt_of_lt_of_le hG.1 hkNN) j hj
   rintro _ _ ⟨ρ, ρ', Y, Y', hR, hY, -, rfl, -⟩
   have hs := (hfit ρ ρ' hR).1
-  have hS := substE_grp mp hD hnN hkN hfind hlps hnd hul hds hdsa hlenP hg (keyFrame dsa hi ρ) Y ρ
-  have hagS := holeAgree_instance mp hD hs ρ (fun mm => decide (InGrp D grp mm)) Y
-    (vs := (List.range D.k).map fun mm =>
-      if decide (InGrp D grp mm) = true then D.holeVal (Level.substFn φ lps us) (keyFrame dsa hi ρ) Y mm
-      else interp V ρ (mp.base2.acval (D.member mm) (Level.substFn φ lps us)))
-    (by simp) (fun m hm => by simp)
-  rw [mixT_grp_eq, hlenP] at hagS
-  have hsat := frameVals_sat mp hD hs hlT hTys (fun mm => decide (InGrp D grp mm)) Y hY ρ
-  have hok := (mp.lfp_ok D hD).1.fieldsOk (Level.substFn φ lps us) (keyFrame dsa hi ρ) hs hw'
-    (mixT (InGrp D grp) (D.carrier (Level.substFn φ lps us) (keyFrame dsa hi ρ)) Y)
-    (mixT_mem (G := InGrp D grp) (lfpTuple_mem _ _ _ _) hY) g (Nat.lt_of_lt_of_le hG.1 hkNN) j hj
+  have hS := substE_grp mp hD hnN hkN hfind hlps hnd hul hds hdsa hlenP hg Y ρ
+  have hsat := frameVals_sat mp hD hs hlenP hlT hTys Y hY
+  have hok := h.fieldsOk (Level.substFn φ lps us) (keyFrame dsa hi ρ) hs hw'
+    Y hY g (Nat.lt_of_lt_of_le hG.1 hkNN) j hj
   have hb := hok.toBound hw'
   rw [hwD] at hb
-  have hb' := fieldsBound_congr_holeApp (D.fields (Level.substFn φ lps us) g j) (lo := 0)
-    (fun l F hl => by simpa using hha.1 l F hl) (by rw [hlenP]; exact hagS) hb
   refine fieldsBound_substTele _ ab 0 _ ?_
-  unfold frameVal at hS
-  show FieldsBound w (substE V _ 0 (consList _ ρ)) _
   rw [hS]
-  exact FieldsBound.of_eqOn' hEqF hsat hb'
+  exact FieldsBound.of_eqOn' hEqF hsat hb
 
 set_option maxHeartbeats 1600000 in
 /-- **The frame's accessibility from its constructors'** (`FrameAccOut`):
@@ -864,10 +834,9 @@ theorem frameAccOut_of {w : Nat} (hw : w ≠ 0)
         obtain ⟨hQ, hH⟩ := hgi b hb
         have hib := hitems b hb
         rcases frame_item_fwd mp hD hnN hkN hfind hlps hnd hul hds hdsa hlenP hg hhi hY hQ hH with
-          ⟨hlt, hGc, -, hfit0⟩ | ⟨hge, -, -⟩
+          ⟨hlt, -, -, hfit0⟩ | ⟨hge, -, -⟩
         · simp only [item, if_pos hlt] at hib
-          refine frame_item_bwd mp hD hdsa hlenP hlt hGc.1 ?_ hib.2
-          rw [← htail p p' hR']; exact hfit0
+          exact frame_item_bwd hlt (hfit0 p' (hagree p p' hR')) hib.2
         · simp only [item, if_neg (show ¬ (gi b).1 < grp.length by omega)] at hib
           exact (holds_frameVal_ge hge).mpr hib.2
       have hmixS' := mixT_mem (G := InGrp D grp)
@@ -917,28 +886,32 @@ theorem frameIterAcc (hin : RulesInputs V mp.base2 φ) {w : Nat} (hw : w ≠ 0)
     {prog : List NestHole} (hhi : ctx.hiAt prog.length = hi) {Δh : List AnnotTerm}
     {R₀ : FrameRel V} (hR₀ : HoleRelA mp.base2 φ ctx prog hi Δh R₀) (hΔ : Δh.length = hi)
     (hCds : ∀ x ∈ ds, CtxOkP mp.base2 φ hi Δh x) (hLds : ∀ x ∈ ds, Expr.LeavesBounded x)
-    (hfit : ∀ ρ ρ', R₀ ρ ρ' →
+    (hkey : ∀ ρ, Sat V Δh ρ →
       Sat V (D.params (Level.substFn φ lps us)).reverse (keyFrame dsa hi ρ) ∧
-      Sat V (D.params (Level.substFn φ lps us)).reverse (keyFrame dsa hi ρ'))
+      ∀ a ∈ dsa, WellDenotedV V ρ a)
     {ctors : List (ConstantVal × Nat)}
     (hgc : ConLeche.groupCtors ctx ds.length (grp.map (·.1)) = some ctors)
     (hwalk : ∀ {Δ : List AnnotTerm} {R : FrameRel V},
       HoleRelA mp.base2 φ ctx ((grpNews us ds hi grp).reverse ++ prog) (hi + grp.length) Δ R →
       ∀ (Q : ConstantVal × Nat → Prop),
       (∀ (x : ConstantVal × Nat) (crest : Expr), Q x →
-        instPisWith ds ((x.1.type.instantiateLevelParams x.1.levelParams us).replaceConsts
-          (grpSub us hi grp)) = some crest →
+        ConLeche.nestCrest (grp.map (·.1)) us ds (grpHoles hi grp)
+          (x.1.type.instantiateLevelParams x.1.levelParams us) = some crest →
         (∃ ty, ConLeche.inferTypeCore .verified env F (hi + grp.length) crest = .ok ty) →
         ∃ ca, Frame (hi + grp.length) crest ∧ CtxOkP mp.base2 φ (hi + grp.length) Δ crest ∧
           denoteMeta mp.base2.acval env φ (hi + grp.length) crest = some ca ∧ Graded V Δ ca ∧
           TeleSmall w x.2 R ca) →
       (∀ x ∈ ctors, Q x) →
       ∀ x ∈ ctors, CtorWalkedA mp.base2 φ w ctx ((grpNews us ds hi grp).reverse ++ prog)
-        (hi + grp.length) us ds ds.length (grpSub us hi grp) Δ R x) :
+        (hi + grp.length) us ds (grp.map (·.1)) (grpHoles hi grp) Δ R x) :
     FrameAccOut w ctx prog hi R₀ D (Level.substFn φ lps us) dsa (InGrp D grp) := by
   have hQ := grpCtors_found hg hcov hgc
   have hw' : D.w (Level.substFn φ lps us) ≠ 0 := by rw [hwD]; exact hw
-  have hR' := frameRelA_holeRelA mp hD hnN hkN hfind hlps hnd hul hds hdsa hlenP hg hhi hR₀ hfit hw'
+  have hfit : ∀ ρ ρ', R₀ ρ ρ' →
+      Sat V (D.params (Level.substFn φ lps us)).reverse (keyFrame dsa hi ρ) ∧
+      Sat V (D.params (Level.substFn φ lps us)).reverse (keyFrame dsa hi ρ') := fun ρ ρ' hr =>
+    ⟨(hkey ρ (hR₀.dom ρ ρ' hr).1).1, (hkey ρ' (hR₀.dom ρ ρ' hr).2).1⟩
+  have hR' := frameRelA_holeRelA mp hD hnN hkN hfind hlps hnd hul hds hdsa hlenP hg hhi hR₀ hw'
     (grp_arity mp hD hnN hkN hfind hg _)
   have hwalked := hwalk hR'
     (fun x => ∃ c j, InGrp D grp c ∧ j < D.nctors c ∧
@@ -951,7 +924,7 @@ theorem frameIterAcc (hin : RulesInputs V mp.base2 φ) {w : Nat} (hw : w ≠ 0)
       have hbb : (x.1.type.instantiateLevelParams x.1.levelParams us).looseBVarsBounded 0 = true := by
         rw [Expr.looseBVarsBounded_instantiateLevelParams]; exact hwf.2.2.2.1
       obtain ⟨hfr, hC⟩ := crest_frame mp hD hnN hkN hfind hlps hnd hul hds hdsa hlenP hg hΔ hCds hLds
-        hcl hbb hcr
+        hkey hcl hbb hcr
       obtain ⟨-, crest', ab, hcr', ⟨Tys, hlT, hTys, hEqF⟩, hlen, hrd⟩ :=
         crest_read mp hD hnN hkN hfind hlps hnd hul hds hdsa hlenP hg hGc.1 hj hfc
       rw [hcr] at hcr'
@@ -962,7 +935,7 @@ theorem frameIterAcc (hin : RulesInputs V mp.base2 φ) {w : Nat} (hw : w ≠ 0)
       obtain ⟨-, -, -, -, hgr, -⟩ := hIS hfr hC.toCtxOk hrd
       refine ⟨_, hfr, hC, hrd, hgr, ?_⟩
       have hlW : (AnnotTerm.substTele (substTau (ds.length + D.k) (hi + grp.length)
-          (grpX mp.base2 φ D us hi grp ds (hi + grp.length))) 0 ab).length = x.2 := by
+          (grpX mp.base2 φ D hi grp ds (hi + grp.length))) 0 ab).length = x.2 := by
         rw [substTele_length, hlen]
       rw [← hlW]
       exact teleSmall_mkPisAV hw _ _ _ _ _ (FieldsEqOn.refl _ _) hR'.dom

@@ -333,31 +333,6 @@ theorem PosTree.Reached.nodeOk {ts : List PosTree}
   | root hr => exact hroots _ hr
   | kid _ hk ih => exact posD_nodes ih.1 _ (PosTree.mem_forest_of_mem hk)
 
-/-- **Every hole of a reached node's stack has an OWNER**:
-each entry of `t.occ` is a group entry (`grpNews`) of a reached node `u`,
-strictly higher than `t` — its ancestor whose frame introduced the hole.
-Holds because every node's stack is its ancestors' groups: a walked node
-is derived where it occurs, a hole-free one at the empty stack. -/
-theorem PosTree.Reached.occ_owners {ts : List PosTree}
-    (hroots : ∀ r ∈ ts, PosNodeOk ops env ctx r) (hocc0 : ∀ r ∈ ts, r.occ = [])
-    {t : PosTree} (h : PosTree.Reached ts t) :
-    ∀ hk ∈ t.occ, ∃ u, PosTree.Reached ts u ∧ PosNodeOk ops env ctx u ∧ t.height < u.height ∧
-      hk ∈ grpNews u.key.lvls u.key.ds (ctx.hiAt u.anc.length) u.grp := by
-  induction h with
-  | root hr => intro hk hkm; rw [hocc0 _ hr] at hkm; exact nomatch hkm
-  | @kid u k hu hk ih =>
-    intro hh hhm
-    have hok := PosTree.Reached.nodeOk hroots hu
-    rw [hok.2.2.1 k hk, List.mem_append, List.mem_reverse] at hhm
-    have hlt := PosTree.height_kid hk
-    rcases hhm with hhm | hhm
-    · exact ⟨u, hu, hok, hlt, hhm⟩
-    · rcases hok.2.2.2.2.2 with ⟨hanc, -⟩ | ⟨hanc, -⟩
-      · rw [hanc] at hhm
-        obtain ⟨v, hv, hvok, hvlt, hvm⟩ := ih hh hhm
-        exact ⟨v, hv, hvok, Nat.lt_trans hlt hvlt, hvm⟩
-      · rw [hanc] at hhm; exact nomatch hhm
-
 end Nodes
 
 end ConLeche

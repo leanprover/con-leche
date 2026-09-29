@@ -37,7 +37,7 @@ open ConLeche.Semantics
 open ConLeche.SetModel
 open ConLeche.Term ConLeche.Verify SetTheory
 open ConLeche.Semantics (AnnotTerm)
-open ConLeche (Env Expr Name Level NestCtx NestHole BinderMeta nestHoleConst)
+open ConLeche (Env Expr Name Level NestCtx NestHole BinderMeta)
 
 universe w
 
@@ -49,7 +49,7 @@ theorem callSubst_reads {env : Env} (m : EnvModel V env) (ψ : Name → Nat) {ct
     {prog : List NestHole} {rP : Nat} {fvsF : List Expr} (hnP : ctx.nP ≤ rP)
     (hfvF : ∀ l, l < fvsF.length → ∃ ty, fvsF[l]? = some (.fvar (rP + l) ty))
     (hfvW : ∀ x ∈ fvsF, Expr.WScoped (rP + fvsF.length) x)
-    (hread : NodeHolesRead env ctx prog) {i : Nat} (hi : i ≤ fvsF.length) :
+    (hread : NodeHolesRead m.acval env ctx prog) {i : Nat} (hi : i ≤ fvsF.length) :
     ∀ v, v < ctx.hiAt prog.length + i →
       Expr.WScoped (rP + fvsF.length) (callSubst ctx prog fvsF v) ∧
       (callSubst ctx prog fvsF v).looseBVarsBounded 0 = true ∧
@@ -62,17 +62,11 @@ theorem callSubst_reads {env : Env} (m : EnvModel V env) (ψ : Name → Nat) {ct
     refine ⟨by simp [Expr.WScoped]; omega, rfl, ?_⟩
     rw [denoteMeta_fvar]; rfl
   by_cases h2 : v < ctx.hiAt prog.length
-  · obtain ⟨n, us, hc⟩ := nestHoleConst_hole (prog := prog) (Nat.le_of_not_lt h1) h2
-    simp only [callSubst, if_neg h1, if_pos h2, hc, Option.getD_some]
-    have hmem : Expr.const n us ∈ nodeHoleConsts ctx prog := by
-      rw [nestHoleConst_eq_holeMap] at hc
-      unfold holeMap at hc
-      rw [if_pos (Nat.le_of_not_lt h1)] at hc
-      exact List.mem_of_getElem? hc
-    obtain ⟨n', us', ci, he, hf, hl⟩ := hread _ hmem
-    obtain ⟨rfl, rfl⟩ : n = n' ∧ us = us' := by simpa using he
-    refine ⟨by simp [Expr.WScoped], rfl, ?_⟩
-    rw [denoteMeta_const hf hl]; rfl
+  · have he : callSubst ctx prog fvsF v = nodeImg ctx prog v := by
+      simp only [callSubst, nodeImg, if_neg h1, if_pos h2]
+    obtain ⟨hw, hb, hd⟩ := hread.hs ψ (d := rP + fvsF.length) (by omega) v h2
+    rw [he]
+    exact ⟨hw, hb, by rw [hd]; rfl⟩
   · have hl : v - ctx.hiAt prog.length < fvsF.length := by omega
     obtain ⟨ty, hty⟩ := hfvF _ hl
     simp only [callSubst, if_neg h1, if_neg h2, hty, Option.getD_some]
@@ -93,14 +87,14 @@ theorem fieldCall_core {env : Env} (m : EnvModel V env) (ψ : Name → Nat)
     (hopen : ∀ os, LocList (ctx.hiAt prog.length + i) teleW.length os →
       Expr.ErasedEq (leafC.instantiateList os 0) w)
     (hwF : Expr.fvarsBelow (ctx.hiAt prog.length + i + teleW.length) w)
-    {P idxR : List Expr}
-    (hargs : ∀ (q : Nat) (xM xW : Expr), (P ++ idxR)[q]? = some xM → w.getAppArgs[q]? = some xW →
-      Expr.ErasedEq xM (Expr.substFvars (ctx.hiAt prog.length + i) (rP + fvsF.length)
+    {off : Nat} {idxR : List Expr}
+    (hargs : ∀ (l : Nat) (xR xW : Expr), idxR[l]? = some xR → w.getAppArgs[off + l]? = some xW →
+      Expr.ErasedEq xR (Expr.substFvars (ctx.hiAt prog.length + i) (rP + fvsF.length)
         (callSubst ctx prog fvsF) xW))
     (hnP : ctx.nP ≤ rP)
     (hfvF : ∀ l, l < fvsF.length → ∃ ty, fvsF[l]? = some (.fvar (rP + l) ty))
     (hfvW : ∀ x ∈ fvsF, Expr.WScoped (rP + fvsF.length) x)
-    (hread : NodeHolesRead env ctx prog) (hi : i < fvsF.length)
+    (hread : NodeHolesRead m.acval env ctx prog) (hi : i < fvsF.length)
     {nda : AnnotTerm}
     (hnda : denoteMeta m.acval env ψ (ctx.hiAt prog.length + i) (Expr.mkPisOf teleW leafC)
       = some nda)
@@ -120,7 +114,7 @@ theorem fieldCall_core {env : Env} (m : EnvModel V env) (ψ : Name → Nat)
         (argsA.map (interp V (consList bs (consList (fs.take i) σN)))).foldl app
           (interp V (consList bs (consList (fs.take i) σN)) ha) ∧
       (∀ (l : Nat) (xR xW : Expr) (xa : AnnotTerm), idxR[l]? = some xR →
-        w.getAppArgs[P.length + l]? = some xW → argsA[P.length + l]? = some xa →
+        w.getAppArgs[off + l]? = some xW → argsA[off + l]? = some xa →
         xW.nestOcc ctx.names ctx.nP (ctx.hiAt prog.length) = false →
         interp V (consList bs (consList (xs ++ fs) ρ))
             ((denoteMeta m.acval env ψ (rP + fvsF.length + bs.length) xR).getD default)

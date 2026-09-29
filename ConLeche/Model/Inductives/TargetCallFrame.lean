@@ -15,6 +15,8 @@ import ConLeche.Semantics.Tower.FixTower
 import ConLeche.Model.Annot.BitRename
 import ConLeche.Verify.BridgeWfImp
 import ConLeche.Model.Inductives.PosFieldLeaf
+import ConLeche.Model.Inductives.PosDerivMono
+import ConLeche.Model.Inductives.BlockAbsRead
 
 public section
 
@@ -44,7 +46,7 @@ open ConLeche.Term ConLeche.Verify SetTheory
 open ConLeche.Semantics (AnnotTerm)
 open ConLeche (Env Expr Name Level ConstantInfo ConstantVal IndCaps CheckM NestCtx NestHole
   BlockParts BlockShape fueledOps PosTree PosNodeOk PosD NestFieldKind BinderMeta closeTelescope
-  openPisAtFvars instPisWith grpNews grpSub)
+  openPisAtFvars instPisWith grpNews grpHoles)
 
 universe w
 
@@ -56,15 +58,15 @@ variable {V : Type w} [SetTheory V] {μ : ConLeche.CheckMode}
 constructor's inference at the frame's depth). -/
 theorem posD_ctors_typed {ops : ConLeche.CheckerOps CheckM} {env : Env} {ctx : NestCtx} :
     ∀ {J : ConLeche.PosJ} {ts : List PosTree}, PosD ops env ctx J ts → match J with
-    | .ctors prog hi us ds sub cs => ∀ x ∈ cs, ∃ crest ks nds cur ts' ty,
-        instPisWith ds ((x.1.type.instantiateLevelParams x.1.levelParams us).replaceConsts sub)
+    | .ctors prog hi us ds names holes cs => ∀ x ∈ cs, ∃ crest ks nds cur ts' ty,
+        ConLeche.nestCrest names us ds holes (x.1.type.instantiateLevelParams x.1.levelParams us)
           = some crest ∧ ops.inferType env hi crest = .ok ty ∧
         PosD ops env ctx (.tele prog hi x.2 0 crest ks nds cur) ts' ∧ ∀ t ∈ ts', t ∈ ts
     | .frame prog us ds grp => ∃ ctors, ConLeche.groupCtors ctx ds.length (grp.map (·.1))
           = some ctors ∧
         ∀ x ∈ ctors, ∃ crest ks nds cur ts' ty,
-          instPisWith ds ((x.1.type.instantiateLevelParams x.1.levelParams us).replaceConsts
-            (grpSub us (ctx.hiAt prog.length) grp)) = some crest ∧
+          ConLeche.nestCrest (grp.map (·.1)) us ds (grpHoles (ctx.hiAt prog.length) grp)
+            (x.1.type.instantiateLevelParams x.1.levelParams us) = some crest ∧
           ops.inferType env (ctx.hiAt prog.length + grp.length) crest = .ok ty ∧
           PosD ops env ctx (.tele ((grpNews us ds (ctx.hiAt prog.length) grp).reverse ++ prog)
             (ctx.hiAt prog.length + grp.length) x.2 0 crest ks nds cur) ts' ∧ ∀ t ∈ ts', t ∈ ts
@@ -73,8 +75,8 @@ theorem posD_ctors_typed {ops : ConLeche.CheckerOps CheckM} {env : Env} {ctx : N
   induction h with
   | frame _ _ _ _ _ _ _ hctors _ _ ih => exact ⟨_, hctors, ih⟩
   | ctorsNil => intro x hx; exact nomatch hx
-  | @ctorsCons prog hi us ds sub cv nF cs crest ty sv ks nds cur ts ts' _ hcrest hty _ htele _ _ _ _
-      _ ihrest =>
+  | @ctorsCons prog hi us ds names holes cv nF cs crest ty sv ks nds cur ts ts' _ hcrest hty _ htele
+      _ _ _ _ _ ihrest =>
     intro x hx
     rcases List.mem_cons.mp hx with rfl | hx
     · exact ⟨crest, ks, nds, cur, ts, ty, hcrest, hty, htele,
@@ -216,8 +218,9 @@ theorem dyn_ctorFit {F : Nat} {envI envC : Env} {mk : EnvModelM V μ envI}
       envI.find? ((lfpSel mpC d.toLfp u.key.cname).ctorName m j)
         = some (.ctorInfo cv u.key.ds.length nF) ∧
       ConLeche.groupCtors ctx u.key.ds.length (u.grp.map (·.1)) = some ctors ∧ (cv, nF) ∈ ctors ∧
-      instPisWith u.key.ds ((cv.type.instantiateLevelParams cv.levelParams u.key.lvls).replaceConsts
-        (grpSub u.key.lvls (ctx.hiAt u.anc.length) u.grp)) = some crest ∧
+      ConLeche.nestCrest (u.grp.map (·.1)) u.key.lvls u.key.ds
+        (grpHoles (ctx.hiAt u.anc.length) u.grp)
+        (cv.type.instantiateLevelParams cv.levelParams u.key.lvls) = some crest ∧
       PosD (fueledOps .verified F) envI ctx
         (.tele ((grpNews u.key.lvls u.key.ds (ctx.hiAt u.anc.length) u.grp).reverse ++ u.anc)
           (ctx.hiAt u.anc.length + u.grp.length) nF 0 crest ks nds cur) ts' ∧
@@ -233,7 +236,7 @@ theorem dyn_ctorFit {F : Nat} {envI envC : Env} {mk : EnvModelM V μ envI}
             (keyFrame (nodeDsaI mk ctx ψ u) (ctx.hiAt u.anc.length) σ)) Y →
       ∀ t fs, (lfpSel mpC d.toLfp u.key.cname).HFits (nodeψ envC ψ u)
           (keyFrame (nodeDsaI mk ctx ψ u) (ctx.hiAt u.anc.length) σ) Y t m j fs →
-        Sat V ((grpTys mk.base2 ψ u.grp).reverse ++ stackCtx mk.base2 ψ ctx u.anc (d.holeCtx ψ).reverse)
+        Sat V ((grpTys mk.base2 ψ (ctx.hiAt u.anc.length) u.grp).reverse ++ stackCtx mk.base2 ψ ctx u.anc (d.holeCtx ψ).reverse)
           (consList (grpVals (lfpSel mpC d.toLfp u.key.cname) (nodeψ envC ψ u) u.grp
             (keyFrame (nodeDsaI mk ctx ψ u) (ctx.hiAt u.anc.length) σ) Y) σ) ∧
         fs.length = nF ∧
@@ -248,7 +251,7 @@ theorem dyn_ctorFit {F : Nat} {envI envC : Env} {mk : EnvModelM V μ envI}
                 (keyFrame (nodeDsaI mk ctx ψ u) (ctx.hiAt u.anc.length) σ) Y) σ)) nda := by
   classical
   have hok := H.hok u hu
-  obtain ⟨hD, hwid, hnN, hkN, hall, mm, hmm, hmmH, cv0, caps0, hfc0, hlps, hlpsOf, hndl, hul, hlenP,
+  obtain ⟨hD, -, hnN, hkN, hall, mm, hmm, hmmH, cv0, caps0, hfc0, hlps, hlpsOf, hndl, hul, hlenP,
     -, hg⟩ := dyn_nodeBlock H hu
   have hψ : nodeψ envC ψ u = Level.substFn ψ cv0.levelParams u.key.lvls := by
     unfold nodeψ; rw [hlpsOf]
@@ -257,7 +260,12 @@ theorem dyn_ctorFit {F : Nat} {envI envC : Env} {mk : EnvModelM V μ envI}
   have hdsa := dyn_dsaI H hu ψ
   have hsem := H.hsem u hu ψ
   have hkfit := fun σ hσ => nodeKeyFit mk (H.hΔ0 ψ) hok hsem hD hmm hmmH hfc0 (hlenP _).symm hdsa σ hσ
-  generalize nodeDsaI mk ctx ψ u = dsa at hdsa hkfit ⊢
+  have hΔ := stackCtx_length_hi (m := mk.base2) (φ := ψ) (H.hΔ0 ψ) u.anc
+  obtain ⟨-, hCds, hLds⟩ := hsem
+  have hkey := frameKey_of_infer mk (Rules.RulesInputs.ofSem mk ψ) hD hmm hfc0 hul
+    (fun x hx => hds x hx) hLds hΔ hCds hdsa (hlenP _)
+    (by rw [hmmH]; exact posD_frame_kty hok.1)
+  generalize nodeDsaI mk ctx ψ u = dsa at hdsa hkfit hkey ⊢
   generalize hDdef : lfpSel mpC d.toLfp u.key.cname = D at *
   -- the frame's constructors
   obtain ⟨ctors, hgc, hallc⟩ := posD_ctors_typed hok.1
@@ -282,8 +290,6 @@ theorem dyn_ctorFit {F : Nat} {envI envC : Env} {mk : EnvModelM V μ envI}
   rw [hcr] at hcr'
   obtain rfl := Option.some.inj hcr'
   -- the crest: framed, in the frame's context, graded
-  have hΔ := stackCtx_length_hi (m := mk.base2) (φ := ψ) (H.hΔ0 ψ) u.anc
-  obtain ⟨-, hCds, hLds⟩ := hsem
   have hcvwf := mk.base2.wf _ (ConLeche.Semantics.Env.find?_mem hfc)
   have hcl : (L[j].1.type.instantiateLevelParams L[j].1.levelParams u.key.lvls).hasFvar = false := by
     rw [Expr.hasFvar_instantiateLevelParams]; exact hcvwf.1
@@ -291,7 +297,7 @@ theorem dyn_ctorFit {F : Nat} {envI envC : Env} {mk : EnvModelM V μ envI}
       = true := by
     rw [Expr.looseBVarsBounded_instantiateLevelParams]; exact hcvwf.2.2.2.1
   obtain ⟨hfr, hCP⟩ := crest_frame mk hD hnN hkN H.hcov.find hlps hndl hul hds hdsa (hlenP _) hg hΔ
-    hCds hLds hcl hbb hcr
+    hCds hLds hkey hcl hbb hcr
   have hty' : ConLeche.inferTypeCore .verified envI F
       (ctx.hiAt u.anc.length + u.grp.length) crest = .ok ty := hty
   obtain ⟨-, -, -, -, hgr, -, -⟩ :=
@@ -308,29 +314,20 @@ theorem dyn_ctorFit {F : Nat} {envI envC : Env} {mk : EnvModelM V μ envI}
   -- the fit at the substituted walk valuation
   have hs := hkfit σ hσ
   generalize hρ' : keyFrame dsa (ctx.hiAt u.anc.length) σ = ρ' at hs hY hf
-  have hS := substE_grp mk hD hnN hkN H.hcov.find hlps hndl hul hds hdsa (hlenP _) hg ρ' Y σ
+  have hS := substE_grp mk hD hnN hkN H.hcov.find hlps hndl hul hds hdsa (hlenP _) hg Y σ
   rw [hρ'] at hS
-  have hagS := holeAgree_instance mk hD hs σ (fun mm => decide (InGrp D u.grp mm)) Y
-    (vs := (List.range D.k).map fun mm =>
-      if decide (InGrp D u.grp mm) = true then D.holeVal (Level.substFn ψ cv0.levelParams u.key.lvls) ρ' Y mm
-      else interp V σ (mk.base2.acval (D.member mm) (Level.substFn ψ cv0.levelParams u.key.lvls)))
-    (by simp) (fun m hm => by simp)
-  have hf' : D.HFits (Level.substFn ψ cv0.levelParams u.key.lvls) ρ'
-      (fun c => if decide (InGrp D u.grp c) = true then Y c
-        else D.carrier (Level.substFn ψ cv0.levelParams u.key.lvls) ρ' c) t m j fs :=
-    (LfpDatum.hfits_congr_members fun c hc => by simp [hall c hc]).mp hf
-  have hha := (mk.lfp_ok D hD).1.holeApp (Level.substFn ψ cv0.levelParams u.key.lvls) m
-    (by rw [hwid]; exact hm) j hj
-  obtain ⟨-, hsp, -⟩ := (LfpDatum.hfits_iff_of_holeAgree hha hagS).mp hf'
-  have hsatS := frameVals_sat mk hD hs hlT hTys (fun mm => decide (InGrp D u.grp mm)) Y hY σ
+  obtain ⟨-, hsp, -⟩ := hf
+  have hsatS := frameVals_sat mk hD hs (hlenP _) hlT hTys Y hY
   have hsp' := (hEqF.spineFit_iff hsatS fs).mpr hsp
   have hW := (spineFit_substTele V _ ab 0 _ fs).mpr (by rw [hS]; exact hsp')
   -- the frame's context is satisfied
-  have hsatW : Sat V ((grpTys mk.base2 ψ u.grp).reverse
+  have hsatW : Sat V ((grpTys mk.base2 ψ (ctx.hiAt u.anc.length) u.grp).reverse
       ++ stackCtx mk.base2 ψ ctx u.anc (d.holeCtx ψ).reverse)
       (consList (grpVals D (Level.substFn ψ cv0.levelParams u.key.lvls) u.grp ρ' Y) σ) :=
-    sat_of_spineFit hσ (grpVals_fit mk hD hnN hkN H.hcov.find hlps hndl hul hds hdsa (hlenP _) hg
-      ρ' Y hY σ)
+    sat_of_spineFit hσ (by
+      have h := grpVals_fit mk hD hnN hkN H.hcov.find hlps hndl hul hds hdsa (hlenP _) hg
+        σ Y (by rw [hρ']; exact hY)
+      rwa [hρ'] at h)
   obtain ⟨hfl, -, hmem⟩ := posD_tele_fieldMem (Rules.RulesInputs.ofSem mk ψ) htele
     (fun i p hp => (hndC i p hp).1) hresB hfr hCP hrd hgr rfl
     (by rw [substTele_length, hlen]) hsatW hW
@@ -354,7 +351,7 @@ theorem blk_ctorFit {env : Env} {μ' : ConLeche.CheckMode} (mk : EnvModelM V μ'
     {isRec : Bool}
     (hN : BlockNamesOk (V := V) d cvTas) (hcore : BlockHoleCtxFacts mk.base2 d lps cvTas p₁ isRec)
     {p : BlockParts} (hnames : p.memberNames = d.memberNames) (hlps : p.lps = lps)
-    (hnP : p.nP = d.nP) (hnIdxs : p.nIdxs = d.nIdxs) (hk : d.k = d.memberNames.length)
+    (hnP : p.nP = d.nP) (hk : d.k = d.memberNames.length)
     {cvTa0 : ConstantVal} {fvsP : List Expr} {rest : Expr} {holes : List Expr}
     (hcv0 : cvTas.head? = some cvTa0)
     (hop0 : openPisAtFvars p.nP cvTa0.type 0 = some (fvsP, rest))
@@ -362,8 +359,8 @@ theorem blk_ctorFit {env : Env} {μ' : ConLeche.CheckMode} (mk : EnvModelM V μ'
     {m j : Nat} {cA : ConstantVal × Nat} (hcj : (d.ctorsM m)[j]? = some cA)
     (hCf : cA.1.type.hasFvar = false) (hCb : cA.1.type.looseBVarsBounded 0 = true)
     {crest : Expr}
-    (hcrest : instPisWith fvsP
-      (ConLeche.nestAbstract (p.nestCtx fvsP env.find?) holes cA.1.type) = some crest)
+    (hcrest : ConLeche.nestCrest (p.nestCtx fvsP env.find?).names (p.lps.map .param) fvsP holes
+      cA.1.type = some crest)
     {ty : Expr} (hinf : ConLeche.inferTypeCore .verified env F
       ((p.nestCtx fvsP env.find?).hiAt 0) crest = .ok ty)
     {ks : List NestFieldKind} {tyN : Expr} {ts : List PosTree}
@@ -407,25 +404,24 @@ theorem blk_ctorFit {env : Env} {μ' : ConLeche.CheckMode} (mk : EnvModelM V μ'
   obtain ⟨-, A, hA, hR⟩ := (hcore.2.1 m j cA hcj).2
   obtain ⟨ab, -, hAr, -, hlab, -, -, -, hEqA⟩ := hR ψ
   obtain ⟨A', hA', herased⟩ := canonCrest_of_walk (ctx := p.nestCtx fvsP env.find?)
-    (k := d.k)
     (fun i x hx => by rw [hcPar] at hx; simpa using hidxF i x hx)
     (by rw [hcPar, hlenF, hcP])
     (fun t x hx => by
       have ht : t < (p.nestCtx fvsP env.find?).names.length := by
         rw [← ConLeche.nestHoles_length hholes]; exact (List.getElem?_eq_some_iff.mp hx).1
-      obtain ⟨cv, caps, -, hget⟩ := ConLeche.nestHoles_getElem? hholes ht
+      obtain ⟨cv, caps, ty', -, -, hget⟩ := ConLeche.nestHoles_getElem? hholes ht
       rw [hget] at hx
       exact ⟨_, (Option.some.inj hx).symm⟩)
-    (by rw [ConLeche.nestHoles_length hholes, hcN, hk]) hcrest
+    hcrest
   rw [hcN, hcL, hcP, hA] at hA'
   obtain rfl := Option.some.inj hA'
   have hca : denoteMeta mk.base2.acval env ψ (d.nP + d.k) crest
       = some (mkPisAV ab (AnnotTerm.mkAppN (.bvar (cA.2 + (d.k - 1 - m)))
-          (paramBvarsAt d.nP (d.nP + d.k + cA.2) ++ d.absE ψ m j))) := by
+          (d.absE ψ m j))) := by
     rw [denoteMeta_erasedEq herased]; exact hAr
   obtain ⟨abD, -, B, hhi, hcaE, -, hlD, -, -, hfr, hCP, hgr, -, -, -, -, -, -, hsatFrame⟩ :=
-    blockWalkCtx hin hN hcore.1 hnames hlps hnP hnIdxs hk hcv0 hop0 hholes hCf hCb hcrest hinf
-      hd hca
+    blockWalkCtx hin hN hcore.1 (fun t ht ρ h => hcore.2.2.2 t ht ψ ρ h) hnames hnP hk hcv0 hop0
+      hholes hCf hCb hcrest hinf hd hca
   obtain ⟨rfl, rfl⟩ := mkPisAV_inj (hlab.trans hlD.symm) hcaE
   obtain ⟨nds, cur, htele, htyN, -⟩ := hd
   have hhi0 : (p.nestCtx fvsP env.find?).hiAt ([] : List NestHole).length ≤

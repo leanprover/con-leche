@@ -244,11 +244,6 @@ container's carrier is accessible (`FrameAccOut`, at its own member). -/
         HoleRelA mp.base2 φ ctx [] (ctx.hiAt 0) Δ0 R00 →
         Δ0.length = ctx.hiAt 0 → (∀ x ∈ key.ds, CtxOkP mp.base2 φ (ctx.hiAt 0) Δ0 x) →
         ∀ dsa, DenoteMetaSpine mp.base2.acval env φ (ctx.hiAt 0) key.ds dsa →
-        (∀ ρ ρ', R00 ρ ρ' →
-          Sat V (D.params (Level.substFn φ cv.levelParams key.lvls)).reverse
-              (keyFrame dsa (ctx.hiAt 0) ρ) ∧
-          Sat V (D.params (Level.substFn φ cv.levelParams key.lvls)).reverse
-              (keyFrame dsa (ctx.hiAt 0) ρ')) →
         D.w (Level.substFn φ cv.levelParams key.lvls) = w ∧
         FrameAccOut w ctx [] (ctx.hiAt 0) R00 D (Level.substFn φ cv.levelParams key.lvls) dsa
           (fun c => c = mm)
@@ -296,17 +291,7 @@ theorem contHit_acc {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) {w : Nat
     fun x hx => hC.drop hle0d fun l hl =>
       ⟨leaves_mkAppN_arg (List.mem_append_left _ hx) hl,
         ConLeche.Expr.fvarLeaves_lt_of_wscoped (hds0 x hx) l hl⟩
-  have hfit00 : ∀ σ σ', FrameRel.drop R (dep - ctx.hiAt 0) σ σ' →
-      Sat V (D.params (Level.substFn φ cv.levelParams us)).reverse
-          (keyFrame dsa0 (ctx.hiAt 0) σ) ∧
-      Sat V (D.params (Level.substFn φ cv.levelParams us)).reverse
-          (keyFrame dsa0 (ctx.hiAt 0) σ') := by
-    rintro _ _ ⟨ρ, ρ', hr, rfl, rfl⟩
-    obtain ⟨h1, h2⟩ := hR.dom ρ ρ' hr
-    exact ⟨keyParamsFit mp hD hmm hf hle0d hwa hlenP.symm hds0 hdsa0 ρ (hgr ρ h1),
-      keyParamsFit mp hD hmm hf hle0d hwa hlenP.symm hds0 hdsa0 ρ' (hgr ρ' h2)⟩
   obtain ⟨hwD, hacc⟩ := hacc0 _ _ hR00 (by rw [List.length_drop, hC.1]; omega) hC0 dsa0 hdsa0
-    hfit00
   exact accConcl_of_frameAccOut mp hD hmm hf hle0d hwa hlenP.symm (by rw [hids, hisl]) hds0 hdsa0
     hR hgr hisC hw hwD hacc.progNil rfl
 

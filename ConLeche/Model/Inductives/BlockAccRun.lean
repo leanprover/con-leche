@@ -168,18 +168,15 @@ theorem teleAccP_of_piAccThen {w : Nat} (hw : w ≠ 0) {ctx : NestCtx} {prog : L
 
 /-- **The result indices read alike** at two frames under a spine fitting
 the fields at both, from the walk's result fact. -/
-theorem resC_of_resultIdxConst {nP : Nat} {R : FrameRel V} {Fs : List AnnotTerm} {h : Nat}
-    {ps es : List AnnotTerm} (hps : ps.length = nP)
-    (hQ : ResultIdxConst nP (R.underBothTele Fs) (AnnotTerm.mkAppN (.bvar h) (ps ++ es))) :
+theorem resC_of_resultIdxConst {R : FrameRel V} {Fs : List AnnotTerm} {h : Nat}
+    {es : List AnnotTerm}
+    (hQ : ResultIdxConst (R.underBothTele Fs) (AnnotTerm.mkAppN (.bvar h) es)) :
     ∀ ρ ρ', R ρ ρ' → ∀ fs, SpineFit ρ Fs fs → SpineFit ρ' Fs fs →
       ∀ e ∈ es, interp V (consList fs ρ) e = interp V (consList fs ρ') e := by
   obtain ⟨i, vs, heq, hvs⟩ := hQ
   obtain ⟨-, rfl⟩ := mkAppN_bvar_inj heq.symm
   intro ρ ρ' hR fs hf hf' e he
-  refine hvs e ?_ _ _ (FrameRel.underBothTele_consList Fs fs hR hf hf')
-  rw [List.drop_append_of_le_length (by omega), List.drop_eq_nil_of_le (by omega),
-    List.nil_append]
-  exact he
+  exact hvs e he _ _ (FrameRel.underBothTele_consList Fs fs hR hf hf')
 
 /-! ## The relation at the walk's top -/
 
@@ -188,12 +185,10 @@ omit [SetTheory V] in
 their full arity.** -/
 theorem holeQ_top_iff {d : BlockData V} {ψ : Name → Nat} {ctx : NestCtx}
     (hhi : ctx.hiAt 0 = d.nP + d.k) (hcN : ctx.names.length = d.k) (hcP : ctx.nP = d.nP)
-    (har : ∀ t, t < d.k →
-      (d.toLfp.pars t ψ).length + (d.toLfp.ids t ψ).length = ctx.nP + ctx.nIdxs.getD t 0) :
+    (har : ∀ t, t < d.k → (d.toLfp.ids t ψ).length = ctx.nIdxs.getD t 0) :
     ∀ i n, HoleQ ctx [] (ctx.hiAt 0) i n ↔ d.toLfp.MemberQ ψ i n := by
   intro i n
-  show _ ↔ ∃ t, t < d.k ∧ i = d.k - 1 - t ∧
-    n = (d.toLfp.pars t ψ).length + (d.toLfp.ids t ψ).length
+  show _ ↔ ∃ t, t < d.k ∧ i = d.k - 1 - t ∧ n = (d.toLfp.ids t ψ).length
   constructor
   · rintro (⟨t, ht, hlt, rfl, rfl⟩ | ⟨j, hk, hj, -⟩)
     · rw [hcN] at ht
@@ -210,8 +205,7 @@ are rich. -/
 theorem holeRelA_accRel {d : BlockData V} {ψ : Name → Nat} {ρp : Nat → V} {ctx : NestCtx}
     (hw : d.w ψ ≠ 0) (hhi : ctx.hiAt 0 = d.nP + d.k) (hcN : ctx.names.length = d.k)
     (hcP : ctx.nP = d.nP)
-    (har : ∀ t, t < d.k →
-      (d.toLfp.pars t ψ).length + (d.toLfp.ids t ψ).length = ctx.nP + ctx.nIdxs.getD t 0)
+    (har : ∀ t, t < d.k → (d.toLfp.ids t ψ).length = ctx.nIdxs.getD t 0)
     {Δa : List AnnotTerm}
     (hsat : ∀ X, InTupleSpace (d.toLfp.w ψ) d.toLfp.N (d.toLfp.idx ψ ρp) X →
       Sat V Δa (d.toLfp.frame ψ ρp X)) :
@@ -226,7 +220,6 @@ theorem holeRelA_accRel {d : BlockData V} {ψ : Name → Nat} {ρp : Nat → V} 
     refine Nat.le_of_not_lt fun hlt => hi ?_
     simp only [holeP, List.length_nil, hhi, hcP]
     omega
-  frame := fun _ _ h => by simp at h
   dsScoped := fun _ _ h => by simp at h
   symm := LfpDatum.accRel_symm
   rich := RichOn.congrQ (fun i n => (holeQ_top_iff hhi hcN hcP har i n).symm)

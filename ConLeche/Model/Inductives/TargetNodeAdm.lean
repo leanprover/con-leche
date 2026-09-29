@@ -135,9 +135,11 @@ variable {envI envC : Env} (mk : EnvModelM V μ envI) (mpC : EnvModelM V μ envC
   (d : BlockData V) (ns : List PosTree) (ψ : Name → Nat) (ρ : Nat → V) (xs : List V)
 
 /-- **The true valuation of a frame stack**: the prefix's parameters, then
-every hole at its constant's value (`nodeTrueVal`). -/
+every hole at its read-back's value at the prefix (`nodeTrueVal`: a
+member hole the member applied to the block's parameters, a frame hole its
+container applied to its key's parameters, read back). -/
 @[expose] noncomputable def trueVal (prog : List NestHole) : Nat → V :=
-  nodeTrueVal ctx.nP (nodeHv mpC.base2.acval envC ctx ψ prog) xs ρ
+  nodeTrueVal ctx.nP (nodeHv mpC.base2.acval envC ctx ψ prog xs.length) xs ρ
 
 /-- Node `o`'s component holding the name `n`. -/
 @[expose] noncomputable def nlComp (o : Nat) (n : Name) : Nat :=
@@ -159,39 +161,40 @@ an earlier position). -/
 
 /-- **An admissible valuation of a frame stack** at the visit's hypotheses
 `G`: the stack context satisfied, the parameters and the tail the true
-valuation's, every member hole's value — at full arity — an element `G`
-holds of at node `0` where it is applied to the block's parameters and
-a fitting index spine, and otherwise below the member's constant; every
-frame hole owned by its listed owner `own i` (the stack's owners: one
-owner OCCURRENCE per hole, so that the calls land at a fixed node) — whose true frame is the hole's key read at the true
-valuation — and its value — at its key's parameters and full arity — an
-element `G` holds of at the owner where the index spine fits the owner's
-telescope, and otherwise below the true value. -/
+valuation's, every member hole's value — a family over the member's
+indices, at full arity — an element `G` holds of at node `0` where the
+index spine fits (at the block's parameters), and otherwise below the true
+value (the member applied to the block's parameters); every frame hole
+owned by its listed owner `own i` (the stack's owners: one owner
+OCCURRENCE per hole, so that the calls land at a fixed node) — whose true
+frame is the hole's key read at the true valuation — and its value — a
+family over the container's indices, at full arity — an element `G` holds
+of at the owner where the index spine fits the owner's telescope, and
+otherwise below the true value. -/
 structure AdmVal (own : Nat → Nat) (G : Nat → Nat → V → V → Prop) (prog : List NestHole)
     (σ : Nat → V) : Prop where
   sat : Sat V (stackCtx mk.base2 ψ ctx prog (d.holeCtx ψ).reverse) σ
   agree : AgreeOff (holeP (ctx.hiAt prog.length) ctx.nP (ctx.hiAt prog.length)) σ
     (trueVal mpC ctx ψ ρ xs prog)
-  member : ∀ t, t < ctx.names.length → ∀ as : List V, as.length = ctx.nP + ctx.nIdxs.getD t 0 →
-    ∀ y, y ∈ˢ as.foldl app (σ (ctx.hiAt prog.length - 1 - (ctx.nP + t))) →
-      (as.take ctx.nP = xs.take ctx.nP →
-        SpineFit (consList (xs.take ctx.nP) ρ) (d.toLfp.ids t ψ) (as.drop ctx.nP) →
-        G 0 t (tupW (d.toLfp.u t ψ) (as.drop ctx.nP)) y) ∧
-      (¬ (as.take ctx.nP = xs.take ctx.nP ∧
-          SpineFit (consList (xs.take ctx.nP) ρ) (d.toLfp.ids t ψ) (as.drop ctx.nP)) →
-        y ∈ˢ as.foldl app (trueVal mpC ctx ψ ρ xs prog (ctx.hiAt prog.length - 1 - (ctx.nP + t))))
+  member : ∀ t, t < ctx.names.length → ∀ is : List V, is.length = ctx.nIdxs.getD t 0 →
+    ∀ y, y ∈ˢ is.foldl app (σ (ctx.hiAt prog.length - 1 - (ctx.nP + t))) →
+      (SpineFit (consList (xs.take ctx.nP) ρ) (d.toLfp.ids t ψ) is →
+        G 0 t (tupW (d.toLfp.u t ψ) is) y) ∧
+      (¬ SpineFit (consList (xs.take ctx.nP) ρ) (d.toLfp.ids t ψ) is →
+        y ∈ˢ is.foldl app (trueVal mpC ctx ψ ρ xs prog (ctx.hiAt prog.length - 1 - (ctx.nP + t))))
   frame : ∀ (i : Nat) (hk : NestHole), prog.reverse[i]? = some hk →
     0 < own i ∧ own i ≤ ns.length ∧
       hk ∈ ConLeche.grpNews (ns.getD (own i - 1) default).key.lvls
         (ns.getD (own i - 1) default).key.ds
         (ctx.hiAt (ns.getD (own i - 1) default).anc.length) (ns.getD (own i - 1) default).grp ∧
-      ∀ dsa, DenoteMetaSpine mk.base2.acval envI ψ (ctx.hiAt prog.length) hk.key.ds dsa →
+      -- the frames below the hole end in the owner's
+      (∃ Y, prog.drop (prog.length - i) = Y ++ (ns.getD (own i - 1) default).anc) ∧
       -- the owner's true frame is the hole's key read at the true valuation
-      keyFrame dsa (ctx.hiAt prog.length) (trueVal mpC ctx ψ ρ xs prog)
-        = nlFr mpC ctx d ns ψ ρ xs (own i) ∧
+      (∀ dsa, DenoteMetaSpine mk.base2.acval envI ψ (ctx.hiAt prog.length) hk.key.ds dsa →
+        keyFrame dsa (ctx.hiAt prog.length) (trueVal mpC ctx ψ ρ xs prog)
+          = nlFr mpC ctx d ns ψ ρ xs (own i)) ∧
       ∀ is : List V, is.length + hk.key.ds.length = ConLeche.nestArity ctx hk.key.cname →
-      ∀ y, y ∈ˢ (dsa.map (interp V σ) ++ is).foldl app
-          (σ (ctx.hiAt prog.length - 1 - (ctx.hiAt 0 + i))) →
+      ∀ y, y ∈ˢ is.foldl app (σ (ctx.hiAt prog.length - 1 - (ctx.hiAt 0 + i))) →
         (SpineFit (nlFr mpC ctx d ns ψ ρ xs (own i))
             ((nlDb mpC d ns (own i)).ids (nlComp mpC d ns (own i) hk.key.cname)
               (nlψ envC ns ψ (own i))) is →
@@ -201,7 +204,7 @@ structure AdmVal (own : Nat → Nat) (G : Nat → Nat → V → V → Prop) (pro
         (¬ SpineFit (nlFr mpC ctx d ns ψ ρ xs (own i))
             ((nlDb mpC d ns (own i)).ids (nlComp mpC d ns (own i) hk.key.cname)
               (nlψ envC ns ψ (own i))) is →
-          y ∈ˢ (dsa.map (interp V (trueVal mpC ctx ψ ρ xs prog)) ++ is).foldl app
+          y ∈ˢ is.foldl app
             (trueVal mpC ctx ψ ρ xs prog (ctx.hiAt prog.length - 1 - (ctx.hiAt 0 + i))))
 
 /-- A node's key parameters, read at the formers' model where its frame is

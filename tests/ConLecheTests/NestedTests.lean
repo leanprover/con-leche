@@ -136,9 +136,11 @@ the frame's holes. -/
 #guard keysOf (runM (.app cA cT)) == some [nm "A", nm "B"]
 
 /-- A container whose own constructor uses it at ANOTHER parameter
-(`W α | mk : W Nat → W α`, which no installed inductive has): the
-frame's hole at other parameters is REJECTED (official's parameters
-are uniform, `is_valid_ind_app`, so it rejects every instance). -/
+(`W α | mk : W Nat → W α`, which no installed inductive has): a frame's
+hole is the WHOLE application at the key's parameters, so `W Nat` is no
+hole — an ordinary field naming no member — and the instance `W T` is
+ACCEPTED (as official's nested elimination does: `W Nat` mentions no
+block member, so it is not a nested occurrence). -/
 @[expose] def cW : Expr := .const (nm "W") []
 @[expose] def envW : Env := ⟨[
   .indInfo ⟨nm "T", [], ty1⟩ {},
@@ -148,7 +150,7 @@ are uniform, `is_valid_ind_app`, so it rejects every instance). -/
 @[expose] def ctxW : NestCtx :=
   ⟨[nm "T"], [], 0, [0], [], .succ .zero, envW.find?⟩
 #guard (nestedBlockPositivity (pureOps .verified) envW ctxW
-    [[(⟨nm "T.mk", [], pi (.app cW cT) cT⟩, 1)]]) matches .error (.invalid _)
+    [[(⟨nm "T.mk", [], pi (.app cW cT) cT⟩, 1)]]) matches .ok _
 
 /-- A cycle through an intermediate container (`F α | mk : L (G α) → F α`,
 `G α | mk : F α → G α`) and a three-member cycle (`P → Q → R → P`). -/

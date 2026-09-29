@@ -9,7 +9,6 @@ import ConLeche.Verify.Inductives.UniformOcc
 import ConLeche.Verify.Inductives.HoleBack
 import ConLeche.Model.Inductives.HoleOverride
 public import ConLeche.Verify.Inductives.PosDeriv
-public import ConLeche.Model.Inductives.HoleSubst
 public import ConLeche.Model.Inductives.NestPosMono
 import ConLeche.Model.Inductives.BlockHoleRead
 import ConLeche.Model.Inductives.StructFrameKit
@@ -18,6 +17,7 @@ import ConLeche.Model.Annot.BitLemmas
 import ConLeche.Model.Annot.LfpFormer
 import ConLeche.Model.IndPointKit
 import ConLeche.Model.Annot.BitRename
+public import ConLeche.Model.Annot.BitInst
 import ConLeche.Model.IndSubst
 import ConLeche.Verify.Inductives.NestScope
 import ConLeche.Verify.Inductives.DirectInv
@@ -59,6 +59,14 @@ open ConLeche (Env Expr Name Level ConstantInfo ConstantVal NestCtx nestHoles
   instPisWith openPisAtFvars fueledOps structUsedLater)
 
 universe w
+
+open ConLeche.Semantics.AnnotTerm in
+/-- A term closed in the lifting sense is fixed by every lift. -/
+theorem liftN_closed {x : AnnotTerm} (hx : ∀ k, x.liftN 1 k = x) :
+    ∀ (n k : Nat), x.liftN n k = x
+  | 0, k => liftN_zero x k
+  | n + 1, k => by
+    rw [show n + 1 = 1 + n by omega, ← liftN_liftN x 1 n k, liftN_closed hx n k, hx k]
 
 /-! ## Hole and field slots -/
 

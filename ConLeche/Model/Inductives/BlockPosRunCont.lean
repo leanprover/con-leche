@@ -29,7 +29,7 @@ open ConLeche.SetModel
 open ConLeche.Term ConLeche.Verify SetTheory
 open ConLeche.Semantics (AnnotTerm)
 open ConLeche (Env Expr Name Level ConstantInfo ConstantVal CheckM NestCtx NestState
-  NestFieldKind BlockParts BlockShape instPisWith nestAbstract nestHoles
+  NestFieldKind BlockParts BlockShape instPisWith nestHoles
   openPisAtFvars fueledOps)
 
 universe w

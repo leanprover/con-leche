@@ -1,6 +1,5 @@
 module
 
-public import ConLeche.Model.Inductives.HoleSubst
 import ConLeche.Verify.Inductives.NestCallSyn
 public import ConLeche.Verify.Inductives.NestNfScope
 public import ConLeche.Model.Annot.BitSubstFvars

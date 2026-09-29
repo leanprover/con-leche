@@ -32,12 +32,10 @@ public import ConLeche.Verify.Inductives.BlockWF
 public import ConLeche.Verify.Inductives.RecCheckRun
 public import ConLeche.Semantics.Inductives.DeclBlockEta
 public import ConLeche.Semantics.Inductives.DeclBlock
-public import ConLeche.Semantics.Inductives.HoleApp
 public import ConLeche.Semantics.SubstAV
 public import ConLeche.Semantics.Inductives.HoleMono
 public import ConLeche.Semantics.Inductives.HoleAcc
 public import ConLeche.Semantics.Inductives.TeleAcc
-public import ConLeche.Semantics.Inductives.HoleAppGrade
 public import ConLeche.Semantics.IndBlockFacts
 public import ConLeche.Semantics.EnvFacts
 public import ConLeche.Semantics.BasisRules

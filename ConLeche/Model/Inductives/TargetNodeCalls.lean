@@ -30,7 +30,7 @@ pair lands (`NodeLands`) — assembled from the calls' kit:
   (`k53_pos`; `k53_entry` at node `0`), the called field's leaf (`callWalkSyn`);
 * the SEMANTICS at an admissible visit: the node's valuation (a derived
   node's group holes over its admissible valuation, `admVal_kid`; node
-  `0`'s patched frame, `admVal_patch`), the call's target in the leaf's
+  `0`'s hole frame, `admVal_frame0`), the call's target in the leaf's
   reading (`fieldCall_core`), and the landing per leaf: a member hole
   (`admVal_memberLand`), a frame hole (`admVal_frameLand`), a container
   instance at a kid (`former_foldl_mem`).
@@ -43,7 +43,7 @@ open ConLeche.Term ConLeche.Verify SetTheory
 open ConLeche.Semantics (AnnotTerm)
 open ConLeche (CheckMode Env Expr Name Level ConstantInfo ConstantVal IndCaps CheckM NestCtx
   NestHole NestCtorNf BinderMeta BlockParts BlockShape TargetMajor fueledOps PosD PosTree
-  NestFieldKind PosNodeOk nestHoleConst closeTelescope targetPiDomsWith targetMajorNfs
+  NestFieldKind PosNodeOk closeTelescope targetPiDomsWith targetMajorNfs
   openPisAtFvars)
 
 universe w
@@ -96,13 +96,16 @@ variable {μ : CheckMode} {envC : Env} (mpC : EnvModelM V μ envC) (ctx : NestCt
 theorem trueVal_param (hxs : ctx.nP ≤ xs.length) (prog : List NestHole) {v : Nat}
     (hv : v < ctx.nP) : trueVal mpC ctx ψ ρ xs prog (ctx.hiAt prog.length - 1 - v) = xs.getD v pt := by
   unfold trueVal nodeTrueVal
-  have hlv : (nodeHv mpC.base2.acval envC ctx ψ prog).length = ctx.names.length + prog.length := by
-    simp [nodeHv, nodeHoleConsts]
+  have hlv : (nodeHv mpC.base2.acval envC ctx ψ prog xs.length).length
+      = ctx.names.length + prog.length := by
+    simp only [nodeHv, List.length_map, List.length_range, ConLeche.NestCtx.hiAt]; omega
   rw [consList_append]
-  have hl2 : ((nodeHv mpC.base2.acval envC ctx ψ prog).map (interp V ρ)).length
-      = ctx.names.length + prog.length := by rw [List.length_map, hlv]
+  have hl2 : ((nodeHv mpC.base2.acval envC ctx ψ prog xs.length).map
+      (interp V (consList xs ρ))).length = ctx.names.length + prog.length := by
+    rw [List.length_map, hlv]
   have e : ctx.hiAt prog.length - 1 - v
-      = (ctx.nP - 1 - v) + ((nodeHv mpC.base2.acval envC ctx ψ prog).map (interp V ρ)).length := by
+      = (ctx.nP - 1 - v) + ((nodeHv mpC.base2.acval envC ctx ψ prog xs.length).map
+        (interp V (consList xs ρ))).length := by
     rw [hl2]; simp only [ConLeche.NestCtx.hiAt]; omega
   rw [e, consList_apply_add, consList_getD_of_lt _ _ _ (by rw [List.length_take]; omega),
     List.length_take, show min ctx.nP xs.length - 1 - (ctx.nP - 1 - v) = v by omega,
@@ -112,9 +115,10 @@ theorem trueVal_param (hxs : ctx.nP ≤ xs.length) (prog : List NestHole) {v : N
 theorem trueVal_tail (hxs : ctx.nP ≤ xs.length) (prog : List NestHole) (q : Nat) :
     trueVal mpC ctx ψ ρ xs prog (q + ctx.hiAt prog.length) = ρ q := by
   unfold trueVal nodeTrueVal
-  have hlv : (xs.take ctx.nP ++ (nodeHv mpC.base2.acval envC ctx ψ prog).map (interp V ρ)).length
-      = ctx.hiAt prog.length := by
-    simp [nodeHv, nodeHoleConsts, ConLeche.NestCtx.hiAt]; omega
+  have hlv : (xs.take ctx.nP ++ (nodeHv mpC.base2.acval envC ctx ψ prog xs.length).map
+      (interp V (consList xs ρ))).length = ctx.hiAt prog.length := by
+    simp only [nodeHv, List.length_append, List.length_take, List.length_map, List.length_range,
+      ConLeche.NestCtx.hiAt]; omega
   rw [← hlv, consList_apply_add]
 
 /-- **Off the holes, the true valuation's**: a valuation agreeing with the
@@ -131,44 +135,6 @@ theorem parTail_of_agree (hxs : ctx.nP ≤ xs.length) {prog : List NestHole} {σ
     exact trueVal_tail mpC ctx ψ ρ xs hxs prog q
 
 end ParTail
-
-/-- **A derived node's constructor stack is read**: its holes — the
-members, its frames' and its group's — are stored constants at their
-level counts at the constructors' environment. -/
-theorem nodeHolesRead_grp {μ : CheckMode} {F : Nat} {envI envC : Env} {mk : EnvModelM V μ envI}
-    {mpC : EnvModelM V μ envC} {ctx : NestCtx} {d : BlockData V} {ns : List PosTree}
-    (H : DynCtx F mk mpC ctx d ns) {u : PosTree} (hu : u ∈ ns)
-    (hrd : NodeHolesRead envC ctx u.occ) :
-    NodeHolesRead envC ctx
-      ((ConLeche.grpNews u.key.lvls u.key.ds (ctx.hiAt u.anc.length) u.grp).reverse ++ u.anc) := by
-  intro a ha
-  simp only [nodeHoleConsts, List.mem_append, List.mem_map, List.reverse_append,
-    List.reverse_reverse] at ha
-  rcases ha with ⟨n, hn, rfl⟩ | ⟨hk, hkm, rfl⟩
-  · exact hrd _ (by simp only [nodeHoleConsts, List.mem_append, List.mem_map]; exact Or.inl ⟨n, hn, rfl⟩)
-  · rcases hkm with hkm | hkm
-    · -- a frame below: the node's own stack
-      obtain ⟨-, -, -, -, -, hanc⟩ := H.hok u hu
-      rcases hanc with ⟨hao, -⟩ | ⟨han, -⟩
-      · refine hrd _ ?_
-        simp only [nodeHoleConsts, List.mem_append, List.mem_map, List.mem_reverse]
-        exact Or.inr ⟨hk, by rw [← hao]; exact List.mem_reverse.mp hkm, rfl⟩
-      · rw [han] at hkm; exact nomatch hkm
-    · -- the node's own group
-      simp only [ConLeche.grpNews, List.mem_map] at hkm
-      obtain ⟨p, hp, rfl⟩ := hkm
-      obtain ⟨-, -, -, hinst, -⟩ := posD_frame_inv (H.hok u hu).1
-      obtain ⟨nI, hrun⟩ := hinst p hp
-      obtain ⟨cvC, capsC, hfC, hlv⟩ := ConLeche.nestInstType_lvls hrun
-      obtain ⟨D, hD, -, h2⟩ := posNodeOk_blk H.hcov (H.hok u hu) p.1 (List.mem_map_of_mem hp)
-      obtain ⟨nPc, ctorsAs, henvC⟩ := H.henvC
-      obtain ⟨lps, hl⟩ := blk_lps_envC H.hcov H.hsub henvC hD
-      obtain ⟨i, hi, hpi⟩ := exists_member_of_mem_names (lfp_namesLen mk hD) h2
-      obtain ⟨cv, caps, hf, hfI, -⟩ := hl i hi
-      rw [hpi] at hf hfI
-      rw [H.hcov.find, hfI] at hfC
-      obtain ⟨rfl, rfl⟩ : cv = cvC ∧ caps = capsC := by simpa using hfC
-      exact ⟨p.1, _, _, rfl, hf, hlv⟩
 
 /-- A class's index set is empty off its guard. -/
 theorem tgtClsG_of_mem {d : BlockData V} {Dc : Nat → LfpDatum V} {mc : Nat → Nat}
@@ -247,7 +213,7 @@ theorem callSubst_suffix {ctx : NestCtx} (X anc : List NestHole) (fvsF : List Ex
   by_cases h1 : v < ctx.nP
   · rw [if_pos h1, if_pos h1]
   · rw [if_neg h1, if_neg h1, if_pos (by simp [ConLeche.NestCtx.hiAt] at hv ⊢; omega), if_pos hv,
-      nestHoleConst_suffix X anc hv]
+      ConLeche.nestHoleImg_suffix X anc hv]
 
 /-- **A key's parameters read back** (`nodeRb` at its occurrence) are, up
 to annotations, the call's substitution of them at any stack whose suffix
@@ -331,6 +297,33 @@ theorem nodeMajor_of_call {ops : ConLeche.CheckerOps CheckM} {env : Env} {ctx : 
     exact ConLeche.Expr.ErasedEq.trans h1 (ConLeche.Expr.ErasedEq.symm h2)
   unfold ClassMatches
   rw [← hlv, ← ConLeche.targetClassMatch_congr hE.toErasedEqs]
+  exact hCM
+
+/-- **The callee's class at a listed node, from the leaf's read-back
+prefix** (a frame hole's leaf): the class's parameters `P` are, up to
+annotations, the node's key parameters read back at a stack of which the
+node's frames are a suffix — its own read-back (`nodeRb` at its
+occurrence), below its frames. -/
+theorem nodeMajor_of_pre {ops : ConLeche.CheckerOps CheckM} {env : Env} {ctx : NestCtx}
+    {o : PosTree} (hok : PosNodeOk ops env ctx o) {F : Nat} {envC : Env} {p : BlockShape}
+    {formerTys : List Expr} {M : TargetMajor} (hMo : M.member = none)
+    (hind : M.ind ∈ o.grp.map (·.1)) {us' : List Level} (hlv : us' = o.key.lvls) {P : List Expr}
+    (hCM : ClassMatches F envC p formerTys M us' P) {S X : List NestHole} (hS : S = X ++ o.anc)
+    (hPl : P.length = o.key.ds.length)
+    (hE : ∀ (q : Nat) (xM xP : Expr), P[q]? = some xM →
+      (o.key.ds.map (·.replaceFVars (ConLeche.nestHoleImg ctx S)))[q]? = some xP →
+      Expr.ErasedEq xM xP) :
+    NodeMajor F envC p formerTys ctx M o := by
+  refine ⟨hMo, hind, ?_⟩
+  have hrb : o.key.ds.map (·.replaceFVars (ConLeche.nestHoleImg ctx S))
+      = o.key.ds.map (nodeRb ctx o.occ) := by
+    rw [hS]; exact entryDs_readback hok X
+  have hE' : Expr.ErasedEqL P (o.key.ds.map (nodeRb ctx o.occ)) := by
+    refine erasedEqL_of_getElem (by rw [hPl, List.length_map]) fun q a' b' ha hb' => ?_
+    rw [← hrb] at hb'
+    exact hE q a' b' ha hb'
+  unfold ClassMatches
+  rw [← hlv, ← ConLeche.targetClassMatch_congr hE'.toErasedEqs]
   exact hCM
 
 /-! ## THE CALLS -/

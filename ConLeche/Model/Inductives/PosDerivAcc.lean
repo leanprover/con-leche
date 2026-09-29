@@ -53,7 +53,7 @@ open ConLeche.Term ConLeche.Verify SetTheory
 open ConLeche.Model.Rules
 open ConLeche.Semantics (AnnotTerm)
 open ConLeche (Env Expr Name Level ConstantVal CheckM NestCtx NestKey NestHole instPisWith fueledOps
-  PosD PosJ NestFieldKind PosTree ProgScoped grpNews grpSub groupCtors)
+  PosD PosJ NestFieldKind PosTree ProgScoped grpNews grpHoles groupCtors)
 
 universe w
 
@@ -92,9 +92,6 @@ the level, and the group's carriers accessible in the enclosing frame
     Δh.length = ctx.hiAt prog.length →
     (∀ x ∈ ds, CtxOkP mp.base2 φ (ctx.hiAt prog.length) Δh x) →
     (∀ x ∈ ds, Expr.LeavesBounded x) →
-    (∀ ρ ρ', R₀ ρ ρ' →
-      Sat V (D.params (Level.substFn φ lps us)).reverse (keyFrame dsa (ctx.hiAt prog.length) ρ) ∧
-      Sat V (D.params (Level.substFn φ lps us)).reverse (keyFrame dsa (ctx.hiAt prog.length) ρ')) →
     lps.Nodup ∧ GrpOk ctx D (ctx.hiAt prog.length) us ds grp ∧
       D.w (Level.substFn φ lps us) = w ∧
       FrameAccOut w ctx prog (ctx.hiAt prog.length) R₀ D (Level.substFn φ lps us) dsa (InGrp D grp)
@@ -118,18 +115,18 @@ module docstring). -/
       PiAccThen w ctx prog (ResultAt mp.base2 φ ctx.nP (ctx.hiAt prog.length) (base + j + nF) res)
         nF (base + j) (nds.map (·.1)) R ca ∧
       OutTele mp.base2 φ ctx prog ks (nds.map (·.1)) (base + j) Δa ca
-  | .ctors prog hi us ds sub cs =>
+  | .ctors prog hi us ds names holes cs =>
     ContOk mp φ w ctx → ctx.hiAt prog.length = hi →
     ∀ {Δ : List AnnotTerm} {R : FrameRel V}, HoleRelA mp.base2 φ ctx prog hi Δ R →
     ∀ (Q : ConstantVal × Nat → Prop),
     (∀ (x : ConstantVal × Nat) (crest : Expr), Q x →
-      instPisWith ds ((x.1.type.instantiateLevelParams x.1.levelParams us).replaceConsts sub)
+      ConLeche.nestCrest names us ds holes (x.1.type.instantiateLevelParams x.1.levelParams us)
         = some crest →
       (∃ ty, ConLeche.inferTypeCore .verified env F hi crest = .ok ty) →
       ∃ ca, Frame hi crest ∧ CtxOkP mp.base2 φ hi Δ crest ∧
         denoteMeta mp.base2.acval env φ hi crest = some ca ∧ Graded V Δ ca ∧
         TeleSmall w x.2 R ca) →
-    (∀ x ∈ cs, Q x) → ∀ x ∈ cs, CtorWalkedA mp.base2 φ w ctx prog hi us ds ds.length sub Δ R x
+    (∀ x ∈ cs, Q x) → ∀ x ∈ cs, CtorWalkedA mp.base2 φ w ctx prog hi us ds names holes Δ R x
   | .frame prog us ds grp => FrameAccJ mp φ w ctx prog us ds grp
   | .seed _ => True
 
@@ -176,50 +173,43 @@ theorem frame_accD {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env)
     {ctors : List (ConstantVal × Nat)} (hne : grp ≠ []) (hnd : (grp.map (·.1)).Nodup)
     (hinst : ∀ p ∈ grp, ∃ nI, ConLeche.nestInstType (m := CheckM) ctx (ctx.hiAt prog.length)
       ⟨p.1, us, ds⟩ = .ok (nI, p.2))
-    (hblk : ∀ p ∈ grp.tail, (ConLeche.nestBlockOf ctx (grp.headD default).1).contains p.1 = true)
+    (hgrp : grp.map (·.1) = (grp.headD default).1 :: ConLeche.nestFrameMates ctx (grp.headD default).1)
     (hctors : groupCtors ctx ds.length (grp.map (·.1)) = some ctors)
+    (hkty : ∃ ty, (fueledOps .verified F).inferType env (ctx.hiAt prog.length)
+      (Expr.mkAppN (.const (grp.headD default).1 us) ds) = .ok ty)
     {ts : List PosTree}
     (hwalkD : PosD (fueledOps .verified F) env ctx
       (.ctors ((grpNews us ds (ctx.hiAt prog.length) grp).reverse ++ prog)
-        (ctx.hiAt prog.length + grp.length) us ds (grpSub us (ctx.hiAt prog.length) grp) ctors) ts)
+        (ctx.hiAt prog.length + grp.length) us ds (grp.map (·.1))
+        (grpHoles (ctx.hiAt prog.length) grp) ctors) ts)
     (ih : AccJ mp φ w ctx F
       (.ctors ((grpNews us ds (ctx.hiAt prog.length) grp).reverse ++ prog)
-        (ctx.hiAt prog.length + grp.length) us ds (grpSub us (ctx.hiAt prog.length) grp) ctors)) :
+        (ctx.hiAt prog.length + grp.length) us ds (grp.map (·.1))
+        (grpHoles (ctx.hiAt prog.length) grp) ctors)) :
     FrameAccJ mp φ w ctx prog us ds grp := by
-  intro hok D hD mm hmm hhead lps hlps hul hds dsa hdsa hlenP hnL Δh R₀ hR₀ hΔ hCds hLds hfit
+  intro hok D hD mm hmm hhead lps hlps hul hds dsa hdsa hlenP hnL Δh R₀ hR₀ hΔ hCds hLds
   have hcov := hok.1
   have hblkD := hcov.block D hD
   have hkN := lfp_namesLen mp hD
+  have hg := frame_grpOk mp hcov hne hnd hinst hgrp hD hmm hhead hlps
   obtain ⟨p₀, ps₀, rfl⟩ := List.exists_cons_of_ne_nil hne
-  simp only [List.headD_cons] at hhead hblk
-  -- the group is well formed
-  have hg : GrpOk ctx D (ctx.hiAt prog.length) us ds (p₀ :: ps₀) := by
-    refine ⟨hne, hnd, fun p hp => ⟨?_, hinst p hp⟩⟩
-    rcases List.mem_cons.mp hp with rfl | hp'
-    · exact ⟨mm, hmm, hhead.symm⟩
-    · have hin' := hblk p (by simpa using hp')
-      obtain ⟨cv₀, caps₀, hf₀, -⟩ := hlps mm hmm
-      have hblkOf : ConLeche.nestBlockOf ctx p₀.1 = D.names := by
-        unfold ConLeche.nestBlockOf
-        rw [← hhead, hcov.find, hf₀]
-        exact hblkD.all mm hmm cv₀ caps₀ hf₀
-      rw [hblkOf, List.contains_iff_mem] at hin'
-      obtain ⟨i, hi, hpi⟩ := List.getElem_of_mem hin'
-      refine ⟨i, by omega, ?_⟩
-      unfold LfpDatum.member
-      rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hi, Option.getD_some, hpi]
+  simp only [List.headD_cons] at hhead hkty
+  obtain ⟨cv₀, caps₀, hf₀, hlp₀⟩ := hlps mm hmm
   -- the level parameters are distinct, the block at the level (N3 at the head)
   have hndl : lps.Nodup := frame_lps_nodup mp hcov hD hmm hlps (by rw [hhead]; simp) hctors
     (posD_ctors_nodup hwalkD) hnL
   have hwD : D.w (Level.substFn φ lps us) = w := by
     obtain ⟨nI₀, hnI₀⟩ := hinst p₀ List.mem_cons_self
-    obtain ⟨cvm, capsm, hfm, hlm⟩ := hlps mm hmm
-    have := n2_sort mp hD hmm hcov.find (by rw [hhead]; exact hnI₀) hfm (by rw [hlm]; exact hndl)
-      (by rw [hlm]; exact hul) (by rw [hlm]; exact hlenP) hds hdsa
-    rw [hlm] at this
+    have := n2_sort mp hD hmm hcov.find (by rw [hhead]; exact hnI₀) hf₀ (by rw [hlp₀]; exact hndl)
+      (by rw [hlp₀]; exact hul) (by rw [hlp₀]; exact hlenP) hds hdsa
+    rw [hlp₀] at this
     exact this.trans hok.2
+  -- the key, graded
+  have hkey := frameKey_of_infer mp hin hD hmm hf₀ (by rw [hlp₀]; exact hul) hds hLds hΔ hCds
+    hdsa (by rw [hlp₀]; exact hlenP) (by rw [hhead]; exact hkty)
+  rw [hlp₀] at hkey
   exact ⟨hndl, hg, hwD, frameIterAcc mp hD hblkD.nodup hkN hcov.find hlps hndl hul hds hdsa hlenP
-    hg.2 hin hw hwD hblkD.ctors rfl hR₀ hΔ hCds hLds hfit hctors
+    hg.2 hin hw hwD hblkD.ctors rfl hR₀ hΔ hCds hLds hkey hctors
     (fun hR Q hprem hQ => ih hok (by simp [grpNews, ConLeche.NestCtx.hiAt]; omega) hR Q hprem hQ)⟩
 
 /-! ## The container instance -/
@@ -267,19 +257,8 @@ theorem contNew_accD {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) {w : Na
       (Δa.drop (dep - ctx.hiAt prog.length)) x := fun x hx =>
     hC.drop hhid fun l hl => ⟨leaves_mkAppN_arg (List.mem_append_left _ hx) hl,
       ConLeche.Expr.fvarLeaves_lt_of_wscoped (hdsw x hx).1 l hl⟩
-  have hfit : ∀ σ σ', R.drop (dep - ctx.hiAt prog.length) σ σ' →
-      Sat V (D.params (Level.substFn φ lps us)).reverse (keyFrame dsa (ctx.hiAt prog.length) σ) ∧
-      Sat V (D.params (Level.substFn φ lps us)).reverse (keyFrame dsa (ctx.hiAt prog.length) σ') := by
-    rintro _ _ ⟨ρ, ρ', hr, rfl, rfl⟩
-    obtain ⟨h1, h2⟩ := hR.dom ρ ρ' hr
-    have k1 := keyParamsFit mp hD hmm hf hhid hwa (by rw [hcvl, hlenP]) (fun x hx => (hdsw x hx).1)
-      hdsa ρ (hgr ρ h1)
-    have k2 := keyParamsFit mp hD hmm hf hhid hwa (by rw [hcvl, hlenP]) (fun x hx => (hdsw x hx).1)
-      hdsa ρ' (hgr ρ' h2)
-    rw [hcvl] at k1 k2
-    exact ⟨k1, k2⟩
   obtain ⟨hnd, hg', hwD, hacc⟩ := ihf hok hD hmm hhead hlps hul hdsw hdsa (hlenP _)
-    (hnL.imp (fun ⟨L, hL, hLne⟩ => ⟨_, L, hL, hLne⟩) id) hR₀ hΔ hCds hLds hfit
+    (hnL.imp (fun ⟨L, hL, hLne⟩ => ⟨_, L, hL, hLne⟩) id) hR₀ hΔ hCds hLds
   have hheadmem : (D.member mm, (grp.headD default).2) ∈ grp := by
     obtain ⟨p₀, ps₀, hp₀⟩ := List.exists_cons_of_ne_nil hg'.1
     rw [hp₀] at hhead ⊢
@@ -311,7 +290,7 @@ theorem keyAcc_of_frameD {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) {w 
     frame_keyBlock mp hcov hmem hfrD
   refine ⟨D, hD, mm, hmm, hn, fun cv caps hf hul => ?_⟩
   rw [hcvl cv caps hf] at hul ⊢
-  refine ⟨hnd, hlenP _, fun Δ0 R00 hR00 hΔ0 hC0 dsa0 hdsa0 hfit00 => ?_⟩
+  refine ⟨hnd, hlenP _, fun Δ0 R00 hR00 hΔ0 hC0 dsa0 hdsa0 => ?_⟩
   -- the first walk's frames, empty
   have hle0' : ctx.hiAt 0 ≤ ctx.hiAt prog'.length := by simp only [ConLeche.NestCtx.hiAt]; omega
   have hhiEq : ctx.hiAt prog'.length = ctx.hiAt 0 + prog'.length := by
@@ -319,18 +298,6 @@ theorem keyAcc_of_frameD {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) {w 
   have hR₀ := HoleRelA.extendEmpty hR00 prog' hsc
   have hdsaL := DenoteMetaSpine.lift (m := mp.base2) (φ := φ) hle0' (fun x hx => (hds x hx).1) hdsa0
   rw [show ctx.hiAt prog'.length - ctx.hiAt 0 = prog'.length by rw [hhiEq]; omega] at hdsaL
-  have e := keyFrame_lift dsa0 (ctx.hiAt 0) (List.replicate prog'.length (empty : V))
-  rw [List.length_replicate, ← hhiEq] at e
-  have hfit' : ∀ σ σ', (fun σ σ' => ∃ ρ ρ', R00 ρ ρ' ∧
-        σ = consList (List.replicate prog'.length empty) ρ ∧
-        σ' = consList (List.replicate prog'.length empty) ρ') σ σ' →
-      Sat V (D.params (Level.substFn φ lps key.lvls)).reverse
-          (keyFrame (dsa0.map (AnnotTerm.liftN prog'.length · 0)) (ctx.hiAt prog'.length) σ) ∧
-      Sat V (D.params (Level.substFn φ lps key.lvls)).reverse
-          (keyFrame (dsa0.map (AnnotTerm.liftN prog'.length · 0)) (ctx.hiAt prog'.length) σ') := by
-    rintro _ _ ⟨ρ₁, ρ₁', hr₁, rfl, rfl⟩
-    rw [e, e]
-    exact hfit00 ρ₁ ρ₁' hr₁
   have hCds : ∀ x ∈ key.ds, CtxOkP mp.base2 φ (ctx.hiAt prog'.length)
       (List.replicate prog'.length (.sort 0) ++ Δ0) x := by
     intro x hx
@@ -341,7 +308,7 @@ theorem keyAcc_of_frameD {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) {w 
   obtain ⟨-, -, hwD, hacc⟩ := ihf hok hD hmm₀ hn₀ hlps hul
     (fun x hx => ⟨Expr.WScoped.mono hle0' (hds x hx).1, (hds x hx).2⟩) hdsaL (hlenP _)
     (Or.inr hnd) hR₀
-    (by rw [List.length_append, List.length_replicate, hΔ0, hhiEq]; omega) hCds hLds hfit'
+    (by rw [List.length_append, List.length_replicate, hΔ0, hhiEq]; omega) hCds hLds
   exact ⟨hwD, frameAccOut_unextend (hacc.mono fun c hc => hc ▸ hmmG)⟩
 
 /-! ## THE INDUCTION -/
@@ -440,7 +407,7 @@ theorem posD_acc {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env)
         (noBVar_not_mentNH hws.1 hbb.1 hholes (fun s _ hs => ?_) hta)
       simp only [ConLeche.Expr.nestOcc, Bool.or_eq_false_iff] at hs
       exact hs.1
-  | @hole prog dep kb e wt i ty hw' hocc hfn hlo hhi' hlen hpar hfree =>
+  | @hole prog dep kb e wt i ty hw' hocc hfn hlo hhi' hlen hfree =>
     intro _ hhi hfr Δa ea R hC hea hgr hR
     refine acc_of_whnf hin hw' hfr hC hea hgr hR.dom fun hfrw _ hlw wa hwa _ _ => ?_
     have hspine := Expr.mkAppN_getApp wt
@@ -463,7 +430,7 @@ theorem posD_acc {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env)
       SizeOn.const (unitSet_mem_univ w), InvOn.const _ _⟩, (outMent_self dep wt).trans hlw⟩,
       hfrw.2.1, hfrw.1, fun hk => ?_, _, by rw [hspine] at hwa; exact hwa, fun _ _ => rfl⟩
     split at hk <;> cases hk
-  | @frameHole prog dep kb e wt i ty h hw' hocc hfn hlo hhi' hk hle hpar hfree har =>
+  | @frameHole prog dep kb e wt i ty h hw' hocc hfn hlo hhi' hk hfree har =>
     intro _ hhi hfr Δa ea R hC hea hgr hR
     refine acc_of_whnf hin hw' hfr hC hea hgr hR.dom fun hfrw _ hlw wa hwa _ _ => ?_
     have hspine := Expr.mkAppN_getApp wt
@@ -477,21 +444,14 @@ theorem posD_acc {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env)
       rw [← hspine] at h0
       exact (wScoped_mkAppN _ h0).2
     have hlenv := DenoteMetaSpine.length_eq hsp
-    rw [← List.take_append_drop h.key.ds.length wt.getAppArgs] at hsp
-    obtain ⟨vs₁, vs₂, rfl, hsp₁, hsp₂⟩ := DenoteMetaSpine.split _ hsp
-    have hvs₂ := constOn_spine hR.agree hhi hsp₂ fun a ha =>
-      ⟨hwsargs a (List.mem_of_mem_drop ha), hfree a ha⟩
-    have hsp₁' : DenoteMetaSpine mp.base2.acval env φ dep h.key.ds vs₁ := by
-      rw [← hpar]; exact hsp₁
-    have hh := hR.frame (i - ctx.hiAt 0) h hk vs₁ hsp₁'
-    rw [show dep - 1 - (ctx.hiAt 0 + (i - ctx.hiAt 0)) = dep - 1 - i by omega] at hh
-    have hQ : HoleQ ctx prog dep (dep - 1 - i) (vs₁.length + vs₂.length) := by
+    have hvs := constOn_spine hR.agree hhi hsp fun a ha => ⟨hwsargs a ha, hfree a ha⟩
+    have hQ : HoleQ ctx prog dep (dep - 1 - i) vs.length := by
       refine Or.inr ⟨i - ctx.hiAt 0, h, hk, by omega, by omega, ?_⟩
-      rw [← List.length_append, ← hlenv, har]
-    exact ⟨⟨TypeReg.holeAppArgs hR.rich hR.symm hQ hh hvs₂, ⟨_, AccOn.holeAppArgs hQ hh hvs₂,
+      rw [← hlenv, har]
+    exact ⟨⟨TypeReg.holeApp hR.rich hR.symm hQ hvs, ⟨_, AccOn.holeApp hQ hvs,
       SizeOn.const (unitSet_mem_univ w), InvOn.const _ _⟩, (outMent_self dep wt).trans hlw⟩,
       hfrw.2.1, hfrw.1, nofun, _, by rw [hspine] at hwa; exact hwa, fun _ _ => rfl⟩
-  | @contNew prog dep kb e wt n us L nPc nI cty grp ts hw' hocc hfn hnm hq hlen hquot hidx hds _ _
+  | @contNew prog dep kb e wt n us L nPc nI cty grp ts hw' hocc hfn hnm hq hlen hquot hidx hds _
       hnI hhead _ hfrD ihf =>
     intro hcovk hhid hfr Δa ea R hC hea hgr hR
     have hok := hcovk rfl
@@ -536,7 +496,7 @@ theorem posD_acc {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env)
     rw [List.take_append_drop] at hc
     exact ⟨⟨hc.1, hc.2.1, hc.2.2.trans hlw⟩, hfrw.2.1, hfrw.1, nofun, wa, hwa0, fun _ _ => rfl⟩
   | @contHit prog dep kb e wt n us L nPc nI cty grp ts hw' hocc hfn hnm hq hlen hquot hidx
-      hds _ _ hnI hmem hfrD ihf =>
+      hds _ hnI hmem hfrD ihf =>
     intro hcovk hhid hfr Δa ea R hC hea hgr hR
     have hok := hcovk rfl
     refine acc_of_whnf hin hw' hfr hC hea hgr hR.dom fun hfrw hCw hlw wa hwa hgw _ => ?_
@@ -570,13 +530,13 @@ theorem posD_acc {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env)
       hnI hisl hkp
     rw [List.take_append_drop] at hc
     exact ⟨⟨hc.1, hc.2.1, hc.2.2.trans hlw⟩, hfrw.2.1, hfrw.1, nofun, wa, hwa0, fun _ _ => rfl⟩
-  | @frame prog us ds grp ctors ts hne hhd hhdC hnd hinst hblk _ hctors _ hwalk ih =>
-    exact frame_accD mp hin hw hne hnd hinst hblk hctors hwalk ih
+  | @frame prog us ds grp ctors ts hne hhd hhdC hnd hinst hblk hgrp hctors hkty hwalk ih =>
+    exact frame_accD mp hin hw hne hnd hinst hgrp hctors hkty hwalk ih
   | ctorsNil =>
     intro _ _ Δ R _ Q _ _ x hx
     exact nomatch hx
-  | @ctorsCons prog hi us ds sub cv nF cs crest ty sv ks nds cur ts ts' hnd hcrest hty hsort htele
-      hu4 hres hidx hrest ihtele ihrest =>
+  | @ctorsCons prog hi us ds names holes cv nF cs crest ty sv ks nds cur ts ts' hnd hcrest hty
+      hsort htele hu4 hres hidx hrest ihtele ihrest =>
     intro hok hhi Δ R hR Q hprem hQ x hx
     rcases List.mem_cons.mp hx with rfl | hx
     · obtain ⟨ca, hfr, hC, hca, hgr, hsm⟩ :=
@@ -636,14 +596,13 @@ theorem memberCtorD_acc {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env)
     {ts : List PosTree}
     (htele : PosD (fueledOps .verified F) env ctx (.tele [] (ctx.hiAt 0) nF 0 crest ks nds cur) ts)
     (hhead : ConLeche.nestResHead cur = true)
-    (hok : (cur.getAppArgs.drop ctx.nP).all (fun a => !a.nestOcc ctx.names ctx.nP (ctx.hiAt 0))
-      = true)
+    (hok : cur.getAppArgs.all (fun a => !a.nestOcc ctx.names ctx.nP (ctx.hiAt 0)) = true)
     (hcov : (∃ k ∈ ks, k.flat = false) → ContOk mp φ w ctx) (hfr : Frame (ctx.hiAt 0) crest)
     {Δa : List AnnotTerm} {ca : AnnotTerm} {R : FrameRel V}
     (hC : CtxOkP mp.base2 φ (ctx.hiAt 0) Δa crest)
     (hca : denoteMeta mp.base2.acval env φ (ctx.hiAt 0) crest = some ca) (hgr : Graded V Δa ca)
     (hR : HoleRelA mp.base2 φ ctx [] (ctx.hiAt 0) Δa R) (hsm : TeleSmall w nF R ca) :
-    PiAccThen w ctx [] (ResultIdxConst ctx.nP) nF (ctx.hiAt 0) (nds.map (·.1)) R ca :=
+    PiAccThen w ctx [] ResultIdxConst nF (ctx.hiAt 0) (nds.map (·.1)) R ca :=
   PiAccThen.mono (fun _ _ h => resultIdxConst_of_resultAt (by simp) hhead hok h) nF _ _ R ca
     (posD_acc mp hin hw htele hcov (by simp) hfr hC hca hgr hR hsm).1
 

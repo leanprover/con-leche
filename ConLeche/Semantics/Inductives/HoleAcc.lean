@@ -42,8 +42,7 @@ every related frame.  The Π is then hole-free, its bound `∅`.
 | the `whnf` step | `AccOn.of_eqOn` | the reduct's | `TypeReg.of_eqOn` |
 | Π, hole-free domain, `v ≠ 0` | `AccOn.pi` | `piBound` | `TypeReg.pi` |
 | Π, hole-free domain, `v = 0` | `ConstOn.pi` (via the body's `TypeReg`) | `∅` | `TypeReg.pi` |
-| a member hole at hole-free arguments | `AccOn.holeApp` | `{pt}` | `TypeReg.holeApp` |
-| a frame's hole at its key's parameters | `AccOn.holeAppArgs` (`FrameBlind`) | `{pt}` | `TypeReg.holeAppArgs` |
+| a hole at hole-free arguments | `AccOn.holeApp` | `{pt}` | `TypeReg.holeApp` |
 
 The bound is a FUNCTION of the frame: a Π's domain may read earlier
 fields and binders.  Its uniformity across the tuples of the space is a
@@ -311,29 +310,6 @@ theorem AccOn.holeApp {w : Nat} {Q : Nat → Nat → Prop} {R : FrameRel V} {h :
   rw [← hmap]
   exact h' pt pt_mem_unitSet
 
-/-- **A frame's hole is blind in its key's parameters** across related
-frames: at the target frame its value applied to the parameters' readings
-at either frame (then anything) is the same. -/
-def FrameBlind (R : FrameRel V) (h : Nat) (ds : List AnnotTerm) : Prop :=
-  ∀ ρ ρ', R ρ ρ' → ∀ is : List V,
-    (ds.map (interp V ρ) ++ is).foldl app (ρ' h) = (ds.map (interp V ρ') ++ is).foldl app (ρ' h)
-
-/-- **An in-progress hole** at its key's parameters and hole-free
-indices, at its full arity. -/
-theorem AccOn.holeAppArgs {w : Nat} {Q : Nat → Nat → Prop} {R : FrameRel V} {h : Nat}
-    {ds is : List AnnotTerm} (hQ : Q h (ds.length + is.length)) (hbl : FrameBlind R h ds)
-    (his : ∀ e ∈ is, ConstOn R e) :
-    AccOn w Q R (fun _ => unitSet) (AnnotTerm.mkAppN (.bvar h) (ds ++ is)) := by
-  intro ρ ρ₀ _ x _ hx
-  rw [interp_mkAppN_foldl, interp_bvar, List.map_append] at hx
-  refine ⟨unitSet, fun _ => (h, ds.map (interp V ρ) ++ is.map (interp V ρ), x), Subset.refl _,
-    fun _ _ => ⟨by unfold Adm; simpa using hQ, hx⟩, fun ρ' hR' h' => ?_⟩
-  rw [interp_mkAppN_foldl, interp_bvar, List.map_append]
-  have hmap : is.map (interp V ρ) = is.map (interp V ρ') :=
-    List.map_congr_left fun e he => his e he ρ ρ' hR'
-  rw [← hmap, ← hbl ρ ρ' hR']
-  exact h' pt pt_mem_unitSet
-
 /-! ## The cases: the type regime -/
 
 theorem ConstOn.typeReg {R : FrameRel V} {a : AnnotTerm} (h : ConstOn R a) : TypeReg R a :=
@@ -423,31 +399,6 @@ theorem TypeReg.holeApp {Q : Nat → Nat → Prop} {R : FrameRel V} (hrich : Ric
       List.map_congr_left fun e he => hes e he ρ ρ'' hR''
     rw [hmap] at hz
     rw [interp_mkAppN_foldl, interp_bvar] at hsub''
-    exact hzp (mem_unitSet_iff.mp (hsub'' z hz))
-  intro ρ ρ' hR
-  rw [hemp ρ ρ' hR, hemp ρ' ρ (hsymm ρ ρ' hR)]
-
-/-- **A frame's hole at its key's parameters and hole-free indices, at
-its full arity** is in the type regime. -/
-theorem TypeReg.holeAppArgs {Q : Nat → Nat → Prop} {R : FrameRel V} (hrich : RichOn Q R)
-    (hsymm : R.Symm) {h : Nat} {ds is : List AnnotTerm} (hQ : Q h (ds.length + is.length))
-    (hbl : FrameBlind R h ds) (his : ∀ e ∈ is, ConstOn R e) :
-    TypeReg R (AnnotTerm.mkAppN (.bvar h) (ds ++ is)) := by
-  intro htv
-  have hemp : ∀ ρ ρ', R ρ ρ' → interp V ρ (AnnotTerm.mkAppN (.bvar h) (ds ++ is)) = empty := by
-    intro ρ ρ' hR
-    have hsub := mem_univZero.mp (htv ρ ρ' hR).1
-    refine ext fun y => ⟨fun hy => ?_, fun hy => absurd hy (not_mem_empty y)⟩
-    exfalso
-    have hy' := hy
-    rw [mem_unitSet_iff.mp (hsub y hy)] at hy'
-    rw [interp_mkAppN_foldl, interp_bvar, List.map_append] at hy'
-    obtain ⟨ρ'', hR'', -, z, hz, hzp⟩ := hrich ρ ρ' hR h _ (by simpa using hQ) hy'
-    have hsub'' := mem_univZero.mp (htv ρ ρ'' hR'').2
-    have hmap : is.map (interp V ρ) = is.map (interp V ρ'') :=
-      List.map_congr_left fun e he => his e he ρ ρ'' hR''
-    rw [hmap, hbl ρ ρ'' hR''] at hz
-    rw [interp_mkAppN_foldl, interp_bvar, List.map_append] at hsub''
     exact hzp (mem_unitSet_iff.mp (hsub'' z hz))
   intro ρ ρ' hR
   rw [hemp ρ ρ' hR, hemp ρ' ρ (hsymm ρ ρ' hR)]

@@ -213,7 +213,7 @@ theorem genOutCtorFit (hμ : μ.verifiedChecks = true)
   rw [Rd.hψ] at hsatK
   obtain ⟨hjD, hfc0, hlpC, -⟩ := Rd.hctor j cA hcA
   obtain ⟨-, -, -, hcrd⟩ := mpC.lfp_ok _ Rd.hD
-  obtain ⟨cv', nPc', nF', hf', -, -, -, hpars, -⟩ := hcrd.2 _ Rd.hmm j hjD
+  obtain ⟨cv', nPc', nF', hf', -, -, hpars, -⟩ := hcrd.2 _ Rd.hmm j hjD
   rw [hfc0] at hf'
   obtain ⟨rfl, rfl, rfl⟩ : cA.1 = cv' ∧ (tgtMajor out c).ds.length = nPc' ∧ cA.2 = nF' := by
     injection hf' with h; injection h with h1 h2 h3; exact ⟨h1, h2, h3⟩
@@ -652,7 +652,7 @@ theorem genCls_openCrest (hμ : μ.verifiedChecks = true)
   rw [Rd.hψ] at hlenP'
   rw [← hRP] at hop
   obtain ⟨-, ab, -, hlab, hrdF, -, -, hcr⟩ :=
-    instCtor_open mpC Rd.hD Rd.hnN Rd.hkN hlpsR Rd.hnd Rd.hul hds' (Rd.hdsa ψ) hlenP' Rd.hmm hjD
+    instCtor_open mpC Rd.hD hlpsR Rd.hnd Rd.hul hds' (Rd.hdsa ψ) hlenP' Rd.hmm hjD
       hfc hcrD hop
   exact ⟨ab, _, hlab, by rw [tgtFdomsAV, hFF, hrdF], hcr⟩
 

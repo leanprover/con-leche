@@ -88,22 +88,22 @@ theorem genClassNodes {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : Nat
     obtain ⟨pk, uOfD, ppsOf, rfl⟩ := hdR; exact blockMembersRun_seam hN hS hcore
   have hparG := genParams_fit_run hμ mpC R hg h hmr
   -- the node list
-  obtain ⟨fvsP, ns, hctxR, hok, hown, hkids, hpar, hsem, hfrec, hmemF, ⟨par, hPP⟩, hcovN⟩ :=
+  obtain ⟨fvsP, ns, hctxR, hok, hkids, hpar, hsem, hfrec, hmemF, ⟨par, hPP⟩, hcovN⟩ :=
     genRecCtx_nodes hμ hbase R mk hmkC hcoreK
   have hsp : ∀ t ∈ ns, ∀ ψ : Name → Nat, ∃ dsa, DenoteMetaSpine mpC.base2.acval envC ψ
-      ((pp.nestCtx fvsP envI.find?).nP
-        + (nodeHoleConsts (pp.nestCtx fvsP envI.find?) t.occ).length) t.key.ds dsa := by
+      ((pp.nestCtx fvsP envI.find?).hiAt t.occ.length) t.key.ds dsa := by
     intro t ht ψ
     obtain ⟨dsa, hdsa⟩ := nodeSem_spOcc (hok t ht) (hsem t ht ψ)
     exact ⟨dsa, DenoteMetaSpine.transport (fun e _ he => htr ψ _ e he) hdsa⟩
-  have hF := nodeListFacts_of hbase hok hown hsp
+  obtain ⟨hparF, hparS⟩ := canonPars_of_forests hbase hmemF
+  have hF := nodeListFacts_of hbase hok hpar hparF hparS hsp
   by_cases hgd : ∃ c, c < (tgtRs out).length ∧
       tgtClsG dR mpC.base2.acval envC pp.toBlockShape out ψ ρ xs c
   case neg => exact ⟨TgtNodePres.empty, fun c hc hg => absurd ⟨c, hc, hg⟩ hgd⟩
   -- the frame half of the class tie
   have hfrT := genNodeFrameTie hμ hbase R h hparG hctxR ns ψ ρ xs
   -- the dynamic part: the admissible frames and the calls
-  have H := dynCtx_of hbase hmkC hmk hag hsubC htr hcoreK hok hown hkids hpar hsem hF
+  have H := dynCtx_of hbase hmkC hmk hag hsubC htr hcoreK hok hkids hpar hsem hF hparF hparS
   have hparams : SpineFit ρ (dR.params ψ) (xs.take dR.nP) := by
     obtain ⟨c0, hc0, hg0⟩ := hgd
     refine hparG c0 hc0 ψ ρ xs ?_
@@ -132,7 +132,7 @@ theorem genClassNodes {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : Nat
     hAdm := dyn_hAdm H ψ ρ xs hparams par
     top := dyn_top H ψ ρ xs hparams hxs hPP
     trans := dyn_trans H ψ ρ xs hparams hxs par
-    hcall := genNodeCalls hμ hbase R h hg hTbl hmkC hmk hag hsubC htr hcoreK hok hown
+    hcall := genNodeCalls hμ hbase R h hg hTbl hmkC hmk hag hsubC htr hcoreK hok
       hkids hpar hsem hctxR hfrec hmemF hPP hF hcls hsel hparams hxs hfrT }
   have hrs : ∀ c (hc : c < (tgtRs out).length),
       (tgtRs out)[c]? = some ((tgtRs out)[c]'hc) := fun c hc => List.getElem?_eq_getElem hc

@@ -30,7 +30,7 @@ open ConLeche.SetModel
 open ConLeche.Term ConLeche.Verify SetTheory
 open ConLeche.Semantics (AnnotTerm)
 open ConLeche (Env Expr Name Level ConstantVal CheckM NestCtx NestHole NestFieldKind BlockParts
-  BlockShape instPisWith nestAbstract nestHoles openPisAtFvars fueledOps MemberCtorD NestFieldKind PosTree)
+  BlockShape instPisWith nestHoles openPisAtFvars fueledOps MemberCtorD NestFieldKind PosTree)
 
 universe w
 
@@ -59,8 +59,8 @@ theorem blockCtorAcc_of_walk {env : Env} {μ : ConLeche.CheckMode} (mp : EnvMode
     {c j : Nat} {cA : ConstantVal × Nat} (hcj : (d.ctorsM c)[j]? = some cA)
     (hCf : cA.1.type.hasFvar = false) (hCb : cA.1.type.looseBVarsBounded 0 = true)
     {crest : Expr}
-    (hcrest : instPisWith fvsP
-      (nestAbstract (p.nestCtx fvsP env.find?) holes cA.1.type) = some crest)
+    (hcrest : ConLeche.nestCrest (p.nestCtx fvsP env.find?).names (p.lps.map .param) fvsP holes
+      cA.1.type = some crest)
     {tyN : Expr}
     {ksD : List NestFieldKind} {ts : List PosTree}
     (hd : MemberCtorD (fueledOps .verified F) env (p.nestCtx fvsP env.find?) cA.2 crest
@@ -85,26 +85,24 @@ theorem blockCtorAcc_of_walk {env : Env} {μ : ConLeche.CheckMode} (mp : EnvMode
           ∀ e ∈ d.absE ψ c j, interp V (consList fs (d.toLfp.frame ψ ρp X)) e
             = interp V (consList fs (d.toLfp.frame ψ ρp X')) e) := by
   obtain ⟨ab, abN, hhi, hca, hNr, hab, habLen, hlabN, hfr, hCP, hgr, hfrN, -, -, hEq,
-    hsatFrame⟩ := blockCtorHoleCtx hin hN hcore hnames hlps hnP hnIdxs hk hcv0 hop0 hholes hcj
+    hsatFrame⟩ := blockCtorHoleCtx hin hN hcore hnames hlps hnP hk hcv0 hop0 hholes hcj
       hCf hCb hcrest hinf hd hnf
   generalize hL : d.holeCtx ψ = L at hCP hgr hEq hsatFrame
   have hcN : (p.nestCtx fvsP env.find?).names = d.memberNames := hnames
   have hcP : (p.nestCtx fvsP env.find?).nP = d.nP := hnP
   have hcI : (p.nestCtx fvsP env.find?).nIdxs = d.nIdxs := hnIdxs
-  rw [← hhi] at hca hgr hfr hCP hfrN hNr
+  rw [← hhi] at hca hfr hCP hfrN hNr
   generalize hctx : p.nestCtx fvsP env.find? = ctx at *
   have hcNl : ctx.names.length = d.k := by rw [hcN, hk]
   -- the members' arities
-  have har : ∀ t, t < d.k → (d.toLfp.pars t ψ).length + (d.toLfp.ids t ψ).length
-      = ctx.nP + ctx.nIdxs.getD t 0 := by
+  have har : ∀ t, t < d.k → (d.toLfp.ids t ψ).length = ctx.nIdxs.getD t 0 := by
     intro t ht
     obtain ⟨cvTb, hcvb⟩ : ∃ cvTb, cvTas[t]? = some cvTb :=
       ⟨_, List.getElem?_eq_getElem (by rw [hN.2.2]; exact ht)⟩
     have hFDt := (hcore.1 t cvTb hcvb).2
-    show (((d.ppsM t ψ).take d.nP).map (·.2.2)).length
-      + (((d.ppsM t ψ).drop d.nP).map (·.2.2)).length = _
-    simp only [List.length_map, List.length_take, List.length_drop, hFDt.len ψ, hcP, hcI]
-    show _ = d.nP + d.nIdxAt t
+    show (((d.ppsM t ψ).drop d.nP).map (·.2.2)).length = _
+    simp only [List.length_map, List.length_drop, hFDt.len ψ, hcI]
+    show _ = d.nIdxAt t
     omega
   -- the relation, and the fields' values small
   have hR := holeRelA_accRel (m := mp.base2) hw hhi hcNl hcP har (hsatFrame ρp hs)
@@ -113,12 +111,11 @@ theorem blockCtorAcc_of_walk {env : Env} {μ : ConLeche.CheckMode} (mp : EnvMode
     rw [hab]
     exact hG X hX
   have hsm : TeleSmall (d.w ψ) ab.length (d.toLfp.accRel ψ ρp)
-      (mkPisAV ab (AnnotTerm.mkAppN (.bvar (cA.2 + (d.k - 1 - c)))
-        (paramBvarsAt d.nP (ctx.hiAt 0 + cA.2) ++ d.absE ψ c j))) :=
+      (mkPisAV ab (AnnotTerm.mkAppN (.bvar (cA.2 + (d.k - 1 - c))) (d.absE ψ c j))) :=
     teleSmall_mkPisAV hw ab abN _ L.reverse _ hEq hR.dom fun ρ ρ₀ h => (hG' ρ ρ₀ h).toBound hw
   rw [habLen] at hsm
   -- the derivation
-  obtain ⟨nds, cur, hteleD, htyN, hU4, hhead, hok, -⟩ := hd
+  obtain ⟨nds, cur, hteleD, htyN, hU4, hhead, hok⟩ := hd
   have hPi := memberCtorD_acc mp hin hw hteleD hhead hok hcovk hfr hCP hca hgr hR hsm
   rw [← habLen] at hPi
   obtain ⟨Af, htele, hinv, hQf⟩ := teleAccP_of_piAccThen hw ab abN _ (ctx.hiAt 0) 0
@@ -223,7 +220,7 @@ theorem blockCtorAcc_of_walk {env : Env} {μ : ConLeche.CheckMode} (mp : EnvMode
   · -- the result indices
     intro X X' hX hX' fs hf hf' e he
     rw [← hab] at hf hf'
-    exact resC_of_resultIdxConst (by simp [paramBvarsAt, hcP]) hQf _ _
+    exact resC_of_resultIdxConst hQf _ _
       ⟨X, X', hX, hX', rfl, rfl⟩ fs hf hf' e he
 
 
@@ -299,11 +296,7 @@ theorem blockAccTuple_of_run {env : Env} (mp : EnvModelM V .verified env) {F : N
       exact ⟨(ord, Af), fun _ _ => ⟨h1, h2, h3, h4⟩⟩
     · exact ⟨(fun _ => true, fun _ _ => empty), fun hc hj => absurd ⟨hc, hj⟩ hcj'⟩
   -- the hole operator
-  have hok : d.toLfp.HoleTmOk ψ ρp := fun m hm =>
-    ⟨⟨(hH.parsLen ψ m hm).trans (hH.lenP ψ).symm, hH.parsSat ψ m hm ρp hs⟩,
-      fun _ => (hIdx m (Nat.lt_of_lt_of_le hm hkN)).2⟩
-  have happ : ∀ c, c < d.toLfp.N → ∀ j, j < d.toLfp.nctors c → d.toLfp.HolesApplied ψ c j :=
-    fun c hc j hj => blockHolesApplied hH ψ hc hj
+  have hok : d.toLfp.HoleTmOk ψ ρp := fun m hm _ => (hIdx m (Nat.lt_of_lt_of_le hm hkN)).2
   have hres : ∀ c, c < d.toLfp.N → ∀ j, j < d.toLfp.nctors c →
       (d.toLfp.resIdx ψ c j).length = (d.toLfp.ids c ψ).length := by
     intro c hc j hj
@@ -314,7 +307,7 @@ theorem blockAccTuple_of_run {env : Env} (mp : EnvModelM V .verified env) {F : N
     fun c j => Classical.choose (hper c j)
   have hoa : ∀ c j, c < d.toLfp.N → j < d.toLfp.nctors c → _ :=
     fun c j => Classical.choose_spec (hper c j)
-  exact LfpDatum.accTuple_holeOp hw hok hkN happ hres (fun c j => (oa c j).1)
+  exact LfpDatum.accTuple_holeOp hw hok hkN hres (fun c j => (oa c j).1)
     (fun c j => (oa c j).2) (fun c hc j hj => (hoa c j hc hj).2.1)
     (fun c hc j hj => (hoa c j hc hj).2.2.1) (fun c hc j hj => (hoa c j hc hj).1)
     (fun c hc j hj => (hoa c j hc hj).2.2.2)

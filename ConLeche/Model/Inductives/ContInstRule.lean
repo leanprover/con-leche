@@ -44,6 +44,7 @@ variable {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) {D : LfpDatum V}
 
 include hD hnN hkN hlps hnd hul hds hdsa hlenP
 
+omit hnN hkN in
 /-- **The opened instantiated constructor, read**: constructor
 `(c, j)` of `D` at the levels `us` and the parameters `ds`, opened at
 depth `hi` over its `nF` fields: the fields' domains read as the
@@ -58,8 +59,9 @@ theorem instCtor_open {c j : Nat} (hc : c < D.k) (hj : j < D.nctors c) {cv : Con
     (hfld : ConLeche.openPisAtFvars nF crest hi = some (fvsF, cbody)) :
     cv.levelParams = lps ∧ ∃ ab : List (Nat × Nat × AnnotTerm),
       (∃ Tys : List AnnotTerm, Tys.length = D.k ∧
-        (∀ mm, mm < D.k → ∃ cvm caps, env.find? (D.member mm) = some (.indInfo cvm caps) ∧
-          denoteMeta mp.base2.acval env (Level.substFn φ lps us) 0 cvm.type
+        (∀ mm, mm < D.k → ∃ cvm caps ty, env.find? (D.member mm) = some (.indInfo cvm caps) ∧
+          ConLeche.instPisWith (canonParams ds.length) cvm.type = some ty ∧
+          denoteMeta mp.base2.acval env (Level.substFn φ lps us) (ds.length + mm) ty
             = some (Tys.getD mm default)) ∧
         FieldsEqOn V (D.params (Level.substFn φ lps us) ++ Tys).reverse (ab.map (·.2.2))
           (D.fields (Level.substFn φ lps us) c j)) ∧ ab.length = nF ∧
@@ -72,17 +74,14 @@ theorem instCtor_open {c j : Nat} (hc : c < D.k) (hj : j < D.nctors c) {cv : Con
       denoteMeta mp.base2.acval env φ (hi + nF) cbody
         = some (AnnotTerm.substAV (instTau mp φ D us hi ds)
             (AnnotTerm.mkAppN (.bvar (nF + (D.k - 1 - c)))
-              ((List.range ds.length).map (fun i => AnnotTerm.bvar (ds.length + D.k + nF - 1 - i))
-                ++ D.resIdx (Level.substFn φ lps us) c j)) nF) ∧
+              (D.resIdx (Level.substFn φ lps us) c j)) nF) ∧
       denoteMeta mp.base2.acval env φ hi crest
         = some (mkPisAV (AnnotTerm.substTele (instTau mp φ D us hi ds) 0 ab)
             (AnnotTerm.substAV (instTau mp φ D us hi ds)
               (AnnotTerm.mkAppN (.bvar (nF + (D.k - 1 - c)))
-                ((List.range ds.length).map
-                    (fun i => AnnotTerm.bvar (ds.length + D.k + nF - 1 - i))
-                  ++ D.resIdx (Level.substFn φ lps us) c j)) nF)) := by
+                (D.resIdx (Level.substFn φ lps us) c j)) nF)) := by
   obtain ⟨hlp, crest', ab, hcr', hTy, hlab, hrd⟩ :=
-    instCtor_read mp hD hnN hkN hlps hnd hul hds hdsa hlenP hc hj hfc
+    instCtor_read mp hD hlps hnd hul hds hdsa hlenP hc hj hfc
   rw [hcr] at hcr'
   obtain rfl := Option.some.inj hcr'
   refine ⟨hlp, ab, hTy, hlab, ?_⟩
@@ -92,8 +91,7 @@ theorem instCtor_open {c j : Nat} (hc : c < D.k) (hj : j < D.nctors c) {cv : Con
   have hstEq := stripPisAV_mkPisAV (AnnotTerm.substTele (instTau mp φ D us hi ds) 0 ab)
     (AnnotTerm.substAV (instTau mp φ D us hi ds)
       (AnnotTerm.mkAppN (.bvar (nF + (D.k - 1 - c)))
-        ((List.range ds.length).map (fun i => AnnotTerm.bvar (ds.length + D.k + nF - 1 - i))
-          ++ D.resIdx (Level.substFn φ lps us) c j)) ab.length)
+        (D.resIdx (Level.substFn φ lps us) c j)) ab.length)
   rw [substTele_length, hlab] at hstEq
   rw [hlab] at hst
   rw [hstEq] at hst

@@ -155,12 +155,12 @@ structure NodeListFacts {envC : Env} (mpC : EnvModelM V μ envC) (ctx : NestCtx)
   /-- the group's level parameters are the container's -/
   lps : ∀ t ∈ ns, ∀ n ∈ t.grp.map (·.1), lpsOf envC t.key.cname = lpsOf envC n
   /-- the stack's hole constants are stored at arity -/
-  read : ∀ t ∈ ns, NodeHolesRead envC ctx t.occ
+  read : ∀ t ∈ ns, NodeHolesRead mpC.base2.acval envC ctx t.occ
   /-- the key's parameters are scoped at the stack's depth -/
-  ws : ∀ t ∈ ns, ∀ x ∈ t.key.ds, Expr.WScoped (ctx.nP + (nodeHoleConsts ctx t.occ).length) x
+  ws : ∀ t ∈ ns, ∀ x ∈ t.key.ds, Expr.WScoped (ctx.hiAt t.occ.length) x
   /-- and read there, at every level assignment -/
   sp : ∀ t ∈ ns, ∀ ψ : Name → Nat, ∃ dsa, DenoteMetaSpine mpC.base2.acval envC ψ
-    (ctx.nP + (nodeHoleConsts ctx t.occ).length) t.key.ds dsa
+    (ctx.hiAt t.occ.length) t.key.ds dsa
 
 /-- **Coverage in `NodeMajor` form** (`outsideClass_reachedNode`'s
 shape): every guarded outside class's major matches some listed

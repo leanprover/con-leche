@@ -212,9 +212,15 @@ theorem declBlock (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
       ((blockDataOf V p₁ ctorsAs pk uOf ppsOf).ctorsM c)[j]? = some cA →
       cA.1.levelParams = p₁.lps := fun c j cA hj =>
     hS.lpsA c (hN.2.2 ▸ hN.2.1 c j cA hj) cA (List.mem_of_getElem? hj)
+  -- every member's own parameter telescope holds where the block's does
+  have hparsT : ∀ t, t < (blockDataOf V p₁ ctorsAs pk uOf ppsOf).k → ∀ (ψ : Name → Nat)
+      (ρ : Nat → V), Sat V ((blockDataOf V p₁ ctorsAs pk uOf ppsOf).params ψ).reverse ρ →
+      Sat V ((((blockDataOf V p₁ ctorsAs pk uOf ppsOf).ppsM t ψ).take
+        (blockDataOf V p₁ ctorsAs pk uOf ppsOf).nP).map (·.2.2)).reverse ρ :=
+    fun t ht ψ ρ h => hS.toBlockCtorsStage.paramsOf 0 (by omega) ψ ρ h t ht
   -- the operator's MONOTONICITY is positivity's: every constructor positive
   -- along the tuple order at the hole frame (at the formers' carrier)
-  have hposI := fun hclosed => blockCtorPos_of_run hμ mpI hN (hcore.holeCtx hlpsA) hPos rfl rfl
+  have hposI := fun hclosed => blockCtorPos_of_run hμ mpI hN (hcore.holeCtx hlpsA hparsT) hPos rfl rfl
     rfl rfl
     hkD rfl hlenCtorsAs hctorsAt hclosed hnfs
     (hformers.imp fun _ h => ⟨h.1, h.2.2⟩)
@@ -365,7 +371,7 @@ theorem declBlock (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
     (fun _ _ => rfl) (fun _ _ _ _ => rfl) hposC
     -- the fields with holes are small at a `Type`-valued block (the grading)
     (fun ψ ρp hs _ X hX c hc j hj =>
-      ((blockHoleGrade_of_run hμ mpI hN (hcore.holeCtx hlpsA) hPos rfl rfl rfl rfl rfl hkD rfl hctorsAt
+      ((blockHoleGrade_of_run hμ mpI hN (hcore.holeCtx hlpsA hparsT) hPos rfl rfl rfl rfl rfl hkD rfl hctorsAt
         hlenCtorsAs hclosedC hnfs ψ hc hj).2 ρp hs X hX).1)
   have hstC : LfpStored (ConLeche.consBlockCtors p₁.nP ctorsAs env₁)
       (blockDataOf V p₁ ctorsAs pk uOf ppsOf).toLfp := by
@@ -424,8 +430,8 @@ theorem declBlock (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
           rw [← hN.2.2]; exact hN.2.1 c j cA hj
         have hf := (hcoreC.2.2.2 c hck j cA hj).1
         exact (mpC₀.base2.wf _ (List.mem_of_find?_eq_some hf)).1)
-      (canonOcc_of_positivity hPos rfl rfl hkLen
-        (fun c hc => hctorsAs c (by rw [hlenCtorsAs]; exact hc)))
+      (canonOcc_of_positivity hPos rfl rfl rfl
+        (fun c hc => hctorsAs c (by rw [hlenCtorsAs]; exact hc)) hlpsA)
       (fun c hc j cA hj ψ ρ hsat =>
         ((hS.toBlockCtorsStage.frames c hc j cA hj).1 ψ ρ).mp
           (hS.toBlockCtorsStage.paramsOf 0 hk0 ψ ρ hsat c hc))
@@ -644,7 +650,7 @@ theorem declBlock (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
       · exact Or.inl rfl
       · rw [hlC, ← hlk] at hD
         exact Or.inr hD
-    · rw [hbk]; exact hcore.holeCtx hlpsA
+    · rw [hbk]; exact hcore.holeCtx hlpsA hparsT
     · intro ψ dd e ea h
       refine denoteMeta_envExtend_mono_ok (fun hf => hfwdC _ _ hf)
         ⟨natLitSupported_mono_of_keep hfwdC, strLitSupported_mono_of_keep hfwdC⟩ hprojC dd e ?_
