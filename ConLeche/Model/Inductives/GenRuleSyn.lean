@@ -11,6 +11,7 @@ import ConLeche.Verify.Inductives.ClassGenScope
 import ConLeche.Verify.Inductives.NestCallSyn
 import ConLeche.Verify.Abstract
 import ConLeche.Model.StreamConsts
+import ConLeche.Verify.InferLemmas
 
 public section
 
@@ -374,5 +375,52 @@ theorem classGenRule_spec {g : ClassGen} {recOf : Nat → Option Name} {rlvls : 
       simp only [Option.pure_def, Option.some.injEq] at hfi
       exact ⟨xs, idx, r, v, hv, hparts, hr, hfi.symm⟩
     · exact nomatch hsel
+
+/-! ## Erasure-equal to a variable or a constant -/
+
+theorem erasedEq_fvar_inv {e : Expr} {i : Nat} {T : Expr} (h : Expr.ErasedEq e (.fvar i T)) :
+    ∃ T', e = .fvar i T' := by
+  cases e <;> simp_all [Expr.ErasedEq]
+
+theorem erasedEq_const_inv {e : Expr} {n : Name} {us : List Level}
+    (h : Expr.ErasedEq e (.const n us)) : e = .const n us := by
+  cases e <;> simp_all [Expr.ErasedEq]
+
+/-- The annotation of a term erasure-equal to a variable is a variable
+at the same index. -/
+theorem annotate_erasedEq_fvar {env : Env} {F d i : Nat} {T X X' : Expr}
+    (hX : Expr.ErasedEq X (.fvar i T)) (h : ConLeche.annotateCore mode env F d X = .ok X') :
+    ∃ T', X' = .fvar i T' := by
+  obtain ⟨T₀, rfl⟩ := erasedEq_fvar_inv hX
+  exact ⟨T₀, ConLeche.annotateCore_plain F (e := .fvar i T₀) trivial h⟩
+
+/-! ## The generated `ih`s are scoped -/
+
+open ConLeche (ScB ClassGenScoped) in
+theorem genPvars_scoped {g : ClassGen} (hg : ClassGenScoped g) :
+    ∀ (k : Nat) (a : Expr), (genPvars g)[k]? = some a → ∃ T, a = .fvar k T ∧ ScB k T := by
+  intro k a hk
+  unfold genPvars at hk
+  rw [List.getElem?_map] at hk
+  cases hr : (List.range g.pre.length)[k]? with
+  | none => rw [hr] at hk; exact nomatch hk
+  | some k' =>
+    rw [hr] at hk
+    obtain ⟨hk', rfl⟩ := List.getElem?_eq_some_iff.mp hr
+    simp only [List.getElem_range, Option.map_some, Option.some.injEq] at hk
+    subst hk
+    split
+    · next hiP =>
+      have hiP' : k < g.params.length := by rw [hg.params_len]; exact hiP
+      obtain ⟨ty, hxe, hty⟩ := hg.params k _ (List.getElem?_eq_getElem hiP')
+      rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hiP', Option.getD_some, hxe]
+      exact ⟨ty, rfl, hty⟩
+    · next hiP =>
+      refine ⟨.sort .zero, ?_, ScB.sort _ _⟩
+      simp only [ClassGen.slotVar]
+      congr 1; omega
+
+theorem genPvars_length (g : ClassGen) : (genPvars g).length = g.pre.length := by
+  simp [genPvars]
 
 end ConLeche.Model
