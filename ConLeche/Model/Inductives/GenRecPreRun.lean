@@ -515,55 +515,54 @@ theorem genRun_below (hμ : μ.verifiedChecks = true)
 
 /-! ## The stored conclusion is the motive applied -/
 
-set_option maxHeartbeats 800000 in
-/-- **A telescope over a variable applied to variables, annotated and
-read**: its conclusion, at a spine of the telescope's length, is the
-head's value applied to the arguments' values.  (`classGenRecTy_concl`'s
-argument over any telescope — in particular the RESET generated type.) -/
-theorem genConcl_core {envK env : Env} {acval : Name → (Name → Nat) → AnnotTerm}
-    {φ : Name → Nat} {nds : List (Expr × BinderMeta)} {k : Nat} {T0 : Expr} {as : List Expr}
-    {F : Nat} {gtyA : Expr} {ea b : AnnotTerm} {pps : List (Nat × Nat × AnnotTerm)}
-    (hcl : ∀ p ∈ nds, p.1.looseBVarsBounded 0 = true)
-    (hbb : (Expr.mkAppN (.fvar k T0) as).looseBVarsBounded 0 = true)
-    (hPlain : ConLeche.Expr.Plain (Expr.mkAppN (.fvar k T0) as))
-    (hk : k < nds.length) (has : ∀ a ∈ as, ∃ i T, a = .fvar i T ∧ i < nds.length)
-    (hann : ConLeche.annotateCore μ envK F 0 (ConLeche.closeTelescope nds 0
-      (Expr.mkAppN (.fvar k T0) as)) = .ok gtyA)
-    (hread : denoteMeta acval env φ 0 gtyA = some ea)
-    (hst : stripPisAV nds.length ea = some (pps, b)) :
-    ∀ (ρ : Nat → V) (ys : List V), ys.length = nds.length →
-      interp V (consList ys ρ) b
-        = (as.map fun a => ys.getD (fvIdx a) (SetTheory.pt : V)).foldl SetTheory.app
-            (ys.getD k (SetTheory.pt : V)) := by
-  intro ρ ys hyl
-  obtain ⟨nds', B', hl', he', hB', hdoms⟩ := ConLeche.annotateCore_closeTelescope nds
-    hcl hbb hPlain (Expr.ErasedEq.rfl _) hann
-  have hcl' : ∀ p ∈ nds', p.1.looseBVarsBounded 0 = true := by
-    intro p hp
-    obtain ⟨j, hj, rfl⟩ := List.getElem_of_mem hp
-    obtain ⟨X, F', nd, hnd, hX, hann'⟩ := hdoms j _ (List.getElem?_eq_getElem hj)
-    exact ConLeche.annotateCore_looseBVars F' X hann'
-      (looseBVarsBounded_of_erasedEq hX (hcl nd (List.mem_of_getElem? hnd)))
-  have hB'b : B'.looseBVarsBounded 0 = true := looseBVarsBounded_of_erasedEq hB' hbb
-  obtain ⟨fvs, o, hop, hrest, -⟩ := open_of_erasedEq_closeTelescope nds' 0 B' gtyA hcl' hB'b he'
-  rw [hl'] at hop
-  obtain ⟨pps', b', hst', hbo, -, -⟩ := denoteMeta_openPis _ hop hread
-  obtain ⟨rfl, rfl⟩ := Prod.mk.inj (Option.some.inj (hst.symm.trans hst'))
-  have hoE : Expr.ErasedEq o (Expr.mkAppN (.fvar k T0) as) := hrest.trans hB'
-  rw [Nat.zero_add, denoteMeta_erasedEq hoE] at hbo
-  obtain ⟨ra, hra, hint⟩ := interp_denoteMeta_fvarSpine (acval := acval) (env := env) (φ := φ)
-    (ρ := ρ) hyl as (.fvar k T0) _ (denoteMeta_fvar _ _ _ _) has
-  obtain rfl := Option.some.inj (hbo.symm.trans hra)
-  rw [hint]
-  congr 1
-  show consList ys ρ (nds.length - 1 - k) = _
-  rw [consList_getD_of_lt _ _ _ (by omega), hyl, show nds.length - 1 - (nds.length - 1 - k) = k
-    by omega]
+/-- **The stored type of recursor `c`**: the generated type of its class,
+annotated; its reading and its peel at the major index. -/
+theorem genRun_storedTy (hμ : μ.verifiedChecks = true)
+    (R : GenRecRun μ F (mkFEnv env₁) env₁ (mkFEnv envC) p.toBlockShape nestedBit pos cvTas
+      block ctorsAs out) (hg : ClassGenScoped R.g) {memR : Nat → Prop}
+    (h : ConLeche.RecStageG μ F envC p cvTas ctorsAs (tgtRs out) memR) (mpC : EnvModelM V μ envC)
+    (ψ : Name → Nat) {c : Nat} (hc : c < (tgtRs out).length) :
+    ∃ (cls : Nat) (gty gtyA : Expr) (F' : Nat) (S : Expr),
+      genClsOf R.rd c = cls ∧ tgtMajor out c = R.g.cls.getD cls default ∧
+      ConLeche.classGenRecTy R.g cls = some gty ∧
+      ConLeche.annotateCore μ envC F' 0 gty = .ok gtyA ∧
+      ConLeche.inferTypeCore μ envC F' 0 gtyA = .ok S ∧
+      denoteMeta mpC.base2.acval envC ψ 0 gtyA
+        = some (blockRecTyAV mpC.base2.acval envC (tgtRs out) ψ c) ∧
+      p.toBlockShape.majorIdxAt c + 1 = R.g.pre.length + (R.g.cls.getD cls default).nIdx + 1 ∧
+      p.toBlockShape.rulePrefixAt c = R.g.pre.length ∧
+      stripPisAV (R.g.pre.length + (R.g.cls.getD cls default).nIdx + 1)
+          (blockRecTyAV mpC.base2.acval envC (tgtRs out) ψ c)
+        = some (blockRecRdsAV mpC.base2.acval envC p.toBlockShape (tgtRs out) ψ c,
+            blockRecConclAV mpC.base2.acval envC p.toBlockShape (tgtRs out) ψ c) := by
+  obtain ⟨rc, cls, cvG, rhss, hrc, hcls, -, ⟨T⟩, ho, hM, hgc⟩ := genRun_at R hc
+  have hr : (tgtRs out)[c]? = some (cvG, rhss, (R.Ms.getD cls default).nIdx,
+      (R.Ms.getD cls default).ctors) := by
+    simp [tgtRs, List.getElem?_map, ho]
+  have hcv : ConLeche.checkConstantVal (fueledOps μ F) envC
+      { rc.cvR with type := T.gty } = .ok cvG := by
+    rw [← ConLeche.checkConstantValF_eq]; exact T.hcv
+  obtain ⟨-, -, -, -, -, -, type, S, -, hann, -, -, hinf, -, hcvEq⟩ :=
+    ConLeche.checkConstantVal_inv hcv
+  have htype : cvG.type = type := by rw [hcvEq]
+  dsimp only at hann
+  rw [← htype] at hann hinf
+  obtain ⟨-, -, -, hta, hTyE, hlenRds, -, -, -, -⟩ := recStage_tyPis (V := V) hμ mpC h hr ψ
+  have hrP := (genRecTy_run hμ R hg hrc hcls T).1
+  have hRP : p.toBlockShape.rulePrefixAt c = R.g.pre.length := by
+    show (p.recs.getD c default).rP = _
+    rw [List.getD_eq_getElem?_getD, hrc, Option.getD_some, hrP]; rfl
+  have hmI : p.toBlockShape.majorIdxAt c + 1
+      = R.g.pre.length + (R.g.cls.getD cls default).nIdx + 1 := by
+    rw [genRec_mI h hr, hRP]; rfl
+  refine ⟨cls, T.gty, cvG.type, F, S, hgc, hM, T.hgty, hann, hinf, hta, hmI, hRP, ?_⟩
+  rw [← hmI, hTyE, ← hlenRds]
+  exact stripPisAV_mkPisAV _ _
 
-set_option maxHeartbeats 1600000 in
 /-- **`GenPreHyps.conclMot`**: the stored conclusion of recursor `c`, at a
 spine of the prefix, an index spine and a major, is the class's motive
-variable applied to the index spine and the major. -/
+variable applied to the index spine and the major (`classGenRecTy_concl`
+at the stored type). -/
 theorem genRun_conclMot (hμ : μ.verifiedChecks = true)
     (R : GenRecRun μ F (mkFEnv env₁) env₁ (mkFEnv envC) p.toBlockShape nestedBit pos cvTas
       block ctorsAs out) (hg : ClassGenScoped R.g) {memR : Nat → Prop}
@@ -575,121 +574,17 @@ theorem genRun_conclMot (hμ : μ.verifiedChecks = true)
           (blockRecConclAV mpC.base2.acval envC p.toBlockShape (tgtRs out) ψ c)
         = (zs ++ [x]).foldl SetTheory.app (xs.getD (classMotPos R.g (genClsOf R.rd c)) pt) := by
   intro c hc xs zs x hxl hzl
-  obtain ⟨rc, cls, cvG, rhss, hrc, hcls, -, ⟨T⟩, ho, hM, hgc⟩ := genRun_at R hc
-  have hr : (tgtRs out)[c]? = some (cvG, rhss, (R.Ms.getD cls default).nIdx,
-      (R.Ms.getD cls default).ctors) := by
-    simp [tgtRs, List.getElem?_map, ho]
-  -- the stored type: the reset generated type, annotated
-  have hcv : ConLeche.checkConstantVal (fueledOps μ F) envC
-      { rc.cvR with type := T.gty.resetMeta } = .ok cvG := by
-    rw [← ConLeche.checkConstantValF_eq]; exact T.hcv
-  obtain ⟨-, -, -, -, -, -, type, -, -, hann, -, -, -, -, hcvEq⟩ :=
-    ConLeche.checkConstantVal_inv hcv
-  have htype : cvG.type = type := by rw [hcvEq]
-  dsimp only at hann
-  rw [← htype] at hann
-  -- its reading and its peel
-  obtain ⟨fvs', concl', hop', hta, hTyE, hlenRds, -, -, -, -⟩ := recStage_tyPis (V := V) hμ mpC h hr ψ
-  have hst : stripPisAV (p.toBlockShape.majorIdxAt c + 1)
-      (blockRecTyAV mpC.base2.acval envC (tgtRs out) ψ c)
-      = some (blockRecRdsAV mpC.base2.acval envC p.toBlockShape (tgtRs out) ψ c,
-          blockRecConclAV mpC.base2.acval envC p.toBlockShape (tgtRs out) ψ c) := by
-    rw [hTyE, ← hlenRds]
-    exact stripPisAV_mkPisAV _ _
-  -- the generated type's shape
+  obtain ⟨cls, gty, gtyA, F', S, hgc, hM, hgty, hann, -, hread, -, hRP, hst⟩ :=
+    genRun_storedTy hμ R hg h mpC ψ hc
+  obtain ⟨-, cls', -, -, -, hcls, -, -, -, -, hgc'⟩ := genRun_at R hc
+  have hcc : cls' = cls := hgc'.symm.trans hgc
+  rw [hcc] at hcls
   obtain ⟨s, hm0⟩ := ConLeche.classRead_recCls_motive R.hrd cls (List.mem_of_getElem? hcls)
   have hm : ConLeche.ClassRead.motiveSlot ⟨R.g.slots, []⟩ cls = some s := hm0
-  obtain ⟨ifs, maj, hmaj, hifl, hgtyE, hcl, hbb⟩ := ConLeche.classGenRecTy_spec hg T.hgty
-  have hmv := ConLeche.ClassGen.motVar_eq hm
-  have hpl := (ConLeche.ClassGen.prefixBinders_scoped hg hg.pre).1
-  have hslen : s < R.g.slots.length := ConLeche.ClassRead.motiveSlot_lt hm
-  obtain ⟨hifs, -⟩ := ConLeche.ClassGen.major_scoped hg (by omega) hmaj
-  have hmI : p.toBlockShape.majorIdxAt c + 1
-      = (R.g.pre ++ ifs.map ConLeche.classBinder ++ [(maj, (default : ConLeche.BinderMeta))]).length := by
-    rw [genRec_mI h hr]
-    have hrP := (genRecTy_run hμ R hg hrc hcls T).1
-    show (p.recs.getD c default).rP + (R.Ms.getD cls default).nIdx + 1 = _
-    rw [List.getD_eq_getElem?_getD, hrc, Option.getD_some, hrP]
-    simp only [List.length_append, List.length_map, List.length_singleton, hifl]
-    rfl
-  rw [hgtyE, hmv, ConLeche.resetMeta_closeTelescope, ConLeche.resetMeta_mkAppN] at hann
-  rw [hmI] at hst
-  have hclR : ∀ q ∈ (R.g.pre ++ ifs.map ConLeche.classBinder ++ [(maj, (default : ConLeche.BinderMeta))]).map genRm,
-      q.1.looseBVarsBounded 0 = true := by
-    intro q hq
-    obtain ⟨q', hq', rfl⟩ := List.mem_map.mp hq
-    exact ConLeche.looseBVarsBounded_resetMeta _ 0 (hcl q' hq')
-  rw [hmv] at hbb
-  have hbbR := ConLeche.looseBVarsBounded_resetMeta _ 0 hbb
-  rw [ConLeche.resetMeta_mkAppN] at hbbR
-  have hPlain : ConLeche.Expr.Plain
-      (Expr.mkAppN (.fvar (R.g.nP + s) (.sort .zero))
-        (ifs ++ [.fvar (R.g.pre.length + ifs.length) maj])) := by
-    refine ConLeche.Expr.Plain.mkAppN (by simp [ConLeche.Expr.Plain]) fun a ha => ?_
-    rcases List.mem_append.mp ha with ha | ha
-    · obtain ⟨k, hk, rfl⟩ := List.getElem_of_mem ha
-      obtain ⟨ty, hxe, -⟩ := hifs k _ (List.getElem?_eq_getElem hk)
-      rw [hxe]; trivial
-    · simp only [List.mem_singleton] at ha
-      subst ha; trivial
-  have hPlainR := ConLeche.Expr.Plain.resetMeta hPlain
-  rw [ConLeche.resetMeta_mkAppN] at hPlainR
-  have hlenN : ((R.g.pre ++ ifs.map ConLeche.classBinder
-      ++ [(maj, (default : ConLeche.BinderMeta))]).map genRm).length
-      = R.g.pre.length + ifs.length + 1 := by simp; omega
-  -- the arguments: the index variables and the major's, reset
-  have hargs : ∀ a ∈ (ifs ++ [Expr.fvar (R.g.pre.length + ifs.length) maj]).map Expr.resetMeta,
-      ∃ i T, a = .fvar i T ∧ i < ((R.g.pre ++ ifs.map ConLeche.classBinder
-        ++ [(maj, (default : ConLeche.BinderMeta))]).map genRm).length := by
-    intro a ha
-    rw [hlenN]
-    obtain ⟨a', ha', rfl⟩ := List.mem_map.mp ha
-    rcases List.mem_append.mp ha' with ha' | ha'
-    · obtain ⟨k, hk, rfl⟩ := List.getElem_of_mem ha'
-      obtain ⟨ty, hxe, -⟩ := hifs k _ (List.getElem?_eq_getElem hk)
-      rw [hxe]; exact ⟨_, _, rfl, by omega⟩
-    · simp only [List.mem_singleton] at ha'
-      subst ha'; exact ⟨_, _, rfl, by omega⟩
-  have hcore := genConcl_core (V := V) (μ := μ) (env := envC) (acval := mpC.base2.acval) (φ := ψ)
-    hclR hbbR hPlainR (by rw [hlenN]; omega) hargs hann hta (by rw [List.length_map]; exact hst)
-    ρ (xs ++ (zs ++ [x])) (by
-      rw [hlenN]
-      have hrP := (genRecTy_run hμ R hg hrc hcls T).1
-      have hxl' : xs.length = R.pre.length := by
-        rw [hxl]; show (p.recs.getD c default).rP = _
-        rw [List.getD_eq_getElem?_getD, hrc, Option.getD_some, hrP]
-      have hzl' : zs.length = ifs.length := by
-        rw [hzl, hM, hifl, ← hgc]; rfl
-      simp only [List.length_append, List.length_singleton, hxl', hzl']; rfl)
-  rw [hcore]
-  have hxl' : xs.length = R.g.pre.length := by
-    have hrP := (genRecTy_run hμ R hg hrc hcls T).1
-    rw [hxl]; show (p.recs.getD c default).rP = _
-    rw [List.getD_eq_getElem?_getD, hrc, Option.getD_some, hrP]; rfl
-  have hzl' : zs.length = ifs.length := by rw [hzl, hM, hifl, ← hgc]; rfl
-  have hhead : (xs ++ (zs ++ [x])).getD (R.g.nP + s) pt
-      = xs.getD (classMotPos R.g (genClsOf R.rd c)) pt := by
-    rw [List.getD_eq_getElem?_getD, List.getElem?_append_left (by omega), classMotPos, hgc, hm]
-    rw [List.getD_eq_getElem?_getD]; rfl
-  rw [hhead]
-  congr 1
-  refine List.ext_getElem (by simp [hzl']) fun k hk₁ hk₂ => ?_
-  simp only [List.getElem_map]
-  rcases Nat.lt_or_ge k ifs.length with hk | hk
-  · rw [List.getElem_append_left (by simpa using hk), List.getElem_append_left (by omega)]
-    obtain ⟨ty, hxe, -⟩ := hifs k _ (List.getElem?_eq_getElem hk)
-    simp only [List.getElem_map, hxe, Expr.resetMeta, fvIdx]
-    rw [List.getD_eq_getElem?_getD, List.getElem?_append_right (by omega),
-      List.getElem?_append_left (by omega)]
-    simp [hxl', List.getElem?_eq_getElem (show k < zs.length by omega)]
-  · have hk' : k = ifs.length := by simp at hk₁; omega
-    subst hk'
-    rw [List.getElem_append_right (by simp), List.getElem_append_right (by omega)]
-    simp only [List.length_map, Nat.sub_self, List.getElem_map, List.getElem_cons_zero,
-      Expr.resetMeta, fvIdx]
-    rw [List.getD_eq_getElem?_getD, List.getElem?_append_right (by omega),
-      List.getElem?_append_right (by simp [hxl', hzl'])]
-    simp [hxl', hzl']
+  have := classGenRecTy_concl (V := V) (μ := μ) (acval := mpC.base2.acval) (env := envC)
+    (φ := ψ) hg hm hgty hann hread hst ρ xs zs x (by rw [hxl, hRP]) (by rw [hzl, hM])
+  rw [this, classMotPos, hgc, hm]
+  rfl
 
 end Run
 
