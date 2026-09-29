@@ -80,7 +80,7 @@ theorem inferTypeCore_mkAppN_args {env : Env} {F d : Nat} :
     · exact inferTypeCore_mkAppN_args as (f := .app f b) h a ha
 
 /-- **An inferred `∀` infers its domain.** -/
-theorem inferTypeCore_forallE_dom {env : Env} {F d : Nat} {ty bd s : Expr} {mb : BinderMeta}
+theorem inferTypeCore_forallE_dom' {env : Env} {F d : Nat} {ty bd s : Expr} {mb : BinderMeta}
     (h : inferTypeCore mode env F d (.forallE ty bd mb) = .ok s) :
     ∃ t, inferTypeCore mode env F d ty = .ok t := by
   cases F with
@@ -205,11 +205,11 @@ theorem storedMajorArg_graded (hμ : μ.verifiedChecks = true) (mpC : EnvModelM 
     | zero =>
       simp only [openPisAtFvars, Option.some.injEq, Prod.mk.injEq] at hA
       obtain ⟨-, rfl⟩ := hA
-      exact ConLeche.inferTypeCore_forallE_dom hinfT
+      exact ConLeche.inferTypeCore_forallE_dom' hinfT
     | succ n =>
       obtain ⟨bt, -, hbt, -⟩ := inferTypeCore_openPis_body rfl n hA hinfT
       rw [Nat.zero_add] at hbt
-      exact ConLeche.inferTypeCore_forallE_dom hbt
+      exact ConLeche.inferTypeCore_forallE_dom' hbt
   obtain ⟨tdom, htdom⟩ := hdomInf
   rw [hmajE] at hxA
   simp only [Expr.fvarTypeD] at hxA
