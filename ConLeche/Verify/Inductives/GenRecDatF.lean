@@ -64,7 +64,8 @@ theorem classFieldsAgree_datF (env : Env) (p : BlockShape) (formerTys : List Exp
     exact classFieldsAgree_datF env p formerTys Ms fvs ctor E F (i + 1) ks
   | i, .recursive t tele :: ks => by
     unfold classFieldsAgree
-    simp only [FueledM.atF_bind, unwrapOr_atF, classNodesAgree_datF,
+    simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw, FueledM.atF_ite,
+      unwrapOr_atF, classNodesAgree_datF,
       classFieldsAgree_datF env p formerTys Ms fvs ctor E F (i + 1) ks]
 
 theorem classCtorOf_datF (env : Env) (p : BlockShape) (formerTys : List Expr) (rd : ClassRead)
