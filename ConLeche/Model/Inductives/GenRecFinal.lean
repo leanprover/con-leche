@@ -17,6 +17,7 @@ import ConLeche.Model.Inductives.GenClsRows
 import ConLeche.Model.Inductives.GenClsFrame
 import ConLeche.Model.Inductives.GenClsCall
 import ConLeche.Model.Inductives.GenClsRhs
+import ConLeche.Model.Inductives.GenClsData
 import ConLeche.Verify.Inductives.GenRecScoped
 import ConLeche.Verify.Inductives.NestNfScope
 
@@ -169,6 +170,19 @@ theorem genRecStage (hμ : μ.verifiedChecks = true) {F : Nat}
           tgtMkAV pp.toBlockShape out mpC.base2.acval envC ψ₁ j i
             = tgtMkAV pp.toBlockShape out mpC.base2.acval envC ψ₂ j i :=
     genRowParams hμ R hg h mpC hfind
+  -- the class side, both ways
+  have hcsem : ∀ (ψ : Name → Nat) (ρ : Nat → V),
+      GenClsSplit pp out mpC dR Dc mc cvc ψ ρ ∧ GenClsBack pp out mpC dR Dc mc cvc ψ ρ ∧
+      GenClsDec pp out mpC dR Dc mc cvc ψ ρ ∧ GenClsDecInv pp out mpC dR Dc mc cvc ψ ρ := by
+    intro ψ ρ
+    subst hdRe
+    exact genClsSem_run hμ R hg hcov h hN hS hcore hlfp hcls ψ ρ
+  have hrdAll : ∀ c, c < (tgtRs out).length → pp.nP ≤ pp.toBlockShape.rulePrefixAt c ∧
+      ∃ cvI, GenClsRd mpC dR Dc mc cvc pp out c cvI := by
+    intro c hc
+    subst hdRe
+    obtain ⟨hnP, cvI, Rd, -⟩ := genClsRd_all hμ R hg hcov h hN hS hcore hlfp hcls c hc
+    exact ⟨hnP, cvI, Rd⟩
   have hrow3 : ∀ (φ : Name → Nat) (j : Nat)
       (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
       (tgtRs out)[j]? = some r → ∀ (i : Nat) (cA : ConstantVal × Nat) (rhs : Expr),
@@ -184,15 +198,46 @@ theorem genRecStage (hμ : μ.verifiedChecks = true) {F : Nat}
         (ConLeche.recRuleBits envC.find? r.1.name
           { ctor := cA.1.name, nfields := cA.2, ctorParams := (ConLeche.tgtMajorsOf out j).nPc,
             fire := ConLeche.tgtFireOf (fun x => Expr.constsResolve envC x) pp.toBlockShape
-              (ConLeche.tgtMajorsOf out) j r, rhs := rhs, paramsBlind := true }) := sorry
+              (ConLeche.tgtMajorsOf out) j r, rhs := rhs, paramsBlind := true }) := by
+    intro φ j r hr i cA rhs hcA _ hne
+    have hj : j < (tgtRs out).length := (List.getElem?_eq_some_iff.mp hr).1
+    obtain ⟨hnP, cvI, Rd⟩ := hrdAll j hj
+    cases hmb : (tgtMajor out j).member with
+    | none =>
+      have hmb' : (ConLeche.tgtMajorsOf out j).member = none := hmb
+      have hA : ConLeche.tgtFireOf (fun x => Expr.constsResolve envC x) pp.toBlockShape
+          (ConLeche.tgtMajorsOf out) j r
+          = ConLeche.auxRuleFireR (fun x => Expr.constsResolve envC x) r.1
+              (pp.toBlockShape.majorIdxAt j) (pp.toBlockShape.rulePrefixAt j)
+              (ConLeche.tgtMajorsOf out j).nPc := by
+        simp only [ConLeche.tgtFireOf, hmb']
+      obtain ⟨lvls, pins, hf⟩ : ∃ lvls pins, ConLeche.tgtFireOf (fun x => Expr.constsResolve envC x)
+          pp.toBlockShape (ConLeche.tgtMajorsOf out) j r = .nested lvls pins := by
+        rw [hA]; rw [hA] at hne
+        unfold ConLeche.auxRuleFireR at hne ⊢
+        cases hsyn : Expr.nestedRuleSyn (fun x => Expr.constsResolve envC x) r.1.levelParams
+            r.1.type (pp.toBlockShape.majorIdxAt j) (pp.toBlockShape.rulePrefixAt j)
+            (ConLeche.tgtMajorsOf out j).nPc with
+        | none => rw [hsyn] at hne; exact absurd rfl hne
+        | some q => exact ⟨q.1, q.2, rfl⟩
+      exact genRows3_out hμ R hg hcov h (fun ψ ρ => (hcsem ψ ρ).1) (fun ψ ρ => (hcsem ψ ρ).2.2.1)
+        (fun ψ ρ => (hcsem ψ ρ).2.2.2) hr hmb hcA Rd (hcls j hj hmb) hnP hf
+        (by rw [ConLeche.recRuleBits_fire]; exact hf)
+    | some t =>
+      have hmb' : (ConLeche.tgtMajorsOf out j).member = some t := hmb
+      have hplain : ConLeche.tgtFireOf (fun x => Expr.constsResolve envC x) pp.toBlockShape
+          (ConLeche.tgtMajorsOf out) j r = .plain := by
+        revert hne
+        simp only [ConLeche.tgtFireOf, hmb']
+        split <;> simp
+      exact genRows3_mem hμ R h hdRe hN hS hcore hlfp hnames (fun ψ ρ => (hcsem ψ ρ).1)
+        (fun ψ ρ => (hcsem ψ ρ).2.2.1) (fun ψ ρ => (hcsem ψ ρ).2.2.2) hr hmb hcA
+        (by rw [ConLeche.recRuleBits_fire]; exact hplain)
   -- the family premise
   have hsem : ∀ (ψ : Name → Nat) (ρ : Nat → V),
       GenPreSem pp out mpC dR Dc mc cvc R.g R.rd ψ ρ := by
     intro ψ ρ
-    have hS4 := by
-      subst hdRe
-      exact genClsSem_run hμ R hg hcov h hN hS hcore hlfp hcls ψ ρ
-    rw [← hdRe] at hS4
+    have hS4 := hcsem ψ ρ
     exact ⟨hS4.1, hS4.2.1, hS4.2.2.1, hS4.2.2.2, hcallTy ψ ρ,
       genCls_minor hμ R hg h mpC hfind ψ ρ,
       genClassInd hμ hctx R hg hTbl hcls (fun c _ _ => hsel c) ψ ρ⟩
