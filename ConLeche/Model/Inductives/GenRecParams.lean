@@ -238,7 +238,7 @@ theorem genMemberRec_paramDefeq (hμ : μ.verifiedChecks = true) (hwf : ConLeche
             ConLeche.isDefEqCore μ envC F' p.nP ((xs.map Expr.fvarTypeD).getD l default) D
               = .ok true := by
   have hcv : ConLeche.checkConstantVal (ConLeche.fueledOps μ F) envC
-      { rc.cvR with type := T.gty.resetMeta } = .ok cvG := by
+      { rc.cvR with type := T.gty } = .ok cvG := by
     rw [← ConLeche.checkConstantValF_eq]; exact T.hcv
   obtain ⟨-, -, -, -, -, hfv0, type, stype, u0, hann, -, -, hinf, -, hcvEq⟩ :=
     ConLeche.checkConstantVal_inv hcv
@@ -289,52 +289,42 @@ theorem genMemberRec_paramDefeq (hμ : μ.verifiedChecks = true) (hwf : ConLeche
       rw [hxe]; trivial
     · simp only [List.mem_singleton] at ha
       subst ha; trivial
-  have hreset : T.gty.resetMeta = closeTelescope (nds.map genRm) 0 B.resetMeta := by
-    rw [hgty, ConLeche.resetMeta_closeTelescope]; rfl
-  rw [hreset] at hann hfv0
-  have hclR : ∀ q ∈ nds.map genRm, q.1.looseBVarsBounded 0 = true := by
-    intro q hq
-    obtain ⟨q', hq', rfl⟩ := List.mem_map.mp hq
-    exact looseBVarsBounded_resetMeta _ 0 (hcl q' hq')
-  have hbbR := looseBVarsBounded_resetMeta _ 0 hbb
-  obtain ⟨nds', B', hl', he', hB', hdoms⟩ := ConLeche.annotateCore_closeTelescope (nds.map genRm)
-    hclR hbbR (ConLeche.Expr.Plain.resetMeta hPlain) (Expr.ErasedEq.rfl _) hann
+  rw [hgty] at hann hfv0
+  obtain ⟨nds', B', hl', he', hB', hdoms⟩ := ConLeche.annotateCore_closeTelescope nds
+    hcl hbb hPlain (Expr.ErasedEq.rfl _) hann
   have hcl' : ∀ q ∈ nds', q.1.looseBVarsBounded 0 = true := by
     intro q hq
     obtain ⟨j, hj, rfl⟩ := List.getElem_of_mem hq
     obtain ⟨X, F', nd, hnd, hX, hann'⟩ := hdoms j _ (List.getElem?_eq_getElem hj)
     exact ConLeche.annotateCore_looseBVars F' X hann'
-      (looseBVarsBounded_of_erasedEq hX (hclR nd (List.mem_of_getElem? hnd)))
-  have hB'b : B'.looseBVarsBounded 0 = true := looseBVarsBounded_of_erasedEq hB' hbbR
+      (looseBVarsBounded_of_erasedEq hX (hcl nd (List.mem_of_getElem? hnd)))
+  have hB'b : B'.looseBVarsBounded 0 = true := looseBVarsBounded_of_erasedEq hB' hbb
   obtain ⟨xs, rest, hop, -, hxs⟩ := open_of_erasedEq_closeTelescope nds' 0 B' type hcl' hB'b he'
   have hgA := annotate_syntax hann hfv0
-    (ConLeche.closeTelescope_bounded (nds.map genRm) 0 B.resetMeta hclR hbbR)
+    (ConLeche.closeTelescope_bounded nds 0 B hcl hbb)
   -- the major's position
   generalize hN : R.g.pre.length + ifs.length = N at hB
   have hndsLen : nds.length = N + 1 := by
     rw [← hnds, ← hN]; simp; omega
   have hlxs : xs.length = N + 1 := by
-    rw [ConLeche.Verify.openPisAtFvars_length _ hop, hl', List.length_map, hndsLen]
+    rw [ConLeche.Verify.openPisAtFvars_length _ hop, hl', hndsLen]
   have hNP : p.nP ≤ N := by
     have : R.g.pre.length = R.pre.length := rfl
     omega
-  have hndN : (nds.map genRm)[N]? = some (maj.resetMeta, ⟨.never⟩) := by
-    rw [List.getElem?_map, ← hnds, List.getElem?_append_right (by simp [hN.symm] <;> omega)]
-    simp [← hN, genRm]
+  have hndN : nds[N]? = some (maj, default) := by
+    rw [← hnds, List.getElem?_append_right (by simp [hN.symm] <;> omega)]
+    simp [← hN]
   obtain ⟨xN, hxN⟩ : ∃ x, xs[N]? = some x := ⟨_, List.getElem?_eq_getElem (by omega)⟩
   obtain ⟨ndN', hndN'⟩ : ∃ nd', nds'[N]? = some nd' :=
-    ⟨_, List.getElem?_eq_getElem (by rw [hl', List.length_map]; omega)⟩
+    ⟨_, List.getElem?_eq_getElem (by rw [hl']; omega)⟩
   obtain ⟨X, F', nd, hnd, hX, hannX⟩ := hdoms N _ hndN'
   rw [hndN, Option.some.injEq] at hnd
   subst hnd
   -- the major domain: `I` applied to the prefix's parameter variables
-  have hmajR : maj.resetMeta = Expr.mkAppN (.const I (p.lps.map .param))
-      ((R.ctx.params ++ ifs).map Expr.resetMeta) := by
-    rw [hmajE, ConLeche.resetMeta_mkAppN]; rfl
-  have hPmaj : ConLeche.Expr.Plain maj.resetMeta := by
+  have hmajR : maj = Expr.mkAppN (.const I (p.lps.map .param)) (R.ctx.params ++ ifs) := hmajE
+  have hPmaj : ConLeche.Expr.Plain maj := by
     rw [hmajR]
-    refine ConLeche.Expr.Plain.mkAppN (by simp [ConLeche.Expr.Plain]) fun a ha => ?_
-    obtain ⟨a', ha', rfl⟩ := List.mem_map.mp ha
+    refine ConLeche.Expr.Plain.mkAppN (by simp [ConLeche.Expr.Plain]) fun a' ha' => ?_
     rcases List.mem_append.mp ha' with ha' | ha'
     · obtain ⟨k, hk, rfl⟩ := List.getElem_of_mem ha'
       obtain ⟨ty, hxe⟩ := hpar k _ (List.getElem?_eq_getElem hk)
@@ -346,7 +336,7 @@ theorem genMemberRec_paramDefeq (hμ : μ.verifiedChecks = true) (hwf : ConLeche
       rw [hxe]; trivial
   obtain rfl : ndN'.1 = X :=
     ConLeche.annotateCore_plain F' (ConLeche.Expr.Plain.of_erasedEq hX hPmaj) hannX
-  have hMD : Expr.ErasedEq xN.fvarTypeD maj.resetMeta :=
+  have hMD : Expr.ErasedEq xN.fvarTypeD maj :=
     Expr.ErasedEq.trans (hxs N xN ndN'.1 hxN (by rw [hndN']; rfl)) hX
   rw [hmajR] at hMD
   obtain ⟨f', as', hMDe, hf', has'⟩ := erasedEq_mkAppN_inv _ hMD
@@ -355,7 +345,7 @@ theorem genMemberRec_paramDefeq (hμ : μ.verifiedChecks = true) (hwf : ConLeche
     match f', hf' with
     | .const n us, hf' => obtain ⟨rfl, rfl⟩ := hf'; rfl
   have hlas : as'.length = p.nP + ifs.length := by
-    rw [has', List.length_map, List.length_append, hplen]
+    rw [has', List.length_append, hplen]
   -- the openers' shape
   have hidx := ConLeche.openPisAtFvars_index _ _ _ hop
   have hwty : Expr.WScoped 0 type := Expr.WScoped.of_not_hasFvar hgA.1
@@ -370,8 +360,7 @@ theorem genMemberRec_paramDefeq (hμ : μ.verifiedChecks = true) (hwf : ConLeche
     obtain ⟨pj, hpj⟩ : ∃ x, R.ctx.params[j]? = some x :=
       ⟨_, List.getElem?_eq_getElem (by omega)⟩
     obtain ⟨tyj, rfl⟩ := hpar j _ hpj
-    have he := hargs j _ x' (by
-      rw [List.getElem?_map, List.getElem?_append_left (by omega), hpj]; rfl) hx'
+    have he := hargs j _ x' (by rw [List.getElem?_append_left (by omega), hpj]) hx'
     obtain ⟨T', rfl⟩ : ∃ T', x' = .fvar j T' := by
       match x', he with
       | .fvar j' T', he => exact ⟨T', by rw [show j' = j from he]⟩
@@ -389,7 +378,7 @@ theorem genMemberRec_paramDefeq (hμ : μ.verifiedChecks = true) (hwf : ConLeche
     obtain ⟨rfl, rfl⟩ := hty
     rw [hx', hq]
   -- the inference, down to the major domain
-  rw [hl', List.length_map, hndsLen] at hop
+  rw [hl', hndsLen] at hop
   obtain ⟨xsN, xs1, o, hopN, hop1, hxsplit⟩ := openPisAtFvars_split N (m := 1) hop
   have hlxsN : xsN.length = N := ConLeche.Verify.openPisAtFvars_length _ hopN
   obtain ⟨dom, bo, mbo, rfl⟩ : ∃ dom bo mbo, o = .forallE dom bo mbo := by
@@ -487,8 +476,7 @@ theorem genRec_paramOpeners_eq (hμ : μ.verifiedChecks = true)
   obtain ⟨-, ⟨Y', B', hY'⟩, -⟩ := genRecTy_run hμ R hg hrc' hc' T'
   have hpl : R.pre.length = p.nP + R.rd.slots.length :=
     (ConLeche.ClassGen.prefixBinders_scoped hg hg.pre).1
-  have hs := ConLeche.SameDoms.closeTelescope_append (R.pre.map genRm) Y Y' 0 B B'
-  rw [List.length_map] at hs
+  have hs := ConLeche.SameDoms.closeTelescope_append R.pre Y Y' 0 B B'
   have hsA := ConLeche.SameDoms.annotate _ hs hY hY'
   exact ConLeche.SameDoms.open p.nP (ConLeche.SameDoms.mono (by omega) hsA) hop hop'
 
