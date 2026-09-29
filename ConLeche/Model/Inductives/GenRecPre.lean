@@ -11,6 +11,10 @@ import ConLeche.Model.Inductives.BlockRecPreRun
 import ConLeche.Model.Inductives.BlockRecMem
 import ConLeche.Verify.Inductives.RecStage
 import ConLeche.Verify.Inductives.BlockRecRun
+import ConLeche.Model.Inductives.BlockRuleGrading
+import ConLeche.Model.Inductives.BlockGradeRowsRun
+import ConLeche.Model.Inductives.BlockRuleFit
+import ConLeche.Model.Rules.InferSoundKit
 
 public section
 
@@ -1240,6 +1244,172 @@ theorem genRow_hstep (hμ : μ.verifiedChecks = true) {memR : Nat → Prop}
   exact H
 
 end RowsIh
+
+set_option maxHeartbeats 4000000 in
+/-- **`hEq`'s grading half at the generated components** (the old
+`tgtRecEqs_hEqAny`'s argument): the frame from its grading (`hframe`,
+the declared field domains bounded, `hfdB`), the left-hand side an
+application chain along the recursor's stored type (the rule's spine
+fits it, `genRow_hrule`, its arguments graded, `hargs`), the right-hand
+side from the `ih` terms' and the residue's grading at typed tuples
+(`hrhs`). -/
+theorem genRecEqs_wd (hμ : μ.verifiedChecks = true) {memR : Nat → Prop}
+    (h : ConLeche.RecStageG μ F envC pp cvTas ctorsAs (tgtRs out) memR) {g : ClassGen}
+    {rd : ClassRead} (ψ : Name → Nat) (ρ : Nat → V)
+    (hB : GenClsBack pp out mpC d Dc mc cvc ψ ρ) (hD : GenClsDec pp out mpC d Dc mc cvc ψ ρ)
+    (hfdB : ∀ c, c < (tgtRs out).length → ∀ j, j < blockRecNCt (tgtRs out) c →
+      FieldsBelow (blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c).length
+        (tgtFdomsAV pp.toBlockShape out mpC.base2.acval envC ψ c j))
+    (hframe : ∀ c, c < (tgtRs out).length → ∀ j, j < blockRecNCt (tgtRs out) c →
+      ∀ l, l < (blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c
+          ++ tgtFdomsAV pp.toBlockShape out mpC.base2.acval envC ψ c j).length →
+      ∀ (σ : Nat → V) (ys : List V),
+        SpineFit σ ((blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c
+          ++ tgtFdomsAV pp.toBlockShape out mpC.base2.acval envC ψ c j).take l) ys →
+        WellDenoted V (consList ys σ)
+          ((blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c
+            ++ tgtFdomsAV pp.toBlockShape out mpC.base2.acval envC ψ c j).getD l default))
+    (hargs : ∀ c, c < (tgtRs out).length → ∀ j, j < blockRecNCt (tgtRs out) c → ∀ ys : List V,
+      SpineFit ρ (blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c
+        ++ tgtFdomsAV pp.toBlockShape out mpC.base2.acval envC ψ c j) ys →
+      (∀ e ∈ tgtEsAV pp.toBlockShape out mpC.base2.acval envC ψ c j,
+        WellDenotedV V (consList ys ρ) e) ∧
+      WellDenotedV V (consList ys ρ) (tgtMkAV pp.toBlockShape out mpC.base2.acval envC ψ c j))
+    (hrhs : ∀ rs : List V, rs.length = (tgtRs out).length →
+      (∀ c, c < (tgtRs out).length →
+        rs.getD c pt ∈ˢ interp V ρ (blockRecTyAV mpC.base2.acval envC (tgtRs out) ψ c)) →
+      ∀ c, c < (tgtRs out).length → ∀ j, j < blockRecNCt (tgtRs out) c → ∀ ys : List V,
+      SpineFit ρ (blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c
+        ++ tgtFdomsAV pp.toBlockShape out mpC.base2.acval envC ψ c j) ys →
+      (∀ v ∈ genIhsAV mpC.base2.acval envC (tgtRs out).length g rd (genBit pp ψ) ψ c j,
+        WellDenotedV V (consList ys (consList rs ρ)) v) ∧
+      WellDenotedV V (consList ((genIhsAV mpC.base2.acval envC (tgtRs out).length g rd
+          (genBit pp ψ) ψ c j).map (interp V (consList ys (consList rs ρ)))) (consList ys ρ))
+        (genRbAV g rd c j)) :
+    ∀ (rs : List V), rs.length = (tgtRs out).length →
+      (∀ c, c < (tgtRs out).length →
+        rs.getD c pt ∈ˢ interp V ρ (blockRecTyAV mpC.base2.acval envC (tgtRs out) ψ c)) →
+      ∀ e ∈ blockRecEqs (blockRecNCt (tgtRs out)) (tgtRs out)
+          (fun ψ => blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ)
+          (fun ψ => tgtFdomsAV pp.toBlockShape out mpC.base2.acval envC ψ)
+          (fun ψ => tgtEsAV pp.toBlockShape out mpC.base2.acval envC ψ)
+          (fun ψ => genIhsAV mpC.base2.acval envC (tgtRs out).length g rd (genBit pp ψ) ψ)
+          (fun ψ => tgtMkAV pp.toBlockShape out mpC.base2.acval envC ψ) (fun _ => genRbAV g rd) ψ,
+        WellDenoted V (consList rs ρ) e := by
+  intro tup hlen htyp e he
+  rw [← genClsEqs_eq hμ h (fun ψ' => genIhsAV mpC.base2.acval envC (tgtRs out).length g rd
+    (genBit pp ψ') ψ') (fun _ => genRbAV g rd) ψ] at he
+  refine (hEq_iotaEqsAV_of (fun as hl ht c hc j hj => ?_) tup hlen htyp e he).2
+  have hr : (tgtRs out)[c]? = some (tgtRs out)[c] := List.getElem?_eq_getElem hc
+  have hpl := blockRulePdomsAV_length hμ mpC h hr ψ
+  have hfdK : tgtFdomsK (tgtRs out).length mpC.base2.acval envC pp.toBlockShape out ψ c j
+      = tgtFdomsAV pp.toBlockShape out mpC.base2.acval envC ψ c j := by
+    rw [tgtFdomsK]
+    exact liftDomsK_eq_self_of_bounded _ _ (fieldsBelow_getD (hfdB c hc j hj))
+  have hch := consList_eq_chainFrame (V := V) hl ρ
+  refine ⟨?_, fun ys hys => ?_⟩
+  · rw [hfdK]
+    exact fieldsOkB_zero_of_spineGrading _ (fun l hl' ys hys =>
+      hframe c hc j hj l hl' (consList as ρ) ys hys)
+  obtain ⟨xs, fs, rfl, hxs, hfs⟩ := spineFit_append_split hys
+  have hxl := hxs.length_eq
+  have hsp : SpineFit (chainFrame (tgtRs out).length (fun c => as.getD c pt) ρ)
+      (blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c
+        ++ tgtFdomsK (tgtRs out).length mpC.base2.acval envC pp.toBlockShape out ψ c j)
+      (xs ++ fs) := by rw [← hch]; exact hys
+  obtain ⟨hbase, hesE, hmkE⟩ := genRec_chainBase hμ h ψ ρ (fun c => as.getD c pt) hc hxl hsp
+  have hfl : fs.length = (tgtFdomsAV pp.toBlockShape out mpC.base2.acval envC ψ c j).length := by
+    have := hbase.length_eq
+    simp only [List.length_append, hxl] at this
+    omega
+  have hwl : (xs ++ fs).length
+      = (blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c).length
+        + (tgtFdomsAV pp.toBlockShape out mpC.base2.acval envC ψ c j).length := by
+    rw [List.length_append, hxl, hfl]
+  obtain ⟨hE, hMk⟩ := hargs c hc j hj (xs ++ fs) hbase
+  refine ⟨?_, ?_⟩
+  · -- the left-hand side: an application chain along the recursor's type
+    have hfit := genRow_hrule hμ h ψ ρ hB hD (fun c => as.getD c pt) c hc j hj xs fs hxl hsp
+    have hflK : (tgtFdomsK (tgtRs out).length mpC.base2.acval envC pp.toBlockShape out ψ c j).length
+        = fs.length := by rw [hfdK, hfl]
+    have hpv : (prefVarsAV
+        (blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c).length
+        (tgtFdomsK (tgtRs out).length mpC.base2.acval envC pp.toBlockShape out ψ c j).length).map
+          (interp V (consList (xs ++ fs) (chainFrame (tgtRs out).length
+            (fun c => as.getD c pt) ρ)))
+        = xs := by
+      rw [hflK]; exact interp_prefVarsAV hxl
+    have hhead : interp V (consList (xs ++ fs) (chainFrame (tgtRs out).length
+          (fun c => as.getD c pt) ρ))
+        (.bvar ((blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c).length
+          + (tgtFdomsK (tgtRs out).length mpC.base2.acval envC pp.toBlockShape out ψ c j).length
+          + ((tgtRs out).length - 1 - c))) = as.getD c pt := by
+      show consList (xs ++ fs) _ _ = _
+      rw [show (blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c).length
+          + (tgtFdomsK (tgtRs out).length mpC.base2.acval envC pp.toBlockShape out ψ c j).length
+          + ((tgtRs out).length - 1 - c) = ((tgtRs out).length - 1 - c) + (xs ++ fs).length from by
+            rw [List.length_append, hxl, hflK]; omega,
+        consList_apply_add, chainFrame_apply hc]
+    obtain ⟨-, -, -, -, hTyE, -, -, -, -, hwdTy⟩ := recStage_tyPis (V := V) hμ mpC h hr ψ
+    have hTF := teleFit_mkPisAV_of_spineFit
+      (B := blockRecConclAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c) hfit
+    rw [← hTyE] at hTF
+    have hvals : (prefVarsAV
+            (blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c).length
+            (tgtFdomsK (tgtRs out).length mpC.base2.acval envC pp.toBlockShape out ψ c j).length
+          ++ liftEsK (tgtRs out).length
+            ((blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c).length
+              + (tgtFdomsAV pp.toBlockShape out mpC.base2.acval envC ψ c j).length)
+            (tgtEsAV pp.toBlockShape out mpC.base2.acval envC ψ c j)
+          ++ [tgtMkK (tgtRs out).length mpC.base2.acval envC pp.toBlockShape out ψ c j]).map
+          (interp V (consList (xs ++ fs) (chainFrame (tgtRs out).length
+            (fun c => as.getD c pt) ρ)))
+        = xs ++ ((liftEsK (tgtRs out).length
+            ((blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c).length
+              + (tgtFdomsAV pp.toBlockShape out mpC.base2.acval envC ψ c j).length)
+            (tgtEsAV pp.toBlockShape out mpC.base2.acval envC ψ c j)).map
+            (interp V (consList (xs ++ fs) (chainFrame (tgtRs out).length
+              (fun c => as.getD c pt) ρ)))
+          ++ [interp V (consList (xs ++ fs) (chainFrame (tgtRs out).length
+              (fun c => as.getD c pt) ρ))
+            (tgtMkK (tgtRs out).length mpC.base2.acval envC pp.toBlockShape out ψ c j)]) := by
+      rw [List.map_append, List.map_append, hpv, List.map_cons, List.map_nil, List.append_assoc]
+    rw [← hvals] at hTF
+    have hmem' : interp V (consList (xs ++ fs) (chainFrame (tgtRs out).length
+          (fun c => as.getD c pt) ρ))
+        (.bvar ((blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c).length
+          + (tgtFdomsK (tgtRs out).length mpC.base2.acval envC pp.toBlockShape out ψ c j).length
+          + ((tgtRs out).length - 1 - c)))
+        ∈ˢ interp V ρ (blockRecTyAV mpC.base2.acval envC (tgtRs out) ψ c) := by
+      rw [hhead]; exact ht c hc
+    rw [← hch] at hTF hmem'
+    refine (Rules.wellDenotedV_mkAppN_of_fit _
+      (f := .bvar ((blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c).length
+          + (tgtFdomsK (tgtRs out).length mpC.base2.acval envC pp.toBlockShape out ψ c j).length
+          + ((tgtRs out).length - 1 - c))) (hwdTy ρ) ⟨trivial, trivial⟩ (fun x hx => ?_)
+      hmem' hTF).1.1
+    rcases List.mem_append.mp hx with hx | hx
+    · rcases List.mem_append.mp hx with hx | hx
+      · obtain ⟨k, -, rfl⟩ := List.mem_map.mp hx
+        exact ⟨trivial, trivial⟩
+      · obtain ⟨e, he, rfl⟩ := List.mem_map.mp hx
+        rw [hch, ← hwl, wellDenotedV_liftN_chainFrame]
+        exact hE e he
+    · rw [List.mem_singleton] at hx
+      rw [hx, tgtMkK, hch, ← hwl, wellDenotedV_liftN_chainFrame]
+      exact hMk
+  · -- the residue, at the `ih` values
+    obtain ⟨hIv, hRv⟩ := hrhs as hl ht c hc j hj (xs ++ fs) hbase
+    rw [wd_instsAV (fun v hv => (hIv v hv).1)]
+    have key := (wellDenotedV_liftN_chainFrame (K := (tgtRs out).length)
+      (a := fun c => as.getD c pt) (ρ := ρ)
+      ((xs ++ fs) ++ (genIhsAV mpC.base2.acval envC (tgtRs out).length g rd (genBit pp ψ) ψ c
+        j).map (interp V (consList (xs ++ fs) (consList as ρ))))
+      (genRbAV g rd c j)).mpr (by simpa only [consList_append] using hRv)
+    rw [← hch] at key
+    simp only [consList_append, List.length_append, List.length_map] at key ⊢
+    rw [← hxl, ← hfs.length_eq]
+    exact key.1
 
 end Rows
 
