@@ -9,7 +9,6 @@ import ConLeche.Model.Inductives.NestPosOut
 import ConLeche.Model.Inductives.StructFrameKit
 import ConLeche.Model.Inductives.BlockRecPreRun
 import ConLeche.Verify.Inductives.NestScope
-import ConLeche.Verify.Inductives.NestCallSyn
 import ConLeche.Verify.Rules.InferBridge
 import ConLeche.Verify.Denote.IndFrame
 import ConLeche.Verify.BridgeWfImp
@@ -18,7 +17,6 @@ import ConLeche.Verify.Knot
 import ConLeche.Verify.CheckerF
 import ConLeche.Verify.Extend.Inversions
 import ConLeche.Verify.Level
-import ConLeche.Semantics.DeclRun
 
 public section
 

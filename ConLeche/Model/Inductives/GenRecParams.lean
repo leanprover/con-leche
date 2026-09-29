@@ -3,11 +3,9 @@ module
 public import ConLeche.Model.Inductives.GenRecStage
 public import ConLeche.Model.Inductives.BlockRecData
 public import ConLeche.Model.Inductives.BlockRecTyShapeRun
-import ConLeche.Verify.CheckerF
 import ConLeche.Model.Inductives.BlockDeclRun
 import ConLeche.Model.Inductives.ClassGenRead
 import ConLeche.Model.Annot.BitRename
-import ConLeche.Verify.Inductives.NestCallSyn
 import ConLeche.Verify.Rules.InferBridge
 
 public section

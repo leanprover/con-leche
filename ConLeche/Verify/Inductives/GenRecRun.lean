@@ -6,7 +6,6 @@ public import ConLeche.Verify.Inductives.BlockRecRun
 import ConLeche.Verify.ExceptBind
 import ConLeche.Verify.Inductives.DirectInv
 import ConLeche.Verify.CheckerF
-import ConLeche.Verify.Extend.Inversions
 
 public section
 

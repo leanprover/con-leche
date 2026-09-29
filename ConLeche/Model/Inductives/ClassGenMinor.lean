@@ -16,7 +16,6 @@ import ConLeche.Model.Annot.BitInst
 import ConLeche.Model.Annot.BitRename
 import ConLeche.Model.Annot.Valid
 import ConLeche.Model.Annot.LfpFormer
-import ConLeche.Semantics.DeclRun
 import ConLeche.Verify.Abstract
 import ConLeche.Semantics.Kit
 import ConLeche.Semantics.Tower.FixTower

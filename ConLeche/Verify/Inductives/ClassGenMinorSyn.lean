@@ -1,12 +1,7 @@
 module
 
 public import ConLeche.Verify.Inductives.ClassGenScope
-public import ConLeche.Verify.Subst
-import ConLeche.Verify.Inductives.ClassGenAnnot
-import ConLeche.Verify.Abstract
-import ConLeche.Verify.Leaves
 import ConLeche.Verify.Inductives.NestScope
-import ConLeche.Verify.Inductives.NestCallSyn
 
 public section
 

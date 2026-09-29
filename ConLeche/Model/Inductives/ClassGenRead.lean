@@ -7,7 +7,6 @@ import ConLeche.Verify.Rules.InferBridge
 import ConLeche.Verify.Mono
 import ConLeche.Verify.Denote.IndFrame
 import ConLeche.Verify.Leaves
-import ConLeche.Semantics.DeclRun
 public import ConLeche.Model.Inductives.ClassRecKit
 import ConLeche.Verify.Denote.Shift
 import ConLeche.Model.Annot.BitRename
