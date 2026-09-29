@@ -28,11 +28,10 @@ in official's order (`declare_inductive_types`, `check_constructors`,
    constructors consed, the recursor stage, and the projection table at
    every structure-like member.
 
-The recursor stage (`BlockTail.lean`) CHECKS the stream's recursors
-(primitive recursion, `targetRecCheck`) at every `k`, then runs the reject-only,
-unverified conformance check (`checkBlockRecConform`, in
-`ConLeche/Conformance/`: the one-member recursor generator, generate
-and compare), through `thenConform`.
+The recursor stage (`BlockTail.lean`) GENERATES the recursors
+(`genRecCheck`, `GenRec.lean`) at every `k`: the stream's recursor
+types are compared with the generated ones, the stream's rules are
+never read.
 -/
 
 -- the `simp only` sets below are written for robustness against the
@@ -258,7 +257,7 @@ def checkAbsCtorSortsAll (ops : CheckerOps m) (env : Env) (ctx : NestCtx) :
 are the first former's opened telescope, `find?`/`consts` the
 environment's lookup (the pure `Env`'s or the index's), with the
 members' holes (`nestHoles`).  Built by the positivity check and again by
-the recursor check's seeds (`checkBlockSeeds`), from the same inputs. -/
+the recursor stage's seeds (`genRecCheck`), from the same inputs. -/
 def blockNestCtx (p : BlockShape) (cvTas : List ConstantVal)
     (find? : Name → Option ConstantInfo) (consts : List ConstantInfo) :
     m (NestCtx × List Expr) := do
@@ -274,8 +273,8 @@ section docstring), at the walk's context (`blockNestCtx`): the root
 frame and its own lines.  Returns the walk's field kinds, its normal
 forms (member-abstracted, at the walk's context; OUTPUT only: nothing is
 stored from them) and its state — the cache and the recorded constructor
-normal forms, which the recursor check's seeds continue
-(`checkBlockSeeds`); the walk's verdict is the install's. -/
+normal forms, which the recursor stage's seeds continue
+(`genRecCheck`); the walk's verdict is the install's. -/
 def checkBlockPositivity (ops : CheckerOps m) (env₁ : Env) (find? : Name → Option ConstantInfo)
     (consts : List ConstantInfo) (p : BlockParts) (cvTas : List ConstantVal)
     (ctorsAs : List (List (ConstantVal × Nat))) :
@@ -306,7 +305,7 @@ structure BlockPass (E : Type) where
   nfs : List (List Expr)
   /-- the positivity walk's state after the members' constructors (its
   cache and the recorded constructor normal forms, `NestCtorNf`), which
-  the recursor check's seeds continue (`checkBlockSeeds`);
+  the recursor stage's seeds continue (`genRecCheck`);
   installer-local, never stored -/
   pos : NestState
 

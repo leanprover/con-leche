@@ -28,9 +28,7 @@ the stored constructors (`checkBlockPositivity`,
 `ConLeche/Kernel/Inductives/BlockInstall.lean`), and the model inverts
 that run (`checkBlockPositivity_inv_gen`, `StoredFieldShapes`).  The
 capability record's `is_rec` is NOT read off its kinds: official's is
-syntactic (`blockRawRec`).  There is no second classifier: the
-reject-only recursor conformance check computes its own
-(`ConLeche/Conformance/RecGen.lean`).
+syntactic (`blockRawRec`).  There is no second classifier.
 -/
 
 -- the `simp only` sets below are written for robustness against the
@@ -307,8 +305,8 @@ class is a node BY CONSTRUCTION — an occurrence whnf erases among
 them.
 
 **Accepted superset of official** (the charter's item 8; with an e2e
-fixture; a reject-only check would go into
-`ConLeche/Conformance/`, never into this function): official locates
+fixture; a reject-only check would go into a separate unverified
+stage, never into this function): official locates
 nested instances SYNTACTICALLY, before any whnf (`replace_all_nested`
 :1043), so a container reached only by reduction (`F T`,
 `F α := List α`) is a "non valid occurrence" there; here the container

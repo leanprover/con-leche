@@ -112,8 +112,8 @@ constructors' environment, where the recursor is absent.  The flushes
 are the drivers' own discipline (`flushC` at every environment
 transition), placed where the transitions are: the stage's `feR` half
 is exactly those two operations, the `annotate` first and the
-`inferType` last (`targetRule`,
-`ConLeche/Kernel/Inductives/RecCheck.lean`).  Every other
+`inferType` last (`classRuleOk`,
+`ConLeche/Kernel/Inductives/GenRec.lean`, infers only).  Every other
 operation is `sharedOpsC`'s. -/
 def sharedOpsRuleR (fe : FEnv) : CheckerOps CheckCM :=
   { sharedOpsC mode fe with

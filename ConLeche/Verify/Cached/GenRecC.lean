@@ -18,12 +18,13 @@ public section
 
 The generated recursor stage `genRecCheck`
 (`ConLeche/Kernel/Inductives/GenRec.lean`) is written once over
-`ShadowOps`, like the target check: the pure install is to run it at
-`ShadowOps.ofOps`, the cached driver at `shadowOpsC`.  This file proves
-the cached run reproduced by the pure fueled one (`genRecCheckS_simG`,
-`genRecCheckS_run`) — the twin of `targetRecCheckS_simG`/
-`targetRecCheckS_run` (`TargetRecC.lean`), whose per-operation
-simulations it reuses.
+`ShadowOps`: the pure install runs it at `ShadowOps.ofOps`
+(`checkBlockRec`), the cached driver at `shadowOpsC` (`checkBlockTailS`).
+This file proves the cached run reproduced by the pure fueled one
+(`genRecCheckS_simG`, `genRecCheckS_run`), reusing the class kit's
+per-operation simulations (`TargetRecC.lean`), and with it the cached
+uniform install (`checkBlockTailS_run`, `checkBlockKS_run`) and the
+`.indDecl` dispatch (`checkModeledOrNativeSF_run`).
 
 Scoping, per cached operation:
 * the stream's recursor types and the GENERATED types are closed by

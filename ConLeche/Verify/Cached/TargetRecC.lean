@@ -12,27 +12,12 @@ public section
 /-!
 # The cached recursor stage, bridged: the TARGET check
 
-The recursor stage is the classification-free
-`targetRecCheck` (`ConLeche/Kernel/Inductives/RecCheck.lean`), written
-once over `ShadowOps`: the pure install runs it at `ShadowOps.ofOps`
-(`checkBlockRecT`), the cached driver at `shadowOpsC`
-(`checkBlockRecS`, `ConLeche/Cached/CheckerC.lean`).  This file proves
-the cached run reproduced by the pure fueled one
-(`targetRecCheckS_run`), and with it the cached uniform install
-(`checkBlockTailS_run`, `checkBlockKS_run`) and the `.indDecl` dispatch
-(`checkModeledOrNativeSF_run`).
-
-The layout follows `BlockRunC.lean`'s:
-
-1. the scoping facts every cached operation's simulation needs — the
-   target check's terms are opened telescopes, the member-ABSTRACTED
-   field types (holes `.fvar (base + t)` past the frame), the fields'
-   whnf-telescopes, and the primitive-recursion abstraction's residue,
-   whose `ih` variables sit at `base + r` (`targetAbstract_scope`);
-2. the operation-free stages, the single-environment stages
-   (`targetRecTy`) and the rule stage (`SimG`, two environments) as
-   simulations;
-3. the assembly, the install and the dispatch.
+The recursor stage's class kit (`ConLeche/Kernel/Inductives/RecCheck.lean`:
+the class match, a class resolved and its pins, node agreement) at the
+cached driver: each operation's simulation by the pure fueled one, the
+scoping facts they need, and the cons at the majors (`consBlockRecsTF`,
+`envWF_consBlockRecsT`).  The generated stage itself and the cached
+uniform install are simulated in `GenRecC.lean`.
 -/
 
 set_option linter.unusedSimpArgs false

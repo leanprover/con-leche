@@ -12,11 +12,11 @@ public section
 /-!
 # The recursor stage's KIND-FREE facts
 
-The recursor stage is the classification-free target
-check (`checkBlockRecT`, `targetRecCheck` at the constructors' index).
-Every proof about the stage reads ONE record of what that check
+The recursor stage is the generated one (`genRecCheck` at the
+constructors' index, `recStage_of_gen`, `Model/Inductives/GenRecStage.lean`).
+Every proof about the stage reads ONE record of what the stage
 guarantees about the family it stores — `RecStage` — and never unfolds
-the check:
+it:
 
 * the records' pins (the level parameters, the reserved names, the
   name set);

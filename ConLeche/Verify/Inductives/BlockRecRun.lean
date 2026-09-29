@@ -10,14 +10,13 @@ import ConLeche.Verify.Shift
 public section
 
 /-!
-# Stage (b)'s record and the shared prefix's inversion
+# Stage (b)'s record
 
 `RecTyEntry`: one recursor's type as checked against its MAJOR member —
 the checked constant, the member's former and its parameter domains, the
-major at the index binders, the conclusion's sort.  The target check's
-run produces it (`recTyEntry_of_targetG`, `Verify/Inductives/RecStage.lean`),
-and the stage record `RecStage` hands it out per recursor.  Also the
-inversion of the family's shared rule prefix (`checkBlockRecPrefixAgree`).
+major at the index binders, the conclusion's sort.  The stage record
+`RecStage` hands it out per recursor in its member set `memR` (empty at
+the generated stage, `recStage_of_gen`).
 -/
 
 namespace ConLeche

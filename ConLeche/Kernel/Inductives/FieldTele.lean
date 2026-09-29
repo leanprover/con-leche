@@ -8,8 +8,7 @@ public import ConLeche.Kernel.ExprOps
 # Constructor fields: their kinds and their telescopes
 
 The field-level vocabulary the uniform installer (`BlockParts`,
-`BlockRec`, `BlockInstall`), the model and the recursor conformance
-check (`ConLeche/Conformance/`) share:
+`BlockRec`, `BlockInstall`) and the model share:
 
 * `RecFieldKind` — a field's kind: `.ordinary` (the domain does not
   mention the block), `.recursive` (`T p⃗ e⃗`), `.reflexive`

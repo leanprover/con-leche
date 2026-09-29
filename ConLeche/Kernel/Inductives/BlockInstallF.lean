@@ -180,10 +180,10 @@ def consBlockRecsBareF (p : BlockShape) : Nat → List (ConstantVal × Nat) → 
       (fe.push (.recInfo cvRa (p.majorIdxAt m) (p.rulePrefixAt m) []))
 
 /-!
-The recursor stage has NO `F` twin here: its check is written once over
-the index (`targetRecCheck`, `RecCheck.lean`, run by `checkBlockRecT` and
-the cached `checkBlockRecS`); `consBlockRecsBareF` is the environment
-holding the `k` rule-less recursors its rules are annotated at.
+The recursor stage has NO `F` twin here: it is written once over the
+index (`genRecCheck`, `GenRec.lean`, run by `checkBlockRec` and by the
+cached `checkBlockTailS`); `consBlockRecsBareF` is the environment
+holding the rule-less recursors its rules are inferred at.
 -/
 
 /-! ## The tables and the install -/

@@ -63,17 +63,13 @@ def ShadowOps.fueled (mode : CheckMode) (F : Nat) : ShadowOps CheckM :=
 /-! ## The holes: the block's members abstracted to free variables
 
 Charter item 2: *the holes are ordinary open terms (members abstracted
-to fvars)*.  A call's typing (the field is a value of the callee's
-major type) is checked on the member-ABSTRACTED terms, not on the
-concrete ones, because that is the only form whose soundness says
+to fvars)*.  A class's parameters are compared with a recorded
+instantiation on the member-ABSTRACTED terms (`targetClassMatch`), not
+on the concrete ones, because that is the only form whose soundness says
 something at the model's SEPARATED tuple: a defeq run on the concrete
 terms (members as constants, read as their carriers) equates the two
-readings at the carrier alone, and the graph recursor's induction
-(`GraphRecKit.ind`, via the recorded lfp clause) needs the called field
-to land in the separated tuple — "the field is a hole at the callee's
-class", which no carrier-level equation gives.  On the abstract
-terms the same defeq holds at EVERY value of the holes, the separated
-tuple included.
+readings at the carrier alone.  On the abstract terms the same defeq
+holds at EVERY value of the holes, the separated tuple included.
 
 Member `t` at the block's levels becomes `.fvar (base + t) T_t.type`
 (the former's own closed type, so the hole is applied to the
@@ -88,11 +84,7 @@ hole-free abstract term IS a concrete one.  Memoised on the node (tower-shaped D
 rewrites free variables' annotations too, and here the frame's fields
 must keep their concrete types (see below) — an abstracted annotation
 would make every domain that names an earlier recursive field look
-holed, and put hole variables into the `ih` types.  The call's TYPING,
-though, reads the fields' annotations at the holes too, as the
-positivity check does: it runs at the abstract frame, where each field is
-moved to a copy past the holes whose annotation is abstracted
-(`targetMoveF`, `targetAbsFields`, F-RPW-1). -/
+holed. -/
 
 /-- The member abstraction of one term: every member at the block's
 levels becomes its hole; `fvar` annotations are not entered. -/
@@ -307,7 +299,7 @@ holes.  The two comparisons of the recursor check against the
 positivity check — the class's recorded normal forms, a call's callee
 against its field (K.53′) — both run this one function, so a match
 found at one is a match at the other.  (A class is a node of the walk by
-construction — its seed, `checkBlockSeeds` — and matches that node's key
+construction — its seed, `classSeeds` (`GenRec.lean`) — and matches that node's key
 syntactically, up to the free variables' annotations.) -/
 
 /-- A term over the walk's canonical parameter variables, moved to the
@@ -348,7 +340,7 @@ def targetClassMatch (ops : CheckerOps m) (env : Env) (p : BlockShape) (formerTy
     (targetAbs p.memberNames (p.lps.map .param) (targetHoles formerTys pfvs.length)) pfvs ds eds
 
 /-- **The walk's recorded constructor normal forms of a class** (K.53′):
-the entries (the table `checkBlockSeeds` returns) of the class's constructors `ctors`
+the entries (the positivity walk's table after the seeds) of the class's constructors `ctors`
 whose instantiation the class matches (`targetClassMatch`). -/
 def targetMajorNfs (ops : CheckerOps m) (env : Env) (p : BlockShape) (formerTys : List Expr)
     (pfvs : List Expr) (us : List Level) (ds : List Expr) (ctors : List (ConstantVal × Nat)) :
@@ -426,7 +418,7 @@ def targetMajorOf (fe : FEnv) (p : BlockShape)
       -- member and no hole targets no class.  Read without whnf and without
       -- entering a free variable's annotation (`nestOcc` at an empty hole
       -- range).  Every class resolved here SEEDS the positivity walk
-      -- (`checkBlockSeeds`, after stage (b)), so it is a node of the walk by
+      -- (`classSeeds`, `GenRec.lean`), so it is a node of the walk by
       -- construction: nothing ties it to a node here.
       unless ds.any (fun x => x.nestOcc p.memberNames 0 0) do
         throw (.invalid "target rec: the recursor's major is an outside inductive at an \
