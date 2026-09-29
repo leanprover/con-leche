@@ -22,6 +22,7 @@ public import ConLeche.Verify.Cached.BridgeCS4
 public import ConLeche.Verify.Cached.BridgeCSDecl
 public import ConLeche.Verify.Cached.BlockRunC
 public import ConLeche.Verify.Cached.BridgeC
+public import ConLeche.Verify.Cached.GenRecC
 public import ConLeche.Verify.Cached.MainC
 public import ConLeche.Verify.Cached.AgreeFloor
 public import ConLeche.Verify.Cached.PushChain
