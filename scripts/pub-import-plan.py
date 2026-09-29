@@ -61,6 +61,14 @@ FALLBACK = {
     # `GenRecRun.lean:74`; unknown identifier `TargetMajorRun`, `:103`).
     ('ConLeche.Verify.Inductives.GenRecRun', 'ConLeche.Kernel.Inductives.GenRec'),
     ('ConLeche.Verify.Inductives.GenRecRun', 'ConLeche.Verify.Inductives.RecCheckRun'),
+    # sub-lane GENREC-D: the generated stage's cached simulation states its
+    # lemmas over the stage's kernel data (`ClassSlot`, `classReadSlots`, …)
+    # and the cached kit's (`WScoped`, `CState`, `TargetMajScoped`, `SimG`
+    # through `TargetRecC`'s re-exports); each MEASURED by demoting it alone
+    # (unknown identifier `ClassSlot`, `GenRecC.lean:52`; unknown identifier
+    # `WScoped`, `:69`).
+    ('ConLeche.Verify.Cached.GenRecC', 'ConLeche.Kernel.Inductives.GenRec'),
+    ('ConLeche.Verify.Cached.GenRecC', 'ConLeche.Verify.Cached.TargetRecC'),
     # lane LIBMERGE (the block library merged into fewer modules): four
     # re-exports the model calls demotable, each MEASURED by demoting it
     # alone.  `BlockRecTower`'s public statements name `dnegSpace`,

@@ -1,7 +1,8 @@
 module
 
 public import ConLeche.Verify.Cached.TargetRecC
-public import ConLeche.Verify.Inductives.GenRecRun
+public import ConLeche.Kernel.Inductives.GenRec
+import ConLeche.Verify.Inductives.GenRecRun
 import ConLeche.Verify.Inductives.GenRecDatF
 import ConLeche.Verify.Inductives.RecStage
 import ConLeche.Verify.BridgeWfImp
