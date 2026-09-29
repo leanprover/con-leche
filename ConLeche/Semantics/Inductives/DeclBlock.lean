@@ -59,7 +59,7 @@ def DeclBlockRun (μ : CheckMode) (F : Nat) (env : Env) (block : List ConstantIn
     --    member-abstracted types typed at the holes' context; its field
     --    kinds are the block's `is_rec`, its normal forms the model's fields
     --    with holes
-    checkBlockPositivity (m := ConLeche.CheckM) (fueledOps μ F) env₁ env₁.find? env₁.consts p
+    checkBlockPositivity (m := ConLeche.CheckM) (fueledOps μ F) env₁ env₁.find? p
       cvTas ctorsAs = .ok (kinds, nfs, pos) ∧
     -- 4  the formers carry the record at official's `is_rec`, the syntactic one
     isRec = blockRawRec p₀ ∧

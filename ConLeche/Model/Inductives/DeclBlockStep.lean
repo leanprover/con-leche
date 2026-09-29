@@ -444,23 +444,13 @@ theorem declBlock (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
         injection hf with hf; injection hf with hcv' hcaps
         rw [← hcaps, blockCapsAt_all]; rfl)
       (blockLfpOwn (d := blockDataOf V p₁ ctorsAs pk uOf ppsOf) (lps := p₁.lps)
-        (consBlockCtors_consts p₁.nP ctorsAs env₁)
-        (fun m hm => by
-          rw [henv₁, List.filterMap_append]
-          obtain ⟨cvTa, hcv⟩ := hcvOfK m hm
-          have hnil : newI.filterMap
-              (ctorEntry ((blockDataOf V p₁ ctorsAs pk uOf ppsOf).memberName m)) = [] := by
-            rw [List.filterMap_eq_nil_iff]
-            intro c hc
-            obtain ⟨cv', -, j, rfl⟩ := hnewIall c hc
-            rfl
-          rw [hnil, List.nil_append]
-          exact ctorEntries_fresh mp.base2.wf (by rw [hN.1 m cvTa hcv]; exact hF.freshOf m cvTa hcv))
-        hlenCtorsAs (fun _ => rfl) hndM hkLen.symm hheadK
+        (fun _ => rfl) hheadK
         (fun m hm => by
           obtain ⟨cvTb, hcv⟩ := hcvOfK m hm
-          refine ⟨cvTb, _, by rw [hN.1 m cvTb hcv]; exact (hcoreC.1 m cvTb hcv).1,
-            blockCapsAt_nparams _ _ _, hF.lpsOf m cvTb hcv⟩)
+          have hf := (hcoreC.1 m cvTb hcv).1
+          refine ⟨cvTb, _, by rw [hN.1 m cvTb hcv]; exact hf,
+            blockCapsAt_nparams _ _ _, hF.lpsOf m cvTb hcv, ?_⟩
+          rw [blockCapsAt_ctors, ctorsAs_names_getD hnames])
         hlpsNd
         (fun ψ => by
           obtain ⟨cvTb, hcv⟩ := hcvOfK 0 hk0
@@ -659,13 +649,18 @@ theorem declBlock (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
   -- ## the recursors' stage, and the tables' invariant across it
   -- the stage's run and the block's constructors' heads
   have hR := ConLeche.checkBlockRec_run hRec
-  have hheads : ∀ c ∈ ctorsAs.flatten, ∀ C,
+  have hheads : ∀ c ∈ ctorsAs.flatten, env₁.find? c.1.name = none ∧ ∀ C,
       (ctorEntry C (.ctorInfo c.1 (p₀.complete p₁).nP c.2)).isSome = true →
       C ∈ (p₀.complete p₁).toBlockShape.memberNames := by
-    intro c hc C hC
+    intro c hc
     obtain ⟨l, hl, hcl⟩ := List.mem_flatten.mp hc
     obtain ⟨m, hm, rfl⟩ := List.getElem_of_mem hl
     have hmk : m < p₁.k := by rw [← hlenCtorsAs]; exact hm
+    refine ⟨?_, fun C hC => ?_⟩
+    · obtain ⟨j, hj⟩ := List.getElem?_of_mem hcl
+      exact hfreshC m j c (by
+        show (ctorsAs.getD m [])[j]? = _
+        rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hm, Option.getD_some]; exact hj)
     obtain ⟨bs, body, us, hs, hg⟩ := hheadK m hmk c (by
       rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hm]; exact hcl)
     rw [ctorEntry_head rfl hs hg hC]

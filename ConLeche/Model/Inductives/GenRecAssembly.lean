@@ -122,7 +122,7 @@ check's. -/
     (kindsR : List (List (List ConLeche.NestFieldKind))) (nfsR : List (List Expr))
     (posR : ConLeche.NestState) : Prop :=
   ConLeche.checkBlockPositivity (m := ConLeche.CheckM) (ConLeche.fueledOps μ F) envI
-      envI.find? envI.consts pp cvTasR ctorsAsR = .ok (kindsR, nfsR, posR) ∧
+      envI.find? pp cvTasR ctorsAsR = .ok (kindsR, nfsR, posR) ∧
   envC = ConLeche.consBlockCtors pp.nP ctorsAsR envI ∧
   ctorsAsR.map (·.map (fun cA => (cA.1.name, cA.2)))
     = pp.members.map (fun ms => ms.ctors.map (fun c => (c.1.name, c.2))) ∧
@@ -144,8 +144,9 @@ check's. -/
   Nonempty (GenRecRun μ F (ConLeche.mkFEnv envI) envI (ConLeche.mkFEnv envC) pp.toBlockShape
     (ConLeche.blockNestedBit pp.toBlockShape kindsR) posR cvTasR block ctorsAsR out) ∧
   -- the block's constructors conclude in its members
-  (∀ c ∈ ctorsAsR.flatten, ∀ C, (ctorEntry C (.ctorInfo c.1 pp.nP c.2)).isSome = true →
-    C ∈ pp.toBlockShape.memberNames)
+  (∀ c ∈ ctorsAsR.flatten, envI.find? c.1.name = none ∧
+    ∀ C, (ctorEntry C (.ctorInfo c.1 pp.nP c.2)).isSome = true →
+      C ∈ pp.toBlockShape.memberNames)
 
 /-- **The induction over the classes' majors, at the GENERATED calls**
 (`TgtClassInd` with `genCallT` in place of the target check's calls):

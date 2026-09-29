@@ -793,9 +793,9 @@ theorem nestSeeds_datF (env : Env) (ctx : ConLeche.NestCtx) (F : Nat) :
       nestSeeds_datF env ctx F ks]
 
 theorem blockNestCtx_datF (p : BlockShape) (cvTas : List ConstantVal)
-    (find? : Name → Option ConstantInfo) (consts : List ConstantInfo) (F : Nat) :
-    (blockNestCtx (m := FueledM) p cvTas find? consts).val F =
-      blockNestCtx (m := CheckM) p cvTas find? consts := by
+    (find? : Name → Option ConstantInfo) (F : Nat) :
+    (blockNestCtx (m := FueledM) p cvTas find?).val F =
+      blockNestCtx (m := CheckM) p cvTas find? := by
   unfold blockNestCtx
   simp only [FueledM.atF_bind, FueledM.atF_pure, unwrapOr_atF]
 
@@ -1012,10 +1012,10 @@ theorem checkBlockRec_datF (env₁ env : Env) (p : BlockParts) (nested : Bool)
   exact genRecCheck_datF _ _ _ _ _ _ _ _ _ F
 
 theorem checkBlockPositivity_datF (env₁ : Env) (find? : Name → Option ConstantInfo)
-    (consts : List ConstantInfo) (p : BlockParts) (cvTas : List ConstantVal)
+    (p : BlockParts) (cvTas : List ConstantVal)
     (ctorsAs : List (List (ConstantVal × Nat))) (F : Nat) :
-    (checkBlockPositivity (fueledOpsM mode) env₁ find? consts p cvTas ctorsAs).val F
-      = checkBlockPositivity (fueledOps mode F) env₁ find? consts p cvTas ctorsAs := by
+    (checkBlockPositivity (fueledOpsM mode) env₁ find? p cvTas ctorsAs).val F
+      = checkBlockPositivity (fueledOps mode F) env₁ find? p cvTas ctorsAs := by
   unfold checkBlockPositivity
   simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw, FueledM.atF_ite,
     blockNestCtx_datF, nestRoot_datF, nestRootLinesAll_datF, checkAbsCtorSortsAll_datF]

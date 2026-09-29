@@ -47,8 +47,9 @@ variable {V : Type w} [SetTheory V] {μ : ConLeche.CheckMode}
 /-! ## Constructor ownership
 
 A container frame reads a recorded member's constructors off the
-environment (`nestContainer`: every stored constructor whose result head
-is the member, in install order).  Ownership says that reading is the
+environment (`nestContainer`: the constructor names the member's stored
+record lists, `IndCaps.ctors`, each looked up and kept when it concludes
+in the member).  Ownership says that reading is the
 block's own list: every stored constructor whose head is a recorded
 member is one of that member's recorded constructors, in order, and a
 member without constructors reads its recorded parameter count.  It is
@@ -67,8 +68,13 @@ container name `C` (its `filterMap` function, verbatim). -/
     | none => none
   | _ => none
 
+/-- The kernel's constructor entry is `ctorEntry`. -/
+theorem nestCtorEntry_eq (C : Name) (ci : ConstantInfo) :
+    ConLeche.nestCtorEntry C ci = ctorEntry C ci := by
+  cases ci <;> rfl
+
 /-- The environment as a walk context: `nestContainer` reads only its
-`find?` and `consts`. -/
+`find?`. -/
 @[expose] def envCtx (env : Env) : ConLeche.NestCtx where
   names := []
   lps := []
@@ -77,13 +83,18 @@ container name `C` (its `filterMap` function, verbatim). -/
   params := []
   sort := .zero
   find? := env.find?
-  consts := env.consts
 
-/-- `nestContainer`'s result from its constructor entries. -/
+/-- `nestContainer`'s result from its constructor entries (in the
+recorded order). -/
 @[expose] def nestPick (caps : ConLeche.IndCaps) :
     List (ConstantVal × Nat × Nat) → Option (Nat × List (ConstantVal × Nat))
   | [] => some (caps.nparams, [])
-  | cs@((_, nPc, _) :: _) => some (nPc, (cs.map fun c => (c.1, c.2.2)).reverse)
+  | cs@((_, nPc, _) :: _) => some (nPc, cs.map fun c => (c.1, c.2.2))
+
+/-- The recorded constructor `n` of `C`, looked up at `find?`. -/
+@[expose] def ctorLook (find? : Name → Option ConstantInfo) (C n : Name) :
+    Option (ConstantVal × Nat × Nat) :=
+  (find? n).bind (ctorEntry C)
 
 theorem filterMap_ext' {α β : Type} {f g : α → Option β} (h : ∀ a, f a = g a)
     (l : List α) : l.filterMap f = l.filterMap g := by
@@ -91,29 +102,52 @@ theorem filterMap_ext' {α β : Type} {f g : α → Option β} (h : ∀ a, f a =
 
 theorem nestContainer_eq (ctx : ConLeche.NestCtx) (C : Name) :
     ConLeche.nestContainer ctx C = match ctx.find? C with
-      | some (.indInfo _ caps) => nestPick caps (ctx.consts.filterMap (ctorEntry C))
+      | some (.indInfo _ caps) => nestPick caps (caps.ctors.filterMap (ctorLook ctx.find? C))
       | _ => none := by
   unfold ConLeche.nestContainer
   split
   · rename_i hfind
     rw [hfind]
     dsimp only
-    rw [filterMap_ext' (g := ctorEntry C)]
+    rw [filterMap_ext' (g := ctorLook ctx.find? C)]
     · unfold nestPick
-      generalize List.filterMap (ctorEntry C) ctx.consts = cs
+      generalize List.filterMap (ctorLook ctx.find? C) _ = cs
       cases cs <;> rfl
-    · intro ci; cases ci <;> rfl
+    · intro n
+      simp only [ctorLook]
+      congr 1
   · next hne =>
     split
     · next h => exact absurd h (hne _ _)
     · rfl
 
+/-- `nestContainer` depends on the context only through its lookup. -/
+theorem nestContainer_find_congr {ctx ctx' : ConLeche.NestCtx}
+    (hfind : ∀ n, ctx.find? n = ctx'.find? n) (C : Name) :
+    ConLeche.nestContainer ctx C = ConLeche.nestContainer ctx' C := by
+  have : ctx.find? = ctx'.find? := funext hfind
+  rw [nestContainer_eq, nestContainer_eq, this]
+
 /-- The walk's context reads `nestContainer` as the environment does. -/
 theorem nestContainer_ctx {env : Env} {ctx : ConLeche.NestCtx}
-    (hfind : ∀ n, ctx.find? n = env.find? n) (hconsts : ctx.consts = env.consts) (C : Name) :
-    ConLeche.nestContainer ctx C = ConLeche.nestContainer (envCtx env) C := by
-  rw [nestContainer_eq, nestContainer_eq, hfind, hconsts]
-  rfl
+    (hfind : ∀ n, ctx.find? n = env.find? n) (C : Name) :
+    ConLeche.nestContainer ctx C = ConLeche.nestContainer (envCtx env) C :=
+  nestContainer_find_congr hfind C
+
+/-- Two environments that agree at `C` and at every recorded
+constructor's entry read `C`'s container alike. -/
+theorem nestContainer_congr {env env' : Env} {C : Name}
+    (hC : env'.find? C = env.find? C)
+    (hn : ∀ n, ctorLook env'.find? C n = ctorLook env.find? C n) :
+    ConLeche.nestContainer (envCtx env') C = ConLeche.nestContainer (envCtx env) C := by
+  rw [nestContainer_eq, nestContainer_eq]
+  show (match env'.find? C with
+      | some (.indInfo _ caps) => nestPick caps (caps.ctors.filterMap (ctorLook env'.find? C))
+      | _ => none) = (match env.find? C with
+      | some (.indInfo _ caps) => nestPick caps (caps.ctors.filterMap (ctorLook env.find? C))
+      | _ => none)
+  have : ctorLook env'.find? C = ctorLook env.find? C := funext hn
+  rw [hC, this]
 
 /-- A cons whose head is no constructor of `C`, at a stored `C`, keeps
 `C`'s constructor list. -/
@@ -122,13 +156,12 @@ theorem nestContainer_cons {env : Env} {c₀ : ConstantInfo} {C : Name}
     (hent : ctorEntry C c₀ = none) :
     ConLeche.nestContainer (envCtx ⟨c₀ :: env.consts⟩) C
       = ConLeche.nestContainer (envCtx env) C := by
-  rw [nestContainer_eq, nestContainer_eq]
-  show (match (⟨c₀ :: env.consts⟩ : Env).find? C with
-      | some (.indInfo _ caps) => nestPick caps ((c₀ :: env.consts).filterMap (ctorEntry C))
-      | _ => none) = (match env.find? C with
-      | some (.indInfo _ caps) => nestPick caps (env.consts.filterMap (ctorEntry C))
-      | _ => none)
-  rw [ConLeche.Env.find?_cons_of_isSome hfresh hC, List.filterMap_cons, hent]
+  refine nestContainer_congr (ConLeche.Env.find?_cons_of_isSome hfresh hC) fun n => ?_
+  simp only [ctorLook]
+  rw [ConLeche.Env.find?_cons]
+  split
+  · next heq => subst heq; rw [hfresh]; simp [hent]
+  · rfl
 
 /-- **A recorded block's constructor ownership** (`ContBlockOk.ctors`/
 `noCtors`, at the environment's own context). -/
@@ -274,26 +307,13 @@ theorem hhead_ctor {env : Env} {ex : List Name} {c₀ : ConstantInfo} {cv : Cons
   rw [ctorEntry_head hc hs hg h]
   exact hT
 
-/-- **No stored constructor has a fresh head.** -/
-theorem ctorEntries_fresh {env : Env} (hwf : ConLeche.EnvWF env) {C : Name}
-    (hC : env.find? C = none) : env.consts.filterMap (ctorEntry C) = [] := by
-  rw [List.filterMap_eq_nil_iff]
-  intro ci hci
-  cases h : ctorEntry C ci with
-  | none => rfl
-  | some _ =>
-    have := ctorEntry_isSome_found
-      (ConLeche.Semantics.envWF_constsBound hwf ci hci).1 (by rw [h]; rfl)
-    rw [hC] at this
-    exact nomatch this
-
 omit [SetTheory V] in
 /-- **Ownership at a one-member block**, from its former, its stored
 constructor entries and their lookups. -/
 theorem lfpOwn_one {env : Env} {D : LfpDatum V} {T : Name} {cv : ConstantVal}
     {caps : ConLeche.IndCaps} {cs : List (ConstantVal × Nat × Nat)}
     (hk : D.k = 1) (hm : D.member 0 = T) (hf : env.find? T = some (.indInfo cv caps))
-    (hcs : env.consts.filterMap (ctorEntry T) = cs)
+    (hcs : caps.ctors.filterMap (ctorLook env.find? T) = cs)
     (hctors : ∃ nP' L, nestPick caps cs = some (nP', L) ∧ L.length = D.nctors 0 ∧
       ∀ j (hj : j < L.length), env.find? (D.ctorName 0 j) = some (.ctorInfo L[j].1 nP' L[j].2))
     (hno : ∀ nP', nestPick caps cs = some (nP', []) →
@@ -306,9 +326,11 @@ theorem lfpOwn_one {env : Env} {D : LfpDatum V} {T : Name} {cv : ConstantVal}
   have hnc : ConLeche.nestContainer (envCtx env) T = nestPick caps cs := by
     rw [nestContainer_eq]
     show (match env.find? T with
-      | some (.indInfo _ caps) => nestPick caps (env.consts.filterMap (ctorEntry T))
+      | some (.indInfo _ caps) => nestPick caps (caps.ctors.filterMap (ctorLook env.find? T))
       | _ => none) = _
-    rw [hf, hcs]
+    rw [hf]
+    show nestPick caps (caps.ctors.filterMap (ctorLook env.find? T)) = _
+    rw [hcs]
   refine ⟨fun c hc => ?_, fun c hc nP' hL => ?_, fun c hc => ?_, fun c hc j hj => ?_⟩
   · obtain rfl : c = 0 := by omega
     rw [hm, hnc]; exact hctors
@@ -330,9 +352,9 @@ theorem lfpOwn_one {env : Env} {D : LfpDatum V} {T : Name} {cv : ConstantVal}
 omit [SetTheory V] in
 /-- **Ownership at a one-member block without constructors**, recorded
 right after its former's cons. -/
-theorem lfpOwn_former0 {env : Env} (hwf : ConLeche.EnvWF env) {c₀ : ConstantInfo}
+theorem lfpOwn_former0 {env : Env} {c₀ : ConstantInfo}
     {cv : ConstantVal} {caps : ConLeche.IndCaps} (hc : c₀ = .indInfo cv caps)
-    (hfresh : env.find? c₀.name = none) {D : LfpDatum V} (hk : D.k = 1)
+    (hcn : caps.ctors = []) {D : LfpDatum V} (hk : D.k = 1)
     (hm : D.member 0 = c₀.name) (hn : D.nctors 0 = 0) (hnd : cv.levelParams.Nodup)
     (hp : ∀ ψ, (D.params ψ).length = caps.nparams) : LfpOwn ⟨c₀ :: env.consts⟩ D := by
   subst hc
@@ -346,9 +368,7 @@ theorem lfpOwn_former0 {env : Env} (hwf : ConLeche.EnvWF env) {c₀ : ConstantIn
       simp only [nestPick, Option.some.injEq, Prod.mk.injEq] at h
       obtain ⟨-, rfl⟩ := h
       exact absurd hj (Nat.not_lt_zero j))
-  show (_ :: env.consts).filterMap _ = []
-  rw [List.filterMap_cons]
-  exact ctorEntries_fresh hwf hfresh
+  rw [hcn]; rfl
 
 /-- **Coverage**, except at the names `ex`; with constructor ownership. -/
 structure LfpCover {env : Env} (mp : EnvModelM V μ env) (ex : List Name) : Prop where

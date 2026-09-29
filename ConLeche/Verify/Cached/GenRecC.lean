@@ -274,17 +274,16 @@ theorem blockNestCtxS_sim₂ {env₁ env₂ : Env} (henv₁ : EnvWF env₁) (p :
         (∀ x ∈ v.2, WScoped (v.1.hiAt 0) x ∧ ∃ i ty, x = .fvar i ty) ∧
         (∀ x ∈ v.1.params, WScoped p.nP x) ∧ v.1.params.length = v.1.nP ∧
         nestHoles v.1 = some v.2 ∧ v.1.nP = p.nP)
-      (blockNestCtx (m := CheckCM) p cvTas env₁.find? env₁.consts)
-      (blockNestCtx (m := FueledM) p cvTas env₁.find? env₁.consts) := by
+      (blockNestCtx (m := CheckCM) p cvTas env₁.find?)
+      (blockNestCtx (m := FueledM) p cvTas env₁.find?) := by
   unfold blockNestCtx
   refine SimC.bind (SimC.unwrapOr' hs) (fun s₁ cvTa0 cvTa0' hs₁ hP => ?_)
   obtain ⟨rfl, h0⟩ := hP
   have hw0 : WScoped 0 cvTa0.type := hT _ (List.mem_of_mem_head? h0)
   refine SimC.bind (SimC.unwrapOr' hs₁) (fun s₂ pq pq' hs₂ hP => ?_)
   obtain ⟨rfl, hpq⟩ := hP
-  have hctx : NestCtxOk (p.nestCtx pq.1 env₁.find? env₁.consts) :=
-    ⟨fun ci hci => (henv₁ ci hci).1,
-      fun n ci hf => (henv₁ ci (List.mem_of_find?_eq_some hf)).1⟩
+  have hctx : NestCtxOk (p.nestCtx pq.1 env₁.find?) :=
+    fun n ci hf => (henv₁ ci (List.mem_of_find?_eq_some hf)).1
   have hpar : ∀ x ∈ pq.1, WScoped p.nP x := by
     intro x hx
     have := (openPisAtFvars_WScoped p.nP cvTa0.type 0 hpq hw0).1 x hx

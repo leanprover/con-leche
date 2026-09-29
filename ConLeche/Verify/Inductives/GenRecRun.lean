@@ -564,7 +564,7 @@ structure GenRecRun (mode : CheckMode) (F : Nat) (fe₁ : FEnv) (env₁ : Env) (
   hrd : classRead p.nP (classNPcOf p fe)
     ((p.recs.zip cvRis).map fun (rc, cv) => { rc with cvR := cv }) = some rd
   /-- the block's canonical parameters and holes (the positivity check's context) -/
-  hctx : blockNestCtx (m := CheckM) p cvTas fe₁.find? env₁.consts = .ok (ctx, holes)
+  hctx : blockNestCtx (m := CheckM) p cvTas fe₁.find? = .ok (ctx, holes)
   /-- the classes, each a checked major over the canonical parameters -/
   hMs₀ : classMajors (fueledOps mode F) fe p ctorsAs ctx.params
     (rd.classes.map (classKeyCanon ctx.params)) = .ok Ms₀

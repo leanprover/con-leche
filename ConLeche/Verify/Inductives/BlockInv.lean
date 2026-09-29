@@ -285,7 +285,7 @@ theorem checkBlockPass_inv {env : Env} {p₀ : BlockParts} {isRec : Bool}
       checkBlockInds (fueledOps mode F) env p₀ isRec = .ok (q.env₁, q.cvTas, p₁) ∧
       checkBlockCtors (fueledOps mode F) q.env₁ q.env₁ (p₀.complete p₁).toBlockShape
         ((p₀.complete p₁).members.zip q.cvTas) = .ok (q.ctorsAs, q.sortsss) ∧
-      checkBlockPositivity (m := CheckM) (fueledOps mode F) q.env₁ q.env₁.find? q.env₁.consts
+      checkBlockPositivity (m := CheckM) (fueledOps mode F) q.env₁ q.env₁.find?
         (p₀.complete p₁) q.cvTas q.ctorsAs = .ok (q.kinds, q.nfs, q.pos) ∧
       q.p = p₀.complete p₁ := by
   unfold checkBlockPass at h

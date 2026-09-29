@@ -208,40 +208,7 @@ theorem nestInstType_closed (hc : NestCtxOk ctx) {hi : Nat} {key : NestKey} {nI 
     cty.hasFvar = false := by
   obtain ⟨cvC, caps, hf, -, rfl, -⟩ := nestInstType_inv h
   rw [ConLeche.Expr.hasFvar_instantiateLevelParams]
-  exact hc.2 _ _ hf
-
-/-- A container's constructors come from the context's constants. -/
-theorem nestContainer_mem {C : Name} {nP : Nat} {L : List (ConstantVal × Nat)}
-    (h : nestContainer ctx C = some (nP, L)) :
-    ∀ x ∈ L, ∃ nPc, ConstantInfo.ctorInfo x.1 nPc x.2 ∈ ctx.consts := by
-  intro x hx
-  unfold nestContainer at h
-  split at h
-  · rename_i cv caps hf
-    dsimp only at h
-    split at h
-    · simp only [Option.some.injEq, Prod.mk.injEq] at h
-      obtain ⟨-, rfl⟩ := h
-      exact nomatch hx
-    · rename_i c cs hcs
-      simp only [Option.some.injEq, Prod.mk.injEq] at h
-      obtain ⟨-, rfl⟩ := h
-      rw [List.mem_reverse, List.mem_map] at hx
-      obtain ⟨y, hy, rfl⟩ := hx
-      obtain ⟨ci, hci, hfm⟩ := List.mem_filterMap.mp hy
-      split at hfm
-      · rename_i cv' nPc nF
-        split at hfm
-        · split at hfm
-          · split at hfm
-            · simp only [Option.some.injEq] at hfm
-              subst hfm
-              exact ⟨nPc, hci⟩
-            · exact nomatch hfm
-          · exact nomatch hfm
-        · exact nomatch hfm
-      · exact nomatch hfm
-  · exact nomatch h
+  exact hc _ _ hf
 
 /-- The pure group listing's constructors come from its containers. -/
 theorem groupCtors_mem {nPc : Nat} :
@@ -626,8 +593,8 @@ theorem nestFrame_deriv (hctx : NestCtxOk ctx) (hrec : RunDeriv ops env ctx rec)
   have hcl : ∀ x ∈ ctors, x.1.type.hasFvar = false := by
     intro x hx
     obtain ⟨c, -, nP', L, hL, hxL⟩ := groupCtors_mem hgc' x hx
-    obtain ⟨nPc, hmem⟩ := nestContainer_mem hL x hxL
-    exact hctx.1 _ hmem
+    obtain ⟨n, nPc, hmem⟩ := nestContainer_mem hL x hxL
+    exact hctx _ _ hmem
   obtain ⟨hI₂, ts, hw', hn₂, hcr₂, -⟩ := nestCtors_deriv (fun _ => hrec) hhi' hsc'
     (fun x hx => WScoped.mono (by omega) (hds x hx)) hsub ctors st₁ os st₂ hcl hwc' hI₁
   subst hhi
@@ -1159,41 +1126,41 @@ nodes recorded in the walk's final state `pos`, which keeps the cache
 invariant (the seeds continue from it, `checkBlockSeeds_deriv`), and
 every constructor's entry recorded (`CtorsRec` at the root key). -/
 theorem checkBlockPositivity_deriv {env₁ : Env}
-    {find? : Name → Option ConstantInfo} {consts : List ConstantInfo} {p : BlockParts}
+    {find? : Name → Option ConstantInfo} {p : BlockParts}
     {cvTas : List ConstantVal} {ctorsAs : List (List (ConstantVal × Nat))}
     {kinds : List (List (List NestFieldKind))} {nfs : List (List Expr)} {pos : NestState}
     (hwsc : ∀ dep e w, ops.whnf env₁ dep e = .ok w → WScoped dep e → WScoped dep w)
-    (h : checkBlockPositivity ops env₁ find? consts p cvTas ctorsAs = .ok (kinds, nfs, pos)) :
+    (h : checkBlockPositivity ops env₁ find? p cvTas ctorsAs = .ok (kinds, nfs, pos)) :
     ∃ cvTa0 fvsP rest holes, cvTas.head? = some cvTa0 ∧
       openPisAtFvars p.nP cvTa0.type 0 = some (fvsP, rest) ∧
-      nestHoles (p.nestCtx fvsP find? consts) = some holes ∧
-      (NestCtxOk (p.nestCtx fvsP find? consts) →
-        NestArityOk (p.nestCtx fvsP find? consts) →
-        (∀ x ∈ fvsP, WScoped ((p.nestCtx fvsP find? consts).hiAt 0) x) →
+      nestHoles (p.nestCtx fvsP find?) = some holes ∧
+      (NestCtxOk (p.nestCtx fvsP find?) →
+        NestArityOk (p.nestCtx fvsP find?) →
+        (∀ x ∈ fvsP, WScoped ((p.nestCtx fvsP find?).hiAt 0) x) →
         (∀ (c : Nat) (cs : List (ConstantVal × Nat)), ctorsAs[c]? = some cs →
           ∀ (j : Nat) (cA : ConstantVal × Nat), cs[j]? = some cA → cA.1.type.hasFvar = false) →
         (∀ (c : Nat) (cs : List (ConstantVal × Nat)), ctorsAs[c]? = some cs →
           ∀ cA ∈ cs, cA.1.levelParams = p.lps) →
         (∀ (c : Nat) (cs : List (ConstantVal × Nat)), ctorsAs[c]? = some cs →
           ∀ (j : Nat) (cA : ConstantVal × Nat), cs[j]? = some cA → ∃ crest ks ts,
-            instPisWith fvsP (nestAbstract (p.nestCtx fvsP find? consts) holes cA.1.type)
+            instPisWith fvsP (nestAbstract (p.nestCtx fvsP find?) holes cA.1.type)
               = some crest ∧
-            MemberCtorD ops env₁ (p.nestCtx fvsP find? consts) cA.2 crest ks
+            MemberCtorD ops env₁ (p.nestCtx fvsP find?) cA.2 crest ks
               ((nfs.getD c []).getD j default) ts ∧
             (kinds.getD c []).getD j [] = ks ∧
-            TreeRec ops env₁ (p.nestCtx fvsP find? consts) pos.ctorNfs.toList ts) ∧
-        CtorsRecRoot ops env₁ (p.nestCtx fvsP find? consts) holes pos.ctorNfs.toList ctorsAs ∧
-        DerivCache ops env₁ (p.nestCtx fvsP find? consts) pos) := by
+            TreeRec ops env₁ (p.nestCtx fvsP find?) pos.ctorNfs.toList ts) ∧
+        CtorsRecRoot ops env₁ (p.nestCtx fvsP find?) holes pos.ctorNfs.toList ctorsAs ∧
+        DerivCache ops env₁ (p.nestCtx fvsP find?) pos) := by
   obtain ⟨cvTa0, fvsP, rest, holes, outs, h1, h2, h3, hr, hL, -, rfl, rfl⟩ :=
     checkBlockPositivity_inv h
   refine ⟨cvTa0, fvsP, rest, holes, h1, h2, h3, fun hctx hAr hpar hcl hlps => ?_⟩
-  have hroot := nestRootOk_of_open (ctx := p.nestCtx fvsP find? consts) h2 hAr
+  have hroot := nestRootOk_of_open (ctx := p.nestCtx fvsP find?) h2 hAr
   obtain ⟨hIM, -, hall⟩ := nestRoot_deriv hctx hroot hwsc h3 hpar ctorsAs {} outs pos hr
     (fun cs hcs x hx => by
       obtain ⟨c, hc⟩ := List.getElem?_of_mem hcs
       obtain ⟨j, hj⟩ := List.getElem?_of_mem hx
       exact hcl c cs hc j x hj) derivCache_empty
-  have hRR : CtorsRecRoot ops env₁ (p.nestCtx fvsP find? consts) holes pos.ctorNfs.toList
+  have hRR : CtorsRecRoot ops env₁ (p.nestCtx fvsP find?) holes pos.ctorNfs.toList
       ctorsAs := fun c cs hc => by
     obtain ⟨os, ts, -, -, -, hcr, -⟩ := hall c cs hc
     exact hcr

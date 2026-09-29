@@ -48,35 +48,10 @@ types. -/
 theorem nestContainer_closed {ctx : NestCtx} (hc : NestCtxOk ctx) {C : Name}
     {q : Nat × List (ConstantVal × Nat)} (h : nestContainer ctx C = some q) :
     ∀ x ∈ q.2, x.1.type.hasFvar = false := by
-  unfold nestContainer at h
-  split at h
-  · dsimp only at h
-    generalize hcs : List.filterMap _ ctx.consts = cs at h
-    have hall : ∀ y ∈ cs, y.1.type.hasFvar = false := by
-      intro y hy
-      rw [← hcs] at hy
-      obtain ⟨ci, hci, hmap⟩ := List.mem_filterMap.mp hy
-      split at hmap
-      · split at hmap
-        · split at hmap
-          · split at hmap
-            · simp only [Option.some.injEq] at hmap
-              subst hmap
-              exact hc.1 _ hci
-            · exact nomatch hmap
-          · exact nomatch hmap
-        · exact nomatch hmap
-      · exact nomatch hmap
-    cases cs with
-    | nil => simp only [Option.some.injEq] at h; subst h; intro x hx; exact nomatch hx
-    | cons y0 rest =>
-      simp only [Option.some.injEq] at h
-      subst h
-      intro x hx
-      simp only [List.mem_reverse, List.mem_map] at hx
-      obtain ⟨y, hy, rfl⟩ := hx
-      exact hall y hy
-  · exact nomatch h
+  obtain ⟨nP, L⟩ := q
+  intro x hx
+  obtain ⟨n, nPc, hf⟩ := nestContainer_mem h x hx
+  exact hc _ _ hf
 
 theorem lookup_mem {β : Type} :
     ∀ {l : List (Name × β)} {a : Name} {b : β}, l.lookup a = some b → (a, b) ∈ l
@@ -125,7 +100,7 @@ theorem nestInstTypeS_sim {ctx : NestCtx} (hc : NestCtxOk ctx) (hs : CSOK mode e
     · next cv₀ caps hf =>
       simp only [Option.some.injEq] at hcv
       subst hcv
-      exact hc.2 _ _ hf
+      exact hc _ _ hf
     · exact nomatch hcv
   dsimp only
   split
@@ -705,18 +680,17 @@ theorem blockNestCtxS_sim (henv : EnvWF env) (p : BlockShape) (cvTas : List Cons
         (∀ x ∈ v.2, WScoped (v.1.hiAt 0) x ∧ ∃ i ty, x = .fvar i ty) ∧
         (∀ x ∈ v.1.params, WScoped (v.1.hiAt 0) x) ∧ v.1.params.length = v.1.nP ∧
         nestHoles v.1 = some v.2 ∧ v.1.nP = p.nP)
-      (blockNestCtx (m := CheckCM) p cvTas env.find? env.consts)
-      (blockNestCtx (m := FueledM) p cvTas env.find? env.consts) := by
+      (blockNestCtx (m := CheckCM) p cvTas env.find?)
+      (blockNestCtx (m := FueledM) p cvTas env.find?) := by
   unfold blockNestCtx
   refine SimC.bind (SimC.unwrapOr' hs) (fun s₁ cvTa0 cvTa0' hs₁ hP => ?_)
   obtain ⟨rfl, h0⟩ := hP
   have hw0 : WScoped 0 cvTa0.type := hT _ (List.mem_of_mem_head? h0)
   refine SimC.bind (SimC.unwrapOr' hs₁) (fun s₂ pq pq' hs₂ hP => ?_)
   obtain ⟨rfl, hpq⟩ := hP
-  have hctx : NestCtxOk (p.nestCtx pq.1 env.find? env.consts) :=
-    ⟨fun ci hci => (henv ci hci).1,
-      fun n ci hf => (henv ci (List.mem_of_find?_eq_some hf)).1⟩
-  have hpar : ∀ x ∈ pq.1, WScoped ((p.nestCtx pq.1 env.find? env.consts).hiAt 0) x := by
+  have hctx : NestCtxOk (p.nestCtx pq.1 env.find?) :=
+    fun n ci hf => (henv ci (List.mem_of_find?_eq_some hf)).1
+  have hpar : ∀ x ∈ pq.1, WScoped ((p.nestCtx pq.1 env.find?).hiAt 0) x := by
     intro x hx
     have := (openPisAtFvars_WScoped p.nP cvTa0.type 0 hpq hw0).1 x hx
     rw [Nat.zero_add] at this
@@ -735,9 +709,9 @@ theorem checkBlockPositivityS_sim (hμ : mode.verifiedChecks = true) (henv : Env
     (hct : ∀ ctorsA ∈ ctorsAs, ∀ c ∈ ctorsA, WScoped 0 c.1.type)
     {s₀ : CState} (hs : CSOK mode env s₀) :
     SimC mode env s₀ (fun v w => v = w ∧ NestStOk v.2.2)
-      (checkBlockPositivity (sharedOpsC mode (mkFEnv env)) env env.find? env.consts p cvTas
+      (checkBlockPositivity (sharedOpsC mode (mkFEnv env)) env env.find? p cvTas
         ctorsAs)
-      (checkBlockPositivity (fueledOpsM mode) env env.find? env.consts p cvTas ctorsAs) := by
+      (checkBlockPositivity (fueledOpsM mode) env env.find? p cvTas ctorsAs) := by
   have hcl : ∀ cs ∈ ctorsAs, ∀ c ∈ cs, c.1.type.hasFvar = false :=
     fun cs hcs c hc => not_hasFvar_of_fvarsBelow_zero (hct cs hcs c hc).fvarsBelow
   unfold checkBlockPositivity

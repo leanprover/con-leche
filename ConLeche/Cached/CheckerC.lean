@@ -145,7 +145,7 @@ def checkBlockPassS (fe : FEnv) (p₀ : BlockParts) (isRec : Bool) :
   let (ctorsAs, sortsss) ← checkBlockCtorsF (sharedOpsC mode fe₁) fe₁ fe₁ pC.toBlockShape
     (pC.members.zip cvTas)
   let (kinds, nfs, pos) ← checkBlockPositivity (sharedOpsC mode fe₁) fe₁.env fe₁.find?
-    fe₁.env.consts pC cvTas ctorsAs
+    pC cvTas ctorsAs
   pure ⟨fe₁, cvTas, pC, ctorsAs, sortsss, kinds, nfs, pos⟩
 
 /-- **`checkBlockTail` through the index**: one flush

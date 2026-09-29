@@ -119,24 +119,25 @@ theorem lfpCover_append {env env' : Env} {new : List ConstantInfo} (mp : EnvMode
       rw [hnew] at hf
       exact ⟨hf, fun h' => hn (hex n h')⟩
   · intro C hC hCex hall
-    rw [nestContainer_eq, nestContainer_eq]
-    show (match Env.find? ⟨new ++ env.consts⟩ C with
-      | some (.indInfo _ caps) => nestPick caps ((new ++ env.consts).filterMap (ctorEntry C))
-      | _ => none) = (match env.find? C with
-      | some (.indInfo _ caps) => nestPick caps (env.consts.filterMap (ctorEntry C))
-      | _ => none)
     obtain ⟨ci, hci⟩ := Option.isSome_iff_exists.mp hC
-    have hnil : new.filterMap (ctorEntry C) = [] := by
-      rw [List.filterMap_eq_nil_iff]
-      intro c hc
-      cases hent : ctorEntry C c with
+    refine nestContainer_congr (by rw [hfwd _ _ hci, hci]) fun n => ?_
+    simp only [ctorLook]
+    cases hn : env.find? n with
+    | some c => rw [hfwd _ _ hn]
+    | none =>
+      rw [find?_append, hn, Option.or_none]
+      cases hnew : new.find? (·.name == n) with
       | none => rfl
-      | some _ =>
-        rcases hhead c hc C (by rw [hent]; rfl) with h' | h' | ⟨cv, caps, hf, hnil⟩
-        · exact absurd h' hCex
-        · rw [h'] at hci; exact nomatch hci
-        · exact absurd hnil (hall cv caps hf)
-    rw [hfwd _ _ hci, hci, List.filterMap_append, hnil, List.nil_append]
+      | some c =>
+        have hmem := List.mem_of_find?_eq_some hnew
+        simp only [Option.bind_some, Option.bind_none]
+        cases hent : ctorEntry C c with
+        | none => rfl
+        | some _ =>
+          rcases hhead c hmem C (by rw [hent]; rfl) with h' | h' | ⟨cv, caps, hf, hnil⟩
+          · exact absurd h' hCex
+          · rw [h'] at hci; exact nomatch hci
+          · exact absurd hnil (hall cv caps hf)
 
 /-! ## The kernel's cons functions, as lists -/
 
@@ -221,34 +222,6 @@ theorem find?_none_consBlockRecsT {find? : Name → Option ConstantInfo} {res : 
 
 /-! ## The block's own constructor ownership -/
 
-theorem filterMap_flatten_at {α β : Type} (g : α → Option β) :
-    ∀ (L : List (List α)) (c : Nat), c < L.length →
-      (∀ m, m < L.length → m ≠ c → ∀ a ∈ L.getD m [], g a = none) →
-      L.flatten.filterMap g = (L.getD c []).filterMap g
-  | [], _, hc, _ => absurd hc (Nat.not_lt_zero _)
-  | l :: L, 0, _, hne => by
-    rw [List.flatten_cons, List.filterMap_append]
-    have : L.flatten.filterMap g = [] := by
-      rw [List.filterMap_eq_nil_iff]
-      intro a ha
-      obtain ⟨l', hl', hal'⟩ := List.mem_flatten.mp ha
-      obtain ⟨m, hm, rfl⟩ := List.getElem_of_mem hl'
-      have hmem : a ∈ (l :: L).getD (m + 1) [] := by
-        show a ∈ L.getD m []
-        rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hm]
-        exact hal'
-      exact hne (m + 1) (by simp; omega) (by omega) a hmem
-    rw [this, List.append_nil, List.getD_cons_zero]
-  | l :: L, c + 1, hc, hne => by
-    rw [List.flatten_cons, List.filterMap_append]
-    have hl : l.filterMap g = [] := by
-      rw [List.filterMap_eq_nil_iff]
-      intro a ha
-      exact hne 0 (by simp) (by omega) a (by simpa using ha)
-    rw [hl, List.nil_append]
-    exact filterMap_flatten_at g L c (by simpa using hc) fun m hm hmc a ha =>
-      hne (m + 1) (by simp; omega) (by omega) a (by simpa using ha)
-
 theorem getAppFn_mkAppN_const (n : Name) (us : List Level) (args : List Expr) :
     (Expr.mkAppN (.const n us) args).getAppFn = .const n us := by
   rw [ConLeche.Expr.getAppFn_mkAppN]; rfl
@@ -270,25 +243,47 @@ theorem blockCapsAt_nparams (p : BlockShape) (mi : Nat) (isRec : Bool) :
     (ConLeche.blockCapsAt p mi isRec).nparams = p.nP := by
   unfold ConLeche.blockCapsAt; split <;> rfl
 
+theorem blockCapsAt_ctors (p : BlockShape) (mi : Nat) (isRec : Bool) :
+    (ConLeche.blockCapsAt p mi isRec).ctors = (p.members.getD mi default).ctors.map (·.1.name) := by
+  unfold ConLeche.blockCapsAt
+  split
+  · next h => rw [h]; rfl
+  · rfl
+
+/-- The stored constructors' names, member by member, are the
+recogniser's. -/
+theorem ctorsAs_names_getD :
+    ∀ {ctorsAs : List (List (ConstantVal × Nat))} {members : List ConLeche.MemberShape},
+    ctorsAs.map (·.map (fun cA => (cA.1.name, cA.2)))
+      = members.map (fun ms => ms.ctors.map (fun c => (c.1.name, c.2))) →
+    ∀ (m : Nat),
+    (ctorsAs.getD m []).map (·.1.name) = (members.getD m default).ctors.map (·.1.name)
+  | [], [], _, _ => rfl
+  | [], _ :: _, h, _ => nomatch h
+  | _ :: _, [], h, _ => nomatch h
+  | cs :: C, ms :: M, h, m => by
+    simp only [List.map_cons, List.cons.injEq] at h
+    cases m with
+    | zero =>
+      have h1 := congrArg (List.map Prod.fst) h.1
+      simpa [List.map_map, Function.comp_def] using h1
+    | succ m => exact ctorsAs_names_getD h.2 m
+
 omit [SetTheory V] in
 /-- **The block's constructor ownership at its constructors'
-environment**: every constructor stored with a member's head is one of
-that member's (the heads are the check's, `checkSumCtor_shape`; the
-members are distinct and fresh before the block, so no older
-constructor has one), in install order. -/
-theorem blockLfpOwn {envC : Env} {rest : List ConstantInfo} {d : BlockData V}
+environment**: every member's recorded constructor names
+(`IndCaps.ctors`, the member's constructors in order) look up the
+constructors the block stored, each concluding in its member (the heads
+are the check's, `checkSumCtor_shape`). -/
+theorem blockLfpOwn {envC : Env} {d : BlockData V}
     {ctorsAs : List (List (ConstantVal × Nat))} {lps : List Name}
-    (hconsts : envC.consts
-      = (ctorsAs.flatten.map fun c => ConstantInfo.ctorInfo c.1 d.nP c.2).reverse ++ rest)
-    (hrest : ∀ m, m < d.k → rest.filterMap (ctorEntry (d.memberName m)) = [])
-    (hk : ctorsAs.length = d.k)
     (hctorsM : ∀ c, d.ctorsM c = ctorsAs.getD c [])
-    (hnd : d.memberNames.Nodup) (hlenN : d.memberNames.length = d.k)
     (hhead : ∀ m, m < d.k → ∀ cA ∈ ctorsAs.getD m [], ∃ bs body us,
       cA.1.type.stripPis (d.nP + cA.2) = some (bs, body) ∧
       body.getAppFn = .const (d.memberName m) us)
     (hfindT : ∀ m, m < d.k → ∃ cv caps, envC.find? (d.memberName m) = some (.indInfo cv caps) ∧
-      caps.nparams = d.nP ∧ cv.levelParams = lps)
+      caps.nparams = d.nP ∧ cv.levelParams = lps ∧
+      caps.ctors = (ctorsAs.getD m []).map (·.1.name))
     (hlps : lps.Nodup)
     (hparams : ∀ ψ, (d.params ψ).length = d.nP)
     (hfindC : ∀ c, c < d.k → ∀ (j : Nat) (cA : ConstantVal × Nat), (d.ctorsM c)[j]? = some cA →
@@ -298,36 +293,22 @@ theorem blockLfpOwn {envC : Env} {rest : List ConstantInfo} {d : BlockData V}
         = some (bs, Expr.mkAppN (.const (d.memberName m) (cA.1.levelParams.map .param)) args) ∧
       ∀ ψ, args.length = d.nP + (d.IdsM m ψ).length) :
     LfpOwn envC d.toLfp := by
-  -- the member names, positionally distinct
-  have hnameNe : ∀ m m', m < d.k → m' < d.k → m ≠ m' → d.memberName m ≠ d.memberName m' := by
-    intro m m' hm hm' hne heq
-    have h1 : d.memberNames[m]? = d.memberNames[m']? := by
-      simp only [BlockData.memberName, List.getD_eq_getElem?_getD,
-        List.getElem?_eq_getElem (hlenN ▸ hm : m < d.memberNames.length),
-        List.getElem?_eq_getElem (hlenN ▸ hm' : m' < d.memberNames.length),
-        Option.getD_some] at heq ⊢
-      rw [heq]
-    exact hne ((List.getElem?_inj (hlenN ▸ hm : m < d.memberNames.length) hnd).mp h1)
-  -- a member's constructor entries, off the whole store
-  have hentry : ∀ c, c < d.k → envC.consts.filterMap (ctorEntry (d.memberName c))
-      = ((ctorsAs.getD c []).map fun cA => (cA.1, d.nP, cA.2)).reverse := by
-    intro c hc
-    rw [hconsts, List.filterMap_append, hrest c hc, List.append_nil, List.filterMap_reverse,
-      List.filterMap_map]
-    congr 1
-    rw [filterMap_flatten_at _ ctorsAs c (hk ▸ hc) (fun m hm hmc a ha => by
-      obtain ⟨bs, body, us, hs, hg⟩ := hhead m (hk ▸ hm) a ha
-      show ctorEntry (d.memberName c) (.ctorInfo a.1 d.nP a.2) = none
-      cases h : ctorEntry (d.memberName c) (.ctorInfo a.1 d.nP a.2) with
-      | none => rfl
-      | some _ =>
-        have := ctorEntry_head (C := d.memberName c) rfl hs hg (by rw [h]; rfl)
-        exact absurd this.symm (hnameNe m c (hk ▸ hm) hc hmc))]
+  -- a member's recorded constructors, looked up
+  have hentry : ∀ c, c < d.k → ∀ caps : ConLeche.IndCaps,
+      caps.ctors = (ctorsAs.getD c []).map (·.1.name) →
+      caps.ctors.filterMap (ctorLook envC.find? (d.memberName c))
+        = (ctorsAs.getD c []).map fun cA => (cA.1, d.nP, cA.2) := by
+    intro c hc caps hcs
+    rw [hcs, List.filterMap_map]
     have hall : ∀ a ∈ ctorsAs.getD c [],
-        ((ctorEntry (d.memberName c)) ∘ fun c => ConstantInfo.ctorInfo c.1 d.nP c.2) a
+        ((ctorLook envC.find? (d.memberName c)) ∘ fun cA => cA.1.name) a
           = some (a.1, d.nP, a.2) := by
       intro a ha
       obtain ⟨bs, body, us, hs, hg⟩ := hhead c hc a ha
+      have ha' : a ∈ d.ctorsM c := by rw [hctorsM]; exact ha
+      obtain ⟨j, hj⟩ := List.getElem?_of_mem ha'
+      show (envC.find? a.1.name).bind (ctorEntry (d.memberName c)) = _
+      rw [hfindC c hc j a hj, Option.bind_some]
       exact ctorEntry_self rfl hs hg
     generalize ctorsAs.getD c [] = l at hall
     induction l with
@@ -338,26 +319,23 @@ theorem blockLfpOwn {envC : Env} {rest : List ConstantInfo} {d : BlockData V}
   have hnc : ∀ c, c < d.k → ∃ cv caps, envC.find? (d.memberName c) = some (.indInfo cv caps) ∧
       caps.nparams = d.nP ∧ cv.levelParams = lps ∧
       ConLeche.nestContainer (envCtx envC) (d.memberName c)
-        = nestPick caps (((ctorsAs.getD c []).map fun cA => (cA.1, d.nP, cA.2)).reverse) := by
+        = nestPick caps ((ctorsAs.getD c []).map fun cA => (cA.1, d.nP, cA.2)) := by
     intro c hc
-    obtain ⟨cv, caps, hf, hnp, hl⟩ := hfindT c hc
+    obtain ⟨cv, caps, hf, hnp, hl, hcs⟩ := hfindT c hc
     refine ⟨cv, caps, hf, hnp, hl, ?_⟩
     rw [nestContainer_eq]
     show (match envC.find? (d.memberName c) with
-      | some (.indInfo _ caps) => nestPick caps (envC.consts.filterMap (ctorEntry _))
+      | some (.indInfo _ caps) =>
+        nestPick caps (caps.ctors.filterMap (ctorLook envC.find? (d.memberName c)))
       | _ => none) = _
-    rw [hf, hentry c hc]
+    rw [hf]
+    show nestPick caps (caps.ctors.filterMap (ctorLook envC.find? (d.memberName c))) = _
+    rw [hentry c hc caps hcs]
   have hpick : ∀ (caps : ConLeche.IndCaps) (l : List (ConstantVal × Nat)), l ≠ [] →
-      nestPick caps ((l.map fun cA => (cA.1, d.nP, cA.2)).reverse) = some (d.nP, l) := by
+      nestPick caps (l.map fun cA => (cA.1, d.nP, cA.2)) = some (d.nP, l) := by
     intro caps l hl
-    obtain ⟨a, l', hl'⟩ := List.exists_cons_of_ne_nil (List.reverse_ne_nil_iff.mpr hl)
-    have hrev : (l.map fun cA => (cA.1, d.nP, cA.2)).reverse
-        = (a.1, d.nP, a.2) :: l'.map fun cA => (cA.1, d.nP, cA.2) := by
-      rw [← List.map_reverse, hl']; rfl
-    rw [hrev]
-    show some (d.nP, _) = _
-    rw [← hrev]
-    simp [List.map_reverse, List.map_map, Function.comp_def]
+    obtain ⟨a, l', rfl⟩ := List.exists_cons_of_ne_nil hl
+    simp [nestPick, List.map_map, Function.comp_def]
   refine ⟨fun c hc => ?_, fun c hc nP' hL => ?_, fun c hc => ?_, fun c hc j hj => ?_⟩
   · obtain ⟨cv, caps, -, hnp, -, hN⟩ := hnc c hc
     show ∃ nP' L, ConLeche.nestContainer (envCtx envC) (d.memberName c) = some (nP', L) ∧ _
@@ -384,13 +362,12 @@ theorem blockLfpOwn {envC : Env} {rest : List ConstantInfo} {d : BlockData V}
         exact absurd hLc.2 hne
     rw [hnil] at hLc
     obtain rfl : caps.nparams = nP' := by
-      simp only [List.map_nil, List.reverse_nil, nestPick, Option.some.injEq,
-        Prod.mk.injEq] at hLc
+      simp only [List.map_nil, nestPick, Option.some.injEq, Prod.mk.injEq] at hLc
       exact hLc.1
     refine ⟨cv, caps, hf, hl ▸ hlps, fun ψ => by rw [hnp]; exact hparams ψ, fun mm hmm => ?_⟩
-    obtain ⟨cvm, capsm, hfm, -, hlm⟩ := hfindT mm hmm
+    obtain ⟨cvm, capsm, hfm, -, hlm, -⟩ := hfindT mm hmm
     exact ⟨cvm, capsm, hfm, by rw [hlm, hl]⟩
-  · obtain ⟨cv, caps, hf, -, hl⟩ := hfindT c hc
+  · obtain ⟨cv, caps, hf, -, hl, -⟩ := hfindT c hc
     exact ⟨cv, caps, hf, hl ▸ hlps⟩
   · have hj' : j < (d.ctorsM c).length := hj
     have hget : (d.ctorsM c)[j]? = some (d.ctorsM c)[j] := List.getElem?_eq_getElem hj'

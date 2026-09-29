@@ -665,7 +665,7 @@ theorem checkBlockPassS_run (hμ : mode.verifiedChecks = true) {env : Env} (henv
   have g₂ : checkBlockCtors (fueledOps mode G) env₁ env₁ (p₀.complete p₁).toBlockShape
       ((p₀.complete p₁).members.zip cvTas) = .ok (ctorsAs, sortsss) := by
     rw [← checkBlockCtors_datF]; exact FueledM.up hle₂ hF₂
-  have gK : checkBlockPositivity (fueledOps mode G) env₁ env₁.find? env₁.consts
+  have gK : checkBlockPositivity (fueledOps mode G) env₁ env₁.find?
       (p₀.complete p₁) cvTas ctorsAs = .ok (kinds, nfs, pos) := by
     rw [← checkBlockPositivity_datF]; exact FueledM.up hleK hFK
   rw [checkBlockPass_datF]

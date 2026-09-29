@@ -363,7 +363,7 @@ theorem genRun_ctx
     (R : GenRecRun mode F (mkFEnv env₁) env₁ (mkFEnv envC) p nestedBit pos cvTas block ctorsAs out) :
     ∃ cvTa0 rest, cvTas.head? = some cvTa0 ∧
       openPisAtFvars p.nP cvTa0.type 0 = some (R.ctx.params, rest) ∧
-      R.ctx = p.nestCtx R.ctx.params env₁.find? env₁.consts ∧ nestHoles R.ctx = some R.holes := by
+      R.ctx = p.nestCtx R.ctx.params env₁.find? ∧ nestHoles R.ctx = some R.holes := by
   obtain ⟨cvTa0, fvsP, rest, h0, hop, hctx, hh⟩ := blockNestCtx_inv R.hctx
   rw [mkFEnv_find?_fun] at hctx
   refine ⟨cvTa0, rest, h0, ?_, ?_, hh⟩
@@ -456,15 +456,11 @@ theorem genRun_Ms₀
           (Nat.le_max_right _ _)) _ (WScoped.mono (Nat.le_max_left _ _) hD)
       exact ⟨WScoped.of_fvarsBelow hw (Expr.fvarB_le (hdsSc _ hx).2),
         Expr.bvarB_le (by rw [(hdsSc _ hx).1]; exact Nat.le_refl 0)⟩
-    · have hc : NestCtxOk (⟨[], [], 0, [], [], .zero, (mkFEnv envC).find?,
-          (mkFEnv envC).env.consts⟩ : NestCtx) ∧
-          NestCtxB (⟨[], [], 0, [], [], .zero, (mkFEnv envC).find?,
-            (mkFEnv envC).env.consts⟩ : NestCtx) := by
-        rw [mkFEnv_find?_fun, mkFEnv_env]
-        exact ⟨⟨fun ci hci => (henvC ci hci).1,
-            fun _ ci hf => (henvC ci (List.mem_of_find?_eq_some hf)).1⟩,
-          ⟨fun ci hci => (henvC ci hci).2.2.2.1,
-            fun _ ci hf => (henvC ci (List.mem_of_find?_eq_some hf)).2.2.2.1⟩⟩
+    · have hc : NestCtxOk (⟨[], [], 0, [], [], .zero, (mkFEnv envC).find?⟩ : NestCtx) ∧
+          NestCtxB (⟨[], [], 0, [], [], .zero, (mkFEnv envC).find?⟩ : NestCtx) := by
+        rw [mkFEnv_find?_fun]
+        exact ⟨fun _ ci hf => (henvC ci (List.mem_of_find?_eq_some hf)).1,
+          fun _ ci hf => (henvC ci (List.mem_of_find?_eq_some hf)).2.2.2.1⟩
       have h0 := nestContainer_scb hc.1 hc.2 hctors cA hcA
       simp only [targetCtorAt]
       refine ScB.of_closed ?_ ?_ 0

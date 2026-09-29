@@ -45,8 +45,7 @@ open Expr
 /-- The context's stored constants have no loose bound variable (the
 bvar half of `NestCtxOk`). -/
 @[expose] def NestCtxB (ctx : NestCtx) : Prop :=
-  (∀ ci ∈ ctx.consts, ci.toConstantVal.type.looseBVarsBounded 0 = true) ∧
-  (∀ n ci, ctx.find? n = some ci → ci.toConstantVal.type.looseBVarsBounded 0 = true)
+  ∀ n ci, ctx.find? n = some ci → ci.toConstantVal.type.looseBVarsBounded 0 = true
 
 /-- **The walk's state, scoped**: every cached container lookup lists
 closed constructor types, and every recorded constructor normal form
@@ -81,35 +80,10 @@ variable {ctx : NestCtx}
 theorem nestContainer_scb (hc : NestCtxOk ctx) (hb : NestCtxB ctx) {C : Name}
     {q : Nat × List (ConstantVal × Nat)} (h : nestContainer ctx C = some q) :
     ∀ x ∈ q.2, ScB 0 x.1.type := by
-  unfold nestContainer at h
-  split at h
-  · dsimp only at h
-    generalize hcs : List.filterMap _ ctx.consts = cs at h
-    have hall : ∀ y ∈ cs, ScB 0 y.1.type := by
-      intro y hy
-      rw [← hcs] at hy
-      obtain ⟨ci, hci, hmap⟩ := List.mem_filterMap.mp hy
-      split at hmap
-      · split at hmap
-        · split at hmap
-          · split at hmap
-            · simp only [Option.some.injEq] at hmap
-              subst hmap
-              exact ScB.of_closed (hc.1 _ hci) (hb.1 _ hci) 0
-            · exact nomatch hmap
-          · exact nomatch hmap
-        · exact nomatch hmap
-      · exact nomatch hmap
-    cases cs with
-    | nil => simp only [Option.some.injEq] at h; subst h; intro x hx; exact nomatch hx
-    | cons y0 rest =>
-      simp only [Option.some.injEq] at h
-      subst h
-      intro x hx
-      simp only [List.mem_reverse, List.mem_map] at hx
-      obtain ⟨y, hy, rfl⟩ := hx
-      exact hall y hy
-  · exact nomatch h
+  obtain ⟨nP, L⟩ := q
+  intro x hx
+  obtain ⟨n, nPc, hf⟩ := nestContainer_mem h x hx
+  exact ScB.of_closed (hc _ _ hf) (hb _ _ hf) 0
 
 theorem nestContainerC_scb (hc : NestCtxOk ctx) (hb : NestCtxB ctx) {nP : Nat} {st : NestState}
     (hst : NfStScoped nP st) (C : Name) :
@@ -131,8 +105,8 @@ theorem nestInstType_scb (hc : NestCtxOk ctx) (hb : NestCtxB ctx) {hi : Nat} {ke
     ScB 0 cty := by
   obtain ⟨cvC, caps, hf, -, rfl, -⟩ := nestInstType_inv h
   refine ScB.of_closed ?_ ?_ 0
-  · rw [Expr.hasFvar_instantiateLevelParams]; exact hc.2 _ _ hf
-  · rw [Expr.looseBVarsBounded_instantiateLevelParams]; exact hb.2 _ _ hf
+  · rw [Expr.hasFvar_instantiateLevelParams]; exact hc _ _ hf
+  · rw [Expr.looseBVarsBounded_instantiateLevelParams]; exact hb _ _ hf
 
 theorem nestGrowGroup_scb (hc : NestCtxOk ctx) (hb : NestCtxB ctx) {hi : Nat}
     {us : List Level} {ds : List Expr} {cs : List Name} {grp grp' : List (Name × Expr)}
@@ -626,19 +600,18 @@ end Walk
 /-- A block's walk context at a well-formed environment's lookups is
 closed and bvar-closed. -/
 theorem nestCtx_ok_of_envWF {env : Env} (henv : EnvWF env) (p : BlockShape) (fvsP : List Expr) :
-    NestCtxOk (p.nestCtx fvsP env.find? env.consts) ∧
-      NestCtxB (p.nestCtx fvsP env.find? env.consts) :=
-  ⟨⟨fun ci hci => (henv ci hci).1, fun _ ci hf => (henv ci (List.mem_of_find?_eq_some hf)).1⟩,
-    ⟨fun ci hci => (henv ci hci).2.2.2.1,
-      fun _ ci hf => (henv ci (List.mem_of_find?_eq_some hf)).2.2.2.1⟩⟩
+    NestCtxOk (p.nestCtx fvsP env.find?) ∧
+      NestCtxB (p.nestCtx fvsP env.find?) :=
+  ⟨fun _ ci hf => (henv ci (List.mem_of_find?_eq_some hf)).1,
+    fun _ ci hf => (henv ci (List.mem_of_find?_eq_some hf)).2.2.2.1⟩
 
 /-- The canonical parameters (a closed former's opened telescope) are
 scoped at the walk's root depth. -/
 theorem nestCtx_params_scb {p : BlockShape} {T rest : Expr} {fvsP : List Expr}
-    {find? : Name → Option ConstantInfo} {consts : List ConstantInfo}
+    {find? : Name → Option ConstantInfo}
     (hT : ScB 0 T) (hop : openPisAtFvars p.nP T 0 = some (fvsP, rest)) :
-    ∀ x ∈ (p.nestCtx fvsP find? consts).params,
-      ScB ((p.nestCtx fvsP find? consts).hiAt 0) x := by
+    ∀ x ∈ (p.nestCtx fvsP find?).params,
+      ScB ((p.nestCtx fvsP find?).hiAt 0) x := by
   intro x hx
   obtain ⟨hl, hfvs, -⟩ := ScB.openPis hop hT
   obtain ⟨k, hk, rfl⟩ := List.getElem_of_mem hx
@@ -658,7 +631,7 @@ theorem checkBlockPositivity_nfScoped {mode : CheckMode} {F : Nat} {env₁ : Env
     {kinds : List (List (List NestFieldKind))} {nfs : List (List Expr)} {pos : NestState}
     (hT : ∀ cv ∈ cvTas, ScB 0 cv.type)
     (hct : ∀ ctorsA ∈ ctorsAs, ∀ c ∈ ctorsA, ScB 0 c.1.type)
-    (h : checkBlockPositivity (fueledOps mode F) env₁ env₁.find? env₁.consts pp cvTas ctorsAs
+    (h : checkBlockPositivity (fueledOps mode F) env₁ env₁.find? pp cvTas ctorsAs
       = .ok (kinds, nfs, pos)) :
     NfStScoped pp.nP pos := by
   obtain ⟨cvTa0, fvsP, rest, holes, outs, h0, hop, hh, hroot, -⟩ := checkBlockPositivity_inv h

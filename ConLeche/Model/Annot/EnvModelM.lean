@@ -115,7 +115,6 @@ into the frame's. -/
   params := canonParams nP
   sort := .zero
   find? := fun _ => none
-  consts := []
 
 /-- A stored constructor type, member-abstracted at the canonical holes. -/
 @[expose] def canonAbs (names lps : List Name) (nP k : Nat) (e : Expr) : Expr :=

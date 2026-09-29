@@ -932,19 +932,19 @@ theorem dynCtx_of {F : Nat}
         denoteMeta mpC.base2.acval envC ψ dd e = some ea)
     (hcoreK : BlockHoleCtxFacts mk.base2 dR pp.lps cvTasR pp.toBlockShape isRecR)
     {fvsP : List Expr} {ns : List PosTree}
-    (hok : ∀ t ∈ ns, PosNodeOk (fueledOps .verified F) envI (pp.nestCtx fvsP envI.find? envI.consts) t)
-    (hown : ∀ t ∈ ns, NodeOwned (fueledOps .verified F) envI (pp.nestCtx fvsP envI.find? envI.consts) t)
+    (hok : ∀ t ∈ ns, PosNodeOk (fueledOps .verified F) envI (pp.nestCtx fvsP envI.find?) t)
+    (hown : ∀ t ∈ ns, NodeOwned (fueledOps .verified F) envI (pp.nestCtx fvsP envI.find?) t)
     (hkids : ∀ t ∈ ns, ∀ k ∈ t.kids, k ∈ ns)
     (hpar : ∀ t ∈ ns, t.occ ≠ [] → ∃ p ∈ ns, t ∈ p.kids)
-    (hsem : ∀ t ∈ ns, ∀ ψ, NodeSemAt mk.base2 ψ (pp.nestCtx fvsP envI.find? envI.consts)
+    (hsem : ∀ t ∈ ns, ∀ ψ, NodeSemAt mk.base2 ψ (pp.nestCtx fvsP envI.find?)
       (dR.holeCtx ψ).reverse t)
-    (hF : NodeListFacts mpC (pp.nestCtx fvsP envI.find? envI.consts) ns) :
-    DynCtx F mk mpC (pp.nestCtx fvsP envI.find? envI.consts) dR ns := by
+    (hF : NodeListFacts mpC (pp.nestCtx fvsP envI.find?) ns) :
+    DynCtx F mk mpC (pp.nestCtx fvsP envI.find?) dR ns := by
   obtain ⟨hPos, henvC, -, -, hN, hS, -, -, hdR, hlfp, hcovC, -⟩ := hctx
   obtain ⟨cvTa0, -, -, -, h0, -⟩ := ConLeche.checkBlockPositivity_m2 hPos
   obtain ⟨pk, uOfD, ppsOf, rfl⟩ := hdR
   have hkN := lfp_namesLen mpC hlfp
-  refine ⟨hcovC, hlfp, contCover_of hmkC (fun _ => rfl) rfl, hmk, hag, hsubC, htr,
+  refine ⟨hcovC, hlfp, contCover_of hmkC (fun _ => rfl), hmk, hag, hsubC, htr,
     ⟨pp.nP, ctorsAsR, henvC⟩, hok, hown, hkids, hpar, hsem, hF, rfl, rfl, fun ψ => ?_,
     fun n hn => ?_, ⟨cvTasR, pp.toBlockShape, isRecR, hN, hcoreK.1⟩⟩
   · -- the hole context: the parameters, then one hole per member

@@ -530,7 +530,7 @@ def genRecCheck (so : ShadowOps m) (fe₁ : FEnv) (env₁ : Env) (fe : FEnv) (p 
       (official: invalid recursor)")
   -- the classes, each checked as a major over the block's canonical
   -- parameters (the generated prefix's); one per member
-  let (ctx, holes) ← blockNestCtx p cvTas fe₁.find? env₁.consts
+  let (ctx, holes) ← blockNestCtx p cvTas fe₁.find?
   let Ms ← classMajors ops fe p ctorsAs ctx.params (rd.classes.map (classKeyCanon ctx.params))
   unless (List.range p.k).all (fun t => (Ms.filter (·.member == some t)).length == 1) do
     throw (.invalid "generated recursor: the recursor family does not have exactly one class \

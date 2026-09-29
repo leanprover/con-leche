@@ -50,8 +50,12 @@ theorem blockCapsAt_cases (p₁ : BlockShape) (mi : Nat) (isRec : Bool) :
           ruleK := p₁.k == 1 && c.2 == 0 && p₁.isProp
           sortZ := Level.zeronessOf p₁.resSort
           all := p₁.memberNames
-          nparams := p₁.nP }) ∨
-    ConLeche.blockCapsAt p₁ mi isRec = { all := p₁.memberNames, nparams := p₁.nP } := by
+          nparams := p₁.nP
+          ctors := [c.1.name] }) ∨
+    ConLeche.blockCapsAt p₁ mi isRec =
+      { all := p₁.memberNames
+        nparams := p₁.nP
+        ctors := (p₁.members.getD mi default).ctors.map fun c => c.1.name } := by
   unfold ConLeche.blockCapsAt
   split
   · next a b hc => exact Or.inl ⟨b, hc, rfl⟩
