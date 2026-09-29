@@ -14,6 +14,7 @@ import ConLeche.Model.Inductives.GenClassNodes
 import ConLeche.Model.Inductives.GenClsSem
 import ConLeche.Model.Inductives.GenClsMinor
 import ConLeche.Model.Inductives.GenClsRows
+import ConLeche.Model.Inductives.GenClsFrame
 import ConLeche.Verify.Inductives.GenRecScoped
 import ConLeche.Verify.Inductives.NestNfScope
 
@@ -118,7 +119,7 @@ theorem genRecStage (hμ : μ.verifiedChecks = true) {F : Nat}
       (∀ e ∈ tgtEsAV pp.toBlockShape out mpC.base2.acval envC ψ c j,
         WellDenotedV V (consList ys ρ) e) ∧
       WellDenotedV V (consList ys ρ) (tgtMkAV pp.toBlockShape out mpC.base2.acval envC ψ c j) :=
-    sorry
+    fun ψ ρ c hc j hj ys hys => genArgs_graded hμ R hg h mpC hfind ψ ρ hc hj ys hys
   have hrhs : ∀ (ψ : Name → Nat) (ρ : Nat → V) (rs : List V), rs.length = (tgtRs out).length →
       (∀ c, c < (tgtRs out).length →
         rs.getD c pt ∈ˢ interp V ρ (blockRecTyAV mpC.base2.acval envC (tgtRs out) ψ c)) →
@@ -140,8 +141,15 @@ theorem genRecStage (hμ : μ.verifiedChecks = true) {F : Nat}
             (tgtRs out) ψ c ++ tgtFdomsAV pp.toBlockShape out mpC.base2.acval envC ψ c j) ys →
           (∀ e ∈ tgtEsAV pp.toBlockShape out mpC.base2.acval envC ψ c j,
             AnnotValid V (consList ys ρ) e) ∧
-          AnnotValid V (consList ys ρ) (tgtMkAV pp.toBlockShape out mpC.base2.acval envC ψ c j) :=
-    sorry
+          AnnotValid V (consList ys ρ) (tgtMkAV pp.toBlockShape out mpC.base2.acval envC ψ c j) := by
+    intro ψ ρ c r hr j cA rhs hcA _
+    have hc : c < (tgtRs out).length := (List.getElem?_eq_some_iff.mp hr).1
+    have hj : j < blockRecNCt (tgtRs out) c :=
+      Nat.lt_of_lt_of_le (List.getElem?_eq_some_iff.mp hcA).1 (blockRecNCt_ge hr)
+    refine ⟨fieldsValid_of_graded fun l hl zs hzs =>
+      (genCls_frameV hμ R hg h mpC hfind ψ hc hj l hl ρ zs hzs).2, fun ys hys => ?_⟩
+    obtain ⟨hE, hM⟩ := hargs ψ ρ c hc j hj ys hys
+    exact ⟨fun e he => (hE e he).2, hM.2⟩
   have hihV : GenIhPiecesValid (V := V) (envC := envC) mpC.base2.acval out R.g R.rd
       (fun ψ => blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ)
       (fun ψ => tgtFdomsAV pp.toBlockShape out mpC.base2.acval envC ψ) := sorry
