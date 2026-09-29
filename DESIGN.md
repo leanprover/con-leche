@@ -93860,3 +93860,39 @@ output hash identical on every stream.
 revision, `RPFOLLOW/loc`): 10838 → **10822 (−16)**: `Conformance` 278 → 261
 (−17), `Kernel/Inductives` 1926 → 1927 (+1, the `if`), `Cached` 2926
 unchanged.  No sorry, no new axiom.
+
+## MATHLIB SWEEP (uniform-inds) — the one Mathlib sweep before the master-merge decision (2026-09-29, `agent/uinds-MATHLIB`)
+
+Binaries: `uniform-inds` `ccce80f42` against `master` `09c3a50c0` (the
+merge base; master has nothing uniform-inds lacks), each `lake build
+con-leche` in its own worktree.  Streams: `_tmp/mathlib-scoping/
+mathlib-full.ndjson` (Lean 4.29.1 export, 5 636 308 621 B) and
+`_tmp/init-exports/init-full.ndjson`.  Method: `--verified --jobs=8`,
+`perf stat -e instructions:u`, peak RSS by GNU `time -v`, `timeout` on
+every run, no `ulimit -v`.  Logs: `_tmp/uniform-inds/MATHLIB/`.
+
+**Verdicts: identical.**  Mathlib: both exit 0, **654 504 accepted**.
+master reaches it through the in-process modeller (51 nested blocks
+modelled, 2 168 generated records, 65 projection functions rewritten);
+uniform-inds installs every block natively (656 672 → 654 504 fold
+records, no modeller, no rewrite).  init-full: both exit 0, **53 093
+accepted** (master: `Lean.Syntax` modelled, 30 generated records).  No
+decline, no reject, no crash, no declaration differs.
+
+| run | master | uniform-inds | Δ |
+|---|---|---|---|
+| init-full instructions:u | 418.89 G | 420.50 G | +0.38 % |
+| init-full peak RSS | 608 MiB | 630 MiB | +3.7 % |
+| Mathlib instructions:u | 7 607.16 G | 7 618.99 G | +0.16 % |
+| Mathlib peak RSS | 8.19 GiB | 8.08 GiB | −1.3 % |
+
+The Mathlib instructions reproduce to 0.1 G on a second run.  **Per
+phase** (second run, `perf stat -I 2000` intervals cut at the
+`--progress` phase stamps, ±~2 s granularity): parse 274.9 → 271.6 G;
+install (sequential) **559.4 → 597.0 G (+37.6 G, +6.7 %)**; check
+(8 workers) 6 772.9 → 6 750.3 G (−22.6 G).  The positivity check and
+recursor check at install cost more than the modeller path did; the check
+phase has 2 066 fewer pending checks (no generated records).  Wall time
+(shared machine, indicative only): install 103.1 s → 108.3 s, check
+98.1 s → 98.2 s, total 220.1 s → 225.6 s.  A first run showed install
+104.9 s → 138.5 s, which the second run did not reproduce (machine load).
