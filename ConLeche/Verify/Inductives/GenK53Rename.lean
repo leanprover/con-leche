@@ -228,21 +228,6 @@ private theorem gk_stripPis_eq_mkPisOf : ∀ {n : Nat} {e r : Expr} {bs : List (
       rw [gk_stripPis_eq_mkPisOf h1]; rfl
     | _ => simp [Expr.stripPis] at h
 
-private theorem gk_stripPis_length : ∀ {n : Nat} {e r : Expr} {bs : List (Expr × BinderMeta)},
-    e.stripPis n = some (bs, r) → bs.length = n
-  | 0, e, r, bs, h => by
-    simp only [Expr.stripPis, Option.some.injEq, Prod.mk.injEq] at h
-    obtain ⟨rfl, rfl⟩ := h; rfl
-  | n + 1, e, r, bs, h => by
-    cases e with
-    | forallE ty b m =>
-      simp only [Expr.stripPis] at h
-      obtain ⟨⟨bs', r'⟩, h1, h2⟩ := Option.map_eq_some_iff.mp h
-      simp only [Prod.mk.injEq] at h2
-      obtain ⟨rfl, rfl⟩ := h2
-      simp [gk_stripPis_length h1]
-    | _ => simp [Expr.stripPis] at h
-
 private theorem gk_erase_getAppFn :
     ∀ (x : Expr), x.eraseFVarTys.getAppFn = x.getAppFn.eraseFVarTys := by
   intro x
@@ -332,45 +317,6 @@ private theorem gk_argsSubst_erase {b D : Nat} {s : Nat → Expr} (t : List Expr
   intro p _
   simp [gk_erase_substFvars_erase]
 
-/-- One `instantiate1` pushed through a telescope's binders. -/
-private def gk_teleInst1 : List (Expr × BinderMeta) → Expr → Nat → List (Expr × BinderMeta)
-  | [], _, _ => []
-  | (t, m) :: r, x, k => (t.instantiate1 x k, m) :: gk_teleInst1 r x (k + 1)
-
-private theorem gk_teleInst1_length : ∀ (tel : List (Expr × BinderMeta)) (x : Expr) (k : Nat),
-    (gk_teleInst1 tel x k).length = tel.length
-  | [], _, _ => rfl
-  | (_, _) :: r, x, k => by simp [gk_teleInst1, gk_teleInst1_length r x (k + 1)]
-
-private theorem gk_instantiate1_mkPisOf : ∀ (tel : List (Expr × BinderMeta)) (B x : Expr) (k : Nat),
-    (Expr.mkPisOf tel B).instantiate1 x k
-      = Expr.mkPisOf (gk_teleInst1 tel x k) (B.instantiate1 x (k + tel.length))
-  | [], B, x, k => rfl
-  | (t, m) :: r, B, x, k => by
-    show Expr.forallE (t.instantiate1 x k) ((Expr.mkPisOf r B).instantiate1 x (k + 1)) m = _
-    rw [gk_instantiate1_mkPisOf r B x (k + 1)]
-    simp only [gk_teleInst1, Expr.mkPisOf, List.length_cons]
-    rw [Nat.add_assoc, Nat.add_comm 1]
-
-/-- `targetPiDomsWith` at no more variables than a tower's binders does not
-read the tower's body. -/
-private theorem gk_targetPiDomsWith_mkPisOf_body : ∀ (fvs : List Expr) (tel : List (Expr × BinderMeta))
-    (B B' : Expr), fvs.length ≤ tel.length →
-    targetPiDomsWith fvs (Expr.mkPisOf tel B) = targetPiDomsWith fvs (Expr.mkPisOf tel B')
-  | [], _, _, _, _ => rfl
-  | _ :: _, [], _, _, h => by simp at h
-  | x :: xs, (t, m) :: r, B, B', h => by
-    simp only [Expr.mkPisOf, targetPiDomsWith, gk_instantiate1_mkPisOf]
-    rw [gk_targetPiDomsWith_mkPisOf_body xs (gk_teleInst1 r x 0) _
-      (B'.instantiate1 x (0 + r.length)) (by simp [gk_teleInst1_length] at h ⊢; omega)]
-
-private theorem gk_fvarsBelow_mkPisOf {a : Nat} : ∀ (tel : List (Expr × BinderMeta)) (B : Expr),
-    (∀ q ∈ tel, q.1.fvarsBelow a) → B.fvarsBelow a → (Expr.mkPisOf tel B).fvarsBelow a
-  | [], _, _, hB => hB
-  | (t, m) :: r, B, h, hB =>
-    ⟨h (t, m) List.mem_cons_self,
-      gk_fvarsBelow_mkPisOf r B (fun q hq => h q (List.mem_cons_of_mem _ hq)) hB⟩
-
 /-! ## K.53′ at the rule's fields -/
 
 /-- **K.53′, moved from the datum's variables to the rule's** (see the
@@ -387,9 +333,7 @@ theorem k53_rename {ops : CheckerOps CheckM} {env : Env} {p : BlockShape}
     {n a bR : Nat} {fvs0 fvsR : List Expr} {T T0 o0 : Expr} {i tele : Nat}
     (hop0 : openPisAtFvars n T0 a = some (fvs0, o0))
     (hR : ∀ l, l < n → ∃ ty, fvsR[l]? = some (.fvar (bR + l) ty)) (hlR : fvsR.length = n)
-    (hT : ∃ (tel : List (Expr × BinderMeta)) (body : Expr),
-      T.stripPis n = some (tel, body) ∧ ∀ q ∈ tel, q.1.fvarsBelow a)
-    (hT0 : T0.fvarsBelow a) (hpf : Mt.pfvs.length ≤ a)
+    (hT : T.fvarsBelow a) (hT0 : T0.fvarsBelow a) (hpf : Mt.pfvs.length ≤ a)
     {teleB : List (Expr × BinderMeta)} {leaf : Expr}
     (hst : (fvs0.getD i default).fvarTypeD.stripPis tele = some (teleB, leaf))
     (hleaf : classLeafAt Mt leaf = true)
@@ -409,17 +353,6 @@ theorem k53_rename {ops : CheckerOps CheckM} {env : Env} {p : BlockShape}
   obtain ⟨s, hsd⟩ : ∃ s : Nat → Expr, s = fun v => .fvar v (.sort .zero) := ⟨_, rfl⟩
   have hsF : ∀ v, v < a → ∃ ty, s v = .fvar v ty := fun v _ => ⟨.sort .zero, by rw [hsd]⟩
   have hsB : ∀ v, v < a → (s v).looseBVarsBounded 0 = true := fun v _ => by rw [hsd]; rfl
-  -- the entry's telescope, cut to its first `n` binders
-  obtain ⟨tel, body, hstT, htel⟩ := hT
-  have htelL : tel.length = n := gk_stripPis_length hstT
-  have hPre : ∀ fvs : List Expr, fvs.length = n →
-      targetPiDomsWith fvs T = targetPiDomsWith fvs (Expr.mkPisOf tel (.sort .zero)) :=
-    fun fvs hl => by
-      rw [gk_stripPis_eq_mkPisOf hstT]
-      exact gk_targetPiDomsWith_mkPisOf_body fvs tel _ _ (by omega)
-  have hT' : (Expr.mkPisOf tel (.sort .zero)).fvarsBelow a :=
-    gk_fvarsBelow_mkPisOf tel _ htel trivial
-  generalize Expr.mkPisOf tel (.sort .zero) = T' at hPre hT'
   -- the datum's opening
   have hl0 : fvs0.length = n := Verify.openPisAtFvars_length n hop0
   have hidx0 := openPisAtFvars_index n T0 a hop0
@@ -442,9 +375,8 @@ theorem k53_rename {ops : CheckerOps CheckM} {env : Env} {p : BlockShape}
     · rw [List.getElem?_eq_none (by omega), List.getElem?_eq_none (by omega)]
       rfl
   -- the entry's field, renamed
-  rw [hPre fvs0 hl0] at hf0
-  obtain ⟨wT, hwT⟩ : ∃ wT, targetPiDomsWith fvs0 T' = some wT := by
-    cases h : targetPiDomsWith fvs0 T' with
+  obtain ⟨wT, hwT⟩ : ∃ wT, targetPiDomsWith fvs0 T = some wT := by
+    cases h : targetPiDomsWith fvs0 T with
     | none => rw [h] at hf0; simp at hf0
     | some wT => exact ⟨wT, rfl⟩
   rw [hwT, Option.getD_some] at hf0
@@ -454,7 +386,7 @@ theorem k53_rename {ops : CheckerOps CheckM} {env : Env} {p : BlockShape}
     omega
   have hwTσ := targetPiDomsWith_substFvars (D := bR) hsB hwT
   obtain ⟨wR, hwR, hwRe⟩ :=
-    targetPiDomsWith_erasedEq hF (substFvars_erasedEq_self hsF T' hT') hwTσ
+    targetPiDomsWith_erasedEq hF (substFvars_erasedEq_self hsF T hT) hwTσ
   obtain ⟨fR, hfR, hfRe⟩ := gk_erasedEqs_get hwRe (l := i) (by rw [List.getElem?_map, hf0]; rfl)
   -- the datum's field, renamed
   have hws0σ := targetPiDomsWith_substFvars (D := bR) hsB hws0
@@ -502,7 +434,7 @@ theorem k53_rename {ops : CheckerOps CheckM} {env : Env} {p : BlockShape}
     rw [← gk_erase_getAppArgs, hEleafR, hσleaf, gk_erase_mkAppN, Expr.getAppArgs_mkAppN]; rfl
   refine ⟨ws, teleR, leafR, I, us, us', leafW.getAppArgs.take Mt.nPc, fR, hws,
     by rw [hwsD]; exact hstR, hRfn, hI,
-    by rw [hPre fvsR hlR, hwR, Option.getD_some]; exact hfR, ?_, hment, hcm, fun x hx => ?_⟩
+    by rw [hwR, Option.getD_some]; exact hfR, ?_, hment, hcm, fun x hx => ?_⟩
   · rw [← Expr.eraseFVarTys_eq_iff.mpr hfRe, gk_stripPis_eq_mkPisOf hstrip]
     have hleafW : leafW = Expr.mkAppN (.const I us')
         (leafW.getAppArgs.take Mt.nPc ++ leafW.getAppArgs.drop Mt.nPc) := by
