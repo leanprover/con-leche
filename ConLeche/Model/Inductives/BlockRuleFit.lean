@@ -3,7 +3,6 @@ module
 import ConLeche.Verify.Inductives.RecStage
 import ConLeche.Model.Inductives.BlockRecTyShapeRun
 import ConLeche.Model.Inductives.BlockRecOpenerRead
-import ConLeche.Model.Annot.BitInst
 public import ConLeche.Model.Inductives.BlockRecPreRun
 
 public section

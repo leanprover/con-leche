@@ -94569,3 +94569,41 @@ pending checks.
 The generated recursor stage costs 24.7 G less at install than the target
 recursor check did; install remains +12.9 G over master's modeller path.
 Wall (indicative): install 109.8 s, check 100.9 s, total 229.6 s.
+
+## NODESIMP M1 — the dead code GENREC left, deleted; the node route assessed (2026-09-29, `agent/uinds-NODESIMP`)
+
+Brief: after GENREC (recursors generated), how much of the node route is still needed, and can
+the class induction be simpler?  Assessment: `_tmp/uniform-inds/NODESIMP.md`.
+
+**Deleted (M1, M1b): 444 dead owners, 7 modules, −14.5k lines, no checker behaviour change.**
+The dead census (`scripts/dead-census.py`) at 8bdc903cd, minus the 85 owners already dead at
+efe6859fb (pre-GENREC; older results a reader must judge, left alone): the old rule/call/
+certificate proof layer inside surviving modules (`BlockRecPreRun`, `BlockRecData`,
+`BlockRecRule`, `BlockRecTyping`, `BlockRuleFit`, the `Target*` rule readers) and the modules
+`BlockCallCerts`, `BlockRuleCertsRun`, `BlockKitIhRun`, `BlockKitRuleRun`, `BlockRuleCaRun`,
+`Verify/Denote/Rename`, `Verify/Inductives/BlockRecInv`; six unexecuted kernel helpers
+(`checkBlockDefEqList`, `structFamI`/`structMotiveTyI`/… , `nameIdxOf?`).  Then the census's
+held-back `@[simp]` lemmas new since GENREC: 10 of 11 deleted (`eraseFVars_fvar` is used by
+`simp`).  Proof tiers: Verify −1 908, Model −12 343, Semantics −97.  Census caveat found:
+`deletable-modules.txt` listed `Kernel/Inductives/BlockRec` although its
+`blockLargeElimAllowed` is live (the build caught it; script not changed).
+Imports re-gated: of shake's 111 new removals 53 applied, 57 build-verified needs allowlisted
+("NODESIMP M1"), 27 stale lines out; 7 `public import`s demoted, 3 pinned in FALLBACK.
+
+**Findings (the assessment).**
+* Everything left of the node route is live and is its SEMANTIC half (node presentation,
+  admissible frames, landings, the frame tie), which GENREC.md §3.3 predicted must stay.  The
+  class induction needs node agreement at EVERY related node, not only at a rule's generating
+  node: `hpredR` is asked at every related (class, node) pair, and a call from the seed lands at
+  a kid node which must itself be related.  Generated calls already replaced the rule side of
+  the landing by `genCall_data` + NA (GENREC-B2); nothing more follows from generation.
+* ∈-rank would give Type families a trivial class induction (PRIMREC), but Prop classes
+  (squash regime) still need the node route at every depth: a second route, not a deletion.
+* **Node-0 twins NOT collapsed** (SIMPD's deferral, re-examined): they differ in substance —
+  the root's constructors are not in the formers' environment nor its block in `mk` (a root
+  `PosTree` moves the twin into `PosNodeOk`/`crest_read`), and the block datum's member holes
+  are blind in their parameters, which is why the root visit is `patchFrame`d.  Estimated 3–5
+  sessions for −300…−500 lines; mechanical only after a frame-representation change.
+
+Gates: `lake build`/`lake test` warning-free; `tests/arena.sh` (shake, pub-imports, layering,
+links, quote gate, axioms, e2e 427/427, sweeps) green.
