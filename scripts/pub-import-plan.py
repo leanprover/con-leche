@@ -54,6 +54,17 @@ DIR   = os.environ.get('PUBPLAN_DIR', '_tmp/m3')
 # a tree whose `rfl`s stop closing, so they stay public and the gate must not
 # ask for them again.
 FALLBACK = {
+    # lane GENREC (F): the generated run's scoping and the positivity
+    # check's table invariant name their inputs in PUBLIC statements; each
+    # MEASURED by demoting it alone (unknown identifier `GenRecRun`,
+    # `GenRecScoped.lean:364`; `ScB`, `:377`; `EnvWF`, `NestNfScope.lean:629`;
+    # `ScB`, `:56`; `NestCtxOk`, `:82`; `blockNestCtx_inv`, reached by
+    # `GenRecScoped.lean:368` through `NestNfScope`).
+    ('ConLeche.Verify.Inductives.GenRecScoped', 'ConLeche.Verify.Inductives.GenRecRun'),
+    ('ConLeche.Verify.Inductives.GenRecScoped', 'ConLeche.Verify.Inductives.NestNfScope'),
+    ('ConLeche.Verify.Inductives.NestNfScope', 'ConLeche.Verify.EnvWF'),
+    ('ConLeche.Verify.Inductives.NestNfScope', 'ConLeche.Verify.Inductives.ClassGenScope'),
+    ('ConLeche.Verify.Inductives.NestNfScope', 'ConLeche.Verify.Inductives.NestScope'),
     # lane GENREC: the generated stage's run records name the stage's
     # kernel data (`classStreamRecs`, `ClassKey`, …) and the target check's
     # major record (`TargetMajorRun`) in their PUBLIC statements; each
