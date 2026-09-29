@@ -466,6 +466,47 @@ theorem classesCtorsS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env)
     obtain rfl : xs = xs' := hXs
     exact SimC.pure hs₂ rfl
 
+/-- **A generated constant, checked** (`classConstOk`): the cached twin
+of `checkConstantValS_sim` without the annotation step — the stored
+constant is the input, closed by the guard. -/
+theorem classConstOkS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) {cv : ConstantVal}
+    {s₀ : CState} (hs : CSOK mode env s₀) :
+    SimC mode env s₀ (fun v w => v = w ∧ WScoped 0 v.type)
+      (classConstOk (sharedOpsC mode (mkFEnv env)) (mkFEnv env) cv)
+      (classConstOk (fueledOpsM mode) (mkFEnv env) cv) := by
+  unfold classConstOk
+  simp only [mkFEnv_find?, constsResolveF_eq, mkFEnv_env]
+  dsimp only [sharedOpsC]
+  by_cases h1 : (env.find? cv.name).isSome = true
+  · simp only [if_pos h1]; exact SimC.throw_bind
+  simp only [if_neg h1]
+  by_cases h2 : reservedBasisNames.contains cv.name = true
+  · simp only [if_pos h2]; exact SimC.throw_bind
+  simp only [if_neg h2]
+  by_cases h3 : cv.name.isProjFnShape = true
+  · simp only [if_pos h3]; exact SimC.throw_bind
+  simp only [if_neg h3]
+  by_cases h4 : Name.nodup cv.levelParams = true
+  case neg => simp only [if_neg h4]; exact SimC.throw_bind
+  simp only [if_pos h4]
+  by_cases h5 : Expr.looseBVarsBounded 0 cv.type = true
+  case neg => simp only [if_neg h5]; exact SimC.throw_bind
+  simp only [if_pos h5]
+  by_cases h6 : cv.type.hasFvar = true
+  · simp only [if_pos h6]; exact SimC.throw_bind
+  simp only [if_neg h6]
+  have hwty : WScoped 0 cv.type := WScoped.of_not_hasFvar (Bool.not_eq_true _ ▸ h6)
+  by_cases h7 : Expr.allLevelParamsDefined cv.levelParams cv.type = true
+  case neg => simp only [if_neg h7]; exact SimC.throw_bind
+  simp only [if_pos h7]
+  by_cases h8 : Expr.constsResolve env cv.type = true
+  case neg => simp only [if_neg h8]; exact SimC.throw_bind
+  simp only [if_pos h8]
+  refine SimC.bind (opE_infer_sim hμ henv hs hwty) (fun s₂ sty sty' hs₂ hP₂ => ?_)
+  obtain ⟨rfl, hwsty⟩ := hP₂
+  refine SimC.bind (opS_sim hμ henv hs₂ hwsty) (fun s₃ u u' hs₃ hP₃ => ?_)
+  exact SimC.pure hs₃ ⟨rfl, hwty⟩
+
 /-- **One recursor's generated type, checked and compared**: the stored
 constant is closed. -/
 theorem classRecTyOkS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) {g : ClassGen}
@@ -475,14 +516,14 @@ theorem classRecTyOkS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) 
       (classRecTyOk (sharedOpsC mode (mkFEnv env)) (mkFEnv env) g k rc cvRi c)
       (classRecTyOk (fueledOpsM mode) (mkFEnv env) g k rc cvRi c) := by
   unfold classRecTyOk
-  simp only [checkConstantValF_eq, mkFEnv_env]
+  simp only [mkFEnv_env]
   split
   case isFalse => exact SimC.throw_bind
   split
   case isFalse => exact SimC.throw_bind
   refine SimC.bind (SimC.unwrapOr' hs) (fun s₁ gty gty' hs₁ hG => ?_)
   obtain ⟨rfl, -⟩ := hG
-  refine SimC.bind (checkConstantValS_sim hμ henv hs₁) (fun s₂ cvG cvG' hs₂ hC => ?_)
+  refine SimC.bind (classConstOkS_sim hμ henv hs₁) (fun s₂ cvG cvG' hs₂ hC => ?_)
   obtain ⟨rfl, hwG⟩ := hC
   dsimp only [sharedOpsC]
   refine SimC.bind (opB_sim hμ henv hs₂ hRi hwG) (fun s₃ b b' hs₃ hB => ?_)
@@ -515,13 +556,37 @@ end Sims
 
 /-! ### The rule stage: two environments, one state (`SimG`) -/
 
-/-- **One generated rule, simulated.**  From any residue: the rule,
-closed by the stage's own guard, annotated and typed at the rule-less
-recursors' environment `envR` (`sharedOpsRuleR`'s flushes on either
-side), its λ-telescope read syntactically. -/
+/-- A FLUSHED state: an invariant state of every environment (what a
+flush hands on). -/
+@[expose] def CSOKAll (mode : CheckMode) (s : CState) : Prop := ∀ env', CSOK mode env' s
+
+theorem CSOKAll.residue {s : CState} (h : CSOKAll mode s) : CSOKF s := (h default).residue
+
+/-- A flush into every environment's invariant. -/
+theorem flushC_simG_all : SimG CSOKF (CSOKAll mode) RelVC flushC (Pure.pure () : FueledM Unit) := by
+  intro s₀ hs v' s' hr
+  rw [flushC_run] at hr
+  injection hr with hr
+  obtain ⟨rfl, rfl⟩ := Prod.mk.injEq .. ▸ hr
+  exact ⟨fun _ => flushC_csok hs, (), rfl, 0, rfl⟩
+
+/-- The rule stage's `inferType` from a flushed state: it flushes last. -/
+theorem ruleR_infer_simG_all (hμ : mode.verifiedChecks = true) {envR : Env} (henvR : EnvWF envR)
+    {d : Nat} {e : Expr} (hw : WScoped d e) :
+    SimG (CSOKAll mode) (CSOKAll mode) (RelW d)
+      ((sharedOpsRuleR mode (mkFEnv envR)).inferType envR d e)
+      ((fueledOpsM mode).inferType envR d e) := by
+  intro s₀ hs v' s' hr
+  obtain ⟨-, h2⟩ := ruleR_infer_simG hμ henvR envR hw s₀ (hs envR) v' s' hr
+  exact ⟨fun env' => (ruleR_infer_simG hμ henvR env' hw s₀ (hs envR) v' s' hr).1, h2⟩
+
+/-- **One generated rule, simulated.**  From a flushed state: the rule,
+closed by the stage's own guard, stored as generated and typed at the
+rule-less recursors' environment `envR` (`sharedOpsRuleR`'s inference
+flushes last), its λ-telescope read syntactically. -/
 theorem classRuleOkS_simG (hμ : mode.verifiedChecks = true) {envR : Env} (henvR : EnvWF envR)
     (envT : Env) {cvR : ConstantVal} {pw : PropWhen} {n : Nat} {gen : Expr} :
-    SimG CSOKF (CSOK mode envT) RelVC
+    SimG (CSOKAll mode) (CSOKAll mode) RelVC
       (classRuleOk (sharedOpsRuleR mode (mkFEnv envR)) .plain (mkFEnv envT) (mkFEnv envR) cvR
         pw n gen)
       (classRuleOk (fueledOpsM mode) .plain (mkFEnv envT) (mkFEnv envR) cvR pw n gen) := by
@@ -532,15 +597,13 @@ theorem classRuleOkS_simG (hμ : mode.verifiedChecks = true) {envR : Env} (henvR
   simp only [h1, if_true]
   have hw : WScoped 0 gen := WScoped.of_not_hasFvar (by
     simp only [Bool.and_eq_true, Bool.not_eq_true'] at h1; exact h1.2)
-  refine SimG.bind (ruleR_annotate_simG hμ henvR hw) (fun genA genA' hA => ?_)
-  obtain ⟨rfl, hwA⟩ := hA
-  by_cases h3 : allLevelParamsDefined cvR.levelParams genA = true
+  by_cases h3 : allLevelParamsDefined cvR.levelParams gen = true
   case neg => simp only [h3]; exact SimG.throw_bind
   simp only [h3, if_true]
-  by_cases h4 : StructWalkers.plain.resolve (mkFEnv envR) genA = true
+  by_cases h4 : StructWalkers.plain.resolve (mkFEnv envR) gen = true
   case neg => simp only [h4]; exact SimG.throw_bind
   simp only [h4, if_true]
-  refine SimG.bind (ruleR_infer_simG hμ henvR envT hwA) (fun _ _ _ => ?_)
+  refine SimG.bind (ruleR_infer_simG_all hμ henvR hw) (fun _ _ _ => ?_)
   refine SimG.bind (SimG.unwrapOr (fun _ h => h)) (fun x x' hX => ?_)
   obtain ⟨rfl, -⟩ := hX
   obtain ⟨rbs, body⟩ := x
@@ -557,7 +620,7 @@ theorem classRulesOkS_simG (hμ : mode.verifiedChecks = true) {envR envT : Env}
     (henvR : EnvWF envR) {g : ClassGen} {recOf : Nat → Option Name} {cvR : ConstantVal}
     {pw : PropWhen} {c : Nat} :
     ∀ (xs : List ClassCtor),
-      SimG CSOKF CSOKF RelVC
+      SimG (CSOKAll mode) (CSOKAll mode) RelVC
         (classRulesOk (sharedOpsRuleR mode (mkFEnv envR)) .plain (mkFEnv envT) (mkFEnv envR) g
           recOf cvR pw c xs)
         (classRulesOk (fueledOpsM mode) .plain (mkFEnv envT) (mkFEnv envR) g recOf cvR pw c xs)
@@ -566,8 +629,7 @@ theorem classRulesOkS_simG (hμ : mode.verifiedChecks = true) {envR envT : Env}
     unfold classRulesOk
     refine SimG.bind (SimG.unwrapOr (fun _ h => h)) (fun gen gen' hG => ?_)
     obtain ⟨rfl, -⟩ := hG
-    refine SimG.bind ((classRuleOkS_simG hμ henvR envT).mono (fun _ h => h)
-      (fun _ h => h.residue)) (fun r r' hR => ?_)
+    refine SimG.bind (classRuleOkS_simG hμ henvR envT) (fun r r' hR => ?_)
     obtain rfl : r = r' := hR
     refine SimG.bind (classRulesOkS_simG hμ henvR xs) (fun rs rs' hRs => ?_)
     obtain rfl : rs = rs' := hRs
@@ -576,7 +638,7 @@ theorem classRulesOkS_simG (hμ : mode.verifiedChecks = true) {envR envT : Env}
 theorem classRecsRulesOkS_simG (hμ : mode.verifiedChecks = true) {envR envT : Env}
     (henvR : EnvWF envR) {g : ClassGen} {recOf : Nat → Option Name} {pw : PropWhen} :
     ∀ (cvs : List ConstantVal) (cs : List Nat),
-      SimG CSOKF CSOKF RelVC
+      SimG (CSOKAll mode) (CSOKAll mode) RelVC
         (classRecsRulesOk (sharedOpsRuleR mode (mkFEnv envR)) .plain (mkFEnv envT) (mkFEnv envR)
           g recOf pw cvs cs)
         (classRecsRulesOk (fueledOpsM mode) .plain (mkFEnv envT) (mkFEnv envR) g recOf pw cvs
@@ -726,15 +788,14 @@ theorem genRecCheckS_simG (hμ : mode.verifiedChecks = true) {env₁ env₂ : En
     obtain ⟨c, cvG, -, hcvG, ⟨R⟩⟩ := hallG i _ (List.getElem?_eq_getElem hil)
     rw [hi] at hcvG
     obtain rfl := Option.some.inj hcvG
-    have hcv := R.hcv
-    rw [checkConstantValF_eq] at hcv
-    exact checkConstantVal_typeWF hcv
-  refine SimG.bind (flushC_simG.mono (fun s h => (h : CSOK mode env₂ s).residue) (fun _ h => h))
+    exact classConstOk_typeWF R.hcv
+  refine SimG.bind ((flushC_simG_all (mode := mode)).mono (fun s h => (h : CSOK mode env₂ s).residue) (fun _ h => h))
     fun _ _ _ => ?_
   refine SimG.bind (classRecsRulesOkS_simG (envT := env₂) hμ henvR cvGs rd.recCls)
     fun out out' hO => ?_
   obtain rfl : out = out' := hO
-  exact SimG.bind flushC_simG fun _ _ _ => SimG.pure (fun _ h => h) rfl
+  exact SimG.bind (flushC_simG.mono (fun _ h => CSOKAll.residue h) (fun _ h => h))
+    fun _ _ _ => SimG.pure (fun _ h => h) rfl
 
 /-- **The generated recursor stage at the cached driver** is reproduced
 by the pure fueled stage. -/

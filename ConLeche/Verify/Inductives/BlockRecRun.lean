@@ -1,8 +1,11 @@
 module
 
 public import ConLeche.Kernel.Inductives.BlockInstall
+public import ConLeche.Verify.ProjSlots
 import ConLeche.Verify.Inductives.BlockWF
 import ConLeche.Verify.ExceptBind
+import ConLeche.Verify.Extend.Inversions
+import ConLeche.Verify.Shift
 
 public section
 
@@ -97,6 +100,46 @@ theorem mI_eq (E : RecTyEntry mode F env p nested cvTas ri rc cvRi nIdx u) :
 
 end RecTyEntry
 
+/-- **A checked constant's facts** — what every consumer of a recursor
+type's check reads, whichever check stored it: `checkConstantVal` (the
+stream's type, annotated: `checkConstantVal_checked`) or `classConstOk`
+(the GENERATED type, stored as generated: the generated stage's
+`classConstOk_inv`).  `cv0` is the constant checked, `cv` the stored
+one: the name guards, the stored type closed, its levels declared, its
+constants resolved, its inference sorted, and no `.proj` node at an
+empty table slot. -/
+structure ConstChecked (mode : CheckMode) (F : Nat) (env : Env) (cv0 cv : ConstantVal) :
+    Prop where
+  name : cv.name = cv0.name
+  lps : cv.levelParams = cv0.levelParams
+  fresh : env.find? cv0.name = none
+  unreserved : reservedBasisNames.contains cv0.name = false
+  notProjShape : cv0.name.isProjFnShape = false
+  nodup : Name.nodup cv0.levelParams = true
+  bounded : cv.type.looseBVarsBounded 0 = true
+  noFvar : cv.type.hasFvar = false
+  lpsDef : cv.type.allLevelParamsDefined cv.levelParams = true
+  resolves : cv.type.constsResolve env = true
+  sorted : ∃ stype u, inferTypeCore mode env F 0 cv.type = .ok stype ∧
+    ensureSortCore mode env F 0 stype = .ok u
+  noProj : ∀ (T : Name) (i : Nat), env.findProj? T i = none → Expr.NoProjAt T i cv.type
+
+/-- **A `checkConstantVal` run's facts**: the annotation keeps the type
+closed and puts no `.proj` node at an empty slot
+(`annotateCore_noProjAt`). -/
+theorem checkConstantVal_checked {env : Env} {F : Nat} {cv0 cv : ConstantVal}
+    (h : checkConstantVal (fueledOps mode F) env cv0 = .ok cv) :
+    ConstChecked mode F env cv0 cv := by
+  obtain ⟨hfr, hres, hps, hnd, hlb, hfv, type, stype, u, hann, hlp, hcr, hinf, hsort, rfl⟩ :=
+    checkConstantVal_inv h
+  exact {
+    name := rfl, lps := rfl, fresh := hfr, unreserved := hres, notProjShape := hps,
+    nodup := hnd, bounded := annotateCore_looseBVars F _ hann hlb,
+    noFvar := Expr.not_hasFvar_of_fvarsBelow_zero
+      ((annotateCore_WScoped F _ hann (Expr.WScoped.of_not_hasFvar hfv)).fvarsBelow),
+    lpsDef := hlp, resolves := hcr, sorted := ⟨stype, u, hinf, hsort⟩,
+    noProj := fun _ _ hslot => annotateCore_noProjAt mode hann hfv hslot }
+
 /-- **Stage (b) at ONE recursor, at ANY major**: the part
 of `RecTyEntry` that does not name the major's inductive — the checked
 constant, the prefix and the major's position, the recursor type's
@@ -114,7 +157,7 @@ structure RecTyGen (mode : CheckMode) (F : Nat) (env : Env) (p : BlockShape)
   one under the record's name and level parameters -/
   cv0 : ConstantVal
   hcv0 : cv0.name = rc.cvR.name ∧ cv0.levelParams = rc.cvR.levelParams
-  hcv : checkConstantVal (fueledOps mode F) env cv0 = .ok cvRi
+  hcv : ConstChecked mode F env cv0 cvRi
   hroom : p.nP ≤ p.rulePrefixAt ri
   hmI' : p.majorIdxAt ri = p.rulePrefixAt ri + nIdx
   hopen : openPisAtFvars (p.majorIdxAt ri + 1) cvRi.type 0 = some (fvs, concl)
@@ -136,10 +179,10 @@ theorem mI_eq (E : RecTyGen mode F env p nested ri rc cvRi nIdx u) :
     p.majorIdxAt ri = p.rulePrefixAt ri + nIdx := E.hmI'
 
 theorem name_eq (E : RecTyGen mode F env p nested ri rc cvRi nIdx u) :
-    cvRi.name = rc.cvR.name := (checkConstantVal_lps E.hcv).1.trans E.hcv0.1
+    cvRi.name = rc.cvR.name := E.hcv.name.trans E.hcv0.1
 
 theorem lps_eq (E : RecTyGen mode F env p nested ri rc cvRi nIdx u) :
-    cvRi.levelParams = rc.cvR.levelParams := (checkConstantVal_lps E.hcv).2.trans E.hcv0.2
+    cvRi.levelParams = rc.cvR.levelParams := E.hcv.lps.trans E.hcv0.2
 
 end RecTyGen
 

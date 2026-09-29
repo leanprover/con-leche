@@ -16,7 +16,6 @@ import ConLeche.Model.Annot.BitInst
 import ConLeche.Model.Annot.BitRename
 import ConLeche.Model.Annot.Valid
 import ConLeche.Model.Annot.LfpFormer
-import ConLeche.Semantics.DeclRun
 import ConLeche.Verify.Abstract
 import ConLeche.Semantics.Kit
 import ConLeche.Semantics.Tower.FixTower
@@ -41,8 +40,8 @@ CLASSCHECK / G1-SYN).
 The minor sits in the shared prefix at position `mp = nP + s`, so its
 domain is read at depth `mp`; the rule frame is at depth `rP` (the whole
 prefix).  The reading is peeled at `mp`, where the generator's own
-`closeTelescope` lives (so the opened pieces are the annotated raw
-pieces, up to erasure), and moved to `rP` by the de Bruijn lift over the
+`closeTelescope` lives (so the opened pieces are the raw pieces, up
+to erasure — the type is stored as generated), and moved to `rP` by the de Bruijn lift over the
 `rP - mp` later prefix binders (`denoteMeta_lift` on the model side is
 free: `stripPisAV` of a lifted reading is the lifted pieces).  Three
 readings of openings at different depths meet:
@@ -305,7 +304,7 @@ theorem erasedEq_mkAppN_fvar_inv {i : Nat} {T e : Expr} {as : List Expr}
 
 section Pieces
 
-variable {V : Type w} [SetTheory V] {μ : CheckMode} {env envK : Env}
+variable {V : Type w} [SetTheory V] {env : Env}
 
 set_option maxHeartbeats 1600000 in
 /-- **An `ih` binder's domain, read.**  The `l`-th `ih` domain of a minor
@@ -315,8 +314,8 @@ its reading is the lift by `l` of a reading `A0` at `lo`.  Lifted by `δ`
 over the prefix binders after the minor (cutoff `c` = the fields), `A0`
 is the generated `ih` binder type `genIhDomAV (lo + δ) mt q` of an `ih`
 datum `q` bounded at the rule's depth. -/
-theorem classGenIh_read (m : EnvModel V env) {φ : Name → Nat} {F lo l c δ mt t : Nat}
-    {TB : List (Expr × ConLeche.BinderMeta)} {bargs : List Expr} {Y N : Expr} {A : AnnotTerm}
+theorem classGenIh_read (m : EnvModel V env) {φ : Name → Nat} {lo l c δ mt t : Nat}
+    {TB : List (Expr × ConLeche.BinderMeta)} {bargs : List Expr} {Y : Expr} {A : AnnotTerm}
     (hmt : mt + c < lo) (hbne : bargs ≠ [])
     (hTB : ∀ (k : Nat) (nd : Expr × ConLeche.BinderMeta), TB[k]? = some nd →
       ScB (lo + l + k) nd.1)
@@ -326,8 +325,7 @@ theorem classGenIh_read (m : EnvModel V env) {φ : Name → Nat} {F lo l c δ mt
     (hY : Expr.ErasedEq Y
       (closeTelescope TB (lo + l) (Expr.mkAppN (.fvar mt (.sort .zero)) bargs)))
     (hwY : Expr.WScoped (lo + l) Y)
-    (hann : ConLeche.annotateCore μ envK F (lo + l) Y = .ok N)
-    (hA : denoteMeta m.acval env φ (lo + l) N = some A) :
+    (hA : denoteMeta m.acval env φ (lo + l) Y = some A) :
     ∃ (A0 : AnnotTerm) (q : IhDatum), A = A0.liftN l 0 ∧ q.1 = t ∧
       genIhDomAV (lo + δ) mt q = A0.liftN δ c ∧ IhDatumBelow (lo + δ) q := by
   have hraw : ScB (lo + l)
@@ -337,37 +335,21 @@ theorem classGenIh_read (m : EnvModel V env) {φ : Name → Nat} {F lo l c δ mt
   have hYlo : Expr.WScoped lo Y :=
     ConLeche.WScoped.of_fvarsBelow hwY (erasedEq_fvarsBelow _ _ (ConLeche.Expr.ErasedEq.symm hY)
       hbelow)
-  have hwN : Expr.WScoped lo N := ConLeche.annotateCore_WScoped_below hann hwY hYb hYlo
-  have hNb : N.looseBVarsBounded 0 = true := ConLeche.annotateCore_looseBVars F Y hann hYb
   -- the reading at `lo`, lifted by `l`
-  have hlift := denoteMeta_lift (env := env) (φ := φ) m.acval_closed hwN (lo + l) (by omega)
+  have hlift := denoteMeta_lift (env := env) (φ := φ) m.acval_closed hYlo (lo + l) (by omega)
   rw [hA, show lo + l - lo = l by omega] at hlift
-  obtain ⟨A0, hA0, rfl⟩ : ∃ A0, denoteMeta m.acval env φ lo N = some A0 ∧ A = A0.liftN l 0 := by
-    cases h0 : denoteMeta m.acval env φ lo N with
+  obtain ⟨A0, hA0, rfl⟩ : ∃ A0, denoteMeta m.acval env φ lo Y = some A0 ∧ A = A0.liftN l 0 := by
+    cases h0 : denoteMeta m.acval env φ lo Y with
     | none => rw [h0] at hlift; exact nomatch hlift
     | some A0 => rw [h0] at hlift; exact ⟨A0, rfl, Option.some.inj hlift⟩
-  -- the annotated telescope
+  -- the telescope
   have hTBb : ∀ p ∈ TB, p.1.looseBVarsBounded 0 = true := fun p hp => by
     obtain ⟨k, hk, rfl⟩ := List.getElem_of_mem hp
     exact (hTB k _ (List.getElem?_eq_getElem hk)).2
-  obtain ⟨ndsT, BT', hlT, heN, ⟨BT₀, FT, hBT₀, -, hannBT⟩, hdomsT⟩ :=
-    ConLeche.annotateCore_closeTelescope_gen TB hTBb hbody.2 hY hwY hann
-  have hndsTb : ∀ p ∈ ndsT, p.1.looseBVarsBounded 0 = true := by
-    intro p hp
-    obtain ⟨k, hk, rfl⟩ := List.getElem_of_mem hp
-    obtain ⟨X, F', nd, hnd, hX, -, hann'⟩ := hdomsT k _ (List.getElem?_eq_getElem hk)
-    exact ConLeche.annotateCore_looseBVars F' X hann'
-      (looseBVarsBounded_of_erasedEq hX (hTBb nd (List.mem_of_getElem? hnd)))
-  have hBT₀b : BT₀.looseBVarsBounded 0 = true := looseBVarsBounded_of_erasedEq hBT₀ hbody.2
-  have hBT'b : BT'.looseBVarsBounded 0 = true :=
-    ConLeche.annotateCore_looseBVars FT BT₀ hannBT hBT₀b
   obtain ⟨Ts, restT, hopT, hrestT, -⟩ :=
-    open_of_erasedEq_closeTelescope ndsT (lo + l) BT' N hndsTb hBT'b heN
+    open_of_erasedEq_closeTelescope TB (lo + l) _ Y hTBb hbody.2 hY
   obtain ⟨pps_t, b_t, hst_t, hb_t, -, hpp_t⟩ := denoteMeta_openPis _ hopT hA
-  rw [hlT] at hst_t hb_t
   -- the body: the callee's motive variable, applied
-  obtain ⟨T₀, as₀, rfl, hl₀⟩ := erasedEq_mkAppN_fvar_inv hBT₀
-  obtain ⟨as', rfl, hl'⟩ := ConLeche.annotateCore_mkAppN_fvar hannBT
   rw [denoteMeta_erasedEq hrestT] at hb_t
   obtain ⟨rs, rfl, hlrs⟩ := denoteMeta_mkAppN_fvar_inv hb_t
   -- peel the lift
@@ -377,7 +359,7 @@ theorem classGenIh_read (m : EnvModel V env) {φ : Name → Nat} {F lo l c δ mt
   obtain ⟨rfl, hps0l⟩ := stripPisAV_eq_mkPis hs0
   have has0l : as0.length = bargs.length := by simp at hlrs; omega
   -- the domain-sort numerals are `0`
-  have hTl : Ts.length = ndsT.length := ConLeche.Verify.openPisAtFvars_length _ hopT
+  have hTl : Ts.length = TB.length := ConLeche.Verify.openPisAtFvars_length _ hopT
   have hps0z : ∀ p ∈ ps0, p.1 = 0 := by
     intro p hp
     obtain ⟨i, hi, rfl⟩ := List.getElem_of_mem hp
@@ -387,7 +369,7 @@ theorem classGenIh_read (m : EnvModel V env) {φ : Name → Nat} {F lo l c δ mt
     rw [← hp'] at hp'1
     exact hp'1
   -- bounds
-  have hA0B := bvarsBelow_of_reading (m := m) hwN hNb hA0
+  have hA0B := bvarsBelow_of_reading (m := m) hYlo hYb hA0
   obtain ⟨hdoms0, hbody0⟩ := bvarsBelow_mkPisAV_inv hA0B
   rw [AnnotTerm.erase_mkAppN] at hbody0
   obtain ⟨-, has0⟩ := bvarsBelow_mkAppN_inv hbody0
@@ -433,30 +415,26 @@ set_option maxHeartbeats 800000 in
 `lo + n` (`lo = mp + nF`, under the `n` `ih` binders) but names no `ih`
 variable: its reading is the lift by `n` of the motive's variable
 applied to a nonempty spine of readings bounded at `lo`. -/
-theorem classGenConcl_read (m : EnvModel V env) {φ : Name → Nat} {F lo n mc : Nat}
-    {cargs : List Expr} {B₀ B' : Expr} {b : AnnotTerm} (hcne : cargs ≠ [])
+theorem classGenConcl_read (m : EnvModel V env) {φ : Name → Nat} {lo n mc : Nat}
+    {cargs : List Expr} {B₀ : Expr} {b : AnnotTerm} (hcne : cargs ≠ [])
     (hraw : ScB lo (Expr.mkAppN (.fvar mc (.sort .zero)) cargs))
     (hB₀ : Expr.ErasedEq B₀ (Expr.mkAppN (.fvar mc (.sort .zero)) cargs))
     (hwB₀ : Expr.WScoped (lo + n) B₀)
-    (hann : ConLeche.annotateCore μ envK F (lo + n) B₀ = .ok B')
-    (hb : denoteMeta m.acval env φ (lo + n) B' = some b) :
+    (hb : denoteMeta m.acval env φ (lo + n) B₀ = some b) :
     ∃ rs : List AnnotTerm, b = (AnnotTerm.mkAppN (.bvar (lo - 1 - mc)) rs).liftN n 0 ∧
       rs ≠ [] ∧ ∀ a ∈ rs, Term.bvarsBelow lo a.erase := by
   have hB₀b : B₀.looseBVarsBounded 0 = true := looseBVarsBounded_of_erasedEq hB₀ hraw.2
   have hB₀lo : Expr.WScoped lo B₀ :=
     ConLeche.WScoped.of_fvarsBelow hwB₀ (erasedEq_fvarsBelow _ _
       (ConLeche.Expr.ErasedEq.symm hB₀) hraw.1.fvarsBelow)
-  have hwB' : Expr.WScoped lo B' := ConLeche.annotateCore_WScoped_below hann hwB₀ hB₀b hB₀lo
-  have hB'b : B'.looseBVarsBounded 0 = true := ConLeche.annotateCore_looseBVars F B₀ hann hB₀b
-  have hlift := denoteMeta_lift (env := env) (φ := φ) m.acval_closed hwB' (lo + n) (by omega)
+  have hlift := denoteMeta_lift (env := env) (φ := φ) m.acval_closed hB₀lo (lo + n) (by omega)
   rw [hb, show lo + n - lo = n by omega] at hlift
-  obtain ⟨bD, hbD, rfl⟩ : ∃ bD, denoteMeta m.acval env φ lo B' = some bD ∧ b = bD.liftN n 0 := by
-    cases h0 : denoteMeta m.acval env φ lo B' with
+  obtain ⟨bD, hbD, rfl⟩ : ∃ bD, denoteMeta m.acval env φ lo B₀ = some bD ∧ b = bD.liftN n 0 := by
+    cases h0 : denoteMeta m.acval env φ lo B₀ with
     | none => rw [h0] at hlift; exact nomatch hlift
     | some bD => rw [h0] at hlift; exact ⟨bD, rfl, Option.some.inj hlift⟩
-  have hbB := bvarsBelow_of_reading (m := m) hwB' hB'b hbD
+  have hbB := bvarsBelow_of_reading (m := m) hB₀lo hB₀b hbD
   obtain ⟨T₀, as₀, rfl, hl₀⟩ := erasedEq_mkAppN_fvar_inv hB₀
-  obtain ⟨as', rfl, hl'⟩ := ConLeche.annotateCore_mkAppN_fvar hann
   obtain ⟨rs, rfl, hlrs⟩ := denoteMeta_mkAppN_fvar_inv hbD
   rw [AnnotTerm.erase_mkAppN] at hbB
   obtain ⟨-, hrs⟩ := bvarsBelow_mkAppN_inv hbB
@@ -477,7 +455,7 @@ theorem fieldsBelow_take_of_domsBelow :
 
 section Prefix
 
-variable {V : Type w} [SetTheory V] {μ : CheckMode} {env envK : Env}
+variable {V : Type w} [SetTheory V] {env : Env}
 
 /-- **The shared prefix's domains are bounded at their positions** (the
 `hP` rows of `genHchI_of_below`): the generated type is closed, so its
@@ -485,17 +463,16 @@ reading names no variable, and neither does any of its domains beyond
 the binders before it. -/
 theorem classGenRecTy_prefix_below (m : EnvModel V env) {φ : Name → Nat} {g : ClassGen}
     (hg : ClassGenScoped g) {c s : Nat}
-    (hm : ConLeche.ClassRead.motiveSlot ⟨g.slots, []⟩ c = some s) {F : Nat}
-    {gty gtyA : Expr} {ea : AnnotTerm}
+    (hm : ConLeche.ClassRead.motiveSlot ⟨g.slots, []⟩ c = some s)
+    {gty : Expr} {ea : AnnotTerm}
     (hgty : classGenRecTy g c = some gty)
-    (hann : ConLeche.annotateCore μ envK F 0 gty = .ok gtyA)
-    (hread : denoteMeta m.acval env φ 0 gtyA = some ea)
+    (hread : denoteMeta m.acval env φ 0 gty = some ea)
     {n : Nat} {pps : List (Nat × Nat × AnnotTerm)} {b : AnnotTerm}
     (hst : stripPisAV n ea = some (pps, b)) (k : Nat) :
     FieldsBelow 0 ((pps.take k).map (·.2.2)) := by
   have hclosed := ConLeche.classGenRecTy_closed hg hm hgty
-  have hgA := annotate_syntax hann hclosed.1 hclosed.2
-  have hB := bvarsBelow_of_reading (m := m) (Expr.WScoped.of_not_hasFvar hgA.1) hgA.2 hread
+  have hB := bvarsBelow_of_reading (m := m) (Expr.WScoped.of_not_hasFvar hclosed.1) hclosed.2
+    hread
   rw [(stripPisAV_eq_mkPis hst).1] at hB
   exact fieldsBelow_take_of_domsBelow k (bvarsBelow_mkPisAV_inv hB).1
 
@@ -509,11 +486,11 @@ end Prefix
 
 section Minor
 
-variable {V : Type w} [SetTheory V] {μ : CheckMode} {env envK : Env}
+variable {V : Type w} [SetTheory V] {env : Env}
 
 set_option maxHeartbeats 6400000 in
 /-- **`hminor`, from the generator.**  Read the generated recursor type
-of any class `c` (annotated, read, peeled to its binder data `pps`); the
+of any class `c` (as stored, read, peeled to its binder data `pps`); the
 minor premise at slot `sm` (class `cm`, constructor `x`) sits in the
 shared prefix at `mp = nP + sm`.  Its domain's pieces, moved to the rule
 frame's depth `rP` (the whole prefix), are the rule frame's components:
@@ -529,11 +506,10 @@ semantic premise is the reading's bit validity (`hval`, the inference
 claim's `AnnotValid` half). -/
 theorem classGenMinor_read (m : EnvModel V env) {φ : Name → Nat} {g : ClassGen}
     (hg : ClassGenScoped g) {c s : Nat}
-    (hm : ConLeche.ClassRead.motiveSlot ⟨g.slots, []⟩ c = some s) {F : Nat}
-    {gty gtyA : Expr} {ea : AnnotTerm}
+    (hm : ConLeche.ClassRead.motiveSlot ⟨g.slots, []⟩ c = some s)
+    {gty : Expr} {ea : AnnotTerm}
     (hgty : classGenRecTy g c = some gty)
-    (hann : ConLeche.annotateCore μ envK F 0 gty = .ok gtyA)
-    (hread : denoteMeta m.acval env φ 0 gtyA = some ea)
+    (hread : denoteMeta m.acval env φ 0 gty = some ea)
     {pps : List (Nat × Nat × AnnotTerm)} {b : AnnotTerm}
     (hst : stripPisAV (g.pre.length + (g.cls.getD c default).nIdx + 1) ea = some (pps, b))
     (hval : ∀ ρ : Nat → V, AnnotValid V ρ ea)
@@ -568,69 +544,41 @@ theorem classGenMinor_read (m : EnvModel V env) {φ : Name → Nat} {g : ClassGe
     ConLeche.ClassGen.minorTy_spec hg hsl hxm hxC hT
   have hslen : sm < g.slots.length := (List.getElem?_eq_some_iff.mp hsl).1
   have hmcP : classMotPos g cm = g.nP + sc := by simp [classMotPos, hmc]
-  -- the generated type, annotated and opened
+  -- the generated type, opened
   have hclosed := ConLeche.classGenRecTy_closed hg hm hgty
   obtain ⟨ifs, maj, hmaj, hifl, rfl, hcl, hbb⟩ := ConLeche.classGenRecTy_spec hg hgty
-  generalize hnds : g.pre ++ ifs.map classBinder ++ [(maj, (default : ConLeche.BinderMeta))]
-    = nds at hann hcl hclosed
+  generalize hnds : g.pre ++ ifs.map g.binder ++ [(maj, g.bm)] = nds at hread hcl hclosed
   generalize hbody : Expr.mkAppN (g.motVar c) (ifs ++ [.fvar (g.pre.length + ifs.length) maj])
-    = body at hann hbb hclosed
+    = body at hread hbb hclosed
   have hn : nds.length = g.pre.length + (g.cls.getD c default).nIdx + 1 := by
     rw [← hnds]
     simp only [List.length_append, List.length_map, List.length_singleton, hifl]
-  have hw0 : Expr.WScoped 0 (closeTelescope nds 0 body) :=
-    Expr.WScoped.of_not_hasFvar hclosed.1
-  obtain ⟨nds', B', hl', he', ⟨B₀g, F₀g, hB₀g, -, hannBg⟩, hdoms⟩ :=
-    ConLeche.annotateCore_closeTelescope_gen nds hcl hbb (ConLeche.Expr.ErasedEq.rfl _) hw0 hann
-  have hcl' : ∀ p ∈ nds', p.1.looseBVarsBounded 0 = true := by
-    intro p hp
-    obtain ⟨k, hk, rfl⟩ := List.getElem_of_mem hp
-    obtain ⟨X, F', nd, hnd, hX, -, hann'⟩ := hdoms k _ (List.getElem?_eq_getElem hk)
-    exact ConLeche.annotateCore_looseBVars F' X hann'
-      (looseBVarsBounded_of_erasedEq hX (hcl nd (List.mem_of_getElem? hnd)))
-  have hB'b : B'.looseBVarsBounded 0 = true :=
-    ConLeche.annotateCore_looseBVars F₀g B₀g hannBg (looseBVarsBounded_of_erasedEq hB₀g hbb)
-  obtain ⟨fvs, o, hop, -, hxs⟩ := open_of_erasedEq_closeTelescope nds' 0 B' gtyA hcl' hB'b he'
-  rw [hl', hn] at hop
+  obtain ⟨fvs, o, hop, -, hxs⟩ := open_of_erasedEq_closeTelescope nds 0 body
+    (closeTelescope nds 0 body) hcl hbb (ConLeche.Expr.ErasedEq.rfl _)
+  rw [hn] at hop
   obtain ⟨pps', b', hst', -, -, hpp'⟩ := denoteMeta_openPis _ hop hread
   obtain ⟨rfl, rfl⟩ := Prod.mk.inj (Option.some.inj (hst.symm.trans hst'))
-  have hgA := annotate_syntax hann hclosed.1 hclosed.2
-  obtain ⟨hfvl, hfvs, -⟩ := ScB.openPis hop ⟨Expr.WScoped.of_not_hasFvar hgA.1, hgA.2⟩
+  obtain ⟨hfvl, hfvs, -⟩ := ScB.openPis hop ⟨Expr.WScoped.of_not_hasFvar hclosed.1, hclosed.2⟩
   -- the minor's slot
   have hmpP : g.nP + sm < g.pre.length := by omega
   have hndmp : nds[g.nP + sm]? = some (closeTelescope (FB ++ IB) (g.nP + sm)
-      (Expr.mkAppN (.fvar (g.nP + sc) (.sort .zero)) cargs), default) := by
+      (Expr.mkAppN (.fvar (g.nP + sc) (.sort .zero)) cargs), g.bm) := by
     rw [← hnds, List.append_assoc, List.getElem?_append_left hmpP]; exact hpreT
-  have hk' : g.nP + sm < nds'.length := by rw [hl', hn]; omega
-  obtain ⟨X, FX, nd, hnd, hX, hwX, hannX⟩ := hdoms (g.nP + sm) _ (List.getElem?_eq_getElem hk')
-  rw [hndmp] at hnd
-  obtain rfl := (Option.some.inj hnd).symm
-  simp only [Nat.zero_add] at hX hwX hannX
   have hfmp : g.nP + sm < fvs.length := by omega
   obtain ⟨tyM, hfe, hScM⟩ := hfvs (g.nP + sm) _ (List.getElem?_eq_getElem hfmp)
   obtain ⟨pM, hpM, -, hMm⟩ := hpp' (g.nP + sm) _ (List.getElem?_eq_getElem hfmp)
-  have hMoE : Expr.ErasedEq fvs[g.nP + sm].fvarTypeD nds'[g.nP + sm].1 :=
-    hxs (g.nP + sm) _ _ (List.getElem?_eq_getElem hfmp) (by simp [List.getElem?_eq_getElem hk'])
+  have hMoE : Expr.ErasedEq fvs[g.nP + sm].fvarTypeD (closeTelescope (FB ++ IB) (g.nP + sm)
+      (Expr.mkAppN (.fvar (g.nP + sc) (.sort .zero)) cargs)) :=
+    hxs (g.nP + sm) _ _ (List.getElem?_eq_getElem hfmp) (by simp [hndmp])
   rw [hfe] at hMoE hMm
   simp only [Expr.fvarTypeD, Nat.zero_add] at hMoE hMm hScM
-  -- the minor's domain, annotated: the telescope of the annotated pieces
+  -- the minor's domain: the telescope of the pieces
   have hFIb : ∀ p ∈ FB ++ IB, p.1.looseBVarsBounded 0 = true := by
     intro p hp
     obtain ⟨k, hk, rfl⟩ := List.getElem_of_mem hp
     exact (hscB k _ (List.getElem?_eq_getElem hk)).2
-  obtain ⟨nds'', B'', hl'', he'', ⟨B₀, F₀, hB₀, hwB₀, hannB⟩, hdoms''⟩ :=
-    ConLeche.annotateCore_closeTelescope_gen (FB ++ IB) hFIb hconclS.2 hX hwX hannX
-  have hcl'' : ∀ p ∈ nds'', p.1.looseBVarsBounded 0 = true := by
-    intro p hp
-    obtain ⟨k, hk, rfl⟩ := List.getElem_of_mem hp
-    obtain ⟨X', F', nd, hnd, hX', -, hann'⟩ := hdoms'' k _ (List.getElem?_eq_getElem hk)
-    exact ConLeche.annotateCore_looseBVars F' X' hann'
-      (looseBVarsBounded_of_erasedEq hX' (hFIb nd (List.mem_of_getElem? hnd)))
-  have hB''b : B''.looseBVarsBounded 0 = true :=
-    ConLeche.annotateCore_looseBVars F₀ B₀ hannB (looseBVarsBounded_of_erasedEq hB₀ hconclS.2)
   obtain ⟨Zs, rest, hopM, hrest, hZs⟩ :=
-    open_of_erasedEq_closeTelescope nds'' (g.nP + sm) B'' tyM hcl'' hB''b (hMoE.trans he'')
-  rw [hl''] at hopM
+    open_of_erasedEq_closeTelescope (FB ++ IB) (g.nP + sm) _ tyM hFIb hconclS.2 hMoE
   obtain ⟨pm, bm, hstm, hbm, hlm, hppm⟩ := denoteMeta_openPis _ hopM hMm
   obtain ⟨hZl, hZs', -⟩ := ScB.openPis hopM hScM
   -- abbreviations
@@ -641,9 +589,8 @@ theorem classGenMinor_read (m : EnvModel V env) {φ : Name → Nat} {g : ClassGe
   have hFIl : (FB ++ IB).length = x.nF + IB.length := by simp [hFBl]
   -- the conclusion
   rw [denoteMeta_erasedEq hrest, hFIl, ← Nat.add_assoc] at hbm
-  rw [hFIl, ← Nat.add_assoc] at hwB₀ hannB
   obtain ⟨rs, rfl, hrsne, hrsB⟩ := classGenConcl_read m (lo := mp + x.nF) (n := IB.length) hcne
-    hconclS hB₀ hwB₀ hannB hbm
+    hconclS (ConLeche.Expr.ErasedEq.rfl _) (hconclS.mono (by omega)).1 hbm
   obtain ⟨esL, mkT, hesmk⟩ : ∃ esL mkT,
       rs.map (fun a => a.liftN δ x.nF) = esL ++ [mkT] := by
     rcases List.eq_nil_or_concat (rs.map fun a => a.liftN δ x.nF) with h | h
@@ -660,19 +607,19 @@ theorem classGenMinor_read (m : EnvModel V env) {φ : Name → Nat} {g : ClassGe
     by_cases hl : l < IB.length
     · obtain ⟨i, t, tele, st, TB, bargs, hrec, hmt, hst, hbne, hIB, hTB, hbodyT, hbelowT⟩ :=
         hih l hl
-      have hkl : x.nF + l < nds''.length := by rw [hl'']; simp [hFBl]; omega
-      obtain ⟨Y, FY, ndY, hndY, hYE, hwY, hannY⟩ :=
-        hdoms'' (x.nF + l) _ (List.getElem?_eq_getElem hkl)
-      rw [List.getElem?_append_right (by omega), hFBl, Nat.add_sub_cancel_left, hIB] at hndY
-      obtain rfl := (Option.some.inj hndY).symm
+      have hndY : (FB ++ IB)[x.nF + l]? = some (closeTelescope TB (mp + x.nF + l)
+          (Expr.mkAppN (.fvar (g.nP + st) (.sort .zero)) bargs), g.bm) := by
+        rw [List.getElem?_append_right (by omega), hFBl, Nat.add_sub_cancel_left, hIB]
+      have hwY := (hscB (x.nF + l) _ hndY).1
       have hZk : x.nF + l < Zs.length := by rw [hZl]; simp [hFBl]; omega
       obtain ⟨p, hp, -, hpd⟩ := hppm (x.nF + l) _ (List.getElem?_eq_getElem hZk)
-      rw [denoteMeta_erasedEq (hZs _ _ nds''[x.nF + l].1 (List.getElem?_eq_getElem hZk)
-        (by simp [List.getElem?_eq_getElem hkl]))] at hpd
-      rw [← Nat.add_assoc] at hpd hwY hannY
+      rw [denoteMeta_erasedEq (hZs _ _ (closeTelescope TB (mp + x.nF + l)
+          (Expr.mkAppN (.fvar (g.nP + st) (.sort .zero)) bargs)) (List.getElem?_eq_getElem hZk)
+        (by simp [hndY]))] at hpd
+      rw [← Nat.add_assoc] at hpd hwY
       obtain ⟨A0, q, hA0, hq1, hgen, hqb⟩ := classGenIh_read m (lo := mp + x.nF) (l := l)
-        (c := x.nF) (δ := δ) (mt := g.nP + st) (t := t) (by omega) hbne hTB hbodyT hbelowT hYE hwY
-        hannY hpd
+        (c := x.nF) (δ := δ) (mt := g.nP + st) (t := t) (by omega) hbne hTB hbodyT hbelowT
+        (ConLeche.Expr.ErasedEq.rfl _) hwY hpd
       have hmtP : classMotPos g t = g.nP + st := by simp [classMotPos, hmt]
       refine ⟨q, A0, fun _ => ⟨by rw [hp, Option.map_some, hA0], ⟨i, tele, by rw [hq1]; exact hrec⟩,
         by rw [hq1, hmtP]; omega, by rw [hq1, hmtP]; exact hgen, hqb⟩⟩

@@ -1874,13 +1874,7 @@ theorem recStage_tyClosed
     (hr : rs[i]? = some r) :
     Expr.WScoped 0 r.1.type ∧ r.1.type.looseBVarsBounded 0 = true := by
   obtain ⟨_, _, -, ⟨TE⟩⟩ := ConLeche.recStageG_tyGen h hr
-  obtain ⟨-, -, -, -, hlb0, hfv0, tyA, -, -, hann, -, -, -, -, hcv'⟩ :=
-    ConLeche.checkConstantVal_inv TE.hcv
-  have hrty : r.1.type = tyA := by rw [hcv']
-  exact ⟨by
-      rw [hrty]
-      exact ConLeche.annotateCore_WScoped _ _ hann (Expr.WScoped.of_not_hasFvar hfv0),
-    by rw [hrty]; exact ConLeche.annotateCore_looseBVars _ _ hann hlb0⟩
+  exact ⟨Expr.WScoped.of_not_hasFvar TE.hcv.noFvar, TE.hcv.bounded⟩
 
 /-- **The rule PREFIX opening's readings are `blockRulePdomsAV`'s
 entries.**  Stage (b') opens the stored type at the rule prefix alone;
@@ -2390,10 +2384,8 @@ theorem blockRecElimLevel_run (hμ : μ.verifiedChecks = true) {envC : Env}
   · intro ψ c hc b hb
     obtain ⟨r, hr⟩ : ∃ r, rs[c]? = some r := ⟨rs[c]'hc, List.getElem?_eq_getElem hc⟩
     obtain ⟨rc, u, -, hcu, ⟨E⟩⟩ := R.tyGenAt hr
-    -- the type's own inference (`checkConstantVal`'s second run)
-    obtain ⟨-, -, -, -, -, -, tyA, stype, -, -, -, -, hinfTy, -, hcv'⟩ :=
-      ConLeche.checkConstantVal_inv E.hcv
-    have htyA : r.1.type = tyA := by rw [hcv']
+    -- the type's own inference (the check's inference of the stored type)
+    obtain ⟨stype, -, hinfTy, -⟩ := E.hcv.sorted
     -- the reading, and its Π-peel
     obtain ⟨fvs, concl, hop, hta, hmk, hlenRds, -, -, -, -⟩ := recStage_tyPis hμ mpC h hr ψ
     obtain ⟨rfl, rfl⟩ := Prod.mk.inj (Option.some.inj (hop.symm.trans E.hopen))
@@ -2404,8 +2396,7 @@ theorem blockRecElimLevel_run (hμ : μ.verifiedChecks = true) {envC : Env}
             blockRecConclAV mpC.base2.acval envC p.toBlockShape rs ψ c) := by
       rw [hmk, ← hlenRds]
       exact stripPisAV_mkPisAV _ _
-    have hinfTy' : ConLeche.inferTypeCore μ envC F 0 r.1.type = .ok stype := by
-      rw [htyA]; exact hinfTy
+    have hinfTy' : ConLeche.inferTypeCore μ envC F 0 r.1.type = .ok stype := hinfTy
     show b.2.1 = 0 ↔ Level.eval ψ ((R.cvRus.map (·.2.2)).getD c .zero) = 0
     rw [huOf hcu, stripPisAV_denoteMeta_pw (envK := envC) hμ _ (Nat.le_refl F) hop hta hst
       hinfTy' (by rw [Nat.zero_add]; exact E.hsty) (by rw [Nat.zero_add]; exact E.hu) b hb]

@@ -82,15 +82,15 @@ theorem denoteMeta_instPisAtLift_peel
 
 `blockRecStaged_of`'s `hrd` has three components: the recursor's
 stored type reads, its reading is graded, and the leaf inhabits it.
-The first two are **run facts** — `checkConstantVal` ran `inferType`
-on the ANNOTATED type at the constructors' environment, which is
+The first two are **run facts** — the type's check ran `inferType`
+on the STORED type at the constructors' environment, which is
 exactly the hypothesis `acceptedReads_of` and the infer claim want —
 and this is them.  The third is the recursion theorem and belongs to
 the recursor model (`graphRecPre_core`).
 
 The recipe is the one every harvest uses (`harvestDefn`,
-`Model/Harvest.lean`): `annotate_syntax` for the primed form's
-scoping, `acceptedReads_of` for the reading, and `checkSoundAt`'s
+`Model/Harvest.lean`): the stored type's own scoping, `acceptedReads_of`
+for the reading, and `checkSoundAt`'s
 infer claim (through `inferReads_of` for the inferred type's own
 reading) for the grading. -/
 
@@ -102,29 +102,32 @@ variable {V : Type w} [SetTheory V] {μ : CheckMode}
 lands in the universe the check's own `ensureSort` named.**
 
 The sort component is one step further into the pair the grading
-already runs: `checkConstantVal` infers the annotated type and
-`ensureSort`s the result, and `ensureSortCore_inv` turns that into the
-`whnf`-to-a-sort `SortSemAt` asks for — so the same claims
-(`WhnfClaim` + `InferClaim` + `InferReads`) that grade the reading
-also place it in `univ (u.eval ψ)`.
+already runs: the check infers the stored type and `ensureSort`s the
+result, and `ensureSortCore_inv` turns that into the `whnf`-to-a-sort
+`SortSemAt` asks for — so the same claims (`WhnfClaim` + `InferClaim` +
+`InferReads`) that grade the reading also place it in
+`univ (u.eval ψ)`.  What it reads of the check (`ConstChecked`) is the
+stored type closed and inferred; annotation plays no part, so the
+generated stage's `classConstOk` (the type stored as generated) supplies
+it as the stream's `checkConstantVal` does.
 
 **This is the `hlvl` route**: the level a recursor's type lives at is
 the check's INFERRED one, and it already accounts for the binders'
 levels, so nothing has to pin the reading's binder numerals. -/
-theorem checkConstantVal_reads {env : Env} (hμ : μ.verifiedChecks = true)
+theorem constChecked_reads {env : Env} (hμ : μ.verifiedChecks = true)
     (mp : EnvModelM V μ env) {F : Nat} {cv cvA : ConstantVal}
-    (h : ConLeche.checkConstantVal (ConLeche.fueledOps μ F) env cv = .ok cvA) :
+    (h : ConLeche.ConstChecked μ F env cv cvA) :
     ∃ u : Level, ∀ ψ : Name → Nat, ∃ ta : AnnotTerm,
       denoteMeta mp.base2.acval env ψ 0 cvA.type = some ta ∧
       (∀ ρ : Nat → V, WellDenotedV V ρ ta) ∧
       ∀ ρ : Nat → V, interp V ρ ta ∈ˢ (univ (u.eval ψ) : V) := by
-  obtain ⟨-, -, -, -, hlbt, hitf, type, stype, u, hann, -, -, hrun, hsort, rfl⟩ :=
-    ConLeche.checkConstantVal_inv h
+  obtain ⟨stype, u, hrun, hsort⟩ := h.sorted
   refine ⟨u, fun ψ => ?_⟩
-  obtain ⟨htf', hbt'⟩ := ConLeche.Semantics.annotate_syntax hann hitf hlbt
-  have hwt : Expr.WScoped 0 type := Expr.WScoped.of_not_hasFvar htf'
-  have hnlt : type.fvarLeaves = [] := Expr.fvarLeaves_eq_nil_of_not_hasFvar htf'
-  have hLt : Expr.LeavesBounded type := fun l hl => by
+  have htf' := h.noFvar
+  have hbt' := h.bounded
+  have hwt : Expr.WScoped 0 cvA.type := Expr.WScoped.of_not_hasFvar htf'
+  have hnlt : cvA.type.fvarLeaves = [] := Expr.fvarLeaves_eq_nil_of_not_hasFvar htf'
+  have hLt : Expr.LeavesBounded cvA.type := fun l hl => by
     rw [hnlt] at hl
     exact absurd hl (List.not_mem_nil)
   obtain ⟨ta, hta⟩ := acceptedReads_of mp.base2 ψ hrun hwt hbt' hLt
@@ -138,7 +141,7 @@ theorem checkConstantVal_reads {env : Env} (hμ : μ.verifiedChecks = true)
 /-- **`hrd`'s first two components, at the whole recursor stage.**
 Every stored recursor's type reads at the constructors' environment
 and its reading is graded — from the stage's own
-`checkConstantVal` runs, at the type record of each stored recursor
+type checks (`ConstChecked`), at the type record of each stored recursor
 (`RecStage.tyGenAt`, `Verify/Inductives/RecStage.lean`). -/
 theorem recStage_tyReads {envC : Env} (hμ : μ.verifiedChecks = true)
     (mpC : EnvModelM V μ envC) {p : ConLeche.BlockParts} {cvTas : List ConstantVal}
@@ -153,7 +156,7 @@ theorem recStage_tyReads {envC : Env} (hμ : μ.verifiedChecks = true)
   intro r hr
   obtain ⟨i, hi⟩ := List.getElem?_of_mem hr
   obtain ⟨rc, u, -, -, ⟨E⟩⟩ := R.tyGenAt hi
-  exact checkConstantVal_reads hμ mpC E.hcv
+  exact constChecked_reads hμ mpC E.hcv
 
 /-- **`blockRecStaged_of`'s `hrd`, reduced to the MEMBERSHIP.**  The
 reading and its grading are the run's (`recStage_tyReads`); what

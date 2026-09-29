@@ -530,8 +530,8 @@ for the OTHER `k − 1` types is a claim about the block's recursors
 SHARING their level parameters.  They do, and it is a run fact: stage
 (a)'s pin `blockRecLpsOk` (`targetRecPins`) says every recursor's
 `levelParams` IS the generated list (`elim :: lps`, or `lps` at a
-small block), and `checkConstantVal` stores the record's
-`levelParams` unchanged. -/
+small block), and the type's check stores the record's
+`levelParams` unchanged (`ConstChecked.lps`). -/
 
 /-- **A block's recursors share their level parameters.** -/
 theorem recStage_lps {envC : Env} {p : ConLeche.BlockParts}
@@ -550,9 +550,7 @@ theorem recStage_lps {envC : Env} {p : ConLeche.BlockParts}
       omega
     obtain ⟨rc, q', hrc, hq', -, ⟨cv0, -, hl0, hcv⟩, -, -⟩ := hall n hnl
     obtain rfl := Option.some.inj (hq.symm.trans hq')
-    obtain ⟨-, -, -, -, -, -, type, -, -, -, -, -, -, -, hcv'⟩ :=
-      ConLeche.checkConstantVal_inv hcv
-    exact ⟨rc, List.mem_of_getElem? hrc, by rw [hcv', ← hl0]⟩
+    exact ⟨rc, List.mem_of_getElem? hrc, hcv.lps.trans hl0⟩
   obtain ⟨rc, hrcm, hlv⟩ := hone i r hr
   obtain ⟨rc', hrcm', hlv'⟩ := hone j r' hr'
   have hlps := List.all_eq_true.mp hpins.1 rc hrcm
@@ -2284,7 +2282,7 @@ variable {envC : Env} {p : BlockParts} {cvTas : List ConstantVal}
 
 /-- **The frame's recursor names ARE the stored data's.**  The rule
 stage is called at `p.recs.map (·.cvR.name)`
-(`recStageG_recNames`) and `checkConstantVal` stores the record's
+(`recStageG_recNames`) and the type's check stores the record's
 name unchanged, so the two spellings agree list-wise. -/
 theorem recStage_recNamesEq
     {memR : Nat → Prop} (h : ConLeche.RecStageG μ F envC p cvTas ctorsAs rs memR) :
@@ -2348,8 +2346,8 @@ theorem blockRecBareModel_run {envC : Env} (hμ : μ.verifiedChecks = true)
     (hB fun r hr => (hL r hr).2.2.2.2) (hB fun r hr => hrd r hr)
 
 /-- **A checked right-hand side READS, and its reading is graded.**
-The accepted-reads recipe (`checkConstantVal_reads`) at the stage's
-OWN inference run — the rule check's `inferType` on the annotated
+The accepted-reads recipe (`constChecked_reads`) at the stage's
+OWN inference run — the rule check's `inferType` on the stored
 rule at the rule-less recursor environment.  The subject is not a
 type, so the grading is the INFER claim's first component rather than
 the sort's. -/
