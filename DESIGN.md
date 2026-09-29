@@ -79422,6 +79422,12 @@ this block wins.
    reject, as official); NEW: any stream recursor RULES are accepted,
    since ours are installed instead; recursor types equal to the generated
    ones only up to defeq are accepted.
+   **Uniform parameters (2026-09-29, UNIFCHK):** official's syntactic
+   uniform-occurrence check runs on the STORED constructor type (lets
+   inlined), so a non-uniform occurrence that exists only in a `let`'s
+   type or an unused `let` value is accepted (`uh_let_erase_type`,
+   `uh_let_erase_value`: official 1, ours 0) — sound, since the model
+   reads the stored type; accepted superset by ruling.
    * **Zero-motive recursors at k ≥ 2.**  The kernel requires only
      `nP ≤ rP` (lane FLOOR).  At k = 1 the conformance generator still
      rejects such a recursor, and at k ≥ 2 it is skipped.  Streams cannot
