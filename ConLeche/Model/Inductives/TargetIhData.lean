@@ -35,8 +35,7 @@ open ConLeche.Semantics
 open ConLeche.SetModel
 open SetTheory
 open ConLeche.Semantics (AnnotTerm)
-open ConLeche (Env Expr Name Level ConstantVal ConstantInfo FEnv BlockShape TargetMajor
-  TargetIh TargetFamily TargetFrame)
+open ConLeche (Env Expr Name Level ConstantVal ConstantInfo FEnv BlockShape TargetMajor)
 
 universe w
 
@@ -46,60 +45,7 @@ variable (mode : ConLeche.CheckMode) (F : Nat) (fe : FEnv) (p : BlockShape)
   (formerTys : List Expr)
   (out : List (ConstantVal × TargetMajor × List Expr))
 
-/-- The `(c, j)`-th rule's `ih` variables, in the order the abstraction
-allocated them. -/
-@[expose] def tgtIhL (c j : Nat) : List TargetIh :=
-  (tgtAbs mode F fe p formerTys out c j).2.toList
-
-/-- Entry `r`'s call telescope (the field's whnf-telescope binder
-types). -/
-@[expose] def tgtTeleTys (c j r : Nat) : List Expr :=
-  ((tgtFrame mode F fe p formerTys out c j).teles.getD
-    ((tgtIhL mode F fe p formerTys out c j).getD r default).field []).map (·.1)
-
-/-- **The keys**: entry `r` and its callee. -/
-@[expose] def tgtKeys (c j : Nat) : List (Nat × Nat) :=
-  (List.range (tgtIhL mode F fe p formerTys out c j).length).map fun r =>
-    (r, ((tgtIhL mode F fe p formerTys out c j).getD r default).callee)
-
 variable (acval : Name → (Name → Nat) → AnnotTerm) (env : Env)
-
-/-- **Entry `r`'s telescope, read** at the frame, at the family's
-elimination bit (the `ih` type's and the call λ's binders, K2). -/
-@[expose] def tgtTlA (ψ : Name → Nat) (c j r : Nat) : List (Nat × Nat × AnnotTerm) :=
-  ((teleDoms acval env ψ (tgtB p out c j) [] (tgtTeleTys mode F fe p formerTys out c j r)).getD
-    []).map fun t => (0, pwBit ψ (Level.zeronessOf (ConLeche.structElimLevel p.elim p.large)), t)
-
-/-- **Entry `r`'s index arguments, read** at the frame and the
-telescope's canonical openers. -/
-@[expose] def tgtEisA (ψ : Name → Nat) (c j r : Nat) : List AnnotTerm :=
-  ((tgtIhL mode F fe p formerTys out c j).getD r default).idx.map fun x =>
-    (denoteMeta acval env ψ (tgtB p out c j + (tgtTeleTys mode F fe p formerTys out c j r).length)
-      (x.instantiateList (locOpen (tgtB p out c j)
-        (tgtTeleTys mode F fe p formerTys out c j r).length) 0)).getD default
-
-/-- **Entry `r`'s applied field, read**: the field applied to the
-telescope's variables, at the frame and the canonical openers. -/
-@[expose] def tgtFapA (ψ : Name → Nat) (c j r : Nat) : AnnotTerm :=
-  (denoteMeta acval env ψ (tgtB p out c j + (tgtTeleTys mode F fe p formerTys out c j r).length)
-    ((Expr.mkAppN ((tgtFrame mode F fe p formerTys out c j).fields.getD
-        ((tgtIhL mode F fe p formerTys out c j).getD r default).field default)
-      (ConLeche.structTeleVars (tgtTeleTys mode F fe p formerTys out c j r).length)).instantiateList
-      (locOpen (tgtB p out c j) (tgtTeleTys mode F fe p formerTys out c j r).length) 0)).getD
-    default
-
-/-- **The `ih` variables' domains**: their `ih` types read at the frame,
-lifted past the earlier variables (the residue context's `ih` block). -/
-@[expose] def tgtIhdomsAV (ψ : Name → Nat) (c j : Nat) : List AnnotTerm :=
-  ihDomsLifted (ihTyReads acval env ψ (tgtB p out c j) (tgtIhL mode F fe p formerTys out c j))
-
-/-- **`Ca` at the target data**: the recursor's conclusion at the
-constructor (`blockRuleConclExpr`), read past the
-`ih` variables. -/
-@[expose] def tgtCaAV (pp : ConLeche.BlockParts) (ψ : Name → Nat) (c j : Nat) : AnnotTerm :=
-  (denoteMeta acval env ψ
-    (tgtB pp.toBlockShape out c j + (tgtIhL mode F fe pp.toBlockShape formerTys out c j).length)
-    (tgtConclExpr pp.toBlockShape out c j)).getD default
 
 /-- **`fdoms0` at the MAJOR**: the rule's field
 openers' domains (the constructor at the major's instantiation), read at
@@ -121,26 +67,6 @@ target check's), read at the rule's frame. -/
       ((tgtMajor out j).ds ++ tgtFieldFvs p out j i))).getD default
 
 variable {V : Type w} [SetTheory V]
-
-/-- **The graph-built `ih` values** at the target keys, at the classes'
-tuple function `tup` (recursor `c'`'s index tuple of an index spine; a
-member class's is `d.tup ψ (p.recTgtAt c')`, an outside class's the
-container's `tupW`). -/
-@[expose] noncomputable def tgtIhv (ψ : Name → Nat) (ℓ : Nat) (tup : Nat → List V → V)
-    (ρ : Nat → V) : List V → Nat → Nat → List V → V → List V := fun xs c j fs g =>
-  blockRecIhvAt ℓ tup (consList (xs ++ fs) ρ)
-    (tgtKeys mode F fe p formerTys out c j) (tgtTlA mode F fe p formerTys out acval env ψ c j)
-    (tgtEisA mode F fe p formerTys out acval env ψ c j)
-    (tgtFapA mode F fe p formerTys out acval env ψ c j) g
-
-/-- **The calls' targets** at the target keys, at the classes' tuple
-function `tup`. -/
-@[expose] def tgtCall (ψ : Name → Nat) (tup : Nat → List V → V) (ρ : Nat → V) (xs : List V)
-    (c j : Nat) (fs : List V) (v : V) : Prop :=
-  blockGraphCallAt tup
-    (tgtKeys mode F fe p formerTys out c j) (tgtTlA mode F fe p formerTys out acval env ψ c j)
-    (tgtEisA mode F fe p formerTys out acval env ψ c j)
-    (tgtFapA mode F fe p formerTys out acval env ψ c j) (consList (xs ++ fs) ρ) v
 
 end Defs
 

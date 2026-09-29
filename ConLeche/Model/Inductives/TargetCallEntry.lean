@@ -39,7 +39,7 @@ open SetTheory
 open ConLeche.Term ConLeche.Verify
 open ConLeche (CheckMode Env Expr Name Level ConstantVal ConstantInfo BlockShape TargetMajor
   NestCtx NestHole NestCtorNf BinderMeta PosD PosTree NestFieldKind PosNodeOk nestHoleConst
-  closeTelescope targetPiDomsWith targetMajorNfs targetFieldNfs openPisAtFvars)
+  closeTelescope targetPiDomsWith targetMajorNfs openPisAtFvars)
 
 /-- **K.53′ at a recorded entry** (see the module docstring): an entry of
 one of the class's constructors that the class matches is among its

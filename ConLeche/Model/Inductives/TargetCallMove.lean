@@ -62,25 +62,6 @@ theorem moveS_ok {acval : Name → (Name → Nat) → AnnotTerm} {env : Env} {φ
   refine ⟨?_, trivial⟩
   split <;> omega
 
-/-- **The move is the substitution, up to annotations.** -/
-theorem targetMoveF_erasedEq {rP n B : Nat} {L : List Expr} (hn : L.length = n)
-    (hL : ∀ j, j < n → ∃ ty, L[j]? = some (.fvar (B + j) ty)) :
-    ∀ (X : Expr), X.fvarsBelow B →
-      Expr.ErasedEq (ConLeche.targetMoveF rP L X) (Expr.substFvars B (B + n) (moveS rP n B) X) := by
-  intro X hX
-  refine Expr.replaceFVars_erasedEq_substFvars (fun v _ ty => ?_) X hX
-  simp only [moveS, moveIdx]
-  by_cases h1 : rP ≤ v
-  · rw [if_pos h1]
-    by_cases h2 : v - rP < n
-    · obtain ⟨ty', hty'⟩ := hL (v - rP) h2
-      rw [hty', Option.getD_some, if_pos ⟨h1, by omega⟩]
-      rfl
-    · rw [List.getElem?_eq_none (by omega), Option.getD_none, if_neg (by omega)]
-      rfl
-  · rw [if_neg h1, Option.getD_none, if_neg (by omega)]
-    rfl
-
 /-- **The substituted valuation is the holes' frame's** when every moved
 field's copy carries the field's own value. -/
 theorem substE_moveTau {rP nF k n B : Nat} {xs fs hv : List V} {ρ : Nat → V}
@@ -120,31 +101,6 @@ theorem substE_moveTau {rP nF k n B : Nat} {xs fs hv : List V} {ρ : Nat → V}
 section Read
 
 variable {env : Env} {φ : Name → Nat}
-
-/-- **The moved term reads as the substituted reading**, opened at locals
-above each frame. -/
-theorem move_read (m : EnvModel V env) {rP n B : Nat} {L : List Expr}
-    (hn : L.length = n) (hL : ∀ j, j < n → ∃ ty, L[j]? = some (.fvar (B + j) ty))
-    {X : Expr} (hX : X.fvarsBelow B) {t : Nat} {os osA : List Expr}
-    (hos : LocList B t os) (hosA : LocList (B + n) t osA) :
-    denoteMeta m.acval env φ (B + n + t) ((ConLeche.targetMoveF rP L X).instantiateList osA 0)
-      = (denoteMeta m.acval env φ (B + t) (X.instantiateList os 0)).map
-          (AnnotTerm.substAV (moveTau rP n B) · t) := by
-  have hs := moveS_ok (acval := m.acval) (env := env) (φ := φ) (rP := rP) (n := n) (B := B)
-  have hsb : ∀ v, v < B → (moveS rP n B v).looseBVarsBounded 0 = true := fun v hv => (hs v hv).2.1
-  have hE0 : Expr.ErasedEq ((ConLeche.targetMoveF rP L X).instantiateList osA 0)
-      (Expr.substFvars B (B + n) (moveS rP n B) (X.instantiateList os 0)) :=
-    (erasedEq_instantiateList osA 0 (targetMoveF_erasedEq hn hL X hX)).trans
-      (Expr.substFvars_instantiateList hsb t os osA hos.1 hosA.1
-        (fun j hj => by
-          obtain ⟨ty, h1⟩ := hos.2 j hj
-          obtain ⟨ty', h2⟩ := hosA.2 j hj
-          exact ⟨ty, ty', h1, h2⟩) X 0)
-  have hfb : Expr.fvarsBelow (B + t) (X.instantiateList os 0) :=
-    fvarsBelow_instantiateList os (by simpa using hos.fvarsBelow) X 0
-      (Expr.fvarsBelow_mono (Nat.le_add_right B t) hX)
-  rw [denoteMeta_erasedEq hE0]
-  exact denoteMeta_substFvars m hs _ t hfb
 
 end Read
 

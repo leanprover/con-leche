@@ -24,7 +24,7 @@ open SetTheory
 open ConLeche.Term
 open ConLeche.Semantics (AnnotTerm)
 open ConLeche (Env Expr Name Level ConstantVal ConstantInfo CheckMode FEnv BlockShape BlockParts
-  TargetMajor TargetIh RecShape)
+  TargetMajor RecShape)
 
 universe w
 
@@ -77,45 +77,6 @@ end IhTele
 section IhTy
 
 variable {V : Type w} [SetTheory V] {μ : CheckMode}
-
-set_option maxHeartbeats 1000000 in
-/-- **An `ih` type is graded** under the frame's context: it was
-inferred there (`TargetCallRun.hihTy`, `InferClaim`). -/
-theorem targetCall_ihTy_graded (hμ : μ.verifiedChecks = true) {envT : Env}
-    {mT : EnvModel V envT} {φ : Name → Nat}
-    (hacl : ∀ (n : Name) (ψ : Name → Nat) (m k : Nat), (mT.acval n ψ).liftN m k = mT.acval n ψ)
-    (hin : Rules.RulesInputs V mT φ)
-    {F B k dA : Nat} {fam : ConLeche.TargetFamily} {fvsPref fvsF : List Expr}
-    {teles : List (List (Expr × ConLeche.BinderMeta))} {absM mvF : Expr → Expr}
-    {pw : ConLeche.PropWhen} {ih : TargetIh}
-    (C : ConLeche.TargetCallRun μ F envT fam fvsPref fvsF teles absM mvF B k dA pw ih)
-    {L : List Expr} (hL : FvarList B L) {ρ : Nat → V} {Δ : List AnnotTerm}
-    (hW : WalkCtx V mT φ B ρ Δ L)
-    (hlT : ∀ l ∈ ih.ty.fvarLeaves, Expr.fvar l.1 l.2 ∈ L)
-    (hbT : ih.ty.looseBVarsBounded 0 = true) :
-    ∃ T : AnnotTerm, denoteMeta mT.acval envT φ B ih.ty = some T ∧
-      (∀ σ : Nat → V, Sat V Δ σ → WellDenotedV V σ T) := by
-  obtain rfl : μ = .verified := CheckMode.eq_verified hμ
-  have hacl1 : ∀ (n : Name) (ψ : Name → Nat) (k : Nat), (mT.acval n ψ).liftN 1 k = mT.acval n ψ :=
-    fun n ψ k => hacl n ψ 1 k
-  have hFrT : Rules.Frame B ih.ty :=
-    ⟨wscoped_of_leaves_mem hL _ hlT, hbT, fun l hl => hW.2.2.2.2.1 _ (hlT l hl)⟩
-  have hCT := hW.ctxOk hacl1 hL hlT
-  obtain ⟨T, hT⟩ := acceptedReads_of mT φ C.hihTy hFrT.1 hFrT.2.1 hFrT.2.2
-  obtain ⟨-, -, -, -, hGT, -, -⟩ :=
-    Rules.infer_sound hin (Rules.inferTypeCore_bridge C.hihTy) hFrT hCT hT
-  exact ⟨T, hT, hGT⟩
-
-/-- **An `ih` type reads** at the frame (it was inferred there). -/
-theorem targetCall_ihTy_reads {envT : Env} (mT : EnvModel V envT) (φ : Name → Nat)
-    {F B k dA : Nat} {fam : ConLeche.TargetFamily} {fvsPref fvsF : List Expr}
-    {teles : List (List (Expr × ConLeche.BinderMeta))} {absM mvF : Expr → Expr}
-    {pw : ConLeche.PropWhen} {ih : TargetIh}
-    (C : ConLeche.TargetCallRun μ F envT fam fvsPref fvsF teles absM mvF B k dA pw ih)
-    (hws : Expr.WScoped B ih.ty) (hbT : ih.ty.looseBVarsBounded 0 = true)
-    (hLB : Expr.LeavesBounded ih.ty) :
-    ∃ T : AnnotTerm, denoteMeta mT.acval envT φ B ih.ty = some T :=
-  acceptedReads_of mT φ C.hihTy hws hbT hLB
 
 end IhTy
 

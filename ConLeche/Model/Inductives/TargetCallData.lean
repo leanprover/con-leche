@@ -35,7 +35,7 @@ open ConLeche.Term ConLeche.Verify
 open ConLeche.SetTheory
 open ConLeche.Semantics (AnnotTerm)
 open ConLeche (CheckMode Env Expr Name Level ConstantVal ConstantInfo FEnv BlockParts BlockShape
-  TargetMajor TargetIh RecShape)
+  TargetMajor RecShape)
 
 universe w
 
