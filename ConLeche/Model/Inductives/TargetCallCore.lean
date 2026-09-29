@@ -14,6 +14,10 @@ import ConLeche.Model.Inductives.StructFrameKit
 import ConLeche.Semantics.Kit
 import ConLeche.Verify.InferLemmas
 import ConLeche.Verify.BetaGate
+public import ConLeche.Model.Inductives.TargetIhData
+import ConLeche.Model.Inductives.TargetResidue
+public import ConLeche.Model.Inductives.TargetFrame
+import ConLeche.Model.Capstone
 
 public section
 
