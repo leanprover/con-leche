@@ -79,18 +79,15 @@ theorem blockHoleFib_of_records {envC envI : Env} {mo : EnvModel V envC} {d : Bl
   intro ψ ρp hs X _ c hc t ht x
   have hH : BlockHoleFacts mo d lps := blockHoleFacts_of_stage hN hS hcore hk0
   have hidxOk := hS.idxOkAt hk0
-  have hok : d.toLfp.HoleTmOk ψ ρp := fun m hm =>
-    ⟨⟨(hH.parsLen ψ m hm).trans (hH.lenP ψ).symm, hH.parsSat ψ m hm ρp hs⟩,
-      fun _ => (hidxOk ψ ρp hs m (Nat.lt_of_lt_of_le hm (Nat.le_add_right _ _))).2⟩
-  have happ : ∀ j, j < d.toLfp.nctors c → d.toLfp.HolesApplied ψ c j :=
-    fun j hj => blockHolesApplied hH ψ hc hj
+  have hok : d.toLfp.HoleTmOk ψ ρp := fun m hm _ =>
+    (hidxOk ψ ρp hs m (Nat.lt_of_lt_of_le hm (Nat.le_add_right _ _))).2
   have hres : ∀ j, j < d.toLfp.nctors c →
       (d.toLfp.resIdx ψ c j).length = (d.toLfp.ids c ψ).length := by
     intro j hj
     show (d.absE ψ c j).length = (d.IdsM c ψ).length
     simp only [BlockData.absE, List.length_map]
     exact hH.lenE ψ c hc j hj
-  rw [hPhi, LfpDatum.holeOp_fibre hok (Nat.le_add_right _ _) X happ hres ht x]
+  rw [hPhi, LfpDatum.holeOp_fibre hok (Nat.le_add_right _ _) X hres ht x]
   refine exists_congr fun j => exists_congr fun fs => and_congr_right fun _ => ?_
   rw [hinj]
   rfl
