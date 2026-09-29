@@ -621,10 +621,19 @@ def genNested (ctx : Ctx) (b : BlockRec) : Except String (List Declaration) := d
   -- the model-side field domains (public spelling renamed)
   let modelDoms := fun (c : ACtor) (o : Nat) => (List.range c.nF).map fun i =>
     rn ((c.doms.getD i default).liftLooseBVars o i)
-  -- a field's index arguments off its domain, at `o'` below the
-  -- field's own frame
-  let fieldIdx := fun (c : ACtor) (i : Nat) (o' : Nat) =>
-    ((matchCarrier fam i (c.doms.getD i default)).map (·.2)).getD [] |>.map (·.liftLooseBVars o' 0)
+  -- a field's index arguments off its domain (at the field's own frame
+  -- `p⃗ f₀ … f_{i-1}`), moved to a frame with `O` extra binders between
+  -- the parameters and the fields and `o'` more below field `i`'s frame
+  -- (the `O` lift at cutoff `i`: an index may mention a parameter —
+  -- `tests/e2e/nested_idx_param*.ndjson`)
+  let fieldIdxAt := fun (c : ACtor) (i : Nat) (o' : Nat) (O : Nat) =>
+    ((matchCarrier fam i (c.doms.getD i default)).map (·.2)).getD [] |>.map fun e =>
+      (e.liftLooseBVars O i).liftLooseBVars o' 0
+  let fieldIdx := fun (c : ACtor) (i : Nat) (o' : Nat) => fieldIdxAt c i o' 0
+  -- a constructor's result indices (at `p⃗ f⃗`), moved to a frame with
+  -- `O` extras between the parameters and the fields and `nIh` below them
+  let ctorIdxAt := fun (c : ACtor) (O : Nat) (nIh : Nat) =>
+    c.idx.map fun e => (e.liftLooseBVars O c.nF).liftLooseBVars nIh 0
   -- `tag.rec p⃗ (λ i', ∀ s, aux p⃗ i' → Sort ℓs) branches i s` at frame
   -- `o` below the parameters, given the per-member branches (each a
   -- term at frame `o + 3`... no: branches are built by the caller at
@@ -693,7 +702,7 @@ def genNested (ctx : Ctx) (b : BlockRec) : Except String (List Declaration) := d
         -- at the ih's frame: `o + nF + k` below the parameters
         let fo := c.nF + k
         some <| Expr.mkAppN (motU (o + fo))
-            [Expr.mkAppN (constP (tagCtorName T t) lps) (varsAt (o + fo) nP ++ (fieldIdx c i (fo - i))),
+            [Expr.mkAppN (constP (tagCtorName T t) lps) (varsAt (o + fo) nP ++ (fieldIdxAt c i (fo - i) o)),
              .bvar (fo - 1 - i)]
       | none => none
     let D := o + c.nF + nIh
@@ -750,7 +759,7 @@ def genNested (ctx : Ctx) (b : BlockRec) : Except String (List Declaration) := d
       let ihbs := grpRec.map fun i =>
         let k := (grpRec.filter (· < i)).length
         let fo := c.nF + k
-        auxAt fam ((c.kinds.getD i none).getD 0) (o + fo) (fieldIdx c i (fo - i))
+        auxAt fam ((c.kinds.getD i none).getD 0) (o + fo) (fieldIdxAt c i (fo - i) o)
       let gVar := fun (i : Nat) => Expr.bvar (nIhI + c.nF - 1 - i)
       let ihVarI := fun (i : Nat) => Expr.bvar (nIhI - 1 - (grpRec.filter (· < i)).length)
       let fo := c.nF + nIhI
@@ -762,7 +771,7 @@ def genNested (ctx : Ctx) (b : BlockRec) : Except String (List Declaration) := d
               if g.tags.contains t' then ihVarI i
               else if t' ≥ r then
                 let mem' := mems.getD t' default
-                appImpl (packName mem'.j) (o + fo) (fieldIdx c i (fo - i)) [gVar i]
+                appImpl (packName mem'.j) (o + fo) (fieldIdxAt c i (fo - i) o) [gVar i]
               else gVar i
             | none => gVar i))
     for k in List.range g.tags.length do
@@ -822,7 +831,7 @@ def genNested (ctx : Ctx) (b : BlockRec) : Except String (List Declaration) := d
         let k := (grpRec.filter (· < i)).length
         let fo' := c.nF + k
         let mem' := mems.getD ((c.kinds.getD i none).getD 0) default
-        upStmtOf mem' (o + fo') (fieldIdx c i (fo' - i)) (.bvar (fo' - 1 - i))
+        upStmtOf mem' (o + fo') (fieldIdxAt c i (fo' - i) o) (.bvar (fo' - 1 - i))
       -- the spine's pins are the constructor's OWN container's (a group
       -- member's container differs from the group's head container)
       let F := fun (o' : Nat) (args : List Expr) =>
@@ -833,7 +842,7 @@ def genNested (ctx : Ctx) (b : BlockRec) : Except String (List Declaration) := d
         | some t' =>
           if t' ≥ r then
             let mem' := mems.getD t' default
-            let idx := fieldIdx c i (fo - i)
+            let idx := fieldIdxAt c i (fo - i) o
             appImpl (unpackName mem'.j) (o + fo) idx [appImpl (packName mem'.j) (o + fo) idx [gVarAt i 0]]
           else gVarAt i 0
         | none => gVarAt i 0
@@ -843,15 +852,15 @@ def genNested (ctx : Ctx) (b : BlockRec) : Except String (List Declaration) := d
         | some t' =>
           if g.tags.contains t' then
             some (i, Expr.bvar (nIhI - 1 - (grpRec.filter (· < i)).length),
-              carrM (mems.getD t' default) (o + fo) (fieldIdx c i (fo - i)), u)
+              carrM (mems.getD t' default) (o + fo) (fieldIdxAt c i (fo - i) o), u)
           else if t' ≥ r then
             let mem' := mems.getD t' default
-            let idx := fieldIdx c i (fo - i)
+            let idx := fieldIdxAt c i (fo - i) o
             some (i, appImpl (unpackPackName mem'.j) (o + fo) idx [gVarAt i 0], carrM mem' (o + fo) idx, u)
           else none
         | none => none
       mkLams (gbs ++ ihbs)
-        (congrChain u (carrM memC (o + fo) (c.idx.map (·.liftLooseBVars nIhI 0))) F ls rs moved)
+        (congrChain u (carrM memC (o + fo) (ctorIdxAt c o nIhI)) F ls rs moved)
     for k in List.range g.tags.length do
       let t := g.tags.getD k 0
       let mem := mems.getD t default
@@ -887,12 +896,12 @@ def genNested (ctx : Ctx) (b : BlockRec) : Except String (List Declaration) := d
         let k := ihPos c i
         let fo' := c.nF + k
         some <| Expr.mkAppN (motPU (o + fo'))
-            [Expr.mkAppN (constP (tagCtorName T t) lps) (varsAt (o + fo') nP ++ fieldIdx c i (fo' - i)),
+            [Expr.mkAppN (constP (tagCtorName T t) lps) (varsAt (o + fo') nP ++ fieldIdxAt c i (fo' - i) o),
              .bvar (fo' - 1 - i)]
       | none => none
     let self := Expr.mkAppN (constP (auxCtorName' c) lps) (varsAt (o + fo) nP ++ (List.range c.nF).map fieldVar)
     let body := match (mems.getD c.mem default).real? with
-      | some _ => mkRefl u (auxAt fam c.mem (o + fo) (c.idx.map (·.liftLooseBVars nIh 0))) self
+      | some _ => mkRefl u (auxAt fam c.mem (o + fo) (ctorIdxAt c o nIh)) self
       | none =>
         let F := fun (o' : Nat) (args : List Expr) => Expr.mkAppN (constP (auxCtorName' c) lps) (varsAt (o + fo + o') nP ++ args)
         let ls := (List.range c.nF).map fun i =>
@@ -900,7 +909,7 @@ def genNested (ctx : Ctx) (b : BlockRec) : Except String (List Declaration) := d
           | some t' =>
             if t' ≥ r then
               let mem' := mems.getD t' default
-              let idx := fieldIdx c i (fo - i)
+              let idx := fieldIdxAt c i (fo - i) o
               appImpl (packName mem'.j) (o + fo) idx [appImpl (unpackName mem'.j) (o + fo) idx [fieldVar i]]
             else fieldVar i
           | none => fieldVar i
@@ -908,9 +917,9 @@ def genNested (ctx : Ctx) (b : BlockRec) : Except String (List Declaration) := d
         let moved := (List.range c.nF).filterMap fun i =>
           match c.kinds.getD i none with
           | some t' =>
-            if t' ≥ r then some (i, ihVar i, auxAt fam t' (o + fo) (fieldIdx c i (fo - i)), u) else none
+            if t' ≥ r then some (i, ihVar i, auxAt fam t' (o + fo) (fieldIdxAt c i (fo - i) o), u) else none
           | none => none
-        congrChain u (auxAt fam c.mem (o + fo) (c.idx.map (·.liftLooseBVars nIh 0))) F ls rs moved
+        congrChain u (auxAt fam c.mem (o + fo) (ctorIdxAt c o nIh)) F ls rs moved
     mkLams (fbs ++ ihbs) body
   let puTy := mkPis (pbs ++ [Expr.mkAppN (constP tag lps) (varsAt 0 nP),
       Expr.mkAppN (constP aux lps) (varsAt 1 nP ++ [.bvar 0])])
@@ -982,7 +991,7 @@ def genNested (ctx : Ctx) (b : BlockRec) : Except String (List Declaration) := d
         let k := ihPos c i
         let fo' := c.nF + k
         some <| Expr.mkAppN (motR (o + fo'))
-            [Expr.mkAppN (constP (tagCtorName T t) lps) (varsAt (oP + fo') nP ++ fieldIdx c i (fo' - i)),
+            [Expr.mkAppN (constP (tagCtorName T t) lps) (varsAt (oP + fo') nP ++ fieldIdxAt c i (fo' - i) oP),
              .bvar (fo' - 1 - i)]
       | none => none
     -- the public minor applied: fields (unpacked where mimic-typed) and the ihs
@@ -990,7 +999,7 @@ def genNested (ctx : Ctx) (b : BlockRec) : Except String (List Declaration) := d
       match c.kinds.getD i none with
       | some t' =>
         if t' ≥ r then
-          appImpl (unpackName (mems.getD t' default).j) (oP + fo) (fieldIdx c i (fo - i)) [fieldVar i]
+          appImpl (unpackName (mems.getD t' default).j) (oP + fo) (fieldIdxAt c i (fo - i) oP) [fieldVar i]
         else fieldVar i
       | none => fieldVar i
     let X := Expr.mkAppN (minVar (o + fo) c.J)
@@ -1002,14 +1011,14 @@ def genNested (ctx : Ctx) (b : BlockRec) : Except String (List Declaration) := d
         -- transports along `packUnpack_j f'_k` at each packed position
         let packed := (List.range c.nF).filter fun i =>
           match c.kinds.getD i none with | some t' => t' ≥ r | none => false
-        let idxC := c.idx.map (·.liftLooseBVars nIh 0)
+        let idxC := ctorIdxAt c oP nIh
         let spineAt := fun (o' : Nat) (args : List Expr) =>
           Expr.mkAppN (constP (auxCtorName' c) lps) (varsAt (oP + fo + o') nP ++ args)
         let motApp := fun (o' : Nat) (args : List Expr) =>
           Expr.mkAppN (motVar (o + fo + o') m) (liftAll o' idxC ++ [spineAt o' args])
         let packUnpackOf := fun (i : Nat) =>
           let mem' := mems.getD ((c.kinds.getD i none).getD 0) default
-          let idx := fieldIdx c i (fo - i)
+          let idx := fieldIdxAt c i (fo - i) oP
           (appImpl (packName mem'.j) (oP + fo) idx [appImpl (unpackName mem'.j) (oP + fo) idx [fieldVar i]],
            appImpl (packUnpackName mem'.j) (oP + fo) idx [fieldVar i],
            auxAt fam mem'.tag (oP + fo) idx)
@@ -1280,7 +1289,7 @@ def genNested (ctx : Ctx) (b : BlockRec) : Except String (List Declaration) := d
               let k := ihPos c' i'
               let fo' := c'.nF + k
               some <| Expr.mkAppN (motP (o + fo'))
-                  [Expr.mkAppN (constP (tagCtorName T t') lps) (varsAt (o + fo') nP ++ fieldIdx c' i' (fo' - i')),
+                  [Expr.mkAppN (constP (tagCtorName T t') lps) (varsAt (o + fo') nP ++ fieldIdxAt c' i' (fo' - i') o),
                    .bvar (fo' - 1 - i')]
             | none => none
           let fo := c'.nF + nIh
@@ -1289,7 +1298,7 @@ def genNested (ctx : Ctx) (b : BlockRec) : Except String (List Declaration) := d
               match c'.kinds.getD i none with
               | some t' =>
                 if t' ≥ r then
-                  appImpl (unpackName (mems.getD t' default).j) (o + fo) (fieldIdx c' i (fo - i)) [fieldVar i]
+                  appImpl (unpackName (mems.getD t' default).j) (o + fo) (fieldIdxAt c' i (fo - i) o) [fieldVar i]
                 else fieldVar i
               | none => fieldVar i
             else .const punitUnitName [ℓi]

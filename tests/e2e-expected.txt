@@ -1357,10 +1357,25 @@
 # nested_p06: a `Prop` block through `And`, at two constructors.
 0 nested_p06.ndjson
 # nested_p07: the index DOMAIN mentions a parameter — task #227's
-# docketed wrong verdict.  OFFICIAL ACCEPTS AND THIS CHECKER REJECTS:
-# "application type mismatch [at def P7._model._impl.rec, a generated
-# model record of inductive P7]".  The row records the false reject.
-1 nested_p07.ndjson
+# docketed wrong verdict, official's verdict since the modeller lifts
+# index arguments past the extra binders between the parameters and
+# the fields (it used to reject: "application type mismatch [at def
+# P7._model._impl.rec, …]"; the same bug as `nested_idx_*` below).
+0 nested_p07.ndjson
+# nested_idx_*: a container whose index mentions ITS parameter,
+# instantiated at the block's parameter (the cslib reject,
+# `Cslib.Mech.FunCallEval.EvalExpr`, minimised).  The in-process
+# modeller moved the constructor's result indices and the fields'
+# index arguments into frames with extra binders between the
+# parameters and the fields without lifting past them, so a parameter
+# inside an index pointed at the wrong binder and the fold rejected
+# the generated record.  Official accepts all five; `nested_idx_closed`
+# (index mentions no parameter) is the control that always accepted.
+0 nested_idx_param.ndjson
+0 nested_idx_param_nat.ndjson
+0 nested_idx_param_type.ndjson
+0 nested_idx_forall2.ndjson
+0 nested_idx_closed.ndjson
 # nested_p10: nesting through a REFLEXIVE container.
 2 nested_p10.ndjson
 # nested_p13: a ONE-constructor `Prop` block through `And`.

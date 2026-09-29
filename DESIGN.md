@@ -79446,3 +79446,45 @@ change is indicated.  Measurement protocol as always: one run per
 stream and configuration, `instructions:u`, every run under
 `ulimit -v 16000000` with `--jobs=1` (or `--jobs=8` for a parallel
 run — the default worker count aborts under the cap, task #321).
+
+## MODELLER FIX — nested index arguments lifted past the extra binders (2026-09-29, `agent/master-MODELFIX`)
+
+**The bug.**  The arena rejected cslib (exit 1, "application type
+mismatch [at theorem Cslib.Mech.FunCallEval.EvalExpr._model._impl.unpackPack_0,
+a generated model record …]"; official accepts).  `genNested`
+(`ConLeche/Frontend/InModel/Nested.lean`) keeps a constructor's result
+indices `c.idx` at the frame `p⃗ f⃗` and a nested field's index
+arguments at the field's own frame `p⃗ f₀ … f_{i-1}`, and moves them
+into frames `p⃗ ⋯O extras⋯ f⃗ ih⃗` (the unpack/pack/unpackPack/packUnpack
+minors, the `_impl.rec` minors below the recursor prefix, the
+projection minors) lifting only past the fields/ihs at cutoff 0 —
+never past the `O` extras between the parameters and the fields.  An
+index that mentions a PARAMETER (a container `C α P : Option α → Prop`
+at `α := V`, whose index is `@none V`) then points `O` binders too
+close, and the fold rejects the generated record.  The modeller is
+untrusted, so the bug could only reject; it is also task #227's
+docketed false reject `nested_p07` (§ TASK #279 probe findings (a)).
+
+**The fix.**  `fieldIdxAt c i o' O` (lift by `O` at cutoff `i`, then by
+`o'` at 0) at the 15 moved field-index sites and `ctorIdxAt c O nIh`
+(lift by `O` at cutoff `nF`, then `nIh` at 0) at the 4 moved `c.idx`
+sites; `O` is the frame's extra count (`o`, or `oP = o + M + n` under
+the recursor prefix).  `fieldIdx` is `fieldIdxAt … 0` for the frames
+without extras (constructor models, the projection iota); the iota
+theorems already lifted past `M + n` explicitly.  No other index moves
+into a shifted frame (`idxBsAt`/`specDoms`/`modelDoms` lift at their
+own cutoffs; pins mention only parameters).
+
+**Fixtures** (official accepts every one): `nested_idx_param` (the
+minimal reproducer), `nested_idx_param_nat` (a `Nat` index spelt with
+the parameter), `nested_idx_param_type` (in `Type`: large eliminator,
+the rec/pack records), `nested_idx_forall2` (the cslib shape, through a
+`List.Forall₂`-like container), `nested_idx_closed` (the control: a
+closed index, accepted before and after).  Before the fix the first
+four and `nested_p07` exited 1; now all exit 0, and `nested_p07`'s row
+moves 1 → 0.
+
+**Verdicts.**  `tests/arena.sh` (full, all sweeps and gates): green,
+the only moved row `nested_p07`.  cslib (`--verified --jobs=4`):
+exit 0, 383 976 declarations (was exit 1).  init-full: exit 0, 53 093
+declarations.
