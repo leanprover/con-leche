@@ -119,18 +119,6 @@ theorem bval_mem_punitUnit (us : List Nat) (ρ : Nat → V) :
   simp only [BConst.typeAV, punitAV, interp_const, bval]
   exact pt_mem_unitSet
 
-theorem bval_mem_punitRec (us : List Nat) (ρ : Nat → V) :
-    bval V .punitRec us
-      ∈ˢ interp V ρ (BConst.typeAV .punitRec us) := by
-  show punitRecV V (lv us 1) ∈ˢ _
-  simp only [BConst.typeAV, arrowA, punitAV, punitUnitAV, interp_pi,
-    interp_const, interp_app, interp_bvar, interp_sort,
-    AnnotTerm.liftN, cons_zero, cons_succ, bval]
-  refine lamR_mem fun M hM => lamR_mem fun m hm =>
-    lamR_mem fun t ht => ?_
-  rw [mem_unitSet ht]
-  exact hm
-
 /-! ## `Empty` -/
 
 theorem bval_mem_empty (us : List Nat) (ρ : Nat → V) :
@@ -544,7 +532,6 @@ theorem bval_mem_type (c : BConst) (us : List Nat) (ρ : Nat → V) :
   | natRec => exact bval_mem_natRec V us ρ
   | punit => exact bval_mem_punit V us ρ
   | punitUnit => exact bval_mem_punitUnit V us ρ
-  | punitRec => exact bval_mem_punitRec V us ρ
   | psigma => exact bval_mem_psigma V us ρ
   | psigmaMk => exact bval_mem_psigmaMk V us ρ
   | empty => exact bval_mem_empty V us ρ

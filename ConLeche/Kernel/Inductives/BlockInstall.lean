@@ -59,8 +59,8 @@ recursive block would be an accept-superset, stream
 `whnfswap_unitpost_bad`).  At a FIELDLESS constructor of a
 non-recursive block the record claims BOTH unit-likeness and η, as
 official's gate does: the recursor's major-premise rescue (`Core.lean`,
-the `etaFields = 0` arm — arena `073_typeSingletonRecReduction`) keys
-on η.  (Granting η at a recursive structure-like is sound in the model
+its η arm at a fieldless constructor — arena
+`073_typeSingletonRecReduction`) keys on η.  (Granting η at a recursive structure-like is sound in the model
 but not in practice: at a reflexive `W1 α = sup (a : α) (f : Nat →
 W1 α)` `isDefEq` spins through η-expansion, `ind_nest_via_refl` —
 official's `!is_rec` is load-bearing.) -/

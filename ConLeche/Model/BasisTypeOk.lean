@@ -33,11 +33,11 @@ Every pinned type's annotated type reading is truthful and bit-valid
 consequents, which is exactly what `+contextual` buys) with three
 closers folded into the simp set — impredicativity
 (`piR_zero_mem_univZero`), the truth set (`eqv_mem_univZero`), and the
-unsatisfiability of the `n + 1 = 0` premises.  That leaves **fifteen
-residual goals in nine cases**, and every one is the clause's own
+unsatisfiability of the `n + 1 = 0` premises.  That leaves **fourteen
+residual goals in eight cases**, and every one is the clause's own
 `v = 0` premise plus one argument membership:
 
-1. `natRec` ×2, `punitRec`, `emptyRec`, `quotInd` ×2, `psigmaMk`,
+1. `natRec` ×2, `emptyRec`, `quotInd` ×2, `psigmaMk`,
    `quotMk` — `motive_app_univZero` below, with the argument supplied
    by `natSuccV_mem`, `quotClass_mem`, `sigma_mem_univ`, … one per
    goal;
@@ -166,7 +166,7 @@ theorem AnnotValid_bconst_type (c : BConst) (us : List Nat) (ρ : Nat → V) :
   case lfpTuple k => exact AnnotValid_lfpTuple V k us ρ
   all_goals
     simp +contextual +decide only [BConst.typeAV, arrowA, relAV, negTyAV,
-      natTyAV, natZeroAV, natSuccAV, punitAV, punitUnitAV, emptyAV,
+      natTyAV, natZeroAV, natSuccAV, punitAV, emptyAV,
       psigmaAV, quotAV, quotMkAV, AnnotTerm.mkAppN, AnnotTerm.lift,
       AnnotTerm.liftN, AnnotValid_pi, AnnotValid_app, AnnotValid_eqE,
       AnnotValid_bvar, AnnotValid_sort, AnnotValid_const,
@@ -180,8 +180,6 @@ theorem AnnotValid_bconst_type (c : BConst) (us : List Nat) (ρ : Nat → V) :
       fun _s _ hu n hn => motive_app_univZero hu hM hn⟩
     exact motive_app_univZero hu hM
       (app_mem_piR_pos Nat.one_ne_zero (natSuccV_mem V) hn)
-  case punitRec =>
-    exact fun _M hM _m _ hu _t ht => motive_app_univZero hu hM ht
   case emptyRec =>
     exact fun _M hM hu _t ht => motive_app_univZero hu hM ht
   case psigmaMk =>
@@ -359,7 +357,7 @@ theorem WellDenoted_bconst_type (c : BConst) (us : List Nat) (ρ : Nat → V) :
   case lfpTuple k => exact WellDenoted_lfpTuple V k us ρ
   all_goals
     simp +contextual +decide only [BConst.typeAV, arrowA, relAV, negTyAV,
-      natTyAV, natZeroAV, natSuccAV, punitAV, punitUnitAV, emptyAV,
+      natTyAV, natZeroAV, natSuccAV, punitAV, emptyAV,
       psigmaAV, quotAV, quotMkAV, AnnotTerm.mkAppN, AnnotTerm.lift,
       AnnotTerm.liftN, WellDenoted_pi, WellDenoted_app, WellDenoted_eqE,
       WellDenoted_bvar, WellDenoted_sort, WellDenoted_const,

@@ -316,44 +316,35 @@ def iotaIndexOk (r : CoreFns m) (env : Env) (depth : Nat) (mI rP cnP : Nat)
     | some residual => defEqList r env depth (residual.getAppArgs.drop cnP) idx
     | none => pure false
 
-/-- Proof irrelevance certification: both sides' types whnf to the
-basis unit type (all of whose inhabitants are the proof point in the
-model), or both sides' types' *sorts* are `Prop`.  In the model
-everything inhabiting a proposition is the proof point, so any two such
-terms are equal — no common-type check is needed: soundness holds
+/-- Proof irrelevance certification: both sides' types' *sorts* are
+`Prop`.  In the model everything inhabiting a proposition is the proof
+point, so any two such terms are equal — no common-type check is needed: soundness holds
 without it, and the annotation-first discipline (every subterm is
 checked before definitional equality compares it; congruence compares
 argument pairs only after the earlier arguments matched) makes a
 heterogeneous comparison unreachable, so the official kernel's check is
 implied (see DESIGN.md, design-review triage). -/
-def proofIrrel (r : CoreFns m) (env : Env) (depth : Nat) (a b : Expr) :
+def proofIrrel (r : CoreFns m) (depth : Nat) (a b : Expr) :
     m Bool := do
   -- task #172 B4: every inference here is at the io grade (official's
   -- is_def_eq_proof_irrel runs infer_type — always infer_only)
   let ta ← r.inferIO depth a
-  if isUnitLikeTy env (← r.whnf depth ta) then
+  match ← r.whnf depth (← r.inferIO depth ta) with
+  | .sort uT =>
+    let okA ← liftFueled "level comparison" (Level.isEquiv uT .zero)
     let tb ← r.inferIO depth b
-    if isUnitLikeTy env (← r.whnf depth tb) then
-      pure true
-    else
-      pure false
-  else
-    match ← r.whnf depth (← r.inferIO depth ta) with
-    | .sort uT =>
-      let okA ← liftFueled "level comparison" (Level.isEquiv uT .zero)
-      let tb ← r.inferIO depth b
-      match ← r.whnf depth (← r.inferIO depth tb) with
-      | .sort vT =>
-        let okB ← liftFueled "level comparison" (Level.isEquiv vT .zero)
-        pure (okA && okB)
-      | _ => pure false
+    match ← r.whnf depth (← r.inferIO depth tb) with
+    | .sort vT =>
+      let okB ← liftFueled "level comparison" (Level.isEquiv vT .zero)
+      pure (okA && okB)
     | _ => pure false
+  | _ => pure false
 
-/-- **The hoisted proof-irrelevance test** (task #168, Option U): the
-`Prop` branch of `proofIrrel` alone — official's
-`is_def_eq_proof_irrel` has no unit-like branch; that test lives in
-`stuckIrrel` (official's `is_def_eq_unit_like`, the last test of
-`is_def_eq_core`), which `proofIrrel` still serves.
+/-- **The hoisted proof-irrelevance test** (task #168, Option U):
+`proofIrrel` behind the head-symbol fast arms — official's
+`is_def_eq_proof_irrel`; the unit-like test is `stuckIrrel`'s
+`structUnitCert` (official's `is_def_eq_unit_like`, the last test of
+`is_def_eq_core`).
 
 Before the io inferences, the head-symbol readers decide both fast
 arms, **in both modes** (user ruling, 2026-09-06: the fast readers are
@@ -581,7 +572,7 @@ def stuckIrrel (r : CoreFns m) (env : Env) (depth : Nat) (a b : Expr) :
   if ← structEtaCert mode r env depth a b then pure true
   else if ← structEtaCert mode r env depth b a then pure true
   else if ← structUnitCert r env depth a b then pure true
-  else proofIrrel r env depth a b
+  else proofIrrel r depth a b
 
 /-- Stuck-major rescue (`to_cnstr_when_K` and `to_cnstr_when_structure`
 in the official kernel): a recursor's major premise that does not whnf
@@ -652,7 +643,7 @@ def majorToCtor (r : CoreFns m) (env : Env) (depth : Nat)
                       -- soundness certificate (in the model both
                       -- sides are the proof point).
                       if ← r.defeq depth tmaj (← r.inferIO depth fab) then
-                        if ← proofIrrel r env depth fab major then
+                        if ← proofIrrel r depth fab major then
                           pure fab
                         else pure major
                       else pure major
@@ -698,17 +689,6 @@ def majorToCtor (r : CoreFns m) (env : Env) (depth : Nat)
                     if ← structEtaCertWith mode r env depth fab major
                         tmaj then
                       pure fab
-                    -- 0-field rescue for the pinned basis `PUnit`
-                    -- (the generic certificate excludes reserved
-                    -- names): the fabrication is the bare
-                    -- constructor, certified by proof
-                    -- irrelevance's unit-likeness branch; the
-                    -- instantiated non-Prop test is already in the
-                    -- branch guard above
-                    else if caps.etaFields = 0 then
-                      if ← proofIrrel r env depth fab major then
-                        pure fab
-                      else pure major
                     else pure major
                   else pure major
                 else pure major
@@ -754,7 +734,7 @@ def majorToCtor (r : CoreFns m) (env : Env) (depth : Nat)
                     -- the fabrication's type against the major's, then
                     -- proof irrelevance as the soundness certificate
                     if ← r.defeq depth tmaj (← r.inferIO depth fab) then
-                      if ← proofIrrel r env depth fab major then
+                      if ← proofIrrel r depth fab major then
                         pure fab
                       else pure major
                     else pure major

@@ -22,7 +22,8 @@ public import ConLeche.SetTheory.Derive.Universe
   `Quot.mk (· = 2 ∧ · = 2) 2` killed the `{vnat 2}` candidate).
   `ptTag`'s members `∅` and `{{∅}} = kpair ∅ ∅` live in `Nat` resp.
   pair types only, and no writable type hosts both.
-* `unitSet := {pt}` — the true truth value, and the model of `PUnit`.
+* `unitSet := {pt}` — the true truth value, and the model of the unit
+  type `.punit`.
 * `univZero := power unitSet = {∅, {pt}}` — the set of truth values,
   the `U₀ = {∅, {•}}` of Mario Carneiro, *The Type Theory of Lean*,
   master's thesis, Carnegie Mellon University, 2019; stating it as a

@@ -313,9 +313,10 @@ structure LfpClause (acval : Name → (Name → Nat) → AnnotTerm) (D : LfpDatu
   resIdxFit : LfpResIdxFit D
   /-- **at a `Type`-valued parameterised block no injection is the point**
   (the container case of the accessibility route — the TYPE REGIME of a container instance, whose truth-valued
-  fibre is then empty).  The parameter guard is necessary: the pinned
-  `PUnit.{u+1}`'s constructor denotes `pt`; every parameterised recorded
-  block is a uniform one (tagged injections) or `Prop`-valued (`Eq`). -/
+  fibre is then empty).  The parameter guard was necessary for the
+  pinned `PUnit.{u+1}` (unpinned since), whose constructor denoted `pt`;
+  every parameterised recorded block is a uniform one (tagged
+  injections) or `Prop`-valued (`Eq`). -/
   injNePt : ∀ ψ : Name → Nat, D.w ψ ≠ 0 → (D.params ψ).length ≠ 0 →
     ∀ c j fs, D.inj ψ c j fs ≠ pt
   /-- **the constructors' fields are small** at a `Type`-valued block, at

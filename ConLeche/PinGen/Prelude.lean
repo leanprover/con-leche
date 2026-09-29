@@ -130,13 +130,13 @@ def ownersOf (env : Environment) (s : NameSet) : NameSet :=
 /-- The pinned basis blocks' record heads, in the checker's install
 order (`ConLeche/Kernel/BasisA.lean`); `Quot.sound` rides with `Quot`. -/
 def basisHeads : List Lean.Name :=
-  [`Eq, `Nat, `PUnit, `Empty, `False, `Quot]
+  [`Eq, `Nat, `Empty, `False, `Quot]
 
 /-- The roots the prelude serializer starts from for the basis: the
-six blocks and the quotient soundness axiom (an `axiom` record of its
+five blocks and the quotient soundness axiom (an `axiom` record of its
 own in the export, folded into the `Quot` basis block by the parser). -/
 def basisRoots : List Lean.Name :=
-  [`Eq, `Nat, `PUnit, `Empty, `False, `Quot, ``Quot.sound]
+  [`Eq, `Nat, `Empty, `False, `Quot, ``Quot.sound]
 
 /-- The structural `Nat` operations (`natOpNames` in
 `ConLeche/Kernel/Core.lean`, mirrored: `Core` is a classic library, out of

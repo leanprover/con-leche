@@ -42,7 +42,6 @@ a type**, so a codomain `.sort k` gets `k + 1`, never `k`.  That is why
 | the five atomic types | — | no binder |
 | `natSucc` | `1` | `lamR 1 omega natsucc` |
 | `natRec` | `u` | `natRecV` |
-| `punitRec` | `v` | `punitRecV` |
 | `psigma` | `max u v + 1` | `psigmaV` (a type former) |
 | `psigmaMk` | `max u v` | `psigmaMkV` |
 | `emptyRec` | `v` | `emptyRecV` |
@@ -72,8 +71,6 @@ def natZeroAV : AnnotTerm := .const .natZero []
 def natSuccAV (e : AnnotTerm) : AnnotTerm := .app (.const .natSucc []) e
 /-- `PUnit.{u}` -/
 def punitAV (u : Nat) : AnnotTerm := .const .punit [u]
-/-- `PUnit.unit.{u}` -/
-def punitUnitAV (u : Nat) : AnnotTerm := .const .punitUnit [u]
 /-- `Empty.{u}` -/
 def emptyAV (u : Nat) : AnnotTerm := .const .empty [u]
 /-- `@BConst.psigma.{u,v} A B`, the dependent pair -/
@@ -165,14 +162,6 @@ def BConst.typeAV : BConst → List Nat → AnnotTerm
     .app (.bvar 3) (.bvar 0)
   | .punit, us => .sort (lv us 0)
   | .punitUnit, us => punitAV (lv us 0)
-  | .punitRec, us =>
-    let u := lv us 0; let v := lv us 1
-    -- `∀ (M : PUnit.{u} → Sort v), M unit → ∀ t, M t`
-    .pi (Nat.max u (v + 1)) v
-      (arrowA u (v + 1) (punitAV u) (.sort v)) <|
-    .pi v v (.app (.bvar 0) (punitUnitAV u)) <|
-    .pi u v (punitAV u) <|
-    .app (.bvar 2) (.bvar 0)
   | .psigma, us =>
     let u := lv us 0; let v := lv us 1
     let r := Nat.max u v + 1

@@ -17,10 +17,9 @@ clause for them by hand, once, at their pinned leaves:
 |---|---|---|---|---|
 | `Empty` | `1` | `bval .empty = ∅` | `∅` (no constructor) | `∅` |
 | `False` | `0` | `bval .empty = ∅` | `∅` | `∅` |
-| `PUnit.{u}` | `u` | `bval .punit = {pt}` | `{pt}` (`unit`, no field) | `{pt}` |
 | `Nat` | `1` | `bval .nat = ω` | `{∅} ∪ {vsucc m ∣ m ∈ S}` (inside `ω`) | `ω` |
 
-All four are one component, unparameterized and unindexed, so they
+All three are one component, unparameterized and unindexed, so they
 share one datum shape (`lfp0`) and one clause theorem (`lfp0_clause`);
 each type contributes its fibre function `F`, the carrier `C`, and
 `C`'s LEASTNESS among the `F`-closed sets (for `Nat` that is `ω`'s own
@@ -248,45 +247,8 @@ theorem emptyLfp_clause {acval : Name → (Name → Nat) → AnnotTerm} {nm : Na
     (fun j hj => absurd hj (Nat.not_lt_zero j))
     (fun _ _ _ _ _ j hj => absurd hj (Nat.not_lt_zero j))
 
-/-! ## `PUnit`: one constructor, no field -/
-
 theorem spineFit_nil_iff {ρ : Nat → V} {fs : List V} : SpineFit ρ [] fs ↔ fs = [] := by
   cases fs <;> simp [SpineFit]
-
-/-- The one-constructor, no-field datum at sort level `w`, its
-constructor `cn`. -/
-@[expose] noncomputable def punitLfp (nm cn : Name) (w : (Name → Nat) → Nat) : LfpDatum V :=
-  lfp0 nm w (fun _ => unitSet) (fun _ _ => pt) 1 (fun _ => cn)
-    (fun _ => [])
-
-/-- **The clause of a one-constructor, no-field type** whose pinned
-leaf is the unit set and whose constructor's the point (`PUnit.{u}`,
-pinned to `bval .punit`, `PUnit.unit` to `bval .punitUnit`). -/
-theorem punitLfp_clause {acval : Name → (Name → Nat) → AnnotTerm} {nm cn : Name}
-    (w : (Name → Nat) → Nat)
-    (hleaf : ∀ (ψ : Name → Nat) (ρ : Nat → V), interp V ρ (acval nm ψ) = unitSet)
-    (hctor : ∀ (ψ : Name → Nat) (ρ : Nat → V), interp V ρ (acval cn ψ) = pt) :
-    LfpClause acval (punitLfp (V := V) nm cn w) :=
-  lfp0_clause (C := fun _ => unitSet) (fits := fun _ j fs => j = 0 ∧ fs = [])
-    (fun _ _ _ => Subset.refl _)
-    (fun ψ _ _ => unitSet_mem_univ (w ψ))
-    (fun _ x => by
-      rw [mem_unitSet_iff]
-      exact ⟨fun h => ⟨0, [], ⟨rfl, rfl⟩, h⟩, fun ⟨_, _, _, h⟩ => h⟩)
-    (fun ψ => unitSet_mem_univ (w ψ)) (fun _ => Subset.refl _)
-    (fun _ _ _ hS => hS) hleaf
-    (fun _ _ j fs => by
-      rw [spineFit_nil_iff]
-      exact ⟨fun ⟨h1, h2⟩ => ⟨by omega, h2⟩, fun ⟨h1, h2⟩ => ⟨by omega, h2⟩⟩)
-    (fun _ _ _ _ _ h => h)
-    (fun _ _ _ _ => rfl)
-    (fun _ _ j fs j' fs' hj hj' hl hl' _ => by
-      refine ⟨by omega, ?_⟩
-      rw [List.eq_nil_of_length_eq_zero hl, List.eq_nil_of_length_eq_zero hl'])
-    (fun j _ ψ ρ fs hsp => by
-      obtain rfl := spineFit_nil_iff.mp hsp
-      exact hctor ψ ρ)
-    (fun _ _ _ _ _ _ _ => trivial)
 
 /-! ## `Nat`: zero and successor -/
 

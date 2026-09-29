@@ -150,7 +150,7 @@ Over `BasisKind.declsA`'s stored `PropWhen`s:
 | shape | where | `pwBit` |
 |---|---|---|
 | `.never` | everywhere | `1` (`pwBit_never`) |
-| `.ifAllZero [p]` | `Nat.rec`, `PUnit.rec`, `Empty.rec`, `Eq.rec`, `Quot.mk`, `Quot.lift` | `0 ↔ ψ p = 0` |
+| `.ifAllZero [p]` | `Nat.rec`, `Empty.rec`, `Eq.rec`, `Quot.mk`, `Quot.lift` | `0 ↔ ψ p = 0` |
 | `.ifAllZero []` | `Eq.refl`, `Quot.lift`, `Quot.ind`, `Quot.sound` | `0`, unconditionally |
 -/
 

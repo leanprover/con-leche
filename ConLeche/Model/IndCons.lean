@@ -20,7 +20,7 @@ guard (`Kernel/Inductives/BlockParts.lean`), which checks
 
 > `reservedBasisNames.contains cv.name = false`
 
-and `reservedBasisNames` is the twenty pinned names — `Nat`,
+and `reservedBasisNames` is the sixteen pinned names — `Nat`,
 `Nat.zero`, `Nat.succ` and `Eq` among them.  So at every member cons:
 
 * `nat_heads` goes through `natHeads_cons_offNat`: an inductive block

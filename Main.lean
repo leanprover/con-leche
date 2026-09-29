@@ -806,8 +806,8 @@ def usage : String := String.intercalate "\n" [
   "",
 
   "THE BUILT-IN PRELUDE.  Every run installs, first and",
-  "unconditionally, the checker's own little prelude — the six pinned",
-  "basis blocks (Eq, Nat, PUnit, Empty, False, Quot) and the toolchain's",
+  "unconditionally, the checker's own little prelude — the five pinned",
+  "basis blocks (Eq, Nat, Empty, False, Quot) and the toolchain's",
   "Bool and And blocks (pins/<toolchain>.prelude.ndjson, embedded at",
   "build time; ConLeche/Frontend/Prelude.lean) — so the pin-certified",
   "Nat operations find their ground whatever order the export chose.  A",

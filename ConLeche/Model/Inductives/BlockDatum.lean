@@ -147,8 +147,8 @@ theorem consBlockInds_constsResolve {p₁ : BlockShape} {isRec : Bool} :
     exact consBlockInds_constsResolve rest (i + 1) _ e (Expr.constsResolve_mono h)
 
 /-- **A member's recursor name is reserved only if the member's is**:
-`reservedBasisNames` is five `.str _ "rec"` names and fourteen others,
-none of them of that shape, so the five are the only way `T.str "rec"`
+`reservedBasisNames` is four `.str _ "rec"` names and twelve others,
+none of them of that shape, so the four are the only way `T.str "rec"`
 can be reserved — and then `T` is. -/
 theorem reservedBasisNames_str_rec {T : Name}
     (h : ConLeche.reservedBasisNames.contains T = false) :
@@ -156,11 +156,11 @@ theorem reservedBasisNames_str_rec {T : Name}
   revert h
   simp +decide [ConLeche.reservedBasisNames, Name.str.injEq, ConLeche.eqName,
     ConLeche.eqReflName, ConLeche.natName, ConLeche.natZeroName, ConLeche.natSuccName,
-    ConLeche.punitName, ConLeche.punitUnitName, ConLeche.emptyName, ConLeche.falseName,
+    ConLeche.emptyName, ConLeche.falseName,
     ConLeche.quotName, ConLeche.quotMkName, ConLeche.quotLiftName, ConLeche.quotIndName,
     ConLeche.quotSoundName]
-  intro h1 _ _ h4 _ _ _ h8 _ _ h11 _ h13 _ _ _ _ _ _
-  exact ⟨h1, h4, h8, h11, h13⟩
+  intro h1 _ _ h4 _ _ _ h8 _ h10 _ _ _ _ _ _
+  exact ⟨h1, h4, h8, h10⟩
 
 /-! ## The members' constructors, as the run checked them -/
 

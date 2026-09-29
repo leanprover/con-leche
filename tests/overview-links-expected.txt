@@ -207,9 +207,9 @@
    220      (∀ pc ∈ q.2.2.toList, ∃ s'', checkPending μ q.2.1 pc {} = .ok ((), s'')) →
    221      EnvModelOk V μ q.2.1.env := by
 
-== ConLeche/Verify/Cached/KnotCongr.lean#L514-L515
-   514  theorem coreKnotI_congr (hfe : fe₁.find? = fe₂.find?) :
-   515      ∀ F, coreKnotI mode fe₁ F = coreKnotI mode fe₂ F := by
+== ConLeche/Verify/Cached/KnotCongr.lean#L503-L504
+   503  theorem coreKnotI_congr (hfe : fe₁.find? = fe₂.find?) :
+   504      ∀ F, coreKnotI mode fe₁ F = coreKnotI mode fe₂ F := by
 
 == ConLeche/Model/InstallRun.lean#L242-L244
    242  theorem fullyChecked_sound (V : Type w) [SetTheory V] (hμ : μ.verifiedChecks = true)
@@ -262,27 +262,27 @@
     53  def annotateCore (env : Env) (fuel depth : Nat) (e : Expr) : CheckM Expr :=
     54    (pureFns mode env fuel).annotate depth e
 
-== ConLeche/Kernel/Core.lean#L1949-L1955
-  1949      (wrap : CoreFns m → CoreFns m) : Nat → CoreFns m
-  1950    | 0 =>
-  1951      { whnfCore := fun _ _ => throw (.internal "fuel exhausted: whnfCore")
-  1952        whnf := fun _ _ => throw (.internal "fuel exhausted: whnf")
-  1953        infer := fun _ _ => throw (.internal "fuel exhausted: infer")
-  1954        defeq := fun _ _ _ => throw (.internal "fuel exhausted: defeq")
-  1955        annotate := fun _ _ => throw (.internal "fuel exhausted: annotate")
+== ConLeche/Kernel/Core.lean#L1929-L1935
+  1929      (wrap : CoreFns m → CoreFns m) : Nat → CoreFns m
+  1930    | 0 =>
+  1931      { whnfCore := fun _ _ => throw (.internal "fuel exhausted: whnfCore")
+  1932        whnf := fun _ _ => throw (.internal "fuel exhausted: whnf")
+  1933        infer := fun _ _ => throw (.internal "fuel exhausted: infer")
+  1934        defeq := fun _ _ _ => throw (.internal "fuel exhausted: defeq")
+  1935        annotate := fun _ _ => throw (.internal "fuel exhausted: annotate")
 
-== ConLeche/Model/Fold.lean#L277-L284
-   277  theorem no_proof_of_False_pure (V : Type w) [SetTheory V]
-   278      {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : Nat}
-   279      {ds : List Declaration} {env' : Env}
-   280      (h : checkDeclsPure μ (fueledOps μ F) pins ds = .ok env') :
-   281      ∀ c ∈ env'.consts,
-   282        c.toConstantVal.type = .const falseName [] → False := by
-   283    obtain ⟨mp⟩ := checkDeclsPure_sound_of (V := V) hμ h
-   284    exact fun c hc hty => no_constant_of_False mp c hc hty
+== ConLeche/Model/Fold.lean#L276-L283
+   276  theorem no_proof_of_False_pure (V : Type w) [SetTheory V]
+   277      {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : Nat}
+   278      {ds : List Declaration} {env' : Env}
+   279      (h : checkDeclsPure μ (fueledOps μ F) pins ds = .ok env') :
+   280      ∀ c ∈ env'.consts,
+   281        c.toConstantVal.type = .const falseName [] → False := by
+   282    obtain ⟨mp⟩ := checkDeclsPure_sound_of (V := V) hμ h
+   283    exact fun c hc hty => no_constant_of_False mp c hc hty
 
-== ConLeche/Model/Fold.lean#L142
-   142  theorem declStep_preserves (hμ : μ.verifiedChecks = true)
+== ConLeche/Model/Fold.lean#L141
+   141  theorem declStep_preserves (hμ : μ.verifiedChecks = true)
 
 == ConLeche/Model/Capstone.lean#L140-L146
    140  theorem no_constant_of_False (mp : EnvModelM V μ env)
@@ -305,11 +305,11 @@
 == ConLeche/Kernel/Env.lean#L57
     57  inductive CheckMode where
 
-== ConLeche/Kernel/Core.lean#L1131
-  1131  /-- The reduction loop's body: run `whnfLoop` at its own step budget. -/
+== ConLeche/Kernel/Core.lean#L1111
+  1111  /-- The reduction loop's body: run `whnfLoop` at its own step budget. -/
 
-== ConLeche/Kernel/Core.lean#L1827
-  1827  datum is `never`, never a typing it does not redo. -/
+== ConLeche/Kernel/Core.lean#L1807
+  1807  datum is `never`, never a typing it does not redo. -/
 
 == ConLeche/Kernel/PropWhen.lean#L1-L40
      1  module
@@ -402,36 +402,36 @@
     41  only when `!is_likely_unshared(e)` — the same read.  The walks memoise
     42  exactly the nodes this primitive reports shared.
 
-== ConLeche/Term/Syntax.lean#L187-L215
-   187  inductive Term where
-   188    /-- de Bruijn index -/
-   189    | bvar (i : Nat)
-   190    /-- `Sort u` at a concrete level -/
-   191    | sort (u : Nat)
-   192    /-- a built-in constant at a concrete level instantiation -/
-   193    | const (c : BConst) (us : List Nat)
-   194    /-- application -/
-   195    | app (f a : Term)
-   196    /-- `fun (_ : ty) => body` -/
-   197    | lam (ty body : Term)
-   198    /-- `(_ : ty) → body` -/
-   199    | pi (ty body : Term)
-   200    /-- `@Eq _ lhs rhs`, **without the type**: the interpretation is
-   201    `⟦eqE a b⟧ = eqv ⟦a⟧ ⟦b⟧`, so soundness never constrains the type,
-   202    and a census (task #237) found no definition and no theorem in any
-   203    tier reading the slot the former used to carry.  It is gone; a
-   204    producer that knows the type simply drops it. -/
-   205    | eqE (lhs rhs : Term)
-   206    /-- First field of a pair.  Carries **only** the subject: the pair's
-   207    type arguments come from the typing premise `Γ ⊢ p : Σ A B`,
-   208    not from the term — see the module docstring.  Interpreted by
-   209    `sfst`, i.e. literally `interp`'s clause. -/
-   210    | fst (e : Term)
-   211    /-- Second field of a pair; the `fst` twin, interpreted by `ssnd`. -/
-   212    | snd (e : Term)
-   213    /-- the canonical (irrelevant) proof of a derivable equation -/
-   214    | prf
-   215    deriving Repr, Inhabited
+== ConLeche/Term/Syntax.lean#L186-L214
+   186  inductive Term where
+   187    /-- de Bruijn index -/
+   188    | bvar (i : Nat)
+   189    /-- `Sort u` at a concrete level -/
+   190    | sort (u : Nat)
+   191    /-- a built-in constant at a concrete level instantiation -/
+   192    | const (c : BConst) (us : List Nat)
+   193    /-- application -/
+   194    | app (f a : Term)
+   195    /-- `fun (_ : ty) => body` -/
+   196    | lam (ty body : Term)
+   197    /-- `(_ : ty) → body` -/
+   198    | pi (ty body : Term)
+   199    /-- `@Eq _ lhs rhs`, **without the type**: the interpretation is
+   200    `⟦eqE a b⟧ = eqv ⟦a⟧ ⟦b⟧`, so soundness never constrains the type,
+   201    and a census (task #237) found no definition and no theorem in any
+   202    tier reading the slot the former used to carry.  It is gone; a
+   203    producer that knows the type simply drops it. -/
+   204    | eqE (lhs rhs : Term)
+   205    /-- First field of a pair.  Carries **only** the subject: the pair's
+   206    type arguments come from the typing premise `Γ ⊢ p : Σ A B`,
+   207    not from the term — see the module docstring.  Interpreted by
+   208    `sfst`, i.e. literally `interp`'s clause. -/
+   209    | fst (e : Term)
+   210    /-- Second field of a pair; the `fst` twin, interpreted by `ssnd`. -/
+   211    | snd (e : Term)
+   212    /-- the canonical (irrelevant) proof of a derivable equation -/
+   213    | prf
+   214    deriving Repr, Inhabited
 
 == ConLeche/Semantics/Syntax.lean#L72-L98
     72    | const (c : BConst) (us : List Nat)
@@ -797,31 +797,31 @@
     95  chained. -/
     96  inductive Red (env : Env) : Nat → Expr → Expr → Prop where
 
-== ConLeche/Rules/Rel.lean#L310-L333
-   310  /-- **Definitional equality**: the verdict `true` of `isDefEq`.
-   311  
-   312  **There is no `trans` rule, deliberately, and none can be added**
-   313  (task #309, the experiment recorded in DESIGN.md).  The relation is
-   314  not an equivalence on terms: it is the checker's verdict, and the
-   315  checker only ever compares terms that are well-formed *together* — a
-   316  fact the rules never state, because well-formedness (scoping, the
-   317  readability of annotations, the grading of the reading) is semantic
-   318  and may not enter this inductive.  Every rule respects one syntactic
-   319  discipline instead: **the subject of each `DefEq` premise is either a
-   320  subterm of the conclusion or is produced by an existence-form `Red` /
-   321  `Infer` premise** (a reduct, an inferred type), so the soundness proof
-   322  (`ConLeche/Model/Rules/Sound.lean`) always has the premise's terms in
-   323  hand.  `trans` is the unique rule that would break it: its middle
-   324  term comes from nowhere, and with it two rules that are each sound
-   325  alone meet — `fvar` compares free variables by index only (their
-   326  annotations are not compared, as the checker does not), while
-   327  `proofFast` *reads* an annotation to decide "definitely a proof" —
-   328  and derive `DefEq env d (.fvar i ty) (.fvar i' ty')` for every
-   329  `i`, `i'`, which no model satisfies.  The recursive-structure rules
-   330  (`redL`, `natSucc`, `eta`, `structUnit`) are therefore not a
-   331  proof-engineering convenience but what keeps the relation sound; the
-   332  one chaining that is sound, "reduce, then continue", is `redL`, and
-   333  its right-hand and δ variants are derived in `Derived.lean`. -/
+== ConLeche/Rules/Rel.lean#L309-L332
+   309  /-- **Definitional equality**: the verdict `true` of `isDefEq`.
+   310  
+   311  **There is no `trans` rule, deliberately, and none can be added**
+   312  (task #309, the experiment recorded in DESIGN.md).  The relation is
+   313  not an equivalence on terms: it is the checker's verdict, and the
+   314  checker only ever compares terms that are well-formed *together* — a
+   315  fact the rules never state, because well-formedness (scoping, the
+   316  readability of annotations, the grading of the reading) is semantic
+   317  and may not enter this inductive.  Every rule respects one syntactic
+   318  discipline instead: **the subject of each `DefEq` premise is either a
+   319  subterm of the conclusion or is produced by an existence-form `Red` /
+   320  `Infer` premise** (a reduct, an inferred type), so the soundness proof
+   321  (`ConLeche/Model/Rules/Sound.lean`) always has the premise's terms in
+   322  hand.  `trans` is the unique rule that would break it: its middle
+   323  term comes from nowhere, and with it two rules that are each sound
+   324  alone meet — `fvar` compares free variables by index only (their
+   325  annotations are not compared, as the checker does not), while
+   326  `proofFast` *reads* an annotation to decide "definitely a proof" —
+   327  and derive `DefEq env d (.fvar i ty) (.fvar i' ty')` for every
+   328  `i`, `i'`, which no model satisfies.  The recursive-structure rules
+   329  (`redL`, `natSucc`, `eta`, `structUnit`) are therefore not a
+   330  proof-engineering convenience but what keeps the relation sound; the
+   331  one chaining that is sound, "reduce, then continue", is `redL`, and
+   332  its right-hand and δ variants are derived in `Derived.lean`. -/
 
 == ConLeche/Verify/Rules/Bridge.lean#L22-L27
     22  
@@ -848,10 +848,10 @@
 == ConLeche/Kernel/Basis/False.lean#L52
     52  def falseBasis : List ConstantInfo := [falseRaw, falseRecRaw]
 
-== ConLeche/Kernel/Basis.lean#L63-L65
-    63  def basisPinHit (block : List ConstantInfo) : Option BasisKind :=
-    64    ([BasisKind.eqK, .natK, .punitK, .emptyK, .falseK].find? fun k =>
-    65        k.decls.map (·.name) == block.map (·.name)).filter fun k =>
+== ConLeche/Kernel/Basis.lean#L61-L63
+    61  def basisPinHit (block : List ConstantInfo) : Option BasisKind :=
+    62    ([BasisKind.eqK, .natK, .emptyK, .falseK].find? fun k =>
+    63        k.decls.map (·.name) == block.map (·.name)).filter fun k =>
 
 == ConLeche/Kernel/Inductives/BlockParts.lean#L446
    446  def blockParts? (nPd : Nat) (block : List ConstantInfo) : Option BlockParts :=
@@ -878,15 +878,15 @@
 == ConLeche/Kernel/Inductives/BlockTail.lean#L143
    143  def checkBlock (ops : CheckerOps m) (env : Env) (block : List ConstantInfo) (p₀ : BlockParts) :
 
-== ConLeche/SetModel/Value.lean#L388-L395
-   388  noncomputable def lfpFamSpace (w : Nat) (I : V) : V := piR (w + 1) I fun _ => univ w
-   389  
-   390  /-- `(I → Sort w) → (I → Sort w)`, the functor space. -/
-   391  noncomputable def lfpFamFunSpace (u w : Nat) (I : V) : V :=
-   392    piR (Nat.max u (w + 1)) (lfpFamSpace V w I) fun _ => lfpFamSpace V w I
-   393  
-   394  /-- `lfpFam.{u,w}`; result sort `max (u + 1) (w + 1)`. -/
-   395  noncomputable def lfpFamV (u w : Nat) : V :=
+== ConLeche/SetModel/Value.lean#L365-L372
+   365  noncomputable def lfpFamSpace (w : Nat) (I : V) : V := piR (w + 1) I fun _ => univ w
+   366  
+   367  /-- `(I → Sort w) → (I → Sort w)`, the functor space. -/
+   368  noncomputable def lfpFamFunSpace (u w : Nat) (I : V) : V :=
+   369    piR (Nat.max u (w + 1)) (lfpFamSpace V w I) fun _ => lfpFamSpace V w I
+   370  
+   371  /-- `lfpFam.{u,w}`; result sort `max (u + 1) (w + 1)`. -/
+   372  noncomputable def lfpFamV (u w : Nat) : V :=
 
 == ConLeche/SetModel/Access.lean#L242
    242  theorem closed_of_acc (hw : w ≠ 0) (hA : A ∈ˢ (univ w : V)) (hmaps : MapsTuple w k Is Φ)
@@ -983,36 +983,36 @@
 == ConLeche/Kernel/Inductives/GenRec.lean#L427
    427  def classRuleOk (ops : CheckerOps m) (w : StructWalkers) (feT feR : FEnv) (cvR : ConstantVal)
 
-== ConLeche/Kernel/CoreDefs.lean#L438-L446
-   438  /-- The certified structural-`Nat` operations.  Six of them
-   439  (`add sub mul pow beq ble`) carry a literal fast path; `Nat.pred` is
-   440  here without one — it has no fast path (official's `reduce_nat` folds
-   441  nothing unary but `Nat.succ`), but `Nat.sub`'s recurrence
-   442  `sub x (succ y) = pred (sub x y)` names it, so its own recurrences
-   443  must be certified for `sub`'s literal fold to be sound. -/
-   444  def natOpNames : List Name :=
-   445    [natPredName, natAddName, natSubName, natMulName, natPowName,
-   446     natBeqName, natBleName]
+== ConLeche/Kernel/CoreDefs.lean#L399-L407
+   399  /-- The certified structural-`Nat` operations.  Six of them
+   400  (`add sub mul pow beq ble`) carry a literal fast path; `Nat.pred` is
+   401  here without one — it has no fast path (official's `reduce_nat` folds
+   402  nothing unary but `Nat.succ`), but `Nat.sub`'s recurrence
+   403  `sub x (succ y) = pred (sub x y)` names it, so its own recurrences
+   404  must be certified for `sub`'s literal fold to be sound. -/
+   405  def natOpNames : List Name :=
+   406    [natPredName, natAddName, natSubName, natMulName, natPowName,
+   407     natBeqName, natBleName]
 
-== ConLeche/Kernel/CoreDefs.lean#L370-L387
-   370  /-! ## Structural-Nat literal acceleration
-   371  
-   372  The official kernel accelerates the structural `Nat` operations on
-   373  literals (GMP-backed there).  Here the fast path is *certified*: an
-   374  operation participates only when its defining recurrence equations
-   375  hold by definitional equality — checked once, at install: `checkDecl`
-   376  positively rejects a nonstandard definition under one of these names,
-   377  so *presence in the store is the certificate* (no runtime flag, no
-   378  re-checking; a reduction-time re-check would in fact livelock — the
-   379  certification's own `pred zero` equation re-enters the fast path).
-   380  
-   381  The certification runs in the environment *before* the operation is
-   382  stored, on the equations with the operation's self-references replaced
-   383  by its (annotated) definition value (`Expr.substConst0`): running it
-   384  after insertion would let the operation's own just-enabled fast path
-   385  discharge its all-literal-argument equations (`pred zero ≡ zero`,
-   386  `beq zero zero ≡ true`) vacuously — accepting definitions that
-   387  disagree with the fast path on those points, which is unsound.  The
+== ConLeche/Kernel/CoreDefs.lean#L331-L348
+   331  /-! ## Structural-Nat literal acceleration
+   332  
+   333  The official kernel accelerates the structural `Nat` operations on
+   334  literals (GMP-backed there).  Here the fast path is *certified*: an
+   335  operation participates only when its defining recurrence equations
+   336  hold by definitional equality — checked once, at install: `checkDecl`
+   337  positively rejects a nonstandard definition under one of these names,
+   338  so *presence in the store is the certificate* (no runtime flag, no
+   339  re-checking; a reduction-time re-check would in fact livelock — the
+   340  certification's own `pred zero` equation re-enters the fast path).
+   341  
+   342  The certification runs in the environment *before* the operation is
+   343  stored, on the equations with the operation's self-references replaced
+   344  by its (annotated) definition value (`Expr.substConst0`): running it
+   345  after insertion would let the operation's own just-enabled fast path
+   346  discharge its all-literal-argument equations (`pred zero ≡ zero`,
+   347  `beq zero zero ≡ true`) vacuously — accepting definitions that
+   348  disagree with the fast path on those points, which is unsound.  The
 
 == ConLeche/Kernel/Checker.lean#L109-L116
    109      List (Expr × Expr) → m Bool
@@ -1027,23 +1027,23 @@
 == ConLeche/Model/NatEqs.lean#L1094
   1094      {F : Nat} (hde : DefEqClaim μ mp.base2 φ F)
 
-== ConLeche/Kernel/CoreDefs.lean#L448-L463
-   448  /-- The WF-recursive operations with a *pinned-declaration* certified
-   449  fast path: at install, `checkDecl` compares the stream's definition
-   450  against a vendored pin of the toolchain's own (helper-unfolded)
-   451  definition by definitional equality, and then checks the pinned
-   452  `Nat.ble`-guarded characterization certificates
-   453  (`ConLeche/Kernel/NatOpPins.lean`) like theorem declarations — without
-   454  installing them.  Presence in the store is therefore again the
-   455  capability: a stored operation under one of these names has passed pin
-   456  and certificates, or the install declined.  (The name is historic:
-   457  the family started with `Nat.div`/`Nat.mod` and now covers every
-   458  pin-certified WF-recursive kernel-accelerated `Nat` operation —
-   459  `Nat.log2` left the list when its fast path did, official folding no
-   460  unary operation but `Nat.succ`.) -/
-   461  def natDivModNames : List Name :=
-   462    [natDivName, natModName, natGcdName, natLandName, natLorName,
-   463     natXorName, natShiftLeftName, natShiftRightName]
+== ConLeche/Kernel/CoreDefs.lean#L409-L424
+   409  /-- The WF-recursive operations with a *pinned-declaration* certified
+   410  fast path: at install, `checkDecl` compares the stream's definition
+   411  against a vendored pin of the toolchain's own (helper-unfolded)
+   412  definition by definitional equality, and then checks the pinned
+   413  `Nat.ble`-guarded characterization certificates
+   414  (`ConLeche/Kernel/NatOpPins.lean`) like theorem declarations — without
+   415  installing them.  Presence in the store is therefore again the
+   416  capability: a stored operation under one of these names has passed pin
+   417  and certificates, or the install declined.  (The name is historic:
+   418  the family started with `Nat.div`/`Nat.mod` and now covers every
+   419  pin-certified WF-recursive kernel-accelerated `Nat` operation —
+   420  `Nat.log2` left the list when its fast path did, official folding no
+   421  unary operation but `Nat.succ`.) -/
+   422  def natDivModNames : List Name :=
+   423    [natDivName, natModName, natGcdName, natLandName, natLorName,
+   424     natXorName, natShiftLeftName, natShiftRightName]
 
 == ConLeche/Kernel/NatOpPins.lean#L1-L16
      1  module

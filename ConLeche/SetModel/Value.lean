@@ -42,7 +42,7 @@ Each constant's application law **splits by regime**:
   because both sides are: the `v = 0 → the fibres are truth values`
   premise.  Each law below discharges it from its own motive/fibre
   hypothesis rather than taking it as an extra argument: `natRecV_app`
-  needs `hM`, `punitRecV_app` needs `hM`, and so on.
+  needs `hM`, and so on.
 
 An empty-domain `lamR` is not the proof point at `v ≠ 0`:
 
@@ -130,29 +130,6 @@ theorem natRecV_app {u : Nat} {M z s n : V} (hM : M ∈ˢ natMotiveSpace V u)
       (natRecV_mem_fibre V hM hz hs hn)).symm
   · rw [natRecV, app_lamR_pos hu hM, app_lamR_pos hu hz, app_lamR_pos hu hs,
       app_lamR_pos hu hn]
-
-/-! ## `PUnit.rec` -/
-
-/-- `PUnit.{u} → Sort v`. -/
-noncomputable def punitMotiveSpace (v : Nat) : V :=
-  piR (v + 1) unitSet fun _ => univ v
-
-/-- `PUnit.rec.{u,v}`; result sort `v`. -/
-noncomputable def punitRecV (v : Nat) : V :=
-  lamR v (punitMotiveSpace V v) fun M =>
-    lamR v (app M pt) fun m =>
-      lamR v unitSet fun _ => m
-
-theorem punitRecV_app {v : Nat} {M m t : V} (hM : M ∈ˢ punitMotiveSpace V v)
-    (hm : m ∈ˢ app M pt) (ht : t ∈ˢ (unitSet : V)) :
-    app (app (app (punitRecV V v) M) m) t = m := by
-  by_cases hv : v = 0
-  · subst hv
-    have hMpt : app M pt ∈ˢ (univ 0 : V) :=
-      app_mem_piR_pos (Nat.succ_ne_zero 0) hM (pt_mem_unitSet (V := V))
-    rw [punitRecV, lamR_zero, app_pt, app_pt, app_pt]
-    exact (mem_univ_zero hMpt hm).symm
-  · rw [punitRecV, app_lamR_pos hv hM, app_lamR_pos hv hm, app_lamR_pos hv ht]
 
 /-! ## The dependent pair `.psigma` -/
 
@@ -585,7 +562,6 @@ noncomputable def bval : BConst → List Nat → V
   | .natRec, us => natRecV V (lv us 0)
   | .punit, _ => unitSet
   | .punitUnit, _ => pt
-  | .punitRec, us => punitRecV V (lv us 1)
   | .psigma, us => psigmaV V (lv us 0) (lv us 1)
   | .psigmaMk, us => psigmaMkV V (lv us 0) (lv us 1)
   | .empty, _ => empty

@@ -249,8 +249,7 @@ inductive Red (env : Env) : Nat → Expr → Expr → Prop where
   instance of the structure, the constructor of the major's
   projections is fabricated, scope-guarded, certified against the
   constructor's telescope, and equated to the major by the structure-η
-  certificate (or, at a field-less structure, by proof irrelevance —
-  either way the last `DefEq` premise).  At a projection-function
+  certificate (the last `DefEq` premise).  At a projection-function
   family the per-field telescope certificates are a premise of their
   own, as in `DefEq.structEta`: the rescue's η certificate runs
   `structEtaProjCerts` there (`structEtaCertWith`, `Kernel/Core.lean`),
@@ -419,12 +418,6 @@ inductive DefEq (env : Env) : Nat → Expr → Expr → Prop where
       Red env d tta (.sort u) → Level.isEquiv u .zero = some true →
       Infer env .io d b tb → Infer env .io d tb ttb →
       Red env d ttb (.sort v) → Level.isEquiv v .zero = some true →
-      DefEq env d a b
-  /-- **Unit-likeness** (`proofIrrel`'s first arm, `Kernel/Core.lean`):
-  both sides' io-inferred types head-normalise to the basis unit type. -/
-  | unitLike {d : Nat} {a ta wta b tb wtb : Expr} :
-      Infer env .io d a ta → Red env d ta wta → isUnitLikeTy env wta = true →
-      Infer env .io d b tb → Red env d tb wtb → isUnitLikeTy env wtb = true →
       DefEq env d a b
   /-- **Structure η** (`structEtaCert` → `structEtaCertWith`,
   `Kernel/Core.lean`, `:460-476`; the same certificate serves the

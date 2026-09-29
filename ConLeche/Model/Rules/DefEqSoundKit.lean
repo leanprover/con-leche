@@ -12,7 +12,6 @@ import ConLeche.Verify.PropRead
 import ConLeche.Model.IOLicense
 import ConLeche.Model.Annot.BitClosed
 import ConLeche.Verify.InstLevels
-import ConLeche.Verify.PinnedShapes
 /- `ConLeche.Kernel.PropWhen` seals its representation on purpose (the
 `Std.HashMap` pattern, task #194): the datum's module is `public` but
 not `@[expose]`d, so the `cases`-then-`rfl` steps of the squash-regime
@@ -610,45 +609,5 @@ theorem prop_side_pt' {m : EnvModel V env} {d : Nat} {a ta tta : Expr}
   have hT := hmemT ρ hρ
   rw [heq ρ hρ, interp_sort, h0] at hT
   exact mem_univ_zero hT (hmemA ρ hρ)
-
-/-- A term whose type reduces to a unit-like type interprets to `pt`:
-`isUnitLikeTy` accepts only the pinned `PUnit`, whose `interp` is
-`unitSet = {pt}`. -/
-theorem unit_side_pt' {m : EnvModel V env} {d : Nat} {a ta wta : Expr}
-    {Δa : List AnnotTerm} {aa : AnnotTerm}
-    (hta : InferSemIO m φ d a ta) (hwta : RedSem m φ d ta wta)
-    (hu : ConLeche.isUnitLikeTy env wta = true)
-    (hfa : Frame d a) (hCa : CtxOk m φ d Δa a)
-    (hda : denoteMeta m.acval env φ d a = some aa)
-    (hokA : Graded V Δa aa)
-    (ρ : Nat → V) (hρ : Sat V Δa ρ) : interp V ρ aa = (pt : V) := by
-  obtain ⟨hfta, hsub1, taa, htaa, hoktaa, hmemA⟩ := hta hfa hCa hda hokA
-  have hCta : CtxOk m φ d Δa ta := hCa.of_subset hsub1
-  obtain ⟨-, -, wtaa, hwtaa, -, heqW⟩ := hwta hfta hCta htaa hoktaa
-  obtain ⟨us, rfl, hfind⟩ :=
-    ConLeche.Verify.unitLike_eq_punit m.basis_pinned hu
-  rw [denoteMeta, hfind] at hwtaa
-  dsimp only at hwtaa
-  split at hwtaa
-  case isFalse => exact nomatch hwtaa
-  case isTrue hlen =>
-  obtain rfl : wtaa = m.acval ConLeche.punitName
-      (Level.substFn φ ConLeche.punitA.toConstantVal.levelParams us) :=
-    (Option.some.inj hwtaa).symm
-  have hpin : m.cvalE ConLeche.punitName
-      (Level.substFn φ ConLeche.punitA.toConstantVal.levelParams us)
-      = ConLeche.Term.punitT
-        (Level.substFn φ ConLeche.punitA.toConstantVal.levelParams us
-          ConLeche.uN) :=
-    (m.basis_pinned ConLeche.punitName _ hfind (by decide)).2 _ _ rfl
-  have hleaf : m.acval ConLeche.punitName
-      (Level.substFn φ ConLeche.punitA.toConstantVal.levelParams us)
-      = .const .punit
-        [Level.substFn φ ConLeche.punitA.toConstantVal.levelParams us
-          ConLeche.uN] :=
-    erase_eq_const (by rw [m.acval_erase, hpin]; rfl)
-  have hmem := hmemA ρ hρ
-  rw [heqW ρ hρ, hleaf, interp_const] at hmem
-  exact mem_unitSet hmem
 
 end ConLeche.Model.Rules

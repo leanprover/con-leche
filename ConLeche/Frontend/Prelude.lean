@@ -8,8 +8,8 @@ public import ConLeche.Frontend.Prepare
 /-!
 # The built-in prelude (task #191)
 
-**What it is.**  The checker's own little prelude: the six pinned
-basis blocks (`Eq`, `Nat`, `PUnit`, `Empty`, `False`, `Quot` with its
+**What it is.**  The checker's own little prelude: the five pinned
+basis blocks (`Eq`, `Nat`, `Empty`, `False`, `Quot` with its
 soundness axiom), the `Bool` block — every declaration the
 pin-certified `Nat` operations' install needs that is neither in the
 operation's own dependency closure nor a stream-certified operation

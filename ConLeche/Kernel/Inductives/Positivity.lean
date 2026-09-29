@@ -280,7 +280,7 @@ cases are the monotonicity induction's:
 
 **No basis special-casing** but one: `Quot`, stored as an `.indInfo`
 yet no inductive for official, is a "non valid occurrence" as a
-container head.  The pinned `Eq`/`Nat`/`PUnit`/`Empty`/`False` (and the
+container head.  The pinned `Eq`/`Nat`/`Empty`/`False` (and the
 stream's `And`) are read from the environment like any stored inductive
 — their constructors are `.ctorInfo` records with parameter counts.
 The parameter-free ones never reach the container case; `Eq` (two
@@ -1423,8 +1423,8 @@ def nestCont (ctx : NestCtx) (ops : CheckerOps m) (env : Env)
   -- `Quot` is stored as an `.indInfo` but is no inductive for
   -- official (`is_nested_inductive_app` asks `is_inductive()`):
   -- the one name read here.  Every other basis type (`Eq`, `Nat`,
-  -- `PUnit`, `Empty`, `False`, and `And`) is a container like any
-  -- stored inductive.
+  -- `Empty`, `False`, and `And`) is a container like any stored
+  -- inductive.
   if n == quotName then throw nestNonValid
   unless (args.take q.1).all (fun x => x.bvarB == 0 && x.fvarB ≤ ctx.hiAt prog.length) do
     throw (.invalid "nested positivity: nested inductive datatypes parameters \

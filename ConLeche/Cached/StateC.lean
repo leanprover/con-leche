@@ -15,7 +15,7 @@ persistent bulk-instantiation memo, with the linear-update discipline
 them is written in.
 
 The environment-index guards
-below (`isUnitLikeTyC`, `isCtorAppC`, `headHintC`, `unfoldableHeadC`,
+below (`isCtorAppC`, `headHintC`, `unfoldableHeadC`,
 `sameConstHeadsC`, `rawNatLitC?`, `etaCtorShapeC`) are what the core
 calls directly.
 
@@ -42,20 +42,6 @@ namespace ConLeche.Cached
 open ConLeche
 
 /-! ## The environment-index guards -/
-
-/-- `isUnitLikeTy` through the index, on a (whnf'd) `Expr`. -/
-def isUnitLikeTyC (fe : FEnv) (e : Expr) : Bool :=
-  match e with
-  | .const cn _ .. =>
-    -- task #161 item C1: the pinned-name test (see `isUnitLikeTy`)
-    cn == punitName &&
-    (match fe.find? punitName with
-      | some (.indInfo _ _) => true
-      | _ => false) &&
-    (match fe.find? punitRecName with
-      | some (.recInfo _ mI rP [r]) => mI == rP && r.nfields == 0
-      | _ => false)
-  | _ => false
 
 /-- `isCtorApp` through the index. -/
 def isCtorAppC (fe : FEnv) (e : Expr) : Bool :=

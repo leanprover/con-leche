@@ -95,21 +95,17 @@ theorem structEtaProjCerts_bridge (hd : DefEqBridge env fuel)
     exact .cons hfp hlps hstrp (iotaCerts_bridge hd hio hic)
       (ih (fun j hj => hall j (List.mem_cons_of_mem _ hj)))
 
-/-- `proofIrrel` ⇒ `DefEq.unitLike` or `DefEq.proofIrrel`
-(`proofIrrel_inv`). -/
+/-- `proofIrrel` ⇒ `DefEq.proofIrrel` (`proofIrrel_inv`). -/
 theorem proofIrrel_bridge (hw : WhnfBridge env fuel) (hio : InferIOBridge env fuel)
     {d : Nat} {a b : Expr}
     (h : proofIrrelFueled .verified env fuel d a b = .ok true) :
     DefEq env d a b := by
-  obtain ⟨ta, wta, hta, hwta, harm⟩ := proofIrrel_inv h
-  rcases harm with ⟨hua, tb, wtb, htb, hwtb, hub⟩ |
-    ⟨sta, uT, tb, stb, vT, hsta, hwsta, huT, htb, hstb, hwstb, hvT⟩
-  · exact .unitLike (inferTypeIO_bridge hio hta) (hw hwta) hua
-      (inferTypeIO_bridge hio htb) (hw hwtb) hub
-  · exact .proofIrrel (inferTypeIO_bridge hio hta)
-      (inferTypeIO_bridge hio hsta) (hw hwsta) huT
-      (inferTypeIO_bridge hio htb) (inferTypeIO_bridge hio hstb)
-      (hw hwstb) hvT
+  obtain ⟨ta, sta, uT, tb, stb, vT, hta, hsta, hwsta, huT, htb, hstb, hwstb, hvT⟩ :=
+    proofIrrel_inv h
+  exact .proofIrrel (inferTypeIO_bridge hio hta)
+    (inferTypeIO_bridge hio hsta) (hw hwsta) huT
+    (inferTypeIO_bridge hio htb) (inferTypeIO_bridge hio hstb)
+    (hw hwstb) hvT
 
 /-- `propIrrel` ⇒ `DefEq.proofFast` or `DefEq.proofIrrel`
 (`propIrrel_inv`). -/

@@ -30,9 +30,8 @@ The basis tier's fourth block, and the only one that
 Everything else is the `BasisBlocks.lean` recipe: five pinned
 towers, five type readings, two `.plain` `RecRuleLaw` rows.  Both
 recursors' motives land in `Sort 0`, so both rows are `Prop`-motive
-rows and both fired equalities are the `PUnit.rec` observation seen
-twice more — the reading's `lamR 0` and the value law's squash regime
-are the same point.
+rows and both fired equalities are one observation — the reading's
+`lamR 0` and the value law's squash regime are the same point.
 -/
 
 namespace ConLeche.Model

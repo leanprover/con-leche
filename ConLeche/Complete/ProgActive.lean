@@ -53,8 +53,8 @@ namespace ConLeche
   -- `Quot` is stored as an `.indInfo` but is no inductive for
   -- official (`is_nested_inductive_app` asks `is_inductive()`):
   -- the one name read here.  Every other basis type (`Eq`, `Nat`,
-  -- `PUnit`, `Empty`, `False`, and `And`) is a container like any
-  -- stored inductive.
+  -- `Empty`, `False`, and `And`) is a container like any stored
+  -- inductive.
   if n == quotName then throw nestNonValid
   unless (args.take q.1).all (fun x => x.bvarB == 0 && x.fvarB ≤ ctx.hiAt prog.length) do
     throw (.invalid "nested positivity: nested inductive datatypes parameters \

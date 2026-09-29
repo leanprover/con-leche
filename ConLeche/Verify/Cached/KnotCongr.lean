@@ -66,11 +66,6 @@ theorem natOpStoredF_congr (hfe : fe₁.find? = fe₂.find?) :
 /-! ## The cached guards and stored-constant reads
 (`ConLeche/Cached/StateC.lean`) -/
 
-/-- `isUnitLikeTyC` reads `fe` only through `find?`. -/
-theorem isUnitLikeTyC_congr (hfe : fe₁.find? = fe₂.find?) :
-    isUnitLikeTyC fe₁ = isUnitLikeTyC fe₂ := by
-  funext e; unfold isUnitLikeTyC; simp only [hfe]
-
 /-- `isCtorAppC` reads `fe` only through `find?`. -/
 theorem isCtorAppC_congr (hfe : fe₁.find? = fe₂.find?) :
     isCtorAppC fe₁ = isCtorAppC fe₂ := by
@@ -203,11 +198,6 @@ theorem defeqSpineI_congr (hfe : fe₁.find? = fe₂.find?) (r : CoreFnsI) :
     defeqSpineI r fe₁ = defeqSpineI r fe₂ := by
   funext depth a b; unfold defeqSpineI; simp only [defEqListI_congr hfe]
 
-/-- `proofIrrelI` reads `fe` only through `find?`. -/
-theorem proofIrrelI_congr (hfe : fe₁.find? = fe₂.find?) (r : CoreFnsI) :
-    proofIrrelI r fe₁ = proofIrrelI r fe₂ := by
-  funext depth a b; unfold proofIrrelI; simp only [isUnitLikeTyC_congr hfe]
-
 /-- `propIrrelI` reads `fe` only through `find?`. -/
 theorem propIrrelI_congr (hfe : fe₁.find? = fe₂.find?) (r : CoreFnsI) :
     propIrrelI r fe₁ = propIrrelI r fe₂ := by
@@ -257,15 +247,14 @@ theorem etaCertI_congr (_hfe : fe₁.find? = fe₂.find?) (r : CoreFnsI) :
 theorem stuckIrrelI_congr (hfe : fe₁.find? = fe₂.find?) (r : CoreFnsI) :
     stuckIrrelI mode r fe₁ = stuckIrrelI mode r fe₂ := by
   funext depth a b; unfold stuckIrrelI
-  simp only [structEtaCertI_congr hfe, structUnitCertI_congr hfe,
-    proofIrrelI_congr hfe]
+  simp only [structEtaCertI_congr hfe, structUnitCertI_congr hfe]
 
 /-- `majorToCtorI` reads `fe` only through `find?`. -/
 theorem majorToCtorI_congr (hfe : fe₁.find? = fe₂.find?) (r : CoreFnsI) :
     majorToCtorI mode r fe₁ = majorToCtorI mode r fe₂ := by
   funext depth recName rules major; unfold majorToCtorI
   simp only [isCtorAppC_congr hfe, hfe, constTyAtM_congr hfe,
-    iotaCertsI_congr hfe, proofIrrelI_congr hfe, projAppsI_congr hfe,
+    iotaCertsI_congr hfe, projAppsI_congr hfe,
     structEtaCertWithI_congr hfe, andRescueSlotsF_congr hfe]
 
 /-- `litMajorToCtorI` reads `fe` only through `find?`. -/

@@ -92,8 +92,9 @@ Differences from `ConLeche.Expr`, each deliberate:
 ## The basis
 
 The basis type formers are the ones the checker pins by hand
-(`ConLeche/Kernel/Basis/*.lean`): `Nat`, `PUnit`, `Empty`, `Quot`,
-plus the dependent pair `.psigma`.  `Eq` is absent from the list only
+(`ConLeche/Kernel/Basis/*.lean`): `Nat`, `Empty`, `Quot`, plus the
+dependent pair `.psigma` and the unit type `.punit` with its point
+`.punitUnit` (the pair towers' terminator).  `Eq` is absent from the list only
 because it has been promoted to a syntactic former.  Everything else the checker stores — every
 modeled inductive, every direct structure — unfolds into this alphabet,
 which is why the alphabet can be closed.
@@ -131,8 +132,6 @@ inductive BConst where
   | punit
   /-- `PUnit.unit.{u} : PUnit.{u}` -/
   | punitUnit
-  /-- `PUnit.rec.{u,v}` -/
-  | punitRec
   /-- the dependent pair `.{u,v} : (A : Sort u) → (A → Sort v) → Sort (max u v)` -/
   | psigma
   /-- the dependent pair's constructor `.{u,v}` -/

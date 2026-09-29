@@ -4,7 +4,6 @@ public import ConLeche.Kernel.Basis.Names
 public import ConLeche.Kernel.Basis.Builder
 public import ConLeche.Kernel.Basis.Eq
 public import ConLeche.Kernel.Basis.Nat
-public import ConLeche.Kernel.Basis.PUnit
 public import ConLeche.Kernel.Basis.Empty
 public import ConLeche.Kernel.Basis.False
 public import ConLeche.Kernel.Basis.Quot
@@ -15,7 +14,7 @@ public import ConLeche.Kernel.Canon
 /-!
 # The pinned basis inductives
 
-The checker pins `Eq`, `Nat`, `PUnit`, `Quot`, `Empty` and `False`
+The checker pins `Eq`, `Nat`, `Quot`, `Empty` and `False`
 natively (hand-written set models).  The pinned declarations are the
 toolchain's own — the frontend
 compares incoming records against these and declines anything else.  One module per basis type under
@@ -36,7 +35,6 @@ namespace ConLeche
 def BasisKind.decls : BasisKind → List ConstantInfo
   | .eqK => eqBasis
   | .natK => natBasis
-  | .punitK => punitBasis
   | .emptyK => emptyBasis
   | .falseK => falseBasis
   | .quotK => quotBasis
@@ -55,13 +53,13 @@ not match its pin is a decline. -/
 /-- **The basis-pin match**, with task #215's NAME pre-filter.
 `ConstantInfo.canon` rebuilds the whole block as an unshared tree — on
 a heavily DAG-shared block that was the frontend's single largest cost
-— so a block that is not one of the five pinned ones must not reach it.
+— so a block that is not one of the four pinned ones must not reach it.
 `canon` renames only *level parameters*, leaving every constant name
 alone, so a block can match a pin only when its members' names are the
 pin's, member for member, and that test is a handful of `Name`
 comparisons. -/
 def basisPinHit (block : List ConstantInfo) : Option BasisKind :=
-  ([BasisKind.eqK, .natK, .punitK, .emptyK, .falseK].find? fun k =>
+  ([BasisKind.eqK, .natK, .emptyK, .falseK].find? fun k =>
       k.decls.map (·.name) == block.map (·.name)).filter fun k =>
     canonEqList block k.decls
 

@@ -485,14 +485,14 @@ theorem ensureSort_snd_proj (d : Nat) (e : Expr) :
   snd_tac
 
 theorem proofIrrel_fst_proj (d : Nat) (a b : Expr) :
-    (proofIrrel (pairFns r₁ r₂ h) env d a b).val.1 =
-      proofIrrel r₁ env d a b := by
+    (proofIrrel (pairFns r₁ r₂ h) d a b).val.1 =
+      proofIrrel r₁ d a b := by
   unfold proofIrrel
   fst_tac
 
 theorem proofIrrel_snd_proj (d : Nat) (a b : Expr) :
-    (proofIrrel (pairFns r₁ r₂ h) env d a b).val.2 =
-      proofIrrel r₂ env d a b := by
+    (proofIrrel (pairFns r₁ r₂ h) d a b).val.2 =
+      proofIrrel r₂ d a b := by
   unfold proofIrrel
   snd_tac
 

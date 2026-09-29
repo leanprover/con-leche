@@ -73,10 +73,12 @@
 # gate must positively decline the drifted spelling (never install:
 # the ofReduce* axioms' models rely on the identity certificate).
 2 trust_reduce_perturbed.ndjson
-# Basis PUnit 0-field stuck-major rescue (task #59): `Unit.sizeOf`
-# needs `PUnit.rec _ 1 u ≡ 1` at a neutral `u` — the official kernel's
-# structure rescue covers 0-field structures; dependency-closure slice
-# of the Init export through `Unit.sizeOf`.
+# PUnit 0-field stuck-major rescue (task #59): `Unit.sizeOf` needs
+# `PUnit.rec _ 1 u ≡ 1` at a neutral `u` — the official kernel's
+# structure rescue covers 0-field structures, and so does ours: the
+# stream's `PUnit` is an ordinary installed structure (η, no fields),
+# rescued by the generic η certificate; dependency-closure slice of the
+# Init export through `Unit.sizeOf`.
 0 unit_sizeof_rescue.ndjson
 # Frontend zeta-expands rec-rule right-hand sides (task #60): the
 # export carries a `let` in `Std.Packages.PreorderOfLEArgs`'s
@@ -689,9 +691,8 @@
 # pair eta, `pairEtaCert`) and `PSigma'.rec a b motive minor t ==
 # minor t.1 t.2` (the stuck-major rescue `to_cnstr_when_structure`).
 # The rescue's eta branch is *inert* for `PSigma'` (the generic
-# `structEtaCertWith` excludes reserved basis names; the 0-field
-# `PUnit` fallback needs `etaFields = 0`), yet the verdict matches the
-# official kernel's: `PSigma'.rec` is Prop-eliminating only, so every
+# `structEtaCertWith` excludes reserved basis names), yet the verdict
+# matches the official kernel's: `PSigma'.rec` is Prop-eliminating only, so every
 # term the rescue could produce is a proof and proof irrelevance
 # identifies the two sides.  The fixture pins that agreement -- it must
 # stay 0 whether or not the rescue is ever made to fire here.
@@ -1473,7 +1474,10 @@
 # in-process modeller does not stand down for it, so `J`'s model is
 # declared twice ("duplicate declaration J._model._impl.tag").  They are
 # the e2e-side control for the ruling that a stream `_model` record is
-# an ordinary declaration.
+# an ordinary declaration.  The spliced model records mention `PUnit`,
+# which the built-in prelude supplied until `PUnit` was unpinned (lane
+# PUNIT); both streams now declare it themselves at the front
+# (`scripts/splice_prelude_block.py`, from the pre-PUNIT prelude).
 # No official verdict: neither stream is exporter-producible.
 # FLIP (NESTPLAN L9, the nested flip): 1 → 0 — the in-process modeller no longer runs at any block of the stream, so the spliced `J._model` records are ordinary declarations with no twin; the blocks are the uniform route's.
 0 nested_pin_collide_nomodel.ndjson
@@ -2512,6 +2516,15 @@
 # route ACCEPTED.  Both now 1: the record's `is_rec` is the raw one.
 0 corner_unitcaps_mutual_free.ndjson
 1 corner_unitcaps_mutual_bad.ndjson
+# PUNIT (2026-09-29): `PUnit` is an ordinary inductive, no longer a
+# pinned basis block (`tests/e2e/src/corner_punit_*.lean`).  `own`: a
+# `prelude` stream declares its OWN, differently shaped `PUnit` —
+# was 1 (reserved basis name), official 0.  `unit_eta`: unit-η at the
+# stream's (toolchain) `PUnit` through `structUnitCert`, at concrete
+# universes, a universe variable and `PUnit.{0}` (proof irrelevance);
+# 0 before and after, official 0.
+0 corner_punit_own.ndjson
+0 corner_punit_unit_eta.ndjson
 # Charter item 8, D3 (lanes CHECKDEL/CHECKDEL2, 2026-09-26; sources
 # `tests/e2e/src/corner_checkdel_d_anc{,_nocall}.lean`, the bad twins forged
 # by `scripts/mk_checkdel_d_bad.py`): a phantom container parameter

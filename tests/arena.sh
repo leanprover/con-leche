@@ -362,8 +362,8 @@ echo "mode flags: $mode_ok/$mode_total as expected"
 # declaration records, which no step of the preparation moves: the
 # number is unchanged by the prelude's existence and equal across
 # reorderings of the same records.  natop_order.ndjson has 35
-# declaration records (4 of them the prelude's own: Nat, PUnit, Bool,
-# Eq), and natop_before_eq.ndjson / natop_before_ble.ndjson are the same
+# declaration records (3 of them the prelude's own: Nat, Bool, Eq),
+# and natop_before_eq.ndjson / natop_before_ble.ndjson are the same
 # 35 records in other orders.
 prelude_ok=0
 prelude_total=0

@@ -301,9 +301,6 @@ theorem ProjOkT.towerHead {env : Env} (h : ProjOkT env)
   else if n = natZeroName then natZeroA
   else if n = natSuccName then natSuccA
   else if n = natName.str "rec" then natRecA
-  else if n = punitName then punitA
-  else if n = punitUnitName then punitUnitA
-  else if n = punitName.str "rec" then punitRecA
   else if n = emptyName then emptyA
   else if n = emptyName.str "rec" then emptyRecA
   else if n = falseName then falseA

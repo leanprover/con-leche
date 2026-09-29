@@ -234,34 +234,25 @@ def defeqSpineI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (a b : Expr) :
   | _ => pure false
 
 /-- Twin of `proofIrrel`. -/
-def proofIrrelI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (a b : Expr) :
+def proofIrrelI (r : CoreFnsI) (depth : Nat) (a b : Expr) :
     CheckCM Bool := do
   let ta ← r.inferIO depth a
-  let wta ← r.whnf depth ta
-  if ← pure (isUnitLikeTyC fe wta) then do
+  let tta ← r.inferIO depth ta
+  let wtta ← r.whnf depth tta
+  match wtta with
+  | .sort uT => do
+    let z ← pure .zero
+    let okA ← liftFueled "level comparison" (← isEquivLM uT z)
     let tb ← r.inferIO depth b
-    let wtb ← r.whnf depth tb
-    if ← pure (isUnitLikeTyC fe wtb) then
-      pure true
-    else
-      pure false
-  else do
-    let tta ← r.inferIO depth ta
-    let wtta ← r.whnf depth tta
-    match wtta with
-    | .sort uT => do
+    let ttb ← r.inferIO depth tb
+    let wttb ← r.whnf depth ttb
+    match wttb with
+    | .sort vT => do
       let z ← pure .zero
-      let okA ← liftFueled "level comparison" (← isEquivLM uT z)
-      let tb ← r.inferIO depth b
-      let ttb ← r.inferIO depth tb
-      let wttb ← r.whnf depth ttb
-      match wttb with
-      | .sort vT => do
-        let z ← pure .zero
-        let okB ← liftFueled "level comparison" (← isEquivLM vT z)
-        pure (okA && okB)
-      | _ => pure false
+      let okB ← liftFueled "level comparison" (← isEquivLM vT z)
+      pure (okA && okB)
     | _ => pure false
+  | _ => pure false
 
 /- Task #172 batch B2 — **THE BODY TEMPLATE'S PARAMETER** (the mode
 itself since task #185).  Every configured body below takes
@@ -534,7 +525,7 @@ def stuckIrrelI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (a b : Expr) :
   if ← structEtaCertI mode r fe depth a b then pure true
   else if ← structEtaCertI mode r fe depth b a then pure true
   else if ← structUnitCertI mode r fe depth a b then pure true
-  else proofIrrelI r fe depth a b
+  else proofIrrelI r depth a b
 
 /-- Twin of `majorToCtor`. -/
 def majorToCtorI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
@@ -581,7 +572,7 @@ def majorToCtorI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
                       -- `.trusted`
                       let tfab ← r.inferIO depth fab
                       if ← r.defeq depth tmaj tfab then
-                        if ← certAtI mode (proofIrrelI r fe depth fab major) then
+                        if ← certAtI mode (proofIrrelI r depth fab major) then
                           pure fab
                         else pure major
                       else pure major
@@ -619,10 +610,6 @@ def majorToCtorI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
                     if ← structEtaCertWithI mode r fe depth fab major
                         tmaj then
                       pure fab
-                    else if caps.etaFields = 0 then
-                      if ← proofIrrelI r fe depth fab major then
-                        pure fab
-                      else pure major
                     else pure major
                   else pure major
                 else pure major
@@ -651,7 +638,7 @@ def majorToCtorI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
                       (margs ++ projs)) then do
                     let tfab ← r.inferIO depth fab
                     if ← r.defeq depth tmaj tfab then
-                      if ← certAtI mode (proofIrrelI r fe depth fab major) then
+                      if ← certAtI mode (proofIrrelI r depth fab major) then
                         pure fab
                       else pure major
                     else pure major

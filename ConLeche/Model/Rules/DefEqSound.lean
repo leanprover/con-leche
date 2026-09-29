@@ -14,7 +14,7 @@ public section
 
 One lemma per constructor of `DefEq`: the structural rules, the
 recursive-structure rule, η, the two proof-irrelevance arms, and the
-capability rules `unitLike`, `structEta`, `structUnit`.
+capability rules `structEta`, `structUnit`.
 -/
 
 namespace ConLeche.Model.Rules
@@ -316,18 +316,6 @@ theorem DefEq.proofIrrel_sound {d : Nat}
   intro hfa hfb Δa aa ba hCa hCb haa hba hga hgb ρ hρ
   rw [prop_side_pt' hta htta hu hu0 hfa hCa haa hga ρ hρ,
     prop_side_pt' htb httb hv hv0 hfb hCb hba hgb ρ hρ]
-
-/-- `unit_side_pt'` twice. -/
-theorem DefEq.unitLike_sound {d : Nat}
-    {a ta wta b tb wtb : Expr}
-    (hta : InferSemIO m φ d a ta) (hwta : RedSem m φ d ta wta)
-    (hua : ConLeche.isUnitLikeTy env wta = true)
-    (htb : InferSemIO m φ d b tb) (hwtb : RedSem m φ d tb wtb)
-    (hub : ConLeche.isUnitLikeTy env wtb = true) :
-    DefEqSem m φ d a b := by
-  intro hfa hfb Δa aa ba hCa hCb haa hba hga hgb ρ hρ
-  rw [unit_side_pt' hta hwta hua hfa hCa haa hga ρ hρ,
-    unit_side_pt' htb hwtb hub hfb hCb hba hgb ρ hρ]
 
 /-- Structure η: the stored η law at the certified type application. -/
 theorem DefEq.structEta_sound (hin : RulesInputs V m φ) {d : Nat}

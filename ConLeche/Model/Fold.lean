@@ -101,7 +101,6 @@ theorem basisStepPB_of : BasisStepPB V μ := by
   cases kind with
   | eqK => exact declBasisPB_eqK mp hchain
   | natK => exact declBasisPB_natK mp hchain
-  | punitK => exact declBasisPB_punitK mp hchain
   | emptyK => exact declBasisPB_emptyK mp hchain
   | falseK => exact declBasisPB_falseK mp hchain
   | quotK => exact declBasisPB_quotK mp (hEq rfl) hchain

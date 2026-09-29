@@ -773,32 +773,6 @@ theorem rawNatLitC?_spec' {w : Expr} {wx : Expr}
   rw [rawNatLitC?_spec, h]
 
 open Expr in
-/-- The unit-like-type guard agrees with the spec's `isUnitLikeTy` on
-the erasure — again a top-level match on the whnf'd node, so no
-invariant is needed; only the `FEnv` index has to be resolved. -/
-theorem isUnitLikeTyC_spec {env : Env} (e : Expr) :
-    isUnitLikeTyC (mkFEnv env) e = isUnitLikeTy env e := by
-  cases e with
-  | const cn us =>
-    show (cn == punitName &&
-      (match (mkFEnv env).find? punitName with
-        | some (.indInfo _ _) => true
-        | _ => false) &&
-      (match (mkFEnv env).find? punitRecName with
-        | some (.recInfo _ mI rP [r]) => mI == rP && r.nfields == 0
-        | _ => false)) = _
-    rw [mkFEnv_find?, mkFEnv_find?]
-    rfl
-  | _ => rfl
-
-open Expr in
-/-- `isUnitLikeTyC_spec` transported along the value equation. -/
-theorem isUnitLikeTyC_spec' {env : Env} {w : Expr} {wx : Expr}
-    (h : w = wx) :
-    isUnitLikeTyC (mkFEnv env) w = isUnitLikeTy env wx := by
-  rw [isUnitLikeTyC_spec, h]
-
-open Expr in
 /-- The constructor-application guard agrees with the spec's
 `isCtorApp` on the erasure.  Unlike the two above it reads the
 *spine head*. -/

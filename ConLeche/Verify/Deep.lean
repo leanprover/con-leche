@@ -175,13 +175,6 @@ private theorem isCtorApp_shiftFrom {env : Env} (p : Nat) (e : Expr) :
   cases f <;> try rfl
   case fvar => rw [shiftFrom_fvar]
 
-/-- `isUnitLikeTy` only reads a head constant, which shifting
-preserves. -/
-private theorem isUnitLikeTy_shiftFrom {env : Env} (p : Nat) (e : Expr) :
-    isUnitLikeTy env (shiftFrom p e) = isUnitLikeTy env e := by
-  cases e <;> try rfl
-  case fvar => rw [shiftFrom_fvar]; simp [isUnitLikeTy]
-
 /-- `rawNatLit?` only reads literal and constant heads, which shifting
 preserves. -/
 private theorem rawNatLit?_shiftFrom (p : Nat) (e : Expr) :
@@ -666,43 +659,33 @@ private theorem defeqSpine_shift (_henv : EnvWF env)
 private theorem proofIrrel_shift (henv : EnvWF env)
     (ih : ShiftClaims mode env fuel) {p d : Nat} (hpd : p ≤ d) {a b : Expr}
     (hwa : WScoped d a) (hwb : WScoped d b) :
-    proofIrrel (pureFns mode env fuel) env (d + 1) (shiftFrom p a)
+    proofIrrel (pureFns mode env fuel) (d + 1) (shiftFrom p a)
         (shiftFrom p b) =
-      proofIrrel (pureFns mode env fuel) env d a b := by
+      proofIrrel (pureFns mode env fuel) d a b := by
   simp only [proofIrrel]
   refine bind_congr _ (ih.inferIO hpd hwa) ?_
   intro ta hta
   have hwta : WScoped d ta := inferTypeIO_WScoped henv fuel hta hwa
-  refine bind_congr _ (ih.whnf hpd hwta) ?_
-  intro wta _
-  rw [isUnitLikeTy_shiftFrom]
-  refine ite_congr' (fun _ => ?_) (fun _ => ?_)
-  · refine bind_congr _ (ih.inferIO hpd hwb) ?_
-    intro tb htb
-    have hwtb : WScoped d tb := inferTypeIO_WScoped henv fuel htb hwb
-    refine bind_congr _ (ih.whnf hpd hwtb) ?_
-    intro wtb _
-    rw [isUnitLikeTy_shiftFrom]
-  · refine bind_congr _ (ih.inferIO hpd hwta) ?_
-    intro tta htta
-    have hwtta : WScoped d tta := inferTypeIO_WScoped henv fuel htta hwta
-    refine bind_congr _ (ih.whnf hpd hwtta) ?_
-    intro w _
-    cases w <;> try rfl
-    case fvar => rw [shiftFrom_fvar]
-    case sort u =>
-    refine bind_congr_eq rfl ?_
-    intro okA _
-    refine bind_congr _ (ih.inferIO hpd hwb) ?_
-    intro tb htb
-    have hwtb : WScoped d tb := inferTypeIO_WScoped henv fuel htb hwb
-    refine bind_congr _ (ih.inferIO hpd hwtb) ?_
-    intro ttb httb
-    have hwttb : WScoped d ttb := inferTypeIO_WScoped henv fuel httb hwtb
-    refine bind_congr _ (ih.whnf hpd hwttb) ?_
-    intro w' _
-    cases w' <;> try rfl
-    case fvar => rw [shiftFrom_fvar]
+  refine bind_congr _ (ih.inferIO hpd hwta) ?_
+  intro tta htta
+  have hwtta : WScoped d tta := inferTypeIO_WScoped henv fuel htta hwta
+  refine bind_congr _ (ih.whnf hpd hwtta) ?_
+  intro w _
+  cases w <;> try rfl
+  case fvar => rw [shiftFrom_fvar]
+  case sort u =>
+  refine bind_congr_eq rfl ?_
+  intro okA _
+  refine bind_congr _ (ih.inferIO hpd hwb) ?_
+  intro tb htb
+  have hwtb : WScoped d tb := inferTypeIO_WScoped henv fuel htb hwb
+  refine bind_congr _ (ih.inferIO hpd hwtb) ?_
+  intro ttb httb
+  have hwttb : WScoped d ttb := inferTypeIO_WScoped henv fuel httb hwtb
+  refine bind_congr _ (ih.whnf hpd hwttb) ?_
+  intro w' _
+  cases w' <;> try rfl
+  case fvar => rw [shiftFrom_fvar]
 
 private theorem structEtaProjCerts_shift (henv : EnvWF env)
     (ih : ShiftClaims mode env fuel) {p d : Nat} (hpd : p ≤ d) (T : Name)
@@ -1194,11 +1177,6 @@ private theorem majorToCtor_shift (henv : EnvWF env)
               refine bind_rel_eq _
                 (structEtaCertWith_shift henv ih hpd hwfab hwmaj hwtmaj) ?_
               intro bb _
-              refine ite_rel _ (fun _ => rfl) (fun _ => ?_)
-              refine ite_rel _ (fun _ => ?_) (fun _ => rfl)
-              refine bind_rel_eq _
-                (proofIrrel_shift henv ih hpd hwfab hwmaj) ?_
-              intro bb' _
               exact ite_rel _ (fun _ => rfl) (fun _ => rfl)
             · -- the `And`-only rescue (or no rescue)
               refine ite_rel _ (fun _ => ?_) (fun _ => rfl)

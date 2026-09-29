@@ -54,7 +54,7 @@ private theorem majorToCtor_unfold (env : Env) (d : Nat) (recName : Name)
                         (fueledFns mode env).inferIO d fab >>= fun tfab =>
                         (fueledFns mode env).defeq d tmaj tfab >>= fun rd =>
                         if rd then
-                          proofIrrel (fueledFns mode env) env d fab major >>=
+                          proofIrrel (fueledFns mode env) d fab major >>=
                             fun r =>
                           if r then pure fab
                           else pure major
@@ -87,11 +87,6 @@ private theorem majorToCtor_unfold (env : Env) (d : Nat) (recName : Name)
                       structEtaCertWith mode (fueledFns mode env) env d fab major
                           tmaj >>= fun r =>
                       if r then pure fab
-                      else if caps.etaFields = 0 then
-                        proofIrrel (fueledFns mode env) env d fab major >>=
-                          fun r' =>
-                        if r' then pure fab
-                        else pure major
                       else pure major
                     else pure major
                   else pure major
@@ -119,7 +114,7 @@ private theorem majorToCtor_unfold (env : Env) (d : Nat) (recName : Name)
                       (fueledFns mode env).inferIO d fab >>= fun tfab =>
                       (fueledFns mode env).defeq d tmaj tfab >>= fun rd =>
                       if rd then
-                        proofIrrel (fueledFns mode env) env d fab major >>=
+                        proofIrrel (fueledFns mode env) d fab major >>=
                           fun r =>
                         if r then pure fab
                         else pure major
@@ -185,7 +180,7 @@ theorem majorToCtorC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode env
                               tfab >>= fun rd =>
                           if rd then
                             proofIrrelI (coreKnotI .verified (mkFEnv env) f)
-                                (mkFEnv env) d fab i >>= fun r =>
+                                d fab i >>= fun r =>
                             if r then pure fab
                             else pure i
                           else pure i
@@ -226,11 +221,6 @@ theorem majorToCtorC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode env
                         structEtaCertWithI .verified (coreKnotI .verified (mkFEnv env) f)
                             (mkFEnv env) d fab i tmaj >>= fun r =>
                         if r then pure fab
-                        else if caps.etaFields = 0 then
-                          proofIrrelI (coreKnotI .verified (mkFEnv env) f)
-                              (mkFEnv env) d fab i >>= fun r' =>
-                          if r' then pure fab
-                          else pure i
                         else pure i
                       else pure i
                     else pure i
@@ -268,7 +258,7 @@ theorem majorToCtorC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode env
                             tfab >>= fun rd =>
                         if rd then
                           proofIrrelI (coreKnotI .verified (mkFEnv env) f)
-                              (mkFEnv env) d fab i >>= fun r =>
+                              d fab i >>= fun r =>
                           if r then pure fab
                           else pure i
                         else pure i
@@ -530,20 +520,7 @@ theorem majorToCtorC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode env
                               exact SimC.pure hs₆ ⟨hQfab', hwfab⟩
                             | false =>
                               simp only [Bool.false_eq_true, ↓reduceIte]
-                              split
-                              · refine SimC.bind (proofIrrelC_sim ih hs₆
-                                  hQfab' hden hwfab hmaj)
-                                  (fun s₇ r₂ r₂' hs₇ hPr₂ => ?_)
-                                obtain rfl : r₂ = r₂' := hPr₂
-                                cases r₂ with
-                                | true =>
-                                  simp only [↓reduceIte]
-                                  exact SimC.pure hs₇ ⟨hQfab', hwfab⟩
-                                | false =>
-                                  simp only [Bool.false_eq_true,
-                                    ↓reduceIte]
-                                  exact SimC.pure hs₇ ⟨hden, hmaj⟩
-                              · exact SimC.pure hs₆ ⟨hden, hmaj⟩
+                              exact SimC.pure hs₆ ⟨hden, hmaj⟩
                         · exact SimC.pure hs₅ ⟨hden, hmaj⟩
                       · exact SimC.pure hs₂r ⟨hden, hmaj⟩
                     | bvar k =>

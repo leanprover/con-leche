@@ -260,8 +260,8 @@ theorem annotPwLam_atF {env : Env} (d : Nat) (e : Expr) (F : Nat) :
   atF_tac <;> exact ensureSort_atF _ _ _
 
 theorem proofIrrel_atF (d : Nat) (a b : Expr) (F : Nat) :
-    (proofIrrel (fueledFns mode env) env d a b).val F =
-      proofIrrel (pureFns mode env F) env d a b := by
+    (proofIrrel (fueledFns mode env) d a b).val F =
+      proofIrrel (pureFns mode env F) d a b := by
   unfold proofIrrel
   atF_tac
 

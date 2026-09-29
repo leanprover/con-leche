@@ -108,9 +108,6 @@ theorem defeq_sound (hin : RulesInputs V m φ) :
     DefEq.proofIrrel_sound (infer_sound hin hta) (infer_sound hin htta)
       (red_sound hin hu) hu0 (infer_sound hin htb) (infer_sound hin httb)
       (red_sound hin hv) hv0
-  | _, _, _, .unitLike hta hwta hua htb hwtb hub =>
-    DefEq.unitLike_sound (infer_sound hin hta) (red_sound hin hwta) hua
-      (infer_sound hin htb) (red_sound hin hwtb) hub
   | _, _, _, .structEta htb hwtb hhead hctor hlen hthead hind heta hetaCtor hresT
       hresc htlen hlv hlps hslots hus hcerts hproj hparams hfields =>
     DefEq.structEta_sound hin (infer_sound hin htb) (red_sound hin hwtb) hhead

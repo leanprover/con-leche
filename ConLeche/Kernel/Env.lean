@@ -331,7 +331,7 @@ end ReducibilityHint
 
 /-- The trusted basis inductives (hand-written set models). -/
 inductive BasisKind where
-  | eqK | natK | punitK | emptyK | falseK | quotK
+  | eqK | natK | emptyK | falseK | quotK
   deriving DecidableEq, Repr, Inhabited
 
 /-- Definitional capabilities of a stored inductive type, recorded at

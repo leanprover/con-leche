@@ -22,9 +22,6 @@ def lv (us : List Nat) (i : Nat) : Nat := us.getD i 0
 
 /-! ## Smart constructors -/
 
-/-- `PUnit.{u}` -/
-def punitT (u : Nat) : Term := .const .punit [u]
-
 /-- `Empty.{u}` (level-polymorphic: `Empty.{0}` is `False`) -/
 def emptyT (u : Nat) : Term := .const .empty [u]
 
