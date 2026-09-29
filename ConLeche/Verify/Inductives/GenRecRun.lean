@@ -277,7 +277,7 @@ structure ClassRecTyRun (mode : CheckMode) (F : Nat) (fe : FEnv) (g : ClassGen) 
   hrP : rc.rP = g.nP + g.slots.length
   hmI : rc.mI = rc.rP + (g.cls.getD c default).nIdx
   hgty : classGenRecTy g c = some gty
-  hcv : checkConstantValF (fueledOps mode F) fe { rc.cvR with type := gty.resetMeta } = .ok cvG
+  hcv : checkConstantValF (fueledOps mode F) fe { rc.cvR with type := gty } = .ok cvG
 
 /-- **`classRecTyOk`, inverted.** -/
 theorem classRecTyOk_run {fe : FEnv} {g : ClassGen} {k : Nat} {rc : RecShape}
@@ -404,7 +404,7 @@ theorem classRulesOk_run {w : StructWalkers} {feT feR : FEnv} {g : ClassGen}
         ∃ gen rhs, rhss[j]? = some rhs ∧
           classGenRule g recOf (cvR.levelParams.map .param) c x = some gen ∧
           Nonempty (ClassRuleRun mode F w feT feR cvR pw (g.nP + g.slots.length + x.nF)
-            gen.resetMeta rhs)
+            gen rhs)
   | [], rhss, h => by
     simp only [classRulesOk, pure, Except.pure, Except.ok.injEq] at h
     subst h

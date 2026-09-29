@@ -360,7 +360,7 @@ def classRecTyOk (ops : CheckerOps m) (fe : FEnv) (g : ClassGen) (k : Nat) (rc :
     throw (.invalid "generated recursor: the recursor record's rule prefix or major index is \
       not the generated one")
   let gty ← unwrapOr (classGenRecTy g c) (.internal "generated recursor: recursor type")
-  let cvG ← checkConstantValF ops fe { rc.cvR with type := gty.resetMeta }
+  let cvG ← checkConstantValF ops fe { rc.cvR with type := gty }
   unless ← ops.isDefEq fe.env 0 cvRi.type cvG.type do
     throw (.invalid s!"generated recursor: the type of {rc.cvR.name} is not the generated one \
       (official: invalid recursor)")
@@ -413,7 +413,7 @@ def classRulesOk (ops : CheckerOps m) (w : StructWalkers) (feT feR : FEnv) (g : 
     let gen ← unwrapOr (classGenRule g recOf (cvR.levelParams.map .param) c x)
       (.invalid s!"generated recursor: the rule of {x.cv.name} calls a class whose recursor the \
         stream omits (official: unknown constant)")
-    let r ← classRuleOk ops w feT feR cvR pw (g.nP + g.slots.length + x.nF) gen.resetMeta
+    let r ← classRuleOk ops w feT feR cvR pw (g.nP + g.slots.length + x.nF) gen
     let rs ← classRulesOk ops w feT feR g recOf cvR pw c xs
     pure (r :: rs)
 
