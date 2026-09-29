@@ -94188,3 +94188,70 @@ fuel).
 Gates: `lake build`/`lake test` warning-free; `tests/shake.sh` (four
 public imports of `GenRecStage` measured, FALLBACK), `tests/layering.sh`
 green.
+
+## GENREC-B2 — the class induction at the generated calls, over the node route (2026-09-29, `agent/uinds-GENREC-B2`)
+
+Sorry-free, standard axioms (`#print axioms genClassInd`: propext, choice,
+Quot.sound).  Target reached, in `Model/Inductives/GenClassNodes.lean`:
+
+    genClassInd (hμ) (hctx : GenRecCtx …) (R : GenRecRun … posR cvTasR block ctorsAsR out)
+      (hg : ClassGenScoped R.g) (hTbl : ∀ e ∈ R.st.ctorNfs.toList, ScB pp.nP e.ty)
+      (hcls : …TgtOutCls…) (hsel : …lfpSel…) :
+      ∀ ψ ρ, GenClassInd mpC.base2.acval envC pp.toBlockShape out dR Dc mc cvc
+        (fun c j => genIhdAV mpC.base2.acval envC R.g R.rd (genBit pp ψ) ψ c j) ψ ρ
+
+The stage record is derived inside (`recStage_of_gen`), the parameters' fit
+at an outside class too (`genParams_fit_run`, lane G); `hg`/`hTbl` are lane
+F's (`genScoped_of_run`, `genRun_tbl_scoped`).  Route: the OLD node route,
+generic now over the call relation.
+
+* **Generalised (old callers unchanged in meaning):** `TgtClassIndG` (the
+  class induction at any call relation; `TgtClassInd` is it at `tgtCall`,
+  `GenClassInd` at `genCallT`, `genClassInd_iff` is `Iff.rfl`);
+  `TgtNodeCore`/`TgtNodePres`/`TgtNodeDyn`/`TgtNodeHex`/`tgtClassInd_of_pres`/
+  `tgtNodePres_of_list` take `call` (they read the calls nowhere else);
+  `RecCtxBase` (`DeclBlock.lean`: `NestedRecCtx` minus its run, `.base`),
+  which `nodeListFacts_of`/`dynCtx_of` take; `callWalkSyn`'s container case
+  (and `FieldLeaf`'s) exposes the walk's arity (`nestInstType`).
+* **Twins at the generated run:** `genRecCtx_nodes`/
+  `genOutsideClass_reachedNode` (`GenNodeList.lean`: the seeds are
+  `classSeeds`, the table `R.st.ctorNfs`), `genNodeFrameTie`
+  (`GenFrameTie.lean`: the class match's defeq soundness at the CANONICAL
+  parameters' walk context, lifted to the rule prefix), `genNodeCalls`
+  (`GenNodeCalls.lean`, `nestedNodeCalls` at `genCallT`).
+* **The calls.**  The rule side is by construction (`genCall_data`,
+  `GenCallData.lean`): a generated call is recursive field `i` of the class's
+  constructor, its telescope/indices the datum's walked field at the rule's
+  declared fields, its callee `genRecIdx` a recursor at the ih's class
+  (`genRecIdx_spec`).  K.53′ at the node: the node's entry is among the
+  class's entries, so `classFieldsAgree` ran at it (`classFieldsAgree_at`) —
+  at the DATUM's variables (`nP + k + l`); `k53_rename`
+  (`Verify/Inductives/GenK53Rename.lean`) moves it to the rule's fields
+  (`rP + l`) by the renaming `substFvars (nP+k) rP (id below)`, which fixes
+  both telescopes up to erasure because every table entry is scoped below
+  `nP` (G2) and the leaf's parameters below `|pfvs| = nP`.  The result
+  (`GenK53At`) is `k53_want`'s shape, the leaf headed by the ih's class
+  (`classLeafAt`), so the walk half (`callWalkSyn`, `fieldCall_core`, the
+  three landings) is the old one verbatim.  The outside callee's counts come
+  from its check as a major (`GenOutFacts.lean`: `genOutParamsLen`,
+  `genOutIdxLen`, `nestInstType_count` — the last needs the former's type
+  to end in a sort, `TgtOutCls.tailOk`).
+* **Findings.**
+  1. G1 (fixed by GENREC, 5d185b415): nothing tied an ih's class to its
+     field's leaf head; the class match compares levels and parameters only
+     (all members share the parameters).  Now `classLeafAt`.
+  2. G2: the transport needs the datum's walked telescope scoped below
+     `nP`, which no walker invariant said for table entries that are no
+     listed node's (lane F: `genRun_tbl_scoped`).
+  3. A derived node's field count is the rule's through the recorded
+     clause's constructor readings at BOTH environments
+     (`lfpCtor_fieldsLen`, `tgtOutCls_fieldsLen`), not through a name lookup
+     (the formers' and the constructors' environments differ).
+* **Not collapsed:** the node-0 twins (SIMPD's request) are as in the old
+  proof, not worse.
+
+Gates: `lake build`, `lake test` green (the new modules are outside the
+build roots, like the skeleton); `tests/layering.sh` green;
+`tests/shake.sh` half (b) lists the new modules' (and the skeleton's)
+`public import`s as demotable — an artifact of modules outside the roots
+(demoting them breaks their own statements); re-measure at integration.
