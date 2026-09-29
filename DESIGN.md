@@ -94711,3 +94711,220 @@ ruling.
 Gates: `lake build`/`lake test` warning-free, links (anchors re-pointed, §5 pseudo-code updated),
 quote gate, no-local-paths, layering, shake/pub-imports, `tests/arena.sh`.
 
+## SIMP-AD — positivity as ONE run, the tail's duplicate elimination guard gone (2026-09-29, `agent/uinds-SIMPAD`)
+
+Brief: IMPROVE P2 (positivity as one run), IMPROVE P5's prerequisite (the
+capability flags with the constructors), FRESHCRIT #2 (C-lite), and task F
+(the container lookup without an environment scan).  Maintainer decisions
+(2026-09-29): the classes stay READ from the stream (`ClassRead`), large
+elimination stays READ from the stream and checked.  Artifacts:
+`_tmp/uniform-inds/SIMPAD/` (sweeps, binaries, `loc/`, perf) and
+`_tmp/uniform-inds/SIMPAD-DF/` (sub-lane D+F).
+
+### A. Positivity as ONE run
+
+**Kernel.**
+* The PASS (`checkBlockPass`, moved to `BlockTail.lean`: it now needs the
+  class check) is: formers → constructors → the walk's context
+  (`blockNestCtx`, once) → **the classes** (`checkBlockClasses`,
+  `GenRec.lean`) → the positivity check's root frame
+  (`checkBlockPositivity`, unchanged) → **every outside class walked from
+  the empty stack** (`nestSeeds`, the root's state continued).  `BlockPass`
+  carries `params`, `rd`, `cls` and the table `tbl` instead of the walk's
+  state `pos`.
+* `checkBlockClasses`: the UNVERIFIED pre-pass `classRead` on the stream's
+  RAW recursor types (they mention the constructors, so they are
+  type-checked only later, in the recursor stage, at env2); every class
+  key moved to the canonical parameters, guarded below them and
+  ANNOTATED at env1 (`classKeyOf` — the raw stream carries no binder
+  datum, and both the walk and the generated types read the class's
+  parameters: `List (Nat → T)`'s `Nat → T` needs its written datum); every
+  class checked as a major at env1 (`classMajors`, unchanged); one class
+  per member.
+* `genRecCheck` consumes (canonical parameters, table, classes): it lost
+  `fe₁`, `env₁`, `pos` and `ctorsAs`, the second `blockNestCtx` call and
+  the `nestSeeds` call site with its two environment flushes.  It keeps
+  the pins, the stream's recursor types checked at env2, the elimination
+  guard, the class↔table reading, node agreement, generation.
+* The cache is unchanged: `nestContKey` caches exactly the closed keys
+  (parameters below the frame holes), i.e. the memo of the judgment
+  `[] ⊢ K ok`; with every class walked in one run, the seeds share the
+  root walk's memo state (no flush between them any more).
+* The root frame's own lines (M3/M2′, the field sorts at the holes) still
+  run right after the root, before the outside classes (kept to leave
+  `checkBlockPositivity` and its ~20 consumers untouched).
+
+**Proofs.**  `GenStageRun` (the stage's inversion) and `ClassesRun`
+(`checkBlockClasses_run`); the consumers' interface `GenRecRun` keeps its
+parameters and fields and is ASSEMBLED from the pass and the stage
+(`genRecRun_of`), with `keys` (the annotated keys; consumers read
+`R.keys` for the old `rd.classes.map (classKeyCanon …)`), `hMs₀` now at
+env1, and `majC`: each class as a checked major at the constructors'
+environment, transported (`ClassMajorRun.transport` over
+`ClassEnvAgree`: the two environments agree on every stored inductive
+that is no member — lookup and constructor reading; proved in
+`DeclBlockStep` from the constructors' freshness and
+`nestContainer_consBlockCtors`).  `ClassMajorRun` lost its (unconsumed)
+pin-typing field.  Scoping of the raw-read keys: `classKeyOf`'s guard
+makes every free variable left a canonical parameter
+(`replaceFVars_WScoped_of_below`), annotation keeps it
+(`annotateCore_WScoped`): `genRun_keys_scoped`; cached side
+`classKeyOfS_sim`/`checkBlockClassesS_sim`.  The cached pass sim
+(`checkBlockPassS_run`) moved to `GenRecC.lean` (it simulates the
+classes); the formers'-view lemmas of the tail (`restrictTo_*`) and the
+checked-type key scoping (`classRead_keys_scoped`, …) are gone.
+
+### C-lite. One elimination guard
+
+`checkBlockTail`'s large-eliminator guard (`large ∧ ¬isNeverZero ∧
+(k ≥ 2 ∨ ≥ 2 constructors)`) is deleted: the recursor stage's
+`p.large && !blockLargeElimAllowed p (nested || outside classes)`
+strictly covers it.  The guard's one notion of "may be Prop" is
+`!isNeverZero` (official's `m_is_not_zero`).  NOT changed (a question
+for the maintainer, not adopted): the per-field subsingleton criterion
+still runs under `isProp && large` (definitely zero), not under
+`large && !isNeverZero`: sound as is (a `Sort u` block's fields are
+bounded by `u`, hence proofs wherever the block is a Prop), but it
+accepts a forged large recursor on e.g. `Foo (α : Sort u) : Sort u | mk
+: α → Foo α` which official rejects; unifying it is a verdict move
+toward official on forged streams and ripples through the constructor
+stage's run records (~10 files).  `blockLargeElimAllowed`'s inner
+`p.large` conjunct stays: `huniq` reads the per-field criterion, which
+runs only under `large`.
+
+### Verdicts
+692-stream sweep (e2e + arena + RECPOS/FUSEPOS/FUSELOOP/RPWHNF/RPFOLLOW/
+GENRECM0 fixtures, exit code + output hash; `SIMPAD/sweep.sh`), uniform-inds
+`5de24fdfa` vs the lane tip (A + C-lite + F):
+* `corner_rptie_order_decline` 2 → **1** (official 1): the multi-fault
+  order fixture of lane RPTIE — the classes are walked in the pass again,
+  before the stream's recursor types are checked (stage (b)'s decline
+  came first since RPTIE).  `tests/e2e-expected.txt` updated.
+* Message only (exit 1 both): `direct_sum_or_large_bad` (the tail's guard
+  → the stage's guard wording), `zero_ctor_bad_rec`, `primrec_tt_true`,
+  `primrec_tt_true_bad` (the class check now precedes the pins).
+* No other move (F moves nothing).  init-full 53 093 accepted.
+
+### Numbers (uniform-inds `5de24fdfa` → lane tip)
+* Executed checker lines (SIZEAUDIT method, `SIMPAD/loc`): 10 266 →
+  10 268 (+2): A + C-lite +10 (the RAW reading costs `classKeyOf`'s
+  canonicalisation guard and annotation, and the class step its own
+  function; the stage's seed call, second context and flushes and the
+  tail's guard go), F −8 (the memo).
+* Perf (instructions:u): `complete_c05b_nest30_pi1000` 46.51 G → 43.54 G
+  (−6.4 %, from A: the outside classes share the root walk's memo state,
+  no flush between them); init-full 418.60 G → 418.49 G; Mathlib install
+  phase (F alone, sub-lane): 565.7 G → 560.4 G (within noise).
+* Proof: +1 697 −1 627 over Verify/Model/Semantics/SetModel/Complete
+  (A + C-lite ≈ +266, F −198, merge adjustments).
+
+Gates: `lake build`/`lake test` warning-free; `tests/arena.sh` green
+(e2e 436/436; shake: removals applied, `NestCallSyn`'s `RecCheck`
+re-export a measured `pub-import-plan.py` fallback; layering, links,
+quote gate, axioms, no-local-paths); OVERVIEW §5 pseudo-code: step 3 the
+classes, step 4 the one walk over them (uniform occurrences first, then
+the root frame, then every outside class), the tail's guard gone, step 6
+the generated recursors from (classes, table).
+
+### F. A container's constructors looked up by name, no environment scan (sub-lane SIMPAD-DF)
+
+Maintainer: "surely we don't want a linear scan through the env!"  `nestContainer`
+(`Kernel/Inductives/Positivity.lean`) found a container's constructors by filtering the
+WHOLE constant list (`NestCtx.consts`); the cached driver passed `fe₁.env.consts`, every
+constant of the environment (654 k on Mathlib), memoised per name per block only
+(`nestContainerC`, `NestState.ctorsOf`); `targetCtorsOf` read the same way.
+
+**Kernel.**
+* `IndCaps.ctors : List Name` — every stored inductive records its constructor names in
+  declaration order (official's `inductive_val.cnstrs`): `blockCapsAt` (the uniform install,
+  both arms), the `Nat`/`Eq`/`PUnit` pins (`Empty`/`False` have none; `Quot` records none —
+  it is no container, `nestCont` rejects it by name as before).  `BasisGen` quotes the field.
+* `nestContainer ctx C`: `find? C` = `.indInfo caps`, then `caps.ctors.filterMap` of
+  `find? n` bound through `nestCtorEntry C` (the old scan's per-constant test, now a named
+  kernel function: a `.ctorInfo` whose result past `nPc + nF` binders is headed by `C`).  The
+  list comes out in declaration order (the scan's `reverse` is gone).
+* `NestCtx.consts` DELETED; `BlockShape.nestCtx`, `blockNestCtx`, `checkBlockPositivity` lose
+  their constants argument (callers: `checkBlockPass`, `genRecCheck`, `checkBlockPassS`).
+* The per-block memo `nestContainerC`/`NestState.ctorsOf` is DELETED (second commit): the
+  lookup is a handful of `find?`s, unmemoised costs nothing measurable (below);
+  `nestGroupCtors` is stateless.
+
+**Proofs** (no statement downstream of `LfpOwn` changed).
+* `Model/Cover.lean`: `nestContainer_eq` restated over the recorded names (`ctorLook find? C n
+  := (find? n).bind (ctorEntry C)`, `nestPick` without `reverse`); `nestContainer_ctx` needs
+  only the lookup; new `nestContainer_congr` (two environments agreeing at `C` and at every
+  name's constructor entry read `C` alike), from which `nestContainer_cons` follows;
+  `lfpOwn_one`/`lfpOwn_former0` take the recorded names (the latter just `caps.ctors = []`,
+  no `EnvWF`, no freshness); `ctorEntries_fresh` deleted (dead).
+* `blockLfpOwn` (`BlockCover.lean`) SIMPLER: the member's recorded names look up the block's
+  stored constructors (`hfindC`) and each concludes in the member (`hhead`); the old
+  "no other member's constructor has this head" (`hnameNe`, `filterMap_flatten_at`, deleted)
+  and "no older constructor has a member's head" (`hrest`) premises are gone.  New
+  `blockCapsAt_ctors`, `ctorsAs_names_getD`.
+* `lfpCover_append`, `nestContainer_consBlockCtors` compare per recorded name.  The latter now
+  needs the block's constructor names FRESH below it (a block constructor shadowing an older
+  constructor of `I` would change `I`'s reading): the records' constructor-heads conjunct
+  (`RecCtxBase`, `GenRecCtx`) carries `envI.find? c.1.name = none` beside the heads, proved
+  at `DeclBlockStep` from `hfreshC`.  `nestContainer_consBlockCtors` is kept (restated) for
+  the class check's env₁/env₂ transport.
+* `NestCtxOk`/`NestCtxB` lose their constants clause (a lookup clause only);
+  `nestContainer_mem` (now in `NestScope.lean`, every listed constructor is a stored
+  `.ctorInfo` found by name) replaces the scan's membership lemma; basis ownership
+  (`BasisBlocks`, `BasisEq`, `BasisEmpty`, `BasisFalse`) by the recorded names;
+  `extendPUnitUnit`/`extendNatSucc` lose their scan premise.
+* Memo deletion: `DerivCache`, `NfStScoped`, `RInv` (Complete) lose their lookup clause;
+  `NestStOk` and its `hpos` threading through the cached stage (`BlockRunC`, `GenRecC`,
+  `NestPosC` sims) are gone; `nestGroupCtors_deriv`/`_scb`/`_ok` stateless.
+* Unit tests (`NestedTests.lean`): the hand-built containers record their constructors.
+
+**Verdicts:** 683-stream sweep (e2e + arena + RECPOS/FUSEPOS/FUSELOOP/RPWHNF/RPFOLLOW/GENRECM0
+fixtures, exit code + output hash) vs uniform-inds `26a57021f`: **zero moves** (both commits).
+init-full 53 093 accepted; Mathlib 654 504 accepted.
+
+**Perf** (instructions:u; base / lookup+memo / lookup, memo deleted):
+`complete_c05b_nest30_pi1000` 46.48 G / 46.48 G / 46.48 G; init-full 418.54 G / 418.55 G /
+418.53 G; Mathlib install phase (`--jobs=8 --progress`, `MATHLIB2/split.sh`) 565.7 G /
+569.9 G / 560.4 G (−0.9 %; run-to-run noise of this split is ~±1 %: the phase is dominated
+by the pass, not by container lookups — Mathlib's nested blocks are few, and the memo had
+already reduced the scan to once per container name per block).  So the scan was an
+algorithmic defect (O(|env|) per container per block) with no measurable cost on today's
+corpora; it would have shown on a stream with many nested blocks over a large prefix.
+
+**Executed checker lines** (SIZEAUDIT `execlines.py`, `SIMPAD-DF/loc`): 10 267 → 10 259
+(−8: `Kernel/Inductives` 1 764 → 1 755, the memo; +1 the `IndCaps` field).  **Proof**
+(`git diff --shortstat 26a57021f..` over Verify/Model/Semantics/SetModel/Complete):
++867 −1 065 (**−198**).  Gates: build/test warning-free, `tests/arena.sh` green (shake:
+`BlockRunC`'s `public import NestPosC` demoted, `GenRecC` imports `NestPosC` + publicly
+`NestScope` itself; one stale allowlist line removed).
+
+### D. Capability flags only with the constructors: PROTOTYPED, NOT LANDED (question for the maintainer)
+
+IMPROVE P5's prerequisite: attach η / unit-like / K (and F's constructor list) at env₂, when the
+constructors are consed, not with the formers at env₁.
+
+**Verdict sweep (prototype, `SIMPAD-DF/dproto.patch`, kernel only):** formers consed at env₁
+with `{ all, nparams }` only; after `consBlockCtors` the formers are pushed AGAIN with their
+full `blockCapsAt` record (the index's newest-wins `find?` shadows the first record; the
+cached seeds walk at the pass's own `fe₁`).  683 streams: **zero exit-code or message
+moves** vs F1.  So nothing in steps 2–3 depends on the flags on the corpus (as expected: at
+env₁ no member constructor exists, so η cannot fire; unit-likeness is gated on `!isRec`, so no
+term of a member type can occur in a constructor type there; K is read only at recursor
+install).
+
+**Why not landed — the proof is not plumbing.**  env₂ is then no longer a cons-extension of
+env₁: the member's `find?` changes (its caps).  Either representation needs new model
+infrastructure:
+* *shadow push* (the prototype): a non-fresh cons.  Every model funnel (`EnvModelM` across a
+  cons, `lfpCover_append`, `denoteMeta_envExtend_mono`, `hfwd`-style transports, the
+  `c ∈ env.consts ↔ find?` readings that assume unique names) is stated for FRESH conses;
+  a "re-install a former with a larger record" step must re-prove `EnvModelM`'s env-indexed
+  fields (`type_reads`, `mem_type`, `caps_ok` — now owed at the new record — `rec_rules`,
+  `nat_heads`, …) and leaves a stale duplicate record in `env.consts` (the "names are unique"
+  invariant of `Env` breaks);
+* *in-place update*: an `Env`/`FEnv` update operation with its own index invariant and cached
+  simulation, and every env₁→env₂ transport restated from "extension" to "extension up to the
+  members' records".
+The env₁→env₂ transports are ~130 `consBlockCtors` sites in 18 proof modules.  Estimate 2–4
+sessions either way, for zero verdict change.  A representation decision for the
+maintainer; after SIMPAD-A (no env₁ work after env₂ is built) the shadow push is at least
+local.
