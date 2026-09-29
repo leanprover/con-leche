@@ -102,8 +102,10 @@ theorem nestedClassNodes (hμ : μ.verifiedChecks = true) {F : Nat}
     (hsel : ∀ c, c < (tgtRs out).length → (tgtMajor out c).member = none →
       Dc c = lfpSel mpC dR.toLfp (tgtMajor out c).ind)
     (ψ : Name → Nat) (ρ : Nat → V) (xs : List V) :
-    ∃ P : TgtNodePres μ F envC mpC.base2.acval pp.toBlockShape (cvTasR.map (·.type))
-      out dR Dc mc cvc ψ ρ xs, TgtNodeHex P := by
+    ∃ P : TgtNodePres envC mpC.base2.acval pp.toBlockShape out dR Dc mc cvc ψ ρ xs
+      (tgtCall μ F (ConLeche.mkFEnv envC) pp.toBlockShape (cvTasR.map (·.type)) out
+        mpC.base2.acval envC ψ (tgtClsTup dR Dc mc cvc pp.toBlockShape out ψ) ρ),
+      TgtNodeHex P := by
   -- the node list
   have hctx' := hctx
   obtain ⟨hRec, -, -, hnames, -, -, -, -, -, hdR, hlfp, hcov,
@@ -116,7 +118,7 @@ theorem nestedClassNodes (hμ : μ.verifiedChecks = true) {F : Nat}
     intro t ht ψ
     obtain ⟨dsa, hdsa⟩ := nodeSem_spOcc (hok t ht) (hsem t ht ψ)
     exact ⟨dsa, DenoteMetaSpine.transport (fun e _ he => htr ψ _ e he) hdsa⟩
-  have hF := nodeListFacts_of hctx hok hown hsp
+  have hF := nodeListFacts_of hctx.base hok hown hsp
   by_cases hgd : ∃ c, c < (tgtRs out).length ∧
       tgtClsG dR mpC.base2.acval envC pp.toBlockShape out ψ ρ xs c
   case neg => exact ⟨TgtNodePres.empty, fun c hc hg => absurd ⟨c, hc, hg⟩ hgd⟩
@@ -132,7 +134,7 @@ theorem nestedClassNodes (hμ : μ.verifiedChecks = true) {F : Nat}
       obtain ⟨pk, uOfD, ppsOf, rfl⟩ := hdR'; exact blockMembersRun_seam hN' hS' hcore'
     exact nodeFrameTie_of hμ h' R' hN' hmr' _ ns ψ ρ xs
   -- the dynamic part: the admissible frames and the calls
-  have H := dynCtx_of hctx hmkC hmk hag hsubC htr hcoreK hok hown hkids hpar hsem hF
+  have H := dynCtx_of hctx.base hmkC hmk hag hsubC htr hcoreK hok hown hkids hpar hsem hF
   have hparams := tgtGuard_params hμ hctx hgd.choose_spec.1 hgd.choose_spec.2
   have hxs : dR.nP ≤ xs.length := by
     have hl := SpineFit.length_eq hparams
@@ -148,7 +150,9 @@ theorem nestedClassNodes (hμ : μ.verifiedChecks = true) {F : Nat}
     rw [List.length_take, hpl] at hl
     omega
   have Dy : TgtNodeDyn μ F mpC (pp.nestCtx fvsP envI.find? envI.consts) dR pp.toBlockShape
-      (cvTasR.map (·.type)) out Dc mc cvc ns ψ ρ xs := {
+      (cvTasR.map (·.type)) out Dc mc cvc ns ψ ρ xs
+      (tgtCall μ F (ConLeche.mkFEnv envC) pp.toBlockShape (cvTasR.map (·.type)) out
+        mpC.base2.acval envC ψ (tgtClsTup dR Dc mc cvc pp.toBlockShape out ψ) ρ) := {
     Adm := nodeAdm mk mpC (pp.nestCtx fvsP envI.find? envI.consts) dR ns ψ ρ xs par
     hAdm := dyn_hAdm H ψ ρ xs hparams par
     top := dyn_top H ψ ρ xs hparams hxs hPP

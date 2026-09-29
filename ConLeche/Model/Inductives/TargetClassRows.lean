@@ -40,17 +40,17 @@ universe w
 
 variable {V : Type w} [SetTheory V] {μ : CheckMode}
 
-/-- **THE INDUCTION OVER THE RECURSOR CLASSES** (`hind`): at every parameter tuple `xs`, the union of the
-classes' carriers is well-founded under the graph's predecessor relation
-— the recursor family's calls from a major's decoding at its class.
-This is the one premise of `tgtRecPre_clsI` that the recursor stage's
-run does not give; the positivity derivation's nodes supply it
-(`tgtClassInd_of_pres`, `nestedClassNodes`). -/
-@[expose] def TgtClassInd (μ : CheckMode) (F : Nat) (envC : Env)
-    (acval : Name → (Name → Nat) → AnnotTerm) (p : BlockShape) (formerTys : List Expr)
+/-- **THE INDUCTION OVER THE RECURSOR CLASSES, at a call relation**
+`call` (`hind`): at every parameter tuple `xs`, the union of the classes'
+carriers is well-founded under the graph's predecessor relation — the
+recursor family's calls from a major's decoding at its class.  The call
+relation is the target check's (`TgtClassInd`) or the generated stage's
+(`GenClassInd`, `GenRecAssembly.lean`). -/
+@[expose] def TgtClassIndG (envC : Env)
+    (acval : Name → (Name → Nat) → AnnotTerm) (p : BlockShape)
     (out : List (ConstantVal × TargetMajor × List Expr)) (d : BlockData V)
     (Dc : Nat → LfpDatum V) (mc : Nat → Nat) (cvc : Nat → ConstantVal)
-    (ψ : Name → Nat) (ρ : Nat → V) : Prop :=
+    (ψ : Name → Nat) (ρ : Nat → V) (call : List V → Nat → Nat → List V → V → Prop) : Prop :=
   ∀ xs : List V, ∀ P : V → Prop,
     (∀ u, u ∈ˢ unionSet (tgtRs out).length
         (tgtClsIs d Dc mc cvc acval envC p out ψ ρ xs)
@@ -61,13 +61,23 @@ run does not give; the positivity derivation's nodes supply it
           (tgtClsFit d Dc mc cvc acval envC p out ψ ρ) xs u e ∧
         ∀ v, v ∈ˢ graphPredG (tgtClsIs d Dc mc cvc acval envC p out ψ ρ)
             (tgtClsCr d Dc mc cvc acval envC p out ψ ρ)
-            (tgtRs out).length
-            (tgtCall μ F (mkFEnv envC) p formerTys out
-              acval envC ψ (tgtClsTup d Dc mc cvc p out ψ) ρ) xs e →
+            (tgtRs out).length call xs e →
           P v) → P u) →
     ∀ u, u ∈ˢ unionSet (tgtRs out).length
         (tgtClsIs d Dc mc cvc acval envC p out ψ ρ xs)
         (tgtClsCr d Dc mc cvc acval envC p out ψ ρ xs) → P u
+
+/-- **THE INDUCTION OVER THE RECURSOR CLASSES** (`hind`) at the target
+check's calls (`tgtCall`).  This is the one premise of `tgtRecPre_clsI`
+that the recursor stage's run does not give; the positivity derivation's
+nodes supply it (`tgtClassInd_of_pres`, `nestedClassNodes`). -/
+@[expose] def TgtClassInd (μ : CheckMode) (F : Nat) (envC : Env)
+    (acval : Name → (Name → Nat) → AnnotTerm) (p : BlockShape) (formerTys : List Expr)
+    (out : List (ConstantVal × TargetMajor × List Expr)) (d : BlockData V)
+    (Dc : Nat → LfpDatum V) (mc : Nat → Nat) (cvc : Nat → ConstantVal)
+    (ψ : Name → Nat) (ρ : Nat → V) : Prop :=
+  TgtClassIndG envC acval p out d Dc mc cvc ψ ρ
+    (tgtCall μ F (mkFEnv envC) p formerTys out acval envC ψ (tgtClsTup d Dc mc cvc p out ψ) ρ)
 
 section Rows
 

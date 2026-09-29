@@ -76,11 +76,12 @@ caller's tuple added to the hypotheses. -/
 
 section Pres
 
-variable (μ : CheckMode) (F : Nat) (envC : Env)
-  (acval : Name → (Name → Nat) → AnnotTerm) (p : BlockShape) (formerTys : List Expr)
+variable (envC : Env)
+  (acval : Name → (Name → Nat) → AnnotTerm) (p : BlockShape)
   (out : List (ConstantVal × TargetMajor × List Expr)) (d : BlockData V)
   (Dc : Nat → LfpDatum V) (mc : Nat → Nat) (cvc : Nat → ConstantVal)
   (ψ : Name → Nat) (ρ : Nat → V) (xs : List V)
+  (call : List V → Nat → Nat → List V → V → Prop)
 
 /-- **A presentation of the recursor classes' nodes** at the prefix spine
 `xs` (see the module docstring). -/
@@ -136,8 +137,7 @@ structure TgtNodePres where
     ∀ c' t' y, c' < (tgtRs out).length →
       t' ∈ˢ tgtClsIs d Dc mc cvc acval envC p out ψ ρ xs c' →
       y ∈ˢ app (tgtClsCr d Dc mc cvc acval envC p out ψ ρ xs c') t' →
-      tgtCall μ F (mkFEnv envC) p formerTys out acval envC ψ (tgtClsTup d Dc mc cvc p out ψ) ρ
-        xs c j fs (tagged c' t' y) →
+      call xs c j fs (tagged c' t' y) →
       ∃ b', Rel c' b' ∧
         NodeLands nC Db ψb frb dp Adm b (mOf c b) t j fs b' (mOf c' b') t' y
 
@@ -145,15 +145,16 @@ end Pres
 
 section Build
 
-variable {μ : CheckMode} {F : Nat} {envC : Env}
-  {acval : Name → (Name → Nat) → AnnotTerm} {p : BlockShape} {formerTys : List Expr}
+variable {envC : Env}
+  {acval : Name → (Name → Nat) → AnnotTerm} {p : BlockShape}
   {out : List (ConstantVal × TargetMajor × List Expr)} {d : BlockData V}
   {Dc : Nat → LfpDatum V} {mc : Nat → Nat} {cvc : Nat → ConstantVal}
   {ψ : Name → Nat} {ρ : Nat → V} {xs : List V}
+  {call : List V → Nat → Nat → List V → V → Prop}
 
 namespace TgtNodePres
 
-variable (P : TgtNodePres μ F envC acval p formerTys out d Dc mc cvc ψ ρ xs)
+variable (P : TgtNodePres envC acval p out d Dc mc cvc ψ ρ xs call)
 
 /-- The presentation's clause at node `b`. -/
 @[expose] noncomputable def cl (b : Nat) : SClause V (Nat → V) :=
@@ -201,8 +202,7 @@ related classes' true decodings, each at its callee node. -/
     ∃ c' t' y b', c' < (tgtRs out).length ∧ P.Rel c' b' ∧
       t' ∈ˢ tgtClsIs d Dc mc cvc acval envC p out ψ ρ xs c' ∧
       y ∈ˢ app (tgtClsCr d Dc mc cvc acval envC p out ψ ρ xs c') t' ∧
-      tgtCall μ F (mkFEnv envC) p formerTys out acval envC ψ (tgtClsTup d Dc mc cvc p out ψ) ρ
-        xs c e.j e.fs (tagged c' t' y) ∧
+      call xs c e.j e.fs (tagged c' t' y) ∧
       NodeLands P.nC P.Db P.ψb P.frb P.dp P.Adm e.cls e.c e.t e.j e.fs b' (P.mOf c' b') t' y ∧
       u = nenc b' (P.mOf c' b') t' y
 
@@ -222,7 +222,7 @@ related classes' true decodings, each at its callee node. -/
     P.top
 
 /-- **The core.** -/
-@[expose] noncomputable def core : TgtNodeCore μ F envC acval p formerTys out d Dc mc cvc ψ ρ xs where
+@[expose] noncomputable def core : TgtNodeCore envC acval p out d Dc mc cvc ψ ρ xs call where
   K := P.kit.toNodeInd
   Rel := P.Rel
   mOf := P.mOf
@@ -268,7 +268,7 @@ end TgtNodePres
 /-- **The empty presentation**: no node, no related class (for a prefix
 spine at which no class is guarded). -/
 @[expose] def TgtNodePres.empty :
-    TgtNodePres μ F envC acval p formerTys out d Dc mc cvc ψ ρ xs where
+    TgtNodePres envC acval p out d Dc mc cvc ψ ρ xs call where
   nC := 0
   Db := Dc
   ψb := fun _ => ψ
@@ -301,10 +301,10 @@ theorem tgtClsIs_unguarded {c : Nat} (hg : ¬ tgtClsG d acval envC p out ψ ρ x
 
 /-- **`TgtClassInd` from node presentations** whose relation covers every
 GUARDED class at its prefix spine. -/
-theorem tgtClassInd_of_pres
-    (hP : ∀ xs : List V, ∃ P : TgtNodePres μ F envC acval p formerTys out d Dc mc cvc ψ ρ xs,
+theorem tgtClassInd_of_pres {call : List V → Nat → Nat → List V → V → Prop}
+    (hP : ∀ xs : List V, ∃ P : TgtNodePres envC acval p out d Dc mc cvc ψ ρ xs call,
       ∀ c, c < (tgtRs out).length → tgtClsG d acval envC p out ψ ρ xs c → ∃ b, P.Rel c b) :
-    TgtClassInd μ F envC acval p formerTys out d Dc mc cvc ψ ρ := by
+    TgtClassIndG envC acval p out d Dc mc cvc ψ ρ call := by
   classical
   intro xs Q hstep u hu
   obtain ⟨c, hc, t, ht, x, hx, rfl⟩ := mem_unionSet.mp hu
@@ -316,9 +316,7 @@ theorem tgtClassInd_of_pres
       (tgtClsCr d Dc mc cvc acval envC p out ψ ρ xs) (tgtClsInj d Dc mc cvc p out ψ)
       (tgtClsFit d Dc mc cvc acval envC p out ψ ρ xs)
       (graphPredG (tgtClsIs d Dc mc cvc acval envC p out ψ ρ)
-        (tgtClsCr d Dc mc cvc acval envC p out ψ ρ) (tgtRs out).length
-        (tgtCall μ F (mkFEnv envC) p formerTys out
-          acval envC ψ (tgtClsTup d Dc mc cvc p out ψ) ρ) xs)
+        (tgtClsCr d Dc mc cvc acval envC p out ψ ρ) (tgtRs out).length call xs)
       hex P.core.hb P.core.hm P.core.hIs P.core.hCr P.core.hinj P.core.hnCt P.core.hfit
       P.core.hpredR Q hstep c hc hg t ht x hx
   · rw [tgtClsIs_unguarded hg] at ht
@@ -331,12 +329,13 @@ end Build
 /-- **THE TIE** (`hex`): every GUARDED recursor class at the
 prefix spine `xs` — outside majors included — is related to a node of
 the presentation. -/
-@[expose] def TgtNodeHex {μ : CheckMode} {F : Nat} {envC : Env}
-    {acval : Name → (Name → Nat) → AnnotTerm} {p : BlockShape} {formerTys : List Expr}
+@[expose] def TgtNodeHex {envC : Env}
+    {acval : Name → (Name → Nat) → AnnotTerm} {p : BlockShape}
     {out : List (ConstantVal × TargetMajor × List Expr)} {d : BlockData V}
     {Dc : Nat → LfpDatum V} {mc : Nat → Nat} {cvc : Nat → ConstantVal}
     {ψ : Name → Nat} {ρ : Nat → V} {xs : List V}
-    (P : TgtNodePres μ F envC acval p formerTys out d Dc mc cvc ψ ρ xs) : Prop :=
+    {call : List V → Nat → Nat → List V → V → Prop}
+    (P : TgtNodePres envC acval p out d Dc mc cvc ψ ρ xs call) : Prop :=
   ∀ c, c < (tgtRs out).length → tgtClsG d acval envC p out ψ ρ xs c → ∃ b, P.Rel c b
 
 end ConLeche.Model

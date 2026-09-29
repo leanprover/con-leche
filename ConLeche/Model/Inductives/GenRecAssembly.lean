@@ -11,6 +11,8 @@ import ConLeche.Model.Inductives.NestedRecRest
 import ConLeche.Model.Inductives.BlockRecPreHpre
 import ConLeche.Model.Inductives.BlockDeclRun
 import ConLeche.Model.Inductives.BlockRecAssembly
+import ConLeche.Model.Inductives.GenRecClasses
+import ConLeche.Model.Inductives.GenRecPins
 
 public section
 
@@ -232,7 +234,7 @@ theorem genRecStage (hμ : μ.verifiedChecks = true) {F : Nat}
       exact ⟨n1, n2, fun pin hpin => ⟨(n3 pin hpin).1, (n3 pin hpin).2.1,
         (n3 pin hpin).2.2.1, (n3 pin hpin).2.2.2,
         tgtFire_pinsNoProj h j r hr lvls pins hf pin hpin⟩, n4⟩)
-    ?ctorsIn
+    (genRecCtor_in R hN hcore hctorsAs hdR hcov)
     (pdoms0 := fun ψ => blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ)
     (fdoms0 := fun ψ => tgtFdomsAV pp.toBlockShape out mpC.base2.acval envC ψ)
     (es0 := fun ψ => tgtEsAV pp.toBlockShape out mpC.base2.acval envC ψ)
@@ -242,7 +244,8 @@ theorem genRecStage (hμ : μ.verifiedChecks = true) {F : Nat}
     ?heqB ?heqV ?heqP ?hpre
     (fun j r hr => blockRecNCt_ge hr)
     (fun ψ j r hr => blockRulePdomsAV_length hμ mpC h hr ψ)
-    ?hctor ?htower ?hpins ?hdataS (blockRecTyZ_run hμ mpC h) ?hRaZ
+    (genRecCtor_seam R hN hcore hctorsAs hdR hcov) ?htower
+    (fun m₃ hac φ j r hr _ cA rhs _ _ => recStagePinsOk hμ mpC h m₃ hac φ j r hr cA rhs) ?hdataS (blockRecTyZ_run hμ mpC h) ?hRaZ
   all_goals sorry
 
 end ConLeche.Model

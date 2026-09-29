@@ -54,6 +54,12 @@ DIR   = os.environ.get('PUBPLAN_DIR', '_tmp/m3')
 # a tree whose `rfl`s stop closing, so they stay public and the gate must not
 # ask for them again.
 FALLBACK = {
+    # lane GENREC (G): measured by demoting each alone (unknown identifier
+    # `blockRulePdomsAV`, `GenRecParams.lean:732`; `BlockMembersRun`, `:730`;
+    # `SameDoms`, `:58`).
+    ('ConLeche.Model.Inductives.GenRecParams', 'ConLeche.Model.Inductives.BlockRecData'),
+    ('ConLeche.Model.Inductives.GenRecParams', 'ConLeche.Model.Inductives.BlockRecTyShapeRun'),
+    ('ConLeche.Model.Inductives.GenRecParams', 'ConLeche.Model.Inductives.GenRecStage'),
     # lane GENREC (F): the generated run's scoping and the positivity
     # check's table invariant name their inputs in PUBLIC statements; each
     # MEASURED by demoting it alone (unknown identifier `GenRecRun`,
