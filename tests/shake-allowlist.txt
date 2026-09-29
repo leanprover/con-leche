@@ -705,4 +705,3 @@ ConLeche/Model/Inductives/TargetCallCore.lean	import ConLeche.Verify.Rules.Infer
 ConLeche/Model/Inductives/TargetCallCore.lean	import ConLeche.Verify.Subst	# build-verified (NODESIMP M1 dead-code cut): removing it breaks the build
 ConLeche/Model/Inductives/TargetCallCore.lean	import ConLeche.Model.Inductives.TargetCallKit	# build-verified (NODESIMP M1 dead-code cut): removing it breaks the build
 ConLeche/Verify/Denote/TeleOpen.lean	public import ConLeche.Verify.Denote.Shift	# build-verified (NODESIMP M1 dead-code cut): removing it breaks the build
-ConLeche/Verify/Cached/BlockRunC.lean	public import ConLeche.Verify.Cached.NestPosC	# measured (SIMP-AD): removing it (or making it private) breaks GenRecC, whose public statements need `NestCtxOk`/`nestHoles_ok` through it; the pass sim moved to GenRecC
