@@ -54,6 +54,13 @@ DIR   = os.environ.get('PUBPLAN_DIR', '_tmp/m3')
 # a tree whose `rfl`s stop closing, so they stay public and the gate must not
 # ask for them again.
 FALLBACK = {
+    # lane GENREC: the generated stage's run records name the stage's
+    # kernel data (`classStreamRecs`, `ClassKey`, …) and the target check's
+    # major record (`TargetMajorRun`) in their PUBLIC statements; each
+    # MEASURED by demoting it alone (unknown identifier `classStreamRecs`,
+    # `GenRecRun.lean:74`; unknown identifier `TargetMajorRun`, `:103`).
+    ('ConLeche.Verify.Inductives.GenRecRun', 'ConLeche.Kernel.Inductives.GenRec'),
+    ('ConLeche.Verify.Inductives.GenRecRun', 'ConLeche.Verify.Inductives.RecCheckRun'),
     # lane LIBMERGE (the block library merged into fewer modules): four
     # re-exports the model calls demotable, each MEASURED by demoting it
     # alone.  `BlockRecTower`'s public statements name `dnegSpace`,
