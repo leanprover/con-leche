@@ -126,7 +126,7 @@ theorem blockCtorAcc_of_walk {env : Env} {μ : ConLeche.CheckMode} (mp : EnvMode
     (holeQ_top_iff hhi hcNl hcP har) (Nat.le_refl _) hPi
   -- the syntax: the opened normal form, U4
   obtain ⟨xs, rest', hopN, hkl, hnl, hxs⟩ := memberCtorD_open mp.base2.wf hfr.2.1 hteleD htyN
-  have hU4' : ∀ i, i < cA.2 → (ksD.getD i .ordinary).guarded = true →
+  have hU4' : ∀ i, i < cA.2 → (ksD.getD i .ordinary != .ordinary) = true →
       ConLeche.structUsedLater tyN 0 i = false := by
     intro i hi hg
     cases hu : ConLeche.structUsedLater tyN 0 i
@@ -138,7 +138,7 @@ theorem blockCtorAcc_of_walk {env : Env} {μ : ConLeche.CheckMode} (mp : EnvMode
   obtain ⟨rfl, -⟩ := Prod.mk.inj (Option.some.inj hst).symm
   have hxl : xs.length = cA.2 := ConLeche.Verify.openPisAtFvars_length cA.2 hopN
   classical
-  let ord : Nat → Bool := fun l => !(ksD.getD l .ordinary).guarded
+  let ord : Nat → Bool := fun l => !(ksD.getD l .ordinary != .ordinary)
   refine ⟨ord, fun l => if l < cA.2 then Af l else fun _ => empty, ?_, ?_, ?_, ?_⟩
   · -- the telescope
     rw [← hab]
@@ -166,7 +166,7 @@ theorem blockCtorAcc_of_walk {env : Env} {μ : ConLeche.CheckMode} (mp : EnvMode
       · by_cases hoj : ord (l - 1 - i) = true
         · exact (hag i).1 hil hoj
         · exfalso
-          have hno : (ksD.getD (l - 1 - i) .ordinary).guarded = true := by
+          have hno : (ksD.getD (l - 1 - i) .ordinary != .ordinary) = true := by
             simpa [ord] using hoj
           have hU := hU4' (l - 1 - i) (by omega) hno
           have hfree := u4_nestOcc hopN hfrN.1 hU (by omega) (by omega) hx
@@ -192,13 +192,9 @@ theorem blockCtorAcc_of_walk {env : Env} {μ : ConLeche.CheckMode} (mp : EnvMode
     subst hGi
     have hkD : ksD.getD i .ordinary = k := by rw [List.getD_eq_getElem?_getD, hkk]; rfl
     have hkord : k = .ordinary := by
-      have h' : (!(ksD.getD i .ordinary).guarded) = true := hoi
+      have h' : (!(ksD.getD i .ordinary != .ordinary)) = true := hoi
       rw [hkD] at h'
-      have : k.guarded = false := by simpa using h'
-      cases k with
-      | ordinary => rfl
-      | inProgress => exact absurd rfl hnip
-      | _ => simp [NestFieldKind.guarded] at this
+      simpa using h'
     have hwx := openPisAtFvars_typeWScoped cA.2 hopN hfrN.1 i x hx
     have hholes' : NoBVar (holeP (ctx.hiAt 0 + i) ctx.nP (ctx.hiAt 0)) p'.2.2 := by
       refine denoteMeta_noBVar_of_nestOcc (m := mp.base2) (names := ctx.names) _ _ hwx
@@ -210,8 +206,8 @@ theorem blockCtorAcc_of_walk {env : Env} {μ : ConLeche.CheckMode} (mp : EnvMode
       refine noBVar_exists' (P := fun jj q => jj < i ∧ ord jj = false ∧ LfpDatum.fieldSlot jj i q)
         fun jj => ?_
       by_cases hjj : jj < i ∧ ord jj = false
-      · have h' : (!(ksD.getD jj .ordinary).guarded) = false := hjj.2
-        have hno : (ksD.getD jj .ordinary).guarded = true := by simpa using h'
+      · have h' : (!(ksD.getD jj .ordinary != .ordinary)) = false := hjj.2
+        have hno : (ksD.getD jj .ordinary != .ordinary) = true := by simpa using h'
         exact NoBVar.mono (fun q hq => hq.2.2)
           (u4_fieldSlot (m := mp.base2) hopN hfrN.1 (hU4' jj (by omega) hno) (by omega) hjj.1 hx
             hread)

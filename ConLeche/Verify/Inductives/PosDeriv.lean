@@ -72,13 +72,6 @@ The ONE inversion of the run is `nestPos_deriv` (`PosDerivInv.lean`).
 
 namespace ConLeche
 
-/-- A kind U4 guards at a member constructor: recursive, reflexive or
-nested (official's auxiliary type makes every later read of such a field
-ill-typed).  The derivation's kinds are the run's (`NestFieldKind`). -/
-@[expose] def NestFieldKind.guarded : NestFieldKind → Bool
-  | .recursive _ | .reflexive _ | .nested _ => true
-  | _ => false
-
 /-- The frame's new walk entries (one per group member, at the key). -/
 @[expose] def grpNews (us : List Level) (ds : List Expr) (hi : Nat) (grp : List (Name × Expr)) :
     List NestHole :=
@@ -381,16 +374,17 @@ inductive PosD (ops : CheckerOps CheckM) (env : Env) (ctx : NestCtx) :
       (hfr : PosD ops env ctx (.frame [] us ds grp) ts) :
       PosD ops env ctx (.seed ⟨n, us, ds⟩) [.node [] [] ⟨n, us, ds⟩ grp ts]
 
-/-- **A member constructor, derived** (its nodes `ts`): its field
-telescope positive at the block's own depth (no frames), U4 at the recursive, reflexive and nested
-fields, its result's indices hole-free, M3/M2′ on the normal form
-`tyN`. -/
+/-- **A member constructor, derived** (its nodes `ts`): the root frame's
+constructor judgment read at one constructor — its field telescope
+positive at the block's own depth (no frames), U4 at the non-ordinary
+fields, its result's indices hole-free — and the root's own line M3/M2′
+on the normal form `tyN`. -/
 @[expose] def MemberCtorD (ops : CheckerOps CheckM) (env : Env) (ctx : NestCtx) (nF : Nat)
     (crest : Expr) (ks : List NestFieldKind) (tyN : Expr) (ts : List PosTree) : Prop :=
   ∃ nds cur, PosD ops env ctx (.tele [] (ctx.hiAt 0) nF 0 crest ks nds cur) ts ∧
     tyN = closeTelescope nds (ctx.hiAt 0) cur ∧
     ((List.range nF).any fun i =>
-      (ks.getD i .ordinary).guarded && structUsedLater tyN 0 i) = false ∧
+      ks.getD i .ordinary != .ordinary && structUsedLater tyN 0 i) = false ∧
     nestResHead cur = true ∧
     (cur.getAppArgs.drop ctx.nP).all (fun a => !a.nestOcc ctx.names ctx.nP (ctx.hiAt 0)) = true ∧
     tyN.holesApplied ctx.names ctx.nP (ctx.hiAt 0) = true

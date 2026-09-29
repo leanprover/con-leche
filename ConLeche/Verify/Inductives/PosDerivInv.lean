@@ -945,34 +945,6 @@ theorem nestPos_deriv (hctx : NestCtxOk ctx) (hroot : NestRootOk ctx)
 
 /-! ## The root frame -/
 
-/-- **At the root frame no field is in progress** (a frame hole needs a
-container frame). -/
-theorem posD_root_noProgress {J : PosJ} {ts : List PosTree} (h : PosD ops env ctx J ts) :
-    match J with
-    | .field prog _ _ _ k _ => prog = [] → k ≠ .inProgress
-    | .tele prog _ _ _ _ ks _ _ => prog = [] → ∀ k ∈ ks, k ≠ .inProgress
-    | _ => True := by
-  induction h with
-  | const => intro _ hk; exact nomatch hk
-  | pi _ _ _ _ ih => exact ih
-  | hole => intro _ hk; split at hk <;> exact nomatch hk
-  | frameHole _ _ _ hlo hhi =>
-    intro hp; subst hp; simp only [List.length_nil] at hhi; omega
-  | contNew => intro _ hk; exact nomatch hk
-  | contHit => intro _ hk; exact nomatch hk
-  | teleNil => intro _ k hk; exact nomatch hk
-  | teleCons _ _ iha ihb =>
-    intro hp k hk
-    rcases List.mem_cons.mp hk with rfl | hk
-    · exact iha hp
-    · exact ihb hp k hk
-  | _ => trivial
-
-/-- Off the in-progress kind, U4's guard is "not ordinary". -/
-theorem NestFieldKind.guarded_eq {k : NestFieldKind} (hk : k ≠ .inProgress) :
-    k.guarded = (k != .ordinary) := by
-  cases k <;> first | rfl | exact absurd rfl hk
-
 /-- **The root frame, derived**: the cache invariant kept, constructors
 recorded only on top, and per member its constructor list derived at the
 root key (`.ctors []`), its nodes and constructors recorded, and every
@@ -1225,22 +1197,9 @@ theorem checkBlockPositivity_deriv {env₁ : Env}
   obtain ⟨o, hoj, crest, nds, cur, ts', hcr, -, hd, ho2, hu4, hres, hidx, htr⟩ := hout j cA hj
   rw [rootCrest_eq _ _ (hlps c cs hc cA (List.mem_of_getElem? hj))] at hcr
   obtain ⟨hha, -⟩ := nestRootLines_inv (nestRootLinesAll_inv hL c cs os hc hoc) j cA o hj hoj
-  have hnp : ∀ k ∈ o.1, k ≠ .inProgress := posD_root_noProgress hd rfl
   refine ⟨crest, o.1, ts', hcr, ⟨nds, cur, hd, ?_, ?_, hres, ?_, ?_⟩, ?_, htr⟩
   · rw [outs_getD hoc hoj default]; exact ho2
-  · rw [outs_getD hoc hoj default, ho2]
-    rw [← hu4]
-    congr 1
-    funext i
-    congr 1
-    rw [NestFieldKind.guarded_eq]
-    intro hk
-    rw [List.getD_eq_getElem?_getD] at hk
-    by_cases hi : i < o.1.length
-    · rw [List.getElem?_eq_getElem hi, Option.getD_some] at hk
-      exact hnp _ (List.getElem_mem hi) hk
-    · rw [List.getElem?_eq_none (by omega), Option.getD_none] at hk
-      exact nomatch hk
+  · rw [outs_getD hoc hoj default, ho2]; exact hu4
   · have hl := hroot.1
     rw [hl] at hidx; exact hidx
   · rw [outs_getD hoc hoj default]; exact hha
