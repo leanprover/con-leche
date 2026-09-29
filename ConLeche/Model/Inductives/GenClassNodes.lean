@@ -80,7 +80,7 @@ theorem genClassNodes {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : Nat
       posR)
     (R : GenRecRun μ F (ConLeche.mkFEnv envI) envI (ConLeche.mkFEnv envC) pp.toBlockShape
       (ConLeche.blockNestedBit pp.toBlockShape kindsR) posR cvTasR block ctorsAsR out)
-    (hg : ConLeche.ClassGenScoped R.g)
+    (hg : ConLeche.ClassGenScoped R.g) (hnp : ConLeche.GenNoProj envC R.g)
     (hTbl : ∀ e ∈ R.st.ctorNfs.toList, ConLeche.ScB pp.nP e.ty)
     {Dc : Nat → LfpDatum V} {mc : Nat → Nat} {cvc : Nat → ConstantVal}
     (hcls : ∀ c, c < (tgtRs out).length → (tgtMajor out c).member = none →
@@ -96,10 +96,10 @@ theorem genClassNodes {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : Nat
   have hbase' := hbase
   obtain ⟨-, -, -, hndM, hN, hS, hcore, -, hdR, hlfp, hcov,
     ⟨mk, hmkC, hmk, hag, hsubC, hcoreK, htr⟩, -⟩ := hbase'
-  have h := recStage_of_gen hμ R hg
+  have h := recStage_of_gen hμ R hg hnp
   have hmr : BlockMembersRun mpC.base2 dR pp.toBlockShape cvTasR := by
     obtain ⟨pk, uOfD, ppsOf, rfl⟩ := hdR; exact blockMembersRun_seam hN hS hcore
-  have hparG := genParams_fit_run hμ mpC R hg hmr
+  have hparG := genParams_fit_run hμ mpC R hg h hmr
   -- the node list
   obtain ⟨fvsP, ns, hctxR, hok, hown, hkids, hpar, hsem, hfrec, hmemF, ⟨par, hPP⟩, hcovN⟩ :=
     genRecCtx_nodes hμ hbase R mk hmkC hcoreK
@@ -188,7 +188,7 @@ theorem genClassInd {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : Nat}
       posR)
     (R : GenRecRun μ F (ConLeche.mkFEnv envI) envI (ConLeche.mkFEnv envC) pp.toBlockShape
       (ConLeche.blockNestedBit pp.toBlockShape kindsR) posR cvTasR block ctorsAsR out)
-    (hg : ConLeche.ClassGenScoped R.g)
+    (hg : ConLeche.ClassGenScoped R.g) (hnp : ConLeche.GenNoProj envC R.g)
     (hTbl : ∀ e ∈ R.st.ctorNfs.toList, ConLeche.ScB pp.nP e.ty)
     {Dc : Nat → LfpDatum V} {mc : Nat → Nat} {cvc : Nat → ConstantVal}
     (hcls : ∀ c, c < (tgtRs out).length → (tgtMajor out c).member = none →
@@ -200,6 +200,6 @@ theorem genClassInd {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : Nat}
   intro ψ ρ
   rw [genClassInd_iff]
   exact tgtClassInd_of_pres fun xs =>
-    genClassNodes hμ hctx R hg hTbl hcls hsel ψ ρ xs
+    genClassNodes hμ hctx R hg hnp hTbl hcls hsel ψ ρ xs
 
 end ConLeche.Model

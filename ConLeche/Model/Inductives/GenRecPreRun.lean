@@ -112,7 +112,7 @@ theorem genRun_gpre (hμ : μ.verifiedChecks = true)
   intro c hc
   obtain ⟨rc, cls, cvG, rhss, hrc, hcls, -, ⟨T⟩, -, -, -⟩ := genRun_at R hc
   rw [blockRulePdomsAV_length hμ mpC h (List.getElem?_eq_getElem hc) ψ]
-  obtain ⟨hrP, -, -⟩ := genRecTy_run hμ R hg hrc hcls T
+  have hrP := (genRecTy_shape R hg T).1
   show R.pre.length = (p.recs.getD c default).rP
   rw [List.getD_eq_getElem?_getD, hrc, Option.getD_some, hrP]
 
@@ -381,7 +381,7 @@ theorem genRun_frame (hμ : μ.verifiedChecks = true)
   obtain ⟨⟨s, sl⟩, -, hgen⟩ := Option.bind_eq_some_iff.mp hgen
   obtain ⟨⟨fvs, cb⟩, hop, hgen⟩ := Option.bind_eq_some_iff.mp hgen
   obtain ⟨ws, hws, -⟩ := Option.bind_eq_some_iff.mp hgen
-  have hrP : rc.rP = R.pre.length := (genRecTy_run hμ R hg hrc hcls T).1
+  have hrP : rc.rP = R.pre.length := (genRecTy_shape R hg T).1
   have htRP : tgtRP p.toBlockShape c = R.pre.length := by
     rw [tgtRP, List.getD_eq_getElem?_getD, hrc, Option.getD_some, hrP]
   have hctor : tgtCtorOf out c j = cA := by
@@ -539,18 +539,18 @@ theorem genRun_fdomsBelow (hμ : μ.verifiedChecks = true)
 /-! ## The stored conclusion is the motive applied -/
 
 /-- **The stored type of recursor `c`**: the generated type of its class,
-annotated; its reading and its peel at the major index. -/
+stored as generated (`classConstOk`); its reading and its peel at the
+major index. -/
 theorem genRun_storedTy (hμ : μ.verifiedChecks = true)
     (R : GenRecRun μ F (mkFEnv env₁) env₁ (mkFEnv envC) p.toBlockShape nestedBit pos cvTas
       block ctorsAs out) (hg : ClassGenScoped R.g) {memR : Nat → Prop}
     (h : ConLeche.RecStageG μ F envC p cvTas ctorsAs (tgtRs out) memR) (mpC : EnvModelM V μ envC)
     (ψ : Name → Nat) {c : Nat} (hc : c < (tgtRs out).length) :
-    ∃ (cls : Nat) (gty gtyA : Expr) (F' : Nat) (S : Expr),
+    ∃ (cls : Nat) (gty : Expr) (S : Expr),
       genClsOf R.rd c = cls ∧ tgtMajor out c = R.g.cls.getD cls default ∧
       ConLeche.classGenRecTy R.g cls = some gty ∧
-      ConLeche.annotateCore μ envC F' 0 gty = .ok gtyA ∧
-      ConLeche.inferTypeCore μ envC F' 0 gtyA = .ok S ∧
-      denoteMeta mpC.base2.acval envC ψ 0 gtyA
+      ConLeche.inferTypeCore μ envC F 0 gty = .ok S ∧
+      denoteMeta mpC.base2.acval envC ψ 0 gty
         = some (blockRecTyAV mpC.base2.acval envC (tgtRs out) ψ c) ∧
       p.toBlockShape.majorIdxAt c + 1 = R.g.pre.length + (R.g.cls.getD cls default).nIdx + 1 ∧
       p.toBlockShape.rulePrefixAt c = R.g.pre.length ∧
@@ -562,23 +562,22 @@ theorem genRun_storedTy (hμ : μ.verifiedChecks = true)
   have hr : (tgtRs out)[c]? = some (cvG, rhss, (R.Ms.getD cls default).nIdx,
       (R.Ms.getD cls default).ctors) := by
     simp [tgtRs, List.getElem?_map, ho]
-  have hcv : ConLeche.checkConstantVal (fueledOps μ F) envC
-      { rc.cvR with type := T.gty } = .ok cvG := by
-    rw [← ConLeche.checkConstantValF_eq]; exact T.hcv
-  obtain ⟨-, -, -, -, -, -, type, S, -, hann, -, -, hinf, -, hcvEq⟩ :=
-    ConLeche.checkConstantVal_inv hcv
-  have htype : cvG.type = type := by rw [hcvEq]
-  dsimp only at hann
-  rw [← htype] at hann hinf
+  obtain ⟨-, -, -, -, -, -, -, -, S, -, hinf, -, hcvEq⟩ := ConLeche.classConstOk_inv T.hcv
+  have htype : cvG.type = T.gty := by
+    have := congrArg ConstantVal.type hcvEq
+    simpa using this
+  dsimp only at hinf
   obtain ⟨-, -, -, hta, hTyE, hlenRds, -, -, -, -⟩ := recStage_tyPis (V := V) hμ mpC h hr ψ
-  have hrP := (genRecTy_run hμ R hg hrc hcls T).1
+  replace hta : denoteMeta mpC.base2.acval envC ψ 0 T.gty
+      = some (blockRecTyAV mpC.base2.acval envC (tgtRs out) ψ c) := by rw [← htype]; exact hta
+  have hrP := (genRecTy_shape R hg T).1
   have hRP : p.toBlockShape.rulePrefixAt c = R.g.pre.length := by
     show (p.recs.getD c default).rP = _
     rw [List.getD_eq_getElem?_getD, hrc, Option.getD_some, hrP]; rfl
   have hmI : p.toBlockShape.majorIdxAt c + 1
       = R.g.pre.length + (R.g.cls.getD cls default).nIdx + 1 := by
     rw [genRec_mI h hr, hRP]; rfl
-  refine ⟨cls, T.gty, cvG.type, F, S, hgc, hM, T.hgty, hann, hinf, hta, hmI, hRP, ?_⟩
+  refine ⟨cls, T.gty, S, hgc, hM, T.hgty, hinf, hta, hmI, hRP, ?_⟩
   rw [← hmI, hTyE, ← hlenRds]
   exact stripPisAV_mkPisAV _ _
 
@@ -597,15 +596,15 @@ theorem genRun_conclMot (hμ : μ.verifiedChecks = true)
           (blockRecConclAV mpC.base2.acval envC p.toBlockShape (tgtRs out) ψ c)
         = (zs ++ [x]).foldl SetTheory.app (xs.getD (classMotPos R.g (genClsOf R.rd c)) pt) := by
   intro c hc xs zs x hxl hzl
-  obtain ⟨cls, gty, gtyA, F', S, hgc, hM, hgty, hann, -, hread, -, hRP, hst⟩ :=
+  obtain ⟨cls, gty, S, hgc, hM, hgty, -, hread, -, hRP, hst⟩ :=
     genRun_storedTy hμ R hg h mpC ψ hc
   obtain ⟨-, cls', -, -, -, hcls, -, -, -, -, hgc'⟩ := genRun_at R hc
   have hcc : cls' = cls := hgc'.symm.trans hgc
   rw [hcc] at hcls
   obtain ⟨s, hm0⟩ := ConLeche.classRead_recCls_motive R.hrd cls (List.mem_of_getElem? hcls)
   have hm : ConLeche.ClassRead.motiveSlot ⟨R.g.slots, []⟩ cls = some s := hm0
-  have := classGenRecTy_concl (V := V) (μ := μ) (acval := mpC.base2.acval) (env := envC)
-    (φ := ψ) hg hm hgty hann hread hst ρ xs zs x (by rw [hxl, hRP]) (by rw [hzl, hM])
+  have := classGenRecTy_concl (V := V) (acval := mpC.base2.acval) (env := envC)
+    (φ := ψ) hg hm hgty hread hst ρ xs zs x (by rw [hxl, hRP]) (by rw [hzl, hM])
   rw [this, classMotPos, hgc, hm]
   rfl
 
