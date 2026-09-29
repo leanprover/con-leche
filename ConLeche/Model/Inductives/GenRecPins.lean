@@ -184,9 +184,8 @@ theorem storedMajorArg_graded (hμ : μ.verifiedChecks = true) (mpC : EnvModelM 
   generalize hrPdef : pp.toBlockShape.rulePrefixAt j = rP at hlt ⊢
   obtain ⟨_, _, -, ⟨TE⟩⟩ := ConLeche.recStageG_tyGen h hr
   have hle : rP ≤ mI := by have := TE.hmI'; omega
-  obtain ⟨-, -, -, -, -, -, tyA, stype, u0, -, -, -, hinfT, -, hcv'⟩ :=
-    ConLeche.checkConstantVal_inv TE.hcv
-  have hrty : r.1.type = tyA := by rw [hcv']
+  obtain ⟨stype, u0, hinfT, -⟩ := TE.hcv.sorted
+  generalize hrty : r.1.type = tyA at hinfT
   obtain ⟨hw0, hb0⟩ := recStage_tyClosed h hr
   -- the major's domain, inferred at `mI`
   obtain ⟨fvsA, fvsB, o₀, hA, hB, hfe⟩ := openPisAtFvars_split mI (m := 1) hop
