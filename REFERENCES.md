@@ -122,10 +122,13 @@ the meta-logic rather than being a field.
 The differences: Barras models a calculus, given by a typing relation,
 and proves the interpretation of derivations sound; ConLeche models
 whatever an algorithm accepts, with no relation in between. And
-ConLeche's inductive types are not a single general construction but
-a per-shape one: a least-fixed-point route for single blocks with
-parameters, indices, recursive and reflexive fields, and an in-process
-modeller that reduces mutual and nested blocks to it.
+ConLeche's inductive types are one construction for every block,
+single, mutual or nested: each block's carrier is the least fixed point
+of the operator read off its constructors, with holes for the
+recursive positions, and the proof that this operator is monotone and
+small enough to have its fixed point inside the universe comes from
+the run of the checker's positivity check (see "Inductive types"
+below).
 
 ### Carneiro, *The Type Theory of Lean* (master's thesis, CMU 2019)
 
@@ -165,11 +168,12 @@ theorem.
 The differences in coverage: the thesis is a paper proof about the
 ideal theory of Lean 3; ConLeche is a mechanised proof about a
 particular Lean 4 checker, so it additionally handles structure η,
-unit-likeness, nested and mutual blocks through the modeller, the
+unit-likeness, nested and mutual blocks (checked directly, without
+the kernel's translation of nested blocks into mutual ones), the
 kernel's special treatment of `Nat` and `String` literals and the GMP-
 backed `Nat` operations (as pinned, certified equations rather than
-trusted), and it drops the thesis's general construction of inductive
-types for the per-shape one described above. The thesis's presentation
+trusted), and it checks the recursors the input supplies rather than
+generating them. The thesis's presentation
 of universe levels and of the reduction rules remains the standard
 ConLeche's checker is measured against.
 
@@ -205,6 +209,72 @@ The paper also documents why Lean makes well-foundedness proofs
 opaque; ConLeche goes further and treats every theorem as opaque to
 reduction, which is what lets its check phase run in parallel. As with
 Barras, the paper models a declarative theory; nothing runs.
+
+### Inductive types: accessibility, and the "bounded" in bounded natural functors (Traytel, Popescu and Blanchette, *Foundational, compositional (co)datatypes for higher-order logic*, LICS 2012)
+
+Isabelle/HOL's datatype package builds every (co)datatype from
+*bounded natural functors* (BNFs): type constructors equipped with a
+map function, set functions collecting the elements of each type
+argument, and a cardinal bound on those sets. The bound is what makes
+a least fixed point exist inside HOL's types: iterating the functor up
+to a regular cardinal above the bound reaches a fixed point. BNFs are
+closed under composition and under (co)fixed points, so nesting a new
+datatype through `list` uses the fact, proved once, that `list` is a
+BNF.
+
+ConLeche needs the same two facts about an inductive block's operator,
+monotonicity and a size bound, and gets them differently.
+
+* **What accessibility is, in set terms.** The operator is
+  *accessible* when every element of its least fixed point is built
+  from a set of recursive arguments whose size is bounded independently
+  of the stage: each constructor takes its recursive arguments from a
+  domain that already lies in the universe (a field `f : A → T` takes
+  `|A|` of them). Then the iteration closes below the universe's
+  inaccessible, so the carrier is a set in the universe. This is the
+  counterpart of the "B" in BNF: a support bound, supplied here by the
+  universe's inaccessibility rather than by a cardinal stored with the
+  functor.
+* **How it is deduced.** From the checker's positivity check, not
+  from a per-type certificate. The positivity check's successful run
+  is inverted once into a declarative derivation of strict positivity,
+  and monotonicity and accessibility are both proved by induction over
+  that derivation: a strictly positive field is either free of the
+  block, or a Π over a block-free domain ending in a recursive
+  occurrence, and both shapes preserve monotonicity and the support
+  bound.
+* **Nesting.** Where Isabelle composes the container's BNF structure
+  (proved once per container), ConLeche re-checks the container's
+  constructors at the concrete instance each time a block nests
+  through it, and derives the facts for that instance. No fact of the
+  form "the container is positive in its parameter" is ever stored:
+  whether a parameter occurs positively can depend on the other
+  arguments (a definition in a constructor type may reduce differently
+  at different instances), so the check is made where the instance is
+  known. The model uses only each container's recorded least-fixed-point
+  clause.
+* **Which datatypes each covers.** BNFs cover non-dependent
+  (co)datatypes of HOL, including nesting through non-free type
+  constructors such as finite sets and multisets, and codatatypes; they
+  have no indexed families or universe polymorphism. ConLeche covers
+  Lean's inductive families: dependent, indexed, universe-polymorphic,
+  impredicative in `Prop`, nested through other inductive types; it has
+  no codatatypes and no nesting through quotients or other non-inductive
+  type constructors.
+* **The mechanism on the common fragment.** For a strictly positive
+  nested datatype such as a rose tree, the two constructions agree in
+  what they build: a least fixed point reached by transfinite iteration
+  of a monotone, bounded operator. They differ in where the
+  justification comes from: a BNF's map and bound are proved
+  semantically and composed; ConLeche's monotonicity and support bound
+  are read off a syntactic check made at the instance.
+* **Recursors.** Isabelle and the official Lean kernel generate the
+  recursor from the datatype. ConLeche checks the recursors the input
+  supplies: the recursor's majors seed the positivity check, each rule
+  must be primitive recursion over the constructor's fields, and the
+  model interprets the recursor through the least fixed point of its
+  rules read as closure conditions (its graph), which exists and is a
+  function by induction over the block's least fixed point.
 
 ## 2. Verified checkers
 
@@ -277,7 +347,8 @@ from a model of the judgement (lean4lean-model, above).
 
 ConLeche deliberately occupies a different point, as `README.md`
 says: it adds work to the checker (annotations, certificates, extra
-checks, generated models of mutual and nested blocks) so that the
+checks, a positivity check whose run doubles as the monotonicity
+proof) so that the
 consistency proof can go straight from the algorithm to the model,
 skipping the judgement and the hard metatheory that a faithful
 reimplementation must establish about it. lean4lean aims at the
