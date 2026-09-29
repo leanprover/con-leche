@@ -687,7 +687,7 @@ class of sort zero is the block's one member (the elimination guard,
 `blockLargeElim_counting`: an outside class would force a never-zero sort,
 `genRun_outW`), with at most one constructor of the declared large shape,
 whose fields are a function of the index (`blockStoredFit_srcVals_zero`). -/
-theorem genRun_lic (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V μ envC)
+theorem genRun_lic (mpC : EnvModelM V μ envC)
     (R : GenRecRun μ F (mkFEnv env₁) env₁ (mkFEnv envC) p.toBlockShape nestedBit pos cvTas
       block ctorsAs out) {memR : Nat → Prop}
     (h : ConLeche.RecStageG μ F envC p cvTas ctorsAs (tgtRs out) memR)
@@ -904,7 +904,7 @@ theorem genPreHyps_of_run (hμ : μ.verifiedChecks = true)
   mN := genRun_mN mpC R hd hcls
   lic := by
     subst hd
-    exact genRun_lic hμ mpC R h hN hS hcore hlfp hnames hcls ψ ρ
+    exact genRun_lic mpC R h hN hS hcore hlfp hnames hcls ψ ρ
   gpre := genRun_gpre hμ R hg h mpC ψ
   nF := genRun_nF hμ R hg mpC.base2.acval ψ
   mot := genRun_mot hμ R hg h mpC
