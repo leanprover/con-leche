@@ -93921,3 +93921,133 @@ phase has 2 066 fewer pending checks (no generated records).  Wall time
 (shared machine, indicative only): install 103.1 s → 108.3 s, check
 98.1 s → 98.2 s, total 220.1 s → 225.6 s.  A first run showed install
 104.9 s → 138.5 s, which the second run did not reproduce (machine load).
+
+## SIMPD — the member block is the positivity check's ROOT frame (2026-09-29, `agent/uinds-SIMPD`)
+
+Brief: SIMPLIFY's proposal D (`_tmp/uniform-inds/SIMPLIFY.md` §3): treat the
+member block as the root frame of the positivity check — one kind of hole,
+one constructor loop, one table writer, U2 the frame's own constructor
+typing — keeping today's verdicts (order-only moves on multi-fault streams
+allowed, ruling 2026-09-29) and the recursor check's interface (the table,
+the seeds, the per-component match) stable for GENREC.  Artifacts:
+`_tmp/uniform-inds/SIMPD/` (sweeps, binaries, `loc/`, logs).
+
+**Kernel (`Kernel/Inductives/Positivity.lean`, `BlockInstall.lean`).**
+* **One hole rule.**  `nestHoleAt ctx prog i`: the walk's stack read root
+  first — the ROOT frame's entries (`NestCtx.rootHoles`: each member at the
+  block's own levels and canonical parameters, base `nP`), then the frames
+  `prog` — hole `i` its entry `i - nP`.  `nestPos`'s variable arm is ONE
+  rule: a hole applied to its entry's key parameters, hole-free indices,
+  full arity (`nestArity`, the member's stored former's binder count, as a
+  frame's); the kind is `recursive`/`reflexive` at a member hole,
+  `inProgress` at a frame's.  `nestHoleConst` is `nestHoleAt` read back
+  (`nestHoleConst_eq` states the old two-case form for the proofs).
+* **One constructor loop.**  `nestCtors` (the frames') is the root's too:
+  `nestRoot` runs it member by member at the root key (levels `lps`, the
+  canonical parameters, holes `nP + t`, substitution `nestRootSub` —
+  `nestAbstract`'s function, `nestAbstract_eq`).  It returns every
+  constructor's kinds and walked normal form (frames discard them).  Its
+  walk is indexed by the constructor's instantiated type: a container
+  frame's is its enclosing walk one fuel lower, the root's is fueled per
+  constructor (`whnfWalkFuel` of its crest) — exactly the old member walk's
+  fuel, so no fuel verdict moves (a block-wide fuel would have been a
+  decline→verdict superset; measured unobservable at exit codes because
+  the recursor check's own field fuel declines on the same streams, but
+  kept exact).
+* **One table writer.**  The root's entries are pushed by `nestCtors`
+  (`nestCtorNf`) like every frame's; `nestMemberNfs` is gone, and with it
+  the members' normal forms' way into the recursor check:
+  `checkBlockSeeds` returns the walk's `ctorNfs` as is, and
+  `checkBlockSeeds`/`targetRecCheck`/`checkBlockRecT` lose their `nfs`
+  (and `ctorsAs` for the seeds) parameter (the only `RecCheck.lean` change;
+  the table, the seeds and the per-component match are untouched).  Entry
+  ORDER changes (root entries interleave with the frames they reach); the
+  class↔entry reading (`targetMajorNfs`, a filter) is order-blind.
+* **U2 = the frame's constructor typing.**  The member-abstracted
+  constructor's `inferType`/`ensureSort` at the holes' context IS
+  `nestCtors`' typing at the root key.  What only the root has is its own
+  lines, after the walk: M3/M2′ (`nestRootLines`) and U2's sort half, the
+  normal form's fields' universes at the holes (`checkAbsCtorSorts`).
+* **Deleted:** `nestMemberCtor`, `nestMemberCtors`, `nestBlockCtors`,
+  `nestMemberNfs`, `checkAbsCtorTys(All)`.  The frame-only error wordings
+  ("… of an instantiated container constructor …", "… at other
+  parameters") became the one loop's / one rule's (`nestNonValid`).
+
+**Proofs.**
+* Derivation: the root's constructor list IS a `PosD (.ctors [] (hiAt 0)
+  lps params nestRootSub cs)` judgment (`nestRoot_deriv`, through the
+  frames' `nestCtors_deriv`, which now also returns every constructor's
+  output, `CtorOut`).  `nestMemberCtor_deriv`, the member-level inversions
+  (`nestMemberCtors_inv(_I)`, `nestBlockCtors_inv(_I)`,
+  `checkAbsCtorTys(All)_inv`), their datF bridges and cached sims are gone;
+  the root's run facts are `nestRoot_inv`, `nestCtors_typed`,
+  `nestRootLines(All)_inv`, `checkAbsCtorSorts(All)_inv`.
+* `MemberCtorD` is now read off the root's `.ctors` judgment (its U4 is the
+  frames' "not ordinary"; `NestFieldKind.guarded` deleted).  The member hole
+  case of the ONE kernel rule inverts into `PosD.hole` under
+  `NestRootOk` (the canonical parameters are `nP` variables below `nP`;
+  `NestArityOk`: every member's stored former has arity `nP + nIdx`).
+  `NestArityOk` comes from a new `FormerData.syn` field (the former's type
+  is a syntactic `nP + nIdx` telescope ending in a sort — `formerData_of`
+  had the fact) through `nestArityOk_of_formers`; the root's crest reads as
+  `nestAbstract`'s at constructors of the block's own levels
+  (`rootCrest_eq`), a new third conjunct of `BlockHoleCtxFacts`
+  (`BlockCtorsCore.holeCtx` takes it; `BlockCtorsStage.lpsA` and the
+  datum's `hfacts` supply it).
+* The members' table entries are the root frame's `CtorsRec`
+  (`CtorsRecRoot`, `rootEntry_mem`); `MemberForests` carries each member
+  constructor's entry, which the node-`0` landing reads
+  (`checkBlockPositivity_memberEntry`, `mem_nestMemberNfs`,
+  `nestMemberCtors_shape`, `nestBlockCtors_shape` deleted).
+* `TargetRecRun` loses its `nfs` field.  Completeness (`Complete/`,
+  parked): `posDR_run` takes `NestRootOk`, `RunOK.ctors` a per-constructor
+  fuel, `nestRoot_complete`/`nestedBlockPositivity_complete` restated at
+  the root key.  `ProgActive`'s spec walk has the one hole rule.
+* **Node-`0` twins that remain** (not collapsed; recorded as the lane's
+  finding): (i) the block's OWN operator's monotonicity/accessibility
+  (`BlockPosRun`, `BlockHoleGrade`, `BlockAccRunCont`) — intrinsic: a
+  container frame's facts (`FrameMono`, `ContAcc`) read a RECORDED block
+  (`D ∈ mp.lfpBlocks`), and the block is not recorded while its own lfp is
+  being built; (ii) the recursor check's call landing at node `0`
+  (`blk_ctorFit`/`dyn_ctorFit`, `admVal_patch`/`admVal_kid`, the `b = 0`
+  branches of `TargetNodeCalls`/`TargetNodeList`/`TargetNodeAdm`, ~520
+  lines) — collapsible only by giving the node list a root NODE whose
+  constructors are passed rather than looked up (`nestContainer` finds no
+  member constructor at the formers' environment), a rewrite of the
+  node-semantics layer that GENREC's generated recursor replaces.  Deferred
+  to after GENREC.
+* No sorry; axioms standard (`model_exists`, `no_False_declaration`:
+  propext, Classical.choice, Quot.sound).
+
+**Verdicts: zero exit-code moves.**  670-stream sweep (e2e, arena,
+RECPOS/FUSEPOS/FUSELOOP/RPWHNF fx; `SIMPD/sweep.sh`), uniform-inds
+`c34d18f7a` vs the lane: exit codes identical on every stream; 2
+message-only changes (`corner_nestpos_eqret_bad`,
+`corner_nestw_u4frame_bad`: a frame's U4/result error now has the one
+loop's wording).  **Designed order effect, fixture**
+`corner_simpd_order_decline` (`tests/e2e/src/`, exported, official 1
+measured with the arena's official checker and v4.34.0): `T (α) | mk :
+Wrap T → T α | deep : G 2000 (T α) → T α` — `mk` fails M3 (as
+`restrict_a29`), `deep` exceeds its input-derived walk fuel (decline).
+Before 1 (a member constructor's M3 ran right after its walk); now **2**
+(the root walks every constructor before its own lines).  Other possible
+order moves, all on multi-fault streams: the root's constructor typing now
+runs before its walk (U2 ran after every walk), and M3/M2′ of an earlier
+constructor after a later constructor's walk.
+
+**Executed checker lines** (SIZEAUDIT method, `SIMPD/loc`, base built at
+`c34d18f7a`): 10822 → **10797 (−25)**, all `Kernel/Inductives` (1927 →
+1902).  **Proof** (`git diff --shortstat c34d18f7a..` over Verify, Model,
+Semantics, Complete): +1324 −1109 (**+215**): the member-level inversions,
+bridges and sims deleted (−~450), the root's `.ctors` inversion with
+outputs, `NestRootOk`/`NestArityOk` and the level/arity plumbing into the
+model (+~660).  **Perf** (instructions:u, two runs each):
+`complete_c05b_nest30_pi1000` 69.43 G → 69.43 G; `corner_nestind_f13_listrose`
+36.79 M → 36.83 M (+0.1 %).
+
+**Gates:** `lake build`/`lake test` warning-free; `tests/arena.sh` green
+(e2e 422/422, trusted/jobs sweeps as expected); shake (six import lines the
+lane made unneeded, removed) and pub-imports (none demotable);
+layering; overview-links (OVERVIEW §5's pseudo-code rewritten: step 3 is
+the root frame, `CTORS` the one constructor loop, `POS`'s one hole rule;
+anchors updated); quote gate.

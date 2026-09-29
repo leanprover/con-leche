@@ -33,17 +33,17 @@ constant (`nestHoleConst`), the earlier fields to the rule's `fvsF`. -/
 
 theorem nestHoleConst_lt_nP {ctx : NestCtx} {prog : List NestHole} {v : Nat} (hv : v < ctx.nP) :
     nestHoleConst ctx prog v = none := by
-  unfold nestHoleConst
+  rw [ConLeche.nestHoleConst_eq]
   rw [if_neg (by omega), if_neg (by simp [NestCtx.hiAt]; omega)]
 
 theorem nestHoleConst_ge {ctx : NestCtx} {prog : List NestHole} {v : Nat}
     (hv : ctx.hiAt prog.length ≤ v) : nestHoleConst ctx prog v = none := by
-  unfold nestHoleConst
+  rw [ConLeche.nestHoleConst_eq]
   rw [if_neg (by simp [NestCtx.hiAt] at hv ⊢; omega), if_neg (by omega)]
 
 theorem nestHoleConst_hole {ctx : NestCtx} {prog : List NestHole} {v : Nat} (h1 : ctx.nP ≤ v)
     (h2 : v < ctx.hiAt prog.length) : ∃ n us, nestHoleConst ctx prog v = some (.const n us) := by
-  unfold nestHoleConst
+  rw [ConLeche.nestHoleConst_eq]
   by_cases h0 : v < ctx.hiAt 0
   · rw [if_pos ⟨h1, h0⟩]; exact ⟨_, _, rfl⟩
   · rw [if_neg (by omega), if_pos ⟨by omega, h2⟩]

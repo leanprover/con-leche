@@ -705,6 +705,13 @@ theorem blockTablesStage_of (hμ : μ.verifiedChecks = true) {F : Nat} {env envI
     obtain ⟨c', sorts, -, -, -, -, -, -, -, -, -, -, -, hCtor⟩ := (hfacts c cvTa hck hcv).2 j cA hj
     obtain ⟨hf, -, -, hb⟩ := ConLeche.direct_sum_ctor_typeWF hCtor
     exact ⟨hf, hb⟩
+  have hlpsZ : ∀ (c j : Nat) (cA : ConstantVal × Nat), (dZ.ctorsM c)[j]? = some cA →
+      cA.1.levelParams = q.lps := by
+    intro c j cA hj
+    have hck := hctorLt c j cA hj
+    obtain ⟨cvTa, hcv⟩ := hcvOf c hck
+    obtain ⟨c', sorts, -, -, -, hl, -⟩ := (hfacts c cvTa hck hcv).2 j cA hj
+    exact hl
   have hlenP0 : ∀ (ψ : Name → Nat) (mm : Nat), mm < q.k →
       (((ppsOf mm ψ).take q.nP).map (·.2.2)).length = q.nP := by
     intro ψ mm hmm
@@ -747,7 +754,7 @@ theorem blockTablesStage_of (hμ : μ.verifiedChecks = true) {F : Nat} {env envI
     have hck := hctorLt c j cA hj
     obtain ⟨hCf, hCb⟩ := hclosedZ c j cA hj
     refine blockAbsRead_of_run hμ mpD hNZ hFZ hPos hpN hpL hpP hpI hlenN.symm hndM
-      (fun c hc => hCA c hc) hlenCtorsAs hclosedZ hformersI hck hj
+      (fun c hc => hCA c hc) hlenCtorsAs hclosedZ hlpsZ hformersI hck hj
       ((hpk₀ c hck j cA hj).storedCtorFacts hCf hCb) (hnfZ c j cA hj) (fun ψ => ?_)
     show (pk₀ c).absF j ψ = _
     rw [habs₀, hgetCA c j cA hj]
@@ -759,13 +766,13 @@ theorem blockTablesStage_of (hμ : μ.verifiedChecks = true) {F : Nat} {env envI
     have hck := hctorLt c j cA hj
     obtain ⟨hCf, hCb⟩ := hclosedZ c j cA hj
     obtain ⟨-, hocc, hlp, -⟩ := blockRunLink hμ mpD hNZ hFZ hPos hpN hpL hpP hpI hlenN.symm hndM
-      (fun c hc => hCA c hc) hlenCtorsAs hclosedZ (fun _ => 0) (hformersI _) hck hj
+      (fun c hc => hCA c hc) hlenCtorsAs hclosedZ hlpsZ (fun _ => 0) (hformersI _) hck hj
       ((hpk₀ c hck j cA hj).storedCtorFacts hCf hCb)
     rw [hnfZ c j cA hj]
     exact ⟨hocc, hlp⟩
   have hctxZ : BlockHoleCtxFacts mpD.base2 dZ q.lps cvTas q isRec :=
     ⟨fun c cvTb hc => ⟨(hfindD c cvTb hc).1, hFDD c cvTb hc⟩,
-      fun c j cA hj => ⟨hpk₀ c (hctorLt c j cA hj) j cA hj, hAbsZ c j cA hj⟩⟩
+      fun c j cA hj => ⟨hpk₀ c (hctorLt c j cA hj) j cA hj, hAbsZ c j cA hj⟩, hlpsZ⟩
   have hHZ : BlockHoleFacts mpD.base2 dZ q.lps := by
     refine ⟨fun c _ j cA hj => hpk₀ c (hctorLt c j cA hj) j cA hj,
       fun ψ c hc j hj => (blockStoredShapes_of_run hμ mpD hNZ hctxZ hPos hpN hpL hpP hpI
@@ -1027,8 +1034,8 @@ theorem blockTablesStage_of (hμ : μ.verifiedChecks = true) {F : Nat} {env envI
     refine blockAbsRead_of_run (d := blockDataOf V q ctorsAs pk uOf ppsOf) hμ mpR hNZ
       (fun c cvTb hc => ⟨(hfindR c cvTb hc).1, hFDR c cvTb hc⟩)
       hPos hpN hpL hpP hpI hlenN.symm hndM
-      (fun c hc => hCA c hc) hlenCtorsAs hclosedZ hformersI hck hj
-      ((hpk c hck j cA hj).storedCtorFacts hCf hCb)
+      (fun c hc => hCA c hc) hlenCtorsAs hclosedZ (fun c j cA hj => hlpsZ c j cA hj) hformersI
+      hck hj ((hpk c hck j cA hj).storedCtorFacts hCf hCb)
       (by show (pk c).nf j = _; rw [(habsR c).2]; exact hnfZ c j cA hj) (fun ψ => ?_)
     show (pk c).absF j ψ = _
     rw [(habsR c).1, habs₀, hgetCA c j cA hj]
@@ -1274,7 +1281,7 @@ theorem blockTablesStage_of (hμ : μ.verifiedChecks = true) {F : Nat} {env envI
         ((blockDataOf V q ctorsAs pk uOf ppsOf).absF ψ c j)
         (((blockDataOf V q ctorsAs pk uOf ppsOf).Fss c ψ).getD j []) :=
     fun ψ c hc j hj => (blockStoredShapes_of_run (d := blockDataOf V q ctorsAs pk uOf ppsOf)
-      hμ mpR hNZ hcoreR.holeCtx hPos hpN hpL hpP hpI
+      hμ mpR hNZ (hcoreR.holeCtx fun c j cA hj => hlpsZ c j cA hj) hPos hpN hpL hpP hpI
       hlenN.symm hndM rfl (fun c hc => hCA c hc) hlenCtorsAs hclosedZ
       (fun c j cA hj => by show (pk c).nf j = _; rw [(habsR c).2]; exact hnfZ c j cA hj)
       ψ (hformersI ψ) hc hj)

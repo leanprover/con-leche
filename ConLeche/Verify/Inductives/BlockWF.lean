@@ -272,7 +272,7 @@ theorem checkBlockRecT_of_rec {ops : CheckerOps CheckM} {env₁ env : Env} {p : 
     {ctorsAs : List (List (ConstantVal × Nat))}
     {out : List (ConstantVal × TargetMajor × List Expr)}
     (h : checkBlockRec ops env₁ env p nested conf nfs pos block cvTas ctorsAs = .ok out) :
-    checkBlockRecT ops env₁ env p nested nfs pos block cvTas ctorsAs = .ok out :=
+    checkBlockRecT ops env₁ env p nested pos block cvTas ctorsAs = .ok out :=
   thenConform_ok h
 
 /-! ## The k recursors consed with their rules, SIMULTANEOUSLY -/

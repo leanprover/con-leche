@@ -343,7 +343,7 @@ theorem callWalkSyn {ops : ConLeche.CheckerOps CheckM} {envW : Env}
         obtain ⟨p', hp', hd0E⟩ := targetPiDomsWith_close nds (ctx.hiAt prog.length) cur
           (nestHoleConst ctx prog) fvsF doms (fun v hv => nestHoleConst_ge hv)
           (fun v y hy => by
-            unfold nestHoleConst at hy
+            rw [ConLeche.nestHoleConst_eq] at hy
             split at hy
             · cases hy; rfl
             · split at hy
@@ -450,7 +450,7 @@ theorem callWalkSyn {ops : ConLeche.CheckerOps CheckM} {envW : Env}
           obtain ⟨j, ty, hj⟩ := hfvs _ (List.mem_of_mem_take (List.getElem_mem hl))
           rw [hj]; simp [Expr.nestOcc]
         · left
-          unfold nestHoleConst at hy
+          rw [ConLeche.nestHoleConst_eq] at hy
           split at hy
           · rename_i h1; simp only [ConLeche.NestCtx.hiAt] at h1 ⊢; omega
           · split at hy
@@ -469,7 +469,7 @@ theorem callWalkSyn {ops : ConLeche.CheckerOps CheckM} {envW : Env}
     rw [hfn, Expr.substFvars_fvar_lt hvb] at hG1
     unfold callSubst at hG1
     rw [if_neg (by omega), if_pos (by simp [ConLeche.NestCtx.hiAt] at hhi0 ⊢; omega)] at hG1
-    unfold nestHoleConst at hG1
+    rw [ConLeche.nestHoleConst_eq] at hG1
     rw [if_pos ⟨hlo, hhi0⟩, Option.getD_some] at hG1
     obtain ⟨rfl, rfl⟩ := hG1
     exact ⟨teleW, leafC, w, hshape, htl, htel, fun q hq => ⟨hteleH q hq, hteleF q hq⟩, hopen, hwF,
@@ -484,7 +484,7 @@ theorem callWalkSyn {ops : ConLeche.CheckerOps CheckM} {envW : Env}
     rw [hfn, Expr.substFvars_fvar_lt hvb] at hG1
     unfold callSubst at hG1
     rw [if_neg (by simp [ConLeche.NestCtx.hiAt] at hlo ⊢; omega), if_pos hhi'] at hG1
-    unfold nestHoleConst at hG1
+    rw [ConLeche.nestHoleConst_eq] at hG1
     rw [if_neg (by simp [ConLeche.NestCtx.hiAt] at hlo ⊢; omega), if_pos ⟨hlo, hhi'⟩, hk,
       Option.map_some, Option.getD_some] at hG1
     obtain ⟨rfl, rfl⟩ := hG1

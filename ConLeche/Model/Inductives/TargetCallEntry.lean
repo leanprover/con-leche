@@ -129,7 +129,7 @@ theorem k53_want {ops : ConLeche.CheckerOps ConLeche.CheckM} {env : Env} {p : Bl
 theorem nestHoleConst_suffix {ctx : NestCtx} (X anc : List NestHole) {v : Nat}
     (hv : v < ctx.hiAt anc.length) :
     nestHoleConst ctx (X ++ anc) v = nestHoleConst ctx anc v := by
-  unfold nestHoleConst
+  rw [ConLeche.nestHoleConst_eq, ConLeche.nestHoleConst_eq]
   by_cases h0 : ctx.nP ≤ v ∧ v < ctx.hiAt 0
   · rw [if_pos h0, if_pos h0]
   · rw [if_neg h0, if_neg h0]

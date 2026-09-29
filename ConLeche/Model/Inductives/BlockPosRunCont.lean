@@ -29,7 +29,7 @@ open ConLeche.SetModel
 open ConLeche.Term ConLeche.Verify SetTheory
 open ConLeche.Semantics (AnnotTerm)
 open ConLeche (Env Expr Name Level ConstantInfo ConstantVal CheckM NestCtx NestState
-  NestFieldKind BlockParts BlockShape instPisWith nestAbstract nestHoles nestMemberCtor
+  NestFieldKind BlockParts BlockShape instPisWith nestAbstract nestHoles
   openPisAtFvars fueledOps)
 
 universe w
@@ -69,7 +69,7 @@ theorem blockCtorPos_of_run {μ : ConLeche.CheckMode} (hμ : μ.verifiedChecks =
   obtain ⟨mk, hbk, hcovk⟩ := hcov
   obtain ⟨kinds, nfs, nodes⟩ := posKs
   have hcore' : BlockHoleCtxFacts mk.base2 d lps cvTas p₁ isRec := by rw [hbk]; exact hcore
-  obtain ⟨cvTa0, fvsP, rest, holes, hcv0, hop0, hholes, hder⟩ :=
+  obtain ⟨cvTa0, fvsP, rest, holes, hcv0, hop0, hholes, hder, -⟩ :=
     checkBlockPositivity_derivM mk.base2.wf hrun
       (fun cv h => (mk.base2.wf _ (List.mem_of_find?_eq_some
         (hcore'.1 0 cv (by rwa [List.head?_eq_getElem?] at h)).1)).1)
@@ -78,6 +78,7 @@ theorem blockCtorPos_of_run {μ : ConLeche.CheckMode} (hμ : μ.verifiedChecks =
         rw [hctorsAs c hck] at hc
         obtain rfl := Option.some.inj hc
         exact (hclosed c j cA hj).1)
+      (hcore'.nestArity hN hnames hnP hnIdxs hk) (hcore'.ctorLps hlps hlenCA hctorsAs)
   -- coverage at the walk's context
   have hcC : ContCover mk (p.nestCtx fvsP env.find? env.consts) :=
     contCover_of hcovk (fun _ => rfl) rfl

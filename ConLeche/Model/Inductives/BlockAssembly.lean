@@ -55,6 +55,7 @@ theorem FormerData.congr_sort {env : Env} {m : EnvModel V env} {cvT : ConstantVa
   okTy ψ ρ := by rw [← hs ψ]; exact h.okTy ψ ρ
   below := h.below
   params ψ₁ ψ₂ hφ := ⟨(h.params ψ₁ ψ₂ hφ).1, by rw [← hs ψ₁, ← hs ψ₂]; exact (h.params ψ₁ ψ₂ hφ).2⟩
+  syn := h.syn
 
 /-! ## The k formers' run -/
 

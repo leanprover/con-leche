@@ -72,13 +72,6 @@ The ONE inversion of the run is `nestPos_deriv` (`PosDerivInv.lean`).
 
 namespace ConLeche
 
-/-- A kind U4 guards at a member constructor: recursive, reflexive or
-nested (official's auxiliary type makes every later read of such a field
-ill-typed).  The derivation's kinds are the run's (`NestFieldKind`). -/
-@[expose] def NestFieldKind.guarded : NestFieldKind → Bool
-  | .recursive _ | .reflexive _ | .nested _ => true
-  | _ => false
-
 /-- The frame's new walk entries (one per group member, at the key). -/
 @[expose] def grpNews (us : List Level) (ds : List Expr) (hi : Nat) (grp : List (Name × Expr)) :
     List NestHole :=
@@ -101,6 +94,97 @@ cache. -/
     | some (nP', L) =>
       if nP' == nPc || L.isEmpty then (groupCtors ctx nPc cs).map (L ++ ·) else none
     | none => none
+
+/-! ### The holes' entries (`nestHoleAt`) -/
+
+theorem nestHoleAt_some {ctx : NestCtx} {prog : List NestHole} {i : Nat} {h : NestHole}
+    (hh : nestHoleAt ctx prog i = some h) : ctx.nP ≤ i ∧ i < ctx.hiAt prog.length := by
+  unfold nestHoleAt at hh
+  split at hh
+  · rename_i h1
+    have := (List.getElem?_eq_some_iff.mp hh).1
+    simp only [List.length_append, NestCtx.rootHoles, List.length_map,
+      List.length_reverse] at this
+    exact ⟨h1, by simp only [NestCtx.hiAt]; omega⟩
+  · exact nomatch hh
+
+/-- A member hole's entry is the root frame's. -/
+theorem nestHoleAt_root {ctx : NestCtx} {prog : List NestHole} {i : Nat} {h : NestHole}
+    (hh : nestHoleAt ctx prog i = some h) (hlt : i < ctx.hiAt 0) :
+    h = ⟨⟨ctx.names.getD (i - ctx.nP) .anonymous, ctx.lps.map .param, ctx.params⟩, ctx.nP⟩ := by
+  obtain ⟨h1, -⟩ := nestHoleAt_some hh
+  unfold nestHoleAt at hh
+  rw [if_pos h1, List.getElem?_append_left (by simp [NestCtx.rootHoles, NestCtx.hiAt] at hlt ⊢; omega)]
+    at hh
+  simp only [NestCtx.rootHoles, List.getElem?_map] at hh
+  have hl : i - ctx.nP < ctx.names.length := by simp [NestCtx.hiAt] at hlt; omega
+  rw [List.getElem?_eq_getElem hl] at hh
+  simp only [Option.map_some, Option.some.injEq] at hh
+  rw [← hh, List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hl, Option.getD_some]
+
+/-- A frame hole's entry is its frame's. -/
+theorem nestHoleAt_frame {ctx : NestCtx} {prog : List NestHole} {i : Nat} {h : NestHole}
+    (hh : nestHoleAt ctx prog i = some h) (hge : ctx.hiAt 0 ≤ i) :
+    prog.reverse[i - ctx.hiAt 0]? = some h := by
+  obtain ⟨h1, -⟩ := nestHoleAt_some hh
+  unfold nestHoleAt at hh
+  rw [if_pos h1, List.getElem?_append_right (by simp [NestCtx.rootHoles, NestCtx.hiAt] at hge ⊢; omega)]
+    at hh
+  simp only [NestCtx.rootHoles, List.length_map] at hh
+  rwa [show i - ctx.nP - ctx.names.length = i - ctx.hiAt 0 by simp [NestCtx.hiAt]; omega] at hh
+
+theorem nestHoleAt_of_root {ctx : NestCtx} (prog : List NestHole) {i : Nat} (h1 : ctx.nP ≤ i)
+    (hlt : i < ctx.hiAt 0) :
+    nestHoleAt ctx prog i
+      = some ⟨⟨ctx.names.getD (i - ctx.nP) .anonymous, ctx.lps.map .param, ctx.params⟩, ctx.nP⟩ := by
+  have hl : i - ctx.nP < ctx.names.length := by simp [NestCtx.hiAt] at hlt; omega
+  unfold nestHoleAt
+  rw [if_pos h1, List.getElem?_append_left (by simpa [NestCtx.rootHoles] using hl)]
+  simp only [NestCtx.rootHoles, List.getElem?_map, List.getElem?_eq_getElem hl, Option.map_some,
+    List.getD_eq_getElem?_getD, Option.getD_some]
+
+theorem nestHoleAt_of_frame {ctx : NestCtx} {prog : List NestHole} {i : Nat} {h : NestHole}
+    (hge : ctx.hiAt 0 ≤ i) (hk : prog.reverse[i - ctx.hiAt 0]? = some h) :
+    nestHoleAt ctx prog i = some h := by
+  have h1 : ctx.nP ≤ i := by simp [NestCtx.hiAt] at hge; omega
+  unfold nestHoleAt
+  rw [if_pos h1, List.getElem?_append_right (by simp [NestCtx.rootHoles, NestCtx.hiAt] at hge ⊢; omega)]
+  simp only [NestCtx.rootHoles, List.length_map]
+  rwa [show i - ctx.nP - ctx.names.length = i - ctx.hiAt 0 by simp [NestCtx.hiAt]; omega]
+
+/-- A syntactic telescope of `n` binders ending in a sort has `n` binders. -/
+theorem stripPis_sort_piBinders_length :
+    ∀ (n : Nat) {e : Expr} {bs : List (Expr × BinderMeta)} {s : Level},
+      e.stripPis n = some (bs, .sort s) → e.piBinders.1.length = n
+  | 0, e, bs, s, h => by
+    simp only [Expr.stripPis, Option.some.injEq, Prod.mk.injEq] at h
+    obtain ⟨-, rfl⟩ := h
+    rfl
+  | n + 1, e, bs, s, h => by
+    cases e with
+    | forallE ty b m =>
+      simp only [Expr.stripPis] at h
+      obtain ⟨⟨bs', e'⟩, hb, he⟩ := Option.map_eq_some_iff.mp h
+      simp only [Prod.mk.injEq] at he
+      obtain ⟨-, rfl⟩ := he
+      simp only [Expr.piBinders, List.length_cons]
+      rw [stripPis_sort_piBinders_length n hb]
+    | _ => simp [Expr.stripPis] at h
+
+/-- **Every member's stored former has the arity `nP + nIdx`**
+(`nestArity`, the frames' arity: its type is a syntactic telescope of
+the block's parameters and its indices). -/
+@[expose] def NestArityOk (ctx : NestCtx) : Prop :=
+  ∀ t, t < ctx.names.length →
+    nestArity ctx (ctx.names.getD t .anonymous) = ctx.nP + ctx.nIdxs.getD t 0
+
+/-- **The root frame reads as the members' own rule** (the premise the
+inversion reads a member hole's occurrence under): the canonical
+parameters are `nP` variables below `nP`, and every member's stored
+former has the arity `nP + nIdx` (`nestArity`, the frames' arity). -/
+@[expose] def NestRootOk (ctx : NestCtx) : Prop :=
+  ctx.params.length = ctx.nP ∧ (∀ x ∈ ctx.params, ∃ i ty, x = .fvar i ty ∧ i < ctx.nP) ∧
+  NestArityOk ctx
 
 /-- **The frames are well scoped**: every frame's parameters are well
 scoped below the frames' holes. -/
@@ -290,16 +374,17 @@ inductive PosD (ops : CheckerOps CheckM) (env : Env) (ctx : NestCtx) :
       (hfr : PosD ops env ctx (.frame [] us ds grp) ts) :
       PosD ops env ctx (.seed ⟨n, us, ds⟩) [.node [] [] ⟨n, us, ds⟩ grp ts]
 
-/-- **A member constructor, derived** (its nodes `ts`): its field
-telescope positive at the block's own depth (no frames), U4 at the recursive, reflexive and nested
-fields, its result's indices hole-free, M3/M2′ on the normal form
-`tyN`. -/
+/-- **A member constructor, derived** (its nodes `ts`): the root frame's
+constructor judgment read at one constructor — its field telescope
+positive at the block's own depth (no frames), U4 at the non-ordinary
+fields, its result's indices hole-free — and the root's own line M3/M2′
+on the normal form `tyN`. -/
 @[expose] def MemberCtorD (ops : CheckerOps CheckM) (env : Env) (ctx : NestCtx) (nF : Nat)
     (crest : Expr) (ks : List NestFieldKind) (tyN : Expr) (ts : List PosTree) : Prop :=
   ∃ nds cur, PosD ops env ctx (.tele [] (ctx.hiAt 0) nF 0 crest ks nds cur) ts ∧
     tyN = closeTelescope nds (ctx.hiAt 0) cur ∧
     ((List.range nF).any fun i =>
-      (ks.getD i .ordinary).guarded && structUsedLater tyN 0 i) = false ∧
+      ks.getD i .ordinary != .ordinary && structUsedLater tyN 0 i) = false ∧
     nestResHead cur = true ∧
     (cur.getAppArgs.drop ctx.nP).all (fun a => !a.nestOcc ctx.names ctx.nP (ctx.hiAt 0)) = true ∧
     tyN.holesApplied ctx.names ctx.nP (ctx.hiAt 0) = true

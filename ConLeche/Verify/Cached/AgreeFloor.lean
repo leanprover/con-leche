@@ -831,10 +831,10 @@ theorem targetMajorsNfs_fst (ops : CheckerOps CheckCM) (env : Env) (p : BlockSha
 order, under the record's name (fresh at the check's index), the
 family's names distinct. -/
 theorem targetRecCheck_names (so : ShadowOps CheckCM) (fe₁ : FEnv) (env₁ : Env) (fe : FEnv)
-    (p : BlockShape) (nested : Bool) (nfs : List (List Expr)) (pos : NestState)
+    (p : BlockShape) (nested : Bool) (pos : NestState)
     (block : List ConstantInfo) (cvTas : List ConstantVal)
     (ctorsAs : List (List (ConstantVal × Nat))) :
-    Yields (targetRecCheck so fe₁ env₁ fe p nested nfs pos block cvTas ctorsAs)
+    Yields (targetRecCheck so fe₁ env₁ fe p nested pos block cvTas ctorsAs)
       (fun out => (p.recs.map (·.cvR.name)).Nodup ∧ out.length = p.recs.length ∧
         ∀ (j : Nat) (rc : RecShape), p.recs[j]? = some rc →
           ∃ o, out[j]? = some o ∧ o.1.name = rc.cvR.name ∧ fe.find? rc.cvR.name = none) := by
@@ -1005,7 +1005,7 @@ theorem checkBlockTailS_skels (mode : CheckMode) {block : List ConstantInfo}
     simpa [List.map_map, Function.comp_def] using this
   have h₂ := consBlockCtorsF_skels q.p.nP hns h₁
   refine Yields.bind' (Yields.thenConform
-    (targetRecCheck_names (shadowOpsC mode) _ _ _ q.p.toBlockShape _ _ _ block q.cvTas
+    (targetRecCheck_names (shadowOpsC mode) _ _ _ q.p.toBlockShape _ _ block q.cvTas
       q.ctorsAs))
     fun out hout => ?_
   have hrs := consBlockRecsTF_skelsT

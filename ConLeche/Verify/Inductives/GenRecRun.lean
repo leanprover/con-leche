@@ -184,7 +184,8 @@ structure ClassCtorRun (mode : CheckMode) (F : Nat) (env : Env) (p : BlockShape)
   hklen : e0.kinds.length = cA.2
   hkinds : classFieldsOf (m := CheckM) cA.1.name ihs fvs 0 e0.kinds = .ok x.kinds
   hna : classFieldsAgree (fueledOps mode F) env p formerTys Ms fvs cA.1.name E 0 x.kinds = .ok ()
-  hx : x = ⟨cA.1, cA.2, x.kinds, e0.ty⟩
+  hD : instPisWith (Ms.getD c default).ds (targetCtorAt (Ms.getD c default) cA.1) = some x.tyD
+  hx : x = ⟨cA.1, cA.2, x.kinds, x.tyD, e0.ty⟩
 
 /-- **`classCtorOf`, inverted.** -/
 theorem classCtorOf_run {env : Env} {p : BlockShape} {formerTys : List Expr} {rd : ClassRead}
@@ -201,13 +202,14 @@ theorem classCtorOf_run {env : Env} {p : BlockShape} {formerTys : List Expr} {rd
   rw [if_pos hkl] at h
   obtain ⟨kinds, hkinds, h⟩ := exceptBind_ok h
   obtain ⟨u', hna, h⟩ := exceptBind_ok h
+  obtain ⟨tyD, hD, h⟩ := exceptBind_ok h
   simp only [pure, Except.pure, Except.ok.injEq] at h
   subst h
   exact ⟨{
     E := _, e0 := e0, s := s, ihs := ihs, fvs := fvs, o := o, hE := rfl,
     he0 := unwrapOr_ok he0, hslot := hslot, hopen := unwrapOr_ok hopen,
     hklen := by simpa using hkl, hkinds := hkinds,
-    hna := by cases u'; exact hna, hx := rfl }⟩
+    hna := by cases u'; exact hna, hD := unwrapOr_ok hD, hx := rfl }⟩
 
 /-- **`classCtorsOf`, inverted**: one run per constructor of the class. -/
 theorem classCtorsOf_run {env : Env} {p : BlockShape} {formerTys : List Expr} {rd : ClassRead}
@@ -476,8 +478,7 @@ the checked classes with their table entries; `ctors` the generator's
 constructors; `g` the generator; `cvGs` the generated (stored)
 recursor constants; `out` the stored family. -/
 structure GenRecRun (mode : CheckMode) (F : Nat) (fe₁ : FEnv) (env₁ : Env) (fe : FEnv)
-    (p : BlockShape) (nestedBit : Bool) (kinds : List (List (List NestFieldKind)))
-    (nfs : List (List Expr)) (pos : NestState) (cvTas : List ConstantVal)
+    (p : BlockShape) (nestedBit : Bool) (pos : NestState) (cvTas : List ConstantVal)
     (block : List ConstantInfo) (ctorsAs : List (List (ConstantVal × Nat)))
     (out : List (ConstantVal × TargetMajor × List Expr)) : Type where
   cvRis : List ConstantVal
@@ -514,8 +515,7 @@ structure GenRecRun (mode : CheckMode) (F : Nat) (fe₁ : FEnv) (env₁ : Env) (
   hctx : blockNestCtx (m := CheckM) p cvTas fe₁.find? env₁.consts = .ok (ctx, holes)
   hst : nestSeeds (fueledOps mode F) env₁ ctx (classSeeds ctx holes Ms₀) pos = .ok st
   /-- every class's table entries -/
-  hMs : classesNfs (fueledOps mode F) fe.env p (cvTas.map (·.type))
-    (classMemberNfs ctx ctorsAs nfs kinds ++ st.ctorNfs.toList) Ms₀ = .ok Ms
+  hMs : classesNfs (fueledOps mode F) fe.env p (cvTas.map (·.type)) st.ctorNfs.toList Ms₀ = .ok Ms
   /-- per class and constructor: datum, `ih`s, node agreement -/
   hctors : classesCtors (fueledOps mode F) fe.env p (cvTas.map (·.type)) rd Ms 0 Ms = .ok ctors
   /-- no minor premise beyond the classes' constructors -/
@@ -534,23 +534,21 @@ structure GenRecRun (mode : CheckMode) (F : Nat) (fe₁ : FEnv) (env₁ : Env) (
 
 /-- The generator of a run. -/
 @[expose] def GenRecRun.g {F : Nat} {fe₁ : FEnv} {env₁ : Env} {fe : FEnv} {p : BlockShape}
-    {nestedBit : Bool} {kinds : List (List (List NestFieldKind))} {nfs : List (List Expr)}
-    {pos : NestState} {cvTas : List ConstantVal} {block : List ConstantInfo}
+    {nestedBit : Bool} {pos : NestState} {cvTas : List ConstantVal} {block : List ConstantInfo}
     {ctorsAs : List (List (ConstantVal × Nat))} {out : List (ConstantVal × TargetMajor × List Expr)}
-    (R : GenRecRun mode F fe₁ env₁ fe p nestedBit kinds nfs pos cvTas block ctorsAs out) :
+    (R : GenRecRun mode F fe₁ env₁ fe p nestedBit pos cvTas block ctorsAs out) :
     ClassGen :=
   genRecGen p R.ctx.params R.Ms R.formerTysC R.rd R.ctors R.pre
 
 /-- **The generated recursor stage, inverted** — the ONE unfolding of
 `genRecCheck`. -/
 theorem genRecCheck_run {fe₁ : FEnv} {env₁ : Env} {fe : FEnv} {p : BlockShape}
-    {nestedBit : Bool} {kinds : List (List (List NestFieldKind))} {nfs : List (List Expr)}
-    {pos : NestState} {cvTas : List ConstantVal} {block : List ConstantInfo}
+    {nestedBit : Bool} {pos : NestState} {cvTas : List ConstantVal} {block : List ConstantInfo}
     {ctorsAs : List (List (ConstantVal × Nat))}
     {out : List (ConstantVal × TargetMajor × List Expr)} {F : Nat}
-    (h : genRecCheck (ShadowOps.fueled mode F) fe₁ env₁ fe p nestedBit kinds nfs pos cvTas block
+    (h : genRecCheck (ShadowOps.fueled mode F) fe₁ env₁ fe p nestedBit pos cvTas block
       ctorsAs = .ok out) :
-    Nonempty (GenRecRun mode F fe₁ env₁ fe p nestedBit kinds nfs pos cvTas block ctorsAs out) := by
+    Nonempty (GenRecRun mode F fe₁ env₁ fe p nestedBit pos cvTas block ctorsAs out) := by
   unfold genRecCheck at h
   obtain ⟨u0, hpins, h⟩ := exceptBind_ok h
   obtain ⟨cvRis, hcvRis, h⟩ := exceptBind_ok h

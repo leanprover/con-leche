@@ -60,13 +60,18 @@ inductive ClassField where
   | recursive (cls : Nat) (tele : Nat)
   deriving DecidableEq, Inhabited
 
-/-- A class's constructor as the generator reads it: the datum entry's
-walked telescope `tyN` (read back, over the canonical parameters), its
-field count and the fields' kinds. -/
+/-- A class's constructor as the generator reads it (official's
+`mk_rec_infos` shape): its DECLARED type at the class's levels and
+parameters `tyD` — the minor premise's fields and conclusion, the rule's
+fields — and the datum entry's WALKED telescope `tyN` (read back, over the
+canonical parameters) — every inductive hypothesis's telescope and
+indices (official: `whnf (infer_type u_i)`) — with the field count and
+the fields' kinds. -/
 structure ClassCtor where
   cv : ConstantVal
   nF : Nat
   kinds : List ClassField
+  tyD : Expr
   tyN : Expr
   deriving Inhabited
 
@@ -111,18 +116,22 @@ def ClassGen.motiveTy (g : ClassGen) (c d : Nat) : Option Expr := do
   let (ifs, maj) ← g.major c d
   pure (closeTelescope (ifs.map classBinder) d (.forallE maj (.sort g.elim) default))
 
-/-- The inductive hypothesis of a recursive field `f` (walked type
-`∀ a⃗, J E⃗ e⃗`, landing at class `t`), opened at `d`: its telescope and its
+/-- The inductive hypothesis of a recursive field whose WALKED type is `w`
+(`∀ a⃗, J E⃗ e⃗`, landing at class `t`), opened at `d`: its telescope and its
 index arguments. -/
-def ClassGen.ihParts (g : ClassGen) (t : Nat) (tele : Nat) (f : Expr) (d : Nat) :
+def ClassGen.ihParts (g : ClassGen) (t : Nat) (tele : Nat) (w : Expr) (d : Nat) :
     Option (List Expr × List Expr) := do
-  let (xs, leaf) ← openPisAtFvars tele f.fvarTypeD d
+  let (xs, leaf) ← openPisAtFvars tele w d
   pure (xs, leaf.getAppArgs.drop (g.cls.getD t default).nPc)
 
-/-- Constructor `x`'s minor premise type at depth `d`, of class `c`. -/
+/-- Constructor `x`'s minor premise type at depth `d`, of class `c`: its
+declared fields, then per recursive field `f` (walked type `w`) the
+inductive hypothesis `∀ a⃗, motive_t e⃗ (f a⃗)`, over the motive at the
+declared result indices and the constructor applied. -/
 def ClassGen.minorTy (g : ClassGen) (c : Nat) (x : ClassCtor) (d : Nat) : Option Expr := do
   let ci := g.cls.getD c default
-  let (fvs, res) ← openPisAtFvars x.nF x.tyN d
+  let (fvs, res) ← openPisAtFvars x.nF x.tyD d
+  let ws ← targetPiDomsWith fvs x.tyN
   let recs := (List.range x.nF).filterMap fun i =>
     match x.kinds.getD i .ordinary with
     | .recursive t tele => some (i, t, tele)
@@ -130,10 +139,10 @@ def ClassGen.minorTy (g : ClassGen) (c : Nat) (x : ClassCtor) (d : Nat) : Option
   let ihs ← (List.range recs.length).mapM fun l => do
     let (i, t, tele) := recs.getD l default
     let e := d + x.nF + l
-    let f := fvs.getD i default
-    let (xs, idx) ← g.ihParts t tele f e
+    let (xs, idx) ← g.ihParts t tele (ws.getD i default) e
     pure (closeTelescope (xs.map classBinder) e
-      (Expr.mkAppN (g.motVar t) (idx ++ [Expr.mkAppN f xs])), (default : BinderMeta))
+      (Expr.mkAppN (g.motVar t) (idx ++ [Expr.mkAppN (fvs.getD i default) xs])),
+      (default : BinderMeta))
   let concl := Expr.mkAppN (g.motVar c)
     (res.getAppArgs.drop ci.nPc ++ [Expr.mkAppN (.const x.cv.name ci.lvls) (ci.ds ++ fvs)])
   pure (closeTelescope (fvs.map classBinder ++ ihs) d concl)
@@ -172,7 +181,8 @@ def classGenRule (g : ClassGen) (recOf : Nat → Option Name) (rlvls : List Leve
   let rP := pre.length
   let (s, _) ← (List.range g.slots.length).zip g.slots |>.find? fun (_, sl) =>
     match sl with | .minor c' C _ => c' == c && C == x.cv.name | _ => false
-  let (fvs, _) ← openPisAtFvars x.nF x.tyN rP
+  let (fvs, _) ← openPisAtFvars x.nF x.tyD rP
+  let ws ← targetPiDomsWith fvs x.tyN
   let pvars := (List.range rP).map fun i => if i < g.nP then g.params.getD i default else
     g.slotVar (i - g.nP)
   let ihs ← (List.range x.nF).filterMapM fun i =>
@@ -180,7 +190,7 @@ def classGenRule (g : ClassGen) (recOf : Nat → Option Name) (rlvls : List Leve
     | .ordinary => some none
     | .recursive t tele => do
       let f := fvs.getD i default
-      let (xs, idx) ← g.ihParts t tele f (rP + x.nF)
+      let (xs, idx) ← g.ihParts t tele (ws.getD i default) (rP + x.nF)
       let r ← recOf t
       pure (some (closeLams (xs.map classBinder) (rP + x.nF)
         (Expr.mkAppN (.const r rlvls) (pvars ++ idx ++ [Expr.mkAppN f xs]))))
@@ -273,7 +283,10 @@ def classCtorOf (ops : CheckerOps m) (env : Env) (p : BlockShape) (formerTys : L
     throw (.internal "generated recursor: datum kinds")
   let kinds ← classFieldsOf cA.1.name ihs fvs 0 e0.kinds
   classFieldsAgree ops env p formerTys Ms fvs cA.1.name E 0 kinds
-  pure ⟨cA.1, cA.2, kinds, e0.ty⟩
+  let M := Ms.getD c default
+  let tyD ← unwrapOr (instPisWith M.ds (targetCtorAt M cA.1))
+    (.internal "generated recursor: constructor parameter telescope")
+  pure ⟨cA.1, cA.2, kinds, tyD, e0.ty⟩
 
 /-- Every constructor of class `c` (`classCtorOf`). -/
 def classCtorsOf (ops : CheckerOps m) (env : Env) (p : BlockShape) (formerTys : List Expr)
@@ -314,15 +327,6 @@ def classesNfs (ops : CheckerOps m) (env : Env) (p : BlockShape) (formerTys : Li
     let es ← targetMajorNfs ops env p formerTys M.pfvs M.lvls M.ds M.ctors tbl
     let rest ← classesNfs ops env p formerTys tbl Ms
     pure ({ M with nfs := es } :: rest)
-
-/-- The members' table entries, with the walk's kinds (`nestMemberNfs`
-with `kinds`). -/
-def classMemberNfs (ctx : NestCtx) (ctorss : List (List (ConstantVal × Nat)))
-    (nfs : List (List Expr)) (kinds : List (List (List NestFieldKind))) : List NestCtorNf :=
-  ((ctorss.zip nfs).zip kinds).flatMap fun ((cs, ns), kss) =>
-    ((cs.zip ns).zip kss).map fun ((c, n), ks) =>
-      { ctor := c.1.name, lvls := ctx.lps.map .param, ds := ctx.params,
-        ty := n.replaceFVars (nestHoleConst ctx []), kinds := ks }
 
 /-- A class's former type: a member's own, an outside class's stored
 former at the class's levels. -/
@@ -455,14 +459,13 @@ def classFeR (p : BlockShape) (Ms : List TargetMajor) (cvGs : List ConstantVal)
 /-- **The generated recursor stage** (charter item 5, see the module
 header), at the constructors' environment `fe`; the seeds walk at the
 formers' environment `fe₁`/`env₁`, continuing the positivity check's
-state `pos` after the members' constructors (their walked normal forms
-`nfs` and kinds `kinds`); `nestedBit` is the elimination guard's
+state `pos` after its root frame (the members' constructors, whose
+entries the table holds already); `nestedBit` is the elimination guard's
 container bit as the caller reads it (`blockNestedBit`), to which every
 outside class adds.  Returns every recursor, generated, with its class
 and its generated annotated rules (what the install stores). -/
 def genRecCheck (so : ShadowOps m) (fe₁ : FEnv) (env₁ : Env) (fe : FEnv) (p : BlockShape)
-    (nestedBit : Bool) (kinds : List (List (List NestFieldKind))) (nfs : List (List Expr))
-    (pos : NestState) (cvTas : List ConstantVal) (block : List ConstantInfo)
+    (nestedBit : Bool) (pos : NestState) (cvTas : List ConstantVal) (block : List ConstantInfo)
     (ctorsAs : List (List (ConstantVal × Nat))) :
     m (List (ConstantVal × TargetMajor × List Expr)) := do
   targetRecPins p block
@@ -495,8 +498,7 @@ def genRecCheck (so : ShadowOps m) (fe₁ : FEnv) (env₁ : Env) (fe : FEnv) (p 
   let st ← nestSeeds (so.opsAt fe₁) env₁ ctx (classSeeds ctx holes Ms) pos
   so.flush
   let formerTys := cvTas.map (·.type)
-  let Ms ← classesNfs ops fe.env p formerTys (classMemberNfs ctx ctorsAs nfs kinds ++
-    st.ctorNfs.toList) Ms
+  let Ms ← classesNfs ops fe.env p formerTys st.ctorNfs.toList Ms
   -- per class and constructor: the datum, the inductive hypotheses, node agreement
   let ctors ← classesCtors ops fe.env p formerTys rd Ms 0 Ms
   unless (rd.slots.filter ClassSlot.isMinor).length == (ctors.map List.length).sum do
