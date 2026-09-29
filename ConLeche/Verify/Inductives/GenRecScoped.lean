@@ -516,7 +516,9 @@ theorem genRun_tbl_scoped
     intro x hx
     have := genRun_params_scb R hT x hx
     exact this.mono (by rw [← hnP]; simp [NestCtx.hiAt])
-  have hholes := nestHoles_ok hcb.1 hh
+  have hparN : ∀ x ∈ R.ctx.params, ScB R.ctx.nP x := by
+    intro x hx; rw [hnP]; exact genRun_params_scb R hT x hx
+  have hholes := nestHoles_ok hcb.1 (fun y hy => (hparN y hy).1) hh
   have hseeds : ∀ s ∈ classSeeds R.ctx R.holes R.Ms₀, ∀ x ∈ s.1.ds, ScB (R.ctx.hiAt 0) x := by
     intro s hs x hx
     obtain ⟨M, hM, hMn, rfl⟩ := Cached.mem_classSeeds hs
@@ -528,7 +530,7 @@ theorem genRun_tbl_scoped
     obtain ⟨i, hi, rfl⟩ := List.getElem_of_mem ha
     obtain ⟨ty, hxe, -⟩ := (genRun_params R hT).2 i _ (List.getElem?_eq_getElem hi)
     exact ⟨i, ty, hxe⟩
-  have hst := nestSeeds_nfScoped hcb.1 hcb.2 (fun d e w hw he => whnf_WScoped henv₁ F hw he)
+  have hst := nestSeeds_nfScoped hcb.1 hcb.2 hparN (fun d e w hw he => whnf_WScoped henv₁ F hw he)
     (fun d e w hw he => whnf_looseBVars henv₁ F hw he) _ pos R.st R.hst hseeds
     (by rw [hnP]; exact hpos)
   rw [hnP] at hst

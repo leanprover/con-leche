@@ -474,7 +474,7 @@ theorem replaceApps_instantiate1_fvar {f : Name → List Level → Option Expr} 
     by_cases hjk : j = k
     · subst hjk; simp [instantiate1, replaceApps]
     · simp only [instantiate1, hjk, if_false, replaceApps]
-      split <;> simp [instantiate1, replaceApps, hjk, *]
+      split <;> simp [replaceApps, *]
   | fvar j t _ => intro k; rfl
   | sort u => intro k; rfl
   | lit l => intro k; rfl

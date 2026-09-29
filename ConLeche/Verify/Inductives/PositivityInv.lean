@@ -14,13 +14,13 @@ public section
 constructor by constructor: the canonical parameters are the head
 former's opened telescope, the holes are the members' stored types at
 `nP + t`, and every stored constructor went through the ROOT frame
-(`nestRoot`: its member-abstracted type `instPisWith params
-(nestAbstract ctx holes cty)` inferred at the holes' context — the
+(`nestRoot`: its crest `nestCrest names lps params holes cty` — every
+whole member application replaced by its hole, then the parameters
+instantiated — inferred at the holes' context — the
 typing the monotonicity premises read — and walked, read once into its
 derivation by `checkBlockPositivity_deriv`; its monotonicity is
 `posD_mono`), after official's uniform-occurrence check (`nestUniform`,
-which yields M2′ here and the normal forms' `holesApplied`,
-`HolesApplied.lean`), then the fields' universes at the holes.
+which yields M2′ here, `UniformOcc.lean`), then the fields' universes at the holes.
 -/
 
 namespace ConLeche
@@ -35,14 +35,15 @@ every constructor's instantiated type typed at the frame's depth. -/
 theorem nestCtors_typed {ops : CheckerOps CheckM} {env : Env} {ctx : NestCtx}
     {rec : Expr → List NestHole → Nat → Nat → Expr → NestState →
       CheckM (NestFieldKind × Expr × NestState)}
-    {prog : List NestHole} {hi : Nat} {us : List Level} {ds : List Expr} {nPc : Nat}
-    {sub : Name → List Level → Option Expr} :
+    {prog : List NestHole} {hi : Nat} {us : List Level} {ds : List Expr} {names : List Name}
+    {holes : List Expr} :
     ∀ {cs : List (ConstantVal × Nat)} {st : NestState} {os : List (List NestFieldKind × Expr)}
       {st' : NestState},
-      nestCtors ctx ops env rec prog hi us ds nPc sub cs st = .ok (os, st') →
+      nestCtors ctx ops env rec prog hi us ds names holes cs st = .ok (os, st') →
       os.length = cs.length ∧ ∀ (j : Nat) (cA : ConstantVal × Nat), cs[j]? = some cA →
-        ∃ crest ty, instPisWith ds
-            ((cA.1.type.instantiateLevelParams cA.1.levelParams us).replaceConsts sub) = some crest ∧ ops.inferType env hi crest = .ok ty
+        ∃ crest ty, nestCrest names us ds holes
+            (cA.1.type.instantiateLevelParams cA.1.levelParams us) = some crest ∧
+          ops.inferType env hi crest = .ok ty
   | [], st, os, st', h => by
     simp only [nestCtors, pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
     obtain ⟨rfl, -⟩ := h
@@ -94,7 +95,7 @@ theorem nestRoot_inv {ops : CheckerOps CheckM} {env : Env} {ctx : NestCtx} {hole
       outs.length = css.length ∧
       ∀ (c : Nat) (cs : List (ConstantVal × Nat)), css[c]? = some cs → ∃ st₀ os st₁,
         nestCtors ctx ops env (fun crest => nestPos ops env ctx (whnfWalkFuel crest)) []
-          (ctx.hiAt 0) (ctx.lps.map .param) ctx.params ctx.nP (nestRootSub ctx holes) cs st₀
+          (ctx.hiAt 0) (ctx.lps.map .param) ctx.params ctx.names holes cs st₀
           = .ok (os, st₁) ∧ outs[c]? = some os
   | [], _, _, _, h => by
     simp only [nestRoot, pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
@@ -214,7 +215,7 @@ theorem checkBlockPositivity_inv {ops : CheckerOps CheckM} {env₁ : Env}
     ∃ cvTa0 fvsP rest holes outs, cvTas.head? = some cvTa0 ∧
       openPisAtFvars p.nP cvTa0.type 0 = some (fvsP, rest) ∧
       nestHoles (p.nestCtx fvsP find?) = some holes ∧
-      nestUniform (m := CheckM) (p.nestCtx fvsP find?) holes ctorsAs = .ok () ∧
+      nestUniform (m := CheckM) (p.nestCtx fvsP find?) ctorsAs = .ok () ∧
       nestRoot ops env₁ (p.nestCtx fvsP find?) holes ctorsAs {} = .ok (outs, pos) ∧
       checkAbsCtorSortsAll ops env₁ (p.nestCtx fvsP find?) ctorsAs outs = .ok () ∧
       kinds = outs.map (·.map (·.1)) ∧ nfs = outs.map (·.map (·.2)) := by
@@ -242,13 +243,14 @@ theorem checkBlockPositivity_inv {ops : CheckerOps CheckM} {env₁ : Env}
   obtain ⟨rfl, rfl, rfl⟩ := h
   exact ⟨cvTa0, fvsP, rest, holes, outs, hcv', hpq', hh, hL, hr, hA, rfl, rfl⟩
 
-/-- The root's substitution at a constructor of the block's own levels is
-the member abstraction. -/
+/-- The root's instantiation at a constructor of the block's own levels
+reads its declared type. -/
 theorem rootCrest_eq (ctx : NestCtx) (holes : List Expr) {cv : ConstantVal}
     (hlps : cv.levelParams = ctx.lps) :
-    (cv.type.instantiateLevelParams cv.levelParams (ctx.lps.map .param)).replaceConsts
-      (nestRootSub ctx holes) = nestAbstract ctx holes cv.type := by
-  rw [hlps, Expr.instantiateLevelParams_self, nestAbstract_eq]
+    nestCrest ctx.names (ctx.lps.map .param) ctx.params holes
+        (cv.type.instantiateLevelParams cv.levelParams (ctx.lps.map .param))
+      = nestCrest ctx.names (ctx.lps.map .param) ctx.params holes cv.type := by
+  rw [hlps, Expr.instantiateLevelParams_self]
 
 /-- An output list's entry, read by `getD`. -/
 theorem outs_getD {α β : Type} [Inhabited β] {outs : List (List α)} {f : α → β} {c j : Nat}
@@ -257,7 +259,8 @@ theorem outs_getD {α β : Type} [Inhabited β] {outs : List (List α)} {f : α 
   simp [List.getD_eq_getElem?_getD, hc, hj]
 
 /-- **M2′ at every stored constructor** (official's uniform check): its
-member-abstracted declared type mentions no member constant. -/
+canonical crest (every whole member application `T_m.{lps} p⃗` replaced by
+its hole) mentions no member constant. -/
 theorem checkBlockPositivity_m2 {ops : CheckerOps CheckM} {env₁ : Env}
     {find? : Name → Option ConstantInfo} {p : BlockParts}
     {cvTas : List ConstantVal} {ctorsAs : List (List (ConstantVal × Nat))}
@@ -268,23 +271,22 @@ theorem checkBlockPositivity_m2 {ops : CheckerOps CheckM} {env₁ : Env}
       nestHoles (p.nestCtx fvsP find?) = some holes ∧
       ∀ (c : Nat) (cs : List (ConstantVal × Nat)), ctorsAs[c]? = some cs →
         ∀ (j : Nat) (cA : ConstantVal × Nat), cs[j]? = some cA →
-          (nestAbstract (p.nestCtx fvsP find?) holes cA.1.type).nestOcc
-            (p.nestCtx fvsP find?).names 0 0 = false := by
+          ∃ A, nestRootCanon (p.nestCtx fvsP find?) cA.1 = some A ∧
+            A.nestOcc (p.nestCtx fvsP find?).names 0 0 = false := by
   obtain ⟨cvTa0, fvsP, rest, holes, outs, hcv', hpq', hh, hU, -, -, -, -⟩ :=
     checkBlockPositivity_inv h
-  refine ⟨cvTa0, fvsP, rest, holes, hcv', hpq', hh, fun c cs hc j cA hj => ?_⟩
-  refine nestAbstract_nestOcc_zero (fun x hx => ?_) (Verify.openPisAtFvars_length _ hpq')
-    (nestUniform_inv hU cs (List.mem_of_getElem? hc) cA (List.mem_of_getElem? hj))
-  obtain ⟨i, hi⟩ := List.getElem?_of_mem hx
-  obtain ⟨ty, rfl⟩ := openPisAtFvars_index _ _ _ hpq' i x hi
-  exact ⟨_, _, rfl⟩
+  exact ⟨cvTa0, fvsP, rest, holes, hcv', hpq', hh, fun c cs hc j cA hj =>
+    nestRootCanon_nestOcc_zero
+      (nestUniform_inv hU cs (List.mem_of_getElem? hc) cA (List.mem_of_getElem? hj))⟩
 
 /-- **The install's positivity stage, constructor by constructor**: the
-member-abstracted crest `crest` (the root frame's instantiation, at a
-constructor of the block's own levels) walked to its normal form `tyN`
-(the run's output list's entry), the crest typed, the normal form's
-fields' sorts and level parameters, M2′.  The walk itself is read once,
-into its derivation (`checkBlockPositivity_deriv`, `PosDerivInv.lean`). -/
+root frame's crest `crest` (at a constructor of the block's own levels:
+its whole member applications replaced by the holes, then instantiated at
+the canonical parameters) walked to its normal form `tyN` (the run's
+output list's entry), the crest typed, the normal form's fields' sorts
+and level parameters, M2′ on the canonical crest.  The walk itself is
+read once, into its derivation (`checkBlockPositivity_deriv`,
+`PosDerivInv.lean`). -/
 theorem checkBlockPositivity_inv_gen {ops : CheckerOps CheckM} {env₁ : Env}
     {find? : Name → Option ConstantInfo} {p : BlockParts}
     {cvTas : List ConstantVal} {ctorsAs : List (List (ConstantVal × Nat))}
@@ -296,16 +298,17 @@ theorem checkBlockPositivity_inv_gen {ops : CheckerOps CheckM} {env₁ : Env}
       openPisAtFvars p.nP cvTa0.type 0 = some (fvsP, rest) ∧
       nestHoles (p.nestCtx fvsP find?) = some holes ∧
       ∀ (c : Nat) (cs : List (ConstantVal × Nat)), ctorsAs[c]? = some cs → ∀ (j : Nat) (cA : ConstantVal × Nat), cs[j]? = some cA →
-        ∃ crest tyN, instPisWith fvsP (nestAbstract (p.nestCtx fvsP find?) holes cA.1.type)
-            = some crest ∧
+        ∃ crest tyN, nestCrest (p.nestCtx fvsP find?).names (p.lps.map .param) fvsP holes
+            cA.1.type = some crest ∧
           (nfs.getD c []).getD j default = tyN ∧
           (∃ ty, ops.inferType env₁ ((p.nestCtx fvsP find?).hiAt 0) crest = .ok ty) ∧
           tyN.allLevelParamsDefined p.lps = true ∧
           (∃ xq sorts, openPisAtFvars cA.2 tyN ((p.nestCtx fvsP find?).hiAt 0) = some xq ∧
             checkStructFieldSortsI ops env₁ (Level.isEquiv p.resSort .zero == some true) false
               p.resSort ((p.nestCtx fvsP find?).hiAt 0) xq.1 [] cA.2 = .ok sorts) ∧
-          (nestAbstract (p.nestCtx fvsP find?) holes cA.1.type).nestOcc
-            (p.nestCtx fvsP find?).names 0 0 = false := by
+          ∃ A, nestCanonCrest (p.nestCtx fvsP find?).names (p.lps.map .param) p.nP
+              cA.1.type = some A ∧
+            A.nestOcc (p.nestCtx fvsP find?).names 0 0 = false := by
   obtain ⟨cvTa0, fvsP, rest, holes, outs, hcv', hpq', hh, hU, hr, hA, rfl, rfl⟩ :=
     checkBlockPositivity_inv h
   refine ⟨cvTa0, fvsP, rest, holes, hcv', hpq', hh, fun c cs hc j cA hj => ?_⟩
@@ -313,18 +316,19 @@ theorem checkBlockPositivity_inv_gen {ops : CheckerOps CheckM} {env₁ : Env}
   obtain ⟨st₀, os, st₁, hms, hoc⟩ := hall c cs hc
   obtain ⟨hlen, htyped⟩ := nestCtors_typed hms
   obtain ⟨crest, ty, hcrest, hty⟩ := htyped j cA hj
-  rw [rootCrest_eq _ _ (hlps c cs hc cA (List.mem_of_getElem? hj))] at hcrest
+  have hl := hlps c cs hc cA (List.mem_of_getElem? hj)
+  rw [rootCrest_eq _ _ hl] at hcrest
   obtain ⟨o, hoj⟩ : ∃ o, os[j]? = some o :=
     ⟨_, List.getElem?_eq_getElem (by rw [hlen]; exact (List.getElem?_eq_some_iff.mp hj).1)⟩
-  have hocc := nestAbstract_nestOcc_zero (ctx := p.nestCtx fvsP find?) (holes := holes)
-    (fun x hx => by
-      obtain ⟨i, hi⟩ := List.getElem?_of_mem hx
-      obtain ⟨ty, rfl⟩ := openPisAtFvars_index _ _ _ hpq' i x hi
-      exact ⟨_, _, rfl⟩) (Verify.openPisAtFvars_length _ hpq')
+  obtain ⟨A, hA', hocc⟩ := nestRootCanon_nestOcc_zero
     (nestUniform_inv hU cs (List.mem_of_getElem? hc) cA (List.mem_of_getElem? hj))
+  rw [nestRootCanon, hl] at hA'
+  change nestCanonCrest _ (p.lps.map .param) _ (cA.1.type.instantiateLevelParams p.lps
+    (p.lps.map .param)) = some A at hA'
+  rw [Expr.instantiateLevelParams_self] at hA'
   obtain ⟨hlp, xq, sorts, hxq, hsorts⟩ :=
     checkAbsCtorSorts_inv (checkAbsCtorSortsAll_inv hA c cs os hc hoc) j cA o hj hoj
   exact ⟨crest, o.2, hcrest, outs_getD hoc hoj default, ⟨ty, hty⟩, hlp, ⟨xq, sorts, hxq, hsorts⟩,
-    hocc⟩
+    A, hA', hocc⟩
 
 end ConLeche

@@ -404,16 +404,16 @@ theorem nestCtors_datF {F : Nat}
       CheckM (NestFieldKind × Expr × NestState)}
     (hrec : ∀ x a b c d e, (recC x a b c d e).val F = recC' x a b c d e)
     (ctx : NestCtx) (env : Env) (prog : List NestHole) (hi : Nat) (us : List Level)
-    (ds : List Expr) (nPc : Nat) (sub : Name → List Level → Option Expr) :
+    (ds : List Expr) (names : List Name) (holes : List Expr) :
     ∀ (cs : List (ConstantVal × Nat)) (st : NestState),
-      (nestCtors ctx (fueledOpsM mode) env recC prog hi us ds nPc sub cs st).val F
-        = nestCtors ctx (fueledOps mode F) env recC' prog hi us ds nPc sub cs st
+      (nestCtors ctx (fueledOpsM mode) env recC prog hi us ds names holes cs st).val F
+        = nestCtors ctx (fueledOps mode F) env recC' prog hi us ds names holes cs st
   | [], _ => rfl
   | (cv, nF) :: cs, st => by
     unfold nestCtors
     simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw, FueledM.atF_ite,
       unwrapOr_atF, fueledOpsM_inferType_atF, fueledOpsM_ensureSort_atF,
-      nestFields_datF (hrec _), nestCtors_datF hrec ctx env prog hi us ds nPc sub cs]
+      nestFields_datF (hrec _), nestCtors_datF hrec ctx env prog hi us ds names holes cs]
 
 theorem nestFrame_datF {F : Nat} (hrec : ∀ a b c d e, (rec a b c d e).val F = rec' a b c d e)
     (ctx : NestCtx) (env : Env) (prog : List NestHole) (hi : Nat) (us : List Level)
@@ -496,10 +496,10 @@ theorem nestRoot_datF (env : Env) (ctx : ConLeche.NestCtx) (holes : List Expr)
       nestCtors_datF (fun x => nestPos_datF env ctx F (ConLeche.whnfWalkFuel x)),
       nestRoot_datF env ctx holes F css]
 
-theorem nestUniform_datF (ctx : ConLeche.NestCtx) (holes : List Expr)
+theorem nestUniform_datF (ctx : ConLeche.NestCtx)
     (ctorss : List (List (ConstantVal × Nat))) (F : Nat) :
-    (nestUniform (m := FueledM) ctx holes ctorss).val F
-      = nestUniform (m := CheckM) ctx holes ctorss := by
+    (nestUniform (m := FueledM) ctx ctorss).val F
+      = nestUniform (m := CheckM) ctx ctorss := by
   unfold nestUniform
   split <;> simp only [FueledM.atF_throw, FueledM.atF_pure]
 

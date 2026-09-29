@@ -20,9 +20,9 @@ public section
 
 Every entry the positivity check records (K.53′, `NestState.ctorNfs`,
 pushed by `nestCtors` as `nestCtorNf`) is a walked constructor telescope
-closed over its fields and READ BACK — every hole replaced by its constant
-(`nestHoleConst`) — so only the block's parameter variables `0 ..< nP` stay
-free, and no bound variable is loose (`ScB nP`).  The generated recursor
+closed over its fields and READ BACK — every hole replaced by the
+application it stands for (`nestHoleImg`) — so only the block's parameter
+variables `0 ..< nP` stay free, and no bound variable is loose (`ScB nP`).  The generated recursor
 stage reads a constructor's WALKED telescope off such an entry
 (`ClassCtor.tyN`), so the generator's closedness (`ClassGenScoped.tyN`)
 rests on it.
@@ -54,15 +54,33 @@ bvar half of `NestCtxOk`). -/
 theorem nfStScoped_empty (nP : Nat) : NfStScoped nP {} :=
   fun _ h => by simp at h
 
-/-- A walk step's contract: at a scoped input and a scoped state, the
-state stays scoped and the normal form is scoped where the input is. -/
+/-- **The frames are scoped**: every frame's parameters are scoped at the
+depth of the frames outside it. -/
+@[expose] def ProgScB (ctx : NestCtx) : List NestHole → Prop
+  | [] => True
+  | h :: prog => (∀ x ∈ h.key.ds, ScB (ctx.hiAt prog.length) x) ∧ ProgScB ctx prog
+
+/-- A walk step's contract: at a scoped input, scoped frames and a scoped
+state, the state stays scoped and the normal form is scoped where the
+input is. -/
 @[expose] def RecNf (ctx : NestCtx)
     (rec : List NestHole → Nat → Nat → Expr → NestState → CheckM (NestFieldKind × Expr × NestState)) :
     Prop :=
   ∀ (prog : List NestHole) (dep kb : Nat) (e : Expr) (st : NestState) (k : NestFieldKind)
     (nf : Expr) (st' : NestState),
-    rec prog dep kb e st = .ok (k, nf, st') → ScB dep e → NfStScoped ctx.nP st →
-    NfStScoped ctx.nP st' ∧ ScB dep nf
+    rec prog dep kb e st = .ok (k, nf, st') → ScB dep e → ProgScB ctx prog →
+    NfStScoped ctx.nP st → NfStScoped ctx.nP st' ∧ ScB dep nf
+
+/-- Frames pushed at one key scoped at the current depth keep the frames
+scoped. -/
+theorem ProgScB.push {ctx : NestCtx} {prog : List NestHole} (hp : ProgScB ctx prog)
+    {ds : List Expr} (hds : ∀ x ∈ ds, ScB (ctx.hiAt prog.length) x) :
+    ∀ l : List NestHole, (∀ h ∈ l, h.key.ds = ds) → ProgScB ctx (l ++ prog)
+  | [], _ => hp
+  | h :: l, hl => by
+    refine ⟨fun x hx => ?_, ProgScB.push hp hds l fun h' hh' => hl h' (List.mem_cons_of_mem _ hh')⟩
+    rw [hl h List.mem_cons_self] at hx
+    exact (hds x hx).mono (by simp [NestCtx.hiAt])
 
 /-! ## Closed pieces -/
 
@@ -82,24 +100,27 @@ theorem nestContainer_scb (hc : NestCtxOk ctx) (hb : NestCtxB ctx) {C : Name}
   obtain ⟨n, nPc, hf⟩ := nestContainer_mem h x hx
   exact ScB.of_closed (hc _ _ hf) (hb _ _ hf) 0
 
-theorem nestInstType_scb (hc : NestCtxOk ctx) (hb : NestCtxB ctx) {hi : Nat} {key : NestKey}
-    {nI : Nat} {cty : Expr} (h : nestInstType (m := CheckM) ctx hi key = .ok (nI, cty)) :
-    ScB 0 cty := by
-  obtain ⟨cvC, caps, hf, -, rfl, -⟩ := nestInstType_inv h
-  refine ScB.of_closed ?_ ?_ 0
+/-- The container's type former at the key (its hole's type) is scoped
+where the key's parameters are. -/
+theorem nestInstType_scb (hc : NestCtxOk ctx) (hb : NestCtxB ctx) {hi d : Nat} {key : NestKey}
+    {nI : Nat} {cty : Expr} (h : nestInstType (m := CheckM) ctx hi key = .ok (nI, cty))
+    (hds : ∀ x ∈ key.ds, ScB d x) : ScB d cty := by
+  obtain ⟨cvC, caps, hf, -, hcty, -⟩ := nestInstType_inv h
+  refine ScB.of_instPisWith hcty (ScB.of_closed ?_ ?_ d) hds
   · rw [Expr.hasFvar_instantiateLevelParams]; exact hc _ _ hf
   · rw [Expr.looseBVarsBounded_instantiateLevelParams]; exact hb _ _ hf
 
-theorem nestGrowGroup_scb (hc : NestCtxOk ctx) (hb : NestCtxB ctx) {hi : Nat}
+theorem nestGrowGroup_scb (hc : NestCtxOk ctx) (hb : NestCtxB ctx) {hi d : Nat}
     {us : List Level} {ds : List Expr} {cs : List Name} {grp grp' : List (Name × Expr)}
     (h : nestGrowGroup (m := CheckM) ctx hi us ds cs grp = .ok grp')
-    (hg : ∀ x ∈ grp, ScB 0 x.2) : ∀ x ∈ grp', ScB 0 x.2 := by
+    (hds : ∀ x ∈ ds, ScB d x)
+    (hg : ∀ x ∈ grp, ScB d x.2) : ∀ x ∈ grp', ScB d x.2 := by
   obtain ⟨ext, rfl, -, hext⟩ := nestGrowGroup_inv' (ctx := ctx) cs grp grp' h
   intro x hx
   rcases List.mem_append.mp hx with hx | hx
   · exact hg x hx
   · obtain ⟨nI, hnI⟩ := hext x hx
-    exact nestInstType_scb hc hb hnI
+    exact nestInstType_scb hc hb hnI hds
 
 theorem nestGroupCtors_scb (hc : NestCtxOk ctx) (hb : NestCtxB ctx) {nPc : Nat} :
     ∀ (cs : List Name) (ctors : List (ConstantVal × Nat)),
@@ -164,31 +185,78 @@ theorem WScoped.replaceFVars_lower {g : Nat → Option Expr} {D n : Nat}
     intro hw; unfold WScoped at hw; simp only [Expr.replaceFVars]; unfold WScoped; exact ih hw
   | _ => intro _; simp [Expr.replaceFVars, WScoped]
 
-theorem nestHoleConst_const {ctx : NestCtx} {prog : List NestHole} {i : Nat} {r : Expr}
-    (h : nestHoleConst ctx prog i = some r) : ∃ n us, r = .const n us := by
-  unfold nestHoleConst at h
-  obtain ⟨hh, -, rfl⟩ := Option.map_eq_some_iff.mp h
-  exact ⟨_, _, rfl⟩
+/-- Below the frames' top, every hole has a read-back. -/
+theorem nestHoleImg_isSome {ctx : NestCtx} {i : Nat} (hlo : ctx.nP ≤ i) :
+    ∀ prog : List NestHole, i < ctx.hiAt prog.length → ∃ r, nestHoleImg ctx prog i = some r
+  | [], hhi => by
+    simp only [nestHoleImg]; rw [if_pos ⟨hlo, hhi⟩]; exact ⟨_, rfl⟩
+  | h :: prog, hhi => by
+    simp only [nestHoleImg]
+    split
+    · exact ⟨_, rfl⟩
+    · rename_i hne
+      exact nestHoleImg_isSome hlo prog (by
+        simp only [NestCtx.hiAt, List.length_cons] at hhi hne ⊢; omega)
 
-/-- **A recorded entry is scoped over the parameters**: a term scoped at
-the walk's depth `hiAt |prog|`, its holes read back as their constants. -/
-theorem ScB.nestHoleConst {ctx : NestCtx} {prog : List NestHole} {t : Expr}
-    (h : ScB (ctx.hiAt prog.length) t) :
-    ScB ctx.nP (t.replaceFVars (nestHoleConst ctx prog)) := by
-  refine ⟨WScoped.replaceFVars_lower (D := ctx.hiAt prog.length) (fun i hi => ?_)
-    (fun i hlo hhi => ?_) t h.1,
-    looseBVarsBounded_replaceFVars (fun i r hr => ?_) t 0 h.2⟩
-  · rw [nestHoleConst_eq, if_neg (fun h' => by omega),
-      if_neg (fun h' => by simp only [NestCtx.hiAt] at h'; omega)]
-  · rw [nestHoleConst_eq]
-    by_cases h0 : i < ctx.hiAt 0
-    · rw [if_pos ⟨hlo, h0⟩]; exact ⟨_, rfl, by simp [WScoped]⟩
-    · rw [if_neg (fun h' => h0 h'.2), if_pos ⟨by omega, hhi⟩]
-      have hl : i - ctx.hiAt 0 < prog.reverse.length := by
-        simp only [NestCtx.hiAt, List.length_reverse] at hhi h0 ⊢; omega
-      rw [List.getElem?_eq_getElem hl, Option.map_some]
-      exact ⟨_, rfl, by simp [WScoped]⟩
-  · obtain ⟨n, us, rfl⟩ := nestHoleConst_const hr
+/-- **A read-back is scoped over the parameters**, and so is every term
+scoped at the frames' depth once its holes are read back. -/
+theorem nestHoleImg_scb {ctx : NestCtx} (hpar : ∀ x ∈ ctx.params, ScB ctx.nP x) :
+    ∀ prog : List NestHole, ProgScB ctx prog →
+      (∀ i r, nestHoleImg ctx prog i = some r → ScB ctx.nP r) ∧
+      ∀ t, ScB (ctx.hiAt prog.length) t → ScB ctx.nP (t.replaceFVars (nestHoleImg ctx prog))
+  | prog, hp => by
+    have himg : ∀ i r, nestHoleImg ctx prog i = some r → ScB ctx.nP r := by
+      cases prog with
+      | nil =>
+        intro i r h
+        simp only [nestHoleImg] at h
+        split at h
+        · simp only [Option.some.injEq] at h
+          subst h
+          exact ScB.mkAppN ⟨by simp [WScoped], rfl⟩ hpar
+        · exact nomatch h
+      | cons hd prog =>
+        obtain ⟨hds, hp'⟩ := hp
+        have ih := nestHoleImg_scb hpar prog hp'
+        intro i r h
+        simp only [nestHoleImg] at h
+        split at h
+        · simp only [Option.some.injEq] at h
+          subst h
+          refine ScB.mkAppN ⟨by simp [WScoped], rfl⟩ fun x hx => ?_
+          obtain ⟨y, hy, rfl⟩ := List.mem_map.mp hx
+          exact ih.2 y (hds y hy)
+        · exact ih.1 i r h
+    refine ⟨himg, fun t ht => ⟨WScoped.replaceFVars_lower (D := ctx.hiAt prog.length)
+      (fun i hi => nestHoleImg_lt_nP hi prog) (fun i hlo hhi => ?_) t ht.1,
+      looseBVarsBounded_replaceFVars (fun i r hr => (himg i r hr).2) t 0 ht.2⟩⟩
+    obtain ⟨r, hr⟩ := nestHoleImg_isSome hlo prog hhi
+    exact ⟨r, hr, (himg i r hr).1⟩
+termination_by prog => prog.length
+
+/-- **A frame's crest is scoped** where its key's parameters and its
+holes are (a closed stored constructor type). -/
+theorem ScB.of_nestCrest {names : List Name} {us : List Level} {ds holes : List Expr}
+    {d : Nat} {cty crest : Expr} (hcty : ScB 0 cty) (hlen : names.length ≤ holes.length)
+    (hds : ∀ x ∈ ds ++ holes, ScB d x) (h : nestCrest names us ds holes cty = some crest) :
+    ScB d crest := by
+  refine ⟨WScoped_nestCrest (ScB.closed hcty).1 hlen (fun x hx => (hds x hx).1) h, ?_⟩
+  unfold nestCrest at h
+  obtain ⟨A, hA, rfl⟩ := Option.map_eq_some_iff.mp h
+  unfold nestCanonCrest at hA
+  obtain ⟨B, hB, rfl⟩ := Option.map_eq_some_iff.mp hA
+  have hBb : B.looseBVarsBounded 0 = true :=
+    (ScB.of_instPisWith (d := ds.length) hB (hcty.mono (Nat.zero_le _)) (fun a ha => by
+      simp only [nestPhs, List.mem_map, List.mem_range] at ha
+      obtain ⟨i, hi, rfl⟩ := ha
+      exact ScB.fvar hi ⟨by simp [WScoped], rfl⟩)).2
+  refine looseBVarsBounded_replaceFVars (fun i r hr => ?_) _ 0
+    (looseBVarsBounded_replaceApps (fun c v r hr => ?_) _ 0 hBb)
+  · unfold nestKeyMap at hr
+    split at hr
+    · exact (hds r (List.mem_append_left _ (List.mem_of_getElem? hr))).2
+    · exact (hds r (List.mem_append_right _ (List.mem_of_getElem? hr))).2
+  · obtain ⟨m, -, -, -, rfl⟩ := nestCanonSub_some hr
     rfl
 
 /-! ## The walk -/
@@ -199,7 +267,8 @@ variable {ops : CheckerOps CheckM} {env : Env} {ctx : NestCtx}
 
 theorem nestFields_nfScoped
     {rec : List NestHole → Nat → Nat → Expr → NestState → CheckM (NestFieldKind × Expr × NestState)}
-    (hrec : RecNf ctx rec) (prog : List NestHole) (base : Nat) (err : CheckError) :
+    (hrec : RecNf ctx rec) (prog : List NestHole) (hp : ProgScB ctx prog) (base : Nat)
+    (err : CheckError) :
     ∀ (nF j : Nat) (cur : Expr) (st : NestState) (ks : List NestFieldKind)
       (nds : List (Expr × BinderMeta)) (res : Expr) (st' : NestState),
       nestFields rec prog base err nF j cur st = .ok (ks, nds, res, st') →
@@ -228,7 +297,7 @@ theorem nestFields_nfScoped
       obtain ⟨hw, hbd⟩ := hws
       simp only [WScoped] at hw
       simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hbd
-      obtain ⟨hst₁, hnd₁⟩ := hrec prog (base + j) 0 a st k₁ nd₁ st₁ hr₁ ⟨hw.1, hbd.1⟩ hst
+      obtain ⟨hst₁, hnd₁⟩ := hrec prog (base + j) 0 a st k₁ nd₁ st₁ hr₁ ⟨hw.1, hbd.1⟩ hp hst
       split at h
       · simp at h
       rename_i r₂ hr₂
@@ -261,12 +330,13 @@ theorem nestCtors_nfScoped
     {recC : Expr → List NestHole → Nat → Nat → Expr → NestState →
       CheckM (NestFieldKind × Expr × NestState)}
     (hrec : ∀ x, RecNf ctx (recC x)) {prog : List NestHole} {hi : Nat} {us : List Level}
-    {ds : List Expr} {nPc : Nat} {sub : Name → List Level → Option Expr}
+    {ds : List Expr} {names : List Name} {holes : List Expr}
+    (hpar : ∀ x ∈ ctx.params, ScB ctx.nP x) (hp : ProgScB ctx prog)
     (hhi : hi = ctx.hiAt prog.length) (hds : ∀ x ∈ ds, ScB hi x)
-    (hsub : ∀ c us' r, sub c us' = some r → ScB hi r) :
+    (hholes : ∀ x ∈ holes, ScB hi x) (hlen : names.length ≤ holes.length) :
     ∀ (cs : List (ConstantVal × Nat)) (st : NestState) (os : List (List NestFieldKind × Expr))
       (st' : NestState),
-      nestCtors ctx ops env recC prog hi us ds nPc sub cs st = .ok (os, st') →
+      nestCtors ctx ops env recC prog hi us ds names holes cs st = .ok (os, st') →
       (∀ x ∈ cs, ScB 0 x.1.type) → NfStScoped ctx.nP st →
       NfStScoped ctx.nP st' ∧ ∀ o ∈ os, ScB hi o.2 := by
   intro cs
@@ -300,13 +370,12 @@ theorem nestCtors_nfScoped
     have hcv : ScB 0 cv.type := hcl _ List.mem_cons_self
     have hws : ScB (hi + 0) crest := by
       rw [Nat.add_zero]
-      refine ScB.of_instPisWith hcrest' ⟨WScoped.replaceConsts_closed
-          (fun c us' r hr => (hsub c us' r hr).1) _ ?_,
-        looseBVarsBounded_replaceConsts (fun c us' r hr => (hsub c us' r hr).2) _ 0 ?_⟩ hds
+      refine ScB.of_nestCrest ⟨WScoped.of_not_hasFvar ?_, ?_⟩ hlen
+        (fun x hx => (List.mem_append.mp hx).elim (hds x) (hholes x)) hcrest'
       · rw [Expr.hasFvar_instantiateLevelParams]; exact (ScB.closed hcv).1
       · rw [Expr.looseBVarsBounded_instantiateLevelParams]; exact hcv.2
-    obtain ⟨hst₁, hnds, hcur⟩ := nestFields_nfScoped (hrec crest) prog hi _ nF 0 crest st ks nds
-      cur st₁ hr hws hst
+    obtain ⟨hst₁, hnds, hcur⟩ := nestFields_nfScoped (hrec crest) prog hp hi _ nF 0 crest st ks
+      nds cur st₁ hr hws hst
     have hN : ScB hi (closeTelescope nds hi cur) :=
       ScB.of_closeTelescope (fun k nd hk => by simpa using hnds k nd hk) (by simpa using hcur)
     dsimp only at h
@@ -326,7 +395,7 @@ theorem nestCtors_nfScoped
         rcases he with he | rfl
         · exact hst₁ e he
         · subst hhi
-          exact ScB.nestHoleConst hN
+          exact (nestHoleImg_scb hpar prog hp).2 _ hN
       obtain ⟨hst₂, hos⟩ := ih _ os₂ st₂ hr₂ (fun x hx => hcl x (List.mem_cons_of_mem _ hx))
         hst₁'
       refine ⟨hst₂, fun o ho => ?_⟩
@@ -335,22 +404,21 @@ theorem nestCtors_nfScoped
       · exact hos o ho
     · simp [throw, throwThe, MonadExceptOf.throw] at h
 
-theorem frameHole_scb {grp : List (Name × Expr)} (hg : ∀ x ∈ grp, ScB 0 x.2) (hi : Nat)
-    {c : Name} {e : Expr}
-    (h : (grp.mapIdx fun i (x : Name × Expr) => (x.1, Expr.fvar (hi + i) x.2)).lookup c = some e) :
-    ScB (hi + grp.length) e := by
-  have hm := Cached.lookup_mem h
+theorem frameHole_scb {grp : List (Name × Expr)} {hi : Nat} (hg : ∀ x ∈ grp, ScB hi x.2) :
+    ∀ e ∈ (grp.mapIdx fun i (x : Name × Expr) => Expr.fvar (hi + i) x.2),
+      ScB (hi + grp.length) e := by
+  intro e hm
   obtain ⟨i, hi', heq⟩ := List.mem_mapIdx.mp hm
-  simp only [Prod.mk.injEq] at heq
-  obtain ⟨-, rfl⟩ := heq
-  exact ScB.fvar (by omega) ((hg _ (List.getElem_mem hi')).mono (Nat.zero_le _))
+  subst heq
+  exact ScB.fvar (by omega) ((hg _ (List.getElem_mem hi')).mono (by omega))
 
 variable {rec : List NestHole → Nat → Nat → Expr → NestState → CheckM (NestFieldKind × Expr × NestState)}
 
 theorem nestFrame_nfScoped (hc : NestCtxOk ctx) (hb : NestCtxB ctx) (hrec : RecNf ctx rec)
-    {prog : List NestHole} {hi : Nat} {us : List Level} {ds : List Expr} {nPc : Nat}
-    (hhi : hi = ctx.hiAt prog.length) (hds : ∀ x ∈ ds, ScB hi x)
-    {grp : List (Name × Expr)} (hg : ∀ x ∈ grp, ScB 0 x.2) {st st' : NestState}
+    (hpar : ∀ x ∈ ctx.params, ScB ctx.nP x)
+    {prog : List NestHole} (hp : ProgScB ctx prog) {hi : Nat} {us : List Level} {ds : List Expr}
+    {nPc : Nat} (hhi : hi = ctx.hiAt prog.length) (hds : ∀ x ∈ ds, ScB hi x)
+    {grp : List (Name × Expr)} (hg : ∀ x ∈ grp, ScB hi x.2) {st st' : NestState}
     (h : nestFrame ctx ops env rec prog hi us ds nPc grp st = .ok st')
     (hst : NfStScoped ctx.nP st) : NfStScoped ctx.nP st' := by
   simp only [nestFrame, bind, Except.bind] at h
@@ -366,16 +434,22 @@ theorem nestFrame_nfScoped (hc : NestCtxOk ctx) (hb : NestCtxB ctx) (hrec : RecN
   obtain ⟨os, st₂⟩ := v'
   simp only [pure, Except.pure, Except.ok.injEq] at h
   subst h
-  refine (nestCtors_nfScoped (fun _ => hrec) ?_ (fun x hx => (hds x hx).mono (by omega))
-    (fun c us' r hr => ?_) ctors st os st₂ hv' hcl hst).1
-  · subst hhi; simp [NestCtx.hiAt]; omega
-  · split at hr
-    · exact frameHole_scb hg hi hr
-    · exact nomatch hr
+  have hp' : ProgScB ctx ((grp.mapIdx fun _ (c, _) =>
+      ({ key := ⟨c, us, ds⟩, base := hi } : NestHole)).reverse ++ prog) :=
+    ProgScB.push hp (by subst hhi; exact hds) _ (fun h hh => by
+      rw [List.mem_reverse] at hh
+      obtain ⟨i, hi', rfl⟩ := List.mem_mapIdx.mp hh
+      rfl)
+  refine (nestCtors_nfScoped (fun _ => hrec) hpar hp' ?_ (fun x hx => (hds x hx).mono (by omega))
+    (frameHole_scb hg) (by simp) ctors st os st₂ hv' hcl hst).1
+  subst hhi; simp [NestCtx.hiAt]; omega
 
 theorem nestContNew_nfScoped (hc : NestCtxOk ctx) (hb : NestCtxB ctx) (hrec : RecNf ctx rec)
-    {prog : List NestHole} {kb : Nat} {n : Name} {us : List Level} {ds : List Expr} {nPc : Nat}
-    (hds : ∀ x ∈ ds, ScB (ctx.hiAt prog.length) x) {cty : Expr} (hcty : ScB 0 cty)
+    (hpar : ∀ x ∈ ctx.params, ScB ctx.nP x)
+    {prog : List NestHole} (hp : ProgScB ctx prog) {kb : Nat} {n : Name} {us : List Level}
+    {ds : List Expr} {nPc : Nat}
+    (hds : ∀ x ∈ ds, ScB (ctx.hiAt prog.length) x) {cty : Expr}
+    (hcty : ∀ d, (∀ x ∈ ds, ScB d x) → ScB d cty)
     {st : NestState} {k : NestFieldKind} {st' : NestState}
     (h : nestContNew ctx ops env rec prog kb n us ds nPc cty st = .ok (k, st'))
     (hst : NfStScoped ctx.nP st) : NfStScoped ctx.nP st' := by
@@ -390,19 +464,26 @@ theorem nestContNew_nfScoped (hc : NestCtxOk ctx) (hb : NestCtxB ctx) (hrec : Re
   split at h
   · simp at h
   rename_i grp hgrow
-  have hg := nestGrowGroup_scb hc hb hgrow (fun x hx => by
-    simp only [List.mem_singleton] at hx; subst hx; exact hcty)
+  have hg := nestGrowGroup_scb hc hb hgrow hdsw (fun x hx => by
+    simp only [List.mem_singleton] at hx; subst hx; exact hcty _ hdsw)
+  have hpw : ProgScB ctx (nestWalkStack ctx prog ds) := by
+    unfold nestWalkStack; split
+    · trivial
+    · exact hp
   split at h
   · simp at h
   rename_i st₁ hfr
-  have hst₁ := nestFrame_nfScoped hc hb hrec rfl hdsw hg hfr hst
+  have hst₁ := nestFrame_nfScoped hc hb hrec hpar hpw rfl hdsw hg hfr hst
   simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
   obtain ⟨-, rfl⟩ := h
   exact hst₁
 
 theorem nestContKey_nfScoped (hc : NestCtxOk ctx) (hb : NestCtxB ctx) (hrec : RecNf ctx rec)
-    {prog : List NestHole} {kb : Nat} {n : Name} {us : List Level} {ds : List Expr} {nPc : Nat}
-    (hds : ∀ x ∈ ds, ScB (ctx.hiAt prog.length) x) {cty : Expr} (hcty : ScB 0 cty)
+    (hpar : ∀ x ∈ ctx.params, ScB ctx.nP x)
+    {prog : List NestHole} (hp : ProgScB ctx prog) {kb : Nat} {n : Name} {us : List Level}
+    {ds : List Expr} {nPc : Nat}
+    (hds : ∀ x ∈ ds, ScB (ctx.hiAt prog.length) x) {cty : Expr}
+    (hcty : ∀ d, (∀ x ∈ ds, ScB d x) → ScB d cty)
     {st : NestState} {k : NestFieldKind} {st' : NestState}
     (h : nestContKey ctx ops env rec prog kb n us ds nPc cty st = .ok (k, st'))
     (hst : NfStScoped ctx.nP st) : NfStScoped ctx.nP st' := by
@@ -413,25 +494,28 @@ theorem nestContKey_nfScoped (hc : NestCtxOk ctx) (hb : NestCtxB ctx) (hrec : Re
     · simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
       obtain ⟨-, rfl⟩ := h
       exact hst
-    · exact nestContNew_nfScoped hc hb hrec hds hcty h hst
+    · exact nestContNew_nfScoped hc hb hrec hpar hp hds hcty h hst
 
 theorem nestCont_nfScoped (hc : NestCtxOk ctx) (hb : NestCtxB ctx) (hrec : RecNf ctx rec)
-    {prog : List NestHole} {kb : Nat} {n : Name} {us : List Level} {args : List Expr} {dep : Nat}
+    (hpar : ∀ x ∈ ctx.params, ScB ctx.nP x)
+    {prog : List NestHole} (hp : ProgScB ctx prog) {kb : Nat} {n : Name} {us : List Level}
+    {args : List Expr} {dep : Nat}
     (hargs : ∀ a ∈ args, ScB dep a) {st : NestState} {k : NestFieldKind} {st' : NestState}
     (h : nestCont ctx ops env rec prog kb n us args st = .ok (k, st'))
     (hst : NfStScoped ctx.nP st) : NfStScoped ctx.nP st' := by
-  obtain ⟨nPc, L, -, -, -, -, hdsok, -, nI, cty, hnI, -, hkey⟩ := nestCont_inv h
+  obtain ⟨nPc, L, -, -, -, -, hdsok, nI, cty, hnI, -, hkey⟩ := nestCont_inv h
   have hdsok' : ∀ x ∈ args.take nPc, x.bvarB = 0 ∧ x.fvarB ≤ ctx.hiAt prog.length := by
     simpa using hdsok
-  exact nestContKey_nfScoped hc hb hrec
+  exact nestContKey_nfScoped hc hb hrec hpar hp
     (fun x hx => ⟨WScoped.of_fvarsBelow (hargs x (List.mem_of_mem_take hx)).1
       (Expr.fvarB_le (hdsok' x hx).2), (hargs x (List.mem_of_mem_take hx)).2⟩)
-    (nestInstType_scb hc hb hnI) hkey hst
+    (fun _ hd => nestInstType_scb hc hb hnI hd) hkey hst
 
 /-- **The walk keeps the state scoped** and its normal form scoped where
 its input is — at any fuel, under any `ops` whose whnf keeps terms scoped
 and bvar-closed. -/
 theorem nestPos_nfScoped (hc : NestCtxOk ctx) (hb : NestCtxB ctx)
+    (hpar : ∀ x ∈ ctx.params, ScB ctx.nP x)
     (hwW : ∀ d e w, ops.whnf env d e = .ok w → WScoped d e → WScoped d w)
     (hwB : ∀ d e w, ops.whnf env d e = .ok w → e.looseBVarsBounded 0 = true →
       w.looseBVarsBounded 0 = true) :
@@ -440,8 +524,8 @@ theorem nestPos_nfScoped (hc : NestCtxOk ctx) (hb : NestCtxB ctx)
     intro prog dep kb e st k nf st' hrun
     simp [nestPos, throw, throwThe, MonadExceptOf.throw] at hrun
   | fuel + 1 => by
-    have ih := nestPos_nfScoped hc hb hwW hwB fuel
-    intro prog dep kb e st k nf st' hrun hws hst
+    have ih := nestPos_nfScoped hc hb hpar hwW hwB fuel
+    intro prog dep kb e st k nf st' hrun hws hp hst
     rw [nestPos] at hrun
     cases hw : ops.whnf env dep e with
     | error err => simp [hw, bind, Except.bind] at hrun
@@ -472,7 +556,7 @@ theorem nestPos_nfScoped (hc : NestCtxOk ctx) (hb : NestCtxB ctx)
         simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hB
         obtain ⟨hst₁, hnb⟩ := ih prog (dep + 1) (kb + 1) _ st k₁ nb _ hv
           ⟨WScoped.instantiate1 hW.1 0 hW.2,
-            looseBVarsBounded_instantiate1 (d := dep) (ty := a) b 0 hB.2⟩ hst
+            looseBVarsBounded_instantiate1 (d := dep) (ty := a) b 0 hB.2⟩ hp hst
         refine ⟨hst₁, ?_, ?_⟩
         · simp only [WScoped]; exact ⟨hW.1, WScoped.abstract1 0 hnb.1⟩
         · simp only [Expr.looseBVarsBounded, Bool.and_eq_true]
@@ -496,7 +580,8 @@ theorem nestPos_nfScoped (hc : NestCtxOk ctx) (hb : NestCtxB ctx)
           obtain ⟨k₁, st₁⟩ := v
           simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at hrun
           obtain ⟨rfl, rfl, rfl⟩ := hrun
-          exact ⟨nestCont_nfScoped hc hb ih (fun a ha => ScB.getAppArgs hwsw a ha) hv hst, hwsw⟩
+          exact ⟨nestCont_nfScoped hc hb ih hpar hp (fun a ha => ScB.getAppArgs hwsw a ha) hv hst,
+            hwsw⟩
         · simp [throw, throwThe, MonadExceptOf.throw] at hrun
 
 /-- **The root frame keeps the state scoped.** -/
@@ -505,7 +590,7 @@ theorem nestRoot_nfScoped (hc : NestCtxOk ctx) (hb : NestCtxB ctx)
     (hwB : ∀ d e w, ops.whnf env d e = .ok w → e.looseBVarsBounded 0 = true →
       w.looseBVarsBounded 0 = true)
     {holes : List Expr} (hh : nestHoles ctx = some holes)
-    (hpar : ∀ x ∈ ctx.params, ScB (ctx.hiAt 0) x) :
+    (hpar : ∀ x ∈ ctx.params, ScB ctx.nP x) :
     ∀ (css : List (List (ConstantVal × Nat))) (st : NestState)
       (outs : List (List (List NestFieldKind × Expr))) (st' : NestState),
       nestRoot ops env ctx holes css st = .ok (outs, st') →
@@ -528,23 +613,22 @@ theorem nestRoot_nfScoped (hc : NestCtxOk ctx) (hb : NestCtxB ctx)
     obtain ⟨os₂, st₂⟩ := r₂
     simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
     obtain ⟨-, rfl⟩ := h
-    have hsub : ∀ c us' r, nestRootSub ctx holes c us' = some r → ScB (ctx.hiAt 0) r := by
-      intro c us' r hr
-      unfold nestRootSub at hr
-      split at hr
-      · split at hr
-        · obtain ⟨hw, i, ty, rfl⟩ := nestHoles_ok hc hh r (List.mem_of_getElem? hr)
-          exact ⟨hw, rfl⟩
-        · exact nomatch hr
-      · exact nomatch hr
-    obtain ⟨hst₁, -⟩ := nestCtors_nfScoped (fun x => nestPos_nfScoped hc hb hwW hwB (whnfWalkFuel x))
-      (prog := []) rfl hpar hsub cs₀ st o st₁ hr₁ (hcl cs₀ List.mem_cons_self) hst
+    have hholes : ∀ x ∈ holes, ScB (ctx.hiAt 0) x := by
+      intro x hx
+      obtain ⟨hw, i, ty, rfl⟩ := nestHoles_ok hc (fun y hy => (hpar y hy).1) hh x hx
+      exact ⟨hw, rfl⟩
+    obtain ⟨hst₁, -⟩ := nestCtors_nfScoped
+      (fun x => nestPos_nfScoped hc hb hpar hwW hwB (whnfWalkFuel x))
+      (prog := []) hpar trivial rfl (fun x hx => (hpar x hx).mono (by simp [NestCtx.hiAt]))
+      hholes (by rw [nestHoles_length hh]; exact Nat.le_refl _) cs₀ st o st₁ hr₁
+      (hcl cs₀ List.mem_cons_self) hst
     exact nestRoot_nfScoped hc hb hwW hwB hh hpar css st₁ os₂ st₂ hr₂
       (fun cs hcs => hcl cs (List.mem_cons_of_mem _ hcs)) hst₁
 
 /-- **The seeds keep the state scoped**, at seeds whose parameters are
 scoped at the walk's root depth. -/
 theorem nestSeeds_nfScoped (hc : NestCtxOk ctx) (hb : NestCtxB ctx)
+    (hpar : ∀ x ∈ ctx.params, ScB ctx.nP x)
     (hwW : ∀ d e w, ops.whnf env d e = .ok w → WScoped d e → WScoped d w)
     (hwB : ∀ d e w, ops.whnf env d e = .ok w → e.looseBVarsBounded 0 = true →
       w.looseBVarsBounded 0 = true) :
@@ -565,9 +649,10 @@ theorem nestSeeds_nfScoped (hc : NestCtxOk ctx) (hb : NestCtxB ctx)
     · simp at h
     rename_i r hr
     obtain ⟨k₁, st₁⟩ := r
-    have hst₁ := nestContKey_nfScoped (prog := []) hc hb (nestPos_nfScoped hc hb hwW hwB _)
-      (fun x hx => hks _ List.mem_cons_self x hx) (nestInstType_scb hc hb hni) hr hst
-    exact nestSeeds_nfScoped hc hb hwW hwB ks st₁ st' h
+    have hst₁ := nestContKey_nfScoped (prog := []) hc hb (nestPos_nfScoped hc hb hpar hwW hwB _)
+      hpar trivial (fun x hx => hks _ List.mem_cons_self x hx)
+      (fun _ hd => nestInstType_scb hc hb hni hd) hr hst
+    exact nestSeeds_nfScoped hc hb hpar hwW hwB ks st₁ st' h
       (fun s hs => hks s (List.mem_cons_of_mem _ hs)) hst₁
 
 end Walk
@@ -583,12 +668,12 @@ theorem nestCtx_ok_of_envWF {env : Env} (henv : EnvWF env) (p : BlockShape) (fvs
     fun _ ci hf => (henv ci (List.mem_of_find?_eq_some hf)).2.2.2.1⟩
 
 /-- The canonical parameters (a closed former's opened telescope) are
-scoped at the walk's root depth. -/
+scoped over the parameters. -/
 theorem nestCtx_params_scb {p : BlockShape} {T rest : Expr} {fvsP : List Expr}
     {find? : Name → Option ConstantInfo}
     (hT : ScB 0 T) (hop : openPisAtFvars p.nP T 0 = some (fvsP, rest)) :
     ∀ x ∈ (p.nestCtx fvsP find?).params,
-      ScB ((p.nestCtx fvsP find?).hiAt 0) x := by
+      ScB (p.nestCtx fvsP find?).nP x := by
   intro x hx
   obtain ⟨hl, hfvs, -⟩ := ScB.openPis hop hT
   obtain ⟨k, hk, rfl⟩ := List.getElem_of_mem hx
@@ -597,7 +682,7 @@ theorem nestCtx_params_scb {p : BlockShape} {T rest : Expr} {fvsP : List Expr}
   have : k < p.nP := by
     have : k < fvsP.length := hk
     omega
-  exact ScB.fvar (by simp [NestCtx.hiAt, BlockShape.nestCtx]; omega) (by simpa using hty)
+  exact ScB.fvar (by simp [BlockShape.nestCtx]; omega) (by simpa using hty)
 
 /-- **The positivity stage's final state is scoped**: every constructor
 normal form the install's positivity check records is scoped over the

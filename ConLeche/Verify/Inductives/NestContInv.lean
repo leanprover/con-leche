@@ -24,7 +24,8 @@ theorem nestInstType_inv {ctx : NestCtx} {hi : Nat} {key : NestKey} {nI : Nat} {
     (h : nestInstType (m := CheckM) ctx hi key = .ok (nI, cty)) :
     ∃ cvC caps, ctx.find? key.cname = some (.indInfo cvC caps) ∧
       (cvC.type.stripPis key.ds.length).isSome = true ∧
-      cty = cvC.type.instantiateLevelParams cvC.levelParams key.lvls ∧
+      instPisWith key.ds (cvC.type.instantiateLevelParams cvC.levelParams key.lvls)
+        = some cty ∧
       ∃ ty s, instPisWith key.ds (cvC.type.instantiateLevelParams cvC.levelParams key.lvls)
           = some ty ∧ ty.piBinders.2 = .sort s ∧
         (ty.piBinders.1.any fun b => b.1.nestOcc ctx.names ctx.nP hi) = false ∧
@@ -67,7 +68,7 @@ theorem nestInstType_inv {ctx : NestCtx} {hi : Nat} {key : NestKey} {nI : Nat} {
           · simp [throw, throwThe, MonadExceptOf.throw] at hbl
         simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
         obtain ⟨rfl, rfl⟩ := h
-        refine ⟨cv, caps, hf, by simpa using hstrip, rfl, _, s, unwrapOr_ok hty, ?_,
+        refine ⟨cv, caps, hf, by simpa using hstrip, unwrapOr_ok hty, _, s, unwrapOr_ok hty, ?_,
           by simpa using hocc, rfl, by simpa using hlev⟩
         split at hs'
         · rename_i s' he; rw [he]; simp only [Option.some.injEq] at hs'; rw [hs']
@@ -127,8 +128,7 @@ theorem nestInstType_of {ctx : NestCtx} {hi : Nat} {key : NestKey} {cvC : Consta
     (hs : ty.piBinders.2 = .sort s)
     (hocc : (ty.piBinders.1.any fun b => b.1.nestOcc ctx.names ctx.nP hi) = false)
     (hlev : Level.isEquiv s ctx.sort = some true) :
-    nestInstType (m := CheckM) ctx hi key
-      = .ok (ty.piBinders.1.length, cvC.type.instantiateLevelParams cvC.levelParams key.lvls) := by
+    nestInstType (m := CheckM) ctx hi key = .ok (ty.piBinders.1.length, ty) := by
   unfold nestInstType
   simp [bind, Except.bind, hf, unwrapOr, hl, hstrip, hty, hs, hocc, liftFueled, hlev, pure,
     Except.pure]
@@ -138,7 +138,8 @@ index telescope's occurrence test (N2) reads `hi`, and it is monotone. -/
 theorem nestInstType_mono_hi {ctx : NestCtx} {hi hi' : Nat} (hle : hi' ≤ hi) {key : NestKey}
     {nI : Nat} {cty : Expr} (h : nestInstType (m := CheckM) ctx hi key = .ok (nI, cty)) :
     nestInstType (m := CheckM) ctx hi' key = .ok (nI, cty) := by
-  obtain ⟨cvC, caps, hf, hstrip, rfl, ty, s, hty, hs, hocc, rfl, hlev⟩ := nestInstType_inv h
+  obtain ⟨cvC, caps, hf, hstrip, hcty, ty, s, hty, hs, hocc, rfl, hlev⟩ := nestInstType_inv h
+  obtain rfl : cty = ty := by simpa [hty] using hcty.symm
   obtain ⟨cvC', caps', hf', hl⟩ := nestInstType_lvls h
   rw [hf] at hf'
   obtain ⟨rfl, rfl⟩ : cvC = cvC' ∧ caps = caps' := by simpa using hf'
@@ -162,7 +163,6 @@ theorem nestCont_inv {ctx : NestCtx} {ops : CheckerOps CheckM} {env : Env}
       n ≠ quotName ∧
       ((args.take nPc).all fun x => x.bvarB == 0 && decide (x.fvarB ≤ ctx.hiAt prog.length))
         = true ∧
-      ((args.take nPc).all (·.holesApplied ctx.names ctx.nP (ctx.hiAt 0))) = true ∧
       ∃ nI cty, nestInstType (m := CheckM) ctx (ctx.hiAt prog.length) ⟨n, us, args.take nPc⟩
           = .ok (nI, cty) ∧ args.length = nPc + nI ∧
         nestContKey ctx ops env rec prog kb n us (args.take nPc) nPc cty st
@@ -189,11 +189,6 @@ theorem nestCont_inv {ctx : NestCtx} {ops : CheckerOps CheckM} {env : Env}
     · rw [hc] at h; simp [throw, throwThe, MonadExceptOf.throw] at h
     · rfl
   rw [if_pos h4] at h
-  have h4' : ((List.take nPc args).all (·.holesApplied ctx.names ctx.nP (ctx.hiAt 0))) = true := by
-    cases hc : ((List.take nPc args).all (·.holesApplied ctx.names ctx.nP (ctx.hiAt 0)))
-    · rw [hc] at h; simp [throw, throwThe, MonadExceptOf.throw] at h
-    · rfl
-  rw [if_pos h4'] at h
   split at h
   · simp at h
   rename_i ni hni
@@ -205,7 +200,7 @@ theorem nestCont_inv {ctx : NestCtx} {ops : CheckerOps CheckM} {env : Env}
     · rfl
   rw [if_pos h5] at h
   simp only [Bool.or_eq_true, decide_eq_true_eq, Bool.not_eq_true', not_or] at h2
-  refine ⟨nPc, L, hq', by omega, by simpa using h2.2, by simpa using h3, h4, h4',
+  refine ⟨nPc, L, hq', by omega, by simpa using h2.2, by simpa using h3, h4,
     nI, cty, hni, by simpa using h5, h⟩
 
 end ConLeche

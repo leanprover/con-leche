@@ -216,7 +216,7 @@ theorem blockNestCtxS_sim₂ {env₁ env₂ : Env} (henv₁ : EnvWF env₁) (p :
     rwa [Nat.zero_add] at this
   refine SimC.bind (SimC.unwrapOr' hs₂) (fun s₃ holes holes' hs₃ hP => ?_)
   obtain ⟨rfl, hh⟩ := hP
-  exact SimC.pure hs₃ ⟨rfl, hctx, nestHoles_ok hctx hh, hpar,
+  exact SimC.pure hs₃ ⟨rfl, hctx, nestHoles_ok hctx hpar hh, hpar,
     ConLeche.Verify.openPisAtFvars_length _ hpq, hh, rfl⟩
 
 /-- **The classes, each checked as a major**: every class scoped. -/
