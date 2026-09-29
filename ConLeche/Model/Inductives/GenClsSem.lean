@@ -26,6 +26,10 @@ import ConLeche.Semantics.Tower.BlockRecTower
 import ConLeche.Model.Inductives.GenRecPins
 import ConLeche.Model.Rules.IotaSoundKit
 import ConLeche.Model.Annot.BitLemmas
+import ConLeche.Verify.Inductives.GenRecScoped
+import ConLeche.Verify.CheckerF
+import ConLeche.Verify.EnvBound
+import ConLeche.Model.Inductives.GenOutFacts
 
 public section
 
@@ -964,5 +968,157 @@ theorem genCls_decInv (hμ : μ.verifiedChecks = true)
     Option.getD_some]
 
 end Core
+
+/-! ## The outside classes' reading facts -/
+
+section Out
+
+variable {F : Nat} {env₁ envC : Env} {pp : BlockParts} {nestedBit : Bool} {pos : NestState}
+  {cvTas : List ConstantVal} {block : List ConstantInfo}
+  {ctorsAs : List (List (ConstantVal × Nat))}
+  {out : List (ConstantVal × TargetMajor × List Expr)}
+  {mpC : EnvModelM V μ envC} {d : BlockData V} {Dc : Nat → LfpDatum V} {mc : Nat → Nat}
+  {cvc : Nat → ConstantVal}
+
+/-- **A class's former, as the generator read it** (`classFormerTy`). -/
+theorem genRun_former
+    (R : GenRecRun μ F (mkFEnv env₁) env₁ (mkFEnv envC) pp.toBlockShape nestedBit pos cvTas
+      block ctorsAs out) {cls : Nat} (hi : cls < R.Ms.length) :
+    ConLeche.classFormerTy (m := ConLeche.CheckM) (mkFEnv envC) cvTas (R.Ms.getD cls default)
+      = .ok (R.g.formerTys.getD cls default) := by
+  obtain ⟨-, hallF⟩ := ConLeche.except_mapM_getElem? R.hformer
+  obtain ⟨b, hb, hrun⟩ := hallF cls _ (List.getElem?_eq_getElem hi)
+  show _ = Except.ok (R.formerTysC.getD cls default)
+  have e1 : R.formerTysC.getD cls default = b := by rw [List.getD_eq_getElem?_getD, hb]; rfl
+  have e2 : R.Ms.getD cls default = R.Ms[cls] := by
+    rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hi]; rfl
+  rw [e1, e2]
+  exact hrun
+
+set_option maxHeartbeats 4000000 in
+/-- **An outside class's reading facts** (`GenClsRd` from the class's
+record `TgtOutCls` and its check as a major), and its former. -/
+theorem genClsRd_out (hμ : μ.verifiedChecks = true)
+    (R : GenRecRun μ F (mkFEnv env₁) env₁ (mkFEnv envC) pp.toBlockShape nestedBit pos cvTas
+      block ctorsAs out) (hg : ClassGenScoped R.g) (hcov : LfpCover mpC []) {memR : Nat → Prop}
+    (h : ConLeche.RecStageG μ F envC pp cvTas ctorsAs (tgtRs out) memR)
+    {c : Nat} (hc : c < (tgtRs out).length) (hMo : (tgtMajor out c).member = none)
+    (hcl : TgtOutCls mpC (tgtMajor out c) (Dc c) (mc c) (cvc c))
+    (hnP : pp.nP ≤ pp.toBlockShape.rulePrefixAt c) :
+    GenClsRd mpC d Dc mc cvc pp out c (cvc c) ∧
+      R.g.formerTys.getD (genClsOf R.rd c) default
+        = (cvc c).type.instantiateLevelParams (cvc c).levelParams (tgtMajor out c).lvls := by
+  have hDe : tgtClsD d Dc out c = Dc c := by simp [tgtClsD, hMo]
+  have hMe : tgtClsM mc pp.toBlockShape out c = mc c := by simp [tgtClsM, hMo]
+  have hψe : ∀ ψ, tgtClsψ cvc out ψ c
+      = Level.substFn ψ (cvc c).levelParams (tgtMajor out c).lvls := by
+    intro ψ; simp [tgtClsψ, hMo]
+  -- the class, checked as a major
+  obtain ⟨-, cls, -, -, -, -, -, -, -, hM, hgc⟩ := genRun_at R hc
+  have hi : cls < R.Ms.length := by rw [← hgc]; exact genRun_cls_lt R hc
+  obtain ⟨key, M₀, nfs, hMs, -, ⟨CR⟩⟩ := genRun_class R hi
+  have hget : R.Ms.getD cls default = { M₀ with nfs := nfs } := by
+    rw [List.getD_eq_getElem?_getD, hMs, Option.getD_some]
+  rw [hget] at hM
+  have hMo₀ : M₀.member = none := by rw [hM] at hMo; exact hMo
+  obtain ⟨sI, -, -, -, hct, -, hdsLen, -, hinst, -⟩ := CR.major.outside_facts hMo₀
+  have hdsLen' : (tgtMajor out c).ds.length = (tgtMajor out c).nPc := by rw [hM]; exact hdsLen
+  have hinst' : ConLeche.targetOutsideInst (m := ConLeche.CheckM) (mkFEnv envC)
+      (tgtMajor out c).ind (tgtMajor out c).lvls (tgtMajor out c).ds
+      = .ok ((tgtMajor out c).nIdx, sI) := by rw [hM]; exact hinst
+  have hct' : ConLeche.targetCtorsOf (mkFEnv envC) (tgtMajor out c).ind
+      = some ((tgtMajor out c).nPc, (tgtMajor out c).ctors) := by rw [hM]; exact hct
+  have hlenP : ∀ ψ, ((Dc c).params (Level.substFn ψ (cvc c).levelParams
+      (tgtMajor out c).lvls)).length = (tgtMajor out c).ds.length :=
+    genOutParamsLen hcov hcl hinst' hct' hdsLen'
+  -- the parameters, scoped
+  have hdsS : ∀ x ∈ (tgtMajor out c).ds, ConLeche.ScB pp.nP x := by
+    have hM' : tgtMajor out c = R.g.cls.getD cls default := by rw [hM, ← hget]; rfl
+    intro x hx
+    rw [hM'] at hx
+    exact hg.ds cls x hx
+  have hds : ∀ x ∈ (tgtMajor out c).ds, Expr.WScoped pp.nP x ∧ x.looseBVarsBounded 0 = true :=
+    fun x hx => hdsS x hx
+  -- the instantiation's reading, graded
+  obtain ⟨caps, hfI⟩ := hcl.hfind
+  have hinstG := fun ψ => genCls_inst_graded hμ R hg h mpC ψ hc hdsS hnP
+  have hread : ∀ ψ, ∃ w vs, denoteMeta mpC.base2.acval envC ψ (pp.toBlockShape.rulePrefixAt c)
+      (Expr.mkAppN (.const (tgtMajor out c).ind (tgtMajor out c).lvls) (tgtMajor out c).ds)
+        = some w ∧
+      DenoteMetaSpine mpC.base2.acval envC ψ (pp.toBlockShape.rulePrefixAt c)
+        (tgtMajor out c).ds vs ∧
+      vs = tgtOutDsa mpC.base2.acval envC pp.toBlockShape out ψ c ∧
+      (tgtMajor out c).lvls.length = (cvc c).levelParams.length := by
+    intro ψ
+    obtain ⟨w, hw, -⟩ := hinstG ψ
+    obtain ⟨fa, vs, hfa, hvs, -⟩ := denoteMeta_mkAppN_inv hw
+    obtain ⟨hul, -⟩ := Rules.denoteMeta_const_arityK hfI hfa
+    exact ⟨w, vs, hw, hvs, denoteMetaSpine_eq_map hvs, hul⟩
+  obtain ⟨-, -, -, -, -, hul⟩ := hread (fun _ => 0)
+  have hdsa : ∀ ψ, DenoteMetaSpine mpC.base2.acval envC ψ (tgtRP pp.toBlockShape c)
+      (tgtMajor out c).ds (tgtOutDsa mpC.base2.acval envC pp.toBlockShape out ψ c) := by
+    intro ψ
+    obtain ⟨w, vs, -, hvs, rfl, -⟩ := hread ψ
+    exact hvs
+  have hlenPd := fun ψ =>
+    blockRulePdomsAV_length (V := V) hμ mpC h (List.getElem?_eq_getElem hc) ψ
+  refine ⟨{
+    hfind := ⟨caps, hfI⟩
+    hmem := by rw [hDe, hMe]; exact hcl.hmem
+    hD := by rw [hDe]; exact hcl.hD
+    hmm := by rw [hDe, hMe]; exact hcl.hmm
+    hnN := by rw [hDe]; exact hcl.hnN
+    hkN := by rw [hDe]; exact hcl.hkN
+    hnd := hcl.hnd
+    hul := hul
+    hψ := hψe
+    hds := hds
+    hlenP := fun ψ => by rw [hDe, hψe]; exact hlenP ψ
+    hidsLen := fun ψ => by rw [hDe, hMe, hψe]; exact genOutIdxLen hcl hinst' ψ (hlenP ψ)
+    hnIdx := tgtClsNIdx_out hMo
+    hdsa := hdsa
+    hG := fun ψ ρ xs => by simp [tgtClsG, hMo]
+    hfr := fun ψ ρ xs _ => by simp [tgtClsFr, hMo]
+    hsat := fun ψ ρ xs hfit => ?_
+    hctor := fun j cA hcA => ?_
+    hctorAt := fun cv _ => by simp [ConLeche.targetCtorAt, hMo]
+    hnpc := hdsLen'.symm }, ?_⟩
+  · -- the parameters satisfy the class's telescope at the key frame
+    obtain ⟨w, hw, hgr⟩ := hinstG ψ
+    rw [hDe, hψe]
+    have hwa : denoteMeta mpC.base2.acval envC ψ (pp.toBlockShape.rulePrefixAt c)
+        (Expr.mkAppN (.const ((Dc c).member (mc c)) (tgtMajor out c).lvls)
+          ((tgtMajor out c).ds ++ [])) = some w := by
+      rw [List.append_nil, hcl.hmem]; exact hw
+    have hsatP : Sat V (blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c).reverse
+        (consList xs ρ) := by
+      simpa using sat_of_spineFit (Δ₀ := []) (Sat_nil V ρ) hfit
+    have := keyParamsFit mpC hcl.hD hcl.hmm (by rw [hcl.hmem]; exact hfI) (Nat.le_refl _) hwa
+      (hlenP ψ).symm (fun x hx => (hds x hx).1.mono hnP) (hdsa ψ) (consList xs ρ) (hgr _ hsatP)
+    have e0 : dropV (pp.toBlockShape.rulePrefixAt c - pp.toBlockShape.rulePrefixAt c)
+        (consList xs ρ) = consList xs ρ := by rw [Nat.sub_self]; funext _; rfl
+    rw [e0] at this
+    exact this
+  · obtain ⟨hjD, hfc, hlpC, hlps⟩ := hcl.ctor_at hcA
+    rw [hDe, hMe]
+    refine ⟨hjD, by rw [hdsLen']; exact hfc, hlpC.symm, fun mm hmm => ?_⟩
+    obtain ⟨cv, caps', hf', hl'⟩ := hlps mm hmm
+    exact ⟨cv, caps', hf', hl'.trans hlpC.symm⟩
+  · -- the former
+    have hfr0 := genRun_former R hi
+    rw [hget] at hfr0
+    unfold ConLeche.classFormerTy at hfr0
+    rw [hgc]
+    have hMo' : ({ M₀ with nfs := nfs } : TargetMajor).member = none := hMo₀
+    rw [hMo'] at hfr0
+    have hfI' : (mkFEnv envC).find? ({ M₀ with nfs := nfs } : TargetMajor).ind
+        = some (.indInfo (cvc c) caps) := by
+      rw [mkFEnv_find?, ← hM]; exact hfI
+    rw [hfI'] at hfr0
+    simp only [pure, Except.pure] at hfr0
+    injection hfr0 with hfr1
+    rw [← hfr1, hM]
+
+end Out
 
 end ConLeche.Model
