@@ -29,10 +29,6 @@ first. -/
   | _, 0 => []
   | d, k + 1 => Expr.fvar d (.sort .zero) :: openFvars (d + 1) k
 
-@[simp] theorem openFvars_length : ∀ (d k : Nat), (openFvars d k).length = k
-  | _, 0 => rfl
-  | d, k + 1 => by simp [openFvars, openFvars_length (d + 1) k]
-
 theorem openFvars_succ (d k : Nat) :
     openFvars d (k + 1) =
       Expr.fvar d (.sort .zero) :: openFvars (d + 1) k := by rfl

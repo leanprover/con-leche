@@ -608,13 +608,6 @@ variable {acval : Name → (Name → Nat) → AnnotTerm}
 
 /-! ## Bits reset -/
 
-/-- Binder data with every codomain bit reset to `b`. -/
-@[expose] def rebit (b : Nat) (ds : List (Nat × Nat × AnnotTerm)) : List (Nat × Nat × AnnotTerm) :=
-  ds.map fun d => (d.1, b, d.2.2)
-
-@[simp] theorem rebit_map_dom (b : Nat) (ds : List (Nat × Nat × AnnotTerm)) :
-    (rebit b ds).map (·.2.2) = ds.map (·.2.2) := by simp [rebit]
-
 /-! ## Syntactic bookkeeping -/
 
 /-- The variables of an opening at any depth: one per binder, indexed

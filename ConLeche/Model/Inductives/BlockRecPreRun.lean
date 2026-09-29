@@ -582,24 +582,6 @@ section IhValues
 
 /-! ### The tower congruence -/
 
-/-- **The `ih` openers' VALUES**, built from the recursion GRAPH `g`
-alone: per key the λ-tower over the field's telescope whose body is
-`g` at the PREDECESSOR the guarded call names — the field applied to
-the telescope spine, tagged with its class and its index tuple. -/
-@[expose] noncomputable def blockRecIhvAt (ℓ : Nat) (tup : Nat → List V → V) (σ : Nat → V)
-    (ihKeys : List (Nat × Nat)) (tlA : Nat → List (Nat × Nat × AnnotTerm))
-    (eisA : Nat → List AnnotTerm) (fapA : Nat → AnnotTerm) (g : V) : List V :=
-  ihKeys.map fun key =>
-    lamTowerA ℓ σ [] (tlA key.1) fun _ τ =>
-      app g (tagged key.2 (tup key.2 ((eisA key.1).map (interp V τ)))
-        (interp V τ (fapA key.1)))
-
-@[simp] theorem blockRecIhvAt_length (ℓ : Nat) (tup : Nat → List V → V) (σ : Nat → V)
-    (ihKeys : List (Nat × Nat)) (tlA : Nat → List (Nat × Nat × AnnotTerm))
-    (eisA : Nat → List AnnotTerm) (fapA : Nat → AnnotTerm) (g : V) :
-    (blockRecIhvAt ℓ tup σ ihKeys tlA eisA fapA g).length = ihKeys.length := by
-  simp [blockRecIhvAt]
-
 end IhValues
 
 section IhDomains

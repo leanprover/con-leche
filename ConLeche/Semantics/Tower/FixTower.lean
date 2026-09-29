@@ -240,24 +240,6 @@ universe uv
 
 variable {V : Type uv} [SetTheory V]
 
-/-- `structIdxAt nF o i l m`'s reading: field `i`'s expression sitting
-under `m` binders of the field's own telescope, moved to the ih frame. -/
-def ihIdxAtM (nF o i l m : Nat) (E : AnnotTerm) : AnnotTerm :=
-  (E.liftN (nF - i + l) m).liftN o (nF + l + m)
-
-/-- `structTeleAt`'s reading: field `i`'s telescope (its entries read
-at the field's own frame, binder `k` under `k` earlier telescope
-binders) moved to the ih binder's frame. -/
-def ihTeleAtGo (nF o i l : Nat) : Nat → List (Nat × Nat × AnnotTerm) → List (Nat × Nat × AnnotTerm)
-  | _, [] => []
-  | k, d :: tl => (d.1, d.2.1, ihIdxAtM nF o i l k d.2.2) :: ihTeleAtGo nF o i l (k + 1) tl
-
-/-- The whole telescope moved (binder `k` under `k` earlier ones). -/
-def ihTeleAtR (nF o i l : Nat) (tl : List (Nat × Nat × AnnotTerm)) : List (Nat × Nat × AnnotTerm) :=
-  ihTeleAtGo nF o i l 0 tl
-
-@[simp] theorem ihTeleAtR_nil (nF o i l : Nat) : ihTeleAtR nF o i l [] = [] := rfl
-
 /-! ## Field sources among the index expressions -/
 
 /-- The source of field `j` among the constructor's index expressions:

@@ -76,19 +76,6 @@ variable {V : Type w} [SetTheory V] {μ : CheckMode}
 
 /-! ## 1. The frame transport: a ZERO chain is no chain -/
 
-/-- **A zero lift is no lift**, at a binder list: `liftDomsK 0` is the
-identity at every cutoff, with no boundedness side condition. -/
-@[simp] theorem liftDomsK_zero :
-    ∀ (k : Nat) (Ds : List AnnotTerm), liftDomsK 0 k Ds = Ds
-  | _, [] => rfl
-  | k, D :: Ds => by
-    show AnnotTerm.liftN 0 D k :: liftDomsK 0 (k + 1) Ds = D :: Ds
-    rw [AnnotTerm.liftN_zero, liftDomsK_zero (k + 1) Ds]
-
-omit [SetTheory V] in
-/-- **A zero chain is no chain**: `chainFrame 0` is the base frame. -/
-@[simp] theorem chainFrame_zero (a ρ : Nat → V) : chainFrame 0 a ρ = ρ := rfl
-
 /-! ## 2. The major premise's decomposition
 
 The iota rule compares no parameters, so nothing SYNTACTIC ties the
