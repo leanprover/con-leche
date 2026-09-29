@@ -108,6 +108,248 @@ theorem targetMajorNfs_sub {ops : CheckerOps CheckM} {env : Env} {p : BlockShape
       subst h
       exact List.mem_cons_of_mem _ (ih e he)
 
+
+/-! ## The pre-pass: a minor premise after the motives it names -/
+
+/-- The prefix positions of the motives among `slots` (`ClassRead.motiveSlot`'s list). -/
+@[expose] def ClassRead.motPosOf (slots : List ClassSlot) : List Nat :=
+  (List.range slots.length).filter fun s =>
+    match slots[s]? with | some (.motive _) => true | _ => false
+
+theorem ClassRead.motiveSlot_eq (slots : List ClassSlot) (c : Nat) :
+    ClassRead.motiveSlot ⟨slots, []⟩ c = (ClassRead.motPosOf slots)[c]? := rfl
+
+theorem ClassRead.motPosOf_append (A B : List ClassSlot) :
+    ClassRead.motPosOf (A ++ B) =
+      ClassRead.motPosOf A ++ (ClassRead.motPosOf B).map (A.length + ·) := by
+  unfold ClassRead.motPosOf
+  rw [List.length_append, List.range_add, List.filter_append, List.filter_map]
+  congr 1
+  · apply List.filter_congr
+    intro s hs
+    rw [List.mem_range] at hs
+    rw [List.getElem?_append_left hs]
+  · congr 1
+    apply List.filter_congr
+    intro s _
+    simp only [Function.comp_apply]
+    rw [List.getElem?_append_right (by omega)]
+    simp
+
+theorem ClassRead.motPosOf_lt {slots : List ClassSlot} {v : Nat}
+    (h : v ∈ ClassRead.motPosOf slots) : v < slots.length := by
+  unfold ClassRead.motPosOf at h
+  exact List.mem_range.mp (List.mem_filter.mp h).1
+
+/-- A motive ordinal below the motives of the first `s` slots has its
+motive before slot `s`. -/
+theorem ClassRead.motiveSlot_of_lt {slots : List ClassSlot} {s c : Nat}
+    (h : c < (ClassRead.motPosOf (slots.take s)).length) :
+    ∃ s', s' < s ∧ ClassRead.motiveSlot ⟨slots, []⟩ c = some s' := by
+  have hsp : slots = slots.take s ++ slots.drop s := (List.take_append_drop s slots).symm
+  rw [ClassRead.motiveSlot_eq, hsp, ClassRead.motPosOf_append, List.getElem?_append_left h,
+    List.getElem?_eq_getElem h]
+  refine ⟨_, ?_, rfl⟩
+  have := ClassRead.motPosOf_lt (List.getElem_mem h)
+  simp only [List.length_take] at this
+  omega
+
+theorem classOfMotiveVar_lt {nP : Nat} {motPos : List Nat} {p c : Nat}
+    (h : classOfMotiveVar nP motPos p = some c) : c < motPos.length := by
+  unfold classOfMotiveVar at h
+  split at h
+  · exact (List.findIdx?_eq_some_iff_getElem.mp h).1
+  · exact nomatch h
+
+/-- **A minor premise's reading names motives read before it**: its class
+and every inductive hypothesis's class are ordinals into `motPos`. -/
+theorem classReadMinor_cls {np : Nat} {motPos : List Nat} {d : Nat} {dom : Expr} {c : Nat}
+    {C : Name} {ihs : List (Nat × Nat)}
+    (h : classReadMinor np motPos d dom = some (.minor c C ihs)) :
+    c < motPos.length ∧ ∀ q ∈ ihs, q.2 < motPos.length := by
+  unfold classReadMinor at h
+  simp only [Option.bind_eq_bind, Option.bind_eq_some_iff] at h
+  obtain ⟨a, -, h⟩ := h
+  split at h
+  · simp only [Option.bind_eq_some_iff] at h
+    obtain ⟨c', hc', x, -, h⟩ := h
+    split at h
+    · simp only [Option.pure_def, Option.some.injEq, ClassSlot.minor.injEq] at h
+      obtain ⟨rfl, -, rfl⟩ := h
+      refine ⟨classOfMotiveVar_lt hc', fun q hq => ?_⟩
+      obtain ⟨j, -, hj⟩ := List.mem_filterMap.mp hq
+      split at hj
+      · split at hj
+        · rename_i t ht
+          split at hj
+          · split at hj
+            · split at hj
+              · simp only [Option.some.injEq] at hj
+                subst hj
+                exact classOfMotiveVar_lt ht
+              · exact nomatch hj
+            · exact nomatch hj
+          · exact nomatch hj
+        · exact nomatch hj
+      · exact nomatch hj
+    · exact nomatch h
+  · exact nomatch h
+
+theorem ClassRead.motPosOf_snoc_minor (pre : List ClassSlot) (c : Nat) (C : Name)
+    (ihs : List (Nat × Nat)) :
+    ClassRead.motPosOf (pre ++ [.minor c C ihs]) = ClassRead.motPosOf pre := by
+  rw [ClassRead.motPosOf_append]; simp [ClassRead.motPosOf]
+
+theorem ClassRead.motPosOf_snoc_motive (pre : List ClassSlot) (k : ClassKey) :
+    ClassRead.motPosOf (pre ++ [.motive k]) = ClassRead.motPosOf pre ++ [pre.length] := by
+  rw [ClassRead.motPosOf_append]; simp [ClassRead.motPosOf]
+
+/-- **The slots the pre-pass reads**: every minor premise's class and
+inductive hypotheses' classes are motives of the slots before it. -/
+theorem classReadSlots_order (nPc : Name → Nat) (np : Nat) :
+    ∀ (n : Nat) (pre : List ClassSlot) (body : Expr) (rest : List ClassSlot),
+      classReadSlots nPc np n (ClassRead.motPosOf pre) (np + pre.length) body = some rest →
+      ∀ (j c : Nat) (C : Name) (ihs : List (Nat × Nat)), rest[j]? = some (.minor c C ihs) →
+        c < (ClassRead.motPosOf (pre ++ rest.take j)).length ∧
+        ∀ q ∈ ihs, q.2 < (ClassRead.motPosOf (pre ++ rest.take j)).length
+  | 0, pre, body, rest, h => by
+    simp only [classReadSlots, Option.some.injEq] at h
+    subst h
+    intro j c C ihs hj
+    exact nomatch hj
+  | n + 1, pre, .forallE dom body bm, rest, h => by
+    have fin : ∀ (slot : ClassSlot) (rest' : List ClassSlot),
+        (∀ c C ihs, slot = .minor c C ihs →
+          classReadMinor np (ClassRead.motPosOf pre) (np + pre.length) dom = some slot) →
+        classReadSlots nPc np n (ClassRead.motPosOf (pre ++ [slot])) (np + pre.length + 1)
+          (body.instantiate1 (.fvar (np + pre.length) dom)) = some rest' →
+        ∀ (j c : Nat) (C : Name) (ihs : List (Nat × Nat)),
+          (slot :: rest')[j]? = some (.minor c C ihs) →
+          c < (ClassRead.motPosOf (pre ++ (slot :: rest').take j)).length ∧
+          ∀ q ∈ ihs, q.2 < (ClassRead.motPosOf (pre ++ (slot :: rest').take j)).length := by
+      intro slot rest' hmin hrest j c C ihs hj
+      cases j with
+      | zero =>
+        simp only [List.getElem?_cons_zero, Option.some.injEq] at hj
+        subst hj
+        simpa using classReadMinor_cls (hmin _ _ _ rfl)
+      | succ j =>
+        simp only [List.getElem?_cons_succ] at hj
+        rw [show np + pre.length + 1 = np + (pre ++ [slot]).length by simp; omega] at hrest
+        have := classReadSlots_order nPc np n (pre ++ [slot]) _ rest' hrest j c C ihs hj
+        simpa [List.take_succ_cons, List.append_assoc] using this
+    unfold classReadSlots at h
+    dsimp only at h
+    split at h
+    · cases hl : dom.piBinders.fst.getLast? with
+      | none => simp [hl] at h
+      | some md =>
+        obtain ⟨mdom, mb⟩ := md
+        simp only [hl, Option.bind_eq_bind, Option.bind_some] at h
+        split at h
+        · simp only [Option.pure_def, Option.bind_some, Option.bind_eq_some_iff] at h
+          obtain ⟨rest', hrest', h⟩ := h
+          obtain rfl := Option.some.inj h
+          refine fin _ rest' (fun _ _ _ h => nomatch h) ?_
+          rw [ClassRead.motPosOf_snoc_motive]
+          simpa using hrest'
+        · simp at h
+    · cases hm : classReadMinor np (ClassRead.motPosOf pre) (np + pre.length) dom with
+      | none => simp [hm] at h
+      | some slot =>
+        simp only [hm, Option.bind_eq_bind, Option.bind_some, Option.bind_eq_some_iff] at h
+        obtain ⟨rest', hrest', h⟩ := h
+        obtain rfl := Option.some.inj h
+        obtain ⟨c, C, ihs, rfl⟩ := Cached.classReadMinor_minor hm
+        refine fin _ rest' (fun _ _ _ _ => hm) ?_
+        rw [ClassRead.motPosOf_snoc_minor]
+        simpa using hrest'
+  | _ + 1, _, .bvar _, _, h | _ + 1, _, .fvar .., _, h
+  | _ + 1, _, .sort _, _, h | _ + 1, _, .const .., _, h
+  | _ + 1, _, .app .., _, h | _ + 1, _, .lam .., _, h
+  | _ + 1, _, .letE .., _, h | _ + 1, _, .lit _, _, h
+  | _ + 1, _, .proj .., _, h => by simp [classReadSlots] at h
+
+/-- **The pre-pass's layout**: every minor premise comes after the
+motives of its class and of its inductive hypotheses' classes. -/
+theorem classRead_order {nP : Nat} {nPc : Name → Nat} {recs : List RecShape} {rd : ClassRead}
+    (h : classRead nP nPc recs = some rd) :
+    ∀ (s c : Nat) (C : Name) (ihs : List (Nat × Nat)), rd.slots[s]? = some (.minor c C ihs) →
+      (∃ s', s' < s ∧ ClassRead.motiveSlot ⟨rd.slots, []⟩ c = some s') ∧
+      ∀ q ∈ ihs, ∃ s', s' < s ∧ ClassRead.motiveSlot ⟨rd.slots, []⟩ q.2 = some s' := by
+  unfold classRead at h
+  simp only [Option.bind_eq_bind, Option.bind_eq_some_iff] at h
+  obtain ⟨rc0, -, ⟨pf, body⟩, -, slots, hslots, recCls, -, h⟩ := h
+  simp only [Option.pure_def, Option.some.injEq] at h
+  subst h
+  intro s c C ihs hs
+  have hslots' : classReadSlots nPc nP (rc0.rP - nP) (ClassRead.motPosOf [])
+      (nP + ([] : List ClassSlot).length) body = some slots := by
+    simpa [ClassRead.motPosOf] using hslots
+  obtain ⟨hc, hq⟩ := classReadSlots_order nPc nP _ [] body slots hslots' s c C ihs hs
+  simp only [List.nil_append] at hc hq
+  exact ⟨ClassRead.motiveSlot_of_lt hc, fun q hq' => ClassRead.motiveSlot_of_lt (hq q hq')⟩
+
+/-- The one minor premise slot of a class's constructor. -/
+theorem classMinorSlot_unique {rd : ClassRead} {c : Nat} {C : Name} {s' : Nat}
+    {ihs' : List (Nat × Nat)} (h : classMinorSlot (m := CheckM) rd c C = .ok (s', ihs')) :
+    ∀ s ihs, rd.slots[s]? = some (.minor c C ihs) → s = s' ∧ ihs = ihs' := by
+  intro s ihs hs
+  simp only [classMinorSlot] at h
+  split at h
+  · rename_i x hx
+    simp only [pure, Except.pure, Except.ok.injEq] at h
+    subst h
+    have hmem : (s, ihs) ∈ [(s', ihs')] := by
+      rw [← hx]
+      refine List.mem_filterMap.mpr ⟨s, List.mem_range.mpr (List.getElem?_eq_some_iff.mp hs).1, ?_⟩
+      simp [hs]
+    simpa using hmem
+  · simp [throw, throwThe, MonadExceptOf.throw] at h
+
+/-- The generator's recursive kinds are the minor premise's inductive
+hypotheses' classes. -/
+theorem classFieldsOf_rec {p : BlockShape} {ctor : Name} {ihs : List (Nat × Nat)} :
+    ∀ (i : Nat) (fvs : List Expr) (ks : List ClassField),
+      classFieldsOf (m := CheckM) p ctor ihs i fvs = .ok ks →
+      ∀ t tele, ClassField.recursive t tele ∈ ks → ∃ f, (f, t) ∈ ihs
+  | i, [], ks, h => by
+    simp only [classFieldsOf, pure, Except.pure, Except.ok.injEq] at h
+    subst h; intro t tele ht; exact nomatch ht
+  | i, f :: fs, ks, h => by
+    unfold classFieldsOf at h
+    dsimp only at h
+    intro t tele ht
+    have tail : ∀ k' : ClassField, (classFieldsOf (m := CheckM) p ctor ihs (i + 1) fs >>=
+        fun ks' => pure (k' :: ks')) = Except.ok ks → ClassField.recursive t tele ∈ ks →
+        k' = .recursive t tele ∨ ∃ f, (f, t) ∈ ihs := by
+      intro k' hk hmem
+      obtain ⟨ks', hks', hk⟩ := exceptBind_ok hk
+      simp only [pure, Except.pure, Except.ok.injEq] at hk
+      subst hk
+      rcases List.mem_cons.mp hmem with h' | h'
+      · exact .inl h'.symm
+      · exact .inr (classFieldsOf_rec (i + 1) fs ks' hks' t tele h')
+    split at h
+    · obtain ⟨k', hk', h⟩ := exceptBind_ok h
+      simp only [pure, Except.pure, Except.ok.injEq] at hk'
+      subst hk'
+      rcases tail _ h ht with h' | h'
+      · exact nomatch h'
+      · exact h'
+    · rename_i a t' _ hf
+      obtain ⟨k', hk', h⟩ := exceptBind_ok h
+      simp only [pure, Except.pure, Except.ok.injEq] at hk'
+      subst hk'
+      rcases tail _ h ht with h' | h'
+      · simp only [ClassField.recursive.injEq] at h'
+        obtain ⟨rfl, -⟩ := h'
+        have : (a, t') ∈ ihs.filter (·.1 == i) := by rw [hf]; exact List.mem_cons_self
+        exact ⟨a, (List.mem_filter.mp this).1⟩
+      · exact h'
+    · obtain ⟨k', hk', h⟩ := exceptBind_ok h
+      simp [throw, throwThe, MonadExceptOf.throw] at hk'
+
 /-! ## The run's pieces -/
 
 section Run
@@ -308,6 +550,113 @@ theorem genRun_ctor
     exact ⟨_, _, List.getElem?_eq_getElem hc, List.getElem_mem _, hR⟩
   · rw [List.getD_eq_getElem?_getD, List.getElem?_eq_none (by omega)] at hx
     exact nomatch hx
+
+/-- A class of the run (checked, with its table entries), at its index:
+the scoping facts of the major it was checked as. -/
+theorem genRun_cls
+    (R : GenRecRun mode F (mkFEnv env₁) env₁ (mkFEnv envC) p nestedBit pos cvTas block ctorsAs out)
+    (henvC : EnvWF envC) (hT : ∀ cv ∈ cvTas, ScB 0 cv.type)
+    (hct : ∀ ctorsA ∈ ctorsAs, ∀ c ∈ ctorsA, ScB 0 c.1.type) {c : Nat} {M : TargetMajor}
+    (hM : R.Ms[c]? = some M) :
+    (∀ x ∈ M.ds, ScB p.nP x) ∧ (∀ cA ∈ M.ctors, ScB 0 (targetCtorAt M cA.1)) ∧
+      (∀ t, M.member = some t → t < p.memberNames.length) ∧
+      (M.member = none → ∃ cv caps, envC.find? M.ind = some (.indInfo cv caps)) ∧
+      ∀ e ∈ M.nfs, e ∈ R.st.ctorNfs.toList := by
+  obtain ⟨-, hall⟩ := genRun_Ms R
+  obtain ⟨M₀, hM₀, hMe, hsub⟩ := hall c M hM
+  obtain ⟨hds, -, hctA, hmem, hout⟩ := genRun_Ms₀ R henvC hT hct M₀ (List.mem_of_getElem? hM₀)
+  rw [hMe]
+  exact ⟨hds, hctA, hmem, hout, by rw [← hMe]; exact hsub⟩
+
+/-- **The generated stage's generator inputs are scoped** (`ClassGenScoped`,
+see the module docstring) — the hypothesis `hg` of `recStage_of_gen` and
+of the family premise, from the run and:
+
+* `henv₁`/`henvC`: the formers' and the constructors' environments well
+  formed (`EnvWF`, the install's invariant);
+* `hT`/`hct`: the stream's formers and constructors closed (checked
+  constants, `checkConstantVal_typeWF`);
+* `hTlen`: a former per member (the formers' pass);
+* `hpos`: the positivity stage's final state scoped
+  (`checkBlockPositivity_nfScoped`). -/
+theorem genScoped_of_run
+    (R : GenRecRun mode F (mkFEnv env₁) env₁ (mkFEnv envC) p nestedBit pos cvTas block ctorsAs out)
+    (henv₁ : EnvWF env₁) (henvC : EnvWF envC)
+    (hT : ∀ cv ∈ cvTas, ScB 0 cv.type) (hTlen : p.memberNames.length ≤ cvTas.length)
+    (hct : ∀ ctorsA ∈ ctorsAs, ∀ c ∈ ctorsA, ScB 0 c.1.type)
+    (hpos : NfStScoped p.nP pos) :
+    ClassGenScoped R.g := by
+  obtain ⟨hlP, hP⟩ := genRun_params R hT
+  have htbl := genRun_tbl_scoped R henv₁ henvC hT hct hpos
+  have hcls := fun {c} {M} (hM : R.Ms[c]? = some M) => genRun_cls R henvC hT hct hM
+  refine ⟨hlP, hP, ?ds, ?former, ?tyN, ?tyD, ?order, ?pre⟩
+  case ds =>
+    intro c e he
+    show ScB p.nP e
+    change e ∈ (R.Ms.getD c default).ds at he
+    rw [List.getD_eq_getElem?_getD] at he
+    cases hM : R.Ms[c]? with
+    | none => rw [hM] at he; exact nomatch he
+    | some M => rw [hM] at he; exact (hcls hM).1 e he
+  case former =>
+    intro c hc
+    change c < R.Ms.length at hc
+    change ScB 0 (R.formerTysC.getD c default)
+    obtain ⟨hlF, hallF⟩ := except_mapM_getElem? R.hformer
+    obtain ⟨b, hb, hrun⟩ := hallF c _ (List.getElem?_eq_getElem hc)
+    rw [List.getD_eq_getElem?_getD, hb, Option.getD_some]
+    obtain ⟨-, -, hmem, hout, -⟩ := hcls (List.getElem?_eq_getElem hc)
+    unfold classFormerTy at hrun
+    split at hrun
+    · rename_i t ht
+      simp only [pure, Except.pure, Except.ok.injEq] at hrun
+      subst hrun
+      have htl : t < cvTas.length := Nat.lt_of_lt_of_le (hmem t ht) hTlen
+      rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem htl, Option.getD_some]
+      exact hT _ (List.getElem_mem htl)
+    · rename_i hn
+      split at hrun
+      · rename_i cv caps hf
+        simp only [pure, Except.pure, Except.ok.injEq] at hrun
+        subst hrun
+        rw [mkFEnv_find?_fun] at hf
+        have hw := henvC _ (List.mem_of_find?_eq_some hf)
+        refine ScB.of_closed ?_ ?_ 0
+        · rw [Expr.hasFvar_instantiateLevelParams]; exact hw.1
+        · rw [Expr.looseBVarsBounded_instantiateLevelParams]; exact hw.2.2.2.1
+      · simp [throw, throwThe, MonadExceptOf.throw] at hrun
+  case tyN =>
+    intro c x hx
+    change ScB p.nP x.tyN
+    obtain ⟨M, cA, hM, -, ⟨Q⟩⟩ := genRun_ctor R hx
+    have hty : x.tyN = Q.e0.ty := congrArg ClassCtor.tyN Q.hx
+    rw [hty]
+    have he0 : Q.e0 ∈ Q.E := List.mem_of_mem_head? Q.he0
+    rw [Q.hE, List.getD_eq_getElem?_getD, hM, Option.getD_some] at he0
+    exact htbl _ ((hcls hM).2.2.2.2 _ (List.mem_filter.mp he0).1)
+  case tyD =>
+    intro c x hx
+    change ScB p.nP x.tyD
+    obtain ⟨M, cA, hM, hcA, ⟨Q⟩⟩ := genRun_ctor R hx
+    have hD := Q.hD
+    rw [List.getD_eq_getElem?_getD, hM, Option.getD_some] at hD
+    obtain ⟨hds, hctA, -⟩ := hcls hM
+    exact ScB.of_instPisWith hD ((hctA cA hcA).mono (Nat.zero_le _)) hds
+  case order =>
+    intro s c C ihs hs
+    change R.rd.slots[s]? = some (.minor c C ihs) at hs
+    obtain ⟨hc, hq⟩ := classRead_order R.hrd s c C ihs hs
+    refine ⟨hc, fun x hx hxC t tele ht => ?_⟩
+    obtain ⟨M, cA, -, -, ⟨Q⟩⟩ := genRun_ctor R hx
+    have hcv : x.cv = cA.1 := congrArg ClassCtor.cv Q.hx
+    have hkinds := Q.hkinds
+    have hslot := Q.hslot
+    rw [← hcv, hxC] at hslot hkinds
+    obtain ⟨-, rfl⟩ := classMinorSlot_unique hslot s ihs hs
+    obtain ⟨f, hf⟩ := classFieldsOf_rec 0 Q.fvs x.kinds hkinds t tele ht
+    exact hq (f, t) hf
+  case pre =>
+    exact R.hpre
 
 end Run
 
