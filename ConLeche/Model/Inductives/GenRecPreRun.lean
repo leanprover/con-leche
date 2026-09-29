@@ -519,6 +519,30 @@ theorem genRun_below (hμ : μ.verifiedChecks = true)
         rw [hxe]
         exact ConLeche.ScB.fvar (by omega) hty
 
+/-- **The declared field domains are bounded** at the rule frame (read
+off the scoped declared type). -/
+theorem genRun_fdomsBelow (hμ : μ.verifiedChecks = true)
+    (R : GenRecRun μ F (mkFEnv env₁) env₁ (mkFEnv envC) p.toBlockShape nestedBit pos cvTas
+      block ctorsAs out) (hg : ClassGenScoped R.g) {memR : Nat → Prop}
+    (h : ConLeche.RecStageG μ F envC p cvTas ctorsAs (tgtRs out) memR) (mpC : EnvModelM V μ envC)
+    (ψ : Name → Nat) :
+    ∀ c, c < (tgtRs out).length → ∀ j, j < blockRecNCt (tgtRs out) c →
+      FieldsBelow (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape (tgtRs out) ψ c).length
+        (tgtFdomsAV p.toBlockShape out mpC.base2.acval envC ψ c j) := by
+  intro c hc j hj
+  obtain ⟨cls, cA, fvs, cb, -, -, -, -, -, -, -, hRP, hop, hfv, -, -, hxmem⟩ :=
+    genRun_frame hμ R hg hc hj
+  rw [← genRun_gpre hμ R hg h mpC ψ c hc, tgtFdomsAV, hRP, hfv]
+  obtain ⟨s, -, hsl⟩ := genRun_motive R hc
+  have hpl := genRun_pre_length R hg
+  have htyD : ConLeche.ScB R.pre.length (genCtorAt R.g R.rd c j).tyD :=
+    (hg.tyD cls _ hxmem).mono (by show p.nP ≤ R.pre.length; omega)
+  obtain ⟨-, hfvs, -⟩ := ConLeche.ScB.openPis hop htyD
+  exact readOpenedDoms_below mpC.base2 (by show 0 < R.pre.length; omega) fun k y hy => by
+    obtain ⟨ty, rfl, hty⟩ := hfvs k y hy
+    show ConLeche.ScB (R.pre.length + k) ty
+    exact hty
+
 /-! ## The stored conclusion is the motive applied -/
 
 /-- **The stored type of recursor `c`**: the generated type of its class,
