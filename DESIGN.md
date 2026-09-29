@@ -94051,3 +94051,84 @@ lane made unneeded, removed) and pub-imports (none demotable);
 layering; overview-links (OVERVIEW §5's pseudo-code rewritten: step 3 is
 the root frame, `CTORS` the one constructor loop, `POS`'s one hole rule;
 anchors updated); quote gate.
+
+## GENREC M1 — the generated recursor stage's kernel, its run records and the ported generator proofs (2026-09-29, `agent/uinds-GENREC`)
+
+Charter item 5 as amended today (GENREC).  **Milestone 1 of the lane; no
+verdict change: the new stage is DEFINED, not wired** (`checkBlockRec` is
+still the target check).  Sorry-free, standard axioms.
+
+**Kernel** — `Kernel/Inductives/GenRec.lean` (`genRecCheck`) and the
+UNVERIFIED pre-pass `Kernel/Inductives/ClassRead.lean` (the classes, the
+prefix layout and every recursor's class, read off the stream's CHECKED
+recursor types; data only).  Design decisions (taken here; they depart
+from GENREC.md §1.1 where marked):
+* **The stored recursor is the generated one, TYPE included** (GENREC.md
+  kept the stream's type and transferred by defeq): each generated type is
+  checked as a constant (`checkConstantValF`) under the stream record's
+  name and level parameters and stored; the stream's type is compared with
+  it by `isDefEq`, reject-only (`classRecTyOk`).  The type transfer
+  (`ClassRecTransfer`) is not needed.  The stored rules are the generated
+  ones (`classRuleOk`: annotated, resolved, inferred at the rule-less
+  generated recursors' environment); the stream's rules are never read.
+* **Official's shape** (`mk_rec_infos`): a minor premise and a rule bind the
+  constructor's DECLARED fields at the class's instantiation
+  (`ClassCtor.tyD = instPisWith M.ds (targetCtorAt M cA.1)` — literally the
+  old rule check's frame `tgtCrest`) and conclude at the declared result's
+  indices; only each inductive hypothesis's telescope and indices come
+  from the datum's WALKED field type (`ClassCtor.tyN`, instantiated at the
+  declared fields, `targetPiDomsWith`).  The M0 spike used the walked form
+  throughout.
+* **The table is untouched** (M0 added the walk's kinds to `NestCtorNf`,
+  which broke the positivity proofs and SIMP-D's interface): a datum field
+  is recursive iff its walked type names a member (`classFieldsOf`,
+  `nestOcc … 0 0` — the positivity check classifies exactly those fields as
+  recursive or nested).  Whether a field gets an `ih` is a verdict matter,
+  not a soundness one.
+* Node agreement (K.53′) at every entry of every (class, constructor) and
+  every recursive field (`classFieldsAgree` over `targetK53`); seeds from
+  the classes (`classSeeds`); one class per member; the elimination guard
+  at the container bit or'ed with every outside class.
+
+**Run records** — `Verify/Inductives/GenRecRun.lean`: one inversion per
+stage (`classStreamRecs_run`, `classMajors_run`, `classesNfs_run`,
+`ClassCtorRun`, `ClassRecTyRun`, `ClassRuleRun`, …) and `GenRecRun` /
+`genRecCheck_run`.
+
+**The stage record, generalised for a generated family** —
+`RecTyGen.cv0` (the checked constant carries the record's name and level
+parameters, its type may be the generated one), `RecStage.ruleOut` no
+longer tied to the stream's rules, `RecFamFacts.prefixAgree` =
+checked ∨ `RecPrefixSame` (the annotated generated types share their
+prefix domains syntactically; `blockRecHpref_run` reads it as equal
+readings).  The target check's producer supplies the old alternatives.
+
+**Ported from `classcheck-parked`** (sub-lane GENREC-PORT, adapted to
+`TargetMajor` classes and the declared/walked split):
+`Verify/Inductives/ClassGen{Scope,Annot,MinorSyn}.lean`,
+`Model/Inductives/{ClassRecKit,ClassGenRead,ClassGenStep,ClassGenMinor}.lean`
+and `ClassGenUniq.lean` (`genConclTy_of`; `genUniq` = the parked
+`ClassPres.uniq` over plain per-class hypotheses): ≈ 4.6k lines.  Not
+ported: `ClassRecTransfer`, the parked stage's run inversion, the
+one-node-per-class kit.
+
+**Measured on a scratch wiring** (the stage in place of `checkBlockRec`,
+not committed): 677-stream sweep — only the rule-reading rows move
+(official 1 → 0, the stream's rules are not read: `corner_rec_*`
+rule/redex rows, `mutual_rec_{missing_rule,nonfield,rules_swapped,
+unguarded,wrong_member}`, `ind_rule_binder_bad`,
+`corner_tshadow_aux_nonfield_bad`, `rpf_rule_{dup,nfields}`,
+`rpf_rules_swapped`, `primrec_member_k53_bad`),
+`{rp,corner_recpos}_missing_unreached` 1 → 0 (official 0),
+`primrec_nest_missing_class`, `corner_nestpos_redex_bad`,
+`genrec_k{2,3}_caseson` 0 → 1 (official 1); no arena move.
+`complete_c05b_nest30_pi1000` 69.43 G → 40.16 G instructions:u (−42 %);
+init-full 419.4 G → 418.9 G, 53 093 accepted.
+
+**Next** (`_tmp/uniform-inds/GENREC/PROOF-PLAN.md`): the stage record from
+the run (mem = ∅), the family premise through `graphRecPre_gen` with the
+node route for the induction, the equations and the rule contract at the
+generated components, then the flip and the deletion.
+
+Gates: `lake build`/`lake test` warning-free; `tests/arena.sh` green
+(shake: `GenRecRun`'s two public imports measured, FALLBACK).
