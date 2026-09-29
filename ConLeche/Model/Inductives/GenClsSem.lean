@@ -30,6 +30,10 @@ import ConLeche.Verify.Inductives.GenRecScoped
 import ConLeche.Verify.CheckerF
 import ConLeche.Verify.EnvBound
 import ConLeche.Model.Inductives.GenOutFacts
+import ConLeche.Model.Inductives.GenRecParams
+import ConLeche.Model.Inductives.BlockDeclRun
+import ConLeche.Model.Inductives.BlockStageCtors
+import ConLeche.Verify.InstLevels
 
 public section
 
@@ -1120,5 +1124,235 @@ theorem genClsRd_out (hμ : μ.verifiedChecks = true)
     rw [← hfr1, hM]
 
 end Out
+
+/-! ## The member classes' reading facts -/
+
+section Mem
+
+variable {F : Nat} {envI envC : Env} {pp : BlockParts} {nestedBit : Bool} {pos : NestState}
+  {cvTas : List ConstantVal} {block : List ConstantInfo}
+  {ctorsAs : List (List (ConstantVal × Nat))}
+  {out : List (ConstantVal × TargetMajor × List Expr)}
+  {mpC : EnvModelM V μ envC} {Dc : Nat → LfpDatum V} {mc : Nat → Nat}
+  {cvc : Nat → ConstantVal}
+
+set_option maxHeartbeats 4000000 in
+/-- **A member class's reading facts** (`GenClsRd` at the block's own
+datum `d.toLfp`, the member's stored former), and its former. -/
+theorem genClsRd_mem (hμ : μ.verifiedChecks = true)
+    (R : GenRecRun μ F (mkFEnv envI) envI (mkFEnv envC) pp.toBlockShape nestedBit pos cvTas
+      block ctorsAs out) (hg : ClassGenScoped R.g) (hcov : LfpCover mpC [])
+    (h : ConLeche.RecStageG μ F envC pp cvTas ctorsAs (tgtRs out) (fun _ => False))
+    {pk : Nat → BlockMemberPick} {uOfD : Nat → (Name → Nat) → Nat}
+    {ppsOf : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)}
+    {isRec : Bool} {A : Nat → (Name → Nat) → AnnotTerm} {envI' : Env}
+    (hN : BlockNamesOk (V := V) (blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf) cvTas)
+    (hS : BlockCtorsStage (V := V) μ F (blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf)
+      pp.lps cvTas pp.toBlockShape isRec A envI' pp.ctorNamesAt)
+    (hcore : BlockCtorsCore mpC.base2 (blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf)
+      pp.lps cvTas pp.toBlockShape isRec A (blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf).k)
+    (hlfp : (blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf).toLfp ∈ mpC.lfpBlocks)
+    {c t : Nat} (hc : c < (tgtRs out).length) (hm : (tgtMajor out c).member = some t)
+    (hnP : pp.nP ≤ pp.toBlockShape.rulePrefixAt c) :
+    GenClsRd mpC (blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf) Dc mc cvc pp out c
+        (cvTas.getD t default) ∧
+      R.g.formerTys.getD (genClsOf R.rd c) default
+        = (cvTas.getD t default).type.instantiateLevelParams (cvTas.getD t default).levelParams
+            (tgtMajor out c).lvls := by
+  generalize hd : blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf = d at hN hS hcore hlfp ⊢
+  have hmr : BlockMembersRun mpC.base2 d pp.toBlockShape cvTas := by
+    rw [← hd]; rw [← hd] at hN hS hcore; exact blockMembersRun_seam hN hS hcore
+  have hmsm : (tgtMajor out c).member.isSome = true := by rw [hm]; rfl
+  have hDe : tgtClsD d Dc out c = d.toLfp := by simp [tgtClsD, hm]
+  have hrt := genRun_recTgt R hc hm
+  have hMe : tgtClsM mc pp.toBlockShape out c = t := by simp [tgtClsM, hm, hrt]
+  have hψe : ∀ ψ, tgtClsψ cvc out ψ c = ψ := by intro ψ; simp [tgtClsψ, hm]
+  -- the class, the member
+  obtain ⟨-, cls, -, -, -, -, -, -, -, hM, hgc⟩ := genRun_at R hc
+  have hm' : (R.Ms.getD cls default).member = some t := by rw [← hM]; exact hm
+  obtain ⟨hfi, hlv, hdsE⟩ := genRec_memberClass R hm'
+  -- the class's check as a major: the member's constructors, the block's parameter count
+  have hctM0 : (R.Ms.getD cls default).ctors = ctorsAs.getD t [] ∧
+      (R.Ms.getD cls default).nPc = pp.nP := by
+    have hi : cls < R.Ms.length := by rw [← hgc]; exact genRun_cls_lt R hc
+    obtain ⟨key, M₀, nfs, hMs, -, ⟨CR⟩⟩ := genRun_class R hi
+    have hget : R.Ms.getD cls default = { M₀ with nfs := nfs } := by
+      rw [List.getD_eq_getElem?_getD, hMs, Option.getD_some]
+    rw [hget] at hm' ⊢
+    obtain ⟨hctors, hnPc⟩ := CR.major.member_facts hm'
+    refine ⟨?_, hnPc⟩
+    show M₀.ctors = _
+    rw [List.getD_eq_getElem?_getD, hctors]; rfl
+  obtain ⟨ms, hms, hnI, htk⟩ := genRun_member R hm'
+  rw [← hM] at hfi hlv hdsE hnI hctM0
+  obtain ⟨hctMa, hM0nPc⟩ := hctM0
+  have hctM : d.ctorsM t = (tgtMajor out c).ctors := by rw [hctMa, ← hd]; rfl
+  have hmr0 := hmr
+  obtain ⟨hnPq, hkq, hlenCv, hcvF, hmsF, -, -⟩ := hmr
+  have htd : t < d.k := by rw [hkq]; exact htk
+  obtain ⟨cvTa, hcvTa⟩ : ∃ cvTa, cvTas[t]? = some cvTa :=
+    ⟨_, List.getElem?_eq_getElem (by omega)⟩
+  have hgetT : cvTas.getD t default = cvTa := by rw [List.getD_eq_getElem?_getD, hcvTa]; rfl
+  rw [hgetT]
+  obtain ⟨hnm, hlpsT, ⟨caps, hfindT⟩, -, -, -⟩ := hcvF t cvTa hcvTa
+  -- the member's name is the class's inductive
+  have hind : (tgtMajor out c).ind = d.memberName t := by
+    obtain ⟨hlt, hbeq, -⟩ := List.findIdx?_eq_some_iff_getElem.mp hfi
+    have e1 : pp.toBlockShape.memberNames[t] = (tgtMajor out c).ind := by simpa using hbeq
+    rw [← e1, ← hd]
+    show _ = (pp.toBlockShape.memberNames).getD t .anonymous
+    rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hlt]; rfl
+  have hfI : envC.find? (tgtMajor out c).ind = some (.indInfo cvTa caps) := by
+    rw [hind, hnm]; exact hfindT
+  have hψs : ∀ ψ, Level.substFn ψ cvTa.levelParams (tgtMajor out c).lvls = ψ := by
+    intro ψ; funext n; rw [hlv, hlpsT]; exact Level.substFn_map_param
+  -- the parameters
+  have hparL : R.ctx.params.length = pp.nP := hg.params_len
+  have hdsL : (tgtMajor out c).ds.length = pp.nP := by
+    rw [hdsE, List.length_take, hparL]; omega
+  have hdsS : ∀ x ∈ (tgtMajor out c).ds, ConLeche.ScB pp.nP x := by
+    have hM' : tgtMajor out c = R.g.cls.getD cls default := hM
+    intro x hx
+    rw [hM'] at hx
+    exact hg.ds cls x hx
+  have hds : ∀ x ∈ (tgtMajor out c).ds, Expr.WScoped pp.nP x ∧ x.looseBVarsBounded 0 = true :=
+    fun x hx => hdsS x hx
+  have hlenPD : ∀ ψ, (d.params ψ).length = d.nP := by
+    intro ψ
+    obtain ⟨cvT0, hcvT0⟩ : ∃ cvT0, cvTas[0]? = some cvT0 :=
+      ⟨_, List.getElem?_eq_getElem (by omega)⟩
+    obtain ⟨-, -, -, -, -, hFD0⟩ := hcvF _ _ hcvT0
+    rw [BlockData.params, List.length_map, List.length_take, hFD0.len ψ]; omega
+  -- the parameters' readings at the rule prefix
+  have hinstG := fun ψ => genCls_inst_graded hμ R hg h mpC ψ hc hdsS hnP
+  have hdsa : ∀ ψ, DenoteMetaSpine mpC.base2.acval envC ψ (tgtRP pp.toBlockShape c)
+      (tgtMajor out c).ds (tgtOutDsa mpC.base2.acval envC pp.toBlockShape out ψ c) := by
+    intro ψ
+    obtain ⟨w, hw, -⟩ := hinstG ψ
+    obtain ⟨fa, vs, -, hvs, -⟩ := denoteMeta_mkAppN_inv hw
+    have := denoteMetaSpine_eq_map hvs
+    rw [this] at hvs
+    exact hvs
+  -- the key frame is the prefix's parameter part
+  have hfrE : ∀ ψ (ρ : Nat → V) (xs : List V), xs.length = tgtRP pp.toBlockShape c →
+      keyFrame (tgtOutDsa mpC.base2.acval envC pp.toBlockShape out ψ c)
+          (tgtRP pp.toBlockShape c) (consList xs ρ)
+        = consList (xs.take d.nP) ρ := by
+    intro ψ ρ xs hxl
+    unfold keyFrame
+    have htail : (fun j => consList xs ρ (j + tgtRP pp.toBlockShape c)) = ρ := by
+      funext j; rw [← hxl]; exact consList_apply_add xs ρ j
+    rw [htail]
+    congr 1
+    have hdsl := (DenoteMetaSpine.length_eq (hdsa ψ)).symm
+    have hLeq : ((tgtOutDsa mpC.base2.acval envC pp.toBlockShape out ψ c).map
+        (interp V (consList xs ρ))).length = (xs.take d.nP).length := by
+      rw [List.length_map, hdsl, hdsL, List.length_take, hxl, hnPq]
+      have := hnP
+      show pp.nP = min pp.nP (pp.toBlockShape.rulePrefixAt c)
+      omega
+    refine List.ext_getElem hLeq fun i h1 h2 => ?_
+    have hi : i < pp.nP := by rw [List.length_map, hdsl, hdsL] at h1; exact h1
+    rw [List.getElem_map, List.getElem_take]
+    -- the `i`-th parameter is the canonical variable `i`
+    have hpi : (tgtMajor out c).ds[i]'(by rw [hdsL]; exact hi) = R.ctx.params[i]'(by omega) := by
+      simp only [hdsE, List.getElem_take]
+    obtain ⟨ty, hxe, -⟩ := hg.params i _ (List.getElem?_eq_getElem (show i < R.g.params.length
+      by rw [hg.params_len]; exact hi))
+    have hread : (tgtOutDsa mpC.base2.acval envC pp.toBlockShape out ψ c)[i]'(by
+        rw [hdsl, hdsL]; exact hi) = .bvar (tgtRP pp.toBlockShape c - 1 - i) := by
+      simp only [tgtOutDsa, List.getElem_map]
+      rw [hpi]
+      have : R.ctx.params[i]'(by omega) = Expr.fvar i ty := hxe
+      rw [this, denoteMeta_fvar]
+      rfl
+    rw [hread]
+    have hnP' : pp.nP ≤ tgtRP pp.toBlockShape c := hnP
+    have hiX : i < xs.length := by omega
+    show consList xs ρ (tgtRP pp.toBlockShape c - 1 - i) = _
+    rw [consList_getD_of_lt _ _ _ (by omega)]
+    have e : xs.length - 1 - (tgtRP pp.toBlockShape c - 1 - i) = i := by omega
+    rw [e, List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hiX]
+    rfl
+  have hpfit : ∀ ψ (ρ : Nat → V) (xs : List V),
+      SpineFit ρ (blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c) xs →
+      SpineFit ρ (d.params ψ) (xs.take d.nP) := by
+    intro ψ ρ xs hfit
+    rw [← hd] at hN hS hcore ⊢
+    have hmr' : BlockMembersRun mpC.base2 (blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf)
+        pp.toBlockShape cvTas := blockMembersRun_seam hN hS hcore
+    exact genParams_fit_run hμ mpC R hg h hmr' c hc ψ ρ xs hfit
+  have hlenPdA := fun ψ =>
+    blockRulePdomsAV_length (V := V) hμ mpC h (List.getElem?_eq_getElem hc) ψ
+  refine ⟨{
+    hfind := ⟨caps, hfI⟩
+    hmem := by rw [hDe, hMe, hind]; rfl
+    hD := by rw [hDe]; exact hlfp
+    hmm := by rw [hDe, hMe]; exact htd
+    hnN := by rw [hDe]; exact hcov.nodup _ hlfp
+    hkN := by rw [hDe]; exact hcov.len _ hlfp
+    hnd := ?_
+    hul := by rw [hlv, List.length_map, hlpsT]
+    hψ := fun ψ => by rw [hψe, hψs]
+    hds := hds
+    hlenP := fun ψ => by rw [hDe, hψe, hdsL, ← hnPq]; exact hlenPD ψ
+    hidsLen := fun ψ => by
+      rw [hDe, hMe, hψe, hnI]
+      show (d.IdsM t ψ).length = _
+      rw [blockMembers_IdsM_length hmr0 htd ψ]
+      exact (hmsF t ms hms).2
+    hnIdx := genRun_nIdx R hd.symm c hc
+    hdsa := hdsa
+    hG := fun ψ ρ xs => by
+      simp only [tgtClsG, hmsm, if_true]
+      exact ⟨fun h' => h'.2, fun h' => ⟨hpfit ψ ρ xs h', h'⟩⟩
+    hfr := fun ψ ρ xs hxl => by
+      simp only [tgtClsFr, hmsm, if_true]
+      exact (hfrE ψ ρ xs hxl).symm
+    hsat := fun ψ ρ xs hfit => by
+      rw [hDe, hψe]
+      have hxl : xs.length = tgtRP pp.toBlockShape c := by rw [hfit.length_eq, hlenPdA ψ]; rfl
+      rw [hfrE ψ ρ xs hxl]
+      show Sat V (d.params ψ).reverse _
+      simpa using sat_of_spineFit (Δ₀ := []) (Sat_nil V ρ) (hpfit ψ ρ xs hfit)
+    hctor := fun j cA hcA => ?_
+    hctorAt := fun cv hcv => by
+      simp only [ConLeche.targetCtorAt, hm]
+      rw [hlv, ← hlpsT, ← hcv, Expr.instantiateLevelParams_self]
+    hnpc := ?_ }, ?_⟩
+  · obtain ⟨cv, caps', hf', hnd⟩ := (hcov.own _ hlfp).lvlNodup t htd
+    have : d.toLfp.member t = d.memberName t := rfl
+    rw [this, hnm, hfindT] at hf'
+    obtain ⟨rfl, -⟩ : cvTa = cv ∧ caps = caps' := by simpa using hf'
+    exact hnd
+  · -- the constructors: the member's own
+    rw [hDe, hMe]
+    obtain ⟨hjM, hcAM⟩ := List.getElem?_eq_some_iff.mp hcA
+    have hcA' : (d.ctorsM t)[j]? = some cA := by rw [hctM]; exact hcA
+    obtain ⟨hfc, hlpc, -⟩ := hcore.2.2.2 t htd j cA hcA'
+    refine ⟨(List.getElem?_eq_some_iff.mp hcA').1, ?_, by rw [hlpc, hlpsT], fun mm hmm => ?_⟩
+    · have hname : d.toLfp.ctorName t j = cA.1.name := by
+        show ((d.ctorsM t).getD j default).1.name = _
+        rw [List.getD_eq_getElem?_getD, hcA']; rfl
+      rw [hname, hdsL, ← hnPq]
+      exact hfc
+    · have hmm' : mm < d.k := hmm
+      obtain ⟨cvTb, hcvTb⟩ : ∃ cvTb, cvTas[mm]? = some cvTb :=
+        ⟨_, List.getElem?_eq_getElem (by omega)⟩
+      obtain ⟨hnm', hlps', ⟨caps', hf'⟩, -, -, -⟩ := hcvF mm cvTb hcvTb
+      refine ⟨cvTb, caps', ?_, by rw [hlps', hlpsT]⟩
+      show envC.find? (d.memberName mm) = _
+      rw [hnm']; exact hf'
+  · rw [hM0nPc, hdsL]
+  · -- the former
+    have hi : cls < R.Ms.length := by rw [← hgc]; exact genRun_cls_lt R hc
+    have hfr0 := genRun_former R hi
+    unfold ConLeche.classFormerTy at hfr0
+    rw [hm'] at hfr0
+    simp only [pure, Except.pure] at hfr0
+    injection hfr0 with hfr1
+    rw [hgc, ← hfr1, hgetT, hlv, ← hlpsT, Expr.instantiateLevelParams_self]
+
+end Mem
 
 end ConLeche.Model
