@@ -94541,3 +94541,31 @@ facts are reused (charter/GENREC.md §3), the generated route adds the
 generator syntax (ported), the run records and bridges, the class side
 at the generated family and the rule contract by construction; the old
 rule/call readers are gone.  Not a proof-size win, as GENREC.md predicted.
+
+## MATHLIB SWEEP 2 (after GENREC) — the Mathlib sweep re-run with generated recursors (2026-09-29, `agent/uinds-MATHLIB2`)
+
+Same method as MATHLIB SWEEP (uniform-inds): binary `lake build con-leche`
+at `uniform-inds` `1fe5a3214`, streams `mathlib-full.ndjson` and
+`init-full.ndjson`, `--verified --jobs=8`, `perf stat -e instructions:u`,
+GNU `time -v`, `timeout`, no `ulimit -v`; phase split from a second run
+(`--progress` + `perf stat -I 2000`, `MATHLIB2/split.sh`, which reproduces
+the previous sweep's split exactly).  master numbers reused from the
+previous sweep (`09c3a50c0`).  Logs: `_tmp/uniform-inds/MATHLIB2/`.
+
+**Verdicts unchanged.**  Mathlib: exit 0, **654 504 accepted**; init-full:
+exit 0, **53 093 accepted**.  No decline, reject or crash; still 647 832
+pending checks.
+
+| run | master | uinds ccce80f42 | uinds 1fe5a3214 | Δ prev | Δ master |
+|---|---|---|---|---|---|
+| init-full instructions:u | 418.89 G | 420.50 G | 419.72 G | −0.19 % | +0.20 % |
+| init-full peak RSS | 608 MiB | 630 MiB | 616 MiB | −2.3 % | +1.3 % |
+| Mathlib instructions:u | 7 607.16 G | 7 618.99 G | 7 589.39 G | −0.39 % | −0.23 % |
+| Mathlib peak RSS | 8.19 GiB | 8.08 GiB | 8.12 GiB | +0.4 % | −0.9 % |
+| Mathlib install phase | 559.4 G | 597.0 G | 572.3 G | −4.1 % | +2.3 % |
+| Mathlib check phase | 6 772.9 G | 6 750.3 G | 6 749.5 G | −0.0 % | −0.3 % |
+
+(Second run total 7 594.7 G, within 0.07 % of the first; parse 272.9 G.)
+The generated recursor stage costs 24.7 G less at install than the target
+recursor check did; install remains +12.9 G over master's modeller path.
+Wall (indicative): install 109.8 s, check 100.9 s, total 229.6 s.
