@@ -588,4 +588,100 @@ theorem genRun_conclMot (hμ : μ.verifiedChecks = true)
 
 end Run
 
+/-! ## `GenPreHyps` from the run and the class-side facts -/
+
+section Hyps
+
+variable {F : Nat} {envI envC : Env} {pp : BlockParts} {nestedBit : Bool} {posR : NestState}
+  {cvTas : List ConstantVal} {block : List ConstantInfo}
+  {ctorsAs : List (List (ConstantVal × Nat))}
+  {out : List (ConstantVal × TargetMajor × List Expr)}
+  {mpC : EnvModelM V μ envC} {d : BlockData V} {Dc : Nat → LfpDatum V} {mc : Nat → Nat}
+  {cvc : Nat → ConstantVal}
+
+variable (pp out mpC d Dc mc cvc) in
+/-- **The class-side facts `GenPreHyps` still asks** once the run's fields
+are discharged: the class split both ways, the decoding both ways, the
+elimination licence, the generated `ih` calls' typing, the minor
+premise's typing at the rule frame, and the class induction. -/
+structure GenPreSem (g : ClassGen) (rd : ClassRead) (ψ : Name → Nat) (ρ : Nat → V) : Prop where
+  split : GenClsSplit pp out mpC d Dc mc cvc ψ ρ
+  back : GenClsBack pp out mpC d Dc mc cvc ψ ρ
+  dec : GenClsDec pp out mpC d Dc mc cvc ψ ρ
+  decInv : GenClsDecInv pp out mpC d Dc mc cvc ψ ρ
+  lic : Level.eval ψ (ConLeche.structElimLevel pp.toBlockShape.elim pp.toBlockShape.large) ≠ 0 →
+    ∀ xs, ∀ c, c < (tgtRs out).length →
+    (tgtClsD d Dc out c).w (tgtClsψ cvc out ψ c) = 0 →
+    ∀ t, t ∈ˢ tgtClsIs d Dc mc cvc mpC.base2.acval envC pp.toBlockShape out ψ ρ xs c →
+    ∀ j fs j' fs',
+    tgtClsFit d Dc mc cvc mpC.base2.acval envC pp.toBlockShape out ψ ρ xs c t j fs →
+    tgtClsFit d Dc mc cvc mpC.base2.acval envC pp.toBlockShape out ψ ρ xs c t j' fs' →
+    j = j' ∧ fs = fs'
+  callTy : ∀ c, c < (tgtRs out).length → ∀ j, j < blockRecNCt (tgtRs out) c →
+    ∀ xs fs : List V,
+    xs.length = (blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c).length →
+    SpineFit ρ (blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c
+      ++ tgtFdomsAV pp.toBlockShape out mpC.base2.acval envC ψ c j) (xs ++ fs) →
+    ∀ q ∈ genIhdAV mpC.base2.acval envC g rd (genBit pp ψ) ψ c j,
+    ∀ bs, SpineFit (consList (xs ++ fs) ρ) (q.2.1.map (·.2)) bs →
+      q.1 < (tgtRs out).length ∧ xs.length = pp.toBlockShape.rulePrefixAt q.1 ∧
+      SpineFit ρ ((blockRecRdsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ q.1).map
+          (·.2.2))
+        (xs ++ (q.2.2.1.map (interp V (consList bs (consList (xs ++ fs) ρ)))
+          ++ [interp V (consList bs (consList (xs ++ fs) ρ)) q.2.2.2]))
+  minor : ∀ c, c < (tgtRs out).length → ∀ j, j < blockRecNCt (tgtRs out) c → ∀ xs,
+    SpineFit ρ (blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c) xs →
+    ∀ fs, SpineFit (consList xs ρ) (tgtFdomsAV pp.toBlockShape out mpC.base2.acval envC ψ c j) fs →
+    ∀ hs : List V, hs.length = (genIhdAV mpC.base2.acval envC g rd (genBit pp ψ) ψ c j).length →
+    (∀ (l : Nat) (q : IhDatum) (hv : V),
+      (genIhdAV mpC.base2.acval envC g rd (genBit pp ψ) ψ c j)[l]? = some q → hs[l]? = some hv →
+      hv ∈ˢ interp V (consList (xs ++ fs) ρ)
+        (genIhDomAV ((blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c).length
+            + (tgtFdomsAV pp.toBlockShape out mpC.base2.acval envC ψ c j).length)
+          (classMotPos g (genClsOf rd q.1)) q)) →
+    (fs ++ hs).foldl SetTheory.app (xs.getD (g.nP + genMinorSlot g rd c j) pt)
+      ∈ˢ ((tgtEsAV pp.toBlockShape out mpC.base2.acval envC ψ c j).map
+            (interp V (consList (xs ++ fs) ρ))
+          ++ [interp V (consList (xs ++ fs) ρ)
+            (tgtMkAV pp.toBlockShape out mpC.base2.acval envC ψ c j)]).foldl SetTheory.app
+          (xs.getD (classMotPos g (genClsOf rd c)) pt)
+  ind : GenClassInd mpC.base2.acval envC pp.toBlockShape out d Dc mc cvc
+    (fun c j => genIhdAV mpC.base2.acval envC g rd (genBit pp ψ) ψ c j) ψ ρ
+
+/-- **`GenPreHyps` from the generated stage's run** and the class-side facts
+(`GenPreSem`): the run discharges the prefix, the positions, the callees,
+the `ih` data's bounds, the field counts, the index counts, the classes'
+clauses and components, and the stored conclusion. -/
+theorem genPreHyps_of_run (hμ : μ.verifiedChecks = true)
+    (R : GenRecRun μ F (mkFEnv envI) envI (mkFEnv envC) pp.toBlockShape nestedBit posR cvTas
+      block ctorsAs out) (hg : ClassGenScoped R.g) {memR : Nat → Prop}
+    (h : ConLeche.RecStageG μ F envC pp cvTas ctorsAs (tgtRs out) memR)
+    {pk : Nat → BlockMemberPick} {uOfD : Nat → (Name → Nat) → Nat}
+    {ppsOf : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)}
+    (hd : d = blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf) (hlfp : d.toLfp ∈ mpC.lfpBlocks)
+    (hcls : ∀ c, c < (tgtRs out).length → (tgtMajor out c).member = none →
+      TgtOutCls mpC (tgtMajor out c) (Dc c) (mc c) (cvc c))
+    (ψ : Name → Nat) (ρ : Nat → V) (S : GenPreSem pp out mpC d Dc mc cvc R.g R.rd ψ ρ) :
+    GenPreHyps pp out mpC d Dc mc cvc R.g R.rd ψ ρ where
+  split := S.split
+  back := S.back
+  dec := S.dec
+  decInv := S.decInv
+  nIdx := genRun_nIdx R hd
+  din := genRun_din mpC hlfp hcls
+  mN := genRun_mN mpC R hd hcls
+  lic := S.lic
+  gpre := genRun_gpre hμ R hg h mpC ψ
+  nF := genRun_nF hμ R hg mpC.base2.acval ψ
+  mot := genRun_mot hμ R hg h mpC
+  min := genRun_min hμ R hg h mpC
+  cal := genRun_cal R mpC.base2.acval envC (genBit pp ψ) ψ
+  below := genRun_below hμ R hg h mpC (genBit pp ψ) ψ
+  callTy := S.callTy
+  conclMot := genRun_conclMot hμ R hg h mpC ψ ρ
+  minor := S.minor
+  ind := S.ind
+
+end Hyps
+
 end ConLeche.Model
