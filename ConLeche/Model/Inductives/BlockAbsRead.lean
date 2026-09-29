@@ -46,7 +46,7 @@ open ConLeche.Semantics
 open ConLeche.SetModel
 open ConLeche.Term ConLeche.Verify SetTheory
 open ConLeche.Semantics (AnnotTerm)
-open ConLeche (Env Expr Name Level ConstantInfo ConstantVal instPisWith NestCtx nestAbstract
+open ConLeche (Env Expr Name Level ConstantInfo ConstantVal instPisWith NestCtx
   openPisAtFvars BlockParts)
 
 universe w
@@ -114,86 +114,72 @@ theorem Expr.ReadsAt.instPisWith {P : Name → Prop} {env : Env} :
       exact Expr.ReadsAt.instPisWith (fun x hx => hvs x (List.mem_cons_of_mem _ hx)) h'
         (Expr.ReadsAt.instantiate1 (hvs v List.mem_cons_self) b 0 he.2)
 
-/-- **The canonical crest consults the leaves off the members only**: the
-member-abstracted type mentions no member (M2′), and no literal-support
-constant a reading consults is a member. -/
+/-- **The canonical crest consults the leaves off the members only**: it
+mentions no member constant (from official's uniform check), and no
+literal-support constant a reading consults is a member. -/
 theorem canonCrest_read_agree {acval₁ acval₂ : Name → (Name → Nat) → AnnotTerm} {env : Env}
-    {names lps : List Name} {nP k : Nat} {e A : Expr}
+    {names : List Name} {A : Expr}
     (hag : ∀ n, n ∉ names → acval₁ n = acval₂ n)
-    (hocc : (canonAbs names lps nP k e).nestOcc names 0 0 = false)
+    (hocc : A.nestOcc names 0 0 = false)
     (hnat : ConLeche.natLitSupported env = true →
       ConLeche.natZeroName ∉ names ∧ ConLeche.natSuccName ∉ names)
     (hstr : ConLeche.strLitSupported env = true →
       ConLeche.stringOfListName ∉ names ∧ ConLeche.listNilName ∉ names ∧
         ConLeche.listConsName ∉ names ∧ ConLeche.charName ∉ names ∧
         ConLeche.charOfNatName ∉ names)
-    (hA : instPisWith (canonParams nP) (canonAbs names lps nP k e) = some A)
     (ψ : Name → Nat) (d : Nat) :
-    denoteMeta acval₁ env ψ d A = denoteMeta acval₂ env ψ d A := by
-  have hR : Expr.ReadsAt (· ∉ names) env A :=
-    Expr.ReadsAt.instPisWith (fun x hx => by
-        obtain ⟨i, -, rfl⟩ := mem_canonParams hx
-        trivial)
-      hA (Expr.readsAt_of_nestOcc hnat hstr _ hocc)
-  exact denoteMeta_agree_of_readsAt hag _ A hR
+    denoteMeta acval₁ env ψ d A = denoteMeta acval₂ env ψ d A :=
+  denoteMeta_agree_of_readsAt hag _ A (Expr.readsAt_of_nestOcc hnat hstr _ hocc)
 
-/-- **The walk's term is the canonical crest, up to erasure**: a stored
-type member-abstracted at holes at `nP + t` and instantiated at
-parameters at `0 ..< nP` — whatever their annotations — is erasure-equal
-to its canonical abstraction (`canonAbs`, `canonParams`). -/
-theorem canonCrest_of_walk {ctx : NestCtx} {holes : List Expr} {k : Nat} {ty crest : Expr}
+/-- **The walk's crest is the canonical crest, up to erasure**: the kernel
+puts the canonical parameter variables and holes back in with their
+annotations only (`nestKeyMap`: parameters at `0 ..< nP`, holes at
+`nP + t`). -/
+theorem canonCrest_of_walk {ctx : NestCtx} {holes : List Expr} {cty crest : Expr}
     (hpar : ∀ (i : Nat) (x : Expr), ctx.params[i]? = some x → ∃ t, x = .fvar i t)
     (hplen : ctx.params.length = ctx.nP)
     (hholes : ∀ (t : Nat) (x : Expr), holes[t]? = some x → ∃ t', x = .fvar (ctx.nP + t) t')
-    (hlenH : holes.length = k)
-    (hcrest : instPisWith ctx.params (nestAbstract ctx holes ty) = some crest) :
-    ∃ A, instPisWith (canonParams ctx.nP) (canonAbs ctx.names ctx.lps ctx.nP k ty) = some A ∧
+    (hcrest : ConLeche.nestCrest ctx.names (ctx.lps.map .param) ctx.params holes cty
+      = some crest) :
+    ∃ A, ConLeche.nestCanonCrest ctx.names (ctx.lps.map .param) ctx.nP cty = some A ∧
       Expr.ErasedEq crest A := by
-  have hH : Expr.ErasedEqL holes (canonHoles ctx.nP k) :=
-    erasedEqL_of_fvarIdx _ _ ctx.nP hholes
-      (fun t x hx => by
-        have ht : t < k := by
-          have := (List.getElem?_eq_some_iff.mp hx).1; rwa [canonHoles_length] at this
-        rw [canonHoles_getElem? ht] at hx
-        exact ⟨_, (Option.some.inj hx).symm⟩)
-      (by rw [hlenH, canonHoles_length])
-  have hP : Expr.ErasedEqL ctx.params (canonParams ctx.nP) :=
-    erasedEqL_of_fvarIdx _ _ 0 (fun i x hx => by rw [Nat.zero_add]; exact hpar i x hx)
-      (fun i x hx => ⟨.sort .zero, by rw [canonParams_getElem? hx, Nat.zero_add]⟩)
-      (by rw [hplen, canonParams_length])
-  exact instPisWith_erasedEq hP (nestAbstract_erasedEq rfl rfl hH ty) hcrest
+  unfold ConLeche.nestCrest at hcrest
+  rw [hplen] at hcrest
+  obtain ⟨A, hA, rfl⟩ := Option.map_eq_some_iff.mp hcrest
+  refine ⟨A, hA, replaceFVars_erasedEq_idx (fun i a ha => ?_) A⟩
+  unfold ConLeche.nestKeyMap at ha
+  split at ha
+  · obtain ⟨t, rfl⟩ := hpar i a ha
+    exact ⟨t, rfl⟩
+  · obtain ⟨t', rfl⟩ := hholes _ a ha
+    exact ⟨t', by congr 1; omega⟩
 
 omit [SetTheory V] in
-/-- **M2′ at the canonical holes, from the positivity stage's run**: the
-stage checked every constructor's member-abstracted type for a member
-constant at its own holes (M2′, from official's uniform check
-`nestUniform`); the check does not see
-the holes' annotations. -/
+/-- **The canonical crest names no member constant, from the positivity
+stage's run** (official's uniform check `nestUniform`). -/
 theorem canonOcc_of_positivity {ops : ConLeche.CheckerOps ConLeche.CheckM} {env₁ : Env}
     {find? : Name → Option ConstantInfo} {p : BlockParts}
     {cvTas : List ConstantVal} {ctorsAs : List (List (ConstantVal × Nat))}
     {posKs : List (List (List ConLeche.NestFieldKind)) × List (List Expr) × ConLeche.NestState}
     (hrun : ConLeche.checkBlockPositivity ops env₁ find? p cvTas ctorsAs = .ok posKs)
     {d : BlockData V} {lps : List Name}
-    (hnames : p.memberNames = d.memberNames) (hlps : p.lps = lps)
-    (hk : d.k = d.memberNames.length)
-    (hctorsAs : ∀ c, c < d.k → ctorsAs[c]? = some (d.ctorsM c)) :
+    (hnames : p.memberNames = d.memberNames) (hlps : p.lps = lps) (hnP : p.nP = d.nP)
+    (hctorsAs : ∀ c, c < d.k → ctorsAs[c]? = some (d.ctorsM c))
+    (hlpsA : ∀ (c j : Nat) (cA : ConstantVal × Nat), (d.ctorsM c)[j]? = some cA →
+      cA.1.levelParams = lps) :
     ∀ c, c < d.k → ∀ (j : Nat) (cA : ConstantVal × Nat), (d.ctorsM c)[j]? = some cA →
-      (canonAbs d.memberNames lps d.nP d.k cA.1.type).nestOcc d.memberNames 0 0 = false := by
-  obtain ⟨cvTa0, fvsP, rest, holes, -, -, hholes, hall⟩ :=
-    ConLeche.checkBlockPositivity_m2 hrun
+      ∃ A, ConLeche.nestCanonCrest d.memberNames (lps.map .param) d.nP cA.1.type = some A ∧
+        A.nestOcc d.memberNames 0 0 = false := by
+  obtain ⟨cvTa0, fvsP, rest, holes, -, -, -, hall⟩ := ConLeche.checkBlockPositivity_m2 hrun
   intro c hc j cA hcj
-  have hocc := hall c (d.ctorsM c) (hctorsAs c hc) j cA hcj
+  obtain ⟨A, hA, hocc⟩ := hall c (d.ctorsM c) (hctorsAs c hc) j cA hcj
+  unfold ConLeche.nestRootCanon at hA
   have hn : (p.nestCtx fvsP find?).names = d.memberNames := hnames
+  have hl : (p.nestCtx fvsP find?).lps = lps := hlps
+  have hP : (p.nestCtx fvsP find?).nP = d.nP := hnP
+  rw [hn, hl, hP, ← hlpsA c j cA hcj, Expr.instantiateLevelParams_self] at hA
   rw [hn] at hocc
-  rw [← hocc]
-  refine nestOcc_nestAbstract_blind (by rw [hn]; rfl) (by rw [← hlps]; rfl) ?_
-    (fun h hm => ?_) (fun h hm => ?_) _ _
-  · rw [canonHoles_length, ConLeche.nestHoles_length hholes, hn, hk]
-  · obtain ⟨mm, -, rfl⟩ := mem_canonHoles hm
-    exact ⟨_, _, rfl⟩
-  · obtain ⟨i, cv, caps, -, rfl⟩ := ConLeche.nestHoles_mem hholes h hm
-    exact ⟨_, _, rfl⟩
+  exact ⟨A, by rw [hlpsA c j cA hcj] at hA; exact hA, hocc⟩
 
 /-! ## The reading fact at a model -/
 
@@ -223,10 +209,12 @@ theorem ConstsBound.mono_cons {env : Env} {c₀ : ConstantInfo} :
 
 
 /-- **The hole context** at a level assignment: the parameters (member
-`0`'s former's), then one hole per member, typed by the member's former
-type. -/
+`0`'s former's), then one hole per member, typed by its hole type — the
+member's index tower over the parameters, lifted past the earlier holes
+(a hole stands for the member's whole application to the parameters). -/
 @[expose] def BlockData.holeCtx (d : BlockData V) (ψ : Name → Nat) : List AnnotTerm :=
-  d.params ψ ++ (List.range d.k).map fun t => mkPisAV (d.ppsM t ψ) (.sort (d.w ψ))
+  d.params ψ ++ (List.range d.k).map fun t =>
+    (mkPisAV ((d.ppsM t ψ).drop d.nP) (.sort (d.w ψ))).liftN t 0
 
 /-- **The datum's fields with holes are the normal form's reading** at
 the model, and the DECLARED constructor type's canonical crest reads as a
@@ -235,14 +223,12 @@ satisfying the hole context: component `c`'s constructor `j` (`cA`). -/
 @[expose] def BlockAbsRead {env : Env} (m : EnvModel V env) (d : BlockData V) (lps : List Name)
     (c j : Nat) (cA : ConstantVal × Nat) : Prop :=
   ConstsBound env (d.nfFF c j) ∧
-  ∃ A, instPisWith (canonParams d.nP) (canonAbs d.memberNames lps d.nP d.k cA.1.type) = some A ∧
+  ∃ A, ConLeche.nestCanonCrest d.memberNames (lps.map .param) d.nP cA.1.type = some A ∧
     ∀ ψ : Name → Nat, ∃ abD abN : List (Nat × Nat × AnnotTerm),
       denoteMeta m.acval env ψ (d.nP + d.k) A
-        = some (mkPisAV abD (AnnotTerm.mkAppN (.bvar (cA.2 + (d.k - 1 - c)))
-            (paramBvarsAt d.nP (d.nP + d.k + cA.2) ++ d.absE ψ c j))) ∧
+        = some (mkPisAV abD (AnnotTerm.mkAppN (.bvar (cA.2 + (d.k - 1 - c))) (d.absE ψ c j))) ∧
       denoteMeta m.acval env ψ (d.nP + d.k) (d.nfFF c j)
-        = some (mkPisAV abN (AnnotTerm.mkAppN (.bvar (cA.2 + (d.k - 1 - c)))
-            (paramBvarsAt d.nP (d.nP + d.k + cA.2) ++ d.absE ψ c j))) ∧
+        = some (mkPisAV abN (AnnotTerm.mkAppN (.bvar (cA.2 + (d.k - 1 - c))) (d.absE ψ c j))) ∧
       abD.length = cA.2 ∧ abN.length = cA.2 ∧
       abD.map (fun x => (x.1, x.2.1)) = abN.map (fun x => (x.1, x.2.1)) ∧
       abN.map (·.2.2) = d.absF ψ c j ∧
@@ -261,7 +247,7 @@ theorem BlockAbsRead.cross {env : Env} {m : EnvModel V env} {d : BlockData V} {l
   obtain ⟨abD, abN, hab, habN, hl, hlN, hbits, habF, hEq⟩ := hr ψ
   refine ⟨abD, abN, ?_, ?_, hl, hlN, hbits, habF, hEq⟩
   · rw [hac]
-    exact denoteMeta_cons_mono hfresh (hat A) ψ _ (canonCrest_constsBound hcb hA) hab
+    exact denoteMeta_cons_mono hfresh (hat A) ψ _ (canonOf_constsBound hcb (.inl ⟨_, _, _, hA⟩)) hab
   · rw [hac]
     exact denoteMeta_cons_mono hfresh (hat _) ψ _ hnb habN
 
