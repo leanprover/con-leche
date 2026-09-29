@@ -25,5 +25,6 @@ public import ConLeche.Verify.Deep
 public import ConLeche.Verify.BridgeDecl
 public import ConLeche.Verify.OfReducePin
 public import ConLeche.Verify.Rules.Bridge
+public import ConLeche.Verify.Inductives.ClassGenMinorSyn
 
 @[expose] public section

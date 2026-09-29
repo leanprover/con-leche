@@ -3744,6 +3744,118 @@ theorem fvarLeaves_nil_of_wscoped_zero {e : Expr} (hw : Expr.WScoped 0 e) :
   · exact absurd (Expr.fvarLeaves_lt_of_wscoped hw l (by rw [he]; exact List.mem_cons_self))
       (Nat.not_lt_zero _)
 
+/-- **A checked Π-type's conclusion reads into the universe of its
+inferred sort**, at every frame satisfying the type's own binder data:
+the claims' `SortSemAt` at the type's opened frame (its context is the
+binder data reversed). -/
+theorem piConcl_univ {envC : Env} (hμ : μ.verifiedChecks = true)
+    (mpC : EnvModelM V μ envC) {F : Nat} (ψ : Name → Nat) {n : Nat} {T : Expr}
+    {ea : AnnotTerm} {rds : List (Nat × Nat × AnnotTerm)} {cc : AnnotTerm}
+    {fvs : List Expr} {conclE sty : Expr} {u : Level}
+    (hw₁ : Expr.WScoped 0 T) (hb₁ : T.looseBVarsBounded 0 = true)
+    (hTyE : ea = mkPisAV rds cc) (hlenRds : rds.length = n)
+    (hdomsR : ∀ (j : Nat) (x : Expr), fvs[j]? = some x →
+      ∃ pd, rds[j]? = some pd ∧ pd.1 = 0 ∧
+        denoteMeta mpC.base2.acval envC ψ j x.fvarTypeD = some pd.2.2)
+    (hconclRead : denoteMeta mpC.base2.acval envC ψ n conclE = some cc)
+    (hwdTy : ∀ ρ : Nat → V, WellDenotedV V ρ ea)
+    (hop : ConLeche.openPisAtFvars n T 0 = some (fvs, conclE))
+    (hinf : ConLeche.inferTypeCore μ envC F n conclE = .ok sty)
+    (hens : ConLeche.ensureSortCore μ envC F n sty = .ok u) :
+    ∀ ρ : Nat → V, Sat V (rds.map (·.2.2)).reverse ρ →
+      interp V ρ cc ∈ˢ (univ (u.eval ψ) : V) := by
+  -- the frame's syntax
+  have hlenFvs : fvs.length = n :=
+    ConLeche.Verify.openPisAtFvars_length _ hop
+  obtain ⟨hbC, hlbF⟩ := openPisAtFvars_bounded _ hop hb₁
+  have hwsC : Expr.WScoped n conclE := by
+    have hq := (openPisAtFvars_WScoped _ T 0 hop hw₁).2
+    rwa [Nat.zero_add] at hq
+  have hnilTy : T.fvarLeaves = [] := fvarLeaves_nil_of_wscoped_zero hw₁
+  have hleaf : ∀ l ∈ conclE.fvarLeaves, Expr.fvar l.1 l.2 ∈ fvs := by
+    intro l hl
+    rcases openPisAtFvars_leaves _ hop l (Or.inl hl) with h' | h'
+    · rw [hnilTy] at h'; exact nomatch h'
+    · exact h'
+  have hLC : Expr.LeavesBounded conclE := leavesBounded_of_openers hlbF hleaf
+  -- the frame's semantics: the binder data reads, and is graded
+  have hdoms : ∀ (j : Nat) (x : Expr), fvs[j]? = some x →
+      denoteMeta mpC.base2.acval envC ψ j (Expr.fvarTypeD x)
+        = some ((rds.map
+            (·.2.2)).getD j default) := by
+    intro j x hx
+    obtain ⟨pd, hpd, -, hrd⟩ := hdomsR j x hx
+    rw [hrd, List.getD_eq_getElem?_getD, List.getElem?_map, hpd]
+    rfl
+  have hokTower : ∀ l, l < n →
+      ∀ (σ : Nat → V) (ys : List V),
+      SpineFit σ ((rds.map
+          (·.2.2)).take l) ys →
+      WellDenotedV V (consList ys σ)
+        ((rds.map
+          (·.2.2)).getD l default) := by
+    intro l hl σ ys hys
+    have hfull : rds.take
+        (n)
+        = rds :=
+      List.take_of_length_le (by omega)
+    rw [← hfull] at hys ⊢
+    exact prefixDoms_graded_of_tower (cc := cc) (by omega) (fun ρ' => by rw [← hTyE]; exact hwdTy ρ')
+      hl hys
+  -- the context IS the type's own binder data, reversed
+  have hlenDoms : (rds.map
+      (·.2.2)).length = n := by
+    rw [List.length_map, hlenRds]
+  have hent : ∀ i, i < n →
+      ((rds.map
+          (·.2.2)).reverse)[n - 1 - i]?
+        = some ((rds.map
+          (·.2.2)).getD i default) := by
+    intro i hi
+    rw [List.getElem?_reverse (by omega), hlenDoms,
+      show n - 1 - (n - 1 - i) = i
+        from by omega,
+      List.getD_eq_getElem?_getD,
+      List.getElem?_eq_getElem (by rw [hlenDoms]; omega)]
+    rfl
+  have hokΔ : ∀ i, i < n → ∀ ρ : Nat → V,
+      Sat V (rds.map
+        (·.2.2)).reverse ρ →
+      WellDenotedV V (fun j => ρ (j + (n - 1 - i) + 1))
+        ((rds.map
+          (·.2.2)).getD i default) := by
+    have hq := blockRuleHokΔ_of (V := V)
+      (pdoms := rds.map (·.2.2))
+      (fdoms := []) (ihdoms := []) (nF := 0) (nR := 0) hlenDoms rfl rfl
+      (by simpa using hokTower)
+    simp only [List.reverse_nil, List.append_nil, List.nil_append, Nat.add_zero] at hq
+    have hgd : ∀ i, i < n →
+        ((rds.map
+            (·.2.2)).reverse).getD (n - 1 - i) default
+          = (rds.map
+            (·.2.2)).getD i default := by
+      intro i hi
+      rw [List.getD_eq_getElem?_getD, hent i hi]
+      rfl
+    intro i hi ρ hρ
+    have hq' := hq i hi ρ hρ
+    rwa [hgd i hi] at hq'
+  have hctx : CtxOk mpC.base2 ψ (n)
+      (rds.map (·.2.2)).reverse
+      conclE :=
+    ctxOk_of_openers mpC.base2.acval_closed
+      (Aa := fun i => (rds.map
+        (·.2.2)).getD i default)
+      (by rw [List.length_reverse, hlenDoms])
+      (by simpa using ConLeche.openPisAtFvars_index _ T 0 hop)
+      (by simpa using (openPisAtFvars_WScoped _ T 0 hop hw₁).1)
+      hdoms hleaf (fun l hl => Expr.fvarLeaves_lt_of_wscoped hwsC l hl) hent hokΔ
+  obtain ⟨-, ihw, -, ihi⟩ := checkSoundAt (V := V) hμ (Rules.RulesInputs.ofSem mpC ψ) F
+  exact fun ρ hρ => (sortSemAt_of_claims ihw ihi
+    (inferReads_of hμ (Rules.RulesInputs.ofSem mpC ψ))
+    hctx hwsC hbC hLC hinf (ConLeche.ensureSortCore_inv hens) hconclRead ρ hρ).2
+
+
 /-- **THE `univZero` PRODUCER**, in its general form: the recursor's
 conclusion reads into `univ (u.eval ψ)` at every frame satisfying the
 type's own binder data. -/
@@ -3773,97 +3885,7 @@ theorem blockRecConcl_univ {envC : Env} (hμ : μ.verifiedChecks = true)
   have hce : concl' = conclE := congrArg Prod.snd heqP
   rw [hfe] at hdomsR
   rw [hce] at hconclRead
-  -- the frame's syntax
-  have hlenFvs : fvs.length = p.toBlockShape.majorIdxAt c + 1 :=
-    ConLeche.Verify.openPisAtFvars_length _ hop
-  obtain ⟨hbC, hlbF⟩ := openPisAtFvars_bounded _ hop hb₁
-  have hwsC : Expr.WScoped (p.toBlockShape.majorIdxAt c + 1) conclE := by
-    have hq := (openPisAtFvars_WScoped _ r.1.type 0 hop hw₁).2
-    rwa [Nat.zero_add] at hq
-  have hnilTy : r.1.type.fvarLeaves = [] := fvarLeaves_nil_of_wscoped_zero hw₁
-  have hleaf : ∀ l ∈ conclE.fvarLeaves, Expr.fvar l.1 l.2 ∈ fvs := by
-    intro l hl
-    rcases openPisAtFvars_leaves _ hop l (Or.inl hl) with h' | h'
-    · rw [hnilTy] at h'; exact nomatch h'
-    · exact h'
-  have hLC : Expr.LeavesBounded conclE := leavesBounded_of_openers hlbF hleaf
-  -- the frame's semantics: the binder data reads, and is graded
-  have hdoms : ∀ (j : Nat) (x : Expr), fvs[j]? = some x →
-      denoteMeta mpC.base2.acval envC ψ j (Expr.fvarTypeD x)
-        = some (((blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ c).map
-            (·.2.2)).getD j default) := by
-    intro j x hx
-    obtain ⟨pd, hpd, -, hrd⟩ := hdomsR j x hx
-    rw [hrd, List.getD_eq_getElem?_getD, List.getElem?_map, hpd]
-    rfl
-  have hokTower : ∀ l, l < p.toBlockShape.majorIdxAt c + 1 →
-      ∀ (σ : Nat → V) (ys : List V),
-      SpineFit σ (((blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ c).map
-          (·.2.2)).take l) ys →
-      WellDenotedV V (consList ys σ)
-        (((blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ c).map
-          (·.2.2)).getD l default) := by
-    intro l hl σ ys hys
-    have hfull : (blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ c).take
-        (p.toBlockShape.majorIdxAt c + 1)
-        = blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ c :=
-      List.take_of_length_le (by omega)
-    rw [← hfull] at hys ⊢
-    exact prefixDoms_graded_of_tower (cc := blockRecConclAV mpC.base2.acval envC
-        p.toBlockShape rs ψ c) (by omega) (fun ρ' => by rw [← hTyE]; exact hwdTy ρ')
-      hl hys
-  -- the context IS the type's own binder data, reversed
-  have hlenDoms : ((blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ c).map
-      (·.2.2)).length = p.toBlockShape.majorIdxAt c + 1 := by
-    rw [List.length_map, hlenRds]
-  have hent : ∀ i, i < p.toBlockShape.majorIdxAt c + 1 →
-      (((blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ c).map
-          (·.2.2)).reverse)[p.toBlockShape.majorIdxAt c + 1 - 1 - i]?
-        = some (((blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ c).map
-          (·.2.2)).getD i default) := by
-    intro i hi
-    rw [List.getElem?_reverse (by omega), hlenDoms,
-      show p.toBlockShape.majorIdxAt c + 1 - 1 - (p.toBlockShape.majorIdxAt c + 1 - 1 - i) = i
-        from by omega,
-      List.getD_eq_getElem?_getD,
-      List.getElem?_eq_getElem (by rw [hlenDoms]; omega)]
-    rfl
-  have hokΔ : ∀ i, i < p.toBlockShape.majorIdxAt c + 1 → ∀ ρ : Nat → V,
-      Sat V ((blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ c).map
-        (·.2.2)).reverse ρ →
-      WellDenotedV V (fun j => ρ (j + (p.toBlockShape.majorIdxAt c + 1 - 1 - i) + 1))
-        (((blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ c).map
-          (·.2.2)).getD i default) := by
-    have hq := blockRuleHokΔ_of (V := V)
-      (pdoms := (blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ c).map (·.2.2))
-      (fdoms := []) (ihdoms := []) (nF := 0) (nR := 0) hlenDoms rfl rfl
-      (by simpa using hokTower)
-    simp only [List.reverse_nil, List.append_nil, List.nil_append] at hq
-    have hgd : ∀ i, i < p.toBlockShape.majorIdxAt c + 1 →
-        (((blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ c).map
-            (·.2.2)).reverse).getD (p.toBlockShape.majorIdxAt c + 1 - 1 - i) default
-          = ((blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ c).map
-            (·.2.2)).getD i default := by
-      intro i hi
-      rw [List.getD_eq_getElem?_getD, hent i hi]
-      rfl
-    intro i hi ρ hρ
-    have hq' := hq i hi ρ hρ
-    rwa [hgd i hi] at hq'
-  have hctx : CtxOk mpC.base2 ψ (p.toBlockShape.majorIdxAt c + 1)
-      ((blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ c).map (·.2.2)).reverse
-      conclE :=
-    ctxOk_of_openers mpC.base2.acval_closed
-      (Aa := fun i => ((blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ c).map
-        (·.2.2)).getD i default)
-      (by rw [List.length_reverse, hlenDoms])
-      (by simpa using ConLeche.openPisAtFvars_index _ r.1.type 0 hop)
-      (by simpa using (openPisAtFvars_WScoped _ r.1.type 0 hop hw₁).1)
-      hdoms hleaf (fun l hl => Expr.fvarLeaves_lt_of_wscoped hwsC l hl) hent hokΔ
-  obtain ⟨-, ihw, -, ihi⟩ := checkSoundAt (V := V) hμ (Rules.RulesInputs.ofSem mpC ψ) F
-  exact fun ρ hρ => (sortSemAt_of_claims ihw ihi
-    (inferReads_of hμ (Rules.RulesInputs.ofSem mpC ψ))
-    hctx hwsC hbC hLC hinf (ConLeche.ensureSortCore_inv hens) hconclRead ρ hρ).2
+  exact piConcl_univ hμ mpC ψ hw₁ hb₁ hTyE hlenRds hdomsR hconclRead hwdTy hop hinf hens
 
 end ConclUniv
 
