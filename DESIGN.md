@@ -94188,3 +94188,59 @@ fuel).
 Gates: `lake build`/`lake test` warning-free; `tests/shake.sh` (four
 public imports of `GenRecStage` measured, FALLBACK), `tests/layering.sh`
 green.
+
+## GENREC M2 — the generated stage's proofs so far, and two kernel decisions (2026-09-29, `agent/uinds-GENREC`)
+
+Still no verdict change (the stage is defined, not wired).  Sorry-free,
+standard axioms; on this branch: lanes D (the stage's fueled bridge
+`genRecCheck_datF` and cached simulation `genRecCheckS_simG`,
+`Verify/Cached/GenRecC.lean`), A (`recStage_of_gen`: the kind-free stage
+record from the generated run, `Model/Inductives/GenRecStage.lean`), F
+(`genScoped_of_run`: the generator's inputs scoped, and a new positivity
+invariant `NfStScoped` — the table's entries are over the parameters,
+`Verify/Inductives/NestNfScope.lean`), G (`genParams_fit`: the stored
+prefix's parameters fit the block's, from the defeq the stored type's own
+inference runs at a member major, `GenRecParams.lean`), D1 (below).  On
+the integration branch `agent/uinds-GENREC-skel` (with `sorry`s): the
+skeleton `genRecStage` over `blockRecStaged_dataR`, lanes E (ctorsIn,
+hctor, the `.nested` pins' grading from the stored type's own inference,
+the outside classes' data), B1 (the family premise through
+`graphRecPre_coreR` at the old class data, modulo class-side facts), B2
+(the class induction at the generated calls: the node route reused, the
+rule side by construction + node agreement, `genClassInd`), C (the rule
+contract and the equations' rows, modulo class-side rows).
+
+**Kernel decisions.**
+1. **Classes over the canonical parameters** (`classKeyCanon`): the
+   pre-pass reads class keys over the stream recursor's own openers, which
+   the generated prefix does not bind; they are moved to the block's
+   canonical parameters (`blockNestCtx`'s) before `targetMajorOf`.  And
+   **an ih's class heads its field's leaf** (`classLeafAt` inside
+   `classFieldsAgree`): `targetClassMatch` compares levels and parameters
+   only, so nothing else tied the pre-pass's ih class to the field (lane
+   B2, gap G1).  No verdict change.
+2. **D1: the generator writes its binder data and nothing is annotated.**
+   Every binder of a recursor type, minor premise, ih and rule carries
+   `⟨zeronessOf elim⟩` (`ClassGen.bm`; the motive types `.never`); the
+   generated type is checked by `classConstOk` (`checkConstantValF`
+   without the annotation pass) and stored as generated, the rules as
+   generated (`classRuleOk`); inference validates every written datum
+   (`(forall-cod)`/`(lam-cod-*)`, a mismatch declines).  Reason (lanes
+   B1, H): `.never` is both "never zero" and the unwritten marker, so the
+   annotation pass recomputed the data of binders INSIDE the generator's
+   already-annotated pieces (declared field domains, index telescopes,
+   class parameters) in a new context, and nothing ties those to the
+   pieces' own (`resetMeta` first, as M0 did, made it worse; lane H proved
+   annotation otherwise keeps pieces verbatim, `GenRecAnnotKeep` on
+   `agent/uinds-GENREC-H`, unmerged).  Verdicts (scratch wiring): 677-stream
+   sweep and init-full unchanged; `complete_c05b_nest30_pi1000`
+   instructions:u 69.4 G (target check) → 46.5 G (M1's annotated
+   generator: 40.2 G).  The stage record's `RecTyGen.hcv` is now the
+   facts its consumers read (`ConstChecked`), `RuleOutOk` no longer
+   carries an annotation run.
+**Open** (lanes running): `GenNoProj` (no `.proj` at an empty slot in the
+stored generated terms — annotation gave it for free; lane NP proves it
+from the run), the class-side facts of B1/C (lane CLS), then the wiring
+(`checkBlockRec` := the generated stage, `NestedRecCtx`, the cached
+driver), the deletion of the target check and `Conformance/`, fixtures'
+expectations, OVERVIEW §5.
