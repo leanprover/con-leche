@@ -4,6 +4,8 @@ public import ConLeche.Model.Inductives.GenRuleSyn
 public import ConLeche.Semantics.ConstsBound
 import ConLeche.Verify.Inductives.NestCallSyn
 import ConLeche.Verify.Abstract
+import ConLeche.Verify.Inductives.NestScope
+import ConLeche.Verify.Inductives.ClassGenMinorSyn
 
 public section
 
@@ -363,5 +365,52 @@ theorem targetPiDomsWith_erase :
   | _ :: _, _ :: _, .lit _, _, _, _, _, _, _, _, h, _
   | _ :: _, _ :: _, .proj _ _ _, _, _, _, _, _, _, _, h, _ => by
     simp [ConLeche.targetPiDomsWith] at h
+
+/-! ## The minor premise, spelled out -/
+
+theorem filterMap_eq_recs (x : ClassCtor) {f : Nat → Option (Nat × Nat × Nat)}
+    (hf : ∀ i, f i = match x.kinds.getD i .ordinary with
+      | .recursive t tele => some (i, t, tele)
+      | .ordinary => none) :
+    (List.range x.nF).filterMap f = x.recs := by
+  unfold ClassCtor.recs
+  congr 1
+  funext i
+  rw [hf]
+  cases x.kinds.getD i .ordinary <;> rfl
+
+/-- **A generated minor premise, spelled out** (`ClassGen.minorTy`): the
+telescope of the declared fields and, per recursive field, the `ih`
+binder `Π a⃗, motive_t e⃗ (f a⃗)` from the walked field type. -/
+theorem minorTy_spec' {g : ClassGen} {c : Nat} {x : ClassCtor} {d : Nat} {T : Expr}
+    (h : g.minorTy c x d = some T) :
+    ∃ (fvs : List Expr) (res : Expr) (ws : List Expr) (ihs : List (Expr × BinderMeta))
+      (concl : Expr),
+      ConLeche.openPisAtFvars x.nF x.tyD d = some (fvs, res) ∧
+      ConLeche.targetPiDomsWith fvs x.tyN = some ws ∧
+      T = ConLeche.closeTelescope (fvs.map g.binder ++ ihs) d concl ∧
+      ihs.length = x.recs.length ∧
+      ∀ (l : Nat) (q : Nat × Nat × Nat), x.recs[l]? = some q →
+        ∃ xs idx, g.ihParts q.2.1 q.2.2 (ws.getD q.1 default) (d + x.nF + l) = some (xs, idx) ∧
+          ihs[l]? = some (ConLeche.closeTelescope (xs.map g.binder) (d + x.nF + l)
+            (Expr.mkAppN (g.motVar q.2.1) (idx ++ [Expr.mkAppN (fvs.getD q.1 default) xs])), g.bm) := by
+  unfold ClassGen.minorTy at h
+  obtain ⟨⟨fvs, res⟩, hop, h⟩ := Option.bind_eq_some_iff.mp h
+  obtain ⟨ws, hws, h⟩ := Option.bind_eq_some_iff.mp h
+  simp only at h
+  obtain ⟨ihs, hihs, h⟩ := Option.bind_eq_some_iff.mp h
+  rw [filterMap_eq_recs x ?hf] at hihs
+  case hf => intro i; cases x.kinds.getD i .ordinary <;> rfl
+  simp only [Option.pure_def, Option.some.injEq] at h
+  refine ⟨fvs, res, ws, ihs, _, hop, hws, h.symm, ?_, fun l q hq => ?_⟩
+  · rw [ConLeche.option_mapM_length hihs, List.length_range]
+  · have hl : l < x.recs.length := (List.getElem?_eq_some_iff.mp hq).1
+    obtain ⟨y, hy, hly⟩ := ConLeche.option_mapM_getElem? hihs l l
+      (List.getElem?_range hl)
+    have hqd : x.recs.getD l default = q := by rw [List.getD_eq_getElem?_getD, hq]; rfl
+    simp only [hqd] at hy
+    obtain ⟨⟨xs, idx⟩, hparts, hy⟩ := Option.bind_eq_some_iff.mp hy
+    simp only [Option.pure_def, Option.some.injEq] at hy
+    exact ⟨xs, idx, hparts, by rw [hly, hy]⟩
 
 end ConLeche.Model
