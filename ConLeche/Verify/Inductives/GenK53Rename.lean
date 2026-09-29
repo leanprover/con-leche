@@ -459,6 +459,53 @@ theorem k53_rename {ops : CheckerOps CheckM} {env : Env} {p : BlockShape}
   · obtain ⟨hb, -⟩ := hPw x hx
     exact Expr.looseBVarsBounded_iff.mpr (by rw [← Expr.bvarB_eq]; omega)
 
+/-! ## Inverting the generator and node agreement -/
+
+private theorem gk_option_filterMapM_all {α β : Type} {f : α → Option (Option β)} :
+    ∀ {l : List α} {ys : List β}, l.filterMapM f = some ys → ∀ a ∈ l, ∃ o, f a = some o := by
+  intro l
+  induction l with
+  | nil => intro ys h a ha; exact nomatch ha
+  | cons a l ih =>
+    intro ys h b hb
+    rw [List.filterMapM_cons] at h
+    simp only [bind, Option.bind] at h
+    cases ha : f a with
+    | none => simp [ha] at h
+    | some oa =>
+      rcases List.mem_cons.mp hb with rfl | hb
+      · exact ⟨oa, ha⟩
+      · simp only [ha] at h
+        cases oa with
+        | none => exact ih h b hb
+        | some c =>
+          simp only at h
+          cases hl : l.filterMapM f with
+          | none => simp [hl] at h
+          | some ys' => exact ih hl b hb
+
+private theorem gk_classNodesAgree_mem {ops : CheckerOps CheckM} {env : Env} {p : BlockShape}
+    {formerTys : List Expr} {Mc : TargetMajor} {tele : List (Expr × BinderMeta)} {leaf : Expr}
+    {fvs : List Expr} {i : Nat} {ctor : Name} :
+    ∀ {es : List NestCtorNf},
+      classNodesAgree ops env p formerTys Mc tele leaf fvs i ctor es = .ok () →
+      ∀ e ∈ es, ∃ f, ((targetPiDomsWith fvs e.ty).getD [])[i]? = some f ∧
+        targetK53 ops env p formerTys Mc tele leaf f = .ok true
+  | [], _, e, he => nomatch he
+  | e0 :: es, h, e, he => by
+    unfold classNodesAgree at h
+    split at h
+    · rename_i f hf
+      obtain ⟨b, hb, h⟩ := exceptBind_ok h
+      cases b
+      · obtain ⟨u, hu, -⟩ := exceptBind_ok h
+        simp [throw, throwThe, MonadExceptOf.throw] at hu
+      · rcases List.mem_cons.mp he with rfl | he
+        · exact ⟨f, hf, hb⟩
+        · simp only [↓reduceIte] at h
+          exact gk_classNodesAgree_mem h e he
+    · simp [throw, throwThe, MonadExceptOf.throw] at h
+
 /-! ## The generated rule's inductive hypotheses -/
 
 /-- **A generated rule's `ih` at a recursive field**, as the generator
@@ -472,7 +519,16 @@ theorem classGenRule_ih {g : ClassGen} {recOf : Nat → Option Name} {rlvls : Li
       targetPiDomsWith fvs x.tyN = some ws ∧
       g.ihParts t tele (ws.getD i default) (g.pre.length + x.nF) = some (xsO, idx) ∧
       recOf t = some r := by
-  sorry
+  unfold classGenRule at h
+  obtain ⟨⟨s, sl⟩, hs, h⟩ := Option.bind_eq_some_iff.mp h
+  obtain ⟨⟨fvs, o⟩, hop, h⟩ := Option.bind_eq_some_iff.mp h
+  obtain ⟨ws, hws, h⟩ := Option.bind_eq_some_iff.mp h
+  obtain ⟨ihs, hihs, h⟩ := Option.bind_eq_some_iff.mp h
+  obtain ⟨o', ho'⟩ := gk_option_filterMapM_all hihs i (List.mem_range.mpr hi)
+  simp only [hk] at ho'
+  obtain ⟨⟨xsO, idx⟩, hparts, ho'⟩ := Option.bind_eq_some_iff.mp ho'
+  obtain ⟨r, hr, -⟩ := Option.bind_eq_some_iff.mp ho'
+  exact ⟨fvs, o, ws, xsO, idx, r, hop, hws, hparts, hr⟩
 
 /-- **Node agreement at an entry** (`classFieldsAgree`, inverted at a
 recursive field `i` and an entry `e ∈ E`): the datum's field `i` strips
@@ -488,6 +544,47 @@ theorem classFieldsAgree_at {ops : CheckerOps CheckM} {env : Env} {p : BlockShap
       classLeafAt (Ms.getD t default) leaf = true ∧
       ((targetPiDomsWith fvs e.ty).getD [])[i]? = some f ∧
       targetK53 ops env p formerTys (Ms.getD t default) teleB leaf f = .ok true := by
-  sorry
+  induction ks generalizing i₀ with
+  | nil => simp at hk
+  | cons k ks ih =>
+    by_cases hii : i = i₀
+    · subst hii
+      simp only [Nat.sub_self, List.getElem?_cons_zero, Option.some.injEq] at hk
+      subst hk
+      unfold classFieldsAgree at h
+      obtain ⟨⟨teleB, leaf⟩, hu, h⟩ := exceptBind_ok h
+      try dsimp only at h
+      have hst : (fvs.getD i default).fvarTypeD.stripPis tele = some (teleB, leaf) := by
+        cases hs : (fvs.getD i default).fvarTypeD.stripPis tele with
+        | none =>
+          rw [hs] at hu
+          simp [unwrapOr, throw, throwThe, MonadExceptOf.throw] at hu
+        | some q =>
+          rw [hs] at hu
+          simp only [unwrapOr, pure, Except.pure, Except.ok.injEq] at hu
+          rw [hu]
+      split at h
+      · rename_i hcl
+        obtain ⟨u', hn, -⟩ := exceptBind_ok h
+        obtain ⟨f, hf, hK⟩ := gk_classNodesAgree_mem hn e he
+        exact ⟨teleB, leaf, f, hst, hcl, hf, hK⟩
+      · obtain ⟨u, hu2, -⟩ := exceptBind_ok h
+        simp [throw, throwThe, MonadExceptOf.throw] at hu2
+    · have hk' : ks[i - (i₀ + 1)]? = some (.recursive t tele) := by
+        rw [show i - i₀ = (i - (i₀ + 1)) + 1 by omega] at hk
+        simpa using hk
+      cases k with
+      | ordinary =>
+        unfold classFieldsAgree at h
+        exact ih h hk' (by omega)
+      | recursive t' tele' =>
+        unfold classFieldsAgree at h
+        obtain ⟨_, -, h⟩ := exceptBind_ok h
+        try dsimp only at h
+        split at h
+        · obtain ⟨_, -, h⟩ := exceptBind_ok h
+          exact ih h hk' (by omega)
+        · obtain ⟨u, hu2, -⟩ := exceptBind_ok h
+          simp [throw, throwThe, MonadExceptOf.throw] at hu2
 
 end ConLeche
