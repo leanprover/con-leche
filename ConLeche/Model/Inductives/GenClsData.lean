@@ -8,6 +8,7 @@ import ConLeche.Model.Inductives.GenClsFrame
 import ConLeche.Model.Inductives.GenClsCall
 import ConLeche.Model.Inductives.GenRecPreRun
 import ConLeche.Model.Inductives.GenRecPins
+import ConLeche.Model.Inductives.GenRecParams
 import ConLeche.Model.Inductives.GenRecClasses
 import ConLeche.Model.Inductives.BlockRecData
 import ConLeche.Model.Inductives.BlockRecLaw
@@ -23,6 +24,7 @@ import ConLeche.Model.Inductives.StructEntryKit
 import ConLeche.Model.Inductives.ContInst
 import ConLeche.Model.Inductives.ContInstRule
 import ConLeche.Model.Inductives.TargetOutRows
+import ConLeche.Model.Inductives.TargetOutSat
 import ConLeche.Model.Inductives.TargetOutIdx
 import ConLeche.Model.Inductives.TargetClasses
 import ConLeche.Model.Inductives.TargetGraph
@@ -31,9 +33,12 @@ import ConLeche.Model.Annot.BlockLfp
 import ConLeche.Model.Annot.BitClosed
 import ConLeche.Model.Annot.BitLemmas
 import ConLeche.Model.Annot.BitInst
+import ConLeche.Model.Annot.BitRename
 import ConLeche.Model.Levels
 import ConLeche.Model.NatEqs
 import ConLeche.Model.IndOpenRev
+import ConLeche.Model.IndPinGrade
+import ConLeche.Verify.InstSpine
 import ConLeche.Model.WellDenotedTransport
 import ConLeche.Model.Rules.InferSoundKit
 public import ConLeche.Model.Rules.RedSoundKit
@@ -295,6 +300,208 @@ theorem genOutCtorFit (hμ : μ.verifiedChecks = true)
   · rw [hrest] at hC
     obtain rfl := Option.some.inj hC
     rw [hT0E]; exact hTF
+
+set_option maxHeartbeats 8000000 in
+/-- **A `.nested` firing's pins, valued** (at an outside class): the
+levels are the class's, and the `q`-th pin, instantiated at the rule's
+level arguments and opened at the prefix, reads, and its chain at any
+prefix spine is the `q`-th parameter's reading at that spine's frame —
+the pin is the stored major domain's `q`-th argument closed over the
+prefix (`nestedRuleSyn_open`), erasure-equal to the class's parameter. -/
+theorem genOutPinVal (hμ : μ.verifiedChecks = true)
+    (R : GenRecRun μ F (mkFEnv env₁) env₁ (mkFEnv envC) pp.toBlockShape nestedBit pos cvTas
+      block ctorsAs out) (hg : ClassGenScoped R.g) {memR : Nat → Prop}
+    (h : ConLeche.RecStageG μ F envC pp cvTas ctorsAs (tgtRs out) memR)
+    {c : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
+    (hr : (tgtRs out)[c]? = some r) (hMo : (tgtMajor out c).member = none)
+    {cvI : ConstantVal} (Rd : GenClsRd mpC d Dc mc cvc pp out c cvI)
+    {lvls : List Level} {pins : List Expr}
+    (hf : ConLeche.tgtFireOf (·.constsResolve envC) pp.toBlockShape (ConLeche.tgtMajorsOf out) c r
+      = .nested lvls pins)
+    (φ : Name → Nat) (us : List Level) :
+    lvls = (tgtMajor out c).lvls ∧
+    ∀ q, q < (tgtMajor out c).nPc → ∃ vpa : AnnotTerm,
+      denoteMeta mpC.base2.acval envC φ (pp.toBlockShape.rulePrefixAt c)
+          (openRev 0 (pp.toBlockShape.rulePrefixAt c)
+            ((pins.getD q default).instantiateLevelParams r.1.levelParams us)) = some vpa ∧
+      ∀ (ρ : Nat → V) (zs : List AnnotTerm), zs.length = pp.toBlockShape.rulePrefixAt c →
+        interp V ρ (AnnotTerm.instRevChain zs vpa)
+          = interp V (consList (zs.map (interp V ρ)) ρ)
+              ((tgtOutDsa mpC.base2.acval envC pp.toBlockShape out
+                (Level.substFn φ r.1.levelParams us) c).getD q default) := by
+  have hc : c < (tgtRs out).length := (List.getElem?_eq_some_iff.mp hr).1
+  obtain ⟨-, -, hpinsWf, -⟩ := ConLeche.tgtFireOf_nested hf
+  have hm' : (ConLeche.tgtMajorsOf out c).member = none := hMo
+  unfold ConLeche.tgtFireOf at hf
+  rw [hm'] at hf
+  simp only [ConLeche.auxRuleFireR] at hf
+  cases hsyn : Expr.nestedRuleSyn (·.constsResolve envC) r.1.levelParams r.1.type
+      (pp.toBlockShape.majorIdxAt c) (pp.toBlockShape.rulePrefixAt c)
+      (ConLeche.tgtMajorsOf out c).nPc with
+  | none => rw [hsyn] at hf; exact nomatch hf
+  | some lp =>
+  obtain ⟨lvls', pins'⟩ := lp
+  rw [hsyn] at hf
+  injection hf with hl hp
+  rw [hl, hp] at hsyn
+  -- the stored type's openers
+  obtain ⟨_, _, -, ⟨TE⟩⟩ := ConLeche.recStageG_tyGen h hr
+  have hopen := TE.hopen
+  have hmaj := TE.hmaj
+  obtain ⟨rP, hRP⟩ : ∃ n, pp.toBlockShape.rulePrefixAt c = n := ⟨_, rfl⟩
+  obtain ⟨mI, hMI⟩ : ∃ n, pp.toBlockShape.majorIdxAt c = n := ⟨_, rfl⟩
+  have hle0 : rP ≤ mI := by have := TE.hmI'; omega
+  rw [hRP, hMI] at hsyn
+  rw [hRP]
+  rw [hMI] at hopen hmaj
+  obtain ⟨⟨D₀, hD₀⟩, hpinsE⟩ := ConLeche.nestedRuleSyn_open hsyn hopen hmaj
+  -- the stored major's domain is the class applied, up to erasure
+  obtain ⟨clsc, tyc, ifsc, bodyc, -, -, -, -, hifl, hRPc, hmIc, -, -, -, fvs0, o0, hop0, hE⟩ :=
+    genRun_binders hμ R hg h mpC (fun _ => 0) hc
+  have hrE : (tgtRs out)[c]'hc = r := Option.some.inj ((List.getElem?_eq_getElem hc).symm.trans hr)
+  rw [hrE, hMI] at hop0
+  obtain ⟨rfl, -⟩ := Prod.mk.inj (Option.some.inj (hop0.symm.trans hopen))
+  have hmE := hE mI TE.maj (Expr.mkAppN (.const (tgtMajor out c).ind (tgtMajor out c).lvls)
+      ((tgtMajor out c).ds ++ ifsc)) hmaj (by
+    rw [List.getElem?_append_right (by simp; omega)]
+    simp only [List.length_append, List.length_map]
+    rw [show mI - (R.g.pre.length + ifsc.length) = 0 by omega]
+    rfl)
+  obtain ⟨f', as', hmajE, hf'E, hasl⟩ := erasedEq_mkAppN_inv _ hmE
+  obtain ⟨-, hargE⟩ := ConLeche.erasedEq_mkAppN_args _ hasl (by rw [← hmajE]; exact hmE)
+  obtain rfl : f' = .const (tgtMajor out c).ind (tgtMajor out c).lvls := by
+    match f', hf'E with
+    | .const n' us', hf => obtain ⟨rfl, rfl⟩ := hf; rfl
+  have hfn : TE.maj.fvarTypeD.getAppFn = .const (tgtMajor out c).ind (tgtMajor out c).lvls := by
+    rw [hmajE, Expr.getAppFn_mkAppN]; rfl
+  have hargsE : TE.maj.fvarTypeD.getAppArgs = as' := by
+    rw [hmajE, Expr.getAppArgs_mkAppN]; rfl
+  refine ⟨?_, fun q hq => ?_⟩
+  · rw [hfn] at hD₀
+    injection hD₀ with _ h2
+    exact h2.symm
+  -- the `q`-th pin is the `q`-th parameter, closed
+  have hnpc := Rd.hnpc
+  have hasl' : as'.length = (tgtMajor out c).ds.length + ifsc.length := by
+    rw [hasl, List.length_append]
+  have hqd : q < as'.length := by omega
+  obtain ⟨x, hxdef⟩ : ∃ x, x = as'[q] := ⟨_, rfl⟩
+  have hxA : x ∈ TE.maj.fvarTypeD.getAppArgs := by
+    rw [hargsE, hxdef]; exact List.getElem_mem hqd
+  have hpinq : (pins.getD q default) = x.abstractRange 0 rP := by
+    rw [← hpinsE, List.getD_eq_getElem?_getD, List.getElem?_map, List.getElem?_take,
+      if_pos (show q < (ConLeche.tgtMajorsOf out c).nPc from hq), hargsE,
+      List.getElem?_eq_getElem hqd, hxdef]
+    rfl
+  have hpinMem : pins.getD q default ∈ pins := by
+    rw [← hpinsE]
+    rw [← hpinsE] at hpinq
+    rw [List.getD_eq_getElem?_getD] at hpinq ⊢
+    have hq' : q < ((TE.maj.fvarTypeD.getAppArgs.take (ConLeche.tgtMajorsOf out c).nPc).map
+        (·.abstractRange 0 rP)).length := by
+      simp only [List.length_map, List.length_take, hargsE]
+      have : q < (ConLeche.tgtMajorsOf out c).nPc := hq
+      omega
+    rw [List.getElem?_eq_getElem hq', Option.getD_some]
+    exact List.getElem_mem hq'
+  obtain ⟨hpF, -, -, hpB⟩ := hpinsWf _ hpinMem
+  rw [hRP] at hpB
+  -- the prefix openers
+  obtain ⟨hw0, hb0⟩ := recStage_tyClosed h hr
+  obtain ⟨oP, hopP⟩ := ConLeche.openPisAtFvars_prefix rP (mI + 1) r.1.type 0
+    (by omega) hopen
+  have hoslen : (TE.fvs.take rP).length = rP := ConLeche.Verify.openPisAtFvars_length _ hopP
+  have hshape : ∀ (k : Nat) (y : Expr), (TE.fvs.take rP)[k]? = some y →
+      ∃ ty, y = Expr.fvar k ty := by
+    intro k y hy
+    simpa using ConLeche.openPisAtFvars_index _ _ _ hopP k y hy
+  have hpre : ∀ k (hk : k < (TE.fvs.take rP).length), ∃ ty,
+      (TE.fvs.take rP)[k] = .fvar k ty := by
+    intro k hk
+    obtain ⟨ty, hty⟩ := hshape k _ (List.getElem?_eq_getElem hk)
+    exact ⟨ty, hty⟩
+  have hwsOs : ∀ y ∈ TE.fvs.take rP, Expr.WScoped (rP + 0) y := by
+    intro y hy
+    have := (openPisAtFvars_WScoped _ _ 0 hopP hw0).1 y hy
+    simpa using this
+  have hbOs : ∀ y ∈ TE.fvs.take rP, y.looseBVarsBounded 0 = true := by
+    intro y hy
+    obtain ⟨k, hk, rfl⟩ := List.getElem_of_mem hy
+    obtain ⟨ty, hty⟩ := hpre k hk
+    rw [hty]; rfl
+  have hwsM : Expr.WScoped mI TE.maj.fvarTypeD := by
+    have := openPisAtFvars_typeWScoped (mI + 1) hopen hw0 mI TE.maj hmaj
+    rwa [Nat.zero_add] at this
+  have hwsX : Expr.WScoped rP x := ConLeche.WScoped.of_abstractRange_noFvar
+    (wscoped_of_getAppArgs hwsM x hxA) (by rw [← hpinq]; exact hpF)
+  have hxb : x.looseBVarsBounded 0 = true :=
+    ConLeche.looseBVarsBounded_getAppArgs
+      ((openPisAtFvars_bounded _ hopen hb0).2 TE.maj (List.mem_of_getElem? hmaj)) x hxA
+  have hnil : r.1.type.fvarLeaves = [] := fvarLeaves_nil_of_wscoped_zero hw0
+  have hxlt : ∀ l ∈ x.fvarLeaves, l.1 < rP :=
+    fun l hl => ConLeche.Expr.fvarLeaves_lt_of_wscoped hwsX l hl
+  have hxl : ∀ l ∈ x.fvarLeaves, Expr.fvar l.1 l.2 ∈ TE.fvs.take rP := by
+    intro l hl
+    obtain ⟨tyM, hmajE'⟩ := ConLeche.openPisAtFvars_index _ _ _ hopen mI TE.maj hmaj
+    have hlM : l ∈ TE.maj.fvarLeaves := by
+      have h1 := ConLeche.fvarLeaves_getAppArgs hxA l hl
+      rw [hmajE'] at h1 ⊢
+      simp only [Expr.fvarTypeD] at h1
+      simp only [Expr.fvarLeaves, List.mem_cons]
+      exact Or.inr h1
+    rcases openPisAtFvars_leaves _ hopen l (Or.inr ⟨TE.maj, List.mem_of_getElem? hmaj, hlM⟩)
+      with h' | h'
+    · rw [hnil] at h'; exact nomatch h'
+    · obtain ⟨pos, hpos⟩ := List.getElem?_of_mem h'
+      obtain ⟨ty', hty'⟩ := ConLeche.openPisAtFvars_index _ _ _ hopen pos _ hpos
+      have h1 : l.1 = pos := by injection hty' with a b; omega
+      have hpt : (TE.fvs.take rP)[pos]? = some (Expr.fvar l.1 l.2) := by
+        rw [List.getElem?_take, if_pos (show pos < rP by have := hxlt l hl; omega)]
+        exact hpos
+      exact List.mem_of_getElem? hpt
+  have hround : Expr.instSpine (TE.fvs.take rP) (rP - 1) (pins.getD q default) = x := by
+    rw [hpinq, Expr.instSpine_eq_instSeq]
+    have := ConLeche.instSeq_abstractRange_open hpre x 0 hxb hxl
+    rw [hoslen, Nat.zero_add] at this
+    exact this
+  -- the parameter's reading is the class's parameter's
+  obtain ⟨ψ, hψ⟩ : ∃ ψ, ψ = Level.substFn φ r.1.levelParams us := ⟨_, rfl⟩
+  have hqds : q < (tgtMajor out c).ds.length := by omega
+  have hxE : Expr.ErasedEq x ((tgtMajor out c).ds.getD q default) := by
+    have := hargE q ((tgtMajor out c).ds.getD q default) x (by
+      rw [List.getElem?_append_left hqds, List.getD_eq_getElem?_getD,
+        List.getElem?_eq_getElem hqds]; rfl)
+      (by rw [hxdef]; exact List.getElem?_eq_getElem hqd)
+    exact this
+  have hdq := DenoteMetaSpine.getD (Rd.hdsa ψ) default q hqds
+  have hTRP : tgtRP pp.toBlockShape c = rP := by rw [tgtRP]; exact hRP
+  rw [hTRP] at hdq
+  have hw : denoteMeta mpC.base2.acval envC ψ rP x
+      = some ((tgtOutDsa mpC.base2.acval envC pp.toBlockShape out ψ c).getD q default) := by
+    rw [denoteMeta_erasedEq hxE]; exact hdq
+  have hacl := mpC.base2.acval_closed
+  have hainst : ∀ (n : Name) (ψ' : Name → Nat) (y : AnnotTerm) (k : Nat),
+      (mpC.base2.acval n ψ').inst y k = mpC.base2.acval n ψ' :=
+    fun n ψ' y k => AVExprSubst.inst_eq_self_of_closed (mpC.base2.acval_closed n ψ') y k
+  have hw' : denoteMeta mpC.base2.acval envC ψ (rP + 0)
+      (Expr.instSpine (TE.fvs.take rP) (rP - 1) (pins.getD q default))
+        = some ((tgtOutDsa mpC.base2.acval envC pp.toBlockShape out ψ c).getD q default) := by
+    rw [hround, Nat.add_zero]; exact hw
+  obtain ⟨vpa, hvpden⟩ := pinOpenRevReads (acval := mpC.base2.acval) (cval := mpC.base2.cvalE)
+    (env := envC) (φ := ψ) hacl hainst mpC.base2.acval_erase mpC.base2.cval_closed hoslen hshape
+    hwsOs hbOs hpF hpB hw'
+  refine ⟨vpa, ?_, fun ρ zs hzs => ?_⟩
+  · rw [ConLeche.openRev_instantiateLevelParams,
+      denoteMeta_instLevels (acvalParamsAt_of_core mpC.base2) φ, ← hψ]
+    exact hvpden
+  · obtain ⟨w0, hw0', hcross⟩ := pinCross (acval := mpC.base2.acval) (cval := mpC.base2.cvalE)
+      (env := envC) (φ := ψ) (cnF := 0) hacl hainst mpC.base2.acval_erase mpC.base2.cval_closed
+      padA hoslen hshape hwsOs hbOs hpF hpB hvpden hzs (vals := zs) (n := rP) hzs
+      (Nat.le_refl _) (by omega) (List.take_of_length_le (Nat.le_of_eq hzs))
+    obtain rfl := Option.some.inj (hw0'.symm.trans hw')
+    rw [← hψ, ← hcross, show rP + 0 - rP = 0 from by omega, List.replicate_zero,
+      List.append_nil, show rP + 0 - 1 = zs.length - 1 from by omega, interp_instSeq,
+      chain_eq_consList]
 
 end OutFit
 
