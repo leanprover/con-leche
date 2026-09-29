@@ -443,7 +443,7 @@ theorem recStage_of_gen (hμ : μ.verifiedChecks = true)
   refine ⟨{
     cvRus := genCvRus R.cvGs R.rd.recCls R.Ms elimL,
     pins := ConLeche.targetRecPins_inv R.pins,
-    fam := ⟨R.hk, ?_, ?_, fun _ _ h => h.elim, .inr ?_⟩,
+    fam := ⟨R.hk, ?_, ?_, fun _ _ h => h.elim, ?_⟩,
     lenT := hlenR, len := hlenT, stored := ?_, tyGen := ?_,
     tyEntry := fun _ _ h => h.elim, ctorsAt := fun _ _ h => h.elim,
     rulesLenAt := ?_, ruleOut := ?_, ruleTower := fun _ _ _ _ _ h => h.elim }⟩
