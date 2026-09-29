@@ -129,10 +129,10 @@ def projIndexedStructLike (find? : Name → Option ConstantInfo) (T sn : Name)
 the constant `T` (applied to `nArgs` arguments) and has no
 projection-table entry at field `i`** (`hasTable`: whether `T` has a
 table at all).  A table without field `i` is an out-of-range index; a
-positively detected indexed structure-like type
-(`projIndexedStructLike`) is the one shape official accepts and we do
-not support (DECLINE); everything else official rejects, and so do
-we. -/
+positively detected indexed structure-like type (`projIndexedStructLike`)
+is the one shape official accepts and we do not support (DECLINE, on
+purpose: https://github.com/leanprover/lean4/issues/14977 removes
+projections from indexed inductives); everything else rejects. -/
 def projMissError (find? : Name → Option ConstantInfo) (hasTable : Bool)
     (T sn : Name) (i nArgs : Nat) : CheckError :=
   if hasTable then .invalid "projection index out of range"

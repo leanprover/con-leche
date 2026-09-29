@@ -868,6 +868,8 @@
 # conservative decline on our side, recorded as a finding in DESIGN.md.
 # Target verdict 0.  It is the ONLY `.proj` decline left (lane PROJREJ,
 # 2026-09-29): every other table-less shape rejects as official does.
+# Kept as a decline on purpose: after https://github.com/leanprover/lean4/issues/14977
+# inductives with indices will not have projections (maintainer, 2026-09-29).
 2 indexed_one_ctor_proj.ndjson
 # indexed_one_ctor_proj_oob.ndjson (forged from the stream above: the
 # `.proj` index 0 → 7, beyond IdxHom's 4 fields): official's
