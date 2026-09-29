@@ -230,6 +230,59 @@ theorem genMinorTower (hμ : μ.verifiedChecks = true)
     rw [← hBE, WellDenotedV_liftN, hsh]
     exact hgr
 
+set_option maxHeartbeats 1600000 in
+/-- **The rule frame is graded** along its own fitting spines: the prefix
+domains (the stored type's), then the declared field domains (the minor
+premise's, `genMinorTower`). -/
+theorem genCls_frameV (hμ : μ.verifiedChecks = true)
+    (R : GenRecRun μ F (mkFEnv env₁) env₁ (mkFEnv envC) pp.toBlockShape nestedBit pos cvTas
+      block ctorsAs out) (hg : ClassGenScoped R.g) {memR : Nat → Prop}
+    (h : ConLeche.RecStageG μ F envC pp cvTas ctorsAs (tgtRs out) memR) (mpC : EnvModelM V μ envC)
+    (hfind : ∀ (j : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
+      (tgtRs out)[j]? = some r → ∀ (i : Nat) (cA : ConstantVal × Nat), r.2.2.2[i]? = some cA →
+        envC.find? cA.1.name = some (.ctorInfo cA.1 (ConLeche.tgtMajorsOf out j).nPc cA.2))
+    (ψ : Name → Nat) {c j : Nat} (hc : c < (tgtRs out).length)
+    (hj : j < blockRecNCt (tgtRs out) c) :
+    ∀ l, l < (blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c
+        ++ tgtFdomsAV pp.toBlockShape out mpC.base2.acval envC ψ c j).length →
+      ∀ (σ : Nat → V) (ys : List V),
+        SpineFit σ ((blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c
+          ++ tgtFdomsAV pp.toBlockShape out mpC.base2.acval envC ψ c j).take l) ys →
+        WellDenotedV V (consList ys σ)
+          ((blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c
+            ++ tgtFdomsAV pp.toBlockShape out mpC.base2.acval envC ψ c j).getD l default) := by
+  intro l hl σ ys hys
+  have hr : (tgtRs out)[c]? = some ((tgtRs out)[c]'hc) := List.getElem?_eq_getElem hc
+  generalize hPd : blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c = pdoms
+    at hl hys ⊢
+  generalize hFd : tgtFdomsAV pp.toBlockShape out mpC.base2.acval envC ψ c j = fdoms
+    at hl hys ⊢
+  rcases Nat.lt_or_ge l pdoms.length with hlp | hlp
+  · rw [List.take_append_of_le_length (by omega)] at hys
+    rw [List.getD_eq_getElem?_getD, List.getElem?_append_left hlp, ← List.getD_eq_getElem?_getD]
+    have hlenPd := blockRulePdomsAV_length (V := V) hμ mpC h hr ψ
+    rw [hPd] at hlenPd
+    have := blockRulePdomsAV_graded (V := V) hμ mpC h hr ψ l (by omega) σ ys (by rw [hPd]; exact hys)
+    rwa [hPd] at this
+  · obtain ⟨k, rfl⟩ : ∃ k, l = pdoms.length + k := ⟨l - pdoms.length, by omega⟩
+    have hk : k < fdoms.length := by simp at hl; omega
+    rw [List.take_append, List.take_of_length_le (by omega), Nat.add_sub_cancel_left] at hys
+    obtain ⟨xs, zs, rfl, hxs, hzs⟩ := spineFit_append_inv hys
+    obtain ⟨bs, b, hbl, hbF, hwd⟩ := genMinorTower hμ R hg h mpC hfind ψ hc hj
+    rw [hFd] at hbl hbF
+    have hw := hwd σ xs (by rw [hPd]; exact hxs)
+    have hkb : k < bs.length := by omega
+    have htk : ((bs.map (·.2.2)).take k) = fdoms.take k := by
+      rw [← hbF, List.take_take, Nat.min_eq_left (by omega)]
+    have hgd : (bs.map (·.2.2)).getD k default = fdoms.getD k default := by
+      rw [← hbF, List.getD_eq_getElem?_getD, List.getD_eq_getElem?_getD, List.getElem?_take,
+        if_pos hk]
+    have := wellDenotedV_piDom_at hw k hkb zs (by rw [htk]; exact hzs)
+    rw [hgd] at this
+    rw [List.getD_eq_getElem?_getD, List.getElem?_append_right (by omega), Nat.add_sub_cancel_left,
+      ← List.getD_eq_getElem?_getD, consList_append]
+    exact this
+
 end Tower
 
 end ConLeche.Model
