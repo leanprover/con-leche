@@ -33,8 +33,8 @@ variable {V : Type w} [SetTheory V] {μ : CheckMode}
 `call` (`hind`): at every parameter tuple `xs`, the union of the classes'
 carriers is well-founded under the graph's predecessor relation — the
 recursor family's calls from a major's decoding at its class.  The call
-relation is the target check's (`TgtClassInd`) or the generated stage's
-(`GenClassInd`, `GenRecAssembly.lean`). -/
+relation is a parameter; the recursors' stage uses it at the generated
+calls (`GenClassInd`, `GenRecAssembly.lean`). -/
 @[expose] def TgtClassIndG (envC : Env)
     (acval : Name → (Name → Nat) → AnnotTerm) (p : BlockShape)
     (out : List (ConstantVal × TargetMajor × List Expr)) (d : BlockData V)

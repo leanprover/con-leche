@@ -49,16 +49,6 @@ theorem GenRecCtx.base {F : Nat} {block : List ConstantInfo} {envC envI : Env}
   obtain ⟨h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, h12, h13, -, h14⟩ := h
   exact ⟨h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, h12, h13, h14⟩
 
-/-- `GenClassInd` is the generic class induction at the generated calls. -/
-theorem genClassInd_iff {acval : Name → (Name → Nat) → AnnotTerm} {envC : Env} {p : BlockShape}
-    {out : List (ConstantVal × TargetMajor × List Expr)} {d : BlockData V}
-    {Dc : Nat → LfpDatum V} {mc : Nat → Nat} {cvc : Nat → ConstantVal}
-    {ihd : Nat → Nat → List IhDatum} {ψ : Name → Nat} {ρ : Nat → V} :
-    GenClassInd acval envC p out d Dc mc cvc ihd ψ ρ ↔
-      TgtClassIndG envC acval p out d Dc mc cvc ψ ρ
-        (genCallT (tgtClsTup d Dc mc cvc p out ψ) ρ ihd) := Iff.rfl
-
-
 /-- **The class tie at the generated stage** (`nestedClassNodes`): at the
 generated stage's context, every choice of the outside classes' data and
 every prefix spine, a node presentation at the GENERATED calls over the
@@ -195,7 +185,6 @@ theorem genClassInd {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : Nat}
     ∀ ψ ρ, GenClassInd mpC.base2.acval envC pp.toBlockShape out dR Dc mc cvc
       (fun c j => genIhdAV mpC.base2.acval envC R.g R.rd (genBit pp ψ) ψ c j) ψ ρ := by
   intro ψ ρ
-  rw [genClassInd_iff]
   exact tgtClassInd_of_pres fun xs =>
     genClassNodes hμ hctx R hg hTbl hcls hsel ψ ρ xs
 

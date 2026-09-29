@@ -154,22 +154,7 @@ the interface between the family premise and the node route. -/
     (p : BlockShape) (out : List (ConstantVal × TargetMajor × List Expr)) (d : BlockData V)
     (Dc : Nat → LfpDatum V) (mc : Nat → Nat) (cvc : Nat → ConstantVal)
     (ihd : Nat → Nat → List IhDatum) (ψ : Name → Nat) (ρ : Nat → V) : Prop :=
-  ∀ xs : List V, ∀ P : V → Prop,
-    (∀ u, u ∈ˢ unionSet (tgtRs out).length
-        (tgtClsIs d Dc mc cvc acval envC p out ψ ρ xs)
-        (tgtClsCr d Dc mc cvc acval envC p out ψ ρ xs) →
-      (∃ e, graphDecG (tgtClsIs d Dc mc cvc acval envC p out ψ ρ)
-          (tgtClsInj d Dc mc cvc p out ψ) (blockRecNCt (tgtRs out))
-          (tgtRs out).length
-          (tgtClsFit d Dc mc cvc acval envC p out ψ ρ) xs u e ∧
-        ∀ v, v ∈ˢ graphPredG (tgtClsIs d Dc mc cvc acval envC p out ψ ρ)
-            (tgtClsCr d Dc mc cvc acval envC p out ψ ρ)
-            (tgtRs out).length
-            (genCallT (tgtClsTup d Dc mc cvc p out ψ) ρ ihd) xs e →
-          P v) → P u) →
-    ∀ u, u ∈ˢ unionSet (tgtRs out).length
-        (tgtClsIs d Dc mc cvc acval envC p out ψ ρ xs)
-        (tgtClsCr d Dc mc cvc acval envC p out ψ ρ xs) → P u
+  TgtClassIndG envC acval p out d Dc mc cvc ψ ρ (genCallT (tgtClsTup d Dc mc cvc p out ψ) ρ ihd)
 
 /-! ## 3. The stage -/
 

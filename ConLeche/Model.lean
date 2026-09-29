@@ -75,7 +75,6 @@ public import ConLeche.Model.Inductives.TargetOutChain
 public import ConLeche.Model.Inductives.TargetOutIdx
 public import ConLeche.Model.Inductives.TargetClasses
 public import ConLeche.Model.Inductives.TargetClassRows
-public import ConLeche.Model.Inductives.TargetClassNodes
 public import ConLeche.Model.Inductives.TargetNodePres
 public import ConLeche.Model.Inductives.TargetNodeRb
 public import ConLeche.Model.Inductives.TargetNodeTie

@@ -1,18 +1,22 @@
 module
 
-public import ConLeche.Model.Inductives.TargetClassNodes
+import ConLeche.Model.Inductives.TargetClasses
+import ConLeche.SetModel.NestRecCls
 public import ConLeche.Model.Inductives.TargetNestKit
 public import ConLeche.Model.Inductives.TargetClassRows
 
 public section
 
 /-!
-# The node kit's core from a NODE PRESENTATION
+# The class induction from a NODE PRESENTATION
 
-`TgtNodeCore` (`TargetClassNodes.lean`) asks an induction over node
-majors (`NestNodeInd`) together with a class→node relation along which
-the recursor classes' data are the nodes' and the recursor's calls land
-at related nodes.  This module builds that core from a PRESENTATION of
+The class induction (`TgtClassIndG`) is the node kit's induction over
+node majors (`NestNodeInd.ind_recNodesOn`) along a class→node relation
+at which the recursor classes' data are the nodes' and the recursor's
+calls land at related nodes.  The kit's classes are the positivity
+derivation's NODES — one instantiation may be visited at several nodes,
+and the visits' nesting orders the induction.  This module builds it
+from a PRESENTATION of
 the nodes as recorded lfp clauses (`TgtNodePres`), whose fields are the
 facts about the nodes one by one — the recursor-side plumbing (the
 predecessor set, the kit, the transport of the class data) is done here,
@@ -37,8 +41,7 @@ The predecessors of a node decoding are then DEFINED as the related
 classes' call targets, each at its chosen callee node (`TgtNodePres.pred`),
 and the kit is `lfpNestKit`.
 
-`TgtNodePres.core` — the core.  `tgtClassInd_of_pres` — `TgtClassInd`
-from presentations whose relation covers every GUARDED class (an
+`tgtClassInd_of_pres` — `TgtClassIndG` from presentations whose relation covers every GUARDED class (an
 unguarded class has no major: its index set is empty).
 -/
 
@@ -221,48 +224,6 @@ related classes' true decodings, each at its callee node. -/
       · exact Or.inr (Or.inr ⟨hlt, h⟩))
     P.top
 
-/-- **The core.** -/
-@[expose] noncomputable def core : TgtNodeCore envC acval p out d Dc mc cvc ψ ρ xs call where
-  K := P.kit.toNodeInd
-  Rel := P.Rel
-  mOf := P.mOf
-  hb := P.hb
-  hm := P.hm
-  hIs := fun c b hc hR => (P.cls_eq hc hR).1
-  hCr := fun c b hc hR => by
-    rw [(P.cls_eq hc hR).2.1]
-    exact (P.cl_carrier b).symm ▸ rfl
-  hinj := fun c b hc hR j fs => by rw [(P.cls_eq hc hR).2.2.1]; rfl
-  hnCt := fun c b hc hR t j fs hf => P.hnCt c b hc hR t j fs (by
-    have := hf
-    change (P.Db b).HFits (P.ψb b) (P.frb b) ((P.cl b).carrier (P.frb b)) t (P.mOf c b) j fs
-      at this
-    rwa [P.cl_carrier] at this)
-  hfit := fun c b hc hR t j fs hf => ((P.cls_eq hc hR).2.2.2 t j fs).mpr (by
-    have := hf
-    change (P.Db b).HFits (P.ψb b) (P.frb b) ((P.cl b).carrier (P.frb b)) t (P.mOf c b) j fs
-      at this
-    rwa [P.cl_carrier] at this)
-  hpredR := fun c b hc hR t j fs ht hf v hv => by
-    obtain ⟨hvU, hcall⟩ := mem_graphPredG.mp hv
-    obtain ⟨c', hc', t', ht', y, hy, rfl⟩ := mem_unionSet.mp hvU
-    have hf' : (P.Db b).HFits (P.ψb b) (P.frb b) ((P.Db b).carrier (P.ψb b) (P.frb b)) t
-        (P.mOf c b) j fs := by
-      have := hf
-      change (P.Db b).HFits (P.ψb b) (P.frb b) ((P.cl b).carrier (P.frb b)) t (P.mOf c b) j fs
-        at this
-      rwa [P.cl_carrier] at this
-    have ht0 : t ∈ˢ (P.Db b).idx (P.ψb b) (P.frb b) (P.mOf c b) := ht
-    obtain ⟨b', hR', hL⟩ := P.hcall c b hc hR t j fs ht0 hf' c' t' y hc' ht' hy hcall
-    refine ⟨c', t', y, hc', rfl, b', hR', mem_sep.mpr ⟨?_, c, hc, hR, rfl, ht0, hf',
-      c', t', y, b', hc', hR', ht', hy, hcall, hL, rfl⟩⟩
-    obtain ⟨hIs', hCr', -⟩ := P.cls_eq hc' hR'
-    refine P.kit0.nenc_mem_U (P.hb c' b' hc' hR') (P.hm c' b' hc' hR') ?_ ?_
-    · show t' ∈ˢ (P.Db b').idx (P.ψb b') (P.frb b') (P.mOf c' b')
-      rw [← hIs']; exact ht'
-    · show y ∈ˢ app ((P.cl b').carrier (P.frb b') (P.mOf c' b')) t'
-      rw [P.cl_carrier, ← hCr']; exact hy
-
 end TgtNodePres
 
 /-- **The empty presentation**: no node, no related class (for a prefix
@@ -310,15 +271,49 @@ theorem tgtClassInd_of_pres {call : List V → Nat → Nat → List V → V → 
   obtain ⟨c, hc, t, ht, x, hx, rfl⟩ := mem_unionSet.mp hu
   by_cases hg : tgtClsG d acval envC p out ψ ρ xs c
   · obtain ⟨P, hex⟩ := hP xs
-    exact P.core.K.ind_recNodesOn (tgtRs out).length
-      (fun c => tgtClsG d acval envC p out ψ ρ xs c) P.core.Rel P.core.mOf
+    exact P.kit.toNodeInd.ind_recNodesOn (tgtRs out).length
+      (fun c => tgtClsG d acval envC p out ψ ρ xs c) P.Rel P.mOf
       (blockRecNCt (tgtRs out)) (tgtClsIs d Dc mc cvc acval envC p out ψ ρ xs)
       (tgtClsCr d Dc mc cvc acval envC p out ψ ρ xs) (tgtClsInj d Dc mc cvc p out ψ)
       (tgtClsFit d Dc mc cvc acval envC p out ψ ρ xs)
       (graphPredG (tgtClsIs d Dc mc cvc acval envC p out ψ ρ)
         (tgtClsCr d Dc mc cvc acval envC p out ψ ρ) (tgtRs out).length call xs)
-      hex P.core.hb P.core.hm P.core.hIs P.core.hCr P.core.hinj P.core.hnCt P.core.hfit
-      P.core.hpredR Q hstep c hc hg t ht x hx
+      hex P.hb P.hm
+      (fun c b hc hR => (P.cls_eq hc hR).1)
+      (fun c b hc hR => by
+        rw [(P.cls_eq hc hR).2.1]
+        exact (P.cl_carrier b).symm ▸ rfl)
+      (fun c b hc hR j fs => by rw [(P.cls_eq hc hR).2.2.1]; rfl)
+      (fun c b hc hR t j fs hf => P.hnCt c b hc hR t j fs (by
+        have := hf
+        change (P.Db b).HFits (P.ψb b) (P.frb b) ((P.cl b).carrier (P.frb b)) t (P.mOf c b) j fs
+          at this
+        rwa [P.cl_carrier] at this))
+      (fun c b hc hR t j fs hf => ((P.cls_eq hc hR).2.2.2 t j fs).mpr (by
+        have := hf
+        change (P.Db b).HFits (P.ψb b) (P.frb b) ((P.cl b).carrier (P.frb b)) t (P.mOf c b) j fs
+          at this
+        rwa [P.cl_carrier] at this))
+      (fun c b hc hR t j fs ht hf v hv => by
+        obtain ⟨hvU, hcall⟩ := mem_graphPredG.mp hv
+        obtain ⟨c', hc', t', ht', y, hy, rfl⟩ := mem_unionSet.mp hvU
+        have hf' : (P.Db b).HFits (P.ψb b) (P.frb b) ((P.Db b).carrier (P.ψb b) (P.frb b)) t
+            (P.mOf c b) j fs := by
+          have := hf
+          change (P.Db b).HFits (P.ψb b) (P.frb b) ((P.cl b).carrier (P.frb b)) t (P.mOf c b) j fs
+            at this
+          rwa [P.cl_carrier] at this
+        have ht0 : t ∈ˢ (P.Db b).idx (P.ψb b) (P.frb b) (P.mOf c b) := ht
+        obtain ⟨b', hR', hL⟩ := P.hcall c b hc hR t j fs ht0 hf' c' t' y hc' ht' hy hcall
+        refine ⟨c', t', y, hc', rfl, b', hR', mem_sep.mpr ⟨?_, c, hc, hR, rfl, ht0, hf',
+          c', t', y, b', hc', hR', ht', hy, hcall, hL, rfl⟩⟩
+        obtain ⟨hIs', hCr', -⟩ := P.cls_eq hc' hR'
+        refine P.kit0.nenc_mem_U (P.hb c' b' hc' hR') (P.hm c' b' hc' hR') ?_ ?_
+        · show t' ∈ˢ (P.Db b').idx (P.ψb b') (P.frb b') (P.mOf c' b')
+          rw [← hIs']; exact ht'
+        · show y ∈ˢ app ((P.cl b').carrier (P.frb b') (P.mOf c' b')) t'
+          rw [P.cl_carrier, ← hCr']; exact hy)
+      Q hstep c hc hg t ht x hx
   · rw [tgtClsIs_unguarded hg] at ht
     exact absurd ht (not_mem_empty t)
 
