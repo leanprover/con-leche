@@ -94483,3 +94483,62 @@ import`s the model calls demotable pinned in `pub-import-plan.py`'s
 `FALLBACK` — measured as a FILE-LEVEL batch (demoting each file's edges
 together breaks the build), not one edge at a time; a later narrowing
 lane may split them.
+
+## GENREC M3 — THE FLIP LANDED: the recursors are generated (2026-09-29, `agent/uinds-GENREC`)
+
+Charter item 5 as amended 2026-09-29 is now the checker: `checkBlockRec`
+IS the generated stage (`genRecCheck`, `Kernel/Inductives/GenRec.lean`;
+unverified pre-pass `ClassRead.lean`), the cached driver runs the same
+function at its shadow operations, `declBlock` reads it through
+`genRecStage` (`Model/Inductives/GenRecFinal.lean`).  The target check
+(primitive-recursion parse, call typing, residue typing, stage (b), the
+elimination pin, the counting and prefix checks), `thenConform` and
+`ConLeche/Conformance/` are deleted (charter item 6 retired).  Sorry-free;
+`model_exists`/`no_False_declaration`: propext, Classical.choice,
+Quot.sound.  Lanes: M1 (kernel, port), A, D, E, F, G, NP, B1, B2, C, CLS,
+FLIP, D1, H (records above; H's `GenRecAnnotKeep` stays unmerged on
+`agent/uinds-GENREC-H`: D1 made it unnecessary).
+
+**What the checker does** (OVERVIEW §5 step 5): pins; the stream's
+recursor types checked; [unverified] classes, layout and each
+recursor's class read off them; every class checked as a major over the
+block's canonical parameters; one class per member; the elimination guard;
+the outside classes seed the positivity check; per class and constructor
+the datum (the first matching table entry), its recursive fields (walked
+type names a member) exactly the minor premise's ihs, each leaf headed by
+its ih's class, and node agreement (K.53′) at every entry; the family
+generated in official's shape (declared fields, walked ih telescopes),
+every binder datum written (D1); each generated type checked as a
+constant (`classConstOk`, no annotation) and `isDefEq` to the stream's
+(reject-only); each generated rule resolved and inferred at the rule-less
+recursors' environment; the GENERATED family installed.
+
+**Verdicts** (677-stream sweep = e2e + arena + RECPOS/FUSEPOS/FUSELOOP/
+RPWHNF/RPFOLLOW/GENRECM0 fixtures; official = arena official v4.34.0-rc2):
+only the recorded moves — every stream-rule row goes to 0 (official 1;
+the stream's rules are not read: `corner_rec_{body_redex,call_redex,
+redex_nonindex,wtype_redex,alien_rule,call_const_bad,closed_major,
+dom_recursor,rule_missing,rule_nfields,rules_swapped}`,
+`corner_tshadow_aux_nonfield_bad`, `ind_rule_binder_bad`,
+`mutual_rec_{missing_rule,nonfield,rules_swapped,unguarded,wrong_member}`,
+`rpf_rule_{dup,nfields}`, `rpf_rules_swapped`, `primrec_member_k53_bad`,
+new `genrec_rules_garbage{,_nested}`); `corner_recpos_missing_unreached`,
+`rp_missing_unreached` 1 → 0 (official 0); `corner_nestpos_redex_bad`,
+`corner_genrec_nest_missing_class` (= `primrec_nest_missing_class`),
+`genrec_k{2,3}_caseson` 0 → 1 (official 1).  No arena move; init-full
+53 093 accepted.  NOTE for the maintainer: ~25 official rejects move to 0
+because rule METADATA (count, constructor names, field counts) is no
+longer read either; the cheap reject-only pin `targetRulePins` would keep
+~10 of them at official's verdict without reading a rule's right-hand
+side — a question, not adopted.
+**Perf** (instructions:u): `complete_c05b_nest30_pi1000` 69.43 G →
+46.48 G (−33 %); init-full 419.39 G → 418.54 G (−0.2 %).
+**Executed checker lines** (SIZEAUDIT `execlines.py`, `GENREC/loc`):
+10 796 → 10 267 (−529): Conformance −261, Kernel/Inductives 1 901 →
+1 764, Kernel-rest 2 313 → 2 219, Cached 2 926 → 2 889.
+**Proof** (`git diff --shortstat efe6859fb..` over Verify/Model/Semantics/
+SetModel): +28 203 −21 669 (**+6.5 k**): the old node route and class
+facts are reused (charter/GENREC.md §3), the generated route adds the
+generator syntax (ported), the run records and bridges, the class side
+at the generated family and the rule contract by construction; the old
+rule/call readers are gone.  Not a proof-size win, as GENREC.md predicted.
