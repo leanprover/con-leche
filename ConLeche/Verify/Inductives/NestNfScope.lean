@@ -469,7 +469,7 @@ theorem nestCont_nfScoped (hc : NestCtxOk ctx) (hb : NestCtxB ctx) (hrec : RecNf
     (hargs : ∀ a ∈ args, ScB dep a) {st : NestState} {k : NestFieldKind} {st' : NestState}
     (h : nestCont ctx ops env rec prog kb n us args st = .ok (k, st'))
     (hst : NfStScoped ctx.nP st) : NfStScoped ctx.nP st' := by
-  obtain ⟨nPc, L, -, -, -, -, hdsok, nI, cty, hnI, -, hkey⟩ := nestCont_inv h
+  obtain ⟨nPc, L, -, -, -, -, hdsok, -, nI, cty, hnI, -, hkey⟩ := nestCont_inv h
   have hdsok' : ∀ x ∈ args.take nPc, x.bvarB = 0 ∧ x.fvarB ≤ ctx.hiAt prog.length := by
     simpa using hdsok
   exact nestContKey_nfScoped hc hb hrec
@@ -661,7 +661,7 @@ theorem checkBlockPositivity_nfScoped {mode : CheckMode} {F : Nat} {env₁ : Env
     (h : checkBlockPositivity (fueledOps mode F) env₁ env₁.find? env₁.consts pp cvTas ctorsAs
       = .ok (kinds, nfs, pos)) :
     NfStScoped pp.nP pos := by
-  obtain ⟨cvTa0, fvsP, rest, holes, outs, h0, hop, hh, hroot, -⟩ := checkBlockPositivity_inv h
+  obtain ⟨cvTa0, fvsP, rest, holes, outs, h0, hop, hh, -, hroot, -⟩ := checkBlockPositivity_inv h
   obtain ⟨hc, hb⟩ := nestCtx_ok_of_envWF henv pp.toBlockShape fvsP
   exact nestRoot_nfScoped hc hb (fun d e w hw he => whnf_WScoped henv F hw he)
     (fun d e w hw he => whnf_looseBVars henv F hw he) hh

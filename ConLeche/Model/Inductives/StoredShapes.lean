@@ -6,6 +6,7 @@ import ConLeche.Semantics.Inductives.HoleApp
 public import ConLeche.Model.Inductives.BlockData
 public import ConLeche.Model.Inductives.NestPosOut
 import ConLeche.Verify.Inductives.PosNodes
+import ConLeche.Verify.Inductives.HolesApplied
 public import ConLeche.Verify.Inductives.PosDeriv
 public import ConLeche.Model.Inductives.HoleSubst
 public import ConLeche.Model.Inductives.NestPosMono
@@ -32,16 +33,16 @@ member-abstracted stored field readings, members at the hole slots) and
 its concrete stored field readings `S` are related by kind-free facts
 (`StoredFieldShapes`):
 
-* `holeApp`: every hole occurs applied to the parameters (M3, at
-  every field, container fields included);
+* `holeApp`: every hole occurs applied to the parameters (at every
+  field, container fields included);
 * `override`: `F` read with the members' leaf values in the hole slots is
   `S` — "members := their own values" is the stored reading.
 
 **The producer** (`storedFieldShapes_of_walk`, the ONLY place that reads
 the walk's syntax for these facts): the positivity walk on the stored
 (DECLARED) constructor returns its normal form `tyN`, read off its
-derivation (`MemberCtorD`); M3 is the walk's own check on `tyN`
-(`holesApplied_openPis`, `holeApp_of_holesApplied`), and the
+derivation (`MemberCtorD`); every member applied is its fact about
+`tyN`, from official's uniform check (`holesApplied_openPis`, `holeApp_of_holesApplied`), and the
 override by the substitution lemma iterated (`HoleSubst.lean`).  The
 normal form reads like the declared crest along satisfying prefixes
 (`FieldsEqOn`, from `red_sound` through `memberCtorD_red`,
@@ -82,7 +83,7 @@ context). -/
 structure StoredFieldShapes (V : Type w) [SetTheory V] (k nP w : Nat) (nIdxOf : Nat → Nat)
     (leaf : Nat → AnnotTerm) (Δp : List AnnotTerm) (F S : List AnnotTerm) : Prop where
   len : F.length = S.length
-  /-- every hole occurs applied to the parameters (M3 at every field: a
+  /-- every hole occurs applied to the parameters (at every field: a
   kind-free fact, true at container fields too) -/
   holeApp : ∀ (l : Nat) (F' : AnnotTerm), F[l]? = some F' → HoleApp k nP l F'
   override : ∀ hs : List V, hs.length = k →
@@ -113,7 +114,7 @@ theorem holeApp_of_noBVar {k nP lo : Nat} {e : AnnotTerm}
 /-! ## The walked term looks up no member
 
 The member-abstracted constructor type mentions no member constant
-(M2′, `nestNoMemberConst`), and no literal-support constant a reading
+(official's uniform check, `nestUniform`), and no literal-support constant a reading
 consults can be a member: `Nat.zero`/`Nat.succ` are constructors, the
 string-support constants' types end in a constant (a member's in a
 sort), and `Char` is mentioned by `Char.ofNat`'s stored type, so it is
@@ -391,149 +392,14 @@ theorem AnnotTerm.mkAppN_snoc' :
   | nil => intro f a; rfl
   | cons x xs ih => intro f a; exact ih (.app f x) a
 
-/-! ## M3 and M2′ on the walk's normal form
+/-! ## Every member applied, on the walk's normal form
 
-`Expr.holesApplied` (the root line `nestRootLines` runs on the walk's normal form)
-read at a model: the reading is `HoleApp` (every hole slot heads a spine
-whose first `nP` arguments are the parameter slots) and the term names
-no member constant — at every kind, containers included. -/
-
-theorem holeParamsApp_nestOcc_zero {names : List Name} {lo hi : Nat} :
-    ∀ (n : Nat) (e : Expr), e.holeParamsApp lo hi n = true → e.nestOcc names 0 0 = false
-  | 0, .fvar i _, _ => by simp [ConLeche.Expr.nestOcc]
-  | n + 1, .app f (.fvar j _), h => by
-    simp only [ConLeche.Expr.holeParamsApp, Bool.and_eq_true] at h
-    simp [ConLeche.Expr.nestOcc, holeParamsApp_nestOcc_zero n f h.2]
-  | 0, .bvar _, h | 0, .sort _, h | 0, .const .., h | 0, .app .., h | 0, .lam .., h
-  | 0, .forallE .., h | 0, .letE .., h | 0, .lit _, h | 0, .proj .., h => by
-    simp [ConLeche.Expr.holeParamsApp] at h
-  | _ + 1, .bvar _, h | _ + 1, .fvar .., h | _ + 1, .sort _, h | _ + 1, .const .., h
-  | _ + 1, .lam .., h | _ + 1, .forallE .., h | _ + 1, .letE .., h | _ + 1, .lit _, h
-  | _ + 1, .proj .., h => by simp [ConLeche.Expr.holeParamsApp] at h
-  | _ + 1, .app _ (.bvar _), h | _ + 1, .app _ (.sort _), h | _ + 1, .app _ (.const ..), h
-  | _ + 1, .app _ (.app ..), h | _ + 1, .app _ (.lam ..), h | _ + 1, .app _ (.forallE ..), h
-  | _ + 1, .app _ (.letE ..), h | _ + 1, .app _ (.lit _), h | _ + 1, .app _ (.proj ..), h => by
-    simp [ConLeche.Expr.holeParamsApp] at h
-
-/-- **M2′ on the normal form**: a term the check passed names no member. -/
-theorem holesApplied_nestOcc_zero {names : List Name} {nP hi : Nat} :
-    ∀ (e : Expr), e.holesApplied names nP hi = true → e.nestOcc names 0 0 = false := by
-  intro e
-  induction e with
-  | bvar i => intro _; rfl
-  | fvar i ty _ => intro _; simp [ConLeche.Expr.nestOcc]
-  | sort u => intro _; rfl
-  | const n us =>
-    intro h
-    simpa [ConLeche.Expr.holesApplied, ConLeche.Expr.nestOcc] using h
-  | app f a ihf iha =>
-    intro h
-    simp only [ConLeche.Expr.holesApplied, Bool.or_eq_true, Bool.and_eq_true] at h
-    rcases h with h | ⟨h1, h2⟩
-    · exact holeParamsApp_nestOcc_zero _ _ h
-    · simp [ConLeche.Expr.nestOcc, ihf h1, iha h2]
-  | lam t b mm iht ihb =>
-    intro h
-    simp only [ConLeche.Expr.holesApplied, Bool.and_eq_true] at h
-    simp [ConLeche.Expr.nestOcc, iht h.1, ihb h.2]
-  | forallE t b mm iht ihb =>
-    intro h
-    simp only [ConLeche.Expr.holesApplied, Bool.and_eq_true] at h
-    simp [ConLeche.Expr.nestOcc, iht h.1, ihb h.2]
-  | letE t v b iht ihv ihb =>
-    intro h
-    simp only [ConLeche.Expr.holesApplied, Bool.and_eq_true] at h
-    simp [ConLeche.Expr.nestOcc, iht h.1.1, ihv h.1.2, ihb h.2]
-  | lit l => intro _; rfl
-  | proj s i e ih =>
-    intro h
-    simp only [ConLeche.Expr.holesApplied] at h
-    simp [ConLeche.Expr.nestOcc, ih h]
-
-/-- Instantiating a bound variable by a non-hole variable above the
-parameters keeps a hole applied to exactly the parameters (and a term
-that is not one, not one). -/
-theorem holeParamsApp_instantiate1 {lo hi D : Nat} (hD : ¬ (lo ≤ D ∧ D < hi)) (ty : Expr) :
-    ∀ (n : Nat) (e : Expr) (k : Nat), n ≤ D →
-      (e.instantiate1 (.fvar D ty) k).holeParamsApp lo hi n = e.holeParamsApp lo hi n
-  | 0, .bvar i, k, _ => by
-    simp only [ConLeche.Expr.instantiate1]
-    split
-    · simp [ConLeche.Expr.holeParamsApp, hD]
-    · split <;> simp [ConLeche.Expr.holeParamsApp]
-  | n + 1, .bvar i, k, _ => by
-    simp only [ConLeche.Expr.instantiate1]
-    split
-    · simp [ConLeche.Expr.holeParamsApp]
-    · split <;> simp [ConLeche.Expr.holeParamsApp]
-  | n + 1, .app f a, k, hn => by
-    have ih := holeParamsApp_instantiate1 hD ty n f k (by omega)
-    cases a with
-    | bvar i =>
-      simp only [ConLeche.Expr.instantiate1]
-      split
-      · simp only [ConLeche.Expr.holeParamsApp]
-        have : (D == n) = false := by simp; omega
-        simp [this]
-      · split <;> simp [ConLeche.Expr.holeParamsApp]
-    | fvar j t => simp [ConLeche.Expr.instantiate1, ConLeche.Expr.holeParamsApp, ih]
-    | _ => simp [ConLeche.Expr.instantiate1, ConLeche.Expr.holeParamsApp]
-  | 0, .fvar .., _, _ | 0, .sort _, _, _ | 0, .const .., _, _ | 0, .app .., _, _
-  | 0, .lam .., _, _ | 0, .forallE .., _, _ | 0, .letE .., _, _ | 0, .lit _, _, _
-  | 0, .proj .., _, _ => by simp [ConLeche.Expr.instantiate1, ConLeche.Expr.holeParamsApp]
-  | _ + 1, .fvar .., _, _ | _ + 1, .sort _, _, _ | _ + 1, .const .., _, _
-  | _ + 1, .lam .., _, _ | _ + 1, .forallE .., _, _ | _ + 1, .letE .., _, _
-  | _ + 1, .lit _, _, _ | _ + 1, .proj .., _, _ => by
-    simp [ConLeche.Expr.instantiate1, ConLeche.Expr.holeParamsApp]
-
-/-- The check survives instantiating a bound variable by a variable above
-the holes. -/
-theorem holesApplied_instantiate1 {names : List Name} {nP hi D : Nat} (hD : hi ≤ D)
-    (hP : nP ≤ D) (ty : Expr) :
-    ∀ (e : Expr) (k : Nat), e.holesApplied names nP hi = true →
-      (e.instantiate1 (.fvar D ty) k).holesApplied names nP hi = true := by
-  have hD' : ¬ (nP ≤ D ∧ D < hi) := by omega
-  intro e
-  induction e with
-  | bvar i =>
-    intro k _
-    simp only [ConLeche.Expr.instantiate1]
-    split
-    · simp [ConLeche.Expr.holesApplied, hD']
-    · split <;> rfl
-  | fvar i t _ => intro k h; exact h
-  | sort u => intro k h; exact h
-  | const n us => intro k h; exact h
-  | lit l => intro k h; exact h
-  | app f a ihf iha =>
-    intro k h
-    simp only [ConLeche.Expr.holesApplied, Bool.or_eq_true, Bool.and_eq_true] at h
-    have hpa := holeParamsApp_instantiate1 hD' ty nP (.app f a) k hP
-    simp only [ConLeche.Expr.instantiate1] at hpa ⊢
-    simp only [ConLeche.Expr.holesApplied, Bool.or_eq_true, Bool.and_eq_true, hpa]
-    rcases h with h | ⟨h1, h2⟩
-    · exact Or.inl h
-    · exact Or.inr ⟨ihf k h1, iha k h2⟩
-  | lam t b mm iht ihb =>
-    intro k h
-    simp only [ConLeche.Expr.holesApplied, Bool.and_eq_true] at h
-    simp only [ConLeche.Expr.instantiate1, ConLeche.Expr.holesApplied, Bool.and_eq_true]
-    exact ⟨iht k h.1, ihb (k + 1) h.2⟩
-  | forallE t b mm iht ihb =>
-    intro k h
-    simp only [ConLeche.Expr.holesApplied, Bool.and_eq_true] at h
-    simp only [ConLeche.Expr.instantiate1, ConLeche.Expr.holesApplied, Bool.and_eq_true]
-    exact ⟨iht k h.1, ihb (k + 1) h.2⟩
-  | letE t v b iht ihv ihb =>
-    intro k h
-    simp only [ConLeche.Expr.holesApplied, Bool.and_eq_true] at h
-    simp only [ConLeche.Expr.instantiate1, ConLeche.Expr.holesApplied, Bool.and_eq_true]
-    exact ⟨⟨iht k h.1.1, ihv k h.1.2⟩, ihb (k + 1) h.2⟩
-  | proj s i e ih =>
-    intro k h
-    simp only [ConLeche.Expr.holesApplied] at h
-    simp only [ConLeche.Expr.instantiate1, ConLeche.Expr.holesApplied]
-    exact ih k h
+`Expr.holesApplied` (the walk's normal forms satisfy it by construction
+from official's uniform check, `memberCtorD_holesApplied`,
+`ConLeche/Verify/Inductives/HolesApplied.lean`) read at a model: the
+reading is `HoleApp` (every hole slot heads a spine whose first `nP`
+arguments are the parameter slots) and the term names no member
+constant — at every kind, containers included. -/
 
 /-- A hole applied to exactly the parameter variables reads as its slot
 applied to the parameter slots. -/
@@ -588,7 +454,7 @@ theorem holeApp_projAV {k nP lo : Nat} :
   | 0, _, h => .fst h
   | j + 1, _, h => holeApp_projAV j (.snd h)
 
-/-- **M3 on the normal form, read**: a term the check passed reads, at
+/-- **Every member applied, read**: a term that passes `holesApplied` reads, at
 any depth above the holes, as `HoleApp` at that depth's hole slots. -/
 theorem holeApp_of_holesApplied {ctx : NestCtx} :
     ∀ (d : Nat) (e : Expr) {ea : AnnotTerm}, Expr.WScoped d e → ctx.hiAt 0 ≤ d →
@@ -1027,7 +893,7 @@ context `Δh`): the crest reads, at the walk's depth, as a Π-tower over
 member hole at the parameters and the result indices `E` (the stored
 result index readings lifted over the holes), and `abN`'s readings are the
 fields with holes of `StoredFieldShapes` against the stored field readings:
-M3 (the walk's check on its normal form), and the override through the
+every member applied (`MemberCtorD`'s fact about its normal form), and the override through the
 declared crest (substitution, at every frame) and the link (at frames
 satisfying the walk's context, `hsatH`). -/
 theorem storedFieldShapes_of_walk {V : Type w} [SetTheory V] {env : Env} (m : EnvModel V env)
@@ -1366,7 +1232,7 @@ theorem storedFieldShapes_of_walk {V : Type w} [SetTheory V] {env : Env} (m : En
     subst hy
     rw [hv i hi σ, List.getD_eq_getElem?_getD, hg]
     rfl
-  -- M3 at every field, containers included: the walk's check on its normal form
+  -- every member applied at every field, containers included (`MemberCtorD`)
   have hholeApp : ∀ (l : Nat) (F' : AnnotTerm), (ppsN.map (·.2.2))[l]? = some F' →
       HoleApp ctx.names.length ctx.nP l F' := by
     intro l F' hF'

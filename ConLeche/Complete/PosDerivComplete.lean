@@ -120,6 +120,7 @@ inductive PosDR (ops : CheckerOps CheckM) (env : Env) (ctx : NestCtx) : Nat → 
       (hds : ∀ x ∈ w.getAppArgs.take nPc,
         x.bvarB = 0 ∧ x.fvarB ≤ ctx.hiAt prog.length)
       (hdsw : ∀ x ∈ w.getAppArgs.take nPc, Expr.WScoped (ctx.hiAt prog.length) x)
+      (hdsA : ∀ x ∈ w.getAppArgs.take nPc, x.holesApplied ctx.names ctx.nP (ctx.hiAt 0) = true)
       (hsc : ProgScoped ctx prog)
       (hnI : nestInstType (m := CheckM) ctx (ctx.hiAt prog.length)
         ⟨c, us, w.getAppArgs.take nPc⟩ = .ok (nI, cty))
@@ -202,8 +203,8 @@ theorem PosDR.mono {ops : CheckerOps CheckM} {env : Env} {ctx : NestCtx} {n n' :
   | frameHole hw hocc hfn hlo hhi hk hle' hpar hfree har =>
     obtain ⟨n'', rfl⟩ : ∃ n'', n' = n'' + 1 := ⟨n' - 1, by omega⟩
     exact .frameHole hw hocc hfn hlo hhi hk hle' hpar hfree har
-  | cont hw hocc hfn hnm hC hlen hquot hidx hds hdsw hsc hnI hact hhead hm hfr =>
-    exact .cont hw hocc hfn hnm hC hlen hquot hidx hds hdsw hsc hnI hact hhead (by omega) hfr
+  | cont hw hocc hfn hnm hC hlen hquot hidx hds hdsw hdsA hsc hnI hact hhead hm hfr =>
+    exact .cont hw hocc hfn hnm hC hlen hquot hidx hds hdsw hdsA hsc hnI hact hhead (by omega) hfr
   | frame hne hhd hhdC hnd hinst hblk hgrp hctors hkty hm hwalk =>
     exact .frame hne hhd hhdC hnd hinst hblk hgrp hctors hkty (by omega) hwalk
   | ctorsNil => exact .ctorsNil
@@ -389,6 +390,7 @@ theorem nestCont_ok {prog : List NestHole} {kb : Nat} {c : Name} {us : List Leve
     (hlen : args.length = nPc + nI) (hquot : c ≠ quotName)
     (hidx : ∀ x ∈ args.drop nPc, x.nestOcc ctx.names ctx.nP (ctx.hiAt prog.length) = false)
     (hds : ∀ x ∈ args.take nPc, x.bvarB = 0 ∧ x.fvarB ≤ ctx.hiAt prog.length)
+    (hdsA : ∀ x ∈ args.take nPc, x.holesApplied ctx.names ctx.nP (ctx.hiAt 0) = true)
     (hnI : nestInstType (m := CheckM) ctx (ctx.hiAt prog.length) ⟨c, us, args.take nPc⟩
       = .ok (nI, cty))
     (hact : (⟨c, us, args.take nPc⟩ : NestKey) ∉ act)
@@ -407,6 +409,7 @@ theorem nestCont_ok {prog : List NestHole} {kb : Nat} {c : Name} {us : List Leve
     intro x hx
     simp only [Bool.and_eq_true, beq_iff_eq, decide_eq_true_eq]
     exact hds x hx)]
+  rw [if_pos (List.all_eq_true.mpr hdsA)]
   simp only [hnI]
   rw [if_pos (by simp [hlen])]
   exact nestContKey_ok (hI.insert c) (by simp; omega) hnI hact hnew
@@ -531,10 +534,10 @@ theorem posDR_run (hroot : NestRootOk ctx) {n : Nat} {J : PosJR} (h : PosDR ops 
       rw [if_pos hc, if_neg (by omega)]
       rfl
   | @cont n m act prog dep kb e w c us L nPc nI cty grp hw hocc hfn hnm hC hlen hquot hidx hds
-      hdsw hsc hnI hact hhead hm hfr ih =>
+      hdsw hdsA hsc hnI hact hhead hm hfr ih =>
     intro fuel hf st hI
     obtain ⟨f, rfl⟩ : ∃ f, fuel = f + 1 := ⟨fuel - 1, by omega⟩
-    obtain ⟨k', st', hr, hk, hI'⟩ := nestCont_ok (rec := nestPos ops env ctx f) (kb := kb) (us := us) hI hC hlen hquot hidx hds hnI hact
+    obtain ⟨k', st', hr, hk, hI'⟩ := nestCont_ok (rec := nestPos ops env ctx f) (kb := kb) (us := us) hI hC hlen hquot hidx hds hdsA hnI hact
       (newOk_of hfr hhead (ih f (by omega)))
     refine ⟨k', st', ?_, hk, hI'⟩
     rw [nestPos]
@@ -642,72 +645,26 @@ theorem nestRoot_complete (hroot : NestRootOk ctx) {holes : List Expr} :
         exact houts c cs' os' hc ho
 
 /-- **(B), THE COMPLETENESS THEOREM OF THE NESTED POSITIVITY CHECK**:
+official's uniform-occurrence check passing at every constructor, and
 every member's constructor list derived (run-complete, at the root key)
-within the root's fuel, and the root's own lines at every derived normal
-form (M3) and every member-abstracted declared type (M2′), make
-`nestedBlockPositivity` succeed. -/
+within the root's fuel, make `nestedBlockPositivity` succeed. -/
 theorem nestedBlockPositivity_complete (hroot : NestRootOk ctx) {holes : List Expr}
     (hh : nestHoles ctx = some holes) {ctorss : List (List (ConstantVal × Nat))}
+    (hunif : ∀ cs ∈ ctorss, ∀ cA ∈ cs, nestUniformOk ctx holes cA.1.type = true)
     (hall : ∀ cs ∈ ctorss, ∃ n, (∀ x ∈ cs, ∀ crest, instPisWith ctx.params
         ((x.1.type.instantiateLevelParams x.1.levelParams (ctx.lps.map .param)).replaceConsts
           (nestRootSub ctx holes)) = some crest → n ≤ whnfWalkFuel crest) ∧
       PosDR ops env ctx n (.ctors [] []
-      (ctx.hiAt 0) (ctx.lps.map .param) ctx.params (nestRootSub ctx holes) cs))
-    (hlines : ∀ cs ∈ ctorss, ∀ cA ∈ cs,
-      (nestAbstract ctx holes cA.1.type).nestOcc ctx.names 0 0 = false ∧
-      ∀ crest m ks nds cur,
-        instPisWith ctx.params ((cA.1.type.instantiateLevelParams cA.1.levelParams
-          (ctx.lps.map .param)).replaceConsts (nestRootSub ctx holes)) = some crest →
-        PosDR ops env ctx m (.tele [] [] (ctx.hiAt 0) cA.2 0 crest ks nds cur) →
-        (closeTelescope nds (ctx.hiAt 0) cur).holesApplied ctx.names ctx.nP (ctx.hiAt 0) = true) :
+      (ctx.hiAt 0) (ctx.lps.map .param) ctx.params (nestRootSub ctx holes) cs)) :
     ∃ r, nestedBlockPositivity ops env ctx ctorss = .ok r := by
-  obtain ⟨outs, st', h, -, houts⟩ :=
+  obtain ⟨outs, st', h, -, -⟩ :=
     nestRoot_complete hroot ctorss {} ⟨rfl, fun _ _ h => by simp at h⟩ hall
-  have hL : ∀ (cs : List (ConstantVal × Nat)) (os : List (List NestFieldKind × Expr)),
-      (∀ (j : Nat) (cA : ConstantVal × Nat) (o : List NestFieldKind × Expr), cs[j]? = some cA →
-        os[j]? = some o → (nestAbstract ctx holes cA.1.type).nestOcc ctx.names 0 0 = false ∧
-          o.2.holesApplied ctx.names ctx.nP (ctx.hiAt 0) = true) →
-      nestRootLines (m := CheckM) ctx holes cs os = .ok () := by
-    intro cs
-    induction cs with
-    | nil => intro os _; cases os <;> rfl
-    | cons c cs ih =>
-      intro os hos
-      cases os with
-      | nil => rfl
-      | cons o os =>
-        obtain ⟨hm2, hm3⟩ := hos 0 c o rfl rfl
-        simp only [nestRootLines, bind, Except.bind, hm3, nestNoMemberConst, hm2,
-          Bool.false_eq_true, if_false, pure, Except.pure]
-        exact ih os (fun j cA o' hj ho => hos (j + 1) cA o' (by simpa using hj) (by simpa using ho))
-  have hLA : ∀ (css : List (List (ConstantVal × Nat)))
-      (oss : List (List (List NestFieldKind × Expr))),
-      (∀ (c : Nat) (cs : List (ConstantVal × Nat)) (os : List (List NestFieldKind × Expr)),
-        css[c]? = some cs → oss[c]? = some os →
-        ∀ (j : Nat) (cA : ConstantVal × Nat) (o : List NestFieldKind × Expr), cs[j]? = some cA →
-          os[j]? = some o → (nestAbstract ctx holes cA.1.type).nestOcc ctx.names 0 0 = false ∧
-            o.2.holesApplied ctx.names ctx.nP (ctx.hiAt 0) = true) →
-      nestRootLinesAll (m := CheckM) ctx holes css oss = .ok () := by
-    intro css
-    induction css with
-    | nil => intro oss _; cases oss <;> rfl
-    | cons cs css ih =>
-      intro oss hos
-      cases oss with
-      | nil => rfl
-      | cons os oss =>
-        simp only [nestRootLinesAll, bind, Except.bind, hL cs os (hos 0 cs os rfl rfl)]
-        exact ih oss (fun c cs' os' hc ho => hos (c + 1) cs' os' (by simpa using hc)
-          (by simpa using ho))
-  have hlinesOk := hLA ctorss outs (fun c cs os hc ho j cA o hj hoj => by
-    obtain ⟨crest, m, nds, cur, hcr, hd, ho2⟩ := houts c cs os hc ho j cA o hj hoj
-    have hcs := List.mem_of_getElem? hc
-    have hcA := List.mem_of_getElem? hj
-    refine ⟨(hlines cs hcs cA hcA).1, ?_⟩
-    rw [ho2]
-    exact (hlines cs hcs cA hcA).2 crest m o.1 nds cur hcr hd)
-  simp only [nestedBlockPositivity, bind, Except.bind, hh, unwrapOr, pure, Except.pure, h,
-    hlinesOk]
+  have hU : nestUniform (m := CheckM) ctx holes ctorss = .ok () := by
+    unfold nestUniform
+    rw [(List.findSome?_eq_none_iff).mpr fun cs hcs =>
+      List.find?_eq_none.mpr fun cA hcA => by simp [hunif cs hcs cA hcA]]
+    rfl
+  simp only [nestedBlockPositivity, bind, Except.bind, hh, unwrapOr, pure, Except.pure, hU, h]
   exact ⟨_, rfl⟩
 
 /-! ## `PosDR` refines `PosD` -/
@@ -767,16 +724,16 @@ theorem posDR_posD {n : Nat} {J : PosJR} (h : PosDR ops env ctx n J) :
     exact ⟨[], .hole hw hocc hfn hlo hhi hlen hpar hfree⟩
   | frameHole hw hocc hfn hlo hhi hk hle hpar hfree har =>
     exact ⟨[], .frameHole hw hocc hfn hlo hhi hk hle hpar hfree har⟩
-  | cont hw hocc hfn hnm hC hlen hquot hidx hds hdsw hsc hnI hact hhead hm hfr ih =>
+  | cont hw hocc hfn hnm hC hlen hquot hidx hds hdsw hdsA hsc hnI hact hhead hm hfr ih =>
     obtain ⟨ts, hd⟩ := ih
     rcases walkStack_split hdsw hhead hfr hd with ⟨-, nI', hnI', hhd, hd'⟩ |
       ⟨-, hfree, hdsw', hmem, hd'⟩
     · have heq := hnI'.symm.trans hnI
       simp only [Except.ok.injEq, Prod.mk.injEq] at heq
       rw [heq.2] at hhd
-      exact ⟨_, .contNew hw hocc hfn hnm hC hlen hquot hidx hds hdsw hnI hhd hsc hd'⟩
+      exact ⟨_, .contNew hw hocc hfn hnm hC hlen hquot hidx hds hdsw hdsA hnI hhd hsc hd'⟩
     · exact ⟨_, .contHit hw hocc hfn hnm hC hlen hquot hidx
-        (fun x hx => ⟨(hds x hx).1, hfree x hx⟩) hdsw' hnI hmem hd'⟩
+        (fun x hx => ⟨(hds x hx).1, hfree x hx⟩) hdsw' hdsA hnI hmem hd'⟩
   | frame hne hhd hhdC hnd hinst hblk hgrp hctors hkty _ _ ih =>
     obtain ⟨ts, hd⟩ := ih
     exact ⟨ts, .frame hne hhd hhdC hnd hinst hblk hgrp hctors hkty hd⟩

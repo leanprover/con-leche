@@ -437,7 +437,7 @@ theorem nestContS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) {ctx
   repeat' split
   all_goals first
     | exact SimC.throw_bind
-    | (rename_i hck
+    | (rename_i hck _
        refine SimC.bind (nestInstTypeS_sim hc hs₁ _ _) (fun s₂ r r' hs₂ hP => ?_)
        obtain ⟨rfl, hr⟩ := hP
        split
@@ -495,14 +495,6 @@ theorem nestPosS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) {ctx 
           · exact SimC.throw
 
 
-theorem nestNoMemberConstS_sim {ctx : NestCtx} {s₀ : CState} (hs : CSOK mode env s₀) (e : Expr) :
-    SimC mode env s₀ (fun v w => v = w ∧ True)
-      (nestNoMemberConst (m := CheckCM) ctx e) (nestNoMemberConst (m := FueledM) ctx e) := by
-  unfold nestNoMemberConst
-  split
-  · exact SimC.throw
-  · exact SimC.pure hs ⟨rfl, trivial⟩
-
 /-- The root frame's substitution names only its (well-scoped) holes. -/
 theorem nestRootSub_wscoped {ctx : NestCtx} {holes : List Expr}
     (hholes : ∀ x ∈ holes, WScoped (ctx.hiAt 0) x ∧ ∃ i ty, x = .fvar i ty) :
@@ -545,33 +537,16 @@ theorem nestRootS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) {ctx
     · exact hw₁
     · exact hw₂ os' hos
 
-theorem nestRootLinesS_sim {ctx : NestCtx} {holes : List Expr} :
-    ∀ (cs : List (ConstantVal × Nat)) (os : List (List NestFieldKind × Expr)) {s₀ : CState},
-      CSOK mode env s₀ →
-      SimC mode env s₀ RelVC (nestRootLines (m := CheckCM) ctx holes cs os)
-        (nestRootLines (m := FueledM) ctx holes cs os)
-  | [], _, _, hs => SimC.pure hs rfl
-  | _ :: _, [], _, hs => SimC.pure hs rfl
-  | c :: cs, o :: os, _, hs => by
-    unfold nestRootLines
-    split
-    case isFalse => exact SimC.throw_bind
-    refine SimC.bind (nestNoMemberConstS_sim hs _) (fun s₁ u u' hs₁ hU => ?_)
-    obtain ⟨rfl, -⟩ := hU
-    exact nestRootLinesS_sim cs os hs₁
-
-theorem nestRootLinesAllS_sim {ctx : NestCtx} {holes : List Expr} :
-    ∀ (css : List (List (ConstantVal × Nat))) (oss : List (List (List NestFieldKind × Expr)))
-      {s₀ : CState}, CSOK mode env s₀ →
-      SimC mode env s₀ RelVC (nestRootLinesAll (m := CheckCM) ctx holes css oss)
-        (nestRootLinesAll (m := FueledM) ctx holes css oss)
-  | [], _, _, hs => SimC.pure hs rfl
-  | _ :: _, [], _, hs => SimC.pure hs rfl
-  | cs :: css, os :: oss, _, hs => by
-    unfold nestRootLinesAll
-    refine SimC.bind (nestRootLinesS_sim cs os hs) (fun s₁ u u' hs₁ hU => ?_)
-    obtain rfl : u = u' := hU
-    exact nestRootLinesAllS_sim css oss hs₁
+/-- Official's uniform-occurrence check at the shared operations (no
+operation: the same verdict). -/
+theorem nestUniformS_sim {ctx : NestCtx} {holes : List Expr}
+    (ctorss : List (List (ConstantVal × Nat))) {s₀ : CState} (hs : CSOK mode env s₀) :
+    SimC mode env s₀ RelVC (nestUniform (m := CheckCM) ctx holes ctorss)
+      (nestUniform (m := FueledM) ctx holes ctorss) := by
+  unfold nestUniform
+  split
+  · exact SimC.throw
+  · exact SimC.pure hs rfl
 
 /-- The per-field sort walk at the shared operations
 (#175: the large-eliminator escape admits a field that is
@@ -746,13 +721,13 @@ theorem checkBlockPositivityS_sim (hμ : mode.verifiedChecks = true) (henv : Env
   obtain ⟨rfl, hctx, hholes, hpar, -, -, -⟩ := hR
   rcases r with ⟨ctx, holes⟩
   dsimp only
-  refine SimC.bind (nestRootS_sim hμ henv hctx hholes hpar ctorsAs {} hs₃
-    hcl (fun _ _ hm => nomatch hm)) (fun s₄ r r' hs₄ hR => ?_)
+  refine SimC.bind (nestUniformS_sim ctorsAs hs₃) (fun s₄ u u' hs₄ hU => ?_)
+  obtain rfl : u = u' := hU
+  refine SimC.bind (nestRootS_sim hμ henv hctx hholes hpar ctorsAs {} hs₄
+    hcl (fun _ _ hm => nomatch hm)) (fun s₅ r r' hs₅ hR => ?_)
   obtain ⟨rfl, hstN, hwN⟩ := hR
   rcases r with ⟨outs, st⟩
   dsimp only
-  refine SimC.bind (nestRootLinesAllS_sim ctorsAs outs hs₄) (fun s₅ u u' hs₅ hU => ?_)
-  obtain rfl : u = u' := hU
   refine SimC.bind (checkAbsCtorSortsAllS_sim hμ henv ctorsAs outs hs₅ hwN)
     (fun s₆ u u' hs₆ _ => ?_)
   exact SimC.pure hs₆ ⟨rfl, hstN⟩

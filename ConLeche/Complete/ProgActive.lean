@@ -59,6 +59,10 @@ namespace ConLeche
   unless (args.take q.1).all (fun x => x.bvarB == 0 && x.fvarB ≤ ctx.hiAt prog.length) do
     throw (.invalid "nested positivity: nested inductive datatypes parameters \
       cannot contain local variables")
+  unless (args.take q.1).all (·.holesApplied ctx.names ctx.nP (ctx.hiAt 0)) do
+    throw (.invalid "nested positivity: invalid occurrence of a datatype being declared in a \
+      nested inductive datatype's parameter: it must be applied to the parameters and \
+      universe levels of the mutual declaration")
   -- the instance is FULLY applied: the container case
   -- compares the container's family at the index tuple, and a partial
   -- application is a function, whose graph does not grow with its values.
@@ -265,9 +269,11 @@ theorem nestCont_active {prog : List NestHole} {kb : Nat} {n : Name} {us : List 
   · simp [throw, throwThe, MonadExceptOf.throw] at h
   split at h
   · split at h
-    · simp at h
-    split at h
-    · exact (nestContKey_active h).trans (nestContainerC_active st n)
+    · split at h
+      · simp at h
+      split at h
+      · exact (nestContKey_active h).trans (nestContainerC_active st n)
+      · simp [throw, throwThe, MonadExceptOf.throw] at h
     · simp [throw, throwThe, MonadExceptOf.throw] at h
   · simp [throw, throwThe, MonadExceptOf.throw] at h
 

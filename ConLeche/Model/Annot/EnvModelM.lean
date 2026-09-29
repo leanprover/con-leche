@@ -124,8 +124,8 @@ into the frame's. -/
 /-- **A recorded block's constructors read as their hole telescopes**
 (M2): member `c`'s constructor
 `j` is stored, closed, at the members' level parameters; its
-member-abstracted type mentions no member constant (M2′, the kernel's
-`nestNoMemberConst`); and its canonical instantiation reads, at depth
+member-abstracted type mentions no member constant (M2′, from the kernel's
+`nestUniform`); and its canonical instantiation reads, at depth
 `nP + k` and every level assignment, as a Π-tower ending in member `c`'s
 hole applied to the parameters and the result index readings, whose
 fields read like the clause's fields with holes at every frame

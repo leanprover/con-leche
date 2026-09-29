@@ -516,7 +516,7 @@ def Expr.holeParamsApp (lo hi : Nat) : Expr → Nat → Bool
   | .app f (.fvar j _), n + 1 => j == n && holeParamsApp lo hi f n
   | _, _ => false
 
-/-- **M3 and M2′ on the walk's normal form**: every member hole
+/-- **Every member applied to the parameters**: every member hole
 `nP ≤ h < hi` occurs applied to the
 parameter variables (the head of a spine whose first `nP` arguments are
 `fvar 0, …, fvar (nP - 1)`), and no member constant occurs.  The walk
@@ -540,13 +540,11 @@ exactly applied), and the `.fvar` arm rejects a bare hole unless
 be free of holes there is an accept-subset (`complete_m3_proj_param`,
 `List ((T, Nat).1)`, official 0).
 
-whnf keeps a hole applied (a substitution replaces bound variables,
-never the hole's head or the parameter variables), and introduces no
-member constant (the members are fresh below the block).  At flat kinds
-the walk's own arms already establish it; at a container field it is
-new: a member unapplied in a PHANTOM container parameter
-(`restrict_a29_m3_phantom_unapplied`: official 0 up to v4.33.0, 1 from
-v4.33.1) is never read by the walk. -/
+The install runs it on every member-abstracted constructor at the
+canonical parameters before the walk (`nestUniform`, official's check),
+and on a container instance's parameters in the walk (`nestCont`); the
+walk's normal forms then satisfy it by construction
+(`posD_holesApplied`, `ConLeche/Verify/Inductives/HolesApplied.lean`). -/
 def Expr.holesApplied (names : List Name) (nP hi : Nat) : Expr → Bool
   | .fvar i ty => (Expr.fvar i ty).holeParamsApp nP hi nP || !decide (nP ≤ i ∧ i < hi)
   | .app f a => (Expr.app f a).holeParamsApp nP hi nP ||
@@ -1438,6 +1436,16 @@ def nestCont (ctx : NestCtx) (ops : CheckerOps m) (env : Env)
   unless (args.take q.1).all (fun x => x.bvarB == 0 && x.fvarB ≤ ctx.hiAt prog.length) do
     throw (.invalid "nested positivity: nested inductive datatypes parameters \
       cannot contain local variables")
+  -- the parameters' member holes are applied to the block's parameters:
+  -- official's uniform occurrences (`nestUniform`) read at the reduct —
+  -- never fires after it (whnf substitutes bound variables only, so a
+  -- hole applied to the parameter variables stays so), and the one fact
+  -- the root's normal forms need beyond the walk's own arms (`holesApplied`
+  -- at a container leaf)
+  unless (args.take q.1).all (·.holesApplied ctx.names ctx.nP (ctx.hiAt 0)) do
+    throw (.invalid "nested positivity: invalid occurrence of a datatype being declared in a \
+      nested inductive datatype's parameter: it must be applied to the parameters and \
+      universe levels of the mutual declaration")
   -- the instance is FULLY applied: the container case
   -- compares the container's family at the index tuple, and a partial
   -- application is a function, whose graph does not grow with its values.
@@ -1540,25 +1548,64 @@ def nestAbstract (ctx : NestCtx) (holes : List Expr) (e : Expr) : Expr :=
 theorem nestAbstract_eq (ctx : NestCtx) (holes : List Expr) (e : Expr) :
     nestAbstract ctx holes e = e.replaceConsts (nestRootSub ctx holes) := rfl
 
-/-- M2′: a member-abstracted constructor type mentions no member
-CONSTANT (every member occurrence was at the block's own levels) — a
-REJECT with official's wording.  Official imposes it since
-v4.33.1: `check_uniform_ind_occs` (`inductive.cpp`, run by
-`add_inductive` before the nested elimination) walks every constructor
-type SYNTACTICALLY and throws at every occurrence of a member whose
-levels are not structurally the declaration's (`const_levels(fn) ==
-lvls`) — a superset of this check (it also wants the member applied to
-exactly the parameter variables, which the walk's own arms check where
-it reads the occurrence).  Official ≤ v4.33.0 accepts where the walk
-never reads the occurrence (a redex whnf drops, a phantom container
-parameter): charter item 9 follows the newer kernel.  The frame reading
-needs it. -/
-def nestNoMemberConst (ctx : NestCtx) (e : Expr) : m Unit :=
-  if e.nestOcc ctx.names 0 0 then
-    throw (.invalid "nested positivity: invalid occurrence of a datatype being declared: it \
-      must be applied to the parameters and universe levels of the mutual declaration (a \
-      member at other universe levels in a constructor type)")
-  else pure ()
+/-! ### Uniform occurrences: official's `check_uniform_ind_occs`
+
+Official v4.33.1+ (`inductive.cpp` v4.34.1 `check_uniform_ind_occs`,
+called first thing by `add_inductive`) walks every constructor type
+SYNTACTICALLY — every subterm, `let`s, projections and the parameters'
+own domains included — and rejects every occurrence of a member that is
+not literally `T.{lps} p⃗`: the declaration's level parameters, applied
+to exactly the parameter variables (over-applied, the extra arguments
+are walked too; in a parameter's domain every occurrence is rejected).
+Reduction never creates such an occurrence (the members are not yet in
+the environment), so the syntactic check covers every occurrence a
+later reduct could expose or erase.
+
+Here it reads the member-ABSTRACTED constructor type (`nestAbstract`:
+`T_m.{lps} ↦ X_m`, the root frame's own substitution): an occurrence at
+other levels is a member constant left over, one at the block's levels
+a hole, and with the parameters instantiated at the canonical variables
+(`instPisWith`) "applied to exactly the parameters" is `holesApplied`'s
+`X_m (fvar 0) … (fvar (nP - 1))` — a hole's spine is recognised whole,
+so an over-applied one has its extra arguments walked.  The parameters'
+domains must be free of members and holes altogether.
+
+The check reads the STORED constructor, i.e. the annotation of the
+declared one: that is the declared type with its `let`s inlined (the
+annotation pass returns the ζ reduct), so an occurrence only in a
+`let`'s type, or in the value of a `let` its body never uses, is not
+seen (official reads it; `uh_let_erase`, an accepted superset). -/
+
+/-- Does a member or a hole occur in one of the first `n` binder domains
+of `e`?  (The parameters' domains, at `n = nP`.) -/
+def Expr.piDomsOcc (names : List Name) (lo hi : Nat) : Nat → Expr → Bool
+  | 0, _ => false
+  | n + 1, .forallE d b _ => d.nestOcc names lo hi || piDomsOcc names lo hi n b
+  | _ + 1, _ => false
+
+/-- **Official's `check_uniform_ind_occs` at one constructor type `ty`**
+(see the section header): the parameters' domains of its member
+abstraction name no member, and its body at the canonical parameters has
+every member applied to them (`holesApplied`: every hole `X_m p⃗`, no
+member constant left).  A type without `nP` leading binders fails (the
+constructor stage already declined it). -/
+def nestUniformOk (ctx : NestCtx) (holes : List Expr) (ty : Expr) : Bool :=
+  let ab := nestAbstract ctx holes ty
+  !ab.piDomsOcc ctx.names ctx.nP (ctx.hiAt 0) ctx.nP &&
+    match instPisWith ctx.params ab with
+    | some crest => crest.holesApplied ctx.names ctx.nP (ctx.hiAt 0)
+    | none => false
+
+/-- `nestUniformOk` at every stored constructor of every member, before
+the walk (official runs it before anything else): a REJECT with
+official's wording. -/
+def nestUniform (ctx : NestCtx) (holes : List Expr) (ctorss : List (List (ConstantVal × Nat))) :
+    m Unit :=
+  match ctorss.findSome? (·.find? (!nestUniformOk ctx holes ·.1.type)) with
+  | some c => throw (.invalid s!"invalid occurrence of a datatype being declared in the \
+      type of {c.1.name}: it must be applied to the parameters and universe levels of the \
+      mutual declaration")
+  | none => pure ()
 
 /-! ### The root frame
 
@@ -1568,10 +1615,10 @@ holes the member holes, its constructors the block's own — walked by the
 one constructor loop (`nestCtors`), exactly as a container frame's are:
 instantiated at the key (the members abstracted by `nestRootSub`), typed
 at the holes' context, every field through `nestPos`, U4, the result,
-the normal form recorded (K.53′).  What only the root has is its own
-lines (`nestRootLines`): the members' uniform occurrences (M3, M2′), and
-— at the install — the fields' universes at the holes
-(`checkAbsCtorSorts`, `BlockInstall.lean`). -/
+the normal form recorded (K.53′).  What only the root has is, BEFORE
+the walk, official's uniform-occurrence check on its constructors
+(`nestUniform`), and — at the install — the fields' universes at the
+holes (`checkAbsCtorSorts`, `BlockInstall.lean`). -/
 
 /-- **The root frame**: every member's constructors through `nestCtors`
 at the root key (the block's levels `lps`, the canonical parameters, the
@@ -1589,34 +1636,6 @@ def nestRoot (ops : CheckerOps m) (env : Env) (ctx : NestCtx) (holes : List Expr
       (ctx.hiAt 0) (ctx.lps.map .param) ctx.params ctx.nP (nestRootSub ctx holes) cs st
     let (os, st) ← nestRoot ops env ctx holes css st
     pure (o :: os, st)
-
-/-- **The root's own lines**, per constructor, on its walked normal form
-`tyN` (the root frame's output): M3 and M2′ (`Expr.holesApplied`) —
-official's `check_uniform_ind_occs` reads the members' occurrences —
-and M2′ on the member-abstracted DECLARED type (`nestNoMemberConst`): a
-member at other levels where the walk never reads it (a redex whnf
-drops, a phantom container parameter, `restrict_a27_m2prime_redex`,
-`restrict_a28_m2prime_phantom`; one it reads is the walk's own "non
-valid occurrence", `restrict_b02_m2prime_direct_bad`).  Rejects, as
-official ≥ v4.33.1. -/
-def nestRootLines (ctx : NestCtx) (holes : List Expr) :
-    List (ConstantVal × Nat) → List (List NestFieldKind × Expr) → m Unit
-  | c :: cs, o :: os => do
-    unless o.2.holesApplied ctx.names ctx.nP (ctx.hiAt 0) do
-      throw (.invalid "nested positivity: invalid occurrence of a datatype being declared: it \
-        must be applied to the parameters and universe levels of the mutual declaration (a \
-        member not applied to the parameters, in a container's parameter)")
-    nestNoMemberConst ctx (nestAbstract ctx holes c.1.type)
-    nestRootLines ctx holes cs os
-  | _, _ => pure ()
-
-/-- `nestRootLines` at every member. -/
-def nestRootLinesAll (ctx : NestCtx) (holes : List Expr) :
-    List (List (ConstantVal × Nat)) → List (List (List NestFieldKind × Expr)) → m Unit
-  | cs :: css, os :: oss => do
-    nestRootLines ctx holes cs os
-    nestRootLinesAll ctx holes css oss
-  | _, _ => pure ()
 
 /-! ### The seeds
 
@@ -1667,8 +1686,8 @@ def nestSeeds (ops : CheckerOps m) (env : Env) (ctx : NestCtx) :
     nestSeeds ops env ctx ks st
 
 /-- **Positivity through containers, for a whole block** (the unit
-tests' entry): the root frame (`nestRoot`) and its own lines
-(`nestRootLinesAll`), from the empty state.  `ctorss` are the members'
+tests' entry): official's uniform-occurrence check (`nestUniform`), then
+the root frame (`nestRoot`) from the empty state.  `ctorss` are the members'
 constructors ANNOTATED (not normalised: the function reduces itself).
 Returns the accepted instantiations, the kinds, every constructor's
 NORMALISED type and the recorded normal forms. -/
@@ -1676,8 +1695,8 @@ def nestedBlockPositivity (ops : CheckerOps m) (env : Env) (ctx : NestCtx)
     (ctorss : List (List (ConstantVal × Nat))) : m NestedPositivity := do
   let holes ← unwrapOr (nestHoles ctx)
     (.internal "nested positivity: a member is not a stored former")
+  nestUniform ctx holes ctorss
   let (outs, st) ← nestRoot ops env ctx holes ctorss {}
-  nestRootLinesAll ctx holes ctorss outs
   pure ⟨st.keys, outs.map (·.map (·.1)), outs.map (·.map (·.2)), st.ctorNfs⟩
 
 end Nested

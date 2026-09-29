@@ -41,7 +41,8 @@ The rules:
   and hole-free indices;
 * `frameHole` — a frame's hole, at its own key's parameters, hole-free
   indices and full arity (the instantiation in progress);
-* `contNew` — a stored inductive at a concrete instantiation, its frame
+* `contNew` — a stored inductive at a concrete instantiation (its
+  parameters' member holes applied to the block's parameters), its frame
   derived HERE (under the current, well-scoped frames), the container at
   the frame's head;
 * `contHit` — the same, its parameters below every frame hole, its frame
@@ -283,6 +284,7 @@ inductive PosD (ops : CheckerOps CheckM) (env : Env) (ctx : NestCtx) :
       (hds : ∀ x ∈ w.getAppArgs.take nPc,
         x.bvarB = 0 ∧ x.fvarB ≤ ctx.hiAt prog.length)
       (hdsw : ∀ x ∈ w.getAppArgs.take nPc, Expr.WScoped (ctx.hiAt prog.length) x)
+      (hdsA : ∀ x ∈ w.getAppArgs.take nPc, x.holesApplied ctx.names ctx.nP (ctx.hiAt 0) = true)
       (hnI : nestInstType (m := CheckM) ctx (ctx.hiAt prog.length)
         ⟨n, us, w.getAppArgs.take nPc⟩ = .ok (nI, cty))
       (hhead : grp.head? = some (n, cty)) (hsc : ProgScoped ctx prog)
@@ -304,6 +306,7 @@ inductive PosD (ops : CheckerOps CheckM) (env : Env) (ctx : NestCtx) :
       (hds : ∀ x ∈ w.getAppArgs.take nPc,
         x.bvarB = 0 ∧ x.fvarB ≤ ctx.hiAt 0)
       (hdsw : ∀ x ∈ w.getAppArgs.take nPc, Expr.WScoped (ctx.hiAt 0) x)
+      (hdsA : ∀ x ∈ w.getAppArgs.take nPc, x.holesApplied ctx.names ctx.nP (ctx.hiAt 0) = true)
       (hnI : nestInstType (m := CheckM) ctx (ctx.hiAt prog.length)
         ⟨n, us, w.getAppArgs.take nPc⟩ = .ok (nI, cty))
       (hmem : n ∈ grp.map (·.1))
@@ -377,8 +380,9 @@ inductive PosD (ops : CheckerOps CheckM) (env : Env) (ctx : NestCtx) :
 /-- **A member constructor, derived** (its nodes `ts`): the root frame's
 constructor judgment read at one constructor — its field telescope
 positive at the block's own depth (no frames), U4 at the non-ordinary
-fields, its result's indices hole-free — and the root's own line M3/M2′
-on the normal form `tyN`. -/
+fields, its result's indices hole-free — and the every member
+applied to the parameters in the normal form `tyN` (`holesApplied`, by
+construction from official's uniform check, `memberCtorD_holesApplied`). -/
 @[expose] def MemberCtorD (ops : CheckerOps CheckM) (env : Env) (ctx : NestCtx) (nF : Nat)
     (crest : Expr) (ks : List NestFieldKind) (tyN : Expr) (ts : List PosTree) : Prop :=
   ∃ nds cur, PosD ops env ctx (.tele [] (ctx.hiAt 0) nF 0 crest ks nds cur) ts ∧
