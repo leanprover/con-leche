@@ -95146,3 +95146,6 @@ constructors) is STRUCK — irrelevant.  COMPLETE3 (completeness "official accep
 PARKED: tag `complete3-parked` (branch `agent/uinds-COMPLETE3`), worktree removed.  The master-docket
 PUnit cleanup (unpin `PUnit`, install it through the normal installer; remove `isUnitLikeTy` and
 `unitLike_eq_punit`) is done on THIS branch.
+
+**STRUCK (maintainer, 2026-09-29):** collapsing the node-0 twins (proof-only, unclear it is better)
+and the "sane expression" relation replacing K.51 (not worth waiting for).
