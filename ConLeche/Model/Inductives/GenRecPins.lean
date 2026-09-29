@@ -80,7 +80,7 @@ theorem inferTypeCore_mkAppN_args {env : Env} {F d : Nat} :
     · exact inferTypeCore_mkAppN_args as (f := .app f b) h a ha
 
 /-- **An inferred `∀` infers its domain.** -/
-theorem inferTypeCore_forallE_dom {env : Env} {F d : Nat} {ty bd s : Expr} {mb : BinderMeta}
+theorem inferTypeCore_forallE_dom' {env : Env} {F d : Nat} {ty bd s : Expr} {mb : BinderMeta}
     (h : inferTypeCore mode env F d (.forallE ty bd mb) = .ok s) :
     ∃ t, inferTypeCore mode env F d ty = .ok t := by
   cases F with
@@ -184,9 +184,8 @@ theorem storedMajorArg_graded (hμ : μ.verifiedChecks = true) (mpC : EnvModelM 
   generalize hrPdef : pp.toBlockShape.rulePrefixAt j = rP at hlt ⊢
   obtain ⟨_, _, -, ⟨TE⟩⟩ := ConLeche.recStageG_tyGen h hr
   have hle : rP ≤ mI := by have := TE.hmI'; omega
-  obtain ⟨-, -, -, -, -, -, tyA, stype, u0, -, -, -, hinfT, -, hcv'⟩ :=
-    ConLeche.checkConstantVal_inv TE.hcv
-  have hrty : r.1.type = tyA := by rw [hcv']
+  obtain ⟨stype, u0, hinfT, -⟩ := TE.hcv.sorted
+  generalize hrty : r.1.type = tyA at hinfT
   obtain ⟨hw0, hb0⟩ := recStage_tyClosed h hr
   -- the major's domain, inferred at `mI`
   obtain ⟨fvsA, fvsB, o₀, hA, hB, hfe⟩ := openPisAtFvars_split mI (m := 1) hop
@@ -205,11 +204,11 @@ theorem storedMajorArg_graded (hμ : μ.verifiedChecks = true) (mpC : EnvModelM 
     | zero =>
       simp only [openPisAtFvars, Option.some.injEq, Prod.mk.injEq] at hA
       obtain ⟨-, rfl⟩ := hA
-      exact ConLeche.inferTypeCore_forallE_dom hinfT
+      exact ConLeche.inferTypeCore_forallE_dom' hinfT
     | succ n =>
       obtain ⟨bt, -, hbt, -⟩ := inferTypeCore_openPis_body rfl n hA hinfT
       rw [Nat.zero_add] at hbt
-      exact ConLeche.inferTypeCore_forallE_dom hbt
+      exact ConLeche.inferTypeCore_forallE_dom' hbt
   obtain ⟨tdom, htdom⟩ := hdomInf
   rw [hmajE] at hxA
   simp only [Expr.fvarTypeD] at hxA
