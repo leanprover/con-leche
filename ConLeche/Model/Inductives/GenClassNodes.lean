@@ -132,8 +132,8 @@ theorem genClassNodes {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : Nat
     hAdm := dyn_hAdm H ψ ρ xs hparams par
     top := dyn_top H ψ ρ xs hparams hxs hPP
     trans := dyn_trans H ψ ρ xs hparams hxs par
-    hcall := genNodeCalls hμ hbase R h hg hTbl hparG hmkC hmk hag hsubC htr hcoreK hok hown
-      hkids hpar hsem hctxR hfrec hmemF hPP hF hcls hsel hgd hfrT }
+    hcall := genNodeCalls hμ hbase R h hg hTbl hmkC hmk hag hsubC htr hcoreK hok hown
+      hkids hpar hsem hctxR hfrec hmemF hPP hF hcls hsel hparams hxs hfrT }
   have hrs : ∀ c (hc : c < (tgtRs out).length),
       (tgtRs out)[c]? = some ((tgtRs out)[c]'hc) := fun c hc => List.getElem?_eq_getElem hc
   refine tgtNodePres_of_list hcov hlfp hF hcls hsel (fun c hc => ?_) (fun c hc =>

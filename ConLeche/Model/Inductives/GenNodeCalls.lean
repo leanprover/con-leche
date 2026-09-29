@@ -243,9 +243,6 @@ theorem genNodeCalls {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : Nat}
     (h : ConLeche.RecStageG μ F envC pp cvTasR ctorsAsR (tgtRs out) (fun _ => False))
     (hg : ConLeche.ClassGenScoped R.g)
     (hTbl : ∀ e ∈ R.st.ctorNfs.toList, ConLeche.ScB pp.nP e.ty)
-    (hparG : ∀ c, c < (tgtRs out).length → ∀ (ψ : Name → Nat) (ρ : Nat → V) (xs : List V),
-      SpineFit ρ (blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c) xs →
-      SpineFit ρ (dR.params ψ) (xs.take dR.nP))
     {mk : EnvModelM V μ envI} (hmkC : LfpCover mk pp.toBlockShape.memberNames)
     (hmk : ∀ D ∈ mk.lfpBlocks, D ∈ mpC.lfpBlocks)
     (hag : ∀ n, (envI.find? n).isSome = true → mpC.base2.acval n = mk.base2.acval n)
@@ -273,8 +270,7 @@ theorem genNodeCalls {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : Nat}
     (hsel : ∀ c, c < (tgtRs out).length → (tgtMajor out c).member = none →
       Dc c = lfpSel mpC dR.toLfp (tgtMajor out c).ind)
     {ψ : Name → Nat} {ρ : Nat → V} {xs : List V}
-    (hgd : ∃ c, c < (tgtRs out).length ∧
-      tgtClsG dR mpC.base2.acval envC pp.toBlockShape out ψ ρ xs c)
+    (hparams : SpineFit ρ (dR.params ψ) (xs.take dR.nP)) (hxs : dR.nP ≤ xs.length)
     (hfrT : NodeFrameTie mpC.base2.acval (pp.nestCtx fvsP envI.find? envI.consts) pp.toBlockShape
       out ns ψ ρ xs envC F (cvTasR.map (·.type))) :
     ∀ c b, c < (tgtRs out).length →
@@ -307,27 +303,6 @@ theorem genNodeCalls {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : Nat}
   obtain ⟨hPos, henvC, hnames, hndM, hN, hS, hcore, hctorsAs, hdR, hlfp, hcov, -, -, -⟩ := hctx'
   have hmr : BlockMembersRun mpC.base2 dR pp.toBlockShape cvTasR := by
     obtain ⟨pk, uOfD, ppsOf, rfl⟩ := hdR; exact blockMembersRun_seam hN hS hcore
-  -- the prefix's parameters
-  have hparams : SpineFit ρ (dR.params ψ) (xs.take dR.nP) := by
-    obtain ⟨c0, hc0, hg0⟩ := hgd
-    refine hparG c0 hc0 ψ ρ xs ?_
-    unfold tgtClsG at hg0
-    split at hg0
-    · exact hg0.2
-    · exact hg0
-  have hxs : dR.nP ≤ xs.length := by
-    have hl := SpineFit.length_eq hparams
-    have hpl : (dR.params ψ).length = dR.nP := by
-      have h0 := H.hΔ0 ψ
-      rw [List.length_reverse, BlockData.holeCtx, List.length_append, List.length_map,
-        List.length_range] at h0
-      have hk : dR.k = (pp.nestCtx fvsP envI.find? envI.consts).names.length := by
-        rw [H.hnames]; exact (lfp_namesLen mpC H.hd0).symm
-      have hnP := H.hnP
-      simp only [ConLeche.NestCtx.hiAt] at h0
-      omega
-    rw [List.length_take, hpl] at hl
-    omega
   have hrs : ∀ c (hc : c < (tgtRs out).length),
       (tgtRs out)[c]? = some ((tgtRs out)[c]'hc) := fun c hc => List.getElem?_eq_getElem hc
   have hnPc : ∀ c, c < (tgtRs out).length →
