@@ -13,11 +13,11 @@ by GENREC); the stage itself is `genRecCheck`
 that stage shares with the rest of the install:
 
 * the ELIMINATION guard, official's `elim_only_at_universe_zero` said
-  declaratively (`blockLargeElimAllowed`): unless the block's sort is
-  never `0`, a large eliminator needs the generated large SHAPE (a
-  fresh elimination level parameter, `BlockShape.large`), ONE member,
-  no container occurrence and at most one constructor — and when it is
-  not allowed, the recursor's CONCLUSION must be a proposition;
+  declaratively (`blockLargeElimAllowed`, the recursor stage's one
+  guard): unless the block's sort is never `0`, a large eliminator needs
+  the large SHAPE (a fresh elimination level parameter,
+  `BlockShape.large`), ONE member, no container occurrence and at most
+  one constructor;
 * the frames' variable numbering (below);
 * `nameIdxOf?`, the callee lookup the check's call recogniser uses.
 -/
@@ -56,27 +56,27 @@ CONSTRUCTORS' stage has already applied (`checkStructFieldSortsI`'s
 `large` arm).  When this is `false` the recursor's conclusion must be
 a proposition.
 
-**Why `p.large` is a CONJUNCT of the second disjunct.**  The route
-CHECKS the recursor instead of generating it, so the two halves of
-official's criterion are split: this one is keyed on the block's counts, while the per-field
-subsingleton half runs in the constructors' stage under `p.isProp &&
-p.large` — and `BlockShape.large` is a LEVEL-PARAMETER SHAPE ("a fresh
-elimination level parameter in front"), not a property of the
-elimination.  A MONOMORPHIC large motive (`{motive : ∀ n, T n → Type}`,
-which needs no level parameter) therefore has `large = false`, so the
-per-field half does not run at all; were a one-member, one-constructor
-`Prop` block let through here unconditionally, neither half would fire,
-and `Hidden : Nat → Prop | mk (n m : Nat) : Hidden (n+1)` would
-eliminate into `Type`: proof irrelevance collapses `mk 0 0` and
-`mk 0 1` while the eliminator tells them apart, which is a proof of
-`0 = 1` (fixture `corner_rec_mono_large_bad`).
-
-With `p.large` required, a recursor that does NOT declare the generated
-large shape must conclude in `Sort 0` — checked, not assumed, by the
-`isDefEq` beside the call — so the one flag implies the other:
-`large = false` ⇒ the elimination level is provably `0`.  That is the
-invariant the model's per-field clause (`CtorDataI.srcProp`, keyed on
-the same `large`) needs to be about the blocks it is used at.  Nothing
+**Why `p.large` is a CONJUNCT of the second disjunct.**  The two
+halves of official's criterion are split: this one is keyed on the
+block's counts, and it is the recursor stage's ONE elimination guard
+(`genRecCheck`: `p.large && !blockLargeElimAllowed …`, the container bit
+or'ed with every outside class); the per-field subsingleton half runs in
+the constructors' stage under `p.isProp && p.large`
+(`checkStructFieldSortsI`).  `BlockShape.large` is read off the stream's
+recursor records (a fresh elimination level parameter in front), and the
+generated family eliminates at that parameter when `large`, at `Sort 0`
+otherwise (`structElimLevel`); the stream's recursor TYPE must be
+definitionally the generated one, so a MONOMORPHIC large motive
+(`{motive : ∀ n, T n → Type}`, no level parameter, `large = false`) is
+rejected by that comparison — it would otherwise let
+`Hidden : Nat → Prop | mk (n m : Nat) : Hidden (n+1)` eliminate into
+`Type`, where proof irrelevance collapses `mk 0 0` and `mk 0 1` while
+the eliminator tells them apart (fixture `corner_rec_mono_large_bad`).
+With `p.large` required here, the one flag decides both halves, and the
+model's per-field clause (`CtorDataI.srcProp`, keyed on the same
+`large`) is about exactly the blocks this guard lets through: its
+uniqueness premise (`huniq`) at a possibly-`Prop` block is this
+function's second disjunct plus the per-field criterion.  Nothing
 official emits is lost: official's own recursor for a large-eliminating
 block always carries the fresh parameter. -/
 def blockLargeElimAllowed (p : BlockShape) (nested : Bool) : Bool :=
