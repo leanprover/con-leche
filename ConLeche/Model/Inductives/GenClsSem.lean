@@ -91,9 +91,28 @@ theorem genRun_binders (hμ : μ.verifiedChecks = true)
           (Expr.mkAppN (.const (tgtMajor out c).ind (tgtMajor out c).lvls)
             ((tgtMajor out c).ds ++ ifs))
         = some (((blockRecRdsAV mpC.base2.acval envC p.toBlockShape (tgtRs out) ψ c).map
-            (·.2.2)).getD (p.toBlockShape.rulePrefixAt c + (tgtMajor out c).nIdx) default) := by
+            (·.2.2)).getD (p.toBlockShape.rulePrefixAt c + (tgtMajor out c).nIdx) default) ∧
+      (∃ fvs o, ConLeche.openPisAtFvars (p.toBlockShape.majorIdxAt c + 1)
+          ((tgtRs out)[c]'hc).1.type 0 = some (fvs, o) ∧
+        ∀ (i : Nat) (x nd : Expr), fvs[i]? = some x →
+          (R.g.pre ++ ifs.map R.g.binder ++ [(Expr.mkAppN (.const (tgtMajor out c).ind
+            (tgtMajor out c).lvls) ((tgtMajor out c).ds ++ ifs), R.g.bm)])[i]?.map (·.1) = some nd →
+          Expr.ErasedEq x.fvarTypeD nd) := by
   obtain ⟨cls, gty, S, hgc, hM, hgty, -, hread, hmI, hRP, hst⟩ :=
     genRun_storedTy hμ R hg h mpC ψ hc
+  -- the stored constant is the generated type
+  have hsty : ((tgtRs out)[c]'hc).1.type = gty := by
+    obtain ⟨rc, cls', cvG, rhss, -, -, -, ⟨T⟩, ho, -, hgc'⟩ := genRun_at R hc
+    obtain rfl : cls' = cls := hgc'.symm.trans hgc
+    obtain ⟨-, -, -, -, -, -, -, -, -, -, -, -, hcvEq⟩ := ConLeche.classConstOk_inv T.hcv
+    have hc' : c < out.length := by simpa [tgtRs] using hc
+    have hr1 : ((tgtRs out)[c]'hc).1 = cvG := by
+      have : out[c] = (cvG, R.Ms.getD cls' default, rhss) :=
+        Option.some.inj ((List.getElem?_eq_getElem hc').symm.trans ho)
+      simp [tgtRs, this]
+    rw [hr1, hcvEq]
+    show T.gty = gty
+    exact Option.some.inj (T.hgty.symm.trans hgty)
   obtain ⟨ifs, maj, hmaj, hifl, rfl, hcl, hbb⟩ := ConLeche.classGenRecTy_spec hg hgty
   obtain ⟨ty, body, hty, hopI, hmajE⟩ := ConLeche.ClassGen.major_inv hmaj
   rw [← hM] at hty hopI hmajE hifl
@@ -105,6 +124,7 @@ theorem genRun_binders (hμ : μ.verifiedChecks = true)
     simp only [List.length_append, List.length_map, List.length_singleton, hifl]
   obtain ⟨fvs, o, hop, -, hdomE⟩ := open_of_erasedEq_closeTelescope nds 0 bd
     (closeTelescope nds 0 bd) hcl hbb (Expr.ErasedEq.rfl _)
+  have hop0 := hop
   rw [hn] at hop
   obtain ⟨pps, b, hst', -, hlen, hbind⟩ := denoteMeta_openPis _ hop hread
   rw [← hM] at hst hmI
@@ -124,7 +144,7 @@ theorem genRun_binders (hμ : μ.verifiedChecks = true)
     rw [hrd, List.getD_eq_getElem?_getD, List.getElem?_map, hq]
     rfl
   refine ⟨cls, ty, ifs, body, hgc, hM, hty, by rw [hRP]; exact hopI, hifl, hRP,
-    by rw [hRP]; omega, by rw [List.length_map, hlen, hRP], ?_, ?_⟩
+    by rw [hRP]; omega, by rw [List.length_map, hlen, hRP], ?_, ?_, ?_⟩
   · intro k x hx
     have hk : k < ifs.length := (List.getElem?_eq_some_iff.mp hx).1
     rw [hRP]
@@ -136,6 +156,9 @@ theorem genRun_binders (hμ : μ.verifiedChecks = true)
     refine hent _ _ (by omega) ?_
     rw [← hnds, List.getElem?_append_right (by simp; omega)]
     simp [hifl]
+  · refine ⟨fvs, o, ?_, fun i x nd hx hnd => hdomE i x nd hx ?_⟩
+    · rw [hsty, hmI, ← hn, hnds, hbody]; exact hop0
+    · rw [← hnds, hmajE]; exact hnd
 
 end Binders
 
@@ -256,7 +279,7 @@ theorem genCls_core (hμ : μ.verifiedChecks = true)
               (tgtRP pp.toBlockShape c) (consList xs ρ)) (tgtClsM mc pp.toBlockShape out c))
           (tupW ((tgtClsD d Dc out c).u (tgtClsM mc pp.toBlockShape out c)
             (tgtClsψ cvc out ψ c)) is)) := by
-  obtain ⟨cls, ty, ifs, body, hgc, -, hty, hopI, hifl, -, -, hlenR, hidxR, hmajR⟩ :=
+  obtain ⟨cls, ty, ifs, body, hgc, -, hty, hopI, hifl, -, -, hlenR, hidxR, hmajR, -⟩ :=
     genRun_binders hμ R hg h mpC ψ hc
   rw [hgc] at hformer
   rw [hformer] at hty
@@ -425,7 +448,7 @@ theorem genCls_split (hμ : μ.verifiedChecks = true)
         isOfW (tgtClsU d Dc mc cvc pp.toBlockShape out ψ c) (tgtClsNIdx d pp.toBlockShape out c)
           (tgtClsTup d Dc mc cvc pp.toBlockShape out ψ c is) = is := by
   intro xs is x hxl hisl hfit
-  obtain ⟨-, -, -, -, -, -, -, -, -, -, -, hlenD, -, -⟩ := genRun_binders hμ R hg h mpC ψ hc
+  obtain ⟨-, -, -, -, -, -, -, -, -, -, -, hlenD, -, -, -⟩ := genRun_binders hμ R hg h mpC ψ hc
   obtain ⟨xs', is', x', heq, hxl', hisl', h1, h2, h3⟩ := spineFit_split_three hlenD hfit
   obtain ⟨rfl, heq2⟩ := List.append_inj heq (by rw [hxl, hxl'])
   obtain ⟨rfl, hxx⟩ := List.append_inj heq2 (by rw [hisl, hisl'])
@@ -471,7 +494,7 @@ theorem genCls_back (hμ : μ.verifiedChecks = true)
           (tgtClsNIdx d pp.toBlockShape out c) i ++ [x])) := by
   intro xs i x hi hx
   have hxfit := genCls_Is_fits Rd hi
-  obtain ⟨-, -, -, -, -, -, -, -, -, -, -, hlenD, -, -⟩ := genRun_binders hμ R hg h mpC ψ hc
+  obtain ⟨-, -, -, -, -, -, -, -, -, -, -, hlenD, -, -, -⟩ := genRun_binders hμ R hg h mpC ψ hc
   have hlenPd := blockRulePdomsAV_length (V := V) hμ mpC h (List.getElem?_eq_getElem hc) ψ
   have hxl : xs.length = pp.toBlockShape.rulePrefixAt c := by
     rw [hxfit.length_eq, hlenPd]
