@@ -76,6 +76,12 @@ FALLBACK = {
     # major record (`TargetMajorRun`) in their PUBLIC statements; each
     # MEASURED by demoting it alone (unknown identifier `classStreamRecs`,
     # `GenRecRun.lean:74`; unknown identifier `TargetMajorRun`, `:103`).
+    # lane GENREC (D1): the generated constant's facts (`ConstChecked`) and
+    # the empty-slot predicate (`Expr.NoProjAt`, re-exported by BlockRecRun)
+    # in PUBLIC statements; MEASURED by demoting it alone (unknown constant
+    # `ConLeche.Expr.NoProjAt`, `GenRecRun.lean:336`; unknown identifier
+    # `ConstChecked`, `:337`).
+    ('ConLeche.Verify.Inductives.GenRecRun', 'ConLeche.Verify.Inductives.BlockRecRun'),
     ('ConLeche.Verify.Inductives.GenRecRun', 'ConLeche.Kernel.Inductives.GenRec'),
     ('ConLeche.Verify.Inductives.GenRecRun', 'ConLeche.Verify.Inductives.RecCheckRun'),
     # sub-lane GENREC-D: the generated stage's cached simulation states its

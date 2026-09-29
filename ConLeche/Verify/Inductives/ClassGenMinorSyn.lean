@@ -1,12 +1,7 @@
 module
 
 public import ConLeche.Verify.Inductives.ClassGenScope
-public import ConLeche.Verify.Subst
-import ConLeche.Verify.Inductives.ClassGenAnnot
-import ConLeche.Verify.Abstract
-import ConLeche.Verify.Leaves
 import ConLeche.Verify.Inductives.NestScope
-import ConLeche.Verify.Inductives.NestCallSyn
 
 public section
 
@@ -34,13 +29,8 @@ needs, as pure syntax:
   fields — the gap `[nP + s + nF, nP + s + nF + l)` is never used
   (`Expr.FvGap`, a shallow "no variable in the gap" predicate that every
   step of the construction keeps);
-* **annotation of a telescope over a non-plain body**
-  (`annotateCore_closeTelescope_gen`): the annotated telescope is, up to
-  erasure, the telescope of the annotated domains over the annotated
-  body, each piece the annotation of (an erasure of) the raw one at its
-  own depth, and scoped there;
-* **annotation of a variable applied to a spine** keeps the variable and
-  the spine's length (`annotateCore_mkAppN_fvar`).
+* **a tighter scope** (`WScoped.of_leaves_below`): a term whose closure
+  leaves lie below `lo` is scoped at `lo`.
 -/
 
 namespace ConLeche
@@ -190,96 +180,7 @@ theorem Expr.FvGap.closeTelescope {lo i : Nat} :
     exact ⟨hn _ List.mem_cons_self, Expr.FvGap.abstract1 0
       (Expr.FvGap.closeTelescope nds (j + 1) (fun nd hnd => hn nd (List.mem_cons_of_mem _ hnd)) hb)⟩
 
-/-! ## Annotating a telescope over a non-plain body -/
-
-/-- **Annotating (an erasure of) a closed telescope**, over ANY body:
-the result is, up to erasure, the telescope of the annotated domains
-over the annotated body — each annotated piece the annotation of an
-erasure of the raw one, at its own depth, and scoped there.
-(`annotateCore_closeTelescope` is the plain-body case, where the body is
-left alone.) -/
-theorem annotateCore_closeTelescope_gen {env : Env} :
-    ∀ (nds : List (Expr × BinderMeta)) {F d : Nat} {B E e' : Expr},
-      (∀ p ∈ nds, p.1.looseBVarsBounded 0 = true) → B.looseBVarsBounded 0 = true →
-      Expr.ErasedEq E (closeTelescope nds d B) → WScoped d E →
-      annotateCore mode env F d E = .ok e' →
-      ∃ (nds' : List (Expr × BinderMeta)) (B' : Expr),
-        nds'.length = nds.length ∧ Expr.ErasedEq e' (closeTelescope nds' d B') ∧
-        (∃ (B₀ : Expr) (F' : Nat), Expr.ErasedEq B₀ B ∧ WScoped (d + nds.length) B₀ ∧
-          annotateCore mode env F' (d + nds.length) B₀ = .ok B') ∧
-        ∀ (k : Nat) (nd' : Expr × BinderMeta), nds'[k]? = some nd' →
-          ∃ (X : Expr) (F' : Nat) (nd : Expr × BinderMeta), nds[k]? = some nd ∧
-            Expr.ErasedEq X nd.1 ∧ WScoped (d + k) X ∧
-            annotateCore mode env F' (d + k) X = .ok nd'.1
-  | [], F, d, B, E, e', _, _, he, hw, h => by
-    simp only [closeTelescope] at he
-    exact ⟨[], e', rfl, by simpa [closeTelescope] using Expr.ErasedEq.rfl e',
-      ⟨E, F, he, by simpa using hw, by simpa using h⟩, fun k nd' hk => nomatch hk⟩
-  | (dom, bm) :: nds, F, d, B, E, e', hcl, hb, he, hw, h => by
-    simp only [closeTelescope] at he
-    match E, he with
-    | .forallE A b m, he =>
-      obtain ⟨rfl, hA, hbE⟩ := he
-      simp only [WScoped] at hw
-      cases F with
-      | zero => simp [annotateCore_zero, throw, throwThe, MonadExceptOf.throw] at h
-      | succ F =>
-        obtain ⟨A', b', pw, hA', hb', rfl⟩ := annotateCore_forallE_inv h
-        have hwA' : WScoped d A' := annotateCore_WScoped F A hA' hw.1
-        have hcl' : ∀ p ∈ nds, p.1.looseBVarsBounded 0 = true :=
-          fun p hp => hcl p (List.mem_cons_of_mem _ hp)
-        have hC := closeTelescope_bounded nds (d + 1) B hcl' hb
-        have hE : Expr.ErasedEq (b.instantiate1 (.fvar d A')) (closeTelescope nds (d + 1) B) :=
-          Expr.ErasedEq.trans (Expr.ErasedEq.instantiate1 hbE (v' := .fvar d A') rfl)
-            (Expr.erasedEq_abstract1_instantiate1 _ 0 hC)
-        obtain ⟨nds', B', hl, he', ⟨B₀, F₀, hB₀, hwB₀, hannB⟩, hdoms⟩ :=
-          annotateCore_closeTelescope_gen nds hcl' hb hE (hwA'.instantiate1 0 hw.2) hb'
-        refine ⟨(A', ⟨pw⟩) :: nds', B', by simp [hl], ?_, ⟨B₀, F₀, hB₀, ?_, ?_⟩, ?_⟩
-        · simp only [closeTelescope]
-          exact ⟨rfl, Expr.ErasedEq.rfl _, Expr.ErasedEq.abstract1 0 he'⟩
-        · rw [List.length_cons, show d + (nds.length + 1) = d + 1 + nds.length by omega]
-          exact hwB₀
-        · rw [List.length_cons, show d + (nds.length + 1) = d + 1 + nds.length by omega]
-          exact hannB
-        · intro k nd' hk
-          cases k with
-          | zero =>
-            simp only [List.getElem?_cons_zero, Option.some.injEq] at hk
-            subst hk
-            exact ⟨A, F, (dom, m), rfl, hA, by simpa using hw.1, by simpa using hA'⟩
-          | succ k =>
-            simp only [List.getElem?_cons_succ] at hk
-            obtain ⟨X, F', nd, hnd, hX, hwX, hann⟩ := hdoms k nd' hk
-            exact ⟨X, F', nd, by simpa using hnd, hX,
-              by rw [show d + (k + 1) = d + 1 + k by omega]; exact hwX,
-              by rw [show d + (k + 1) = d + 1 + k by omega]; exact hann⟩
-
-/-- **Annotating an application spine** annotates its head (at a smaller
-fuel) and keeps the spine's length. -/
-theorem annotateCore_mkAppN_inv {env : Env} :
-    ∀ (as : List Expr) {F d : Nat} {f r : Expr},
-      annotateCore mode env F d (Expr.mkAppN f as) = .ok r →
-      ∃ (F' : Nat) (f' : Expr) (as' : List Expr), annotateCore mode env F' d f = .ok f' ∧
-        r = Expr.mkAppN f' as' ∧ as'.length = as.length
-  | [], F, d, f, r, h => ⟨F, r, [], h, rfl, rfl⟩
-  | a :: as, F, d, f, r, h => by
-    obtain ⟨F₁, g, as', hg, rfl, hl⟩ := annotateCore_mkAppN_inv as (f := .app f a) h
-    cases F₁ with
-    | zero => simp [annotateCore_zero, throw, throwThe, MonadExceptOf.throw] at hg
-    | succ F₁ =>
-      obtain ⟨f', a', hf, -, rfl⟩ := annotateCore_app_inv hg
-      exact ⟨F₁, f', a' :: as', hf, rfl, by simp [hl]⟩
-
-/-- **A variable applied to a spine, annotated**: the same variable
-applied to a spine of the same length. -/
-theorem annotateCore_mkAppN_fvar {env : Env} {F d i : Nat} {T : Expr} {as : List Expr}
-    {r : Expr} (h : annotateCore mode env F d (Expr.mkAppN (.fvar i T) as) = .ok r) :
-    ∃ as' : List Expr, r = Expr.mkAppN (.fvar i T) as' ∧ as'.length = as.length := by
-  obtain ⟨F', f', as', hf, rfl, hl⟩ := annotateCore_mkAppN_inv as h
-  obtain rfl := annotateCore_plain F' (e := .fvar i T) trivial hf
-  exact ⟨as', rfl, hl⟩
-
-/-! ## A tighter scope survives annotation -/
+/-! ## A tighter scope -/
 
 /-- A term scoped at `d` whose closure leaves all lie below `lo` is
 scoped at `lo`. -/
@@ -317,15 +218,6 @@ theorem WScoped.of_leaves_below {lo : Nat} :
     simp only [WScoped] at hw ⊢
     exact ih hw fun l h => hl l (by simpa [fvarLeaves] using h)
   | _ => intro _ _ _; simp [WScoped]
-
-/-- **Annotation keeps a tighter scope**: annotating at `d` a term scoped
-at `lo ≤ d` gives a term scoped at `lo` (annotation only shrinks the
-leaf closure). -/
-theorem annotateCore_WScoped_below {env : Env} {F d lo : Nat} {e e' : Expr}
-    (h : annotateCore mode env F d e = .ok e') (hw : WScoped d e)
-    (hb : e.looseBVarsBounded 0 = true) (hlo : WScoped lo e) : WScoped lo e' :=
-  WScoped.of_leaves_below (annotateCore_WScoped F e h hw) fun l hl =>
-    (WScoped_leaves e hlo l (annotateCore_leaves_sub F e h hw hb l hl)).1
 
 /-! ## The minor premise, spelled out -/
 

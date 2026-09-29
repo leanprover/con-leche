@@ -2,10 +2,11 @@ module
 
 public import ConLeche.Kernel.Inductives.GenRec
 public import ConLeche.Verify.Inductives.RecCheckRun
+public import ConLeche.Verify.Inductives.BlockRecRun
 import ConLeche.Verify.ExceptBind
 import ConLeche.Verify.Inductives.DirectInv
 import ConLeche.Verify.CheckerF
-import ConLeche.Verify.Extend.Inversions
+import ConLeche.Verify.InferProjSlots
 
 public section
 
@@ -328,6 +329,22 @@ theorem classConstOk_typeWF {env : Env} {cv cvA : ConstantVal} {F : Nat}
   obtain ⟨-, -, -, -, hlb, hfv, hlp, hcr, -, -, -, -, rfl⟩ := classConstOk_inv h
   exact ⟨hfv, hlp, hcr, hlb⟩
 
+/-- **A `classConstOk` run's facts** (`ConstChecked`): the guards and the
+inference are the run's; the stored type is the checked one, and its
+empty-slot freshness is the full inference's (`inferTypeCore_noProjAt`:
+a successful inference of a closed subject names only occupied slots —
+the generated type is stored without an annotation pass). -/
+theorem classConstOk_checked {env : Env} {cv0 cv : ConstantVal} {F : Nat}
+    (h : classConstOk (fueledOps mode F) (mkFEnv env) cv0 = .ok cv) :
+    ConstChecked mode F env cv0 cv := by
+  obtain ⟨hfr, hres, hps, hnd, hlb, hfv, hlp, hcr, stype, u, hinf, hsort, rfl⟩ :=
+    classConstOk_inv h
+  exact {
+    name := rfl, lps := rfl, fresh := hfr, unreserved := hres, notProjShape := hps,
+    nodup := hnd, bounded := hlb, noFvar := hfv, lpsDef := hlp, resolves := hcr,
+    sorted := ⟨stype, u, hinf, hsort⟩,
+    noProj := fun _ _ hslot => inferTypeCore_noProjAt hinf hfv hslot }
+
 /-- **One recursor's generated type, as `classRecTyOk` ran**: the record's
 member, rule prefix and major index are the generated ones; the
 generated type `gty` checked as a constant under the record's name and
@@ -406,8 +423,9 @@ theorem classRecTysOk_run {fe : FEnv} {g : ClassGen} {k : Nat} {F : Nat} :
 /-- **One generated rule, as `classRuleOk` ran**: the generated term
 `gen` closed and STORED as generated (`out = gen`: the generator writes
 its binder data), its level parameters the recursor's, resolved and
-inferred at the rule-less recursors' environment; its λ-telescope `n` long, the λ-domains resolving at the
-constructors' environment and annotated with the family's datum. -/
+inferred at the rule-less recursors' environment; its λ-telescope `n`
+long, the λ-domains resolving at the constructors' environment and
+carrying the family's datum. -/
 structure ClassRuleRun (mode : CheckMode) (F : Nat) (w : StructWalkers) (feT feR : FEnv)
     (cvR : ConstantVal) (pw : PropWhen) (n : Nat) (gen out : Expr) : Type where
   rbs : List (Expr × BinderMeta)

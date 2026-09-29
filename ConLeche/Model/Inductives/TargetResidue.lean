@@ -715,7 +715,7 @@ theorem tgtRuleResidueCore (hμ : μ.verifiedChecks = true) {F : Nat} {fe : FEnv
       = r.1.levelParams.map Level.param := by
     obtain ⟨rc0, r0, hrc0, hr0, -, ⟨cv0, -, hlc0, hcv0⟩, -⟩ := hallN 0 (by omega)
     have hl0 : r0.1.levelParams = rc0.cvR.levelParams :=
-      (ConLeche.checkConstantVal_lps hcv0).2.trans hlc0
+      hcv0.lps.trans hlc0
     have hlr : r.1.levelParams = r0.1.levelParams := recStage_lps h hr hr0
     show (pp.toBlockShape.recs.head?.map fun q => q.cvR.levelParams.map Level.param).getD [] = _
     rw [show pp.toBlockShape.recs = pp.recs from rfl, List.head?_eq_getElem?, hrc0, hlr, hl0]
