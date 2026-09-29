@@ -61,6 +61,15 @@ FALLBACK = {
     # `GenRecRun.lean:74`; unknown identifier `TargetMajorRun`, `:103`).
     ('ConLeche.Verify.Inductives.GenRecRun', 'ConLeche.Kernel.Inductives.GenRec'),
     ('ConLeche.Verify.Inductives.GenRecRun', 'ConLeche.Verify.Inductives.RecCheckRun'),
+    # sub-lane GENREC-A: `GenRecStage`'s public statements name the run
+    # record, the stage record, the generator's scoping and its syntax
+    # predicates; each MEASURED by demoting it alone (unknown identifier
+    # `GenRecRun`, `GenRecStage.lean:337`; `RecTyGen`, `:386`;
+    # `ClassGenScoped`, `:229`; unknown constant `ConLeche.Expr.Plain`, `:77`).
+    ('ConLeche.Model.Inductives.GenRecStage', 'ConLeche.Verify.Inductives.GenRecRun'),
+    ('ConLeche.Model.Inductives.GenRecStage', 'ConLeche.Verify.Inductives.RecStage'),
+    ('ConLeche.Model.Inductives.GenRecStage', 'ConLeche.Verify.Inductives.ClassGenScope'),
+    ('ConLeche.Model.Inductives.GenRecStage', 'ConLeche.Verify.Inductives.ClassGenAnnot'),
     # lane LIBMERGE (the block library merged into fewer modules): four
     # re-exports the model calls demotable, each MEASURED by demoting it
     # alone.  `BlockRecTower`'s public statements name `dnegSpace`,
