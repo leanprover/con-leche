@@ -5,6 +5,7 @@ public import ConLeche.Model.Inductives.GenRecStage
 import ConLeche.Verify.Inductives.NestScope
 import ConLeche.Model.Inductives.BlockRecPreRun
 import ConLeche.Model.Inductives.BlockRecData
+import ConLeche.Model.Inductives.ClassGenRead
 
 public section
 
@@ -338,7 +339,9 @@ theorem genRun_frame (hμ : μ.verifiedChecks = true)
       tgtCrest out c j = (genCtorAt R.g R.rd c j).tyD ∧
       tgtRP p.toBlockShape c = R.pre.length ∧
       ConLeche.openPisAtFvars cA.2 (genCtorAt R.g R.rd c j).tyD R.pre.length = some (fvs, cb) ∧
-      tgtFieldFvs p.toBlockShape out c j = fvs ∧ tgtCbody p.toBlockShape out c j = cb := by
+      tgtFieldFvs p.toBlockShape out c j = fvs ∧ tgtCbody p.toBlockShape out c j = cb ∧
+      (∃ ws, ConLeche.targetPiDomsWith fvs (genCtorAt R.g R.rd c j).tyN = some ws) ∧
+      genCtorAt R.g R.rd c j ∈ R.g.ctors.getD cls [] := by
   obtain ⟨rc, cls, cvG, rhss, hrc, hcls, hG, ⟨T⟩, ho, hM, hgc⟩ := genRun_at R hc
   rw [genRun_nCt hc] at hj
   obtain ⟨cA, hcA⟩ : ∃ cA, (tgtMajor out c).ctors[j]? = some cA :=
@@ -370,7 +373,8 @@ theorem genRun_frame (hμ : μ.verifiedChecks = true)
     rw [hctorsCls]; exact hx)
   unfold ConLeche.classGenRule at hgen
   obtain ⟨⟨s, sl⟩, -, hgen⟩ := Option.bind_eq_some_iff.mp hgen
-  obtain ⟨⟨fvs, cb⟩, hop, -⟩ := Option.bind_eq_some_iff.mp hgen
+  obtain ⟨⟨fvs, cb⟩, hop, hgen⟩ := Option.bind_eq_some_iff.mp hgen
+  obtain ⟨ws, hws, -⟩ := Option.bind_eq_some_iff.mp hgen
   have hrP : rc.rP = R.pre.length := (genRecTy_run hμ R hg hrc hcls T).1
   have htRP : tgtRP p.toBlockShape c = R.pre.length := by
     rw [tgtRP, List.getD_eq_getElem?_getD, hrc, Option.getD_some, hrP]
@@ -381,9 +385,12 @@ theorem genRun_frame (hμ : μ.verifiedChecks = true)
   have hop' : ConLeche.openPisAtFvars cA.2 x.tyD R.pre.length = some (fvs, cb) := by
     rw [← hnF]; exact hop
   refine ⟨cls, cA, fvs, cb, hgc, hM, hcA, hctor, by rw [hgx]; exact ⟨CR⟩, by rw [hgx, hnF],
-    by rw [hgx, hcrest], htRP, by rw [hgx]; exact hop', ?_, ?_⟩
+    by rw [hgx, hcrest], htRP, by rw [hgx]; exact hop', ?_, ?_, ⟨ws, by rw [hgx]; exact hws⟩, ?_⟩
   · rw [tgtFieldFvs, hctor, hcrest, htRP, hop']; rfl
   · rw [tgtCbody, hctor, hcrest, htRP, hop']; rfl
+  · rw [hgx]
+    show x ∈ R.ctors.getD cls []
+    rw [hctorsCls]; exact List.mem_of_getElem? hx
 
 /-- **`GenPreHyps.nF`**: the generator's constructor has the declared
 field count. -/
@@ -394,8 +401,110 @@ theorem genRun_nF (hμ : μ.verifiedChecks = true)
     ∀ c, c < (tgtRs out).length → ∀ j, j < blockRecNCt (tgtRs out) c →
       (genCtorAt R.g R.rd c j).nF = (tgtFdomsAV p.toBlockShape out acval envC ψ c j).length := by
   intro c hc j hj
-  obtain ⟨cls, cA, fvs, cb, -, -, -, -, -, hnF, -, -, hop, hfv, -⟩ := genRun_frame hμ R hg hc hj
+  obtain ⟨cls, cA, fvs, cb, -, -, -, -, -, hnF, -, -, hop, hfv, -, -, -⟩ := genRun_frame hμ R hg hc hj
   rw [hnF, tgtFdomsAV, readOpenedDoms_length_eq, hfv, ConLeche.Verify.openPisAtFvars_length _ hop]
+
+/-- A reading of a scoped term (or the default reading, where the
+reading fails) names no variable at or above its depth. -/
+theorem readD_below {env : Env} (m : EnvModel V env) {φ : Name → Nat} {d : Nat} {e : Expr}
+    (hd : 0 < d) (he : ConLeche.ScB d e) :
+    Term.bvarsBelow d ((denoteMeta m.acval env φ d e).getD default).erase := by
+  cases h : denoteMeta m.acval env φ d e with
+  | some a => exact IsReadingAt.below ⟨e, he, h⟩
+  | none =>
+    show Term.bvarsBelow d (AnnotTerm.bvar 0).erase
+    simp only [AnnotTerm.erase, Term.bvarsBelow]
+    exact hd
+
+/-- The readings of an opened telescope's domains are bounded at their
+depths. -/
+theorem readOpenedDoms_below {env : Env} (m : EnvModel V env) {φ : Name → Nat} :
+    ∀ {d : Nat} {xs : List Expr}, 0 < d →
+      (∀ (k : Nat) (x : Expr), xs[k]? = some x → ConLeche.ScB (d + k) x.fvarTypeD) →
+      FieldsBelow d (readOpenedDoms m.acval env φ d xs)
+  | _, [], _, _ => trivial
+  | d, x :: xs, hd, h => by
+    refine ⟨readD_below m hd (by simpa using h 0 x rfl), ?_⟩
+    exact readOpenedDoms_below m (by omega) fun k y hy => by
+      have := h (k + 1) y (by simpa using hy)
+      rwa [show d + (k + 1) = d + 1 + k by omega] at this
+
+set_option maxHeartbeats 800000 in
+/-- **`GenPreHyps.below`**: the generated `ih` data (read raw) are bounded
+at the rule frame's depth. -/
+theorem genRun_below (hμ : μ.verifiedChecks = true)
+    (R : GenRecRun μ F (mkFEnv env₁) env₁ (mkFEnv envC) p.toBlockShape nestedBit pos cvTas
+      block ctorsAs out) (hg : ClassGenScoped R.g) {memR : Nat → Prop}
+    (h : ConLeche.RecStageG μ F envC p cvTas ctorsAs (tgtRs out) memR) (mpC : EnvModelM V μ envC)
+    (bit : Nat) (ψ : Name → Nat) :
+    ∀ c, c < (tgtRs out).length → ∀ j, j < blockRecNCt (tgtRs out) c →
+      ∀ q ∈ genIhdAV mpC.base2.acval envC R.g R.rd bit ψ c j,
+        IhDatumBelow ((blockRulePdomsAV mpC.base2.acval envC p.toBlockShape (tgtRs out) ψ c).length
+          + (tgtFdomsAV p.toBlockShape out mpC.base2.acval envC ψ c j).length) q := by
+  intro c hc j hj q hq
+  obtain ⟨cls, cA, fvs, cb, -, -, -, -, -, hnF, -, -, hop, -, -, ⟨ws, hws⟩, hxmem⟩ :=
+    genRun_frame hμ R hg hc hj
+  rw [genRun_gpre hμ R hg h mpC ψ c hc |>.symm, ← genRun_nF hμ R hg mpC.base2.acval ψ c hc j hj]
+  generalize hx : genCtorAt R.g R.rd c j = x at hnF hop hws hxmem
+  have hpl := genRun_pre_length R hg
+  obtain ⟨s, -, hsl⟩ := genRun_motive R hc
+  have hD0 : 0 < R.g.pre.length + x.nF := by
+    show 0 < R.pre.length + x.nF
+    omega
+  have hopx : ConLeche.openPisAtFvars x.nF x.tyD R.g.pre.length = some (fvs, cb) := by
+    rw [hnF]; exact hop
+  unfold genIhdAV at hq
+  rw [hx] at hq
+  simp only [hopx, Option.map_some, Option.getD_some, hws] at hq
+  obtain ⟨⟨i, t, tele⟩, hr, rfl⟩ := List.mem_map.mp hq
+  obtain ⟨hi, -⟩ := ConLeche.ClassGen.recs_mem hr
+  -- the opened fields, scoped
+  have htyD : ConLeche.ScB R.g.pre.length x.tyD :=
+    (hg.tyD cls x hxmem).mono (by show p.nP ≤ R.pre.length; omega)
+  obtain ⟨hfl, hfvs, -⟩ := ConLeche.ScB.openPis hopx htyD
+  have hfvsD : ∀ a ∈ fvs, ConLeche.ScB (R.g.pre.length + x.nF) a := by
+    intro a ha
+    obtain ⟨k, hk, rfl⟩ := List.getElem_of_mem ha
+    obtain ⟨ty, hxe, hty⟩ := hfvs k _ (List.getElem?_eq_getElem hk)
+    rw [hxe]
+    exact ConLeche.ScB.fvar (by omega) hty
+  have htyN : ConLeche.ScB (R.g.pre.length + x.nF) x.tyN :=
+    (hg.tyN cls x hxmem).mono (by show p.nP ≤ R.pre.length + x.nF; omega)
+  have hw : ConLeche.ScB (R.g.pre.length + x.nF) (ws.getD i default) :=
+    ConLeche.ScB.targetPiDomsWith_getD hws htyN hfvsD (by omega)
+  have hfi : ConLeche.ScB (R.g.pre.length + x.nF) (fvs.getD i default) := by
+    apply hfvsD
+    rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem (by omega)]
+    exact List.getElem_mem _
+  cases hip : R.g.ihParts t tele (ws.getD i default) (R.g.pre.length + x.nF) with
+  | none =>
+    simp only [Option.getD_none]
+    refine ⟨trivial, fun e he => ?_⟩
+    simp only [List.nil_append, List.map_nil, List.mem_singleton, readOpenedDoms,
+      List.length_nil, Nat.add_zero, Expr.mkAppN] at he ⊢
+    subst he
+    exact readD_below mpC.base2 hD0 hfi
+  | some xi =>
+    obtain ⟨xs, idx⟩ := xi
+    simp only [Option.getD_some]
+    obtain ⟨hxl, hxs, hidx⟩ := ConLeche.ClassGen.ihParts_scoped hw (Nat.le_refl _) hip
+    refine ⟨?_, fun e he => ?_⟩
+    · simp only [List.map_map, Function.comp_def, List.map_id']
+      exact readOpenedDoms_below mpC.base2 hD0 fun k y hy => by
+        obtain ⟨ty, rfl, hty⟩ := hxs k y hy
+        simpa [Expr.fvarTypeD] using hty
+    · simp only [List.length_map, readOpenedDoms_length_eq, hxl] at he ⊢
+      rcases List.mem_append.mp he with he | he
+      · obtain ⟨a, ha, rfl⟩ := List.mem_map.mp he
+        exact readD_below mpC.base2 (by omega) (hidx a ha)
+      · rw [List.mem_singleton] at he
+        subst he
+        refine readD_below mpC.base2 (by omega) (ConLeche.ScB.mkAppN (hfi.mono (by omega)) ?_)
+        intro y hy
+        obtain ⟨k, hk, rfl⟩ := List.getElem_of_mem hy
+        obtain ⟨ty, hxe, hty⟩ := hxs k _ (List.getElem?_eq_getElem hk)
+        rw [hxe]
+        exact ConLeche.ScB.fvar (by omega) hty
 
 end Run
 
