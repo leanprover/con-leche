@@ -661,9 +661,12 @@ theorem nestContNew_deriv (hctx : NestCtxOk ctx) (hrec : RunDeriv ops env ctx re
     (grp := (n, cty) :: ext) hfrec
   refine ⟨⟨hI₁.1, fun ki hki hfv => ?_⟩, rfl, nI, cty, _, hni, rfl, tsF, hframe,
     hn₃.of_eq_right rfl⟩
-  rcases nestAcceptGroup_mem _ _ ki hki with hki | ⟨p, hp, rfl⟩
+  dsimp only at hki
+  split at hki
+  · rcases nestAcceptGroup_mem _ _ ki hki with hki | ⟨p, hp, rfl⟩
+    · exact hI₁.2 ki hki hfv
+    · exact hkey p hp hfv
   · exact hI₁.2 ki hki hfv
-  · exact hkey p hp hfv
 
 /-- A walked instantiation: at its occurrence's frames, or — below every
 frame hole — at the empty stack. -/

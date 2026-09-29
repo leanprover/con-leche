@@ -1324,7 +1324,8 @@ def nestWalkStack (ctx : NestCtx) (prog : List NestHole) (ds : List Expr) : List
 /-- An instantiation's frame (`nestCont`'s last cases): the group-mates'
 former checks (`nestGrowGroup`; the instantiation's own, `nestInstType`,
 ran at the occurrence and gave `cty`, the type of its hole), the frame
-(`nestFrame`), and the whole group cached. -/
+(`nestFrame`), and the whole group cached — when its parameters mention
+no frame hole, the only keys that can hit (`nestContKey`). -/
 def nestContNew (ctx : NestCtx) (ops : CheckerOps m) (env : Env)
     (rec : List NestHole → Nat → Nat → Expr → NestState → m (NestFieldKind × Expr × NestState))
     (prog : List NestHole) (kb : Nat) (n : Name) (us : List Level) (ds : List Expr) (nPc : Nat)
@@ -1338,9 +1339,12 @@ def nestContNew (ctx : NestCtx) (ops : CheckerOps m) (env : Env)
   let act := st.active
   let st := { st with active := grp.map (fun p => ({ cname := p.1, lvls := us, ds := ds } : NestKey)) ++ act }
   let st ← nestFrame ctx ops env rec wp (ctx.hiAt wp.length) us ds nPc grp st
-  -- the group is accepted with it
+  -- the group is accepted with it — cached only when its parameters
+  -- mention no frame hole: only such a key can ever hit (`nestContKey`)
   return (.nested (kb != 0),
-    { st with active := act, keys := nestAcceptGroup us ds grp st.keys })
+    { st with active := act,
+              keys := if ds.all (fun x => x.fvarB ≤ ctx.hiAt 0) then
+                nestAcceptGroup us ds grp st.keys else st.keys })
 
 /-- The instantiation `(n, us, ds)` met (`nestCont` after its checks): IN
 PROGRESS (`active`: every frame being walked, the enclosing frames among
