@@ -94427,3 +94427,59 @@ re-measure at integration); overview-links (anchors only, §5 prose left
 for its rewrite) and quote gate green.  CLAUDE.md's layering paragraph
 still names `ConLeche/Conformance/` and the conformance check — to be
 edited by the maintainer.
+
+## GENREC-CLS — the class side of the generated stage, plugged; `genRecStage` sorry-free (2026-09-29, `agent/uinds-GENREC-CLS`)
+
+**What closed.**  `genRecStage` (moved from `GenRecAssembly.lean` to
+`Model/Inductives/GenRecFinal.lean`; `DeclBlockStep` imports it there)
+has no `sorry` and no open hypothesis: every class-side row lane C left
+named is discharged from the run.
+
+* `GenPreSem` (`genClsSem_run`: split/back/dec/decInv; `genCallTy`;
+  `genCls_minor`; `genClassInd`), `genRecPre_run`'s `hframe`
+  (`genCls_frameV`), `hargs` (`genArgs_graded`), `hrhs` (`genRhs`);
+* lane C's rows: `hrowP` (`genRowParams`), `hsP` (`blockRecLevel_run`),
+  `hrowV` (`fieldsValid_of_graded` + `genArgs_graded`), `hihV`
+  (`genIhPiecesValid_run`), and `hrow3 : BlockRuleRows3` at every fired
+  pair, dispatched on the firing: `.nested` (outside class) →
+  `genRows3_out`, `.plain` (member class) → `genRows3_mem`.
+
+**`hrow3`'s route** (`GenClsData.lean`).  `genRow3_core`: once the
+major is the class injection of fields that hole-fit constructor `i` at
+the RECURSOR's index tuple, the class split/decoding/inverse give the
+three rows.  The decomposition is the major premise's content:
+outside — the pins value the constructor's parameters as the class's at
+the prefix (`genOutPinVal`), the constructor's own fit peels at them into
+the rule frame's field domains (`genOutCtorFit`, `genCls_openCrest`),
+and the class is never `Prop` at `ℓ ≠ 0` (`genOutNZ` from `helim` with
+an outside class; `genOutW`: the class's sort is the block's), so
+`mkInj` pins the carrier's decomposition; member — the block's own route
+(`blockRuleCtorFit_run`, `blockRuleStoredFit_any`, the `Prop` arm's
+counting guard `genCount` from `helim` + `hnames`, the index pin
+`blockRuleIdxPin_run`), converted by `blockHoleFitRel_iff`.
+
+**Changed statements** (all additive): `genMinorOpen`, `genIhFrame`,
+`genMotRds`, `genOutCtorFit` grew conjuncts (PiChain of the stored
+constructor, prefix erasure, motive slot); `genCls_openCrest` new.
+`resetMeta_abstract1` moved `StreamConsts` → `Verify/Abstract` (import
+cycle); `GenRecPreRun`'s `motiveSlot_lt_classes` → `…_classesR`.
+No kernel definition changed.
+
+**Tests.**  `tests/ConLecheTests.lean`'s zero-motive section still drove
+the deleted `checkBlockRecT` and expected the mutual zero-motive block
+ACCEPTED; it was invisible because `ConLecheTests` imports `Axioms.lean`,
+which failed on the skeleton's `sorryAx`.  At the generated stage the
+zero-motive recursors are REJECTED ("not of the generated shape",
+official's verdict) — probed, guards updated, `checkBlockRec`.
+
+**Gates** (at `bf06d5dff`): `lake build` and `lake test` warning-free,
+`Axioms.lean` green (standard axioms only); layering, no-local-paths,
+overview-links (two `StreamConsts` anchors repointed), quote gate,
+trust surface green; `tests/shake.sh` green after the integration pass:
+16 clean removals (the `--only` criterion at the floor), 20 demotions
+the build accepts, 81 compensated/`--only`-irreproducible proposals
+allowlisted with their reasons, 3 stale lines out, and 33 `public
+import`s the model calls demotable pinned in `pub-import-plan.py`'s
+`FALLBACK` — measured as a FILE-LEVEL batch (demoting each file's edges
+together breaks the build), not one edge at a time; a later narrowing
+lane may split them.
