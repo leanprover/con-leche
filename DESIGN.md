@@ -170,68 +170,67 @@ checker is verified to be consistent.
   thesis about the core type theory construction remain relevant, the
   inductive construction does not.
 
-## Inductives: the uniform route, and generated models for nested blocks
+## Inductives: pinned basis blocks and the uniform route
 
 **The binary reads raw `lean4export` NDJSON; nothing external runs**
 (task #207).  The install dispatch is the RECOGNISER alone (task #219):
-every inductive block takes exactly one of three routes, and a block no
+every inductive block takes exactly one of two routes, and a block no
 route takes declines (exit 2) naming its class.
 
 * **Pinned basis blocks** — `Eq`, `Nat`, `PUnit`, `Empty`, `False`,
   `Quot` — install the PIN (`basisPinHit`, task #293); their
   denotations are hand-written sets (`ConLeche/Model/Basis*.lean`).
 * **The uniform route** (`blockParts?` → `checkBlock`,
-  `ConLeche/Kernel/Inductives/Block*.lean`; task #315, live since the
-  flip of 2026-09-23) takes EVERY non-nested block, at any number `k` of
-  members — single or mutual, indexed, recursive, reflexive, `Prop` or
-  `Type`.  It checks the formers, the constructors against the whole
-  member list, official's positivity walk (`normPosDom`), the universe
-  bound, the elimination restriction (`blockLargeElimAllowed`) and the
-  index occurrences, as official does, and it **CHECKS the stream's
-  recursors instead of generating them** (`checkBlockRecK`): the
-  records' pins (the name set `{T_m.rec}`, level parameters, rule
-  completeness per member — `checkBlockRecPins`), each recursor's type,
-  one elimination level per family (D-d), a shared rule prefix with
-  `nP + k ≤ rP` (stage b′ and the ruling of 2026-09-23), and every rule
-  a well-typed primitive recursion whose recursive calls are guarded on
-  the constructor's recursive fields at the telescope's own variables
-  (`abstractIh`, the narrowing of 2026-09-22).  **Soundness rests on
-  that check alone.**  The one-member generator
-  (`checkNativeRec`, `Kernel/Inductives/NativeInstall*.lean`) survives
-  only as the reject-only CONFORMANCE check (`checkBlockRecConform` /
-  `checkBlockRecConformF`, lane CONF1), run after the check and with no
-  model consumer; at `k ≥ 2` there is no generator, so a mutual
-  accept-superset (`mutual_rec_body_redex`) stays accepted.  The model:
-  the least fixed TUPLE of the block's operator (`lfpTuple`, closed by
-  `tupleContainer_closed_exists`), the recursors the components of one
-  function on the disjoint union of the block's values
-  (`SetModel/UnionRec.lean`); the fold's step is `declBlock_run`
-  (`Model/Inductives/BlockDeclRun.lean`), with no owed premise, reached
-  through `DeclIndRunDispatchK` / `checkDeclRun_ofEnvFactsK`
-  (`Semantics/Bridge/Sound.lean`).
-* **Nested blocks** — a recursor whose major heads a constant outside
-  the block, which the recogniser refuses — take the **modeled route**:
-  the in-process modeller (`ConLeche/Frontend/InModel/Nested.lean`;
-  `InModel.wants` is nested-only since the flip, and the mutual rung is
-  deleted) generates a `_model` family at parse time and pushes it
-  ahead of the block, the fold checks those records like any stream
-  declaration, and `checkModeled` installs the block against them;
-  `⟦T⟧ := ⟦T._model⟧`.  The generator is **not trusted**: a wrong
-  record is rejected or declined, never accepted — it decides
-  *coverage* only.  The uniform route's nested arm (positivity through
-  container pins) is the next milestone; until then
-  `corner_pin_quot_bad` / `corner_pin_eq_bad` decline (2) where
-  official rejects.
+  `ConLeche/Kernel/Inductives/`; `checkBlock` in `BlockTail.lean`)
+  takes EVERY other block, at any number `k` of members — single or
+  mutual, indexed, recursive, reflexive, NESTED, `Prop` or `Type`.  It
+  checks the formers, the constructors against the whole member list,
+  runs ONE positivity check (`Positivity.lean`: official's walk, whnf
+  before classifying and under each Π, the member block its root frame,
+  a container walked at its CONCRETE instantiation — no auxiliary
+  mutual block is built), and official's universe bound, elimination
+  restriction and index-occurrence checks.  **The recursors are
+  GENERATED** (`genRecCheck`, `Kernel/Inductives/GenRec.lean`; charter
+  item 5 as amended 2026-09-29): the stream's recursor types name the
+  classes they eliminate (read by the unverified pre-pass
+  `Kernel/Inductives/ClassRead.lean`, each class then checked as a
+  major; outside classes SEED the positivity check), the minor premises
+  and rules are built from the positivity check's recorded normal
+  forms, each generated type must be `isDefEq` to the stream's, and the
+  GENERATED family is installed — the stream's rules are never read.
+  There is no conformance check (`ConLeche/Conformance/` and charter
+  item 6 retired at GENREC M3).  The model: the least fixed TUPLE of
+  the block's operator, closed by accessibility (`closed_of_acc`,
+  `SetModel/Access.lean`), each recursor the unique value of its graph
+  (`SetModel/GraphRec.lean`); the fold's step is `declBlock`
+  (`Model/Inductives/DeclBlockStep.lean`), reading the recursor stage
+  through `genRecStage` (`Model/Inductives/GenRecFinal.lean`).  OVERVIEW
+  §5 is the current human-facing account.
+* A block the recogniser does not read has its type formers checked as
+  constants and then DECLINES (`checkShapeless`,
+  `ConLeche/Kernel/CheckDecl.lean`).
 
 (History: until task #207 the models came from
 https://github.com/nomeata/lean-inductive-models, run as a
 preprocessor; #200 moved mutual and nested blocks in-process, #188/#202
 took single blocks natively, #210 made that ONE fixpoint route, and the
-flip of task #315 replaced it — and the modeller's mutual rung — by the
-uniform route at every `k`.  The one-member route's proof tower
-(`BlockOne*`, `SoundOne`, `DeclIndRunDispatch`, the cached `checkNativeS`
-bridges) went with the flip; `declNative` and the `Fix*` tower no longer
-serve a checker run and await their own census.)
+flip of task #315 (2026-09-23) replaced it — and the modeller's mutual
+rung — by the uniform route at every `k`, with the stream's recursors
+CHECKED (`checkBlockRecK`) and a one-member generator kept as a
+reject-only conformance check.  Nested blocks kept the modeled route
+(`checkModeled`, the in-process modeller `Frontend/InModel/*`,
+`⟦T⟧ := ⟦T._model⟧`) until the uniform route's nested arm landed; lane
+DELMOD deleted the modeller on 2026-09-26.  GENREC M3 (2026-09-29)
+replaced the recursor CHECK by generation and deleted the conformance
+check.)
+
+**HISTORICAL from here to "Term representation"** (kept current only
+where noted): the next paragraphs describe the `_model` artifacts of
+the deleted modeled route and the axiom handling as first recorded.
+The opacity of installed inductives (whnf stops at `T`, iota fires
+through stored rules) still holds; the `_model` machinery, the
+`ProjRec` rewrite and parse-time taint skipping do not (the fold owns
+`sorryAx` since task #292).
 
 **Modeled inductives are opaque (decision 2026-08-19, per review).** A
 modeled inductive `T` is *not* installed as an alias definition
@@ -391,9 +390,9 @@ three stay declined by design under the axiom ceiling.
 
 * **Strict layering**: implementation code (`ConLeche/Kernel/*`,
   `ConLeche/Cached/*`, `ConLeche/Frontend/*`, `Main.lean`) must not depend on
-  any module from the theory/verification part (`ConLeche/SetTheory/*`,
-  `ConLeche/SetModel/*`, `ConLeche/Semantics/*`, `ConLeche/SetP/*`,
-  `ConLeche/Verify/*`). The verification imports the implementation, never
+  any module from the theory/verification part (`ConLeche/Term/*`,
+  `ConLeche/SetTheory/*`, `ConLeche/SetModel/*`, `ConLeche/Semantics/*`,
+  `ConLeche/Model/*`, `ConLeche/Verify/*`, `ConLeche/Complete/*`). The verification imports the implementation, never
   the other way around. `tests/layering.sh` is the fence (Lake's lib
   split is only the layout); `tests/trust-surface.sh` is its companion
   for the *other* direction of trust — no `unsafe`/`implemented_by`/
@@ -94542,3 +94541,31 @@ facts are reused (charter/GENREC.md §3), the generated route adds the
 generator syntax (ported), the run records and bridges, the class side
 at the generated family and the rule contract by construction; the old
 rule/call readers are gone.  Not a proof-size win, as GENREC.md predicted.
+
+## MATHLIB SWEEP 2 (after GENREC) — the Mathlib sweep re-run with generated recursors (2026-09-29, `agent/uinds-MATHLIB2`)
+
+Same method as MATHLIB SWEEP (uniform-inds): binary `lake build con-leche`
+at `uniform-inds` `1fe5a3214`, streams `mathlib-full.ndjson` and
+`init-full.ndjson`, `--verified --jobs=8`, `perf stat -e instructions:u`,
+GNU `time -v`, `timeout`, no `ulimit -v`; phase split from a second run
+(`--progress` + `perf stat -I 2000`, `MATHLIB2/split.sh`, which reproduces
+the previous sweep's split exactly).  master numbers reused from the
+previous sweep (`09c3a50c0`).  Logs: `_tmp/uniform-inds/MATHLIB2/`.
+
+**Verdicts unchanged.**  Mathlib: exit 0, **654 504 accepted**; init-full:
+exit 0, **53 093 accepted**.  No decline, reject or crash; still 647 832
+pending checks.
+
+| run | master | uinds ccce80f42 | uinds 1fe5a3214 | Δ prev | Δ master |
+|---|---|---|---|---|---|
+| init-full instructions:u | 418.89 G | 420.50 G | 419.72 G | −0.19 % | +0.20 % |
+| init-full peak RSS | 608 MiB | 630 MiB | 616 MiB | −2.3 % | +1.3 % |
+| Mathlib instructions:u | 7 607.16 G | 7 618.99 G | 7 589.39 G | −0.39 % | −0.23 % |
+| Mathlib peak RSS | 8.19 GiB | 8.08 GiB | 8.12 GiB | +0.4 % | −0.9 % |
+| Mathlib install phase | 559.4 G | 597.0 G | 572.3 G | −4.1 % | +2.3 % |
+| Mathlib check phase | 6 772.9 G | 6 750.3 G | 6 749.5 G | −0.0 % | −0.3 % |
+
+(Second run total 7 594.7 G, within 0.07 % of the first; parse 272.9 G.)
+The generated recursor stage costs 24.7 G less at install than the target
+recursor check did; install remains +12.9 G over master's modeller path.
+Wall (indicative): install 109.8 s, check 100.9 s, total 229.6 s.
