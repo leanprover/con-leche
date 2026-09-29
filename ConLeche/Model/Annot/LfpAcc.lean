@@ -91,9 +91,9 @@ any two tuples of the space. -/
 
 variable (D) in
 /-- **The member holes at their full arity**: member `t`'s hole (position
-`k - 1 - t` of the hole frame) at its parameters and indices. -/
+`k - 1 - t` of the hole frame) at its indices. -/
 @[expose] def MemberQ (ψ : Name → Nat) : Nat → Nat → Prop :=
-  fun i n => ∃ t, t < D.k ∧ i = D.k - 1 - t ∧ n = (D.pars t ψ).length + (D.ids t ψ).length
+  fun i n => ∃ t, t < D.k ∧ i = D.k - 1 - t ∧ n = (D.ids t ψ).length
 
 theorem accRel_symm {ψ : Name → Nat} {ρp : Nat → V} : (D.accRel ψ ρp).Symm := by
   rintro _ _ ⟨X, Y, hX, hY, rfl, rfl⟩
@@ -118,8 +118,7 @@ variable (D) in
 /-- **The occurrence of a member-hole item**: the member, the index tuple
 of the spine's indices, the value. -/
 @[expose] noncomputable def occOf (ψ : Name → Nat) (o : Occ V) : Nat × V × V :=
-  (D.k - 1 - o.1, tupW (D.u (D.k - 1 - o.1) ψ) (o.2.1.drop (D.pars (D.k - 1 - o.1) ψ).length),
-    o.2.2)
+  (D.k - 1 - o.1, tupW (D.u (D.k - 1 - o.1) ψ) o.2.1, o.2.2)
 
 /-- **A held item is an occurrence.** -/
 theorem inTup_occOf (hkN : D.k ≤ D.N) {ψ : Name → Nat} {ρp X : Nat → V}
@@ -134,10 +133,8 @@ theorem inTup_occOf (hkN : D.k ≤ D.N) {ψ : Name → Nat} {ρp X : Nat → V}
   have ht' : D.k - 1 - (D.k - 1 - t) = t := by omega
   unfold occOf
   simp only [ht']
-  rcases holeFam_foldl_full (ρ := shiftE (D.pars t ψ).length 0 ρp)
-      (Fs := D.pars t ψ ++ D.ids t ψ) (vs := vs)
-      (fun vs => app (X t) (tupW (D.u t ψ) (vs.drop (D.pars t ψ).length)))
-      (by rw [List.length_append]; exact hlen) with ⟨-, he⟩ | he
+  rcases holeFam_foldl_full (ρ := ρp) (Fs := D.ids t ψ) (vs := vs)
+      (fun vs => app (X t) (tupW (D.u t ψ) vs)) hlen with ⟨-, he⟩ | he
   · rw [he] at hH
     refine ⟨by omega, Classical.byContradiction fun hni => ?_, hH⟩
     rw [app_off_dom_of_mem_piSet (hX t (by omega)) hni] at hH
@@ -159,21 +156,16 @@ theorem holds_of_inTup {ψ : Name → Nat} {ρp X X' : Nat → V} {o : Occ V}
   obtain ⟨-, -, hy⟩ := hin
   unfold occOf at hy
   simp only [ht'] at hy
-  have hlen' : vs.length = (D.pars t ψ ++ D.ids t ψ).length := by
-    rw [List.length_append]; exact hlen
-  rcases holeFam_foldl_full (ρ := shiftE (D.pars t ψ).length 0 ρp)
-      (Fs := D.pars t ψ ++ D.ids t ψ) (vs := vs)
-      (fun vs => app (X t) (tupW (D.u t ψ) (vs.drop (D.pars t ψ).length))) hlen' with
+  rcases holeFam_foldl_full (ρ := ρp) (Fs := D.ids t ψ) (vs := vs)
+      (fun vs => app (X t) (tupW (D.u t ψ) vs)) hlen with
     ⟨hf, -⟩ | he
-  · rcases holeFam_foldl_full (ρ := shiftE (D.pars t ψ).length 0 ρp)
-        (Fs := D.pars t ψ ++ D.ids t ψ) (vs := vs)
-        (fun vs => app (X' t) (tupW (D.u t ψ) (vs.drop (D.pars t ψ).length))) hlen' with
+  · rcases holeFam_foldl_full (ρ := ρp) (Fs := D.ids t ψ) (vs := vs)
+        (fun vs => app (X' t) (tupW (D.u t ψ) vs)) hlen with
       ⟨-, he'⟩ | he'
     · rw [he']; exact hy
     · -- the fit does not depend on the tuple
       exfalso
-      have := holeFam_app (ρ := shiftE (D.pars t ψ).length 0 ρp)
-        (fun vs => app (X' t) (tupW (D.u t ψ) (vs.drop (D.pars t ψ).length))) hf
+      have := holeFam_app (ρ := ρp) (fun vs => app (X' t) (tupW (D.u t ψ) vs)) hf
       rw [this] at he'
       rw [he'] at hy
       exact not_mem_empty _ hy
@@ -196,7 +188,7 @@ theorem accRel_rich (hkN : D.k ≤ D.N) {ψ : Name → Nat} {ρp : Nat → V} (h
   unfold occOf at hocc
   simp only [ht'] at hocc
   obtain ⟨-, hidx, -⟩ := hocc
-  obtain ⟨tt, htt⟩ : ∃ tt, tt = tupW (D.u t ψ) (vs.drop (D.pars t ψ).length) := ⟨_, rfl⟩
+  obtain ⟨tt, htt⟩ : ∃ tt, tt = tupW (D.u t ψ) vs := ⟨_, rfl⟩
   rw [← htt] at hidx
   classical
   -- the enlarged tuple
@@ -236,13 +228,11 @@ theorem accRel_rich (hkN : D.k ≤ D.N) {ψ : Name → Nat} {ρp : Nat → V} (h
     exact holds_of_inTup ho hH (hgrow _ _ _ this)
   · -- the new element: the spine fits (it holds `pt` at `X`), so at `X'` it reads the
     -- enlarged fibre
-    have hfit : SpineFit (shiftE (D.pars t ψ).length 0 ρp) (D.pars t ψ ++ D.ids t ψ) vs := by
+    have hfit : SpineFit ρp (D.ids t ψ) vs := by
       rw [frame_hole ht] at hpt
       unfold holeVal at hpt
-      rcases holeFam_foldl_full (ρ := shiftE (D.pars t ψ).length 0 ρp)
-          (Fs := D.pars t ψ ++ D.ids t ψ) (vs := vs)
-          (fun vs => app (X t) (tupW (D.u t ψ) (vs.drop (D.pars t ψ).length)))
-          (by rw [List.length_append]; exact hlen) with ⟨hf, -⟩ | he
+      rcases holeFam_foldl_full (ρ := ρp) (Fs := D.ids t ψ) (vs := vs)
+          (fun vs => app (X t) (tupW (D.u t ψ) vs)) hlen with ⟨hf, -⟩ | he
       · exact hf
       · rw [he] at hpt
         exact absurd hpt (not_mem_empty _)
@@ -284,7 +274,6 @@ and the ordinary slots (`hAf`), every ordinary field's reading likewise
 spine fitting both (`hresC`). -/
 theorem accTuple_holeOp {ψ : Name → Nat} {ρp : Nat → V} (hw : D.w ψ ≠ 0)
     (hok : D.HoleTmOk ψ ρp) (hkN : D.k ≤ D.N)
-    (happ : ∀ c, c < D.N → ∀ j, j < D.nctors c → D.HolesApplied ψ c j)
     (hres : ∀ c, c < D.N → ∀ j, j < D.nctors c →
       (D.resIdx ψ c j).length = (D.ids c ψ).length)
     (ord : Nat → Nat → Nat → Bool) (Af : Nat → Nat → Nat → (Nat → V) → V)
@@ -310,7 +299,7 @@ theorem accTuple_holeOp {ψ : Name → Nat} {ρp : Nat → V} (hw : D.w ψ ≠ 0
   refine ⟨finUnion (fun c => finUnion (TB c) (D.nctors c)) D.N,
     finUnion_mem hw fun c _ => finUnion_mem hw fun j _ => teleBound_mem hw _ _ _ _ _, ?_⟩
   intro X hX m hm i hi x hx
-  rw [holeOp_fibre hok hkN X (happ m hm) (hres m hm) hi] at hx
+  rw [holeOp_fibre hok hkN X (hres m hm) hi] at hx
   obtain ⟨j, fs, ⟨hj, hsp, hidx⟩, rfl⟩ := hx
   have hF0 : ∀ (i : Nat) (F : AnnotTerm), (D.fields ψ m j)[i]? = some F →
       ord m j (0 + i) = true → ∀ τ τ', TAgr D.k (ord m j) (0 + i) τ τ' →
@@ -337,7 +326,7 @@ theorem accTuple_holeOp {ψ : Name → Nat} {ρp : Nat → V} (hw : D.w ψ ≠ 0
   · have hsp' : SpineFit (D.frame ψ ρp X') (D.fields ψ m j) fs :=
       hs (D.frame ψ ρp X') ⟨X, X', hX, hX', rfl, rfl⟩ fun b hb =>
         holds_of_inTup (hg b hb).1 (hg b hb).2 (hheld b hb)
-    rw [holeOp_fibre hok hkN X' (happ m hm) (hres m hm) hi]
+    rw [holeOp_fibre hok hkN X' (hres m hm) hi]
     refine ⟨j, fs, ⟨hj, hsp', fun l hl => ?_⟩, rfl⟩
     obtain ⟨e, he, hev⟩ := hidx l hl
     refine ⟨e, he, ?_⟩

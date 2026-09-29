@@ -91,8 +91,7 @@ theorem app_lfp0_Φ (ψ : Name → Nat) (ρp X : Nat → V) (c : Nat) :
 the family's only fibre at the one hole. -/
 theorem lfp0_frame (ψ : Name → Nat) (ρp X : Nat → V) :
     (lfp0 nm w F inj n cn flds).frame ψ ρp X = cons (app (X 0) pt) ρp := by
-  show consList [holeFam (shiftE 0 0 ρp) ([] ++ []) fun vs => app (X 0) (tupW 0 (vs.drop 0))] ρp
-    = cons (app (X 0) pt) ρp
+  show consList [holeFam ρp [] fun vs => app (X 0) (tupW 0 vs)] ρp = cons (app (X 0) pt) ρp
   rw [consList_cons, consList_nil]
   show cons (app (X 0) (tupW 0 [])) ρp = _
   rw [tupW_zero]
@@ -150,7 +149,6 @@ theorem lfp0_clause {acval : Name → (Name → Nat) → AnnotTerm} {C : (Name �
       inj j fs = inj j' fs' → j = j' ∧ fs = fs')
     (hctor : ∀ j, j < n → ∀ (ψ : Name → Nat) (ρ : Nat → V) (fs : List V),
       SpineFit (cons (C ψ) ρ) (flds j) fs → fs.foldl app (interp V ρ (acval (cn j) ψ)) = inj j fs)
-    (hflds : ∀ j l F, (flds j)[l]? = some F → HoleApp 1 0 l F)
     (hfok : ∀ (ψ : Name → Nat) (ρp : Nat → V) (S : V), w ψ ≠ 0 → S ∈ˢ (univ (w ψ) : V) →
       ∀ j, j < n → FieldsOkB (w ψ) (cons S ρp) (flds j)) :
     LfpClause acval (lfp0 nm w F inj n cn flds) where
@@ -215,7 +213,6 @@ theorem lfp0_clause {acval : Name → (Name → Nat) → AnnotTerm} {C : (Name �
   parsLen := fun _ _ _ => rfl
   parsSat := fun _ _ _ ρ _ => Sat_nil V ρ
   parsSatInv := fun _ _ _ ρ _ => Sat_nil V ρ
-  holeApp := fun _ _ _ j _ => ⟨hflds j, fun _ he => nomatch he⟩
   resIdxFit := fun _ _ _ _ _ _ _ _ _ => trivial
   injNePt := fun _ _ h => absurd rfl h
   fieldsOk := fun ψ ρp _ hw X hX _ _ j hj => by
@@ -249,7 +246,6 @@ theorem emptyLfp_clause {acval : Name → (Name → Nat) → AnnotTerm} {nm : Na
     (fun _ _ _ _ => rfl)
     (fun _ _ j _ _ _ hj => absurd hj (Nat.not_lt_zero j))
     (fun j hj => absurd hj (Nat.not_lt_zero j))
-    (fun _ _ _ h => nomatch h)
     (fun _ _ _ _ _ j hj => absurd hj (Nat.not_lt_zero j))
 
 /-! ## `PUnit`: one constructor, no field -/
@@ -290,7 +286,6 @@ theorem punitLfp_clause {acval : Name → (Name → Nat) → AnnotTerm} {nm cn :
     (fun j _ ψ ρ fs hsp => by
       obtain rfl := spineFit_nil_iff.mp hsp
       exact hctor ψ ρ)
-    (fun _ _ _ h => nomatch h)
     (fun _ _ _ _ _ _ _ => trivial)
 
 /-! ## `Nat`: zero and successor -/
@@ -430,15 +425,6 @@ theorem natLfp_clause {acval : Name → (Name → Nat) → AnnotTerm} {nm zn sn 
           show app (interp V ρ (acval (if (1 : Nat) = 0 then zn else sn) ψ)) m = natInj 1 [m]
           rw [if_neg (by decide), hsucc, natSuccV_app (V := V) hm]
           simp [natInj, natsucc])
-    (fun j l F h => by
-      unfold natFlds at h
-      split at h
-      · exact nomatch h
-      · match l, h with
-        | 0, h =>
-          obtain rfl := Option.some.inj h
-          exact HoleApp.hole (h := 0) (rest := []) (Nat.le_refl 0) Nat.one_pos
-            (fun _ hr => nomatch hr))
     (fun _ _ S _ hS j _ => by
       unfold natFlds
       split
@@ -604,9 +590,6 @@ theorem eqLfp_clause {acval : Name → (Name → Nat) → AnnotTerm}
   parsLen := fun _ _ _ => rfl
   parsSat := fun _ _ _ _ h => h
   parsSatInv := fun _ _ _ _ h => h
-  holeApp := fun _ _ _ _ _ => ⟨fun _ _ h => (nomatch h), fun e he => by
-    obtain rfl := List.mem_singleton.mp he
-    exact (HoleApp.bvar (by decide) : HoleApp 1 2 0 (.bvar 1))⟩
   resIdxFit := fun ψ ρp hs _ _ _ _ fs hsp => by
     -- the result index `a` fits the index telescope `α`: `a : α` is a parameter
     have hfs : fs = [] := spineFit_nil_iff.mp hsp
@@ -674,27 +657,27 @@ theorem lfp0_ctorReads {acval : Name → (Name → Nat) → AnnotTerm} {env : Co
     (h : ∀ j, j < n → ∃ cv nF, env.find? (cn j) = some (.ctorInfo cv 0 nF) ∧
       cv.type.hasFvar = false ∧
       (∃ cvm caps, env.find? nm = some (.indInfo cvm caps) ∧ cvm.levelParams = cv.levelParams) ∧
-      (canonAbs [nm] cv.levelParams 0 1 cv.type).nestOcc [nm] 0 0 = false ∧
+      ∃ A, ConLeche.nestCanonCrest [nm] (cv.levelParams.map .param) 0 cv.type = some A ∧
+      A.nestOcc [nm] 0 0 = false ∧
       ∀ ψ : Name → Nat, (flds j).length = nF ∧ ∃ ab : List (Nat × Nat × AnnotTerm),
-        denoteMeta acval env ψ 1 (canonAbs [nm] cv.levelParams 0 1 cv.type)
-          = some (mkPisAV ab (.bvar nF)) ∧ ab.map (·.2.2) = flds j) :
+        denoteMeta acval env ψ 1 A = some (mkPisAV ab (.bvar nF)) ∧ ab.map (·.2.2) = flds j) :
     LfpCtorReads acval env (lfp0 nm w F inj n cn flds) := by
   refine ⟨rfl, fun c hc j hj => ?_⟩
   obtain rfl : c = 0 := Nat.lt_one_iff.mp hc
-  obtain ⟨cv, nF, hf, hcf, ⟨cvm, caps, hfm, hl⟩, hocc, hrd⟩ := h j hj
-  refine ⟨cv, 0, nF, hf, hcf, fun mm hmm => ?_, hocc,
-    fun _ _ _ _ _ ρ _ => by rw [List.take_zero]; exact Sat_nil V ρ, _, rfl, fun ψ => ?_⟩
+  obtain ⟨cv, nF, hf, hcf, ⟨cvm, caps, hfm, hl⟩, A, hA, hocc, hrd⟩ := h j hj
+  refine ⟨cv, 0, nF, hf, hcf, fun mm hmm => ?_,
+    fun _ _ _ _ _ ρ _ => by rw [List.take_zero]; exact Sat_nil V ρ, A, hA, hocc, fun ψ => ?_⟩
   · obtain rfl : mm = 0 := Nat.lt_one_iff.mp hmm
     exact ⟨cvm, caps, hfm, hl⟩
   · obtain ⟨hlen, ab, hab, hmap⟩ := hrd ψ
     obtain ⟨Ty, hTy⟩ := htyT ψ
     refine ⟨rfl, hlen, ab, [Ty], ?_, by rw [← hlen, ← hmap, List.length_map], rfl,
       fun mm hmm => ?_, ?_⟩
-    · show denoteMeta acval env ψ 1 (canonAbs [nm] cv.levelParams 0 1 cv.type) = _
+    · show denoteMeta acval env ψ 1 A = _
       rw [hab]
       simp [lfp0]
     · obtain rfl : mm = 0 := Nat.lt_one_iff.mp hmm
-      exact ⟨cvT, capsT, hfT, hTy⟩
+      exact ⟨cvT, capsT, cvT.type, hfT, rfl, hTy⟩
     · show FieldsEqOn V _ (ab.map (·.2.2)) (flds j)
       rw [hmap]
       exact FieldsEqOn.refl _ _

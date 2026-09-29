@@ -1,6 +1,7 @@
 module
 
 public import ConLeche.Verify.Inductives.NestCallSyn
+public import ConLeche.Verify.Inductives.HoleImg
 
 public section
 
@@ -13,7 +14,8 @@ telescope over the callee's container, at the leaf's own levels and
 parameters (which match the callee's class) and the callee's index
 arguments — call that the callee's major type below.  The recorded normal form is the walk's own
 (`targetPiDomsWith_close`), so, with ONE parallel substitution
-`callSubst` (parameters kept, every hole to its constant, the earlier
+`callSubst` (parameters kept, every hole to the application it stands
+for, the earlier
 fields to the rule's, the telescope's variables moved from the walk's
 depth to the rule's), the callee's telescope is the walk's field
 telescope substituted and its major the walk's leaf substituted
@@ -21,54 +23,34 @@ telescope substituted and its major the walk's leaf substituted
 -/
 
 namespace ConLeche.Model
-open ConLeche (Env Expr Name Level NestCtx NestHole BinderMeta nestHoleConst extendF)
+open ConLeche (Env Expr Name Level NestCtx NestHole BinderMeta nestHoleImg extendF)
 
 /-- **The one substitution** of a field's walk variables below the field
-(`b = hiAt |prog| + i`): the block's parameters kept, each hole to its
-constant (`nestHoleConst`), the earlier fields to the rule's `fvsF`. -/
+(`b = hiAt |prog| + i`): the block's parameters kept, each hole to the
+application it stands for (`nestHoleImg`), the earlier fields to the
+rule's `fvsF`. -/
 @[expose] def callSubst (ctx : NestCtx) (prog : List NestHole) (fvsF : List Expr) : Nat → Expr :=
   fun v => if v < ctx.nP then .fvar v (.sort .zero)
-    else if v < ctx.hiAt prog.length then (nestHoleConst ctx prog v).getD default
+    else if v < ctx.hiAt prog.length then (nestHoleImg ctx prog v).getD default
     else (fvsF[v - ctx.hiAt prog.length]?).getD default
-
-theorem nestHoleConst_lt_nP {ctx : NestCtx} {prog : List NestHole} {v : Nat} (hv : v < ctx.nP) :
-    nestHoleConst ctx prog v = none := by
-  rw [ConLeche.nestHoleConst_eq]
-  rw [if_neg (by omega), if_neg (by simp [NestCtx.hiAt]; omega)]
-
-theorem nestHoleConst_ge {ctx : NestCtx} {prog : List NestHole} {v : Nat}
-    (hv : ctx.hiAt prog.length ≤ v) : nestHoleConst ctx prog v = none := by
-  rw [ConLeche.nestHoleConst_eq]
-  rw [if_neg (by simp [NestCtx.hiAt] at hv ⊢; omega), if_neg (by omega)]
-
-theorem nestHoleConst_hole {ctx : NestCtx} {prog : List NestHole} {v : Nat} (h1 : ctx.nP ≤ v)
-    (h2 : v < ctx.hiAt prog.length) : ∃ n us, nestHoleConst ctx prog v = some (.const n us) := by
-  rw [ConLeche.nestHoleConst_eq]
-  by_cases h0 : v < ctx.hiAt 0
-  · rw [if_pos ⟨h1, h0⟩]; exact ⟨_, _, rfl⟩
-  · rw [if_neg (by omega), if_pos ⟨by omega, h2⟩]
-    have hl : v - ctx.hiAt 0 < prog.reverse.length := by
-      simp [NestCtx.hiAt] at h0 h2 ⊢; omega
-    rw [List.getElem?_eq_getElem hl]
-    exact ⟨_, _, rfl⟩
 
 /-- **The recorded field, as the one substitution**: the `i`-th opened
 domain of the read-back telescope is the walk's normal form substituted,
 up to erasure. -/
 theorem dom_erasedEq_callSubst {ctx : NestCtx} {prog : List NestHole} {fvsF : List Expr} {i B : Nat}
     (hi : i ≤ fvsF.length) {nd : Expr} (hnd : nd.fvarsBelow (ctx.hiAt prog.length + i)) :
-    Expr.ErasedEq (nd.replaceFVars (extendF (nestHoleConst ctx prog) (ctx.hiAt prog.length)
+    Expr.ErasedEq (nd.replaceFVars (extendF (nestHoleImg ctx prog) (ctx.hiAt prog.length)
         (fvsF.take i)))
       (Expr.substFvars (ctx.hiAt prog.length + i) B (callSubst ctx prog fvsF) nd) := by
   refine Expr.replaceFVars_erasedEq_substFvars (fun v hv ty => ?_) nd hnd
   simp only [extendF, callSubst, List.length_take, Nat.min_eq_left hi]
   by_cases h1 : v < ctx.nP
-  · rw [if_neg (by simp [NestCtx.hiAt] at *; omega), nestHoleConst_lt_nP h1, if_pos h1]
+  · rw [if_neg (by simp [NestCtx.hiAt] at *; omega), ConLeche.nestHoleImg_lt_nP h1, if_pos h1]
     simp [Expr.ErasedEq]
   · rw [if_neg h1]
     by_cases h2 : v < ctx.hiAt prog.length
     · rw [if_neg (by omega), if_pos h2]
-      obtain ⟨n, us, hc⟩ := nestHoleConst_hole (prog := prog) (by omega) h2
+      obtain ⟨e, hc⟩ := ConLeche.nestHoleImg_hole (prog := prog) (by omega) h2
       rw [hc]
       exact Expr.ErasedEq.rfl _
     · rw [if_pos ⟨by omega, hv⟩, if_neg h2, List.getElem?_take_of_lt (by omega)]
@@ -116,8 +98,10 @@ theorem callSubst_notPi {ctx : NestCtx} {prog : List NestHole} {fvsF : List Expr
   · exact nomatch h
   · split at h
     · rename_i h1 h2
-      obtain ⟨n, us, hc⟩ := nestHoleConst_hole (prog := prog) (by omega) h2
-      rw [hc] at h; exact nomatch h
+      obtain ⟨e, hc⟩ := ConLeche.nestHoleImg_hole (prog := prog) (by omega) h2
+      obtain ⟨c, us, args, rfl⟩ := ConLeche.nestHoleImg_spine hc
+      rw [hc, Option.getD_some] at h
+      exact ConLeche.Expr.mkAppN_ne_forallE args (fun _ _ _ h' => Expr.noConfusion h') a b bm h
     · rename_i h2
       have hl : v - ctx.hiAt prog.length < fvsF.length := by omega
       rw [List.getElem?_eq_getElem hl, Option.getD_some] at h
@@ -144,7 +128,7 @@ theorem callTie {ctx : NestCtx} {prog : List NestHole} {fvsF : List Expr} {i B :
     (hfv : ∀ x ∈ fvsF, ∃ j ty, x = .fvar j ty) (hi : i ≤ fvsF.length) {nd : Expr}
     (hnd : nd.fvarsBelow (ctx.hiAt prog.length + i))
     {tele teleW : List (Expr × BinderMeta)} {majDom leafC : Expr}
-    (hK : Expr.ErasedEq (nd.replaceFVars (extendF (nestHoleConst ctx prog) (ctx.hiAt prog.length)
+    (hK : Expr.ErasedEq (nd.replaceFVars (extendF (nestHoleImg ctx prog) (ctx.hiAt prog.length)
       (fvsF.take i))) (Expr.mkPisOf tele majDom))
     (hshape : nd = Expr.mkPisOf teleW leafC) (hmaj : NotPi majDom) (hleaf : NotPi leafC) :
     tele.length = teleW.length ∧

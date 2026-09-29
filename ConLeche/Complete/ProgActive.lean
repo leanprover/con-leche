@@ -59,10 +59,6 @@ namespace ConLeche
   unless (args.take q.1).all (fun x => x.bvarB == 0 && x.fvarB ≤ ctx.hiAt prog.length) do
     throw (.invalid "nested positivity: nested inductive datatypes parameters \
       cannot contain local variables")
-  unless (args.take q.1).all (·.holesApplied ctx.names ctx.nP (ctx.hiAt 0)) do
-    throw (.invalid "nested positivity: invalid occurrence of a datatype being declared in a \
-      nested inductive datatype's parameter: it must be applied to the parameters and \
-      universe levels of the mutual declaration")
   -- the instance is FULLY applied: the container case
   -- compares the container's family at the index tuple, and a partial
   -- application is a function, whose graph does not grow with its values.
@@ -99,9 +95,8 @@ namespace ConLeche
       | .fvar i _ =>
         match nestHoleAt ctx prog i with
         | some h =>
-          if h.key.ds.length ≤ args.length && args.take h.key.ds.length == h.key.ds &&
-              (args.drop h.key.ds.length).all (fun x => !x.nestOcc ctx.names ctx.nP hi) &&
-              args.length == nestArity ctx h.key.cname then
+          if args.all (fun x => !x.nestOcc ctx.names ctx.nP hi) &&
+              args.length + h.key.ds.length == nestArity ctx h.key.cname then
             return (if i < ctx.hiAt 0 then
                 (if kb == 0 then .recursive (i - ctx.nP) else .reflexive (i - ctx.nP))
               else .inProgress, w, st)
@@ -160,9 +155,9 @@ theorem nestFields_active (hrec : RecPres rec) (prog : List NestHole) (base : Na
     · simp [throw, throwThe, MonadExceptOf.throw] at h
 
 theorem nestCtors_active (hrec : RecPres rec) (prog : List NestHole) (hi : Nat) (us : List Level)
-    (ds : List Expr) (nPc : Nat) (sub : Name → List Level → Option Expr) :
+    (ds : List Expr) (names : List Name) (holes : List Expr) :
     ∀ (cs : List (ConstantVal × Nat)) (st : NestState) r,
-      nestCtors ctx ops env (fun _ => rec) prog hi us ds nPc sub cs st = .ok r →
+      nestCtors ctx ops env (fun _ => rec) prog hi us ds names holes cs st = .ok r →
         r.2.active = st.active
   | [], st, st', h => by
     simp only [nestCtors, pure, Except.pure, Except.ok.injEq] at h; subst h; rfl
@@ -188,7 +183,7 @@ theorem nestCtors_active (hrec : RecPres rec) (prog : List NestHole) (hi : Nat) 
         rename_i r' hr'
         simp only [pure, Except.pure, Except.ok.injEq] at h
         subst h
-        exact (nestCtors_active hrec prog hi us ds nPc sub cs _ _ hr').trans
+        exact (nestCtors_active hrec prog hi us ds names holes cs _ _ hr').trans
           (nestFields_active hrec prog hi _ nF 0 _ st _ hr)
       · simp [throw, throwThe, MonadExceptOf.throw] at h
     · simp [throw, throwThe, MonadExceptOf.throw] at h
@@ -247,11 +242,9 @@ theorem nestCont_active {prog : List NestHole} {kb : Nat} {n : Name} {us : List 
   · simp [throw, throwThe, MonadExceptOf.throw] at h
   split at h
   · split at h
-    · split at h
-      · simp at h
-      split at h
-      · exact nestContKey_active h
-      · simp [throw, throwThe, MonadExceptOf.throw] at h
+    · simp at h
+    split at h
+    · exact nestContKey_active h
     · simp [throw, throwThe, MonadExceptOf.throw] at h
   · simp [throw, throwThe, MonadExceptOf.throw] at h
 
@@ -313,11 +306,10 @@ theorem nestFields_eq (hrec : RecEq rec₁ rec₂) (hpres : RecPres rec₂) (pro
     · rfl
 
 theorem nestCtors_eq (hrec : RecEq rec₁ rec₂) (hpres : RecPres rec₂) (prog : List NestHole)
-    (hi : Nat) (us : List Level) (ds : List Expr) (nPc : Nat)
-    (sub : Name → List Level → Option Expr) :
+    (hi : Nat) (us : List Level) (ds : List Expr) (names : List Name) (holes : List Expr) :
     ∀ (cs : List (ConstantVal × Nat)) (st : NestState), ProgActive prog st →
-      nestCtors ctx ops env (fun _ => rec₁) prog hi us ds nPc sub cs st
-        = nestCtors ctx ops env (fun _ => rec₂) prog hi us ds nPc sub cs st
+      nestCtors ctx ops env (fun _ => rec₁) prog hi us ds names holes cs st
+        = nestCtors ctx ops env (fun _ => rec₂) prog hi us ds names holes cs st
   | [], _, _ => rfl
   | (cv, nF) :: cs, st, hpa => by
     simp only [nestCtors, nestFields_eq hrec hpres prog hi _ nF 0, hpa]
@@ -328,7 +320,7 @@ theorem nestCtors_eq (hrec : RecEq rec₁ rec₂) (hpres : RecPres rec₂) (prog
       repeat' split
       all_goals first
         | rfl
-        | rw [nestCtors_eq hrec hpres prog hi us ds nPc sub cs _ (hpa₁.of_active (by rfl))]
+        | rw [nestCtors_eq hrec hpres prog hi us ds names holes cs _ (hpa₁.of_active (by rfl))]
     · rfl
 
 theorem nestFrame_eq (hrec : RecEq rec₁ rec₂) (hpres : RecPres rec₂) {prog : List NestHole}

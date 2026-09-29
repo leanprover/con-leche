@@ -523,7 +523,7 @@ theorem extendPUnitUnit (mp : EnvModelM V μ env)
       refine ⟨punitUnitA.toConstantVal, 0, ?_, rfl,
         ⟨punitA.toConstantVal, _, by rw [ConLeche.Env.find?_cons, if_neg (by decide)]; exact hP,
           rfl⟩,
-        by decide, fun ψ => ⟨rfl, [], ?_, rfl⟩⟩
+        .fvar 0 (.sort .zero), by decide, by decide, fun ψ => ⟨rfl, [], ?_, rfl⟩⟩
       · show (⟨punitUnitA :: env.consts⟩ : ConLeche.Env).find? punitUnitA.name = _
         rw [ConLeche.Env.find?_cons, if_pos rfl]; rfl
       · show denoteMeta _ _ _ 1 (.fvar 0 (.sort .zero)) = _
@@ -1041,7 +1041,7 @@ theorem extendNatSucc (mp : EnvModelM V μ env)
       · refine ⟨natZeroA.toConstantVal, 0, ?_, rfl,
           ⟨natA.toConstantVal, _, by rw [ConLeche.Env.find?_cons, if_neg (by decide)]; exact hN,
             rfl⟩,
-          by decide, fun ψ => ⟨rfl, [], ?_, rfl⟩⟩
+          .fvar 0 (.sort .zero), by decide, by decide, fun ψ => ⟨rfl, [], ?_, rfl⟩⟩
         · show (⟨natSuccA :: env.consts⟩ : ConLeche.Env).find? natZeroName = _
           rw [ConLeche.Env.find?_cons, if_neg (by decide)]; rw [hZ]; rfl
         · show denoteMeta _ _ _ 1 (.fvar 0 (.sort .zero)) = _
@@ -1049,6 +1049,7 @@ theorem extendNatSucc (mp : EnvModelM V μ env)
       · refine ⟨natSuccA.toConstantVal, 1, ?_, rfl,
           ⟨natA.toConstantVal, _, by rw [ConLeche.Env.find?_cons, if_neg (by decide)]; exact hN,
             rfl⟩,
+          .forallE (.fvar 0 (.sort .zero)) (.fvar 0 (.sort .zero)) { pw := .never }, by decide,
           by decide, fun ψ => ⟨rfl, [(0, pwBit ψ .never, .bvar 0)], ?_, rfl⟩⟩
         · show (⟨natSuccA :: env.consts⟩ : ConLeche.Env).find? natSuccA.name = _
           rw [ConLeche.Env.find?_cons, if_pos rfl]; rfl

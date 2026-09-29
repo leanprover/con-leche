@@ -1307,8 +1307,6 @@ theorem declBasisPB_eqK {env₁ : Env} (mp : EnvModelM V μ env)
         fun mm hmm => ⟨eqA.toConstantVal, _, by
           obtain rfl : mm = 0 := Nat.lt_one_iff.mp hmm
           exact hE2, rfl⟩,
-        (by decide : (canonAbs [eqName] [uN] 2 1 eqReflA.toConstantVal.type).nestOcc
-          [eqName] 0 0 = false),
         -- `Eq.refl`'s parameter binders read as `Eq`'s parameters
         (fun ψ dsC bodyC hrd hle ρ hsat => by
           match dsC, hle with
@@ -1333,13 +1331,19 @@ theorem declBasisPB_eqK {env₁ : Env} (mp : EnvModelM V μ env)
             obtain rfl := Option.some.inj htb
             simp only [List.take_succ_cons, List.take_zero, List.map_cons, List.map_nil, h0, h2]
             exact hsat),
-        .app (.app (.app (.fvar 2 (.sort .zero)) (.fvar 0 (.sort .zero)))
-          (.fvar 1 (.sort .zero))) (.fvar 1 (.sort .zero)), rfl,
-        fun ψ => ⟨rfl, rfl, [], [_], ?_, rfl, rfl, fun mm hmm => by
-          obtain rfl : mm = 0 := Nat.lt_one_iff.mp hmm
-          exact ⟨eqA.toConstantVal, _, hE2, denoteMeta_eqA_type ψ⟩, trivial⟩⟩
-      simp [denoteMeta_app, denoteMeta_fvar, mkPisAV, eqLfp]
-      rfl⟩
+        .app (.fvar 2 (.sort .zero)) (.fvar 1 (.sort .zero)),
+        (by decide : ConLeche.nestCanonCrest [eqName] [.param uN] 2 eqReflA.toConstantVal.type
+          = some (.app (.fvar 2 (.sort .zero)) (.fvar 1 (.sort .zero)))),
+        (by decide : Expr.nestOcc [eqName] 0 0 (.app (.fvar 2 (.sort .zero)) (.fvar 1 (.sort .zero)))
+          = false),
+        fun ψ => ⟨rfl, rfl, [], [.pi 0 (pwBit ψ .never) (.bvar 1) (.sort 0)], ?_, rfl, rfl,
+          fun mm hmm => by
+            obtain rfl : mm = 0 := Nat.lt_one_iff.mp hmm
+            refine ⟨eqA.toConstantVal, _, .forallE (.fvar 0 (.sort .zero)) (.sort .zero)
+              { pw := .never }, hE2, rfl, ?_⟩
+            simp [denoteMeta_forallE, denoteMeta_sort, denoteMeta_fvar, Expr.instantiate1, Level.eval],
+          trivial⟩⟩
+      simp [denoteMeta_app, denoteMeta_fvar, mkPisAV, eqLfp]⟩
   have hf3 : (⟨eqReflA :: eqA :: env.consts⟩ : Env).find?
       eqRecA.name = none := Option.isNone_iff_eq_none.mp h3
   have hwf3 : EnvWF ⟨eqRecA :: eqReflA :: eqA :: env.consts⟩ := by
