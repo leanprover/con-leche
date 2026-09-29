@@ -59,7 +59,7 @@ current fact changed.
 * Landing a lane on an integration branch: merge the integration branch
   into your lane branch, re-run the gates the intervening changes can
   affect, fast-forward the integration branch from the main checkout
-  (`git -C /home/joachim/setlec merge --ff-only <lane>`, after checking
+  (`git -C <main checkout> merge --ff-only <lane>`, after checking
   that `git status --short` is clean apart from the maintainer's
   untracked files), remove your worktree. A partial lane does not land.
 * Large artifacts (reference checkouts, worktrees, logs) go in `_tmp/`
