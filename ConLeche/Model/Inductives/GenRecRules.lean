@@ -840,7 +840,7 @@ theorem interp_lamsApp_congr {h1 h2 : AnnotTerm} {args : List AnnotTerm} :
 theorem map_dropLast_getLastD {α β : Type} (f : α → β) (d : α) (l : List α) (hne : l ≠ []) :
     l.dropLast.map f ++ [f (l.getLastD d)] = l.map f := by
   have h1 := List.dropLast_concat_getLast hne
-  rw [List.getLastD_eq_getLast?, List.getLast?_eq_getLast hne, Option.getD_some]
+  rw [List.getLastD_eq_getLast?, List.getLast?_eq_some_getLast hne, Option.getD_some]
   conv => rhs; rw [← h1]
   simp
 
@@ -1693,6 +1693,224 @@ theorem genRulePrefRead (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V μ e
   rfl
 
 end Bridges
+
+/-! ## 14. `GenIhFree`, from the stored recursor TYPE -/
+
+section Free
+
+variable {mode : CheckMode} {F : Nat} {fe₁ : FEnv} {env₁ : Env} {envC : Env} {p : BlockShape}
+  {nb : Bool} {pos : ConLeche.NestState} {cvTas : List ConstantVal} {block : List ConstantInfo}
+  {ctorsAs : List (List (ConstantVal × Nat))} {out : List (ConstantVal × TargetMajor × List Expr)}
+
+open ConLeche (ScB ClassGenScoped)
+
+/-- Every constructor the generator read at a checked class has its run. -/
+theorem genClassCtorAt (R : GenRecRun mode F fe₁ env₁ (ConLeche.mkFEnv envC) p nb pos cvTas block
+      ctorsAs out) {cls : Nat} (hcls : cls < R.Ms.length) {i : Nat} {x : ClassCtor}
+    (hx : (R.g.ctors.getD cls [])[i]? = some x) :
+    ∃ cA, (R.Ms.getD cls default).ctors[i]? = some cA ∧
+      Nonempty (ClassCtorRun mode F envC p (cvTas.map (·.type)) R.rd R.Ms cls cA x) := by
+  obtain ⟨-, hallC⟩ := ConLeche.classesCtors_run R.hctors
+  obtain ⟨xs, hxs, hcs⟩ := hallC cls R.Ms[cls] (List.getElem?_eq_getElem hcls)
+  rw [Nat.zero_add] at hcs
+  obtain ⟨hlenX, hallX⟩ := ConLeche.classCtorsOf_run hcs
+  have hgx : R.g.ctors.getD cls [] = xs := by
+    show R.ctors.getD cls [] = xs
+    rw [List.getD_eq_getElem?_getD, hxs]; rfl
+  rw [hgx] at hx
+  have hi : i < R.Ms[cls].ctors.length := by
+    have := (List.getElem?_eq_some_iff.mp hx).1; omega
+  obtain ⟨x', hx', ⟨CR⟩⟩ := hallX i _ (List.getElem?_eq_getElem hi)
+  obtain rfl : x' = x := Option.some.inj (hx'.symm.trans hx)
+  refine ⟨_, ?_, ⟨CR⟩⟩
+  rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hcls, Option.getD_some,
+    List.getElem?_eq_getElem hi]
+
+set_option maxHeartbeats 4000000 in
+/-- **`GenIhFree`, from the stored recursor TYPE** (kernel D1): the rule's
+`ih` pieces are, up to their free variables, the pieces of the minor
+premise's inductive hypothesis inside the stored generated type, whose
+constants resolve at the constructors' environment (`classConstOk`).
+`hfind`: the class's constructors are stored under their names (lane E's
+`genRecCtor_find`), which pins the minor premise's constructor. -/
+theorem genIhFree_run
+    (R : GenRecRun mode F fe₁ env₁ (ConLeche.mkFEnv envC) p nb pos cvTas block ctorsAs out)
+    (hg : ClassGenScoped R.g)
+    (hfind : ∀ (j : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
+      (tgtRs out)[j]? = some r → ∀ (i : Nat) (cA : ConstantVal × Nat), r.2.2.2[i]? = some cA →
+        envC.find? cA.1.name = some (.ctorInfo cA.1 (ConLeche.tgtMajorsOf out j).nPc cA.2))
+    {j : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
+    (hr : (tgtRs out)[j]? = some r) {i : Nat} {cA : ConstantVal × Nat}
+    (hcA : r.2.2.2[i]? = some cA) {rhs : Expr} (hrhs : r.2.1[i]? = some rhs) :
+    GenIhFree envC out R.g R.rd j i := by
+  obtain ⟨cls, x, -, -, hc, hrP, -, -, -, -, -, -, -, -, hcx, hnF, hxmem, hrhsE, -, -, -,
+    -⟩ := genFrameAt R hg hr hcA hrhs
+  obtain ⟨rc, cls2, x2, gen, -, hc2, -, -, hctors, hclsM, hx2, ⟨CR⟩, ⟨TR⟩, -, hxcv, hgen, ⟨RR⟩⟩ :=
+    genRuleAt R hr hcA hrhs
+  have hcc : cls2 = cls := Option.some.inj (hc2.symm.trans hc)
+  subst cls2
+  have hgc : genClsOf R.rd j = cls := by simp [genClsOf, List.getD_eq_getElem?_getD, hc]
+  have hxx : x2 = x := by
+    rw [← hcx, genCtorAt, hgc, List.getD_eq_getElem?_getD, hx2]; rfl
+  subst x2
+  intro l hl bl call hopI
+  rw [hcx] at hl hopI
+  obtain ⟨fvs, res, ws, s, bs, body, hopF, hws, hslot, hsl, hop, -, -, -, -, hihs⟩ :=
+    genRule_shapeD hg hxmem hgen RR.hout
+  have hgra : genRuleArgs out (R.g.pre.length + x.nF) j i = body.getAppArgs := by
+    rw [genRuleArgs, hrhsE, hop]; rfl
+  obtain ⟨q, hq⟩ : ∃ q, x.recs[l]? = some q := ⟨_, List.getElem?_eq_getElem hl⟩
+  have hqd : x.recs.getD l default = q := by rw [List.getD_eq_getElem?_getD, hq]; rfl
+  rw [hgra, hqd] at hopI
+  obtain ⟨rn, xs, idx, bl', call', -, hparts, hop2, -, -, -, hbll, hblE, hdl, hpt⟩ :=
+    hihs l q hq
+  rw [hopI] at hop2
+  obtain ⟨rfl, rfl⟩ := Prod.mk.inj (Option.some.inj hop2)
+  -- the stored type: its constants resolve at the constructors' environment
+  obtain ⟨-, -, -, -, -, -, -, hres, _st, _u, -, -, hcvE⟩ := ConLeche.classConstOk_inv TR.hcv
+  have hgtyC : CBNF envC TR.gty :=
+    constsBound_eraseFVars _ (constsBound_of_constsResolve _ hres)
+  obtain ⟨ifs, maj, -, -, hgty, -, -⟩ := ConLeche.classGenRecTy_spec hg TR.hgty
+  rw [hgty] at hgtyC
+  obtain ⟨hpreC, -⟩ := CBNF_closeTelescope _ _ _ hgtyC
+  -- the minor premise's slot, and its constructor
+  have hsS : R.g.slots[s]? = some (.minor cls x.cv.name
+      (match R.g.slots.getD s default with | .minor _ _ ihs0 => ihs0 | _ => [])) := by
+    unfold genSlotOf at hslot
+    have hpr := List.find?_some hslot
+    rw [List.getElem?_eq_getElem hsl]
+    have hgd : R.g.slots.getD s default = R.g.slots[s] := by
+      rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hsl]; rfl
+    rw [hgd] at hpr ⊢
+    revert hpr
+    cases R.g.slots[s] with
+    | minor c' C' ihs0 =>
+      intro hpr
+      simp only [Bool.and_eq_true, beq_iff_eq] at hpr
+      obtain ⟨rfl, rfl⟩ := hpr
+      rfl
+    | motive _ => intro hpr; exact nomatch hpr
+  obtain ⟨x', T, hfx, hmin, hpreT⟩ := ConLeche.ClassGen.prefixBinders_minor hg hsS
+  -- the constructor found by name is `x`
+  have hx'x : x' = x := by
+    have hmem := List.mem_of_find?_eq_some hfx
+    have hname : x'.cv.name = x.cv.name := by simpa using List.find?_some hfx
+    obtain ⟨i', hi', rfl⟩ := List.getElem_of_mem hmem
+    obtain ⟨cA', hcA', ⟨CR'⟩⟩ := genClassCtorAt R hclsM (List.getElem?_eq_getElem hi')
+    have hcA'r : r.2.2.2[i']? = some cA' := by
+      rw [hctors]; exact hcA'
+    have hf1 := hfind j r hr i' cA' hcA'r
+    have hf2 := hfind j r hr i cA hcA
+    have hn1 : cA'.1.name = cA.1.name := by
+      have h1 := congrArg (fun y => y.cv.name) CR'.hx
+      simp only at h1
+      rw [← h1, hname, hxcv]
+    rw [hn1, hf2] at hf1
+    have hinj := Option.some.inj hf1
+    injection hinj with h1 h2 h3
+    have hcAeq : cA' = cA := Prod.ext h1.symm h3.symm
+    subst hcAeq
+    exact classCtorRun_unique CR' CR
+  rw [hx'x] at hmin
+  have hTC : CBNF envC T := hpreC _ (List.mem_append_left _ (List.mem_append_left _
+    (List.mem_of_getElem? hpreT)))
+  obtain ⟨fvs', res', ws', ihs', concl, hop', hws', hT, -, hih'⟩ := minorTy_spec' hmin
+  rw [hT] at hTC
+  obtain ⟨hTn, -⟩ := CBNF_closeTelescope _ _ _ hTC
+  obtain ⟨xs', idx', hparts', hihl⟩ := hih' l q hq
+  have hihC := hTn _ (List.mem_append_right _ (List.mem_of_getElem? hihl))
+  obtain ⟨hxsC, hcallC⟩ := CBNF_closeTelescope _ _ _ hihC
+  rw [CBNF_mkAppN] at hcallC
+  -- the two openings agree after erasure
+  have hF := (openPis_erase x.nF (e := x.tyD) rfl hopF hop').2
+  have hfvsV : ∀ y ∈ fvs, ∃ i T, y = Expr.fvar i T := fun y hy => by
+    obtain ⟨k, hk, rfl⟩ := List.getElem_of_mem hy
+    exact ⟨_, ConLeche.openPisAtFvars_index _ _ _ hopF k _ (List.getElem?_eq_getElem hk)⟩
+  have hfvsV' : ∀ y ∈ fvs', ∃ i T, y = Expr.fvar i T := fun y hy => by
+    obtain ⟨k, hk, rfl⟩ := List.getElem_of_mem hy
+    exact ⟨_, ConLeche.openPisAtFvars_index _ _ _ hop' k _ (List.getElem?_eq_getElem hk)⟩
+  have hfl : fvs.length = fvs'.length := by
+    rw [ConLeche.Verify.openPisAtFvars_length _ hopF, ConLeche.Verify.openPisAtFvars_length _ hop']
+  have hW := targetPiDomsWith_erase fvs fvs' hfvsV hfvsV' hfl rfl hws hws'
+  have hwq : eraseFVars (ws.getD q.1 default) = eraseFVars (ws'.getD q.1 default) := by
+    have h1 := congrArg (fun L => L[q.1]?) hW
+    simp only [List.getElem?_map] at h1
+    rw [List.getD_eq_getElem?_getD, List.getD_eq_getElem?_getD]
+    cases hw1 : ws[q.1]? <;> cases hw2 : ws'[q.1]? <;> simp_all
+  obtain ⟨hxs, hidx⟩ := ihParts_erase hwq hparts hparts'
+  refine ⟨fun b hb => ?_, fun e he => ?_⟩
+  · -- a telescope domain
+    obtain ⟨k, hk, rfl⟩ := List.getElem_of_mem hb
+    have hkx : k < xs.length := by rw [← hbll]; exact hk
+    have hE := (hblE k bl[k] xs[k] (List.getElem?_eq_getElem hk)
+      (List.getElem?_eq_getElem hkx)).1
+    rw [CBNF_of_erasedEq hE]
+    have hk' : k < xs'.length := by
+      have := congrArg List.length hxs; simp at this; omega
+    have hy := hxsC _ (List.mem_of_getElem? (show (xs'.map R.g.binder)[k]? = some
+      (R.g.binder xs'[k]) by rw [List.getElem?_map, List.getElem?_eq_getElem hk']; rfl))
+    have hmap := congrArg (fun L => L[k]?) hxs
+    simp only [List.getElem?_map, List.getElem?_eq_getElem hkx, List.getElem?_eq_getElem hk',
+      Option.map_some, Option.some.injEq] at hmap
+    unfold CBNF; rw [hmap]
+    exact hy
+  · -- a call argument past the prefix
+    obtain ⟨k, hk, rfl⟩ := List.getElem_of_mem he
+    have hk2 : k < idx.length + 1 := by rw [← hdl]; exact hk
+    obtain ⟨a, ha⟩ : ∃ a, (idx ++ [Expr.mkAppN (fvs.getD q.1 default) xs])[k]? = some a :=
+      ⟨_, List.getElem?_eq_getElem (by simp; omega)⟩
+    have hE := hpt k _ a (List.getElem?_eq_getElem hk) ha
+    rw [CBNF_of_erasedEq hE]
+    have hil : idx.length = idx'.length := by
+      have := congrArg List.length hidx; simpa using this
+    rcases Nat.lt_or_ge k idx.length with hki | hki
+    · rw [List.getElem?_append_left hki] at ha
+      obtain rfl := (Option.some.inj ((List.getElem?_eq_getElem hki).symm.trans ha))
+      have hc' := hcallC.2 idx'[k] (List.mem_append_left _ (List.getElem_mem (by omega)))
+      have hmap := congrArg (fun L => L[k]?) hidx
+      simp only [List.getElem?_map, List.getElem?_eq_getElem hki,
+        List.getElem?_eq_getElem (show k < idx'.length by omega), Option.map_some,
+        Option.some.injEq] at hmap
+      unfold CBNF; rw [hmap]; exact hc'
+    · have hk0 : k = idx.length := by omega
+      subst hk0
+      rw [List.getElem?_append_right (Nat.le_refl _), Nat.sub_self] at ha
+      obtain rfl := (Option.some.inj ha).symm
+      have hc' := hcallC.2 _ (List.mem_append_right _ (List.mem_singleton.mpr rfl))
+      have hxl : xs.length = xs'.length := by
+        have := congrArg List.length hxs; simpa using this
+      have hvars : ∀ {w : Expr} {d : Nat} {ys id : List Expr},
+          R.g.ihParts q.2.1 q.2.2 w d = some (ys, id) → ys.map eraseFVars = ys.map fun _ => F0 := by
+        intro w d ys id hp
+        unfold ConLeche.ClassGen.ihParts at hp
+        obtain ⟨⟨ys', leaf⟩, hop0, hp⟩ := Option.bind_eq_some_iff.mp hp
+        simp only [Option.pure_def, Option.some.injEq, Prod.mk.injEq] at hp
+        obtain ⟨rfl, -⟩ := hp
+        refine List.map_congr_left fun y hy => ?_
+        obtain ⟨k, hk, rfl⟩ := List.getElem_of_mem hy
+        obtain ⟨T, hT⟩ := ConLeche.openPisAtFvars_index _ _ _ hop0 k _ (List.getElem?_eq_getElem hk)
+        rw [hT]; rfl
+      have hq1 : q.1 < x.nF := (ConLeche.ClassGen.recs_mem (List.mem_of_getElem? hq)).1
+      have hfv1 : eraseFVars (fvs.getD q.1 default) = F0 := by
+        rw [List.getD_eq_getElem?_getD,
+          List.getElem?_eq_getElem (by rw [ConLeche.Verify.openPisAtFvars_length _ hopF]; exact hq1)]
+        obtain ⟨T, hT⟩ := ConLeche.openPisAtFvars_index _ _ _ hopF q.1 _
+          (List.getElem?_eq_getElem (by rw [ConLeche.Verify.openPisAtFvars_length _ hopF]; exact hq1))
+        simp only [Option.getD_some]; rw [hT]; rfl
+      have hfv2 : eraseFVars (fvs'.getD q.1 default) = F0 := by
+        rw [List.getD_eq_getElem?_getD,
+          List.getElem?_eq_getElem (by rw [ConLeche.Verify.openPisAtFvars_length _ hop']; exact hq1)]
+        obtain ⟨T, hT⟩ := ConLeche.openPisAtFvars_index _ _ _ hop' q.1 _
+          (List.getElem?_eq_getElem (by rw [ConLeche.Verify.openPisAtFvars_length _ hop']; exact hq1))
+        simp only [Option.getD_some]; rw [hT]; rfl
+      unfold CBNF at hc' ⊢
+      rw [eraseFVars_mkAppN, hfv1, hvars hparts]
+      rw [eraseFVars_mkAppN, hfv2, hvars hparts'] at hc'
+      have hrep : (xs.map fun _ => F0) = xs'.map fun _ => F0 := by
+        rw [List.map_const', List.map_const', hxl]
+      rw [hrep]; exact hc'
+
+end Free
 
 /-! ## 7. The skeleton's obligations, in its spelling -/
 
