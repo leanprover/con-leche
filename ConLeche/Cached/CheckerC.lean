@@ -148,7 +148,7 @@ def checkBlockRecS (fe₁ : FEnv) (env₁ : Env) (fe : FEnv) (p : BlockParts) (n
     (ctorsAs : List (List (ConstantVal × Nat))) :
     CheckCM (List (ConstantVal × TargetMajor × List Expr)) :=
   thenConform
-    (targetRecCheck (shadowOpsC mode) fe₁ env₁ fe p.toBlockShape nested nfs pos block cvTas
+    (targetRecCheck (shadowOpsC mode) fe₁ env₁ fe p.toBlockShape nested pos block cvTas
       ctorsAs)
     (if conf then
       flushC *> checkBlockRecConformF (sharedOpsC mode fe) structWalkersC fe none p cvTas
@@ -183,7 +183,7 @@ def checkBlockRecSFast (fe₁ : FEnv) (env₁ : Env) (fe : FEnv) (p : BlockParts
     ctorsAs p.recs
   (shadowOpsC mode).flush
   let tbl ← checkBlockSeeds ((shadowOpsC mode).opsAt fe₁) env₁ fe₁.find? env₁.consts
-    p.toBlockShape cvTas ctorsAs nfs pos tys₀
+    p.toBlockShape cvTas pos tys₀
   (shadowOpsC mode).flush
   let tys ← targetMajorsNfs ((shadowOpsC mode).opsAt fe) fe.env p.toBlockShape
     (cvTas.map (·.type)) tbl tys₀

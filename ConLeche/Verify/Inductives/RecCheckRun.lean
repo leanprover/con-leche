@@ -1085,8 +1085,7 @@ structure TargetRecRun (mode : CheckMode) (F : Nat) (fe : FEnv) (p : BlockShape)
   /-- the formers' environment the seeds are walked at -/
   fe₁ : FEnv
   env₁ : Env
-  /-- the members' constructors' normal forms, and the walk's state after them -/
-  nfs : List (List Expr)
+  /-- the walk's state after the root frame -/
   pos : NestState
   /-- stage (b)'s list -/
   tys₀ : List (ConstantVal × TargetMajor × Level)
@@ -1099,7 +1098,7 @@ structure TargetRecRun (mode : CheckMode) (F : Nat) (fe : FEnv) (p : BlockShape)
   /-- (b) every recursor's type -/
   htys₀ : targetRecTys (fueledOps mode F) fe p nested cvTas ctorsAs p.recs = .ok tys₀
   /-- the resolved outside classes walked (the seeds) -/
-  hseeds : checkBlockSeeds (fueledOps mode F) env₁ fe₁.find? env₁.consts p cvTas ctorsAs nfs pos
+  hseeds : checkBlockSeeds (fueledOps mode F) env₁ fe₁.find? env₁.consts p cvTas pos
     tys₀ = .ok tbl
   /-- every class's recorded normal forms -/
   hfill : targetMajorsNfs (fueledOps mode F) fe.env p (cvTas.map (·.type)) tbl tys₀ = .ok tys
@@ -1122,14 +1121,14 @@ structure TargetRecRun (mode : CheckMode) (F : Nat) (fe : FEnv) (p : BlockShape)
 /-- **The target recursor check, inverted** — the ONE unfolding of
 `targetRecCheck`, the walk's inputs the caller's. -/
 theorem targetRecCheck_run_aux {fe₁ : FEnv} {env₁ : Env} {fe : FEnv} {p : BlockShape}
-    {nested : Bool} {nfs : List (List Expr)} {pos : NestState}
+    {nested : Bool} {pos : NestState}
     {block : List ConstantInfo} {cvTas : List ConstantVal}
     {ctorsAs : List (List (ConstantVal × Nat))}
     {out : List (ConstantVal × TargetMajor × List Expr)} {F : Nat}
-    (h : targetRecCheck (ShadowOps.fueled mode F) fe₁ env₁ fe p nested nfs pos block cvTas
+    (h : targetRecCheck (ShadowOps.fueled mode F) fe₁ env₁ fe p nested pos block cvTas
       ctorsAs = .ok out) :
     ∃ R : TargetRecRun mode F fe p nested block cvTas ctorsAs out,
-      R.fe₁ = fe₁ ∧ R.env₁ = env₁ ∧ R.nfs = nfs ∧ R.pos = pos := by
+      R.fe₁ = fe₁ ∧ R.env₁ = env₁ ∧ R.pos = pos := by
   unfold targetRecCheck at h
   obtain ⟨u0, hpins, h⟩ := exceptBind_ok h
   obtain ⟨tys₀, htys₀, h⟩ := exceptBind_ok h
@@ -1145,21 +1144,21 @@ theorem targetRecCheck_run_aux {fe₁ : FEnv} {env₁ : Env} {fe : FEnv} {p : Bl
   obtain ⟨u5, -, h⟩ := exceptBind_ok h
   simp only [pure, Except.pure, Except.ok.injEq] at h
   subst h
-  exact ⟨{ fe₁ := fe₁, env₁ := env₁, nfs := nfs, pos := pos, tys₀ := tys₀, tbl := tbl,
+  exact ⟨{ fe₁ := fe₁, env₁ := env₁, pos := pos, tys₀ := tys₀, tbl := tbl,
            tys := tys, pins := by cases u0; exact hpins, htys₀ := htys₀, hseeds := hseeds,
            hfill := hfill,
            small := checkBlockRecSmallElim_inv (by cases u1; exact hsmall),
            pin := checkBlockRecElimPin_inv (by cases u2; exact hpin),
            prefixAgree := by cases u3; exact hpref, rulePins := by cases u4; exact hrp,
-           rules := hrules }, rfl, rfl, rfl, rfl⟩
+           rules := hrules }, rfl, rfl, rfl⟩
 
 /-- **The target recursor check, inverted** (`targetRecCheck_run_aux`). -/
 theorem targetRecCheck_run {fe₁ : FEnv} {env₁ : Env} {fe : FEnv} {p : BlockShape}
-    {nested : Bool} {nfs : List (List Expr)} {pos : NestState}
+    {nested : Bool} {pos : NestState}
     {block : List ConstantInfo} {cvTas : List ConstantVal}
     {ctorsAs : List (List (ConstantVal × Nat))}
     {out : List (ConstantVal × TargetMajor × List Expr)} {F : Nat}
-    (h : targetRecCheck (ShadowOps.fueled mode F) fe₁ env₁ fe p nested nfs pos block cvTas
+    (h : targetRecCheck (ShadowOps.fueled mode F) fe₁ env₁ fe p nested pos block cvTas
       ctorsAs = .ok out) :
     Nonempty (TargetRecRun mode F fe p nested block cvTas ctorsAs out) :=
   ⟨(targetRecCheck_run_aux h).choose⟩
@@ -1337,13 +1336,13 @@ end RunFacts
 `checkBlockRecT` at the fueled operations is `targetRecCheck` at
 `ShadowOps.fueled` on the constructors' index. -/
 theorem checkBlockRecT_run {env₁ env : Env} {p : BlockParts} {nested : Bool}
-    {nfs : List (List Expr)} {pos : NestState} {block : List ConstantInfo}
+    {pos : NestState} {block : List ConstantInfo}
     {cvTas : List ConstantVal} {ctorsAs : List (List (ConstantVal × Nat))}
     {out : List (ConstantVal × TargetMajor × List Expr)} {F : Nat}
-    (h : checkBlockRecT (fueledOps mode F) env₁ env p nested nfs pos block cvTas ctorsAs
+    (h : checkBlockRecT (fueledOps mode F) env₁ env p nested pos block cvTas ctorsAs
       = .ok out) :
     targetRecCheck (ShadowOps.fueled mode F) (mkFEnv env₁) env₁ (mkFEnv env) p.toBlockShape
-      nested nfs pos block cvTas ctorsAs = .ok out :=
+      nested pos block cvTas ctorsAs = .ok out :=
   h
 
 end ConLeche

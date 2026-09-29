@@ -60,13 +60,18 @@ inductive ClassField where
   | recursive (cls : Nat) (tele : Nat)
   deriving DecidableEq, Inhabited
 
-/-- A class's constructor as the generator reads it: the datum entry's
-walked telescope `tyN` (read back, over the canonical parameters), its
-field count and the fields' kinds. -/
+/-- A class's constructor as the generator reads it (official's
+`mk_rec_infos` shape): its DECLARED type at the class's levels and
+parameters `tyD` — the minor premise's fields and conclusion, the rule's
+fields — and the datum entry's WALKED telescope `tyN` (read back, over the
+canonical parameters) — every inductive hypothesis's telescope and
+indices (official: `whnf (infer_type u_i)`) — with the field count and
+the fields' kinds. -/
 structure ClassCtor where
   cv : ConstantVal
   nF : Nat
   kinds : List ClassField
+  tyD : Expr
   tyN : Expr
   deriving Inhabited
 
@@ -111,18 +116,22 @@ def ClassGen.motiveTy (g : ClassGen) (c d : Nat) : Option Expr := do
   let (ifs, maj) ← g.major c d
   pure (closeTelescope (ifs.map classBinder) d (.forallE maj (.sort g.elim) default))
 
-/-- The inductive hypothesis of a recursive field `f` (walked type
-`∀ a⃗, J E⃗ e⃗`, landing at class `t`), opened at `d`: its telescope and its
+/-- The inductive hypothesis of a recursive field whose WALKED type is `w`
+(`∀ a⃗, J E⃗ e⃗`, landing at class `t`), opened at `d`: its telescope and its
 index arguments. -/
-def ClassGen.ihParts (g : ClassGen) (t : Nat) (tele : Nat) (f : Expr) (d : Nat) :
+def ClassGen.ihParts (g : ClassGen) (t : Nat) (tele : Nat) (w : Expr) (d : Nat) :
     Option (List Expr × List Expr) := do
-  let (xs, leaf) ← openPisAtFvars tele f.fvarTypeD d
+  let (xs, leaf) ← openPisAtFvars tele w d
   pure (xs, leaf.getAppArgs.drop (g.cls.getD t default).nPc)
 
-/-- Constructor `x`'s minor premise type at depth `d`, of class `c`. -/
+/-- Constructor `x`'s minor premise type at depth `d`, of class `c`: its
+declared fields, then per recursive field `f` (walked type `w`) the
+inductive hypothesis `∀ a⃗, motive_t e⃗ (f a⃗)`, over the motive at the
+declared result indices and the constructor applied. -/
 def ClassGen.minorTy (g : ClassGen) (c : Nat) (x : ClassCtor) (d : Nat) : Option Expr := do
   let ci := g.cls.getD c default
-  let (fvs, res) ← openPisAtFvars x.nF x.tyN d
+  let (fvs, res) ← openPisAtFvars x.nF x.tyD d
+  let ws ← targetPiDomsWith fvs x.tyN
   let recs := (List.range x.nF).filterMap fun i =>
     match x.kinds.getD i .ordinary with
     | .recursive t tele => some (i, t, tele)
@@ -130,10 +139,10 @@ def ClassGen.minorTy (g : ClassGen) (c : Nat) (x : ClassCtor) (d : Nat) : Option
   let ihs ← (List.range recs.length).mapM fun l => do
     let (i, t, tele) := recs.getD l default
     let e := d + x.nF + l
-    let f := fvs.getD i default
-    let (xs, idx) ← g.ihParts t tele f e
+    let (xs, idx) ← g.ihParts t tele (ws.getD i default) e
     pure (closeTelescope (xs.map classBinder) e
-      (Expr.mkAppN (g.motVar t) (idx ++ [Expr.mkAppN f xs])), (default : BinderMeta))
+      (Expr.mkAppN (g.motVar t) (idx ++ [Expr.mkAppN (fvs.getD i default) xs])),
+      (default : BinderMeta))
   let concl := Expr.mkAppN (g.motVar c)
     (res.getAppArgs.drop ci.nPc ++ [Expr.mkAppN (.const x.cv.name ci.lvls) (ci.ds ++ fvs)])
   pure (closeTelescope (fvs.map classBinder ++ ihs) d concl)
@@ -172,7 +181,8 @@ def classGenRule (g : ClassGen) (recOf : Nat → Option Name) (rlvls : List Leve
   let rP := pre.length
   let (s, _) ← (List.range g.slots.length).zip g.slots |>.find? fun (_, sl) =>
     match sl with | .minor c' C _ => c' == c && C == x.cv.name | _ => false
-  let (fvs, _) ← openPisAtFvars x.nF x.tyN rP
+  let (fvs, _) ← openPisAtFvars x.nF x.tyD rP
+  let ws ← targetPiDomsWith fvs x.tyN
   let pvars := (List.range rP).map fun i => if i < g.nP then g.params.getD i default else
     g.slotVar (i - g.nP)
   let ihs ← (List.range x.nF).filterMapM fun i =>
@@ -180,7 +190,7 @@ def classGenRule (g : ClassGen) (recOf : Nat → Option Name) (rlvls : List Leve
     | .ordinary => some none
     | .recursive t tele => do
       let f := fvs.getD i default
-      let (xs, idx) ← g.ihParts t tele f (rP + x.nF)
+      let (xs, idx) ← g.ihParts t tele (ws.getD i default) (rP + x.nF)
       let r ← recOf t
       pure (some (closeLams (xs.map classBinder) (rP + x.nF)
         (Expr.mkAppN (.const r rlvls) (pvars ++ idx ++ [Expr.mkAppN f xs]))))
@@ -189,6 +199,11 @@ def classGenRule (g : ClassGen) (recOf : Nat → Option Name) (rlvls : List Leve
 /-! ## The stage -/
 
 variable {m : Type → Type} [Monad m] [MonadExceptOf CheckError m]
+
+/-- A minor premise's slot. -/
+def ClassSlot.isMinor : ClassSlot → Bool
+  | .minor .. => true
+  | .motive _ => false
 
 /-- The minor premise slot of class `c`'s constructor `C`: exactly one. -/
 def classMinorSlot (rd : ClassRead) (c : Nat) (C : Name) : m (Nat × List (Nat × Nat)) := do
@@ -268,7 +283,10 @@ def classCtorOf (ops : CheckerOps m) (env : Env) (p : BlockShape) (formerTys : L
     throw (.internal "generated recursor: datum kinds")
   let kinds ← classFieldsOf cA.1.name ihs fvs 0 e0.kinds
   classFieldsAgree ops env p formerTys Ms fvs cA.1.name E 0 kinds
-  pure ⟨cA.1, cA.2, kinds, e0.ty⟩
+  let M := Ms.getD c default
+  let tyD ← unwrapOr (instPisWith M.ds (targetCtorAt M cA.1))
+    (.internal "generated recursor: constructor parameter telescope")
+  pure ⟨cA.1, cA.2, kinds, tyD, e0.ty⟩
 
 /-- Every constructor of class `c` (`classCtorOf`). -/
 def classCtorsOf (ops : CheckerOps m) (env : Env) (p : BlockShape) (formerTys : List Expr)
@@ -309,15 +327,6 @@ def classesNfs (ops : CheckerOps m) (env : Env) (p : BlockShape) (formerTys : Li
     let es ← targetMajorNfs ops env p formerTys M.pfvs M.lvls M.ds M.ctors tbl
     let rest ← classesNfs ops env p formerTys tbl Ms
     pure ({ M with nfs := es } :: rest)
-
-/-- The members' table entries, with the walk's kinds (`nestMemberNfs`
-with `kinds`). -/
-def classMemberNfs (ctx : NestCtx) (ctorss : List (List (ConstantVal × Nat)))
-    (nfs : List (List Expr)) (kinds : List (List (List NestFieldKind))) : List NestCtorNf :=
-  ((ctorss.zip nfs).zip kinds).flatMap fun ((cs, ns), kss) =>
-    ((cs.zip ns).zip kss).map fun ((c, n), ks) =>
-      { ctor := c.1.name, lvls := ctx.lps.map .param, ds := ctx.params,
-        ty := n.replaceFVars (nestHoleConst ctx []), kinds := ks }
 
 /-- A class's former type: a member's own, an outside class's stored
 former at the class's levels. -/
@@ -369,7 +378,7 @@ def classRuleOk (ops : CheckerOps m) (w : StructWalkers) (feT feR : FEnv) (cvR :
     (pw : PropWhen) (n : Nat) (gen : Expr) : m Expr := do
   unless gen.looseBVarsBounded 0 && !gen.hasFvar do
     throw (.internal s!"generated recursor: a rule of {cvR.name} is not closed")
-  let genA ← ops.annotate feR.env 0 gen.resetMeta
+  let genA ← ops.annotate feR.env 0 gen
   unless genA.allLevelParamsDefined cvR.levelParams do
     throw (.internal s!"generated recursor: a rule of {cvR.name} names an undeclared universe \
       parameter")
@@ -395,7 +404,7 @@ def classRulesOk (ops : CheckerOps m) (w : StructWalkers) (feT feR : FEnv) (g : 
     let gen ← unwrapOr (classGenRule g recOf (cvR.levelParams.map .param) c x)
       (.invalid s!"generated recursor: the rule of {x.cv.name} calls a class whose recursor the \
         stream omits (official: unknown constant)")
-    let r ← classRuleOk ops w feT feR cvR pw (g.nP + g.slots.length + x.nF) gen
+    let r ← classRuleOk ops w feT feR cvR pw (g.nP + g.slots.length + x.nF) gen.resetMeta
     let rs ← classRulesOk ops w feT feR g recOf cvR pw c xs
     pure (r :: rs)
 
@@ -419,17 +428,44 @@ def classStreamRecs (ops : CheckerOps m) (fe : FEnv) : List RecShape → m (List
     let cvs ← classStreamRecs ops fe rcs
     pure (cv :: cvs)
 
+/-- An inductive's parameter count as the pre-pass reads it: the block's
+at a member, the stored `IndCaps`' otherwise. -/
+def classNPcOf (p : BlockShape) (fe : FEnv) (I : Name) : Nat :=
+  if p.memberNames.contains I then p.nP else
+    match fe.find? I with
+    | some (.indInfo _ caps) => caps.nparams
+    | _ => 0
+
+/-- The seeds: every OUTSIDE class in the positivity check's
+representation (`nestSeedOf`), in order. -/
+def classSeeds (ctx : NestCtx) (holes : List Expr) (Ms : List TargetMajor) :
+    List (NestKey × Nat) :=
+  Ms.filterMap fun M =>
+    if M.member.isNone then some (nestSeedOf ctx holes M.ind M.lvls M.ds M.nPc) else none
+
+/-- The recursor a call at class `t` names: the family's first recursor
+at that class (`recCls` the pre-pass's reading, `cvGs` the generated
+constants). -/
+def classRecOf (recCls : List Nat) (cvGs : List ConstantVal) (t : Nat) : Option Name :=
+  ((List.range cvGs.length).find? fun r => recCls.getD r 0 == t).map fun r =>
+    (cvGs.getD r default).name
+
+/-- The rule-less generated recursors consed onto the constructors'
+environment `fe`. -/
+def classFeR (p : BlockShape) (Ms : List TargetMajor) (cvGs : List ConstantVal)
+    (recCls : List Nat) (fe : FEnv) : FEnv :=
+  consBlockRecsBareF p 0 ((cvGs.zip recCls).map fun (cv, c) => (cv, (Ms.getD c default).nIdx)) fe
+
 /-- **The generated recursor stage** (charter item 5, see the module
 header), at the constructors' environment `fe`; the seeds walk at the
 formers' environment `fe₁`/`env₁`, continuing the positivity check's
-state `pos` after the members' constructors (their walked normal forms
-`nfs` and kinds `kinds`); `nestedBit` is the elimination guard's
+state `pos` after its root frame (the members' constructors, whose
+entries the table holds already); `nestedBit` is the elimination guard's
 container bit as the caller reads it (`blockNestedBit`), to which every
 outside class adds.  Returns every recursor, generated, with its class
 and its generated annotated rules (what the install stores). -/
 def genRecCheck (so : ShadowOps m) (fe₁ : FEnv) (env₁ : Env) (fe : FEnv) (p : BlockShape)
-    (nestedBit : Bool) (kinds : List (List (List NestFieldKind))) (nfs : List (List Expr))
-    (pos : NestState) (cvTas : List ConstantVal) (block : List ConstantInfo)
+    (nestedBit : Bool) (pos : NestState) (cvTas : List ConstantVal) (block : List ConstantInfo)
     (ctorsAs : List (List (ConstantVal × Nat))) :
     m (List (ConstantVal × TargetMajor × List Expr)) := do
   targetRecPins p block
@@ -438,13 +474,8 @@ def genRecCheck (so : ShadowOps m) (fe₁ : FEnv) (env₁ : Env) (fe : FEnv) (p 
   -- generated types are compared with them
   let cvRis ← classStreamRecs ops fe p.recs
   -- [UNVERIFIED] the pre-pass: the classes, the layout, each recursor's class
-  let nPcOf : Name → Nat := fun I =>
-    if p.memberNames.contains I then p.nP else
-      match fe.find? I with
-      | some (.indInfo _ caps) => caps.nparams
-      | _ => 0
-  let rd ← unwrapOr (classRead p.nP nPcOf ((p.recs.zip cvRis).map fun (rc, cv) =>
-      { rc with cvR := cv }))
+  let rd ← unwrapOr (classRead p.nP (classNPcOf p fe)
+      ((p.recs.zip cvRis).map fun (rc, cv) => { rc with cvR := cv }))
     (.invalid "generated recursor: the recursor family is not of the generated shape \
       (official: invalid recursor)")
   let cv0 ← unwrapOr cvRis.head? (.invalid "generated recursor: the block has no recursor")
@@ -464,17 +495,13 @@ def genRecCheck (so : ShadowOps m) (fe₁ : FEnv) (env₁ : Env) (fe : FEnv) (p 
   -- the seeds, at the formers' environment: every class a node
   so.flush
   let (ctx, holes) ← blockNestCtx p cvTas fe₁.find? env₁.consts
-  let st ← nestSeeds (so.opsAt fe₁) env₁ ctx
-    (Ms.filterMap fun M => if M.member.isNone then some (nestSeedOf ctx holes M.ind M.lvls M.ds
-      M.nPc) else none) pos
+  let st ← nestSeeds (so.opsAt fe₁) env₁ ctx (classSeeds ctx holes Ms) pos
   so.flush
-  let tbl := classMemberNfs ctx ctorsAs nfs kinds ++ st.ctorNfs.toList
   let formerTys := cvTas.map (·.type)
-  let Ms ← classesNfs ops fe.env p formerTys tbl Ms
+  let Ms ← classesNfs ops fe.env p formerTys st.ctorNfs.toList Ms
   -- per class and constructor: the datum, the inductive hypotheses, node agreement
   let ctors ← classesCtors ops fe.env p formerTys rd Ms 0 Ms
-  unless (rd.slots.filter fun | .minor .. => true | _ => false).length ==
-      (ctors.map List.length).sum do
+  unless (rd.slots.filter ClassSlot.isMinor).length == (ctors.map List.length).sum do
     throw (.invalid "generated recursor: the recursors' prefix has a minor premise for no \
       constructor of a class (official: invalid recursor)")
   -- generation
@@ -484,14 +511,10 @@ def genRecCheck (so : ShadowOps m) (fe₁ : FEnv) (env₁ : Env) (fe : FEnv) (p 
   let pre ← unwrapOr g0.prefixBinders (.internal "generated recursor: recursor prefix")
   let g := { g0 with pre := pre }
   let cvGs ← classRecTysOk ops fe g p.k p.recs cvRis rd.recCls
-  let recOf : Nat → Option Name := fun t =>
-    ((List.range p.recs.length).find? fun r => rd.recCls.getD r 0 == t).map fun r =>
-      (cvGs.getD r default).name
-  let feR := consBlockRecsBareF p 0
-    ((cvGs.zip rd.recCls).map fun (cv, c) => (cv, (Ms.getD c default).nIdx)) fe
+  let feR := classFeR p Ms cvGs rd.recCls fe
   so.flush
-  let out ← classRecsRulesOk (so.opsRuleR feR) so.walkers fe feR g recOf
-    (Level.zeronessOf elim) cvGs rd.recCls
+  let out ← classRecsRulesOk (so.opsRuleR feR) so.walkers fe feR g
+    (classRecOf rd.recCls cvGs) (Level.zeronessOf elim) cvGs rd.recCls
   so.flush
   pure out
 

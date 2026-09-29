@@ -211,52 +211,47 @@ def checkBlockCtors (ops : CheckerOps m) (env₀ env : Env) (p : BlockShape) :
 
 Charter item 3: "There is ONE positivity function in the kernel … The
 theorem is 'returns true ⇒ the operator is monotone', proved by
-inversion of that function's run."  The install runs `nestPos`
-(`nestedBlockPositivity`, `Kernel/Inductives/Positivity.lean`) on the
-STORED constructors, the members abstracted to holes at the canonical
-parameter variables.  Beside it, each member-abstracted
-constructor type is TYPED at the holes' context (U2): the
-typing the monotonicity proof reads at every hole value.  The walk's
-kinds are the model's; the capability record's `is_rec` is official's
-syntactic one (`blockRawRec`), not read off them. -/
+inversion of that function's run."  The install runs `nestPos` on the
+STORED constructors as the walk's ROOT frame (`nestRoot`,
+`Kernel/Inductives/Positivity.lean`): the members abstracted to holes at
+the canonical parameter variables, each constructor TYPED there (the
+typing the monotonicity proof reads at every hole value — a frame types
+its constructors), walked, recorded.  The root's own lines follow: the
+members' uniform occurrences (`nestRootLinesAll`) and the fields'
+universes at the holes (`checkAbsCtorSorts`).  The walk's kinds are the
+model's; the capability record's `is_rec` is official's syntactic one
+(`blockRawRec`), not read off them. -/
 
-/-- **U2**: every member-abstracted constructor type is a type at the
-holes' context (parameters, then one hole per member), and the fields of
-its positivity NORMAL FORM `tyN` (the walk's output) have
-their universes bounded by the family's there (at a `Type`-valued
-family).  The row reads the normal form, not the declared type: the
-model's fields with holes ARE the normal form's readings (their binder
-bits and universes are read off this row).  Beside it, an internal
-scoping assertion on `tyN`: its level parameters are the block's (whnf
-unfolds at the use site's levels, so it never fires; the model's
-readings of `tyN` are level-congruent through it). -/
-def checkAbsCtorTys (ops : CheckerOps m) (env : Env) (ctx : NestCtx) (holes : List Expr) :
-    List (ConstantVal × Nat) → List Expr → m Unit
-  | c :: cs, tyN :: ns => do
-    let crest ← unwrapOr (instPisWith ctx.params (nestAbstract ctx holes c.1.type))
-      (.internal "direct rec: constructor parameter telescope")
-    let ty ← ops.inferType env (ctx.hiAt 0) crest
-    let _ ← ops.ensureSort env (ctx.hiAt 0) ty
-    unless tyN.allLevelParamsDefined ctx.lps do
+/-- **The fields' universes at the holes** (the root's line, U2's sort
+half): the fields of every constructor's positivity NORMAL FORM `tyN`
+(the root frame's output) have their universes bounded by the family's
+at the holes' context (at a `Type`-valued family) — the model's hole
+operator reads every field in the family's universe at every tuple of
+the tuple space, which no stored reading reaches; the row reads the
+normal form, not the declared type: the model's fields with holes ARE
+the normal form's readings.  Beside it, an internal scoping assertion on
+`tyN`: its level parameters are the block's (whnf unfolds at the use
+site's levels, so it never fires; the model's readings of `tyN` are
+level-congruent through it). -/
+def checkAbsCtorSorts (ops : CheckerOps m) (env : Env) (ctx : NestCtx) :
+    List (ConstantVal × Nat) → List (List NestFieldKind × Expr) → m Unit
+  | c :: cs, o :: os => do
+    unless o.2.allLevelParamsDefined ctx.lps do
       throw (.internal "direct rec: a positivity normal form outside the block's level \
         parameters")
-    -- the fields' universes AT THE HOLES' CONTEXT:
-    -- official's per-field bound, the members variables — the model's
-    -- hole operator reads every field in the family's universe at every
-    -- tuple of the tuple space, which no stored reading reaches
-    let xq ← unwrapOr (openPisAtFvars c.2 tyN (ctx.hiAt 0))
+    let xq ← unwrapOr (openPisAtFvars c.2 o.2 (ctx.hiAt 0))
       (.internal "direct rec: abstracted constructor fields")
     let _ ← checkStructFieldSortsI ops env (Level.isEquiv ctx.sort .zero == some true) false
       ctx.sort (ctx.hiAt 0) xq.1 [] c.2
-    checkAbsCtorTys ops env ctx holes cs ns
+    checkAbsCtorSorts ops env ctx cs os
   | _, _ => pure ()
 
-/-- `checkAbsCtorTys` on every member's constructors. -/
-def checkAbsCtorTysAll (ops : CheckerOps m) (env : Env) (ctx : NestCtx) (holes : List Expr) :
-    List (List (ConstantVal × Nat)) → List (List Expr) → m Unit
-  | cs :: css, ns :: nss => do
-    checkAbsCtorTys ops env ctx holes cs ns
-    checkAbsCtorTysAll ops env ctx holes css nss
+/-- `checkAbsCtorSorts` on every member's constructors. -/
+def checkAbsCtorSortsAll (ops : CheckerOps m) (env : Env) (ctx : NestCtx) :
+    List (List (ConstantVal × Nat)) → List (List (List NestFieldKind × Expr)) → m Unit
+  | cs :: css, os :: oss => do
+    checkAbsCtorSorts ops env ctx cs os
+    checkAbsCtorSortsAll ops env ctx css oss
   | _, _ => pure ()
 
 /-- **The walk's context** of a block: the canonical parameter variables
@@ -275,21 +270,22 @@ def blockNestCtx (p : BlockShape) (cvTas : List ConstantVal)
   pure (ctx, holes)
 
 /-- **The block's positivity, on its stored constructors** (see the
-section docstring), at the walk's context (`blockNestCtx`).  Returns the
-walk's field kinds, its normal forms (member-abstracted, at the walk's
-context; OUTPUT only: nothing is stored from them) and its state — the
-cache and the recorded constructor normal forms, which the recursor
-check's seeds continue (`checkBlockSeeds`); the walk's verdict is the
-install's. -/
+section docstring), at the walk's context (`blockNestCtx`): the root
+frame and its own lines.  Returns the walk's field kinds, its normal
+forms (member-abstracted, at the walk's context; OUTPUT only: nothing is
+stored from them) and its state — the cache and the recorded constructor
+normal forms, which the recursor check's seeds continue
+(`checkBlockSeeds`); the walk's verdict is the install's. -/
 def checkBlockPositivity (ops : CheckerOps m) (env₁ : Env) (find? : Name → Option ConstantInfo)
     (consts : List ConstantInfo) (p : BlockParts) (cvTas : List ConstantVal)
     (ctorsAs : List (List (ConstantVal × Nat))) :
     m (List (List (List NestFieldKind)) × List (List Expr) × NestState) := do
   let (ctx, holes) ← blockNestCtx p.toBlockShape cvTas find? consts
-  -- the walk on the STORED (declared) constructors; their normal forms are output only
-  let (kinds, nfs, st) ← nestBlockCtors ops env₁ ctx holes ctorsAs {}
-  checkAbsCtorTysAll ops env₁ ctx holes ctorsAs nfs
-  pure (kinds, nfs, st)
+  -- the root frame on the STORED (declared) constructors; their normal forms are output only
+  let (outs, st) ← nestRoot ops env₁ ctx holes ctorsAs {}
+  nestRootLinesAll ctx holes ctorsAs outs
+  checkAbsCtorSortsAll ops env₁ ctx ctorsAs outs
+  pure (outs.map (·.map (·.1)), outs.map (·.map (·.2)), st)
 
 /-- **What one pass over the formers and the constructors yields**. -/
 structure BlockPass (E : Type) where
@@ -325,7 +321,7 @@ def checkBlockPass (ops : CheckerOps m) (env : Env) (p₀ : BlockParts) (isRec :
   let pC := p₀.complete p₁
   let (ctorsAs, sortsss) ← checkBlockCtors ops env₁ env₁ pC.toBlockShape
     (pC.members.zip cvTas)
-  -- positivity: the one function on the stored constructors, and U2
+  -- positivity: the one function, its root frame the stored constructors
   let (kinds, nfs, pos) ← checkBlockPositivity ops env₁ env₁.find? env₁.consts pC cvTas ctorsAs
   pure ⟨env₁, cvTas, pC, ctorsAs, sortsss, kinds, nfs, pos⟩
 

@@ -301,7 +301,7 @@ theorem checkBlockRecS_fresh (mode : CheckMode) (fe₁ : FEnv) (env₁ : Env) (f
       (fun out => (out.map (·.1.name)).Nodup ∧ ∀ o ∈ out, fe.find? o.1.name = none) := by
   unfold checkBlockRecS
   refine Yields.thenConform (Yields.mono (targetRecCheck_names (shadowOpsC mode) fe₁ env₁ fe
-    p.toBlockShape nested nfs pos block cvTas ctorsAs) fun out hout => ?_)
+    p.toBlockShape nested pos block cvTas ctorsAs) fun out hout => ?_)
   obtain ⟨hnd, hlen, hall⟩ := hout
   have hnames : out.map (·.1.name) = p.recs.map (·.cvR.name) := by
     apply List.ext_getElem?

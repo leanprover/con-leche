@@ -20,7 +20,6 @@ import ConLeche.Verify.Inductives.NestContInv
 import ConLeche.Model.Inductives.TargetNodeCover
 import ConLeche.Model.Inductives.PosDerivMono
 import ConLeche.Model.Inductives.BlockDeclRun
-import ConLeche.Verify.EnvBound
 import ConLeche.Model.Inductives.TargetCallAdm
 import ConLeche.Model.Inductives.TargetCallData
 import ConLeche.Model.Inductives.TargetCallEntry
@@ -527,7 +526,7 @@ theorem nestedNodeCalls {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : N
       (dR.holeCtx ψ).reverse t)
     (hfrec : ∀ t ∈ ns, ConLeche.FrameRec (fueledOps .verified F) envI
       (pp.nestCtx fvsP envI.find? envI.consts) tblR t.anc t.key.lvls t.key.ds t.grp)
-    (hmemF : MemberForests F envI pp cvTasR ctorsAsR nfsR fvsP ns)
+    (hmemF : MemberForests F envI pp cvTasR ctorsAsR nfsR fvsP tblR ns)
     {par : Nat → Nat} (hPP : ParentPtrs ns par)
     (hF : NodeListFacts mpC (pp.nestCtx fvsP envI.find? envI.consts) ns)
     {Dc : Nat → LfpDatum V} {mc : Nat → Nat} {cvc : Nat → ConstantVal}
@@ -568,10 +567,7 @@ theorem nestedNodeCalls {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : N
   have H := dynCtx_of hctx hmkC hmk hag hsubC htr hcoreK hok hown hkids hpar hsem hF
   have hctx' := hctx
   obtain ⟨hRec, hPos, henvC, hnames, hndM, hN, hS, hcore, hctorsAs, hdR, hlfp, hcov, -, -,
-    ⟨R, hR₁, hRe, hRn, hRp, hRaux⟩, -⟩ := hctx'
-  have hseeds := R.hseeds
-  rw [hR₁, hRe, hRn, hRp, hRaux, show (ConLeche.mkFEnv envI).find? = envI.find? from
-    funext (ConLeche.mkFEnv_find? envI)] at hseeds
+    ⟨R, -, -, -, hRaux⟩, -⟩ := hctx'
   have h := ConLeche.recStage_of_targetG R (ConLeche.ctorsLen_of_names hnames)
   have hmr : BlockMembersRun mpC.base2 dR pp.toBlockShape cvTasR := by
     obtain ⟨pk, uOfD, ppsOf, rfl⟩ := hdR; exact blockMembersRun_seam hN hS hcore
@@ -804,18 +800,12 @@ theorem nestedNodeCalls {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : N
       obtain ⟨hfC, -⟩ := hcore.2.2.2 m hmk j cA hcj
       have hw := mpC.base2.wf _ (List.mem_of_find?_eq_some hfC)
       -- the member forest
-      obtain ⟨crest, ks, ts, hcrest, hd, ⟨ty, hty⟩, hforest⟩ :=
+      obtain ⟨crest, ks, ts, hcrest, hd, ⟨ty, hty⟩, hforest, he⟩ :=
         hMF m _ (by rw [hcsR, ← hctM]) j cA hcj
       obtain ⟨nds, cur, htele0, htyN, hndC, hnl, hcrC, hcurC, -, hsemB⟩ := blk_ctorFit mk ψ hN
         hcoreK hnamesD rfl hnPD hnIdxsD hkD hcv0 hop0 hholes0 hcj hw.1 hw.2.2.2.1 hcrest hty hd
-      -- the entry: the member constructor's recorded normal form
-      obtain ⟨cvTa0', fvsP', rest', hcv0', hop0', hent⟩ :=
-        ConLeche.checkBlockPositivity_memberEntry hPos hseeds
-      rw [hcv0] at hcv0'
-      obtain rfl := Option.some.inj hcv0'
-      rw [hop0] at hop0'
-      obtain ⟨rfl, rfl⟩ : fvsP = fvsP' ∧ rest0 = rest' := by simpa using hop0'
-      have he := hent m _ (by rw [hcsR, ← hctM]) j cA hcj
+      -- the entry: the member constructor's recorded normal form (the root
+      -- frame's, `MemberForests`)
       obtain ⟨rcC, uC, -, ⟨EC⟩⟩ := targetEntryAt R (hrs c hc)
       obtain ⟨hMl, hMd, hEop, hEle⟩ := tyEntry_member EC hmem
       have hnfs : targetMajorNfs (fueledOps .verified F) envC pp.toBlockShape

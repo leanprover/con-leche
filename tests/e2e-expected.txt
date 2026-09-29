@@ -2577,3 +2577,13 @@
 0 corner_rpwhnf_erasedread_member.ndjson
 0 corner_rpwhnf_erasedread_frame.ndjson
 0 corner_rpwhnf_erasedread_nonrec.ndjson
+# SIMPD order (lane SIMPD: the member block is the positivity check's ROOT
+# frame).  `T (α) | mk : Wrap T → T α | deep : G 2000 (T α) → T α`: `mk`
+# fails M3 (a member unapplied in a phantom container parameter, as
+# `restrict_a29`: official v4.33.1+ 1), `deep` needs 2000 `Π`s reduction
+# manufactures, beyond its input-derived fuel (our resource limit, a
+# decline; official accepts it).  The root frame walks every constructor
+# before its own lines (M3/M2′) run: 2.  Before the lane each member
+# constructor's M3 ran right after its walk: 1.  A move between reject and
+# decline on a stream failing two checks (ruling 2026-09-29).
+2 corner_simpd_order_decline.ndjson
