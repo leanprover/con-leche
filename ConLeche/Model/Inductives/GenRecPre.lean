@@ -325,6 +325,269 @@ theorem genRecPre_hCand (hμ : μ.verifiedChecks = true) {memR : Nat → Prop}
 
 end Cand
 
+/-! ## 3′. The `ih` chain and the step, over ANY classes
+
+`genHchain`/`genHstep` (`ClassRecKit`, `ClassGenStep`) are stated at the
+classes read off the generated type (`genIs`/`genCr`).  Here the same two
+rows over any classes `Is`/`Cr`/`tup` whose majors are the stored binder
+data's fits (`hsplitI`), at the generated calls `genCallT` and the graph's
+`ih` values `genIhvT`. -/
+
+section Generic
+
+variable {K : Nat} {ρ : Nat → V} {rP nCt : Nat → Nat} {rds : Nat → List (Nat × Nat × AnnotTerm)}
+  {Is Cr : List V → Nat → V} {tup : Nat → List V → V} {pdoms : Nat → List AnnotTerm}
+  {fdoms : Nat → Nat → List AnnotTerm} {ihd : Nat → Nat → List IhDatum}
+
+/-- The generated calls are the calls `genIhCallAt` names, tagged. -/
+theorem genCallT_iff {xs : List V} {c j : Nat} {fs : List V} {v : V} :
+    genCallT tup ρ ihd xs c j fs v ↔
+      ∃ t is x, genIhCallAt ρ ihd xs c j fs t is x ∧ v = tagged t (tup t is) x := by
+  constructor
+  · rintro ⟨q, hq, bs, hbs, rfl⟩
+    exact ⟨q.1, _, _, ⟨q, hq, rfl, bs, hbs, rfl, rfl⟩, rfl⟩
+  · rintro ⟨t, is, x, ⟨q, hq, rfl, bs, hbs, rfl, rfl⟩, rfl⟩
+    exact ⟨q, hq, bs, hbs, rfl⟩
+
+set_option maxHeartbeats 1000000 in
+/-- **`hchain` over any classes**: the graph's `ih` values are the `ih`
+terms read at the chain — the `ih` terms read the chain only at their
+calls' spines (`hihRead`), each call's spine fits its callee's stored
+binder data (`hcallTy`), so it is a major of the callee's class
+(`hsplitI`) and a predecessor, where the graph is the chain's recursor. -/
+theorem genHchainG
+    (hsplitI : ∀ c, c < K → ∀ (xs is : List V) (x : V), xs.length = rP c →
+      SpineFit ρ ((rds c).map (·.2.2)) (xs ++ (is ++ [x])) →
+      tup c is ∈ˢ Is xs c ∧ x ∈ˢ app (Cr xs c) (tup c is))
+    (hcallTy : ∀ c, c < K → ∀ j, j < nCt c → ∀ (xs fs : List V) (a : Nat → V),
+      xs.length = (pdoms c).length →
+      SpineFit (chainFrame K a ρ) (pdoms c ++ fdoms c j) (xs ++ fs) →
+      ∀ t is x, genIhCallAt ρ ihd xs c j fs t is x →
+        t < K ∧ xs.length = rP t ∧ SpineFit ρ ((rds t).map (·.2.2)) (xs ++ (is ++ [x])))
+    (hihRead : ∀ c, c < K → ∀ j, j < nCt c → ∀ (xs fs : List V) (a a' : Nat → V),
+      xs.length = (pdoms c).length →
+      SpineFit (chainFrame K a ρ) (pdoms c ++ fdoms c j) (xs ++ fs) →
+      (∀ t is x, genIhCallAt ρ ihd xs c j fs t is x →
+        (xs ++ (is ++ [x])).foldl SetTheory.app (a t)
+          = (xs ++ (is ++ [x])).foldl SetTheory.app (a' t)) →
+      ((ihd c j).map (genIhAV K (pdoms c).length ((pdoms c).length + (fdoms c j).length))).map
+          (interp V (consList (xs ++ fs) (chainFrame K a ρ)))
+        = ((ihd c j).map (genIhAV K (pdoms c).length ((pdoms c).length + (fdoms c j).length))).map
+          (interp V (consList (xs ++ fs) (chainFrame K a' ρ)))) :
+    ∀ (a : Nat → V) (xs : List V) (r : V → V),
+      (∀ c', c' < K → ∀ (is : List V) (x : V),
+        xs.length = rP c' →
+        SpineFit ρ ((rds c').map (·.2.2)) (xs ++ (is ++ [x])) →
+        r (tagged c' (tup c' is) x) = (xs ++ (is ++ [x])).foldl SetTheory.app (a c')) →
+      ∀ c, c < K → ∀ j, j < nCt c → ∀ fs : List V,
+        xs.length = (pdoms c).length →
+        SpineFit (chainFrame K a ρ) (pdoms c ++ fdoms c j) (xs ++ fs) →
+        genIhvT K ρ rP rds tup
+            (fun c j => (ihd c j).map
+              (genIhAV K (pdoms c).length ((pdoms c).length + (fdoms c j).length)))
+            xs c j fs (graph r (graphPredG Is Cr K (genCallT tup ρ ihd) xs (c, j, fs)))
+          = ((ihd c j).map
+              (genIhAV K (pdoms c).length ((pdoms c).length + (fdoms c j).length))).map
+              (interp V (consList (xs ++ fs) (chainFrame K a ρ))) := by
+  intro a xs r hr c hc j hj fs hxl hsp
+  refine (hihRead c hc j hj xs fs a _ hxl hsp fun t is x hcall => ?_).symm
+  obtain ⟨ht, hxlT, hfitT⟩ := hcallTy c hc j hj xs fs a hxl hsp t is x hcall
+  have hfold := lamTowerA_fold (m := 1) Nat.one_ne_zero
+    (g := fun sp _ => app (graph r (graphPredG Is Cr K (genCallT tup ρ ihd) xs (c, j, fs)))
+      (tagged t (tup t (idxOf (rP t) sp)) (majOf sp)))
+    (acc := []) hfitT
+  rw [List.nil_append, idxOf_split hxlT, majOf_split] at hfold
+  show _ = (xs ++ (is ++ [x])).foldl SetTheory.app (genFT ρ rP rds tup _ t)
+  rw [genFT, hfold]
+  obtain ⟨hi, hxC⟩ := hsplitI t ht xs is x hxlT hfitT
+  have hpred : tagged t (tup t is) x ∈ˢ graphPredG Is Cr K (genCallT tup ρ ihd) xs (c, j, fs) :=
+    mem_graphPredG.mpr ⟨tagged_mem_unionSet ht hi hxC, genCallT_iff.mpr ⟨t, is, x, hcall, rfl⟩⟩
+  rw [app_graph hpred]
+  exact (hr t ht is x hxlT hfitT).symm
+
+set_option maxHeartbeats 2000000 in
+/-- **`hstep` over any classes** (`genHstep`'s argument): the residue is
+the minor premise applied to the fields and the graph's `ih` values; the
+`ih` values inhabit their binders' types (each call is typed, hence a
+predecessor, where the graph lands in the motive, which is the stored
+conclusion, the callee's motive variable applied); the minor premise's
+typing (`hminor`) lands the residue in `motive_c e⃗ mk`, which is the
+kit's motive at the constructed element (`hdecInv`). -/
+theorem genHstepG {uX nIdxX : Nat → Nat} {concl : Nat → AnnotTerm}
+    {fit : List V → Nat → V → Nat → List V → Prop} {injX : Nat → Nat → List V → V}
+    {es : Nat → Nat → List AnnotTerm} {mk : Nat → Nat → AnnotTerm}
+    (motPos : Nat → Nat) (minPos : Nat → Nat → Nat)
+    (hpdl : ∀ c, c < K → (pdoms c).length = rP c)
+    (hlenR : ∀ c, c < K → (rds c).length = rP c + nIdxX c + 1)
+    (hmot : ∀ c, c < K → motPos c < rP c)
+    (hmin : ∀ c, c < K → ∀ j, j < nCt c → minPos c j < rP c)
+    (hIsPre : ∀ xs c i, c < K → i ∈ˢ Is xs c → SpineFit ρ (pdoms c) xs)
+    (hsplitI : ∀ c, c < K → ∀ (xs is : List V) (x : V), xs.length = rP c →
+      SpineFit ρ ((rds c).map (·.2.2)) (xs ++ (is ++ [x])) →
+      tup c is ∈ˢ Is xs c ∧ x ∈ˢ app (Cr xs c) (tup c is) ∧ isOfW (uX c) (nIdxX c) (tup c is) = is)
+    (hdecInv : ∀ c, c < K → ∀ j, j < nCt c → ∀ (xs : List V) (i : V) (fs : List V),
+      i ∈ˢ Is xs c → fit xs c i j fs →
+      SpineFit (consList xs ρ) (fdoms c j) fs ∧
+      isOfW (uX c) (nIdxX c) i = (es c j).map (interp V (consList (xs ++ fs) ρ)) ∧
+      ((es c j).map (interp V (consList (xs ++ fs) ρ))).length = nIdxX c ∧
+      interp V (consList (xs ++ fs) ρ) (mk c j) = injX c j fs)
+    (hcallTy : ∀ c, c < K → ∀ j, j < nCt c → ∀ xs fs : List V,
+      xs.length = (pdoms c).length → SpineFit ρ (pdoms c ++ fdoms c j) (xs ++ fs) →
+      ∀ q ∈ ihd c j, ∀ bs, SpineFit (consList (xs ++ fs) ρ) (q.2.1.map (·.2)) bs →
+        q.1 < K ∧ xs.length = rP q.1 ∧
+        SpineFit ρ ((rds q.1).map (·.2.2))
+          (xs ++ (q.2.2.1.map (interp V (consList bs (consList (xs ++ fs) ρ)))
+            ++ [interp V (consList bs (consList (xs ++ fs) ρ)) q.2.2.2])))
+    (hbelow : ∀ c, c < K → ∀ j, j < nCt c → ∀ q ∈ ihd c j,
+      IhDatumBelow ((pdoms c).length + (fdoms c j).length) q)
+    (hconclMot : ∀ c, c < K → ∀ (xs zs : List V) (x : V), xs.length = rP c →
+      zs.length = nIdxX c →
+      interp V (consList (xs ++ (zs ++ [x])) ρ) (concl c)
+        = (zs ++ [x]).foldl SetTheory.app (xs.getD (motPos c) pt))
+    (hminor : ∀ c, c < K → ∀ j, j < nCt c → ∀ xs, SpineFit ρ (pdoms c) xs →
+      ∀ fs, SpineFit (consList xs ρ) (fdoms c j) fs →
+      ∀ hs : List V, hs.length = (ihd c j).length →
+      (∀ (l : Nat) (q : IhDatum) (h : V), (ihd c j)[l]? = some q → hs[l]? = some h →
+        h ∈ˢ interp V (consList (xs ++ fs) ρ)
+          (genIhDomAV ((pdoms c).length + (fdoms c j).length) (motPos q.1) q)) →
+      (fs ++ hs).foldl SetTheory.app (xs.getD (minPos c j) pt)
+        ∈ˢ ((es c j).map (interp V (consList (xs ++ fs) ρ))
+            ++ [interp V (consList (xs ++ fs) ρ) (mk c j)]).foldl SetTheory.app
+            (xs.getD (motPos c) pt)) :
+    ∀ xs : List V, ∀ c, c < K → ∀ j, j < nCt c → ∀ (i : V) (fs : List V),
+      i ∈ˢ Is xs c → fit xs c i j fs → ∀ g : V,
+      (∀ v, v ∈ˢ graphPredG Is Cr K (genCallT tup ρ ihd) xs (c, j, fs) →
+        app g v ∈ˢ blockRecMot K concl uX nIdxX ρ xs v) →
+      interp V (consList (genIhvT K ρ rP rds tup
+            (fun c j => (ihd c j).map
+              (genIhAV K (pdoms c).length ((pdoms c).length + (fdoms c j).length)))
+            xs c j fs g)
+          (consList (xs ++ fs) ρ))
+          (genRb0 (pdoms c).length (minPos c j) (fdoms c j).length (ihd c j).length)
+        ∈ˢ blockRecMot K concl uX nIdxX ρ xs (tagged c i (injX c j fs)) := by
+  intro xs c hc j hj i fs hi hfit g hg
+  have hxs : SpineFit ρ (pdoms c) xs := hIsPre xs c i hc hi
+  have hxl : xs.length = (pdoms c).length := hxs.length_eq
+  obtain ⟨hfs, hisOf, hesl, hmkE⟩ := hdecInv c hc j hj xs i fs hi hfit
+  have hsp : SpineFit ρ (pdoms c ++ fdoms c j) (xs ++ fs) := SpineFit.append hxs hfs
+  have hfl : fs.length = (fdoms c j).length := hfs.length_eq
+  generalize hDd : (pdoms c).length + (fdoms c j).length = D at *
+  have hDlen : (xs ++ fs).length = D := by simp [hxl, hfl, ← hDd]
+  have hagree : ∀ i, i < D →
+      consList (xs ++ fs) (chainFrame K (genFT ρ rP rds tup g) ρ) i = consList (xs ++ fs) ρ i := by
+    intro i hi'
+    rw [consList_getD_of_lt _ _ _ (by omega), consList_getD_of_lt _ _ _ (by omega)]
+  -- the graph's `ih` values inhabit their binders' types
+  have hih : ∀ q ∈ ihd c j,
+      interp V (consList (xs ++ fs) (chainFrame K (genFT ρ rP rds tup g) ρ))
+          (genIhAV K (pdoms c).length D q)
+        ∈ˢ interp V (consList (xs ++ fs) ρ) (genIhDomAV D (motPos q.1) q) := by
+    intro q hq
+    obtain ⟨hbT, hbA⟩ := hbelow c hc j hj q hq
+    rw [hDd] at hbT hbA
+    refine lamTower_mem_piTower q.2.1 hbT hagree fun bs hbs => ?_
+    have hbl : bs.length = q.2.1.length := by rw [hbs.length_eq, List.length_map]
+    have hargR : ∀ e ∈ q.2.2.1 ++ [q.2.2.2],
+        interp V (consList bs (consList (xs ++ fs) (chainFrame K (genFT ρ rP rds tup g) ρ))) e
+          = interp V (consList bs (consList (xs ++ fs) ρ)) e :=
+      fun e he => interp_congr_below V e _ _ _ (hbA e he)
+        (fun i hi' => consList_congr_below bs hagree i (by rw [hbl]; exact hi'))
+    obtain ⟨is, his_def⟩ : ∃ is, is = q.2.2.1.map (interp V (consList bs (consList (xs ++ fs) ρ))) :=
+      ⟨_, rfl⟩
+    obtain ⟨x, hx_def⟩ : ∃ x, x = interp V (consList bs (consList (xs ++ fs) ρ)) q.2.2.2 :=
+      ⟨_, rfl⟩
+    have hbsρ : SpineFit (consList (xs ++ fs) ρ) (q.2.1.map (·.2)) bs := hbs
+    obtain ⟨ht, hxlT, hfitT⟩ := hcallTy c hc j hj xs fs hxl hsp q hq bs hbsρ
+    rw [← his_def, ← hx_def] at hfitT
+    have hcall : genIhCallAt ρ ihd xs c j fs q.1 is x := ⟨q, hq, rfl, bs, hbsρ, his_def, hx_def⟩
+    -- the body: the chain's recursor at the call's spine, i.e. the graph at the call
+    have hbody : interp V (consList bs (consList (xs ++ fs)
+          (chainFrame K (genFT ρ rP rds tup g) ρ)))
+        (AnnotTerm.mkAppN (.bvar (D + q.2.1.length + (K - 1 - q.1)))
+          (prefVarsAV (pdoms c).length (D - (pdoms c).length + q.2.1.length)
+            ++ (q.2.2.1 ++ [q.2.2.2])))
+        = app g (tagged q.1 (tup q.1 is) x) := by
+      rw [interp_mkAppN, ← List.foldl_map]
+      have hhead : consList bs (consList (xs ++ fs) (chainFrame K (genFT ρ rP rds tup g) ρ))
+          (D + q.2.1.length + (K - 1 - q.1)) = genFT ρ rP rds tup g q.1 := by
+        rw [← consList_append, show D + q.2.1.length + (K - 1 - q.1)
+          = (K - 1 - q.1) + (xs ++ fs ++ bs).length by simp [hxl, hfl, hbl, ← hDd]; omega,
+          consList_apply_add, chainFrame_apply ht]
+      rw [show interp V (consList bs (consList (xs ++ fs)
+          (chainFrame K (genFT ρ rP rds tup g) ρ)))
+          (.bvar (D + q.2.1.length + (K - 1 - q.1))) = genFT ρ rP rds tup g q.1 from hhead]
+      have hpv : (prefVarsAV (pdoms c).length (D - (pdoms c).length + q.2.1.length)).map
+          (interp V (consList bs (consList (xs ++ fs)
+            (chainFrame K (genFT ρ rP rds tup g) ρ)))) = xs := by
+        have h := interp_prefVarsAV (V := V) (xs := xs) (bs := fs ++ bs)
+          (ρ := chainFrame K (genFT ρ rP rds tup g) ρ) hxl
+        rw [← List.append_assoc, consList_append] at h
+        simpa [hbl, hfl, ← hDd, Nat.add_sub_cancel_left] using h
+      rw [List.map_append, hpv, List.map_congr_left hargR]
+      simp only [List.map_append, List.map_cons, List.map_nil]
+      rw [← his_def, ← hx_def]
+      have hfold := lamTowerA_fold (m := 1) Nat.one_ne_zero
+        (g := fun sp _ => app g (tagged q.1 (tup q.1 (idxOf (rP q.1) sp)) (majOf sp)))
+        (acc := []) hfitT
+      rw [List.nil_append, idxOf_split hxlT, majOf_split] at hfold
+      rw [genFT, hfold]
+    -- the graph lands in the motive at the call
+    obtain ⟨hiT, hxC, hretT⟩ := hsplitI q.1 ht xs is x hxlT hfitT
+    have hpred : tagged q.1 (tup q.1 is) x ∈ˢ graphPredG Is Cr K (genCallT tup ρ ihd) xs
+        (c, j, fs) :=
+      mem_graphPredG.mpr ⟨tagged_mem_unionSet ht hiT hxC, genCallT_iff.mpr ⟨_, _, _, hcall, rfl⟩⟩
+    have hgv := hg _ hpred
+    have hisl : is.length = nIdxX q.1 := by
+      have := hfitT.length_eq
+      simp only [List.length_append, List.length_singleton, List.length_map, hlenR q.1 ht,
+        hxlT] at this
+      omega
+    rw [blockRecMot_tagged ht, hretT, hconclMot q.1 ht xs is x hxlT hisl] at hgv
+    show interp V _ (AnnotTerm.mkAppN
+        (.bvar (D + q.2.1.length + (K - 1 - q.1)))
+          (prefVarsAV (pdoms c).length (D - (pdoms c).length + q.2.1.length)
+            ++ (q.2.2.1 ++ [q.2.2.2])))
+      ∈ˢ interp V (consList bs (consList (xs ++ fs) ρ))
+      (AnnotTerm.mkAppN (.bvar (D + q.2.1.length - 1 - motPos q.1))
+        (q.2.2.1 ++ [q.2.2.2]))
+    rw [hbody, interp_mkAppN, ← List.foldl_map]
+    have hmt := hmot q.1 ht
+    have hhd : interp V (consList bs (consList (xs ++ fs) ρ))
+        (.bvar (D + q.2.1.length - 1 - motPos q.1)) = xs.getD (motPos q.1) pt := by
+      show consList bs (consList (xs ++ fs) ρ) _ = _
+      rw [← consList_append, List.append_assoc,
+        show D + q.2.1.length - 1 - motPos q.1
+          = (fs ++ bs).length + xs.length - 1 - motPos q.1 by simp [hxl, hfl, hbl, ← hDd]; omega]
+      exact consList_prefix_getD (by omega)
+    rw [hhd]
+    simp only [List.map_append, List.map_cons, List.map_nil]
+    rw [← his_def, ← hx_def]
+    exact hgv
+  -- the residue: the minor premise at the fields and the `ih` values
+  obtain ⟨hsV, hhsV⟩ : ∃ hsV, hsV = genIhvT K ρ rP rds tup
+      (fun c j => (ihd c j).map (genIhAV K (pdoms c).length ((pdoms c).length + (fdoms c j).length)))
+      xs c j fs g := ⟨_, rfl⟩
+  rw [← hhsV]
+  have hsVl : hsV.length = (ihd c j).length := by rw [hhsV]; simp [genIhvT]
+  have hmin' := hmin c hc j hj
+  have hpl := hpdl c hc
+  have key := interp_genRb0 (ρ := ρ) (xs := xs) (fs := fs) (hs := hsV) (minPos := minPos c j)
+    (by omega)
+  rw [hxl, hfl, hsVl] at key
+  rw [key]
+  have hres := hminor c hc j hj xs hxs fs hfs hsV hsVl fun l q h hq hh => by
+    rw [hhsV] at hh
+    simp only [genIhvT, List.map_map, List.getElem?_map, hq, Option.map_some,
+      Option.some.injEq] at hh
+    subst hh
+    rw [← hDd] at hih
+    exact hih q (List.mem_of_getElem? hq)
+  -- the motive at the constructor
+  rw [blockRecMot_tagged hc, hisOf, hconclMot c hc xs _ _ (by rw [hxl, hpl]) hesl, ← hmkE]
+  exact hres
+
+end Generic
+
 /-! ## 4. The rows, from the class facts
 
 The producer's rows at the old class data follow from four facts about
