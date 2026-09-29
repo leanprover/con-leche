@@ -149,7 +149,7 @@ theorem posD_fun : ∀ {j : PosJ} {ts : List PosTree}, PosD ops env ctx j ts →
 /-- **A telescope's outputs are its inputs'**: two derivations of one
 telescope agree on its kinds, normal forms and result. -/
 theorem posD_tele_fun {prog : List NestHole} {base nF j : Nat} {cur : Expr}
-    {ks ks' : List PosKind} {nds nds' : List (Expr × BinderMeta)} {res res' : Expr}
+    {ks ks' : List NestFieldKind} {nds nds' : List (Expr × BinderMeta)} {res res' : Expr}
     {ts ts' : List PosTree}
     (h : PosD ops env ctx (.tele prog base nF j cur ks nds res) ts)
     (h' : PosD ops env ctx (.tele prog base nF j cur ks' nds' res') ts') :
@@ -229,7 +229,7 @@ theorem TreeRec.node {tbl : List NestCtorNf} {occ anc : List NestHole} {key : Ne
 theorem FrameRec.entry {tbl : List NestCtorNf} {prog : List NestHole} {us : List Level}
     {ds : List Expr} {grp : List (Name × Expr)} (h : FrameRec ops env ctx tbl prog us ds grp)
     {ctors : List (ConstantVal × Nat)} (hc : groupCtors ctx ds.length (grp.map (·.1)) = some ctors)
-    {x : ConstantVal × Nat} (hx : x ∈ ctors) {crest : Expr} {ks : List PosKind}
+    {x : ConstantVal × Nat} (hx : x ∈ ctors) {crest : Expr} {ks : List NestFieldKind}
     {nds : List (Expr × BinderMeta)} {cur : Expr} {ts' : List PosTree}
     (hcr : instPisWith ds ((x.1.type.instantiateLevelParams x.1.levelParams us).replaceConsts
       (grpSub us (ctx.hiAt prog.length) grp)) = some crest)

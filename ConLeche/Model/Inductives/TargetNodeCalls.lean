@@ -64,7 +64,7 @@ open ConLeche.Term ConLeche.Verify SetTheory
 open ConLeche.Semantics (AnnotTerm)
 open ConLeche (CheckMode Env Expr Name Level ConstantInfo ConstantVal IndCaps CheckM NestCtx
   NestHole NestCtorNf BinderMeta BlockParts BlockShape TargetMajor fueledOps PosD PosTree
-  PosKind PosNodeOk nestHoleConst closeTelescope targetPiDomsWith targetMajorNfs targetFieldNfs
+  NestFieldKind PosNodeOk nestHoleConst closeTelescope targetPiDomsWith targetMajorNfs targetFieldNfs
   openPisAtFvars)
 
 universe w
@@ -130,7 +130,7 @@ theorem k53_pos {F : Nat} {envI : Env} {ctx : NestCtx} {tbl : List NestCtorNf}
       tbl = .ok M.nfs)
     {ctors : List (ConstantVal × Nat)}
     (hctors : ConLeche.groupCtors ctx u.key.ds.length (u.grp.map (·.1)) = some ctors)
-    {x : ConstantVal × Nat} (hx : x ∈ ctors) {crest : Expr} {ks : List PosKind}
+    {x : ConstantVal × Nat} (hx : x ∈ ctors) {crest : Expr} {ks : List NestFieldKind}
     {nds : List (Expr × BinderMeta)} {cur : Expr} {ts' : List PosTree}
     (hcr : ConLeche.instPisWith u.key.ds ((x.1.type.instantiateLevelParams x.1.levelParams
       u.key.lvls).replaceConsts (ConLeche.grpSub u.key.lvls (ctx.hiAt u.anc.length) u.grp))
@@ -739,7 +739,7 @@ theorem nestedNodeCalls {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : N
   holes, and the listed nodes its container instances land at. -/
   obtain ⟨prog, own, nF, crest, ks, nds, cur, ts, hd, hcrC, hcurC, hndC, hndl, hK, hread, hvisit,
       hstk, hkidN⟩ : ∃ (prog : List NestHole) (own : Nat → Nat) (nF : Nat) (crest : Expr)
-      (ks : List PosKind) (nds : List (Expr × ConLeche.BinderMeta)) (cur : Expr)
+      (ks : List NestFieldKind) (nds : List (Expr × ConLeche.BinderMeta)) (cur : Expr)
       (ts : List PosTree),
       PosD (fueledOps .verified F) envI (pp.nestCtx fvsP envI.find? envI.consts)
         (.tele prog ((pp.nestCtx fvsP envI.find? envI.consts).hiAt prog.length) nF 0 crest ks

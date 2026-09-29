@@ -54,10 +54,10 @@ open Expr
 
 /-- The run-complete judgments: `PosJ` with the in-progress list `act`. -/
 inductive PosJR where
-  | field (act : List NestKey) (prog : List NestHole) (dep kb : Nat) (e : Expr) (k : PosKind)
+  | field (act : List NestKey) (prog : List NestHole) (dep kb : Nat) (e : Expr) (k : NestFieldKind)
       (nf : Expr)
   | tele (act : List NestKey) (prog : List NestHole) (base nF j : Nat) (cur : Expr)
-      (ks : List PosKind) (nds : List (Expr × BinderMeta)) (res : Expr)
+      (ks : List NestFieldKind) (nds : List (Expr × BinderMeta)) (res : Expr)
   | ctors (act : List NestKey) (prog : List NestHole) (hi : Nat) (us : List Level) (ds : List Expr)
       (sub : Name → List Level → Option Expr) (cs : List (ConstantVal × Nat))
   | frame (act : List NestKey) (prog : List NestHole) (us : List Level) (ds : List Expr)
@@ -73,7 +73,7 @@ inductive PosDR (ops : CheckerOps CheckM) (env : Env) (ctx : NestCtx) : Nat → 
         (.field act prog dep kb e .ordinary
           (if e.nestOcc ctx.names ctx.nP (ctx.hiAt prog.length) then w else e))
   | pi {n m : Nat} {act : List NestKey} {prog : List NestHole} {dep kb : Nat} {e a b : Expr}
-      {bm : BinderMeta} {k : PosKind} {nb : Expr}
+      {bm : BinderMeta} {k : NestFieldKind} {nb : Expr}
       (hw : ops.whnf env dep e = .ok (.forallE a b bm))
       (hocc : (Expr.forallE a b bm).nestOcc ctx.names ctx.nP (ctx.hiAt prog.length) = true)
       (ha : a.nestOcc ctx.names ctx.nP (ctx.hiAt prog.length) = false)
@@ -158,7 +158,7 @@ inductive PosDR (ops : CheckerOps CheckM) (env : Env) (ctx : NestCtx) : Nat → 
   | ctorsCons {n m₁ m₂ : Nat} {act : List NestKey} {prog : List NestHole} {hi : Nat}
       {us : List Level} {ds : List Expr} {sub : Name → List Level → Option Expr} {cv : ConstantVal}
       {nF : Nat} {cs : List (ConstantVal × Nat)} {crest ty : Expr} {sv : Level}
-      {ks : List PosKind} {nds : List (Expr × BinderMeta)} {cur : Expr}
+      {ks : List NestFieldKind} {nds : List (Expr × BinderMeta)} {cur : Expr}
       (hnd : Name.nodup cv.levelParams = true)
       (hcrest : instPisWith ds ((cv.type.instantiateLevelParams cv.levelParams us).replaceConsts sub)
         = some crest)
@@ -176,7 +176,7 @@ inductive PosDR (ops : CheckerOps CheckM) (env : Env) (ctx : NestCtx) : Nat → 
       PosDR ops env ctx n (.tele act prog base 0 j cur [] [] cur)
   /-- one field: its walk, then the rest -/
   | teleCons {n m₁ m₃ : Nat} {act : List NestKey} {prog : List NestHole} {base nF j : Nat}
-      {a b : Expr} {bm : BinderMeta} {k : PosKind} {nd : Expr} {ks : List PosKind}
+      {a b : Expr} {bm : BinderMeta} {k : NestFieldKind} {nd : Expr} {ks : List NestFieldKind}
       {nds : List (Expr × BinderMeta)} {res : Expr}
       (hm₁ : m₁ ≤ n)
       (ha : PosDR ops env ctx m₁ (.field act prog (base + j) 0 a k nd))
@@ -189,7 +189,7 @@ inductive PosDR (ops : CheckerOps CheckM) (env : Env) (ctx : NestCtx) : Nat → 
 /-- **A member constructor, run-completely derived** (`MemberCtorD` with
 `PosDR` at fuel index `n`, no frame in progress). -/
 @[expose] def MemberCtorDR (ops : CheckerOps CheckM) (env : Env) (ctx : NestCtx) (n nF : Nat)
-    (crest : Expr) (ks : List PosKind) (tyN : Expr) : Prop :=
+    (crest : Expr) (ks : List NestFieldKind) (tyN : Expr) : Prop :=
   ∃ nds cur, PosDR ops env ctx n (.tele [] [] (ctx.hiAt 0) nF 0 crest ks nds cur) ∧
     tyN = closeTelescope nds (ctx.hiAt 0) cur ∧
     ((List.range nF).any fun i =>
@@ -315,7 +315,7 @@ theorem nestContNew_ok {prog : List NestHole} {kb : Nat} {c : Name} {us : List L
     (hgrp : grp.map (·.1) = c :: nestFrameMates ctx c)
     (hfr : FrameRun ops env ctx rec act (nestWalkStack ctx prog ds) us ds grp) :
     ∃ k st', nestContNew ctx ops env rec prog kb c us ds nPc cty st = .ok (k, st') ∧
-      k.erase = .nested (kb != 0) ∧ RInv ctx st' act := by
+      k = .nested (kb != 0) ∧ RInv ctx st' act := by
   subst hnPc
   obtain ⟨⟨c', cty'⟩, rest, rfl⟩ : ∃ p rest, grp = p :: rest := by
     cases grp with
@@ -358,7 +358,7 @@ theorem nestContNew_ok' {prog : List NestHole} {kb : Nat} {c : Name} {us : List 
     (hnI : nestInstType (m := CheckM) ctx (ctx.hiAt prog.length) ⟨c, us, ds⟩ = .ok (nI, cty))
     (hnew : NewOk ops env ctx rec act prog c us ds) :
     ∃ k st', nestContNew ctx ops env rec prog kb c us ds nPc cty st = .ok (k, st') ∧
-      k.erase = .nested (kb != 0) ∧ RInv ctx st' act := by
+      k = .nested (kb != 0) ∧ RInv ctx st' act := by
   obtain ⟨grp, hne, hhead, hinst, hgrp, hfr⟩ := hnew
   -- the head's hole type is the occurrence's (`nestInstType` at the walk's
   -- smaller hole range computes the same)
@@ -383,7 +383,7 @@ theorem nestContKey_ok {prog : List NestHole} {kb : Nat} {c : Name} {us : List L
     (hact : (⟨c, us, ds⟩ : NestKey) ∉ act)
     (hnew : NewOk ops env ctx rec act prog c us ds) :
     ∃ k st', nestContKey ctx ops env rec prog kb c us ds nPc cty st = .ok (k, st') ∧
-      k.erase = .nested (kb != 0) ∧ RInv ctx st' act := by
+      k = .nested (kb != 0) ∧ RInv ctx st' act := by
   unfold nestContKey
   have hactc : st.active.contains ⟨c, us, ds⟩ = false := by
     rw [hI.1]; simpa using hact
@@ -405,7 +405,7 @@ theorem nestCont_ok {prog : List NestHole} {kb : Nat} {c : Name} {us : List Leve
     (hact : (⟨c, us, args.take nPc⟩ : NestKey) ∉ act)
     (hnew : NewOk ops env ctx rec act prog c us (args.take nPc)) :
     ∃ k st', nestCont ctx ops env rec prog kb c us args st = .ok (k, st') ∧
-      k.erase = .nested (kb != 0) ∧ RInv ctx st' act := by
+      k = .nested (kb != 0) ∧ RInv ctx st' act := by
   unfold nestCont
   simp only [bind, Except.bind, hI.lookup c, hC, unwrapOr, pure, Except.pure]
   rw [if_neg (by
@@ -427,11 +427,11 @@ fuel at least the index, from every state the judgment's in-progress list
 describes, succeeds with the judgment's outputs. -/
 @[expose] def RunOK (ops : CheckerOps CheckM) (env : Env) (ctx : NestCtx) (n : Nat) : PosJR → Prop
   | .field act prog dep kb e k nf => ∀ fuel, n ≤ fuel → ∀ st, RInv ctx st act →
-      ∃ k' st', nestPos ops env ctx fuel prog dep kb e st = .ok (k', nf, st') ∧ k'.erase = k ∧
+      ∃ k' st', nestPos ops env ctx fuel prog dep kb e st = .ok (k', nf, st') ∧ k' = k ∧
         RInv ctx st' act
   | .tele act prog base nF j cur ks nds res => ∀ fuel, n ≤ fuel → ∀ st, RInv ctx st act →
       ∃ ks' st', (∀ err, nestFields (nestPos ops env ctx fuel) prog base
-          err nF j cur st = .ok (ks', nds, res, st')) ∧ ks'.map (·.erase) = ks ∧ RInv ctx st' act
+          err nF j cur st = .ok (ks', nds, res, st')) ∧ ks' = ks ∧ RInv ctx st' act
   | .ctors act prog hi us ds sub cs => ∀ fuel, n ≤ fuel → ∀ st, RInv ctx st act →
       ∃ st', nestCtors ctx ops env (nestPos ops env ctx fuel) prog hi us
           ds ds.length sub cs st = .ok st' ∧ RInv ctx st' act
@@ -498,7 +498,7 @@ theorem posDR_run {n : Nat} {J : PosJR} (h : PosDR ops env ctx n J) : RunOK ops 
       split
       · simp [Expr.getAppFn] at hfn
       · rfl
-    · by_cases hkb : kb = 0 <;> simp [hkb, NestFieldKind.erase]
+    · by_cases hkb : kb = 0 <;> simp [hkb]
   | @frameHole n act prog dep kb e w i ty h hw hocc hfn hlo hhi hk hle hpar hfree har =>
     intro fuel hf st hI
     obtain ⟨f, rfl⟩ : ∃ f, fuel = f + 1 := ⟨fuel - 1, by omega⟩
@@ -556,7 +556,6 @@ theorem posDR_run {n : Nat} {J : PosJR} (h : PosDR ops env ctx n J) : RunOK ops 
     simp only [h₁]
     subst hks
     rw [if_neg (by
-      simp only [erase_getD_bne] at hu4
       rw [hu4]; simp)]
     rw [if_pos (by simp [hres, hidx])]
     exact ihr fuel (by omega) _ hI₁
@@ -572,25 +571,14 @@ theorem posDR_run {n : Nat} {J : PosJR} (h : PosDR ops env ctx n J) : RunOK ops 
     simp only [h₃]
     rfl
 
-theorem guarded_erase (k : NestFieldKind) :
-    (match k with
-      | .recursive _ | .reflexive _ | .nested _ => true
-      | _ => false) = k.erase.guarded := by
-  cases k <;> rfl
-
-theorem getD_erase (ks : List NestFieldKind) (i : Nat) :
-    (ks.map (·.erase)).getD i .ordinary = (ks.getD i .ordinary).erase := by
-  rw [List.getD_eq_getElem?_getD, List.getD_eq_getElem?_getD, List.getElem?_map]
-  cases ks[i]? <;> rfl
-
 /-- **(B) at a member constructor**: its run-complete derivation at a fuel
 index within the walk's input-derived fuel makes `nestMemberCtor` succeed
 with the derivation's kinds and normal form. -/
-theorem memberCtorDR_run {n nF : Nat} {crest tyN : Expr} {ks : List PosKind}
+theorem memberCtorDR_run {n nF : Nat} {crest tyN : Expr} {ks : List NestFieldKind}
     (h : MemberCtorDR ops env ctx n nF crest ks tyN) (hfuel : n ≤ whnfWalkFuel crest)
     {st : NestState} (hI : RInv ctx st []) :
     ∃ ks' st', nestMemberCtor ops env ctx nF crest st = .ok (ks', tyN, st') ∧
-      ks'.map (·.erase) = ks ∧ RInv ctx st' [] := by
+      ks' = ks ∧ RInv ctx st' [] := by
   obtain ⟨nds, cur, hd, rfl, hu4, hres, hidx, hha⟩ := h
   obtain ⟨ks', st', h₁, hks, hI'⟩ := posDR_run hd (whnfWalkFuel crest) hfuel st hI
   refine ⟨ks', st', ?_, hks, hI'⟩
@@ -598,9 +586,9 @@ theorem memberCtorDR_run {n nF : Nat} {crest tyN : Expr} {ks : List PosKind}
   subst hks
   rw [if_neg (by
     have hu4' : ((List.range nF).any fun i =>
-        ((ks'.getD i .ordinary).erase.guarded && structUsedLater
+        ((ks'.getD i .ordinary).guarded && structUsedLater
           (closeTelescope nds (ctx.hiAt 0) cur) 0 i)) = false := by
-      simpa only [getD_erase] using hu4
+      exact hu4
     intro hc
     rw [List.any_eq_true] at hc
     obtain ⟨i, hi, hc⟩ := hc
@@ -608,7 +596,7 @@ theorem memberCtorDR_run {n nF : Nat} {crest tyN : Expr} {ks : List PosKind}
     have := hu4' i hi
     revert hc this
     generalize ks'.getD i .ordinary = k
-    cases k <;> simp [NestFieldKind.erase, PosKind.guarded])]
+    cases k <;> simp [NestFieldKind.guarded])]
   rw [if_pos (by simp only [Bool.and_eq_true]; exact ⟨hres, hidx⟩)]
   rw [if_pos hha]
   rfl
@@ -745,7 +733,7 @@ theorem posDR_posD {n : Nat} {J : PosJR} (h : PosDR ops env ctx n J) :
     exact ⟨ts ++ ts', .teleCons ha hb⟩
 
 /-- A run-complete member constructor is a `PosD` member constructor. -/
-theorem memberCtorDR_posD {n nF : Nat} {crest tyN : Expr} {ks : List PosKind}
+theorem memberCtorDR_posD {n nF : Nat} {crest tyN : Expr} {ks : List NestFieldKind}
     (h : MemberCtorDR ops env ctx n nF crest ks tyN) :
     ∃ ts, MemberCtorD ops env ctx nF crest ks tyN ts := by
   obtain ⟨nds, cur, hd, htyN, hu4, hres, hidx, hha⟩ := h

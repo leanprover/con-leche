@@ -245,7 +245,7 @@ theorem posD_nodes : ∀ {j : PosJ} {ts : List PosTree}, PosD ops env ctx j ts �
 
 /-- **A member constructor's nodes**: its roots occur at no frame, and
 every node of its forest is a node. -/
-theorem memberCtorD_nodes {nF : Nat} {crest : Expr} {ks : List PosKind} {tyN : Expr}
+theorem memberCtorD_nodes {nF : Nat} {crest : Expr} {ks : List NestFieldKind} {tyN : Expr}
     {ts : List PosTree} (h : MemberCtorD ops env ctx nF crest ks tyN ts) :
     (∀ t ∈ ts, t.occ = []) ∧ ∀ t ∈ PosTree.forest ts, PosNodeOk ops env ctx t := by
   obtain ⟨nds, cur, ht, -⟩ := h

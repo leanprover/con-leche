@@ -361,7 +361,7 @@ theorem blockWalkCtx {env : Env} {m : EnvModel V env} {ψ : Name → Nat}
       (nestAbstract (p.nestCtx fvsP env.find? env.consts) holes cA.1.type) = some crest)
     {ty : Expr} (hinf : ConLeche.inferTypeCore .verified env F
       ((p.nestCtx fvsP env.find? env.consts).hiAt 0) crest = .ok ty)
-    {tyN : Expr} {ksD : List ConLeche.PosKind} {ts : List ConLeche.PosTree}
+    {tyN : Expr} {ksD : List ConLeche.NestFieldKind} {ts : List ConLeche.PosTree}
     (hd : ConLeche.MemberCtorD (fueledOps .verified F) env (p.nestCtx fvsP env.find? env.consts)
       cA.2 crest ksD tyN ts)
     {ca : AnnotTerm} (hca₀ : denoteMeta m.acval env ψ (d.nP + d.k) crest = some ca) :
@@ -585,7 +585,7 @@ theorem blockCtorHoleCtx {env : Env} {m : EnvModel V env} {ψ : Name → Nat}
       (nestAbstract (p.nestCtx fvsP env.find? env.consts) holes cA.1.type) = some crest)
     {ty : Expr} (hinf : ConLeche.inferTypeCore .verified env F
       ((p.nestCtx fvsP env.find? env.consts).hiAt 0) crest = .ok ty)
-    {tyN : Expr} {ksD : List ConLeche.PosKind} {ts : List ConLeche.PosTree}
+    {tyN : Expr} {ksD : List ConLeche.NestFieldKind} {ts : List ConLeche.PosTree}
     (hd : ConLeche.MemberCtorD (fueledOps .verified F) env (p.nestCtx fvsP env.find? env.consts)
       cA.2 crest ksD tyN ts)
     (hnf : d.nfFF c j = tyN) :
@@ -669,7 +669,7 @@ theorem blockCtorPos_of_walk {env : Env} {μ : ConLeche.CheckMode} (mp : EnvMode
     (hcrest : instPisWith fvsP
       (nestAbstract (p.nestCtx fvsP env.find? env.consts) holes cA.1.type) = some crest)
     {tyN : Expr}
-    {ksD : List ConLeche.PosKind} {ts : List ConLeche.PosTree}
+    {ksD : List ConLeche.NestFieldKind} {ts : List ConLeche.PosTree}
     (hd : ConLeche.MemberCtorD (fueledOps .verified F) env (p.nestCtx fvsP env.find? env.consts)
       cA.2 crest ksD tyN ts)
     (hcovk : (∃ k ∈ ksD, k.flat = false) → ContCover mp (p.nestCtx fvsP env.find? env.consts))
@@ -768,7 +768,7 @@ theorem checkBlockPositivity_derivM {env : Env} (hwf : ConLeche.EnvWF env) {F : 
           instPisWith fvsP (nestAbstract (p.nestCtx fvsP env.find? env.consts) holes cA.1.type)
             = some crest ∧
           ConLeche.MemberCtorD (fueledOps .verified F) env (p.nestCtx fvsP env.find? env.consts)
-            cA.2 crest (ks.map (·.erase)) ((nfs.getD c []).getD j default) ts ∧
+            cA.2 crest ks ((nfs.getD c []).getD j default) ts ∧
           (kinds.getD c []).getD j [] = ks ∧
           (∃ ty, (fueledOps .verified F).inferType env
             ((p.nestCtx fvsP env.find? env.consts).hiAt 0) crest = .ok ty) ∧

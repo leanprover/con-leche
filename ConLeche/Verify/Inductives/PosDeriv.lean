@@ -72,40 +72,12 @@ The ONE inversion of the run is `nestPos_deriv` (`PosDerivInv.lean`).
 
 namespace ConLeche
 
-/-- A field's kind, declaratively: the run's `NestFieldKind`, constructor
-for constructor (`NestFieldKind.erase`). -/
-inductive PosKind where
-  | ordinary
-  | recursive (t : Nat)
-  | reflexive (t : Nat)
-  | inProgress
-  | nested (refl : Bool)
-  deriving DecidableEq, Inhabited
-
-/-- The run's kind, as the derivation reads it. -/
-@[expose] def NestFieldKind.erase : NestFieldKind → PosKind
-  | .ordinary => .ordinary
-  | .recursive t => .recursive t
-  | .reflexive t => .reflexive t
-  | .inProgress => .inProgress
-  | .nested r => .nested r
-
-/-- A FLAT kind: hole-free, a member, a member under binders — no
-container instantiation. -/
-@[expose] def PosKind.flat : PosKind → Bool
-  | .ordinary | .recursive _ | .reflexive _ => true
-  | _ => false
-
 /-- A kind U4 guards at a member constructor: recursive, reflexive or
 nested (official's auxiliary type makes every later read of such a field
-ill-typed). -/
-@[expose] def PosKind.guarded : PosKind → Bool
+ill-typed).  The derivation's kinds are the run's (`NestFieldKind`). -/
+@[expose] def NestFieldKind.guarded : NestFieldKind → Bool
   | .recursive _ | .reflexive _ | .nested _ => true
   | _ => false
-
-@[simp] theorem NestFieldKind.erase_eq_ordinary {k : NestFieldKind} :
-    k.erase = .ordinary ↔ k = .ordinary := by
-  cases k <;> simp [NestFieldKind.erase]
 
 /-- The frame's new walk entries (one per group member, at the key). -/
 @[expose] def grpNews (us : List Level) (ds : List Expr) (hi : Nat) (grp : List (Name × Expr)) :
@@ -161,8 +133,8 @@ inductive PosTree where
 
 /-- The walk's judgments (see the module docstring). -/
 inductive PosJ where
-  | field (prog : List NestHole) (dep kb : Nat) (e : Expr) (k : PosKind) (nf : Expr)
-  | tele (prog : List NestHole) (base nF j : Nat) (cur : Expr) (ks : List PosKind)
+  | field (prog : List NestHole) (dep kb : Nat) (e : Expr) (k : NestFieldKind) (nf : Expr)
+  | tele (prog : List NestHole) (base nF j : Nat) (cur : Expr) (ks : List NestFieldKind)
       (nds : List (Expr × BinderMeta)) (res : Expr)
   | ctors (prog : List NestHole) (hi : Nat) (us : List Level) (ds : List Expr)
       (sub : Name → List Level → Option Expr) (cs : List (ConstantVal × Nat))
@@ -180,7 +152,7 @@ inductive PosD (ops : CheckerOps CheckM) (env : Env) (ctx : NestCtx) :
         (.field prog dep kb e .ordinary
           (if e.nestOcc ctx.names ctx.nP (ctx.hiAt prog.length) then w else e)) []
   /-- a Π with a hole-free domain and a positive body -/
-  | pi {prog : List NestHole} {dep kb : Nat} {e a b : Expr} {bm : BinderMeta} {k : PosKind}
+  | pi {prog : List NestHole} {dep kb : Nat} {e a b : Expr} {bm : BinderMeta} {k : NestFieldKind}
       {nb : Expr} {ts : List PosTree}
       (hw : ops.whnf env dep e = .ok (.forallE a b bm))
       (hocc : (Expr.forallE a b bm).nestOcc ctx.names ctx.nP (ctx.hiAt prog.length) = true)
@@ -280,7 +252,7 @@ inductive PosD (ops : CheckerOps CheckM) (env : Env) (ctx : NestCtx) :
   hole-free indices -/
   | ctorsCons {prog : List NestHole} {hi : Nat} {us : List Level} {ds : List Expr}
       {sub : Name → List Level → Option Expr} {cv : ConstantVal} {nF : Nat}
-      {cs : List (ConstantVal × Nat)} {crest ty : Expr} {sv : Level} {ks : List PosKind}
+      {cs : List (ConstantVal × Nat)} {crest ty : Expr} {sv : Level} {ks : List NestFieldKind}
       {nds : List (Expr × BinderMeta)} {cur : Expr} {ts ts' : List PosTree}
       (hnd : Name.nodup cv.levelParams = true)
       (hcrest : instPisWith ds ((cv.type.instantiateLevelParams cv.levelParams us).replaceConsts sub)
@@ -298,7 +270,7 @@ inductive PosD (ops : CheckerOps CheckM) (env : Env) (ctx : NestCtx) :
   /-- one field of a telescope: positive at its depth, then the rest
   opened at its variable -/
   | teleCons {prog : List NestHole} {base nF j : Nat} {a b : Expr} {bm : BinderMeta}
-      {k : PosKind} {nd : Expr} {ks : List PosKind} {nds : List (Expr × BinderMeta)} {res : Expr}
+      {k : NestFieldKind} {nd : Expr} {ks : List NestFieldKind} {nds : List (Expr × BinderMeta)} {res : Expr}
       {ts ts' : List PosTree}
       (ha : PosD ops env ctx (.field prog (base + j) 0 a k nd) ts)
       (hb : PosD ops env ctx
@@ -323,7 +295,7 @@ telescope positive at the block's own depth (no frames), U4 at the recursive, re
 fields, its result's indices hole-free, M3/M2′ on the normal form
 `tyN`. -/
 @[expose] def MemberCtorD (ops : CheckerOps CheckM) (env : Env) (ctx : NestCtx) (nF : Nat)
-    (crest : Expr) (ks : List PosKind) (tyN : Expr) (ts : List PosTree) : Prop :=
+    (crest : Expr) (ks : List NestFieldKind) (tyN : Expr) (ts : List PosTree) : Prop :=
   ∃ nds cur, PosD ops env ctx (.tele [] (ctx.hiAt 0) nF 0 crest ks nds cur) ts ∧
     tyN = closeTelescope nds (ctx.hiAt 0) cur ∧
     ((List.range nF).any fun i =>

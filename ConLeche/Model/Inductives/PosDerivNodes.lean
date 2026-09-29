@@ -42,7 +42,7 @@ open ConLeche.Term ConLeche.Verify SetTheory
 open ConLeche.Model.Rules
 open ConLeche.Semantics (AnnotTerm)
 open ConLeche (Env Expr Name Level ConstantVal IndCaps CheckM NestCtx NestKey NestHole NestState
-  NestFieldKind CheckError instPisWith fueledOps PosD PosJ PosKind ProgScoped grpNews grpSub
+  NestFieldKind CheckError instPisWith fueledOps PosD PosJ ProgScoped grpNews grpSub
   groupCtors PosTree)
 
 universe w

@@ -53,7 +53,7 @@ open ConLeche.Term ConLeche.Verify SetTheory
 open ConLeche.Model.Rules
 open ConLeche.Semantics (AnnotTerm)
 open ConLeche (Env Expr Name Level NestCtx NestHole BinderMeta closeTelescope fueledOps PosD PosJ
-  PosKind PosTree MemberCtorD)
+  NestFieldKind PosTree MemberCtorD)
 
 universe w
 
@@ -331,7 +331,7 @@ theorem posD_red (hin : RulesInputs V m φ) {ctx : NestCtx} {F : Nat} :
 derivation's telescope, at the block's depth; the normal form is the
 closing of the outputs). -/
 theorem memberCtorD_red (hin : RulesInputs V m φ) {ctx : NestCtx} {F : Nat}
-    {nF : Nat} {crest : Expr} {ks : List PosKind} {tyN : Expr} {ts : List PosTree}
+    {nF : Nat} {crest : Expr} {ks : List NestFieldKind} {tyN : Expr} {ts : List PosTree}
     (hd : MemberCtorD (fueledOps .verified F) env ctx nF crest ks tyN ts)
     (hfr : Frame (ctx.hiAt 0) crest) {Δa : List AnnotTerm} {ca : AnnotTerm}
     (hC : CtxOkP m φ (ctx.hiAt 0) Δa crest)

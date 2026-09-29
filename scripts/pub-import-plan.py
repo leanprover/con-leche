@@ -139,7 +139,7 @@ FALLBACK = {
     ('ConLeche.Model.Inductives.TargetNodeDynOf', 'ConLeche.Model.Inductives.TargetNodeAdm'),
     ('ConLeche.Model.Inductives.TargetNodeDynOf', 'ConLeche.Model.Inductives.TargetNodeSem'),
     # lane COMPLETE-2/3: the completeness theorem's public statements name
-    # `PosKind`/`MemberCtorD` (PosDeriv); MEASURED by demoting it (unknown
+    # `MemberCtorD` (PosDeriv); MEASURED by demoting it (unknown
     # identifier, `Complete/PosDerivComplete.lean:57`).
     ('ConLeche.Complete.PosDerivComplete', 'ConLeche.Verify.Inductives.PosDeriv'),
     # lane POSDERIV: the positivity inversion's public statements name
@@ -149,7 +149,7 @@ FALLBACK = {
     ('ConLeche.Verify.Inductives.PosDerivInv', 'ConLeche.Verify.Inductives.NestScope'),
     ('ConLeche.Verify.Inductives.PosDerivInv', 'ConLeche.Verify.Inductives.PositivityInv'),
     # lane POSDERIV s2: `storedFieldShapes_of_walk`'s public statement names
-    # `MemberCtorD`/`PosKind`/`PosTree`; MEASURED by demoting it (unknown
+    # `MemberCtorD`/`PosTree`; MEASURED by demoting it (unknown
     # identifier, `StoredShapes.lean:1049`).
     ('ConLeche.Model.Inductives.StoredShapes', 'ConLeche.Verify.Inductives.PosDeriv'),
     # lane FLATACC: after the flat (W) witness went (LfpHoleWitness,

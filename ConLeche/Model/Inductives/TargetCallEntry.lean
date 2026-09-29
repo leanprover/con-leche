@@ -38,7 +38,7 @@ open ConLeche.SetModel
 open SetTheory
 open ConLeche.Term ConLeche.Verify
 open ConLeche (CheckMode Env Expr Name Level ConstantVal ConstantInfo BlockShape TargetMajor
-  NestCtx NestHole NestCtorNf BinderMeta PosD PosTree PosKind PosNodeOk nestHoleConst
+  NestCtx NestHole NestCtorNf BinderMeta PosD PosTree NestFieldKind PosNodeOk nestHoleConst
   closeTelescope targetPiDomsWith targetMajorNfs targetFieldNfs openPisAtFvars)
 
 /-- **K.53′ at a recorded entry** (see the module docstring): an entry of
@@ -192,11 +192,11 @@ theorem entryDs_readback {ops : ConLeche.CheckerOps ConLeche.CheckM} {env : Env}
 /-- **A derived telescope's field `i`**: its derivation at the field's
 depth, its type bvar-closed, its trees the telescope's. -/
 theorem tele_field {ops : ConLeche.CheckerOps ConLeche.CheckM} {env : Env} {ctx : NestCtx}
-    {prog : List NestHole} {base nF : Nat} {crest : Expr} {ks : List PosKind}
+    {prog : List NestHole} {base nF : Nat} {crest : Expr} {ks : List NestFieldKind}
     {nds : List (Expr × BinderMeta)} {cur : Expr} {ts : List PosTree}
     (hd : PosD ops env ctx (.tele prog base nF 0 crest ks nds cur) ts)
     (hcb : crest.looseBVarsBounded 0 = true) {i : Nat} (hi : i < nF) :
-    ∃ (e : Expr) (k : PosKind) (nd : Expr) (tsi : List PosTree),
+    ∃ (e : Expr) (k : NestFieldKind) (nd : Expr) (tsi : List PosTree),
       nds[i]?.map (·.1) = some nd ∧ PosD ops env ctx (.field prog (base + i) 0 e k nd) tsi ∧
       e.looseBVarsBounded 0 = true ∧ ∀ t ∈ tsi, t ∈ ts := by
   obtain ⟨-, -, xs, hop, hall⟩ := ConLeche.posD_tele_open hd

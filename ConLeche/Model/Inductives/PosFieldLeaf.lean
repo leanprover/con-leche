@@ -23,7 +23,7 @@ opened it at is the leaf, up to erasure.
 -/
 
 namespace ConLeche.Model
-open ConLeche (Env Expr Name Level NestCtx NestHole NestKey BinderMeta PosD PosJ PosKind PosTree
+open ConLeche (Env Expr Name Level NestCtx NestHole NestKey BinderMeta PosD PosJ NestFieldKind PosTree
   CheckerOps CheckM nestArity nestContainer)
 
 /-! ## Towers, closed and opened -/

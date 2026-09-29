@@ -53,7 +53,7 @@ open ConLeche.Term ConLeche.Verify SetTheory
 open ConLeche.Model.Rules
 open ConLeche.Semantics (AnnotTerm)
 open ConLeche (Env Expr Name Level ConstantVal CheckM NestCtx NestKey NestHole instPisWith fueledOps
-  PosD PosJ PosKind PosTree ProgScoped grpNews grpSub groupCtors)
+  PosD PosJ NestFieldKind PosTree ProgScoped grpNews grpSub groupCtors)
 
 universe w
 
@@ -148,7 +148,7 @@ theorem acc_of_whnf {μ : ConLeche.CheckMode} {mp : EnvModelM V μ env}
     {Δa : List AnnotTerm} {ea : AnnotTerm} {R : FrameRel V}
     (hC : CtxOkP mp.base2 φ dep Δa e) (hea : denoteMeta mp.base2.acval env φ dep e = some ea)
     (hgr : Graded V Δa ea) (hdom : ∀ ρ ρ', R ρ ρ' → Sat V Δa ρ ∧ Sat V Δa ρ')
-    {w : Nat} {ctx : NestCtx} {prog : List NestHole} {k : PosKind} {nf : Expr}
+    {w : Nat} {ctx : NestCtx} {prog : List NestHole} {k : NestFieldKind} {nf : Expr}
     (kont : Frame dep wt → CtxOkP mp.base2 φ dep Δa wt →
       (∀ l ∈ wt.fvarLeaves, l ∈ e.fvarLeaves) → ∀ wa,
       denoteMeta mp.base2.acval env φ dep wt = some wa → Graded V Δa wa →
@@ -632,7 +632,7 @@ the result's indices hole-free — coverage needed only when some field's
 kind is not flat. -/
 theorem memberCtorD_acc {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env)
     (hin : RulesInputs V mp.base2 φ) {w : Nat} (hw : w ≠ 0) {ctx : NestCtx} {F nF : Nat}
-    {crest cur : Expr} {ks : List PosKind} {nds : List (Expr × ConLeche.BinderMeta)}
+    {crest cur : Expr} {ks : List NestFieldKind} {nds : List (Expr × ConLeche.BinderMeta)}
     {ts : List PosTree}
     (htele : PosD (fueledOps .verified F) env ctx (.tele [] (ctx.hiAt 0) nF 0 crest ks nds cur) ts)
     (hhead : ConLeche.nestResHead cur = true)

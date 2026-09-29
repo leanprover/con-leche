@@ -44,7 +44,7 @@ open ConLeche.SetModel
 open ConLeche.Term ConLeche.Verify SetTheory
 open ConLeche.Semantics (AnnotTerm)
 open ConLeche (Env Expr Name Level ConstantInfo ConstantVal IndCaps CheckM NestCtx NestHole
-  BlockParts BlockShape fueledOps PosTree PosNodeOk PosD PosKind BinderMeta closeTelescope
+  BlockParts BlockShape fueledOps PosTree PosNodeOk PosD NestFieldKind BinderMeta closeTelescope
   openPisAtFvars instPisWith grpNews grpSub)
 
 universe w
@@ -90,7 +90,7 @@ theorem posD_ctors_typed {ops : ConLeche.CheckerOps CheckM} {env : Env} {ctx : N
 input is: every walked normal form (a whnf reduct, closed back over its
 Π-variables) and the result. -/
 theorem posD_tele_closed {env : Env} (hwf : ConLeche.EnvWF env) {ctx : NestCtx} {F : Nat}
-    {prog : List NestHole} {hi nF : Nat} {cur : Expr} {ks : List PosKind}
+    {prog : List NestHole} {hi nF : Nat} {cur : Expr} {ks : List NestFieldKind}
     {nds : List (Expr × BinderMeta)} {res : Expr} {ts : List PosTree}
     (hd : PosD (fueledOps .verified F) env ctx (.tele prog hi nF 0 cur ks nds res) ts)
     (hhi : ctx.hiAt prog.length ≤ hi) (hcb : cur.looseBVarsBounded 0 = true)
@@ -147,7 +147,7 @@ the input's domains has its `i`-th value in the reading of the `i`-th
 walked normal form, at the frame extended by the earlier values. -/
 theorem posD_tele_fieldMem {env : Env} {m : EnvModel V env} {φ : Name → Nat}
     (hin : Rules.RulesInputs V m φ) {ctx : NestCtx} {F : Nat} {prog : List NestHole}
-    {hi nF : Nat} {cur : Expr} {ks : List PosKind} {nds : List (Expr × BinderMeta)} {res : Expr}
+    {hi nF : Nat} {cur : Expr} {ks : List NestFieldKind} {nds : List (Expr × BinderMeta)} {res : Expr}
     {ts : List PosTree}
     (hd : PosD (fueledOps .verified F) env ctx (.tele prog hi nF 0 cur ks nds res) ts)
     (hndC : ∀ (i : Nat) (p : Expr × BinderMeta), nds[i]? = some p → p.1.looseBVarsBounded 0 = true)
@@ -213,7 +213,7 @@ theorem dyn_ctorFit {F : Nat} {envI envC : Env} {mk : EnvModelM V μ envI}
     {m j : Nat} (hm : m < (lfpSel mpC d.toLfp u.key.cname).k)
     (hj : j < (lfpSel mpC d.toLfp u.key.cname).nctors m) :
     ∃ (cv : ConstantVal) (nF : Nat) (ctors : List (ConstantVal × Nat)) (crest : Expr)
-      (ks : List PosKind) (nds : List (Expr × BinderMeta)) (cur : Expr) (ts' : List PosTree),
+      (ks : List NestFieldKind) (nds : List (Expr × BinderMeta)) (cur : Expr) (ts' : List PosTree),
       envI.find? ((lfpSel mpC d.toLfp u.key.cname).ctorName m j)
         = some (.ctorInfo cv u.key.ds.length nF) ∧
       ConLeche.groupCtors ctx u.key.ds.length (u.grp.map (·.1)) = some ctors ∧ (cv, nF) ∈ ctors ∧
@@ -367,7 +367,7 @@ theorem blk_ctorFit {env : Env} {μ' : ConLeche.CheckMode} (mk : EnvModelM V μ'
       (ConLeche.nestAbstract (p.nestCtx fvsP env.find? env.consts) holes cA.1.type) = some crest)
     {ty : Expr} (hinf : ConLeche.inferTypeCore .verified env F
       ((p.nestCtx fvsP env.find? env.consts).hiAt 0) crest = .ok ty)
-    {ks : List PosKind} {tyN : Expr} {ts : List PosTree}
+    {ks : List NestFieldKind} {tyN : Expr} {ts : List PosTree}
     (hd : ConLeche.MemberCtorD (fueledOps .verified F) env (p.nestCtx fvsP env.find? env.consts)
       cA.2 crest ks tyN ts) :
     ∃ (nds : List (Expr × BinderMeta)) (cur : Expr),

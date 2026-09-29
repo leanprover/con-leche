@@ -365,14 +365,14 @@ frame needs to run its per-constructor telescope over the walk's normal
 form (the input may mention a non-ordinary field or a hole inside a
 redex whnf drops, `corner_nestw_u4frame_beta`). -/
 @[expose] def OutOk (m : EnvModel V env) (φ : Name → Nat) (ctx : NestCtx) (prog : List NestHole)
-    (dep : Nat) (Δa : List AnnotTerm) (k : ConLeche.PosKind) (nf : Expr) (ea : AnnotTerm) : Prop :=
+    (dep : Nat) (Δa : List AnnotTerm) (k : ConLeche.NestFieldKind) (nf : Expr) (ea : AnnotTerm) : Prop :=
   nf.looseBVarsBounded 0 = true ∧ Expr.WScoped dep nf ∧
   (k = .ordinary → nf.nestOcc ctx.names ctx.nP (ctx.hiAt prog.length) = false) ∧
   ∃ na, denoteMeta m.acval env φ dep nf = some na ∧
     ∀ ρ, Sat V Δa ρ → interp V ρ na = interp V ρ ea
 
 theorem OutOk.congr_read {m : EnvModel V env} {ctx : NestCtx} {prog : List NestHole} {dep : Nat}
-    {Δa : List AnnotTerm} {k : ConLeche.PosKind} {nf : Expr} {ea ea' : AnnotTerm}
+    {Δa : List AnnotTerm} {k : ConLeche.NestFieldKind} {nf : Expr} {ea ea' : AnnotTerm}
     (h : OutOk m φ ctx prog dep Δa k nf ea)
     (heq : ∀ ρ, Sat V Δa ρ → interp V ρ ea = interp V ρ ea') :
     OutOk m φ ctx prog dep Δa k nf ea' := by
@@ -411,7 +411,7 @@ depths from `d`), and `Q` of the relation and the reading below them. -/
 `OutOk` of its field's reading at its kind. -/
 @[expose] def OutTele (m : EnvModel V env) (φ : Name → Nat) (ctx : NestCtx)
     (prog : List NestHole) :
-    List ConLeche.PosKind → List Expr → Nat → List AnnotTerm → AnnotTerm → Prop
+    List ConLeche.NestFieldKind → List Expr → Nat → List AnnotTerm → AnnotTerm → Prop
   | [], [], _, _, _ => True
   | k :: ks, nd :: nds, d, Δ, .pi _ _ A B =>
     OutOk m φ ctx prog d Δ k nd A ∧ OutTele m φ ctx prog ks nds (d + 1) (A :: Δ) B

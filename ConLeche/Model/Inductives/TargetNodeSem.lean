@@ -61,7 +61,7 @@ theorem blockCtorCrest {env : Env} {m : EnvModel V env} {ψ : Name → Nat}
       (nestAbstract (p.nestCtx fvsP env.find? env.consts) holes cA.1.type) = some crest)
     {ty : Expr} (hinf : ConLeche.inferTypeCore .verified env F
       ((p.nestCtx fvsP env.find? env.consts).hiAt 0) crest = .ok ty)
-    {tyN : Expr} {ksD : List ConLeche.PosKind} {ts : List PosTree}
+    {tyN : Expr} {ksD : List ConLeche.NestFieldKind} {ts : List PosTree}
     (hd : ConLeche.MemberCtorD (fueledOps .verified F) env (p.nestCtx fvsP env.find? env.consts)
       cA.2 crest ksD tyN ts) :
     ∃ ca, (p.nestCtx fvsP env.find? env.consts).hiAt 0 = d.nP + d.k ∧
@@ -119,7 +119,7 @@ theorem memberCtor_nodesSem {μ : ConLeche.CheckMode} {env : Env} (mk : EnvModel
       (nestAbstract (p.nestCtx fvsP env.find? env.consts) holes cA.1.type) = some crest)
     {ty : Expr} (hinf : ConLeche.inferTypeCore .verified env F
       ((p.nestCtx fvsP env.find? env.consts).hiAt 0) crest = .ok ty)
-    {tyN : Expr} {ksD : List ConLeche.PosKind} {ts : List PosTree}
+    {tyN : Expr} {ksD : List ConLeche.NestFieldKind} {ts : List PosTree}
     (hd : ConLeche.MemberCtorD (fueledOps .verified F) env (p.nestCtx fvsP env.find? env.consts)
       cA.2 crest ksD tyN ts) (ψ : Name → Nat) :
     NodesSem mk.base2 ψ (p.nestCtx fvsP env.find? env.consts) (d.holeCtx ψ).reverse ts := by
@@ -323,7 +323,7 @@ theorem nestedRecCtx_nodes (hμ : μ.verifiedChecks = true) {F : Nat} {block : L
     rw [← hctxE]; exact contCover_of hmkC (fun _ => rfl) rfl
   -- every chosen constructor's forest is read
   have hsem : ∀ (m : Nat) (cs : List (ConstantVal × Nat)) (j : Nat) (cA : ConstantVal × Nat)
-      (crest : Expr) (ks : List ConLeche.PosKind) (tyN : Expr) (ts : List PosTree),
+      (crest : Expr) (ks : List ConLeche.NestFieldKind) (tyN : Expr) (ts : List PosTree),
       ctorsAsR[m]? = some cs → cs[j]? = some cA →
       instPisWith fvsP (nestAbstract ctx holes cA.1.type) = some crest →
       ConLeche.MemberCtorD (fueledOps .verified F) envI ctx cA.2 crest ks tyN ts →
@@ -342,7 +342,7 @@ theorem nestedRecCtx_nodes (hμ : μ.verifiedChecks = true) {F : Nat} {block : L
   -- a forest's facts, member constructor's or seed's
   have hsrcD : ∀ ts : List PosTree,
       ((∃ (m : Nat) (cs : List (ConstantVal × Nat)) (j : Nat) (cA : ConstantVal × Nat)
-        (crest : Expr) (ks : List ConLeche.PosKind),
+        (crest : Expr) (ks : List ConLeche.NestFieldKind),
         ctorsAsR[m]? = some cs ∧ cs[j]? = some cA ∧
         instPisWith fvsP (nestAbstract ctx holes cA.1.type) = some crest ∧
         ConLeche.MemberCtorD (fueledOps .verified F) envI ctx cA.2 crest ks
@@ -365,7 +365,7 @@ theorem nestedRecCtx_nodes (hμ : μ.verifiedChecks = true) {F : Nat} {block : L
       (¬ (c < out.length ∧ (tgtMajor out c).member = none) → ts = []) ∧
       (c < out.length → (tgtMajor out c).member = none →
         ((∃ (m : Nat) (cs : List (ConstantVal × Nat)) (j : Nat) (cA : ConstantVal × Nat)
-          (crest : Expr) (ks : List ConLeche.PosKind),
+          (crest : Expr) (ks : List ConLeche.NestFieldKind),
           ctorsAsR[m]? = some cs ∧ cs[j]? = some cA ∧
           instPisWith fvsP (nestAbstract ctx holes cA.1.type) = some crest ∧
           ConLeche.MemberCtorD (fueledOps .verified F) envI ctx cA.2 crest ks
@@ -398,7 +398,7 @@ theorem nestedRecCtx_nodes (hμ : μ.verifiedChecks = true) {F : Nat} {block : L
       obtain rfl := Option.some.inj hcs'
       rw [hj] at hj'
       obtain rfl := Option.some.inj hj'
-      exact ⟨crest, ks.map (·.erase), hcr, hd, hty, htr.mono hposT⟩
+      exact ⟨crest, ks, hcr, hd, hty, htr.mono hposT⟩
     · exact ⟨[], fun cs cA hcs hj => absurd ⟨cs, cA, hcs, hj⟩ h⟩
   obtain ⟨tsM, htsM⟩ := Classical.axiomOfChoice hexM
   let rtC : List PosTree := (List.range out.length).flatMap fun c => tsOf c

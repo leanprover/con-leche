@@ -152,7 +152,7 @@ function, or its recursive call one fuel lower). -/
     ctx.hiAt prog.length ≤ dep → WScoped dep e → ProgScoped ctx prog →
     DerivCache ops env ctx st →
     DerivCache ops env ctx st' ∧
-      ∃ ts, PosD ops env ctx (.field prog dep kb e k.erase nf) ts ∧ NodesIn ops env ctx st st' ts
+      ∃ ts, PosD ops env ctx (.field prog dep kb e k nf) ts ∧ NodesIn ops env ctx st st' ts
 
 /-! ## Scoping -/
 
@@ -310,7 +310,7 @@ theorem nestFields_deriv (hrec : RunDeriv ops env ctx rec)
       nestFields rec prog base err nF j cur st = .ok (ks, nds, res, st') →
       WScoped (base + j) cur → DerivCache ops env ctx st →
       DerivCache ops env ctx st' ∧
-        ∃ ts, PosD ops env ctx (.tele prog base nF j cur (ks.map (·.erase)) nds res) ts ∧
+        ∃ ts, PosD ops env ctx (.tele prog base nF j cur ks nds res) ts ∧
           NodesIn ops env ctx st st' ts := by
   intro nF
   induction nF with
@@ -385,16 +385,6 @@ theorem nestGrowGroup_inv' {hi : Nat} {us : List Level} {ds : List Expr} :
     · exact ⟨nI, hq⟩
     · exact hall p hp
 
-theorem erase_getD (ks : List NestFieldKind) (i : Nat) :
-    (ks.map (·.erase)).getD i .ordinary = (ks.getD i .ordinary).erase := by
-  rw [List.getD_eq_getElem?_getD, List.getD_eq_getElem?_getD, List.getElem?_map]
-  cases ks[i]? <;> rfl
-
-theorem erase_getD_bne (ks : List NestFieldKind) (i : Nat) :
-    ((ks.map (·.erase)).getD i .ordinary != .ordinary) = (ks.getD i .ordinary != .ordinary) := by
-  rw [erase_getD]
-  cases ks.getD i .ordinary <;> rw [Bool.eq_iff_iff] <;> simp [NestFieldKind.erase, bne_iff_ne]
-
 /-! ## The frame -/
 
 section Frame
@@ -468,7 +458,6 @@ theorem nestCtors_deriv (hrec : RunDeriv ops env ctx rec)
       refine ⟨hI', ts₁ ++ ts₂, ?_, hn₁'.trans hn₂, fun x hx => ?_⟩
       · simp only [Bool.and_eq_true] at hok
         refine .ctorsCons hnd hcrest' hty hsv h₁ ?_ hok.1 hok.2 h₂
-        simp only [erase_getD_bne]
         simpa using hu4
       · rcases List.mem_cons.mp hx with rfl | hx
         · intro crest'' ks'' nds'' cur'' ts'' hcr'' hd''
@@ -613,7 +602,7 @@ theorem nestContNew_deriv (hctx : NestCtxOk ctx) (hrec : RunDeriv ops env ctx re
     {st : NestState} {k : NestFieldKind} {st' : NestState}
     (h : nestContNew ctx ops env rec prog kb n us ds nPc cty st = .ok (k, st'))
     (hI : DerivCache ops env ctx st) :
-    DerivCache ops env ctx st' ∧ k.erase = .nested (kb != 0) ∧ ∃ nI cty grp,
+    DerivCache ops env ctx st' ∧ k = .nested (kb != 0) ∧ ∃ nI cty grp,
       nestInstType (m := CheckM) ctx (ctx.hiAt (nestWalkStack ctx prog ds).length) ⟨n, us, ds⟩
         = .ok (nI, cty) ∧
       grp.head? = some (n, cty) ∧
@@ -722,7 +711,7 @@ theorem nestContKey_deriv (hctx : NestCtxOk ctx) (hrec : RunDeriv ops env ctx re
     {st : NestState} {k : NestFieldKind} {st' : NestState}
     (h : nestContKey ctx ops env rec prog kb n us ds nPc cty st = .ok (k, st'))
     (hI : DerivCache ops env ctx st) :
-    DerivCache ops env ctx st' ∧ k.erase = .nested (kb != 0) ∧
+    DerivCache ops env ctx st' ∧ k = .nested (kb != 0) ∧
       ((∃ nI cty grp,
         nestInstType (m := CheckM) ctx (ctx.hiAt prog.length) ⟨n, us, ds⟩ = .ok (nI, cty) ∧
         grp.head? = some (n, cty) ∧ ∃ ts, PosD ops env ctx (.frame prog us ds grp) ts ∧
@@ -756,7 +745,7 @@ end Frame
 `nestPos` — at any fuel, under any `ops` whose whnf keeps terms well
 scoped, at a context whose stored constants are closed — keeps the
 cache invariant, and when it leaves no restart pending, its input is
-derived (`PosD`), with the run's kind (`NestFieldKind.erase`) and
+derived (`PosD`), with the run's kind and
 normal form. -/
 theorem nestPos_deriv (hctx : NestCtxOk ctx)
     (hwsc : ∀ dep e w, ops.whnf env dep e = .ok w → WScoped dep e → WScoped dep w) :
@@ -900,7 +889,7 @@ theorem nestMemberCtor_deriv (hctx : NestCtxOk ctx)
     {st' : NestState}
     (h : nestMemberCtor ops env ctx nF crest st = .ok (ks, tyN, st'))
     (hws : WScoped (ctx.hiAt 0) crest) (hI : DerivCache ops env ctx st) :
-    DerivCache ops env ctx st' ∧ ∃ ts, MemberCtorD ops env ctx nF crest (ks.map (·.erase)) tyN ts ∧
+    DerivCache ops env ctx st' ∧ ∃ ts, MemberCtorD ops env ctx nF crest ks tyN ts ∧
       NodesIn ops env ctx st st' ts := by
   unfold nestMemberCtor at h
   simp only [bind, Except.bind] at h
@@ -927,8 +916,7 @@ theorem nestMemberCtor_deriv (hctx : NestCtxOk ctx)
       obtain ⟨i, hi, hx⟩ := hany
       refine ⟨i, hi, ?_⟩
       revert hx
-      rw [erase_getD]
-      cases ks₁.getD i .ordinary <;> simp [PosKind.guarded, NestFieldKind.erase]
+      cases ks₁.getD i .ordinary <;> simp [NestFieldKind.guarded]
     · simp [throw, throwThe, MonadExceptOf.throw] at h
   · simp [throw, throwThe, MonadExceptOf.throw] at h
 
@@ -1023,7 +1011,7 @@ theorem checkBlockPositivity_deriv {env₁ : Env}
           ∀ (j : Nat) (cA : ConstantVal × Nat), cs[j]? = some cA → ∃ crest ks ts,
             instPisWith fvsP (nestAbstract (p.nestCtx fvsP find? consts) holes cA.1.type)
               = some crest ∧
-            MemberCtorD ops env₁ (p.nestCtx fvsP find? consts) cA.2 crest (ks.map (·.erase))
+            MemberCtorD ops env₁ (p.nestCtx fvsP find? consts) cA.2 crest ks
               ((nfs.getD c []).getD j default) ts ∧
             (kinds.getD c []).getD j [] = ks ∧
             TreeRec ops env₁ (p.nestCtx fvsP find? consts) pos.ctorNfs.toList ts) ∧

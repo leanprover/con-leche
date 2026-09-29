@@ -46,7 +46,7 @@ open ConLeche.SetModel
 open ConLeche.Term ConLeche.Verify SetTheory
 open ConLeche.Semantics (AnnotTerm)
 open ConLeche (Env Expr Name Level NestCtx NestHole BinderMeta nestHoleConst extendF CheckM
-  PosD PosKind PosTree nestArity nestContainer closeTelescope targetPiDomsWith)
+  PosD NestFieldKind PosTree nestArity nestContainer closeTelescope targetPiDomsWith)
 
 universe w
 
@@ -258,7 +258,7 @@ theorem callWalkSyn {ops : ConLeche.CheckerOps CheckM} {envW : Env}
     (hfvF : ∀ l, l < fvsF.length → ∃ ty, fvsF[l]? = some (.fvar (rP + l) ty))
     (hlenF : fvsF.length = nds.length)
     {i : Nat} (hi : i < nds.length) {nd : Expr} (hnd : nds[i]?.map (·.1) = some nd)
-    {e : Expr} {k : PosKind} {tsi : List PosTree}
+    {e : Expr} {k : NestFieldKind} {tsi : List PosTree}
     (hfd : PosD ops envW ctx (.field prog (ctx.hiAt prog.length + i) 0 e k nd) tsi)
     (he : e.looseBVarsBounded 0 = true)
     {tele : List (Expr × BinderMeta)} {majDom : Expr}

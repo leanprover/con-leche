@@ -406,7 +406,7 @@ theorem outsideClass_reachedNode {envC envI : Env} (hwf : ConLeche.EnvWF envI) {
       ∀ c, c < out.length → (tgtMajor out c).member = none →
         ∃ ts : List PosTree,
           ((∃ (m : Nat) (cs : List (ConstantVal × Nat)) (j : Nat) (cA : ConstantVal × Nat)
-            (crest : Expr) (ks : List PosKind),
+            (crest : Expr) (ks : List NestFieldKind),
             ctorsAs[m]? = some cs ∧ cs[j]? = some cA ∧
             instPisWith fvsP (nestAbstract (pp.nestCtx fvsP envI.find? envI.consts) holes
               cA.1.type) = some crest ∧

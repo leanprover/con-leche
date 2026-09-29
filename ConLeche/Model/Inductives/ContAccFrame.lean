@@ -69,7 +69,7 @@ theorem FieldsBound.of_eqOn {w : Nat} :
 reading like the walked input fields, each entry the reading of its
 field's output. -/
 theorem outTele_list {ctx : NestCtx} {prog : List NestHole} :
-    ∀ (ks : List ConLeche.PosKind) (nds : List Expr) (d : Nat) (Δ : List AnnotTerm)
+    ∀ (ks : List ConLeche.NestFieldKind) (nds : List Expr) (d : Nat) (Δ : List AnnotTerm)
       (abD : List (Nat × Nat × AnnotTerm)) (B : AnnotTerm),
       abD.length = nds.length →
       OutTele m φ ctx prog ks nds d Δ (mkPisAV abD B) →
@@ -109,7 +109,7 @@ bound `b`; the telescope's shape (one output per field, its result
 bvar-closed) and U4 on its normal form. -/
 theorem walkTele_acc {w : Nat} (hw : w ≠ 0) {ctx : NestCtx} {prog : List NestHole} {b : Nat}
     (hb : ctx.hiAt prog.length = b) {nF : Nat} {res : Expr}
-    {ks : List ConLeche.PosKind} {nds : List (Expr × BinderMeta)}
+    {ks : List ConLeche.NestFieldKind} {nds : List (Expr × BinderMeta)}
     (hnl : nds.length = nF) (hrescl : res.looseBVarsBounded 0 = true)
     (hU4 : ∀ i, i < nF → ks.getD i .ordinary ≠ .ordinary →
       ConLeche.structUsedLater (ConLeche.closeTelescope nds b res) 0 i = false)
@@ -254,7 +254,7 @@ relation and their outputs read like the inputs. -/
     (prog : List NestHole) (hi : Nat) (us : List Level) (ds : List Expr) (nPc : Nat)
     (sub : Name → List Level → Option Expr)
     (Δ : List AnnotTerm) (R : FrameRel V) (x : ConstantVal × Nat) : Prop :=
-  x.1.levelParams.Nodup ∧ ∃ crest ca, ∃ ks : List ConLeche.PosKind, ∃ nds cur,
+  x.1.levelParams.Nodup ∧ ∃ crest ca, ∃ ks : List ConLeche.NestFieldKind, ∃ nds cur,
     ConLeche.instPisWith ds ((x.1.type.instantiateLevelParams x.1.levelParams us).replaceConsts sub)
       = some crest ∧
     crest.looseBVarsBounded 0 = true ∧

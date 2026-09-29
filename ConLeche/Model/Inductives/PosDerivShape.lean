@@ -24,7 +24,7 @@ the run:
 
 namespace ConLeche.Model
 
-open ConLeche (Env Expr Name NestCtx NestHole BinderMeta PosD PosJ PosKind PosTree closeTelescope
+open ConLeche (Env Expr Name NestCtx NestHole BinderMeta PosD PosJ NestFieldKind PosTree closeTelescope
   fueledOps openPisAtFvars)
 
 /-- **A derived field's output**: bvar-closed (for a bvar-closed input),
@@ -101,7 +101,7 @@ telescope): it opens at the block's depth; every opened domain is
 erasure-equal to its field's output, hole-free at an ordinary kind, and no
 kind is `inProgress`. -/
 theorem memberCtorD_open {env : Env} (henv : ConLeche.EnvWF env) {ctx : NestCtx} {F : Nat}
-    {nF : Nat} {crest tyN cur : Expr} {ks : List PosKind} {nds : List (Expr × BinderMeta)}
+    {nF : Nat} {crest tyN cur : Expr} {ks : List NestFieldKind} {nds : List (Expr × BinderMeta)}
     {ts : List PosTree} (hcl : crest.looseBVarsBounded 0 = true)
     (htele : PosD (fueledOps .verified F) env ctx (.tele [] (ctx.hiAt 0) nF 0 crest ks nds cur) ts)
     (htyN : tyN = closeTelescope nds (ctx.hiAt 0) cur) :

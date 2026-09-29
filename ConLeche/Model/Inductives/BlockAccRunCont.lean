@@ -30,7 +30,7 @@ open ConLeche.SetModel
 open ConLeche.Term ConLeche.Verify SetTheory
 open ConLeche.Semantics (AnnotTerm)
 open ConLeche (Env Expr Name Level ConstantVal CheckM NestCtx NestHole NestFieldKind BlockParts
-  BlockShape instPisWith nestAbstract nestHoles openPisAtFvars fueledOps MemberCtorD PosKind PosTree)
+  BlockShape instPisWith nestAbstract nestHoles openPisAtFvars fueledOps MemberCtorD NestFieldKind PosTree)
 
 universe w
 
@@ -62,7 +62,7 @@ theorem blockCtorAcc_of_walk {env : Env} {μ : ConLeche.CheckMode} (mp : EnvMode
     (hcrest : instPisWith fvsP
       (nestAbstract (p.nestCtx fvsP env.find? env.consts) holes cA.1.type) = some crest)
     {tyN : Expr}
-    {ksD : List PosKind} {ts : List PosTree}
+    {ksD : List NestFieldKind} {ts : List PosTree}
     (hd : MemberCtorD (fueledOps .verified F) env (p.nestCtx fvsP env.find? env.consts) cA.2 crest
       ksD tyN ts)
     (hcovk : (∃ k ∈ ksD, k.flat = false) →
@@ -198,7 +198,7 @@ theorem blockCtorAcc_of_walk {env : Env} {μ : ConLeche.CheckMode} (mp : EnvMode
       cases k with
       | ordinary => rfl
       | inProgress => exact absurd rfl hnip
-      | _ => simp [PosKind.guarded] at this
+      | _ => simp [NestFieldKind.guarded] at this
     have hwx := openPisAtFvars_typeWScoped cA.2 hopN hfrN.1 i x hx
     have hholes' : NoBVar (holeP (ctx.hiAt 0 + i) ctx.nP (ctx.hiAt 0)) p'.2.2 := by
       refine denoteMeta_noBVar_of_nestOcc (m := mp.base2) (names := ctx.names) _ _ hwx

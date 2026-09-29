@@ -48,7 +48,7 @@ open ConLeche.Term ConLeche.Verify SetTheory
 open ConLeche.Model.Rules
 open ConLeche.Semantics (AnnotTerm)
 open ConLeche (Env Expr Name Level ConstantVal IndCaps CheckM NestCtx NestKey NestHole NestState
-  NestFieldKind CheckError instPisWith fueledOps PosD PosJ PosKind ProgScoped grpNews grpSub
+  NestFieldKind CheckError instPisWith fueledOps PosD PosJ ProgScoped grpNews grpSub
   groupCtors)
 
 universe w
@@ -839,7 +839,7 @@ earlier ones along the hole relation, the result's indices hole-free —
 coverage needed only when some field's kind is not flat. -/
 theorem memberCtorD_mono {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env)
     (hin : RulesInputs V mp.base2 φ) {ctx : NestCtx} {F nF : Nat} {crest : Expr}
-    {ks : List PosKind} {tyN : Expr} {ts : List ConLeche.PosTree}
+    {ks : List NestFieldKind} {tyN : Expr} {ts : List ConLeche.PosTree}
     (hd : ConLeche.MemberCtorD (fueledOps .verified F) env ctx nF crest ks tyN ts)
     (hcov : (∃ k ∈ ks, k.flat = false) → ContCover mp ctx)
     (hfr : Frame (ctx.hiAt 0) crest)

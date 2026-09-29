@@ -116,7 +116,7 @@ theorem blockCtorHoleGrade_of_walk {env : Env} (mp : EnvModelM V .verified env)
       (nestAbstract (p.nestCtx fvsP env.find? env.consts) holes cA.1.type) = some crest)
     {ty : Expr} (hinf : ConLeche.inferTypeCore .verified env F
       ((p.nestCtx fvsP env.find? env.consts).hiAt 0) crest = .ok ty)
-    {tyN : Expr} {ksD : List ConLeche.PosKind} {ts : List ConLeche.PosTree}
+    {tyN : Expr} {ksD : List ConLeche.NestFieldKind} {ts : List ConLeche.PosTree}
     (hd : ConLeche.MemberCtorD (fueledOps .verified F) env (p.nestCtx fvsP env.find? env.consts)
       cA.2 crest ksD tyN ts)
     (hnf : d.nfFF c j = tyN)
