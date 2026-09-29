@@ -8,6 +8,8 @@ import ConLeche.Verify.BridgeDecl
 import ConLeche.Verify.Inductives.RecStage
 import ConLeche.Verify.BridgeWfImp
 import ConLeche.Verify.Cached.WalkersC
+import ConLeche.Verify.Cached.NestPosC
+public import ConLeche.Verify.Inductives.NestScope
 import ConLeche.Verify.Cached.AgreeFloor
 import ConLeche.Verify.Denote.IndFrame
 
