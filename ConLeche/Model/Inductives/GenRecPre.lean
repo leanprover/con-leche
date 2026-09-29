@@ -4,6 +4,7 @@ public import ConLeche.Model.Inductives.GenRecAssembly
 public import ConLeche.Model.Inductives.TargetClasses
 public import ConLeche.Model.Inductives.ClassGenMinor
 import ConLeche.SetModel.TupleTower
+import ConLeche.Model.Inductives.ClassGenUniq
 import ConLeche.Model.Inductives.NestedRecEqs
 import ConLeche.Model.Inductives.BlockRecPreHpre
 import ConLeche.Model.Inductives.BlockRecPreRun
@@ -920,6 +921,53 @@ theorem genRow_hrule (hμ : μ.verifiedChecks = true) {memR : Nat → Prop}
   rw [hret, ← hmkE] at hfit
   rw [hes, hmk]
   exact hfit
+
+/-- **Row `huniq`**, from the classes' recorded clauses (`genUniq`): the
+class fit is the clause's hole fit at the carrier and the injection the
+clause's, definitionally; at `ℓ = 0` the conclusion's typing; at a
+`Prop`-valued class under a nonzero elimination level, the licence. -/
+theorem genRow_huniq (hμ : μ.verifiedChecks = true) {memR : Nat → Prop}
+    (h : ConLeche.RecStageG μ F envC pp cvTas ctorsAs (tgtRs out) memR) (ψ : Name → Nat)
+    (ρ : Nat → V) (hB : GenClsBack pp out mpC d Dc mc cvc ψ ρ)
+    (hDin : ∀ c, c < (tgtRs out).length → tgtClsD d Dc out c ∈ mpC.lfpBlocks)
+    (hmN : ∀ c, c < (tgtRs out).length → tgtClsM mc pp.toBlockShape out c < (tgtClsD d Dc out c).N)
+    (hlic : Level.eval ψ (ConLeche.structElimLevel pp.toBlockShape.elim pp.toBlockShape.large) ≠ 0 →
+      ∀ xs, ∀ c, c < (tgtRs out).length →
+      (tgtClsD d Dc out c).w (tgtClsψ cvc out ψ c) = 0 →
+      ∀ t, t ∈ˢ tgtClsIs d Dc mc cvc mpC.base2.acval envC pp.toBlockShape out ψ ρ xs c →
+      ∀ j fs j' fs',
+      tgtClsFit d Dc mc cvc mpC.base2.acval envC pp.toBlockShape out ψ ρ xs c t j fs →
+      tgtClsFit d Dc mc cvc mpC.base2.acval envC pp.toBlockShape out ψ ρ xs c t j' fs' →
+      j = j' ∧ fs = fs') :
+    ∀ xs : List V,
+      ∀ u, u ∈ˢ unionSet (tgtRs out).length
+          (tgtClsIs d Dc mc cvc mpC.base2.acval envC pp.toBlockShape out ψ ρ xs)
+          (tgtClsCr d Dc mc cvc mpC.base2.acval envC pp.toBlockShape out ψ ρ xs) →
+      ∀ e e',
+        graphDecG (tgtClsIs d Dc mc cvc mpC.base2.acval envC pp.toBlockShape out ψ ρ)
+          (tgtClsInj d Dc mc cvc pp.toBlockShape out ψ) (blockRecNCt (tgtRs out))
+          (tgtRs out).length (tgtClsFit d Dc mc cvc mpC.base2.acval envC pp.toBlockShape out ψ ρ)
+          xs u e →
+        graphDecG (tgtClsIs d Dc mc cvc mpC.base2.acval envC pp.toBlockShape out ψ ρ)
+          (tgtClsInj d Dc mc cvc pp.toBlockShape out ψ) (blockRecNCt (tgtRs out))
+          (tgtRs out).length (tgtClsFit d Dc mc cvc mpC.base2.acval envC pp.toBlockShape out ψ ρ)
+          xs u e' →
+      e = e' ∨ ∀ v v',
+        v ∈ˢ blockRecMot (tgtRs out).length
+          (blockRecConclAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ)
+          (tgtClsU d Dc mc cvc pp.toBlockShape out ψ) (tgtClsNIdx d pp.toBlockShape out) ρ xs u →
+        v' ∈ˢ blockRecMot (tgtRs out).length
+          (blockRecConclAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ)
+          (tgtClsU d Dc mc cvc pp.toBlockShape out ψ) (tgtClsNIdx d pp.toBlockShape out) ρ xs u →
+        v = v' := by
+  intro xs
+  exact genUniq (acval := mpC.base2.acval) (nCt := blockRecNCt (tgtRs out))
+    (fun c => tgtClsD d Dc out c) (fun c => tgtClsψ cvc out ψ c)
+    (fun c => tgtClsFr d mpC.base2.acval envC pp.toBlockShape out ψ ρ xs c)
+    (fun c => tgtClsM mc pp.toBlockShape out c)
+    (fun c hc _ _ => (mpC.lfp_ok _ (hDin c hc)).1) (fun c hc _ _ => hmN c hc)
+    (fun _ _ _ _ _ _ => rfl) (fun _ _ _ _ _ _ hf => hf)
+    (genRow_hconclTy hμ h ψ ρ hB xs) (hlic · xs)
 
 section RowsIh
 
