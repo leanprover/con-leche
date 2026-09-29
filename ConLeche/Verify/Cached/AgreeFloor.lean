@@ -942,8 +942,6 @@ theorem checkBlockTailS_skels (mode : CheckMode) {block : List ConstantInfo}
     Yields (checkBlockTailS mode block q) (fun fe' => SkelIs fe' (blockSkels q.p sk)) := by
   unfold checkBlockTailS
   dsimp only
-  split
-  · exact Yields.ofThrowBind
   refine Yields.bind fun _ => ?_
   refine Yields.bind fun _ => ?_
   have hlenC : q.ctorsAs.map List.length = q.p.members.map (·.ctors.length) := by

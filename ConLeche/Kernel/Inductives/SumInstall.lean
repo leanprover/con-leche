@@ -80,7 +80,7 @@ proposition OR one of the residual's index expressions — official's
 `elim_only_at_universe_zero` for one constructor (the subsingleton-
 elimination criterion, `Eq`'s rule; `inductive.cpp`).  A block with
 two or more constructors has its large eliminator rejected by
-`checkBlockTail`'s elimination restriction.  Walks the fields from
+the recursor stage's elimination guard (`blockLargeElimAllowed`).  Walks the fields from
 the last to the first and returns the sorts in field order. -/
 def checkStructFieldSortsI (ops : CheckerOps m) (env : Env) (isProp large : Bool)
     (s : Level) (nP : Nat) (fvs idxArgs : List Expr) : Nat → m (List Level)

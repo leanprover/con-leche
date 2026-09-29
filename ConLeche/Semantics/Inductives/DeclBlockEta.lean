@@ -348,7 +348,7 @@ theorem declBlockRun_etaClosed {μ : CheckMode} {F : Nat} {env env₂ : Env}
     {block : List ConstantInfo} {p₀ : BlockParts} (hE : EtaFamiliesClosed env)
     (h : DeclBlockRun μ F env block p₀ env₂) : EtaFamiliesClosed env₂ := by
   obtain ⟨hndC, -, isRec, env₁, cvTas, p₁, p, ctorsAs, sortsss, kinds, nfs, nodes, isorts, rs,
-    hInd, hp, hCtors, -, -, -, -, hRec, hTbl⟩ := h
+    hInd, hp, hCtors, -, -, -, hRec, hTbl⟩ := h
   subst hp
   obtain ⟨_, _, _, _, _, -, -, hp₁, rfl, -, -, -⟩ := ConLeche.checkBlockInds_shape hInd
   have hlenCv : cvTas.length = p₁.members.length := by

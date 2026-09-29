@@ -74,7 +74,7 @@ theorem declBlock (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
     ∃ mp' : EnvModelM V μ env₂, LfpCover mp' [] := by
   classical
   obtain ⟨hndC₀, hndM₀, isRec, env₁, cvTas, p₁, p, ctorsAs, sortsss, kinds, nfs, nodes, isorts, outR,
-    hInd, hp, hCtors, hPos, -, -, hsorts, hRec, hTbl⟩ := hrun
+    hInd, hp, hCtors, hPos, -, hsorts, hRec, hTbl⟩ := hrun
   subst hp
   -- ## the recogniser's facts, moved to the shape the formers' stage completed
   have hshape := ConLeche.blockParts?_inv hdp

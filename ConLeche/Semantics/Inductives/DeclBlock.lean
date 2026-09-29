@@ -13,8 +13,7 @@ relation: the two distinct-name guards, the k type formers' run (constant check,
 official's telescope loop, the result sort, and — from member 1 on —
 official's two agreements), the constructors' runs per member at the
 environment holding ALL the formers, the kinds classified against the
-whole member list, the capability record the block owes, the
-elimination restriction, every member's index binders' sorts, the kinds
+whole member list, the capability record the block owes, every member's index binders' sorts, the kinds
 re-checked on the stored constructors at the TARGET each carries, the
 recursor stage, and the install spine (the constructors consed, the
 recursors consed with their rules, a projection table per
@@ -63,18 +62,16 @@ def DeclBlockRun (μ : CheckMode) (F : Nat) (env : Env) (block : List ConstantIn
       cvTas ctorsAs = .ok (kinds, nfs, pos) ∧
     -- 4  the formers carry the record at official's `is_rec`, the syntactic one
     isRec = blockRawRec p₀ ∧
-    -- 5  the elimination restriction (official `elim_only_at_universe_zero`)
-    (p.large = true → p.resSort.isNeverZero = true ∨ (p.k < 2 ∧ p.numCtors < 2)) ∧
-    -- 6  every member's index binders' sorts
+    -- 5  every member's index binders' sorts
     checkBlockIdxSorts (m := ConLeche.CheckM) (fueledOps μ F) env₁ p.toBlockShape
       (p.members.zip cvTas) = .ok isorts ∧
-    -- 8  the recursor stage: the GENERATED recursors, one per record of the
+    -- 6  the recursor stage: the GENERATED recursors, one per record of the
     --    stream's family (outside classes at the auxiliary types, the block's
     --    container bit)
     checkBlockRec (m := ConLeche.CheckM) (fueledOps μ F) env₁
       (consBlockCtors p.nP ctorsAs env₁) p (blockNestedBit p.toBlockShape kinds)
       pos block cvTas ctorsAs = .ok out ∧
-    -- 9  the install spine: the recursors with their rules at their majors,
+    -- 7  the install spine: the recursors with their rules at their majors,
     --    then the tables
     checkBlockTables (m := ConLeche.CheckM) p.toBlockShape
       (p.members.zip (ctorsAs.zip sortsss))
@@ -102,9 +99,9 @@ theorem declBlockRun_of {μ : CheckMode} {F : Nat} {env env₂ : Env}
   rw [hP] at h
   dsimp only at h
   obtain ⟨p₁, hInd, hCtors, hK, hp⟩ := ConLeche.checkBlockPass_inv hP
-  obtain ⟨isorts, rs, helim, hsorts, hRec, hTbl⟩ := ConLeche.checkBlockTail_inv h
+  obtain ⟨isorts, rs, hsorts, hRec, hTbl⟩ := ConLeche.checkBlockTail_inv h
   refine ⟨hnd.1, hnd.2, blockRawRec p₀, q.env₁, q.cvTas, p₁, q.p, q.ctorsAs, q.sortsss, q.kinds,
-    q.nfs, q.pos, isorts, rs, hInd, hp, ?_, ?_, rfl, helim, hsorts, hRec, hTbl⟩
+    q.nfs, q.pos, isorts, rs, hInd, hp, ?_, ?_, rfl, hsorts, hRec, hTbl⟩
   · rw [hp]; exact hCtors
   · rw [hp]; exact hK
 

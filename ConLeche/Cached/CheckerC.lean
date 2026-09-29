@@ -156,9 +156,6 @@ past the constructors' pushes, which would copy it). -/
 def checkBlockTailS (block : List ConstantInfo) (q : BlockPass FEnv) :
     CheckCM FEnv := do
   let p := q.p
-  if p.large && !p.resSort.isNeverZero && decide (2 ≤ p.k ∨ 2 ≤ p.numCtors) then
-    throw (.invalid "direct rec: large eliminator on a multi-constructor inductive \
-      whose sort may be Prop")
   let _isorts ← checkBlockIdxSortsF (sharedOpsC mode q.env₁) q.env₁ p.toBlockShape
     (p.members.zip q.cvTas)
   let vis₁ := q.env₁.visibleBelow

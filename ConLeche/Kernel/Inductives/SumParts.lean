@@ -16,7 +16,8 @@ elimination level parameter in front of the block's, the small one
 the block's own.
 
 **The elimination restriction** (official `elim_only_at_universe_zero`,
-enforced by `checkBlockTail` and `checkStructFieldSortsI`): an
+enforced by the recursor stage's guard `blockLargeElimAllowed` and
+`checkStructFieldSortsI`): an
 inductive whose result sort is not provably nonzero
 (`Level.isNeverZero`) and which has two or more constructors
 eliminates into `Prop` only; with ONE constructor every field that is

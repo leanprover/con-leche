@@ -24,7 +24,7 @@ in official's order (`declare_inductive_types`, `check_constructors`,
    constructors are checked per member at THAT environment, and the ONE
    positivity function runs on them (its kinds are the capability
    record's `is_rec`);
-2. **TAIL**: the elimination restriction, the index binders' sorts, the
+2. **TAIL**: the index binders' sorts, the
    constructors consed, the recursor stage, and the projection table at
    every structure-like member.
 

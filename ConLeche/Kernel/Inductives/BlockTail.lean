@@ -9,7 +9,7 @@ public import ConLeche.Kernel.Inductives.GenRec
 
 `checkBlock` (the uniform route's entry, dispatched from `checkDecl`)
 and the stages after the pass over the formers and the constructors
-(`BlockInstall.lean`): the elimination restriction, the index sorts,
+(`BlockInstall.lean`): the index sorts,
 the constructors consed, the recursor stage —
 the generated recursors (`genRecCheck`, `GenRec.lean`, charter item 5)
 — the recursors consed and the projection tables.  Its own module because the check is
@@ -72,23 +72,13 @@ def checkBlockTables (p : BlockShape) :
        | _, _ => pure env)
     checkBlockTables p rest env'
 
-/-- **The install after the pass**: the elimination restriction, the
+/-- **The install after the pass**: the
 index binders' sorts, the constructors consed,
 the recursor stage, the recursors consed at their majors, and the
 projection tables. -/
 def checkBlockTail (ops : CheckerOps m) (block : List ConstantInfo)
     (q : BlockPass Env) : m Env := do
   let p := q.p
-  -- **the elimination restriction** (official `elim_only_at_universe_zero`,
-  -- `inductive.cpp`): a large eliminator on a block whose sort may be
-  -- `Prop` needs ONE member with at most one constructor — official
-  -- returns `true` (eliminate into `Prop` only) as soon as
-  -- `m_ind_types.size() > 1` or `num_intros > 1`; the one-constructor
-  -- case is the subsingleton criterion, taken per field at
-  -- `checkStructFieldSortsI`
-  if p.large && !p.resSort.isNeverZero && decide (2 ≤ p.k ∨ 2 ≤ p.numCtors) then
-    throw (.invalid "direct rec: large eliminator on a multi-constructor inductive \
-      whose sort may be Prop")
   let _isorts ← checkBlockIdxSorts ops q.env₁ p.toBlockShape (p.members.zip q.cvTas)
   let env₂ := consBlockCtors p.nP q.ctorsAs q.env₁
   let out ← checkBlockRec ops q.env₁ env₂ p (blockNestedBit p.toBlockShape q.kinds) q.pos

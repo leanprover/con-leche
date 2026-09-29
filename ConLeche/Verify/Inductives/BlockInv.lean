@@ -341,8 +341,7 @@ theorem checkBlockIdxSorts_inv {env₁ : Env} {q : BlockShape} {F : Nat} :
 
 /-! ## The install after the pass -/
 
-/-- **The tail, inverted**: the elimination restriction (official's
-`elim_only_at_universe_zero`), every member's index binders' sorts, the
+/-- **The tail, inverted**: every member's index binders' sorts, the
 constructors consed,
 the RECURSOR STAGE — left opaque, as `checkBlockRec … = .ok out` — the
 recursors consed with their rules at their majors, and the projection
@@ -352,7 +351,6 @@ theorem checkBlockTail_inv {env₂ : Env} {block : List ConstantInfo} {q : Block
     (h : checkBlockTail (m := CheckM) (fueledOps mode F) block q = .ok env₂) :
     ∃ (isorts : List (List Level))
       (out : List (ConstantVal × TargetMajor × List Expr)),
-      (q.p.large = true → q.p.resSort.isNeverZero = true ∨ (q.p.k < 2 ∧ q.p.numCtors < 2)) ∧
       checkBlockIdxSorts (fueledOps mode F) q.env₁ q.p.toBlockShape
         (q.p.members.zip q.cvTas) = .ok isorts ∧
       checkBlockRec (fueledOps mode F) q.env₁ (consBlockCtors q.p.nP q.ctorsAs q.env₁)
@@ -365,21 +363,6 @@ theorem checkBlockTail_inv {env₂ : Env} {block : List ConstantInfo} {q : Block
           (consBlockCtors q.p.nP q.ctorsAs q.env₁)) = .ok env₂ := by
   rw [checkBlockTail] at h
   simp only [bind, Except.bind] at h
-  by_cases hg : (q.p.large && !q.p.resSort.isNeverZero &&
-      decide (2 ≤ q.p.k ∨ 2 ≤ q.p.numCtors)) = true
-  · rw [if_pos hg] at h
-    exact absurd h (by simp [throw, throwThe, MonadExceptOf.throw])
-  rw [if_neg hg] at h
-  have helim : q.p.large = true →
-      q.p.resSort.isNeverZero = true ∨ (q.p.k < 2 ∧ q.p.numCtors < 2) := by
-    intro hl
-    cases hz : q.p.resSort.isNeverZero with
-    | true => exact Or.inl rfl
-    | false =>
-      right
-      refine Classical.byContradiction fun hge => hg ?_
-      simp only [hl, hz, Bool.not_false, Bool.and_self, Bool.true_and, decide_eq_true_eq]
-      omega
   try simp only [bind, Except.bind] at h
   cases hsorts : checkBlockIdxSorts (m := CheckM) (fueledOps mode F) q.env₁ q.p.toBlockShape
       (q.p.members.zip q.cvTas) with
@@ -394,6 +377,6 @@ theorem checkBlockTail_inv {env₂ : Env} {block : List ConstantInfo} {q : Block
   | ok out =>
   rw [hRec] at h
   dsimp only at h
-  exact ⟨isorts, out, helim, rfl, rfl, h⟩
+  exact ⟨isorts, out, rfl, rfl, h⟩
 
 end ConLeche

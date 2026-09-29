@@ -374,8 +374,6 @@ theorem checkBlockTailS_push (mode : CheckMode) {env : Env}
     Yields (checkBlockTailS mode block q) (fun fe' => PushChain env fe') := by
   unfold checkBlockTailS
   dsimp only
-  split
-  · exact Yields.ofThrowBind
   refine Yields.bind fun _ => ?_
   refine Yields.bind fun _ => ?_
   have h₂ : PushChain env (consBlockCtorsF q.p.nP q.ctorsAs q.env₁) := by

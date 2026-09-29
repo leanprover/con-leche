@@ -920,9 +920,6 @@ theorem checkBlockTailS_run (hμ : mode.verifiedChecks = true)
      ).val F = .ok feOut.env := by
   unfold checkBlockTailS at h
   dsimp only at h
-  by_cases hg : (p.large && !p.resSort.isNeverZero && decide (2 ≤ p.k ∨ 2 ≤ p.numCtors)) = true
-  · rw [if_pos hg] at h; exact absurd h throwC_bind_ok
-  rw [if_neg hg] at h
   rw [checkBlockIdxSortsF_eqC] at h
   obtain ⟨isorts, sS, hsorts, h⟩ := bindC_ok h
   have hzT : ∀ x ∈ p.members.zip cvTas, WScoped 0 x.2.type :=
@@ -960,8 +957,6 @@ theorem checkBlockTailS_run (hμ : mode.verifiedChecks = true)
   rw [checkBlockTail_datF]
   unfold checkBlockTail
   simp only [Bind.bind, Except.bind, pure, Except.pure]
-  rw [if_neg hg]
-  try simp only [Bind.bind, Except.bind, pure, Except.pure]
   rw [g₀]
   simp only [Except.bind]
   rw [g₃]
