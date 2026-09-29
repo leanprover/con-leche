@@ -110,7 +110,7 @@ theorem genRecClassAt {F : Nat} {fe₁ : FEnv} {env₁ : Env} {fe : FEnv} {p : B
     (R : GenRecRun mode F fe₁ env₁ fe p nb pos cvTas block ctorsAs out)
     {j : Nat} {t : ConstantVal × TargetMajor × List Expr} (ho : out[j]? = some t) :
     ∃ key M₀ nfs, t.2.1 = { M₀ with nfs := nfs } ∧
-      Nonempty (ClassMajorRun mode F fe p ctorsAs R.pfvs key M₀) := by
+      Nonempty (ClassMajorRun mode F fe p ctorsAs R.ctx.params key M₀) := by
   obtain ⟨hlenO, hallO⟩ := classRecsRulesOk_run R.hrules
   have hj : j < out.length := (List.getElem?_eq_some_iff.mp ho).1
   obtain ⟨cvG, hcvG⟩ : ∃ cvG, R.cvGs[j]? = some cvG :=
@@ -123,8 +123,8 @@ theorem genRecClassAt {F : Nat} {fe₁ : FEnv} {env₁ : Env} {fe : FEnv} {p : B
     classRead_recCls_lt R.hrd c (List.mem_of_getElem? hc)
   obtain ⟨hlen₀, hall₀⟩ := classMajors_run R.hMs₀
   obtain ⟨hlenN, hallN⟩ := classesNfs_run R.hMs
-  obtain ⟨key, hkey⟩ : ∃ key, R.rd.classes[c]? = some key :=
-    ⟨_, List.getElem?_eq_getElem hcl⟩
+  obtain ⟨key, hkey⟩ : ∃ key, (R.rd.classes.map (classKeyCanon R.ctx.params))[c]? = some key :=
+    ⟨_, List.getElem?_eq_getElem (by simpa using hcl)⟩
   obtain ⟨M₀, hM₀, ⟨Rc⟩⟩ := hall₀ c key hkey
   obtain ⟨nfs, hMs, -⟩ := hallN c M₀ hM₀
   refine ⟨key, M₀, nfs, ?_, ⟨Rc⟩⟩
