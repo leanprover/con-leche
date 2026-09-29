@@ -93765,3 +93765,8 @@ other stream: exit code AND output hash identical.  Control
 **Also corrected:** the POSPROOF U4 record's claim that official rejects
 anything applied to a recursive field's value (official accepts when whnf
 erases the read; correction note in place).
+
+**RULINGS (maintainer, 2026-09-29):** (1) verdict changes caused only by the ORDER of checks on streams
+with two or more faults (reject ↔ decline, never to accept) are always fine — record them, don't avoid
+them (RPTIE's `corner_rptie_order_decline` 1→2 accepted). (2) RPTIE's factual rewording of charter item
+8's D1 row ("seeded … as the recursor check resolved them") accepted.
