@@ -2063,7 +2063,7 @@ BY CONSTRUCTION (`genRule_residue`): the stored rule's body at the frame
 is the minor premise applied to the fields and to its `ih` λs, each of
 which, its callee's recursor constant read as the callee's leaf
 (`genHcallee`), is the generated `ih` term at the chain frame of the
-leaves' values; `hfree`: the `ih` pieces name no recursor.  The family's
+leaves' values; `hfind`: the stored constructors are installed (the `ih` pieces then name no recursor, `genIhFree_run`).  The family's
 leaf facts come from the equations' `heqB`/`heqV`/`heqP` and the family
 premise `hpre` (as at the target check, `tgtRecDataB`). -/
 theorem genRecHdataS_R (hμ : μ.verifiedChecks = true)
@@ -2114,7 +2114,9 @@ theorem genRecHdataS_R (hμ : μ.verifiedChecks = true)
           (fun ψ => genIhsR mpC.base2.acval envC (tgtRs out).length out R.g R.rd ψ)
           (fun ψ => tgtMkAV pp.toBlockShape out mpC.base2.acval envC ψ)
           (fun _ => genRbAV R.g R.rd)) ψ) ρ)
-    (hfree : ∀ j i, GenIhFree envC out R.g R.rd j i)
+    (hfind : ∀ (j : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
+      (tgtRs out)[j]? = some r → ∀ (i : Nat) (cA : ConstantVal × Nat), r.2.2.2[i]? = some cA →
+        envC.find? cA.1.name = some (.ctorInfo cA.1 (ConLeche.tgtMajorsOf out j).nPc cA.2))
     (hpref : GenRulePrefRead mpC.base2.acval envC pp.toBlockShape out)
     (hfield : GenRuleFieldRead mpC.base2.acval envC pp.toBlockShape out)
     (hrow3 : ∀ (φ : Name → Nat) (j : Nat)
@@ -2267,7 +2269,8 @@ theorem genRecHdataS_R (hμ : μ.verifiedChecks = true)
       = mkLamsAV lds A := hlam
   refine blockRuleHRa_val hlam' (hok ρ).1 (hfit5 lds A hlam' hlen) ?_
   exact genRule_residue mpC.base2 R hg hr hcA hrhs
-    (fun d e hcbe => blockRecDenote_cross_CBNF h _ d e hcbe) (hfree j i)
+    (fun d e hcbe => blockRecDenote_cross_CBNF h _ d e hcbe)
+    (genIhFree_run R hg hfind hr hcA hrhs)
     (genHcallee R h hnd hr hleaf.closed hleafA) hread' hlam' hlen hpl hfl
 
 set_option maxHeartbeats 4000000 in
@@ -2280,7 +2283,7 @@ BY CONSTRUCTION (`genRule_residue`): the stored rule's body at the frame
 is the minor premise applied to the fields and to its `ih` λs, each of
 which, its callee's recursor constant read as the callee's leaf
 (`genHcallee`), is the generated `ih` term at the chain frame of the
-leaves' values; `hfree`: the `ih` pieces name no recursor.  The family's
+leaves' values; `hfind`: the stored constructors are installed (the `ih` pieces then name no recursor, `genIhFree_run`).  The family's
 leaf facts come from the equations' `heqB`/`heqV`/`heqP` and the family
 premise `hpre` (as at the target check, `tgtRecDataB`). -/
 theorem genRecHdataS (hμ : μ.verifiedChecks = true)
@@ -2331,7 +2334,9 @@ theorem genRecHdataS (hμ : μ.verifiedChecks = true)
           (fun ψ => genIhsAV mpC.base2.acval envC (tgtRs out).length R.g R.rd (genBit pp ψ) ψ)
           (fun ψ => tgtMkAV pp.toBlockShape out mpC.base2.acval envC ψ)
           (fun _ => genRbAV R.g R.rd)) ψ) ρ)
-    (hfree : ∀ j i, GenIhFree envC out R.g R.rd j i)
+    (hfind : ∀ (j : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
+      (tgtRs out)[j]? = some r → ∀ (i : Nat) (cA : ConstantVal × Nat), r.2.2.2[i]? = some cA →
+        envC.find? cA.1.name = some (.ctorInfo cA.1 (ConLeche.tgtMajorsOf out j).nPc cA.2))
     (hpref : GenRulePrefRead mpC.base2.acval envC pp.toBlockShape out)
     (hfield : GenRuleFieldRead mpC.base2.acval envC pp.toBlockShape out)
     (hrow3 : ∀ (φ : Name → Nat) (j : Nat)
@@ -2486,7 +2491,8 @@ theorem genRecHdataS (hμ : μ.verifiedChecks = true)
   simp only [genBit]
   rw [genIhsAV_eq_R R hg hr hcA hrhs]
   exact genRule_residue mpC.base2 R hg hr hcA hrhs
-    (fun d e hcbe => blockRecDenote_cross_CBNF h _ d e hcbe) (hfree j i)
+    (fun d e hcbe => blockRecDenote_cross_CBNF h _ d e hcbe)
+    (genIhFree_run R hg hfind hr hcA hrhs)
     (genHcallee R h hnd hr hleaf.closed hleafA) hread' hlam' hlen hpl hfl
 
 /-- The equations at the skeleton's `ih` terms ARE the equations at the
