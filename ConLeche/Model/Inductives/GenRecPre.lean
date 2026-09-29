@@ -3,17 +3,9 @@ module
 public import ConLeche.Model.Inductives.GenRecAssembly
 public import ConLeche.Model.Inductives.TargetClasses
 public import ConLeche.Model.Inductives.ClassGenMinor
-import ConLeche.SetModel.TupleTower
 import ConLeche.Model.Inductives.ClassGenUniq
-import ConLeche.Model.Inductives.NestedRecEqs
-import ConLeche.Model.Inductives.BlockRecPreHpre
-import ConLeche.Model.Inductives.BlockRecPreRun
-import ConLeche.Model.Inductives.BlockRecMem
-import ConLeche.Verify.Inductives.RecStage
-import ConLeche.Verify.Inductives.BlockRecRun
 import ConLeche.Model.Inductives.BlockRuleGrading
 import ConLeche.Model.Inductives.BlockGradeRowsRun
-import ConLeche.Model.Inductives.BlockRuleFit
 import ConLeche.Model.Rules.InferSoundKit
 
 public section

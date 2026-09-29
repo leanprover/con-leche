@@ -4,21 +4,14 @@ public import ConLeche.Model.Inductives.GenRecPre
 public import ConLeche.Model.Inductives.GenRecStage
 import ConLeche.Verify.Inductives.NestScope
 import ConLeche.Model.Inductives.BlockRecPreRun
-import ConLeche.Model.Inductives.BlockRecData
 public import ConLeche.Model.Inductives.ClassGenRead
-import ConLeche.Model.Inductives.NestPosOut
 import ConLeche.Model.Inductives.TargetOutIdx
-import ConLeche.Model.Inductives.TargetOutRows
 import ConLeche.Model.Inductives.BlockDeclRun
 import ConLeche.Model.Inductives.BlockRuleFit
 import ConLeche.Model.Inductives.TargetGraph
 import ConLeche.Model.Inductives.BlockRecTyShapeRun
-import ConLeche.Model.Inductives.StructFrameKit
-import ConLeche.Model.Annot.BitRename
-import ConLeche.Model.StreamConsts
 import ConLeche.Verify.CheckerF
 import ConLeche.Verify.Extend.Inversions
-import ConLeche.Verify.Inductives.ClassGenAnnot
 
 public section
 
