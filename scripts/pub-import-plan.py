@@ -64,8 +64,8 @@ FALLBACK = {
     # sub-lane GENREC-A: `GenRecStage`'s public statements name the run
     # record, the stage record, the generator's scoping and its syntax
     # predicates; each MEASURED by demoting it alone (unknown identifier
-    # `GenRecRun`, `GenRecStage.lean:337`; `RecTyGen`, `:386`;
-    # `ClassGenScoped`, `:229`; unknown constant `ConLeche.Expr.Plain`, `:77`).
+    # `GenRecRun`, `GenRecStage.lean:329`; `RecTyGen`, `:378`;
+    # `ClassGenScoped`, `:221`; unknown constant `ConLeche.Expr.Plain`, `:77`).
     ('ConLeche.Model.Inductives.GenRecStage', 'ConLeche.Verify.Inductives.GenRecRun'),
     ('ConLeche.Model.Inductives.GenRecStage', 'ConLeche.Verify.Inductives.RecStage'),
     ('ConLeche.Model.Inductives.GenRecStage', 'ConLeche.Verify.Inductives.ClassGenScope'),
