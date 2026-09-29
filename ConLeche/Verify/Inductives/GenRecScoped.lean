@@ -1,11 +1,10 @@
 module
 
 public import ConLeche.Verify.Inductives.GenRecRun
-public import ConLeche.Verify.Inductives.ClassGenScope
 public import ConLeche.Verify.Inductives.NestNfScope
-public import ConLeche.Verify.CheckerF
+import ConLeche.Verify.Inductives.PositivityInv
+import ConLeche.Verify.CheckerF
 import ConLeche.Verify.ExceptBind
-import ConLeche.Verify.Inductives.DirectInv
 import ConLeche.Verify.Inductives.RecCheckScope
 import ConLeche.Verify.Inductives.NestScope
 import ConLeche.Verify.BridgeWfImp

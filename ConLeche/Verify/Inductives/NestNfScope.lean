@@ -1,7 +1,6 @@
 module
 
 public import ConLeche.Verify.Inductives.ClassGenScope
-public import ConLeche.Verify.Inductives.PositivityInv
 public import ConLeche.Verify.Inductives.NestScope
 public import ConLeche.Verify.EnvWF
 import ConLeche.Verify.Inductives.DirectInv

@@ -8,7 +8,6 @@ import ConLeche.Model.Inductives.ClassGenRead
 import ConLeche.Model.Inductives.NestPosOut
 import ConLeche.Model.Inductives.StructFrameKit
 import ConLeche.Model.Inductives.BlockRecPreRun
-import ConLeche.Model.StreamConsts
 import ConLeche.Verify.Inductives.NestScope
 import ConLeche.Verify.Inductives.NestCallSyn
 import ConLeche.Verify.Rules.InferBridge
