@@ -1538,6 +1538,98 @@ theorem genIhsAV_eq_R (R : GenRecRun mode F fe₁ env₁ fe p nb pos cvTas block
 
 end IhEq
 
+/-! ## 13. The bridges, under D1 -/
+
+section Bridges
+
+variable {V : Type w} [SetTheory V] {μ : CheckMode}
+variable {F : Nat} {fe₁ : FEnv} {env₁ : Env} {envC : Env} {pp : BlockParts} {nb : Bool}
+  {pos : ConLeche.NestState} {cvTas : List ConstantVal} {block : List ConstantInfo}
+  {ctorsAs : List (List (ConstantVal × Nat))} {out : List (ConstantVal × TargetMajor × List Expr)}
+
+open ConLeche (ScB ClassGenScoped)
+
+theorem closeTelescope_append' :
+    ∀ (A B : List (Expr × ConLeche.BinderMeta)) (i : Nat) (body : Expr),
+      ConLeche.closeTelescope (A ++ B) i body
+        = ConLeche.closeTelescope A i (ConLeche.closeTelescope B (i + A.length) body)
+  | [], B, i, body => by simp [ConLeche.closeTelescope]
+  | (d, bm) :: A, B, i, body => by
+    simp only [List.cons_append, ConLeche.closeTelescope]
+    rw [closeTelescope_append' A B (i + 1) body,
+      show i + 1 + A.length = i + (A.length + 1) by omega]
+    rfl
+
+theorem readLamBs_getElem {acval : Name → (Name → Nat) → AnnotTerm} {env : Env}
+    {ψ : Name → Nat} :
+    ∀ (j : Nat) (bs : List (Expr × ConLeche.BinderMeta)) (k : Nat) (hk : k < bs.length),
+      ((readLamBs acval env ψ j bs).map (·.2))[k]'(by simp [readLamBs_length]; exact hk)
+        = (denoteMeta acval env ψ (j + k) bs[k].1).getD default
+  | _, [], _, hk => absurd hk (Nat.not_lt_zero _)
+  | j, b :: bs, 0, _ => by simp [readLamBs]
+  | j, b :: bs, k + 1, hk => by
+    have := readLamBs_getElem (acval := acval) (env := env) (ψ := ψ) (j + 1) bs k
+      (by simpa using hk)
+    simp only [readLamBs, List.map_cons, List.getElem_cons_succ, List.getElem_cons_succ] at this ⊢
+    rw [this, show j + 1 + k = j + (k + 1) by omega]
+
+theorem readOpenedDoms_getElem {acval : Name → (Name → Nat) → AnnotTerm} {env : Env}
+    {ψ : Name → Nat} :
+    ∀ (j : Nat) (xs : List Expr) (k : Nat) (hk : k < xs.length),
+      (readOpenedDoms acval env ψ j xs)[k]'(by simp; exact hk)
+        = (denoteMeta acval env ψ (j + k) xs[k].fvarTypeD).getD default
+  | _, [], _, hk => absurd hk (Nat.not_lt_zero _)
+  | j, x :: xs, 0, _ => by simp [readOpenedDoms]
+  | j, x :: xs, k + 1, hk => by
+    have := readOpenedDoms_getElem (acval := acval) (env := env) (ψ := ψ) (j + 1) xs k
+      (by simpa using hk)
+    simp only [readOpenedDoms, List.getElem_cons_succ] at this ⊢
+    rw [this, show j + 1 + k = j + (k + 1) by omega]
+
+/-- **The field bridge, under D1**: the stored rule's field λ-domains
+read as the target frame's field domains. -/
+theorem genRuleFieldRead
+    (R : GenRecRun μ F fe₁ env₁ (ConLeche.mkFEnv envC) pp.toBlockShape nb pos cvTas block
+      ctorsAs out)
+    (hg : ClassGenScoped R.g) (acval : Name → (Name → Nat) → AnnotTerm) :
+    GenRuleFieldRead acval envC pp.toBlockShape out := by
+  intro j r hr i cA rhs hcA hrhs ψ bs body hop
+  obtain ⟨cls, x, fvs0, res0, hc, hrP, hRP, -, -, -, hop0, hFld, -, -, hcx, hnF, hxmem, -, -, -,
+    -, -⟩ := genFrameAt R hg hr hcA hrhs
+  obtain ⟨_rc2, cls2, x2, gen, -, hc2, -, -, -, -, hx2, -, -, -, -, hgen, ⟨RR⟩⟩ :=
+    genRuleAt R hr hcA hrhs
+  have hcc : cls2 = cls := Option.some.inj (hc2.symm.trans hc)
+  subst cls2
+  have hgc : genClsOf R.rd j = cls := by simp [genClsOf, List.getD_eq_getElem?_getD, hc]
+  have hxx : x2 = x := by
+    rw [← hcx, genCtorAt, hgc, List.getD_eq_getElem?_getD, hx2]; rfl
+  subst x2
+  obtain ⟨fvs, res, ws, s, bs', body', hopF, -, -, -, hop', hbs, -⟩ :=
+    genRule_shapeD hg hxmem hgen RR.hout
+  rw [hnF] at hopF
+  obtain ⟨rfl, rfl⟩ := Prod.mk.inj (Option.some.inj (hop0.symm.trans hopF))
+  rw [hrP, ← hnF] at hop
+  obtain ⟨rfl, rfl⟩ := Prod.mk.inj (Option.some.inj (hop.symm.trans hop'))
+  have hfl : fvs0.length = cA.2 := ConLeche.Verify.openPisAtFvars_length _ hop0
+  have hbl : bs.length = R.g.pre.length + cA.2 := by rw [openLamsM_length _ hop', hnF]
+  rw [tgtFdomsAV, hRP, hFld, hrP]
+  refine List.ext_getElem (by simp [readLamBs_length, hbl, hfl]) fun k hk hk' => ?_
+  rw [List.getElem_drop, readLamBs_getElem 0 bs _ (by simp [readLamBs_length] at hk; omega),
+    readOpenedDoms_getElem]
+  obtain ⟨nd, hnd⟩ : ∃ nd, (R.g.pre ++ fvs0.map R.g.binder)[R.g.pre.length + k]? = some nd :=
+    ⟨_, by rw [List.getElem?_append_right (by omega), Nat.add_sub_cancel_left,
+      List.getElem?_map, List.getElem?_eq_getElem (by simpa using hk')]; rfl⟩
+  have hkb : R.g.pre.length + k < bs.length := by simp [readLamBs_length] at hk; omega
+  have hE := (hbs (R.g.pre.length + k) bs[R.g.pre.length + k] nd
+    (List.getElem?_eq_getElem hkb) hnd).1
+  rw [List.getElem?_append_right (by omega), Nat.add_sub_cancel_left, List.getElem?_map,
+    List.getElem?_eq_getElem (by simpa using hk')] at hnd
+  obtain rfl := (Option.some.inj hnd).symm
+  rw [Nat.zero_add, denoteMeta_erasedEq hE]
+  rfl
+
+end Bridges
+
 /-! ## 7. The skeleton's obligations, in its spelling -/
 
 section Obligations
