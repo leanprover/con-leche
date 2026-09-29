@@ -255,6 +255,12 @@ def classNodesAgree (ops : CheckerOps m) (env : Env) (p : BlockShape) (formerTys
         hypothesis's class at every node of the positivity check (official: invalid recursor)")
     classNodesAgree ops env p formerTys Mc tele leaf fvs i ctor es
 
+/-- A walked field's leaf is headed by class `M`'s inductive. -/
+def classLeafAt (M : TargetMajor) (leaf : Expr) : Bool :=
+  match leaf.getAppFn with
+  | .const I _ => I == M.ind
+  | _ => false
+
 /-- Node agreement at every recursive field of the datum (`ks` from field
 `i` on). -/
 def classFieldsAgree (ops : CheckerOps m) (env : Env) (p : BlockShape) (formerTys : List Expr)
@@ -265,6 +271,9 @@ def classFieldsAgree (ops : CheckerOps m) (env : Env) (p : BlockShape) (formerTy
   | i, .recursive t tele :: ks => do
     let (teleB, leaf) ← unwrapOr ((fvs.getD i default).fvarTypeD.stripPis tele)
       (.internal "generated recursor: field telescope")
+    unless classLeafAt (Ms.getD t default) leaf do
+      throw (.invalid s!"generated recursor: field {i} of {ctor} does not end in its inductive \
+        hypothesis's class (official: invalid recursor)")
     classNodesAgree ops env p formerTys (Ms.getD t default) teleB leaf fvs i ctor E
     classFieldsAgree ops env p formerTys Ms fvs ctor E (i + 1) ks
 
@@ -428,6 +437,11 @@ def classStreamRecs (ops : CheckerOps m) (fe : FEnv) : List RecShape → m (List
     let cvs ← classStreamRecs ops fe rcs
     pure (cv :: cvs)
 
+/-- A class key moved to the block's canonical parameter variables
+`params` (the pre-pass reads it over the stream recursor's own openers). -/
+def classKeyCanon (params : List Expr) (k : ClassKey) : ClassKey :=
+  { k with ds := k.ds.map (targetCanonParams params) }
+
 /-- An inductive's parameter count as the pre-pass reads it: the block's
 at a member, the stored `IndCaps`' otherwise. -/
 def classNPcOf (p : BlockShape) (fe : FEnv) (I : Name) : Nat :=
@@ -478,11 +492,10 @@ def genRecCheck (so : ShadowOps m) (fe₁ : FEnv) (env₁ : Env) (fe : FEnv) (p 
       ((p.recs.zip cvRis).map fun (rc, cv) => { rc with cvR := cv }))
     (.invalid "generated recursor: the recursor family is not of the generated shape \
       (official: invalid recursor)")
-  let cv0 ← unwrapOr cvRis.head? (.invalid "generated recursor: the block has no recursor")
-  let (pfvs, _) ← unwrapOr (openPisAtFvars p.nP cv0.type 0)
-    (.invalid "generated recursor: the recursor's type does not bind the parameters")
-  -- the classes, each checked as a major; one per member
-  let Ms ← classMajors ops fe p ctorsAs pfvs rd.classes
+  -- the classes, each checked as a major over the block's canonical
+  -- parameters (the generated prefix's); one per member
+  let (ctx, holes) ← blockNestCtx p cvTas fe₁.find? env₁.consts
+  let Ms ← classMajors ops fe p ctorsAs ctx.params (rd.classes.map (classKeyCanon ctx.params))
   unless (List.range p.k).all (fun t => (Ms.filter (·.member == some t)).length == 1) do
     throw (.invalid "generated recursor: the recursor family does not have exactly one class \
       per member (official: invalid recursor)")
@@ -494,7 +507,6 @@ def genRecCheck (so : ShadowOps m) (fe₁ : FEnv) (env₁ : Env) (fe : FEnv) (p 
       (official: elim_only_at_universe_zero)")
   -- the seeds, at the formers' environment: every class a node
   so.flush
-  let (ctx, holes) ← blockNestCtx p cvTas fe₁.find? env₁.consts
   let st ← nestSeeds (so.opsAt fe₁) env₁ ctx (classSeeds ctx holes Ms) pos
   so.flush
   let formerTys := cvTas.map (·.type)
