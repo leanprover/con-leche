@@ -564,4 +564,177 @@ theorem genFrameAt (R : GenRecRun mode F fe₁ env₁ fe p nb pos cvTas block ct
 
 end Frame
 
+/-! ## 6. `heqB`, assembled -/
+
+section EqsB
+
+variable {V : Type w} [SetTheory V] {env : Env}
+variable {mode : CheckMode} {F : Nat} {fe₁ : FEnv} {env₁ : Env} {fe : FEnv} {p : BlockShape}
+  {nb : Bool} {pos : ConLeche.NestState} {cvTas : List ConstantVal} {block : List ConstantInfo}
+  {ctorsAs : List (List (ConstantVal × Nat))} {out : List (ConstantVal × TargetMajor × List Expr)}
+
+open ConLeche (ScB ClassGenScoped)
+
+/-- Opened variables' domains, read, are below their depths. -/
+theorem readOpenedDoms_below (m : EnvModel V env) {φ : Name → Nat} :
+    ∀ (d : Nat) (fvs : List Expr),
+      (∀ (k : Nat) (x : Expr), fvs[k]? = some x → ∃ ty, x = .fvar (d + k) ty ∧ ScB (d + k) ty) →
+      0 < d → FieldsBelow d (readOpenedDoms m.acval env φ d fvs)
+  | _, [], _, _ => trivial
+  | d, x :: fvs, h, hd => by
+    obtain ⟨ty, rfl, hty⟩ := h 0 x rfl
+    refine ⟨readD_below m (Or.inl (by simpa [Expr.fvarTypeD] using hty)) hd,
+      readOpenedDoms_below m (d + 1) fvs (fun k x' hk => ?_) (by omega)⟩
+    obtain ⟨ty', hx', hty'⟩ := h (k + 1) x' (by simpa using hk)
+    exact ⟨ty', by rw [hx']; congr 1; omega, by rwa [show d + (k + 1) = d + 1 + k by omega] at hty'⟩
+
+/-- The generated residue is variables only: below the frame and the
+`ih`s as soon as the prefix is not empty. -/
+theorem genRb0_below {nPre minPos nF nIh : Nat} (hn : 0 < nPre) :
+    Term.bvarsBelow (nPre + nF + nIh) (genRb0 nPre minPos nF nIh).erase := by
+  unfold genRb0
+  rw [AnnotTerm.erase_mkAppN]
+  refine VExprAux.bvarsBelow_mkAppN (by show _ < _; omega) fun a ha => ?_
+  obtain ⟨b, hb, rfl⟩ := List.mem_map.mp ha
+  rcases List.mem_append.mp hb with hb | hb <;>
+  · obtain ⟨l, hl, rfl⟩ := List.mem_map.mp hb
+    rw [List.mem_range] at hl
+    show _ < _
+    omega
+
+omit [SetTheory V] in
+theorem genIhdAV_length {acval : Name → (Name → Nat) → AnnotTerm} {g : ClassGen} {rd : ClassRead}
+    {φ : Name → Nat} {c j : Nat} :
+    (genIhdAV acval env out g rd φ c j).length = (genCtorAt g rd c j).recs.length := by
+  simp [genIhdAV]
+
+/-- **`heqB`'s rows at the generated family**: the field domains, index
+expressions and fired spine (the target frame, `genFrameAt`: the
+constructor's declared type at the class's parameters, scoped), the
+`ih` terms (read off the closed stored rule) and the residue are bound
+by their frames. -/
+theorem genRowB (m : EnvModel V env)
+    (R : GenRecRun mode F fe₁ env₁ fe p nb pos cvTas block ctorsAs out)
+    (hg : ClassGenScoped R.g) :
+    ∀ (ψ : Name → Nat) (c : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
+      (tgtRs out)[c]? = some r → ∀ (j : Nat) (cA : ConstantVal × Nat) (rhs : Expr),
+      r.2.2.2[j]? = some cA → r.2.1[j]? = some rhs →
+        FieldsBelow (p.rulePrefixAt c) (tgtFdomsAV p out m.acval env ψ c j) ∧
+        (∀ e ∈ tgtEsAV p out m.acval env ψ c j, Term.bvarsBelow
+          (p.rulePrefixAt c + (tgtFdomsAV p out m.acval env ψ c j).length) e.erase) ∧
+        Term.bvarsBelow (p.rulePrefixAt c + (tgtFdomsAV p out m.acval env ψ c j).length)
+          (tgtMkAV p out m.acval env ψ c j).erase ∧
+        (∀ v ∈ genIhsAV m.acval env (tgtRs out).length out R.g R.rd ψ c j, Term.bvarsBelow
+          ((tgtRs out).length + p.rulePrefixAt c
+            + (tgtFdomsAV p out m.acval env ψ c j).length) v.erase) ∧
+        Term.bvarsBelow (p.rulePrefixAt c + (tgtFdomsAV p out m.acval env ψ c j).length
+            + (genIhsAV m.acval env (tgtRs out).length out R.g R.rd ψ c j).length)
+          (genRbAV R.g R.rd c j).erase := by
+  intro ψ c r hr j cA rhs hcA hrhs
+  obtain ⟨cls, x, fvs, res, -, hrP, hRP, hMaj, hCt, -, hop, hFld, hCb, hB, hcx, hnF, -, hrhsE,
+    hcl, hsx, hds, hsl⟩ := genFrameAt R hg hr hcA hrhs
+  obtain ⟨hpl, -⟩ := ConLeche.ClassGen.prefixBinders_scoped hg hg.pre
+  have hpos : 0 < R.g.pre.length := by omega
+  obtain ⟨hfl, hfvs, hres⟩ := ConLeche.ScB.openPis hop hsx
+  have hFlen : (tgtFdomsAV p out m.acval env ψ c j).length = cA.2 := by
+    rw [tgtFdomsAV, readOpenedDoms_length_eq, hFld, hfl]
+  have hK : 0 < (tgtRs out).length := by
+    have := (List.getElem?_eq_some_iff.mp hr).1; omega
+  rw [hFlen, hrP]
+  refine ⟨?_, ?_, ?_, ?_, ?_⟩
+  · rw [tgtFdomsAV, hRP, hFld]
+    exact readOpenedDoms_below m _ fvs hfvs hpos
+  · intro e he
+    rw [tgtEsAV, hCb, hB] at he
+    obtain ⟨a, ha, rfl⟩ := List.mem_map.mp he
+    exact readD_below m (Or.inl (ConLeche.ScB.getAppArgs hres a (List.mem_of_mem_drop ha)))
+      (by omega)
+  · rw [tgtMkAV, hB, hMaj, hCt, hFld]
+    refine readD_below m (Or.inl (ConLeche.ScB.mkAppN (ConLeche.ScB.const _ _ _) fun a ha => ?_))
+      (by omega)
+    rcases List.mem_append.mp ha with ha | ha
+    · exact (hds a ha).mono (by omega)
+    · obtain ⟨k, hk, rfl⟩ := List.getElem_of_mem ha
+      obtain ⟨ty, hxe, hty⟩ := hfvs k _ (List.getElem?_eq_getElem hk)
+      rw [hxe]
+      exact ConLeche.ScB.fvar (by rw [hfl] at hk; omega) hty
+  · intro v hv
+    rw [genIhsAV, hcx, List.mem_map] at hv
+    obtain ⟨q, hq, rfl⟩ := hv
+    rw [← hrhsE] at hcl
+    have hq' := genIhdAV_below m (g := R.g) (rd := R.rd) (φ := ψ) (c := c) (j := j) hcl
+      (by rw [hcx]; omega) q hq
+    rw [hcx, hnF] at hq'
+    have := genIhAV_below (K := (tgtRs out).length) (rP := R.g.pre.length) hK (by omega) hq'.1
+      hq'.2
+    rw [hnF]
+    simpa [Nat.add_assoc] using this
+  · rw [genIhsAV, List.length_map, genIhdAV_length, genRbAV, hcx, hnF]
+    exact genRb0_below hpos
+
+end EqsB
+
+/-! ## 7. The skeleton's obligations, in its spelling -/
+
+section Obligations
+
+variable {V : Type w} [SetTheory V] {μ : CheckMode}
+variable {F : Nat} {fe₁ : FEnv} {env₁ : Env} {envC : Env} {pp : BlockParts} {nb : Bool}
+  {pos : ConLeche.NestState} {cvTas : List ConstantVal} {block : List ConstantInfo}
+  {ctorsAs : List (List (ConstantVal × Nat))} {out : List (ConstantVal × TargetMajor × List Expr)}
+  {mpC : EnvModelM V μ envC}
+
+open ConLeche (ScB ClassGenScoped)
+
+/-- **`heqB`** (the skeleton's goal): every equation of the generated
+family is bound below the family. -/
+theorem genRecHeqB (hμ : μ.verifiedChecks = true)
+    (R : GenRecRun μ F fe₁ env₁ (ConLeche.mkFEnv envC) pp.toBlockShape nb pos cvTas block
+      ctorsAs out)
+    (hg : ClassGenScoped R.g)
+    {memR : Nat → Prop} (h : ConLeche.RecStageG μ F envC pp cvTas ctorsAs (tgtRs out) memR) :
+    ∀ (ψ : Name → Nat) (e : AnnotTerm),
+      e ∈ blockRecEqs (blockRecNCt (tgtRs out)) (tgtRs out)
+          (fun ψ => blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ)
+          (fun ψ => tgtFdomsAV pp.toBlockShape out mpC.base2.acval envC ψ)
+          (fun ψ => tgtEsAV pp.toBlockShape out mpC.base2.acval envC ψ)
+          (fun ψ => genIhsAV mpC.base2.acval envC (tgtRs out).length out R.g R.rd ψ)
+          (fun ψ => tgtMkAV pp.toBlockShape out mpC.base2.acval envC ψ)
+          (fun _ => genRbAV R.g R.rd) ψ →
+        Term.bvarsBelow (tgtRs out).length e.erase :=
+  fun ψ e he => blockRecEqs_below_rows hμ h (genRowB mpC.base2 R hg) ψ e he
+
+/-- **`htower`** (the skeleton's goal, at any environment's reading). -/
+theorem genRecHtower
+    (R : GenRecRun μ F fe₁ env₁ (ConLeche.mkFEnv envC) pp.toBlockShape nb pos cvTas block
+      ctorsAs out) {env₃ : Env} :
+    ∀ (j : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
+      (tgtRs out)[j]? = some r →
+        ∀ (i : Nat) (cA : ConstantVal × Nat) (rhs : Expr),
+          r.2.2.2[i]? = some cA → r.2.1[i]? = some rhs →
+            ConLeche.tgtFireOf (fun x => Expr.constsResolve envC x) pp.toBlockShape
+                (ConLeche.tgtMajorsOf out) j r ≠ ConLeche.RecRuleFire.inert →
+              ∀ (acv : Name → (Name → Nat) → AnnotTerm) (ψ : Name → Nat) (Ra : AnnotTerm),
+                denoteMeta acv env₃ ψ 0 rhs = some Ra →
+                  ∃ lds A, Ra = mkLamsAV lds A ∧ lds.length = pp.rulePrefixAt j + cA.2 :=
+  fun _ _ hr _ _ _ hcA hrhs _ _ _ _ hRa => genRuleTower R hr hcA hrhs hRa
+
+/-- **`hRaZ`** (the skeleton's goal, at any environment's reading). -/
+theorem genRecHRaZ
+    (R : GenRecRun μ F fe₁ env₁ (ConLeche.mkFEnv envC) pp.toBlockShape nb pos cvTas block
+      ctorsAs out) {env₃ : Env} {acv : Name → (Name → Nat) → AnnotTerm} :
+    ∀ (j : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
+      (tgtRs out)[j]? = some r →
+        ∀ (i : Nat) (cA : ConstantVal × Nat) (rhs : Expr),
+          r.2.2.2[i]? = some cA → r.2.1[i]? = some rhs →
+            ConLeche.tgtFireOf (fun x => Expr.constsResolve envC x) pp.toBlockShape
+                (ConLeche.tgtMajorsOf out) j r ≠ ConLeche.RecRuleFire.inert →
+              ∀ (ψ : Name → Nat) (Ra : AnnotTerm),
+                denoteMeta acv env₃ ψ 0 rhs = some Ra →
+                  Level.eval ψ (ConLeche.structElimLevel pp.elim pp.large) = 0 →
+                    ∀ (ρ : Nat → V), interp V ρ Ra = pt :=
+  fun _ _ hr _ _ _ hcA hrhs _ _ _ hRa hℓ ρ => genRuleRaZ R hr hcA hrhs hRa hℓ ρ
+
+end Obligations
+
 end ConLeche.Model
