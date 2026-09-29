@@ -92,6 +92,42 @@ inductive TargetMajorRun (fe : FEnv) (p : BlockShape)
         { ind := I, lvls := us, ds := mty.getAppArgs.take nPc, nPc := nPc, nIdx := nIdx,
           ctors := ctors, member := none, nfs := nfs, pfvs := pfvs }
 
+/-- **An OUTSIDE major, at its run**: the major type is the stored
+inductive `M.ind` at the major's levels, not a member, not `Quot`; its
+parameters are the major type's first `nPc` arguments, mentioning only
+the parameter binders; its constructors and parameter count are the
+environment's; its instantiated type former has `nIdx` indices and ends
+in the block's universe.  (`TargetTyEntry.outside_of` at the entry's
+major; the generated stage's `ClassMajorRun.major` at a class.) -/
+theorem TargetMajorRun.outside_facts {fe : FEnv} {p : BlockShape}
+    {ctorsAs : List (List (ConstantVal × Nat))} {pfvs fvs : List Expr} {mty : Expr}
+    {M : TargetMajor} (R : TargetMajorRun fe p ctorsAs pfvs fvs mty M)
+    (hM : M.member = none) :
+    ∃ sI, mty.getAppFn = .const M.ind M.lvls ∧
+      p.memberNames.findIdx? (· == M.ind) = none ∧ M.ind ≠ quotName ∧
+      targetCtorsOf fe M.ind = some (M.nPc, M.ctors) ∧
+      M.ds = mty.getAppArgs.take M.nPc ∧ M.ds.length = M.nPc ∧
+      (∀ x ∈ M.ds, x.bvarB = 0 ∧ x.fvarB ≤ p.nP) ∧
+      targetOutsideInst (m := CheckM) fe M.ind M.lvls M.ds = .ok (M.nIdx, sI) ∧
+      Level.isEquiv sI p.resSort = some true := by
+  cases R with
+  | member => exact nomatch hM
+  | outside I us nPc nIdx ctors sI hfn ht hnq hct hl hsc _ hinst hs =>
+    exact ⟨sI, hfn, ht, hnq, hct, rfl, hl, hsc, hinst, hs⟩
+
+/-- **A MEMBER major, at its run**: the member `t`, its shape and its
+stored constructors, at the block's parameter count. -/
+theorem TargetMajorRun.member_facts {fe : FEnv} {p : BlockShape}
+    {ctorsAs : List (List (ConstantVal × Nat))} {pfvs fvs : List Expr} {mty : Expr}
+    {M : TargetMajor} (R : TargetMajorRun fe p ctorsAs pfvs fvs mty M) {t : Nat}
+    (hM : M.member = some t) :
+    ctorsAs[t]? = some M.ctors ∧ M.nPc = p.nP := by
+  cases R with
+  | member I t' ms ctorsA hfn ht hms hctors hpar =>
+    obtain rfl : t' = t := Option.some.inj hM
+    exact ⟨hctors, rfl⟩
+  | outside => exact nomatch hM
+
 /-- **`targetMajorOf`, inverted**: the arm it took and the class's
 parameter openers. -/
 theorem targetMajorOf_run {fe : FEnv} {p : BlockShape}
@@ -238,13 +274,8 @@ theorem outside_of (E : TargetTyEntry mode F fe p nested cvTas ctorsAs rc cvRi M
       M.ds = E.maj.fvarTypeD.getAppArgs.take M.nPc ∧ M.ds.length = M.nPc ∧
       (∀ x ∈ M.ds, x.bvarB = 0 ∧ x.fvarB ≤ p.nP) ∧
       targetOutsideInst (m := CheckM) fe M.ind M.lvls M.ds = .ok (M.nIdx, sI) ∧
-      Level.isEquiv sI p.resSort = some true := by
-  obtain ⟨_, _, _, _, _, _, maj, _, _, _, _, _, _, major, _, _, _, _, _, _, _, _, _, _, _, _, _,
-    _⟩ := E
-  cases major with
-  | member => exact nomatch hM
-  | outside I us nPc nIdx ctors sI hfn ht hnq hct hl hsc _ hinst hs =>
-    exact ⟨sI, hfn, ht, hnq, hct, rfl, hl, hsc, hinst, hs⟩
+      Level.isEquiv sI p.resSort = some true :=
+  E.major.outside_facts hM
 
 /-- **An OUTSIDE major names the block** (official's `is_nested`): some
 parameter mentions a member. -/

@@ -292,6 +292,36 @@ theorem tgtRecCtor_in
   obtain ⟨i, hi⟩ := List.getElem?_of_mem hcA
   exact ⟨_, _, _, tgtRecCtor_find R hN hcore hctorsAs hcov j r hj i cA hi⟩
 
+/-- **`ctor` from the constructors' storage**: carried constructors
+stored at the major's parameter count have their types bound (the
+environment's well-formedness) and read (`EnvModelM.type_reads`).  Any
+recursor stage whose carried constructors are stored has `ctor`. -/
+theorem tgtRecCtor_seam_of_find {envC : Env} {mpC : EnvModelM V μ envC}
+    {out : List (ConstantVal × TargetMajor × List Expr)}
+    (hfind0 : ∀ (j : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
+      (tgtRs out)[j]? = some r → ∀ (i : Nat) (cA : ConstantVal × Nat), r.2.2.2[i]? = some cA →
+        envC.find? cA.1.name
+          = some (.ctorInfo cA.1 (ConLeche.tgtMajorsOf out j).nPc cA.2)) :
+    ∀ (j : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
+      (tgtRs out)[j]? = some r → ∀ (i : Nat) (cA : ConstantVal × Nat), r.2.2.2[i]? = some cA →
+        envC.find? cA.1.name = some (.ctorInfo cA.1 (ConLeche.tgtMajorsOf out j).nPc cA.2) ∧
+        ConstsBound envC cA.1.type ∧
+        ∀ ψ : Name → Nat,
+          denoteMeta mpC.base2.acval envC ψ 0 cA.1.type
+            = some (blockRecCtorTy mpC.base2.acval envC (tgtRs out) j i ψ) := by
+  intro j r hr i cA hcA
+  have hfind := hfind0 j r hr i cA hcA
+  have hmem := List.mem_of_find?_eq_some hfind
+  have hwfC := mpC.base2.wf _ hmem
+  have hrd : (tgtRs out).getD j default = r := by rw [List.getD_eq_getElem?_getD, hr]; rfl
+  have hsel : (((tgtRs out).getD j default).2.2.2.getD i default) = cA := by
+    rw [hrd, List.getD_eq_getElem?_getD, hcA]; rfl
+  refine ⟨hfind, constsBound_of_constsResolve _ hwfC.2.2.1, fun ψ => ?_⟩
+  obtain ⟨ta, hta⟩ := mpC.type_reads _ hmem ψ
+  change denoteMeta mpC.base2.acval envC ψ 0 cA.1.type = some ta at hta
+  rw [blockRecCtorTy, hsel, hta]
+  rfl
+
 /-- **`ctor`**: the carried constructors, stored at the MAJOR's parameter
 count, their types bound (the environment's well-formedness) and read
 (`EnvModelM.type_reads`). -/
@@ -311,20 +341,10 @@ theorem tgtRecCtor_seam
         ∀ ψ : Name → Nat,
           denoteMeta mpC.base2.acval envC ψ 0 cA.1.type
             = some (blockRecCtorTy mpC.base2.acval envC (tgtRs out) j i ψ) := by
-  intro j r hr i cA hcA
-  have hfind := tgtRecCtor_find R hN hcore hctorsAs hcov j r hr i cA hcA
-  have hmem := List.mem_of_find?_eq_some hfind
-  have hwfC := mpC.base2.wf _ hmem
-  have hrd : (tgtRs out).getD j default = r := by rw [List.getD_eq_getElem?_getD, hr]; rfl
-  have hsel : (((tgtRs out).getD j default).2.2.2.getD i default) = cA := by
-    rw [hrd, List.getD_eq_getElem?_getD, hcA]; rfl
-  refine ⟨hfind, constsBound_of_constsResolve _ hwfC.2.2.1, fun ψ => ?_⟩
-  obtain ⟨ta, hta⟩ := mpC.type_reads _ hmem ψ
-  change denoteMeta mpC.base2.acval envC ψ 0 cA.1.type = some ta at hta
-  rw [blockRecCtorTy, hsel, hta]
-  rfl
+  exact tgtRecCtor_seam_of_find (tgtRecCtor_find R hN hcore hctorsAs hcov)
 
 end Ctors
+
 
 section Pins
 

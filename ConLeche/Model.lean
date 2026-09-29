@@ -112,6 +112,8 @@ public import ConLeche.Model.Inductives.BlockAccRunCont
 public import ConLeche.Model.Inductives.ClassGenMinor
 public import ConLeche.Model.Inductives.ClassGenUniq
 public import ConLeche.Model.Inductives.GenRecStage
+public import ConLeche.Model.Inductives.GenRecClasses
+public import ConLeche.Model.Inductives.GenRecPins
 public import ConLeche.Model.Annot.EnvModelM
 public import ConLeche.Model.BasisLfp
 public import ConLeche.Model.Rules.Recompose
