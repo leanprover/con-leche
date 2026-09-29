@@ -2,7 +2,7 @@ module
 
 public import ConLeche.Kernel.Inductives.BlockInstall
 import ConLeche.Verify.Inductives.DirectInv
-import ConLeche.Verify.Inductives.HolesApplied
+import ConLeche.Verify.Inductives.UniformOcc
 import ConLeche.Verify.Denote.IndFrame
 
 public section

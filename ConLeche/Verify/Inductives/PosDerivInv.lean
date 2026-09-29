@@ -9,7 +9,7 @@ import ConLeche.Verify.Cached.Erase
 import ConLeche.Verify.InstLevels
 import ConLeche.Verify.Inductives.DirectInv
 import ConLeche.Verify.Denote.IndFrame
-import ConLeche.Verify.Inductives.HolesApplied
+import ConLeche.Verify.Inductives.UniformOcc
 
 public section
 

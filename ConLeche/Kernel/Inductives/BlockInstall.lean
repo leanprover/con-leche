@@ -287,7 +287,7 @@ def checkBlockPositivity (ops : CheckerOps m) (env₁ : Env) (find? : Name → O
     m (List (List (List NestFieldKind)) × List (List Expr) × NestState) := do
   let (ctx, holes) ← blockNestCtx p.toBlockShape cvTas find?
   -- official's `check_uniform_ind_occs`, before the walk
-  nestUniform ctx holes ctorsAs
+  nestUniform ctx ctorsAs
   -- the root frame on the STORED (declared) constructors; their normal forms are output only
   let (outs, st) ← nestRoot ops env₁ ctx holes ctorsAs {}
   checkAbsCtorSortsAll ops env₁ ctx ctorsAs outs

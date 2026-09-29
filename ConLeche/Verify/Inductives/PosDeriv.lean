@@ -24,8 +24,9 @@ The judgments (`PosJ`):
   `prog`, of kind `k`, with the walk's normal form `nf`;
 * `tele prog base nF j cur ks nds res` — the telescope `cur` has `nF`
   positive fields from field `j`, each opened at `base + j`;
-* `ctors prog hi us ds sub cs` — every constructor in `cs`, the frame's
-  group abstracted by `sub` and instantiated at `ds`, has a positive
+* `ctors prog hi us ds names holes cs` — every constructor in `cs`, the
+  frame's group `names` abstracted (to `holes`) and instantiated at `ds`
+  (`nestCrest`), has a positive
   telescope and a result headed by its hole (the frame's walk);
 * `frame prog us ds grp` — the container frame at the key `(us, ds)`
   whose group is `grp` (the container's whole recorded block, at the
@@ -37,12 +38,12 @@ The rules:
 
 * `const` — the whnf mentions no member and no hole;
 * `pi` — a Π whose domain is hole-free, its body positive;
-* `hole` — a member hole applied at full arity to the block's parameters
-  and hole-free indices;
-* `frameHole` — a frame's hole, at its own key's parameters, hole-free
-  indices and full arity (the instantiation in progress);
-* `contNew` — a stored inductive at a concrete instantiation (its
-  parameters' member holes applied to the block's parameters), its frame
+* `hole` — a member hole (standing for the member applied to the block's
+  parameters) applied to hole-free indices, at full arity;
+* `frameHole` — a frame's hole (the instantiation in progress, standing
+  for its container applied to the key's parameters), applied to
+  hole-free indices, at full arity;
+* `contNew` — a stored inductive at a concrete instantiation, its frame
   derived HERE (under the current, well-scoped frames), the container at
   the frame's head;
 * `contHit` — the same, its parameters below every frame hole, its frame
@@ -78,12 +79,10 @@ namespace ConLeche
     List NestHole :=
   grp.map fun p => { key := ⟨p.1, us, ds⟩, base := hi }
 
-/-- The frame's member substitution (`nestFrame`'s `sub`): the group's
-members at the key's levels to their holes. -/
-@[expose] def grpSub (us : List Level) (hi : Nat) (grp : List (Name × Expr)) :
-    Name → List Level → Option Expr :=
-  fun c us' => if us' == us then
-    (grp.mapIdx fun i (c, ty) => (c, Expr.fvar (hi + i) ty)).lookup c else none
+/-- The frame's holes (`nestFrame`'s): the group's members' variables
+`hi + i`, typed by their instantiated formers. -/
+@[expose] def grpHoles (hi : Nat) (grp : List (Name × Expr)) : List Expr :=
+  grp.mapIdx fun i (_, ty) => Expr.fvar (hi + i) ty
 
 /-- The constructors of every container in `cs` (at one parameter
 count), read off the environment — `nestGroupCtors` without its lookup
@@ -222,7 +221,7 @@ inductive PosJ where
   | tele (prog : List NestHole) (base nF j : Nat) (cur : Expr) (ks : List NestFieldKind)
       (nds : List (Expr × BinderMeta)) (res : Expr)
   | ctors (prog : List NestHole) (hi : Nat) (us : List Level) (ds : List Expr)
-      (sub : Name → List Level → Option Expr) (cs : List (ConstantVal × Nat))
+      (names : List Name) (holes : List Expr) (cs : List (ConstantVal × Nat))
   | frame (prog : List NestHole) (us : List Level) (ds : List Expr) (grp : List (Name × Expr))
   | seed (key : NestKey)
 
@@ -245,30 +244,26 @@ inductive PosD (ops : CheckerOps CheckM) (env : Env) (ctx : NestCtx) :
       (hb : PosD ops env ctx (.field prog (dep + 1) (kb + 1) (b.instantiate1 (.fvar dep a)) k nb)
         ts) :
       PosD ops env ctx (.field prog dep kb e k (.forallE a (nb.abstract1 dep) bm)) ts
-  /-- a member hole at the block's parameters, hole-free indices, full arity -/
+  /-- a member hole at hole-free indices, full arity -/
   | hole {prog : List NestHole} {dep kb : Nat} {e w : Expr} {i : Nat} {ty : Expr}
       (hw : ops.whnf env dep e = .ok w)
       (hocc : w.nestOcc ctx.names ctx.nP (ctx.hiAt prog.length) = true)
       (hfn : w.getAppFn = .fvar i ty) (hlo : ctx.nP ≤ i) (hhi : i < ctx.hiAt 0)
-      (hlen : w.getAppArgs.length = ctx.nP + ctx.nIdxs.getD (i - ctx.nP) 0)
-      (hpar : w.getAppArgs.take ctx.nP = ctx.params)
+      (hlen : w.getAppArgs.length = ctx.nIdxs.getD (i - ctx.nP) 0)
       (hfree : ∀ x ∈ w.getAppArgs, x.nestOcc ctx.names ctx.nP (ctx.hiAt prog.length) = false) :
       PosD ops env ctx
         (.field prog dep kb e (if kb = 0 then .recursive (i - ctx.nP) else .reflexive (i - ctx.nP)) w)
         []
-  /-- a frame's hole: its instantiation in progress, at its own parameters,
-  hole-free indices, full arity -/
+  /-- a frame's hole: its instantiation in progress, at hole-free indices,
+  full arity -/
   | frameHole {prog : List NestHole} {dep kb : Nat} {e w : Expr} {i : Nat} {ty : Expr}
       {h : NestHole}
       (hw : ops.whnf env dep e = .ok w)
       (hocc : w.nestOcc ctx.names ctx.nP (ctx.hiAt prog.length) = true)
       (hfn : w.getAppFn = .fvar i ty) (hlo : ctx.hiAt 0 ≤ i) (hhi : i < ctx.hiAt prog.length)
       (hk : prog.reverse[i - ctx.hiAt 0]? = some h)
-      (hle : h.key.ds.length ≤ w.getAppArgs.length)
-      (hpar : w.getAppArgs.take h.key.ds.length = h.key.ds)
-      (hfree : ∀ x ∈ w.getAppArgs.drop h.key.ds.length,
-        x.nestOcc ctx.names ctx.nP (ctx.hiAt prog.length) = false)
-      (har : w.getAppArgs.length = nestArity ctx h.key.cname) :
+      (hfree : ∀ x ∈ w.getAppArgs, x.nestOcc ctx.names ctx.nP (ctx.hiAt prog.length) = false)
+      (har : w.getAppArgs.length + h.key.ds.length = nestArity ctx h.key.cname) :
       PosD ops env ctx (.field prog dep kb e .inProgress w) []
   /-- a container at a concrete instantiation, its frame derived here -/
   | contNew {prog : List NestHole} {dep kb : Nat} {e w : Expr} {n : Name} {us : List Level}
@@ -284,7 +279,6 @@ inductive PosD (ops : CheckerOps CheckM) (env : Env) (ctx : NestCtx) :
       (hds : ∀ x ∈ w.getAppArgs.take nPc,
         x.bvarB = 0 ∧ x.fvarB ≤ ctx.hiAt prog.length)
       (hdsw : ∀ x ∈ w.getAppArgs.take nPc, Expr.WScoped (ctx.hiAt prog.length) x)
-      (hdsA : ∀ x ∈ w.getAppArgs.take nPc, x.holesApplied ctx.names ctx.nP (ctx.hiAt 0) = true)
       (hnI : nestInstType (m := CheckM) ctx (ctx.hiAt prog.length)
         ⟨n, us, w.getAppArgs.take nPc⟩ = .ok (nI, cty))
       (hhead : grp.head? = some (n, cty)) (hsc : ProgScoped ctx prog)
@@ -306,7 +300,6 @@ inductive PosD (ops : CheckerOps CheckM) (env : Env) (ctx : NestCtx) :
       (hds : ∀ x ∈ w.getAppArgs.take nPc,
         x.bvarB = 0 ∧ x.fvarB ≤ ctx.hiAt 0)
       (hdsw : ∀ x ∈ w.getAppArgs.take nPc, Expr.WScoped (ctx.hiAt 0) x)
-      (hdsA : ∀ x ∈ w.getAppArgs.take nPc, x.holesApplied ctx.names ctx.nP (ctx.hiAt 0) = true)
       (hnI : nestInstType (m := CheckM) ctx (ctx.hiAt prog.length)
         ⟨n, us, w.getAppArgs.take nPc⟩ = .ok (nI, cty))
       (hmem : n ∈ grp.map (·.1))
@@ -329,29 +322,30 @@ inductive PosD (ops : CheckerOps CheckM) (env : Env) (ctx : NestCtx) :
       (hkty : ∃ ty, ops.inferType env (ctx.hiAt prog.length)
         (Expr.mkAppN (.const (grp.headD default).1 us) ds) = .ok ty)
       (hwalk : PosD ops env ctx (.ctors ((grpNews us ds (ctx.hiAt prog.length) grp).reverse ++ prog)
-        (ctx.hiAt prog.length + grp.length) us ds (grpSub us (ctx.hiAt prog.length) grp) ctors) ts) :
+        (ctx.hiAt prog.length + grp.length) us ds (grp.map (·.1))
+        (grpHoles (ctx.hiAt prog.length) grp) ctors) ts) :
       PosD ops env ctx (.frame prog us ds grp) ts
   | ctorsNil {prog : List NestHole} {hi : Nat} {us : List Level} {ds : List Expr}
-      {sub : Name → List Level → Option Expr} :
-      PosD ops env ctx (.ctors prog hi us ds sub []) []
+      {names : List Name} {holes : List Expr} :
+      PosD ops env ctx (.ctors prog hi us ds names holes []) []
   /-- one frame constructor: its level parameters distinct, instantiated and
   typed, its telescope positive, U4, its result the hole applied with
   hole-free indices -/
   | ctorsCons {prog : List NestHole} {hi : Nat} {us : List Level} {ds : List Expr}
-      {sub : Name → List Level → Option Expr} {cv : ConstantVal} {nF : Nat}
+      {names : List Name} {holes : List Expr} {cv : ConstantVal} {nF : Nat}
       {cs : List (ConstantVal × Nat)} {crest ty : Expr} {sv : Level} {ks : List NestFieldKind}
       {nds : List (Expr × BinderMeta)} {cur : Expr} {ts ts' : List PosTree}
       (hnd : Name.nodup cv.levelParams = true)
-      (hcrest : instPisWith ds ((cv.type.instantiateLevelParams cv.levelParams us).replaceConsts sub)
+      (hcrest : nestCrest names us ds holes (cv.type.instantiateLevelParams cv.levelParams us)
         = some crest)
       (hty : ops.inferType env hi crest = .ok ty) (hsort : ops.ensureSort env hi ty = .ok sv)
       (htele : PosD ops env ctx (.tele prog hi nF 0 crest ks nds cur) ts)
       (hu4 : ((List.range nF).any fun i => ks.getD i .ordinary != .ordinary &&
         structUsedLater (closeTelescope nds hi cur) 0 i) = false)
       (hres : nestResHead cur = true)
-      (hidx : (cur.getAppArgs.drop ds.length).all (fun x => !x.nestOcc ctx.names ctx.nP hi) = true)
-      (hrest : PosD ops env ctx (.ctors prog hi us ds sub cs) ts') :
-      PosD ops env ctx (.ctors prog hi us ds sub ((cv, nF) :: cs)) (ts ++ ts')
+      (hidx : cur.getAppArgs.all (fun x => !x.nestOcc ctx.names ctx.nP hi) = true)
+      (hrest : PosD ops env ctx (.ctors prog hi us ds names holes cs) ts') :
+      PosD ops env ctx (.ctors prog hi us ds names holes ((cv, nF) :: cs)) (ts ++ ts')
   | teleNil {prog : List NestHole} {base j : Nat} {cur : Expr} :
       PosD ops env ctx (.tele prog base 0 j cur [] [] cur) []
   /-- one field of a telescope: positive at its depth, then the rest
@@ -380,9 +374,7 @@ inductive PosD (ops : CheckerOps CheckM) (env : Env) (ctx : NestCtx) :
 /-- **A member constructor, derived** (its nodes `ts`): the root frame's
 constructor judgment read at one constructor — its field telescope
 positive at the block's own depth (no frames), U4 at the non-ordinary
-fields, its result's indices hole-free — and the every member
-applied to the parameters in the normal form `tyN` (`holesApplied`, by
-construction from official's uniform check, `memberCtorD_holesApplied`). -/
+fields, its result (the member's hole) applied to hole-free indices. -/
 @[expose] def MemberCtorD (ops : CheckerOps CheckM) (env : Env) (ctx : NestCtx) (nF : Nat)
     (crest : Expr) (ks : List NestFieldKind) (tyN : Expr) (ts : List PosTree) : Prop :=
   ∃ nds cur, PosD ops env ctx (.tele [] (ctx.hiAt 0) nF 0 crest ks nds cur) ts ∧
@@ -390,7 +382,6 @@ construction from official's uniform check, `memberCtorD_holesApplied`). -/
     ((List.range nF).any fun i =>
       ks.getD i .ordinary != .ordinary && structUsedLater tyN 0 i) = false ∧
     nestResHead cur = true ∧
-    (cur.getAppArgs.drop ctx.nP).all (fun a => !a.nestOcc ctx.names ctx.nP (ctx.hiAt 0)) = true ∧
-    tyN.holesApplied ctx.names ctx.nP (ctx.hiAt 0) = true
+    cur.getAppArgs.all (fun a => !a.nestOcc ctx.names ctx.nP (ctx.hiAt 0)) = true
 
 end ConLeche

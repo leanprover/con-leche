@@ -905,11 +905,14 @@ A frame abstracts its group (the root frame: the block's members) by
 replacing every WHOLE application `c.{us} q⃗` — `c` a group member at the
 frame's levels, applied to exactly the parameters — by the member's
 hole, a family over the member's INDICES alone.  The replacement happens
-BEFORE the constructor's parameters are instantiated: at the placeholder
-variables `fvar b, …, fvar (b + n - 1)` (`nestPhs`), which the
-instantiation then replaces (`nestCrest`).  A stored constructor passed
-official's uniform-occurrence check at its own install (`nestUniform`),
-so every member occurrence in it is such an application. -/
+BEFORE the constructor's parameters are instantiated, at the CANONICAL
+variables (`nestCanonCrest`: parameter `i` the variable `i`, member `m`'s
+hole the variable `n + m`, all annotated `Sort 0` — the form the model
+records at the container's install); the key's parameters and the
+frame's holes are then put in by one variable replacement (`nestCrest`).
+A stored constructor passed official's uniform-occurrence check at its
+own install (`nestUniform`), so every member occurrence in it is such an
+application. -/
 
 /-- `e` is a constant applied to EXACTLY the placeholder variables
 `fvar b, …, fvar (b + n - 1)` (annotations not compared): the constant's
@@ -1080,19 +1083,37 @@ def Expr.replaceAppsFast (f : Name → List Level → Option Expr) (b n : Nat) (
   funext f b n e
   exact (Expr.replaceAppsGo_spec e (fun k v h => by simp at h)).1.symm
 
-/-- The parameter placeholders at `b`: `fvar b, …, fvar (b + n - 1)`. -/
-def nestPhs (b n : Nat) : List Expr := (List.range n).map fun i => .fvar (b + i) (.sort .zero)
+/-- The canonical parameter variables `fvar 0, …, fvar (n - 1)`. -/
+def nestPhs (n : Nat) : List Expr := (List.range n).map fun i => .fvar i (.sort .zero)
 
-/-- **A stored constructor type at a key**, its group's whole
-applications abstracted by `sub` (see the section header): the
-level-instantiated type `cty` instantiated at the placeholders
-`nestPhs hi |ds|`, every whole application replaced, then the
-placeholders replaced by the key's parameters `ds`.  `hi` is past every
-hole of the walk. -/
-def nestCrest (sub : Name → List Level → Option Expr) (ds : List Expr) (hi : Nat) (cty : Expr) :
+/-- **The canonical whole-application substitution** of the group `names`
+at the levels `us` over `n` parameters: member `m` to the canonical hole
+`fvar (n + m)`. -/
+def nestCanonSub (names : List Name) (us : List Level) (n : Nat) :
+    Name → List Level → Option Expr :=
+  fun c v => if v == us then (names.findIdx? (· == c)).map fun m => .fvar (n + m) (.sort .zero)
+    else none
+
+/-- **A stored constructor type, canonically abstracted**: the
+(level-instantiated) type `cty` instantiated at the canonical parameter
+variables (`nestPhs n`), every whole application of a member of `names`
+at the levels `us` replaced by its canonical hole (`nestCanonSub`). -/
+def nestCanonCrest (names : List Name) (us : List Level) (n : Nat) (cty : Expr) : Option Expr :=
+  (instPisWith (nestPhs n) cty).map (·.replaceApps (nestCanonSub names us n) 0 n)
+
+/-- The variable replacement of a key: the canonical parameter variable
+`i` to the key's parameter `ds[i]`, the canonical hole `|ds| + m` to the
+frame's hole `holes[m]`. -/
+def nestKeyMap (ds holes : List Expr) : Nat → Option Expr :=
+  fun i => if i < ds.length then ds[i]? else holes[i - ds.length]?
+
+/-- **A stored constructor type at a key** (see the section header): its
+canonical abstraction (`nestCanonCrest`, the group `names` at the key's
+levels `us`), then the key's parameters `ds` and the frame's holes
+`holes` (one per member of `names`, in order) put in. -/
+def nestCrest (names : List Name) (us : List Level) (ds holes : List Expr) (cty : Expr) :
     Option Expr :=
-  (instPisWith (nestPhs hi ds.length) cty).map fun e =>
-    (e.replaceApps sub hi ds.length).replaceFVars fun i => if hi ≤ i then ds[i - hi]? else none
+  (nestCanonCrest names us ds.length cty).map (·.replaceFVars (nestKeyMap ds holes))
 
 /-- The instantiation's type former, checked as official checks the
 auxiliary type BEFORE the block exists: (N2) its index telescope at
@@ -1192,8 +1213,8 @@ indices hole-free below `hi`, and its walked normal form recorded
 def nestCtors (ctx : NestCtx) (ops : CheckerOps m) (env : Env)
     (rec : Expr → List NestHole → Nat → Nat → Expr → NestState →
       m (NestFieldKind × Expr × NestState))
-    (prog : List NestHole) (hi : Nat) (us : List Level) (ds : List Expr)
-    (sub : Name → List Level → Option Expr) :
+    (prog : List NestHole) (hi : Nat) (us : List Level) (ds : List Expr) (names : List Name)
+    (holes : List Expr) :
     List (ConstantVal × Nat) → NestState → m (List (List NestFieldKind × Expr) × NestState)
   | [], st => pure ([], st)
   | (cv, nF) :: cs, st => do
@@ -1209,7 +1230,7 @@ def nestCtors (ctx : NestCtx) (ops : CheckerOps m) (env : Env)
     -- instantiated (`nestCrest`), WITHOUT a β-step (official's
     -- `instantiate_pi_params`, `inductive.cpp` v4.34.0)
     let crest ← unwrapOr
-      (nestCrest sub ds hi (cv.type.instantiateLevelParams cv.levelParams us))
+      (nestCrest names us ds holes (cv.type.instantiateLevelParams cv.levelParams us))
       (.invalid "nested positivity: invalid nested inductive datatype, its constructor type \
         does not bind the parameters (official: ill-formed constructor)")
     let ty ← ops.inferType env hi crest
@@ -1237,7 +1258,7 @@ def nestCtors (ctx : NestCtx) (ops : CheckerOps m) (env : Env)
     -- K.53′: the constructor's walked normal form at the
     -- frame's key, read back (`NestCtorNf`)
     let st := { st with ctorNfs := st.ctorNfs.push (nestCtorNf ctx prog hi us ds cv nds cur) }
-    let (os, st) ← nestCtors ctx ops env rec prog hi us ds sub cs st
+    let (os, st) ← nestCtors ctx ops env rec prog hi us ds names holes cs st
     pure ((ks, closeTelescope nds hi cur) :: os, st)
 
 /-- The constructors of every container in `cs` (at one parameter
@@ -1322,13 +1343,11 @@ def nestFrame (ctx : NestCtx) (ops : CheckerOps m) (env : Env)
   -- of a typed term is typed.  The model grades the key's parameters in
   -- the frame's stack context by it.
   let _ ← ops.inferType env hi (Expr.mkAppN (.const (grp.headD default).1 us) ds)
-  let holes := grp.mapIdx fun i (c, ty) => (c, Expr.fvar (hi + i) ty)
   let prog' := (grp.mapIdx fun _ (c, _) =>
     ({ key := ⟨c, us, ds⟩, base := hi } : NestHole)).reverse ++ prog
-  let sub (c : Name) (us' : List Level) : Option Expr :=
-    if us' == us then (holes.lookup c) else none
   let ctors ← nestGroupCtors ctx nPc (grp.map (·.1))
-  let (_, st) ← nestCtors ctx ops env (fun _ => rec) prog' (hi + grp.length) us ds sub ctors st
+  let (_, st) ← nestCtors ctx ops env (fun _ => rec) prog' (hi + grp.length) us ds (grp.map (·.1))
+    (grp.mapIdx fun i (_, ty) => Expr.fvar (hi + i) ty) ctors st
   pure st
 
 /-- **The frame stack an instantiation is walked under**: the EMPTY one
@@ -1487,25 +1506,12 @@ def nestHoles (ctx : NestCtx) : Option (List Expr) :=
     | some (.indInfo cv _) => (instPisWith ctx.params cv.type).map (.fvar (ctx.nP + mm) ·)
     | _ => none
 
-/-- **The ROOT frame's substitution** (charter item 2: "the holes are
-ordinary open terms (members abstracted to fvars)"): every member at the
-block's own levels to its hole — the image of its WHOLE application to
-the parameters (`nestCrest`, `replaceApps`).  A container frame's is its
-group's (`nestFrame`'s `sub`). -/
-def nestRootSub (ctx : NestCtx) (holes : List Expr) : Name → List Level → Option Expr :=
-  fun c us =>
-    if us == ctx.lps.map .param then
-      match ctx.names.findIdx? (· == c) with
-      | some mm => holes[mm]?
-      | none => none
-    else none
-
-/-- **The root frame's crest** of a member constructor `cv` (at the
-block's levels): its whole member applications abstracted
-(`nestCrest` at the canonical parameters, `nestRootSub`) — the term the
-root walks (`nestRoot`) and the uniform-occurrence check reads. -/
-def nestRootCrest (ctx : NestCtx) (holes : List Expr) (cv : ConstantVal) : Option Expr :=
-  nestCrest (nestRootSub ctx holes) ctx.params (ctx.hiAt 0)
+/-- **The root frame's canonical crest** of a member constructor `cv` (at
+the block's levels): its whole member applications abstracted
+(`nestCanonCrest`) — what the uniform-occurrence check reads; the root
+walks it with the canonical parameters and holes put in (`nestCrest`). -/
+def nestRootCanon (ctx : NestCtx) (cv : ConstantVal) : Option Expr :=
+  nestCanonCrest ctx.names (ctx.lps.map .param) ctx.nP
     (cv.type.instantiateLevelParams cv.levelParams (ctx.lps.map .param))
 
 /-! ### Uniform occurrences: official's `check_uniform_ind_occs`
@@ -1521,9 +1527,9 @@ Reduction never creates such an occurrence (the members are not yet in
 the environment), so the syntactic check covers every occurrence a
 later reduct could expose or erase.
 
-Here it reads the root frame's crest (`nestRootCrest`): every WHOLE
-application `T_m.{lps} p⃗` replaced by the member's hole `X_m` before the
-parameters are instantiated (`nestCrest`) — an over-applied one has its
+Here it reads the root frame's canonical crest (`nestRootCanon`): every WHOLE
+application `T_m.{lps} p⃗` replaced by the member's hole before the
+parameters are instantiated (`nestCanonCrest`) — an over-applied one has its
 extra arguments walked — so an occurrence at other levels, or applied to
 anything but exactly the parameters, is a member constant left over.
 The parameters' domains must be free of members altogether.
@@ -1543,21 +1549,20 @@ def Expr.piDomsOcc (names : List Name) (lo hi : Nat) : Nat → Expr → Bool
 
 /-- **Official's `check_uniform_ind_occs` at one constructor `cv`** (see
 the section header): the parameters' domains of its stored type name no
-member, and its root crest (`nestRootCrest`: every whole application
+member, and its canonical crest (`nestRootCanon`: every whole application
 `T_m.{lps} p⃗` abstracted) has no member constant left.  A type without
 `nP` leading binders fails (the constructor stage already declined it). -/
-def nestUniformOk (ctx : NestCtx) (holes : List Expr) (cv : ConstantVal) : Bool :=
+def nestUniformOk (ctx : NestCtx) (cv : ConstantVal) : Bool :=
   !cv.type.piDomsOcc ctx.names ctx.nP (ctx.hiAt 0) ctx.nP &&
-    match nestRootCrest ctx holes cv with
+    match nestRootCanon ctx cv with
     | some crest => !crest.nestOcc ctx.names 0 0
     | none => false
 
 /-- `nestUniformOk` at every stored constructor of every member, before
 the walk (official runs it before anything else): a REJECT with
 official's wording. -/
-def nestUniform (ctx : NestCtx) (holes : List Expr) (ctorss : List (List (ConstantVal × Nat))) :
-    m Unit :=
-  match ctorss.findSome? (·.find? (!nestUniformOk ctx holes ·.1)) with
+def nestUniform (ctx : NestCtx) (ctorss : List (List (ConstantVal × Nat))) : m Unit :=
+  match ctorss.findSome? (·.find? (!nestUniformOk ctx ·.1)) with
   | some c => throw (.invalid s!"invalid occurrence of a datatype being declared in the \
       type of {c.1.name}: it must be applied to the parameters and universe levels of the \
       mutual declaration")
@@ -1569,8 +1574,8 @@ The block itself is the walk's ROOT frame: its key each member at the
 block's own levels and canonical parameters (`NestCtx.rootHoles`), its
 holes the member holes, its constructors the block's own — walked by the
 one constructor loop (`nestCtors`), exactly as a container frame's are:
-instantiated at the key (the members' whole applications abstracted by
-`nestRootSub`), typed
+instantiated at the key (the members' whole applications abstracted,
+`nestCrest`), typed
 at the holes' context, every field through `nestPos`, U4, the result,
 the normal form recorded (K.53′).  What only the root has is, BEFORE
 the walk, official's uniform-occurrence check on its constructors
@@ -1579,7 +1584,7 @@ holes (`checkAbsCtorSorts`, `BlockInstall.lean`). -/
 
 /-- **The root frame**: every member's constructors through `nestCtors`
 at the root key (the block's levels `lps`, the canonical parameters, the
-holes `nP + t` above them, `nestRootSub`), member by member, sharing the
+holes `nP + t` above them), member by member, sharing the
 walk's state; each constructor walked at the input-derived fuel of its
 instantiated type (`whnfWalkFuel`: the root has no enclosing walk).
 Returns every constructor's kinds and walked normal form
@@ -1590,7 +1595,7 @@ def nestRoot (ops : CheckerOps m) (env : Env) (ctx : NestCtx) (holes : List Expr
   | [], st => pure ([], st)
   | cs :: css, st => do
     let (o, st) ← nestCtors ctx ops env (fun crest => nestPos ops env ctx (whnfWalkFuel crest)) []
-      (ctx.hiAt 0) (ctx.lps.map .param) ctx.params (nestRootSub ctx holes) cs st
+      (ctx.hiAt 0) (ctx.lps.map .param) ctx.params ctx.names holes cs st
     let (os, st) ← nestRoot ops env ctx holes css st
     pure (o :: os, st)
 
@@ -1611,11 +1616,12 @@ family is a node by construction — an occurrence whnf erases
 syntactic occurrence.
 
 A class is moved to the walk's representation (`nestSeedOf`): its
-parameters' whole member applications `T_m.{lps} p⃗` abstracted to their
-holes (`replaceApps`, over the recursor's parameter binders `0 ..< nP`)
-and every free variable below `nP` — a recursor parameter binder —
-replaced WHOLE by the canonical parameter variable of its index
-(`ctx.params`), so the key's leaves are the canonical variables' and the
+parameters' whole member applications `T_m.{lps} p⃗` abstracted to the
+canonical holes (`replaceApps`, `nestCanonSub`, over the recursor's
+parameter binders `0 ..< nP`), then every free variable — a recursor
+parameter binder, or a canonical hole — replaced WHOLE by the canonical
+parameter variable of its index (`ctx.params`) or the member's hole
+(`nestKeyMap`), so the key's leaves are the canonical variables' and the
 holes'.  Nothing
 here trusts the stream: every seed is walked as the positivity check
 walks any container instance, and the proofs read a seed's key only
@@ -1627,7 +1633,8 @@ representation, with its parameter count (see "The seeds"). -/
 def nestSeedOf (ctx : NestCtx) (holes : List Expr) (I : Name) (us : List Level)
     (ds : List Expr) (nPc : Nat) : NestKey × Nat :=
   (⟨I, us, ds.map fun x =>
-      (x.replaceApps (nestRootSub ctx holes) 0 ctx.nP).replaceFVars fun i => ctx.params[i]?⟩,
+      (x.replaceApps (nestCanonSub ctx.names (ctx.lps.map .param) ctx.nP) 0 ctx.nP).replaceFVars
+        (nestKeyMap ctx.params holes)⟩,
     nPc)
 
 /-- **The seeds walked**, in order, at the root (see "The seeds"): each
@@ -1656,7 +1663,7 @@ def nestedBlockPositivity (ops : CheckerOps m) (env : Env) (ctx : NestCtx)
     (ctorss : List (List (ConstantVal × Nat))) : m NestedPositivity := do
   let holes ← unwrapOr (nestHoles ctx)
     (.internal "nested positivity: a member is not a stored former")
-  nestUniform ctx holes ctorss
+  nestUniform ctx ctorss
   let (outs, st) ← nestRoot ops env ctx holes ctorss {}
   pure ⟨st.keys, outs.map (·.map (·.1)), outs.map (·.map (·.2)), st.ctorNfs⟩
 

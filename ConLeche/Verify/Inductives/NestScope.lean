@@ -3,6 +3,8 @@ module
 public import ConLeche.Kernel.Inductives.Positivity
 public import ConLeche.Verify.Shift
 import ConLeche.Verify.Leaves
+public import ConLeche.Verify.Inductives.ReplaceApps
+import ConLeche.Verify.InstLevels
 
 public section
 
@@ -100,23 +102,6 @@ theorem WScoped.replaceConsts_closed {f : Name → List Level → Option Expr} {
   | sort _ => intro _; simp [Expr.replaceConsts, WScoped]
   | lit _ => intro _; simp [Expr.replaceConsts, WScoped]
 
-/-- Instantiating a telescope at well-scoped arguments keeps a term well
-scoped. -/
-theorem wscoped_instPisWith {d : Nat} :
-    ∀ {as : List Expr} {e r : Expr}, (∀ a ∈ as, WScoped d a) → WScoped d e →
-      ConLeche.instPisWith as e = some r → WScoped d r
-  | [], e, r, _, he, h => by
-    simp only [ConLeche.instPisWith, Option.some.injEq] at h
-    subst h; exact he
-  | a :: as, e, r, ha, he, h => by
-    match e, he, h with
-    | .forallE t b m, he, h =>
-      have h' : ConLeche.instPisWith as (b.instantiate1 a) = some r := h
-      simp only [WScoped] at he
-      exact wscoped_instPisWith (fun x hx => ha x (List.mem_cons_of_mem _ hx))
-        (WScoped.instantiate1_gen (ha a List.mem_cons_self) 0 he.2) h'
-
-
 /-- A context whose stored constants are closed. -/
 @[expose] def NestCtxOk (ctx : NestCtx) : Prop :=
   ∀ n ci, ctx.find? n = some ci → ci.toConstantVal.type.hasFvar = false
@@ -191,8 +176,10 @@ theorem option_mapM_mem {α β : Type} {f : α → Option β} :
         · obtain ⟨x, hx, hfx⟩ := option_mapM_mem hl y hy
           exact ⟨x, List.mem_cons_of_mem _ hx, hfx⟩
 
-/-- The member holes are variables, well scoped above them. -/
-theorem nestHoles_ok {ctx : NestCtx} (hc : NestCtxOk ctx) {holes : List Expr}
+/-- The member holes are variables, well scoped above them (their types
+are the formers at the canonical parameters). -/
+theorem nestHoles_ok {ctx : NestCtx} (hc : NestCtxOk ctx)
+    (hpar : ∀ x ∈ ctx.params, WScoped ctx.nP x) {holes : List Expr}
     (h : nestHoles ctx = some holes) :
     ∀ x ∈ holes, WScoped (ctx.hiAt 0) x ∧ ∃ i ty, x = .fvar i ty := by
   intro x hx
@@ -200,30 +187,24 @@ theorem nestHoles_ok {ctx : NestCtx} (hc : NestCtxOk ctx) {holes : List Expr}
   have hmm' := List.mem_range.mp hmm
   split at hf
   · next cv caps hfind =>
-    simp only [Option.some.injEq] at hf
-    subst hf
+    obtain ⟨ty, hty, rfl⟩ := Option.map_eq_some_iff.mp hf
     refine ⟨?_, _, _, rfl⟩
     simp only [WScoped, NestCtx.hiAt]
-    exact ⟨by omega, WScoped.of_not_hasFvar (hc _ _ hfind)⟩
+    refine ⟨by omega, WScoped.mono (by omega) (wscoped_instPisWith hpar
+      (WScoped.of_not_hasFvar (hc _ _ hfind)) hty)⟩
   · exact nomatch hf
 
-/-- A member constructor's abstracted type, instantiated at the canonical
-parameters, is well scoped at the walk's depth. -/
-theorem memberCrest_wscoped {ctx : NestCtx} {holes : List Expr}
+/-- A member constructor's root crest is well scoped at the walk's depth. -/
+theorem rootCrest_wscoped {ctx : NestCtx} {holes : List Expr}
     (hholes : ∀ x ∈ holes, WScoped (ctx.hiAt 0) x ∧ ∃ i ty, x = .fvar i ty)
-    (hpar : ∀ x ∈ ctx.params, WScoped (ctx.hiAt 0) x) {cty crest : Expr}
-    (hcl : cty.hasFvar = false)
-    (h : ConLeche.instPisWith ctx.params (nestAbstract ctx holes cty) = some crest) :
-    WScoped (ctx.hiAt 0) crest := by
-  refine wscoped_instPisWith hpar ?_ h
-  unfold nestAbstract
-  refine WScoped.replaceConsts_closed (fun c us e he => ?_) _ hcl
-  split at he
-  · split at he
-    · exact (hholes e (List.mem_of_getElem? he)).1
-    · exact nomatch he
-  · exact nomatch he
-
+    (hlen : ctx.names.length ≤ holes.length)
+    (hpar : ∀ x ∈ ctx.params, WScoped (ctx.hiAt 0) x) {cv : ConstantVal} {crest : Expr}
+    (hcl : cv.type.hasFvar = false)
+    (h : nestCrest ctx.names (ctx.lps.map .param) ctx.params holes
+      (cv.type.instantiateLevelParams cv.levelParams (ctx.lps.map .param)) = some crest) :
+    WScoped (ctx.hiAt 0) crest :=
+  WScoped_nestCrest (by rw [hasFvar_instantiateLevelParams]; exact hcl) hlen
+    (fun x hx => (List.mem_append.mp hx).elim (hpar x) (fun h => (hholes x h).1)) h
 
 /-! ## The abstracted, instantiated constructor type: leaves and bounds -/
 
@@ -322,24 +303,6 @@ theorem looseBVarsBounded_replaceConsts {f : Name → List Level → Option Expr
     simp only [Expr.replaceConsts, looseBVarsBounded]
     exact ihe k h
 
-/-- The leaves of a Π-telescope instantiated at arguments come from the
-telescope or the arguments. -/
-theorem fvarLeaves_instPisWith :
-    ∀ {as : List Expr} {e r : Expr}, instPisWith as e = some r →
-      ∀ l ∈ r.fvarLeaves, l ∈ e.fvarLeaves ∨ ∃ a ∈ as, l ∈ a.fvarLeaves
-  | [], e, r, h, l, hl => by
-    simp only [instPisWith, Option.some.injEq] at h
-    subst h; exact Or.inl hl
-  | a :: as, e, r, h, l, hl => by
-    match e, h with
-    | .forallE t b m, h =>
-      have h' : instPisWith as (b.instantiate1 a) = some r := h
-      rcases fvarLeaves_instPisWith h' l hl with hl' | ⟨x, hx, hl'⟩
-      · rcases fvarLeaves_instantiate1 b 0 hl' with hb | ha
-        · left; simp only [fvarLeaves, List.mem_append]; exact Or.inr hb
-        · exact Or.inr ⟨a, List.mem_cons_self, ha⟩
-      · exact Or.inr ⟨x, List.mem_cons_of_mem _ hx, hl'⟩
-
 /-- A Π-telescope instantiated at bvar-closed arguments stays bvar-closed. -/
 theorem looseBVarsBounded_instPisWith :
     ∀ {as : List Expr} {e r : Expr}, (∀ a ∈ as, a.looseBVarsBounded 0 = true) →
@@ -383,17 +346,16 @@ theorem option_mapM_getElem? {α β : Type} {f : α → Option β} :
           exact option_mapM_getElem? hl i x hx
 
 /-- **Member `t`'s hole** is the variable `nP + t` carrying the member's
-stored type. -/
+stored type at the canonical parameters. -/
 theorem nestHoles_getElem? {ctx : NestCtx} {holes : List Expr} (h : nestHoles ctx = some holes)
     {t : Nat} (ht : t < ctx.names.length) :
-    ∃ cv caps, ctx.find? (ctx.names.getD t .anonymous) = some (.indInfo cv caps) ∧
-      holes[t]? = some (.fvar (ctx.nP + t) cv.type) := by
+    ∃ cv caps ty, ctx.find? (ctx.names.getD t .anonymous) = some (.indInfo cv caps) ∧
+      instPisWith ctx.params cv.type = some ty ∧ holes[t]? = some (.fvar (ctx.nP + t) ty) := by
   obtain ⟨y, hy, hget⟩ := option_mapM_getElem? h t t (List.getElem?_range ht)
   split at hy
   · next cv caps hfind =>
-    simp only [Option.some.injEq] at hy
-    subst hy
-    exact ⟨cv, caps, hfind, hget⟩
+    obtain ⟨ty, hty, rfl⟩ := Option.map_eq_some_iff.mp hy
+    exact ⟨cv, caps, ty, hfind, hty, hget⟩
   · exact nomatch hy
 
 /-- An `Option` `mapM` keeps the length. -/
@@ -421,16 +383,17 @@ theorem nestHoles_length {ctx : NestCtx} {holes : List Expr} (h : nestHoles ctx 
     holes.length = ctx.names.length := by
   rw [option_mapM_length h, List.length_range]
 
-/-- Every hole is a member's variable, carrying the member's stored type. -/
+/-- Every hole is a member's variable, carrying the member's stored type
+at the canonical parameters. -/
 theorem nestHoles_mem {ctx : NestCtx} {holes : List Expr} (h : nestHoles ctx = some holes) :
-    ∀ x ∈ holes, ∃ i cv caps, ctx.find? (ctx.names.getD i .anonymous) = some (.indInfo cv caps) ∧
-      x = .fvar (ctx.nP + i) cv.type := by
+    ∀ x ∈ holes, ∃ i cv caps ty, ctx.find? (ctx.names.getD i .anonymous) = some (.indInfo cv caps) ∧
+      instPisWith ctx.params cv.type = some ty ∧ x = .fvar (ctx.nP + i) ty := by
   intro x hx
   obtain ⟨mm, -, hf⟩ := option_mapM_mem h x hx
   split at hf
   · next cv caps hfind =>
-    simp only [Option.some.injEq] at hf
-    exact ⟨mm, cv, caps, hfind, hf.symm⟩
+    obtain ⟨ty, hty, rfl⟩ := Option.map_eq_some_iff.mp hf
+    exact ⟨mm, cv, caps, ty, hfind, hty, rfl⟩
   · exact nomatch hf
 
 /-! ## The seeds: their keys
@@ -443,74 +406,69 @@ free variables of a seed's parameter are canonical variables and holes,
 each whole: its leaves are theirs, and it is well scoped wherever they
 are. -/
 
-/-- **Constants to whole variables, then variables to whole terms**:
-when every replaced constant becomes a variable of `S` that `g` keeps,
-and every variable of `e` (below `n`) is replaced by a member of `S`,
-every leaf of the result is a leaf of a member of `S`, and the result
-is well scoped wherever `S` is. -/
-theorem replaceConsts_replaceFVars_whole {f : Name → List Level → Option Expr}
-    {g : Nat → Option Expr} {S : List Expr} {n : Nat}
-    (hf : ∀ c us e, f c us = some e → e ∈ S ∧ ∃ i ty, e = .fvar i ty ∧ g i = none)
-    (hg : ∀ i a, g i = some a → a ∈ S) (hgn : ∀ i, i < n → (g i).isSome = true) :
-    ∀ (e : Expr), e.fvarsBelow n →
-      (∀ l ∈ ((e.replaceConsts f).replaceFVars g).fvarLeaves, ∃ a ∈ S, l ∈ a.fvarLeaves) ∧
-      ∀ d, (∀ a ∈ S, WScoped d a) → WScoped d ((e.replaceConsts f).replaceFVars g) := by
-  intro e
-  induction e with
-  | bvar i => intro _; simp [Expr.replaceConsts, Expr.replaceFVars, fvarLeaves, WScoped]
-  | sort u => intro _; simp [Expr.replaceConsts, Expr.replaceFVars, fvarLeaves, WScoped]
-  | lit v => intro _; simp [Expr.replaceConsts, Expr.replaceFVars, fvarLeaves, WScoped]
+/-- **Whole applications to whole variables, then variables to whole
+terms**: when every image is a variable `g` replaces, and every variable
+of `x` (below `n`) is replaced, every leaf of the result is a
+replacement's. -/
+theorem fvarLeaves_replaceApps_replaceFVars_whole {f : Name → List Level → Option Expr}
+    {g : Nat → Option Expr} {b k n : Nat}
+    (hf : ∀ c us h, f c us = some h → ∃ i ty, h = .fvar i ty ∧ (g i).isSome = true)
+    (hgn : ∀ i, i < n → (g i).isSome = true) :
+    ∀ (x : Expr), x.fvarsBelow n → ∀ l ∈ ((x.replaceApps f b k).replaceFVars g).fvarLeaves,
+      ∃ i a, g i = some a ∧ l ∈ a.fvarLeaves := by
+  have himg : ∀ (e h : Expr), e.appHole? f b k = some h → ∀ l ∈ (h.replaceFVars g).fvarLeaves,
+      ∃ i a, g i = some a ∧ l ∈ a.fvarLeaves := by
+    intro e h hh l hl
+    obtain ⟨c, us, hc⟩ := Expr.appHole?_some hh
+    obtain ⟨i, ty, rfl, hgi⟩ := hf c us _ hc
+    obtain ⟨a, ha⟩ := Option.isSome_iff_exists.mp hgi
+    simp only [Expr.replaceFVars, ha, Option.getD_some] at hl
+    exact ⟨i, a, ha, hl⟩
+  intro x
+  induction x with
+  | bvar i => intro _ l hl; simp [Expr.replaceApps, Expr.replaceFVars, fvarLeaves] at hl
+  | sort u => intro _ l hl; simp [Expr.replaceApps, Expr.replaceFVars, fvarLeaves] at hl
+  | lit v => intro _ l hl; simp [Expr.replaceApps, Expr.replaceFVars, fvarLeaves] at hl
   | fvar idx ty _ =>
-    intro hb
+    intro hb l hl
     simp only [Expr.fvarsBelow] at hb
     obtain ⟨a, ha⟩ := Option.isSome_iff_exists.mp (hgn idx hb)
-    simp only [Expr.replaceConsts, Expr.replaceFVars, ha, Option.getD_some]
-    exact ⟨fun l hl => ⟨a, hg idx a ha, hl⟩, fun d hS => hS a (hg idx a ha)⟩
+    simp only [Expr.replaceApps, Expr.replaceFVars, ha, Option.getD_some] at hl
+    exact ⟨idx, a, ha, hl⟩
   | const c us =>
-    intro _
-    simp only [Expr.replaceConsts]
-    cases hc : f c us with
-    | none => simp [Expr.replaceFVars, fvarLeaves, WScoped]
-    | some e =>
-      obtain ⟨heS, i, ty, rfl, hgi⟩ := hf c us e hc
-      simp only [Option.getD_some, Expr.replaceFVars, hgi, Option.getD_none]
-      exact ⟨fun l hl => ⟨_, heS, hl⟩, fun d hS => hS _ heS⟩
-  | app a b iha ihb =>
-    intro hb
+    intro _ l hl
+    rw [Expr.replaceApps_const] at hl
+    split at hl
+    · rename_i h hh; exact himg _ _ hh l hl
+    · simp [Expr.replaceFVars, fvarLeaves] at hl
+  | app a x iha ihx =>
+    intro hb l hl
+    rw [Expr.replaceApps_app] at hl
+    split at hl
+    · rename_i h hh; exact himg _ _ hh l hl
+    · simp only [Expr.fvarsBelow] at hb
+      simp only [Expr.replaceFVars, fvarLeaves, List.mem_append] at hl
+      exact hl.elim (iha hb.1 l) (ihx hb.2 l)
+  | lam t body m iht ihb =>
+    intro hb l hl
     simp only [Expr.fvarsBelow] at hb
-    obtain ⟨h1, h2⟩ := iha hb.1
-    obtain ⟨h3, h4⟩ := ihb hb.2
-    simp only [Expr.replaceConsts, Expr.replaceFVars, fvarLeaves, List.mem_append, WScoped]
-    exact ⟨fun l hl => hl.elim (h1 l) (h3 l), fun d hS => ⟨h2 d hS, h4 d hS⟩⟩
-  | lam ty b m iht ihb =>
-    intro hb
+    simp only [Expr.replaceApps, Expr.replaceFVars, fvarLeaves, List.mem_append] at hl
+    exact hl.elim (iht hb.1 l) (ihb hb.2 l)
+  | forallE t body m iht ihb =>
+    intro hb l hl
     simp only [Expr.fvarsBelow] at hb
-    obtain ⟨h1, h2⟩ := iht hb.1
-    obtain ⟨h3, h4⟩ := ihb hb.2
-    simp only [Expr.replaceConsts, Expr.replaceFVars, fvarLeaves, List.mem_append, WScoped]
-    exact ⟨fun l hl => hl.elim (h1 l) (h3 l), fun d hS => ⟨h2 d hS, h4 d hS⟩⟩
-  | forallE ty b m iht ihb =>
-    intro hb
+    simp only [Expr.replaceApps, Expr.replaceFVars, fvarLeaves, List.mem_append] at hl
+    exact hl.elim (iht hb.1 l) (ihb hb.2 l)
+  | letE t v body iht ihv ihb =>
+    intro hb l hl
     simp only [Expr.fvarsBelow] at hb
-    obtain ⟨h1, h2⟩ := iht hb.1
-    obtain ⟨h3, h4⟩ := ihb hb.2
-    simp only [Expr.replaceConsts, Expr.replaceFVars, fvarLeaves, List.mem_append, WScoped]
-    exact ⟨fun l hl => hl.elim (h1 l) (h3 l), fun d hS => ⟨h2 d hS, h4 d hS⟩⟩
-  | letE ty v b iht ihv ihb =>
-    intro hb
-    simp only [Expr.fvarsBelow] at hb
-    obtain ⟨h1, h2⟩ := iht hb.1
-    obtain ⟨h3, h4⟩ := ihv hb.2.1
-    obtain ⟨h5, h6⟩ := ihb hb.2.2
-    simp only [Expr.replaceConsts, Expr.replaceFVars, fvarLeaves, List.mem_append, WScoped]
-    exact ⟨fun l hl => (hl.elim (·.elim (h1 l) (h3 l)) (h5 l)),
-      fun d hS => ⟨h2 d hS, h4 d hS, h6 d hS⟩⟩
+    simp only [Expr.replaceApps, Expr.replaceFVars, fvarLeaves, List.mem_append] at hl
+    exact hl.elim (·.elim (iht hb.1 l) (ihv hb.2.1 l)) (ihb hb.2.2 l)
   | proj s i x ih =>
-    intro hb
+    intro hb l hl
     simp only [Expr.fvarsBelow] at hb
-    obtain ⟨h1, h2⟩ := ih hb
-    simp only [Expr.replaceConsts, Expr.replaceFVars, fvarLeaves, WScoped]
-    exact ⟨h1, h2⟩
+    simp only [Expr.replaceApps, Expr.replaceFVars, fvarLeaves] at hl
+    exact ih hb l hl
 
 /-- **A seed's parameters** (`nestSeedOf`): at a walk context whose
 canonical variables are `nP` in number, every parameter of a class whose
@@ -527,34 +485,28 @@ theorem nestSeedOf_ds {ctx : NestCtx} {holes : List Expr} (hh : nestHoles ctx = 
   intro y hy
   simp only [nestSeedOf, List.mem_map] at hy
   obtain ⟨x, hx, rfl⟩ := hy
-  have hw := replaceConsts_replaceFVars_whole (S := ctx.params ++ holes) (n := ctx.nP)
-    (f := fun c us' =>
-      if us' == ctx.lps.map .param then
-        match ctx.names.findIdx? (· == c) with
-        | some mm => holes[mm]?
-        | none => none
-      else none)
-    (g := fun i => ctx.params[i]?)
-    (fun c us' e he => by
-      split at he
-      · split at he
-        · rename_i mm hmm
-          have hlt : mm < holes.length := (List.getElem?_eq_some_iff.mp he).1
-          have hlt' : mm < ctx.names.length := by rw [← nestHoles_length hh]; exact hlt
-          obtain ⟨cv, caps, -, hget⟩ := nestHoles_getElem? hh hlt'
-          rw [hget] at he
-          obtain rfl := Option.some.inj he
-          refine ⟨List.mem_append_right _ (List.mem_of_getElem? hget), _, _, rfl, ?_⟩
-          exact List.getElem?_eq_none (by omega)
-        · exact nomatch he
-      · exact nomatch he)
-    (fun i a ha => List.mem_append_left _ (List.mem_of_getElem? ha))
-    (fun i hi => by simp [List.getElem?_eq_getElem (show i < ctx.params.length by omega)])
-    x (hds x hx)
-  refine ⟨hw.1, fun hH hP => hw.2 _ fun a ha => ?_⟩
+  have hL : ∀ l ∈ ((x.replaceApps (nestCanonSub ctx.names (ctx.lps.map .param) ctx.nP) 0
+      ctx.nP).replaceFVars (nestKeyMap ctx.params holes)).fvarLeaves,
+      ∃ a ∈ ctx.params ++ holes, l ∈ a.fvarLeaves := by
+    intro l hl
+    obtain ⟨i, a, hg, hl'⟩ := fvarLeaves_replaceApps_replaceFVars_whole (n := ctx.nP)
+      (fun c us' h hc => by
+        obtain ⟨m, hm, -, -, rfl⟩ := nestCanonSub_some hc
+        refine ⟨_, _, rfl, ?_⟩
+        simp [nestKeyMap, hlen, List.getElem?_eq_getElem
+          (show m < holes.length by rw [nestHoles_length hh]; exact hm)])
+      (fun i hi => by
+        simp [nestKeyMap, hlen, hi])
+      x (hds x hx) l hl
+    unfold nestKeyMap at hg
+    split at hg
+    · exact ⟨a, List.mem_append_left _ (List.mem_of_getElem? hg), hl'⟩
+    · exact ⟨a, List.mem_append_right _ (List.mem_of_getElem? hg), hl'⟩
+  refine ⟨hL, fun hH hP => Expr.WScoped_of_leaves _ fun l hl => ?_⟩
+  obtain ⟨a, ha, hla⟩ := hL l hl
   rcases List.mem_append.mp ha with ha | ha
-  · exact hP a ha
-  · exact hH a ha
+  · exact WScoped_leaves a (hP a ha) l hla
+  · exact WScoped_leaves a (hH a ha) l hla
 
 /-- Replacing variables by closed terms keeps the loose-bvar bound. -/
 theorem looseBVarsBounded_replaceFVars {g : Nat → Option Expr}
@@ -610,14 +562,14 @@ theorem nestSeedOf_closed {ctx : NestCtx} {holes : List Expr} (hh : nestHoles ct
   simp only [nestSeedOf, List.mem_map] at hy
   obtain ⟨x, hx, rfl⟩ := hy
   refine looseBVarsBounded_replaceFVars (fun i r hr => ?_) _ 0
-    (looseBVarsBounded_replaceConsts (fun c us' r hr => ?_) x 0 (hds x hx))
-  · obtain ⟨j, ty, rfl⟩ := hparF r (List.mem_of_getElem? hr)
+    (Expr.looseBVarsBounded_replaceApps (fun c us' r hr => ?_) x 0 (hds x hx))
+  · unfold nestKeyMap at hr
+    split at hr
+    · obtain ⟨j, ty, rfl⟩ := hparF r (List.mem_of_getElem? hr)
+      simp [looseBVarsBounded]
+    · obtain ⟨j, cv, caps, ty, -, -, rfl⟩ := nestHoles_mem hh r (List.mem_of_getElem? hr)
+      simp [looseBVarsBounded]
+  · obtain ⟨m, -, -, -, rfl⟩ := nestCanonSub_some hr
     simp [looseBVarsBounded]
-  · split at hr
-    · split at hr
-      · obtain ⟨j, cv, caps, -, rfl⟩ := nestHoles_mem hh r (List.mem_of_getElem? hr)
-        simp [looseBVarsBounded]
-      · exact nomatch hr
-    · exact nomatch hr
 
 end ConLeche
