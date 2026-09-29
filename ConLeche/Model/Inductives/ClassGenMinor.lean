@@ -5,8 +5,6 @@ public import ConLeche.Verify.Inductives.ClassGenMinorSyn
 import ConLeche.Model.Inductives.ClassGenRead
 import ConLeche.Model.Inductives.NestPosOut
 import ConLeche.Verify.Inductives.NestScope
-import ConLeche.Verify.Inductives.NestCallSyn
-import ConLeche.Verify.Cached.NestPosC
 import ConLeche.Model.Inductives.StoredShapes
 import ConLeche.Model.Inductives.StructFrameKit
 import ConLeche.Model.Inductives.BlockRuleGrading
