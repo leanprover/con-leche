@@ -178,7 +178,7 @@ theorem genRuleAt (R : GenRecRun mode F fe₁ env₁ fe p nb pos cvTas block cto
         (r.1.levelParams.map .param) c x = some gen ∧
       Nonempty (ClassRuleRun mode F .plain fe (ConLeche.classFeR p R.Ms R.cvGs R.rd.recCls fe)
         r.1 (Level.zeronessOf (ConLeche.structElimLevel p.elim p.large))
-        (R.g.nP + R.g.slots.length + x.nF) gen.resetMeta rhs) := by
+        (R.g.nP + R.g.slots.length + x.nF) gen rhs) := by
   obtain ⟨t, ho, rfl⟩ : ∃ t, out[j]? = some t ∧ r = (t.1, t.2.2, t.2.1.nIdx, t.2.1.ctors) := by
     simp only [tgtRs, List.getElem?_map] at hr
     cases ho : out[j]? with

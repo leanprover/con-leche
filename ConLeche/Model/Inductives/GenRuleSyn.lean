@@ -228,7 +228,7 @@ theorem find?_zip_range' {α : Type} [Inhabited α] (P : α → Bool) :
       | none => rfl
       | some s =>
         have hs := List.mem_range'_1.mp (List.mem_of_find?_eq_some hf)
-        simp only [Option.map_some, true_and]
+        simp only [Option.map_some]
         rw [show s - o = (s - (o + 1)) + 1 by omega, List.getD_cons_succ]
 
 theorem find?_zip_range {α : Type} [Inhabited α] (P : α → Bool) (L : List α) :
