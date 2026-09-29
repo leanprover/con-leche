@@ -190,6 +190,11 @@ def classGenRule (g : ClassGen) (recOf : Nat → Option Name) (rlvls : List Leve
 
 variable {m : Type → Type} [Monad m] [MonadExceptOf CheckError m]
 
+/-- A minor premise's slot. -/
+def ClassSlot.isMinor : ClassSlot → Bool
+  | .minor .. => true
+  | .motive _ => false
+
 /-- The minor premise slot of class `c`'s constructor `C`: exactly one. -/
 def classMinorSlot (rd : ClassRead) (c : Nat) (C : Name) : m (Nat × List (Nat × Nat)) := do
   let hits := (List.range rd.slots.length).filterMap fun s =>
@@ -494,8 +499,7 @@ def genRecCheck (so : ShadowOps m) (fe₁ : FEnv) (env₁ : Env) (fe : FEnv) (p 
     st.ctorNfs.toList) Ms
   -- per class and constructor: the datum, the inductive hypotheses, node agreement
   let ctors ← classesCtors ops fe.env p formerTys rd Ms 0 Ms
-  unless (rd.slots.filter fun | .minor .. => true | _ => false).length ==
-      (ctors.map List.length).sum do
+  unless (rd.slots.filter ClassSlot.isMinor).length == (ctors.map List.length).sum do
     throw (.invalid "generated recursor: the recursors' prefix has a minor premise for no \
       constructor of a class (official: invalid recursor)")
   -- generation
