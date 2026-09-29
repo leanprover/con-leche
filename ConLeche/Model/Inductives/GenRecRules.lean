@@ -11,6 +11,7 @@ import ConLeche.Verify.Abstract
 import ConLeche.Verify.Extend.Inversions
 import ConLeche.Semantics.DeclRun
 import ConLeche.Model.Inductives.TargetResidue
+import ConLeche.Model.Inductives.GenRuleSyn
 
 public section
 
@@ -787,6 +788,187 @@ theorem genIhsAV_params (m : EnvModel V env) {out : List (ConstantVal × TargetM
       exact hcargs a (List.mem_of_getLast? hl)
 
 end Params
+
+/-! ## 9. The residue: the stored rule's body at the `ih` values
+
+At a frame of prefix and field values, the stored rule's body reads as
+the minor premise applied to the fields and to its `ih` λs, and each
+`ih` λ — its callee's recursor constant read as the callee's leaf — reads
+as the generated `ih` term `genIhAV` at the chain frame whose components
+are the leaves: the same telescope and arguments, the head a variable
+of the same value. -/
+
+section Residue
+
+variable {V : Type w} [SetTheory V]
+
+theorem denoteMetaSpine_map {acval : Name → (Name → Nat) → AnnotTerm} {env : Env}
+    {φ : Name → Nat} {d : Nat} :
+    ∀ {as : List Expr} {vs : List AnnotTerm}, DenoteMetaSpine acval env φ d as vs →
+      vs = as.map (fun a => (denoteMeta acval env φ d a).getD default)
+  | _, _, .nil => rfl
+  | _, _, .cons ha hs => by rw [denoteMetaSpine_map hs, List.map_cons, ha]; rfl
+
+/-- **Two λ-towers over the same telescope and arguments**, their heads
+of the same value along every spine of the telescope's length, read
+alike at frames agreeing below the telescope's base. -/
+theorem interp_lamsApp_congr {h1 h2 : AnnotTerm} {args : List AnnotTerm} :
+    ∀ (tele : List (Nat × AnnotTerm)) {D : Nat} {σ σ' : Nat → V},
+      LamDomsBelow D tele → (∀ e ∈ args, Term.bvarsBelow (D + tele.length) e.erase) →
+      (∀ i, i < D → σ i = σ' i) →
+      (∀ bs : List V, bs.length = tele.length →
+        interp V (consList bs σ) h1 = interp V (consList bs σ') h2) →
+      interp V σ (mkLamsAV tele (AnnotTerm.mkAppN h1 args))
+        = interp V σ' (mkLamsAV tele (AnnotTerm.mkAppN h2 args))
+  | [], D, σ, σ', _, hargs, hag, hh => by
+    simp only [mkLamsAV, interp_mkAppN]
+    have h0 := hh [] rfl
+    simp only [consList_nil] at h0
+    rw [h0]
+    have hmap : args.map (interp V σ) = args.map (interp V σ') :=
+      List.map_congr_left fun e he =>
+        interp_congr_below V e D σ σ' (by simpa using hargs e he) hag
+    rw [← List.foldl_map, ← List.foldl_map (f := interp V σ'), hmap]
+  | (v, A) :: tele, D, σ, σ', hT, hargs, hag, hh => by
+    show lamR v (interp V σ A) (fun x => interp V (cons x σ) _)
+      = lamR v (interp V σ' A) (fun x => interp V (cons x σ') _)
+    rw [← interp_congr_below V A D σ σ' hT.1 hag]
+    refine lamR_congr fun x _ => ?_
+    refine interp_lamsApp_congr tele (D := D + 1) hT.2 (fun e he => ?_) (fun i hi => ?_)
+      (fun bs hbs => ?_)
+    · have := hargs e he
+      simpa [Nat.add_assoc, Nat.add_comm 1 tele.length] using this
+    · cases i with
+      | zero => rfl
+      | succ i => exact hag i (by omega)
+    · have := hh (x :: bs) (by simp [hbs])
+      simpa [consList_cons] using this
+
+theorem map_dropLast_getLastD {α β : Type} (f : α → β) (d : α) (l : List α) (hne : l ≠ []) :
+    l.dropLast.map f ++ [f (l.getLastD d)] = l.map f := by
+  have h1 := List.dropLast_concat_getLast hne
+  rw [List.getLastD_eq_getLast?, List.getLast?_eq_getLast hne, Option.getD_some]
+  conv => rhs; rw [← h1]
+  simp
+
+theorem denoteMeta_const_depth {acval : Name → (Name → Nat) → AnnotTerm} {env : Env}
+    {φ : Name → Nat} (d : Nat) (n : Name) (us : List Level) :
+    denoteMeta acval env φ d (.const n us) = denoteMeta acval env φ 0 (.const n us) := by
+  simp only [denoteMeta]
+
+theorem readLamBs_cross {env₁ env₂ : Env} {acv₁ acv₂ : Name → (Name → Nat) → AnnotTerm}
+    {ψ : Name → Nat} {envC : Env}
+    (hcross : ∀ (d : Nat) (e : Expr), ConstsBound envC e →
+      denoteMeta acv₁ env₁ ψ d e = denoteMeta acv₂ env₂ ψ d e) :
+    ∀ (j : Nat) (bs : List (Expr × ConLeche.BinderMeta)), (∀ b ∈ bs, ConstsBound envC b.1) →
+      readLamBs acv₁ env₁ ψ j bs = readLamBs acv₂ env₂ ψ j bs
+  | _, [], _ => rfl
+  | j, b :: bs, h => by
+    simp only [readLamBs]
+    rw [hcross j b.1 (h b List.mem_cons_self),
+      readLamBs_cross hcross (j + 1) bs (fun b' hb' => h b' (List.mem_cons_of_mem _ hb'))]
+
+open ConLeche (ScB) in
+/-- **One `ih` λ of the stored rule, valued**: read with its callee's
+recursor constant as a closed term of value `a t'`, it has the value of
+the generated `ih` term `genIhAV` at a chain frame agreeing below the
+rule's frame and holding `a t'` at the callee's chain position. -/
+theorem genIh_value {envC : Env} (m : EnvModel V envC) {acv : Name → (Name → Nat) → AnnotTerm}
+    {env₃ : Env} {ψ : Name → Nat}
+    (hcross : ∀ (d : Nat) (e : Expr), ConstsBound envC e →
+      denoteMeta m.acval envC ψ d e = denoteMeta acv env₃ ψ d e)
+    {D rP tele K t' : Nat} {a : Nat → V} {argE : Expr}
+    {bl : List (Expr × ConLeche.BinderMeta)} {call : Expr}
+    (hop : openLamsM tele argE D = some (bl, call)) (hsc : ScB D argE)
+    (hfreeL : (∀ b ∈ bl, ConstsBound envC b.1) ∧
+      ∀ e ∈ call.getAppArgs.drop rP, ConstsBound envC e)
+    {rn : Name} {rlvls : List Level} (hfn : call.getAppFn = .const rn rlvls)
+    (hlenc : rP < call.getAppArgs.length)
+    (hpv : ∀ k, k < rP → ∃ T, call.getAppArgs[k]? = some (.fvar k T)) (hrPD : rP ≤ D)
+    (hD : 0 < D) {L0 : AnnotTerm} (hL0 : denoteMeta acv env₃ ψ 0 (.const rn rlvls) = some L0)
+    (hL0v : ∀ ρ' : Nat → V, interp V ρ' L0 = a t')
+    {L : AnnotTerm} (hL : denoteMeta acv env₃ ψ D argE = some L)
+    {σ σc : Nat → V} (hag : ∀ i, i < D → σ i = σc i) (hσc : σc (D + (K - 1 - t')) = a t') :
+    interp V σ L = interp V σc (genIhAV K rP D (t', readLamBs m.acval envC ψ D bl,
+      (call.getAppArgs.drop rP).dropLast.map
+        (fun e => (denoteMeta m.acval envC ψ (D + bl.length) e).getD default),
+      (denoteMeta m.acval envC ψ (D + bl.length) ((call.getAppArgs.drop rP).getLastD default)).getD
+        default)) := by
+  obtain ⟨C, hC, rfl, -⟩ := denoteMeta_openLamsM tele hop hL
+  obtain ⟨hbsS, hcallS⟩ := openLamsM_scoped tele hop hsc
+  have hbl := openLamsM_length tele hop
+  rw [← hbl] at hcallS
+  rw [readLamBs_cross hcross D bl hfreeL.1]
+  -- the call, read
+  have hcallE : call = Expr.mkAppN (.const rn rlvls) call.getAppArgs := by
+    rw [← hfn]; exact (Expr.mkAppN_getApp call).symm
+  rw [hcallE] at hC
+  obtain ⟨fa, vs, hfa, hvs, rfl⟩ := denoteMeta_mkAppN_inv hC
+  rw [denoteMeta_const_depth, hL0] at hfa
+  obtain rfl := Option.some.inj hfa.symm
+  have hvsE := denoteMetaSpine_map hvs
+  -- the arguments: the prefix variables, then the rest
+  have hsplit : call.getAppArgs = call.getAppArgs.take rP ++ call.getAppArgs.drop rP := (List.take_append_drop rP call.getAppArgs).symm
+  have hpref : (call.getAppArgs.take rP).map
+      (fun e => (denoteMeta acv env₃ ψ (D + tele) e).getD default)
+      = prefVarsAV rP (D - rP + (readLamBs acv env₃ ψ D bl).length) := by
+    rw [readLamBs_length, hbl]
+    refine List.ext_getElem (by simp [prefVarsAV]; omega) fun k hk hk' => ?_
+    simp only [List.length_map, List.length_take] at hk
+    obtain ⟨T, hT⟩ := hpv k (by omega)
+    simp only [List.getElem_map, List.getElem_take, prefVarsAV, List.getElem_range]
+    have : call.getAppArgs[k] = .fvar k T := by
+      rw [List.getElem?_eq_some_iff] at hT; exact hT.2
+    rw [this]
+    simp only [denoteMeta, Option.getD_some, AnnotTerm.bvar.injEq]
+    omega
+  have hrest : (call.getAppArgs.drop rP).map
+      (fun e => (denoteMeta acv env₃ ψ (D + tele) e).getD default)
+      = (call.getAppArgs.drop rP).map
+      (fun e => (denoteMeta m.acval envC ψ (D + bl.length) e).getD default) := by
+    rw [hbl]
+    exact List.map_congr_left fun e he => by rw [hcross _ e (hfreeL.2 e he)]
+  have hne : call.getAppArgs.drop rP ≠ [] := by
+    intro h0; have := congrArg List.length h0; simp at this; omega
+  have hargsE : vs = prefVarsAV rP (D - rP + (readLamBs acv env₃ ψ D bl).length) ++
+      ((call.getAppArgs.drop rP).dropLast.map
+        (fun e => (denoteMeta m.acval envC ψ (D + bl.length) e).getD default) ++
+      [(denoteMeta m.acval envC ψ (D + bl.length) ((call.getAppArgs.drop rP).getLastD default)).getD
+        default]) := by
+    rw [hvsE, hsplit, List.map_append, hpref, hrest, List.take_append_drop,
+      map_dropLast_getLastD _ _ _ hne]
+  rw [hargsE]
+  simp only [genIhAV]
+  refine interp_lamsApp_congr _ (D := D) ?_ ?_ hag ?_
+  · rw [← readLamBs_cross hcross D bl hfreeL.1]
+    exact readLamBs_below m D bl hbsS hD
+  · intro e he
+    simp only [readLamBs_length] at he ⊢
+    rcases List.mem_append.mp he with he | he
+    · obtain ⟨l, hl, rfl⟩ := List.mem_map.mp he
+      rw [List.mem_range] at hl
+      show _ < _
+      omega
+    · rcases List.mem_append.mp he with he | he
+      · obtain ⟨b, hb, rfl⟩ := List.mem_map.mp he
+        exact readD_below m (Or.inl (ConLeche.ScB.getAppArgs hcallS b
+          (List.mem_of_mem_drop ((List.dropLast_sublist _).subset hb)))) (by omega)
+      · simp only [List.mem_singleton] at he
+        subst he
+        refine readD_below m ?_ (by omega)
+        cases hl : (call.getAppArgs.drop rP).getLast? with
+        | none => right; rw [List.getLastD_eq_getLast?, hl]; rfl
+        | some b =>
+          left
+          rw [List.getLastD_eq_getLast?, hl]
+          exact ConLeche.ScB.getAppArgs hcallS b (List.mem_of_mem_drop (List.mem_of_getLast? hl))
+  · intro bs hbs
+    simp only [readLamBs_length] at hbs ⊢
+    rw [hL0v, interp_bvar,
+      show D + bl.length + (K - 1 - t') = (D + (K - 1 - t')) + bs.length by omega,
+      consList_apply_add, hσc]
+
+end Residue
 
 /-! ## 7. The skeleton's obligations, in its spelling -/
 
