@@ -240,7 +240,7 @@ own levels and parameters) is recorded in the table `tbl`. -/
         (⟨cA.1.name, (pp.nestCtx fvsP envI.find? envI.consts).lps.map .param,
           (pp.nestCtx fvsP envI.find? envI.consts).params,
           ((nfsR.getD m []).getD j default).replaceFVars
-            (ConLeche.nestHoleConst (pp.nestCtx fvsP envI.find? envI.consts) []), ks⟩ :
+            (ConLeche.nestHoleConst (pp.nestCtx fvsP envI.find? envI.consts) [])⟩ :
           ConLeche.NestCtorNf) ∈ tbl
 
 /-- **Parent pointers of a node list**: every
