@@ -13,8 +13,9 @@ The records the uniform block step (`declBlock`,
 `Model/Inductives/DeclBlockStep.lean`) is stated over: the conses keep
 the members' projection slots free, the recursors' stage's obligation
 (`BlockRecStagedT`), the block over an older environment, the positivity
-model at the formers' environment, and the recursors' stage's context
-(`NestedRecCtx`).
+model at the formers' environment, and the recursors' stage's shared
+context (`RecCtxBase`; the stage's own, with its run, is `GenRecCtx`,
+`GenRecAssembly.lean`).
 -/
 
 namespace ConLeche.Model
@@ -174,57 +175,8 @@ from `mpC.lfpBlocks`). -/
     ∀ (ψ : Name → Nat) (dd : Nat) (e : Expr) {ea : AnnotTerm},
       denoteMeta mk.base2.acval envI ψ dd e = some ea → denoteMeta mpC.base2.acval envC ψ dd e = some ea
 
-/-- **The recursors' stage's context** (`nestedRecStage`,
-`DeclBlockStep.lean`): the stage's own run (the target check, then the
-reject-only conformance check), the block's POSITIVITY run at the formers'
-environment `envI`, whose constructors' cons is `envC` (the recursor
-stage may read it), the stored
-constructors the recogniser's, the block's representation at the
-constructors' environment (the three records `blockModelAt_of_stages`
-consumes, the run's own record), its lfp clause recorded in a covered
-carrier, the positivity model at the formers' environment, and the block
-over the input environment. -/
-@[expose] def NestedRecCtx (V : Type w) [SetTheory V] (μ : CheckMode) (F : Nat)
-    (block : List ConstantInfo) (envC envI : Env) (pp : BlockParts)
-    (cvTasR : List ConstantVal) (ctorsAsR : List (List (ConstantVal × Nat)))
-    (out : List (ConstantVal × ConLeche.TargetMajor × List Expr))
-    (mpC : EnvModelM V μ envC) (dR : BlockData V) (isRecR : Bool)
-    (A : Nat → (Name → Nat) → AnnotTerm)
-    (kindsR : List (List (List ConLeche.NestFieldKind))) (nfsR : List (List Expr))
-    (posR : ConLeche.NestState) (tblR : List ConLeche.NestCtorNf) : Prop :=
-  ConLeche.checkBlockRec (m := ConLeche.CheckM) (ConLeche.fueledOps μ F) envI envC pp
-      (ConLeche.blockNestedBit pp.toBlockShape kindsR)
-      (ConLeche.nestKindsFlat kindsR) nfsR posR block cvTasR ctorsAsR = .ok out ∧
-  ConLeche.checkBlockPositivity (m := ConLeche.CheckM) (ConLeche.fueledOps μ F) envI
-      envI.find? envI.consts pp cvTasR ctorsAsR = .ok (kindsR, nfsR, posR) ∧
-  envC = ConLeche.consBlockCtors pp.nP ctorsAsR envI ∧
-  ctorsAsR.map (·.map (fun cA => (cA.1.name, cA.2)))
-    = pp.members.map (fun ms => ms.ctors.map (fun c => (c.1.name, c.2))) ∧
-  pp.toBlockShape.memberNames.Nodup ∧
-  BlockNamesOk (V := V) dR cvTasR ∧
-  BlockCtorsStage (V := V) μ F dR pp.lps cvTasR pp.toBlockShape isRecR A envI pp.ctorNamesAt ∧
-  BlockCtorsCore mpC.base2 dR pp.lps cvTasR pp.toBlockShape isRecR A dR.k ∧
-  (∀ c, c < ctorsAsR.length → ctorsAsR[c]? = some (dR.ctorsM c)) ∧
-  (∃ (pk : Nat → BlockMemberPick) (uOfD : Nat → (Name → Nat) → Nat)
-      (ppsOf : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)),
-    dR = blockDataOf V pp.toBlockShape ctorsAsR pk uOfD ppsOf) ∧
-  dR.toLfp ∈ mpC.lfpBlocks ∧
-  LfpCover mpC [] ∧
-  FormersModelAt (V := V) envI pp.toBlockShape.memberNames mpC dR pp.lps cvTasR
-    pp.toBlockShape isRecR ∧
-  BlockOverEnv envC pp.toBlockShape.memberNames ∧
-  -- the recursor check's run: its seeds walked at `envI`, continuing the
-  -- positivity run's state, its table `tblR`
-  (∃ R : ConLeche.TargetRecRun μ F (mkFEnv envC) pp.toBlockShape
-      (ConLeche.blockNestedBit pp.toBlockShape kindsR) block cvTasR ctorsAsR out,
-    R.fe₁ = mkFEnv envI ∧ R.env₁ = envI ∧ R.pos = posR ∧ R.tbl = tblR) ∧
-  -- the block's constructors conclude in its members
-  (∀ c ∈ ctorsAsR.flatten, ∀ C, (ctorEntry C (.ctorInfo c.1 pp.nP c.2)).isSome = true →
-    C ∈ pp.toBlockShape.memberNames)
-
 /-- **The recursors' stage's context, without the stage's own run**: what
-`NestedRecCtx` (the target check) and `GenRecCtx` (the generated stage,
-`GenRecAssembly.lean`) share — the positivity run, the constructors'
+`GenRecCtx` (the generated stage, `GenRecAssembly.lean`) holds — the positivity run, the constructors'
 cons, the block's representation and model records, the block over the
 input environment.  The node route's facts that read no recursor run take
 this (`nodeListFacts_of`, `dynCtx_of`). -/
@@ -255,18 +207,5 @@ this (`nodeListFacts_of`, `dynCtx_of`). -/
   BlockOverEnv envC pp.toBlockShape.memberNames ∧
   (∀ c ∈ ctorsAsR.flatten, ∀ C, (ctorEntry C (.ctorInfo c.1 pp.nP c.2)).isSome = true →
     C ∈ pp.toBlockShape.memberNames)
-
-/-- The target check's context holds the shared one. -/
-theorem NestedRecCtx.base {μ : CheckMode} {F : Nat} {block : List ConstantInfo} {envC envI : Env}
-    {pp : BlockParts} {cvTasR : List ConstantVal} {ctorsAsR : List (List (ConstantVal × Nat))}
-    {out : List (ConstantVal × ConLeche.TargetMajor × List Expr)} {mpC : EnvModelM V μ envC}
-    {dR : BlockData V} {isRecR : Bool} {A : Nat → (Name → Nat) → AnnotTerm}
-    {kindsR : List (List (List ConLeche.NestFieldKind))} {nfsR : List (List Expr)}
-    {posR : ConLeche.NestState} {tblR : List ConLeche.NestCtorNf}
-    (h : NestedRecCtx V μ F block envC envI pp cvTasR ctorsAsR out mpC dR isRecR A kindsR nfsR
-      posR tblR) :
-    RecCtxBase V μ F envC envI pp cvTasR ctorsAsR mpC dR isRecR A kindsR nfsR posR := by
-  obtain ⟨-, h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, h12, h13, -, h14⟩ := h
-  exact ⟨h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, h12, h13, h14⟩
 
 end ConLeche.Model

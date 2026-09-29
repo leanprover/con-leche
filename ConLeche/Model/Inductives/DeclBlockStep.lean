@@ -1,15 +1,8 @@
 module
 
 import ConLeche.Model.Inductives.DeclBlock
-import ConLeche.Model.Inductives.TargetNodeCalls
-import ConLeche.Model.Inductives.TargetMatchFrame
-public import ConLeche.Model.Inductives.TargetNodePres
-import ConLeche.Model.Inductives.TargetNodeList
-import ConLeche.Model.Inductives.TargetNodeSem
-import ConLeche.Model.Inductives.TargetNodeDynOf
-import ConLeche.Model.Inductives.TargetNodeCover
-import ConLeche.Model.Inductives.TargetGuardParams
-import ConLeche.Model.Inductives.TargetClassRows
+import ConLeche.Model.Inductives.GenRecAssembly
+import ConLeche.Verify.Inductives.GenRecRun
 import ConLeche.Model.Inductives.BlockPosRun
 import ConLeche.Model.Inductives.BlockPosRunCont
 import ConLeche.Model.Inductives.BlockModelRecords
@@ -23,16 +16,9 @@ import ConLeche.Verify.Inductives.BlockPartsInv
 import ConLeche.Semantics.Inductives.DeclBlockEta
 import ConLeche.Model.Inductives.BlockRecData
 import ConLeche.Verify.Inductives.RecStage
-import ConLeche.Verify.Inductives.RecCheckRun
 import ConLeche.Verify.Inductives.BlockWF
 import ConLeche.Model.Inductives.BlockRecPreHpre
 import ConLeche.Model.Inductives.BlockRecPreRun
-import ConLeche.Model.Inductives.NestedRecRest
-import ConLeche.Model.Inductives.NestedRecPins
-import ConLeche.Model.Inductives.NestedRecEqs
-import ConLeche.Model.Inductives.NestedRecData
-import ConLeche.Model.Inductives.TargetSeam
-import ConLeche.Model.Inductives.TargetResidue
 
 public section
 
@@ -51,13 +37,9 @@ read off its own run:
   formers' carrier (`lfpCover_formers`);
 * the constructors consed (`stageBlockCtors`), the block's lfp clause
   recorded, coverage across the conses;
-* the recursors' stage (`nestedRecStage`, the four cons-monotonicities
-  `BlockRecStagedT`): the generic stage at the target rule data
-  (`blockRecStaged_dataR`), its family premise's candidate from the
-  induction over the recursor classes (`tgtRecPre_clsI`), which reads the
-  class tie to the positivity derivation's nodes (`nestedClassNodes`: the
-  node list `nestedRecCtx_nodes`, its admissible frames `nodeAdm` and the
-  calls `nestedNodeCalls`, `TargetNodeCalls.lean`);
+* the recursors' stage (`genRecStage`, `GenRecAssembly.lean`, the four
+  cons-monotonicities `BlockRecStagedT`): the generic stage at the
+  generated family's equation components (`blockRecStaged_dataR`);
 * the tables (`stageBlockTables`).
 -/
 
@@ -73,259 +55,6 @@ universe w
 
 variable {V : Type w} [SetTheory V] {μ : CheckMode}
 
-/-! ## The recursors' stage -/
-
-/-- **The class tie**: at a nested stage's context, every
-choice of the outside classes' data and every prefix spine, a node
-presentation (`TgtNodePres`) over the positivity derivation's node list —
-the chosen constructors' forests (`nestedRecCtx_nodes`), their keys read
-(`NodeListFacts.sp`: `memberCtor_nodesSem` at the formers' model, lifted to
-the occurrence and moved across the constructors' conses) — whose
-dynamic part is the admissible frames `nodeAdm` (`dyn_hAdm`, `dyn_top`,
-`dyn_trans`, at a prefix spine some class is guarded at: the guard fits
-the block's parameters, `tgtGuard_params`) with the calls
-(`nestedNodeCalls`), and which covers every guarded class, outside
-majors included (`TgtNodeHex`). -/
-theorem nestedClassNodes (hμ : μ.verifiedChecks = true) {F : Nat}
-    {block : List ConstantInfo} {envC envI : Env} {pp : BlockParts} {cvTasR : List ConstantVal}
-    {ctorsAsR : List (List (ConstantVal × Nat))}
-    {out : List (ConstantVal × TargetMajor × List Expr)}
-    {mpC : EnvModelM V μ envC} {dR : BlockData V} {isRecR : Bool}
-    {A : Nat → (Name → Nat) → AnnotTerm}
-    {kindsR : List (List (List ConLeche.NestFieldKind))} {nfsR : List (List Expr)}
-    {posR : ConLeche.NestState} {tblR : List ConLeche.NestCtorNf}
-    (hctx : NestedRecCtx V μ F block envC envI pp cvTasR ctorsAsR out mpC dR isRecR A kindsR nfsR
-      posR tblR)
-    {Dc : Nat → LfpDatum V} {mc : Nat → Nat} {cvc : Nat → ConstantVal}
-    (hcls : ∀ c, c < (tgtRs out).length → (tgtMajor out c).member = none →
-      TgtOutCls mpC (tgtMajor out c) (Dc c) (mc c) (cvc c))
-    (hsel : ∀ c, c < (tgtRs out).length → (tgtMajor out c).member = none →
-      Dc c = lfpSel mpC dR.toLfp (tgtMajor out c).ind)
-    (ψ : Name → Nat) (ρ : Nat → V) (xs : List V) :
-    ∃ P : TgtNodePres envC mpC.base2.acval pp.toBlockShape out dR Dc mc cvc ψ ρ xs
-      (tgtCall μ F (ConLeche.mkFEnv envC) pp.toBlockShape (cvTasR.map (·.type)) out
-        mpC.base2.acval envC ψ (tgtClsTup dR Dc mc cvc pp.toBlockShape out ψ) ρ),
-      TgtNodeHex P := by
-  -- the node list
-  have hctx' := hctx
-  obtain ⟨hRec, -, -, hnames, -, -, -, -, -, hdR, hlfp, hcov,
-    ⟨mk, hmkC, hmk, hag, hsubC, hcoreK, htr⟩, -⟩ := hctx'
-  obtain ⟨fvsP, ns, hok, hown, hkids, hpar, hsem, hfrec, hmemF, ⟨par, hPP⟩, hcovN⟩ :=
-    nestedRecCtx_nodes hμ hctx mk hmkC hcoreK
-  have hsp : ∀ t ∈ ns, ∀ ψ : Name → Nat, ∃ dsa, DenoteMetaSpine mpC.base2.acval envC ψ
-      ((pp.nestCtx fvsP envI.find? envI.consts).nP
-        + (nodeHoleConsts (pp.nestCtx fvsP envI.find? envI.consts) t.occ).length) t.key.ds dsa := by
-    intro t ht ψ
-    obtain ⟨dsa, hdsa⟩ := nodeSem_spOcc (hok t ht) (hsem t ht ψ)
-    exact ⟨dsa, DenoteMetaSpine.transport (fun e _ he => htr ψ _ e he) hdsa⟩
-  have hF := nodeListFacts_of hctx.base hok hown hsp
-  by_cases hgd : ∃ c, c < (tgtRs out).length ∧
-      tgtClsG dR mpC.base2.acval envC pp.toBlockShape out ψ ρ xs c
-  case neg => exact ⟨TgtNodePres.empty, fun c hc hg => absurd ⟨c, hc, hg⟩ hgd⟩
-  -- the frame half of the class tie, off the stage's class matches
-  have hfrT : NodeFrameTie mpC.base2.acval (pp.nestCtx fvsP envI.find? envI.consts) pp.toBlockShape
-      out ns ψ ρ xs envC F (cvTasR.map (·.type)) := by
-    have hctx'' := hctx
-    obtain ⟨hRec', -, -, hnames', -, hN', hS', hcore', -, hdR', -, -, -, -⟩ := hctx''
-    obtain ⟨R'⟩ := ConLeche.targetRecCheck_run
-      (ConLeche.checkBlockRecT_run (ConLeche.checkBlockRecT_of_rec hRec'))
-    have h' := ConLeche.recStage_of_targetG R' (ConLeche.ctorsLen_of_names hnames')
-    have hmr' : BlockMembersRun mpC.base2 dR pp.toBlockShape cvTasR := by
-      obtain ⟨pk, uOfD, ppsOf, rfl⟩ := hdR'; exact blockMembersRun_seam hN' hS' hcore'
-    exact nodeFrameTie_of hμ h' R' hN' hmr' _ ns ψ ρ xs
-  -- the dynamic part: the admissible frames and the calls
-  have H := dynCtx_of hctx.base hmkC hmk hag hsubC htr hcoreK hok hown hkids hpar hsem hF
-  have hparams := tgtGuard_params hμ hctx hgd.choose_spec.1 hgd.choose_spec.2
-  have hxs : dR.nP ≤ xs.length := by
-    have hl := SpineFit.length_eq hparams
-    have hpl : (dR.params ψ).length = dR.nP := by
-      have h0 := H.hΔ0 ψ
-      rw [List.length_reverse, BlockData.holeCtx, List.length_append, List.length_map,
-        List.length_range] at h0
-      have hk : dR.k = (pp.nestCtx fvsP envI.find? envI.consts).names.length := by
-        rw [H.hnames]; exact (lfp_namesLen mpC H.hd0).symm
-      have hnP := H.hnP
-      simp only [ConLeche.NestCtx.hiAt] at h0
-      omega
-    rw [List.length_take, hpl] at hl
-    omega
-  have Dy : TgtNodeDyn μ F mpC (pp.nestCtx fvsP envI.find? envI.consts) dR pp.toBlockShape
-      (cvTasR.map (·.type)) out Dc mc cvc ns ψ ρ xs
-      (tgtCall μ F (ConLeche.mkFEnv envC) pp.toBlockShape (cvTasR.map (·.type)) out
-        mpC.base2.acval envC ψ (tgtClsTup dR Dc mc cvc pp.toBlockShape out ψ) ρ) := {
-    Adm := nodeAdm mk mpC (pp.nestCtx fvsP envI.find? envI.consts) dR ns ψ ρ xs par
-    hAdm := dyn_hAdm H ψ ρ xs hparams par
-    top := dyn_top H ψ ρ xs hparams hxs hPP
-    trans := dyn_trans H ψ ρ xs hparams hxs par
-    hcall := nestedNodeCalls hμ hctx hmkC hmk hag hsubC htr hcoreK hok hown hkids hpar hsem hfrec
-      hmemF hPP hF hcls hsel hgd hfrT }
-  -- the class tie at every related pair, read off the stage's run
-  obtain ⟨R⟩ := ConLeche.targetRecCheck_run
-    (ConLeche.checkBlockRecT_run (ConLeche.checkBlockRecT_of_rec hRec))
-  have hS := ConLeche.recStage_of_targetG R (ConLeche.ctorsLen_of_names hnames)
-  have hrs : ∀ c (hc : c < (tgtRs out).length),
-      (tgtRs out)[c]? = some ((tgtRs out)[c]'hc) := fun c hc => List.getElem?_eq_getElem hc
-  refine tgtNodePres_of_list hcov hlfp hF hcls hsel (fun c hc => ?_) (fun c hc =>
-      blockRulePdomsAV_length hμ mpC hS (hrs c hc) ψ) (fun c hc hm => ?_) (fun c hc => ?_) Dy hfrT
-    (fun c hc hM _ => hcovN c hc hM)
-  · -- the prefix holds the parameters
-    obtain ⟨-, hlen, hall⟩ := ConLeche.recStageG_recNames hS
-    obtain ⟨_, _, _, _, -, -, hle, -⟩ := hall c (by rw [← hlen]; exact hc)
-    exact hle
-  · -- a member class's component is a member
-    obtain ⟨ms, hms, -, -⟩ := recStage_ctorsAt (hm := tgtMemAt_of_member hc hm) hS (hrs c hc)
-    have hk : pp.toBlockShape.recTgtAt c < dR.toLfp.k := by
-      obtain ⟨pk, uOfD, ppsOf, rfl⟩ := hdR
-      exact (List.getElem?_eq_some_iff.mp hms).1
-    exact Nat.lt_of_lt_of_le hk (mpC.lfpClause_of_mem hlfp).kN
-  · -- the carried constructors are the class's
-    unfold blockRecNCt
-    rw [List.getD_eq_getElem?_getD, hrs c hc, Option.getD_some]
-    by_cases hm : (tgtMajor out c).member.isSome = true
-    · simp only [tgtClsD, tgtClsM, hm, if_true]
-      rw [← tgtCls_hctM hS hdR c _ (tgtMemAt_of_member hc hm) (hrs c hc)]
-      rfl
-    · have hMo : (tgtMajor out c).member = none := by
-        cases h' : (tgtMajor out c).member with
-        | none => rfl
-        | some _ => rw [h'] at hm; exact absurd rfl hm
-      have hm' : (tgtMajor out c).member.isSome = false := by rw [hMo]; rfl
-      simp only [tgtClsD, tgtClsM, hm', Bool.false_eq_true, if_false]
-      rw [tgtRs_ctors (hrs c hc)]
-      exact (hcls c hc hMo).hlen
-
-/-- **THE RECURSORS' STAGE**: at a nested stage's
-context, the four cons-monotonicities at the cons at the majors
-(`BlockRecStagedT`).  The stage record at any majors
-(`recStage_of_targetG`), the cons at the majors as the generic one
-(`consBlockRecsT_eq_R`) with its rules' shape (`recRulesShape_tgt`) and the
-`.nested` firings' guards (`tgtFireOf_nested`), the per-recursor bounds,
-the outside classes' data (`tgtOutCls_of`, chosen), and the family
-premise: its type half (`blockRecLevel_run`), its equation half
-(`tgtRecEqs_hEqAny`) and its CANDIDATE from the class induction
-(`tgtRecPre_clsI` over `nestedClassNodes`).  Further: the
-family's names distinct (`recStageG_nodup`), the `.nested` pins free of
-empty slots (`tgtFire_pinsNoProj`) and their law (`tgtRecPinsOk`), the
-carried constructors stored and read (`tgtRecCtor_in`, `tgtRecCtor_seam`),
-the equations' level-parametricity and bound (`blockRecEqs_params_rows`,
-`blockRecEqs_below_rows`) and bit validity (`tgtRecEqs_validAny`), the
-rules' λ-tower (`tgtRuleTower_run`), the `ℓ = 0` arm (`blockRecTyZ_run`,
-`tgtRuleRaZ_seam`), and the rule contract at every fired pair
-(`tgtRecDataB`). -/
-theorem nestedRecStage (hμ : μ.verifiedChecks = true) {F : Nat}
-    {block : List ConstantInfo} {envC envI : Env} {pp : BlockParts} {cvTasR : List ConstantVal}
-    {ctorsAsR : List (List (ConstantVal × Nat))}
-    {out : List (ConstantVal × TargetMajor × List Expr)}
-    {mpC : EnvModelM V μ envC} {dR : BlockData V} {isRecR : Bool}
-    {A : Nat → (Name → Nat) → AnnotTerm}
-    {kindsR : List (List (List ConLeche.NestFieldKind))} {nfsR : List (List Expr)}
-    {posR : ConLeche.NestState} {tblR : List ConLeche.NestCtorNf}
-    (hctx : NestedRecCtx V μ F block envC envI pp cvTasR ctorsAsR out mpC dR isRecR A kindsR nfsR
-      posR tblR) :
-    BlockRecStagedT (V := V) μ envC pp.toBlockShape out mpC := by
-  have hctx' := hctx
-  obtain ⟨hRec, hPos, henvC, hnames, hndM, hN, hS, hcore, hctorsAs, hdR, hlfp, hcov, hmk,
-    hover⟩ := hctx'
-  obtain ⟨R⟩ := ConLeche.targetRecCheck_run
-    (ConLeche.checkBlockRecT_run (ConLeche.checkBlockRecT_of_rec hRec))
-  have h := ConLeche.recStage_of_targetG R (ConLeche.ctorsLen_of_names hnames)
-  -- the family's level, chosen by the check's inferred sorts
-  obtain ⟨s, hsP, hTy⟩ := blockRecLevel_run (V := V) (mpC := mpC) hμ h
-  -- the outside classes' data, chosen
-  have hcls0 : ∀ c, ∃ t : Nat × ConstantVal,
-      c < (tgtRs out).length → (tgtMajor out c).member = none →
-        TgtOutCls mpC (tgtMajor out c) (lfpSel mpC dR.toLfp (tgtMajor out c).ind) t.1 t.2 := by
-    intro c
-    by_cases hc : c < (tgtRs out).length
-    · by_cases hm : (tgtMajor out c).member = none
-      · obtain ⟨r, hr⟩ : ∃ r, (tgtRs out)[c]? = some r := ⟨_, List.getElem?_eq_getElem hc⟩
-        obtain ⟨rc, cvRi, M, u, rhssA, -, -, ho, -, -, -, ⟨E⟩⟩ := ConLeche.targetRecRun_at R hr
-        have hM : tgtMajor out c = M := by
-          simp [tgtMajor, List.getD_eq_getElem?_getD, ho]
-        rw [hM] at hm ⊢
-        obtain ⟨mm, cvI, hD⟩ := tgtOutCls_sel hcov dR.toLfp E hm
-        exact ⟨(mm, cvI), fun _ _ => hD⟩
-      · exact ⟨(0, default), fun _ h' => absurd h' hm⟩
-    · exact ⟨(0, default), fun h' => absurd h' hc⟩
-  obtain ⟨tc, hcls⟩ := Classical.axiomOfChoice hcls0
-  -- the family premise: its type and equation halves, its candidate
-  -- from the class induction
-  obtain ⟨pk, uOfD, ppsOf, rfl⟩ := hdR
-  -- the outside classes' blocks, canonically selected
-  let DS : Nat → LfpDatum V := fun c =>
-    lfpSel mpC (blockDataOf V pp.toBlockShape ctorsAsR pk uOfD ppsOf).toLfp (tgtMajor out c).ind
-  have hmr := blockMembersRun_seam hN hS hcore
-  have hmemT : ∀ c, (tgtMajor out c).member.isSome = true → ConLeche.tgtMemAt out c := by
-    intro c hc
-    cases ho : out[c]? with
-    | none => simp [ConLeche.tgtMemAt, ho]
-    | some t =>
-      simp only [tgtMajor, List.getD_eq_getElem?_getD, ho, Option.getD_some] at hc
-      simp [ConLeche.tgtMemAt, ho, hc]
-  have hM := blockModelAt_seam h hN hS hcore hlfp
-  have hpre : ∀ (ψ : Name → Nat) (ρ : Nat → V),
-      ConLeche.Semantics.BlockRecPre V (s ψ) (tgtRs out).length
-        (blockRecTyAV mpC.base2.acval envC (tgtRs out) ψ)
-        (blockRecEqs (blockRecNCt (tgtRs out)) (tgtRs out)
-          (fun ψ' => blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ')
-          (fun ψ' => tgtFdomsAV pp.toBlockShape out mpC.base2.acval envC ψ')
-          (fun ψ' => tgtEsAV pp.toBlockShape out mpC.base2.acval envC ψ')
-          (fun ψ' => tgtIhsAV μ F (ConLeche.mkFEnv envC) pp.toBlockShape (cvTasR.map (·.type))
-            out mpC.base2.acval envC ψ')
-          (fun ψ' => tgtMkAV pp.toBlockShape out mpC.base2.acval envC ψ')
-          (fun ψ' => tgtRbAV μ F (ConLeche.mkFEnv envC) pp.toBlockShape (cvTasR.map (·.type))
-            out mpC.base2.acval envC ψ') ψ) ρ := by
-    intro ψ ρ
-    refine ⟨fun c hc => hTy ψ ρ c hc,
-      tgtRecEqs_hEqAny hμ hcov h R (Dc := DS) (mc := fun c => (tc c).1)
-        (cvc := fun c => (tc c).2) (fun c hc hm => hcls c hc hm) hN hS hcore hctorsAs hmr hM
-        hmemT ψ ρ, ?_⟩
-    obtain ⟨a, ha, hb⟩ := tgtRecPre_clsI hμ hcov h R
-      (Dc := DS) (mc := fun c => (tc c).1) (cvc := fun c => (tc c).2)
-      (fun c hc hm => hcls c hc hm) ⟨pk, uOfD, ppsOf, rfl⟩ hN hS hcore hmr hM hlfp hndM ψ ρ
-      (tgtClassInd_of_pres (nestedClassNodes hμ hctx (fun c hc hm => hcls c hc hm)
-        (fun _ _ _ => rfl) ψ ρ))
-    refine ⟨a, ha, fun e he => hb e ?_⟩
-    rw [tgtClsEqs_eq hμ h ψ]
-    exact he
-  unfold BlockRecStagedT
-  rw [ConLeche.consBlockRecsT_eq_R]
-  exact blockRecStaged_dataR hμ mpC h (ConLeche.recStageG_nodup h hndM)
-    (ConLeche.recRulesShape_tgt envC.find? (·.constsResolve envC) pp.toBlockShape out)
-    (fun j r hr lvls pins hf => by
-      obtain ⟨n1, n2, n3, n4⟩ := ConLeche.tgtFireOf_nested hf
-      exact ⟨n1, n2, fun pin hpin => ⟨(n3 pin hpin).1, (n3 pin hpin).2.1,
-        (n3 pin hpin).2.2.1, (n3 pin hpin).2.2.2,
-        tgtFire_pinsNoProj h j r hr lvls pins hf pin hpin⟩, n4⟩)
-    (tgtRecCtor_in R hN hcore hctorsAs hcov)
-    (blockRecEqs_below_rows hμ h (tgtRowB hμ R hN hcore hctorsAs hcov (tgtFormer_facts (fe := ConLeche.mkFEnv envC) hmr) h
-      hmemT)) (tgtRecEqs_validAny hμ hcov h R hN hS hcore hctorsAs hmr hmemT)
-    (fun i r hr ψ₁ ψ₂ hq => ⟨hsP i r hr ψ₁ ψ₂ hq,
-      blockRecEqs_params_rows hμ h (fun c r hr j cA rhs hcA hrhs ψ₁ ψ₂ hq => by
-        obtain ⟨e1, e2, e3⟩ := tgtRow_params hμ R hN hcore hctorsAs hcov h hr hcA hrhs hq
-        obtain ⟨e4, e5⟩ := tgtRule_params (fe := ConLeche.mkFEnv envC) mpC.base2 h R hr hcA hrhs hq
-        exact ⟨e1, e2, e4, e3, e5⟩) i r hr ψ₁ ψ₂ hq⟩) hpre
-    (fun j r hr => blockRecNCt_ge hr)
-    (fun ψ j r hr => blockRulePdomsAV_length hμ mpC h hr ψ)
-    (tgtRecCtor_seam R hN hcore hctorsAs hcov)
-    (fun j r hr i cA rhs hcA hrhs _ acv ψ Ra hRa =>
-      tgtRuleTower_run R j r hr i cA rhs hcA hrhs acv _ ψ Ra hRa)
-    (fun m₃ hac φ j r hr _ cA rhs _ _ => tgtRecPinsOk hμ mpC hcov h R m₃ hac φ j r hr cA rhs)
-    (tgtRecDataB hμ hcov h R hndM hN hS hcore hctorsAs hlfp hmemT
-      (blockRecEqs_below_rows hμ h (tgtRowB hμ R hN hcore hctorsAs hcov
-        (tgtFormer_facts (fe := ConLeche.mkFEnv envC) hmr) h hmemT))
-      (tgtRecEqs_validAny hμ hcov h R hN hS hcore hctorsAs hmr hmemT)
-      (fun i r hr ψ₁ ψ₂ hq => ⟨hsP i r hr ψ₁ ψ₂ hq,
-        blockRecEqs_params_rows hμ h (fun c r hr j cA rhs hcA hrhs ψ₁ ψ₂ hq => by
-          obtain ⟨e1, e2, e3⟩ := tgtRow_params hμ R hN hcore hctorsAs hcov h hr hcA hrhs hq
-          obtain ⟨e4, e5⟩ := tgtRule_params (fe := ConLeche.mkFEnv envC) mpC.base2 h R hr hcA
-            hrhs hq
-          exact ⟨e1, e2, e4, e3, e5⟩) i r hr ψ₁ ψ₂ hq⟩) hpre)
-    (blockRecTyZ_run hμ mpC h)
-    (fun j r hr i cA rhs hcA hrhs _ =>
-      tgtRuleRaZ_seam (fe := ConLeche.mkFEnv envC) hμ h R hpre
-        (tgtFdomsAV_length (fe := ConLeche.mkFEnv envC) h R _ _) j r hr i cA rhs hcA hrhs)
-
 /-! ## The block step -/
 
 /-- **THE UNIFORM BLOCK STEP** (#315): the
@@ -334,7 +63,7 @@ nine conjuncts, one stage at a time: the formers' and the constructors'
 stages (conjuncts ①②③⑥⑦, with the two freshness facts of conjunct ⑨
 supplied here) with the operator's monotonicity and the fields' grading,
 the constructors consed by `stageBlockCtors` (conjunct ②'s install half),
-the recursors' stage `nestedRecStage` (conjunct ⑧), and the tables
+the recursors' stage `genRecStage` (conjunct ⑧), and the tables
 `stageBlockTables` (conjunct ⑨).  The invariant that crosses all of it is
 `BlockCtorsCore` → (at the recursors) `BlockTablesCore`. -/
 theorem declBlock (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
@@ -928,9 +657,8 @@ theorem declBlock (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
       rw [denoteMeta_acval_congr (env := env₁) (acval₂ := mk.base2.acval) hagk]
       exact h
   -- ## the recursors' stage, and the tables' invariant across it
-  -- the check's run (its seeds' table) and the block's constructors' heads
-  obtain ⟨R, hR₁, hRe, hRp⟩ := ConLeche.targetRecCheck_run_aux
-    (ConLeche.checkBlockRecT_run (ConLeche.checkBlockRecT_of_rec hRec))
+  -- the stage's run and the block's constructors' heads
+  have hR := ConLeche.checkBlockRec_run hRec
   have hheads : ∀ c ∈ ctorsAs.flatten, ∀ C,
       (ctorEntry C (.ctorInfo c.1 (p₀.complete p₁).nP c.2)).isSome = true →
       C ∈ (p₀.complete p₁).toBlockShape.memberNames := by
@@ -948,11 +676,10 @@ theorem declBlock (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
     rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hml, Option.getD_some]
     exact List.getElem_mem hml
   obtain ⟨mpR₀, hag, hfindMono, hden, hnpMono⟩ :=
-    nestedRecStage (mpC := mpC) (A := blockLeafH (blockDataOf V p₁ ctorsAs pk uOf ppsOf)) hμ
-      ⟨hRec, hPos, rfl, hnames, hndM, hN, hS.toBlockCtorsStage, hcoreC,
+    genRecStage (mpC := mpC) (A := blockLeafH (blockDataOf V p₁ ctorsAs pk uOf ppsOf)) hμ
+      ⟨hPos, rfl, hnames, hndM, hN, hS.toBlockCtorsStage, hcoreC,
         fun c hc => hctorsAs c hc, ⟨pk, uOf, ppsOf, rfl⟩,
-        EnvModelM.mem_addLfp mpC₀ _ hLC hstC hrdC hcrC, hcovMpC, hmkI, hover,
-        ⟨R, hR₁, hRe, hRp, rfl⟩, hheads⟩
+        EnvModelM.mem_addLfp mpC₀ _ hLC hstC hrdC hcrC, hcovMpC, hmkI, hover, hR, hheads⟩
   have hcoreT :=
     (blockTablesCore_of hN hcoreC hnpEnvC).consRecs hag hfindMono hden hnpMono hslotC
   -- ## coverage across the recursors' conses: only recursors
