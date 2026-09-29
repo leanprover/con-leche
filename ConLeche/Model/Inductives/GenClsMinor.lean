@@ -349,6 +349,86 @@ theorem genIhTy_read {acval : Name → (Name → Nat) → AnnotTerm} {env : Env}
     rfl
   · rw [hvsE, List.map_append, List.map_cons, List.map_nil]
 
+/-- **The generated `ih` data at a recursive field**, spelled out. -/
+theorem genIhdAV_getElem {acval : Name → (Name → Nat) → AnnotTerm} {env : Env} {g : ClassGen}
+    {rd : ClassRead} {bit : Nat} {ψ : Name → Nat} {c j l i t tele : Nat} {fvs : List Expr}
+    {res : Expr} {ws xs idx : List Expr}
+    (hq : (genCtorAt g rd c j).recs[l]? = some (i, t, tele))
+    (hop : ConLeche.openPisAtFvars (genCtorAt g rd c j).nF (genCtorAt g rd c j).tyD g.pre.length
+      = some (fvs, res))
+    (hws : ConLeche.targetPiDomsWith fvs (genCtorAt g rd c j).tyN = some ws)
+    (hip : g.ihParts t tele (ws.getD i default) (g.pre.length + (genCtorAt g rd c j).nF)
+      = some (xs, idx)) :
+    (genIhdAV acval env g rd bit ψ c j)[l]? = some (genRecIdx rd t,
+      (readOpenedDoms acval env ψ (g.pre.length + (genCtorAt g rd c j).nF) xs).map
+        fun b => (bit, b),
+      idx.map fun e => (denoteMeta acval env ψ
+        (g.pre.length + (genCtorAt g rd c j).nF + xs.length) e).getD default,
+      (denoteMeta acval env ψ (g.pre.length + (genCtorAt g rd c j).nF + xs.length)
+        (Expr.mkAppN (fvs.getD i default) xs)).getD default) := by
+  unfold genIhdAV
+  simp only [List.getElem?_map, hq, hop, hws, Option.map_some, Option.getD_some, hip]
+
+/-- **The `l`-th inductive hypothesis type of the minor premise, read at
+its position `rP + nF + l`**: the generated `ih` binder type of the
+`l`-th `ih` datum, lifted past the `l` earlier `ih` binders. -/
+theorem genIhEntry_read {acval : Name → (Name → Nat) → AnnotTerm} {env : Env}
+    (m : EnvModel V env) (hac : m.acval = acval) {ψ : Name → Nat}
+    {g : ClassGen} {rd : ClassRead} {c j l i t tele st : Nat} {fvs : List Expr} {res : Expr}
+    {ws : List Expr} {ty : Expr} {a : AnnotTerm}
+    (hq : (genCtorAt g rd c j).recs[l]? = some (i, t, tele))
+    (hop : ConLeche.openPisAtFvars (genCtorAt g rd c j).nF (genCtorAt g rd c j).tyD g.pre.length
+      = some (fvs, res))
+    (hfvs : ∀ (k : Nat) (y : Expr), fvs[k]? = some y →
+      ∃ ty, y = .fvar (g.pre.length + k) ty ∧ ConLeche.ScB (g.pre.length + k) ty)
+    (hws : ConLeche.targetPiDomsWith fvs (genCtorAt g rd c j).tyN = some ws)
+    (hwsS : ConLeche.ScB (g.pre.length + (genCtorAt g rd c j).nF) (ws.getD i default))
+    (hparts : ∃ xs idx, g.ihParts t tele (ws.getD i default)
+      (g.pre.length + (genCtorAt g rd c j).nF) = some (xs, idx))
+    (hst : ConLeche.ClassRead.motiveSlot ⟨g.slots, []⟩ t = some st)
+    (hstl : g.nP + st < g.pre.length)
+    (hty : g.ihTy t tele (ws.getD i default) (fvs.getD i default)
+      (g.pre.length + (genCtorAt g rd c j).nF + l) = some ty)
+    (hread : denoteMeta acval env ψ (g.pre.length + (genCtorAt g rd c j).nF + l) ty = some a)
+    {bit : Nat} (hbit : bit = pwBit ψ g.bm.pw) :
+    ∃ q, (genIhdAV acval env g rd bit ψ c j)[l]? = some q ∧ q.1 = genRecIdx rd t ∧
+      a = (genIhDomAV (g.pre.length + (genCtorAt g rd c j).nF) (g.nP + st) q).liftN l 0 := by
+  subst hac
+  obtain ⟨xs, idx, hip⟩ := hparts
+  generalize hD : g.pre.length + (genCtorAt g rd c j).nF = D at hwsS hip hty hread
+  have hiF : i < (genCtorAt g rd c j).nF :=
+    (ConLeche.ClassGen.recs_mem (List.mem_of_getElem? hq)).1
+  have hi : i < fvs.length := by
+    rw [ConLeche.Verify.openPisAtFvars_length _ hop]; exact hiF
+  have hfS : ConLeche.ScB D (fvs.getD i default) := by
+    obtain ⟨ty', hxe, hty'⟩ := hfvs i _ (List.getElem?_eq_getElem hi)
+    rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hi, Option.getD_some, hxe]
+    exact ConLeche.ScB.fvar (by omega) hty'
+  -- the type at `D`
+  have hty0 : g.ihTy t tele (ws.getD i default) (fvs.getD i default) D
+      = some (closeTelescope (xs.map g.binder) D
+          (Expr.mkAppN (g.motVar t) (idx ++ [Expr.mkAppN (fvs.getD i default) xs]))) := by
+    unfold ClassGen.ihTy; rw [hip]; rfl
+  have hS0 := genIhTy_scb hst (by omega) hwsS hfS hty0
+  have hd := ConLeche.ClassGen.ihTy_depth hwsS.1.fvarsBelow hfS.1.fvarsBelow
+    (by rw [hst]; simp only [Option.getD_some]; omega) hS0.1.fvarsBelow hty0 l
+  rw [hd] at hty
+  obtain rfl := Option.some.inj hty
+  have hlift := denoteMeta_lift (env := env) (φ := ψ) m.acval_closed hS0.1 (D + l)
+    (Nat.le_add_right _ _)
+  rw [hread, show D + l - D = l by omega] at hlift
+  obtain ⟨a0, ha0, rfl⟩ : ∃ a0, denoteMeta m.acval env ψ D (closeTelescope (xs.map g.binder) D
+      (Expr.mkAppN (g.motVar t) (idx ++ [Expr.mkAppN (fvs.getD i default) xs]))) = some a0 ∧
+      a = a0.liftN l 0 := by
+    cases h0 : denoteMeta m.acval env ψ D (closeTelescope (xs.map g.binder) D
+      (Expr.mkAppN (g.motVar t) (idx ++ [Expr.mkAppN (fvs.getD i default) xs]))) with
+    | none => rw [h0] at hlift; exact nomatch hlift
+    | some a0 => rw [h0] at hlift; exact ⟨a0, rfl, Option.some.inj hlift⟩
+  have hE := genIhTy_read (acval := m.acval) (env := env) (ψ := ψ) hst hwsS hfS.2 hip hty0
+    (genRecIdx rd t) ha0
+  subst hD hbit
+  exact ⟨_, genIhdAV_getElem hq hop hws hip, rfl, by rw [hE]⟩
+
 /-! ## `GenPreSem.minor` -/
 
 section Minor
