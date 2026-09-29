@@ -79428,6 +79428,13 @@ this block wins.
    type or an unused `let` value is accepted (`uh_let_erase_type`,
    `uh_let_erase_value`: official 1, ours 0) — sound, since the model
    reads the stored type; accepted superset by ruling.
+   **Large elimination on `Sort u` families (2026-09-29, maintainer):**
+   the per-field large-elimination criterion applies only when the sort
+   is DEFINITELY Prop; a `Sort u` family (e.g. `Foo (α : Sort u) : Sort u
+   | mk : α → Foo α`) may eliminate into any sort.  Official restricts it;
+   we WANT it (the inductive models always needed such types, and the
+   upstream kernel renovation will sanction it).  Intended superset — do
+   not "unify" the two notions of may-be-Prop.
    * **Zero-motive recursors at k ≥ 2.**  The kernel requires only
      `nP ≤ rP` (lane FLOOR).  At k = 1 the conformance generator still
      rejects such a recursor, and at k ≥ 2 it is skipped.  Streams cannot
@@ -94928,3 +94935,8 @@ The env₁→env₂ transports are ~130 `consBlockCtors` sites in 18 proof modul
 sessions either way, for zero verdict change.  A representation decision for the
 maintainer; after SIMPAD-A (no env₁ work after env₂ is built) the shadow push is at least
 local.
+
+**PARKED (maintainer, 2026-09-29): SIMP-AD's task D** (attach the η/unit-like/K capability flags only
+with the constructors, at env2).  Zero verdict change; needs env2 to stop being a fresh extension of
+env1 (~130 transport sites, 2–4 sessions).  Prototype: `_tmp/uniform-inds/SIMPAD-DF/dproto.patch`.
+Revisit only if the whnf hole-substitution lemma (IMPROVE P5) ever needs it.
