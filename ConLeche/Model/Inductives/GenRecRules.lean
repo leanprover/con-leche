@@ -4,6 +4,10 @@ public import ConLeche.Model.Inductives.GenRecAssembly
 import ConLeche.Verify.Inductives.GenRecRun
 import ConLeche.Model.Inductives.BlockRecData
 import ConLeche.Model.Inductives.BlockRecAssembly
+import ConLeche.Model.Inductives.BlockDeclRun
+import ConLeche.Model.Inductives.StructFrameKit
+import ConLeche.Verify.Inductives.ClassGenScope
+import ConLeche.Verify.Abstract
 
 public section
 
@@ -291,5 +295,193 @@ theorem genRuleRaZ (R : GenRecRun mode F fe₁ env₁ fe p nb pos cvTas block ct
       rw [interp_lam, hb, ConLeche.SetModel.lamR_zero]
 
 end Tower
+
+/-! ## 4. `heqB`: the equations are bound
+
+Every component of the generated family's equations is a reading of a
+SCOPED term at its depth, or the default (`bvar 0`, below any positive
+depth): the prefix is the recursor type's, the field domains, index
+expressions and fired spine are readings of the constructor's declared
+type at the class's parameters (`ClassGenScoped`), the `ih` data are
+readings of pieces of the stored rule (closed), the residue is variables
+only. -/
+
+section Below
+
+variable {V : Type w} [SetTheory V] {env : Env}
+
+open ConLeche (ScB)
+
+/-- An opened λ-telescope of a scoped term: its binders' domains are
+scoped at their depths, its body at the extended depth. -/
+theorem openLamsM_scoped :
+    ∀ (n : Nat) {e : Expr} {j : Nat} {bs : List (Expr × ConLeche.BinderMeta)} {r : Expr},
+      openLamsM n e j = some (bs, r) → ScB j e →
+      (∀ (k : Nat) (b : Expr × ConLeche.BinderMeta), bs[k]? = some b → ScB (j + k) b.1) ∧
+        ScB (j + n) r
+  | 0, e, j, bs, r, h, he => by
+    simp only [openLamsM, Option.some.injEq, Prod.mk.injEq] at h
+    obtain ⟨rfl, rfl⟩ := h
+    exact ⟨(fun k b hb => nomatch hb), by simpa using he⟩
+  | n + 1, .lam dom body m, j, bs, r, h, he => by
+    simp only [openLamsM] at h
+    cases hi : openLamsM n (body.instantiate1 (.fvar j dom)) (j + 1) with
+    | none => rw [hi] at h; exact nomatch h
+    | some o =>
+      rw [hi] at h
+      simp only [Option.map_some, Option.some.injEq, Prod.mk.injEq] at h
+      obtain ⟨rfl, rfl⟩ := h
+      obtain ⟨hw, hb⟩ := he
+      simp only [Expr.WScoped] at hw
+      simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hb
+      have hinst : ScB (j + 1) (body.instantiate1 (.fvar j dom)) :=
+        ⟨Expr.WScoped.instantiate1 hw.1 0 hw.2, ConLeche.looseBVarsBounded_instantiate1 body 0 hb.2⟩
+      obtain ⟨hbs, hr⟩ := openLamsM_scoped n (bs := o.1) (r := o.2) (by rw [hi]) hinst
+      refine ⟨fun k b hk => ?_, by rw [show j + (n + 1) = j + 1 + n by omega]; exact hr⟩
+      cases k with
+      | zero =>
+        simp only [List.getElem?_cons_zero, Option.some.injEq] at hk
+        subst hk; exact ⟨by simpa using hw.1, hb.1⟩
+      | succ k =>
+        have := hbs k b (by simpa using hk)
+        rwa [show j + (k + 1) = j + 1 + k by omega]
+  | _ + 1, .bvar _, _, _, _, h, _ | _ + 1, .fvar _ _, _, _, _, h, _
+  | _ + 1, .sort _, _, _, _, h, _ | _ + 1, .const _ _, _, _, _, h, _
+  | _ + 1, .app _ _, _, _, _, h, _ | _ + 1, .forallE _ _ _, _, _, _, h, _
+  | _ + 1, .letE _ _ _, _, _, _, h, _ | _ + 1, .lit _, _, _, _, h, _
+  | _ + 1, .proj _ _ _, _, _, _, h, _ => nomatch h
+
+/-- A reading of a scoped term, or the default, is below any positive
+depth it is read at. -/
+theorem readD_below (m : EnvModel V env) {φ : Name → Nat} {D : Nat} {e : Expr}
+    (he : ScB D e ∨ e = default) (hD : 0 < D) :
+    Term.bvarsBelow D ((denoteMeta m.acval env φ D e).getD default).erase := by
+  rcases he with he | rfl
+  · cases h : denoteMeta m.acval env φ D e with
+    | none => exact hD
+    | some a => exact bvarsBelow_of_reading (m := m) he.1 he.2 h
+  · have : denoteMeta m.acval env φ D (default : Expr) = none := by
+      show denoteMeta m.acval env φ D (.bvar 0) = none
+      rw [denoteMeta] <;> simp
+    rw [this]; exact hD
+
+theorem readLamBs_below (m : EnvModel V env) {φ : Name → Nat} :
+    ∀ (j : Nat) (bs : List (Expr × ConLeche.BinderMeta)),
+      (∀ (k : Nat) (b : Expr × ConLeche.BinderMeta), bs[k]? = some b → ScB (j + k) b.1) →
+      0 < j → LamDomsBelow j (readLamBs m.acval env φ j bs)
+  | _, [], _, _ => trivial
+  | j, b :: bs, h, hj => by
+    refine ⟨readD_below m (Or.inl (by simpa using h 0 b rfl)) hj,
+      readLamBs_below m (j + 1) bs (fun k b' hk => ?_) (by omega)⟩
+    have := h (k + 1) b' (by simpa using hk)
+    rwa [show j + (k + 1) = j + 1 + k by omega] at this
+
+theorem LamDomsBelow.mono : ∀ {ds : List (Nat × AnnotTerm)} {k k' : Nat}, k ≤ k' →
+    LamDomsBelow k ds → LamDomsBelow k' ds
+  | [], _, _, _, _ => trivial
+  | _ :: _, _, _, hk, h => ⟨Term.bvarsBelow.mono hk h.1, LamDomsBelow.mono (by omega) h.2⟩
+
+/-- **A generated `ih` term is below the chain and the frame**, when its
+datum's telescope and arguments are below the frame. -/
+theorem genIhAV_below {K rP D : Nat} {q : IhDatum} (hK : 0 < K) (hrP : rP ≤ D)
+    (hT : LamDomsBelow D q.2.1)
+    (hA : ∀ e ∈ q.2.2.1 ++ [q.2.2.2], Term.bvarsBelow (D + q.2.1.length) e.erase) :
+    Term.bvarsBelow (K + D) (genIhAV K rP D q).erase := by
+  unfold genIhAV
+  refine mkLamsAV_below (LamDomsBelow.mono (by omega) hT) ?_
+  rw [AnnotTerm.erase_mkAppN]
+  refine VExprAux.bvarsBelow_mkAppN (by show _ < _; omega) fun a ha => ?_
+  obtain ⟨b, hb, rfl⟩ := List.mem_map.mp ha
+  rcases List.mem_append.mp hb with hb | hb
+  · obtain ⟨l, hl, rfl⟩ := List.mem_map.mp hb
+    rw [List.mem_range] at hl
+    show _ < _
+    omega
+  · exact Term.bvarsBelow.mono (by omega) (hA b hb)
+
+/-- **The `ih` data read off a closed stored rule are below the frame.** -/
+theorem genIhdAV_below (m : EnvModel V env) {out : List (ConstantVal × TargetMajor × List Expr)}
+    {g : ClassGen} {rd : ClassRead} {φ : Name → Nat} {c j : Nat}
+    (hcl : ScB 0 (tgtRhsOf out c j)) (hD : 0 < g.pre.length + (genCtorAt g rd c j).nF) :
+    ∀ q ∈ genIhdAV m.acval env out g rd φ c j,
+      LamDomsBelow (g.pre.length + (genCtorAt g rd c j).nF) q.2.1 ∧
+      ∀ e ∈ q.2.2.1 ++ [q.2.2.2],
+        Term.bvarsBelow (g.pre.length + (genCtorAt g rd c j).nF + q.2.1.length) e.erase := by
+  intro q hq
+  simp only [genIhdAV, List.mem_map, List.mem_range] at hq
+  obtain ⟨l, -, rfl⟩ := hq
+  -- the stored rule's body arguments: scoped at the frame, or absent
+  have hargs : ∀ k, ScB (g.pre.length + (genCtorAt g rd c j).nF)
+      ((genRuleArgs out (g.pre.length + (genCtorAt g rd c j).nF) c j).getD k default) ∨
+      (genRuleArgs out (g.pre.length + (genCtorAt g rd c j).nF) c j).getD k default = default := by
+    intro k
+    unfold genRuleArgs
+    cases ho : openLamsM (g.pre.length + (genCtorAt g rd c j).nF) (tgtRhsOf out c j) 0 with
+    | none =>
+      right
+      show (Expr.getAppArgs (default : Expr)).getD k default = default
+      rfl
+    | some o =>
+      obtain ⟨-, hr⟩ := openLamsM_scoped _ (bs := o.1) (r := o.2) (by rw [ho]) hcl
+      rw [Nat.zero_add] at hr
+      simp only [Option.map_some, Option.getD_some]
+      rw [List.getD_eq_getElem?_getD]
+      cases hk : o.2.getAppArgs[k]? with
+      | none => right; rfl
+      | some a => left; exact ConLeche.ScB.getAppArgs hr a (List.mem_of_getElem? hk)
+  -- the `ih` λ, opened
+  generalize hA : (genRuleArgs out (g.pre.length + (genCtorAt g rd c j).nF) c j).getD
+    ((genCtorAt g rd c j).nF + l) default = A at *
+  have hAs := hargs ((genCtorAt g rd c j).nF + l)
+  rw [hA] at hAs
+  generalize hD' : g.pre.length + (genCtorAt g rd c j).nF = D at *
+  generalize ((genCtorAt g rd c j).recs.getD l default).2.2 = tele
+  -- the opened pieces: scoped at their depths, or absent
+  have hopen : ∃ (bs : List (Expr × ConLeche.BinderMeta)) (call : Expr),
+      (openLamsM tele A D).getD ([], default) = (bs, call) ∧
+      (∀ (k : Nat) (b : Expr × ConLeche.BinderMeta), bs[k]? = some b → ScB (D + k) b.1) ∧
+      (ScB (D + bs.length) call ∨ call = default) := by
+    cases ho : openLamsM tele A D with
+    | none => exact ⟨[], default, rfl, (fun k b hb => nomatch hb), Or.inr rfl⟩
+    | some o =>
+      rcases hAs with hAs | rfl
+      · obtain ⟨hbs, hr⟩ := openLamsM_scoped tele (bs := o.1) (r := o.2) (by rw [ho]) hAs
+        refine ⟨o.1, o.2, rfl, hbs, Or.inl ?_⟩
+        rw [openLamsM_length tele (bs := o.1) (r := o.2) (by rw [ho])]; exact hr
+      · -- the default opens nothing
+        cases tele with
+        | zero =>
+          simp only [openLamsM, Option.some.injEq] at ho
+          subst ho
+          exact ⟨[], default, rfl, (fun k b hb => nomatch hb), Or.inr rfl⟩
+        | succ t =>
+          exact absurd ho (by show openLamsM (t + 1) (.bvar 0) D ≠ some o; simp [openLamsM])
+  obtain ⟨bs, call, hbc, hbs, hcall⟩ := hopen
+  simp only [hbc]
+  have hcargs : ∀ e ∈ call.getAppArgs.drop g.pre.length, ScB (D + bs.length) e := by
+    intro e he
+    rcases hcall with hcall | rfl
+    · exact ConLeche.ScB.getAppArgs hcall e (List.mem_of_mem_drop he)
+    · have h0 : (default : Expr).getAppArgs = [] := rfl
+      rw [h0] at he
+      simp at he
+  refine ⟨readLamBs_below m D bs hbs (by omega), fun e he => ?_⟩
+  rw [readLamBs_length]
+  rcases List.mem_append.mp he with he | he
+  · obtain ⟨a, ha, rfl⟩ := List.mem_map.mp he
+    exact readD_below m (Or.inl (hcargs a ((List.dropLast_sublist _).subset ha))) (by omega)
+  · simp only [List.mem_singleton] at he
+    subst he
+    refine readD_below m ?_ (by omega)
+    cases hl : (call.getAppArgs.drop g.pre.length).getLast? with
+    | none =>
+      right
+      rw [List.getLastD_eq_getLast?, hl]; rfl
+    | some a =>
+      left
+      rw [List.getLastD_eq_getLast?, hl]
+      exact hcargs a (List.mem_of_getLast? hl)
+
+end Below
 
 end ConLeche.Model
