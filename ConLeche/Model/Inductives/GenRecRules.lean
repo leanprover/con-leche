@@ -674,6 +674,120 @@ theorem genRowB (m : EnvModel V env)
 
 end EqsB
 
+/-! ## 8. `heqP`: the `ih` data are level-parametric
+
+The `ih` data are readings of pieces of the stored rule, whose level
+footprint is the recursor's (`ClassRuleRun.hlp`); a reading, and a
+binder's bit, depend on the valuation only there. -/
+
+section Params
+
+variable {V : Type w} [SetTheory V] {env : Env}
+
+theorem lpDefF_getAppArgs {ps : List Name} {e : Expr} (h : lpDefF ps e = true) :
+    ∀ a ∈ e.getAppArgs, lpDefF ps a = true :=
+  (lpDefF_mkAppN_args e.getAppArgs (f := e.getAppFn) (by rw [Expr.mkAppN_getApp]; exact h)).2
+
+/-- An opened λ-telescope keeps the footprint: in its domains, its binders'
+data and its body. -/
+theorem openLamsM_lp {ps : List Name} :
+    ∀ (n : Nat) {e : Expr} {j : Nat} {bs : List (Expr × ConLeche.BinderMeta)} {r : Expr},
+      openLamsM n e j = some (bs, r) → lpDefF ps e = true →
+      (∀ b ∈ bs, lpDefF ps b.1 = true ∧ b.2.pw.paramsDefined ps = true) ∧ lpDefF ps r = true
+  | 0, e, j, bs, r, h, he => by
+    simp only [openLamsM, Option.some.injEq, Prod.mk.injEq] at h
+    obtain ⟨rfl, rfl⟩ := h
+    exact ⟨(fun b hb => nomatch hb), he⟩
+  | n + 1, .lam dom body m, j, bs, r, h, he => by
+    simp only [openLamsM] at h
+    cases hi : openLamsM n (body.instantiate1 (.fvar j dom)) (j + 1) with
+    | none => rw [hi] at h; exact nomatch h
+    | some o =>
+      rw [hi] at h
+      simp only [Option.map_some, Option.some.injEq, Prod.mk.injEq] at h
+      obtain ⟨rfl, rfl⟩ := h
+      simp only [lpDefF, Bool.and_eq_true] at he
+      obtain ⟨hbs, hr⟩ := openLamsM_lp n (bs := o.1) (r := o.2) (by rw [hi])
+        (lpDefF_instantiate1 rfl _ 0 he.1.2)
+      refine ⟨fun b hb => ?_, hr⟩
+      rcases List.mem_cons.mp hb with rfl | hb
+      · exact ⟨he.1.1, he.2⟩
+      · exact hbs b hb
+  | _ + 1, .bvar _, _, _, _, h, _ | _ + 1, .fvar _ _, _, _, _, h, _
+  | _ + 1, .sort _, _, _, _, h, _ | _ + 1, .const _ _, _, _, _, h, _
+  | _ + 1, .app _ _, _, _, _, h, _ | _ + 1, .forallE _ _ _, _, _, _, h, _
+  | _ + 1, .letE _ _ _, _, _, _, h, _ | _ + 1, .lit _, _, _, _, h, _
+  | _ + 1, .proj _ _ _, _, _, _, h, _ => nomatch h
+
+theorem readLamBs_params (m : EnvModel V env) {ps : List Name} {ψ₁ ψ₂ : Name → Nat}
+    (hq : ∀ q ∈ ps, ψ₁ q = ψ₂ q) :
+    ∀ (j : Nat) (bs : List (Expr × ConLeche.BinderMeta)),
+      (∀ b ∈ bs, lpDefF ps b.1 = true ∧ b.2.pw.paramsDefined ps = true) →
+      readLamBs m.acval env ψ₁ j bs = readLamBs m.acval env ψ₂ j bs
+  | _, [], _ => rfl
+  | j, b :: bs, h => by
+    obtain ⟨h1, h2⟩ := h b List.mem_cons_self
+    have hpw : pwBit ψ₁ b.2.pw = pwBit ψ₂ b.2.pw := by
+      unfold pwBit; rw [ConLeche.PropWhen.holds_ext h2 hq]
+    simp only [readLamBs]
+    rw [hpw, denoteMeta_params_extF m hq _ _ h1,
+      readLamBs_params m hq (j + 1) bs (fun b' hb' => h b' (List.mem_cons_of_mem _ hb'))]
+
+/-- **The `ih` terms are level-parametric** at the stored rule's
+footprint. -/
+theorem genIhsAV_params (m : EnvModel V env) {out : List (ConstantVal × TargetMajor × List Expr)}
+    {g : ClassGen} {rd : ClassRead} {K c j : Nat} {ps : List Name} {ψ₁ ψ₂ : Name → Nat}
+    (hq : ∀ q ∈ ps, ψ₁ q = ψ₂ q) (hlp : lpDefF ps (tgtRhsOf out c j) = true) :
+    genIhsAV m.acval env K out g rd ψ₁ c j = genIhsAV m.acval env K out g rd ψ₂ c j := by
+  unfold genIhsAV genIhdAV
+  simp only [List.map_map]
+  refine List.map_congr_left fun l _ => ?_
+  simp only [Function.comp_apply]
+  -- the pieces carry the footprint
+  have hargs : ∀ k, lpDefF ps ((genRuleArgs out (g.pre.length + (genCtorAt g rd c j).nF) c j).getD
+      k default) = true := by
+    intro k
+    unfold genRuleArgs
+    cases ho : openLamsM (g.pre.length + (genCtorAt g rd c j).nF) (tgtRhsOf out c j) 0 with
+    | none => rfl
+    | some o =>
+      obtain ⟨-, hr⟩ := openLamsM_lp _ (bs := o.1) (r := o.2) (by rw [ho]) hlp
+      simp only [Option.map_some, Option.getD_some]
+      rw [List.getD_eq_getElem?_getD]
+      cases hk : o.2.getAppArgs[k]? with
+      | none => rfl
+      | some a => exact lpDefF_getAppArgs hr a (List.mem_of_getElem? hk)
+  have hA := hargs ((genCtorAt g rd c j).nF + l)
+  generalize (genRuleArgs out (g.pre.length + (genCtorAt g rd c j).nF) c j).getD
+    ((genCtorAt g rd c j).nF + l) default = A at hA ⊢
+  generalize ((genCtorAt g rd c j).recs.getD l default).2.2 = tele
+  obtain ⟨bs, call, hbc, hbs, hcall⟩ : ∃ (bs : List (Expr × ConLeche.BinderMeta)) (call : Expr),
+      (openLamsM tele A (g.pre.length + (genCtorAt g rd c j).nF)).getD ([], default)
+        = (bs, call) ∧
+      (∀ b ∈ bs, lpDefF ps b.1 = true ∧ b.2.pw.paramsDefined ps = true) ∧
+      lpDefF ps call = true := by
+    cases ho : openLamsM tele A (g.pre.length + (genCtorAt g rd c j).nF) with
+    | none => exact ⟨[], default, rfl, (fun b hb => nomatch hb), rfl⟩
+    | some o =>
+      obtain ⟨h1, h2⟩ := openLamsM_lp tele (bs := o.1) (r := o.2) (by rw [ho]) hA
+      exact ⟨o.1, o.2, rfl, h1, h2⟩
+  have hcargs : ∀ a ∈ call.getAppArgs.drop g.pre.length, lpDefF ps a = true :=
+    fun a ha => lpDefF_getAppArgs hcall a (List.mem_of_mem_drop ha)
+  simp only [hbc]
+  rw [readLamBs_params m hq _ bs hbs]
+  congr 3
+  congr 1
+  · refine List.map_congr_left fun a ha => ?_
+    rw [denoteMeta_params_extF m hq _ _ (hcargs a ((List.dropLast_sublist _).subset ha))]
+  · refine congrArg (·.getD default) (denoteMeta_params_extF m hq _ _ ?_)
+    cases hl : (call.getAppArgs.drop g.pre.length).getLast? with
+    | none => rw [List.getLastD_eq_getLast?, hl]; rfl
+    | some a =>
+      rw [List.getLastD_eq_getLast?, hl]
+      exact hcargs a (List.mem_of_getLast? hl)
+
+end Params
+
 /-! ## 7. The skeleton's obligations, in its spelling -/
 
 section Obligations
@@ -734,6 +848,69 @@ theorem genRecHRaZ
                   Level.eval ψ (ConLeche.structElimLevel pp.elim pp.large) = 0 →
                     ∀ (ρ : Nat → V), interp V ρ Ra = pt :=
   fun _ _ hr _ _ _ hcA hrhs _ _ _ hRa hℓ ρ => genRuleRaZ R hr hcA hrhs hRa hℓ ρ
+
+/-- **`heqP`** (the skeleton's goal), given the family level's
+parametricity (`blockRecLevel_run`'s `hsP`) and the CLASS SIDE's
+parametricity rows — the field domains, index expressions and fired
+spine at the target frame (`tgtRow_params`'s conclusion, at the
+generated run: the constructor's declared type at the class's
+instantiation names only the recursor's level parameters).  The `ih`
+terms are parametric at the stored rule's footprint
+(`genIhsAV_params`, `ClassRuleRun.hlp`), the residue is ψ-free. -/
+theorem genRecHeqP (hμ : μ.verifiedChecks = true)
+    (R : GenRecRun μ F fe₁ env₁ (ConLeche.mkFEnv envC) pp.toBlockShape nb pos cvTas block
+      ctorsAs out)
+    {memR : Nat → Prop} (h : ConLeche.RecStageG μ F envC pp cvTas ctorsAs (tgtRs out) memR)
+    {s : (Name → Nat) → Nat}
+    (hsP : ∀ (i : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
+      (tgtRs out)[i]? = some r → ∀ (ψ₁ ψ₂ : Name → Nat),
+        (∀ (q : Name), q ∈ r.1.levelParams → ψ₁ q = ψ₂ q) → s ψ₁ = s ψ₂)
+    (hrowP : ∀ (j : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
+      (tgtRs out)[j]? = some r → ∀ (i : Nat) (cA : ConstantVal × Nat) (rhs : Expr),
+      r.2.2.2[i]? = some cA → r.2.1[i]? = some rhs → ∀ (ψ₁ ψ₂ : Name → Nat),
+      (∀ q ∈ r.1.levelParams, ψ₁ q = ψ₂ q) →
+        tgtFdomsAV pp.toBlockShape out mpC.base2.acval envC ψ₁ j i
+            = tgtFdomsAV pp.toBlockShape out mpC.base2.acval envC ψ₂ j i ∧
+          tgtEsAV pp.toBlockShape out mpC.base2.acval envC ψ₁ j i
+            = tgtEsAV pp.toBlockShape out mpC.base2.acval envC ψ₂ j i ∧
+          tgtMkAV pp.toBlockShape out mpC.base2.acval envC ψ₁ j i
+            = tgtMkAV pp.toBlockShape out mpC.base2.acval envC ψ₂ j i) :
+    ∀ (i : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
+      (tgtRs out)[i]? = some r →
+        ∀ (ψ₁ ψ₂ : Name → Nat), (∀ (q : Name), q ∈ r.1.levelParams → ψ₁ q = ψ₂ q) →
+          s ψ₁ = s ψ₂ ∧
+            blockRecEqs (blockRecNCt (tgtRs out)) (tgtRs out)
+                (fun ψ => blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ)
+                (fun ψ => tgtFdomsAV pp.toBlockShape out mpC.base2.acval envC ψ)
+                (fun ψ => tgtEsAV pp.toBlockShape out mpC.base2.acval envC ψ)
+                (fun ψ => genIhsAV mpC.base2.acval envC (tgtRs out).length out R.g R.rd ψ)
+                (fun ψ => tgtMkAV pp.toBlockShape out mpC.base2.acval envC ψ)
+                (fun _ => genRbAV R.g R.rd) ψ₁ =
+              blockRecEqs (blockRecNCt (tgtRs out)) (tgtRs out)
+                (fun ψ => blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ)
+                (fun ψ => tgtFdomsAV pp.toBlockShape out mpC.base2.acval envC ψ)
+                (fun ψ => tgtEsAV pp.toBlockShape out mpC.base2.acval envC ψ)
+                (fun ψ => genIhsAV mpC.base2.acval envC (tgtRs out).length out R.g R.rd ψ)
+                (fun ψ => tgtMkAV pp.toBlockShape out mpC.base2.acval envC ψ)
+                (fun _ => genRbAV R.g R.rd) ψ₂ := by
+  intro i₀ r₀ hr₀ ψ₁₀ ψ₂₀ hq₀
+  refine ⟨hsP i₀ r₀ hr₀ ψ₁₀ ψ₂₀ hq₀, blockRecEqs_params_rows hμ h ?_ i₀ r₀ hr₀ ψ₁₀ ψ₂₀ hq₀⟩
+  intro c r hr j cA rhs hcA hrhs ψ₁ ψ₂ hq
+  obtain ⟨e1, e2, e3⟩ := hrowP c r hr j cA rhs hcA hrhs ψ₁ ψ₂ hq
+  obtain ⟨_rc, _cls, _x, _gen, -, -, -, -, -, -, -, -, -, -, -, -, ⟨RR⟩⟩ :=
+    genRuleAt R hr hcA hrhs
+  have hRlp := RR.hlp
+  have hrhsE : tgtRhsOf out c j = rhs := by
+    obtain ⟨t, ho, rfl⟩ : ∃ t, out[c]? = some t ∧ r = (t.1, t.2.2, t.2.1.nIdx, t.2.1.ctors) := by
+      simp only [tgtRs, List.getElem?_map] at hr
+      cases ho : out[c]? with
+      | none => rw [ho] at hr; exact nomatch hr
+      | some t => rw [ho] at hr; exact ⟨t, rfl, (Option.some.inj hr).symm⟩
+    simp only at hrhs
+    simp only [tgtRhsOf, List.getD_eq_getElem?_getD, ho, Option.getD_some, hrhs]
+  have hlp : lpDefF r.1.levelParams (tgtRhsOf out c j) = true := by
+    rw [hrhsE]; exact lpDefF_of_allLevelParamsDefined _ hRlp
+  exact ⟨e1, e2, genIhsAV_params mpC.base2 hq hlp, e3, rfl⟩
 
 end Obligations
 
