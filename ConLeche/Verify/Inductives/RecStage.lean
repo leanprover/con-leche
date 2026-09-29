@@ -102,30 +102,40 @@ structure RuleTower (mode : CheckMode) (F : Nat) (envR envT : Env) (p : BlockSha
         [Expr.mkAppN (.const cA.1.name (p.lps.map .param)) (fvsPref.take p.nP ++ fvsF)])
       recTy = some concl
 
-/-- **One rule's stored right-hand side, at ANY major**:
-the stream's `rhs` annotated into `out` at the rule-less recursors'
-environment, closed, its level parameters the recursor's, its constants
-resolved there. -/
+/-- **One rule's stored right-hand side, at ANY major**: `out`, stored
+at the rule-less recursors' environment `envR` — closed, its level
+parameters the recursor's, its constants resolved and its type inferred
+there, and no `.proj` node at an empty table slot.  The stream's rule
+annotated (`RuleOutOk.of_annotate`) or a generated rule stored as
+generated. -/
 structure RuleOutOk (mode : CheckMode) (F : Nat) (envR : Env) (cvR : ConstantVal)
-    (rhs out : Expr) : Prop where
-  hbv : rhs.looseBVarsBounded 0 = true
-  hfv : rhs.hasFvar = false
-  hann : annotateCore mode envR F 0 rhs = .ok out
+    (out : Expr) : Prop where
+  hbv : out.looseBVarsBounded 0 = true
+  hfv : out.hasFvar = false
   hlp : out.allLevelParamsDefined cvR.levelParams = true
   hres : out.constsResolve envR = true
   htyR : ∃ tyR, inferTypeCore mode envR F 0 out = .ok tyR
+  hnoProj : ∀ (T : Name) (i : Nat), envR.findProj? T i = none → Expr.NoProjAt T i out
 
 namespace RuleOutOk
 
 variable {F : Nat} {envR : Env} {cvR : ConstantVal} {rhs out : Expr}
 
-theorem out_noFvar (R : RuleOutOk mode F envR cvR rhs out) : out.hasFvar = false :=
-  Expr.not_hasFvar_of_fvarsBelow_zero
-    ((annotateCore_WScoped F rhs R.hann (Expr.WScoped.of_not_hasFvar R.hfv)).fvarsBelow)
-
-theorem out_bounded (R : RuleOutOk mode F envR cvR rhs out) :
-    out.looseBVarsBounded 0 = true :=
-  annotateCore_looseBVars F rhs R.hann R.hbv
+/-- **An annotated rule's facts**: the annotation keeps the closed
+right-hand side closed and puts no `.proj` node at an empty slot. -/
+theorem of_annotate (hbv : rhs.looseBVarsBounded 0 = true) (hfv : rhs.hasFvar = false)
+    (hann : annotateCore mode envR F 0 rhs = .ok out)
+    (hlp : out.allLevelParamsDefined cvR.levelParams = true)
+    (hres : out.constsResolve envR = true)
+    (htyR : ∃ tyR, inferTypeCore mode envR F 0 out = .ok tyR) :
+    RuleOutOk mode F envR cvR out where
+  hbv := annotateCore_looseBVars F rhs hann hbv
+  hfv := Expr.not_hasFvar_of_fvarsBelow_zero
+    ((annotateCore_WScoped F rhs hann (Expr.WScoped.of_not_hasFvar hfv)).fvarsBelow)
+  hlp := hlp
+  hres := hres
+  htyR := htyR
+  hnoProj := fun _ _ hslot => annotateCore_noProjAt mode hann hfv hslot
 
 end RuleOutOk
 
@@ -279,9 +289,9 @@ structure RecStage (mode : CheckMode) (F : Nat) (env : Env) (p : BlockParts)
   /-- (c) every stored rule, annotated at the rule-less recursors -/
   ruleOut : ∀ (c : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)) (i : Nat)
     (rhs : Expr), rs[c]? = some r → r.2.1[i]? = some rhs →
-    ∃ rc rhs0, p.recs[c]? = some rc ∧
+    ∃ rc, p.recs[c]? = some rc ∧
       RuleOutOk mode F (consBlockRecsBare p.toBlockShape 0 (rs.map fun r => (r.1, r.2.2.1)) env)
-        rc.cvR rhs0 rhs
+        rc.cvR rhs
   /-- (c) every stored MEMBER-major rule's λ-tower -/
   ruleTower : ∀ (c : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)) (i : Nat)
     (cA : ConstantVal × Nat) (rhs : Expr), mem c →
@@ -380,13 +390,13 @@ theorem tyAtG (R : RecStage mode F env p cvTas ctorsAs rs mem) {i : Nat} (hm : m
 theorem ruleOutOf (R : RecStage mode F env p cvTas ctorsAs rs mem)
     {c : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
     (hr : rs[c]? = some r) {rhs : Expr} (hrhs : rhs ∈ r.2.1) :
-    ∃ (i : Nat) (rc : RecShape) (rhs0 : Expr),
+    ∃ (i : Nat) (rc : RecShape),
       r.2.1[i]? = some rhs ∧ p.recs[c]? = some rc ∧
       RuleOutOk mode F (consBlockRecsBare p.toBlockShape 0 (rs.map fun r => (r.1, r.2.2.1)) env)
-        rc.cvR rhs0 rhs := by
+        rc.cvR rhs := by
   obtain ⟨i, hi⟩ := List.getElem?_of_mem hrhs
-  obtain ⟨rc, rhs0, hrc, hQ⟩ := R.ruleOut c r i rhs hr hi
-  exact ⟨i, rc, rhs0, hi, hrc, hQ⟩
+  obtain ⟨rc, hrc, hQ⟩ := R.ruleOut c r i rhs hr hi
+  exact ⟨i, rc, hi, hrc, hQ⟩
 
 /-- **The pins at `mem := fun _ => True`**: every major a member, every record
 targets one, so the name set is pinned at the whole family. -/
@@ -453,11 +463,10 @@ theorem recStage_facts {mem : Nat → Prop} (h : RecStageG mode F env p cvTas ct
   intro r hr
   obtain ⟨c, hc⟩ := List.getElem?_of_mem hr
   obtain ⟨rc, u, hrc, -, ⟨E⟩⟩ := R.tyGenAt hc
-  obtain ⟨g1, g2, g3, g4⟩ := checkConstantVal_typeWF E.hcv
-  refine ⟨g1, g2, g3, g4, fun rhs hrhs => ?_⟩
-  obtain ⟨i, rc', rhs0, -, hrc', Q⟩ := R.ruleOutOf hc hrhs
+  refine ⟨E.hcv.noFvar, E.hcv.lpsDef, E.hcv.resolves, E.hcv.bounded, fun rhs hrhs => ?_⟩
+  obtain ⟨i, rc', -, hrc', Q⟩ := R.ruleOutOf hc hrhs
   obtain rfl := Option.some.inj (hrc.symm.trans hrc')
-  exact ⟨Q.out_noFvar, by rw [E.lps_eq]; exact Q.hlp, Q.hres, Q.out_bounded⟩
+  exact ⟨Q.hfv, by rw [E.lps_eq]; exact Q.hlp, Q.hres, Q.hbv⟩
 
 /-- **The CHECK's stored recursors take no guarded name.** -/
 theorem recStage_reserved {mem : Nat → Prop} (h : RecStageG mode F env p cvTas ctorsAs rs mem) :
@@ -478,7 +487,7 @@ theorem recStageG_recNames {mem : Nat → Prop} (h : RecStageG mode F env p cvTa
     ∀ i, i < p.recs.length → ∃ rc r, p.recs[i]? = some rc ∧ rs[i]? = some r ∧
       r.1.name = rc.cvR.name ∧
       (∃ cv0, cv0.name = rc.cvR.name ∧ cv0.levelParams = rc.cvR.levelParams ∧
-        checkConstantVal (fueledOps mode F) env cv0 = .ok r.1) ∧
+        ConstChecked mode F env cv0 r.1) ∧
       p.nP ≤ p.toBlockShape.rulePrefixAt i ∧
       ∃ nIdx, p.toBlockShape.majorIdxAt i = p.toBlockShape.rulePrefixAt i + nIdx := by
   obtain ⟨R⟩ := h
@@ -489,9 +498,9 @@ theorem recStageG_recNames {mem : Nat → Prop} (h : RecStageG mode F env p cvTa
   exact ⟨rc, _, hrc, hr, E.name_eq, ⟨E.cv0, E.hcv0.1, E.hcv0.2, E.hcv⟩, E.nP_le, _, E.mI_eq⟩
 
 /-- **The stored recursors' name facts and `hnoTy`**, from the
-per-recursor `checkConstantVal` run: freshness at the constructors'
-environment, the two name guards, and — because the stored type is the
-ANNOTATED one — every `.proj` node of it sits at a stored table slot. -/
+per-recursor check (`ConstChecked`): freshness at the constructors'
+environment, the two name guards, and no `.proj` node of the stored type
+at an empty table slot. -/
 theorem recStage_cvFacts {mem : Nat → Prop} (h : RecStageG mode F env p cvTas ctorsAs rs mem) :
     ∀ r ∈ rs,
       env.find? r.1.name = none ∧
@@ -506,14 +515,9 @@ theorem recStage_cvFacts {mem : Nat → Prop} (h : RecStageG mode F env p cvTas 
     omega
   obtain ⟨rc, r', hrc, hr', hname, ⟨cv0, hn0, -, hcv⟩, -, -⟩ := hall i hil
   obtain rfl := Option.some.inj (hi.symm.trans hr')
-  obtain ⟨hfresh, hres, hpsh, -, -, hfv, type, -, -, hann, -, -, -, -, hcv'⟩ :=
-    checkConstantVal_inv hcv
-  have htype : r.1.type = type := by rw [hcv']
   have hname' : r.1.name = cv0.name := by rw [hname, hn0]
-  refine ⟨by rw [hname']; exact hfresh, by rw [hname']; exact hres,
-    by rw [hname']; exact hpsh, fun T i hslot => ?_⟩
-  rw [htype]
-  exact annotateCore_noProjAt mode hann hfv hslot
+  refine ⟨by rw [hname']; exact hcv.fresh, by rw [hname']; exact hcv.unreserved,
+    by rw [hname']; exact hcv.notProjShape, fun T i hslot => hcv.noProj T i hslot⟩
 
 end Base
 
@@ -653,7 +657,7 @@ theorem recTyGen_of_target {q : BlockShape} {nested : Bool} {i : Nat} {rc : RecS
     rw [← checkConstantValF_eq]; exact E.hcv
   refine ⟨{
     fvs := E.fvs, concl := E.concl, maj := E.maj, sty := E.sty, cv0 := rc.cvR,
-    hcv0 := ⟨rfl, rfl⟩, hcv := hcv,
+    hcv0 := ⟨rfl, rfl⟩, hcv := checkConstantVal_checked hcv,
     hroom := (by rw [hR]; exact E.hroom), hmI' := (by rw [hM, hR, hmI]),
     hopen := (by rw [hM]; exact E.hopen), hmaj := (by rw [hM]; exact E.hmaj),
     hsty := (by rw [hM]; exact E.hsty), hu := (by rw [hM]; exact E.hu),
@@ -824,8 +828,8 @@ theorem recStage_of_targetG {nested : Bool}
     rw [hfeR] at Q
     have hlp : cvRi.levelParams = rc.cvR.levelParams :=
       (checkConstantVal_lps (by rw [← checkConstantValF_eq]; exact E.hcv)).2
-    refine ⟨rc, rhs0, hrc, ⟨Q.hbv, Q.hfv, Q.hann, by rw [← hlp]; exact Q.hlp, ?_,
-      Q.tyR, Q.htyR⟩⟩
+    refine ⟨rc, hrc, RuleOutOk.of_annotate Q.hbv Q.hfv Q.hann (by rw [← hlp]; exact Q.hlp) ?_
+      ⟨Q.tyR, Q.htyR⟩⟩
     have h := Q.hres
     simp only [StructWalkers.plain, constsResolveF_eq] at h
     exact h

@@ -177,7 +177,7 @@ theorem recStage_tyPis {envC : Env} (hμ : μ.verifiedChecks = true)
   obtain ⟨_, _, -, -, ⟨TE⟩⟩ := R.tyGenAt hr
   have hop := TE.hopen
   have hcv := TE.hcv
-  obtain ⟨_, hru⟩ := checkConstantVal_reads (V := V) hμ mpC hcv
+  obtain ⟨_, hru⟩ := constChecked_reads (V := V) hμ mpC hcv
   obtain ⟨ta, hta, hwd, -⟩ := hru ψ
   obtain rfl : blockRecTyAV mpC.base2.acval envC rs ψ i = ta := blockRecTyAV_eq hr hta
   obtain ⟨pps, b, hst, hb, hlen, hbind⟩ := denoteMeta_openPis _ hop hta
@@ -202,8 +202,7 @@ consumer carry what it never uses.
 
 This is what §28's `liftDomsK_eq_self_of_bounded` and §29's `hconclB`
 ask for.  The run gives it in one step: the stored type is CLOSED
-(`checkConstantVal_inv`, carried through the annotation by
-`annotateCore_WScoped`/`annotateCore_looseBVars`), so the opening's
+(`ConstChecked.noFvar`/`ConstChecked.bounded`), so the opening's
 own per-index scoping facts hold
 (`openPisAtFvars_typeWScoped`/`openPisAtFvars_bounded`), and
 `bvarsBelow_of_reading` turns a reading at depth `l` into
@@ -224,7 +223,7 @@ theorem recStage_tyBounds {envC : Env} (hμ : μ.verifiedChecks = true)
   obtain ⟨_, _, -, ⟨TE⟩⟩ := ConLeche.recStageG_tyGen h hr
   have hop := TE.hopen
   have hcv := TE.hcv
-  obtain ⟨_, hru⟩ := checkConstantVal_reads (V := V) hμ mpC hcv
+  obtain ⟨_, hru⟩ := constChecked_reads (V := V) hμ mpC hcv
   obtain ⟨ta, hta, -, -⟩ := hru ψ
   obtain rfl : blockRecTyAV mpC.base2.acval envC rs ψ i = ta := blockRecTyAV_eq hr hta
   obtain ⟨pps, b, hst, hb, hlen, hbind⟩ := denoteMeta_openPis _ hop hta
@@ -232,15 +231,8 @@ theorem recStage_tyBounds {envC : Env} (hμ : μ.verifiedChecks = true)
     rw [blockRecRdsAV, blockRecTyAV_eq hr hta, hst]; rfl
   have hcon : blockRecConclAV mpC.base2.acval envC p.toBlockShape rs ψ i = b := by
     rw [blockRecConclAV, blockRecTyAV_eq hr hta, hst]; rfl
-  obtain ⟨-, -, -, -, hlb0, hfv0, tyA, -, -, hann, -, -, -, -, hcv'⟩ :=
-    ConLeche.checkConstantVal_inv hcv
-  have hrty : r.1.type = tyA := by rw [hcv']
-  have hws0 : Expr.WScoped 0 r.1.type := by
-    rw [hrty]
-    exact ConLeche.annotateCore_WScoped _ _ hann (Expr.WScoped.of_not_hasFvar hfv0)
-  have hlbT : r.1.type.looseBVarsBounded 0 = true := by
-    rw [hrty]
-    exact ConLeche.annotateCore_looseBVars _ _ hann hlb0
+  have hws0 : Expr.WScoped 0 r.1.type := Expr.WScoped.of_not_hasFvar hcv.noFvar
+  have hlbT : r.1.type.looseBVarsBounded 0 = true := hcv.bounded
   obtain ⟨hconclB, hfvsB⟩ := ConLeche.Verify.openPisAtFvars_bounded _ hop hlbT
   obtain ⟨-, hbodyW⟩ := ConLeche.openPisAtFvars_WScoped _ _ _ hop hws0
   refine ⟨?_, ?_⟩

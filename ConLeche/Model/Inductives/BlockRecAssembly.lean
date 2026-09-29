@@ -26,8 +26,8 @@ What the run supplies, and where it comes from:
 |---|---|
 | `hty`, `hrhs` | `recStage_facts` |
 | `hresRec` | `recStage_reserved` |
-| `hfr`, `hnres`, `hpsh` | `checkConstantVal_inv` at the per-recursor type record (`RecStage.tyGenAt`) |
-| `hnoTy` | `annotateCore_noProjAt` at the SAME run |
+| `hfr`, `hnres`, `hpsh` | the per-recursor type record's check (`RecStage.tyGenAt`, `ConstChecked`) |
+| `hnoTy` | the same check's `ConstChecked.noProj` |
 | `hrd` | `hrd_of_pre`, at the family premise |
 | `hrecP` | `hrecP_ofR`, at the rule data |
 -/
@@ -44,12 +44,12 @@ universe w
 
 variable {V : Type w} [SetTheory V] {μ : CheckMode}
 
-/-! ## 4. The stored RULES are annotated, and therefore mention no
-empty slot
+/-! ## 4. The stored RULES mention no empty slot
 
-`hnoRhs` is `hnoTy`'s twin one stage down: a stored right-hand side is
-`annotateCore`'s output at the BARE-`k` environment, whose `findProj?`
-is the constructors' (`findProj?_consBlockRecsBare`).  Both facts
+`hnoRhs` is `hnoTy`'s twin one stage down: a stored right-hand side has
+no `.proj` node at an empty slot of the BARE-`k` environment
+(`RuleOutOk.hnoProj`), whose `findProj?` is the constructors'
+(`findProj?_consBlockRecsBare`).  Both facts
 below are fields of the stage's rule record (`RecStage.ruleOutOf`,
 `Verify/Inductives/RecStage.lean`). -/
 
@@ -57,8 +57,8 @@ section Annot
 
 /-- **`blockRecStaged_of`'s `hnoRhs`**: a stored rule's right-hand side
 mentions no EMPTY projection slot of the constructors' environment.
-It is `annotateCore_noProjAt` at the environment the stage annotates
-in — the BARE-`k` one, whose `findProj?` is `envC`'s, because no
+It is the rule record's `hnoProj` at the environment the stage stores
+it in — the BARE-`k` one, whose `findProj?` is `envC`'s, because no
 recursor's name is projection-shaped. -/
 theorem recStage_rhsNoProj {envC : Env} {p : BlockParts} {cvTas : List ConstantVal}
     {ctorsAs : List (List (ConstantVal × Nat))}
@@ -74,13 +74,12 @@ theorem recStage_rhsNoProj {envC : Env} {p : BlockParts} {cvTas : List ConstantV
     obtain ⟨y, hy, rfl⟩ := List.mem_map.mp hx
     obtain ⟨i, hi⟩ := List.getElem?_of_mem hy
     obtain ⟨rc, u, -, -, ⟨E⟩⟩ := R.tyGenAt hi
-    obtain ⟨-, -, hps, -⟩ := ConLeche.checkConstantVal_inv E.hcv
     rw [E.name_eq, ← E.hcv0.1]
-    exact hps
+    exact E.hcv.notProjShape
   intro r hr rhsA hrhsA T i hslot
   obtain ⟨c, hc⟩ := List.getElem?_of_mem hr
-  obtain ⟨j, rc, rhs0, -, -, Q⟩ := R.ruleOutOf hc hrhsA
-  refine ConLeche.annotateCore_noProjAt μ Q.hann Q.hfv ?_
+  obtain ⟨j, rc, -, -, Q⟩ := R.ruleOutOf hc hrhsA
+  refine Q.hnoProj T i ?_
   rw [findProj?_consBlockRecsBare hpsh]
   exact hslot
 
@@ -99,7 +98,7 @@ theorem recStage_rhsInfer {envC : Env} {p : BlockParts} {cvTas : List ConstantVa
   obtain ⟨R⟩ := id h
   intro r hr rhsA hrhsA
   obtain ⟨c, hc⟩ := List.getElem?_of_mem hr
-  obtain ⟨i, rc, rhs0, -, -, Q⟩ := R.ruleOutOf hc hrhsA
+  obtain ⟨i, rc, -, -, Q⟩ := R.ruleOutOf hc hrhsA
   exact Q.htyR
 
 end Annot

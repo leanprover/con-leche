@@ -38,7 +38,8 @@ variable {envC : Env} {p : BlockParts} {cvTas : List ConstantVal}
   {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
 
 /-- **A recursor's level parameters ARE the pinned list** — stage (a)'s
-`blockRecLpsOk`, carried to the stored record by `checkConstantVal`. -/
+`blockRecLpsOk`, carried to the stored record by the type's check
+(`ConstChecked.lps`). -/
 theorem recStage_lpsPin
     {memR : Nat → Prop} (h : ConLeche.RecStageG μ F envC p cvTas ctorsAs rs memR)
     {i : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
@@ -50,10 +51,8 @@ theorem recStage_lpsPin
     omega
   obtain ⟨rc, q', hrc, hq', -, ⟨cv0, -, hl0, hcv⟩, -, -⟩ := hall i hnl
   obtain rfl := Option.some.inj (hr.symm.trans hq')
-  obtain ⟨-, -, -, -, -, -, type, -, -, -, -, -, -, -, hcv'⟩ :=
-    ConLeche.checkConstantVal_inv hcv
   have hlps := List.all_eq_true.mp hpins.1 rc (List.mem_of_getElem? hrc)
-  rw [show r.1.levelParams = rc.cvR.levelParams by rw [hcv', ← hl0]]
+  rw [show r.1.levelParams = rc.cvR.levelParams from hcv.lps.trans hl0]
   by_cases hb : p.toBlockShape.large = true
   · rw [if_pos hb] at hlps ⊢
     exact eq_of_beq hlps
