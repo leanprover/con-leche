@@ -95049,3 +95049,23 @@ Kernel/Inductives +10 — `replaceApps` and its memo, `nestCrest`).  Proof
 library, the cached sims; Model −842; Semantics/Complete −523).
 Perf (instructions:u): `complete_c05b_nest30_pi1000` 43.54 G → 43.45 G;
 init-full 419.45 G → 419.42 G.
+
+**Against master (09c3a50c0)**, executed checker lines (SIZEAUDIT method,
+each side built at its revision, `REPO`/revision set per side;
+`_tmp/uniform-inds/HOLEAPP/loc/{master,final}.summary`), EXEC / total
+non-comment code lines (FILECODE):
+
+| area | master | uniform-inds + HOLEAPP |
+|---|---|---|
+| Kernel/Inductives | 873 / 2 235 | 1 775 / 3 314 |
+| Kernel (rest) | 2 835 / 8 006 | 2 181 / 7 551 |
+| Cached | 2 970 / 3 344 | 2 888 / 3 215 |
+| Frontend | 4 939 / 12 913 | 2 896 / 10 519 |
+| Main | 562 / 568 | 499 / 505 |
+| Conformance | — (no such directory at 09c3a50c0) | — |
+| **checker** | **12 179 / 29 124** | **10 239 / 27 141** |
+
+Gates: `lake build`/`lake test` warning-free; `tests/arena.sh` green
+(e2e 436/436, shake: 45+1 removals applied, 9 allowlisted, 9 demotions,
+7 pub-import FALLBACKs; links, quote gate, layering, axioms,
+no-local-paths).
