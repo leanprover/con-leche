@@ -94188,3 +94188,31 @@ fuel).
 Gates: `lake build`/`lake test` warning-free; `tests/shake.sh` (four
 public imports of `GenRecStage` measured, FALLBACK), `tests/layering.sh`
 green.
+
+## GENREC-NP — the generated terms' empty-slot fact from their own inference (2026-09-29, `agent/uinds-GENREC-NP`)
+
+Kernel D1 stores the generated recursor types and rules WITHOUT an
+annotation pass, so `annotateCore_noProjAt` no longer supplies the stage
+record's `.proj`-freedom (`ConstChecked.noProj`, `RuleOutOk.hnoProj`);
+D1 left it as the hypothesis `GenNoProj envC R.g` of `recStage_of_gen`.
+
+**Route taken: the checking inference, not a positivity-table invariant.**
+Every stored generated term is fully inferred by the run itself (the type
+by `classConstOk`, at `envC`; each rule by its record's `htyR`, at the
+rule-less recursors' bare environment, whose `findProj?` is `envC`'s).
+The full-grade inference visits every subterm (∀/λ domains and opened
+bodies, both halves of an application, a projection's subject) and its
+`.proj` clause succeeds only at an OCCUPIED slot of the node's own name
+(`inferTypeCore_proj_inv`: `findProj? T i = some _`, `T = sn`).  So
+`inferTypeCore_projSlotsOk` (`Verify/InferProjSlots.lean`, ~120 lines,
+no environment invariant) gives `ProjSlotsOk` of any inferred subject
+with slot-correct fvar annotations (vacuous when closed), and
+`inferTypeCore_noProjAt` the empty-slot fact.  The planned route (a
+`NoProjAt` invariant over the positivity check's table, preserved by
+whnf/instantiate, 1500–2500 lines) is unnecessary.
+
+`GenNoProj` is deleted (it quantified over ALL `recOf`/levels, not only
+the run's — not a run fact as stated anyway); `classConstOk_checked`
+lost its `hno` argument; `genRecTy_run`/`recStage_of_gen` lost `hnp`.
+General remark: any term a checker stage stores after a successful
+full-grade inference needs no annotation-side `.proj` argument.
