@@ -918,15 +918,12 @@ field, whatever it mentions, is the same substitution.
 
 **The hole terms.**  Under the operator's binders (the index tuple `t`
 innermost, then the family tuple `Y`, then the parameter frame), member
-`m`'s hole is replaced by `holeTmAV`: the λ-tower over the member's own
-parameter telescope (read below the parameter frame) and then its index
-telescope READ AT THE ACTUAL PARAMETERS, of `Y`'s component `m` at the
+`m`'s hole is replaced by `holeTmAV`: the λ-tower over the member's index
+telescope (read at the parameter frame), of `Y`'s component `m` at the
 tuple of the index variables.  It is graded at every family tuple of the
-tuple space (`holeTmAV_wellDenoted`).  It is not the model's hole value
-(`LfpDatum.holeVal`, whose index domains follow its own λ-bound
-parameters), but the two agree APPLIED TO THE ACTUAL PARAMETERS, which is
-the only way a hole occurs (`HoleApp`); the model
-tier relates them by `interp_congr_holeApp`.
+tuple space (`holeTmAV_wellDenoted`), and its value is the model's hole
+value (`LfpDatum.holeVal`) at `Y`'s components: a hole stands for the
+member's whole application to the parameters.
 
 **The chains.**  Field `i` (below `i` earlier fields) is substituted in
 parallel (`AnnotTerm.substAV`) at the cut `i`: hole
@@ -990,14 +987,12 @@ theorem WellDenoted_substAV (τ : Nat → AnnotTerm) :
 /-! ## The hole terms -/
 
 /-- **Member `m`'s hole term** under the operator's binders `t`, `Y`
-(then the parameter frame): the λ-tower over the member's own parameter
-telescope `Ps` (read below the parameter frame) and its index telescope
-`Is` read at the ACTUAL parameters, of `Y`'s component `m` at the tuple
-of the index variables. -/
-def holeTmAV (u m : Nat) (Ps Is : List AnnotTerm) : AnnotTerm :=
-  mkLamsAV ((liftFields (Ps.length + 2) 0 Ps ++ liftFields (Ps.length + 2) 0 Is).map (1, ·))
-    (.app (projAV m (.bvar (Ps.length + Is.length + 1)))
-      (mkTowerGo u (liftFields (Ps.length + 2) 0 Is)))
+(then the parameter frame): the λ-tower over its index telescope `Is`
+(read at the parameter frame), of `Y`'s component `m` at the tuple of the
+index variables. -/
+def holeTmAV (u m : Nat) (Is : List AnnotTerm) : AnnotTerm :=
+  mkLamsAV ((liftFields 2 0 Is).map (1, ·))
+    (.app (projAV m (.bvar (Is.length + 1))) (mkTowerGo u (liftFields 2 0 Is)))
 
 /-- **The hole substitution**: variable `j < k` (member `k - 1 - j`'s
 hole: the last member is innermost) by that member's hole term, a
@@ -1346,49 +1341,30 @@ section Hole
 variable {k w : Nat} {ρp : Nat → V} {uf : Nat → Nat} {Idss : Nat → List AnnotTerm}
 
 /-- **The hole term is graded** at the operator's frame at every family
-tuple of the tuple space: its parameter binders by the member's own
-parameter telescope's grading (below the parameter frame), its index
-binders by the member's index telescope's (at the actual parameters),
-the application by the tuple space. -/
+tuple of the tuple space: its index binders by the member's index
+telescope's grading, the application by the tuple space. -/
 theorem holeTmAV_wellDenoted (hIall : BlockIdxOk (V := V) k uf ρp Idss) {m : Nat} (hm : m < k)
-    {Ps : List AnnotTerm} (hP : FieldsOkB 0 (shiftE Ps.length 0 ρp) Ps)
     {Y : V} (hY : Y ∈ˢ famsSpaceB k w ρp uf Idss) (t : V) :
-    WellDenoted V (cons t (cons Y ρp)) (holeTmAV (uf m) m Ps (Idss m)) := by
-  have hsh : shiftE (Ps.length + 2) 0 (cons t (cons Y ρp)) = shiftE Ps.length 0 ρp := by
-    rw [show Ps.length + 2 = Ps.length + 1 + 1 by omega, shiftE_succ_cons, shiftE_succ_cons]
-  have hshI : ∀ ps : List V, ps.length = Ps.length →
-      shiftE (Ps.length + 2) 0 (consList ps (cons t (cons Y ρp))) = ρp := by
-    intro ps hps
-    have := shiftE_consList_add ps 2 (cons t (cons Y ρp))
-    rw [hps] at this
-    rw [this, show (2 : Nat) = 1 + 1 by rfl, shiftE_succ_cons, shiftE_succ_cons, shiftE_zero_zero]
+    WellDenoted V (cons t (cons Y ρp)) (holeTmAV (uf m) m (Idss m)) := by
+  have hsh : shiftE 2 0 (cons t (cons Y ρp)) = ρp := by
+    rw [show (2 : Nat) = 1 + 1 by rfl, shiftE_succ_cons, shiftE_succ_cons, shiftE_zero_zero]
   unfold holeTmAV
   refine mkLamsAV_one_wellDenoted ?_ ?_
-  · refine FieldsOkB_append_iff ?_ fun ps hps => ?_
-    · rw [FieldsOkB_liftFields, hsh]; exact hP
-    · have hlen : ps.length = Ps.length := by
-        have := hps.length_eq; rwa [liftFields_length] at this
-      rw [FieldsOkB_liftFields, hshI ps hlen]
-      exact FieldsOkB_zero_of (hIall m hm).1
-  · intro vs hvs
-    obtain ⟨ps, is, rfl, hps, his⟩ := spineFit_append_split hvs
-    have hlen : ps.length = Ps.length := by
-      have := hps.length_eq; rwa [liftFields_length] at this
+  · rw [FieldsOkB_liftFields, hsh]
+    exact FieldsOkB_zero_of (hIall m hm).1
+  · intro is his
     have hlenI : is.length = (Idss m).length := by
       have := his.length_eq; rwa [liftFields_length] at this
     have hisR : SpineFit ρp (Idss m) is := by
-      rw [spineFit_liftFields, hshI ps hlen] at his; exact his
-    have hbd : uf m ≠ 0 → FieldsBound (uf m) (consList ps (cons t (cons Y ρp)))
-        (liftFields (Ps.length + 2) 0 (Idss m)) := fun _ => by
-      rw [fieldsBound_liftFields, hshI ps hlen]; exact (hIall m hm).2
-    have hok : FieldsOkB (uf m) (consList ps (cons t (cons Y ρp)))
-        (liftFields (Ps.length + 2) 0 (Idss m)) := by
-      rw [FieldsOkB_liftFields, hshI ps hlen]; exact (hIall m hm).1
-    have hY' : consList (ps ++ is) (cons t (cons Y ρp)) (Ps.length + (Idss m).length + 1) = Y := by
-      have := Xframe_X ρp (ps ++ is) t Y
-      rwa [List.length_append, hlen, hlenI] at this
+      rw [spineFit_liftFields, hsh] at his; exact his
+    have hbd : uf m ≠ 0 → FieldsBound (uf m) (cons t (cons Y ρp)) (liftFields 2 0 (Idss m)) :=
+      fun _ => by rw [fieldsBound_liftFields, hsh]; exact (hIall m hm).2
+    have hok : FieldsOkB (uf m) (cons t (cons Y ρp)) (liftFields 2 0 (Idss m)) := by
+      rw [FieldsOkB_liftFields, hsh]; exact (hIall m hm).1
+    have hY' : consList is (cons t (cons Y ρp)) ((Idss m).length + 1) = Y := by
+      have := Xframe_X ρp is t Y
+      rwa [hlenI] at this
     have htv := mkTowerGo_interp hbd his
-    rw [← consList_append] at htv
     have hXm : projS m Y ∈ˢ piR (w + 1) (idxSet (uf m) ρp (Idss m)) fun _ => (univ w : V) :=
       projS_mem_famsSpaceB hm hY
     rw [WellDenoted_app]
@@ -1399,8 +1375,7 @@ theorem holeTmAV_wellDenoted (hIall : BlockIdxOk (V := V) k uf ρp Idss) {m : Na
         famSpace_mem_blockR (by omega) (idxTyAV_facts (hIall c (by omega))).2.1
       exact projAV_wellDenoted_ndTower V (blockR_ne_zero k w uf) m k 0 _ _ hm hFu trivial
         (by rw [interp_bvar, hY']; exact hY)
-    · have := mkTowerGo_wellDenoted hok his
-      rwa [← consList_append] at this
+    · exact mkTowerGo_wellDenoted hok his
     · rw [projAV_interp, interp_bvar, hY']; exact hXm
     · rw [htv]
       exact tupW_mem (u := uf m) hisR
