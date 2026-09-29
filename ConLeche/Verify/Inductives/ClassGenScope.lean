@@ -39,10 +39,9 @@ way the stage builds them (`ClassGenScoped`):
 * the stored prefix is `ClassGen.prefixBinders`' own output.
 
 **Why this matters beyond hygiene.**  A free variable left in a generated
-term is not rejected by annotation and inference: annotation and inference at
-depth `0` check a variable only against the depth it occurs AT, so a
-stray `fvar k` under `k + 1` binders is accepted and typed by its own
-annotation.  Closedness is what makes the generated term's reading the
+term is not rejected by inference: inference at depth `0` checks a
+variable only against the depth it occurs AT, so a stray `fvar k` under
+`k + 1` binders is accepted and typed by its own annotation.  Closedness is what makes the generated term's reading the
 reading of a closed term.
 -/
 
@@ -483,7 +482,7 @@ theorem ClassGen.minorTy_scoped {g : ClassGen} (hg : ClassGenScoped g) {s c : Na
         rw [hxk] at hk
         obtain rfl := (Option.some.inj hk).symm
         obtain ⟨ty', hxe, hty'⟩ := hxs k xk hxk
-        exact ScB.classBinder hxe hty'
+        exact ScB.binder g hxe hty'
     · rw [List.length_map, hxl, ClassGen.motVar_eq hmt']
       refine ScB.mkAppN (ScB.fvar (by omega) (ScB.sort _ _)) fun a ha => ?_
       rcases List.mem_append.mp ha with ha | ha
@@ -542,7 +541,7 @@ theorem ClassGen.prefixBinders_scoped {g : ClassGen} (hg : ClassGenScoped g)
       rw [hx] at hb
       obtain rfl := (Option.some.inj hb).symm
       obtain ⟨ty, hxe, hty⟩ := hg.params k x hx
-      exact ScB.classBinder hxe hty
+      exact ScB.binder g hxe hty
   · rw [List.getElem?_append_right (by simpa [hg.params_len] using hk)] at hb
     simp only [List.length_map, hg.params_len] at hb
     have hsl' : k - g.nP < g.slots.length := by
@@ -701,7 +700,7 @@ theorem classGenRule_scoped {g : ClassGen} (hg : ClassGenScoped g) {recOf : Nat 
           rw [hxk] at hk
           obtain rfl := (Option.some.inj hk).symm
           obtain ⟨ty', hxe, hty'⟩ := hxs k xk hxk
-          exact ScB.classBinder hxe hty'
+          exact ScB.binder g hxe hty'
       · rw [List.length_map, hxl, hfe]
         refine ScB.mkAppN (ScB.const _ _ _) fun b hb => ?_
         rcases List.mem_append.mp hb with hb | hb

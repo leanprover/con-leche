@@ -433,8 +433,9 @@ theorem classRecTysOk_run {fe : FEnv} {g : ClassGen} {k : Nat} {F : Nat} :
 /-- **One generated rule, as `classRuleOk` ran**: the generated term
 `gen` closed and STORED as generated (`out = gen`: the generator writes
 its binder data), its level parameters the recursor's, resolved and
-inferred at the rule-less recursors' environment; its λ-telescope `n` long, the λ-domains resolving at the
-constructors' environment and annotated with the family's datum. -/
+inferred at the rule-less recursors' environment; its λ-telescope `n`
+long, the λ-domains resolving at the constructors' environment and
+carrying the family's datum. -/
 structure ClassRuleRun (mode : CheckMode) (F : Nat) (w : StructWalkers) (feT feR : FEnv)
     (cvR : ConstantVal) (pw : PropWhen) (n : Nat) (gen out : Expr) : Type where
   rbs : List (Expr × BinderMeta)

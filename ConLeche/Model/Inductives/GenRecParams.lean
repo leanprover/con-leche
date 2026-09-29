@@ -275,18 +275,6 @@ theorem genMemberRec_paramDefeq (hμ : μ.verifiedChecks = true) (hwf : ConLeche
   obtain ⟨xN, hxN⟩ : ∃ x, xs[N]? = some x := ⟨_, List.getElem?_eq_getElem (by omega)⟩
   -- the major domain: `I` applied to the prefix's parameter variables
   have hmajR : maj = Expr.mkAppN (.const I (p.lps.map .param)) (R.ctx.params ++ ifs) := hmajE
-  have hPmaj : ConLeche.Expr.Plain maj := by
-    rw [hmajR]
-    refine ConLeche.Expr.Plain.mkAppN (by simp [ConLeche.Expr.Plain]) fun a' ha' => ?_
-    rcases List.mem_append.mp ha' with ha' | ha'
-    · obtain ⟨k, hk, rfl⟩ := List.getElem_of_mem ha'
-      obtain ⟨ty, hxe⟩ := hpar k _ (List.getElem?_eq_getElem hk)
-      rw [hxe]; trivial
-    · obtain ⟨k, hk, rfl⟩ := List.getElem_of_mem ha'
-      obtain ⟨ty, hxe, -⟩ := (ConLeche.ClassGen.major_scoped hg (by
-        have := (ConLeche.ClassGen.prefixBinders_scoped hg hg.pre).1; omega) hmaj).1 k _
-        (List.getElem?_eq_getElem hk)
-      rw [hxe]; trivial
   have hMD : Expr.ErasedEq xN.fvarTypeD maj := hxs N xN maj hxN (by rw [hndN]; rfl)
   rw [hmajR] at hMD
   obtain ⟨f', as', hMDe, hf', has'⟩ := erasedEq_mkAppN_inv _ hMD

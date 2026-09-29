@@ -21,8 +21,9 @@ The generated recursor stage generates, per class `c`, the recursor type
 
     classGenRecTy g c = Π (prefix) (ı⃗ : index domains) (t : I D⃗ ı⃗), motive_c ı⃗ t
 
-(`Kernel/Inductives/GenRec.lean`), checks it as a constant — annotated,
-inferred at the empty context (`classRecTyOk`).  What the graph route's producer at the
+(`Kernel/Inductives/GenRec.lean`), checks it as a constant — stored as
+generated (every binder datum written, `ClassGen.bm`), inferred at the
+empty context (`classRecTyOk`, `classConstOk`).  What the graph route's producer at the
 generated family (`graphRecPre_gen`, `ClassRecKit.lean`) asks of the
 type's binder data, read off the generator's syntax and the two runs:
 
@@ -30,13 +31,13 @@ type's binder data, read off the generator's syntax and the two runs:
   (`classGenRecTy_bits`) — the ∀ clause validated each binder's datum
   against its codomain's sort (the bits law, `stripPisAV_denoteMeta_pw`),
   and the conclusion `motive_c ı⃗ t` is sorted at `Sort elim`: its head
-  is the motive's variable, whose annotation is the annotated motive
-  type, still `∀ ı⃗ t, Sort elim`.  So `OneElimLevel` holds at
+  is the motive's variable, whose domain is the motive type
+  `∀ ı⃗ t, Sort elim`.  So `OneElimLevel` holds at
   `Level.eval φ elim` (`hbits`);
 * **the prefix is SHARED** (`classGenRecTy_prefix_eq`): the first
   `nP + #slots` binders of two classes' types read to the same binder
-  data — the annotation of a domain reads only the domains before it
-  (`SameDoms.annotate`), and every numeral is the one bit.
+  data — both types are telescopes over the one prefix (`SameDoms`), and
+  every numeral is the one bit.
 -/
 
 namespace ConLeche.Model
