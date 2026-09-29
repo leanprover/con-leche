@@ -4,6 +4,7 @@ public import ConLeche.Model.Inductives.DeclBlock
 public import ConLeche.Model.Inductives.NestedRecData
 public import ConLeche.Model.Inductives.ClassRecKit
 public import ConLeche.Model.Inductives.ClassGenStep
+public import ConLeche.Model.Inductives.TargetClassRows
 public import ConLeche.Verify.Inductives.GenRecRun
 public import ConLeche.Verify.Inductives.ClassGenMinorSyn
 import ConLeche.Model.Inductives.NestedRecRest
@@ -52,10 +53,16 @@ constructor. -/
     | .minor c' C _ => c' == genClsOf rd c && C == (genCtorAt g rd c j).cv.name
     | _ => false).getD 0
 
+/-- The recursor the generated rules call at class `t`: the family's
+first recursor at that class (the kernel's `classRecOf`, as a position). -/
+@[expose] def genRecIdx (rd : ClassRead) (t : Nat) : Nat :=
+  ((List.range rd.recCls.length).find? fun r => rd.recCls.getD r 0 == t).getD 0
+
 /-- **The `ih` data of the generated rule**, read at the rule's frame
 (depth `rP + nF`): per recursive field `(i, t, tele)` (`ClassCtor.recs`),
-the callee class `t`, the walked field's telescope (read, at the family's
-elimination bit `bit`), its index arguments and the applied field. -/
+the callee RECURSOR (`genRecIdx rd t`, the graph's class index), the
+walked field's telescope (read, at the family's elimination bit `bit`),
+its index arguments and the applied field. -/
 @[expose] noncomputable def genIhdAV (acval : Name → (Name → Nat) → AnnotTerm) (env : Env)
     (g : ClassGen) (rd : ClassRead) (bit : Nat) (ψ : Name → Nat) (c j : Nat) :
     List IhDatum :=
@@ -66,7 +73,7 @@ elimination bit `bit`), its index arguments and the applied field. -/
   let ws := (ConLeche.targetPiDomsWith fvs x.tyN).getD []
   x.recs.map fun q =>
     let (xs, idx) := (g.ihParts q.2.1 q.2.2 (ws.getD q.1 default) D).getD ([], [])
-    (q.2.1,
+    (genRecIdx rd q.2.1,
      (readOpenedDoms acval env ψ D xs).map fun a => (bit, a),
      idx.map fun e => (denoteMeta acval env ψ (D + xs.length) e).getD default,
      (denoteMeta acval env ψ (D + xs.length)
@@ -85,6 +92,18 @@ the fields and the `ih` values (`genRb0`). -/
 @[expose] def genRbAV (g : ClassGen) (rd : ClassRead) (c j : Nat) : AnnotTerm :=
   genRb0 g.pre.length (g.nP + genMinorSlot g rd c j) (genCtorAt g rd c j).nF
     (genCtorAt g rd c j).recs.length
+
+/-- **The generated calls** at class data `tup` (the graph kit's call
+relation): at the `j`-th rule of recursor `c`, the prefix spine `xs` and
+the fields `fs`, every `ih` names, at every spine `bs` of its telescope,
+its callee's tagged element at the index readings and the applied
+field. -/
+@[expose] def genCallT (tup : Nat → List V → V) (ρ : Nat → V)
+    (ihd : Nat → Nat → List IhDatum) (xs : List V) (c j : Nat) (fs : List V) (v : V) : Prop :=
+  ∃ q ∈ ihd c j, ∃ bs : List V,
+    SpineFit (consList (xs ++ fs) ρ) (q.2.1.map (·.2)) bs ∧
+    v = tagged q.1 (tup q.1 (q.2.2.1.map (interp V (consList bs (consList (xs ++ fs) ρ)))))
+      (interp V (consList bs (consList (xs ++ fs) ρ)) q.2.2.2)
 
 end Components
 
@@ -126,6 +145,30 @@ check's. -/
   -- the block's constructors conclude in its members
   (∀ c ∈ ctorsAsR.flatten, ∀ C, (ctorEntry C (.ctorInfo c.1 pp.nP c.2)).isSome = true →
     C ∈ pp.toBlockShape.memberNames)
+
+/-- **The induction over the classes' majors, at the GENERATED calls**
+(`TgtClassInd` with `genCallT` in place of the target check's calls):
+the interface between the family premise and the node route. -/
+@[expose] def GenClassInd (acval : Name → (Name → Nat) → AnnotTerm) (envC : Env)
+    (p : BlockShape) (out : List (ConstantVal × TargetMajor × List Expr)) (d : BlockData V)
+    (Dc : Nat → LfpDatum V) (mc : Nat → Nat) (cvc : Nat → ConstantVal)
+    (ihd : Nat → Nat → List IhDatum) (ψ : Name → Nat) (ρ : Nat → V) : Prop :=
+  ∀ xs : List V, ∀ P : V → Prop,
+    (∀ u, u ∈ˢ unionSet (tgtRs out).length
+        (tgtClsIs d Dc mc cvc acval envC p out ψ ρ xs)
+        (tgtClsCr d Dc mc cvc acval envC p out ψ ρ xs) →
+      (∃ e, graphDecG (tgtClsIs d Dc mc cvc acval envC p out ψ ρ)
+          (tgtClsInj d Dc mc cvc p out ψ) (blockRecNCt (tgtRs out))
+          (tgtRs out).length
+          (tgtClsFit d Dc mc cvc acval envC p out ψ ρ) xs u e ∧
+        ∀ v, v ∈ˢ graphPredG (tgtClsIs d Dc mc cvc acval envC p out ψ ρ)
+            (tgtClsCr d Dc mc cvc acval envC p out ψ ρ)
+            (tgtRs out).length
+            (genCallT (tgtClsTup d Dc mc cvc p out ψ) ρ ihd) xs e →
+          P v) → P u) →
+    ∀ u, u ∈ˢ unionSet (tgtRs out).length
+        (tgtClsIs d Dc mc cvc acval envC p out ψ ρ xs)
+        (tgtClsCr d Dc mc cvc acval envC p out ψ ρ xs) → P u
 
 /-! ## 3. The stage -/
 
