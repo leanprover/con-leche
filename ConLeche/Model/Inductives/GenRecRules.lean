@@ -12,6 +12,7 @@ import ConLeche.Verify.Extend.Inversions
 import ConLeche.Semantics.DeclRun
 import ConLeche.Model.Inductives.TargetResidue
 public import ConLeche.Model.Inductives.GenRuleSyn
+public import ConLeche.Model.Inductives.GenRuleFree
 import ConLeche.Model.Inductives.NestedRecRest
 import ConLeche.Verify.CheckerF
 import ConLeche.Model.Inductives.TargetClasses
@@ -849,10 +850,10 @@ theorem denoteMeta_const_depth {acval : Name → (Name → Nat) → AnnotTerm} {
   simp only [denoteMeta]
 
 theorem readLamBs_cross {env₁ env₂ : Env} {acv₁ acv₂ : Name → (Name → Nat) → AnnotTerm}
-    {ψ : Name → Nat} {envC : Env}
-    (hcross : ∀ (d : Nat) (e : Expr), ConstsBound envC e →
+    {ψ : Name → Nat} {P : Expr → Prop}
+    (hcross : ∀ (d : Nat) (e : Expr), P e →
       denoteMeta acv₁ env₁ ψ d e = denoteMeta acv₂ env₂ ψ d e) :
-    ∀ (j : Nat) (bs : List (Expr × ConLeche.BinderMeta)), (∀ b ∈ bs, ConstsBound envC b.1) →
+    ∀ (j : Nat) (bs : List (Expr × ConLeche.BinderMeta)), (∀ b ∈ bs, P b.1) →
       readLamBs acv₁ env₁ ψ j bs = readLamBs acv₂ env₂ ψ j bs
   | _, [], _ => rfl
   | j, b :: bs, h => by
@@ -867,13 +868,13 @@ the generated `ih` term `genIhAV` at a chain frame agreeing below the
 rule's frame and holding `a t'` at the callee's chain position. -/
 theorem genIh_value {envC : Env} (m : EnvModel V envC) {acv : Name → (Name → Nat) → AnnotTerm}
     {env₃ : Env} {ψ : Name → Nat}
-    (hcross : ∀ (d : Nat) (e : Expr), ConstsBound envC e →
+    (hcross : ∀ (d : Nat) (e : Expr), CBNF envC e →
       denoteMeta m.acval envC ψ d e = denoteMeta acv env₃ ψ d e)
     {D rP tele K t' : Nat} {a : Nat → V} {argE : Expr}
     {bl : List (Expr × ConLeche.BinderMeta)} {call : Expr}
     (hop : openLamsM tele argE D = some (bl, call)) (hsc : ScB D argE)
-    (hfreeL : (∀ b ∈ bl, ConstsBound envC b.1) ∧
-      ∀ e ∈ call.getAppArgs.drop rP, ConstsBound envC e)
+    (hfreeL : (∀ b ∈ bl, CBNF envC b.1) ∧
+      ∀ e ∈ call.getAppArgs.drop rP, CBNF envC e)
     {rn : Name} {rlvls : List Level} (hfn : call.getAppFn = .const rn rlvls)
     (hlenc : rP < call.getAppArgs.length)
     (hpv : ∀ k, k < rP → ∃ T, call.getAppArgs[k]? = some (.fvar k T)) (hrPD : rP ≤ D)
@@ -981,8 +982,8 @@ stored rule resolve at the constructors' environment. -/
           ((genRuleArgs out (g.pre.length + (genCtorAt g rd c j).nF) c j).getD
             ((genCtorAt g rd c j).nF + l) default)
           (g.pre.length + (genCtorAt g rd c j).nF) = some (bl, call) →
-        (∀ b ∈ bl, ConstsBound env b.1) ∧
-          ∀ e ∈ call.getAppArgs.drop g.pre.length, ConstsBound env e
+        (∀ b ∈ bl, CBNF env b.1) ∧
+          ∀ e ∈ call.getAppArgs.drop g.pre.length, CBNF env e
 
 end Residue
 
@@ -1010,7 +1011,7 @@ theorem genRule_residue {envC : Env} (m : EnvModel V envC)
     (hr : (tgtRs out)[j]? = some r) {i : Nat} {cA : ConstantVal × Nat}
     (hcA : r.2.2.2[i]? = some cA) {rhs : Expr} (hrhs : r.2.1[i]? = some rhs)
     {acv : Name → (Name → Nat) → AnnotTerm} {env₃ : Env} {ψ : Name → Nat}
-    (hcross : ∀ (d : Nat) (e : Expr), ConstsBound envC e →
+    (hcross : ∀ (d : Nat) (e : Expr), CBNF envC e →
       denoteMeta m.acval envC ψ d e = denoteMeta acv env₃ ψ d e)
     (hfree : GenIhFree envC out R.g R.rd j i)
     {K : Nat} {a : Nat → V}
@@ -1817,6 +1818,23 @@ theorem genRecHeqP_R (hμ : μ.verifiedChecks = true)
     rw [hrhsE]; exact lpDefF_of_allLevelParamsDefined _ hRlp
   exact ⟨e1, e2, genIhsAV_params mpC.base2 hq hlp, e3, rfl⟩
 
+
+/-- **The environment crossing at `CBNF`**: a term whose constants
+(free variables forgotten) are the constructors' environment's reads
+alike there and at the recursors' cons. -/
+theorem blockRecDenote_cross_CBNF {envC : Env} {pp : BlockParts} {cvTas : List ConstantVal}
+    {ctorsAs : List (List (ConstantVal × Nat))} {F : Nat}
+    {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))}
+    {mpC : EnvModelM V μ envC} {s : (Name → Nat) → Nat} {eqs : (Name → Nat) → List AnnotTerm}
+    {R : Nat → ConstantVal × List Expr × Nat × List (ConstantVal × Nat) → List ConLeche.RecRule}
+    {memR : Nat → Prop} (h : ConLeche.RecStageG μ F envC pp cvTas ctorsAs rs memR)
+    (ψ : Name → Nat) (d : Nat) (e : Expr) (hcb : CBNF envC e) :
+    denoteMeta mpC.base2.acval envC ψ d e
+      = denoteMeta (blockRecAcv mpC.base2.acval envC rs s eqs)
+          (ConLeche.consBlockRecsR R pp.toBlockShape 0 rs envC) ψ d e := by
+  rw [denoteMeta_erasedEq (erasedEq_eraseFVarTys e), denoteMeta_erasedEq (erasedEq_eraseFVarTys e)]
+  exact blockRecDenote_cross_eq h ψ d _ (constsBound_eraseFVarTys_of_CBNF e hcb)
+
 set_option maxHeartbeats 4000000 in
 /-- **`hdataS`** (the skeleton's goal): the rule contract at every fired
 pair of the generated family.  Its conjuncts: the three DATA rows (the
@@ -2031,7 +2049,7 @@ theorem genRecHdataS_R (hμ : μ.verifiedChecks = true)
       = mkLamsAV lds A := hlam
   refine blockRuleHRa_val hlam' (hok ρ).1 (hfit5 lds A hlam' hlen) ?_
   exact genRule_residue mpC.base2 R hg hr hcA hrhs
-    (fun d e hcbe => blockRecDenote_cross_eq h _ d e hcbe) (hfree j i)
+    (fun d e hcbe => blockRecDenote_cross_CBNF h _ d e hcbe) (hfree j i)
     (genHcallee R h hnd hr hleaf.closed hleafA) hread' hlam' hlen hpl hfl
 
 set_option maxHeartbeats 4000000 in
@@ -2250,7 +2268,7 @@ theorem genRecHdataS (hμ : μ.verifiedChecks = true)
   simp only [genBit]
   rw [genIhsAV_eq_R R hg hr hcA hrhs]
   exact genRule_residue mpC.base2 R hg hr hcA hrhs
-    (fun d e hcbe => blockRecDenote_cross_eq h _ d e hcbe) (hfree j i)
+    (fun d e hcbe => blockRecDenote_cross_CBNF h _ d e hcbe) (hfree j i)
     (genHcallee R h hnd hr hleaf.closed hleafA) hread' hlam' hlen hpl hfl
 
 /-- The equations at the skeleton's `ih` terms ARE the equations at the

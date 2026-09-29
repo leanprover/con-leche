@@ -413,4 +413,49 @@ theorem minorTy_spec' {g : ClassGen} {c : Nat} {x : ClassCtor} {d : Nat} {T : Ex
     simp only [Option.pure_def, Option.some.injEq] at hy
     exact ⟨xs, idx, hparts, by rw [hly, hy]⟩
 
+/-! ## `CBNF` and the environment crossing -/
+
+theorem eraseFVarTys_idem : ∀ (e : Expr), e.eraseFVarTys.eraseFVarTys = e.eraseFVarTys := by
+  intro e
+  induction e <;> simp_all [Expr.eraseFVarTys, Expr.replaceFVars]
+
+theorem erasedEq_eraseFVarTys (e : Expr) : Expr.ErasedEq e e.eraseFVarTys :=
+  ConLeche.Expr.eraseFVarTys_eq_iff.mp (eraseFVarTys_idem e).symm
+
+theorem constsBound_eraseFVarTys_of_CBNF {env : Env} :
+    ∀ (e : Expr), CBNF env e → ConstsBound env e.eraseFVarTys := by
+  intro e
+  induction e with
+  | fvar i T _ => intro _; simp [Expr.eraseFVarTys, Expr.replaceFVars]
+  | app f a ihf iha =>
+    intro h
+    simp only [CBNF, eraseFVars, Expr.eraseFVarTys, Expr.replaceFVars,
+      ConLeche.Semantics.constsBound_app] at ihf iha h ⊢
+    exact ⟨ihf h.1, iha h.2⟩
+  | lam t b m iht ihb =>
+    intro h
+    simp only [CBNF, eraseFVars, Expr.eraseFVarTys, Expr.replaceFVars,
+      ConLeche.Semantics.constsBound_lam] at iht ihb h ⊢
+    exact ⟨iht h.1, ihb h.2⟩
+  | forallE t b m iht ihb =>
+    intro h
+    simp only [CBNF, eraseFVars, Expr.eraseFVarTys, Expr.replaceFVars,
+      ConLeche.Semantics.constsBound_forallE] at iht ihb h ⊢
+    exact ⟨iht h.1, ihb h.2⟩
+  | letE t v b iht ihv ihb =>
+    intro h
+    simp only [CBNF, eraseFVars, Expr.eraseFVarTys, Expr.replaceFVars,
+      ConLeche.Semantics.constsBound_letE] at iht ihv ihb h ⊢
+    exact ⟨iht h.1, ihv h.2.1, ihb h.2.2⟩
+  | proj s i e ih =>
+    intro h
+    simp only [CBNF, eraseFVars, Expr.eraseFVarTys, Expr.replaceFVars,
+      ConLeche.Semantics.constsBound_proj] at ih h ⊢
+    exact ih h
+  | _ => intro h; exact h
+
+theorem CBNF_of_erasedEq {env : Env} {a b : Expr} (h : Expr.ErasedEq a b) :
+    CBNF env a ↔ CBNF env b := by
+  unfold CBNF; rw [eraseFVars_of_erasedEq h]
+
 end ConLeche.Model
