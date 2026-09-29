@@ -43,8 +43,8 @@ variable {V : Type w} [SetTheory V]
 
 section Kit
 
-variable {μ : CheckMode} {F : Nat} {envC : Env}
-  {acval : Name → (Name → Nat) → AnnotTerm} {p : BlockShape} {formerTys : List Expr}
+variable {envC : Env}
+  {acval : Name → (Name → Nat) → AnnotTerm} {p : BlockShape}
   {out : List (ConstantVal × TargetMajor × List Expr)} {d : BlockData V}
   {Dc : Nat → LfpDatum V} {mc : Nat → Nat} {cvc : Nat → ConstantVal}
   {ψ : Name → Nat} {ρ : Nat → V}
@@ -56,12 +56,15 @@ is a visit of recursor class `c`, at the node clause's component
 `mOf c b` — and at every related pair the recursor class's index set,
 carrier, injection, constructor count, decoding fit and call targets are
 the node's (`hpredR`: which node a call lands at depends on the caller's
-node — the caller, an enclosing node, or a kid). -/
-structure TgtNodeCore (μ : CheckMode) (F : Nat) (envC : Env)
-    (acval : Name → (Name → Nat) → AnnotTerm) (p : BlockShape) (formerTys : List Expr)
+node — the caller, an enclosing node, or a kid).  The call relation `call`
+is a parameter: the target check's (`tgtCall`) or the generated stage's
+(`genCallT`). -/
+structure TgtNodeCore (envC : Env)
+    (acval : Name → (Name → Nat) → AnnotTerm) (p : BlockShape)
     (out : List (ConstantVal × TargetMajor × List Expr)) (d : BlockData V)
     (Dc : Nat → LfpDatum V) (mc : Nat → Nat) (cvc : Nat → ConstantVal)
-    (ψ : Name → Nat) (ρ : Nat → V) (xs : List V) where
+    (ψ : Name → Nat) (ρ : Nat → V) (xs : List V)
+    (call : List V → Nat → Nat → List V → V → Prop) where
   K : NestNodeInd V (Nat → V)
   Rel : Nat → Nat → Prop
   mOf : Nat → Nat → Nat
@@ -82,8 +85,7 @@ structure TgtNodeCore (μ : CheckMode) (F : Nat) (envC : Env)
     (K.cl b).Fits (K.fr b) (K.KT b) t (mOf c b) j fs → ∀ v,
     v ∈ˢ graphPredG (tgtClsIs d Dc mc cvc acval envC p out ψ ρ)
         (tgtClsCr d Dc mc cvc acval envC p out ψ ρ) (tgtRs out).length
-        (tgtCall μ F (mkFEnv envC) p formerTys out
-          acval envC ψ (tgtClsTup d Dc mc cvc p out ψ) ρ) xs (c, j, fs) →
+        call xs (c, j, fs) →
       ∃ c' t' y, c' < (tgtRs out).length ∧ v = tagged c' t' y ∧ ∃ b', Rel c' b' ∧
         nenc b' (mOf c' b') t' y ∈ˢ K.pred ⟨b, mOf c b, t, j, fs⟩
 

@@ -173,12 +173,13 @@ node's key read back. -/
     tgtClsG d acval envC p out ψ ρ xs c → ∃ t ∈ ns, NodeMajor F envC p formerTys ctx (tgtMajor out c) t
 
 /-- **The presentation's DYNAMIC part over a node list**: the admissible
-frames, their three kit facts, and the calls — stated at the list's data. -/
+frames, their three kit facts, and the calls at the call relation `call` —
+stated at the list's data. -/
 structure TgtNodeDyn (μ : CheckMode) (F : Nat) {envC : Env} (mpC : EnvModelM V μ envC)
     (ctx : NestCtx) (d : BlockData V) (p : BlockShape) (formerTys : List Expr)
     (out : List (ConstantVal × TargetMajor × List Expr)) (Dc : Nat → LfpDatum V)
     (mc : Nat → Nat) (cvc : Nat → ConstantVal) (ns : List PosTree) (ψ : Name → Nat)
-    (ρ : Nat → V) (xs : List V) where
+    (ρ : Nat → V) (xs : List V) (call : List V → Nat → Nat → List V → V → Prop) where
   Adm : Nat → (Nat → Nat → V → V → Prop) → (Nat → V) → Prop
   hAdm : ∀ b, b < ns.length + 1 → ∀ G ρ', Adm b G ρ' →
     Sat V ((nlDb mpC d ns b).params (nlψ envC ns ψ b)).reverse ρ' ∧
@@ -214,8 +215,7 @@ structure TgtNodeDyn (μ : CheckMode) (F : Nat) {envC : Env} (mpC : EnvModelM V 
     ∀ c' t' y, c' < (tgtRs out).length →
       t' ∈ˢ tgtClsIs d Dc mc cvc mpC.base2.acval envC p out ψ ρ xs c' →
       y ∈ˢ app (tgtClsCr d Dc mc cvc mpC.base2.acval envC p out ψ ρ xs c') t' →
-      tgtCall μ F (mkFEnv envC) p formerTys out mpC.base2.acval envC ψ
-        (tgtClsTup d Dc mc cvc p out ψ) ρ xs c j fs (tagged c' t' y) →
+      call xs c j fs (tagged c' t' y) →
       ∃ b', nlRel mpC.base2.acval ctx d p out ns ψ ρ xs envC F formerTys c' b' ∧
         NodeLands (ns.length + 1) (nlDb mpC d ns) (nlψ envC ns ψ)
           (nlFr mpC ctx d ns ψ ρ xs) (nlDp ns) Adm b (tgtClsM mc p out c) t j fs b'
@@ -317,10 +317,11 @@ theorem tgtNodePres_of_list (hcov : LfpCover mpC []) (hd0 : d.toLfp ∈ mpC.lfpB
       p.recTgtAt c < d.toLfp.N)
     (hnCt : ∀ c, c < (tgtRs out).length →
       blockRecNCt (tgtRs out) c = (tgtClsD d Dc out c).nctors (tgtClsM mc p out c))
-    (Dy : TgtNodeDyn μ F mpC ctx d p formerTys out Dc mc cvc ns ψ ρ xs)
+    {call : List V → Nat → Nat → List V → V → Prop}
+    (Dy : TgtNodeDyn μ F mpC ctx d p formerTys out Dc mc cvc ns ψ ρ xs call)
     (hfrT : NodeFrameTie mpC.base2.acval ctx p out ns ψ ρ xs envC F formerTys)
     (hcover : NodeListCover mpC.base2.acval envC ctx d p out ns ψ ρ xs F formerTys) :
-    ∃ P : TgtNodePres μ F envC mpC.base2.acval p formerTys out d Dc mc cvc ψ ρ xs,
+    ∃ P : TgtNodePres envC mpC.base2.acval p out d Dc mc cvc ψ ρ xs call,
       TgtNodeHex P := by
   have htie := fun (c b : Nat) (hc : c < (tgtRs out).length)
       (hR : nlRel mpC.base2.acval ctx d p out ns ψ ρ xs envC F formerTys c b) =>

@@ -102,8 +102,10 @@ theorem nestedClassNodes (hμ : μ.verifiedChecks = true) {F : Nat}
     (hsel : ∀ c, c < (tgtRs out).length → (tgtMajor out c).member = none →
       Dc c = lfpSel mpC dR.toLfp (tgtMajor out c).ind)
     (ψ : Name → Nat) (ρ : Nat → V) (xs : List V) :
-    ∃ P : TgtNodePres μ F envC mpC.base2.acval pp.toBlockShape (cvTasR.map (·.type))
-      out dR Dc mc cvc ψ ρ xs, TgtNodeHex P := by
+    ∃ P : TgtNodePres envC mpC.base2.acval pp.toBlockShape out dR Dc mc cvc ψ ρ xs
+      (tgtCall μ F (ConLeche.mkFEnv envC) pp.toBlockShape (cvTasR.map (·.type)) out
+        mpC.base2.acval envC ψ (tgtClsTup dR Dc mc cvc pp.toBlockShape out ψ) ρ),
+      TgtNodeHex P := by
   -- the node list
   have hctx' := hctx
   obtain ⟨hRec, -, -, hnames, -, -, -, -, -, hdR, hlfp, hcov,
@@ -148,7 +150,9 @@ theorem nestedClassNodes (hμ : μ.verifiedChecks = true) {F : Nat}
     rw [List.length_take, hpl] at hl
     omega
   have Dy : TgtNodeDyn μ F mpC (pp.nestCtx fvsP envI.find? envI.consts) dR pp.toBlockShape
-      (cvTasR.map (·.type)) out Dc mc cvc ns ψ ρ xs := {
+      (cvTasR.map (·.type)) out Dc mc cvc ns ψ ρ xs
+      (tgtCall μ F (ConLeche.mkFEnv envC) pp.toBlockShape (cvTasR.map (·.type)) out
+        mpC.base2.acval envC ψ (tgtClsTup dR Dc mc cvc pp.toBlockShape out ψ) ρ) := {
     Adm := nodeAdm mk mpC (pp.nestCtx fvsP envI.find? envI.consts) dR ns ψ ρ xs par
     hAdm := dyn_hAdm H ψ ρ xs hparams par
     top := dyn_top H ψ ρ xs hparams hxs hPP
