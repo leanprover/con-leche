@@ -94255,6 +94255,7 @@ build roots, like the skeleton); `tests/layering.sh` green;
 `tests/shake.sh` half (b) lists the new modules' (and the skeleton's)
 `public import`s as demotable — an artifact of modules outside the roots
 (demoting them breaks their own statements); re-measure at integration.
+
 ## GENREC M2 — the generated stage's proofs so far, and two kernel decisions (2026-09-29, `agent/uinds-GENREC`)
 
 Still no verdict change (the stage is defined, not wired).  Sorry-free,
@@ -94335,3 +94336,38 @@ the run's — not a run fact as stated anyway); `classConstOk_checked`
 lost its `hno` argument; `genRecTy_run`/`recStage_of_gen` lost `hnp`.
 General remark: any term a checker stage stores after a successful
 full-grade inference needs no annotation-side `.proj` argument.
+
+## GENREC-C — the rule-side obligations of the generated stage (2026-09-29, `agent/uinds-GENREC-C`)
+
+Sorry-free, standard axioms (propext, choice, Quot.sound). New modules
+`Model/Inductives/GenRuleSyn.lean` (the stored rule opened: `openLamsM`,
+`readLamBs`, `genRuleArgs`, `genIhdR`/`genIhsR` — the `ih` data read off
+the STORED rule — and `genRule_shapeD`, the generated rule's shape under
+D1), `GenRuleFree.lean` (`eraseFVars`/`CBNF`: constants bound once every
+free variable is forgotten; opening commutes with erasure) and
+`GenRecRules.lean` (the obligations).  The skeleton's `genIhdAV`/`genIhsAV`
+stay the RAW ones (B1/B2 build on them); `genIhdAV_eq_R`/`genEqs_eq_R`
+say they ARE the stored rule's (`genIhdR`), so every obligation is stated
+in the skeleton's spelling (`genRecHeqB`, `genRecHtower`, `genRecHRaZ`,
+`genRecHeqP`, `genRecHeqV`, `genRecHdataS`) with an `_R` twin.
+
+* **Discharged from the run:** the tower, `hRaZ`, `heqB`; the residue
+  (conjunct 4 of `BlockRuleDataB`) by construction (`genRule_residue`);
+  both reading bridges (`genRulePrefRead`, `genRuleFieldRead`: the stored
+  rule's λ-domains read as `blockRulePdomsAV ++ tgtFdomsAV`); `GenIhFree`
+  at every stored pair (`genIhFree_run`: the stored TYPE's
+  `constsResolve` through the minor premise's `ih` binder, the pieces
+  equal to the rule's up to erasure), so `genRecHdataS` takes lane E's
+  `genRecCtor_find` fact (`hfind`) instead.
+* **Left as named hypotheses (class side):** `hrowP`, `hrowV`,
+  `BlockRuleRows3` (`hrow3`), and `GenIhPiecesValid` (`hihV`, now asked at
+  stored rules only).  `hihV` is NOT a rule-run fact under D1: the only
+  inference that sees the rule's `ih` λs is the whole rule's, in the BARE
+  recursor environment (`RuleOutOk.htyR`), and there is neither a model of
+  that environment short of the recursion theorem nor an
+  env-strengthening lemma for inference.  Its source is the stored type's
+  minor premise (`ih` binder, inferred in `envC`) read at the RULE frame
+  — the field variables renamed `nP+s+k ↦ rP+k` (`denoteMeta_shiftFrom`),
+  the earlier `ih` positions padded with `Sort 0` as in
+  `storedMajorArg_graded`.  That is the same renaming bridge `hrowV`
+  needs for the declared fields, so it belongs with the class side.
