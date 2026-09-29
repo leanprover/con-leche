@@ -866,8 +866,8 @@
    613      | .ctorInfo _ nPc _ => nPc == nP
    614      | _ => true
 
-== ConLeche/Kernel/Inductives/Positivity.lean#L1586
-  1586  def nestRoot (ops : CheckerOps m) (env : Env) (ctx : NestCtx) (holes : List Expr) (F : Nat) :
+== ConLeche/Kernel/Inductives/Positivity.lean#L1585
+  1585  def nestRoot (ops : CheckerOps m) (env : Env) (ctx : NestCtx) (holes : List Expr) :
 
 == ConLeche/Kernel/Inductives/BlockInstall.lean#L279
    279  def checkBlockPositivity (ops : CheckerOps m) (env₁ : Env) (find? : Name → Option ConstantInfo)
@@ -926,10 +926,10 @@
    340      (hrun : ConLeche.Semantics.DeclBlockRun μ F env block p₀ env₂) (hcov : LfpCover mp []) :
    341      ∃ mp' : EnvModelM V μ env₂, LfpCover mp' [] := by
 
-== ConLeche/Kernel/Inductives/Positivity.lean#L1372-L1374
-  1372  no frame hole, the only keys that can hit (`nestContKey`). -/
-  1373  def nestContNew (ctx : NestCtx) (ops : CheckerOps m) (env : Env)
-  1374      (rec : List NestHole → Nat → Nat → Expr → NestState → m (NestFieldKind × Expr × NestState))
+== ConLeche/Kernel/Inductives/Positivity.lean#L1375-L1377
+  1375  no frame hole, the only keys that can hit (`nestContKey`). -/
+  1376  def nestContNew (ctx : NestCtx) (ops : CheckerOps m) (env : Env)
+  1377      (rec : List NestHole → Nat → Nat → Expr → NestState → m (NestFieldKind × Expr × NestState))
 
 == ConLeche/Kernel/Inductives/RecCheck.lean#L456-L458
    456  def targetMajorOf (fe : FEnv) (p : BlockShape)
@@ -971,20 +971,20 @@
 == ConLeche/Kernel/Inductives/SumInstall.lean#L114
    114  def checkSumCtor (ops : CheckerOps m) (env₀ env : Env) (T : Name)
 
-== ConLeche/Kernel/Inductives/Positivity.lean#L1461
-  1461  def nestPos (ops : CheckerOps m) (env : Env) (ctx : NestCtx) :
+== ConLeche/Kernel/Inductives/Positivity.lean#L1464
+  1464  def nestPos (ops : CheckerOps m) (env : Env) (ctx : NestCtx) :
 
 == ConLeche/Kernel/Inductives/Positivity.lean#L946
    946  def nestHoleAt (ctx : NestCtx) (prog : List NestHole) (i : Nat) : Option NestHole :=
 
-== ConLeche/Kernel/Inductives/Positivity.lean#L1404
-  1404  def nestContKey (ctx : NestCtx) (ops : CheckerOps m) (env : Env)
+== ConLeche/Kernel/Inductives/Positivity.lean#L1407
+  1407  def nestContKey (ctx : NestCtx) (ops : CheckerOps m) (env : Env)
 
-== ConLeche/Kernel/Inductives/Positivity.lean#L1222
-  1222  def nestCtors (ctx : NestCtx) (ops : CheckerOps m) (env : Env)
+== ConLeche/Kernel/Inductives/Positivity.lean#L1224
+  1224  def nestCtors (ctx : NestCtx) (ops : CheckerOps m) (env : Env)
 
-== ConLeche/Kernel/Inductives/Positivity.lean#L1605
-  1605  def nestRootLines (ctx : NestCtx) (holes : List Expr) :
+== ConLeche/Kernel/Inductives/Positivity.lean#L1604
+  1604  def nestRootLines (ctx : NestCtx) (holes : List Expr) :
 
 == ConLeche/Kernel/Inductives/BlockTail.lean#L97
     97  def checkBlockTail (ops : CheckerOps m) (block : List ConstantInfo)
