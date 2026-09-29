@@ -364,7 +364,7 @@ theorem openLamsM_scoped :
 
 /-- A reading of a scoped term, or the default, is below any positive
 depth it is read at. -/
-theorem readD_below (m : EnvModel V env) {φ : Name → Nat} {D : Nat} {e : Expr}
+theorem readD_below' (m : EnvModel V env) {φ : Name → Nat} {D : Nat} {e : Expr}
     (he : ScB D e ∨ e = default) (hD : 0 < D) :
     Term.bvarsBelow D ((denoteMeta m.acval env φ D e).getD default).erase := by
   rcases he with he | rfl
@@ -382,7 +382,7 @@ theorem readLamBs_below (m : EnvModel V env) {φ : Name → Nat} :
       0 < j → LamDomsBelow j (readLamBs m.acval env φ j bs)
   | _, [], _, _ => trivial
   | j, b :: bs, h, hj => by
-    refine ⟨readD_below m (Or.inl (by simpa using h 0 b rfl)) hj,
+    refine ⟨readD_below' m (Or.inl (by simpa using h 0 b rfl)) hj,
       readLamBs_below m (j + 1) bs (fun k b' hk => ?_) (by omega)⟩
     have := h (k + 1) b' (by simpa using hk)
     rwa [show j + (k + 1) = j + 1 + k by omega] at this
@@ -480,10 +480,10 @@ theorem genIhdAV_below (m : EnvModel V env) {out : List (ConstantVal × TargetMa
   rw [readLamBs_length]
   rcases List.mem_append.mp he with he | he
   · obtain ⟨a, ha, rfl⟩ := List.mem_map.mp he
-    exact readD_below m (Or.inl (hcargs a ((List.dropLast_sublist _).subset ha))) (by omega)
+    exact readD_below' m (Or.inl (hcargs a ((List.dropLast_sublist _).subset ha))) (by omega)
   · simp only [List.mem_singleton] at he
     subst he
-    refine readD_below m ?_ (by omega)
+    refine readD_below' m ?_ (by omega)
     cases hl : (call.getAppArgs.drop g.pre.length).getLast? with
     | none =>
       right
@@ -584,15 +584,15 @@ variable {mode : CheckMode} {F : Nat} {fe₁ : FEnv} {env₁ : Env} {fe : FEnv} 
 open ConLeche (ScB ClassGenScoped)
 
 /-- Opened variables' domains, read, are below their depths. -/
-theorem readOpenedDoms_below (m : EnvModel V env) {φ : Name → Nat} :
+theorem readOpenedDoms_below' (m : EnvModel V env) {φ : Name → Nat} :
     ∀ (d : Nat) (fvs : List Expr),
       (∀ (k : Nat) (x : Expr), fvs[k]? = some x → ∃ ty, x = .fvar (d + k) ty ∧ ScB (d + k) ty) →
       0 < d → FieldsBelow d (readOpenedDoms m.acval env φ d fvs)
   | _, [], _, _ => trivial
   | d, x :: fvs, h, hd => by
     obtain ⟨ty, rfl, hty⟩ := h 0 x rfl
-    refine ⟨readD_below m (Or.inl (by simpa [Expr.fvarTypeD] using hty)) hd,
-      readOpenedDoms_below m (d + 1) fvs (fun k x' hk => ?_) (by omega)⟩
+    refine ⟨readD_below' m (Or.inl (by simpa [Expr.fvarTypeD] using hty)) hd,
+      readOpenedDoms_below' m (d + 1) fvs (fun k x' hk => ?_) (by omega)⟩
     obtain ⟨ty', hx', hty'⟩ := h (k + 1) x' (by simpa using hk)
     exact ⟨ty', by rw [hx']; congr 1; omega, by rwa [show d + (k + 1) = d + 1 + k by omega] at hty'⟩
 
@@ -651,14 +651,14 @@ theorem genRowB (m : EnvModel V env)
   rw [hFlen, hrP]
   refine ⟨?_, ?_, ?_, ?_, ?_⟩
   · rw [tgtFdomsAV, hRP, hFld]
-    exact readOpenedDoms_below m _ fvs hfvs hpos
+    exact readOpenedDoms_below' m _ fvs hfvs hpos
   · intro e he
     rw [tgtEsAV, hCb, hB] at he
     obtain ⟨a, ha, rfl⟩ := List.mem_map.mp he
-    exact readD_below m (Or.inl (ConLeche.ScB.getAppArgs hres a (List.mem_of_mem_drop ha)))
+    exact readD_below' m (Or.inl (ConLeche.ScB.getAppArgs hres a (List.mem_of_mem_drop ha)))
       (by omega)
   · rw [tgtMkAV, hB, hMaj, hCt, hFld]
-    refine readD_below m (Or.inl (ConLeche.ScB.mkAppN (ConLeche.ScB.const _ _ _) fun a ha => ?_))
+    refine readD_below' m (Or.inl (ConLeche.ScB.mkAppN (ConLeche.ScB.const _ _ _) fun a ha => ?_))
       (by omega)
     rcases List.mem_append.mp ha with ha | ha
     · exact (hds a ha).mono (by omega)
@@ -958,11 +958,11 @@ theorem genIh_value {envC : Env} (m : EnvModel V envC) {acv : Name → (Name →
       omega
     · rcases List.mem_append.mp he with he | he
       · obtain ⟨b, hb, rfl⟩ := List.mem_map.mp he
-        exact readD_below m (Or.inl (ConLeche.ScB.getAppArgs hcallS b
+        exact readD_below' m (Or.inl (ConLeche.ScB.getAppArgs hcallS b
           (List.mem_of_mem_drop ((List.dropLast_sublist _).subset hb)))) (by omega)
       · simp only [List.mem_singleton] at he
         subst he
-        refine readD_below m ?_ (by omega)
+        refine readD_below' m ?_ (by omega)
         cases hl : (call.getAppArgs.drop rP).getLast? with
         | none => right; rw [List.getLastD_eq_getLast?, hl]; rfl
         | some b =>
