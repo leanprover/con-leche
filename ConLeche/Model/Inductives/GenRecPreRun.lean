@@ -7,6 +7,8 @@ import ConLeche.Model.Inductives.BlockRecPreRun
 import ConLeche.Model.Inductives.BlockRecData
 public import ConLeche.Model.Inductives.ClassGenRead
 import ConLeche.Model.Inductives.NestPosOut
+import ConLeche.Model.Inductives.TargetOutIdx
+import ConLeche.Model.Inductives.TargetOutRows
 import ConLeche.Model.Inductives.StructFrameKit
 import ConLeche.Model.Annot.BitRename
 import ConLeche.Model.StreamConsts
@@ -208,7 +210,7 @@ theorem genRun_class
     (R : GenRecRun μ F (mkFEnv env₁) env₁ (mkFEnv envC) p.toBlockShape nestedBit pos cvTas
       block ctorsAs out)
     {i : Nat} (hi : i < R.Ms.length) :
-    ∃ key M₀ nfs, R.Ms[i]? = some { M₀ with nfs := nfs } ∧
+    ∃ key M₀ nfs, R.Ms[i]? = some { M₀ with nfs := nfs } ∧ R.Ms₀[i]? = some M₀ ∧
       Nonempty (ConLeche.ClassMajorRun μ F (mkFEnv envC) p.toBlockShape ctorsAs R.ctx.params key M₀) := by
   obtain ⟨hlN, hallN⟩ := ConLeche.classesNfs_run R.hMs
   obtain ⟨hlM, hallM⟩ := ConLeche.classMajors_run R.hMs₀
@@ -216,7 +218,7 @@ theorem genRun_class
   have hik : i < (R.rd.classes.map (ConLeche.classKeyCanon R.ctx.params)).length := by omega
   obtain ⟨M, hM, hrun⟩ := hallM i _ (List.getElem?_eq_getElem hik)
   obtain ⟨nfs, hMs, -⟩ := hallN i M hM
-  exact ⟨_, M, nfs, hMs, hrun⟩
+  exact ⟨_, M, nfs, hMs, hM, hrun⟩
 
 /-- **A member class**: the block's member `t`, its index count the
 member's. -/
@@ -231,7 +233,7 @@ theorem genRun_member
     · exact hl
     · rw [List.getD_eq_getElem?_getD, List.getElem?_eq_none hl] at hm
       exact nomatch hm
-  obtain ⟨key, M₀, nfs, hMs, ⟨CR⟩⟩ := genRun_class R hi
+  obtain ⟨key, M₀, nfs, hMs, -, ⟨CR⟩⟩ := genRun_class R hi
   have hget : R.Ms.getD cls default = { M₀ with nfs := nfs } := by
     rw [List.getD_eq_getElem?_getD, hMs, Option.getD_some]
   rw [hget] at hm ⊢
@@ -585,6 +587,95 @@ theorem genRun_conclMot (hμ : μ.verifiedChecks = true)
     (φ := ψ) hg hm hgty hann hread hst ρ xs zs x (by rw [hxl, hRP]) (by rw [hzl, hM])
   rw [this, classMotPos, hgc, hm]
   rfl
+
+/-- The motive slots are as many as the classes. -/
+theorem motiveSlot_lt_classes : ∀ (slots : List ConLeche.ClassSlot) (rc : List Nat) (c s : Nat),
+    ConLeche.ClassRead.motiveSlot ⟨slots, rc⟩ c = some s →
+      c < (ConLeche.ClassRead.classes ⟨slots, rc⟩).length
+  | [], _, c, s, h => by
+    simp [ConLeche.ClassRead.motiveSlot] at h
+  | a :: l, rc, c, s, h => by
+    unfold ConLeche.ClassRead.motiveSlot at h
+    unfold ConLeche.ClassRead.classes
+    simp only [List.length_cons, List.range_succ_eq_map, List.filter_cons, List.filter_map,
+      List.getElem?_cons_zero] at h
+    cases a with
+    | motive k =>
+      simp only [List.filterMap_cons, List.length_cons, if_true] at h ⊢
+      cases c with
+      | zero => omega
+      | succ c =>
+        simp only [List.getElem?_cons_succ, List.getElem?_map, Option.map_eq_some_iff] at h
+        obtain ⟨s', hs', -⟩ := h
+        have := motiveSlot_lt_classes l rc c s' (by
+          unfold ConLeche.ClassRead.motiveSlot
+          simpa [Function.comp_def] using hs')
+        unfold ConLeche.ClassRead.classes at this
+        simpa using this
+    | minor c' C ihs =>
+      simp only [List.filterMap_cons] at h ⊢
+      simp only [Bool.false_eq_true, if_false, List.getElem?_map, Option.map_eq_some_iff] at h
+      obtain ⟨s', hs', -⟩ := h
+      have := motiveSlot_lt_classes l rc c s' (by
+        unfold ConLeche.ClassRead.motiveSlot
+        simpa [Function.comp_def] using hs')
+      unfold ConLeche.ClassRead.classes at this
+      simpa using this
+
+/-- A recursor's class is one of the run's classes. -/
+theorem genRun_cls_lt
+    (R : GenRecRun μ F (mkFEnv env₁) env₁ (mkFEnv envC) p.toBlockShape nestedBit pos cvTas
+      block ctorsAs out)
+    {c : Nat} (hc : c < (tgtRs out).length) : genClsOf R.rd c < R.Ms.length := by
+  obtain ⟨-, cls, -, -, -, hcls, -, -, -, -, hgc⟩ := genRun_at R hc
+  obtain ⟨s, hs⟩ := ConLeche.classRead_recCls_motive R.hrd cls (List.mem_of_getElem? hcls)
+  obtain ⟨hlN, -⟩ := ConLeche.classesNfs_run R.hMs
+  obtain ⟨hlM, -⟩ := ConLeche.classMajors_run R.hMs₀
+  rw [hgc, hlN, hlM, List.length_map]
+  exact motiveSlot_lt_classes R.rd.slots [] cls s hs
+
+/-- **An outside class's sort is the block's** at every level assignment
+(`TargetMajorRun.outside`'s `isEquiv sI resSort`, read through the
+recorded former). -/
+theorem genRun_outW (mpC : EnvModelM V μ envC)
+    (R : GenRecRun μ F (mkFEnv env₁) env₁ (mkFEnv envC) p.toBlockShape nestedBit pos cvTas
+      block ctorsAs out)
+    {c : Nat} (hc : c < (tgtRs out).length) (hMo : (tgtMajor out c).member = none)
+    {D : LfpDatum V} {mm : Nat} {cvI : ConstantVal}
+    (hcl : TgtOutCls mpC (tgtMajor out c) D mm cvI) (ψ : Name → Nat) :
+    D.w (Level.substFn ψ cvI.levelParams (tgtMajor out c).lvls)
+      = Level.eval ψ p.toBlockShape.resSort ∧
+    R.Ms₀.any (·.member.isNone) = true := by
+  obtain ⟨-, cls, -, -, -, -, -, -, -, hM, hgc⟩ := genRun_at R hc
+  rw [hM] at hMo hcl ⊢
+  have hi : cls < R.Ms.length := by rw [← hgc]; exact genRun_cls_lt R hc
+  obtain ⟨key, M₀, nfs, hMs, hMs₀, ⟨CR⟩⟩ := genRun_class R hi
+  have hget : R.Ms.getD cls default = { M₀ with nfs := nfs } := by
+    rw [List.getD_eq_getElem?_getD, hMs, Option.getD_some]
+  rw [hget] at hMo hcl ⊢
+  have hmaj := CR.major
+  cases hmaj with
+  | member => exact nomatch hMo
+  | outside I us nPc nIdx ctors sI hfn ht hnq hct hdsLen hdsSc hment hinst hsort nfs' =>
+    refine ⟨?_, List.any_eq_true.mpr ⟨_, List.mem_of_getElem? hMs₀, rfl⟩⟩
+    obtain ⟨cvI', caps', ty, s, hf', hty, hs, hr'⟩ := targetOutsideInst_inv hinst
+    obtain ⟨caps, hfI⟩ := hcl.hfind
+    rw [mkFEnv_find?] at hf'
+    change envC.find? I = _ at hfI
+    rw [hfI] at hf'
+    obtain ⟨rfl, rfl⟩ : cvI = cvI' ∧ caps = caps' := by simpa using hf'
+    obtain ⟨-, -, hrd, -⟩ := mpC.lfp_ok D hcl.hD
+    obtain ⟨cv₂, caps₂, hf₂, hab⟩ := hrd mm hcl.hmm
+    rw [hcl.hmem] at hf₂
+    change envC.find? I = _ at hf₂
+    rw [hfI] at hf₂
+    obtain ⟨rfl, rfl⟩ : cvI = cv₂ ∧ caps = caps₂ := by simpa using hf₂
+    obtain ⟨ab, hta, -, -⟩ := hab (Level.substFn ψ cvI.levelParams us)
+    have hsI : s = sI := (congrArg Prod.snd hr').symm
+    subst hsI
+    show D.w (Level.substFn ψ cvI.levelParams us) = _
+    rw [instPis_sort_of_read (φ := ψ) cvI.levelParams us hta hty hs]
+    exact ConLeche.Level.isEquiv_sound hsort ψ
 
 end Run
 
