@@ -55,7 +55,7 @@ open ConLeche.Semantics
 open ConLeche.SetModel
 open ConLeche.Term ConLeche.Verify SetTheory
 open ConLeche.Semantics (AnnotTerm)
-open ConLeche (Env Expr Name Level ConstantInfo ConstantVal NestCtx nestAbstract nestHoles
+open ConLeche (Env Expr Name Level ConstantInfo ConstantVal NestCtx nestHoles
   instPisWith openPisAtFvars fueledOps structUsedLater)
 
 universe w
@@ -355,6 +355,8 @@ theorem AnnotTerm.mkAppN_snoc' :
   | nil => intro f a; rfl
   | cons x xs ih => intro f a; exact ih (.app f x) a
 
+end Read
+
 /-! ## The producer's syntactic lemmas -/
 
 /-- Two telescopes erasure-equal open to erasure-equal bodies. -/
@@ -499,6 +501,7 @@ theorem HoleLeafOk.open {ctx : NestCtx} {n : Nat} {e : Expr} {d : Nat} {fvs : Li
 /-- The walked term's leaves: the parameters' (below `nP`) and the holes'. -/
 theorem holeLeafOk_crest {ctx : NestCtx} {holes : List Expr} {cty crest : Expr}
     (hholes : nestHoles ctx = some holes)
+    (hcl : ∀ n ci, ctx.find? n = some ci → ci.toConstantVal.type.hasFvar = false)
     (hparW : ∀ x ∈ ctx.params, Expr.WScoped ctx.nP x) (hcf : cty.hasFvar = false)
     (hcrest : ConLeche.nestCrest ctx.names (ctx.lps.map .param) ctx.params holes cty = some crest) :
     HoleLeafOk ctx crest := by
@@ -514,8 +517,7 @@ theorem holeLeafOk_crest {ctx : NestCtx} {holes : List Expr} {cty crest : Expr}
     · exact ⟨cv, caps, ty, by simpa using hf, hty, rfl⟩
     · -- a leaf of the hole's type is a parameter's
       have hwt : Expr.WScoped ctx.nP ty :=
-        ConLeche.wscoped_instPisWith hparW (Expr.WScoped.of_not_hasFvar (by
-          sorry)) hty
+        ConLeche.wscoped_instPisWith hparW (Expr.WScoped.of_not_hasFvar (hcl _ _ hf)) hty
       have := Expr.fvarLeaves_lt_of_wscoped hwt l hla
       omega
 
@@ -605,22 +607,29 @@ theorem BlockCtorDataI.storedCtorFacts {V : Type w} [SetTheory V] {env : Env}
     StoredCtorFacts m T lps cvC nP nF fvsP xFvs xrest idxArgs ds Es :=
   ⟨h.read, h.len, fun ψ => by rw [h.lenE ψ, h.idxLen], h.opens, h.pLen, h.pIdx, h.resShape, hf, hb⟩
 
+/-- Spines of erasure-equal heads and arguments are erasure-equal. -/
+private theorem erasedEq_mkAppN_congr :
+    ∀ {as bs : List Expr} {f g : Expr}, Expr.ErasedEq f g → Expr.ErasedEqL as bs →
+      Expr.ErasedEq (Expr.mkAppN f as) (Expr.mkAppN g bs)
+  | [], [], _, _, h, _ => h
+  | _ :: as, _ :: bs, _, _, h, ⟨hab, hrest⟩ => erasedEq_mkAppN_congr (as := as) (bs := bs)
+      (show Expr.ErasedEq (.app _ _) (.app _ _) from ⟨h, hab⟩) hrest
+
 /-- **THE PRODUCER of the stored field shape facts** — the only place that
 reads a stored constructor's syntax for them.  From the install's
 positivity run at a stored (DECLARED) constructor of the block — the walk
-takes the member-abstracted crest `crest` to its normal form `tyN` with
-flat kinds; U2's sort row on `tyN`'s fields — the constructor's kind-free
-facts, the members' formers, and the walk's semantic link (`hlink`, from
-`memberCtorD_red`: the crest and the normal form read as Π-towers with
-the same body whose fields read alike at every frame satisfying the walk's
-context `Δh`): the crest reads, at the walk's depth, as a Π-tower over
-`abD` and the normal form over `abN`, both ending in the constructor's
-member hole at the parameters and the result indices `E` (the stored
-result index readings lifted over the holes), and `abN`'s readings are the
-fields with holes of `StoredFieldShapes` against the stored field readings:
-every member applied (`MemberCtorD`'s fact about its normal form), and the override through the
-declared crest (substitution, at every frame) and the link (at frames
-satisfying the walk's context, `hsatH`). -/
+takes the crest `crest` (every whole member application abstracted,
+`nestCrest`) to its normal form `tyN` — the constructor's kind-free facts, the members' formers, and the walk's
+semantic link (`hlink`, from `memberCtorD_red`: the crest and the normal
+form read as Π-towers with the same body whose fields read alike at every
+frame satisfying the walk's context `Δh`): the crest reads, at the walk's
+depth, as a Π-tower over `abD` and the normal form over `abN`, both ending
+in the constructor's member hole applied to the result indices `E` (the
+stored result index readings lifted over the holes), and `abN`'s readings
+are the fields with holes of `StoredFieldShapes` against the stored field
+readings: the override through the declared crest (the whole applications
+put back by one parallel substitution, at every parameter frame) and the
+link (at frames satisfying the walk's context, `hsatH`). -/
 theorem storedFieldShapes_of_walk {V : Type w} [SetTheory V] {env : Env} (m : EnvModel V env)
     (ψ : Name → Nat) {F : Nat} {ctx : NestCtx} {holes : List Expr}
     (hfind : ctx.find? = env.find?) (hholes : nestHoles ctx = some holes)
@@ -636,13 +645,11 @@ theorem storedFieldShapes_of_walk {V : Type w} [SetTheory V] {env : Env} (m : En
     {Es : (Name → Nat) → List AnnotTerm}
     (hD : StoredCtorFacts m (ctx.names.getD c .anonymous) ctx.lps cvC ctx.nP nF fvsP xFvs xrest
       idxArgs ds Es)
-    {crest : Expr} (hcrest : instPisWith ctx.params (nestAbstract ctx holes cvC.type) = some crest)
+    {crest : Expr}
+    (hcrest : ConLeche.nestCrest ctx.names (ctx.lps.map .param) ctx.params holes cvC.type
+      = some crest)
     {tyN : Expr} {ksD : List ConLeche.NestFieldKind} {ts : List ConLeche.PosTree}
     (hd : ConLeche.MemberCtorD (fueledOps .verified F) env ctx nF crest ksD tyN ts)
-    (hU2 : ∃ (isProp : Bool) (xq : List Expr × Expr) (sorts : List Level),
-      openPisAtFvars nF tyN (ctx.hiAt 0) = some xq ∧
-      ConLeche.checkStructFieldSortsI (fueledOps .verified F) env isProp false ctx.sort
-        (ctx.hiAt 0) xq.1 [] nF = .ok sorts)
     {Δp Δh : List AnnotTerm}
     (hlink : ∀ ca : AnnotTerm, denoteMeta m.acval env ψ (ctx.hiAt 0) crest = some ca →
       ∃ (abD abN : List (Nat × Nat × AnnotTerm)) (B : AnnotTerm),
@@ -651,17 +658,16 @@ theorem storedFieldShapes_of_walk {V : Type w} [SetTheory V] {env : Env} (m : En
       abD.length = nF ∧ abN.length = nF ∧
       FieldsEqOn V Δh (abD.map (·.2.2)) (abN.map (·.2.2)) ∧
       Rules.Frame (ctx.hiAt 0) tyN ∧ Rules.LeavesSub tyN crest)
-    (hsatH : ∀ hs : List V, hs.length = ctx.names.length →
-      (∀ t, t < ctx.names.length → ∀ σ : Nat → V,
-        interp V σ (m.acval (ctx.names.getD t .anonymous) ψ) = hs.getD t pt) →
-      ∀ ρ : Nat → V, Sat V Δp ρ → Sat V Δh (consList hs ρ)) :
+    (hsatH : ∀ ρ : Nat → V, Sat V Δp ρ → ∀ hs : List V, hs.length = ctx.names.length →
+      (∀ t, t < ctx.names.length →
+        hs.getD t pt = (frameIdx ctx.nP ρ).foldl app
+          (interp V ρ (m.acval (ctx.names.getD t .anonymous) ψ))) →
+      Sat V Δh (consList hs ρ)) :
     ∃ (abD abN : List (Nat × Nat × AnnotTerm)) (E : List AnnotTerm),
       denoteMeta m.acval env ψ (ctx.hiAt 0) crest
-        = some (mkPisAV abD (AnnotTerm.mkAppN (.bvar (nF + (ctx.names.length - 1 - c)))
-            (paramBvarsAt ctx.nP (ctx.nP + ctx.names.length + nF) ++ E))) ∧
+        = some (mkPisAV abD (AnnotTerm.mkAppN (.bvar (nF + (ctx.names.length - 1 - c))) E)) ∧
       denoteMeta m.acval env ψ (ctx.hiAt 0) tyN
-        = some (mkPisAV abN (AnnotTerm.mkAppN (.bvar (nF + (ctx.names.length - 1 - c)))
-            (paramBvarsAt ctx.nP (ctx.nP + ctx.names.length + nF) ++ E))) ∧
+        = some (mkPisAV abN (AnnotTerm.mkAppN (.bvar (nF + (ctx.names.length - 1 - c))) E)) ∧
       abD.length = nF ∧ abN.length = nF ∧ E = (Es ψ).map (·.liftN ctx.names.length nF) ∧
       StoredFieldShapes V ctx.names.length ctx.nP w (fun t => ctx.nIdxs.getD t 0)
         (fun t => m.acval (ctx.names.getD t .anonymous) ψ) Δp (abN.map (·.2.2))
@@ -675,46 +681,19 @@ theorem storedFieldShapes_of_walk {V : Type w} [SetTheory V] {env : Env} (m : En
     exact (henv ci (List.mem_of_find?_eq_some hf)).1
   have hhi : ctx.hiAt 0 = ctx.nP + ctx.names.length := by simp [ConLeche.NestCtx.hiAt]
   have hlenH : holes.length = ctx.names.length := ConLeche.nestHoles_length hholes
-  have hholeAt : ∀ t, t < ctx.names.length → ∃ cv caps,
-      ctx.find? (ctx.names.getD t .anonymous) = some (.indInfo cv caps) ∧
-      holes[t]? = some (.fvar (ctx.nP + t) cv.type) :=
-    fun t ht => ConLeche.nestHoles_getElem? hholes ht
-  have hholesOk : ∀ x ∈ holes, Expr.WScoped (ctx.hiAt 0) x ∧ ∃ i ty, x = .fvar i ty := by
-    intro x hx
-    obtain ⟨t, htx⟩ := List.getElem?_of_mem hx
-    have ht : t < ctx.names.length := by
-      rw [← hlenH]; exact (List.getElem?_eq_some_iff.mp htx).1
-    obtain ⟨cv, caps, hf, hget⟩ := hholeAt t ht
-    rw [htx] at hget
-    obtain rfl := Option.some.inj hget
-    refine ⟨?_, _, _, rfl⟩
-    simp only [Expr.WScoped]
-    exact ⟨by rw [hhi]; omega, Expr.WScoped.of_not_hasFvar (hcl _ _ hf)⟩
-  have hh : ∀ h ∈ holes, ∃ i ty, h = .fvar i ty := fun h hm => (hholesOk h hm).2
   have hparW' : ∀ x ∈ ctx.params, Expr.WScoped (ctx.hiAt 0) x :=
     fun x hx => Expr.WScoped.mono (by rw [hhi]; omega) (hparW x hx)
+  have hholesOk : ∀ x ∈ holes, Expr.WScoped (ctx.hiAt 0) x ∧ ∃ i ty, x = .fvar i ty :=
+    ConLeche.nestHoles_ok (fun n ci hf => hcl n ci hf) hparW hholes
   have hW : Expr.WScoped (ctx.hiAt 0) crest :=
-    ConLeche.memberCrest_wscoped hholesOk hparW' hD.hasFvar hcrest
-  have hB : crest.looseBVarsBounded 0 = true := by
-    refine ConLeche.looseBVarsBounded_instPisWith (fun a ha => ?_) ?_ hcrest
-    · obtain ⟨p, hp⟩ := List.getElem?_of_mem ha
-      obtain ⟨ty, rfl⟩ := hpar p a hp
-      rfl
-    · unfold nestAbstract
-      refine ConLeche.looseBVarsBounded_replaceConsts (fun c us r hr => ?_) _ 0 hD.bounded
-      split at hr
-      · split at hr
-        · obtain ⟨i, ty, rfl⟩ := hh r (List.mem_of_getElem? hr)
-          rfl
-        · exact nomatch hr
-      · exact nomatch hr
+    ConLeche.WScoped_nestCrest hD.hasFvar (by omega)
+      (fun x hx => (List.mem_append.mp hx).elim (hparW' x) (fun h => (hholesOk x h).1)) hcrest
   -- ## the walk: the declared crest opened as the walk opened it
-  obtain ⟨nds, rest, htele, -, -, -, hresFree', hha⟩ := hd
+  obtain ⟨nds, rest, htele, -, -, -, hresFree'⟩ := hd
   obtain ⟨-, -, xs, hop, -⟩ := posD_tele_open htele
   rw [Nat.add_zero] at hop
-  have hresFree : ∀ a ∈ rest.getAppArgs.drop ctx.nP,
-      a.nestOcc ctx.names ctx.nP (ctx.hiAt 0) = false := fun a ha => by
-    simpa using List.all_eq_true.mp hresFree' a ha
+  have hresFree : ∀ a ∈ rest.getAppArgs, a.nestOcc ctx.names ctx.nP (ctx.hiAt 0) = false :=
+    fun a ha => by simpa using List.all_eq_true.mp hresFree' a ha
   -- ## the concrete reading, peeled past the parameters
   obtain ⟨crestc, hopP, hopX⟩ := hD.opens
   have hlenD := hD.len ψ
@@ -724,263 +703,292 @@ theorem storedFieldShapes_of_walk {V : Type w} [SetTheory V] {env : Env} (m : En
     rw [← List.take_append_drop ctx.nP (ds ψ), mkPisAV_append'] at hr
     have := (denoteMeta_peel ctx.nP hopP (by rw [List.length_take]; omega) hr).1
     simpa using this
-  -- ## the walked term is the concrete one, abstracted (up to erasure)
   have hwc : Expr.WScoped ctx.nP crestc := by
     have := (ConLeche.openPisAtFvars_WScoped ctx.nP cvC.type 0 hopP
       (Expr.WScoped.of_not_hasFvar hD.hasFvar)).2
     rwa [Nat.zero_add] at this
-  have hA₂ := nestAbstract_instPisWith (ctx := ctx) hh (instPisWith_of_openPis ctx.nP hopP)
-  have hvars : ∀ x ∈ fvsP, ∃ i ty, x = .fvar i ty := by
-    intro x hx
-    obtain ⟨q, hq⟩ := List.getElem?_of_mem hx
-    obtain ⟨ty, h⟩ := hD.pIdx q x hq
-    exact ⟨q, ty, h⟩
-  have hparE : Expr.ErasedEqL ctx.params (fvsP.map (nestAbstract ctx holes)) :=
-    Expr.ErasedEqL.trans
-      (erasedEqL_of_fvarIdx ctx.params fvsP 0
+  -- ## the walked crest is the concrete one, abstracted (up to erasure)
+  have hsubC : ∀ c us, Option.Rel Expr.ErasedEq
+      (ConLeche.nestCanonSub ctx.names (ctx.lps.map .param) ctx.nP c us)
+      (ConLeche.nestCanonSub ctx.names (ctx.lps.map .param) ctx.nP c us) := by
+    intro c us
+    cases ConLeche.nestCanonSub ctx.names (ctx.lps.map .param) ctx.nP c us with
+    | none => exact .none
+    | some h => exact .some (Expr.ErasedEq.rfl h)
+  have herased : Expr.ErasedEq crest (holeAbs ctx crestc) := by
+    unfold ConLeche.nestCrest at hcrest
+    rw [hplen] at hcrest
+    obtain ⟨A, hA, rfl⟩ := Option.map_eq_some_iff.mp hcrest
+    have h1 : Expr.ErasedEq (A.replaceFVars (ConLeche.nestKeyMap ctx.params holes)) A :=
+      replaceFVars_erasedEq_idx (fun i a ha => by
+        unfold ConLeche.nestKeyMap at ha
+        split at ha
+        · obtain ⟨ty, rfl⟩ := hpar i a ha
+          exact ⟨ty, rfl⟩
+        · obtain ⟨j, cv, caps, ty, -, -, rfl⟩ := ConLeche.nestHoles_mem hholes a
+            (List.mem_of_getElem? ha)
+          have hj : j = i - ctx.params.length := by
+            have := ConLeche.nestHoles_getElem? hholes
+              (show i - ctx.params.length < ctx.names.length by
+                have := (List.getElem?_eq_some_iff.mp ha).1; omega)
+            obtain ⟨cv', caps', ty', -, -, h'⟩ := this
+            rw [ha] at h'
+            simp only [Option.some.injEq, Expr.fvar.injEq] at h'
+            omega
+          exact ⟨ty, by rw [hj, hplen]; congr 1; omega⟩) A
+    unfold ConLeche.nestCanonCrest at hA
+    obtain ⟨t, ht, rfl⟩ := Option.map_eq_some_iff.mp hA
+    have hP : Expr.ErasedEqL (ConLeche.nestPhs ctx.nP) fvsP :=
+      erasedEqL_of_fvarIdx _ fvsP 0
         (fun i x hx => by
-          obtain ⟨ty, h⟩ := hpar i x hx
-          exact ⟨ty, by rw [h, Nat.zero_add]⟩)
+          have hi : i < ctx.nP := by
+            have := (List.getElem?_eq_some_iff.mp hx).1; simpa [ConLeche.nestPhs] using this
+          rw [show (ConLeche.nestPhs ctx.nP)[i]? = some (.fvar i (.sort .zero)) by
+            simp [ConLeche.nestPhs, List.getElem?_range hi]] at hx
+          cases hx
+          exact ⟨_, by rw [Nat.zero_add]⟩)
         (fun i x hx => by
           obtain ⟨ty, h⟩ := hD.pIdx i x hx
           exact ⟨ty, by rw [h, Nat.zero_add]⟩)
-        (by rw [hplen, hD.pLen]))
-      (erasedEqL_map_nestAbstract hvars)
-  obtain ⟨crest', hc', herased⟩ := instPisWith_erasedEq hparE (Expr.ErasedEq.rfl _) hcrest
-  rw [hA₂] at hc'
-  obtain rfl := Option.some.inj hc'
-  -- ## the members, substituted back
-  obtain ⟨Ts, hTs⟩ : ∃ Ts : List Expr, Ts = (List.range ctx.names.length).map
-      fun t => Expr.const (ctx.names.getD t .anonymous) (ctx.lps.map .param) := ⟨_, rfl⟩
-  obtain ⟨leaves, hleaves⟩ : ∃ leaves : List AnnotTerm, leaves = (List.range ctx.names.length).map
-      fun t => m.acval (ctx.names.getD t .anonymous) ψ := ⟨_, rfl⟩
-  have hTsL : Ts.length = ctx.names.length := by simp [hTs]
-  have hleavesL : leaves.length = ctx.names.length := by simp [hleaves]
-  have herase2 : Expr.ErasedEq (substAll ctx.nP Ts (nestAbstract ctx holes crestc)) crestc := by
-    refine substAll_replaceConsts_erasedEq (fun a ha => ?_) (fun c' us e he => ?_) crestc
-      hwc.fvarsBelow
-    · rw [hTs] at ha
-      obtain ⟨t, -, rfl⟩ := List.mem_map.mp ha
-      exact ⟨_, _, rfl⟩
-    · split at he
-      · rename_i hus
-        split at he
-        · rename_i mm hmm
-          obtain ⟨hmmlt, hmmeq, -⟩ := List.findIdx?_eq_some_iff_getElem.mp hmm
-          obtain ⟨cv, caps, -, hget⟩ := hholeAt mm hmmlt
-          rw [he] at hget
-          obtain rfl := Option.some.inj hget
-          refine ⟨mm, cv.type, rfl, ?_⟩
-          rw [hTs, List.getElem?_map, List.getElem?_range hmmlt, Option.map_some]
-          simp only [beq_iff_eq] at hmmeq hus
-          rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hmmlt, Option.getD_some, hmmeq,
-            hus]
-        · exact nomatch he
-      · exact nomatch he
-  have hainst : ∀ (n : Name) (ψ' : Name → Nat) (y : AnnotTerm) (k : Nat),
-      (m.acval n ψ').inst y k = m.acval n ψ' :=
-    fun n ψ' y k => AVExprSubst.inst_eq_self_of_closed (m.acval_closed n ψ') y k
+        (by simp [ConLeche.nestPhs, hD.pLen])
+    obtain ⟨r', hr', hre⟩ := instPisWith_erasedEq hP (Expr.ErasedEq.rfl _) ht
+    rw [instPisWith_of_openPis ctx.nP hopP] at hr'
+    obtain rfl := Option.some.inj hr'
+    have hsh : holeAbs ctx crestc = crestc.replaceApps
+        (ConLeche.nestCanonSub ctx.names (ctx.lps.map .param) ctx.nP) 0 ctx.nP := by
+      unfold holeAbs
+      rw [Expr.shiftFromN_eq_self_of_fvarsBelow _ hwc.fvarsBelow]
+    rw [hsh]
+    exact h1.trans (Expr.replaceApps_erasedEq hsubC _ _ hre)
+  -- ## the whole applications, put back
+  have hsh : holeAbs ctx crestc = crestc.replaceApps
+      (ConLeche.nestCanonSub ctx.names (ctx.lps.map .param) ctx.nP) 0 ctx.nP := by
+    unfold holeAbs
+    rw [Expr.shiftFromN_eq_self_of_fvarsBelow _ hwc.fvarsBelow]
+  have hfvsW : ∀ x ∈ fvsP, Expr.WScoped ctx.nP x := by
+    intro x hx
+    have := (ConLeche.openPisAtFvars_WScoped ctx.nP cvC.type 0 hopP
+      (Expr.WScoped.of_not_hasFvar hD.hasFvar)).1 x hx
+    rwa [Nat.zero_add] at this
+  have hfvsP : ∀ (p : Nat) (x : Expr), fvsP[p]? = some x → ∃ ty, x = .fvar (0 + p) ty := by
+    intro p x hx
+    obtain ⟨ty, h⟩ := hD.pIdx p x hx
+    exact ⟨ty, by rw [h, Nat.zero_add]⟩
+  let s : Nat → Expr := fun i => if i < ctx.nP then .fvar i (.sort .zero)
+    else Expr.mkAppN (.const (ctx.names.getD (i - ctx.nP) .anonymous) (ctx.lps.map .param)) fvsP
+  let x : Nat → AnnotTerm := fun i => if i < ctx.nP then .bvar (ctx.nP - 1 - i)
+    else AnnotTerm.mkAppN (m.acval (ctx.names.getD (i - ctx.nP) .anonymous) ψ)
+      (paramBvarsAt ctx.nP ctx.nP)
+  have herase2 : Expr.ErasedEq
+      (Expr.substFvars (ctx.nP + ctx.names.length) ctx.nP s (holeAbs ctx crestc)) crestc := by
+    rw [hsh]
+    refine Expr.substFvars_replaceApps_erasedEq (Nat.le_refl _)
+      (fun i hi => ⟨.sort .zero, by dsimp only [s]; rw [if_pos hi]⟩)
+      (fun mm hmm args hlen hvar => ?_) crestc hwc.fvarsBelow
+    dsimp only [s]
+    rw [if_neg (show ¬ ctx.nP + mm < ctx.nP by omega), show ctx.nP + mm - ctx.nP = mm by omega]
+    exact erasedEq_mkAppN_congr (Expr.ErasedEq.rfl _) (erasedEqL_of_fvarIdx fvsP args 0 hfvsP
+      (fun p y hy => by obtain ⟨ty, h⟩ := hvar p y hy; exact ⟨ty, by rw [h, Nat.zero_add]⟩)
+      (by rw [hD.pLen, hlen]))
   have hleafRead : ∀ t, t < ctx.names.length → ∀ d, denoteMeta m.acval env ψ d
       (.const (ctx.names.getD t .anonymous) (ctx.lps.map .param))
         = some (m.acval (ctx.names.getD t .anonymous) ψ) := by
     intro t ht d
-    obtain ⟨cv, caps, bs, s, hf, hlps, -, -⟩ := hformers t ht
+    obtain ⟨cv, caps, bs, s', hf, hlps, -, -⟩ := hformers t ht
     rw [denoteMeta_const hf (by simp [ConstantInfo.toConstantVal, hlps])]
     simp only [ConstantInfo.toConstantVal, hlps, ConLeche.Level.substFn_param_self]
-  have hsubst := denoteMeta_substAll (env := env) (φ := ψ) m.acval_closed hainst Ts leaves
-    (by rw [hTsL, hleavesL])
-    (fun i a x ha hx => by
-      have hi : i < ctx.names.length := by
-        have := (List.getElem?_eq_some_iff.mp ha).1
-        simpa [hTs] using this
-      rw [hTs, List.getElem?_map, List.getElem?_range hi, Option.map_some,
-        Option.some.injEq] at ha
-      rw [hleaves, List.getElem?_map, List.getElem?_range hi, Option.map_some,
-        Option.some.injEq] at hx
-      subst ha hx
-      exact ⟨by simp [Expr.WScoped], rfl, hleafRead i hi⟩)
-    ctx.nP ctx.nP (nestAbstract ctx holes crestc) (Nat.le_refl _)
-    (by
-      rw [hTsL, ← hhi]
-      exact erasedEq_fvarsBelow _ _ herased hW.fvarsBelow)
-  have hRc : (denoteMeta m.acval env ψ (ctx.hiAt 0) crest).map (instAll leaves 0)
-      = some (mkPisAV ((ds ψ).drop ctx.nP)
-          (ctorBodyAVI m (ctx.names.getD c .anonymous) ctx.nP nF ψ (Es ψ))) := by
-    rw [← hreadc, ← denoteMeta_erasedEq herase2 ctx.nP, hsubst, denoteMeta_erasedEq herased,
-      hTsL, hhi, Nat.sub_self]
-  obtain ⟨R, hR, hRi⟩ := Option.map_eq_some_iff.mp hRc
-  obtain ⟨pps, Bb, hst, hBb, hppl, hdoms⟩ := denoteMeta_openPis nF hop hR
+  have hs : ∀ i, i < ctx.nP + ctx.names.length → Expr.WScoped ctx.nP (s i) ∧
+      (s i).looseBVarsBounded 0 = true ∧ denoteMeta m.acval env ψ ctx.nP (s i) = some (x i) := by
+    intro i hi
+    by_cases hin : i < ctx.nP
+    · dsimp only [s, x]
+      rw [if_pos hin, if_pos hin]
+      refine ⟨?_, rfl, by rw [denoteMeta_fvar]⟩
+      simp only [Expr.WScoped]
+      exact ⟨hin, by simp⟩
+    · dsimp only [s, x]
+      rw [if_neg hin, if_neg hin]
+      have hsp := denoteMetaSpine_params (acval := m.acval) (env := env) (φ := ψ) ctx.nP hD.pLen
+        hD.pIdx
+      refine ⟨?_, ?_, denoteMeta_mkAppN hsp (hleafRead _ (by omega) _)⟩
+      · have : ∀ (as : List Expr) (f : Expr), Expr.WScoped ctx.nP f →
+            (∀ a ∈ as, Expr.WScoped ctx.nP a) → Expr.WScoped ctx.nP (Expr.mkAppN f as) := by
+          intro as
+          induction as with
+          | nil => intro f hf _; exact hf
+          | cons a as ih =>
+            intro f hf ha
+            refine ih (.app f a) ?_ (fun b hb => ha b (List.mem_cons_of_mem _ hb))
+            simp only [Expr.WScoped]
+            exact ⟨hf, ha a List.mem_cons_self⟩
+        exact this fvsP _ (by rw [Expr.WScoped]; trivial) hfvsW
+      · have : ∀ (as : List Expr) (f : Expr), f.looseBVarsBounded 0 = true →
+            (∀ a ∈ as, a.looseBVarsBounded 0 = true) →
+              (Expr.mkAppN f as).looseBVarsBounded 0 = true := by
+          intro as
+          induction as with
+          | nil => intro f hf _; exact hf
+          | cons a as ih =>
+            intro f hf ha
+            refine ih (.app f a) ?_ (fun b hb => ha b (List.mem_cons_of_mem _ hb))
+            simp only [Expr.looseBVarsBounded, Bool.and_eq_true]
+            exact ⟨hf, ha a List.mem_cons_self⟩
+        refine this fvsP _ rfl fun a ha => ?_
+        obtain ⟨p, hp⟩ := List.getElem?_of_mem ha
+        obtain ⟨ty, rfl⟩ := hD.pIdx p a hp
+        rfl
+  have hAbsB : Expr.fvarsBelow (ctx.nP + ctx.names.length + 0) (holeAbs ctx crestc) := by
+    rw [Nat.add_zero, ← hhi]
+    exact erasedEq_fvarsBelow _ _ herased hW.fvarsBelow
+  have hsubRead := denoteMeta_substFvars (φ := ψ) m (b := ctx.nP + ctx.names.length)
+    (D := ctx.nP) (s := s) (x := x) hs (holeAbs ctx crestc) 0 hAbsB
+  rw [Nat.add_zero, Nat.add_zero, denoteMeta_erasedEq herase2, hreadc] at hsubRead
+  obtain ⟨R, hR, hRi⟩ := Option.map_eq_some_iff.mp hsubRead.symm
+  have hRc : denoteMeta m.acval env ψ (ctx.hiAt 0) crest = some R := by
+    rw [denoteMeta_erasedEq herased, hhi]; exact hR
+  obtain ⟨pps, Bb, hst, hBb, hppl, -⟩ := denoteMeta_openPis nF hop hRc
   obtain ⟨rfl, -⟩ := stripPisAV_eq_mkPis hst
-  rw [instAll_mkPisAV] at hRi
+  rw [AnnotTerm.substAV_mkPisAV] at hRi
+  have hsubTeleL : ∀ (c : Nat) (ab : List (Nat × Nat × AnnotTerm)),
+      (AnnotTerm.substTele (substTau (ctx.nP + ctx.names.length) ctx.nP x) c ab).length
+        = ab.length := by
+    intro c ab
+    induction ab generalizing c with
+    | nil => rfl
+    | cons d ab ih => simp [AnnotTerm.substTele, ih]
   obtain ⟨hTele, hBody⟩ := mkPisAV_inj
-    (by rw [instTele_length, hppl, List.length_drop, hlenD]; omega) hRi
+    (by rw [hsubTeleL, hppl, List.length_drop, hlenD]; omega) hRi
   rw [Nat.zero_add, hppl] at hBody
-  -- ## the result: the constructor's member hole at the parameters and the indices
-  have hnA : nestAbstract ctx holes crestc = holeAbs ctx holes crestc := by
-    unfold holeAbs
-    rw [Expr.shiftFromN_eq_self_of_fvarsBelow _ hwc.fvarsBelow]
-  have hopA := openPisAtFvars_holeAbs (ctx := ctx) hh nF (j := 0) (by rw [Nat.add_zero]; exact hopX)
-  have hopA' : openPisAtFvars nF (holeAbs ctx holes crestc) (ctx.hiAt 0)
-      = some (xFvs.map (holeAbs ctx holes), holeAbs ctx holes xrest) := by
-    rw [hhi]; simpa using hopA
-  obtain ⟨cvc, capsc, -, hholeC⟩ := hholeAt c hc
-  have hrestE : Expr.ErasedEq rest (Expr.mkAppN (.fvar (ctx.nP + c) cvc.type)
-      ((fvsP ++ idxArgs).map (holeAbs ctx holes))) := by
-    have h1 := openPisAtFvars_erasedEq_body nF (Expr.ErasedEq.trans herased
-      (Expr.ErasedEq.of_eq hnA)) hop hopA'
-    rwa [hD.resShape, holeAbs_mkAppN, holeAbs_member hnd hc hholeC] at h1
-  obtain ⟨hfnE, hlenE, hargE⟩ := erasedEq_getApp _ _ hrestE
+  -- ## the result: the constructor's member hole applied to the indices
+  obtain ⟨xs', rest', hop', hrestE⟩ := openPisAtFvars_holeAbs (ctx := ctx) nF (j := 0)
+    (e := crestc) (by rw [Nat.add_zero]; exact hopX) herased
+  rw [Nat.add_zero, ← hhi, hop] at hop'
+  obtain ⟨-, rfl⟩ := Prod.mk.inj (Option.some.inj hop')
+  have hxr : holeAbs ctx xrest
+      = Expr.mkAppN (.fvar (ctx.nP + c) (.sort .zero)) (idxArgs.map (holeAbs ctx)) := by
+    rw [hD.resShape]; exact holeAbs_memberApp hnd hc hD.pLen hD.pIdx idxArgs
+  rw [hxr] at hrestE
+  obtain ⟨hfnE, hlenE, -⟩ := erasedEq_getApp _ _ hrestE
   rw [Expr.getAppFn_mkAppN] at hfnE
-  rw [Expr.getAppArgs_mkAppN] at hlenE hargE
-  simp only [Expr.getAppFn, Expr.getAppArgs, List.nil_append] at hfnE hlenE hargE
   have hfnR : ∃ ty, rest.getAppFn = .fvar (ctx.nP + c) ty := by
-    cases hq : rest.getAppFn <;> rw [hq] at hfnE <;> simp only [Expr.ErasedEq] at hfnE
+    cases hq : rest.getAppFn <;> rw [hq] at hfnE <;>
+      simp only [Expr.ErasedEq, Expr.getAppFn] at hfnE
     subst hfnE
     exact ⟨_, rfl⟩
-  have hlenR : rest.getAppArgs.length = ctx.nP + idxArgs.length := by
-    rw [hlenE, List.length_map, List.length_append, hD.pLen]
-  have hparR : ∀ p, p < ctx.nP → ∃ ty, rest.getAppArgs[p]? = some (.fvar p ty) := by
-    intro p hp
-    have hpl := hD.pLen
-    obtain ⟨y, hy⟩ : ∃ y, rest.getAppArgs[p]? = some y :=
-      ⟨_, List.getElem?_eq_getElem (by omega)⟩
-    obtain ⟨x, hx⟩ : ∃ x, fvsP[p]? = some x := ⟨_, List.getElem?_eq_getElem (by omega)⟩
-    obtain ⟨ty, rfl⟩ := hD.pIdx p x hx
-    obtain ⟨ty', hty'⟩ := holeAbs_fvar_lt ctx holes hp ty
-    have hy' := hargE p y _ hy (by
-      rw [List.getElem?_map, List.getElem?_append_left (by omega), hx, Option.map_some, hty'])
-    cases y <;> simp only [Expr.ErasedEq] at hy'
-    subst hy'
-    exact ⟨_, hy⟩
   have hwr : Expr.WScoped (ctx.hiAt 0 + nF) rest :=
     (ConLeche.openPisAtFvars_WScoped nF crest (ctx.hiAt 0) hop hW).2
   obtain ⟨E, hBbE, hEfree, hElen, -⟩ := denoteMeta_holeHead (m := m) (ψ := ψ) (l := nF) hfnR hc
-    hparR (by omega) hresFree hwr hBb
-  have hEl : E.length = idxArgs.length := by rw [hElen, hlenR]; omega
-  have hmap : E.map (instAll leaves nF) = Es ψ := by
+    hresFree hwr hBb
+  have hEl : E.length = (Es ψ).length := by
+    rw [hElen, hlenE, Expr.getAppArgs_mkAppN, hD.lenE ψ]
+    simp [Expr.getAppArgs]
+  have happ : ∀ (as bs : List AnnotTerm) (f : AnnotTerm),
+      AnnotTerm.mkAppN (AnnotTerm.mkAppN f as) bs = AnnotTerm.mkAppN f (as ++ bs) := by
+    intro as
+    induction as with
+    | nil => intro bs f; rfl
+    | cons a as ih => intro bs f; exact ih bs (.app f a)
+  have hliftApp : ∀ (as : List AnnotTerm) (f : AnnotTerm) (n c' : Nat),
+      (AnnotTerm.mkAppN f as).liftN n c' = AnnotTerm.mkAppN (f.liftN n c') (as.map (·.liftN n c')) := by
+    intro as
+    induction as with
+    | nil => intro f n c'; rfl
+    | cons a as ih => intro f n c'; simp only [AnnotTerm.mkAppN_cons, ih, List.map_cons]; rfl
+  have hhead : AnnotTerm.substAV (substTau (ctx.nP + ctx.names.length) ctx.nP x)
+      (.bvar (nF + (ctx.names.length - 1 - c))) nF
+      = AnnotTerm.mkAppN (m.acval (ctx.names.getD c .anonymous) ψ) (paramBvars ctx.nP nF) := by
+    rw [AnnotTerm.substAV_bvar_ge _ (by omega),
+      show nF + (ctx.names.length - 1 - c) - nF = ctx.names.length - 1 - c by omega]
+    unfold substTau
+    rw [if_pos (by omega)]
+    dsimp only [x]
+    rw [if_neg (by omega),
+      show ctx.nP + ctx.names.length - 1 - (ctx.names.length - 1 - c) - ctx.nP = c by omega,
+      hliftApp, liftN_closed (m.acval_closed _ _) nF 0]
+    congr 1
+    unfold paramBvarsAt paramBvars
+    rw [List.map_map]
+    refine List.map_congr_left fun p hp => ?_
+    have := List.mem_range.mp hp
+    simp only [Function.comp_apply, AnnotTerm.liftN_bvar, if_false, Nat.not_lt_zero]
+    congr 1; omega
+  have hmap : E.map (AnnotTerm.substAV (substTau (ctx.nP + ctx.names.length) ctx.nP x) · nF)
+      = Es ψ := by
     have h2 := hBody
-    rw [hBbE, instAll_mkAppN, List.map_append] at h2
-    have hhead : instAll leaves nF (.bvar (nF + (ctx.names.length - 1 - c)))
-        = m.acval (ctx.names.getD c .anonymous) ψ := by
-      refine instAll_bvar_mid leaves (fun y hy k => ?_) ?_ (by rw [hleavesL]; omega)
-      · rw [hleaves] at hy
-        obtain ⟨t, -, rfl⟩ := List.mem_map.mp hy
-        exact m.acval_closed _ _ k
-      · rw [hleavesL, show ctx.names.length - 1 - (ctx.names.length - 1 - c) = c by omega, hleaves,
-          List.getElem?_map, List.getElem?_range hc, Option.map_some]
-    have hpar2 : (holeParams ctx.names.length ctx.nP nF).map (instAll leaves nF)
-        = paramBvars ctx.nP nF := by
-      unfold holeParams paramBvars
-      rw [List.map_map]
-      refine List.map_congr_left fun p hp => ?_
-      have hp' := List.mem_range.mp hp
-      simp only [Function.comp_apply]
-      rw [instAll_bvar_ge leaves (by rw [hleavesL]; omega), hleavesL]
-      congr 1
-      omega
-    rw [hhead, hpar2] at h2
+    rw [hBbE, AnnotTerm.substAV_mkAppN, hhead, happ] at h2
     unfold ctorBodyAVI at h2
-    obtain ⟨-, h3⟩ := AnnotTerm.mkAppN_inj h2 (by simp [paramBvars, hEl, hD.lenE ψ])
+    obtain ⟨-, h3⟩ := AnnotTerm.mkAppN_inj h2 (by simp [hEl])
     exact List.append_cancel_left h3
+  have hxP : ∀ i, i < ctx.nP → x i = .bvar (ctx.nP - 1 - i) := fun i hi => by
+    dsimp only [x]; rw [if_pos hi]
   have hE : E = (Es ψ).map (·.liftN ctx.names.length nF) := by
     rw [← hmap, List.map_map]
     refine (List.map_id E).symm.trans (List.map_congr_left fun e he => ?_)
-    have := instAll_liftN_of_noBVar e leaves nF (by rw [hleavesL]; exact hEfree e he)
-    rw [hleavesL] at this
-    exact this.symm
+    exact (substAV_holeBack_liftN hxP e nF (hEfree e he)).symm
   -- ## the normal form: the link, its reading and its fields
-  obtain ⟨abD, abN, B₀, hRD, hRN, hlD, hlN, hEqF, hfrN, hsubN⟩ := hlink _ hR
+  obtain ⟨abD, abN, B₀, hRD, hRN, hlD, hlN, hEqF, -, -⟩ := hlink _ hRc
   obtain ⟨rfl, rfl⟩ := mkPisAV_inj (hppl.trans hlD.symm) hRD
-  obtain ⟨hWN, -, -⟩ := hfrN
-  obtain ⟨isProp, ⟨xsN, restN⟩, sorts, hopN, hsorts⟩ := hU2
-  obtain ⟨-, hrows⟩ := ConLeche.checkStructFieldSortsI_inv hsorts
-  obtain ⟨ppsN, BbN, hstN, -, -, hdomsN⟩ := denoteMeta_openPis nF hopN hRN
-  rw [← hlN, stripPisAV_mkPisAV] at hstN
-  obtain ⟨rfl, -⟩ := Prod.mk.inj (Option.some.inj hstN).symm
-  have hformer' : ∀ t, t < ctx.names.length → ∀ cv caps,
-      ctx.find? (ctx.names.getD t .anonymous) = some (.indInfo cv caps) →
-      ∃ bs s, cv.type.stripPis (ctx.nP + ctx.nIdxs.getD t 0) = some (bs, .sort s) ∧
-        s.eval ψ = w := by
-    intro t ht cv caps hf
-    obtain ⟨cv', caps', bs, s, hf', -, hst, hs⟩ := hformers t ht
-    rw [hfind, hf'] at hf
-    simp only [Option.some.injEq, ConstantInfo.indInfo.injEq] at hf
-    obtain ⟨rfl, -⟩ := hf
-    exact ⟨bs, s, hst, hs⟩
-  have hleafCrest : HoleLeafOk ctx crest := holeLeafOk_crest hholes hcl hparW hD.hasFvar hcrest
-  have hleafN : HoleLeafOk ctx tyN := fun l hl h1 h2 => hleafCrest l (hsubN l hl) h1 h2
-  have hleafX := (hleafN.open (Nat.le_refl _) hopN).2
+  -- the stored field readings are the crest's, the holes filled back
   have hSget : ∀ l p, pps[l]? = some p →
-      (((ds ψ).drop ctx.nP).map (·.2.2)).getD l default = instAll leaves l p.2.2 := by
+      (((ds ψ).drop ctx.nP).map (·.2.2)).getD l default
+        = AnnotTerm.substAV (substTau (ctx.nP + ctx.names.length) ctx.nP x) p.2.2 l := by
+    have hTget : ∀ (c : Nat) (ab : List (Nat × Nat × AnnotTerm)) (l : Nat),
+        (AnnotTerm.substTele (substTau (ctx.nP + ctx.names.length) ctx.nP x) c ab)[l]?
+          = (ab[l]?).map fun d => (d.1, d.2.1,
+              AnnotTerm.substAV (substTau (ctx.nP + ctx.names.length) ctx.nP x) d.2.2 (c + l)) := by
+      intro c ab
+      induction ab generalizing c with
+      | nil => intro l; rfl
+      | cons d ab ih =>
+        intro l
+        cases l with
+        | zero => rfl
+        | succ l =>
+          simp only [AnnotTerm.substTele, List.getElem?_cons_succ, ih (c + 1) l]
+          rw [show c + 1 + l = c + (l + 1) by omega]
     intro l p hp
-    rw [← hTele, List.getD_eq_getElem?_getD, List.getElem?_map, instTele_getElem?, hp]
+    rw [← hTele, List.getD_eq_getElem?_getD, List.getElem?_map, hTget, hp]
     simp
   have hFgetD : ∀ l p, pps[l]? = some p → (pps.map (·.2.2)).getD l default = p.2.2 := by
     intro l p hp
     rw [List.getD_eq_getElem?_getD, List.getElem?_map, hp]
     rfl
-  have hFget : ∀ l p, ppsN[l]? = some p → (ppsN.map (·.2.2)).getD l default = p.2.2 := by
-    intro l p hp
-    rw [List.getD_eq_getElem?_getD, List.getElem?_map, hp]
-    rfl
-  have hfield : ∀ l, l < nF → ∃ x p, xsN[l]? = some x ∧ ppsN[l]? = some p ∧
-      denoteMeta m.acval env ψ (ctx.hiAt 0 + l) x.fvarTypeD = some p.2.2 := by
-    intro l hl
-    have hxlN : xsN.length = nF := ConLeche.Verify.openPisAtFvars_length nF hopN
-    obtain ⟨x, hx⟩ : ∃ x, xsN[l]? = some x := ⟨_, List.getElem?_eq_getElem (by omega)⟩
-    obtain ⟨p, hp, -, hr⟩ := hdomsN l x hx
-    exact ⟨x, p, hx, hp, hr⟩
-  have hHP : holeParams ctx.names.length ctx.nP nF
-      = paramBvarsAt ctx.nP (ctx.nP + ctx.names.length + nF) := by
-    unfold holeParams paramBvarsAt
-    refine List.map_congr_left fun p hp => ?_
-    have := List.mem_range.mp hp
-    congr 1
-    omega
-  -- the declared fields at the leaves' values are the stored ones, at every frame
-  have hdecl : ∀ (hs : List V), hs.length = ctx.names.length →
-      (∀ t, t < ctx.names.length → ∀ σ : Nat → V,
-        interp V σ (m.acval (ctx.names.getD t .anonymous) ψ) = hs.getD t pt) →
-      ∀ (l : Nat) (as : List V) (ρ : Nat → V), l < nF → as.length = l →
+  -- the declared fields at the members' applied values are the stored ones, at every frame
+  have hdecl : ∀ (ρ : Nat → V) (hs : List V), hs.length = ctx.names.length →
+      (∀ t, t < ctx.names.length →
+        hs.getD t pt = (frameIdx ctx.nP ρ).foldl app
+          (interp V ρ (m.acval (ctx.names.getD t .anonymous) ψ))) →
+      ∀ (l : Nat) (as : List V), l < nF → as.length = l →
         interp V (consList as (consList hs ρ)) ((pps.map (·.2.2)).getD l default)
           = interp V (consList as ρ) ((((ds ψ).drop ctx.nP).map (·.2.2)).getD l default) := by
-    intro hs hsl hv l as ρ hl has
+    intro ρ hs hsl hv l as hl has
     obtain ⟨p, hp⟩ : ∃ p, pps[l]? = some p := ⟨_, List.getElem?_eq_getElem (by omega)⟩
-    rw [hFgetD l p hp, hSget l p hp, ← has]
-    refine (interp_instAll leaves hs (by rw [hleavesL, hsl]) (fun i y g hy hg σ => ?_) p.2.2 as
-      ρ).symm
-    have hi : i < ctx.names.length := by
-      have := (List.getElem?_eq_some_iff.mp hy).1
-      rwa [hleavesL] at this
-    rw [hleaves, List.getElem?_map, List.getElem?_range hi, Option.map_some,
-      Option.some.injEq] at hy
-    subst hy
-    rw [hv i hi σ, List.getD_eq_getElem?_getD, hg]
-    rfl
-  -- every member applied at every field, containers included (`MemberCtorD`)
-  have hholeApp : ∀ (l : Nat) (F' : AnnotTerm), (ppsN.map (·.2.2))[l]? = some F' →
-      HoleApp ctx.names.length ctx.nP l F' := by
-    intro l F' hF'
-    have hl : l < nF := by
-      have := (List.getElem?_eq_some_iff.mp hF').1
-      simpa [hlN] using this
-    obtain ⟨x, p, hx, hp, hread⟩ := hfield l hl
-    rw [List.getElem?_map, hp, Option.map_some, Option.some.injEq] at hF'
-    subst hF'
-    have hwx : Expr.WScoped (ctx.hiAt 0 + l) x.fvarTypeD :=
-      openPisAtFvars_typeWScoped nF hopN hWN l x hx
-    have hhx := (holesApplied_openPis nF hopN (Nat.le_refl _) (by rw [hhi]; omega) hha).1 x
-      (List.mem_of_getElem? hx)
-    have := holeApp_of_holesApplied (m := m) (ψ := ψ) (ctx := ctx) _ _ hwx (by omega) hhx hread
-    rwa [show ctx.hiAt 0 + l - ctx.hiAt 0 = l by omega] at this
-  refine ⟨pps, ppsN, E, ?_, ?_, hlD, hlN, hE, ⟨by simp [hlN, hlenD], hholeApp, ?_⟩⟩
-  · -- the crest's reading
-    rw [hR, hBbE, hHP]
-  · -- the normal form's reading
-    rw [hRN, hBbE, hHP]
-  · -- the override: through the declared crest (at every frame) and the link (at frames
-    -- satisfying the walk's context)
-    intro hs hsl hv ρ hρ l hl as has hfit
+    rw [hFgetD l p hp, hSget l p hp, interp_substAV, ← has]
+    have h1 := substE_consList V (substTau (ctx.nP + ctx.names.length) ctx.nP x) as 0 ρ
+    rw [Nat.add_zero] at h1
+    rw [h1, substE_holeBack hxP ρ]
+    suffices hhs : hs = (List.range ctx.names.length).map fun mm => interp V ρ (x (ctx.nP + mm)) by
+      rw [hhs]
+    apply List.ext_getElem (by simp [hsl])
+    intro t h₁ h₂
+    simp only [List.getElem_map, List.getElem_range]
+    have ht : t < ctx.names.length := by rw [← hsl]; exact h₁
+    have := hv t ht
+    rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem h₁, Option.getD_some] at this
+    rw [this]
+    dsimp only [x]
+    rw [if_neg (by omega), show ctx.nP + t - ctx.nP = t by omega, interp_mkAppN_foldl]
+    congr 1
+    unfold paramBvarsAt frameIdx
+    rw [List.map_map]
+    refine List.map_congr_left fun q hq => ?_
+    simp only [Function.comp_apply, interp_bvar]
+  refine ⟨pps, abN, E, ?_, ?_, hlD, hlN, hE, ⟨by simp [hlN, hlenD], ?_⟩⟩
+  · rw [hRc, hBbE]
+  · rw [hRN, hBbE]
+  · -- the override: through the declared crest (at every parameter frame) and the link (at
+    -- frames satisfying the walk's context)
+    intro ρ hρ hs hsl hv l hl as has hfit
     have hl' : l < nF := by simpa [hlN] using hl
     have hfitD : SpineFit (consList hs ρ) ((pps.map (·.2.2)).take l) as := by
       refine (spineFit_congr_all (by simp [hlD, hlenD]) (fun i as' hi has' => ?_) as).mpr hfit
@@ -988,8 +996,8 @@ theorem storedFieldShapes_of_walk {V : Type w} [SetTheory V] {env : Env} (m : En
       rw [List.getD_eq_getElem?_getD, List.getElem?_take_of_lt hil, ← List.getD_eq_getElem?_getD,
         List.getD_eq_getElem?_getD (l := List.take l _), List.getElem?_take_of_lt hil,
         ← List.getD_eq_getElem?_getD]
-      exact hdecl hs hsl hv i as' ρ (by omega) has'
-    rw [← hdecl hs hsl hv l as ρ hl' has]
-    exact (hEqF.getD_eq (hsatH hs hsl hv ρ hρ) l as (by simp [hlD, hl']) hfitD).symm
+      exact hdecl ρ hs hsl hv i as' (by omega) has'
+    rw [← hdecl ρ hs hsl hv l as hl' has]
+    exact (hEqF.getD_eq (hsatH ρ hρ hs hsl hv) l as (by simp [hlD, hl']) hfitD).symm
 
 end ConLeche.Model
