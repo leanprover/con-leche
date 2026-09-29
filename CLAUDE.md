@@ -1,119 +1,150 @@
 # Working on ConLeche
 
-Read DESIGN.md first — it holds the design decisions, verification style, and
-iteration protocol. Keep it up to date when decisions change.
+Design and architecture are not in this file. `OVERVIEW.md` is the
+current, human-facing tour (module map §11, gates §12); `DESIGN.md` is
+the agents' journal: its opening sections state the standing design,
+the later sections are dated records. When a decision changes, update
+DESIGN.md (append your lane's record at the end), and OVERVIEW.md if a
+current fact changed.
 
-* Build: `lake build` (must stay warning-free) — and `lake test` must be
-  warning-free too: it builds the test library, which `lake build` does
-  not, so a warning there is invisible to the build gate. Tests: `lake test`
-  (`tests/ConLecheTests.lean`, `#guard`/`example`-based, fails at build time).
-* `OVERVIEW.md`'s and `README.md`'s line-anchored links are gated by
-  `tests/overview-links.sh` (run from `tests/arena.sh` and CI): if you move
-  or change linked lines, re-read the citing paragraph and run
-  `tests/overview-links.sh --update`.  `README.md` is the maintainer's,
-  human-written: an agent may turn an existing code name into a link or
-  repoint one that rotted, and may change no other character of it.
-* The same two documents' quoted code is gated by `tests/quote-gate.sh`
-  (also from `tests/arena.sh` and CI): every fenced ```lean block headed
-  by `theorem <name>`/`def <name>` must match the source's statement
-  TEXTUALLY (indentation included). There is no `--update` — the source
-  is the truth; the fix is to re-sync the quote, which an agent may do
-  (the README's prose around it stays the maintainer's).
-* Goal: the lean kernel arena tutorial tests (without custom axioms) are
-  accepted and the checker is verified consistent.
-* Iterate one feature at a time; every feature lands together with its
-  verification and regression tests. Commit often.
-* No `sorry`s on master; no new axioms. Consistency proofs stay parametric in
-  the `SetTheory` interface.
-* Layering: implementation (`ConLeche/Kernel/*`, `ConLeche/Cached/*`,
-  `Main.lean`) must never import theory/verification modules
-  (`ConLeche/SetTheory/*`, `ConLeche/SetModel/*`, `ConLeche/Semantics/*`,
-  `ConLeche/Model/*`, `ConLeche/Verify/*`). Proofs about kernel functions go in
-  `ConLeche/Verify/*`; the pure set constructions (no `Expr` in sight) in
-  `ConLeche/SetModel/*`; the Expr-facing denotation and claims in
-  `ConLeche/Semantics/*`; the graded set model and the consistency proofs in
-  `ConLeche/Model/*`.
-  Inductive installation has its own directory per layer
-  (`Kernel/Inductives/*`, `Verify/Inductives/*`, `Semantics/Inductives/*`,
-  `Model/Inductives/*`); the routes there are the UNIFORM one
-  (`checkBlock`, `Block*.lean`, every non-nested block, with the
-  `Fix*`/`Struct*`/`Sum*` kits it uses as a library) and the MODELED one
-  (`Kernel/Inductives/Modeled.lean`, `checkModeled`, for nested blocks,
-  with its twins `Kernel/Inductives/ModeledF.lean` and
-  `Cached/ModeledC.lean`: modeller-only, deleted whole with it);
-  the recursors are GENERATED (`Kernel/Inductives/GenRec.lean`, charter
-  item 5 as amended 2026-09-29; its unverified pre-pass is
-  `Kernel/Inductives/ClassRead.lean`); the conformance check and
-  `ConLeche/Conformance/` are retired (charter item 6).
-  Exception (2026-08-24): a *self-contained* verification of a data
-  structure (e.g. the arena's WF — invariants + preservation proofs
-  importing no other Model/Verify modules) may live with, and be
-  imported by, the implementation — the Std.HashMap pattern: the
-  structure carries its invariant; downstream never re-proves it.
-* The module system (task #231): every `.lean` file under `ConLeche/`,
-  the roots and `tests/*` carries the `module` header.  A `module` may
-  not import a non-`module`, so the tree converts as a whole and stays
-  that way; `_probe/*`, `scripts/*.lean` and `bridge/*` are outside the
-  build and stay classic (a classic file may import a `module`).
-  **Checker code is exposed, because it is the subject of the proofs**:
-  `ConLeche/Kernel/*`, `ConLeche/Cached/*`, `ConLeche/Frontend/*`,
-  and `Main.lean` open one
-  `@[expose] public section` — the Verify/Model
-  tiers unfold their bodies by design, so a `private` helper there must
-  be public if any *definition* mentions it (a `theorem` proof may
-  still use one: proofs are private regardless).  **Proof code is
-  private by default**: `Model/*` and `Verify/*` (and the tests and
-  capstones) open a plain `public section`, so their `def` bodies are
-  private and `@[expose]` appears only where the compiler asked — on a
-  definition another file unfolds.  `Term/*`, `SetTheory/*`,
-  `SetModel/*` and `Semantics/*` keep the blanket for the same reason
-  the checker does: the tiers above reason about them definitionally.
-  Two traps when you re-privatise: a `private` lemma's `match` matcher
-  is not reused, so a `rw` elsewhere stops finding its pattern; and
-  moving a `@[simp]` lemma's proof from `:= rfl` to `:= by rfl` costs
-  it its `rfl`-status and `simp only` silently stops firing — expose
-  what it unfolds instead.  Imports narrow the same way: a
-  `public import` is for a re-export something else's PUBLIC statement
-  needs, and the plan for that is computed, not guessed
-  (`scripts/pub-import-plan.py` over `scripts/pub-iface.lean` and the
-  census) — a missing re-export does NOT say "unknown identifier", it
-  makes a `rfl` stop closing.  `import all X` is the escape for a
-  representation that is sealed on purpose — `ConLeche/Kernel/PropWhen`
-  (the datum's API and laws are its whole interface) and `Init.Util`'s
-  `withPtrEq` — and nothing else; each site carries the reason.
-  Elaboration-time code (`Kernel/BasisGen`, `PinGen/*`, the pin and
-  basis splices) is `meta`: `meta section`, `public meta import`, and a
-  module needed at BOTH levels is imported twice (`public import X` +
-  `meta import X`).  A term-mode `theorem … := rfl` is elaborated in
-  the PUBLIC view and fails on a hidden unfolding; `:= by rfl` is
-  elaborated in the private view and is the fix.
-* Large artifacts (reference checkouts, worktrees) go in `_tmp/` (gitignored;
-  /tmp and /home are tmpfs).
-* Put a `timeout` on every checker run (builds get `timeout` only).
-  Do **not** use `ulimit -v`: it caps virtual address space, and the
-  worker pool's thread-stack RESERVATION is charged against it, so the
-  binary aborts before any checking starts — `lean::exception: failed
-  to create thread`, shell `Aborted`, exit 134 (measured at 16 GB and
-  at 22 GB; 40 GB survives a single run and still aborts across a full
-  sweep).  A virtual reservation is not resident memory, so no value
-  both works and bounds anything; `tests/arena.sh` has always used a
-  bare `timeout`.  An `exit 134` from a capped run is therefore not a
-  checker crash — one lane's first e2e sweep reported dozens of
-  spurious "verdict moves" that were all exit 134.
-* Running builds and other long processes (agents): this machine is
-  shared by several agents in separate worktrees, and each worktree has
-  its own `.lake`, so builds never conflict and there is nothing to wait
-  for. Run your build in the foreground and capture its exit code:
-  `timeout 3600 lake build > _tmp/<lane>/build.log 2>&1; echo EXIT=$?`.
-  If it may exceed the tool's foreground limit, start that same command
-  in the background (`run_in_background`) and wait for the completion
-  notification. NEVER wait on a process-name pattern (`pgrep -f "lake
-  build"`, `pgrep -f bin/con-leche`): that blocks on other agents' work,
-  for as long as anyone is building. If you must poll, poll the PID you
-  launched (`kill -0 $pid`). Wall time is not a measurement here (shared
-  machine); use `perf stat -e instructions:u`.
-* Exit codes (arena convention): 0 accept, 1 reject (invalid input proof),
-  2 decline, 3 error. Decline (2) only when the checker *positively detects*
-  a feature it doesn't support yet — never when an internal construction
-  happens to fail or an invariant is violated with unclear cause; that is
-  exit 3 ("crash for unclear reasons", which verification should make rare).
+## Build, tests, gates
+
+* `lake build` and `lake test` must both be warning-free. `lake test`
+  builds the test library (`tests/ConLecheTests.lean`,
+  `tests/ConLecheTests/*`, `#guard`/`example`-based, fails at build
+  time, and pins the capstones' axioms in `Axioms.lean`); `lake build`
+  does not build it, so a warning there is invisible to the build gate.
+* `tests/arena.sh` is the standard battery (CI runs it): the gates below,
+  the arena tutorial tests, the end-to-end fixtures (`tests/e2e/`,
+  verdicts pinned in `tests/e2e-expected.txt`), the annotation fixtures
+  and the trusted-mode sweep. Each gate also runs on its own:
+  - `tests/layering.sh` — the import fence (see Layering below).
+  - `tests/shake.sh` — `lake shake` proposals against
+    `tests/shake-allowlist.txt`, and `scripts/pub-import-plan.py --check`
+    (no `public import` individually demotable).
+  - `tests/trust-surface.sh` — no `unsafe`/`implemented_by`/
+    `native_decide` outside the allowlisted files.
+  - `tests/overview-links.sh` — line-anchored links in `OVERVIEW.md` and
+    `README.md`. If you move or change linked lines, re-read the citing
+    paragraph, then `tests/overview-links.sh --update`.
+  - `tests/quote-gate.sh` — every fenced ```lean block headed by
+    `theorem <name>`/`def <name>` in those two documents must match the
+    source's statement TEXTUALLY (indentation included). No `--update`:
+    the source is the truth; re-sync the quote.
+  - `tests/pindump.sh`, `tests/no-local-paths.sh`, `tests/challenge.sh`.
+* Every design corner case gets an end-to-end fixture right away (today's
+  verdict, with a comment naming the target verdict).
+* Load the `lean-rc-linearity` skill before touching hot-path state
+  threading, memo/arena mutation or per-node arithmetic.
+
+## Documents
+
+* `README.md` is the maintainer's, human-written. An agent may turn an
+  existing code name into a link, repoint a link that rotted, and re-sync
+  a quoted code block the quote gate reports; no other character of it
+  changes. Anything it should say differently is reported, not written.
+* `OVERVIEW.md` and `README.md` state current facts: no task numbers, no
+  history. Task numbers and history are fine in code comments and
+  DESIGN.md.
+
+## Process rules
+
+* One feature at a time; every feature lands with its verification and
+  regression tests. Commit often.
+* No `sorry` on a landed branch; no new axioms. Consistency proofs stay
+  parametric in the `SetTheory` interface.
+* Git: your working directory resets between tool calls, so use
+  `git -C <worktree>` always; stage by explicit path, never `git add -A`
+  or `git add .`; check the branch before committing.
+* Landing a lane on an integration branch: merge the integration branch
+  into your lane branch, re-run the gates the intervening changes can
+  affect, fast-forward the integration branch from the main checkout
+  (`git -C /home/joachim/setlec merge --ff-only <lane>`, after checking
+  that `git status --short` is clean apart from the maintainer's
+  untracked files), remove your worktree. A partial lane does not land.
+* Large artifacts (reference checkouts, worktrees, logs) go in `_tmp/`
+  (gitignored; `/tmp` and `/home` are tmpfs under a memory cap).
+* Builds: every worktree has its own `.lake`, so builds never conflict
+  and there is nothing to wait for. Run in the foreground and capture the
+  exit code: `timeout 3600 lake build > _tmp/<lane>/build.log 2>&1;
+  echo EXIT=$?`. If it may exceed the foreground limit, run the same
+  command with `run_in_background` and wait for the notification.
+  NEVER wait on or kill by a process-name pattern (`pgrep -f "lake
+  build"`, `pgrep -f bin/con-leche`): that catches other agents' work.
+  If you must poll, poll the PID you launched (`kill -0 $pid`).
+* Every checker run gets a `timeout`. Never `ulimit -v`: the worker
+  pool's thread-stack reservation counts against it, so the binary aborts
+  before checking (`failed to create thread`, exit 134) at any value
+  that bounds anything. An exit 134 from a capped run is not a checker
+  verdict.
+* Wall time is not a measurement on this shared machine; use
+  `perf stat -e instructions:u`.
+* Exit codes (arena convention): 0 accept, 1 reject (invalid input),
+  2 decline, 3 error. Decline only when the checker *positively detects*
+  an unsupported feature; an internal construction that fails or an
+  invariant violated with unclear cause is 3.
+
+## Layering (enforced by `tests/layering.sh`)
+
+* Implementation — `ConLeche/Kernel/*`, `ConLeche/Cached/*`,
+  `ConLeche/Frontend/*`, `Main.lean` — never imports
+  `ConLeche/{Term,SetTheory,SetModel,Semantics,Model,Verify,Complete}/*`.
+* `ConLeche/Model/*` (the graded model) is imported only by itself, the
+  capstone assembly (`Verify/Cached/MainC`, the `ConLeche.Verify.Cached`
+  umbrella, `MainTheorem`) and `Complete/*`.
+* `ConLeche/Complete/*` (parked work nothing consumes) is imported by
+  nothing outside it.
+* The rules tier (`ConLeche/Rules/*`, `ConLeche/Model/Rules/*`, except
+  `Model/Rules/Recompose.lean`) imports neither the pure implementation
+  (`Kernel/{Core,TypeChecker,CoreIO,Checker*,DeclCheck}`, `Cached/*`)
+  nor, through public re-exports, any implementation module beyond the
+  doors the script lists; that list may only shrink.
+* Where proofs go: about kernel functions, needing no model →
+  `Verify/*`; pure set constructions (no `Expr`) → `SetModel/*`; the
+  `Expr`-facing denotation and claims → `Semantics/*`; the graded model
+  and the consistency proofs → `Model/*`. Inductive installation has an
+  `Inductives/` subdirectory in `Kernel/`, `Verify/`, `Semantics/` and
+  `Model/`.
+* Exception: a *self-contained* verification of a data structure
+  (invariants and preservation proofs importing no other Model/Verify
+  module) may live with, and be imported by, the implementation — the
+  `Std.HashMap` pattern.
+
+## The module system
+
+* Every `.lean` file under `ConLeche/`, the roots and the test library
+  carries the `module` header (a `module` cannot import a non-`module`).
+  `_probe/*`, `scripts/*.lean`, `bridge/*` and the fixture sources under
+  `tests/e2e/src/` are outside the build and stay classic.
+* Checker code is exposed, because it is the subject of the proofs:
+  `Kernel/*`, `Cached/*`, `Frontend/*` and `Main.lean` open one
+  `@[expose] public section`, as do `Term/*`, `SetTheory/*`,
+  `SetModel/*`, `Semantics/*` and `Rules/*` (the tiers above unfold
+  them). A `private` helper there must be public if any *definition*
+  mentions it (a `theorem` proof may still use it). The few deliberate
+  deviations carry their reason in the file (the sealed
+  `Kernel/PropWhen`, elaboration-time and generated modules,
+  `Frontend/Scan/Equiv`).
+* Proof code is private by default: `Model/*`, `Verify/*`, the tests and
+  capstones open a plain `public section`; `@[expose]` goes only on a
+  definition another file unfolds.
+* Traps: a `private` lemma's `match` matcher is not reused, so a `rw`
+  elsewhere stops finding its pattern; moving a `@[simp]` lemma from
+  `:= rfl` to `:= by rfl` costs its rfl-status and `simp only` silently
+  stops firing (expose what it unfolds instead); a term-mode
+  `theorem … := rfl` elaborates in the PUBLIC view and fails on a hidden
+  unfolding, `:= by rfl` elaborates in the private view and is the fix.
+* `public import` only for a re-export something else's PUBLIC statement
+  needs, and that is computed, not guessed (`scripts/pub-import-plan.py`
+  over `scripts/pub-iface.lean` and the census; `tests/shake.sh` runs
+  it). A missing re-export does not say "unknown identifier"; it makes a
+  `rfl` stop closing.
+* `import all X` only where a proof must see a body that is sealed on
+  purpose (`Kernel/PropWhen`, whose API and laws are its whole
+  interface) or hidden by the toolchain (`Init.Util`'s `withPtrEq`,
+  `Init.Data.Repr`, the Nat-op certificate generator's `Init.Data.Nat.*`);
+  each site carries its reason.
+* Elaboration-time code (`Kernel/BasisGen`, `PinGen/*`, the pin and
+  basis splices) is `meta`: `meta section`, `public meta import`; a
+  module needed at both levels is imported twice (`public import X` +
+  `meta import X`).
