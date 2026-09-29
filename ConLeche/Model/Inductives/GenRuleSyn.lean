@@ -194,4 +194,185 @@ theorem annotateCore_mkAppN_args {env : Env} :
         exact ⟨F₁, ha⟩
       | succ k => exact hargs k b b' (by simpa using hb) (by simpa using hb')
 
+/-! ## Lists: `find?` over an indexed zip, `filterMapM` against `filterMap` -/
+
+theorem find?_congr_mem {α : Type} {p q : α → Bool} :
+    ∀ (l : List α), (∀ x ∈ l, p x = q x) → l.find? p = l.find? q
+  | [], _ => rfl
+  | a :: l, h => by
+    simp only [List.find?_cons, h a List.mem_cons_self,
+      find?_congr_mem l (fun x hx => h x (List.mem_cons_of_mem _ hx))]
+
+theorem find?_zip_range' {α : Type} [Inhabited α] (P : α → Bool) :
+    ∀ (L : List α) (o : Nat),
+      ((List.range' o L.length).zip L).find? (fun q => P q.2)
+        = ((List.range' o L.length).find? (fun s => P (L.getD (s - o) default))).map
+            (fun s => (s, L.getD (s - o) default))
+  | [], o => rfl
+  | a :: L, o => by
+    rw [List.length_cons, List.range'_succ, List.zip_cons_cons, List.find?_cons, List.find?_cons]
+    simp only [Nat.sub_self, List.getD_cons_zero]
+    cases hP : P a with
+    | true => simp
+    | false =>
+      simp only
+      rw [find?_zip_range' P L (o + 1)]
+      have hpred : ∀ s ∈ List.range' (o + 1) L.length,
+          P (L.getD (s - (o + 1)) default) = P ((a :: L).getD (s - o) default) := by
+        intro s hs
+        rw [List.mem_range'_1] at hs
+        rw [show s - o = (s - (o + 1)) + 1 by omega, List.getD_cons_succ]
+      rw [find?_congr_mem _ hpred]
+      cases hf : (List.range' (o + 1) L.length).find? (fun s => P ((a :: L).getD (s - o) default)) with
+      | none => rfl
+      | some s =>
+        have hs := List.mem_range'_1.mp (List.mem_of_find?_eq_some hf)
+        simp only [Option.map_some, true_and]
+        rw [show s - o = (s - (o + 1)) + 1 by omega, List.getD_cons_succ]
+
+theorem find?_zip_range {α : Type} [Inhabited α] (P : α → Bool) (L : List α) :
+    ((List.range L.length).zip L).find? (fun q => P q.2)
+      = ((List.range L.length).find? (fun s => P (L.getD s default))).map
+          (fun s => (s, L.getD s default)) := by
+  have := find?_zip_range' P L 0
+  simp only [Nat.sub_zero] at this
+  rw [List.range_eq_range']
+  exact this
+
+/-- **`filterMapM` against the matching `filterMap`**: where the
+`filterMap`'s selector keeps an element, the monadic map kept a value;
+where it drops one, the map dropped one. -/
+theorem filterMapM_sel {α β γ : Type} (f : α → Option (Option β)) (sel : α → Option γ)
+    (hsel : ∀ a ob, f a = some ob → ob.isSome = (sel a).isSome) :
+    ∀ (L : List α) (out : List β), L.filterMapM f = some out →
+      out.length = (L.filterMap sel).length ∧
+      ∀ (l : Nat) (c : γ), (L.filterMap sel)[l]? = some c →
+        ∃ a ∈ L, sel a = some c ∧ ∃ v, out[l]? = some v ∧ f a = some (some v)
+  | [], out, h => by
+    simp only [List.filterMapM_nil, pure, Option.some.injEq] at h
+    subst h
+    exact ⟨rfl, fun l c hc => by simp at hc⟩
+  | a :: L, out, h => by
+    rw [List.filterMapM_cons] at h
+    simp only [bind, Option.bind] at h
+    cases ha : f a with
+    | none => simp [ha] at h
+    | some ob =>
+      simp only [ha] at h
+      have hs := hsel a ob ha
+      cases ob with
+      | none =>
+        have hn : sel a = none := by
+          cases hsa : sel a with
+          | none => rfl
+          | some _ => rw [hsa] at hs; exact nomatch hs
+        obtain ⟨hl, hall⟩ := filterMapM_sel f sel hsel L out h
+        rw [List.filterMap_cons_none hn]
+        exact ⟨hl, fun l c hc => by
+          obtain ⟨a', ha', h1, h2⟩ := hall l c hc
+          exact ⟨a', List.mem_cons_of_mem _ ha', h1, h2⟩⟩
+      | some b =>
+        obtain ⟨c0, hc0⟩ : ∃ c0, sel a = some c0 := by
+          cases hsa : sel a with
+          | none => rw [hsa] at hs; exact nomatch hs
+          | some c0 => exact ⟨c0, rfl⟩
+        simp only at h
+        cases hL : L.filterMapM f with
+        | none => simp [hL] at h
+        | some ys =>
+          simp only [hL, pure, Option.some.injEq] at h
+          subst h
+          obtain ⟨hl, hall⟩ := filterMapM_sel f sel hsel L ys hL
+          rw [List.filterMap_cons_some hc0]
+          refine ⟨by simp [hl], fun l c hc => ?_⟩
+          cases l with
+          | zero =>
+            simp only [List.getElem?_cons_zero, Option.some.injEq] at hc
+            subst hc
+            exact ⟨a, List.mem_cons_self, hc0, b, rfl, ha⟩
+          | succ l =>
+            obtain ⟨a', ha', h1, v, hv, h2⟩ := hall l c (by simpa using hc)
+            exact ⟨a', List.mem_cons_of_mem _ ha', h1, v, by simpa using hv, h2⟩
+
+/-! ## The generated rule, spelled out -/
+
+/-- The generated rule's prefix variables. -/
+@[expose] def genPvars (g : ClassGen) : List Expr :=
+  (List.range g.pre.length).map fun i =>
+    if i < g.nP then g.params.getD i default else g.slotVar (i - g.nP)
+
+/-- The minor premise's slot of class `c`'s constructor `C`, as the
+generator searches it. -/
+@[expose] def genSlotOf (g : ClassGen) (c : Nat) (C : Name) : Option Nat :=
+  (List.range g.slots.length).find? fun s => match g.slots.getD s default with
+    | .minor c' C' _ => c' == c && C' == C
+    | _ => false
+
+/-- **The generated rule, spelled out** (`classGenRule`): the λ-telescope
+of the prefix and the declared fields over the minor's variable applied
+to the fields and, per recursive field `(i, t, tele)` of `x.recs`, the
+`ih` λ `λ a⃗, rec_t p⃗ e⃗ (f_i a⃗)`. -/
+theorem classGenRule_spec {g : ClassGen} {recOf : Nat → Option Name} {rlvls : List Level}
+    {c : Nat} {x : ClassCtor} {gen : Expr}
+    (h : ConLeche.classGenRule g recOf rlvls c x = some gen) :
+    ∃ (s : Nat) (fvs : List Expr) (res : Expr) (ws ihs : List Expr),
+      genSlotOf g c x.cv.name = some s ∧ s < g.slots.length ∧
+      ConLeche.openPisAtFvars x.nF x.tyD g.pre.length = some (fvs, res) ∧
+      ConLeche.targetPiDomsWith fvs x.tyN = some ws ∧
+      gen = closeLams (g.pre ++ fvs.map ConLeche.classBinder) 0
+        (Expr.mkAppN (g.slotVar s) (fvs ++ ihs)) ∧
+      ihs.length = x.recs.length ∧
+      ∀ (l : Nat) (q : Nat × Nat × Nat), x.recs[l]? = some q →
+        ∃ (xs idx : List Expr) (r : Name) (ih : Expr), ihs[l]? = some ih ∧
+          g.ihParts q.2.1 q.2.2 (ws.getD q.1 default) (g.pre.length + x.nF) = some (xs, idx) ∧
+          recOf q.2.1 = some r ∧
+          ih = closeLams (xs.map ConLeche.classBinder) (g.pre.length + x.nF)
+            (Expr.mkAppN (.const r rlvls) (genPvars g ++ idx ++
+              [Expr.mkAppN (fvs.getD q.1 default) xs])) := by
+  unfold ConLeche.classGenRule at h
+  obtain ⟨⟨s, sl⟩, hs, h⟩ := Option.bind_eq_some_iff.mp h
+  let P : ConLeche.ClassSlot → Bool := fun sl => match sl with
+    | .minor c' C _ => c' == c && C == x.cv.name | _ => false
+  have hs' : ((List.range g.slots.length).zip g.slots).find? (fun q => P q.2) = some (s, sl) := by
+    rw [← hs]; exact find?_congr_mem _ (fun q _ => by cases q; rfl)
+  rw [find?_zip_range P] at hs'
+  obtain ⟨s', hs'', hss⟩ := Option.map_eq_some_iff.mp hs'
+  obtain ⟨rfl, -⟩ := Prod.mk.inj hss
+  have hsl : s' < g.slots.length := List.mem_range.mp (List.mem_of_find?_eq_some hs'')
+  obtain ⟨⟨fvs, res⟩, hop, h⟩ := Option.bind_eq_some_iff.mp h
+  obtain ⟨ws, hws, h⟩ := Option.bind_eq_some_iff.mp h
+  obtain ⟨ihs, hihs, h⟩ := Option.bind_eq_some_iff.mp h
+  simp only [Option.pure_def, Option.some.injEq] at h
+  subst h
+  obtain ⟨hlen, hall⟩ := filterMapM_sel _ (fun i => match x.kinds.getD i .ordinary with
+      | .recursive t tele => some (i, t, tele)
+      | .ordinary => none) (by
+        intro a ob ha
+        simp only at ha ⊢
+        split at ha
+        · next hk => simp only [hk, Option.some.injEq] at ha ⊢; subst ha; rfl
+        · next t tele hk =>
+          simp only [hk]
+          obtain ⟨⟨xs, idx⟩, -, ha⟩ := Option.bind_eq_some_iff.mp ha
+          obtain ⟨r, -, ha⟩ := Option.bind_eq_some_iff.mp ha
+          simp only [Option.pure_def, Option.some.injEq] at ha
+          subst ha; rfl) _ ihs hihs
+  refine ⟨s', fvs, res, ws, ihs, ?_, hsl, hop, hws, rfl, by rw [hlen]; rfl, ?_⟩
+  · unfold genSlotOf
+    rw [← hs'']
+    rfl
+  · intro l q hq
+    obtain ⟨i, -, hsel, v, hv, hfi⟩ := hall l q hq
+    simp only at hsel hfi
+    split at hsel
+    · next t tele hk =>
+      simp only [Option.some.injEq] at hsel
+      subst hsel
+      simp only [hk] at hfi
+      obtain ⟨⟨xs, idx⟩, hparts, hfi⟩ := Option.bind_eq_some_iff.mp hfi
+      obtain ⟨r, hr, hfi⟩ := Option.bind_eq_some_iff.mp hfi
+      simp only [Option.pure_def, Option.some.injEq] at hfi
+      exact ⟨xs, idx, r, v, hv, hparts, hr, hfi.symm⟩
+    · exact nomatch hsel
+
 end ConLeche.Model
