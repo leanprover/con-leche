@@ -466,6 +466,52 @@ theorem genMemberRec_paramDefeq (hμ : μ.verifiedChecks = true) (hwf : ConLeche
     (Expr.WScoped.to_wscopedB (hwD.mono (by omega)))]
   exact hde
 
+/-- **The generated recursors share their parameter openers**: every
+generated type is a telescope over the same reset prefix, annotated
+(`SameDoms`), so its first `nP` opened variables are the same. -/
+theorem genRec_paramOpeners_eq (hμ : μ.verifiedChecks = true)
+    (R : GenRecRun μ F (mkFEnv env₁) env₁ (mkFEnv envC) p.toBlockShape nestedBit pos cvTas
+      block ctorsAs out)
+    (hg : ClassGenScoped R.g) {i i' c c' : Nat} {rc rc' : RecShape} {cvG cvG' : ConstantVal}
+    (hrc : p.recs[i]? = some rc) (hc : R.rd.recCls[i]? = some c)
+    (T : ClassRecTyRun μ F (mkFEnv envC) R.g p.k rc c cvG)
+    (hrc' : p.recs[i']? = some rc') (hc' : R.rd.recCls[i']? = some c')
+    (T' : ClassRecTyRun μ F (mkFEnv envC) R.g p.k rc' c' cvG')
+    {xs xs' : List Expr} {o o' : Expr}
+    (hop : openPisAtFvars p.nP cvG.type 0 = some (xs, o))
+    (hop' : openPisAtFvars p.nP cvG'.type 0 = some (xs', o')) : xs = xs' := by
+  obtain ⟨-, ⟨Y, B, hY⟩, -⟩ := genRecTy_run hμ R hg hrc hc T
+  obtain ⟨-, ⟨Y', B', hY'⟩, -⟩ := genRecTy_run hμ R hg hrc' hc' T'
+  have hpl : R.pre.length = p.nP + R.rd.slots.length :=
+    (ConLeche.ClassGen.prefixBinders_scoped hg hg.pre).1
+  have hs := ConLeche.SameDoms.closeTelescope_append (R.pre.map genRm) Y Y' 0 B B'
+  rw [List.length_map] at hs
+  have hsA := ConLeche.SameDoms.annotate _ hs hY hY'
+  exact ConLeche.SameDoms.open p.nP (ConLeche.SameDoms.mono (by omega) hsA) hop hop'
+
+/-- **A member-targeting recursor exists** (the member recursors' name
+pins, at a block declaring a family). -/
+theorem genRec_memberRec_exists
+    (R : GenRecRun μ F (mkFEnv env₁) env₁ (mkFEnv envC) p.toBlockShape nestedBit pos cvTas
+      block ctorsAs out) :
+    ∃ (i : Nat) (rc : RecShape), p.recs[i]? = some rc ∧ rc.tgt < p.k := by
+  have hset := (ConLeche.targetRecPins_inv R.pins).nameSet
+  unfold ConLeche.blockRecNameSetOk at hset
+  simp only [Bool.and_eq_true, beq_iff_eq, List.length_map] at hset
+  obtain ⟨⟨hlen, -⟩, -⟩ := hset
+  have hk := R.hk
+  have hne : (p.recs.filter fun rc => decide (rc.tgt < p.k)) ≠ [] := by
+    intro h0
+    have : (p.recs.filter fun rc => decide (rc.tgt < p.k)).length = p.members.length := hlen
+    rw [h0] at this
+    have hk' : 0 < p.toBlockShape.members.length := hk
+    simp at this
+    omega
+  obtain ⟨rc, hrc⟩ := List.exists_mem_of_ne_nil _ hne
+  rw [List.mem_filter] at hrc
+  obtain ⟨i, hi, rfl⟩ := List.getElem_of_mem hrc.1
+  exact ⟨i, _, List.getElem?_eq_getElem hi, by simpa using hrc.2⟩
+
 end GenRun
 
 end ConLeche.Model
