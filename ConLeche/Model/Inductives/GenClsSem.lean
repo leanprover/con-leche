@@ -1355,4 +1355,72 @@ theorem genClsRd_mem (hμ : μ.verifiedChecks = true)
 
 end Mem
 
+/-! ## Every class, and the class-side facts of `GenPreSem` -/
+
+section All
+
+variable {F : Nat} {envI envC : Env} {pp : BlockParts} {nestedBit : Bool} {pos : NestState}
+  {cvTas : List ConstantVal} {block : List ConstantInfo}
+  {ctorsAs : List (List (ConstantVal × Nat))}
+  {out : List (ConstantVal × TargetMajor × List Expr)}
+  {mpC : EnvModelM V μ envC} {Dc : Nat → LfpDatum V} {mc : Nat → Nat}
+  {cvc : Nat → ConstantVal}
+
+variable (hμ : μ.verifiedChecks = true)
+    (R : GenRecRun μ F (mkFEnv envI) envI (mkFEnv envC) pp.toBlockShape nestedBit pos cvTas
+      block ctorsAs out) (hg : ClassGenScoped R.g) (hcov : LfpCover mpC [])
+    (h : ConLeche.RecStageG μ F envC pp cvTas ctorsAs (tgtRs out) (fun _ => False))
+    {pk : Nat → BlockMemberPick} {uOfD : Nat → (Name → Nat) → Nat}
+    {ppsOf : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)}
+    {isRec : Bool} {A : Nat → (Name → Nat) → AnnotTerm} {envI' : Env}
+    (hN : BlockNamesOk (V := V) (blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf) cvTas)
+    (hS : BlockCtorsStage (V := V) μ F (blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf)
+      pp.lps cvTas pp.toBlockShape isRec A envI' pp.ctorNamesAt)
+    (hcore : BlockCtorsCore mpC.base2 (blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf)
+      pp.lps cvTas pp.toBlockShape isRec A (blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf).k)
+    (hlfp : (blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf).toLfp ∈ mpC.lfpBlocks)
+    (hcls : ∀ c, c < (tgtRs out).length → (tgtMajor out c).member = none →
+      TgtOutCls mpC (tgtMajor out c) (Dc c) (mc c) (cvc c))
+
+include hμ R hg hcov h hN hS hcore hlfp hcls in
+/-- **Every class's reading facts**, and the prefix room. -/
+theorem genClsRd_all :
+    ∀ c, c < (tgtRs out).length → pp.nP ≤ pp.toBlockShape.rulePrefixAt c ∧
+      ∃ cvI, GenClsRd mpC (blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf) Dc mc cvc pp out
+          c cvI ∧
+        R.g.formerTys.getD (genClsOf R.rd c) default
+          = cvI.type.instantiateLevelParams cvI.levelParams (tgtMajor out c).lvls := by
+  intro c hc
+  have hnP : pp.nP ≤ pp.toBlockShape.rulePrefixAt c := by
+    obtain ⟨-, -, -, -, -, -, -, -, -, hRP, -⟩ := genRun_binders hμ R hg h mpC (fun _ => 0) hc
+    rw [hRP, (ConLeche.ClassGen.prefixBinders_scoped hg hg.pre).1]
+    exact Nat.le_add_right _ _
+  refine ⟨hnP, ?_⟩
+  cases hmb : (tgtMajor out c).member with
+  | none => exact ⟨cvc c, genClsRd_out hμ R hg hcov h hc hmb (hcls c hc hmb) hnP⟩
+  | some t => exact ⟨cvTas.getD t default, genClsRd_mem hμ R hg hcov h hN hS hcore hlfp hc hmb hnP⟩
+
+include hμ R hg hcov h hN hS hcore hlfp hcls in
+/-- **`GenPreSem.split`, `.back`, `.dec`, `.decInv` from the run** — the
+class split both ways and the decoding both ways, at every level
+assignment and base frame. -/
+theorem genClsSem_run (ψ : Name → Nat) (ρ : Nat → V) :
+    GenClsSplit pp out mpC (blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf) Dc mc cvc ψ ρ ∧
+    GenClsBack pp out mpC (blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf) Dc mc cvc ψ ρ ∧
+    GenClsDec pp out mpC (blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf) Dc mc cvc ψ ρ ∧
+    GenClsDecInv pp out mpC (blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf) Dc mc cvc
+      ψ ρ := by
+  have hall := genClsRd_all hμ R hg hcov h hN hS hcore hlfp hcls
+  refine ⟨fun c hc => ?_, fun c hc => ?_, fun c hc j hj => ?_, fun c hc j hj => ?_⟩
+  · obtain ⟨hnP, cvI, Rd, hf⟩ := hall c hc
+    exact genCls_split hμ R hg h hc Rd hf hnP ψ ρ
+  · obtain ⟨hnP, cvI, Rd, hf⟩ := hall c hc
+    exact genCls_back hμ R hg h hc Rd hf hnP ψ ρ
+  · obtain ⟨hnP, cvI, Rd, -⟩ := hall c hc
+    exact genCls_dec hμ R hg hcov h hc hj Rd hnP ψ ρ
+  · obtain ⟨hnP, cvI, Rd, -⟩ := hall c hc
+    exact genCls_decInv hμ R hg hcov h hc hj Rd hnP ψ ρ
+
+end All
+
 end ConLeche.Model
