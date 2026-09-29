@@ -358,10 +358,10 @@
    101    pw : PropWhen
    102    deriving DecidableEq, Repr, Hashable
 
-== ConLeche/Verify/Cached/AgreeFloor.lean#L1285-L1287
-  1285  theorem checkDecls_skels {mode : CheckMode} {ds : Array Declaration}
-  1286      {env : Env} (h : checkDecls mode pins ds = .ok env) :
-  1287      envSkels env = streamSkels ds.toList := by
+== ConLeche/Verify/Cached/AgreeFloor.lean#L1280-L1282
+  1280  theorem checkDecls_skels {mode : CheckMode} {ds : Array Declaration}
+  1281      {env : Env} (h : checkDecls mode pins ds = .ok env) :
+  1282      envSkels env = streamSkels ds.toList := by
 
 == ConLeche/Kernel/Exclusive.lean#L6-L42
      6  # `withExclusive`: the reference-count read behind the walk memo
@@ -869,14 +869,14 @@
 == ConLeche/Kernel/Inductives/Positivity.lean#L1583
   1583  def nestRoot (ops : CheckerOps m) (env : Env) (ctx : NestCtx) (holes : List Expr) :
 
-== ConLeche/Kernel/Inductives/BlockInstall.lean#L278
-   278  def checkBlockPositivity (ops : CheckerOps m) (env₁ : Env) (find? : Name → Option ConstantInfo)
+== ConLeche/Kernel/Inductives/BlockInstall.lean#L282
+   282  def checkBlockPositivity (ops : CheckerOps m) (env₁ : Env) (find? : Name → Option ConstantInfo)
 
-== ConLeche/Kernel/Inductives/GenRec.lean#L517
-   517  def genRecCheck (so : ShadowOps m) (fe₁ : FEnv) (env₁ : Env) (fe : FEnv) (p : BlockShape)
+== ConLeche/Kernel/Inductives/GenRec.lean#L560
+   560  def genRecCheck (so : ShadowOps m) (fe : FEnv) (p : BlockShape) (nestedBit : Bool)
 
-== ConLeche/Kernel/Inductives/BlockTail.lean#L103
-   103  def checkBlock (ops : CheckerOps m) (env : Env) (block : List ConstantInfo) (p₀ : BlockParts) :
+== ConLeche/Kernel/Inductives/BlockTail.lean#L143
+   143  def checkBlock (ops : CheckerOps m) (env : Env) (block : List ConstantInfo) (p₀ : BlockParts) :
 
 == ConLeche/SetModel/Value.lean#L388-L395
    388  noncomputable def lfpFamSpace (w : Nat) (I : V) : V := piR (w + 1) I fun _ => univ w
@@ -891,13 +891,13 @@
 == ConLeche/SetModel/Access.lean#L242
    242  theorem closed_of_acc (hw : w ≠ 0) (hA : A ∈ˢ (univ w : V)) (hmaps : MapsTuple w k Is Φ)
 
-== ConLeche/Model/Inductives/DeclBlockStep.lean#L69-L74
-    69  theorem declBlock (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
-    70      {block : List ConstantInfo} {nPd : Nat} {p₀ : BlockParts}
-    71      (mp : EnvModelM V μ env)
-    72      (hE : ConLeche.EtaFamiliesClosed env) (hdp : ConLeche.blockParts? nPd block = some p₀)
-    73      (hrun : ConLeche.Semantics.DeclBlockRun μ F env block p₀ env₂) (hcov : LfpCover mp []) :
-    74      ∃ mp' : EnvModelM V μ env₂, LfpCover mp' [] := by
+== ConLeche/Model/Inductives/DeclBlockStep.lean#L72-L77
+    72  theorem declBlock (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
+    73      {block : List ConstantInfo} {nPd : Nat} {p₀ : BlockParts}
+    74      (mp : EnvModelM V μ env)
+    75      (hE : ConLeche.EtaFamiliesClosed env) (hdp : ConLeche.blockParts? nPd block = some p₀)
+    76      (hrun : ConLeche.Semantics.DeclBlockRun μ F env block p₀ env₂) (hcov : LfpCover mp []) :
+    77      ∃ mp' : EnvModelM V μ env₂, LfpCover mp' [] := by
 
 == ConLeche/Kernel/Inductives/Positivity.lean#L1373-L1375
   1373  no frame hole, the only keys that can hit (`nestContKey`). -/
@@ -909,8 +909,8 @@
    385      (ctorsAs : List (List (ConstantVal × Nat))) (pfvs fvs : List Expr)
    386      (mty : Expr) : m TargetMajor := do
 
-== ConLeche/Kernel/Inductives/GenRec.lean#L491
-   491  def classSeeds (ctx : NestCtx) (holes : List Expr) (Ms : List TargetMajor) :
+== ConLeche/Kernel/Inductives/GenRec.lean#L496
+   496  def classSeeds (ctx : NestCtx) (holes : List Expr) (Ms : List TargetMajor) :
 
 == ConLeche/Kernel/Inductives/RecCheck.lean#L592-L593
    592  def tgtStoredRules (find? : Name → Option ConstantInfo) (resolves : Expr → Bool)
@@ -920,26 +920,35 @@
    242  theorem closed_of_acc (hw : w ≠ 0) (hA : A ∈ˢ (univ w : V)) (hmaps : MapsTuple w k Is Φ)
    243      (hacc : AccTuple w k Is k Is Φ A) : ∃ L, IsClosedTuple w k Is Φ L := by
 
-== ConLeche/Model/Inductives/DeclBlockStep.lean#L69-L74
-    69  theorem declBlock (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
-    70      {block : List ConstantInfo} {nPd : Nat} {p₀ : BlockParts}
-    71      (mp : EnvModelM V μ env)
-    72      (hE : ConLeche.EtaFamiliesClosed env) (hdp : ConLeche.blockParts? nPd block = some p₀)
-    73      (hrun : ConLeche.Semantics.DeclBlockRun μ F env block p₀ env₂) (hcov : LfpCover mp []) :
-    74      ∃ mp' : EnvModelM V μ env₂, LfpCover mp' [] := by
+== ConLeche/Model/Inductives/DeclBlockStep.lean#L72-L77
+    72  theorem declBlock (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
+    73      {block : List ConstantInfo} {nPd : Nat} {p₀ : BlockParts}
+    74      (mp : EnvModelM V μ env)
+    75      (hE : ConLeche.EtaFamiliesClosed env) (hdp : ConLeche.blockParts? nPd block = some p₀)
+    76      (hrun : ConLeche.Semantics.DeclBlockRun μ F env block p₀ env₂) (hcov : LfpCover mp []) :
+    77      ∃ mp' : EnvModelM V μ env₂, LfpCover mp' [] := by
 
 == ConLeche/Kernel/CheckDecl.lean#L32-L33
     32  def checkShapeless (ops : CheckerOps m) (env : Env) (block : List ConstantInfo) :
     33      m Env := do
 
-== ConLeche/Kernel/Inductives/BlockTail.lean#L103
-   103  def checkBlock (ops : CheckerOps m) (env : Env) (block : List ConstantInfo) (p₀ : BlockParts) :
+== ConLeche/Kernel/Inductives/BlockTail.lean#L143
+   143  def checkBlock (ops : CheckerOps m) (env : Env) (block : List ConstantInfo) (p₀ : BlockParts) :
 
-== ConLeche/Kernel/Inductives/BlockInstall.lean#L317
-   317  def checkBlockPass (ops : CheckerOps m) (env : Env) (p₀ : BlockParts) (isRec : Bool) :
+== ConLeche/Kernel/Inductives/BlockTail.lean#L62
+    62  def checkBlockPass (ops : CheckerOps m) (env : Env) (p₀ : BlockParts) (isRec : Bool) :
 
 == ConLeche/Kernel/Inductives/SumInstall.lean#L114
    114  def checkSumCtor (ops : CheckerOps m) (env₀ env : Env) (T : Name)
+
+== ConLeche/Kernel/Inductives/GenRec.lean#L524
+   524  def checkBlockClasses (ops : CheckerOps m) (fe₁ : FEnv) (env₁ : Env) (p : BlockShape)
+
+== ConLeche/Kernel/Inductives/ClassRead.lean#L130
+   130  def classRead (nP : Nat) (nPc : Name → Nat) (recs : List RecShape) : Option ClassRead := do
+
+== ConLeche/Kernel/Inductives/GenRec.lean#L509
+   509  def classKeyOf (ops : CheckerOps m) (env : Env) (nP : Nat) (params : List Expr)
 
 == ConLeche/Kernel/Inductives/Positivity.lean#L1462
   1462  def nestPos (ops : CheckerOps m) (env : Env) (ctx : NestCtx) :
@@ -956,26 +965,23 @@
 == ConLeche/Kernel/Inductives/Positivity.lean#L1602
   1602  def nestRootLines (ctx : NestCtx) (holes : List Expr) :
 
-== ConLeche/Kernel/Inductives/BlockTail.lean#L79
-    79  def checkBlockTail (ops : CheckerOps m) (block : List ConstantInfo)
+== ConLeche/Kernel/Inductives/BlockTail.lean#L129
+   129  def checkBlockTail (ops : CheckerOps m) (block : List ConstantInfo)
 
-== ConLeche/Kernel/Inductives/ClassRead.lean#L130
-   130  def classRead (nP : Nat) (nPc : Name → Nat) (recs : List RecShape) : Option ClassRead := do
+== ConLeche/Kernel/Inductives/GenRec.lean#L299
+   299  def classCtorOf (ops : CheckerOps m) (env : Env) (p : BlockShape) (formerTys : List Expr)
 
-== ConLeche/Kernel/Inductives/GenRec.lean#L294
-   294  def classCtorOf (ops : CheckerOps m) (env : Env) (p : BlockShape) (formerTys : List Expr)
+== ConLeche/Kernel/Inductives/GenRec.lean#L181
+   181  def classGenRecTy (g : ClassGen) (c : Nat) : Option Expr := do
 
-== ConLeche/Kernel/Inductives/GenRec.lean#L176
-   176  def classGenRecTy (g : ClassGen) (c : Nat) : Option Expr := do
+== ConLeche/Kernel/Inductives/GenRec.lean#L193
+   193  def classGenRule (g : ClassGen) (recOf : Nat → Option Name) (rlvls : List Level) (c : Nat)
 
-== ConLeche/Kernel/Inductives/GenRec.lean#L188
-   188  def classGenRule (g : ClassGen) (recOf : Nat → Option Name) (rlvls : List Level) (c : Nat)
+== ConLeche/Kernel/Inductives/GenRec.lean#L394
+   394  def classRecTyOk (ops : CheckerOps m) (fe : FEnv) (g : ClassGen) (k : Nat) (rc : RecShape)
 
-== ConLeche/Kernel/Inductives/GenRec.lean#L389
-   389  def classRecTyOk (ops : CheckerOps m) (fe : FEnv) (g : ClassGen) (k : Nat) (rc : RecShape)
-
-== ConLeche/Kernel/Inductives/GenRec.lean#L422
-   422  def classRuleOk (ops : CheckerOps m) (w : StructWalkers) (feT feR : FEnv) (cvR : ConstantVal)
+== ConLeche/Kernel/Inductives/GenRec.lean#L427
+   427  def classRuleOk (ops : CheckerOps m) (w : StructWalkers) (feT feR : FEnv) (cvR : ConstantVal)
 
 == ConLeche/Kernel/CoreDefs.lean#L438-L446
    438  /-- The certified structural-`Nat` operations.  Six of them
