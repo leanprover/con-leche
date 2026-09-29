@@ -5,6 +5,10 @@ public import ConLeche.Verify.Inductives.NestCallSyn
 public import ConLeche.Verify.Inductives.ClassMatchRun
 public import ConLeche.Verify.Inductives.RecCheckRun
 public import ConLeche.Verify.Inductives.ClassGenMinorSyn
+import ConLeche.Verify.BridgeWfImp
+import ConLeche.Verify.Denote.IndFrame
+import ConLeche.Verify.InferLemmas
+import ConLeche.Verify.ExceptBind
 
 public section
 
@@ -35,7 +39,24 @@ theorem openPisAtFvars_targetPiDomsWith :
     ∀ {n : Nat} {T : Expr} {d : Nat} {fvs : List Expr} {o : Expr},
       openPisAtFvars n T d = some (fvs, o) →
       targetPiDomsWith fvs T = some (fvs.map Expr.fvarTypeD) := by
-  sorry
+  intro n
+  induction n with
+  | zero =>
+    intro T d fvs o h
+    simp only [openPisAtFvars, Option.some.injEq, Prod.mk.injEq] at h
+    obtain ⟨rfl, rfl⟩ := h
+    rfl
+  | succ n ih =>
+    intro T d fvs o h
+    match T, h with
+    | .forallE dom body bm, h =>
+      simp only [openPisAtFvars] at h
+      split at h
+      · rename_i fvs' e' hop
+        simp only [Option.some.injEq, Prod.mk.injEq] at h
+        obtain ⟨rfl, rfl⟩ := h
+        simp [targetPiDomsWith, ih hop, Expr.fvarTypeD]
+      · exact nomatch h
 
 /-- **`targetPiDomsWith` commutes with a parallel substitution.** -/
 theorem targetPiDomsWith_substFvars {b D : Nat} {s : Nat → Expr}
@@ -43,21 +64,77 @@ theorem targetPiDomsWith_substFvars {b D : Nat} {s : Nat → Expr}
     ∀ {fvs : List Expr} {T : Expr} {ws : List Expr}, targetPiDomsWith fvs T = some ws →
       targetPiDomsWith (fvs.map (Expr.substFvars b D s)) (Expr.substFvars b D s T)
         = some (ws.map (Expr.substFvars b D s)) := by
-  sorry
+  intro fvs
+  induction fvs with
+  | nil =>
+    intro T ws h
+    simp only [targetPiDomsWith, Option.some.injEq] at h
+    subst h; rfl
+  | cons x xs ih =>
+    intro T ws h
+    cases T with
+    | forallE d body bm =>
+      simp only [targetPiDomsWith] at h
+      obtain ⟨r, hr, rfl⟩ := Option.map_eq_some_iff.mp h
+      have := ih hr
+      rw [Expr.substFvars_instantiate1 hs x body 0] at this
+      simp [Expr.substFvars, targetPiDomsWith, this]
+    | _ => simp [targetPiDomsWith] at h
 
 /-- **`targetPiDomsWith` respects erasure.** -/
 theorem targetPiDomsWith_erasedEq :
     ∀ {fvs fvs' : List Expr} {T T' : Expr} {ws : List Expr}, ErasedEqs fvs fvs' →
       Expr.ErasedEq T T' → targetPiDomsWith fvs T = some ws →
       ∃ ws', targetPiDomsWith fvs' T' = some ws' ∧ ErasedEqs ws ws' := by
-  sorry
+  intro fvs
+  induction fvs with
+  | nil =>
+    intro fvs' T T' ws hf _ h
+    cases fvs' with
+    | nil =>
+      simp only [targetPiDomsWith, Option.some.injEq] at h
+      subst h; exact ⟨[], rfl, trivial⟩
+    | cons _ _ => simp [ErasedEqs] at hf
+  | cons x xs ih =>
+    intro fvs' T T' ws hf hT h
+    cases fvs' with
+    | nil => simp [ErasedEqs] at hf
+    | cons x' xs' =>
+      obtain ⟨hx, hxs⟩ := hf
+      cases T with
+      | forallE d b m =>
+        cases T' with
+        | forallE d' b' m' =>
+          obtain ⟨-, hd, hb⟩ := hT
+          simp only [targetPiDomsWith] at h
+          obtain ⟨r, hr, rfl⟩ := Option.map_eq_some_iff.mp h
+          obtain ⟨r', hr', hrr⟩ := ih hxs (Expr.ErasedEq.instantiate1 hb hx) hr
+          exact ⟨d' :: r', by simp [targetPiDomsWith, hr'], hd, hrr⟩
+        | _ => simp [Expr.ErasedEq] at hT
+      | _ => simp [targetPiDomsWith] at h
 
-/-- `stripPis` commutes with a parallel substitution. -/
-theorem stripPis_substFvars {b D : Nat} {s : Nat → Expr} :
+/-- `stripPis` commutes with a parallel substitution that sends the
+variables below its bound to variables. -/
+theorem stripPis_substFvars {b D : Nat} {s : Nat → Expr}
+    (hs : ∀ v, v < b → ∃ ty, s v = .fvar v ty) :
     ∀ (n : Nat) (e : Expr), (Expr.substFvars b D s e).stripPis n
       = (e.stripPis n).map fun q =>
           (q.1.map fun p => (Expr.substFvars b D s p.1, p.2), Expr.substFvars b D s q.2) := by
-  sorry
+  intro n
+  induction n with
+  | zero => intro e; rfl
+  | succ n ih =>
+    intro e
+    cases e with
+    | forallE ty body m =>
+      simp only [Expr.substFvars, Expr.stripPis, ih body, Option.map_map]
+      rfl
+    | fvar i ty =>
+      by_cases hi : i < b
+      · obtain ⟨ty', hty⟩ := hs i hi
+        rw [Expr.substFvars_fvar_lt hi, hty]; rfl
+      · rw [Expr.substFvars_fvar_ge (by omega)]; rfl
+    | _ => rfl
 
 /-- **`stripPis` respects erasure.** -/
 theorem stripPis_erasedEq :
@@ -66,14 +143,58 @@ theorem stripPis_erasedEq :
       ∃ tB lB, B.stripPis n = some (tB, lB) ∧ tA.length = tB.length ∧
         (∀ (l : Nat) (q q' : Expr × BinderMeta), tA[l]? = some q → tB[l]? = some q' →
           q.2 = q'.2 ∧ Expr.ErasedEq q.1 q'.1) ∧ Expr.ErasedEq lA lB := by
-  sorry
+  intro n
+  induction n with
+  | zero =>
+    intro A B tA lA h hs
+    simp only [Expr.stripPis, Option.some.injEq, Prod.mk.injEq] at hs
+    obtain ⟨rfl, rfl⟩ := hs
+    exact ⟨[], B, rfl, rfl, fun l q q' hq _ => by simp at hq, h⟩
+  | succ n ih =>
+    intro A B tA lA h hs
+    cases A with
+    | forallE ty body m =>
+      cases B with
+      | forallE ty' body' m' =>
+        obtain ⟨hm, hty, hb⟩ := h
+        simp only [Expr.stripPis] at hs
+        obtain ⟨⟨t1, l1⟩, h1, h2⟩ := Option.map_eq_some_iff.mp hs
+        simp only [Prod.mk.injEq] at h2
+        obtain ⟨rfl, rfl⟩ := h2
+        obtain ⟨tB, lB, hB, hlen, hall, hl⟩ := ih hb h1
+        refine ⟨(ty', m') :: tB, lB, by simp [Expr.stripPis, hB], by simp [hlen], ?_, hl⟩
+        intro l q q' hq hq'
+        cases l with
+        | zero =>
+          simp only [List.getElem?_cons_zero, Option.some.injEq] at hq hq'
+          subst hq; subst hq'
+          exact ⟨hm, hty⟩
+        | succ l => exact hall l q q' (by simpa using hq) (by simpa using hq')
+      | _ => simp [Expr.ErasedEq] at h
+    | _ => simp [Expr.stripPis] at hs
 
 /-- **A substitution that is the identity below its bound** changes a term
 whose variables are all below the bound only in its annotations. -/
 theorem substFvars_erasedEq_self {b D : Nat} {s : Nat → Expr}
     (hs : ∀ v, v < b → ∃ ty, s v = .fvar v ty) :
     ∀ (e : Expr), e.fvarsBelow b → Expr.ErasedEq (Expr.substFvars b D s e) e := by
-  sorry
+  intro e
+  induction e with
+  | bvar i => intro _; exact Expr.ErasedEq.rfl _
+  | fvar i ty _ =>
+    intro h
+    simp only [Expr.fvarsBelow] at h
+    obtain ⟨ty', hty⟩ := hs i h
+    rw [Expr.substFvars_fvar_lt h, hty]
+    simp [Expr.ErasedEq]
+  | sort u => intro _; exact Expr.ErasedEq.rfl _
+  | const n us => intro _; exact Expr.ErasedEq.rfl _
+  | lit l => intro _; exact Expr.ErasedEq.rfl _
+  | app f a ihf iha => intro h; exact ⟨ihf h.1, iha h.2⟩
+  | lam t body m iht ihb => intro h; exact ⟨rfl, iht h.1, ihb h.2⟩
+  | forallE t body m iht ihb => intro h; exact ⟨rfl, iht h.1, ihb h.2⟩
+  | letE t v body iht ihv ihb => intro h; exact ⟨iht h.1, ihv h.2.1, ihb h.2.2⟩
+  | proj n i e ih => intro h; exact ⟨rfl, rfl, ih h⟩
 
 /-! ## K.53′ at the rule's fields -/
 
