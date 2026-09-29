@@ -2,11 +2,12 @@ module
 
 public import ConLeche.Model.Annot.LfpHoleOp
 public import ConLeche.Semantics.NoBVar
-import ConLeche.Semantics.Inductives.HoleApp
 public import ConLeche.Model.Inductives.BlockData
 public import ConLeche.Model.Inductives.NestPosOut
 import ConLeche.Verify.Inductives.PosNodes
-import ConLeche.Verify.Inductives.HolesApplied
+import ConLeche.Verify.Inductives.UniformOcc
+import ConLeche.Verify.Inductives.HoleBack
+import ConLeche.Model.Inductives.HoleOverride
 public import ConLeche.Verify.Inductives.PosDeriv
 public import ConLeche.Model.Inductives.HoleSubst
 public import ConLeche.Model.Inductives.NestPosMono
@@ -29,21 +30,20 @@ public section
 # Stored field shape facts
 
 **The interface.**  A block constructor's fields with holes `F` (the
-member-abstracted stored field readings, members at the hole slots) and
-its concrete stored field readings `S` are related by kind-free facts
-(`StoredFieldShapes`):
+member-abstracted stored field readings, the members' whole applications
+at the hole slots) and its concrete stored field readings `S` are related
+by a kind-free fact (`StoredFieldShapes`):
 
-* `holeApp`: every hole occurs applied to the parameters (at every
-  field, container fields included);
-* `override`: `F` read with the members' leaf values in the hole slots is
-  `S` — "members := their own values" is the stored reading.
+* `override`: `F` read with, at each hole slot, the member's value
+  APPLIED TO THE PARAMETERS is `S` — "each hole := the application it
+  stands for" is the stored reading.
 
 **The producer** (`storedFieldShapes_of_walk`, the ONLY place that reads
 the walk's syntax for these facts): the positivity walk on the stored
 (DECLARED) constructor returns its normal form `tyN`, read off its
-derivation (`MemberCtorD`); every member applied is its fact about
-`tyN`, from official's uniform check (`holesApplied_openPis`, `holeApp_of_holesApplied`), and the
-override by the substitution lemma iterated (`HoleSubst.lean`).  The
+derivation (`MemberCtorD`); the override by ONE parallel substitution
+putting the whole applications back (`Expr.substFvars_replaceApps_erasedEq`,
+read by `denoteMeta_substFvars`, `substE_holeBack`).  The
 normal form reads like the declared crest along satisfying prefixes
 (`FieldsEqOn`, from `red_sound` through `memberCtorD_red`,
 `NestPosRed.lean`): the facts are about `tyN`'s fields, `D.fields`
@@ -83,12 +83,9 @@ context). -/
 structure StoredFieldShapes (V : Type w) [SetTheory V] (k nP w : Nat) (nIdxOf : Nat → Nat)
     (leaf : Nat → AnnotTerm) (Δp : List AnnotTerm) (F S : List AnnotTerm) : Prop where
   len : F.length = S.length
-  /-- every hole occurs applied to the parameters (at every field: a
-  kind-free fact, true at container fields too) -/
-  holeApp : ∀ (l : Nat) (F' : AnnotTerm), F[l]? = some F' → HoleApp k nP l F'
-  override : ∀ hs : List V, hs.length = k →
-    (∀ t, t < k → ∀ σ : Nat → V, interp V σ (leaf t) = hs.getD t pt) →
-    ∀ (ρ : Nat → V), Sat V Δp ρ → ∀ l, l < F.length → ∀ (as : List V), as.length = l →
+  override : ∀ (ρ : Nat → V), Sat V Δp ρ → ∀ hs : List V, hs.length = k →
+    (∀ t, t < k → hs.getD t pt = (frameIdx nP ρ).foldl app (interp V ρ (leaf t))) →
+    ∀ l, l < F.length → ∀ (as : List V), as.length = l →
       SpineFit ρ (S.take l) as →
       interp V (consList as (consList hs ρ)) (F.getD l default)
         = interp V (consList as ρ) (S.getD l default)
@@ -98,18 +95,7 @@ theorem StoredFieldShapes.congr_leaf {V : Type w} [SetTheory V] {k nP w : Nat}
     {nIdxOf : Nat → Nat} {leaf leaf' : Nat → AnnotTerm} {Δp F S : List AnnotTerm}
     (h : StoredFieldShapes V k nP w nIdxOf leaf Δp F S) (hl : ∀ t, t < k → leaf t = leaf' t) :
     StoredFieldShapes V k nP w nIdxOf leaf' Δp F S :=
-  ⟨h.len, h.holeApp,
-    fun hs hhs hv => h.override hs hhs fun t ht σ => by rw [hl t ht]; exact hv t ht σ⟩
-
-/-- A term reading no hole slot applies no hole. -/
-theorem holeApp_of_noBVar {k nP lo : Nat} {e : AnnotTerm}
-    (h : NoBVar (LfpDatum.holeSlots k lo) e) : HoleApp k nP lo e := by
-  have h' : NoBVar (fun i => lo ≤ i ∧ i < lo + (List.replicate k AnnotTerm.prf).length) e := by
-    rw [List.length_replicate]; exact h
-  have := instAll_liftN_of_noBVar e (List.replicate k .prf) lo h'
-  rw [List.length_replicate] at this
-  rw [← this]
-  exact holeApp_liftN k nP _ lo
+  ⟨h.len, fun ρ hρ hs hhs hv => h.override ρ hρ hs hhs fun t ht => by rw [hl t ht]; exact hv t ht⟩
 
 /-! ## The walked term looks up no member
 
@@ -331,21 +317,17 @@ theorem noBVar_holeSlots_of_nestOcc {ctx : NestCtx} {l : Nat} {e : Expr} {ea : A
     NoBVar (LfpDatum.holeSlots ctx.names.length l) ea :=
   noBVar_holeSlots_of_holeP (denoteMeta_noBVar_of_nestOcc _ e hw (by omega) hocc h)
 
-/-- **A member hole applied to the parameter variables and hole-free
-arguments** reads as the hole's slot applied to `holeParams` and
-hole-free readings. -/
+/-- **A member hole applied to hole-free arguments** reads as the hole's
+slot applied to hole-free readings. -/
 theorem denoteMeta_holeHead {ctx : NestCtx} {t l : Nat} {e : Expr} {ea : AnnotTerm}
     (hfn : ∃ ty, e.getAppFn = .fvar (ctx.nP + t) ty) (ht : t < ctx.names.length)
-    (hps : ∀ p, p < ctx.nP → ∃ ty, e.getAppArgs[p]? = some (.fvar p ty))
-    (hlen : ctx.nP ≤ e.getAppArgs.length)
-    (hfree : ∀ x ∈ e.getAppArgs.drop ctx.nP, x.nestOcc ctx.names ctx.nP (ctx.hiAt 0) = false)
+    (hfree : ∀ x ∈ e.getAppArgs, x.nestOcc ctx.names ctx.nP (ctx.hiAt 0) = false)
     (hw : Expr.WScoped (ctx.hiAt 0 + l) e)
     (hea : denoteMeta m.acval env ψ (ctx.hiAt 0 + l) e = some ea) :
-    ∃ es, ea = AnnotTerm.mkAppN (.bvar (l + (ctx.names.length - 1 - t)))
-        (holeParams ctx.names.length ctx.nP l ++ es) ∧
+    ∃ es, ea = AnnotTerm.mkAppN (.bvar (l + (ctx.names.length - 1 - t))) es ∧
       (∀ x ∈ es, NoBVar (LfpDatum.holeSlots ctx.names.length l) x) ∧
-      es.length = e.getAppArgs.length - ctx.nP ∧
-      DenoteMetaSpine m.acval env ψ (ctx.hiAt 0 + l) (e.getAppArgs.drop ctx.nP) es := by
+      es.length = e.getAppArgs.length ∧
+      DenoteMetaSpine m.acval env ψ (ctx.hiAt 0 + l) e.getAppArgs es := by
   obtain ⟨ty, hfn⟩ := hfn
   have hsp := Expr.mkAppN_getApp e
   rw [hfn] at hsp
@@ -357,31 +339,12 @@ theorem denoteMeta_holeHead {ctx : NestCtx} {t l : Nat} {e : Expr} {ea : AnnotTe
   obtain ⟨fa, vs, hfa, hspine, rfl⟩ := denoteMeta_mkAppN_inv hea
   rw [denoteMeta_fvar] at hfa
   obtain rfl := Option.some.inj hfa
-  rw [← List.take_append_drop ctx.nP e.getAppArgs] at hspine
-  obtain ⟨vs₁, vs₂, rfl, h₁, h₂⟩ := DenoteMetaSpine.split _ hspine
-  have hv₁ : vs₁ = paramBvarsAt ctx.nP (ctx.hiAt 0 + l) := by
-    refine DenoteMetaSpine.unique h₁ (denoteMetaSpine_params _ (by simp; omega) ?_)
-    intro p x hx
-    have hp : p < ctx.nP := by
-      have := (List.getElem?_eq_some_iff.mp hx).1
-      simp at this; omega
-    rw [List.getElem?_take_of_lt hp] at hx
-    obtain ⟨ty', hty'⟩ := hps p hp
-    rw [hty'] at hx
-    exact ⟨ty', (Option.some.inj hx).symm⟩
   have hk : ctx.hiAt 0 + l = ctx.nP + ctx.names.length + l := by
     simp [ConLeche.NestCtx.hiAt]
-  refine ⟨vs₂, ?_, fun x hx => ?_, ?_, h₂⟩
-  · rw [hv₁, hk]
-    unfold paramBvarsAt holeParams
-    congr 1
-    · congr 1; omega
-    · congr 1
-      refine List.map_congr_left fun p _ => ?_
-      congr 1; omega
-  · obtain ⟨a, ha, hr⟩ := DenoteMetaSpine.mem_vals h₂ x hx
-    exact noBVar_holeSlots_of_nestOcc (hwArgs a (List.mem_of_mem_drop ha)) (hfree a ha) hr
-  · rw [← DenoteMetaSpine.length_eq h₂, List.length_drop]
+  refine ⟨vs, ?_, fun x hx => ?_, (DenoteMetaSpine.length_eq hspine).symm, hspine⟩
+  · rw [hk]; congr 2; omega
+  · obtain ⟨a, ha, hr⟩ := DenoteMetaSpine.mem_vals hspine x hx
+    exact noBVar_holeSlots_of_nestOcc (hwArgs a ha) (hfree a ha) hr
 
 /-- An application spine grows at the right. -/
 theorem AnnotTerm.mkAppN_snoc' :
@@ -391,244 +354,6 @@ theorem AnnotTerm.mkAppN_snoc' :
   induction as with
   | nil => intro f a; rfl
   | cons x xs ih => intro f a; exact ih (.app f x) a
-
-/-! ## Every member applied, on the walk's normal form
-
-`Expr.holesApplied` (the walk's normal forms satisfy it by construction
-from official's uniform check, `memberCtorD_holesApplied`,
-`ConLeche/Verify/Inductives/HolesApplied.lean`) read at a model: the
-reading is `HoleApp` (every hole slot heads a spine whose first `nP`
-arguments are the parameter slots) and the term names no member
-constant — at every kind, containers included. -/
-
-/-- A hole applied to exactly the parameter variables reads as its slot
-applied to the parameter slots. -/
-theorem denoteMeta_holeParamsApp {lo hi d : Nat} :
-    ∀ (n : Nat) (e : Expr) {ea : AnnotTerm}, e.holeParamsApp lo hi n = true →
-      denoteMeta m.acval env ψ d e = some ea →
-      ∃ i, lo ≤ i ∧ i < hi ∧
-        ea = AnnotTerm.mkAppN (.bvar (d - 1 - i)) ((List.range n).map fun p => .bvar (d - 1 - p))
-  | 0, .fvar i _, ea, h, hr => by
-    simp only [ConLeche.Expr.holeParamsApp, decide_eq_true_eq] at h
-    rw [denoteMeta] at hr
-    cases hr
-    exact ⟨i, h.1, h.2, rfl⟩
-  | n + 1, .app f (.fvar j _), ea, h, hr => by
-    simp only [ConLeche.Expr.holeParamsApp, Bool.and_eq_true, beq_iff_eq] at h
-    obtain ⟨rfl, hf⟩ := h
-    rw [denoteMeta] at hr
-    rcases hfa : denoteMeta m.acval env ψ d f with _ | fa
-    · rw [hfa] at hr; exact nomatch hr
-    rw [hfa] at hr
-    simp only [denoteMeta, Option.bind_eq_bind, Option.bind_some, Option.some.injEq] at hr
-    obtain ⟨i, h1, h2, rfl⟩ := denoteMeta_holeParamsApp j f hf hfa
-    refine ⟨i, h1, h2, ?_⟩
-    rw [← hr, List.range_succ, List.map_append, List.map_cons, List.map_nil, AnnotTerm.mkAppN_snoc']
-  | 0, .bvar _, _, h, _ | 0, .sort _, _, h, _ | 0, .const .., _, h, _ | 0, .app .., _, h, _
-  | 0, .lam .., _, h, _ | 0, .forallE .., _, h, _ | 0, .letE .., _, h, _ | 0, .lit _, _, h, _
-  | 0, .proj .., _, h, _ => by simp [ConLeche.Expr.holeParamsApp] at h
-  | _ + 1, .bvar _, _, h, _ | _ + 1, .fvar .., _, h, _ | _ + 1, .sort _, _, h, _
-  | _ + 1, .const .., _, h, _ | _ + 1, .lam .., _, h, _ | _ + 1, .forallE .., _, h, _
-  | _ + 1, .letE .., _, h, _ | _ + 1, .lit _, _, h, _ | _ + 1, .proj .., _, h, _ => by
-    simp [ConLeche.Expr.holeParamsApp] at h
-  | _ + 1, .app _ (.bvar _), _, h, _ | _ + 1, .app _ (.sort _), _, h, _
-  | _ + 1, .app _ (.const ..), _, h, _ | _ + 1, .app _ (.app ..), _, h, _
-  | _ + 1, .app _ (.lam ..), _, h, _ | _ + 1, .app _ (.forallE ..), _, h, _
-  | _ + 1, .app _ (.letE ..), _, h, _ | _ + 1, .app _ (.lit _), _, h, _
-  | _ + 1, .app _ (.proj ..), _, h, _ => by simp [ConLeche.Expr.holeParamsApp] at h
-
-/-- A term free of members and holes reads as `HoleApp` at the hole
-slots of its depth. -/
-theorem holeApp_of_nestOcc {ctx : NestCtx} {d : Nat} {e : Expr} {ea : AnnotTerm}
-    (hw : Expr.WScoped d e) (hd : ctx.hiAt 0 ≤ d)
-    (hocc : e.nestOcc ctx.names ctx.nP (ctx.hiAt 0) = false)
-    (h : denoteMeta m.acval env ψ d e = some ea) :
-    HoleApp ctx.names.length ctx.nP (d - ctx.hiAt 0) ea := by
-  obtain ⟨l, rfl⟩ : ∃ l, d = ctx.hiAt 0 + l := ⟨d - ctx.hiAt 0, by omega⟩
-  rw [show ctx.hiAt 0 + l - ctx.hiAt 0 = l by omega]
-  exact holeApp_of_noBVar (noBVar_holeSlots_of_nestOcc hw hocc h)
-
-/-- `HoleApp` is closed under the uniform projection spelling. -/
-theorem holeApp_projAV {k nP lo : Nat} :
-    ∀ (j : Nat) {e : AnnotTerm}, HoleApp k nP lo e → HoleApp k nP lo (projAV j e)
-  | 0, _, h => .fst h
-  | j + 1, _, h => holeApp_projAV j (.snd h)
-
-/-- **Every member applied, read**: a term that passes `holesApplied` reads, at
-any depth above the holes, as `HoleApp` at that depth's hole slots. -/
-theorem holeApp_of_holesApplied {ctx : NestCtx} :
-    ∀ (d : Nat) (e : Expr) {ea : AnnotTerm}, Expr.WScoped d e → ctx.hiAt 0 ≤ d →
-      e.holesApplied ctx.names ctx.nP (ctx.hiAt 0) = true →
-      denoteMeta m.acval env ψ d e = some ea →
-      HoleApp ctx.names.length ctx.nP (d - ctx.hiAt 0) ea := by
-  have hhi : ctx.hiAt 0 = ctx.nP + ctx.names.length := by simp [ConLeche.NestCtx.hiAt]
-  intro d e
-  induction d, e using denoteMeta.induct (env := env) with
-  | case1 d u =>
-    intro ea _ _ _ h
-    rw [denoteMeta] at h
-    cases h; exact .sort
-  | case2 d idx ty =>
-    intro ea hws hd hha h
-    rw [denoteMeta] at h
-    cases h
-    simp only [Expr.WScoped] at hws
-    simp only [ConLeche.Expr.holesApplied, Bool.or_eq_true, Bool.not_eq_eq_eq_not,
-      Bool.not_true, decide_eq_false_iff_not] at hha
-    rcases hha with hpa | hnot
-    · -- `nP = 0`: the bare hole is the hole applied to no parameter
-      cases hnP : ctx.nP with
-      | succ n => rw [hnP] at hpa; simp [ConLeche.Expr.holeParamsApp] at hpa
-      | zero =>
-        rw [hnP] at hpa
-        simp only [ConLeche.Expr.holeParamsApp, decide_eq_true_eq] at hpa
-        have := HoleApp.hole (k := ctx.names.length) (nP := 0) (lo := d - ctx.hiAt 0)
-          (h := d - 1 - idx) (rest := []) (by omega) (by omega) (fun r hr => nomatch hr)
-        simpa [holeParams, hnP] using this
-    · refine .bvar fun ⟨h1, h2⟩ => hnot ⟨?_, ?_⟩ <;> omega
-  | case3 d n us ci hf hlen =>
-    intro ea hws hd hha h
-    refine holeApp_of_nestOcc hws hd ?_ h
-    simpa [ConLeche.Expr.holesApplied, ConLeche.Expr.nestOcc] using hha
-  | case4 d n us ci hf hlen =>
-    intro ea _ _ _ h
-    rw [denoteMeta, hf] at h
-    dsimp only at h
-    rw [if_neg hlen] at h
-    exact nomatch h
-  | case5 d n us hf =>
-    intro ea _ _ _ h
-    rw [denoteMeta, hf] at h
-    exact nomatch h
-  | case6 d ty body mb ihty ihbody =>
-    intro ea hws hd hha h
-    obtain ⟨ta, ba, hta, hba, rfl⟩ := denoteMeta_forallE_inv h
-    simp only [Expr.WScoped] at hws
-    simp only [ConLeche.Expr.holesApplied, Bool.and_eq_true] at hha
-    have hws' : Expr.WScoped (d + 1) (body.instantiate1 (.fvar d ty)) :=
-      Expr.WScoped.instantiate1 hws.1 0 hws.2
-    have hha' := holesApplied_instantiate1 hd (by omega) ty body 0 hha.2
-    have hb := ihbody hws' (by omega) hha' hba
-    rw [show d + 1 - ctx.hiAt 0 = d - ctx.hiAt 0 + 1 by omega] at hb
-    exact .pi (ihty hws.1 hd hha.1 hta) hb
-  | case7 d ty body mb ihty ihbody =>
-    intro ea hws hd hha h
-    rw [denoteMeta] at h
-    rcases hta : denoteMeta m.acval env ψ d ty with _ | ta
-    · rw [hta] at h; exact nomatch h
-    rw [hta] at h
-    rcases hba : denoteMeta m.acval env ψ (d + 1) (body.instantiate1 (.fvar d ty)) with _ | ba
-    · rw [hba] at h; exact nomatch h
-    rw [hba] at h
-    cases h
-    simp only [Expr.WScoped] at hws
-    simp only [ConLeche.Expr.holesApplied, Bool.and_eq_true] at hha
-    have hws' : Expr.WScoped (d + 1) (body.instantiate1 (.fvar d ty)) :=
-      Expr.WScoped.instantiate1 hws.1 0 hws.2
-    have hha' := holesApplied_instantiate1 hd (by omega) ty body 0 hha.2
-    have hb := ihbody hws' (by omega) hha' hba
-    rw [show d + 1 - ctx.hiAt 0 = d - ctx.hiAt 0 + 1 by omega] at hb
-    exact .lam (ihty hws.1 hd hha.1 hta) hb
-  | case8 d fe a ihf iha =>
-    intro ea hws hd hha h
-    simp only [ConLeche.Expr.holesApplied, Bool.or_eq_true, Bool.and_eq_true] at hha
-    rcases hha with hpa | ⟨h1, h2⟩
-    · obtain ⟨i, hi1, hi2, rfl⟩ := denoteMeta_holeParamsApp ctx.nP _ hpa h
-      simp only [Expr.WScoped] at hws
-      have := HoleApp.hole (k := ctx.names.length) (nP := ctx.nP) (lo := d - ctx.hiAt 0)
-        (h := d - 1 - i) (rest := []) (by omega) (by omega) (fun r hr => nomatch hr)
-      rw [List.append_nil] at this
-      have hp : holeParams ctx.names.length ctx.nP (d - ctx.hiAt 0)
-          = (List.range ctx.nP).map fun p => AnnotTerm.bvar (d - 1 - p) := by
-        unfold holeParams
-        refine List.map_congr_left fun p hp => ?_
-        have := List.mem_range.mp hp
-        congr 1
-        omega
-      rw [hp] at this
-      exact this
-    · rw [denoteMeta] at h
-      rcases hfa : denoteMeta m.acval env ψ d fe with _ | fa
-      · rw [hfa] at h; exact nomatch h
-      rw [hfa] at h
-      rcases haa : denoteMeta m.acval env ψ d a with _ | aa
-      · rw [haa] at h; exact nomatch h
-      rw [haa] at h
-      cases h
-      simp only [Expr.WScoped] at hws
-      exact .app (ihf hws.1 hd h1 hfa) (iha hws.2 hd h2 haa)
-  | case9 d ty val body =>
-    intro ea _ _ _ h
-    rw [denoteMeta] at h
-    exact nomatch h
-  | case10 d sn i e ihe =>
-    -- a projection reads as `.fst ∘ .snd^j` of its struct's reading: the
-    -- holes there are applied, and `HoleApp` is closed under `fst`/`snd`
-    intro ea hws hd hha h
-    simp only [ConLeche.Expr.holesApplied] at hha
-    simp only [Expr.WScoped] at hws
-    rw [denoteMeta] at h
-    rcases hsub : denoteMeta m.acval env ψ d e with _ | sa
-    · rw [hsub] at h; exact nomatch h
-    rw [hsub] at h
-    have hs := ihe hws hd hha hsub
-    simp only [Option.bind_eq_bind, Option.bind_some] at h
-    split at h
-    · cases h; exact holeApp_projAV _ hs
-    · rcases i with _ | _ | i
-      · cases h; exact .fst hs
-      · cases h; exact .snd hs
-      · exact nomatch h
-  | case11 | case12 | case13 | case14 =>
-    intro ea hws hd hha h
-    refine holeApp_of_nestOcc hws hd ?_ h
-    simp [ConLeche.Expr.nestOcc]
-  | case15 d x h1 h2 h3 h4 h5 h6 h7 h8 h9 h10 =>
-    intro ea _ _ _ h
-    cases x with
-    | bvar i => simp [denoteMeta] at h
-    | sort u => exact (h1 u rfl).elim
-    | fvar i t => exact (h2 i t rfl).elim
-    | const n us => exact (h3 n us rfl).elim
-    | forallE t b mm => exact (h4 t b mm rfl).elim
-    | lam t b mm => exact (h5 t b mm rfl).elim
-    | app f a => exact (h6 f a rfl).elim
-    | letE t v b => exact (h7 t v b rfl).elim
-    | proj sn i e => exact (h8 sn i e rfl).elim
-    | lit l => cases l with
-      | natVal n => exact (h9 n rfl).elim
-      | strVal s => exact (h10 s rfl).elim
-
-/-- An opening at variables above the holes keeps the check, on every
-opened domain and on the body. -/
-theorem holesApplied_openPis {names : List Name} {nP hi : Nat} :
-    ∀ (n : Nat) {e : Expr} {d : Nat} {xs : List Expr} {r : Expr},
-      openPisAtFvars n e d = some (xs, r) → hi ≤ d → nP ≤ d →
-      e.holesApplied names nP hi = true →
-      (∀ x ∈ xs, x.fvarTypeD.holesApplied names nP hi = true) ∧
-        r.holesApplied names nP hi = true
-  | 0, e, d, xs, r, h, _, _, he => by
-    simp only [openPisAtFvars] at h
-    cases h
-    exact ⟨(fun _ hx => nomatch hx), he⟩
-  | n + 1, e, d, xs, r, h, hd, hp, he => by
-    match e, h with
-    | .forallE dom b bm, h =>
-      simp only [openPisAtFvars] at h
-      split at h
-      · rename_i xs' r' h'
-        simp only [Option.some.injEq, Prod.mk.injEq] at h
-        obtain ⟨rfl, rfl⟩ := h
-        simp only [ConLeche.Expr.holesApplied, Bool.and_eq_true] at he
-        obtain ⟨h1, h2⟩ := holesApplied_openPis n h' (by omega) (by omega)
-          (holesApplied_instantiate1 hd hp dom b 0 he.2)
-        refine ⟨fun x hx => ?_, h2⟩
-        rcases List.mem_cons.mp hx with rfl | hx
-        · exact he.1
-        · exact h1 x hx
-      · exact nomatch h
-
-end Read
 
 /-! ## The producer's syntactic lemmas -/
 
@@ -742,12 +467,13 @@ theorem erasedEq_fvarsBelow {d : Nat} :
 
 /-! ## The members' holes, as leaves -/
 
-/-- **Every leaf at a member hole's index carries that member's stored
-type** (the walked term's hole variables are `nestHoles`'). -/
+/-- **Every leaf at a member hole's index carries that member's hole
+type** — its former at the canonical parameters (the walked term's hole
+variables are `nestHoles`'). -/
 @[expose] def HoleLeafOk (ctx : NestCtx) (e : Expr) : Prop :=
   ∀ l ∈ e.fvarLeaves, ctx.nP ≤ l.1 → l.1 < ctx.hiAt 0 →
-    ∃ cv caps, ctx.find? (ctx.names.getD (l.1 - ctx.nP) .anonymous) = some (.indInfo cv caps) ∧
-      l.2 = cv.type
+    ∃ cv caps ty, ctx.find? (ctx.names.getD (l.1 - ctx.nP) .anonymous) = some (.indInfo cv caps) ∧
+      instPisWith ctx.params cv.type = some ty ∧ l.2 = ty
 
 theorem HoleLeafOk.open {ctx : NestCtx} {n : Nat} {e : Expr} {d : Nat} {fvs : List Expr}
     {body : Expr} (h : HoleLeafOk ctx e) (hd : ctx.hiAt 0 ≤ d)
@@ -773,26 +499,25 @@ theorem HoleLeafOk.open {ctx : NestCtx} {n : Nat} {e : Expr} {d : Nat} {fvs : Li
 /-- The walked term's leaves: the parameters' (below `nP`) and the holes'. -/
 theorem holeLeafOk_crest {ctx : NestCtx} {holes : List Expr} {cty crest : Expr}
     (hholes : nestHoles ctx = some holes)
-    (hcl : ∀ n ci, ctx.find? n = some ci → ci.toConstantVal.type.hasFvar = false)
     (hparW : ∀ x ∈ ctx.params, Expr.WScoped ctx.nP x) (hcf : cty.hasFvar = false)
-    (hcrest : instPisWith ctx.params (nestAbstract ctx holes cty) = some crest) :
+    (hcrest : ConLeche.nestCrest ctx.names (ctx.lps.map .param) ctx.params holes cty = some crest) :
     HoleLeafOk ctx crest := by
   intro l hl h1 h2
-  rcases ConLeche.fvarLeaves_instPisWith hcrest l hl with h | ⟨a, ha, h'⟩
-  · obtain ⟨c', us, r, hr, hlr⟩ := ConLeche.fvarLeaves_replaceConsts_closed _ hcf l h
-    have hrm : r ∈ holes := by
-      split at hr
-      · split at hr
-        · exact List.mem_of_getElem? hr
-        · exact nomatch hr
-      · exact nomatch hr
-    obtain ⟨i, cv, caps, hf, rfl⟩ := ConLeche.nestHoles_mem hholes r hrm
-    have hnil : cv.type.fvarLeaves = [] := Expr.fvarLeaves_eq_nil_of_not_hasFvar (hcl _ _ hf)
-    simp only [Expr.fvarLeaves, hnil, List.mem_cons, List.not_mem_nil, or_false] at hlr
-    subst hlr
-    exact ⟨cv, caps, by simpa using hf, rfl⟩
-  · have := Expr.fvarLeaves_lt_of_wscoped (hparW a ha) l h'
+  have hlenH := ConLeche.nestHoles_length hholes
+  obtain ⟨a, ha, hla⟩ := ConLeche.fvarLeaves_nestCrest hcf (by omega) hcrest l hl
+  rcases List.mem_append.mp ha with ha | ha
+  · have := Expr.fvarLeaves_lt_of_wscoped (hparW a ha) l hla
     omega
+  · obtain ⟨i, cv, caps, ty, hf, hty, rfl⟩ := ConLeche.nestHoles_mem hholes a ha
+    simp only [Expr.fvarLeaves, List.mem_cons] at hla
+    rcases hla with rfl | hla
+    · exact ⟨cv, caps, ty, by simpa using hf, hty, rfl⟩
+    · -- a leaf of the hole's type is a parameter's
+      have hwt : Expr.WScoped ctx.nP ty :=
+        ConLeche.wscoped_instPisWith hparW (Expr.WScoped.of_not_hasFvar (by
+          sorry)) hty
+      have := Expr.fvarLeaves_lt_of_wscoped hwt l hla
+      omega
 
 /-! ## The producer's reading lemmas -/
 

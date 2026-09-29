@@ -310,21 +310,21 @@ theorem DenoteMetaSpine.weaken_top {d : Nat} :
 
 /-- **The hole relation** at depth `d` under the frames `prog`: related
 frames satisfy the context, agree off the hole positions, the member
-holes grow (at their full arity), and every frame's hole grows at its
-instantiation's own parameters (`HoleOnArgs`: the key's parameter terms,
-read at the depth, then the indices, at the member's FULL arity — the
-kernel's `frameHole` rule checks `nestArity`: a frame hole holding a tuple BELOW its container's carrier grows only at
-full arity, a partial application being a graph). -/
+holes grow (at their full arity: their indices — a hole stands for the
+member's whole application to the parameters), and every frame's hole
+grows at its full arity (the container member's indices: the kernel's
+`frameHole` rule checks `nestArity`; a frame hole holding a tuple BELOW
+its container's carrier grows only at full arity, a partial application
+being a graph). -/
 structure HoleRel (m : EnvModel V env) (φ : Name → Nat) (ctx : NestCtx) (prog : List NestHole)
     (d : Nat) (Δa : List AnnotTerm) (R : FrameRel V) : Prop where
   dom : ∀ ρ ρ', R ρ ρ' → Sat V Δa ρ ∧ Sat V Δa ρ'
   agree : R.AgreesOff (holeP d ctx.nP (ctx.hiAt prog.length))
   member : ∀ t, t < ctx.names.length →
-    HoleOn R (d - 1 - (ctx.nP + t)) (ctx.nP + ctx.nIdxs.getD t 0)
-  frame : ∀ (i : Nat) (hk : NestHole), prog.reverse[i]? = some hk → ∀ dsa,
-    DenoteMetaSpine m.acval env φ d hk.key.ds dsa → ∀ ni,
+    HoleOn R (d - 1 - (ctx.nP + t)) (ctx.nIdxs.getD t 0)
+  frame : ∀ (i : Nat) (hk : NestHole), prog.reverse[i]? = some hk → ∀ ni,
     ni + hk.key.ds.length = ConLeche.nestArity ctx hk.key.cname →
-    HoleOnArgs R (d - 1 - (ctx.hiAt 0 + i)) dsa ni
+    HoleOn R (d - 1 - (ctx.hiAt 0 + i)) ni
   /-- the frames' parameter terms are scoped below the frames' holes (the
   kernel checks `fvarB ≤ hiAt` at each frame's entry) -/
   dsScoped : ∀ (i : Nat) (hk : NestHole), prog.reverse[i]? = some hk → ∀ x ∈ hk.key.ds,
@@ -350,16 +350,14 @@ theorem HoleRel.under {ctx : NestCtx} {prog : List NestHole} {d : Nat} {Δa : Li
     rw [show d + 1 - 1 - (ctx.nP + t) = d - 1 - (ctx.nP + t) + 1 by omega]
     exact (h.member t ht).under ta
   frame := by
-    intro i key hk dsa' hsp ni har
+    intro i key hk ni har
     have hlen : i < prog.length := by
       have := (List.getElem?_eq_some_iff.mp hk).1
       simpa using this
     have hlt : ctx.hiAt 0 + i < d := by
       simp only [NestCtx.hiAt] at hd ⊢; omega
-    obtain ⟨dsa, hdsa, rfl⟩ := DenoteMetaSpine.weaken_top
-      (fun x hx => Expr.WScoped.mono hd (h.dsScoped i key hk x hx)) hsp
     rw [show d + 1 - 1 - (ctx.hiAt 0 + i) = d - 1 - (ctx.hiAt 0 + i) + 1 by omega]
-    exact (h.frame i key hk dsa hdsa ni har).under ta
+    exact (h.frame i key hk ni har).under ta
   dsScoped := h.dsScoped
 
 /-! ## A constructor's field telescope -/
@@ -422,9 +420,9 @@ theorem mkAppN_bvar_inj {i j : Nat} {as bs : List AnnotTerm}
   injection h1 with h1
   exact ⟨h1, h2⟩
 
-/-- **A member constructor's result**: its reading is a spine whose
-arguments after the parameters (the result's indices) are hole-free. -/
-@[expose] def ResultIdxConst (nP : Nat) (R : FrameRel V) (r : AnnotTerm) : Prop :=
-  ∃ i vs, r = AnnotTerm.mkAppN (.bvar i) vs ∧ ∀ v ∈ vs.drop nP, ConstOn R v
+/-- **A member constructor's result**: its reading is a hole applied to
+hole-free arguments (the result's indices). -/
+@[expose] def ResultIdxConst (R : FrameRel V) (r : AnnotTerm) : Prop :=
+  ∃ i vs, r = AnnotTerm.mkAppN (.bvar i) vs ∧ ∀ v ∈ vs, ConstOn R v
 
 end ConLeche.Model
