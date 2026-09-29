@@ -12,6 +12,9 @@ import ConLeche.Verify.Extend.Inversions
 import ConLeche.Semantics.DeclRun
 import ConLeche.Model.Inductives.TargetResidue
 import ConLeche.Model.Inductives.GenRuleSyn
+import ConLeche.Model.Levels
+import ConLeche.Verify.Level
+import ConLeche.Verify.Subst
 
 public section
 
@@ -1147,6 +1150,164 @@ theorem genRule_residue {envC : Env} (m : EnvModel V envC)
     simp only [genIhsAV, List.getElem_map, genIhdAV, List.getElem_range, hcx, hfl, ← hnF,
       Nat.add_sub_cancel_left, hgra, hqd, hargE, hop2, Option.getD_some]
 end ResidueRun
+
+/-! ## 10. `hdataS`: the rule contract at every fired pair -/
+
+section DataS
+
+variable {V : Type w} [SetTheory V]
+
+theorem stripLams_length' :
+    ∀ (n : Nat) {e : Expr} {bs : List (Expr × ConLeche.BinderMeta)} {b : Expr},
+      e.stripLams n = some (bs, b) → bs.length = n
+  | 0, e, bs, b, h => by
+    simp only [Expr.stripLams, Option.some.injEq, Prod.mk.injEq] at h
+    rw [← h.1]; rfl
+  | n + 1, .lam dom body m, bs, b, h => by
+    simp only [Expr.stripLams] at h
+    cases hs : body.stripLams n with
+    | none => rw [hs] at h; exact nomatch h
+    | some q =>
+      rw [hs] at h
+      simp only [Option.map_some, Option.some.injEq] at h
+      rw [← (Prod.mk.inj h).1, List.length_cons, stripLams_length' n (bs := q.1) (b := q.2)
+        (by rw [hs])]
+  | _ + 1, .bvar _, _, _, h | _ + 1, .fvar _ _, _, _, h | _ + 1, .sort _, _, _, h
+  | _ + 1, .const _ _, _, _, h | _ + 1, .app _ _, _, _, h | _ + 1, .forallE _ _ _, _, _, h
+  | _ + 1, .letE _ _ _, _, _, h | _ + 1, .lit _, _, _, h | _ + 1, .proj _ _ _, _, _, h => by
+    simp [Expr.stripLams] at h
+
+/-- The opened domains of a λ-telescope whose stripped domains name only
+constants of `env` name only constants of `env`. -/
+theorem openLamsM_constsBound {env : Env} :
+    ∀ (n : Nat) {e : Expr} {j : Nat} {rbs bs : List (Expr × ConLeche.BinderMeta)} {b r : Expr},
+      e.stripLams n = some (rbs, b) → (∀ q ∈ rbs, ConstsBound env q.1) →
+      openLamsM n e j = some (bs, r) → ∀ q ∈ bs, ConstsBound env q.1
+  | 0, e, j, rbs, bs, b, r, _, _, ho, q, hq => by
+    simp only [openLamsM, Option.some.injEq, Prod.mk.injEq] at ho
+    rw [← ho.1] at hq; exact nomatch hq
+  | n + 1, .lam dom body m, j, rbs, bs, b, r, hs, hrbs, ho, q, hq => by
+    simp only [Expr.stripLams] at hs
+    cases hs' : body.stripLams n with
+    | none => rw [hs'] at hs; exact nomatch hs
+    | some p =>
+      rw [hs'] at hs
+      simp only [Option.map_some, Option.some.injEq] at hs
+      obtain ⟨rfl, rfl⟩ := Prod.mk.inj hs
+      simp only [openLamsM] at ho
+      cases hi : openLamsM n (body.instantiate1 (.fvar j dom)) (j + 1) with
+      | none => rw [hi] at ho; exact nomatch ho
+      | some o =>
+        rw [hi] at ho
+        simp only [Option.map_some, Option.some.injEq, Prod.mk.injEq] at ho
+        rw [← ho.1] at hq
+        have hdom : ConstsBound env dom := hrbs (dom, m) List.mem_cons_self
+        rcases List.mem_cons.mp hq with rfl | hq
+        · exact hdom
+        · have hsome := Expr.stripLams_instantiate1_isSome (v := .fvar j dom) n 0 (e := body)
+            (by rw [hs']; rfl)
+          obtain ⟨p', hp'⟩ := Option.isSome_iff_exists.mp hsome
+          have heq := Expr.stripLams_instantiate1_eq n 0 hs' hp'
+          refine openLamsM_constsBound n (e := body.instantiate1 (.fvar j dom))
+            (rbs := p'.1) (b := p'.2) hp' (fun q' hq' => ?_) (by rw [hi]) q hq
+          obtain ⟨k, hk, rfl⟩ := List.getElem_of_mem hq'
+          obtain ⟨b0, hb0⟩ : ∃ b0, p.1[k]? = some b0 := ⟨_, List.getElem?_eq_getElem (by
+            have h1 := stripLams_length' _ hs'
+            have h2 := stripLams_length' _ hp'
+            omega)⟩
+          rw [heq.2 k b0 p'.1[k] hb0 (List.getElem?_eq_getElem hk)]
+          exact ConstsBound.instantiate1 (by simpa using hdom) _ _
+            (hrbs b0 (List.mem_cons_of_mem _ (List.mem_of_getElem? hb0)))
+  | _ + 1, .bvar _, _, _, _, _, _, h, _, _, _, _ | _ + 1, .fvar _ _, _, _, _, _, _, h, _, _, _, _
+  | _ + 1, .sort _, _, _, _, _, _, h, _, _, _, _ | _ + 1, .const _ _, _, _, _, _, _, h, _, _, _, _
+  | _ + 1, .app _ _, _, _, _, _, _, h, _, _, _, _
+  | _ + 1, .forallE _ _ _, _, _, _, _, _, h, _, _, _, _
+  | _ + 1, .letE _ _ _, _, _, _, _, _, h, _, _, _, _ | _ + 1, .lit _, _, _, _, _, _, h, _, _, _, _
+  | _ + 1, .proj _ _ _, _, _, _, _, _, h, _, _, _, _ => by simp [Expr.stripLams] at h
+
+theorem find?_range_extend {q : Nat → Bool} {n m r0 : Nat} (hnm : n ≤ m)
+    (h : (List.range n).find? q = some r0) : (List.range m).find? q = some r0 := by
+  obtain ⟨k, rfl⟩ : ∃ k, m = n + k := ⟨m - n, by omega⟩
+  rw [List.range_add, List.find?_append, h]; rfl
+
+section Callee
+
+variable {μ : CheckMode} {F : Nat} {fe₁ : FEnv} {env₁ : Env} {envC : Env} {pp : BlockParts}
+  {nb : Bool} {pos : ConLeche.NestState} {cvTas : List ConstantVal} {block : List ConstantInfo}
+  {ctorsAs : List (List (ConstantVal × Nat))} {out : List (ConstantVal × TargetMajor × List Expr)}
+  {mpC : EnvModelM V μ envC}
+
+/-- **The callees' recursor constants read as their leaves**: the
+constant a generated rule calls at class `t` (`classRecOf`) is the
+family's recursor at position `genRecIdx rd t`, stored at the cons, read
+by the family's valuation as that position's leaf. -/
+theorem genHcallee
+    (R : GenRecRun μ F fe₁ env₁ (ConLeche.mkFEnv envC) pp.toBlockShape nb pos cvTas block ctorsAs
+      out)
+    {memR : Nat → Prop} (h : ConLeche.RecStageG μ F envC pp cvTas ctorsAs (tgtRs out) memR)
+    (hnd : ((tgtRs out).map (·.1.name)).Nodup)
+    {s : (Name → Nat) → Nat} {eqs : (Name → Nat) → List AnnotTerm}
+    {Rr : Nat → ConstantVal × List Expr × Nat × List (ConstantVal × Nat) → List ConLeche.RecRule}
+    {j : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
+    (hr : (tgtRs out)[j]? = some r)
+    (hleafCl : ∀ (ψ : Name → Nat) (q : Nat),
+      Term.Closed ((blockRecLeafAV mpC.base2.acval envC (tgtRs out) s eqs ψ q).erase))
+    {ψ : Name → Nat} {ρ : Nat → V} {a : Nat → V}
+    (hleaf : ∀ c', c' < (tgtRs out).length →
+      interp V ρ (blockRecLeafAV mpC.base2.acval envC (tgtRs out) s eqs ψ c') = a c') :
+    ∀ (t : Nat) (rn : Name), ConLeche.classRecOf R.rd.recCls R.cvGs t = some rn →
+      genRecIdx R.rd t < (tgtRs out).length ∧
+        ∃ L0, denoteMeta (blockRecAcv mpC.base2.acval envC (tgtRs out) s eqs)
+            (ConLeche.consBlockRecsR Rr pp.toBlockShape 0 (tgtRs out) envC) ψ 0
+            (.const rn (r.1.levelParams.map .param)) = some L0 ∧
+          ∀ ρ' : Nat → V, interp V ρ' L0 = a (genRecIdx R.rd t) := by
+  intro t rn hrn
+  unfold ConLeche.classRecOf at hrn
+  obtain ⟨r0, hf, rfl⟩ := Option.map_eq_some_iff.mp hrn
+  have hr0 : r0 < R.cvGs.length := List.mem_range.mp (List.mem_of_find?_eq_some hf)
+  obtain ⟨hlenO, hallO⟩ := ConLeche.classRecsRulesOk_run R.hrules
+  obtain ⟨hlenG, hallG⟩ := ConLeche.classRecTysOk_run R.hcvGs
+  have hRC : R.cvGs.length ≤ R.rd.recCls.length := by
+    refine Nat.le_of_not_lt fun hlt => ?_
+    obtain ⟨c, -, hc, -, -⟩ := hallG R.rd.recCls.length _
+      (List.getElem?_eq_getElem (by omega))
+    have := (List.getElem?_eq_some_iff.mp hc).1
+    omega
+  have hK : (tgtRs out).length = R.cvGs.length := by
+    simp only [tgtRs, List.length_map, hlenO]; omega
+  have hidx : genRecIdx R.rd t = r0 := by
+    unfold genRecIdx
+    rw [find?_range_extend hRC hf]; rfl
+  rw [hidx]
+  refine ⟨by omega, ?_⟩
+  -- the stored recursor at `r0`
+  obtain ⟨c, hc⟩ : ∃ c, R.rd.recCls[r0]? = some c :=
+    ⟨_, List.getElem?_eq_getElem (by omega)⟩
+  obtain ⟨rhss, ho, -⟩ := hallO r0 R.cvGs[r0] c (List.getElem?_eq_getElem hr0) hc
+  have hr' : (tgtRs out)[r0]? = some (R.cvGs[r0], rhss, (R.g.cls.getD c default).nIdx,
+      (R.g.cls.getD c default).ctors) := by
+    simp only [tgtRs, List.getElem?_map, ho]; rfl
+  have hcv := ConLeche.recStage_cvFacts h
+  have hfind := find?_consBlockRecsR_at (R := Rr) (q := pp.toBlockShape) (m := 0) hnd
+    (fun r₀ hr₀ => (hcv r₀ hr₀).1) hr'
+  have hlps : R.cvGs[r0].levelParams = r.1.levelParams := recStage_lps h hr' hr
+  have hname : (R.cvGs.getD r0 default).name = R.cvGs[r0].name := by
+    rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hr0]; rfl
+  rw [hname]
+  have hread : denoteMeta (blockRecAcv mpC.base2.acval envC (tgtRs out) s eqs)
+      (ConLeche.consBlockRecsR Rr pp.toBlockShape 0 (tgtRs out) envC) ψ 0
+      (.const R.cvGs[r0].name (r.1.levelParams.map .param))
+      = some (blockRecLeafAV mpC.base2.acval envC (tgtRs out) s eqs ψ r0) := by
+    simp only [denoteMeta, hfind, ConstantInfo.toConstantVal, List.length_map, hlps, if_true,
+      Level.substFn_param_self, blockRecAcv]
+    rw [blockRecAcvOf_at hnd (by rw [List.getElem?_map, hr']; rfl)]
+  refine ⟨_, hread, fun ρ' => ?_⟩
+  rw [interp_closed (V := V) (hleafCl _ r0) _ ρ]
+  exact hleaf r0 (by omega)
+
+end Callee
+
+end DataS
 
 /-! ## 7. The skeleton's obligations, in its spelling -/
 
