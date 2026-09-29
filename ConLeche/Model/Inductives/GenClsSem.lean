@@ -23,6 +23,9 @@ import ConLeche.Model.Inductives.ContFrame
 import ConLeche.Model.NatEqs
 import ConLeche.Model.IndReduct
 import ConLeche.Semantics.Tower.BlockRecTower
+import ConLeche.Model.Inductives.GenRecPins
+import ConLeche.Model.Rules.IotaSoundKit
+import ConLeche.Model.Annot.BitLemmas
 
 public section
 
@@ -52,6 +55,63 @@ open ConLeche (Env Expr Name Level ConstantInfo ConstantVal BlockShape BlockPart
 universe w
 
 variable {V : Type w} [SetTheory V] {μ : CheckMode}
+
+/-! ## Syntax -/
+
+omit [SetTheory V] in
+theorem mkAppN_append' : ∀ (as bs : List Expr) (f : Expr),
+    Expr.mkAppN f (as ++ bs) = Expr.mkAppN (Expr.mkAppN f as) bs
+  | [], _, _ => rfl
+  | a :: as, bs, f => mkAppN_append' as bs (.app f a)
+
+omit [SetTheory V] in
+/-- Scoping transfers along erasure: the annotations are the scoped
+term's own, the variables' indices the other's. -/
+theorem WScoped.of_erasedEq : ∀ (x : Expr) {x₀ : Expr} {D n : Nat}, Expr.ErasedEq x x₀ →
+    Expr.WScoped D x → Expr.WScoped n x₀ → Expr.WScoped n x := by
+  intro x
+  induction x with
+  | fvar i ty =>
+    intro x₀ D n he hw hw₀
+    match x₀, he with
+    | .fvar j _, he =>
+      obtain rfl : i = j := he
+      simp only [Expr.WScoped] at hw hw₀ ⊢
+      exact ⟨hw₀.1, hw.2⟩
+  | app f a ihf iha =>
+    intro x₀ D n he hw hw₀
+    match x₀, he with
+    | .app g b, he =>
+      simp only [Expr.WScoped] at hw hw₀ ⊢
+      exact ⟨ihf he.1 hw.1 hw₀.1, iha he.2 hw.2 hw₀.2⟩
+  | lam ty b m iht ihb =>
+    intro x₀ D n he hw hw₀
+    match x₀, he with
+    | .lam ty' b' m', he =>
+      simp only [Expr.WScoped] at hw hw₀ ⊢
+      exact ⟨iht he.2.1 hw.1 hw₀.1, ihb he.2.2 hw.2 hw₀.2⟩
+  | forallE ty b m iht ihb =>
+    intro x₀ D n he hw hw₀
+    match x₀, he with
+    | .forallE ty' b' m', he =>
+      simp only [Expr.WScoped] at hw hw₀ ⊢
+      exact ⟨iht he.2.1 hw.1 hw₀.1, ihb he.2.2 hw.2 hw₀.2⟩
+  | letE ty v b iht ihv ihb =>
+    intro x₀ D n he hw hw₀
+    match x₀, he with
+    | .letE ty' v' b', he =>
+      simp only [Expr.WScoped] at hw hw₀ ⊢
+      exact ⟨iht he.1 hw.1 hw₀.1, ihv he.2.1 hw.2.1 hw₀.2.1, ihb he.2.2 hw.2.2 hw₀.2.2⟩
+  | proj s i e ihe =>
+    intro x₀ D n he hw hw₀
+    match x₀, he with
+    | .proj s' i' e', he =>
+      simp only [Expr.WScoped] at hw hw₀ ⊢
+      exact ihe he.2.2 hw hw₀
+  | bvar => intro _ _ _ _ _ _; simp [Expr.WScoped]
+  | sort => intro _ _ _ _ _ _; simp [Expr.WScoped]
+  | const => intro _ _ _ _ _ _; simp [Expr.WScoped]
+  | lit => intro _ _ _ _ _ _; simp [Expr.WScoped]
 
 section Binders
 
@@ -159,6 +219,49 @@ theorem genRun_binders (hμ : μ.verifiedChecks = true)
   · refine ⟨fvs, o, ?_, fun i x nd hx hnd => hdomE i x nd hx ?_⟩
     · rw [hsty, hmI, ← hn, hnds, hbody]; exact hop0
     · rw [← hnds, hmajE]; exact hnd
+
+set_option maxHeartbeats 2000000 in
+/-- **The class's instantiation `I lvls ds` is graded at every prefix
+spine** — a head of the stored major domain's application spine
+(`storedMajorSub_graded`: the stored type's own inference). -/
+theorem genCls_inst_graded (hμ : μ.verifiedChecks = true)
+    (R : GenRecRun μ F (mkFEnv env₁) env₁ (mkFEnv envC) p.toBlockShape nestedBit pos cvTas
+      block ctorsAs out) (hg : ClassGenScoped R.g) {memR : Nat → Prop}
+    (h : ConLeche.RecStageG μ F envC p cvTas ctorsAs (tgtRs out) memR) (mpC : EnvModelM V μ envC)
+    (ψ : Name → Nat) {c : Nat} (hc : c < (tgtRs out).length)
+    (hds : ∀ x ∈ (tgtMajor out c).ds, ConLeche.ScB p.nP x)
+    (hnP : p.nP ≤ p.toBlockShape.rulePrefixAt c) :
+    ∃ w, denoteMeta mpC.base2.acval envC ψ (p.toBlockShape.rulePrefixAt c)
+        (Expr.mkAppN (.const (tgtMajor out c).ind (tgtMajor out c).lvls) (tgtMajor out c).ds)
+        = some w ∧
+      ∀ σ : Nat → V,
+        Sat V (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape (tgtRs out) ψ c).reverse σ →
+        WellDenotedV V σ w := by
+  obtain ⟨cls, ty, ifs, body, -, -, -, -, hifl, hRP, hmI, -, -, -, fvs, o, hop, hE⟩ :=
+    genRun_binders hμ R hg h mpC ψ hc
+  have hr : (tgtRs out)[c]? = some ((tgtRs out)[c]'hc) := List.getElem?_eq_getElem hc
+  have hlenF : fvs.length = p.toBlockShape.majorIdxAt c + 1 :=
+    ConLeche.Verify.openPisAtFvars_length _ hop
+  obtain ⟨maj, hmaj⟩ : ∃ maj, fvs[p.toBlockShape.majorIdxAt c]? = some maj :=
+    ⟨_, List.getElem?_eq_getElem (by omega)⟩
+  have hmE := hE _ maj (Expr.mkAppN (.const (tgtMajor out c).ind (tgtMajor out c).lvls)
+    ((tgtMajor out c).ds ++ ifs)) hmaj (by
+    rw [List.getElem?_append_right (by simp; omega)]
+    simp [hifl, hmI, hRP])
+  rw [mkAppN_append'] at hmE
+  obtain ⟨x, args, hdE, hxE, -⟩ := erasedEq_mkAppN_inv ifs hmE
+  obtain ⟨hw0, -⟩ := recStage_tyClosed h hr
+  have hwsM : Expr.WScoped (p.toBlockShape.majorIdxAt c) maj.fvarTypeD := by
+    have := openPisAtFvars_typeWScoped _ hop hw0 _ maj hmaj
+    rwa [Nat.zero_add] at this
+  rw [hdE] at hwsM
+  have hwsX : Expr.WScoped (p.toBlockShape.rulePrefixAt c) x :=
+    WScoped.of_erasedEq x hxE (WScoped.mkAppN_head args hwsM)
+      (Expr.WScoped.mkAppN (by simp only [Expr.WScoped]) fun y hy => (hds y hy).1.mono hnP)
+  obtain ⟨w, hw, hgr⟩ := storedMajorSub_graded hμ mpC h hr ψ hop hmaj (.inr ⟨args, hdE⟩)
+    (fun l hl => Expr.fvarLeaves_lt_of_wscoped hwsX l hl)
+  rw [denoteMeta_erasedEq hxE] at hw
+  exact ⟨w, hw, hgr⟩
 
 end Binders
 
