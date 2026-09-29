@@ -189,22 +189,22 @@ theorem nodeHolesRead_of {envI envC : Env} {mk : EnvModelM V μ envI}
 constructors' model (`hsp`): the group's block (`posNodeOk_blk`), its level
 parameters (`posNodeOk_lps`), the stack's hole constants
 (`nodeHolesRead_of`) and the key's scoping (`posNodeOk_ws`). -/
-theorem nodeListFacts_of {F : Nat} {block : List ConstantInfo}
+theorem nodeListFacts_of {F : Nat}
     {envC envI : Env} {pp : ConLeche.BlockParts} {cvTasR : List ConstantVal}
     {ctorsAsR : List (List (ConstantVal × Nat))}
-    {out : List (ConstantVal × ConLeche.TargetMajor × List Expr)} {mpC : EnvModelM V μ envC}
+    {mpC : EnvModelM V μ envC}
     {dR : BlockData V} {isRecR : Bool} {A : Nat → (Name → Nat) → AnnotTerm}
     {kindsR : List (List (List ConLeche.NestFieldKind))} {nfsR : List (List Expr)}
-    {posR : ConLeche.NestState} {tblR : List ConLeche.NestCtorNf}
-    (hctx : NestedRecCtx V μ F block envC envI pp cvTasR ctorsAsR out mpC dR isRecR A kindsR nfsR
-      posR tblR) {fvsP : List Expr} {ns : List PosTree}
+    {posR : ConLeche.NestState}
+    (hctx : RecCtxBase V μ F envC envI pp cvTasR ctorsAsR mpC dR isRecR A kindsR nfsR posR)
+    {fvsP : List Expr} {ns : List PosTree}
     (hok : ∀ t ∈ ns, PosNodeOk (fueledOps .verified F) envI (pp.nestCtx fvsP envI.find? envI.consts) t)
     (hown : ∀ t ∈ ns, NodeOwned (fueledOps .verified F) envI (pp.nestCtx fvsP envI.find? envI.consts) t)
     (hsp : ∀ t ∈ ns, ∀ ψ : Name → Nat, ∃ dsa, DenoteMetaSpine mpC.base2.acval envC ψ
         ((pp.nestCtx fvsP envI.find? envI.consts).nP
           + (nodeHoleConsts (pp.nestCtx fvsP envI.find? envI.consts) t.occ).length) t.key.ds dsa) :
     NodeListFacts mpC (pp.nestCtx fvsP envI.find? envI.consts) ns := by
-  obtain ⟨-, -, henvC, -, -, hN, hS, hcore, -, hdR, -, -, ⟨mk, hmkC, hmk, -, -, -, -⟩, -⟩ := hctx
+  obtain ⟨-, henvC, -, -, hN, hS, hcore, -, hdR, -, -, ⟨mk, hmkC, hmk, -, -, -, -⟩, -⟩ := hctx
   have hcc : ContCover mk (pp.nestCtx fvsP envI.find? envI.consts) :=
     contCover_of hmkC (fun _ => rfl) rfl
   -- the members are stored at the block's level parameters

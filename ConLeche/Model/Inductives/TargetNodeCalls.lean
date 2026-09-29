@@ -564,7 +564,7 @@ theorem nestedNodeCalls {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : N
             (tgtClsM mc pp.toBlockShape out c) t j fs b' (tgtClsM mc pp.toBlockShape out c') t' y := by
   intro c b hc hR t j fs ht hHF c' t' y hc' ht' hy hcall
   obtain rfl := CheckMode.eq_verified hμ
-  have H := dynCtx_of hctx hmkC hmk hag hsubC htr hcoreK hok hown hkids hpar hsem hF
+  have H := dynCtx_of hctx.base hmkC hmk hag hsubC htr hcoreK hok hown hkids hpar hsem hF
   have hctx' := hctx
   obtain ⟨hRec, hPos, henvC, hnames, hndM, hN, hS, hcore, hctorsAs, hdR, hlfp, hcov, -, -,
     ⟨R, -, -, -, hRaux⟩, -⟩ := hctx'

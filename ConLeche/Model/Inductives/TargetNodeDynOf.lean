@@ -916,15 +916,13 @@ end Frames
 
 /-- **The dynamic part's context from the stage's** (`nestedClassNodes`'
 node context). -/
-theorem dynCtx_of {F : Nat} {block : List ConstantInfo}
+theorem dynCtx_of {F : Nat}
     {envC envI : Env} {pp : BlockParts} {cvTasR : List ConstantVal}
-    {ctorsAsR : List (List (ConstantVal × Nat))}
-    {out : List (ConstantVal × ConLeche.TargetMajor × List Expr)} {mpC : EnvModelM V μ envC}
+    {ctorsAsR : List (List (ConstantVal × Nat))} {mpC : EnvModelM V μ envC}
     {dR : BlockData V} {isRecR : Bool} {A : Nat → (Name → Nat) → AnnotTerm}
     {kindsR : List (List (List ConLeche.NestFieldKind))} {nfsR : List (List Expr)}
-    {posR : ConLeche.NestState} {tblR : List ConLeche.NestCtorNf}
-    (hctx : NestedRecCtx V μ F block envC envI pp cvTasR ctorsAsR out mpC dR isRecR A kindsR nfsR
-      posR tblR)
+    {posR : ConLeche.NestState}
+    (hctx : RecCtxBase V μ F envC envI pp cvTasR ctorsAsR mpC dR isRecR A kindsR nfsR posR)
     {mk : EnvModelM V μ envI} (hmkC : LfpCover mk pp.toBlockShape.memberNames)
     (hmk : ∀ D ∈ mk.lfpBlocks, D ∈ mpC.lfpBlocks)
     (hag : ∀ n, (envI.find? n).isSome = true → mpC.base2.acval n = mk.base2.acval n)
@@ -942,7 +940,7 @@ theorem dynCtx_of {F : Nat} {block : List ConstantInfo}
       (dR.holeCtx ψ).reverse t)
     (hF : NodeListFacts mpC (pp.nestCtx fvsP envI.find? envI.consts) ns) :
     DynCtx F mk mpC (pp.nestCtx fvsP envI.find? envI.consts) dR ns := by
-  obtain ⟨-, hPos, henvC, -, -, hN, hS, -, -, hdR, hlfp, hcovC, -, -⟩ := hctx
+  obtain ⟨hPos, henvC, -, -, hN, hS, -, -, hdR, hlfp, hcovC, -⟩ := hctx
   obtain ⟨cvTa0, -, -, -, h0, -⟩ := ConLeche.checkBlockPositivity_m2 hPos
   obtain ⟨pk, uOfD, ppsOf, rfl⟩ := hdR
   have hkN := lfp_namesLen mpC hlfp

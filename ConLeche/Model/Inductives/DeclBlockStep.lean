@@ -118,7 +118,7 @@ theorem nestedClassNodes (hμ : μ.verifiedChecks = true) {F : Nat}
     intro t ht ψ
     obtain ⟨dsa, hdsa⟩ := nodeSem_spOcc (hok t ht) (hsem t ht ψ)
     exact ⟨dsa, DenoteMetaSpine.transport (fun e _ he => htr ψ _ e he) hdsa⟩
-  have hF := nodeListFacts_of hctx hok hown hsp
+  have hF := nodeListFacts_of hctx.base hok hown hsp
   by_cases hgd : ∃ c, c < (tgtRs out).length ∧
       tgtClsG dR mpC.base2.acval envC pp.toBlockShape out ψ ρ xs c
   case neg => exact ⟨TgtNodePres.empty, fun c hc hg => absurd ⟨c, hc, hg⟩ hgd⟩
@@ -134,7 +134,7 @@ theorem nestedClassNodes (hμ : μ.verifiedChecks = true) {F : Nat}
       obtain ⟨pk, uOfD, ppsOf, rfl⟩ := hdR'; exact blockMembersRun_seam hN' hS' hcore'
     exact nodeFrameTie_of hμ h' R' hN' hmr' _ ns ψ ρ xs
   -- the dynamic part: the admissible frames and the calls
-  have H := dynCtx_of hctx hmkC hmk hag hsubC htr hcoreK hok hown hkids hpar hsem hF
+  have H := dynCtx_of hctx.base hmkC hmk hag hsubC htr hcoreK hok hown hkids hpar hsem hF
   have hparams := tgtGuard_params hμ hctx hgd.choose_spec.1 hgd.choose_spec.2
   have hxs : dR.nP ≤ xs.length := by
     have hl := SpineFit.length_eq hparams
