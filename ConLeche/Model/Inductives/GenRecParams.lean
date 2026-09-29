@@ -23,13 +23,13 @@ parameter domains against the major's former, `tgtGuard_params`); the
 generated stage runs no such comparison, and none is needed:
 
 * the generated prefix is SHARED (every generated type is the shared
-  prefix's telescope, annotated: `SameDoms`), so it suffices to look at
+  prefix's telescope: `SameDoms`), so it suffices to look at
   ONE recursor whose class is a MEMBER `T_t` (one exists: the member
   recursors' name pins);
 * that recursor's major domain is `T_t p⃗ ı⃗` over the prefix's own
   parameter variables (the class key moved to the canonical parameters,
   `classKeyCanon`; a member key's parameters ARE them, `targetMajorOf`);
-  the stored type's inference (`checkConstantVal`) infers it, and the
+  the stored type's inference (`classConstOk`) infers it, and the
   application rule compares each parameter variable's type — the stored
   prefix domain — with `T_t`'s parameter domain at the earlier
   variables (`inferTypeCore_spine_defeq`); depth invariance moves the
@@ -41,9 +41,8 @@ generated stage runs no such comparison, and none is needed:
   agreement moves `T_t`'s parameters to the block's.
 
 The route reads no syntactic identity between the stored prefix's
-domains and the former's: annotation keeps an input's written binder
-data and recomputes the placeholders, so the two annotated domains are
-tied by the application rule's comparison, not by construction.
+domains and the former's: the two are tied by the application rule's
+comparison, not by construction.
 -/
 
 namespace ConLeche
@@ -217,14 +216,15 @@ theorem genMemberRec_paramDefeq (hμ : μ.verifiedChecks = true) (hwf : ConLeche
           ∀ l, l < p.nP → ∃ D b mb, instPisWith (xs.take l) cvT.type = some (.forallE D b mb) ∧
             ConLeche.isDefEqCore μ envC F' p.nP ((xs.map Expr.fvarTypeD).getD l default) D
               = .ok true := by
-  have hcv : ConLeche.checkConstantVal (ConLeche.fueledOps μ F) envC
-      { rc.cvR with type := T.gty } = .ok cvG := by
-    rw [← ConLeche.checkConstantValF_eq]; exact T.hcv
-  obtain ⟨-, -, -, -, -, hfv0, type, stype, u0, hann, -, -, hinf, -, hcvEq⟩ :=
-    ConLeche.checkConstantVal_inv hcv
-  have htype : cvG.type = type := by rw [hcvEq]
-  dsimp only at hann hfv0
+  obtain ⟨-, -, -, -, -, hfv0, -, -, stype, u0, hinf, -, hcvEq⟩ :=
+    ConLeche.classConstOk_inv T.hcv
+  generalize htyG : T.gty = type at hfv0 hinf
+  have htype : cvG.type = type := by
+    have := congrArg ConstantVal.type hcvEq
+    simpa [htyG] using this
+  dsimp only at hfv0 hinf
   obtain ⟨ifs, maj, hmaj, hifl, hgty, hcl, hbb⟩ := ConLeche.classGenRecTy_spec hg T.hgty
+  rw [htyG] at hgty
   -- the class: a member
   have hmem : (R.Ms.getD c default).member = some rc.tgt := by
     have h := T.htgt
@@ -251,55 +251,28 @@ theorem genMemberRec_paramDefeq (hμ : μ.verifiedChecks = true) (hwf : ConLeche
   -- nothing to compare without parameters
   by_cases hnP : p.nP = 0
   · refine ⟨[], cvG.type, 0, by rw [hnP]; rfl, fun l hl => absurd hl (by omega)⟩
-  -- the generated telescope, annotated
+  -- the generated telescope
   obtain ⟨s, hm⟩ := ConLeche.classRead_recCls_motive R.hrd c (List.mem_of_getElem? hc)
   have hmv := ConLeche.ClassGen.motVar_eq (g := R.g) hm
-  generalize hnds : R.g.pre ++ ifs.map classBinder ++ [(maj, (default : BinderMeta))] = nds
+  generalize hnds : R.g.pre ++ ifs.map R.g.binder ++ [(maj, R.g.bm)] = nds
     at hgty hcl
   generalize hB : Expr.mkAppN (R.g.motVar c)
     (ifs ++ [.fvar (R.g.pre.length + ifs.length) maj]) = B at hgty hbb
-  have hPlain : ConLeche.Expr.Plain B := by
-    rw [← hB, hmv]
-    refine ConLeche.Expr.Plain.mkAppN (by simp [ConLeche.Expr.Plain]) fun a ha => ?_
-    rcases List.mem_append.mp ha with ha | ha
-    · obtain ⟨k, hk, rfl⟩ := List.getElem_of_mem ha
-      obtain ⟨ty, hxe, -⟩ := (ConLeche.ClassGen.major_scoped hg (by
-        have := (ConLeche.ClassGen.prefixBinders_scoped hg hg.pre).1; omega) hmaj).1 k _
-        (List.getElem?_eq_getElem hk)
-      rw [hxe]; trivial
-    · simp only [List.mem_singleton] at ha
-      subst ha; trivial
-  rw [hgty] at hann hfv0
-  obtain ⟨nds', B', hl', he', hB', hdoms⟩ := ConLeche.annotateCore_closeTelescope nds
-    hcl hbb hPlain (Expr.ErasedEq.rfl _) hann
-  have hcl' : ∀ q ∈ nds', q.1.looseBVarsBounded 0 = true := by
-    intro q hq
-    obtain ⟨j, hj, rfl⟩ := List.getElem_of_mem hq
-    obtain ⟨X, F', nd, hnd, hX, hann'⟩ := hdoms j _ (List.getElem?_eq_getElem hj)
-    exact ConLeche.annotateCore_looseBVars F' X hann'
-      (looseBVarsBounded_of_erasedEq hX (hcl nd (List.mem_of_getElem? hnd)))
-  have hB'b : B'.looseBVarsBounded 0 = true := looseBVarsBounded_of_erasedEq hB' hbb
-  obtain ⟨xs, rest, hop, -, hxs⟩ := open_of_erasedEq_closeTelescope nds' 0 B' type hcl' hB'b he'
-  have hgA := annotate_syntax hann hfv0
-    (ConLeche.closeTelescope_bounded nds 0 B hcl hbb)
+  obtain ⟨xs, rest, hop, -, hxs⟩ := open_of_erasedEq_closeTelescope nds 0 B type hcl hbb
+    (by rw [hgty]; exact Expr.ErasedEq.rfl _)
   -- the major's position
   generalize hN : R.g.pre.length + ifs.length = N at hB
   have hndsLen : nds.length = N + 1 := by
     rw [← hnds, ← hN]; simp; omega
   have hlxs : xs.length = N + 1 := by
-    rw [ConLeche.Verify.openPisAtFvars_length _ hop, hl', hndsLen]
+    rw [ConLeche.Verify.openPisAtFvars_length _ hop, hndsLen]
   have hNP : p.nP ≤ N := by
     have : R.g.pre.length = R.pre.length := rfl
     omega
-  have hndN : nds[N]? = some (maj, default) := by
+  have hndN : nds[N]? = some (maj, R.g.bm) := by
     rw [← hnds, List.getElem?_append_right (by simp [hN.symm] <;> omega)]
     simp [← hN]
   obtain ⟨xN, hxN⟩ : ∃ x, xs[N]? = some x := ⟨_, List.getElem?_eq_getElem (by omega)⟩
-  obtain ⟨ndN', hndN'⟩ : ∃ nd', nds'[N]? = some nd' :=
-    ⟨_, List.getElem?_eq_getElem (by rw [hl']; omega)⟩
-  obtain ⟨X, F', nd, hnd, hX, hannX⟩ := hdoms N _ hndN'
-  rw [hndN, Option.some.injEq] at hnd
-  subst hnd
   -- the major domain: `I` applied to the prefix's parameter variables
   have hmajR : maj = Expr.mkAppN (.const I (p.lps.map .param)) (R.ctx.params ++ ifs) := hmajE
   have hPmaj : ConLeche.Expr.Plain maj := by
@@ -314,10 +287,7 @@ theorem genMemberRec_paramDefeq (hμ : μ.verifiedChecks = true) (hwf : ConLeche
         have := (ConLeche.ClassGen.prefixBinders_scoped hg hg.pre).1; omega) hmaj).1 k _
         (List.getElem?_eq_getElem hk)
       rw [hxe]; trivial
-  obtain rfl : ndN'.1 = X :=
-    ConLeche.annotateCore_plain F' (ConLeche.Expr.Plain.of_erasedEq hX hPmaj) hannX
-  have hMD : Expr.ErasedEq xN.fvarTypeD maj :=
-    Expr.ErasedEq.trans (hxs N xN ndN'.1 hxN (by rw [hndN']; rfl)) hX
+  have hMD : Expr.ErasedEq xN.fvarTypeD maj := hxs N xN maj hxN (by rw [hndN]; rfl)
   rw [hmajR] at hMD
   obtain ⟨f', as', hMDe, hf', has'⟩ := erasedEq_mkAppN_inv _ hMD
   obtain ⟨-, hargs⟩ := ConLeche.erasedEq_mkAppN_args _ has' (hMDe ▸ hMD)
@@ -328,7 +298,7 @@ theorem genMemberRec_paramDefeq (hμ : μ.verifiedChecks = true) (hwf : ConLeche
     rw [has', List.length_append, hplen]
   -- the openers' shape
   have hidx := ConLeche.openPisAtFvars_index _ _ _ hop
-  have hwty : Expr.WScoped 0 type := Expr.WScoped.of_not_hasFvar hgA.1
+  have hwty : Expr.WScoped 0 type := Expr.WScoped.of_not_hasFvar hfv0
   have hxNe : ∃ tN, xN = .fvar N tN := by
     obtain ⟨tN, h⟩ := hidx N xN hxN; exact ⟨tN, by simpa using h⟩
   obtain ⟨tN, rfl⟩ := hxNe
@@ -351,14 +321,14 @@ theorem genMemberRec_paramDefeq (hμ : μ.verifiedChecks = true) (hwf : ConLeche
     rw [← hMDe] at hleaf
     rcases ConLeche.Verify.openPisAtFvars_leaves _ hop _
         (Or.inr ⟨_, List.mem_of_getElem? hxN, hleaf⟩) with hl | hl
-    · rw [Expr.fvarLeaves_eq_nil_of_not_hasFvar hgA.1] at hl; exact nomatch hl
+    · rw [Expr.fvarLeaves_eq_nil_of_not_hasFvar hfv0] at hl; exact nomatch hl
     obtain ⟨q, hq⟩ := List.getElem?_of_mem hl
     obtain ⟨ty, hty⟩ := hidx q _ hq
     simp only [Expr.fvar.injEq, Nat.zero_add] at hty
     obtain ⟨rfl, rfl⟩ := hty
     rw [hx', hq]
   -- the inference, down to the major domain
-  rw [hl', hndsLen] at hop
+  rw [hndsLen] at hop
   obtain ⟨xsN, xs1, o, hopN, hop1, hxsplit⟩ := openPisAtFvars_split N (m := 1) hop
   have hlxsN : xsN.length = N := ConLeche.Verify.openPisAtFvars_length _ hopN
   obtain ⟨dom, bo, mbo, rfl⟩ : ∃ dom bo mbo, o = .forallE dom bo mbo := by
@@ -439,25 +409,23 @@ theorem genMemberRec_paramDefeq (hμ : μ.verifiedChecks = true) (hwf : ConLeche
   exact hde
 
 /-- **The generated recursors share their parameter openers**: every
-generated type is a telescope over the same prefix, annotated
-(`SameDoms`), so its first `nP` opened variables are the same. -/
-theorem genRec_paramOpeners_eq (hμ : μ.verifiedChecks = true)
+generated type is a telescope over the same prefix (`SameDoms`), so its
+first `nP` opened variables are the same. -/
+theorem genRec_paramOpeners_eq
     (R : GenRecRun μ F (mkFEnv env₁) env₁ (mkFEnv envC) p.toBlockShape nestedBit pos cvTas
       block ctorsAs out)
-    (hg : ClassGenScoped R.g) {i i' c c' : Nat} {rc rc' : RecShape} {cvG cvG' : ConstantVal}
-    (hrc : p.recs[i]? = some rc) (hc : R.rd.recCls[i]? = some c)
+    (hg : ClassGenScoped R.g) {c c' : Nat} {rc rc' : RecShape} {cvG cvG' : ConstantVal}
     (T : ClassRecTyRun μ F (mkFEnv envC) R.g p.k rc c cvG)
-    (hrc' : p.recs[i']? = some rc') (hc' : R.rd.recCls[i']? = some c')
     (T' : ClassRecTyRun μ F (mkFEnv envC) R.g p.k rc' c' cvG')
     {xs xs' : List Expr} {o o' : Expr}
     (hop : openPisAtFvars p.nP cvG.type 0 = some (xs, o))
     (hop' : openPisAtFvars p.nP cvG'.type 0 = some (xs', o')) : xs = xs' := by
-  obtain ⟨-, ⟨Y, B, hY⟩, -⟩ := genRecTy_run hμ R hg hrc hc T
-  obtain ⟨-, ⟨Y', B', hY'⟩, -⟩ := genRecTy_run hμ R hg hrc' hc' T'
+  obtain ⟨-, Y, B, hY⟩ := genRecTy_shape R hg T
+  obtain ⟨-, Y', B', hY'⟩ := genRecTy_shape R hg T'
   have hpl : R.pre.length = p.nP + R.rd.slots.length :=
     (ConLeche.ClassGen.prefixBinders_scoped hg hg.pre).1
   have hs := ConLeche.SameDoms.closeTelescope_append R.pre Y Y' 0 B B'
-  have hsA := ConLeche.SameDoms.annotate _ hs hY hY'
+  have hsA : SameDoms R.pre.length cvG.type cvG'.type := by rw [hY, hY']; exact hs
   exact ConLeche.SameDoms.open p.nP (ConLeche.SameDoms.mono (by omega) hsA) hop hop'
 
 /-- **A member-targeting recursor exists** (the member recursors' name
@@ -726,14 +694,15 @@ theorem genParams_fit_run (hμ : μ.verifiedChecks = true) {F : Nat} {envI envC 
     {out : List (ConstantVal × TargetMajor × List Expr)} (mpC : EnvModelM V μ envC)
     (R : GenRecRun μ F (mkFEnv envI) envI (mkFEnv envC) pp.toBlockShape nestedBit pos cvTas
       block ctorsAs out)
-    (hg : ClassGenScoped R.g) {dR : BlockData V}
+    (hg : ClassGenScoped R.g)
+    (h : RecStageG μ F envC pp cvTas ctorsAs (ConLeche.tgtRs out) (fun _ => False))
+    {dR : BlockData V}
     (hmr : BlockMembersRun mpC.base2 dR pp.toBlockShape cvTas) :
     ∀ c, c < (ConLeche.tgtRs out).length → ∀ (ψ : Name → Nat) (ρ : Nat → V) (xs : List V),
       SpineFit ρ (blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (ConLeche.tgtRs out) ψ c)
         xs →
       SpineFit ρ (dR.params ψ) (xs.take dR.nP) := by
   intro c hc ψ ρ xs hfit
-  have h := recStage_of_gen hμ R hg
   obtain ⟨hnPq, hkq, hlenCv, hcvF, hmsF, -, hparIff⟩ := hmr
   have hnPq' : dR.nP = pp.nP := hnPq
   -- recursor `c`
@@ -770,14 +739,14 @@ theorem genParams_fit_run (hμ : μ.verifiedChecks = true) {F : Nat} {envI envC 
   -- recursor `c`'s parameter openers are the same
   obtain ⟨fvsL, conclL, hopL, -, -, hlenRds, -, hbind, -, -⟩ := recStage_tyPis hμ mpC h hr ψ
   have hle := blockRecHrPle (p := pp) h (List.getElem?_eq_some_iff.mp hr).1
-  obtain ⟨hrP, -, -⟩ := genRecTy_run hμ R hg hrc hcc T
+  obtain ⟨hrP, -⟩ := genRecTy_shape R hg T
   obtain ⟨-, -, hRc⟩ := ConLeche.recShape_at (q := pp.toBlockShape) hrc
   have hpl : R.pre.length = pp.nP + R.rd.slots.length :=
     (ConLeche.ClassGen.prefixBinders_scoped hg hg.pre).1
   have hroom : pp.nP ≤ pp.toBlockShape.rulePrefixAt c := by
     rw [hRc, hrP, hpl]; exact Nat.le_add_right _ _
   obtain ⟨oc, hopc⟩ := ConLeche.openPisAtFvars_prefix pp.nP _ cvG.type 0 (by omega) hopL
-  have hxs : fvsL.take pp.nP = xs0 := genRec_paramOpeners_eq hμ R hg hrc hcc T hrc0 hc0 T0 hopc hop0
+  have hxs : fvsL.take pp.nP = xs0 := genRec_paramOpeners_eq R hg T T0 hopc hop0
   rw [hxs] at hopc
   obtain ⟨hwA, hbA⟩ := recStage_tyClosed h hr
   -- the FIRST telescope: recursor `c`'s parameter domains
@@ -888,8 +857,8 @@ theorem genParams_fit_run (hμ : μ.verifiedChecks = true) {F : Nat} {envI envC 
 
 /-- **The generated recursors' parameter domains fit the block's** — at
 the context's conjuncts (`GenRecCtx`'s: the members' names, the
-constructors' stage and core, the datum's shape), the generated run and
-its generator's scoping. -/
+constructors' stage and core, the datum's shape), the generated run, its
+generator's scoping and the stage record (`recStage_of_gen`'s). -/
 theorem genParams_fit (hμ : μ.verifiedChecks = true) {F : Nat} {envI envC : Env}
     {pp : BlockParts} {nestedBit : Bool} {pos : NestState} {cvTasR : List ConstantVal}
     {block : List ConstantInfo} {ctorsAsR : List (List (ConstantVal × Nat))}
@@ -898,6 +867,7 @@ theorem genParams_fit (hμ : μ.verifiedChecks = true) {F : Nat} {envI envC : En
     (R : GenRecRun μ F (mkFEnv envI) envI (mkFEnv envC) pp.toBlockShape nestedBit pos cvTasR
       block ctorsAsR out)
     (hg : ClassGenScoped R.g)
+    (h : RecStageG μ F envC pp cvTasR ctorsAsR (ConLeche.tgtRs out) (fun _ => False))
     (hN : BlockNamesOk (V := V) dR cvTasR)
     (hS : BlockCtorsStage (V := V) μ F dR pp.lps cvTasR pp.toBlockShape isRecR A envI
       pp.ctorNamesAt)
@@ -910,7 +880,7 @@ theorem genParams_fit (hμ : μ.verifiedChecks = true) {F : Nat} {envI envC : En
         xs →
       SpineFit ρ (dR.params ψ) (xs.take dR.nP) := by
   obtain ⟨pk, uOfD, ppsOf, rfl⟩ := hdR
-  exact genParams_fit_run hμ mpC R hg (blockMembersRun_seam hN hS hcore)
+  exact genParams_fit_run hμ mpC R hg h (blockMembersRun_seam hN hS hcore)
 
 end Fit
 
