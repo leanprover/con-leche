@@ -866,7 +866,7 @@
 # stream: `infer_proj` (type_checker.cpp) requires one constructor and
 # `args = nparams + nindices`, not `is_non_rec_structure` — a
 # conservative decline on our side, recorded as a finding in DESIGN.md.
-# Target verdict 0.  It is the ONLY `.proj` decline left (lane PROJREJ,
+# Target: stays 2 (see below).  It is the ONLY `.proj` decline left (lane PROJREJ,
 # 2026-09-29): every other table-less shape rejects as official does.
 # Kept as a decline on purpose: after https://github.com/leanprover/lean4/issues/14977
 # inductives with indices will not have projections (maintainer, 2026-09-29).
