@@ -105,13 +105,6 @@ theorem denoteMeta_closeTelescope_read {acval : Name → (Name → Nat) → Anno
 
 /-! ## The minor premise of `(c, j)`, syntactically -/
 
-theorem list_find?_congr {α : Type} {p q : α → Bool} :
-    ∀ (l : List α), (∀ a ∈ l, p a = q a) → l.find? p = l.find? q
-  | [], _ => rfl
-  | a :: l, h => by
-    rw [List.find?_cons, List.find?_cons, h a List.mem_cons_self,
-      list_find?_congr l (fun b hb => h b (List.mem_cons_of_mem _ hb))]
-
 section Setup
 
 variable {F : Nat} {env₁ envC : Env} {pp : BlockParts} {nestedBit : Bool} {pos : NestState}

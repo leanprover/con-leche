@@ -198,49 +198,6 @@ theorem zeronessOf_paramsDefined {ps' : List Name} :
     show (zeronessOf b).paramsDefined ps' = true
     exact zeronessOf_paramsDefined h.2
 
-/-- A parameter resolved within the pairing lands in the replacement
-list. -/
-theorem subst_go_mem :
-    ∀ {ks : List Name} {us : List Level} {n : Name},
-      n ∈ ks → us.length = ks.length → subst.go ks us n ∈ us
-  | [], _, n, hn, _ => by simp at hn
-  | _ :: _, [], n, _, hl => by simp at hl
-  | k :: ks, u :: us, n, hn, hl => by
-    show (if k = n then u else subst.go ks us n) ∈ u :: us
-    by_cases h : k = n
-    · simp [h]
-    · have hn' : n ∈ ks := by
-        cases hn with
-        | head => exact absurd rfl h
-        | tail _ h' => exact h'
-      simp only [h, if_false]
-      exact List.mem_cons_of_mem u (subst_go_mem hn' (by simpa using hl))
-
-/-- The pushforward keeps datum parameters within the bound of the
-substituted levels — the datum half of
-`Level.allParamsDefined_subst`. -/
-theorem substPW_paramsDefined {ks : List Name} {us : List Level}
-    {ps' : List Name} (hl : us.length = ks.length)
-    (hus : ∀ u ∈ us, u.allParamsDefined ps' = true) :
-    ∀ {pw : PropWhen}, pw.paramsDefined ks = true →
-      (substPW ks us pw).paramsDefined ps' = true := by
-  intro pw h
-  cases pw with
-  | never => rfl
-  | ifAllZero pws =>
-    rw [show substPW ks us (PropWhen.ifAllZero pws)
-          = bindZ.go (fun n => zeronessOf (subst.go ks us n)) pws from
-        bindZ_ifAllZero _ _]
-    simp only [PropWhen.paramsDefined_ifAllZero, List.all_eq_true] at h
-    induction pws with
-    | nil => rfl
-    | cons n rest ih =>
-      show (PropWhen.inter _ _).paramsDefined ps' = true
-      exact PropWhen.paramsDefined_inter_of
-        (zeronessOf_paramsDefined (hus _ (subst_go_mem
-          (by simpa [List.contains_iff_mem] using h n (by simp)) hl)))
-        (ih fun m hm => h m (by simp [hm]))
-
 /-- **The pushforward's semantic reading** (task #161 P3): the
 instantiated datum's bit at `φ` is the datum's bit at the composed
 valuation `Level.substFn φ ks vs` — the same composed valuation

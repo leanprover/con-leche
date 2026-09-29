@@ -48,31 +48,6 @@ theorem wscopedB_of_not_hasFvar {e : Expr} (h : e.hasFvar = false)
     {d : Nat} : e.wscopedB d = true :=
   (WScoped.of_not_hasFvar h).to_wscopedB
 
-theorem stripLams_not_hasFvar :
-    ∀ (k : Nat) {e : Expr} {bs : List (Expr × BinderMeta)}
-      {body : Expr}, Expr.stripLams k e = some (bs, body) →
-      e.hasFvar = false →
-      (∀ b ∈ bs, (b.1).hasFvar = false) ∧ body.hasFvar = false
-  | 0, e, bs, body, h, hf => by
-    simp only [Expr.stripLams, Option.some.injEq] at h
-    obtain ⟨rfl, rfl⟩ : [] = bs ∧ e = body :=
-      ⟨congrArg Prod.fst h, congrArg Prod.snd h⟩
-    exact ⟨(fun b hb => nomatch hb), hf⟩
-  | k + 1, e, bs, body, h, hf => by
-    match e, h with
-    | .lam ty b m, h =>
-      simp only [Expr.stripLams, Option.map_eq_some_iff] at h
-      obtain ⟨⟨bs', body'⟩, hstrip, heq⟩ := h
-      obtain ⟨rfl, rfl⟩ : (ty, m) :: bs' = bs ∧ body' = body :=
-        ⟨congrArg Prod.fst heq, congrArg Prod.snd heq⟩
-      simp only [Expr.hasFvar, Bool.or_eq_false_iff] at hf
-      obtain ⟨hrest, hbody⟩ := stripLams_not_hasFvar k hstrip hf.2
-      refine ⟨?_, hbody⟩
-      intro b hb
-      rcases List.mem_cons.mp hb with rfl | hb
-      · exact hf.1
-      · exact hrest b hb
-
 /-! ## The leaf checker functions, `wfOpsM mode` runs to pure runs -/
 
 /-- `openPisAtFvars` puts the variable it creates for binder `j` at
@@ -166,67 +141,6 @@ theorem openPisAtFvars_WScoped :
     | letE b c d => exact nomatch h
     | lit l => exact nomatch h
     | proj s k e => exact nomatch h
-
-/-- `instPisAt` for `λ`-binders, scoped. -/
-theorem instLamsAt_WScoped {d : Nat} :
-    ∀ (args : List Expr) (ty : Expr) {doms : List Expr} {res : Expr},
-      Expr.instLamsAt args ty = some (doms, res) → WScoped d ty →
-      (∀ a ∈ args, WScoped d a) →
-      (∀ x ∈ doms, WScoped d x) ∧ WScoped d res
-  | [], ty, doms, res, h, hty, _ => by
-    simp only [Expr.instLamsAt, Option.some.injEq, Prod.mk.injEq] at h
-    obtain ⟨rfl, rfl⟩ := h
-    exact ⟨(fun x hx => nomatch hx), hty⟩
-  | a :: as, ty, doms, res, h, hty, hargs => by
-    cases ty with
-    | lam dom body mb =>
-      simp only [Expr.instLamsAt] at h
-      revert h
-      cases hrec : Expr.instLamsAt as (body.instantiate1 a) with
-      | none => intro h; exact nomatch h
-      | some p =>
-        obtain ⟨ds, rest⟩ := p
-        intro h
-        simp only [Option.map_some, Option.some.injEq,
-          Prod.mk.injEq] at h
-        obtain ⟨rfl, rfl⟩ := h
-        simp only [WScoped] at hty
-        obtain ⟨hdom, hbody⟩ := hty
-        have hinst : WScoped d (body.instantiate1 a) :=
-          WScoped.instantiate1_gen (hargs a List.mem_cons_self) 0 hbody
-        obtain ⟨hds, hres⟩ := instLamsAt_WScoped as _ hrec hinst
-          (fun x hx => hargs x (List.mem_cons_of_mem _ hx))
-        refine ⟨?_, hres⟩
-        intro x hx
-        rcases List.mem_cons.mp hx with rfl | hx
-        · exact hdom
-        · exact hds x hx
-    | bvar k => exact nomatch h
-    | fvar a' c => exact nomatch h
-    | sort u => exact nomatch h
-    | const c us => exact nomatch h
-    | app f a' => exact nomatch h
-    | forallE b c d' => exact nomatch h
-    | letE b c d' => exact nomatch h
-    | lit l => exact nomatch h
-    | proj s k e => exact nomatch h
-
-/-- The read-off type of an opened variable is scoped. -/
-theorem fvarTypeD_WScoped {d : Nat} {e : Expr} (h : WScoped d e) :
-    WScoped d (Expr.fvarTypeD e) := by
-  cases e with
-  | fvar idx ty =>
-    simp only [WScoped] at h
-    exact WScoped.mono (Nat.le_of_lt h.1) h.2
-  | bvar k => exact h
-  | sort u => exact h
-  | const c us => exact h
-  | app f a => exact h
-  | lam b c d' => exact h
-  | forallE b c d' => exact h
-  | letE b c d' => exact h
-  | lit l => exact h
-  | proj s k e => exact h
 
 /-! ## Scoping of the structural-Nat certification equations -/
 

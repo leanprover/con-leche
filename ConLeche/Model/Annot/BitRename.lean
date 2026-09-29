@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.Model.Annot.BitLemmas
-public import ConLeche.Verify.Denote.Rename
+public import ConLeche.Verify.Subst
 
 public section
 

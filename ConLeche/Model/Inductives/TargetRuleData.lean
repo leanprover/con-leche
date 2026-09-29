@@ -32,8 +32,6 @@ variable (mode : ConLeche.CheckMode) (F : Nat) (fe : FEnv) (p : BlockShape)
   (formerTys : List Expr)
   (out : List (ConstantVal × TargetMajor × List Expr))
 
-/-- The `j`-th stored recursor's type. -/
-@[expose] def tgtRecTy (j : Nat) : Expr := (out.getD j default).1.type
 /-- The `j`-th recursor's major (a member, or an outside container at its
 instantiation). -/
 @[expose] def tgtMajor (j : Nat) : TargetMajor := (out.getD j default).2.1
@@ -46,9 +44,6 @@ instantiation). -/
 /-- The rule's width `rP + nF`. -/
 @[expose] def tgtB (j i : Nat) : Nat := tgtRP p j + (tgtCtorOf out j i).2
 
-/-- The rule's prefix openers. -/
-@[expose] def tgtPrefFvs (j : Nat) : List Expr :=
-  ((ConLeche.openPisAtFvars (tgtRP p j) (tgtRecTy out j) 0).map (·.1)).getD []
 /-- The constructor at the major's instantiation (`targetCtorAt`: a
 member's stored at the block's levels, an outside container's
 instantiated at the major's) and parameters (a member's: the recursor
@@ -64,23 +59,6 @@ expressions are `getAppArgs.drop nPc`, the major's parameter count). -/
 @[expose] def tgtCbody (j i : Nat) : Expr :=
   ((ConLeche.openPisAtFvars (tgtCtorOf out j i).2 (tgtCrest out j i) (tgtRP p j)).map (·.2)).getD
     default
-/-- **The recursor's conclusion at the constructor, AT THE MAJOR** (the
-target check's `concl`, `targetRule`): the recursor type at the prefix,
-the constructor's index expressions and the fired constructor
-`C.{M.lvls} M.ds f⃗`. -/
-@[expose] def tgtConclExpr (j i : Nat) : Expr :=
-  (ConLeche.Expr.instPisAtLift
-    (tgtPrefFvs p out j ++ (tgtCbody p out j i).getAppArgs.drop (tgtMajor out j).nPc
-      ++ [Expr.mkAppN (.const (tgtCtorOf out j i).1.name (tgtMajor out j).lvls)
-          ((tgtMajor out j).ds ++ tgtFieldFvs p out j i)])
-    (tgtRecTy out j)).getD default
-/-- The rule's body (below its `rP + nF` λ-binders). -/
-@[expose] def tgtBody (j i : Nat) : Expr :=
-  (((tgtRhsOf out j i).stripLams (tgtB p out j i)).map (·.2)).getD default
-/-- The member abstraction at the rule's holes. -/
-@[expose] def tgtAbsM (j i : Nat) : Expr → Expr :=
-  ConLeche.targetAbs p.memberNames (p.lps.map .param)
-    (ConLeche.targetHoles formerTys (tgtB p out j i))
 variable (acval : Name → (Name → Nat) → AnnotTerm) (env : Env)
 
 end Defs

@@ -6,7 +6,6 @@ public import ConLeche.Model.Inductives.StructFrameKit
 public import ConLeche.Model.IndPinGrade
 public import ConLeche.Verify.Inductives.DirectGen
 import ConLeche.Model.Annot.BitRename
-import ConLeche.Model.Annot.BitInst
 
 public section
 
@@ -412,35 +411,6 @@ open ConLeche (Env Expr Name Level ConstantInfo ConstantVal IndCaps
 
 /-! ## Lifted Π-towers -/
 
-/-- The binder data of a lifted Π-tower: each domain lifted at its own
-depth. -/
-@[expose] def liftDoms (n : Nat) : Nat → List (Nat × Nat × AnnotTerm) → List (Nat × Nat × AnnotTerm)
-  | _, [] => []
-  | k, d :: ds => (d.1, d.2.1, d.2.2.liftN n k) :: liftDoms n (k + 1) ds
-
-theorem liftDoms_length (n : Nat) :
-    ∀ (ds : List (Nat × Nat × AnnotTerm)) (k : Nat), (liftDoms n k ds).length = ds.length
-  | [], _ => rfl
-  | _ :: ds, k => by simp [liftDoms, liftDoms_length n ds (k + 1)]
-
-theorem liftDoms_getElem? (n : Nat) :
-    ∀ (ds : List (Nat × Nat × AnnotTerm)) (k i : Nat),
-      (liftDoms n k ds)[i]? = ds[i]?.map fun d => (d.1, d.2.1, d.2.2.liftN n (k + i))
-  | [], _, _ => rfl
-  | _ :: ds, k, 0 => by simp [liftDoms]
-  | _ :: ds, k, i + 1 => by
-    simp only [liftDoms, List.getElem?_cons_succ, liftDoms_getElem? n ds (k + 1) i]
-    rw [show k + 1 + i = k + (i + 1) from by omega]
-
-theorem liftN_mkPisAV (n : Nat) :
-    ∀ (ds : List (Nat × Nat × AnnotTerm)) (b : AnnotTerm) (k : Nat),
-      (mkPisAV ds b).liftN n k = mkPisAV (liftDoms n k ds) (b.liftN n (k + ds.length))
-  | [], b, k => by simp [mkPisAV, liftDoms]
-  | d :: ds, b, k => by
-    simp only [mkPisAV, liftDoms, AnnotTerm.liftN_pi, liftN_mkPisAV n ds b (k + 1),
-      List.length_cons]
-    rw [show k + 1 + ds.length = k + (ds.length + 1) from by omega]
-
 theorem stripPisAV_mkPisAV_take :
     ∀ (n : Nat) (ds : List (Nat × Nat × AnnotTerm)) (b : AnnotTerm), n ≤ ds.length →
       stripPisAV n (mkPisAV ds b) = some (ds.take n, mkPisAV (ds.drop n) b)
@@ -586,18 +556,6 @@ theorem openPisAtFvars_typeWScoped :
 
 /-! ## Frame shifts under a consed spine -/
 
-omit [SetTheory V] in
-theorem shiftE_cons_succ' (n k : Nat) (a : V) (σ : Nat → V) :
-    shiftE n (k + 1) (cons a σ) = cons a (shiftE n k σ) := by
-  funext i
-  cases i with
-  | zero => simp [shiftE]
-  | succ i =>
-    simp only [shiftE, cons_succ]
-    by_cases h : i < k
-    · rw [if_pos (by omega), if_pos h]
-    · rw [if_neg (by omega), if_neg h, show i + 1 + n = i + n + 1 from by omega, cons_succ]
-
 /-! ## List arithmetic -/
 
 theorem mkPisAV_append :
@@ -607,28 +565,6 @@ theorem mkPisAV_append :
   | d :: l₁, l₂, b => by simp [mkPisAV, mkPisAV_append l₁ l₂ b]
 
 /-! ## Lifted domains, field spines, and frame arithmetic -/
-
-theorem liftDoms_take (n : Nat) :
-    ∀ (ds : List (Nat × Nat × AnnotTerm)) (k j : Nat),
-      (liftDoms n k ds).take j = liftDoms n k (ds.take j)
-  | [], _, _ => by simp [liftDoms]
-  | _ :: ds, k, 0 => rfl
-  | _ :: ds, k, j + 1 => by
-    simp only [liftDoms, List.take_succ_cons, liftDoms_take n ds (k + 1) j]
-
-/-- A fit of lifted domains is a fit of the domains at the shifted
-frame. -/
-theorem spineFit_liftDoms (n : Nat) :
-    ∀ {ds : List (Nat × Nat × AnnotTerm)} {k : Nat} {σ : Nat → V} {as : List V},
-      SpineFit σ ((liftDoms n k ds).map (·.2.2)) as ↔
-        SpineFit (shiftE n k σ) (ds.map (·.2.2)) as
-  | [], _, _, [] => Iff.rfl
-  | [], _, _, _ :: _ => Iff.rfl
-  | _ :: _, _, _, [] => Iff.rfl
-  | d :: ds, k, σ, a :: as => by
-    simp only [liftDoms, List.map_cons, SpineFit, interp_liftN]
-    rw [← shiftE_cons_succ']
-    exact and_congr Iff.rfl (spineFit_liftDoms n)
 
 theorem spineFit_append_inv :
     ∀ {Ds₁ Ds₂ : List AnnotTerm} {ρ : Nat → V} {as : List V},
@@ -679,11 +615,6 @@ variable {acval : Name → (Name → Nat) → AnnotTerm}
 @[simp] theorem rebit_map_dom (b : Nat) (ds : List (Nat × Nat × AnnotTerm)) :
     (rebit b ds).map (·.2.2) = ds.map (·.2.2) := by simp [rebit]
 
-theorem mem_rebit {b : Nat} {ds : List (Nat × Nat × AnnotTerm)} {d : Nat × Nat × AnnotTerm}
-    (h : d ∈ rebit b ds) : d.2.1 = b := by
-  obtain ⟨d', -, rfl⟩ := List.mem_map.mp h
-  rfl
-
 /-! ## Syntactic bookkeeping -/
 
 /-- The variables of an opening at any depth: one per binder, indexed
@@ -699,20 +630,6 @@ theorem opening_vars_at {n d : Nat} {e : Expr} {fvs : List Expr} {o : Expr}
     rfl⟩
 
 /-! ## The constructor telescope's residual -/
-
-/-- The reading of the constructor's residual, one under (the motive):
-the field data lifted once. -/
-theorem ctorResidual_read_lift {m : EnvModel V env} {ψ : Name → Nat} {nP nF : Nat}
-    {crest : Expr} {ds : List (Nat × Nat × AnnotTerm)} {bodyC : AnnotTerm}
-    (hread : denoteMeta m.acval env ψ nP crest = some (mkPisAV (ds.drop nP) bodyC))
-    (hw : Expr.WScoped nP crest) (hlenD : ds.length = nP + nF) (e : Nat) :
-    denoteMeta m.acval env ψ (nP + e) crest
-      = some (mkPisAV (liftDoms e 0 (ds.drop nP)) (bodyC.liftN e nF)) := by
-  rw [denoteMeta_lift m.acval_closed hw (nP + e) (by omega), hread, Option.map_some,
-    show nP + e - nP = e from by omega, liftN_mkPisAV, Nat.zero_add]
-  congr 3
-  simp [hlenD]
-
 
 /-!
 ## λ-towers fold to their body

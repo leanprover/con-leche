@@ -3,7 +3,6 @@ module
 public import ConLeche.Verify.Inductives.DirectInv
 import ConLeche.Kernel.Inductives.FieldTele
 import ConLeche.Verify.Inductives.BlockInv
-import ConLeche.Verify.Extend.Inversions
 import ConLeche.Verify.Shift
 
 public section
@@ -712,39 +711,5 @@ one's, binder by binder, up to defeq.  What the model needs of it is
 the per-position `isDefEq`, at the two openings — the fact that lets
 it identify the classes' prefix domains and so put a guarded call's
 predecessor in the CALLEE's class. -/
-
-/-- **`checkBlockDefEqList`, inverted**: the lists have the same length
-and every position is defeq at the stage's depth. -/
-theorem checkBlockDefEqList_inv {env : Env} {F depth : Nat} {what : String} :
-    ∀ {as bs : List Expr},
-      checkBlockDefEqList (fueledOps mode F) env depth what as bs = .ok () →
-      as.length = bs.length ∧
-      ∀ l, l < as.length →
-        isDefEqCore mode env F depth (as.getD l default) (bs.getD l default) = .ok true
-  | [], [], _ => ⟨rfl, fun l hl => absurd hl (Nat.not_lt_zero l)⟩
-  | [], _ :: _, h => by
-    simp only [checkBlockDefEqList, throw, throwThe, MonadExceptOf.throw] at h
-    exact nomatch h
-  | _ :: _, [], h => by
-    simp only [checkBlockDefEqList, throw, throwThe, MonadExceptOf.throw] at h
-    exact nomatch h
-  | a :: as, b :: bs, h => by
-    rw [checkBlockDefEqList] at h
-    simp only [fueledOps_isDefEq] at h
-    obtain ⟨c, hc, h⟩ := exceptBind_ok h
-    by_cases hcb : c = true
-    case neg =>
-      rw [Bool.not_eq_true] at hcb
-      subst hcb
-      simp only [Bool.false_eq_true, if_false, throw, throwThe, MonadExceptOf.throw,
-        Bind.bind, Except.bind] at h
-      exact nomatch h
-    subst hcb
-    simp only [if_pos, Bind.bind, Except.bind, pure, Except.pure] at h
-    obtain ⟨hlen, hall⟩ := checkBlockDefEqList_inv h
-    refine ⟨by simp [hlen], fun l hl => ?_⟩
-    cases l with
-    | zero => simpa using hc
-    | succ l => simpa using hall l (by simpa using hl)
 
 end ConLeche

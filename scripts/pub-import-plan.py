@@ -54,6 +54,14 @@ DIR   = os.environ.get('PUBPLAN_DIR', '_tmp/m3')
 # a tree whose `rfl`s stop closing, so they stay public and the gate must not
 # ask for them again.
 FALLBACK = {
+    # lane NODESIMP (M1, the dead-code cut): the census calls these
+    # demotable, but demoting each file's pair breaks its build (measured:
+    # `PosFieldLeaf` — `Expr`, `:33`, with both demoted; `PosTree`, `:88`,
+    # with only `PosNodes` demoted; `Expr.ErasedEq`/`LocList` otherwise;
+    # `BlockRuleGrading` — `SetTheory`, `:36`, with both demoted).
+    ('ConLeche.Model.Inductives.PosFieldLeaf', 'ConLeche.Model.Inductives.TargetRecRead'),
+    ('ConLeche.Model.Inductives.PosFieldLeaf', 'ConLeche.Verify.Inductives.PosNodes'),
+    ('ConLeche.Model.Inductives.BlockRuleGrading', 'ConLeche.Model.Inductives.BlockRuleRun'),
     # lane GENREC (G): measured by demoting each alone (unknown identifier
     # `blockRulePdomsAV`, `GenRecParams.lean:732`; `BlockMembersRun`, `:730`;
     # `SameDoms`, `:58`).

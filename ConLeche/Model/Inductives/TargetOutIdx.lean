@@ -1,7 +1,6 @@
 module
 
 public import ConLeche.Model.Inductives.ContN2
-import ConLeche.Model.Annot.BitLemmas
 import ConLeche.Model.Inductives.BlockRecRule
 
 public section

@@ -54,20 +54,6 @@ local macro_rules
 
 /-! ## Guards -/
 
-/-- A passed `unless` guard holds. -/
-theorem unless_throw_ok {b : Bool} {e : CheckError} {u : Unit}
-    (h : ((unless b do throw e : CheckM Unit)) = .ok u) : b = true := by
-  cases b with
-  | true => rfl
-  | false => exact absurd h (by simp [throw, throwThe, MonadExceptOf.throw])
-
-/-- A passed `if … then throw` guard does not hold. -/
-theorem if_throw_ok {b : Bool} {e : CheckError} {u : Unit}
-    (h : ((if b then throw e else pure () : CheckM Unit)) = .ok u) : b = false := by
-  cases b with
-  | false => rfl
-  | true => exact absurd h (by simp [throw, throwThe, MonadExceptOf.throw])
-
 /-! ## The stream's recursor types -/
 
 /-- **`classStreamRecs`, inverted**: every stream recursor constant,

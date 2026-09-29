@@ -49,28 +49,6 @@ theorem interp_bvarAt {L : List V} {ρ : Nat → V} {k : Nat} (hk : k < L.length
   rw [interp_bvar, consList_getD_of_lt L ρ _ (by omega),
     show L.length - 1 - (L.length - 1 - k) = k from by omega]
 
-/-- A prefix of a list, as its first entries. -/
-theorem take_eq_map_getD : ∀ (L : List V) (n : Nat), n ≤ L.length →
-    L.take n = (List.range n).map fun k => L.getD k pt := by
-  intro L n hn
-  refine List.ext_getElem (by simp; omega) fun i h1 h2 => ?_
-  have hi : i < n := by
-    have := h1
-    simp only [List.length_take] at this
-    omega
-  rw [List.getElem_take, List.getElem_map, List.getElem_range,
-    List.getD_eq_getElem?_getD, List.getElem?_eq_getElem (by omega)]
-  rfl
-
-/-- The parameter bvars read the frame's first `nP` entries. -/
-theorem map_bvarAt_take {L : List V} {ρ : Nat → V} {nP D : Nat} (hD : D = L.length)
-    (hnP : nP ≤ L.length) :
-    (paramBvarsAt nP D).map (interp V (consList L ρ)) = L.take nP := by
-  subst hD
-  rw [take_eq_map_getD L nP hnP, paramBvarsAt, List.map_map]
-  refine List.map_congr_left fun k hk => ?_
-  exact interp_bvarAt (by simpa using Nat.lt_of_lt_of_le (List.mem_range.mp hk) hnP)
-
 /-! ## Reading below the holes -/
 
 /-- **A term lifted over variables inserted below a spine** reads at the

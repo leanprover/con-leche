@@ -1,6 +1,5 @@
 module
 
-import ConLeche.Verify.Leaves
 import ConLeche.Verify.InferLeaves
 public import ConLeche.Verify.Inductives.RecCheckRun
 public import ConLeche.Model.Inductives.TargetRecRead
@@ -174,64 +173,5 @@ theorem constsBound_of_instantiate1 {env₀ : Env} {v : Expr} :
   | proj s i x ih =>
     intro k h; simp only [Expr.instantiate1, constsBound_proj] at h ⊢
     exact ih k h
-
-/-- **A term inferred at the certified grade names only stored
-constants**, once its free variables' annotations do. -/
-theorem infer_constsBound_of_full {env : Env} :
-    ∀ {g : Rules.Grade} {d : Nat} {e t : Expr}, Rules.Infer env g d e t → g = .full →
-      (∀ l ∈ e.fvarLeaves, ConstsBound env l.2) → ConstsBound env e
-  | _, _, _, _, .sort, _, _ => by simp
-  | _, _, _, _, @Rules.Infer.fvar _ _ _ idx ty _, _, hl => by
-    simp only [constsBound_fvar]
-    exact hl (idx, ty) (by simp [Expr.fvarLeaves])
-  | _, _, _, _, .const hf _ _, _, _ => by simp [hf]
-  | _, _, _, _, .natLit _, _, _ => by simp
-  | _, _, _, _, .strLit _, _, _ => by simp
-  | _, _, _, _, .forallE hs _ hbs _ _, hg, hl => by
-    have hty := infer_constsBound_of_full hs hg (fun l h => hl l (by simp [Expr.fvarLeaves, h]))
-    simp only [constsBound_forallE]
-    refine ⟨hty, constsBound_of_instantiate1 _ 0 (infer_constsBound_of_full hbs hg ?_)⟩
-    intro l h
-    rcases ConLeche.Expr.fvarLeaves_instantiate1 _ 0 h with h' | h'
-    · exact hl l (by simp [Expr.fvarLeaves, h'])
-    · simp only [Expr.fvarLeaves, List.mem_cons] at h'
-      rcases h' with rfl | h'
-      · exact hty
-      · exact hl l (by simp [Expr.fvarLeaves, h'])
-  | _, _, _, _, .lam hs _ hbt _ _ _ _, hg, hl => by
-    have hty := infer_constsBound_of_full (hs hg) rfl
-      (fun l h => hl l (by simp [Expr.fvarLeaves, h]))
-    simp only [constsBound_lam]
-    refine ⟨hty, constsBound_of_instantiate1 _ 0 (infer_constsBound_of_full hbt hg ?_)⟩
-    intro l h
-    rcases ConLeche.Expr.fvarLeaves_instantiate1 _ 0 h with h' | h'
-    · exact hl l (by simp [Expr.fvarLeaves, h'])
-    · simp only [Expr.fvarLeaves, List.mem_cons] at h'
-      rcases h' with rfl | h'
-      · exact hty
-      · exact hl l (by simp [Expr.fvarLeaves, h'])
-  | _, _, _, _, .app hf _ ha _, hg, hl => by
-    simp only [constsBound_app]
-    exact ⟨infer_constsBound_of_full hf hg (fun l h => hl l (by simp [Expr.fvarLeaves, h])),
-      infer_constsBound_of_full ha hg (fun l h => hl l (by simp [Expr.fvarLeaves, h]))⟩
-  | _, _, _, _, .appSkip .., hg, _ => nomatch hg
-  | _, _, _, _, .proj hp .., hg, hl => by
-    simp only [constsBound_proj]
-    exact infer_constsBound_of_full hp hg (fun l h => hl l (by simpa [Expr.fvarLeaves] using h))
-
-/-- An entry of an opener list is a free variable. -/
-theorem FvarList.mem_fvar {E : Nat} {xs : List Expr} (h : FvarList E xs) {x : Expr}
-    (hx : x ∈ xs) : ∃ i ty, x = Expr.fvar i ty := by
-  obtain ⟨j, hj⟩ := List.getElem?_of_mem hx
-  have hjl : j < E := by
-    have := (List.getElem?_eq_some_iff.mp hj).1
-    rw [h.1] at this; exact this
-  obtain ⟨ty, hty⟩ := h.2.1 j hjl
-  rw [hj] at hty
-  exact ⟨_, _, Option.some.inj hty⟩
-
-theorem fvarLeaves_default : (default : Expr).fvarLeaves = [] := by
-  have h : (default : Expr) = .bvar default := rfl
-  rw [h]; simp [Expr.fvarLeaves]
 
 end ConLeche.Model

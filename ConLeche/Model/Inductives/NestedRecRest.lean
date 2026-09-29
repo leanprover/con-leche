@@ -3,7 +3,6 @@ module
 import ConLeche.Verify.Cached.PushChain
 import Std.Data.String.ToNat
 public import ConLeche.Model.Inductives.BlockDeclRun
-import ConLeche.Verify.InstLevels
 
 public section
 
@@ -268,22 +267,6 @@ theorem tgtFire_pinsNoProj (h : ConLeche.RecStageG μ F envC pp cvTas ctorsAs rs
 
 end Pins
 
-/-! ## `tower`: every stored rule reads as a λ-tower over its prefix and fields
-
-At ANY major: the target rule run opens the stored rule's λ-tower at the
-prefix and field openers (`TargetRuleRun.hlams`), which are the fvars
-`0 … rP + nF − 1` (`blockRuleOpeners_index`), so a reading of the rule is
-a λ-telescope of that length (`instLamsAt_denotePTele`). -/
-
-section Tower
-
-variable {F : Nat} {envC : Env} {pp : BlockParts} {cvTas : List ConstantVal}
-  {ctorsAs : List (List (ConstantVal × Nat))} {nested : Bool}
-  {block : List ConstantInfo} {out : List (ConstantVal × TargetMajor × List Expr)}
-
-end Tower
-
-
 /-! ## The target field domains' length -/
 
 /-! ## `eqP`: the target rule data read alike at valuations agreeing on the recursor's parameters
@@ -327,69 +310,6 @@ theorem lpDefF_openPisAtFvars {ps : List Name} :
       · exact nomatch h
     | _ => simp [ConLeche.openPisAtFvars] at h
 
-omit [SetTheory V] in
-/-- Instantiating a telescope at footprint-bounded arguments keeps the
-footprint. -/
-theorem lpDefF_instPisWith {ps : List Name} :
-    ∀ (ds : List Expr) (e : Expr) {r : Expr}, (∀ d ∈ ds, lpDefF ps d = true) →
-      lpDefF ps e = true → ConLeche.instPisWith ds e = some r → lpDefF ps r = true
-  | [], e, r, _, he, h => by
-    simp only [ConLeche.instPisWith, Option.some.injEq] at h
-    exact h ▸ he
-  | a :: as, e, r, hds, he, h => by
-    cases e with
-    | forallE dom b m =>
-      simp only [ConLeche.instPisWith] at h
-      simp only [lpDefF, Bool.and_eq_true] at he
-      exact lpDefF_instPisWith as _ (fun d hd => hds d (List.mem_cons_of_mem _ hd))
-        (lpDefF_instantiate1 (hds a List.mem_cons_self) _ _ he.1.2) h
-    | _ => simp [ConLeche.instPisWith] at h
-
-omit [SetTheory V] in
-/-- Instantiating ALL of a term's level parameters at bounded levels
-bounds its footprint. -/
-theorem lpDefF_instantiateLevelParams {ps ks : List Name} {us : List Level}
-    (hl : us.length = ks.length) (hus : ∀ u ∈ us, u.allParamsDefined ps = true) :
-    ∀ e : Expr, e.allLevelParamsDefined ks = true →
-      lpDefF ps (e.instantiateLevelParams ks us) = true := by
-  intro e
-  induction e with
-  | bvar => intro _; rfl
-  | fvar => intro _; rfl
-  | lit => intro _; rfl
-  | sort u =>
-    intro h
-    exact ConLeche.Level.allParamsDefined_subst hl hus h
-  | const n vs =>
-    intro h
-    simp only [Expr.allLevelParamsDefined, List.all_eq_true] at h
-    simp only [Expr.instantiateLevelParams, lpDefF, List.all_eq_true, List.mem_map]
-    rintro _ ⟨v, hv, rfl⟩
-    exact ConLeche.Level.allParamsDefined_subst hl hus (h v hv)
-  | app f a ihf iha =>
-    intro h
-    simp only [Expr.allLevelParamsDefined, Bool.and_eq_true] at h
-    simp only [Expr.instantiateLevelParams, lpDefF, ihf h.1, iha h.2, Bool.and_self]
-  | lam t b m iht ihb =>
-    intro h
-    simp only [Expr.allLevelParamsDefined, Bool.and_eq_true] at h
-    simp only [Expr.instantiateLevelParams, lpDefF, iht h.1.1, ihb h.1.2,
-      ConLeche.Level.substPW_paramsDefined hl hus h.2, Bool.and_self]
-  | forallE t b m iht ihb =>
-    intro h
-    simp only [Expr.allLevelParamsDefined, Bool.and_eq_true] at h
-    simp only [Expr.instantiateLevelParams, lpDefF, iht h.1.1, ihb h.1.2,
-      ConLeche.Level.substPW_paramsDefined hl hus h.2, Bool.and_self]
-  | letE t v b iht ihv ihb =>
-    intro h
-    simp only [Expr.allLevelParamsDefined, Bool.and_eq_true] at h
-    simp only [Expr.instantiateLevelParams, lpDefF, iht h.1.1, ihv h.1.2, ihb h.2,
-      Bool.and_self]
-  | proj s i e ih =>
-    intro h
-    simp only [Expr.allLevelParamsDefined] at h
-    simp only [Expr.instantiateLevelParams, lpDefF, ih h]
-
 /-- The opened domains read alike at valuations agreeing on their
 footprint. -/
 theorem readOpenedDoms_params {env : Env} (m : EnvModel V env) {ps : List Name}
@@ -402,57 +322,10 @@ theorem readOpenedDoms_params {env : Env} (m : EnvModel V env) {ps : List Name}
     rw [denoteMeta_params_extF m hq _ _ (h x List.mem_cons_self),
       readOpenedDoms_params m hq (d + 1) xs (fun y hy => h y (List.mem_cons_of_mem _ hy))]
 
-omit [SetTheory V] in
-/-- A term naming only parameters of `ks` names only parameters of any
-`ps ⊇ ks`. -/
-theorem lpDefF_of_sub {ps ks : List Name} (hsub : ∀ q ∈ ks, q ∈ ps) {e : Expr}
-    (h : e.allLevelParamsDefined ks = true) : lpDefF ps e = true := by
-  have := lpDefF_instantiateLevelParams (ps := ps) (us := ks.map Level.param)
-    (by rw [List.length_map]) (fun u hu => by
-      obtain ⟨q, hq, rfl⟩ := List.mem_map.mp hu
-      simp [Level.allParamsDefined, hsub q hq]) e h
-  rwa [Expr.instantiateLevelParams_self] at this
-
 variable {F : Nat} {envC : Env} {pp : BlockParts} {cvTas : List ConstantVal}
   {ctorsAs : List (List (ConstantVal × Nat))} {nested : Bool}
   {block : List ConstantInfo} {out : List (ConstantVal × TargetMajor × List Expr)}
 
 end Params
-
-/-! ## `eqB`: the target rule data are bound by their frames, at every major
-
-The rows of `blockRecEqs_below_rows`: at a member major the block's own
-(`blockRule_rowB_member` through `tgt…_eq_block`); at an outside major
-the field domains by `tgtOutFdoms_bounded`, the index expressions and the
-fired spine by their readings (the instantiated constructor is scoped at
-the prefix); the `ih` terms and the residue at ANY major by
-`tgtRule_belowG`, the major's parameters scoped (`tgtDsOk_any`) and the
-fired constructor closed (`tgtCtorAt_closed`). -/
-
-section RowsB
-
-variable {F : Nat} {envC : Env} {pp : BlockParts} {cvTas : List ConstantVal}
-  {ctorsAs : List (List (ConstantVal × Nat))} {nested : Bool}
-  {block : List ConstantInfo} {out : List (ConstantVal × TargetMajor × List Expr)}
-  {mpC : EnvModelM V μ envC} {pk : Nat → BlockMemberPick} {uOfD : Nat → (Name → Nat) → Nat}
-  {ppsOf : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)} {isRec : Bool}
-  {A : Nat → (Name → Nat) → AnnotTerm}
-
-omit [SetTheory V] in
-/-- A member of a read spine reads as a member of the reading. -/
-theorem DenoteMetaSpine.mem_val {acval : Name → (Name → Nat) → AnnotTerm} {env : Env}
-    {φ : Name → Nat} {d : Nat} {as : List Expr} {vs : List AnnotTerm}
-    (h : DenoteMetaSpine acval env φ d as vs) :
-    ∀ x ∈ as, ∃ v ∈ vs, denoteMeta acval env φ d x = some v := by
-  induction h with
-  | nil => intro x hx; exact nomatch hx
-  | cons ha _ ih =>
-    intro x hx
-    rcases List.mem_cons.mp hx with rfl | hx'
-    · exact ⟨_, List.mem_cons_self, ha⟩
-    · obtain ⟨v, hv, hr⟩ := ih x hx'
-      exact ⟨v, List.mem_cons_of_mem _ hv, hr⟩
-
-end RowsB
 
 end ConLeche.Model

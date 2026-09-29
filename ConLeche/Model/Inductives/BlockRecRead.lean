@@ -3,12 +3,9 @@ module
 public import ConLeche.Verify.Inductives.RecStage
 import ConLeche.Verify.Level
 import ConLeche.Model.Annot.Bit
-public import ConLeche.Model.Annot.BitLemmas
 import ConLeche.Verify.Shift
 import ConLeche.Model.BasisEmpty
 import ConLeche.Model.Annot.Laws
-import ConLeche.Model.Rules.InferSoundKit
-import ConLeche.Verify.Inductives.BlockRecInv
 public import ConLeche.Model.Annot.EnvModelM
 import ConLeche.Model.Capstone
 
@@ -52,30 +49,6 @@ operations collapse onto ones the model owns
 not new inductions. -/
 
 variable {acval : Name → (Name → Nat) → AnnotTerm} {env : Env} {φ : Name → Nat}
-
-/-- **The reading of an `instPisAtLift` peel**, at bvar-closed
-arguments: `denoteMeta_instPisAt_peel` through
-`instPisAtLift_eq_instPisAt`. -/
-theorem denoteMeta_instPisAtLift_peel
-    (hacl : ∀ (n : Name) (ψ : Name → Nat) (k : Nat),
-      (acval n ψ).liftN 1 k = acval n ψ)
-    (hainst : ∀ (n : Name) (ψ : Name → Nat) (y : AnnotTerm) (k : Nat),
-      (acval n ψ).inst y k = acval n ψ)
-    {d : Nat} (args : List Expr) {ty rest : Expr} {Ta : AnnotTerm} {vs : List AnnotTerm}
-    (hpr : Expr.instPisAtLift args ty = some rest)
-    (hw : Expr.WScoped d ty)
-    (ha : ∀ a ∈ args, Expr.WScoped d a ∧ a.looseBVarsBounded 0 = true)
-    (hty : denoteMeta acval env φ d ty = some Ta)
-    (hsp : DenoteMetaSpine acval env φ d args vs) :
-    ∃ restA, denoteMeta acval env φ d rest = some restA ∧
-      ConLeche.Model.AnnotTerm.peelPis Ta vs = some restA := by
-  rw [ConLeche.instPisAtLift_eq_instPisAt (fun a hmem => (ha a hmem).2)] at hpr
-  cases hpa : Expr.instPisAt args ty with
-  | none => rw [hpa] at hpr; exact nomatch hpr
-  | some p =>
-    rw [hpa] at hpr
-    obtain rfl : p.2 = rest := Option.some.inj hpr
-    exact ConLeche.Model.Rules.denoteMeta_instPisAt_peel hacl hainst args (ds := p.1) (by rw [hpa]) hw ha hty hsp
 
 /-! ## The stored types READ, and their readings are GRADED
 

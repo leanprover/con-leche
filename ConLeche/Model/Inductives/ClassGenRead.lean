@@ -3,13 +3,13 @@ module
 public import ConLeche.Verify.Inductives.ClassGenScope
 public import ConLeche.Verify.Inductives.ClassGenAnnot
 import ConLeche.Model.Inductives.NestPosOut
-import ConLeche.Verify.Rules.InferBridge
 import ConLeche.Verify.Mono
 import ConLeche.Verify.Denote.IndFrame
-import ConLeche.Verify.Leaves
-public import ConLeche.Model.Inductives.ClassRecKit
 import ConLeche.Verify.Denote.Shift
 import ConLeche.Model.Annot.BitRename
+import ConLeche.Verify.Rules.InferBridge
+public import ConLeche.Model.Inductives.ClassRecKit
+import ConLeche.Verify.Leaves
 
 public section
 
@@ -52,33 +52,6 @@ universe w
 variable {μ : CheckMode}
 
 /-! ## Syntax helpers -/
-
-theorem looseBVarsBounded_of_erasedEq :
-    ∀ {e e' : Expr} {k : Nat}, Expr.ErasedEq e e' → e'.looseBVarsBounded k = true →
-      e.looseBVarsBounded k = true
-  | .bvar i, .bvar j, k, he, h => by
-    obtain rfl : i = j := he
-    exact h
-  | .fvar _ _, .fvar _ _, _, _, _ => rfl
-  | .sort _, .sort _, _, _, _ => rfl
-  | .const _ _, .const _ _, _, _, _ => rfl
-  | .lit _, .lit _, _, _, _ => rfl
-  | .app f a, .app g b, k, he, h => by
-    simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at h ⊢
-    exact ⟨looseBVarsBounded_of_erasedEq he.1 h.1, looseBVarsBounded_of_erasedEq he.2 h.2⟩
-  | .lam t b _, .lam t' b' _, k, he, h => by
-    simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at h ⊢
-    exact ⟨looseBVarsBounded_of_erasedEq he.2.1 h.1, looseBVarsBounded_of_erasedEq he.2.2 h.2⟩
-  | .forallE t b _, .forallE t' b' _, k, he, h => by
-    simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at h ⊢
-    exact ⟨looseBVarsBounded_of_erasedEq he.2.1 h.1, looseBVarsBounded_of_erasedEq he.2.2 h.2⟩
-  | .letE t v b, .letE t' v' b', k, he, h => by
-    simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at h ⊢
-    exact ⟨⟨looseBVarsBounded_of_erasedEq he.1 h.1.1, looseBVarsBounded_of_erasedEq he.2.1 h.1.2⟩,
-      looseBVarsBounded_of_erasedEq he.2.2 h.2⟩
-  | .proj _ _ e, .proj _ _ e', k, he, h => by
-    simp only [Expr.looseBVarsBounded] at h ⊢
-    exact looseBVarsBounded_of_erasedEq he.2.2 h
 
 /-- An expression erasure-equal to an application spine is one. -/
 theorem erasedEq_mkAppN_inv :
@@ -214,116 +187,6 @@ theorem fvarLeaves_mkAppN_head {i : Nat} {T : Expr} :
 
 /-! ## The bits -/
 
-set_option maxHeartbeats 800000 in
-/-- **The generated type's conclusion is sorted at `Sort elim`**: the
-type (stored as generated) opens at its binder count, and its conclusion
-(the motive's variable applied to the index spine and the major) infers
-to a sort that `ensureSort` reads as the generator's elimination level —
-the head's opened domain is the motive type, `∀ ı⃗ t, Sort elim`. -/
-theorem classGenRecTy_conclSort (hμ : μ.verifiedChecks = true)
-    {envK : Env} {g : ClassGen} (hg : ClassGenScoped g) {c s : Nat}
-    (hm : ConLeche.ClassRead.motiveSlot ⟨g.slots, []⟩ c = some s) {F : Nat}
-    {gty S : Expr}
-    (hgty : classGenRecTy g c = some gty)
-    (hinf : ConLeche.inferTypeCore μ envK F 0 gty = .ok S) :
-    ∃ fvs o bt, openPisAtFvars (g.pre.length + (g.cls.getD c default).nIdx + 1) gty 0
-        = some (fvs, o) ∧
-      ConLeche.inferTypeCore μ envK F (0 + (g.pre.length + (g.cls.getD c default).nIdx + 1)) o
-        = .ok bt ∧
-      ConLeche.ensureSortCore μ envK F (0 + (g.pre.length + (g.cls.getD c default).nIdx + 1)) bt
-        = .ok g.elim := by
-  obtain ⟨hpl, hpreS⟩ := ConLeche.ClassGen.prefixBinders_scoped hg hg.pre
-  obtain ⟨ifs, maj, hmaj, hifl, rfl, hcl, hbb⟩ := ConLeche.classGenRecTy_spec hg hgty
-  generalize hnds : g.pre ++ ifs.map g.binder ++ [(maj, g.bm)] = nds at hinf hcl
-  generalize hbody : Expr.mkAppN (g.motVar c) (ifs ++ [.fvar (g.pre.length + ifs.length) maj])
-    = body at hinf hbb
-  have hn : nds.length = g.pre.length + (g.cls.getD c default).nIdx + 1 := by
-    rw [← hnds]
-    simp only [List.length_append, List.length_map, List.length_singleton, hifl]
-  -- the type opens
-  obtain ⟨fvs, o, hop, hrest, hxs⟩ := open_of_erasedEq_closeTelescope nds 0 body
-    (closeTelescope nds 0 body) hcl hbb (Expr.ErasedEq.rfl _)
-  -- the conclusion's inference
-  obtain ⟨n', hn'⟩ : ∃ n', nds.length = n' + 1 := ⟨nds.length - 1, by omega⟩
-  rw [hn'] at hop
-  obtain ⟨bt, u, hbt, hu⟩ := inferTypeCore_openPis_body hμ n' hop hinf
-  rw [← hn'] at hop hbt hu
-  suffices hue : u = g.elim by
-    subst hue
-    rw [← hn]
-    exact ⟨fvs, o, bt, hop, hbt, hu⟩
-  -- the conclusion: the motive's variable, applied
-  have hoE : Expr.ErasedEq o body := hrest
-  rw [← hbody] at hoE
-  obtain ⟨f', as', rfl, hf', has'⟩ := erasedEq_mkAppN_inv _ hoE
-  have hmv := ConLeche.ClassGen.motVar_eq hm
-  rw [hmv] at hf'
-  obtain ⟨T, rfl⟩ : ∃ T, f' = .fvar (g.nP + s) T := by
-    match f', hf' with
-    | .fvar j T, hf' => exact ⟨T, by rw [show j = g.nP + s from hf']⟩
-  -- the head is an opened variable
-  have hclosed := ConLeche.classGenRecTy_closed hg hm hgty
-  rw [hnds, hbody] at hclosed
-  have hleaf : (g.nP + s, T) ∈ (Expr.mkAppN (.fvar (g.nP + s) T) as').fvarLeaves :=
-    fvarLeaves_mkAppN_head as' (by simp [Expr.fvarLeaves])
-  rcases ConLeche.Verify.openPisAtFvars_leaves _ hop _ (Or.inl hleaf) with hl | hl
-  · rw [Expr.fvarLeaves_eq_nil_of_not_hasFvar hclosed.1] at hl; exact nomatch hl
-  obtain ⟨k, hk⟩ := List.getElem?_of_mem hl
-  obtain ⟨ty, hty⟩ := ConLeche.openPisAtFvars_index _ _ _ hop k _ hk
-  simp only [Expr.fvar.injEq, Nat.zero_add] at hty
-  obtain ⟨rfl, rfl⟩ := hty
-  -- the motive domain's shape
-  have hslen : s < g.slots.length := ConLeche.ClassRead.motiveSlot_lt hm
-  obtain ⟨hcount, key, hkey⟩ := motiveSlot_count hm
-  obtain ⟨Tm, hTm, hpreT⟩ := ConLeche.ClassGen.prefixBinders_motive hg hkey
-  rw [hcount] at hTm
-  have hTmS := ClassGen.motiveTy_endsInSort hTm
-  have hkP : g.nP + s < g.pre.length := by omega
-  have hndk : nds[g.nP + s]? = some (Tm, g.bm) := by
-    rw [← hnds, List.append_assoc, List.getElem?_append_left hkP]; exact hpreT
-  have hTx := hxs (g.nP + s) _ Tm hk (by simp [hndk])
-  have hTT : EndsInSort ((g.cls.getD c default).nIdx + 1) g.elim T :=
-    EndsInSort.of_erasedEq _ hTx hTmS
-  obtain ⟨bsT, hbsT⟩ := EndsInSort.stripPis _ hTT
-  -- the inference of the conclusion
-  have hF : 1 ≤ F := inferTypeCore_pos hbt
-  obtain ⟨F₀, rfl⟩ : ∃ F₀, F = F₀ + 1 := ⟨F - 1, by omega⟩
-  obtain ⟨tf, htf⟩ := inferTypeCore_mkAppN_fn_inv as' hbt
-  obtain ⟨-, rfl⟩ := ConLeche.Rules.inferTypeCore_fvar_inv htf
-  have hasl : as'.length = (g.cls.getD c default).nIdx + 1 := by
-    rw [has']; simp [hifl]
-  rw [← hasl] at hbsT
-  obtain rfl := inferTypeCore_mkAppN_sort as' htf hbsT hbt
-  exact ensureSortCore_sort_eq hu
-
-
-set_option maxHeartbeats 800000 in
-/-- **Every binder numeral of the generated type's reading is the
-elimination level's zero bit.** -/
-theorem classGenRecTy_bits (hμ : μ.verifiedChecks = true) {acval : Name → (Name → Nat) → AnnotTerm}
-    {env envK : Env} {φ : Name → Nat} {g : ClassGen} (hg : ClassGenScoped g) {c s : Nat}
-    (hm : ConLeche.ClassRead.motiveSlot ⟨g.slots, []⟩ c = some s) {F : Nat}
-    {gty S : Expr} {ea : AnnotTerm}
-    (hgty : classGenRecTy g c = some gty)
-    (hinf : ConLeche.inferTypeCore μ envK F 0 gty = .ok S)
-    (hread : denoteMeta acval env φ 0 gty = some ea) :
-    ∃ pps b, stripPisAV (g.pre.length + (g.cls.getD c default).nIdx + 1) ea = some (pps, b) ∧
-      pps.length = g.pre.length + (g.cls.getD c default).nIdx + 1 ∧
-      ∀ p ∈ pps, p.1 = 0 ∧ p.2.1 = pwBit φ (Level.zeronessOf g.elim) := by
-  obtain ⟨fvs, o, bt, hop, hbt, hu⟩ := classGenRecTy_conclSort hμ hg hm hgty hinf
-  obtain ⟨pps, b, hst, -, hlen, hpp⟩ := denoteMeta_openPis _ hop hread
-  have hbits := stripPisAV_denoteMeta_pw (acval := acval) (env := env) (envK := envK) (φ := φ) hμ
-    _ (Nat.le_refl F) hop hread hst hinf hbt hu
-  refine ⟨pps, b, hst, hlen, fun p hp => ⟨?_, hbits p hp⟩⟩
-  obtain ⟨i, hi, rfl⟩ := List.getElem_of_mem hp
-  obtain ⟨x, hx⟩ : ∃ x, fvs[i]? = some x := by
-    have hfl := ConLeche.Verify.openPisAtFvars_length _ hop
-    exact ⟨fvs[i]'(by omega), List.getElem?_eq_getElem (by omega)⟩
-  obtain ⟨p', hp', hp1, -⟩ := hpp i x hx
-  rw [List.getElem?_eq_getElem hi] at hp'
-  rw [← (Option.some.inj hp')] at hp1
-  exact hp1
-
 /-! ## The conclusion -/
 
 /-- The index of a variable (`0` off variables). -/
@@ -440,150 +303,9 @@ theorem classGenRecTy_concl
       List.getElem?_append_right (by simp [hxl, hzl, hifl])]
     simp [hxl, hzl, hifl]
 
-open ConLeche.SetTheory SetTheory in
-set_option maxHeartbeats 800000 in
-/-- **The generated type's conclusion is a type of the elimination
-level** (`hconclTy`'s content): at every fit of the type's binder data
-(prefix, index spine, major) the conclusion reads into
-`univ (Level.eval φ elim)` — the claims' sort semantics at the type's
-opened frame (`piConcl_univ`), the sort being `Sort elim`
-(`classGenRecTy_conclSort`). -/
-theorem classGenRecTy_conclTy (hμ : μ.verifiedChecks = true) {envK : Env}
-    (mpC : EnvModelM V μ envK) {φ : Name → Nat} {g : ClassGen} (hg : ClassGenScoped g)
-    {c s : Nat} (hm : ConLeche.ClassRead.motiveSlot ⟨g.slots, []⟩ c = some s) {F : Nat}
-    {gty S : Expr} {ea : AnnotTerm}
-    (hgty : classGenRecTy g c = some gty)
-    (hinf : ConLeche.inferTypeCore μ envK F 0 gty = .ok S)
-    (hread : denoteMeta mpC.base2.acval envK φ 0 gty = some ea)
-    (hwd : ∀ ρ : Nat → V, WellDenotedV V ρ ea) :
-    ∃ pps b, stripPisAV (g.pre.length + (g.cls.getD c default).nIdx + 1) ea = some (pps, b) ∧
-      ∀ (ρ : Nat → V) (ys : List V), SpineFit ρ (pps.map (·.2.2)) ys →
-        interp V (consList ys ρ) b ∈ˢ (univ (Level.eval φ g.elim) : V) := by
-  obtain ⟨fvs, o, bt, hop, hbt, hu⟩ := classGenRecTy_conclSort hμ hg hm hgty hinf
-  rw [Nat.zero_add] at hbt hu
-  obtain ⟨pps, b, hst, hb, hlen, hpp⟩ := denoteMeta_openPis _ hop hread
-  rw [Nat.zero_add] at hb
-  obtain ⟨hcf, hcb⟩ := ConLeche.classGenRecTy_closed hg hm hgty
-  have huniv := piConcl_univ hμ mpC φ (Expr.WScoped.of_not_hasFvar hcf) hcb
-    (stripPisAV_eq_mkPis hst).1 hlen
-    (fun j x hx => by
-      obtain ⟨p, hp, hp1, hpr⟩ := hpp j x hx
-      exact ⟨p, hp, hp1, by simpa using hpr⟩) hb hwd hop hbt hu
-  refine ⟨pps, b, hst, fun ρ ys hys => huniv _ ?_⟩
-  simpa using sat_of_spineFit (Sat_nil V ρ) hys
-
 end Concl
 
 /-! ## The shared prefix -/
-
-set_option maxHeartbeats 800000 in
-/-- **The prefix is shared**: two classes' generated types, inferred by
-the same runs, read to the same first `nP + #slots` binder data — the
-same domains (both are telescopes over the one prefix) and the same
-numeral (the one bit). -/
-theorem classGenRecTy_prefix_eq (hμ : μ.verifiedChecks = true)
-    {acval : Name → (Name → Nat) → AnnotTerm} {env envK : Env} {φ : Name → Nat} {g : ClassGen}
-    (hg : ClassGenScoped g) {F : Nat} {c₁ c₂ s₁ s₂ : Nat}
-    (hm₁ : ConLeche.ClassRead.motiveSlot ⟨g.slots, []⟩ c₁ = some s₁)
-    (hm₂ : ConLeche.ClassRead.motiveSlot ⟨g.slots, []⟩ c₂ = some s₂)
-    {gty₁ gty₂ S₁ S₂ : Expr} {ea₁ ea₂ : AnnotTerm}
-    (hgty₁ : classGenRecTy g c₁ = some gty₁) (hgty₂ : classGenRecTy g c₂ = some gty₂)
-    (hinf₁ : ConLeche.inferTypeCore μ envK F 0 gty₁ = .ok S₁)
-    (hinf₂ : ConLeche.inferTypeCore μ envK F 0 gty₂ = .ok S₂)
-    (hread₁ : denoteMeta acval env φ 0 gty₁ = some ea₁)
-    (hread₂ : denoteMeta acval env φ 0 gty₂ = some ea₂)
-    {pps₁ pps₂ : List (Nat × Nat × AnnotTerm)} {b₁ b₂ : AnnotTerm}
-    (hst₁ : stripPisAV (g.pre.length + (g.cls.getD c₁ default).nIdx + 1) ea₁ = some (pps₁, b₁))
-    (hst₂ : stripPisAV (g.pre.length + (g.cls.getD c₂ default).nIdx + 1) ea₂ = some (pps₂, b₂)) :
-    pps₁.take g.pre.length = pps₂.take g.pre.length := by
-  obtain ⟨q₁, b₁', hq₁, hql₁, hbits₁⟩ := classGenRecTy_bits hμ (acval := acval) (env := env)
-    (φ := φ) hg hm₁ hgty₁ hinf₁ hread₁
-  obtain ⟨q₂, b₂', hq₂, hql₂, hbits₂⟩ := classGenRecTy_bits hμ (acval := acval) (env := env)
-    (φ := φ) hg hm₂ hgty₂ hinf₂ hread₂
-  obtain ⟨rfl, rfl⟩ := Prod.mk.inj (Option.some.inj (hst₁.symm.trans hq₁))
-  obtain ⟨rfl, rfl⟩ := Prod.mk.inj (Option.some.inj (hst₂.symm.trans hq₂))
-  obtain ⟨ifs₁, maj₁, -, hifl₁, rfl, -, -⟩ := ConLeche.classGenRecTy_spec hg hgty₁
-  obtain ⟨ifs₂, maj₂, -, hifl₂, rfl, -, -⟩ := ConLeche.classGenRecTy_spec hg hgty₂
-  -- the same first domains
-  have hsdA : SameDoms g.pre.length
-      (closeTelescope (g.pre ++ ifs₁.map g.binder ++ [(maj₁, g.bm)]) 0
-        (Expr.mkAppN (g.motVar c₁) (ifs₁ ++ [.fvar (g.pre.length + ifs₁.length) maj₁])))
-      (closeTelescope (g.pre ++ ifs₂.map g.binder ++ [(maj₂, g.bm)]) 0
-        (Expr.mkAppN (g.motVar c₂) (ifs₂ ++ [.fvar (g.pre.length + ifs₂.length) maj₂]))) := by
-    simp only [List.append_assoc]
-    exact ConLeche.SameDoms.closeTelescope_append _ _ _ 0 _ _
-  -- both open along the full telescope, hence along the prefix
-  have hsdF₁ : SameDoms (g.pre.length + (g.cls.getD c₁ default).nIdx + 1)
-      (closeTelescope (g.pre ++ ifs₁.map g.binder ++ [(maj₁, g.bm)]) 0
-        (Expr.mkAppN (g.motVar c₁) (ifs₁ ++ [.fvar (g.pre.length + ifs₁.length) maj₁])))
-      (closeTelescope (g.pre ++ ifs₁.map g.binder ++ [(maj₁, g.bm)]) 0
-        (Expr.mkAppN (g.motVar c₁) (ifs₁ ++ [.fvar (g.pre.length + ifs₁.length) maj₁]))) := by
-    have := ConLeche.SameDoms.closeTelescope_append
-      (g.pre ++ ifs₁.map g.binder ++ [(maj₁, g.bm)]) [] [] 0
-      (Expr.mkAppN (g.motVar c₁) (ifs₁ ++ [.fvar (g.pre.length + ifs₁.length) maj₁]))
-      (Expr.mkAppN (g.motVar c₁) (ifs₁ ++ [.fvar (g.pre.length + ifs₁.length) maj₁]))
-    have hlen : (g.pre ++ ifs₁.map g.binder ++ [(maj₁, g.bm)]).length
-        = g.pre.length + (g.cls.getD c₁ default).nIdx + 1 := by
-      simp only [List.length_append, List.length_map, List.length_singleton, hifl₁]
-    rw [hlen] at this
-    simpa only [List.append_nil] using this
-  have hsdF₂ : SameDoms (g.pre.length + (g.cls.getD c₂ default).nIdx + 1)
-      (closeTelescope (g.pre ++ ifs₂.map g.binder ++ [(maj₂, g.bm)]) 0
-        (Expr.mkAppN (g.motVar c₂) (ifs₂ ++ [.fvar (g.pre.length + ifs₂.length) maj₂])))
-      (closeTelescope (g.pre ++ ifs₂.map g.binder ++ [(maj₂, g.bm)]) 0
-        (Expr.mkAppN (g.motVar c₂) (ifs₂ ++ [.fvar (g.pre.length + ifs₂.length) maj₂]))) := by
-    have := ConLeche.SameDoms.closeTelescope_append
-      (g.pre ++ ifs₂.map g.binder ++ [(maj₂, g.bm)]) [] [] 0
-      (Expr.mkAppN (g.motVar c₂) (ifs₂ ++ [.fvar (g.pre.length + ifs₂.length) maj₂]))
-      (Expr.mkAppN (g.motVar c₂) (ifs₂ ++ [.fvar (g.pre.length + ifs₂.length) maj₂]))
-    have hlen : (g.pre ++ ifs₂.map g.binder ++ [(maj₂, g.bm)]).length
-        = g.pre.length + (g.cls.getD c₂ default).nIdx + 1 := by
-      simp only [List.length_append, List.length_map, List.length_singleton, hifl₂]
-    rw [hlen] at this
-    simpa only [List.append_nil] using this
-  obtain ⟨fvs₁, o₁, hop₁⟩ := ConLeche.SameDoms.open_isSome _ (d := 0) hsdF₁
-  obtain ⟨fvs₂, o₂, hop₂⟩ := ConLeche.SameDoms.open_isSome _ (d := 0) hsdF₂
-  rw [Nat.add_assoc] at hop₁ hop₂
-  obtain ⟨pf₁, rf₁, po₁, hpo₁, -, hF₁⟩ := openPisAtFvars_split g.pre.length hop₁
-  obtain ⟨pf₂, rf₂, po₂, hpo₂, -, hF₂⟩ := openPisAtFvars_split g.pre.length hop₂
-  have hpf : pf₁ = pf₂ := ConLeche.SameDoms.open _ hsdA hpo₁ hpo₂
-  rw [← Nat.add_assoc] at hop₁ hop₂
-  obtain ⟨pp₁, bb₁, hs₁, -, -, hpp₁⟩ := denoteMeta_openPis _ hop₁ hread₁
-  obtain ⟨pp₂, bb₂, hs₂, -, -, hpp₂⟩ := denoteMeta_openPis _ hop₂ hread₂
-  obtain ⟨rfl, -⟩ := Prod.mk.inj (Option.some.inj (hs₁.symm.trans hq₁))
-  obtain ⟨rfl, -⟩ := Prod.mk.inj (Option.some.inj (hs₂.symm.trans hq₂))
-  have hpfl : pf₁.length = g.pre.length := ConLeche.Verify.openPisAtFvars_length _ hpo₁
-  refine List.ext_getElem? fun i => ?_
-  rw [List.getElem?_take, List.getElem?_take]
-  split
-  · next hi =>
-    have hx₁ : fvs₁[i]? = pf₁[i]? := by
-      rw [hF₁, List.getElem?_append_left (by omega)]
-    have hx₂ : fvs₂[i]? = pf₁[i]? := by
-      rw [hF₂, ← hpf, List.getElem?_append_left (by omega)]
-    obtain ⟨x, hx⟩ : ∃ x, pf₁[i]? = some x := ⟨pf₁[i]'(by omega), List.getElem?_eq_getElem _⟩
-    rw [hx] at hx₁ hx₂
-    obtain ⟨p₁, hp₁, hp₁1, hp₁3⟩ := hpp₁ i x hx₁
-    obtain ⟨p₂, hp₂, hp₂1, hp₂3⟩ := hpp₂ i x hx₂
-    rw [hp₁, hp₂]
-    congr 1
-    have hb₁ := (hbits₁ p₁ (List.mem_of_getElem? hp₁)).2
-    have hb₂ := (hbits₂ p₂ (List.mem_of_getElem? hp₂)).2
-    have hr := Option.some.inj (hp₁3.symm.trans hp₂3)
-    obtain ⟨a₁, b₁, c₁'⟩ := p₁
-    obtain ⟨a₂, b₂, c₂'⟩ := p₂
-    simp only at hp₁1 hp₂1 hb₁ hb₂ hr
-    rw [hp₁1, hp₂1, hb₁, hb₂, hr]
-  · rfl
-
-/-- **`hbits`**: binder data whose every numeral is the elimination
-level's zero bit have ONE elimination level, `Level.eval φ elim`. -/
-theorem oneElimLevel_of_bits {φ : Name → Nat} {elim : Level} {K : Nat}
-    {rds : Nat → List (Nat × Nat × AnnotTerm)}
-    (h : ∀ c, c < K → ∀ p ∈ rds c, p.2.1 = pwBit φ (Level.zeronessOf elim)) :
-    OneElimLevel (Level.eval φ elim) K rds := by
-  intro c hc p hp
-  rw [h c hc p hp, pwBit_zeronessOf]
 
 /-! ## Chain independence and the `ih` data's bounds, from readings
 
@@ -608,98 +330,6 @@ theorem IsReadingAt.below {m : EnvModel V env} {φ : Name → Nat} {D : Nat} {a 
   obtain ⟨e, ⟨hw, hb⟩, hd⟩ := h
   exact ConLeche.Verify.denote_bvarsBelow m.cval_closedL D e hw hb
     (denoteMeta_erase (cval := fun n ψ => (m.acval n ψ).erase) (fun _ _ => rfl) D e hd)
-
-theorem fieldsBelow_of_readings {m : EnvModel V env} {φ : Name → Nat} :
-    ∀ {b : Nat} {Ds : List AnnotTerm},
-      (∀ (k : Nat) (D : AnnotTerm), Ds[k]? = some D → IsReadingAt m φ (b + k) D) →
-      FieldsBelow b Ds
-  | _, [], _ => trivial
-  | b, D :: Ds, h => by
-    refine ⟨by simpa using (h 0 D rfl).below,
-      fieldsBelow_of_readings (m := m) (φ := φ) fun k D' hk => ?_⟩
-    have := h (k + 1) D' (by simpa using hk)
-    rwa [show b + (k + 1) = b + 1 + k by omega] at this
-
-/-- Two frames sharing a spine agree below its length. -/
-theorem consList_agree_below {σ σ' : Nat → V} (zs : List V) :
-    ∀ i, i < zs.length → consList zs σ i = consList zs σ' i := by
-  intro i hi
-  rw [consList_getD_of_lt _ _ _ hi, consList_getD_of_lt _ _ _ hi]
-
-/-- **`hchI`, from bounds.**  The prefix and field domains, the index
-expressions and the fired spine of the generated family name no
-variable at or above their depths, so they read alike at the chain
-frame and at its base. -/
-theorem genHchI_of_below {K : Nat} {ρ : Nat → V}
-    {nCt : Nat → Nat} {pdoms : Nat → List AnnotTerm} {fdoms es : Nat → Nat → List AnnotTerm}
-    {mk : Nat → Nat → AnnotTerm}
-    (hP : ∀ c, c < K → FieldsBelow 0 (pdoms c))
-    (hF : ∀ c, c < K → ∀ j, j < nCt c → FieldsBelow (pdoms c).length (fdoms c j))
-    (hE : ∀ c, c < K → ∀ j, j < nCt c → ∀ e ∈ es c j,
-      Term.bvarsBelow ((pdoms c).length + (fdoms c j).length) e.erase)
-    (hM : ∀ c, c < K → ∀ j, j < nCt c →
-      Term.bvarsBelow ((pdoms c).length + (fdoms c j).length) (mk c j).erase) :
-    ∀ (a : Nat → V), ∀ c, c < K → ∀ j, j < nCt c → ∀ xs fs : List V,
-      xs.length = (pdoms c).length →
-      SpineFit (chainFrame K a ρ) (pdoms c ++ fdoms c j) (xs ++ fs) →
-      SpineFit ρ (pdoms c ++ fdoms c j) (xs ++ fs) ∧
-      (es c j).map (interp V (consList (xs ++ fs) (chainFrame K a ρ)))
-        = (es c j).map (interp V (consList (xs ++ fs) ρ)) ∧
-      interp V (consList (xs ++ fs) (chainFrame K a ρ)) (mk c j)
-        = interp V (consList (xs ++ fs) ρ) (mk c j) := by
-  intro a c hc j hj xs fs hxl hsp
-  have hbelow : FieldsBelow 0 (pdoms c ++ fdoms c j) :=
-    fieldsBelow_append (hP c hc) (by simpa using hF c hc j hj)
-  have hlen : (xs ++ fs).length = (pdoms c).length + (fdoms c j).length := by
-    have := hsp.length_eq
-    simpa using this
-  refine ⟨spineFit_congr_fieldsBelow (k := 0) hbelow (fun i hi => absurd hi (Nat.not_lt_zero _))
-    hsp, List.map_congr_left fun e he => ?_, ?_⟩
-  · exact interp_congr_below V e _ _ _ (hlen ▸ hE c hc j hj e he) (consList_agree_below _)
-  · exact interp_congr_below V _ _ _ _ (hlen ▸ hM c hc j hj) (consList_agree_below _)
-
-/-- **`hchI`, from readings**: every component a reading of a scoped
-term (`genHchI_of_below` at the readings' bounds). -/
-theorem genHchI_of_readings {m : EnvModel V env} {φ : Name → Nat} {K : Nat} {ρ : Nat → V}
-    {nCt : Nat → Nat} {pdoms : Nat → List AnnotTerm} {fdoms es : Nat → Nat → List AnnotTerm}
-    {mk : Nat → Nat → AnnotTerm}
-    (hP : ∀ c, c < K → ∀ (k : Nat) (D : AnnotTerm), (pdoms c)[k]? = some D →
-      IsReadingAt m φ k D)
-    (hF : ∀ c, c < K → ∀ j, j < nCt c → ∀ (k : Nat) (D : AnnotTerm), (fdoms c j)[k]? = some D →
-      IsReadingAt m φ ((pdoms c).length + k) D)
-    (hE : ∀ c, c < K → ∀ j, j < nCt c → ∀ e ∈ es c j,
-      IsReadingAt m φ ((pdoms c).length + (fdoms c j).length) e)
-    (hM : ∀ c, c < K → ∀ j, j < nCt c →
-      IsReadingAt m φ ((pdoms c).length + (fdoms c j).length) (mk c j)) :
-    ∀ (a : Nat → V), ∀ c, c < K → ∀ j, j < nCt c → ∀ xs fs : List V,
-      xs.length = (pdoms c).length →
-      SpineFit (chainFrame K a ρ) (pdoms c ++ fdoms c j) (xs ++ fs) →
-      SpineFit ρ (pdoms c ++ fdoms c j) (xs ++ fs) ∧
-      (es c j).map (interp V (consList (xs ++ fs) (chainFrame K a ρ)))
-        = (es c j).map (interp V (consList (xs ++ fs) ρ)) ∧
-      interp V (consList (xs ++ fs) (chainFrame K a ρ)) (mk c j)
-        = interp V (consList (xs ++ fs) ρ) (mk c j) :=
-  genHchI_of_below
-    (fun c hc => fieldsBelow_of_readings (m := m) (φ := φ) fun k D hk => by
-      simpa using hP c hc k D hk)
-    (fun c hc j hj => fieldsBelow_of_readings (m := m) (φ := φ) fun k D hk => hF c hc j hj k D hk)
-    (fun c hc j hj e he => (hE c hc j hj e he).below) (fun c hc j hj => (hM c hc j hj).below)
-
-/-- **`IhDatumBelow`, from readings**: a generated `ih`'s telescope
-domains and its index and major arguments are readings of scoped terms
-at the rule's depth `D`. -/
-theorem ihDatumBelow_of_readings {m : EnvModel V env} {φ : Name → Nat} {D : Nat} {q : IhDatum}
-    (hT : ∀ (k : Nat) (p : Nat × AnnotTerm), q.2.1[k]? = some p → IsReadingAt m φ (D + k) p.2)
-    (hA : ∀ e ∈ q.2.2.1 ++ [q.2.2.2], IsReadingAt m φ (D + q.2.1.length) e) :
-    IhDatumBelow D q := by
-  refine ⟨fieldsBelow_of_readings (m := m) (φ := φ) fun k T hk => ?_, fun e he => (hA e he).below⟩
-  rw [List.getElem?_map] at hk
-  cases hp : q.2.1[k]? with
-  | none => rw [hp] at hk; exact nomatch hk
-  | some p =>
-    rw [hp] at hk
-    obtain rfl := (Option.some.inj hk).symm
-    exact hT k p hp
 
 end Rows
 

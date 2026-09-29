@@ -52,15 +52,6 @@ variable {V : Type w} [SetTheory V]
 
 /-! ## Small kit -/
 
-theorem Expr.ErasedEqL.symm : ∀ {as bs : List Expr}, Expr.ErasedEqL as bs → Expr.ErasedEqL bs as
-  | [], [], _ => trivial
-  | _ :: _, _ :: _, ⟨h1, h2⟩ => ⟨ConLeche.Expr.ErasedEq.symm h1, Expr.ErasedEqL.symm h2⟩
-
-theorem Expr.ErasedEqL.length_eq : ∀ {as bs : List Expr}, Expr.ErasedEqL as bs →
-    as.length = bs.length
-  | [], [], _ => rfl
-  | _ :: _, _ :: _, ⟨_, h2⟩ => by simp [Expr.ErasedEqL.length_eq h2]
-
 /-- **The least tuple reads only the index sets below its width.** -/
 theorem lfpTuple_congr_Is {w k : Nat} {Is Is' : Nat → V} {Φ : (Nat → V) → Nat → V}
     (h : ∀ m, m < k → Is m = Is' m) {m : Nat} (hm : m < k) :

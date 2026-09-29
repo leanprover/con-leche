@@ -51,56 +51,17 @@ def Expr.piBinders : Expr → List (Expr × BinderMeta) × Expr
     ((ty, m) :: bs, e)
   | e => ([], e)
 
-/-- Field `i`'s own telescope `a⃗ : A⃗` (at the field's frame: the
-parameters and the earlier fields), off the constructor's type. -/
-def structFieldTeleOf (cty : Expr) (nP nF i : Nat) : List (Expr × BinderMeta) :=
-  match cty.stripPis (nP + nF) with
-  | some (cbs, _) => ((cbs.getD (nP + i) default).1.piBinders).1
-  | none => []
-
-/-- The index expressions of field `i`'s domain `Π a⃗, T p⃗ e⃗` (under
-the field's own telescope, at the field's frame), off the
-constructor's type; `[]` when the field is not of that shape. -/
-def structFieldIdxOf (cty : Expr) (nP nF i : Nat) : List Expr :=
-  match cty.stripPis (nP + nF) with
-  | some (cbs, _) => ((cbs.getD (nP + i) default).1.piBinders).2.getAppArgs.drop nP
-  | none => []
-
 /-- The positions of the recursive fields (finitary or reflexive: the
 ones with an inductive hypothesis). -/
 def recIdxOf (ks : List RecFieldKind) : List Nat :=
   (List.range ks.length).filter fun i =>
     ks.getD i .ordinary == .recursive || ks.getD i .ordinary == .reflexive
 
-/-- An expression of recursive field `i`'s domain sitting under `m`
-binders of the field's own telescope, spelled at the field's frame
-(the parameters, the `i` earlier fields), moved under all `nF` fields,
-`l` further binders below them and `o` extras between the parameters
-and the fields: the earlier fields move by `nF - i + l`, the
-parameters by `o` more; the `m` telescope binders stay. -/
-def structIdxAt (nF o i l m : Nat) (e : Expr) : Expr :=
-  (e.liftLooseBVars (nF - i + l) m).liftLooseBVars o (nF + l + m)
-
-/-- Field `i`'s own telescope moved as `structIdxAt` moves its
-expressions (binder `k` sits under `k` earlier telescope binders). -/
-def structTeleAt (nF o i l : Nat) (pw : PropWhen) (tele : List (Expr × BinderMeta)) :
-    List (Expr × BinderMeta) :=
-  (List.range tele.length).map fun k =>
-    let b := tele.getD k default
-    (structIdxAt nF o i l k b.1, ⟨pw⟩)
-
-/-- The variables of an `m`-binder telescope, innermost last. -/
-def structTeleVars (m : Nat) : List Expr := (List.range m).map fun k => Expr.bvar (m - 1 - k)
-
 /-- `∀ tele, body` over a binder list (outermost first). -/
 def Expr.mkPisOf : List (Expr × BinderMeta) → Expr → Expr
   | [], body => body
   | (ty, mt) :: bs, body => .forallE ty (mkPisOf bs body) mt
 
-/-- `λ tele, body` over a binder list (outermost first). -/
-def Expr.mkLamsOf : List (Expr × BinderMeta) → Expr → Expr
-  | [], body => body
-  | (ty, mt) :: bs, body => .lam ty (mkLamsOf bs body) mt
 /-- Does the variable `q` occur as a leaf of `e` (annotations
 included, as `fvarLeaves` walks them)? -/
 def Expr.mentionsFvar (q : Nat) (e : Expr) : Bool := e.fvarLeaves.any fun l => l.1 == q

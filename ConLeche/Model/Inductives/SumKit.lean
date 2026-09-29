@@ -303,13 +303,6 @@ variable {V : Type w} [SetTheory V] {μ : CheckMode} {env : Env} {φ : Name → 
 
 /-! ## `AnnotTerm` bookkeeping -/
 
-theorem liftN_mkAppN (n k : Nat) : ∀ (as : List AnnotTerm) (f : AnnotTerm),
-    AnnotTerm.liftN n (AnnotTerm.mkAppN f as) k
-      = AnnotTerm.mkAppN (AnnotTerm.liftN n f k) (as.map fun a => AnnotTerm.liftN n a k)
-  | [], _ => rfl
-  | a :: as, f => by
-    simp only [AnnotTerm.mkAppN_cons, List.map_cons, liftN_mkAppN n k as, AnnotTerm.liftN_app]
-
 theorem DenoteMetaSpine.unique {acval : Name → (Name → Nat) → AnnotTerm} {d : Nat} :
     ∀ {as : List Expr} {vs vs' : List AnnotTerm},
       DenoteMetaSpine acval env φ d as vs → DenoteMetaSpine acval env φ d as vs' → vs = vs'

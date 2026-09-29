@@ -3,7 +3,6 @@ module
 import ConLeche.Verify.ExceptBind
 public import ConLeche.Kernel.Inductives.BlockTail
 import ConLeche.Verify.Inductives.BlockWF
-import ConLeche.Verify.Inductives.BlockRecInv
 import ConLeche.Verify.Denote.IndFrame
 
 public section
@@ -167,43 +166,6 @@ theorem targetMajorOf_run {fe : FEnv} {p : BlockShape}
           · close_throw h
         · close_throw h
   · close_throw h
-
-/-- **A resolved major with its recorded normal forms replaced**: the
-arm it took is the same (the forms are no input of the resolution). -/
-def TargetMajorRun.withNfs {fe : FEnv} {p : BlockShape}
-    {ctorsAs : List (List (ConstantVal × Nat))} {pfvs fvs : List Expr} {mty : Expr} :
-    {M : TargetMajor} → TargetMajorRun fe p ctorsAs pfvs fvs mty M → (x : List NestCtorNf) →
-      TargetMajorRun fe p ctorsAs pfvs fvs mty { M with nfs := x }
-  | _, .member I t ms ctorsA hfn ht hms hctors hpar _, x =>
-    .member I t ms ctorsA hfn ht hms hctors hpar x
-  | _, .outside I us nPc nIdx ctors sI hfn ht hnq hctors hdsLen hdsSc hment hinst hsort _, x =>
-    .outside I us nPc nIdx ctors sI hfn ht hnq hctors hdsLen hdsSc hment hinst hsort x
-
-/-- **The parameter typing at an outside major, inverted**: every parameter
-`D_i` of the major is typed at the rule
-prefix, and so is the instantiation `I.{us} D⃗` — the `D⃗` satisfy the
-container's parameter telescope there (official's `tc.check` of the
-replaced nested application, `inductive.cpp` v4.33.0 :1223–1231). -/
-theorem targetPinTys_run {env : Env} {d F : Nat} :
-    ∀ {xs : List Expr}, targetPinTys (fueledOps mode F) env d xs = .ok () →
-      ∀ x ∈ xs, ∃ ty, inferTypeCore mode env F d x = .ok ty
-  | [], _, x, hx => nomatch hx
-  | y :: ys, h, x, hx => by
-    unfold targetPinTys at h
-    obtain ⟨ty, hty, h⟩ := exceptBind_ok h
-    rcases List.mem_cons.mp hx with rfl | hx
-    · exact ⟨ty, hty⟩
-    · exact targetPinTys_run h x hx
-
-theorem targetMajorPins_run {env : Env} {rP F : Nat} {M : TargetMajor}
-    (h : targetMajorPins (fueledOps mode F) env rP M = .ok ()) (hout : M.member = none) :
-    (∀ x ∈ M.ds, ∃ ty, inferTypeCore mode env F rP x = .ok ty) ∧
-      ∃ ty, inferTypeCore mode env F rP (Expr.mkAppN (.const M.ind M.lvls) M.ds) = .ok ty := by
-  unfold targetMajorPins at h
-  rw [if_pos (by rw [hout]; rfl)] at h
-  obtain ⟨u, hu, h⟩ := exceptBind_ok h
-  obtain ⟨ty, hty, -⟩ := exceptBind_ok h
-  exact ⟨targetPinTys_run (by cases u; exact hu), ty, hty⟩
 
 /-! ## Node agreement (K.53′) -/
 

@@ -3,7 +3,7 @@ module
 import ConLeche.Semantics.DeclEta
 
 
-import ConLeche.Verify.Denote.Rename
+import ConLeche.Verify.Subst
 
 public import ConLeche.Verify.Extend.Recs
 

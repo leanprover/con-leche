@@ -94,39 +94,4 @@ theorem genUniq (D : Nat → LfpDatum V) (ψ : Nat → Name → Nat) (fr : Nat �
 
 end Uniq
 
-/-! ## `hconclTy` at the generated classes
-
-The conclusion's typing is a fact of the generated TYPE: at every fit of
-its binder data (prefix, index spine, major) the conclusion reads to a
-set of the elimination level (`hty`).  Read at the graph's classes — an
-index tuple of the generated index domains, a major of the major
-domain's reading there — it is `graphRecPre_gen`'s `hconclTy`. -/
-
-section ConclTy
-
-variable {K : Nat} {ρ : Nat → V} {pre idxB : Nat → List (Nat × Nat × AnnotTerm)}
-  {majB : Nat → Nat × Nat × AnnotTerm} {uX : Nat → Nat}
-
-/-- **`hconclTy` from the generated type's conclusion typing.** -/
-theorem genConclTy_of {ℓ : Nat} {concl : Nat → AnnotTerm}
-    (hIdx : ∀ c, c < K → ∀ xs, SpineFit ρ (genPdoms pre c) xs →
-      IdxOk (uX c) (consList xs ρ) (genIdxDoms idxB c))
-    (hty : ∀ c, c < K → ∀ ys, SpineFit ρ ((genRds pre idxB majB c).map (·.2.2)) ys →
-      interp V (consList ys ρ) (concl c) ∈ˢ (univ ℓ : V)) :
-    ∀ xs : List V, ∀ c, c < K → ∀ i, i ∈ˢ genIs ρ pre idxB uX xs c →
-      ∀ x, x ∈ˢ app (genCr ρ pre idxB majB uX xs c) i →
-      interp V (consList (xs ++ (isOfW (uX c) (idxB c).length i ++ [x])) ρ) (concl c)
-        ∈ˢ (univ ℓ : V) := by
-  intro xs c hc i hi x hx
-  have hxs := genIs_fits hi
-  rw [genCr, app_graph hi] at hx
-  have hi' := hi
-  rw [genIs_pos hxs] at hi'
-  obtain ⟨is, his, rfl⟩ := mem_idxSet_elim hi'
-  have hl : (idxB c).length = (genIdxDoms idxB c).length := by simp [genIdxDoms]
-  rw [hl, isOfW_tupW (hIdx c hc xs hxs) his] at hx ⊢
-  exact hty c hc _ (genRds_fit hxs his hx)
-
-end ConclTy
-
 end ConLeche.Model

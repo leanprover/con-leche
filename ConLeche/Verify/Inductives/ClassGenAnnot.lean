@@ -1,7 +1,6 @@
 module
 
 public import ConLeche.Verify.Subst
-import ConLeche.Verify.Abstract
 public import ConLeche.Kernel.Inductives.Positivity
 
 public section
@@ -30,101 +29,6 @@ variable {mode : CheckMode}
 open Expr
 
 /-! ## Erasure and the de Bruijn operations -/
-
-/-- Closing a bvar-bounded term then re-opening it gives it back up to
-erasure. -/
-theorem Expr.erasedEq_abstract1_instantiate1 {d : Nat} {ty : Expr} :
-    ∀ (e : Expr) (k : Nat), e.looseBVarsBounded k = true →
-      Expr.ErasedEq ((e.abstract1 d k).instantiate1 (.fvar d ty) k) e := by
-  intro e
-  induction e with
-  | bvar i =>
-    intro k hb
-    simp only [Expr.looseBVarsBounded, decide_eq_true_eq] at hb
-    simp only [Expr.abstract1, Expr.instantiate1]
-    rw [if_neg (by omega), if_neg (by omega)]
-    exact Expr.ErasedEq.rfl _
-  | fvar idx ty' _ =>
-    intro k _
-    simp only [Expr.abstract1]
-    split
-    · rename_i h
-      simp only [Expr.instantiate1, if_true]
-      exact h.symm
-    · exact Expr.ErasedEq.rfl _
-  | sort u => intro k _; exact Expr.ErasedEq.rfl _
-  | const n us => intro k _; exact Expr.ErasedEq.rfl _
-  | lit l => intro k _; exact Expr.ErasedEq.rfl _
-  | app f a ihf iha =>
-    intro k hb
-    simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hb
-    exact ⟨ihf k hb.1, iha k hb.2⟩
-  | lam t b mm iht ihb =>
-    intro k hb
-    simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hb
-    exact ⟨rfl, iht k hb.1, ihb (k + 1) hb.2⟩
-  | forallE t b mm iht ihb =>
-    intro k hb
-    simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hb
-    exact ⟨rfl, iht k hb.1, ihb (k + 1) hb.2⟩
-  | letE t v b iht ihv ihb =>
-    intro k hb
-    simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hb
-    exact ⟨iht k hb.1.1, ihv k hb.1.2, ihb (k + 1) hb.2⟩
-  | proj s i e ih =>
-    intro k hb
-    simp only [Expr.looseBVarsBounded] at hb
-    exact ⟨rfl, rfl, ih k hb⟩
-
-/-- Erasure equality survives abstraction. -/
-theorem Expr.ErasedEq.abstract1 {d : Nat} :
-    ∀ {e e' : Expr} (k : Nat), Expr.ErasedEq e e' →
-      Expr.ErasedEq (e.abstract1 d k) (e'.abstract1 d k) := by
-  intro e
-  induction e with
-  | bvar i =>
-    intro e' k he
-    match e', he with
-    | .bvar j, he => exact he
-  | fvar idx ty =>
-    intro e' k he
-    match e', he with
-    | .fvar j ty', he =>
-      obtain rfl : idx = j := he
-      by_cases hd : idx = d <;> simp [Expr.abstract1, hd, Expr.ErasedEq]
-  | sort u =>
-    intro e' k he
-    match e', he with
-    | .sort u', he => exact he
-  | const n us =>
-    intro e' k he
-    match e', he with
-    | .const n' us', he => exact he
-  | app f a ihf iha =>
-    intro e' k he
-    match e', he with
-    | .app g b, he => exact ⟨ihf k he.1, iha k he.2⟩
-  | lam ty body m ihty ihbody =>
-    intro e' k he
-    match e', he with
-    | .lam ty' body' m', he => exact ⟨he.1, ihty k he.2.1, ihbody (k + 1) he.2.2⟩
-  | forallE ty body m ihty ihbody =>
-    intro e' k he
-    match e', he with
-    | .forallE ty' body' m', he => exact ⟨he.1, ihty k he.2.1, ihbody (k + 1) he.2.2⟩
-  | letE ty vl body ihty ihv ihbody =>
-    intro e' k he
-    match e', he with
-    | .letE ty' vl' body', he =>
-      exact ⟨ihty k he.1, ihv k he.2.1, ihbody (k + 1) he.2.2⟩
-  | lit l =>
-    intro e' k he
-    match e', he with
-    | .lit l', he => exact he
-  | proj sn i pe ih =>
-    intro e' k he
-    match e', he with
-    | .proj sn' i' pe', he => exact ⟨he.1, he.2.1, ih k he.2.2⟩
 
 /-! ## The same first domains -/
 
@@ -193,43 +97,6 @@ theorem SameDoms.open_isSome :
     exact ⟨.fvar d A :: fvs, o, by simp [openPisAtFvars, hop]⟩
 
 /-! ## Plain bodies -/
-
-/-- A PLAIN term: variables, sorts and constants, applied — nothing the
-annotation pass rewrites. -/
-@[expose] def Expr.Plain : Expr → Prop
-  | .bvar _ | .fvar _ _ | .sort _ | .const _ _ => True
-  | .app f a => Expr.Plain f ∧ Expr.Plain a
-  | _ => False
-
-/-- **Annotation leaves a plain term alone.** -/
-theorem annotateCore_plain {env : Env} :
-    ∀ (F : Nat) {d : Nat} {e e' : Expr}, Expr.Plain e →
-      annotateCore mode env F d e = .ok e' → e' = e
-  | 0, _, _, _, _, h => by simp [annotateCore_zero, throw, throwThe, MonadExceptOf.throw] at h
-  | F + 1, d, e, e', hp, h => by
-    match e, hp with
-    | .bvar i, _ =>
-      rw [annotateCore_succ] at h
-      simp only [annotateBody, pure, Except.pure, Except.ok.injEq] at h
-      exact h.symm
-    | .fvar idx ty, _ =>
-      rw [annotateCore_succ] at h
-      simp only [annotateBody] at h
-      split at h
-      · simp only [pure, Except.pure, Except.ok.injEq] at h
-        exact h.symm
-      · simp [throw, throwThe, MonadExceptOf.throw] at h
-    | .sort u, _ =>
-      rw [annotateCore_succ] at h
-      simp only [annotateBody, pure, Except.pure, Except.ok.injEq] at h
-      exact h.symm
-    | .const n us, _ =>
-      rw [annotateCore_succ] at h
-      simp only [annotateBody, pure, Except.pure, Except.ok.injEq] at h
-      exact h.symm
-    | .app f a, hp =>
-      obtain ⟨f', a', hf, ha, rfl⟩ := annotateCore_app_inv h
-      rw [annotateCore_plain F hp.1 hf, annotateCore_plain F hp.2 ha]
 
 /-! ## A motive's type: `∀ …, Sort u` -/
 

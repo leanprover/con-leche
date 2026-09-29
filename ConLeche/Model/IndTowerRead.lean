@@ -1,6 +1,5 @@
 module
 
-import ConLeche.Model.Annot.BitRename
 import ConLeche.Verify.Denote.OpenRevDenote
 public import ConLeche.Model.IndPointKit
 public import ConLeche.Model.BasisEq
@@ -116,107 +115,5 @@ theorem openPisAtFvars_denotePTele :
             exact h1
 
 /-! ## The λ telescope -/
-
-/-- **`PiTeleAV`'s λ analogue.**  The bit is existential for the same reason
-`PiTeleAV`'s two are: a `fun` reads to `.lam (pwBit φ mb.pw)` and no
-consumer reads the component. -/
-inductive LamTele : Nat → AnnotTerm → List AnnotTerm → AnnotTerm → Prop
-  | nil {T : AnnotTerm} : LamTele 0 T [] T
-  | cons {k v : Nat} {A B R : AnnotTerm} {Γ : List AnnotTerm} :
-      LamTele k B Γ R → LamTele (k + 1) (.lam v A B) (Γ ++ [A]) R
-
-set_option maxHeartbeats 1600000 in
-/-- **The λ-telescope's reading, through an `instLamsAt` run at shaped
-openers**: the reading is a `LamTele` tower
-whose layers are the run's progressively-instantiated domains, read at
-their own depths, and whose core is the residual's reading.  The
-reading consults neither an opener's name nor its annotation, so any
-same-index opener spine produces the same tower. -/
-theorem instLamsAt_denotePTele :
-    ∀ (sp : List Expr) {e : Expr} {j : Nat} {ds : List Expr}
-      {rest : Expr} {Va : AnnotTerm},
-      Expr.instLamsAt sp e = some (ds, rest) →
-      (∀ (i : Nat) (x : Expr), sp[i]? = some x →
-        ∃ ty, x = Expr.fvar (j + i) ty) →
-      denoteMeta acval env φ j e = some Va →
-      ∃ (Γ : List AnnotTerm) (C : AnnotTerm),
-        LamTele sp.length Va Γ C ∧ Γ.length = sp.length ∧
-        denoteMeta acval env φ (j + sp.length) rest = some C ∧
-        ∀ (i0 : Nat) (x : Expr), ds[i0]? = some x →
-          denoteMeta acval env φ (j + i0) x
-            = some (Γ.getD (sp.length - 1 - i0) default) := by
-  intro sp
-  induction sp with
-  | nil =>
-    intro e j ds rest Va h _ hV
-    simp only [Expr.instLamsAt, Option.some.injEq, Prod.mk.injEq] at h
-    obtain ⟨rfl, rfl⟩ := h
-    exact ⟨[], Va, .nil, rfl, hV, fun i0 x hx => nomatch hx⟩
-  | cons a sp ih =>
-    intro e j ds rest Va h hshape hV
-    match e, h with
-    | .lam dom bodyE mb, h =>
-      simp only [Expr.instLamsAt] at h
-      cases h1 : Expr.instLamsAt sp (bodyE.instantiate1 a) with
-      | none => rw [h1] at h; exact nomatch h
-      | some p => ?_
-      rw [h1] at h
-      simp only [Option.map_some, Option.some.injEq, Prod.mk.injEq] at h
-      obtain ⟨rfl, rfl⟩ := h
-      rw [denoteMeta_lam] at hV
-      cases hA : denoteMeta acval env φ j dom with
-      | none => rw [hA] at hV; exact nomatch hV
-      | some A => ?_
-      rw [hA] at hV
-      cases hB : denoteMeta acval env φ (j + 1)
-          (bodyE.instantiate1 (.fvar j dom)) with
-      | none => rw [hB] at hV; exact nomatch hV
-      | some Bv => ?_
-      rw [hB] at hV
-      obtain rfl : Va = .lam (pwBit φ mb.pw) A Bv := by simpa using hV.symm
-      obtain ⟨tyA, rfl⟩ := hshape 0 a rfl
-      -- re-open at the run's opener (the reading is blind to it)
-      have hB' : denoteMeta acval env φ (j + 1)
-          (bodyE.instantiate1 (.fvar (j + 0) tyA)) = some Bv := by
-        rw [denoteMeta_erasedEq (ConLeche.Expr.ErasedEq.instantiate1
-          (ConLeche.Expr.ErasedEq.rfl bodyE)
-          (show ConLeche.Expr.ErasedEq (.fvar (j + 0) tyA)
-            (.fvar j dom) from by constructor)) (j + 1)]
-        exact hB
-      have hshape' : ∀ (i : Nat) (x : Expr), sp[i]? = some x →
-          ∃ ty', x = Expr.fvar (j + 1 + i) ty' := by
-        intro i x hx
-        obtain ⟨ty', hx'⟩ := hshape (i + 1) x (by simpa using hx)
-        exact ⟨ty', by rw [hx']; congr 1; omega⟩
-      obtain ⟨Γ', C, htele, hΓlen, hrest, hdoms⟩ := ih h1 hshape' hB'
-      refine ⟨Γ' ++ [A], C, .cons htele, ?_, ?_, ?_⟩
-      · simp [hΓlen]
-      · simp only [List.length_cons]
-        rw [show j + (sp.length + 1) = j + 1 + sp.length from by omega]
-        exact hrest
-      · intro i0 x hx
-        simp only [List.length_cons]
-        cases i0 with
-        | zero =>
-          obtain rfl : dom = x := Option.some.inj hx
-          rw [Nat.add_zero, hA]
-          congr 1
-          rw [show sp.length + 1 - 1 - 0 = Γ'.length from by
-            rw [hΓlen]; omega]
-          rw [List.getD, List.getElem?_append_right (Nat.le_refl _),
-            Nat.sub_self]
-          rfl
-        | succ i =>
-          have hx' : p.1[i]? = some x := by simpa using hx
-          have hi : i < sp.length := by
-            have hh := (List.getElem?_eq_some_iff.mp hx').1
-            rw [instLamsAt_length sp h1] at hh
-            exact hh
-          have h2 := hdoms i x hx'
-          rw [show j + (i + 1) = j + 1 + i from by omega, h2]
-          congr 1
-          rw [show sp.length + 1 - 1 - (i + 1) = sp.length - 1 - i from by
-            omega, List.getD, List.getD,
-            List.getElem?_append_left (by rw [hΓlen]; omega)]
 
 end ConLeche.Model

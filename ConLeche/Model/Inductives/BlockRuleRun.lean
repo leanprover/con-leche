@@ -4,9 +4,7 @@ import ConLeche.Verify.Inductives.RecStage
 public import ConLeche.Model.Inductives.BlockRuleFit
 import ConLeche.Model.Inductives.BlockRecTyShapeRun
 import ConLeche.Model.Inductives.BlockRecOpenerRead
-import ConLeche.Model.Inductives.BlockCallCerts
 import ConLeche.Verify.Rules.Bridge
-import ConLeche.Verify.Inductives.BlockRecInv
 import ConLeche.Model.Rules.Recompose
 import ConLeche.Model.Tiers
 import ConLeche.Model.Inductives.BlockRecIdxConv
@@ -80,24 +78,6 @@ theorem constsBound_instPisAt :
       exact constsBound_instPisAt sp h'
         (ConstsBound.instantiate1 (hsp a List.mem_cons_self) body 0 he.2)
         (fun x hx => hsp x (List.mem_cons_of_mem _ hx))
-
-omit [SetTheory V] in
-/-- The recursors' bare environment finds only the recursors' names and
-what the constructors' environment finds. -/
-theorem find?_consBlockRecsBare_isSome {p : ConLeche.BlockShape} :
-    ∀ (m : Nat) (cvRas : List (ConstantVal × Nat)) (env₀ : Env) (n : Name),
-      ((ConLeche.consBlockRecsBare p m cvRas env₀).find? n).isSome = true →
-      n ∈ cvRas.map (·.1.name) ∨ (env₀.find? n).isSome = true
-  | _, [], _, _, h => Or.inr h
-  | m, (cvRa, nIdx) :: rest, env₀, n, h => by
-    rw [ConLeche.consBlockRecsBare] at h
-    rcases find?_consBlockRecsBare_isSome (m + 1) rest _ n h with h' | h'
-    · exact Or.inl (List.mem_cons_of_mem _ h')
-    · rw [ConLeche.Env.find?_cons] at h'
-      split at h'
-      · rename_i heq
-        exact Or.inl (by simp only [List.map_cons, List.mem_cons]; exact Or.inl heq.symm)
-      · exact Or.inr h'
 
 end ConstsKit
 

@@ -34,24 +34,6 @@ they are the arguments of the recursor type's major domain. -/
   ∀ a ∈ ds, Expr.WScoped rP a ∧ a.looseBVarsBounded 0 = true ∧ ConstsBound envT a ∧
     ∀ l ∈ a.fvarLeaves, Expr.fvar l.1 l.2 ∈ fvsPref
 
-/-- **At a member major** the parameters are the prefix openers. -/
-theorem tgtDsOk_of_take {envT : Env} {rP nP : Nat} {recTy oP : Expr} {fvsPref ds : List Expr}
-    (h₁ : ConLeche.openPisAtFvars rP recTy 0 = some (fvsPref, oP))
-    (hTf : recTy.hasFvar = false) (hTc : ConstsBound envT recTy)
-    (hds : ds = fvsPref.take nP) : TgtDsOk envT rP fvsPref ds := by
-  subst hds
-  have hw₁ : Expr.WScoped 0 recTy := Expr.WScoped.of_not_hasFvar hTf
-  have hwP := (ConLeche.openPisAtFvars_WScoped _ _ 0 h₁ hw₁).1
-  have hrecNil : recTy.fvarLeaves = [] := ConLeche.Expr.fvarLeaves_eq_nil_of_not_hasFvar hTf
-  intro a ha
-  have ha' := List.mem_of_mem_take ha
-  refine ⟨by have := hwP a ha'; rwa [Nat.zero_add] at this,
-    openPisAtFvars_fvars_closed h₁ a ha', (openPisAtFvars_constsBound _ hTc h₁).1 a ha',
-    fun l hl => ?_⟩
-  rcases ConLeche.Verify.openPisAtFvars_leaves rP h₁ l (Or.inr ⟨a, ha', hl⟩) with h' | h'
-  · rw [hrecNil] at h'; exact nomatch h'
-  · exact h'
-
 /-- **The target rule's frame facts** from its three openings. -/
 theorem targetFrame_facts {envT : Env} {rP nF : Nat} {recTy cty crest oP cbody : Expr}
     {fvsPref fvsF ds : List Expr}
@@ -120,16 +102,5 @@ theorem fvarList_ihs {B : Nat} {L : List Expr} (hL : FvarList B L) (tys : List E
       List.cons_append]
     rw [show B + (n + 1) = B + n + 1 from by omega]
     exact h
-
-/-- A frame entry's leaves are frame entries. -/
-theorem frame_leaves_mem {E : Nat} {Lf : List Expr} (hFr : FvarList E Lf.reverse)
-    (hher : ∀ x ∈ Lf, ∀ l ∈ (Expr.fvarTypeD x).fvarLeaves, Expr.fvar l.1 l.2 ∈ Lf) :
-    ∀ x ∈ Lf, ∀ l ∈ x.fvarLeaves, Expr.fvar l.1 l.2 ∈ Lf := by
-  intro x hx l hl
-  obtain ⟨i, ty, rfl⟩ := hFr.mem_fvar (List.mem_reverse.mpr hx)
-  simp only [Expr.fvarLeaves, List.mem_cons] at hl
-  rcases hl with rfl | hl
-  · exact hx
-  · exact hher _ hx l hl
 
 end ConLeche.Model

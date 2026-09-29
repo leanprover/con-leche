@@ -27,38 +27,6 @@ namespace ConLeche
 
 namespace Level
 
-private theorem allParamsDefined_subst_go {ps' : List Name} :
-    ∀ {ks : List Name} {us : List Level} {n : Name},
-      n ∈ ks → us.length = ks.length → (∀ u ∈ us, u.allParamsDefined ps' = true) →
-      (subst.go ks us n).allParamsDefined ps' = true := by
-  intro ks
-  induction ks with
-  | nil => intro us n hn _ _; simp at hn
-  | cons k ks ih =>
-    intro us n hn hl hus
-    cases us with
-    | nil => simp at hl
-    | cons u us =>
-      simp only [subst.go]
-      split
-      · exact hus u (by simp)
-      · next hne =>
-        refine ih ?_ (by simpa using hl) (fun v hv => hus v (by simp [hv]))
-        rcases List.mem_cons.mp hn with rfl | h
-        · exact absurd rfl hne
-        · exact h
-
-/-- Substitution keeps parameters within the bound of the substituted
-levels. -/
-theorem allParamsDefined_subst {ks : List Name} {us : List Level} {ps' : List Name}
-    (hl : us.length = ks.length)
-    (hus : ∀ u ∈ us, u.allParamsDefined ps' = true) :
-    ∀ {u : Level}, u.allParamsDefined ks = true →
-      (subst ks us u).allParamsDefined ps' = true := by
-  intro u
-  induction u <;> intro h <;> simp_all [subst, allParamsDefined]
-  case param n => exact allParamsDefined_subst_go (by simpa using h) hl hus
-
 end Level
 
 namespace Expr
@@ -140,23 +108,6 @@ theorem allLevelParamsDefined_stripPis_body {ps : List Name} :
         simpa using heq
       simp only [Expr.allLevelParamsDefined, Bool.and_eq_true] at hp
       exact ih hb hp.1.2
-
-/-- Renaming constants commutes with instantiation (general argument). -/
-theorem renameConsts_instantiate1_gen (f : Name → Name) {v : Expr} :
-    ∀ (e : Expr) (k : Nat),
-      (e.instantiate1 v k).renameConsts f =
-        (e.renameConsts f).instantiate1 (v.renameConsts f) k := by
-  intro e
-  induction e with
-  | bvar i =>
-    intro k
-    simp only [Expr.instantiate1, Expr.renameConsts]
-    split
-    · rfl
-    · split <;> simp [Expr.renameConsts]
-  | _ =>
-    intro k
-    simp_all [Expr.instantiate1, Expr.renameConsts]
 
 /-- Level instantiation commutes with binder opening. -/
 theorem instantiateLevelParams_instantiate1 (ks : List Name) (us : List Level)

@@ -93,13 +93,6 @@ theorem genRun_at
   · simp [tgtMajor, List.getD_eq_getElem?_getD, ho]
   · simp [genClsOf, List.getD_eq_getElem?_getD, hcls]
 
-/-- The generator of a run: its fields are the run's. -/
-theorem genRun_g_pre
-    (R : GenRecRun μ F (mkFEnv env₁) env₁ (mkFEnv envC) p.toBlockShape nestedBit pos cvTas
-      block ctorsAs out) :
-    R.g.pre = R.pre ∧ R.g.slots = R.rd.slots ∧ R.g.nP = p.nP ∧ R.g.ctors = R.ctors ∧
-      R.g.cls = R.Ms := ⟨rfl, rfl, rfl, rfl, rfl⟩
-
 /-- **`GenPreHyps.gpre`**: the shared prefix is every recursor's rule
 prefix. -/
 theorem genRun_gpre (hμ : μ.verifiedChecks = true)

@@ -4,17 +4,13 @@ import ConLeche.Model.Annot.Bit
 import ConLeche.Model.Annot.BitLemmas
 public import ConLeche.Semantics.Tower.BlockRecTower
 import ConLeche.Semantics.Kit
-import ConLeche.Verify.Subst
-import ConLeche.Model.Inductives.StructEntryKit
 import ConLeche.Model.Inductives.StructRecKit
 import ConLeche.Model.IndFrame
 import ConLeche.Model.Inductives.BlockRecRead
-import ConLeche.Verify.Inductives.BlockRecInv
 import ConLeche.Semantics.BasisOk
 import ConLeche.Model.Rules.Sound
 import ConLeche.Model.Annot.BitInst
 public import ConLeche.Model.Inductives.FixKit
-import ConLeche.Verify.Inductives.DirectGen
 import ConLeche.Model.Annot.BitRename
 
 public section
@@ -75,76 +71,6 @@ theorem FvarList.cons {E : Nat} {xs : List Expr} (h : FvarList E xs) (ty : Expr)
       exact ⟨by omega, hty⟩
     · exact Expr.WScoped.mono (Nat.le_succ E) (h.2.2 x hx')
 
-/-- **Opening draws every free variable from the opening list.**  The
-residue's sub-terms carry no `fvar` of their own (the abstraction
-cannot introduce one), so every leaf the frame's reading sees belongs to an
-opener — which is what puts a node of the walk in the frame's CONTEXT
-(`CtxOk.of_subset`) and bounds its leaves (`LeavesBounded`). -/
-theorem fvarLeaves_instantiateList {E : Nat} {xs : List Expr} (h : FvarList E xs) :
-    ∀ (e : Expr), e.hasFvar = false → ∀ (k : Nat),
-      ∀ l ∈ (e.instantiateList xs k).fvarLeaves, ∃ x ∈ xs, l ∈ x.fvarLeaves := by
-  intro e
-  induction e with
-  | bvar j =>
-    intro _ k l hl
-    rw [Expr.instantiateList] at hl
-    by_cases hjk : j < k
-    · rw [if_pos hjk] at hl; exact absurd hl (by simp [Expr.fvarLeaves])
-    rw [if_neg hjk] at hl
-    by_cases hin : j - k < xs.length
-    · rw [dif_pos hin] at hl
-      obtain ⟨ty, hty⟩ := h.2.1 (j - k) (by rw [h.1] at hin; omega)
-      obtain ⟨hlt', hget⟩ := List.getElem?_eq_some_iff.mp hty
-      refine ⟨xs[j - k], List.getElem_mem hin, ?_⟩
-      rw [hget] at hl ⊢
-      rw [Expr.instantiateList] at hl
-      exact hl
-    · rw [dif_neg hin] at hl; exact absurd hl (by simp [Expr.fvarLeaves])
-  | fvar _ _ => intro hf _; exact absurd hf (by simp [Expr.hasFvar])
-  | sort _ =>
-    intro _ k l hl
-    rw [Expr.instantiateList] at hl; exact absurd hl (by simp [Expr.fvarLeaves])
-  | const _ _ =>
-    intro _ k l hl
-    rw [Expr.instantiateList] at hl; exact absurd hl (by simp [Expr.fvarLeaves])
-  | lit _ =>
-    intro _ k l hl
-    rw [Expr.instantiateList] at hl; exact absurd hl (by simp [Expr.fvarLeaves])
-  | app f a ihf iha =>
-    intro hf k l hl
-    simp only [Expr.hasFvar, Bool.or_eq_false_iff] at hf
-    rw [Expr.instantiateList, Expr.fvarLeaves, List.mem_append] at hl
-    rcases hl with hl | hl
-    · exact ihf hf.1 k l hl
-    · exact iha hf.2 k l hl
-  | lam ty b bi ihty ihb =>
-    intro hf k l hl
-    simp only [Expr.hasFvar, Bool.or_eq_false_iff] at hf
-    rw [Expr.instantiateList, Expr.fvarLeaves, List.mem_append] at hl
-    rcases hl with hl | hl
-    · exact ihty hf.1 k l hl
-    · exact ihb hf.2 (k + 1) l hl
-  | forallE ty b bi ihty ihb =>
-    intro hf k l hl
-    simp only [Expr.hasFvar, Bool.or_eq_false_iff] at hf
-    rw [Expr.instantiateList, Expr.fvarLeaves, List.mem_append] at hl
-    rcases hl with hl | hl
-    · exact ihty hf.1 k l hl
-    · exact ihb hf.2 (k + 1) l hl
-  | letE ty v b ihty ihv ihb =>
-    intro hf k l hl
-    simp only [Expr.hasFvar, Bool.or_eq_false_iff] at hf
-    rw [Expr.instantiateList, Expr.fvarLeaves, List.mem_append, List.mem_append] at hl
-    rcases hl with (hl | hl) | hl
-    · exact ihty hf.1.1 k l hl
-    · exact ihv hf.1.2 k l hl
-    · exact ihb hf.2 (k + 1) l hl
-  | proj _ _ e ihe =>
-    intro hf k l hl
-    simp only [Expr.hasFvar] at hf
-    rw [Expr.instantiateList, Expr.fvarLeaves] at hl
-    exact ihe hf k l hl
-
 /-! ## The literal readings are lift-invariant
 
 `BitShift.lean` has these at `liftN 1`; the abstraction inserts `nR`
@@ -199,18 +125,6 @@ theorem shiftE_consList_ih {d nR : Nat} {locals ihvals : List V} {ρ' : Nat → 
       consList_apply_add, ← hloc, consList_apply_add,
       show i' + nR = i' + ihvals.length from by omega, consList_apply_add]
 
-omit [SetTheory V] in
-/-- **The whole prefix dropped**: `nR + d` below the walk's frame is
-the rule's own — the companion of `shiftE_consList_ih`, at the cut
-`0` a lifted DOMAIN list is read at. -/
-theorem shiftE_consList_two {d nR : Nat} {locals ihvals : List V} {ρ' : Nat → V}
-    (hloc : locals.length = d) (hih : ihvals.length = nR) :
-    shiftE (nR + d) 0 (consList locals (consList ihvals ρ')) = ρ' := by
-  funext i
-  rw [shiftE, if_neg (by omega),
-    show i + (nR + d) = i + nR + locals.length from by omega, consList_apply_add,
-    show i + nR = i + ihvals.length from by omega, consList_apply_add]
-
 /-- **The node's own typing**: the residue sub-term the walk has
 reached was inferred by the rule stage's own run, at the checker's
 CERTIFIED grade (`inferTypeCore μ` at `μ = .verified` is
@@ -223,113 +137,6 @@ says nothing about it.  The walk that visits the occurrence carries
 this hypothesis exactly as it carries `hasFvar` and `looseBVarsBounded`. -/
 @[expose] def IhTyped (envT : Env) (D : Nat) (e : Expr) : Prop :=
   ∃ t : Expr, ConLeche.Rules.Infer envT .full D e t
-
-/-- A projection's scrutinee is typed. -/
-theorem IhTyped.projArg {envT : Env} {D : Nat} {sn : Name} {i : Nat} {p : Expr} :
-    IhTyped envT D (.proj sn i p) → IhTyped envT D p
-  | ⟨_, .proj hp _ _ _ _ _ _⟩ => ⟨_, hp⟩
-
-/-- A λ's domain is typed — at `.full`, where the domain check is not
-skipped. -/
-theorem IhTyped.lamDom {envT : Env} {D : Nat} {ty b : Expr} {bi : ConLeche.BinderMeta} :
-    IhTyped envT D (.lam ty b bi) → IhTyped envT D ty
-  | ⟨_, .lam h1 _ _ _ _ _ _⟩ => ⟨_, h1 rfl⟩
-
-/-- A λ's OPENED body is typed, one binder deeper — the opener is the
-frame's own `fvar D ty`, which the walk conses onto `as2`. -/
-theorem IhTyped.lamBody {envT : Env} {D : Nat} {ty b : Expr} {bi : ConLeche.BinderMeta} :
-    IhTyped envT D (.lam ty b bi) → IhTyped envT (D + 1) (b.instantiate1 (.fvar D ty))
-  | ⟨_, .lam _ _ hb _ _ _ _⟩ => ⟨_, hb⟩
-
-/-- A `∀`'s domain is typed. -/
-theorem IhTyped.piDom {envT : Env} {D : Nat} {ty b : Expr} {bi : ConLeche.BinderMeta} :
-    IhTyped envT D (.forallE ty b bi) → IhTyped envT D ty
-  | ⟨_, .forallE h1 _ _ _ _⟩ => ⟨_, h1⟩
-
-/-- A `∀`'s opened body is typed, one binder deeper. -/
-theorem IhTyped.piBody {envT : Env} {D : Nat} {ty b : Expr} {bi : ConLeche.BinderMeta} :
-    IhTyped envT D (.forallE ty b bi) → IhTyped envT (D + 1) (b.instantiate1 (.fvar D ty))
-  | ⟨_, .forallE _ _ h3 _ _⟩ => ⟨_, h3⟩
-
-/-- An application's head is typed.  `Infer.appSkip` is `.io`-only, so
-at `.full` there is exactly one way to infer an application. -/
-theorem IhTyped.appFn {envT : Env} {D : Nat} {f a : Expr} :
-    IhTyped envT D (.app f a) → IhTyped envT D f
-  | ⟨_, .app hf _ _ _⟩ => ⟨_, hf⟩
-
-/-- An application's ARGUMENT is typed. -/
-theorem IhTyped.appArg {envT : Env} {D : Nat} {f a : Expr} :
-    IhTyped envT D (.app f a) → IhTyped envT D a
-  | ⟨_, .app _ _ ha _⟩ => ⟨_, ha⟩
-
-/-- **The walk's LOCAL frame fits its own domains**.
-
-The walk quantifies `locals` with `locals.length = d` and
-nothing about their VALUES.  That is sound for the walk itself — its
-conclusion is a reading EQUALITY, true at every frame — but not for
-`hfit`, whose consumer β-reduces a λ-tower and needs
-the call's arguments to fit.  One accepted rule refutes the
-unqualified form: a reflexive field `f : Nat → T` whose right-hand
-side calls the `ih` under a local binder makes the call's argument a
-LOCAL, and at a junk local the fit fails.
-
-Binder `j` is counted INNERMOST-FIRST, as `as1` is: it sits at
-position `locals.length - 1 - j` of `locals`, and its domain is read
-BELOW it, at the locals standing when it was opened. -/
-@[expose] def LocalsFit (V : Type uv) [SetTheory V]
-    (acval : Name → (Name → Nat) → AnnotTerm) (env : Env) (φ : Name → Nat)
-    (F : Nat) (ρ' : Nat → V) (locals : List V) (as1 : List Expr) : Prop :=
-  ∀ (j : Nat), j < locals.length → ∀ x : Expr, as1[j]? = some x →
-    ∀ ta : AnnotTerm,
-      denoteMeta acval env φ (F + locals.length - 1 - j) (Expr.fvarTypeD x) = some ta →
-      locals.getD (locals.length - 1 - j) pt
-        ∈ˢ interp V (consList (locals.take (locals.length - 1 - j)) ρ') ta
-
-/-- The empty local frame fits vacuously — the walk's entry point. -/
-theorem LocalsFit.nil {F : Nat} {ρ' : Nat → V} {as1 : List Expr} :
-    LocalsFit V acval env φ F ρ' [] as1 := by
-  intro j hj; exact absurd hj (by simp)
-
-/-- **Opening one binder extends the local fit** — the membership the
-binder congruences (`lamR_congr`, `piR_congr`) hand over is exactly
-the new entry's obligation. -/
-theorem LocalsFit.cons {F : Nat} {ρ' : Nat → V} {locals : List V} {as1 : List Expr}
-    (h : LocalsFit V acval env φ F ρ' locals as1) {x : V} {ty : Expr} {ta : AnnotTerm}
-    (hta : denoteMeta acval env φ (F + locals.length) ty = some ta)
-    (hx : x ∈ˢ interp V (consList locals ρ') ta) :
-    LocalsFit V acval env φ F ρ' (locals ++ [x])
-      (Expr.fvar (F + locals.length) ty :: as1) := by
-  intro j hj y hy tb htb
-  have hlen : (locals ++ [x]).length = locals.length + 1 := by simp
-  rw [hlen] at hj htb ⊢
-  cases j with
-  | zero =>
-    obtain rfl : y = Expr.fvar (F + locals.length) ty := by
-      simpa using hy.symm
-    rw [show Expr.fvarTypeD (Expr.fvar (F + locals.length) ty) = ty from rfl,
-      show F + (locals.length + 1) - 1 - 0 = F + locals.length from by omega] at htb
-    obtain rfl : tb = ta := Option.some.inj (htb.symm.trans hta)
-    rw [show locals.length + 1 - 1 - 0 = locals.length from by omega]
-    have h1 : (locals ++ [x]).getD locals.length pt = x := by
-      simp [List.getD_eq_getElem?_getD]
-    have h2 : (locals ++ [x]).take locals.length = locals := by simp
-    rw [h1, h2]
-    exact hx
-  | succ j =>
-    have hjl : j < locals.length := by omega
-    have hidx : locals.length + 1 - 1 - (j + 1) = locals.length - 1 - j := by omega
-    rw [hidx]
-    have h1 : (locals ++ [x]).getD (locals.length - 1 - j) pt
-        = locals.getD (locals.length - 1 - j) pt := by
-      rw [List.getD_eq_getElem?_getD, List.getD_eq_getElem?_getD,
-        List.getElem?_append_left (by omega)]
-    have h2 : (locals ++ [x]).take (locals.length - 1 - j)
-        = locals.take (locals.length - 1 - j) :=
-      List.take_append_of_le_length (by omega)
-    rw [h1, h2]
-    refine h j hjl y (by simpa using hy) tb ?_
-    rw [show F + locals.length - 1 - j = F + (locals.length + 1) - 1 - (j + 1) from by omega]
-    exact htb
 
 /-! ## The frame, in the shape the reading battery wants
 
@@ -355,54 +162,6 @@ theorem FvarList.reverse_idx {E : Nat} {as1 : List Expr} (h : FvarList E as1) :
   obtain ⟨ty, hty⟩ := h.2.1 (E - 1 - k) (by omega)
   rw [hty] at hx
   exact ⟨ty, by rw [← Option.some.inj hx, show E - 1 - (E - 1 - k) = k from by omega]⟩
-
-/-- A two-segment frame's first segment: its `l`-th entry is the fvar `l`. -/
-theorem FvarList.fst_idx {E : Nat} {P Fs : List Expr} (h : FvarList E (P ++ Fs).reverse)
-    {l : Nat} (hl : l < P.length) : ∃ ty, P[l]? = some (.fvar l ty) := by
-  obtain ⟨ty, hty⟩ := h.reverse_idx l _
-    (by rw [List.reverse_reverse]; exact List.getElem?_eq_getElem (by simp; omega))
-  refine ⟨ty, ?_⟩
-  rw [List.getElem?_eq_getElem hl]
-  rw [List.getElem_append_left hl] at hty
-  exact congrArg some hty
-
-/-- A two-segment frame's second segment: its `l`-th entry is the fvar
-`rP + l`, past the first segment's `rP`. -/
-theorem FvarList.snd_idx {E rP : Nat} {P Fs : List Expr} (h : FvarList E (P ++ Fs).reverse)
-    (hlp : P.length = rP) {l : Nat} (hl : l < Fs.length) :
-    ∃ ty, Fs[l]? = some (.fvar (rP + l) ty) := by
-  obtain ⟨ty, hty⟩ := h.reverse_idx (rP + l) _
-    (by rw [List.reverse_reverse]; exact List.getElem?_eq_getElem (by simp [hlp]; omega))
-  refine ⟨ty, ?_⟩
-  rw [List.getElem?_eq_getElem hl]
-  rw [List.getElem_append_right (by omega)] at hty
-  simp only [hlp, Nat.add_sub_cancel_left] at hty
-  exact congrArg some hty
-
-/-- `FvarList.snd_idx`, read with `getD`. -/
-theorem FvarList.snd_getD {E rP : Nat} {P Fs : List Expr} (h : FvarList E (P ++ Fs).reverse)
-    (hlp : P.length = rP) {l : Nat} (hl : l < Fs.length) :
-    ∃ ty, Fs.getD l default = .fvar (rP + l) ty := by
-  obtain ⟨ty, hty⟩ := h.snd_idx hlp hl
-  exact ⟨ty, by rw [List.getD_eq_getElem?_getD, hty]; rfl⟩
-
-theorem looseBVarsBounded_instSeq : ∀ (sp : List Expr) (t : Nat),
-    (∀ s ∈ sp, s.looseBVarsBounded 0 = true) → sp.length = t + 1 →
-    ∀ {a : Expr}, a.looseBVarsBounded (t + 1) = true →
-      (Expr.instSeq sp t a).looseBVarsBounded 0 = true
-  | [], t, _, hlen, _, _ => absurd hlen (by simp)
-  | s :: ss, t, hsp, hlen, a, ha => by
-    have hss : ss.length = t := by simpa using hlen
-    have hs : s.looseBVarsBounded 0 = true := hsp s List.mem_cons_self
-    cases t with
-    | zero =>
-      obtain rfl : ss = [] := List.eq_nil_of_length_eq_zero hss
-      exact ConLeche.Expr.looseBVarsBounded_instantiate1_gen hs ha
-    | succ t' =>
-      show (Expr.instSeq ss t' (a.instantiate1 s (t' + 1))).looseBVarsBounded 0 = true
-      exact looseBVarsBounded_instSeq ss t'
-        (fun x hx => hsp x (List.mem_cons_of_mem _ hx)) hss
-        (ConLeche.Expr.looseBVarsBounded_instantiate1_gen hs ha)
 
 /-! ## The frame's CONTEXT, threaded with the walk
 
@@ -538,43 +297,6 @@ theorem WalkCtx.ctxOk {envT : Env} {mT : EnvModel V envT} {φ : Name → Nat} {D
   · intro i hi ρ hρ
     exact hok (D - 1 - i) (by omega) ρ hρ
 
-/-- **A frame variable's ANNOTATION is a subject of the context.**
-`certs_sound` asks the head's stored type for a `Frame`, a `CtxOk` and
-a grading; all three are the frame's own, because `WalkCtx`'s last
-three conjuncts say the annotations are closed, leaf-closed and
-`envT`-bounded — the grading is `CtxOk`'s own last clause read at the
-leaf. -/
-theorem WalkCtx.annotOk {envT : Env} {mT : EnvModel V envT} {φ : Name → Nat} {D : Nat}
-    (hacl : ∀ (n : Name) (ψ : Name → Nat) (k : Nat), (mT.acval n ψ).liftN 1 k = mT.acval n ψ)
-    {ρfull : Nat → V} {Δa : List AnnotTerm} {as2 : List Expr}
-    (h2 : FvarList D as2) (h : WalkCtx V mT φ D ρfull Δa as2)
-    {k : Nat} {ty : Expr} (hmem : Expr.fvar k ty ∈ as2) :
-    Rules.Frame D ty ∧ CtxOk mT φ D Δa ty ∧
-      ∀ ta : AnnotTerm, denoteMeta mT.acval envT φ D ty = some ta → Rules.Graded V Δa ta := by
-  have hleafTy : ∀ l ∈ ty.fvarLeaves, Expr.fvar l.1 l.2 ∈ as2 :=
-    fun l hl => h.2.2.2.2.2.2 _ hmem l hl
-  have hleafV : ∀ l ∈ (Expr.fvar k ty).fvarLeaves, Expr.fvar l.1 l.2 ∈ as2 := by
-    intro l hl
-    simp only [Expr.fvarLeaves, List.mem_cons] at hl
-    rcases hl with rfl | hl'
-    · exact hmem
-    · exact hleafTy l hl'
-  have hws := h2.2.2 _ hmem
-  simp only [Expr.WScoped] at hws
-  have hlb : ty.looseBVarsBounded 0 = true := h.2.2.2.2.1 _ hmem
-  refine ⟨⟨hws.2.mono (by omega), hlb, fun l hl => h.2.2.2.2.1 _ (hleafTy l hl)⟩,
-    h.ctxOk hacl h2 hleafTy, fun ta hta ρ hρ => ?_⟩
-  obtain ⟨-, hleaf⟩ := h.ctxOk (e := Expr.fvar k ty) hacl h2 hleafV
-  obtain ⟨-, -, tya, Aa, htya, -, -, hok⟩ := hleaf (k, ty) (by simp [Expr.fvarLeaves])
-  obtain rfl : tya = ta := Option.some.inj (htya.symm.trans hta)
-  exact hok ρ hρ
-
-/-- An opened variable's inferred type is its STORED annotation —
-`certs_of_infer_mkAppN`'s "the head's type is pinned". -/
-theorem IhTyped.fvarTy {envT : Env} {D idx : Nat} {ty t : Expr}
-    (h : ConLeche.Rules.Infer envT .full D (.fvar idx ty) t) : t = ty := by
-  cases h; rfl
-
 /-- Bulk instantiation distributes over an application spine. -/
 theorem instantiateList_mkAppN :
     ∀ (as : List Expr) (f : Expr) (xs : List Expr) (k : Nat),
@@ -601,49 +323,6 @@ capture-avoiding substitution followed by the ambient spine is the
 plain substitution at the already-instantiated argument".  Three small
 lemmas turn it into the statement `instPisAtLift` needs. -/
 
-theorem instSeq_forallE : ∀ (sp : List Expr) (t : Nat), sp.length = t + 1 →
-    ∀ (dom body : Expr) (mt : ConLeche.BinderMeta),
-      Expr.instSeq sp t (.forallE dom body mt)
-        = .forallE (Expr.instSeq sp t dom) (Expr.instSeq sp (t + 1) body) mt
-  | [], t, hlen, _, _, _ => absurd hlen (by simp)
-  | s :: ss, t, hlen, dom, body, mt => by
-    have hss : ss.length = t := by simpa using hlen
-    cases t with
-    | zero =>
-      obtain rfl : ss = [] := List.eq_nil_of_length_eq_zero hss
-      rfl
-    | succ t' =>
-      show Expr.instSeq ss t' ((Expr.forallE dom body mt).instantiate1 s (t' + 1)) = _
-      rw [Expr.instantiate1, instSeq_forallE ss t' hss]
-      rfl
-
-/-- **The capture-avoiding telescope peel commutes with the frame's
-opening.**  This is what transports the check's own
-`instPisAtLift as … = some expected` to the frame
-the model reads at. -/
-theorem instPisAtLift_instSeq {sp : List Expr} {t : Nat}
-    (hsp : ∀ s ∈ sp, s.looseBVarsBounded 0 = true) (hlen : sp.length = t + 1) :
-    ∀ (as : List Expr), (∀ a ∈ as, a.looseBVarsBounded (t + 1) = true) →
-      ∀ {ty rest : Expr}, Expr.instPisAtLift as ty = some rest →
-        Expr.instPisAtLift (as.map (Expr.instSeq sp t)) (Expr.instSeq sp t ty)
-          = some (Expr.instSeq sp t rest)
-  | [], _, ty, rest, h => by
-    obtain rfl : ty = rest := Option.some.inj h
-    rfl
-  | a :: as, ha, ty, rest, h => by
-    match ty, h with
-    | .forallE dom body mt, h =>
-      rw [Expr.instPisAtLift] at h
-      have hab : a.looseBVarsBounded (t + 1) = true := ha a List.mem_cons_self
-      have hcl : (Expr.instSeq sp t a).looseBVarsBounded 0 = true :=
-        looseBVarsBounded_instSeq sp t hsp hlen hab
-      have hcomm := ConLeche.Expr.instSeq_instantiate1Lift sp t hsp hlen hab body 0
-      simp only [Nat.zero_add] at hcomm
-      rw [List.map_cons, instSeq_forallE sp t hlen, Expr.instPisAtLift,
-        ConLeche.Expr.instantiate1Lift_eq_instantiate1 hcl, ← hcomm]
-      exact instPisAtLift_instSeq hsp hlen as
-        (fun x hx => ha x (List.mem_cons_of_mem _ hx)) h
-
 /-! ## The peel, evaluated
 
 `AnnotTerm.peelPis` of a `mkPisAV` tower along a spine of its own
@@ -656,18 +335,5 @@ values, since `chain` is `consN` of them and `consN` is `consList`
 theorem chain_eq_consList (ρ : Nat → V) (ws : List AnnotTerm) :
     chain V ρ ws = consList (ws.map (interp V ρ)) ρ :=
   consN_eq_consList _ _
-
-/-- **The peel, evaluated**: a Π-tower's reading peeled along a spine
-of its own length reads as the body at the frame extended by the
-spine's values. -/
-theorem interp_peelPis_mkPisAV {tlA : List (Nat × Nat × AnnotTerm)} {BodyA A : AnnotTerm}
-    {vs : List AnnotTerm} (hlen : vs.length = tlA.length)
-    (hpeel : ConLeche.Model.AnnotTerm.peelPis (mkPisAV tlA BodyA) vs = some A)
-    (σ : Nat → V) :
-    interp V σ A = interp V (consList (vs.map (interp V σ)) σ) BodyA := by
-  rw [peelPis_of_piTeleAV tlA.length (piTeleAV_mkPisAV tlA BodyA) hlen] at hpeel
-  obtain rfl : A = ConLeche.Model.AnnotTerm.instSeq vs (tlA.length - 1) BodyA :=
-    (Option.some.inj hpeel).symm
-  rw [← hlen, interp_instSeq, chain_eq_consList]
 
 end ConLeche.Model

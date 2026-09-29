@@ -57,29 +57,6 @@ eliminator, `zero` at the small one. -/
 def structElimLevel (elim : Name) (large : Bool) : Level :=
   if large then .param elim else .zero
 
-/-- The constructor applied to the parameter and field variables, as
-spelled under `o` binders between the parameters and the fields (the
-motive and the earlier minor premises). -/
-def structCtorSpineAt (C : Name) (lps : List Name) (o nP nF : Nat) : Expr :=
-  Expr.mkAppN (.const C (lps.map .param))
-    (structPsAt (o + nF) nP ++ (List.range nF).map fun j => Expr.bvar (nF - 1 - j))
-
-/-- Replace the body under the first `k` `∀`-binders, resetting their
-codomain data to `pw` (the domains are kept). -/
-def Expr.replacePisPw (pw : PropWhen) : Nat → Expr → Expr → Option Expr
-  | 0, _, b => some b
-  | k + 1, .forallE ty rest _, b =>
-    (replacePisPw pw k rest b).map fun r => .forallE ty r ⟨pw⟩
-  | _ + 1, _, _ => none
-
-/-- Convert the first `k` `∀`-binders into `λ`-binders with datum `pw`
-over a body. -/
-def Expr.pisToLamsPw (pw : PropWhen) : Nat → Expr → Expr → Option Expr
-  | 0, _, b => some b
-  | k + 1, .forallE ty rest _, b =>
-    (pisToLamsPw pw k rest b).map fun r => .lam ty r ⟨pw⟩
-  | _ + 1, _, _ => none
-
 /-! ## The generated recursor at an indexed family (task #175 indexed)
 
 A non-recursive family `T : ∀ p⃗ ı⃗, Sort w` with constructors
@@ -99,13 +76,6 @@ constructor's residual index expressions (lifted under the extras)
 before the constructor spine.  A rule binds no index
 (`rulePrefix = nP + 1 + n`). -/
 
-/-- The family applied to its parameter variables and its index
-variables: `e` extra binders sit between the parameters and the
-indices (the motive and the minors), `o` binders below the index
-frame. -/
-def structFamI (T : Name) (lps : List Name) (nP nIdx e o : Nat) : Expr :=
-  Expr.mkAppN (.const T (lps.map .param)) (structPsAt (o + e + nIdx) nP ++ structPsAt o nIdx)
-
 /-- A constructor residual's shape at an indexed family: the family
 at exactly the parameter variables (`o` binders below the parameter
 frame) followed by `nIdx` index expressions. -/
@@ -113,15 +83,6 @@ def structCtorResidOk (T : Name) (lps : List Name) (nP o nIdx : Nat) (cbody : Ex
   cbody.getAppFn == .const T (lps.map .param) &&
   cbody.getAppArgs.length == nP + nIdx &&
   cbody.getAppArgs.take nP == structPsAt o nP
-
-/-- The motive's type `∀ ı⃗ (t : T p⃗ ı⃗), Sort ℓ` at the parameters'
-frame, over the former's index telescope `itele = ∀ ı⃗, Sort w` (scoped
-at the parameters); every binder's codomain is a type former, never a
-proposition. -/
-def structMotiveTyI (T : Name) (lps : List Name) (nP nIdx : Nat) (ℓ : Level) (itele : Expr) :
-    Option Expr :=
-  Expr.replacePisPw .never nIdx itele
-    (.forallE (structFamI T lps nP nIdx 0 0) (.sort ℓ) ⟨.never⟩)
 
 /-- The parameter spine of the generated projection types, spelled at
 the frame of the final `∀ p⃗ (t : T p⃗), _` telescope: `p_k = bvar

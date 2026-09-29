@@ -56,13 +56,4 @@ structure InductiveShape where
   isProp : Bool
   deriving Repr
 
-/-- The record completed with the former's result sort (task #195):
-the install stage reads the sort off the checked telescope — the
-declared one, or official's whnf'd one — and every later stage runs
-on this record.  `isProp` is recomputed so that the
-invariant `isProp = (isEquiv resSort zero == some true)` holds by
-definition. -/
-def InductiveShape.withSort (p : InductiveShape) (s : Level) : InductiveShape :=
-  { p with resSort := s, isProp := Level.isEquiv s .zero == some true }
-
 end ConLeche

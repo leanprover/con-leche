@@ -37,17 +37,6 @@ theorem openFvars_succ (d k : Nat) :
     openFvars d (k + 1) =
       Expr.fvar d (.sort .zero) :: openFvars (d + 1) k := by rfl
 
-theorem openFvars_getElem? : ∀ {d k i : Nat}, i < k →
-    (openFvars d k)[i]? =
-      some (Expr.fvar (d + i) (.sort .zero))
-  | _, 0, _, h => absurd h (by omega)
-  | d, k + 1, 0, _ => by simp [openFvars]
-  | d, k + 1, i + 1, h => by
-    rw [openFvars_succ, List.getElem?_cons_succ,
-      openFvars_getElem? (d := d + 1) (k := k) (i := i) (by omega)]
-    congr 2
-    omega
-
 /-! ## The reverse opening
 
 The bookkeeping order `denote`'s own recursion produces: substitute

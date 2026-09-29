@@ -2,11 +2,7 @@ module
 
 public import ConLeche.Model.Inductives.TargetCallTie
 public import ConLeche.Model.Inductives.TargetNodeRb
-import ConLeche.Model.Inductives.TargetCallWalk
-import ConLeche.Model.Inductives.TargetRecRead
-import ConLeche.Model.Inductives.BlockRecRule
 import ConLeche.Model.Inductives.PosDerivTie
-import ConLeche.Verify.Inductives.NestCallSyn
 
 public section
 
@@ -37,17 +33,6 @@ open ConLeche (CheckMode Env Expr Name Level ConstantVal ConstantInfo FEnv Block
 universe w
 
 variable {V : Type w} [SetTheory V] {μ : CheckMode}
-
-/-- A constant spine naming a member names it. -/
-theorem nestOcc_mkAppN_const_mem {names : List Name} {lo hi : Nat} {n : Name} {us : List Level}
-    (hn : n ∈ names) (P : List Expr) : (Expr.mkAppN (.const n us) P).nestOcc names lo hi = true := by
-  rw [nestOcc_mkAppN]
-  simp [Expr.nestOcc, hn]
-
-theorem erasedEqL_map {f : Expr → Expr} :
-    ∀ {l : List Expr}, (∀ x ∈ l, Expr.ErasedEq (f x) x) → Expr.ErasedEqL (l.map f) l
-  | [], _ => trivial
-  | x :: _, h => ⟨h x List.mem_cons_self, erasedEqL_map fun y hy => h y (List.mem_cons_of_mem _ hy)⟩
 
 /-! ## The one substitution below the holes is the read-back -/
 

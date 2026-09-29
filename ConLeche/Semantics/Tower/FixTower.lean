@@ -89,9 +89,6 @@ theorem famTyAV_facts {u w : Nat} {ρp : Nat → V} {Ids : List AnnotTerm} (h : 
     exact ⟨hok, fun _ _ => trivial⟩
 
 
-/-- The variables of an `m`-binder telescope, innermost last. -/
-def teleVarsAV (m : Nat) : List AnnotTerm := (List.range m).map fun k => .bvar (m - 1 - k)
-
 omit [SetTheory V] in
 
 omit [SetTheory V] in
@@ -225,31 +222,6 @@ theorem WellDenoted_mkPisAV_of {w : Nat} {R : AnnotTerm} :
     rwa [consList_cons] at this
 
 
-/-- **A graded Π-tower's pieces**: at a `Prop`-regime family the
-domains are graded along the telescope, and the body is graded at
-every fitting spine. -/
-theorem WellDenoted_mkPisAV_inv {R : AnnotTerm} :
-    ∀ {gds : List (Nat × Nat × AnnotTerm)} {σ : Nat → V},
-      WellDenoted V σ (mkPisAV gds R) →
-      FieldsOkB 0 σ (gds.map (·.2.2)) ∧
-      ∀ as, SpineFit σ (gds.map (·.2.2)) as → WellDenoted V (consList as σ) R
-  | [], σ, h => ⟨trivial, fun as hsp => by
-      cases as with
-      | nil => simpa [mkPisAV, consList] using h
-      | cons a as => exact hsp.elim⟩
-  | d :: gds, σ, h => by
-    simp only [mkPisAV, WellDenoted_pi] at h
-    obtain ⟨hok, hB⟩ := h
-    refine ⟨⟨hok, fun h0 => absurd rfl h0, fun x hx => (WellDenoted_mkPisAV_inv (hB x hx)).1⟩,
-      fun as hsp => ?_⟩
-    cases as with
-    | nil => exact hsp.elim
-    | cons a as =>
-      obtain ⟨ha, hsp'⟩ := hsp
-      rw [consList_cons]
-      exact (WellDenoted_mkPisAV_inv (hB a ha)).2 as hsp'
-
-
 end Fam
 
 
@@ -285,18 +257,6 @@ def ihTeleAtR (nF o i l : Nat) (tl : List (Nat × Nat × AnnotTerm)) : List (Nat
   ihTeleAtGo nF o i l 0 tl
 
 @[simp] theorem ihTeleAtR_nil (nF o i l : Nat) : ihTeleAtR nF o i l [] = [] := rfl
-
-theorem mem_ihTeleAtGo {nF o i l : Nat} :
-    ∀ {k : Nat} {tl : List (Nat × Nat × AnnotTerm)} {d : Nat × Nat × AnnotTerm},
-      d ∈ ihTeleAtGo nF o i l k tl → ∃ d' ∈ tl, d.2.1 = d'.2.1
-  | _, [], _, h => nomatch h
-  | k, d' :: tl, d, h => by
-    simp only [ihTeleAtGo, List.mem_cons] at h
-    rcases h with rfl | h
-    · exact ⟨d', List.mem_cons_self, rfl⟩
-    · obtain ⟨d'', hd'', he⟩ := mem_ihTeleAtGo h
-      exact ⟨d'', List.mem_cons_of_mem _ hd'', he⟩
-
 
 /-! ## Field sources among the index expressions -/
 
@@ -349,14 +309,6 @@ theorem frameIdx_of (nIdx : Nat) {as is : List V} (hilen : is.length = nIdx) (ρ
 
 end WalkFrames
 
-section KRecZero
-
-variable {ℓ w u : Nat} {K : Nat → V} {Fss Ess Fss₀ : List (List AnnotTerm)} {Ids : List AnnotTerm}
-  {rss : List (List Bool)} {tlss : List (List (List (Nat × Nat × AnnotTerm)))} {Eiss : List (List (List AnnotTerm))}
-
-
-end KRecZero
-
 section Rec
 
 variable {ℓ w u nP s : Nat} {Fss Ess Fss₀ : List (List AnnotTerm)} {Ids : List AnnotTerm}
@@ -396,23 +348,6 @@ universe w'
 variable {V : Type w'} [SetTheory V]
 
 /-! ## Frame kit -/
-
-theorem map_teleVarsAV_interp' {m : Nat} {bs : List V} (hm : bs.length = m) (ρ : Nat → V) :
-    (teleVarsAV m).map (interp V (consList bs ρ)) = bs := by
-  subst hm
-  have h : (teleVarsAV bs.length).map (interp V (consList bs ρ))
-      = frameIdx bs.length (consList bs ρ) := by
-    unfold teleVarsAV frameIdx
-    rw [List.map_map]
-    apply List.map_congr_left
-    intro l _
-    simp only [Function.comp_def, interp_bvar]
-  rw [h, frameIdx_consList']
-
-theorem map_teleVarsAV_interp (bs : List V) (ρ : Nat → V) :
-    (teleVarsAV bs.length).map (interp V (consList bs ρ)) = bs :=
-  map_teleVarsAV_interp' rfl ρ
-
 
 /-! ## The sources -/
 

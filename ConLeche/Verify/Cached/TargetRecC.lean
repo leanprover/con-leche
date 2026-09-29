@@ -48,30 +48,6 @@ theorem piBinders_WScoped {d : Nat} : ∀ {e : Expr}, WScoped d e →
     · intro b hb; simp [Expr.piBinders] at hb
     · simpa [Expr.piBinders] using h
 
-theorem mkLamsOf_WScoped {d : Nat} :
-    ∀ {bs : List (Expr × BinderMeta)} {body : Expr}, (∀ b ∈ bs, WScoped d b.1) →
-      WScoped d body → WScoped d (Expr.mkLamsOf bs body)
-  | [], _, _, hb => hb
-  | (ty, mt) :: bs, body, hbs, hb => by
-    simp only [Expr.mkLamsOf, WScoped]
-    exact ⟨hbs _ List.mem_cons_self,
-      mkLamsOf_WScoped (fun b hb' => hbs b (List.mem_cons_of_mem _ hb')) hb⟩
-
-theorem instPisWith_WScoped {d : Nat} :
-    ∀ {as : List Expr} {t r : Expr}, instPisWith as t = some r → WScoped d t →
-      (∀ a ∈ as, WScoped d a) → WScoped d r
-  | [], t, r, h, ht, _ => by
-    simp only [instPisWith, Option.some.injEq] at h
-    exact h ▸ ht
-  | a :: as, t, r, h, ht, ha => by
-    cases t with
-    | forallE dom body bi =>
-      simp only [instPisWith] at h
-      simp only [WScoped] at ht
-      exact instPisWith_WScoped h (WScoped.instantiate1_gen (ha a List.mem_cons_self) 0 ht.2)
-        (fun x hx => ha x (List.mem_cons_of_mem _ hx))
-    | _ => simp [instPisWith] at h
-
 theorem WScoped.default_expr {d : Nat} : WScoped d (default : Expr) :=
   WScoped.of_not_hasFvar (by rfl)
 

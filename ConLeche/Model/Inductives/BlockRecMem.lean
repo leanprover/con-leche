@@ -98,43 +98,6 @@ theorem blockRecTyAV_eq {acval : Name → (Name → Nat) → AnnotTerm} {envC : 
     blockRecTyAV acval envC rs ψ c = ta := by
   simp [blockRecTyAV, hr, hta]
 
-/-- **The family's SHARED RULE PREFIX, at the run**: the
-first stored recursor's opened prefix is
-the reference, and every other stored recursor's has its length and
-its domains (syntactically, `RecPrefixSame`).
-
-The bridge from stage (b')'s own list (the TYPE stage's checked
-constant values) to the stored `rs` is the run record's
-(`RecStage.stored_fst`). -/
-theorem recStage_prefixAgree {envC : Env} {p : ConLeche.BlockParts}
-    {cvTas : List ConstantVal} {ctorsAs : List (List (ConstantVal × Nat))}
-    {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
-    {memR : Nat → Prop} (h : ConLeche.RecStageG μ F envC p cvTas ctorsAs rs memR)
-    {r0 : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)} (hr0 : rs[0]? = some r0) :
-    ∃ (fvs0 : List Expr) (o0 : Expr),
-      ConLeche.openPisAtFvars (p.toBlockShape.rulePrefixAt 0) r0.1.type 0
-          = some (fvs0, o0) ∧
-      ∀ (i : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
-        rs[i]? = some r → 0 < i →
-        p.toBlockShape.rulePrefixAt i = p.toBlockShape.rulePrefixAt 0 ∧
-        ∃ (fvs : List Expr) (o : Expr),
-          ConLeche.openPisAtFvars (p.toBlockShape.rulePrefixAt 0) r.1.type 0
-              = some (fvs, o) ∧
-          fvs0.length = fvs.length ∧
-          ((∀ l, l < fvs0.length →
-            ConLeche.isDefEqCore μ envC F (p.toBlockShape.rulePrefixAt 0)
-              ((fvs0.map Expr.fvarTypeD).getD l default)
-              ((fvs.map Expr.fvarTypeD).getD l default) = .ok true) ∨
-            fvs.map Expr.fvarTypeD = fvs0.map Expr.fvarTypeD) := by
-  obtain ⟨R⟩ := id h
-  obtain ⟨fvs0, o0, hop0, hall⟩ := R.fam.prefixAgree r0.1 (R.stored_fst hr0)
-  refine ⟨fvs0, o0, hop0, fun i r hr _ => ?_⟩
-  obtain ⟨hrP, fvs, o, hop, hdoms⟩ := hall i r.1 (R.stored_fst hr)
-  have hlen : fvs0.length = fvs.length := by
-    have := congrArg List.length hdoms
-    simpa using this.symm
-  exact ⟨hrP, fvs, o, hop, hlen, .inr hdoms⟩
-
 /-- **The identification**: at every `ψ`, the `i`-th stored
 recursor type READS, its reading is GRADED, and it IS the Π-tower
 `mkPisAV rds concl` over the run's own binder data — with the domains'

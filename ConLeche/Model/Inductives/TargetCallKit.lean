@@ -1,7 +1,5 @@
 module
 
-import ConLeche.Verify.Subst
-import ConLeche.Verify.Inductives.BlockRecInv
 public import ConLeche.Model.Inductives.TargetRecRead
 
 public section
@@ -28,44 +26,7 @@ variable {V : Type w} [SetTheory V]
 
 /-! ## A Π-tower reads only its bits and domains -/
 
-theorem interp_mkPisAV_congr {X : AnnotTerm} :
-    ∀ {ds ds' : List (Nat × Nat × AnnotTerm)}, ds.map (·.2) = ds'.map (·.2) →
-      ∀ ρ : Nat → V, interp V ρ (mkPisAV ds X) = interp V ρ (mkPisAV ds' X)
-  | [], [], _, _ => rfl
-  | [], _ :: _, h, _ => by simp at h
-  | _ :: _, [], h, _ => by simp at h
-  | d :: ds, d' :: ds', h, ρ => by
-    simp only [List.map_cons, List.cons.injEq] at h
-    obtain ⟨h1, h2⟩ := h
-    show interp V ρ (.pi d.1 d.2.1 d.2.2 (mkPisAV ds X))
-      = interp V ρ (.pi d'.1 d'.2.1 d'.2.2 (mkPisAV ds' X))
-    rw [interp_pi, interp_pi, show d.2 = d'.2 from h1]
-    exact piR_congr fun x _ => interp_mkPisAV_congr h2 _
-
 /-! ## Syntax helpers -/
-
-/-- The peel commutes with an opening by bvar-closed terms. -/
-theorem instPisAtLift_instantiateList {os : List Expr}
-    (hcl : ∀ s ∈ os, s.looseBVarsBounded 0 = true) :
-    ∀ (args : List Expr) {ty rest : Expr}, (∀ a ∈ args, a.looseBVarsBounded os.length = true) →
-      ty.looseBVarsBounded 0 = true →
-      Expr.instPisAtLift args ty = some rest →
-      Expr.instPisAtLift (args.map (·.instantiateList os 0)) ty = some (rest.instantiateList os 0) := by
-  intro args ty rest hargs hty h
-  cases os with
-  | nil => simpa [ConLeche.Expr.instantiateList_nil] using h
-  | cons o os' =>
-    have hne : (o :: os') ≠ [] := by simp
-    have hlen : (o :: os').reverse.length = ((o :: os').length - 1) + 1 := by simp
-    have hcl' : ∀ s ∈ (o :: os').reverse, s.looseBVarsBounded 0 = true :=
-      fun s hs => hcl s (List.mem_reverse.mp hs)
-    have h2 := instPisAtLift_instSeq hcl' hlen args
-      (fun a ha => by rw [show (o :: os').length - 1 + 1 = (o :: os').length from by simp]; exact hargs a ha) h
-    rw [← ConLeche.instantiateList_eq_instSeq hne, ← ConLeche.instantiateList_eq_instSeq hne,
-      ConLeche.Expr.instantiateList_eq_self hty] at h2
-    rw [← h2]
-    congr 1
-    exact List.map_congr_left fun a _ => ConLeche.instantiateList_eq_instSeq hne a
 
 /-! ## A graph's domain is rigid -/
 
@@ -121,136 +82,7 @@ theorem spineFit_of_wellDenoted_mkAppN_pi {R : AnnotTerm} :
     rw [interp_app]
     exact app_mem_of_mem_piSet hmem' hx
 
-/-- The member abstraction commutes with an opening by free variables
-(the holes are free variables too). -/
-theorem targetAbs_instantiateList {names : List Name} {lvls : List Level} {holes : List Expr}
-    (hh : ∀ h ∈ holes, ∃ i ty, h = Expr.fvar i ty) {os : List Expr}
-    (ho : ∀ o ∈ os, ∃ i ty, o = Expr.fvar i ty) :
-    ∀ (e : Expr) (k : Nat),
-      ConLeche.targetAbs names lvls holes (e.instantiateList os k)
-        = (ConLeche.targetAbs names lvls holes e).instantiateList os k := by
-  intro e
-  induction e with
-  | bvar j =>
-    intro k
-    simp only [ConLeche.targetAbs, Expr.instantiateList]
-    split
-    · rfl
-    · split
-      · rename_i hj
-        obtain ⟨i, ty, hi⟩ := ho _ (List.getElem_mem hj)
-        rw [hi]
-        simp [Expr.instantiateList, ConLeche.targetAbs]
-      · rfl
-  | fvar i ty _ => intro k; simp [Expr.instantiateList, ConLeche.targetAbs]
-  | sort => intro k; simp [Expr.instantiateList, ConLeche.targetAbs]
-  | lit => intro k; simp [Expr.instantiateList, ConLeche.targetAbs]
-  | const n us =>
-    intro k
-    simp only [Expr.instantiateList, ConLeche.targetAbs]
-    split
-    · split
-      · rename_i t ht
-        rcases Nat.lt_or_ge t holes.length with hlt | hge
-        · rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hlt, Option.getD_some]
-          obtain ⟨i, ty, hi⟩ := hh _ (List.getElem_mem hlt)
-          rw [hi]; simp [Expr.instantiateList]
-        · rw [List.getD_eq_getElem?_getD, List.getElem?_eq_none hge, Option.getD_none]
-          simp [Expr.instantiateList]
-      · simp [Expr.instantiateList]
-    · simp [Expr.instantiateList]
-  | app f a ihf iha => intro k; simp [Expr.instantiateList, ConLeche.targetAbs, ihf, iha]
-  | lam t b _ iht ihb => intro k; simp [Expr.instantiateList, ConLeche.targetAbs, iht, ihb]
-  | forallE t b _ iht ihb => intro k; simp [Expr.instantiateList, ConLeche.targetAbs, iht, ihb]
-  | letE t v b iht ihv ihb =>
-    intro k; simp [Expr.instantiateList, ConLeche.targetAbs, iht, ihv, ihb]
-  | proj s i e ih => intro k; simp [Expr.instantiateList, ConLeche.targetAbs, ih]
-
 /-! ## Replacing free variables by terms -/
-
-/-- Replace `fvar i` by `g i` where given (annotations not entered). -/
-@[expose] def replF (g : Nat → Option Expr) : Expr → Expr
-  | .fvar i ty => (g i).getD (.fvar i ty)
-  | .bvar j => .bvar j
-  | .sort u => .sort u
-  | .const n us => .const n us
-  | .lit l => .lit l
-  | .app f a => .app (replF g f) (replF g a)
-  | .lam ty b bi => .lam (replF g ty) (replF g b) bi
-  | .forallE ty b bi => .forallE (replF g ty) (replF g b) bi
-  | .letE ty v b => .letE (replF g ty) (replF g v) (replF g b)
-  | .proj s i e => .proj s i (replF g e)
-
-theorem replF_of_not_hasFvar (g : Nat → Option Expr) :
-    ∀ e : Expr, e.hasFvar = false → replF g e = e := by
-  intro e
-  induction e <;> intro h <;> simp_all [replF, Expr.hasFvar]
-
-theorem replF_mkAppN (g : Nat → Option Expr) :
-    ∀ (as : List Expr) (f : Expr), replF g (Expr.mkAppN f as) = Expr.mkAppN (replF g f) (as.map (replF g))
-  | [], _ => rfl
-  | a :: as, f => by
-    show replF g (Expr.mkAppN (.app f a) as) = _
-    rw [replF_mkAppN g as (.app f a)]
-    rfl
-
-theorem replF_instantiate1 {g : Nat → Option Expr}
-    (hg : ∀ i x, g i = some x → x.looseBVarsBounded 0 = true) :
-    ∀ (e v : Expr) (k : Nat), replF g (e.instantiate1 v k) = (replF g e).instantiate1 (replF g v) k := by
-  intro e
-  induction e with
-  | bvar j =>
-    intro v k
-    simp only [replF, Expr.instantiate1]
-    split
-    · rfl
-    · split <;> rfl
-  | fvar i ty _ =>
-    intro v k
-    simp only [Expr.instantiate1, replF]
-    cases hgi : g i with
-    | none => rfl
-    | some x =>
-      simp only [Option.getD_some]
-      exact (ConLeche.Expr.instantiate1_eq_self
-        (ConLeche.Expr.looseBVarsBounded_mono (Nat.zero_le k) (hg i x hgi))).symm
-  | sort => intro v k; rfl
-  | const => intro v k; rfl
-  | lit => intro v k; rfl
-  | app f a ihf iha => intro v k; simp [Expr.instantiate1, replF, ihf, iha]
-  | lam t b _ iht ihb => intro v k; simp [Expr.instantiate1, replF, iht, ihb]
-  | forallE t b _ iht ihb => intro v k; simp [Expr.instantiate1, replF, iht, ihb]
-  | letE t v' b iht ihv ihb => intro v k; simp [Expr.instantiate1, replF, iht, ihv, ihb]
-  | proj s i e ih => intro v k; simp [Expr.instantiate1, replF, ih]
-
-/-- **A peel at free variables, replaced, is the peel at the terms.** -/
-theorem instPisAt_replF {g : Nat → Option Expr}
-    (hg : ∀ i x, g i = some x → x.looseBVarsBounded 0 = true) :
-    ∀ (fs as : List Expr) (e : Expr) {ds : List Expr} {r : Expr},
-      Expr.instPisAt fs e = some (ds, r) → fs.length = as.length →
-      (∀ (j : Nat) (hj : j < fs.length) (hj' : j < as.length), replF g fs[j] = as[j]) →
-      Expr.instPisAt as (replF g e) = some (ds.map (replF g), replF g r)
-  | [], [], e, ds, r, h, _, _ => by
-    simp only [Expr.instPisAt, Option.some.injEq, Prod.mk.injEq] at h
-    obtain ⟨rfl, rfl⟩ := h
-    rfl
-  | [], _ :: _, _, _, _, _, hl, _ => by simp at hl
-  | _ :: _, [], _, _, _, _, hl, _ => by simp at hl
-  | f :: fs, a :: as, e, ds, r, h, hl, hrep => by
-    match e, h with
-    | .forallE dom body bm, h =>
-      simp only [Expr.instPisAt] at h
-      cases hq : Expr.instPisAt fs (body.instantiate1 f) with
-      | none => rw [hq] at h; exact nomatch h
-      | some q =>
-        rw [hq] at h
-        simp only [Option.map_some, Option.some.injEq, Prod.mk.injEq] at h
-        obtain ⟨rfl, rfl⟩ := h
-        have hf : replF g f = a := hrep 0 (by simp) (by simp)
-        have ih := instPisAt_replF hg fs as (body.instantiate1 f) hq (by simpa using hl)
-          (fun j hj hj' => hrep (j + 1) (by simpa using hj) (by simpa using hj'))
-        rw [replF_instantiate1 hg, hf] at ih
-        simp only [replF, Expr.instPisAt, ih, Option.map_some, List.map_cons]
 
 /-! ## The member abstraction, read at the members' own values -/
 

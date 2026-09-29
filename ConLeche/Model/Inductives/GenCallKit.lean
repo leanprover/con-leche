@@ -4,7 +4,6 @@ public import ConLeche.Model.Inductives.GenRecAssembly
 public import ConLeche.Model.Inductives.TargetNodeRead
 public import ConLeche.Verify.Inductives.GenK53Rename
 import ConLeche.Model.Inductives.ClassGenRead
-import ConLeche.Model.Annot.BitLemmas
 import ConLeche.Semantics.Tower.TowerKit
 
 public section

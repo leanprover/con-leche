@@ -3,7 +3,6 @@ module
 public import ConLeche.Model.Inductives.GenRecStage
 public import ConLeche.Model.Inductives.BlockRecData
 public import ConLeche.Model.Inductives.BlockRecTyShapeRun
-import ConLeche.Model.Inductives.BlockDeclRun
 import ConLeche.Model.Inductives.ClassGenRead
 import ConLeche.Model.Annot.BitRename
 import ConLeche.Verify.Rules.InferBridge
@@ -840,33 +839,6 @@ theorem genParams_fit_run (hμ : μ.verifiedChecks = true) {F : Nat} {envI envC 
   rw [hnPq']
   exact spineFit_of_sat_consList (by rw [hfitB.length_eq, hlenB, hlenPD, hnPq'])
     ((hparIff _ hkt ψ _).mp hsat)
-
-/-- **The generated recursors' parameter domains fit the block's** — at
-the context's conjuncts (`GenRecCtx`'s: the members' names, the
-constructors' stage and core, the datum's shape), the generated run, its
-generator's scoping and the stage record (`recStage_of_gen`'s). -/
-theorem genParams_fit (hμ : μ.verifiedChecks = true) {F : Nat} {envI envC : Env}
-    {pp : BlockParts} {nestedBit : Bool} {pos : NestState} {cvTasR : List ConstantVal}
-    {block : List ConstantInfo} {ctorsAsR : List (List (ConstantVal × Nat))}
-    {out : List (ConstantVal × TargetMajor × List Expr)} {mpC : EnvModelM V μ envC}
-    {dR : BlockData V} {isRecR : Bool} {A : Nat → (Name → Nat) → AnnotTerm}
-    (R : GenRecRun μ F (mkFEnv envI) envI (mkFEnv envC) pp.toBlockShape nestedBit pos cvTasR
-      block ctorsAsR out)
-    (hg : ClassGenScoped R.g)
-    (h : RecStageG μ F envC pp cvTasR ctorsAsR (ConLeche.tgtRs out) (fun _ => False))
-    (hN : BlockNamesOk (V := V) dR cvTasR)
-    (hS : BlockCtorsStage (V := V) μ F dR pp.lps cvTasR pp.toBlockShape isRecR A envI
-      pp.ctorNamesAt)
-    (hcore : BlockCtorsCore mpC.base2 dR pp.lps cvTasR pp.toBlockShape isRecR A dR.k)
-    (hdR : ∃ (pk : Nat → BlockMemberPick) (uOfD : Nat → (Name → Nat) → Nat)
-      (ppsOf : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)),
-      dR = blockDataOf V pp.toBlockShape ctorsAsR pk uOfD ppsOf) :
-    ∀ c, c < (ConLeche.tgtRs out).length → ∀ (ψ : Name → Nat) (ρ : Nat → V) (xs : List V),
-      SpineFit ρ (blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (ConLeche.tgtRs out) ψ c)
-        xs →
-      SpineFit ρ (dR.params ψ) (xs.take dR.nP) := by
-  obtain ⟨pk, uOfD, ppsOf, rfl⟩ := hdR
-  exact genParams_fit_run hμ mpC R hg h (blockMembersRun_seam hN hS hcore)
 
 end Fit
 

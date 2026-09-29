@@ -83,10 +83,4 @@ def blockLargeElimAllowed (p : BlockShape) (nested : Bool) : Bool :=
   p.resSort.isNeverZero ||
     (p.large && p.k == 1 && !nested && (p.numCtors == 0 || p.numCtors == 1))
 
-/-! ## Lookup -/
-
-/-- The position of a name in a list (`none` when absent). -/
-def nameIdxOf? (names : List Name) (n : Name) : Option Nat :=
-  (List.range names.length).find? fun i => names.getD i default == n
-
 end ConLeche

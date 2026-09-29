@@ -1,8 +1,9 @@
 module
 
-public import ConLeche.Verify.Denote.Rename
+import ConLeche.Verify.Subst
 public import ConLeche.Verify.Denote.OpenVars
 import ConLeche.Verify.InferLemmas
+public import ConLeche.Verify.Denote.Shift
 
 public section
 

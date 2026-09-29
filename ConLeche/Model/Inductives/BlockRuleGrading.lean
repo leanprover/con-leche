@@ -2,13 +2,13 @@ module
 
 import ConLeche.Verify.Inductives.RecStage
 public import ConLeche.Model.Inductives.BlockRuleRun
-public import ConLeche.Model.Inductives.BlockRecTyShapeRun
 import ConLeche.Model.Inductives.BlockRecIdxConv
 import ConLeche.Model.Inductives.BlockModel
 import ConLeche.Model.Inductives.BlockRecPreHpre
 import ConLeche.Model.Inductives.FixKit
 import ConLeche.Model.Rules.InferSoundKit
 import ConLeche.Model.Inductives.BlockLfpHoles
+import ConLeche.Model.Inductives.BlockRecTyShapeRun
 
 public section
 
@@ -116,74 +116,5 @@ theorem foldl_app_mem_mkPisAV {B : AnnotTerm} :
     exact foldl_app_mem_mkPisAV (hv'.2.1 b h.1) h.2 happ
 
 end TowerFits
-
-/-! ## The grading of the prefix and field segments -/
-
-section Grading
-
-variable {envC : Env} {mpC : EnvModelM V μ envC} {p : ConLeche.BlockParts}
-  {cvTas : List ConstantVal} {ctorsAs : List (List (ConstantVal × Nat))}
-  {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
-  {names : List Name} {d : BlockData V}
-
-/-- **The rule frame's grading on its PREFIX and FIELDS, at the run**
-(kind-free): `blockRuleHokA_of_run` with no `ih` segment, fed the
-constructor's reading record at the rule's member — its former, the
-former's data, the stored type's reading and its length, the parameter
-frames — and the field domains' spelling (`blockRuleFdomsAV_liftDoms`).
-The `ih` segment is the check's own (`tgtIhsAV`), graded by the walk. -/
-theorem blockRuleHokPF_run
-    (hμ : μ.verifiedChecks = true)
-    {isRec : Bool} {A : Nat → (Name → Nat) → AnnotTerm}
-    {envI : Env}
-    {memR : Nat → Prop} (h : ConLeche.RecStageG μ F envC p cvTas ctorsAs rs memR)
-    (hdR : ∃ (pk : Nat → BlockMemberPick) (uOfD : Nat → (Name → Nat) → Nat)
-        (ppsOf : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)),
-      d = blockDataOf V p.toBlockShape ctorsAs pk uOfD ppsOf)
-    (hS : BlockCtorsStage (V := V) μ F d p.lps cvTas p.toBlockShape isRec A envI
-      p.ctorNamesAt)
-    (hcore : BlockCtorsCore mpC.base2 d p.lps cvTas p.toBlockShape isRec A d.k)
-    (hmr : BlockMembersRun mpC.base2 d p.toBlockShape cvTas) :
-    ∀ (j : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
-      memR j → rs[j]? = some r → ∀ (i : Nat) (cA : ConstantVal × Nat), r.2.2.2[i]? = some cA →
-      ∀ ψ : Name → Nat,
-      ∀ l, l < p.toBlockShape.rulePrefixAt j + cA.2 →
-      ∀ (σ' : Nat → V) (ys : List V),
-        SpineFit σ' ((blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ j
-            ++ blockRuleFdomsAV p.toBlockShape rs mpC.base2.acval envC ψ j i).take l) ys →
-        WellDenotedV V (consList ys σ')
-          ((blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ j
-            ++ blockRuleFdomsAV p.toBlockShape rs mpC.base2.acval envC ψ j i).getD l default) := by
-  intro j r hm hr i cA hcA ψ l hl σ' ys hys
-  obtain ⟨pk, uOfD, ppsOf, rfl⟩ := hdR
-  have hir : i < r.2.2.2.length := (List.getElem?_eq_some_iff.mp hcA).1
-  obtain ⟨rhs, hrhs⟩ : ∃ rhs, r.2.1[i]? = some rhs :=
-    ⟨_, List.getElem?_eq_getElem (by rw [recStage_rulesLen h hr]; exact hir)⟩
-  obtain ⟨ms, hms, hctA, -⟩ := recStage_ctorsAt (hm := hm) h hr
-  have hmemk : p.toBlockShape.recTgtAt j
-      < (blockDataOf V p.toBlockShape ctorsAs pk uOfD ppsOf).k :=
-    (blockRecMajor_run (hm := hm) (V := V) hμ mpC h hmr hr (fun _ => 0)).2.1
-  have hctM : (blockDataOf V p.toBlockShape ctorsAs pk uOfD ppsOf).ctorsM
-      (p.toBlockShape.recTgtAt j) = r.2.2.2 := by
-    show ctorsAs.getD _ [] = _
-    rw [List.getD_eq_getElem?_getD, hctA]; rfl
-  have hcj : ((blockDataOf V p.toBlockShape ctorsAs pk uOfD ppsOf).ctorsM
-      (p.toBlockShape.recTgtAt j))[i]? = some cA := by rw [hctM]; exact hcA
-  have hcd := blockCtorData_of_core hcore hcj
-  obtain ⟨_, _, -, ⟨TE⟩⟩ := ConLeche.recStageG_tyAt h hm hr
-  have hcvTa := TE.hcvTa
-  have hnP := TE.nP_le
-  obtain ⟨hfT, -, -, hFD⟩ := hcore.1 _ TE.cvTa hcvTa
-  have hframes := (hS.frames _ hmemk i cA hcj).1 ψ
-  have ho : p.toBlockShape.rulePrefixAt j = p.nP + (p.toBlockShape.rulePrefixAt j - p.nP) := by
-    omega
-  have hFE := blockRuleFdomsAV_liftDoms (hm := hm) h hr hcA hrhs hcore hmemk hcj hnP rfl ho ψ
-  have hq := blockRuleHokA_of_run (hm := hm) hμ mpC h hr ψ hcvTa hfT hFD (Nat.le_add_right _ _)
-    (hcd.okTy ψ) (hcd.len ψ) hframes ho rfl hFE (I := []) (nR := 0) rfl
-    (fun q hq => absurd hq (Nat.not_lt_zero q)) l (by omega) σ' ys
-    (by simpa only [List.append_nil] using hys)
-  simpa only [List.append_nil] using hq
-
-end Grading
 
 end ConLeche.Model

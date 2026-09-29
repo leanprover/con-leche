@@ -190,26 +190,6 @@ variable {V : Type w} [SetTheory V] {μ : CheckMode} {env : Env}
 /-! ## Boundness through openings -/
 
 omit [SetTheory V] in
-/-- A bounded application's arguments are bounded. -/
-theorem constsBound_getAppArgs {env₀ : Env} :
-    ∀ (e : Expr), ConstsBound env₀ e → ∀ a ∈ e.getAppArgs, ConstsBound env₀ a
-  | .app f a, he, x, hx => by
-    rw [constsBound_app] at he
-    simp only [Expr.getAppArgs, List.mem_append, List.mem_singleton] at hx
-    rcases hx with hx | rfl
-    · exact constsBound_getAppArgs f he.1 x hx
-    · exact he.2
-  | .bvar _, _, _, hx => nomatch hx
-  | .fvar _ _, _, _, hx => nomatch hx
-  | .sort _, _, _, hx => nomatch hx
-  | .const _ _, _, _, hx => nomatch hx
-  | .lam _ _ _, _, _, hx => nomatch hx
-  | .forallE _ _ _, _, _, hx => nomatch hx
-  | .letE _ _ _, _, _, hx => nomatch hx
-  | .lit _, _, _, hx => nomatch hx
-  | .proj _ _ _, _, _, hx => nomatch hx
-
-omit [SetTheory V] in
 /-- An opening's variables (their types) and residual are bounded when
 the opened term is. -/
 theorem openPisAtFvars_constsBound {env₀ : Env} :
@@ -579,28 +559,6 @@ theorem AnnotValid_mkPisAV_of {w : Nat} {R : AnnotTerm} :
       subst hnil
       have := h0 hw [x] ⟨hx, trivial⟩
       simpa [consList] using this
-
-/-- **A valid Π-tower's pieces**: the domains are valid along the
-telescope, and the body is valid at every fitting spine. -/
-theorem AnnotValid_mkPisAV_inv {R : AnnotTerm} :
-    ∀ {gds : List (Nat × Nat × AnnotTerm)} {σ : Nat → V},
-      AnnotValid V σ (mkPisAV gds R) →
-      FieldsValid σ (gds.map (·.2.2)) ∧
-      ∀ as, SpineFit σ (gds.map (·.2.2)) as → AnnotValid V (consList as σ) R
-  | [], σ, h => ⟨trivial, fun as hsp => by
-      cases as with
-      | nil => simpa [mkPisAV, consList] using h
-      | cons a as => exact hsp.elim⟩
-  | d :: gds, σ, h => by
-    simp only [mkPisAV, AnnotValid_pi] at h
-    obtain ⟨hv, hB, -⟩ := h
-    refine ⟨⟨hv, fun x hx => (AnnotValid_mkPisAV_inv (hB x hx)).1⟩, fun as hsp => ?_⟩
-    cases as with
-    | nil => exact hsp.elim
-    | cons a as =>
-      obtain ⟨ha, hsp'⟩ := hsp
-      rw [consList_cons]
-      exact (AnnotValid_mkPisAV_inv (hB a ha)).2 as hsp'
 
 end Valid
 

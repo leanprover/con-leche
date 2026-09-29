@@ -2560,39 +2560,6 @@ theorem instPisAt_WScoped {d : Nat} :
     | bvar _ | fvar _ _ | sort _ | const _ _ | app _ _ | lam _ _ _
     | letE _ _ _ | lit _ | proj _ _ _ => exact nomatch h
 
-/-- Peeling a `∀`-telescope along bounded arguments keeps the residual
-bvar-closed. -/
-theorem instPisAt_looseBVars :
-    ∀ (args : List Expr) (ty : Expr) {doms : List Expr} {res : Expr},
-      Expr.instPisAt args ty = some (doms, res) →
-      ty.looseBVarsBounded 0 = true →
-      (∀ a ∈ args, a.looseBVarsBounded 0 = true) →
-      res.looseBVarsBounded 0 = true
-  | [], ty, doms, res, h, hty, _ => by
-    simp only [Expr.instPisAt, Option.some.injEq, Prod.mk.injEq] at h
-    obtain ⟨rfl, rfl⟩ := h
-    exact hty
-  | a :: as, ty, doms, res, h, hty, hargs => by
-    cases ty with
-    | forallE dom body mb =>
-      simp only [Expr.instPisAt] at h
-      revert h
-      cases hrec : Expr.instPisAt as (body.instantiate1 a) with
-      | none => intro h; exact nomatch h
-      | some p =>
-        obtain ⟨ds, rest⟩ := p
-        intro h
-        simp only [Option.map_some, Option.some.injEq,
-          Prod.mk.injEq] at h
-        obtain ⟨rfl, rfl⟩ := h
-        simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hty
-        exact instPisAt_looseBVars as _ hrec
-          (looseBVarsBounded_instantiate1_gen
-            (hargs a List.mem_cons_self) hty.2)
-          (fun x hx => hargs x (List.mem_cons_of_mem _ hx))
-    | bvar _ | fvar _ _ | sort _ | const _ _ | app _ _ | lam _ _ _
-    | letE _ _ _ | lit _ | proj _ _ _ => exact nomatch h
-
 /-! ## Well-scopedness preservation through reduction -/
 
 /-- The constructor form of a literal is closed. -/

@@ -37,39 +37,6 @@ variable {envC : Env} {p : BlockParts} {cvTas : List ConstantVal}
   {ctorsAs : List (List (ConstantVal × Nat))}
   {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
 
-/-- **A recursor's level parameters ARE the pinned list** — stage (a)'s
-`blockRecLpsOk`, carried to the stored record by the type's check
-(`ConstChecked.lps`). -/
-theorem recStage_lpsPin
-    {memR : Nat → Prop} (h : ConLeche.RecStageG μ F envC p cvTas ctorsAs rs memR)
-    {i : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
-    (hr : rs[i]? = some r) :
-    r.1.levelParams = if p.toBlockShape.large then p.elim :: p.lps else p.lps := by
-  obtain ⟨hpins, hlenR, hall⟩ := recStageG_recNames h
-  have hnl : i < p.recs.length := by
-    have hql := (List.getElem?_eq_some_iff.mp hr).1
-    omega
-  obtain ⟨rc, q', hrc, hq', -, ⟨cv0, -, hl0, hcv⟩, -, -⟩ := hall i hnl
-  obtain rfl := Option.some.inj (hr.symm.trans hq')
-  have hlps := List.all_eq_true.mp hpins.1 rc (List.mem_of_getElem? hrc)
-  rw [show r.1.levelParams = rc.cvR.levelParams from hcv.lps.trans hl0]
-  by_cases hb : p.toBlockShape.large = true
-  · rw [if_pos hb] at hlps ⊢
-    exact eq_of_beq hlps
-  · rw [if_neg hb] at hlps ⊢
-    exact eq_of_beq hlps
-
-/-- The block's own parameters are among every recursor's. -/
-theorem recStage_lps_sub
-    {memR : Nat → Prop} (h : ConLeche.RecStageG μ F envC p cvTas ctorsAs rs memR)
-    {i : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
-    (hr : rs[i]? = some r) : ∀ q ∈ p.lps, q ∈ r.1.levelParams := by
-  intro q hq
-  rw [recStage_lpsPin h hr]
-  split
-  · exact List.mem_cons_of_mem _ hq
-  · exact hq
-
 /-- **`pdoms`** — the recursor type's binder data, off its reading
 (`recStage_tyPis`), which is ψ-congruent at any recursor's
 parameters (`blockRecTyAV_params_ext`). -/
@@ -94,16 +61,6 @@ theorem blockRulePdomsAV_params (hμ : μ.verifiedChecks = true) (mpC : EnvModel
     congrArg Prod.fst (Option.some.inj hs₁)
   simp only [blockRulePdomsAV, hR]
 
-
-omit [SetTheory V] in
-/-- Every member of a successful opening is an `fvar`. -/
-theorem openPisAtFvars_mem_fvar {n E : Nat} {e : Expr} {fvs : List Expr} {o : Expr}
-    (hop : ConLeche.openPisAtFvars n e E = some (fvs, o)) :
-    ∀ x ∈ fvs, ∃ (i : Nat) (t : Expr), x = .fvar i t := by
-  intro x hx
-  obtain ⟨j, hj⟩ := List.getElem?_of_mem hx
-  obtain ⟨ty, hty⟩ := ConLeche.openPisAtFvars_index n e E hop j x hj
-  exact ⟨_, ty, hty⟩
 
 /-- **The equation list is congruent in its six components** below
 `K` and the rule counts. -/

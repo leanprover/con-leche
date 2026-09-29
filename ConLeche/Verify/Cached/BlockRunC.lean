@@ -137,101 +137,6 @@ theorem ws0_hasFvar {e : Expr} (h : WScoped 0 e) : e.hasFvar = false :=
 theorem ws_of_ws0 {d : Nat} {e : Expr} (h : WScoped 0 e) : WScoped d e :=
   WScoped.of_not_hasFvar (ws0_hasFvar h)
 
-theorem WScoped.liftLooseBVars' {d n : Nat} :
-    ∀ {e : Expr} {c : Nat}, WScoped d e → WScoped d (e.liftLooseBVars n c) := by
-  intro e
-  induction e with
-  | bvar i => intro c _; simp only [Expr.liftLooseBVars]; split <;> simp [WScoped]
-  | fvar idx ty _ => intro c hw; simpa [Expr.liftLooseBVars] using hw
-  | app f a ihf iha =>
-    intro c hw
-    simp only [WScoped] at hw
-    simp only [Expr.liftLooseBVars, WScoped]
-    exact ⟨ihf hw.1, iha hw.2⟩
-  | lam ty b bi ih1 ih2 =>
-    intro c hw
-    simp only [WScoped] at hw
-    simp only [Expr.liftLooseBVars, WScoped]
-    exact ⟨ih1 hw.1, ih2 hw.2⟩
-  | forallE ty b bi ih1 ih2 =>
-    intro c hw
-    simp only [WScoped] at hw
-    simp only [Expr.liftLooseBVars, WScoped]
-    exact ⟨ih1 hw.1, ih2 hw.2⟩
-  | letE ty v b ih1 ih2 ih3 =>
-    intro c hw
-    simp only [WScoped] at hw
-    simp only [Expr.liftLooseBVars, WScoped]
-    exact ⟨ih1 hw.1, ih2 hw.2.1, ih3 hw.2.2⟩
-  | proj s i e ih =>
-    intro c hw
-    simp only [WScoped] at hw
-    simp only [Expr.liftLooseBVars, WScoped]
-    exact ih hw
-  | _ => intro c _; simp [Expr.liftLooseBVars, WScoped]
-
-theorem WScoped.instantiate1Lift' {d : Nat} {v : Expr} (hv : WScoped d v) :
-    ∀ {e : Expr} {k : Nat}, WScoped d e → WScoped d (e.instantiate1Lift v k) := by
-  intro e
-  induction e with
-  | bvar i =>
-    intro k _
-    simp only [Expr.instantiate1Lift]
-    split
-    · exact WScoped.liftLooseBVars' hv
-    · split <;> simp [WScoped]
-  | fvar idx ty _ => intro k hw; simpa [Expr.instantiate1Lift] using hw
-  | app f a ihf iha =>
-    intro k hw
-    simp only [WScoped] at hw
-    simp only [Expr.instantiate1Lift, WScoped]
-    exact ⟨ihf hw.1, iha hw.2⟩
-  | lam ty b bi ih1 ih2 =>
-    intro k hw
-    simp only [WScoped] at hw
-    simp only [Expr.instantiate1Lift, WScoped]
-    exact ⟨ih1 hw.1, ih2 hw.2⟩
-  | forallE ty b bi ih1 ih2 =>
-    intro k hw
-    simp only [WScoped] at hw
-    simp only [Expr.instantiate1Lift, WScoped]
-    exact ⟨ih1 hw.1, ih2 hw.2⟩
-  | letE ty v' b ih1 ih2 ih3 =>
-    intro k hw
-    simp only [WScoped] at hw
-    simp only [Expr.instantiate1Lift, WScoped]
-    exact ⟨ih1 hw.1, ih2 hw.2.1, ih3 hw.2.2⟩
-  | proj s i e ih =>
-    intro k hw
-    simp only [WScoped] at hw
-    simp only [Expr.instantiate1Lift, WScoped]
-    exact ih hw
-  | _ => intro k _; simp [Expr.instantiate1Lift, WScoped]
-
-theorem instPisAtLift_WScoped {d : Nat} :
-    ∀ {as : List Expr} {t r : Expr}, Expr.instPisAtLift as t = some r → WScoped d t →
-      (∀ a ∈ as, WScoped d a) → WScoped d r
-  | [], t, r, h, ht, _ => by
-    simp only [Expr.instPisAtLift, Option.some.injEq] at h
-    exact h ▸ ht
-  | a :: as, t, r, h, ht, ha => by
-    cases t with
-    | forallE dom body bi =>
-      simp only [Expr.instPisAtLift] at h
-      simp only [WScoped] at ht
-      exact instPisAtLift_WScoped h (WScoped.instantiate1Lift' (ha a List.mem_cons_self) ht.2)
-        (fun x hx => ha x (List.mem_cons_of_mem _ hx))
-    | _ => simp [Expr.instPisAtLift] at h
-
-theorem mkPisOf_WScoped {d : Nat} :
-    ∀ {bs : List (Expr × BinderMeta)} {body : Expr}, (∀ b ∈ bs, WScoped d b.1) →
-      WScoped d body → WScoped d (Expr.mkPisOf bs body)
-  | [], _, _, hb => hb
-  | (ty, mt) :: bs, body, hbs, hb => by
-    simp only [Expr.mkPisOf, WScoped]
-    exact ⟨hbs _ List.mem_cons_self,
-      mkPisOf_WScoped (fun b hb' => hbs b (List.mem_cons_of_mem _ hb')) hb⟩
-
 /-- An opened telescope's variables carry types scoped at their own
 frame. -/
 theorem openers_typeD_WScoped {n off : Nat} {e : Expr} {fvs : List Expr} {body : Expr}
@@ -414,42 +319,8 @@ theorem checkBlockIdxSortsS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF
     obtain rfl : r = r' := hR
     exact SimC.pure hs₃ rfl
 
-/-- `checkBlockDefEqList`, at pairwise-scoped inputs: only the pairs
-the walk actually compares need to be scoped. -/
-theorem checkBlockDefEqListS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env)
-    {depth : Nat} {what : String} :
-    ∀ {as bs : List Expr},
-      (∀ (i : Nat) (a b : Expr), as[i]? = some a → bs[i]? = some b →
-        WScoped depth a ∧ WScoped depth b) →
-      ∀ {s₀ : CState}, CSOK mode env s₀ →
-      SimC mode env s₀ RelVC
-        (checkBlockDefEqList (sharedOpsC mode (mkFEnv env)) env depth what as bs)
-        (checkBlockDefEqList (fueledOpsM mode) env depth what as bs)
-  | [], [], _, s₀, hs => SimC.pure hs rfl
-  | [], _ :: _, _, s₀, hs => SimC.throw
-  | _ :: _, [], _, s₀, hs => SimC.throw
-  | a :: as, b :: bs, hab, s₀, hs => by
-    unfold checkBlockDefEqList
-    dsimp only [sharedOpsC]
-    obtain ⟨ha, hb⟩ := hab 0 a b rfl rfl
-    refine SimC.bind (opB_sim hμ henv hs ha hb) (fun s₁ c c' hs₁ hP => ?_)
-    obtain rfl : c = c' := hP
-    cases c with
-    | false =>
-      simp only [Bool.false_eq_true, ↓reduceIte]
-      exact SimC.throw_bind
-    | true =>
-      simp only [↓reduceIte]
-      exact checkBlockDefEqListS_sim hμ henv (fun i a b ha hb => hab (i + 1) a b ha hb) hs₁
-
 end Sims
 
-
-section Sims3
-
-variable {env : Env}
-
-end Sims3
 
 /-! ## 4. The rule stage: two environments, one state
 

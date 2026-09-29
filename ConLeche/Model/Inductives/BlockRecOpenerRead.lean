@@ -24,41 +24,6 @@ universe uv
 
 variable {V : Type uv} [SetTheory V] {env : Env}
 
-/-- **A frame opening, extended by a telescope's own openers.**  The
-`k` fresh variables stand INNERMOST, so they head the opening list
-reversed; `FvarList`'s descending index is what makes the two halves
-line up (`E + k - 1 - j` on both). -/
-theorem FvarList.openExtend {E : Nat} {xs : List Expr} (h : FvarList E xs) (k : Nat) :
-    FvarList (E + k) ((openFvars E k).reverse ++ xs) := by
-  refine ⟨by rw [List.length_append, List.length_reverse, openFvars_length, h.1]; omega,
-    fun j hj => ?_, fun x hx => ?_⟩
-  · by_cases hjk : j < k
-    · refine ⟨.sort .zero, ?_⟩
-      rw [List.getElem?_append_left (by rw [List.length_reverse, openFvars_length]; omega),
-        List.getElem?_reverse (by rw [openFvars_length]; omega), openFvars_length,
-        openFvars_getElem? (show k - 1 - j < k from by omega)]
-      congr 2
-      omega
-    · obtain ⟨ty, hty⟩ := h.2.1 (j - k) (by omega)
-      refine ⟨ty, ?_⟩
-      rw [List.getElem?_append_right (by rw [List.length_reverse, openFvars_length]; omega),
-        List.length_reverse, openFvars_length, hty]
-      congr 2
-      omega
-  · rcases List.mem_append.mp hx with hx' | hx'
-    · rw [List.mem_reverse] at hx'
-      obtain ⟨q, hq⟩ := List.getElem?_of_mem hx'
-      have hqk : q < k := by
-        rcases Nat.lt_or_ge q k with h' | h'
-        · exact h'
-        · rw [List.getElem?_eq_none (by rw [openFvars_length]; omega)] at hq
-          exact nomatch hq
-      rw [openFvars_getElem? hqk] at hq
-      obtain rfl := (Option.some.inj hq).symm
-      simp only [Expr.WScoped]
-      exact ⟨by omega, trivial⟩
-    · exact Expr.WScoped.mono (by omega) (h.2.2 x hx')
-
 /-- **The opener list, extended by the openers standing before it**,
 is a frame opening: `openPisAtFvars` puts opener `k` at index
 `rP + nF + k`, so the first `r` of them REVERSED head the opening

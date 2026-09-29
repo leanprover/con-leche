@@ -259,11 +259,6 @@ theorem installBasisDecl_datF (env : Env) (ci : ConstantInfo) (F : Nat) :
 
 /-! ### The per-member stages, at fuel `F` -/
 
-theorem fueledOpsM_annotate_atF (env : Env) (d : Nat) (a : Expr)
-    (F : Nat) :
-    ((fueledOpsM mode).annotate env d a).val F =
-      (fueledOps mode F).annotate env d a := by rfl
-
 theorem fueledOpsM_ensureSort_atF (env : Env) (d : Nat) (a : Expr)
     (F : Nat) :
     ((fueledOpsM mode).ensureSort env d a).val F =
@@ -629,18 +624,6 @@ theorem checkBlockIdxSorts_datF (env₁ : Env) (p : BlockShape) (F : Nat) :
     unfold checkBlockIdxSorts
     simp only [FueledM.atF_bind, FueledM.atF_pure, unwrapOr_atF,
       checkStructFieldSortsI_datF, checkBlockIdxSorts_datF env₁ p F rest]
-
-theorem checkBlockDefEqList_datF (env : Env) (depth : Nat) (what : String) (F : Nat) :
-    ∀ (as bs : List Expr),
-      (checkBlockDefEqList (fueledOpsM mode) env depth what as bs).val F =
-        checkBlockDefEqList (fueledOps mode F) env depth what as bs
-  | [], [] => rfl
-  | [], _ :: _ => rfl
-  | _ :: _, [] => rfl
-  | a :: as, b :: bs => by
-    unfold checkBlockDefEqList
-    simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw, FueledM.atF_ite,
-      fueledOpsM_isDefEq_atF, checkBlockDefEqList_datF env depth what F as bs]
 
 theorem FueledM.atF_mapConst {α : Type} (x : FueledM α) (F : Nat) :
     (Functor.mapConst PUnit.unit x : FueledM PUnit).val F

@@ -296,19 +296,6 @@ theorem GradedFrame.graded (hμ : μ.verifiedChecks = true) {envC : Env}
       ∀ (σ : Nat → V) (ys : List V), SpineFit σ doms ys → WellDenotedV V (consList ys σ) w :=
   graded_of_infer_openers hμ mpC ψ G.len G.shape G.ws G.lb G.rd G.ok hinf hwsE hbE hleaf
 
-/-- A leaf of a term scoped at `D` among a frame's openers extended by
-more is among the frame's, when the frame has `D` positional openers. -/
-theorem mem_frame_of_lt {fr zs : List Expr} {D : Nat}
-    (hsh : ∀ (k : Nat) (y : Expr), zs[k]? = some y → ∃ ty, y = Expr.fvar (D + k) ty)
-    {l : Nat × Expr} (hm : Expr.fvar l.1 l.2 ∈ fr ++ zs) (hlt : l.1 < D) :
-    Expr.fvar l.1 l.2 ∈ fr := by
-  rcases List.mem_append.mp hm with hm | hm
-  · exact hm
-  · obtain ⟨pos, hpos⟩ := List.getElem?_of_mem hm
-    obtain ⟨ty, hty⟩ := hsh pos _ hpos
-    have h1 : l.1 = D + pos := by injection hty
-    omega
-
 set_option maxHeartbeats 4000000 in
 /-- **A graded frame extends by the openers of an inferred telescope over
 it**: their types read (they are inferred), and each is graded along the

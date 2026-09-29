@@ -376,21 +376,6 @@ def consBlockRecsBare (p : BlockShape) : Nat → List (ConstantVal × Nat) → E
     consBlockRecsBare p (m + 1) rest
       ⟨.recInfo cvRa (p.majorIdxAt m) (p.rulePrefixAt m) [] :: env.consts⟩
 
-/-- **Pairwise definitional equality of binder domains, REJECTING.**
-Between a rule's
-`λ`-domains and the recursor's own binders — or between a recursor's
-parameter domains and the block's — a mismatch is INVALID INPUT, not a
-feature this route lacks: official generates the recursor from the
-block and its replay compares the exported one structurally. -/
-def checkBlockDefEqList (ops : CheckerOps m) (env : Env) (depth : Nat) (what : String) :
-    List Expr → List Expr → m Unit
-  | [], [] => pure ()
-  | a :: as, b :: bs => do
-    unless ← ops.isDefEq env depth a b do
-      throw (.invalid s!"direct rec: {what}")
-    checkBlockDefEqList ops env depth what as bs
-  | _, _ => throw (.invalid s!"direct rec: {what} (arity)")
-
 /-- **The member's parameter-and-index telescope, opened at the
 RECURSOR's own binder numbering**.
 

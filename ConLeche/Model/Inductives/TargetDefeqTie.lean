@@ -400,60 +400,6 @@ theorem param_read_eq {μ : CheckMode} (hμ : μ.verifiedChecks = true)
   rw [haa, hba]
   simp only [Option.map_some, heq]
 
-/-- **A matched parameter spine reads alike at the prefix**: the class
-match's parameter run (`targetParamsDefEq`) passed, every pair reads
-alike (`param_read_eq`), so the two spines' readings agree. -/
-theorem params_read_eq {μ : CheckMode} (hμ : μ.verifiedChecks = true)
-    (hacl : ∀ (n : Name) (ψ : Name → Nat) (m k : Nat), (mT.acval n ψ).liftN m k = mT.acval n ψ)
-    (hin : Rules.RulesInputs V mT φ) {F D : Nat} {pfvs : List Expr}
-    (hL : FvarList D pfvs.reverse) {σ : Nat → V} {Δ : List AnnotTerm}
-    (hW : WalkCtx V mT φ D σ Δ pfvs.reverse)
-    {names : List Name} {lvls : List Level} {formerTys : List Expr} {hv : List V}
-    (hvl : hv.length = formerTys.length)
-    (hformer : ∀ t, t < formerTys.length →
-      (formerTys.getD t default).hasFvar = false ∧
-      (formerTys.getD t default).looseBVarsBounded 0 = true ∧
-      ConstsBound envT (formerTys.getD t default) ∧
-      ∃ T : AnnotTerm, denoteMeta mT.acval envT φ 0 (formerTys.getD t default) = some T ∧
-        (∀ σ : Nat → V, WellDenotedV V σ T) ∧ ∀ σ : Nat → V, hv.getD t pt ∈ˢ interp V σ T)
-    (hnames : ∀ (n : Name) (t : Nat), names.findIdx? (· == n) = some t →
-      t < formerTys.length ∧ ∃ ci : ConLeche.ConstantInfo, envT.find? n = some ci ∧
-        lvls.length = ci.toConstantVal.levelParams.length ∧
-        ∀ σ : Nat → V, interp V σ (mT.acval n (Level.substFn φ ci.toConstantVal.levelParams lvls))
-          = hv.getD t pt)
-    {ds eds : List Expr}
-    (hm : ConLeche.targetParamsDefEq (ConLeche.fueledOps μ F) envT (D + formerTys.length)
-      (ConLeche.targetAbs names lvls (ConLeche.targetHoles formerTys D)) pfvs ds eds = .ok true) :
-    ds.map (fun x => interp V σ ((denoteMeta mT.acval envT φ D x).getD default))
-      = eds.map (fun x => interp V σ ((denoteMeta mT.acval envT φ D x).getD default)) := by
-  obtain ⟨hl, hall⟩ := ConLeche.targetParamsDefEq_true hm
-  refine List.ext_getElem? fun i => ?_
-  simp only [List.getElem?_map]
-  cases hx : ds[i]? with
-  | none =>
-    have : eds[i]? = none := List.getElem?_eq_none (by
-      have := List.getElem?_eq_none_iff.mp hx; omega)
-    rw [this]
-  | some a =>
-    obtain ⟨b, hb⟩ : ∃ b, eds[i]? = some b :=
-      ⟨_, List.getElem?_eq_getElem (by have := (List.getElem?_eq_some_iff.mp hx).1; omega)⟩
-    rw [hb]
-    have h := param_read_eq hμ hacl hin hL hW hvl hformer hnames (hall i a b hx hb)
-    simp only [Option.map_some, Option.some.injEq]
-    cases h1 : denoteMeta mT.acval envT φ D a with
-    | none =>
-      rw [h1] at h
-      cases h2 : denoteMeta mT.acval envT φ D b with
-      | none => rfl
-      | some _ => rw [h2] at h; exact nomatch h
-    | some x =>
-      rw [h1] at h
-      cases h2 : denoteMeta mT.acval envT φ D b with
-      | none => rw [h2] at h; exact nomatch h
-      | some y =>
-        rw [h2] at h
-        simpa using h
-
 end Walk
 
 /-! ## One key frame -/

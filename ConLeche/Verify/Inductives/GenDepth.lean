@@ -37,8 +37,6 @@ open Expr
 
 /-! ## Shifting commutes with the generator's steps -/
 
-theorem shiftFrom_default {p : Nat} : shiftFrom p (default : Expr) = default := rfl
-
 theorem shiftFrom_getD {p : Nat} (l : List Expr) (i : Nat) :
     (l.map (shiftFrom p)).getD i default = shiftFrom p (l.getD i default) := by
   rw [List.getD_eq_getElem?_getD, List.getElem?_map, List.getD_eq_getElem?_getD]
@@ -157,16 +155,6 @@ theorem option_mapM_rel {α β γ : Type} :
     rw [hp a List.mem_cons_self b hb,
       option_mapM_rel l hbs (fun a' ha' b' hb' => hp a' (List.mem_cons_of_mem _ ha') b' hb')]
     rfl
-
-/-- `Option.mapM` over pointwise-mapped results. -/
-theorem option_mapM_map_eq {α β γ : Type} :
-    ∀ (l : List α) {f : α → Option β} {f' : α → Option γ} {τ : β → γ},
-      (∀ a ∈ l, f' a = (f a).map τ) → l.mapM f' = (l.mapM f).map (List.map τ)
-  | [], _, _, _, _ => rfl
-  | a :: l, f, f', τ, h => by
-    rw [List.mapM_cons, List.mapM_cons, h a List.mem_cons_self,
-      option_mapM_map_eq l (fun b hb => h b (List.mem_cons_of_mem _ hb))]
-    cases f a <;> cases l.mapM f <;> rfl
 
 set_option maxHeartbeats 1600000 in
 /-- **A minor premise's type, one level deeper**: built at `d + 1` it is

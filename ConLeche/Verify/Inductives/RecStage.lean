@@ -120,36 +120,6 @@ variable {F : Nat} {envR : Env} {cvR : ConstantVal} {rhs out : Expr}
 
 end RuleOutOk
 
-/-- **The recursor records' pins**: the level parameters, no reserved
-name, the name set `{T_m.rec}`. -/
-structure RecPinsOk (p : BlockShape) : Prop where
-  lps : blockRecLpsOk p = true
-  unreserved : blockRecNamesUnreserved p = true
-  nameSet : blockRecNameSetOk p = true
-
-/-- **A checked block carries one recursor per member, named
-`T_m.rec`** (official's naming, for conformance): as many recursors as
-members, each named for a member and each member named by one. -/
-theorem recPins_names {p : BlockShape} (h : RecPinsOk p) :
-    p.recs.length = p.members.length ∧
-    (∀ rc ∈ p.recs, ∃ ms ∈ p.members, rc.cvR.name = ms.cvT.name.str "rec") ∧
-    (∀ ms ∈ p.members, ∃ rc ∈ p.recs, rc.cvR.name = ms.cvT.name.str "rec") := by
-  have hset := h.nameSet
-  unfold blockRecNameSetOk at hset
-  simp only [Bool.and_eq_true, beq_iff_eq, List.length_map] at hset
-  obtain ⟨⟨hlen, hwant⟩, hgot⟩ := hset
-  refine ⟨hlen, ?_, ?_⟩
-  · intro rc hrc
-    have hmem := List.elem_iff.mp
-      (List.all_eq_true.mp hgot rc.cvR.name (List.mem_map_of_mem hrc))
-    obtain ⟨ms, hms, hn⟩ := List.mem_map.mp hmem
-    exact ⟨ms, hms, hn.symm⟩
-  · intro ms hms
-    have hmem := List.elem_iff.mp
-      (List.all_eq_true.mp hwant (ms.cvT.name.str "rec") (List.mem_map_of_mem hms))
-    obtain ⟨rc, hrc, hn⟩ := List.mem_map.mp hmem
-    exact ⟨rc, hrc, hn⟩
-
 /-- The auxiliary records' names (a record whose major is not a member). -/
 @[expose] def recAuxGot (p : BlockShape) : List Name :=
   (p.recs.filter fun rc => !(rc.tgt < p.k)).map (·.cvR.name)
@@ -172,16 +142,6 @@ structure RecPinsF (p : BlockShape) : Prop where
   auxNames : ((recAuxGot p).length == (recAuxWant p).length &&
     (recAuxWant p).all ((recAuxGot p).contains ·) &&
     (recAuxGot p).all ((recAuxWant p).contains ·)) = true
-
-/-- At a family whose every record targets a member the two pins agree. -/
-theorem RecPinsF.toOk {p : BlockShape} (h : RecPinsF p) (hall : ∀ rc ∈ p.recs, rc.tgt < p.k) :
-    RecPinsOk p := by
-  refine ⟨h.lps, h.unreserved, ?_⟩
-  have hown : p.recs.filter (fun rc => rc.tgt < p.k) = p.recs :=
-    List.filter_eq_self.mpr fun rc hrc => decide_eq_true (hall rc hrc)
-  have := h.nameSet
-  rw [hown] at this
-  exact this
 
 /-- **The family's rule prefix, shared SYNTACTICALLY** (a generated
 family): every recursor type, opened at the first recursor's rule
@@ -288,13 +248,6 @@ proposition. -/
     (mem : Nat → Prop) : Prop :=
   Nonempty (RecStage mode F env p cvTas ctorsAs rs mem)
 
-/-- The stage's facts, as a proposition (what the model's statements
-take in place of the kernel run): every major a member. -/
-@[expose] def RecStageOk (mode : CheckMode) (F : Nat) (env : Env) (p : BlockParts)
-    (cvTas : List ConstantVal) (ctorsAs : List (List (ConstantVal × Nat)))
-    (rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))) : Prop :=
-  RecStageG mode F env p cvTas ctorsAs rs fun _ => True
-
 namespace RecStage
 
 variable {F : Nat} {env : Env} {p : BlockParts} {cvTas : List ConstantVal}
@@ -313,25 +266,6 @@ theorem stored_at (R : RecStage mode F env p cvTas ctorsAs rs mem) {i : Nat}
   simp only [List.getElem?_map, hr, List.getElem?_eq_getElem hil, Option.map_some,
     Option.some.injEq, Prod.mk.injEq] at h
   rw [List.getElem?_eq_getElem hil, h.1, h.2]
-
-/-- The bridge at an index, at the constant alone. -/
-theorem stored_fst (R : RecStage mode F env p cvTas ctorsAs rs mem) {i : Nat}
-    {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)} (hr : rs[i]? = some r) :
-    (R.cvRus.map (·.1))[i]? = some r.1 := by
-  obtain ⟨u, hcu⟩ := R.stored_at hr
-  rw [List.getElem?_map, hcu]; rfl
-
-
-/-- The `(c, i)`-th rule's λ-tower at a MEMBER-major recursor. -/
-theorem ruleAtG (R : RecStage mode F env p cvTas ctorsAs rs mem) {c : Nat} (hm : mem c)
-    {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
-    (hr : rs[c]? = some r) {i : Nat} {cA : ConstantVal × Nat} (hcA : r.2.2.2[i]? = some cA)
-    {rhs : Expr} (hrhs : r.2.1[i]? = some rhs) :
-    ∃ rc rhs0, p.recs[c]? = some rc ∧ rc.rhss[i]? = some rhs0 ∧
-      Nonempty (RuleTower mode F
-        (consBlockRecsBare p.toBlockShape 0 (rs.map fun r => (r.1, r.2.2.1)) env) env
-        p.toBlockShape (rs.map (·.1.type)) c rc.cvR cA rhs0 rhs) :=
-  R.ruleTower c r i cA rhs hm hr hcA hrhs
 
 /-- **Every constructor has its rule.** -/
 theorem rulesLen (R : RecStage mode F env p cvTas ctorsAs rs mem)
@@ -352,19 +286,6 @@ theorem tyGenAt (R : RecStage mode F env p cvTas ctorsAs rs mem) {i : Nat}
     simpa using hcu'
   exact ⟨rc, u, hrc, hcu, ⟨E⟩⟩
 
-/-- Stage (b)'s entry at a stored MEMBER-major recursor. -/
-theorem tyAtG (R : RecStage mode F env p cvTas ctorsAs rs mem) {i : Nat} (hm : mem i)
-    {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)} (hr : rs[i]? = some r) :
-    ∃ rc u, p.recs[i]? = some rc ∧ R.cvRus[i]? = some (r.1, r.2.2.1, u) ∧
-      Nonempty (RecTyEntry mode F env p.toBlockShape false cvTas i rc r.1 r.2.2.1 u) := by
-  obtain ⟨u, hcu⟩ := R.stored_at hr
-  have hil : i < p.recs.length := by rw [← R.len]; exact (List.getElem?_eq_some_iff.mp hr).1
-  obtain ⟨rc, cvRi, nIdx, u', hrc, hcu', ⟨E⟩⟩ := R.tyEntry i hil hm
-  rw [hcu] at hcu'
-  obtain ⟨rfl, rfl, rfl⟩ : r.1 = cvRi ∧ r.2.2.1 = nIdx ∧ u = u' := by
-    simpa using hcu'
-  exact ⟨rc, u, hrc, hcu, ⟨E⟩⟩
-
 /-- **A stored rule is annotated at the rule-less recursors** (any major). -/
 theorem ruleOutOf (R : RecStage mode F env p cvTas ctorsAs rs mem)
     {c : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
@@ -376,23 +297,6 @@ theorem ruleOutOf (R : RecStage mode F env p cvTas ctorsAs rs mem)
   obtain ⟨i, hi⟩ := List.getElem?_of_mem hrhs
   obtain ⟨rc, hrc, hQ⟩ := R.ruleOut c r i rhs hr hi
   exact ⟨i, rc, hi, hrc, hQ⟩
-
-/-- **The pins at `mem := fun _ => True`**: every major a member, every record
-targets one, so the name set is pinned at the whole family. -/
-theorem pinsOk (R : RecStage mode F env p cvTas ctorsAs rs fun _ => True) :
-    RecPinsOk p.toBlockShape := by
-  refine R.pins.toOk fun rc hrc => ?_
-  obtain ⟨i, hi⟩ := List.getElem?_of_mem hrc
-  have hil : i < p.recs.length := (List.getElem?_eq_some_iff.mp hi).1
-  obtain ⟨rc', cvRi, nIdx, u, hrc', -, ⟨E⟩⟩ := R.tyEntry i hil trivial
-  obtain rfl := Option.some.inj (hi.symm.trans hrc')
-  have hT : p.toBlockShape.recTgtAt i = rc.tgt := by
-    simp only [BlockShape.recTgtAt, List.getD_eq_getElem?_getD]
-    have hi2 : p.toBlockShape.recs[i]? = some rc := hi
-    rw [hi2]; rfl
-  have := (List.getElem?_eq_some_iff.mp E.hms).1
-  rw [hT] at this
-  exact this
 
 end RecStage
 
@@ -413,16 +317,6 @@ theorem recStageG_tyGen {mem : Nat → Prop} (h : RecStageG mode F env p cvTas c
       Nonempty (RecTyGen mode F env p.toBlockShape false i rc r.1 r.2.2.1 u) := by
   obtain ⟨R⟩ := h
   obtain ⟨rc, u, hrc, -, E⟩ := R.tyGenAt hr
-  exact ⟨rc, u, hrc, E⟩
-
-/-- **Stage (b)'s record at a STORED MEMBER-major recursor.** -/
-theorem recStageG_tyAt {mem : Nat → Prop} (h : RecStageG mode F env p cvTas ctorsAs rs mem)
-    {i : Nat} (hm : mem i) {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
-    (hr : rs[i]? = some r) :
-    ∃ rc u, p.recs[i]? = some rc ∧
-      Nonempty (RecTyEntry mode F env p.toBlockShape false cvTas i rc r.1 r.2.2.1 u) := by
-  obtain ⟨R⟩ := h
-  obtain ⟨rc, u, hrc, -, E⟩ := R.tyAtG hm hr
   exact ⟨rc, u, hrc, E⟩
 
 /-- **The CHECK's own well-formedness contract**: every stored
@@ -528,16 +422,6 @@ theorem targetRecPins_inv {q : BlockShape}
     simp only [h1, h2, h3, h4] at h; exact nomatch h
   exact ⟨h1, h2, h3, h4⟩
 
-/-- A stored entry of the check's output, at its index. -/
-theorem tgtRs_getElem? {out : List (ConstantVal × TargetMajor × List Expr)} {i : Nat}
-    {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
-    (hr : (tgtRs out)[i]? = some r) :
-    ∃ t, out[i]? = some t ∧ r = (t.1, t.2.2, t.2.1.nIdx, t.2.1.ctors) := by
-  simp only [tgtRs, List.getElem?_map] at hr
-  cases ho : out[i]? with
-  | none => rw [ho] at hr; exact nomatch hr
-  | some t => rw [ho] at hr; exact ⟨t, rfl, (Option.some.inj hr).symm⟩
-
 /-- Recursor `i`'s record readings. -/
 theorem recShape_at {q : BlockShape} {i : Nat} {rc : RecShape} (hrc : q.recs[i]? = some rc) :
     q.recTgtAt i = rc.tgt ∧ q.majorIdxAt i = rc.mI ∧ q.rulePrefixAt i = rc.rP := by
@@ -553,21 +437,6 @@ theorem blockLargeElimAllowed_plain {q : BlockShape} {nested : Bool}
   · simp only [blockLargeElimAllowed, Bool.or_eq_true, Bool.and_eq_true, Bool.not_true,
       Bool.false_eq_true, and_false, false_and, or_false] at h
     simp [blockLargeElimAllowed, h]
-
-/-- **The recursors whose CHECKED major is a member of the block**: the
-stage's `mem` at the target check's output. -/
-@[expose] def tgtMemAt (out : List (ConstantVal × TargetMajor × List Expr)) (i : Nat) : Prop :=
-  (out[i]?).all (fun t => t.2.1.member.isSome) = true
-
-/-- The stage record weakens along its `mem`. -/
-def RecStage.mono {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))}
-    {mem mem' : Nat → Prop} (R : RecStage mode F env p cvTas ctorsAs rs mem)
-    (h : ∀ i, mem' i → mem i) : RecStage mode F env p cvTas ctorsAs rs mem' :=
-  { R with
-    fam := { R.fam with idxDoms := fun i hi hm => R.fam.idxDoms i hi (h i hm) }
-    tyEntry := fun i hi hm => R.tyEntry i hi (h i hm)
-    ctorsAt := fun i r hm hr => R.ctorsAt i r (h i hm) hr
-    ruleTower := fun c r i cA rhs hm => R.ruleTower c r i cA rhs (h c hm) }
 
 end Producer
 

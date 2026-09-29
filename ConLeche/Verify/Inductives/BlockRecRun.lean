@@ -89,14 +89,6 @@ namespace RecTyEntry
 variable {F : Nat} {env : Env} {p : BlockShape} {nested : Bool} {cvTas : List ConstantVal}
   {ri : Nat} {rc : RecShape} {cvRi : ConstantVal} {nIdx : Nat} {u : Level}
 
-/-- The rule prefix is longer than the parameters. -/
-theorem nP_le (E : RecTyEntry mode F env p nested cvTas ri rc cvRi nIdx u) :
-    p.nP ≤ p.rulePrefixAt ri := E.hroom
-
-/-- The major-premise index is the rule prefix plus the index count. -/
-theorem mI_eq (E : RecTyEntry mode F env p nested cvTas ri rc cvRi nIdx u) :
-    p.majorIdxAt ri = p.rulePrefixAt ri + nIdx := E.hnIdx ▸ E.hmI
-
 end RecTyEntry
 
 /-- **A checked constant's facts** — what every consumer of a recursor

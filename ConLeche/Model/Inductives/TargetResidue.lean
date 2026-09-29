@@ -1,16 +1,13 @@
 module
 
-import ConLeche.Verify.Inductives.RecStage
-import ConLeche.Model.Inductives.BlockRecData
 import ConLeche.Model.Inductives.BlockRuleRun
-import ConLeche.Verify.Inductives.BlockRecRun
 import ConLeche.Model.Inductives.TargetFrame
 public import ConLeche.Model.Inductives.TargetIhData
 import ConLeche.Model.Inductives.BlockRuleFit
 import ConLeche.Model.Inductives.BlockRecPreRun
 import ConLeche.Model.Inductives.BlockRecPreHpre
 import ConLeche.Model.Inductives.BlockRuleParams
-import ConLeche.Model.Inductives.BlockRuleCaRun
+import ConLeche.Model.Inductives.BlockRecPreRun
 
 public section
 
@@ -53,16 +50,6 @@ universe w
 
 variable {V : Type w} [SetTheory V] {μ : CheckMode}
 
-/-- The recomputed prefix openers are the member-format family's
-(`blockRulePrefFvs`). -/
-theorem tgtPrefFvs_eq_block (p : BlockShape) (out : List (ConstantVal × TargetMajor × List Expr))
-    (j : Nat) : tgtPrefFvs p out j = blockRulePrefFvs p (tgtRs out) j := by
-  have hT : blockRuleRecTy (tgtRs out) j = tgtRecTy out j := by
-    simp only [blockRuleRecTy, tgtRecTy, tgtRs, List.getD_eq_getElem?_getD, List.getElem?_map]
-    cases out[j]? <;> rfl
-  rw [tgtPrefFvs, blockRulePrefFvs, hT]
-  rfl
-
 /-- The recomputed width `tgtB` at a stored rule. -/
 theorem tgtB_at {p : BlockShape} {out : List (ConstantVal × TargetMajor × List Expr)}
     {j : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
@@ -91,39 +78,6 @@ theorem lpDefF_mkAppN_args :
     · exact h1.2
     · exact h2 x hx
 
-omit [SetTheory V] in
-/-- A Π-telescope's domains carry the type's footprint. -/
-theorem lpDefF_piBinders :
-    ∀ (e : Expr), e.allLevelParamsDefined ps = true → ∀ b ∈ e.piBinders.1,
-      lpDefF ps b.1 = true := by
-  intro e
-  induction e with
-  | forallE ty body m _ ihb =>
-    intro h b hb
-    simp only [Expr.allLevelParamsDefined, Bool.and_eq_true] at h
-    simp only [Expr.piBinders, List.mem_cons] at hb
-    rcases hb with rfl | hb
-    · exact lpDefF_of_allLevelParamsDefined _ h.1.1
-    · exact ihb h.1.2 b hb
-  | _ => intro _ b hb; simp [Expr.piBinders] at hb
-
-omit [SetTheory V] in
-theorem lpDefF_mkLamsOf :
-    ∀ (bs : List (Expr × ConLeche.BinderMeta)) {body : Expr},
-      (∀ b ∈ bs, lpDefF ps b.1 = true ∧ b.2.pw.paramsDefined ps = true) →
-      lpDefF ps body = true → lpDefF ps (Expr.mkLamsOf bs body) = true
-  | [], _, _, hb => hb
-  | (ty, m) :: bs, body, hbs, hb => by
-    have h0 := hbs (ty, m) List.mem_cons_self
-    simp only [Expr.mkLamsOf, lpDefF, h0.1, h0.2,
-      lpDefF_mkLamsOf bs (fun b hb' => hbs b (List.mem_cons_of_mem _ hb')) hb, Bool.and_self]
-
 end Params
-
-/-! ## The `ℓ = 0` arm at a rule binding no variable -/
-
-section RuleZero
-
-end RuleZero
 
 end ConLeche.Model

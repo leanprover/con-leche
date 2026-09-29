@@ -29,7 +29,6 @@ public import ConLeche.Verify.Inductives.DirectInv
 public import ConLeche.Verify.Inductives.TargetAuxFire
 public import ConLeche.Verify.Inductives.BlockPartsInv
 public import ConLeche.Verify.Inductives.BlockWF
-public import ConLeche.Verify.Inductives.BlockRecInv
 public import ConLeche.Verify.Inductives.RecCheckRun
 public import ConLeche.Semantics.Inductives.DeclBlockEta
 public import ConLeche.Semantics.Inductives.DeclBlock
