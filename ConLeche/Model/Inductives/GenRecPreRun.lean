@@ -9,6 +9,10 @@ public import ConLeche.Model.Inductives.ClassGenRead
 import ConLeche.Model.Inductives.NestPosOut
 import ConLeche.Model.Inductives.TargetOutIdx
 import ConLeche.Model.Inductives.TargetOutRows
+import ConLeche.Model.Inductives.BlockDeclRun
+import ConLeche.Model.Inductives.BlockRuleFit
+import ConLeche.Model.Inductives.TargetGraph
+import ConLeche.Model.Inductives.BlockRecTyShapeRun
 import ConLeche.Model.Inductives.StructFrameKit
 import ConLeche.Model.Annot.BitRename
 import ConLeche.Model.StreamConsts
@@ -677,6 +681,144 @@ theorem genRun_outW (mpC : EnvModelM V μ envC)
     rw [instPis_sort_of_read (φ := ψ) cvI.levelParams us hta hty hs]
     exact ConLeche.Level.isEquiv_sound hsort ψ
 
+set_option maxHeartbeats 2000000 in
+/-- **`GenPreSem.lic`, from the run**: under a nonzero elimination level a
+class of sort zero is the block's one member (the elimination guard,
+`blockLargeElim_counting`: an outside class would force a never-zero sort,
+`genRun_outW`), with at most one constructor of the declared large shape,
+whose fields are a function of the index (`blockStoredFit_srcVals_zero`). -/
+theorem genRun_lic (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V μ envC)
+    (R : GenRecRun μ F (mkFEnv env₁) env₁ (mkFEnv envC) p.toBlockShape nestedBit pos cvTas
+      block ctorsAs out) {memR : Nat → Prop}
+    (h : ConLeche.RecStageG μ F envC p cvTas ctorsAs (tgtRs out) memR)
+    {isRec : Bool} {A : Nat → (Name → Nat) → AnnotTerm} {envI : Env}
+    {pk : Nat → BlockMemberPick} {uOfD : Nat → (Name → Nat) → Nat}
+    {ppsOf : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)}
+    (hN : BlockNamesOk (V := V) (blockDataOf V p.toBlockShape ctorsAs pk uOfD ppsOf) cvTas)
+    (hS : BlockCtorsStage (V := V) μ F (blockDataOf V p.toBlockShape ctorsAs pk uOfD ppsOf)
+      p.lps cvTas p.toBlockShape isRec A envI p.ctorNamesAt)
+    (hcore : BlockCtorsCore mpC.base2 (blockDataOf V p.toBlockShape ctorsAs pk uOfD ppsOf)
+      p.lps cvTas p.toBlockShape isRec A (blockDataOf V p.toBlockShape ctorsAs pk uOfD ppsOf).k)
+    (hlfp : (blockDataOf V p.toBlockShape ctorsAs pk uOfD ppsOf).toLfp ∈ mpC.lfpBlocks)
+    (hnames : ctorsAs.map (·.map (fun cA => (cA.1.name, cA.2)))
+      = p.members.map (fun ms => ms.ctors.map (fun c => (c.1.name, c.2))))
+    (hcls : ∀ c, c < (tgtRs out).length → (tgtMajor out c).member = none →
+      TgtOutCls mpC (tgtMajor out c) (Dc c) (mc c) (cvc c))
+    (ψ : Name → Nat) (ρ : Nat → V) :
+    Level.eval ψ (ConLeche.structElimLevel p.toBlockShape.elim p.toBlockShape.large) ≠ 0 →
+    ∀ xs, ∀ c, c < (tgtRs out).length →
+    (tgtClsD (blockDataOf V p.toBlockShape ctorsAs pk uOfD ppsOf) Dc out c).w
+      (tgtClsψ cvc out ψ c) = 0 →
+    ∀ t, t ∈ˢ tgtClsIs (blockDataOf V p.toBlockShape ctorsAs pk uOfD ppsOf) Dc mc cvc
+      mpC.base2.acval envC p.toBlockShape out ψ ρ xs c →
+    ∀ j fs j' fs',
+    tgtClsFit (blockDataOf V p.toBlockShape ctorsAs pk uOfD ppsOf) Dc mc cvc mpC.base2.acval envC
+      p.toBlockShape out ψ ρ xs c t j fs →
+    tgtClsFit (blockDataOf V p.toBlockShape ctorsAs pk uOfD ppsOf) Dc mc cvc mpC.base2.acval envC
+      p.toBlockShape out ψ ρ xs c t j' fs' →
+    j = j' ∧ fs = fs' := by
+  intro hℓ xs c hc hw t ht j fs j' fs' hf hf'
+  have hL : p.toBlockShape.large = true := by
+    cases hl : p.toBlockShape.large with
+    | true => rfl
+    | false =>
+      exfalso; apply hℓ
+      simp [ConLeche.structElimLevel, hl, Level.eval]
+  have hallow : ConLeche.blockLargeElimAllowed p.toBlockShape
+      (nestedBit || R.Ms₀.any (·.member.isNone)) = true := by
+    have he := R.helim
+    rw [hL] at he
+    simpa using he
+  cases hmb : (tgtMajor out c).member with
+  | none =>
+    exfalso
+    have hcl := hcls c hc hmb
+    obtain ⟨hwE, hany⟩ := genRun_outW mpC R hc hmb hcl ψ
+    have hm : (tgtMajor out c).member.isSome = false := by rw [hmb]; rfl
+    simp only [tgtClsD, tgtClsψ, hm, Bool.false_eq_true, if_false] at hw
+    rw [hwE] at hw
+    obtain ⟨-, -, hnest, -⟩ := blockLargeElim_counting hallow hw
+    rw [hany] at hnest
+    simp at hnest
+  | some tm =>
+    have hm : (tgtMajor out c).member.isSome = true := by rw [hmb]; rfl
+    simp only [tgtClsD, tgtClsψ, hm, if_true] at hw
+    have hw' : Level.eval ψ p.toBlockShape.resSort = 0 := hw
+    obtain ⟨hlarge, hk1, -, hnc⟩ := blockLargeElim_counting hallow hw'
+    have htm : p.toBlockShape.recTgtAt c = tm := genRun_recTgt R hc hmb
+    obtain ⟨-, cls, -, -, -, -, -, -, -, hM, -⟩ := genRun_at R hc
+    rw [hM] at hmb
+    obtain ⟨-, -, -, htk⟩ := genRun_member R hmb
+    have htm0 : tm = 0 := by
+      have : p.toBlockShape.k = 1 := hk1
+      omega
+    rw [tgtClsIs_mem hm] at ht
+    rw [tgtClsFit_mem hm] at hf hf'
+    obtain ⟨hpar, hpref⟩ := blockRecIs_fits ht
+    have htD := ht
+    rw [blockRecIs_pos hpar hpref] at htD
+    have hModel := blockModelAt_seam h hN hS hcore hlfp
+    have hmr := blockMembersRun_seam hN hS hcore
+    have hk0 : 0 < (blockDataOf V p.toBlockShape ctorsAs pk uOfD ppsOf).k := by
+      show 0 < p.toBlockShape.k; omega
+    have hmN : p.toBlockShape.recTgtAt c
+        < (blockDataOf V p.toBlockShape ctorsAs pk uOfD ppsOf).N := by
+      rw [htm, htm0]; show 0 < p.toBlockShape.k + 0; omega
+    have hsf := (blockHoleFitRel_iff hModel hpar hmN htD).mp hf
+    have hsf' := (blockHoleFitRel_iff hModel hpar hmN htD).mp hf'
+    unfold blockStoredFitRel at hsf hsf'
+    rw [htm, htm0] at hsf hsf' htD
+    -- one constructor at most
+    have hlen0 : ((blockDataOf V p.toBlockShape ctorsAs pk uOfD ppsOf).ctorsM 0).length ≤ 1 := by
+      have hm0 : ∃ ms, p.members[0]? = some ms := ⟨_, List.getElem?_eq_getElem (by
+        show 0 < p.members.length; exact hk0)⟩
+      obtain ⟨ms, hms⟩ := hm0
+      have hc0 := congrArg (fun L => (L[0]?).map List.length) hnames
+      simp only [List.getElem?_map, hms, Option.map_some, List.length_map] at hc0
+      have hnc' : ms.ctors.length ≤ p.toBlockShape.numCtors := by
+        show ms.ctors.length ≤ ConLeche.numCtorsOf p.members
+        cases hmem : p.members with
+        | nil => rw [hmem] at hms; exact nomatch hms
+        | cons m0 rest =>
+          rw [hmem] at hms
+          simp only [List.getElem?_cons_zero, Option.some.injEq] at hms
+          subst hms
+          simp only [ConLeche.numCtorsOf]; omega
+      show (ctorsAs.getD 0 []).length ≤ 1
+      cases hca : ctorsAs[0]? with
+      | none => rw [List.getD_eq_getElem?_getD, hca]; simp
+      | some L =>
+        rw [hca] at hc0
+        simp only [Option.map_some, Option.some.injEq, List.length_map] at hc0
+        rw [List.getD_eq_getElem?_getD, hca, Option.getD_some, hc0]
+        omega
+    have hj0 : j = 0 := by have := hsf.1; omega
+    have hj'0 : j' = 0 := by have := hsf'.1; omega
+    subst hj0 hj'0
+    refine ⟨rfl, ?_⟩
+    obtain ⟨cA, hcj⟩ : ∃ cA,
+        ((blockDataOf V p.toBlockShape ctorsAs pk uOfD ppsOf).ctorsM 0)[0]? = some cA :=
+      ⟨_, List.getElem?_eq_getElem hsf.1⟩
+    obtain ⟨hfindC, hlpsC, -⟩ := hcore.2.2.2 0 hk0 0 cA hcj
+    obtain ⟨-, -, hcd, -⟩ := hcore.2.2.1 0 0 cA hcj
+    have hsrc : ∀ gs : List V,
+        (blockDataOf V p.toBlockShape ctorsAs pk uOfD ppsOf).StoredFit ψ
+          (consList (xs.take (blockDataOf V p.toBlockShape ctorsAs pk uOfD ppsOf).nP) ρ)
+          t 0 0 gs →
+        gs = srcVals (isOfW ((blockDataOf V p.toBlockShape ctorsAs pk uOfD ppsOf).uM
+            0 ψ) ((blockDataOf V p.toBlockShape ctorsAs pk uOfD ppsOf).nIdxAt 0) t)
+          (srcList (((blockDataOf V p.toBlockShape ctorsAs pk uOfD ppsOf).Ess
+            0 ψ).getD 0 [])
+            (((blockDataOf V p.toBlockShape ctorsAs pk uOfD ppsOf).Fss
+              0 ψ).getD 0 []).length) := fun gs hgs =>
+      blockStoredFit_srcVals_zero hModel hcj ⟨hfindC, hlpsC, hcd⟩ hlarge hw
+        (fun σ => ⟨fun hσ => ((hS.frames 0 hk0 0 cA hcj).1 ψ σ).mp
+            (hS.paramsOf 0 hk0 ψ σ hσ 0 hk0),
+          fun hσ => hS.paramsOf 0 hk0 ψ σ (((hS.frames 0 hk0 0 cA hcj).1 ψ σ).mpr hσ) 0 hk0⟩)
+        (blockMembers_IdsM_length hmr hk0 ψ) hpar
+        (Nat.lt_of_lt_of_le hk0 (Nat.le_add_right _ _)) htD hgs
+    rw [hsrc fs hsf, hsrc fs' hsf']
+
 end Run
 
 /-! ## `GenPreHyps` from the run and the class-side facts -/
@@ -700,14 +842,6 @@ structure GenPreSem (g : ClassGen) (rd : ClassRead) (ψ : Name → Nat) (ρ : Na
   back : GenClsBack pp out mpC d Dc mc cvc ψ ρ
   dec : GenClsDec pp out mpC d Dc mc cvc ψ ρ
   decInv : GenClsDecInv pp out mpC d Dc mc cvc ψ ρ
-  lic : Level.eval ψ (ConLeche.structElimLevel pp.toBlockShape.elim pp.toBlockShape.large) ≠ 0 →
-    ∀ xs, ∀ c, c < (tgtRs out).length →
-    (tgtClsD d Dc out c).w (tgtClsψ cvc out ψ c) = 0 →
-    ∀ t, t ∈ˢ tgtClsIs d Dc mc cvc mpC.base2.acval envC pp.toBlockShape out ψ ρ xs c →
-    ∀ j fs j' fs',
-    tgtClsFit d Dc mc cvc mpC.base2.acval envC pp.toBlockShape out ψ ρ xs c t j fs →
-    tgtClsFit d Dc mc cvc mpC.base2.acval envC pp.toBlockShape out ψ ρ xs c t j' fs' →
-    j = j' ∧ fs = fs'
   callTy : ∀ c, c < (tgtRs out).length → ∀ j, j < blockRecNCt (tgtRs out) c →
     ∀ xs fs : List V,
     xs.length = (blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c).length →
@@ -742,7 +876,8 @@ structure GenPreSem (g : ClassGen) (rd : ClassRead) (ψ : Name → Nat) (ρ : Na
 /-- **`GenPreHyps` from the generated stage's run** and the class-side facts
 (`GenPreSem`): the run discharges the prefix, the positions, the callees,
 the `ih` data's bounds, the field counts, the index counts, the classes'
-clauses and components, and the stored conclusion. -/
+clauses and components, the stored conclusion, and the elimination
+licence (`genRun_lic`). -/
 theorem genPreHyps_of_run (hμ : μ.verifiedChecks = true)
     (R : GenRecRun μ F (mkFEnv envI) envI (mkFEnv envC) pp.toBlockShape nestedBit posR cvTas
       block ctorsAs out) (hg : ClassGenScoped R.g) {memR : Nat → Prop}
@@ -750,6 +885,12 @@ theorem genPreHyps_of_run (hμ : μ.verifiedChecks = true)
     {pk : Nat → BlockMemberPick} {uOfD : Nat → (Name → Nat) → Nat}
     {ppsOf : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)}
     (hd : d = blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf) (hlfp : d.toLfp ∈ mpC.lfpBlocks)
+    {isRec : Bool} {A : Nat → (Name → Nat) → AnnotTerm} {envI' : Env}
+    (hN : BlockNamesOk (V := V) d cvTas)
+    (hS : BlockCtorsStage (V := V) μ F d pp.lps cvTas pp.toBlockShape isRec A envI' pp.ctorNamesAt)
+    (hcore : BlockCtorsCore mpC.base2 d pp.lps cvTas pp.toBlockShape isRec A d.k)
+    (hnames : ctorsAs.map (·.map (fun cA => (cA.1.name, cA.2)))
+      = pp.members.map (fun ms => ms.ctors.map (fun c => (c.1.name, c.2))))
     (hcls : ∀ c, c < (tgtRs out).length → (tgtMajor out c).member = none →
       TgtOutCls mpC (tgtMajor out c) (Dc c) (mc c) (cvc c))
     (ψ : Name → Nat) (ρ : Nat → V) (S : GenPreSem pp out mpC d Dc mc cvc R.g R.rd ψ ρ) :
@@ -761,7 +902,9 @@ theorem genPreHyps_of_run (hμ : μ.verifiedChecks = true)
   nIdx := genRun_nIdx R hd
   din := genRun_din mpC hlfp hcls
   mN := genRun_mN mpC R hd hcls
-  lic := S.lic
+  lic := by
+    subst hd
+    exact genRun_lic hμ mpC R h hN hS hcore hlfp hnames hcls ψ ρ
   gpre := genRun_gpre hμ R hg h mpC ψ
   nF := genRun_nF hμ R hg mpC.base2.acval ψ
   mot := genRun_mot hμ R hg h mpC
