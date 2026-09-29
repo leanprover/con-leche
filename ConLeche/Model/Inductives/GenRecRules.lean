@@ -221,4 +221,75 @@ theorem genRuleAt (R : GenRecRun mode F fe₁ env₁ fe p nb pos cvTas block cto
 
 end Run
 
+/-! ## 3. `htower` and `hRaZ` -/
+
+section Tower
+
+variable {V : Type w} [SetTheory V]
+variable {mode : CheckMode} {F : Nat} {fe₁ : FEnv} {env₁ : Env} {fe : FEnv} {p : BlockShape}
+  {nb : Bool} {pos : ConLeche.NestState} {cvTas : List ConstantVal} {block : List ConstantInfo}
+  {ctorsAs : List (List (ConstantVal × Nat))} {out : List (ConstantVal × TargetMajor × List Expr)}
+
+/-- The prefix is never empty: the rule's own minor premise is a slot. -/
+theorem genRule_slots_pos {g : ClassGen} {recOf : Nat → Option Name} {rlvls : List Level}
+    {c : Nat} {x : ClassCtor} {gen : Expr} (h : ConLeche.classGenRule g recOf rlvls c x = some gen) :
+    0 < g.slots.length := by
+  refine Nat.pos_of_ne_zero fun h0 => ?_
+  have hnil : g.slots = [] := List.eq_nil_of_length_eq_zero h0
+  simp [ConLeche.classGenRule, hnil] at h
+
+/-- **`htower`, at any reading**: a stored rule reads as a λ-tower of
+length `rP + nF` — the run strips exactly that many λs
+(`ClassRuleRun.hstrip`). -/
+theorem genRuleTower (R : GenRecRun mode F fe₁ env₁ fe p nb pos cvTas block ctorsAs out)
+    {j : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
+    (hr : (tgtRs out)[j]? = some r) {i : Nat} {cA : ConstantVal × Nat}
+    (hcA : r.2.2.2[i]? = some cA) {rhs : Expr} (hrhs : r.2.1[i]? = some rhs)
+    {acv : Name → (Name → Nat) → AnnotTerm} {env₃ : Env} {ψ : Name → Nat} {Ra : AnnotTerm}
+    (hRa : denoteMeta acv env₃ ψ 0 rhs = some Ra) :
+    ∃ (lds : List (Nat × AnnotTerm)) (A : AnnotTerm), Ra = mkLamsAV lds A ∧
+      lds.length = p.rulePrefixAt j + cA.2 := by
+  obtain ⟨rc, c, x, gen, hrc, -, -, -, -, -, -, -, ⟨TR⟩, hnF, -, -, ⟨RR⟩⟩ :=
+    genRuleAt R hr hcA hrhs
+  obtain ⟨bs, b, ho⟩ := openLamsM_of_stripLams _ 0 RR.hstrip
+  obtain ⟨C, -, hL, -⟩ := denoteMeta_openLamsM _ ho hRa
+  refine ⟨_, C, hL, ?_⟩
+  rw [readLamBs_length, openLamsM_length _ ho, BlockShape.rulePrefixAt,
+    List.getD_eq_getElem?_getD, hrc, Option.getD_some, TR.hrP, hnF]
+
+/-- **`hRaZ`, at any reading**: at `ℓ = 0` a stored rule reads as the
+point — its head λ carries the elimination level's datum
+(`ClassRuleRun.hpw`), whose bit is `0` there. -/
+theorem genRuleRaZ (R : GenRecRun mode F fe₁ env₁ fe p nb pos cvTas block ctorsAs out)
+    {j : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
+    (hr : (tgtRs out)[j]? = some r) {i : Nat} {cA : ConstantVal × Nat}
+    (hcA : r.2.2.2[i]? = some cA) {rhs : Expr} (hrhs : r.2.1[i]? = some rhs)
+    {acv : Name → (Name → Nat) → AnnotTerm} {env₃ : Env} {ψ : Name → Nat} {Ra : AnnotTerm}
+    (hRa : denoteMeta acv env₃ ψ 0 rhs = some Ra)
+    (hℓ : Level.eval ψ (ConLeche.structElimLevel p.elim p.large) = 0) (ρ : Nat → V) :
+    interp V ρ Ra = pt := by
+  obtain ⟨rc, c, x, gen, -, -, -, -, -, -, -, -, -, -, -, hgen, ⟨RR⟩⟩ := genRuleAt R hr hcA hrhs
+  have hpos := genRule_slots_pos hgen
+  obtain ⟨k, hk⟩ : ∃ k, R.g.nP + R.g.slots.length + x.nF = k + 1 :=
+    ⟨R.g.nP + R.g.slots.length + x.nF - 1, by omega⟩
+  obtain ⟨rbs, body, hstrip, hpw⟩ : ∃ rbs body, rhs.stripLams (k + 1) = some (rbs, body) ∧
+      ∀ b ∈ rbs, b.2.pw = Level.zeronessOf (ConLeche.structElimLevel p.elim p.large) :=
+    ⟨RR.rbs, RR.body, by rw [← hk]; exact RR.hstrip, RR.hpw⟩
+  clear RR
+  match rhs, hstrip with
+  | .lam dom bd mb, hstrip =>
+    simp only [Expr.stripLams] at hstrip
+    cases hs : bd.stripLams k with
+    | none => rw [hs] at hstrip; exact nomatch hstrip
+    | some q =>
+      rw [hs] at hstrip
+      simp only [Option.map_some, Option.some.injEq] at hstrip
+      have hmb : mb.pw = Level.zeronessOf (ConLeche.structElimLevel p.elim p.large) :=
+        hpw (dom, mb) (by rw [← (Prod.mk.inj hstrip).1]; exact List.mem_cons_self)
+      obtain ⟨ta, ba, -, -, rfl⟩ := denoteMeta_lam_inv hRa
+      have hb : pwBit ψ mb.pw = 0 := by rw [hmb]; exact (pwBit_zeronessOf ψ _).mpr hℓ
+      rw [interp_lam, hb, ConLeche.SetModel.lamR_zero]
+
+end Tower
+
 end ConLeche.Model
