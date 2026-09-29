@@ -84,23 +84,23 @@
 == ConLeche/Verify/Frontend/Prepare.lean#L174
    174  theorem mem_preparePrelude {pre : PreludeIx} {ds : Array Declaration}
 
-== ConLeche/Model/StreamConsts.lean#L771-L776
-   771  theorem checkDecls_consts (V : Type w) [SetTheory V]
-   772      {ds : Array Declaration} {env : Env} (accepted : checkDecls .verified pins ds = .ok env)
-   773      {pd : Declaration} (hmem : pd ∈ ds) {cv : ConstantVal} (hcv : Declaration.Declares pd cv) :
-   774      ∃ c, env.find? cv.name = some c ∧
-   775        c.toConstantVal.levelParams = cv.levelParams ∧
-   776        AnnotOf cv.type c.toConstantVal.type := by
+== ConLeche/Model/StreamConsts.lean#L764-L769
+   764  theorem checkDecls_consts (V : Type w) [SetTheory V]
+   765      {ds : Array Declaration} {env : Env} (accepted : checkDecls .verified pins ds = .ok env)
+   766      {pd : Declaration} (hmem : pd ∈ ds) {cv : ConstantVal} (hcv : Declaration.Declares pd cv) :
+   767      ∃ c, env.find? cv.name = some c ∧
+   768        c.toConstantVal.levelParams = cv.levelParams ∧
+   769        AnnotOf cv.type c.toConstantVal.type := by
 
-== ConLeche/Model/StreamConsts.lean#L620-L627
-   620  @[expose] def Declaration.Declares : Declaration → ConstantVal → Prop
-   621    | .defnDecl cv _ _, cv' => cv' = cv
-   622    | .thmDecl cv _, cv' => cv' = cv
-   623    | .opaqueDecl cv _, cv' => cv' = cv
-   624    | .axiomDecl cv, cv' => cv' = cv ∧ cv.name ≠ sorryAxName ∧ cv.name ≠ quotSoundName
-   625    | .basisDecl _, _ => False
-   626    | .indDecl _ _, _ => False
-   627    | .quotDecl _ _, _ => False
+== ConLeche/Model/StreamConsts.lean#L613-L620
+   613  @[expose] def Declaration.Declares : Declaration → ConstantVal → Prop
+   614    | .defnDecl cv _ _, cv' => cv' = cv
+   615    | .thmDecl cv _, cv' => cv' = cv
+   616    | .opaqueDecl cv _, cv' => cv' = cv
+   617    | .axiomDecl cv, cv' => cv' = cv ∧ cv.name ≠ sorryAxName ∧ cv.name ≠ quotSoundName
+   618    | .basisDecl _, _ => False
+   619    | .indDecl _ _, _ => False
+   620    | .quotDecl _ _, _ => False
 
 == ConLeche/Model/StreamConsts.lean#L123-L124
    123  @[expose] def AnnotOf (declared stored : Expr) : Prop :=
@@ -1293,13 +1293,13 @@
    161      ∃ extra : List Declaration, (∀ d ∈ extra, d ∈ pre.decls.toList) ∧
    162        (preparePrelude pre ds).toList.Perm (ds.toList ++ extra) := by
 
-== ConLeche/Model/StreamConsts.lean#L771-L776
-   771  theorem checkDecls_consts (V : Type w) [SetTheory V]
-   772      {ds : Array Declaration} {env : Env} (accepted : checkDecls .verified pins ds = .ok env)
-   773      {pd : Declaration} (hmem : pd ∈ ds) {cv : ConstantVal} (hcv : Declaration.Declares pd cv) :
-   774      ∃ c, env.find? cv.name = some c ∧
-   775        c.toConstantVal.levelParams = cv.levelParams ∧
-   776        AnnotOf cv.type c.toConstantVal.type := by
+== ConLeche/Model/StreamConsts.lean#L764-L769
+   764  theorem checkDecls_consts (V : Type w) [SetTheory V]
+   765      {ds : Array Declaration} {env : Env} (accepted : checkDecls .verified pins ds = .ok env)
+   766      {pd : Declaration} (hmem : pd ∈ ds) {cv : ConstantVal} (hcv : Declaration.Declares pd cv) :
+   767      ∃ c, env.find? cv.name = some c ∧
+   768        c.toConstantVal.levelParams = cv.levelParams ∧
+   769        AnnotOf cv.type c.toConstantVal.type := by
 
 == ConLeche/SetTheory/Core.lean#L95-L133
     95  /-- A model of set theory of exactly the strength the checker needs:
