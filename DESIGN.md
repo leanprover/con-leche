@@ -95149,6 +95149,9 @@ PARKED: tag `complete3-parked` (branch `agent/uinds-COMPLETE3`), worktree remove
 PUnit cleanup (unpin `PUnit`, install it through the normal installer; remove `isUnitLikeTy` and
 `unitLike_eq_punit`) is done on THIS branch.
 
+**STRUCK (maintainer, 2026-09-29):** collapsing the node-0 twins (proof-only, unclear it is better)
+and the "sane expression" relation replacing K.51 (not worth waiting for).
+
 ## TASK #321 — THE MUTUAL RUNG TAKES REFLEXIVE MEMBERS (2026-09-21)
 
 **The finding.**  The self-check (`scripts/selfcheck.sh`, task #199)
