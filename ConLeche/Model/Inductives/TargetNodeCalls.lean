@@ -564,7 +564,7 @@ theorem nestedNodeCalls {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : N
             (tgtClsM mc pp.toBlockShape out c) t j fs b' (tgtClsM mc pp.toBlockShape out c') t' y := by
   intro c b hc hR t j fs ht hHF c' t' y hc' ht' hy hcall
   obtain rfl := CheckMode.eq_verified hμ
-  have H := dynCtx_of hctx hmkC hmk hag hsubC htr hcoreK hok hown hkids hpar hsem hF
+  have H := dynCtx_of hctx.base hmkC hmk hag hsubC htr hcoreK hok hown hkids hpar hsem hF
   have hctx' := hctx
   obtain ⟨hRec, hPos, henvC, hnames, hndM, hN, hS, hcore, hctorsAs, hdR, hlfp, hcov, -, -,
     ⟨R, -, -, -, hRaux⟩, -⟩ := hctx'
@@ -1176,7 +1176,7 @@ theorem nestedNodeCalls {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : N
     rw [List.getElem?_map, hxR, Option.map_some, hidxA l xR xW xa hxR hxW hxa (hhf xW hxW)]
   rcases hcase with ⟨tm, tyv, htm, hfn, hI, hus, hal, hpar0, hhf⟩ |
     ⟨v, tyv, hk, hv0, hvl, hfn, hvk, hI, hus, hdsl, hdst, hhf, har⟩ |
-    ⟨u'', nPc, L, hu''m, hocc, hfn, hnc, hnPcL, hkey, hhf⟩
+    ⟨u'', nPc, L, hu''m, hocc, hfn, hnc, hnPcL, hkey, hhf, -⟩
   · -- a member hole: the target lands at node `0`
     have hPlen : Pw.length = pp.nP ∧ (tgtMajor out ih.callee).member.isSome = true ∧
         pp.toBlockShape.recTgtAt ih.callee = tm := by

@@ -82,8 +82,9 @@ variable (ops : CheckerOps CheckM) (env : Env) (ctx : NestCtx)
 /-- **A field's leaf** `w` at the frames `prog`: the last rule of its
 derivation — a member hole at the block's parameters (hole-free indices,
 full arity), a frame's hole at its key (hole-free indices, full arity), a
-container instance whose node `u` (keyed by it) is among `ts`, or a term
-naming no member and no hole. -/
+container instance whose node `u` (keyed by it) is among `ts` (at the
+arity its `nestInstType` counts), or a term naming no member and no
+hole. -/
 @[expose] def FieldLeaf (prog : List NestHole) (w : Expr) (ts : List PosTree) : Prop :=
   (∃ i ty, w.getAppFn = .fvar i ty ∧ ctx.nP ≤ i ∧ i < ctx.hiAt 0 ∧
     w.getAppArgs.length = ctx.nP + ctx.nIdxs.getD (i - ctx.nP) 0 ∧
@@ -99,7 +100,10 @@ naming no member and no hole. -/
     nestContainer ctx n = some (nPc, L) ∧ nPc ≤ w.getAppArgs.length ∧
     (∀ x ∈ w.getAppArgs.drop nPc, x.nestOcc ctx.names ctx.nP (ctx.hiAt prog.length) = false) ∧
     (∀ x ∈ w.getAppArgs.take nPc, x.bvarB = 0 ∧ x.fvarB ≤ ctx.hiAt prog.length) ∧
-    u ∈ ts ∧ u.occ = prog ∧ u.key = ⟨n, us, w.getAppArgs.take nPc⟩) ∨
+    u ∈ ts ∧ u.occ = prog ∧ u.key = ⟨n, us, w.getAppArgs.take nPc⟩ ∧
+    ∃ nI cty, w.getAppArgs.length = nPc + nI ∧
+      ConLeche.nestInstType (m := CheckM) ctx (ctx.hiAt prog.length)
+        ⟨n, us, w.getAppArgs.take nPc⟩ = .ok (nI, cty)) ∨
   w.nestOcc ctx.names ctx.nP (ctx.hiAt prog.length) = false
 
 variable {ops env ctx}
@@ -202,7 +206,7 @@ theorem posD_field_leaf
     intro _ he
     refine ⟨hwb _ _ _ hw he, [], w, w, rfl, (by intro x hx; exact nomatch hx), fun os hos => ?_,
       Or.inr (Or.inr (Or.inl ⟨n, us, nPc, L, _, hfn, hnm, hq, by omega, hidx, hds,
-        List.mem_singleton_self _, rfl, rfl⟩))⟩
+        List.mem_singleton_self _, rfl, rfl, nI, cty, hlen, hnI⟩))⟩
     obtain rfl : os = [] := List.length_eq_zero_iff.mp hos.1
     rw [Expr.instantiateList_nil]; exact Expr.ErasedEq.rfl _
   | @contHit prog dep kb e w n us L nPc nI cty grp ts hw hocc hfn hnm hq hlen hquot hidx hds hdsw
@@ -211,7 +215,7 @@ theorem posD_field_leaf
     refine ⟨hwb _ _ _ hw he, [], w, w, rfl, (by intro x hx; exact nomatch hx), fun os hos => ?_,
       Or.inr (Or.inr (Or.inl ⟨n, us, nPc, L, _, hfn, hnm, hq, by omega, hidx,
         fun x hx => ⟨(hds x hx).1, Nat.le_trans (hds x hx).2 (by simp [NestCtx.hiAt])⟩,
-        List.mem_singleton_self _, rfl, rfl⟩))⟩
+        List.mem_singleton_self _, rfl, rfl, nI, cty, hlen, hnI⟩))⟩
     obtain rfl : os = [] := List.length_eq_zero_iff.mp hos.1
     rw [Expr.instantiateList_nil]; exact Expr.ErasedEq.rfl _
   | _ => trivial
