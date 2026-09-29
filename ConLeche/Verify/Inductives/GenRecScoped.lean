@@ -7,7 +7,6 @@ import ConLeche.Verify.CheckerF
 import ConLeche.Verify.ExceptBind
 import ConLeche.Verify.Inductives.RecCheckScope
 import ConLeche.Verify.Inductives.NestScope
-import ConLeche.Verify.BridgeWfImp
 import ConLeche.Verify.InferLemmas
 import ConLeche.Verify.InferLeaves
 import ConLeche.Verify.InstLevels
