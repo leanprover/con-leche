@@ -144,13 +144,18 @@ theorem classFormerTys_datF (fe : FEnv) (cvTas : List ConstantVal) (F : Nat)
   rw [mapM_atF]
   simp only [classFormerTy_datF]
 
+theorem classConstOk_datF (fe : FEnv) (cv : ConstantVal) (F : Nat) :
+    (classConstOk (fueledOpsM mode) fe cv).val F = classConstOk (fueledOps mode F) fe cv := by
+  unfold classConstOk
+  datF_tac
+
 theorem classRecTyOk_datF (fe : FEnv) (g : ClassGen) (k : Nat) (rc : RecShape)
     (cvRi : ConstantVal) (c : Nat) (F : Nat) :
     (classRecTyOk (fueledOpsM mode) fe g k rc cvRi c).val F =
       classRecTyOk (fueledOps mode F) fe g k rc cvRi c := by
   unfold classRecTyOk
   simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw, FueledM.atF_ite,
-    unwrapOr_atF, checkConstantValF_datF, fueledOpsM_isDefEq_atF]
+    unwrapOr_atF, classConstOk_datF, fueledOpsM_isDefEq_atF]
 
 theorem classRecTysOk_datF (fe : FEnv) (g : ClassGen) (k : Nat) (F : Nat) :
     ∀ (recs : List RecShape) (cvs : List ConstantVal) (cls : List Nat),
@@ -170,7 +175,7 @@ theorem classRuleOk_datF (feT feR : FEnv) (cvR : ConstantVal) (pw : PropWhen) (n
       classRuleOk (fueledOps mode F) .plain feT feR cvR pw n gen := by
   unfold classRuleOk
   simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw, FueledM.atF_ite,
-    unwrapOr_atF, fueledOpsM_annotate_atF, fueledOpsM_inferType_atF]
+    unwrapOr_atF, fueledOpsM_inferType_atF]
 
 theorem classRulesOk_datF (feT feR : FEnv) (g : ClassGen) (recOf : Nat → Option Name)
     (cvR : ConstantVal) (pw : PropWhen) (c : Nat) (F : Nat) :
