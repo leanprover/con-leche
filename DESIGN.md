@@ -94132,3 +94132,59 @@ generated components, then the flip and the deletion.
 
 Gates: `lake build`/`lake test` warning-free; `tests/arena.sh` green
 (shake: `GenRecRun`'s two public imports measured, FALLBACK).
+
+## GENREC-A — the recursor stage's record from the generated run (2026-09-29, `agent/uinds-GENREC-A`)
+
+Sorry-free, standard axioms.  New module `Model/Inductives/GenRecStage.lean`
+(in the build via `ConLeche/Model.lean`):
+
+    recStage_of_gen (hμ : μ.verifiedChecks = true)
+      (R : GenRecRun μ F (mkFEnv env₁) env₁ (mkFEnv envC) p.toBlockShape nestedBit pos cvTas
+        block ctorsAs out)
+      (hg : ClassGenScoped R.g) :
+      RecStageG μ F envC p cvTas ctorsAs (tgtRs out) (fun _ => False)
+
+`cvRus := genCvRus` (each generated constant, its class's `nIdx`,
+`structElimLevel p.elim p.large`); pins `targetRecPins_inv`; pin and
+counting half by `isEquiv` reflexivity / the run's elimination guard;
+`prefixAgree` = `.inr RecPrefixSame` (every generated type, RESET, is a
+telescope over `g.pre.map genRm`, so `SameDoms.closeTelescope_append` +
+`SameDoms.annotate` + `SameDoms.open`); per recursor `RecTyGen` with
+`cv0 := { rc.cvR with type := gty.resetMeta }` (`genRecTy_run`); rules
+`RuleOutOk` from `ClassRuleRun` (`classFeR` = `mkFEnv (consBlockRecsBare …
+(tgtRs out …))`).  No `RecStage` field was generalised: `hsmall`'s second
+arm holds at a small eliminator (`sty` is literally `Sort 0`, and
+`isDefEqCore_self`: the defeq loop's syntactic fast path at any positive
+fuel).
+
+**Findings.**
+1. *The stage annotates the RESET generated type* (`classRecTyOk`:
+   `gty.resetMeta`), and the annotation pass keeps a written binder datum
+   (`pwWritten`), so `annotate gty ≠ annotate gty.resetMeta` in general
+   (the generator's pieces come from annotated inputs).  The ported
+   `classGenRecTy_conclSort`/`_bits`/`_conclTy`/`_prefix_eq`
+   (`ClassGenRead.lean`) are all stated at `annotateCore … gty`: they do
+   not apply to the run as stated.  Here the conclusion's sort is
+   re-derived over any telescope (`genConclSort_core`) and instantiated at
+   the reset one (`classGenRecTy_conclSort_reset`, with `resetMeta`
+   through `closeTelescope`/`mkAppN`/`Plain`/`EndsInSort`/`SameDoms`); the
+   other three need the same restatement before the family premise can
+   consume them.
+2. *`ClassGenScoped R.g` is a hypothesis* (the conclusion's sort needs
+   the prefix's motive entry and the pieces' bounds — `classGenRecTy_spec`,
+   `ClassGen.prefixBinders_motive`): the plan's open item (b), shared with
+   the family premise.  Deriving it from the run needs: `blockNestCtx`'s
+   parameters scoped (the first former closed), the classes' `ds`
+   (member: the stream recursor's openers; outside: `bvarB = 0 ∧ fvarB ≤
+   nP` plus the openers' types), the formers closed (`cvTas` checked,
+   stored `indInfo` types closed), the table entries' `ty` over the
+   canonical parameters (a positivity-check invariant), constructor types
+   closed, and the ORDER fact from the pre-pass (`classReadSlots` reads a
+   minor's classes off earlier motives; `classMinorSlot`'s uniqueness ties
+   the kinds' classes to that slot).
+3. `classRead_recCls_motive`: every recursor's class, as the pre-pass
+   reads it, has a motive slot (a fact of the pre-pass's output shape).
+
+Gates: `lake build`/`lake test` warning-free; `tests/shake.sh` (four
+public imports of `GenRecStage` measured, FALLBACK), `tests/layering.sh`
+green.
