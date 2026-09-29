@@ -1427,15 +1427,17 @@ theorem genRb0_valid (ρ : Nat → V) (nPre minPos nF nIh : Nat) :
   · obtain ⟨l, -, rfl⟩ := List.mem_map.mp ha
     simp
 
-/-- **The stored rule's `ih` pieces are bit-valid** at a frame of prefix
-and field values fitting the rule frame: every `ih` datum's telescope,
+/-- **The stored rule's `ih` pieces are bit-valid** at every stored rule,
+at a frame of prefix and field values fitting the rule frame: every `ih` datum's telescope,
 fitted step by step, and its arguments at every fitting spine. -/
 @[expose] def GenIhPiecesValid {envC : Env} (acval : Name → (Name → Nat) → AnnotTerm)
     (out : List (ConstantVal × TargetMajor × List Expr)) (g : ClassGen) (rd : ClassRead)
     (pdoms0 : (Name → Nat) → Nat → List AnnotTerm)
     (fdoms0 : (Name → Nat) → Nat → Nat → List AnnotTerm) : Prop :=
-  ∀ (ψ : Name → Nat) (ρ : Nat → V) (c j : Nat) (ys : List V),
-    SpineFit ρ (pdoms0 ψ c ++ fdoms0 ψ c j) ys →
+  ∀ (ψ : Name → Nat) (ρ : Nat → V) (c j : Nat)
+    (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)) (cA : ConstantVal × Nat)
+    (rhs : Expr), (tgtRs out)[c]? = some r → r.2.2.2[j]? = some cA → r.2.1[j]? = some rhs →
+    ∀ ys : List V, SpineFit ρ (pdoms0 ψ c ++ fdoms0 ψ c j) ys →
     ∀ q ∈ genIhdR acval envC out g rd ψ c j,
       FieldsValid (consList ys ρ) (q.2.1.map (·.2)) ∧
         ∀ bs : List V, SpineFit (consList ys ρ) (q.2.1.map (·.2)) bs →
@@ -2596,7 +2598,7 @@ theorem genRecHeqV_R (hμ : μ.verifiedChecks = true)
       rw [this, hrP, hnF]
     rw [genIhsR, List.mem_map] at hv
     obtain ⟨q, hq, rfl⟩ := hv
-    obtain ⟨hF, hA⟩ := hihV ψ ρ c j ys hys q hq
+    obtain ⟨hF, hA⟩ := hihV ψ ρ c j _ cA rhs hr hcA hrhs ys hys q hq
     rw [← hrhsE] at hcl
     have hb := genIhdAV_below mpC.base2 (g := R.g) (rd := R.rd) (φ := ψ) (c := c) (j := j) hcl
       (by rw [hcx]; omega) q hq
