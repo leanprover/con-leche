@@ -962,6 +962,39 @@
     32  def checkShapeless (ops : CheckerOps m) (env : Env) (block : List ConstantInfo) :
     33      m Env := do
 
+== ConLeche/Kernel/Inductives/BlockTail.lean#L121
+   121  def checkBlock (ops : CheckerOps m) (env : Env) (block : List ConstantInfo) (p₀ : BlockParts) :
+
+== ConLeche/Kernel/Inductives/BlockInstall.lean#L322
+   322  def checkBlockPass (ops : CheckerOps m) (env : Env) (p₀ : BlockParts) (isRec : Bool) :
+
+== ConLeche/Kernel/Inductives/SumInstall.lean#L114
+   114  def checkSumCtor (ops : CheckerOps m) (env₀ env : Env) (T : Name)
+
+== ConLeche/Kernel/Inductives/Positivity.lean#L1417
+  1417  def nestPos (ops : CheckerOps m) (env : Env) (ctx : NestCtx) :
+
+== ConLeche/Kernel/Inductives/Positivity.lean#L1484
+  1484  def nestMemberCtor (ops : CheckerOps m) (env : Env) (ctx : NestCtx) (nF : Nat) (crest : Expr)
+
+== ConLeche/Kernel/Inductives/Positivity.lean#L1360
+  1360  def nestContKey (ctx : NestCtx) (ops : CheckerOps m) (env : Env)
+
+== ConLeche/Kernel/Inductives/Positivity.lean#L1179
+  1179  def nestCtors (ctx : NestCtx) (ops : CheckerOps m) (env : Env)
+
+== ConLeche/Kernel/Inductives/BlockTail.lean#L97
+    97  def checkBlockTail (ops : CheckerOps m) (block : List ConstantInfo)
+
+== ConLeche/Kernel/Inductives/RecCheck.lean#L576
+   576  def targetRecTy (ops : CheckerOps m) (fe : FEnv) (p : BlockShape) (nested : Bool)
+
+== ConLeche/Kernel/Inductives/RecCheck.lean#L1023
+  1023  def targetRule (opsR : CheckerOps m) (w : StructWalkers) (feR : FEnv)
+
+== ConLeche/Kernel/Inductives/RecCheck.lean#L914
+   914  def targetCallOk (opsT : CheckerOps m) (env : Env) (p : BlockShape) (formerTys : List Expr)
+
 == ConLeche/Kernel/CoreDefs.lean#L438-L446
    438  /-- The certified structural-`Nat` operations.  Six of them
    439  (`add sub mul pow beq ble`) carry a literal fast path; `Nat.pred` is
