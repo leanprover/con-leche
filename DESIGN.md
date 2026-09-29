@@ -95525,3 +95525,91 @@ Gates: `lake build`/`lake test` warning-free, full `tests/arena.sh`
 surface, links — OVERVIEW anchors repointed, quote gate, no-local-paths,
 challenge, axioms).
 
+
+## KEEPPROJ — a stuck projection keeps its structure argument (2026-09-29, `agent/uinds-KEEPPROJ`)
+
+**Finding (lane SELFCHECK, `_tmp/uniform-inds/SELFCHECK.md`).**
+`scripts/selfcheck.sh` ran out of memory on uniform-inds; master's binary
+did too, so this was not a merge regression. The culprit is
+`ConLeche.nestRoot_datF._f`, not `nestPos_datF`: the `--progress`
+heartbeat prints *after* a check. `whnfCore`'s `.proj` arm returned
+`.proj sn i e'`, where `e'` is the WHNF of the scrutinee, whenever the
+projection did not fire. Official `whnf_core` returns the INPUT
+(`reduce_proj` fails, `r = e`), and so does lean4lean's `whnfCore'`.
+The WHNF (`List.rec … cs`, stuck on the constructor list) had lost the
+scrutinee's head (`nestCtors …`, regular). So `Subtype.val X F =?=
+Subtype.val Y F`, where X and Y differ only by a β-redex (`fueledOpsM
+(fun …) …` against `fueledOpsM mode`), could not reach the
+arguments-first comparison of `nestCtors`/`nestPos`. It compared the
+unfolded bodies instead, and unrolled `nestPos` at fuel
+`whnfWalkFuel crest = depth + 1024`: exponential. The other kernels on
+the same cone (Δ instructions for `_f`): official 0.18 G, nanoda 0.03 G,
+lean4lean 0.25 G. The lean4lean evidence is an instrumented trace:
+`FULLWHNF proj<nestCtors> -> proj<nestCtors>`, then `nestCtors =?=
+nestCtors` arguments first.
+
+**The change.** In every non-firing arm (table miss, non-constructor
+head, failed conditions, failed certificate) the result is the input
+`.proj sn i pe`. The sites are the spec `whnfCoreBody`
+(`Kernel/Core.lean`), the cached twin `whnfCoreStepI` (`Cached/CoreC.lean`,
+which returns `e` itself and shares it), and the mirrors
+`whnfCoreStepM` (`Verify/BetaSpine.lean`) and the `DiscC4` unfolding
+lemma. Proofs:
+* `whnf_proj_inv`'s stuck arm is now `e' = .proj sn i e`;
+* its five consumers (fvar leaves, loose bvars, `WScoped`, `occDeep`,
+  `whnfCore_bridge`) close the arm from the input's hypothesis
+  (`Red.refl` in the bridge);
+* the `DiscC4` simulation's stuck arms return the input with the input's
+  `WScoped`.
+
+Semantically this is a reflexivity: nothing in the model tier moved. The
+lane touches 9 `.lean` files, +64 −40 lines.
+
+**Other `whnf_core` arms checked for the same "rebuilt vs original"
+divergence: none.**
+* app: a stuck ι (`iotaRecI` → `none`) keeps the original arguments. A
+  changed head rebuilds the spine exactly as official's
+  `mk_rev_app(f, args)` does.
+* The string-literal expansion is inside the projection arm, so it is
+  covered by this change.
+* Quot is covered by the ι rules. `letE` is unreachable.
+* The β-certificate failure arm returns the redex itself.
+* The defeq `.proj/.proj` arm now receives the original structs, and
+  `r.defeq` compares them lazily, which matches official's
+  `lazy_delta_proj_reduction` in effect.
+
+**Fixture.** `tests/e2e/proj_stuck_struct.ndjson` (source
+`tests/e2e/src/proj_stuck_struct.lean`): `(step (id c) 24 x).1 =
+(step c 24 x).1` by `rfl`, where `step` is structural on the fuel and
+stuck on `match x` with two recursive `.1` reads per branch. It checks
+in milliseconds; the base binary exceeds 60 s and 8 GB. Its e2e timeout
+is 10 s (`tests/arena.sh`) so that a regression fails fast. A standalone
+arena perf test with N = 12/16/20 is kept at
+`_tmp/uniform-inds/SELFCHECK/arena-test/`. Base binary: 0.2 s, 2 s, 17 s
+and 73 MB, 0.4 GB, 2.6 GB. Official, nanoda and lean4lean: about
+0.02 s at every N.
+
+**`scripts/selfcheck.sh`** no longer uses `ulimit -v` (CLAUDE.md). Under
+it, the default job count aborts at thread creation (exit 134); the
+bound is now the `timeout`. `--jobs=8` stays, to keep the pool's memory
+modest.
+
+**Measured** (`--verified --jobs=8`, `perf stat -e instructions:u`, GNU
+`time -v`, `timeout`). Base is `d702815dc`.
+
+| stream | verdict (both) | base instr:u | lane instr:u | Δ | base RSS | lane RSS |
+|---|---|---|---|---|---|---|
+| self-check export (708 MB) | base: out of memory; lane: exit 0, 44 811 accepted | — | 893.18 G | — | > 46 GB | 1.24 GB |
+| init-full | exit 0, 53 093 | 419.61 G | 419.51 G | −0.02 % | 638 MB | 636 MB |
+| Mathlib | exit 0, 654 504 | 7 584.98 G | 7 570.31 G | −0.19 % | 8.50 GB | 8.55 GB |
+
+**Gates.**
+* `lake build` and `lake test` are warning-free.
+* The full `tests/arena.sh` passes: arena 90/92 good; e2e 449/449
+  (including the new fixture); annot 15/15; trusted, `--jobs=1` and
+  `--jobs=4` sweeps as expected; shake, pub-imports, layering, trust
+  surface, quote gate, no-local-paths, challenge, axioms.
+* OVERVIEW anchors into `Kernel/Core.lean` were repointed (+6 lines).
+* Remaining `ulimit -v` uses, not changed here: `tests/arena.sh`'s
+  tower gate (8 GB, `--jobs=4`), `scripts/natop-matrix.sh` and
+  `scripts/perf-tables.sh`.
