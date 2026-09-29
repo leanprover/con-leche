@@ -15,6 +15,7 @@ import ConLeche.Model.Inductives.GenClsSem
 import ConLeche.Model.Inductives.GenClsMinor
 import ConLeche.Model.Inductives.GenClsRows
 import ConLeche.Model.Inductives.GenClsFrame
+import ConLeche.Model.Inductives.GenClsCall
 import ConLeche.Verify.Inductives.GenRecScoped
 import ConLeche.Verify.Inductives.NestNfScope
 
@@ -111,7 +112,8 @@ theorem genRecStage (hμ : μ.verifiedChecks = true) {F : Nat}
         SpineFit ρ ((blockRecRdsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ q.1).map
             (·.2.2))
           (xs ++ (q.2.2.1.map (interp V (consList bs (consList (xs ++ fs) ρ)))
-            ++ [interp V (consList bs (consList (xs ++ fs) ρ)) q.2.2.2])) := sorry
+            ++ [interp V (consList bs (consList (xs ++ fs) ρ)) q.2.2.2])) :=
+    fun ψ ρ => genCallTy hμ R hg h mpC hfind (genBit pp ψ) ψ ρ
   have hargs : ∀ (ψ : Name → Nat) (ρ : Nat → V), ∀ c, c < (tgtRs out).length →
       ∀ j, j < blockRecNCt (tgtRs out) c → ∀ ys : List V,
       SpineFit ρ (blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c

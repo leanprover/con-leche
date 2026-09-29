@@ -3,6 +3,7 @@ module
 public import ConLeche.Model.Inductives.GenClsRows
 import ConLeche.Model.Inductives.GenClsMinor
 import ConLeche.Model.Inductives.GenRecRules
+import ConLeche.Model.Inductives.GenRecPreRun
 import ConLeche.Model.Inductives.NestedRecRest
 import ConLeche.Model.Inductives.TargetResidue
 import ConLeche.Model.Annot.LpDefF
@@ -1044,6 +1045,22 @@ theorem genIhdAV_length' {acval : Name → (Name → Nat) → AnnotTerm} {env : 
     (genIhdAV acval env g rd bit ψ c j).length = (genCtorAt g rd c j).recs.length := by
   simp [genIhdAV]
 
+theorem genRecIdx_cls {rd : ClassRead} {cvGs : List ConstantVal} {t : Nat} {n : Name}
+    (hl : cvGs.length ≤ rd.recCls.length) (h : ConLeche.classRecOf rd.recCls cvGs t = some n) :
+    genClsOf rd (genRecIdx rd t) = t := by
+  unfold ConLeche.classRecOf at h
+  obtain ⟨r, hr, -⟩ := Option.map_eq_some_iff.mp h
+  have hpr := List.find?_some hr
+  have hrm := List.mem_of_find?_eq_some hr
+  rw [List.mem_range] at hrm
+  have hsome : ((List.range rd.recCls.length).find? fun r => rd.recCls.getD r 0 == t).isSome :=
+    List.find?_isSome.mpr ⟨r, List.mem_range.mpr (by omega), hpr⟩
+  obtain ⟨r', hr'⟩ := Option.isSome_iff_exists.mp hsome
+  have hpr' := List.find?_some hr'
+  unfold genRecIdx genClsOf
+  rw [hr', Option.getD_some]
+  simpa using hpr'
+
 set_option maxHeartbeats 16000000 in
 /-- **The `l`-th inductive hypothesis of `(c, j)`, opened at the rule
 frame**: the rule frame extended by the `ih`'s telescope is a graded
@@ -1063,6 +1080,7 @@ theorem genIhFrame (hμ : μ.verifiedChecks = true)
     ∃ (t st : Nat) (fr : List Expr),
       q.1 = genRecIdx R.rd t ∧ ConLeche.ClassRead.motiveSlot ⟨R.g.slots, []⟩ t = some st ∧
       R.g.nP + st < R.g.pre.length ∧ q.2.2.1.length = (R.g.cls.getD t default).nIdx ∧
+      genClsOf R.rd q.1 = t ∧
       GradedFrame mpC ψ (R.g.pre.length + (genCtorAt R.g R.rd c j).nF + q.2.1.length) fr
         (blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c
           ++ tgtFdomsAV pp.toBlockShape out mpC.base2.acval envC ψ c j ++ q.2.1.map (·.2)) ∧
@@ -1090,7 +1108,9 @@ theorem genIhFrame (hμ : μ.verifiedChecks = true)
     rwa [genIhdAV_length'] at this
   obtain ⟨⟨i, t, tele⟩, hrec⟩ : ∃ r, (genCtorAt R.g R.rd c j).recs[l]? = some r :=
     ⟨_, List.getElem?_eq_getElem hll⟩
-  obtain ⟨⟨ty, hty, hihsl⟩, -, ⟨xs, idx, hip⟩, st, hst, hstl⟩ := hih l i t tele hrec
+  obtain ⟨⟨ty, hty, hihsl⟩, ⟨nrec, hrn⟩, ⟨xs, idx, hip⟩, st, hst, hstl⟩ := hih l i t tele hrec
+  have hcvl : R.cvGs.length ≤ R.rd.recCls.length := by
+    rw [(genRun_lengths R).2, genRun_recCls_length R]; exact Nat.le_refl _
   have hq := genIhdAV_getElem (acval := mpC.base2.acval) (env := envC) (bit := bit) (ψ := ψ)
     hrec hopR hwsR hip
   rw [hql] at hq
@@ -1278,7 +1298,8 @@ theorem genIhFrame (hμ : μ.verifiedChecks = true)
     obtain ⟨w, hw, -⟩ := harg m e hm
     exact ⟨w, hw⟩
   have hbl : (xs.map R.g.binder).length = xs.length := List.length_map _
-  refine ⟨t, st, _, rfl, hst, by omega, by simp [hidxl], G2, fun e he σ ys hys => ?_,
+  refine ⟨t, st, _, rfl, hst, by omega, by simp [hidxl], genRecIdx_cls hcvl hrn, G2,
+    fun e he σ ys hys => ?_,
     fun σ ys hys => ?_⟩
   · rw [hbl] at harg
     have he' : e ∈ (idx ++ [Expr.mkAppN f xs]).map fun e =>
@@ -1320,7 +1341,7 @@ theorem genIhPiecesValid_run (hμ : μ.verifiedChecks = true)
     Nat.lt_of_lt_of_le (List.getElem?_eq_some_iff.mp hcA).1 (blockRecNCt_ge hr)
   rw [← genIhdAV_eq_R R hg hr hcA hrhs] at hq
   obtain ⟨l, hl⟩ := List.getElem?_of_mem hq
-  obtain ⟨t, st, fr, -, -, -, -, G2, hA, -⟩ := genIhFrame hμ R hg h mpC hfind ψ hc hj hl
+  obtain ⟨t, st, fr, -, -, -, -, -, G2, hA, -⟩ := genIhFrame hμ R hg h mpC hfind ψ hc hj hl
   dsimp only at hys
   have hyl : ys.length = (blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c
       ++ tgtFdomsAV pp.toBlockShape out mpC.base2.acval envC ψ c j).length := hys.length_eq
