@@ -241,6 +241,38 @@ theorem genMinorSetup
 
 end Setup
 
+/-- An inductive hypothesis type over scoped inputs is scoped. -/
+theorem genIhTy_scb {g : ClassGen} {t tele st : Nat} {w f : Expr} {d : Nat} {ty : Expr}
+    (hst : ConLeche.ClassRead.motiveSlot ⟨g.slots, []⟩ t = some st) (hlt : g.nP + st < d)
+    (hw : ConLeche.ScB d w) (hf : ConLeche.ScB d f)
+    (h : g.ihTy t tele w f d = some ty) : ConLeche.ScB d ty := by
+  unfold ClassGen.ihTy at h
+  obtain ⟨⟨xs, idx⟩, hip, h⟩ := Option.bind_eq_some_iff.mp h
+  simp only [Option.pure_def, Option.some.injEq] at h
+  subst h
+  obtain ⟨hxl, hxs, hidx⟩ := ConLeche.ClassGen.ihParts_scoped hw (Nat.le_refl _) hip
+  rw [ConLeche.ClassGen.motVar_eq hst]
+  refine ConLeche.ScB.of_closeTelescope (fun k nd hk => ?_) ?_
+  · rw [List.getElem?_map] at hk
+    cases hxk : xs[k]? with
+    | none => rw [hxk] at hk; exact nomatch hk
+    | some xk =>
+      rw [hxk] at hk
+      obtain rfl := (Option.some.inj hk).symm
+      obtain ⟨ty', hxe, hty'⟩ := hxs k xk hxk
+      exact ConLeche.ScB.binder g hxe hty'
+  · rw [List.length_map, hxl]
+    refine ConLeche.ScB.mkAppN (ConLeche.ScB.fvar (by omega) (ConLeche.ScB.sort _ _)) fun a ha => ?_
+    rcases List.mem_append.mp ha with ha | ha
+    · exact hidx a ha
+    · simp only [List.mem_singleton] at ha
+      subst ha
+      refine ConLeche.ScB.mkAppN (hf.mono (by omega)) fun b hb => ?_
+      obtain ⟨k, hk, rfl⟩ := List.getElem_of_mem hb
+      obtain ⟨ty', hxe, hty'⟩ := hxs k _ (List.getElem?_eq_getElem hk)
+      rw [hxe]
+      exact ConLeche.ScB.fvar (by omega) hty'
+
 /-! ## An inductive hypothesis type, read -/
 
 /-- **An inductive hypothesis's type, read at its depth `D`**: the
