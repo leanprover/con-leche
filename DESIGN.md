@@ -94607,3 +94607,20 @@ Imports re-gated: of shake's 111 new removals 53 applied, 57 build-verified need
 
 Gates: `lake build`/`lake test` warning-free; `tests/arena.sh` (shake, pub-imports, layering,
 links, quote gate, axioms, e2e 427/427, sweeps) green.
+
+## NODESIMP M2 — the class induction's interface, one layer (2026-09-29, `agent/uinds-NODESIMP`)
+
+* `TgtNodeCore` (`TargetClassNodes.lean`, deleted) was a record between the node presentation
+  and `NestNodeInd.ind_recNodesOn`, built once (`TgtNodePres.core`) and read once: the kit
+  (`P.kit.toNodeInd`) and the six class-tie facts now go to `ind_recNodesOn` inside
+  `tgtClassInd_of_pres`.
+* `GenClassInd` IS `TgtClassIndG` at `genCallT` (its body was a copy; `genClassInd_iff` was
+  `Iff.rfl`, deleted).
+* `genNodeCalls` takes the prefix's parameter fit and length from its one caller
+  (`genClassNodes` derived them identically); its `hparG` became unused and went.
+* A census of unused theorem hypotheses over `Model/Inductives` and `Verify/Inductives`
+  (`_tmp/NODESIMP/unusedhyps.lean`: a binder absent from the proof term and from the rest of the
+  statement) finds 17, all anonymous or `_`-named — the proofs carry no dead hypotheses at the
+  binder level (conjuncts of context records are not covered).
+Proof: +56 −208.  Gates as M1 (`no-local-paths` fails on `CLAUDE.md:62`, from the CLAUDEMD
+lane's edit on `uniform-inds`, not this lane's).
