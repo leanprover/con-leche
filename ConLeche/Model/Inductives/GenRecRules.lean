@@ -968,7 +968,185 @@ theorem genIh_value {envC : Env} (m : EnvModel V envC) {acv : Name → (Name →
       show D + bl.length + (K - 1 - t') = (D + (K - 1 - t')) + bs.length by omega,
       consList_apply_add, hσc]
 
+theorem denoteMetaSpine_some {acval : Name → (Name → Nat) → AnnotTerm} {env : Env}
+    {φ : Name → Nat} {d : Nat} :
+    ∀ {as : List Expr} {vs : List AnnotTerm}, DenoteMetaSpine acval env φ d as vs →
+      ∀ a ∈ as, ∃ v, denoteMeta acval env φ d a = some v
+  | _, _, .nil => fun a ha => nomatch ha
+  | _, _, .cons ha hs => fun a' ha' => by
+    rcases List.mem_cons.mp ha' with rfl | ha'
+    · exact ⟨_, ha⟩
+    · exact denoteMetaSpine_some hs a' ha'
+
+/-- **The stored rule's `ih` pieces name no recursor**: the telescope
+domains and the call's arguments past the prefix of every `ih` λ of the
+stored rule resolve at the constructors' environment. -/
+@[expose] def GenIhFree (env : Env) (out : List (ConstantVal × TargetMajor × List Expr))
+    (g : ClassGen) (rd : ClassRead) (c j : Nat) : Prop :=
+  ∀ l, l < (genCtorAt g rd c j).recs.length →
+    ∀ (bl : List (Expr × ConLeche.BinderMeta)) (call : Expr),
+      openLamsM ((genCtorAt g rd c j).recs.getD l default).2.2
+          ((genRuleArgs out (g.pre.length + (genCtorAt g rd c j).nF) c j).getD
+            ((genCtorAt g rd c j).nF + l) default)
+          (g.pre.length + (genCtorAt g rd c j).nF) = some (bl, call) →
+        (∀ b ∈ bl, ConstsBound env b.1) ∧
+          ∀ e ∈ call.getAppArgs.drop g.pre.length, ConstsBound env e
+
 end Residue
+
+section ResidueRun
+
+variable {V : Type w} [SetTheory V]
+variable {mode : CheckMode} {F : Nat} {fe₁ : FEnv} {env₁ : Env} {fe : FEnv} {p : BlockShape}
+  {nb : Bool} {pos : ConLeche.NestState} {cvTas : List ConstantVal} {block : List ConstantInfo}
+  {ctorsAs : List (List (ConstantVal × Nat))} {out : List (ConstantVal × TargetMajor × List Expr)}
+
+open ConLeche (ScB ClassGenScoped)
+
+set_option maxHeartbeats 2000000 in
+/-- **The residue at the generated rule**: at a frame of prefix and field
+values, the body of the stored rule's reading is the generated residue
+`genRbAV` at the generated `ih` terms' values at the chain frame whose
+components are the callees' values — given that every callee's recursor
+constant reads as a closed term of its chain component's value
+(`hcallee`), the readings of the constructors' environment cross to the
+reading's (`hcross`) and the `ih` pieces name no recursor (`hfree`). -/
+theorem genRule_residue {envC : Env} (m : EnvModel V envC)
+    (R : GenRecRun mode F fe₁ env₁ fe p nb pos cvTas block ctorsAs out)
+    (hg : ClassGenScoped R.g)
+    {j : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
+    (hr : (tgtRs out)[j]? = some r) {i : Nat} {cA : ConstantVal × Nat}
+    (hcA : r.2.2.2[i]? = some cA) {rhs : Expr} (hrhs : r.2.1[i]? = some rhs)
+    {acv : Name → (Name → Nat) → AnnotTerm} {env₃ : Env} {ψ : Name → Nat}
+    (hcross : ∀ (d : Nat) (e : Expr), ConstsBound envC e →
+      denoteMeta m.acval envC ψ d e = denoteMeta acv env₃ ψ d e)
+    (hfree : GenIhFree envC out R.g R.rd j i)
+    {K : Nat} {a : Nat → V}
+    (hcallee : ∀ (t : Nat) (rn : Name), ConLeche.classRecOf R.rd.recCls R.cvGs t = some rn →
+      genRecIdx R.rd t < K ∧ ∃ L0, denoteMeta acv env₃ ψ 0 (.const rn (r.1.levelParams.map .param))
+        = some L0 ∧ ∀ ρ' : Nat → V, interp V ρ' L0 = a (genRecIdx R.rd t))
+    {Ra : AnnotTerm} (hRa : denoteMeta acv env₃ ψ 0 rhs = some Ra)
+    {lds : List (Nat × AnnotTerm)} {A : AnnotTerm} (hlam : Ra = mkLamsAV lds A)
+    (hlen : lds.length = p.rulePrefixAt j + cA.2)
+    {ρ : Nat → V} {pref fields : List V} (hpl : pref.length = p.rulePrefixAt j)
+    (hfl : fields.length = cA.2) :
+    interp V (consList (pref ++ fields) ρ) A
+      = interp V (consList ((genIhsAV m.acval envC K out R.g R.rd ψ j i).map
+          (interp V (consList (pref ++ fields) (chainFrame K a ρ))))
+          (consList (pref ++ fields) ρ)) (genRbAV R.g R.rd j i) := by
+  obtain ⟨cls, x, -, -, hc, hrP, -, -, -, -, -, -, -, -, hcx, hnF, hxmem, hrhsE, hcl, -, -,
+    hsl0⟩ := genFrameAt R hg hr hcA hrhs
+  obtain ⟨-, cls2, x2, gen, -, hc2, -, -, -, -, hx2, -, -, -, -, hgen, ⟨RR⟩⟩ :=
+    genRuleAt R hr hcA hrhs
+  have hcc : cls2 = cls := Option.some.inj (hc2.symm.trans hc)
+  subst cls2
+  have hgc : genClsOf R.rd j = cls := by simp [genClsOf, List.getD_eq_getElem?_getD, hc]
+  have hxx : x2 = x := by
+    rw [← hcx, genCtorAt, hgc, List.getD_eq_getElem?_getD, hx2]; rfl
+  subst x2
+  obtain ⟨hpl0, -⟩ := ConLeche.ClassGen.prefixBinders_scoped hg hg.pre
+  have hann : ConLeche.annotateCore mode (ConLeche.classFeR p R.Ms R.cvGs R.rd.recCls fe).env F 0
+      gen = .ok rhs := by rw [← ConLeche.fueledOps_annotate]; exact RR.hann
+  obtain ⟨s, bs, body, hslot, hsl, hop, ⟨T, hfn⟩, hlenB, hfields, hihs⟩ :=
+    genRule_shape hg hxmem hgen hann
+  -- the frame's depth
+  have hD : R.g.pre.length + x.nF = p.rulePrefixAt j + cA.2 := by rw [hrP, hnF]
+  have hDpos : 0 < R.g.pre.length := by omega
+  obtain ⟨C, hC, hRaE, -⟩ := denoteMeta_openLamsM _ hop hRa
+  obtain ⟨-, rfl⟩ : lds = readLamBs acv env₃ ψ 0 bs ∧ A = C :=
+    mkLamsAV_length_inj (by rw [hlen, readLamBs_length, openLamsM_length _ hop, hD])
+      (hlam ▸ hRaE)
+  rw [Nat.zero_add] at hC
+  have hbE : body = Expr.mkAppN (.fvar (R.g.nP + s) T) body.getAppArgs := by
+    rw [← hfn]; exact (Expr.mkAppN_getApp body).symm
+  rw [hbE] at hC
+  obtain ⟨fa, vs, hfa, hvs, rfl⟩ := denoteMeta_mkAppN_inv hC
+  simp only [denoteMeta, Option.some.injEq] at hfa
+  subst hfa
+  have hvsE := denoteMetaSpine_map hvs
+  have hvsS := denoteMetaSpine_some hvs
+  -- the body scoped (the stored rule is closed)
+  obtain ⟨-, hbodyS⟩ := openLamsM_scoped _ hop hcl
+  rw [Nat.zero_add] at hbodyS
+  -- the frames
+  have hspl : (pref ++ fields).length = R.g.pre.length + x.nF := by
+    rw [List.length_append, hpl, hfl, hrP, hnF]
+  have hag : ∀ k, k < R.g.pre.length + x.nF →
+      consList (pref ++ fields) ρ k = consList (pref ++ fields) (chainFrame K a ρ) k := by
+    intro k hk
+    rw [consList_getD_of_lt _ _ _ (by omega), consList_getD_of_lt _ _ _ (by omega)]
+  -- the minor's position
+  have hms : genMinorSlot R.g R.rd j i = s := by
+    have h1 : genMinorSlot R.g R.rd j i = (genSlotOf R.g cls x.cv.name).getD 0 := by
+      unfold genMinorSlot genSlotOf
+      rw [hgc, hcx]
+      congr 1
+    rw [h1, hslot]; rfl
+  have hRb : genRbAV R.g R.rd j i = genRb0 pref.length (R.g.nP + s) fields.length
+      ((genIhsAV m.acval envC K out R.g R.rd ψ j i).map
+        (interp V (consList (pref ++ fields) (chainFrame K a ρ)))).length := by
+    rw [genRbAV, hms, hcx, List.length_map, genIhsAV, List.length_map, genIhdAV_length, hcx,
+      hpl, hfl, hrP, hnF]
+  rw [hRb, interp_genRb0 (by rw [hpl, hrP]; omega)]
+  rw [interp_mkAppN, ← List.foldl_map]
+  -- the head: the minor
+  have hhead : interp V (consList (pref ++ fields) ρ)
+      (.bvar (R.g.pre.length + x.nF - 1 - (R.g.nP + s))) = pref.getD (R.g.nP + s) pt := by
+    rw [interp_bvar, consList_getD_of_lt _ _ _ (by rw [hspl]; omega), hspl,
+      show R.g.pre.length + x.nF - 1 - (R.g.pre.length + x.nF - 1 - (R.g.nP + s)) = R.g.nP + s
+        by omega, List.getD_eq_getElem?_getD, List.getElem?_append_left (by rw [hpl, hrP]; omega),
+      ← List.getD_eq_getElem?_getD]
+  rw [hhead]
+  congr 1
+  -- the arguments: the fields, then the `ih` values
+  rw [hvsE, List.map_map]
+  refine List.ext_getElem (by simp [hlenB, hfl, genIhsAV, genIhdAV_length, hcx, hnF])
+    fun k hk hk' => ?_
+  simp only [List.length_map] at hk
+  rw [hlenB] at hk
+  simp only [List.getElem_map, Function.comp_apply]
+  rcases Nat.lt_or_ge k x.nF with hkF | hkF
+  · -- a field
+    obtain ⟨T', hT'⟩ := hfields k hkF
+    have hbk : body.getAppArgs[k] = .fvar (R.g.pre.length + k) T' :=
+      (List.getElem?_eq_some_iff.mp hT').2
+    rw [hbk, List.getElem_append_left (by rw [hfl, ← hnF]; exact hkF)]
+    simp only [denoteMeta, Option.getD_some, interp_bvar]
+    rw [consList_getD_of_lt _ _ _ (by rw [hspl]; omega), hspl,
+      show R.g.pre.length + x.nF - 1 - (R.g.pre.length + x.nF - 1 - (R.g.pre.length + k))
+        = pref.length + k by rw [hpl, hrP]; omega,
+      List.getD_eq_getElem?_getD, List.getElem?_append_right (by omega),
+      Nat.add_sub_cancel_left, List.getElem?_eq_getElem (by rw [hfl, ← hnF]; exact hkF)]
+    rfl
+  · -- an `ih`
+    obtain ⟨l, rfl⟩ : ∃ l, k = x.nF + l := ⟨k - x.nF, by omega⟩
+    have hl : l < x.recs.length := by have := hlenB; omega
+    obtain ⟨q, hq⟩ : ∃ q, x.recs[l]? = some q := ⟨_, List.getElem?_eq_getElem hl⟩
+    obtain ⟨rn, bl, call, hrn, hop2, hfn2, hlenc, hpv⟩ := hihs l q hq
+    have hargE : body.getAppArgs.getD (x.nF + l) default = body.getAppArgs[x.nF + l] := by
+      rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem]; rfl
+    rw [hargE] at hop2
+    obtain ⟨L, hL⟩ := hvsS _ (List.getElem_mem (by rw [hlenB]; omega))
+    rw [hL, Option.getD_some]
+    -- the generated rule's arguments are the stored rule's
+    have hgra : genRuleArgs out (R.g.pre.length + x.nF) j i = body.getAppArgs := by
+      rw [genRuleArgs, hrhsE, hop]; rfl
+    have hqd : x.recs.getD l default = q := by
+      rw [List.getD_eq_getElem?_getD, hq]; rfl
+    obtain ⟨hK, L0, hL0, hL0v⟩ := hcallee q.2.1 rn hrn
+    have hfreeL := hfree l (by rw [hcx]; exact hl) bl call (by
+      rw [hcx, hgra, hqd, hargE]; exact hop2)
+    have hsc : ScB (R.g.pre.length + x.nF) body.getAppArgs[x.nF + l] :=
+      ConLeche.ScB.getAppArgs hbodyS _ (List.getElem_mem _)
+    have hv := genIh_value m hcross (K := K) (t' := genRecIdx R.rd q.2.1) (a := a) hop2 hsc
+      hfreeL hfn2 hlenc hpv (by omega) (by omega) hL0 hL0v hL hag (by
+        rw [show R.g.pre.length + x.nF + (K - 1 - genRecIdx R.rd q.2.1)
+          = (K - 1 - genRecIdx R.rd q.2.1) + (pref ++ fields).length by rw [hspl]; omega,
+          consList_apply_add, chainFrame_apply hK])
+    rw [hv, List.getElem_append_right (by rw [hfl, ← hnF]; omega)]
+    simp only [genIhsAV, List.getElem_map, genIhdAV, List.getElem_range, hcx, hfl, ← hnF,
+      Nat.add_sub_cancel_left, hgra, hqd, hargE, hop2, Option.getD_some]
+end ResidueRun
 
 /-! ## 7. The skeleton's obligations, in its spelling -/
 
