@@ -163,17 +163,44 @@ variable {F : Nat} {envC : Env} {pp : BlockParts} {cvTas : List ConstantVal}
   {ctorsAs : List (List (ConstantVal × Nat))}
   {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {memR : Nat → Prop}
 
+/-- An application spine's head is scoped where the spine is. -/
+theorem WScoped.mkAppN_head {d : Nat} :
+    ∀ (as : List Expr) {f : Expr}, Expr.WScoped d (Expr.mkAppN f as) → Expr.WScoped d f
+  | [], _, h => h
+  | a :: as, f, h => by
+    have := WScoped.mkAppN_head as (f := .app f a) h
+    simp only [Expr.WScoped] at this
+    exact this.1
+
+/-- An application spine's head is bounded where the spine is. -/
+theorem looseBVarsBounded_mkAppN_head {k : Nat} :
+    ∀ (as : List Expr) {f : Expr}, (Expr.mkAppN f as).looseBVarsBounded k = true →
+      f.looseBVarsBounded k = true
+  | [], _, h => h
+  | a :: as, f, h => by
+    have := looseBVarsBounded_mkAppN_head as (f := .app f a) h
+    simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at this
+    exact this.1
+
+/-- A leaf of an application spine's head is a leaf of the spine. -/
+theorem fvarLeaves_mkAppN_head' {l : Nat × Expr} :
+    ∀ (as : List Expr) {f : Expr}, l ∈ f.fvarLeaves → l ∈ (Expr.mkAppN f as).fvarLeaves
+  | [], _, h => h
+  | a :: as, f, h => fvarLeaves_mkAppN_head' as (f := .app f a)
+      (by simp only [Expr.fvarLeaves, List.mem_append]; exact Or.inl h)
+
 set_option maxHeartbeats 2000000 in
-/-- **A stored major-domain argument over the prefix is graded at every
-prefix spine** — from the stored type's own inference (see the module
-docstring). -/
-theorem storedMajorArg_graded (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V μ envC)
+/-- **A stored major-domain argument, or a head of its application spine,
+over the prefix is graded at every prefix spine** — from the stored
+type's own inference (see the module docstring). -/
+theorem storedMajorSub_graded (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V μ envC)
     (h : ConLeche.RecStageG μ F envC pp cvTas ctorsAs rs memR)
     {j : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
     (hr : rs[j]? = some r) (ψ : Name → Nat) {fvs : List Expr} {concl maj : Expr}
     (hop : openPisAtFvars (pp.toBlockShape.majorIdxAt j + 1) r.1.type 0 = some (fvs, concl))
     (hmaj : fvs[pp.toBlockShape.majorIdxAt j]? = some maj)
-    {x : Expr} (hxA : x ∈ maj.fvarTypeD.getAppArgs)
+    {x : Expr} (hxA : x ∈ maj.fvarTypeD.getAppArgs ∨
+      ∃ args, maj.fvarTypeD = Expr.mkAppN x args)
     (hlt : ∀ l ∈ x.fvarLeaves, l.1 < pp.toBlockShape.rulePrefixAt j) :
     ∃ w, denoteMeta mpC.base2.acval envC ψ (pp.toBlockShape.rulePrefixAt j) x = some w ∧
       ∀ σ : Nat → V,
@@ -212,21 +239,29 @@ theorem storedMajorArg_graded (hμ : μ.verifiedChecks = true) (mpC : EnvModelM 
   obtain ⟨tdom, htdom⟩ := hdomInf
   rw [hmajE] at hxA
   simp only [Expr.fvarTypeD] at hxA
-  obtain ⟨tx, htx⟩ := ConLeche.inferTypeCore_mkAppN_args _ (f := dom.getAppFn)
-    (by rw [ConLeche.Expr.mkAppN_getApp]; exact htdom) x hxA
-  -- the argument's scoping: an opener's type's argument, its leaves prefix openers
   have hwsDom : Expr.WScoped mI dom := by
     have := openPisAtFvars_typeWScoped (mI + 1) hop hw0 mI maj hmaj
     rw [hmajE, Nat.zero_add] at this; exact this
-  have hwsX : Expr.WScoped mI x := wscoped_of_getAppArgs hwsDom x hxA
   have hbFvs := (openPisAtFvars_bounded _ hop hb0).2
   have hbDom : dom.looseBVarsBounded 0 = true := by
     have := hbFvs maj (List.mem_of_getElem? hmaj); rw [hmajE] at this; exact this
-  have hbX : x.looseBVarsBounded 0 = true := ConLeche.looseBVarsBounded_getAppArgs hbDom x hxA
+  -- the sub-term's inference, scoping and leaves
+  obtain ⟨⟨tx, htx⟩, hwsX, hbX, hlD⟩ : (∃ tx, ConLeche.inferTypeCore .verified envC F mI x = .ok tx) ∧
+      Expr.WScoped mI x ∧ x.looseBVarsBounded 0 = true ∧
+      ∀ l ∈ x.fvarLeaves, l ∈ dom.fvarLeaves := by
+    rcases hxA with hxA | ⟨args, hdE⟩
+    · exact ⟨ConLeche.inferTypeCore_mkAppN_args _ (f := dom.getAppFn)
+          (by rw [ConLeche.Expr.mkAppN_getApp]; exact htdom) x hxA,
+        wscoped_of_getAppArgs hwsDom x hxA, ConLeche.looseBVarsBounded_getAppArgs hbDom x hxA,
+        fun l hl => ConLeche.fvarLeaves_getAppArgs hxA l hl⟩
+    · rw [hdE] at htdom hwsDom hbDom
+      exact ⟨Model.inferTypeCore_mkAppN_fn_inv args htdom, WScoped.mkAppN_head args hwsDom,
+        looseBVarsBounded_mkAppN_head args hbDom,
+        fun l hl => by rw [hdE]; exact fvarLeaves_mkAppN_head' args hl⟩
   have hnil : r.1.type.fvarLeaves = [] := fvarLeaves_nil_of_wscoped_zero hw0
   have hleafF : ∀ l ∈ x.fvarLeaves, Expr.fvar l.1 l.2 ∈ fvs := by
     intro l hl
-    have hlD : l ∈ dom.fvarLeaves := ConLeche.fvarLeaves_getAppArgs hxA l hl
+    have hlD : l ∈ dom.fvarLeaves := hlD l hl
     have hlM : l ∈ maj.fvarLeaves := by
       rw [hmajE]; simp only [Expr.fvarLeaves, List.mem_cons]; exact Or.inr hlD
     rcases openPisAtFvars_leaves _ hop l (Or.inr ⟨maj, List.mem_of_getElem? hmaj, hlM⟩) with
@@ -337,6 +372,22 @@ theorem storedMajorArg_graded (hμ : μ.verifiedChecks = true) (mpC : EnvModelM 
   have hg := hgr _ hsat
   rw [hk, WellDenotedV_liftN, shiftE_zero_consList (by simp)] at hg
   exact hg
+
+/-- **A stored major-domain argument over the prefix is graded at every
+prefix spine** (`storedMajorSub_graded` at an argument). -/
+theorem storedMajorArg_graded (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V μ envC)
+    (h : ConLeche.RecStageG μ F envC pp cvTas ctorsAs rs memR)
+    {j : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
+    (hr : rs[j]? = some r) (ψ : Name → Nat) {fvs : List Expr} {concl maj : Expr}
+    (hop : openPisAtFvars (pp.toBlockShape.majorIdxAt j + 1) r.1.type 0 = some (fvs, concl))
+    (hmaj : fvs[pp.toBlockShape.majorIdxAt j]? = some maj)
+    {x : Expr} (hxA : x ∈ maj.fvarTypeD.getAppArgs)
+    (hlt : ∀ l ∈ x.fvarLeaves, l.1 < pp.toBlockShape.rulePrefixAt j) :
+    ∃ w, denoteMeta mpC.base2.acval envC ψ (pp.toBlockShape.rulePrefixAt j) x = some w ∧
+      ∀ σ : Nat → V,
+        Sat V (blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape rs ψ j).reverse σ →
+        WellDenotedV V σ w :=
+  storedMajorSub_graded hμ mpC h hr ψ hop hmaj (.inl hxA) hlt
 
 end Pins
 
