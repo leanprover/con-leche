@@ -94,8 +94,19 @@ structure ClassGen where
   /-- the generated prefix binders (`ClassGen.prefixBinders`), computed once -/
   pre : List (Expr × BinderMeta) := []
 
-/-- The binder of an opened variable. -/
+/-- The binder of an opened variable (the motive types' binders: their
+codomains are sorts, never zero). -/
 def classBinder (x : Expr) : Expr × BinderMeta := (x.fvarTypeD, default)
+
+/-- **The generated binders' datum**: every binder of a recursor type, a
+minor premise, an inductive hypothesis and a rule concludes in a motive
+application, a proposition exactly where the elimination level is zero —
+the generator WRITES this datum and nothing is annotated (inference
+validates every written datum at the verified modes). -/
+def ClassGen.bm (g : ClassGen) : BinderMeta := ⟨Level.zeronessOf g.elim⟩
+
+/-- A generated binder of an opened variable. -/
+def ClassGen.binder (g : ClassGen) (x : Expr) : Expr × BinderMeta := (x.fvarTypeD, g.bm)
 
 /-- The prefix variable of slot `s`. -/
 def ClassGen.slotVar (g : ClassGen) (s : Nat) : Expr := .fvar (g.nP + s) (.sort .zero)
@@ -140,12 +151,11 @@ def ClassGen.minorTy (g : ClassGen) (c : Nat) (x : ClassCtor) (d : Nat) : Option
     let (i, t, tele) := recs.getD l default
     let e := d + x.nF + l
     let (xs, idx) ← g.ihParts t tele (ws.getD i default) e
-    pure (closeTelescope (xs.map classBinder) e
-      (Expr.mkAppN (g.motVar t) (idx ++ [Expr.mkAppN (fvs.getD i default) xs])),
-      (default : BinderMeta))
+    pure (closeTelescope (xs.map g.binder) e
+      (Expr.mkAppN (g.motVar t) (idx ++ [Expr.mkAppN (fvs.getD i default) xs])), g.bm)
   let concl := Expr.mkAppN (g.motVar c)
     (res.getAppArgs.drop ci.nPc ++ [Expr.mkAppN (.const x.cv.name ci.lvls) (ci.ds ++ fvs)])
-  pure (closeTelescope (fvs.map classBinder ++ ihs) d concl)
+  pure (closeTelescope (fvs.map g.binder ++ ihs) d concl)
 
 /-- The prefix binders (parameters, then every slot in the stream's
 order). -/
@@ -156,11 +166,11 @@ def ClassGen.prefixBinders (g : ClassGen) : Option (List (Expr × BinderMeta)) :
     | .motive _ =>
       let c := ((List.range s).filter fun s' =>
         match g.slots.getD s' default with | .motive _ => true | _ => false).length
-      pure ((← g.motiveTy c d), (default : BinderMeta))
+      pure ((← g.motiveTy c d), g.bm)
     | .minor c C _ =>
       let x ← (g.ctors.getD c []).find? (·.cv.name == C)
-      pure ((← g.minorTy c x d), (default : BinderMeta))
-  pure (g.params.map classBinder ++ slotBs)
+      pure ((← g.minorTy c x d), g.bm)
+  pure (g.params.map g.binder ++ slotBs)
 
 /-- **The generated recursor type** at class `c`. -/
 def classGenRecTy (g : ClassGen) (c : Nat) : Option Expr := do
@@ -168,7 +178,7 @@ def classGenRecTy (g : ClassGen) (c : Nat) : Option Expr := do
   let rP := pre.length
   let (ifs, maj) ← g.major c rP
   let t : Expr := .fvar (rP + ifs.length) maj
-  pure (closeTelescope (pre ++ ifs.map classBinder ++ [(maj, default)]) 0
+  pure (closeTelescope (pre ++ ifs.map g.binder ++ [(maj, g.bm)]) 0
     (Expr.mkAppN (g.motVar c) (ifs ++ [t])))
 
 /-- **The generated rule** of a recursor at class `c` for its constructor
@@ -192,9 +202,9 @@ def classGenRule (g : ClassGen) (recOf : Nat → Option Name) (rlvls : List Leve
       let f := fvs.getD i default
       let (xs, idx) ← g.ihParts t tele (ws.getD i default) (rP + x.nF)
       let r ← recOf t
-      pure (some (closeLams (xs.map classBinder) (rP + x.nF)
+      pure (some (closeLams (xs.map g.binder) (rP + x.nF)
         (Expr.mkAppN (.const r rlvls) (pvars ++ idx ++ [Expr.mkAppN f xs]))))
-  pure (closeLams (pre ++ fvs.map classBinder) 0 (Expr.mkAppN (g.slotVar s) (fvs ++ ihs)))
+  pure (closeLams (pre ++ fvs.map g.binder) 0 (Expr.mkAppN (g.slotVar s) (fvs ++ ihs)))
 
 /-! ## The stage -/
 
@@ -346,6 +356,31 @@ def classFormerTy (fe : FEnv) (cvTas : List ConstantVal) (M : TargetMajor) : m E
     | some (.indInfo cv _) => pure (cv.type.instantiateLevelParams cv.levelParams M.lvls)
     | _ => throw (.internal "generated recursor: a class's former vanished")
 
+/-- **A generated constant, checked** — `checkConstantValF` without the
+annotation pass: the generator writes every binder datum (`ClassGen.bm`)
+and its pieces are annotated terms already, so the type is stored as
+generated; inference validates the data. -/
+def classConstOk (ops : CheckerOps m) (fe : FEnv) (cv : ConstantVal) : m ConstantVal := do
+  if (fe.find? cv.name).isSome then
+    throw (.invalid s!"duplicate declaration {cv.name}")
+  if reservedBasisNames.contains cv.name then
+    throw (.invalid s!"reserved basis name {cv.name}")
+  if cv.name.isProjFnShape then
+    throw (.invalid s!"reserved projection name {cv.name}")
+  unless Name.nodup cv.levelParams do
+    throw (.invalid s!"duplicate universe parameters in {cv.name}")
+  unless cv.type.looseBVarsBounded 0 do
+    throw (.internal s!"generated recursor: loose bound variable in type of {cv.name}")
+  if cv.type.hasFvar then
+    throw (.internal s!"generated recursor: free variable in type of {cv.name}")
+  unless cv.type.allLevelParamsDefined cv.levelParams do
+    throw (.invalid s!"undeclared universe parameter in type of {cv.name}")
+  unless cv.type.constsResolveF fe do
+    throw (unresolvedConstsError s!"type of {cv.name}" cv.type)
+  let stype ← ops.inferType fe.env 0 cv.type
+  let _u ← ops.ensureSort fe.env 0 stype
+  pure cv
+
 /-- **One recursor's generated type, checked and compared**: the record's
 member, rule prefix and major index are the generated ones; the generated
 type is checked as a constant under the record's name and level
@@ -360,7 +395,7 @@ def classRecTyOk (ops : CheckerOps m) (fe : FEnv) (g : ClassGen) (k : Nat) (rc :
     throw (.invalid "generated recursor: the recursor record's rule prefix or major index is \
       not the generated one")
   let gty ← unwrapOr (classGenRecTy g c) (.internal "generated recursor: recursor type")
-  let cvG ← checkConstantValF ops fe { rc.cvR with type := gty }
+  let cvG ← classConstOk ops fe { rc.cvR with type := gty }
   unless ← ops.isDefEq fe.env 0 cvRi.type cvG.type do
     throw (.invalid s!"generated recursor: the type of {rc.cvR.name} is not the generated one \
       (official: invalid recursor)")
@@ -377,7 +412,8 @@ def classRecTysOk (ops : CheckerOps m) (fe : FEnv) (g : ClassGen) (k : Nat) :
   | [], _, _ => pure []
   | _, _, _ => throw (.internal "generated recursor: recursor list")
 
-/-- **One generated rule, installed**: annotated, resolved and typed at the
+/-- **One generated rule, installed** (as generated: its binder data are
+written): resolved and typed at the
 rule-less recursors' environment `feR` (its level parameters the
 recursor's), its λ-telescope over the prefix and the fields `n` long,
 its λ-domains resolving at the constructors' environment `feT` and
@@ -387,7 +423,7 @@ def classRuleOk (ops : CheckerOps m) (w : StructWalkers) (feT feR : FEnv) (cvR :
     (pw : PropWhen) (n : Nat) (gen : Expr) : m Expr := do
   unless gen.looseBVarsBounded 0 && !gen.hasFvar do
     throw (.internal s!"generated recursor: a rule of {cvR.name} is not closed")
-  let genA ← ops.annotate feR.env 0 gen
+  let genA := gen
   unless genA.allLevelParamsDefined cvR.levelParams do
     throw (.internal s!"generated recursor: a rule of {cvR.name} names an undeclared universe \
       parameter")
