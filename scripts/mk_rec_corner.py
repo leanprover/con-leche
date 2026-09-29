@@ -667,3 +667,22 @@ _blk = {"inductive": {
                "isUnsafe": False, "levelParams": [], "name": _T, "numIndices": 0,
                "numNested": 0, "numParams": 0, "type": _prop}]}}
 dump("corner_rec_empty_prefix.ndjson", t.recs + t.ins + [_blk])
+
+# --- corner_rec_rule_nfields / corner_rec_rules_swapped -------------
+# The two per-rule conjuncts of the rule pin at ONE member (lane
+# RPFOLLOW deleted the conformance check's own copy of that pin,
+# `blockRecPinOk`: the recursor check's `targetRulePins` is now the only
+# check behind these rejects).  `Nat'.rec`'s `succ` rule claims 2
+# fields where `Nat'.succ` has 1; and the two rules in the wrong order
+# (each still naming its constructor with its field count).  Official
+# rejects both.  TARGET 1.
+t = Twin("direct_fix_nat")
+rc = t.rec("Nat'", "Nat'.rec")
+for ru in rc["rules"]:
+    if ru["ctor"] == t.names["Nat'.succ"]:
+        ru["nfields"] += 1
+t.write("corner_rec_rule_nfields", "Nat'", drop_defs=True)
+t = Twin("direct_fix_nat")
+rc = t.rec("Nat'", "Nat'.rec")
+rc["rules"] = rc["rules"][::-1]
+t.write("corner_rec_rules_swapped", "Nat'", drop_defs=True)

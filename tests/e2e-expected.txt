@@ -1761,6 +1761,13 @@
 # soundness requirement and stays in the record's pin whatever the
 # recursor is called.
 1 corner_rec_rule_missing.ndjson
+# The rule pin's two per-rule conjuncts at ONE member, which only the
+# recursor check's `targetRulePins` enforces (the conformance check's
+# copy of the pin is gone): `Nat'.rec`'s `succ` rule claiming 2 fields
+# where `Nat'.succ` has 1, and the two rules in the wrong order.
+# Official rejects both.
+1 corner_rec_rule_nfields.ndjson
+1 corner_rec_rules_swapped.ndjson
 # `Nat'.rec`'s `succ` rule binds its FIELD at a domain that mentions
 # the recursor CONSTANT:
 #   λ m z s (n : (fun _ : T_rec => Nat') Nat'.rec). s n (Nat'.rec m z s n)
