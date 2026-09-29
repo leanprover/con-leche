@@ -59,25 +59,6 @@ section Open
 
 variable {acv : Name → (Name → Nat) → AnnotTerm} {env : Env} {ψ : Name → Nat}
 
-theorem openLamsM_length :
-    ∀ (n : Nat) {e : Expr} {j : Nat} {bs : List (Expr × ConLeche.BinderMeta)} {r : Expr},
-      openLamsM n e j = some (bs, r) → bs.length = n
-  | 0, e, j, bs, r, h => by
-    simp only [openLamsM, Option.some.injEq, Prod.mk.injEq] at h
-    rw [← h.1]; rfl
-  | n + 1, .lam dom body m, j, bs, r, h => by
-    simp only [openLamsM] at h
-    cases hi : openLamsM n (body.instantiate1 (.fvar j dom)) (j + 1) with
-    | none => rw [hi] at h; exact nomatch h
-    | some o =>
-      rw [hi] at h
-      simp only [Option.map_some, Option.some.injEq, Prod.mk.injEq] at h
-      rw [← h.1, List.length_cons, openLamsM_length n (bs := o.1) (r := o.2) (by rw [hi])]
-  | _ + 1, .bvar _, _, _, _, h | _ + 1, .fvar _ _, _, _, _, h | _ + 1, .sort _, _, _, _, h
-  | _ + 1, .const _ _, _, _, _, h | _ + 1, .app _ _, _, _, _, h
-  | _ + 1, .forallE _ _ _, _, _, _, h | _ + 1, .letE _ _ _, _, _, _, h
-  | _ + 1, .lit _, _, _, _, h | _ + 1, .proj _ _ _, _, _, _, h => nomatch h
-
 /-- `readLamBs` keeps one entry per binder. -/
 theorem readLamBs_length :
     ∀ (j : Nat) (bs : List (Expr × ConLeche.BinderMeta)),
@@ -560,9 +541,8 @@ theorem genFrameAt (R : GenRecRun mode F fe₁ env₁ fe p nb pos cvTas block ct
   have hrhsE : tgtRhsOf out j i = rhs := by
     simp only [tgtRhsOf, List.getD_eq_getElem?_getD, ho, Option.getD_some, hrhs]
   have hcl : ScB 0 rhs := by
-    obtain ⟨hf, hb⟩ := annotate_syntax (by
-      rw [← ConLeche.fueledOps_annotate]; exact RR.hann) RR.hfv RR.hbv
-    exact ⟨Expr.WScoped.of_not_hasFvar hf, hb⟩
+    rw [RR.hout]
+    exact ⟨Expr.WScoped.of_not_hasFvar RR.hfv, RR.hbv⟩
   have hsl := genRule_slots_pos hgen
   refine ⟨cls, x, fvs, res, hc, hrP, hRP, hMaj, hCt, hCrest, hop, ?_, ?_, hB, hcx, hnF, hxmem,
     hrhsE, hcl, (hg.tyD cls x hxmem).mono (by omega),
@@ -1052,10 +1032,8 @@ theorem genRule_residue {envC : Env} (m : EnvModel V envC)
     rw [← hcx, genCtorAt, hgc, List.getD_eq_getElem?_getD, hx2]; rfl
   subst x2
   obtain ⟨hpl0, -⟩ := ConLeche.ClassGen.prefixBinders_scoped hg hg.pre
-  have hann : ConLeche.annotateCore mode (ConLeche.classFeR p R.Ms R.cvGs R.rd.recCls fe).env F 0
-      gen = .ok rhs := by rw [← ConLeche.fueledOps_annotate]; exact RR.hann
-  obtain ⟨s, bs, body, hslot, hsl, hop, ⟨T, hfn⟩, hlenB, hfields, hihs⟩ :=
-    genRule_shape hg hxmem hgen hann
+  obtain ⟨_fvs, _res, _ws, s, bs, body, -, -, hslot, hsl, hop, -, ⟨T, hfn⟩, hlenB, hfields, hihs⟩ :=
+    genRule_shapeD hg hxmem hgen RR.hout
   -- the frame's depth
   have hD : R.g.pre.length + x.nF = p.rulePrefixAt j + cA.2 := by rw [hrP, hnF]
   have hDpos : 0 < R.g.pre.length := by omega
@@ -1129,7 +1107,7 @@ theorem genRule_residue {envC : Env} (m : EnvModel V envC)
     obtain ⟨l, rfl⟩ : ∃ l, k = x.nF + l := ⟨k - x.nF, by omega⟩
     have hl : l < x.recs.length := by have := hlenB; omega
     obtain ⟨q, hq⟩ : ∃ q, x.recs[l]? = some q := ⟨_, List.getElem?_eq_getElem hl⟩
-    obtain ⟨rn, bl, call, hrn, hop2, hfn2, hlenc, hpv⟩ := hihs l q hq
+    obtain ⟨rn, -, -, bl, call, hrn, -, hop2, hfn2, hlenc, hpv, -⟩ := hihs l q hq
     have hargE : body.getAppArgs.getD (x.nF + l) default = body.getAppArgs[x.nF + l] := by
       rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem]; rfl
     rw [hargE] at hop2

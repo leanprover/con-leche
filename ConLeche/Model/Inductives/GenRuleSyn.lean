@@ -4,7 +4,6 @@ public import ConLeche.Model.Inductives.GenRecAssembly
 import ConLeche.Model.Inductives.NestPosOut
 import ConLeche.Model.Inductives.ClassGenRead
 import ConLeche.Model.Inductives.ClassGenMinor
-import ConLeche.Model.Inductives.GenRecStage
 import ConLeche.Verify.Inductives.ClassGenMinorSyn
 import ConLeche.Verify.Inductives.ClassGenAnnot
 import ConLeche.Verify.Inductives.ClassGenScope
@@ -104,6 +103,26 @@ the callee its chain variable below the frame). -/
 
 
 variable {mode : CheckMode}
+
+theorem openLamsM_length :
+    ∀ (n : Nat) {e : Expr} {j : Nat} {bs : List (Expr × ConLeche.BinderMeta)} {r : Expr},
+      openLamsM n e j = some (bs, r) → bs.length = n
+  | 0, e, j, bs, r, h => by
+    simp only [openLamsM, Option.some.injEq, Prod.mk.injEq] at h
+    rw [← h.1]; rfl
+  | n + 1, .lam dom body m, j, bs, r, h => by
+    simp only [openLamsM] at h
+    cases hi : openLamsM n (body.instantiate1 (.fvar j dom)) (j + 1) with
+    | none => rw [hi] at h; exact nomatch h
+    | some o =>
+      rw [hi] at h
+      simp only [Option.map_some, Option.some.injEq, Prod.mk.injEq] at h
+      rw [← h.1, List.length_cons, openLamsM_length n (bs := o.1) (r := o.2) (by rw [hi])]
+  | _ + 1, .bvar _, _, _, _, h | _ + 1, .fvar _ _, _, _, _, h | _ + 1, .sort _, _, _, _, h
+  | _ + 1, .const _ _, _, _, _, h | _ + 1, .app _ _, _, _, _, h
+  | _ + 1, .forallE _ _ _, _, _, _, h | _ + 1, .letE _ _ _, _, _, _, h
+  | _ + 1, .lit _, _, _, _, h | _ + 1, .proj _ _ _, _, _, _, h => nomatch h
+
 
 /-! ## `closeLams`, bounded and reset -/
 
@@ -380,14 +399,14 @@ theorem classGenRule_spec {g : ClassGen} {recOf : Nat → Option Name} {rlvls : 
       genSlotOf g c x.cv.name = some s ∧ s < g.slots.length ∧
       ConLeche.openPisAtFvars x.nF x.tyD g.pre.length = some (fvs, res) ∧
       ConLeche.targetPiDomsWith fvs x.tyN = some ws ∧
-      gen = closeLams (g.pre ++ fvs.map ConLeche.classBinder) 0
+      gen = closeLams (g.pre ++ fvs.map g.binder) 0
         (Expr.mkAppN (g.slotVar s) (fvs ++ ihs)) ∧
       ihs.length = x.recs.length ∧
       ∀ (l : Nat) (q : Nat × Nat × Nat), x.recs[l]? = some q →
         ∃ (xs idx : List Expr) (r : Name) (ih : Expr), ihs[l]? = some ih ∧
           g.ihParts q.2.1 q.2.2 (ws.getD q.1 default) (g.pre.length + x.nF) = some (xs, idx) ∧
           recOf q.2.1 = some r ∧
-          ih = closeLams (xs.map ConLeche.classBinder) (g.pre.length + x.nF)
+          ih = closeLams (xs.map g.binder) (g.pre.length + x.nF)
             (Expr.mkAppN (.const r rlvls) (genPvars g ++ idx ++
               [Expr.mkAppN (fvs.getD q.1 default) xs])) := by
   unfold ConLeche.classGenRule at h
@@ -576,7 +595,7 @@ theorem genRule_shape {env : Env} {g : ClassGen} (hg : ClassGenScoped g)
         q.1 < x.nF ∧
         ScB (g.pre.length + x.nF + q.2.2) (Expr.mkAppN (.const r rlvls) (genPvars g ++ idx ++
               [Expr.mkAppN (fvs.getD q.1 default) xs])) ∧
-        ih = closeLams (xs.map ConLeche.classBinder) (g.pre.length + x.nF)
+        ih = closeLams (xs.map g.binder) (g.pre.length + x.nF)
             (Expr.mkAppN (.const r rlvls) (genPvars g ++ idx ++
               [Expr.mkAppN (fvs.getD q.1 default) xs])) := by
     intro l q hq
@@ -624,15 +643,15 @@ theorem genRule_shape {env : Env} {g : ClassGen} (hg : ClassGenScoped g)
       rw [hxk] at hk
       obtain rfl := (Option.some.inj hk).symm
       obtain ⟨ty', hxe, hty'⟩ := hxs k xk hxk
-      exact ScB.classBinder hxe hty'
+      exact ScB.binder g hxe hty'
   -- the whole rule, annotated
-  have hnds : ∀ p ∈ g.pre ++ fvs.map ConLeche.classBinder, p.1.looseBVarsBounded 0 = true := by
+  have hnds : ∀ p ∈ g.pre ++ fvs.map g.binder, p.1.looseBVarsBounded 0 = true := by
     intro p hp
     rcases List.mem_append.mp hp with hp | hp
     · obtain ⟨k, hk, rfl⟩ := List.getElem_of_mem hp
       exact (hpre k _ (List.getElem?_eq_getElem hk)).2
     · obtain ⟨k, hk, rfl⟩ := List.getElem_of_mem hp
-      exact (ScB.openPis_binders hop htyD k _ (List.getElem?_eq_getElem hk)).2
+      exact (ScB.openPis_binders (fun _ => rfl) hop htyD k _ (List.getElem?_eq_getElem hk)).2
   have hBS : ScB (g.pre.length + x.nF)
       (Expr.mkAppN (g.slotVar s) (fvs ++ ihs)) := by
     refine ScB.mkAppN (ScB.fvar (by omega) (ScB.sort _ _)) fun a ha => ?_
@@ -644,7 +663,7 @@ theorem genRule_shape {env : Env} {g : ClassGen} (hg : ClassGenScoped g)
   have hgS := ConLeche.classGenRule_scoped hg hx hgen
   obtain ⟨nds', B', hl', he', ⟨B₀, F₀, hB₀, hwB₀, hannB⟩, hdoms⟩ :=
     annotateCore_closeLams_gen _ hnds hBS.2 (Expr.ErasedEq.rfl _) hgS.1 hann
-  have hndsl : (g.pre ++ fvs.map ConLeche.classBinder).length = g.pre.length + x.nF := by
+  have hndsl : (g.pre ++ fvs.map g.binder).length = g.pre.length + x.nF := by
     simp [hfl]
   rw [hndsl, Nat.zero_add] at hwB₀ hannB
   have hnds'B : ∀ p ∈ nds', p.1.looseBVarsBounded 0 = true := by
@@ -683,12 +702,12 @@ theorem genRule_shape {env : Env} {g : ClassGen} (hg : ClassGenScoped g)
       rw [List.getElem?_append_right (by omega), hfl, Nat.add_sub_cancel_left]; exact hih
     obtain ⟨X, X', Fk, hXa, hwX, hk', hzX⟩ := hpt (x.nF + l) _ z ha hz
     rw [hihE] at hXa
-    have hxsB : ∀ p ∈ xs.map ConLeche.classBinder, p.1.looseBVarsBounded 0 = true := by
+    have hxsB : ∀ p ∈ xs.map g.binder, p.1.looseBVarsBounded 0 = true := by
       intro p hp
       obtain ⟨y, hy, rfl⟩ := List.mem_map.mp hp
       obtain ⟨k, hk, rfl⟩ := List.getElem_of_mem hy
       obtain ⟨ty', hxe, hty'⟩ := hxs k _ (List.getElem?_eq_getElem hk)
-      exact (ScB.classBinder hxe hty').2
+      exact (ScB.binder g hxe hty').2
     obtain ⟨nds'', B'', hl'', he'', ⟨B₀', F₀', hB₀', hwB₀', hannB'⟩, hdoms'⟩ :=
       annotateCore_closeLams_gen _ hxsB hcB.2 hXa hwX hk'
     have hnds''B : ∀ p ∈ nds'', p.1.looseBVarsBounded 0 = true := by
@@ -722,4 +741,205 @@ theorem genRule_shape {env : Env} {g : ClassGen} (hg : ClassGenScoped g)
       obtain ⟨T'', rfl⟩ := erasedEq_fvar_inv hzY
       exact ⟨T'', hz2⟩
 
-end ConLeche.Model
+open ConLeche (ScB ClassGenScoped) in
+/-- **The stored generated rule, opened** (the rule stored AS GENERATED,
+kernel D1): its binders are the generator's (up to the annotations of
+free variables), its body the minor's variable over the fields' variables
+and one `ih` λ per recursive field, each opening its telescope — the
+walked field's, the generator's binder datum — to the call of the
+callee's recursor constant at the prefix variables, the index arguments
+and the applied field. -/
+theorem genRule_shapeD {g : ClassGen} (hg : ClassGenScoped g)
+    {recOf : Nat → Option Name} {rlvls : List Level} {c : Nat} {x : ClassCtor}
+    (hx : x ∈ g.ctors.getD c []) {gen : Expr}
+    (hgen : ConLeche.classGenRule g recOf rlvls c x = some gen) {rhs : Expr} (hrhs : rhs = gen) :
+    ∃ (fvs : List Expr) (res : Expr) (ws : List Expr) (s : Nat)
+      (bs : List (Expr × BinderMeta)) (body : Expr),
+      ConLeche.openPisAtFvars x.nF x.tyD g.pre.length = some (fvs, res) ∧
+      ConLeche.targetPiDomsWith fvs x.tyN = some ws ∧
+      genSlotOf g c x.cv.name = some s ∧ s < g.slots.length ∧
+      openLamsM (g.pre.length + x.nF) rhs 0 = some (bs, body) ∧
+      (∀ (k : Nat) (b nd : Expr × BinderMeta), bs[k]? = some b →
+        (g.pre ++ fvs.map g.binder)[k]? = some nd → Expr.ErasedEq b.1 nd.1 ∧ b.2 = nd.2) ∧
+      (∃ T, body.getAppFn = .fvar (g.nP + s) T) ∧
+      body.getAppArgs.length = x.nF + x.recs.length ∧
+      (∀ k, k < x.nF → ∃ T, body.getAppArgs[k]? = some (.fvar (g.pre.length + k) T)) ∧
+      ∀ (l : Nat) (q : Nat × Nat × Nat), x.recs[l]? = some q →
+        ∃ (r : Name) (xs idx : List Expr) (bl : List (Expr × BinderMeta)) (call : Expr),
+          recOf q.2.1 = some r ∧
+          g.ihParts q.2.1 q.2.2 (ws.getD q.1 default) (g.pre.length + x.nF) = some (xs, idx) ∧
+          openLamsM q.2.2 (body.getAppArgs.getD (x.nF + l) default) (g.pre.length + x.nF)
+            = some (bl, call) ∧
+          call.getAppFn = .const r rlvls ∧ g.pre.length < call.getAppArgs.length ∧
+          (∀ k, k < g.pre.length → ∃ T, call.getAppArgs[k]? = some (.fvar k T)) ∧
+          bl.length = xs.length ∧
+          (∀ (k : Nat) (b : Expr × BinderMeta) (y : Expr), bl[k]? = some b → xs[k]? = some y →
+            Expr.ErasedEq b.1 y.fvarTypeD ∧ b.2 = g.bm) ∧
+          (call.getAppArgs.drop g.pre.length).length = idx.length + 1 ∧
+          ∀ (k : Nat) (z a : Expr), (call.getAppArgs.drop g.pre.length)[k]? = some z →
+            (idx ++ [Expr.mkAppN (fvs.getD q.1 default) xs])[k]? = some a →
+            Expr.ErasedEq z a := by
+  subst hrhs
+  obtain ⟨s, fvs, res, ws, ihs, hslot, hsl, hop, hws, rfl, hlen, hihs⟩ := classGenRule_spec hgen
+  obtain ⟨hpl, hpre⟩ := ConLeche.ClassGen.prefixBinders_scoped hg hg.pre
+  have htyD : ScB g.pre.length x.tyD := (hg.tyD c x hx).mono (by omega)
+  obtain ⟨hfl, hfvs, -⟩ := ScB.openPis hop htyD
+  have hfvS : ∀ k, k < x.nF → ∃ ty, fvs.getD k default = .fvar (g.pre.length + k) ty ∧
+      ScB (g.pre.length + k) ty := by
+    intro k hk
+    obtain ⟨ty, hxe, hty⟩ := hfvs k _ (List.getElem?_eq_getElem (by omega))
+    exact ⟨ty, by rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem (by omega),
+      Option.getD_some, hxe], hty⟩
+  have hD : g.pre.length ≤ g.pre.length + x.nF := Nat.le_add_right _ _
+  -- the `ih`s' parts, scoped
+  have hihS : ∀ (l : Nat) (q : Nat × Nat × Nat), x.recs[l]? = some q →
+      ∃ (xs idx : List Expr) (r : Name) (ih : Expr), ihs[l]? = some ih ∧
+        recOf q.2.1 = some r ∧
+        g.ihParts q.2.1 q.2.2 (ws.getD q.1 default) (g.pre.length + x.nF) = some (xs, idx) ∧
+        xs.length = q.2.2 ∧
+        (∀ (k : Nat) (y : Expr), xs[k]? = some y →
+          ∃ ty, y = .fvar (g.pre.length + x.nF + k) ty ∧ ScB (g.pre.length + x.nF + k) ty) ∧
+        (∀ a ∈ idx, ScB (g.pre.length + x.nF + q.2.2) a) ∧
+        q.1 < x.nF ∧
+        ScB (g.pre.length + x.nF + q.2.2) (Expr.mkAppN (.const r rlvls) (genPvars g ++ idx ++
+              [Expr.mkAppN (fvs.getD q.1 default) xs])) ∧
+        ih = closeLams (xs.map g.binder) (g.pre.length + x.nF)
+            (Expr.mkAppN (.const r rlvls) (genPvars g ++ idx ++
+              [Expr.mkAppN (fvs.getD q.1 default) xs])) := by
+    intro l q hq
+    obtain ⟨xs, idx, r, ih, hih, hparts, hr, rfl⟩ := hihs l q hq
+    obtain ⟨i, t, tele⟩ := q
+    obtain ⟨hi, -⟩ := ConLeche.ClassGen.recs_mem (List.mem_of_getElem? hq)
+    have hw : ScB (g.pre.length + x.nF) (ws.getD i default) :=
+      ScB.targetPiDomsWith_getD hws ((hg.tyN c x hx).mono (by omega)) (fun a ha => by
+        obtain ⟨k, hk, rfl⟩ := List.getElem_of_mem ha
+        obtain ⟨ty, hxe, hty⟩ := hfvs k _ (List.getElem?_eq_getElem hk)
+        rw [hxe]; exact ScB.fvar (by omega) hty) (by omega)
+    obtain ⟨hxl, hxs, hidx⟩ := ConLeche.ClassGen.ihParts_scoped hw (Nat.le_refl _) hparts
+    refine ⟨xs, idx, r, _, hih, hr, hparts, hxl, hxs, hidx, hi, ?_, rfl⟩
+    refine ScB.mkAppN (ScB.const _ _ _) fun b hb => ?_
+    rcases List.mem_append.mp hb with hb | hb
+    · rcases List.mem_append.mp hb with hb | hb
+      · obtain ⟨k, hk, rfl⟩ := List.getElem_of_mem hb
+        obtain ⟨T, hT, hTs⟩ := genPvars_scoped hg k _ (List.getElem?_eq_getElem hk)
+        rw [genPvars_length] at hk
+        rw [hT]
+        exact ScB.fvar (by omega) hTs
+      · exact hidx b hb
+    · simp only [List.mem_singleton] at hb
+      subst hb
+      obtain ⟨ty, hfe, hty⟩ := hfvS i hi
+      rw [hfe]
+      refine ScB.mkAppN (ScB.fvar (by omega) hty) fun b hb => ?_
+      obtain ⟨k, hk, rfl⟩ := List.getElem_of_mem hb
+      obtain ⟨ty', hxe, hty'⟩ := hxs k _ (List.getElem?_eq_getElem hk)
+      rw [hxe]
+      exact ScB.fvar (by omega) hty'
+  have hihB : ∀ ih ∈ ihs, ScB (g.pre.length + x.nF) ih := by
+    intro ih hmem
+    obtain ⟨l, hl, rfl⟩ := List.getElem_of_mem hmem
+    obtain ⟨q, hq⟩ : ∃ q, x.recs[l]? = some q := ⟨_, List.getElem?_eq_getElem (by omega)⟩
+    obtain ⟨xs, idx, r, ih, hih, -, -, hxl, hxs, -, -, hcB, hihE⟩ := hihS l q hq
+    rw [List.getElem?_eq_getElem hl] at hih
+    obtain rfl := Option.some.inj hih
+    rw [hihE]
+    refine ScB.of_closeLams (fun k nd hk => ?_) (by rw [List.length_map, hxl]; exact hcB)
+    rw [List.getElem?_map] at hk
+    cases hxk : xs[k]? with
+    | none => rw [hxk] at hk; exact nomatch hk
+    | some xk =>
+      rw [hxk] at hk
+      obtain rfl := (Option.some.inj hk).symm
+      obtain ⟨ty', hxe, hty'⟩ := hxs k xk hxk
+      exact ScB.binder g hxe hty'
+  have hnds : ∀ p ∈ g.pre ++ fvs.map g.binder, p.1.looseBVarsBounded 0 = true := by
+    intro p hp
+    rcases List.mem_append.mp hp with hp | hp
+    · obtain ⟨k, hk, rfl⟩ := List.getElem_of_mem hp
+      exact (hpre k _ (List.getElem?_eq_getElem hk)).2
+    · obtain ⟨k, hk, rfl⟩ := List.getElem_of_mem hp
+      exact (ScB.openPis_binders (fun _ => rfl) hop htyD k _ (List.getElem?_eq_getElem hk)).2
+  have hBS : ScB (g.pre.length + x.nF)
+      (Expr.mkAppN (g.slotVar s) (fvs ++ ihs)) := by
+    refine ScB.mkAppN (ScB.fvar (by omega) (ScB.sort _ _)) fun a ha => ?_
+    rcases List.mem_append.mp ha with ha | ha
+    · obtain ⟨k, hk, rfl⟩ := List.getElem_of_mem ha
+      obtain ⟨ty, hxe, hty⟩ := hfvs k _ (List.getElem?_eq_getElem hk)
+      rw [hxe]; exact ScB.fvar (by omega) hty
+    · exact hihB a ha
+  obtain ⟨bs, R, hopR, hR, hbs⟩ := open_of_erasedEq_closeLams _ 0 _ _ hnds hBS.2
+    (Expr.ErasedEq.rfl _)
+  have hndsl : (g.pre ++ fvs.map g.binder).length = g.pre.length + x.nF := by simp [hfl]
+  rw [hndsl] at hopR
+  obtain ⟨hfn, hlenR, hpt⟩ := erasedEq_getApp R _ hR
+  obtain ⟨hh1, hh2⟩ := getApp_mkAppN_atom (h := g.slotVar s)
+    (Or.inl ⟨g.nP + s, .sort .zero, rfl⟩) (fvs ++ ihs)
+  rw [hh1] at hfn
+  rw [hh2] at hlenR hpt
+  have hlenA : (fvs ++ ihs).length = x.nF + x.recs.length := by simp [hfl, hlen]
+  refine ⟨fvs, res, ws, s, bs, R, hop, hws, hslot, hsl, hopR, hbs, ?_, by rw [hlenR, hlenA], ?_, ?_⟩
+  · exact erasedEq_fvar_inv (i := g.nP + s) (T := .sort .zero) hfn
+  · intro k hk
+    obtain ⟨z, hz⟩ : ∃ z, R.getAppArgs[k]? = some z :=
+      ⟨_, List.getElem?_eq_getElem (by rw [hlenR, hlenA]; omega)⟩
+    have ha : (fvs ++ ihs)[k]? = some (fvs.getD k default) := by
+      rw [List.getElem?_append_left (by omega), List.getD_eq_getElem?_getD,
+        List.getElem?_eq_getElem (by omega)]; rfl
+    obtain ⟨ty, hfe, -⟩ := hfvS k hk
+    have hzE := hpt k z _ hz ha
+    rw [hfe] at hzE
+    obtain ⟨T'', rfl⟩ := erasedEq_fvar_inv hzE
+    exact ⟨T'', hz⟩
+  · intro l q hq
+    obtain ⟨xs, idx, r, ih, hih, hr, hparts, hxl, hxs, hidx, -, hcB, hihE⟩ := hihS l q hq
+    have hl : l < x.recs.length := (List.getElem?_eq_some_iff.mp hq).1
+    obtain ⟨z, hz⟩ : ∃ z, R.getAppArgs[x.nF + l]? = some z :=
+      ⟨_, List.getElem?_eq_getElem (by rw [hlenR, hlenA]; omega)⟩
+    have ha : (fvs ++ ihs)[x.nF + l]? = some ih := by
+      rw [List.getElem?_append_right (by omega), hfl, Nat.add_sub_cancel_left]; exact hih
+    have hzE := hpt (x.nF + l) z ih hz ha
+    rw [hihE] at hzE
+    have hxsB : ∀ p ∈ xs.map g.binder, p.1.looseBVarsBounded 0 = true := by
+      intro p hp
+      obtain ⟨y, hy, rfl⟩ := List.mem_map.mp hp
+      obtain ⟨k, hk, rfl⟩ := List.getElem_of_mem hy
+      obtain ⟨ty', hxe, hty'⟩ := hxs k _ (List.getElem?_eq_getElem hk)
+      exact (ScB.binder g hxe hty').2
+    obtain ⟨bl, call, hop2, hcall, hbl⟩ := open_of_erasedEq_closeLams _ _ _ z hxsB hcB.2 hzE
+    rw [List.length_map, hxl] at hop2
+    have hzD : R.getAppArgs.getD (x.nF + l) default = z := by
+      rw [List.getD_eq_getElem?_getD, hz]; rfl
+    obtain ⟨hfn2, hlen2, hpt2⟩ := erasedEq_getApp call _ hcall
+    obtain ⟨hc1, hc2⟩ := getApp_mkAppN_atom (h := .const r rlvls) (Or.inr ⟨r, rlvls, rfl⟩)
+      (genPvars g ++ idx ++ [Expr.mkAppN (fvs.getD q.1 default) xs])
+    rw [hc1] at hfn2
+    rw [hc2] at hlen2 hpt2
+    have hbllen : bl.length = xs.length := by
+      rw [openLamsM_length _ hop2, hxl]
+    refine ⟨r, xs, idx, bl, call, hr, hparts, by rw [hzD]; exact hop2,
+      erasedEq_const_inv hfn2, by rw [hlen2]; simp [genPvars_length], ?_, hbllen, ?_,
+      by rw [List.length_drop, hlen2]; simp [genPvars_length], ?_⟩
+    · intro k hk
+      obtain ⟨z2, hz2⟩ : ∃ z2, call.getAppArgs[k]? = some z2 :=
+        ⟨_, List.getElem?_eq_getElem (by rw [hlen2]; simp [genPvars_length]; omega)⟩
+      obtain ⟨a, ha2⟩ : ∃ a, (genPvars g)[k]? = some a :=
+        ⟨_, List.getElem?_eq_getElem (by rw [genPvars_length]; exact hk)⟩
+      have ha3 : (genPvars g ++ idx ++ [Expr.mkAppN (fvs.getD q.1 default) xs])[k]? = some a := by
+        rw [List.append_assoc, List.getElem?_append_left (by rw [genPvars_length]; exact hk)]
+        exact ha2
+      obtain ⟨T, rfl, -⟩ := genPvars_scoped hg k a ha2
+      obtain ⟨T'', rfl⟩ := erasedEq_fvar_inv (hpt2 k z2 _ hz2 ha3)
+      exact ⟨T'', hz2⟩
+    · intro k b y hb hy
+      obtain ⟨nd, hnd⟩ : ∃ nd, (xs.map g.binder)[k]? = some nd := ⟨_, by
+        rw [List.getElem?_map, hy]; rfl⟩
+      obtain ⟨h1, h2⟩ := hbl k b nd hb hnd
+      rw [List.getElem?_map, hy] at hnd
+      obtain rfl := (Option.some.inj hnd)
+      exact ⟨h1, h2⟩
+    · intro k z2 a hz2 ha2
+      rw [List.getElem?_drop] at hz2
+      refine hpt2 (g.pre.length + k) z2 a hz2 ?_
+      rw [List.append_assoc, List.getElem?_append_right (by simp [genPvars_length]),
+        genPvars_length, Nat.add_sub_cancel_left]
+      exact ha2
