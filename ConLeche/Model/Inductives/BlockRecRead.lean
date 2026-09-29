@@ -1,7 +1,6 @@
 module
 
 public import ConLeche.Verify.Inductives.RecStage
-import ConLeche.Kernel.Inductives.BlockInstall
 import ConLeche.Verify.Level
 import ConLeche.Model.Annot.Bit
 public import ConLeche.Model.Annot.BitLemmas

@@ -1,12 +1,12 @@
 module
 
+import ConLeche.Verify.Leaves
+import ConLeche.Verify.InferLeaves
 public import ConLeche.Verify.Inductives.RecCheckRun
 public import ConLeche.Model.Inductives.TargetRecRead
 import ConLeche.Model.Inductives.TargetNodeRead
 import ConLeche.Model.Rules.Sound
 import ConLeche.Verify.Inductives.RecCheckScope
-import ConLeche.Verify.Leaves
-import ConLeche.Verify.InferLeaves
 import ConLeche.Verify.Rules.Bridge
 
 public section

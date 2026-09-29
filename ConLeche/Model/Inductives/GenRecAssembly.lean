@@ -3,7 +3,6 @@ module
 public import ConLeche.Model.Inductives.DeclBlock
 public import ConLeche.Model.Inductives.ClassRecKit
 public import ConLeche.Model.Inductives.ClassGenStep
-public import ConLeche.Model.Inductives.TargetClassRows
 public import ConLeche.Verify.Inductives.GenRecRun
 public import ConLeche.Verify.Inductives.ClassGenMinorSyn
 import ConLeche.Model.Inductives.NestedRecRest
@@ -12,6 +11,7 @@ import ConLeche.Model.Inductives.BlockDeclRun
 import ConLeche.Model.Inductives.BlockRecAssembly
 import ConLeche.Model.Inductives.GenRecClasses
 import ConLeche.Model.Inductives.GenRecPins
+public import ConLeche.Model.Inductives.TargetClassRows
 
 public section
 

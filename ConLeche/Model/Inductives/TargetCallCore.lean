@@ -1,9 +1,6 @@
 module
 
 import ConLeche.Verify.Inductives.RecStage
-public import ConLeche.Model.Inductives.TargetIhData
-import ConLeche.Model.Inductives.TargetResidue
-public import ConLeche.Model.Inductives.TargetFrame
 import ConLeche.Model.Inductives.BlockRecData
 import ConLeche.Model.Inductives.BlockRecPreRun
 import ConLeche.Model.Inductives.BlockRecTyShapeRun
@@ -14,7 +11,6 @@ import ConLeche.Verify.Inductives.BlockRecInv
 import ConLeche.Verify.BridgeWfImp
 import ConLeche.Verify.Denote.IndFrame
 import ConLeche.Model.Inductives.StructFrameKit
-import ConLeche.Model.Capstone
 import ConLeche.Semantics.Kit
 import ConLeche.Verify.InferLemmas
 import ConLeche.Verify.BetaGate

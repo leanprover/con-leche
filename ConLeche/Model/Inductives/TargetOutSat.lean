@@ -1,5 +1,6 @@
 module
 
+import ConLeche.Verify.Leaves
 public import ConLeche.Model.Inductives.TargetClass
 public import ConLeche.Model.Inductives.TargetRuleData
 import ConLeche.Model.Inductives.ContN2
@@ -14,7 +15,6 @@ import ConLeche.Model.Rules.Sound
 import ConLeche.Model.Rules.IotaSoundKit
 import ConLeche.Model.Capstone
 import ConLeche.Verify.Rules.Bridge
-import ConLeche.Verify.Leaves
 import ConLeche.Verify.InferLeaves
 import ConLeche.Verify.InferLemmas
 import ConLeche.Verify.Denote.IndFrame

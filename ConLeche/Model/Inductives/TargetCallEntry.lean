@@ -7,7 +7,6 @@ import ConLeche.Verify.Denote.IndFrame
 import ConLeche.Verify.Inductives.ClassMatchRun
 import ConLeche.Verify.InferLemmas
 public import ConLeche.Model.Inductives.TargetNodeRb
-public import ConLeche.Verify.Inductives.RecCheckRun
 
 public section
 

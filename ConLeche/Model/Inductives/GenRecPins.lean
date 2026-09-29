@@ -12,17 +12,13 @@ import ConLeche.Verify.Inductives.TargetAuxFire
 import ConLeche.Verify.Inductives.NestedRuleSyn
 import ConLeche.Verify.Inductives.ClassGenMinorSyn
 import ConLeche.Verify.InstSpine
-import ConLeche.Verify.AbstractRange
 import ConLeche.Verify.Denote.OpenVars
 import ConLeche.Verify.Denote.IndFrame
-import ConLeche.Verify.InstLevels
 import ConLeche.Verify.BridgeWfImp
 import ConLeche.Verify.InferLemmas
 import ConLeche.Verify.InferLeaves
 import ConLeche.Verify.BinderLoop
-import ConLeche.Verify.Extend.Inversions
 import ConLeche.Model.Inductives.NestedRecPins
-import ConLeche.Model.Inductives.NestedRecRest
 import ConLeche.Model.Inductives.TargetOutSat
 import ConLeche.Model.Inductives.BlockRecMem
 import ConLeche.Model.Inductives.BlockRecPreRun

@@ -1,12 +1,8 @@
 module
 
 public import ConLeche.Model.Inductives.TargetIhSlot
-public import ConLeche.Model.Inductives.TargetNodeRead
 import ConLeche.Model.Inductives.BlockRuleRun
 import ConLeche.Verify.Denote.IndFrame
-import ConLeche.Model.Inductives.BlockRecTyShapeRun
-import ConLeche.Verify.Rules.Bridge
-import ConLeche.Verify.Inductives.RecCheckScope
 
 public section
 

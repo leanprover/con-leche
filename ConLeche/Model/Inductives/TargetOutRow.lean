@@ -1,14 +1,14 @@
 module
 
-public import ConLeche.Model.Inductives.TargetClass
 public import ConLeche.Model.Inductives.ContInst
+import ConLeche.Model.Annot.BitInst
+public import ConLeche.Model.Inductives.TargetClass
 public import ConLeche.Model.Inductives.TargetIhData
 import ConLeche.Model.Inductives.ContInstRule
 import ConLeche.Model.Inductives.StructRecKit
 import ConLeche.Model.Inductives.StructFrameKit
 import ConLeche.Model.NatEqs
 import ConLeche.Verify.BridgeWfImp
-import ConLeche.Model.Annot.BitInst
 
 public section
 

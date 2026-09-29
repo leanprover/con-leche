@@ -1,14 +1,8 @@
 module
 
 public import ConLeche.Kernel.Inductives.RecCheck
-public import ConLeche.Verify.EnvWF
 public import ConLeche.Verify.Shift
 public import ConLeche.Rules.Rel
-import ConLeche.Verify.InferLeaves
-import ConLeche.Verify.InferLemmas
-import ConLeche.Verify.Leaves
-import ConLeche.Verify.Abstract
-import ConLeche.Verify.ExceptBind
 
 public section
 

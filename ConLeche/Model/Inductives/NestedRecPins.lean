@@ -1,12 +1,12 @@
 module
 
-import ConLeche.Verify.Inductives.RecStage
 import ConLeche.Verify.Inductives.TargetAuxFire
 import ConLeche.Verify.Inductives.DirectGen
-import ConLeche.Verify.InstSpine
 import ConLeche.Verify.AbstractRange
 import ConLeche.Verify.Denote.OpenVars
 import ConLeche.Verify.InstLevels
+import ConLeche.Verify.Inductives.RecStage
+import ConLeche.Verify.InstSpine
 import ConLeche.Verify.BridgeWfImp
 import ConLeche.Model.Inductives.TargetOutSat
 import ConLeche.Model.Inductives.NestedRecRest

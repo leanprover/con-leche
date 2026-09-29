@@ -3,14 +3,11 @@ module
 public import ConLeche.Model.Inductives.TargetRecRead
 import ConLeche.Model.Annot.Bit
 import ConLeche.Model.Annot.BitLemmas
-import ConLeche.Model.Annot.BitInst
-import ConLeche.Model.Inductives.StructEntryKit
 import ConLeche.Model.Inductives.StructRecKit
 import ConLeche.Model.Inductives.BlockCallCerts
 import ConLeche.Model.Inductives.BlockRecLaw
 import ConLeche.Model.Rules.Sound
 import ConLeche.Model.Rules.DefEqSoundKit
-import ConLeche.Verify.InferLemmas
 
 public section
 

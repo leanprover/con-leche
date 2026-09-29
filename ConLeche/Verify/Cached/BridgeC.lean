@@ -1,7 +1,7 @@
 module
 
-public import ConLeche.Verify.Cached.GenRecC
 import ConLeche.Cached.ParsedC
+public import ConLeche.Verify.Cached.GenRecC
 
 public section
 

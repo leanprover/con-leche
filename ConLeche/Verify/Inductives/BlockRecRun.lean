@@ -1,7 +1,7 @@
 module
 
-public import ConLeche.Kernel.Inductives.BlockInstall
 public import ConLeche.Verify.ProjSlots
+public import ConLeche.Kernel.Inductives.BlockInstall
 import ConLeche.Verify.Inductives.BlockWF
 import ConLeche.Verify.ExceptBind
 import ConLeche.Verify.Extend.Inversions

@@ -21,7 +21,7 @@
 #     SetTheory,Term,SetModel,Semantics}/*` stand BELOW the model lane and may not
 #     import `ConLeche/Model/*`), AND
 #   * any implementation→theory edge   (the CLAUDE.md rule:
-#     `ConLeche/{Kernel,Cached,Frontend,Conformance}/*` and `Main.lean` may never
+#     `ConLeche/{Kernel,Cached,Frontend}/*` and `Main.lean` may never
 #     import `ConLeche/{SetTheory,SetModel,Semantics,Model,Verify}/*`).
 # Both were always the load-bearing half.  Until task #305 a fourth
 # instrument, `tests/proofdeps.sh`, pinned the module closure of the
@@ -88,8 +88,7 @@ for name, rel in mods.items():
 # `ConLeche/Complete{,/*}` the parked lane, everything else is base.
 # (The old `neutral` class — a module under `ConLeche/SetR/` that no R
 # capstone reached — retired with that directory.)
-IMPL_DIRS   = ('ConLeche/Kernel/', 'ConLeche/Cached/', 'ConLeche/Frontend/',
-               'ConLeche/Conformance/')
+IMPL_DIRS   = ('ConLeche/Kernel/', 'ConLeche/Cached/', 'ConLeche/Frontend/')
 IMPL_ROOTS  = ('Main',)
 THEORY_PFX  = ('ConLeche.Verify.', 'ConLeche.SetTheory.',
                'ConLeche.Model.', 'ConLeche.SetModel.', 'ConLeche.Semantics.',

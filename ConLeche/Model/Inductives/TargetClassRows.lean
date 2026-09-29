@@ -1,14 +1,6 @@
 module
 
 public import ConLeche.Model.Inductives.TargetClasses
-import ConLeche.Verify.Inductives.RecStage
-import ConLeche.Model.Inductives.BlockRuleFit
-import ConLeche.Model.Inductives.TargetFrame
-import ConLeche.Model.Inductives.BlockRecData
-import ConLeche.Model.Inductives.TargetResidue
-import ConLeche.Model.Inductives.StructEntryKit
-import ConLeche.Semantics.Kit
-import ConLeche.Verify.CheckerF
 
 public section
 

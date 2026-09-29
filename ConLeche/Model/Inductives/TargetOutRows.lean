@@ -1,5 +1,4 @@
 module
-
 public import ConLeche.Model.Inductives.TargetOutRow
 import ConLeche.Model.Inductives.TargetOutSat
 import ConLeche.Model.Inductives.ContInstRule
@@ -11,6 +10,7 @@ import ConLeche.Verify.EnvBound
 import ConLeche.Model.Inductives.BlockRecMem
 import ConLeche.Model.Inductives.ContLeaf
 import ConLeche.Semantics.Tower.FixTower
+
 
 public section
 

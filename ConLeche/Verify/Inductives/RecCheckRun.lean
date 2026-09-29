@@ -1,9 +1,9 @@
 module
 
+import ConLeche.Verify.ExceptBind
 public import ConLeche.Kernel.Inductives.BlockTail
 import ConLeche.Verify.Inductives.BlockWF
 import ConLeche.Verify.Inductives.BlockRecInv
-import ConLeche.Verify.ExceptBind
 import ConLeche.Verify.Denote.IndFrame
 
 public section

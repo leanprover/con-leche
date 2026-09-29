@@ -3,16 +3,16 @@ module
 public import ConLeche.Verify.Inductives.PosDerivInv
 import ConLeche.Kernel.Inductives.BlockTail
 import ConLeche.Verify.EnvWF
+public import ConLeche.Verify.Inductives.ClassMatchRun
+import ConLeche.Model.Inductives.BlockCover
+public import ConLeche.Model.Inductives.TargetNodeRb
 import ConLeche.Verify.Denote.IndFrame
 import ConLeche.Verify.BridgeWfImp
 import ConLeche.Verify.InferLemmas
-public import ConLeche.Verify.Inductives.ClassMatchRun
 import ConLeche.Verify.Inductives.RecCheckRun
 import ConLeche.Model.Inductives.TargetClass
-import ConLeche.Model.Inductives.BlockCover
 import ConLeche.Verify.EnvBound
 import ConLeche.Verify.Cached.Erase
-public import ConLeche.Model.Inductives.TargetNodeRb
 public import ConLeche.Model.Inductives.TargetRuleData
 
 public section
