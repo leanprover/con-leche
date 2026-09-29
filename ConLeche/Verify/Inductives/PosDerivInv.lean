@@ -446,15 +446,15 @@ theorem nestCtors_deriv (hrec : RunDeriv ops env ctx rec)
     split at h
     · rename_i hok
       have hI₁' : DerivCache ops env ctx
-          { st₁ with ctorNfs := (st₁.ctorNfs.push (nestCtorNf ctx prog hi us ds cv nds cur)) } :=
+          { st₁ with ctorNfs := (st₁.ctorNfs.push (nestCtorNf ctx prog hi us ds cv nds cur ks)) } :=
         hI₁.grow rfl rfl fun e he => by
           show e ∈ (st₁.ctorNfs.push _).toList
           rw [Array.toList_push]; exact List.mem_append_left _ he
       obtain ⟨hI', ts₂, h₂, hn₂, hr₂⟩ :=
         ih _ st' (fun x hx => hcl x (List.mem_cons_of_mem _ hx)) h hI₁'
       have hn₁' : NodesIn ops env ctx st
-          { st₁ with ctorNfs := (st₁.ctorNfs.push (nestCtorNf ctx prog hi us ds cv nds cur)) } ts₁ :=
-        hn₁.grow ⟨[nestCtorNf ctx prog hi us ds cv nds cur], Array.toList_push⟩
+          { st₁ with ctorNfs := (st₁.ctorNfs.push (nestCtorNf ctx prog hi us ds cv nds cur ks)) } ts₁ :=
+        hn₁.grow ⟨[nestCtorNf ctx prog hi us ds cv nds cur ks], Array.toList_push⟩
       refine ⟨hI', ts₁ ++ ts₂, ?_, hn₁'.trans hn₂, fun x hx => ?_⟩
       · simp only [Bool.and_eq_true] at hok
         refine .ctorsCons hnd hcrest' hty hsv h₁ ?_ hok.1 hok.2 h₂
@@ -463,7 +463,7 @@ theorem nestCtors_deriv (hrec : RunDeriv ops env ctx rec)
         · intro crest'' ks'' nds'' cur'' ts'' hcr'' hd''
           rw [hcrest'] at hcr''
           obtain rfl := Option.some.inj hcr''
-          obtain ⟨-, rfl, rfl⟩ := posD_tele_fun (by simpa using h₁) hd''
+          obtain ⟨rfl, rfl, rfl⟩ := posD_tele_fun (by simpa using h₁) hd''
           obtain ⟨⟨nc, hnc⟩, -⟩ := hn₂
           rw [hnc]
           exact List.mem_append_left _ (by simp)

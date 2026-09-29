@@ -173,7 +173,7 @@ derivation of its telescope the entry of that derivation's normal form. -/
     instPisWith ds ((x.1.type.instantiateLevelParams x.1.levelParams us).replaceConsts sub)
       = some crest →
     PosD ops env ctx (.tele prog hi x.2 0 crest ks nds cur) ts' →
-    nestCtorNf ctx prog hi us ds x.1 nds cur ∈ tbl
+    nestCtorNf ctx prog hi us ds x.1 nds cur ks ∈ tbl
 
 /-- **A frame recorded**: its group's constructors (`groupCtors`), at the
 frame's stack, recorded. -/
@@ -236,7 +236,7 @@ theorem FrameRec.entry {tbl : List NestCtorNf} {prog : List NestHole} {us : List
     (hd : PosD ops env ctx (.tele ((grpNews us ds (ctx.hiAt prog.length) grp).reverse ++ prog)
       (ctx.hiAt prog.length + grp.length) x.2 0 crest ks nds cur) ts') :
     nestCtorNf ctx ((grpNews us ds (ctx.hiAt prog.length) grp).reverse ++ prog)
-      (ctx.hiAt prog.length + grp.length) us ds x.1 nds cur ∈ tbl :=
+      (ctx.hiAt prog.length + grp.length) us ds x.1 nds cur ks ∈ tbl :=
   h ctors hc x hx crest ks nds cur ts' hcr hd
 
 /-- **A cached instantiation, derived and recorded**: its frame, at the

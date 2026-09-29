@@ -123,7 +123,7 @@ theorem mem_nestMemberNfs {ctx : NestCtx} :
     ∀ {css : List (List (ConstantVal × Nat))} {nfs : List (List Expr)} {m j : Nat}
       {cs : List (ConstantVal × Nat)} {cA : ConstantVal × Nat} {ns : List Expr} {n : Expr},
       css[m]? = some cs → cs[j]? = some cA → nfs[m]? = some ns → ns[j]? = some n →
-      (⟨cA.1.name, ctx.lps.map .param, ctx.params, n.replaceFVars (nestHoleConst ctx [])⟩ :
+      (⟨cA.1.name, ctx.lps.map .param, ctx.params, n.replaceFVars (nestHoleConst ctx []), []⟩ :
         NestCtorNf) ∈ nestMemberNfs ctx css nfs := by
   intro css nfs m j cs cA ns n hcs hcA hns hn
   unfold nestMemberNfs
@@ -152,7 +152,7 @@ theorem checkBlockPositivity_memberEntry {ops ops' : CheckerOps CheckM} {env₁ 
           (⟨cA.1.name, (p.nestCtx fvsP find? consts).lps.map .param,
             (p.nestCtx fvsP find? consts).params,
             ((nfs.getD m []).getD j default).replaceFVars
-              (nestHoleConst (p.nestCtx fvsP find? consts) [])⟩ : NestCtorNf) ∈ tbl := by
+              (nestHoleConst (p.nestCtx fvsP find? consts) []), []⟩ : NestCtorNf) ∈ tbl := by
   simp only [checkBlockPositivity, bind, Except.bind] at h
   split at h
   · simp at h
