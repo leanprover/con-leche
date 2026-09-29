@@ -7,6 +7,7 @@ import ConLeche.Verify.Inductives.RecStage
 import ConLeche.Verify.BridgeWfImp
 import ConLeche.Verify.Cached.WalkersC
 import ConLeche.Verify.Cached.AgreeFloor
+import ConLeche.Verify.Denote.IndFrame
 
 public section
 
@@ -473,5 +474,257 @@ theorem classRecTysOkS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env)
   | _ :: _, _ :: _, [], _, _, _ => SimC.throw
 
 end Sims
+
+/-! ### The rule stage: two environments, one state (`SimG`) -/
+
+/-- **One generated rule, simulated.**  From any residue: the rule,
+closed by the stage's own guard, annotated and typed at the rule-less
+recursors' environment `envR` (`sharedOpsRuleR`'s flushes on either
+side), its λ-telescope read syntactically. -/
+theorem classRuleOkS_simG (hμ : mode.verifiedChecks = true) {envR : Env} (henvR : EnvWF envR)
+    (envT : Env) {cvR : ConstantVal} {pw : PropWhen} {n : Nat} {gen : Expr} :
+    SimG CSOKF (CSOK mode envT) RelVC
+      (classRuleOk (sharedOpsRuleR mode (mkFEnv envR)) .plain (mkFEnv envT) (mkFEnv envR) cvR
+        pw n gen)
+      (classRuleOk (fueledOpsM mode) .plain (mkFEnv envT) (mkFEnv envR) cvR pw n gen) := by
+  unfold classRuleOk
+  simp only [mkFEnv_env]
+  by_cases h1 : (gen.looseBVarsBounded 0 && !gen.hasFvar) = true
+  case neg => simp only [h1]; exact SimG.throw_bind
+  simp only [h1, if_true]
+  have hw : WScoped 0 gen := WScoped.of_not_hasFvar (by
+    simp only [Bool.and_eq_true, Bool.not_eq_true'] at h1; exact h1.2)
+  refine SimG.bind (ruleR_annotate_simG hμ henvR hw) (fun genA genA' hA => ?_)
+  obtain ⟨rfl, hwA⟩ := hA
+  by_cases h3 : allLevelParamsDefined cvR.levelParams genA = true
+  case neg => simp only [h3]; exact SimG.throw_bind
+  simp only [h3, if_true]
+  by_cases h4 : StructWalkers.plain.resolve (mkFEnv envR) genA = true
+  case neg => simp only [h4]; exact SimG.throw_bind
+  simp only [h4, if_true]
+  refine SimG.bind (ruleR_infer_simG hμ henvR envT hwA) (fun _ _ _ => ?_)
+  refine SimG.bind (SimG.unwrapOr (fun _ h => h)) (fun x x' hX => ?_)
+  obtain ⟨rfl, -⟩ := hX
+  obtain ⟨rbs, body⟩ := x
+  dsimp only
+  by_cases h5 : (rbs.all fun b => StructWalkers.plain.resolve (mkFEnv envT) b.1) = true
+  case neg => simp only [h5]; exact SimG.throw_bind
+  simp only [h5, if_true]
+  by_cases h6 : (rbs.all fun b => b.2.pw == pw) = true
+  case neg => simp only [h6]; exact SimG.throw_bind
+  simp only [h6, if_true]
+  exact SimG.pure (fun _ h => h) rfl
+
+theorem classRulesOkS_simG (hμ : mode.verifiedChecks = true) {envR envT : Env}
+    (henvR : EnvWF envR) {g : ClassGen} {recOf : Nat → Option Name} {cvR : ConstantVal}
+    {pw : PropWhen} {c : Nat} :
+    ∀ (xs : List ClassCtor),
+      SimG CSOKF CSOKF RelVC
+        (classRulesOk (sharedOpsRuleR mode (mkFEnv envR)) .plain (mkFEnv envT) (mkFEnv envR) g
+          recOf cvR pw c xs)
+        (classRulesOk (fueledOpsM mode) .plain (mkFEnv envT) (mkFEnv envR) g recOf cvR pw c xs)
+  | [] => SimG.pure (fun _ h => h) rfl
+  | x :: xs => by
+    unfold classRulesOk
+    refine SimG.bind (SimG.unwrapOr (fun _ h => h)) (fun gen gen' hG => ?_)
+    obtain ⟨rfl, -⟩ := hG
+    refine SimG.bind ((classRuleOkS_simG hμ henvR envT).mono (fun _ h => h)
+      (fun _ h => h.residue)) (fun r r' hR => ?_)
+    obtain rfl : r = r' := hR
+    refine SimG.bind (classRulesOkS_simG hμ henvR xs) (fun rs rs' hRs => ?_)
+    obtain rfl : rs = rs' := hRs
+    exact SimG.pure (fun _ h => h) rfl
+
+theorem classRecsRulesOkS_simG (hμ : mode.verifiedChecks = true) {envR envT : Env}
+    (henvR : EnvWF envR) {g : ClassGen} {recOf : Nat → Option Name} {pw : PropWhen} :
+    ∀ (cvs : List ConstantVal) (cs : List Nat),
+      SimG CSOKF CSOKF RelVC
+        (classRecsRulesOk (sharedOpsRuleR mode (mkFEnv envR)) .plain (mkFEnv envT) (mkFEnv envR)
+          g recOf pw cvs cs)
+        (classRecsRulesOk (fueledOpsM mode) .plain (mkFEnv envT) (mkFEnv envR) g recOf pw cvs
+          cs)
+  | cvG :: cvs, c :: cs => by
+    unfold classRecsRulesOk
+    refine SimG.bind (classRulesOkS_simG (envT := envT) hμ henvR _) (fun r r' hR => ?_)
+    obtain rfl : r = r' := hR
+    refine SimG.bind (classRecsRulesOkS_simG hμ henvR cvs cs) (fun rs rs' hRs => ?_)
+    obtain rfl : rs = rs' := hRs
+    exact SimG.pure (fun _ h => h) rfl
+  | [], _ => SimG.pure (fun _ h => h) rfl
+  | _ :: _, [] => SimG.pure (fun _ h => h) rfl
+
+/-! ## 3. The assembly -/
+
+/-- The seeds' parameters: every OUTSIDE class's, moved to the walk's
+representation. -/
+theorem mem_classSeeds {ctx : NestCtx} {holes : List Expr} {Ms : List TargetMajor}
+    {s : NestKey × Nat} (h : s ∈ classSeeds ctx holes Ms) :
+    ∃ M ∈ Ms, M.member = none ∧ s = nestSeedOf ctx holes M.ind M.lvls M.ds M.nPc := by
+  simp only [classSeeds, List.mem_filterMap] at h
+  obtain ⟨M, hM, hs⟩ := h
+  split at hs
+  · rename_i hn
+    exact ⟨M, hM, Option.isNone_iff_eq_none.mp hn, (Option.some.inj hs).symm⟩
+  · exact nomatch hs
+
+/-- **The generated recursor stage at the cached driver, simulated**:
+from an invariant state of the constructors' environment to a residue.
+The seeds are walked at a view of the index that looks names up as the
+formers' environment (`hfe₁`), from a flushed state, the walk's state
+`pos` closed (`NestStOk`). -/
+theorem genRecCheckS_simG (hμ : mode.verifiedChecks = true) {env₁ env₂ : Env} {fe₁ : FEnv}
+    (henv₁ : EnvWF env₁) (henv₂ : EnvWF env₂) (hfe₁ : fe₁.find? = (mkFEnv env₁).find?)
+    {p : BlockShape} {nestedBit : Bool} {pos : NestState} (hpos : NestStOk pos)
+    {cvTas : List ConstantVal} {block : List ConstantInfo}
+    {ctorsAs : List (List (ConstantVal × Nat))}
+    (hT : ∀ cv ∈ cvTas, WScoped 0 cv.type) :
+    SimG (CSOK mode env₂) CSOKF RelVC
+      (genRecCheck (shadowOpsC mode) fe₁ env₁ (mkFEnv env₂) p nestedBit pos cvTas block
+        ctorsAs)
+      (genRecCheck (ShadowOps.ofOps (fueledOpsM mode)) fe₁ env₁ (mkFEnv env₂) p nestedBit
+        pos cvTas block ctorsAs) := by
+  unfold genRecCheck
+  have hso : ∀ fe, (shadowOpsC mode).opsAt fe = sharedOpsC mode fe := fun _ => rfl
+  have hsf : (shadowOpsC mode).flush = flushC := rfl
+  have hsw : (shadowOpsC mode).walkers = structWalkersC := rfl
+  have hsr : ∀ fe, (shadowOpsC mode).opsRuleR fe = sharedOpsRuleR mode fe := fun _ => rfl
+  have hpo : ∀ fe, (ShadowOps.ofOps (fueledOpsM mode)).opsAt fe = fueledOpsM mode :=
+    fun _ => rfl
+  have hpr : ∀ fe, (ShadowOps.ofOps (fueledOpsM mode)).opsRuleR fe = fueledOpsM mode :=
+    fun _ => rfl
+  have hpw : (ShadowOps.ofOps (fueledOpsM mode)).walkers = .plain := rfl
+  have hpf : (ShadowOps.ofOps (fueledOpsM mode)).flush = (Pure.pure () : FueledM Unit) := rfl
+  simp only [hso, hsf, hsw, hsr, hpo, hpr, hpw, hpf, structWalkersC_eq_plain, mkFEnv_env,
+    classFeR, consBlockRecsBareF_mkFEnv]
+  rw [sharedOpsC_congr hfe₁, hfe₁, mkFEnv_find?_fun]
+  have hformer : ∀ t ∈ cvTas.map (·.type), WScoped 0 t := by
+    intro t ht
+    obtain ⟨cv, hcv, rfl⟩ := List.mem_map.mp ht
+    exact hT cv hcv
+  refine SimG.bind (SimG.ofC fun s hs => targetRecPinsS_sim hs) fun _ _ _ => ?_
+  refine SimG.bind (SimG.ofC fun s hs => classStreamRecsS_sim hμ henv₂ p.recs hs)
+    fun cvRis cvRis' hC => ?_
+  obtain ⟨rfl, hwRis⟩ := hC
+  refine SimG.bind (SimG.ofC fun s hs => SimC.unwrapOr' hs) fun rd rd' hR => ?_
+  obtain ⟨rfl, hrd⟩ := hR
+  refine SimG.bind (SimG.ofC fun s hs => SimC.unwrapOr' hs) fun cv0 cv0' hC0 => ?_
+  obtain ⟨rfl, hcv0⟩ := hC0
+  refine SimG.bind (SimG.ofC fun s hs => SimC.unwrapOr' hs) fun y y' hY => ?_
+  obtain ⟨rfl, hy⟩ := hY
+  obtain ⟨pfvs, o0⟩ := y
+  dsimp only
+  -- the parameter openers, scoped
+  have hw0 : WScoped 0 cv0.type := hwRis cv0 (List.mem_of_mem_head? hcv0)
+  have hpl : pfvs.length = p.nP := ConLeche.Verify.openPisAtFvars_length _ hy
+  have hp : ∀ x ∈ pfvs, WScoped p.nP x := by
+    have := (openPisAtFvars_WScoped p.nP cv0.type 0 hy hw0).1
+    simpa using this
+  -- the pre-pass's classes, scoped
+  have hkeys : ∀ key ∈ rd.classes, ∀ x ∈ key.ds, ∃ D, WScoped D x := by
+    refine classRead_keys_scoped (fun rc hrc => ?_) hrd
+    obtain ⟨⟨rc', cv⟩, hmem, rfl⟩ := List.mem_map.mp hrc
+    exact hwRis cv (List.of_mem_zip hmem).2
+  refine SimG.bind (SimG.ofC fun s hs => classMajorsS_sim hμ henv₂ hpl hp rd.classes hs hkeys)
+    fun Ms₀ Ms₀' hM => ?_
+  obtain ⟨rfl, hMs₀⟩ := hM
+  by_cases h1 : ((List.range p.k).all fun t =>
+      (List.filter (fun x => x.member == some t) Ms₀).length == 1) = true
+  case neg => simp only [h1]; exact SimG.throw_bind
+  simp only [h1, if_true]
+  by_cases h2 : 0 < p.k
+  case neg => simp only [h2, if_false]; exact SimG.throw_bind
+  simp only [h2, if_true]
+  by_cases h3 : (p.large && !blockLargeElimAllowed p (nestedBit || Ms₀.any fun x =>
+      x.member.isNone)) = true
+  case pos => simp only [h3, if_true]; exact SimG.throw_bind
+  simp only [h3]
+  -- the seeds, at the formers' environment
+  refine SimG.bind (flushC_simG_to (mode := mode)
+    (fun s h => (h : CSOK mode env₂ s).residue) env₁) fun _ _ _ => ?_
+  refine SimG.bind (SimG.ofC fun s hs => blockNestCtxS_sim henv₁ p cvTas hT hs)
+    fun r r' hR => ?_
+  obtain ⟨rfl, hctx, hholes, hpar, hlen, hh, hnP⟩ := hR
+  rcases r with ⟨ctx, holes⟩
+  dsimp only at hctx hholes hpar hlen hh hnP ⊢
+  refine SimG.bind (SimG.ofC fun s hs => nestSeedsS_sim hμ henv₁ hctx _ pos hs
+    (fun k hk x hx => ?_) hpos) fun st st' hS => ?_
+  · obtain ⟨M, hM, hMn, rfl⟩ := mem_classSeeds hk
+    exact (nestSeedOf_ds hh hlen (fun y hy => Expr.fvarB_le (by
+      rw [hnP]; exact (hMs₀ M hM).2.1 hMn y hy)) x hx).2 (fun y hy => (hholes y hy).1) hpar
+  obtain ⟨rfl, -⟩ := hS
+  refine SimG.bind (flushC_simG_to (mode := mode)
+    (fun s h => (h : CSOK mode env₁ s).residue) env₂) fun _ _ _ => ?_
+  -- every class's table entries; the generator's constructors
+  refine SimG.bind (SimG.ofC fun s hs => classesNfsS_sim hμ henv₂ hformer Ms₀ hs
+    (fun M hM => (hMs₀ M hM).1)) fun Ms Ms' hN => ?_
+  obtain ⟨rfl, hMs⟩ := hN
+  refine SimG.bind (SimG.ofC fun s hs => classesCtorsS_sim hμ henv₂ hformer hMs 0 Ms hs)
+    fun ctors ctors' hC => ?_
+  obtain rfl : ctors = ctors' := hC
+  by_cases h4 : ((List.filter ClassSlot.isMinor rd.slots).length ==
+      (List.map List.length ctors).sum) = true
+  case neg => simp only [h4]; exact SimG.throw_bind
+  simp only [h4, if_true]
+  -- generation
+  refine SimG.bind (SimG.ofC fun s hs => classFormerTysS_sim Ms hs) fun fT fT' hF => ?_
+  obtain rfl : fT = fT' := hF
+  refine SimG.bind (SimG.ofC fun s hs => SimC.unwrapOr' hs) fun pre pre' hP => ?_
+  obtain ⟨rfl, -⟩ := hP
+  refine SimG.bindR (SimG.ofC fun s hs => classRecTysOkS_sim hμ henv₂ p.recs cvRis rd.recCls
+    hs hwRis) fun cvGs cvGs' hG hrun => ?_
+  obtain rfl : cvGs = cvGs' := hG
+  obtain ⟨F, hF⟩ := hrun
+  rw [classRecTysOk_datF] at hF
+  obtain ⟨hlenG, hallG⟩ := classRecTysOk_run hF
+  -- the rule-less generated recursors' environment is well formed
+  have henvR : EnvWF (consBlockRecsBare p 0
+      (List.map (fun x => (x.fst, (Ms.getD x.snd default).nIdx)) (cvGs.zip rd.recCls)) env₂) := by
+    refine envWF_consBlockRecsBare henv₂ fun c hc => ?_
+    obtain ⟨x, hx, rfl⟩ := List.mem_map.mp hc
+    obtain ⟨i, hi⟩ := List.getElem?_of_mem (List.of_mem_zip hx).1
+    have hil : i < p.recs.length := by
+      rw [← hlenG]; exact (List.getElem?_eq_some_iff.mp hi).1
+    obtain ⟨c, cvG, -, hcvG, ⟨R⟩⟩ := hallG i _ (List.getElem?_eq_getElem hil)
+    rw [hi] at hcvG
+    obtain rfl := Option.some.inj hcvG
+    have hcv := R.hcv
+    rw [checkConstantValF_eq] at hcv
+    exact checkConstantVal_typeWF hcv
+  refine SimG.bind (flushC_simG.mono (fun s h => (h : CSOK mode env₂ s).residue) (fun _ h => h))
+    fun _ _ _ => ?_
+  refine SimG.bind (classRecsRulesOkS_simG (envT := env₂) hμ henvR cvGs rd.recCls)
+    fun out out' hO => ?_
+  obtain rfl : out = out' := hO
+  exact SimG.bind flushC_simG fun _ _ _ => SimG.pure (fun _ h => h) rfl
+
+/-- **The generated recursor stage at the cached driver** is reproduced
+by the pure fueled stage. -/
+theorem genRecCheckS_run (hμ : mode.verifiedChecks = true) {env₁ env₂ : Env} {fe₁ : FEnv}
+    (henv₁ : EnvWF env₁) (henv₂ : EnvWF env₂) (hfe₁ : fe₁.find? = (mkFEnv env₁).find?)
+    {p : BlockShape} {nestedBit : Bool} {pos : NestState} (hpos : NestStOk pos)
+    {cvTas : List ConstantVal} {block : List ConstantInfo}
+    {ctorsAs : List (List (ConstantVal × Nat))}
+    (hT : ∀ cv ∈ cvTas, WScoped 0 cv.type)
+    {s₀ : CState} (hs : CSOK mode env₂ s₀) {out : List (ConstantVal × TargetMajor × List Expr)}
+    {s' : CState}
+    (h : genRecCheck (shadowOpsC mode) fe₁ env₁ (mkFEnv env₂) p nestedBit pos cvTas block
+      ctorsAs s₀ = .ok (out, s')) :
+    CSOKF s' ∧ ∃ F, genRecCheck (ShadowOps.fueled mode F) fe₁ env₁ (mkFEnv env₂) p nestedBit
+      pos cvTas block ctorsAs = .ok out := by
+  obtain ⟨hs', out', rfl, F, hF⟩ :=
+    genRecCheckS_simG hμ henv₁ henv₂ hfe₁ hpos hT s₀ hs out s' h
+  exact ⟨hs', F, by rw [← genRecCheck_datF]; exact hF⟩
+
+/-- The stage reads its seeds' index only through `find?`. -/
+theorem genRecCheck_fe₁_congr {F : Nat} {fe₁ fe₁' : FEnv} (hfe : fe₁.find? = fe₁'.find?)
+    (env₁ : Env) (fe : FEnv) (p : BlockShape) (nestedBit : Bool) (pos : NestState)
+    (cvTas : List ConstantVal) (block : List ConstantInfo)
+    (ctorsAs : List (List (ConstantVal × Nat))) :
+    genRecCheck (ShadowOps.fueled mode F) fe₁ env₁ fe p nestedBit pos cvTas block ctorsAs
+      = genRecCheck (ShadowOps.fueled mode F) fe₁' env₁ fe p nestedBit pos cvTas block
+        ctorsAs := by
+  unfold genRecCheck
+  simp only [ShadowOps.fueled, ShadowOps.ofOps]
+  rw [hfe]
 
 end ConLeche.Cached
