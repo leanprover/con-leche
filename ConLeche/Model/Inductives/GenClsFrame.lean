@@ -892,6 +892,237 @@ theorem genArgs_graded (hμ : μ.verifiedChecks = true)
     rw [tgtMkAV, hB, show (tgtCtorOf out c j).1.name = x.cv.name by rw [hcv], hMaj, hw]
     exact hg'
 
+theorem readOpenedDoms_congr_erasedEq {acval : Name → (Name → Nat) → AnnotTerm} {env : Env}
+    {ψ : Name → Nat} :
+    ∀ (d : Nat) (zs xs : List Expr), zs.length = xs.length →
+      (∀ (k : Nat) (z x : Expr), zs[k]? = some z → xs[k]? = some x →
+        Expr.ErasedEq (Expr.fvarTypeD z) (Expr.fvarTypeD x)) →
+      readOpenedDoms acval env ψ d zs = readOpenedDoms acval env ψ d xs
+  | _, [], [], _, _ => rfl
+  | d, z :: zs, x :: xs, hl, h => by
+    simp only [readOpenedDoms]
+    rw [denoteMeta_erasedEq (h 0 z x rfl rfl),
+      readOpenedDoms_congr_erasedEq (d + 1) zs xs (by simpa using hl)
+        (fun k z' x' hz hx => h (k + 1) z' x' (by simpa using hz) (by simpa using hx))]
+  | _, [], _ :: _, hl, _ => by simp at hl
+  | _, _ :: _, [], hl, _ => by simp at hl
+
+theorem denoteMetaSpine_of_some {acval : Name → (Name → Nat) → AnnotTerm} {env : Env}
+    {φ : Name → Nat} {d : Nat} :
+    ∀ (as : List Expr), (∀ a ∈ as, ∃ v, denoteMeta acval env φ d a = some v) →
+      DenoteMetaSpine acval env φ d as (as.map fun a => (denoteMeta acval env φ d a).getD default)
+  | [], _ => .nil
+  | a :: as, h => by
+    obtain ⟨v, hv⟩ := h a List.mem_cons_self
+    refine .cons (by simp only [hv, Option.getD_some]) (denoteMetaSpine_of_some as fun b hb =>
+      h b (List.mem_cons_of_mem _ hb))
+
+theorem genIhdAV_length' {acval : Name → (Name → Nat) → AnnotTerm} {env : Env} {g : ClassGen}
+    {rd : ClassRead} {bit : Nat} {ψ : Name → Nat} {c j : Nat} :
+    (genIhdAV acval env g rd bit ψ c j).length = (genCtorAt g rd c j).recs.length := by
+  simp [genIhdAV]
+
+set_option maxHeartbeats 16000000 in
+/-- **The `l`-th inductive hypothesis of `(c, j)`, opened at the rule
+frame**: the rule frame extended by the `ih`'s telescope is a graded
+frame of openers (its domains the `ih` datum's telescope), over which the
+`ih`'s index arguments, applied field, and its motive application are
+graded — all from the stored type's inference of the `ih` binder. -/
+theorem genIhFrame (hμ : μ.verifiedChecks = true)
+    (R : GenRecRun μ F (mkFEnv env₁) env₁ (mkFEnv envC) pp.toBlockShape nestedBit pos cvTas
+      block ctorsAs out) (hg : ClassGenScoped R.g) {memR : Nat → Prop}
+    (h : ConLeche.RecStageG μ F envC pp cvTas ctorsAs (tgtRs out) memR) (mpC : EnvModelM V μ envC)
+    (hfind : ∀ (j : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
+      (tgtRs out)[j]? = some r → ∀ (i : Nat) (cA : ConstantVal × Nat), r.2.2.2[i]? = some cA →
+        envC.find? cA.1.name = some (.ctorInfo cA.1 (ConLeche.tgtMajorsOf out j).nPc cA.2))
+    (ψ : Name → Nat) {c j : Nat} (hc : c < (tgtRs out).length)
+    (hj : j < blockRecNCt (tgtRs out) c) {bit l : Nat} {q : IhDatum}
+    (hql : (genIhdAV mpC.base2.acval envC R.g R.rd bit ψ c j)[l]? = some q) :
+    ∃ (t st : Nat) (fr : List Expr),
+      q.1 = genRecIdx R.rd t ∧ ConLeche.ClassRead.motiveSlot ⟨R.g.slots, []⟩ t = some st ∧
+      R.g.nP + st < R.g.pre.length ∧
+      GradedFrame mpC ψ (R.g.pre.length + (genCtorAt R.g R.rd c j).nF + q.2.1.length) fr
+        (blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c
+          ++ tgtFdomsAV pp.toBlockShape out mpC.base2.acval envC ψ c j ++ q.2.1.map (·.2)) ∧
+      (∀ e ∈ q.2.2.1 ++ [q.2.2.2], ∀ (σ : Nat → V) (ys : List V),
+        SpineFit σ (blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c
+          ++ tgtFdomsAV pp.toBlockShape out mpC.base2.acval envC ψ c j ++ q.2.1.map (·.2)) ys →
+        WellDenotedV V (consList ys σ) e) ∧
+      (∀ (σ : Nat → V) (ys : List V),
+        SpineFit σ (blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c
+          ++ tgtFdomsAV pp.toBlockShape out mpC.base2.acval envC ψ c j ++ q.2.1.map (·.2)) ys →
+        WellDenotedV V (consList ys σ)
+          (AnnotTerm.mkAppN (.bvar (R.g.pre.length + (genCtorAt R.g R.rd c j).nF + q.2.1.length
+              - 1 - (R.g.nP + st)))
+            (q.2.2.1 ++ [q.2.2.2]))) := by
+  obtain ⟨cls, s, x, res, ws, ihs, fvs1, o1, xs', rest, hgc, hgx, hms, hxmem, hMaj, hrP, hmp,
+    hopR, hCB, hnF, hcv, hwsR, hihl, hih, -, hop1, hle, hlenF, hshF, hwbF, hPd, hxl', hshX,
+    hwbX, hdF, hdIh, hrest, hbbS, hinfX, -, hwsRest, hbRest, hleafs⟩ :=
+    genMinorOpen hμ R hg h mpC hfind ψ hc hj
+  have G := genFieldFrame hμ R hg h mpC hfind ψ hc hj hrP hopR hle hlenF hshF hwbF hPd hxl' hshX
+    hwbX hdF hinfX hleafs
+  subst hgx
+  -- the `ih` datum
+  have hll : l < (genCtorAt R.g R.rd c j).recs.length := by
+    have := (List.getElem?_eq_some_iff.mp hql).1
+    rwa [genIhdAV_length'] at this
+  obtain ⟨⟨i, t, tele⟩, hrec⟩ : ∃ r, (genCtorAt R.g R.rd c j).recs[l]? = some r :=
+    ⟨_, List.getElem?_eq_getElem hll⟩
+  obtain ⟨⟨ty, hty, hihsl⟩, -, ⟨xs, idx, hip⟩, st, hst, hstl⟩ := hih l i t tele hrec
+  have hq := genIhdAV_getElem (acval := mpC.base2.acval) (env := envC) (bit := bit) (ψ := ψ)
+    hrec hopR hwsR hip
+  rw [hql] at hq
+  obtain rfl := Option.some.inj hq
+  generalize hD : R.g.pre.length + (genCtorAt R.g R.rd c j).nF = D at G hip hty ⊢
+  have hiF : i < (genCtorAt R.g R.rd c j).nF :=
+    (ConLeche.ClassGen.recs_mem (List.mem_of_getElem? hrec)).1
+  obtain ⟨hfl, hfvsS, hresS⟩ := ConLeche.ScB.openPis hopR
+    ((hg.tyD cls _ hxmem).mono (by omega))
+  have hi : i < (tgtFieldFvs pp.toBlockShape out c j).length := by rw [hfl]; exact hiF
+  have hwsS : ConLeche.ScB D (ws.getD i default) := by
+    rw [← hD]
+    exact ConLeche.ScB.targetPiDomsWith_getD hwsR
+      ((hg.tyN cls _ hxmem).mono (by omega)) (fun a ha => by
+        obtain ⟨k, hk, rfl⟩ := List.getElem_of_mem ha
+        obtain ⟨ty, hxe, hty⟩ := hfvsS k _ (List.getElem?_eq_getElem hk)
+        rw [hxe]; exact ConLeche.ScB.fvar (by omega) hty) (by omega)
+  have hfS : ConLeche.ScB D ((tgtFieldFvs pp.toBlockShape out c j).getD i default) := by
+    obtain ⟨tyf, hxe, htyf⟩ := hfvsS i _ (List.getElem?_eq_getElem hi)
+    rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hi, Option.getD_some, hxe]
+    exact ConLeche.ScB.fvar (by omega) (htyf.mono (by omega))
+  have hstD : R.g.nP + st < D := by omega
+  -- the `ih`'s type, as built at the rule frame
+  generalize hfE : (tgtFieldFvs pp.toBlockShape out c j).getD i default = f at hfS hty
+  have hty0 : R.g.ihTy t tele (ws.getD i default) f D = some (closeTelescope (xs.map R.g.binder) D
+      (Expr.mkAppN (R.g.motVar t) (idx ++ [Expr.mkAppN f xs]))) := by
+    unfold ClassGen.ihTy
+    rw [hip]; rfl
+  have hT0S := genIhTy_scb hst hstD hwsS hfS hty0
+  have htyE : ty = closeTelescope (xs.map R.g.binder) D
+      (Expr.mkAppN (R.g.motVar t) (idx ++ [Expr.mkAppN f xs])) := by
+    have := ConLeche.ClassGen.ihTy_depth hwsS.1.fvarsBelow hfS.1.fvarsBelow
+      (by rw [hst]; exact hstD) hT0S.1.fvarsBelow hty0 l
+    exact Option.some.inj (hty.symm.trans this)
+  -- the stored `ih` binder, erasure-equal to it
+  have hlI : l < ihs.length := by rw [hihl]; exact hll
+  obtain ⟨y, hy⟩ : ∃ y, xs'[(genCtorAt R.g R.rd c j).nF + l]? = some y :=
+    ⟨_, List.getElem?_eq_getElem (by rw [hxl']; omega)⟩
+  have hyE : Expr.ErasedEq (Expr.fvarTypeD y) (closeTelescope (xs.map R.g.binder) D
+      (Expr.mkAppN (R.g.motVar t) (idx ++ [Expr.mkAppN f xs]))) := by
+    have := hdIh l y hy
+    rwa [List.getD_eq_getElem?_getD, hihsl, Option.getD_some, htyE] at this
+  obtain ⟨ty', hyF⟩ := hshX _ y hy
+  have hwsY : Expr.WScoped (D + l) (Expr.fvarTypeD y) := by
+    have := (hwbX y (List.mem_of_getElem? hy)).1
+    rw [hyF] at this ⊢
+    simp only [Expr.WScoped, Expr.fvarTypeD] at this ⊢
+    rw [← hD]; rw [← Nat.add_assoc] at this; exact this.2
+  have hwsYD : Expr.WScoped D (Expr.fvarTypeD y) :=
+    WScoped.of_erasedEq _ hyE hwsY hT0S.1
+  have hbY : (Expr.fvarTypeD y).looseBVarsBounded 0 = true := (hwbX y (List.mem_of_getElem? hy)).2
+  obtain ⟨tY, htY⟩ := hinfX _ y hy
+  have htYD : ConLeche.inferTypeCore μ envC F D (Expr.fvarTypeD y) = .ok tY := by
+    rw [ConLeche.inferTypeCore_depth_inv mpC.base2.wf F (Expr.WScoped.to_wscopedB hwsYD)
+      (Expr.WScoped.to_wscopedB hwsY)]
+    rw [← hD]; rw [← Nat.add_assoc] at htY; exact htY
+  have hleafY : ∀ l' ∈ (Expr.fvarTypeD y).fvarLeaves,
+      Expr.fvar l'.1 l'.2 ∈ fvs1.take R.g.pre.length ++ xs'.take (genCtorAt R.g R.rd c j).nF := by
+    intro l' hl'
+    have hm := hleafs l' (Or.inr ⟨y, List.mem_of_getElem? hy, by
+      rw [hyF] at hl' ⊢
+      simp only [Expr.fvarLeaves, Expr.fvarTypeD] at hl' ⊢
+      exact List.mem_cons_of_mem _ hl'⟩)
+    have hlt : l'.1 < D := Expr.fvarLeaves_lt_of_wscoped hwsYD l' hl'
+    rcases List.mem_append.mp hm with hm | hm
+    · exact List.mem_append_left _ hm
+    · exact List.mem_append_right _ (mem_take_of_fvar_lt hshX hm (by omega))
+  -- open it at the rule frame
+  obtain ⟨hxsl, hxsS, hidxS⟩ := ConLeche.ClassGen.ihParts_scoped hwsS (Nat.le_refl _) hip
+  have hcl : ∀ p ∈ xs.map R.g.binder, p.1.looseBVarsBounded 0 = true := by
+    intro p hp
+    obtain ⟨z, hz, rfl⟩ := List.mem_map.mp hp
+    obtain ⟨k, hk, rfl⟩ := List.getElem_of_mem hz
+    obtain ⟨tz, hxe, htz⟩ := hxsS k _ (List.getElem?_eq_getElem hk)
+    rw [hxe]; exact htz.2
+  have hbS : ConLeche.ScB (D + tele) (Expr.mkAppN (R.g.motVar t) (idx ++ [Expr.mkAppN f xs])) := by
+    rw [ConLeche.ClassGen.motVar_eq hst]
+    refine ConLeche.ScB.mkAppN (ConLeche.ScB.fvar (by omega) (ConLeche.ScB.sort _ _))
+      fun a ha => ?_
+    rcases List.mem_append.mp ha with ha | ha
+    · exact hidxS a ha
+    · simp only [List.mem_singleton] at ha
+      subst ha
+      refine ConLeche.ScB.mkAppN (hfS.mono (by omega)) fun b hb => ?_
+      obtain ⟨k, hk, rfl⟩ := List.getElem_of_mem hb
+      obtain ⟨tz, hxe, htz⟩ := hxsS k _ (List.getElem?_eq_getElem hk)
+      rw [hxe]; exact ConLeche.ScB.fvar (by omega) (htz.mono (by omega))
+  obtain ⟨zs, rest2, hopZ, hrest2, hdz⟩ := open_of_erasedEq_closeTelescope _ D _
+    (Expr.fvarTypeD y) hcl hbS.2 hyE
+  obtain ⟨G2, ⟨tb, hinfB⟩, hwsB, hbB, hleafB⟩ := G.extend hμ hopZ htYD hwsYD hbY hleafY
+  have hzl : zs.length = xs.length := by
+    rw [ConLeche.Verify.openPisAtFvars_length _ hopZ, List.length_map]
+  have hrdE : readOpenedDoms mpC.base2.acval envC ψ D zs
+      = readOpenedDoms mpC.base2.acval envC ψ D xs :=
+    readOpenedDoms_congr_erasedEq D zs xs hzl fun k z x hz hx => by
+      have := hdz k z x.fvarTypeD hz (by rw [List.getElem?_map, hx]; rfl)
+      exact this
+  -- the conclusion's arguments and the conclusion, graded
+  have hq2l : ((readOpenedDoms mpC.base2.acval envC ψ D xs).map fun b => (bit, b)).length
+      = (xs.map R.g.binder).length := by simp
+  have hmap : ((readOpenedDoms mpC.base2.acval envC ψ D xs).map fun b => (bit, b)).map (·.2)
+      = readOpenedDoms mpC.base2.acval envC ψ D zs := by
+    rw [hrdE, List.map_map]; exact List.map_id _
+  rw [hq2l, hmap]
+  have hrest2' := hrest2
+  obtain ⟨f2, as2, hr2E, -, has2l⟩ := erasedEq_mkAppN_inv _ hrest2'
+  rw [hr2E] at hrest2 hinfB hwsB hbB hleafB
+  obtain ⟨-, hargE⟩ := ConLeche.erasedEq_mkAppN_args _ has2l hrest2
+  have harg : ∀ (m : Nat) (e : Expr), (idx ++ [Expr.mkAppN f xs])[m]? = some e →
+      ∃ w, denoteMeta mpC.base2.acval envC ψ (D + (xs.map R.g.binder).length) e = some w ∧
+        ∀ (σ : Nat → V) (ys : List V),
+          SpineFit σ (blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c
+            ++ tgtFdomsAV pp.toBlockShape out mpC.base2.acval envC ψ c j
+            ++ readOpenedDoms mpC.base2.acval envC ψ D zs) ys →
+          WellDenotedV V (consList ys σ) w := by
+    intro m e he
+    obtain ⟨a, ha⟩ : ∃ a, as2[m]? = some a :=
+      ⟨_, List.getElem?_eq_getElem (by rw [has2l]; exact (List.getElem?_eq_some_iff.mp he).1)⟩
+    have hEa := hargE m e a he ha
+    have haA : a ∈ (Expr.mkAppN f2 as2).getAppArgs := by
+      rw [Expr.getAppArgs_mkAppN]; exact List.mem_append_right _ (List.mem_of_getElem? ha)
+    obtain ⟨ta, hta⟩ := ConLeche.inferTypeCore_mkAppN_args as2 hinfB a (List.mem_of_getElem? ha)
+    obtain ⟨w, hw, hgw⟩ := G2.graded hμ hta (wscoped_of_getAppArgs hwsB a haA)
+      (looseBVarsBounded_getAppArgs hbB a haA)
+      (fun l' hl' => hleafB l' (fvarLeaves_getAppArgs haA l' hl'))
+    exact ⟨w, by rw [denoteMeta_erasedEq hEa] at hw; exact hw, hgw⟩
+  have hsome : ∀ e ∈ idx ++ [Expr.mkAppN f xs],
+      ∃ v, denoteMeta mpC.base2.acval envC ψ (D + (xs.map R.g.binder).length) e = some v := by
+    intro e he
+    obtain ⟨m, hm⟩ := List.getElem?_of_mem he
+    obtain ⟨w, hw, -⟩ := harg m e hm
+    exact ⟨w, hw⟩
+  have hbl : (xs.map R.g.binder).length = xs.length := List.length_map _
+  refine ⟨t, st, _, rfl, hst, by omega, G2, fun e he σ ys hys => ?_, fun σ ys hys => ?_⟩
+  · rw [hbl] at harg
+    have he' : e ∈ (idx ++ [Expr.mkAppN f xs]).map fun e =>
+        (denoteMeta mpC.base2.acval envC ψ (D + xs.length) e).getD default := by
+      rw [List.map_append]; simpa using he
+    obtain ⟨e0, he0, rfl⟩ := List.mem_map.mp he'
+    obtain ⟨m, hm⟩ := List.getElem?_of_mem he0
+    obtain ⟨w, hw, hgw⟩ := harg m e0 hm
+    rw [hw]
+    exact hgw σ ys hys
+  · -- the conclusion itself
+    obtain ⟨tr, htr⟩ : ∃ tr, ConLeche.inferTypeCore μ envC F (D + (xs.map R.g.binder).length)
+        (Expr.mkAppN f2 as2) = .ok tr := ⟨tb, hinfB⟩
+    obtain ⟨w, hw, hgw⟩ := G2.graded hμ htr hwsB hbB hleafB
+    rw [denoteMeta_erasedEq hrest2, ConLeche.ClassGen.motVar_eq hst,
+      denoteMeta_mkAppN (denoteMetaSpine_of_some _ hsome) (denoteMeta_fvar _ _ _ _)] at hw
+    obtain rfl := Option.some.inj hw
+    have := hgw σ ys hys
+    rw [hbl, List.map_append] at this
+    simpa using this
+
 end Open
 
 end ConLeche.Model
