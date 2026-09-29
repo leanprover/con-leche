@@ -16,6 +16,7 @@ import ConLeche.Model.Inductives.GenClsMinor
 import ConLeche.Model.Inductives.GenClsRows
 import ConLeche.Model.Inductives.GenClsFrame
 import ConLeche.Model.Inductives.GenClsCall
+import ConLeche.Model.Inductives.GenClsRhs
 import ConLeche.Verify.Inductives.GenRecScoped
 import ConLeche.Verify.Inductives.NestNfScope
 
@@ -132,7 +133,8 @@ theorem genRecStage (hμ : μ.verifiedChecks = true) {F : Nat}
         WellDenotedV V (consList ys (consList rs ρ)) v) ∧
       WellDenotedV V (consList ((genIhsAV mpC.base2.acval envC (tgtRs out).length R.g R.rd
           (genBit pp ψ) ψ c j).map (interp V (consList ys (consList rs ρ)))) (consList ys ρ))
-        (genRbAV R.g R.rd c j) := sorry
+        (genRbAV R.g R.rd c j) :=
+    fun ψ ρ rs hrl hty => genRhs hμ R hg h mpC hfind ψ ρ rs hrl hty
   have hrowV : ∀ (ψ : Name → Nat) (ρ : Nat → V) (c : Nat)
       (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
       (tgtRs out)[c]? = some r → ∀ (j : Nat) (cA : ConstantVal × Nat) (rhs : Expr),

@@ -1322,27 +1322,26 @@ theorem genIhFrame (hμ : μ.verifiedChecks = true)
     simpa using this
 
 set_option maxHeartbeats 4000000 in
-/-- **The stored rule's `ih` pieces are valid** (`GenIhPiecesValid`, lane
-C's `hihV`): the `ih` data are the generated ones (`genIhdAV_eq_R`),
-graded over the rule frame extended by their telescopes (`genIhFrame`). -/
-theorem genIhPiecesValid_run (hμ : μ.verifiedChecks = true)
+/-- **A generated `ih` datum's pieces are valid** at a spine fitting the
+rule frame: its telescope, and its arguments along the telescope's
+fitting spines (`genIhFrame`). -/
+theorem genIhValid (hμ : μ.verifiedChecks = true)
     (R : GenRecRun μ F (mkFEnv env₁) env₁ (mkFEnv envC) pp.toBlockShape nestedBit pos cvTas
       block ctorsAs out) (hg : ClassGenScoped R.g) {memR : Nat → Prop}
     (h : ConLeche.RecStageG μ F envC pp cvTas ctorsAs (tgtRs out) memR) (mpC : EnvModelM V μ envC)
     (hfind : ∀ (j : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
       (tgtRs out)[j]? = some r → ∀ (i : Nat) (cA : ConstantVal × Nat), r.2.2.2[i]? = some cA →
-        envC.find? cA.1.name = some (.ctorInfo cA.1 (ConLeche.tgtMajorsOf out j).nPc cA.2)) :
-    GenIhPiecesValid (V := V) (envC := envC) mpC.base2.acval out R.g R.rd
-      (fun ψ => blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ)
-      (fun ψ => tgtFdomsAV pp.toBlockShape out mpC.base2.acval envC ψ) := by
-  intro ψ ρ c j r cA rhs hr hcA hrhs ys hys q hq
-  have hc : c < (tgtRs out).length := (List.getElem?_eq_some_iff.mp hr).1
-  have hj : j < blockRecNCt (tgtRs out) c :=
-    Nat.lt_of_lt_of_le (List.getElem?_eq_some_iff.mp hcA).1 (blockRecNCt_ge hr)
-  rw [← genIhdAV_eq_R R hg hr hcA hrhs] at hq
+        envC.find? cA.1.name = some (.ctorInfo cA.1 (ConLeche.tgtMajorsOf out j).nPc cA.2))
+    (ψ : Name → Nat) (ρ : Nat → V) {bit c j : Nat} (hc : c < (tgtRs out).length)
+    (hj : j < blockRecNCt (tgtRs out) c) {ys : List V}
+    (hys : SpineFit ρ (blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c
+      ++ tgtFdomsAV pp.toBlockShape out mpC.base2.acval envC ψ c j) ys)
+    {q : IhDatum} (hq : q ∈ genIhdAV mpC.base2.acval envC R.g R.rd bit ψ c j) :
+    FieldsValid (consList ys ρ) (q.2.1.map (·.2)) ∧
+      ∀ bs : List V, SpineFit (consList ys ρ) (q.2.1.map (·.2)) bs →
+        ∀ e ∈ q.2.2.1 ++ [q.2.2.2], AnnotValid V (consList bs (consList ys ρ)) e := by
   obtain ⟨l, hl⟩ := List.getElem?_of_mem hq
   obtain ⟨t, st, fr, -, -, -, -, -, G2, hA, -⟩ := genIhFrame hμ R hg h mpC hfind ψ hc hj hl
-  dsimp only at hys
   have hyl : ys.length = (blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c
       ++ tgtFdomsAV pp.toBlockShape out mpC.base2.acval envC ψ c j).length := hys.length_eq
   refine ⟨fieldsValid_of_graded fun m hm zs hzs => ?_, fun bs hbs e he => ?_⟩
@@ -1364,6 +1363,26 @@ theorem genIhPiecesValid_run (hμ : μ.verifiedChecks = true)
   · have := hA e he ρ (ys ++ bs) (SpineFit.append hys hbs)
     rw [consList_append] at this
     exact this.2
+
+/-- **The stored rule's `ih` pieces are valid** (`GenIhPiecesValid`, lane
+C's `hihV`): the `ih` data are the generated ones (`genIhdAV_eq_R`),
+`genIhValid`. -/
+theorem genIhPiecesValid_run (hμ : μ.verifiedChecks = true)
+    (R : GenRecRun μ F (mkFEnv env₁) env₁ (mkFEnv envC) pp.toBlockShape nestedBit pos cvTas
+      block ctorsAs out) (hg : ClassGenScoped R.g) {memR : Nat → Prop}
+    (h : ConLeche.RecStageG μ F envC pp cvTas ctorsAs (tgtRs out) memR) (mpC : EnvModelM V μ envC)
+    (hfind : ∀ (j : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
+      (tgtRs out)[j]? = some r → ∀ (i : Nat) (cA : ConstantVal × Nat), r.2.2.2[i]? = some cA →
+        envC.find? cA.1.name = some (.ctorInfo cA.1 (ConLeche.tgtMajorsOf out j).nPc cA.2)) :
+    GenIhPiecesValid (V := V) (envC := envC) mpC.base2.acval out R.g R.rd
+      (fun ψ => blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ)
+      (fun ψ => tgtFdomsAV pp.toBlockShape out mpC.base2.acval envC ψ) := by
+  intro ψ ρ c j r cA rhs hr hcA hrhs ys hys q hq
+  have hc : c < (tgtRs out).length := (List.getElem?_eq_some_iff.mp hr).1
+  have hj : j < blockRecNCt (tgtRs out) c :=
+    Nat.lt_of_lt_of_le (List.getElem?_eq_some_iff.mp hcA).1 (blockRecNCt_ge hr)
+  rw [← genIhdAV_eq_R R hg hr hcA hrhs] at hq
+  exact genIhValid hμ R hg h mpC hfind ψ ρ hc hj hys hq
 
 omit [SetTheory V] in
 /-- The level footprint does not see the variables' annotations. -/

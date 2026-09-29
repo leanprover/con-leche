@@ -498,6 +498,181 @@ theorem genIhUnder (hμ : μ.verifiedChecks = true)
     rw [he, univ_zero] at hu
     exact hu
 
+omit [SetTheory V] in
+theorem lamDomsBelow_of_fieldsBelow :
+    ∀ {tl : List (Nat × AnnotTerm)} {k : Nat}, FieldsBelow k (tl.map (·.2)) → LamDomsBelow k tl
+  | [], _, _ => trivial
+  | _ :: _, _, h => ⟨h.1, lamDomsBelow_of_fieldsBelow h.2⟩
+
+omit [SetTheory V] in
+/-- A generated `ih` datum's telescope carries one bit. -/
+theorem genIhdAV_bits {acval : Name → (Name → Nat) → AnnotTerm} {env : Env} {g : ClassGen}
+    {rd : ClassRead} {bit : Nat} {ψ : Name → Nat} {c j : Nat} {q : IhDatum}
+    (hq : q ∈ genIhdAV acval env g rd bit ψ c j) : ∀ p ∈ q.2.1, p.1 = bit := by
+  unfold genIhdAV at hq
+  obtain ⟨r, -, rfl⟩ := List.mem_map.mp hq
+  intro p hp
+  obtain ⟨b, -, rfl⟩ := List.mem_map.mp hp
+  rfl
+
+theorem genIhAV_eq_mkLamsC {K rP D bit : Nat} {q : IhDatum} (hb : ∀ p ∈ q.2.1, p.1 = bit) :
+    genIhAV K rP D q = mkLamsC bit (q.2.1.map fun p => (0, p.1, p.2))
+      (AnnotTerm.mkAppN (.bvar (D + q.2.1.length + (K - 1 - q.1)))
+        (prefVarsAV rP (D - rP + q.2.1.length) ++ (q.2.2.1 ++ [q.2.2.2]))) := by
+  unfold genIhAV mkLamsC
+  congr 1
+  rw [List.map_map]
+  exact (List.map_id _).symm.trans (List.map_congr_left fun p hp => by
+    obtain ⟨p1, p2⟩ := p
+    have := hb (p1, p2) hp
+    simp only at this
+    subst this
+    rfl)
+
+set_option maxHeartbeats 16000000 in
+/-- **`hrhs` of the family premise**: at a typed tuple of recursor values
+and a spine fitting the rule frame, the generated `ih` terms are graded
+(a constant-bit λ-tower over `genIhUnder`), and so is the residue at
+their values — the minor premise applied to the fields and the `ih`
+values along its graded Π-tower (`genMinorFit`). -/
+theorem genRhs (hμ : μ.verifiedChecks = true)
+    (R : GenRecRun μ F (mkFEnv env₁) env₁ (mkFEnv envC) pp.toBlockShape nestedBit pos cvTas
+      block ctorsAs out) (hg : ClassGenScoped R.g) {memR : Nat → Prop}
+    (h : ConLeche.RecStageG μ F envC pp cvTas ctorsAs (tgtRs out) memR) (mpC : EnvModelM V μ envC)
+    (hfind : ∀ (j : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
+      (tgtRs out)[j]? = some r → ∀ (i : Nat) (cA : ConstantVal × Nat), r.2.2.2[i]? = some cA →
+        envC.find? cA.1.name = some (.ctorInfo cA.1 (ConLeche.tgtMajorsOf out j).nPc cA.2))
+    (ψ : Name → Nat) (ρ : Nat → V) (rs : List V) (hrl : rs.length = (tgtRs out).length)
+    (hty : ∀ c, c < (tgtRs out).length →
+      rs.getD c pt ∈ˢ interp V ρ (blockRecTyAV mpC.base2.acval envC (tgtRs out) ψ c)) :
+    ∀ c, c < (tgtRs out).length → ∀ j, j < blockRecNCt (tgtRs out) c → ∀ ys : List V,
+      SpineFit ρ (blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c
+        ++ tgtFdomsAV pp.toBlockShape out mpC.base2.acval envC ψ c j) ys →
+      (∀ v ∈ genIhsAV mpC.base2.acval envC (tgtRs out).length R.g R.rd (genBit pp ψ) ψ c j,
+        WellDenotedV V (consList ys (consList rs ρ)) v) ∧
+      WellDenotedV V (consList ((genIhsAV mpC.base2.acval envC (tgtRs out).length R.g R.rd
+          (genBit pp ψ) ψ c j).map (interp V (consList ys (consList rs ρ)))) (consList ys ρ))
+        (genRbAV R.g R.rd c j) := by
+  intro c hc j hj ys hys
+  obtain ⟨hlc, -⟩ := genPdoms_read hμ R hg h mpC ψ hc
+  have hnF := genRun_nF hμ R hg mpC.base2.acval ψ c hc j hj
+  obtain ⟨xs, fs, rfl, hxs, hfs⟩ := spineFit_append_split hys
+  have hxl : xs.length = R.g.pre.length := hxs.length_eq.trans hlc
+  have hfl : fs.length = (genCtorAt R.g R.rd c j).nF := hfs.length_eq.trans hnF.symm
+  -- each ih term: its tower, sound
+  have hIh : ∀ q ∈ genIhdAV mpC.base2.acval envC R.g R.rd (genBit pp ψ) ψ c j,
+      WellDenotedV V (consList (xs ++ fs) (consList rs ρ))
+        (genIhAV (tgtRs out).length R.g.pre.length (R.g.pre.length + (genCtorAt R.g R.rd c j).nF) q) ∧
+      interp V (consList (xs ++ fs) (consList rs ρ))
+          (genIhAV (tgtRs out).length R.g.pre.length (R.g.pre.length + (genCtorAt R.g R.rd c j).nF) q)
+        ∈ˢ interp V (consList (xs ++ fs) ρ)
+          (genIhDomAV ((blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c).length
+              + (tgtFdomsAV pp.toBlockShape out mpC.base2.acval envC ψ c j).length)
+            (classMotPos R.g (genClsOf R.rd q.1)) q) := by
+    intro q hq
+    have hbits := genIhdAV_bits hq
+    have hU := genIhUnder hμ R hg h mpC hfind ψ ρ hrl hty hc hj hys hq
+    have hz : ∀ d ∈ q.2.1.map (fun p => (0, p.1, p.2)), (genBit pp ψ = 0 ↔ d.2.1 = 0) := by
+      intro d hd
+      obtain ⟨p, hp, rfl⟩ := List.mem_map.mp hd
+      simp [hbits p hp]
+    have hbelow := genRun_below hμ R hg h mpC (genBit pp ψ) ψ c hc j hj q hq
+    rw [hlc, ← hnF] at hbelow
+    have hEq := genIhAV_eq_mkLamsC (K := (tgtRs out).length) (rP := R.g.pre.length)
+      (D := R.g.pre.length + (genCtorAt R.g R.rd c j).nF) hbits
+    rw [show R.g.pre.length + (genCtorAt R.g R.rd c j).nF - R.g.pre.length
+      = (genCtorAt R.g R.rd c j).nF by omega] at hEq
+    refine ⟨⟨?_, ?_⟩, ?_⟩
+    · rw [hEq]
+      exact mkLamsC_wellDenoted hz hU
+    · -- validity: the telescope and the arguments
+      obtain ⟨hF, hA⟩ := genIhValid hμ R hg h mpC hfind ψ ρ hc hj hys hq
+      unfold genIhAV
+      refine annotValid_lamsApp (fun _ => by simp) q.2.1
+        (D := R.g.pre.length + (genCtorAt R.g R.rd c j).nF) (σ := consList (xs ++ fs) ρ)
+        (lamDomsBelow_of_fieldsBelow hbelow.1) (fun e he => ?_) (fun i hi => ?_) hF
+        (fun bs hbs e he => ?_)
+      · rcases List.mem_append.mp he with he | he
+        · obtain ⟨l, hl, rfl⟩ := List.mem_map.mp he
+          rw [List.mem_range] at hl
+          show _ < _
+          omega
+        · exact hbelow.2 e he
+      · exact (consList_congr_below (xs ++ fs) (D := 0)
+          (fun k hk => absurd hk (Nat.not_lt_zero _)) i (by simp [hxl, hfl]; omega)).symm
+      · rcases List.mem_append.mp he with he | he
+        · obtain ⟨l, -, rfl⟩ := List.mem_map.mp he
+          simp
+        · exact hA bs hbs e he
+    · have hmem := mkLamsC_mem hz hU
+      rw [← hEq] at hmem
+      have hmt : classMotPos R.g (genClsOf R.rd q.1) < R.g.pre.length := by
+        obtain ⟨l, hl⟩ := List.getElem?_of_mem hq
+        obtain ⟨t, st, -, -, hst, hstl, -, hcls, -⟩ := genIhFrame hμ R hg h mpC hfind ψ hc hj hl
+        rw [hcls, classMotPos, hst]; exact hstl
+      have hbD := genIhDomAV_below (D := R.g.pre.length + (genCtorAt R.g R.rd c j).nF)
+        (mt := classMotPos R.g (genClsOf R.rd q.1)) hbelow (by omega)
+      rw [hlc, ← hnF, ← interp_congr_below V _ _ _ _ hbD (fun i hi =>
+        consList_congr_below (xs ++ fs) (D := 0) (fun k hk => absurd hk (Nat.not_lt_zero _)) i
+          (by simp [hxl, hfl]; omega))]
+      exact hmem
+  refine ⟨fun v hv => ?_, ?_⟩
+  · unfold genIhsAV at hv
+    obtain ⟨q, hq, rfl⟩ := List.mem_map.mp hv
+    exact (hIh q hq).1
+  · -- the residue: the minor premise along its graded tower
+    generalize hH : (genIhsAV mpC.base2.acval envC (tgtRs out).length R.g R.rd (genBit pp ψ) ψ c
+      j).map (interp V (consList (xs ++ fs) (consList rs ρ))) = hvals
+    have hHl : hvals.length = (genCtorAt R.g R.rd c j).recs.length := by
+      rw [← hH, List.length_map]; unfold genIhsAV; rw [List.length_map, genIhdAV_length']
+    obtain ⟨bs, b, hmemB, hwdB, hfitF⟩ := genMinorFit hμ R hg h mpC hfind ψ ρ hc hj hxs
+    have hfit := hfitF fs hfs hvals (by rw [hHl, genIhdAV_length']) (fun l q hv hql hvl => by
+      rw [← hH] at hvl
+      unfold genIhsAV at hvl
+      rw [List.map_map, List.getElem?_map, hql] at hvl
+      obtain rfl := (Option.some.inj hvl).symm
+      exact (hIh q (List.mem_of_getElem? hql)).2)
+    have hm : R.g.nP + genMinorSlot R.g R.rd c j < xs.length := by
+      have := genRun_min hμ R hg h mpC c hc j hj
+      rw [hxl]
+      obtain ⟨-, -, -, -, -, -, -, -, -, hRPc, -⟩ := genRun_binders hμ R hg h mpC ψ hc
+      omega
+    have hv1 : (prefVarsAV fs.length hvals.length).map
+        (interp V (consList hvals (consList (xs ++ fs) ρ))) = fs := by
+      have := interp_prefVarsAV (V := V) (xs := fs) (bs := hvals) (ρ := consList xs ρ) rfl
+      rw [consList_append] at this
+      rw [consList_append]
+      exact this
+    have hv2 : (prefVarsAV hvals.length 0).map
+        (interp V (consList hvals (consList (xs ++ fs) ρ))) = hvals := by
+      have := interp_prefVarsAV (V := V) (xs := hvals) (bs := []) (ρ := consList (xs ++ fs) ρ) rfl
+      simpa using this
+    have hhd : interp V (consList hvals (consList (xs ++ fs) ρ))
+        (.bvar (hvals.length + fs.length + (xs.length - 1 - (R.g.nP + genMinorSlot R.g R.rd c j))))
+        = xs.getD (R.g.nP + genMinorSlot R.g R.rd c j) pt := by
+      show consList hvals (consList (xs ++ fs) ρ) _ = _
+      rw [← consList_append, List.append_assoc,
+        show hvals.length + fs.length + (xs.length - 1 - (R.g.nP + genMinorSlot R.g R.rd c j))
+          = (fs ++ hvals).length + xs.length - 1 - (R.g.nP + genMinorSlot R.g R.rd c j) by
+          simp; omega]
+      exact consList_prefix_getD hm
+    have hRb : genRbAV R.g R.rd c j = genRb0 xs.length (R.g.nP + genMinorSlot R.g R.rd c j)
+        fs.length hvals.length := by rw [genRbAV, hxl, hfl, hHl]
+    rw [hRb]
+    unfold genRb0
+    refine (Rules.wellDenotedV_mkAppN_of_fit (ρ := consList hvals (consList (xs ++ fs) ρ))
+      (σ := consList xs ρ) (Ta := mkPisAV bs b)
+      (rest := interp V (consList (fs ++ hvals) (consList xs ρ)) b) (f := .bvar (hvals.length + fs.length
+        + (xs.length - 1 - (R.g.nP + genMinorSlot R.g R.rd c j))))
+      (prefVarsAV fs.length hvals.length ++ prefVarsAV hvals.length 0) hwdB
+      ⟨by simp [WellDenoted_bvar], by simp [AnnotValid_bvar]⟩ (fun x hx => ?_)
+      (by rw [hhd]; exact hmemB) ?_).1
+    · rcases List.mem_append.mp hx with hx | hx <;>
+      · obtain ⟨k, -, rfl⟩ := List.mem_map.mp hx
+        exact ⟨by simp [WellDenoted_bvar], by simp [AnnotValid_bvar]⟩
+    · rw [List.map_append, hv1, hv2]
+      exact teleFit_mkPisAV_of_spineFit hfit
+
 end IhRun
 
 end ConLeche.Model
