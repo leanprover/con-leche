@@ -26,7 +26,7 @@ iteration protocol. Keep it up to date when decisions change.
 * No `sorry`s on master; no new axioms. Consistency proofs stay parametric in
   the `SetTheory` interface.
 * Layering: implementation (`ConLeche/Kernel/*`, `ConLeche/Cached/*`,
-  `ConLeche/Conformance/*`, `Main.lean`) must never import theory/verification modules
+  `Main.lean`) must never import theory/verification modules
   (`ConLeche/SetTheory/*`, `ConLeche/SetModel/*`, `ConLeche/Semantics/*`,
   `ConLeche/Model/*`, `ConLeche/Verify/*`). Proofs about kernel functions go in
   `ConLeche/Verify/*`; the pure set constructions (no `Expr` in sight) in
@@ -41,14 +41,10 @@ iteration protocol. Keep it up to date when decisions change.
   (`Kernel/Inductives/Modeled.lean`, `checkModeled`, for nested blocks,
   with its twins `Kernel/Inductives/ModeledF.lean` and
   `Cached/ModeledC.lean`: modeller-only, deleted whole with it);
-  the old one-member recursor generator survives only as the
-  recursor conformance check (`checkBlockRecConform`), which lives in
-  `ConLeche/Conformance/` (charter item 6): that directory holds ALL
-  code that serves only as an additional, unverified, reject-only
-  check and is not needed for soundness.  The fold still calls it
-  (`thenConform`), and its fueled/cached bridges stay in
-  `ConLeche/Verify/*`; nothing a model proof consumes may live there
-  (decide by consumers, not by name).
+  the recursors are GENERATED (`Kernel/Inductives/GenRec.lean`, charter
+  item 5 as amended 2026-09-29; its unverified pre-pass is
+  `Kernel/Inductives/ClassRead.lean`); the conformance check and
+  `ConLeche/Conformance/` are retired (charter item 6).
   Exception (2026-08-24): a *self-contained* verification of a data
   structure (e.g. the arena's WF — invariants + preservation proofs
   importing no other Model/Verify modules) may live with, and be
@@ -61,7 +57,7 @@ iteration protocol. Keep it up to date when decisions change.
   build and stay classic (a classic file may import a `module`).
   **Checker code is exposed, because it is the subject of the proofs**:
   `ConLeche/Kernel/*`, `ConLeche/Cached/*`, `ConLeche/Frontend/*`,
-  `ConLeche/Conformance/*` and `Main.lean` open one
+  and `Main.lean` open one
   `@[expose] public section` — the Verify/Model
   tiers unfold their bodies by design, so a `private` helper there must
   be public if any *definition* mentions it (a `theorem` proof may

@@ -16,12 +16,12 @@ public import ConLeche.Model.Inductives.TargetClassRows
 public section
 
 /-!
-# SKELETON (not for landing): the generated recursor stage, assembled
+# The generated recursor stage: its equation components and context
 
 `genRecStage` — the recursors' stage's obligation (`BlockRecStagedT`)
 from the GENERATED stage's run, through the generic stage
 (`blockRecStaged_dataR`) at the generated family's equation components.
-Every `sorry` below is a sub-lane's target.
+The stage itself is `genRecStage` (`GenRecFinal.lean`).
 -/
 
 namespace ConLeche.Model

@@ -959,14 +959,23 @@
 == ConLeche/Kernel/Inductives/BlockTail.lean#L79
     79  def checkBlockTail (ops : CheckerOps m) (block : List ConstantInfo)
 
+== ConLeche/Kernel/Inductives/ClassRead.lean#L130
+   130  def classRead (nP : Nat) (nPc : Name → Nat) (recs : List RecShape) : Option ClassRead := do
+
+== ConLeche/Kernel/Inductives/GenRec.lean#L294
+   294  def classCtorOf (ops : CheckerOps m) (env : Env) (p : BlockShape) (formerTys : List Expr)
+
+== ConLeche/Kernel/Inductives/GenRec.lean#L176
+   176  def classGenRecTy (g : ClassGen) (c : Nat) : Option Expr := do
+
+== ConLeche/Kernel/Inductives/GenRec.lean#L188
+   188  def classGenRule (g : ClassGen) (recOf : Nat → Option Name) (rlvls : List Level) (c : Nat)
+
 == ConLeche/Kernel/Inductives/GenRec.lean#L389
    389  def classRecTyOk (ops : CheckerOps m) (fe : FEnv) (g : ClassGen) (k : Nat) (rc : RecShape)
 
 == ConLeche/Kernel/Inductives/GenRec.lean#L422
    422  def classRuleOk (ops : CheckerOps m) (w : StructWalkers) (feT feR : FEnv) (cvR : ConstantVal)
-
-== ConLeche/Kernel/Inductives/GenRec.lean#L276
-   276  def classFieldsAgree (ops : CheckerOps m) (env : Env) (p : BlockShape) (formerTys : List Expr)
 
 == ConLeche/Kernel/CoreDefs.lean#L438-L446
    438  /-- The certified structural-`Nat` operations.  Six of them
