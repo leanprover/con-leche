@@ -369,7 +369,7 @@ def classRuleOk (ops : CheckerOps m) (w : StructWalkers) (feT feR : FEnv) (cvR :
     (pw : PropWhen) (n : Nat) (gen : Expr) : m Expr := do
   unless gen.looseBVarsBounded 0 && !gen.hasFvar do
     throw (.internal s!"generated recursor: a rule of {cvR.name} is not closed")
-  let genA ← ops.annotate feR.env 0 gen.resetMeta
+  let genA ← ops.annotate feR.env 0 gen
   unless genA.allLevelParamsDefined cvR.levelParams do
     throw (.internal s!"generated recursor: a rule of {cvR.name} names an undeclared universe \
       parameter")
@@ -395,7 +395,7 @@ def classRulesOk (ops : CheckerOps m) (w : StructWalkers) (feT feR : FEnv) (g : 
     let gen ← unwrapOr (classGenRule g recOf (cvR.levelParams.map .param) c x)
       (.invalid s!"generated recursor: the rule of {x.cv.name} calls a class whose recursor the \
         stream omits (official: unknown constant)")
-    let r ← classRuleOk ops w feT feR cvR pw (g.nP + g.slots.length + x.nF) gen
+    let r ← classRuleOk ops w feT feR cvR pw (g.nP + g.slots.length + x.nF) gen.resetMeta
     let rs ← classRulesOk ops w feT feR g recOf cvR pw c xs
     pure (r :: rs)
 
@@ -419,6 +419,34 @@ def classStreamRecs (ops : CheckerOps m) (fe : FEnv) : List RecShape → m (List
     let cvs ← classStreamRecs ops fe rcs
     pure (cv :: cvs)
 
+/-- An inductive's parameter count as the pre-pass reads it: the block's
+at a member, the stored `IndCaps`' otherwise. -/
+def classNPcOf (p : BlockShape) (fe : FEnv) (I : Name) : Nat :=
+  if p.memberNames.contains I then p.nP else
+    match fe.find? I with
+    | some (.indInfo _ caps) => caps.nparams
+    | _ => 0
+
+/-- The seeds: every OUTSIDE class in the positivity check's
+representation (`nestSeedOf`), in order. -/
+def classSeeds (ctx : NestCtx) (holes : List Expr) (Ms : List TargetMajor) :
+    List (NestKey × Nat) :=
+  Ms.filterMap fun M =>
+    if M.member.isNone then some (nestSeedOf ctx holes M.ind M.lvls M.ds M.nPc) else none
+
+/-- The recursor a call at class `t` names: the family's first recursor
+at that class (`recCls` the pre-pass's reading, `cvGs` the generated
+constants). -/
+def classRecOf (recCls : List Nat) (cvGs : List ConstantVal) (t : Nat) : Option Name :=
+  ((List.range cvGs.length).find? fun r => recCls.getD r 0 == t).map fun r =>
+    (cvGs.getD r default).name
+
+/-- The rule-less generated recursors consed onto the constructors'
+environment `fe`. -/
+def classFeR (p : BlockShape) (Ms : List TargetMajor) (cvGs : List ConstantVal)
+    (recCls : List Nat) (fe : FEnv) : FEnv :=
+  consBlockRecsBareF p 0 ((cvGs.zip recCls).map fun (cv, c) => (cv, (Ms.getD c default).nIdx)) fe
+
 /-- **The generated recursor stage** (charter item 5, see the module
 header), at the constructors' environment `fe`; the seeds walk at the
 formers' environment `fe₁`/`env₁`, continuing the positivity check's
@@ -438,13 +466,8 @@ def genRecCheck (so : ShadowOps m) (fe₁ : FEnv) (env₁ : Env) (fe : FEnv) (p 
   -- generated types are compared with them
   let cvRis ← classStreamRecs ops fe p.recs
   -- [UNVERIFIED] the pre-pass: the classes, the layout, each recursor's class
-  let nPcOf : Name → Nat := fun I =>
-    if p.memberNames.contains I then p.nP else
-      match fe.find? I with
-      | some (.indInfo _ caps) => caps.nparams
-      | _ => 0
-  let rd ← unwrapOr (classRead p.nP nPcOf ((p.recs.zip cvRis).map fun (rc, cv) =>
-      { rc with cvR := cv }))
+  let rd ← unwrapOr (classRead p.nP (classNPcOf p fe)
+      ((p.recs.zip cvRis).map fun (rc, cv) => { rc with cvR := cv }))
     (.invalid "generated recursor: the recursor family is not of the generated shape \
       (official: invalid recursor)")
   let cv0 ← unwrapOr cvRis.head? (.invalid "generated recursor: the block has no recursor")
@@ -464,13 +487,11 @@ def genRecCheck (so : ShadowOps m) (fe₁ : FEnv) (env₁ : Env) (fe : FEnv) (p 
   -- the seeds, at the formers' environment: every class a node
   so.flush
   let (ctx, holes) ← blockNestCtx p cvTas fe₁.find? env₁.consts
-  let st ← nestSeeds (so.opsAt fe₁) env₁ ctx
-    (Ms.filterMap fun M => if M.member.isNone then some (nestSeedOf ctx holes M.ind M.lvls M.ds
-      M.nPc) else none) pos
+  let st ← nestSeeds (so.opsAt fe₁) env₁ ctx (classSeeds ctx holes Ms) pos
   so.flush
-  let tbl := classMemberNfs ctx ctorsAs nfs kinds ++ st.ctorNfs.toList
   let formerTys := cvTas.map (·.type)
-  let Ms ← classesNfs ops fe.env p formerTys tbl Ms
+  let Ms ← classesNfs ops fe.env p formerTys (classMemberNfs ctx ctorsAs nfs kinds ++
+    st.ctorNfs.toList) Ms
   -- per class and constructor: the datum, the inductive hypotheses, node agreement
   let ctors ← classesCtors ops fe.env p formerTys rd Ms 0 Ms
   unless (rd.slots.filter fun | .minor .. => true | _ => false).length ==
@@ -484,14 +505,10 @@ def genRecCheck (so : ShadowOps m) (fe₁ : FEnv) (env₁ : Env) (fe : FEnv) (p 
   let pre ← unwrapOr g0.prefixBinders (.internal "generated recursor: recursor prefix")
   let g := { g0 with pre := pre }
   let cvGs ← classRecTysOk ops fe g p.k p.recs cvRis rd.recCls
-  let recOf : Nat → Option Name := fun t =>
-    ((List.range p.recs.length).find? fun r => rd.recCls.getD r 0 == t).map fun r =>
-      (cvGs.getD r default).name
-  let feR := consBlockRecsBareF p 0
-    ((cvGs.zip rd.recCls).map fun (cv, c) => (cv, (Ms.getD c default).nIdx)) fe
+  let feR := classFeR p Ms cvGs rd.recCls fe
   so.flush
-  let out ← classRecsRulesOk (so.opsRuleR feR) so.walkers fe feR g recOf
-    (Level.zeronessOf elim) cvGs rd.recCls
+  let out ← classRecsRulesOk (so.opsRuleR feR) so.walkers fe feR g
+    (classRecOf rd.recCls cvGs) (Level.zeronessOf elim) cvGs rd.recCls
   so.flush
   pure out
 
