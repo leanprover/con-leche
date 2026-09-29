@@ -88,13 +88,6 @@ theorem EndsInSort.resetMeta {u : Level} :
     subst h; rfl
   | m + 1, .forallE _ b _, h => EndsInSort.resetMeta m (e := b) h
 
-theorem SameDoms.resetMeta :
-    ∀ (n : Nat) {e₁ e₂ : Expr}, SameDoms n e₁ e₂ → SameDoms n e₁.resetMeta e₂.resetMeta
-  | 0, _, _, _ => trivial
-  | n + 1, .forallE A b _, .forallE A' b' _, h => by
-    obtain ⟨rfl, h⟩ := h
-    exact ⟨rfl, SameDoms.resetMeta n h⟩
-
 /-! ## The pre-pass's classes have motives -/
 
 /-- **Every recursor's class, as the pre-pass reads it, has a motive**:
