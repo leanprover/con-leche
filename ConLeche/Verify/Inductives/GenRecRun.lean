@@ -479,12 +479,9 @@ structure GenRecRun (mode : CheckMode) (F : Nat) (fe₁ : FEnv) (env₁ : Env) (
     (out : List (ConstantVal × TargetMajor × List Expr)) : Type where
   cvRis : List ConstantVal
   rd : ClassRead
-  cv0 : ConstantVal
-  pfvs : List Expr
-  o0 : Expr
-  Ms₀ : List TargetMajor
   ctx : NestCtx
   holes : List Expr
+  Ms₀ : List TargetMajor
   st : NestState
   Ms : List TargetMajor
   ctors : List (List ClassCtor)
@@ -498,17 +495,17 @@ structure GenRecRun (mode : CheckMode) (F : Nat) (fe₁ : FEnv) (env₁ : Env) (
   /-- the pre-pass (UNVERIFIED: data only) -/
   hrd : classRead p.nP (classNPcOf p fe)
     ((p.recs.zip cvRis).map fun (rc, cv) => { rc with cvR := cv }) = some rd
-  hcv0 : cvRis.head? = some cv0
-  hpfvs : openPisAtFvars p.nP cv0.type 0 = some (pfvs, o0)
-  /-- the classes, each a checked major -/
-  hMs₀ : classMajors (fueledOps mode F) fe p ctorsAs pfvs rd.classes = .ok Ms₀
+  /-- the block's canonical parameters and holes (the positivity check's context) -/
+  hctx : blockNestCtx (m := CheckM) p cvTas fe₁.find? env₁.consts = .ok (ctx, holes)
+  /-- the classes, each a checked major over the canonical parameters -/
+  hMs₀ : classMajors (fueledOps mode F) fe p ctorsAs ctx.params
+    (rd.classes.map (classKeyCanon ctx.params)) = .ok Ms₀
   /-- one class per member -/
   hone : ∀ t, t < p.k → (Ms₀.filter (·.member == some t)).length = 1
   /-- the elimination guard -/
   hk : 0 < p.k
   helim : (p.large && !blockLargeElimAllowed p (nestedBit || Ms₀.any (·.member.isNone))) = false
   /-- the seeds, walked at the formers' environment -/
-  hctx : blockNestCtx (m := CheckM) p cvTas fe₁.find? env₁.consts = .ok (ctx, holes)
   hst : nestSeeds (fueledOps mode F) env₁ ctx (classSeeds ctx holes Ms₀) pos = .ok st
   /-- every class's table entries -/
   hMs : classesNfs (fueledOps mode F) fe.env p (cvTas.map (·.type)) st.ctorNfs.toList Ms₀ = .ok Ms
@@ -549,8 +546,7 @@ theorem genRecCheck_run {fe₁ : FEnv} {env₁ : Env} {fe : FEnv} {p : BlockShap
   obtain ⟨u0, hpins, h⟩ := exceptBind_ok h
   obtain ⟨cvRis, hcvRis, h⟩ := exceptBind_ok h
   obtain ⟨rd, hrd, h⟩ := exceptBind_ok h
-  obtain ⟨cv0, hcv0, h⟩ := exceptBind_ok h
-  obtain ⟨⟨pfvs, o0⟩, hpfvs, h⟩ := exceptBind_ok h
+  obtain ⟨⟨ctx, holes⟩, hctx, h⟩ := exceptBind_ok h
   simp only at h
   obtain ⟨Ms₀, hMs₀, h⟩ := exceptBind_ok h
   by_cases hone : ((List.range p.k).all fun t =>
@@ -565,8 +561,6 @@ theorem genRecCheck_run {fe₁ : FEnv} {env₁ : Env} {fe : FEnv} {p : BlockShap
   case pos => rw [if_pos helim] at h; close_throw h
   rw [if_neg helim] at h
   obtain ⟨u4, -, h⟩ := exceptBind_ok h
-  obtain ⟨⟨ctx, holes⟩, hctx, h⟩ := exceptBind_ok h
-  simp only at h
   obtain ⟨st, hst, h⟩ := exceptBind_ok h
   obtain ⟨u5, -, h⟩ := exceptBind_ok h
   obtain ⟨Ms, hMs, h⟩ := exceptBind_ok h
@@ -586,10 +580,9 @@ theorem genRecCheck_run {fe₁ : FEnv} {env₁ : Env} {fe : FEnv} {p : BlockShap
   simp only [List.all_eq_true, List.mem_range, beq_iff_eq] at hone
   simp only [Bool.not_eq_true] at helim
   exact ⟨{
-    cvRis := cvRis, rd := rd, cv0 := cv0, pfvs := pfvs, o0 := o0, Ms₀ := Ms₀, ctx := ctx,
-    holes := holes, st := st, Ms := Ms, ctors := ctors, formerTysC := formerTysC, pre := pre,
+    cvRis := cvRis, rd := rd, ctx := ctx, holes := holes, Ms₀ := Ms₀, st := st, Ms := Ms, ctors := ctors, formerTysC := formerTysC, pre := pre,
     cvGs := cvGs, pins := by cases u0; exact hpins, hcvRis := hcvRis,
-    hrd := unwrapOr_ok hrd, hcv0 := unwrapOr_ok hcv0, hpfvs := unwrapOr_ok hpfvs,
+    hrd := unwrapOr_ok hrd,
     hMs₀ := hMs₀, hone := hone, hk := hk, helim := helim, hctx := hctx,
     hst := hst, hMs := hMs, hctors := hctors,
     hminors := by simpa using hminors, hformer := hformer,
