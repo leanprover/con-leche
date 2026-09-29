@@ -17,6 +17,7 @@ import ConLeche.Verify.Knot
 import ConLeche.Verify.CheckerF
 import ConLeche.Verify.Extend.Inversions
 import ConLeche.Verify.Level
+import ConLeche.Verify.InferProjSlots
 
 public section
 
@@ -45,7 +46,8 @@ What the record asks of it:
   generated type is a telescope over the same prefix `g.pre` (`SameDoms`);
 * every stored rule is the generated rule (`ClassRuleRun`);
 * no stored term has a `.proj` node at an empty table slot
-  (`GenNoProj`, a hypothesis: annotation no longer supplies it).
+  (the terms are stored without an annotation pass, so this is their
+  own checking inference's: `inferTypeCore_noProjAt`).
 -/
 
 namespace ConLeche
@@ -293,7 +295,7 @@ level, and it is a telescope over the shared prefix. -/
 theorem genRecTy_run (hμ : μ.verifiedChecks = true)
     (R : GenRecRun μ F (mkFEnv env₁) env₁ (mkFEnv envC) p.toBlockShape nestedBit pos cvTas
       block ctorsAs out)
-    (hg : ClassGenScoped R.g) (hnp : GenNoProj envC R.g) {i c : Nat} {rc : RecShape}
+    (hg : ClassGenScoped R.g) {i c : Nat} {rc : RecShape}
     {cvG : ConstantVal}
     (hrc : p.recs[i]? = some rc) (hc : R.rd.recCls[i]? = some c)
     (T : ClassRecTyRun μ F (mkFEnv envC) R.g p.k rc c cvG) :
@@ -302,7 +304,6 @@ theorem genRecTy_run (hμ : μ.verifiedChecks = true)
     Nonempty (RecTyGen μ F envC p.toBlockShape false i rc cvG (R.Ms.getD c default).nIdx
       (structElimLevel p.elim p.large)) := by
   have hcv := ConLeche.classConstOk_checked T.hcv
-    (fun T' i' hslot => (hnp T' i' hslot).1 c T.gty T.hgty)
   obtain ⟨-, -, -, -, -, hfv0, -, -, stype, u0, hinf, -, hcvEq⟩ := ConLeche.classConstOk_inv T.hcv
   have htype : cvG.type = T.gty := by
     have := congrArg ConstantVal.type hcvEq
@@ -354,14 +355,15 @@ syntactically, every rule the generated one, stored as generated.
   motives, the stored prefix the generator's own) — what the ported
   generator lemmas take throughout (`classGenRecTy_spec`, the prefix's
   motive entry), a fact of the run's earlier binds (`genScoped_of_run`);
-* `hnp`: no generated term has a `.proj` node at an empty table slot of
-  the constructors' environment (`GenNoProj`) — what the stage record
-  asks of every stored term (`ConstChecked.noProj`, `RuleOutOk.hnoProj`)
-  and annotation used to supply; OPEN (not a run fact yet). -/
+the stage record's `.proj`-freedom of every stored term
+(`ConstChecked.noProj`, `RuleOutOk.hnoProj`), which annotation used to
+supply, is the stored term's own full inference
+(`inferTypeCore_noProjAt`: a successful inference names only occupied
+slots). -/
 theorem recStage_of_gen (hμ : μ.verifiedChecks = true)
     (R : GenRecRun μ F (mkFEnv env₁) env₁ (mkFEnv envC) p.toBlockShape nestedBit pos cvTas
       block ctorsAs out)
-    (hg : ClassGenScoped R.g) (hnp : GenNoProj envC R.g) :
+    (hg : ClassGenScoped R.g) :
     RecStageG μ F envC p cvTas ctorsAs (tgtRs out) (fun _ => False) := by
   have hcvGs := R.hcvGs
   have hrules := R.hrules
@@ -430,7 +432,7 @@ theorem recStage_of_gen (hμ : μ.verifiedChecks = true)
     obtain ⟨rc, c, cvG, rhss, hrc, hc, hG, ⟨T⟩, -, -, hcu, -⟩ := hat i hi
     rw [List.getElem?_map, hcu] at hcv
     obtain rfl : cvG = cv := Option.some.inj hcv
-    obtain ⟨hrP, hY, -⟩ := genRecTy_run hμ R hg hnp hrc hc T
+    obtain ⟨hrP, hY, -⟩ := genRecTy_run hμ R hg hrc hc T
     exact ⟨rc, hrc, hrP, hY⟩
   have hself : ∀ (Y : List (Expr × BinderMeta)) (B : Expr),
       SameDoms R.pre.length (closeTelescope (R.pre ++ Y) 0 B)
@@ -484,7 +486,7 @@ theorem recStage_of_gen (hμ : μ.verifiedChecks = true)
   · -- stage (b) at every recursor
     intro i hi
     obtain ⟨rc, c, cvG, rhss, hrc, hc, -, ⟨T⟩, -, -, hcu, -⟩ := hat i hi
-    obtain ⟨-, -, E⟩ := genRecTy_run hμ R hg hnp hrc hc T
+    obtain ⟨-, -, E⟩ := genRecTy_run hμ R hg hrc hc T
     rw [hEl] at E
     exact ⟨rc, cvG, _, _, hrc, hcu, E⟩
   · -- one stored rule per constructor
@@ -514,7 +516,7 @@ theorem recStage_of_gen (hμ : μ.verifiedChecks = true)
     rw [ht] at hr
     obtain rfl := Option.some.inj hr
     simp only at hrhs
-    obtain ⟨-, -, ⟨E⟩⟩ := genRecTy_run hμ R hg hnp hrc hc T
+    obtain ⟨-, -, ⟨E⟩⟩ := genRecTy_run hμ R hg hrc hc T
     obtain ⟨hl, hall⟩ := ConLeche.classRulesOk_run hrl
     have hiX : i < (R.ctors.getD cc []).length := by
       rw [← hl]; exact (List.getElem?_eq_some_iff.mp hrhs).1
@@ -529,22 +531,8 @@ theorem recStage_of_gen (hμ : μ.verifiedChecks = true)
     rw [hfeR] at hres
     simp only [StructWalkers.plain, ConLeche.constsResolveF_eq] at hres
     rw [hfeR, ConLeche.mkFEnv_env, ConLeche.fueledOps_inferType] at htyR
-    have hpsh : ∀ x ∈ (tgtRs out).map (fun r => (r.1, r.2.2.1)), x.1.name.isProjFnShape = false := by
-      intro x hx
-      obtain ⟨y, hy, rfl⟩ := List.mem_map.mp hx
-      obtain ⟨j, hj⟩ := List.getElem?_of_mem hy
-      have hj' : j < p.recs.length := by
-        have := (List.getElem?_eq_some_iff.mp hj).1; omega
-      obtain ⟨rcj, ccj, cvGj, rhssj, hrcj, hcj, -, ⟨Tj⟩, -, -, -, htj⟩ := hat j hj'
-      rw [htj] at hj
-      obtain rfl := Option.some.inj hj
-      obtain ⟨-, -, ⟨Ej⟩⟩ := genRecTy_run hμ R hg hnp hrcj hcj Tj
-      rw [Ej.name_eq, ← Ej.hcv0.1]
-      exact Ej.hcv.notProjShape
     exact ⟨rc, hrc, ⟨Q.hbv, Q.hfv, by rw [← E.lps_eq]; exact Q.hlp, hres, ⟨_, htyR⟩,
-      fun T' i' hslot => (hnp T' i' (by
-        rw [findProj?_consBlockRecsBare hpsh] at hslot; exact hslot)).2 _ _ cc _ _
-        (List.getElem_mem hiX) hgen⟩⟩
+      fun _ _ hslot => inferTypeCore_noProjAt htyR Q.hfv hslot⟩⟩
 
 end Stage
 
