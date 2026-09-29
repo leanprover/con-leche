@@ -422,6 +422,199 @@ theorem genRecTy_run (hμ : μ.verifiedChecks = true)
       exact isDefEqCore_self _
     · exact .inl (genRecRun_small R hL)
 
+set_option maxHeartbeats 1600000 in
+/-- **The recursor stage's record, from the GENERATED stage's run**, at no
+member-shaped recursor (`mem := fun _ => False`): the stored family is
+`tgtRs out`, each recursor's checked constant the generated type under the
+record's name and level parameters, the elimination level
+`structElimLevel p.elim p.large` throughout, the rule prefix shared
+syntactically, every rule the annotated generated one.
+
+* `hμ`: the verified modes — the conclusion's sort is read off the
+  inference of the generated type through its ∀ clauses
+  (`inferTypeCore_openPis_body`), which validates binder data there only;
+* `hg`: the generator's inputs scoped (`ClassGenScoped`: canonical
+  parameters, class parameters over the block's, closed former types,
+  constructor telescopes over the parameters, minors after their
+  motives, the stored prefix the generator's own) — what the ported
+  generator lemmas take throughout (`classGenRecTy_spec`, the prefix's
+  motive entry), a fact of the run's earlier binds (the plan's open item
+  (b), shared with the family premise). -/
+theorem recStage_of_gen (hμ : μ.verifiedChecks = true)
+    (R : GenRecRun μ F (mkFEnv env₁) env₁ (mkFEnv envC) p.toBlockShape nestedBit pos cvTas
+      block ctorsAs out)
+    (hg : ClassGenScoped R.g) :
+    RecStageG μ F envC p cvTas ctorsAs (tgtRs out) (fun _ => False) := by
+  have hcvGs := R.hcvGs
+  have hrules := R.hrules
+  obtain ⟨hlenG, hallG⟩ := ConLeche.classRecTysOk_run hcvGs
+  obtain ⟨hlenO, -⟩ := ConLeche.classRecsRulesOk_run hrules
+  have hlenC : p.recs.length ≤ R.rd.recCls.length := by
+    rcases Nat.eq_zero_or_pos p.recs.length with h0 | hpos
+    · omega
+    · obtain ⟨c, -, hc, -⟩ := hallG (p.recs.length - 1) _
+        (List.getElem?_eq_getElem (show p.recs.length - 1 < p.recs.length by omega))
+      have := (List.getElem?_eq_some_iff.mp hc).1
+      omega
+  have hlenG' : R.cvGs.length = p.recs.length := hlenG
+  have hlenOut : out.length = p.recs.length := by rw [hlenO, hlenG']; omega
+  generalize hEl : structElimLevel p.elim p.large = elimL
+  have hlenR : (genCvRus R.cvGs R.rd.recCls R.Ms elimL).length = p.recs.length := by
+    simp only [genCvRus, List.length_map, List.length_zip, hlenG']; omega
+  have hlenT : (tgtRs out).length = p.recs.length := by simp [tgtRs, hlenOut]
+  -- the run at a stored index
+  have hat : ∀ i, i < p.recs.length → ∃ rc c cvG rhss, p.recs[i]? = some rc ∧
+      R.rd.recCls[i]? = some c ∧ R.cvGs[i]? = some cvG ∧
+      Nonempty (ClassRecTyRun μ F (mkFEnv envC) R.g p.k rc c cvG) ∧
+      out[i]? = some (cvG, R.Ms.getD c default, rhss) ∧
+      classRulesOk (fueledOps μ F) .plain (mkFEnv envC)
+        (classFeR p.toBlockShape R.Ms R.cvGs R.rd.recCls (mkFEnv envC)) R.g
+        (classRecOf R.rd.recCls R.cvGs) cvG
+        (Level.zeronessOf elimL) c (R.ctors.getD c []) = .ok rhss ∧
+      (genCvRus R.cvGs R.rd.recCls R.Ms elimL)[i]? = some (cvG, (R.Ms.getD c default).nIdx, elimL) ∧
+      (tgtRs out)[i]? = some (cvG, rhss, (R.Ms.getD c default).nIdx, (R.Ms.getD c default).ctors) := by
+    intro i hi
+    obtain ⟨rc, hrc⟩ : ∃ rc, p.recs[i]? = some rc := ⟨_, List.getElem?_eq_getElem hi⟩
+    obtain ⟨c, cvG, rhss, hc, hG, T, ho, hr, hcu⟩ := genRecRun_at R hrc
+    rw [hEl] at hr hcu
+    refine ⟨rc, c, cvG, rhss, hrc, hc, hG, T, ho, hr, hcu, ?_⟩
+    simp [tgtRs, List.getElem?_map, ho]
+  -- the rule-less recursors' environment
+  have hfeR : classFeR p.toBlockShape R.Ms R.cvGs R.rd.recCls (mkFEnv envC) =
+      mkFEnv (consBlockRecsBare p.toBlockShape 0 ((tgtRs out).map fun r => (r.1, r.2.2.1)) envC) := by
+    unfold classFeR
+    rw [ConLeche.consBlockRecsBareF_mkFEnv]
+    congr 2
+    apply List.ext_getElem?
+    intro i
+    by_cases hi : i < p.recs.length
+    · obtain ⟨rc, c, cvG, rhss, -, hc, hG, -, -, -, -, ht⟩ := hat i hi
+      have hz : (R.cvGs.zip R.rd.recCls)[i]? = some (cvG, c) :=
+        List.getElem?_zip_eq_some.mpr ⟨hG, hc⟩
+      simp [List.getElem?_map, hz, ht]
+    · rw [List.getElem?_eq_none (by simp [List.length_zip]; omega),
+        List.getElem?_eq_none (by simp [hlenT]; omega)]
+  -- every stage-(b) level is the elimination level
+  have hels : ∀ u ∈ (genCvRus R.cvGs R.rd.recCls R.Ms elimL).map (·.2.2), u = elimL := by
+    intro u hu
+    simp only [genCvRus, List.map_map, List.mem_map, Function.comp_def] at hu
+    obtain ⟨_, -, rfl⟩ := hu
+    rfl
+  -- the prefix, per recursor
+  have hpre : ∀ (i : Nat) (cv : ConstantVal),
+      ((genCvRus R.cvGs R.rd.recCls R.Ms elimL).map (·.1))[i]? = some cv →
+      ∃ rc : RecShape, p.recs[i]? = some rc ∧ rc.rP = R.pre.length ∧
+        ∃ Y B, ConLeche.annotateCore μ envC F 0 (closeTelescope (R.pre.map genRm ++ Y) 0 B)
+          = .ok cv.type := by
+    intro i cv hcv
+    have hi : i < p.recs.length := by
+      have := (List.getElem?_eq_some_iff.mp hcv).1
+      simp only [List.length_map] at this; omega
+    obtain ⟨rc, c, cvG, rhss, hrc, hc, hG, ⟨T⟩, -, -, hcu, -⟩ := hat i hi
+    rw [List.getElem?_map, hcu] at hcv
+    obtain rfl : cvG = cv := Option.some.inj hcv
+    obtain ⟨hrP, hY, -⟩ := genRecTy_run hμ R hg hrc hc T
+    exact ⟨rc, hrc, hrP, hY⟩
+  have hself : ∀ (Y : List (Expr × BinderMeta)) (B : Expr),
+      SameDoms R.pre.length (closeTelescope (R.pre.map genRm ++ Y) 0 B)
+        (closeTelescope (R.pre.map genRm ++ Y) 0 B) := by
+    intro Y B
+    have := ConLeche.SameDoms.closeTelescope_append (R.pre.map genRm) Y Y 0 B B
+    rwa [List.length_map] at this
+  refine ⟨{
+    cvRus := genCvRus R.cvGs R.rd.recCls R.Ms elimL,
+    pins := ConLeche.targetRecPins_inv R.pins,
+    fam := ⟨R.hk, ?_, ?_, fun _ _ h => h.elim, .inr ?_⟩,
+    lenT := hlenR, len := hlenT, stored := ?_, tyGen := ?_,
+    tyEntry := fun _ _ h => h.elim, ctorsAt := fun _ _ h => h.elim,
+    rulesLenAt := ?_, ruleOut := ?_, ruleTower := fun _ _ _ _ _ h => h.elim }⟩
+  · -- the counting half
+    cases hL : p.large
+    · right
+      intro u hu
+      rw [hels u hu, ← hEl, hL]
+      exact ConLeche.Level.isEquiv_of_beq (beq_self_eq_true _)
+    · exact .inl (genRecRun_small R hL)
+  · -- the pin
+    intro u hu
+    rw [hels u hu, ← hEl]
+    exact ConLeche.Level.isEquiv_of_beq (beq_self_eq_true _)
+  · -- the prefix, shared syntactically
+    intro cv0 h0
+    obtain ⟨rc0, hrc0, hrP0, Y0, B0, hann0⟩ := hpre 0 cv0 h0
+    obtain ⟨-, -, hR0⟩ := ConLeche.recShape_at (q := p.toBlockShape) hrc0
+    have hs0 := ConLeche.SameDoms.annotate _ (hself Y0 B0) hann0 hann0
+    obtain ⟨fvs0, o0, hop0⟩ := ConLeche.SameDoms.open_isSome _ (d := 0) hs0
+    refine ⟨fvs0, o0, by rw [hR0, hrP0]; exact hop0, fun i cv hcv => ?_⟩
+    obtain ⟨rc, hrc, hrP, Y, B, hann⟩ := hpre i cv hcv
+    obtain ⟨-, -, hR⟩ := ConLeche.recShape_at (q := p.toBlockShape) hrc
+    have hs := ConLeche.SameDoms.annotate _ (hself Y B) hann hann
+    obtain ⟨fvs, o, hop⟩ := ConLeche.SameDoms.open_isSome _ (d := 0) hs
+    have hst : SameDoms R.pre.length (closeTelescope (R.pre.map genRm ++ Y) 0 B)
+        (closeTelescope (R.pre.map genRm ++ Y0) 0 B0) := by
+      have := ConLeche.SameDoms.closeTelescope_append (R.pre.map genRm) Y Y0 0 B B0
+      rwa [List.length_map] at this
+    have hfe := ConLeche.SameDoms.open _ (ConLeche.SameDoms.annotate _ hst hann hann0) hop hop0
+    refine ⟨by rw [hR, hR0, hrP, hrP0], fvs, o, by rw [hR0, hrP0]; exact hop, by rw [hfe]⟩
+  · -- the stored records are stage (b)'s
+    apply List.ext_getElem?
+    intro i
+    by_cases hi : i < p.recs.length
+    · obtain ⟨_rc, _c, _cvG, _rhss, -, -, -, -, -, -, hcu, ht⟩ := hat i hi
+      simp [List.getElem?_map, hcu, ht]
+    · rw [List.getElem?_eq_none (by simp [hlenT]; omega),
+        List.getElem?_eq_none (by simp [hlenR]; omega)]
+  · -- stage (b) at every recursor
+    intro i hi
+    obtain ⟨rc, c, cvG, rhss, hrc, hc, -, ⟨T⟩, -, -, hcu, -⟩ := hat i hi
+    obtain ⟨-, -, E⟩ := genRecTy_run hμ R hg hrc hc T
+    rw [hEl] at E
+    exact ⟨rc, cvG, _, _, hrc, hcu, E⟩
+  · -- one stored rule per constructor
+    intro i r hr
+    have hi : i < p.recs.length := by
+      have := (List.getElem?_eq_some_iff.mp hr).1; omega
+    obtain ⟨_rc, c, _cvG, rhss, -, -, -, -, -, hrl, -, ht⟩ := hat i hi
+    rw [ht] at hr
+    obtain rfl := Option.some.inj hr
+    obtain ⟨hl, -⟩ := ConLeche.classRulesOk_run hrl
+    simp only
+    rw [hl]
+    obtain ⟨hlC, hallC⟩ := ConLeche.classesCtors_run R.hctors
+    by_cases hc : c < R.Ms.length
+    · obtain ⟨xs, hxs, hrun⟩ := hallC c _ (List.getElem?_eq_getElem hc)
+      rw [List.getD_eq_getElem?_getD, hxs, Option.getD_some,
+        List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hc, Option.getD_some]
+      exact (ConLeche.classCtorsOf_run hrun).1
+    · rw [List.getD_eq_getElem?_getD, List.getElem?_eq_none (by omega),
+        List.getD_eq_getElem?_getD, List.getElem?_eq_none (by omega)]
+      rfl
+  · -- every stored rule, annotated at the rule-less recursors
+    intro c r i rhs hr hrhs
+    have hi : c < p.recs.length := by
+      have := (List.getElem?_eq_some_iff.mp hr).1; omega
+    obtain ⟨rc, cc, cvG, rhss, hrc, hc, -, ⟨T⟩, -, hrl, -, ht⟩ := hat c hi
+    rw [ht] at hr
+    obtain rfl := Option.some.inj hr
+    simp only at hrhs
+    obtain ⟨-, -, ⟨E⟩⟩ := genRecTy_run hμ R hg hrc hc T
+    obtain ⟨hl, hall⟩ := ConLeche.classRulesOk_run hrl
+    have hiX : i < (R.ctors.getD cc []).length := by
+      rw [← hl]; exact (List.getElem?_eq_some_iff.mp hrhs).1
+    obtain ⟨gen, rhs', hrhs', -, ⟨Q⟩⟩ := hall i _ (List.getElem?_eq_getElem hiX)
+    obtain rfl : rhs' = rhs := Option.some.inj (hrhs'.symm.trans hrhs)
+    have hann := Q.hann
+    have hres := Q.hres
+    obtain ⟨tyR, htyR⟩ : ∃ t, (fueledOps μ F).inferType
+        (classFeR p.toBlockShape R.Ms R.cvGs R.rd.recCls (mkFEnv envC)).env 0 rhs' = .ok t :=
+      ⟨_, Q.htyR⟩
+    rw [hfeR, ConLeche.mkFEnv_env, ConLeche.fueledOps_annotate] at hann
+    rw [hfeR] at hres
+    simp only [StructWalkers.plain, ConLeche.constsResolveF_eq] at hres
+    rw [hfeR, ConLeche.mkFEnv_env, ConLeche.fueledOps_inferType] at htyR
+    exact ⟨rc, _, hrc, ⟨Q.hbv, Q.hfv, hann, by rw [← E.lps_eq]; exact Q.hlp, hres,
+      ⟨_, htyR⟩⟩⟩
+
 end Stage
 
 end ConLeche.Model
