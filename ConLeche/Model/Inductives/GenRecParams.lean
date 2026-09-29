@@ -155,3 +155,317 @@ theorem erasedEq_mkAppN_args :
     | succ j => exact hargs j x x' (by simpa using hx) (by simpa using hx')
 
 end ConLeche
+
+namespace ConLeche.Model
+open ConLeche.Semantics
+open ConLeche.Verify
+open ConLeche (CheckMode Env Expr Name Level ConstantVal ConstantInfo openPisAtFvars closeTelescope
+  ClassGen ClassGenScoped SameDoms classGenRecTy classBinder BinderMeta GenRecRun ClassRecTyRun
+  FEnv mkFEnv NestState TargetMajor RecShape BlockShape BlockParts instPisWith)
+
+variable {μ : CheckMode}
+
+/-- A leaf of an argument is a leaf of the application spine. -/
+theorem fvarLeaves_mkAppN_arg {l : Nat × Expr} :
+    ∀ (as : List Expr) {f a : Expr}, a ∈ as → l ∈ a.fvarLeaves →
+      l ∈ (Expr.mkAppN f as).fvarLeaves
+  | [], _, _, ha, _ => nomatch ha
+  | b :: as, f, a, ha, hl => by
+    rcases List.mem_cons.mp ha with rfl | ha
+    · exact fvarLeaves_mkAppN_head as (f := .app f a)
+        (by simp only [Expr.fvarLeaves, List.mem_append]; exact Or.inr hl)
+    · exact fvarLeaves_mkAppN_arg as (f := .app f b) ha hl
+
+section GenRun
+
+variable {F : Nat} {env₁ envC : Env} {p : BlockParts} {nestedBit : Bool} {pos : NestState}
+  {cvTas : List ConstantVal} {block : List ConstantInfo}
+  {ctorsAs : List (List (ConstantVal × Nat))}
+  {out : List (ConstantVal × TargetMajor × List Expr)}
+
+/-- **A member class, as the run checked it**: the member's own
+inductive, at the block's levels, over the canonical parameters. -/
+theorem genRec_memberClass
+    (R : GenRecRun μ F (mkFEnv env₁) env₁ (mkFEnv envC) p.toBlockShape nestedBit pos cvTas
+      block ctorsAs out)
+    {c t : Nat} (hm : (R.Ms.getD c default).member = some t) :
+    p.toBlockShape.memberNames.findIdx? (· == (R.Ms.getD c default).ind) = some t ∧
+    (R.Ms.getD c default).lvls = p.lps.map .param ∧
+    (R.Ms.getD c default).ds = R.ctx.params.take p.nP := by
+  by_cases hc : c < R.Ms.length
+  · obtain ⟨hlenN, hallN⟩ := ConLeche.classesNfs_run R.hMs
+    obtain ⟨hlenK, hallK⟩ := ConLeche.classMajors_run R.hMs₀
+    have hc₀ : c < R.Ms₀.length := by omega
+    obtain ⟨nfs, hMc, -⟩ := hallN c _ (List.getElem?_eq_getElem hc₀)
+    have hck : c < (R.rd.classes.map (ConLeche.classKeyCanon R.ctx.params)).length := by
+      omega
+    obtain ⟨M, hM, ⟨CM⟩⟩ := hallK c _ (List.getElem?_eq_getElem hck)
+    rw [List.getElem?_eq_getElem hc₀, Option.some.injEq] at hM
+    have hget : R.Ms.getD c default = { M with nfs := nfs } := by
+      rw [List.getD_eq_getElem?_getD, hMc, hM, Option.getD_some]
+    rw [hget] at hm ⊢
+    have hmaj := CM.major
+    cases hmaj with
+    | member I t' ms ctorsA hfn ht hms hctors hpar nfs' =>
+      simp only [Option.some.injEq] at hm
+      subst hm
+      exact ⟨ht, rfl, rfl⟩
+    | outside => exact nomatch hm
+  · rw [List.getD_eq_getElem?_getD, List.getElem?_eq_none (by omega), Option.getD_none] at hm
+    exact nomatch hm
+
+set_option maxHeartbeats 1600000 in
+/-- **A member-class recursor's parameter domains were compared with its
+member's**: the stored (generated) type of a recursor whose class is the
+member `T_t` infers its major domain `T_t p⃗ ı⃗` — over the prefix's own
+parameter variables — and the application rule compares each variable's
+type, the stored `l`-th prefix domain, with `T_t`'s `l`-th parameter
+domain at the earlier variables; moved to the prefix's depth. -/
+theorem genMemberRec_paramDefeq (hμ : μ.verifiedChecks = true) (hwf : ConLeche.EnvWF envC)
+    (R : GenRecRun μ F (mkFEnv env₁) env₁ (mkFEnv envC) p.toBlockShape nestedBit pos cvTas
+      block ctorsAs out)
+    (hg : ClassGenScoped R.g) {i c : Nat} {rc : RecShape} {cvG : ConstantVal}
+    (hc : R.rd.recCls[i]? = some c)
+    (T : ClassRecTyRun μ F (mkFEnv envC) R.g p.k rc c cvG) (htgt : rc.tgt < p.k) :
+    ∃ I, p.toBlockShape.memberNames.findIdx? (· == I) = some rc.tgt ∧
+      ∀ (cvT : ConstantVal) caps, envC.find? I = some (.indInfo cvT caps) →
+        cvT.levelParams = p.lps → cvT.type.hasFvar = false → SameDoms p.nP cvT.type cvT.type →
+        ∃ (xs : List Expr) (o : Expr) (F' : Nat), openPisAtFvars p.nP cvG.type 0 = some (xs, o) ∧
+          ∀ l, l < p.nP → ∃ D b mb, instPisWith (xs.take l) cvT.type = some (.forallE D b mb) ∧
+            ConLeche.isDefEqCore μ envC F' p.nP ((xs.map Expr.fvarTypeD).getD l default) D
+              = .ok true := by
+  have hcv : ConLeche.checkConstantVal (ConLeche.fueledOps μ F) envC
+      { rc.cvR with type := T.gty.resetMeta } = .ok cvG := by
+    rw [← ConLeche.checkConstantValF_eq]; exact T.hcv
+  obtain ⟨-, -, -, -, -, hfv0, type, stype, u0, hann, -, -, hinf, -, hcvEq⟩ :=
+    ConLeche.checkConstantVal_inv hcv
+  have htype : cvG.type = type := by rw [hcvEq]
+  dsimp only at hann hfv0
+  obtain ⟨ifs, maj, hmaj, hifl, hgty, hcl, hbb⟩ := ConLeche.classGenRecTy_spec hg T.hgty
+  -- the class: a member
+  have hmem : (R.Ms.getD c default).member = some rc.tgt := by
+    have h := T.htgt
+    change rc.tgt = (R.Ms.getD c default).member.getD p.k at h
+    cases hmm : (R.Ms.getD c default).member with
+    | none => rw [hmm] at h; simp at h; omega
+    | some t => rw [hmm] at h; simp at h; rw [h]
+  obtain ⟨hfi, hlv, hds⟩ := genRec_memberClass R hmem
+  obtain ⟨tyI, bodyI, -, -, hmajE⟩ := ConLeche.ClassGen.major_inv hmaj
+  change maj = Expr.mkAppN (.const (R.Ms.getD c default).ind (R.Ms.getD c default).lvls)
+    ((R.Ms.getD c default).ds ++ ifs) at hmajE
+  refine ⟨(R.Ms.getD c default).ind, hfi, ?_⟩
+  intro cvT caps hfind hlps hfvT hsdT
+  generalize hI : (R.Ms.getD c default).ind = I at hfind hmajE
+  rw [hlv, hds] at hmajE
+  -- the canonical parameters
+  have hplen : R.ctx.params.length = p.nP := hg.params_len
+  have hpar : ∀ (j : Nat) (x : Expr), R.ctx.params[j]? = some x →
+      ∃ ty, x = .fvar j ty := fun j x hx => by
+    obtain ⟨ty, h, -⟩ := hg.params j x hx; exact ⟨ty, h⟩
+  rw [List.take_of_length_le (by omega)] at hmajE
+  have hpl : R.pre.length = p.nP + R.rd.slots.length :=
+    (ConLeche.ClassGen.prefixBinders_scoped hg hg.pre).1
+  -- nothing to compare without parameters
+  by_cases hnP : p.nP = 0
+  · refine ⟨[], cvG.type, 0, by rw [hnP]; rfl, fun l hl => absurd hl (by omega)⟩
+  -- the reset telescope, annotated
+  obtain ⟨s, hm⟩ := ConLeche.classRead_recCls_motive R.hrd c (List.mem_of_getElem? hc)
+  have hmv := ConLeche.ClassGen.motVar_eq (g := R.g) hm
+  generalize hnds : R.g.pre ++ ifs.map classBinder ++ [(maj, (default : BinderMeta))] = nds
+    at hgty hcl
+  generalize hB : Expr.mkAppN (R.g.motVar c)
+    (ifs ++ [.fvar (R.g.pre.length + ifs.length) maj]) = B at hgty hbb
+  have hPlain : ConLeche.Expr.Plain B := by
+    rw [← hB, hmv]
+    refine ConLeche.Expr.Plain.mkAppN (by simp [ConLeche.Expr.Plain]) fun a ha => ?_
+    rcases List.mem_append.mp ha with ha | ha
+    · obtain ⟨k, hk, rfl⟩ := List.getElem_of_mem ha
+      obtain ⟨ty, hxe, -⟩ := (ConLeche.ClassGen.major_scoped hg (by
+        have := (ConLeche.ClassGen.prefixBinders_scoped hg hg.pre).1; omega) hmaj).1 k _
+        (List.getElem?_eq_getElem hk)
+      rw [hxe]; trivial
+    · simp only [List.mem_singleton] at ha
+      subst ha; trivial
+  have hreset : T.gty.resetMeta = closeTelescope (nds.map genRm) 0 B.resetMeta := by
+    rw [hgty, ConLeche.resetMeta_closeTelescope]; rfl
+  rw [hreset] at hann hfv0
+  have hclR : ∀ q ∈ nds.map genRm, q.1.looseBVarsBounded 0 = true := by
+    intro q hq
+    obtain ⟨q', hq', rfl⟩ := List.mem_map.mp hq
+    exact looseBVarsBounded_resetMeta _ 0 (hcl q' hq')
+  have hbbR := looseBVarsBounded_resetMeta _ 0 hbb
+  obtain ⟨nds', B', hl', he', hB', hdoms⟩ := ConLeche.annotateCore_closeTelescope (nds.map genRm)
+    hclR hbbR (ConLeche.Expr.Plain.resetMeta hPlain) (Expr.ErasedEq.rfl _) hann
+  have hcl' : ∀ q ∈ nds', q.1.looseBVarsBounded 0 = true := by
+    intro q hq
+    obtain ⟨j, hj, rfl⟩ := List.getElem_of_mem hq
+    obtain ⟨X, F', nd, hnd, hX, hann'⟩ := hdoms j _ (List.getElem?_eq_getElem hj)
+    exact ConLeche.annotateCore_looseBVars F' X hann'
+      (looseBVarsBounded_of_erasedEq hX (hclR nd (List.mem_of_getElem? hnd)))
+  have hB'b : B'.looseBVarsBounded 0 = true := looseBVarsBounded_of_erasedEq hB' hbbR
+  obtain ⟨xs, rest, hop, -, hxs⟩ := open_of_erasedEq_closeTelescope nds' 0 B' type hcl' hB'b he'
+  have hgA := annotate_syntax hann hfv0
+    (ConLeche.closeTelescope_bounded (nds.map genRm) 0 B.resetMeta hclR hbbR)
+  -- the major's position
+  generalize hN : R.g.pre.length + ifs.length = N at hB
+  have hndsLen : nds.length = N + 1 := by
+    rw [← hnds, ← hN]; simp; omega
+  have hlxs : xs.length = N + 1 := by
+    rw [ConLeche.Verify.openPisAtFvars_length _ hop, hl', List.length_map, hndsLen]
+  have hNP : p.nP ≤ N := by
+    have : R.g.pre.length = R.pre.length := rfl
+    omega
+  have hndN : (nds.map genRm)[N]? = some (maj.resetMeta, ⟨.never⟩) := by
+    rw [List.getElem?_map, ← hnds, List.getElem?_append_right (by simp [hN.symm] <;> omega)]
+    simp [← hN, genRm]
+  obtain ⟨xN, hxN⟩ : ∃ x, xs[N]? = some x := ⟨_, List.getElem?_eq_getElem (by omega)⟩
+  obtain ⟨ndN', hndN'⟩ : ∃ nd', nds'[N]? = some nd' :=
+    ⟨_, List.getElem?_eq_getElem (by rw [hl', List.length_map]; omega)⟩
+  obtain ⟨X, F', nd, hnd, hX, hannX⟩ := hdoms N _ hndN'
+  rw [hndN, Option.some.injEq] at hnd
+  subst hnd
+  -- the major domain: `I` applied to the prefix's parameter variables
+  have hmajR : maj.resetMeta = Expr.mkAppN (.const I (p.lps.map .param))
+      ((R.ctx.params ++ ifs).map Expr.resetMeta) := by
+    rw [hmajE, ConLeche.resetMeta_mkAppN]; rfl
+  have hPmaj : ConLeche.Expr.Plain maj.resetMeta := by
+    rw [hmajR]
+    refine ConLeche.Expr.Plain.mkAppN (by simp [ConLeche.Expr.Plain]) fun a ha => ?_
+    obtain ⟨a', ha', rfl⟩ := List.mem_map.mp ha
+    rcases List.mem_append.mp ha' with ha' | ha'
+    · obtain ⟨k, hk, rfl⟩ := List.getElem_of_mem ha'
+      obtain ⟨ty, hxe⟩ := hpar k _ (List.getElem?_eq_getElem hk)
+      rw [hxe]; trivial
+    · obtain ⟨k, hk, rfl⟩ := List.getElem_of_mem ha'
+      obtain ⟨ty, hxe, -⟩ := (ConLeche.ClassGen.major_scoped hg (by
+        have := (ConLeche.ClassGen.prefixBinders_scoped hg hg.pre).1; omega) hmaj).1 k _
+        (List.getElem?_eq_getElem hk)
+      rw [hxe]; trivial
+  obtain rfl : ndN'.1 = X :=
+    ConLeche.annotateCore_plain F' (ConLeche.Expr.Plain.of_erasedEq hX hPmaj) hannX
+  have hMD : Expr.ErasedEq xN.fvarTypeD maj.resetMeta :=
+    Expr.ErasedEq.trans (hxs N xN ndN'.1 hxN (by rw [hndN']; rfl)) hX
+  rw [hmajR] at hMD
+  obtain ⟨f', as', hMDe, hf', has'⟩ := erasedEq_mkAppN_inv _ hMD
+  obtain ⟨-, hargs⟩ := ConLeche.erasedEq_mkAppN_args _ has' (hMDe ▸ hMD)
+  obtain rfl : f' = .const I (p.lps.map .param) := by
+    match f', hf' with
+    | .const n us, hf' => obtain ⟨rfl, rfl⟩ := hf'; rfl
+  have hlas : as'.length = p.nP + ifs.length := by
+    rw [has', List.length_map, List.length_append, hplen]
+  -- the openers' shape
+  have hidx := ConLeche.openPisAtFvars_index _ _ _ hop
+  have hwty : Expr.WScoped 0 type := Expr.WScoped.of_not_hasFvar hgA.1
+  have hxNe : ∃ tN, xN = .fvar N tN := by
+    obtain ⟨tN, h⟩ := hidx N xN hxN; exact ⟨tN, by simpa using h⟩
+  obtain ⟨tN, rfl⟩ := hxNe
+  simp only [Expr.fvarTypeD] at hMDe
+  -- the parameter arguments ARE the openers
+  have hargEq : ∀ j, j < p.nP → as'[j]? = xs[j]? := by
+    intro j hj
+    obtain ⟨x', hx'⟩ : ∃ x', as'[j]? = some x' := ⟨_, List.getElem?_eq_getElem (by omega)⟩
+    obtain ⟨pj, hpj⟩ : ∃ x, R.ctx.params[j]? = some x :=
+      ⟨_, List.getElem?_eq_getElem (by omega)⟩
+    obtain ⟨tyj, rfl⟩ := hpar j _ hpj
+    have he := hargs j _ x' (by
+      rw [List.getElem?_map, List.getElem?_append_left (by omega), hpj]; rfl) hx'
+    obtain ⟨T', rfl⟩ : ∃ T', x' = .fvar j T' := by
+      match x', he with
+      | .fvar j' T', he => exact ⟨T', by rw [show j' = j from he]⟩
+    have hleaf : (j, T') ∈ (Expr.fvar N (Expr.mkAppN (.const I (p.lps.map .param)) as')).fvarLeaves := by
+      simp only [Expr.fvarLeaves]
+      exact List.mem_cons_of_mem _ (fvarLeaves_mkAppN_arg as' (List.mem_of_getElem? hx')
+        (by simp [Expr.fvarLeaves]))
+    rw [← hMDe] at hleaf
+    rcases ConLeche.Verify.openPisAtFvars_leaves _ hop _
+        (Or.inr ⟨_, List.mem_of_getElem? hxN, hleaf⟩) with hl | hl
+    · rw [Expr.fvarLeaves_eq_nil_of_not_hasFvar hgA.1] at hl; exact nomatch hl
+    obtain ⟨q, hq⟩ := List.getElem?_of_mem hl
+    obtain ⟨ty, hty⟩ := hidx q _ hq
+    simp only [Expr.fvar.injEq, Nat.zero_add] at hty
+    obtain ⟨rfl, rfl⟩ := hty
+    rw [hx', hq]
+  -- the inference, down to the major domain
+  rw [hl', List.length_map, hndsLen] at hop
+  obtain ⟨xsN, xs1, o, hopN, hop1, hxsplit⟩ := openPisAtFvars_split N (m := 1) hop
+  have hlxsN : xsN.length = N := ConLeche.Verify.openPisAtFvars_length _ hopN
+  obtain ⟨dom, bo, mbo, rfl⟩ : ∃ dom bo mbo, o = .forallE dom bo mbo := by
+    cases o <;> first | exact ⟨_, _, _, rfl⟩ | simp [openPisAtFvars] at hop1
+  simp only [openPisAtFvars, Option.some.injEq, Prod.mk.injEq] at hop1
+  obtain ⟨rfl, -⟩ := hop1
+  have hdom : dom = tN := by
+    rw [hxsplit, List.getElem?_append_right (by omega), hlxsN, Nat.sub_self] at hxN
+    simp only [Nat.zero_add, List.getElem?_cons_zero, Option.some.injEq, Expr.fvar.injEq] at hxN
+    exact hxN.2
+  subst hdom
+  obtain ⟨N₁, rfl⟩ : ∃ N₁, N = N₁ + 1 := ⟨N - 1, by omega⟩
+  obtain ⟨bt, u, hbt, -⟩ := inferTypeCore_openPis_body hμ N₁ hopN hinf
+  rw [Nat.zero_add] at hbt
+  obtain ⟨F₀, tty, rfl, htty⟩ := ConLeche.inferTypeCore_forallE_dom hbt
+  rw [hMDe] at htty
+  obtain ⟨tf, hconst⟩ := inferTypeCore_mkAppN_fn_inv as' htty
+  have htf : tf = cvT.type := by
+    obtain ⟨ci, hci, -, rfl⟩ := ConLeche.inferTypeCore_const_inv hconst
+    rw [hfind, Option.some.injEq] at hci
+    subst hci
+    change cvT.type.instantiateLevelParams cvT.levelParams (p.lps.map .param) = cvT.type
+    rw [hlps]
+    exact ConLeche.Expr.instantiateLevelParams_self _ _
+  subst htf
+  obtain ⟨o', hopP⟩ := ConLeche.openPisAtFvars_prefix p.nP (N₁ + 1 + 1) type 0 (by omega) hop
+  refine ⟨xs.take p.nP, o', F₀, by rw [htype]; exact hopP, fun l hl => ?_⟩
+  obtain ⟨D, b, mb, ta, hinst, hta, hde⟩ := ConLeche.inferTypeCore_spine_defeq as'
+    (m := p.nP) (by omega) hsdT hconst htty l hl
+  -- the argument: the `l`-th opener
+  obtain ⟨xl, hxl⟩ : ∃ x, xs[l]? = some x := ⟨_, List.getElem?_eq_getElem (by omega)⟩
+  obtain ⟨Al, hAl⟩ := hidx l xl hxl
+  rw [Nat.zero_add] at hAl
+  subst hAl
+  have hasl : as'.getD l default = .fvar l Al := by
+    rw [List.getD_eq_getElem?_getD, hargEq l hl, hxl, Option.getD_some]
+  rw [hasl] at hta
+  obtain ⟨F₁, rfl⟩ : ∃ F₁, F₀ = F₁ + 1 := ⟨F₀ - 1, by have := inferTypeCore_pos hta; omega⟩
+  obtain ⟨-, htaA⟩ := ConLeche.Rules.inferTypeCore_fvar_inv hta
+  rw [htaA] at hde
+  have htake : as'.take l = xs.take l := by
+    apply List.ext_getElem?
+    intro j
+    by_cases hj : j < l
+    · rw [List.getElem?_take, List.getElem?_take, if_pos hj, if_pos hj, hargEq j (by omega)]
+    · rw [List.getElem?_take, List.getElem?_take, if_neg hj, if_neg hj]
+  rw [htake] at hinst
+  refine ⟨D, b, mb, by rw [List.take_take, Nat.min_eq_left (by omega)]; exact hinst, ?_⟩
+  have hgetA : ((xs.take p.nP).map Expr.fvarTypeD).getD l default = Al := by
+    rw [List.getD_eq_getElem?_getD, List.getElem?_map, List.getElem?_take, if_pos hl, hxl]
+    rfl
+  rw [hgetA]
+  -- the scopes, and the move to the prefix's depth
+  have hwA : Expr.WScoped l Al := by
+    have := openPisAtFvars_typeWScoped (N₁ + 1 + 1) hop hwty l _ hxl
+    simpa [Expr.fvarTypeD] using this
+  have hwArgs : ∀ a ∈ xs.take l, Expr.WScoped l a := by
+    intro a ha
+    obtain ⟨j, hj, rfl⟩ := List.getElem_of_mem ha
+    have hjl : j < l := by rw [List.length_take] at hj; omega
+    have hxj : xs[j]? = some (xs.take l)[j] := by
+      rw [← List.getElem?_eq_getElem hj, List.getElem?_take, if_pos hjl]
+    obtain ⟨Aj, hAj⟩ := hidx j _ hxj
+    rw [hAj, Nat.zero_add]
+    have := openPisAtFvars_typeWScoped (N₁ + 1 + 1) hop hwty j _ hxj
+    rw [hAj] at this
+    simp only [Expr.WScoped]
+    exact ⟨hjl, by simpa [Expr.fvarTypeD] using this⟩
+  have hwD : Expr.WScoped l D := by
+    have h := ConLeche.wscoped_instPisWith hwArgs (Expr.WScoped.of_not_hasFvar hfvT) hinst
+    simp only [Expr.WScoped] at h
+    exact h.1
+  rw [← ConLeche.isDefEqCore_depth_inv hwf (F₁ + 1) (d₁ := N₁ + 1) (d₂ := p.nP)
+    (Expr.WScoped.to_wscopedB (hwA.mono (by omega)))
+    (Expr.WScoped.to_wscopedB (hwD.mono (by omega)))
+    (Expr.WScoped.to_wscopedB (hwA.mono (by omega)))
+    (Expr.WScoped.to_wscopedB (hwD.mono (by omega)))]
+  exact hde
+
+end GenRun
+
+end ConLeche.Model
