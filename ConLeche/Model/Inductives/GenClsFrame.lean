@@ -3,6 +3,9 @@ module
 public import ConLeche.Model.Inductives.GenClsRows
 import ConLeche.Model.Inductives.GenClsMinor
 import ConLeche.Model.Inductives.GenRecRules
+import ConLeche.Model.Inductives.NestedRecRest
+import ConLeche.Model.Inductives.TargetResidue
+import ConLeche.Model.Annot.LpDefF
 import ConLeche.Model.Inductives.GenRecPins
 import ConLeche.Model.Inductives.ClassGenRead
 import ConLeche.Model.Inductives.NestPosOut
@@ -474,7 +477,10 @@ theorem genMinorOpen (hμ : μ.verifiedChecks = true)
       (∃ t, ConLeche.inferTypeCore μ envC F (R.g.pre.length + x.nF + ihs.length) rest = .ok t) ∧
       Expr.WScoped (R.g.pre.length + x.nF + ihs.length) rest ∧ rest.looseBVarsBounded 0 = true ∧
       (∀ l, (l ∈ rest.fvarLeaves ∨ ∃ y ∈ xs', l ∈ y.fvarLeaves) →
-        Expr.fvar l.1 l.2 ∈ fvs1.take R.g.pre.length ++ xs') := by
+        Expr.fvar l.1 l.2 ∈ fvs1.take R.g.pre.length ++ xs') ∧
+      (∃ y, fvs1[R.g.nP + s]? = some y ∧
+        ConLeche.openPisAtFvars (x.nF + ihs.length) (Expr.fvarTypeD y) R.g.pre.length
+          = some (xs', rest)) := by
   obtain ⟨cls, s, x, T, res, ws, ihs, hgc, hgx, hms, hxmem, hMaj, ⟨ihs0, hsS⟩, hpreT, hTs, hrP,
     hopR, hCB, hnF, hcv, hwsR, hihl, hih, ⟨sc, hmc, hscl⟩, hTE⟩ := genMinorSetup R hg h hfind hc hj
   have hr : (tgtRs out)[c]? = some ((tgtRs out)[c]'hc) := List.getElem?_eq_getElem hc
@@ -632,7 +638,7 @@ theorem genMinorOpen (hμ : μ.verifiedChecks = true)
     hopR, hCB, hnF, hcv, hwsR, hihl, hih, ⟨sc, hmc, hscl⟩, hop1, by rw [← hrP]; exact hle, hlenF,
     hshF, fun z hz => ⟨by simpa using hwsF z hz, hbF z hz⟩, hPd, hxl', hshX,
     fun z hz => ⟨by rw [Nat.add_assoc]; exact hwsX' z hz, hbX' z hz⟩, ?_, ?_, hrest, hbbS, hinfX,
-    hinfR, by rw [Nat.add_assoc]; exact hwsR', hbR', hleafs⟩
+    hinfR, by rw [Nat.add_assoc]; exact hwsR', hbR', hleafs, y, hy, hop'⟩
   · intro k z hk hz
     have hkf : k < (tgtFieldFvs pp.toBlockShape out c j).length := by rw [hfl]; exact hk
     have := hdoms' k z _ hz (by
@@ -828,7 +834,7 @@ theorem genArgs_graded (hμ : μ.verifiedChecks = true)
     WellDenotedV V (consList ys ρ) (tgtMkAV pp.toBlockShape out mpC.base2.acval envC ψ c j) := by
   obtain ⟨cls, s, x, res, ws, ihs, fvs1, o1, xs', rest, hgc, hgx, hms, hxmem, hMaj, hrP, hmp,
     hopR, hCB, hnF, hcv, hwsR, hihl, hih, -, hop1, hle, hlenF, hshF, hwbF, hPd, hxl', hshX,
-    hwbX, hdF, -, hrest, hbbS, hinfX, ⟨tR, hinfR⟩, hwsRest, hbRest, hleafs⟩ :=
+    hwbX, hdF, -, hrest, hbbS, hinfX, ⟨tR, hinfR⟩, hwsRest, hbRest, hleafs, -⟩ :=
     genMinorOpen hμ R hg h mpC hfind ψ hc hj
   have G := genFieldFrame hμ R hg h mpC hfind ψ hc hj hrP hopR hle hlenF hshF hwbF hPd hxl' hshX
     hwbX hdF hinfX hleafs
@@ -958,7 +964,7 @@ theorem genIhFrame (hμ : μ.verifiedChecks = true)
             (q.2.2.1 ++ [q.2.2.2]))) := by
   obtain ⟨cls, s, x, res, ws, ihs, fvs1, o1, xs', rest, hgc, hgx, hms, hxmem, hMaj, hrP, hmp,
     hopR, hCB, hnF, hcv, hwsR, hihl, hih, -, hop1, hle, hlenF, hshF, hwbF, hPd, hxl', hshX,
-    hwbX, hdF, hdIh, hrest, hbbS, hinfX, -, hwsRest, hbRest, hleafs⟩ :=
+    hwbX, hdF, hdIh, hrest, hbbS, hinfX, -, hwsRest, hbRest, hleafs, -⟩ :=
     genMinorOpen hμ R hg h mpC hfind ψ hc hj
   have G := genFieldFrame hμ R hg h mpC hfind ψ hc hj hrP hopR hle hlenF hshF hwbF hPd hxl' hshX
     hwbX hdF hinfX hleafs
@@ -1167,6 +1173,132 @@ theorem genIhPiecesValid_run (hμ : μ.verifiedChecks = true)
   · have := hA e he ρ (ys ++ bs) (SpineFit.append hys hbs)
     rw [consList_append] at this
     exact this.2
+
+omit [SetTheory V] in
+/-- The level footprint does not see the variables' annotations. -/
+theorem lpDefF_of_erasedEq {ps : List Name} :
+    ∀ (a : Expr) {b : Expr}, Expr.ErasedEq a b → lpDefF ps b = true → lpDefF ps a = true := by
+  intro a
+  induction a with
+  | bvar i => intro b _ _; rfl
+  | fvar i ty => intro b _ _; rfl
+  | sort u =>
+    intro b h hb
+    match b, h with
+    | .sort v, h => subst h; exact hb
+  | const n us =>
+    intro b h hb
+    match b, h with
+    | .const n' us', h => obtain ⟨-, rfl⟩ := h; exact hb
+  | app f a ihf iha =>
+    intro b h hb
+    match b, h with
+    | .app g c, h =>
+      simp only [lpDefF, Bool.and_eq_true] at hb ⊢
+      exact ⟨ihf h.1 hb.1, iha h.2 hb.2⟩
+  | lam t bd m iht ihb =>
+    intro b h hb
+    match b, h with
+    | .lam t' bd' m', h =>
+      obtain ⟨rfl, h1, h2⟩ := h
+      simp only [lpDefF, Bool.and_eq_true] at hb ⊢
+      exact ⟨⟨iht h1 hb.1.1, ihb h2 hb.1.2⟩, hb.2⟩
+  | forallE t bd m iht ihb =>
+    intro b h hb
+    match b, h with
+    | .forallE t' bd' m', h =>
+      obtain ⟨rfl, h1, h2⟩ := h
+      simp only [lpDefF, Bool.and_eq_true] at hb ⊢
+      exact ⟨⟨iht h1 hb.1.1, ihb h2 hb.1.2⟩, hb.2⟩
+  | letE t v bd iht ihv ihb =>
+    intro b h hb
+    match b, h with
+    | .letE t' v' bd', h =>
+      simp only [lpDefF, Bool.and_eq_true] at hb ⊢
+      exact ⟨⟨iht h.1 hb.1.1, ihv h.2.1 hb.1.2⟩, ihb h.2.2 hb.2⟩
+  | lit l => intro b _ _; rfl
+  | proj s i e ih =>
+    intro b h hb
+    match b, h with
+    | .proj s' i' e', h =>
+      simp only [lpDefF] at hb ⊢
+      exact ih h.2.2 hb
+
+set_option maxHeartbeats 8000000 in
+/-- **The rule frame's field domains, index expressions and fired spine
+name only the recursor's level parameters** (lane C's `hrowP`): they are
+erasure-equal to pieces of the stored recursor type, which is checked to
+name only its own level parameters. -/
+theorem genRowParams (hμ : μ.verifiedChecks = true)
+    (R : GenRecRun μ F (mkFEnv env₁) env₁ (mkFEnv envC) pp.toBlockShape nestedBit pos cvTas
+      block ctorsAs out) (hg : ClassGenScoped R.g) {memR : Nat → Prop}
+    (h : ConLeche.RecStageG μ F envC pp cvTas ctorsAs (tgtRs out) memR) (mpC : EnvModelM V μ envC)
+    (hfind : ∀ (j : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
+      (tgtRs out)[j]? = some r → ∀ (i : Nat) (cA : ConstantVal × Nat), r.2.2.2[i]? = some cA →
+        envC.find? cA.1.name = some (.ctorInfo cA.1 (ConLeche.tgtMajorsOf out j).nPc cA.2)) :
+    ∀ (j : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
+      (tgtRs out)[j]? = some r → ∀ (i : Nat) (cA : ConstantVal × Nat) (rhs : Expr),
+      r.2.2.2[i]? = some cA → r.2.1[i]? = some rhs → ∀ (ψ₁ ψ₂ : Name → Nat),
+      (∀ q ∈ r.1.levelParams, ψ₁ q = ψ₂ q) →
+        tgtFdomsAV pp.toBlockShape out mpC.base2.acval envC ψ₁ j i
+            = tgtFdomsAV pp.toBlockShape out mpC.base2.acval envC ψ₂ j i ∧
+          tgtEsAV pp.toBlockShape out mpC.base2.acval envC ψ₁ j i
+            = tgtEsAV pp.toBlockShape out mpC.base2.acval envC ψ₂ j i ∧
+          tgtMkAV pp.toBlockShape out mpC.base2.acval envC ψ₁ j i
+            = tgtMkAV pp.toBlockShape out mpC.base2.acval envC ψ₂ j i := by
+  intro c r hr j cA rhs hcA _ ψ₁ ψ₂ hq
+  have hc : c < (tgtRs out).length := (List.getElem?_eq_some_iff.mp hr).1
+  have hj : j < blockRecNCt (tgtRs out) c :=
+    Nat.lt_of_lt_of_le (List.getElem?_eq_some_iff.mp hcA).1 (blockRecNCt_ge hr)
+  obtain ⟨cls, s, x, res, ws, ihs, fvs1, o1, xs', rest, hgc, hgx, hms, hxmem, hMaj, hrP, hmp,
+    hopR, hCB, hnF, hcv, hwsR, hihl, hih, -, hop1, hle, hlenF, hshF, hwbF, hPd, hxl', hshX,
+    hwbX, hdF, -, hrest, hbbS, hinfX, -, hwsRest, hbRest, hleafs, y, hy, hopY⟩ :=
+    genMinorOpen hμ R hg h mpC hfind ψ₁ hc hj
+  have hrE : (tgtRs out)[c]'hc = r := Option.some.inj ((List.getElem?_eq_getElem hc).symm.trans hr)
+  -- the stored type's footprint
+  obtain ⟨_, _, -, ⟨TE⟩⟩ := ConLeche.recStageG_tyGen h hr
+  have hlpT : lpDefF r.1.levelParams r.1.type = true :=
+    lpDefF_of_allLevelParamsDefined _ TE.hcv.lpsDef
+  rw [hrE] at hop1
+  obtain ⟨hlpF, -⟩ := lpDefF_openPisAtFvars _ _ _ hop1 hlpT
+  obtain ⟨hlpX, hlpR⟩ := lpDefF_openPisAtFvars _ _ _ hopY (hlpF y (List.mem_of_getElem? hy))
+  have hfl : (tgtFieldFvs pp.toBlockShape out c j).length = x.nF :=
+    ConLeche.Verify.openPisAtFvars_length _ hopR
+  -- the fields
+  have hlpFld : ∀ z ∈ tgtFieldFvs pp.toBlockShape out c j, lpDefF r.1.levelParams z.fvarTypeD = true := by
+    intro z hz
+    obtain ⟨k, hk, rfl⟩ := List.getElem_of_mem hz
+    obtain ⟨y', hy'⟩ : ∃ y', xs'[k]? = some y' :=
+      ⟨_, List.getElem?_eq_getElem (by rw [hxl']; rw [hfl] at hk; omega)⟩
+    have hE := hdF k y' (by rw [hfl] at hk; exact hk) hy'
+    rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hk, Option.getD_some] at hE
+    exact lpDefF_of_erasedEq _ (Expr.ErasedEq.symm hE) (hlpX y' (List.mem_of_getElem? hy'))
+  -- the conclusion's arguments
+  obtain ⟨f', as', hrE', -, hasl⟩ := erasedEq_mkAppN_inv _ hrest
+  rw [hrE'] at hrest hlpR
+  obtain ⟨-, hargE⟩ := ConLeche.erasedEq_mkAppN_args _ hasl hrest
+  have hlpA := (lpDefF_mkAppN_args as' hlpR).2
+  have hlpArg : ∀ (m : Nat) (e : Expr), (res.getAppArgs.drop (R.g.cls.getD cls default).nPc ++
+      [Expr.mkAppN (.const x.cv.name (R.g.cls.getD cls default).lvls)
+        ((R.g.cls.getD cls default).ds ++ tgtFieldFvs pp.toBlockShape out c j)])[m]? = some e →
+      lpDefF r.1.levelParams e = true := by
+    intro m e he
+    obtain ⟨a, ha⟩ : ∃ a, as'[m]? = some a :=
+      ⟨_, List.getElem?_eq_getElem (by rw [hasl]; exact (List.getElem?_eq_some_iff.mp he).1)⟩
+    exact lpDefF_of_erasedEq _ (Expr.ErasedEq.symm (hargE m e a he ha))
+      (hlpA a (List.mem_of_getElem? ha))
+  have hnpc : (tgtMajor out c).nPc = (R.g.cls.getD cls default).nPc := by rw [hMaj]
+  refine ⟨?_, ?_, ?_⟩
+  · rw [tgtFdomsAV, tgtFdomsAV]
+    exact readOpenedDoms_params mpC.base2 hq _ _ hlpFld
+  · rw [tgtEsAV, tgtEsAV, hCB, hnpc]
+    refine List.map_congr_left fun e he => ?_
+    obtain ⟨m, hm⟩ := List.getElem?_of_mem he
+    rw [denoteMeta_params_extF mpC.base2 hq _ _ (hlpArg m e (by
+      rw [List.getElem?_append_left (List.getElem?_eq_some_iff.mp hm).1]; exact hm))]
+  · rw [tgtMkAV, tgtMkAV, show (tgtCtorOf out c j).1.name = x.cv.name by rw [hcv], hMaj]
+    rw [denoteMeta_params_extF mpC.base2 hq _ _ (hlpArg _ _ (by
+      rw [List.getElem?_append_right (Nat.le_refl _), Nat.sub_self]; rfl))]
 
 end Open
 

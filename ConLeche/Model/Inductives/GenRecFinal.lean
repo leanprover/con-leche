@@ -163,7 +163,8 @@ theorem genRecStage (hμ : μ.verifiedChecks = true) {F : Nat}
           tgtEsAV pp.toBlockShape out mpC.base2.acval envC ψ₁ j i
             = tgtEsAV pp.toBlockShape out mpC.base2.acval envC ψ₂ j i ∧
           tgtMkAV pp.toBlockShape out mpC.base2.acval envC ψ₁ j i
-            = tgtMkAV pp.toBlockShape out mpC.base2.acval envC ψ₂ j i := sorry
+            = tgtMkAV pp.toBlockShape out mpC.base2.acval envC ψ₂ j i :=
+    genRowParams hμ R hg h mpC hfind
   have hrow3 : ∀ (φ : Name → Nat) (j : Nat)
       (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
       (tgtRs out)[j]? = some r → ∀ (i : Nat) (cA : ConstantVal × Nat) (rhs : Expr),
