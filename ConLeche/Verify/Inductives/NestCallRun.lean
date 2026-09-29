@@ -2,7 +2,6 @@ module
 
 public import ConLeche.Verify.Inductives.RecCheckRun
 import ConLeche.Verify.ExceptBind
-import ConLeche.Verify.Inductives.PositivityInv
 
 public section
 

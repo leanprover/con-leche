@@ -565,10 +565,11 @@ Inductive blocks are not trusted from the stream. Three cases:
   checks every type former, then the constructors against the whole
   member list, stores each constructor as declared, and runs one
   positivity function on them — official's walk, weak head normal
-  form before classifying and again under each Π binder
-  ([function `nestMemberCtors` in `ConLeche/Kernel/Inductives/Positivity.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/Positivity.lean#L1555)) —
+  form before classifying and again under each Π binder, the block
+  itself its root frame, walked like any container's
+  ([function `nestRoot` in `ConLeche/Kernel/Inductives/Positivity.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/Positivity.lean#L1586)) —
   whose normal forms are the fields the model reads
-  ([function `checkBlockPositivity` in `ConLeche/Kernel/Inductives/BlockInstall.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/BlockInstall.lean#L284)),
+  ([function `checkBlockPositivity` in `ConLeche/Kernel/Inductives/BlockInstall.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/BlockInstall.lean#L279)),
   and runs official's checks — universe bound, elimination restriction
   and index occurrence. The recursors are then CHECKED, not generated,
   and without classifying any field: their names and level parameters
@@ -585,7 +586,7 @@ Inductive blocks are not trusted from the stream. Three cases:
   equivalent levels, definitionally equal parameters (official, which
   generates the recursors from the normal forms, identifies classes
   syntactically, a finer identification)
-  ([function `targetRecCheck` in `ConLeche/Kernel/Inductives/RecCheck.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/RecCheck.lean#L1296-L1320)).
+  ([function `targetRecCheck` in `ConLeche/Kernel/Inductives/RecCheck.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/RecCheck.lean#L1295-L1319)).
   Soundness rests on that check alone. For a block with one member
   the checker additionally generates official's recursor and rejects a
   record that is not it — a reject-only conformance check, with no role
@@ -620,7 +621,7 @@ Inductive blocks are not trusted from the stream. Three cases:
   a field `List T` it walks `List`'s own constructors with `T` in place
   of the parameter, after weak head normal form, and records the
   instantiation
-  ([function `nestContNew` in `ConLeche/Kernel/Inductives/Positivity.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/Positivity.lean#L1328-L1330)).
+  ([function `nestContNew` in `ConLeche/Kernel/Inductives/Positivity.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/Positivity.lean#L1372-L1374)).
   Nothing is stated or cached about a container in its parameter, and
   no auxiliary block is built: official's nested-to-mutual encoding is
   not mirrored. The stream's auxiliary recursors (`T.rec_1`, …) name the
@@ -636,7 +637,7 @@ Inductive blocks are not trusted from the stream. Three cases:
   their outside majors.
   Their rules fire at the major's instantiation, read off the recursor
   type
-  ([function `tgtStoredRules` in the same file](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/RecCheck.lean#L1249-L1250)).
+  ([function `tgtStoredRules` in the same file](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/RecCheck.lean#L1248-L1249)).
   In the model a nested block is still the least fixed point of its
   constructor types with holes at its members; a container field reads
   the container's own least fixed point at the holes' values, and the
@@ -684,25 +685,21 @@ checkBlock(env, block):          -- block = formers, constructors, recursors fro
   field sorts ≤ s; at a Prop block with a large eliminator: every field a proof
     or one of the result's index expressions (the subsingleton criterion)
 
-  -- 3. positivity check (at env1), on the constructors with T_j ↦ hole X_j
-  for each constructor: for each field f:  POS(f, frames = [])
-  then on the constructor's normal form (the fields as POS returned them):
-    no later field and not the result reads a recursive or nested field
-    the result's indices are hole-free
+  -- 3. positivity check (at env1): the block is the ROOT frame
+  CTORS(the block's constructors, key (T⃗, the block's levels, p⃗), holes X⃗)
+  then the root's own lines, per constructor, on its normal form:
     every hole occurs applied to exactly p⃗; no member constant is left
-  [proof] the hole-abstracted constructor type-checks with the holes in context,
-          and (at a Type block) its normal form's field sorts are ≤ s there
-  record every constructor's normal form (holes read back as constants)
-                                                   [a table local to the install]
+  [proof] (at a Type block) its normal form's field sorts are ≤ s at the holes
 
 POS(e, frames):
   w := whnf e
   if w mentions no member and no hole          → ordinary field
   if w = Π a. b                                → reject if a mentions a member or hole,
                                                  else POS(b, frames)
-  if w = X_j p⃗ idx, idx hole-free              → recursive field
-  if w = Y D⃗ idx, Y a frame's hole, D⃗ its key's parameters, idx hole-free, fully applied
-                                               → a field of the container in progress
+  if w = H D⃗ idx, H a hole — the root frame's (a member X_j, D⃗ = p⃗) or a
+       container frame's (Y) — D⃗ its key's parameters, idx hole-free, fully applied
+                                               → a recursive field (X_j) or a field of
+                                                 the container in progress (Y)
   if w = C us Ds idx, C a stored inductive (not a member, not Quot):
        Ds free of local variables; idx hole-free; fully applied
        C's level count right; C's index telescope at Ds mentions no member or hole;
@@ -718,13 +715,20 @@ CONT(C, us, Ds, frames):
   group := C's whole mutual block, each member C_j ↦ a fresh frame hole Y_j
            (each C_j's former checked at Ds as above)
   C us Ds type-checks
-  for each constructor of the group:
-      instantiate its stored type at us and Ds, group ↦ Y (no β-step); type-check it
-      for each field: POS(field, Y :: frames)
+  CTORS(the group's constructors, key, holes Y⃗)
+  cache the group's keys if Ds mention no frame hole
+
+CTORS(constructors, key, holes):    -- the one constructor loop: the root's, every frame's
+  for each constructor:
+      instantiate its stored type at the key's levels and parameters, the group ↦ its
+        holes (no β-step); type-check it
+        [proof, at the root] the member-abstracted constructor typed with the holes
+        in context (official types the declared one, step 2)
+      for each field: POS(field, frames)
       no later field and not the result reads a non-ordinary field
       the result is headed by a hole; its indices are hole-free
       record its normal form at the key (holes read back as constants)
-  cache the group's keys if Ds mention no frame hole
+                                                   [a table local to the install]
 
   -- 4. tail
   a large eliminator on a block that may be a Prop needs one member with at most one
@@ -773,17 +777,19 @@ CONT(C, us, Ds, frames):
 The entry is
 [function `checkBlock` in `ConLeche/Kernel/Inductives/BlockTail.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/BlockTail.lean#L121);
 steps 1–3 are
-[function `checkBlockPass` in `ConLeche/Kernel/Inductives/BlockInstall.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/BlockInstall.lean#L322),
+[function `checkBlockPass` in `ConLeche/Kernel/Inductives/BlockInstall.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/BlockInstall.lean#L318),
 the constructor check of step 2 is
 [function `checkSumCtor` in `ConLeche/Kernel/Inductives/SumInstall.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/SumInstall.lean#L114),
 `POS` is
-[function `nestPos` in `ConLeche/Kernel/Inductives/Positivity.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/Positivity.lean#L1417),
-its checks per member constructor are
-[function `nestMemberCtor` in the same file](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/Positivity.lean#L1484),
+[function `nestPos` in `ConLeche/Kernel/Inductives/Positivity.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/Positivity.lean#L1461),
+its hole's entry (the root frame's, then the frames')
+[function `nestHoleAt` in the same file](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/Positivity.lean#L946),
 `CONT` is
-[function `nestContKey`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/Positivity.lean#L1360)
-with the frame's constructors in
-[function `nestCtors`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/Positivity.lean#L1179),
+[function `nestContKey`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/Positivity.lean#L1404),
+`CTORS` is
+[function `nestCtors`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/Positivity.lean#L1222),
+and the root's own lines
+[function `nestRootLines`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/Positivity.lean#L1605),
 step 4 is
 [function `checkBlockTail` in `BlockTail.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/BlockTail.lean#L97),
 and step 5 is `targetRecCheck` (above), with one recursor's type in

@@ -20,7 +20,6 @@ import ConLeche.Verify.Inductives.NestContInv
 import ConLeche.Model.Inductives.TargetNodeCover
 import ConLeche.Model.Inductives.PosDerivMono
 import ConLeche.Model.Inductives.BlockDeclRun
-import ConLeche.Verify.EnvBound
 import ConLeche.Model.Inductives.TargetCallAdm
 import ConLeche.Model.Inductives.TargetCallData
 import ConLeche.Model.Inductives.TargetCallEntry

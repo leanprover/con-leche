@@ -14,7 +14,6 @@ import ConLeche.Verify.Denote.IndFrame
 import ConLeche.Semantics.Tower.FixTower
 import ConLeche.Model.Annot.BitRename
 import ConLeche.Verify.BridgeWfImp
-import ConLeche.Verify.Inductives.NestScope
 import ConLeche.Model.Inductives.PosFieldLeaf
 
 public section

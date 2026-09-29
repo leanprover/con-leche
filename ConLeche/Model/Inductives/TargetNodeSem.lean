@@ -4,7 +4,6 @@ public import ConLeche.Model.Inductives.TargetNodeCover
 public import ConLeche.Model.Inductives.PosDerivNodes
 import ConLeche.Model.Annot.BitRename
 import ConLeche.Model.Inductives.ContFrame
-import ConLeche.Verify.Inductives.NestScope
 import ConLeche.Model.Rules.Inputs
 import ConLeche.Model.Inductives.PosDerivTie
 import ConLeche.Model.Inductives.LfpCover
