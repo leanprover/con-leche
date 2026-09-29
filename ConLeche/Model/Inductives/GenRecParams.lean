@@ -503,6 +503,90 @@ theorem genRec_memberRec_exists
   obtain ⟨i, hi, rfl⟩ := List.getElem_of_mem hrc.1
   exact ⟨i, _, List.getElem?_eq_getElem hi, by simpa using hrc.2⟩
 
+/-- **A former's domain at another opening's variables**: `T`'s `l`-th
+parameter domain, instantiated at the first `l` variables of an opening
+of a closed type, is scoped at `l`, bvar-closed, has only that
+opening's variables as leaves, and is (up to erasure) the domain `T`'s
+OWN opening binds. -/
+theorem instDom_facts {tyA cvT : Expr} {n l : Nat} {xs tfvs : List Expr} {oA oT : Expr}
+    {D b : Expr} {mb : BinderMeta}
+    (hopA : openPisAtFvars n tyA 0 = some (xs, oA)) (hwA : Expr.WScoped 0 tyA)
+    (hopT : openPisAtFvars n cvT 0 = some (tfvs, oT)) (hfvT : cvT.hasFvar = false)
+    (hbT : cvT.looseBVarsBounded 0 = true) (hl : l < n)
+    (hinst : instPisWith (xs.take l) cvT = some (.forallE D b mb)) :
+    Expr.WScoped l D ∧ D.looseBVarsBounded 0 = true ∧
+      (∀ lf ∈ D.fvarLeaves, Expr.fvar lf.1 lf.2 ∈ xs) ∧
+      ∃ x, tfvs[l]? = some x ∧ Expr.ErasedEq x.fvarTypeD D := by
+  have hidx := ConLeche.openPisAtFvars_index _ _ _ hopA
+  have hlx : xs.length = n := ConLeche.Verify.openPisAtFvars_length _ hopA
+  have hlt : tfvs.length = n := ConLeche.Verify.openPisAtFvars_length _ hopT
+  -- the arguments: the opening's variables below `l`
+  have hargs : ∀ a ∈ xs.take l, ∃ j Aj, j < l ∧ xs[j]? = some a ∧ a = .fvar j Aj := by
+    intro a ha
+    obtain ⟨j, hj, rfl⟩ := List.getElem_of_mem ha
+    have hjl : j < l := by rw [List.length_take] at hj; omega
+    have hxj : xs[j]? = some (xs.take l)[j] := by
+      rw [← List.getElem?_eq_getElem hj, List.getElem?_take, if_pos hjl]
+    obtain ⟨Aj, hAj⟩ := hidx j _ hxj
+    exact ⟨j, Aj, hjl, hxj, by rw [hAj, Nat.zero_add]⟩
+  have hwArgs : ∀ a ∈ xs.take l, Expr.WScoped l a := by
+    intro a ha
+    obtain ⟨j, Aj, hjl, hxj, rfl⟩ := hargs a ha
+    have := openPisAtFvars_typeWScoped n hopA hwA j _ hxj
+    simp only [Expr.WScoped]
+    exact ⟨hjl, by simpa [Expr.fvarTypeD] using this⟩
+  refine ⟨?_, ?_, ?_, ?_⟩
+  · have h := ConLeche.wscoped_instPisWith hwArgs (Expr.WScoped.of_not_hasFvar hfvT) hinst
+    simp only [Expr.WScoped] at h
+    exact h.1
+  · have h := ConLeche.looseBVarsBounded_instPisWith (fun a ha => by
+      obtain ⟨j, Aj, -, -, rfl⟩ := hargs a ha; rfl) hbT hinst
+    simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at h
+    exact h.1
+  · intro lf hlf
+    have hlf' : lf ∈ (Expr.forallE D b mb).fvarLeaves := by
+      simp only [Expr.fvarLeaves, List.mem_append]; exact Or.inl hlf
+    rcases ConLeche.fvarLeaves_instPisWith hinst lf hlf' with h | ⟨a, ha, h⟩
+    · rw [Expr.fvarLeaves_eq_nil_of_not_hasFvar hfvT] at h; exact nomatch h
+    · obtain ⟨j, Aj, -, hxj, rfl⟩ := hargs a ha
+      simp only [Expr.fvarLeaves, List.mem_cons] at h
+      rcases h with rfl | h
+      · exact List.mem_of_getElem? hxj
+      · exact openerType_leaves hopA hwA hxj lf (by simpa [Expr.fvarTypeD] using h)
+  · -- `T`'s own opening at `l`, and its `l`-th variable
+    obtain ⟨oTl, hopTl⟩ := ConLeche.openPisAtFvars_prefix l n cvT 0 (by omega) hopT
+    obtain ⟨oTl1, hopTl1⟩ := ConLeche.openPisAtFvars_prefix (l + 1) n cvT 0 (by omega) hopT
+    obtain ⟨f₁, f₂, o₁, hA1, hB1, hsplit⟩ := openPisAtFvars_split l (m := 1) hopTl1
+    obtain ⟨rfl, rfl⟩ : f₁ = tfvs.take l ∧ oTl = o₁ := by
+      have := Option.some.inj (hA1.symm.trans hopTl)
+      exact ⟨congrArg Prod.fst this, (congrArg Prod.snd this).symm⟩
+    obtain ⟨dom', b', m', rfl⟩ : ∃ dom' b' m', oTl = .forallE dom' b' m' := by
+      cases oTl <;> first | exact ⟨_, _, _, rfl⟩ | simp [openPisAtFvars] at hB1
+    simp only [openPisAtFvars, Option.some.injEq, Prod.mk.injEq] at hB1
+    obtain ⟨rfl, -⟩ := hB1
+    have htl : tfvs[l]? = some (.fvar l dom') := by
+      have h1 : (tfvs.take (l + 1))[l]? = tfvs[l]? := by
+        rw [List.getElem?_take, if_pos (by omega)]
+      rw [← h1, hsplit, List.getElem?_append_right (by simp; omega), List.length_take,
+        Nat.min_eq_left (by omega), Nat.sub_self]
+      simp
+    have hinstT := instPisWith_of_openPis l hopTl
+    have hE : Expr.ErasedEqL (tfvs.take l) (xs.take l) := by
+      refine erasedEqL_of_fvarIdx _ _ 0 (fun j x hx => ?_) (fun j x hx => ?_)
+        (by simp [hlx, hlt])
+      · have hj : j < l := by
+          have := (List.getElem?_eq_some_iff.mp hx).1; simp at this; omega
+        rw [List.getElem?_take, if_pos hj] at hx
+        exact ConLeche.openPisAtFvars_index _ _ _ hopT j x hx
+      · have hj : j < l := by
+          have := (List.getElem?_eq_some_iff.mp hx).1; simp at this; omega
+        rw [List.getElem?_take, if_pos hj] at hx
+        exact hidx j x hx
+    obtain ⟨r', hr', hEr⟩ := instPisWith_erasedEq hE (Expr.ErasedEq.rfl cvT) hinstT
+    rw [hinst, Option.some.injEq] at hr'
+    subst hr'
+    exact ⟨_, htl, hEr.2.1⟩
+
 end GenRun
 
 /-! ## The certified hop, against terms over the first opening's variables -/
