@@ -313,6 +313,90 @@ theorem genRun_din (mpC : EnvModelM V μ envC) (hlfp : d.toLfp ∈ mpC.lfpBlocks
   | none => simp only [Option.isSome_none, Bool.false_eq_true, if_false]; exact (hcls c hc hmb).hD
   | some t => simp only [Option.isSome_some, if_true]; exact hlfp
 
+/-- The rule count is the class's constructor count. -/
+theorem genRun_nCt {c : Nat} (hc : c < (tgtRs out).length) :
+    blockRecNCt (tgtRs out) c = (tgtMajor out c).ctors.length := by
+  rw [blockRecNCt, List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hc, Option.getD_some,
+    tgtRs_ctors (List.getElem?_eq_getElem hc)]
+
+set_option maxHeartbeats 800000 in
+/-- **The rule frame of a generated rule**: at recursor `c` (class `cls`)
+and constructor `j`, the class's constructor `cA`, the generator's
+constructor `x` (`genCtorAt`), its run (`ClassCtorRun`), the declared
+type at the class (`tgtCrest`) is `x.tyD`, and it opens at the rule
+prefix to the rule's field openers (the rule was generated). -/
+theorem genRun_frame (hμ : μ.verifiedChecks = true)
+    (R : GenRecRun μ F (mkFEnv env₁) env₁ (mkFEnv envC) p.toBlockShape nestedBit pos cvTas
+      block ctorsAs out) (hg : ClassGenScoped R.g)
+    {c j : Nat} (hc : c < (tgtRs out).length) (hj : j < blockRecNCt (tgtRs out) c) :
+    ∃ (cls : Nat) (cA : ConstantVal × Nat) (fvs : List Expr) (cb : Expr),
+      genClsOf R.rd c = cls ∧ tgtMajor out c = R.Ms.getD cls default ∧
+      (tgtMajor out c).ctors[j]? = some cA ∧ tgtCtorOf out c j = cA ∧
+      Nonempty (ConLeche.ClassCtorRun μ F envC p.toBlockShape (cvTas.map (·.type)) R.rd R.Ms cls cA
+        (genCtorAt R.g R.rd c j)) ∧
+      (genCtorAt R.g R.rd c j).nF = cA.2 ∧
+      tgtCrest out c j = (genCtorAt R.g R.rd c j).tyD ∧
+      tgtRP p.toBlockShape c = R.pre.length ∧
+      ConLeche.openPisAtFvars cA.2 (genCtorAt R.g R.rd c j).tyD R.pre.length = some (fvs, cb) ∧
+      tgtFieldFvs p.toBlockShape out c j = fvs ∧ tgtCbody p.toBlockShape out c j = cb := by
+  obtain ⟨rc, cls, cvG, rhss, hrc, hcls, hG, ⟨T⟩, ho, hM, hgc⟩ := genRun_at R hc
+  rw [genRun_nCt hc] at hj
+  obtain ⟨cA, hcA⟩ : ∃ cA, (tgtMajor out c).ctors[j]? = some cA :=
+    ⟨_, List.getElem?_eq_getElem hj⟩
+  have hclsL : cls < R.Ms.length := by
+    rcases Nat.lt_or_ge cls R.Ms.length with hl | hl
+    · exact hl
+    · rw [hM, List.getD_eq_getElem?_getD, List.getElem?_eq_none hl] at hj
+      exact absurd hj (Nat.not_lt_zero _)
+  -- the class's constructors, as the generator read them
+  obtain ⟨hlC, hallC⟩ := ConLeche.classesCtors_run R.hctors
+  obtain ⟨xs, hxs, hxsR⟩ := hallC cls (R.Ms.getD cls default)
+    (by rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hclsL]; rfl)
+  rw [Nat.zero_add] at hxsR
+  obtain ⟨-, hallX⟩ := ConLeche.classCtorsOf_run hxsR
+  obtain ⟨x, hx, ⟨CR⟩⟩ := hallX j cA (by rw [← hM]; exact hcA)
+  have hctorsCls : R.ctors.getD cls [] = xs := by
+    rw [List.getD_eq_getElem?_getD, hxs, Option.getD_some]
+  have hgx : genCtorAt R.g R.rd c j = x := by
+    show ((R.ctors.getD (genClsOf R.rd c) []).getD j default) = x
+    rw [hgc, hctorsCls, List.getD_eq_getElem?_getD, hx, Option.getD_some]
+  have hnF : x.nF = cA.2 := by rw [CR.hx]
+  -- the rules' run at the recursor: the rule of `x` was generated
+  obtain ⟨-, hallO⟩ := ConLeche.classRecsRulesOk_run R.hrules
+  obtain ⟨rhss', ho', hrules⟩ := hallO c cvG cls hG hcls
+  obtain ⟨-, hallR⟩ := ConLeche.classRulesOk_run hrules
+  obtain ⟨gen, -, -, hgen, -⟩ := hallR j x (by
+    show (R.ctors.getD cls [])[j]? = some x
+    rw [hctorsCls]; exact hx)
+  unfold ConLeche.classGenRule at hgen
+  obtain ⟨⟨s, sl⟩, -, hgen⟩ := Option.bind_eq_some_iff.mp hgen
+  obtain ⟨⟨fvs, cb⟩, hop, -⟩ := Option.bind_eq_some_iff.mp hgen
+  have hrP : rc.rP = R.pre.length := (genRecTy_run hμ R hg hrc hcls T).1
+  have htRP : tgtRP p.toBlockShape c = R.pre.length := by
+    rw [tgtRP, List.getD_eq_getElem?_getD, hrc, Option.getD_some, hrP]
+  have hctor : tgtCtorOf out c j = cA := by
+    rw [tgtCtorOf, List.getD_eq_getElem?_getD, hcA, Option.getD_some]
+  have hcrest : tgtCrest out c j = x.tyD := by
+    rw [tgtCrest, hctor, hM, CR.hD, Option.getD_some]
+  have hop' : ConLeche.openPisAtFvars cA.2 x.tyD R.pre.length = some (fvs, cb) := by
+    rw [← hnF]; exact hop
+  refine ⟨cls, cA, fvs, cb, hgc, hM, hcA, hctor, by rw [hgx]; exact ⟨CR⟩, by rw [hgx, hnF],
+    by rw [hgx, hcrest], htRP, by rw [hgx]; exact hop', ?_, ?_⟩
+  · rw [tgtFieldFvs, hctor, hcrest, htRP, hop']; rfl
+  · rw [tgtCbody, hctor, hcrest, htRP, hop']; rfl
+
+/-- **`GenPreHyps.nF`**: the generator's constructor has the declared
+field count. -/
+theorem genRun_nF (hμ : μ.verifiedChecks = true)
+    (R : GenRecRun μ F (mkFEnv env₁) env₁ (mkFEnv envC) p.toBlockShape nestedBit pos cvTas
+      block ctorsAs out) (hg : ClassGenScoped R.g) (acval : Name → (Name → Nat) → AnnotTerm)
+    (ψ : Name → Nat) :
+    ∀ c, c < (tgtRs out).length → ∀ j, j < blockRecNCt (tgtRs out) c →
+      (genCtorAt R.g R.rd c j).nF = (tgtFdomsAV p.toBlockShape out acval envC ψ c j).length := by
+  intro c hc j hj
+  obtain ⟨cls, cA, fvs, cb, -, -, -, -, -, hnF, -, -, hop, hfv, -⟩ := genRun_frame hμ R hg hc hj
+  rw [hnF, tgtFdomsAV, readOpenedDoms_length_eq, hfv, ConLeche.Verify.openPisAtFvars_length _ hop]
+
 end Run
 
 end ConLeche.Model
