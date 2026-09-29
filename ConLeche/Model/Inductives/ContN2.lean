@@ -11,6 +11,7 @@ import ConLeche.Model.Inductives.BlockHoleRead
 import ConLeche.Model.Inductives.StructFrameKit
 import ConLeche.Model.Inductives.StructRecKit
 import ConLeche.Model.Annot.BitRename
+import ConLeche.Model.Annot.BitLevels
 import ConLeche.Verify.Inductives.NestScope
 
 public section
@@ -209,15 +210,6 @@ theorem teleEq_substTele (τ : Nat → AnnotTerm) : ∀ (ab : List (Nat × Nat �
 
 /-! ## Small syntactic facts -/
 
-theorem replaceConsts_none {f : Name → List Level → Option Expr} (hf : ∀ c us, f c us = none) :
-    ∀ e : Expr, e.replaceConsts f = e := by
-  intro e
-  induction e <;> simp_all [Expr.replaceConsts]
-
-theorem nestOcc_nil_zero : ∀ e : Expr, e.nestOcc [] 0 0 = false := by
-  intro e
-  induction e <;> simp_all [ConLeche.Expr.nestOcc]
-
 theorem piCount_eq_length : ∀ e : Expr, piCount e = e.piBinders.1.length := by
   intro e
   induction e with
@@ -264,6 +256,11 @@ theorem substTele_length (τ : Nat → AnnotTerm) :
   | _, [] => rfl
   | k, _ :: ab => by simp [AnnotTerm.substTele, substTele_length τ (k + 1) ab]
 
+theorem substFvars_of_not_hasFvar {b D : Nat} {s : Nat → Expr} :
+    ∀ {e : Expr}, e.hasFvar = false → Expr.substFvars b D s e = e := by
+  intro e
+  induction e <;> intro h <;> simp_all [Expr.substFvars, Expr.hasFvar]
+
 /-- The parameter frame of a key at a walk valuation `ρ` (the walk's
 hole bound `hi`): the key's parameter readings over the frame below. -/
 @[expose] noncomputable def keyFrame (dsa : List AnnotTerm) (hi : Nat) (ρ : Nat → V) : Nat → V :=
@@ -287,32 +284,108 @@ theorem keyFrame_eq_substE {dsa : List AnnotTerm} {hi nP : Nat} (hl : dsa.length
     rfl
   · rfl
 
-/-- **An instantiated container FORMER, read** (the group-free
-`frameCrest_read` at the former's type): the type of `D`'s member `mm`
-at the levels `us` with its parameters instantiated at `ds` (depth `hi`)
-reads at `hi` as the recorded index telescope, substituted at the
-parameters' readings, ending in the recorded sort. -/
-theorem instFormer_read {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) {D : LfpDatum V}
+/-- A Π-telescope instantiated at variables strips as many binders. -/
+theorem stripPis_isSome_of_instPisWith_fvars :
+    ∀ {as : List Expr} {e r : Expr}, (∀ a ∈ as, ∃ i ty, a = .fvar i ty) →
+      ConLeche.instPisWith as e = some r → (e.stripPis as.length).isSome = true
+  | [], _, _, _, _ => rfl
+  | a :: as, e, r, hv, h => by
+    match e, h with
+    | .forallE t b mb, h =>
+      have h' : ConLeche.instPisWith as (b.instantiate1 a) = some r := h
+      obtain ⟨i, ty, rfl⟩ := hv a List.mem_cons_self
+      have ih := stripPis_isSome_of_instPisWith_fvars
+        (fun x hx => hv x (List.mem_cons_of_mem _ hx)) h'
+      have hb := ConLeche.Verify.stripPis_instantiate1_fvar_isSome_rev _ 0 ih
+      simp only [List.length_cons, Expr.stripPis]
+      cases hs : b.stripPis as.length with
+      | none => rw [hs] at hb; exact nomatch hb
+      | some _ => rfl
+
+/-- **A member's CANONICAL hole type, read**: member `mm`'s former
+instantiated at the canonical parameters (`instPisWith (canonParams n)`,
+the hole type `LfpCtorReads` records) reads at depth `n` as the recorded
+index telescope ending in the block's sort. -/
+theorem canonHoleTy_read {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) {D : LfpDatum V}
+    (hD : D ∈ mp.lfpBlocks) {mm : Nat} (hmm : mm < D.k) {cvm : ConstantVal} {caps : IndCaps}
+    (hf : env.find? (D.member mm) = some (.indInfo cvm caps)) {ψ : Name → Nat} {n : Nat}
+    (hn : (D.pars mm ψ).length = n) {ty : Expr}
+    (hty : ConLeche.instPisWith (canonParams n) cvm.type = some ty) :
+    ∃ abF : List (Nat × Nat × AnnotTerm),
+      denoteMeta mp.base2.acval env ψ 0 cvm.type = some (mkPisAV abF (.sort (D.w ψ))) ∧
+      abF.map (·.2.2) = D.pars mm ψ ++ D.ids mm ψ ∧ (∀ d ∈ abF, d.2.1 ≠ 0) ∧
+      (abF.drop n).map (·.2.2) = D.ids mm ψ ∧ Expr.WScoped n ty ∧
+      denoteMeta mp.base2.acval env ψ n ty = some (mkPisAV (abF.drop n) (.sort (D.w ψ))) := by
+  obtain ⟨-, -, hrd, -⟩ := mp.lfp_ok D hD
+  obtain ⟨cv₂, caps₂, hf₂, hab⟩ := hrd mm hmm
+  rw [hf] at hf₂
+  obtain ⟨rfl, rfl⟩ : cvm = cv₂ ∧ caps = caps₂ := by simpa using hf₂
+  obtain ⟨ab, hta, hmap, hbits⟩ := hab ψ
+  have hwf := mp.base2.wf _ (ConLeche.Semantics.Env.find?_mem hf)
+  have hcl : cvm.type.hasFvar = false := hwf.1
+  have habl : ab.length = n + (D.ids mm ψ).length := by
+    have := congrArg List.length hmap
+    simpa [hn] using this
+  have hphs : ∀ x ∈ canonParams n, ∃ i ty, x = .fvar i ty := fun x hx => by
+    obtain ⟨i, hi'⟩ := List.getElem?_of_mem hx
+    exact ⟨_, _, canonParams_getElem? hi'⟩
+  have hstrip := stripPis_isSome_of_instPisWith_fvars hphs hty
+  rw [canonParams_length] at hstrip
+  obtain ⟨fvs, o, hop⟩ := openPisAtFvars_of_stripPis_isSome n 0 hstrip
+  have hio := instPisWith_of_openPis n hop
+  have hEq : Expr.ErasedEqL fvs (canonParams n) :=
+    erasedEqL_of_fvarIdx _ _ 0 (fun i x hx => ConLeche.openPisAtFvars_index _ _ _ hop i x hx)
+      (fun i x hx => ⟨.sort .zero, by rw [canonParams_getElem? hx, Nat.zero_add]⟩)
+      (by rw [openPisAtFvars_length _ hop, canonParams_length])
+  obtain ⟨A, hA, hoA⟩ := instPisWith_erasedEq hEq (Expr.ErasedEq.rfl _) hio
+  rw [hty] at hA
+  rw [← Option.some.inj hA] at hoA
+  obtain ⟨pps, b, hst, hb, -, -⟩ := denoteMeta_openPis n hop hta
+  rw [stripPisAV_mkPisAV_take _ _ _ (by omega)] at hst
+  obtain ⟨-, rfl⟩ := Prod.mk.inj (Option.some.inj hst)
+  have hAw : Expr.WScoped n ty := by
+    refine ConLeche.wscoped_instPisWith (fun x hx => ?_) (Expr.WScoped.of_not_hasFvar hcl) hty
+    obtain ⟨i, hi'⟩ := List.getElem?_of_mem hx
+    have hlt : i < n := by
+      have := (List.getElem?_eq_some_iff.mp hi').1; rwa [canonParams_length] at this
+    rw [canonParams_getElem? hi']
+    simp [Expr.WScoped, hlt]
+  refine ⟨ab, hta, hmap, hbits, ?_, hAw, ?_⟩
+  · rw [List.map_drop, hmap, ← hn, List.drop_left' rfl]
+  · rw [← denoteMeta_erasedEq hoA]; simpa using hb
+
+/-- **An instantiated container FORMER, read** (the canonical opening
+`canonHoleTy_read`, substituted at the key's parameters — one
+`Expr.substFvars`, read by `denoteMeta_substFvars`): the type of `D`'s
+member `mm` at the levels `us` with its parameters instantiated at `ds`
+(depth `hi`) reads at `hi` as the recorded index telescope, substituted at
+the parameters' readings, ending in the recorded sort. -/
+theorem instFormer_readB {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) {D : LfpDatum V}
     (hD : D ∈ mp.lfpBlocks) {mm : Nat} (hmm : mm < D.k) {hi : Nat} {us : List Level}
     {ds : List Expr} {cvC : ConstantVal} {caps : IndCaps}
     (hf : env.find? (D.member mm) = some (.indInfo cvC caps))
-    (hnd : cvC.levelParams.Nodup) (hul : us.length = cvC.levelParams.length)
+    (_hnd : cvC.levelParams.Nodup) (_hul : us.length = cvC.levelParams.length)
     (hlenP : (D.params (Level.substFn φ cvC.levelParams us)).length = ds.length)
     (hds : ∀ x ∈ ds, Expr.WScoped hi x ∧ x.looseBVarsBounded 0 = true)
     {dsa : List AnnotTerm} (hdsa : DenoteMetaSpine mp.base2.acval env φ hi ds dsa)
     (hstrip : (cvC.type.stripPis ds.length).isSome = true) {ty : Expr}
     (hty : ConLeche.instPisWith ds (cvC.type.instantiateLevelParams cvC.levelParams us) = some ty) :
-    ∃ ab : List (Nat × Nat × AnnotTerm),
-      ab.map (·.2.2) = D.ids mm (Level.substFn φ cvC.levelParams us) ∧
+    ∃ abF : List (Nat × Nat × AnnotTerm),
+      denoteMeta mp.base2.acval env (Level.substFn φ cvC.levelParams us) 0 cvC.type
+        = some (mkPisAV abF (.sort (D.w (Level.substFn φ cvC.levelParams us)))) ∧
+      abF.map (·.2.2) = D.pars mm (Level.substFn φ cvC.levelParams us)
+        ++ D.ids mm (Level.substFn φ cvC.levelParams us) ∧
+      (∀ d ∈ abF, d.2.1 ≠ 0) ∧
+      (abF.drop ds.length).map (·.2.2) = D.ids mm (Level.substFn φ cvC.levelParams us) ∧
       denoteMeta mp.base2.acval env φ hi ty
-        = some (mkPisAV (AnnotTerm.substTele (substTau ds.length hi fun i => dsa.getD i default) 0 ab)
-            (.sort (D.w (Level.substFn φ cvC.levelParams us)))) := by
+        = some (mkPisAV (AnnotTerm.substTele (substTau ds.length hi fun i => dsa.getD i default) 0
+            (abF.drop ds.length)) (.sort (D.w (Level.substFn φ cvC.levelParams us)))) := by
   obtain ⟨h, -, hrd, -⟩ := mp.lfp_ok D hD
   obtain ⟨cv₂, caps₂, hf₂, hab⟩ := hrd mm hmm
   rw [hf] at hf₂
   obtain ⟨rfl, rfl⟩ : cvC = cv₂ ∧ caps = caps₂ := by simpa using hf₂
   generalize hψ : Level.substFn φ cvC.levelParams us = ψ at hlenP ⊢
-  obtain ⟨ab, hta, hmap, -⟩ := hab ψ
+  obtain ⟨ab, hta, hmap, hbits⟩ := hab ψ
   have hwf := mp.base2.wf _ (ConLeche.Semantics.Env.find?_mem hf)
   have hcl : cvC.type.hasFvar = false := hwf.1
   have hpl : (D.pars mm ψ).length = ds.length := (h.parsLen mm hmm ψ).trans hlenP
@@ -341,38 +414,68 @@ theorem instFormer_read {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) {D :
       have := (List.getElem?_eq_some_iff.mp hi').1; rwa [canonParams_length] at this
     rw [canonParams_getElem? hi']
     simp [Expr.WScoped, hlt]
-  have hnA : ConLeche.nestAbstract (canonCtx [] cvC.levelParams ds.length) [] cvC.type = cvC.type :=
-    replaceConsts_none (fun c us => by
-      by_cases h : (us == List.map Level.param cvC.levelParams) = true <;> simp [canonCtx, h]) _
-  obtain ⟨crest, hcr, hcrd⟩ := frameCrest_read mp.base2 (φ := φ)
-    (ctx := canonCtx [] cvC.levelParams ds.length) (holes := []) (us := us)
-    (sub := fun _ _ => none) (ds := ds) (D' := hi) (s := fun i => ds.getD i default)
-    (x := fun i => dsa.getD i default)
-    (fun mm h => absurd h (Nat.not_lt_zero _)) hnd hul (canonParams_length _)
-    (fun mm h => absurd h (Nat.not_lt_zero _)) (fun _ _ _ => rfl) (fun _ _ => rfl)
-    (fun i hi' => ⟨.sort .zero, by
-      show (canonParams ds.length)[i]? = _
-      simp [canonParams, List.getElem?_range (show i < ds.length from hi')]⟩) rfl
+  -- the key's type is the canonical opening, level-instantiated, with the canonical
+  -- parameters replaced by the key's parameters
+  have hphs : ∀ x ∈ canonParams ds.length, ∃ i ty, x = .fvar i ty := fun x hx => by
+    obtain ⟨i, hi'⟩ := List.getElem?_of_mem hx
+    exact ⟨_, _, canonParams_getElem? hi'⟩
+  have hAL := Expr.instPisWith_instantiateLevelParams cvC.levelParams us _ hphs hA
+  rw [show canonParams ds.length = ConLeche.nestPhs ds.length from rfl,
+    Expr.nestPhs_instantiateLevelParams] at hAL
+  have hsb : ∀ i, i < ds.length → (ds.getD i default).looseBVarsBounded 0 = true := fun i hi' =>
+    (hds _ (by rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hi']; exact
+      List.getElem_mem _)).2
+  have hsub := Expr.substFvars_instPisWith (D := hi) (s := fun i => ds.getD i default) hsb _ hAL
+  have hphsD : (ConLeche.nestPhs ds.length).map
+      (Expr.substFvars ds.length hi fun i => ds.getD i default) = ds := by
+    apply List.ext_getElem (by simp [ConLeche.nestPhs])
+    intro i h1 h2
+    simp only [ConLeche.nestPhs, List.getElem_map, List.getElem_range] at h1 ⊢
+    rw [Expr.substFvars_fvar_lt h2, List.getD_eq_getElem?_getD, List.getElem?_eq_getElem h2,
+      Option.getD_some]
+  have hcl' : (cvC.type.instantiateLevelParams cvC.levelParams us).hasFvar = false := by
+    rw [Expr.hasFvar_instantiateLevelParams]; exact hcl
+  rw [hphsD, substFvars_of_not_hasFvar hcl', hty] at hsub
+  obtain rfl := Option.some.inj hsub
+  have hAf : Expr.fvarsBelow (ds.length + 0) (A.instantiateLevelParams cvC.levelParams us) := by
+    rw [Nat.add_zero]
+    exact fvarsBelow_instantiateLevelParams _ _ (by simpa using hAw.fvarsBelow)
+  have h := denoteMeta_substFvars (φ := φ) mp.base2 (b := ds.length) (D := hi)
+    (s := fun i => ds.getD i default) (x := fun i => dsa.getD i default)
     (fun i hi' => by
-      have hi'' : i < ds.length := by simpa [canonCtx] using hi'
       have hmem : ds.getD i default ∈ ds := by
-        rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hi'']; exact List.getElem_mem _
+        rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hi']; exact List.getElem_mem _
       obtain ⟨hw, hb⟩ := hds _ hmem
-      exact ⟨hw, hb, DenoteMetaSpine.getD hdsa default i hi''⟩)
-    hcl hAw (by rw [hnA]; exact nestOcc_nil_zero _) (by rw [hnA]; exact hA)
-    (by
-      change denoteMeta mp.base2.acval env (Level.substFn φ cvC.levelParams us)
-        (ds.length + ([] : List Name).length) A = _
-      rw [hψ]; exact hAr)
-  have hcr' : ConLeche.instPisWith ds
-      ((cvC.type.instantiateLevelParams cvC.levelParams us).replaceConsts (fun _ _ => none))
-      = some crest := hcr
-  rw [replaceConsts_none (fun _ _ => rfl), hty] at hcr'
-  obtain rfl := Option.some.inj hcr'
-  refine ⟨ab.drop ds.length, ?_, ?_⟩
+      exact ⟨hw, hb, DenoteMetaSpine.getD hdsa default i hi'⟩)
+    (A.instantiateLevelParams cvC.levelParams us) 0 hAf
+  rw [Nat.add_zero, Nat.add_zero, denotePInstLevels mp.base2 φ cvC.levelParams us, hψ,
+    show ds.length = ds.length + ([] : List Name).length by simp, hAr] at h
+  refine ⟨ab, hta, hmap, hbits, ?_, ?_⟩
   · rw [List.map_drop, hmap, ← hpl, List.drop_left' rfl]
-  · rw [hcrd]
-    simp only [canonCtx, List.length_nil, Nat.add_zero, AnnotTerm.substAV]
+  · simp only [List.length_nil, Nat.add_zero] at h
+    rw [h, Option.map_some, AnnotTerm.substAV_mkPisAV, Nat.zero_add]
+    rfl
+
+/-- **An instantiated container FORMER, read**: `instFormer_readB`'s
+index telescope. -/
+theorem instFormer_read {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) {D : LfpDatum V}
+    (hD : D ∈ mp.lfpBlocks) {mm : Nat} (hmm : mm < D.k) {hi : Nat} {us : List Level}
+    {ds : List Expr} {cvC : ConstantVal} {caps : IndCaps}
+    (hf : env.find? (D.member mm) = some (.indInfo cvC caps))
+    (hnd : cvC.levelParams.Nodup) (hul : us.length = cvC.levelParams.length)
+    (hlenP : (D.params (Level.substFn φ cvC.levelParams us)).length = ds.length)
+    (hds : ∀ x ∈ ds, Expr.WScoped hi x ∧ x.looseBVarsBounded 0 = true)
+    {dsa : List AnnotTerm} (hdsa : DenoteMetaSpine mp.base2.acval env φ hi ds dsa)
+    (hstrip : (cvC.type.stripPis ds.length).isSome = true) {ty : Expr}
+    (hty : ConLeche.instPisWith ds (cvC.type.instantiateLevelParams cvC.levelParams us) = some ty) :
+    ∃ ab : List (Nat × Nat × AnnotTerm),
+      ab.map (·.2.2) = D.ids mm (Level.substFn φ cvC.levelParams us) ∧
+      denoteMeta mp.base2.acval env φ hi ty
+        = some (mkPisAV (AnnotTerm.substTele (substTau ds.length hi fun i => dsa.getD i default) 0 ab)
+            (.sort (D.w (Level.substFn φ cvC.levelParams us)))) := by
+  obtain ⟨abF, -, -, -, hmap, hrd⟩ :=
+    instFormer_readB mp hD hmm hf hnd hul hlenP hds hdsa hstrip hty
+  exact ⟨_, hmap, hrd⟩
 
 /-- **N2 linked to the clause**.  A container instance's type former, checked by `nestInstType` at the
 key `C.{us} ds` below the hole bound `hi`, has the recorded member's index
@@ -394,7 +497,7 @@ theorem n2_link {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) {D : LfpDatu
     (hlenP : (D.params (Level.substFn φ cvC.levelParams us)).length = ds.length)
     (hds : ∀ x ∈ ds, Expr.WScoped hi x ∧ x.looseBVarsBounded 0 = true)
     {dsa : List AnnotTerm} (hdsa : DenoteMetaSpine mp.base2.acval env φ hi ds dsa) :
-    cty = cvC.type.instantiateLevelParams cvC.levelParams us ∧
+    ConLeche.instPisWith ds (cvC.type.instantiateLevelParams cvC.levelParams us) = some cty ∧
     (D.ids mm (Level.substFn φ cvC.levelParams us)).length = nI ∧
     ∀ ρ ρ' : Nat → V, AgreeOff (holeP hi ctx.nP hi) ρ ρ' →
       TeleEq (keyFrame dsa hi ρ) (keyFrame dsa hi ρ') (D.ids mm (Level.substFn φ cvC.levelParams us)) := by

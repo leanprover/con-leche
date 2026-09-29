@@ -228,7 +228,7 @@ theorem nestHoleImg_scb {ctx : NestCtx} (hpar : ∀ x ∈ ctx.params, ScB ctx.nP
           exact ih.2 y (hds y hy)
         · exact ih.1 i r h
     refine ⟨himg, fun t ht => ⟨WScoped.replaceFVars_lower (D := ctx.hiAt prog.length)
-      (fun i hi => nestHoleImg_lt_nP hi prog) (fun i hlo hhi => ?_) t ht.1,
+      (fun i hi => nestHoleImg_lt_nP (prog := prog) hi) (fun i hlo hhi => ?_) t ht.1,
       looseBVarsBounded_replaceFVars (fun i r hr => (himg i r hr).2) t 0 ht.2⟩⟩
     obtain ⟨r, hr⟩ := nestHoleImg_isSome hlo prog hhi
     exact ⟨r, hr, (himg i r hr).1⟩

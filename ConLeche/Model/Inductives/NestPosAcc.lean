@@ -210,15 +210,15 @@ theorem InvOn.mono {M M' : Nat → Prop} {A : (Nat → V) → V} (h : InvOn M A)
 /-! ## The admissible items and the relation the run is proved along -/
 
 /-- **The admissible items at depth `d`**: a member hole at its full
-arity (the parameters and its indices — `nestPos`'s `holeApp` check), or
-a frame's hole at its container member's full arity (`nestArity`, the
-frame-hole check). -/
+arity (its indices — a hole stands for the member's whole application to
+the parameters), or a frame's hole at its container member's full arity
+past the key's parameters (`nestArity`, the frame-hole check). -/
 @[expose] def HoleQ (ctx : NestCtx) (prog : List NestHole) (d : Nat) : Nat → Nat → Prop :=
   fun i n =>
     (∃ t, t < ctx.names.length ∧ ctx.nP + t < d ∧ i = d - 1 - (ctx.nP + t) ∧
-      n = ctx.nP + ctx.nIdxs.getD t 0) ∨
+      n = ctx.nIdxs.getD t 0) ∨
     (∃ (j : Nat) (hk : NestHole), prog.reverse[j]? = some hk ∧ ctx.hiAt 0 + j < d ∧
-      i = d - 1 - (ctx.hiAt 0 + j) ∧ n = ConLeche.nestArity ctx hk.key.cname)
+      i = d - 1 - (ctx.hiAt 0 + j) ∧ n + hk.key.ds.length = ConLeche.nestArity ctx hk.key.cname)
 
 /-- One binder down, the admissible items are the same holes. -/
 theorem shiftQ_holeQ {ctx : NestCtx} {prog : List NestHole} {d : Nat}
@@ -265,15 +265,13 @@ theorem AccOn.congrQ {w : Nat} {Q Q' : Nat → Nat → Prop} (hQ : ∀ i n, Q i 
 
 /-- **The hole relation for accessibility** at depth `d` under the frames
 `prog`: related frames satisfy the context and agree off the hole
-positions; every frame's hole is blind in its key's parameters; the
-relation is symmetric and its holes are rich (`RichOn`) at their full
-arity. -/
+positions; the relation is symmetric and its holes are rich (`RichOn`) at
+their full arity (a hole stands for a whole application: it takes no
+parameters). -/
 structure HoleRelA (m : EnvModel V env) (φ : Name → Nat) (ctx : NestCtx) (prog : List NestHole)
     (d : Nat) (Δa : List AnnotTerm) (R : FrameRel V) : Prop where
   dom : ∀ ρ ρ', R ρ ρ' → Sat V Δa ρ ∧ Sat V Δa ρ'
   agree : R.AgreesOff (holeP d ctx.nP (ctx.hiAt prog.length))
-  frame : ∀ (i : Nat) (hk : NestHole), prog.reverse[i]? = some hk → ∀ dsa,
-    DenoteMetaSpine m.acval env φ d hk.key.ds dsa → FrameBlind R (d - 1 - (ctx.hiAt 0 + i)) dsa
   dsScoped : ∀ (i : Nat) (hk : NestHole), prog.reverse[i]? = some hk → ∀ x ∈ hk.key.ds,
     Expr.WScoped (ctx.hiAt prog.length) x
   symm : R.Symm
@@ -281,21 +279,6 @@ structure HoleRelA (m : EnvModel V env) (φ : Name → Nat) (ctx : NestCtx) (pro
   /-- left-reflexive: a frame hole's richness
   enlarges the tuple at the SAME enclosing frame -/
   lrefl : ∀ ρ ρ₀, R ρ ρ₀ → R ρ ρ
-
-theorem FrameBlind.underBoth {R : FrameRel V} {h : Nat} {ds : List AnnotTerm}
-    (hb : FrameBlind R h ds) (A : AnnotTerm) :
-    FrameBlind (R.underBoth A) (h + 1) (ds.map (AnnotTerm.liftN 1 · 0)) := by
-  rintro _ _ ⟨x, ρ, ρ', rfl, rfl, hR, -, -⟩ is
-  have hl : ∀ (σ : Nat → V), (ds.map (AnnotTerm.liftN 1 · 0)).map (interp V (cons x σ))
-      = ds.map (interp V σ) := by
-    intro σ
-    rw [List.map_map]
-    refine List.map_congr_left fun a _ => ?_
-    show interp V (cons x σ) (a.liftN 1 0) = interp V σ a
-    rw [interp_liftN]
-    congr 1
-  rw [hl, hl]
-  exact hb ρ ρ' hR is
 
 /-- **Under a binder** whose domain carries its values to every larger
 related frame (a hole-free domain, or an earlier field — accessible, its
@@ -314,17 +297,6 @@ theorem HoleRelA.underBoth {ctx : NestCtx} {prog : List NestHole} {d : Nat} {Δa
   agree := by
     intro σ σ' hr i hi
     exact (h.agree.underBoth ta) σ σ' hr i fun hs => hi (holeP_succ i hs)
-  frame := by
-    intro i key hk dsa' hsp
-    have hlen : i < prog.length := by
-      have := (List.getElem?_eq_some_iff.mp hk).1
-      simpa using this
-    have hlt : ctx.hiAt 0 + i < d := by
-      simp only [NestCtx.hiAt] at hd ⊢; omega
-    obtain ⟨dsa, hdsa, rfl⟩ := DenoteMetaSpine.weaken_top
-      (fun x hx => Expr.WScoped.mono hd (h.dsScoped i key hk x hx)) hsp
-    rw [show d + 1 - 1 - (ctx.hiAt 0 + i) = d - 1 - (ctx.hiAt 0 + i) + 1 by omega]
-    exact FrameBlind.underBoth (h.frame i key hk dsa hdsa) ta
   dsScoped := h.dsScoped
   symm := h.symm.underBoth ta
   rich := RichOn.congrQ (shiftQ_holeQ hd) (h.rich.underBoth htr)

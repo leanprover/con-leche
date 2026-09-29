@@ -64,7 +64,7 @@ theorem holds_drop {ρ : Nat → V} {n : Nat} {o : Occ V} :
 above every hole: the frame's walk sees the context below `h`. -/
 theorem HoleRelA.drop {ctx : NestCtx} {prog : List NestHole} {d : Nat} {Δa : List AnnotTerm}
     {R : FrameRel V} (hR : HoleRelA m φ ctx prog d Δa R) {h : Nat}
-    (hhi : ctx.hiAt prog.length ≤ h) (hle : h ≤ d) :
+    (_hhi : ctx.hiAt prog.length ≤ h) (hle : h ≤ d) :
     HoleRelA m φ ctx prog h (Δa.drop (d - h)) (R.drop (d - h)) where
   dom := by
     rintro _ _ ⟨ρ, ρ', hr, rfl, rfl⟩
@@ -75,19 +75,6 @@ theorem HoleRelA.drop {ctx : NestCtx} {prog : List NestHole} {d : Nat} {Δa : Li
     refine hR.agree ρ ρ' hr (i + (d - h)) fun hp => hi ?_
     obtain ⟨h1, h2, h3⟩ := hp
     refine ⟨by omega, ?_, ?_⟩ <;> omega
-  frame := by
-    rintro i key hk dsa hsp _ _ ⟨ρ, ρ', hr, rfl, rfl⟩ is
-    have hlen : i < prog.length := by
-      have := (List.getElem?_eq_some_iff.mp hk).1
-      simpa using this
-    have hlt : ctx.hiAt 0 + i < h := by simp only [NestCtx.hiAt] at hhi ⊢; omega
-    have hws : ∀ x ∈ key.key.ds, Expr.WScoped h x :=
-      fun x hx => Expr.WScoped.mono hhi (hR.dsScoped i key hk x hx)
-    have hsp' := DenoteMetaSpine.lift (m := m) (φ := φ) hle hws hsp
-    have := hR.frame i key hk _ hsp' ρ ρ' hr is
-    simp only [List.map_map, Function.comp_def, interp_liftN_drop] at this
-    dsimp only
-    rwa [show h - 1 - (ctx.hiAt 0 + i) + (d - h) = d - 1 - (ctx.hiAt 0 + i) by omega]
   dsScoped := hR.dsScoped
   symm := by
     rintro _ _ ⟨ρ, ρ', hr, rfl, rfl⟩
@@ -121,9 +108,6 @@ theorem HoleRelA.dropBase {ctx : NestCtx} {prog : List NestHole} {d : Nat} {Δa 
     refine hR.agree ρ ρ' hr (i + (d - ctx.hiAt 0)) fun hp => hi ?_
     simp only [holeP, NestCtx.hiAt, List.length_nil] at hp hle ⊢
     omega
-  frame := by
-    intro i hk h
-    simp at h
   dsScoped := by
     intro i hk h
     simp at h
@@ -169,13 +153,6 @@ theorem HoleRelA.extendEmpty {ctx : NestCtx} {Δ0 : List AnnotTerm} {R00 : Frame
         σ' = consList (List.replicate prog.length empty) ρ') where
   dom := extendEmpty_dom _ hR.dom
   agree := extendEmpty_agree _ hR.agree
-  frame := by
-    rintro i hk hki dsa hsp _ _ ⟨ρ, ρ', hr, rfl, rfl⟩ is
-    have hlen : i < prog.length := by
-      have := (List.getElem?_eq_some_iff.mp hki).1
-      simpa using this
-    rw [consList_replicate_lt _ _ _ (by simp only [NestCtx.hiAt]; omega),
-      foldlApp_empty, foldlApp_empty]
   dsScoped := hsc
   symm := by
     rintro _ _ ⟨ρ, ρ', hr, rfl, rfl⟩

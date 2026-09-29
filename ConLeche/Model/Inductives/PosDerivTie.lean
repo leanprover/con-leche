@@ -13,6 +13,8 @@ import ConLeche.Verify.Inductives.RecCheckRun
 import ConLeche.Model.Inductives.TargetClass
 import ConLeche.Verify.EnvBound
 import ConLeche.Verify.Cached.Erase
+import ConLeche.Verify.Inductives.HoleBack
+import ConLeche.Verify.Inductives.ReplaceApps
 public import ConLeche.Model.Inductives.TargetRuleData
 
 public section
@@ -46,129 +48,6 @@ namespace ConLeche.Model
 
 open ConLeche
 
-/-! ## The coverage theorem's shape: `NodeMajor` at a REACHED node -/
-
-section ReadBack
-
-/-- `replaceFVars` at no mapped variable is the identity. -/
-theorem replaceFVars_none : ∀ (e : Expr), e.replaceFVars (fun _ => none) = e
-  | .bvar _ | .sort _ | .const .. | .lit _ | .fvar .. => rfl
-  | .app f a => by simp [Expr.replaceFVars, replaceFVars_none f, replaceFVars_none a]
-  | .lam t b _ => by simp [Expr.replaceFVars, replaceFVars_none t, replaceFVars_none b]
-  | .forallE t b _ => by simp [Expr.replaceFVars, replaceFVars_none t, replaceFVars_none b]
-  | .letE t v b => by
-    simp [Expr.replaceFVars, replaceFVars_none t, replaceFVars_none v, replaceFVars_none b]
-  | .proj _ _ x => by simp [Expr.replaceFVars, replaceFVars_none x]
-
-/-- The holes `p ..< p + |hs|` to the terms `hs`, positionally. -/
-@[expose] def holeMap (p : Nat) (hs : List Expr) (i : Nat) : Option Expr :=
-  if p ≤ i then hs[i - p]? else none
-
-/-- `holeMap` of an empty list maps nothing. -/
-theorem holeMap_nil (p : Nat) : holeMap p [] = fun _ => none := by
-  funext i; simp [holeMap]
-
-/-- One substitution step of `substAll` at a closed constant list. -/
-theorem substFvarAt_replaceFVars {p : Nat} {a : Expr} {as : List Expr}
-    (_ha : ∃ n us, a = .const n us) (has : ∀ c ∈ as, ∃ n us, c = .const n us) :
-    ∀ (e : Expr), e.fvarsBelow (p + 1 + as.length) →
-      Expr.substFvarAt p a (e.replaceFVars (holeMap (p + 1) as))
-        = e.replaceFVars (holeMap p (a :: as)) := by
-  intro e
-  induction e with
-  | fvar i ty _ =>
-    intro hb
-    simp only [Expr.fvarsBelow] at hb
-    simp only [Expr.replaceFVars, holeMap]
-    by_cases h1 : p + 1 ≤ i
-    · have hlt : i - (p + 1) < as.length := by omega
-      rw [if_pos h1, List.getElem?_eq_getElem hlt, Option.getD_some, if_pos (by omega)]
-      obtain ⟨n, us, hc⟩ := has _ (List.getElem_mem hlt)
-      rw [hc]
-      have : i - p = (i - (p + 1)) + 1 := by omega
-      rw [this, List.getElem?_cons_succ, List.getElem?_eq_getElem hlt, hc]
-      simp [Expr.substFvarAt]
-    · rw [if_neg h1]
-      simp only [Option.getD_none]
-      by_cases h2 : i = p
-      · subst h2
-        simp [Expr.substFvarAt]
-      · have hlt : i < p := by omega
-        rw [if_neg (by omega)]
-        simp [Expr.substFvarAt, h2, show ¬ i > p by omega]
-  | bvar _ => intro _; rfl
-  | sort _ => intro _; rfl
-  | const _ _ => intro _; rfl
-  | lit _ => intro _; rfl
-  | app f b ihf ihb =>
-    intro hb
-    simp only [Expr.fvarsBelow] at hb
-    simp [Expr.replaceFVars, Expr.substFvarAt, ihf hb.1, ihb hb.2]
-  | lam t b m iht ihb =>
-    intro hb
-    simp only [Expr.fvarsBelow] at hb
-    simp [Expr.replaceFVars, Expr.substFvarAt, iht hb.1, ihb hb.2]
-  | forallE t b m iht ihb =>
-    intro hb
-    simp only [Expr.fvarsBelow] at hb
-    simp [Expr.replaceFVars, Expr.substFvarAt, iht hb.1, ihb hb.2]
-  | letE t v b iht ihv ihb =>
-    intro hb
-    simp only [Expr.fvarsBelow] at hb
-    simp [Expr.replaceFVars, Expr.substFvarAt, iht hb.1, ihv hb.2.1, ihb hb.2.2]
-  | proj s i x ih =>
-    intro hb
-    simp only [Expr.fvarsBelow] at hb
-    simp [Expr.replaceFVars, Expr.substFvarAt, ih hb]
-
-/-- **`substAll` at closed constants is `replaceFVars`** (below the range). -/
-theorem substAll_eq_replaceFVars :
-    ∀ (hs : List Expr) (p : Nat), (∀ c ∈ hs, ∃ n us, c = .const n us) →
-      ∀ (e : Expr), e.fvarsBelow (p + hs.length) →
-        substAll p hs e = e.replaceFVars (holeMap p hs)
-  | [], p, _, e, _ => by simp [substAll, holeMap_nil, replaceFVars_none]
-  | a :: as, p, hc, e, hb => by
-    simp only [substAll]
-    rw [substAll_eq_replaceFVars as (p + 1) (fun c hc' => hc c (List.mem_cons_of_mem _ hc')) e
-      (by simpa [Nat.add_assoc, Nat.add_comm 1] using hb)]
-    exact substFvarAt_replaceFVars (hc a List.mem_cons_self)
-      (fun c hc' => hc c (List.mem_cons_of_mem _ hc')) e
-      (by simpa [Nat.add_assoc, Nat.add_comm 1] using hb)
-
-/-- The kernel's hole constants are `nodeHoleConsts`, positionally. -/
-theorem nestHoleConst_eq_holeMap (ctx : NestCtx) (occ : List NestHole) :
-    nestHoleConst ctx occ = holeMap ctx.nP (nodeHoleConsts ctx occ) := by
-  funext i
-  simp only [ConLeche.nestHoleConst_eq, holeMap, nodeHoleConsts, NestCtx.hiAt, Nat.add_zero]
-  by_cases h1 : ctx.nP ≤ i
-  · simp only [h1, true_and, if_true]
-    by_cases h2 : i < ctx.nP + ctx.names.length
-    · simp only [h2, if_true]
-      have hlt : i - ctx.nP < ctx.names.length := by omega
-      rw [List.getElem?_append_left (by simpa using hlt), List.getElem?_map,
-        List.getElem?_eq_getElem hlt]
-      simp [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hlt]
-    · simp only [h2, if_false, show ctx.nP + ctx.names.length ≤ i by omega, true_and]
-      rw [List.getElem?_append_right (by simp; omega), List.length_map]
-      by_cases h3 : i < ctx.nP + ctx.names.length + occ.length
-      · simp only [h3, if_true, List.getElem?_map]
-        congr 2
-        omega
-      · simp only [h3, if_false]
-        rw [List.getElem?_eq_none (by simp; omega)]
-  · simp [h1, show ¬ (ctx.nP + ctx.names.length ≤ i) by omega]
-
-/-- **The kernel's concrete key is the node's key read back**, at
-parameters below the occurrence's holes. -/
-theorem concrete_eq_nodeRb (ctx : NestCtx) (occ : List NestHole) {x : Expr}
-    (hx : x.fvarsBelow (ctx.hiAt occ.length)) :
-    x.replaceFVars (nestHoleConst ctx occ) = nodeRb ctx occ x := by
-  rw [nestHoleConst_eq_holeMap, nodeRb, substAll_eq_replaceFVars _ _
-    (nodeHoleConsts_const ctx occ) x (by rw [nodeHoleConsts_length]; simpa [NestCtx.hiAt,
-      Nat.add_assoc] using hx)]
-
-end ReadBack
-
 /-! ## Reached nodes -/
 
 theorem PosTree.mem_forest_iff {u : PosTree} :
@@ -200,27 +79,40 @@ theorem PosTree.Reached.of_forest {ts : List PosTree} {u : PosTree}
 
 /-! ## The seeds, read back -/
 
-/-- Pointwise erasure-equality of a list and its image. -/
-theorem erasedEqs_map {f : Expr → Expr} :
-    ∀ (xs : List Expr), (∀ x ∈ xs, ConLeche.Expr.ErasedEq x (f x)) → ConLeche.ErasedEqs xs (xs.map f)
-  | [], _ => trivial
-  | x :: xs, h => ⟨h x List.mem_cons_self,
-      erasedEqs_map xs fun y hy => h y (List.mem_cons_of_mem _ hy)⟩
+/-- Spines of erasure-equal heads and arguments are erasure-equal. -/
+theorem erasedEq_mkAppN_congr :
+    ∀ {as bs : List Expr} {f g : Expr}, ConLeche.Expr.ErasedEq f g → as.length = bs.length →
+      (∀ q (h₁ : q < as.length) (h₂ : q < bs.length), ConLeche.Expr.ErasedEq as[q] bs[q]) →
+      ConLeche.Expr.ErasedEq (Expr.mkAppN f as) (Expr.mkAppN g bs)
+  | [], [], _, _, hfg, _, _ => hfg
+  | [], _ :: _, _, _, _, hl, _ => by simp at hl
+  | _ :: _, [], _, _, _, hl, _ => by simp at hl
+  | a :: as, b :: bs, f, g, hfg, hl, h =>
+    erasedEq_mkAppN_congr (f := .app f a) (g := .app g b)
+      ⟨hfg, h 0 (by simp) (by simp)⟩ (by simpa using hl)
+      fun q h₁ h₂ => h (q + 1) (by simpa using h₁) (by simpa using h₂)
 
-/-- **A seed's parameter read back**: members to their holes, then the
-parameter variables to the canonical ones (whole), then the holes back to
-their constants gives the parameter again up to the free variables'
-annotations — generically, for any constant abstraction to fresh
-variables `f`, variable renaming `g` below `nP` and read-back `h`. -/
+/-- **A seed's parameter read back**: members' whole applications to their
+holes, the parameter variables to the walk's, then the holes back to their
+applications gives the parameter again up to the free variables'
+annotations — generically, for an abstraction `f` hitting whole
+applications, a variable renaming `g` below `nP` and a read-back `h`. -/
 theorem seed_readback_gen {nP k : Nat} {f : Name → List Level → Option Expr}
     {g h : Nat → Option Expr}
-    (hf : ∀ c us e, f c us = some e → ∃ j ty, e = .fvar (nP + j) ty ∧ j < k ∧
-      h (nP + j) = some (.const c us) ∧ g (nP + j) = none)
+    (hhit : ∀ e r, e.appHole? f 0 nP = some r → ∃ j ty ty' R, r = .fvar (nP + j) ty ∧ j < k ∧
+      g (nP + j) = some (.fvar (nP + j) ty') ∧ h (nP + j) = some R ∧ ConLeche.Expr.ErasedEq e R)
     (hg : ∀ i, i < nP → ∃ ty, g i = some (.fvar i ty))
     (hh : ∀ i, i < nP → h i = none) :
     ∀ x : Expr, x.fvarsBelow nP →
-      ((x.replaceConsts f).replaceFVars g).fvarsBelow (nP + k) ∧
-      ConLeche.Expr.ErasedEq x (((x.replaceConsts f).replaceFVars g).replaceFVars h) := by
+      ((x.replaceApps f 0 nP).replaceFVars g).fvarsBelow (nP + k) ∧
+      ConLeche.Expr.ErasedEq x (((x.replaceApps f 0 nP).replaceFVars g).replaceFVars h) := by
+  have hnode : ∀ e r, e.appHole? f 0 nP = some r →
+      (r.replaceFVars g).fvarsBelow (nP + k) ∧
+      ConLeche.Expr.ErasedEq e ((r.replaceFVars g).replaceFVars h) := by
+    intro e r hr
+    obtain ⟨j, ty, ty', R, rfl, hj, hgj, hhj, hE⟩ := hhit e r hr
+    simp only [Expr.replaceFVars, hgj, Option.getD_some, hhj, Expr.fvarsBelow]
+    exact ⟨by omega, hE⟩
   intro x
   induction x with
   | bvar i => intro _; exact ⟨trivial, rfl⟩
@@ -230,38 +122,38 @@ theorem seed_readback_gen {nP k : Nat} {f : Name → List Level → Option Expr}
     intro hb
     simp only [Expr.fvarsBelow] at hb
     obtain ⟨tyP, hgi⟩ := hg i hb
-    simp only [Expr.replaceConsts, Expr.replaceFVars, hgi, Option.getD_some, hh i hb,
+    simp only [Expr.replaceApps, Expr.replaceFVars, hgi, Option.getD_some, hh i hb,
       Option.getD_none, Expr.fvarsBelow]
     exact ⟨by omega, rfl⟩
   | const c us =>
     intro _
-    simp only [Expr.replaceConsts]
-    cases hc : f c us with
-    | none =>
-      simp only [Option.getD_none, Expr.replaceFVars, Expr.fvarsBelow]
+    rw [Expr.replaceApps_const]
+    split
+    · rename_i r hr; exact hnode _ _ hr
+    · simp only [Expr.replaceFVars, Expr.fvarsBelow]
       exact ⟨trivial, ConLeche.Expr.ErasedEq.rfl _⟩
-    | some e =>
-      obtain ⟨j, ty, rfl, hj, hhj, hgj⟩ := hf c us e hc
-      simp only [Option.getD_some, Expr.replaceFVars, hgj, Option.getD_none, hhj,
-        Expr.fvarsBelow]
-      exact ⟨by omega, ConLeche.Expr.ErasedEq.rfl _⟩
   | app a b iha ihb =>
     intro hb
     simp only [Expr.fvarsBelow] at hb
-    obtain ⟨h1, h2⟩ := iha hb.1
-    obtain ⟨h3, h4⟩ := ihb hb.2
-    exact ⟨⟨h1, h3⟩, h2, h4⟩
+    rw [Expr.replaceApps_app]
+    split
+    · rename_i r hr; exact hnode _ _ hr
+    · obtain ⟨h1, h2⟩ := iha hb.1
+      obtain ⟨h3, h4⟩ := ihb hb.2
+      exact ⟨⟨h1, h3⟩, h2, h4⟩
   | lam ty b m iht ihb =>
     intro hb
     simp only [Expr.fvarsBelow] at hb
     obtain ⟨h1, h2⟩ := iht hb.1
     obtain ⟨h3, h4⟩ := ihb hb.2
+    simp only [Expr.replaceApps, Expr.replaceFVars, Expr.fvarsBelow]
     exact ⟨⟨h1, h3⟩, rfl, h2, h4⟩
   | forallE ty b m iht ihb =>
     intro hb
     simp only [Expr.fvarsBelow] at hb
     obtain ⟨h1, h2⟩ := iht hb.1
     obtain ⟨h3, h4⟩ := ihb hb.2
+    simp only [Expr.replaceApps, Expr.replaceFVars, Expr.fvarsBelow]
     exact ⟨⟨h1, h3⟩, rfl, h2, h4⟩
   | letE ty v b iht ihv ihb =>
     intro hb
@@ -269,16 +161,25 @@ theorem seed_readback_gen {nP k : Nat} {f : Name → List Level → Option Expr}
     obtain ⟨h1, h2⟩ := iht hb.1
     obtain ⟨h3, h4⟩ := ihv hb.2.1
     obtain ⟨h5, h6⟩ := ihb hb.2.2
+    simp only [Expr.replaceApps, Expr.replaceFVars, Expr.fvarsBelow]
     exact ⟨⟨h1, h3, h5⟩, h2, h4, h6⟩
   | proj s i e ih =>
     intro hb
     simp only [Expr.fvarsBelow] at hb
     obtain ⟨h1, h2⟩ := ih hb
+    simp only [Expr.replaceApps, Expr.replaceFVars, Expr.fvarsBelow]
     exact ⟨h1, rfl, rfl, h2⟩
+
+/-- Pointwise erasure-equality of a list and its image. -/
+theorem erasedEqs_map {f : Expr → Expr} :
+    ∀ (xs : List Expr), (∀ x ∈ xs, ConLeche.Expr.ErasedEq x (f x)) → ConLeche.ErasedEqs xs (xs.map f)
+  | [], _ => trivial
+  | x :: xs, h => ⟨h x List.mem_cons_self,
+      erasedEqs_map xs fun y hy => h y (List.mem_cons_of_mem _ hy)⟩
 
 /-- **A seed read back is its class** up to the free variables'
 annotations (`nestSeedOf`, `nodeRb` at the empty frame stack): at a walk
-context whose canonical variables are the variables `0 ..< nP`. -/
+context whose parameters are the variables `0 ..< nP`. -/
 theorem seed_readback {ctx : NestCtx} {holes : List Expr} (hh : nestHoles ctx = some holes)
     (hpar : ∀ i, i < ctx.nP → ∃ ty, ctx.params[i]? = some (.fvar i ty))
     (hlen : ctx.params.length = ctx.nP)
@@ -286,42 +187,44 @@ theorem seed_readback {ctx : NestCtx} {holes : List Expr} (hh : nestHoles ctx = 
     (hds : ∀ x ∈ ds, x.fvarsBelow ctx.nP) :
     ConLeche.ErasedEqs ds ((nestSeedOf ctx holes I us ds nPc).1.ds.map (nodeRb ctx [])) := by
   have key := seed_readback_gen (nP := ctx.nP) (k := ctx.names.length)
-    (f := fun c us' =>
-      if us' == ctx.lps.map .param then
-        match ctx.names.findIdx? (· == c) with
-        | some mm => holes[mm]?
-        | none => none
-      else none)
-    (g := fun i => ctx.params[i]?) (h := holeMap ctx.nP (nodeHoleConsts ctx []))
-    (fun c us' e he => by
-      split at he
-      · rename_i hus
-        split at he
-        · rename_i mm hmm
-          obtain ⟨hmmlt, hmmeq, -⟩ := List.findIdx?_eq_some_iff_getElem.mp hmm
-          obtain ⟨cv, caps, -, hget⟩ := nestHoles_getElem? hh hmmlt
-          rw [hget] at he
-          obtain rfl := Option.some.inj he
-          refine ⟨mm, _, rfl, hmmlt, ?_, ?_⟩
-          · simp only [holeMap, show ctx.nP ≤ ctx.nP + mm by omega, if_true,
-              show ctx.nP + mm - ctx.nP = mm by omega, nodeHoleConsts, List.reverse_nil,
-              List.map_nil, List.append_nil, List.getElem?_map,
-              List.getElem?_eq_getElem hmmlt, Option.map_some]
-            have hc : ctx.names[mm] = c := by simpa using hmmeq
-            have hu : us' = ctx.lps.map .param := by simpa using hus
-            rw [hc, hu]
-          · exact List.getElem?_eq_none (by omega)
-        · exact nomatch he
-      · exact nomatch he)
-    (fun i hi => hpar i hi)
-    (fun i hi => by simp only [holeMap]; rw [if_neg (by omega)])
+    (f := nestCanonSub ctx.names (ctx.lps.map .param) ctx.nP)
+    (g := nestKeyMap ctx.params holes) (h := nestHoleImg ctx [])
+    (fun e r hr => by
+      unfold Expr.appHole? at hr
+      cases hp : e.phApp? 0 ctx.nP with
+      | none => rw [hp] at hr; exact nomatch hr
+      | some p =>
+        rw [hp, Option.bind_some] at hr
+        obtain ⟨m, hm, hmc, hv, rfl⟩ := nestCanonSub_some hr
+        obtain ⟨c, v⟩ := p
+        simp only at hmc hv
+        subst hv
+        obtain ⟨args, rfl, hlenA, hvar⟩ := Expr.phApp?_spine ctx.nP hp
+        obtain ⟨cv, caps, ty, -, -, hget⟩ := nestHoles_getElem? hh hm
+        refine ⟨m, _, ty, Expr.mkAppN (.const (ctx.names.getD (ctx.nP + m - ctx.nP) .anonymous)
+          (ctx.lps.map .param)) ctx.params, rfl, hm, ?_, ?_, ?_⟩
+        · simp only [nestKeyMap, hlen, show ¬ ctx.nP + m < ctx.nP by omega, if_false,
+            show ctx.nP + m - ctx.nP = m by omega, hget]
+        · simp only [nestHoleImg]
+          rw [if_pos ⟨by omega, by simp only [NestCtx.hiAt]; omega⟩]
+        · have hc : ctx.names.getD (ctx.nP + m - ctx.nP) .anonymous = c := by
+            rw [show ctx.nP + m - ctx.nP = m by omega, List.getD_eq_getElem?_getD, hmc,
+              Option.getD_some]
+          rw [hc]
+          refine erasedEq_mkAppN_congr (ConLeche.Expr.ErasedEq.rfl _) (by rw [hlenA, hlen])
+            fun q h₁ h₂ => ?_
+          obtain ⟨tyq, hq⟩ := hvar q args[q] (List.getElem?_eq_getElem h₁)
+          obtain ⟨typ, hp'⟩ := hpar q (by omega)
+          rw [List.getElem?_eq_getElem h₂, Option.some.injEq] at hp'
+          rw [hq, hp']
+          simp [ConLeche.Expr.ErasedEq])
+    (fun i hi => by
+      obtain ⟨ty, hty⟩ := hpar i hi
+      exact ⟨ty, by simp only [nestKeyMap, hlen, if_pos hi, hty]⟩)
+    (fun i hi => nestHoleImg_none_of_lt hi [])
   simp only [nestSeedOf, List.map_map]
   refine erasedEqs_map ds fun x hx => ?_
-  obtain ⟨hb, he⟩ := key x (hds x hx)
-  show ConLeche.Expr.ErasedEq x (nodeRb ctx [] _)
-  rw [nodeRb, substAll_eq_replaceFVars _ _ (nodeHoleConsts_const ctx []) _
-    (by rw [nodeHoleConsts_length, List.length_nil, Nat.add_zero]; exact hb)]
-  exact he
+  exact (key x (hds x hx)).2
 
 /-! ## Outside classes at the two environments -/
 

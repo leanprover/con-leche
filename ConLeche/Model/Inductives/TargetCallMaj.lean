@@ -2,7 +2,6 @@ module
 
 public import ConLeche.Model.Inductives.TargetCallTie
 public import ConLeche.Model.Inductives.TargetNodeRb
-import ConLeche.Model.Inductives.PosDerivTie
 
 public section
 
@@ -28,7 +27,7 @@ open SetTheory
 open ConLeche.Term ConLeche.Verify
 open ConLeche.Semantics (AnnotTerm)
 open ConLeche (CheckMode Env Expr Name Level ConstantVal ConstantInfo FEnv BlockParts BlockShape
-  TargetMajor RecShape NestCtx NestHole BinderMeta nestHoleConst)
+  TargetMajor RecShape NestCtx NestHole BinderMeta nestHoleImg)
 
 universe w
 
@@ -62,14 +61,14 @@ theorem readback_erasedEq_substFvars {ctx : NestCtx} {prog : List NestHole} {fvs
     {b D : Nat} (hb : ctx.hiAt prog.length ≤ b) {x : Expr}
     (hx : x.fvarsBelow (ctx.hiAt prog.length)) :
     Expr.ErasedEq (nodeRb ctx prog x) (Expr.substFvars b D (callSubst ctx prog fvsF) x) := by
-  rw [← concrete_eq_nodeRb ctx prog hx, substFvars_congr_below hb x hx]
+  rw [nodeRb, substFvars_congr_below hb x hx]
   refine Expr.replaceFVars_erasedEq_substFvars (fun v hv ty => ?_) x hx
   by_cases h1 : v < ctx.nP
-  · rw [nestHoleConst_lt_nP h1]
+  · rw [nestHoleImg_none_of_lt h1]
     simp only [callSubst, if_pos h1, Option.getD_none]
     simp [Expr.ErasedEq]
-  · obtain ⟨n, us, hc⟩ := nestHoleConst_hole (prog := prog) (Nat.le_of_not_lt h1) hv
-    simp only [callSubst, if_neg h1, if_pos hv, hc, Option.getD_some]
+  · obtain ⟨e, he⟩ := ConLeche.nestHoleImg_isSome (Nat.le_of_not_lt h1) prog hv
+    simp only [callSubst, if_neg h1, if_pos hv, he, Option.getD_some]
     exact Expr.ErasedEq.rfl _
 
 end ConLeche.Model

@@ -22,11 +22,11 @@ the walked telescope at a walk valuation `σ` exactly when it fits the
 recorded fields at `substE τ 0 σ` (`spineFit_substTele`).  So the walk's
 positivity (`PiPosThen`: every walked field monotone along the
 frame relation, the result's indices hole-free) moves a HOLE FIT of the
-recorded constructor from the smaller to the larger side — at any two
-frames that agree with the substituted valuations at the holes (M3,
-`hfits_iff_of_holeAgree`).  `ctor_transfer` is that step; the frame
-lemma (`frameIter`, `ContWalk.lean`) supplies the substituted
-valuations and the agreement.
+recorded constructor from the smaller to the larger side — the
+substituted valuations ARE hole frames of the recorded block (the frame's
+group is the container's whole block).  `ctor_transfer` is that step;
+the frame lemma (`frameIter`, `ContWalk.lean`) supplies the substituted
+valuations.
 -/
 
 namespace ConLeche.Model
@@ -52,19 +52,17 @@ theorem substE_consList (τ : Nat → AnnotTerm) :
       cons_substE]
 
 /-- **A hole-applied result's indices are constant along the walk's
-relation**: the result reads to the hole applied to the parameters and
-the substituted index expressions, whose arguments past the parameters
-are hole-free, so each substituted index reads alike on related frames. -/
-theorem resIdx_constOn {D : LfpDatum V} {ψ : Name → Nat} {c j nF nPc : Nat}
+relation**: the result reads to the hole applied to the substituted index
+expressions, which are hole-free, so each substituted index reads alike on
+related frames. -/
+theorem resIdx_constOn {D : LfpDatum V} {ψ : Name → Nat} {c j nF : Nat}
     {ctx : NestCtx} {hi' : Nat} {cur : Expr}
     {τ : Nat → AnnotTerm} {p : Nat} (hhead : (τ (D.k - 1 - c)).liftN nF 0 = .bvar p)
     {Rx : FrameRel V}
     (hresAt : ResultAt m φ ctx.nP hi' (hi' + nF) cur Rx
-      (AnnotTerm.substAV τ (AnnotTerm.mkAppN (.bvar (nF + (D.k - 1 - c)))
-          ((List.range nPc).map (fun i => AnnotTerm.bvar (nPc + D.k + nF - 1 - i))
-            ++ D.resIdx ψ c j)) nF))
+      (AnnotTerm.substAV τ (AnnotTerm.mkAppN (.bvar (nF + (D.k - 1 - c))) (D.resIdx ψ c j)) nF))
     (hres : ConLeche.nestResHead cur = true)
-    (hidx : (cur.getAppArgs.drop nPc).all (fun x => !x.nestOcc ctx.names ctx.nP hi') = true) :
+    (hidx : cur.getAppArgs.all (fun x => !x.nestOcc ctx.names ctx.nP hi') = true) :
     ∀ e ∈ D.resIdx ψ c j, ConstOn Rx (AnnotTerm.substAV τ e nF) := by
   intro e he
   obtain ⟨hag, hrd, hws⟩ := hresAt
@@ -81,57 +79,37 @@ theorem resIdx_constOn {D : LfpDatum V} {ψ : Name → Nat} {c j nF nPc : Nat}
   rw [denoteMeta_fvar] at hfa
   cases hfa
   obtain ⟨-, hvs⟩ := mkAppN_bvar_inj hvs
-  rw [List.map_append] at hvs
   have hwsargs := (wScoped_mkAppN _ hws).2
-  have hlv := DenoteMetaSpine.length_eq hsp
-  rw [← List.take_append_drop nPc cur.getAppArgs] at hsp
-  obtain ⟨vs₁, vs₂, hv12, hsp₁, hsp₂⟩ := DenoteMetaSpine.split _ hsp
-  have hl₁ : vs₁.length = nPc := by
-    rw [← DenoteMetaSpine.length_eq hsp₁, List.length_take]
-    have : cur.getAppArgs.length = nPc + (D.resIdx ψ c j).length := by
-      rw [hlv, ← hvs]; simp
-    omega
-  rw [hv12] at hvs
-  have hvs₂ : vs₂ = (D.resIdx ψ c j).map (AnnotTerm.substAV τ · nF) := by
-    have := congrArg (List.drop nPc) hvs
-    rw [List.drop_left' hl₁, List.drop_left' (by simp)] at this
-    rw [this]
-  have hconst := constOn_spine (m := m) (φ := φ) (names := ctx.names) hag (by omega) hsp₂
-    (fun a ha => ⟨hwsargs a (List.mem_of_mem_drop ha), by
+  have hconst := constOn_spine (m := m) (φ := φ) (names := ctx.names) hag (by omega) hsp
+    (fun a ha => ⟨hwsargs a ha, by
       simp only [List.all_eq_true, Bool.not_eq_eq_eq_not, Bool.not_true] at hidx
       exact hidx a ha⟩)
-  exact hconst _ (by rw [hvs₂]; exact List.mem_map_of_mem he)
+  exact hconst _ (by rw [← hvs]; exact List.mem_map_of_mem he)
 
 /-- **The per-constructor transfer** (see the module docstring): a walked
 constructor whose walk is positive along `R'`, whose instantiated result
 is its hole applied (`nestResHead`) with hole-free indices, moves a hole
-fit of the recorded constructor from any frame agreeing at the holes
-with the substituted smaller walk valuation to any frame agreeing with
-the substituted larger one. -/
-theorem ctor_transfer {D : LfpDatum V} {ψ : Name → Nat} {c j nF nPc : Nat}
+fit of the recorded constructor from the hole frame the substituted
+smaller walk valuation IS to the one the substituted larger one is. -/
+theorem ctor_transfer {D : LfpDatum V} {ψ : Name → Nat} {c j nF : Nat}
     {ctx : NestCtx} {hi' : Nat} {cur : Expr}
     {ab : List (Nat × Nat × AnnotTerm)} {Δ : List AnnotTerm}
     (hEq : FieldsEqOn V Δ (ab.map (·.2.2)) (D.fields ψ c j))
-    (hlen : ab.length = nF) (hnP : (D.params ψ).length = nPc)
+    (hlen : ab.length = nF)
     {τ : Nat → AnnotTerm} {p : Nat} (hhead : (τ (D.k - 1 - c)).liftN nF 0 = .bvar p)
     {R' : FrameRel V}
     (hwalk : PiPosThen (ResultAt m φ ctx.nP hi' (hi' + nF) cur) nF R'
       (mkPisAV (AnnotTerm.substTele τ 0 ab)
-        (AnnotTerm.substAV τ (AnnotTerm.mkAppN (.bvar (nF + (D.k - 1 - c)))
-          ((List.range nPc).map (fun i => AnnotTerm.bvar (nPc + D.k + nF - 1 - i))
-            ++ D.resIdx ψ c j)) ab.length)))
+        (AnnotTerm.substAV τ (AnnotTerm.mkAppN (.bvar (nF + (D.k - 1 - c))) (D.resIdx ψ c j))
+          ab.length)))
     (hres : ConLeche.nestResHead cur = true)
-    (hidx : (cur.getAppArgs.drop nPc).all (fun x => !x.nestOcc ctx.names ctx.nP hi') = true)
-    (hha : D.HolesApplied ψ c j)
-    {σS σL ρpS ρpL XS XL : Nat → V} {vsS vsL : List V} (hR : R' σS σL)
-    (hvS : substE V τ 0 σS = consList vsS ρpS) (hvL : substE V τ 0 σL = consList vsL ρpL)
-    (hagS : HoleAgree D.k nPc 0 (D.frame ψ ρpS XS) (consList vsS ρpS))
-    (hagL : HoleAgree D.k nPc 0 (D.frame ψ ρpL XL) (consList vsL ρpL))
-    (hsatS : Sat V Δ (consList vsS ρpS)) (hsatL : Sat V Δ (consList vsL ρpL)) :
+    (hidx : cur.getAppArgs.all (fun x => !x.nestOcc ctx.names ctx.nP hi') = true)
+    {σS σL ρpS ρpL XS XL : Nat → V} (hR : R' σS σL)
+    (hvS : substE V τ 0 σS = D.frame ψ ρpS XS) (hvL : substE V τ 0 σL = D.frame ψ ρpL XL)
+    (hsatS : Sat V Δ (D.frame ψ ρpS XS)) (hsatL : Sat V Δ (D.frame ψ ρpL XL)) :
     ∀ t fs, D.HFits ψ ρpS XS t c j fs → D.HFits ψ ρpL XL t c j fs := by
   intro t fs hf
-  rw [← hnP] at hagS hagL
-  obtain ⟨hjS, hspS, hresS⟩ := (LfpDatum.hfits_iff_of_holeAgree hha hagS).mp hf
+  obtain ⟨hjS, hspS, hresS⟩ := hf
   have hlenS : (AnnotTerm.substTele τ 0 ab).length = nF := by
     rw [substTele_length, hlen]
   rw [← hlenS] at hwalk
@@ -141,10 +119,10 @@ theorem ctor_transfer {D : LfpDatum V} {ψ : Name → Nat} {c j nF nPc : Nat}
     (spineFit_substTele V τ ab 0 σS fs).mpr
       (by rw [hvS]; exact (hEq.spineFit_iff hsatS fs).mpr hspS)
   have h2 := spineFit_mono _ htele hR h1
-  have hspL : SpineFit (consList vsL ρpL) (D.fields ψ c j) fs := by
+  have hspL : SpineFit (D.frame ψ ρpL XL) (D.fields ψ c j) fs := by
     refine (hEq.spineFit_iff hsatL fs).mp ?_
     rw [← hvL]; exact (spineFit_substTele V τ ab 0 σL fs).mp h2
-  refine (LfpDatum.hfits_iff_of_holeAgree hha hagL).mpr ⟨hjS, hspL, fun l hl => ?_⟩
+  refine ⟨hjS, hspL, fun l hl => ?_⟩
   obtain ⟨e, he, heq⟩ := hresS l hl
   refine ⟨e, he, ?_⟩
   rw [← heq]

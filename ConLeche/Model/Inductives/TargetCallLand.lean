@@ -14,9 +14,9 @@ public section
 /-!
 # The calls' landing kit
 
-* `holeVal_foldl_mem`, `former_foldl_mem` — an element of a hole value (or
-  a recorded member's former) applied to a parameter frame and an index
-  spine: the spine fits and the element is in the tuple's (the carrier's)
+* `holeVal_foldl_mem`, `former_foldl_mem` — an element of a hole value
+  applied to an index spine (or a recorded member's former applied to a
+  parameter frame and an index spine): the spine fits and the element is in the tuple's (the carrier's)
   component there — off the index telescope the application is empty;
 * `wStar_agree` — the rule's valuation seen through the walk's
   substitution agrees off the holes with a walk valuation holding the
@@ -36,32 +36,18 @@ variable {V : Type w} [SetTheory V]
 
 /-! ## Hole values and formers, applied -/
 
-/-- **An element of a hole value applied at the frame's parameters**: its
-index spine fits the component's telescope and the element is in the
-tuple's component there. -/
-theorem holeVal_foldl_mem {acval : Name → (Name → Nat) → AnnotTerm} {D : LfpDatum V}
-    (hcl : LfpClause acval D) {mm : Nat} (hmm : mm < D.k) {ψ : Name → Nat} {ρp Y : Nat → V}
-    (hs : Sat V (D.params ψ).reverse ρp) {is : List V} (his : is.length = (D.ids mm ψ).length)
-    {y : V} (hy : y ∈ˢ (frameIdx (D.params ψ).length ρp ++ is).foldl app (D.holeVal ψ ρp Y mm)) :
+/-- **An element of a hole value applied to an index spine**: the spine
+fits the component's index telescope and the element is in the tuple's
+component there. -/
+theorem holeVal_foldl_mem {D : LfpDatum V} {mm : Nat} {ψ : Name → Nat} {ρp Y : Nat → V}
+    {is : List V} (his : is.length = (D.ids mm ψ).length)
+    {y : V} (hy : y ∈ˢ is.foldl app (D.holeVal ψ ρp Y mm)) :
     SpineFit ρp (D.ids mm ψ) is ∧ y ∈ˢ app (Y mm) (tupW (D.u mm ψ) is) := by
-  have hpl := hcl.parsLen mm hmm ψ
-  have hsP := hcl.parsSat mm hmm ψ ρp hs
   unfold LfpDatum.holeVal at hy
-  rcases holeFam_foldl_full (ρ := shiftE (D.pars mm ψ).length 0 ρp)
-      (Fs := D.pars mm ψ ++ D.ids mm ψ) (vs := frameIdx (D.params ψ).length ρp ++ is)
-      (fun vs => app (Y mm) (tupW (D.u mm ψ) (vs.drop (D.pars mm ψ).length)))
-      (by simp [frameIdx, his, hpl]) with ⟨hfit, heq⟩ | he
+  rcases holeFam_foldl_full (ρ := ρp) (Fs := D.ids mm ψ) (vs := is)
+      (fun vs => app (Y mm) (tupW (D.u mm ψ) vs)) his with ⟨hfit, heq⟩ | he
   · rw [heq] at hy
-    obtain ⟨as₁, as₂, hsplit, h1, h2⟩ := spineFit_append_split hfit
-    have hl1 : as₁.length = (D.pars mm ψ).length := SpineFit.length_eq h1
-    have hlm : (frameIdx (D.params ψ).length ρp).length = as₁.length := by simp [frameIdx, hl1, hpl]
-    obtain ⟨hA, rfl⟩ := List.append_inj hsplit hlm
-    rw [← hA] at h2
-    rw [List.drop_left' (by simp [frameIdx, hpl])] at hy
-    have hfr : consList (frameIdx (D.pars mm ψ).length ρp) (shiftE (D.pars mm ψ).length 0 ρp) = ρp :=
-      consList_frameIdx _ ρp
-    rw [← hpl, hfr] at h2
-    exact ⟨h2, hy⟩
+    exact ⟨hfit, hy⟩
   · rw [he] at hy
     exact absurd hy (not_mem_empty y)
 
@@ -75,8 +61,8 @@ theorem former_foldl_mem {env : Env} {μ : ConLeche.CheckMode} (mp : EnvModelM V
     (hy : y ∈ˢ (frameIdx (D.params ψ).length ρp ++ is).foldl app
       (interp V ρ (mp.base2.acval (D.member mm) ψ))) :
     SpineFit ρp (D.ids mm ψ) is ∧ y ∈ˢ app (D.carrier ψ ρp mm) (tupW (D.u mm ψ) is) := by
-  rw [former_app_eq mp hD hmm hs ρ is] at hy
-  exact holeVal_foldl_mem (mp.lfpClause_of_mem hD) hmm hs his hy
+  rw [List.foldl_append, former_app_eq mp hD hmm hs ρ] at hy
+  exact holeVal_foldl_mem his hy
 
 /-! ## The rule's valuation through the walk's substitution -/
 

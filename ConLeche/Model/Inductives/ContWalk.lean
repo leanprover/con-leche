@@ -18,6 +18,10 @@ import ConLeche.Model.Inductives.StructFrameKit
 import ConLeche.Model.Inductives.SumKit
 import ConLeche.Verify.Inductives.NestContInv
 public import ConLeche.Verify.Inductives.PosDerivInv
+import ConLeche.Model.Inductives.BlockHoleValid
+import ConLeche.Semantics.Tower.BlockTower
+import ConLeche.Verify.Inductives.NestNfScope
+import ConLeche.Model.WellDenotedTransport
 
 public section
 
@@ -45,17 +49,17 @@ universe w
 variable {V : Type w} [SetTheory V] {env : Env} {m : EnvModel V env} {φ : Name → Nat}
 
 /-- What a successful frame walk leaves of one constructor: its level
-parameters distinct, and its instantiated, abstracted type read, walked
-positively along the frame relation, its result the hole applied with
-hole-free indices. -/
+parameters distinct, and its instantiated, abstracted type (`nestCrest`)
+read, walked positively along the frame relation, its result the hole
+applied with hole-free indices. -/
 @[expose] def CtorWalked (m : EnvModel V env) (φ : Name → Nat) (ctx : NestCtx) (hi : Nat)
-    (us : List Level) (ds : List Expr) (nPc : Nat) (sub : Name → List Level → Option Expr)
+    (us : List Level) (ds : List Expr) (names : List Name) (holes : List Expr)
     (R : FrameRel V) (x : ConstantVal × Nat) : Prop :=
   x.1.levelParams.Nodup ∧ ∃ crest ca cur,
-    instPisWith ds ((x.1.type.instantiateLevelParams x.1.levelParams us).replaceConsts sub)
+    ConLeche.nestCrest names us ds holes (x.1.type.instantiateLevelParams x.1.levelParams us)
       = some crest ∧
     denoteMeta m.acval env φ hi crest = some ca ∧ ConLeche.nestResHead cur = true ∧
-    (cur.getAppArgs.drop nPc).all (fun a => !a.nestOcc ctx.names ctx.nP hi) = true ∧
+    cur.getAppArgs.all (fun a => !a.nestOcc ctx.names ctx.nP hi) = true ∧
     PiPosThen (ResultAt m φ ctx.nP hi (hi + x.2) cur) x.2 R ca
 
 /-! ## The frame's group, its holes and its relation -/
@@ -74,49 +78,85 @@ theorem holeFam_append_apply :
     rw [app_lamR_pos (by decide) h.1, consList_cons]
     exact holeFam_append_apply (Fs := Fs) Gs (fun as => g (a :: as)) is h.2
 
-/-- A spine of values each inhabiting its closed domain fits. -/
-theorem spineFit_of_closed :
-    ∀ {Ds : List AnnotTerm} {as : List V} (ρ : Nat → V), as.length = Ds.length →
-      (∀ i (hi : i < as.length) (hi' : i < Ds.length) (σ : Nat → V),
-        as[i] ∈ˢ interp V σ Ds[i]) → SpineFit ρ Ds as
-  | [], [], _, _, _ => trivial
-  | [], _ :: _, _, h, _ => by simp at h
-  | _ :: _, [], _, h, _ => by simp at h
-  | D :: Ds, a :: as, ρ, h, hm =>
-    ⟨hm 0 (by simp) (by simp) ρ, spineFit_of_closed _ (by simpa using h)
-      fun i hi hi' σ => hm (i + 1) (by simpa using hi) (by simpa using hi') σ⟩
+/-- **A spine of values each inhabiting its entry read below the earlier
+ones fits**, when entry `i` is a reading over the base frame lifted past
+the `i` earlier values. -/
+theorem spineFit_of_lifted :
+    ∀ (Ts : List AnnotTerm) (vs pre : List V) (ρ : Nat → V), Ts.length = vs.length →
+      (∀ i (h : i < Ts.length) (h' : i < vs.length), ∃ t,
+        Ts[i] = t.liftN (pre.length + i) 0 ∧ vs[i] ∈ˢ interp V ρ t) →
+      SpineFit (consList pre ρ) Ts vs
+  | [], [], _, _, _, _ => trivial
+  | [], _ :: _, _, _, h, _ => by simp at h
+  | _ :: _, [], _, _, h, _ => by simp at h
+  | T :: Ts, v :: vs, pre, ρ, hl, hm => by
+    obtain ⟨t, ht, hv⟩ := hm 0 (by simp) (by simp)
+    refine ⟨?_, ?_⟩
+    · simp only [List.getElem_cons_zero, Nat.add_zero] at ht hv
+      rw [ht, interp_liftN_consList]; exact hv
+    · have := spineFit_of_lifted Ts vs (pre ++ [v]) ρ (by simpa using hl) fun i h h' => by
+        obtain ⟨t, ht, hv⟩ := hm (i + 1) (by simpa using h) (by simpa using h')
+        refine ⟨t, ?_, by simpa using hv⟩
+        simp only [List.getElem_cons_succ, List.length_append, List.length_singleton] at ht ⊢
+        rw [ht, show pre.length + (i + 1) = pre.length + 1 + i by omega]
+      rwa [consList_append, consList_cons, consList_nil] at this
 
-/-- **The frame's group is well formed, possibly empty**: its names distinct, each a member of the container's block `D`,
-each at the frame's key through `nestInstType`.  The EMPTY group is the
-group-free reading of an instantiated container constructor (every
-member stays a constant), which the recursor's rule data read at an
-outside major. -/
+/-- **A graded Π-tower stays graded past a fitting prefix.** -/
+theorem wellDenotedV_mkPisAV_append (B : AnnotTerm) :
+    ∀ (ab₁ ab₂ : List (Nat × Nat × AnnotTerm)) (ρ : Nat → V) (as : List V),
+      SpineFit ρ (ab₁.map (·.2.2)) as → WellDenotedV V ρ (mkPisAV (ab₁ ++ ab₂) B) →
+      WellDenotedV V (consList as ρ) (mkPisAV ab₂ B)
+  | [], _, _, [], _, h => h
+  | [], _, _, _ :: _, hf, _ => hf.elim
+  | _ :: _, _, _, [], hf, _ => hf.elim
+  | d :: ab₁, ab₂, ρ, a :: as, hf, h => by
+    obtain ⟨h1, h2⟩ := h
+    simp only [List.cons_append, mkPisAV, WellDenoted_pi, AnnotValid_pi] at h1 h2
+    exact wellDenotedV_mkPisAV_append B ab₁ ab₂ (cons a ρ) as hf.2
+      ⟨h1.2 a hf.1, h2.2.1 a hf.1⟩
+
+/-- **The frame's group is well formed**: its names distinct, the
+container's WHOLE recorded block (N2-eager: `PosD.frame.hgrp`), each at
+the frame's key through `nestInstType` (its hole's type the member's
+former instantiated at the key). -/
 @[expose] def GrpWf (ctx : NestCtx) (D : LfpDatum V) (hi : Nat) (us : List Level) (ds : List Expr)
     (grp : List (Name × Expr)) : Prop :=
-  (grp.map (·.1)).Nodup ∧ ∀ p ∈ grp, (∃ mm, mm < D.k ∧ p.1 = D.member mm) ∧
-    ∃ nI, ConLeche.nestInstType (m := CheckM) ctx hi ⟨p.1, us, ds⟩ = .ok (nI, p.2)
+  (grp.map (·.1)).Nodup ∧ (∀ c, c ∈ grp.map (·.1) ↔ c ∈ D.names) ∧
+    ∀ p ∈ grp, (∃ mm, mm < D.k ∧ p.1 = D.member mm) ∧
+      ∃ nI, ConLeche.nestInstType (m := CheckM) ctx hi ⟨p.1, us, ds⟩ = .ok (nI, p.2)
 
-/-- **The frame's group is well formed**: nonempty, its names distinct,
-each a member of the container's block `D`, each at the frame's key
-through `nestInstType` (its hole's type the member's former at the key's
-levels). -/
+/-- **The frame's group is well formed**, nonempty. -/
 @[expose] def GrpOk (ctx : NestCtx) (D : LfpDatum V) (hi : Nat) (us : List Level) (ds : List Expr)
     (grp : List (Name × Expr)) : Prop :=
   grp ≠ [] ∧ GrpWf ctx D hi us ds grp
 
-/-- Member `mm` of `D` is in the frame's group. -/
+/-- Member `mm` of `D` is in the frame's group (every member is:
+`inGrp_of_lt`). -/
 @[expose] def InGrp (D : LfpDatum V) (grp : List (Name × Expr)) (mm : Nat) : Prop :=
   mm < D.k ∧ (grp.map (·.1)).contains (D.member mm) = true
+
+omit [SetTheory V] in
+/-- **Every member is in the frame's group** (the group is the whole
+recorded block). -/
+theorem inGrp_of_lt {D : LfpDatum V} {grp : List (Name × Expr)}
+    (hall : ∀ c, c ∈ grp.map (·.1) ↔ c ∈ D.names) (hkN : D.names.length = D.k) {mm : Nat}
+    (hmm : mm < D.k) : InGrp D grp mm := by
+  refine ⟨hmm, List.contains_iff_mem.mpr ((hall _).mpr ?_)⟩
+  unfold LfpDatum.member
+  rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem (by omega), Option.getD_some]
+  exact List.getElem_mem _
 
 /-- The frame's hole values at a key frame `ρp` and a tuple `Y`. -/
 @[expose] noncomputable def grpVals (D : LfpDatum V) (ψ : Name → Nat) (grp : List (Name × Expr))
     (ρp Y : Nat → V) : List V :=
   grp.map fun p => D.holeVal ψ ρp Y (D.names.idxOf p.1)
 
-/-- The frame's holes' context entries (their former types, read). -/
-@[expose] noncomputable def grpTys (m : EnvModel V env) (φ : Name → Nat) (grp : List (Name × Expr)) :
-    List AnnotTerm :=
-  grp.map fun p => (denoteMeta m.acval env φ 0 p.2).getD .prf
+/-- The frame's holes' context entries: hole `i`'s type (its former
+instantiated at the key, an OPEN term scoped at the key's depth `hi`),
+read at its own depth `hi + i`. -/
+@[expose] noncomputable def grpTys (m : EnvModel V env) (φ : Name → Nat) (hi : Nat)
+    (grp : List (Name × Expr)) : List AnnotTerm :=
+  grp.mapIdx fun i p => (denoteMeta m.acval env φ (hi + i) p.2).getD .prf
 
 open Classical in
 /-- The smaller side's tuple: the larger carrier on the group, the
@@ -158,89 +198,65 @@ theorem grpMember {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) {D : LfpDa
     {grp : List (Name × Expr)} (hg : GrpWf ctx D hi us ds grp) {p : Name × Expr} (hp : p ∈ grp) :
     ∃ mm, mm < D.k ∧ p.1 = D.member mm ∧ D.names.idxOf p.1 = mm ∧ ∃ cv caps,
       env.find? (D.member mm) = some (.indInfo cv caps) ∧ cv.levelParams = lps ∧
-      p.2 = cv.type.instantiateLevelParams lps us ∧
+      (cv.type.stripPis ds.length).isSome = true ∧
+      instPisWith ds (cv.type.instantiateLevelParams lps us) = some p.2 ∧
       ∀ ρ ρ' : Nat → V, AgreeOff (holeP hi ctx.nP hi) ρ ρ' →
         TeleEq (keyFrame dsa hi ρ) (keyFrame dsa hi ρ') (D.ids mm (Level.substFn φ lps us)) := by
-  obtain ⟨-, hall⟩ := hg
+  obtain ⟨-, -, hall⟩ := hg
   obtain ⟨⟨mm, hmm, hpm⟩, nI, hrun⟩ := hall p hp
   obtain ⟨cv, caps, hf, hcl⟩ := hlps mm hmm
   rw [hpm] at hrun
   subst hcl
   obtain ⟨hcty, -, hte⟩ := n2_link mp hD hmm hfind hrun hf hnd hul hlenP hds hdsa
-  exact ⟨mm, hmm, hpm, by rw [hpm]; exact idxOf_member hnN hkN hmm, cv, caps, hf, rfl, hcty, hte⟩
-
-theorem lookup_getElem :
-    ∀ {L : List (Name × Expr)}, (L.map (·.1)).Nodup → ∀ (i : Nat) (hi : i < L.length),
-      L.lookup L[i].1 = some L[i].2
-  | [], _, i, hi => absurd hi (Nat.not_lt_zero _)
-  | p :: L, hnd, 0, _ => by simp [List.lookup]
-  | p :: L, hnd, i + 1, hi => by
-    rw [List.map_cons, List.nodup_cons] at hnd
-    have hne : (L[i]'(by simpa using hi)).1 ≠ p.1 := by
-      intro he
-      exact hnd.1 (by rw [← he]; exact List.mem_map_of_mem (List.getElem_mem _))
-    have hbeq : ((L[i]'(by simpa using hi)).1 == p.1) = false := by simpa using hne
-    simp only [List.getElem_cons_succ, List.lookup, hbeq]
-    exact lookup_getElem hnd.2 i _
-
-theorem lookup_none {L : List (Name × Expr)} {k : Name} (hk : k ∉ L.map (·.1)) :
-    L.lookup k = none := by
-  induction L with
-  | nil => rfl
-  | cons p L ih =>
-    have hne : k ≠ p.1 := fun h => hk (by simp [h])
-    have hbeq : (k == p.1) = false := by simpa using hne
-    simp only [List.lookup, hbeq]
-    exact ih fun h => hk (List.mem_cons_of_mem _ h)
-
-theorem mapIdx_hole_keys {hi : Nat} (grp : List (Name × Expr)) :
-    (grp.mapIdx fun i (c, ty) => (c, Expr.fvar (hi + i) ty)).map (·.1) = grp.map (·.1) := by
-  apply List.ext_getElem (by simp)
-  intro i h₁ h₂
-  simp
-
-/-- The substitution at a member of the group is its hole. -/
-theorem grpSub_mem {us : List Level} {hi : Nat} {grp : List (Name × Expr)}
-    (hnd : (grp.map (·.1)).Nodup) {i : Nat} (hi' : i < grp.length) :
-    grpSub us hi grp grp[i].1 us = some (.fvar (hi + i) grp[i].2) := by
-  unfold grpSub
-  rw [if_pos (by simp)]
-  have hnd' : ((grp.mapIdx fun i (c, ty) => (c, Expr.fvar (hi + i) ty)).map (·.1)).Nodup := by
-    rw [mapIdx_hole_keys]; exact hnd
-  have := lookup_getElem hnd' i (by simpa using hi')
-  simpa using this
-
-/-- Off the group the substitution is nothing. -/
-theorem grpSub_none {us us' : List Level} {hi : Nat} {grp : List (Name × Expr)} {c : Name}
-    (hc : c ∉ grp.map (·.1)) : grpSub us hi grp c us' = none := by
-  unfold grpSub
-  split
-  · exact lookup_none (by rw [mapIdx_hole_keys]; exact hc)
-  · rfl
+  obtain ⟨cv', caps', hf', hstrip, -⟩ := ConLeche.nestInstType_inv hrun
+  rw [hfind] at hf'
+  change env.find? (D.member mm) = _ at hf'
+  rw [hf] at hf'
+  obtain ⟨rfl, rfl⟩ : cv = cv' ∧ caps = caps' := by simpa using hf'
+  exact ⟨mm, hmm, hpm, by rw [hpm]; exact idxOf_member hnN hkN hmm, cv, caps, hf, rfl, hstrip,
+    hcty, hte⟩
 
 /-- The substituted variables of a frame's constructor type: the key's
-parameters, then each member's hole (in the group) or constant. -/
-@[expose] def grpS (D : LfpDatum V) (us : List Level) (hi : Nat) (grp : List (Name × Expr))
-    (ds : List Expr) : Nat → Expr :=
+parameters, then each member's hole. -/
+@[expose] def grpS (D : LfpDatum V) (hi : Nat) (grp : List (Name × Expr)) (ds : List Expr) :
+    Nat → Expr :=
   fun q => if q < ds.length then ds.getD q default else
-    (grpSub us hi grp (D.member (q - ds.length)) us).getD (.const (D.member (q - ds.length)) us)
+    (grpHoles hi grp).getD ((grp.map (·.1)).idxOf (D.member (q - ds.length))) default
 
 /-- Their readings at the frame's depth. -/
 @[expose] noncomputable def grpX (m : EnvModel V env) (φ : Name → Nat) (D : LfpDatum V)
-    (us : List Level) (hi : Nat) (grp : List (Name × Expr)) (ds : List Expr) (d : Nat) :
-    Nat → AnnotTerm :=
-  fun q => (denoteMeta m.acval env φ d (grpS D us hi grp ds q)).getD .prf
+    (hi : Nat) (grp : List (Name × Expr)) (ds : List Expr) (d : Nat) : Nat → AnnotTerm :=
+  fun q => (denoteMeta m.acval env φ d (grpS D hi grp ds q)).getD .prf
 
-/-- **The group's hole types, without the walk**: the names distinct, each a member of `D`, each hole typed by the
-member's former at the key's levels.  `GrpWf` gives it (`grpWf_ty`);
-the recursor stage's (D) typing states it directly (its group is the
-container's recorded block, its hole types the formers at the major's
-levels), with no `nestInstType` run. -/
-@[expose] def GrpTy (env : Env) (D : LfpDatum V) (us : List Level) (grp : List (Name × Expr)) :
-    Prop :=
-  (grp.map (·.1)).Nodup ∧ ∀ p ∈ grp, ∃ mm, mm < D.k ∧ p.1 = D.member mm ∧ ∃ cv caps,
-    env.find? (D.member mm) = some (.indInfo cv caps) ∧
-    p.2 = cv.type.instantiateLevelParams cv.levelParams us
+/-- **The group's hole types, without the walk**: the names distinct, the
+recorded block's, each hole typed by the member's former instantiated at
+the key.  `GrpWf` gives it (`grpWf_ty`); the recursor stage's (D) typing
+states it directly, with no `nestInstType` run. -/
+@[expose] def GrpTy (env : Env) (D : LfpDatum V) (us : List Level) (ds : List Expr)
+    (grp : List (Name × Expr)) : Prop :=
+  (grp.map (·.1)).Nodup ∧ (∀ c, c ∈ grp.map (·.1) ↔ c ∈ D.names) ∧
+    ∀ p ∈ grp, ∃ mm, mm < D.k ∧ p.1 = D.member mm ∧ ∃ cv caps,
+      env.find? (D.member mm) = some (.indInfo cv caps) ∧
+      (cv.type.stripPis ds.length).isSome = true ∧
+      instPisWith ds (cv.type.instantiateLevelParams cv.levelParams us) = some p.2
+
+omit [SetTheory V] in
+/-- The group's hole of member `mm`. -/
+theorem grpHoles_member {D : LfpDatum V} {grp : List (Name × Expr)} {hi : Nat}
+    (hall : ∀ c, c ∈ grp.map (·.1) ↔ c ∈ D.names) (hkN : D.names.length = D.k) {mm : Nat}
+    (hmm : mm < D.k) :
+    ∃ i, ∃ hi' : i < grp.length, grp[i].1 = D.member mm ∧
+      (grp.map (·.1)).idxOf (D.member mm) = i ∧
+      (grpHoles hi grp).getD i default = .fvar (hi + i) grp[i].2 := by
+  have hmem : D.member mm ∈ grp.map (·.1) := List.contains_iff_mem.mp (inGrp_of_lt hall hkN hmm).2
+  have hlt : (grp.map (·.1)).idxOf (D.member mm) < grp.length := by
+    have := List.idxOf_lt_length_of_mem hmem; simpa using this
+  refine ⟨_, hlt, ?_, rfl, ?_⟩
+  · have := List.getElem_idxOf (xs := grp.map (·.1)) (x := D.member mm)
+      (by rw [List.length_map]; exact hlt)
+    rw [List.getElem_map] at this
+    exact this
+  · simp [grpHoles, List.getD_eq_getElem?_getD, hlt]
 
 section FrameT
 
@@ -251,47 +267,111 @@ variable {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) {D : LfpDatum V}
   (hnd : lps.Nodup) {us : List Level} (hul : us.length = lps.length) {hi : Nat} {ds : List Expr}
   (hds : ∀ x ∈ ds, Expr.WScoped hi x ∧ x.looseBVarsBounded 0 = true) {dsa : List AnnotTerm}
   (hdsa : DenoteMetaSpine mp.base2.acval env φ hi ds dsa)
-  {grp : List (Name × Expr)} (hgT : GrpTy env D us grp)
+  (hlenP : (D.params (Level.substFn φ lps us)).length = ds.length)
+  {grp : List (Name × Expr)} (hgT : GrpTy env D us ds grp)
 
-include hD hnN hkN hlps hnd hul hds hdsa hgT
+include hD hnN hkN hlps hnd hul hds hdsa hlenP hgT
 
-omit hD hnd hul hds hdsa in
-/-- A group member's hole type is closed and reads the same at every depth. -/
+omit hnN hkN in
+/-- **A group member's hole type**: scoped at the key's depth, its leaves
+the key's parameters', read there as the member's index telescope
+substituted at the parameters' readings. -/
 theorem grp_typeT {p : Name × Expr} (hp : p ∈ grp) :
-    p.2.hasFvar = false ∧ p.2.looseBVarsBounded 0 = true ∧
-    ∃ mm cv caps, mm < D.k ∧ p.1 = D.member mm ∧ D.names.idxOf p.1 = mm ∧
-      env.find? (D.member mm) = some (.indInfo cv caps) ∧
-      ∃ ta, denoteMeta mp.base2.acval env (Level.substFn φ lps us) 0 cv.type = some ta ∧
-        ∀ d, denoteMeta mp.base2.acval env φ d p.2 = some ta := by
-  obtain ⟨mm, hmm, hpm, cv, caps, hf, hp2⟩ := hgT.2 p hp
-  have hidx : D.names.idxOf p.1 = mm := by rw [hpm]; exact idxOf_member hnN hkN hmm
+    Expr.WScoped hi p.2 ∧ p.2.looseBVarsBounded 0 = true ∧
+    (∀ l ∈ p.2.fvarLeaves, ∃ x ∈ ds, l ∈ x.fvarLeaves) ∧
+    ∃ mm cv caps, mm < D.k ∧ p.1 = D.member mm ∧
+      env.find? (D.member mm) = some (.indInfo cv caps) ∧ ∃ abF : List (Nat × Nat × AnnotTerm),
+        denoteMeta mp.base2.acval env (Level.substFn φ lps us) 0 cv.type
+          = some (mkPisAV abF (.sort (D.w (Level.substFn φ lps us)))) ∧
+        abF.map (·.2.2) = D.pars mm (Level.substFn φ lps us) ++ D.ids mm (Level.substFn φ lps us) ∧
+        (∀ d ∈ abF, d.2.1 ≠ 0) ∧
+        (abF.drop ds.length).map (·.2.2) = D.ids mm (Level.substFn φ lps us) ∧
+        denoteMeta mp.base2.acval env φ hi p.2
+          = some (mkPisAV (AnnotTerm.substTele (substTau ds.length hi fun i => dsa.getD i default) 0
+              (abF.drop ds.length)) (.sort (D.w (Level.substFn φ lps us)))) := by
+  obtain ⟨mm, hmm, hpm, cv, caps, hf, hstrip, hp2⟩ := hgT.2.2 p hp
   obtain ⟨cv', caps', hf', hlp⟩ := hlps mm hmm
   rw [hf] at hf'
   obtain ⟨rfl, rfl⟩ : cv = cv' ∧ caps = caps' := by simpa using hf'
-  rw [hlp] at hp2
+  subst hlp
   have hwf := mp.base2.wf _ (ConLeche.Semantics.Env.find?_mem hf)
-  have hcl : p.2.hasFvar = false := by
-    rw [hp2, Expr.hasFvar_instantiateLevelParams]; exact hwf.1
-  have hbb : p.2.looseBVarsBounded 0 = true := by
-    rw [hp2, Expr.looseBVarsBounded_instantiateLevelParams]; exact hwf.2.2.2.1
-  obtain ⟨ta, hta⟩ := mp.type_reads _ (ConLeche.Semantics.Env.find?_mem hf) (Level.substFn φ lps us)
-  change denoteMeta mp.base2.acval env _ 0 cv.type = _ at hta
-  refine ⟨hcl, hbb, mm, cv, caps, hmm, hpm, hidx, hf, ta, hta, fun d => ?_⟩
-  have h0 : denoteMeta mp.base2.acval env φ 0 p.2 = some ta := by
-    rw [hp2, denotePInstLevels]; exact hta
-  exact denoteMeta_depth_of_closed mp.base2.acval_closed hcl
-    (fun k => denoteMeta_closed mp.base2.acval_erase mp.base2.cval_closed hcl hbb h0 1 k) h0 d
+  have hcl : (cv.type.instantiateLevelParams cv.levelParams us).hasFvar = false := by
+    rw [Expr.hasFvar_instantiateLevelParams]; exact hwf.1
+  have hbb : (cv.type.instantiateLevelParams cv.levelParams us).looseBVarsBounded 0 = true := by
+    rw [Expr.looseBVarsBounded_instantiateLevelParams]; exact hwf.2.2.2.1
+  refine ⟨ConLeche.wscoped_instPisWith (fun x hx => (hds x hx).1)
+      (Expr.WScoped.of_not_hasFvar hcl) hp2,
+    ConLeche.looseBVarsBounded_instPisWith (fun x hx => (hds x hx).2) hbb hp2,
+    fun l hl => ?_, ?_⟩
+  · rcases ConLeche.fvarLeaves_instPisWith hp2 l hl with hl' | hl'
+    · rw [ConLeche.Expr.fvarLeaves_eq_nil_of_not_hasFvar hcl] at hl'; exact nomatch hl'
+    · exact hl'
+  · obtain ⟨abF, h1, h2, h3, h4, h5⟩ :=
+      instFormer_readB mp hD hmm hf hnd hul hlenP hds hdsa hstrip hp2
+    exact ⟨mm, cv, caps, hmm, hpm, hf, abF, h1, h2, h3, h4, h5⟩
 
-omit hD hnd in
+omit hnN hkN in
+/-- **A group member's hole type reads graded** wherever the key's
+parameters fit and read graded. -/
+theorem grp_typeT_wd {p : Name × Expr} (hp : p ∈ grp) {ta : AnnotTerm}
+    (hta : denoteMeta mp.base2.acval env φ hi p.2 = some ta) (ρ : Nat → V)
+    (hs : Sat V (D.params (Level.substFn φ lps us)).reverse (keyFrame dsa hi ρ))
+    (hw : ∀ a ∈ dsa, WellDenotedV V ρ a) : WellDenotedV V ρ ta := by
+  obtain ⟨-, -, -, mm, cv, caps, hmm, -, hf, abF, hread, hmap, hbits, -, hrd⟩ :=
+    grp_typeT mp hD hlps hnd hul hds hdsa hlenP hgT hp
+  rw [hta] at hrd
+  obtain rfl := Option.some.inj hrd
+  obtain ⟨h, -, -, -⟩ := mp.lfp_ok D hD
+  generalize hψ : Level.substFn φ lps us = ψ at hs hlenP hread hmap hbits
+  have hdl : dsa.length = ds.length := (DenoteMetaSpine.length_eq hdsa).symm
+  have hpl : (D.pars mm ψ).length = ds.length := (h.parsLen mm hmm ψ).trans hlenP
+  -- the substituted tower is the tail tower at the key frame
+  have hτ : ∀ j, WellDenotedV V (shiftE 0 0 ρ)
+      (substTau ds.length hi (fun i => dsa.getD i default) j) := by
+    intro j
+    rw [shiftE_zero_zero]
+    unfold substTau
+    split
+    · rename_i hj
+      exact hw _ (by
+        show dsa.getD (ds.length - 1 - j) default ∈ dsa
+        rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem (by omega)]
+        exact List.getElem_mem _)
+    · exact ⟨by simp [WellDenoted], by simp⟩
+  have heq : mkPisAV (AnnotTerm.substTele (substTau ds.length hi fun i => dsa.getD i default) 0
+        (abF.drop ds.length)) (.sort (D.w ψ))
+      = AnnotTerm.substAV (substTau ds.length hi fun i => dsa.getD i default)
+          (mkPisAV (abF.drop ds.length) (.sort (D.w ψ))) 0 := by
+    rw [AnnotTerm.substAV_mkPisAV]; rfl
+  rw [heq]
+  refine ⟨(WellDenoted_substAV _ _ 0 ρ fun j => (hτ j).1).mpr ?_,
+    (AnnotValid_substAV _ _ 0 ρ fun j => (hτ j).2).mpr ?_⟩ <;>
+    rw [← keyFrame_eq_substE hdl] <;>
+  · -- the member's closed type, graded at every frame, past the parameters
+    have hmem := ConLeche.Semantics.Env.find?_mem hf
+    have hwd := mp.type_wellDenotedV _ hmem ψ _ hread
+      (fun j => ρ (j + hi))
+    have hsP := h.parsSat mm hmm ψ _ hs
+    have hfit : SpineFit (fun j => ρ (j + hi)) ((abF.take ds.length).map (·.2.2))
+        (dsa.map (interp V ρ)) := by
+      have hm1 : (abF.take ds.length).map (·.2.2) = D.pars mm ψ := by
+        rw [List.map_take, hmap, ← hpl, List.take_left' rfl]
+      rw [hm1]
+      exact spineFit_of_sat_consList (by rw [List.length_map, hdl, hpl]) hsP
+    rw [← List.take_append_drop ds.length abF] at hwd
+    have := wellDenotedV_mkPisAV_append _ _ _ _ _ hfit hwd
+    first | exact this.1 | exact this.2
+
+omit hnN in
 /-- The frame's substituted variables are scoped, bvar-closed and read. -/
 theorem grpS_readT (q : Nat) (hq : q < ds.length + D.k) :
-    Expr.WScoped (hi + grp.length) (grpS D us hi grp ds q) ∧
-    (grpS D us hi grp ds q).looseBVarsBounded 0 = true ∧
-    denoteMeta mp.base2.acval env φ (hi + grp.length) (grpS D us hi grp ds q)
-      = some (grpX mp.base2 φ D us hi grp ds (hi + grp.length) q) := by
-  suffices h : Expr.WScoped (hi + grp.length) (grpS D us hi grp ds q) ∧
-      (grpS D us hi grp ds q).looseBVarsBounded 0 = true ∧
-      ∃ v, denoteMeta mp.base2.acval env φ (hi + grp.length) (grpS D us hi grp ds q) = some v by
+    Expr.WScoped (hi + grp.length) (grpS D hi grp ds q) ∧
+    (grpS D hi grp ds q).looseBVarsBounded 0 = true ∧
+    denoteMeta mp.base2.acval env φ (hi + grp.length) (grpS D hi grp ds q)
+      = some (grpX mp.base2 φ D hi grp ds (hi + grp.length) q) := by
+  suffices h : Expr.WScoped (hi + grp.length) (grpS D hi grp ds q) ∧
+      (grpS D hi grp ds q).looseBVarsBounded 0 = true ∧
+      ∃ v, denoteMeta mp.base2.acval env φ (hi + grp.length) (grpS D hi grp ds q) = some v by
     obtain ⟨h1, h2, v, hv⟩ := h
     refine ⟨h1, h2, ?_⟩
     unfold grpX; rw [hv]; rfl
@@ -306,75 +386,50 @@ theorem grpS_readT (q : Nat) (hq : q < ds.length + D.k) :
       DenoteMetaSpine.getD hdsa default q hqd]
     exact ⟨_, rfl⟩
   · rw [if_neg hqd]
-    have hmm : q - ds.length < D.k := by omega
-    by_cases hG : D.member (q - ds.length) ∈ grp.map (·.1)
-    · obtain ⟨i, hi', hgi⟩ : ∃ i, ∃ hi' : i < grp.length, grp[i].1 = D.member (q - ds.length) := by
-        obtain ⟨i, hi', h⟩ := List.getElem_of_mem hG
-        exact ⟨i, by simpa using hi', by simpa using h⟩
-      rw [← hgi, grpSub_mem hgT.1 hi', Option.getD_some]
-      obtain ⟨hcl, -, -⟩ := grp_typeT mp (φ := φ) hnN hkN hlps hgT
-        (List.getElem_mem hi')
-      refine ⟨by simp only [Expr.WScoped]; exact ⟨by omega, Expr.WScoped.of_not_hasFvar hcl⟩,
-        by simp [Expr.looseBVarsBounded], ?_⟩
-      rw [denoteMeta_fvar]; exact ⟨_, rfl⟩
-    · rw [grpSub_none hG, Option.getD_none]
-      obtain ⟨cv, caps, hf, hlp⟩ := hlps _ hmm
-      refine ⟨by simp [Expr.WScoped], by simp [Expr.looseBVarsBounded], ?_⟩
-      rw [denoteMeta_const hf (by rw [hul, ← hlp]; rfl)]
-      exact ⟨_, rfl⟩
+    obtain ⟨i, hi', -, hidx, hget⟩ := grpHoles_member (hi := hi) hgT.2.1 hkN
+      (show q - ds.length < D.k by omega)
+    rw [hidx, hget]
+    obtain ⟨hw, -⟩ := grp_typeT mp hD hlps hnd hul hds hdsa hlenP hgT (List.getElem_mem hi')
+    refine ⟨by simp only [Expr.WScoped]; exact ⟨by omega, Expr.WScoped.mono (by omega) hw⟩,
+      by simp [Expr.looseBVarsBounded], ?_⟩
+    rw [denoteMeta_fvar]; exact ⟨_, rfl⟩
 
-omit hD in
-open Classical in
-/-- **The substituted valuation of a frame walk valuation**: the member
-slots hold the group's hole values (the group) or the formers (the rest),
-the parameters the key frame. -/
-theorem substE_grpT (ρp Y ρ : Nat → V) :
+/-- **The substituted valuation of a frame walk valuation IS the recorded
+block's hole frame** at the key frame and the tuple the group's hole
+values are read at. -/
+theorem substE_grpT (Y ρ : Nat → V) :
     substE V (substTau (ds.length + D.k) (hi + grp.length)
-        (grpX mp.base2 φ D us hi grp ds (hi + grp.length))) 0
-        (consList (grpVals D (Level.substFn φ lps us) grp ρp Y) ρ)
-      = consList ((List.range D.k).map fun mm =>
-          if decide (InGrp D grp mm) = true then D.holeVal (Level.substFn φ lps us) ρp Y mm
-          else interp V ρ (mp.base2.acval (D.member mm) (Level.substFn φ lps us)))
-        (keyFrame dsa hi ρ) := by
-  have hvl : (grpVals D (Level.substFn φ lps us) grp ρp Y).length = grp.length := by
-    simp [grpVals]
+        (grpX mp.base2 φ D hi grp ds (hi + grp.length))) 0
+        (consList (grpVals D (Level.substFn φ lps us) grp (keyFrame dsa hi ρ) Y) ρ)
+      = D.frame (Level.substFn φ lps us) (keyFrame dsa hi ρ) Y := by
+  have hvl : (grpVals D (Level.substFn φ lps us) grp (keyFrame dsa hi ρ) Y).length
+      = grp.length := by simp [grpVals]
   rw [substE_substTau]
+  unfold LfpDatum.frame
   congr 1
   · -- the member slots
     refine List.map_congr_left fun mm hmm => ?_
     have hmm' : mm < D.k := List.mem_range.mp hmm
-    have hr := (grpS_readT mp hnN hkN hlps hul hds hdsa hgT (ds.length + mm)
+    have hr := (grpS_readT mp hD hkN hlps hnd hul hds hdsa hlenP hgT (ds.length + mm)
       (by omega)).2.2
     unfold grpS at hr
     rw [if_neg (by omega), show ds.length + mm - ds.length = mm by omega] at hr
-    by_cases hG : InGrp D grp mm
-    · rw [if_pos (by simpa using hG)]
-      obtain ⟨i, hi', hgi⟩ : ∃ i, ∃ hi' : i < grp.length, grp[i].1 = D.member mm := by
-        obtain ⟨i, hi', h⟩ := List.getElem_of_mem (List.contains_iff_mem.mp hG.2)
-        exact ⟨i, by simpa using hi', by simpa using h⟩
-      rw [← hgi, grpSub_mem hgT.1 hi', Option.getD_some, denoteMeta_fvar] at hr
-      rw [← Option.some.inj hr, interp_bvar,
-        show hi + grp.length - 1 - (hi + i) = grp.length - 1 - i by omega,
-        consList_getElem_pos hvl hi']
-      simp only [grpVals, List.getElem_map]
-      rw [hgi, idxOf_member hnN hkN hmm']
-    · rw [if_neg (by simpa using hG)]
-      have hG' : D.member mm ∉ grp.map (·.1) := fun h =>
-        hG ⟨hmm', List.contains_iff_mem.mpr h⟩
-      rw [grpSub_none hG', Option.getD_none] at hr
-      obtain ⟨cv, caps, hf, hlp⟩ := hlps _ hmm'
-      rw [denoteMeta_const hf (by rw [hul, ← hlp]; rfl)] at hr
-      rw [← Option.some.inj hr]
-      subst hlp
-      exact acval_interp_closed mp.base2 _ _ _ _
+    obtain ⟨i, hi', hgi, hidx, hget⟩ := grpHoles_member (hi := hi) hgT.2.1 hkN hmm'
+    rw [hidx, hget, denoteMeta_fvar] at hr
+    rw [← Option.some.inj hr, interp_bvar,
+      show hi + grp.length - 1 - (hi + i) = grp.length - 1 - i by omega,
+      consList_getElem_pos hvl hi']
+    simp only [grpVals, List.getElem_map]
+    rw [hgi, idxOf_member hnN hkN hmm']
   · -- the parameter frame
+    generalize hvs : grpVals D (Level.substFn φ lps us) grp (keyFrame dsa hi ρ) Y = vs at hvl ⊢
     funext q
     unfold keyFrame
     rw [show consList (List.map (interp V ρ) dsa) (fun j => ρ (j + hi)) q = _ from
       consList_map_apply _ _ q, List.length_map, ← DenoteMetaSpine.length_eq hdsa]
     by_cases hq : q < ds.length
     · rw [if_pos hq, if_pos hq]
-      have hr := (grpS_readT mp hnN hkN hlps hul hds hdsa hgT (ds.length - 1 - q)
+      have hr := (grpS_readT mp hD hkN hlps hnd hul hds hdsa hlenP hgT (ds.length - 1 - q)
         (by omega)).2.2
       unfold grpS at hr
       rw [if_pos (by omega)] at hr
@@ -383,43 +438,44 @@ theorem substE_grpT (ρp Y ρ : Nat → V) :
         exact List.getElem_mem _
       rw [denoteMeta_lift mp.base2.acval_closed (hds _ hmem).1 _ (by omega),
         DenoteMetaSpine.getD hdsa default _ (by omega)] at hr
-      rw [← Option.some.inj hr, show hi + grp.length - hi = (grpVals D (Level.substFn φ lps us) grp
-        ρp Y).length by rw [hvl]; omega, interp_liftN_consList]
+      rw [← Option.some.inj hr, show hi + grp.length - hi = vs.length by rw [hvl]; omega,
+        interp_liftN_consList]
       have hlt : ds.length - 1 - q < dsa.length := by
         rw [← DenoteMetaSpine.length_eq hdsa]; omega
       rw [List.getD_eq_getElem?_getD, List.getD_eq_getElem?_getD, List.getElem?_map,
         List.getElem?_eq_getElem hlt, Option.getD_some, Option.map_some, Option.getD_some]
     · rw [if_neg hq, if_neg hq]
-      rw [show q - ds.length + (hi + grp.length)
-        = (q - ds.length + hi) + (grpVals D (Level.substFn φ lps us) grp ρp Y).length by
-          rw [hvl]; omega, consList_apply_add]
+      rw [show q - ds.length + (hi + grp.length) = (q - ds.length + hi) + vs.length by
+        rw [hvl]; omega, consList_apply_add]
 
+omit hnN in
 /-- **A frame constructor's type, read** (the container substitution
 law at the frame, `frameCrest_read`, over the recorded reading M2): the
-group's constructor `(c, j)`, instantiated at the key and with the group
-abstracted to its holes, reads at the frame's depth as the recorded
-Π-tower substituted by the frame's variables. -/
+group's constructor `(c, j)`, instantiated at the key and with the whole
+applications of the group's members abstracted to their holes, reads at
+the frame's depth as the recorded Π-tower substituted by the frame's
+variables. -/
 theorem crest_readT {c j : Nat} (hc : c < D.k) (hj : j < D.nctors c) {cv : ConstantVal}
     {nF : Nat} (hfc : env.find? (D.ctorName c j) = some (.ctorInfo cv ds.length nF)) :
     cv.levelParams = lps ∧ ∃ crest ab,
-      instPisWith ds ((cv.type.instantiateLevelParams cv.levelParams us).replaceConsts
-        (grpSub us hi grp)) = some crest ∧
+      ConLeche.nestCrest (grp.map (·.1)) us ds (grpHoles hi grp)
+        (cv.type.instantiateLevelParams cv.levelParams us) = some crest ∧
       (∃ Tys : List AnnotTerm, Tys.length = D.k ∧
-        (∀ mm, mm < D.k → ∃ cvm caps, env.find? (D.member mm) = some (.indInfo cvm caps) ∧
-          denoteMeta mp.base2.acval env (Level.substFn φ lps us) 0 cvm.type
+        (∀ mm, mm < D.k → ∃ cvm caps ty, env.find? (D.member mm) = some (.indInfo cvm caps) ∧
+          instPisWith (canonParams ds.length) cvm.type = some ty ∧
+          denoteMeta mp.base2.acval env (Level.substFn φ lps us) (ds.length + mm) ty
             = some (Tys.getD mm default)) ∧
         FieldsEqOn V (D.params (Level.substFn φ lps us) ++ Tys).reverse (ab.map (·.2.2))
           (D.fields (Level.substFn φ lps us) c j)) ∧ ab.length = nF ∧
       denoteMeta mp.base2.acval env φ (hi + grp.length) crest
         = some (mkPisAV (AnnotTerm.substTele (substTau (ds.length + D.k) (hi + grp.length)
-              (grpX mp.base2 φ D us hi grp ds (hi + grp.length))) 0 ab)
+              (grpX mp.base2 φ D hi grp ds (hi + grp.length))) 0 ab)
             (AnnotTerm.substAV (substTau (ds.length + D.k) (hi + grp.length)
-              (grpX mp.base2 φ D us hi grp ds (hi + grp.length)))
+              (grpX mp.base2 φ D hi grp ds (hi + grp.length)))
               (AnnotTerm.mkAppN (.bvar (nF + (D.k - 1 - c)))
-                ((List.range ds.length).map (fun i => AnnotTerm.bvar (ds.length + D.k + nF - 1 - i))
-                  ++ D.resIdx (Level.substFn φ lps us) c j)) ab.length)) := by
+                (D.resIdx (Level.substFn φ lps us) c j)) ab.length)) := by
   obtain ⟨-, -, -, -, hrd⟩ := mp.lfp_ok D hD
-  obtain ⟨cv', nPc', nF', hf', hcl, hlpsC, hocc, -, A, hA, hread⟩ := hrd c hc j hj
+  obtain ⟨cv', nPc', nF', hf', hcl, hlpsC, -, A, hA, hocc, hread⟩ := hrd c hc j hj
   rw [hfc] at hf'
   obtain ⟨rfl, rfl, rfl⟩ : cv = cv' ∧ ds.length = nPc' ∧ nF = nF' := by
     simp only [Option.some.injEq, ConLeche.ConstantInfo.ctorInfo.injEq] at hf'
@@ -433,122 +489,124 @@ theorem crest_readT {c j : Nat} (hc : c < D.k) (hj : j < D.nctors c) {cv : Const
   refine ⟨hlp, ?_⟩
   obtain ⟨-, -, ab, Tys, hab, hlab, hlT, hTys, hEqF⟩ := hread (Level.substFn φ lps us)
   have hk : D.names.length = D.k := hkN
-  have hAw : Expr.WScoped (ds.length + D.names.length) A := by
-    have := ConLeche.memberCrest_wscoped (ctx := canonCtx D.names cv.levelParams ds.length)
-      (holes := canonHoles ds.length D.k)
-      (fun x hx => by
-        obtain ⟨mm, hmm, rfl⟩ := mem_canonHoles hx
-        refine ⟨?_, _, _, rfl⟩
-        simp only [Expr.WScoped, ConLeche.NestCtx.hiAt, canonCtx]
-        exact ⟨by omega, trivial⟩)
-      (fun x hx => by
-        obtain ⟨i, hi'⟩ := List.getElem?_of_mem hx
-        have hlt : i < ds.length := by
-          have := (List.getElem?_eq_some_iff.mp hi').1
-          simpa [canonCtx, canonParams] using this
-        change (canonParams ds.length)[i]? = _ at hi'
-        rw [canonParams_getElem? hi']
-        simp only [Expr.WScoped, ConLeche.NestCtx.hiAt, canonCtx]
-        exact ⟨by omega, trivial⟩) hcl hA
-    simpa [ConLeche.NestCtx.hiAt, canonCtx] using this
-  obtain ⟨crest, hcr, hcrd⟩ := frameCrest_read mp.base2 (φ := φ)
-    (ctx := canonCtx D.names cv.levelParams ds.length) (holes := canonHoles ds.length D.k)
-    (us := us) (sub := grpSub us hi grp) (ds := ds) (D' := hi + grp.length)
-    (s := grpS D us hi grp ds) (x := grpX mp.base2 φ D us hi grp ds (hi + grp.length))
-    (fun mm hmm => ⟨_, canonHoles_getElem? (by simpa [canonCtx, hk] using hmm)⟩)
-    (by rw [hlp]; exact hnd) (by rw [hlp]; exact hul) (canonParams_length _)
+  obtain ⟨crest, hcr, hcrd⟩ := frameCrest_read mp.base2 (φ := φ) (names := D.names)
+    (gnames := grp.map (·.1)) (lps := cv.levelParams) (n := ds.length) (us := us) (ds := ds)
+    (holes := grpHoles hi grp) (D' := hi + grp.length)
+    (s := grpS D hi grp ds) (x := grpX mp.base2 φ D hi grp ds (hi + grp.length))
+    (by rw [hlp]; exact hnd) (by rw [hlp]; exact hul) rfl hgT.2.1
+    (fun i hi' => by
+      show grpS D hi grp ds i = _
+      unfold grpS; rw [if_pos hi'])
     (fun mm hmm => by
-      show grpS D us hi grp ds (ds.length + mm) = _
+      show grpS D hi grp ds (ds.length + mm) = _
       unfold grpS
       rw [if_neg (by omega), show ds.length + mm - ds.length = mm by omega]
       rfl)
-    (fun n vs hn => grpSub_none (fun hm => by
-      obtain ⟨p, hp, hpn⟩ := List.mem_map.mp hm
-      obtain ⟨mm, hmm, hpm, -⟩ := hgT.2 p hp
-      have : D.names.contains (D.member mm) = true := by
-        rw [List.contains_iff_mem]
-        unfold LfpDatum.member
-        rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem (by omega), Option.getD_some]
-        exact List.getElem_mem _
-      change D.names.contains n = false at hn
-      rw [← hpn, hpm, this] at hn
-      exact nomatch hn))
-    (fun i hi' => by
-      show grpS D us hi grp ds i = _
-      unfold grpS; rw [if_pos (show i < ds.length from hi')])
-    (fun i hi' => ⟨.sort .zero, by
-      show (canonParams ds.length)[i]? = _
-      simp [canonParams, List.getElem?_range (show i < ds.length from hi')]⟩) rfl
-    (fun i hi' => grpS_readT mp hnN hkN hlps hul hds hdsa hgT i
-      (by simpa [canonCtx, hk] using hi'))
-    hcl hAw hocc hA (by
-      show denoteMeta _ env (Level.substFn φ cv.levelParams us) (ds.length + D.names.length) A = _
-      rw [hk, hlp]; exact hab)
-  simp only [canonCtx, hk] at hcrd
+    (by simp [grpHoles])
+    (fun i hi' => grpS_readT mp hD hkN hlps hnd hul hds hdsa hlenP hgT i (by omega))
+    hcl hocc hA (by rw [hk, hlp]; exact hab)
+  rw [hk] at hcrd
   exact ⟨crest, ab, hcr, ⟨Tys, hlT, hTys, hEqF⟩, hlab, hcrd⟩
 
-omit hD hnd hul hdsa in
+omit hnN hkN in
 /-- **A frame constructor's type is framed and its leaves are in the
 frame's context**: the key's parameters' leaves (below the key's depth,
 where the enclosing context holds them) and the group's holes (typed by
-their members' formers, the new entries). -/
+their members' formers at the key, the new entries). -/
 theorem crest_frameT {Δh : List AnnotTerm} (hΔ : Δh.length = hi)
     (hCds : ∀ x ∈ ds, CtxOkP mp.base2 φ hi Δh x) (hLds : ∀ x ∈ ds, Expr.LeavesBounded x)
+    (hkey : ∀ ρ, Sat V Δh ρ →
+      Sat V (D.params (Level.substFn φ lps us)).reverse (keyFrame dsa hi ρ) ∧
+      ∀ a ∈ dsa, WellDenotedV V ρ a)
     {e crest : Expr} (hcl : e.hasFvar = false) (hbb : e.looseBVarsBounded 0 = true)
-    (hcr : instPisWith ds (e.replaceConsts (grpSub us hi grp)) = some crest) :
+    (hcr : ConLeche.nestCrest (grp.map (·.1)) us ds (grpHoles hi grp) e = some crest) :
     Frame (hi + grp.length) crest ∧
-    CtxOkP mp.base2 φ (hi + grp.length) ((grpTys mp.base2 φ grp).reverse ++ Δh) crest := by
-  have hsubv : ∀ c us' r, grpSub us hi grp c us' = some r →
-      ∃ i, ∃ hi' : i < grp.length, r = .fvar (hi + i) grp[i].2 := fun _ _ _ h => grpSub_hole h
+    CtxOkP mp.base2 φ (hi + grp.length) ((grpTys mp.base2 φ hi grp).reverse ++ Δh) crest := by
+  have hhl : (grp.map (·.1)).length ≤ (grpHoles hi grp).length := by simp [grpHoles]
   -- the leaves
   have hleaves : ∀ l ∈ crest.fvarLeaves, (∃ x ∈ ds, l ∈ x.fvarLeaves) ∨
       ∃ i, ∃ hi' : i < grp.length, l = (hi + i, grp[i].2) := by
     intro l hl
-    rcases ConLeche.fvarLeaves_instPisWith hcr l hl with hl' | hl'
-    · obtain ⟨c, us', r, hr, hlr⟩ := ConLeche.fvarLeaves_replaceConsts_closed e hcl l hl'
-      obtain ⟨i, hi', rfl⟩ := hsubv c us' r hr
-      obtain ⟨hcl', -⟩ := grp_typeT mp (φ := φ) hnN hkN hlps hgT
+    obtain ⟨a, ha, hla⟩ := ConLeche.fvarLeaves_nestCrest hcl hhl hcr l hl
+    rcases List.mem_append.mp ha with ha | ha
+    · exact Or.inl ⟨a, ha, hla⟩
+    · obtain ⟨i, hi', rfl⟩ := ConLeche.grpHoles_hole ha
+      simp only [Expr.fvarLeaves, List.mem_cons] at hla
+      rcases hla with rfl | hla
+      · exact Or.inr ⟨i, hi', rfl⟩
+      · exact Or.inl ((grp_typeT mp hD hlps hnd hul hds hdsa hlenP hgT
+          (List.getElem_mem hi')).2.2.1 l hla)
+  have hsc : ConLeche.ScB (hi + grp.length) crest := by
+    refine ConLeche.ScB.of_nestCrest ⟨Expr.WScoped.of_not_hasFvar hcl, hbb⟩ hhl
+      (fun x hx => ?_) hcr
+    rcases List.mem_append.mp hx with hx | hx
+    · exact ⟨Expr.WScoped.mono (by omega) (hds x hx).1, (hds x hx).2⟩
+    · obtain ⟨i, hi', rfl⟩ := ConLeche.grpHoles_hole hx
+      obtain ⟨hw, hb, -⟩ := grp_typeT mp hD hlps hnd hul hds hdsa hlenP hgT
         (List.getElem_mem hi')
-      simp only [Expr.fvarLeaves, ConLeche.Expr.fvarLeaves_eq_nil_of_not_hasFvar hcl',
-        List.mem_singleton] at hlr
-      exact Or.inr ⟨i, hi', hlr⟩
-    · exact Or.inl hl'
-  refine ⟨⟨?_, ?_, ?_⟩, ?_⟩
-  · -- scoped
-    refine ConLeche.wscoped_instPisWith (fun x hx => Expr.WScoped.mono (by omega) (hds x hx).1)
-      (ConLeche.WScoped.replaceConsts_closed (fun c us' r hr => ?_) e hcl) hcr
-    obtain ⟨i, hi', rfl⟩ := hsubv c us' r hr
-    obtain ⟨hcl', -⟩ := grp_typeT mp (φ := φ) hnN hkN hlps hgT
-      (List.getElem_mem hi')
-    simp only [Expr.WScoped]
-    exact ⟨by omega, Expr.WScoped.of_not_hasFvar hcl'⟩
-  · -- bvar-closed
-    refine ConLeche.looseBVarsBounded_instPisWith (fun x hx => (hds x hx).2)
-      (ConLeche.looseBVarsBounded_replaceConsts (fun c us' r hr => ?_) e 0 hbb) hcr
-    obtain ⟨i, hi', rfl⟩ := hsubv c us' r hr
-    simp [Expr.looseBVarsBounded]
+      exact ConLeche.ScB.fvar (by omega) ⟨Expr.WScoped.mono (by omega) hw, hb⟩
+  refine ⟨⟨hsc.1, hsc.2, ?_⟩, ?_⟩
   · -- leaves bounded
     intro l hl
     rcases hleaves l hl with ⟨x, hx, hlx⟩ | ⟨i, hi', rfl⟩
     · exact hLds x hx l hlx
-    · exact (grp_typeT mp (φ := φ) hnN hkN hlps hgT (List.getElem_mem hi')).2.1
+    · exact (grp_typeT mp hD hlps hnd hul hds hdsa hlenP hgT (List.getElem_mem hi')).2.1
   · -- the context discipline
     refine CtxOkP.extend (by simp [grpTys]) hΔ fun l hl => ?_
     rcases hleaves l hl with ⟨x, hx, hlx⟩ | ⟨i, hi', rfl⟩
     · exact Or.inl ((hCds x hx).2 l hlx)
-    · obtain ⟨hcl', -, mm, cv, caps, hmm, -, -, hf, ta, hta, hread⟩ :=
-        grp_typeT mp (φ := φ) hnN hkN hlps hgT (List.getElem_mem hi')
-      have htys : (grpTys mp.base2 φ grp)[i]? = some ta := by
-        simp only [grpTys, List.getElem?_map, List.getElem?_eq_getElem hi', Option.map_some,
-          hread 0, Option.getD_some]
-      refine Or.inr ⟨i, hi', rfl, Expr.WScoped.of_not_hasFvar hcl', ta, hread _, ?_,
-        fun σ _ => mp.type_wellDenotedV _ (ConLeche.Semantics.Env.find?_mem hf) _ ta hta σ⟩
-      rw [List.getElem?_reverse (by simp [grpTys]; omega)]
-      simp only [grpTys, List.length_map]
-      rw [show grp.length - 1 - (grp.length - 1 - i) = i by omega]
-      exact htys
+    · obtain ⟨hw, -, -, mm, cv, caps, -, -, -, abF, -, -, -, -, hta⟩ :=
+        grp_typeT mp hD hlps hnd hul hds hdsa hlenP hgT (List.getElem_mem hi')
+      have hread : denoteMeta mp.base2.acval env φ (hi + i) grp[i].2
+          = some ((mkPisAV (AnnotTerm.substTele (substTau ds.length hi fun i => dsa.getD i default)
+              0 (abF.drop ds.length)) (.sort (D.w (Level.substFn φ lps us)))).liftN i 0) := by
+        rw [denoteMeta_lift mp.base2.acval_closed hw _ (by omega), hta, Option.map_some,
+          show hi + i - hi = i by omega]
+      refine Or.inr ⟨i, hi', rfl, Expr.WScoped.mono (by omega) hw, _, hread, ?_, fun σ hσ => ?_⟩
+      · rw [List.getElem?_reverse (by simp [grpTys]; omega)]
+        simp only [grpTys, List.length_mapIdx]
+        rw [show grp.length - 1 - (grp.length - 1 - i) = i by omega, List.getElem?_mapIdx,
+          List.getElem?_eq_getElem hi', Option.map_some, hread, Option.getD_some]
+      · -- graded: the prefix context below the hole
+        have hs' : Sat V Δh (fun j => σ (j + i)) := by
+          have h1 := Sat_drop hσ i
+          rwa [List.drop_drop, List.drop_left' (by simp [grpTys]; omega)] at h1
+        rw [WellDenotedV_liftN, show shiftE i 0 σ = fun j => σ (j + i) by funext j; simp [shiftE]]
+        obtain ⟨hk1, hk2⟩ := hkey _ hs'
+        exact grp_typeT_wd mp hD hlps hnd hul hds hdsa hlenP hgT (List.getElem_mem hi') hta _
+          hk1 hk2
 
 end FrameT
+
+/-- **The hole frame's hole values satisfy the recorded reading's hole
+context**: the parameters at the key frame, then each member's hole value
+in its canonical hole type (`canonHoleTy_read`, `LfpDatum.holeVal_mem`). -/
+theorem frameVals_sat {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) {D : LfpDatum V}
+    (hD : D ∈ mp.lfpBlocks) {ψ : Name → Nat} {ρp : Nat → V} (hs : Sat V (D.params ψ).reverse ρp)
+    {nPc : Nat} (hnP : (D.params ψ).length = nPc) {Tys : List AnnotTerm} (hlT : Tys.length = D.k)
+    (hTys : ∀ mm, mm < D.k → ∃ cvm caps ty, env.find? (D.member mm) = some (.indInfo cvm caps) ∧
+      instPisWith (canonParams nPc) cvm.type = some ty ∧
+      denoteMeta mp.base2.acval env ψ (nPc + mm) ty = some (Tys.getD mm default))
+    (X : Nat → V) (hX : InTupleSpace (D.w ψ) D.N (D.idx ψ ρp) X) :
+    Sat V (D.params ψ ++ Tys).reverse (D.frame ψ ρp X) := by
+  obtain ⟨h, -, -, -⟩ := mp.lfp_ok D hD
+  rw [List.reverse_append]
+  unfold LfpDatum.frame
+  refine sat_of_spineFit hs ?_
+  have := spineFit_of_lifted Tys ((List.range D.k).map (D.holeVal ψ ρp X)) [] ρp (by simp [hlT])
+    fun i hi hi' => by
+      have hik : i < D.k := by rw [← hlT]; exact hi
+      obtain ⟨cvm, caps, ty, hfm, hty, hrd⟩ := hTys i hik
+      obtain ⟨abF, -, -, hbits, hmap, hw, hrd0⟩ :=
+        canonHoleTy_read mp hD hik hfm ((h.parsLen i hik ψ).trans hnP) hty
+      refine ⟨mkPisAV (abF.drop nPc) (.sort (D.w ψ)), ?_, ?_⟩
+      · rw [denoteMeta_lift mp.base2.acval_closed hw _ (by omega), hrd0, Option.map_some] at hrd
+        have e := Option.some.inj hrd
+        rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hi, Option.getD_some] at e
+        rw [← e, List.length_nil, Nat.zero_add, show nPc + i - nPc = i by omega]
+      · simp only [List.getElem_map, List.getElem_range]
+        exact LfpDatum.holeVal_mem h.kN hX hik hmap fun d hd => hbits d (List.mem_of_mem_drop hd)
+  simpa using this
 
 section Frame
 
@@ -580,7 +638,7 @@ theorem grpCtors_found
   intro x hx
   obtain ⟨cn, hcn, nP', L, hL, hnP, hxL⟩ := hctorsIn x hx
   obtain ⟨p, hp, rfl⟩ := List.mem_map.mp hcn
-  obtain ⟨⟨c, hc, hpc⟩, -⟩ := hg.2 p hp
+  obtain ⟨⟨c, hc, hpc⟩, -⟩ := hg.2.2 p hp
   obtain ⟨nP'', L', hL', hlen', hfL⟩ := hcov c hc
   rw [hpc, hL'] at hL
   obtain ⟨rfl, rfl⟩ : nP'' = nP' ∧ L' = L := by simpa using hL
@@ -623,7 +681,7 @@ theorem grp_idx_eq {c : Nat} (hc : InGrp D grp c) {ρ ρ' : Nat → V}
   obtain ⟨hck, hcg⟩ := hc
   obtain ⟨p, hp, hpc⟩ : ∃ p ∈ grp, p.1 = D.member c := by
     simpa using hcg
-  obtain ⟨mm, hmm, hpm, -, -, -, -, -, -, hte⟩ :=
+  obtain ⟨mm, hmm, hpm, -, -, -, -, -, -, -, hte⟩ :=
     grpMember mp hD hnN hkN hfind hlps hnd hul hds hdsa hlenP hg hp
   have hmc : mm = c := by
     have h1 := idxOf_member hnN hkN hmm
@@ -644,41 +702,58 @@ theorem grpTuple_mem {ρ ρ' : Nat → V} (hag : AgreeOff (holeP hi ctx.nP hi) �
   · rw [if_neg hG]
     exact lfpTuple_mem _ _ _ _ c hc
 
-omit hnN hkN hfind hlps hnd hul hds hg in
-/-- A hole value of the group, applied to the key's parameters and then
-to anything, is the λ-tower over the member's indices at the key frame. -/
-theorem grp_holeVal_apply {mm : Nat} (hmm : mm < D.k) {ρ : Nat → V}
-    (hs : Sat V (D.params (Level.substFn φ lps us)).reverse (keyFrame dsa hi ρ)) (Y : Nat → V)
-    (is : List V) :
-    (dsa.map (interp V ρ) ++ is).foldl app (D.holeVal (Level.substFn φ lps us) (keyFrame dsa hi ρ) Y mm)
-      = is.foldl app (holeFam (keyFrame dsa hi ρ) (D.ids mm (Level.substFn φ lps us))
-          fun bs => app (Y mm) (tupW (D.u mm (Level.substFn φ lps us)) bs)) := by
+/-- `GrpWf` gives the group's hole types. -/
+theorem grpWf_ty : GrpTy env D us ds grp :=
+  ⟨hg.1, hg.2.1, fun p hp => by
+    obtain ⟨mm, hmm, hpm, -, cv, caps, hf, hlp, hstrip, hp2, -⟩ :=
+      grpMember mp hD hnN hkN hfind hlps hnd hul hds hdsa hlenP hg hp
+    exact ⟨mm, hmm, hpm, cv, caps, hf, hstrip, by rw [hlp]; exact hp2⟩⟩
+
+/-- **The group's hole values inhabit their context entries** (the
+members' formers instantiated at the key, read at the holes' depths). -/
+theorem grpVals_fit (ρ X : Nat → V)
+    (hX : InTupleSpace (D.w (Level.substFn φ lps us)) D.N
+      (D.idx (Level.substFn φ lps us) (keyFrame dsa hi ρ)) X) :
+    SpineFit ρ (grpTys mp.base2 φ hi grp)
+      (grpVals D (Level.substFn φ lps us) grp (keyFrame dsa hi ρ) X) := by
+  have hgT := grpWf_ty mp hD hnN hkN hfind hlps hnd hul hds hdsa hlenP hg
   obtain ⟨h, -, -, -⟩ := mp.lfp_ok D hD
-  generalize hψ : Level.substFn φ lps us = ψ at hs hlenP ⊢
-  have hpl := h.parsLen mm hmm ψ
-  have hsP := h.parsSat mm hmm ψ _ hs
-  have hla : (dsa.map (interp V ρ)).length = (D.pars mm ψ).length := by
-    rw [List.length_map, hpl, hlenP, DenoteMetaSpine.length_eq hdsa]
-  have hsp := spineFit_of_sat_consList hla hsP
-  unfold LfpDatum.holeVal
-  unfold keyFrame
-  rw [← hla, shiftE_consList, holeFam_append_apply _ _ is hsp]
-  congr 2
-  funext bs
-  simp [hla]
+  have := spineFit_of_lifted (grpTys mp.base2 φ hi grp)
+    (grpVals D (Level.substFn φ lps us) grp (keyFrame dsa hi ρ) X) [] ρ
+    (by simp [grpTys, grpVals]) fun i hi' hi'' => by
+      have hi3 : i < grp.length := by simpa [grpTys] using hi'
+      obtain ⟨hw, -, -, mm, cv, caps, hmm, hpm, hf, abF, -, -, hbits, hmap, hta⟩ :=
+        grp_typeT mp hD hlps hnd hul hds hdsa hlenP hgT (List.getElem_mem hi3)
+      refine ⟨mkPisAV (AnnotTerm.substTele (substTau ds.length hi
+        fun i => dsa.getD i default) 0 (abF.drop ds.length))
+          (.sort (D.w (Level.substFn φ lps us))), ?_, ?_⟩
+      · simp only [grpTys, List.getElem_mapIdx, List.length_nil, Nat.zero_add]
+        rw [denoteMeta_lift mp.base2.acval_closed hw _ (by omega), hta, Option.map_some,
+          Option.getD_some, show hi + i - hi = i by omega]
+      · simp only [grpVals, List.getElem_map]
+        rw [hpm, idxOf_member hnN hkN hmm]
+        have heq : mkPisAV (AnnotTerm.substTele (substTau ds.length hi
+            fun i => dsa.getD i default) 0 (abF.drop ds.length))
+              (.sort (D.w (Level.substFn φ lps us)))
+            = AnnotTerm.substAV (substTau ds.length hi fun i => dsa.getD i default)
+                (mkPisAV (abF.drop ds.length) (.sort (D.w (Level.substFn φ lps us)))) 0 := by
+          rw [AnnotTerm.substAV_mkPisAV]; rfl
+        rw [heq, interp_substAV, ← keyFrame_eq_substE (DenoteMetaSpine.length_eq hdsa).symm]
+        exact LfpDatum.holeVal_mem h.kN hX hmm hmap
+          fun d hd => hbits d (List.mem_of_mem_drop hd)
+  simpa using this
 
 /-- **The frame relation is a hole relation** of the frame's walk: the
 enclosing relation at the key's depth extended by the group's holes
-(their context entries the members' former types, their values
-inhabiting them; the new holes grow at the key's parameters because
-their indices read the same at the two key frames, N2). -/
+(their context entries the members' formers instantiated at the key,
+their values inhabiting them; the new holes grow because their values
+are the SAME at the two sides — the index sets read alike at the two key
+frames, N2, and the smaller side's tuple is the larger carrier on the
+group). -/
 theorem frameRel_holeRel {prog : List NestHole} (hhi : ctx.hiAt prog.length = hi)
-    {Δh : List AnnotTerm} {R₀ : FrameRel V} (hR₀ : HoleRel mp.base2 φ ctx prog hi Δh R₀)
-    (hfit : ∀ ρ ρ', R₀ ρ ρ' →
-      Sat V (D.params (Level.substFn φ lps us)).reverse (keyFrame dsa hi ρ) ∧
-      Sat V (D.params (Level.substFn φ lps us)).reverse (keyFrame dsa hi ρ')) :
+    {Δh : List AnnotTerm} {R₀ : FrameRel V} (hR₀ : HoleRel mp.base2 φ ctx prog hi Δh R₀) :
     HoleRel mp.base2 φ ctx ((grpNews us ds hi grp).reverse ++ prog) (hi + grp.length)
-      ((grpTys mp.base2 φ grp).reverse ++ Δh)
+      ((grpTys mp.base2 φ hi grp).reverse ++ Δh)
       (frameRel R₀ D (Level.substFn φ lps us) grp dsa hi) := by
   subst hhi
   have hlenN : (grpNews us ds (ctx.hiAt prog.length) grp).length = grp.length := by
@@ -688,7 +763,7 @@ theorem frameRel_holeRel {prog : List NestHole} (hhi : ctx.hiAt prog.length = hi
       simp only [grpNews, List.mem_map] at hx
       obtain ⟨p, -, rfl⟩ := hx
       exact (hds a ha).1)
-    (grpTys mp.base2 φ grp).reverse
+    (grpTys mp.base2 φ (ctx.hiAt prog.length) grp).reverse
     (fun ρ ρ' => grpVals D (Level.substFn φ lps us) grp (keyFrame dsa (ctx.hiAt prog.length) ρ)
       (grpTuple D (Level.substFn φ lps us) grp (keyFrame dsa (ctx.hiAt prog.length) ρ)
         (keyFrame dsa (ctx.hiAt prog.length) ρ')))
@@ -699,172 +774,91 @@ theorem frameRel_holeRel {prog : List NestHole} (hhi : ctx.hiAt prog.length = hi
   · rw [hlenN] at hext
     exact hext
   · -- the holes' values inhabit their entries
-    have key : ∀ (ρp X : Nat → V), InTupleSpace (D.w (Level.substFn φ lps us)) D.N
-        (D.idx (Level.substFn φ lps us) ρp) X → ∀ σ : Nat → V,
-        SpineFit σ (grpTys mp.base2 φ grp) (grpVals D (Level.substFn φ lps us) grp ρp X) := by
-      intro ρp X hX σ
-      refine spineFit_of_closed σ (by simp [grpVals, grpTys]) fun i hi hi' σ' => ?_
-      have hpi : grp[i]'(by simpa [grpVals] using hi) ∈ grp := List.getElem_mem _
-      obtain ⟨mm, hmm, -, hidx, cv, caps, hf, -, hp2, -⟩ :=
-        grpMember mp hD hnN hkN hfind hlps hnd hul hds hdsa hlenP hg hpi
-      obtain ⟨ta, hta⟩ := mp.type_reads _ (ConLeche.Semantics.Env.find?_mem hf)
-        (Level.substFn φ lps us)
-      simp only [grpVals, grpTys, List.getElem_map]
-      rw [hidx, hp2, denotePInstLevels mp.base2 φ lps us 0 cv.type]
-      change denoteMeta mp.base2.acval env _ 0 cv.type = _ at hta
-      rw [hta, Option.getD_some]
-      exact holeVal_mem_type mp hD hmm hf hta hX σ'
     intro ρ ρ' hr
     obtain ⟨h1, h2⟩ := hR₀.dom ρ ρ' hr
-    refine ⟨?_, ?_⟩
-    · exact sat_of_spineFit h1 (key _ _ (grpTuple_mem mp hD hnN hkN hfind hlps hnd hul hds hdsa
-        hlenP hg (hR₀.agree ρ ρ' hr)) ρ)
-    · exact sat_of_spineFit h2 (key _ _ (lfpTuple_mem _ _ _ _) ρ')
-  · -- the new holes grow at their keys' parameters
-    intro ρ ρ' hr p hk hkp dsa' hsp' hp is _
+    exact ⟨sat_of_spineFit h1 (grpVals_fit mp hD hnN hkN hfind hlps hnd hul hds hdsa hlenP hg _ _
+        (grpTuple_mem mp hD hnN hkN hfind hlps hnd hul hds hdsa hlenP hg (hR₀.agree ρ ρ' hr))),
+      sat_of_spineFit h2 (grpVals_fit mp hD hnN hkN hfind hlps hnd hul hds hdsa hlenP hg _ _
+        (lfpTuple_mem _ _ _ _))⟩
+  · -- the new holes grow: their values are the same at both sides
+    intro ρ ρ' hr p hk hkp hp is _
     have hp' : p < grp.length := by simpa [grpNews] using hp
-    simp only [grpNews, List.getElem?_map, List.getElem?_eq_getElem hp', Option.map_some,
-      Option.some.injEq] at hkp
-    subst hkp
-    obtain rfl := DenoteMetaSpine.unique hdsa hsp'
     have hpi : grp[p] ∈ grp := List.getElem_mem _
-    obtain ⟨mm, hmm, hpm, hidx, -, -, -, -, -, hte⟩ :=
+    obtain ⟨mm, hmm, hpm, hidx, -, -, -, -, -, -, hte⟩ :=
       grpMember mp hD hnN hkN hfind hlps hnd hul hds hdsa hlenP hg hpi
     have hG : InGrp D grp mm := ⟨hmm, by
       rw [List.contains_iff_mem, List.mem_map]; exact ⟨_, hpi, hpm⟩⟩
-    obtain ⟨hs, hs'⟩ := hfit ρ ρ' hr
     simp only [grpVals, List.getElem_map, hidx]
-    rw [grp_holeVal_apply mp hD hdsa hlenP hmm hs,
-      grp_holeVal_apply mp hD hdsa hlenP hmm hs',
-      (hte ρ ρ' (hR₀.agree ρ ρ' hr)).holeFam]
     have hY : grpTuple D (Level.substFn φ lps us) grp (keyFrame dsa (ctx.hiAt prog.length) ρ)
         (keyFrame dsa (ctx.hiAt prog.length) ρ') mm
         = D.carrier (Level.substFn φ lps us) (keyFrame dsa (ctx.hiAt prog.length) ρ') mm := by
       unfold grpTuple; rw [if_pos hG]
-    rw [hY]
+    unfold LfpDatum.holeVal
+    rw [hY, (hte ρ ρ' (hR₀.agree ρ ρ' hr)).holeFam]
     exact Subset.refl _
-
-/-- `GrpWf` gives the group's hole types. -/
-theorem grpWf_ty : GrpTy env D us grp :=
-  ⟨hg.1, fun p hp => by
-    obtain ⟨mm, hmm, hpm, -, cv, caps, hf, hlp, hp2, -⟩ :=
-      grpMember mp hD hnN hkN hfind hlps hnd hul hds hdsa hlenP hg hp
-    exact ⟨mm, hmm, hpm, cv, caps, hf, by rw [hlp]; exact hp2⟩⟩
-
 
 /-- The frame's substituted variables are scoped, bvar-closed and read. -/
 theorem grpS_read (q : Nat) (hq : q < ds.length + D.k) :
-    Expr.WScoped (hi + grp.length) (grpS D us hi grp ds q) ∧
-    (grpS D us hi grp ds q).looseBVarsBounded 0 = true ∧
-    denoteMeta mp.base2.acval env φ (hi + grp.length) (grpS D us hi grp ds q)
-      = some (grpX mp.base2 φ D us hi grp ds (hi + grp.length) q) :=
-  grpS_readT mp hnN hkN hlps hul hds hdsa
+    Expr.WScoped (hi + grp.length) (grpS D hi grp ds q) ∧
+    (grpS D hi grp ds q).looseBVarsBounded 0 = true ∧
+    denoteMeta mp.base2.acval env φ (hi + grp.length) (grpS D hi grp ds q)
+      = some (grpX mp.base2 φ D hi grp ds (hi + grp.length) q) :=
+  grpS_readT mp hD hkN hlps hnd hul hds hdsa hlenP
     (grpWf_ty mp hD hnN hkN hfind hlps hnd hul hds hdsa hlenP hg) q hq
 
-open Classical in
-/-- **The substituted valuation of a frame walk valuation**: the member
-slots hold the group's hole values (the group) or the formers (the rest),
-the parameters the key frame. -/
-theorem substE_grp (ρp Y ρ : Nat → V) :
+/-- **The substituted valuation of a frame walk valuation IS the recorded
+block's hole frame** at the key frame. -/
+theorem substE_grp (Y ρ : Nat → V) :
     substE V (substTau (ds.length + D.k) (hi + grp.length)
-        (grpX mp.base2 φ D us hi grp ds (hi + grp.length))) 0
-        (consList (grpVals D (Level.substFn φ lps us) grp ρp Y) ρ)
-      = consList ((List.range D.k).map fun mm =>
-          if decide (InGrp D grp mm) = true then D.holeVal (Level.substFn φ lps us) ρp Y mm
-          else interp V ρ (mp.base2.acval (D.member mm) (Level.substFn φ lps us)))
-        (keyFrame dsa hi ρ) :=
-  substE_grpT mp hnN hkN hlps hnd hul hds hdsa
-    (grpWf_ty mp hD hnN hkN hfind hlps hnd hul hds hdsa hlenP hg) ρp Y ρ
+        (grpX mp.base2 φ D hi grp ds (hi + grp.length))) 0
+        (consList (grpVals D (Level.substFn φ lps us) grp (keyFrame dsa hi ρ) Y) ρ)
+      = D.frame (Level.substFn φ lps us) (keyFrame dsa hi ρ) Y :=
+  substE_grpT mp hD hnN hkN hlps hnd hul hds hdsa hlenP
+    (grpWf_ty mp hD hnN hkN hfind hlps hnd hul hds hdsa hlenP hg) Y ρ
 
-/-- **A frame constructor's type, read** (the container substitution
-law at the frame, `frameCrest_read`, over the recorded reading M2): the
-group's constructor `(c, j)`, instantiated at the key and with the group
-abstracted to its holes, reads at the frame's depth as the recorded
-Π-tower substituted by the frame's variables. -/
+/-- **A frame constructor's type, read** (`crest_readT` at a walked
+group). -/
 theorem crest_read {c j : Nat} (hc : c < D.k) (hj : j < D.nctors c) {cv : ConstantVal}
     {nF : Nat} (hfc : env.find? (D.ctorName c j) = some (.ctorInfo cv ds.length nF)) :
     cv.levelParams = lps ∧ ∃ crest ab,
-      instPisWith ds ((cv.type.instantiateLevelParams cv.levelParams us).replaceConsts
-        (grpSub us hi grp)) = some crest ∧
+      ConLeche.nestCrest (grp.map (·.1)) us ds (grpHoles hi grp)
+        (cv.type.instantiateLevelParams cv.levelParams us) = some crest ∧
       (∃ Tys : List AnnotTerm, Tys.length = D.k ∧
-        (∀ mm, mm < D.k → ∃ cvm caps, env.find? (D.member mm) = some (.indInfo cvm caps) ∧
-          denoteMeta mp.base2.acval env (Level.substFn φ lps us) 0 cvm.type
+        (∀ mm, mm < D.k → ∃ cvm caps ty, env.find? (D.member mm) = some (.indInfo cvm caps) ∧
+          instPisWith (canonParams ds.length) cvm.type = some ty ∧
+          denoteMeta mp.base2.acval env (Level.substFn φ lps us) (ds.length + mm) ty
             = some (Tys.getD mm default)) ∧
         FieldsEqOn V (D.params (Level.substFn φ lps us) ++ Tys).reverse (ab.map (·.2.2))
           (D.fields (Level.substFn φ lps us) c j)) ∧ ab.length = nF ∧
       denoteMeta mp.base2.acval env φ (hi + grp.length) crest
         = some (mkPisAV (AnnotTerm.substTele (substTau (ds.length + D.k) (hi + grp.length)
-              (grpX mp.base2 φ D us hi grp ds (hi + grp.length))) 0 ab)
+              (grpX mp.base2 φ D hi grp ds (hi + grp.length))) 0 ab)
             (AnnotTerm.substAV (substTau (ds.length + D.k) (hi + grp.length)
-              (grpX mp.base2 φ D us hi grp ds (hi + grp.length)))
+              (grpX mp.base2 φ D hi grp ds (hi + grp.length)))
               (AnnotTerm.mkAppN (.bvar (nF + (D.k - 1 - c)))
-                ((List.range ds.length).map (fun i => AnnotTerm.bvar (ds.length + D.k + nF - 1 - i))
-                  ++ D.resIdx (Level.substFn φ lps us) c j)) ab.length)) :=
-  crest_readT mp hD hnN hkN hlps hnd hul hds hdsa
+                (D.resIdx (Level.substFn φ lps us) c j)) ab.length)) :=
+  crest_readT mp hD hkN hlps hnd hul hds hdsa hlenP
     (grpWf_ty mp hD hnN hkN hfind hlps hnd hul hds hdsa hlenP hg) hc hj hfc
 
 /-- **A frame constructor's type is framed and its leaves are in the
-frame's context**: the key's parameters' leaves (below the key's depth,
-where the enclosing context holds them) and the group's holes (typed by
-their members' formers, the new entries). -/
+frame's context** (`crest_frameT` at a walked group). -/
 theorem crest_frame {Δh : List AnnotTerm} (hΔ : Δh.length = hi)
     (hCds : ∀ x ∈ ds, CtxOkP mp.base2 φ hi Δh x) (hLds : ∀ x ∈ ds, Expr.LeavesBounded x)
+    (hkey : ∀ ρ, Sat V Δh ρ →
+      Sat V (D.params (Level.substFn φ lps us)).reverse (keyFrame dsa hi ρ) ∧
+      ∀ a ∈ dsa, WellDenotedV V ρ a)
     {e crest : Expr} (hcl : e.hasFvar = false) (hbb : e.looseBVarsBounded 0 = true)
-    (hcr : instPisWith ds (e.replaceConsts (grpSub us hi grp)) = some crest) :
+    (hcr : ConLeche.nestCrest (grp.map (·.1)) us ds (grpHoles hi grp) e = some crest) :
     Frame (hi + grp.length) crest ∧
-    CtxOkP mp.base2 φ (hi + grp.length) ((grpTys mp.base2 φ grp).reverse ++ Δh) crest :=
-  crest_frameT mp hnN hkN hlps hds
-    (grpWf_ty mp hD hnN hkN hfind hlps hnd hul hds hdsa hlenP hg) hΔ hCds hLds hcl hbb hcr
+    CtxOkP mp.base2 φ (hi + grp.length) ((grpTys mp.base2 φ hi grp).reverse ++ Δh) crest :=
+  crest_frameT mp hD hlps hnd hul hds hdsa hlenP
+    (grpWf_ty mp hD hnN hkN hfind hlps hnd hul hds hdsa hlenP hg) hΔ hCds hLds hkey hcl hbb hcr
 
-omit hnN hkN hfind hlps hnd hul hds hdsa hlenP hg in
-/-- **The frame's hole values satisfy the recorded reading's hole
-context**: the parameters at the key frame, then each
-member's value in its former type — a group member's hole value
-(`holeVal_mem_type`), another member's own leaf (`mem_type`). -/
-theorem frameVals_sat {ψ : Name → Nat} {ρp : Nat → V} (hs : Sat V (D.params ψ).reverse ρp)
-    {Tys : List AnnotTerm} (hlT : Tys.length = D.k)
-    (hTys : ∀ mm, mm < D.k → ∃ cvm caps, env.find? (D.member mm) = some (.indInfo cvm caps) ∧
-      denoteMeta mp.base2.acval env ψ 0 cvm.type = some (Tys.getD mm default))
-    (P : Nat → Bool) (X : Nat → V) (hX : InTupleSpace (D.w ψ) D.N (D.idx ψ ρp) X) (ρ : Nat → V) :
-    Sat V (D.params ψ ++ Tys).reverse (consList ((List.range D.k).map fun mm =>
-      if P mm = true then D.holeVal ψ ρp X mm else interp V ρ (mp.base2.acval (D.member mm) ψ))
-      ρp) := by
-  rw [List.reverse_append]
-  refine sat_of_spineFit hs ?_
-  have key : ∀ (n : Nat), n ≤ D.k → SpineFit ρp (Tys.take n) ((List.range n).map fun mm =>
-      if P mm = true then D.holeVal ψ ρp X mm else interp V ρ (mp.base2.acval (D.member mm) ψ)) := by
-    intro n
-    induction n with
-    | zero => intro _; simp [SpineFit]
-    | succ n ih =>
-      intro hn
-      rw [List.range_succ, List.map_append, List.take_add_one]
-      have hTn : Tys[n]? = some (Tys.getD n default) := by
-        rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem (by omega)]; rfl
-      rw [hTn]
-      refine (ih (by omega)).append ⟨?_, trivial⟩
-      obtain ⟨cvm, caps, hfm, hr⟩ := hTys n (by omega)
-      simp only
-      split
-      · exact holeVal_mem_type mp hD (by omega) hfm hr hX _
-      · have hmt := mp.mem_type _ (List.mem_of_find?_eq_some hfm) ψ _ hr
-          (consList ((List.range n).map fun mm => if P mm = true then D.holeVal ψ ρp X mm
-            else interp V ρ (mp.base2.acval (D.member mm) ψ)) ρp)
-        rw [ConLeche.Semantics.Env.find?_name hfm] at hmt
-        rw [acval_interp_closed mp.base2 _ _ ρ (consList ((List.range n).map fun mm =>
-          if P mm = true then D.holeVal ψ ρp X mm
-          else interp V ρ (mp.base2.acval (D.member mm) ψ)) ρp)]
-        exact hmt
-  have := key D.k (Nat.le_refl _)
-  rwa [List.take_of_length_le (by omega)] at this
-
-open Classical in
-/-- **A frame's final walk grows its group's carriers**: the constructors of the reached group, instantiated at
-the key and walked along the frame relation, make every member of the
-group grow between the two key frames of each related pair — by
-`carrier_le_on_group'`, whose walk premise is the per-constructor
-transfer at the frame relation.  The state invariant is kept whatever
-the outcome. -/
+/-- **A frame's final walk grows its group's carriers**: the constructors
+of the group, instantiated at the key and walked along the frame
+relation, make every member of the group grow between the two key
+frames of each related pair — by `carrier_le_on_group'`, whose walk
+premise is the per-constructor transfer at the frame relation. -/
 theorem frameIter (hin : RulesInputs V mp.base2 φ) {F : Nat}
     (hcov : ∀ c, c < D.k → ∃ nP' L, ConLeche.nestContainer ctx (D.member c) = some (nP', L) ∧
       L.length = D.nctors c ∧ ∀ j (hj : j < L.length),
@@ -872,23 +866,23 @@ theorem frameIter (hin : RulesInputs V mp.base2 φ) {F : Nat}
     {prog : List NestHole} (hhi : ctx.hiAt prog.length = hi) {Δh : List AnnotTerm}
     {R₀ : FrameRel V} (hR₀ : HoleRel mp.base2 φ ctx prog hi Δh R₀) (hΔ : Δh.length = hi)
     (hCds : ∀ x ∈ ds, CtxOkP mp.base2 φ hi Δh x) (hLds : ∀ x ∈ ds, Expr.LeavesBounded x)
-    (hfit : ∀ ρ ρ', R₀ ρ ρ' →
+    (hkey : ∀ ρ, Sat V Δh ρ →
       Sat V (D.params (Level.substFn φ lps us)).reverse (keyFrame dsa hi ρ) ∧
-      Sat V (D.params (Level.substFn φ lps us)).reverse (keyFrame dsa hi ρ'))
+      ∀ a ∈ dsa, WellDenotedV V ρ a)
     {ctors : List (ConstantVal × Nat)}
     (hgc : ConLeche.groupCtors ctx ds.length (grp.map (·.1)) = some ctors)
     (hwalk : ∀ {Δ : List AnnotTerm} {R : FrameRel V},
       HoleRel mp.base2 φ ctx ((grpNews us ds hi grp).reverse ++ prog) (hi + grp.length) Δ R →
       ∀ (Q : ConstantVal × Nat → Prop),
       (∀ (x : ConstantVal × Nat) (crest : Expr), Q x →
-        instPisWith ds ((x.1.type.instantiateLevelParams x.1.levelParams us).replaceConsts
-          (grpSub us hi grp)) = some crest →
+        ConLeche.nestCrest (grp.map (·.1)) us ds (grpHoles hi grp)
+          (x.1.type.instantiateLevelParams x.1.levelParams us) = some crest →
         (∃ ty, ConLeche.inferTypeCore .verified env F (hi + grp.length) crest = .ok ty) →
         ∃ ca, Frame (hi + grp.length) crest ∧ CtxOkP mp.base2 φ (hi + grp.length) Δ crest ∧
           denoteMeta mp.base2.acval env φ (hi + grp.length) crest = some ca ∧ Graded V Δ ca) →
       (∀ x ∈ ctors, Q x) →
-      ∀ x ∈ ctors, CtorWalked mp.base2 φ ctx (hi + grp.length) us ds ds.length (grpSub us hi grp)
-        R x) :
+      ∀ x ∈ ctors, CtorWalked mp.base2 φ ctx (hi + grp.length) us ds (grp.map (·.1))
+        (grpHoles hi grp) R x) :
     (∀ ρ ρ', R₀ ρ ρ' → ∀ c, InGrp D grp c →
       FamLe (D.idx (Level.substFn φ lps us) (keyFrame dsa hi ρ) c)
         (D.carrier (Level.substFn φ lps us) (keyFrame dsa hi ρ) c)
@@ -903,8 +897,12 @@ theorem frameIter (hin : RulesInputs V mp.base2 φ) {F : Nat}
           (D.carrier (Level.substFn φ lps us) (keyFrame dsa hi ρ')) t g j fs := by
   obtain ⟨h, -, -, -⟩ := mp.lfp_ok D hD
   have hQ := grpCtors_found hg hcov hgc
+  have hfit : ∀ ρ ρ', R₀ ρ ρ' →
+      Sat V (D.params (Level.substFn φ lps us)).reverse (keyFrame dsa hi ρ) ∧
+      Sat V (D.params (Level.substFn φ lps us)).reverse (keyFrame dsa hi ρ') := fun ρ ρ' hr =>
+    ⟨(hkey ρ (hR₀.dom ρ ρ' hr).1).1, (hkey ρ' (hR₀.dom ρ ρ' hr).2).1⟩
   -- the frame relation, and the walk along it
-  have hR' := frameRel_holeRel mp hD hnN hkN hfind hlps hnd hul hds hdsa hlenP hg hhi hR₀ hfit
+  have hR' := frameRel_holeRel mp hD hnN hkN hfind hlps hnd hul hds hdsa hlenP hg hhi hR₀
   have hw := hwalk hR'
     (fun x => ∃ c j, InGrp D grp c ∧ j < D.nctors c ∧
       env.find? (D.ctorName c j) = some (.ctorInfo x.1 ds.length x.2))
@@ -913,10 +911,11 @@ theorem frameIter (hin : RulesInputs V mp.base2 φ) {F : Nat}
       have hwf := mp.base2.wf _ (ConLeche.Semantics.Env.find?_mem hfc)
       have hcl : (x.1.type.instantiateLevelParams x.1.levelParams us).hasFvar = false := by
         rw [Expr.hasFvar_instantiateLevelParams]; exact hwf.1
-      have hbb : (x.1.type.instantiateLevelParams x.1.levelParams us).looseBVarsBounded 0 = true := by
+      have hbb : (x.1.type.instantiateLevelParams x.1.levelParams us).looseBVarsBounded 0
+          = true := by
         rw [Expr.looseBVarsBounded_instantiateLevelParams]; exact hwf.2.2.2.1
-      obtain ⟨hfr, hC⟩ := crest_frame mp hD hnN hkN hfind hlps hnd hul hds hdsa hlenP hg hΔ hCds hLds
-        hcl hbb hcr
+      obtain ⟨hfr, hC⟩ := crest_frame mp hD hnN hkN hfind hlps hnd hul hds hdsa hlenP hg hΔ hCds
+        hLds hkey hcl hbb hcr
       obtain ⟨-, crest', ab, hcr', -, -, hrd⟩ :=
         crest_read mp hD hnN hkN hfind hlps hnd hul hds hdsa hlenP hg hc hj hfc
       rw [hcr] at hcr'
@@ -939,7 +938,6 @@ theorem frameIter (hin : RulesInputs V mp.base2 φ) {F : Nat}
     have hag : AgreeOff (holeP hi ctx.nP hi) ρ ρ' := by
       have := hR₀.agree ρ ρ' hr; rwa [hhi] at this
     have hj : j < D.nctors g := hf.1
-
     -- the constructor `(g, j)`
     obtain ⟨x, hxmem, hfc⟩ := grpCtor_found hcov hgc hG hj
     obtain ⟨-, crest, ca, cur, hcr, hca, hres, hidx, hpos⟩ := hw _ hxmem
@@ -951,7 +949,7 @@ theorem frameIter (hin : RulesInputs V mp.base2 φ) {F : Nat}
     obtain rfl := Option.some.inj hrd
     -- the substituted result head is the member's hole
     have hhead : ∃ p, ((substTau (ds.length + D.k) (hi + grp.length)
-        (grpX mp.base2 φ D us hi grp ds (hi + grp.length))) (D.k - 1 - g)).liftN x.2 0
+        (grpX mp.base2 φ D hi grp ds (hi + grp.length))) (D.k - 1 - g)).liftN x.2 0
           = .bvar p := by
       have hgk := hG.1
       simp only [substTau, if_pos (show D.k - 1 - g < ds.length + D.k by omega)]
@@ -960,57 +958,20 @@ theorem frameIter (hin : RulesInputs V mp.base2 φ) {F : Nat}
         (by omega)).2.2
       unfold grpS at hr
       rw [if_neg (by omega), show ds.length + g - ds.length = g by omega] at hr
-      obtain ⟨i, hi', hgi⟩ : ∃ i, ∃ hi' : i < grp.length, grp[i].1 = D.member g := by
-        obtain ⟨i, hi', h'⟩ := List.getElem_of_mem (List.contains_iff_mem.mp hG.2)
-        exact ⟨i, by simpa using hi', by simpa using h'⟩
-      rw [← hgi, grpSub_mem hg.1 hi', Option.getD_some, denoteMeta_fvar] at hr
+      obtain ⟨i, hi', -, hidx', hget⟩ := grpHoles_member (hi := hi) hg.2.1 hkN hgk
+      rw [hidx', hget, denoteMeta_fvar] at hr
       rw [← Option.some.inj hr]
       exact ⟨hi + grp.length - 1 - (hi + i) + x.2, by simp⟩
     obtain ⟨p, hp⟩ := hhead
-    have hS := substE_grp mp hD hnN hkN hfind hlps hnd hul hds hdsa hlenP hg (keyFrame dsa hi ρ)
+    have hS := substE_grp mp hD hnN hkN hfind hlps hnd hul hds hdsa hlenP hg
       (grpTuple D (Level.substFn φ lps us) grp (keyFrame dsa hi ρ) (keyFrame dsa hi ρ')) ρ
-    have hLv := substE_grp mp hD hnN hkN hfind hlps hnd hul hds hdsa hlenP hg (keyFrame dsa hi ρ')
+    have hLv := substE_grp mp hD hnN hkN hfind hlps hnd hul hds hdsa hlenP hg
       (D.carrier (Level.substFn φ lps us) (keyFrame dsa hi ρ')) ρ'
-    have hagS := holeAgree_instance mp hD hs ρ (fun mm => decide (InGrp D grp mm))
-      (grpTuple D (Level.substFn φ lps us) grp (keyFrame dsa hi ρ) (keyFrame dsa hi ρ'))
-      (vs := (List.range D.k).map fun mm =>
-        if decide (InGrp D grp mm) = true then
-          D.holeVal (Level.substFn φ lps us) (keyFrame dsa hi ρ)
-            (grpTuple D (Level.substFn φ lps us) grp (keyFrame dsa hi ρ) (keyFrame dsa hi ρ')) mm
-        else interp V ρ (mp.base2.acval (D.member mm) (Level.substFn φ lps us)))
-      (by simp) (fun m hm => by simp)
-    have hagL := holeAgree_instance mp hD hs' ρ' (fun mm => decide (InGrp D grp mm))
-      (D.carrier (Level.substFn φ lps us) (keyFrame dsa hi ρ'))
-      (vs := (List.range D.k).map fun mm =>
-        if decide (InGrp D grp mm) = true then
-          D.holeVal (Level.substFn φ lps us) (keyFrame dsa hi ρ')
-            (D.carrier (Level.substFn φ lps us) (keyFrame dsa hi ρ')) mm
-        else interp V ρ' (mp.base2.acval (D.member mm) (Level.substFn φ lps us)))
-      (by simp) (fun m hm => by simp)
-    have htS : (fun c => if decide (InGrp D grp c) = true then
-          grpTuple D (Level.substFn φ lps us) grp (keyFrame dsa hi ρ) (keyFrame dsa hi ρ') c
-        else D.carrier (Level.substFn φ lps us) (keyFrame dsa hi ρ) c)
-        = grpTuple D (Level.substFn φ lps us) grp (keyFrame dsa hi ρ) (keyFrame dsa hi ρ') := by
-      funext c
-      unfold grpTuple
-      by_cases hc : InGrp D grp c <;> simp [hc]
-    have htL : (fun c => if decide (InGrp D grp c) = true then
-          D.carrier (Level.substFn φ lps us) (keyFrame dsa hi ρ') c
-        else D.carrier (Level.substFn φ lps us) (keyFrame dsa hi ρ') c)
-        = D.carrier (Level.substFn φ lps us) (keyFrame dsa hi ρ') := by
-      funext c
-      by_cases hc : InGrp D grp c <;> simp [hc]
-    rw [htS, hlenP] at hagS
-    rw [htL, hlenP] at hagL
-    have hsatS := frameVals_sat mp hD hs hlT hTys (fun mm => decide (InGrp D grp mm))
-      (grpTuple D (Level.substFn φ lps us) grp (keyFrame dsa hi ρ) (keyFrame dsa hi ρ'))
-      (grpTuple_mem mp hD hnN hkN hfind hlps hnd hul hds hdsa hlenP hg hag) ρ
-    have hsatL := frameVals_sat mp hD hs' hlT hTys (fun mm => decide (InGrp D grp mm))
-      (D.carrier (Level.substFn φ lps us) (keyFrame dsa hi ρ'))
-      (fun c hc => lfpTuple_mem _ _ _ _ c hc) ρ'
-    exact ctor_transfer hEqF hlen hlenP hp hpos hres hidx
-      (h.holeApp _ g (Nat.lt_of_lt_of_le hG.1 hkNN) j hj) ⟨ρ, ρ', hr, rfl, rfl⟩ hS hLv hagS hagL
-      hsatS hsatL t fs hf
+    have hsatS := frameVals_sat mp hD hs hlenP hlT hTys _
+      (grpTuple_mem mp hD hnN hkN hfind hlps hnd hul hds hdsa hlenP hg hag)
+    have hsatL := frameVals_sat mp hD hs' hlenP hlT hTys
+      (D.carrier (Level.substFn φ lps us) (keyFrame dsa hi ρ')) (lfpTuple_mem _ _ _ _)
+    exact ctor_transfer hEqF hlen hp hpos hres hidx ⟨ρ, ρ', hr, rfl, rfl⟩ hS hLv hsatS hsatL t fs hf
   refine ⟨fun ρ ρ' hr => ?_, htr⟩
   obtain ⟨hs, hs'⟩ := hfit ρ ρ' hr
   have hag : AgreeOff (holeP hi ctx.nP hi) ρ ρ' := by

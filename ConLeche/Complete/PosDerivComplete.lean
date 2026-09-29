@@ -60,7 +60,7 @@ inductive PosJR where
   | tele (act : List NestKey) (prog : List NestHole) (base nF j : Nat) (cur : Expr)
       (ks : List NestFieldKind) (nds : List (Expr × BinderMeta)) (res : Expr)
   | ctors (act : List NestKey) (prog : List NestHole) (hi : Nat) (us : List Level) (ds : List Expr)
-      (sub : Name → List Level → Option Expr) (cs : List (ConstantVal × Nat))
+      (names : List Name) (holes : List Expr) (cs : List (ConstantVal × Nat))
   | frame (act : List NestKey) (prog : List NestHole) (us : List Level) (ds : List Expr)
       (grp : List (Name × Expr))
 
@@ -87,8 +87,7 @@ inductive PosDR (ops : CheckerOps CheckM) (env : Env) (ctx : NestCtx) : Nat → 
       (hw : ops.whnf env dep e = .ok w)
       (hocc : w.nestOcc ctx.names ctx.nP (ctx.hiAt prog.length) = true)
       (hfn : w.getAppFn = .fvar i ty) (hlo : ctx.nP ≤ i) (hhi : i < ctx.hiAt 0)
-      (hlen : w.getAppArgs.length = ctx.nP + ctx.nIdxs.getD (i - ctx.nP) 0)
-      (hpar : w.getAppArgs.take ctx.nP = ctx.params)
+      (hlen : w.getAppArgs.length = ctx.nIdxs.getD (i - ctx.nP) 0)
       (hfree : ∀ x ∈ w.getAppArgs, x.nestOcc ctx.names ctx.nP (ctx.hiAt prog.length) = false) :
       PosDR ops env ctx (n + 1)
         (.field act prog dep kb e
@@ -99,11 +98,8 @@ inductive PosDR (ops : CheckerOps CheckM) (env : Env) (ctx : NestCtx) : Nat → 
       (hocc : w.nestOcc ctx.names ctx.nP (ctx.hiAt prog.length) = true)
       (hfn : w.getAppFn = .fvar i ty) (hlo : ctx.hiAt 0 ≤ i) (hhi : i < ctx.hiAt prog.length)
       (hk : prog.reverse[i - ctx.hiAt 0]? = some h)
-      (hle : h.key.ds.length ≤ w.getAppArgs.length)
-      (hpar : w.getAppArgs.take h.key.ds.length = h.key.ds)
-      (hfree : ∀ x ∈ w.getAppArgs.drop h.key.ds.length,
-        x.nestOcc ctx.names ctx.nP (ctx.hiAt prog.length) = false)
-      (har : w.getAppArgs.length = nestArity ctx h.key.cname) :
+      (hfree : ∀ x ∈ w.getAppArgs, x.nestOcc ctx.names ctx.nP (ctx.hiAt prog.length) = false)
+      (har : w.getAppArgs.length + h.key.ds.length = nestArity ctx h.key.cname) :
       PosDR ops env ctx (n + 1) (.field act prog dep kb e .inProgress w)
   /-- a container at a concrete instantiation: FRESH (in no frame of `prog`,
   not in progress), its frame derived at the run's walk stack -/
@@ -120,7 +116,6 @@ inductive PosDR (ops : CheckerOps CheckM) (env : Env) (ctx : NestCtx) : Nat → 
       (hds : ∀ x ∈ w.getAppArgs.take nPc,
         x.bvarB = 0 ∧ x.fvarB ≤ ctx.hiAt prog.length)
       (hdsw : ∀ x ∈ w.getAppArgs.take nPc, Expr.WScoped (ctx.hiAt prog.length) x)
-      (hdsA : ∀ x ∈ w.getAppArgs.take nPc, x.holesApplied ctx.names ctx.nP (ctx.hiAt 0) = true)
       (hsc : ProgScoped ctx prog)
       (hnI : nestInstType (m := CheckM) ctx (ctx.hiAt prog.length)
         ⟨c, us, w.getAppArgs.take nPc⟩ = .ok (nI, cty))
@@ -151,18 +146,18 @@ inductive PosDR (ops : CheckerOps CheckM) (env : Env) (ctx : NestCtx) : Nat → 
       (hwalk : PosDR ops env ctx m
         (.ctors (grpKeys us ds grp ++ act)
           ((grpNews us ds (ctx.hiAt prog.length) grp).reverse ++ prog)
-          (ctx.hiAt prog.length + grp.length) us ds (grpSub us (ctx.hiAt prog.length) grp)
-          ctors)) :
+          (ctx.hiAt prog.length + grp.length) us ds (grp.map (·.1))
+          (grpHoles (ctx.hiAt prog.length) grp) ctors)) :
       PosDR ops env ctx n (.frame act prog us ds grp)
   | ctorsNil {n : Nat} {act : List NestKey} {prog : List NestHole} {hi : Nat} {us : List Level}
-      {ds : List Expr} {sub : Name → List Level → Option Expr} :
-      PosDR ops env ctx n (.ctors act prog hi us ds sub [])
+      {ds : List Expr} {names : List Name} {holes : List Expr} :
+      PosDR ops env ctx n (.ctors act prog hi us ds names holes [])
   | ctorsCons {n m₁ m₂ : Nat} {act : List NestKey} {prog : List NestHole} {hi : Nat}
-      {us : List Level} {ds : List Expr} {sub : Name → List Level → Option Expr} {cv : ConstantVal}
+      {us : List Level} {ds : List Expr} {names : List Name} {holes : List Expr} {cv : ConstantVal}
       {nF : Nat} {cs : List (ConstantVal × Nat)} {crest ty : Expr} {sv : Level}
       {ks : List NestFieldKind} {nds : List (Expr × BinderMeta)} {cur : Expr}
       (hnd : Name.nodup cv.levelParams = true)
-      (hcrest : instPisWith ds ((cv.type.instantiateLevelParams cv.levelParams us).replaceConsts sub)
+      (hcrest : nestCrest names us ds holes (cv.type.instantiateLevelParams cv.levelParams us)
         = some crest)
       (hty : ops.inferType env hi crest = .ok ty) (hsort : ops.ensureSort env hi ty = .ok sv)
       (hm₁ : m₁ ≤ n)
@@ -170,10 +165,10 @@ inductive PosDR (ops : CheckerOps CheckM) (env : Env) (ctx : NestCtx) : Nat → 
       (hu4 : ((List.range nF).any fun i => ks.getD i .ordinary != .ordinary &&
         structUsedLater (closeTelescope nds hi cur) 0 i) = false)
       (hres : nestResHead cur = true)
-      (hidx : (cur.getAppArgs.drop ds.length).all (fun x => !x.nestOcc ctx.names ctx.nP hi) = true)
+      (hidx : cur.getAppArgs.all (fun x => !x.nestOcc ctx.names ctx.nP hi) = true)
       (hm₂ : m₂ ≤ n)
-      (hrest : PosDR ops env ctx m₂ (.ctors act prog hi us ds sub cs)) :
-      PosDR ops env ctx n (.ctors act prog hi us ds sub ((cv, nF) :: cs))
+      (hrest : PosDR ops env ctx m₂ (.ctors act prog hi us ds names holes cs)) :
+      PosDR ops env ctx n (.ctors act prog hi us ds names holes ((cv, nF) :: cs))
   | teleNil {n : Nat} {act : List NestKey} {prog : List NestHole} {base j : Nat} {cur : Expr} :
       PosDR ops env ctx n (.tele act prog base 0 j cur [] [] cur)
   /-- one field: its walk, then the rest -/
@@ -197,14 +192,14 @@ theorem PosDR.mono {ops : CheckerOps CheckM} {env : Env} {ctx : NestCtx} {n n' :
     obtain ⟨n'', rfl⟩ : ∃ n'', n' = n'' + 1 := ⟨n' - 1, by omega⟩
     exact .const hw hocc
   | pi hw hocc ha hm hb => exact .pi hw hocc ha (by omega) hb
-  | hole hw hocc hfn hlo hhi hlen hpar hfree =>
+  | hole hw hocc hfn hlo hhi hlen hfree =>
     obtain ⟨n'', rfl⟩ : ∃ n'', n' = n'' + 1 := ⟨n' - 1, by omega⟩
-    exact .hole hw hocc hfn hlo hhi hlen hpar hfree
-  | frameHole hw hocc hfn hlo hhi hk hle' hpar hfree har =>
+    exact .hole hw hocc hfn hlo hhi hlen hfree
+  | frameHole hw hocc hfn hlo hhi hk hfree har =>
     obtain ⟨n'', rfl⟩ : ∃ n'', n' = n'' + 1 := ⟨n' - 1, by omega⟩
-    exact .frameHole hw hocc hfn hlo hhi hk hle' hpar hfree har
-  | cont hw hocc hfn hnm hC hlen hquot hidx hds hdsw hdsA hsc hnI hact hhead hm hfr =>
-    exact .cont hw hocc hfn hnm hC hlen hquot hidx hds hdsw hdsA hsc hnI hact hhead (by omega) hfr
+    exact .frameHole hw hocc hfn hlo hhi hk hfree har
+  | cont hw hocc hfn hnm hC hlen hquot hidx hds hdsw hsc hnI hact hhead hm hfr =>
+    exact .cont hw hocc hfn hnm hC hlen hquot hidx hds hdsw hsc hnI hact hhead (by omega) hfr
   | frame hne hhd hhdC hnd hinst hblk hgrp hctors hkty hm hwalk =>
     exact .frame hne hhd hhdC hnd hinst hblk hgrp hctors hkty (by omega) hwalk
   | ctorsNil => exact .ctorsNil
@@ -366,7 +361,6 @@ theorem nestCont_ok {prog : List NestHole} {kb : Nat} {c : Name} {us : List Leve
     (hlen : args.length = nPc + nI) (hquot : c ≠ quotName)
     (hidx : ∀ x ∈ args.drop nPc, x.nestOcc ctx.names ctx.nP (ctx.hiAt prog.length) = false)
     (hds : ∀ x ∈ args.take nPc, x.bvarB = 0 ∧ x.fvarB ≤ ctx.hiAt prog.length)
-    (hdsA : ∀ x ∈ args.take nPc, x.holesApplied ctx.names ctx.nP (ctx.hiAt 0) = true)
     (hnI : nestInstType (m := CheckM) ctx (ctx.hiAt prog.length) ⟨c, us, args.take nPc⟩
       = .ok (nI, cty))
     (hact : (⟨c, us, args.take nPc⟩ : NestKey) ∉ act)
@@ -385,7 +379,6 @@ theorem nestCont_ok {prog : List NestHole} {kb : Nat} {c : Name} {us : List Leve
     intro x hx
     simp only [Bool.and_eq_true, beq_iff_eq, decide_eq_true_eq]
     exact hds x hx)]
-  rw [if_pos (List.all_eq_true.mpr hdsA)]
   simp only [hnI]
   rw [if_pos (by simp [hlen])]
   exact nestContKey_ok hI (by simp; omega) hnI hact hnew
@@ -400,16 +393,16 @@ describes, succeeds with the judgment's outputs. -/
   | .tele act prog base nF j cur ks nds res => ∀ fuel, n ≤ fuel → ∀ st, RInv ctx st act →
       ∃ ks' st', (∀ err, nestFields (nestPos ops env ctx fuel) prog base
           err nF j cur st = .ok (ks', nds, res, st')) ∧ ks' = ks ∧ RInv ctx st' act
-  | .ctors act prog hi us ds sub cs => ∀ fuelOf : Expr → Nat,
-      (∀ x ∈ cs, ∀ crest, instPisWith ds
-        ((x.1.type.instantiateLevelParams x.1.levelParams us).replaceConsts sub) = some crest →
+  | .ctors act prog hi us ds names holes cs => ∀ fuelOf : Expr → Nat,
+      (∀ x ∈ cs, ∀ crest, nestCrest names us ds holes
+        (x.1.type.instantiateLevelParams x.1.levelParams us) = some crest →
         n ≤ fuelOf crest) → ∀ st, RInv ctx st act →
       ∃ os st', nestCtors ctx ops env (fun crest => nestPos ops env ctx (fuelOf crest)) prog hi us
-          ds ds.length sub cs st = .ok (os, st') ∧ RInv ctx st' act ∧
+          ds names holes cs st = .ok (os, st') ∧ RInv ctx st' act ∧
         ∀ (j : Nat) (cA : ConstantVal × Nat) (o : List NestFieldKind × Expr), cs[j]? = some cA →
           os[j]? = some o → ∃ crest m nds cur,
-            instPisWith ds ((cA.1.type.instantiateLevelParams cA.1.levelParams us).replaceConsts
-              sub) = some crest ∧
+            nestCrest names us ds holes (cA.1.type.instantiateLevelParams cA.1.levelParams us)
+              = some crest ∧
             PosDR ops env ctx m (.tele act prog hi cA.2 0 crest o.1 nds cur) ∧
             o.2 = closeTelescope nds hi cur
   | .frame act prog us ds grp => ∀ fuel, n ≤ fuel →
@@ -460,7 +453,7 @@ theorem posDR_run (hroot : NestRootOk ctx) {n : Nat} {J : PosJR} (h : PosDR ops 
     rw [if_neg (by simpa using hocc)]
     simp only [ha, Bool.false_eq_true, if_false, hr]
     rfl
-  | @hole n act prog dep kb e w i ty hw hocc hfn hlo hhi hlen hpar hfree =>
+  | @hole n act prog dep kb e w i ty hw hocc hfn hlo hhi hlen hfree =>
     intro fuel hf st hI
     obtain ⟨f, rfl⟩ : ∃ f, fuel = f + 1 := ⟨fuel - 1, by omega⟩
     refine ⟨if kb == 0 then .recursive (i - ctx.nP) else .reflexive (i - ctx.nP), st, ?_, ?_, hI⟩
@@ -474,20 +467,19 @@ theorem posDR_run (hroot : NestRootOk ctx) {n : Nat} {J : PosJR} (h : PosDR ops 
       · simp [Expr.getAppFn] at hfn
       · rename_i hfn'
         simp only [nestHoleAt_of_root prog hlo hhi]
-        have hc : (decide (ctx.params.length ≤ w.getAppArgs.length) &&
-            (w.getAppArgs.take ctx.params.length == ctx.params) &&
-            ((w.getAppArgs.drop ctx.params.length).all fun x =>
+        have hc : ((w.getAppArgs.all fun x =>
               !x.nestOcc ctx.names ctx.nP (ctx.hiAt prog.length)) &&
-            (w.getAppArgs.length == nestArity ctx (ctx.names.getD (i - ctx.nP) .anonymous)))
+            (w.getAppArgs.length + ctx.params.length
+              == nestArity ctx (ctx.names.getD (i - ctx.nP) .anonymous)))
             = true := by
           rw [hPl, hAr _ ht]
-          simp only [Bool.and_eq_true, decide_eq_true_eq, beq_iff_eq, List.all_eq_true,
+          simp only [Bool.and_eq_true, beq_iff_eq, List.all_eq_true,
             Bool.not_eq_eq_eq_not, Bool.not_true]
-          exact ⟨⟨⟨by omega, hpar⟩, fun x hx => hfree x (List.mem_of_mem_drop hx)⟩, hlen⟩
+          exact ⟨hfree, by omega⟩
         rw [if_pos hc, if_pos hhi]
         rfl
     · by_cases hkb : kb = 0 <;> simp [hkb]
-  | @frameHole n act prog dep kb e w i ty h hw hocc hfn hlo hhi hk hle hpar hfree har =>
+  | @frameHole n act prog dep kb e w i ty h hw hocc hfn hlo hhi hk hfree har =>
     intro fuel hf st hI
     obtain ⟨f, rfl⟩ : ∃ f, fuel = f + 1 := ⟨fuel - 1, by omega⟩
     refine ⟨.inProgress, st, ?_, rfl, hI⟩
@@ -499,22 +491,20 @@ theorem posDR_run (hroot : NestRootOk ctx) {n : Nat} {J : PosJR} (h : PosDR ops 
     · simp [Expr.getAppFn] at hfn
     · rename_i hfn'
       simp only [nestHoleAt_of_frame hlo hk]
-      have hc : (decide (h.key.ds.length ≤ w.getAppArgs.length) &&
-          (w.getAppArgs.take h.key.ds.length == h.key.ds) &&
-          ((w.getAppArgs.drop h.key.ds.length).all fun x =>
+      have hc : ((w.getAppArgs.all fun x =>
             !x.nestOcc ctx.names ctx.nP (ctx.hiAt prog.length)) &&
-          (w.getAppArgs.length == nestArity ctx h.key.cname)) = true := by
-        simp only [Bool.and_eq_true, decide_eq_true_eq, beq_iff_eq, List.all_eq_true,
+          (w.getAppArgs.length + h.key.ds.length == nestArity ctx h.key.cname)) = true := by
+        simp only [Bool.and_eq_true, beq_iff_eq, List.all_eq_true,
           Bool.not_eq_eq_eq_not, Bool.not_true]
-        exact ⟨⟨⟨hle, hpar⟩, hfree⟩, har⟩
+        exact ⟨hfree, har⟩
       rw [if_pos hc, if_neg (by omega)]
       rfl
   | @cont n m act prog dep kb e w c us L nPc nI cty grp hw hocc hfn hnm hC hlen hquot hidx hds
-      hdsw hdsA hsc hnI hact hhead hm hfr ih =>
+      hdsw hsc hnI hact hhead hm hfr ih =>
     intro fuel hf st hI
     obtain ⟨f, rfl⟩ : ∃ f, fuel = f + 1 := ⟨fuel - 1, by omega⟩
     obtain ⟨k', st', hr, hk, hI'⟩ := nestCont_ok (rec := nestPos ops env ctx f) (kb := kb) (us := us) hI hC hlen hquot
-      hidx hds hdsA hnI hact
+      hidx hds hnI hact
       (newOk_of hfr hhead (ih f (by omega)))
     refine ⟨k', st', ?_, hk, hI'⟩
     rw [nestPos]
@@ -545,7 +535,7 @@ theorem posDR_run (hroot : NestRootOk ctx) {n : Nat} {J : PosJR} (h : PosDR ops 
   | ctorsNil =>
     intro fuelOf _ st hI
     exact ⟨[], st, rfl, hI, fun _ _ _ hj => by simp at hj⟩
-  | @ctorsCons n m₁ m₂ act prog hi us ds sub cv nF cs crest ty sv ks nds cur hnd hcrest hty hsort
+  | @ctorsCons n m₁ m₂ act prog hi us ds names holes cv nF cs crest ty sv ks nds cur hnd hcrest hty hsort
       hm₁ htele hu4 hres hidx hm₂ hrest iht ihr =>
     intro fuelOf hf st hI
     simp only [nestCtors, bind, Except.bind]
@@ -589,18 +579,19 @@ the fuel makes the root frame's walk succeed, every constructor's output
 a derived telescope's. -/
 theorem nestRoot_complete (hroot : NestRootOk ctx) {holes : List Expr} :
     ∀ (css : List (List (ConstantVal × Nat))) (st : NestState), RInv ctx st [] →
-      (∀ cs ∈ css, ∃ n, (∀ x ∈ cs, ∀ crest, instPisWith ctx.params
-          ((x.1.type.instantiateLevelParams x.1.levelParams (ctx.lps.map .param)).replaceConsts
-            (nestRootSub ctx holes)) = some crest → n ≤ whnfWalkFuel crest) ∧
+      (∀ cs ∈ css, ∃ n, (∀ x ∈ cs, ∀ crest, nestCrest ctx.names (ctx.lps.map .param) ctx.params
+          holes (x.1.type.instantiateLevelParams x.1.levelParams (ctx.lps.map .param))
+            = some crest → n ≤ whnfWalkFuel crest) ∧
         PosDR ops env ctx n (.ctors [] [] (ctx.hiAt 0)
-        (ctx.lps.map .param) ctx.params (nestRootSub ctx holes) cs)) →
+        (ctx.lps.map .param) ctx.params ctx.names holes cs)) →
       ∃ outs st', nestRoot ops env ctx holes css st = .ok (outs, st') ∧ RInv ctx st' [] ∧
         ∀ (c : Nat) (cs : List (ConstantVal × Nat)) (os : List (List NestFieldKind × Expr)),
           css[c]? = some cs → outs[c]? = some os →
           ∀ (j : Nat) (cA : ConstantVal × Nat) (o : List NestFieldKind × Expr),
             cs[j]? = some cA → os[j]? = some o → ∃ crest m nds cur,
-              instPisWith ctx.params ((cA.1.type.instantiateLevelParams cA.1.levelParams
-                (ctx.lps.map .param)).replaceConsts (nestRootSub ctx holes)) = some crest ∧
+              nestCrest ctx.names (ctx.lps.map .param) ctx.params holes
+                (cA.1.type.instantiateLevelParams cA.1.levelParams (ctx.lps.map .param))
+                = some crest ∧
               PosDR ops env ctx m (.tele [] [] (ctx.hiAt 0) cA.2 0 crest o.1 nds cur) ∧
               o.2 = closeTelescope nds (ctx.hiAt 0) cur
   | [], st, hI, _ => ⟨[], st, rfl, hI, fun _ _ _ hc => by simp at hc⟩
@@ -610,8 +601,7 @@ theorem nestRoot_complete (hroot : NestRootOk ctx) {holes : List Expr} :
     obtain ⟨outs, st', h₂, hI', houts⟩ := nestRoot_complete hroot css st₁ hI₁
       (fun cs' hcs' => hall cs' (List.mem_cons_of_mem _ hcs'))
     refine ⟨os :: outs, st', ?_, hI', fun c cs' os' hc ho => ?_⟩
-    · rw [hroot.1] at h₁
-      simp only [nestRoot, bind, Except.bind, h₁, h₂, pure, Except.pure]
+    · simp only [nestRoot, bind, Except.bind, h₁, h₂, pure, Except.pure]
     · cases c with
       | zero =>
         simp only [List.getElem?_cons_zero, Option.some.injEq] at hc ho
@@ -627,16 +617,16 @@ every member's constructor list derived (run-complete, at the root key)
 within the root's fuel, make `nestedBlockPositivity` succeed. -/
 theorem nestedBlockPositivity_complete (hroot : NestRootOk ctx) {holes : List Expr}
     (hh : nestHoles ctx = some holes) {ctorss : List (List (ConstantVal × Nat))}
-    (hunif : ∀ cs ∈ ctorss, ∀ cA ∈ cs, nestUniformOk ctx holes cA.1.type = true)
-    (hall : ∀ cs ∈ ctorss, ∃ n, (∀ x ∈ cs, ∀ crest, instPisWith ctx.params
-        ((x.1.type.instantiateLevelParams x.1.levelParams (ctx.lps.map .param)).replaceConsts
-          (nestRootSub ctx holes)) = some crest → n ≤ whnfWalkFuel crest) ∧
+    (hunif : ∀ cs ∈ ctorss, ∀ cA ∈ cs, nestUniformOk ctx cA.1 = true)
+    (hall : ∀ cs ∈ ctorss, ∃ n, (∀ x ∈ cs, ∀ crest, nestCrest ctx.names (ctx.lps.map .param)
+        ctx.params holes (x.1.type.instantiateLevelParams x.1.levelParams (ctx.lps.map .param))
+          = some crest → n ≤ whnfWalkFuel crest) ∧
       PosDR ops env ctx n (.ctors [] []
-      (ctx.hiAt 0) (ctx.lps.map .param) ctx.params (nestRootSub ctx holes) cs)) :
+      (ctx.hiAt 0) (ctx.lps.map .param) ctx.params ctx.names holes cs)) :
     ∃ r, nestedBlockPositivity ops env ctx ctorss = .ok r := by
   obtain ⟨outs, st', h, -, -⟩ :=
     nestRoot_complete hroot ctorss {} rfl hall
-  have hU : nestUniform (m := CheckM) ctx holes ctorss = .ok () := by
+  have hU : nestUniform (m := CheckM) ctx ctorss = .ok () := by
     unfold nestUniform
     rw [(List.findSome?_eq_none_iff).mpr fun cs hcs =>
       List.find?_eq_none.mpr fun cA hcA => by simp [hunif cs hcs cA hcA]]
@@ -650,7 +640,7 @@ theorem nestedBlockPositivity_complete (hroot : NestRootOk ctx) {holes : List Ex
 @[expose] def PosJR.erase : PosJR → PosJ
   | .field _ prog dep kb e k nf => .field prog dep kb e k nf
   | .tele _ prog base nF j cur ks nds res => .tele prog base nF j cur ks nds res
-  | .ctors _ prog hi us ds sub cs => .ctors prog hi us ds sub cs
+  | .ctors _ prog hi us ds names holes cs => .ctors prog hi us ds names holes cs
   | .frame _ prog us ds grp => .frame prog us ds grp
 
 /-- The frame of a walked instantiation, as `PosD` states it: at the
@@ -697,20 +687,20 @@ theorem posDR_posD {n : Nat} {J : PosJR} (h : PosDR ops env ctx n J) :
   | pi hw hocc ha _ _ ih =>
     obtain ⟨ts, h⟩ := ih
     exact ⟨ts, .pi hw hocc ha h⟩
-  | hole hw hocc hfn hlo hhi hlen hpar hfree =>
-    exact ⟨[], .hole hw hocc hfn hlo hhi hlen hpar hfree⟩
-  | frameHole hw hocc hfn hlo hhi hk hle hpar hfree har =>
-    exact ⟨[], .frameHole hw hocc hfn hlo hhi hk hle hpar hfree har⟩
-  | cont hw hocc hfn hnm hC hlen hquot hidx hds hdsw hdsA hsc hnI hact hhead hm hfr ih =>
+  | hole hw hocc hfn hlo hhi hlen hfree =>
+    exact ⟨[], .hole hw hocc hfn hlo hhi hlen hfree⟩
+  | frameHole hw hocc hfn hlo hhi hk hfree har =>
+    exact ⟨[], .frameHole hw hocc hfn hlo hhi hk hfree har⟩
+  | cont hw hocc hfn hnm hC hlen hquot hidx hds hdsw hsc hnI hact hhead hm hfr ih =>
     obtain ⟨ts, hd⟩ := ih
     rcases walkStack_split hdsw hhead hfr hd with ⟨-, nI', hnI', hhd, hd'⟩ |
       ⟨-, hfree, hdsw', hmem, hd'⟩
     · have heq := hnI'.symm.trans hnI
       simp only [Except.ok.injEq, Prod.mk.injEq] at heq
       rw [heq.2] at hhd
-      exact ⟨_, .contNew hw hocc hfn hnm hC hlen hquot hidx hds hdsw hdsA hnI hhd hsc hd'⟩
+      exact ⟨_, .contNew hw hocc hfn hnm hC hlen hquot hidx hds hdsw hnI hhd hsc hd'⟩
     · exact ⟨_, .contHit hw hocc hfn hnm hC hlen hquot hidx
-        (fun x hx => ⟨(hds x hx).1, hfree x hx⟩) hdsw' hdsA hnI hmem hd'⟩
+        (fun x hx => ⟨(hds x hx).1, hfree x hx⟩) hdsw' hnI hmem hd'⟩
   | frame hne hhd hhdC hnd hinst hblk hgrp hctors hkty _ _ ih =>
     obtain ⟨ts, hd⟩ := ih
     exact ⟨ts, .frame hne hhd hhdC hnd hinst hblk hgrp hctors hkty hd⟩

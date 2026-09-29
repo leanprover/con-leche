@@ -1,6 +1,10 @@
 module
 
 public import ConLeche.Model.Inductives.HoleSubst
+import ConLeche.Verify.Inductives.NestCallSyn
+public import ConLeche.Verify.Inductives.NestNfScope
+public import ConLeche.Model.Annot.BitSubstFvars
+import ConLeche.Model.Inductives.ContSubst
 public import ConLeche.Model.Inductives.ContN2
 public import ConLeche.Model.Inductives.BlockHoleRead
 public import ConLeche.Verify.Inductives.PosNodes
@@ -16,24 +20,24 @@ public section
 
 The positivity walk keys a node by its instantiation in the walk's
 representation (`PosTree.key`): the block's parameters at the variables
-`0 ..< nP`, member `t` at the hole `nP + t`, the `i`-th hole of the
-frames at its occurrence (`occ.reverse[i]`) at `hiAt 0 + i`.  A recursor
-major (`TargetMajor`) names the same instantiation CONCRETELY: members
-and enclosing containers as constants.  Every hole stands for ONE
-constant — a member for itself at the block's own levels, a frame's
-hole for its group member at the frame's key levels — so the key READ
-BACK is the key with those constants substituted for the holes
-(`nodeRb`, `substAll`), and the class → node relation (`NodeMajor`)
-is the recursor check's class match against the read-back key: the major
-is a member of the node's group, its levels and parameters match the
-key's per component (`ClassMatches`).
+`0 ..< nP`, member `t`'s hole at `nP + t`, the `i`-th hole of the frames at
+its occurrence (`occ.reverse[i]`) at `hiAt 0 + i`.  A recursor major
+(`TargetMajor`) names the same instantiation CONCRETELY.  Every hole stands
+for a WHOLE application — a member hole for the member at the block's own
+levels applied to the block's parameters, a frame's hole for its group
+member at the frame's key applied to the key's parameters, read back — so
+the key READ BACK is the key with those applications substituted for the
+holes: the kernel's own read-back (`nestHoleImg`, `nodeRb`), and the class
+→ node relation (`NodeMajor`) is the recursor check's class match against
+the read-back key: the major is a member of the node's group, its levels
+and parameters match the key's per component (`ClassMatches`).
 
-The reading of a read-back key is the key's own reading at the TRUE
-valuation — the parameters, then each hole at its constant's value
-(`nodeTrueVal`): `keyFrame_readback` (the substitution lemma iterated,
-`denoteMeta_substAll`, then `interp_instAll`).  That is the class tie's
-frame (`tgtClsFr` at an outside major) at a node: no recursion down the
-forest is needed, a hole's true value is its constant's.
+The read-back is ONE parallel substitution up to the variables'
+annotations (`nodeRb_erasedEq_substFvars`: parameters to themselves, holes
+to their applications, `nodeImg`), whose images all read at one depth
+`rP ≥ nP` (a recursor's prefix); so a read-back key's reading is the key's
+own reading at the substituted valuation (`denoteMeta_substFvars`):
+`interp_readback`, `keyFrame_readback`.
 -/
 
 namespace ConLeche.Model
@@ -46,30 +50,50 @@ universe w
 
 /-! ## The read-back, syntactically -/
 
-/-- **The constants the holes at the frame stack `occ` stand for**: the
-members at the block's own levels (holes `nP ..< hiAt 0`), then each
-frame hole's group member at its key's levels (`hiAt 0 + i` ↦
-`occ.reverse[i]`). -/
-@[expose] def nodeHoleConsts (ctx : NestCtx) (occ : List NestHole) : List Expr :=
-  ctx.names.map (fun n => Expr.const n (ctx.lps.map Level.param)) ++
-    occ.reverse.map fun h => Expr.const h.key.cname h.key.lvls
-
-theorem nodeHoleConsts_length (ctx : NestCtx) (occ : List NestHole) :
-    (nodeHoleConsts ctx occ).length = ctx.names.length + occ.length := by
-  simp [nodeHoleConsts]
-
-theorem nodeHoleConsts_const (ctx : NestCtx) (occ : List NestHole) :
-    ∀ a ∈ nodeHoleConsts ctx occ, ∃ n us, a = Expr.const n us := by
-  intro a ha
-  simp only [nodeHoleConsts, List.mem_append, List.mem_map] at ha
-  rcases ha with ⟨n, -, rfl⟩ | ⟨h, -, rfl⟩
-  · exact ⟨_, _, rfl⟩
-  · exact ⟨_, _, rfl⟩
-
 /-- **A key's term read back** at its frame stack `occ`: every hole
-replaced by its constant. -/
+replaced by the whole application it stands for (the kernel's
+`nestHoleImg`). -/
 @[expose] def nodeRb (ctx : NestCtx) (occ : List NestHole) (e : Expr) : Expr :=
-  substAll ctx.nP (nodeHoleConsts ctx occ) e
+  e.replaceFVars (ConLeche.nestHoleImg ctx occ)
+
+/-- No hole's read-back below the parameters' range. -/
+theorem nestHoleImg_none_of_lt {ctx : NestCtx} {i : Nat} (hi : i < ctx.nP) :
+    ∀ prog : List NestHole, ConLeche.nestHoleImg ctx prog i = none
+  | [] => by simp only [ConLeche.nestHoleImg]; rw [if_neg (by omega)]
+  | h :: prog => by
+    simp only [ConLeche.nestHoleImg]
+    rw [if_neg (by simp [NestCtx.hiAt]; omega)]
+    exact nestHoleImg_none_of_lt hi prog
+
+/-- A hole's read-back does not see the frames above it. -/
+theorem nestHoleImg_append {ctx : NestCtx} (X anc : List NestHole) {v : Nat}
+    (hv : v < ctx.hiAt anc.length) :
+    ConLeche.nestHoleImg ctx (X ++ anc) v = ConLeche.nestHoleImg ctx anc v := by
+  induction X with
+  | nil => rfl
+  | cons h X ih =>
+    simp only [List.cons_append, ConLeche.nestHoleImg]
+    rw [if_neg (by simp [NestCtx.hiAt, List.length_append] at hv ⊢; omega)]
+    exact ih
+
+/-- **The read-back's images**, as one substitution: a parameter variable
+stays (annotated `Sort 0`), a hole its application. -/
+@[expose] def nodeImg (ctx : NestCtx) (occ : List NestHole) (i : Nat) : Expr :=
+  if i < ctx.nP then .fvar i (.sort .zero) else (ConLeche.nestHoleImg ctx occ i).getD default
+
+/-- **The read-back is one parallel substitution**, up to the variables'
+annotations, below the frame stack's holes. -/
+theorem nodeRb_erasedEq_substFvars {ctx : NestCtx} {occ : List NestHole} {D : Nat}
+    {x : Expr} (hx : x.fvarsBelow (ctx.hiAt occ.length)) :
+    Expr.ErasedEq (nodeRb ctx occ x) (Expr.substFvars (ctx.hiAt occ.length) D (nodeImg ctx occ) x) := by
+  refine Expr.replaceFVars_erasedEq_substFvars (fun v hv ty => ?_) x hx
+  by_cases h1 : v < ctx.nP
+  · rw [nestHoleImg_none_of_lt h1]
+    simp only [nodeImg, if_pos h1, Option.getD_none]
+    simp [Expr.ErasedEq]
+  · obtain ⟨e, he⟩ := ConLeche.nestHoleImg_isSome (Nat.le_of_not_lt h1) occ hv
+    simp only [nodeImg, if_neg h1, he, Option.getD_some]
+    exact Expr.ErasedEq.rfl _
 
 /-- **A class matches an instantiation** (`targetClassMatch` passed, at the
 verified fueled instantiation): levels up to `Level.isEquivList`, every
@@ -93,76 +117,80 @@ the node's group and MATCHES the node's key read back, per component
 section Read
 
 variable {V : Type w} [SetTheory V] {env : Env} {φ : Name → Nat}
-  {acval : Name → (Name → Nat) → AnnotTerm}
 
-/-- **The true valuation at a frame stack**: the parameters (the prefix
-spine's first `nP` values), then every hole at its constant's value. -/
-@[expose] noncomputable def nodeTrueVal (nP : Nat) (hv : List AnnotTerm) (xs : List V)
-    (ρ : Nat → V) : Nat → V :=
-  consList (xs.take nP ++ hv.map (interp V ρ)) ρ
+/-- **The read-back's images, read** at the depth `d`. -/
+@[expose] noncomputable def nodeImgX (m : EnvModel V env) (φ : Name → Nat) (ctx : NestCtx)
+    (occ : List NestHole) (d : Nat) : Nat → AnnotTerm :=
+  fun i => (denoteMeta m.acval env φ d (nodeImg ctx occ i)).getD .prf
 
-/-- **One read-back term, read**: at a prefix spine of length `rP ≥ nP`,
-the read-back term's reading is the term's own reading at the true
+/-- **The images are scoped** at the block's parameters (a parameter
+variable, or an application mentioning only the canonical parameters), so
+they read at every depth `rP ≥ nP` where they read at all. -/
+theorem nodeImg_hs (m : EnvModel V env) {ctx : NestCtx} {occ : List NestHole} {rP : Nat}
+    (hPr : ctx.nP ≤ rP) (hpar : ∀ x ∈ ctx.params, ConLeche.ScB ctx.nP x)
+    (hsc : ConLeche.ProgScB ctx occ)
+    (hread : ∀ i, i < ctx.hiAt occ.length →
+      ∃ x, denoteMeta m.acval env φ rP (nodeImg ctx occ i) = some x) :
+    ∀ i, i < ctx.hiAt occ.length → Expr.WScoped rP (nodeImg ctx occ i) ∧
+      (nodeImg ctx occ i).looseBVarsBounded 0 = true ∧
+      denoteMeta m.acval env φ rP (nodeImg ctx occ i) = some (nodeImgX m φ ctx occ rP i) := by
+  intro i hi
+  have hsb : ConLeche.ScB ctx.nP (nodeImg ctx occ i) := by
+    unfold nodeImg
+    split
+    · rename_i h1
+      exact ConLeche.ScB.fvar h1 (ConLeche.ScB.sort i _)
+    · rename_i h1
+      obtain ⟨e, he⟩ := ConLeche.nestHoleImg_isSome (Nat.le_of_not_lt h1) occ hi
+      rw [he, Option.getD_some]
+      exact (ConLeche.nestHoleImg_scb hpar occ hsc).1 i e he
+  obtain ⟨x, hx⟩ := hread i hi
+  refine ⟨Expr.WScoped.mono hPr hsb.1, hsb.2, ?_⟩
+  unfold nodeImgX
+  rw [hx]; rfl
+
+/-- **One read-back term, read**: at a depth `rP` where the images read, the
+read-back term's reading is the term's own reading at the substituted
 valuation. -/
-theorem interp_readback
-    (hacl : ∀ (n : Name) (ψ : Name → Nat) (k : Nat), (acval n ψ).liftN 1 k = acval n ψ)
-    (hainst : ∀ (n : Name) (ψ : Name → Nat) (y : AnnotTerm) (k : Nat),
-      (acval n ψ).inst y k = acval n ψ)
-    {nP rP : Nat} (hPr : nP ≤ rP) {as : List Expr} {hv : List AnnotTerm}
-    (hl : as.length = hv.length)
-    (has : ∀ (i : Nat) (a : Expr) (x : AnnotTerm), as[i]? = some a → hv[i]? = some x →
-      Expr.WScoped 0 a ∧ a.looseBVarsBounded 0 = true ∧
-        ∀ d, denoteMeta acval env φ d a = some x)
-    (hcl : ∀ x ∈ hv, ∀ σ σ' : Nat → V, interp V σ x = interp V σ' x)
-    {e : Expr} (he : Expr.WScoped (nP + as.length) e) {ea : AnnotTerm}
-    (hea : denoteMeta acval env φ (nP + as.length) e = some ea)
-    (xs : List V) (hxs : xs.length = rP) (ρ : Nat → V) :
-    ∃ eb, denoteMeta acval env φ rP (substAll nP as e) = some eb ∧
-      interp V (consList xs ρ) eb = interp V (nodeTrueVal nP hv xs ρ) ea := by
-  have hfb : Expr.fvarsBelow (rP + as.length) e :=
-    (Expr.WScoped.mono (by omega) he).fvarsBelow
-  rw [denoteMeta_substAll hacl hainst as hv hl has nP rP e hPr hfb,
-    denoteMeta_lift hacl he (rP + as.length) (by omega), hea]
-  refine ⟨_, rfl, ?_⟩
-  have hsplit : consList xs ρ = consList (xs.drop nP) (consList (xs.take nP) ρ) := by
-    rw [← consList_append, List.take_append_drop]
-  have hdl : (xs.drop nP).length = rP - nP := by rw [List.length_drop, hxs]
-  rw [hsplit, show rP - nP = (xs.drop nP).length from hdl.symm,
-    interp_instAll hv (hv.map (interp V ρ)) (by simp)
-      (fun i x h hx hh σ => by
-        rw [List.getElem?_map, hx, Option.map_some, Option.some.injEq] at hh
-        subst hh
-        exact hcl x (List.mem_of_getElem? hx) σ ρ) _ (xs.drop nP) (consList (xs.take nP) ρ),
-    show rP + as.length - (nP + as.length) = (xs.drop nP).length by omega,
-    interp_liftN_consList, nodeTrueVal, consList_append]
+theorem interp_readback (m : EnvModel V env) {ctx : NestCtx} {occ : List NestHole} {rP : Nat}
+    (hs : ∀ i, i < ctx.hiAt occ.length → Expr.WScoped rP (nodeImg ctx occ i) ∧
+      (nodeImg ctx occ i).looseBVarsBounded 0 = true ∧
+      denoteMeta m.acval env φ rP (nodeImg ctx occ i) = some (nodeImgX m φ ctx occ rP i))
+    {e : Expr} (he : Expr.WScoped (ctx.hiAt occ.length) e) {ea : AnnotTerm}
+    (hea : denoteMeta m.acval env φ (ctx.hiAt occ.length) e = some ea) (σ : Nat → V) :
+    ∃ eb, denoteMeta m.acval env φ rP (nodeRb ctx occ e) = some eb ∧
+      interp V σ eb = interp V (substE V (substTau (ctx.hiAt occ.length) rP
+        (nodeImgX m φ ctx occ rP)) 0 σ) ea := by
+  have hfb : Expr.fvarsBelow (ctx.hiAt occ.length) e := he.fvarsBelow
+  rw [denoteMeta_erasedEq (nodeRb_erasedEq_substFvars (D := rP) hfb) rP]
+  have h := denoteMeta_substFvars m hs e 0 (by rw [Nat.add_zero]; exact hfb)
+  rw [Nat.add_zero, Nat.add_zero, hea, Option.map_some] at h
+  exact ⟨_, h, interp_substAV V _ _ _ _⟩
 
 /-- **THE READ-BACK FRAME**: a major whose parameters are a key's read
-back (up to erasure), read at a prefix spine of length `rP ≥ nP`, has the
-key frame the key has at the true valuation. -/
-theorem keyFrame_readback
-    (hacl : ∀ (n : Name) (ψ : Name → Nat) (k : Nat), (acval n ψ).liftN 1 k = acval n ψ)
-    (hainst : ∀ (n : Name) (ψ : Name → Nat) (y : AnnotTerm) (k : Nat),
-      (acval n ψ).inst y k = acval n ψ)
-    {nP rP : Nat} (hPr : nP ≤ rP) {as : List Expr} {hv : List AnnotTerm}
-    (hl : as.length = hv.length)
-    (has : ∀ (i : Nat) (a : Expr) (x : AnnotTerm), as[i]? = some a → hv[i]? = some x →
-      Expr.WScoped 0 a ∧ a.looseBVarsBounded 0 = true ∧
-        ∀ d, denoteMeta acval env φ d a = some x)
-    (hcl : ∀ x ∈ hv, ∀ σ σ' : Nat → V, interp V σ x = interp V σ' x) :
+back (up to erasure), read at a depth `rP` where the images read, has the
+key frame the key has at the substituted valuation. -/
+theorem keyFrame_readback (m : EnvModel V env) {ctx : NestCtx} {occ : List NestHole} {rP : Nat}
+    (hs : ∀ i, i < ctx.hiAt occ.length → Expr.WScoped rP (nodeImg ctx occ i) ∧
+      (nodeImg ctx occ i).looseBVarsBounded 0 = true ∧
+      denoteMeta m.acval env φ rP (nodeImg ctx occ i) = some (nodeImgX m φ ctx occ rP i)) :
     ∀ {ds : List Expr} {dsa : List AnnotTerm} {dsM : List Expr},
-      (∀ x ∈ ds, Expr.WScoped (nP + as.length) x) →
-      DenoteMetaSpine acval env φ (nP + as.length) ds dsa →
-      Expr.ErasedEqL dsM (ds.map (substAll nP as)) →
-      ∀ (xs : List V), xs.length = rP → ∀ ρ : Nat → V,
-      keyFrame (dsM.map fun x => (denoteMeta acval env φ rP x).getD default) rP (consList xs ρ)
-        = keyFrame dsa (nP + as.length) (nodeTrueVal nP hv xs ρ) := by
-  intro ds dsa dsM hws hsp hE xs hxs ρ
-  have htl : (fun j => consList xs ρ (j + rP)) = fun j => nodeTrueVal nP hv xs ρ (j + (nP + as.length)) := by
+      (∀ x ∈ ds, Expr.WScoped (ctx.hiAt occ.length) x) →
+      DenoteMetaSpine m.acval env φ (ctx.hiAt occ.length) ds dsa →
+      Expr.ErasedEqL dsM (ds.map (nodeRb ctx occ)) → ∀ σ : Nat → V,
+      keyFrame (dsM.map fun x => (denoteMeta m.acval env φ rP x).getD default) rP σ
+        = keyFrame dsa (ctx.hiAt occ.length)
+            (substE V (substTau (ctx.hiAt occ.length) rP (nodeImgX m φ ctx occ rP)) 0 σ) := by
+  intro ds dsa dsM hws hsp hE σ
+  have htl : (fun j => σ (j + rP)) = fun j => substE V (substTau (ctx.hiAt occ.length) rP
+      (nodeImgX m φ ctx occ rP)) 0 σ (j + ctx.hiAt occ.length) := by
     funext j
-    have h1 : consList xs ρ (j + rP) = ρ j := by rw [← hxs, consList_apply_add]
-    have h2 : (xs.take nP ++ hv.map (interp V ρ)).length = nP + as.length := by
-      simp [List.length_take, hxs, hl]; omega
-    rw [h1, nodeTrueVal, ← h2, consList_apply_add]
+    have := substE_substTau (V := V) (nP := 0) (k := ctx.hiAt occ.length) (D' := rP)
+      (nodeImgX m φ ctx occ rP) σ
+    rw [Nat.zero_add] at this
+    rw [this, show j + ctx.hiAt occ.length = j + ((List.range (ctx.hiAt occ.length)).map fun mm =>
+      interp V σ (nodeImgX m φ ctx occ rP (0 + mm))).length by simp, consList_apply_add]
+    simp
   unfold keyFrame
   rw [htl]
   congr 1
@@ -173,10 +201,9 @@ theorem keyFrame_readback
     | [], _ => rfl
   | @cons a v as' vs ha _ ih =>
     match dsM, hE with
-    | m :: ms, hE =>
+    | mm :: ms, hE =>
       obtain ⟨hm, hms⟩ := hE
-      obtain ⟨eb, heb, hint⟩ := interp_readback hacl hainst hPr hl has hcl
-        (hws a List.mem_cons_self) ha xs hxs ρ
+      obtain ⟨eb, heb, hint⟩ := interp_readback m hs (hws a List.mem_cons_self) ha σ
       simp only [List.map_cons, Function.comp_apply]
       rw [denoteMeta_erasedEq hm rP, heb, Option.getD_some, hint,
         ih (fun x hx => hws x (List.mem_cons_of_mem _ hx)) hms]

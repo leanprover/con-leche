@@ -4,6 +4,7 @@ public import ConLeche.Verify.Inductives.PosDerivFun
 public import ConLeche.Verify.Inductives.NestScope
 import ConLeche.Verify.Inductives.NestContInv
 public import ConLeche.Verify.Inductives.PositivityInv
+public import ConLeche.Verify.Inductives.HoleImg
 import ConLeche.Kernel.Inductives.RecCheck
 import ConLeche.Verify.Cached.Erase
 import ConLeche.Verify.InstLevels
@@ -1025,15 +1026,6 @@ theorem CtorsRecRoot.mono {holes : List Expr} {tbl tbl' : List NestCtorNf}
     (h : CtorsRecRoot ops env ctx holes tbl css) : CtorsRecRoot ops env ctx holes tbl' css :=
   fun c cs hc => (h c cs hc).mono hs
 
-/-- No hole's read-back below the parameters' range. -/
-theorem nestHoleImg_lt_nP {ctx : NestCtx} {i : Nat} (hi : i < ctx.nP) :
-    ∀ prog : List NestHole, nestHoleImg ctx prog i = none
-  | [] => by simp only [nestHoleImg]; rw [if_neg (by omega)]
-  | h :: prog => by
-    simp only [nestHoleImg]
-    rw [if_neg (by simp [NestCtx.hiAt]; omega)]
-    exact nestHoleImg_lt_nP hi prog
-
 /-- The canonical parameters are hole-free readers of themselves: read
 back, they are unchanged. -/
 theorem params_readback {ctx : NestCtx} (hroot : NestRootOk ctx) (prog : List NestHole) :
@@ -1041,7 +1033,7 @@ theorem params_readback {ctx : NestCtx} (hroot : NestRootOk ctx) (prog : List Ne
   refine (List.map_congr_left fun x hx => ?_).trans (List.map_id _)
   obtain ⟨i, ty, rfl, hi⟩ := hroot.2.1 x hx
   simp only [Expr.replaceFVars, id]
-  rw [nestHoleImg_lt_nP hi]
+  rw [nestHoleImg_lt_nP (prog := prog) hi]
   rfl
 
 /-- **A member constructor's entry, recorded at the root key** (K.53′'s

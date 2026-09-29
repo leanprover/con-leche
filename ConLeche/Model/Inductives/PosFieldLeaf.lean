@@ -15,7 +15,7 @@ public section
 The positivity walk returns, for a field, its NORMAL FORM: the whnf'd
 Π-binders the `pi` rule passed (each domain hole-free), closed back over
 the leaf the last rule met (`posD_field_leaf`).  The leaf is one of the
-field kinds the calls land at: a member hole at the block's parameters,
+field kinds the calls land at: a member hole at hole-free indices,
 a frame's hole at its key, a container instance (its node), or — no
 member and no hole — a constant type (`FieldLeaf`).  The tower is a
 syntactic `Expr.mkPisOf`, and its body opened at the variables the walk
@@ -80,22 +80,19 @@ section Leaf
 variable (ops : CheckerOps CheckM) (env : Env) (ctx : NestCtx)
 
 /-- **A field's leaf** `w` at the frames `prog`: the last rule of its
-derivation — a member hole at the block's parameters (hole-free indices,
-full arity), a frame's hole at its key (hole-free indices, full arity), a
+derivation — a member hole (hole-free indices, its index arity), a
+frame's hole (hole-free indices, the arity its key leaves), a
 container instance whose node `u` (keyed by it) is among `ts` (at the
 arity its `nestInstType` counts), or a term naming no member and no
 hole. -/
 @[expose] def FieldLeaf (prog : List NestHole) (w : Expr) (ts : List PosTree) : Prop :=
   (∃ i ty, w.getAppFn = .fvar i ty ∧ ctx.nP ≤ i ∧ i < ctx.hiAt 0 ∧
-    w.getAppArgs.length = ctx.nP + ctx.nIdxs.getD (i - ctx.nP) 0 ∧
-    w.getAppArgs.take ctx.nP = ctx.params ∧
+    w.getAppArgs.length = ctx.nIdxs.getD (i - ctx.nP) 0 ∧
     ∀ x ∈ w.getAppArgs, x.nestOcc ctx.names ctx.nP (ctx.hiAt prog.length) = false) ∨
   (∃ i ty h, w.getAppFn = .fvar i ty ∧ ctx.hiAt 0 ≤ i ∧ i < ctx.hiAt prog.length ∧
-    prog.reverse[i - ctx.hiAt 0]? = some h ∧ h.key.ds.length ≤ w.getAppArgs.length ∧
-    w.getAppArgs.take h.key.ds.length = h.key.ds ∧
-    (∀ x ∈ w.getAppArgs.drop h.key.ds.length,
-      x.nestOcc ctx.names ctx.nP (ctx.hiAt prog.length) = false) ∧
-    w.getAppArgs.length = nestArity ctx h.key.cname) ∨
+    prog.reverse[i - ctx.hiAt 0]? = some h ∧
+    (∀ x ∈ w.getAppArgs, x.nestOcc ctx.names ctx.nP (ctx.hiAt prog.length) = false) ∧
+    w.getAppArgs.length + h.key.ds.length = nestArity ctx h.key.cname) ∨
   (∃ n us nPc L u, w.getAppFn = .const n us ∧ ctx.names.contains n = false ∧
     nestContainer ctx n = some (nPc, L) ∧ nPc ≤ w.getAppArgs.length ∧
     (∀ x ∈ w.getAppArgs.drop nPc, x.nestOcc ctx.names ctx.nP (ctx.hiAt prog.length) = false) ∧
@@ -189,19 +186,19 @@ theorem posD_field_leaf
         simpa using this
       rw [hsplit]
       exact (abstract1_instantiateList_erasedEq hbd (by simp; omega) ty).trans (hopen _ htk)
-  | @hole prog dep kb e w i ty hw hocc hfn hlo hhi' hlen hpar hfree =>
+  | @hole prog dep kb e w i ty hw hocc hfn hlo hhi' hlen hfree =>
     intro _ he
     refine ⟨hwb _ _ _ hw he, [], w, w, rfl, (by intro x hx; exact nomatch hx), fun os hos => ?_,
-      Or.inl ⟨i, ty, hfn, hlo, hhi', hlen, hpar, hfree⟩⟩
+      Or.inl ⟨i, ty, hfn, hlo, hhi', hlen, hfree⟩⟩
     obtain rfl : os = [] := List.length_eq_zero_iff.mp hos.1
     rw [Expr.instantiateList_nil]; exact Expr.ErasedEq.rfl _
-  | @frameHole prog dep kb e w i ty h hw hocc hfn hlo hhi' hk hle hpar hfree har =>
+  | @frameHole prog dep kb e w i ty h hw hocc hfn hlo hhi' hk hfree har =>
     intro _ he
     refine ⟨hwb _ _ _ hw he, [], w, w, rfl, (by intro x hx; exact nomatch hx), fun os hos => ?_,
-      Or.inr (Or.inl ⟨i, ty, h, hfn, hlo, hhi', hk, hle, hpar, hfree, har⟩)⟩
+      Or.inr (Or.inl ⟨i, ty, h, hfn, hlo, hhi', hk, hfree, har⟩)⟩
     obtain rfl : os = [] := List.length_eq_zero_iff.mp hos.1
     rw [Expr.instantiateList_nil]; exact Expr.ErasedEq.rfl _
-  | @contNew prog dep kb e w n us L nPc nI cty grp ts hw hocc hfn hnm hq hlen hquot hidx hds hdsw _
+  | @contNew prog dep kb e w n us L nPc nI cty grp ts hw hocc hfn hnm hq hlen hquot hidx hds hdsw
       hnI hhead hsc hfrD ihf =>
     intro _ he
     refine ⟨hwb _ _ _ hw he, [], w, w, rfl, (by intro x hx; exact nomatch hx), fun os hos => ?_,
@@ -209,7 +206,7 @@ theorem posD_field_leaf
         List.mem_singleton_self _, rfl, rfl, nI, cty, hlen, hnI⟩))⟩
     obtain rfl : os = [] := List.length_eq_zero_iff.mp hos.1
     rw [Expr.instantiateList_nil]; exact Expr.ErasedEq.rfl _
-  | @contHit prog dep kb e w n us L nPc nI cty grp ts hw hocc hfn hnm hq hlen hquot hidx hds hdsw _
+  | @contHit prog dep kb e w n us L nPc nI cty grp ts hw hocc hfn hnm hq hlen hquot hidx hds hdsw
       hnI hmem hfrD ihf =>
     intro _ he
     refine ⟨hwb _ _ _ hw he, [], w, w, rfl, (by intro x hx; exact nomatch hx), fun os hos => ?_,
