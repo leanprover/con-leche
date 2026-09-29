@@ -21,9 +21,12 @@ in official's order (`declare_inductive_types`, `check_constructors`,
    are definitionally member 0's; the result sorts are equivalent);
    THEN all k formers are consed at once (nothing of a constructor is
    looked at before every former is in the environment), the
-   constructors are checked per member at THAT environment, and the ONE
-   positivity function runs on them (its kinds are the capability
-   record's `is_rec`);
+   constructors are checked per member at THAT environment, the classes
+   the stream's recursor family eliminates are read off its raw recursor
+   types and checked (`checkBlockClasses`), and the ONE positivity
+   function walks every class from the empty frame stack — the members'
+   constructors as the root frame, then every outside class
+   (`checkBlockPass`, `BlockTail.lean`);
 2. **TAIL**: the index binders' sorts, the
    constructors consed, the recursor stage, and the projection table at
    every structure-like member.

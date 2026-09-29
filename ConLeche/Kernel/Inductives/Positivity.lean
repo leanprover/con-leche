@@ -1623,12 +1623,13 @@ def nestRootLinesAll (ctx : NestCtx) (holes : List Expr) :
 The stream's recursor family names the classes it eliminates: every
 recursor's major `I.{us} D⃗ ı⃗`.  An outside one — `I` a stored inductive
 that is no member and not `Quot` — is official's auxiliary type.  The
-recursor check RESOLVES every major first (`targetMajorOf`: the head,
-the levels, the parameters `D⃗` over the recursor's parameter binders),
-and every outside class it resolved SEEDS the walk (`nestSeedOf`): it is
-walked at the root like a container instance met there (`nestContKey`
-at the empty frame stack: a cache hit, or its frame walked), after the
-members' constructors, sharing the cache.  So every class of the
+install's pass reads and RESOLVES every class before the walk
+(`checkBlockClasses`, `GenRec.lean`: the head, the levels, the parameters
+`D⃗` over the canonical parameters), and every outside class SEEDS the
+walk (`nestSeedOf`): it is walked from the empty frame stack like a
+container instance met at the root (`nestContKey`: a cache hit, or its
+frame walked), after the members' constructors (the root frame), sharing
+the cache — the positivity check is ONE run over the classes.  So every class of the
 family is a node by construction — an occurrence whnf erases
 (`K (List T)` with `K _ := Nat`) among them — and the walk reads no
 syntactic occurrence.

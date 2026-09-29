@@ -15,17 +15,22 @@ the positivity check's recorded constructor normal forms, compares each
 generated TYPE with the stream's by `isDefEq`, and INSTALLS the generated
 recursors.  The stream's recursor rules are never read.
 
-* **The classes.**  An UNVERIFIED pre-pass (`ClassRead.lean`) reads the
+* **The classes** (`checkBlockClasses`, in the install's PASS, before the
+  positivity check).  An UNVERIFIED pre-pass (`ClassRead.lean`) reads the
   classes (one per motive), the prefix layout (motives, minor premises,
   their inductive hypotheses) and every recursor's class off the stream's
-  recursor TYPES.  Every class is then checked as a major
-  (`targetMajorOf`: a member at the block's levels and parameters, or a
-  stored inductive at an auxiliary type of the block, `is_nested`), with
-  exactly one class per member.
-* **The seeds.**  Every outside class seeds the positivity check
-  (`nestSeeds`), so every class is a node of the walk by construction; the
-  walk's recorded constructor normal forms (the TABLE, `NestCtorNf`, with
-  their readings) are the generator's input.
+  RAW recursor types (they mention the constructors, so they are checked
+  only here, at the constructors' environment).  Every class key is moved
+  to the block's canonical parameters and annotated (`classKeyOf`), then
+  checked as a major (`targetMajorOf`: a member at the block's levels and
+  parameters, or a stored inductive at an auxiliary type of the block,
+  `is_nested`), with exactly one class per member.
+* **The table.**  The pass's positivity check walks every class from the
+  empty frame stack — the members as the root frame, then every outside
+  class (`nestSeeds`) — so every class is a node of the walk by
+  construction; the walk's recorded constructor normal forms (the TABLE,
+  `NestCtorNf`, with their readings) are the generator's input.  The stage
+  consumes the table and the classes, nothing else of the walk.
 * **Per class and constructor** the entries of the table at a key the
   class matches per component (`targetMajorNfs`); the first is the
   generator's DATUM (its telescope and field kinds).  The minor premise's
