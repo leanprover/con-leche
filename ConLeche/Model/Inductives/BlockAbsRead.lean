@@ -9,7 +9,6 @@ import ConLeche.Model.Install
 import ConLeche.Model.Inductives.StoredShapes
 import ConLeche.Model.Inductives.BlockHoleRead
 import ConLeche.Verify.Inductives.PositivityInv
-import ConLeche.Verify.Inductives.NestScope
 
 public section
 

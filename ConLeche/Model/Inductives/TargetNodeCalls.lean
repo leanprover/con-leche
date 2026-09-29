@@ -5,8 +5,6 @@ import ConLeche.Verify.Inductives.PosNodes
 import ConLeche.Semantics.EnvFacts
 import ConLeche.Verify.InferLeaves
 import ConLeche.Model.IndPointKit
-import ConLeche.Verify.Inductives.NestContInv
-import ConLeche.Model.Inductives.PosDerivMono
 import ConLeche.Model.Inductives.TargetCallEntry
 public import ConLeche.Verify.Inductives.ClassMatchRun
 import ConLeche.Model.Inductives.TargetCallMaj

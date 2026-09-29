@@ -14,7 +14,6 @@ import ConLeche.Model.Inductives.StructFrameKit
 import ConLeche.Model.Inductives.StructRecKit
 import ConLeche.Model.Inductives.BlockRecPreRun
 import ConLeche.Model.Inductives.BlockRecTyping
-import ConLeche.Model.Inductives.ContLeaf
 import ConLeche.Model.Rules.Sound
 import ConLeche.Model.IndFrame
 import ConLeche.Model.Tiers

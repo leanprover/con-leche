@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.Model.Annot.BitSubstFvars
-public import ConLeche.Model.Inductives.ContSubst
+import ConLeche.Model.Inductives.ContSubst
 public import ConLeche.Semantics.NoBVar
 
 public section

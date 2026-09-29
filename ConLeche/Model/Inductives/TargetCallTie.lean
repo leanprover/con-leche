@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.Verify.Inductives.NestCallSyn
-public import ConLeche.Verify.Inductives.HoleImg
+import ConLeche.Verify.Inductives.HoleImg
 
 public section
 

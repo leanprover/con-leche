@@ -12,7 +12,6 @@ import ConLeche.Model.Inductives.StructFrameKit
 import ConLeche.Model.Inductives.StructRecKit
 import ConLeche.Model.Annot.BitRename
 import ConLeche.Model.Annot.BitLevels
-import ConLeche.Verify.Inductives.NestScope
 
 public section
 

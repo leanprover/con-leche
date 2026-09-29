@@ -1,8 +1,6 @@
 module
 
 public import ConLeche.Model.Inductives.BlockStageCtors
-import ConLeche.Model.Inductives.StructRecKit
-import ConLeche.Model.Inductives.StructFrameKit
 import ConLeche.Model.Inductives.BlockHoleRead
 import ConLeche.Model.Annot.BitInst
 import ConLeche.Verify.EnvWF

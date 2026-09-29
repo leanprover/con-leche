@@ -1,7 +1,6 @@
 module
 
 public import ConLeche.Model.Inductives.BlockLfpHoles
-import ConLeche.Model.Annot.BlockLfpTup
 public section
 
 /-!

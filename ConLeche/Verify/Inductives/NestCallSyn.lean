@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.Kernel.Inductives.RecCheck
-public import ConLeche.Verify.Subst
+import ConLeche.Verify.Subst
 import ConLeche.Verify.Abstract
 import ConLeche.Verify.Shift
 public import ConLeche.Verify.SubstFvars

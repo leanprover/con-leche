@@ -3,7 +3,6 @@ module
 public import ConLeche.Model.Annot.EnvModelM
 import ConLeche.Model.Annot.BlockLfpTup
 import ConLeche.Model.NatEqs
-import ConLeche.Verify.Denote.Shift
 import ConLeche.Model.Annot.Bit
 
 public section

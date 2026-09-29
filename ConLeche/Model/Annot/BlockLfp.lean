@@ -2,7 +2,6 @@ module
 
 public import ConLeche.Semantics.Sat
 public import ConLeche.Semantics.Tower.FixTower
-public import ConLeche.Semantics.Tower.TowerKit
 public section
 
 /-!

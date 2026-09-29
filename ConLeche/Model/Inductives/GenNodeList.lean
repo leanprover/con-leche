@@ -2,9 +2,7 @@ module
 
 public import ConLeche.Model.Inductives.GenRecAssembly
 public import ConLeche.Model.Inductives.GenRecStage
-public import ConLeche.Model.Inductives.TargetNodeList
 public import ConLeche.Model.Inductives.TargetNodeSem
-public import ConLeche.Model.Inductives.TargetNodeCover
 import ConLeche.Model.Inductives.PosDerivTie
 import ConLeche.Verify.EnvBound
 public import ConLeche.Model.Inductives.PosDerivNodes

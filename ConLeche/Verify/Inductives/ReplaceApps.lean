@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.Kernel.Inductives.Positivity
-public import ConLeche.Verify.Shift
+import ConLeche.Verify.Shift
 public import ConLeche.Verify.Subst
 import ConLeche.Verify.Leaves
 import ConLeche.Verify.InferLemmas

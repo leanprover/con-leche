@@ -10,7 +10,6 @@ import ConLeche.Verify.InferLeaves
 import ConLeche.Verify.InstLevels
 import ConLeche.Verify.Inductives.NestContInv
 import ConLeche.Verify.Inductives.PosDerivInv
-import ConLeche.Verify.Cached.NestPosC
 import ConLeche.Verify.Cached.Erase
 
 public section

@@ -680,6 +680,25 @@ FALLBACK = {
     ('ConLeche.Verify.Inductives.GenK53Rename', 'ConLeche.Verify.Inductives.RecCheckRun'),
     ('ConLeche.Verify.InferProjSlots', 'ConLeche.Kernel.TypeChecker'),
     ('ConLeche.Verify.InferProjSlots', 'ConLeche.Verify.ProjSlots'),
+    # lane HOLEAPP (the Model tier at whole-application holes): seven
+    # re-exports the model calls demotable, each MEASURED by demoting it
+    # alone.  `ReplaceApps`' public statements reach `Expr.appHole?`/
+    # `phApp?`/`replaceApps` by dot-notation through `Positivity`
+    # (`ReplaceApps.lean:30`); `CanonCrest`'s name `canonParams`/`CanonOf`
+    # (`:230`, through `EnvModelM`) and `ConstsBound` (`:33`, through
+    # `BitConsCross`); `HoleBack`'s name `Expr`/`Name`/`Level` (`:24`,
+    # through `SubstFvars`); `BlockHoleGrade`'s reach `Expr.occDeep` by
+    # dot-notation (`:302`); and two re-exports downstream proofs use:
+    # `BlockHoleRead`'s `ReplaceApps` (unknown `wscoped_instPisWith`,
+    # `BlockCtorReads.lean:57`), `PosDerivInv`'s `HoleImg` (unknown
+    # `nestHoleImg_lt_nP`, `NestNfScope.lean:230`).
+    ('ConLeche.Verify.Inductives.ReplaceApps', 'ConLeche.Kernel.Inductives.Positivity'),
+    ('ConLeche.Model.Annot.CanonCrest', 'ConLeche.Model.Annot.EnvModelM'),
+    ('ConLeche.Model.Annot.CanonCrest', 'ConLeche.Model.Annot.BitConsCross'),
+    ('ConLeche.Verify.Inductives.HoleBack', 'ConLeche.Verify.SubstFvars'),
+    ('ConLeche.Model.Inductives.BlockHoleGrade', 'ConLeche.Verify.Inductives.NfMemberFree'),
+    ('ConLeche.Model.Inductives.BlockHoleRead', 'ConLeche.Verify.Inductives.ReplaceApps'),
+    ('ConLeche.Verify.Inductives.PosDerivInv', 'ConLeche.Verify.Inductives.HoleImg'),
 }
 
 files=[f for f in subprocess.check_output(['git','ls-files','*.lean']).decode().split()

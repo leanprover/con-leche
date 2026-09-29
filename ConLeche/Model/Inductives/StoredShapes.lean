@@ -5,7 +5,6 @@ public import ConLeche.Semantics.NoBVar
 public import ConLeche.Model.Inductives.BlockData
 public import ConLeche.Model.Inductives.NestPosOut
 import ConLeche.Verify.Inductives.PosNodes
-import ConLeche.Verify.Inductives.UniformOcc
 import ConLeche.Verify.Inductives.HoleBack
 import ConLeche.Model.Inductives.HoleOverride
 public import ConLeche.Verify.Inductives.PosDeriv
@@ -18,9 +17,7 @@ import ConLeche.Model.Annot.LfpFormer
 import ConLeche.Model.IndPointKit
 import ConLeche.Model.Annot.BitRename
 public import ConLeche.Model.Annot.BitInst
-import ConLeche.Model.IndSubst
 import ConLeche.Verify.Inductives.NestScope
-import ConLeche.Verify.Inductives.DirectInv
 import ConLeche.Verify.Inductives.DirectGen
 import ConLeche.Verify.Denote.TeleOpen
 

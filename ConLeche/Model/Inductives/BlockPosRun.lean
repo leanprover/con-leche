@@ -17,7 +17,6 @@ import ConLeche.Semantics.Tower.SumTower
 import ConLeche.Model.Annot.BitRename
 import ConLeche.Model.Inductives.BlockCtorReads
 import ConLeche.Model.Annot.CanonCrest
-import ConLeche.Model.Annot.BitInst
 import ConLeche.Model.Annot.LfpFormer
 import ConLeche.Model.NatEqs
 

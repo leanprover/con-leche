@@ -2,7 +2,7 @@ module
 
 public import ConLeche.Verify.InferIOLeaves
 public import ConLeche.Verify.Inductives.PosDeriv
-public import ConLeche.Verify.Inductives.UniformOcc
+import ConLeche.Verify.Inductives.UniformOcc
 import ConLeche.Verify.EnvGuards
 import ConLeche.Verify.Knot
 import ConLeche.Verify.EnvPreds

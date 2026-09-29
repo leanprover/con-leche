@@ -1,12 +1,7 @@
 module
 
 public import ConLeche.Model.Inductives.TargetNodeDynOf
-public import ConLeche.Model.Inductives.TargetNodeDyn
-import ConLeche.Model.Annot.LfpFormer
-import ConLeche.Model.Annot.LfpAcc
 import ConLeche.Model.Inductives.TargetCallLand
-import ConLeche.Model.Inductives.BlockPosRun
-import ConLeche.Model.Annot.BlockLfpTup
 import ConLeche.Semantics.Tower.FixTower
 import ConLeche.Semantics.Tower.SumTower
 import ConLeche.Semantics.Tower.TowerKit

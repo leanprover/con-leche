@@ -1,10 +1,6 @@
 module
 
-import ConLeche.Model.Inductives.PosDerivTie
-import ConLeche.Model.Inductives.BlockHoleRead
-import ConLeche.Verify.Inductives.PosNodes
 import ConLeche.Verify.Denote.IndFrame
-import ConLeche.Verify.Inductives.ClassMatchRun
 public import ConLeche.Model.Inductives.TargetNodeRb
 
 public section

@@ -2,7 +2,6 @@ module
 
 public import ConLeche.Model.Inductives.TargetNodeTie
 import ConLeche.Model.Inductives.TargetCallLand
-import ConLeche.Model.Inductives.PosDerivTie
 import ConLeche.Model.Annot.BitLemmas
 import ConLeche.Model.Annot.BitInst
 import ConLeche.Model.Inductives.ContFrame

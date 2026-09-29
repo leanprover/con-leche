@@ -94940,3 +94940,112 @@ local.
 with the constructors, at env2).  Zero verdict change; needs env2 to stop being a fresh extension of
 env1 (~130 transport sites, 2–4 sessions).  Prototype: `_tmp/uniform-inds/SIMPAD-DF/dproto.patch`.
 Revisit only if the whnf hole-substitution lemma (IMPROVE P5) ever needs it.
+
+## HOLEAPP — holes stand for the WHOLE application, families over the indices (2026-09-29, `agent/uinds-HOLEAPP`)
+
+Step 2 of the maintainer's ruling on uniform parameters (after UNIFCHK):
+"cash in on that simplification, both in terms of checking and having
+holes not take parameters, including the proof adjustment".  Design:
+`_tmp/uniform-inds/UNIFHOLE.md`; artifacts `_tmp/uniform-inds/HOLEAPP/`
+(`sweep.sh`, `res-*.txt`, binaries, `loc/`, `BRIEF.md` — the helper
+brief).
+
+**Kernel (`Kernel/Inductives/Positivity.lean`).**
+* A hole stands for the WHOLE application: `T_m.{lps} p⃗ ↦ X_m` at the
+  root, `C_j.{us} q⃗ ↦ Y_j` in a container frame; holes are typed by the
+  former instantiated at the key's parameters — families over the
+  indices (`nestHoles`, `nestInstType`'s second component).
+* The replacement happens BEFORE the parameters are instantiated, at the
+  CANONICAL variables: `nestCanonCrest names us n cty` (instantiate at
+  `nestPhs n = fvar 0 … fvar (n-1)`, then `Expr.replaceApps
+  (nestCanonSub names us n) 0 n`: every subterm literally `c.{us}
+  fvar 0 … fvar (n-1)` with `c` a group member becomes `fvar (n+m)`,
+  pre-order, fvars leaves, memoised twin + `@[csimp]`), then
+  `nestCrest names us ds holes cty` puts the key's parameters and the
+  frame's holes in by ONE `replaceFVars` (`nestKeyMap`).  The root and
+  every frame use the same function (`nestCtors … names holes`, was
+  `… nPc sub`); the model records the canonical crest.
+* The hole arm of `nestPos`: all arguments hole-free and
+  `args.length + key.ds.length = nestArity` (the parameter-prefix
+  comparison is gone).  The result check reads all arguments.
+* `nestUniformOk ctx cv` = the raw type's parameter domains name no
+  member ∧ the canonical crest (`nestRootCanon`) names no member constant
+  (UNIFCHK's `holesApplied` test is gone: an occurrence at other levels
+  or other arguments is exactly a member constant left over).
+* Read-back: `nestHoleImg ctx prog` (was `nestHoleConst`): a member hole
+  ↦ `T_m.{lps} ctx.params`, a frame hole ↦ `C.{us} (rb Ds)`, recursive on
+  the stack.  The recorded TERMS are unchanged (`X idx` reads back as the
+  old `X p⃗ idx` did), so the table, node agreement and generation are
+  untouched.
+* `nestSeedOf`: `replaceApps` at the recursor's parameter binders, then
+  `nestKeyMap ctx.params holes`.
+* DELETED: `Expr.holesApplied`/`holesAppliedGo`/`holeParamsApp` (+memo,
+  spec), the local container check in `nestCont` (UNIFCHK P3(ii)),
+  `nestAbstract`, `nestRootSub`, `nestHoleConst(_eq)`.
+
+**Proofs.**
+* The frame law `Expr.frameCrest_eq` (`Verify/SubstFvars.lean`, the
+  risk item): the frame's crest at `(us, ds)`, its group in ANY order
+  (N2-eager: the whole recorded block), is the recorded canonical crest
+  at the levels `us`, `substFvars`-substituted (parameters ↦ `ds`,
+  canonical hole ↦ the frame's hole of the same member).  Needs only the
+  recorded "no member constant left" (`LfpCtorReads`), no new invariant
+  (`replaceApps_canon_instantiateLevelParams`,
+  `replaceApps_replaceFVars_congr`).  `frameCrest_read` restated.
+* Library: `Verify/Inductives/ReplaceApps.lean` (scoping, leaves,
+  erasure, spines, instantiate1), `HoleImg.lean` (read-back),
+  `HoleBack.lean` (`substFvars_replaceApps_erasedEq`: putting the whole
+  applications back undoes the abstraction), `UniformOcc.lean` (was
+  `HolesApplied.lean`), `NfMemberFree.lean`.
+* `LfpDatum.holeVal ψ ρp X m = holeFam ρp (ids m ψ) (app (X m) ∘ tupW)`
+  (indices only, read at the parameter frame).  M3 is gone:
+  `LfpDatum.HolesApplied`, `LfpClause.holeApp`,
+  `Semantics/Inductives/HoleApp.lean`, `HoleAppGrade.lean`
+  (`HoleAgree`, `interp_congr_holeApp`, …), `Model/Inductives/HoleSubst.lean`
+  (iterated `substAll` with closed images) DELETED; agreement lemmas are
+  equalities (`holeTmFrame_frame`: the hole terms' frame IS the hole
+  frame; `blockLeaf_frame`; `former_app_eq`: a member's former applied
+  to the parameters IS its hole value at the carrier).  `holeTmAV u m Is`
+  lost its parameter telescope.
+* `LfpCtorReads`: `∃ A, nestCanonCrest … = some A ∧ A.nestOcc … = false ∧
+  reading ends in `mkAppN (bvar …) resIdx`` (no parameter arguments);
+  `Tys` are the HOLE TYPES (the formers at `canonParams`), read at
+  `nPc + mm`; `canonAbs`/`canonHoles`/`canonCtx` deleted, `CanonOf` is
+  what the cons transports read.  `BlockData.holeCtx` entries are the
+  index towers lifted past the earlier holes.
+* `HoleRel.member` at arity `nIdx`; `HoleRel.frame` without the `ds`
+  quantification (`HoleOnArgs`, `FrameBlind`, the `weaken_top` plumbing
+  deleted); `PosD.hole` without `hpar`, `frameHole` without `hle`/`hpar`,
+  `contNew`/`contHit` without `hdsA`.
+* `StoredFieldShapes`: `holeApp` gone; `override` fills each hole slot
+  with the member's value APPLIED TO THE PARAMETERS.  The producer puts
+  the whole applications back by ONE parallel substitution
+  (`Expr.substFvars_replaceApps_erasedEq`, `denoteMeta_substFvars`,
+  `substE_holeBack`) instead of iterated `substAll`.
+* Container frames: the group is always the whole recorded block, so
+  `InGrp`/partial-group readings collapse; frame hole types are open
+  (`grpTys` reads entry `i` at `hi + i`; `hkey` from K.52 replaces
+  `hfit`).  The recursor stage: `nodeRb = replaceFVars (nestHoleImg …)`,
+  the node-0 PATCH construction (`patchFrame*`, `memberTrue*`,
+  `admVal_patch`) DELETED — node 0 uses the hole frame directly
+  (NODESIMP's "node-0 twin (ii)" partly collapsed); `NodeOwned` deleted.
+* `LfpDatum.pars`/`parsSat*` are still used (`former_app_eq` splits a
+  former's tower at its own parameters) — not deleted.
+* Test: `NestedTests`' hand-built non-uniform container `W α | mk : W Nat
+  → W α` (not installable: its own install fails the uniform check) now
+  walks `W Nat` as an ordinary field — verdict `.ok` (was `.error`).
+
+**Verdicts: zero moves.**  699-stream sweep (e2e incl. `.gz`, arena,
+UNIFHOLE probes, RECPOS/FUSEPOS/FUSELOOP/RPWHNF/RPFOLLOW/GENRECM0 fx; exit
+code + output hash) vs `uniform-inds` 66d4f2af2: identical on every
+stream (not even a message move).  init-full 53 093 accepted; Mathlib
+654 504 accepted (`--jobs=16`).
+
+**Numbers.**  Executed checker lines (SIZEAUDIT method, `HOLEAPP/loc`):
+10 268 → **10 239 (−29)** (Kernel-rest −39 — `holesApplied` and its memo;
+Kernel/Inductives +10 — `replaceApps` and its memo, `nestCrest`).  Proof
+(`git diff --shortstat` over Verify/Model/Semantics/Complete): +8 535
+−7 637 (**+898** net; Verify +2 263 — the replaceApps/frame-law/read-back
+library, the cached sims; Model −842; Semantics/Complete −523).
+Perf (instructions:u): `complete_c05b_nest30_pi1000` 43.54 G → 43.45 G;
+init-full 419.45 G → 419.42 G.

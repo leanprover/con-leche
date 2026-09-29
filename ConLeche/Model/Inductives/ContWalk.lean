@@ -2,14 +2,10 @@ module
 
 import ConLeche.Model.Inductives.ContCtor
 public import ConLeche.Model.Inductives.ContLeaf
-import ConLeche.Model.Annot.LfpFormer
 import ConLeche.Model.Inductives.ContFrame
 import ConLeche.Model.Annot.BlockLfpTup
-import ConLeche.Model.Annot.BitLevels
 import ConLeche.Model.Annot.BitInst
-import ConLeche.Model.Annot.BitClosed
 import ConLeche.Model.Inductives.ContSubst
-import ConLeche.Model.Annot.CanonCrest
 import ConLeche.Verify.Inductives.NestScope
 import ConLeche.Model.Rules.Inputs
 import ConLeche.Model.Rules.Sound

@@ -2,15 +2,13 @@ module
 
 import ConLeche.Verify.Inductives.NestCallSyn
 public import ConLeche.Verify.Inductives.NestNfScope
-public import ConLeche.Model.Annot.BitSubstFvars
+import ConLeche.Model.Annot.BitSubstFvars
 import ConLeche.Model.Inductives.ContSubst
 public import ConLeche.Model.Inductives.ContN2
 public import ConLeche.Model.Inductives.BlockHoleRead
 public import ConLeche.Verify.Inductives.PosNodes
-public import ConLeche.Kernel.Inductives.RecCheck
+import ConLeche.Kernel.Inductives.RecCheck
 import ConLeche.Model.Annot.BitRename
-import ConLeche.Model.Annot.BitInst
-import ConLeche.Model.Inductives.ContFrame
 
 public section
 

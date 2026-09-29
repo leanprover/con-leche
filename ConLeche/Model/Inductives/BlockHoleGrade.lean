@@ -10,7 +10,6 @@ import ConLeche.Model.Rules.InferSoundKit
 import ConLeche.Model.Inductives.StructFrameKit
 import ConLeche.Model.Inductives.BlockData
 import ConLeche.Model.Annot.BitRename
-import ConLeche.Verify.Inductives.UniformOcc
 public import ConLeche.Verify.Inductives.NfMemberFree
 public section
 

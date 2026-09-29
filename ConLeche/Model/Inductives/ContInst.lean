@@ -10,7 +10,7 @@ import ConLeche.Verify.Inductives.HoleBack
 import ConLeche.Verify.Inductives.ReplaceApps
 import ConLeche.Verify.SubstFvars
 import ConLeche.Model.Inductives.ContSubst
-public import ConLeche.Model.Annot.BitSubstFvars
+import ConLeche.Model.Annot.BitSubstFvars
 import ConLeche.Model.Annot.BitLevels
 import ConLeche.Verify.Inductives.ClassGenScope
 
