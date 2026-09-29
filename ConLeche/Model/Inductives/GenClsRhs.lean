@@ -286,4 +286,218 @@ theorem genMinorFit (hμ : μ.verifiedChecks = true)
 
 end Fit
 
+/-! ## The `ih` terms, graded -/
+
+section Ih
+
+/-- `UnderTowerOk` from its spine form: the domains graded along their
+fitting spines, and at every full spine the body graded, in the result,
+the result a truth value at a zero bit. -/
+theorem underTowerOk_of_spines {m : Nat} {b T : AnnotTerm} :
+    ∀ {ds : List (Nat × Nat × AnnotTerm)} {σ : Nat → V},
+      (∀ k, k < ds.length → ∀ zs : List V, SpineFit σ ((ds.map (·.2.2)).take k) zs →
+        WellDenoted V (consList zs σ) ((ds.map (·.2.2)).getD k default)) →
+      (∀ zs : List V, SpineFit σ (ds.map (·.2.2)) zs →
+        WellDenoted V (consList zs σ) b ∧ interp V (consList zs σ) b ∈ˢ interp V (consList zs σ) T ∧
+          (m = 0 → interp V (consList zs σ) T ∈ˢ (univZero : V))) →
+      UnderTowerOk m σ b T ds
+  | [], σ, _, hb => by
+    have := hb [] trivial
+    simp only [consList_nil] at this
+    exact this
+  | d :: ds, σ, hd, hb => by
+    refine ⟨by simpa using hd 0 (by simp) [] trivial, fun a ha => ?_⟩
+    refine underTowerOk_of_spines (fun k hk zs hzs => ?_) (fun zs hzs => ?_)
+    · have := hd (k + 1) (by simpa using hk) (a :: zs) ⟨ha, hzs⟩
+      simpa [consList_cons] using this
+    · have := hb (a :: zs) ⟨ha, hzs⟩
+      simpa [consList_cons] using this
+
+theorem domsBelow_of_fieldsBelow {bit : Nat} :
+    ∀ {tl : List (Nat × AnnotTerm)} {k : Nat}, FieldsBelow k (tl.map (·.2)) →
+      DomsBelow k (tl.map fun p => (0, p.1, p.2))
+  | [], _, _ => trivial
+  | _ :: _, _, h => ⟨h.1, domsBelow_of_fieldsBelow (bit := bit) h.2⟩
+
+/-- A generated `ih` binder type is bound by its frame. -/
+theorem genIhDomAV_below {D mt : Nat} {q : IhDatum} (hq : IhDatumBelow D q) (hmt : mt < D) :
+    Term.bvarsBelow D (genIhDomAV D mt q).erase := by
+  unfold genIhDomAV
+  refine mkPisAV_below_of (domsBelow_of_fieldsBelow (bit := 0) hq.1) ?_
+  rw [AnnotTerm.erase_mkAppN, List.length_map]
+  refine VExprAux.bvarsBelow_mkAppN (by show _ < _; omega) fun a ha => ?_
+  obtain ⟨e, he, rfl⟩ := List.mem_map.mp ha
+  exact hq.2 e he
+
+end Ih
+
+section IhRun
+
+variable {F : Nat} {env₁ envC : Env} {pp : BlockParts} {nestedBit : Bool} {pos : NestState}
+  {cvTas : List ConstantVal} {block : List ConstantInfo}
+  {ctorsAs : List (List (ConstantVal × Nat))}
+  {out : List (ConstantVal × TargetMajor × List Expr)}
+
+set_option maxHeartbeats 16000000 in
+/-- **A generated `ih` term's tower is sound over a typed tuple**: its
+telescope is graded; at every fitting spine its body — the callee's value
+applied to the prefix, the index arguments and the applied field — is
+graded and inhabits the `ih`'s motive application, a truth value where
+the family eliminates into `Prop`. -/
+theorem genIhUnder (hμ : μ.verifiedChecks = true)
+    (R : GenRecRun μ F (mkFEnv env₁) env₁ (mkFEnv envC) pp.toBlockShape nestedBit pos cvTas
+      block ctorsAs out) (hg : ClassGenScoped R.g) {memR : Nat → Prop}
+    (h : ConLeche.RecStageG μ F envC pp cvTas ctorsAs (tgtRs out) memR) (mpC : EnvModelM V μ envC)
+    (hfind : ∀ (j : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
+      (tgtRs out)[j]? = some r → ∀ (i : Nat) (cA : ConstantVal × Nat), r.2.2.2[i]? = some cA →
+        envC.find? cA.1.name = some (.ctorInfo cA.1 (ConLeche.tgtMajorsOf out j).nPc cA.2))
+    (ψ : Name → Nat) (ρ : Nat → V) {rs : List V} (hrl : rs.length = (tgtRs out).length)
+    (hty : ∀ c, c < (tgtRs out).length →
+      rs.getD c pt ∈ˢ interp V ρ (blockRecTyAV mpC.base2.acval envC (tgtRs out) ψ c))
+    {c j : Nat} (hc : c < (tgtRs out).length) (hj : j < blockRecNCt (tgtRs out) c) {ys : List V}
+    (hys : SpineFit ρ (blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c
+      ++ tgtFdomsAV pp.toBlockShape out mpC.base2.acval envC ψ c j) ys)
+    {q : IhDatum} (hq : q ∈ genIhdAV mpC.base2.acval envC R.g R.rd (genBit pp ψ) ψ c j) :
+    UnderTowerOk (genBit pp ψ) (consList ys (consList rs ρ))
+      (AnnotTerm.mkAppN (.bvar (R.g.pre.length + (genCtorAt R.g R.rd c j).nF + q.2.1.length
+          + ((tgtRs out).length - 1 - q.1)))
+        (prefVarsAV R.g.pre.length ((genCtorAt R.g R.rd c j).nF + q.2.1.length)
+          ++ (q.2.2.1 ++ [q.2.2.2])))
+      (AnnotTerm.mkAppN (.bvar (R.g.pre.length + (genCtorAt R.g R.rd c j).nF + q.2.1.length
+          - 1 - classMotPos R.g (genClsOf R.rd q.1)))
+        (q.2.2.1 ++ [q.2.2.2]))
+      (q.2.1.map fun p => (0, p.1, p.2)) := by
+  obtain ⟨l, hl⟩ := List.getElem?_of_mem hq
+  obtain ⟨t, st, fr, hq1, hst, hstl, hcnt, hcls, G2, hA, -⟩ :=
+    genIhFrame hμ R hg h mpC hfind ψ hc hj hl
+  have hr : (tgtRs out)[c]? = some ((tgtRs out)[c]'hc) := List.getElem?_eq_getElem hc
+  have hK := genRun_cal R mpC.base2.acval envC (genBit pp ψ) ψ c hc j hj q hq
+  obtain ⟨hlc, -⟩ := genPdoms_read hμ R hg h mpC ψ hc
+  have hnF := genRun_nF hμ R hg mpC.base2.acval ψ c hc j hj
+  have hbelow := genRun_below hμ R hg h mpC (genBit pp ψ) ψ c hc j hj q hq
+  rw [hlc, ← hnF] at hbelow
+  obtain ⟨xs, fs, rfl, hxs, hfs⟩ := spineFit_append_split hys
+  have hxl : xs.length = R.g.pre.length := hxs.length_eq.trans hlc
+  have hfl : fs.length = (genCtorAt R.g R.rd c j).nF := hfs.length_eq.trans hnF.symm
+  -- the frame's domains are closed below it
+  have hPdB : FieldsBelow 0 (blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c) :=
+    fieldsBelow_of_getD fun l hl' => by
+      simpa using blockRulePdomsAV_bounded hμ mpC h hr ψ l hl'
+  have hFdB := genRun_fdomsBelow hμ R hg h mpC ψ c hc j hj
+  have hFrB := fieldsBelow_append hPdB (by simpa using hFdB)
+  have hysR : SpineFit (consList rs ρ) (blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape
+      (tgtRs out) ψ c ++ tgtFdomsAV pp.toBlockShape out mpC.base2.acval envC ψ c j) (xs ++ fs) :=
+    spineFit_congr_fieldsBelow hFrB (fun i hi => absurd hi (Nat.not_lt_zero _)) hys
+  generalize hD : R.g.pre.length + (genCtorAt R.g R.rd c j).nF = D at hbelow ⊢
+  have hxfl : (xs ++ fs).length = D := by rw [List.length_append, hxl, hfl, hD]
+  refine underTowerOk_of_spines (fun k hk zs hzs => ?_) (fun zs hzs => ?_)
+  · -- a telescope domain
+    rw [List.map_map] at hzs ⊢
+    have hfit : SpineFit (consList rs ρ) ((blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape
+        (tgtRs out) ψ c ++ tgtFdomsAV pp.toBlockShape out mpC.base2.acval envC ψ c j
+        ++ q.2.1.map (·.2)).take (R.g.pre.length + (genCtorAt R.g R.rd c j).nF + k))
+        ((xs ++ fs) ++ zs) := by
+      rw [List.take_append, List.take_of_length_le (by simp; omega),
+        show R.g.pre.length + (genCtorAt R.g R.rd c j).nF + k
+          - (blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c
+            ++ tgtFdomsAV pp.toBlockShape out mpC.base2.acval envC ψ c j).length = k by
+          simp [hlc, ← hnF]]
+      exact SpineFit.append hysR hzs
+    have := (G2.ok _ (by simp at hk; omega) _ _ hfit).1
+    rw [consList_append, list_getD_append_right (by simp [hlc, ← hnF]),
+      show R.g.pre.length + (genCtorAt R.g R.rd c j).nF + k
+        - (blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c
+          ++ tgtFdomsAV pp.toBlockShape out mpC.base2.acval envC ψ c j).length = k by
+        simp [hlc, ← hnF]] at this
+    simpa [Function.comp_def] using this
+  · -- the body: the callee applied along its binder data
+    rw [List.map_map] at hzs
+    simp only [Function.comp_def] at hzs
+    have hagD : ∀ i, i < D → consList (xs ++ fs) (consList rs ρ) i = consList (xs ++ fs) ρ i := by
+      intro i hi
+      exact consList_congr_below (xs ++ fs) (D := 0) (fun k hk => absurd hk (Nat.not_lt_zero _)) i
+        (by simpa [hxfl] using hi)
+    have hzs' : SpineFit (consList (xs ++ fs) ρ) (q.2.1.map (·.2)) zs :=
+      spineFit_congr_fieldsBelow hbelow.1 hagD hzs
+    have hzl : zs.length = q.2.1.length := by rw [hzs.length_eq, List.length_map]
+    have hsp : SpineFit ρ (blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c
+        ++ tgtFdomsAV pp.toBlockShape out mpC.base2.acval envC ψ c j) (xs ++ fs) := hys
+    obtain ⟨-, hxlT, hfitR⟩ := genCallTy hμ R hg h mpC hfind (genBit pp ψ) ψ ρ c hc j hj xs fs
+      (by rw [hxl, hlc]) hsp q hq zs hzs'
+    -- the arguments read alike at the two frames
+    have hagZ : ∀ i, i < D + q.2.1.length →
+        consList zs (consList (xs ++ fs) (consList rs ρ)) i = consList zs (consList (xs ++ fs) ρ) i :=
+      fun i hi => consList_congr_below zs hagD i (by rw [hzl]; exact hi)
+    have havals : (q.2.2.1 ++ [q.2.2.2]).map (interp V (consList zs (consList (xs ++ fs) (consList rs ρ))))
+        = (q.2.2.1 ++ [q.2.2.2]).map (interp V (consList zs (consList (xs ++ fs) ρ))) :=
+      List.map_congr_left fun e he => interp_congr_below V e _ _ _ (hbelow.2 e he) hagZ
+    -- the callee's type and value
+    have hrT : (tgtRs out)[q.1]? = some ((tgtRs out)[q.1]'hK) := List.getElem?_eq_getElem hK
+    obtain ⟨-, -, -, -, hTyE, -, -, -, -, hwdTy⟩ := recStage_tyPis (V := V) hμ mpC h hrT ψ
+    have hhead : interp V (consList zs (consList (xs ++ fs) (consList rs ρ)))
+        (.bvar (D + q.2.1.length + ((tgtRs out).length - 1 - q.1))) = rs.getD q.1 pt := by
+      rw [interp_bvar, show D + q.2.1.length + ((tgtRs out).length - 1 - q.1)
+        = ((tgtRs out).length - 1 - q.1) + (xs ++ fs).length + zs.length by rw [hxfl, hzl]; omega,
+        consList_apply_add, consList_apply_add, consList_getD_of_lt _ _ _ (by omega), hrl,
+        show (tgtRs out).length - 1 - ((tgtRs out).length - 1 - q.1) = q.1 by omega]
+    have hpv : (prefVarsAV R.g.pre.length ((genCtorAt R.g R.rd c j).nF + q.2.1.length)).map
+        (interp V (consList zs (consList (xs ++ fs) (consList rs ρ)))) = xs := by
+      have := interp_prefVarsAV (V := V) (xs := xs) (bs := fs ++ zs) (ρ := consList rs ρ) hxl
+      rw [List.length_append, hfl, hzl, ← List.append_assoc, consList_append] at this
+      exact this
+    have hvals : (prefVarsAV R.g.pre.length ((genCtorAt R.g R.rd c j).nF + q.2.1.length)
+        ++ (q.2.2.1 ++ [q.2.2.2])).map (interp V (consList zs (consList (xs ++ fs) (consList rs ρ))))
+        = xs ++ (q.2.2.1.map (interp V (consList zs (consList (xs ++ fs) ρ)))
+          ++ [interp V (consList zs (consList (xs ++ fs) ρ)) q.2.2.2]) := by
+      rw [List.map_append, hpv, havals, List.map_append]; rfl
+    have hframe : SpineFit (consList rs ρ) (blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape
+        (tgtRs out) ψ c ++ tgtFdomsAV pp.toBlockShape out mpC.base2.acval envC ψ c j
+        ++ q.2.1.map (·.2)) ((xs ++ fs) ++ zs) := SpineFit.append hysR hzs
+    obtain ⟨hWD, hIn⟩ := Rules.wellDenotedV_mkAppN_of_fit (ρ := consList zs (consList (xs ++ fs)
+        (consList rs ρ))) (σ := ρ)
+        (Ta := blockRecTyAV mpC.base2.acval envC (tgtRs out) ψ q.1)
+        (f := .bvar (D + q.2.1.length + ((tgtRs out).length - 1 - q.1))) (prefVarsAV R.g.pre.length ((genCtorAt R.g R.rd c j).nF + q.2.1.length)
+          ++ (q.2.2.1 ++ [q.2.2.2])) (hwdTy ρ) ⟨by simp [WellDenoted_bvar], by simp [AnnotValid_bvar]⟩
+      (fun x hx => by
+        rcases List.mem_append.mp hx with hx | hx
+        · obtain ⟨k, -, rfl⟩ := List.mem_map.mp hx
+          exact ⟨by simp [WellDenoted_bvar], by simp [AnnotValid_bvar]⟩
+        · have := hA x hx _ _ hframe
+          rwa [consList_append] at this)
+      (by rw [hhead]; exact hty q.1 hK)
+      (by
+        rw [hvals, hTyE]
+        exact teleFit_mkPisAV_of_spineFit hfitR)
+    -- the motive application is the callee's conclusion there
+    have hmt : classMotPos R.g (genClsOf R.rd q.1) < xs.length := by
+      rw [hcls, hxl, classMotPos, hst]; exact hstl
+    obtain ⟨clsT, tyT, ifsT, bodyT, hgcT, hMT, -, -, -, hRPT, -, -, -, -, -, -, -, -⟩ :=
+      genRun_binders hμ R hg h mpC ψ hK
+    have hconcl := genRun_conclMot hμ R hg h mpC ψ ρ q.1 hK xs
+      (q.2.2.1.map (interp V (consList zs (consList (xs ++ fs) ρ))))
+      (interp V (consList zs (consList (xs ++ fs) ρ)) q.2.2.2) (by rw [hxl, hRPT])
+      (by rw [List.length_map, hcnt, hMT, ← hgcT, hcls])
+    have hT0 : interp V (consList zs (consList (xs ++ fs) (consList rs ρ)))
+        (AnnotTerm.mkAppN (.bvar (D + q.2.1.length - 1 - classMotPos R.g (genClsOf R.rd q.1)))
+          (q.2.2.1 ++ [q.2.2.2]))
+        = interp V (consList (xs ++ (q.2.2.1.map (interp V (consList zs (consList (xs ++ fs) ρ)))
+            ++ [interp V (consList zs (consList (xs ++ fs) ρ)) q.2.2.2])) ρ)
+          (blockRecConclAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ q.1) := by
+      rw [hconcl, interp_mkAppN, ← List.foldl_map, havals, List.map_append]
+      congr 1
+      rw [interp_bvar, ← consList_append, List.append_assoc,
+        show D + q.2.1.length - 1 - classMotPos R.g (genClsOf R.rd q.1)
+          = (fs ++ zs).length + xs.length - 1 - classMotPos R.g (genClsOf R.rd q.1) by
+          rw [List.length_append, hfl, hzl, ← hxfl, List.length_append, hfl]; omega]
+      exact consList_prefix_getD hmt
+    refine ⟨hWD.1, by rw [hT0]; exact hIn, fun h0 => ?_⟩
+    rw [hT0]
+    have hu := genRec_conclTy hμ h ψ ρ q.1 hK _ hfitR
+    have he : Level.eval ψ (ConLeche.structElimLevel pp.toBlockShape.elim pp.toBlockShape.large)
+        = 0 := (pwBit_zeronessOf ψ _).mp h0
+    rw [he, univ_zero] at hu
+    exact hu
+
+end IhRun
+
 end ConLeche.Model
