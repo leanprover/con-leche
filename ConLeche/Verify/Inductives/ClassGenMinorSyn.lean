@@ -393,10 +393,19 @@ theorem ClassGen.minorTy_spec {g : ClassGen} (hg : ClassGenScoped g) {s c : Nat}
         Expr.fvarsBelow (g.nP + s + x.nF) (closeTelescope TB (g.nP + s + x.nF + l)
           (Expr.mkAppN (.fvar (g.nP + st) (.sort .zero)) bargs)) := by
   obtain ⟨⟨sc, hsc, hmc⟩, hmt⟩ := hg.order s c C ihs0 hs
-  have htyN : ScB (g.nP + s) x.tyN := (hg.tyN c x hx).mono (by omega)
+  have htyD : ScB (g.nP + s) x.tyD := (hg.tyD c x hx).mono (by omega)
   unfold ClassGen.minorTy at h
   obtain ⟨⟨fvs, res⟩, hop, h⟩ := Option.bind_eq_some_iff.mp h
-  obtain ⟨hfl, hfvs, hres⟩ := ScB.openPis hop htyN
+  obtain ⟨hfl, hfvs, hres⟩ := ScB.openPis hop htyD
+  obtain ⟨ws, hws, h⟩ := Option.bind_eq_some_iff.mp h
+  have hwsB : ∀ i, i < x.nF → ScB (g.nP + s + x.nF) (ws.getD i default) := by
+    intro i hi
+    refine ScB.targetPiDomsWith_getD hws ((hg.tyN c x hx).mono (by omega)) (fun a ha => ?_)
+      (by omega)
+    obtain ⟨k, hk, rfl⟩ := List.getElem_of_mem ha
+    obtain ⟨ty, hxe, hty⟩ := hfvs k _ (List.getElem?_eq_getElem hk)
+    rw [hxe]
+    exact ScB.fvar (by omega) hty
   obtain ⟨ihs, hihs, h⟩ := Option.bind_eq_some_iff.mp h
   simp only [Option.pure_def, Option.some.injEq] at h
   subst h
@@ -442,8 +451,7 @@ theorem ClassGen.minorTy_spec {g : ClassGen} (hg : ClassGenScoped g) {s c : Nat}
     obtain ⟨⟨xs, idx⟩, hparts, hy⟩ := Option.bind_eq_some_iff.mp hy
     simp only [Option.pure_def, Option.some.injEq] at hy
     subst hy
-    rw [hfe] at hparts
-    obtain ⟨hxl, hxs, hidx⟩ := ClassGen.ihParts_scoped rfl hty (by omega) hparts
+    obtain ⟨hxl, hxs, hidx⟩ := ClassGen.ihParts_scoped (hwsB i hi) (by omega) hparts
     rw [ClassGen.motVar_eq hmt'] at hyb
     have hTB : ∀ (k : Nat) (nd : Expr × BinderMeta), (xs.map classBinder)[k]? = some nd →
         ScB (g.nP + s + x.nF + l + k) nd.1 := by
@@ -480,8 +488,8 @@ theorem ClassGen.minorTy_spec {g : ClassGen} (hg : ClassGenScoped g) {s c : Nat}
       ScB.of_closeTelescope hTB hbody
     refine Expr.FvGap.fvarsBelow (i := g.nP + s + x.nF + l) ?_ hsc.1.fvarsBelow
     -- every piece avoids the gap
-    have hfty : Expr.FvGap (g.nP + s + x.nF) (g.nP + s + x.nF + l) ty :=
-      Expr.FvGap.of_fvarsBelow (Expr.fvarsBelow_mono (by omega) hty.1.fvarsBelow)
+    have hfty : Expr.FvGap (g.nP + s + x.nF) (g.nP + s + x.nF + l) (ws.getD i default) :=
+      Expr.FvGap.of_fvarsBelow (hwsB i hi).1.fvarsBelow
     unfold ClassGen.ihParts at hparts
     obtain ⟨⟨xs', leaf⟩, hop', hparts⟩ := Option.bind_eq_some_iff.mp hparts
     simp only [Option.pure_def, Option.some.injEq, Prod.mk.injEq] at hparts
@@ -519,7 +527,7 @@ theorem ClassGen.minorTy_spec {g : ClassGen} (hg : ClassGenScoped g) {s c : Nat}
   intro k nd hk
   rcases Nat.lt_or_ge k fvs.length with hkl | hkl
   · rw [List.getElem?_append_left (by simpa using hkl)] at hk
-    exact ScB.openPis_binders hop htyN k nd hk
+    exact ScB.openPis_binders hop htyD k nd hk
   · rw [List.getElem?_append_right (by simpa using hkl)] at hk
     simp only [List.length_map] at hk
     have hkl' : k - fvs.length < ihs.length := (List.getElem?_eq_some_iff.mp hk).1

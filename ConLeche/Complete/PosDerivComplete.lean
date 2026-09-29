@@ -580,7 +580,7 @@ theorem posDR_run (hroot : NestRootOk ctx) {n : Nat} {J : PosJR} (h : PosDR ops 
     rw [if_pos (by simp [hres, hidx])]
     obtain ⟨os, st', h₂, hI', hos⟩ := ihr fuelOf
       (fun x hx c' hc' => by have := hf x (List.mem_cons_of_mem _ hx) c' hc'; omega)
-      { st₁ with ctorNfs := st₁.ctorNfs.push (nestCtorNf ctx prog hi us ds cv nds cur) } hI₁
+      { st₁ with ctorNfs := st₁.ctorNfs.push (nestCtorNf ctx prog hi us ds cv nds cur ks') } hI₁
     simp only [h₂]
     refine ⟨_, st', rfl, hI', fun j cA o hj ho => ?_⟩
     cases j with

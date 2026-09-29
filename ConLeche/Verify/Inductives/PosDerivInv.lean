@@ -491,20 +491,20 @@ theorem nestCtors_deriv
       simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
       obtain ⟨rfl, rfl⟩ := h
       have hI₁' : DerivCache ops env ctx
-          { st₁ with ctorNfs := (st₁.ctorNfs.push (nestCtorNf ctx prog hi us ds cv nds cur)) } :=
+          { st₁ with ctorNfs := (st₁.ctorNfs.push (nestCtorNf ctx prog hi us ds cv nds cur ks)) } :=
         hI₁.grow rfl rfl fun e he => by
           show e ∈ (st₁.ctorNfs.push _).toList
           rw [Array.toList_push]; exact List.mem_append_left _ he
       obtain ⟨hI', ts₂, h₂, hn₂, hr₂', hlen₂, hout₂⟩ :=
         ih _ os₂ st₂ (fun x hx => hcl x (List.mem_cons_of_mem _ hx)) hr₂ hI₁'
       have hn₁' : NodesIn ops env ctx st
-          { st₁ with ctorNfs := (st₁.ctorNfs.push (nestCtorNf ctx prog hi us ds cv nds cur)) } ts₁ :=
-        hn₁.grow ⟨[nestCtorNf ctx prog hi us ds cv nds cur], Array.toList_push⟩
+          { st₁ with ctorNfs := (st₁.ctorNfs.push (nestCtorNf ctx prog hi us ds cv nds cur ks)) } ts₁ :=
+        hn₁.grow ⟨[nestCtorNf ctx prog hi us ds cv nds cur ks], Array.toList_push⟩
       have hu4' : ((List.range nF).any fun i => ks.getD i .ordinary != .ordinary &&
           structUsedLater (closeTelescope nds hi cur) 0 i) = false := by simpa using hu4
       simp only [Bool.and_eq_true] at hok
       have hsub₂ : ∀ e ∈ ({ st₁ with ctorNfs := (st₁.ctorNfs.push
-          (nestCtorNf ctx prog hi us ds cv nds cur)) } : NestState).ctorNfs.toList,
+          (nestCtorNf ctx prog hi us ds cv nds cur ks)) } : NestState).ctorNfs.toList,
           e ∈ st₂.ctorNfs.toList := by
         obtain ⟨⟨nc, hnc⟩, -⟩ := hn₂
         intro e he; rw [hnc]; exact List.mem_append_left _ he
@@ -514,7 +514,7 @@ theorem nestCtors_deriv
         · intro crest'' ks'' nds'' cur'' ts'' hcr'' hd''
           rw [hcrest'] at hcr''
           obtain rfl := Option.some.inj hcr''
-          obtain ⟨-, rfl, rfl⟩ := posD_tele_fun (by simpa using h₁) hd''
+          obtain ⟨rfl, rfl, rfl⟩ := posD_tele_fun (by simpa using h₁) hd''
           exact hsub₂ _ (by simp)
         · exact hr₂' x hx
       · cases j with
@@ -1138,7 +1138,7 @@ theorem rootEntry_mem {holes : List Expr} {tbl : List NestCtorNf}
     (hcr : instPisWith ctx.params (nestAbstract ctx holes cA.1.type) = some crest)
     {ks : List NestFieldKind} {tyN : Expr} {ts : List PosTree}
     (hd : MemberCtorD ops env ctx cA.2 crest ks tyN ts) :
-    (⟨cA.1.name, ctx.lps.map .param, ctx.params, tyN.replaceFVars (nestHoleConst ctx [])⟩ :
+    (⟨cA.1.name, ctx.lps.map .param, ctx.params, tyN.replaceFVars (nestHoleConst ctx []), ks⟩ :
       NestCtorNf) ∈ tbl := by
   obtain ⟨nds, cur, htele, rfl, -⟩ := hd
   have hcr' : instPisWith ctx.params ((cA.1.type.instantiateLevelParams cA.1.levelParams

@@ -168,6 +168,43 @@ theorem ScB.of_instPisWith {d : Nat} :
           looseBVarsBounded_instantiate1_gen ha0.2 hb⟩
         (fun x hx => ha x (List.mem_cons_of_mem _ hx))
 
+/-- The domains `targetPiDomsWith` instantiates at scoped arguments are
+scoped. -/
+theorem ScB.targetPiDomsWith {d : Nat} :
+    ∀ {as : List Expr} {t : Expr} {ws : List Expr}, ConLeche.targetPiDomsWith as t = some ws →
+      ScB d t → (∀ a ∈ as, ScB d a) → ∀ w ∈ ws, ScB d w
+  | [], t, ws, h, _, _ => by
+    simp only [ConLeche.targetPiDomsWith, Option.some.injEq] at h
+    subst h; intro w hw; exact nomatch hw
+  | a :: as, t, ws, h, ht, ha => by
+    match t, ht, h with
+    | .forallE dom body mb, ht, h =>
+      simp only [ConLeche.targetPiDomsWith] at h
+      obtain ⟨r, hr, rfl⟩ := Option.map_eq_some_iff.mp h
+      have ha0 := ha a List.mem_cons_self
+      obtain ⟨htw, htb⟩ := ht
+      have hdw : WScoped d dom := by simp only [WScoped] at htw; exact htw.1
+      have hw : WScoped d body := by simp only [WScoped] at htw; exact htw.2
+      have hdb : dom.looseBVarsBounded 0 = true := by
+        simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at htb; exact htb.1
+      have hb : body.looseBVarsBounded 1 = true := by
+        simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at htb; exact htb.2
+      intro w hw'
+      rcases List.mem_cons.mp hw' with rfl | hw'
+      · exact ⟨hdw, hdb⟩
+      · exact ScB.targetPiDomsWith hr ⟨WScoped.instantiate1_gen ha0.1 0 hw,
+          looseBVarsBounded_instantiate1_gen ha0.2 hb⟩
+          (fun x hx => ha x (List.mem_cons_of_mem _ hx)) w hw'
+
+/-- The `i`-th domain `targetPiDomsWith` instantiates, below its length,
+is scoped. -/
+theorem ScB.targetPiDomsWith_getD {d : Nat} {as : List Expr} {t : Expr} {ws : List Expr}
+    (h : ConLeche.targetPiDomsWith as t = some ws) (ht : ScB d t) (ha : ∀ a ∈ as, ScB d a)
+    {i : Nat} (hi : i < as.length) : ScB d (ws.getD i default) := by
+  have hl := targetPiDomsWith_length as t ws h
+  rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem (by omega), Option.getD_some]
+  exact ScB.targetPiDomsWith h ht ha _ (List.getElem_mem _)
+
 /-! ## Options, over lists -/
 
 theorem option_filterMapM_mem {α β : Type} {f : α → Option (Option β)} :
@@ -218,6 +255,9 @@ structure ClassGenScoped (g : ClassGen) : Prop where
   former : ∀ c, c < g.cls.length → ScB 0 (g.formerTys.getD c default)
   /-- a walked constructor's telescope mentions only the block's parameters -/
   tyN : ∀ c, ∀ x ∈ g.ctors.getD c [], ScB g.nP x.tyN
+  /-- a constructor's declared type (at the class's levels and parameters)
+  mentions only the block's parameters -/
+  tyD : ∀ c, ∀ x ∈ g.ctors.getD c [], ScB g.nP x.tyD
   /-- a minor premise comes after the motives it names -/
   order : ∀ s c C ihs, g.slots[s]? = some (.minor c C ihs) →
     (∃ s', s' < s ∧ ClassRead.motiveSlot ⟨g.slots, []⟩ c = some s') ∧
@@ -351,10 +391,10 @@ theorem ClassGen.recs_mem {x : ClassCtor} {i t tele : Nat}
   · exact nomatch hg
 
 /-- **An inductive hypothesis's parts**: the telescope of a recursive
-field's type opened at `e`, and its index arguments. -/
-theorem ClassGen.ihParts_scoped {g : ClassGen} {t tele i d e : Nat} {f fty : Expr}
-    {xs idx : List Expr} (hf : f = .fvar i fty) (hfty : ScB d fty) (hde : d ≤ e)
-    (h : g.ihParts t tele f e = some (xs, idx)) :
+field's walked type `w` opened at `e`, and its index arguments. -/
+theorem ClassGen.ihParts_scoped {g : ClassGen} {t tele d e : Nat} {w : Expr}
+    {xs idx : List Expr} (hw : ScB d w) (hde : d ≤ e)
+    (h : g.ihParts t tele w e = some (xs, idx)) :
     xs.length = tele ∧
       (∀ (k : Nat) (x : Expr), xs[k]? = some x → ∃ ty, x = .fvar (e + k) ty ∧ ScB (e + k) ty) ∧
       ∀ a ∈ idx, ScB (e + tele) a := by
@@ -362,8 +402,7 @@ theorem ClassGen.ihParts_scoped {g : ClassGen} {t tele i d e : Nat} {f fty : Exp
   obtain ⟨⟨xs', leaf⟩, hop, h⟩ := Option.bind_eq_some_iff.mp h
   simp only [Option.pure_def, Option.some.injEq, Prod.mk.injEq] at h
   obtain ⟨rfl, rfl⟩ := h
-  subst hf
-  obtain ⟨hl, hxs, hleaf⟩ := ScB.openPis hop (hfty.mono hde)
+  obtain ⟨hl, hxs, hleaf⟩ := ScB.openPis hop (hw.mono hde)
   exact ⟨hl, hxs, fun a ha => ScB.getAppArgs hleaf a (List.mem_of_mem_drop ha)⟩
 
 /-- **A minor premise's type**, at its slot `s` (depth `nP + s`), is
@@ -374,10 +413,19 @@ theorem ClassGen.minorTy_scoped {g : ClassGen} (hg : ClassGenScoped g) {s c : Na
     {x : ClassCtor} (hx : x ∈ g.ctors.getD c []) (hxC : x.cv.name = C) {T : Expr}
     (h : g.minorTy c x (g.nP + s) = some T) : ScB (g.nP + s) T := by
   obtain ⟨⟨sc, hsc, hmc⟩, hmt⟩ := hg.order s c C ihs0 hs
-  have htyN : ScB (g.nP + s) x.tyN := (hg.tyN c x hx).mono (by omega)
+  have htyD : ScB (g.nP + s) x.tyD := (hg.tyD c x hx).mono (by omega)
   unfold ClassGen.minorTy at h
   obtain ⟨⟨fvs, res⟩, hop, h⟩ := Option.bind_eq_some_iff.mp h
-  obtain ⟨hfl, hfvs, hres⟩ := ScB.openPis hop htyN
+  obtain ⟨hfl, hfvs, hres⟩ := ScB.openPis hop htyD
+  obtain ⟨ws, hws, h⟩ := Option.bind_eq_some_iff.mp h
+  have hwsB : ∀ i, i < x.nF → ScB (g.nP + s + x.nF) (ws.getD i default) := by
+    intro i hi
+    refine ScB.targetPiDomsWith_getD hws ((hg.tyN c x hx).mono (by omega)) (fun a ha => ?_)
+      (by omega)
+    obtain ⟨k, hk, rfl⟩ := List.getElem_of_mem ha
+    obtain ⟨ty, hxe, hty⟩ := hfvs k _ (List.getElem?_eq_getElem hk)
+    rw [hxe]
+    exact ScB.fvar (by omega) hty
   obtain ⟨ihs, hihs, h⟩ := Option.bind_eq_some_iff.mp h
   simp only [Option.pure_def, Option.some.injEq] at h
   subst h
@@ -419,8 +467,7 @@ theorem ClassGen.minorTy_scoped {g : ClassGen} (hg : ClassGenScoped g) {s c : Na
     obtain ⟨⟨xs, idx⟩, hparts, hy⟩ := Option.bind_eq_some_iff.mp hy
     simp only [Option.pure_def, Option.some.injEq] at hy
     subst hy
-    rw [hfe] at hparts
-    obtain ⟨hxl, hxs, hidx⟩ := ClassGen.ihParts_scoped rfl hty (by omega) hparts
+    obtain ⟨hxl, hxs, hidx⟩ := ClassGen.ihParts_scoped (hwsB i hi) (by omega) hparts
     refine ScB.of_closeTelescope (fun k nd hk => ?_) ?_
     · rw [List.getElem?_map] at hk
       cases hxk : xs[k]? with
@@ -447,7 +494,7 @@ theorem ClassGen.minorTy_scoped {g : ClassGen} (hg : ClassGenScoped g) {s c : Na
   refine ScB.of_closeTelescope (fun k nd hk => ?_) ?_
   · rcases Nat.lt_or_ge k fvs.length with hkl | hkl
     · rw [List.getElem?_append_left (by simpa using hkl)] at hk
-      exact ScB.openPis_binders hop htyN k nd hk
+      exact ScB.openPis_binders hop htyD k nd hk
     · rw [List.getElem?_append_right (by simpa using hkl)] at hk
       have := hih (k - (fvs.map ConLeche.classBinder).length) nd hk
       simp only [List.length_map] at this
@@ -579,7 +626,7 @@ theorem classGenRule_scoped {g : ClassGen} (hg : ClassGenScoped g) {recOf : Nat 
     {rlvls : List Level} {c : Nat} {x : ClassCtor} (hx : x ∈ g.ctors.getD c []) {rule : Expr}
     (h : classGenRule g recOf rlvls c x = some rule) : ScB 0 rule := by
   obtain ⟨hpl, hpre⟩ := ClassGen.prefixBinders_scoped hg hg.pre
-  have htyN : ScB g.pre.length x.tyN := (hg.tyN c x hx).mono (by omega)
+  have htyD : ScB g.pre.length x.tyD := (hg.tyD c x hx).mono (by omega)
   unfold classGenRule at h
   obtain ⟨⟨s, sl⟩, hs, h⟩ := Option.bind_eq_some_iff.mp h
   have hsl : s < g.slots.length := by
@@ -587,7 +634,16 @@ theorem classGenRule_scoped {g : ClassGen} (hg : ClassGenScoped g) {recOf : Nat 
     have := (List.of_mem_zip hm).1
     simpa using this
   obtain ⟨⟨fvs, res⟩, hop, h⟩ := Option.bind_eq_some_iff.mp h
-  obtain ⟨hfl, hfvs, -⟩ := ScB.openPis hop htyN
+  obtain ⟨hfl, hfvs, -⟩ := ScB.openPis hop htyD
+  obtain ⟨ws, hws, h⟩ := Option.bind_eq_some_iff.mp h
+  have hwsB : ∀ i, i < x.nF → ScB (g.pre.length + x.nF) (ws.getD i default) := by
+    intro i hi
+    refine ScB.targetPiDomsWith_getD hws ((hg.tyN c x hx).mono (by omega)) (fun a ha => ?_)
+      (by omega)
+    obtain ⟨k, hk, rfl⟩ := List.getElem_of_mem ha
+    obtain ⟨ty, hxe, hty⟩ := hfvs k _ (List.getElem?_eq_getElem hk)
+    rw [hxe]
+    exact ScB.fvar (by omega) hty
   obtain ⟨ihs, hihs, h⟩ := Option.bind_eq_some_iff.mp h
   simp only [Option.pure_def, Option.some.injEq] at h
   subst h
@@ -629,8 +685,7 @@ theorem classGenRule_scoped {g : ClassGen} (hg : ClassGenScoped g) {recOf : Nat 
       simp only [Option.pure_def, Option.some.injEq] at hia
       subst hia
       obtain ⟨ty, hfe, hty⟩ := hfv i hi
-      rw [hfe] at hparts
-      obtain ⟨hxl, hxs, hidx⟩ := ClassGen.ihParts_scoped rfl hty (by omega) hparts
+      obtain ⟨hxl, hxs, hidx⟩ := ClassGen.ihParts_scoped (hwsB i hi) (by omega) hparts
       refine ScB.of_closeLams (fun k nd hk => ?_) ?_
       · rw [List.getElem?_map] at hk
         cases hxk : xs[k]? with
@@ -660,7 +715,7 @@ theorem classGenRule_scoped {g : ClassGen} (hg : ClassGenScoped g) {recOf : Nat 
     · rw [List.getElem?_append_left hk1] at hk
       simpa using hpre k nd hk
     · rw [List.getElem?_append_right hk1] at hk
-      have := ScB.openPis_binders hop htyN _ nd hk
+      have := ScB.openPis_binders hop htyD _ nd hk
       simpa [show g.pre.length + (k - g.pre.length) = k by omega] using this
   · simp only [List.length_append, List.length_map, Nat.zero_add, hfl]
     refine ScB.mkAppN (ScB.fvar (by omega) (ScB.sort _ _))
