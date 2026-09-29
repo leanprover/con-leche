@@ -685,7 +685,7 @@ theorem whnfPres_occDeep {env : Env} {names : List Name} (hN : WhnfNamesFree env
           · exact h2
           · exact ihLoop hred (strLitToConstructor_occDeep hN hs s)
         rcases hcase with rfl | ⟨us, entry, hfn, hf, hi, hlen, hus, -, hred, -⟩
-        · simpa [Expr.occDeep] using h3
+        · simpa [Expr.occDeep] using he
         · exact ihCore hred (Expr.occDeep_getAppArgs h3 _ (getD_mem (by omega)))
     · -- whnf: the loop's own step budget
       have hloop : ∀ (n : Nat) {d : Nat} {e e' : Expr},

@@ -259,8 +259,13 @@ arena_half() {
 # 1000-binder field; the uniform install opens every auxiliary
 # recursor's type binder by binder (`openPisAtFvars`, one
 # `instantiate1` per binder over the whole body), ~130 s.
+# proj_stuck_struct: BELOW the default, on purpose — the fixture checks in
+# milliseconds, and a regression (a stuck projection's struct replaced by
+# its WHNF) is exponential in time AND memory (~8 GB at 60 s), so it
+# fails fast here instead.
 declare -A E2E_TIMEOUT=(
   [complete_c05b_nest30_pi1000.ndjson]=600
+  [proj_stuck_struct.ndjson]=10
 )
 
 e2e_half() {
