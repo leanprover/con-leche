@@ -41,7 +41,67 @@ are proved here.
 namespace ConLeche.Model
 open ConLeche.Term ConLeche.Verify
 open ConLeche (Env Expr Name Level ConstantVal BinderMeta ClassGen ClassCtor CheckMode
-  closeLams)
+  closeLams TargetMajor ClassRead)
+open ConLeche.Semantics (AnnotTerm)
+
+/-! ## The stored rule, opened and read -/
+
+/-- Open `n` leading λs at the variables `j, j+1, …` (each binder's domain
+instantiated at the earlier variables, exactly as `denoteMeta` reads a
+λ): the binders and the body. -/
+@[expose] def openLamsM : Nat → Expr → Nat → Option (List (Expr × ConLeche.BinderMeta) × Expr)
+  | 0, e, _ => some ([], e)
+  | n + 1, .lam dom body m, j =>
+    (openLamsM n (body.instantiate1 (.fvar j dom)) (j + 1)).map
+      fun (o : List (Expr × ConLeche.BinderMeta) × Expr) => ((dom, m) :: o.1, o.2)
+  | _ + 1, _, _ => none
+
+/-- An opened λ-telescope's binders (`openLamsM`, from depth `j`), read:
+each binder's bit (its own datum) and its domain read at its depth. -/
+@[expose] def readLamBs (acval : Name → (Name → Nat) → AnnotTerm) (env : Env) (ψ : Name → Nat) :
+    Nat → List (Expr × ConLeche.BinderMeta) → List (Nat × AnnotTerm)
+  | _, [] => []
+  | j, b :: bs => (pwBit ψ b.2.pw, (denoteMeta acval env ψ j b.1).getD default) ::
+      readLamBs acval env ψ (j + 1) bs
+
+/-- The arguments of the STORED rule's body at its frame (`D` binders
+opened): the minor premise applied to the fields and the `ih` λs. -/
+@[expose] def genRuleArgs (out : List (ConstantVal × TargetMajor × List Expr)) (D c j : Nat) :
+    List Expr :=
+  (((openLamsM D (tgtRhsOf out c j) 0).map
+    fun (o : List (Expr × ConLeche.BinderMeta) × Expr) => o.2).getD default).getAppArgs
+
+/-- **The `ih` data of the generated rule**, read off the STORED
+(annotated) rule at its frame (depth `rP + nF`): per recursive field
+`(i, t, tele)` (`ClassCtor.recs`), the callee RECURSOR (`genRecIdx rd t`,
+the graph's class index), the `ih` λ's telescope (its binders' own bits
+and domains), and its call's index arguments and major argument (the
+call's arguments past the prefix variables).  The recursor constant the
+call names is not read: the chain variable stands for it (`genIhAV`). -/
+@[expose] noncomputable def genIhdR (acval : Name → (Name → Nat) → AnnotTerm) (env : Env)
+    (out : List (ConstantVal × TargetMajor × List Expr)) (g : ClassGen) (rd : ClassRead)
+    (ψ : Name → Nat) (c j : Nat) : List IhDatum :=
+  let x := genCtorAt g rd c j
+  let rP := g.pre.length
+  let D := rP + x.nF
+  let args := genRuleArgs out D c j
+  (List.range x.recs.length).map fun l =>
+    let q := x.recs.getD l default
+    let o := (openLamsM q.2.2 (args.getD (x.nF + l) default) D).getD ([], default)
+    let cargs := o.2.getAppArgs.drop rP
+    let E := D + o.1.length
+    (genRecIdx rd q.2.1, readLamBs acval env ψ D o.1,
+     cargs.dropLast.map fun e => (denoteMeta acval env ψ E e).getD default,
+     (denoteMeta acval env ψ E (cargs.getLastD default)).getD default)
+
+/-- **The `ih` terms** read off the STORED rule, in chain form (`genIhAV`:
+the callee its chain variable below the frame). -/
+@[expose] noncomputable def genIhsR (acval : Name → (Name → Nat) → AnnotTerm) (env : Env)
+    (K : Nat) (out : List (ConstantVal × TargetMajor × List Expr)) (g : ClassGen)
+    (rd : ClassRead) (ψ : Name → Nat) (c j : Nat) : List AnnotTerm :=
+  (genIhdR acval env out g rd ψ c j).map
+    (genIhAV K g.pre.length (g.pre.length + (genCtorAt g rd c j).nF))
+
 
 variable {mode : CheckMode}
 
