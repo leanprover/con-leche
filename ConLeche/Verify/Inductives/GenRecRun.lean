@@ -181,8 +181,7 @@ structure ClassCtorRun (mode : CheckMode) (F : Nat) (env : Env) (p : BlockShape)
   he0 : E.head? = some e0
   hslot : classMinorSlot (m := CheckM) rd c cA.1.name = .ok (s, ihs)
   hopen : openPisAtFvars cA.2 e0.ty (p.nP + p.k) = some (fvs, o)
-  hklen : e0.kinds.length = cA.2
-  hkinds : classFieldsOf (m := CheckM) cA.1.name ihs fvs 0 e0.kinds = .ok x.kinds
+  hkinds : classFieldsOf (m := CheckM) p cA.1.name ihs 0 fvs = .ok x.kinds
   hna : classFieldsAgree (fueledOps mode F) env p formerTys Ms fvs cA.1.name E 0 x.kinds = .ok ()
   hD : instPisWith (Ms.getD c default).ds (targetCtorAt (Ms.getD c default) cA.1) = some x.tyD
   hx : x = ⟨cA.1, cA.2, x.kinds, x.tyD, e0.ty⟩
@@ -197,9 +196,6 @@ theorem classCtorOf_run {env : Env} {p : BlockShape} {formerTys : List Expr} {rd
   obtain ⟨⟨s, ihs⟩, hslot, h⟩ := exceptBind_ok h
   obtain ⟨⟨fvs, o⟩, hopen, h⟩ := exceptBind_ok h
   simp only at h
-  by_cases hkl : (e0.kinds.length == cA.2) = true
-  case neg => rw [if_neg hkl] at h; close_throw h
-  rw [if_pos hkl] at h
   obtain ⟨kinds, hkinds, h⟩ := exceptBind_ok h
   obtain ⟨u', hna, h⟩ := exceptBind_ok h
   obtain ⟨tyD, hD, h⟩ := exceptBind_ok h
@@ -208,7 +204,7 @@ theorem classCtorOf_run {env : Env} {p : BlockShape} {formerTys : List Expr} {rd
   exact ⟨{
     E := _, e0 := e0, s := s, ihs := ihs, fvs := fvs, o := o, hE := rfl,
     he0 := unwrapOr_ok he0, hslot := hslot, hopen := unwrapOr_ok hopen,
-    hklen := by simpa using hkl, hkinds := hkinds,
+    hkinds := hkinds,
     hna := by cases u'; exact hna, hD := unwrapOr_ok hD, hx := rfl }⟩
 
 /-- **`classCtorsOf`, inverted**: one run per constructor of the class. -/
