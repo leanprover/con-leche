@@ -8,6 +8,8 @@ import ConLeche.Verify.BridgeDecl
 import ConLeche.Verify.Inductives.RecStage
 import ConLeche.Verify.BridgeWfImp
 import ConLeche.Verify.Cached.WalkersC
+import ConLeche.Verify.Cached.NestPosC
+public import ConLeche.Verify.Inductives.NestScope
 import ConLeche.Verify.Cached.AgreeFloor
 import ConLeche.Verify.Denote.IndFrame
 
@@ -198,17 +200,16 @@ theorem blockNestCtxS_sim₂ {env₁ env₂ : Env} (henv₁ : EnvWF env₁) (p :
         (∀ x ∈ v.2, WScoped (v.1.hiAt 0) x ∧ ∃ i ty, x = .fvar i ty) ∧
         (∀ x ∈ v.1.params, WScoped p.nP x) ∧ v.1.params.length = v.1.nP ∧
         nestHoles v.1 = some v.2 ∧ v.1.nP = p.nP)
-      (blockNestCtx (m := CheckCM) p cvTas env₁.find? env₁.consts)
-      (blockNestCtx (m := FueledM) p cvTas env₁.find? env₁.consts) := by
+      (blockNestCtx (m := CheckCM) p cvTas env₁.find?)
+      (blockNestCtx (m := FueledM) p cvTas env₁.find?) := by
   unfold blockNestCtx
   refine SimC.bind (SimC.unwrapOr' hs) (fun s₁ cvTa0 cvTa0' hs₁ hP => ?_)
   obtain ⟨rfl, h0⟩ := hP
   have hw0 : WScoped 0 cvTa0.type := hT _ (List.mem_of_mem_head? h0)
   refine SimC.bind (SimC.unwrapOr' hs₁) (fun s₂ pq pq' hs₂ hP => ?_)
   obtain ⟨rfl, hpq⟩ := hP
-  have hctx : NestCtxOk (p.nestCtx pq.1 env₁.find? env₁.consts) :=
-    ⟨fun ci hci => (henv₁ ci hci).1,
-      fun n ci hf => (henv₁ ci (List.mem_of_find?_eq_some hf)).1⟩
+  have hctx : NestCtxOk (p.nestCtx pq.1 env₁.find?) :=
+    fun n ci hf => (henv₁ ci (List.mem_of_find?_eq_some hf)).1
   have hpar : ∀ x ∈ pq.1, WScoped p.nP x := by
     intro x hx
     have := (openPisAtFvars_WScoped p.nP cvTa0.type 0 hpq hw0).1 x hx
@@ -989,7 +990,7 @@ theorem checkBlockPassS_run (hμ : mode.verifiedChecks = true) {env : Env} (henv
   obtain ⟨hsK, kinds', hPK, FK, hFK⟩ :=
     checkBlockPositivityS_sim hμ henv₁ (p₀.complete p₁) cvTas ctorsAs hwT
       (checkBlockCtors_types hF₂p) hsL (kinds, nfs, pos) sK hK
-  obtain ⟨rfl, hposOk⟩ := hPK
+  obtain rfl := hPK
   try simp only at h
   -- every outside class, walked from its state
   obtain ⟨st, sT, hT', h⟩ := bindC_ok h
@@ -1000,8 +1001,8 @@ theorem checkBlockPassS_run (hμ : mode.verifiedChecks = true) {env : Env} (henv
       obtain ⟨M, hM, hMn, rfl⟩ := mem_classSeeds hk
       exact (nestSeedOf_ds hh hlen (fun y hy => Expr.fvarB_le (by
         rw [hnP]; exact (hMsc M hM).2.1 hMn y hy)) x hx).2 (fun y hy => (hholes y hy).1)
-        hpar') hposOk st sT hT'
-  obtain ⟨rfl, -⟩ := hPT
+        hpar') st sT hT'
+  obtain rfl := hPT
   obtain ⟨rfl, rfl⟩ := pureC_ok h
   obtain ⟨G, hle₁, hle₂, hleX, hleL, hleK, hleT⟩ :
       ∃ G, F₁ ≤ G ∧ F₂ ≤ G ∧ FX ≤ G ∧ FL ≤ G ∧ FK ≤ G ∧ FT ≤ G :=
@@ -1015,12 +1016,12 @@ theorem checkBlockPassS_run (hμ : mode.verifiedChecks = true) {env : Env} (henv
       ((p₀.complete p₁).members.zip cvTas) = .ok (ctorsAs, sortsss) := by
     rw [← checkBlockCtors_datF]; exact FueledM.up hle₂ hF₂
   have gX : blockNestCtx (m := CheckM) (p₀.complete p₁).toBlockShape cvTas env₁.find?
-      env₁.consts = .ok (ctx, holes) := by
+      = .ok (ctx, holes) := by
     rw [← blockNestCtx_datF (F := G)]; exact FueledM.up hleX hFX
   have gL : checkBlockClasses (fueledOps mode G) (mkFEnv env₁) env₁
       (p₀.complete p₁).toBlockShape ctx.params ctorsAs = .ok (rd, Ms) := by
     rw [← checkBlockClasses_datF]; exact FueledM.up hleL hFL
-  have gK : checkBlockPositivity (fueledOps mode G) env₁ env₁.find? env₁.consts
+  have gK : checkBlockPositivity (fueledOps mode G) env₁ env₁.find?
       (p₀.complete p₁) cvTas ctorsAs = .ok (kinds, nfs, pos) := by
     rw [← checkBlockPositivity_datF]; exact FueledM.up hleK hFK
   have gT : nestSeeds (fueledOps mode G) env₁ ctx (classSeeds ctx holes Ms) pos = .ok st := by

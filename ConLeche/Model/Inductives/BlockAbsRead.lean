@@ -169,10 +169,10 @@ stage checked every constructor's member-abstracted type for a member
 constant (`nestNoMemberConst`) at its own holes; the check does not see
 the holes' annotations. -/
 theorem canonOcc_of_positivity {ops : ConLeche.CheckerOps ConLeche.CheckM} {env₁ : Env}
-    {find? : Name → Option ConstantInfo} {consts : List ConstantInfo} {p : BlockParts}
+    {find? : Name → Option ConstantInfo} {p : BlockParts}
     {cvTas : List ConstantVal} {ctorsAs : List (List (ConstantVal × Nat))}
     {posKs : List (List (List ConLeche.NestFieldKind)) × List (List Expr) × ConLeche.NestState}
-    (hrun : ConLeche.checkBlockPositivity ops env₁ find? consts p cvTas ctorsAs = .ok posKs)
+    (hrun : ConLeche.checkBlockPositivity ops env₁ find? p cvTas ctorsAs = .ok posKs)
     {d : BlockData V} {lps : List Name}
     (hnames : p.memberNames = d.memberNames) (hlps : p.lps = lps)
     (hk : d.k = d.memberNames.length)
@@ -183,7 +183,7 @@ theorem canonOcc_of_positivity {ops : ConLeche.CheckerOps ConLeche.CheckM} {env�
     ConLeche.checkBlockPositivity_m2 hrun
   intro c hc j cA hcj
   have hocc := hall c (d.ctorsM c) (hctorsAs c hc) j cA hcj
-  have hn : (p.nestCtx fvsP find? consts).names = d.memberNames := hnames
+  have hn : (p.nestCtx fvsP find?).names = d.memberNames := hnames
   rw [hn] at hocc
   rw [← hocc]
   refine nestOcc_nestAbstract_blind (by rw [hn]; rfl) (by rw [← hlps]; rfl) ?_

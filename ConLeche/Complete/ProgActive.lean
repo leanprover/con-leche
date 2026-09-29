@@ -46,7 +46,7 @@ namespace ConLeche
     (rec : List NestHole → Nat → Nat → Expr → NestState → CheckM (NestFieldKind × Expr × NestState))
     (prog : List NestHole) (kb : Nat) (n : Name) (us : List Level) (args : List Expr)
     (st : NestState) : CheckM (NestFieldKind × NestState) := do
-  let q ← unwrapOr (nestContainerC ctx st n).1 nestNonValid
+  let q ← unwrapOr (nestContainer ctx n) nestNonValid
   if args.length < q.1 ||
       !(args.drop q.1).all (fun x => !x.nestOcc ctx.names ctx.nP (ctx.hiAt prog.length)) then
     throw nestNonValid
@@ -67,7 +67,7 @@ namespace ConLeche
   unless args.length == q.1 + ni.1 do
     throw (.invalid "nested positivity: type expected (a container instance that is not \
       fully applied)")
-  nestContKeyP ctx ops env rec prog kb n us (args.take q.1) q.1 ni.2 (nestContainerC ctx st n).2
+  nestContKeyP ctx ops env rec prog kb n us (args.take q.1) q.1 ni.2 st
 
 /-- `nestPos` with the older key step. -/
 @[expose] def nestPosP (ops : CheckerOps CheckM) (env : Env) (ctx : NestCtx) :
@@ -134,10 +134,6 @@ variable {rec rec₁ rec₂ :
 
 /-! ## The walk keeps `active` -/
 
-theorem nestContainerC_active (st : NestState) (c : Name) :
-    (nestContainerC ctx st c).2.active = st.active := by
-  unfold nestContainerC; split <;> rfl
-
 theorem nestFields_active (hrec : RecPres rec) (prog : List NestHole) (base : Nat)
     (err : CheckError) :
     ∀ (nF j : Nat) (cur : Expr) (st : NestState) r,
@@ -193,24 +189,6 @@ theorem nestCtors_active (hrec : RecPres rec) (prog : List NestHole) (hi : Nat) 
       · simp [throw, throwThe, MonadExceptOf.throw] at h
     · simp [throw, throwThe, MonadExceptOf.throw] at h
 
-theorem nestGroupCtors_active (nPc : Nat) :
-    ∀ (cs : List Name) (st : NestState) r,
-      nestGroupCtors (m := CheckM) ctx nPc cs st = .ok r → r.2.active = st.active
-  | [], st, r, h => by
-    simp only [nestGroupCtors, pure, Except.pure, Except.ok.injEq] at h; subst h; rfl
-  | c :: cs, st, r, h => by
-    simp only [nestGroupCtors, bind, Except.bind] at h
-    split at h
-    · simp at h
-    split at h
-    · split at h
-      · simp at h
-      rename_i q hq
-      simp only [pure, Except.pure, Except.ok.injEq] at h
-      subst h
-      exact (nestGroupCtors_active nPc cs _ _ hq).trans (nestContainerC_active st c)
-    · simp [throw, throwThe, MonadExceptOf.throw] at h
-
 theorem nestFrame_active (hrec : RecPres rec) {prog : List NestHole} {hi : Nat}
     {us : List Level} {ds : List Expr} {nPc : Nat} {grp : List (Name × Expr)}
     {st st' : NestState}
@@ -226,7 +204,7 @@ theorem nestFrame_active (hrec : RecPres rec) {prog : List NestHole} {hi : Nat}
   rename_i r hr
   simp only [pure, Except.pure, Except.ok.injEq] at h
   subst h
-  exact (nestCtors_active hrec _ _ _ _ _ _ _ _ _ hr).trans (nestGroupCtors_active _ _ _ _ hq)
+  exact nestCtors_active hrec _ _ _ _ _ _ _ _ _ hr
 
 /-- A new frame restores `active` itself, whatever its walk does. -/
 theorem nestContNew_active {prog : List NestHole} {kb : Nat} {n : Name} {us : List Level}
@@ -267,7 +245,7 @@ theorem nestCont_active {prog : List NestHole} {kb : Nat} {n : Name} {us : List 
   · split at h
     · simp at h
     split at h
-    · exact (nestContKey_active h).trans (nestContainerC_active st n)
+    · exact nestContKey_active h
     · simp [throw, throwThe, MonadExceptOf.throw] at h
   · simp [throw, throwThe, MonadExceptOf.throw] at h
 
@@ -355,9 +333,7 @@ theorem nestFrame_eq (hrec : RecEq rec₁ rec₂) (hpres : RecPres rec₂) {prog
       = nestFrame ctx ops env rec₂ prog hi us ds nPc grp st := by
   simp only [nestFrame]
   refine bind_congr_ok fun _ _ => bind_congr_ok fun q hq => ?_
-  have hact := nestGroupCtors_active _ _ _ _ hq
   rw [nestCtors_eq hrec hpres _ _ _ _ _ _ _ _ fun h hh => ?_]
-  rw [hact]
   rcases List.mem_append.mp hh with hh | hh
   · rw [List.mem_reverse, List.mem_mapIdx] at hh
     obtain ⟨i, hi, rfl⟩ := hh
@@ -419,7 +395,7 @@ theorem nestContP_eq (hrec : RecEq rec₁ rec₂) (hpres : RecPres rec₂) {prog
     (hpa : ProgActive prog st) :
     nestContP ctx ops env rec₁ prog kb n us args st = nestCont ctx ops env rec₂ prog kb n us args st := by
   simp only [nestContP, nestCont]
-  have hpa' := hpa.of_active (nestContainerC_active (ctx := ctx) st n)
+  have hpa' := hpa
   repeat' (first
     | rfl
     | exact nestContKeyP_eq hrec hpres hpa'

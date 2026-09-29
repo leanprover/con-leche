@@ -65,11 +65,11 @@ def checkBlockPass (ops : CheckerOps m) (env : Env) (p₀ : BlockParts) (isRec :
   let pC := p₀.complete p₁
   let (ctorsAs, sortsss) ← checkBlockCtors ops env₁ env₁ pC.toBlockShape
     (pC.members.zip cvTas)
-  let (ctx, holes) ← blockNestCtx pC.toBlockShape cvTas env₁.find? env₁.consts
+  let (ctx, holes) ← blockNestCtx pC.toBlockShape cvTas env₁.find?
   -- the classes
   let (rd, Ms) ← checkBlockClasses ops (mkFEnv env₁) env₁ pC.toBlockShape ctx.params ctorsAs
   -- positivity: every class from the empty stack, the members (the root frame) first
-  let (kinds, nfs, pos) ← checkBlockPositivity ops env₁ env₁.find? env₁.consts pC cvTas ctorsAs
+  let (kinds, nfs, pos) ← checkBlockPositivity ops env₁ env₁.find? pC cvTas ctorsAs
   let st ← nestSeeds ops env₁ ctx (classSeeds ctx holes Ms) pos
   pure ⟨env₁, cvTas, pC, ctorsAs, sortsss, kinds, nfs, ctx.params, rd, Ms, st.ctorNfs⟩
 

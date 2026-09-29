@@ -354,10 +354,10 @@ def targetMajorNfs (ops : CheckerOps m) (env : Env) (p : BlockShape) (formerTys 
     else pure rest
 
 /-- The constructors of a stored inductive `I` and its parameter count,
-read off the environment (`nestContainer`'s reading: a constructor
-belongs to the type its result names). -/
+looked up by the names its stored record lists (`nestContainer`'s
+reading). -/
 def targetCtorsOf (fe : FEnv) (I : Name) : Option (Nat × List (ConstantVal × Nat)) :=
-  nestContainer ⟨[], [], 0, [], [], .zero, fe.find?, fe.env.consts⟩ I
+  nestContainer ⟨[], [], 0, [], [], .zero, fe.find?⟩ I
 
 /-- The instantiated type former of an OUTSIDE major `I.{us} ds`: its
 index count and its result sort (a syntactic telescope, as

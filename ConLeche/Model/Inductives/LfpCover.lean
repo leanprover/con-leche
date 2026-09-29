@@ -23,13 +23,12 @@ variable {V : Type w} [SetTheory V] {μ : ConLeche.CheckMode}
 
 /-- **`ContCover` from coverage** — how coverage discharges `ContSem`'s
 premise at a block's positivity walk: the walk's context reads the environment
-(its `find?` and its constants), the block being walked is the
+(its `find?`), the block being walked is the
 exemption list, and coverage carries each recorded block's constructor
 ownership (`LfpOwn`), which `nestContainer` at the walk's
 context reads as at the environment's (`nestContainer_ctx`). -/
 theorem contCover_of {env : Env} {mp : EnvModelM V μ env} {ctx : NestCtx}
-    (h : LfpCover mp ctx.names) (hfind : ∀ n, ctx.find? n = env.find? n)
-    (hconsts : ctx.consts = env.consts) :
+    (h : LfpCover mp ctx.names) (hfind : ∀ n, ctx.find? n = env.find? n) :
     ContCover mp ctx where
   find := hfind
   cover := fun n cv caps hf hn hq =>
@@ -38,10 +37,10 @@ theorem contCover_of {env : Env} {mp : EnvModelM V μ env} {ctx : NestCtx}
     { nodup := h.nodup D hD
       all := h.all D hD
       ctors := fun c hc => by
-        rw [nestContainer_ctx hfind hconsts]
+        rw [nestContainer_ctx hfind]
         exact (h.own D hD).ctors c hc
       noCtors := fun c hc nP' hL => by
-        rw [nestContainer_ctx hfind hconsts] at hL
+        rw [nestContainer_ctx hfind] at hL
         exact (h.own D hD).noCtors c hc nP' hL }
 
 end ConLeche.Model

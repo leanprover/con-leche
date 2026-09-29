@@ -93,9 +93,9 @@ theorem genNodeFrameTie (hμ : μ.verifiedChecks = true) {F : Nat} {block : List
       (xs : List V),
       SpineFit ρ (blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (ConLeche.tgtRs out) ψ c)
         xs → SpineFit ρ (dR.params ψ) (xs.take dR.nP))
-    {fvsP : List Expr} (hctxR : R.ctx = pp.nestCtx fvsP envI.find? envI.consts)
+    {fvsP : List Expr} (hctxR : R.ctx = pp.nestCtx fvsP envI.find?)
     (ns : List ConLeche.PosTree) (ψ : Name → Nat) (ρ : Nat → V) (xs : List V) :
-    NodeFrameTie mpC.base2.acval (pp.nestCtx fvsP envI.find? envI.consts) pp.toBlockShape out ns
+    NodeFrameTie mpC.base2.acval (pp.nestCtx fvsP envI.find?) pp.toBlockShape out ns
       ψ ρ xs envC F (cvTasR.map (·.type)) := by
   intro c hc t _ hNM hsp
   obtain ⟨-, -, -, -, hN, hS, hcore, -, hdR, -⟩ := hctx
@@ -191,7 +191,7 @@ theorem genNodeFrameTie (hμ : μ.verifiedChecks = true) {F : Nat} {block : List
   -- pair by pair: the class match's soundness at the parameters, lifted
   obtain ⟨hl, hall⟩ := ConLeche.targetParamsDefEq_true hPD
   rw [← hxl]
-  generalize t.key.ds.map (nodeRb (pp.nestCtx fvsP envI.find? envI.consts) t.occ) = eds at hl hall ⊢
+  generalize t.key.ds.map (nodeRb (pp.nestCtx fvsP envI.find?) t.occ) = eds at hl hall ⊢
   refine List.ext_getElem? fun i => ?_
   simp only [List.getElem?_map]
   cases hx : (tgtMajor out c).ds[i]? with

@@ -290,53 +290,54 @@ theorem genOutsideClass_reachedNode {envC envI : Env} (hwf : ConLeche.EnvWF envI
     {nested : Bool} {block : List ConstantInfo}
     {out : List (ConstantVal × TargetMajor × List Expr)}
     (hpos : ConLeche.checkBlockPositivity (m := ConLeche.CheckM) (fueledOps .verified F) envI
-      envI.find? envI.consts pp cvTas ctorsAs = .ok (kinds, nfs, pos))
+      envI.find? pp cvTas ctorsAs = .ok (kinds, nfs, pos))
     (R : GenRecRun .verified F (mkFEnv envI) envI (mkFEnv envC) pp.toBlockShape nested pos cvTas
       block ctorsAs out)
     (henvC : envC = ConLeche.consBlockCtors pp.nP ctorsAs envI)
-    (hheads : ∀ c ∈ ctorsAs.flatten, ∀ C, (ctorEntry C (.ctorInfo c.1 pp.nP c.2)).isSome = true →
-      C ∈ pp.toBlockShape.memberNames)
+    (hheads : ∀ c ∈ ctorsAs.flatten, envI.find? c.1.name = none ∧
+      ∀ C, (ctorEntry C (.ctorInfo c.1 pp.nP c.2)).isSome = true →
+        C ∈ pp.toBlockShape.memberNames)
     (hT0 : ∀ cvTa0, cvTas.head? = some cvTa0 → cvTa0.type.hasFvar = false)
     (hcl : ∀ (c : Nat) (cs : List (ConstantVal × Nat)), ctorsAs[c]? = some cs →
       ∀ (j : Nat) (cA : ConstantVal × Nat), cs[j]? = some cA → cA.1.type.hasFvar = false)
-    (hAr : ∀ fvsP, NestArityOk (pp.nestCtx fvsP envI.find? envI.consts))
+    (hAr : ∀ fvsP, NestArityOk (pp.nestCtx fvsP envI.find?))
     (hlpsC : ∀ (c : Nat) (cs : List (ConstantVal × Nat)), ctorsAs[c]? = some cs →
       ∀ cA ∈ cs, cA.1.levelParams = pp.lps) :
     ∃ cvTa0 fvsP rest holes, cvTas.head? = some cvTa0 ∧
       openPisAtFvars pp.nP cvTa0.type 0 = some (fvsP, rest) ∧
-      nestHoles (pp.nestCtx fvsP envI.find? envI.consts) = some holes ∧
-      R.ctx = pp.nestCtx fvsP envI.find? envI.consts ∧
+      nestHoles (pp.nestCtx fvsP envI.find?) = some holes ∧
+      R.ctx = pp.nestCtx fvsP envI.find? ∧
       (∀ e ∈ pos.ctorNfs.toList, e ∈ R.st.ctorNfs.toList) ∧
       ∀ c, c < out.length → (tgtMajor out c).member = none →
         ∃ ts : List PosTree,
           ((∃ (m : Nat) (cs : List (ConstantVal × Nat)) (j : Nat) (cA : ConstantVal × Nat)
             (crest : Expr) (ks : List NestFieldKind),
             ctorsAs[m]? = some cs ∧ cs[j]? = some cA ∧
-            instPisWith fvsP (nestAbstract (pp.nestCtx fvsP envI.find? envI.consts) holes
+            instPisWith fvsP (nestAbstract (pp.nestCtx fvsP envI.find?) holes
               cA.1.type) = some crest ∧
-            MemberCtorD (fueledOps .verified F) envI (pp.nestCtx fvsP envI.find? envI.consts)
+            MemberCtorD (fueledOps .verified F) envI (pp.nestCtx fvsP envI.find?)
               cA.2 crest ks ((nfs.getD m []).getD j default) ts) ∨
-           ∃ key, PosD (fueledOps .verified F) envI (pp.nestCtx fvsP envI.find? envI.consts)
+           ∃ key, PosD (fueledOps .verified F) envI (pp.nestCtx fvsP envI.find?)
              (.seed key) ts) ∧
-          TreeRec (fueledOps .verified F) envI (pp.nestCtx fvsP envI.find? envI.consts)
+          TreeRec (fueledOps .verified F) envI (pp.nestCtx fvsP envI.find?)
             R.st.ctorNfs.toList ts ∧
           ∃ t, PosTree.Reached ts t ∧
-            ConLeche.PosNodeOk (fueledOps .verified F) envI (pp.nestCtx fvsP envI.find? envI.consts) t ∧
+            ConLeche.PosNodeOk (fueledOps .verified F) envI (pp.nestCtx fvsP envI.find?) t ∧
             NodeMajor F envC pp.toBlockShape (cvTas.map (·.type))
-              (pp.nestCtx fvsP envI.find? envI.consts) (tgtMajor out c) t := by
+              (pp.nestCtx fvsP envI.find?) (tgtMajor out c) t := by
   have hwsc : ∀ dep e w, (fueledOps .verified F).whnf envI dep e = .ok w → Expr.WScoped dep e →
       Expr.WScoped dep w := fun dep e w hw hws => ConLeche.whnf_WScoped hwf F hw hws
   obtain ⟨cvTa0, fvsP, rest, holes, h1, h2, h3, hder⟩ :=
     ConLeche.checkBlockPositivity_deriv hwsc hpos
-  have hctx : NestCtxOk (pp.nestCtx fvsP envI.find? envI.consts) :=
-    ⟨fun ci hci => (hwf ci hci).1, fun n ci hf => (hwf ci (List.mem_of_find?_eq_some hf)).1⟩
+  have hctx : NestCtxOk (pp.nestCtx fvsP envI.find?) :=
+    fun n ci hf => (hwf ci (List.mem_of_find?_eq_some hf)).1
   have hparIdx : ∀ i, i < pp.nP → ∃ ty, fvsP[i]? = some (.fvar i ty) := by
     intro i hi
     have hl := ConLeche.Verify.openPisAtFvars_length _ h2
     obtain ⟨ty, hty⟩ := ConLeche.openPisAtFvars_index _ _ _ h2 i _
       (List.getElem?_eq_getElem (by omega))
     exact ⟨ty, by rw [List.getElem?_eq_getElem (by omega), hty]; simp⟩
-  have hpar : ∀ x ∈ fvsP, Expr.WScoped ((pp.nestCtx fvsP envI.find? envI.consts).hiAt 0) x := by
+  have hpar : ∀ x ∈ fvsP, Expr.WScoped ((pp.nestCtx fvsP envI.find?).hiAt 0) x := by
     intro x hx
     obtain ⟨i, hi⟩ := List.getElem?_of_mem hx
     have hw := (ConLeche.openPisAtFvars_WScoped pp.nP cvTa0.type 0 h2
@@ -354,15 +355,15 @@ theorem genOutsideClass_reachedNode {envC envI : Env} (hwf : ConLeche.EnvWF envI
   obtain rfl := Option.some.inj hcv'
   rw [h2] at hop'
   obtain ⟨rfl, rfl⟩ : fvsP = fvsP' ∧ rest = rest' := by simpa using hop'
-  have hctxEq : pp.toBlockShape.nestCtx fvsP envI.find? envI.consts
-      = pp.nestCtx fvsP envI.find? envI.consts := rfl
+  have hctxEq : pp.toBlockShape.nestCtx fvsP envI.find?
+      = pp.nestCtx fvsP envI.find? := rfl
   rw [hctxEq] at hctxR
   rw [hctxR, h3] at hholesR
   obtain rfl := Option.some.inj hholesR
   have hst := R.hst
   rw [hctxR] at hst
   refine ⟨cvTa0, fvsP, rest, R.holes, h1, h2, h3, hctxR, ?_⟩
-  generalize hctxE : pp.nestCtx fvsP envI.find? envI.consts = ctx at *
+  generalize hctxE : pp.nestCtx fvsP envI.find? = ctx at *
   have hholes := ConLeche.nestHoles_ok hctx h3
   have hlenP : ctx.params.length = ctx.nP := by
     rw [← hctxE]; exact ConLeche.Verify.openPisAtFvars_length _ h2
@@ -394,7 +395,7 @@ theorem genOutsideClass_reachedNode {envC envI : Env} (hwf : ConLeche.EnvWF envI
     obtain ⟨cvI, capsI, hfI⟩ := ConLeche.Model.targetOutsideInst_find hinst
     rw [ConLeche.mkFEnv_find?] at hfI
     rw [targetCtorsOf_mkFEnv, henvC, nestContainer_consBlockCtors hheads hnm (by rw [← henvC]; exact hfI),
-      ← nestContainer_ctx (ctx := ctx) (fun n => by rw [← hctxE]; rfl) (by rw [← hctxE]; rfl)]
+      ← nestContainer_ctx (ctx := ctx) (fun n => by rw [← hctxE]; rfl)]
       at hct
     have hds : ∀ x ∈ M.ds, x.fvarsBelow ctx.nP := fun x hx => by
       rw [hnP]; exact ConLeche.Expr.fvarB_le (hsc x hx).2
@@ -471,20 +472,20 @@ theorem genRecCtx_nodes (hμ : μ.verifiedChecks = true) {F : Nat} {block : List
     (mk : EnvModelM V μ envI) (hmkC : LfpCover mk pp.toBlockShape.memberNames)
     (hcoreK : BlockHoleCtxFacts mk.base2 dR pp.lps cvTasR pp.toBlockShape isRecR) :
     ∃ (fvsP : List Expr) (ns : List PosTree),
-      R.ctx = pp.nestCtx fvsP envI.find? envI.consts ∧
-      (∀ t ∈ ns, PosNodeOk (fueledOps .verified F) envI (pp.nestCtx fvsP envI.find? envI.consts) t) ∧
-      (∀ t ∈ ns, NodeOwned (fueledOps .verified F) envI (pp.nestCtx fvsP envI.find? envI.consts) t) ∧
+      R.ctx = pp.nestCtx fvsP envI.find? ∧
+      (∀ t ∈ ns, PosNodeOk (fueledOps .verified F) envI (pp.nestCtx fvsP envI.find?) t) ∧
+      (∀ t ∈ ns, NodeOwned (fueledOps .verified F) envI (pp.nestCtx fvsP envI.find?) t) ∧
       (∀ t ∈ ns, ∀ k ∈ t.kids, k ∈ ns) ∧
       (∀ t ∈ ns, t.occ ≠ [] → ∃ p ∈ ns, t ∈ p.kids) ∧
-      (∀ t ∈ ns, ∀ ψ, NodeSemAt mk.base2 ψ (pp.nestCtx fvsP envI.find? envI.consts)
+      (∀ t ∈ ns, ∀ ψ, NodeSemAt mk.base2 ψ (pp.nestCtx fvsP envI.find?)
         (dR.holeCtx ψ).reverse t) ∧
       (∀ t ∈ ns, ConLeche.FrameRec (fueledOps .verified F) envI
-        (pp.nestCtx fvsP envI.find? envI.consts) R.st.ctorNfs.toList t.anc t.key.lvls t.key.ds t.grp) ∧
+        (pp.nestCtx fvsP envI.find?) R.st.ctorNfs.toList t.anc t.key.lvls t.key.ds t.grp) ∧
       MemberForests F envI pp cvTasR ctorsAsR nfsR fvsP R.st.ctorNfs.toList ns ∧
       (∃ par, ParentPtrs ns par) ∧
       ∀ c, c < (tgtRs out).length → (tgtMajor out c).member = none →
         ∃ t ∈ ns, NodeMajor F envC pp.toBlockShape (cvTasR.map (·.type))
-          (pp.nestCtx fvsP envI.find? envI.consts) (tgtMajor out c) t := by
+          (pp.nestCtx fvsP envI.find?) (tgtMajor out c) t := by
   classical
   obtain ⟨hPos, henvC, -, -, hN, -, hcore, hctorsAs, hdR, -, -, -, -, hheads⟩ := hctx
   obtain rfl := ConLeche.CheckMode.eq_verified hμ
@@ -515,7 +516,7 @@ theorem genRecCtx_nodes (hμ : μ.verifiedChecks = true) {F : Nat} {block : List
       = (blockDataOf V pp.toBlockShape ctorsAsR pk uOfD ppsOf).memberNames.length := by
     simp [blockDataOf, blockDataPre, BlockData.withPhi, ConLeche.BlockShape.k,
       ConLeche.BlockShape.memberNames]
-  have hAr : ∀ fvsP, ConLeche.NestArityOk (pp.nestCtx fvsP envI.find? envI.consts) :=
+  have hAr : ∀ fvsP, ConLeche.NestArityOk (pp.nestCtx fvsP envI.find?) :=
     hcoreK.nestArity hN rfl rfl rfl hkD
   have hlpsC : ∀ (c : Nat) (cs : List (ConstantVal × Nat)), ctorsAsR[c]? = some cs →
       ∀ cA ∈ cs, cA.1.levelParams = pp.lps := by
@@ -532,11 +533,11 @@ theorem genRecCtx_nodes (hμ : μ.verifiedChecks = true) {F : Nat} {block : List
   obtain ⟨rfl, rfl⟩ : fvsP = fvsP' ∧ rest = rest' := by simpa using h2'
   rw [h3] at h3'
   obtain rfl := Option.some.inj h3'
-  have hrootOk : ConLeche.NestRootOk (pp.nestCtx fvsP envI.find? envI.consts) :=
-    ConLeche.nestRootOk_of_open (ctx := pp.nestCtx fvsP envI.find? envI.consts) h2 (hAr fvsP)
-  generalize hctxE : pp.nestCtx fvsP envI.find? envI.consts = ctx at *
+  have hrootOk : ConLeche.NestRootOk (pp.nestCtx fvsP envI.find?) :=
+    ConLeche.nestRootOk_of_open (ctx := pp.nestCtx fvsP envI.find?) h2 (hAr fvsP)
+  generalize hctxE : pp.nestCtx fvsP envI.find? = ctx at *
   have hcov : ContCover mk ctx := by
-    rw [← hctxE]; exact contCover_of hmkC (fun _ => rfl) rfl
+    rw [← hctxE]; exact contCover_of hmkC (fun _ => rfl)
   -- every chosen constructor's forest is read
   have hsem : ∀ (m : Nat) (cs : List (ConstantVal × Nat)) (j : Nat) (cA : ConstantVal × Nat)
       (crest : Expr) (ks : List ConLeche.NestFieldKind) (tyN : Expr) (ts : List PosTree),

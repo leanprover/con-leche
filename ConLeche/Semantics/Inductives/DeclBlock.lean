@@ -57,7 +57,7 @@ def DeclBlockRun (μ : CheckMode) (F : Nat) (env : Env) (block : List ConstantIn
       (p.members.zip cvTas) = .ok (ctorsAs, sortsss) ∧
     -- 3  the walk's context; the classes the stream's recursor family eliminates
     --    (read off its raw recursor types, each checked as a major)
-    blockNestCtx (m := ConLeche.CheckM) p.toBlockShape cvTas env₁.find? env₁.consts
+    blockNestCtx (m := ConLeche.CheckM) p.toBlockShape cvTas env₁.find?
       = .ok (ctx, holes) ∧
     checkBlockClasses (fueledOps μ F) (mkFEnv env₁) env₁ p.toBlockShape ctx.params ctorsAs
       = .ok (rd, Ms) ∧
@@ -65,7 +65,7 @@ def DeclBlockRun (μ : CheckMode) (F : Nat) (env : Env) (block : List ConstantIn
     --    their member-abstracted types typed at the holes' context; its field
     --    kinds are the block's `is_rec`, its normal forms the model's fields
     --    with holes; then every outside class walked from its state
-    checkBlockPositivity (m := ConLeche.CheckM) (fueledOps μ F) env₁ env₁.find? env₁.consts p
+    checkBlockPositivity (m := ConLeche.CheckM) (fueledOps μ F) env₁ env₁.find? p
       cvTas ctorsAs = .ok (kinds, nfs, pos) ∧
     nestSeeds (fueledOps μ F) env₁ ctx (classSeeds ctx holes Ms) pos = .ok st ∧
     -- 5  the formers carry the record at official's `is_rec`, the syntactic one

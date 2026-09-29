@@ -39,16 +39,16 @@ name must exist). -/
 @[expose] def envT : Env := ⟨[
   .indInfo ⟨nm "T", [], ty1⟩ {},
   .ctorInfo ⟨nm "N.mk", [], pi ty1 (pi (pi (.bvar 0) cNat) (.app cN (.bvar 1)))⟩ 1 1,
-  .indInfo ⟨nm "N", [], pi ty1 ty1⟩ {},
+  .indInfo ⟨nm "N", [], pi ty1 ty1⟩ { ctors := [nm "N.mk"] },
   .ctorInfo ⟨nm "L.cons", [],
     pi ty1 (pi (.bvar 0) (pi (.app cL (.bvar 1)) (.app cL (.bvar 2))))⟩ 1 2,
   .ctorInfo ⟨nm "L.nil", [], pi ty1 (.app cL (.bvar 0))⟩ 1 0,
-  .indInfo ⟨nm "L", [], pi ty1 ty1⟩ {},
+  .indInfo ⟨nm "L", [], pi ty1 ty1⟩ { ctors := [nm "L.nil", nm "L.cons"] },
   .indInfo ⟨nm "Nat", [], ty1⟩ {}]⟩
 
 /-- The one-member block `T : Type`, no parameters. -/
 @[expose] def ctxT : NestCtx :=
-  ⟨[nm "T"], [], 0, [0], [], .succ .zero, envT.find?, envT.consts⟩
+  ⟨[nm "T"], [], 0, [0], [], .succ .zero, envT.find?⟩
 
 /-- `T` with one constructor `T.mk : dom → T`. -/
 @[expose] def runT (dom : Expr) : Except CheckError NestedPositivity :=
@@ -93,9 +93,9 @@ reduces with the kernel's whnf (`(fun _ => T) Nat ⇝ T`). -/
   .indInfo ⟨nm "T", [], ty1⟩ {},
   .ctorInfo ⟨nm "LF.mk", [], pi (pi ty1 ty1) (pi (.app (.bvar 0) cNat)
     (.app cLF (.bvar 1)))⟩ 1 1,
-  .indInfo ⟨nm "LF", [], pi (pi ty1 ty1) ty1⟩ {}] ++ envT.consts⟩
+  .indInfo ⟨nm "LF", [], pi (pi ty1 ty1) ty1⟩ { ctors := [nm "LF.mk"] }] ++ envT.consts⟩
 @[expose] def ctxF : NestCtx :=
-  ⟨[nm "T"], [], 0, [0], [], .succ .zero, envF.find?, envF.consts⟩
+  ⟨[nm "T"], [], 0, [0], [], .succ .zero, envF.find?⟩
 @[expose] def runF (dom : Expr) : Except CheckError NestedPositivity :=
   nestedBlockPositivity (pureOps .verified) envF ctxF [[(⟨nm "T.mk", [], pi dom cT⟩, 1)]]
 
@@ -123,10 +123,10 @@ the frame's holes. -/
   .indInfo ⟨nm "T", [], ty1⟩ {},
   .ctorInfo ⟨nm "B.mk", [], pi ty1 (pi (.app cA (.bvar 0)) (.app cB (.bvar 1)))⟩ 1 1,
   .ctorInfo ⟨nm "A.mk", [], pi ty1 (pi (.app cB (.bvar 0)) (.app cA (.bvar 1)))⟩ 1 1,
-  .indInfo ⟨nm "B", [], pi ty1 ty1⟩ { all := [nm "A", nm "B"] },
-  .indInfo ⟨nm "A", [], pi ty1 ty1⟩ { all := [nm "A", nm "B"] }]⟩
+  .indInfo ⟨nm "B", [], pi ty1 ty1⟩ { all := [nm "A", nm "B"], ctors := [nm "B.mk"] },
+  .indInfo ⟨nm "A", [], pi ty1 ty1⟩ { all := [nm "A", nm "B"], ctors := [nm "A.mk"] }]⟩
 @[expose] def ctxM : NestCtx :=
-  ⟨[nm "T"], [], 0, [0], [], .succ .zero, envM.find?, envM.consts⟩
+  ⟨[nm "T"], [], 0, [0], [], .succ .zero, envM.find?⟩
 @[expose] def runM (dom : Expr) : Except CheckError NestedPositivity :=
   nestedBlockPositivity (pureOps .verified) envM ctxM [[(⟨nm "T.mk", [], pi dom cT⟩, 1)]]
 
@@ -143,10 +143,10 @@ are uniform, `is_valid_ind_app`, so it rejects every instance). -/
 @[expose] def envW : Env := ⟨[
   .indInfo ⟨nm "T", [], ty1⟩ {},
   .ctorInfo ⟨nm "W.mk", [], pi ty1 (pi (.app cW cNat) (.app cW (.bvar 1)))⟩ 1 1,
-  .indInfo ⟨nm "W", [], pi ty1 ty1⟩ {},
+  .indInfo ⟨nm "W", [], pi ty1 ty1⟩ { ctors := [nm "W.mk"] },
   .indInfo ⟨nm "Nat", [], ty1⟩ {}]⟩
 @[expose] def ctxW : NestCtx :=
-  ⟨[nm "T"], [], 0, [0], [], .succ .zero, envW.find?, envW.consts⟩
+  ⟨[nm "T"], [], 0, [0], [], .succ .zero, envW.find?⟩
 #guard (nestedBlockPositivity (pureOps .verified) envW ctxW
     [[(⟨nm "T.mk", [], pi (.app cW cT) cT⟩, 1)]]) matches .error (.invalid _)
 
@@ -162,15 +162,15 @@ are uniform, `is_valid_ind_app`, so it rejects every instance). -/
   .ctorInfo ⟨nm "R.mk", [], pi ty1 (pi (.app cP (.bvar 0)) (.app cR (.bvar 1)))⟩ 1 1,
   .ctorInfo ⟨nm "Q.mk", [], pi ty1 (pi (.app cR (.bvar 0)) (.app cQ (.bvar 1)))⟩ 1 1,
   .ctorInfo ⟨nm "P.mk", [], pi ty1 (pi (.app cQ (.bvar 0)) (.app cP (.bvar 1)))⟩ 1 1,
-  .indInfo ⟨nm "R", [], pi ty1 ty1⟩ { all := [nm "P", nm "Q", nm "R"] },
-  .indInfo ⟨nm "Q", [], pi ty1 ty1⟩ { all := [nm "P", nm "Q", nm "R"] },
-  .indInfo ⟨nm "P", [], pi ty1 ty1⟩ { all := [nm "P", nm "Q", nm "R"] },
+  .indInfo ⟨nm "R", [], pi ty1 ty1⟩ { all := [nm "P", nm "Q", nm "R"], ctors := [nm "R.mk"] },
+  .indInfo ⟨nm "Q", [], pi ty1 ty1⟩ { all := [nm "P", nm "Q", nm "R"], ctors := [nm "Q.mk"] },
+  .indInfo ⟨nm "P", [], pi ty1 ty1⟩ { all := [nm "P", nm "Q", nm "R"], ctors := [nm "P.mk"] },
   .ctorInfo ⟨nm "G.mk", [], pi ty1 (pi (.app cF (.bvar 0)) (.app cG (.bvar 1)))⟩ 1 1,
   .ctorInfo ⟨nm "F.mk", [], pi ty1 (pi (.app cL (.app cG (.bvar 0))) (.app cF (.bvar 1)))⟩ 1 1,
-  .indInfo ⟨nm "G", [], pi ty1 ty1⟩ { all := [nm "F", nm "G"] },
-  .indInfo ⟨nm "F", [], pi ty1 ty1⟩ { all := [nm "F", nm "G"] }] ++ envT.consts⟩
+  .indInfo ⟨nm "G", [], pi ty1 ty1⟩ { all := [nm "F", nm "G"], ctors := [nm "G.mk"] },
+  .indInfo ⟨nm "F", [], pi ty1 ty1⟩ { all := [nm "F", nm "G"], ctors := [nm "F.mk"] }] ++ envT.consts⟩
 @[expose] def ctxC : NestCtx :=
-  ⟨[nm "T"], [], 0, [0], [], .succ .zero, envC.find?, envC.consts⟩
+  ⟨[nm "T"], [], 0, [0], [], .succ .zero, envC.find?⟩
 @[expose] def runC (dom : Expr) : Except CheckError NestedPositivity :=
   nestedBlockPositivity (pureOps .verified) envC ctxC [[(⟨nm "T.mk", [], pi dom cT⟩, 1)]]
 
@@ -188,10 +188,10 @@ environment). -/
   .indInfo ⟨nm "T", [], ty1⟩ {},
   .ctorInfo ⟨nm "B.mk", [], pi ty1 (pi (.app cA (.bvar 0)) (.app cB (.bvar 1)))⟩ 1 1,
   .ctorInfo ⟨nm "A.mk", [], pi ty1 (pi (.app cB (.bvar 0)) (.app cA (.bvar 1)))⟩ 1 1,
-  .indInfo ⟨nm "B", [], pi ty1 ty1⟩ {},
-  .indInfo ⟨nm "A", [], pi ty1 ty1⟩ {}]⟩
+  .indInfo ⟨nm "B", [], pi ty1 ty1⟩ { ctors := [nm "B.mk"] },
+  .indInfo ⟨nm "A", [], pi ty1 ty1⟩ { ctors := [nm "A.mk"] }]⟩
 #guard (nestedBlockPositivity (pureOps .verified) envM0
-    ⟨[nm "T"], [], 0, [0], [], .succ .zero, envM0.find?, envM0.consts⟩
+    ⟨[nm "T"], [], 0, [0], [], .succ .zero, envM0.find?⟩
     [[(⟨nm "T.mk", [], pi (.app cA cT) cT⟩, 1)]]) matches .error (.invalid _)
 
 /-! ### N2-eager, and occurrences whnf erases
@@ -213,18 +213,18 @@ is unreached from the first and negative in its parameter. -/
   .indInfo ⟨nm "T", [], ty1⟩ {},
   .ctorInfo ⟨nm "B2.mk", [], pi ty1 (pi (pi (.bvar 0) cNat) (.app cB2 (.bvar 1)))⟩ 1 1,
   .ctorInfo ⟨nm "A2.mk", [], pi ty1 (pi (.bvar 0) (.app cA2 (.bvar 1)))⟩ 1 1,
-  .indInfo ⟨nm "B2", [], pi ty1 ty1⟩ { all := [nm "A2", nm "B2"], nparams := 1 },
-  .indInfo ⟨nm "A2", [], pi ty1 ty1⟩ { all := [nm "A2", nm "B2"], nparams := 1 },
+  .indInfo ⟨nm "B2", [], pi ty1 ty1⟩ { all := [nm "A2", nm "B2"], nparams := 1, ctors := [nm "B2.mk"] },
+  .indInfo ⟨nm "A2", [], pi ty1 ty1⟩ { all := [nm "A2", nm "B2"], nparams := 1, ctors := [nm "A2.mk"] },
   .ctorInfo ⟨nm "N.mk", [], pi ty1 (pi (pi (.bvar 0) cNat) (.app cN (.bvar 1)))⟩ 1 1,
-  .indInfo ⟨nm "N", [], pi ty1 ty1⟩ { all := [nm "N"], nparams := 1 },
+  .indInfo ⟨nm "N", [], pi ty1 ty1⟩ { all := [nm "N"], nparams := 1, ctors := [nm "N.mk"] },
   .ctorInfo ⟨nm "L.cons", [],
     pi ty1 (pi (.bvar 0) (pi (.app cL (.bvar 1)) (.app cL (.bvar 2))))⟩ 1 2,
   .ctorInfo ⟨nm "L.nil", [], pi ty1 (.app cL (.bvar 0))⟩ 1 0,
-  .indInfo ⟨nm "L", [], pi ty1 ty1⟩ { all := [nm "L"], nparams := 1 },
+  .indInfo ⟨nm "L", [], pi ty1 ty1⟩ { all := [nm "L"], nparams := 1, ctors := [nm "L.nil", nm "L.cons"] },
   .indInfo ⟨nm "Nat", [], ty1⟩ {}]⟩
 @[expose] def runS (dom : Expr) : Except CheckError NestedPositivity :=
   nestedBlockPositivity (pureOps .verified) envS
-    ⟨[nm "T"], [], 0, [0], [], .succ .zero, envS.find?, envS.consts⟩
+    ⟨[nm "T"], [], 0, [0], [], .succ .zero, envS.find?⟩
     [[(⟨nm "T.mk", [], pi dom cT⟩, 1)]]
 /-- `(fun _ => Nat) x`: a redex whnf reduces to `Nat`, erasing `x`. -/
 @[expose] def erase (x : Expr) : Expr := .app (.lam ty1 cNat default) x
@@ -250,13 +250,13 @@ drops: the abstracted constructor type still names `T`. -/
 @[expose] def envLv : Env := ⟨[
   .indInfo ⟨nm "T", [nm "u"], ty1⟩ {}] ++ envT.consts⟩
 #guard (nestedBlockPositivity (pureOps .verified) envLv
-    ⟨[nm "T"], [nm "u"], 0, [0], [], .succ .zero, envLv.find?, envLv.consts⟩
+    ⟨[nm "T"], [nm "u"], 0, [0], [], .succ .zero, envLv.find?⟩
     [[(⟨nm "T.mk", [nm "u"], pi (.app (.lam ty1 cNat default)
         (.app cL (.const (nm "T") [.zero]))) (.const (nm "T") [.param (nm "u")])⟩, 1)]])
   matches .error (.invalid _)
 -- the same at the block's own levels is a hole-free field
 #guard (nestedBlockPositivity (pureOps .verified) envLv
-    ⟨[nm "T"], [nm "u"], 0, [0], [], .succ .zero, envLv.find?, envLv.consts⟩
+    ⟨[nm "T"], [nm "u"], 0, [0], [], .succ .zero, envLv.find?⟩
     [[(⟨nm "T.mk", [nm "u"], pi (.app (.lam ty1 cNat default)
         (.app cL (.const (nm "T") [.param (nm "u")]))) (.const (nm "T") [.param (nm "u")])⟩,
       1)]]) matches .ok _
@@ -274,7 +274,7 @@ index mentioning the block — official's "non valid occurrence". -/
   .indInfo ⟨nm "E", [], pi ty1 ty1⟩ { all := [nm "E"], nparams := n }]⟩
 @[expose] def runE (n : Nat) (dom : Expr) : Except CheckError NestedPositivity :=
   nestedBlockPositivity (pureOps .verified) (envE n)
-    ⟨[nm "T"], [], 0, [0], [], .succ .zero, (envE n).find?, (envE n).consts⟩
+    ⟨[nm "T"], [], 0, [0], [], .succ .zero, (envE n).find?⟩
     [[(⟨nm "T.mk", [], pi dom cT⟩, 1)]]
 #guard (runE 1 (.app cE cT)) matches .ok _
 #guard keysOf (runE 1 (.app cE cT)) == some [nm "E"]
@@ -290,11 +290,11 @@ index mentioning the block — official's "non valid occurrence". -/
   .indInfo ⟨nm "T", [], ty1⟩ {},
   .axiomInfo ⟨nm "z", [], cNat⟩,
   .ctorInfo ⟨nm "V.mk", [], pi ty1 (pi cNat (.app (.app cV (.bvar 1)) (.bvar 0)))⟩ 1 1,
-  .indInfo ⟨nm "V", [], pi ty1 (pi cNat ty1)⟩ {},
+  .indInfo ⟨nm "V", [], pi ty1 (pi cNat ty1)⟩ { ctors := [nm "V.mk"] },
   .indInfo ⟨nm "Nat", [], ty1⟩ {}]⟩
 @[expose] def runV (dom : Expr) : Except CheckError NestedPositivity :=
   nestedBlockPositivity (pureOps .verified) envV
-    ⟨[nm "T"], [], 0, [0], [], .succ .zero, envV.find?, envV.consts⟩
+    ⟨[nm "T"], [], 0, [0], [], .succ .zero, envV.find?⟩
     [[(⟨nm "T.mk", [], pi dom cT⟩, 1)]]
 #guard runV (.app cV cT) matches .error (.invalid _)
 #guard keysOf (runV (.app (.app cV cT) (.const (nm "z") []))) == some [nm "V"]
@@ -316,7 +316,7 @@ the one function's product. -/
   .axiomInfo ⟨nm "F4", [], pi cT ty1⟩,
   .defnInfo ⟨nm "Id'", [], pi ty1 ty1⟩ (.lam ty1 (.bvar 0) default) .abbrev] ++ envT.consts⟩
 @[expose] def ctxU : NestCtx :=
-  ⟨[nm "T"], [], 0, [0], [], .succ .zero, envU.find?, envU.consts⟩
+  ⟨[nm "T"], [], 0, [0], [], .succ .zero, envU.find?⟩
 
 -- `(t : T) → F4 t → T`: a later field uses the recursive field: REJECTED
 #guard (nestedBlockPositivity (pureOps .verified) envU ctxU

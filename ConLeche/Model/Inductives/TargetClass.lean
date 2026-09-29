@@ -44,7 +44,6 @@ theorem targetCtorsOf_mkFEnv (env : Env) (I : Name) :
     ConLeche.targetCtorsOf (mkFEnv env) I = ConLeche.nestContainer (envCtx env) I := by
   have hf : (mkFEnv env).find? = env.find? := funext (mkFEnv_find? env)
   simp only [ConLeche.targetCtorsOf, envCtx, hf]
-  rfl
 
 /-- **An outside major's inductive is stored** (`targetOutsideInst`,
 inverted at its first step). -/

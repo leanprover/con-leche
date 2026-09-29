@@ -48,7 +48,7 @@ theorem blockCtorPos_of_run {μ : ConLeche.CheckMode} (hμ : μ.verifiedChecks =
     (hN : BlockNamesOk (V := V) d cvTas) (hcore : BlockHoleCtxFacts mp.base2 d lps cvTas p₁ isRec)
     {p : BlockParts} {ctorsAs : List (List (ConstantVal × Nat))}
     {posKs : List (List (List ConLeche.NestFieldKind)) × List (List Expr) × ConLeche.NestState}
-    (hrun : ConLeche.checkBlockPositivity (m := CheckM) (fueledOps μ F) env env.find? env.consts
+    (hrun : ConLeche.checkBlockPositivity (m := CheckM) (fueledOps μ F) env env.find?
       p cvTas ctorsAs = .ok posKs)
     (hnames : p.memberNames = d.memberNames) (hlps : p.lps = lps)
     (hnP : p.nP = d.nP) (hnIdxs : p.nIdxs = d.nIdxs) (hk : d.k = d.memberNames.length)
@@ -80,8 +80,8 @@ theorem blockCtorPos_of_run {μ : ConLeche.CheckMode} (hμ : μ.verifiedChecks =
         exact (hclosed c j cA hj).1)
       (hcore'.nestArity hN hnames hnP hnIdxs hk) (hcore'.ctorLps hlps hlenCA hctorsAs)
   -- coverage at the walk's context
-  have hcC : ContCover mk (p.nestCtx fvsP env.find? env.consts) :=
-    contCover_of hcovk (fun _ => rfl) rfl
+  have hcC : ContCover mk (p.nestCtx fvsP env.find?) :=
+    contCover_of hcovk (fun _ => rfl)
   intro ψ ρp hs c hc j hj
   have hck : c < d.k := by
     have : c < d.k + d.nInst := hc
@@ -99,9 +99,8 @@ omit [SetTheory V] in
 of the container case's level link (`n2_sort`) — `NestCtx.sort` is the
 block's result sort. -/
 theorem nestCtx_sort_eval {d : BlockData V} {p : BlockParts} (hR : p.resSort = d.resSort)
-    (fvsP : List Expr) (find? : Name → Option ConLeche.ConstantInfo)
-    (consts : List ConLeche.ConstantInfo) (ψ : Name → Nat) :
-    (p.nestCtx fvsP find? consts).sort.eval ψ = d.w ψ := by
+    (fvsP : List Expr) (find? : Name → Option ConLeche.ConstantInfo) (ψ : Name → Nat) :
+    (p.nestCtx fvsP find?).sort.eval ψ = d.w ψ := by
   show p.resSort.eval ψ = d.resSort.eval ψ
   rw [hR]
 

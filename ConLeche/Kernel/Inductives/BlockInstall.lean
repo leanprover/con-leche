@@ -76,8 +76,9 @@ def blockCapsAt (p : BlockShape) (mi : Nat) (isRec : Bool) : IndCaps :=
       ruleK := p.k == 1 && c.2 == 0 && p.isProp
       sortZ := Level.zeronessOf p.resSort
       all := p.memberNames
-      nparams := p.nP }
-  | _, _ => { all := p.memberNames, nparams := p.nP }
+      nparams := p.nP
+      ctors := [c.1.name] }
+  | cs, _ => { all := p.memberNames, nparams := p.nP, ctors := cs.map (·.1.name) }
 
 /-- Does some binder domain of the SYNTACTIC `∀`-telescope of `e`
 mention one of `names`?  No reduction: the walk stops at the first
@@ -192,8 +193,8 @@ variables `fvsP` (the head former's opened telescope) and an
 environment's lookup: the members, their level parameters, the shared
 parameter count, the members' index counts and the block's sort. -/
 def BlockShape.nestCtx (p : BlockShape) (fvsP : List Expr)
-    (find? : Name → Option ConstantInfo) (consts : List ConstantInfo) : NestCtx :=
-  ⟨p.memberNames, p.lps, p.nP, p.nIdxs, fvsP, p.resSort, find?, consts⟩
+    (find? : Name → Option ConstantInfo) : NestCtx :=
+  ⟨p.memberNames, p.lps, p.nP, p.nIdxs, fvsP, p.resSort, find?⟩
 
 /-- The constructors of every member, at the environment holding ALL
 the formers (the resolution guard pointed at that same environment, as
@@ -256,18 +257,18 @@ def checkAbsCtorSortsAll (ops : CheckerOps m) (env : Env) (ctx : NestCtx) :
   | _, _ => pure ()
 
 /-- **The walk's context** of a block: the canonical parameter variables
-are the first former's opened telescope, `find?`/`consts` the
+are the first former's opened telescope, `find?` the
 environment's lookup (the pure `Env`'s or the index's), with the
 members' holes (`nestHoles`).  Built by the positivity check and by the
 pass for the classes and their walk (`checkBlockPass`), from the same
 inputs. -/
 def blockNestCtx (p : BlockShape) (cvTas : List ConstantVal)
-    (find? : Name → Option ConstantInfo) (consts : List ConstantInfo) :
+    (find? : Name → Option ConstantInfo) :
     m (NestCtx × List Expr) := do
   let cvTa0 ← unwrapOr cvTas.head? (.internal "direct rec: no type former")
   let pq ← unwrapOr (openPisAtFvars p.nP cvTa0.type 0)
     (.internal "direct rec: type former telescope")
-  let ctx := p.nestCtx pq.1 find? consts
+  let ctx := p.nestCtx pq.1 find?
   let holes ← unwrapOr (nestHoles ctx) (.internal "direct rec: a member is not a stored former")
   pure (ctx, holes)
 
@@ -279,10 +280,10 @@ stored from them) and its state — the cache and the recorded constructor
 normal forms, which the walk of the other classes continues
 (`checkBlockPass`, `BlockTail.lean`); the walk's verdict is the install's. -/
 def checkBlockPositivity (ops : CheckerOps m) (env₁ : Env) (find? : Name → Option ConstantInfo)
-    (consts : List ConstantInfo) (p : BlockParts) (cvTas : List ConstantVal)
+    (p : BlockParts) (cvTas : List ConstantVal)
     (ctorsAs : List (List (ConstantVal × Nat))) :
     m (List (List (List NestFieldKind)) × List (List Expr) × NestState) := do
-  let (ctx, holes) ← blockNestCtx p.toBlockShape cvTas find? consts
+  let (ctx, holes) ← blockNestCtx p.toBlockShape cvTas find?
   -- the root frame on the STORED (declared) constructors; their normal forms are output only
   let (outs, st) ← nestRoot ops env₁ ctx holes ctorsAs {}
   nestRootLinesAll ctx holes ctorsAs outs

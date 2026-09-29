@@ -1402,12 +1402,8 @@ theorem declBasisPB_eqK {env₁ : Env} (mp : EnvModelM V μ env)
       (fun _ _ h => by injection h with _ h; subst h; rfl))
     (lfpOwn_one (T := eqName) (cs := [(eqReflA.toConstantVal, 2, 0)]) rfl rfl hE2
       (by
-        show (eqReflA :: eqA :: env.consts).filterMap _ = _
-        simp only [List.filterMap_cons,
-          ctorEntry_self (c₀ := eqReflA) (T := eqName) rfl rfl rfl]
-        rw [show ctorEntry eqName eqA = none from rfl]
-        dsimp only
-        rw [ctorEntries_fresh (C := eqName) mp.base2.wf hf1]
+        show List.filterMap (ctorLook (ConLeche.Env.find? ⟨eqReflA :: eqA :: env.consts⟩) eqName)
+          [eqReflA.name] = _
         rfl)
       ⟨2, [(eqReflA.toConstantVal, 0)], rfl, rfl, fun j hj => by
         obtain rfl : j = 0 := Nat.lt_one_iff.mp hj

@@ -103,6 +103,11 @@ FALLBACK = {
     # `WScoped`, `:69`).
     ('ConLeche.Verify.Cached.GenRecC', 'ConLeche.Kernel.Inductives.GenRec'),
     ('ConLeche.Verify.Cached.GenRecC', 'ConLeche.Verify.Cached.TargetRecC'),
+    # sub-lane SIMPAD-DF: `blockNestCtxS_sim₂`'s public statement names
+    # `NestCtxOk` (reached through `BlockRunC`'s public `NestPosC` import
+    # until the container memo went); MEASURED by demoting it alone
+    # (unknown identifier `NestCtxOk`, `GenRecC.lean:275`).
+    ('ConLeche.Verify.Cached.GenRecC', 'ConLeche.Verify.Inductives.NestScope'),
     # sub-lane GENREC-A: `GenRecStage`'s public statements name the run
     # record, the stage record, the generator's scoping and its syntax
     # predicates; each MEASURED by demoting it alone (unknown identifier

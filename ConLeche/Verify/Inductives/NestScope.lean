@@ -119,8 +119,54 @@ theorem wscoped_instPisWith {d : Nat} :
 
 /-- A context whose stored constants are closed. -/
 @[expose] def NestCtxOk (ctx : NestCtx) : Prop :=
-  (∀ ci ∈ ctx.consts, ci.toConstantVal.type.hasFvar = false) ∧
-  (∀ n ci, ctx.find? n = some ci → ci.toConstantVal.type.hasFvar = false)
+  ∀ n ci, ctx.find? n = some ci → ci.toConstantVal.type.hasFvar = false
+
+/-- A constructor entry is its constructor record. -/
+theorem nestCtorEntry_some {C : Name} {ci : ConstantInfo} {y : ConstantVal × Nat × Nat}
+    (h : nestCtorEntry C ci = some y) : ci = .ctorInfo y.1 y.2.1 y.2.2 := by
+  unfold nestCtorEntry at h
+  split at h
+  · split at h
+    · split at h
+      · split at h
+        · simp only [Option.some.injEq] at h; subst h; rfl
+        · exact nomatch h
+      · exact nomatch h
+    · exact nomatch h
+  · exact nomatch h
+
+/-- **A container's constructors are stored constructors** (looked up by
+the recorded names). -/
+theorem nestContainer_mem {ctx : NestCtx} {C : Name} {nP : Nat} {L : List (ConstantVal × Nat)}
+    (h : nestContainer ctx C = some (nP, L)) :
+    ∀ x ∈ L, ∃ n nPc, ctx.find? n = some (.ctorInfo x.1 nPc x.2) := by
+  unfold nestContainer at h
+  split at h
+  · rename_i caps _
+    dsimp only at h
+    generalize hcs : List.filterMap _ caps.ctors = cs at h
+    have hall : ∀ y ∈ cs, ∃ n, ctx.find? n = some (.ctorInfo y.1 y.2.1 y.2.2) := by
+      intro y hy
+      rw [← hcs] at hy
+      obtain ⟨n, -, hn⟩ := List.mem_filterMap.mp hy
+      cases hf : ctx.find? n with
+      | none => rw [hf] at hn; exact nomatch hn
+      | some ci =>
+        rw [hf, Option.bind_some] at hn
+        exact ⟨n, by rw [hf, nestCtorEntry_some hn]⟩
+    cases cs with
+    | nil =>
+      simp only [Option.some.injEq, Prod.mk.injEq] at h
+      obtain ⟨-, rfl⟩ := h
+      intro x hx; exact nomatch hx
+    | cons y0 rest =>
+      simp only [Option.some.injEq, Prod.mk.injEq] at h
+      obtain ⟨-, rfl⟩ := h
+      intro x hx
+      obtain ⟨y, hy, rfl⟩ := List.mem_map.mp hx
+      obtain ⟨n, hn⟩ := hall y hy
+      exact ⟨n, y.2.1, hn⟩
+  · exact nomatch h
 
 /-- An `Option` `mapM`'s outputs come from its inputs. -/
 theorem option_mapM_mem {α β : Type} {f : α → Option β} :
@@ -158,7 +204,7 @@ theorem nestHoles_ok {ctx : NestCtx} (hc : NestCtxOk ctx) {holes : List Expr}
     subst hf
     refine ⟨?_, _, _, rfl⟩
     simp only [WScoped, NestCtx.hiAt]
-    exact ⟨by omega, WScoped.of_not_hasFvar (hc.2 _ _ hfind)⟩
+    exact ⟨by omega, WScoped.of_not_hasFvar (hc _ _ hfind)⟩
   · exact nomatch hf
 
 /-- A member constructor's abstracted type, instantiated at the canonical

@@ -374,6 +374,13 @@ structure IndCaps where
   container WITHOUT constructors (`nestContainer`), whose parameter count
   no constructor record carries. -/
   nparams : Nat := 0
+  /-- **The family's constructors, in declaration order** (official's
+  `inductive_val.cnstrs`): recorded at install (uniform: the member's
+  constructors; basis: the pin's).  Read by nested positivity alone
+  (`nestContainer`): a container's constructors are looked up by name,
+  never by a scan of the environment.  `Quot` records none (it is no
+  container). -/
+  ctors : List Name := []
   deriving DecidableEq, Repr, Inhabited
 
 /-- **One structure's projection table** (task #175 S1, 2026-09-06):

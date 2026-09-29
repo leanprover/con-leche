@@ -187,7 +187,7 @@ this (`nodeListFacts_of`, `dynCtx_of`). -/
     (kindsR : List (List (List ConLeche.NestFieldKind))) (nfsR : List (List Expr))
     (posR : ConLeche.NestState) : Prop :=
   ConLeche.checkBlockPositivity (m := ConLeche.CheckM) (ConLeche.fueledOps μ F) envI
-      envI.find? envI.consts pp cvTasR ctorsAsR = .ok (kindsR, nfsR, posR) ∧
+      envI.find? pp cvTasR ctorsAsR = .ok (kindsR, nfsR, posR) ∧
   envC = ConLeche.consBlockCtors pp.nP ctorsAsR envI ∧
   ctorsAsR.map (·.map (fun cA => (cA.1.name, cA.2)))
     = pp.members.map (fun ms => ms.ctors.map (fun c => (c.1.name, c.2))) ∧
@@ -204,7 +204,8 @@ this (`nodeListFacts_of`, `dynCtx_of`). -/
   FormersModelAt (V := V) envI pp.toBlockShape.memberNames mpC dR pp.lps cvTasR
     pp.toBlockShape isRecR ∧
   BlockOverEnv envC pp.toBlockShape.memberNames ∧
-  (∀ c ∈ ctorsAsR.flatten, ∀ C, (ctorEntry C (.ctorInfo c.1 pp.nP c.2)).isSome = true →
-    C ∈ pp.toBlockShape.memberNames)
+  (∀ c ∈ ctorsAsR.flatten, envI.find? c.1.name = none ∧
+    ∀ C, (ctorEntry C (.ctorInfo c.1 pp.nP c.2)).isSome = true →
+      C ∈ pp.toBlockShape.memberNames)
 
 end ConLeche.Model

@@ -91,8 +91,8 @@ theorem genClassNodes {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : Nat
   obtain ⟨fvsP, ns, hctxR, hok, hown, hkids, hpar, hsem, hfrec, hmemF, ⟨par, hPP⟩, hcovN⟩ :=
     genRecCtx_nodes hμ hbase R mk hmkC hcoreK
   have hsp : ∀ t ∈ ns, ∀ ψ : Name → Nat, ∃ dsa, DenoteMetaSpine mpC.base2.acval envC ψ
-      ((pp.nestCtx fvsP envI.find? envI.consts).nP
-        + (nodeHoleConsts (pp.nestCtx fvsP envI.find? envI.consts) t.occ).length) t.key.ds dsa := by
+      ((pp.nestCtx fvsP envI.find?).nP
+        + (nodeHoleConsts (pp.nestCtx fvsP envI.find?) t.occ).length) t.key.ds dsa := by
     intro t ht ψ
     obtain ⟨dsa, hdsa⟩ := nodeSem_spOcc (hok t ht) (hsem t ht ψ)
     exact ⟨dsa, DenoteMetaSpine.transport (fun e _ he => htr ψ _ e he) hdsa⟩
@@ -117,18 +117,18 @@ theorem genClassNodes {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : Nat
       have h0 := H.hΔ0 ψ
       rw [List.length_reverse, BlockData.holeCtx, List.length_append, List.length_map,
         List.length_range] at h0
-      have hk : dR.k = (pp.nestCtx fvsP envI.find? envI.consts).names.length := by
+      have hk : dR.k = (pp.nestCtx fvsP envI.find?).names.length := by
         rw [H.hnames]; exact (lfp_namesLen mpC H.hd0).symm
       have hnP := H.hnP
       simp only [ConLeche.NestCtx.hiAt] at h0
       omega
     rw [List.length_take, hpl] at hl
     omega
-  have Dy : TgtNodeDyn μ F mpC (pp.nestCtx fvsP envI.find? envI.consts) dR pp.toBlockShape
+  have Dy : TgtNodeDyn μ F mpC (pp.nestCtx fvsP envI.find?) dR pp.toBlockShape
       (cvTasR.map (·.type)) out Dc mc cvc ns ψ ρ xs
       (genCallT (tgtClsTup dR Dc mc cvc pp.toBlockShape out ψ) ρ
         (fun c j => genIhdAV mpC.base2.acval envC R.g R.rd (genBit pp ψ) ψ c j)) := {
-    Adm := nodeAdm mk mpC (pp.nestCtx fvsP envI.find? envI.consts) dR ns ψ ρ xs par
+    Adm := nodeAdm mk mpC (pp.nestCtx fvsP envI.find?) dR ns ψ ρ xs par
     hAdm := dyn_hAdm H ψ ρ xs hparams par
     top := dyn_top H ψ ρ xs hparams hxs hPP
     trans := dyn_trans H ψ ρ xs hparams hxs par

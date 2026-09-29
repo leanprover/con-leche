@@ -813,7 +813,7 @@ structure GenRecRun (mode : CheckMode) (F : Nat) (fe₁ : FEnv) (env₁ : Env) (
   /-- the pre-pass on the stream's RAW recursor types (UNVERIFIED: data only) -/
   hrd : classRead p.nP (classNPcOf p fe₁) p.recs = some rd
   /-- the block's canonical parameters and holes (the positivity check's context) -/
-  hctx : blockNestCtx (m := CheckM) p cvTas fe₁.find? env₁.consts = .ok (ctx, holes)
+  hctx : blockNestCtx (m := CheckM) p cvTas fe₁.find? = .ok (ctx, holes)
   /-- the class keys, moved to the canonical parameters and annotated -/
   hkeys : rd.classes.mapM (classKeyOf (fueledOps mode F) env₁ p.nP ctx.params) = .ok keys
   /-- the classes, each a checked major over the canonical parameters -/
@@ -864,7 +864,7 @@ theorem genRecRun_of {fe₁ : FEnv} {env₁ : Env} {fe : FEnv} {p : BlockShape}
     {out : List (ConstantVal × TargetMajor × List Expr)} {F : Nat}
     {ctx : NestCtx} {holes : List Expr} {rd : ClassRead} {Ms₀ : List TargetMajor}
     {st : NestState}
-    (hctx : blockNestCtx (m := CheckM) p cvTas fe₁.find? env₁.consts = .ok (ctx, holes))
+    (hctx : blockNestCtx (m := CheckM) p cvTas fe₁.find? = .ok (ctx, holes))
     (hcls : checkBlockClasses (fueledOps mode F) fe₁ env₁ p ctx.params ctorsAs = .ok (rd, Ms₀))
     (hst : nestSeeds (fueledOps mode F) env₁ ctx (classSeeds ctx holes Ms₀) pos = .ok st)
     (h : genRecCheck (ShadowOps.fueled mode F) fe p nestedBit ctx.params st.ctorNfs.toList rd

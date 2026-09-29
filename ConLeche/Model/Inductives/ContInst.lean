@@ -45,7 +45,7 @@ variable {V : Type w} [SetTheory V] {env : Env} {φ : Name → Nat}
 nothing else of it). -/
 @[expose] def instCtx (env : Env) : NestCtx :=
   { names := [], lps := [], nP := 0, nIdxs := [], params := [], sort := .zero,
-    find? := env.find?, consts := [] }
+    find? := env.find? }
 
 omit [SetTheory V] in
 /-- The empty group is well formed. -/

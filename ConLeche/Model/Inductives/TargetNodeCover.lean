@@ -198,18 +198,18 @@ theorem nodeListFacts_of {F : Nat}
     {posR : ConLeche.NestState}
     (hctx : RecCtxBase V μ F envC envI pp cvTasR ctorsAsR mpC dR isRecR A kindsR nfsR posR)
     {fvsP : List Expr} {ns : List PosTree}
-    (hok : ∀ t ∈ ns, PosNodeOk (fueledOps .verified F) envI (pp.nestCtx fvsP envI.find? envI.consts) t)
-    (hown : ∀ t ∈ ns, NodeOwned (fueledOps .verified F) envI (pp.nestCtx fvsP envI.find? envI.consts) t)
+    (hok : ∀ t ∈ ns, PosNodeOk (fueledOps .verified F) envI (pp.nestCtx fvsP envI.find?) t)
+    (hown : ∀ t ∈ ns, NodeOwned (fueledOps .verified F) envI (pp.nestCtx fvsP envI.find?) t)
     (hsp : ∀ t ∈ ns, ∀ ψ : Name → Nat, ∃ dsa, DenoteMetaSpine mpC.base2.acval envC ψ
-        ((pp.nestCtx fvsP envI.find? envI.consts).nP
-          + (nodeHoleConsts (pp.nestCtx fvsP envI.find? envI.consts) t.occ).length) t.key.ds dsa) :
-    NodeListFacts mpC (pp.nestCtx fvsP envI.find? envI.consts) ns := by
+        ((pp.nestCtx fvsP envI.find?).nP
+          + (nodeHoleConsts (pp.nestCtx fvsP envI.find?) t.occ).length) t.key.ds dsa) :
+    NodeListFacts mpC (pp.nestCtx fvsP envI.find?) ns := by
   obtain ⟨-, henvC, -, -, hN, hS, hcore, -, hdR, -, -, ⟨mk, hmkC, hmk, -, -, -, -⟩, -⟩ := hctx
-  have hcc : ContCover mk (pp.nestCtx fvsP envI.find? envI.consts) :=
-    contCover_of hmkC (fun _ => rfl) rfl
+  have hcc : ContCover mk (pp.nestCtx fvsP envI.find?) :=
+    contCover_of hmkC (fun _ => rfl)
   -- the members are stored at the block's level parameters
-  have hmem : ∀ n ∈ (pp.nestCtx fvsP envI.find? envI.consts).names, ∃ ci, envC.find? n = some ci ∧
-      (pp.nestCtx fvsP envI.find? envI.consts).lps.length
+  have hmem : ∀ n ∈ (pp.nestCtx fvsP envI.find?).names, ∃ ci, envC.find? n = some ci ∧
+      (pp.nestCtx fvsP envI.find?).lps.length
         = ci.toConstantVal.levelParams.length := by
     intro n hn
     change n ∈ pp.toBlockShape.memberNames at hn

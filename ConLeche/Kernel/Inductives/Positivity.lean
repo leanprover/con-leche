@@ -845,8 +845,7 @@ structure NestCtorNf where
 /-- The block, as the function needs it: the members, their level
 parameters, the shared parameter count and the members' index counts,
 the canonical parameter variables, the block's sort, and the
-environment's lookup and constant list (the pure `Env`'s or the cached
-index's). -/
+environment's lookup (the pure `Env`'s or the cached index's). -/
 structure NestCtx where
   names : List Name
   lps : List Name
@@ -855,15 +854,11 @@ structure NestCtx where
   params : List Expr
   sort : Level
   find? : Name → Option ConstantInfo
-  consts : List ConstantInfo
 
 /-- The run's state: the accepted instantiations (the cache, keyed by the
-instantiation) and the environment lookups of
-container constructor lists (`none`: no inductive) — a reading of the
-environment, not a fact about the container. -/
+instantiation). -/
 structure NestState where
   keys : Array NestKey := #[]
-  ctorsOf : List (Name × Option (Nat × List (ConstantVal × Nat))) := []
   /-- the instantiations whose frames are being walked (every group
   member at the key), outermost last: an instantiation walked at the
   EMPTY stack (`nestWalkStack`) is still in progress for the cycle check
@@ -888,39 +883,35 @@ structure NestedPositivity where
   ctorNfs : Array NestCtorNf := #[]
   deriving Inhabited
 
-/-- The constructors of the inductive `C` and its parameter count, read
-off the environment (a constructor belongs to the type its result
-names, `ctorMember?`'s reading): `none` when `C` is no inductive; for
-an inductive without constructors, its RECORDED parameter count
-(`IndCaps.nparams`, official's `inductive_val.nparams`: official nests
-through such a container, its auxiliary type simply has no
-constructor). -/
+/-- A stored constant's entry as a constructor of `C`: a constructor
+record whose result, past its parameters and fields, is headed by `C`
+(its parameter and field counts); `none` for anything else. -/
+def nestCtorEntry (C : Name) : ConstantInfo → Option (ConstantVal × Nat × Nat)
+  | .ctorInfo cv nPc nF =>
+    match cv.type.stripPis (nPc + nF) with
+    | some (_, body) =>
+      match body.getAppFn with
+      | .const n _ => if n == C then some (cv, nPc, nF) else none
+      | _ => none
+    | none => none
+  | _ => none
+
+/-- The constructors of the inductive `C` and its parameter count: the
+constructor names `C`'s stored record lists (`IndCaps.ctors`, official's
+`inductive_val.cnstrs`), each looked up and kept when it is a stored
+constructor whose result names `C` (`nestCtorEntry`) — no scan of the
+environment.  `none` when `C` is no inductive; for an inductive without
+constructors, its RECORDED parameter count (`IndCaps.nparams`,
+official's `inductive_val.nparams`: official nests through such a
+container, its auxiliary type simply has no constructor). -/
 def nestContainer (ctx : NestCtx) (C : Name) : Option (Nat × List (ConstantVal × Nat)) :=
   match ctx.find? C with
   | some (.indInfo _ caps) =>
-    let cs := ctx.consts.filterMap fun ci =>
-      match ci with
-      | .ctorInfo cv nPc nF =>
-        match cv.type.stripPis (nPc + nF) with
-        | some (_, body) =>
-          match body.getAppFn with
-          | .const n _ => if n == C then some (cv, nPc, nF) else none
-          | _ => none
-        | none => none
-      | _ => none
+    let cs := caps.ctors.filterMap fun n => (ctx.find? n).bind (nestCtorEntry C)
     match cs with
     | [] => some (caps.nparams, [])
-    | (_, nPc, _) :: _ => some (nPc, (cs.map fun c => (c.1, c.2.2)).reverse)
+    | (_, nPc, _) :: _ => some (nPc, cs.map fun c => (c.1, c.2.2))
   | _ => none
-
-/-- `nestContainer`, looked up once per name. -/
-def nestContainerC (ctx : NestCtx) (st : NestState) (C : Name) :
-    Option (Nat × List (ConstantVal × Nat)) × NestState :=
-  match st.ctorsOf.lookup C with
-  | some r => (r, st)
-  | none =>
-    let r := nestContainer ctx C
-    (r, { st with ctorsOf := (C, r) :: st.ctorsOf })
 
 /-- Official's "non valid occurrence" (`check_positivity` :405). -/
 def nestNonValid : CheckError :=
@@ -1269,19 +1260,18 @@ def nestCtors (ctx : NestCtx) (ops : CheckerOps m) (env : Env)
     pure ((ks, closeTelescope nds hi cur) :: os, st)
 
 /-- The constructors of every container in `cs` (at one parameter
-count), read off the environment. -/
+count), looked up (`nestContainer`). -/
 def nestGroupCtors (ctx : NestCtx) (nPc : Nat) :
-    List Name → NestState → m (List (ConstantVal × Nat) × NestState)
-  | [], st => pure ([], st)
-  | c :: cs, st => do
-    let q ← unwrapOr (nestContainerC ctx st c).1 nestNonValid
-    let st := (nestContainerC ctx st c).2
+    List Name → m (List (ConstantVal × Nat))
+  | [] => pure []
+  | c :: cs => do
+    let q ← unwrapOr (nestContainer ctx c) nestNonValid
     let (nPc', ctors) := q
     unless nPc' == nPc || ctors.isEmpty do
       throw (.invalid "nested positivity: number of parameters mismatch in inductive \
         datatype declaration (a container's group)")
-    let (rest, st) ← nestGroupCtors ctx nPc cs st
-    pure (ctors ++ rest, st)
+    let rest ← nestGroupCtors ctx nPc cs
+    pure (ctors ++ rest)
 
 /-- The recorded block of the inductive `C` (`IndCaps.all`, official's
 `all`): `[]` when none is recorded. -/
@@ -1356,7 +1346,7 @@ def nestFrame (ctx : NestCtx) (ops : CheckerOps m) (env : Env)
     ({ key := ⟨c, us, ds⟩, base := hi } : NestHole)).reverse ++ prog
   let sub (c : Name) (us' : List Level) : Option Expr :=
     if us' == us then (holes.lookup c) else none
-  let (ctors, st) ← nestGroupCtors ctx nPc (grp.map (·.1)) st
+  let ctors ← nestGroupCtors ctx nPc (grp.map (·.1))
   let (_, st) ← nestCtors ctx ops env (fun _ => rec) prog' (hi + grp.length) us ds nPc sub ctors st
   pure st
 
@@ -1416,7 +1406,8 @@ def nestContKey (ctx : NestCtx) (ops : CheckerOps m) (env : Env)
 /-- **The container case** of `nestPos`: the reduct `w` is the stored
 inductive `n.{us}` applied to `args` (`contApp`), `rec` the walk
 itself one fuel lower (at a frame's fields).  The container's
-constructors are read off the environment; its checks (constructors
+constructors are looked up by the names its record lists
+(`nestContainer`); its checks (constructors
 exist, enough arguments and hole-free indices, not `Quot`, parameters
 without local variables); then the instantiation (`nestContKey`).  Split
 off so that the monotonicity theorem can take the container case as its
@@ -1425,7 +1416,7 @@ def nestCont (ctx : NestCtx) (ops : CheckerOps m) (env : Env)
     (rec : List NestHole → Nat → Nat → Expr → NestState → m (NestFieldKind × Expr × NestState))
     (prog : List NestHole) (kb : Nat) (n : Name) (us : List Level) (args : List Expr)
     (st : NestState) : m (NestFieldKind × NestState) := do
-  let q ← unwrapOr (nestContainerC ctx st n).1 nestNonValid
+  let q ← unwrapOr (nestContainer ctx n) nestNonValid
   if args.length < q.1 ||
       !(args.drop q.1).all (fun x => !x.nestOcc ctx.names ctx.nP (ctx.hiAt prog.length)) then
     throw nestNonValid
@@ -1446,7 +1437,7 @@ def nestCont (ctx : NestCtx) (ops : CheckerOps m) (env : Env)
   unless args.length == q.1 + ni.1 do
     throw (.invalid "nested positivity: type expected (a container instance that is not \
       fully applied)")
-  nestContKey ctx ops env rec prog kb n us (args.take q.1) q.1 ni.2 (nestContainerC ctx st n).2
+  nestContKey ctx ops env rec prog kb n us (args.take q.1) q.1 ni.2 st
 
 /-- **The positivity function** (see the section header): the domain
 `e` at depth `dep`, `kb` `Π` binders into the field, `prog` the
