@@ -13,12 +13,12 @@ public section
 /-!
 # A generated minor premise, as syntax (G1-syn, `hminor`)
 
-Check 6 of the class check generates, per minor slot `s` of class `c`
+The generated recursor stage generates, per minor slot `s` of class `c`
 and constructor `x`, the minor premise's type
 
     minorTy c x (nP + s) = Π (f⃗ : fields) (ih⃗ : Π a⃗, motive_t e⃗ (f a⃗)), motive_c es (C p⃗ f⃗)
 
-(`ClassGen.minorTy`, `Kernel/Inductives/ClassCheck.lean`) and places it
+(`ClassGen.minorTy`, `Kernel/Inductives/GenRec.lean`) and places it
 in the shared prefix at position `nP + s` (`ClassGen.prefixBinders`).
 What the model's reading of it (`Model/Inductives/ClassGenMinor.lean`)
 needs, as pure syntax:

@@ -10,9 +10,9 @@ public section
 /-!
 # Annotating a generated telescope
 
-Check 6 of the class check (`Kernel/Inductives/ClassCheck.lean`)
-ANNOTATES the generated recursor type before comparing it
-(`classRecTyOk`: `ops.annotate … gty`), and the model reads the
+The generated recursor stage (`Kernel/Inductives/GenRec.lean`)
+ANNOTATES the generated recursor type when it checks it as a constant
+(`classRecTyOk`, `checkConstantValF`), and the model reads the
 annotated term.  The generated type is a `closeTelescope` over the
 shared prefix, the class's index binders and its major, of a PLAIN body
 (a variable applied to variables).  What the reading needs of the

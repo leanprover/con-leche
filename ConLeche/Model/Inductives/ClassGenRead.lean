@@ -17,12 +17,12 @@ public section
 /-!
 # The generated recursor TYPE, read (G1-syn, the type side)
 
-Check 6 of the class check generates, per class `c`, the recursor type
+The generated recursor stage generates, per class `c`, the recursor type
 
     classGenRecTy g c = Π (prefix) (ı⃗ : index domains) (t : I D⃗ ı⃗), motive_c ı⃗ t
 
-(`Kernel/Inductives/ClassCheck.lean`), annotates it and infers it at the
-empty context (`classRecTyOk`).  What the graph route's producer at the
+(`Kernel/Inductives/GenRec.lean`), checks it as a constant — annotated,
+inferred at the empty context (`classRecTyOk`).  What the graph route's producer at the
 generated family (`graphRecPre_gen`, `ClassRecKit.lean`) asks of the
 type's binder data, read off the generator's syntax and the two runs:
 

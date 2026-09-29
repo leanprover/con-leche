@@ -7,7 +7,7 @@ public section
 /-!
 # The graph route at the GENERATED recursor family (G1)
 
-The class check (`Kernel/Inductives/ClassCheck.lean`, check 6) GENERATES
+The generated recursor stage (`Kernel/Inductives/GenRec.lean`) GENERATES
 the recursor family: per recursor `c` a type
 `Π (prefix) (ı⃗ : index domains) (t : I D⃗ ı⃗), motive_c ı⃗ t` whose
 prefix (parameters, motives, minors) is shared, and per constructor a
@@ -69,8 +69,8 @@ variable {V : Type w} [SetTheory V] {μ : CheckMode}
 
 `graphRecPre_core` (`BlockRecGraph.lean`) types the kit's step through
 `BlockRuleCerts` — the per-part typing run of the OLD rule stage, which
-the class check does not run (its check 2 infers the stream rule WHOLE,
-and check 6 infers the generated one whole).  At the generated family
+the generated stage does not run (it infers the generated rule WHOLE,
+`classRuleOk`).  At the generated family
 the step's typing is the minor premise's own type (a minor applied to
 the fields and the `ih` values lands in the motive at the constructor),
 so the producer is restated over the kit's step fact itself (`hstep`);

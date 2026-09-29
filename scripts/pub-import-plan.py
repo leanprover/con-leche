@@ -234,6 +234,15 @@ FALLBACK = {
     # SetTheory`, `TargetCallCore.lean:67`, `TargetCallKit.lean:41`).
     ('ConLeche.Model.Inductives.TargetCallCore', 'ConLeche.Model.Inductives.TargetIhData'),
     ('ConLeche.Model.Inductives.TargetCallKit', 'ConLeche.Model.Inductives.TargetRecRead'),
+    # lane GENREC-PORT: the generator's syntax modules, each MEASURED by
+    # demoting it alone.  `ClassGenScope`'s `@[expose] def ScB` names
+    # `WScoped` (`Unknown identifier WScoped`, `ClassGenScope.lean:57`);
+    # `ClassGenAnnot`'s statements name `closeTelescope` (`:166`) and
+    # `Expr.ErasedEq` (`:46`); `ClassGenMinorSyn`'s `Expr.ErasedEq` (`:204`).
+    ('ConLeche.Verify.Inductives.ClassGenScope', 'ConLeche.Verify.Shift'),
+    ('ConLeche.Verify.Inductives.ClassGenAnnot', 'ConLeche.Kernel.Inductives.Positivity'),
+    ('ConLeche.Verify.Inductives.ClassGenAnnot', 'ConLeche.Verify.Subst'),
+    ('ConLeche.Verify.Inductives.ClassGenMinorSyn', 'ConLeche.Verify.Subst'),
     # lane HOLE2 (the positivity walk's cached simulation): three
     # re-exports the model calls demotable, each MEASURED by demoting it
     # alone.  `NestPosC`'s public simulation theorems are stated over

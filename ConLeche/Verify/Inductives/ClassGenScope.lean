@@ -14,24 +14,24 @@ import ConLeche.Verify.Cached.NestPosC
 public section
 
 /-!
-# The class check's generated recursors are CLOSED
+# The generated recursors are CLOSED
 
-Check 6 of the class check (`Kernel/Inductives/ClassCheck.lean`)
-GENERATES the recursor family (`classGenRecTy`, `classGenRule`) and
-compares it with the stream's by `isDefEq` at the empty context.  The
-transfer of that comparison to the model (`closedDefEq_read_eq`,
-`Model/Inductives/ClassRecTransfer.lean`) needs the generated terms
-CLOSED: no free variable, no loose bound variable.  The checker does not
-test it; it holds by the generator's syntax — every variable the
+The generated recursor stage (`genRecCheck`,
+`Kernel/Inductives/GenRec.lean`) GENERATES the recursor family
+(`classGenRecTy`, `classGenRule`), checks the generated types as
+constants and the generated rules at the empty context, and INSTALLS
+them.  The model reads them as closed terms: no free variable, no loose
+bound variable.  The stage guards it (reject-only: `checkConstantValF`,
+`classRuleOk`); it holds anyway by the generator's syntax — every variable the
 generator opens it closes again (`closeTelescope`, `closeLams`), in the
 order it opened them — as soon as the generator's INPUTS are scoped the
-way the class check builds them (`ClassGenScoped`):
+way the stage builds them (`ClassGenScoped`):
 
 * the canonical parameters are the variables `0 ..< nP`, each typed over
   the earlier ones;
 * a class's parameters mention only the block's parameters; a class's
-  former type is closed; a walked constructor's telescope mentions only
-  the block's parameters;
+  former type is closed; a constructor's declared type and its walked
+  telescope mention only the block's parameters;
 * the recursors' prefix is the stream's order with every minor premise
   AFTER the motives it names (its own class's and its inductive
   hypotheses' callees') — the pre-pass reads a minor's classes off the
@@ -39,7 +39,7 @@ way the class check builds them (`ClassGenScoped`):
 * the stored prefix is `ClassGen.prefixBinders`' own output.
 
 **Why this matters beyond hygiene.**  A free variable left in a generated
-term is not rejected by the comparison runs: annotation and inference at
+term is not rejected by annotation and inference: annotation and inference at
 depth `0` check a variable only against the depth it occurs AT, so a
 stray `fvar k` under `k + 1` binders is accepted and typed by its own
 annotation.  Closedness is what makes the generated term's reading the
@@ -243,7 +243,7 @@ theorem option_filterMapM_mem {α β : Type} {f : α → Option (Option β)} :
 /-! ## The generator's inputs, scoped -/
 
 /-- **What the generator needs of its inputs** for its output to be
-closed — every field is how the class check builds them (see the module
+closed — every field is how the stage builds them (see the module
 docstring). -/
 structure ClassGenScoped (g : ClassGen) : Prop where
   /-- the canonical parameters: `fvar i`, typed over the earlier ones -/
