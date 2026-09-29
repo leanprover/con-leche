@@ -8,6 +8,9 @@ import ConLeche.Model.Inductives.BlockDeclRun
 import ConLeche.Model.Inductives.StructFrameKit
 import ConLeche.Verify.Inductives.ClassGenScope
 import ConLeche.Verify.Abstract
+import ConLeche.Verify.Extend.Inversions
+import ConLeche.Semantics.DeclRun
+import ConLeche.Model.Inductives.TargetResidue
 
 public section
 
@@ -483,5 +486,82 @@ theorem genIhdAV_below (m : EnvModel V env) {out : List (ConstantVal × TargetMa
       exact hcargs a (List.mem_of_getLast? hl)
 
 end Below
+
+/-! ## 5. The generated rule's frame is the target frame -/
+
+section Frame
+
+variable {mode : CheckMode} {F : Nat} {fe₁ : FEnv} {env₁ : Env} {fe : FEnv} {p : BlockShape}
+  {nb : Bool} {pos : ConLeche.NestState} {cvTas : List ConstantVal} {block : List ConstantInfo}
+  {ctorsAs : List (List (ConstantVal × Nat))} {out : List (ConstantVal × TargetMajor × List Expr)}
+
+open ConLeche (ScB ClassGenScoped)
+
+/-- The generated rule opens the constructor's declared fields at the
+prefix. -/
+theorem classGenRule_open {g : ClassGen} {recOf : Nat → Option Name} {rlvls : List Level}
+    {c : Nat} {x : ClassCtor} {gen : Expr} (h : ConLeche.classGenRule g recOf rlvls c x = some gen) :
+    ∃ fvs res, ConLeche.openPisAtFvars x.nF x.tyD g.pre.length = some (fvs, res) := by
+  unfold ConLeche.classGenRule at h
+  obtain ⟨⟨s, sl⟩, -, h⟩ := Option.bind_eq_some_iff.mp h
+  obtain ⟨⟨fvs, res⟩, hop, -⟩ := Option.bind_eq_some_iff.mp h
+  exact ⟨fvs, res, hop⟩
+
+/-- **The generated rule's frame IS the target frame** (`tgtCrest`,
+`tgtFieldFvs`, `tgtCbody` — official's `mk_rec_rules` binds the
+declared fields at the class's instantiation), and the prefix is the
+generator's. -/
+theorem genFrameAt (R : GenRecRun mode F fe₁ env₁ fe p nb pos cvTas block ctorsAs out)
+    (hg : ClassGenScoped R.g)
+    {j : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
+    (hr : (tgtRs out)[j]? = some r) {i : Nat} {cA : ConstantVal × Nat}
+    (hcA : r.2.2.2[i]? = some cA) {rhs : Expr} (hrhs : r.2.1[i]? = some rhs) :
+    ∃ (cls : Nat) (x : ClassCtor) (fvs : List Expr) (res : Expr),
+      R.rd.recCls[j]? = some cls ∧
+      p.rulePrefixAt j = R.g.pre.length ∧ tgtRP p j = R.g.pre.length ∧
+      tgtMajor out j = R.g.cls.getD cls default ∧ tgtCtorOf out j i = cA ∧
+      tgtCrest out j i = x.tyD ∧
+      ConLeche.openPisAtFvars cA.2 x.tyD R.g.pre.length = some (fvs, res) ∧
+      tgtFieldFvs p out j i = fvs ∧ tgtCbody p out j i = res ∧
+      tgtB p out j i = R.g.pre.length + cA.2 ∧
+      genCtorAt R.g R.rd j i = x ∧ x.nF = cA.2 ∧ x ∈ R.g.ctors.getD cls [] ∧
+      tgtRhsOf out j i = rhs ∧ ScB 0 rhs ∧
+      ScB R.g.pre.length x.tyD ∧
+      (∀ e ∈ (R.g.cls.getD cls default).ds, ScB R.g.pre.length e) ∧
+      0 < R.g.slots.length := by
+  obtain ⟨rc, cls, x, gen, hrc, hc, -, ho, hctors, -, hx, ⟨CR⟩, ⟨TR⟩, hnF, -, hgen, ⟨RR⟩⟩ :=
+    genRuleAt R hr hcA hrhs
+  obtain ⟨hpl, -⟩ := ConLeche.ClassGen.prefixBinders_scoped hg hg.pre
+  have hrP : p.rulePrefixAt j = R.g.pre.length := by
+    rw [BlockShape.rulePrefixAt, List.getD_eq_getElem?_getD, hrc, Option.getD_some, TR.hrP, hpl]
+  have hMaj : tgtMajor out j = R.g.cls.getD cls default := by
+    rw [tgtMajor, List.getD_eq_getElem?_getD, ho]; rfl
+  have hCt : tgtCtorOf out j i = cA := tgtCtorOf_at hr hcA
+  have hxmem : x ∈ R.g.ctors.getD cls [] := List.mem_of_getElem? hx
+  have hCrest : tgtCrest out j i = x.tyD := by
+    rw [tgtCrest, hMaj, hCt]
+    have hD := CR.hD
+    rw [show (R.g.cls.getD cls default) = R.Ms.getD cls default from rfl, hD]; rfl
+  obtain ⟨fvs, res, hop⟩ := classGenRule_open hgen
+  rw [hnF] at hop
+  have hRP : tgtRP p j = R.g.pre.length := hrP
+  have hB : tgtB p out j i = R.g.pre.length + cA.2 := by rw [tgtB_at hr hcA, hrP]
+  have hcx : genCtorAt R.g R.rd j i = x := by
+    have h1 : genClsOf R.rd j = cls := by simp [genClsOf, List.getD_eq_getElem?_getD, hc]
+    rw [genCtorAt, h1, List.getD_eq_getElem?_getD, hx]; rfl
+  have hrhsE : tgtRhsOf out j i = rhs := by
+    simp only [tgtRhsOf, List.getD_eq_getElem?_getD, ho, Option.getD_some, hrhs]
+  have hcl : ScB 0 rhs := by
+    obtain ⟨hf, hb⟩ := annotate_syntax (by
+      rw [← ConLeche.fueledOps_annotate]; exact RR.hann) RR.hfv RR.hbv
+    exact ⟨Expr.WScoped.of_not_hasFvar hf, hb⟩
+  have hsl := genRule_slots_pos hgen
+  refine ⟨cls, x, fvs, res, hc, hrP, hRP, hMaj, hCt, hCrest, hop, ?_, ?_, hB, hcx, hnF, hxmem,
+    hrhsE, hcl, (hg.tyD cls x hxmem).mono (by omega),
+    fun e he => (hg.ds cls e he).mono (by omega), hsl⟩
+  · rw [tgtFieldFvs, hCt, hCrest, hRP, hop]; rfl
+  · rw [tgtCbody, hCt, hCrest, hRP, hop]; rfl
+
+end Frame
 
 end ConLeche.Model
