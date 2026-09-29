@@ -93770,3 +93770,93 @@ erases the read; correction note in place).
 with two or more faults (reject ↔ decline, never to accept) are always fine — record them, don't avoid
 them (RPTIE's `corner_rptie_order_decline` 1→2 accepted). (2) RPTIE's factual rewording of charter item
 8's D1 row ("seeded … as the recursor check resolved them") accepted.
+
+## RPFOLLOW — RP-CLEANUP's three follow-ups (2026-09-29, `agent/uinds-RPFOLLOW`)
+
+Brief: the follow-ups of RPCLEAN ("RP-CLEANUP"): unify the two field-kind
+types; decide `blockRecPinOk` by a counterexample hunt or a coverage
+argument by syntax; stop storing positivity-cache keys that can never hit.
+Artifacts: `_tmp/uniform-inds/RPFOLLOW/` (sweeps, binaries, `loc/`, `fx/`,
+`forge.py`).
+
+**1. `PosKind` → `NestFieldKind` (proof-only).**  The derivation's
+`PosKind` was the kernel's `NestFieldKind` constructor for constructor and
+`NestFieldKind.erase` a relabelling.  The kernel's name is kept (it is the
+checker's type, the one the positivity check returns, and it says what it
+classifies); `PosKind` and `erase` are deleted, the derivation (`PosD`,
+`MemberCtorD`, the model) carries the run's kinds directly, `PosKind.guarded`
+is `NestFieldKind.guarded` (proof side, `Verify/Inductives/PosDeriv.lean`),
+`PosKind.flat` is the kernel's `NestFieldKind.flat`.  The transport lemmas
+`erase_getD`, `erase_getD_bne` (PosDerivInv), `getD_erase`, `guarded_erase`
+(Complete) are gone.  Proof side (23 files): +84 −136.
+
+**2. `blockRecPinOk` DELETED — covered by syntax.**  No counterexample
+exists; the argument, over the syntax:
+* the conformance check (`checkBlockRecConform(F)`) runs only at
+  `p.members = [ms]`, `p.recs = [_]`, and only after `targetRecCheck`
+  RETURNED (`thenConform`, both drivers: `checkBlockRec`,
+  `checkBlockRecS`/`checkBlockRecSFast`);
+* `blockRecPinOk`'s first conjuncts (`blockSplit` succeeds,
+  `cvTs.length = k`, `rs.length = recs.length`, the constructors' names in
+  block order) are `targetRecPins`' "constructor grouping" throw verbatim;
+* its per-recursor conjunct at `r = 0`: the recursor's rules
+  (`blockSplit`'s `rs[0]`, = `targetRecRules block`'s head) are one per
+  constructor of `members[recTgtAt 0]`, naming `cs[offs + j]` with its
+  record `nF`.  At `k = 1` the name set (`blockRecNameSetOk` over the
+  recursors with `tgt < k`, which must number `k = 1`) forces
+  `recTgtAt 0 = 0`, `offs 0 = 0`, and `blockGroups` is `[cs]`, so
+  `members[0].ctors = cs` with the record's `nF`.  `targetRulePins` compares
+  the same rules with the resolved major's `M.ctors`.  Stage (b)'s major is
+  read off the ANNOTATED type (`checkConstantValF`) at the same `mI`;
+  `annotateBody` keeps `forallE`, `app` and `const` nodes, so the major's
+  head is the raw one, `T`, and `targetMajorOf` resolves member `0`
+  (`M.member = some 0`, as K7 also demands): `M.ctors = ctorsAs[0]`,
+  whose names are the records' (`checkConstantVal` keeps the name,
+  `checkSumCtorF_name`) and whose field counts are `ms.ctors`' own
+  (`checkSumCtors` passes `c.2` through).  So `targetRulePins` passing IS
+  the per-recursor conjunct.
+Hence `blockRecPinOk` is `true` whenever it is evaluated, and it is gone
+with its raw-`block` parameter (`BlockParts.toNative`,
+`checkBlockRecConform(F)`, `checkBlockRecConformF_recBareHint`, the datF
+bridge, the cached run and sims).  `NativeParts.recPinned` is the sums pin
+`recSumsOk` alone — NOT covered (the recursor check reads `rP` off the
+record and requires only `nP ≤ rP`, charter item 8's zero-motive row).
+The hunt (`RPFOLLOW/forge.py`, one edit of `direct_fix_nat` each; official
+/ before / after): a rule's `nfields` + 1 (1/1/1), the rules swapped
+(1/1/1), a rule duplicated (1/1/1), the constructor records swapped
+(0/0/0 — the parser reads the order off the type record), a constructor
+record's `numFields` + 1 (1/1/1, refused at the constructor, before any
+recursor).  Every reject is `targetRulePins`' or earlier.  The two
+per-rule conjuncts had no one-member fixture: NEW `corner_rec_rule_nfields`,
+`corner_rec_rules_swapped` (`scripts/mk_rec_corner.py`; official 1, ours
+1).  Stale comments naming `blockRecPinOk` as the rejecting check
+(`tests/e2e-expected.txt`'s `mutual_rec_missing_rule`,
+`scripts/mk_mutual_bad.py`, `BlockParts`, `BlockPartsInv`, `RecCheck`)
+now name `targetRulePins`.
+
+**3. Positivity-cache keys below every frame hole only (kernel).**
+`nestContNew` accepts the group into `keys` only when the instantiation's
+parameters mention no frame hole (`ds.all (·.fvarB ≤ ctx.hiAt 0)`, the
+test `nestContKey`'s hit and `nestWalkStack` already make); any other key
+can never hit.  Proof: `DerivCache`'s storing obligation splits on the new
+`if` (the group lemma on the storing branch, the old invariant on the
+other), 3 lines in `PosDerivInv`; the cached sims, `ProgActive` and the
+completeness proof went through unchanged.  Not done (no measurable gain,
+larger proof): dropping the `ds.all` conjunct from `nestContKey`'s hit test
+(every stored key now satisfies it) would need `DerivCache`/`RInv` to carry
+"every key is below the frame holes".
+Perf (instructions:u, two runs each): `complete_c05b_nest30_pi1000`
+69.42 G → 69.43 G (noise), `corner_nestind_f13_listrose` 36.81 M →
+36.79 M (−0.05 %).  The cache is a list searched linearly
+(`Array.contains`), so the gain is where many frame-hole keys accumulate,
+which neither stream has.
+
+**Verdicts: zero moves.**  668-stream sweep (e2e, arena,
+RECPOS/FUSEPOS/FUSELOOP/RPWHNF fx; `RPFOLLOW/sweep.sh`), uniform-inds
+`b71fc0633` vs the lane (`sweep-base.txt`, `sweep-k1.txt`): exit code AND
+output hash identical on every stream.
+
+**Executed checker lines** (SIZEAUDIT method, build and text of one
+revision, `RPFOLLOW/loc`): 10838 → **10822 (−16)**: `Conformance` 278 → 261
+(−17), `Kernel/Inductives` 1926 → 1927 (+1, the `if`), `Cached` 2926
+unchanged.  No sorry, no new axiom.
