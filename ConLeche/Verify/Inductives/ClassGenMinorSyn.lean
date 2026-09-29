@@ -342,7 +342,7 @@ the slot's constructor. -/
 theorem ClassGen.prefixBinders_minor {g : ClassGen} (hg : ClassGenScoped g) {s c : Nat}
     {C : Name} {ihs0 : List (Nat × Nat)} (hs : g.slots[s]? = some (.minor c C ihs0)) :
     ∃ x T, (g.ctors.getD c []).find? (·.cv.name == C) = some x ∧
-      g.minorTy c x (g.nP + s) = some T ∧ g.pre[g.nP + s]? = some (T, default) := by
+      g.minorTy c x (g.nP + s) = some T ∧ g.pre[g.nP + s]? = some (T, g.bm) := by
   have hpre := hg.pre
   unfold ClassGen.prefixBinders at hpre
   obtain ⟨slotBs, hsl, hpre⟩ := Option.bind_eq_some_iff.mp hpre
@@ -384,7 +384,7 @@ theorem ClassGen.minorTy_spec {g : ClassGen} (hg : ClassGenScoped g) {s c : Nat}
         x.recs.getD l default = (i, t, tele) ∧
         ClassRead.motiveSlot ⟨g.slots, []⟩ t = some st ∧ st < s ∧ bargs ≠ [] ∧
         IB[l]? = some (closeTelescope TB (g.nP + s + x.nF + l)
-          (Expr.mkAppN (.fvar (g.nP + st) (.sort .zero)) bargs), default) ∧
+          (Expr.mkAppN (.fvar (g.nP + st) (.sort .zero)) bargs), g.bm) ∧
         (∀ (k : Nat) (nd : Expr × BinderMeta), TB[k]? = some nd →
           ScB (g.nP + s + x.nF + l + k) nd.1) ∧
         ScB (g.nP + s + x.nF + l + TB.length)
@@ -425,7 +425,7 @@ theorem ClassGen.minorTy_spec {g : ClassGen} (hg : ClassGenScoped g) {s c : Nat}
       x.recs.getD l default = (i, t, tele) ∧
       ClassRead.motiveSlot ⟨g.slots, []⟩ t = some st ∧ st < s ∧ bargs ≠ [] ∧
       ihs[l]? = some (closeTelescope TB (g.nP + s + x.nF + l)
-        (Expr.mkAppN (.fvar (g.nP + st) (.sort .zero)) bargs), default) ∧
+        (Expr.mkAppN (.fvar (g.nP + st) (.sort .zero)) bargs), g.bm) ∧
       (∀ (k : Nat) (nd : Expr × BinderMeta), TB[k]? = some nd →
         ScB (g.nP + s + x.nF + l + k) nd.1) ∧
       ScB (g.nP + s + x.nF + l + TB.length)
@@ -452,7 +452,7 @@ theorem ClassGen.minorTy_spec {g : ClassGen} (hg : ClassGenScoped g) {s c : Nat}
     subst hy
     obtain ⟨hxl, hxs, hidx⟩ := ClassGen.ihParts_scoped (hwsB i hi) (by omega) hparts
     rw [ClassGen.motVar_eq hmt'] at hyb
-    have hTB : ∀ (k : Nat) (nd : Expr × BinderMeta), (xs.map classBinder)[k]? = some nd →
+    have hTB : ∀ (k : Nat) (nd : Expr × BinderMeta), (xs.map g.binder)[k]? = some nd →
         ScB (g.nP + s + x.nF + l + k) nd.1 := by
       intro k nd hk
       rw [List.getElem?_map] at hk
@@ -462,8 +462,8 @@ theorem ClassGen.minorTy_spec {g : ClassGen} (hg : ClassGenScoped g) {s c : Nat}
         rw [hxk] at hk
         obtain rfl := (Option.some.inj hk).symm
         obtain ⟨ty', hxe, hty'⟩ := hxs k xk hxk
-        exact ScB.classBinder hxe hty'
-    have hbody : ScB (g.nP + s + x.nF + l + (xs.map classBinder).length)
+        exact ScB.binder g hxe hty'
+    have hbody : ScB (g.nP + s + x.nF + l + (xs.map g.binder).length)
         (Expr.mkAppN (.fvar (g.nP + st) (.sort .zero))
           (idx ++ [Expr.mkAppN (fvs.getD i default) xs])) := by
       rw [List.length_map, hxl]
@@ -478,10 +478,10 @@ theorem ClassGen.minorTy_spec {g : ClassGen} (hg : ClassGenScoped g) {s c : Nat}
         obtain ⟨ty', hxe, hty'⟩ := hxs k _ (List.getElem?_eq_getElem hk)
         rw [hxe]
         exact ScB.fvar (by omega) hty'
-    refine ⟨i, t, tele, st, xs.map classBinder, idx ++ [Expr.mkAppN (fvs.getD i default) xs],
+    refine ⟨i, t, tele, st, xs.map g.binder, idx ++ [Expr.mkAppN (fvs.getD i default) xs],
       by rw [← hrl]; rfl, hmt', hst, by simp, hyb, hTB, hbody, ?_⟩
     -- the gap: the `ih`'s own variables are closed again
-    have hsc : ScB (g.nP + s + x.nF + l) (closeTelescope (xs.map classBinder)
+    have hsc : ScB (g.nP + s + x.nF + l) (closeTelescope (xs.map g.binder)
         (g.nP + s + x.nF + l) (Expr.mkAppN (.fvar (g.nP + st) (.sort .zero))
           (idx ++ [Expr.mkAppN (fvs.getD i default) xs]))) :=
       ScB.of_closeTelescope hTB hbody
@@ -521,12 +521,12 @@ theorem ClassGen.minorTy_spec {g : ClassGen} (hg : ClassGenScoped g) {s c : Nat}
         obtain ⟨ty', hxe, hty'⟩ := hfvs k _ (List.getElem?_eq_getElem hk)
         rw [hxe]
         exact ScB.fvar (by omega) hty'
-  refine ⟨fvs.map classBinder, ihs, _, sc, by rw [ClassGen.motVar_eq hmc], by simp [hfl],
+  refine ⟨fvs.map g.binder, ihs, _, sc, by rw [ClassGen.motVar_eq hmc], by simp [hfl],
     by rw [hihl]; rfl, ?_, hmc, hsc, by simp, hconcl, hih⟩
   intro k nd hk
   rcases Nat.lt_or_ge k fvs.length with hkl | hkl
   · rw [List.getElem?_append_left (by simpa using hkl)] at hk
-    exact ScB.openPis_binders hop htyD k nd hk
+    exact ScB.openPis_binders (fun _ => rfl) hop htyD k nd hk
   · rw [List.getElem?_append_right (by simpa using hkl)] at hk
     simp only [List.length_map] at hk
     have hkl' : k - fvs.length < ihs.length := (List.getElem?_eq_some_iff.mp hk).1

@@ -216,17 +216,17 @@ theorem fvarLeaves_mkAppN_head {i : Nat} {T : Expr} :
 
 set_option maxHeartbeats 800000 in
 /-- **The generated type's conclusion is sorted at `Sort elim`**: the
-annotated type opens at its binder count, and its conclusion (the motive's
-variable applied to the index spine and the major) infers to a sort that
-`ensureSort` reads as the generator's elimination level. -/
+type (stored as generated) opens at its binder count, and its conclusion
+(the motive's variable applied to the index spine and the major) infers
+to a sort that `ensureSort` reads as the generator's elimination level —
+the head's opened domain is the motive type, `∀ ı⃗ t, Sort elim`. -/
 theorem classGenRecTy_conclSort (hμ : μ.verifiedChecks = true)
     {envK : Env} {g : ClassGen} (hg : ClassGenScoped g) {c s : Nat}
     (hm : ConLeche.ClassRead.motiveSlot ⟨g.slots, []⟩ c = some s) {F : Nat}
-    {gty gtyA S : Expr}
+    {gty S : Expr}
     (hgty : classGenRecTy g c = some gty)
-    (hann : ConLeche.annotateCore μ envK F 0 gty = .ok gtyA)
-    (hinf : ConLeche.inferTypeCore μ envK F 0 gtyA = .ok S) :
-    ∃ fvs o bt, openPisAtFvars (g.pre.length + (g.cls.getD c default).nIdx + 1) gtyA 0
+    (hinf : ConLeche.inferTypeCore μ envK F 0 gty = .ok S) :
+    ∃ fvs o bt, openPisAtFvars (g.pre.length + (g.cls.getD c default).nIdx + 1) gty 0
         = some (fvs, o) ∧
       ConLeche.inferTypeCore μ envK F (0 + (g.pre.length + (g.cls.getD c default).nIdx + 1)) o
         = .ok bt ∧
@@ -234,30 +234,15 @@ theorem classGenRecTy_conclSort (hμ : μ.verifiedChecks = true)
         = .ok g.elim := by
   obtain ⟨hpl, hpreS⟩ := ConLeche.ClassGen.prefixBinders_scoped hg hg.pre
   obtain ⟨ifs, maj, hmaj, hifl, rfl, hcl, hbb⟩ := ConLeche.classGenRecTy_spec hg hgty
-  have hPlain : ConLeche.Expr.Plain
-      (Expr.mkAppN (g.motVar c) (ifs ++ [.fvar (g.pre.length + ifs.length) maj])) := by
-    refine ConLeche.Expr.Plain.mkAppN (by simp [ClassGen.motVar, ClassGen.slotVar,
-      ConLeche.Expr.Plain]) fun a ha => ?_
-    rcases List.mem_append.mp ha with ha | ha
-    · obtain ⟨k, hk, rfl⟩ := List.getElem_of_mem ha
-      obtain ⟨ty, hxe, -⟩ := (ConLeche.ClassGen.major_scoped hg (by omega) hmaj).1 k _
-        (List.getElem?_eq_getElem hk)
-      rw [hxe]; trivial
-    · simp only [List.mem_singleton] at ha
-      subst ha; trivial
-  generalize hnds : g.pre ++ ifs.map classBinder ++ [(maj, (default : ConLeche.BinderMeta))]
-    = nds at hann hcl
+  generalize hnds : g.pre ++ ifs.map g.binder ++ [(maj, g.bm)] = nds at hinf hcl
   generalize hbody : Expr.mkAppN (g.motVar c) (ifs ++ [.fvar (g.pre.length + ifs.length) maj])
-    = body at hann hbb hPlain
+    = body at hinf hbb
   have hn : nds.length = g.pre.length + (g.cls.getD c default).nIdx + 1 := by
     rw [← hnds]
     simp only [List.length_append, List.length_map, List.length_singleton, hifl]
-  -- the annotated type opens
-  have hsd : SameDoms nds.length (closeTelescope nds 0 body) (closeTelescope nds 0 body) := by
-    have := ConLeche.SameDoms.closeTelescope_append nds [] [] 0 body body
-    simpa using this
-  have hsdA := ConLeche.SameDoms.annotate nds.length hsd hann hann
-  obtain ⟨fvs, o, hop⟩ := ConLeche.SameDoms.open_isSome nds.length (d := 0) hsdA
+  -- the type opens
+  obtain ⟨fvs, o, hop, hrest, hxs⟩ := open_of_erasedEq_closeTelescope nds 0 body
+    (closeTelescope nds 0 body) hcl hbb (Expr.ErasedEq.rfl _)
   -- the conclusion's inference
   obtain ⟨n', hn'⟩ : ∃ n', nds.length = n' + 1 := ⟨nds.length - 1, by omega⟩
   rw [hn'] at hop
@@ -267,24 +252,8 @@ theorem classGenRecTy_conclSort (hμ : μ.verifiedChecks = true)
     subst hue
     rw [← hn]
     exact ⟨fvs, o, bt, hop, hbt, hu⟩
-  -- the conclusion is sorted at `Sort elim`
-  obtain ⟨nds', B', hl', he', hB', hdoms⟩ := ConLeche.annotateCore_closeTelescope nds
-    hcl hbb hPlain (Expr.ErasedEq.rfl _) hann
-  have hcl' : ∀ p ∈ nds', p.1.looseBVarsBounded 0 = true := by
-    intro p hp
-    obtain ⟨k, hk, rfl⟩ := List.getElem_of_mem hp
-    obtain ⟨X, F', nd, hnd, hX, hann'⟩ := hdoms k _ (List.getElem?_eq_getElem hk)
-    exact ConLeche.annotateCore_looseBVars F' X hann'
-      (looseBVarsBounded_of_erasedEq hX (hcl nd (List.mem_of_getElem? hnd)))
-  have hB'b : B'.looseBVarsBounded 0 = true := looseBVarsBounded_of_erasedEq hB' hbb
-  obtain ⟨xs, rest, hop', hrest, hxs⟩ := open_of_erasedEq_closeTelescope nds' 0 B' gtyA hcl' hB'b he'
-  rw [hl'] at hop'
-  obtain ⟨hxf, hro⟩ : fvs = xs ∧ o = rest := by
-    have := Option.some.inj (hop.symm.trans hop')
-    exact ⟨congrArg Prod.fst this, congrArg Prod.snd this⟩
-  subst hxf hro
   -- the conclusion: the motive's variable, applied
-  have hoE : Expr.ErasedEq o body := hrest.trans hB'
+  have hoE : Expr.ErasedEq o body := hrest
   rw [← hbody] at hoE
   obtain ⟨f', as', rfl, hf', has'⟩ := erasedEq_mkAppN_inv _ hoE
   have hmv := ConLeche.ClassGen.motVar_eq hm
@@ -292,14 +261,13 @@ theorem classGenRecTy_conclSort (hμ : μ.verifiedChecks = true)
   obtain ⟨T, rfl⟩ : ∃ T, f' = .fvar (g.nP + s) T := by
     match f', hf' with
     | .fvar j T, hf' => exact ⟨T, by rw [show j = g.nP + s from hf']⟩
-  -- its annotation is the opened motive domain
-  have hgA := annotate_syntax hann (by rw [← hnds, ← hbody]; exact
-    (ConLeche.classGenRecTy_closed hg hm hgty).1) (by rw [← hnds, ← hbody]; exact
-    (ConLeche.classGenRecTy_closed hg hm hgty).2)
+  -- the head is an opened variable
+  have hclosed := ConLeche.classGenRecTy_closed hg hm hgty
+  rw [hnds, hbody] at hclosed
   have hleaf : (g.nP + s, T) ∈ (Expr.mkAppN (.fvar (g.nP + s) T) as').fvarLeaves :=
     fvarLeaves_mkAppN_head as' (by simp [Expr.fvarLeaves])
   rcases ConLeche.Verify.openPisAtFvars_leaves _ hop _ (Or.inl hleaf) with hl | hl
-  · rw [Expr.fvarLeaves_eq_nil_of_not_hasFvar hgA.1] at hl; exact nomatch hl
+  · rw [Expr.fvarLeaves_eq_nil_of_not_hasFvar hclosed.1] at hl; exact nomatch hl
   obtain ⟨k, hk⟩ := List.getElem?_of_mem hl
   obtain ⟨ty, hty⟩ := ConLeche.openPisAtFvars_index _ _ _ hop k _ hk
   simp only [Expr.fvar.injEq, Nat.zero_add] at hty
@@ -311,16 +279,11 @@ theorem classGenRecTy_conclSort (hμ : μ.verifiedChecks = true)
   rw [hcount] at hTm
   have hTmS := ClassGen.motiveTy_endsInSort hTm
   have hkP : g.nP + s < g.pre.length := by omega
-  have hndk : nds[g.nP + s]? = some (Tm, default) := by
+  have hndk : nds[g.nP + s]? = some (Tm, g.bm) := by
     rw [← hnds, List.append_assoc, List.getElem?_append_left hkP]; exact hpreT
-  have hk' : g.nP + s < nds'.length := by rw [hl', hn]; omega
-  obtain ⟨X, F', nd, hnd, hX, hann'⟩ := hdoms (g.nP + s) _ (List.getElem?_eq_getElem hk')
-  rw [hndk] at hnd
-  obtain rfl := Option.some.inj hnd
-  have hTA := EndsInSort.annotate _ (EndsInSort.of_erasedEq _ hX hTmS) hann'
-  have hTx := hxs (g.nP + s) _ nds'[g.nP + s].1 hk (by simp [List.getElem?_eq_getElem hk'])
+  have hTx := hxs (g.nP + s) _ Tm hk (by simp [hndk])
   have hTT : EndsInSort ((g.cls.getD c default).nIdx + 1) g.elim T :=
-    EndsInSort.of_erasedEq _ hTx hTA
+    EndsInSort.of_erasedEq _ hTx hTmS
   obtain ⟨bsT, hbsT⟩ := EndsInSort.stripPis _ hTT
   -- the inference of the conclusion
   have hF : 1 ≤ F := inferTypeCore_pos hbt
@@ -340,15 +303,14 @@ elimination level's zero bit.** -/
 theorem classGenRecTy_bits (hμ : μ.verifiedChecks = true) {acval : Name → (Name → Nat) → AnnotTerm}
     {env envK : Env} {φ : Name → Nat} {g : ClassGen} (hg : ClassGenScoped g) {c s : Nat}
     (hm : ConLeche.ClassRead.motiveSlot ⟨g.slots, []⟩ c = some s) {F : Nat}
-    {gty gtyA S : Expr} {ea : AnnotTerm}
+    {gty S : Expr} {ea : AnnotTerm}
     (hgty : classGenRecTy g c = some gty)
-    (hann : ConLeche.annotateCore μ envK F 0 gty = .ok gtyA)
-    (hinf : ConLeche.inferTypeCore μ envK F 0 gtyA = .ok S)
-    (hread : denoteMeta acval env φ 0 gtyA = some ea) :
+    (hinf : ConLeche.inferTypeCore μ envK F 0 gty = .ok S)
+    (hread : denoteMeta acval env φ 0 gty = some ea) :
     ∃ pps b, stripPisAV (g.pre.length + (g.cls.getD c default).nIdx + 1) ea = some (pps, b) ∧
       pps.length = g.pre.length + (g.cls.getD c default).nIdx + 1 ∧
       ∀ p ∈ pps, p.1 = 0 ∧ p.2.1 = pwBit φ (Level.zeronessOf g.elim) := by
-  obtain ⟨fvs, o, bt, hop, hbt, hu⟩ := classGenRecTy_conclSort hμ hg hm hgty hann hinf
+  obtain ⟨fvs, o, bt, hop, hbt, hu⟩ := classGenRecTy_conclSort hμ hg hm hgty hinf
   obtain ⟨pps, b, hst, -, hlen, hpp⟩ := denoteMeta_openPis _ hop hread
   have hbits := stripPisAV_denoteMeta_pw (acval := acval) (env := env) (envK := envK) (φ := φ) hμ
     _ (Nat.le_refl F) hop hread hst hinf hbt hu
@@ -414,10 +376,9 @@ theorem classGenRecTy_concl
     {acval : Name → (Name → Nat) → AnnotTerm} {env envK : Env} {φ : Name → Nat} {g : ClassGen}
     (hg : ClassGenScoped g) {c s : Nat}
     (hm : ConLeche.ClassRead.motiveSlot ⟨g.slots, []⟩ c = some s) {F : Nat}
-    {gty gtyA : Expr} {ea : AnnotTerm}
+    {gty : Expr} {ea : AnnotTerm}
     (hgty : classGenRecTy g c = some gty)
-    (hann : ConLeche.annotateCore μ envK F 0 gty = .ok gtyA)
-    (hread : denoteMeta acval env φ 0 gtyA = some ea) {pps : List (Nat × Nat × AnnotTerm)}
+    (hread : denoteMeta acval env φ 0 gty = some ea) {pps : List (Nat × Nat × AnnotTerm)}
     {b : AnnotTerm}
     (hst : stripPisAV (g.pre.length + (g.cls.getD c default).nIdx + 1) ea = some (pps, b)) :
     ∀ (ρ : Nat → V) (xs zs : List V) (x : V), xs.length = g.pre.length →
@@ -428,37 +389,18 @@ theorem classGenRecTy_concl
   obtain ⟨hpl, -⟩ := ConLeche.ClassGen.prefixBinders_scoped hg hg.pre
   obtain ⟨ifs, maj, hmaj, hifl, rfl, hcl, hbb⟩ := ConLeche.classGenRecTy_spec hg hgty
   obtain ⟨hifs, -⟩ := ConLeche.ClassGen.major_scoped hg (by omega) hmaj
-  have hPlain : ConLeche.Expr.Plain
-      (Expr.mkAppN (g.motVar c) (ifs ++ [.fvar (g.pre.length + ifs.length) maj])) := by
-    refine ConLeche.Expr.Plain.mkAppN (by simp [ClassGen.motVar, ClassGen.slotVar,
-      ConLeche.Expr.Plain]) fun a ha => ?_
-    rcases List.mem_append.mp ha with ha | ha
-    · obtain ⟨k, hk, rfl⟩ := List.getElem_of_mem ha
-      obtain ⟨ty, hxe, -⟩ := hifs k _ (List.getElem?_eq_getElem hk)
-      rw [hxe]; trivial
-    · simp only [List.mem_singleton] at ha
-      subst ha; trivial
-  generalize hnds : g.pre ++ ifs.map classBinder ++ [(maj, (default : ConLeche.BinderMeta))]
-    = nds at hann hcl
+  generalize hnds : g.pre ++ ifs.map g.binder ++ [(maj, g.bm)] = nds at hread hcl
   generalize hbody : Expr.mkAppN (g.motVar c) (ifs ++ [.fvar (g.pre.length + ifs.length) maj])
-    = body at hann hbb hPlain
+    = body at hread hbb
   have hn : nds.length = g.pre.length + (g.cls.getD c default).nIdx + 1 := by
     rw [← hnds]
     simp only [List.length_append, List.length_map, List.length_singleton, hifl]
-  obtain ⟨nds', B', hl', he', hB', hdoms⟩ := ConLeche.annotateCore_closeTelescope nds
-    hcl hbb hPlain (Expr.ErasedEq.rfl _) hann
-  have hcl' : ∀ p ∈ nds', p.1.looseBVarsBounded 0 = true := by
-    intro p hp
-    obtain ⟨k, hk, rfl⟩ := List.getElem_of_mem hp
-    obtain ⟨X, F', nd, hnd, hX, hann'⟩ := hdoms k _ (List.getElem?_eq_getElem hk)
-    exact ConLeche.annotateCore_looseBVars F' X hann'
-      (looseBVarsBounded_of_erasedEq hX (hcl nd (List.mem_of_getElem? hnd)))
-  have hB'b : B'.looseBVarsBounded 0 = true := looseBVarsBounded_of_erasedEq hB' hbb
-  obtain ⟨fvs, o, hop, hrest, -⟩ := open_of_erasedEq_closeTelescope nds' 0 B' gtyA hcl' hB'b he'
-  rw [hl', hn] at hop
+  obtain ⟨fvs, o, hop, hrest, -⟩ := open_of_erasedEq_closeTelescope nds 0 body
+    (closeTelescope nds 0 body) hcl hbb (Expr.ErasedEq.rfl _)
+  rw [hn] at hop
   obtain ⟨pps', b', hst', hbo, -, -⟩ := denoteMeta_openPis _ hop hread
   obtain ⟨rfl, rfl⟩ := Prod.mk.inj (Option.some.inj (hst.symm.trans hst'))
-  have hoE : Expr.ErasedEq o body := hrest.trans hB'
+  have hoE : Expr.ErasedEq o body := hrest
   rw [Nat.zero_add, denoteMeta_erasedEq hoE, ← hbody, ConLeche.ClassGen.motVar_eq hm] at hbo
   have hvl : (xs ++ (zs ++ [x])).length = g.pre.length + (g.cls.getD c default).nIdx + 1 := by
     simp only [List.length_append, List.length_singleton, hxl, hzl]; omega
@@ -509,21 +451,19 @@ opened frame (`piConcl_univ`), the sort being `Sort elim`
 theorem classGenRecTy_conclTy (hμ : μ.verifiedChecks = true) {envK : Env}
     (mpC : EnvModelM V μ envK) {φ : Name → Nat} {g : ClassGen} (hg : ClassGenScoped g)
     {c s : Nat} (hm : ConLeche.ClassRead.motiveSlot ⟨g.slots, []⟩ c = some s) {F : Nat}
-    {gty gtyA S : Expr} {ea : AnnotTerm}
+    {gty S : Expr} {ea : AnnotTerm}
     (hgty : classGenRecTy g c = some gty)
-    (hann : ConLeche.annotateCore μ envK F 0 gty = .ok gtyA)
-    (hinf : ConLeche.inferTypeCore μ envK F 0 gtyA = .ok S)
-    (hread : denoteMeta mpC.base2.acval envK φ 0 gtyA = some ea)
+    (hinf : ConLeche.inferTypeCore μ envK F 0 gty = .ok S)
+    (hread : denoteMeta mpC.base2.acval envK φ 0 gty = some ea)
     (hwd : ∀ ρ : Nat → V, WellDenotedV V ρ ea) :
     ∃ pps b, stripPisAV (g.pre.length + (g.cls.getD c default).nIdx + 1) ea = some (pps, b) ∧
       ∀ (ρ : Nat → V) (ys : List V), SpineFit ρ (pps.map (·.2.2)) ys →
         interp V (consList ys ρ) b ∈ˢ (univ (Level.eval φ g.elim) : V) := by
-  obtain ⟨fvs, o, bt, hop, hbt, hu⟩ := classGenRecTy_conclSort hμ hg hm hgty hann hinf
+  obtain ⟨fvs, o, bt, hop, hbt, hu⟩ := classGenRecTy_conclSort hμ hg hm hgty hinf
   rw [Nat.zero_add] at hbt hu
   obtain ⟨pps, b, hst, hb, hlen, hpp⟩ := denoteMeta_openPis _ hop hread
   rw [Nat.zero_add] at hb
-  obtain ⟨hcf, hcb⟩ := annotate_syntax hann (ConLeche.classGenRecTy_closed hg hm hgty).1
-    (ConLeche.classGenRecTy_closed hg hm hgty).2
+  obtain ⟨hcf, hcb⟩ := ConLeche.classGenRecTy_closed hg hm hgty
   have huniv := piConcl_univ hμ mpC φ (Expr.WScoped.of_not_hasFvar hcf) hcb
     (stripPisAV_eq_mkPis hst).1 hlen
     (fun j x hx => by
@@ -537,63 +477,66 @@ end Concl
 /-! ## The shared prefix -/
 
 set_option maxHeartbeats 800000 in
-/-- **The prefix is shared**: two classes' generated types, annotated and
-inferred by the same runs, read to the same first `nP + #slots` binder
-data — the same domains (a domain's annotation reads only the domains
-before it) and the same numeral (the one bit). -/
+/-- **The prefix is shared**: two classes' generated types, inferred by
+the same runs, read to the same first `nP + #slots` binder data — the
+same domains (both are telescopes over the one prefix) and the same
+numeral (the one bit). -/
 theorem classGenRecTy_prefix_eq (hμ : μ.verifiedChecks = true)
     {acval : Name → (Name → Nat) → AnnotTerm} {env envK : Env} {φ : Name → Nat} {g : ClassGen}
     (hg : ClassGenScoped g) {F : Nat} {c₁ c₂ s₁ s₂ : Nat}
     (hm₁ : ConLeche.ClassRead.motiveSlot ⟨g.slots, []⟩ c₁ = some s₁)
     (hm₂ : ConLeche.ClassRead.motiveSlot ⟨g.slots, []⟩ c₂ = some s₂)
-    {gty₁ gty₂ gtyA₁ gtyA₂ S₁ S₂ : Expr} {ea₁ ea₂ : AnnotTerm}
+    {gty₁ gty₂ S₁ S₂ : Expr} {ea₁ ea₂ : AnnotTerm}
     (hgty₁ : classGenRecTy g c₁ = some gty₁) (hgty₂ : classGenRecTy g c₂ = some gty₂)
-    (hann₁ : ConLeche.annotateCore μ envK F 0 gty₁ = .ok gtyA₁)
-    (hann₂ : ConLeche.annotateCore μ envK F 0 gty₂ = .ok gtyA₂)
-    (hinf₁ : ConLeche.inferTypeCore μ envK F 0 gtyA₁ = .ok S₁)
-    (hinf₂ : ConLeche.inferTypeCore μ envK F 0 gtyA₂ = .ok S₂)
-    (hread₁ : denoteMeta acval env φ 0 gtyA₁ = some ea₁)
-    (hread₂ : denoteMeta acval env φ 0 gtyA₂ = some ea₂)
+    (hinf₁ : ConLeche.inferTypeCore μ envK F 0 gty₁ = .ok S₁)
+    (hinf₂ : ConLeche.inferTypeCore μ envK F 0 gty₂ = .ok S₂)
+    (hread₁ : denoteMeta acval env φ 0 gty₁ = some ea₁)
+    (hread₂ : denoteMeta acval env φ 0 gty₂ = some ea₂)
     {pps₁ pps₂ : List (Nat × Nat × AnnotTerm)} {b₁ b₂ : AnnotTerm}
     (hst₁ : stripPisAV (g.pre.length + (g.cls.getD c₁ default).nIdx + 1) ea₁ = some (pps₁, b₁))
     (hst₂ : stripPisAV (g.pre.length + (g.cls.getD c₂ default).nIdx + 1) ea₂ = some (pps₂, b₂)) :
     pps₁.take g.pre.length = pps₂.take g.pre.length := by
   obtain ⟨q₁, b₁', hq₁, hql₁, hbits₁⟩ := classGenRecTy_bits hμ (acval := acval) (env := env)
-    (φ := φ) hg hm₁ hgty₁ hann₁ hinf₁ hread₁
+    (φ := φ) hg hm₁ hgty₁ hinf₁ hread₁
   obtain ⟨q₂, b₂', hq₂, hql₂, hbits₂⟩ := classGenRecTy_bits hμ (acval := acval) (env := env)
-    (φ := φ) hg hm₂ hgty₂ hann₂ hinf₂ hread₂
+    (φ := φ) hg hm₂ hgty₂ hinf₂ hread₂
   obtain ⟨rfl, rfl⟩ := Prod.mk.inj (Option.some.inj (hst₁.symm.trans hq₁))
   obtain ⟨rfl, rfl⟩ := Prod.mk.inj (Option.some.inj (hst₂.symm.trans hq₂))
   obtain ⟨ifs₁, maj₁, -, hifl₁, rfl, -, -⟩ := ConLeche.classGenRecTy_spec hg hgty₁
   obtain ⟨ifs₂, maj₂, -, hifl₂, rfl, -, -⟩ := ConLeche.classGenRecTy_spec hg hgty₂
-  -- the same first domains, annotated
-  have hsd : SameDoms g.pre.length
-      (closeTelescope (g.pre ++ ifs₁.map classBinder ++ [(maj₁, default)]) 0
+  -- the same first domains
+  have hsdA : SameDoms g.pre.length
+      (closeTelescope (g.pre ++ ifs₁.map g.binder ++ [(maj₁, g.bm)]) 0
         (Expr.mkAppN (g.motVar c₁) (ifs₁ ++ [.fvar (g.pre.length + ifs₁.length) maj₁])))
-      (closeTelescope (g.pre ++ ifs₂.map classBinder ++ [(maj₂, default)]) 0
+      (closeTelescope (g.pre ++ ifs₂.map g.binder ++ [(maj₂, g.bm)]) 0
         (Expr.mkAppN (g.motVar c₂) (ifs₂ ++ [.fvar (g.pre.length + ifs₂.length) maj₂]))) := by
     simp only [List.append_assoc]
     exact ConLeche.SameDoms.closeTelescope_append _ _ _ 0 _ _
-  have hsdA := ConLeche.SameDoms.annotate _ hsd hann₁ hann₂
   -- both open along the full telescope, hence along the prefix
-  have hsdF₁ : SameDoms (g.pre.length + (g.cls.getD c₁ default).nIdx + 1) gtyA₁ gtyA₁ := by
-    refine ConLeche.SameDoms.annotate _ ?_ hann₁ hann₁
+  have hsdF₁ : SameDoms (g.pre.length + (g.cls.getD c₁ default).nIdx + 1)
+      (closeTelescope (g.pre ++ ifs₁.map g.binder ++ [(maj₁, g.bm)]) 0
+        (Expr.mkAppN (g.motVar c₁) (ifs₁ ++ [.fvar (g.pre.length + ifs₁.length) maj₁])))
+      (closeTelescope (g.pre ++ ifs₁.map g.binder ++ [(maj₁, g.bm)]) 0
+        (Expr.mkAppN (g.motVar c₁) (ifs₁ ++ [.fvar (g.pre.length + ifs₁.length) maj₁]))) := by
     have := ConLeche.SameDoms.closeTelescope_append
-      (g.pre ++ ifs₁.map classBinder ++ [(maj₁, default)]) [] [] 0
+      (g.pre ++ ifs₁.map g.binder ++ [(maj₁, g.bm)]) [] [] 0
       (Expr.mkAppN (g.motVar c₁) (ifs₁ ++ [.fvar (g.pre.length + ifs₁.length) maj₁]))
       (Expr.mkAppN (g.motVar c₁) (ifs₁ ++ [.fvar (g.pre.length + ifs₁.length) maj₁]))
-    have hlen : (g.pre ++ ifs₁.map classBinder ++ [(maj₁, (default : ConLeche.BinderMeta))]).length
+    have hlen : (g.pre ++ ifs₁.map g.binder ++ [(maj₁, g.bm)]).length
         = g.pre.length + (g.cls.getD c₁ default).nIdx + 1 := by
       simp only [List.length_append, List.length_map, List.length_singleton, hifl₁]
     rw [hlen] at this
     simpa only [List.append_nil] using this
-  have hsdF₂ : SameDoms (g.pre.length + (g.cls.getD c₂ default).nIdx + 1) gtyA₂ gtyA₂ := by
-    refine ConLeche.SameDoms.annotate _ ?_ hann₂ hann₂
+  have hsdF₂ : SameDoms (g.pre.length + (g.cls.getD c₂ default).nIdx + 1)
+      (closeTelescope (g.pre ++ ifs₂.map g.binder ++ [(maj₂, g.bm)]) 0
+        (Expr.mkAppN (g.motVar c₂) (ifs₂ ++ [.fvar (g.pre.length + ifs₂.length) maj₂])))
+      (closeTelescope (g.pre ++ ifs₂.map g.binder ++ [(maj₂, g.bm)]) 0
+        (Expr.mkAppN (g.motVar c₂) (ifs₂ ++ [.fvar (g.pre.length + ifs₂.length) maj₂]))) := by
     have := ConLeche.SameDoms.closeTelescope_append
-      (g.pre ++ ifs₂.map classBinder ++ [(maj₂, default)]) [] [] 0
+      (g.pre ++ ifs₂.map g.binder ++ [(maj₂, g.bm)]) [] [] 0
       (Expr.mkAppN (g.motVar c₂) (ifs₂ ++ [.fvar (g.pre.length + ifs₂.length) maj₂]))
       (Expr.mkAppN (g.motVar c₂) (ifs₂ ++ [.fvar (g.pre.length + ifs₂.length) maj₂]))
-    have hlen : (g.pre ++ ifs₂.map classBinder ++ [(maj₂, (default : ConLeche.BinderMeta))]).length
+    have hlen : (g.pre ++ ifs₂.map g.binder ++ [(maj₂, g.bm)]).length
         = g.pre.length + (g.cls.getD c₂ default).nIdx + 1 := by
       simp only [List.length_append, List.length_map, List.length_singleton, hifl₂]
     rw [hlen] at this
