@@ -8,7 +8,7 @@ import ConLeche.Verify.Inductives.ClassGenScope
 import ConLeche.Model.Inductives.ContN2
 import ConLeche.Model.Inductives.ContLeaf
 import ConLeche.Model.Inductives.TargetOutIdx
-import ConLeche.Model.Inductives.TargetOutConv
+import ConLeche.Model.Inductives.GenSynKit
 import ConLeche.Model.Inductives.TargetOutRows
 import ConLeche.Model.Inductives.StructRecKit
 import ConLeche.Model.Inductives.SumKit
@@ -16,7 +16,6 @@ import ConLeche.Model.Inductives.BlockRecPreRun
 import ConLeche.Model.Inductives.BlockRecTyping
 import ConLeche.Model.Inductives.ContInst
 import ConLeche.Model.Inductives.ContInstRule
-import ConLeche.Model.Inductives.TargetOutConcl
 import ConLeche.Model.Inductives.TargetOutRow
 import ConLeche.Model.Inductives.ContSubst
 import ConLeche.Model.Inductives.ContFrame
