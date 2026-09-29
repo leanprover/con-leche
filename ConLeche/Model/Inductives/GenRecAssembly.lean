@@ -1,7 +1,6 @@
 module
 
 public import ConLeche.Model.Inductives.DeclBlock
-public import ConLeche.Model.Inductives.NestedRecData
 public import ConLeche.Model.Inductives.ClassRecKit
 public import ConLeche.Model.Inductives.ClassGenStep
 public import ConLeche.Model.Inductives.TargetClassRows

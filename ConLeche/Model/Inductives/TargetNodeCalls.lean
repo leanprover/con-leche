@@ -6,10 +6,8 @@ import ConLeche.Model.Inductives.TargetNestKit
 import ConLeche.Model.Inductives.TargetOutSat
 import ConLeche.Model.Inductives.TargetClasses
 import ConLeche.Model.Inductives.TargetClassRows
-import ConLeche.Model.Inductives.TargetGuardParams
 import ConLeche.Model.Inductives.BlockHoleRead
 import ConLeche.Model.Inductives.PosDerivTie
-import ConLeche.Verify.Inductives.NestCallRun
 import ConLeche.Verify.Inductives.PosNodes
 import ConLeche.Semantics.EnvFacts
 import ConLeche.Verify.InferLeaves
@@ -21,7 +19,6 @@ import ConLeche.Model.Inductives.TargetNodeCover
 import ConLeche.Model.Inductives.PosDerivMono
 import ConLeche.Model.Inductives.BlockDeclRun
 import ConLeche.Model.Inductives.TargetCallAdm
-import ConLeche.Model.Inductives.TargetCallData
 import ConLeche.Model.Inductives.TargetCallEntry
 public import ConLeche.Verify.Inductives.ClassMatchRun
 import ConLeche.Model.Inductives.TargetCallEval

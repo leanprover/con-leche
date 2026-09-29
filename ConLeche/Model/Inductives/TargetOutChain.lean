@@ -1,7 +1,6 @@
 module
 
 public import ConLeche.Model.Inductives.TargetOutRows
-import ConLeche.Model.Inductives.TargetOutConv
 import ConLeche.Model.Inductives.TargetOutSat
 import ConLeche.Model.Inductives.BlockRecMem
 import ConLeche.Model.Inductives.BlockRecPreRun

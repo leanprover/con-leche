@@ -3,7 +3,6 @@ module
 public import ConLeche.Model.Inductives.TargetCallTie
 public import ConLeche.Model.Inductives.TargetNodeRb
 import ConLeche.Verify.Inductives.RecCheckRun
-import ConLeche.Model.Inductives.TargetClassCall
 import ConLeche.Model.Inductives.TargetClasses
 import ConLeche.Model.Inductives.TargetCallWalk
 import ConLeche.Model.Inductives.TargetCallCore

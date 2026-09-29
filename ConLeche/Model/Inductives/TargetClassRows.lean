@@ -1,10 +1,7 @@
 module
 
-import ConLeche.Model.Inductives.TargetClassCall
-import ConLeche.Model.Inductives.TargetClassFrame
 public import ConLeche.Model.Inductives.TargetClasses
 import ConLeche.Verify.Inductives.RecStage
-import ConLeche.Model.Inductives.TargetCallKey
 import ConLeche.Model.Inductives.BlockRuleFit
 import ConLeche.Model.Inductives.TargetFrame
 import ConLeche.Model.Inductives.BlockRecData

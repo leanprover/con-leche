@@ -12,8 +12,6 @@ import ConLeche.Model.Inductives.TargetOutSat
 import ConLeche.Model.Inductives.NestedRecRest
 public import ConLeche.Model.Inductives.BlockRecAssembly
 public import ConLeche.Model.Inductives.BlockRecLaw
-import ConLeche.Model.Inductives.TargetOutCerts
-import ConLeche.Model.Inductives.TargetOutCa
 import ConLeche.Model.Inductives.BlockRecMem
 import ConLeche.Model.Inductives.BlockRecPreRun
 import ConLeche.Model.Inductives.StructEntryKit

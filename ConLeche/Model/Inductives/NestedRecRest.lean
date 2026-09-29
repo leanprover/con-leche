@@ -19,9 +19,6 @@ import ConLeche.Verify.InstLevels
 import ConLeche.Verify.CheckerF
 import ConLeche.Verify.Extend.Inversions
 import ConLeche.Model.Inductives.BlockRuleParams
-import ConLeche.Model.Inductives.TargetOutCerts
-import ConLeche.Model.Inductives.TargetOutConcl
-import ConLeche.Model.Inductives.TargetOutCa
 import ConLeche.Model.Inductives.TargetOutChain
 import ConLeche.Model.Inductives.StructFrameKit
 import ConLeche.Model.Inductives.SumKit

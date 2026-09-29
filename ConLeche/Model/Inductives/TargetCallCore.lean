@@ -3,7 +3,6 @@ module
 import ConLeche.Verify.Inductives.RecStage
 public import ConLeche.Model.Inductives.TargetIhData
 import ConLeche.Model.Inductives.TargetResidue
-import ConLeche.Model.Inductives.TargetCallGen
 public import ConLeche.Model.Inductives.TargetFrame
 import ConLeche.Model.Inductives.BlockRecData
 import ConLeche.Model.Inductives.BlockRecPreRun
