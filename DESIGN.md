@@ -95392,3 +95392,57 @@ moves 1 → 0.
 the only moved row `nested_p07`.  cslib (`--verified --jobs=4`):
 exit 0, 383 976 declarations (was exit 1).  init-full: exit 0, 53 093
 declarations.
+
+## MERGEMASTER — `origin/master` merged into uniform-inds; the final full sweep (2026-09-29, `agent/uinds-MERGEMASTER`)
+
+**The merge.**  `origin/master` `1e567fcfd` (five commits: the modeller
+index-offset fix with the `nested_idx_*` fixtures, "the mutual rung takes
+reflexive members" `78ded4b6f` with `inmodel_mutual_refl`, the #320
+record's no-local-paths fix, the #321/#322 records) into uniform-inds.
+The modeller stays deleted (`Frontend/InModel/{Kit,Mutual,Nested}.lean`,
+`tests/inmodel.sh`): both master code fixes are to the modeller, and
+both are MOOT on the uniform route — it has no mutual rung, no
+`isReflexive` gate and no generated model records.  Verified by the
+fixtures, `--verified` and `--trusted` each: `inmodel_mutual_refl`,
+`mutual_struct_proj`, `nested_p07`, the five `nested_idx_*`, and the
+residual nested-reflexive rows master still declines (`nested_p01`,
+`ind_nest_inf`, `ind_nest_via_refl`) all exit 0 = official.  e2e rows:
+uniform-inds' kept; master's new rows added, comments re-pointed at the
+uniform route.  DESIGN: both sides' records kept (master's #321, #322,
+MODELLER FIX after the uniform-inds sections; #320's relative-path
+wording taken).
+
+**Gates.**  `lake build` and `lake test` warning-free; `tests/arena.sh`
+(full): exit 0, e2e 446/446, arena tutorial 90/92, every sweep and gate
+as expected.
+
+**The final sweep** (`--verified --jobs=8`, `perf stat -e
+instructions:u`, GNU `time -v`, `timeout`, no `ulimit -v`; logs
+`_tmp/uniform-inds/MERGEMASTER/`).  Merged binary at `c49664d13`; the
+master baseline for cslib measured now at `origin/master` `1e567fcfd`,
+for init-full and Mathlib reused from MATHLIB SWEEP (`09c3a50c0`).
+
+| stream | verdict (merged) | master instr:u | merged instr:u | Δ | master RSS | merged RSS |
+|---|---|---|---|---|---|---|
+| cslib (2.3 GB) | exit 0, 383 976 accepted (= master) | 2 771.49 G | 2 728.98 G | −1.5 % | 3.72 GiB | 3.69 GiB |
+| init-full | exit 0, 53 093 accepted (= master) | 418.89 G | 419.57 G | +0.16 % | 608 MiB | 630 MiB |
+| Mathlib | exit 0, 654 504 accepted (= master) | 7 607.16 G | 7 585.13 G | −0.29 % | 8.19 GiB | 6.73 GiB |
+
+No decline, reject or crash on any stream.  (Mathlib vs MATHLIB SWEEP 2's
+uniform-inds `1fe5a3214`: −0.06 % instructions.)  master still rewrites
+62 projection functions on cslib; the merged binary rewrites none.
+
+**Finding — the self-check does not finish on this tree.**
+`scripts/selfcheck.sh` (never run on uniform-inds before): the export
+(708 MB, 13.26 M lines) aborts under the script's `ulimit -v 22000000`
+("INTERNAL PANIC: out of memory"); without it the run reached 46.6 GB
+RSS and was killed (exit 137).  With `--jobs=1 --progress` and a 20 GB
+kill cap, the declaration being checked is
+`ConLeche.nestPos_datF` (`ConLeche/Verify/BridgeDecl.lean`, a uniform-inds
+proof: `induction fuel` with `rfl` closers after `repeat' split` over
+`nestPos`'s body).  master's binary on the same export also passes 20 GB
+at the end of its check phase, so this is the checker's behaviour on a
+new declaration, not a merge regression.  OPEN: which defeq blows up
+(likely lazy delta through `nestPos`'s match), and whether the fix is in
+the checker's reduction strategy or the proof (e.g. `simp`/`exact` in
+place of the `rfl` closers).
