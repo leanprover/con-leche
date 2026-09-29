@@ -20,9 +20,8 @@ hole holding the tuple's family, curried).
 This file proves it for a uniform block from its representation
 (`BlockModelAt`) and what the stages record of its constructors
 (`BlockHoleFacts`: their reading facts, the stored field shape facts
-`StoredFieldShapes`, and the telescopes' lengths): the holes occur only
-applied to the parameters (`blockHolesApplied`, M3 —
-`StoredFieldShapes.holeApp`), and the clause (`BlockModelAt.toLfp`) takes
+`StoredFieldShapes`, and the telescopes' lengths): the clause
+(`BlockModelAt.toLfp`) takes
 `functor`, `fibre`, `leaf`, `mkZero`, `mkInj` from the representation
 and `ctor` at the stored fit the hole fit at the carrier is.
 -/
@@ -89,23 +88,6 @@ structure BlockHoleFacts (m : EnvModel V env) (d : BlockData V) (lps : List Name
     ((d.Ess c ψ).getD j []).length = (d.IdsM c ψ).length
 
 
-/-! ## The holes occur only applied to the parameters -/
-
-/-- **A uniform block's fields with holes apply each hole to the
-parameters** — the stored field shape facts' M3
-(`StoredFieldShapes.holeApp`). -/
-theorem blockHolesApplied (hH : BlockHoleFacts m d lps) (ψ : Name → Nat) {c : Nat} (hc : c < d.N)
-    {j : Nat} (hj : j < (d.ctorsM c).length) : d.toLfp.HolesApplied ψ c j := by
-  have hS := hH.shapes ψ c hc j hj
-  refine ⟨fun l F hl => ?_, fun e he => ?_⟩
-  · show HoleApp d.k (d.params ψ).length l F
-    rw [hH.lenP ψ]
-    exact hS.holeApp l F hl
-  · show HoleApp d.k (d.params ψ).length (d.absF ψ c j).length e
-    obtain ⟨E, -, rfl⟩ := List.mem_map.mp he
-    rw [hS.len]
-    exact holeApp_liftN _ _ E _
-
 /-- **The representation's lfp clause, in hole form** — `functor`,
 `fibre`, `leaf`, `mkZero`, `mkInj` verbatim; `ctor` is the
 representation's `ctor` at the stored fit the hole fit at the carrier is
@@ -140,7 +122,6 @@ theorem BlockModelAt.toLfp (hM : BlockModelAt m names d) (hH : BlockHoleFacts m 
   parsLen := fun mm hmm ψ => (hH.parsLen ψ mm hmm).trans (hH.lenP ψ).symm
   parsSat := fun mm hmm ψ ρ hs => hH.parsSat ψ mm hmm ρ hs
   parsSatInv := fun mm hmm ψ ρ hs => hH.parsSatInv ψ mm hmm ρ hs
-  holeApp := fun ψ c hc j hj => blockHolesApplied hH ψ hc hj
   resIdxFit := hres
   injNePt := fun ψ hw _ c j fs => hne ψ hw c j fs
   fieldsOk := hfok

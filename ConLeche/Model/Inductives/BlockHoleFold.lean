@@ -15,21 +15,21 @@ fibre law the constructors' stage consumes (`blockCtorsLoop`'s `hfold`)
 directly at those chains, with no field classification in the argument:
 
 * **the leaf at the frame's parameters IS the hole value at the least
-  tuple** (`blockTyG_holeVal`): both are λ-towers of graphs over the
-  member's own parameter-and-index telescope; applied to the frame's
-  parameters they are λ-towers over the index telescope read at the same
-  frame, agreeing on every fitting index spine (the leaf's fold);
-* so the frame whose member slots hold the LEAVES' values agrees with the
-  hole frame at the holes (`blockLeaf_holeAgree`, `HoleAgree`), and a
-  constructor's fields with holes read at it as its STORED fields read
-  at the parameter frame (the override law, `blockOverride`: the stored
-  field shape facts' `override`, `StoredFieldShapes`);
+  tuple** (`blockTyG_holeVal`, an equality of sets): the leaf is a
+  λ-tower of graphs over the member's own parameter-and-index telescope;
+  applied to the frame's parameters it is the λ-tower over the index
+  telescope read at the same frame, which is the hole value's, and the
+  two agree on every fitting index spine (the leaf's fold);
+* so the frame whose member slots hold the LEAVES' values applied to the
+  parameters IS the hole frame at the least tuple (`blockLeaf_frame`),
+  and a constructor's fields with holes read at it as its STORED fields
+  read at the parameter frame (the override law, `blockOverride`: the
+  stored field shape facts' `override`, `StoredFieldShapes`);
 * the member's fibre at the least tuple is then the tagged union of its
   constructors' stored fields (`blockHoleFold`): the fixed-point
   equation (monotonicity and a closed tuple premises), the hole
-  operator's fibre (`LfpDatum.holeOp_fibre`), the hole fit moved to the
-  leaves' frame (`LfpDatum.hfits_iff_of_holeAgree`, M3), and the
-  override law field by field.
+  operator's fibre (`LfpDatum.holeOp_fibre`), the hole frame rewritten
+  to the leaves' frame, and the override law field by field.
 -/
 
 namespace ConLeche.Model
@@ -54,20 +54,20 @@ section Leaf
 variable {d : BlockData V} {ψ : Name → Nat} {ρp : Nat → V}
 
 /-- **A member's leaf on the hole chains, applied to the frame's
-parameters and then to anything, is its hole value at the least tuple,
-so applied** (see the module docstring). -/
+parameters, IS its hole value at the least tuple** (see the module
+docstring). -/
 theorem blockTyG_holeVal {c : Nat} (hc : c < d.k)
     (hlenPps : (d.ppsM c ψ).length = d.nP + (d.IdsM c ψ).length)
     (hs : Sat V (d.toLfp.pars c ψ).reverse ρp)
     (hI : BlockIdxOk (V := V) d.k (fun c => d.uM c ψ) ρp (fun c => d.IdsM c ψ))
     (hok : BlockChainsOkG d.k (d.w ψ) ρp (fun c => d.uM c ψ) (fun c => d.IdsM c ψ)
-      (d.toLfp.holeChains ψ)) (is : List V) :
-    (frameIdx d.nP ρp ++ is).foldl app
+      (d.toLfp.holeChains ψ)) :
+    (frameIdx d.nP ρp).foldl app
         (interp V (shiftE d.nP 0 ρp) (blockTyG d.k (d.w ψ) (fun c => d.uM c ψ)
           (fun c => d.IdsM c ψ) (d.toLfp.holeChains ψ) (d.ppsM c ψ) c))
-      = (frameIdx d.nP ρp ++ is).foldl app (d.toLfp.holeVal ψ ρp
+      = d.toLfp.holeVal ψ ρp
           (blockFamG d.k (d.w ψ) ρp (fun c => d.uM c ψ) (fun c => d.IdsM c ψ)
-            (d.toLfp.holeChains ψ)) c) := by
+            (d.toLfp.holeChains ψ)) c := by
   have hlenP : (d.toLfp.pars c ψ).length = d.nP := by
     show (((d.ppsM c ψ).take d.nP).map (·.2.2)).length = d.nP
     rw [List.length_map, List.length_take, hlenPps]; omega
@@ -78,15 +78,12 @@ theorem blockTyG_holeVal {c : Nat} (hc : c < d.k)
     have := spineFit_frameIdx_of_sat hs
     rwa [hlenP] at this
   have hfr : consList (frameIdx d.nP ρp) (shiftE d.nP 0 ρp) = ρp := consList_frameIdx _ ρp
-  have hlenF : (frameIdx d.nP ρp).length = d.nP := by simp [frameIdx]
   unfold blockTyG
   rw [show ((d.ppsM c ψ).map fun dd => (d.w ψ + 1, dd.2.2))
       = ((d.ppsM c ψ).map (·.2.2)).map (d.w ψ + 1, ·) by rw [List.map_map]; rfl,
-    interp_mkLamsAV_pos (Nat.succ_ne_zero _), hsplit, List.foldl_append,
+    interp_mkLamsAV_pos (Nat.succ_ne_zero _), hsplit,
     holeFam_foldl_prefix _ _ hsp, hfr]
   unfold LfpDatum.holeVal
-  rw [List.foldl_append, hlenP, holeFam_foldl_prefix _ _ hsp, hfr]
-  congr 1
   refine holeFam_congr fun is' his' => ?_
   have hlenI : is'.length = (d.IdsM c ψ).length := his'.length_eq
   have hsh : shiftE (d.IdsM c ψ).length 0 (consList is' ρp) = ρp := by
@@ -99,13 +96,13 @@ theorem blockTyG_holeVal {c : Nat} (hc : c < d.k)
     · rw [hsh]; exact hI
     · rw [hsh]; exact hok
     · rw [hsh, hfi]; exact his'
-  rw [consList_append, hfr, (blockLeafBodyG_facts hc hbase).1, hsh, hfi,
-    List.drop_left' hlenF]
+  rw [consList_append, hfr, (blockLeafBodyG_facts hc hbase).1, hsh, hfi]
   rfl
 
-/-- **The leaves' frame agrees with the hole frame at the holes**: the
-parameter frame below, and member slots holding the leaves' values. -/
-theorem blockLeaf_holeAgree {A : Nat → (Name → Nat) → AnnotTerm}
+/-- **The leaves' frame IS the hole frame at the least tuple**: the
+parameter frame below, and member slots holding the leaves' values
+applied to the frame's parameters. -/
+theorem blockLeaf_frame {A : Nat → (Name → Nat) → AnnotTerm}
     (hA : ∀ c, c < d.k → A c ψ = blockTyG d.k (d.w ψ) (fun c => d.uM c ψ)
       (fun c => d.IdsM c ψ) (d.toLfp.holeChains ψ) (d.ppsM c ψ) c)
     (hlenPps : ∀ c, c < d.k → (d.ppsM c ψ).length = d.nP + (d.IdsM c ψ).length)
@@ -113,14 +110,16 @@ theorem blockLeaf_holeAgree {A : Nat → (Name → Nat) → AnnotTerm}
     (hI : BlockIdxOk (V := V) d.k (fun c => d.uM c ψ) ρp (fun c => d.IdsM c ψ))
     (hok : BlockChainsOkG d.k (d.w ψ) ρp (fun c => d.uM c ψ) (fun c => d.IdsM c ψ)
       (d.toLfp.holeChains ψ)) :
-    HoleAgree d.k d.nP 0
-      (d.toLfp.frame ψ ρp (blockFamG d.k (d.w ψ) ρp (fun c => d.uM c ψ) (fun c => d.IdsM c ψ)
-        (d.toLfp.holeChains ψ)))
-      (consList ((List.range d.k).map fun c => interp V (shiftE d.nP 0 ρp) (A c ψ)) ρp) := by
-  refine LfpDatum.holeAgree_frame (D := d.toLfp) (by simp [BlockData.toLfp]) fun c hc is => ?_
-  simp only [List.getElem_map, List.getElem_range]
-  rw [hA c hc]
-  exact (blockTyG_holeVal hc (hlenPps c hc) (hs c hc) hI hok is).symm
+    consList ((List.range d.k).map fun c =>
+        (frameIdx d.nP ρp).foldl app (interp V (shiftE d.nP 0 ρp) (A c ψ))) ρp
+      = d.toLfp.frame ψ ρp (blockFamG d.k (d.w ψ) ρp (fun c => d.uM c ψ)
+          (fun c => d.IdsM c ψ) (d.toLfp.holeChains ψ)) := by
+  unfold LfpDatum.frame
+  congr 1
+  refine List.map_congr_left fun c hc => ?_
+  have hc' : c < d.k := List.mem_range.mp hc
+  rw [hA c hc']
+  exact blockTyG_holeVal hc' (hlenPps c hc') (hs c hc') hI hok
 
 end Leaf
 
@@ -132,7 +131,7 @@ variable {env : Env} {mo : EnvModel V env} {d : BlockData V} {lps : List Name}
 
 /-- **The override law at the leaves' frame** (the stored field shape
 facts' `override`): a constructor's field with holes, read below the
-members' leaves' values, is the stored field read at the parameter
+members' leaves' values applied to the frame's parameters, is the stored field read at the parameter
 frame. -/
 theorem blockOverride (hH : BlockHoleFacts mo d lps) {A : Nat → (Name → Nat) → AnnotTerm}
     {ψ : Name → Nat} (hleaf : ∀ t, t < d.k → mo.acval (d.memberName t) ψ = A t ψ)
@@ -141,15 +140,14 @@ theorem blockOverride (hH : BlockHoleFacts mo d lps) {A : Nat → (Name → Nat)
     ∀ i, i < ((d.Fss c ψ).getD j []).length → ∀ as : List V, as.length = i →
       SpineFit ρp (((d.Fss c ψ).getD j []).take i) as →
       interp V (consList as (consList ((List.range d.k).map fun c =>
-          interp V (shiftE d.nP 0 ρp) (A c ψ)) ρp)) ((d.absF ψ c j).getD i default)
+          (frameIdx d.nP ρp).foldl app (interp V (shiftE d.nP 0 ρp) (A c ψ))) ρp))
+          ((d.absF ψ c j).getD i default)
         = interp V (consList as ρp) (((d.Fss c ψ).getD j []).getD i default) := by
   intro i hi as has hfit
   have hS := hH.shapes ψ c hc j hj
-  refine hS.override _ (by simp) (fun t ht σ => ?_) ρp hs i (by rw [hS.len]; exact hi) as has hfit
-  show interp V σ (mo.acval (d.memberName t) ψ) = _
-  rw [interp_closed V (by rw [mo.acval_erase]; exact mo.cval_closed _ ψ) σ (shiftE d.nP 0 ρp),
-    hleaf t ht, List.getD_eq_getElem?_getD,
-    List.getElem?_map, List.getElem?_range ht]
+  refine hS.override ρp hs _ (by simp) (fun t ht => ?_) i (by rw [hS.len]; exact hi) as has hfit
+  rw [interp_closed V (by rw [mo.acval_erase]; exact mo.cval_closed _ ψ) ρp (shiftE d.nP 0 ρp),
+    hleaf t ht, List.getD_eq_getElem?_getD, List.getElem?_map, List.getElem?_range ht]
   rfl
 
 end Override
@@ -183,8 +181,8 @@ law, fibre by fibre): at the least tuple of the hole operator, a spine
 hole-fits member `m`'s constructor `j` at the index tuple of a fitting
 index spine exactly when it fits the constructor's STORED field readings
 at the parameter frame and the stored result index readings are that
-spine.  The hole fit moves to the leaves' frame (`hfits_iff_of_holeAgree`,
-M3) and there each field with holes reads as the stored field
+spine.  The hole frame IS the leaves' frame (`blockLeaf_frame`), and
+there each field with holes reads as the stored field
 (`hover`: `blockOverride` at a model whose members' leaves are `A`'s). -/
 theorem blockHFits_lfp_iff (hH : BlockHoleFacts mo d lps) (hinst : d.nInst = 0)
     {A : Nat → (Name → Nat) → AnnotTerm} {ψ : Name → Nat}
@@ -199,7 +197,8 @@ theorem blockHFits_lfp_iff (hH : BlockHoleFacts mo d lps) (hinst : d.nInst = 0)
     (hover : ∀ j, j < (d.ctorsM m).length → ∀ i, i < ((d.Fss m ψ).getD j []).length →
       ∀ as : List V, as.length = i → SpineFit ρp (((d.Fss m ψ).getD j []).take i) as →
       interp V (consList as (consList ((List.range d.k).map fun c =>
-          interp V (shiftE d.nP 0 ρp) (A c ψ)) ρp)) ((d.absF ψ m j).getD i default)
+          (frameIdx d.nP ρp).foldl app (interp V (shiftE d.nP 0 ρp) (A c ψ))) ρp))
+          ((d.absF ψ m j).getD i default)
         = interp V (consList as ρp) (((d.Fss m ψ).getD j []).getD i default))
     (t : V) (j : Nat) (fs : List V) :
     d.toLfp.HFits ψ ρp (blockFamG d.k (d.w ψ) ρp (fun c => d.uM c ψ) (fun c => d.IdsM c ψ)
@@ -208,25 +207,20 @@ theorem blockHFits_lfp_iff (hH : BlockHoleFacts mo d lps) (hinst : d.nInst = 0)
   have hmN : m < d.N := by rw [hNk]; exact hm
   have hsP : ∀ c, c < d.k → Sat V (d.toLfp.pars c ψ).reverse ρp :=
     fun c hc => hH.parsSat ψ c hc ρp hs
-  have happ : ∀ j, j < d.toLfp.nctors m → d.toLfp.HolesApplied ψ m j :=
-    fun j hj => blockHolesApplied hH ψ hmN hj
-  have hag : HoleAgree d.toLfp.k (d.toLfp.params ψ).length 0
-      (d.toLfp.frame ψ ρp (blockFamG d.k (d.w ψ) ρp (fun c => d.uM c ψ) (fun c => d.IdsM c ψ)
-        (d.toLfp.holeChains ψ)))
-      (consList ((List.range d.k).map fun c => interp V (shiftE d.nP 0 ρp) (A c ψ)) ρp) := by
-    show HoleAgree d.k (d.params ψ).length 0 _ _
-    rw [hH.lenP ψ]
-    exact blockLeaf_holeAgree (fun c hc => hA c hc) hlenPps hsP hI hok
-  have hlenHs : ((List.range d.k).map fun c => interp V (shiftE d.nP 0 ρp) (A c ψ)).length = d.k := by
+  have hfr := blockLeaf_frame (fun c hc => hA c hc) hlenPps hsP hI hok
+  have hlenHs : ((List.range d.k).map fun c =>
+      (frameIdx d.nP ρp).foldl app (interp V (shiftE d.nP 0 ρp) (A c ψ))).length = d.k := by
     simp
   by_cases hj : j < (d.ctorsM m).length
   case neg =>
     exact ⟨fun h => absurd h.1 hj, fun h => absurd h.1 hj⟩
-  rw [LfpDatum.hfits_iff_of_holeAgree (happ j hj) hag]
+  unfold LfpDatum.HFits
+  rw [← hfr]
   have hEsLen : ((d.Ess m ψ).getD j []).length = (d.IdsM m ψ).length := hH.lenE ψ m hmN j hj
   -- the fields: the override law, at every prefix
   have hsp : SpineFit (consList ((List.range d.k).map fun c =>
-        interp V (shiftE d.nP 0 ρp) (A c ψ)) ρp) (d.toLfp.fields ψ m j) fs ↔
+        (frameIdx d.nP ρp).foldl app (interp V (shiftE d.nP 0 ρp) (A c ψ))) ρp)
+        (d.toLfp.fields ψ m j) fs ↔
       SpineFit ρp ((d.Fss m ψ).getD j []) fs :=
     spineFit_congr_fit (by rw [(hH.shapes ψ m hmN j hj).len])
       (fun i as hi has hfit => hover j hj i (by rw [← (hH.shapes ψ m hmN j hj).len]; exact hi)
@@ -243,11 +237,12 @@ theorem blockHFits_lfp_iff (hH : BlockHoleFacts mo d lps) (hinst : d.nInst = 0)
     rfl
   have hliftE : ∀ fs' : List V, fs'.length = ((d.Fss m ψ).getD j []).length → ∀ E : AnnotTerm,
       interp V (consList fs' (consList ((List.range d.k).map fun c =>
-          interp V (shiftE d.nP 0 ρp) (A c ψ)) ρp)) (E.liftN d.k ((d.Fss m ψ).getD j []).length)
+          (frameIdx d.nP ρp).foldl app (interp V (shiftE d.nP 0 ρp) (A c ψ))) ρp))
+          (E.liftN d.k ((d.Fss m ψ).getD j []).length)
         = interp V (consList fs' ρp) E := by
     intro fs' hfs' E
     have := interp_liftN_consList2 E fs' ((List.range d.k).map fun c =>
-      interp V (shiftE d.nP 0 ρp) (A c ψ)) ρp
+      (frameIdx d.nP ρp).foldl app (interp V (shiftE d.nP 0 ρp) (A c ψ))) ρp
     rwa [hlenHs, hfs'] at this
   constructor
   · rintro ⟨-, hf, hidx⟩
@@ -287,7 +282,8 @@ theorem blockResIdxFit_lfp (hH : BlockHoleFacts mo d lps)
     (hover : ∀ j, j < (d.ctorsM m).length → ∀ i, i < ((d.Fss m ψ).getD j []).length →
       ∀ as : List V, as.length = i → SpineFit ρp (((d.Fss m ψ).getD j []).take i) as →
       interp V (consList as (consList ((List.range d.k).map fun c =>
-          interp V (shiftE d.nP 0 ρp) (A c ψ)) ρp)) ((d.absF ψ m j).getD i default)
+          (frameIdx d.nP ρp).foldl app (interp V (shiftE d.nP 0 ρp) (A c ψ))) ρp))
+          ((d.absF ψ m j).getD i default)
         = interp V (consList as ρp) (((d.Fss m ψ).getD j []).getD i default))
     (hresS : ∀ j, j < (d.ctorsM m).length → ∀ fs : List V,
       SpineFit ρp ((d.Fss m ψ).getD j []) fs →
@@ -300,42 +296,30 @@ theorem blockResIdxFit_lfp (hH : BlockHoleFacts mo d lps)
         (fun c => d.IdsM c ψ) (d.toLfp.holeChains ψ)))))) := by
   have hsP : ∀ c, c < d.k → Sat V (d.toLfp.pars c ψ).reverse ρp :=
     fun c hc => hH.parsSat ψ c hc ρp hs
-  have hha : d.toLfp.HolesApplied ψ m j := blockHolesApplied hH ψ hmN hj
-  have hag : HoleAgree d.toLfp.k (d.toLfp.params ψ).length 0
-      (d.toLfp.frame ψ ρp (blockFamG d.k (d.w ψ) ρp (fun c => d.uM c ψ) (fun c => d.IdsM c ψ)
-        (d.toLfp.holeChains ψ)))
-      (consList ((List.range d.k).map fun c => interp V (shiftE d.nP 0 ρp) (A c ψ)) ρp) := by
-    show HoleAgree d.k (d.params ψ).length 0 _ _
-    rw [hH.lenP ψ]
-    exact blockLeaf_holeAgree (fun c hc => hA c hc) hlenPps hsP hI hok
-  have hlenHs : ((List.range d.k).map fun c => interp V (shiftE d.nP 0 ρp) (A c ψ)).length = d.k := by
+  have hfr := blockLeaf_frame (fun c hc => hA c hc) hlenPps hsP hI hok
+  have hlenHs : ((List.range d.k).map fun c =>
+      (frameIdx d.nP ρp).foldl app (interp V (shiftE d.nP 0 ρp) (A c ψ))).length = d.k := by
     simp
   have hj' : j < (d.ctorsM m).length := hj
-  -- the fields: to the leaves' frame (M3), then the override law
-  have hfL := (spineFit_congr_holeApp _ (fun l F h => by simpa using hha.1 l F h) hag fs).mp hfit
+  -- the fields: at the leaves' frame, then the override law
+  rw [← hfr] at hfit ⊢
   have hsp : SpineFit ρp ((d.Fss m ψ).getD j []) fs :=
     (spineFit_congr_fit (by rw [(hH.shapes ψ m hmN j hj').len])
       (fun i as hi has hf => hover j hj' i (by rw [← (hH.shapes ψ m hmN j hj').len]; exact hi)
-        as has hf) fs).mp hfL
+        as has hf) fs).mp hfit
   have hlenfs : fs.length = ((d.Fss m ψ).getD j []).length := hsp.length_eq
-  have hflF : fs.length = (d.toLfp.fields ψ m j).length := hfit.length_eq
-  have hag' := hag.consList fs
-  rw [Nat.zero_add, hflF] at hag'
-  -- the result indices: to the leaves' frame (M3), then below the holes
+  -- the result indices, below the holes
   have hmap : (d.toLfp.resIdx ψ m j).map (interp V (consList fs
-        (d.toLfp.frame ψ ρp (blockFamG d.k (d.w ψ) ρp (fun c => d.uM c ψ)
-          (fun c => d.IdsM c ψ) (d.toLfp.holeChains ψ)))))
+        (consList ((List.range d.k).map fun c =>
+          (frameIdx d.nP ρp).foldl app (interp V (shiftE d.nP 0 ρp) (A c ψ))) ρp)))
       = ((d.Ess m ψ).getD j []).map (interp V (consList fs ρp)) := by
     show (d.absE ψ m j).map _ = _
     unfold BlockData.absE
     rw [List.map_map]
     refine List.map_congr_left fun E hE => ?_
-    have hE' : E.liftN d.k ((d.Fss m ψ).getD j []).length ∈ d.toLfp.resIdx ψ m j :=
-      List.mem_map.mpr ⟨E, hE, rfl⟩
     show interp V _ (E.liftN d.k ((d.Fss m ψ).getD j []).length) = _
-    rw [interp_congr_holeApp (hha.2 _ hE') hag']
     have := interp_liftN_consList2 E fs ((List.range d.k).map fun c =>
-      interp V (shiftE d.nP 0 ρp) (A c ψ)) ρp
+      (frameIdx d.nP ρp).foldl app (interp V (shiftE d.nP 0 ρp) (A c ψ))) ρp
     rwa [hlenHs, hlenfs] at this
   rw [hmap]
   exact hresS j hj' fs hsp
@@ -364,7 +348,8 @@ theorem blockHoleFold (hH : BlockHoleFacts mo d lps) (hinst : d.nInst = 0)
     (hover : ∀ j, j < (d.ctorsM m).length → ∀ i, i < ((d.Fss m ψ).getD j []).length →
       ∀ as : List V, as.length = i → SpineFit ρp (((d.Fss m ψ).getD j []).take i) as →
       interp V (consList as (consList ((List.range d.k).map fun c =>
-          interp V (shiftE d.nP 0 ρp) (A c ψ)) ρp)) ((d.absF ψ m j).getD i default)
+          (frameIdx d.nP ρp).foldl app (interp V (shiftE d.nP 0 ρp) (A c ψ))) ρp))
+          ((d.absF ψ m j).getD i default)
         = interp V (consList as ρp) (((d.Fss m ψ).getD j []).getD i default))
     {is : List V} (his : SpineFit ρp (d.IdsM m ψ) is) :
     (frameIdx d.nP ρp ++ is).foldl app (interp V (shiftE d.nP 0 ρp) (A m ψ))
@@ -386,11 +371,10 @@ theorem blockHoleFold (hH : BlockHoleFacts mo d lps) (hinst : d.nInst = 0)
   have hislen : is.length = (d.IdsM m ψ).length := his.length_eq
   -- the leaf at the parameters and the index spine: the least tuple's component
   have ht : tupW (d.uM m ψ) is ∈ˢ idxSet (d.uM m ψ) ρp (d.IdsM m ψ) := tupW_mem his
-  have hv := LfpDatum.holeVal_app (D := d.toLfp) (hsP m hm) his
+  have hv := LfpDatum.holeVal_app (D := d.toLfp) (ψ := ψ) (m := m) his
     (X := blockFamG d.k (d.w ψ) ρp (fun c => d.uM c ψ) (fun c => d.IdsM c ψ)
       (d.toLfp.holeChains ψ))
-  rw [hH.parsLen ψ m hm] at hv
-  rw [hA m hm, blockTyG_holeVal hm (hlenPps m hm) (hsP m hm) hI hok is, hv]
+  rw [List.foldl_append, hA m hm, blockTyG_holeVal hm (hlenPps m hm) (hsP m hm) hI hok, hv]
   -- the fixed point: the operator's fibre at the least tuple
   have hfix : app (blockPhiG d.k (d.w ψ) ρp (fun c => d.uM c ψ) (fun c => d.IdsM c ψ)
         (d.toLfp.holeChains ψ) (blockFamG d.k (d.w ψ) ρp (fun c => d.uM c ψ)
@@ -407,25 +391,17 @@ theorem blockHoleFold (hH : BlockHoleFacts mo d lps) (hinst : d.nInst = 0)
   show app _ (tupW (d.uM m ψ) is) = _
   rw [← hfix, hop]
   -- the two unions, member by member
-  have hHT : d.toLfp.HoleTmOk ψ ρp := fun c hc =>
-    ⟨⟨(hH.parsLen ψ c hc).trans (hH.lenP ψ).symm, hsP c hc⟩, fun _ => (hI c hc).2⟩
+  have hHT : d.toLfp.HoleTmOk ψ ρp := fun c hc _ => (hI c hc).2
   have hkN : d.toLfp.k ≤ d.toLfp.N := by show d.k ≤ d.N; omega
-  have happ : ∀ j, j < d.toLfp.nctors m → d.toLfp.HolesApplied ψ m j :=
-    fun j hj => blockHolesApplied hH ψ hmN hj
   have hres : ∀ j, j < d.toLfp.nctors m →
       (d.toLfp.resIdx ψ m j).length = (d.toLfp.ids m ψ).length := by
     intro j hj
     show (d.absE ψ m j).length = (d.IdsM m ψ).length
     simp only [BlockData.absE, List.length_map]
     exact hH.lenE ψ m hmN j hj
-  have hag : HoleAgree d.toLfp.k (d.toLfp.params ψ).length 0
-      (d.toLfp.frame ψ ρp (blockFamG d.k (d.w ψ) ρp (fun c => d.uM c ψ) (fun c => d.IdsM c ψ)
-        (d.toLfp.holeChains ψ)))
-      (consList ((List.range d.k).map fun c => interp V (shiftE d.nP 0 ρp) (A c ψ)) ρp) := by
-    show HoleAgree d.k (d.params ψ).length 0 _ _
-    rw [hH.lenP ψ]
-    exact blockLeaf_holeAgree (fun c hc => hA c hc) hlenPps hsP hI hok
-  have hlenHs : ((List.range d.k).map fun c => interp V (shiftE d.nP 0 ρp) (A c ψ)).length = d.k := by
+  have hfr := blockLeaf_frame (fun c hc => hA c hc) hlenPps hsP hI hok
+  have hlenHs : ((List.range d.k).map fun c =>
+      (frameIdx d.nP ρp).foldl app (interp V (shiftE d.nP 0 ρp) (A c ψ))).length = d.k := by
     simp
   -- the restricted chains, as terminated chains
   have hrc : rChains (d.IdsM m ψ).length (d.IdsM m ψ).length (d.Fss m ψ) (d.Ess m ψ)
@@ -448,7 +424,7 @@ theorem blockHoleFold (hH : BlockHoleFacts mo d lps) (hinst : d.nInst = 0)
       rfl
   apply SetTheory.ext
   intro x
-  rw [LfpDatum.holeOp_fibre hHT hkN _ happ hres ht x, hrc, sumSet_termChs_mem_iff]
+  rw [LfpDatum.holeOp_fibre hHT hkN _ hres ht x, hrc, sumSet_termChs_mem_iff]
   simp only [List.length_map]
   refine exists_congr fun j => exists_congr fun fs => ?_
   by_cases hj : j < (d.ctorsM m).length
@@ -469,11 +445,13 @@ theorem blockHoleFold (hH : BlockHoleFacts mo d lps) (hinst : d.nInst = 0)
           ((d.Ess m ψ).getD j []) := by
     rw [List.getD_eq_getElem?_getD, List.getElem?_map, List.getElem?_range hjF]
     rfl
-  rw [hFs, hEq, LfpDatum.hfits_iff_of_holeAgree (happ j hj) hag]
+  unfold LfpDatum.HFits
+  rw [hFs, hEq, ← hfr]
   have hEsLen : ((d.Ess m ψ).getD j []).length = (d.IdsM m ψ).length := hH.lenE ψ m hmN j hj
   -- the fields: the override law, at every prefix
   have hsp : SpineFit (consList ((List.range d.k).map fun c =>
-        interp V (shiftE d.nP 0 ρp) (A c ψ)) ρp) (d.toLfp.fields ψ m j) fs ↔
+        (frameIdx d.nP ρp).foldl app (interp V (shiftE d.nP 0 ρp) (A c ψ))) ρp)
+        (d.toLfp.fields ψ m j) fs ↔
       SpineFit ρp ((d.Fss m ψ).getD j []) fs :=
     spineFit_congr_fit (by rw [(hH.shapes ψ m hmN j hj).len])
       (fun i as hi has hfit => hover j hj i (by rw [← (hH.shapes ψ m hmN j hj).len]; exact hi)
@@ -493,11 +471,12 @@ theorem blockHoleFold (hH : BlockHoleFacts mo d lps) (hinst : d.nInst = 0)
     rfl
   have hliftE : ∀ fs' : List V, fs'.length = ((d.Fss m ψ).getD j []).length → ∀ E : AnnotTerm,
       interp V (consList fs' (consList ((List.range d.k).map fun c =>
-          interp V (shiftE d.nP 0 ρp) (A c ψ)) ρp)) (E.liftN d.k ((d.Fss m ψ).getD j []).length)
+          (frameIdx d.nP ρp).foldl app (interp V (shiftE d.nP 0 ρp) (A c ψ))) ρp))
+          (E.liftN d.k ((d.Fss m ψ).getD j []).length)
         = interp V (consList fs' ρp) E := by
     intro fs' hfs' E
     have := interp_liftN_consList2 E fs' ((List.range d.k).map fun c =>
-      interp V (shiftE d.nP 0 ρp) (A c ψ)) ρp
+      (frameIdx d.nP ρp).foldl app (interp V (shiftE d.nP 0 ρp) (A c ψ))) ρp
     rwa [hlenHs, hfs'] at this
   constructor
   · rintro ⟨⟨-, hf, hidx⟩, rfl⟩
@@ -547,7 +526,8 @@ theorem blockHoleFold_params (hH : BlockHoleFacts mo d lps) (hinst : d.nInst = 0
       ∀ j, j < (d.ctorsM m).length → ∀ i, i < ((d.Fss m ψ).getD j []).length →
       ∀ as : List V, as.length = i → SpineFit ρp (((d.Fss m ψ).getD j []).take i) as →
       interp V (consList as (consList ((List.range d.k).map fun c =>
-          interp V (shiftE d.nP 0 ρp) (A c ψ)) ρp)) ((d.absF ψ m j).getD i default)
+          (frameIdx d.nP ρp).foldl app (interp V (shiftE d.nP 0 ρp) (A c ψ))) ρp))
+          ((d.absF ψ m j).getD i default)
         = interp V (consList as ρp) (((d.Fss m ψ).getD j []).getD i default))
     {ρ : Nat → V} {ts : List V} (hsp : SpineFit ρ ((d.ppsM m ψ).map (·.2.2)) ts) :
     ts.foldl app (interp V ρ (A m ψ))

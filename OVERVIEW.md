@@ -695,7 +695,8 @@ checkBlock(env, block):          -- block = formers, constructors, recursors fro
     member occurrence is T_j at the block's levels applied to exactly p⃗, and no
     parameter's domain mentions a member
   the members first, as the ROOT frame:
-    CTORS(the block's constructors, key (T⃗, the block's levels, p⃗), holes X⃗)
+    CTORS(the block's constructors, key (T⃗, the block's levels, p⃗), holes X⃗ —
+          X_j stands for the whole application T_j p⃗, a family over T_j's indices)
     [proof] (at a Type block) its normal form's field sorts are ≤ s at the holes
   then every outside class: CONT(I, us, Ds, [])
 
@@ -704,14 +705,12 @@ POS(e, frames):
   if w mentions no member and no hole          → ordinary field
   if w = Π a. b                                → reject if a mentions a member or hole,
                                                  else POS(b, frames)
-  if w = H D⃗ idx, H a hole — the root frame's (a member X_j, D⃗ = p⃗) or a
-       container frame's (Y) — D⃗ its key's parameters, idx hole-free, fully applied
-                                               → a recursive field (X_j) or a field of
+  if w = H idx, H a hole — the root frame's (a member X_j, standing for T_j p⃗) or
+       a container frame's (Y, standing for its container at the key) — idx
+       hole-free, fully applied               → a recursive field (X_j) or a field of
                                                  the container in progress (Y)
   if w = C us Ds idx, C a stored inductive (not a member, not Quot):
        Ds free of local variables; idx hole-free; fully applied
-       [proof] every member hole in Ds applied to exactly p⃗ (never fires after the
-         uniform occurrences: reduction keeps a hole applied)
        C's level count right; C's index telescope at Ds mentions no member or hole;
        C's sort ≡ s
        CONT(C, us, Ds, frames)
@@ -722,22 +721,25 @@ CONT(C, us, Ds, frames):
   if key is being walked                           → reject (an instantiation in
                                                      progress, reached through reduction)
   if key is cached and Ds mention no frame hole    → done
-  group := C's whole mutual block, each member C_j ↦ a fresh frame hole Y_j
-           (each C_j's former checked at Ds as above)
+  group := C's whole mutual block, each member's whole application C_j q⃗ ↦ a fresh
+           frame hole Y_j, typed by C_j's former at Ds (a family over its indices;
+           each C_j's former checked at Ds as above)
   C us Ds type-checks
   CTORS(the group's constructors, key, holes Y⃗)
   cache the group's keys if Ds mention no frame hole
 
 CTORS(constructors, key, holes):    -- the one constructor loop: the root's, every frame's
   for each constructor:
-      instantiate its stored type at the key's levels and parameters, the group ↦ its
-        holes (no β-step); type-check it
+      its stored type at the key's levels, every whole application of a group member
+        to the parameters ↦ its hole, BEFORE the parameters are instantiated at the
+        key's (no β-step); type-check it
         [proof, at the root] the member-abstracted constructor typed with the holes
         in context (official types the declared one, step 2)
       for each field: POS(field, frames)
       no later field and not the result reads a non-ordinary field
       the result is headed by a hole; its indices are hole-free
-      record its normal form at the key (holes read back as constants)
+      record its normal form at the key (each hole read back as the application it
+        stands for)
                                                    [a table local to the install]
 
   -- 5. tail
