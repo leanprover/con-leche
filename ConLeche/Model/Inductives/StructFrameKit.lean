@@ -1597,6 +1597,9 @@ structure FormerData {env : Env} (m : EnvModel V env) (cvT : ConstantVal)
   below : ∀ ψ : Name → Nat, DomsBelow 0 (pps ψ)
   params : ∀ ψ₁ ψ₂ : Name → Nat, (∀ p ∈ cvT.levelParams, ψ₁ p = ψ₂ p) →
     pps ψ₁ = pps ψ₂ ∧ resSort.eval ψ₁ = resSort.eval ψ₂
+  /-- the stored type is a SYNTACTIC telescope of `nP` binders ending in a
+  sort (the stage checked it; `nestArity` reads its binder count) -/
+  syn : ∃ bs s, cvT.type.stripPis nP = some (bs, .sort s)
 
 /-- The former's data, from its `checkConstantVal` run at the
 pre-block environment and the annotated telescope shape. -/
@@ -1650,7 +1653,7 @@ theorem formerData_of (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ env)
       simp only [Level.eval, Nat.succ_ne_zero, iff_false] at this
       exact this
     · exact (stripPisAV_below hst' (bvarsBelow_of_reading hw hbt' hTa)).1
-  refine ⟨fun ψ => Classical.choose (hper ψ), ?_, ?_, ?_, ?_, ?_, ?_⟩
+  refine ⟨fun ψ => Classical.choose (hper ψ), ?_, ?_, ?_, ?_, ?_, ?_, ⟨bs, resSort, hstrip⟩⟩
   · exact fun ψ => (Classical.choose_spec (hper ψ)).1
   · exact fun ψ => (Classical.choose_spec (hper ψ)).2.1
   · exact fun ψ => (Classical.choose_spec (hper ψ)).2.2.1
@@ -1689,6 +1692,7 @@ theorem FormerData.cross {m : EnvModel V env} {cvT : ConstantVal}
   okTy := h.okTy
   below := h.below
   params := h.params
+  syn := h.syn
 
 
 theorem stripPisAV_mkPisAV :

@@ -943,7 +943,7 @@ theorem dynCtx_of {F : Nat} {block : List ConstantInfo}
     (hF : NodeListFacts mpC (pp.nestCtx fvsP envI.find? envI.consts) ns) :
     DynCtx F mk mpC (pp.nestCtx fvsP envI.find? envI.consts) dR ns := by
   obtain ⟨-, hPos, henvC, -, -, hN, hS, -, -, hdR, hlfp, hcovC, -, -⟩ := hctx
-  obtain ⟨cvTa0, -, -, -, h0, -⟩ := ConLeche.checkBlockPositivity_inv_gen hPos
+  obtain ⟨cvTa0, -, -, -, h0, -⟩ := ConLeche.checkBlockPositivity_m2 hPos
   obtain ⟨pk, uOfD, ppsOf, rfl⟩ := hdR
   have hkN := lfp_namesLen mpC hlfp
   refine ⟨hcovC, hlfp, contCover_of hmkC (fun _ => rfl) rfl, hmk, hag, hsubC, htr,

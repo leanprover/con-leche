@@ -93,31 +93,16 @@ namespace ConLeche
       let args := w.getAppArgs
       match w.getAppFn with
       | .fvar i _ =>
-        if ctx.nP ≤ i && i < ctx.hiAt 0 then
-          -- `holeApp`: a member hole at the block's parameters
-          let t := i - ctx.nP
-          if args.length == ctx.nP + ctx.nIdxs.getD t 0 &&
-              args.take ctx.nP == ctx.params &&
-              args.all (fun x => !x.nestOcc ctx.names ctx.nP hi) then
-            return (if kb == 0 then .recursive t else .reflexive t, w, st)
+        match nestHoleAt ctx prog i with
+        | some h =>
+          if h.key.ds.length ≤ args.length && args.take h.key.ds.length == h.key.ds &&
+              (args.drop h.key.ds.length).all (fun x => !x.nestOcc ctx.names ctx.nP hi) &&
+              args.length == nestArity ctx h.key.cname then
+            return (if i < ctx.hiAt 0 then
+                (if kb == 0 then .recursive (i - ctx.nP) else .reflexive (i - ctx.nP))
+              else .inProgress, w, st)
           else throw nestNonValid
-        else if ctx.hiAt 0 ≤ i && i < hi then
-          -- a frame's hole: the instantiation in progress at that frame,
-          -- at its own parameters, with hole-free indices
-          match prog.reverse[i - ctx.hiAt 0]? with
-          | none => throw (.internal "nested positivity: frame hole without a frame")
-          | some h =>
-            if h.key.ds.length ≤ args.length && args.take h.key.ds.length == h.key.ds then
-              if (args.drop h.key.ds.length).all (fun x => !x.nestOcc ctx.names ctx.nP hi) then
-                -- at its full arity (official `is_valid_ind_app`, :341)
-                if args.length == nestArity ctx h.key.cname then
-                  return (.inProgress, w, st)
-                else throw nestNonValid
-              else throw nestNonValid
-            else
-              throw (.invalid "nested positivity: non valid occurrence of the datatypes \
-                being declared (a container's own occurrence at other parameters)")
-        else throw nestNonValid
+        | none => throw nestNonValid
       | .const n us =>
         -- a member constant left after the abstraction (other levels)
         if ctx.names.contains n then throw nestNonValid
@@ -176,8 +161,8 @@ theorem nestFields_active (hrec : RecPres rec) (prog : List NestHole) (base : Na
 
 theorem nestCtors_active (hrec : RecPres rec) (prog : List NestHole) (hi : Nat) (us : List Level)
     (ds : List Expr) (nPc : Nat) (sub : Name → List Level → Option Expr) :
-    ∀ (cs : List (ConstantVal × Nat)) (st st' : NestState),
-      nestCtors ctx ops env rec prog hi us ds nPc sub cs st = .ok st' → st'.active = st.active
+    ∀ (cs : List (ConstantVal × Nat)) (st : NestState) r,
+      nestCtors ctx ops env rec prog hi us ds nPc sub cs st = .ok r → r.2.active = st.active
   | [], st, st', h => by
     simp only [nestCtors, pure, Except.pure, Except.ok.injEq] at h; subst h; rfl
   | (cv, nF) :: cs, st, st', h => by
@@ -197,7 +182,12 @@ theorem nestCtors_active (hrec : RecPres rec) (prog : List NestHole) (hi : Nat) 
       split at h
       · simp [throw, throwThe, MonadExceptOf.throw] at h
       split at h
-      · exact (nestCtors_active hrec prog hi us ds nPc sub cs _ st' h).trans
+      · split at h
+        · simp at h
+        rename_i r' hr'
+        simp only [pure, Except.pure, Except.ok.injEq] at h
+        subst h
+        exact (nestCtors_active hrec prog hi us ds nPc sub cs _ _ hr').trans
           (nestFields_active hrec prog hi _ nF 0 _ st _ hr)
       · simp [throw, throwThe, MonadExceptOf.throw] at h
     · simp [throw, throwThe, MonadExceptOf.throw] at h
@@ -230,7 +220,12 @@ theorem nestFrame_active (hrec : RecPres rec) {prog : List NestHole} {hi : Nat}
   split at h
   · simp at h
   rename_i q hq
-  exact (nestCtors_active hrec _ _ _ _ _ _ _ _ _ h).trans (nestGroupCtors_active _ _ _ _ hq)
+  split at h
+  · simp at h
+  rename_i r hr
+  simp only [pure, Except.pure, Except.ok.injEq] at h
+  subst h
+  exact (nestCtors_active hrec _ _ _ _ _ _ _ _ _ hr).trans (nestGroupCtors_active _ _ _ _ hq)
 
 /-- A new frame restores `active` itself, whatever its walk does. -/
 theorem nestContNew_active {prog : List NestHole} {kb : Nat} {n : Name} {us : List Level}
@@ -348,7 +343,7 @@ theorem nestCtors_eq (hrec : RecEq rec₁ rec₂) (hpres : RecPres rec₂) (prog
       repeat' split
       all_goals first
         | rfl
-        | exact nestCtors_eq hrec hpres prog hi us ds nPc sub cs _ (hpa₁.of_active rfl)
+        | rw [nestCtors_eq hrec hpres prog hi us ds nPc sub cs _ (hpa₁.of_active (by rfl))]
     · rfl
 
 theorem nestFrame_eq (hrec : RecEq rec₁ rec₂) (hpres : RecPres rec₂) {prog : List NestHole}
@@ -360,7 +355,7 @@ theorem nestFrame_eq (hrec : RecEq rec₁ rec₂) (hpres : RecPres rec₂) {prog
   simp only [nestFrame]
   refine bind_congr_ok fun _ _ => bind_congr_ok fun q hq => ?_
   have hact := nestGroupCtors_active _ _ _ _ hq
-  refine nestCtors_eq hrec hpres _ _ _ _ _ _ _ _ fun h hh => ?_
+  rw [nestCtors_eq hrec hpres _ _ _ _ _ _ _ _ fun h hh => ?_]
   rw [hact]
   rcases List.mem_append.mp hh with hh | hh
   · rw [List.mem_reverse, List.mem_mapIdx] at hh

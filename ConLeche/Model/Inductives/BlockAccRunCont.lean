@@ -263,7 +263,7 @@ theorem blockAccTuple_of_run {env : Env} (mp : EnvModelM V .verified env) {F : N
     ∃ A, A ∈ˢ (univ (d.toLfp.w ψ) : V) ∧
       AccTuple (d.toLfp.w ψ) d.toLfp.N (d.toLfp.idx ψ ρp) d.toLfp.N (d.toLfp.idx ψ ρp)
         (d.toLfp.holeOp ψ ρp) A := by
-  obtain ⟨cvTa0, fvsP, rest, holes, hcv0, hop0, hholes, hder⟩ :=
+  obtain ⟨cvTa0, fvsP, rest, holes, hcv0, hop0, hholes, hder, -⟩ :=
     checkBlockPositivity_derivM mp.base2.wf hrun
       (fun cv h => (mp.base2.wf _ (List.mem_of_find?_eq_some
         (hcore.1 0 cv (by rwa [List.head?_eq_getElem?] at h)).1)).1)
@@ -272,6 +272,7 @@ theorem blockAccTuple_of_run {env : Env} (mp : EnvModelM V .verified env) {F : N
         rw [hctorsAs c hck] at hc
         obtain rfl := Option.some.inj hc
         exact (hclosed c j cA hj).1)
+      (hcore.nestArity hN hnames hnP hnIdxs hk) (hcore.ctorLps hlps hlenCA hctorsAs)
   have hin := Rules.RulesInputs.ofSem mp ψ
   have hkN : d.toLfp.k ≤ d.toLfp.N := Nat.le_add_right _ _
   -- every constructor's telescope, accessible

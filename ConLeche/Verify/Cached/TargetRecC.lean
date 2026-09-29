@@ -1525,15 +1525,15 @@ formers' environment (`hfe₁`), from a flushed state, the walk's state
 `pos` closed (`NestStOk`). -/
 theorem targetRecCheckS_simG (hμ : mode.verifiedChecks = true) {env₁ env₂ : Env} {fe₁ : FEnv}
     (henv₁ : EnvWF env₁) (henv₂ : EnvWF env₂) (hfe₁ : fe₁.find? = (mkFEnv env₁).find?)
-    {p : BlockShape} {nested : Bool} {nfs : List (List Expr)} {pos : NestState}
+    {p : BlockShape} {nested : Bool} {pos : NestState}
     (hpos : NestStOk pos) {block : List ConstantInfo}
     {cvTas : List ConstantVal} {ctorsAs : List (List (ConstantVal × Nat))}
     (hT : ∀ cv ∈ cvTas, WScoped 0 cv.type)
     (hct : ∀ ctorsA ∈ ctorsAs, ∀ c ∈ ctorsA, WScoped 0 c.1.type) :
     SimG (CSOK mode env₂) CSOKF RelVC
-      (targetRecCheck (shadowOpsC mode) fe₁ env₁ (mkFEnv env₂) p nested nfs pos block cvTas
+      (targetRecCheck (shadowOpsC mode) fe₁ env₁ (mkFEnv env₂) p nested pos block cvTas
         ctorsAs)
-      (targetRecCheck (ShadowOps.ofOps (fueledOpsM mode)) fe₁ env₁ (mkFEnv env₂) p nested nfs
+      (targetRecCheck (ShadowOps.ofOps (fueledOpsM mode)) fe₁ env₁ (mkFEnv env₂) p nested
         pos block cvTas ctorsAs) := by
   unfold targetRecCheck
   have hso : ∀ fe, (shadowOpsC mode).opsAt fe = sharedOpsC mode fe := fun _ => rfl
@@ -1573,7 +1573,7 @@ theorem targetRecCheckS_simG (hμ : mode.verifiedChecks = true) {env₁ env₂ :
   -- the seeds, at the formers' environment
   refine SimG.bind (flushC_simG_to (mode := mode) (fun s h => (h : CSOK mode env₂ s).residue) env₁)
     fun _ _ _ => ?_
-  refine SimG.bind (SimG.ofC fun s hs => checkBlockSeedsS_sim hμ henv₁ p cvTas ctorsAs nfs pos
+  refine SimG.bind (SimG.ofC fun s hs => checkBlockSeedsS_sim hμ henv₁ p cvTas pos
     tys₀ hT (fun t ht hM x hx => by
       obtain ⟨rc, ⟨E⟩⟩ := hentry₀ t ht
       obtain ⟨-, -, -, -, -, -, -, hsc, -⟩ := E.outside_of hM
@@ -1662,16 +1662,16 @@ theorem targetRecCheckS_simG (hμ : mode.verifiedChecks = true) {env₁ env₂ :
 by the pure fueled target check. -/
 theorem targetRecCheckS_run (hμ : mode.verifiedChecks = true) {env₁ env₂ : Env} {fe₁ : FEnv}
     (henv₁ : EnvWF env₁) (henv₂ : EnvWF env₂) (hfe₁ : fe₁.find? = (mkFEnv env₁).find?)
-    {p : BlockShape} {nested : Bool} {nfs : List (List Expr)} {pos : NestState}
+    {p : BlockShape} {nested : Bool} {pos : NestState}
     (hpos : NestStOk pos) {block : List ConstantInfo}
     {cvTas : List ConstantVal} {ctorsAs : List (List (ConstantVal × Nat))}
     (hT : ∀ cv ∈ cvTas, WScoped 0 cv.type)
     (hct : ∀ ctorsA ∈ ctorsAs, ∀ c ∈ ctorsA, WScoped 0 c.1.type)
     {s₀ : CState} (hs : CSOK mode env₂ s₀) {out : List (ConstantVal × TargetMajor × List Expr)}
     {s' : CState}
-    (h : targetRecCheck (shadowOpsC mode) fe₁ env₁ (mkFEnv env₂) p nested nfs pos block cvTas
+    (h : targetRecCheck (shadowOpsC mode) fe₁ env₁ (mkFEnv env₂) p nested pos block cvTas
       ctorsAs s₀ = .ok (out, s')) :
-    CSOKF s' ∧ ∃ F, targetRecCheck (ShadowOps.fueled mode F) fe₁ env₁ (mkFEnv env₂) p nested nfs
+    CSOKF s' ∧ ∃ F, targetRecCheck (ShadowOps.fueled mode F) fe₁ env₁ (mkFEnv env₂) p nested
       pos block cvTas ctorsAs = .ok out := by
   obtain ⟨hs', out', rfl, F, hF⟩ :=
     targetRecCheckS_simG hμ henv₁ henv₂ hfe₁ hpos hT hct s₀ hs out s' h
@@ -1679,11 +1679,11 @@ theorem targetRecCheckS_run (hμ : mode.verifiedChecks = true) {env₁ env₂ : 
 
 /-- The check reads its seeds' index only through `find?`. -/
 theorem targetRecCheck_fe₁_congr {F : Nat} {fe₁ fe₁' : FEnv} (hfe : fe₁.find? = fe₁'.find?)
-    (env₁ : Env) (fe : FEnv) (p : BlockShape) (nested : Bool) (nfs : List (List Expr))
+    (env₁ : Env) (fe : FEnv) (p : BlockShape) (nested : Bool)
     (pos : NestState) (block : List ConstantInfo)
     (cvTas : List ConstantVal) (ctorsAs : List (List (ConstantVal × Nat))) :
-    targetRecCheck (ShadowOps.fueled mode F) fe₁ env₁ fe p nested nfs pos block cvTas ctorsAs
-      = targetRecCheck (ShadowOps.fueled mode F) fe₁' env₁ fe p nested nfs pos block cvTas
+    targetRecCheck (ShadowOps.fueled mode F) fe₁ env₁ fe p nested pos block cvTas ctorsAs
+      = targetRecCheck (ShadowOps.fueled mode F) fe₁' env₁ fe p nested pos block cvTas
         ctorsAs := by
   unfold targetRecCheck
   simp only [ShadowOps.fueled, ShadowOps.ofOps]
@@ -1819,11 +1819,11 @@ recursor type is a checked constant's, every stored rule the annotated
 stream right-hand side, resolved at the rule-less recursors' environment
 (off the target check's run records). -/
 theorem targetRecCheck_recsWF {env₂ : Env} (henv₂ : EnvWF env₂) {p : BlockShape}
-    {nested : Bool} {fe₁ : FEnv} {env₁ : Env} {nfs : List (List Expr)} {pos : NestState}
+    {nested : Bool} {fe₁ : FEnv} {env₁ : Env} {pos : NestState}
     {block : List ConstantInfo} {cvTas : List ConstantVal}
     {ctorsAs : List (List (ConstantVal × Nat))}
     {out : List (ConstantVal × TargetMajor × List Expr)} {F : Nat}
-    (h : targetRecCheck (ShadowOps.fueled mode F) fe₁ env₁ (mkFEnv env₂) p nested nfs pos block
+    (h : targetRecCheck (ShadowOps.fueled mode F) fe₁ env₁ (mkFEnv env₂) p nested pos block
       cvTas ctorsAs = .ok out) (find? : Name → Option ConstantInfo) :
     EnvWF (consBlockRecsT find? (·.constsResolve env₂) p 0 out env₂) := by
   obtain ⟨R⟩ := targetRecCheck_run h
@@ -1964,7 +1964,7 @@ theorem checkBlockTailS_run (hμ : mode.verifiedChecks = true)
       cvTas ctorsAs = .ok out := by
     have gK : targetRecCheck (ShadowOps.fueled mode G) (mkFEnv env₁) env₁
         (mkFEnv (consBlockCtors p.nP ctorsAs env₁))
-        p.toBlockShape (blockNestedBit p.toBlockShape kinds) nfs pos block cvTas ctorsAs
+        p.toBlockShape (blockNestedBit p.toBlockShape kinds) pos block cvTas ctorsAs
         = .ok out := by
       rw [← targetRecCheck_datF]
       exact FueledM.up hle₃ (by rw [targetRecCheck_datF]; exact hF₃)

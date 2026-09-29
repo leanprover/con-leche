@@ -393,7 +393,7 @@ theorem AnnotTerm.mkAppN_snoc' :
 
 /-! ## M3 and M2′ on the walk's normal form
 
-`Expr.holesApplied` (the check `nestMemberCtor` runs on its normal form)
+`Expr.holesApplied` (the root line `nestRootLines` runs on the walk's normal form)
 read at a model: the reading is `HoleApp` (every hole slot heads a spine
 whose first `nP` arguments are the parameter slots) and the term names
 no member constant — at every kind, containers included. -/

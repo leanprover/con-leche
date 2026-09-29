@@ -1157,15 +1157,14 @@ outside class stage (b) resolved (`targetSeeds`, `nestSeeds`: each
 walked at the root like a container instance, a cache hit or its frame
 walked).  So every class of the family is a node of the walk BY
 CONSTRUCTION.  Returns the walk's recorded constructor normal forms
-(K.53′): the members' (`nestMemberNfs`, at the walk's normal forms
-`nfs`), then every frame's, in walk order. -/
+(K.53′): every frame's — the root's (the members' constructors) among
+them — in walk order. -/
 def checkBlockSeeds (ops : CheckerOps m) (env₁ : Env) (find? : Name → Option ConstantInfo)
-    (consts : List ConstantInfo) (p : BlockShape) (cvTas : List ConstantVal)
-    (ctorsAs : List (List (ConstantVal × Nat))) (nfs : List (List Expr)) (st : NestState)
+    (consts : List ConstantInfo) (p : BlockShape) (cvTas : List ConstantVal) (st : NestState)
     (tys : List (ConstantVal × TargetMajor × Level)) : m (List NestCtorNf) := do
   let (ctx, holes) ← blockNestCtx p cvTas find? consts
   let st ← nestSeeds ops env₁ ctx (targetSeeds ctx holes tys) st
-  pure (nestMemberNfs ctx ctorsAs nfs ++ st.ctorNfs.toList)
+  pure st.ctorNfs.toList
 
 /-- **Every class's recorded normal forms** (K.53′): each resolved
 major with its entries of the table `tbl` (`targetMajorNfs`). -/
@@ -1279,8 +1278,8 @@ def consBlockRecsTF (find? : Name → Option ConstantInfo) (resolves : Expr → 
 the pins (`targetRecPins`), every recursor's type at its major
 (`targetRecTys`), the resolved outside classes walked by the positivity
 check (`checkBlockSeeds`, at the formers' environment `fe₁`/`env₁`,
-continuing its state `pos` after the members' constructors, whose normal
-forms are `nfs`) and each class's recorded normal forms read
+continuing its state `pos` after the root frame) and each class's
+recorded normal forms read
 (`targetMajorsNfs`), the family's agreements (the counting guard, the
 elimination-level pin, the shared prefix), the
 rule pins at the majors, then — at the environment holding every
@@ -1294,7 +1293,7 @@ Returns every recursor with
 its major and its annotated right-hand sides (what the install
 stores). -/
 def targetRecCheck (so : ShadowOps m) (fe₁ : FEnv) (env₁ : Env) (fe : FEnv) (p : BlockShape)
-    (nested : Bool) (nfs : List (List Expr)) (pos : NestState)
+    (nested : Bool) (pos : NestState)
     (block : List ConstantInfo) (cvTas : List ConstantVal)
     (ctorsAs : List (List (ConstantVal × Nat))) :
     m (List (ConstantVal × TargetMajor × List Expr)) := do
@@ -1302,7 +1301,7 @@ def targetRecCheck (so : ShadowOps m) (fe₁ : FEnv) (env₁ : Env) (fe : FEnv) 
   let tys₀ ← targetRecTys (so.opsAt fe) fe p nested cvTas ctorsAs p.recs
   -- the seeds, at the formers' environment (the positivity walk's)
   so.flush
-  let tbl ← checkBlockSeeds (so.opsAt fe₁) env₁ fe₁.find? env₁.consts p cvTas ctorsAs nfs pos tys₀
+  let tbl ← checkBlockSeeds (so.opsAt fe₁) env₁ fe₁.find? env₁.consts p cvTas pos tys₀
   so.flush
   let tys ← targetMajorsNfs (so.opsAt fe) fe.env p (cvTas.map (·.type)) tbl tys₀
   let us := tys.map (·.2.2)

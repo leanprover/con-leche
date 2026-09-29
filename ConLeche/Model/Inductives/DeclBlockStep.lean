@@ -470,9 +470,15 @@ theorem declBlock (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
       = (blockDataOf V p₁ ctorsAs pk uOf ppsOf).memberNames.length := by
     simp [blockDataOf, blockDataPre, BlockData.withPhi, ConLeche.BlockShape.k,
       ConLeche.BlockShape.memberNames]
+  -- every constructor at the block's own levels (the root frame's key)
+  have hlpsA : ∀ (c j : Nat) (cA : ConstantVal × Nat),
+      ((blockDataOf V p₁ ctorsAs pk uOf ppsOf).ctorsM c)[j]? = some cA →
+      cA.1.levelParams = p₁.lps := fun c j cA hj =>
+    hS.lpsA c (hN.2.2 ▸ hN.2.1 c j cA hj) cA (List.mem_of_getElem? hj)
   -- the operator's MONOTONICITY is positivity's: every constructor positive
   -- along the tuple order at the hole frame (at the formers' carrier)
-  have hposI := fun hclosed => blockCtorPos_of_run hμ mpI hN hcore.holeCtx hPos rfl rfl rfl rfl
+  have hposI := fun hclosed => blockCtorPos_of_run hμ mpI hN (hcore.holeCtx hlpsA) hPos rfl rfl
+    rfl rfl
     hkD rfl hlenCtorsAs hctorsAt hclosed hnfs
     (hformers.imp fun _ h => ⟨h.1, h.2.2⟩)
   -- ## the constructors, consed
@@ -622,7 +628,7 @@ theorem declBlock (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
     (fun _ _ => rfl) (fun _ _ _ _ => rfl) hposC
     -- the fields with holes are small at a `Type`-valued block (the grading)
     (fun ψ ρp hs _ X hX c hc j hj =>
-      ((blockHoleGrade_of_run hμ mpI hN hcore.holeCtx hPos rfl rfl rfl rfl rfl hkD rfl hctorsAt
+      ((blockHoleGrade_of_run hμ mpI hN (hcore.holeCtx hlpsA) hPos rfl rfl rfl rfl rfl hkD rfl hctorsAt
         hlenCtorsAs hclosedC hnfs ψ hc hj).2 ρp hs X hX).1)
   have hstC : LfpStored (ConLeche.consBlockCtors p₁.nP ctorsAs env₁)
       (blockDataOf V p₁ ctorsAs pk uOf ppsOf).toLfp := by
@@ -911,7 +917,7 @@ theorem declBlock (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
       · exact Or.inl rfl
       · rw [hlC, ← hlk] at hD
         exact Or.inr hD
-    · rw [hbk]; exact hcore.holeCtx
+    · rw [hbk]; exact hcore.holeCtx hlpsA
     · intro ψ dd e ea h
       refine denoteMeta_envExtend_mono_ok (fun hf => hfwdC _ _ hf)
         ⟨natLitSupported_mono_of_keep hfwdC, strLitSupported_mono_of_keep hfwdC⟩ hprojC dd e ?_
@@ -919,7 +925,7 @@ theorem declBlock (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
       exact h
   -- ## the recursors' stage, and the tables' invariant across it
   -- the check's run (its seeds' table) and the block's constructors' heads
-  obtain ⟨R, hR₁, hRe, hRn, hRp⟩ := ConLeche.targetRecCheck_run_aux
+  obtain ⟨R, hR₁, hRe, hRp⟩ := ConLeche.targetRecCheck_run_aux
     (ConLeche.checkBlockRecT_run (ConLeche.checkBlockRecT_of_rec hRec))
   have hheads : ∀ c ∈ ctorsAs.flatten, ∀ C,
       (ctorEntry C (.ctorInfo c.1 (p₀.complete p₁).nP c.2)).isSome = true →
@@ -942,7 +948,7 @@ theorem declBlock (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
       ⟨hRec, hPos, rfl, hnames, hndM, hN, hS.toBlockCtorsStage, hcoreC,
         fun c hc => hctorsAs c hc, ⟨pk, uOf, ppsOf, rfl⟩,
         EnvModelM.mem_addLfp mpC₀ _ hLC hstC hrdC hcrC, hcovMpC, hmkI, hover,
-        ⟨R, hR₁, hRe, hRn, hRp, rfl⟩, hheads⟩
+        ⟨R, hR₁, hRe, hRp, rfl⟩, hheads⟩
   have hcoreT :=
     (blockTablesCore_of hN hcoreC hnpEnvC).consRecs hag hfindMono hden hnpMono hslotC
   -- ## coverage across the recursors' conses: only recursors

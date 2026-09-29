@@ -405,7 +405,7 @@ theorem blk_ctorFit {env : Env} {μ' : ConLeche.CheckMode} (mk : EnvModelM V μ'
     rw [← hnP]; exact ConLeche.Verify.openPisAtFvars_length _ hop0
   have hidxF := ConLeche.openPisAtFvars_index _ _ _ hop0
   -- the recorded reading, at the canonical crest the walk's is up to erasure
-  obtain ⟨-, A, hA, hR⟩ := (hcore.2 m j cA hcj).2
+  obtain ⟨-, A, hA, hR⟩ := (hcore.2.1 m j cA hcj).2
   obtain ⟨ab, -, hAr, -, hlab, -, -, -, hEqA⟩ := hR ψ
   obtain ⟨A', hA', herased⟩ := canonCrest_of_walk (ctx := p.nestCtx fvsP env.find? env.consts)
     (k := d.k)
