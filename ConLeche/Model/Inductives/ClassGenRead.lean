@@ -373,9 +373,9 @@ set_option maxHeartbeats 800000 in
 prefix, an index spine and a major, the motive's value applied to the
 index spine and the major. -/
 theorem classGenRecTy_concl
-    {acval : Name → (Name → Nat) → AnnotTerm} {env envK : Env} {φ : Name → Nat} {g : ClassGen}
+    {acval : Name → (Name → Nat) → AnnotTerm} {env : Env} {φ : Name → Nat} {g : ClassGen}
     (hg : ClassGenScoped g) {c s : Nat}
-    (hm : ConLeche.ClassRead.motiveSlot ⟨g.slots, []⟩ c = some s) {F : Nat}
+    (hm : ConLeche.ClassRead.motiveSlot ⟨g.slots, []⟩ c = some s)
     {gty : Expr} {ea : AnnotTerm}
     (hgty : classGenRecTy g c = some gty)
     (hread : denoteMeta acval env φ 0 gty = some ea) {pps : List (Nat × Nat × AnnotTerm)}
