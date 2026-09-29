@@ -93848,8 +93848,8 @@ larger proof): dropping the `ds.all` conjunct from `nestContKey`'s hit test
 Perf (instructions:u, two runs each): `complete_c05b_nest30_pi1000`
 69.42 G → 69.43 G (noise), `corner_nestind_f13_listrose` 36.81 M →
 36.79 M (−0.05 %).  The cache is a list searched linearly
-(`Array.contains`), so the gain is where many frame-hole keys accumulate,
-which neither stream has.
+(`Array.contains`), so the gain grows with the frame-hole keys a stream
+accumulates; on these two it is not measurable.
 
 **Verdicts: zero moves.**  668-stream sweep (e2e, arena,
 RECPOS/FUSEPOS/FUSELOOP/RPWHNF fx; `RPFOLLOW/sweep.sh`), uniform-inds
