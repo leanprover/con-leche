@@ -652,6 +652,147 @@ positive decline
 ([function `checkShapeless` in `ConLeche/Kernel/CheckDecl.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/CheckDecl.lean#L32-L33)),
 never an acceptance.
 
+### The uniform install in pseudo-code
+
+The idea in one sentence: instead of building official's auxiliary
+mutual types, the positivity check walks every container at its
+concrete instantiation, as the container's own stored constructors with
+the types under construction as holes; that one walk is the positivity
+check and is what the monotonicity proof is read off, and the recursors
+are checked against the instantiations they name, which seed the same
+walk.
+
+The steps, in the order the checker runs them. A line marked
+`[proof]` is a check official has no counterpart to, made only because
+the checker's own proof reads it.
+
+```
+checkBlock(env, block):          -- block = formers, constructors, recursors from the stream
+  -- 0. shape
+  split into type formers T_1..T_k (one parameter count nP), their constructors, recursors
+  member names distinct, constructor names distinct
+  isRec := official's syntactic is_rec (a member in a constructor's binder domain)
+
+  -- 1. formers (at env)
+  each T_m: type-check; whnf its type as Π (p⃗ : P⃗) (indices) → Sort s_m
+  every member's parameter domains defeq to T_1's; every s_m ≡ s_1 =: s
+  env1 := env + all formers   (η / unit-like / K capability flags, read at isRec)
+
+  -- 2. constructors (at env1), as declared
+  each constructor c of T_m: type-check; its type is Π p⃗ (fields) → T_m p⃗ idx
+  parameter domains defeq to T_m's
+  field sorts ≤ s; at a Prop block with a large eliminator: every field a proof
+    or one of the result's index expressions (the subsingleton criterion)
+
+  -- 3. positivity check (at env1), on the constructors with T_j ↦ hole X_j
+  for each constructor: for each field f:  POS(f, frames = [])
+  then on the constructor's normal form (the fields as POS returned them):
+    no later field and not the result reads a recursive or nested field
+    the result's indices are hole-free
+    every hole occurs applied to exactly p⃗; no member constant is left
+  [proof] the hole-abstracted constructor type-checks with the holes in context,
+          and (at a Type block) its normal form's field sorts are ≤ s there
+  record every constructor's normal form (holes read back as constants)
+                                                   [a table local to the install]
+
+POS(e, frames):
+  w := whnf e
+  if w mentions no member and no hole          → ordinary field
+  if w = Π a. b                                → reject if a mentions a member or hole,
+                                                 else POS(b, frames)
+  if w = X_j p⃗ idx, idx hole-free              → recursive field
+  if w = Y D⃗ idx, Y a frame's hole, D⃗ its key's parameters, idx hole-free, fully applied
+                                               → a field of the container in progress
+  if w = C us Ds idx, C a stored inductive (not a member, not Quot):
+       Ds free of local variables; idx hole-free; fully applied
+       C's level count right; C's index telescope at Ds mentions no member or hole;
+       C's sort ≡ s
+       CONT(C, us, Ds, frames)
+  else reject ("non-valid occurrence")
+
+CONT(C, us, Ds, frames):
+  key := (C, us, Ds)
+  if key is being walked                           → reject (an instantiation in
+                                                     progress, reached through reduction)
+  if key is cached and Ds mention no frame hole    → done
+  group := C's whole mutual block, each member C_j ↦ a fresh frame hole Y_j
+           (each C_j's former checked at Ds as above)
+  C us Ds type-checks
+  for each constructor of the group:
+      instantiate its stored type at us and Ds, group ↦ Y (no β-step); type-check it
+      for each field: POS(field, Y :: frames)
+      no later field and not the result reads a non-ordinary field
+      the result is headed by a hole; its indices are hole-free
+      record its normal form at the key (holes read back as constants)
+  cache the group's keys if Ds mention no frame hole
+
+  -- 4. tail
+  a large eliminator on a block that may be a Prop needs one member with at most one
+    constructor (official's elim_only_at_universe_zero); index sorts read
+  env2 := env1 + constructors
+
+  -- 5. recursor check (at env2)
+  pins: level parameters (the block's, one elimination level in front when large);
+        names {T_m.rec} for member majors, {T_1.rec_1 .. T_1.rec_n} for the others;
+        constructor grouping
+  per recursor: type-check; nP ≤ rule prefix ≤ major index; read its major M = I us Ds idx
+     member major  → I = T_m at the block's levels and parameters
+     outside major → I a stored inductive, not Quot; Ds mention only parameters and
+                     name a member (official's is_nested); I's sort ≡ s;
+                     Ds and I us Ds type-check at the rule prefix
+     parameter domains defeq to the block's; index domains defeq to M's index telescope
+     the conclusion is a type; a proposition when a large eliminator is not allowed
+  SEEDS: every outside class I us Ds → CONT(I, us, Ds, []) at env1,
+         so every class a recursor names is a node of the positivity check
+  a class's table entries := the recorded normal forms of its constructors at a
+     matching key: levels equivalent, parameters defeq with the members abstracted
+  family: one elimination level; the rule prefixes (parameters, motives, minors)
+          defeq across the recursors; one rule per constructor of each major, in order
+  envR := env2 + the recursors without rules
+  per rule (recursor, constructor, rhs):
+     rhs is λ (prefix) (fields). body, the binder domains defeq to the prefix and the
+       constructor's fields at the major's instantiation
+     every recursor of the family in body is a call rec_c x⃗ e⃗ (f a⃗): x⃗ the prefix,
+       f a field, a⃗ its telescope's variables; replaced by a fresh ih variable
+       (anything else: reject, "not a primitive recursion")
+     per call, with the members abstracted to holes:
+        the field's telescope is hole-free, the call's indices e⃗ name no member
+        the field's type ≡ Π telescope. the callee's major type at x⃗ e⃗
+        the call type-checks, and its type is the ih variable's
+        [proof] at every table entry of (the class, the constructor), the called
+                field has that telescope, the callee's head and indices, and a class
+                matching the callee's
+     the body's type, calls replaced, ≡ the recursor's conclusion at this constructor
+
+  -- 6. conformance (one member, one recursor, no container field only):
+  --    generate official's recursor and compare, reject-only
+  env3 := env2 + the recursors with their rules (an outside major's fire at its
+          instantiation) + projection tables for structure-like members
+```
+
+The entry is
+[function `checkBlock` in `ConLeche/Kernel/Inductives/BlockTail.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/BlockTail.lean#L121);
+steps 1–3 are
+[function `checkBlockPass` in `ConLeche/Kernel/Inductives/BlockInstall.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/BlockInstall.lean#L322),
+the constructor check of step 2 is
+[function `checkSumCtor` in `ConLeche/Kernel/Inductives/SumInstall.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/SumInstall.lean#L114),
+`POS` is
+[function `nestPos` in `ConLeche/Kernel/Inductives/Positivity.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/Positivity.lean#L1417),
+its checks per member constructor are
+[function `nestMemberCtor` in the same file](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/Positivity.lean#L1484),
+`CONT` is
+[function `nestContKey`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/Positivity.lean#L1360)
+with the frame's constructors in
+[function `nestCtors`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/Positivity.lean#L1179),
+step 4 is
+[function `checkBlockTail` in `BlockTail.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/BlockTail.lean#L97),
+and step 5 is `targetRecCheck` (above), with one recursor's type in
+[function `targetRecTy` in `ConLeche/Kernel/Inductives/RecCheck.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/RecCheck.lean#L576),
+one rule in
+[function `targetRule`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/RecCheck.lean#L1023)
+and one call in
+[function `targetCallOk`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/RecCheck.lean#L914).
+
 ## 6. The Nat operations
 
 The official kernel accelerates the structural `Nat` operations on
