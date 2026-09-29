@@ -87,50 +87,37 @@ with its hole value applied to the frame's parameters. -/
 /-! ### The recorded constructor readings (M2)
 
 A container frame (`nestCtors`) walks a stored constructor type with its
-group's members replaced by the frame's holes and its parameters
-instantiated.  The record reads the same type at a CANONICAL abstraction
-— parameter `i` the variable `i`, member `m` the variable `nP + m`, every
-annotation `Sort 0` (`nestAbstract` reads only names and levels, the
-reading ignores fvar annotations) — as the Π-tower over the clause's
-fields with holes, ending in the member's hole at the parameters and the
-result index readings.  The container substitution law
-(`frameCrest_read`, `Model/Inductives/ContSubst.lean`) turns that reading
-into the frame's. -/
+group's WHOLE applications replaced by the frame's holes before its
+parameters are instantiated: the canonical abstraction (`nestCanonCrest`:
+parameter `i` the variable `i`, member `m`'s whole application the
+variable `nP + m`, every annotation `Sort 0`), then the key's parameters
+and the frame's holes put in.  The record reads the canonical abstraction
+at the block's own levels as the Π-tower over the clause's fields with
+holes; the container substitution law (`frameCrest_read`,
+`Model/Inductives/ContSubst.lean`) turns that reading into the frame's. -/
 
-/-- The canonical parameter variables `0 ..< nP`. -/
-@[expose] def canonParams (nP : Nat) : List Expr :=
-  (List.range nP).map fun i => .fvar i (.sort .zero)
+/-- The canonical parameter variables `0 ..< nP` (the kernel's `nestPhs`). -/
+@[expose] def canonParams (nP : Nat) : List Expr := ConLeche.nestPhs nP
 
-/-- The canonical member holes `nP ..< nP + k`. -/
-@[expose] def canonHoles (nP k : Nat) : List Expr :=
-  (List.range k).map fun mm => .fvar (nP + mm) (.sort .zero)
-
-/-- The canonical abstraction context: only `names`, `lps` (read by
-`nestAbstract`), `nP` and `params` matter. -/
-@[expose] def canonCtx (names lps : List Name) (nP : Nat) : ConLeche.NestCtx where
-  names := names
-  lps := lps
-  nP := nP
-  nIdxs := []
-  params := canonParams nP
-  sort := .zero
-  find? := fun _ => none
-
-/-- A stored constructor type, member-abstracted at the canonical holes. -/
-@[expose] def canonAbs (names lps : List Name) (nP k : Nat) (e : Expr) : Expr :=
-  ConLeche.nestAbstract (canonCtx names lps nP) (canonHoles nP k) e
+/-- **A term the records read off a stored type**: its canonical
+abstraction (`nestCanonCrest`), or its instantiation at the canonical
+parameters (a member hole's type). -/
+@[expose] def CanonOf (ty A : Expr) : Prop :=
+  (∃ names us n, ConLeche.nestCanonCrest names us n ty = some A) ∨
+    ∃ n, ConLeche.instPisWith (canonParams n) ty = some A
 
 /-- **A recorded block's constructors read as their hole telescopes**
 (M2): member `c`'s constructor
-`j` is stored, closed, at the members' level parameters; its
-member-abstracted type mentions no member constant (M2′, from the kernel's
-`nestUniform`); and its canonical instantiation reads, at depth
-`nP + k` and every level assignment, as a Π-tower ending in member `c`'s
-hole applied to the parameters and the result index readings, whose
-fields read like the clause's fields with holes at every frame
-satisfying the hole context (the parameters, then each member's former
-type, `Tys`).  The stored type is the DECLARED one; the fields with holes
-are the positivity walk's normal form's, which reads like it there.
+`j` is stored, closed, at the members' level parameters; its canonical
+abstraction (every whole member application abstracted, at the canonical
+parameters) mentions no member constant (from the kernel's
+`nestUniform`), and reads, at depth `nP + k` and every level assignment,
+as a Π-tower ending in member `c`'s hole applied to the result index
+readings, whose fields read like the clause's fields with holes at every
+frame satisfying the hole context (the parameters, then each member's
+hole type — its former at the canonical parameters, `Tys`).  The stored
+type is the DECLARED one; the fields with holes are the positivity walk's
+normal form's, which reads like it there.
 
 **The constructor's parameters are the block's.**  The stored type reads, at every level assignment, as a
 Π-tower whose first `nPc` binders are satisfied wherever the block's
@@ -150,22 +137,21 @@ parameter binders. -/
     cv.type.hasFvar = false ∧
     (∀ mm, mm < D.k → ∃ cvm caps, env.find? (D.member mm) = some (.indInfo cvm caps) ∧
       cvm.levelParams = cv.levelParams) ∧
-    (canonAbs D.names cv.levelParams nPc D.k cv.type).nestOcc D.names 0 0 = false ∧
     (∀ (ψ : Name → Nat) (dsC : List (Nat × Nat × AnnotTerm)) (bodyC : AnnotTerm),
       denoteMeta acval env ψ 0 cv.type = some (mkPisAV dsC bodyC) → nPc ≤ dsC.length →
       ∀ ρ : Nat → V, Sat V (D.params ψ).reverse ρ →
         Sat V ((dsC.take nPc).map (·.2.2)).reverse ρ) ∧
-    ∃ A, ConLeche.instPisWith (canonParams nPc) (canonAbs D.names cv.levelParams nPc D.k cv.type)
-        = some A ∧
+    ∃ A, ConLeche.nestCanonCrest D.names (cv.levelParams.map .param) nPc cv.type = some A ∧
+      A.nestOcc D.names 0 0 = false ∧
       ∀ ψ : Name → Nat, (D.params ψ).length = nPc ∧ (D.fields ψ c j).length = nF ∧
         ∃ (ab : List (Nat × Nat × AnnotTerm)) (Tys : List AnnotTerm),
           denoteMeta acval env ψ (nPc + D.k) A
             = some (mkPisAV ab (AnnotTerm.mkAppN (.bvar (nF + (D.k - 1 - c)))
-                ((List.range nPc).map (fun i => AnnotTerm.bvar (nPc + D.k + nF - 1 - i))
-                  ++ D.resIdx ψ c j))) ∧
+                (D.resIdx ψ c j))) ∧
           ab.length = nF ∧ Tys.length = D.k ∧
-          (∀ mm, mm < D.k → ∃ cvm caps, env.find? (D.member mm) = some (.indInfo cvm caps) ∧
-            denoteMeta acval env ψ 0 cvm.type = some (Tys.getD mm default)) ∧
+          (∀ mm, mm < D.k → ∃ cvm caps ty, env.find? (D.member mm) = some (.indInfo cvm caps) ∧
+            ConLeche.instPisWith (canonParams nPc) cvm.type = some ty ∧
+            denoteMeta acval env ψ (nPc + mm) ty = some (Tys.getD mm default)) ∧
           FieldsEqOn V (D.params ψ ++ Tys).reverse (ab.map (·.2.2)) (D.fields ψ c j)
 
 /-- **The P-tier environment invariant, at one mode** (see the module
@@ -429,13 +415,11 @@ theorem lfp_ok_transport (mp : EnvModelM V μ env) {env' : Env}
     (hreadT : ∀ n cv nPc nF, env.find? n = some (.ctorInfo cv nPc nF) → ∀ (ψ : Name → Nat)
       (ta : AnnotTerm), denoteMeta mp.base2.acval env ψ 0 cv.type = some ta →
       denoteMeta acval' env' ψ 0 cv.type = some ta)
-    (hreadC : ∀ n cv nPc nF, env.find? n = some (.ctorInfo cv nPc nF) →
-      ∀ (names : List Name) (k : Nat) (A : Expr),
-      ConLeche.instPisWith (canonParams nPc) (canonAbs names cv.levelParams nPc k cv.type)
-        = some A →
-      ∀ (ψ : Name → Nat) (ta : AnnotTerm),
-      denoteMeta mp.base2.acval env ψ (nPc + k) A = some ta →
-      denoteMeta acval' env' ψ (nPc + k) A = some ta) :
+    (hreadC : ∀ n ci, env.find? n = some ci → (∀ cv mI rP rules, ci ≠ .recInfo cv mI rP rules) →
+      ∀ A, CanonOf ci.toConstantVal.type A →
+      ∀ (ψ : Name → Nat) (d : Nat) (ta : AnnotTerm),
+      denoteMeta mp.base2.acval env ψ d A = some ta →
+      denoteMeta acval' env' ψ d A = some ta) :
     ∀ D ∈ mp.lfpBlocks, LfpClause acval' D ∧ LfpStored env' D ∧ LfpReads acval' env' D ∧
       LfpCtorReads acval' env' D := by
   intro D hD
@@ -454,9 +438,9 @@ theorem lfp_ok_transport (mp : EnvModelM V μ env) {env' : Env}
     refine ⟨cv, caps, hfind _ _ hf fun _ _ _ _ h => ConstantInfo.noConfusion h, fun ψ => ?_⟩
     obtain ⟨ab, hta, h1, h2⟩ := hab ψ
     exact ⟨ab, hread _ _ _ hf ψ _ hta, h1, h2⟩
-  · obtain ⟨cv, nPc, nF, hf, hcf, hlps, hocc, hpars, A, hA, hrdA⟩ := hrdC c hc j hj
+  · obtain ⟨cv, nPc, nF, hf, hcf, hlps, hpars, A, hA, hocc, hrdA⟩ := hrdC c hc j hj
     refine ⟨cv, nPc, nF, hfind _ _ hf fun _ _ _ _ h => ConstantInfo.noConfusion h, hcf,
-      fun mm hmm => ?_, hocc, fun ψ dsC bodyC hrd' hle => ?_, A, hA, fun ψ => ?_⟩
+      fun mm hmm => ?_, fun ψ dsC bodyC hrd' hle => ?_, A, hA, hocc, fun ψ => ?_⟩
     · obtain ⟨cvm, caps, hfm, hl⟩ := hlps mm hmm
       exact ⟨cvm, caps, hfind _ _ hfm fun _ _ _ _ h => ConstantInfo.noConfusion h, hl⟩
     · -- the new reading is the old one (the old one exists, and crosses)
@@ -467,10 +451,11 @@ theorem lfp_ok_transport (mp : EnvModelM V μ env) {env' : Env}
       obtain rfl := Option.some.inj hta'
       exact hpars ψ dsC bodyC hta hle
     · obtain ⟨h1, h2, ab, Tys, hta, hlab, hlT, hTys, hab⟩ := hrdA ψ
-      refine ⟨h1, h2, ab, Tys, hreadC _ _ _ _ hf _ _ _ hA ψ _ hta, hlab, hlT, fun mm hmm => ?_, hab⟩
-      obtain ⟨cvm, caps, hfm, hr⟩ := hTys mm hmm
-      exact ⟨cvm, caps, hfind _ _ hfm fun _ _ _ _ h => ConstantInfo.noConfusion h,
-        hread _ _ _ hfm ψ _ hr⟩
+      refine ⟨h1, h2, ab, Tys, hreadC _ _ hf (fun _ _ _ _ h => ConstantInfo.noConfusion h) A
+        (.inl ⟨_, _, _, hA⟩) ψ _ _ hta, hlab, hlT, fun mm hmm => ?_, hab⟩
+      obtain ⟨cvm, caps, ty, hfm, hty, hr⟩ := hTys mm hmm
+      exact ⟨cvm, caps, ty, hfind _ _ hfm fun _ _ _ _ h => ConstantInfo.noConfusion h, hty,
+        hreadC _ _ hfm (fun _ _ _ _ h => ConstantInfo.noConfusion h) ty (.inr ⟨_, hty⟩) ψ _ _ hr⟩
 
 end EnvModelM
 

@@ -4,6 +4,7 @@ public import ConLeche.Kernel.Inductives.Positivity
 public import ConLeche.Verify.Shift
 public import ConLeche.Verify.Subst
 import ConLeche.Verify.Leaves
+import ConLeche.Verify.InferLemmas
 
 public section
 
@@ -354,6 +355,149 @@ theorem replaceApps_erasedEq {f f' : Name → List Level → Option Expr} {b n :
     intro e' h
     cases e' <;> simp only [ErasedEq] at h <;> first | exact h.elim | skip
     subst h; exact ErasedEq.rfl _
+
+/-! ## Spines -/
+
+/-- A placeholder spine has exactly its placeholders as arguments. -/
+theorem phApp?_argsLen {b : Nat} :
+    ∀ (n : Nat) {e : Expr} {p : Name × List Level}, e.phApp? b n = some p →
+      e.getAppArgs.length = n
+  | 0, e, p, h => by
+    obtain ⟨c, v⟩ := p
+    cases e <;> simp_all [phApp?, getAppArgs]
+  | n + 1, e, p, h => by
+    match e, h with
+    | .app f (.fvar j ty), h =>
+      simp only [phApp?] at h
+      split at h
+      · simp only [getAppArgs, List.length_append, List.length_singleton]
+        rw [phApp?_argsLen n h]
+      · exact nomatch h
+
+/-- **A whole application, over-applied, is replaced at its head**: the
+member applied to exactly the placeholders and then to `rest` becomes
+its hole applied to `rest` replaced. -/
+theorem replaceApps_mkAppN_hit {f : Name → List Level → Option Expr} {b n : Nat} {c : Name}
+    {v : List Level} {h : Expr} {phs : List Expr} (hf : f c v = some h)
+    (hph : (Expr.mkAppN (.const c v) phs).phApp? b n = some (c, v)) :
+    ∀ rest : List Expr, (Expr.mkAppN (.const c v) (phs ++ rest)).replaceApps f b n
+      = Expr.mkAppN h (rest.map (·.replaceApps f b n)) := by
+  have hlen := phApp?_argsLen n hph
+  rw [getAppArgs_mkAppN] at hlen
+  simp only [getAppArgs, List.nil_append] at hlen
+  intro rest
+  induction hk : rest.length generalizing rest with
+  | zero =>
+    obtain rfl := List.eq_nil_of_length_eq_zero hk
+    rw [List.append_nil, List.map_nil]
+    show _ = h
+    rcases List.eq_nil_or_concat phs with rfl | ⟨xs, y, rfl⟩
+    · rw [show Expr.mkAppN (.const c v) [] = .const c v from rfl, replaceApps_const]
+      simp only [show Expr.mkAppN (.const c v) [] = .const c v from rfl] at hph
+      simp [appHole?, hph, hf]
+    · rw [List.concat_eq_append] at hph ⊢
+      rw [mkAppN_append_one] at hph ⊢
+      rw [replaceApps_app]
+      simp [appHole?, hph, hf]
+  | succ m ih =>
+    rcases List.eq_nil_or_concat rest with rfl | ⟨pre, x, rfl⟩
+    · simp at hk
+    · rw [List.concat_eq_append] at hk ⊢
+      simp only [List.length_append, List.length_singleton, Nat.add_right_cancel_iff] at hk
+      rw [← List.append_assoc, mkAppN_append_one, replaceApps_app, List.map_append,
+        List.map_singleton, mkAppN_append_one, ← ih pre hk]
+      have hnone : (Expr.app (Expr.mkAppN (.const c v) (phs ++ pre)) x).appHole? f b n = none := by
+        unfold appHole?
+        cases hp : (Expr.app (Expr.mkAppN (.const c v) (phs ++ pre)) x).phApp? b n with
+        | none => rfl
+        | some q =>
+          have := phApp?_argsLen n hp
+          rw [← mkAppN_append_one, getAppArgs_mkAppN] at this
+          simp [getAppArgs] at this
+          omega
+      rw [hnone]
+
+/-- The placeholder spine test is blind to instantiating a bound variable
+by a free one that is no placeholder. -/
+theorem phApp?_instantiate1_fvar {b N : Nat} {i : Nat} {ty : Expr} (hi : ¬ (b ≤ i ∧ i < b + N)) :
+    ∀ (n : Nat), n ≤ N → ∀ (e : Expr) (k : Nat),
+      (e.instantiate1 (.fvar i ty) k).phApp? b n = e.phApp? b n
+  | 0, _, e, k => by
+    cases e with
+    | bvar j =>
+      simp only [instantiate1]
+      split
+      · simp [phApp?]
+      · split <;> simp [phApp?]
+    | _ => simp [instantiate1, phApp?]
+  | n + 1, hn, e, k => by
+    cases e with
+    | app f x =>
+      cases x with
+      | fvar j t =>
+        simp only [instantiate1, phApp?]
+        split
+        · exact phApp?_instantiate1_fvar hi n (by omega) f k
+        · rfl
+      | bvar j =>
+        simp only [instantiate1]
+        split
+        · simp only [phApp?]
+          rw [if_neg (by omega)]
+        · split <;> simp [phApp?]
+      | _ => simp [instantiate1, phApp?]
+    | bvar j =>
+      simp only [instantiate1]
+      split
+      · simp [phApp?]
+      · split <;> simp [phApp?]
+    | _ => simp [instantiate1, phApp?]
+
+/-- **The replacement commutes with opening a binder at a free variable
+that is no placeholder**, when the images are closed under binders. -/
+theorem replaceApps_instantiate1_fvar {f : Name → List Level → Option Expr} {b n : Nat}
+    (hf : ∀ c us h, f c us = some h → h.looseBVarsBounded 0 = true) {i : Nat} {ty : Expr}
+    (hi : ¬ (b ≤ i ∧ i < b + n)) :
+    ∀ (e : Expr) (k : Nat), (e.instantiate1 (.fvar i ty) k).replaceApps f b n
+      = (e.replaceApps f b n).instantiate1 (.fvar i ty) k := by
+  have hhit : ∀ (e : Expr) (k : Nat), (e.instantiate1 (.fvar i ty) k).appHole? f b n
+      = e.appHole? f b n := fun e k => by
+    unfold appHole?; rw [phApp?_instantiate1_fvar hi n (Nat.le_refl _)]
+  have himg : ∀ (e h : Expr) (k : Nat), e.appHole? f b n = some h →
+      h.instantiate1 (.fvar i ty) k = h := fun e h k hh => by
+    obtain ⟨c, us, hc⟩ := appHole?_some hh
+    exact instantiate1_eq_self (looseBVarsBounded_mono (Nat.zero_le _) (hf _ _ _ hc))
+  intro e
+  induction e with
+  | bvar j =>
+    intro k
+    by_cases hjk : j = k
+    · subst hjk; simp [instantiate1, replaceApps]
+    · simp only [instantiate1, hjk, if_false, replaceApps]
+      split <;> simp [instantiate1, replaceApps, hjk, *]
+  | fvar j t _ => intro k; rfl
+  | sort u => intro k; rfl
+  | lit l => intro k; rfl
+  | const c us =>
+    intro k
+    rw [show (Expr.const c us).instantiate1 (.fvar i ty) k = .const c us from rfl, replaceApps_const]
+    split
+    · rename_i h hh; exact (himg _ _ k hh).symm
+    · rfl
+  | app a x iha ihx =>
+    intro k
+    rw [show (Expr.app a x).instantiate1 (.fvar i ty) k
+      = .app (a.instantiate1 (.fvar i ty) k) (x.instantiate1 (.fvar i ty) k) from rfl,
+      replaceApps_app, replaceApps_app, show Expr.app (a.instantiate1 (.fvar i ty) k)
+        (x.instantiate1 (.fvar i ty) k) = (Expr.app a x).instantiate1 (.fvar i ty) k from rfl,
+      hhit]
+    split
+    · rename_i h hh; exact (himg _ _ k hh).symm
+    · simp only [instantiate1, iha, ihx]
+  | lam t body m iht ihb => intro k; simp only [instantiate1, replaceApps, iht, ihb]
+  | forallE t body m iht ihb => intro k; simp only [instantiate1, replaceApps, iht, ihb]
+  | letE t v body iht ihv ihb => intro k; simp only [instantiate1, replaceApps, iht, ihv, ihb]
+  | proj s j x ih => intro k; simp only [instantiate1, replaceApps, ih]
 
 /-! ## Leaves and scoping -/
 

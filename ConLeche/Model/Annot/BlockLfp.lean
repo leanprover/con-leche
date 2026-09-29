@@ -2,7 +2,7 @@ module
 
 public import ConLeche.Semantics.Sat
 public import ConLeche.Semantics.Tower.FixTower
-public import ConLeche.Semantics.Inductives.HoleApp
+public import ConLeche.Semantics.Tower.TowerKit
 public section
 
 /-!
@@ -176,13 +176,11 @@ variable {V : Type w} [SetTheory V] (D : LfpDatum V)
   lfpTuple (D.w ψ) D.N (D.idx ψ ρp) (D.Φ ψ ρp)
 
 /-- **Member `m`'s hole value** at the tuple `X`: the
-λ-tower over the parameters and `m`'s indices (the member former's
-binders, read from below the parameter frame) of `X m` at the index
-tuple — the family of `X`, curried, blind in its parameters (a hole is
-only ever applied to the block's own parameters). -/
+λ-tower over `m`'s indices (read at the parameter frame) of `X m` at the
+index tuple — the family of `X`, curried (a hole stands for the member's
+WHOLE application to the block's parameters, `nestCrest`). -/
 @[expose] noncomputable def holeVal (ψ : Name → Nat) (ρp X : Nat → V) (m : Nat) : V :=
-  holeFam (shiftE (D.pars m ψ).length 0 ρp) (D.pars m ψ ++ D.ids m ψ)
-    fun vs => app (X m) (tupW (D.u m ψ) (vs.drop (D.pars m ψ).length))
+  holeFam ρp (D.ids m ψ) fun vs => app (X m) (tupW (D.u m ψ) vs)
 
 /-- **The hole frame** at `(ρp, X)`: the parameter frame with member
 `m`'s hole value at the variable `nP + m` (so the last member is
@@ -199,16 +197,6 @@ index tuple `t`. -/
   j < D.nctors c ∧ SpineFit (D.frame ψ ρp X) (D.fields ψ c j) fs ∧
     ∀ l, l < (D.ids c ψ).length → ∃ e, (D.resIdx ψ c j)[l]? = some e ∧
       interp V (consList fs (D.frame ψ ρp X)) e = projS l t
-
-/-- **The holes occur only applied to the parameters** (R23's M3)
-in component `c`'s constructor `j`'s field readings (field `l` below
-the `l` earlier fields) and result index readings (below all of
-them): the fact that lets a container's instantiation read the fields
-at a frame whose member slots hold group-mates' formers or frame holes
-(`interp_congr_holeApp`). -/
-@[expose] def HolesApplied (ψ : Name → Nat) (c j : Nat) : Prop :=
-  (∀ l F, (D.fields ψ c j)[l]? = some F → HoleApp D.k (D.params ψ).length l F) ∧
-  ∀ e ∈ D.resIdx ψ c j, HoleApp D.k (D.params ψ).length (D.fields ψ c j).length e
 
 end LfpDatum
 
@@ -234,20 +222,13 @@ namespace LfpDatum
 
 variable {D : LfpDatum V}
 
-/-- **A hole applied to the block's own parameters and fitting indices
-is the tuple's component** at the index tuple. -/
-theorem holeVal_app {ψ : Name → Nat} {ρp X : Nat → V} {m : Nat}
-    (hs : Sat V (D.pars m ψ).reverse ρp) {is : List V} (his : SpineFit ρp (D.ids m ψ) is) :
-    (frameIdx (D.pars m ψ).length ρp ++ is).foldl app (D.holeVal ψ ρp X m)
-      = app (X m) (tupW (D.u m ψ) is) := by
-  have hsp : SpineFit (shiftE (D.pars m ψ).length 0 ρp) (D.pars m ψ)
-      (frameIdx (D.pars m ψ).length ρp) := spineFit_frameIdx_of_sat hs
-  have hlen : (frameIdx (D.pars m ψ).length ρp).length = (D.pars m ψ).length := by
-    simp [frameIdx]
-  have hfr : consList (frameIdx (D.pars m ψ).length ρp) (shiftE (D.pars m ψ).length 0 ρp) = ρp :=
-    consList_frameIdx _ ρp
+/-- **A hole applied to fitting indices is the tuple's component** at the
+index tuple. -/
+theorem holeVal_app {ψ : Name → Nat} {ρp X : Nat → V} {m : Nat} {is : List V}
+    (his : SpineFit ρp (D.ids m ψ) is) :
+    is.foldl app (D.holeVal ψ ρp X m) = app (X m) (tupW (D.u m ψ) is) := by
   unfold holeVal
-  rw [holeFam_app _ (hsp.append (by rw [hfr]; exact his)), List.drop_left' hlen]
+  exact holeFam_app _ his
 
 end LfpDatum
 
@@ -328,8 +309,6 @@ structure LfpClause (acval : Name → (Name → Nat) → AnnotTerm) (D : LfpDatu
   former telescope, the leaf reads them at the block's -/
   parsSatInv : ∀ mm, mm < D.k → ∀ (ψ : Name → Nat) (ρ : Nat → V),
     Sat V (D.pars mm ψ).reverse ρ → Sat V (D.params ψ).reverse ρ
-  /-- **the holes occur only applied to the parameters** (R23's M3) -/
-  holeApp : ∀ (ψ : Name → Nat) c, c < D.N → ∀ j, j < D.nctors c → D.HolesApplied ψ c j
   /-- **the constructors' result indices fit the index telescope** at the
   carrier -/
   resIdxFit : LfpResIdxFit D
@@ -372,7 +351,6 @@ theorem congr (h : LfpClause acval D) {acval' : Name → (Name → Nat) → Anno
   parsLen := h.parsLen
   parsSat := h.parsSat
   parsSatInv := h.parsSatInv
-  holeApp := h.holeApp
   resIdxFit := h.resIdxFit
   injNePt := h.injNePt
   fieldsOk := h.fieldsOk

@@ -11,20 +11,19 @@ public section
 
 A container frame (`nestCtors`, `Kernel/Inductives/Positivity.lean`)
 walks a stored constructor type `e` of the container's block at the
-instantiation `(us, ds)`: `instPisWith ds ((e.instantiateLevelParams lps
-us).replaceConsts sub)`, the reached group's members replaced by the
-frame's holes (`sub`).  The record reads the same constructor
-member-abstracted at the canonical variables (M2): `instPisWith params
-(nestAbstract ctx holes e)` at depth `nP + k`, as the Π-tower over the
-clause's fields with holes.
+instantiation `(us, ds)`: `nestCrest gnames us ds holes
+(e.instantiateLevelParams lps us)`, the group's whole applications
+replaced by the frame's holes before the parameters are instantiated.
+The record reads the canonical abstraction of the same constructor (M2):
+`nestCanonCrest names (lps.map param) nP e` at depth `nP + k`, as the
+Π-tower over the clause's fields with holes.
 
-**The law** (`frameCrest_read`): when every member occurrence of `e` is
-at the block's levels (M2′, which the kernel checks at every
+**The law** (`frameCrest_read`): when the canonical abstraction leaves
+no member constant (the kernel's uniform check at the container's
 install), the frame's constructor type reads, at the frame's depth, as
 the recorded reading at the levels `us` with its parameter and hole
-positions substituted — by the readings of the key's parameters, and of
-the frame's holes (the reached group) or of the members' formers (the
-rest) — ALL AT ONCE (`AnnotTerm.substAV`).  So a field spine fits the
+positions substituted — by the readings of the key's parameters and of
+the frame's holes — ALL AT ONCE (`AnnotTerm.substAV`).  So a field spine fits the
 frame's walked telescope exactly when it fits the recorded fields at the
 valuation holding those values (`spineFit_substTele`): the parameter
 frame `⟦ds⟧`, and at each member slot the frame's hole value or the
@@ -38,7 +37,8 @@ open ConLeche.Semantics
 open ConLeche.SetModel
 open ConLeche.Term ConLeche.Verify SetTheory
 open ConLeche.Semantics (AnnotTerm)
-open ConLeche (Env Expr Name Level NestCtx nestAbstract instPisWith)
+open ConLeche (Env Expr Name Level NestCtx nestCanonCrest nestCrest instPisWith
+  fvarLeaves_nestCanonCrest)
 
 universe w
 
@@ -74,42 +74,39 @@ theorem fvarsBelow_instantiateLevelParams (ks : List Name) (us : List Level) {d 
 /-- **The container substitution law, reading side** (see the module
 docstring): the frame's constructor type reads as the recorded Π-tower
 with its parameter and hole positions substituted. -/
-theorem frameCrest_read (m : EnvModel V env) {φ : Name → Nat} {ctx : NestCtx}
-    {holes : List Expr} {us : List Level} {sub : Name → List Level → Option Expr}
-    {ds : List Expr} {D' : Nat} {s : Nat → Expr} {x : Nat → AnnotTerm}
-    (hholes : ∀ mm, mm < ctx.names.length → ∃ ty, holes[mm]? = some (.fvar (ctx.nP + mm) ty))
-    (hnd : ctx.lps.Nodup) (hul : us.length = ctx.lps.length)
-    (hnP : ctx.params.length = ctx.nP)
-    (hmem : ∀ mm, mm < ctx.names.length →
-      s (ctx.nP + mm) = ((sub (ctx.names.getD mm .anonymous) us).getD
-        (.const (ctx.names.getD mm .anonymous) us)))
-    (hout : ∀ n vs, ctx.names.contains n = false → sub n vs = none)
-    (hpar : ∀ i, i < ctx.nP → s i = ds.getD i default)
-    (hpv : ∀ i, i < ctx.nP → ∃ ty, ctx.params[i]? = some (.fvar i ty))
-    (hdlen : ds.length = ctx.nP)
-    (hs : ∀ i, i < ctx.nP + ctx.names.length → Expr.WScoped D' (s i) ∧
+theorem frameCrest_read (m : EnvModel V env) {φ : Name → Nat} {names gnames lps : List Name}
+    {n : Nat} {us : List Level} {ds holes : List Expr} {D' : Nat} {s : Nat → Expr}
+    {x : Nat → AnnotTerm}
+    (hnd : lps.Nodup) (hul : us.length = lps.length)
+    (hdlen : ds.length = n) (hmemG : ∀ c, c ∈ gnames ↔ c ∈ names)
+    (hpar : ∀ i, i < n → s i = ds.getD i default)
+    (hhole : ∀ mm, mm < names.length →
+      s (n + mm) = holes.getD (gnames.idxOf (names.getD mm .anonymous)) default)
+    (hhl : gnames.length ≤ holes.length)
+    (hs : ∀ i, i < n + names.length → Expr.WScoped D' (s i) ∧
       (s i).looseBVarsBounded 0 = true ∧ denoteMeta m.acval env φ D' (s i) = some (x i))
-    {e A : Expr} (he : e.hasFvar = false) (hAw : Expr.WScoped (ctx.nP + ctx.names.length) A)
-    (hocc : (nestAbstract ctx holes e).nestOcc ctx.names 0 0 = false)
-    (hA : instPisWith ctx.params (nestAbstract ctx holes e) = some A)
+    {e A : Expr} (he : e.hasFvar = false) (hocc : A.nestOcc names 0 0 = false)
+    (hA : nestCanonCrest names (lps.map .param) n e = some A)
     {ab : List (Nat × Nat × AnnotTerm)} {res : AnnotTerm}
-    (hread : denoteMeta m.acval env (Level.substFn φ ctx.lps us) (ctx.nP + ctx.names.length) A
+    (hread : denoteMeta m.acval env (Level.substFn φ lps us) (n + names.length) A
       = some (mkPisAV ab res)) :
-    ∃ crest, instPisWith ds ((e.instantiateLevelParams ctx.lps us).replaceConsts sub) = some crest ∧
+    ∃ crest, nestCrest gnames us ds holes (e.instantiateLevelParams lps us) = some crest ∧
       denoteMeta m.acval env φ D' crest
-        = some (mkPisAV (AnnotTerm.substTele (substTau (ctx.nP + ctx.names.length) D' x) 0 ab)
-            (AnnotTerm.substAV (substTau (ctx.nP + ctx.names.length) D' x) res ab.length)) := by
-  refine ⟨_, Expr.frameCrest_eq (b := ctx.nP + ctx.names.length) (D := D') hholes
-    (map_param_subst hnd hul) (Nat.le_refl _) hmem hout
-    (fun i hi => hpar i (by omega)) (fun i hi => hpv i (by omega)) (by omega) (by omega)
-    (fun i hi => (hs i hi).2.1) he hocc hA, ?_⟩
-  -- `A` is scoped at `nP + k`: the parameters and holes are its only variables
-  have hAf : Expr.fvarsBelow (ctx.nP + ctx.names.length + 0) (A.instantiateLevelParams ctx.lps us) := by
+        = some (mkPisAV (AnnotTerm.substTele (substTau (n + names.length) D' x) 0 ab)
+            (AnnotTerm.substAV (substTau (n + names.length) D' x) res ab.length)) := by
+  refine ⟨_, Expr.frameCrest_eq (b := n + names.length) (D := D') rfl (map_param_subst hnd hul)
+    hdlen hmemG hpar hhole hhl he hocc hA, ?_⟩
+  -- `A`'s variables are the canonical parameters and holes
+  have hAw : Expr.WScoped (n + names.length) A :=
+    Expr.WScoped_of_leaves _ fun l hl => by
+      obtain ⟨i, hi, rfl⟩ := fvarLeaves_nestCanonCrest he hA l hl
+      exact ⟨hi, by simp [Expr.WScoped]⟩
+  have hAf : Expr.fvarsBelow (n + names.length + 0) (A.instantiateLevelParams lps us) := by
     rw [Nat.add_zero]
     exact fvarsBelow_instantiateLevelParams _ _ hAw.fvarsBelow
-  have h := denoteMeta_substFvars (φ := φ) m (b := ctx.nP + ctx.names.length) (D := D') (s := s)
-    (x := x) hs (A.instantiateLevelParams ctx.lps us) 0 hAf
-  rw [Nat.add_zero, Nat.add_zero, denotePInstLevels m φ ctx.lps us, hread] at h
+  have h := denoteMeta_substFvars (φ := φ) m (b := n + names.length) (D := D') (s := s)
+    (x := x) hs (A.instantiateLevelParams lps us) 0 hAf
+  rw [Nat.add_zero, Nat.add_zero, denotePInstLevels m φ lps us, hread] at h
   rw [h, Option.map_some, AnnotTerm.substAV_mkPisAV, Nat.zero_add]
 
 /-- **The valuation the substituted reading is read at**: the member

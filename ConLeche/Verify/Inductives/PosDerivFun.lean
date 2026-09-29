@@ -168,10 +168,9 @@ constructor, instantiated as the walk instantiates it, has at every
 derivation of its telescope the entry of that derivation's normal form. -/
 @[expose] def CtorsRec (ops : CheckerOps CheckM) (env : Env) (ctx : NestCtx)
     (tbl : List NestCtorNf) (prog : List NestHole) (hi : Nat) (us : List Level) (ds : List Expr)
-    (sub : Name → List Level → Option Expr) (cs : List (ConstantVal × Nat)) : Prop :=
+    (names : List Name) (holes : List Expr) (cs : List (ConstantVal × Nat)) : Prop :=
   ∀ x ∈ cs, ∀ crest ks nds cur ts',
-    instPisWith ds ((x.1.type.instantiateLevelParams x.1.levelParams us).replaceConsts sub)
-      = some crest →
+    nestCrest names us ds holes (x.1.type.instantiateLevelParams x.1.levelParams us) = some crest →
     PosD ops env ctx (.tele prog hi x.2 0 crest ks nds cur) ts' →
     nestCtorNf ctx prog hi us ds x.1 nds cur ∈ tbl
 
@@ -182,7 +181,8 @@ frame's stack, recorded. -/
     (grp : List (Name × Expr)) : Prop :=
   ∀ ctors, groupCtors ctx ds.length (grp.map (·.1)) = some ctors →
     CtorsRec ops env ctx tbl ((grpNews us ds (ctx.hiAt prog.length) grp).reverse ++ prog)
-      (ctx.hiAt prog.length + grp.length) us ds (grpSub us (ctx.hiAt prog.length) grp) ctors
+      (ctx.hiAt prog.length + grp.length) us ds (grp.map (·.1)) (grpHoles (ctx.hiAt prog.length) grp)
+      ctors
 
 /-- **Every node of a forest has its frame recorded.** -/
 @[expose] def TreeRec (ops : CheckerOps CheckM) (env : Env) (ctx : NestCtx)
@@ -191,9 +191,9 @@ frame's stack, recorded. -/
 
 theorem CtorsRec.mono {tbl tbl' : List NestCtorNf} (hs : ∀ e ∈ tbl, e ∈ tbl')
     {prog : List NestHole} {hi : Nat} {us : List Level} {ds : List Expr}
-    {sub : Name → List Level → Option Expr} {cs : List (ConstantVal × Nat)}
-    (h : CtorsRec ops env ctx tbl prog hi us ds sub cs) :
-    CtorsRec ops env ctx tbl' prog hi us ds sub cs :=
+    {names : List Name} {holes : List Expr} {cs : List (ConstantVal × Nat)}
+    (h : CtorsRec ops env ctx tbl prog hi us ds names holes cs) :
+    CtorsRec ops env ctx tbl' prog hi us ds names holes cs :=
   fun x hx crest ks nds cur ts' hc hd => hs _ (h x hx crest ks nds cur ts' hc hd)
 
 theorem FrameRec.mono {tbl tbl' : List NestCtorNf} (hs : ∀ e ∈ tbl, e ∈ tbl')
@@ -231,8 +231,8 @@ theorem FrameRec.entry {tbl : List NestCtorNf} {prog : List NestHole} {us : List
     {ctors : List (ConstantVal × Nat)} (hc : groupCtors ctx ds.length (grp.map (·.1)) = some ctors)
     {x : ConstantVal × Nat} (hx : x ∈ ctors) {crest : Expr} {ks : List NestFieldKind}
     {nds : List (Expr × BinderMeta)} {cur : Expr} {ts' : List PosTree}
-    (hcr : instPisWith ds ((x.1.type.instantiateLevelParams x.1.levelParams us).replaceConsts
-      (grpSub us (ctx.hiAt prog.length) grp)) = some crest)
+    (hcr : nestCrest (grp.map (·.1)) us ds (grpHoles (ctx.hiAt prog.length) grp)
+      (x.1.type.instantiateLevelParams x.1.levelParams us) = some crest)
     (hd : PosD ops env ctx (.tele ((grpNews us ds (ctx.hiAt prog.length) grp).reverse ++ prog)
       (ctx.hiAt prog.length + grp.length) x.2 0 crest ks nds cur) ts') :
     nestCtorNf ctx ((grpNews us ds (ctx.hiAt prog.length) grp).reverse ++ prog)

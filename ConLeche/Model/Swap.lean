@@ -225,7 +225,7 @@ theorem EnvModelM.swapP {μ : CheckMode} {env₀ env₃ : Env}
               (fun _ _ _ _ => rfl)
               (fun _ _ _ _ ψ _ hta => by rw [← denoteMeta_swap hcg ψ 0]; exact hta)
               (fun _ _ _ _ _ ψ _ hta => by rw [← denoteMeta_swap hcg ψ 0]; exact hta)
-              (fun _ _ _ _ _ _ _ _ _ ψ _ hta => by rw [← denoteMeta_swap hcg ψ _]; exact hta) },
+              (fun _ _ _ _ _ _ ψ _ _ hta => by rw [← denoteMeta_swap hcg ψ _]; exact hta) },
           rfl, rfl⟩
   · -- `type_reads`
     intro c hc ψ

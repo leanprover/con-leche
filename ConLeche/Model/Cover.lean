@@ -610,10 +610,10 @@ theorem EnvModelM.keepLfpOf {env : Env} {mp : EnvModelM V μ env} {c₀ : Consta
     (fun _ _ _ _ hf ψ _ hta =>
       have hm := ConLeche.Semantics.Env.find?_mem hf
       denoteMeta_cons_mono hfresh (hcross.type hm) ψ 0 (hbound _ hm).1 hta)
-    (fun _ _ _ _ hf _ _ _ hA ψ _ hta =>
+    (fun _ _ hf _ _ hA ψ d _ hta =>
       have hm := ConLeche.Semantics.Env.find?_mem hf
-      denoteMeta_cons_mono hfresh (canonCrest_consCrossAt (hcross.type hm) hA) ψ _
-        (canonCrest_constsBound (hbound _ hm).1 hA) hta)
+      denoteMeta_cons_mono hfresh (canonOf_consCrossAt (hcross.type hm) hA) ψ d
+        (canonOf_constsBound (hbound _ hm).1 hA) hta)
   exact ⟨{ mp' with
     lfpBlocks := mp.lfpBlocks
     lfp_ok := by rw [hac]; exact hok }, rfl, rfl⟩

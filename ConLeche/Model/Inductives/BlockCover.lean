@@ -100,8 +100,8 @@ theorem lfpCover_append {env env' : Env} {new : List ConstantInfo} (mp : EnvMode
       hden ψ 0 _ (hbound _ (ConLeche.Semantics.Env.find?_mem hf)).1 hta)
     (fun _ _ _ _ hf ψ _ hta =>
       hden ψ 0 _ (hbound _ (ConLeche.Semantics.Env.find?_mem hf)).1 hta)
-    (fun _ _ _ _ hf _ _ _ hA ψ _ hta =>
-      hden ψ _ _ (canonCrest_constsBound
+    (fun _ _ hf _ _ hA ψ d _ hta =>
+      hden ψ d _ (canonOf_constsBound
         (hbound _ (ConLeche.Semantics.Env.find?_mem hf)).1 hA) hta)
   refine ⟨{ mpX with lfpBlocks := mp.lfpBlocks, lfp_ok := hok }, rfl, rfl, fun hc => ?_⟩
   refine hc.ext rfl hfwd ?_ hex' ?_

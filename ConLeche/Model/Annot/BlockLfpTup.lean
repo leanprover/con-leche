@@ -17,7 +17,7 @@ positivity's monotonicity theorem (`posD_mono`) needs of it:
 * the frames agree off the member holes (`tupRel_agreeOff`): the
   parameter frame is the same at both;
 * a member's hole grows at its full arity (`holeOn_tupRel`): the hole
-  value is a λ-tower over the member's own binders
+  value is a λ-tower over the member's indices
   (`LfpDatum.holeVal`), a tower of graphs over the SAME domains at both
   frames, whose leaves are the two tuples' components at the index
   tuple — ordered on the index set, both empty off it
@@ -113,75 +113,6 @@ theorem frame_param {ψ : Name → Nat} {ρp X : Nat → V} (i : Nat) :
   simpa using this
 
 
-/-- The hole frame's parameter values are the parameter frame's. -/
-theorem holeParamVals_frame (ψ : Name → Nat) (ρp X : Nat → V) (nP : Nat) :
-    holeParamVals D.k nP 0 (D.frame ψ ρp X) = frameIdx nP ρp := by
-  unfold holeParamVals frameIdx LfpDatum.frame
-  refine List.map_congr_left fun p hp => ?_
-  have hp' := List.mem_range.mp hp
-  have hlen : ((List.range D.k).map (D.holeVal ψ ρp X)).length = D.k := by simp
-  rw [show 0 + D.k + nP - 1 - p = (nP - 1 - p) + ((List.range D.k).map (D.holeVal ψ ρp X)).length
-    by rw [hlen]; omega, consList_apply_add]
-
-/-- **A frame agreeing with the hole frame at the holes**: the parameter
-frame below, and member slots whose values, applied to the parameters
-and anything, are the hole values'. -/
-theorem holeAgree_frame {ψ : Name → Nat} {ρp X : Nat → V} {nP : Nat} {vs : List V}
-    (hlen : vs.length = D.k)
-    (hv : ∀ m (hm : m < D.k) (is : List V), (frameIdx nP ρp ++ is).foldl app (D.holeVal ψ ρp X m)
-      = (frameIdx nP ρp ++ is).foldl app (vs[m]'(by rw [hlen]; exact hm))) :
-    HoleAgree D.k nP 0 (D.frame ψ ρp X) (consList vs ρp) := by
-  have hlenF : ((List.range D.k).map (D.holeVal ψ ρp X)).length = D.k := by simp
-  refine ⟨fun i hi => ?_, fun h _ h2 is => ?_⟩
-  · obtain ⟨i', rfl⟩ : ∃ i', i = i' + D.k := ⟨i - D.k, by omega⟩
-    have e1 := consList_apply_add ((List.range D.k).map (D.holeVal ψ ρp X)) ρp i'
-    rw [hlenF] at e1
-    have e2 := consList_apply_add vs ρp i'
-    rw [hlen] at e2
-    show consList _ ρp (i' + D.k) = consList vs ρp (i' + D.k)
-    rw [e1, e2]
-  · rw [holeParamVals_frame]
-    obtain ⟨m, hm, rfl⟩ : ∃ m, m < D.k ∧ h = D.k - 1 - m := ⟨D.k - 1 - h, by omega, by omega⟩
-    rw [frame_hole (ψ := ψ) (ρp := ρp) (X := X) hm, hv m hm is, consList_getD_of_lt vs ρp _ (by rw [hlen]; omega)]
-    have hidx : vs.length - 1 - (D.k - 1 - m) = m := by rw [hlen]; omega
-    rw [hidx, List.getD_eq_getElem?_getD, List.getElem?_eq_getElem (by rw [hlen]; exact hm)]
-    rfl
-
-/-- **The hole fit, at an agreeing frame**: a spine fits a constructor's
-fields with holes at the hole frame exactly when it fits them at any
-frame agreeing with it at the holes (M3), its result index readings
-likewise. -/
-theorem hfits_iff_of_holeAgree {ψ : Name → Nat} {ρp X : Nat → V} {c j : Nat}
-    (hha : D.HolesApplied ψ c j) {σ : Nat → V}
-    (hag : HoleAgree D.k (D.params ψ).length 0 (D.frame ψ ρp X) σ) {t : V} {fs : List V} :
-    D.HFits ψ ρp X t c j fs ↔
-      (j < D.nctors c ∧ SpineFit σ (D.fields ψ c j) fs ∧
-        ∀ l, l < (D.ids c ψ).length → ∃ e, (D.resIdx ψ c j)[l]? = some e ∧
-          interp V (consList fs σ) e = projS l t) := by
-  have hsp : SpineFit (D.frame ψ ρp X) (D.fields ψ c j) fs ↔ SpineFit σ (D.fields ψ c j) fs :=
-    spineFit_congr_holeApp _ (fun l F h => by simpa using hha.1 l F h) hag fs
-  unfold HFits
-  constructor
-  · rintro ⟨hj, hs, hr⟩
-    refine ⟨hj, hsp.mp hs, fun l hl => ?_⟩
-    obtain ⟨e, he, heq⟩ := hr l hl
-    refine ⟨e, he, ?_⟩
-    rw [← heq]
-    have hfl : fs.length = (D.fields ψ c j).length := hs.length_eq
-    have hag' := hag.consList fs
-    rw [Nat.zero_add, hfl] at hag'
-    exact (interp_congr_holeApp (hha.2 e (List.mem_of_getElem? he)) hag').symm
-  · rintro ⟨hj, hs, hr⟩
-    refine ⟨hj, hsp.mpr hs, fun l hl => ?_⟩
-    obtain ⟨e, he, heq⟩ := hr l hl
-    refine ⟨e, he, ?_⟩
-    rw [← heq]
-    have hfl : fs.length = (D.fields ψ c j).length := hs.length_eq
-    have hag' := hag.consList fs
-    rw [Nat.zero_add, hfl] at hag'
-    exact interp_congr_holeApp (hha.2 e (List.mem_of_getElem? he)) hag'
-
-
 /-- **The frames agree off the member holes.** -/
 theorem tupRel_agreeOff {ψ : Name → Nat} {ρp : Nat → V} {σ σ' : Nat → V}
     (h : D.tupRel ψ ρp σ σ') : ∀ i, D.k ≤ i → σ i = σ' i := by
@@ -190,34 +121,35 @@ theorem tupRel_agreeOff {ψ : Name → Nat} {ρp : Nat → V} {σ σ' : Nat → 
   obtain ⟨j, rfl⟩ : ∃ j, i = j + D.k := ⟨i - D.k, by omega⟩
   rw [frame_param, frame_param]
 
-/-- **A member's hole grows at its full arity** along the tuple order. -/
+/-- **A member's hole grows at its full arity** (its indices) along the
+tuple order. -/
 theorem holeOn_tupRel (hkN : D.k ≤ D.N) {ψ : Name → Nat} {ρp : Nat → V} {t : Nat}
     (ht : t < D.k) :
-    HoleOn (D.tupRel ψ ρp) (D.k - 1 - t) ((D.pars t ψ).length + (D.ids t ψ).length) := by
+    HoleOn (D.tupRel ψ ρp) (D.k - 1 - t) (D.ids t ψ).length := by
   rintro _ _ ⟨X, Y, hX, hY, hXY, rfl, rfl⟩ as has
   rw [frame_hole ht, frame_hole ht]
   have htN : t < D.N := Nat.lt_of_lt_of_le ht hkN
   unfold holeVal
-  refine holeFam_fold_mono (fun vs _ => ?_) as (by simpa using has)
-  by_cases hT : tupW (D.u t ψ) (vs.drop (D.pars t ψ).length) ∈ˢ D.idx ψ ρp t
+  refine holeFam_fold_mono (fun vs _ => ?_) as has
+  by_cases hT : tupW (D.u t ψ) vs ∈ˢ D.idx ψ ρp t
   · exact hXY t htN _ hT
   · rw [app_off_dom_of_mem_piSet (hX t htN) hT, app_off_dom_of_mem_piSet (hY t htN) hT]
     exact Subset.refl _
 
-/-- **A hole value inhabits its member's type**, read as the Π-tower over
-the member's binders ending in the block's sort. -/
+/-- **A hole value inhabits its member's hole type**, read at the
+parameter frame as the Π-tower over the member's indices ending in the
+block's sort. -/
 theorem holeVal_mem (hkN : D.k ≤ D.N) {ψ : Name → Nat} {ρp X : Nat → V}
     (hX : InTupleSpace (D.w ψ) D.N (D.idx ψ ρp) X) {t : Nat} (ht : t < D.k)
-    {ab : List (Nat × Nat × AnnotTerm)} (hab : ab.map (·.2.2) = D.pars t ψ ++ D.ids t ψ)
+    {ab : List (Nat × Nat × AnnotTerm)} (hab : ab.map (·.2.2) = D.ids t ψ)
     (hbits : ∀ d ∈ ab, d.2.1 ≠ 0) :
-    D.holeVal ψ ρp X t
-      ∈ˢ interp V (shiftE (D.pars t ψ).length 0 ρp) (mkPisAV ab (.sort (D.w ψ))) := by
+    D.holeVal ψ ρp X t ∈ˢ interp V ρp (mkPisAV ab (.sort (D.w ψ))) := by
   have htN : t < D.N := Nat.lt_of_lt_of_le ht hkN
   unfold holeVal
   rw [← hab]
   refine holeFam_mem_mkPisAV hbits fun vs _ => ?_
   rw [interp_sort]
-  by_cases hT : tupW (D.u t ψ) (vs.drop (D.pars t ψ).length) ∈ˢ D.idx ψ ρp t
+  by_cases hT : tupW (D.u t ψ) vs ∈ˢ D.idx ψ ρp t
   · exact app_mem_of_mem_piSet (hX t htN) hT
   · rw [app_off_dom_of_mem_piSet (hX t htN) hT]
     exact empty_mem_univ _

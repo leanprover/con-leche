@@ -1,6 +1,7 @@
 module
 
 import ConLeche.Kernel.Inductives.Positivity
+public import ConLeche.Verify.Inductives.ReplaceApps
 public import ConLeche.Verify.Inductives.DirectGen
 import ConLeche.Model.Annot.BitLemmas
 public import ConLeche.Model.Annot.Bit
@@ -13,15 +14,16 @@ Charter item 2: the clause's fields are "the interpretation of [the]
 constructor types with holes at the block's members … ordinary open terms
 (members abstracted to fvars)".  `nestPos` walks exactly those terms: the
 stored constructor type, its parameters instantiated at the canonical
-variables `0 ..< nP`, its members' constants replaced by the holes
-`nP ..< nP + k` (`nestAbstract`), its fields opened above the holes
-(`Kernel/Inductives/Positivity.lean`).
+variables `0 ..< nP`, its members' WHOLE applications `T_m.{lps} p⃗`
+replaced by the holes `nP ..< nP + k` (`nestCrest`), its fields opened
+above the holes (`Kernel/Inductives/Positivity.lean`).
 
 This file relates that walk to the CONCRETE opening the constructor
 stage reads (parameters at `0 ..< nP`, fields at `nP ..< nP + nF`, no
 holes).  The bridge is one Expr operation, `holeAbs`: the concrete term
-with the fields moved `k` slots up (`Expr.shiftFromN`) and the members
-abstracted (`nestAbstract`).  It commutes with opening a binder
+with the fields moved `k` slots up (`Expr.shiftFromN`) and the members'
+whole applications abstracted to the canonical holes (`replaceApps`,
+`nestCanonSub`).  It commutes with opening a binder
 (`holeAbs_instantiate1`), so the walk's telescope is the concrete one abstracted field by field, up to `fvar`
 annotations (`Expr.ErasedEq`, which the reading ignores).
 -/
@@ -32,7 +34,7 @@ open ConLeche.SetModel
 
 open ConLeche.Term ConLeche.Verify SetTheory
 open ConLeche.Semantics (AnnotTerm)
-open ConLeche (Env Expr Name Level ConstantInfo ConstantVal NestCtx nestAbstract instPisWith)
+open ConLeche (Env Expr Name Level ConstantInfo ConstantVal NestCtx instPisWith nestCanonSub)
 
 universe w
 
@@ -144,19 +146,29 @@ theorem Expr.ErasedEqL.getElem? : ∀ {as bs : List Expr}, Expr.ErasedEqL as bs 
   | _ :: _, _ :: _, ⟨_, h⟩, i + 1 => by
     simpa using Expr.ErasedEqL.getElem? h i
 
-/-- **The member abstraction is blind to the holes' annotations** (up to
-erasure): at the same names and levels, erasure-equal holes give
-erasure-equal abstractions. -/
-theorem nestAbstract_erasedEq {ctx ctx' : NestCtx} {holes holes' : List Expr}
-    (hn : ctx.names = ctx'.names) (hl : ctx.lps = ctx'.lps) (hh : Expr.ErasedEqL holes holes')
-    (e : Expr) : Expr.ErasedEq (nestAbstract ctx holes e) (nestAbstract ctx' holes' e) := by
-  refine Expr.ErasedEq.replaceConsts (fun c us => ?_) (Expr.ErasedEq.rfl e)
-  rw [← hn, ← hl]
-  split
-  · split
-    · exact hh.getElem? _
-    · exact Or.inl ⟨rfl, rfl⟩
-  · exact Or.inl ⟨rfl, rfl⟩
+/-- **A variable replacement that only re-annotates is invisible to
+erasure.** -/
+theorem replaceFVars_erasedEq_idx {g : Nat → Option Expr}
+    (hg : ∀ i a, g i = some a → ∃ ty, a = .fvar i ty) :
+    ∀ e : Expr, Expr.ErasedEq (e.replaceFVars g) e := by
+  intro e
+  induction e with
+  | fvar i ty _ =>
+    simp only [Expr.replaceFVars]
+    cases hgi : g i with
+    | none => exact Expr.ErasedEq.rfl _
+    | some a =>
+      obtain ⟨ty', rfl⟩ := hg i a hgi
+      rfl
+  | app a x iha ihx => exact ⟨iha, ihx⟩
+  | lam t b m iht ihb => exact ⟨rfl, iht, ihb⟩
+  | forallE t b m iht ihb => exact ⟨rfl, iht, ihb⟩
+  | letE t v b iht ihv ihb => exact ⟨iht, ihv, ihb⟩
+  | proj s i x ih => exact ⟨rfl, rfl, ih⟩
+  | bvar => exact Expr.ErasedEq.rfl _
+  | sort => exact Expr.ErasedEq.rfl _
+  | const => exact Expr.ErasedEq.rfl _
+  | lit => exact Expr.ErasedEq.rfl _
 
 /-! ### `shiftFromN`, structurally -/
 
@@ -176,6 +188,16 @@ theorem Expr.shiftFromN_app (p : Nat) :
   | n + 1, a, b => by
     show Expr.shiftFrom p (Expr.shiftFromN p n (.app a b)) = _
     rw [Expr.shiftFromN_app p n]; rfl
+
+theorem Expr.shiftFromN_mkAppN (p n : Nat) :
+    ∀ (as : List Expr) (f : Expr),
+      Expr.shiftFromN p n (Expr.mkAppN f as) = Expr.mkAppN (Expr.shiftFromN p n f)
+        (as.map (Expr.shiftFromN p n))
+  | [], _ => rfl
+  | a :: as, f => by
+    show Expr.shiftFromN p n (Expr.mkAppN (.app f a) as) = _
+    rw [Expr.shiftFromN_mkAppN p n as, Expr.shiftFromN_app]
+    rfl
 
 theorem Expr.shiftFromN_const (p : Nat) :
     ∀ (n : Nat) (c : Name) (us : List Level), Expr.shiftFromN p n (.const c us) = .const c us
@@ -209,92 +231,68 @@ theorem Expr.shiftFromN_instantiate1 {p d : Nat} (hpd : p ≤ d) {ty : Expr} :
 
 /-- **The member abstraction of a concretely opened term**: the fields
 (variables at or above `nP`) moved above the `k` member holes, the
-members' constants replaced by their holes. -/
-@[expose] def holeAbs (ctx : NestCtx) (holes : List Expr) (e : Expr) : Expr :=
-  nestAbstract ctx holes (Expr.shiftFromN ctx.nP ctx.names.length e)
+members' whole applications replaced by their canonical holes. -/
+@[expose] def holeAbs (ctx : NestCtx) (e : Expr) : Expr :=
+  (Expr.shiftFromN ctx.nP ctx.names.length e).replaceApps
+    (nestCanonSub ctx.names (ctx.lps.map .param) ctx.nP) 0 ctx.nP
 
-/-- **The member abstraction commutes with instantiation**, when the
-holes are `fvar`s. -/
-theorem nestAbstract_instantiate1 {ctx : NestCtx} {holes : List Expr}
-    (hh : ∀ h ∈ holes, ∃ i ty, h = .fvar i ty) (e v : Expr) (k : Nat) :
-    nestAbstract ctx holes (e.instantiate1 v k)
-      = (nestAbstract ctx holes e).instantiate1 (nestAbstract ctx holes v) k := by
-  unfold nestAbstract
-  refine Expr.replaceConsts_instantiate1 ?_ e v k
-  intro c us e' h
-  split at h
-  · split at h
-    · exact hh e' (List.mem_of_getElem? h)
-    · exact nomatch h
-  · exact nomatch h
+theorem nestCanonSub_closed {names : List Name} {us : List Level} {n : Nat} :
+    ∀ c v h, nestCanonSub names us n c v = some h → h.looseBVarsBounded 0 = true := by
+  intro c v h hs
+  obtain ⟨m, -, -, -, rfl⟩ := ConLeche.nestCanonSub_some hs
+  rfl
 
 /-- **The member abstraction commutes with opening a field** — the
 concrete field variable at `nP + j`, the walk's at `nP + k + j`. -/
-theorem holeAbs_instantiate1 {ctx : NestCtx} {holes : List Expr}
-    (hh : ∀ h ∈ holes, ∃ i ty, h = .fvar i ty) {j : Nat} {ty : Expr} (e : Expr) (k : Nat) :
-    holeAbs ctx holes (e.instantiate1 (.fvar (ctx.nP + j) ty) k)
-      = (holeAbs ctx holes e).instantiate1
-          (.fvar (ctx.nP + j + ctx.names.length) (holeAbs ctx holes ty)) k := by
+theorem holeAbs_instantiate1 {ctx : NestCtx} {j : Nat} {ty : Expr} (e : Expr) (k : Nat) :
+    holeAbs ctx (e.instantiate1 (.fvar (ctx.nP + j) ty) k)
+      = (holeAbs ctx e).instantiate1
+          (.fvar (ctx.nP + j + ctx.names.length) (Expr.shiftFromN ctx.nP ctx.names.length ty)) k := by
   unfold holeAbs
-  rw [Expr.shiftFromN_instantiate1 (Nat.le_add_right _ _), nestAbstract_instantiate1 hh]
-  rfl
+  rw [Expr.shiftFromN_instantiate1 (Nat.le_add_right _ _),
+    Expr.replaceApps_instantiate1_fvar nestCanonSub_closed (by omega)]
 
 /-! ### `holeAbs`, structurally -/
 
-theorem holeAbs_forallE (ctx : NestCtx) (holes : List Expr) (ty body : Expr)
-    (mb : ConLeche.BinderMeta) :
-    holeAbs ctx holes (.forallE ty body mb)
-      = .forallE (holeAbs ctx holes ty) (holeAbs ctx holes body) mb := by
-  unfold holeAbs nestAbstract
+theorem holeAbs_forallE (ctx : NestCtx) (ty body : Expr) (mb : ConLeche.BinderMeta) :
+    holeAbs ctx (.forallE ty body mb) = .forallE (holeAbs ctx ty) (holeAbs ctx body) mb := by
+  unfold holeAbs
   rw [Expr.shiftFromN_forallE]
   rfl
 
-theorem holeAbs_app (ctx : NestCtx) (holes : List Expr) (f a : Expr) :
-    holeAbs ctx holes (.app f a) = .app (holeAbs ctx holes f) (holeAbs ctx holes a) := by
-  unfold holeAbs nestAbstract
-  rw [Expr.shiftFromN_app]
-  rfl
-
-theorem holeAbs_mkAppN (ctx : NestCtx) (holes : List Expr) :
-    ∀ (as : List Expr) (f : Expr),
-      holeAbs ctx holes (Expr.mkAppN f as) = Expr.mkAppN (holeAbs ctx holes f) (as.map (holeAbs ctx holes))
-  | [], _ => rfl
-  | a :: as, f => by
-    show holeAbs ctx holes (Expr.mkAppN (.app f a) as) = _
-    rw [holeAbs_mkAppN ctx holes as (.app f a), holeAbs_app]
-    rfl
-
 /-- A field variable moves above the holes. -/
-theorem holeAbs_fvar_ge (ctx : NestCtx) (holes : List Expr) {i : Nat} (hi : ctx.nP ≤ i) (ty : Expr) :
-    holeAbs ctx holes (.fvar i ty) = .fvar (i + ctx.names.length) (holeAbs ctx holes ty) := by
-  unfold holeAbs nestAbstract
+theorem holeAbs_fvar_ge (ctx : NestCtx) {i : Nat} (hi : ctx.nP ≤ i) (ty : Expr) :
+    holeAbs ctx (.fvar i ty)
+      = .fvar (i + ctx.names.length) (Expr.shiftFromN ctx.nP ctx.names.length ty) := by
+  unfold holeAbs
   rw [Expr.shiftFromN_fvar_ge' hi]
   rfl
 
 /-- A parameter variable stays (its annotation abstracted). -/
-theorem holeAbs_fvar_lt (ctx : NestCtx) (holes : List Expr) {i : Nat} (hi : i < ctx.nP) (ty : Expr) :
-    ∃ ty', holeAbs ctx holes (.fvar i ty) = .fvar i ty' := by
+theorem holeAbs_fvar_lt (ctx : NestCtx) {i : Nat} (hi : i < ctx.nP) (ty : Expr) :
+    ∃ ty', holeAbs ctx (.fvar i ty) = .fvar i ty' := by
   obtain ⟨ty', h⟩ := Expr.shiftFromN_fvar ctx.nP ctx.names.length i ty
   rw [if_pos hi] at h
-  unfold holeAbs nestAbstract
+  unfold holeAbs
   rw [h]
   exact ⟨_, rfl⟩
 
 /-! ## The walk's opening IS the concrete one, abstracted -/
 
-/-- **Opening the abstracted telescope** at the walk's depth gives the
-abstracted variables and body of the concrete opening. -/
-theorem openPisAtFvars_holeAbs {ctx : NestCtx} {holes : List Expr}
-    (hh : ∀ h ∈ holes, ∃ i ty, h = .fvar i ty) :
-    ∀ (n : Nat) {e : Expr} {j : Nat} {xs : List Expr} {rest : Expr},
-      openPisAtFvars n e (ctx.nP + j) = some (xs, rest) →
-      openPisAtFvars n (holeAbs ctx holes e) (ctx.nP + ctx.names.length + j)
-        = some (xs.map (holeAbs ctx holes), holeAbs ctx holes rest)
-  | 0, e, j, xs, rest, h => by
+/-- **Opening the abstracted telescope** (or any term erasure-equal to
+it) at the walk's depth gives, up to erasure, the abstracted body of the
+concrete opening (the opened variables' annotations are the concrete
+ones shifted, the abstraction does not descend into them). -/
+theorem openPisAtFvars_holeAbs {ctx : NestCtx} :
+    ∀ (n : Nat) {e : Expr} {j : Nat} {xs : List Expr} {rest : Expr} {e' : Expr},
+      openPisAtFvars n e (ctx.nP + j) = some (xs, rest) → Expr.ErasedEq e' (holeAbs ctx e) →
+      ∃ xs' rest', openPisAtFvars n e' (ctx.nP + ctx.names.length + j) = some (xs', rest') ∧
+        Expr.ErasedEq rest' (holeAbs ctx rest)
+  | 0, e, j, xs, rest, e', h, he => by
     simp only [openPisAtFvars, Option.some.injEq, Prod.mk.injEq] at h ⊢
     obtain ⟨rfl, rfl⟩ := h
-    exact ⟨rfl, rfl⟩
-  | n + 1, e, j, xs, rest, h => by
+    exact ⟨_, _, ⟨rfl, rfl⟩, he⟩
+  | n + 1, e, j, xs, rest, e', h, he => by
     match e, h with
     | .forallE dom body mb, h =>
       simp only [openPisAtFvars] at h
@@ -302,22 +300,24 @@ theorem openPisAtFvars_holeAbs {ctx : NestCtx} {holes : List Expr}
       · next fvs r hop =>
         simp only [Option.some.injEq, Prod.mk.injEq] at h
         obtain ⟨rfl, rfl⟩ := h
-        have hop' : openPisAtFvars n (body.instantiate1 (.fvar (ctx.nP + j) dom)) (ctx.nP + (j + 1))
-            = some (fvs, r) := by rw [← Nat.add_assoc]; exact hop
-        have ih := openPisAtFvars_holeAbs hh n hop'
-        rw [holeAbs_instantiate1 hh body 0] at ih
-        rw [holeAbs_forallE]
-        simp only [openPisAtFvars]
-        rw [show (holeAbs ctx holes body).instantiate1
-              (.fvar (ctx.nP + ctx.names.length + j) (holeAbs ctx holes dom))
-            = (holeAbs ctx holes body).instantiate1
-              (.fvar (ctx.nP + j + ctx.names.length) (holeAbs ctx holes dom)) by
-            rw [show ctx.nP + ctx.names.length + j = ctx.nP + j + ctx.names.length by omega],
-          show ctx.nP + ctx.names.length + j + 1 = ctx.nP + ctx.names.length + (j + 1) by omega,
-          ih]
-        simp only [List.map_cons, Option.some.injEq, Prod.mk.injEq, and_true]
-        rw [holeAbs_fvar_ge ctx holes (Nat.le_add_right _ _),
-          show ctx.nP + j + ctx.names.length = ctx.nP + ctx.names.length + j by omega]
+        rw [holeAbs_forallE] at he
+        cases e' with
+        | forallE dom' body' mb' =>
+          obtain ⟨-, -, hb⟩ := he
+          have hop' : openPisAtFvars n (body.instantiate1 (.fvar (ctx.nP + j) dom))
+              (ctx.nP + (j + 1)) = some (fvs, r) := by rw [← Nat.add_assoc]; exact hop
+          have hb' : Expr.ErasedEq
+              (body'.instantiate1 (.fvar (ctx.nP + ctx.names.length + j) dom') 0)
+              (holeAbs ctx (body.instantiate1 (.fvar (ctx.nP + j) dom) 0)) := by
+            rw [holeAbs_instantiate1 body 0]
+            exact Expr.ErasedEq.instantiate1 (v := .fvar _ dom') (v' := .fvar _ _) hb
+              (by show ctx.nP + ctx.names.length + j = ctx.nP + j + ctx.names.length; omega)
+          obtain ⟨xs', rest', hop'', hr⟩ := openPisAtFvars_holeAbs n hop' hb'
+          refine ⟨.fvar (ctx.nP + ctx.names.length + j) dom' :: xs', rest', ?_, hr⟩
+          simp only [openPisAtFvars]
+          rw [show ctx.nP + ctx.names.length + j + 1 = ctx.nP + ctx.names.length + (j + 1) by omega,
+            hop'']
+        | _ => simp [Expr.ErasedEq] at he
       · exact nomatch h
 
 /-! ## A member applied: the hole applied -/
@@ -332,16 +332,50 @@ theorem findIdx?_beq_of_nodup {names : List Name} (hnd : names.Nodup) {t : Nat}
     intro h
     exact (List.pairwise_iff_getElem.mp hnd) j t (by omega) ht hj h
 
-/-- **The abstraction of a member's former** at the block's levels is the
-member's hole. -/
-theorem holeAbs_member {ctx : NestCtx} {holes : List Expr} (hnd : ctx.names.Nodup) {t : Nat}
-    (ht : t < ctx.names.length) {tyt : Expr} (hhole : holes[t]? = some (.fvar (ctx.nP + t) tyt)) :
-    holeAbs ctx holes (.const (ctx.names.getD t .anonymous) (ctx.lps.map .param))
-      = .fvar (ctx.nP + t) tyt := by
-  unfold holeAbs nestAbstract
-  rw [Expr.shiftFromN_const]
-  simp only [Expr.replaceConsts, beq_self_eq_true, if_true, findIdx?_beq_of_nodup hnd ht, hhole]
-  rfl
+/-- A constant applied to exactly the canonical parameter variables is a
+placeholder spine. -/
+theorem phApp?_mkAppN_params {b : Nat} {c : Name} {v : List Level} :
+    ∀ (n : Nat) (args : List Expr), args.length = n →
+      (∀ p x, args[p]? = some x → ∃ ty, x = Expr.fvar (b + p) ty) →
+      (Expr.mkAppN (.const c v) args).phApp? b n = some (c, v)
+  | 0, args, hl, _ => by
+    obtain rfl := List.eq_nil_of_length_eq_zero hl
+    rfl
+  | n + 1, args, hl, hx => by
+    rcases List.eq_nil_or_concat args with rfl | ⟨pre, y, rfl⟩
+    · simp at hl
+    · rw [List.concat_eq_append] at hl hx ⊢
+      simp only [List.length_append, List.length_singleton, Nat.add_right_cancel_iff] at hl
+      obtain ⟨ty, rfl⟩ := hx pre.length y (by simp)
+      rw [Expr.mkAppN_append_one]
+      simp only [Expr.phApp?, hl, if_true]
+      exact phApp?_mkAppN_params n pre hl fun p x hp =>
+        hx p x (by rw [List.getElem?_append_left (List.getElem?_eq_some_iff.mp hp).1]; exact hp)
+
+/-- **The abstraction of a member applied to the parameters** is the
+member's canonical hole, applied to the rest abstracted. -/
+theorem holeAbs_memberApp {ctx : NestCtx} (hnd : ctx.names.Nodup) {t : Nat}
+    (ht : t < ctx.names.length) {fvsP : List Expr} (hlen : fvsP.length = ctx.nP)
+    (hvar : ∀ p x, fvsP[p]? = some x → ∃ ty, x = Expr.fvar p ty) (rest : List Expr) :
+    holeAbs ctx (Expr.mkAppN (.const (ctx.names.getD t .anonymous) (ctx.lps.map .param))
+        (fvsP ++ rest))
+      = Expr.mkAppN (.fvar (ctx.nP + t) (.sort .zero)) (rest.map (holeAbs ctx)) := by
+  unfold holeAbs
+  rw [Expr.shiftFromN_mkAppN, Expr.shiftFromN_const, List.map_append]
+  have hnm : nestCanonSub ctx.names (ctx.lps.map .param) ctx.nP (ctx.names.getD t .anonymous)
+      (ctx.lps.map .param) = some (.fvar (ctx.nP + t) (.sort .zero)) := by
+    simp only [ConLeche.nestCanonSub, beq_self_eq_true, if_true, findIdx?_beq_of_nodup hnd ht,
+      Option.map_some]
+  rw [Expr.replaceApps_mkAppN_hit hnm (phApp?_mkAppN_params ctx.nP _ (by simp [hlen])
+    (fun p x hx => ?_)), List.map_map]
+  · rfl
+  · rw [List.getElem?_map] at hx
+    obtain ⟨y, hy, rfl⟩ := Option.map_eq_some_iff.mp hx
+    obtain ⟨ty, rfl⟩ := hvar p y hy
+    have hp : p < ctx.nP := by rw [← hlen]; exact (List.getElem?_eq_some_iff.mp hy).1
+    obtain ⟨ty', h⟩ := Expr.shiftFromN_fvar ctx.nP ctx.names.length p ty
+    rw [if_pos hp] at h
+    exact ⟨ty', by rw [h, Nat.zero_add]⟩
 
 /-! ## Peeling a read Π-telescope along its opening -/
 
@@ -430,37 +464,9 @@ theorem Expr.shiftFromN_eq_self_of_fvarsBelow {p : Nat} :
     show Expr.shiftFrom p (Expr.shiftFromN p n e) = e
     rw [Expr.shiftFromN_eq_self_of_fvarsBelow n h, Expr.shiftFrom_eq_self h]
 
-/-- The member abstraction commutes with instantiating a telescope. -/
-theorem nestAbstract_instPisWith {ctx : NestCtx} {holes : List Expr}
-    (hh : ∀ h ∈ holes, ∃ i ty, h = .fvar i ty) :
-    ∀ {as : List Expr} {e r : Expr}, instPisWith as e = some r →
-      instPisWith (as.map (nestAbstract ctx holes)) (nestAbstract ctx holes e)
-        = some (nestAbstract ctx holes r)
-  | [], e, r, h => by
-    simp only [instPisWith, Option.some.injEq] at h
-    subst h; rfl
-  | a :: as, e, r, h => by
-    match e, h with
-    | .forallE t b m, h =>
-      have h' : instPisWith as (b.instantiate1 a) = some r := h
-      show instPisWith (as.map (nestAbstract ctx holes))
-          ((nestAbstract ctx holes b).instantiate1 (nestAbstract ctx holes a)) = _
-      rw [← nestAbstract_instantiate1 hh]
-      exact nestAbstract_instPisWith hh h'
-
 theorem Expr.ErasedEqL.trans : ∀ {as bs cs : List Expr}, Expr.ErasedEqL as bs →
     Expr.ErasedEqL bs cs → Expr.ErasedEqL as cs
   | [], [], [], _, _ => trivial
   | _ :: _, _ :: _, _ :: _, ⟨h1, h2⟩, ⟨h3, h4⟩ => ⟨Expr.ErasedEq.trans h1 h3, Expr.ErasedEqL.trans h2 h4⟩
-
-/-- A list of variables is erasure-equal to its abstraction. -/
-theorem erasedEqL_map_nestAbstract {ctx : NestCtx} {holes : List Expr} :
-    ∀ {xs : List Expr}, (∀ x ∈ xs, ∃ i ty, x = .fvar i ty) →
-      Expr.ErasedEqL xs (xs.map (nestAbstract ctx holes))
-  | [], _ => trivial
-  | x :: xs, h => by
-    obtain ⟨i, ty, rfl⟩ := h x List.mem_cons_self
-    exact ⟨rfl, erasedEqL_map_nestAbstract fun y hy => h y (List.mem_cons_of_mem _ hy)⟩
-
 
 end ConLeche.Model
