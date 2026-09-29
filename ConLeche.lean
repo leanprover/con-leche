@@ -27,5 +27,6 @@ public import ConLeche.Verify.OfReducePin
 public import ConLeche.Verify.Rules.Bridge
 public import ConLeche.Verify.Inductives.ClassGenMinorSyn
 public import ConLeche.Verify.Inductives.GenRecRun
+public import ConLeche.Verify.Inductives.GenRecDatF
 
 @[expose] public section
