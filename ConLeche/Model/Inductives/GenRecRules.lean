@@ -19,6 +19,7 @@ import ConLeche.Model.Inductives.BlockRecPreHpre
 import ConLeche.Model.Levels
 import ConLeche.Verify.Level
 import ConLeche.Verify.Subst
+import ConLeche.Model.Annot.BitRename
 
 public section
 
@@ -1436,6 +1437,93 @@ fitted step by step, and its arguments at every fitting spine. -/
           ∀ e ∈ q.2.2.1 ++ [q.2.2.2], AnnotValid V (consList bs (consList ys ρ)) e
 
 end Valid
+
+/-! ## 12. The skeleton's `ih` data ARE the stored rule's (kernel D1) -/
+
+section IhEq
+
+variable {mode : CheckMode} {F : Nat} {fe₁ : FEnv} {env₁ : Env} {fe : FEnv} {p : BlockShape}
+  {nb : Bool} {pos : ConLeche.NestState} {cvTas : List ConstantVal} {block : List ConstantInfo}
+  {ctorsAs : List (List (ConstantVal × Nat))} {out : List (ConstantVal × TargetMajor × List Expr)}
+
+open ConLeche (ScB ClassGenScoped)
+
+theorem readLamBs_eq_readOpened {acval : Name → (Name → Nat) → AnnotTerm} {env : Env}
+    {ψ : Name → Nat} {m : ConLeche.BinderMeta} :
+    ∀ (j : Nat) (bl : List (Expr × ConLeche.BinderMeta)) (xs : List Expr),
+      bl.length = xs.length →
+      (∀ (k : Nat) (b : Expr × ConLeche.BinderMeta) (y : Expr), bl[k]? = some b → xs[k]? = some y →
+        Expr.ErasedEq b.1 y.fvarTypeD ∧ b.2 = m) →
+      readLamBs acval env ψ j bl = (readOpenedDoms acval env ψ j xs).map fun a => (pwBit ψ m.pw, a)
+  | _, [], [], _, _ => rfl
+  | j, b :: bl, y :: xs, hl, h => by
+    obtain ⟨h1, h2⟩ := h 0 b y rfl rfl
+    simp only [readLamBs, readOpenedDoms, List.map_cons, h2, denoteMeta_erasedEq h1]
+    rw [readLamBs_eq_readOpened (j + 1) bl xs (by simpa using hl) (fun k b' y' hb hy =>
+      h (k + 1) b' y' (by simpa using hb) (by simpa using hy))]
+  | _, [], _ :: _, hl, _ => nomatch hl
+  | _, _ :: _, [], hl, _ => nomatch hl
+
+/-- **The skeleton's `ih` data (read off the generator's pieces) are the
+stored rule's** (`genIhdR`): the rule is stored as generated (kernel
+D1), its `ih` λs open to the generator's pieces up to the annotations of
+free variables, and the λ binders carry the family's elimination
+datum. -/
+theorem genIhdAV_eq_R (R : GenRecRun mode F fe₁ env₁ fe p nb pos cvTas block ctorsAs out)
+    (hg : ClassGenScoped R.g)
+    {j : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
+    (hr : (tgtRs out)[j]? = some r) {i : Nat} {cA : ConstantVal × Nat}
+    (hcA : r.2.2.2[i]? = some cA) {rhs : Expr} (hrhs : r.2.1[i]? = some rhs)
+    (acval : Name → (Name → Nat) → AnnotTerm) (env : Env) (ψ : Name → Nat) :
+    genIhdAV acval env R.g R.rd (pwBit ψ (Level.zeronessOf (ConLeche.structElimLevel p.elim p.large)))
+        ψ j i
+      = genIhdR acval env out R.g R.rd ψ j i := by
+  obtain ⟨cls, x, -, -, hc, -, -, -, -, -, -, -, -, -, hcx, hnF, hxmem, hrhsE, -, -, -, -⟩ :=
+    genFrameAt R hg hr hcA hrhs
+  obtain ⟨_rc2, cls2, x2, gen, -, hc2, -, -, -, -, hx2, -, -, -, -, hgen, ⟨RR⟩⟩ :=
+    genRuleAt R hr hcA hrhs
+  have hcc : cls2 = cls := Option.some.inj (hc2.symm.trans hc)
+  subst cls2
+  have hgc : genClsOf R.rd j = cls := by simp [genClsOf, List.getD_eq_getElem?_getD, hc]
+  have hxx : x2 = x := by
+    rw [← hcx, genCtorAt, hgc, List.getD_eq_getElem?_getD, hx2]; rfl
+  subst x2
+  obtain ⟨fvs, res, ws, s, bs, body, hop0, hws, -, -, hop, -, -, hlenB, -, hihs⟩ :=
+    genRule_shapeD hg hxmem hgen RR.hout
+  have hgra : genRuleArgs out (R.g.pre.length + x.nF) j i = body.getAppArgs := by
+    rw [genRuleArgs, hrhsE, hop]; rfl
+  unfold genIhdAV genIhdR
+  simp only [hcx, hgra, hop0, hws, Option.map_some, Option.getD_some]
+  refine List.ext_getElem (by simp) fun l hl hl' => ?_
+  simp only [List.length_map, List.length_range] at hl hl'
+  obtain ⟨q, hq⟩ : ∃ q, x.recs[l]? = some q := ⟨_, List.getElem?_eq_getElem hl⟩
+  have hqE : x.recs[l] = q := (List.getElem?_eq_some_iff.mp hq).2
+  have hqd : x.recs.getD l default = q := by rw [List.getD_eq_getElem?_getD, hq]; rfl
+  obtain ⟨rn, xs, idx, bl, call, -, hparts, hop2, -, -, -, hbll, hbl, hdl, hpt⟩ := hihs l q hq
+  simp only [List.getElem_map, List.getElem_range, hqE, hqd, hparts, hop2, Option.getD_some]
+  have hbits : pwBit ψ (Level.zeronessOf (ConLeche.structElimLevel p.elim p.large))
+      = pwBit ψ R.g.bm.pw := rfl
+  rw [hbits, ← readLamBs_eq_readOpened _ bl xs hbll hbl, hbll]
+  refine Prod.ext rfl (Prod.ext rfl (Prod.ext ?_ ?_))
+  · -- the index arguments
+    refine List.ext_getElem (by rw [List.length_map, List.length_map, List.length_dropLast, hdl]; rfl)
+      fun k hk hk' => ?_
+    simp only [List.length_map] at hk
+    simp only [List.getElem_map, List.getElem_dropLast]
+    have hz := hpt k _ idx[k] (List.getElem?_eq_getElem (by rw [hdl]; omega))
+      (by rw [List.getElem?_append_left hk]; exact List.getElem?_eq_getElem hk)
+    rw [denoteMeta_erasedEq hz]
+  · -- the applied field
+    obtain ⟨z, hz0⟩ : ∃ z, (call.getAppArgs.drop R.g.pre.length)[idx.length]? = some z :=
+      ⟨_, List.getElem?_eq_getElem (by rw [hdl]; omega)⟩
+    have hlast : (call.getAppArgs.drop R.g.pre.length).getLastD default = z := by
+      rw [List.getLastD_eq_getLast?, List.getLast?_eq_getElem?, hdl,
+        show idx.length + 1 - 1 = idx.length by omega, hz0]; rfl
+    have hz := hpt idx.length z (Expr.mkAppN (fvs.getD q.1 default) xs) hz0
+      (by rw [List.getElem?_append_right (Nat.le_refl _), Nat.sub_self]; rfl)
+    rw [hlast, denoteMeta_erasedEq hz]
+
+end IhEq
 
 /-! ## 7. The skeleton's obligations, in its spelling -/
 
