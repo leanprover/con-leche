@@ -105,7 +105,7 @@ theorem genCall_data
         (ConLeche.classKeyCanon R.ctx.params (R.rd.classes.getD cls default)) M₀) ∧
       ConLeche.targetMajorNfs (fueledOps μ F) envC p.toBlockShape (cvTas.map (·.type))
         M₀.pfvs M₀.lvls M₀.ds M₀.ctors R.st.ctorNfs.toList = .ok nfs ∧
-      M₀.ctors[j]? = some cA ∧
+      M₀.ctors[j]? = some cA ∧ (R.ctors.getD cls [])[j]? = some x ∧
       Nonempty (ClassCtorRun μ F envC p.toBlockShape (cvTas.map (·.type)) R.rd R.Ms cls cA x) ∧
       i < x.nF ∧ x.kinds.getD i .ordinary = .recursive tt tele ∧
       openPisAtFvars x.nF x.tyD R.pre.length = some (fvsR, oR) ∧
@@ -121,7 +121,7 @@ theorem genCall_data
         (interp V (consList bs (consList (xs ++ fs) ρ))
           ((denoteMeta acval envC ψ (R.pre.length + x.nF + xsO.length)
             (Expr.mkAppN (fvsR.getD i default) xsO)).getD default)) := by
-  obtain ⟨cls, M₀, nfs, cA, x, gen, hcl, hlt, hM₀, hMs, hMeq, hMR, hnfs, hcA, -, hgx, hRc, hgen⟩ :=
+  obtain ⟨cls, M₀, nfs, cA, x, gen, hcl, hlt, hM₀, hMs, hMeq, hMR, hnfs, hcA, hxj, hgx, hRc, hgen⟩ :=
     genCtor_at R hc hj
   obtain ⟨q, hq, bs, hbs, hv⟩ := hcall
   simp only [genIhdAV, hgx] at hq
@@ -150,7 +150,7 @@ theorem genCall_data
       omega
   obtain ⟨hrr, hrl⟩ := genRecIdx_spec hrn hle
   refine ⟨cls, M₀, nfs, cA, x, i, tt, tele, fvsR, oR, ws, xsO, leafO, bs, hcl, hlt, hM₀, hMs, hMeq,
-    hMR, hnfs, hcA, hRc, hi, hk, hop, hws, hopO, hrr, ?_, ?_, ?_⟩
+    hMR, hnfs, hcA, hxj, hRc, hi, hk, hop, hws, hopO, hrr, ?_, ?_, ?_⟩
   · simp only [ConLeche.tgtRs, List.length_map]; omega
   · simp only [hop, hws, hpre, Option.map_some, Option.getD_some, hih] at hbs
     simpa [List.map_map, Function.comp_def] using hbs
