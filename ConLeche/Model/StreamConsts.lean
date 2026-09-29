@@ -135,13 +135,6 @@ theorem resetMeta_instantiate1 (v : Expr) :
     · simp [h1, resetMeta]
     · by_cases h2 : i > k <;> simp [h1, h2, resetMeta]
 
-theorem resetMeta_abstract1 (d : Nat) :
-    ∀ (e : Expr) (k : Nat),
-      (e.abstract1 d k).resetMeta = e.resetMeta.abstract1 d k := by
-  intro e
-  induction e <;> intro k <;> simp_all [abstract1, resetMeta]
-  case fvar idx ty ih => split <;> simp [resetMeta, abstract1, *]
-
 theorem looseBVarsBounded_resetMeta :
     ∀ (e : Expr) (k : Nat), e.looseBVarsBounded k = true →
       e.resetMeta.looseBVarsBounded k = true := by

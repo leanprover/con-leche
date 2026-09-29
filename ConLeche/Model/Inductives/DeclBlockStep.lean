@@ -1,6 +1,6 @@
 module
 
-import ConLeche.Model.Inductives.GenRecAssembly
+import ConLeche.Model.Inductives.GenRecFinal
 import ConLeche.Verify.Inductives.GenRecRun
 import ConLeche.Model.Inductives.BlockPosRun
 import ConLeche.Model.Inductives.BlockPosRunCont

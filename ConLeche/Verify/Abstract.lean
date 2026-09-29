@@ -484,4 +484,12 @@ theorem annotateCore_looseBVars {env : Env} :
       (looseBVarsBounded_instantiate1_gen hb.1.2 hb.2)
 
 
+/-- `resetMeta` commutes with abstraction. -/
+theorem resetMeta_abstract1 (d : Nat) :
+    ∀ (e : Expr) (k : Nat),
+      (e.abstract1 d k).resetMeta = e.resetMeta.abstract1 d k := by
+  intro e
+  induction e <;> intro k <;> simp_all [abstract1, resetMeta]
+  case fvar idx ty ih => split <;> simp [resetMeta, abstract1, *]
+
 end ConLeche

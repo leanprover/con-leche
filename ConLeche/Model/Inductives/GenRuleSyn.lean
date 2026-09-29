@@ -9,7 +9,7 @@ import ConLeche.Verify.Inductives.ClassGenAnnot
 import ConLeche.Verify.Inductives.ClassGenScope
 import ConLeche.Verify.Inductives.NestCallSyn
 import ConLeche.Verify.Abstract
-import ConLeche.Model.StreamConsts
+
 import ConLeche.Verify.InferLemmas
 
 public section

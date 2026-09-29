@@ -177,47 +177,4 @@ the interface between the family premise and the node route. -/
 @[expose] def genBit (pp : BlockParts) (ψ : Name → Nat) : Nat :=
   pwBit ψ (Level.zeronessOf (ConLeche.structElimLevel pp.elim pp.large))
 
-set_option maxHeartbeats 1000000 in
-/-- **THE GENERATED RECURSORS' STAGE**: the four cons-monotonicities at
-the cons at the classes (`BlockRecStagedT`). -/
-theorem genRecStage (hμ : μ.verifiedChecks = true) {F : Nat}
-    {block : List ConstantInfo} {envC envI : Env} {pp : BlockParts} {cvTasR : List ConstantVal}
-    {ctorsAsR : List (List (ConstantVal × Nat))}
-    {out : List (ConstantVal × TargetMajor × List Expr)}
-    {mpC : EnvModelM V μ envC} {dR : BlockData V} {isRecR : Bool}
-    {A : Nat → (Name → Nat) → AnnotTerm}
-    {kindsR : List (List (List ConLeche.NestFieldKind))} {nfsR : List (List Expr)}
-    {posR : ConLeche.NestState}
-    (hctx : GenRecCtx V μ F block envC envI pp cvTasR ctorsAsR out mpC dR isRecR A kindsR nfsR
-      posR) :
-    BlockRecStagedT (V := V) μ envC pp.toBlockShape out mpC := by
-  obtain ⟨hPos, henvC, hnames, hndM, hN, hS, hcore, hctorsAs, hdR, hlfp, hcov, hmk, hover,
-    ⟨R⟩, hheads⟩ := hctx
-  have h : ConLeche.RecStageG μ F envC pp cvTasR ctorsAsR (tgtRs out) (fun _ => False) := sorry
-  obtain ⟨s, hsP, hTy⟩ := blockRecLevel_run (V := V) (mpC := mpC) hμ h
-  unfold BlockRecStagedT
-  rw [ConLeche.consBlockRecsT_eq_R]
-  refine blockRecStaged_dataR (ctorTy := fun j i ψ =>
-      blockRecCtorTy mpC.base2.acval envC (tgtRs out) j i ψ) hμ mpC h
-    (ConLeche.recStageG_nodup h hndM)
-    (ConLeche.recRulesShape_tgt envC.find? (·.constsResolve envC) pp.toBlockShape out)
-    (fun j r hr lvls pins hf => by
-      obtain ⟨n1, n2, n3, n4⟩ := ConLeche.tgtFireOf_nested hf
-      exact ⟨n1, n2, fun pin hpin => ⟨(n3 pin hpin).1, (n3 pin hpin).2.1,
-        (n3 pin hpin).2.2.1, (n3 pin hpin).2.2.2,
-        tgtFire_pinsNoProj h j r hr lvls pins hf pin hpin⟩, n4⟩)
-    (genRecCtor_in R hN hcore hctorsAs hdR hcov)
-    (pdoms0 := fun ψ => blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ)
-    (fdoms0 := fun ψ => tgtFdomsAV pp.toBlockShape out mpC.base2.acval envC ψ)
-    (es0 := fun ψ => tgtEsAV pp.toBlockShape out mpC.base2.acval envC ψ)
-    (ihs := fun ψ => genIhsAV mpC.base2.acval envC (tgtRs out).length R.g R.rd (genBit pp ψ) ψ)
-    (mk0 := fun ψ => tgtMkAV pp.toBlockShape out mpC.base2.acval envC ψ)
-    (Rb0 := fun _ => genRbAV R.g R.rd) (s := s) (nCt := blockRecNCt (tgtRs out))
-    ?heqB ?heqV ?heqP ?hpre
-    (fun j r hr => blockRecNCt_ge hr)
-    (fun ψ j r hr => blockRulePdomsAV_length hμ mpC h hr ψ)
-    (genRecCtor_seam R hN hcore hctorsAs hdR hcov) ?htower
-    (fun m₃ hac φ j r hr _ cA rhs _ _ => recStagePinsOk hμ mpC h m₃ hac φ j r hr cA rhs) ?hdataS (blockRecTyZ_run hμ mpC h) ?hRaZ
-  all_goals sorry
-
 end ConLeche.Model

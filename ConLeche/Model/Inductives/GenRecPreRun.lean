@@ -609,7 +609,7 @@ theorem genRun_conclMot (hμ : μ.verifiedChecks = true)
   rfl
 
 /-- The motive slots are as many as the classes. -/
-theorem motiveSlot_lt_classes : ∀ (slots : List ConLeche.ClassSlot) (rc : List Nat) (c s : Nat),
+theorem motiveSlot_lt_classesR : ∀ (slots : List ConLeche.ClassSlot) (rc : List Nat) (c s : Nat),
     ConLeche.ClassRead.motiveSlot ⟨slots, rc⟩ c = some s →
       c < (ConLeche.ClassRead.classes ⟨slots, rc⟩).length
   | [], _, c, s, h => by
@@ -627,7 +627,7 @@ theorem motiveSlot_lt_classes : ∀ (slots : List ConLeche.ClassSlot) (rc : List
       | succ c =>
         simp only [List.getElem?_cons_succ, List.getElem?_map, Option.map_eq_some_iff] at h
         obtain ⟨s', hs', -⟩ := h
-        have := motiveSlot_lt_classes l rc c s' (by
+        have := motiveSlot_lt_classesR l rc c s' (by
           unfold ConLeche.ClassRead.motiveSlot
           simpa [Function.comp_def] using hs')
         unfold ConLeche.ClassRead.classes at this
@@ -636,7 +636,7 @@ theorem motiveSlot_lt_classes : ∀ (slots : List ConLeche.ClassSlot) (rc : List
       simp only [List.filterMap_cons] at h ⊢
       simp only [Bool.false_eq_true, if_false, List.getElem?_map, Option.map_eq_some_iff] at h
       obtain ⟨s', hs', -⟩ := h
-      have := motiveSlot_lt_classes l rc c s' (by
+      have := motiveSlot_lt_classesR l rc c s' (by
         unfold ConLeche.ClassRead.motiveSlot
         simpa [Function.comp_def] using hs')
       unfold ConLeche.ClassRead.classes at this
@@ -652,7 +652,7 @@ theorem genRun_cls_lt
   obtain ⟨hlN, -⟩ := ConLeche.classesNfs_run R.hMs
   obtain ⟨hlM, -⟩ := ConLeche.classMajors_run R.hMs₀
   rw [hgc, hlN, hlM, List.length_map]
-  exact motiveSlot_lt_classes R.rd.slots [] cls s hs
+  exact motiveSlot_lt_classesR R.rd.slots [] cls s hs
 
 /-- **An outside class's sort is the block's** at every level assignment
 (`TargetMajorRun.outside`'s `isEquiv sI resSort`, read through the
