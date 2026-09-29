@@ -249,32 +249,6 @@ theorem checkConstantVal_lps {env : Env} {cv cvA : ConstantVal} {F : Nat}
   subst h
   exact ⟨rfl, rfl⟩
 
-/-- **The conformance seam reads through**: a stage
-followed by a reject-only check (`thenConform`) succeeded only if the
-stage did, with the same result.  This is the ONE fact the proofs need
-about the unverified recursor conformance check
-(`checkBlockRecConform`): they never peel it. -/
-theorem thenConform_ok {α : Type} {stage : CheckM α} {conform : CheckM Unit} {r : α}
-    (h : thenConform stage conform = .ok r) : stage = .ok r := by
-  unfold thenConform at h
-  obtain ⟨a, hs, h⟩ := exceptBind_ok h
-  obtain ⟨u, -, h⟩ := exceptBind_ok h
-  simp only [pure, Except.pure, Except.ok.injEq] at h
-  subst h
-  exact hs
-
-/-- **The recursor stage read back to the CHECK**: `checkBlockRec`
-succeeded only if the check (`checkBlockRecT`, the target check) did,
-with the same result (the conformance check after it only rejects). -/
-theorem checkBlockRecT_of_rec {ops : CheckerOps CheckM} {env₁ env : Env} {p : BlockParts}
-    {nested conf : Bool} {nfs : List (List Expr)} {pos : NestState}
-    {block : List ConstantInfo} {cvTas : List ConstantVal}
-    {ctorsAs : List (List (ConstantVal × Nat))}
-    {out : List (ConstantVal × TargetMajor × List Expr)}
-    (h : checkBlockRec ops env₁ env p nested conf nfs pos block cvTas ctorsAs = .ok out) :
-    checkBlockRecT ops env₁ env p nested pos block cvTas ctorsAs = .ok out :=
-  thenConform_ok h
-
 /-! ## The k recursors consed with their rules, SIMULTANEOUSLY -/
 
 /-- Well-formedness of a stored constant transfers along a lookup

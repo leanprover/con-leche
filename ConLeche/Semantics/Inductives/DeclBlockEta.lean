@@ -7,7 +7,7 @@ import ConLeche.Verify.Extend.Inversions
 import ConLeche.Verify.ExceptBind
 import ConLeche.Kernel.Inductives.FieldTele
 import ConLeche.Verify.Inductives.BlockWF
-import ConLeche.Verify.Inductives.RecStage
+import ConLeche.Verify.Inductives.GenRecRun
 
 @[expose] public section
 
@@ -432,11 +432,10 @@ theorem declBlockRun_etaClosed {μ : CheckMode} {F : Nat} {env env₂ : Env}
         rw [hn, hf₁C] at this
         exact nomatch this
   -- ## the recursors (at their majors), then the tables
-  obtain ⟨R⟩ := ConLeche.targetRecCheck_run
-    (ConLeche.checkBlockRecT_run (ConLeche.checkBlockRecT_of_rec hRec))
-  have hS := ConLeche.recStage_of_targetG R (ConLeche.ctorsLen_of_names hnames)
+  have hfresh := ConLeche.genRecCheck_out_fresh hRec
   refine checkBlockTables_etaClosed ?_ hTbl
-  exact EtaFamiliesClosed.keep hEC
-    (consBlockRecsT_extEta (ExtEta.refl _) fun r hr => (ConLeche.recStage_cvFacts hS r hr).1)
+  refine EtaFamiliesClosed.keep hEC (consBlockRecsT_extEta (ExtEta.refl _) fun r hr => ?_)
+  obtain ⟨o, ho, rfl⟩ := List.mem_map.mp hr
+  exact hfresh o ho
 
 end ConLeche.Semantics

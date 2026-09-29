@@ -288,20 +288,19 @@ theorem blockRecNameSetOk_nodup {p : BlockShape} (h : blockRecNameSetOk p = true
   intro x hx
   exact List.elem_iff.mp (List.all_eq_true.mp hwant x hx)
 
-/-- The recursor stage stores fresh, distinct names: the target check
+/-- The recursor stage stores fresh, distinct names: the generated stage
 stores one recursor per record, under the record's name, fresh at the
-constructors' index (the type stage's lookup) and pairwise distinct
-(the name-set check, `blockRecNameSetOk_nodup`) — through the
-reject-only conformance check after it. -/
-theorem checkBlockRecS_fresh (mode : CheckMode) (fe₁ : FEnv) (env₁ : Env) (fe : FEnv)
-    (p : BlockParts) (nested conf : Bool) (nfs : List (List Expr)) (pos : NestState)
+constructors' index (the generated constant's lookup) and pairwise
+distinct (the record pins). -/
+theorem genRecCheckS_fresh (mode : CheckMode) (fe₁ : FEnv) (env₁ : Env) (fe : FEnv)
+    (p : BlockParts) (nested : Bool) (pos : NestState)
     (block : List ConstantInfo) (cvTas : List ConstantVal)
     (ctorsAs : List (List (ConstantVal × Nat))) :
-    Yields (checkBlockRecS mode fe₁ env₁ fe p nested conf nfs pos block cvTas ctorsAs)
+    Yields (genRecCheck (shadowOpsC mode) fe₁ env₁ fe p.toBlockShape nested pos cvTas block
+        ctorsAs)
       (fun out => (out.map (·.1.name)).Nodup ∧ ∀ o ∈ out, fe.find? o.1.name = none) := by
-  unfold checkBlockRecS
-  refine Yields.thenConform (Yields.mono (targetRecCheck_names (shadowOpsC mode) fe₁ env₁ fe
-    p.toBlockShape nested pos block cvTas ctorsAs) fun out hout => ?_)
+  refine Yields.mono (genRecCheck_names (shadowOpsC mode) fe₁ env₁ fe
+    p.toBlockShape nested pos cvTas block ctorsAs) fun out hout => ?_
   obtain ⟨hnd, hlen, hall⟩ := hout
   have hnames : out.map (·.1.name) = p.recs.map (·.cvR.name) := by
     apply List.ext_getElem?
@@ -386,7 +385,7 @@ theorem checkBlockTailS_push (mode : CheckMode) {env : Env}
     obtain ⟨c, hc, rfl⟩ := List.mem_map.mp hn
     rw [← h₁.find?]
     exact hfrs c hc
-  refine Yields.bind' (checkBlockRecS_fresh mode _ _ _ q.p _ _ _ _ block q.cvTas q.ctorsAs)
+  refine Yields.bind' (genRecCheckS_fresh mode _ _ _ q.p _ _ block q.cvTas q.ctorsAs)
     fun out hrs => ?_
   refine checkBlockTablesF_push _ _ (consBlockRecsTF_push _ _ _ h₂ ⟨hrs.1, ?_⟩)
   intro n hn

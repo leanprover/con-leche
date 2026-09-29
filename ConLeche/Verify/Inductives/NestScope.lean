@@ -575,38 +575,4 @@ theorem nestSeedOf_closed {ctx : NestCtx} {holes : List Expr} (hh : nestHoles ct
       · exact nomatch hr
     · exact nomatch hr
 
-/-- **A seed of a resolved family** (`targetSeeds`): an outside class
-stage (b) resolved, moved to the walk's representation. -/
-theorem mem_targetSeeds {ctx : NestCtx} {holes : List Expr} :
-    ∀ {tys : List (ConstantVal × TargetMajor × Level)} {s : NestKey × Nat},
-      s ∈ targetSeeds ctx holes tys → ∃ t ∈ tys, t.2.1.member = none ∧
-        s = nestSeedOf ctx holes t.2.1.ind t.2.1.lvls t.2.1.ds t.2.1.nPc
-  | [], s, h => by simp [targetSeeds] at h
-  | (cv, M, u) :: ts, s, h => by
-    unfold targetSeeds at h
-    split at h
-    · rename_i hM
-      rcases List.mem_cons.mp h with rfl | h
-      · exact ⟨(cv, M, u), List.mem_cons_self, hM, rfl⟩
-      · obtain ⟨t, ht, rest⟩ := mem_targetSeeds h
-        exact ⟨t, List.mem_cons_of_mem _ ht, rest⟩
-    · obtain ⟨t, ht, rest⟩ := mem_targetSeeds h
-      exact ⟨t, List.mem_cons_of_mem _ ht, rest⟩
-
-/-- **Every outside class of a resolved family is a seed** (`targetSeeds`):
-the tie by construction. -/
-theorem targetSeeds_mem {ctx : NestCtx} {holes : List Expr} :
-    ∀ {tys : List (ConstantVal × TargetMajor × Level)} {t : ConstantVal × TargetMajor × Level},
-      t ∈ tys → t.2.1.member = none →
-      nestSeedOf ctx holes t.2.1.ind t.2.1.lvls t.2.1.ds t.2.1.nPc ∈ targetSeeds ctx holes tys
-  | [], t, h, _ => by simp at h
-  | (cv, M, u) :: ts, t, h, hM => by
-    unfold targetSeeds
-    rcases List.mem_cons.mp h with rfl | h
-    · simp only at hM; rw [hM]; exact List.mem_cons_self
-    · have := targetSeeds_mem (ctx := ctx) (holes := holes) h hM
-      split
-      · exact List.mem_cons_of_mem _ this
-      · exact this
-
 end ConLeche

@@ -757,33 +757,6 @@ theorem checkBlockPositivityS_sim (hμ : mode.verifiedChecks = true) (henv : Env
     (fun s₆ u u' hs₆ _ => ?_)
   exact SimC.pure hs₆ ⟨rfl, hstN⟩
 
-/-- **The recursor check's seeds at the shared operations**
-(`checkBlockSeeds`): every successful cached run is a fueled one, at a
-state whose container lookups are closed and outside classes whose
-parameters mention only the parameters. -/
-theorem checkBlockSeedsS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env)
-    (p : BlockShape) (cvTas : List ConstantVal)
-    (st : NestState) (tys : List (ConstantVal × TargetMajor × Level))
-    (hT : ∀ cv ∈ cvTas, WScoped 0 cv.type)
-    (htys : ∀ t ∈ tys, t.2.1.member = none → ∀ x ∈ t.2.1.ds, x.fvarB ≤ p.nP)
-    (hst : NestStOk st) {s₀ : CState} (hs : CSOK mode env s₀) :
-    SimC mode env s₀ RelVC
-      (checkBlockSeeds (sharedOpsC mode (mkFEnv env)) env env.find? env.consts p cvTas
-        st tys)
-      (checkBlockSeeds (fueledOpsM mode) env env.find? env.consts p cvTas st tys) := by
-  unfold checkBlockSeeds
-  refine SimC.bind (blockNestCtxS_sim henv p cvTas hT hs) (fun s₁ r r' hs₁ hR => ?_)
-  obtain ⟨rfl, hctx, hholes, hpar, hlen, hh, hnP⟩ := hR
-  rcases r with ⟨ctx, holes⟩
-  dsimp only at hctx hholes hpar hlen hh hnP ⊢
-  refine SimC.bind (nestSeedsS_sim hμ henv hctx _ st hs₁ (fun k hk x hx => ?_) hst)
-    (fun s₂ st' st'' hs₂ hS => ?_)
-  · obtain ⟨t, ht, hM, rfl⟩ := mem_targetSeeds hk
-    exact (nestSeedOf_ds hh hlen (fun y hy => Expr.fvarB_le (by
-      rw [hnP]; exact htys t ht hM y hy)) x hx).2 (fun y hy => (hholes y hy).1) hpar
-  obtain ⟨rfl, -⟩ := hS
-  exact SimC.pure hs₂ rfl
-
 end Top
 
 end ConLeche.Cached

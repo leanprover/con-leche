@@ -98,10 +98,10 @@ theorem blockRecTyAV_eq {acval : Name → (Name → Nat) → AnnotTerm} {envC : 
     blockRecTyAV acval envC rs ψ c = ta := by
   simp [blockRecTyAV, hr, hta]
 
-/-- **The family's SHARED RULE PREFIX, at the run** (stage (b')): the
+/-- **The family's SHARED RULE PREFIX, at the run**: the
 first stored recursor's opened prefix is
-the reference, and every other stored recursor's has its length and is
-defeq to it binder by binder.
+the reference, and every other stored recursor's has its length and
+its domains (syntactically, `RecPrefixSame`).
 
 The bridge from stage (b')'s own list (the TYPE stage's checked
 constant values) to the stored `rs` is the run record's
@@ -127,19 +127,13 @@ theorem recStage_prefixAgree {envC : Env} {p : ConLeche.BlockParts}
               ((fvs.map Expr.fvarTypeD).getD l default) = .ok true) ∨
             fvs.map Expr.fvarTypeD = fvs0.map Expr.fvarTypeD) := by
   obtain ⟨R⟩ := id h
-  rcases R.fam.prefixAgree with hpa | hsame
-  · obtain ⟨fvs0, o0, hop0, hall⟩ :=
-      ConLeche.checkBlockRecPrefixAgree_inv hpa (R.stored_fst hr0)
-    refine ⟨fvs0, o0, hop0, fun i r hr hi => ?_⟩
-    obtain ⟨hrP, fvs, o, hop, hlen, hdeq⟩ := hall i r.1 (R.stored_fst hr) hi
-    exact ⟨hrP, fvs, o, hop, hlen, .inl hdeq⟩
-  · obtain ⟨fvs0, o0, hop0, hall⟩ := hsame r0.1 (R.stored_fst hr0)
-    refine ⟨fvs0, o0, hop0, fun i r hr _ => ?_⟩
-    obtain ⟨hrP, fvs, o, hop, hdoms⟩ := hall i r.1 (R.stored_fst hr)
-    have hlen : fvs0.length = fvs.length := by
-      have := congrArg List.length hdoms
-      simpa using this.symm
-    exact ⟨hrP, fvs, o, hop, hlen, .inr hdoms⟩
+  obtain ⟨fvs0, o0, hop0, hall⟩ := R.fam.prefixAgree r0.1 (R.stored_fst hr0)
+  refine ⟨fvs0, o0, hop0, fun i r hr _ => ?_⟩
+  obtain ⟨hrP, fvs, o, hop, hdoms⟩ := hall i r.1 (R.stored_fst hr)
+  have hlen : fvs0.length = fvs.length := by
+    have := congrArg List.length hdoms
+    simpa using this.symm
+  exact ⟨hrP, fvs, o, hop, hlen, .inr hdoms⟩
 
 /-- **The identification**: at every `ψ`, the `i`-th stored
 recursor type READS, its reading is GRADED, and it IS the Π-tower

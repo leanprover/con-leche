@@ -227,18 +227,6 @@ theorem tgtOutCls_atR {env : Env} {mp : EnvModelM V μ env} (hcov : LfpCover mp 
   obtain ⟨rfl, rfl⟩ : cvI = cv' ∧ caps = caps' := by simpa using hf'
   exact ⟨cvI, hD, hmm, hmem, ⟨caps, hf⟩, hnd, hcov.nodup D hD, hcov.len D hD, hlen, hj⟩
 
-/-- **The outside class at a given recorded block**, at a recursor
-type's entry (`tgtOutCls_atR` at the entry's major). -/
-theorem tgtOutCls_at {env : Env} {mp : EnvModelM V μ env} (hcov : LfpCover mp [])
-    {mode : CheckMode} {F : Nat} {p : BlockShape} {nested : Bool}
-    {cvTas : List ConstantVal} {ctorsAs : List (List (ConstantVal × Nat))} {rc : RecShape}
-    {cvRi : ConstantVal} {M : TargetMajor} {u : Level}
-    (E : ConLeche.TargetTyEntry mode F (mkFEnv env) p nested cvTas ctorsAs rc cvRi M u)
-    (hM : M.member = none) {D : LfpDatum V} (hD : D ∈ mp.lfpBlocks) {mm : Nat} (hmm : mm < D.k)
-    (hmem : D.member mm = M.ind) :
-    ∃ cvI, TgtOutCls mp M D mm cvI :=
-  tgtOutCls_atR hcov E.major hM hD hmm hmem
-
 /-- **The outside class, from the major's run and coverage**: the
 carrier's coverage records the major's (stored, not the block's)
 inductive as a member of some block, which owns its constructors. -/
@@ -254,17 +242,6 @@ theorem tgtOutCls_ofR {env : Env} {mp : EnvModelM V μ env} (hcov : LfpCover mp 
   obtain ⟨D, hD, mm, hmm, hmem⟩ := hcov.cover M.ind cvI caps hf (by simp) hnq
   obtain ⟨cv, h⟩ := tgtOutCls_atR hcov Rm hM hD hmm hmem
   exact ⟨D, mm, cv, h⟩
-
-/-- **The outside class, from the entry and coverage** (`tgtOutCls_ofR`
-at the entry's major). -/
-theorem tgtOutCls_of {env : Env} {mp : EnvModelM V μ env} (hcov : LfpCover mp [])
-    {mode : CheckMode} {F : Nat} {p : BlockShape} {nested : Bool}
-    {cvTas : List ConstantVal} {ctorsAs : List (List (ConstantVal × Nat))} {rc : RecShape}
-    {cvRi : ConstantVal} {M : TargetMajor} {u : Level}
-    (E : ConLeche.TargetTyEntry mode F (mkFEnv env) p nested cvTas ctorsAs rc cvRi M u)
-    (hM : M.member = none) :
-    ∃ D mm cvI, TgtOutCls mp M D mm cvI :=
-  tgtOutCls_ofR hcov E.major hM
 
 /-- **The outside class at the SELECTED block** (`lfpSel`), from the
 major's run. -/
@@ -282,17 +259,5 @@ theorem tgtOutCls_selR {env : Env} {mp : EnvModelM V μ env} (hcov : LfpCover mp
   obtain ⟨mm, hmm, hmem⟩ := lfp_mem_names hcov hS hnS
   obtain ⟨cv, h⟩ := tgtOutCls_atR hcov Rm hM hS hmm hmem
   exact ⟨mm, cv, h⟩
-
-/-- **The outside class at the SELECTED block** (`lfpSel`), at a
-recursor type's entry. -/
-theorem tgtOutCls_sel {env : Env} {mp : EnvModelM V μ env} (hcov : LfpCover mp [])
-    (D0 : LfpDatum V)
-    {mode : CheckMode} {F : Nat} {p : BlockShape} {nested : Bool}
-    {cvTas : List ConstantVal} {ctorsAs : List (List (ConstantVal × Nat))} {rc : RecShape}
-    {cvRi : ConstantVal} {M : TargetMajor} {u : Level}
-    (E : ConLeche.TargetTyEntry mode F (mkFEnv env) p nested cvTas ctorsAs rc cvRi M u)
-    (hM : M.member = none) :
-    ∃ mm cvI, TgtOutCls mp M (lfpSel mp D0 M.ind) mm cvI :=
-  tgtOutCls_selR hcov D0 E.major hM
 
 end ConLeche.Model

@@ -2,8 +2,7 @@ module
 
 import ConLeche.Verify.FastOps
 public import ConLeche.Verify.EnvBound
-import ConLeche.Kernel.Inductives.SumInstallF
-public import ConLeche.Conformance.RecConformF
+public import ConLeche.Kernel.Inductives.SumInstallF
 import ConLeche.Kernel.DeclCheck
 
 public section
@@ -265,36 +264,5 @@ theorem consSumCtorsF_mkFEnv (nP : Nat) :
   | c :: cs, env => by
     simp only [consSumCtorsF, consSumCtors, push_mkFEnv,
       consSumCtorsF_mkFEnv nP cs ⟨.ctorInfo c.1 nP c.2 :: env.consts⟩]
-
-/-! ## The direct recursive install's mirrors (task #188) -/
-
-section FixMirrors
-
-variable {m : Type → Type} [Monad m] [MonadExceptOf CheckError m]
-
-theorem checkNativeRulesF_eq (envR : Env) (rlps : List Name) (T : Name) (lps : List Name)
-    (elim : Name) (large : Bool) (nP nIdx : Nat) (tty : Expr)
-    (ctors : List (Name × Nat × Expr × List Nat)) (recC : Name) (rlvls : List Level) :
-    ∀ (k j : Nat),
-      checkNativeRulesF (m := m) .plain (mkFEnv envR) rlps T lps elim large nP nIdx tty ctors
-          recC rlvls k j
-        = checkNativeRules (m := m) envR rlps T lps elim large nP nIdx tty ctors recC
-            rlvls k j
-  | 0, _ => rfl
-  | k + 1, j => by
-    simp only [checkNativeRulesF, checkNativeRules,
-      checkNativeRulesF_eq envR rlps T lps elim large nP nIdx tty ctors recC rlvls k
-        (j + 1)]
-    simp only [StructWalkers.plain, constsResolveF_eq]
-
-theorem checkNativeRecF_eq (ops : CheckerOps m) (env : Env) (p : NativeParts)
-    (cvTa : ConstantVal) (ctorsA : List (ConstantVal × Nat)) :
-    checkNativeRecF ops .plain (mkFEnv env) none p cvTa ctorsA
-      = checkNativeRec ops env p cvTa ctorsA := by
-  simp only [checkNativeRecF, checkNativeRec, FEnv.pushRecBare, mkFEnv_env, checkConstantValF_eq,
-    push_mkFEnv, checkNativeRulesF_eq]
-  simp only [StructWalkers.plain, constsResolveF_eq]
-
-end FixMirrors
 
 end ConLeche
