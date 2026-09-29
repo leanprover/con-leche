@@ -2587,3 +2587,29 @@
 # constructor's M3 ran right after its walk: 1.  A move between reject and
 # decline on a stream failing two checks (ruling 2026-09-29).
 2 corner_simpd_order_decline.ndjson
+# GENREC (charter item 5 as amended 2026-09-29: the recursor family is
+# GENERATED; the stream's recursor TYPES are compared with the generated
+# ones by defeq, its RULES are not read — the generated rules are
+# installed).  Forged by `scripts/mk_genrec_fixtures.py`; official =
+# the arena official v4.34.0-rc2, measured.  Today's verdicts (the
+# primitive-recursion check); each row names its GENREC target.
+# A casesOn-SHAPED mutual family (every minor without its inductive
+# hypotheses, every rule without its recursive calls): a primitive
+# recursion, not official's recursor — official 1 ("Invalid recursor
+# MA.rec" / "TB.rec").  TARGET 1 (the generated type differs).
+0 genrec_k2_caseson.ndjson
+0 genrec_k3_caseson.ndjson
+# `Nat'.rec`'s rules (flat) and `NT.rec`/`NT.rec_1`'s (nested through
+# `List`) replaced by a constant, the types untouched, the definitions and
+# theorems that reduce through the rules kept — official 1 ("Invalid
+# recursor"); today 1 (not a primitive recursion).  TARGET 0: the stream's
+# rules are not read, the GENERATED rules are installed and every theorem
+# checks against them (charter item 8, GENREC update: any stream rules).
+1 genrec_rules_garbage.ndjson
+1 genrec_rules_garbage_nested.ndjson
+# The stream's auxiliary recursor family omits a class a constructor
+# field reaches (`T` nested through `W` and `List`; forged by lane
+# FUSEPOS): official 1 ("Invalid recursor T.rec_1"); today 0 (the
+# primitive-recursion check never asks for the missing class).  TARGET 1:
+# the generated rule would call a class whose recursor the stream omits.
+0 corner_genrec_nest_missing_class.ndjson
