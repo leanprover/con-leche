@@ -458,4 +458,47 @@ theorem CBNF_of_erasedEq {env : Env} {a b : Expr} (h : Expr.ErasedEq a b) :
     CBNF env a ↔ CBNF env b := by
   unfold CBNF; rw [eraseFVars_of_erasedEq h]
 
+theorem ihParts_erase {g : ClassGen} {t tele : Nat} {w w' : Expr} {d d' : Nat}
+    {xs idx xs' idx' : List Expr} (hw : eraseFVars w = eraseFVars w')
+    (h : g.ihParts t tele w d = some (xs, idx)) (h' : g.ihParts t tele w' d' = some (xs', idx')) :
+    xs.map (fun x => eraseFVars x.fvarTypeD) = xs'.map (fun x => eraseFVars x.fvarTypeD) ∧
+      idx.map eraseFVars = idx'.map eraseFVars := by
+  unfold ClassGen.ihParts at h h'
+  obtain ⟨⟨ys, leaf⟩, hop, h⟩ := Option.bind_eq_some_iff.mp h
+  obtain ⟨⟨ys', leaf'⟩, hop', h'⟩ := Option.bind_eq_some_iff.mp h'
+  simp only [Option.pure_def, Option.some.injEq, Prod.mk.injEq] at h h'
+  obtain ⟨rfl, rfl⟩ := h
+  obtain ⟨rfl, rfl⟩ := h'
+  obtain ⟨hl, hx⟩ := openPis_erase tele hw hop hop'
+  refine ⟨hx, ?_⟩
+  rw [List.map_drop, List.map_drop, ← eraseFVars_getAppArgs, ← eraseFVars_getAppArgs, hl]
+
+/-- A class's constructor, as the generator read it, is determined by the
+class and the stream's constructor. -/
+theorem classCtorRun_unique {mode : ConLeche.CheckMode} {F : Nat} {env : Env}
+    {p : ConLeche.BlockShape} {formerTys : List Expr} {rd : ConLeche.ClassRead}
+    {Ms : List ConLeche.TargetMajor} {c : Nat} {cA : ConstantVal × Nat} {x x' : ClassCtor}
+    (C : ConLeche.ClassCtorRun mode F env p formerTys rd Ms c cA x)
+    (C' : ConLeche.ClassCtorRun mode F env p formerTys rd Ms c cA x') : x = x' := by
+  have he0 : C.e0 = C'.e0 := by
+    have h1 := C.he0; have h2 := C'.he0
+    rw [C.hE] at h1; rw [C'.hE] at h2
+    exact Option.some.inj (h1.symm.trans h2)
+  have hsl : (C.s, C.ihs) = (C'.s, C'.ihs) := by
+    have := C.hslot.symm.trans C'.hslot
+    injection this
+  obtain ⟨-, hihs⟩ := Prod.mk.inj hsl
+  have hop : (C.fvs, C.o) = (C'.fvs, C'.o) := by
+    have h1 := C.hopen; have h2 := C'.hopen
+    rw [he0] at h1
+    exact Option.some.inj (h1.symm.trans h2)
+  obtain ⟨hfvs, -⟩ := Prod.mk.inj hop
+  have hk : x.kinds = x'.kinds := by
+    have h1 := C.hkinds; have h2 := C'.hkinds
+    rw [hihs, hfvs] at h1
+    have := h1.symm.trans h2
+    injection this
+  have hD : x.tyD = x'.tyD := Option.some.inj (C.hD.symm.trans C'.hD)
+  rw [C.hx, C'.hx, hk, hD, he0]
+
 end ConLeche.Model
