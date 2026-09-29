@@ -14,6 +14,8 @@ import ConLeche.Model.Inductives.TargetResidue
 import ConLeche.Model.Inductives.GenRuleSyn
 import ConLeche.Model.Inductives.NestedRecRest
 import ConLeche.Verify.CheckerF
+import ConLeche.Model.Inductives.TargetClasses
+import ConLeche.Model.Inductives.BlockRecPreHpre
 import ConLeche.Model.Levels
 import ConLeche.Verify.Level
 import ConLeche.Verify.Subst
@@ -1394,6 +1396,69 @@ the contract's premises. -/
 
 end DataS
 
+/-! ## 11. `heqV`: the `ih` terms and the residue are bit-valid -/
+
+section Valid
+
+variable {V : Type w} [SetTheory V]
+
+/-- **A λ-tower over a variable-headed spine is valid** at a frame
+agreeing below its base with one where its telescope is valid, fitted
+at every step, and its arguments valid at every fitting spine. -/
+theorem annotValid_lamsApp {h : AnnotTerm} (hh : ∀ ρ' : Nat → V, AnnotValid V ρ' h)
+    {args : List AnnotTerm} :
+    ∀ (tele : List (Nat × AnnotTerm)) {D : Nat} {σ σc : Nat → V},
+      LamDomsBelow D tele → (∀ e ∈ args, Term.bvarsBelow (D + tele.length) e.erase) →
+      (∀ i, i < D → σ i = σc i) →
+      FieldsValid σ (tele.map (·.2)) →
+      (∀ bs : List V, SpineFit σ (tele.map (·.2)) bs →
+        ∀ e ∈ args, AnnotValid V (consList bs σ) e) →
+      AnnotValid V σc (mkLamsAV tele (AnnotTerm.mkAppN h args))
+  | [], D, σ, σc, _, hargs, hag, _, hv => by
+    refine annotValid_mkAppN (hh _) fun e he => ?_
+    exact (AnnotValid_congr_below e D σ σc (by simpa using hargs e he) hag).mp
+      (by simpa using hv [] trivial e he)
+  | (v, A) :: tele, D, σ, σc, hT, hargs, hag, hF, hv => by
+    show AnnotValid V σc (.lam v A _)
+    rw [AnnotValid_lam]
+    have hA := (AnnotValid_congr_below A D σ σc hT.1 hag).mp hF.1
+    refine ⟨hA, fun x hx => ?_⟩
+    rw [← interp_congr_below V A D σ σc hT.1 hag] at hx
+    refine annotValid_lamsApp hh tele (D := D + 1) (σ := cons x σ) hT.2 (fun e he => ?_)
+      (fun i hi => ?_) (hF.2 x hx) (fun bs hbs e he => ?_)
+    · have := hargs e he
+      simpa [Nat.add_assoc, Nat.add_comm 1 tele.length] using this
+    · cases i with
+      | zero => rfl
+      | succ i => exact hag i (by omega)
+    · have := hv (x :: bs) ⟨hx, hbs⟩ e he
+      simpa [consList_cons] using this
+
+/-- The generated residue is bit-valid anywhere: variables applied. -/
+theorem genRb0_valid (ρ : Nat → V) (nPre minPos nF nIh : Nat) :
+    AnnotValid V ρ (genRb0 nPre minPos nF nIh) := by
+  unfold genRb0
+  refine annotValid_mkAppN (by simp) fun a ha => ?_
+  rcases List.mem_append.mp ha with ha | ha <;>
+  · obtain ⟨l, -, rfl⟩ := List.mem_map.mp ha
+    simp
+
+/-- **The stored rule's `ih` pieces are bit-valid** at a frame of prefix
+and field values fitting the rule frame: every `ih` datum's telescope,
+fitted step by step, and its arguments at every fitting spine. -/
+@[expose] def GenIhPiecesValid {envC : Env} (acval : Name → (Name → Nat) → AnnotTerm)
+    (out : List (ConstantVal × TargetMajor × List Expr)) (g : ClassGen) (rd : ClassRead)
+    (pdoms0 : (Name → Nat) → Nat → List AnnotTerm)
+    (fdoms0 : (Name → Nat) → Nat → Nat → List AnnotTerm) : Prop :=
+  ∀ (ψ : Name → Nat) (ρ : Nat → V) (c j : Nat) (ys : List V),
+    SpineFit ρ (pdoms0 ψ c ++ fdoms0 ψ c j) ys →
+    ∀ q ∈ genIhdAV acval envC out g rd ψ c j,
+      FieldsValid (consList ys ρ) (q.2.1.map (·.2)) ∧
+        ∀ bs : List V, SpineFit (consList ys ρ) (q.2.1.map (·.2)) bs →
+          ∀ e ∈ q.2.2.1 ++ [q.2.2.2], AnnotValid V (consList bs (consList ys ρ)) e
+
+end Valid
+
 /-! ## 7. The skeleton's obligations, in its spelling -/
 
 section Obligations
@@ -1734,6 +1799,85 @@ theorem genRecHdataS (hμ : μ.verifiedChecks = true)
   exact genRule_residue mpC.base2 R hg hr hcA hrhs
     (fun d e hcbe => blockRecDenote_cross_eq h _ d e hcbe) (hfree j i)
     (genHcallee R h hnd hr hleaf.closed hleafA) hread' hlam' hlen hpl hfl
+
+/-- **`heqV`** (the skeleton's goal): the equations are bit-valid at every
+tuple (the typing of the tuple is not needed).  The frame, index
+expressions and fired spine are the class side's (`hrowV`, the target
+frame's grading); the `ih` terms are valid from their pieces'
+validity at the base frame (`GenIhPiecesValid`) — the chain frame agrees
+below the rule frame, the head is a variable; the residue is variables
+only. -/
+theorem genRecHeqV (hμ : μ.verifiedChecks = true)
+    (R : GenRecRun μ F fe₁ env₁ (ConLeche.mkFEnv envC) pp.toBlockShape nb pos cvTas block
+      ctorsAs out)
+    (hg : ClassGenScoped R.g)
+    {memR : Nat → Prop} (h : ConLeche.RecStageG μ F envC pp cvTas ctorsAs (tgtRs out) memR)
+    (hrowV : ∀ (ψ : Name → Nat) (ρ : Nat → V) (c : Nat)
+      (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
+      (tgtRs out)[c]? = some r → ∀ (j : Nat) (cA : ConstantVal × Nat) (rhs : Expr),
+      r.2.2.2[j]? = some cA → r.2.1[j]? = some rhs →
+        FieldsValid ρ (blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c
+          ++ tgtFdomsAV pp.toBlockShape out mpC.base2.acval envC ψ c j) ∧
+        ∀ ys : List V, SpineFit ρ (blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape
+            (tgtRs out) ψ c ++ tgtFdomsAV pp.toBlockShape out mpC.base2.acval envC ψ c j) ys →
+          (∀ e ∈ tgtEsAV pp.toBlockShape out mpC.base2.acval envC ψ c j,
+            AnnotValid V (consList ys ρ) e) ∧
+          AnnotValid V (consList ys ρ) (tgtMkAV pp.toBlockShape out mpC.base2.acval envC ψ c j))
+    (hihV : GenIhPiecesValid (V := V) (envC := envC) mpC.base2.acval out R.g R.rd
+      (fun ψ => blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ)
+      (fun ψ => tgtFdomsAV pp.toBlockShape out mpC.base2.acval envC ψ)) :
+    ∀ (ψ : Name → Nat) (ρ : Nat → V) (tup : List V),
+      tup.length = (tgtRs out).length →
+        (∀ (mm : Nat), mm < (tgtRs out).length →
+          tup.getD mm pt ∈ˢ interp V ρ (blockRecTyAV mpC.base2.acval envC (tgtRs out) ψ mm)) →
+          ∀ (e : AnnotTerm), e ∈ (blockRecEqs (blockRecNCt (tgtRs out)) (tgtRs out)
+          (fun ψ => blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ)
+          (fun ψ => tgtFdomsAV pp.toBlockShape out mpC.base2.acval envC ψ)
+          (fun ψ => tgtEsAV pp.toBlockShape out mpC.base2.acval envC ψ)
+          (fun ψ => genIhsAV mpC.base2.acval envC (tgtRs out).length out R.g R.rd ψ)
+          (fun ψ => tgtMkAV pp.toBlockShape out mpC.base2.acval envC ψ)
+          (fun _ => genRbAV R.g R.rd)) ψ → AnnotValid V (consList tup ρ) e := by
+  intro ψ ρ tup hlen _ e he
+  rw [consList_eq_chainFrame hlen ρ]
+  refine annotValid_blockIotaEqsAV (a := fun c => tup.getD c pt) (ρ := ρ)
+    (fun c hc j hj => ?_) (fun c hc j hj ys hys => ?_) e he
+  all_goals
+    obtain ⟨cA, rhs, hcA, hrhs⟩ := tgtRule_exists h hc hj
+    have hr : (tgtRs out)[c]? = some (tgtRs out)[c] := List.getElem?_eq_getElem hc
+  · exact (hrowV ψ ρ c _ hr j cA rhs hcA hrhs).1
+  · dsimp only at hys ⊢
+    obtain ⟨hE, hM⟩ := (hrowV ψ ρ c _ hr j cA rhs hcA hrhs).2 ys hys
+    refine ⟨hE, hM, fun v hv => ?_, genRb0_valid _ _ _ _ _⟩
+    obtain ⟨cls, x, fvs, res, -, hrP, hRP, -, -, -, hop, hFld, -, -, hcx, hnF, -, hrhsE, hcl, -, -,
+      hsl0⟩ := genFrameAt R hg hr hcA hrhs
+    obtain ⟨hpl0, -⟩ := ConLeche.ClassGen.prefixBinders_scoped hg hg.pre
+    have hfl : fvs.length = cA.2 := ConLeche.Verify.openPisAtFvars_length _ hop
+    have hys' : ys.length = R.g.pre.length + x.nF := by
+      have := hys.length_eq
+      rw [List.length_append, blockRulePdomsAV_length hμ mpC h hr ψ, tgtFdomsAV,
+        readOpenedDoms_length_eq, hFld, hfl] at this
+      rw [this, hrP, hnF]
+    rw [genIhsAV, List.mem_map] at hv
+    obtain ⟨q, hq, rfl⟩ := hv
+    obtain ⟨hF, hA⟩ := hihV ψ ρ c j ys hys q hq
+    rw [← hrhsE] at hcl
+    have hb := genIhdAV_below mpC.base2 (g := R.g) (rd := R.rd) (φ := ψ) (c := c) (j := j) hcl
+      (by rw [hcx]; omega) q hq
+    rw [hcx] at hb ⊢
+    unfold genIhAV
+    refine annotValid_lamsApp (fun _ => by simp) q.2.1 (D := R.g.pre.length + x.nF)
+      (σ := consList ys ρ) hb.1 (fun e he => ?_) (fun i hi => ?_) hF (fun bs hbs e he => ?_)
+    · rcases List.mem_append.mp he with he | he
+      · obtain ⟨l, hl, rfl⟩ := List.mem_map.mp he
+        rw [List.mem_range] at hl
+        show _ < _
+        omega
+      · exact hb.2 e he
+    · rw [consList_getD_of_lt _ _ _ (by omega), consList_getD_of_lt _ _ _ (by omega)]
+    · rcases List.mem_append.mp he with he | he
+      · obtain ⟨l, -, rfl⟩ := List.mem_map.mp he
+        simp
+      · exact hA bs hbs e he
 
 end Obligations
 
