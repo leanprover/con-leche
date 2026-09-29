@@ -346,8 +346,8 @@ theorem checkStructFieldSortsI_datF (env : Env) (isProp large : Bool)
 section NestPos
 
 open ConLeche (NestCtx NestKey NestHole NestState NestFieldKind nestInstType nestGrowGroup
-  nestGroupCtors nestFields nestCtors nestFrame nestCont nestPos nestRoot nestRootLines
-  nestRootLinesAll nestedBlockPositivity nestContainer)
+  nestGroupCtors nestFields nestCtors nestFrame nestCont nestPos nestRoot nestUniform
+  nestedBlockPositivity nestContainer)
 
 theorem nestInstType_datF (ctx : NestCtx) (hi : Nat) (key : NestKey) (F : Nat) :
     (nestInstType (m := FueledM) ctx hi key).val F = nestInstType (m := CheckM) ctx hi key := by
@@ -484,12 +484,6 @@ theorem nestPos_datF (env : Env) (ctx : ConLeche.NestCtx) (F : Nat) :
             (rec' := ConLeche.nestPos (fueledOps mode F) env ctx fuel) ih])
         all_goals (try rfl)
 
-theorem nestNoMemberConst_datF (ctx : ConLeche.NestCtx) (e : Expr) (F : Nat) :
-    (ConLeche.nestNoMemberConst (m := FueledM) ctx e).val F
-      = ConLeche.nestNoMemberConst (m := CheckM) ctx e := by
-  unfold ConLeche.nestNoMemberConst
-  simp only [FueledM.atF_ite, FueledM.atF_throw, FueledM.atF_pure]
-
 theorem nestRoot_datF (env : Env) (ctx : ConLeche.NestCtx) (holes : List Expr)
     (F : Nat) :
     ∀ (css : List (List (ConstantVal × Nat))) (st : ConLeche.NestState),
@@ -502,26 +496,12 @@ theorem nestRoot_datF (env : Env) (ctx : ConLeche.NestCtx) (holes : List Expr)
       nestCtors_datF (fun x => nestPos_datF env ctx F (ConLeche.whnfWalkFuel x)),
       nestRoot_datF env ctx holes F css]
 
-theorem nestRootLines_datF (ctx : ConLeche.NestCtx) (holes : List Expr) (F : Nat) :
-    ∀ (cs : List (ConstantVal × Nat)) (os : List (List NestFieldKind × Expr)),
-      (nestRootLines (m := FueledM) ctx holes cs os).val F
-        = nestRootLines (m := CheckM) ctx holes cs os
-  | [], _ => rfl
-  | _ :: _, [] => rfl
-  | c :: cs, o :: os => by
-    unfold nestRootLines
-    simp only [FueledM.atF_bind, FueledM.atF_ite, FueledM.atF_throw, FueledM.atF_pure,
-      nestNoMemberConst_datF, nestRootLines_datF ctx holes F cs os]
-
-theorem nestRootLinesAll_datF (ctx : ConLeche.NestCtx) (holes : List Expr) (F : Nat) :
-    ∀ (css : List (List (ConstantVal × Nat))) (oss : List (List (List NestFieldKind × Expr))),
-      (nestRootLinesAll (m := FueledM) ctx holes css oss).val F
-        = nestRootLinesAll (m := CheckM) ctx holes css oss
-  | [], _ => rfl
-  | _ :: _, [] => rfl
-  | cs :: css, os :: oss => by
-    unfold nestRootLinesAll
-    simp only [FueledM.atF_bind, nestRootLines_datF, nestRootLinesAll_datF ctx holes F css oss]
+theorem nestUniform_datF (ctx : ConLeche.NestCtx) (holes : List Expr)
+    (ctorss : List (List (ConstantVal × Nat))) (F : Nat) :
+    (nestUniform (m := FueledM) ctx holes ctorss).val F
+      = nestUniform (m := CheckM) ctx holes ctorss := by
+  unfold nestUniform
+  split <;> simp only [FueledM.atF_throw, FueledM.atF_pure]
 
 theorem checkSumCtor_datF (env₀ env : Env) (T : Name) (lps : List Name)
     (nP nIdx : Nat) (rs : Level) (isProp large : Bool) (cvC : ConstantVal) (nF : Nat)
@@ -755,7 +735,7 @@ theorem nestedBlockPositivity_datF (env : Env) (ctx : ConLeche.NestCtx)
       = ConLeche.nestedBlockPositivity (fueledOps mode F) env ctx ctorss := by
   unfold ConLeche.nestedBlockPositivity
   simp only [FueledM.atF_bind, FueledM.atF_pure, unwrapOr_atF, nestRoot_datF,
-    nestRootLinesAll_datF]
+    nestUniform_datF]
 
 theorem checkAbsCtorSorts_datF (env : Env) (ctx : ConLeche.NestCtx) (F : Nat) :
     ∀ (cs : List (ConstantVal × Nat)) (os : List (List NestFieldKind × Expr)),
@@ -1037,7 +1017,7 @@ theorem checkBlockPositivity_datF (env₁ : Env) (find? : Name → Option Consta
       = checkBlockPositivity (fueledOps mode F) env₁ find? p cvTas ctorsAs := by
   unfold checkBlockPositivity
   simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw, FueledM.atF_ite,
-    blockNestCtx_datF, nestRoot_datF, nestRootLinesAll_datF, checkAbsCtorSortsAll_datF]
+    blockNestCtx_datF, nestUniform_datF, nestRoot_datF, checkAbsCtorSortsAll_datF]
 
 theorem checkBlockPass_datF (env : Env) (p : BlockParts) (isRec : Bool) (F : Nat) :
     (checkBlockPass (fueledOpsM mode) env p isRec).val F =

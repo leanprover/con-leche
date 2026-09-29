@@ -79422,6 +79422,12 @@ this block wins.
    reject, as official); NEW: any stream recursor RULES are accepted,
    since ours are installed instead; recursor types equal to the generated
    ones only up to defeq are accepted.
+   **Uniform parameters (2026-09-29, UNIFCHK):** official's syntactic
+   uniform-occurrence check runs on the STORED constructor type (lets
+   inlined), so a non-uniform occurrence that exists only in a `let`'s
+   type or an unused `let` value is accepted (`uh_let_erase_type`,
+   `uh_let_erase_value`: official 1, ours 0) — sound, since the model
+   reads the stored type; accepted superset by ruling.
    * **Zero-motive recursors at k ≥ 2.**  The kernel requires only
      `nP ≤ rP` (lane FLOOR).  At k = 1 the conformance generator still
      rejects such a recursor, and at k ≥ 2 it is skipped.  Streams cannot
@@ -79517,6 +79523,10 @@ this block wins.
      half of `check_uniform_ind_occs` (a member at the block's levels
      applied to other arguments than the parameters) is the walk's
      business, not M2′'s, and was not audited by lane L9FIX.
+     **UNIFCHK update (2026-09-29, maintainer ruling of that day):** M2′
+     and M3 are REPLACED by official's whole check (`nestUniform`, run
+     before the positivity check, parameter domains included); see the
+     UNIFCHK record at the end.
    * **Omitted auxiliary recursors are rejected (ruled 2026-09-27, lane
      SEEDDEFEQ).**  Official's replay regenerates the auxiliary recursors
      and compares only the ones the stream carries, so it ACCEPTS a
@@ -94624,3 +94634,80 @@ links, quote gate, axioms, e2e 427/427, sweeps) green.
   binder level (conjuncts of context records are not covered).
 Proof: +56 −208.  Gates as M1 (`no-local-paths` fails on `CLAUDE.md:62`, from the CLAUDEMD
 lane's edit on `uniform-inds`, not this lane's).
+
+**RULING (maintainer, 2026-09-29) — uniform parameters:** given official's syntactic
+`check_uniform_ind_occs`, we may assume parameters are MANIFEST (every member occurrence literally
+`T.{lps} p⃗`) and cash in on it, in two steps: (1) adopt official's syntactic check (lane UNIFCHK),
+keeping today's holes; (2) later, holes stand for the whole application `T p⃗` (families over the
+indices, no parameters), with the proof adjustment (UNIFHOLE.md: ~7–11 sessions).
+
+## UNIFCHK — official's uniform-occurrence check, step 1 of the ruling (2026-09-29, `agent/uinds-UNIFCHK`)
+
+Step 1 of the maintainer's ruling above: official's `check_uniform_ind_occs` (v4.34.1
+`inductive.cpp`), today's holes kept.
+
+**The kernel.**
+* `nestUniform` / `nestUniformOk` (`Kernel/Inductives/Positivity.lean`), called by
+  `checkBlockPositivity` (and `nestedBlockPositivity`) BEFORE `nestRoot`: per stored
+  constructor, its member abstraction (`nestAbstract`, the root frame's own substitution
+  `T_m.{lps} ↦ X_m`) has (a) no member and no hole in its first `nP` binder domains
+  (`Expr.piDomsOcc`: official rejects every occurrence at offset < nparams) and (b) at the
+  canonical parameters (`instPisWith ctx.params`) every member applied to exactly them
+  (`holesApplied`: a member constant left over is one at other levels; a hole not headed by
+  `X_m (fvar 0) … (fvar (nP-1))` is one not applied to the parameters; an over-applied spine has
+  its extra arguments walked, as official's `for_each`).  A type without `nP` leading binders
+  fails (unreachable: the constructor stage declined it).  Reject, official's wording.
+* The one local check in the container case (`nestCont`, IMPROVE P3(ii)): a container
+  instance's parameters pass `holesApplied`.  Never fires after `nestUniform` (whnf substitutes
+  bound variables only; δ/ι introduce no member), and it is what the normal forms' fact needs at
+  a container leaf.
+* DELETED: `nestNoMemberConst` (M2′), `nestRootLines`, `nestRootLinesAll` (M3 on the walked
+  normal form).  `holesApplied` (with its memo) stays: it is the check's body in both places.
+* Form for step 2: the check reads the parameter-instantiated member abstraction; step 2's
+  whole-application replacement (`T_m p⃗ ↦ Y_m`) happens at the same point and turns (b) into
+  "no member constant left".
+
+**The proof.**  Every consumer keeps its statement.
+* M2′ (`(nestAbstract ctx holes cA.1.type).nestOcc names 0 0 = false`,
+  `checkBlockPositivity_m2`/`_inv_gen`): `nestAbstract_nestOcc_zero`, from (a)+(b).
+* `MemberCtorD`'s `tyN.holesApplied`: `memberCtorD_holesApplied` — ONE induction over `PosD`
+  (`posD_holesApplied`, `Verify/Inductives/HolesApplied.lean`): `const` and a Π domain are
+  hole-free, `hole` is checked against the block's parameters (positional: `openPisAtFvars_index`),
+  `frameHole` cannot occur at no frames, `contNew`/`contHit` carry the new premise `hdsA` (the
+  `nestCont` check) and hole-free indices; a telescope's result inherits the crest's fact through
+  the field openings (`holesApplied_instantiate1`), and `closeTelescope` keeps it
+  (`holesApplied_abstract1`).  `PosD.contNew`/`contHit` and the parked `PosDR.cont` gained the
+  premise; the inversions (`nestCont_inv`, `nestPos_deriv`) supply it.
+* The `holesApplied` lemmas moved from `Model/Inductives/StoredShapes.lean` to the new Verify file.
+* The completeness theorem (`nestedBlockPositivity_complete`, parked) now takes the uniform check
+  as its premise instead of the root lines.
+
+**Verdicts** (sweep of 619 streams — e2e incl. the unpacked `.gz`, the arena, the UNIFHOLE
+probes — against `uniform-inds` @ df2ea97be): exactly the five expected moves, all to official's
+verdict: `corner_nestind_d_redex_bad` 0→1 (at `CD`'s own install), `corner_simpd_order_decline`
+2→1 (the check precedes the fuel-exhausting walk), and the probes `uh_root_beta_param`,
+`uh_root_erase_nonunif`, `uh_param_domain` 0→1.  No other move.  New e2e fixtures (sources
+`tests/e2e/src/uh_*.lean`): those three (target 1), `uh_nest_key_beta_param` (1, was 1), the
+controls `uh_root_erase_unif`, `uh_nest_key_redex`, `uh_nest_key_erase` (0).
+
+**FINDING — an accepted superset this lane does NOT close (question for the maintainer):** the
+check reads the STORED constructor type, which is the annotation of the declared one, i.e. its ζ
+reduct (`annotateBody`'s `.letE` arm).  A non-uniform occurrence only in a `let`'s type, or in the
+value of a `let` its body never uses, is gone there: `uh_let_erase_type`
+(`(let x : (fun _ => Type) (T Nat) := Nat; x) → T α`) and `uh_let_erase_value`
+(`(let x : Type := T Nat; Nat) → T α`): official (the arena's v4.34.0-rc2) 1, ours 0 (before
+and after this lane).
+Sound (the model reads the stored type).  Closing it means running the check on the declared
+type instead, which needs "uniform ⇒ uniform after ζ" (`AnnotOf`, `Model/StreamConsts.lean`) to
+reach the stored one — a substitution lemma for the offset-indexed predicate, est. 300–500 proof
+lines — or a reject-only duplicate on the declared type.  Not charter-listed (item 8); pending a
+ruling.
+
+**Size.**  Executed checker code: −1 line (`nestUniform`, `nestUniformOk`, `piDomsOcc`, the
+`nestCont` line in; `nestNoMemberConst`, `nestRootLines(All)` out).  Proof: +283 code lines net
+(`HolesApplied.lean` +514, of which ~126 moved from `StoredShapes`; `PositivityInv` −43,
+`PosDerivComplete` −42, `NestPosC` −25, `BridgeDecl` −18).
+
+Gates: `lake build`/`lake test` warning-free, links (anchors re-pointed, §5 pseudo-code updated),
+quote gate, no-local-paths, layering, shake/pub-imports, `tests/arena.sh`.
+

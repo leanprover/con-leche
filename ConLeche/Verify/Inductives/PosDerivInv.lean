@@ -9,6 +9,7 @@ import ConLeche.Verify.Cached.Erase
 import ConLeche.Verify.InstLevels
 import ConLeche.Verify.Inductives.DirectInv
 import ConLeche.Verify.Denote.IndFrame
+import ConLeche.Verify.Inductives.HolesApplied
 
 public section
 
@@ -847,7 +848,10 @@ theorem nestPos_deriv (hctx : NestCtxOk ctx) (hroot : NestRootOk ctx)
           obtain ⟨k₁, st₁⟩ := v
           simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at hrun
           obtain ⟨rfl, rfl, rfl⟩ := hrun
-          obtain ⟨nPc, L, hq, hle, hidxfree, hnq, hdsok, nI, cty, hnI, hlen, hkey⟩ := nestCont_inv hv
+          obtain ⟨nPc, L, hq, hle, hidxfree, hnq, hdsok, hdsA, nI, cty, hnI, hlen, hkey⟩ :=
+            nestCont_inv hv
+          have hdsA' : ∀ x ∈ w.getAppArgs.take nPc,
+              x.holesApplied ctx.names ctx.nP (ctx.hiAt 0) = true := by simpa using hdsA
           have hdsok' : ∀ x ∈ w.getAppArgs.take nPc, x.bvarB = 0 ∧ x.fvarB ≤ ctx.hiAt prog.length := by
             simpa using hdsok
           have hdsw : ∀ x ∈ w.getAppArgs.take nPc, WScoped (ctx.hiAt prog.length) x := fun x hx =>
@@ -864,12 +868,12 @@ theorem nestPos_deriv (hctx : NestCtxOk ctx) (hroot : NestRootOk ctx)
             ⟨hfree, grp, ts, hfr, hmem, hn⟩
           · rw [hnI] at hnI'
             obtain ⟨rfl, rfl⟩ : nI = nI' ∧ cty = cty' := by simpa using hnI'
-            exact ⟨_, .contNew hw hocc' hfn (by simpa using hnm) hq hlen hnq hidx' hdsok' hdsw hnI
-              hhead hsc hfr, hn⟩
+            exact ⟨_, .contNew hw hocc' hfn (by simpa using hnm) hq hlen hnq hidx' hdsok' hdsw hdsA'
+              hnI hhead hsc hfr, hn⟩
           · exact ⟨_, .contHit hw hocc' hfn (by simpa using hnm) hq hlen hnq hidx'
               (fun x hx => ⟨(hdsok' x hx).1, hfree x hx⟩)
-              (fun x hx => WScoped.of_fvarsBelow (hdsw x hx) (Expr.fvarB_le (hfree x hx))) hnI
-              hmem hfr, hn⟩
+              (fun x hx => WScoped.of_fvarsBelow (hdsw x hx) (Expr.fvarB_le (hfree x hx))) hdsA'
+              hnI hmem hfr, hn⟩
         · simp [throw, throwThe, MonadExceptOf.throw] at hrun
 
 /-! ## The root frame -/
@@ -1079,8 +1083,9 @@ theorem rootEntry_mem {holes : List Expr} {tbl : List NestCtorNf}
 are closed, canonical parameters well scoped at the walk's depth, closed
 constructors of the block's own levels and member formers of the
 members' arity — every stored constructor's member-abstracted crest
-derived (`MemberCtorD`, the root frame's constructor judgment with the
-root's own line M3) with the run's kinds and its output normal form, its
+derived (`MemberCtorD`, the root frame's constructor judgment with every
+member applied in its normal form, from official's uniform check) with
+the run's kinds and its output normal form, its
 nodes recorded in the walk's final state `pos`, which keeps the cache
 invariant (the seeds continue from it, `checkBlockSeeds_deriv`), and
 every constructor's entry recorded (`CtorsRec` at the root key). -/
@@ -1110,7 +1115,7 @@ theorem checkBlockPositivity_deriv {env₁ : Env}
             TreeRec ops env₁ (p.nestCtx fvsP find?) pos.ctorNfs.toList ts) ∧
         CtorsRecRoot ops env₁ (p.nestCtx fvsP find?) holes pos.ctorNfs.toList ctorsAs ∧
         DerivCache ops env₁ (p.nestCtx fvsP find?) pos) := by
-  obtain ⟨cvTa0, fvsP, rest, holes, outs, h1, h2, h3, hr, hL, -, rfl, rfl⟩ :=
+  obtain ⟨cvTa0, fvsP, rest, holes, outs, h1, h2, h3, hU, hr, -, rfl, rfl⟩ :=
     checkBlockPositivity_inv h
   refine ⟨cvTa0, fvsP, rest, holes, h1, h2, h3, fun hctx hAr hpar hcl hlps => ?_⟩
   have hroot := nestRootOk_of_open (ctx := p.nestCtx fvsP find?) h2 hAr
@@ -1127,13 +1132,17 @@ theorem checkBlockPositivity_deriv {env₁ : Env}
   obtain ⟨os, ts, hoc, -, -, -, hout⟩ := hall c cs hc
   obtain ⟨o, hoj, crest, nds, cur, ts', hcr, -, hd, ho2, hu4, hres, hidx, htr⟩ := hout j cA hj
   rw [rootCrest_eq _ _ (hlps c cs hc cA (List.mem_of_getElem? hj))] at hcr
-  obtain ⟨hha, -⟩ := nestRootLines_inv (nestRootLinesAll_inv hL c cs os hc hoc) j cA o hj hoj
+  have hha := memberCtorD_holesApplied (ctx := p.nestCtx fvsP find?)
+    (Verify.openPisAtFvars_length _ h2)
+    (fun j' x hx => by simpa using openPisAtFvars_index _ _ _ h2 j' x hx) hd
+    (crest_holesApplied (nestUniform_inv hU cs (List.mem_of_getElem? hc) cA
+      (List.mem_of_getElem? hj)) hcr)
   refine ⟨crest, o.1, ts', hcr, ⟨nds, cur, hd, ?_, ?_, hres, ?_, ?_⟩, ?_, htr⟩
   · rw [outs_getD hoc hoj default]; exact ho2
   · rw [outs_getD hoc hoj default, ho2]; exact hu4
   · have hl := hroot.1
     rw [hl] at hidx; exact hidx
-  · rw [outs_getD hoc hoj default]; exact hha
+  · rw [outs_getD hoc hoj default, ho2]; exact hha
   · exact outs_getD hoc hoj []
 
 end ConLeche

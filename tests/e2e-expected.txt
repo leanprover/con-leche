@@ -2090,7 +2090,10 @@
 # and the recorded clause do), so `(fun X => #CD X) #TD` reduces to the hole.
 # Target 0 (the switch-ON binary, with or without the modeller); today 0 (the
 # modelled route).  A conformance check would go to `ConLeche/Conformance/`.
-0 corner_nestind_d_redex_bad.ndjson
+# UNIFCHK (2026-09-29): 0 → 1, official's verdict — `CD`'s own install is
+# rejected by official's uniform-occurrence check (`nestUniform`: `X` under
+# the λ is not applied to the parameter).
+1 corner_nestind_d_redex_bad.ndjson
 # Finding F13 (lane NESTIND, session 13; sources
 # `tests/e2e/src/corner_nestind_f13_listrose{,_prop}.lean`): `TL ::= node
 # (List (RL TL))` with `RL α ::= node α (List (RL α))` (and its `Prop`
@@ -2607,7 +2610,10 @@
 # before its own lines (M3/M2′) run: 2.  Before the lane each member
 # constructor's M3 ran right after its walk: 1.  A move between reject and
 # decline on a stream failing two checks (ruling 2026-09-29).
-2 corner_simpd_order_decline.ndjson
+# UNIFCHK (2026-09-29): 2 → 1, official's verdict — official's
+# uniform-occurrence check (`nestUniform`) replaces M3 and runs BEFORE the
+# walk, as official runs it first.
+1 corner_simpd_order_decline.ndjson
 # GENREC (charter item 5 as amended 2026-09-29: the recursor family is
 # GENERATED; the stream's recursor TYPES are compared with the generated
 # ones by defeq, its RULES are not read — the generated rules are
@@ -2639,3 +2645,23 @@
 # the generated rule would call a class whose recursor the stream omits.
 # GENREC: official 1
 1 corner_genrec_nest_missing_class.ndjson
+# UNIFCHK (2026-09-29): official's `check_uniform_ind_occs` (v4.33.1+),
+# `nestUniform`, run on the stored constructors before the positivity
+# check (sources in `tests/e2e/src/uh_*.lean`, forged with `addDecl`).
+# Occurrences uniform only after reduction, or in a parameter's domain:
+# 0 → 1, official's verdict (≤ v4.33.0 accepts all three).
+1 uh_root_beta_param.ndjson
+1 uh_root_erase_nonunif.ndjson
+1 uh_param_domain.ndjson
+# ...inside a container key: 1 before and after (M3 then, `nestUniform` now).
+1 uh_nest_key_beta_param.ndjson
+# Controls, uniform occurrences under redexes: official 0, ours 0.
+0 uh_root_erase_unif.ndjson
+0 uh_nest_key_redex.ndjson
+0 uh_nest_key_erase.ndjson
+# ACCEPTED SUPERSET (reported by lane UNIFCHK, not ruled): a non-uniform
+# occurrence only in a `let`'s type, or in an unused `let` value.  The check
+# reads the STORED constructor type, the ζ reduct of the declared one.
+# Official v4.33.1+ 1; ours 0 (before and after the lane).
+0 uh_let_erase_type.ndjson
+0 uh_let_erase_value.ndjson

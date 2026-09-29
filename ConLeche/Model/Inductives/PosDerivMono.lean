@@ -685,7 +685,7 @@ theorem posD_mono {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env)
       omega)
     rw [show dep - 1 - (ctx.hiAt 0 + (i - ctx.hiAt 0)) = dep - 1 - i by omega] at hh
     exact MonoOn.holeAppArgs hh hvs₂
-  | @contNew prog dep kb e w n us L nPc nI cty grp ts hw hocc hfn hnm hq hlen hquot hidx hds _ hnI
+  | @contNew prog dep kb e w n us L nPc nI cty grp ts hw hocc hfn hnm hq hlen hquot hidx hds _ _ hnI
       hhead _ hfrD ihf =>
     intro hcovk hhid hfr Δa ea R hC hea hgr hR
     have hcov := hcovk rfl
@@ -726,7 +726,7 @@ theorem posD_mono {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env)
       (fun ψ => by rw [hdl]; exact hlenP0 ψ) (by rw [hdl]; exact hnL0) hwa hCw hgw hR hisC hnI
       hisl hhead' ihf
   | @contHit prog dep kb e w n us L nPc nI cty grp ts hw hocc hfn hnm hq hlen hquot hidx hds
-      _ hnI hmem hfrD ihf =>
+      _ _ hnI hmem hfrD ihf =>
     intro hcovk hhid hfr Δa ea R hC hea hgr hR
     have hcov := hcovk rfl
     refine mono_of_whnf hin hw hfr hC hea hgr hR.dom fun hfrw hCw wa hwa hgw => ?_

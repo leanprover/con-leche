@@ -166,7 +166,8 @@ theorem canonCrest_of_walk {ctx : NestCtx} {holes : List Expr} {k : Nat} {ty cre
 omit [SetTheory V] in
 /-- **M2′ at the canonical holes, from the positivity stage's run**: the
 stage checked every constructor's member-abstracted type for a member
-constant (`nestNoMemberConst`) at its own holes; the check does not see
+constant at its own holes (M2′, from official's uniform check
+`nestUniform`); the check does not see
 the holes' annotations. -/
 theorem canonOcc_of_positivity {ops : ConLeche.CheckerOps ConLeche.CheckM} {env₁ : Env}
     {find? : Name → Option ConstantInfo} {p : BlockParts}

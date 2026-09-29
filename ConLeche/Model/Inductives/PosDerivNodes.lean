@@ -395,7 +395,7 @@ theorem posD_nodeSem {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env)
       List.drop_succ_cons, hΔ]
   | hole => intro _ _ _ _ _ _ _ _; exact NodesSem.nil
   | frameHole => intro _ _ _ _ _ _ _ _; exact NodesSem.nil
-  | @contNew prog dep kb e w n us L nPc nI cty grp ts hw hocc hfn hnm hq hlen hquot hidx hds hdsw0
+  | @contNew prog dep kb e w n us L nPc nI cty grp ts hw hocc hfn hnm hq hlen hquot hidx hds hdsw0 _
       hnI hhead hsc hfrD ihf =>
     intro hhid hfr Δa ea hC hea hgr hΔ
     obtain ⟨hfrw, hCw, wa, hwa, -⟩ := whnf_facts hin hw hfr hC hea hgr
@@ -424,7 +424,7 @@ theorem posD_nodeSem {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env)
     exact NodesSem.cons_node ⟨⟨dsa, hdsa⟩, hCds, hLds⟩
       (frameNodes_of mp hcov hfrD ihf hdsw hdsa hCds hLds) NodesSem.nil
   | @contHit prog dep kb e w n us L nPc nI cty grp ts hw hocc hfn hnm hq hlen hquot hidx hds
-      hdsw0 hnI hmem hfrD ihf =>
+      hdsw0 _ hnI hmem hfrD ihf =>
     intro hhid hfr Δa ea hC hea hgr hΔ
     obtain ⟨hfrw, hCw, wa, hwa, -⟩ := whnf_facts hin hw hfr hC hea hgr
     have hspine := Expr.mkAppN_getApp w

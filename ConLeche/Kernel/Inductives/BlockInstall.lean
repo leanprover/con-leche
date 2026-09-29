@@ -218,9 +218,10 @@ STORED constructors as the walk's ROOT frame (`nestRoot`,
 `Kernel/Inductives/Positivity.lean`): the members abstracted to holes at
 the canonical parameter variables, each constructor TYPED there (the
 typing the monotonicity proof reads at every hole value — a frame types
-its constructors), walked, recorded.  The root's own lines follow: the
-members' uniform occurrences (`nestRootLinesAll`) and the fields'
-universes at the holes (`checkAbsCtorSorts`).  The walk's kinds are the
+its constructors), walked, recorded.  Before the walk, official's
+uniform-occurrence check (`nestUniform`: every member occurrence is
+`T.{lps} p⃗`); after it, the fields' universes at the holes
+(`checkAbsCtorSorts`).  The walk's kinds are the
 model's; the capability record's `is_rec` is official's syntactic one
 (`blockRawRec`), not read off them. -/
 
@@ -273,20 +274,22 @@ def blockNestCtx (p : BlockShape) (cvTas : List ConstantVal)
   pure (ctx, holes)
 
 /-- **The block's positivity, on its stored constructors** (see the
-section docstring), at the walk's context (`blockNestCtx`): the root
-frame and its own lines.  Returns the walk's field kinds, its normal
-forms (member-abstracted, at the walk's context; OUTPUT only: nothing is
-stored from them) and its state — the cache and the recorded constructor
-normal forms, which the walk of the other classes continues
-(`checkBlockPass`, `BlockTail.lean`); the walk's verdict is the install's. -/
+section docstring), at the walk's context (`blockNestCtx`): official's
+uniform-occurrence check, the root frame, the fields' universes.
+Returns the walk's field kinds, its normal forms (member-abstracted, at the
+walk's context; OUTPUT only: nothing is stored from them) and its state —
+the cache and the recorded constructor normal forms, which the walk of the
+other classes continues (`checkBlockPass`, `BlockTail.lean`); the walk's
+verdict is the install's. -/
 def checkBlockPositivity (ops : CheckerOps m) (env₁ : Env) (find? : Name → Option ConstantInfo)
     (p : BlockParts) (cvTas : List ConstantVal)
     (ctorsAs : List (List (ConstantVal × Nat))) :
     m (List (List (List NestFieldKind)) × List (List Expr) × NestState) := do
   let (ctx, holes) ← blockNestCtx p.toBlockShape cvTas find?
+  -- official's `check_uniform_ind_occs`, before the walk
+  nestUniform ctx holes ctorsAs
   -- the root frame on the STORED (declared) constructors; their normal forms are output only
   let (outs, st) ← nestRoot ops env₁ ctx holes ctorsAs {}
-  nestRootLinesAll ctx holes ctorsAs outs
   checkAbsCtorSortsAll ops env₁ ctx ctorsAs outs
   pure (outs.map (·.map (·.1)), outs.map (·.map (·.2)), st)
 

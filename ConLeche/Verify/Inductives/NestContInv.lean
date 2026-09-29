@@ -162,6 +162,7 @@ theorem nestCont_inv {ctx : NestCtx} {ops : CheckerOps CheckM} {env : Env}
       n ≠ quotName ∧
       ((args.take nPc).all fun x => x.bvarB == 0 && decide (x.fvarB ≤ ctx.hiAt prog.length))
         = true ∧
+      ((args.take nPc).all (·.holesApplied ctx.names ctx.nP (ctx.hiAt 0))) = true ∧
       ∃ nI cty, nestInstType (m := CheckM) ctx (ctx.hiAt prog.length) ⟨n, us, args.take nPc⟩
           = .ok (nI, cty) ∧ args.length = nPc + nI ∧
         nestContKey ctx ops env rec prog kb n us (args.take nPc) nPc cty st
@@ -188,6 +189,11 @@ theorem nestCont_inv {ctx : NestCtx} {ops : CheckerOps CheckM} {env : Env}
     · rw [hc] at h; simp [throw, throwThe, MonadExceptOf.throw] at h
     · rfl
   rw [if_pos h4] at h
+  have h4' : ((List.take nPc args).all (·.holesApplied ctx.names ctx.nP (ctx.hiAt 0))) = true := by
+    cases hc : ((List.take nPc args).all (·.holesApplied ctx.names ctx.nP (ctx.hiAt 0)))
+    · rw [hc] at h; simp [throw, throwThe, MonadExceptOf.throw] at h
+    · rfl
+  rw [if_pos h4'] at h
   split at h
   · simp at h
   rename_i ni hni
@@ -199,7 +205,7 @@ theorem nestCont_inv {ctx : NestCtx} {ops : CheckerOps CheckM} {env : Env}
     · rfl
   rw [if_pos h5] at h
   simp only [Bool.or_eq_true, decide_eq_true_eq, Bool.not_eq_true', not_or] at h2
-  refine ⟨nPc, L, hq', by omega, by simpa using h2.2, by simpa using h3, h4,
+  refine ⟨nPc, L, hq', by omega, by simpa using h2.2, by simpa using h3, h4, h4',
     nI, cty, hni, by simpa using h5, h⟩
 
 end ConLeche

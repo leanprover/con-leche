@@ -11,8 +11,8 @@ public section
 datum `d.toLfp`, at the constructors' environment: the reading fact the
 constructors' stage carries (`BlockAbsRead`: the CANONICAL abstraction —
 parameters the variables `0 ..< nP`, member `m` the variable `nP + m`,
-all annotated `Sort 0` — reads as the fields with holes); M2′ is the
-positivity stage's check (`nestNoMemberConst`), which is blind to the
+all annotated `Sort 0` — reads as the fields with holes); M2′ follows from
+official's uniform-occurrence check (`nestUniform`), blind to the
 holes' annotations (`canonOcc_of_positivity`).
 -/
 
