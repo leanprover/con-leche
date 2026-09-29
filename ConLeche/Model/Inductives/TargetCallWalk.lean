@@ -299,7 +299,10 @@ theorem callWalkSyn {ops : ConLeche.CheckerOps CheckM} {envW : Env}
           nestContainer ctx I = some (nPc, L) ∧ nPc ≤ w.getAppArgs.length ∧
           u.key = ⟨I, us, w.getAppArgs.take nPc⟩ ∧
           (∀ y ∈ w.getAppArgs.drop nPc,
-            y.nestOcc ctx.names ctx.nP (ctx.hiAt prog.length) = false)) ) := by
+            y.nestOcc ctx.names ctx.nP (ctx.hiAt prog.length) = false) ∧
+          ∃ nI cty, w.getAppArgs.length = nPc + nI ∧
+            ConLeche.nestInstType (m := CheckM) ctx (ctx.hiAt prog.length)
+              ⟨I, us, w.getAppArgs.take nPc⟩ = .ok (nI, cty)) ) := by
   generalize hB : rP + fvsF.length = B at *
   have hsb : ∀ v, v < ctx.hiAt prog.length + i →
       (callSubst ctx prog fvsF v).looseBVarsBounded 0 = true := by
@@ -491,7 +494,7 @@ theorem callWalkSyn {ops : ConLeche.CheckerOps CheckM} {envW : Env}
     exact ⟨teleW, leafC, w, hshape, htl, htel, fun q hq => ⟨hteleH q hq, hteleF q hq⟩, hopen, hwF,
       hlen, hargs, Or.inr (Or.inl ⟨v, ty, h, hlo, hhi', hfn, hk, rfl, rfl, hle, hpar, hfree, har⟩)⟩
   -- a container instance
-  · obtain ⟨n, us', nPc, L, u, hfn, hnm, hq, hle, hidxF, hds, hu, hocc, hkey⟩ := hCn
+  · obtain ⟨n, us', nPc, L, u, hfn, hnm, hq, hle, hidxF, hds, hu, hocc, hkey, hnIx⟩ := hCn
     have hwNP : NotPi w := by
       rw [← Expr.mkAppN_getApp w, hfn]; exact notPi_mkAppN (fun _ _ _ h => Expr.noConfusion h) _
     obtain ⟨htl, htel, hG1, hlen, hargs⟩ := common hwNP
@@ -499,7 +502,7 @@ theorem callWalkSyn {ops : ConLeche.CheckerOps CheckM} {envW : Env}
     simp only [Expr.substFvars, Expr.ErasedEq] at hG1
     obtain ⟨rfl, rfl⟩ := hG1
     exact ⟨teleW, leafC, w, hshape, htl, htel, fun q hq => ⟨hteleH q hq, hteleF q hq⟩, hopen, hwF,
-      hlen, hargs, Or.inr (Or.inr ⟨u, nPc, L, hu, hocc, hfn, hq, hle, hkey, hidxF⟩)⟩
+      hlen, hargs, Or.inr (Or.inr ⟨u, nPc, L, hu, hocc, hfn, hq, hle, hkey, hidxF, hnIx⟩)⟩
 
 set_option maxHeartbeats 16000000 in
 /-- **A call, walked — the semantics**: at the walk valuation `σW` of the
