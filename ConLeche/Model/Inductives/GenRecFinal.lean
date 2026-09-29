@@ -152,7 +152,8 @@ theorem genRecStage (hμ : μ.verifiedChecks = true) {F : Nat}
     exact ⟨fun e he => (hE e he).2, hM.2⟩
   have hihV : GenIhPiecesValid (V := V) (envC := envC) mpC.base2.acval out R.g R.rd
       (fun ψ => blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ)
-      (fun ψ => tgtFdomsAV pp.toBlockShape out mpC.base2.acval envC ψ) := sorry
+      (fun ψ => tgtFdomsAV pp.toBlockShape out mpC.base2.acval envC ψ) :=
+    genIhPiecesValid_run hμ R hg h mpC hfind
   have hrowP : ∀ (j : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
       (tgtRs out)[j]? = some r → ∀ (i : Nat) (cA : ConstantVal × Nat) (rhs : Expr),
       r.2.2.2[i]? = some cA → r.2.1[i]? = some rhs → ∀ (ψ₁ ψ₂ : Name → Nat),
