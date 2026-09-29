@@ -94624,3 +94624,9 @@ links, quote gate, axioms, e2e 427/427, sweeps) green.
   binder level (conjuncts of context records are not covered).
 Proof: +56 −208.  Gates as M1 (`no-local-paths` fails on `CLAUDE.md:62`, from the CLAUDEMD
 lane's edit on `uniform-inds`, not this lane's).
+
+**RULING (maintainer, 2026-09-29) — uniform parameters:** given official's syntactic
+`check_uniform_ind_occs`, we may assume parameters are MANIFEST (every member occurrence literally
+`T.{lps} p⃗`) and cash in on it, in two steps: (1) adopt official's syntactic check (lane UNIFCHK),
+keeping today's holes; (2) later, holes stand for the whole application `T p⃗` (families over the
+indices, no parameters), with the proof adjustment (UNIFHOLE.md: ~7–11 sessions).
