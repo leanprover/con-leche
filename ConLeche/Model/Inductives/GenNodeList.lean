@@ -194,6 +194,58 @@ theorem genTgtMajor
   refine ⟨cls, M₀, nfs, hc, hlt, hM₀, hMs, ?_, hMR, hnfs⟩
   simp [tgtMajor, List.getD_eq_getElem?_getD, ho]
 
+
+/-- **A class checked as a MEMBER major**: `TargetMajorRun`'s member arm. -/
+theorem _root_.ConLeche.ClassMajorRun.member_of {mode : CheckMode} {F : Nat} {fe : FEnv}
+    {p : BlockShape} {ctorsAs : List (List (ConstantVal × Nat))} {pfvs : List Expr}
+    {key : ClassKey} {M : TargetMajor} (C : ClassMajorRun mode F fe p ctorsAs pfvs key M)
+    {m : Nat} (hM : M.member = some m) :
+    p.memberNames.findIdx? (· == M.ind) = some m ∧ ctorsAs[m]? = some M.ctors ∧
+      M.lvls = p.lps.map .param ∧ M.ds = pfvs.take p.nP ∧ M.nPc = p.nP ∧ M.pfvs = pfvs ∧
+      (∃ ms, p.members[m]? = some ms ∧ M.nIdx = ms.nIdx) := by
+  obtain ⟨major, -, -⟩ := C
+  cases major with
+  | member I t ms ctorsA hfn ht hms hctors hpar nfs =>
+    obtain rfl : t = m := Option.some.inj hM
+    exact ⟨ht, hctors, rfl, rfl, rfl, rfl, ms, hms, rfl⟩
+  | outside => exact nomatch hM
+
+/-- **A stored recursor's prefix, target and member class** at the
+generated run. -/
+theorem genRec_at
+    (R : GenRecRun μ F (mkFEnv env₁) env₁ (mkFEnv envC) p.toBlockShape nestedBit pos cvTas
+      block ctorsAs out) (hg : ConLeche.ClassGenScoped R.g) {c : Nat}
+    (hc : c < (ConLeche.tgtRs out).length) :
+    tgtRP p.toBlockShape c = R.pre.length ∧ p.toBlockShape.rulePrefixAt c = R.pre.length ∧
+      R.pre.length = p.nP + R.rd.slots.length ∧
+      ∀ m, (tgtMajor out c).member = some m →
+        p.toBlockShape.recTgtAt c = m ∧ ctorsAs[m]? = some (tgtMajor out c).ctors ∧
+        p.toBlockShape.memberNames.findIdx? (· == (tgtMajor out c).ind) = some m ∧
+        (tgtMajor out c).lvls = p.lps.map .param ∧
+        (tgtMajor out c).ds = R.ctx.params.take p.nP ∧ (tgtMajor out c).nPc = p.nP := by
+  have hi' : c < out.length := by simpa [ConLeche.tgtRs] using hc
+  obtain ⟨rc, cls, cvG, rhss, M₀, nfs, hrc, hcl, hlt, hM₀, hMs, ho, ⟨T⟩, ⟨C⟩, -⟩ :=
+    genOut_cls R hi'
+  have hMeq : tgtMajor out c = { M₀ with nfs := nfs } := by
+    simp [tgtMajor, List.getD_eq_getElem?_getD, ho]
+  have hpl : R.pre.length = p.nP + R.rd.slots.length :=
+    (ConLeche.ClassGen.prefixBinders_scoped hg hg.pre).1
+  have hrP : rc.rP = R.pre.length := by rw [T.hrP, hpl]; rfl
+  have hgc : R.g.cls.getD cls default = { M₀ with nfs := nfs } := by
+    show R.Ms.getD cls default = _
+    rw [List.getD_eq_getElem?_getD, hMs, Option.getD_some]
+  have hrcd : p.toBlockShape.recs.getD c default = rc := by
+    rw [List.getD_eq_getElem?_getD, hrc, Option.getD_some]
+  refine ⟨by rw [tgtRP, hrcd, hrP], by rw [ConLeche.BlockShape.rulePrefixAt, hrcd, hrP], hpl,
+    fun m hm => ?_⟩
+  rw [hMeq] at hm ⊢
+  have hm' : M₀.member = some m := hm
+  obtain ⟨hfi, hct, hlv, hds, hnpc, -, -⟩ := C.member_of hm'
+  refine ⟨?_, hct, hfi, hlv, hds, hnpc⟩
+  rw [ConLeche.BlockShape.recTgtAt, hrcd, T.htgt, hgc]
+  show (M₀.member).getD _ = m
+  rw [hm']; rfl
+
 end Run
 
 

@@ -91,7 +91,9 @@ theorem k53_rename {ops : CheckerOps CheckM} {env : Env} {p : BlockShape}
     {n a bR : Nat} {fvs0 fvsR : List Expr} {T T0 o0 : Expr} {i tele : Nat}
     (hop0 : openPisAtFvars n T0 a = some (fvs0, o0))
     (hR : ∀ l, l < n → ∃ ty, fvsR[l]? = some (.fvar (bR + l) ty)) (hlR : fvsR.length = n)
-    (hT : T.fvarsBelow a) (hT0 : T0.fvarsBelow a)
+    (hT : ∃ (tel : List (Expr × BinderMeta)) (body : Expr), T.stripPis n = some (tel, body) ∧
+      ∀ q ∈ tel, q.1.fvarsBelow a)
+    (hT0 : T0.fvarsBelow a)
     {teleB : List (Expr × BinderMeta)} {leaf : Expr}
     (hst : (fvs0.getD i default).fvarTypeD.stripPis tele = some (teleB, leaf))
     (hleaf : classLeafAt Mt leaf = true)
