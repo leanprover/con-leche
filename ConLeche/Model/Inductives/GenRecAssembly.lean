@@ -12,6 +12,7 @@ import ConLeche.Model.Inductives.BlockRecPreHpre
 import ConLeche.Model.Inductives.BlockDeclRun
 import ConLeche.Model.Inductives.BlockRecAssembly
 import ConLeche.Model.Inductives.GenRecClasses
+import ConLeche.Model.Inductives.GenRecPins
 
 public section
 
@@ -216,7 +217,8 @@ theorem genRecStage (hμ : μ.verifiedChecks = true) {F : Nat}
     ?heqB ?heqV ?heqP ?hpre
     (fun j r hr => blockRecNCt_ge hr)
     (fun ψ j r hr => blockRulePdomsAV_length hμ mpC h hr ψ)
-    (genRecCtor_seam R hN hcore hctorsAs hdR hcov) ?htower ?hpins ?hdataS (blockRecTyZ_run hμ mpC h) ?hRaZ
+    (genRecCtor_seam R hN hcore hctorsAs hdR hcov) ?htower
+    (fun m₃ hac φ j r hr _ cA rhs _ _ => recStagePinsOk hμ mpC h m₃ hac φ j r hr cA rhs) ?hdataS (blockRecTyZ_run hμ mpC h) ?hRaZ
   all_goals sorry
 
 end ConLeche.Model
