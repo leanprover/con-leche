@@ -271,11 +271,11 @@ def blockNestCtx (p : BlockShape) (cvTas : List ConstantVal)
 
 /-- **The block's positivity, on its stored constructors** (see the
 section docstring), at the walk's context (`blockNestCtx`): official's
-uniform-occurrence check, the root frame, the fields' universes.  Returns the walk's field kinds, its normal
-forms (member-abstracted, at the walk's context; OUTPUT only: nothing is
-stored from them) and its state — the cache and the recorded constructor
-normal forms, which the recursor stage's seeds continue
-(`genRecCheck`); the walk's verdict is the install's. -/
+uniform-occurrence check, the root frame, the fields' universes.
+Returns the walk's field kinds, its normal forms (member-abstracted, at the
+walk's context; OUTPUT only: nothing is stored from them) and its state —
+the cache and the recorded constructor normal forms, which the recursor
+stage's seeds continue (`genRecCheck`); the walk's verdict is the install's. -/
 def checkBlockPositivity (ops : CheckerOps m) (env₁ : Env) (find? : Name → Option ConstantInfo)
     (consts : List ConstantInfo) (p : BlockParts) (cvTas : List ConstantVal)
     (ctorsAs : List (List (ConstantVal × Nat))) :

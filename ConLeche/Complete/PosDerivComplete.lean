@@ -537,7 +537,8 @@ theorem posDR_run (hroot : NestRootOk ctx) {n : Nat} {J : PosJR} (h : PosDR ops 
       hdsw hdsA hsc hnI hact hhead hm hfr ih =>
     intro fuel hf st hI
     obtain ⟨f, rfl⟩ : ∃ f, fuel = f + 1 := ⟨fuel - 1, by omega⟩
-    obtain ⟨k', st', hr, hk, hI'⟩ := nestCont_ok (rec := nestPos ops env ctx f) (kb := kb) (us := us) hI hC hlen hquot hidx hds hdsA hnI hact
+    obtain ⟨k', st', hr, hk, hI'⟩ := nestCont_ok (rec := nestPos ops env ctx f) (kb := kb) (us := us) hI hC hlen hquot
+      hidx hds hdsA hnI hact
       (newOk_of hfr hhead (ih f (by omega)))
     refine ⟨k', st', ?_, hk, hI'⟩
     rw [nestPos]
