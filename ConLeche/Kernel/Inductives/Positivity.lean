@@ -233,12 +233,14 @@ only cache is keyed by the instantiation.  Official's nested→mutual
 encoding is never mirrored: no auxiliary type, constructor or name.
 
 **The holes are variables** (charter item 2: "the holes
-are ordinary open terms (members abstracted to fvars)").  The members
-are abstracted to free variables BEFORE the walk (`nestAbstract`,
-unapplied: `T_m.{lps} ↦ x_m`, typed by the former's type, at
-`nP + m`), and a container's own constant is abstracted to its FRAME's
-hole before its constructors are instantiated (charter item 4's `Y`
-holes, keyed by the instantiation).  So every hole the monotonicity
+are ordinary open terms (members abstracted to fvars)").  Every WHOLE
+application of a member to the parameters is abstracted to a free
+variable BEFORE the walk (`nestCrest`: `T_m.{lps} p⃗ ↦ X_m`, at `nP + m`,
+typed by the former's type at the parameters — a family over the
+member's indices), and a container's own applications `C_j q⃗` are
+abstracted to its FRAME's holes before its constructors are instantiated
+(charter item 4's `Y` holes, keyed by the instantiation, typed by the
+container's formers at the key: families over their indices).  So every hole the monotonicity
 theorem varies is a variable of the term `ops.whnf` reduces: `whnf`'s
 denotation lemma is stated at one environment model, where a constant
 reads one fixed leaf, and says nothing about a constant's reading at
@@ -509,209 +511,6 @@ def Expr.nestOccFast (names : List Name) (lo hi : Nat) (e : Expr) : Bool :=
   funext names lo hi e
   exact (Expr.nestOccGo_spec e (fun k v h => by simp at h)).1.symm
 
-/-- `e` is a hole `lo ≤ h < hi` applied to EXACTLY the parameter
-variables `fvar 0, …, fvar (n - 1)`. -/
-def Expr.holeParamsApp (lo hi : Nat) : Expr → Nat → Bool
-  | .fvar i _, 0 => decide (lo ≤ i ∧ i < hi)
-  | .app f (.fvar j _), n + 1 => j == n && holeParamsApp lo hi f n
-  | _, _ => false
-
-/-- **Every member applied to the parameters**: every member hole
-`nP ≤ h < hi` occurs applied to the
-parameter variables (the head of a spine whose first `nP` arguments are
-`fvar 0, …, fvar (nP - 1)`), and no member constant occurs.  The walk
-descends into EVERY subterm — binders, `letE` (type, value, body),
-`proj` (the struct argument) — exactly as official's traversal does.
-The pure definition; the executed walk is memoised (`holesAppliedGo`,
-swapped in by `@[csimp]`).
-
-Official v4.33.1+ (`check_uniform_ind_occs`, v4.34.0 `inductive.cpp`
-:134) runs `for_each` over each constructor type — every subterm,
-`let`s and projections included — and at an application spine
-`get_app_args(t)` whose head is a member constant: over-applied
-(`args.size() > nparams`) it descends into the arguments; otherwise it
-demands exactly `nparams` arguments, the i-th the bound variable
-`#(offset-1-i)` (the parameters), at the declaration's levels, and does
-not descend.  Here the members are holes (`fvar`s), the parameters
-`fvar 0 …`, so `holeParamsApp` is that exactly-applied test, the `.app`
-arm's descent covers the over-applied case (its spine head is reached
-exactly applied), and the `.fvar` arm rejects a bare hole unless
-`nP = 0`.  The `letE`/`proj` arms descend too: demanding the subterm
-be free of holes there is an accept-subset (`complete_m3_proj_param`,
-`List ((T, Nat).1)`, official 0).
-
-The install runs it on every member-abstracted constructor at the
-canonical parameters before the walk (`nestUniform`, official's check),
-and on a container instance's parameters in the walk (`nestCont`); the
-walk's normal forms then satisfy it by construction
-(`posD_holesApplied`, `ConLeche/Verify/Inductives/HolesApplied.lean`). -/
-def Expr.holesApplied (names : List Name) (nP hi : Nat) : Expr → Bool
-  | .fvar i ty => (Expr.fvar i ty).holeParamsApp nP hi nP || !decide (nP ≤ i ∧ i < hi)
-  | .app f a => (Expr.app f a).holeParamsApp nP hi nP ||
-      (holesApplied names nP hi f && holesApplied names nP hi a)
-  | .const n _ => !names.contains n
-  | .forallE t b _ => holesApplied names nP hi t && holesApplied names nP hi b
-  | .lam t b _ => holesApplied names nP hi t && holesApplied names nP hi b
-  | .bvar _ => true
-  | .sort _ => true
-  | .letE t v b => holesApplied names nP hi t && holesApplied names nP hi v &&
-      holesApplied names nP hi b
-  | .lit _ => true
-  | .proj _ _ e => holesApplied names nP hi e
-
-/-- The memoised walk of `holesApplied`. -/
-def Expr.holesAppliedGo (names : List Name) (nP hi : Nat) (memo : Std.HashMap Expr Bool) :
-    Expr → Bool × Std.HashMap Expr Bool
-  | .bvar _ => (true, memo)
-  | .sort _ => (true, memo)
-  | .fvar i ty => ((Expr.fvar i ty).holesApplied names nP hi, memo)
-  | .const n _ => (!names.contains n, memo)
-  | .lit _ => (true, memo)
-  | e =>
-    match memo[e]? with
-    | some r => (r, memo)
-    | none =>
-      let (r, memo) : Bool × Std.HashMap Expr Bool :=
-        match e with
-        | .app f a =>
-          if (Expr.app f a).holeParamsApp nP hi nP then (true, memo) else
-          let (b₁, memo) := holesAppliedGo names nP hi memo f
-          let (b₂, memo) := holesAppliedGo names nP hi memo a
-          (b₁ && b₂, memo)
-        | .lam t b _ =>
-          let (b₁, memo) := holesAppliedGo names nP hi memo t
-          let (b₂, memo) := holesAppliedGo names nP hi memo b
-          (b₁ && b₂, memo)
-        | .forallE t b _ =>
-          let (b₁, memo) := holesAppliedGo names nP hi memo t
-          let (b₂, memo) := holesAppliedGo names nP hi memo b
-          (b₁ && b₂, memo)
-        | .letE t v b =>
-          let (b₁, memo) := holesAppliedGo names nP hi memo t
-          let (b₂, memo) := holesAppliedGo names nP hi memo v
-          let (b₃, memo) := holesAppliedGo names nP hi memo b
-          (b₁ && b₂ && b₃, memo)
-        | .proj _ _ e => holesAppliedGo names nP hi memo e
-        | _ => (true, memo)
-      (r, memo.insert e r)
-
-/-- The memo's invariant: every recorded answer is the real one. -/
-def HolesAppliedMemoInv (names : List Name) (nP hi : Nat) (memo : Std.HashMap Expr Bool) :
-    Prop :=
-  ∀ (k : Expr) (v : Bool), memo[k]? = some v → v = Expr.holesApplied names nP hi k
-
-theorem HolesAppliedMemoInv.insert {names : List Name} {nP hi : Nat}
-    {memo : Std.HashMap Expr Bool} (hm : HolesAppliedMemoInv names nP hi memo) {e : Expr}
-    {r : Bool} (heq : r = e.holesApplied names nP hi) :
-    HolesAppliedMemoInv names nP hi (memo.insert e r) := by
-  intro k v hk
-  rw [Std.HashMap.getElem?_insert] at hk
-  split at hk
-  · rename_i hbeq
-    cases hk
-    rw [← eq_of_beq hbeq]
-    exact heq
-  · exact hm k v hk
-
-/-- **The memoised walk is `holesApplied`.** -/
-theorem Expr.holesAppliedGo_spec {names : List Name} {nP hi : Nat} :
-    ∀ (e : Expr) {memo : Std.HashMap Expr Bool}, HolesAppliedMemoInv names nP hi memo →
-      (e.holesAppliedGo names nP hi memo).1 = e.holesApplied names nP hi ∧
-        HolesAppliedMemoInv names nP hi (e.holesAppliedGo names nP hi memo).2 := by
-  intro e
-  induction e with
-  | bvar i => intro memo hm; exact ⟨rfl, hm⟩
-  | sort u => intro memo hm; exact ⟨rfl, hm⟩
-  | const n us => intro memo hm; exact ⟨rfl, hm⟩
-  | fvar i ty _ => intro memo hm; exact ⟨rfl, hm⟩
-  | app a b iha ihb =>
-    intro memo hm
-    rw [Expr.holesAppliedGo]
-    split
-    · rename_i r hhit
-      exact ⟨(hm _ _ hhit), hm⟩
-    · dsimp only
-      by_cases hp : (Expr.app a b).holeParamsApp nP hi nP = true
-      · rw [if_pos hp]
-        have : Expr.holesApplied names nP hi (.app a b) = true := by
-          simp [Expr.holesApplied, hp]
-        exact ⟨this.symm, hm.insert this.symm⟩
-      · rw [if_neg hp]
-        obtain ⟨h1, h2⟩ := iha hm
-        obtain ⟨h3, h4⟩ := ihb h2
-        have : Expr.holesApplied names nP hi (.app a b)
-            = ((a.holesAppliedGo names nP hi memo).1 &&
-              (b.holesAppliedGo names nP hi (a.holesAppliedGo names nP hi memo).2).1) := by
-          simp [Expr.holesApplied, hp, h1, h3]
-        exact ⟨this.symm, h4.insert this.symm⟩
-  | lam t b mm iht ihb =>
-    intro memo hm
-    rw [Expr.holesAppliedGo]
-    split
-    · rename_i r hhit
-      exact ⟨(hm _ _ hhit), hm⟩
-    · obtain ⟨h1, h2⟩ := iht hm
-      obtain ⟨h3, h4⟩ := ihb h2
-      dsimp only
-      have : Expr.holesApplied names nP hi (.lam t b mm)
-          = ((t.holesAppliedGo names nP hi memo).1 &&
-            (b.holesAppliedGo names nP hi (t.holesAppliedGo names nP hi memo).2).1) := by
-        simp [Expr.holesApplied, h1, h3]
-      exact ⟨this.symm, h4.insert this.symm⟩
-  | forallE t b mm iht ihb =>
-    intro memo hm
-    rw [Expr.holesAppliedGo]
-    split
-    · rename_i r hhit
-      exact ⟨(hm _ _ hhit), hm⟩
-    · obtain ⟨h1, h2⟩ := iht hm
-      obtain ⟨h3, h4⟩ := ihb h2
-      dsimp only
-      have : Expr.holesApplied names nP hi (.forallE t b mm)
-          = ((t.holesAppliedGo names nP hi memo).1 &&
-            (b.holesAppliedGo names nP hi (t.holesAppliedGo names nP hi memo).2).1) := by
-        simp [Expr.holesApplied, h1, h3]
-      exact ⟨this.symm, h4.insert this.symm⟩
-  | letE t v b iht ihv ihb =>
-    intro memo hm
-    rw [Expr.holesAppliedGo]
-    split
-    · rename_i r hhit
-      exact ⟨(hm _ _ hhit), hm⟩
-    · obtain ⟨h1, h2⟩ := iht hm
-      obtain ⟨h3, h4⟩ := ihv h2
-      obtain ⟨h5, h6⟩ := ihb h4
-      dsimp only
-      have : Expr.holesApplied names nP hi (.letE t v b)
-          = ((t.holesAppliedGo names nP hi memo).1 &&
-            (v.holesAppliedGo names nP hi (t.holesAppliedGo names nP hi memo).2).1 &&
-            (b.holesAppliedGo names nP hi
-              (v.holesAppliedGo names nP hi (t.holesAppliedGo names nP hi memo).2).2).1) := by
-        simp [Expr.holesApplied, h1, h3, h5]
-      exact ⟨this.symm, h6.insert this.symm⟩
-  | lit l => intro memo hm; exact ⟨rfl, hm⟩
-  | proj s i sub ih =>
-    intro memo hm
-    rw [Expr.holesAppliedGo]
-    split
-    · rename_i r hhit
-      exact ⟨(hm _ _ hhit), hm⟩
-    · obtain ⟨h1, h2⟩ := ih hm
-      dsimp only
-      have : Expr.holesApplied names nP hi (.proj s i sub)
-          = (sub.holesAppliedGo names nP hi memo).1 := by
-        simp [Expr.holesApplied, h1]
-      exact ⟨this.symm, h2.insert this.symm⟩
-
-/-- `holesAppliedGo` from an empty memo: the executed `holesApplied`. -/
-def Expr.holesAppliedFast (names : List Name) (nP hi : Nat) (e : Expr) : Bool :=
-  (e.holesAppliedGo names nP hi {}).1
-
-@[csimp] theorem Expr.holesApplied_eq_holesAppliedFast :
-    @Expr.holesApplied = @Expr.holesAppliedFast := by
-  funext names nP hi e
-  exact (Expr.holesAppliedGo_spec e (fun k v h => by simp at h)).1.symm
-
 /-- Instantiate the leading `Π` binders of `e` at `args`, in order
 (the parameters of a constructor or a type former). -/
 def instPisWith : List Expr → Expr → Option Expr
@@ -823,9 +622,10 @@ def nestKindsFlat (ks : List (List (List NestFieldKind))) : Bool :=
 constructor `ctor` of the class it builds at the
 levels `lvls` and the parameters `ds`, and its field telescope as the
 walk normalised it (`nestFields`' normal forms, closed over the fields,
-`closeTelescope`), both READ BACK — every hole replaced by the constant it
-stands for (`nestHoleConst`: a member hole by the member, a frame hole by
-its group member at the frame's levels), so only the block's parameter
+`closeTelescope`), both READ BACK — every hole replaced by the whole
+application it stands for (`nestHoleImg`: a member hole by the member
+applied to the block's parameters, a frame hole by its container applied
+to the frame's parameters, read back), so only the block's parameter
 variables stay free.  Recorded at every node the walk derives: the
 members' constructors at the block's own levels and parameters, and every
 frame's constructors at the frame's key.  The recursor stage reads a
@@ -937,7 +737,7 @@ def nestHoleAt (ctx : NestCtx) (prog : List NestHole) (i : Nat) : Option NestHol
 
 A walked constructor's normal form is recorded for the recursor check
 (K.53′, `NestCtorNf`) in the recursor's representation: the members and
-every frame's group back to their constants (`nestHoleConst`) — the
+every frame's group back to their applications (`nestHoleImg`) — the
 auxiliary constructor's type exactly as `restore_nested` writes it into
 official's auxiliary recursor. -/
 
@@ -1081,44 +881,225 @@ def Expr.replaceFVarsFast (f : Nat → Option Expr) (e : Expr) : Expr :=
   funext f e
   exact (Expr.replaceFVarsGo_spec e (fun k v h => by simp at h)).1.symm
 
-/-- The holes' constants under the frames `prog`: every hole is its
-entry's (`nestHoleAt`) group member at the entry's levels — member `t`'s
-hole `nP + t` the member `T_t.{lps}`, a frame's hole its container. -/
-def nestHoleConst (ctx : NestCtx) (prog : List NestHole) (i : Nat) : Option Expr :=
-  (nestHoleAt ctx prog i).map fun h => .const h.key.cname h.key.lvls
+/-- **The holes read back** under the frames `prog` (innermost first):
+every hole stands for its entry's WHOLE application — member `m`'s hole
+`nP + m` for `T_m.{lps} p⃗` (the canonical parameters), a frame's hole
+for its container applied to the frame's parameters, themselves read
+back (a frame's parameters mention only the holes below its own).
+`none` off the holes. -/
+def nestHoleImg (ctx : NestCtx) : List NestHole → Nat → Option Expr
+  | [], i =>
+    if ctx.nP ≤ i ∧ i < ctx.hiAt 0 then
+      some (Expr.mkAppN (.const (ctx.names.getD (i - ctx.nP) .anonymous) (ctx.lps.map .param))
+        ctx.params)
+    else none
+  | h :: prog, i =>
+    if i = ctx.hiAt prog.length then
+      some (Expr.mkAppN (.const h.key.cname h.key.lvls)
+        (h.key.ds.map (·.replaceFVars (nestHoleImg ctx prog))))
+    else nestHoleImg ctx prog i
 
-/-- `nestHoleConst` by the hole's kind: a member hole's constant is the
-member at the block's levels, a frame hole's its frame's. -/
-theorem nestHoleConst_eq (ctx : NestCtx) (prog : List NestHole) (i : Nat) :
-    nestHoleConst ctx prog i =
-      if ctx.nP ≤ i ∧ i < ctx.hiAt 0 then
-        some (.const (ctx.names.getD (i - ctx.nP) .anonymous) (ctx.lps.map .param))
-      else if ctx.hiAt 0 ≤ i ∧ i < ctx.hiAt prog.length then
-        (prog.reverse[i - ctx.hiAt 0]?).map fun h => .const h.key.cname h.key.lvls
-      else none := by
-  unfold nestHoleConst nestHoleAt NestCtx.rootHoles NestCtx.hiAt
-  by_cases h1 : ctx.nP ≤ i
-  · rw [if_pos h1]
-    by_cases h2 : i < ctx.nP + ctx.names.length + 0
-    · rw [if_pos ⟨h1, h2⟩, List.getElem?_append_left (by simp; omega)]
-      simp [List.getElem?_map, List.getD_eq_getElem?_getD, List.getElem?_eq_getElem
-        (show i - ctx.nP < ctx.names.length by omega)]
-    · rw [if_neg (fun h => h2 h.2), List.getElem?_append_right (by simp; omega)]
-      simp only [List.length_map]
-      by_cases h3 : i < ctx.nP + ctx.names.length + prog.length
-      · rw [if_pos ⟨by omega, h3⟩, show i - ctx.nP - ctx.names.length =
-          i - (ctx.nP + ctx.names.length + 0) by omega]
-      · rw [if_neg (fun h => h3 h.2), List.getElem?_eq_none (by simp; omega)]
-        rfl
-  · rw [if_neg h1, if_neg (fun h => h1 h.1), if_neg (fun h => by omega)]
-    rfl
+/-! ### The whole-application abstraction
+
+A frame abstracts its group (the root frame: the block's members) by
+replacing every WHOLE application `c.{us} q⃗` — `c` a group member at the
+frame's levels, applied to exactly the parameters — by the member's
+hole, a family over the member's INDICES alone.  The replacement happens
+BEFORE the constructor's parameters are instantiated: at the placeholder
+variables `fvar b, …, fvar (b + n - 1)` (`nestPhs`), which the
+instantiation then replaces (`nestCrest`).  A stored constructor passed
+official's uniform-occurrence check at its own install (`nestUniform`),
+so every member occurrence in it is such an application. -/
+
+/-- `e` is a constant applied to EXACTLY the placeholder variables
+`fvar b, …, fvar (b + n - 1)` (annotations not compared): the constant's
+name and levels. -/
+def Expr.phApp? (b : Nat) : Expr → Nat → Option (Name × List Level)
+  | .const c us, 0 => some (c, us)
+  | .app f (.fvar j _), n + 1 => if j = b + n then phApp? b f n else none
+  | _, _ => none
+
+/-- The hole a whole application is replaced by (`f` at its constant). -/
+def Expr.appHole? (f : Name → List Level → Option Expr) (b n : Nat) (e : Expr) :
+    Option Expr :=
+  (e.phApp? b n).bind fun p => f p.1 p.2
+
+/-- **The whole-application replacement**, pre-order: a subterm that is a
+whole application `f` maps is replaced by its image, not descended into;
+free variables are leaves (their annotations are not descended into).
+The executed walk is memoised (`replaceAppsGo`, swapped in by
+`@[csimp]`). -/
+def Expr.replaceApps (f : Name → List Level → Option Expr) (b n : Nat) : Expr → Expr
+  | .app a x => ((Expr.app a x).appHole? f b n).getD
+      (.app (replaceApps f b n a) (replaceApps f b n x))
+  | .const c us => ((Expr.const c us).appHole? f b n).getD (.const c us)
+  | .lam t body m => .lam (replaceApps f b n t) (replaceApps f b n body) m
+  | .forallE t body m => .forallE (replaceApps f b n t) (replaceApps f b n body) m
+  | .letE t v body =>
+    .letE (replaceApps f b n t) (replaceApps f b n v) (replaceApps f b n body)
+  | .proj s i x => .proj s i (replaceApps f b n x)
+  | .bvar i => .bvar i
+  | .fvar i ty => .fvar i ty
+  | .sort u => .sort u
+  | .lit l => .lit l
+
+/-- The memo's invariant: every recorded answer is the real one. -/
+def ReplaceAppsMemoInv (f : Name → List Level → Option Expr) (b n : Nat)
+    (memo : Std.HashMap Expr Expr) : Prop :=
+  ∀ k v, memo[k]? = some v → v = Expr.replaceApps f b n k
+
+theorem ReplaceAppsMemoInv.insert {f : Name → List Level → Option Expr} {b n : Nat}
+    {memo : Std.HashMap Expr Expr} (hm : ReplaceAppsMemoInv f b n memo) {e r : Expr}
+    (heq : r = Expr.replaceApps f b n e) : ReplaceAppsMemoInv f b n (memo.insert e r) := by
+  intro k v hk
+  rw [Std.HashMap.getElem?_insert] at hk
+  split at hk
+  · rename_i hbeq
+    cases hk
+    rw [← eq_of_beq hbeq]
+    exact heq
+  · exact hm k v hk
+
+/-- The memoised `replaceApps`. -/
+def Expr.replaceAppsGo (f : Name → List Level → Option Expr) (b n : Nat)
+    (memo : Std.HashMap Expr Expr) : Expr → Expr × Std.HashMap Expr Expr
+  | e@(.bvar _) => (e, memo)
+  | e@(.sort _) => (e, memo)
+  | e@(.lit _) => (e, memo)
+  | e@(.fvar ..) => (e, memo)
+  | .const c us => (((Expr.const c us).appHole? f b n).getD (.const c us), memo)
+  | e =>
+    match memo[e]? with
+    | some r => (r, memo)
+    | none =>
+      let (r, memo) : Expr × Std.HashMap Expr Expr :=
+        match e with
+        | .app a x =>
+          match (Expr.app a x).appHole? f b n with
+          | some h => (h, memo)
+          | none =>
+            let (a', memo) := replaceAppsGo f b n memo a
+            let (x', memo) := replaceAppsGo f b n memo x
+            (.app a' x', memo)
+        | .lam t body m =>
+          let (t', memo) := replaceAppsGo f b n memo t
+          let (body', memo) := replaceAppsGo f b n memo body
+          (.lam t' body' m, memo)
+        | .forallE t body m =>
+          let (t', memo) := replaceAppsGo f b n memo t
+          let (body', memo) := replaceAppsGo f b n memo body
+          (.forallE t' body' m, memo)
+        | .letE t v body =>
+          let (t', memo) := replaceAppsGo f b n memo t
+          let (v', memo) := replaceAppsGo f b n memo v
+          let (body', memo) := replaceAppsGo f b n memo body
+          (.letE t' v' body', memo)
+        | .proj s i x =>
+          let (x', memo) := replaceAppsGo f b n memo x
+          (.proj s i x', memo)
+        | e => (e, memo)
+      (r, memo.insert e r)
+
+/-- **The memoised walk is `replaceApps`.** -/
+theorem Expr.replaceAppsGo_spec {f : Name → List Level → Option Expr} {b n : Nat} :
+    ∀ (e : Expr) {memo : Std.HashMap Expr Expr}, ReplaceAppsMemoInv f b n memo →
+      (Expr.replaceAppsGo f b n memo e).1 = Expr.replaceApps f b n e ∧
+        ReplaceAppsMemoInv f b n (Expr.replaceAppsGo f b n memo e).2 := by
+  intro e
+  induction e with
+  | bvar i => intro memo hm; exact ⟨rfl, hm⟩
+  | sort u => intro memo hm; exact ⟨rfl, hm⟩
+  | lit l => intro memo hm; exact ⟨rfl, hm⟩
+  | const c us => intro memo hm; exact ⟨rfl, hm⟩
+  | fvar i ty _ => intro memo hm; exact ⟨rfl, hm⟩
+  | app a x iha ihx =>
+    intro memo hm
+    rw [Expr.replaceAppsGo]
+    split
+    · rename_i r hhit
+      exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
+    · dsimp only
+      split
+      · rename_i h hh
+        have : Expr.replaceApps f b n (.app a x) = h := by simp [Expr.replaceApps, hh]
+        exact ⟨this.symm, hm.insert this.symm⟩
+      · rename_i hh
+        obtain ⟨h1, h2⟩ := iha hm
+        obtain ⟨h3, h4⟩ := ihx h2
+        have : Expr.replaceApps f b n (.app a x) = .app (Expr.replaceAppsGo f b n memo a).1
+            (Expr.replaceAppsGo f b n (Expr.replaceAppsGo f b n memo a).2 x).1 := by
+          simp [Expr.replaceApps, hh, h1, h3]
+        exact ⟨this.symm, h4.insert this.symm⟩
+  | lam t body m iht ihb =>
+    intro memo hm
+    rw [Expr.replaceAppsGo]
+    split
+    · rename_i r hhit
+      exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
+    · obtain ⟨h1, h2⟩ := iht hm
+      obtain ⟨h3, h4⟩ := ihb h2
+      refine ⟨by simp [Expr.replaceApps, h1, h3], ?_⟩
+      exact h4.insert (by simp [Expr.replaceApps, h1, h3])
+  | forallE t body m iht ihb =>
+    intro memo hm
+    rw [Expr.replaceAppsGo]
+    split
+    · rename_i r hhit
+      exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
+    · obtain ⟨h1, h2⟩ := iht hm
+      obtain ⟨h3, h4⟩ := ihb h2
+      refine ⟨by simp [Expr.replaceApps, h1, h3], ?_⟩
+      exact h4.insert (by simp [Expr.replaceApps, h1, h3])
+  | letE t v body iht ihv ihb =>
+    intro memo hm
+    rw [Expr.replaceAppsGo]
+    split
+    · rename_i r hhit
+      exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
+    · obtain ⟨h1, h2⟩ := iht hm
+      obtain ⟨h3, h4⟩ := ihv h2
+      obtain ⟨h5, h6⟩ := ihb h4
+      refine ⟨by simp [Expr.replaceApps, h1, h3, h5], ?_⟩
+      exact h6.insert (by simp [Expr.replaceApps, h1, h3, h5])
+  | proj s i x ih =>
+    intro memo hm
+    rw [Expr.replaceAppsGo]
+    split
+    · rename_i r hhit
+      exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
+    · obtain ⟨h1, h2⟩ := ih hm
+      refine ⟨by simp [Expr.replaceApps, h1], ?_⟩
+      exact h2.insert (by simp [Expr.replaceApps, h1])
+
+/-- The executed `replaceApps` (one memoised DAG walk). -/
+def Expr.replaceAppsFast (f : Name → List Level → Option Expr) (b n : Nat) (e : Expr) : Expr :=
+  (Expr.replaceAppsGo f b n {} e).1
+
+@[csimp] theorem Expr.replaceApps_eq_replaceAppsFast :
+    @Expr.replaceApps = @Expr.replaceAppsFast := by
+  funext f b n e
+  exact (Expr.replaceAppsGo_spec e (fun k v h => by simp at h)).1.symm
+
+/-- The parameter placeholders at `b`: `fvar b, …, fvar (b + n - 1)`. -/
+def nestPhs (b n : Nat) : List Expr := (List.range n).map fun i => .fvar (b + i) (.sort .zero)
+
+/-- **A stored constructor type at a key**, its group's whole
+applications abstracted by `sub` (see the section header): the
+level-instantiated type `cty` instantiated at the placeholders
+`nestPhs hi |ds|`, every whole application replaced, then the
+placeholders replaced by the key's parameters `ds`.  `hi` is past every
+hole of the walk. -/
+def nestCrest (sub : Name → List Level → Option Expr) (ds : List Expr) (hi : Nat) (cty : Expr) :
+    Option Expr :=
+  (instPisWith (nestPhs hi ds.length) cty).map fun e =>
+    (e.replaceApps sub hi ds.length).replaceFVars fun i => if hi ≤ i then ds[i - hi]? else none
 
 /-- The instantiation's type former, checked as official checks the
 auxiliary type BEFORE the block exists: (N2) its index telescope at
 `Ds` names no member and no hole below `hi` (official: "unknown
 constant"), (N3) its sort is `Level.isEquiv` the block's.  Returns the
-index count and the container's type at the key's levels (the type of
-the frame's hole). -/
+index count and the container's type instantiated at the key (the type
+of the frame's hole: a family over the container's indices). -/
 def nestInstType (ctx : NestCtx) (hi : Nat) (key : NestKey) : m (Nat × Expr) := do
   let cvC ← unwrapOr (match ctx.find? key.cname with
       | some (.indInfo cv _) => some cv
@@ -1153,7 +1134,7 @@ def nestInstType (ctx : NestCtx) (hi : Nat) (key : NestKey) : m (Nat × Expr) :=
   unless ← liftFueled "level comparison" (Level.isEquiv s ctx.sort) do
     throw (.invalid "nested positivity: mutually inductive types must live in the \
       same universe")
-  pure (ty.piBinders.1.length, cvC.type.instantiateLevelParams cvC.levelParams key.lvls)
+  pure (ty.piBinders.1.length, ty)
 
 /-- A constructor's result is headed by a variable (its member's hole,
 once the members are abstracted) — `checkSumCtor` already checked the
@@ -1186,12 +1167,12 @@ def nestFields
 /-- **A frame constructor's record** (K.53′): the constructor `cv` of
 the frame's key `(us, ds)` under the frames `prog`, its walked field
 telescope `nds` (opened at `hi, hi + 1, …`) onto `cur` closed back, all
-read back (`nestHoleConst`). -/
+read back (`nestHoleImg`). -/
 def nestCtorNf (ctx : NestCtx) (prog : List NestHole) (hi : Nat) (us : List Level)
     (ds : List Expr) (cv : ConstantVal) (nds : List (Expr × BinderMeta)) (cur : Expr) :
     NestCtorNf :=
-  ⟨cv.name, us, ds.map (·.replaceFVars (nestHoleConst ctx prog)),
-    (closeTelescope nds hi cur).replaceFVars (nestHoleConst ctx prog)⟩
+  ⟨cv.name, us, ds.map (·.replaceFVars (nestHoleImg ctx prog)),
+    (closeTelescope nds hi cur).replaceFVars (nestHoleImg ctx prog)⟩
 
 /-- **A frame's constructors** — the ROOT frame's (the block's own,
 `nestRoot`) and every container frame's (`nestFrame`) alike: each with
@@ -1211,7 +1192,7 @@ indices hole-free below `hi`, and its walked normal form recorded
 def nestCtors (ctx : NestCtx) (ops : CheckerOps m) (env : Env)
     (rec : Expr → List NestHole → Nat → Nat → Expr → NestState →
       m (NestFieldKind × Expr × NestState))
-    (prog : List NestHole) (hi : Nat) (us : List Level) (ds : List Expr) (nPc : Nat)
+    (prog : List NestHole) (hi : Nat) (us : List Level) (ds : List Expr)
     (sub : Name → List Level → Option Expr) :
     List (ConstantVal × Nat) → NestState → m (List (List NestFieldKind × Expr) × NestState)
   | [], st => pure ([], st)
@@ -1223,10 +1204,12 @@ def nestCtors (ctx : NestCtx) (ops : CheckerOps m) (env : Env)
       throw (.invalid "nested positivity: invalid nested inductive datatype, its constructor \
         has a duplicate universe level parameter (official: duplicate universe level \
         parameter)")
-    -- the container's constructor instantiated at the key WITHOUT a
-    -- β-step (official's `instantiate_pi_params`, `inductive.cpp` v4.34.0)
+    -- the container's constructor at the key, its group's WHOLE
+    -- applications replaced by the holes BEFORE its parameters are
+    -- instantiated (`nestCrest`), WITHOUT a β-step (official's
+    -- `instantiate_pi_params`, `inductive.cpp` v4.34.0)
     let crest ← unwrapOr
-      (instPisWith ds ((cv.type.instantiateLevelParams cv.levelParams us).replaceConsts sub))
+      (nestCrest sub ds hi (cv.type.instantiateLevelParams cv.levelParams us))
       (.invalid "nested positivity: invalid nested inductive datatype, its constructor type \
         does not bind the parameters (official: ill-formed constructor)")
     let ty ← ops.inferType env hi crest
@@ -1244,17 +1227,17 @@ def nestCtors (ctx : NestCtx) (ops : CheckerOps m) (env : Env)
       throw (.invalid "nested positivity: non valid occurrence of the datatypes being \
         declared (a later field or the result depends on a recursive or nested field)")
     -- official's "invalid return type" on the instantiated constructor; its
-    -- result is headed by its hole (the frame's result reads
-    -- as the hole applied — never fires, a stored constructor's result is
-    -- its inductive at its own levels, which `sub` abstracts)
-    unless nestResHead cur && (cur.getAppArgs.drop nPc).all
+    -- result is headed by its hole, applied to its indices alone (never
+    -- fires: a stored constructor's result is its inductive applied to
+    -- the parameters, which `nestCrest` abstracts)
+    unless nestResHead cur && cur.getAppArgs.all
         (fun x => !x.nestOcc ctx.names ctx.nP hi) do
       throw (.invalid "nested positivity: invalid return type — a constructor's result \
         index mentions the block")
     -- K.53′: the constructor's walked normal form at the
     -- frame's key, read back (`NestCtorNf`)
     let st := { st with ctorNfs := st.ctorNfs.push (nestCtorNf ctx prog hi us ds cv nds cur) }
-    let (os, st) ← nestCtors ctx ops env rec prog hi us ds nPc sub cs st
+    let (os, st) ← nestCtors ctx ops env rec prog hi us ds sub cs st
     pure ((ks, closeTelescope nds hi cur) :: os, st)
 
 /-- The constructors of every container in `cs` (at one parameter
@@ -1345,7 +1328,7 @@ def nestFrame (ctx : NestCtx) (ops : CheckerOps m) (env : Env)
   let sub (c : Name) (us' : List Level) : Option Expr :=
     if us' == us then (holes.lookup c) else none
   let ctors ← nestGroupCtors ctx nPc (grp.map (·.1))
-  let (_, st) ← nestCtors ctx ops env (fun _ => rec) prog' (hi + grp.length) us ds nPc sub ctors st
+  let (_, st) ← nestCtors ctx ops env (fun _ => rec) prog' (hi + grp.length) us ds sub ctors st
   pure st
 
 /-- **The frame stack an instantiation is walked under**: the EMPTY one
@@ -1427,16 +1410,6 @@ def nestCont (ctx : NestCtx) (ops : CheckerOps m) (env : Env)
   unless (args.take q.1).all (fun x => x.bvarB == 0 && x.fvarB ≤ ctx.hiAt prog.length) do
     throw (.invalid "nested positivity: nested inductive datatypes parameters \
       cannot contain local variables")
-  -- the parameters' member holes are applied to the block's parameters:
-  -- official's uniform occurrences (`nestUniform`) read at the reduct —
-  -- never fires after it (whnf substitutes bound variables only, so a
-  -- hole applied to the parameter variables stays so), and the one fact
-  -- the root's normal forms need beyond the walk's own arms (`holesApplied`
-  -- at a container leaf)
-  unless (args.take q.1).all (·.holesApplied ctx.names ctx.nP (ctx.hiAt 0)) do
-    throw (.invalid "nested positivity: invalid occurrence of a datatype being declared in a \
-      nested inductive datatype's parameter: it must be applied to the parameters and \
-      universe levels of the mutual declaration")
   -- the instance is FULLY applied: the container case
   -- compares the container's family at the index tuple, and a partial
   -- application is a function, whose graph does not grow with its values.
@@ -1482,15 +1455,14 @@ def nestPos (ops : CheckerOps m) (env : Env) (ctx : NestCtx) :
       match w.getAppFn with
       | .fvar i _ =>
         -- `holeApp`: a hole (`nestHoleAt`) — a member's, the ROOT frame's,
-        -- or a container frame's, its instantiation in progress — applied
-        -- to its frame's own parameters (the root's: the block's canonical
-        -- ones) and hole-free indices, at its full arity (official
+        -- or a container frame's, its instantiation in progress — standing
+        -- for its entry's whole application to the parameters, applied to
+        -- hole-free indices, at its full arity (official
         -- `is_valid_ind_app`, :338–341)
         match nestHoleAt ctx prog i with
         | some h =>
-          if h.key.ds.length ≤ args.length && args.take h.key.ds.length == h.key.ds &&
-              (args.drop h.key.ds.length).all (fun x => !x.nestOcc ctx.names ctx.nP hi) &&
-              args.length == nestArity ctx h.key.cname then
+          if args.all (fun x => !x.nestOcc ctx.names ctx.nP hi) &&
+              args.length + h.key.ds.length == nestArity ctx h.key.cname then
             return (if i < ctx.hiAt 0 then
                 (if kb == 0 then .recursive (i - ctx.nP) else .reflexive (i - ctx.nP))
               else .inProgress, w, st)
@@ -1505,19 +1477,21 @@ def nestPos (ops : CheckerOps m) (env : Env) (ctx : NestCtx) :
       | _ => throw nestNonValid
 
 /-- The member holes: member `m` is the free variable `nP + m`, typed by
-its former's type (closed, so the hole is well-scoped anywhere above
-the parameters).  `none` when a member is not a stored former. -/
+its former's type instantiated at the canonical parameters — a family
+over the member's indices (the hole stands for `T_m p⃗`, so it is
+well-scoped anywhere above the parameters).  `none` when a member is not
+a stored former or its type does not bind the parameters. -/
 def nestHoles (ctx : NestCtx) : Option (List Expr) :=
   (List.range ctx.names.length).mapM fun mm =>
     match ctx.find? (ctx.names.getD mm .anonymous) with
-    | some (.indInfo cv _) => some (.fvar (ctx.nP + mm) cv.type)
+    | some (.indInfo cv _) => (instPisWith ctx.params cv.type).map (.fvar (ctx.nP + mm) ·)
     | _ => none
 
 /-- **The ROOT frame's substitution** (charter item 2: "the holes are
-ordinary open terms (members abstracted to fvars)"): every member
-constant at the block's own levels to its hole, UNAPPLIED — so a redex
-that produces `T_m p⃗` only after whnf still reduces to the hole.  A
-container frame's is its group's (`nestFrame`'s `sub`). -/
+ordinary open terms (members abstracted to fvars)"): every member at the
+block's own levels to its hole — the image of its WHOLE application to
+the parameters (`nestCrest`, `replaceApps`).  A container frame's is its
+group's (`nestFrame`'s `sub`). -/
 def nestRootSub (ctx : NestCtx) (holes : List Expr) : Name → List Level → Option Expr :=
   fun c us =>
     if us == ctx.lps.map .param then
@@ -1526,18 +1500,13 @@ def nestRootSub (ctx : NestCtx) (holes : List Expr) : Name → List Level → Op
       | none => none
     else none
 
-/-- **The member abstraction**: the root frame's substitution
-(`nestRootSub`) applied (`nestAbstract_eq`). -/
-def nestAbstract (ctx : NestCtx) (holes : List Expr) (e : Expr) : Expr :=
-  e.replaceConsts fun c us =>
-    if us == ctx.lps.map .param then
-      match ctx.names.findIdx? (· == c) with
-      | some mm => holes[mm]?
-      | none => none
-    else none
-
-theorem nestAbstract_eq (ctx : NestCtx) (holes : List Expr) (e : Expr) :
-    nestAbstract ctx holes e = e.replaceConsts (nestRootSub ctx holes) := rfl
+/-- **The root frame's crest** of a member constructor `cv` (at the
+block's levels): its whole member applications abstracted
+(`nestCrest` at the canonical parameters, `nestRootSub`) — the term the
+root walks (`nestRoot`) and the uniform-occurrence check reads. -/
+def nestRootCrest (ctx : NestCtx) (holes : List Expr) (cv : ConstantVal) : Option Expr :=
+  nestCrest (nestRootSub ctx holes) ctx.params (ctx.hiAt 0)
+    (cv.type.instantiateLevelParams cv.levelParams (ctx.lps.map .param))
 
 /-! ### Uniform occurrences: official's `check_uniform_ind_occs`
 
@@ -1552,14 +1521,12 @@ Reduction never creates such an occurrence (the members are not yet in
 the environment), so the syntactic check covers every occurrence a
 later reduct could expose or erase.
 
-Here it reads the member-ABSTRACTED constructor type (`nestAbstract`:
-`T_m.{lps} ↦ X_m`, the root frame's own substitution): an occurrence at
-other levels is a member constant left over, one at the block's levels
-a hole, and with the parameters instantiated at the canonical variables
-(`instPisWith`) "applied to exactly the parameters" is `holesApplied`'s
-`X_m (fvar 0) … (fvar (nP - 1))` — a hole's spine is recognised whole,
-so an over-applied one has its extra arguments walked.  The parameters'
-domains must be free of members and holes altogether.
+Here it reads the root frame's crest (`nestRootCrest`): every WHOLE
+application `T_m.{lps} p⃗` replaced by the member's hole `X_m` before the
+parameters are instantiated (`nestCrest`) — an over-applied one has its
+extra arguments walked — so an occurrence at other levels, or applied to
+anything but exactly the parameters, is a member constant left over.
+The parameters' domains must be free of members altogether.
 
 The check reads the STORED constructor, i.e. the annotation of the
 declared one: that is the declared type with its `let`s inlined (the
@@ -1574,17 +1541,15 @@ def Expr.piDomsOcc (names : List Name) (lo hi : Nat) : Nat → Expr → Bool
   | n + 1, .forallE d b _ => d.nestOcc names lo hi || piDomsOcc names lo hi n b
   | _ + 1, _ => false
 
-/-- **Official's `check_uniform_ind_occs` at one constructor type `ty`**
-(see the section header): the parameters' domains of its member
-abstraction name no member, and its body at the canonical parameters has
-every member applied to them (`holesApplied`: every hole `X_m p⃗`, no
-member constant left).  A type without `nP` leading binders fails (the
-constructor stage already declined it). -/
-def nestUniformOk (ctx : NestCtx) (holes : List Expr) (ty : Expr) : Bool :=
-  let ab := nestAbstract ctx holes ty
-  !ab.piDomsOcc ctx.names ctx.nP (ctx.hiAt 0) ctx.nP &&
-    match instPisWith ctx.params ab with
-    | some crest => crest.holesApplied ctx.names ctx.nP (ctx.hiAt 0)
+/-- **Official's `check_uniform_ind_occs` at one constructor `cv`** (see
+the section header): the parameters' domains of its stored type name no
+member, and its root crest (`nestRootCrest`: every whole application
+`T_m.{lps} p⃗` abstracted) has no member constant left.  A type without
+`nP` leading binders fails (the constructor stage already declined it). -/
+def nestUniformOk (ctx : NestCtx) (holes : List Expr) (cv : ConstantVal) : Bool :=
+  !cv.type.piDomsOcc ctx.names ctx.nP (ctx.hiAt 0) ctx.nP &&
+    match nestRootCrest ctx holes cv with
+    | some crest => !crest.nestOcc ctx.names 0 0
     | none => false
 
 /-- `nestUniformOk` at every stored constructor of every member, before
@@ -1592,7 +1557,7 @@ the walk (official runs it before anything else): a REJECT with
 official's wording. -/
 def nestUniform (ctx : NestCtx) (holes : List Expr) (ctorss : List (List (ConstantVal × Nat))) :
     m Unit :=
-  match ctorss.findSome? (·.find? (!nestUniformOk ctx holes ·.1.type)) with
+  match ctorss.findSome? (·.find? (!nestUniformOk ctx holes ·.1)) with
   | some c => throw (.invalid s!"invalid occurrence of a datatype being declared in the \
       type of {c.1.name}: it must be applied to the parameters and universe levels of the \
       mutual declaration")
@@ -1604,7 +1569,8 @@ The block itself is the walk's ROOT frame: its key each member at the
 block's own levels and canonical parameters (`NestCtx.rootHoles`), its
 holes the member holes, its constructors the block's own — walked by the
 one constructor loop (`nestCtors`), exactly as a container frame's are:
-instantiated at the key (the members abstracted by `nestRootSub`), typed
+instantiated at the key (the members' whole applications abstracted by
+`nestRootSub`), typed
 at the holes' context, every field through `nestPos`, U4, the result,
 the normal form recorded (K.53′).  What only the root has is, BEFORE
 the walk, official's uniform-occurrence check on its constructors
@@ -1624,7 +1590,7 @@ def nestRoot (ops : CheckerOps m) (env : Env) (ctx : NestCtx) (holes : List Expr
   | [], st => pure ([], st)
   | cs :: css, st => do
     let (o, st) ← nestCtors ctx ops env (fun crest => nestPos ops env ctx (whnfWalkFuel crest)) []
-      (ctx.hiAt 0) (ctx.lps.map .param) ctx.params ctx.nP (nestRootSub ctx holes) cs st
+      (ctx.hiAt 0) (ctx.lps.map .param) ctx.params (nestRootSub ctx holes) cs st
     let (os, st) ← nestRoot ops env ctx holes css st
     pure (o :: os, st)
 
@@ -1645,10 +1611,12 @@ family is a node by construction — an occurrence whnf erases
 syntactic occurrence.
 
 A class is moved to the walk's representation (`nestSeedOf`): its
-parameters' members abstracted to their holes (`nestAbstract`) and
-every free variable — a recursor parameter binder — replaced WHOLE by
-the canonical parameter variable of its index (`ctx.params`), so the
-key's leaves are the canonical variables' and the holes'.  Nothing
+parameters' whole member applications `T_m.{lps} p⃗` abstracted to their
+holes (`replaceApps`, over the recursor's parameter binders `0 ..< nP`)
+and every free variable below `nP` — a recursor parameter binder —
+replaced WHOLE by the canonical parameter variable of its index
+(`ctx.params`), so the key's leaves are the canonical variables' and the
+holes'.  Nothing
 here trusts the stream: every seed is walked as the positivity check
 walks any container instance, and the proofs read a seed's key only
 through its frame's derivation and its leaves. -/
@@ -1658,7 +1626,8 @@ through its frame's derivation and its leaves. -/
 representation, with its parameter count (see "The seeds"). -/
 def nestSeedOf (ctx : NestCtx) (holes : List Expr) (I : Name) (us : List Level)
     (ds : List Expr) (nPc : Nat) : NestKey × Nat :=
-  (⟨I, us, ds.map fun x => (nestAbstract ctx holes x).replaceFVars fun i => ctx.params[i]?⟩,
+  (⟨I, us, ds.map fun x =>
+      (x.replaceApps (nestRootSub ctx holes) 0 ctx.nP).replaceFVars fun i => ctx.params[i]?⟩,
     nPc)
 
 /-- **The seeds walked**, in order, at the root (see "The seeds"): each
