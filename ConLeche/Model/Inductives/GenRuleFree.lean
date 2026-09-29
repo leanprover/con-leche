@@ -253,4 +253,115 @@ theorem CBNF_mkAppN {env : Env} :
     rw [happ]
     simp only [List.mem_cons, forall_eq_or_imp, and_assoc]
 
+/-! ## Openings at different variables agree after erasure -/
+
+theorem eraseFVars_forallE (t b : Expr) (m : BinderMeta) :
+    eraseFVars (.forallE t b m) = .forallE (eraseFVars t) (eraseFVars b) m := rfl
+
+/-- **Two openings of erasure-equal telescopes** agree after erasure:
+their bodies and their variables' domains. -/
+theorem openPis_erase :
+    ∀ (n : Nat) {e e' : Expr} {d d' : Nat} {fvs fvs' : List Expr} {b b' : Expr},
+      eraseFVars e = eraseFVars e' →
+      ConLeche.openPisAtFvars n e d = some (fvs, b) →
+      ConLeche.openPisAtFvars n e' d' = some (fvs', b') →
+      eraseFVars b = eraseFVars b' ∧
+        fvs.map (fun x => eraseFVars x.fvarTypeD) = fvs'.map (fun x => eraseFVars x.fvarTypeD)
+  | 0, e, e', d, d', fvs, fvs', b, b', he, h, h' => by
+    simp only [ConLeche.openPisAtFvars, Option.some.injEq, Prod.mk.injEq] at h h'
+    obtain ⟨rfl, rfl⟩ := h
+    obtain ⟨rfl, rfl⟩ := h'
+    exact ⟨he, rfl⟩
+  | n + 1, .forallE t bd m, .forallE t' bd' m', d, d', fvs, fvs', b, b', he, h, h' => by
+    rw [eraseFVars_forallE, eraseFVars_forallE] at he
+    injection he with ht hb hm
+    simp only [ConLeche.openPisAtFvars] at h h'
+    cases hi : ConLeche.openPisAtFvars n (bd.instantiate1 (.fvar d t)) (d + 1) with
+    | none => rw [hi] at h; exact nomatch h
+    | some o =>
+      cases hi' : ConLeche.openPisAtFvars n (bd'.instantiate1 (.fvar d' t')) (d' + 1) with
+      | none => rw [hi'] at h'; exact nomatch h'
+      | some o' =>
+        rw [hi] at h; rw [hi'] at h'
+        simp only [Option.some.injEq, Prod.mk.injEq] at h h'
+        obtain ⟨rfl, rfl⟩ := h
+        obtain ⟨rfl, rfl⟩ := h'
+        have hins : eraseFVars (bd.instantiate1 (.fvar d t))
+            = eraseFVars (bd'.instantiate1 (.fvar d' t')) := by
+          rw [eraseFVars_instantiate1, eraseFVars_instantiate1, hb]; rfl
+        obtain ⟨h1, h2⟩ := openPis_erase n hins (b := o.2) (b' := o'.2) (fvs := o.1) (fvs' := o'.1)
+          (by rw [hi]) (by rw [hi'])
+        refine ⟨h1, ?_⟩
+        rw [List.map_cons, List.map_cons, h2]
+        show eraseFVars t :: _ = eraseFVars t' :: _
+        rw [ht]
+  | _ + 1, .forallE _ _ _, .bvar _, _, _, _, _, _, _, he, _, h'
+  | _ + 1, .forallE _ _ _, .fvar _ _, _, _, _, _, _, _, he, _, h'
+  | _ + 1, .forallE _ _ _, .sort _, _, _, _, _, _, _, he, _, h'
+  | _ + 1, .forallE _ _ _, .const _ _, _, _, _, _, _, _, he, _, h'
+  | _ + 1, .forallE _ _ _, .app _ _, _, _, _, _, _, _, he, _, h'
+  | _ + 1, .forallE _ _ _, .lam _ _ _, _, _, _, _, _, _, he, _, h'
+  | _ + 1, .forallE _ _ _, .letE _ _ _, _, _, _, _, _, _, he, _, h'
+  | _ + 1, .forallE _ _ _, .lit _, _, _, _, _, _, _, he, _, h'
+  | _ + 1, .forallE _ _ _, .proj _ _ _, _, _, _, _, _, _, he, _, h' => by
+    simp [ConLeche.openPisAtFvars] at h'
+  | _ + 1, .bvar _, _, _, _, _, _, _, _, _, h, _ | _ + 1, .fvar _ _, _, _, _, _, _, _, _, _, h, _
+  | _ + 1, .sort _, _, _, _, _, _, _, _, _, h, _ | _ + 1, .const _ _, _, _, _, _, _, _, _, _, h, _
+  | _ + 1, .app _ _, _, _, _, _, _, _, _, _, h, _ | _ + 1, .lam _ _ _, _, _, _, _, _, _, _, _, h, _
+  | _ + 1, .letE _ _ _, _, _, _, _, _, _, _, _, h, _ | _ + 1, .lit _, _, _, _, _, _, _, _, _, h, _
+  | _ + 1, .proj _ _ _, _, _, _, _, _, _, _, _, h, _ => by simp [ConLeche.openPisAtFvars] at h
+
+/-- **`targetPiDomsWith` at two variable lists** agrees after erasure. -/
+theorem targetPiDomsWith_erase :
+    ∀ (xs xs' : List Expr) {t t' : Expr} {ws ws' : List Expr},
+      (∀ x ∈ xs, ∃ i T, x = .fvar i T) → (∀ x ∈ xs', ∃ i T, x = .fvar i T) →
+      xs.length = xs'.length → eraseFVars t = eraseFVars t' →
+      ConLeche.targetPiDomsWith xs t = some ws → ConLeche.targetPiDomsWith xs' t' = some ws' →
+      ws.map eraseFVars = ws'.map eraseFVars
+  | [], [], t, t', ws, ws', _, _, _, _, h, h' => by
+    simp only [ConLeche.targetPiDomsWith, Option.some.injEq] at h h'
+    subst h h'; rfl
+  | x :: xs, x' :: xs', .forallE d b m, .forallE d' b' m', ws, ws', hx, hx', hl, he, h, h' => by
+    rw [eraseFVars_forallE, eraseFVars_forallE] at he
+    injection he with hd hb hm
+    simp only [ConLeche.targetPiDomsWith] at h h'
+    cases hi : ConLeche.targetPiDomsWith xs (b.instantiate1 x) with
+    | none => rw [hi] at h; exact nomatch h
+    | some w =>
+      cases hi' : ConLeche.targetPiDomsWith xs' (b'.instantiate1 x') with
+      | none => rw [hi'] at h'; exact nomatch h'
+      | some w' =>
+        rw [hi] at h; rw [hi'] at h'
+        simp only [Functor.map, Option.map_some, Option.some.injEq] at h h'
+        subst h h'
+        obtain ⟨i, T, rfl⟩ := hx x List.mem_cons_self
+        obtain ⟨i', T', rfl⟩ := hx' _ List.mem_cons_self
+        have hins : eraseFVars (b.instantiate1 (.fvar i T)) = eraseFVars (b'.instantiate1 (.fvar i' T')) := by
+          rw [eraseFVars_instantiate1, eraseFVars_instantiate1, hb]; rfl
+        have := targetPiDomsWith_erase xs xs' (fun y hy => hx y (List.mem_cons_of_mem _ hy))
+          (fun y hy => hx' y (List.mem_cons_of_mem _ hy)) (by simpa using hl) hins hi hi'
+        simp only [List.map_cons, this, hd]
+  | [], _ :: _, _, _, _, _, _, _, hl, _, _, _ => nomatch hl
+  | _ :: _, [], _, _, _, _, _, _, hl, _, _, _ => nomatch hl
+  | _ :: _, _ :: _, .forallE _ _ _, .bvar _, _, _, _, _, _, _, _, h'
+  | _ :: _, _ :: _, .forallE _ _ _, .fvar _ _, _, _, _, _, _, _, _, h'
+  | _ :: _, _ :: _, .forallE _ _ _, .sort _, _, _, _, _, _, _, _, h'
+  | _ :: _, _ :: _, .forallE _ _ _, .const _ _, _, _, _, _, _, _, _, h'
+  | _ :: _, _ :: _, .forallE _ _ _, .app _ _, _, _, _, _, _, _, _, h'
+  | _ :: _, _ :: _, .forallE _ _ _, .lam _ _ _, _, _, _, _, _, _, _, h'
+  | _ :: _, _ :: _, .forallE _ _ _, .letE _ _ _, _, _, _, _, _, _, _, h'
+  | _ :: _, _ :: _, .forallE _ _ _, .lit _, _, _, _, _, _, _, _, h'
+  | _ :: _, _ :: _, .forallE _ _ _, .proj _ _ _, _, _, _, _, _, _, _, h' => by
+    simp [ConLeche.targetPiDomsWith] at h'
+  | _ :: _, _ :: _, .bvar _, _, _, _, _, _, _, _, h, _
+  | _ :: _, _ :: _, .fvar _ _, _, _, _, _, _, _, _, h, _
+  | _ :: _, _ :: _, .sort _, _, _, _, _, _, _, _, h, _
+  | _ :: _, _ :: _, .const _ _, _, _, _, _, _, _, _, h, _
+  | _ :: _, _ :: _, .app _ _, _, _, _, _, _, _, _, h, _
+  | _ :: _, _ :: _, .lam _ _ _, _, _, _, _, _, _, _, h, _
+  | _ :: _, _ :: _, .letE _ _ _, _, _, _, _, _, _, _, h, _
+  | _ :: _, _ :: _, .lit _, _, _, _, _, _, _, _, h, _
+  | _ :: _, _ :: _, .proj _ _ _, _, _, _, _, _, _, _, h, _ => by
+    simp [ConLeche.targetPiDomsWith] at h
+
 end ConLeche.Model
