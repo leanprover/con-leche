@@ -833,6 +833,17 @@
 # polymorphic index.  Same routing as inmodel_mutual (the uniform
 # route since the flip).
 0 inmodel_mutual_idx.ndjson
+# inmodel_mutual_refl.ndjson (2026-09-21): mutual blocks with REFLEXIVE
+# members — the checker's own rules tier in miniature (`Red`/`Infer`, an
+# indexed Prop pair whose premises are GUARDED by an equation,
+# `(g = .full → Infer …)`: the shape that flagged `ConLeche.Rules.Red`
+# reflexive and declined the self-check), a data pair with a function
+# field across the block and mixed finitary/reflexive fields in one
+# constructor (`Tree`/`Forest`; a `rfl` through the model recursors
+# applies a reflexive hypothesis), and an indexed data pair with the
+# reflexive field at the index (`A`/`B`).  Same routing as
+# inmodel_mutual (the uniform route since the flip).  Official: 0.
+0 inmodel_mutual_refl.ndjson
 # inmodel_nested.ndjson (task #200 B3): seven NESTED blocks — through
 # `List`, through the indexed `Vec`, through `Option`+`Prod` (two
 # mimics), through a structure `Wrap` over `List` (a mimic depending on
@@ -1358,6 +1369,22 @@
 # P7._model._impl.rec, a generated model record of inductive P7]".
 # FLIP (NESTPLAN L9, the nested flip): 1 → 0 — the modeller's false reject is gone with it; official 0.
 0 nested_p07.ndjson
+# nested_idx_*: a container whose index mentions ITS parameter,
+# instantiated at the block's parameter (the cslib reject,
+# `Cslib.Mech.FunCallEval.EvalExpr`, minimised).  The in-process
+# modeller moved the constructor's result indices and the fields'
+# index arguments into frames with extra binders between the
+# parameters and the fields without lifting past them, so a parameter
+# inside an index pointed at the wrong binder and the fold rejected
+# the generated record (fixed on master by lifting past them, 1e567fcfd).
+# On the uniform route (the modeller deleted) all five install
+# natively.  Official accepts all five; `nested_idx_closed` (index
+# mentions no parameter) is the control that always accepted.
+0 nested_idx_param.ndjson
+0 nested_idx_param_nat.ndjson
+0 nested_idx_param_type.ndjson
+0 nested_idx_forall2.ndjson
+0 nested_idx_closed.ndjson
 # nested_p10: nesting through a REFLEXIVE container.
 # FLIP (NESTPLAN L9, the nested flip): 2 → 0 — installed by the uniform route; official 0.
 0 nested_p10.ndjson

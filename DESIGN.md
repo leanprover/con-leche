@@ -54122,10 +54122,12 @@ over one parameter telescope `p⃗` at sort `u`:
   tool's).
 
 *Declines* (the residual instrument): nested members (B3), indexed
-members (B2), a reflexive member (the export's flag), a field
-mentioning the block other than as a plain member application, members
-whose level parameters / parameter telescope / sort differ, a Prop
-block with a large eliminator (cannot arise at a mutual block).
+members (B2), a field mentioning the block other than as a member
+application under the field's own block-free binders (a nested or
+non-positive occurrence), members whose level parameters / parameter
+telescope / sort differ, a Prop block with a large eliminator (cannot
+arise at a mutual block).  A reflexive member (the export's flag) was a
+decline here until task #321 (2026-09-21) — a shortcut of the port.
 
 *The transition.*  The generated auxiliary family is an indexed
 recursive inductive; with the fixpoint route not yet on master, a raw
@@ -59380,7 +59382,7 @@ found **two classes the tool was masking**, both of them audit finding
 | class | where | verdict | message |
 |---|---|---|---|
 | a constructor field whose type is a DEFINITION REDEX that only whnf's to a recursive occurrence | arena `good/tutorial/{053_reduceCtorParam.mk, 118_reduceCtorParamRefl.mk, 119_reduceCtorParamRefl2.mk}`, e2e `ind_pos_whnf_id`, `ind_pos_whnf_fn`, `pre_decline_imax_field` | 2 | `no install route for inductive block T: …` |
-| a REFLEXIVE member inside a **mutual** block | e2e `mutual_struct_proj` | 2 | `in-process model of MutualStructProj.Node: reflexive member` |
+| a REFLEXIVE member inside a **mutual** block | e2e `mutual_struct_proj` | 2 — **0 since task #321** (the mutual rung takes reflexive members) | was `in-process model of MutualStructProj.Node: reflexive member` |
 | infinitary nesting (a nested occurrence under a binder) | e2e `ind_nest_inf`, `ind_nest_via_refl` | 2 (unchanged) | `in-process model of X: field i of C mentions the block other than as a whole member or container occurrence` |
 | a def-headed former the fix arm reads with `stripPis`; a mutual member whose parameter telescope or sort differs only up to defeq | e2e `ind_defhead_{struct,k,mutual,fix}`, `ind_former_redex`, `ind_mutual_{param,sort}_defeq` | 2 (unchanged raw) | the modeller's own named decline |
 
@@ -79139,8 +79141,8 @@ count, 2 168/51 blocks → **2 072/49** on the new stream, and the
 check-phase-per-worker sentence, → 718/202/120 s and 8.10/8.12/8.12 T),
 and this record.  No other file changes.
 
-OUTSIDE every worktree, kept for the next lane at
-`_tmp/ref/` of the maintainer's `con-leche` checkout: **`mathlib-full.ndjson`** (the
+OUTSIDE every worktree, kept for the next lane at the main checkout's
+`_tmp/ref/`: **`mathlib-full.ndjson`** (the
 6.07 GB export), `init-exports/` (the #318 streams, where they were),
 `arena-upstream/` (the arena clone with
 `checkers/official-v4.33.0/.lake/build/bin/kernel` built), `lean4export/`
@@ -95146,3 +95148,304 @@ constructors) is STRUCK — irrelevant.  COMPLETE3 (completeness "official accep
 PARKED: tag `complete3-parked` (branch `agent/uinds-COMPLETE3`), worktree removed.  The master-docket
 PUnit cleanup (unpin `PUnit`, install it through the normal installer; remove `isUnitLikeTy` and
 `unitLike_eq_punit`) is done on THIS branch.
+
+**STRUCK (maintainer, 2026-09-29):** collapsing the node-0 twins (proof-only, unclear it is better)
+and the "sane expression" relation replacing K.51 (not worth waiting for).
+
+## TASK #321 — THE MUTUAL RUNG TAKES REFLEXIVE MEMBERS (2026-09-21)
+
+**The finding.**  The self-check (`scripts/selfcheck.sh`, task #199)
+stopped accepting the tree:
+
+    con-leche: declined: in-process model of ConLeche.Rules.Red: reflexive member ConLeche.Rules.Red (--verified)
+
+`ConLeche.Rules.Red` is the rules tier's six-member mutual `Prop`
+block (task #305, `ConLeche/Rules/Rel.lean`), and it is REFLEXIVE in
+the export's sense — a constructor field that is a function into the
+block — because its premises are guarded by equations:
+`Infer.forall`'s `(g = .full → Infer env .full d ty s)` and the like.
+The mutual rung of the in-process modeller
+(`ConLeche/Frontend/InModel/Mutual.lean`) declined every block whose
+export carried `isReflexive`, a decline that had been on the books
+since task #200 as "the residual class the mutual rung owes"
+(`mutual_struct_proj`, `Forest.nodes : Fin 0 → Node`).
+
+**What went wrong: a shortcut of the port, not a limit of the
+construction.**  lean-inductive-models never looked at the flag.  Its
+mutual rung (`Mutual.lean` there) built the tag and the auxiliary
+family and handed them to Lean's own kernel (`addChecked`), which
+minted the auxiliary recursor — reflexive hypotheses `∀ a⃗, motive …
+(f a⃗)` included — and the tool restated the export's recursors and
+rules over it.  The port has no kernel to ask: it GENERATES the
+auxiliary recursor itself, and the generator it carried
+(`Kit.recTy`/`recRhs`, a private copy of the indexed generators with
+`ih` binders threaded in) read every recursive field as a bare member
+application `T_m p⃗ e⃗` — no field telescope, no `λ a⃗` in the rule.
+The flag gate was the honest fence around that gap, and the
+classification (`classifyCtor`) refused a Π-typed field anyway.  The
+tree already had the generators the gap needed: the direct fixpoint
+route's `structRecTyR`/`structRecRhsR`
+(`ConLeche/Kernel/Inductives/NativeParts.lean`, task #202 Stage B)
+read a recursive field's own telescope off the constructor
+(`structFieldTeleOf`/`structFieldIdxOf`) and emit official
+`mk_rec_infos`' shape for finitary and reflexive fields alike — and
+the route is what installs the auxiliary family, comparing the
+stream's recursor record against exactly those generators.
+
+**The fix** (`ConLeche/Frontend/InModel/{Kit,Mutual}.lean`):
+
+* `Kit.recTy`/`recRhs` are the fixpoint route's generators now (the
+  private copy is gone; `Kit` imports `NativeParts`).  The comparison
+  the route makes holds by construction.  One subtlety: the route
+  compares a stream rule's BODY syntactically with the generator's
+  output reset to the parse placeholder (`nativeRulesOk`,
+  `Expr.resetMeta`), as a parsed stream carries it everywhere — and a
+  reflexive hypothesis `λ a⃗, T.rec … (f a⃗)` is where a generated body
+  has binders of its own, at the elimination datum (`structTeleAt`).
+  A finitary body has none, which is why this never surfaced.  So
+  `recRhs` resets the generated rule's data.  (The first attempt
+  without it: `invalid: direct rec: recursor rules are not the
+  generated ones` at `Red._model._impl.aux` — a REJECT, exactly what
+  the route promises for a record that is not the generated one.)
+* `classifyCtor` walks a field's own `∀`-telescope the way official's
+  `check_positivity` does, syntactically: a binder domain mentioning
+  the block is a non-positive occurrence (decline; the fold would
+  reject the auxiliary family), the residual must be a member at the
+  parameters — `memberApp?` with the parameters `i + |a⃗|` binders up.
+  A recursive field is still recorded as (position, target member);
+  `specFam` already rewrote under binders.
+* The iota theorems (step 6) pass `λ a⃗, T_tgt.rec._model p⃗ M⃗ S⃗ e⃗(a⃗)
+  (f_i a⃗)` at a reflexive field — the domain lifted to the statement
+  frame, split by `Expr.piBinders`, the prefix lifted under the `λ`s —
+  which is the rule's applied right-hand side β-reduced, so `Eq.refl`
+  still proves them (δι through `aux.rec` and `tag.rec` under the
+  binders).
+* The `isReflexive` gate is gone from the mutual rung.  It STAYS in
+  the nested rung (`Nested.lean`): a reflexive field there needs the
+  pack/unpack isomorphisms transported under a function type, which is
+  function extensionality — `ind_nest_inf`, `ind_nest_via_refl`,
+  `nested_p01` keep their documented decline, now worded "the nested
+  rung".
+
+**Measured.**
+
+| what | before | after |
+|---|---|---|
+| `scripts/selfcheck.sh` (`--verified`) | exit 2 at `ConLeche.Rules.Red` | exit 0, 40,554 declarations accepted |
+| e2e `mutual_struct_proj` | 2 | 0, both modes |
+| e2e `inmodel_mutual_refl` (new: `Red`/`Infer` — the rules tier's guarded-premise shape in miniature; `Tree`/`Forest` with a function field across the block; `A`/`B` reflexive at the index) | — | 0, both modes; official 0 |
+| `tests/inmodel.sh` on both | — | OK (42 and 22 generated records) |
+| `lake build`, `lake test`, `tests/{overview-links,quote-gate,layering}.sh` | | clean |
+
+A run-protocol note found on the way: under `ulimit -v 16000000` a
+run WITHOUT `--jobs` aborts (exit 134) on this machine once the
+checker reaches the parallel fold — the default worker count is one
+per hardware thread and each reserves ~1 GiB of address space (the
+`--jobs=8` remark in `scripts/selfcheck.sh`).  Before the fix the
+declining fixtures never got that far, which is why the cap looked
+sufficient.
+
+## TASK #322 — THE PER-ARGUMENT SUBSTITUTION LOOPS: a measured no (2026-09-21)
+
+**The ask.**  A perf lane reported: "we build 2.5× the nodes, worth
+about a quarter of the gap … con-leche's spine and telescope loops call
+`instantiate1` once per argument, so a telescope of n binders is n
+walks with n−1 intermediate terms interned, where nanoda substitutes
+the whole argument vector in one walk.  The excess is in the binder
+constructors, 5× for `forallE`, and it is the median declaration, not
+outliers."  Replacing the loop by one multi-substitution walk is an
+ALGORITHM change (not representation or caching), so the lane asked for
+a ruling.  This task investigated before the ruling.
+
+### 1. The premise is stale for the shipped core
+
+The per-argument loops are the PURE SPEC's (`ConLeche/Kernel/Core.lean`:
+`whnfCoreBody`'s β, `inferBody`'s app/∀/λ clauses, `iotaCerts`).  The
+shipped core (`ConLeche/Cached/CoreC.lean`) has substituted in bulk at
+every one of those sites for a long time, each identified with the
+chained spec by a proof of its own:
+
+| site | shipped loop | since | identification |
+|---|---|---|---|
+| β on an application spine | `whnfAppI`/`betaPeelI`, one `instListM` per λ-run | task #50 | `Verify/BetaSpine.lean` |
+| the app spine's Π-telescope (both grades) | `inferSpineI`/`inferSpineIOI`, domains against the accumulator | task #50 | `Verify/BetaSpine.lean` |
+| the recursor telescope certificate | `iotaCertsIAux` | task #50 | idem |
+| ∀ / λ chains at the front door | `inferPisI`/`inferLamsI` (open in bulk, one `abstractRange` per domain) | task #72 | `Verify/BinderLoop.lean`, `Verify/Cached/BinderLoopC.lean` |
+| ∀ / λ chains in `annotate` | `annotatePisI`/`annotateLamsI` | task #72 | idem |
+
+The substitution walks return a closed subterm by reference (`bvarB ≤
+d` cutoff, `ExprOpsC.lean`), so nothing below a substituted variable is
+rebuilt either.  What is STILL chained, one `inst1M` per binder:
+
+* the ∀/λ **congruence of `defeq`** (`defeqStepI`, both bodies
+  re-opened at every binder — nanoda's `def_eq_binder_aux` and
+  official's `is_def_eq_binding` loop over the whole telescope with a
+  vector of locals);
+* the **io lane's ∀ and λ clauses** (`inferBodyIOI`; chained by the B4
+  decision that looping the io lane would owe the loop-identification
+  walk family a second, io-graded instance — recorded as a
+  measured-need follow-up).
+
+### 2. The spike: those two sites in bulk, measured
+
+Branch `agent/spike-inst` (commit `18ca6210`, implementation only —
+the Verify tier is not updated, `lake build con-leche` builds): a
+`defeqBindersI` loop (peel matching binder pairs comparing the opened
+domains, open both leaves in bulk, compare once, then the annotation
+agreements innermost-first), and the io ∀/λ clauses routed through
+`inferPisI`/`inferLamsI` (the latter with a flag that skips the
+domain-sort run, as the io clause does).  Against master
+`78ded4b6`'s binary, `--verified --jobs=1`, `instructions:u`, one run
+per stream, verdicts and counts identical on every stream:
+
+| stream | master | spike | Δ |
+|---|---|---|---|
+| `init-full` | 453.97 G | 452.20 G | **−0.4 %** |
+| `init-prelude` | 2.492 G | 2.462 G | −1.2 % |
+| `grind-ring-5` | 17.41 G | 17.33 G | −0.5 % |
+| `beta-ladder` | 13.92 G | 13.81 G | −0.8 % |
+| `let-ladder` | 2.709 G | 2.709 G | 0 |
+| `app-lam` | 70.66 G | 70.66 G | 0 |
+| `church-numerals` | 0.275 G | 0.264 G | −4.2 % |
+
+Below #313's acceptance line (≥ 2 % on `init-full`), and what landing
+would cost is the loop-identification family again — a pure mirror, a
+`_sound_body` theorem against the chained clause, the cached simulation
+walk and the tail composition (`BinderLoop.lean` 1 775 lines,
+`BinderLoopC.lean` 1 452, the `DiscC4` tails) — for the defeq
+congruence and for an io-graded instance.  Not worth 0.4 %.  The spike
+is kept on its branch as the measurement; it is not for landing.
+
+### 3. Where the nodes are, then
+
+`perf record -e instructions:u` of master's binary on `init-prelude`
+(`--verified --jobs=1`, self time by symbol): `lean_dec_ref_cold` 12.5 %,
+`mi_malloc_small` 9.0 %, `mi_free` 8.3 %, `lean_del_core` 4.9 %,
+`mi_free_size` 2.1 %, `mi_malloc` 1.6 % — allocation and reference
+counting ≈ 40 %, as #313 measured (41 % on `init-full`); the
+constructor overrides (the computed-field builders, one call per node
+built): `Expr.app` 4.7 %, `Expr.lam` 0.65 %, `Expr.forallE` 0.57 %; the
+walks: `instantiateRevXP` 3.1 %, `instantiateListXP` 1.5 %,
+`abstractRangeXP` 1.2 %, `instLevelParamsXP` 1.1 %, `instantiate1XP`
+0.6 %; `beqGoX` 4.0 %; the knot memo's hash-map operations ≈ 3 %.
+
+So the report's cost class is real — building and freeing nodes is
+the largest bucket — but its attribution is not: binder nodes are
+built an order of magnitude less often than `app` nodes (the override
+shares), a 5× excess in `forallE` is cheap in instructions, and the
+loops named as the cause are already bulk.  Where a node is built
+cannot be read off this profile: the binary has no frame pointers,
+`--call-graph dwarf` unwinds nothing and `lbr` is unsupported on this
+machine.  A per-site constructor census needs instrumentation (a
+counter in the four overrides keyed by a caller tag, or `perf probe`
+on the overrides with a frame-pointer build).
+
+### 4. What the ruling is actually about
+
+The algorithm-vs-representation question the lane raised does not
+arise for the sites it named: they are bulk already, and the two that
+are not are worth 0.4 %.  The open question is the lane's node census
+itself — what instrument produced "2.5× the nodes, 5× `forallE`", and
+at which construction sites (parse, `annotate`'s rebuild, the loops'
+open/close rebuilds, `instLevelParams` at each `(name, levels)`, the
+memo keys) the count accrues.  Until that is attributed by site, no
+change is indicated.  Measurement protocol as always: one run per
+stream and configuration, `instructions:u`, every run under
+`ulimit -v 16000000` with `--jobs=1` (or `--jobs=8` for a parallel
+run — the default worker count aborts under the cap, task #321).
+
+## MODELLER FIX — nested index arguments lifted past the extra binders (2026-09-29, `agent/master-MODELFIX`)
+
+**The bug.**  The arena rejected cslib (exit 1, "application type
+mismatch [at theorem Cslib.Mech.FunCallEval.EvalExpr._model._impl.unpackPack_0,
+a generated model record …]"; official accepts).  `genNested`
+(`ConLeche/Frontend/InModel/Nested.lean`) keeps a constructor's result
+indices `c.idx` at the frame `p⃗ f⃗` and a nested field's index
+arguments at the field's own frame `p⃗ f₀ … f_{i-1}`, and moves them
+into frames `p⃗ ⋯O extras⋯ f⃗ ih⃗` (the unpack/pack/unpackPack/packUnpack
+minors, the `_impl.rec` minors below the recursor prefix, the
+projection minors) lifting only past the fields/ihs at cutoff 0 —
+never past the `O` extras between the parameters and the fields.  An
+index that mentions a PARAMETER (a container `C α P : Option α → Prop`
+at `α := V`, whose index is `@none V`) then points `O` binders too
+close, and the fold rejects the generated record.  The modeller is
+untrusted, so the bug could only reject; it is also task #227's
+docketed false reject `nested_p07` (§ TASK #279 probe findings (a)).
+
+**The fix.**  `fieldIdxAt c i o' O` (lift by `O` at cutoff `i`, then by
+`o'` at 0) at the 15 moved field-index sites and `ctorIdxAt c O nIh`
+(lift by `O` at cutoff `nF`, then `nIh` at 0) at the 4 moved `c.idx`
+sites; `O` is the frame's extra count (`o`, or `oP = o + M + n` under
+the recursor prefix).  `fieldIdx` is `fieldIdxAt … 0` for the frames
+without extras (constructor models, the projection iota); the iota
+theorems already lifted past `M + n` explicitly.  No other index moves
+into a shifted frame (`idxBsAt`/`specDoms`/`modelDoms` lift at their
+own cutoffs; pins mention only parameters).
+
+**Fixtures** (official accepts every one): `nested_idx_param` (the
+minimal reproducer), `nested_idx_param_nat` (a `Nat` index spelt with
+the parameter), `nested_idx_param_type` (in `Type`: large eliminator,
+the rec/pack records), `nested_idx_forall2` (the cslib shape, through a
+`List.Forall₂`-like container), `nested_idx_closed` (the control: a
+closed index, accepted before and after).  Before the fix the first
+four and `nested_p07` exited 1; now all exit 0, and `nested_p07`'s row
+moves 1 → 0.
+
+**Verdicts.**  `tests/arena.sh` (full, all sweeps and gates): green,
+the only moved row `nested_p07`.  cslib (`--verified --jobs=4`):
+exit 0, 383 976 declarations (was exit 1).  init-full: exit 0, 53 093
+declarations.
+
+## MERGEMASTER — `origin/master` merged into uniform-inds; the final full sweep (2026-09-29, `agent/uinds-MERGEMASTER`)
+
+**The merge.**  `origin/master` `1e567fcfd` (five commits: the modeller
+index-offset fix with the `nested_idx_*` fixtures, "the mutual rung takes
+reflexive members" `78ded4b6f` with `inmodel_mutual_refl`, the #320
+record's no-local-paths fix, the #321/#322 records) into uniform-inds.
+The modeller stays deleted (`Frontend/InModel/{Kit,Mutual,Nested}.lean`,
+`tests/inmodel.sh`): both master code fixes are to the modeller, and
+both are MOOT on the uniform route — it has no mutual rung, no
+`isReflexive` gate and no generated model records.  Verified by the
+fixtures, `--verified` and `--trusted` each: `inmodel_mutual_refl`,
+`mutual_struct_proj`, `nested_p07`, the five `nested_idx_*`, and the
+residual nested-reflexive rows master still declines (`nested_p01`,
+`ind_nest_inf`, `ind_nest_via_refl`) all exit 0 = official.  e2e rows:
+uniform-inds' kept; master's new rows added, comments re-pointed at the
+uniform route.  DESIGN: both sides' records kept (master's #321, #322,
+MODELLER FIX after the uniform-inds sections; #320's relative-path
+wording taken).
+
+**Gates.**  `lake build` and `lake test` warning-free; `tests/arena.sh`
+(full): exit 0, e2e 446/446, arena tutorial 90/92, every sweep and gate
+as expected.
+
+**The final sweep** (`--verified --jobs=8`, `perf stat -e
+instructions:u`, GNU `time -v`, `timeout`, no `ulimit -v`; logs
+`_tmp/uniform-inds/MERGEMASTER/`).  Merged binary at `c49664d13`; the
+master baseline for cslib measured now at `origin/master` `1e567fcfd`,
+for init-full and Mathlib reused from MATHLIB SWEEP (`09c3a50c0`).
+
+| stream | verdict (merged) | master instr:u | merged instr:u | Δ | master RSS | merged RSS |
+|---|---|---|---|---|---|---|
+| cslib (2.3 GB) | exit 0, 383 976 accepted (= master) | 2 771.49 G | 2 728.98 G | −1.5 % | 3.72 GiB | 3.69 GiB |
+| init-full | exit 0, 53 093 accepted (= master) | 418.89 G | 419.57 G | +0.16 % | 608 MiB | 630 MiB |
+| Mathlib | exit 0, 654 504 accepted (= master) | 7 607.16 G | 7 585.13 G | −0.29 % | 8.19 GiB | 6.73 GiB |
+
+No decline, reject or crash on any stream.  (Mathlib vs MATHLIB SWEEP 2's
+uniform-inds `1fe5a3214`: −0.06 % instructions.)  master still rewrites
+62 projection functions on cslib; the merged binary rewrites none.
+
+**Finding — the self-check does not finish on this tree.**
+`scripts/selfcheck.sh` (never run on uniform-inds before): the export
+(708 MB, 13.26 M lines) aborts under the script's `ulimit -v 22000000`
+("INTERNAL PANIC: out of memory"); without it the run reached 46.6 GB
+RSS and was killed (exit 137).  With `--jobs=1 --progress` and a 20 GB
+kill cap, the declaration being checked is
+`ConLeche.nestPos_datF` (`ConLeche/Verify/BridgeDecl.lean`, a uniform-inds
+proof: `induction fuel` with `rfl` closers after `repeat' split` over
+`nestPos`'s body).  master's binary on the same export also passes 20 GB
+at the end of its check phase, so this is the checker's behaviour on a
+new declaration, not a merge regression.  OPEN: which defeq blows up
+(likely lazy delta through `nestPos`'s match), and whether the fix is in
+the checker's reduction strategy or the proof (e.g. `simp`/`exact` in
+place of the `rfl` closers).
