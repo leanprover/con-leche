@@ -30,7 +30,8 @@ namespace ConLeche
 /-- **A frame's constructor list, run**: one output per constructor, and
 every constructor's instantiated type typed at the frame's depth. -/
 theorem nestCtors_typed {ops : CheckerOps CheckM} {env : Env} {ctx : NestCtx}
-    {rec : List NestHole → Nat → Nat → Expr → NestState → CheckM (NestFieldKind × Expr × NestState)}
+    {rec : Expr → List NestHole → Nat → Nat → Expr → NestState →
+      CheckM (NestFieldKind × Expr × NestState)}
     {prog : List NestHole} {hi : Nat} {us : List Level} {ds : List Expr} {nPc : Nat}
     {sub : Name → List Level → Option Expr} :
     ∀ {cs : List (ConstantVal × Nat)} {st : NestState} {os : List (List NestFieldKind × Expr)}
@@ -83,15 +84,15 @@ theorem nestCtors_typed {ops : CheckerOps CheckM} {env : Env} {ctx : NestCtx}
 /-- **The root frame, run**: every member's constructors through the one
 constructor loop at the root key, the state threaded; its output per
 member. -/
-theorem nestRoot_inv {ops : CheckerOps CheckM} {env : Env} {ctx : NestCtx} {holes : List Expr}
-    {F : Nat} :
+theorem nestRoot_inv {ops : CheckerOps CheckM} {env : Env} {ctx : NestCtx} {holes : List Expr} :
     ∀ {css : List (List (ConstantVal × Nat))} {st : NestState}
       {outs : List (List (List NestFieldKind × Expr))} {st' : NestState},
-      nestRoot ops env ctx holes F css st = .ok (outs, st') →
+      nestRoot ops env ctx holes css st = .ok (outs, st') →
       outs.length = css.length ∧
       ∀ (c : Nat) (cs : List (ConstantVal × Nat)), css[c]? = some cs → ∃ st₀ os st₁,
-        nestCtors ctx ops env (nestPos ops env ctx F) [] (ctx.hiAt 0) (ctx.lps.map .param)
-          ctx.params ctx.nP (nestRootSub ctx holes) cs st₀ = .ok (os, st₁) ∧ outs[c]? = some os
+        nestCtors ctx ops env (fun crest => nestPos ops env ctx (whnfWalkFuel crest)) []
+          (ctx.hiAt 0) (ctx.lps.map .param) ctx.params ctx.nP (nestRootSub ctx holes) cs st₀
+          = .ok (os, st₁) ∧ outs[c]? = some os
   | [], _, _, _, h => by
     simp only [nestRoot, pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
     obtain ⟨rfl, -⟩ := h
@@ -263,8 +264,7 @@ theorem checkBlockPositivity_inv {ops : CheckerOps CheckM} {env₁ : Env}
     ∃ cvTa0 fvsP rest holes outs, cvTas.head? = some cvTa0 ∧
       openPisAtFvars p.nP cvTa0.type 0 = some (fvsP, rest) ∧
       nestHoles (p.nestCtx fvsP find? consts) = some holes ∧
-      nestRoot ops env₁ (p.nestCtx fvsP find? consts) holes (nestRootFuel ctorsAs) ctorsAs {}
-        = .ok (outs, pos) ∧
+      nestRoot ops env₁ (p.nestCtx fvsP find? consts) holes ctorsAs {} = .ok (outs, pos) ∧
       nestRootLinesAll (m := CheckM) (p.nestCtx fvsP find? consts) holes ctorsAs outs = .ok () ∧
       checkAbsCtorSortsAll ops env₁ (p.nestCtx fvsP find? consts) ctorsAs outs = .ok () ∧
       kinds = outs.map (·.map (·.1)) ∧ nfs = outs.map (·.map (·.2)) := by

@@ -282,7 +282,7 @@ def checkBlockPositivity (ops : CheckerOps m) (env₁ : Env) (find? : Name → O
     m (List (List (List NestFieldKind)) × List (List Expr) × NestState) := do
   let (ctx, holes) ← blockNestCtx p.toBlockShape cvTas find? consts
   -- the root frame on the STORED (declared) constructors; their normal forms are output only
-  let (outs, st) ← nestRoot ops env₁ ctx holes (nestRootFuel ctorsAs) ctorsAs {}
+  let (outs, st) ← nestRoot ops env₁ ctx holes ctorsAs {}
   nestRootLinesAll ctx holes ctorsAs outs
   checkAbsCtorSortsAll ops env₁ ctx ctorsAs outs
   pure (outs.map (·.map (·.1)), outs.map (·.map (·.2)), st)

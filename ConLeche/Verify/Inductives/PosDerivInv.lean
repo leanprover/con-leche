@@ -423,14 +423,17 @@ theorem CtorOut.mono {tbl tbl' : List NestCtorNf} (hs : ∀ e ∈ tbl, e ∈ tbl
 /-- **A frame's constructors, derived** — the root frame's and every
 container frame's: the constructor list derived, recorded, and every
 constructor's output (`CtorOut`). -/
-theorem nestCtors_deriv (hrec : RunDeriv ops env ctx rec)
+theorem nestCtors_deriv
+    {recC : Expr → List NestHole → Nat → Nat → Expr → NestState →
+      CheckM (NestFieldKind × Expr × NestState)}
+    (hrec : ∀ x, RunDeriv ops env ctx (recC x))
     {prog : List NestHole} {hi : Nat}
     {us : List Level} {ds : List Expr} {sub : Name → List Level → Option Expr}
     (hhi : ctx.hiAt prog.length = hi) (hsc : ProgScoped ctx prog)
     (hds : ∀ x ∈ ds, WScoped hi x) (hsub : ∀ c us' r, sub c us' = some r → WScoped hi r) :
     ∀ (cs : List (ConstantVal × Nat)) (st : NestState) (os : List (List NestFieldKind × Expr))
       (st' : NestState), (∀ x ∈ cs, x.1.type.hasFvar = false) →
-      nestCtors ctx ops env rec prog hi us ds ds.length sub cs st = .ok (os, st') →
+      nestCtors ctx ops env recC prog hi us ds ds.length sub cs st = .ok (os, st') →
       DerivCache ops env ctx st →
       DerivCache ops env ctx st' ∧ ∃ ts, PosD ops env ctx (.ctors prog hi us ds sub cs) ts ∧
         NodesIn ops env ctx st st' ts ∧
@@ -474,7 +477,7 @@ theorem nestCtors_deriv (hrec : RunDeriv ops env ctx rec)
       rw [ConLeche.Expr.hasFvar_instantiateLevelParams]
       exact hcl _ List.mem_cons_self
     obtain ⟨hI₁, ts₁, h₁, hn₁⟩ :=
-      nestFields_deriv hrec (by omega) hsc nF 0 crest st ks nds cur st₁ hr hws hI
+      nestFields_deriv (hrec crest) (by omega) hsc nF 0 crest st ks nds cur st₁ hr hws hI
     dsimp only at h
     split at h
     · simp [throw, throwThe, MonadExceptOf.throw] at h
@@ -604,7 +607,7 @@ theorem nestFrame_deriv (hctx : NestCtxOk ctx) (hrec : RunDeriv ops env ctx rec)
   obtain ⟨os, st₂⟩ := v'
   simp only [pure, Except.pure, Except.ok.injEq] at h
   subst h
-  have hwc' : nestCtors ctx ops env rec
+  have hwc' : nestCtors ctx ops env (fun _ => rec)
       ((grpNews us ds hi grp).reverse ++ prog) (hi + grp.length) us ds ds.length
       (grpSub us hi grp) ctors st₁ = .ok (os, st₂) := by
     rw [← grpNews_mapIdx]; exact hv'
@@ -625,7 +628,7 @@ theorem nestFrame_deriv (hctx : NestCtxOk ctx) (hrec : RunDeriv ops env ctx rec)
     obtain ⟨c, -, nP', L, hL, hxL⟩ := groupCtors_mem hgc' x hx
     obtain ⟨nPc, hmem⟩ := nestContainer_mem hL x hxL
     exact hctx.1 _ hmem
-  obtain ⟨hI₂, ts, hw', hn₂, hcr₂, -⟩ := nestCtors_deriv hrec hhi' hsc'
+  obtain ⟨hI₂, ts, hw', hn₂, hcr₂, -⟩ := nestCtors_deriv (fun _ => hrec) hhi' hsc'
     (fun x hx => WScoped.mono (by omega) (hds x hx)) hsub ctors st₁ os st₂ hcl hwc' hI₁
   subst hhi
   refine ⟨hI₂, ts, .frame hne hhd hhdC hnd hinst hblk hgrp hgc' ⟨kty, hkty⟩ hw',
@@ -952,10 +955,10 @@ constructor's output (`CtorOut`). -/
 theorem nestRoot_deriv (hctx : NestCtxOk ctx) (hroot : NestRootOk ctx)
     (hwsc : ∀ dep e w, ops.whnf env dep e = .ok w → WScoped dep e → WScoped dep w)
     {holes : List Expr} (hh : nestHoles ctx = some holes)
-    (hpar : ∀ x ∈ ctx.params, WScoped (ctx.hiAt 0) x) {F : Nat} :
+    (hpar : ∀ x ∈ ctx.params, WScoped (ctx.hiAt 0) x) :
     ∀ (css : List (List (ConstantVal × Nat))) (st : NestState)
       (outs : List (List (List NestFieldKind × Expr))) (st' : NestState),
-      nestRoot ops env ctx holes F css st = .ok (outs, st') →
+      nestRoot ops env ctx holes css st = .ok (outs, st') →
       (∀ cs ∈ css, ∀ x ∈ cs, x.1.type.hasFvar = false) → DerivCache ops env ctx st →
       DerivCache ops env ctx st' ∧ (∃ l, st'.ctorNfs.toList = st.ctorNfs.toList ++ l) ∧
       ∀ (c : Nat) (cs : List (ConstantVal × Nat)), css[c]? = some cs → ∃ os ts,
@@ -994,11 +997,13 @@ theorem nestRoot_deriv (hctx : NestCtxOk ctx) (hroot : NestRootOk ctx)
         · exact (nestHoles_ok hctx hh r (List.mem_of_getElem? hr)).1
         · exact nomatch hr
       · exact nomatch hr
-    have hr₁' : nestCtors ctx ops env (nestPos ops env ctx F) [] (ctx.hiAt 0) (ctx.lps.map .param)
-        ctx.params ctx.params.length (nestRootSub ctx holes) cs₀ st = .ok (o, st₁) := by
+    have hr₁' : nestCtors ctx ops env (fun crest => nestPos ops env ctx (whnfWalkFuel crest)) []
+        (ctx.hiAt 0) (ctx.lps.map .param) ctx.params ctx.params.length (nestRootSub ctx holes) cs₀
+        st = .ok (o, st₁) := by
       rw [hroot.1]; exact hr₁
     obtain ⟨hI₁, ts₁, hd₁, hn₁, hcr₁, -, hout₁⟩ :=
-      nestCtors_deriv (nestPos_deriv hctx hroot hwsc F) (prog := []) rfl ProgScoped.nil hpar hsub
+      nestCtors_deriv (fun x => nestPos_deriv hctx hroot hwsc (whnfWalkFuel x)) (prog := []) rfl
+        ProgScoped.nil hpar hsub
         cs₀ st o st₁ (hcl cs₀ List.mem_cons_self) hr₁' hI
     obtain ⟨hI₂, ⟨l₂, hl₂⟩, hall₂⟩ :=
       nestRoot_deriv hctx hroot hwsc hh hpar css st₁ os₂ st₂ hr₂

@@ -291,9 +291,9 @@ fails the instantiated `refl`'s result index ("invalid return type"),
 
 **Fuel** (derived from the input, no fixed limit):
 `nestPos` recurses on an explicit fuel, one unit per `Π` body and per
-container field descent — at the root the largest `whnfWalkFuel` of the
-block's constructor types (their depth plus a slack, see "The
-input-derived fuel" below), so a
+container field descent — per root constructor `whnfWalkFuel` of its
+instantiated type (its depth plus a slack, see "The input-derived fuel"
+below), so a
 telescope or a nesting written out in the input never exhausts it.
 Running out THROWS
 `.notImplemented` — a decline (exit 2), never an accept.  The cache of
@@ -1213,14 +1213,17 @@ the frame's group abstracted
 typed by their formers — official types its auxiliary constructors; at
 the root this is the typing of the member-abstracted constructor the
 monotonicity proof reads; the frame's walk is read at a graded term),
-its fields through `rec`
+its fields through `rec` at its instantiated type (the walk, fueled: a
+container frame's is its enclosing walk one fuel lower, the root's is
+fueled by the constructor, `nestRoot`)
 above `hi`, U4 on the walked telescope (no later field and not the
 result reads a non-ordinary field), its result
 indices hole-free below `hi`, and its walked normal form recorded
 (K.53′).  Returns every constructor's field kinds and walked normal form
 (closed over its fields, holes kept) — the root's are the install's. -/
 def nestCtors (ctx : NestCtx) (ops : CheckerOps m) (env : Env)
-    (rec : List NestHole → Nat → Nat → Expr → NestState → m (NestFieldKind × Expr × NestState))
+    (rec : Expr → List NestHole → Nat → Nat → Expr → NestState →
+      m (NestFieldKind × Expr × NestState))
     (prog : List NestHole) (hi : Nat) (us : List Level) (ds : List Expr) (nPc : Nat)
     (sub : Name → List Level → Option Expr) :
     List (ConstantVal × Nat) → NestState → m (List (List NestFieldKind × Expr) × NestState)
@@ -1241,7 +1244,7 @@ def nestCtors (ctx : NestCtx) (ops : CheckerOps m) (env : Env)
         does not bind the parameters (official: ill-formed constructor)")
     let ty ← ops.inferType env hi crest
     let _ ← ops.ensureSort env hi ty
-    let (ks, nds, cur, st) ← nestFields rec prog hi
+    let (ks, nds, cur, st) ← nestFields (rec crest) prog hi
       (.invalid "nested positivity: invalid nested inductive datatype, its constructor type \
         does not bind its fields (official: ill-formed constructor)") nF 0 crest st
     -- U4 on the instantiated constructor: no later field and not the result
@@ -1356,7 +1359,7 @@ def nestFrame (ctx : NestCtx) (ops : CheckerOps m) (env : Env)
   let sub (c : Name) (us' : List Level) : Option Expr :=
     if us' == us then (holes.lookup c) else none
   let (ctors, st) ← nestGroupCtors ctx nPc (grp.map (·.1)) st
-  let (_, st) ← nestCtors ctx ops env rec prog' (hi + grp.length) us ds nPc sub ctors st
+  let (_, st) ← nestCtors ctx ops env (fun _ => rec) prog' (hi + grp.length) us ds nPc sub ctors st
   pure st
 
 /-- **The frame stack an instantiation is walked under**: the EMPTY one
@@ -1572,25 +1575,21 @@ lines (`nestRootLines`): the members' uniform occurrences (M3, M2′), and
 — at the install — the fields' universes at the holes
 (`checkAbsCtorSorts`, `BlockInstall.lean`). -/
 
-/-- **The walk's fuel at the root**: the largest of the block's
-constructor types' (`whnfWalkFuel`; a member-abstracted, instantiated
-constructor is no deeper than the declared one). -/
-def nestRootFuel (ctorss : List (List (ConstantVal × Nat))) : Nat :=
-  ctorss.foldl (fun a cs => cs.foldl (fun a c => max a (whnfWalkFuel c.1.type)) a) fuelSlack
-
 /-- **The root frame**: every member's constructors through `nestCtors`
 at the root key (the block's levels `lps`, the canonical parameters, the
 holes `nP + t` above them, `nestRootSub`), member by member, sharing the
-walk's state; returns every constructor's kinds and walked normal form
+walk's state; each constructor walked at the input-derived fuel of its
+instantiated type (`whnfWalkFuel`: the root has no enclosing walk).
+Returns every constructor's kinds and walked normal form
 (member-abstracted, at the walk's context), per member. -/
-def nestRoot (ops : CheckerOps m) (env : Env) (ctx : NestCtx) (holes : List Expr) (F : Nat) :
+def nestRoot (ops : CheckerOps m) (env : Env) (ctx : NestCtx) (holes : List Expr) :
     List (List (ConstantVal × Nat)) → NestState →
       m (List (List (List NestFieldKind × Expr)) × NestState)
   | [], st => pure ([], st)
   | cs :: css, st => do
-    let (o, st) ← nestCtors ctx ops env (nestPos ops env ctx F) [] (ctx.hiAt 0)
-      (ctx.lps.map .param) ctx.params ctx.nP (nestRootSub ctx holes) cs st
-    let (os, st) ← nestRoot ops env ctx holes F css st
+    let (o, st) ← nestCtors ctx ops env (fun crest => nestPos ops env ctx (whnfWalkFuel crest)) []
+      (ctx.hiAt 0) (ctx.lps.map .param) ctx.params ctx.nP (nestRootSub ctx holes) cs st
+    let (os, st) ← nestRoot ops env ctx holes css st
     pure (o :: os, st)
 
 /-- **The root's own lines**, per constructor, on its walked normal form
@@ -1679,7 +1678,7 @@ def nestedBlockPositivity (ops : CheckerOps m) (env : Env) (ctx : NestCtx)
     (ctorss : List (List (ConstantVal × Nat))) : m NestedPositivity := do
   let holes ← unwrapOr (nestHoles ctx)
     (.internal "nested positivity: a member is not a stored former")
-  let (outs, st) ← nestRoot ops env ctx holes (nestRootFuel ctorss) ctorss {}
+  let (outs, st) ← nestRoot ops env ctx holes ctorss {}
   nestRootLinesAll ctx holes ctorss outs
   pure ⟨st.keys, outs.map (·.map (·.1)), outs.map (·.map (·.2)), st.ctorNfs⟩
 

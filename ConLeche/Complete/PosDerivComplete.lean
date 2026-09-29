@@ -421,8 +421,11 @@ describes, succeeds with the judgment's outputs. -/
   | .tele act prog base nF j cur ks nds res => ∀ fuel, n ≤ fuel → ∀ st, RInv ctx st act →
       ∃ ks' st', (∀ err, nestFields (nestPos ops env ctx fuel) prog base
           err nF j cur st = .ok (ks', nds, res, st')) ∧ ks' = ks ∧ RInv ctx st' act
-  | .ctors act prog hi us ds sub cs => ∀ fuel, n ≤ fuel → ∀ st, RInv ctx st act →
-      ∃ os st', nestCtors ctx ops env (nestPos ops env ctx fuel) prog hi us
+  | .ctors act prog hi us ds sub cs => ∀ fuelOf : Expr → Nat,
+      (∀ x ∈ cs, ∀ crest, instPisWith ds
+        ((x.1.type.instantiateLevelParams x.1.levelParams us).replaceConsts sub) = some crest →
+        n ≤ fuelOf crest) → ∀ st, RInv ctx st act →
+      ∃ os st', nestCtors ctx ops env (fun crest => nestPos ops env ctx (fuelOf crest)) prog hi us
           ds ds.length sub cs st = .ok (os, st') ∧ RInv ctx st' act ∧
         ∀ (j : Nat) (cA : ConstantVal × Nat) (o : List NestFieldKind × Expr), cs[j]? = some cA →
           os[j]? = some o → ∃ crest m nds cur,
@@ -546,7 +549,7 @@ theorem posDR_run (hroot : NestRootOk ctx) {n : Nat} {J : PosJR} (h : PosDR ops 
   | @frame n m act prog us ds grp ctors hne hhd hhdC hnd hinst hblk hgrp hctors hkty hm hwalk ih =>
     intro fuel hf st hI
     obtain ⟨st₁, h₁, hI₁⟩ := nestGroupCtors_ok (ctx := ctx) (nPc := ds.length) _ st ctors hctors hI
-    obtain ⟨os, st', h', hI', -⟩ := ih fuel (by omega) st₁ hI₁
+    obtain ⟨os, st', h', hI', -⟩ := ih (fun _ => fuel) (fun _ _ _ _ => by omega) st₁ hI₁
     replace h' := And.intro h' True.intro
     obtain ⟨ty, hty⟩ := hkty
     refine ⟨st', ?_, hI'⟩
@@ -560,21 +563,23 @@ theorem posDR_run (hroot : NestRootOk ctx) {n : Nat} {J : PosJR} (h : PosDR ops 
       subst this
       rfl
   | ctorsNil =>
-    intro fuel _ st hI
+    intro fuelOf _ st hI
     exact ⟨[], st, rfl, hI, fun _ _ _ hj => by simp at hj⟩
   | @ctorsCons n m₁ m₂ act prog hi us ds sub cv nF cs crest ty sv ks nds cur hnd hcrest hty hsort
       hm₁ htele hu4 hres hidx hm₂ hrest iht ihr =>
-    intro fuel hf st hI
+    intro fuelOf hf st hI
     simp only [nestCtors, bind, Except.bind]
     rw [if_pos hnd]
     simp only [hcrest, unwrapOr, pure, Except.pure, hty, hsort]
-    obtain ⟨ks', st₁, h₁, hks, hI₁⟩ := iht fuel (by omega) st hI
+    obtain ⟨ks', st₁, h₁, hks, hI₁⟩ :=
+      iht (fuelOf crest) (by have := hf _ List.mem_cons_self crest hcrest; omega) st hI
     simp only [h₁]
     subst hks
     rw [if_neg (by
       rw [hu4]; simp)]
     rw [if_pos (by simp [hres, hidx])]
-    obtain ⟨os, st', h₂, hI', hos⟩ := ihr fuel (by omega)
+    obtain ⟨os, st', h₂, hI', hos⟩ := ihr fuelOf
+      (fun x hx c' hc' => by have := hf x (List.mem_cons_of_mem _ hx) c' hc'; omega)
       { st₁ with ctorNfs := st₁.ctorNfs.push (nestCtorNf ctx prog hi us ds cv nds cur) } hI₁
     simp only [h₂]
     refine ⟨_, st', rfl, hI', fun j cA o hj ho => ?_⟩
@@ -602,11 +607,14 @@ theorem posDR_run (hroot : NestRootOk ctx) {n : Nat} {J : PosJR} (h : PosDR ops 
 run-completely at the root key (from the empty in-progress list) within
 the fuel makes the root frame's walk succeed, every constructor's output
 a derived telescope's. -/
-theorem nestRoot_complete (hroot : NestRootOk ctx) {holes : List Expr} {F : Nat} :
+theorem nestRoot_complete (hroot : NestRootOk ctx) {holes : List Expr} :
     ∀ (css : List (List (ConstantVal × Nat))) (st : NestState), RInv ctx st [] →
-      (∀ cs ∈ css, ∃ n, n ≤ F ∧ PosDR ops env ctx n (.ctors [] [] (ctx.hiAt 0)
+      (∀ cs ∈ css, ∃ n, (∀ x ∈ cs, ∀ crest, instPisWith ctx.params
+          ((x.1.type.instantiateLevelParams x.1.levelParams (ctx.lps.map .param)).replaceConsts
+            (nestRootSub ctx holes)) = some crest → n ≤ whnfWalkFuel crest) ∧
+        PosDR ops env ctx n (.ctors [] [] (ctx.hiAt 0)
         (ctx.lps.map .param) ctx.params (nestRootSub ctx holes) cs)) →
-      ∃ outs st', nestRoot ops env ctx holes F css st = .ok (outs, st') ∧ RInv ctx st' [] ∧
+      ∃ outs st', nestRoot ops env ctx holes css st = .ok (outs, st') ∧ RInv ctx st' [] ∧
         ∀ (c : Nat) (cs : List (ConstantVal × Nat)) (os : List (List NestFieldKind × Expr)),
           css[c]? = some cs → outs[c]? = some os →
           ∀ (j : Nat) (cA : ConstantVal × Nat) (o : List NestFieldKind × Expr),
@@ -618,7 +626,7 @@ theorem nestRoot_complete (hroot : NestRootOk ctx) {holes : List Expr} {F : Nat}
   | [], st, hI, _ => ⟨[], st, rfl, hI, fun _ _ _ hc => by simp at hc⟩
   | cs :: css, st, hI, hall => by
     obtain ⟨n, hn, hd⟩ := hall cs List.mem_cons_self
-    obtain ⟨os, st₁, h₁, hI₁, hos⟩ := posDR_run hroot hd F hn st hI
+    obtain ⟨os, st₁, h₁, hI₁, hos⟩ := posDR_run hroot hd whnfWalkFuel hn st hI
     obtain ⟨outs, st', h₂, hI', houts⟩ := nestRoot_complete hroot css st₁ hI₁
       (fun cs' hcs' => hall cs' (List.mem_cons_of_mem _ hcs'))
     refine ⟨os :: outs, st', ?_, hI', fun c cs' os' hc ho => ?_⟩
@@ -640,7 +648,10 @@ form (M3) and every member-abstracted declared type (M2′), make
 `nestedBlockPositivity` succeed. -/
 theorem nestedBlockPositivity_complete (hroot : NestRootOk ctx) {holes : List Expr}
     (hh : nestHoles ctx = some holes) {ctorss : List (List (ConstantVal × Nat))}
-    (hall : ∀ cs ∈ ctorss, ∃ n, n ≤ nestRootFuel ctorss ∧ PosDR ops env ctx n (.ctors [] []
+    (hall : ∀ cs ∈ ctorss, ∃ n, (∀ x ∈ cs, ∀ crest, instPisWith ctx.params
+        ((x.1.type.instantiateLevelParams x.1.levelParams (ctx.lps.map .param)).replaceConsts
+          (nestRootSub ctx holes)) = some crest → n ≤ whnfWalkFuel crest) ∧
+      PosDR ops env ctx n (.ctors [] []
       (ctx.hiAt 0) (ctx.lps.map .param) ctx.params (nestRootSub ctx holes) cs))
     (hlines : ∀ cs ∈ ctorss, ∀ cA ∈ cs,
       (nestAbstract ctx holes cA.1.type).nestOcc ctx.names 0 0 = false ∧

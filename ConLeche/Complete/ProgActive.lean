@@ -162,7 +162,8 @@ theorem nestFields_active (hrec : RecPres rec) (prog : List NestHole) (base : Na
 theorem nestCtors_active (hrec : RecPres rec) (prog : List NestHole) (hi : Nat) (us : List Level)
     (ds : List Expr) (nPc : Nat) (sub : Name → List Level → Option Expr) :
     ∀ (cs : List (ConstantVal × Nat)) (st : NestState) r,
-      nestCtors ctx ops env rec prog hi us ds nPc sub cs st = .ok r → r.2.active = st.active
+      nestCtors ctx ops env (fun _ => rec) prog hi us ds nPc sub cs st = .ok r →
+        r.2.active = st.active
   | [], st, st', h => by
     simp only [nestCtors, pure, Except.pure, Except.ok.injEq] at h; subst h; rfl
   | (cv, nF) :: cs, st, st', h => by
@@ -331,8 +332,8 @@ theorem nestCtors_eq (hrec : RecEq rec₁ rec₂) (hpres : RecPres rec₂) (prog
     (hi : Nat) (us : List Level) (ds : List Expr) (nPc : Nat)
     (sub : Name → List Level → Option Expr) :
     ∀ (cs : List (ConstantVal × Nat)) (st : NestState), ProgActive prog st →
-      nestCtors ctx ops env rec₁ prog hi us ds nPc sub cs st
-        = nestCtors ctx ops env rec₂ prog hi us ds nPc sub cs st
+      nestCtors ctx ops env (fun _ => rec₁) prog hi us ds nPc sub cs st
+        = nestCtors ctx ops env (fun _ => rec₂) prog hi us ds nPc sub cs st
   | [], _, _ => rfl
   | (cv, nF) :: cs, st, hpa => by
     simp only [nestCtors, nestFields_eq hrec hpres prog hi _ nF 0, hpa]
