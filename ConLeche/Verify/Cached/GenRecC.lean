@@ -22,17 +22,19 @@ The generated recursor stage `genRecCheck`
 (`checkBlockRec`), the cached driver at `shadowOpsC` (`checkBlockTailS`).
 This file proves the cached run reproduced by the pure fueled one
 (`genRecCheckS_simG`, `genRecCheckS_run`), reusing the class kit's
-per-operation simulations (`TargetRecC.lean`), and with it the cached
-uniform install (`checkBlockTailS_run`, `checkBlockKS_run`) and the
-`.indDecl` dispatch (`checkModeledOrNativeSF_run`).
+per-operation simulations (`TargetRecC.lean`), the pass's classes
+(`checkBlockClassesS_sim`), and with them the cached uniform install
+(`checkBlockPassS_run`, `checkBlockTailS_run`, `checkBlockKS_run`) and
+the `.indDecl` dispatch (`checkModeledOrNativeSF_run`).
 
 Scoping, per cached operation:
 * the stream's recursor types and the GENERATED types are closed by
   `checkConstantValF` itself; the comparison runs on two closed terms;
-* the classes' parameters are the pre-pass's reading of a CHECKED
-  (closed) recursor type, hence well scoped wherever they are
-  (`classRead_keys_scoped`), and `targetMajorOf` checks them below the
-  parameters — so every class is scoped by the parameter openers
+* the classes' parameters are the pre-pass's reading of the stream's
+  RAW recursor types, moved to the canonical parameters and kept below
+  them by `classKeyOf`'s guard (every free variable left is a canonical
+  parameter, `replaceFVars_WScoped_of_below`), then annotated
+  (`classKeyOfS_sim`) — so every class is scoped by the parameter openers
   (`TargetMajScoped`), which is all the class match (`targetMajorNfs`,
   `targetK53`) and the pin typing need;
 * each generated RULE is closed by `classRuleOk`'s own guard before it
@@ -48,7 +50,7 @@ open Expr
 
 variable {mode : CheckMode}
 
-/-! ## 1. The pre-pass's classes are well scoped -/
+/-! ## 1. The pre-pass's reading -/
 
 /-- The pre-pass's minor premise reading returns a minor premise. -/
 theorem classReadMinor_minor {np : Nat} {motPos : List Nat} {d : Nat} {dom : Expr}
@@ -64,84 +66,6 @@ theorem classReadMinor_minor {np : Nat} {motPos : List Nat} {d : Nat} {dom : Exp
     · exact ⟨_, _, _, (Option.some.inj h).symm⟩
     · exact nomatch h
   · exact nomatch h
-
-/-- The slots read off a telescope scoped at `d`: every motive's key's
-parameters are well scoped (at the depth of their binder). -/
-theorem classReadSlots_keys_scoped (nPc : Name → Nat) (np : Nat) :
-    ∀ (n : Nat) (motPos : List Nat) (d : Nat) (body : Expr) (slots : List ClassSlot),
-      WScoped d body → classReadSlots nPc np n motPos d body = some slots →
-      ∀ key, ClassSlot.motive key ∈ slots → ∀ x ∈ key.ds, ∃ D, WScoped D x
-  | 0, _, _, _, slots, _, h => by
-    simp only [classReadSlots, Option.some.injEq] at h
-    subst h
-    intro key hk
-    exact nomatch hk
-  | n + 1, motPos, d, .forallE dom body bm, slots, hw, h => by
-    simp only [WScoped] at hw
-    have hrec := fun motPos' rest (hrest : classReadSlots nPc np n motPos' (d + 1)
-        (body.instantiate1 (.fvar d dom)) = some rest) =>
-      classReadSlots_keys_scoped nPc np n motPos' (d + 1) _ rest
-        (WScoped.instantiate1 hw.1 0 hw.2) hrest
-    unfold classReadSlots at h
-    dsimp only at h
-    split at h
-    · cases hl : dom.piBinders.fst.getLast? with
-      | none => simp [hl] at h
-      | some md =>
-        obtain ⟨mdom, mb⟩ := md
-        simp only [hl, Option.bind_eq_bind, Option.bind_some] at h
-        split at h
-        · simp only [Option.pure_def, Option.bind_some, Option.bind_eq_some_iff] at h
-          obtain ⟨rest, hrest, h⟩ := h
-          obtain rfl := Option.some.inj h
-          intro key hk x hx
-          rcases List.mem_cons.mp hk with hk | hk
-          · simp only [ClassSlot.motive.injEq] at hk
-            subst hk
-            have hmdom : WScoped d mdom :=
-              (piBinders_WScoped hw.1).1 _ (List.mem_of_getLast? hl)
-            exact ⟨d, Expr.WScoped.getAppArgs hmdom x (List.mem_of_mem_take hx)⟩
-          · exact hrec _ rest hrest key hk x hx
-        · simp at h
-    · cases hm : classReadMinor np motPos d dom with
-      | none => simp [hm] at h
-      | some slot =>
-        simp only [hm, Option.bind_eq_bind, Option.bind_some, Option.bind_eq_some_iff] at h
-        obtain ⟨rest, hrest, h⟩ := h
-        obtain rfl := Option.some.inj h
-        intro key hk x hx
-        rcases List.mem_cons.mp hk with hk | hk
-        · obtain ⟨c, C, ihs, rfl⟩ := classReadMinor_minor hm
-          exact nomatch hk
-        · exact hrec _ rest hrest key hk x hx
-  | _ + 1, _, _, .bvar _, _, _, h | _ + 1, _, _, .fvar .., _, _, h
-  | _ + 1, _, _, .sort _, _, _, h | _ + 1, _, _, .const .., _, _, h
-  | _ + 1, _, _, .app .., _, _, h | _ + 1, _, _, .lam .., _, _, h
-  | _ + 1, _, _, .letE .., _, _, h | _ + 1, _, _, .lit _, _, _, h
-  | _ + 1, _, _, .proj .., _, _, h => by simp [classReadSlots] at h
-
-/-- **The pre-pass's classes are well scoped** when the recursor types it
-reads are closed. -/
-theorem classRead_keys_scoped {nP : Nat} {nPc : Name → Nat} {recs : List RecShape}
-    {rd : ClassRead} (hw : ∀ rc ∈ recs, WScoped 0 rc.cvR.type)
-    (h : classRead nP nPc recs = some rd) :
-    ∀ key ∈ rd.classes, ∀ x ∈ key.ds, ∃ D, WScoped D x := by
-  unfold classRead at h
-  simp only [Option.bind_eq_bind, Option.bind_eq_some_iff] at h
-  obtain ⟨rc0, h0, ⟨pf, body⟩, hopen, slots, hslots, recCls, -, h⟩ := h
-  simp only [Option.pure_def, Option.some.injEq] at h
-  subst h
-  have hw0 := hw rc0 (List.mem_of_mem_head? h0)
-  have hb := (openPisAtFvars_WScoped nP _ 0 hopen hw0).2
-  rw [Nat.zero_add] at hb
-  intro key hk
-  simp only [ClassRead.classes, List.mem_filterMap] at hk
-  obtain ⟨s, hs, hks⟩ := hk
-  split at hks
-  · rename_i k
-    obtain rfl := Option.some.inj hks
-    exact classReadSlots_keys_scoped nPc nP _ [] nP body slots hb hslots k hs
-  · exact nomatch hks
 
 /-! ## 2. The stages, simulated -/
 

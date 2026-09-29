@@ -28,10 +28,11 @@ hypothesis `hg`.  Field by field, each from the run's own binds:
   telescope (`blockNestCtx`): a closed former opened at `0` gives
   `fvar i` typed over the earlier ones;
 * `ds` — a class's parameters: a member's are the canonical parameters,
-  an outside class's are its key's (the pre-pass's reading off CHECKED,
-  hence closed, stream recursor types, `classRead_keys_scoped`, moved to
-  the canonical parameters, `classKeyCanon`) under `targetMajorOf`'s guard
-  (no loose bound variable, free variables below `nP`);
+  an outside class's are its key's (the pre-pass's reading off the RAW
+  stream recursor types, moved to the canonical parameters and kept below
+  them by `classKeyOf`, then annotated: `genRun_keys_scoped`) under
+  `targetMajorOf`'s guard (no loose bound variable, free variables below
+  `nP`);
 * `former` — a member's former is a (closed) stream former, an outside
   class's the stored inductive's type at levels (`EnvWF`);
 * `tyN` — the datum entry of the positivity check's table, whose entries
@@ -389,21 +390,6 @@ theorem genRun_params_scb
   obtain ⟨ty, hxe, hty⟩ := hP i _ (List.getElem?_eq_getElem hi)
   rw [hxe]
   exact ScB.fvar (by omega) hty
-
-/-- The stream's recursor types the pre-pass reads are closed. -/
-theorem genRun_cvRis_closed
-    (R : GenRecRun mode F (mkFEnv env₁) env₁ (mkFEnv envC) p nestedBit pos cvTas block ctorsAs out) :
-    ∀ cv ∈ R.cvRis, WScoped 0 cv.type := by
-  obtain ⟨hlen, hall⟩ := classStreamRecs_run R.hcvRis
-  intro cv hcv
-  obtain ⟨i, hi, rfl⟩ := List.getElem_of_mem hcv
-  obtain ⟨rc, hrc⟩ : ∃ rc, p.recs[i]? = some rc :=
-    ⟨_, List.getElem?_eq_getElem (by omega)⟩
-  obtain ⟨cv', hcv', hchk⟩ := hall i rc hrc
-  rw [List.getElem?_eq_getElem hi] at hcv'
-  obtain rfl := Option.some.inj hcv'
-  rw [checkConstantValF_eq] at hchk
-  exact WScoped.of_not_hasFvar (checkConstantVal_typeWF hchk).1
 
 /-- **The run's class keys are scoped** over the canonical parameters:
 each parameter moved to them, kept below them by the guard, then

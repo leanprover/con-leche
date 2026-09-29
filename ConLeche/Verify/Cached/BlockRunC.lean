@@ -16,11 +16,11 @@ public section
 
 `checkBlockKS` (`ConLeche/Cached/CheckerC.lean`), the cached mirror of
 the uniform installer at any number of members, is reproduced by the
-pure fueled `checkBlock`.  This file holds the pass (`checkBlockPassS_run`),
-the stages' simulations and the `SimG` kit; the recursor stage — the
-target check — its install and the `.indDecl` dispatch
+pure fueled `checkBlock`.  This file holds the stages' simulations and
+the `SimG` kit; the pass (`checkBlockPassS_run`, which checks the
+classes), the recursor stage, its install and the `.indDecl` dispatch
 (`checkBlockTailS_run`, `checkBlockKS_run`, `checkModeledOrNativeSF_run`)
-are in `ConLeche/Verify/Cached/TargetRecC.lean`.
+are in `ConLeche/Verify/Cached/GenRecC.lean`.
 
 The file follows `BridgeCSDecl.lean`'s layout:
 
@@ -542,68 +542,5 @@ theorem checkBlockCtors_fresh {env₀ env : Env} {q : BlockShape} {F : Nat}
   obtain ⟨⟨ty', hccv⟩, -, -⟩ := checkSumCtor_shape hrun
   rw [(checkConstantVal_lps hccv).1]
   exact (checkConstantVal_inv hccv).1
-
-/-! ### The formers' view of the constructors' index
-
-The tail runs the positivity walk at the formers' environment through the
-prefix view of the constructors' index (`FEnv.restrictTo`, `checkBlockTailS`):
-every constructor pushed above the view is fresh below it, so the view
-looks names up as the formers' index does. -/
-
-/-- A push of a name fresh at `fe₀` keeps the view at `fe₀`'s bound
-looking up as `fe₀`. -/
-theorem restrictTo_push_find? {fe₀ fe : FEnv} {ci : ConstantInfo}
-    (hle : fe₀.visibleBelow ≤ fe.visibleBelow)
-    (hv : (fe.restrictTo fe₀.visibleBelow).find? = fe₀.find?)
-    (hfresh : fe₀.find? ci.name = none) :
-    ((fe.push ci).restrictTo fe₀.visibleBelow).find? = fe₀.find? := by
-  funext n
-  by_cases hn : ci.name = n
-  · subst hn
-    rw [hfresh]
-    simp only [FEnv.find?, FEnv.push, FEnv.restrictTo, Std.HashMap.getElem?_insert_self]
-    exact if_neg (Nat.not_lt.mpr hle)
-  · rw [← congrFun hv n]
-    simp only [FEnv.find?, FEnv.push, FEnv.restrictTo]
-    rw [Std.HashMap.getElem?_insert, if_neg (by simpa using hn)]
-    rfl
-
-theorem restrictTo_consSumCtorsF_find? {fe₀ : FEnv} {nP : Nat} :
-    ∀ {ctorsA : List (ConstantVal × Nat)} {fe : FEnv},
-      fe₀.visibleBelow ≤ fe.visibleBelow →
-      (fe.restrictTo fe₀.visibleBelow).find? = fe₀.find? →
-      (∀ c ∈ ctorsA, fe₀.find? c.1.name = none) →
-      fe₀.visibleBelow ≤ (consSumCtorsF nP ctorsA fe).visibleBelow ∧
-        ((consSumCtorsF nP ctorsA fe).restrictTo fe₀.visibleBelow).find? = fe₀.find?
-  | [], _, hle, hv, _ => ⟨hle, hv⟩
-  | c :: cs, fe, hle, hv, hfr => by
-    simp only [consSumCtorsF]
-    refine restrictTo_consSumCtorsF_find? (by simp only [FEnv.push]; omega)
-      (restrictTo_push_find? hle hv (hfr c List.mem_cons_self))
-      (fun c' hc' => hfr c' (List.mem_cons_of_mem _ hc'))
-
-theorem restrictTo_consBlockCtorsF_find? {fe₀ : FEnv} {nP : Nat} :
-    ∀ {ctorsAs : List (List (ConstantVal × Nat))} {fe : FEnv},
-      fe₀.visibleBelow ≤ fe.visibleBelow →
-      (fe.restrictTo fe₀.visibleBelow).find? = fe₀.find? →
-      (∀ ctorsA ∈ ctorsAs, ∀ c ∈ ctorsA, fe₀.find? c.1.name = none) →
-      ((consBlockCtorsF nP ctorsAs fe).restrictTo fe₀.visibleBelow).find? = fe₀.find?
-  | [], _, _, hv, _ => hv
-  | cs :: css, fe, hle, hv, hfr => by
-    simp only [consBlockCtorsF]
-    obtain ⟨hle', hv'⟩ := restrictTo_consSumCtorsF_find? (nP := nP) hle hv
-      (hfr cs List.mem_cons_self)
-    exact restrictTo_consBlockCtorsF_find? hle' hv'
-      (fun cs' hc' => hfr cs' (List.mem_cons_of_mem _ hc'))
-
-/-- **The formers' view of the constructors' index looks up as the
-formers' environment.** -/
-theorem restrictTo_consBlockCtors_mkFEnv {env₁ : Env} {nP : Nat}
-    {ctorsAs : List (List (ConstantVal × Nat))}
-    (hfr : ∀ ctorsA ∈ ctorsAs, ∀ c ∈ ctorsA, env₁.find? c.1.name = none) :
-    ((consBlockCtorsF nP ctorsAs (mkFEnv env₁)).restrictTo (mkFEnv env₁).visibleBelow).find?
-      = (mkFEnv env₁).find? :=
-  restrictTo_consBlockCtorsF_find? (Nat.le_refl _) rfl
-    (fun cs hc c hc' => by rw [mkFEnv_find?]; exact hfr cs hc c hc')
 
 end ConLeche.Cached
