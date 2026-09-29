@@ -1,6 +1,6 @@
 module
 
-public import ConLeche.Kernel.Inductives.BlockTail
+import ConLeche.Kernel.Inductives.BlockTail
 public import ConLeche.Verify.Inductives.RecCheckRun
 public import ConLeche.Verify.Inductives.BlockRecRun
 import ConLeche.Verify.ExceptBind

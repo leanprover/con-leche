@@ -2,13 +2,10 @@ module
 
 public import ConLeche.Model.Inductives.GenRecAssembly
 public import ConLeche.Model.Inductives.TargetNodePres
-public import ConLeche.Model.Inductives.TargetNodeList
-public import ConLeche.Model.Inductives.GenNodeList
 import ConLeche.Model.Inductives.GenNodeCalls
 import ConLeche.Model.Inductives.GenFrameTie
 import ConLeche.Model.Inductives.GenRecParams
 import ConLeche.Model.Inductives.GenRecStage
-import ConLeche.Model.Inductives.TargetNodeCalls
 import ConLeche.Model.Inductives.TargetNodeSem
 import ConLeche.Model.Inductives.TargetNodeDynOf
 import ConLeche.Model.Inductives.TargetNodeCover

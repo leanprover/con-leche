@@ -4,13 +4,13 @@ import ConLeche.Verify.Inductives.RecStage
 import ConLeche.Model.Inductives.BlockRecData
 import ConLeche.Model.Inductives.BlockRuleRun
 import ConLeche.Verify.Inductives.BlockRecRun
-public import ConLeche.Model.Inductives.TargetFrame
+import ConLeche.Model.Inductives.TargetFrame
 public import ConLeche.Model.Inductives.TargetIhData
 import ConLeche.Model.Inductives.BlockRuleFit
 import ConLeche.Model.Inductives.BlockRecPreRun
 import ConLeche.Model.Inductives.BlockRecPreHpre
 import ConLeche.Model.Inductives.BlockRuleParams
-public import ConLeche.Model.Inductives.BlockRuleCaRun
+import ConLeche.Model.Inductives.BlockRuleCaRun
 
 public section
 

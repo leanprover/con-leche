@@ -2,14 +2,10 @@ module
 
 public import ConLeche.Model.Inductives.TargetNodeDynOf
 import ConLeche.Model.Inductives.TargetCallLand
-import ConLeche.Model.Inductives.ContSem
 import ConLeche.Model.Inductives.ContFrame
 import ConLeche.Model.Inductives.ContN2
 import ConLeche.Model.Inductives.ContWalk
 import ConLeche.Model.Inductives.ContAccRel
-import ConLeche.Model.Inductives.PosDerivMono
-import ConLeche.Model.Inductives.PosDerivNodes
-import ConLeche.Model.Annot.BitInst
 import ConLeche.Semantics.Tower.FixTower
 import ConLeche.Verify.Level
 

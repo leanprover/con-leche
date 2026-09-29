@@ -1,8 +1,7 @@
 module
 
 public import ConLeche.Model.Inductives.TargetClass
-public import ConLeche.Model.Inductives.TargetNodeRb
-public import ConLeche.Verify.Inductives.RecCheckRun
+import ConLeche.Verify.Inductives.RecCheckRun
 public import ConLeche.Model.Inductives.TargetOutIdx
 import ConLeche.Model.Inductives.TargetOutRows
 import ConLeche.Verify.Inductives.NestContInv

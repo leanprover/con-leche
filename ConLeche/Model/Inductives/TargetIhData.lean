@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.Model.Inductives.TargetRuleData
-public import ConLeche.Model.Inductives.TargetIhSlot
+import ConLeche.Model.Inductives.TargetIhSlot
 public import ConLeche.Model.Inductives.BlockRecGraph
 
 public section

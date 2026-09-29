@@ -1,12 +1,10 @@
 module
 
 public import ConLeche.Model.Inductives.GenRecAssembly
-import ConLeche.Verify.Inductives.GenRecRun
 import ConLeche.Model.Inductives.BlockRecData
 import ConLeche.Model.Inductives.BlockRecAssembly
 public import ConLeche.Model.Inductives.BlockDeclRun
 import ConLeche.Model.Inductives.StructFrameKit
-import ConLeche.Verify.Inductives.ClassGenScope
 import ConLeche.Verify.Abstract
 import ConLeche.Verify.Extend.Inversions
 import ConLeche.Semantics.DeclRun
@@ -15,7 +13,6 @@ public import ConLeche.Model.Inductives.GenRuleSyn
 public import ConLeche.Model.Inductives.GenRuleFree
 import ConLeche.Model.Inductives.NestedRecRest
 import ConLeche.Verify.CheckerF
-import ConLeche.Model.Inductives.TargetClasses
 import ConLeche.Model.Inductives.BlockRecPreHpre
 import ConLeche.Model.Levels
 import ConLeche.Verify.Level

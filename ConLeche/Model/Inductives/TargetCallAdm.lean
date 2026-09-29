@@ -2,10 +2,8 @@ module
 
 public import ConLeche.Model.Inductives.TargetNodeDynOf
 import ConLeche.Model.Inductives.TargetCallLand
-import ConLeche.Model.Inductives.ContSem
 import ConLeche.Model.Inductives.ContWalk
 import ConLeche.Model.Inductives.ContAccRel
-import ConLeche.Model.Inductives.PosDerivMono
 import ConLeche.Verify.Level
 
 public section

@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.Model.Inductives.GenRuleSyn
-public import ConLeche.Semantics.ConstsBound
+import ConLeche.Semantics.ConstsBound
 import ConLeche.Verify.Inductives.NestCallSyn
 import ConLeche.Verify.Abstract
 import ConLeche.Verify.Inductives.NestScope

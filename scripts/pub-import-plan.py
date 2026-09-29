@@ -619,6 +619,51 @@ FALLBACK = {
     # `NestedRecPins.lean:182` and `:185`).
     ('ConLeche.Model.Inductives.NestedRecPins', 'ConLeche.Model.Inductives.BlockRecAssembly'),
     ('ConLeche.Model.Inductives.NestedRecPins', 'ConLeche.Model.Inductives.BlockRecLaw'),
+    # lane GENREC-CLS (integration, the generated stage in the build):
+    # the model calls these demotable; MEASURED as a FILE-LEVEL batch —
+    # demoting each file's listed edges together fails the build
+    # (`Unknown identifier`: `SetTheory` in `GenCallKit`, `ClassSlot`/
+    # `NestCtx` in `GenNodeList`, `ConLeche.tgtMajorsOf`/`BlockNamesOk` in
+    # `GenRecClasses`, `erasedEq_mkAppN_inv` in `GenClsSem` through
+    # `GenRecPreRun`, `readOpenedDoms_getElem` in `GenClsRows` through
+    # `GenRecRules`, `WellDenotedV_mkAppN_args` in `FixKit` through
+    # `IndPointKit`, `instPisWith_eq_instPisAt`/`targetK53_true` one tier
+    # below `TargetIhSlot`/`TargetRuleData`, and the `GenDepth`/
+    # `GenK53Rename`/`InferProjSlots` statements); not yet measured one
+    # edge at a time.
+    ('ConLeche.Model.IndPointKit', 'ConLeche.Model.IndDomGrade'),
+    ('ConLeche.Model.Inductives.GenCallData', 'ConLeche.Model.Inductives.GenNodeList'),
+    ('ConLeche.Model.Inductives.GenCallKit', 'ConLeche.Model.Inductives.GenRecAssembly'),
+    ('ConLeche.Model.Inductives.GenCallKit', 'ConLeche.Model.Inductives.TargetNodeRead'),
+    ('ConLeche.Model.Inductives.GenNodeList', 'ConLeche.Model.Inductives.GenRecAssembly'),
+    ('ConLeche.Model.Inductives.GenNodeList', 'ConLeche.Model.Inductives.GenRecStage'),
+    ('ConLeche.Model.Inductives.GenNodeList', 'ConLeche.Model.Inductives.PosDerivNodes'),
+    ('ConLeche.Model.Inductives.GenNodeList', 'ConLeche.Model.Inductives.TargetNodeCover'),
+    ('ConLeche.Model.Inductives.GenNodeList', 'ConLeche.Model.Inductives.TargetNodeList'),
+    ('ConLeche.Model.Inductives.GenNodeList', 'ConLeche.Model.Inductives.TargetNodeSem'),
+    ('ConLeche.Model.Inductives.GenRecClasses', 'ConLeche.Model.Inductives.BlockDeclRun'),
+    ('ConLeche.Model.Inductives.GenRecClasses', 'ConLeche.Model.Inductives.NestedRecRest'),
+    ('ConLeche.Model.Inductives.GenRecPreRun', 'ConLeche.Model.Inductives.ClassGenRead'),
+    ('ConLeche.Model.Inductives.GenRecPreRun', 'ConLeche.Model.Inductives.GenRecStage'),
+    ('ConLeche.Model.Inductives.GenRecRules', 'ConLeche.Model.Inductives.GenRecAssembly'),
+    ('ConLeche.Model.Inductives.GenRecRules', 'ConLeche.Model.Inductives.GenRuleFree'),
+    ('ConLeche.Model.Inductives.GenRecRules', 'ConLeche.Model.Inductives.GenRuleSyn'),
+    ('ConLeche.Model.Inductives.PosDerivTie', 'ConLeche.Verify.Inductives.PosDerivInv'),
+    ('ConLeche.Model.Inductives.TargetIhSlot', 'ConLeche.Verify.Inductives.RecCheckRun'),
+    ('ConLeche.Model.Inductives.TargetOutSat', 'ConLeche.Model.Inductives.BlockRecData'),
+    ('ConLeche.Model.Inductives.TargetOutSat', 'ConLeche.Model.Inductives.TargetClass'),
+    ('ConLeche.Model.Inductives.TargetOutSat', 'ConLeche.Model.Inductives.TargetRuleData'),
+    ('ConLeche.Model.Inductives.TargetRuleData', 'ConLeche.Verify.Inductives.RecCheckRun'),
+    ('ConLeche.Verify.Inductives.GenDepth', 'ConLeche.Kernel.Inductives.GenRec'),
+    ('ConLeche.Verify.Inductives.GenDepth', 'ConLeche.Verify.Inductives.ClassGenMinorSyn'),
+    ('ConLeche.Verify.Inductives.GenDepth', 'ConLeche.Verify.Inductives.ClassGenScope'),
+    ('ConLeche.Verify.Inductives.GenDepth', 'ConLeche.Verify.Shift'),
+    ('ConLeche.Verify.Inductives.GenK53Rename', 'ConLeche.Kernel.Inductives.GenRec'),
+    ('ConLeche.Verify.Inductives.GenK53Rename', 'ConLeche.Verify.Inductives.ClassGenMinorSyn'),
+    ('ConLeche.Verify.Inductives.GenK53Rename', 'ConLeche.Verify.Inductives.NestCallSyn'),
+    ('ConLeche.Verify.Inductives.GenK53Rename', 'ConLeche.Verify.Inductives.RecCheckRun'),
+    ('ConLeche.Verify.InferProjSlots', 'ConLeche.Kernel.TypeChecker'),
+    ('ConLeche.Verify.InferProjSlots', 'ConLeche.Verify.ProjSlots'),
 }
 
 files=[f for f in subprocess.check_output(['git','ls-files','*.lean']).decode().split()

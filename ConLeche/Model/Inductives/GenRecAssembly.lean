@@ -1,7 +1,7 @@
 module
 
-public import ConLeche.Model.Inductives.DeclBlock
-public import ConLeche.Model.Inductives.ClassRecKit
+import ConLeche.Model.Inductives.DeclBlock
+import ConLeche.Model.Inductives.ClassRecKit
 public import ConLeche.Model.Inductives.ClassGenStep
 public import ConLeche.Verify.Inductives.GenRecRun
 public import ConLeche.Verify.Inductives.ClassGenMinorSyn

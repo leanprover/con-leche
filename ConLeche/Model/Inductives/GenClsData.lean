@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.Model.Inductives.GenClsRhs
-public import ConLeche.Model.Inductives.GenRecRules
+import ConLeche.Model.Inductives.GenRecRules
 import ConLeche.Model.Inductives.GenClsSem
 import ConLeche.Model.Inductives.GenClsMinor
 import ConLeche.Model.Inductives.GenClsFrame

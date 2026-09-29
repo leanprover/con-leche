@@ -1,7 +1,7 @@
 module
 
-public import ConLeche.Model.Inductives.BlockRecAssembly
-public import ConLeche.Model.Inductives.BlockRecLaw
+import ConLeche.Model.Inductives.BlockRecAssembly
+import ConLeche.Model.Inductives.BlockRecLaw
 public import ConLeche.Model.Inductives.BlockRecData
 import ConLeche.Model.Inductives.ClassGenRead
 import ConLeche.Model.Rules.Sound

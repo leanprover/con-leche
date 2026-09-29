@@ -3,11 +3,9 @@ module
 public import ConLeche.Model.Inductives.GenRecAssembly
 import ConLeche.Model.Inductives.NestPosOut
 import ConLeche.Model.Inductives.ClassGenRead
-import ConLeche.Model.Inductives.ClassGenMinor
 import ConLeche.Verify.Inductives.ClassGenMinorSyn
 import ConLeche.Verify.Inductives.ClassGenAnnot
 import ConLeche.Verify.Inductives.ClassGenScope
-import ConLeche.Verify.Inductives.NestCallSyn
 import ConLeche.Verify.Abstract
 
 import ConLeche.Verify.InferLemmas

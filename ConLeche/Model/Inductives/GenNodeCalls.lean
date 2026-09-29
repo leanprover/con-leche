@@ -34,9 +34,9 @@ import ConLeche.Verify.EnvBound
 import ConLeche.Model.Annot.BitRename
 import ConLeche.Semantics.Inductives.DeclBlockEta
 public import ConLeche.Model.Inductives.GenCallData
-public import ConLeche.Model.Inductives.GenOutFacts
+import ConLeche.Model.Inductives.GenOutFacts
 public import ConLeche.Model.Inductives.TargetNodeDynOf
-public import ConLeche.Verify.Inductives.ClassMatchRun
+import ConLeche.Verify.Inductives.ClassMatchRun
 
 public section
 

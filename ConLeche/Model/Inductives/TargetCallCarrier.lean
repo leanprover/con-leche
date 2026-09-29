@@ -6,7 +6,7 @@ import ConLeche.Model.Inductives.TargetCallCore
 import ConLeche.Model.Inductives.BlockRecRule
 import ConLeche.Model.Inductives.TargetCallKit
 import ConLeche.Model.Inductives.TargetResidue
-public import ConLeche.Model.Inductives.TargetFrame
+import ConLeche.Model.Inductives.TargetFrame
 import ConLeche.Model.Inductives.BlockRecData
 import ConLeche.Model.Inductives.BlockRecPreHpre
 import ConLeche.Model.Inductives.StructFrameKit
