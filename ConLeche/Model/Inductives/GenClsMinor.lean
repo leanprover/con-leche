@@ -241,4 +241,67 @@ theorem genMinorSetup
 
 end Setup
 
+/-! ## An inductive hypothesis type, read -/
+
+/-- **An inductive hypothesis's type, read at its depth `D`**: the
+`genIhDomAV` of the `ih` data read off its pieces (the walked telescope's
+domains with the family's bit, the leaf's indices and the applied field) —
+the data `genIhdAV` reads. -/
+theorem genIhTy_read {acval : Name → (Name → Nat) → AnnotTerm} {env : Env} {ψ : Name → Nat}
+    {g : ClassGen} {t tele st : Nat} {w f : Expr} {D : Nat} {xs idx : List Expr} {ty0 : Expr}
+    {a : AnnotTerm} (hst : ConLeche.ClassRead.motiveSlot ⟨g.slots, []⟩ t = some st)
+    (hw : ConLeche.ScB D w) (hfb : f.looseBVarsBounded 0 = true)
+    (hip : g.ihParts t tele w D = some (xs, idx))
+    (hty : g.ihTy t tele w f D = some ty0) (r : Nat)
+    (hread : denoteMeta acval env ψ D ty0 = some a) :
+    a = genIhDomAV D (g.nP + st)
+      (r, (readOpenedDoms acval env ψ D xs).map fun b => (pwBit ψ g.bm.pw, b),
+        idx.map fun e => (denoteMeta acval env ψ (D + xs.length) e).getD default,
+        (denoteMeta acval env ψ (D + xs.length) (Expr.mkAppN f xs)).getD default) := by
+  unfold ClassGen.ihTy at hty
+  obtain ⟨⟨xs', idx'⟩, hip', hty⟩ := Option.bind_eq_some_iff.mp hty
+  rw [hip] at hip'
+  obtain ⟨rfl, rfl⟩ := Prod.mk.inj (Option.some.inj hip')
+  simp only [Option.pure_def, Option.some.injEq] at hty
+  subst hty
+  obtain ⟨hxl, hxs, hidx⟩ := ConLeche.ClassGen.ihParts_scoped hw (Nat.le_refl _) hip
+  rw [ConLeche.ClassGen.motVar_eq hst] at hread
+  have hcl : ∀ p ∈ xs.map g.binder, p.1.looseBVarsBounded 0 = true := by
+    intro p hp
+    obtain ⟨y, hy, rfl⟩ := List.mem_map.mp hp
+    obtain ⟨k, hk, rfl⟩ := List.getElem_of_mem hy
+    obtain ⟨ty, hxe, hty'⟩ := hxs k _ (List.getElem?_eq_getElem hk)
+    rw [hxe]; exact hty'.2
+  have hbb : (Expr.mkAppN (.fvar (g.nP + st) (.sort .zero))
+      (idx ++ [Expr.mkAppN f xs])).looseBVarsBounded 0 = true := by
+    refine ConLeche.looseBVarsBounded_mkAppN (by simp [Expr.looseBVarsBounded]) fun e he => ?_
+    rcases List.mem_append.mp he with he | he
+    · exact (hidx e he).2
+    · simp only [List.mem_singleton] at he
+      subst he
+      refine ConLeche.looseBVarsBounded_mkAppN hfb fun y hy => ?_
+      obtain ⟨k, hk, rfl⟩ := List.getElem_of_mem hy
+      obtain ⟨ty, hxe, -⟩ := hxs k _ (List.getElem?_eq_getElem hk)
+      rw [hxe]; simp [Expr.looseBVarsBounded]
+  obtain ⟨bs, b, rfl, hbl, hbs, hb⟩ :=
+    denoteMeta_closeTelescope_read _ D _ _ hcl hbb (Expr.ErasedEq.rfl _) hread
+  rw [List.length_map] at hb hbl
+  obtain ⟨fa, vs, hfa, hvs, rfl⟩ := denoteMeta_mkAppN_inv hb
+  rw [denoteMeta_fvar] at hfa
+  obtain rfl := Option.some.inj hfa
+  have hvsE := denoteMetaSpine_eq_map hvs
+  unfold genIhDomAV
+  simp only [List.length_map, readOpenedDoms_length_eq]
+  congr 1
+  · refine List.ext_getElem (by simp [hbl]) fun k h1 h2 => ?_
+    have hkx : k < xs.length := by rw [← hbl]; exact h1
+    obtain ⟨a', ha', hr⟩ := hbs k (g.binder xs[k]) (by simp [hkx])
+    rw [List.getElem?_eq_getElem h1] at ha'
+    rw [Option.some.inj ha']
+    simp only [List.getElem_map, readOpenedDoms_getElem D xs k hkx]
+    simp only [ClassGen.binder] at hr
+    rw [hr]
+    rfl
+  · rw [hvsE, List.map_append, List.map_cons, List.map_nil]
+
 end ConLeche.Model
