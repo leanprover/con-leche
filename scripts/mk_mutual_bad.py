@@ -336,11 +336,10 @@ twin("tests/e2e/mutual_rec_body_redex.ndjson", _redex,
 # 6. a recursor with a MISSING rule.  Completeness is a soundness
 #    requirement — `Nat.rec` with a rule for `zero` only would prove
 #    `∀ n, M n` from `M 0` — and the uniform route already enforces it
-#    twice: the recursor records' structural pin
-#    (`blockRecPinOk`: `rules.length == ms.ctors.length`, one rule per
-#    constructor of the member IN ORDER, each naming its constructor
-#    with its field count) and the rule loop itself
-#    (`checkBlockRules`, whose two lists must run out together).  The
+#    twice: the recursor check's rule pins
+#    (`targetRulePins`: one rule per constructor of the major IN ORDER,
+#    each naming its constructor with its field count) and the rule loop
+#    itself (`targetRules`, whose two lists must run out together).  The
 #    twin drops `Even.zero`'s rule from `Even.rec`.
 def _missing_rule(recs, names):
     a, b = names["InModelMutual.Even"], names["InModelMutual.Odd"]

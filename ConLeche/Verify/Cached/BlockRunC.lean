@@ -976,12 +976,12 @@ at the constructors' index (the `feR` half of every rule is closed by
 `sharedOpsRuleR`'s trailing flush), and this flush only drops what that
 stage cached there — no invariant is carried across it. -/
 theorem checkBlockRecConformS_run (hμ : mode.verifiedChecks = true) {env₂ : Env}
-    (henv₂ : EnvWF env₂) {p : BlockParts} {block : List ConstantInfo} {cvTas : List ConstantVal}
+    (henv₂ : EnvWF env₂) {p : BlockParts} {cvTas : List ConstantVal}
     {ctorsAs : List (List (ConstantVal × Nat))} {nfs : List (List Expr)} {s₀ : CState}
     (hwf : CSOKF s₀) {u : Unit} {s' : CState}
     (h : (flushC *> checkBlockRecConformF (sharedOpsC mode (mkFEnv env₂)) structWalkersC
-      (mkFEnv env₂) none p block cvTas ctorsAs nfs) s₀ = .ok (u, s')) :
-    CSOKF s' ∧ ∃ F, checkBlockRecConform (fueledOps mode F) env₂ p block cvTas ctorsAs nfs
+      (mkFEnv env₂) none p cvTas ctorsAs nfs) s₀ = .ok (u, s')) :
+    CSOKF s' ∧ ∃ F, checkBlockRecConform (fueledOps mode F) env₂ p cvTas ctorsAs nfs
       = .ok () := by
   simp only [SeqRight.seqRight, bind_pure_comp] at h
   obtain ⟨u0, s₁, hfl, h⟩ := bindC_ok h
@@ -1001,17 +1001,17 @@ theorem checkBlockRecConformS_run (hμ : mode.verifiedChecks = true) {env₂ : E
     rw [hKp]
     simp only [bind, Except.bind]
     try dsimp only at h
-    by_cases hok : nativeRulesOk (p.toNative block kinds).cvR.name
-        ((p.toNative block kinds).cvR.levelParams.map .param) .never (p.toNative block kinds).nP
-        (p.toNative block kinds).ctors.length ctorsA (p.toNative block kinds).kinds (p.toNative block kinds).rhss
-        (p.toNative block kinds).cvR.type = true
+    by_cases hok : nativeRulesOk (p.toNative kinds).cvR.name
+        ((p.toNative kinds).cvR.levelParams.map .param) .never (p.toNative kinds).nP
+        (p.toNative kinds).ctors.length ctorsA (p.toNative kinds).kinds (p.toNative kinds).rhss
+        (p.toNative kinds).cvR.type = true
     case neg =>
       simp only [hok, Bool.false_eq_true, ↓reduceIte] at h
       exact absurd h throwC_bind_ok
     simp only [hok, ↓reduceIte] at h ⊢
     simp only [discard, Functor.discard, Functor.mapConst, Function.comp_def] at h
     rw [checkNativeRecF_eq] at h
-    cases hrc : checkNativeRec (sharedOpsC mode (mkFEnv env₂)) env₂ (p.toNative block kinds) cvTa ctorsA
+    cases hrc : checkNativeRec (sharedOpsC mode (mkFEnv env₂)) env₂ (p.toNative kinds) cvTa ctorsA
         s₀.flushed with
     | error e =>
       simp only [StateT.map, hrc, bind, Except.bind] at h
@@ -1026,13 +1026,13 @@ theorem checkBlockRecConformS_run (hμ : mode.verifiedChecks = true) {env₂ : E
     obtain ⟨hs₂, q', hP, F, hF⟩ := checkNativeRecS_sim hμ henv₂ hs₁ q s₂ hrc
     obtain rfl : q = q' := hP
     refine ⟨hs₂.residue, F, ?_⟩
-    have hF' : checkNativeRec (fueledOps mode F) env₂ (p.toNative block kinds) cvTa ctorsA = .ok q := by
+    have hF' : checkNativeRec (fueledOps mode F) env₂ (p.toNative kinds) cvTa ctorsA = .ok q := by
       rw [← checkNativeRec_datF]; exact hF
     simp only [discard, Functor.discard, Functor.mapConst, Function.comp_def]
     rw [hF']
     rfl
   · have eF : checkBlockRecConformF (sharedOpsC mode (mkFEnv env₂)) StructWalkers.plain
-        (mkFEnv env₂) none p block cvTas ctorsAs nfs = pure () := by
+        (mkFEnv env₂) none p cvTas ctorsAs nfs = pure () := by
       unfold checkBlockRecConformF
       split
       · exfalso; exact hone ⟨_, _, _, _, by assumption, by assumption, rfl, by assumption⟩

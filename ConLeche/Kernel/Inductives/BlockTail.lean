@@ -56,7 +56,7 @@ def checkBlockRec (ops : CheckerOps m) (env₁ env : Env) (p : BlockParts) (nest
     (ctorsAs : List (List (ConstantVal × Nat))) :
     m (List (ConstantVal × TargetMajor × List Expr)) :=
   thenConform (checkBlockRecT ops env₁ env p nested nfs pos block cvTas ctorsAs)
-    (if conf then checkBlockRecConform ops env p block cvTas ctorsAs nfs else pure ())
+    (if conf then checkBlockRecConform ops env p cvTas ctorsAs nfs else pure ())
 
 /-- **The checked family consed, at its majors**: each
 recursor with its rules at ITS major (`tgtStoredRules`: the major's

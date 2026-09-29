@@ -635,7 +635,7 @@ recursors whose major is a member carry the set `{T_m.rec}`; the others (a
 nested block's auxiliaries) carry pairwise
 distinct names `T_0.rec_1 … T_0.rec_n` (official's naming, as a set).
 The block's constructors in the stream's order are the members' in
-block order (`blockRecPinOk`'s grouping conjunct).  The rule pins need
+block order (the grouping).  The rule pins need
 the majors' constructors and are `targetRulePins`. -/
 def targetRecPins (p : BlockShape) (block : List ConstantInfo) : m Unit := do
   unless blockRecLpsOk p do
@@ -671,7 +671,9 @@ def targetRecPins (p : BlockShape) (block : List ConstantInfo) : m Unit := do
 
 /-- **The rule pins at the major**: one rule per constructor of the
 major's inductive, in its order, each naming its constructor with its
-field count (`blockRecPinOk`'s per-recursor conjunct, at any major). -/
+field count, at any major.  At a one-member block these two pins are
+the whole of the record's structural pin: the conformance check needs
+none of its own (DESIGN RPFOLLOW). -/
 def targetRulePins (rc : ConstantVal) (M : TargetMajor) (rules : List RecRule) : m Unit := do
   unless rules.length == M.ctors.length &&
       (List.range M.ctors.length).all (fun j =>

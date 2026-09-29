@@ -704,11 +704,11 @@ theorem confKinds_datF (T : Name) (lps : List Name) (nP nIdx : Nat)
     unwrapOr_atF]
 
 /-- The reject-only conformance check at fuel `F`. -/
-theorem checkBlockRecConform_datF (env : Env) (p : BlockParts) (block : List ConstantInfo)
+theorem checkBlockRecConform_datF (env : Env) (p : BlockParts)
     (cvTas : List ConstantVal) (ctorsAs : List (List (ConstantVal × Nat)))
     (nfs : List (List Expr)) (F : Nat) :
-    (checkBlockRecConform (fueledOpsM mode) env p block cvTas ctorsAs nfs).val F =
-      checkBlockRecConform (fueledOps mode F) env p block cvTas ctorsAs nfs := by
+    (checkBlockRecConform (fueledOpsM mode) env p cvTas ctorsAs nfs).val F =
+      checkBlockRecConform (fueledOps mode F) env p cvTas ctorsAs nfs := by
   unfold checkBlockRecConform
   split
   · simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw, FueledM.atF_ite,

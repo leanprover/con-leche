@@ -1935,7 +1935,7 @@ theorem checkBlockTailS_run (hμ : mode.verifiedChecks = true)
   subst out'
   -- the conformance branch: its run, or nothing
   obtain ⟨hs₅, F₅, hF₅⟩ : CSOKF s₅ ∧ ∃ F₅, (if nestKindsFlat kinds then
-      checkBlockRecConform (fueledOps mode F₅) (consBlockCtors p.nP ctorsAs env₁) p block cvTas
+      checkBlockRecConform (fueledOps mode F₅) (consBlockCtors p.nP ctorsAs env₁) p cvTas
         ctorsAs nfs else pure ()) = .ok () := by
     cases hk : nestKindsFlat kinds with
     | true =>
@@ -1969,7 +1969,7 @@ theorem checkBlockTailS_run (hμ : mode.verifiedChecks = true)
       rw [← targetRecCheck_datF]
       exact FueledM.up hle₃ (by rw [targetRecCheck_datF]; exact hF₃)
     have gC : (if nestKindsFlat kinds then
-        checkBlockRecConform (fueledOps mode G) (consBlockCtors p.nP ctorsAs env₁) p block cvTas
+        checkBlockRecConform (fueledOps mode G) (consBlockCtors p.nP ctorsAs env₁) p cvTas
           ctorsAs nfs else pure ()) = .ok () := by
       cases hk : nestKindsFlat kinds with
       | true =>

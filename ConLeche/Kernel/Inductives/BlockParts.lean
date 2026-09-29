@@ -31,7 +31,7 @@ The three pieces:
   so nothing the recursor records claim is a condition of recognition:
   the recursor check pins them (`targetRecPins`, `targetRulePinsAll`),
   and the one-member conformance check compares them with the generated
-  recursor (`blockRecPinOk`, `ConLeche/Conformance/RecGen.lean`);
+  recursor (`checkBlockRecConform`, `ConLeche/Conformance/`);
 * **positivity** lives in its own module
   (`ConLeche/Kernel/Inductives/Positivity.lean`) and runs at
   install (`checkBlockPositivity`); the record carries no field kinds.
@@ -198,9 +198,8 @@ def withSort (p : BlockShape) (s : Level) : BlockShape :=
 
 end BlockShape
 
-/-- A recognised block: its shape.  (The recursor records' structural
-pin, `blockRecPinOk`, is the conformance check's and lives with it,
-`ConLeche/Conformance/RecGen.lean`.) -/
+/-- A recognised block: its shape.  (The recursor records' pins are the
+recursor check's, `targetRecPins`/`targetRulePins`.) -/
 structure BlockParts extends BlockShape where
   deriving Repr, Inhabited
 

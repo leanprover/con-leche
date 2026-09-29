@@ -18,7 +18,7 @@ GROUP of constructors and their recursor record, in block order.
 What the recogniser does NOT pin (#220) is
 everything the recursor RECORDS claim: their names, their level
 parameters, their argument sums and their rules.  The recursor stage throws on them
-(`targetRecPins`, `blockRecLpsOk`; the conformance check's `blockRecPinOk`), so a block
+(`targetRecPins`, `blockRecLpsOk`, `targetRulePins`), so a block
 whose recursor record is a stub is REJECTED by its own type and
 constructors rather than declined.
 -/

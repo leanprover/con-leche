@@ -151,7 +151,7 @@ def checkBlockRecS (fe₁ : FEnv) (env₁ : Env) (fe : FEnv) (p : BlockParts) (n
     (targetRecCheck (shadowOpsC mode) fe₁ env₁ fe p.toBlockShape nested nfs pos block cvTas
       ctorsAs)
     (if conf then
-      flushC *> checkBlockRecConformF (sharedOpsC mode fe) structWalkersC fe none p block cvTas
+      flushC *> checkBlockRecConformF (sharedOpsC mode fe) structWalkersC fe none p cvTas
         ctorsAs nfs
     else pure ())
 
@@ -202,7 +202,7 @@ def checkBlockRecSFast (fe₁ : FEnv) (env₁ : Env) (fe : FEnv) (p : BlockParts
   if conf then
     flushC
     checkBlockRecConformF (sharedOpsC mode fe) structWalkersC fe
-      (recBareHint p.toBlockShape cvRas feR) p block cvTas ctorsAs nfs
+      (recBareHint p.toBlockShape cvRas feR) p cvTas ctorsAs nfs
   pure out
 
 /-- The hint `checkBlockRecSFast` offers is the environment the push
@@ -210,10 +210,10 @@ would build, so the conformance check reads the same environment. -/
 theorem checkBlockRecConformF_recBareHint {m : Type → Type} [Monad m]
     [MonadExceptOf CheckError m] (ops : CheckerOps m) (w : StructWalkers) (fe : FEnv)
     (q : BlockShape) (cvRas : List (ConstantVal × Nat)) (p : BlockParts)
-    (block : List ConstantInfo) (cvTas : List ConstantVal)
+    (cvTas : List ConstantVal)
     (ctorsAs : List (List (ConstantVal × Nat))) (nfs : List (List Expr)) :
     checkBlockRecConformF ops w fe (recBareHint q cvRas (consBlockRecsBareF q 0 cvRas fe)) p
-      block cvTas ctorsAs nfs = checkBlockRecConformF ops w fe none p block cvTas ctorsAs nfs := by
+      cvTas ctorsAs nfs = checkBlockRecConformF ops w fe none p cvTas ctorsAs nfs := by
   have hv : ∀ cv' mI' rP' feH,
       recBareHint q cvRas (consBlockRecsBareF q 0 cvRas fe) = some (cv', mI', rP', feH) →
       feH = fe.push (.recInfo cv' mI' rP' []) := by

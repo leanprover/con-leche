@@ -36,9 +36,10 @@ namespace ConLeche
 structure NativeParts extends InductiveShape where
   /-- per constructor, per field: its kind -/
   kinds : List (List RecFieldKind)
-  /-- **the stream's recursor record passed the structural pin**
-  (task #220): its rule count, each rule's constructor and field count,
-  and the two argument sums the record claims are the generated ones.
+  /-- **the stream's recursor record passed the sums pin** (task #220):
+  the two argument sums the record claims are the generated ones (its
+  rule count and each rule's constructor and field count are the
+  recursor check's rule pins, `targetRulePins`, which ran first).
   The recogniser records the verdict instead of refusing the block, and
   the recursor stage THROWS on `false` — official's replay generates the
   recursor and compares the exported one with it structurally
@@ -284,7 +285,7 @@ telescope and against every constructor), the indices off the type
 former's own telescope — and pins nothing of the recursor record
 beyond the level-parameter shape that decides which recursor is
 generated.  Everything the recursor record claims is compared at the
-install (the pins `blockRecPinOk` and `BlockShape.recSumsOk`, the name
+install (the pin `BlockShape.recSumsOk` and the recursor check's pins, the name
 and the type and the rule bodies at `checkNativeRec`/`nativeRulesOk`),
 where a mismatch REJECTS: a block whose recursor record is a stub is
 rejected by its own semantic checks — positivity, the field universes,
@@ -423,38 +424,14 @@ def confKinds (T : Name) (lps : List Name) (nP nIdx : Nat) (ctorsA : List (Const
 
 end Classify
 
-/-- **The recursor records' structural pin** (task #220 at k members),
-read by the conformance check only (`BlockParts.toNative`): every recursor's two argument sums, one
-rule per constructor of ITS member in block order, each rule naming its
-constructor with its field count — and the grouping itself, which must
-exhaust the block's constructors in block order (the generated minors
-are the block's constructors in block order, so a grouping that is not
-monotone cannot match any generated recursor). -/
-def blockRecPinOk (p : BlockShape) (block : List ConstantInfo) : Bool :=
-  match blockSplit block with
-  | some (cvTs, cs, rs) =>
-    cvTs.length == p.k && rs.length == p.recs.length &&
-    (p.allCtors.map (·.1.name) == cs.map (·.1.name)) &&
-    (List.range p.recs.length).all fun r =>
-      match rs[r]?, p.members[p.recTgtAt r]? with
-      | some (_, _mI, _rP, rules), some ms =>
-        rules.length == ms.ctors.length &&
-        (List.range ms.ctors.length).all fun j =>
-          match rules[j]?, cs[p.offs (p.recTgtAt r) + j]? with
-          | some rule, some (cvC, _, nF) => rule.ctor == cvC.name && rule.nfields == nF
-          | _, _ => false
-      | _, _ => false
-  | none => false
-
 /-- **The one-member reading of the record**: the shape's, with the
 conformance check's own field kinds and the recursor record's two
-argument SUMS added to the structural pin (`blockRecPinOk`, read off the
-raw `block`) — at `k = 1` the generate-and-compare arm is where they
-belong, and `toNative` IS that check's reading. -/
-def BlockParts.toNative (p : BlockParts) (block : List ConstantInfo)
-    (kinds : List (List RecFieldKind)) : NativeParts :=
-  ⟨p.toBlockShape.toInductive, kinds,
-    p.toBlockShape.recSumsOk && blockRecPinOk p.toBlockShape block⟩
+argument SUMS pinned — at `k = 1` the generate-and-compare arm is where
+they belong, and `toNative` IS that check's reading.  (The record's
+grouping and rules need no pin here: the recursor check, which runs
+first, pins them — `targetRecPins`, `targetRulePins`; DESIGN RPFOLLOW.) -/
+def BlockParts.toNative (p : BlockParts) (kinds : List (List RecFieldKind)) : NativeParts :=
+  ⟨p.toBlockShape.toInductive, kinds, p.toBlockShape.recSumsOk⟩
 
 /-! ## The constructors at the positivity check's normal forms -/
 

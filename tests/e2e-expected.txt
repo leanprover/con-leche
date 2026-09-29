@@ -1485,12 +1485,11 @@
 # A recursor with a MISSING rule.  Completeness is a SOUNDNESS
 # requirement — `Nat.rec` with a rule for `zero` only would prove
 # `∀ n, M n` from `M 0` — and the uniform route enforces it twice: the
-# recursor records' structural pin (`blockRecPinOk`: one rule per
-# constructor of the member, in order, each naming its constructor
-# with its field count) and the rule loop itself (`checkBlockRules`,
+# recursor check's rule pins (`targetRulePins`: one rule per
+# constructor of the major, in order, each naming its constructor
+# with its field count) and the rule loop itself (`targetRules`,
 # whose two lists must run out together).  Rejected at the pin ("the
-# recursor record is not the generated recursor"; the modeller
-# declined it, 2, before the flip).
+# rules of … are not one per constructor of its major's inductive").
 1 mutual_rec_missing_rule.ndjson
 # The FAMILY's shared rule PREFIX (the finding of lane RM16, adopted as
 # a ruling on 2026-09-22; DESIGN).  `B.rec`'s `minorA` premise gets a
