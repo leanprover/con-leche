@@ -523,7 +523,7 @@ theorem genRun_tbl_scoped
     (fun d e w hw he => whnf_looseBVars henv₁ F hw he) _ pos R.st R.hst hseeds
     (by rw [hnP]; exact hpos)
   rw [hnP] at hst
-  exact hst.2
+  exact hst
 
 /-- A generated constructor of class `c`, as its run. -/
 theorem genRun_ctor

@@ -347,7 +347,7 @@ section NestPos
 
 open ConLeche (NestCtx NestKey NestHole NestState NestFieldKind nestInstType nestGrowGroup
   nestGroupCtors nestFields nestCtors nestFrame nestCont nestPos nestRoot nestRootLines
-  nestRootLinesAll nestedBlockPositivity nestContainerC)
+  nestRootLinesAll nestedBlockPositivity nestContainer)
 
 theorem nestInstType_datF (ctx : NestCtx) (hi : Nat) (key : NestKey) (F : Nat) :
     (nestInstType (m := FueledM) ctx hi key).val F = nestInstType (m := CheckM) ctx hi key := by
@@ -369,10 +369,10 @@ theorem nestGrowGroup_datF (ctx : NestCtx) (hi : Nat) (us : List Level) (ds : Li
     exact nestGrowGroup_datF ctx hi us ds F cs _
 
 theorem nestGroupCtors_datF (ctx : NestCtx) (nPc : Nat) (F : Nat) :
-    ∀ (cs : List Name) (st : NestState),
-      (nestGroupCtors (m := FueledM) ctx nPc cs st).val F = nestGroupCtors (m := CheckM) ctx nPc cs st
-  | [], _ => rfl
-  | c :: cs, st => by
+    ∀ (cs : List Name),
+      (nestGroupCtors (m := FueledM) ctx nPc cs).val F = nestGroupCtors (m := CheckM) ctx nPc cs
+  | [] => rfl
+  | c :: cs => by
     unfold nestGroupCtors
     simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw, FueledM.atF_ite,
       unwrapOr_atF, nestGroupCtors_datF ctx nPc F cs]

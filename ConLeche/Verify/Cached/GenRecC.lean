@@ -670,11 +670,10 @@ theorem mem_classSeeds {ctx : NestCtx} {holes : List Expr} {Ms : List TargetMajo
 /-- **The generated recursor stage at the cached driver, simulated**:
 from an invariant state of the constructors' environment to a residue.
 The seeds are walked at a view of the index that looks names up as the
-formers' environment (`hfe₁`), from a flushed state, the walk's state
-`pos` closed (`NestStOk`). -/
+formers' environment (`hfe₁`), from a flushed state. -/
 theorem genRecCheckS_simG (hμ : mode.verifiedChecks = true) {env₁ env₂ : Env} {fe₁ : FEnv}
     (henv₁ : EnvWF env₁) (henv₂ : EnvWF env₂) (hfe₁ : fe₁.find? = (mkFEnv env₁).find?)
-    {p : BlockShape} {nestedBit : Bool} {pos : NestState} (hpos : NestStOk pos)
+    {p : BlockShape} {nestedBit : Bool} {pos : NestState}
     {cvTas : List ConstantVal} {block : List ConstantInfo}
     {ctorsAs : List (List (ConstantVal × Nat))}
     (hT : ∀ cv ∈ cvTas, WScoped 0 cv.type) :
@@ -748,11 +747,11 @@ theorem genRecCheckS_simG (hμ : mode.verifiedChecks = true) {env₁ env₂ : En
   have hpar' : ∀ x ∈ ctx.params, WScoped (ctx.hiAt 0) x := fun x hx =>
     WScoped.mono (by rw [← hnP]; simp [NestCtx.hiAt]) (hpar x hx)
   refine SimG.bind (SimG.ofC fun s hs => nestSeedsS_sim hμ henv₁ hctx _ pos hs
-    (fun k hk x hx => ?_) hpos) fun st st' hS => ?_
+    (fun k hk x hx => ?_)) fun st st' hS => ?_
   · obtain ⟨M, hM, hMn, rfl⟩ := mem_classSeeds hk
     exact (nestSeedOf_ds hh hlen (fun y hy => Expr.fvarB_le (by
       rw [hnP]; exact (hMs₀ M hM).2.1 hMn y hy)) x hx).2 (fun y hy => (hholes y hy).1) hpar'
-  obtain ⟨rfl, -⟩ := hS
+  obtain rfl := hS
   refine SimG.bind (flushC_simG_to (mode := mode)
     (fun s h => (h : CSOK mode env₁ s).residue) env₂) fun _ _ _ => ?_
   -- every class's table entries; the generator's constructors
@@ -801,7 +800,7 @@ theorem genRecCheckS_simG (hμ : mode.verifiedChecks = true) {env₁ env₂ : En
 by the pure fueled stage. -/
 theorem genRecCheckS_run (hμ : mode.verifiedChecks = true) {env₁ env₂ : Env} {fe₁ : FEnv}
     (henv₁ : EnvWF env₁) (henv₂ : EnvWF env₂) (hfe₁ : fe₁.find? = (mkFEnv env₁).find?)
-    {p : BlockShape} {nestedBit : Bool} {pos : NestState} (hpos : NestStOk pos)
+    {p : BlockShape} {nestedBit : Bool} {pos : NestState}
     {cvTas : List ConstantVal} {block : List ConstantInfo}
     {ctorsAs : List (List (ConstantVal × Nat))}
     (hT : ∀ cv ∈ cvTas, WScoped 0 cv.type)
@@ -812,7 +811,7 @@ theorem genRecCheckS_run (hμ : mode.verifiedChecks = true) {env₁ env₂ : Env
     CSOKF s' ∧ ∃ F, genRecCheck (ShadowOps.fueled mode F) fe₁ env₁ (mkFEnv env₂) p nestedBit
       pos cvTas block ctorsAs = .ok out := by
   obtain ⟨hs', out', rfl, F, hF⟩ :=
-    genRecCheckS_simG hμ henv₁ henv₂ hfe₁ hpos hT s₀ hs out s' h
+    genRecCheckS_simG hμ henv₁ henv₂ hfe₁ hT s₀ hs out s' h
   exact ⟨hs', F, by rw [← genRecCheck_datF]; exact hF⟩
 
 /-- The stage reads its seeds' index only through `find?`. -/
@@ -910,7 +909,7 @@ theorem checkBlockTailS_run (hμ : mode.verifiedChecks = true)
     {kinds : List (List (List NestFieldKind))} {nfs : List (List Expr)} {pos : NestState}
     (hT : ∀ cv ∈ cvTas, WScoped 0 cv.type)
     (hfr : ∀ ctorsA ∈ ctorsAs, ∀ c ∈ ctorsA, env₁.find? c.1.name = none)
-    (henv₂ : EnvWF (consBlockCtors p.nP ctorsAs env₁)) (hpos : NestStOk pos)
+    (henv₂ : EnvWF (consBlockCtors p.nP ctorsAs env₁))
     {s₀ : CState} (hs : CSOK mode env₁ s₀) {feOut : FEnv} {s' : CState}
     (h : checkBlockTailS mode block ⟨mkFEnv env₁, cvTas, p, ctorsAs, sortsss, kinds, nfs, pos⟩
       s₀ = .ok (feOut, s')) :
@@ -937,7 +936,7 @@ theorem checkBlockTailS_run (hμ : mode.verifiedChecks = true)
   injection hfl2 with hfl2
   obtain rfl : sS.flushed = sC := congrArg Prod.snd hfl2
   obtain ⟨out, s₃, hrec, h⟩ := bindC_ok h
-  obtain ⟨hs₃, F₃, hF₃⟩ := genRecCheckS_run hμ henv₁ henv₂ hview hpos hT
+  obtain ⟨hs₃, F₃, hF₃⟩ := genRecCheckS_run hμ henv₁ henv₂ hview hT
     (flushC_csok hsS.residue) hrec
   rw [genRecCheck_fe₁_congr hview] at hF₃
   have henv₃ := genRecCheck_recsWF henv₂ hF₃ (consBlockCtors p.nP ctorsAs env₁).find?
@@ -986,11 +985,11 @@ theorem checkBlockKS_run (hμ : mode.verifiedChecks = true)
   obtain rfl : s₀.flushed = sA := congrArg Prod.snd hfl0
   obtain ⟨r, s₁, hP, h⟩ := bindC_ok h
   obtain ⟨fe₁, cvTas, p, ctorsAs, sortsss, kinds, nfs, pos⟩ := r
-  obtain ⟨env₁, hq₁, hs₁, henv₁, hT, -, hfr, henv₂, hpos, F₁, hF₁⟩ :=
+  obtain ⟨env₁, hq₁, hs₁, henv₁, hT, -, hfr, henv₂, F₁, hF₁⟩ :=
     checkBlockPassS_run hμ henv (flushC_csok hwf) hP
-  simp only at hq₁ hs₁ henv₁ hT hfr henv₂ hpos hF₁
+  simp only at hq₁ hs₁ henv₁ hT hfr henv₂ hF₁
   subst hq₁
-  obtain ⟨hwfO, hfeO, F₂, hF₂⟩ := checkBlockTailS_run hμ henv₁ hT hfr henv₂ hpos hs₁ h
+  obtain ⟨hwfO, hfeO, F₂, hF₂⟩ := checkBlockTailS_run hμ henv₁ hT hfr henv₂ hs₁ h
   refine ⟨hwfO, hfeO, max F₁ F₂, ?_⟩
   have g₁ : checkBlockPass (fueledOps mode (max F₁ F₂)) env p₀ (blockRawRec p₀)
       = .ok ⟨env₁, cvTas, p, ctorsAs, sortsss, kinds, nfs, pos⟩ := by

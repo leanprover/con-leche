@@ -618,7 +618,7 @@ theorem checkBlockPassS_run (hμ : mode.verifiedChecks = true) {env : Env} (henv
       (∀ cv ∈ q.cvTas, WScoped 0 cv.type) ∧
       (∀ ctorsA ∈ q.ctorsAs, ∀ c ∈ ctorsA, WScoped 0 c.1.type) ∧
       (∀ ctorsA ∈ q.ctorsAs, ∀ c ∈ ctorsA, env₁.find? c.1.name = none) ∧
-      EnvWF (consBlockCtors q.p.nP q.ctorsAs env₁) ∧ NestStOk q.pos ∧
+      EnvWF (consBlockCtors q.p.nP q.ctorsAs env₁) ∧
       ∃ F, (checkBlockPass (fueledOpsM mode) env p₀ isRec).val F
         = .ok ⟨env₁, q.cvTas, q.p, q.ctorsAs, q.sortsss, q.kinds, q.nfs, q.pos⟩ := by
   unfold checkBlockPassS at h
@@ -654,12 +654,12 @@ theorem checkBlockPassS_run (hμ : mode.verifiedChecks = true) {env : Env} (henv
   obtain ⟨hsK, kinds', hPK, FK, hFK⟩ :=
     checkBlockPositivityS_sim hμ henv₁ (p₀.complete p₁) cvTas ctorsAs hwT
       (checkBlockCtors_types hF₂p) hs₂ (kinds, nfs, pos) sK hK
-  obtain ⟨rfl, hposOk⟩ := hPK
+  obtain rfl := hPK
   obtain ⟨rfl, rfl⟩ := pureC_ok h
   obtain ⟨G, hle₁, hle₂, hleK⟩ : ∃ G, F₁ ≤ G ∧ F₂ ≤ G ∧ FK ≤ G :=
     ⟨max F₁ (max F₂ FK), by omega, by omega, by omega⟩
   refine ⟨env₁, rfl, hsK, henv₁, hwT, checkBlockCtors_types hF₂p, checkBlockCtors_fresh hF₂p,
-    direct_block_ctors_wf henv₁ hF₂p, hposOk, G, ?_⟩
+    direct_block_ctors_wf henv₁ hF₂p, G, ?_⟩
   have g₁ : checkBlockInds (fueledOps mode G) env p₀ isRec = .ok (env₁, cvTas, p₁) := by
     rw [← checkBlockInds_datF]; exact FueledM.up hle₁ hF₁
   have g₂ : checkBlockCtors (fueledOps mode G) env₁ env₁ (p₀.complete p₁).toBlockShape

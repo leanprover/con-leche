@@ -157,14 +157,14 @@ theorem nestCont_inv {ctx : NestCtx} {ops : CheckerOps CheckM} {env : Env}
     {prog : List NestHole} {kb : Nat} {n : Name} {us : List Level} {args : List Expr}
     {st : NestState} {k : NestFieldKind} {st' : NestState}
     (h : nestCont ctx ops env rec prog kb n us args st = .ok (k, st')) :
-    ∃ nPc L, (nestContainerC ctx st n).1 = some (nPc, L) ∧ nPc ≤ args.length ∧
+    ∃ nPc L, nestContainer ctx n = some (nPc, L) ∧ nPc ≤ args.length ∧
       ((args.drop nPc).all fun x => !x.nestOcc ctx.names ctx.nP (ctx.hiAt prog.length)) = true ∧
       n ≠ quotName ∧
       ((args.take nPc).all fun x => x.bvarB == 0 && decide (x.fvarB ≤ ctx.hiAt prog.length))
         = true ∧
       ∃ nI cty, nestInstType (m := CheckM) ctx (ctx.hiAt prog.length) ⟨n, us, args.take nPc⟩
           = .ok (nI, cty) ∧ args.length = nPc + nI ∧
-        nestContKey ctx ops env rec prog kb n us (args.take nPc) nPc cty (nestContainerC ctx st n).2
+        nestContKey ctx ops env rec prog kb n us (args.take nPc) nPc cty st
           = .ok (k, st') := by
   simp only [nestCont, bind, Except.bind] at h
   split at h

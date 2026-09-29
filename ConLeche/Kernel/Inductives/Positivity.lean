@@ -856,12 +856,9 @@ structure NestCtx where
   find? : Name → Option ConstantInfo
 
 /-- The run's state: the accepted instantiations (the cache, keyed by the
-instantiation) and the environment lookups of
-container constructor lists (`none`: no inductive) — a reading of the
-environment, not a fact about the container. -/
+instantiation). -/
 structure NestState where
   keys : Array NestKey := #[]
-  ctorsOf : List (Name × Option (Nat × List (ConstantVal × Nat))) := []
   /-- the instantiations whose frames are being walked (every group
   member at the key), outermost last: an instantiation walked at the
   EMPTY stack (`nestWalkStack`) is still in progress for the cycle check
@@ -915,15 +912,6 @@ def nestContainer (ctx : NestCtx) (C : Name) : Option (Nat × List (ConstantVal 
     | [] => some (caps.nparams, [])
     | (_, nPc, _) :: _ => some (nPc, cs.map fun c => (c.1, c.2.2))
   | _ => none
-
-/-- `nestContainer`, looked up once per name. -/
-def nestContainerC (ctx : NestCtx) (st : NestState) (C : Name) :
-    Option (Nat × List (ConstantVal × Nat)) × NestState :=
-  match st.ctorsOf.lookup C with
-  | some r => (r, st)
-  | none =>
-    let r := nestContainer ctx C
-    (r, { st with ctorsOf := (C, r) :: st.ctorsOf })
 
 /-- Official's "non valid occurrence" (`check_positivity` :405). -/
 def nestNonValid : CheckError :=
@@ -1272,19 +1260,18 @@ def nestCtors (ctx : NestCtx) (ops : CheckerOps m) (env : Env)
     pure ((ks, closeTelescope nds hi cur) :: os, st)
 
 /-- The constructors of every container in `cs` (at one parameter
-count), read off the environment. -/
+count), looked up (`nestContainer`). -/
 def nestGroupCtors (ctx : NestCtx) (nPc : Nat) :
-    List Name → NestState → m (List (ConstantVal × Nat) × NestState)
-  | [], st => pure ([], st)
-  | c :: cs, st => do
-    let q ← unwrapOr (nestContainerC ctx st c).1 nestNonValid
-    let st := (nestContainerC ctx st c).2
+    List Name → m (List (ConstantVal × Nat))
+  | [] => pure []
+  | c :: cs => do
+    let q ← unwrapOr (nestContainer ctx c) nestNonValid
     let (nPc', ctors) := q
     unless nPc' == nPc || ctors.isEmpty do
       throw (.invalid "nested positivity: number of parameters mismatch in inductive \
         datatype declaration (a container's group)")
-    let (rest, st) ← nestGroupCtors ctx nPc cs st
-    pure (ctors ++ rest, st)
+    let rest ← nestGroupCtors ctx nPc cs
+    pure (ctors ++ rest)
 
 /-- The recorded block of the inductive `C` (`IndCaps.all`, official's
 `all`): `[]` when none is recorded. -/
@@ -1359,7 +1346,7 @@ def nestFrame (ctx : NestCtx) (ops : CheckerOps m) (env : Env)
     ({ key := ⟨c, us, ds⟩, base := hi } : NestHole)).reverse ++ prog
   let sub (c : Name) (us' : List Level) : Option Expr :=
     if us' == us then (holes.lookup c) else none
-  let (ctors, st) ← nestGroupCtors ctx nPc (grp.map (·.1)) st
+  let ctors ← nestGroupCtors ctx nPc (grp.map (·.1))
   let (_, st) ← nestCtors ctx ops env (fun _ => rec) prog' (hi + grp.length) us ds nPc sub ctors st
   pure st
 
@@ -1429,7 +1416,7 @@ def nestCont (ctx : NestCtx) (ops : CheckerOps m) (env : Env)
     (rec : List NestHole → Nat → Nat → Expr → NestState → m (NestFieldKind × Expr × NestState))
     (prog : List NestHole) (kb : Nat) (n : Name) (us : List Level) (args : List Expr)
     (st : NestState) : m (NestFieldKind × NestState) := do
-  let q ← unwrapOr (nestContainerC ctx st n).1 nestNonValid
+  let q ← unwrapOr (nestContainer ctx n) nestNonValid
   if args.length < q.1 ||
       !(args.drop q.1).all (fun x => !x.nestOcc ctx.names ctx.nP (ctx.hiAt prog.length)) then
     throw nestNonValid
@@ -1450,7 +1437,7 @@ def nestCont (ctx : NestCtx) (ops : CheckerOps m) (env : Env)
   unless args.length == q.1 + ni.1 do
     throw (.invalid "nested positivity: type expected (a container instance that is not \
       fully applied)")
-  nestContKey ctx ops env rec prog kb n us (args.take q.1) q.1 ni.2 (nestContainerC ctx st n).2
+  nestContKey ctx ops env rec prog kb n us (args.take q.1) q.1 ni.2 st
 
 /-- **The positivity function** (see the section header): the domain
 `e` at depth `dep`, `kb` `Π` binders into the field, `prog` the

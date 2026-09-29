@@ -27,9 +27,8 @@ stage reads a constructor's WALKED telescope off such an entry
 (`ClassCtor.tyN`), so the generator's closedness (`ClassGenScoped.tyN`)
 rests on it.
 
-This is a state invariant of the FUELED walk (`NfStScoped`): the container
-lookups the state caches are closed constructor types, and every recorded
-entry is scoped.  It is kept by every stage of the walk
+This is a state invariant of the FUELED walk (`NfStScoped`): every
+recorded entry is scoped.  It is kept by every stage of the walk
 (`nestPos_nfScoped`, `nestRoot_nfScoped`, `nestSeeds_nfScoped`) under any
 `ops` whose whnf keeps terms scoped and bvar-closed, at a context whose
 stored constants are closed (`NestCtxOk`, `NestCtxB`).  At the install:
@@ -47,15 +46,13 @@ bvar half of `NestCtxOk`). -/
 @[expose] def NestCtxB (ctx : NestCtx) : Prop :=
   ∀ n ci, ctx.find? n = some ci → ci.toConstantVal.type.looseBVarsBounded 0 = true
 
-/-- **The walk's state, scoped**: every cached container lookup lists
-closed constructor types, and every recorded constructor normal form
+/-- **The walk's state, scoped**: every recorded constructor normal form
 (K.53′) is scoped over the `nP` parameters. -/
 @[expose] def NfStScoped (nP : Nat) (st : NestState) : Prop :=
-  (∀ C r, (C, r) ∈ st.ctorsOf → ∀ q, r = some q → ∀ x ∈ q.2, ScB 0 x.1.type) ∧
   ∀ e ∈ st.ctorNfs.toList, ScB nP e.ty
 
 theorem nfStScoped_empty (nP : Nat) : NfStScoped nP {} :=
-  ⟨fun _ _ h => by simp at h, fun _ h => by simp at h⟩
+  fun _ h => by simp at h
 
 /-- A walk step's contract: at a scoped input and a scoped state, the
 state stays scoped and the normal form is scoped where the input is. -/
@@ -85,21 +82,6 @@ theorem nestContainer_scb (hc : NestCtxOk ctx) (hb : NestCtxB ctx) {C : Name}
   obtain ⟨n, nPc, hf⟩ := nestContainer_mem h x hx
   exact ScB.of_closed (hc _ _ hf) (hb _ _ hf) 0
 
-theorem nestContainerC_scb (hc : NestCtxOk ctx) (hb : NestCtxB ctx) {nP : Nat} {st : NestState}
-    (hst : NfStScoped nP st) (C : Name) :
-    NfStScoped nP (nestContainerC ctx st C).2 ∧
-      ∀ q, (nestContainerC ctx st C).1 = some q → ∀ x ∈ q.2, ScB 0 x.1.type := by
-  unfold nestContainerC
-  split
-  · next r hr =>
-    exact ⟨hst, fun q hq x hx => hst.1 C r (Cached.lookup_mem hr) q hq x hx⟩
-  · refine ⟨⟨fun C' r hm q hq x hx => ?_, hst.2⟩,
-      fun q hq x hx => nestContainer_scb hc hb hq x hx⟩
-    rcases List.mem_cons.mp hm with h | h
-    · obtain ⟨rfl, rfl⟩ := Prod.mk.inj h
-      exact nestContainer_scb hc hb hq x hx
-    · exact hst.1 C' r h q hq x hx
-
 theorem nestInstType_scb (hc : NestCtxOk ctx) (hb : NestCtxB ctx) {hi : Nat} {key : NestKey}
     {nI : Nat} {cty : Expr} (h : nestInstType (m := CheckM) ctx hi key = .ok (nI, cty)) :
     ScB 0 cty := by
@@ -119,34 +101,30 @@ theorem nestGrowGroup_scb (hc : NestCtxOk ctx) (hb : NestCtxB ctx) {hi : Nat}
   · obtain ⟨nI, hnI⟩ := hext x hx
     exact nestInstType_scb hc hb hnI
 
-theorem nestGroupCtors_scb (hc : NestCtxOk ctx) (hb : NestCtxB ctx) {nP nPc : Nat} :
-    ∀ (cs : List Name) (st : NestState) (ctors : List (ConstantVal × Nat)) (st' : NestState),
-      nestGroupCtors (m := CheckM) ctx nPc cs st = .ok (ctors, st') → NfStScoped nP st →
-      NfStScoped nP st' ∧ ∀ x ∈ ctors, ScB 0 x.1.type
-  | [], st, ctors, st', h, hst => by
-    simp only [nestGroupCtors, pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
-    obtain ⟨rfl, rfl⟩ := h
-    exact ⟨hst, fun _ h => nomatch h⟩
-  | c :: cs, st, ctors, st', h, hst => by
+theorem nestGroupCtors_scb (hc : NestCtxOk ctx) (hb : NestCtxB ctx) {nPc : Nat} :
+    ∀ (cs : List Name) (ctors : List (ConstantVal × Nat)),
+      nestGroupCtors (m := CheckM) ctx nPc cs = .ok ctors → ∀ x ∈ ctors, ScB 0 x.1.type
+  | [], ctors, h => by
+    simp only [nestGroupCtors, pure, Except.pure, Except.ok.injEq] at h
+    subst h; exact fun _ h => nomatch h
+  | c :: cs, ctors, h => by
     simp only [nestGroupCtors, bind, Except.bind] at h
     split at h
     · simp at h
     rename_i q hq
     have hq' := unwrapOr_ok hq
-    obtain ⟨hst', hcl⟩ := nestContainerC_scb hc hb hst c
     obtain ⟨nP', L⟩ := q
     dsimp only at h
     split at h
     · split at h
       · simp at h
-      rename_i r hr
-      obtain ⟨rest, st₁⟩ := r
-      simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
-      obtain ⟨rfl, rfl⟩ := h
-      obtain ⟨hst₁, hrest⟩ := nestGroupCtors_scb hc hb cs _ rest st₁ hr hst'
-      refine ⟨hst₁, fun x hx => ?_⟩
+      rename_i rest hr
+      simp only [pure, Except.pure, Except.ok.injEq] at h
+      subst h
+      have hrest := nestGroupCtors_scb hc hb cs rest hr
+      intro x hx
       rcases List.mem_append.mp hx with hx | hx
-      · exact hcl _ hq' x hx
+      · exact nestContainer_scb hc hb hq' x hx
       · exact hrest x hx
     · simp [throw, throwThe, MonadExceptOf.throw] at h
 
@@ -343,10 +321,10 @@ theorem nestCtors_nfScoped
       obtain ⟨rfl, rfl⟩ := h
       have hst₁' : NfStScoped ctx.nP
           { st₁ with ctorNfs := st₁.ctorNfs.push (nestCtorNf ctx prog hi us ds cv nds cur) } := by
-        refine ⟨hst₁.1, fun e he => ?_⟩
+        intro e he
         simp only [Array.toList_push, List.mem_append, List.mem_singleton] at he
         rcases he with he | rfl
-        · exact hst₁.2 e he
+        · exact hst₁ e he
         · subst hhi
           exact ScB.nestHoleConst hN
       obtain ⟨hst₂, hos⟩ := ih _ os₂ st₂ hr₂ (fun x hx => hcl x (List.mem_cons_of_mem _ hx))
@@ -380,9 +358,8 @@ theorem nestFrame_nfScoped (hc : NestCtxOk ctx) (hb : NestCtxB ctx) (hrec : RecN
   · simp at h
   split at h
   · simp at h
-  rename_i v hgc
-  obtain ⟨ctors, st₁⟩ := v
-  obtain ⟨hst₁, hcl⟩ := nestGroupCtors_scb hc hb _ st ctors st₁ hgc hst
+  rename_i ctors hgc
+  have hcl := nestGroupCtors_scb hc hb _ ctors hgc
   split at h
   · simp at h
   rename_i v' hv'
@@ -390,7 +367,7 @@ theorem nestFrame_nfScoped (hc : NestCtxOk ctx) (hb : NestCtxB ctx) (hrec : RecN
   simp only [pure, Except.pure, Except.ok.injEq] at h
   subst h
   refine (nestCtors_nfScoped (fun _ => hrec) ?_ (fun x hx => (hds x hx).mono (by omega))
-    (fun c us' r hr => ?_) ctors st₁ os st₂ hv' hcl hst₁).1
+    (fun c us' r hr => ?_) ctors st os st₂ hv' hcl hst).1
   · subst hhi; simp [NestCtx.hiAt]; omega
   · split at hr
     · exact frameHole_scb hg hi hr
@@ -418,10 +395,10 @@ theorem nestContNew_nfScoped (hc : NestCtxOk ctx) (hb : NestCtxB ctx) (hrec : Re
   split at h
   · simp at h
   rename_i st₁ hfr
-  have hst₁ := nestFrame_nfScoped hc hb hrec rfl hdsw hg hfr ⟨hst.1, hst.2⟩
+  have hst₁ := nestFrame_nfScoped hc hb hrec rfl hdsw hg hfr hst
   simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
   obtain ⟨-, rfl⟩ := h
-  exact ⟨hst₁.1, hst₁.2⟩
+  exact hst₁
 
 theorem nestContKey_nfScoped (hc : NestCtxOk ctx) (hb : NestCtxB ctx) (hrec : RecNf ctx rec)
     {prog : List NestHole} {kb : Nat} {n : Name} {us : List Level} {ds : List Expr} {nPc : Nat}
@@ -449,7 +426,7 @@ theorem nestCont_nfScoped (hc : NestCtxOk ctx) (hb : NestCtxB ctx) (hrec : RecNf
   exact nestContKey_nfScoped hc hb hrec
     (fun x hx => ⟨WScoped.of_fvarsBelow (hargs x (List.mem_of_mem_take hx)).1
       (Expr.fvarB_le (hdsok' x hx).2), (hargs x (List.mem_of_mem_take hx)).2⟩)
-    (nestInstType_scb hc hb hnI) hkey (nestContainerC_scb hc hb hst n).1
+    (nestInstType_scb hc hb hnI) hkey hst
 
 /-- **The walk keeps the state scoped** and its normal form scoped where
 its input is — at any fuel, under any `ops` whose whnf keeps terms scoped
