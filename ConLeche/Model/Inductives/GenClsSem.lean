@@ -760,6 +760,83 @@ theorem genCls_dec (hμ : μ.verifiedChecks = true)
       ((hC.fibre _ _ hsat' _ (lfpTuple_mem _ _ _ _) _ hmN _
         (tupW_mem hIdsF) _).mpr ⟨j, as₂, hHF, rfl⟩)
 
+set_option maxHeartbeats 4000000 in
+/-- **The decoding's inverse, at one class** (`GenClsDecInv`'s body): a
+hole fit at a tuple of the index set fits the rule's declared field
+domains (`instCtor_fit`), and the tuple is the index expressions'
+readings' (the hole fit's result indices ARE the tuple's components). -/
+theorem genCls_decInv (hμ : μ.verifiedChecks = true)
+    (R : GenRecRun μ F (mkFEnv env₁) env₁ (mkFEnv envC) pp.toBlockShape nestedBit pos cvTas
+      block ctorsAs out) (hg : ClassGenScoped R.g) (hcov : LfpCover mpC []) {memR : Nat → Prop}
+    (h : ConLeche.RecStageG μ F envC pp cvTas ctorsAs (tgtRs out) memR)
+    {c j : Nat} (hc : c < (tgtRs out).length) (hj : j < blockRecNCt (tgtRs out) c)
+    {cvI : ConstantVal} (Rd : GenClsRd mpC d Dc mc cvc pp out c cvI)
+    (hnP : pp.nP ≤ pp.toBlockShape.rulePrefixAt c) (ψ : Name → Nat) (ρ : Nat → V) :
+    ∀ (xs : List V) (i : V) (fs : List V),
+    i ∈ˢ tgtClsIs d Dc mc cvc mpC.base2.acval envC pp.toBlockShape out ψ ρ xs c →
+    tgtClsFit d Dc mc cvc mpC.base2.acval envC pp.toBlockShape out ψ ρ xs c i j fs →
+    SpineFit (consList xs ρ) (tgtFdomsAV pp.toBlockShape out mpC.base2.acval envC ψ c j) fs ∧
+    i = tgtClsTup d Dc mc cvc pp.toBlockShape out ψ c
+      ((tgtEsAV pp.toBlockShape out mpC.base2.acval envC ψ c j).map
+        (interp V (consList (xs ++ fs) ρ))) := by
+  intro xs i fs hi hf
+  have hpref := genCls_Is_fits Rd hi
+  have hlenPd := blockRulePdomsAV_length (V := V) hμ mpC h (List.getElem?_eq_getElem hc) ψ
+  have hxlR : xs.length = tgtRP pp.toBlockShape c := by rw [hpref.length_eq, hlenPd]; rfl
+  rw [genCls_Is_eq Rd ψ ρ hxlR hpref] at hi
+  rw [tgtClsFit, Rd.hfr ψ ρ xs hxlR] at hf
+  obtain ⟨cA, ab, Tys, hcA, hctO, hjD, hlT, hTys, hEq, hlab, hfdoms, hes, -, -, -, -⟩ :=
+    genCls_open hμ R hg hcov hc hj Rd hnP ψ
+  have hsat := Rd.hsat ψ ρ xs hpref
+  have hds' : ∀ x ∈ (tgtMajor out c).ds, Expr.WScoped (tgtRP pp.toBlockShape c) x ∧
+      x.looseBVarsBounded 0 = true :=
+    fun x hx => ⟨(Rd.hds x hx).1.mono hnP, (Rd.hds x hx).2⟩
+  have hlenP' := Rd.hlenP ψ
+  have hψc := Rd.hψ ψ
+  have hsat' := hsat
+  rw [hψc] at hlenP' hsat' hTys hEq
+  obtain ⟨hF, hI⟩ := instCtor_fit mpC Rd.hD Rd.hnN Rd.hkN Rd.hlps Rd.hnd Rd.hul hds' (Rd.hdsa ψ)
+    hlenP' Rd.hmm hjD hlT hTys hEq hlab hsat'
+  rw [← hψc] at hF hI
+  have hfit : SpineFit (consList xs ρ)
+      ((AnnotTerm.substTele (instTau mpC ψ (tgtClsD d Dc out c) (tgtMajor out c).lvls
+        (tgtRP pp.toBlockShape c) (tgtMajor out c).ds) 0 ab).map (·.2.2)) fs :=
+    (hF fs).mpr hf.2.1
+  refine ⟨by rw [hfdoms]; exact hfit, ?_⟩
+  obtain ⟨hIdsF, -, -⟩ := instCtor_decode mpC Rd.hD Rd.hnN Rd.hkN Rd.hlps Rd.hnd Rd.hul hds'
+    (Rd.hdsa ψ) hlenP' Rd.hmm hjD hlT hTys hEq hlab hsat' hfit
+  rw [← hψc] at hIdsF
+  obtain ⟨is0, his0, rfl⟩ := mem_idxSet_elim hi
+  obtain ⟨hC, -, -, -⟩ := mpC.lfp_ok _ Rd.hD
+  have hIk := hC.idxOk _ _ hsat _ (Nat.lt_of_lt_of_le Rd.hmm hC.kN)
+  have hES : (tgtEsAV pp.toBlockShape out mpC.base2.acval envC ψ c j).map
+        (interp V (consList (xs ++ fs) ρ))
+      = ((tgtClsD d Dc out c).resIdx (tgtClsψ cvc out ψ c)
+          (tgtClsM mc pp.toBlockShape out c) j).map fun e =>
+          interp V (consList fs (consList xs ρ))
+            (AnnotTerm.substAV (instTau mpC ψ (tgtClsD d Dc out c) (tgtMajor out c).lvls
+              (tgtRP pp.toBlockShape c) (tgtMajor out c).ds) e cA.2) := by
+    rw [hes, tgtOutEs, List.map_map, consList_append, List.getD_eq_getElem?_getD, hcA,
+      Option.getD_some, hψc]
+    rfl
+  show _ = tupW _ _
+  rw [hES]
+  congr 1
+  have hlenI := hIdsF.length_eq
+  rw [List.length_map] at hlenI
+  refine List.ext_getElem (by rw [List.length_map, hlenI, his0.length_eq]) fun l h1 h2 => ?_
+  have hl : l < ((tgtClsD d Dc out c).ids (tgtClsM mc pp.toBlockShape out c)
+      (tgtClsψ cvc out ψ c)).length := by rw [← his0.length_eq]; exact h1
+  obtain ⟨e, he, hev⟩ := hf.2.2 l hl
+  have hlr : l < ((tgtClsD d Dc out c).resIdx (tgtClsψ cvc out ψ c)
+      (tgtClsM mc pp.toBlockShape out c) j).length := by rw [hlenI]; exact hl
+  have heE : ((tgtClsD d Dc out c).resIdx (tgtClsψ cvc out ψ c)
+      (tgtClsM mc pp.toBlockShape out c) j)[l] = e :=
+    Option.some.inj ((List.getElem?_eq_getElem hlr).symm.trans he)
+  rw [List.getElem_map, heE, hI fs hfit e (List.mem_of_getElem? he), hev,
+    projS_tupW hIk his0 hl, List.getD_eq_getElem?_getD, List.getElem?_eq_getElem h1,
+    Option.getD_some]
+
 end Core
 
 end ConLeche.Model
