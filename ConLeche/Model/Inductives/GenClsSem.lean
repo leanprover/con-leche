@@ -165,9 +165,6 @@ structure GenClsRd (c : Nat) (cvI : ConstantVal) : Prop where
   hnN : (tgtClsD d Dc out c).names.Nodup
   hkN : (tgtClsD d Dc out c).names.length = (tgtClsD d Dc out c).k
   hnd : cvI.levelParams.Nodup
-  hlps : ∀ mm, mm < (tgtClsD d Dc out c).k → ∃ cv caps,
-    envC.find? ((tgtClsD d Dc out c).member mm) = some (.indInfo cv caps) ∧
-      cv.levelParams = cvI.levelParams
   hul : (tgtMajor out c).lvls.length = cvI.levelParams.length
   hψ : ∀ ψ, tgtClsψ cvc out ψ c = Level.substFn ψ cvI.levelParams (tgtMajor out c).lvls
   hds : ∀ x ∈ (tgtMajor out c).ds, Expr.WScoped pp.nP x ∧ x.looseBVarsBounded 0 = true
@@ -194,7 +191,10 @@ structure GenClsRd (c : Nat) (cvI : ConstantVal) : Prop where
     j < (tgtClsD d Dc out c).nctors (tgtClsM mc pp.toBlockShape out c) ∧
     envC.find? ((tgtClsD d Dc out c).ctorName (tgtClsM mc pp.toBlockShape out c) j)
       = some (.ctorInfo cA.1 (tgtMajor out c).ds.length cA.2) ∧
-    cA.1.levelParams = cvI.levelParams
+    cA.1.levelParams = cvI.levelParams ∧
+    ∀ mm, mm < (tgtClsD d Dc out c).k → ∃ cv caps,
+      envC.find? ((tgtClsD d Dc out c).member mm) = some (.indInfo cv caps) ∧
+        cv.levelParams = cvI.levelParams
   /-- the constructor at the class's levels -/
   hctorAt : ∀ cv : ConstantVal, cv.levelParams = cvI.levelParams →
     ConLeche.targetCtorAt (tgtMajor out c) cv
@@ -260,7 +260,7 @@ theorem genCls_core (hμ : μ.verifiedChecks = true)
     genRun_binders hμ R hg h mpC ψ hc
   rw [hgc] at hformer
   rw [hformer] at hty
-  obtain ⟨hfind, hmemR, hDin, hmmk, -, -, hndI, -, hulI, hψf, hdsS, hlenPf, hidsLf, -, hdsaf,
+  obtain ⟨hfind, hmemR, hDin, hmmk, -, -, hndI, hulI, hψf, hdsS, hlenPf, hidsLf, -, hdsaf,
     -, -, -, -, -, -⟩ := Rd
   have hψc := hψf ψ
   have hdsa := hdsaf ψ
@@ -550,7 +550,7 @@ theorem genCls_open (hμ : μ.verifiedChecks = true)
       (tgtFieldFvs pp.toBlockShape out c j).length = cA.2 := by
   obtain ⟨cls, cA, fvs, cb, hgc, hM, hcA, hctO, ⟨CR⟩, hnF, hcrest, htRP, hop, hFF, hCB, -, -⟩ :=
     genRun_frame hμ R hg hc hj
-  obtain ⟨hjD, hfc, hlpC⟩ := Rd.hctor j cA hcA
+  obtain ⟨hjD, hfc, hlpC, hlpsR⟩ := Rd.hctor j cA hcA
   have hcrD := CR.hD
   rw [← hM, Rd.hctorAt cA.1 hlpC] at hcrD
   rw [← hcrest] at hcrD hop
@@ -561,7 +561,6 @@ theorem genCls_open (hμ : μ.verifiedChecks = true)
   have hlenP' := Rd.hlenP ψ
   rw [Rd.hψ] at hlenP' ⊢
   rw [← hRP] at hop
-  have hlpsR := Rd.hlps
   obtain ⟨-, ab, ⟨Tys, hlT, hTys, hEq⟩, hlab, hrdF, hrdL, hrdC, -⟩ :=
     instCtor_open mpC Rd.hD Rd.hnN Rd.hkN hlpsR Rd.hnd Rd.hul hds' (Rd.hdsa ψ) hlenP' Rd.hmm hjD
       hfc hcrD hop
@@ -668,7 +667,7 @@ theorem genCls_dec (hμ : μ.verifiedChecks = true)
   have hxlR : as₁.length = tgtRP pp.toBlockShape c := by rw [hxl, hlenPd]; rfl
   obtain ⟨cA, ab, Tys, hcA, hctO, hjD, hlT, hTys, hEq, hlab, hfdoms, hes, hB, hmkE, hFvs, hFl⟩ :=
     genCls_open hμ R hg hcov hc hj Rd hnP ψ
-  obtain ⟨-, hfc, hlpC⟩ := Rd.hctor j cA hcA
+  obtain ⟨-, hfc, hlpC, hlpsR⟩ := Rd.hctor j cA hcA
   have hsat := Rd.hsat ψ ρ as₁ hpref
   have hds' : ∀ x ∈ (tgtMajor out c).ds, Expr.WScoped (tgtRP pp.toBlockShape c) x ∧
       x.looseBVarsBounded 0 = true :=
@@ -677,7 +676,7 @@ theorem genCls_dec (hμ : μ.verifiedChecks = true)
   have hψc := Rd.hψ ψ
   rw [hψc] at hlenP' hsat hTys hEq
   rw [hfdoms] at hfF
-  obtain ⟨hIdsF, hHF, hleaf⟩ := instCtor_decode mpC Rd.hD Rd.hnN Rd.hkN Rd.hlps Rd.hnd Rd.hul
+  obtain ⟨hIdsF, hHF, hleaf⟩ := instCtor_decode mpC Rd.hD Rd.hnN Rd.hkN hlpsR Rd.hnd Rd.hul
     hds' (Rd.hdsa ψ) hlenP' Rd.hmm hjD hlT hTys hEq hlab hsat hfF
   have hfl : as₂.length = cA.2 := by
     rw [hfF.length_eq, List.length_map, substTele_length, hlab]
@@ -787,6 +786,7 @@ theorem genCls_decInv (hμ : μ.verifiedChecks = true)
   rw [tgtClsFit, Rd.hfr ψ ρ xs hxlR] at hf
   obtain ⟨cA, ab, Tys, hcA, hctO, hjD, hlT, hTys, hEq, hlab, hfdoms, hes, -, -, -, -⟩ :=
     genCls_open hμ R hg hcov hc hj Rd hnP ψ
+  obtain ⟨-, -, -, hlpsR⟩ := Rd.hctor j cA hcA
   have hsat := Rd.hsat ψ ρ xs hpref
   have hds' : ∀ x ∈ (tgtMajor out c).ds, Expr.WScoped (tgtRP pp.toBlockShape c) x ∧
       x.looseBVarsBounded 0 = true :=
@@ -795,7 +795,7 @@ theorem genCls_decInv (hμ : μ.verifiedChecks = true)
   have hψc := Rd.hψ ψ
   have hsat' := hsat
   rw [hψc] at hlenP' hsat' hTys hEq
-  obtain ⟨hF, hI⟩ := instCtor_fit mpC Rd.hD Rd.hnN Rd.hkN Rd.hlps Rd.hnd Rd.hul hds' (Rd.hdsa ψ)
+  obtain ⟨hF, hI⟩ := instCtor_fit mpC Rd.hD Rd.hnN Rd.hkN hlpsR Rd.hnd Rd.hul hds' (Rd.hdsa ψ)
     hlenP' Rd.hmm hjD hlT hTys hEq hlab hsat'
   rw [← hψc] at hF hI
   have hfit : SpineFit (consList xs ρ)
@@ -803,7 +803,7 @@ theorem genCls_decInv (hμ : μ.verifiedChecks = true)
         (tgtRP pp.toBlockShape c) (tgtMajor out c).ds) 0 ab).map (·.2.2)) fs :=
     (hF fs).mpr hf.2.1
   refine ⟨by rw [hfdoms]; exact hfit, ?_⟩
-  obtain ⟨hIdsF, -, -⟩ := instCtor_decode mpC Rd.hD Rd.hnN Rd.hkN Rd.hlps Rd.hnd Rd.hul hds'
+  obtain ⟨hIdsF, -, -⟩ := instCtor_decode mpC Rd.hD Rd.hnN Rd.hkN hlpsR Rd.hnd Rd.hul hds'
     (Rd.hdsa ψ) hlenP' Rd.hmm hjD hlT hTys hEq hlab hsat' hfit
   rw [← hψc] at hIdsF
   obtain ⟨is0, his0, rfl⟩ := mem_idxSet_elim hi
