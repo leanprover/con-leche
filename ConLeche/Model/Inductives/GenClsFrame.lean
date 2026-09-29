@@ -150,6 +150,245 @@ theorem graded_of_infer_openers (hμ : μ.verifiedChecks = true) {envC : Env}
   have := sat_of_spineFit (Δ₀ := ([] : List AnnotTerm)) (Sat_nil V σ) hys
   simpa using this
 
+theorem list_getD_append_left {α : Type} {l l' : List α} {d : α} {n : Nat}
+    (h : n < l.length) : (l ++ l').getD n d = l.getD n d := by
+  simp [List.getD_eq_getElem?_getD, List.getElem?_append_left h]
+
+theorem list_getD_append_right {α : Type} {l l' : List α} {d : α} {n : Nat}
+    (h : l.length ≤ n) : (l ++ l').getD n d = l'.getD (n - l.length) d := by
+  simp [List.getD_eq_getElem?_getD, List.getElem?_append_right h]
+
+/-- **A graded frame of openers** at depth `D`: positional variables,
+scoped and bounded, their types reading as the frame's domains, which are
+graded along their fitting spines. -/
+structure GradedFrame {envC : Env} (mpC : EnvModelM V μ envC) (ψ : Name → Nat) (D : Nat)
+    (fr : List Expr) (doms : List AnnotTerm) : Prop where
+  len : doms.length = D
+  frLen : fr.length = D
+  shape : ∀ (i : Nat) (x : Expr), fr[i]? = some x → ∃ ty, x = Expr.fvar i ty
+  ws : ∀ x ∈ fr, Expr.WScoped D x
+  lb : ∀ x ∈ fr, (Expr.fvarTypeD x).looseBVarsBounded 0 = true
+  rd : ∀ (i : Nat) (x : Expr), fr[i]? = some x →
+    denoteMeta mpC.base2.acval envC ψ i (Expr.fvarTypeD x) = some (doms.getD i default)
+  ok : ∀ l, l < D → ∀ (σ : Nat → V) (ys : List V), SpineFit σ (doms.take l) ys →
+    WellDenotedV V (consList ys σ) (doms.getD l default)
+
+/-- `graded_of_infer_openers` at a graded frame. -/
+theorem GradedFrame.graded (hμ : μ.verifiedChecks = true) {envC : Env}
+    {mpC : EnvModelM V μ envC} {ψ : Name → Nat} {D : Nat} {fr : List Expr}
+    {doms : List AnnotTerm} (G : GradedFrame mpC ψ D fr doms) {F : Nat}
+    {e t : Expr} (hinf : ConLeche.inferTypeCore μ envC F D e = .ok t)
+    (hwsE : Expr.WScoped D e) (hbE : e.looseBVarsBounded 0 = true)
+    (hleaf : ∀ l ∈ e.fvarLeaves, Expr.fvar l.1 l.2 ∈ fr) :
+    ∃ w, denoteMeta mpC.base2.acval envC ψ D e = some w ∧
+      ∀ (σ : Nat → V) (ys : List V), SpineFit σ doms ys → WellDenotedV V (consList ys σ) w :=
+  graded_of_infer_openers hμ mpC ψ G.len G.shape G.ws G.lb G.rd G.ok hinf hwsE hbE hleaf
+
+/-- A leaf of a term scoped at `D` among a frame's openers extended by
+more is among the frame's, when the frame has `D` positional openers. -/
+theorem mem_frame_of_lt {fr zs : List Expr} {D : Nat}
+    (hsh : ∀ (k : Nat) (y : Expr), zs[k]? = some y → ∃ ty, y = Expr.fvar (D + k) ty)
+    {l : Nat × Expr} (hm : Expr.fvar l.1 l.2 ∈ fr ++ zs) (hlt : l.1 < D) :
+    Expr.fvar l.1 l.2 ∈ fr := by
+  rcases List.mem_append.mp hm with hm | hm
+  · exact hm
+  · obtain ⟨pos, hpos⟩ := List.getElem?_of_mem hm
+    obtain ⟨ty, hty⟩ := hsh pos _ hpos
+    have h1 : l.1 = D + pos := by injection hty
+    omega
+
+set_option maxHeartbeats 4000000 in
+/-- **A graded frame extends by the openers of an inferred telescope over
+it**: their types read (they are inferred), and each is graded along the
+spines fitting the frame and the openers before it. -/
+theorem GradedFrame.extend (hμ : μ.verifiedChecks = true) {envC : Env}
+    {mpC : EnvModelM V μ envC} {ψ : Name → Nat} {D : Nat} {fr : List Expr}
+    {doms : List AnnotTerm} (G : GradedFrame mpC ψ D fr doms) {F n : Nat}
+    {T body t : Expr} {zs : List Expr} (hop : ConLeche.openPisAtFvars n T D = some (zs, body))
+    (hinf : ConLeche.inferTypeCore μ envC F D T = .ok t)
+    (hwsT : Expr.WScoped D T) (hbT : T.looseBVarsBounded 0 = true)
+    (hleaf : ∀ l ∈ T.fvarLeaves, Expr.fvar l.1 l.2 ∈ fr) :
+    GradedFrame mpC ψ (D + n) (fr ++ zs) (doms ++ readOpenedDoms mpC.base2.acval envC ψ D zs) ∧
+      (∃ tb, ConLeche.inferTypeCore μ envC F (D + n) body = .ok tb) ∧
+      Expr.WScoped (D + n) body ∧ body.looseBVarsBounded 0 = true ∧
+      (∀ l ∈ body.fvarLeaves, Expr.fvar l.1 l.2 ∈ fr ++ zs) := by
+  have hzl : zs.length = n := ConLeche.Verify.openPisAtFvars_length _ hop
+  have hsh : ∀ (k : Nat) (y : Expr), zs[k]? = some y → ∃ ty, y = Expr.fvar (D + k) ty :=
+    fun k y hy => openPisAtFvars_index _ _ _ hop k y hy
+  obtain ⟨hwsZ, hwsB⟩ := openPisAtFvars_WScoped _ _ _ hop hwsT
+  obtain ⟨hbB, hbZ⟩ := ConLeche.Verify.openPisAtFvars_bounded _ hop hbT
+  have hleafs : ∀ l, (l ∈ body.fvarLeaves ∨ ∃ z ∈ zs, l ∈ z.fvarLeaves) →
+      Expr.fvar l.1 l.2 ∈ fr ++ zs := by
+    intro l hl
+    rcases openPisAtFvars_leaves _ hop l hl with h' | h'
+    · exact List.mem_append_left _ (hleaf l h')
+    · exact List.mem_append_right _ h'
+  have hinfZ := inferTypeCore_openPis_dom hμ hop hinf
+  have hwsZt : ∀ (k : Nat) (y : Expr), zs[k]? = some y →
+      Expr.WScoped (D + k) (Expr.fvarTypeD y) :=
+    fun k y hy => openPisAtFvars_typeWScoped _ hop hwsT k y hy
+  have hlbFZ : ∀ x ∈ fr ++ zs, (Expr.fvarTypeD x).looseBVarsBounded 0 = true := by
+    intro x hx
+    rcases List.mem_append.mp hx with hx | hx
+    · exact G.lb x hx
+    · exact hbZ x hx
+  -- the openers' types read
+  have hread : ∀ (k : Nat) (y : Expr), zs[k]? = some y →
+      ∃ a, denoteMeta mpC.base2.acval envC ψ (D + k) (Expr.fvarTypeD y) = some a := by
+    intro k y hy
+    obtain ⟨tk, htk⟩ := hinfZ k y hy
+    have hLk : Expr.LeavesBounded (Expr.fvarTypeD y) := fun l hl => by
+      obtain ⟨ty, rfl⟩ := hsh k y hy
+      have hm := hleafs l (Or.inr ⟨_, List.mem_of_getElem? hy, by
+        simp only [Expr.fvarLeaves, Expr.fvarTypeD] at hl ⊢
+        exact List.mem_cons_of_mem _ hl⟩)
+      simpa [Expr.fvarTypeD] using hlbFZ _ hm
+    exact acceptedReads_of mpC.base2 ψ htk (hwsZt k y hy)
+      (hbZ y (List.mem_of_getElem? hy)) hLk
+  have hrdl : (readOpenedDoms mpC.base2.acval envC ψ D zs).length = n := by
+    rw [readOpenedDoms_length_eq, hzl]
+  have hdomsZ : ∀ (k : Nat) (y : Expr), zs[k]? = some y →
+      denoteMeta mpC.base2.acval envC ψ (D + k) (Expr.fvarTypeD y)
+        = some ((readOpenedDoms mpC.base2.acval envC ψ D zs).getD k default) := by
+    intro k y hy
+    obtain ⟨a, ha⟩ := hread k y hy
+    have hk : k < zs.length := (List.getElem?_eq_some_iff.mp hy).1
+    have hyE : zs[k] = y := (List.getElem?_eq_some_iff.mp hy).2
+    have := readOpenedDoms_getElem (acval := mpC.base2.acval) (env := envC) (ψ := ψ) D zs k hk
+    rw [hyE, ha] at this
+    rw [ha, List.getD_eq_getElem?_getD, List.getElem?_eq_getElem (by simpa using hk), this]
+    rfl
+  -- the extended frames, one opener at a time
+  have hstep : ∀ k, k ≤ n →
+      GradedFrame mpC ψ (D + k) (fr ++ zs.take k)
+        (doms ++ (readOpenedDoms mpC.base2.acval envC ψ D zs).take k) := by
+    intro k
+    induction k with
+    | zero =>
+      intro _
+      simpa using G
+    | succ k ih =>
+      intro hk
+      have Gk := ih (by omega)
+      obtain ⟨y, hy⟩ : ∃ y, zs[k]? = some y := ⟨_, List.getElem?_eq_getElem (by omega)⟩
+      obtain ⟨ty, hyE⟩ := hsh k y hy
+      have hfrk : (fr ++ zs.take k).length = D + k := by
+        simp [G.frLen, hzl]; omega
+      have htk1 : zs.take (k + 1) = zs.take k ++ [y] := by
+        rw [List.take_add_one, hy]; rfl
+      have hdk1 : (readOpenedDoms mpC.base2.acval envC ψ D zs).take (k + 1)
+          = (readOpenedDoms mpC.base2.acval envC ψ D zs).take k
+            ++ [(readOpenedDoms mpC.base2.acval envC ψ D zs).getD k default] := by
+        rw [List.take_add_one, List.getElem?_eq_getElem (by omega), List.getD_eq_getElem?_getD,
+          List.getElem?_eq_getElem (by omega)]
+        rfl
+      -- the new opener's type, graded over the frame so far
+      have hleafY : ∀ l ∈ (Expr.fvarTypeD y).fvarLeaves, Expr.fvar l.1 l.2 ∈ fr ++ zs.take k := by
+        intro l hl
+        have hm := hleafs l (Or.inr ⟨y, List.mem_of_getElem? hy, by
+          rw [hyE] at hl ⊢
+          simp only [Expr.fvarLeaves, Expr.fvarTypeD] at hl ⊢
+          exact List.mem_cons_of_mem _ hl⟩)
+        have hlt : l.1 < D + k := Expr.fvarLeaves_lt_of_wscoped (hwsZt k y hy) l hl
+        rcases List.mem_append.mp hm with hm | hm
+        · exact List.mem_append_left _ hm
+        · refine List.mem_append_right _ ?_
+          obtain ⟨pos, hpos⟩ := List.getElem?_of_mem hm
+          obtain ⟨ty', hty'⟩ := hsh pos _ hpos
+          have h1 : l.1 = D + pos := by injection hty'
+          have hpt : (zs.take k)[pos]? = some (Expr.fvar l.1 l.2) := by
+            rw [List.getElem?_take, if_pos (by omega)]; exact hpos
+          exact List.mem_of_getElem? hpt
+      obtain ⟨tk, htk⟩ := hinfZ k y hy
+      obtain ⟨w, hw, hgw⟩ := Gk.graded hμ htk (hwsZt k y hy) (hbZ y (List.mem_of_getElem? hy))
+        hleafY
+      have hwE : w = (readOpenedDoms mpC.base2.acval envC ψ D zs).getD k default := by
+        have := hdomsZ k y hy
+        rw [hw] at this
+        exact Option.some.inj this
+      refine ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
+      · simp [G.len, hrdl]; omega
+      · simp [G.frLen, hzl]; omega
+      · intro i x hx
+        rw [htk1, ← List.append_assoc] at hx
+        rcases Nat.lt_or_ge i (D + k) with hi | hi
+        · rw [List.getElem?_append_left (by rw [hfrk]; exact hi)] at hx
+          exact Gk.shape i x hx
+        · rw [List.getElem?_append_right (by rw [hfrk]; exact hi), hfrk] at hx
+          have hi' : i - (D + k) = 0 := by
+            have := (List.getElem?_eq_some_iff.mp hx).1; simp at this; omega
+          rw [hi'] at hx
+          simp only [List.getElem?_cons_zero, Option.some.injEq] at hx
+          rw [← hx]
+          exact ⟨ty, by rw [hyE, show i = D + k by omega]⟩
+      · intro x hx
+        rw [htk1, ← List.append_assoc] at hx
+        rcases List.mem_append.mp hx with hx | hx
+        · exact (Gk.ws x hx).mono (by omega)
+        · simp only [List.mem_singleton] at hx
+          rw [hx, hyE]
+          have := hwsZt k y hy
+          rw [hyE] at this
+          simp only [Expr.WScoped, Expr.fvarTypeD] at this ⊢
+          exact ⟨by omega, this⟩
+      · intro x hx
+        rw [htk1, ← List.append_assoc] at hx
+        rcases List.mem_append.mp hx with hx | hx
+        · exact Gk.lb x hx
+        · simp only [List.mem_singleton] at hx
+          rw [hx]
+          exact hbZ _ (List.mem_of_getElem? hy)
+      · intro i x hx
+        rw [htk1, ← List.append_assoc] at hx
+        rw [hdk1, ← List.append_assoc]
+        have hdl : (doms ++ (readOpenedDoms mpC.base2.acval envC ψ D zs).take k).length
+            = D + k := Gk.len
+        rcases Nat.lt_or_ge i (D + k) with hi | hi
+        · rw [List.getElem?_append_left (by rw [hfrk]; exact hi)] at hx
+          rw [Gk.rd i x hx, list_getD_append_left
+            (l := doms ++ (readOpenedDoms mpC.base2.acval envC ψ D zs).take k) (by rw [hdl]; exact hi)]
+        · rw [List.getElem?_append_right (by rw [hfrk]; exact hi), hfrk] at hx
+          have hi' : i - (D + k) = 0 := by
+            have := (List.getElem?_eq_some_iff.mp hx).1; simp at this; omega
+          have hiE : i = D + k := by
+            have := (List.getElem?_eq_some_iff.mp hx).1; simp at this; omega
+          rw [hi'] at hx
+          simp only [List.getElem?_cons_zero, Option.some.injEq] at hx
+          rw [← hx, hiE, hdomsZ k y hy, list_getD_append_right (Nat.le_of_eq hdl), hdl,
+            Nat.sub_self]
+          rfl
+      · intro l hl σ ys hys
+        rw [hdk1, ← List.append_assoc] at hys ⊢
+        have hdl : (doms ++ (readOpenedDoms mpC.base2.acval envC ψ D zs).take k).length
+            = D + k := Gk.len
+        rcases Nat.lt_or_ge l (D + k) with hlk | hlk
+        · rw [List.take_append_of_le_length (by rw [hdl]; omega)] at hys
+          rw [List.getD_eq_getElem?_getD, List.getElem?_append_left (by rw [hdl]; exact hlk),
+            ← List.getD_eq_getElem?_getD]
+          exact Gk.ok l hlk σ ys hys
+        · obtain rfl : l = D + k := by omega
+          rw [List.take_append_of_le_length (Nat.le_of_eq hdl.symm), ← hdl,
+            List.take_length] at hys
+          rw [list_getD_append_right (Nat.le_of_eq hdl), hdl, Nat.sub_self]
+          simp only [List.getD_cons_zero]
+          rw [← hwE]
+          exact hgw σ ys hys
+  refine ⟨?_, ?_, hwsB, hbB, fun l hl => hleafs l (Or.inl hl)⟩
+  · have := hstep n (Nat.le_refl _)
+    rw [show zs.take n = zs by rw [← hzl, List.take_length],
+      List.take_of_length_le (show (readOpenedDoms mpC.base2.acval envC ψ D zs).length ≤ n from
+        Nat.le_of_eq hrdl)] at this
+    exact this
+  · rcases Nat.eq_zero_or_pos n with h0 | hpos
+    · rw [h0] at hop
+      simp only [openPisAtFvars, Option.some.injEq, Prod.mk.injEq] at hop
+      obtain ⟨-, rfl⟩ := hop
+      exact ⟨t, by rw [h0, Nat.add_zero]; exact hinf⟩
+    · obtain ⟨k, hk⟩ : ∃ k, n = k + 1 := ⟨_, (Nat.succ_pred_eq_of_pos hpos).symm⟩
+      rw [hk] at hop
+      obtain ⟨bt, -, hbt, -⟩ := inferTypeCore_openPis_body hμ k hop hinf
+      exact ⟨bt, by rw [hk]; exact hbt⟩
+
 end Kit
 
 /-! ## The minor premise, opened at the rule frame -/
