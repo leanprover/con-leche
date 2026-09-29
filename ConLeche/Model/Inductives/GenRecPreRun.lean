@@ -194,6 +194,125 @@ theorem genRun_cal
     rw [hK]
     exact List.mem_range.mp (List.mem_of_find?_eq_some hf)
 
+/-- **A class of the run**, checked as a major (`ClassMajorRun`), with its
+table entries. -/
+theorem genRun_class
+    (R : GenRecRun μ F (mkFEnv env₁) env₁ (mkFEnv envC) p.toBlockShape nestedBit pos cvTas
+      block ctorsAs out)
+    {i : Nat} (hi : i < R.Ms.length) :
+    ∃ key M₀ nfs, R.Ms[i]? = some { M₀ with nfs := nfs } ∧
+      Nonempty (ConLeche.ClassMajorRun μ F (mkFEnv envC) p.toBlockShape ctorsAs R.ctx.params key M₀) := by
+  obtain ⟨hlN, hallN⟩ := ConLeche.classesNfs_run R.hMs
+  obtain ⟨hlM, hallM⟩ := ConLeche.classMajors_run R.hMs₀
+  have hi0 : i < R.Ms₀.length := by omega
+  have hik : i < (R.rd.classes.map (ConLeche.classKeyCanon R.ctx.params)).length := by omega
+  obtain ⟨M, hM, hrun⟩ := hallM i _ (List.getElem?_eq_getElem hik)
+  obtain ⟨nfs, hMs, -⟩ := hallN i M hM
+  exact ⟨_, M, nfs, hMs, hrun⟩
+
+/-- **A member class**: the block's member `t`, its index count the
+member's. -/
+theorem genRun_member
+    (R : GenRecRun μ F (mkFEnv env₁) env₁ (mkFEnv envC) p.toBlockShape nestedBit pos cvTas
+      block ctorsAs out)
+    {cls t : Nat} (hm : (R.Ms.getD cls default).member = some t) :
+    ∃ ms, p.members[t]? = some ms ∧ (R.Ms.getD cls default).nIdx = ms.nIdx ∧
+      t < p.toBlockShape.k := by
+  have hi : cls < R.Ms.length := by
+    rcases Nat.lt_or_ge cls R.Ms.length with hl | hl
+    · exact hl
+    · rw [List.getD_eq_getElem?_getD, List.getElem?_eq_none hl] at hm
+      exact nomatch hm
+  obtain ⟨key, M₀, nfs, hMs, ⟨CR⟩⟩ := genRun_class R hi
+  have hget : R.Ms.getD cls default = { M₀ with nfs := nfs } := by
+    rw [List.getD_eq_getElem?_getD, hMs, Option.getD_some]
+  rw [hget] at hm ⊢
+  have hmaj := CR.major
+  cases hmaj with
+  | member I t' ms ctorsA hfn ht hms hctors hpar nfs' =>
+    obtain rfl : t' = t := by simpa using hm
+    refine ⟨ms, hms, rfl, ?_⟩
+    have := (List.getElem?_eq_some_iff.mp hms).1
+    exact this
+  | outside => exact nomatch hm
+
+variable {d : BlockData V} {Dc : Nat → LfpDatum V} {mc : Nat → Nat} {cvc : Nat → ConstantVal}
+
+/-- The member recursor's record names its class's member. -/
+theorem genRun_recTgt
+    (R : GenRecRun μ F (mkFEnv env₁) env₁ (mkFEnv envC) p.toBlockShape nestedBit pos cvTas
+      block ctorsAs out)
+    {c t : Nat} (hc : c < (tgtRs out).length) (hm : (tgtMajor out c).member = some t) :
+    p.toBlockShape.recTgtAt c = t := by
+  obtain ⟨rc, cls, cvG, rhss, hrc, hcls, -, ⟨T⟩, -, hM, -⟩ := genRun_at R hc
+  rw [hM] at hm
+  show (p.recs.getD c default).tgt = t
+  rw [List.getD_eq_getElem?_getD, hrc, Option.getD_some, T.htgt]
+  show ((R.Ms.getD cls default).member.getD p.k) = t
+  rw [hm]; rfl
+
+/-- **`GenPreHyps.nIdx`**: a class's index count is the stored one. -/
+theorem genRun_nIdx
+    (R : GenRecRun μ F (mkFEnv env₁) env₁ (mkFEnv envC) p.toBlockShape nestedBit pos cvTas
+      block ctorsAs out)
+    {pk : Nat → BlockMemberPick} {uOfD : Nat → (Name → Nat) → Nat}
+    {ppsOf : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)}
+    (hd : d = blockDataOf V p.toBlockShape ctorsAs pk uOfD ppsOf) :
+    ∀ c, c < (tgtRs out).length →
+      tgtClsNIdx d p.toBlockShape out c = (tgtMajor out c).nIdx := by
+  intro c hc
+  cases hmb : (tgtMajor out c).member with
+  | none => exact tgtClsNIdx_out hmb
+  | some t =>
+    have hm : (tgtMajor out c).member.isSome = true := by rw [hmb]; rfl
+    rw [tgtClsNIdx_mem hm, genRun_recTgt R hc hmb]
+    obtain ⟨-, cls, -, -, -, -, -, -, -, hM, -⟩ := genRun_at R hc
+    rw [hM] at hmb ⊢
+    obtain ⟨ms, hms, hn, -⟩ := genRun_member R hmb
+    rw [hn, hd]
+    show (p.toBlockShape.nIdxs).getD t 0 = ms.nIdx
+    simp [ConLeche.BlockShape.nIdxs, List.getD_eq_getElem?_getD, hms]
+
+/-- **`GenPreHyps.mN`**: a class's component is below its clause's width. -/
+theorem genRun_mN (mpC : EnvModelM V μ envC)
+    (R : GenRecRun μ F (mkFEnv env₁) env₁ (mkFEnv envC) p.toBlockShape nestedBit pos cvTas
+      block ctorsAs out)
+    {pk : Nat → BlockMemberPick} {uOfD : Nat → (Name → Nat) → Nat}
+    {ppsOf : Nat → (Name → Nat) → List (Nat × Nat × AnnotTerm)}
+    (hd : d = blockDataOf V p.toBlockShape ctorsAs pk uOfD ppsOf)
+    (hcls : ∀ c, c < (tgtRs out).length → (tgtMajor out c).member = none →
+      TgtOutCls mpC (tgtMajor out c) (Dc c) (mc c) (cvc c)) :
+    ∀ c, c < (tgtRs out).length → tgtClsM mc p.toBlockShape out c < (tgtClsD d Dc out c).N := by
+  intro c hc
+  cases hmb : (tgtMajor out c).member with
+  | none =>
+    have hm : (tgtMajor out c).member.isSome = false := by rw [hmb]; rfl
+    simp only [tgtClsM, tgtClsD, hm, Bool.false_eq_true, if_false]
+    have hcl := hcls c hc hmb
+    obtain ⟨hC, -⟩ := mpC.lfp_ok _ hcl.hD
+    exact Nat.lt_of_lt_of_le hcl.hmm hC.kN
+  | some t =>
+    have hm : (tgtMajor out c).member.isSome = true := by rw [hmb]; rfl
+    simp only [tgtClsM, tgtClsD, hm, if_true]
+    rw [genRun_recTgt R hc hmb]
+    obtain ⟨-, cls, -, -, -, -, -, -, -, hM, -⟩ := genRun_at R hc
+    rw [hM] at hmb
+    obtain ⟨-, -, -, htk⟩ := genRun_member R hmb
+    rw [hd]
+    show t < p.toBlockShape.k + 0
+    omega
+
+/-- **`GenPreHyps.din`**: every class's clause is recorded. -/
+theorem genRun_din (mpC : EnvModelM V μ envC) (hlfp : d.toLfp ∈ mpC.lfpBlocks)
+    (hcls : ∀ c, c < (tgtRs out).length → (tgtMajor out c).member = none →
+      TgtOutCls mpC (tgtMajor out c) (Dc c) (mc c) (cvc c)) :
+    ∀ c, c < (tgtRs out).length → tgtClsD d Dc out c ∈ mpC.lfpBlocks := by
+  intro c hc
+  unfold tgtClsD
+  cases hmb : (tgtMajor out c).member with
+  | none => simp only [Option.isSome_none, Bool.false_eq_true, if_false]; exact (hcls c hc hmb).hD
+  | some t => simp only [Option.isSome_some, if_true]; exact hlfp
+
 end Run
 
 end ConLeche.Model
