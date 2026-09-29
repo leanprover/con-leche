@@ -79384,12 +79384,29 @@ this block wins.
    PER-COMPONENT DEFEQ (head constant, levels `Level.isEquivList`,
    parameters `isDefEq` at the hole context, indices by reading); the
    syntactic K.53 disappears.  See "SEEDDEFEQ" at the end.
+   **AMENDED 2026-09-29 (maintainer; GENREC):** recursors are now
+   GENERATED, not checked.  The stream's recursor family supplies only
+   its CLASSES (read off its motives/majors by an unverified pre-pass)
+   and its TYPES; the checker generates the recursor family from the
+   classes and the positivity check's recorded constructor normal forms,
+   compares each generated recursor TYPE with the stream's by defeq, and
+   INSTALLS ITS OWN GENERATED RULES — the stream's rules are ignored
+   (so any stream rules are accepted: one less thing to check).  Every
+   class a generated rule calls must match a node per component, and
+   classes with several nodes must agree at every node (node agreement,
+   today's K.53′).  The model is still the graph route, its premises
+   proved BY CONSTRUCTION for the generated family (ported from the
+   parked CLASSCHECK branch).  The primitive-recursion liberality above
+   no longer applies.
 6. **Conformance.**  The old recursor generator survives as a reject-only,
    unverified conformance check.  It runs AFTER the primitive-recursion
    check, is called from the fold, has a verified cached bridge, and lives
    in its own directory (`ConLeche/Conformance/`) so that its code is
    recognisable as not needed for soundness.  Conformance gaps get e2e
    fixtures.  (2026-09-22)
+   **RETIRED 2026-09-29 (maintainer; GENREC):** with generated recursors
+   the separate one-member generator is plainly unnecessary; it is deleted
+   with GENREC ("defeq supersets are fine").
 7. **Arguments.**  A proof's case split is over the syntax, never a
    corpus.  "No instance in Mathlib" is not an argument.  "Official never
    generates this" counts only if it holds for all nested inductives.
@@ -79398,6 +79415,14 @@ this block wins.
    below is sound and stays accepted.  If one ever becomes an issue, a
    dedicated reject-only check goes into `ConLeche/Conformance/`; the
    verified route is not narrowed.
+   **GENREC update (2026-09-29):** the primitive-recursion superset
+   (recursor families that are not official's shape, e.g. casesOn-shaped
+   at k ≥ 2 — `genrec_k{2,3}_caseson`) is DROPPED; D1 (containers reached
+   only after whnf) is kept only where the stream carries the auxiliary
+   recursor for the container (`corner_nestpos_redex_bad` becomes a
+   reject, as official); NEW: any stream recursor RULES are accepted,
+   since ours are installed instead; recursor types equal to the generated
+   ones only up to defeq are accepted.
    * **Zero-motive recursors at k ≥ 2.**  The kernel requires only
      `nP ≤ rP` (lane FLOOR).  At k = 1 the conformance generator still
      rejects such a recursor, and at k ≥ 2 it is skipped.  Streams cannot
