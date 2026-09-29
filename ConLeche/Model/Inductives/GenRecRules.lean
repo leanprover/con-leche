@@ -21,6 +21,9 @@ import ConLeche.Verify.Level
 import ConLeche.Verify.Subst
 import ConLeche.Model.Annot.BitRename
 import ConLeche.Model.Inductives.BlockRuleParams
+import ConLeche.Model.Inductives.NestPosOut
+import ConLeche.Verify.Inductives.NestCallSyn
+import ConLeche.Model.Inductives.BlockRecPreRun
 
 public section
 
@@ -1626,6 +1629,66 @@ theorem genRuleFieldRead
     List.getElem?_eq_getElem (by simpa using hk')] at hnd
   obtain rfl := (Option.some.inj hnd).symm
   rw [Nat.zero_add, denoteMeta_erasedEq hE]
+  rfl
+
+/-- **The prefix bridge, under D1**: the stored rule's prefix λ-domains
+read as the stored recursor type's prefix domains — both are the
+generated prefix `g.pre`, stored as generated. -/
+theorem genRulePrefRead (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V μ envC)
+    (R : GenRecRun μ F fe₁ env₁ (ConLeche.mkFEnv envC) pp.toBlockShape nb pos cvTas block
+      ctorsAs out)
+    (hg : ClassGenScoped R.g)
+    {memR : Nat → Prop} (h : ConLeche.RecStageG μ F envC pp cvTas ctorsAs (tgtRs out) memR) :
+    GenRulePrefRead mpC.base2.acval envC pp.toBlockShape out := by
+  intro j r hr i cA rhs hcA hrhs ψ bs body hop
+  obtain ⟨cls, x, fvs0, res0, hc, hrP, -, -, -, -, hop0, -, -, -, hcx, hnF, hxmem, -, -, -,
+    -, -⟩ := genFrameAt R hg hr hcA hrhs
+  obtain ⟨rc, cls2, x2, gen, hrc, hc2, -, -, -, -, hx2, -, ⟨TR⟩, -, -, hgen, ⟨RR⟩⟩ :=
+    genRuleAt R hr hcA hrhs
+  have hcc : cls2 = cls := Option.some.inj (hc2.symm.trans hc)
+  subst cls2
+  have hgc : genClsOf R.rd j = cls := by simp [genClsOf, List.getD_eq_getElem?_getD, hc]
+  have hxx : x2 = x := by
+    rw [← hcx, genCtorAt, hgc, List.getD_eq_getElem?_getD, hx2]; rfl
+  subst x2
+  obtain ⟨fvs, res, ws, s, bs', body', -, -, -, -, hop', hbs, -⟩ :=
+    genRule_shapeD hg hxmem hgen RR.hout
+  rw [hrP, ← hnF] at hop
+  obtain ⟨rfl, rfl⟩ := Prod.mk.inj (Option.some.inj (hop.symm.trans hop'))
+  -- the stored recursor type is the generated one
+  obtain ⟨-, -, -, -, -, -, -, -, _st, _u, -, -, hcvE⟩ := ConLeche.classConstOk_inv TR.hcv
+  have hty : r.1.type = TR.gty := congrArg ConstantVal.type hcvE
+  obtain ⟨ifs, maj, -, -, hgty, hbnd, hbody⟩ := ConLeche.classGenRecTy_spec hg TR.hgty
+  have hpreB : ∀ q ∈ R.g.pre, q.1.looseBVarsBounded 0 = true := fun q hq =>
+    hbnd q (List.mem_append_left _ (List.mem_append_left _ hq))
+  have hrestB : ∀ q ∈ ifs.map R.g.binder ++ [(maj, R.g.bm)], q.1.looseBVarsBounded 0 = true :=
+    fun q hq => hbnd q (by rw [List.append_assoc]; exact List.mem_append_right _ hq)
+  rw [List.append_assoc, closeTelescope_append'] at hgty
+  have hEq0 : Expr.ErasedEq r.1.type (ConLeche.closeTelescope R.g.pre 0
+      (ConLeche.closeTelescope (ifs.map R.g.binder ++ [(maj, R.g.bm)]) (0 + R.g.pre.length)
+        (Expr.mkAppN (R.g.motVar cls) (ifs ++ [.fvar (R.g.pre.length + ifs.length) maj])))) := by
+    rw [hty, hgty]
+    exact Expr.ErasedEq.rfl _
+  obtain ⟨xsT, restT, hopT, -, hdomsT⟩ := open_of_erasedEq_closeTelescope R.g.pre 0 _ r.1.type
+    hpreB (ConLeche.closeTelescope_bounded _ _ _ hrestB hbody) hEq0
+  have hrP' : pp.toBlockShape.rulePrefixAt j = R.g.pre.length := hrP
+  have hreads := blockRulePdomsAV_reads hμ mpC h hr ψ (by rw [hrP']; exact hopT)
+  have hxT : xsT.length = R.g.pre.length := ConLeche.Verify.openPisAtFvars_length _ hopT
+  have hbl : bs.length = R.g.pre.length + x.nF := openLamsM_length _ hop'
+  rw [hrP']
+  refine List.ext_getElem (by
+    rw [List.length_take, List.length_map, readLamBs_length, blockRulePdomsAV_length hμ mpC h hr,
+      hrP', hbl]; omega) fun k hk hk' => ?_
+  have hkP : k < R.g.pre.length := by simp at hk; omega
+  rw [List.getElem_take, readLamBs_getElem 0 bs k (by omega), Nat.zero_add]
+  obtain ⟨nd, hnd⟩ : ∃ nd, (R.g.pre ++ fvs.map R.g.binder)[k]? = some nd :=
+    ⟨_, by rw [List.getElem?_append_left hkP]; exact List.getElem?_eq_getElem hkP⟩
+  have hE := (hbs k bs[k] nd (List.getElem?_eq_getElem (by omega)) hnd).1
+  rw [List.getElem?_append_left hkP] at hnd
+  have hT := hdomsT k xsT[k] nd.1 (List.getElem?_eq_getElem (by omega)) (by rw [hnd]; rfl)
+  have hr' := hreads k xsT[k] (List.getElem?_eq_getElem (by omega))
+  rw [denoteMeta_erasedEq hE, ← denoteMeta_erasedEq hT, hr', Option.getD_some,
+    List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hk']
   rfl
 
 end Bridges
