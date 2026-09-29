@@ -25,7 +25,7 @@ recursors.  The stream's recursor rules are never read.
 * **The seeds.**  Every outside class seeds the positivity check
   (`nestSeeds`), so every class is a node of the walk by construction; the
   walk's recorded constructor normal forms (the TABLE, `NestCtorNf`, with
-  the walk's field kinds) are the generator's input.
+  their readings) are the generator's input.
 * **Per class and constructor** the entries of the table at a key the
   class matches per component (`targetMajorNfs`); the first is the
   generator's DATUM (its telescope and field kinds).  The minor premise's
@@ -218,22 +218,24 @@ def classMinorSlot (rd : ClassRead) (c : Nat) (C : Name) : m (Nat × List (Nat �
 
 /-- **The minor premise's inductive hypotheses are the datum's recursive
 fields**, one each (`ihs` the pre-pass's `(field, class)` pairs; `fvs` the
-datum's opened fields, `ks` its walked kinds from field `i` on): an
-ordinary field has none, a recursive one exactly one.  Returns the
-generator's kinds (a recursive field at its `ih`'s class, with its
-telescope's length). -/
-def classFieldsOf (ctor : Name) (ihs : List (Nat × Nat)) (fvs : List Expr) :
-    Nat → List NestFieldKind → m (List ClassField)
+datum's opened fields from field `i` on): a field is RECURSIVE when its
+walked type names a member of the block (the positivity check classifies
+every such field as recursive or nested; the others are ordinary), and
+then it has exactly one inductive hypothesis, an ordinary one none.
+Returns the generator's kinds (a recursive field at its `ih`'s class, with
+its walked telescope's length). -/
+def classFieldsOf (p : BlockShape) (ctor : Name) (ihs : List (Nat × Nat)) :
+    Nat → List Expr → m (List ClassField)
   | _, [] => pure []
-  | i, k :: ks => do
-    let k' ← match k == .ordinary, ihs.filter (·.1 == i) with
-      | true, [] => pure ClassField.ordinary
-      | false, [(_, t)] =>
-        pure (.recursive t (fvs.getD i default).fvarTypeD.piBinders.1.length)
+  | i, f :: fs => do
+    let w := f.fvarTypeD
+    let k' ← match w.nestOcc p.memberNames 0 0, ihs.filter (·.1 == i) with
+      | false, [] => pure ClassField.ordinary
+      | true, [(_, t)] => pure (.recursive t w.piBinders.1.length)
       | _, _ =>
         throw (.invalid s!"generated recursor: the inductive hypotheses of {ctor}'s minor \
           premise are not its recursive fields (official: invalid recursor)")
-    let ks' ← classFieldsOf ctor ihs fvs (i + 1) ks
+    let ks' ← classFieldsOf p ctor ihs (i + 1) fs
     pure (k' :: ks')
 
 /-- **Node agreement at one recursive field** (K.53′): at every entry
@@ -268,7 +270,7 @@ def classFieldsAgree (ops : CheckerOps m) (env : Env) (p : BlockShape) (formerTy
 
 /-- **One constructor of class `c`, read for the generator**: its entries
 `E` in the class's table (`M.nfs`), the first the DATUM; the minor
-premise's inductive hypotheses against the datum's walked kinds
+premise's inductive hypotheses against the datum's recursive fields
 (`classFieldsOf`); node agreement at every entry (`classFieldsAgree`). -/
 def classCtorOf (ops : CheckerOps m) (env : Env) (p : BlockShape) (formerTys : List Expr)
     (rd : ClassRead) (Ms : List TargetMajor) (c : Nat) (cA : ConstantVal × Nat) :
@@ -279,9 +281,7 @@ def classCtorOf (ops : CheckerOps m) (env : Env) (p : BlockShape) (formerTys : L
   let (_, ihs) ← classMinorSlot rd c cA.1.name
   let (fvs, _) ← unwrapOr (openPisAtFvars cA.2 e0.ty (p.nP + p.k))
     (.internal "generated recursor: datum telescope")
-  unless e0.kinds.length == cA.2 do
-    throw (.internal "generated recursor: datum kinds")
-  let kinds ← classFieldsOf cA.1.name ihs fvs 0 e0.kinds
+  let kinds ← classFieldsOf p cA.1.name ihs 0 fvs
   classFieldsAgree ops env p formerTys Ms fvs cA.1.name E 0 kinds
   let M := Ms.getD c default
   let tyD ← unwrapOr (instPisWith M.ds (targetCtorAt M cA.1))

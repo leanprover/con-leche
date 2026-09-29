@@ -842,8 +842,6 @@ structure NestCtorNf where
   lvls : List Level
   ds : List Expr
   ty : Expr
-  /-- the walk's field kinds at this entry (the generated recursor's datum reads them) -/
-  kinds : List NestFieldKind := []
   deriving Inhabited
 
 /-- The block, as the function needs it: the members, their level
@@ -1203,11 +1201,10 @@ the frame's key `(us, ds)` under the frames `prog`, its walked field
 telescope `nds` (opened at `hi, hi + 1, …`) onto `cur` closed back, all
 read back (`nestHoleConst`). -/
 def nestCtorNf (ctx : NestCtx) (prog : List NestHole) (hi : Nat) (us : List Level)
-    (ds : List Expr) (cv : ConstantVal) (nds : List (Expr × BinderMeta)) (cur : Expr)
-    (ks : List NestFieldKind := []) :
+    (ds : List Expr) (cv : ConstantVal) (nds : List (Expr × BinderMeta)) (cur : Expr) :
     NestCtorNf :=
-  { ctor := cv.name, lvls := us, ds := ds.map (·.replaceFVars (nestHoleConst ctx prog)),
-    ty := (closeTelescope nds hi cur).replaceFVars (nestHoleConst ctx prog), kinds := ks }
+  ⟨cv.name, us, ds.map (·.replaceFVars (nestHoleConst ctx prog)),
+    (closeTelescope nds hi cur).replaceFVars (nestHoleConst ctx prog)⟩
 
 /-- **A frame's constructors** — the ROOT frame's (the block's own,
 `nestRoot`) and every container frame's (`nestFrame`) alike: each with
@@ -1269,7 +1266,7 @@ def nestCtors (ctx : NestCtx) (ops : CheckerOps m) (env : Env)
         index mentions the block")
     -- K.53′: the constructor's walked normal form at the
     -- frame's key, read back (`NestCtorNf`)
-    let st := { st with ctorNfs := st.ctorNfs.push (nestCtorNf ctx prog hi us ds cv nds cur ks) }
+    let st := { st with ctorNfs := st.ctorNfs.push (nestCtorNf ctx prog hi us ds cv nds cur) }
     let (os, st) ← nestCtors ctx ops env rec prog hi us ds nPc sub cs st
     pure ((ks, closeTelescope nds hi cur) :: os, st)
 
