@@ -124,22 +124,6 @@ structure ConstChecked (mode : CheckMode) (F : Nat) (env : Env) (cv0 cv : Consta
     ensureSortCore mode env F 0 stype = .ok u
   noProj : ∀ (T : Name) (i : Nat), env.findProj? T i = none → Expr.NoProjAt T i cv.type
 
-/-- **A `checkConstantVal` run's facts**: the annotation keeps the type
-closed and puts no `.proj` node at an empty slot
-(`annotateCore_noProjAt`). -/
-theorem checkConstantVal_checked {env : Env} {F : Nat} {cv0 cv : ConstantVal}
-    (h : checkConstantVal (fueledOps mode F) env cv0 = .ok cv) :
-    ConstChecked mode F env cv0 cv := by
-  obtain ⟨hfr, hres, hps, hnd, hlb, hfv, type, stype, u, hann, hlp, hcr, hinf, hsort, rfl⟩ :=
-    checkConstantVal_inv h
-  exact {
-    name := rfl, lps := rfl, fresh := hfr, unreserved := hres, notProjShape := hps,
-    nodup := hnd, bounded := annotateCore_looseBVars F _ hann hlb,
-    noFvar := Expr.not_hasFvar_of_fvarsBelow_zero
-      ((annotateCore_WScoped F _ hann (Expr.WScoped.of_not_hasFvar hfv)).fvarsBelow),
-    lpsDef := hlp, resolves := hcr, sorted := ⟨stype, u, hinf, hsort⟩,
-    noProj := fun _ _ hslot => annotateCore_noProjAt mode hann hfv hslot }
-
 /-- **Stage (b) at ONE recursor, at ANY major**: the part
 of `RecTyEntry` that does not name the major's inductive — the checked
 constant, the prefix and the major's position, the recursor type's

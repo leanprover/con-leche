@@ -236,20 +236,6 @@ theorem mkPisOf_WScoped {d : Nat} :
     exact ⟨hbs _ List.mem_cons_self,
       mkPisOf_WScoped (fun b hb' => hbs b (List.mem_cons_of_mem _ hb')) hb⟩
 
-theorem structTeleVars_WScoped {d m : Nat} : ∀ x ∈ structTeleVars m, WScoped d x := by
-  intro x hx
-  simp only [structTeleVars, List.mem_map] at hx
-  obtain ⟨k, -, rfl⟩ := hx
-  simp [WScoped]
-
-/-- `instantiateList` at well-scoped values keeps a scoped term scoped. -/
-theorem instantiateList_WScoped {d : Nat} {vs : List Expr} {e : Expr}
-    (hvs : ∀ v ∈ vs, WScoped d v) (he : WScoped d e) : WScoped d (e.instantiateList vs 0) := by
-  by_cases hne : vs = []
-  · subst hne; rw [Expr.instantiateList_nil]; exact he
-  · rw [instantiateList_eq_instSeq hne]
-    exact Expr.instSeq_WScoped _ _ (fun a ha => hvs a (List.mem_reverse.mp ha)) he
-
 /-- An opened telescope's variables carry types scoped at their own
 frame. -/
 theorem openers_typeD_WScoped {n off : Nat} {e : Expr} {fvs : List Expr} {body : Expr}
@@ -260,16 +246,6 @@ theorem openers_typeD_WScoped {n off : Nat} {e : Expr} {fvs : List Expr} {body :
   have hw := (openPisAtFvars_WScoped n e off h he).1 _ (List.mem_of_getElem? hx)
   simp only [WScoped] at hw
   exact hw.2
-
-/-- The same, read at a common frame. -/
-theorem openers_typeD_WScoped' {n off d : Nat} {e : Expr} {fvs : List Expr} {body : Expr}
-    (h : openPisAtFvars n e off = some (fvs, body)) (he : WScoped off e) (hd : off + n ≤ d) :
-    ∀ x ∈ fvs, WScoped d x.fvarTypeD := by
-  intro x hx
-  obtain ⟨i, hi⟩ := List.getElem?_of_mem hx
-  have hil : i < fvs.length := (List.getElem?_eq_some_iff.mp hi).1
-  have hlen : fvs.length = n := ConLeche.Verify.openPisAtFvars_length n h
-  exact (openers_typeD_WScoped h he i x hi).mono (by omega)
 
 /-! ## 3. The single-environment stages, simulated -/
 
@@ -477,32 +453,6 @@ section Sims3
 
 variable {env : Env}
 
-/-- The member's parameter-and-index telescope at the recursor's own
-numbering: the index openers carry types scoped at their own frame,
-provided the parameters come first. -/
-theorem openPisParamsIdx_typeD_WScoped {nP nIdx rP : Nat} {ty : Expr} {tfvs : List Expr}
-    {rest : Expr} (h : openPisParamsIdx nP nIdx rP ty = some (tfvs, rest))
-    (hw : WScoped 0 ty) (hle : nP ≤ rP) :
-    ∀ (i : Nat) (x : Expr), (tfvs.drop nP)[i]? = some x →
-      i < nIdx ∧ WScoped (rP + i) x.fvarTypeD := by
-  unfold openPisParamsIdx at h
-  split at h
-  · exact nomatch h
-  · next pfvs body hp =>
-    split at h
-    · exact nomatch h
-    · next ifvs rest' hi =>
-      simp only [Option.some.injEq, Prod.mk.injEq] at h
-      obtain ⟨rfl, -⟩ := h
-      have hpl : pfvs.length = nP := ConLeche.Verify.openPisAtFvars_length _ hp
-      have hil : ifvs.length = nIdx := ConLeche.Verify.openPisAtFvars_length _ hi
-      have hbody : WScoped rP body :=
-        ((openPisAtFvars_WScoped _ _ 0 hp hw).2).mono (by omega)
-      intro i x hx
-      rw [List.drop_left' hpl] at hx
-      exact ⟨by have := (List.getElem?_eq_some_iff.mp hx).1; omega,
-        openers_typeD_WScoped hi hbody i x hx⟩
-
 end Sims3
 
 /-! ## 4. The rule stage: two environments, one state
@@ -582,21 +532,6 @@ theorem mono {β α : Type} {P : β → α → Prop} {c : CheckCM β} {p : Fuele
     ⟨hB s' h1, h2⟩
 
 end SimG
-
-/-- The rule stage's `annotate` at the rule-less recursors'
-environment: it flushes first, so it simulates from any residue. -/
-theorem ruleR_annotate_simG (hμ : mode.verifiedChecks = true) {envR : Env} (henvR : EnvWF envR)
-    {d : Nat} {e : Expr} (hw : WScoped d e) :
-    SimG CSOKF (CSOK mode envR) (RelW d)
-      ((sharedOpsRuleR mode (mkFEnv envR)).annotate envR d e)
-      ((fueledOpsM mode).annotate envR d e) := by
-  intro s₀ hs v' s' hr
-  simp only [sharedOpsRuleR] at hr
-  obtain ⟨u, s₁, hfl, hr⟩ := bindC_ok hr
-  rw [flushC_run] at hfl
-  injection hfl with hfl
-  obtain rfl : s₀.flushed = s₁ := congrArg Prod.snd hfl
-  exact opE_annotate_sim hμ henvR (flushC_csok hs) hw v' s' hr
 
 /-- The rule stage's `inferType` at the rule-less recursors'
 environment: it flushes last, so it hands on a state that is an

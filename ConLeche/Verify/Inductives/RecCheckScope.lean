@@ -164,19 +164,6 @@ theorem targetAbs_fvarLeaves {names : List Name} {lvls : List Level} {holes : Li
     simp only [targetAbs, fvarLeaves] at hl ⊢
     exact ih l hl
 
-/-- A telescope's domains are sub-terms. -/
-theorem piBinders_dom_fvarLeaves :
-    ∀ (e : Expr), ∀ b ∈ e.piBinders.1, ∀ l ∈ b.1.fvarLeaves, l ∈ e.fvarLeaves := by
-  intro e
-  induction e with
-  | forallE ty body m _ ihb =>
-    intro b hb l hl
-    simp only [Expr.piBinders, List.mem_cons] at hb
-    rcases hb with rfl | hb
-    · simp [fvarLeaves, hl]
-    · simp [fvarLeaves, ihb b hb l hl]
-  | _ => intro b hb; simp [Expr.piBinders] at hb
-
 /-- Lifting loose bound variables keeps the leaves. -/
 theorem fvarLeaves_liftLooseBVars (n : Nat) :
     ∀ (e : Expr) (c : Nat), (e.liftLooseBVars n c).fvarLeaves = e.fvarLeaves := by
@@ -276,12 +263,6 @@ theorem mkLamsOf_fvarLeaves :
       · exact Or.inl ⟨b, List.mem_cons_of_mem _ hb, h⟩
       · exact Or.inr h
 
-theorem structTeleVars_fvarLeaves (m : Nat) : ∀ x ∈ structTeleVars m, x.fvarLeaves = [] := by
-  intro x hx
-  simp only [structTeleVars, List.mem_map] at hx
-  obtain ⟨k, -, rfl⟩ := hx
-  simp [fvarLeaves]
-
 /-- The member abstraction keeps the scope, holes included. -/
 theorem targetAbs_WScoped {names : List Name} {lvls : List Level} {holes : List Expr} {D : Nat}
     (hh : ∀ h ∈ holes, WScoped D h) :
@@ -342,67 +323,6 @@ theorem replaceFVars_WScoped {g : Nat → Option Expr} {d : Nat}
   | proj s i sub ih =>
     intro hw; unfold WScoped at hw; simp only [Expr.replaceFVars]; unfold WScoped; exact ih hw
   | _ => intro hw; simpa [Expr.replaceFVars] using hw
-
-/-- Replacing free variables adds only the replacements' leaves. -/
-theorem replaceFVars_fvarLeaves {g : Nat → Option Expr} :
-    ∀ (e : Expr) (l : Nat × Expr), l ∈ (e.replaceFVars g).fvarLeaves →
-      l ∈ e.fvarLeaves ∨ ∃ i r, g i = some r ∧ l ∈ r.fvarLeaves := by
-  intro e
-  induction e with
-  | fvar i ty _ =>
-    intro l hl
-    simp only [Expr.replaceFVars] at hl
-    cases hgi : g i with
-    | none => rw [hgi, Option.getD_none] at hl; exact Or.inl hl
-    | some r => rw [hgi, Option.getD_some] at hl; exact Or.inr ⟨i, r, hgi, hl⟩
-  | app a b iha ihb =>
-    intro l hl
-    simp only [Expr.replaceFVars, fvarLeaves, List.mem_append] at hl ⊢
-    rcases hl with hl | hl
-    · rcases iha l hl with h | h
-      · exact Or.inl (Or.inl h)
-      · exact Or.inr h
-    · rcases ihb l hl with h | h
-      · exact Or.inl (Or.inr h)
-      · exact Or.inr h
-  | lam ty b m iht ihb =>
-    intro l hl
-    simp only [Expr.replaceFVars, fvarLeaves, List.mem_append] at hl ⊢
-    rcases hl with hl | hl
-    · rcases iht l hl with h | h
-      · exact Or.inl (Or.inl h)
-      · exact Or.inr h
-    · rcases ihb l hl with h | h
-      · exact Or.inl (Or.inr h)
-      · exact Or.inr h
-  | forallE ty b m iht ihb =>
-    intro l hl
-    simp only [Expr.replaceFVars, fvarLeaves, List.mem_append] at hl ⊢
-    rcases hl with hl | hl
-    · rcases iht l hl with h | h
-      · exact Or.inl (Or.inl h)
-      · exact Or.inr h
-    · rcases ihb l hl with h | h
-      · exact Or.inl (Or.inr h)
-      · exact Or.inr h
-  | letE ty v b iht ihv ihb =>
-    intro l hl
-    simp only [Expr.replaceFVars, fvarLeaves, List.mem_append] at hl ⊢
-    rcases hl with (hl | hl) | hl
-    · rcases iht l hl with h | h
-      · exact Or.inl (Or.inl (Or.inl h))
-      · exact Or.inr h
-    · rcases ihv l hl with h | h
-      · exact Or.inl (Or.inl (Or.inr h))
-      · exact Or.inr h
-    · rcases ihb l hl with h | h
-      · exact Or.inl (Or.inr h)
-      · exact Or.inr h
-  | proj s i sub ih =>
-    intro l hl
-    simp only [Expr.replaceFVars, fvarLeaves] at hl ⊢
-    exact ih l hl
-  | _ => intro l hl; simp [Expr.replaceFVars, fvarLeaves] at hl
 
 /-- Closing a binder body back: an opened body without loose bound
 variables past `k` had none past `k + 1`. -/

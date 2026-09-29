@@ -52,45 +52,6 @@ variable {mode : CheckMode}
 
 /-! ## 1. Scoping -/
 
-/-- A term scoped past the holes that names none of them is scoped at
-the frame. -/
-theorem WScoped.below_of_leaves {base k : Nat} :
-    ∀ {e : Expr}, WScoped (base + k) e →
-      (∀ l ∈ e.fvarLeaves, ¬(base ≤ l.1 ∧ l.1 < base + k)) → WScoped base e := by
-  intro e
-  induction e with
-  | fvar i ty _ =>
-    intro hw hl
-    simp only [WScoped] at hw ⊢
-    have := hl (i, ty) (by simp [fvarLeaves])
-    exact ⟨by omega, hw.2⟩
-  | app f a ihf iha =>
-    intro hw hl
-    simp only [WScoped] at hw ⊢
-    exact ⟨ihf hw.1 fun l h => hl l (by simp [fvarLeaves, h]),
-      iha hw.2 fun l h => hl l (by simp [fvarLeaves, h])⟩
-  | lam ty b m iht ihb =>
-    intro hw hl
-    simp only [WScoped] at hw ⊢
-    exact ⟨iht hw.1 fun l h => hl l (by simp [fvarLeaves, h]),
-      ihb hw.2 fun l h => hl l (by simp [fvarLeaves, h])⟩
-  | forallE ty b m iht ihb =>
-    intro hw hl
-    simp only [WScoped] at hw ⊢
-    exact ⟨iht hw.1 fun l h => hl l (by simp [fvarLeaves, h]),
-      ihb hw.2 fun l h => hl l (by simp [fvarLeaves, h])⟩
-  | letE ty v b iht ihv ihb =>
-    intro hw hl
-    simp only [WScoped] at hw ⊢
-    exact ⟨iht hw.1 fun l h => hl l (by simp [fvarLeaves, h]),
-      ihv hw.2.1 fun l h => hl l (by simp [fvarLeaves, h]),
-      ihb hw.2.2 fun l h => hl l (by simp [fvarLeaves, h])⟩
-  | proj s i x ih =>
-    intro hw hl
-    simp only [WScoped] at hw ⊢
-    exact ih hw fun l h => hl l (by simpa [fvarLeaves] using h)
-  | _ => intro _ _; simp [WScoped]
-
 theorem piBinders_WScoped {d : Nat} : ∀ {e : Expr}, WScoped d e →
     (∀ b ∈ e.piBinders.1, WScoped d b.1) ∧ WScoped d e.piBinders.2
   | .forallE ty b m, h => by
@@ -151,29 +112,7 @@ theorem targetHoles_WScoped {formerTys : List Expr} (hF : ∀ t ∈ formerTys, W
   simp only [WScoped]
   exact ⟨by omega, ws_of_ws0 (getD_WScoped hF t)⟩
 
-/-- The opened telescope's variables: variable `i` is scoped at `off + i + 1`. -/
-theorem openers_WScoped_at {n off : Nat} {e : Expr} {fvs : List Expr} {body : Expr}
-    (h : openPisAtFvars n e off = some (fvs, body)) (he : WScoped off e) :
-    ∀ (i : Nat) (x : Expr), fvs[i]? = some x → WScoped (off + i + 1) x := by
-  intro i x hx
-  obtain ⟨ty, rfl⟩ := openPisAtFvars_index n e off h i x hx
-  have := openers_typeD_WScoped h he i _ hx
-  simp only [WScoped]
-  exact ⟨by omega, this⟩
-
 /-! ### The primitive-recursion abstraction's residue -/
-
-/-- The first `k` openers are scoped at `k`. -/
-theorem openers_take_WScoped {n : Nat} {e : Expr} {fvs : List Expr} {body : Expr}
-    (h : openPisAtFvars n e 0 = some (fvs, body)) (he : WScoped 0 e) (k : Nat) :
-    ∀ x ∈ fvs.take k, WScoped k x := by
-  intro x hxm
-  obtain ⟨i, hi⟩ := List.getElem?_of_mem hxm
-  have hil : i < k := by
-    have := (List.getElem?_eq_some_iff.mp hi).1
-    simp only [List.length_take] at this; omega
-  rw [List.getElem?_take, if_pos hil] at hi
-  exact (openers_WScoped_at h he i x hi).mono (by omega)
 
 /-! ## 2. The stages, simulated -/
 
@@ -339,35 +278,6 @@ theorem targetMajorOfS_sim {p : BlockShape}
         · exact SimC.throw_bind
   · exact SimC.throw
 
-/-- **What a resolved major is**:
-a member, or an outside inductive whose parameters are arguments of the
-major's type mentioning only the recursor's parameter binders. -/
-private theorem targetMajorOf_shape (fe : FEnv) (p : BlockShape)
-    (ctorsAs : List (List (ConstantVal × Nat))) (pfvs fvs : List Expr) (mty : Expr) :
-    Yields (targetMajorOf (m := CheckCM) fe p ctorsAs pfvs fvs mty)
-      (fun M => M.pfvs = pfvs ∧ ((∃ t, M.member = some t ∧ M.ds = fvs.take p.nP) ∨
-        (M.member = none ∧ ∀ x ∈ M.ds, x ∈ mty.getAppArgs ∧ x.fvarB ≤ p.nP))) := by
-  unfold targetMajorOf
-  dsimp only
-  split
-  · split
-    · refine Yields.bind' Yields.unwrapOr fun ms _ => ?_
-      refine Yields.bind' Yields.unwrapOr fun ctorsA _ => ?_
-      split
-      · exact Yields.pure ⟨rfl, Or.inl ⟨_, rfl, rfl⟩⟩
-      · exact Yields.ofThrowBind
-    · repeat' (first
-        | exact Yields.ofThrow
-        | exact Yields.ofThrowBind
-        | (refine Yields.bind fun _ => ?_)
-        | split)
-      all_goals first
-        | (refine Yields.pure ⟨rfl, Or.inr ⟨rfl, fun x hx => ⟨List.mem_of_mem_take hx, ?_⟩⟩⟩
-           simp only [Bool.and_eq_true, List.all_eq_true, beq_iff_eq, decide_eq_true_eq] at *
-           exact ((by assumption : _ ∧ ∀ y ∈ List.take _ mty.getAppArgs,
-             y.bvarB = 0 ∧ y.fvarB ≤ p.nP).2 x hx).2)
-  · exact Yields.ofThrow
-
 /-- The pin typing at the cached driver. -/
 theorem targetPinTysS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) {d : Nat} :
     ∀ {xs : List Expr}, (∀ x ∈ xs, WScoped d x) → ∀ {s₀ : CState}, CSOK mode env s₀ →
@@ -457,13 +367,6 @@ theorem targetK53S_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) {p 
 end Sims
 
 /-! ### The rule stage: two environments, one state (`SimG`, `BlockRunC.lean`) -/
-
-/-- What the rule stage needs of each checked recursor: its type
-fvar-free, its major's constructors fvar-free at the major's levels,
-and the major's parameters scoped by the recursor's prefix. -/
-def TargetTyScoped (rc : RecShape) (t : ConstantVal × TargetMajor × Level) : Prop :=
-  WScoped 0 t.1.type ∧ (∀ cA ∈ t.2.1.ctors, WScoped 0 (targetCtorAt t.2.1 cA.1)) ∧
-    ∀ x ∈ t.2.1.ds, WScoped rc.rP x
 
 /-! ## 3. The assembly -/
 

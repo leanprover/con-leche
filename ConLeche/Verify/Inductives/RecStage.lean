@@ -120,22 +120,6 @@ namespace RuleOutOk
 
 variable {F : Nat} {envR : Env} {cvR : ConstantVal} {rhs out : Expr}
 
-/-- **An annotated rule's facts**: the annotation keeps the closed
-right-hand side closed and puts no `.proj` node at an empty slot. -/
-theorem of_annotate (hbv : rhs.looseBVarsBounded 0 = true) (hfv : rhs.hasFvar = false)
-    (hann : annotateCore mode envR F 0 rhs = .ok out)
-    (hlp : out.allLevelParamsDefined cvR.levelParams = true)
-    (hres : out.constsResolve envR = true)
-    (htyR : ∃ tyR, inferTypeCore mode envR F 0 out = .ok tyR) :
-    RuleOutOk mode F envR cvR out where
-  hbv := annotateCore_looseBVars F rhs hann hbv
-  hfv := Expr.not_hasFvar_of_fvarsBelow_zero
-    ((annotateCore_WScoped F rhs hann (Expr.WScoped.of_not_hasFvar hfv)).fvarsBelow)
-  hlp := hlp
-  hres := hres
-  htyR := htyR
-  hnoProj := fun _ _ hslot => annotateCore_noProjAt mode hann hfv hslot
-
 end RuleOutOk
 
 /-- **The recursor records' pins**: the level parameters, no reserved
@@ -586,20 +570,6 @@ def RecStage.mono {rs : List (ConstantVal × List Expr × Nat × List (ConstantV
     tyEntry := fun i hi hm => R.tyEntry i hi (h i hm)
     ctorsAt := fun i r hm hr => R.ctorsAt i r (h i hm) hr
     ruleTower := fun c r i cA rhs hm => R.ruleTower c r i cA rhs (h c hm) }
-
-/-- Each member's stored constructors, one for one with its declared
-ones: the constructors' stage's name-and-arity record gives the lengths. -/
-theorem ctorsLen_of_names
-    (hnames : ctorsAs.map (·.map (fun cA => (cA.1.name, cA.2)))
-      = p.members.map (fun ms => ms.ctors.map (fun c => (c.1.name, c.2)))) :
-    ∀ (t : Nat) (ms : MemberShape) (ctorsA : List (ConstantVal × Nat)),
-      p.members[t]? = some ms → ctorsAs[t]? = some ctorsA → ctorsA.length = ms.ctors.length := by
-  intro t ms ctorsA hms hct
-  have h := congrArg (·[t]?) hnames
-  simp only [List.getElem?_map, hms, hct, Option.map_some, Option.some.injEq] at h
-  have := congrArg List.length h
-  simpa using this
-
 
 end Producer
 
