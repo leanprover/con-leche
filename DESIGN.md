@@ -93541,6 +93541,7 @@ pinned basis block (`Kernel/Basis/PUnit.lean`, `reservedBasisNames`): check firs
 (prelude, pin/basis proofs, `BasisPinnedTT`, model shortcuts) and move whatever depends on the pin
 onto the ordinary installed facts.  (Maintainer: the pin dates from when simple inductives were still
 MODELLED; that ended ~3 weeks ago, so the reason is gone — expect only leftover dependents.)
+**DONE 2026-09-29 on `uniform-inds` (lane PUNIT, record below).**
 
 ## RPCLEAN — REVIEWPOS rec. 1: dead data, duplicated work, conformance code out of the kernel (2026-09-28, `agent/uinds-RPCLEAN`)
 
@@ -95449,3 +95450,78 @@ new declaration, not a merge regression.  OPEN: which defeq blows up
 (likely lazy delta through `nestPos`'s match), and whether the fix is in
 the checker's reduction strategy or the proof (e.g. `simp`/`exact` in
 place of the `rfl` closers).
+
+## PUNIT — `PUnit` unpinned, the `isUnitLikeTy` special case removed (2026-09-29, `agent/uinds-PUNIT`)
+
+Brief: the maintainer's master docket (2026-09-28), moved onto
+`uniform-inds` by the 2026-09-29 ruling.  Logs `_tmp/uniform-inds/PUNIT/`.
+
+**Why it was pinned — the dependents found.**  None was load-bearing
+any more; each was a leftover of the modelled era or a perf shortcut
+built on the pin:
+
+1. *Kernel:* `isUnitLikeTy` (task #161 C1: the pinned-name form of a
+   reserved-recursor shape scan) as `proofIrrel`'s first arm; the
+   stuck-major rescue's 0-field arm (`caps.etaFields = 0` →
+   `proofIrrel`), needed only because the generic `structEtaCertWith`
+   and `structUnitCert` exclude reserved names; the fold's pin
+   recognition (`BasisKind.punitK`, `basisPinHit`), the three reserved
+   names; the built-in prelude carrying the block.
+2. *Proofs:* `BasisPinnedTT`'s table entries (`pinnedStructT`,
+   `pinnedInfo`), `unitLike_eq_punit` + `isUnitLikeTy_inv` (the
+   refutation of every other reserved recursor), `unit_side_pt'`
+   (unit-likeness sound because the pin's `interp` is `unitSet`), the
+   P-tier block (`Model/BasisBlocks.lean`'s PUnit section, `punitLfp`,
+   `declBasisPB_punitK`), `BConst.punitRec`/`punitRecV`.
+3. *Not a dependent:* `BConst.punit`/`punitUnit` — the semantic
+   alphabet's unit set and point, the pair towers' terminator
+   (`TowerKit`, `SumTower`, `BlockRecTower`).  They never named the
+   stream's `PUnit` except through the deleted pin and stay.  No main
+   theorem statement mentions `PUnit`.
+
+**What changed.**  `PUnit` installs through the uniform installer like
+any stream inductive (`blockCapsAt`: η and unit-likeness at a fieldless
+constructor of a non-recursive, non-`Prop` block).  Unit-η at it is
+`stuckIrrel`'s `structUnitCert` (official `is_def_eq_unit_like`); the
+stuck-major rescue at it is the generic η arm (`structEtaCertWith` at 0
+fields: vacuous slot tests, no field comparisons — official
+`to_cnstr_when_structure`).  `proofIrrel` is the `Prop` test alone (its
+`env` argument, now unread, is dropped, as is the twin's `fe`), so
+`DefEq.unitLike` is gone from `Rules/Rel.lean`, the 0-field disjunct
+from `majorToCtor_inv`/`rescueEta`'s bridge.  `PUnit` left the built-in
+prelude (`PinGen/Prelude.lean`'s `basisHeads`/`basisRoots`): nothing
+else there needs it, and keeping it would have made a stream's own
+`PUnit` decline as "differs from the prelude" — a pin in disguise.  The
+committed prelude and all three pin dumps were regenerated
+(`preludeNames` loses the three names; the other two toolchains'
+preludes still agree below the meta line).
+
+**Verdicts.**  Full `tests/arena.sh` (arena 90/92 good, e2e, annot,
+trusted and `--jobs` sweeps): the only moves were the two forged
+`nested_pin_collide*_nomodel` twins (0 → 1, "unknown constant PUnit"):
+their spliced `_model` records use `PUnit` without declaring it, which
+the prelude had papered over.  They now declare it at the front
+(`scripts/splice_prelude_block.py`, from the pre-PUNIT prelude) and
+accept again at every mode.  New corner fixtures:
+`corner_punit_own` (a `prelude` stream's own two-constructor `PUnit :
+Type`: was 1 — reserved basis name —, official 0, now 0) and
+`corner_punit_unit_eta` (unit-η at the stream's `PUnit` at `.{1}`,
+`.{2}`, `.{u+1}` and `.{0}`: 0 before and after, official 0).
+
+**Perf** (init-full, `--verified --jobs=1`, `perf stat -e
+instructions:u`, `timeout`, no `ulimit -v`): base `2753fe664`
+418 464 866 241, PUNIT 418 466 871 407 — **+0.0005 %**, nothing; both
+accept 53 093 declarations.  Neither the pinned-name arm (now gone)
+nor the extra whnf of the side's type it ran on every proof-irrelevance
+attempt is measurable on this stream.
+
+**LOC** (`git diff 2753fe664`, `.lean` only; code = non-comment,
+non-blank lines): executed checker (Kernel/Cached/Frontend/Main)
++56 −215 raw, **−81 code**; proofs (Verify/Model/Semantics/SetModel/
+SetTheory/Term/Rules) +234 −1402 raw, **−1014 code**; tests ±11.
+
+Gates: `lake build`/`lake test` warning-free, full `tests/arena.sh`
+(pindump on all three pinners, shake, pub-imports, layering, trust
+surface, links — OVERVIEW anchors repointed, quote gate, no-local-paths,
+challenge, axioms).
+
