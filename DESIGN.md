@@ -95140,3 +95140,9 @@ Gates: `lake build`/`lake test` warning-free; `tests/arena.sh` green
 (arena 90/92 good, e2e 440/440, trusted/jobs sweeps, shake, pub-imports,
 layering, quote gate, no-local-paths, axioms) after repointing
 OVERVIEW's three `Core.lean` anchors (+42 lines, text unchanged).
+
+**RULINGS (maintainer, 2026-09-29):** SIMP-AD's task D (capability flags attached with the
+constructors) is STRUCK — irrelevant.  COMPLETE3 (completeness "official accepts ⇒ we accept") stays
+PARKED: tag `complete3-parked` (branch `agent/uinds-COMPLETE3`), worktree removed.  The master-docket
+PUnit cleanup (unpin `PUnit`, install it through the normal installer; remove `isUnitLikeTy` and
+`unitLike_eq_punit`) is done on THIS branch.
