@@ -95803,3 +95803,32 @@ the run at thread creation, exit 134, before it bounds anything).
   pinned in `tests/ConLecheTests/Axioms.lean:51-58`); the main theorem
   and corollary do not name it. Unpinning it would mean dropping those
   statements.
+
+## PRELAND — `And` out of the built-in prelude; stale route/pin comments (2026-09-30, `agent/preland`)
+
+Acting on OVEDIT's findings.
+
+* `pinnedPreludeMembers` deleted (`ConLeche/PinGen/Prelude.lean`): its
+  only member was `And`, and the order analysis alone finds the
+  prelude's other member (`Bool`). All three pin dumps and the
+  committed v4.33.0 prelude regenerated with their pinners (the v4.34.0-rc2
+  and nightly preludes are identical to it below the meta line):
+  `preludeMembers` `["And","Bool"] → ["Bool"]`, the prelude 11 → 10
+  records, the fold over the prelude alone 24 → 20 constants (`And`,
+  `And.intro`, `And.rec` and `And`'s projection table; OVEDIT's
+  estimate of 21 left the table out). `tests/ConLecheTests/PreludeTests.lean`
+  re-pinned. No e2e fixture relied on the prelude's `And`: every
+  fixture mentioning `And` declares it. The stuck-proof `And` rescue is
+  unchanged.
+* Comments restated to current fact: `andName` (an ordinary inductive;
+  the rescue reads the name), the `Frontend/Prelude.lean` header, the
+  pinners/pins READMEs and `tests/pindump.sh` (prelude = basis blocks +
+  `Bool`; a stream's own record is used, no comparison), the `PUnit`
+  remarks in `Kernel/Core.lean` (`projIndexedStructLike`: every
+  index-free one-constructor type has a table) and `Kernel/CoreDefs.lean`,
+  the projection offset in `Kernel/Env.lean` (the installer always
+  stores `1`), and "the uniform route" / "fixpoint route" / "both
+  routes" / "native route" as names across `Kernel/`, `Cached/ParsedC`
+  and `Model/StreamConsts` (now "the installer"). History comments with
+  task numbers left as they are. OVERVIEW §5/§6 sentences listing
+  `And` as a prelude member updated.

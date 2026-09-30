@@ -50,8 +50,8 @@ def isCtorApp (env : Env) (e : Expr) : Bool :=
 /-- Is a stored inductive's result sort, at the given level
 instantiation, provably nonzero (official `is_never_zero`)?  The
 official kernel's structure rescue (`to_cnstr_when_structure`)
-requires this of the major's type; the basis `PUnit` rescue mirrors
-it (`Sort u` at a concrete level such as `Unit`'s `1` passes, the
+requires this of the major's type; `majorToCtor`'s structure-η
+rescue mirrors it (`Sort u` at a concrete level such as `Unit`'s `1` passes, the
 parameter `u` itself does not).  Read off the stored datum: the
 instantiated datum is unsatisfiable exactly where the instantiated
 sort is never zero. -/
@@ -750,7 +750,7 @@ def ProjEntry.fireOk (entry : ProjEntry) (us : List Level) : Bool :=
     (Level.isEquiv (Level.subst entry.levelParams us entry.fieldSort) .zero
       == some true)
 
-/-- **The pinned `And`'s projection slots, ready to fire**: the two
+/-- **`And`'s projection slots, ready to fire**: the two
 tower entries of `And` are stored, name the rule's constructor at the
 major's parameter count, and their `Prop` guards pass at the levels
 `ust` (`ProjEntry.fireOk`: `And`'s fields are propositions, so a
@@ -795,10 +795,10 @@ standing condition of `majorToCtor`'s structure-η rescue.
 
 The level-parameter conjunct is what lets the rescue fabricate the
 constructor application at the major type's levels without comparing
-the two lists per call: every route that grants η stores the
-constructor at the former's level parameters (the fixpoint route's
-recogniser pins `c.1.levelParams == lps`, and the pinned `PUnit`
-block is literal), so the conjunct holds wherever the rest does. -/
+the two lists per call: the installer grants η only at a
+constructor stored with the former's level parameters (the
+recogniser pins `c.1.levelParams == lps`), so the conjunct holds
+wherever the rest does. -/
 def recRuleEtaOf (find? : Name → Option ConstantInfo) (recName ctor : Name) :
     Bool :=
   match find? ctor with
@@ -814,8 +814,8 @@ def recRuleEtaOf (find? : Name → Option ConstantInfo) (recName ctor : Name) :
   | _ => false
 
 /-- **Stamp a rule's two rescue bits at install** — the one place the
-K and η-rescue conditions are decided.  Every route stores its rules
-through this (the pinned basis blocks, the fixpoint route's generated
+K and η-rescue conditions are decided.  Every rule is stored
+through this (the pinned basis blocks, the installer's generated
 rules, the projection functions):
 the reduction then reads `RecRule.k`/`RecRule.eta` and re-derives
 nothing, and the environment invariant `RecCtorsStored` records that a

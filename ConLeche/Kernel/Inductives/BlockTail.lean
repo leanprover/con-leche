@@ -5,9 +5,9 @@ public import ConLeche.Kernel.Inductives.GenRec
 @[expose] public section
 
 /-!
-# The uniform install's pass and tail
+# The inductive installer's pass and tail
 
-`checkBlock` (the uniform route's entry, dispatched from `checkDecl`):
+`checkBlock` (the installer's entry, dispatched from `checkDecl`):
 the pass (the formers and the constructors, `BlockInstall.lean`; the
 classes the stream's recursor family eliminates, `checkBlockClasses`;
 the positivity check walking every class), and the stages after it: the index sorts,
@@ -73,7 +73,7 @@ def checkBlockPass (ops : CheckerOps m) (env : Env) (p₀ : BlockParts) (isRec :
   let st ← nestSeeds ops env₁ ctx (classSeeds ctx holes Ms) pos
   pure ⟨env₁, cvTas, pC, ctorsAs, sortsss, kinds, nfs, ctx.params, rd, Ms, st.ctorNfs⟩
 
-/-- **The recursor stage on the uniform route** (charter item 5): the
+/-- **The installer's recursor stage** (charter item 5): the
 GENERATED recursor stage `genRecCheck` (`GenRec.lean`) at the
 constructors' environment `env`, on the stream's own recursor family
 (the raw `block`: the pins read it), the pass's classes and table, and
@@ -137,7 +137,7 @@ def checkBlockTail (ops : CheckerOps m) (block : List ConstantInfo)
   checkBlockTables p.toBlockShape
     (p.members.zip (q.ctorsAs.zip q.sortsss)) env₃
 
-/-- Check and install a block on the uniform route: the distinct
+/-- Check and install an inductive block: the distinct
 names, the pass over the formers, the constructors and the classes at official's
 `is_rec` (`blockRawRec`), and the install after it. -/
 def checkBlock (ops : CheckerOps m) (env : Env) (block : List ConstantInfo) (p₀ : BlockParts) :

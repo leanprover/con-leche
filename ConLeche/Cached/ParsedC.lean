@@ -243,10 +243,10 @@ def checkDeclC (pins : List NatOpPinSet) (fe : FEnv) (pd : Declaration) :
     | some kind => checkBasisDeclC fe kind
     | none =>
     -- TASK #228: the stream's DECLARED parameter count, checked before
-    -- the dispatch and for both routes (`checkDecl`'s twin).
+    -- the dispatch (`checkDecl`'s twin).
     if indParamsOk nP block then
       -- ONE ROUTE (task #210), dispatched by the RECOGNISER alone (task
-      -- #219): a recognised block is the uniform route's, nested ones
+      -- #219): a recognised block is the installer's, nested ones
       -- included; any other declines (`checkShapelessS`).
       match blockParts? nP block with
       | some p => checkBlockKS mode fe block p

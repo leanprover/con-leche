@@ -6,9 +6,9 @@ public import ConLeche.Kernel.Inductives.Positivity
 
 /-!
 # The k-ary block: the record and the recogniser
-(the uniform inductive route)
+(read by the inductive installer)
 
-`BlockParts` is the shape a block on the fixpoint route is read into,
+`BlockParts` is the shape the inductive installer reads a block into,
 at ANY number `k` of mutually recursive members: the members with
 their own index counts, constructors and recursors, the shared
 parameter count, the shared elimination level and result sort.
@@ -78,7 +78,7 @@ structure RecShape where
   /-- **the recursor record's own rule prefix** (`recInfo`'s `rP`): the
   number of binders the recursor's type has before its INDEX binders —
   the parameters, then the stretch official fills with the motives and
-  the minor premises, which the uniform route never looks inside.  Read
+  the minor premises, which the installer never looks inside.  Read
   off the record: a motive is a parameter like any other.  A rule's λ-prefix
   is `rP + nF`. -/
   rP : Nat
@@ -441,7 +441,7 @@ def blockShape? (nPd : Nat) (block : List ConstantInfo) : Option BlockShape :=
     | _, _ => none
   | none => none
 
-/-- Recognise a block for the uniform fixpoint route, at any number of
+/-- Recognise a block for the inductive installer, at any number of
 members: its SHAPE (`blockShape?`). -/
 def blockParts? (nPd : Nat) (block : List ConstantInfo) : Option BlockParts :=
   match blockShape? nPd block with

@@ -104,13 +104,13 @@ single-constructor inductive `T` named by the node, applied to MORE
 arguments than its parameters (official's premise is `#ctors = 1` and
 `#args = nparams + nindices`, so indices are allowed), at a field index
 below the constructor's field count: an INDEXED structure-like type,
-where official projects and we store no table (the uniform install
-stores one at an index-free single-constructor member only,
+where official projects and we store no table (the installer stores
+one at every index-free single-constructor member and only there,
 `checkBlockTables`).  Every other shape official rejects
 (`invalid_proj_exception`): a head that is no inductive (an axiom, an
 opaque, `Quot`), a constructor count other than one, a node naming
-another type, an index-free one-constructor type without a table
-(`PUnit`: no fields), a field index beyond the fields (`Eq`). -/
+another type, a field index beyond the fields (`PUnit`, `Eq`: no
+fields; an index-free one-constructor type always has a table). -/
 def projIndexedStructLike (find? : Name → Option ConstantInfo) (T sn : Name)
     (i nArgs : Nat) : Bool :=
   T == sn &&
@@ -582,7 +582,7 @@ single constructor is fabricated from the major's type and certified by
 proof irrelevance (in the model both are the proof point); for an
 eta-capable structure the constructor of the major's projections is
 fabricated and certified by the structure-eta certificate (in the model
-both are the tuple of the major's components); for the pinned `And` —
+both are the tuple of the major's components); for `And` —
 a proposition, which official never η-rescues — the constructor of the
 major's projections is fabricated and certified by proof irrelevance
 (the `And` branch below).  An uncertified major stays put — sound, the

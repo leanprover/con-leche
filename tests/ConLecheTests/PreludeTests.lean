@@ -21,7 +21,7 @@ and parses it at process initialisation; `preparePrelude`
 of every stream it prepares — **the stream's own record where the
 stream has one**, one of these where it has none.  These guards pin the
 prelude's content — the four pinned inductive basis blocks, the four
-quotient records with the soundness axiom, `And` and `Bool`: twelve
+quotient records with the soundness axiom, and `Bool`: ten
 records — and run the verified fold over the prelude alone at both
 modes: the prelude is itself an accepted stream, so prepending it can
 never be what fails a run.  (The pinned-block RECOGNITION is the fold's
@@ -43,27 +43,24 @@ def preludeIx : PreludeIx :=
 -- the prelude parses
 #guard builtinPreludeE.toOption.isSome
 
--- eleven records, in the committed file's order: the four pinned
+-- ten records, in the committed file's order: the four pinned
 -- inductive basis blocks, the four `#QUOT` records, the `Quot.sound`
--- axiom record, and the `And` and `Bool` blocks (`And` is pinned by
--- design: the one propositional structure the stuck-major rescue
--- serves, `ConLeche/PinGen/Prelude.lean`'s `pinnedPreludeMembers`)
-#guard preludeIx.decls.size == 11
+-- axiom record, and the `Bool` block
+#guard preludeIx.decls.size == 10
 #guard preludeIx.decls.toList.map (fun d => (d.names.head?).getD .anonymous) ==
   [eqName, natName, emptyName, falseName,
    quotName, quotMkName, quotLiftName, quotIndName, quotSoundName,
-   andName, boolName]
+   boolName]
 -- and the kinds: four inductive blocks, four quotient records, one
--- axiom record, two more inductive blocks — no `basisDecl`, which no
+-- axiom record, one more inductive block — no `basisDecl`, which no
 -- frontend function produces since task #293
 #guard preludeIx.decls.toList.map (fun d => match d with
   | .indDecl .. => 0 | .quotDecl .. => 1 | .axiomDecl _ => 2 | _ => 3) ==
-  [0, 0, 0, 0, 1, 1, 1, 1, 2, 0, 0]
+  [0, 0, 0, 0, 1, 1, 1, 1, 2, 0]
 
 /-- The fold accepts the prelude alone, at both modes, from the empty
-environment: 24 constants (16 basis + `And`, `And.intro`, `And.rec` and
-`And`'s projection table + `Bool`, `Bool.false`, `Bool.true`,
-`Bool.rec`).  The four pinned blocks and the quotient package install
+environment: 20 constants (16 basis + `Bool`, `Bool.false`,
+`Bool.true`, `Bool.rec`).  The four pinned blocks and the quotient package install
 as the PINS — `checkDecl` recognises them (`basisPinHit`,
 `quotPinHit`), which is the whole of task #293's move. -/
 def preludeEnvSize (mode : CheckMode) : Option Nat :=
@@ -71,8 +68,8 @@ def preludeEnvSize (mode : CheckMode) : Option Nat :=
   | .ok env => some env.consts.length
   | .error _ => none
 
-#guard preludeEnvSize .verified == some 24
-#guard preludeEnvSize .trusted == some 24
+#guard preludeEnvSize .verified == some 20
+#guard preludeEnvSize .trusted == some 20
 
 -- `preparePrelude` on a stream that declares NOTHING synthesises the
 -- whole prelude, in the prelude's order, and nothing else
@@ -88,7 +85,7 @@ def preludeEnvSize (mode : CheckMode) : Option Nat :=
 def probeRec : Declaration :=
   .axiomDecl ⟨.str .anonymous "ConLecheTests.probe", [], .sort .zero⟩
 
-#guard (preparePrelude preludeIx #[probeRec]).size == 12
+#guard (preparePrelude preludeIx #[probeRec]).size == 11
 #guard (preparePrelude preludeIx #[probeRec]).back? == some probeRec
 
 end ConLecheTests

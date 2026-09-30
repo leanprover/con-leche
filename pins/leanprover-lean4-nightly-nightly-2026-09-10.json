@@ -5,8 +5,8 @@
 "toolchain":"leanprover/lean4-nightly:nightly-2026-09-10",
 "leanVersion":"4.35.0-nightly-2026-09-10",
 "preludeFile":"leanprover-lean4-nightly-nightly-2026-09-10.prelude.ndjson",
-"preludeMembers":["And","Bool"],
-"preludeNames":["Eq","Eq.refl","Eq.rec","Nat","Nat.zero","Nat.succ","Nat.rec","Empty","Empty.rec","False","False.rec","Quot","Quot.mk","Quot.lift","Quot.ind","Quot.sound","And","And.intro","And.rec","Bool","Bool.false","Bool.true","Bool.rec"],
+"preludeMembers":["Bool"],
+"preludeNames":["Eq","Eq.refl","Eq.rec","Nat","Nat.zero","Nat.succ","Nat.rec","Empty","Empty.rec","False","False.rec","Quot","Quot.mk","Quot.lift","Quot.ind","Quot.sound","Bool","Bool.false","Bool.true","Bool.rec"],
 "orderResidual":[
 {"op":"Nat.mod","residual":[]},
 {"op":"Nat.div","residual":[]},

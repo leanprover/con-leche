@@ -1532,7 +1532,7 @@ arguments of this split shape, or an instantiation fails the syntactic
 well-formedness guards (closed, bounded by the prefix telescope,
 constants resolving by `resolves`, levels declared in `lps`) — the
 facts `EnvWF` records for a stored `.nested` rule
-(`nestedRuleSyn_inv`).  The uniform route stores it
+(`nestedRuleSyn_inv`).  The installer stores it
 for the rules of a recursor whose major is outside its block
 (`tgtStoredRules`, `auxRuleFireR`). -/
 def nestedRuleSyn (resolves : Expr → Bool) (lps : List Name) (tyA : Expr) (mI rP cnP : Nat) :

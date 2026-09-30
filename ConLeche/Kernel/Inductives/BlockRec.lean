@@ -5,9 +5,9 @@ public import ConLeche.Kernel.Inductives.BlockParts
 @[expose] public section
 
 /-!
-# The recursor stage's shared pieces (the uniform route)
+# The recursor stage's shared pieces
 
-The uniform route GENERATES the recursors (charter item 5, as amended
+The inductive installer GENERATES the recursors (charter item 5, as amended
 by GENREC); the stage itself is `genRecCheck`
 (`ConLeche/Kernel/Inductives/GenRec.lean`).  What lives here is what
 that stage shares with the rest of the install:

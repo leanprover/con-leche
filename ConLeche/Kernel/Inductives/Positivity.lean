@@ -8,7 +8,7 @@ public import ConLeche.Kernel.Inductives.FieldTele
 /-!
 # Positivity: the one interface
 
-Everything the uniform route decides about WHERE the block occurs in a
+Everything the installer decides about WHERE the block occurs in a
 constructor field lives here, and nothing about it anywhere else:
 
 * **the occurrence test** at the block's whole member list
@@ -607,7 +607,7 @@ inductive NestFieldKind where
   | nested (refl : Bool)
   deriving DecidableEq, Inhabited
 
-/-- A field kind the uniform route installs: no container instantiation. -/
+/-- A field kind with no container instantiation. -/
 def NestFieldKind.flat : NestFieldKind → Bool
   | .ordinary | .recursive _ | .reflexive _ => true
   | _ => false

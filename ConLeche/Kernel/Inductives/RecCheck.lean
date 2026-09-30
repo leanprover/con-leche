@@ -606,7 +606,7 @@ def blockNestedBit (p : BlockShape) (kinds : List (List (List NestFieldKind))) :
 
 /-- **The checked family consed through the index, at its majors**:
 `consBlockRecsF` with each recursor's rules at ITS major
-(`tgtStoredRules`) — the uniform route's recursor cons, which at member
+(`tgtStoredRules`) — the installer's recursor cons, which at member
 majors is `consBlockRecsF` itself. -/
 def consBlockRecsTF (find? : Name → Option ConstantInfo) (resolves : Expr → Bool)
     (p : BlockShape) : Nat → List (ConstantVal × TargetMajor × List Expr) → FEnv → FEnv

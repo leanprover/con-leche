@@ -54,7 +54,7 @@ other than the annotation of what the record declares:
   (that generator is now the conformance check, `ConLeche/Conformance/`);
   the stream's own record was compared against it by `isDefEq` and then
   discarded, exactly as official's replay does;
-* the **type former**'s stored type, on the native route, is the
+* the **type former**'s stored type is the
   annotation of the *whnf'd* telescope whenever the declared type is not
   already a syntactic Π-telescope ending in a sort
   (`checkSumTele`, `ConLeche/Kernel/Inductives/SumInstall.lean`);
@@ -608,7 +608,7 @@ kind of record claims a name and a type for:
   pins';
 * an `indDecl` block's members are NOT covered here.  See the module
   docstring: the recursor's stored type is the generated one, and the
-  native route may annotate a *whnf'd* type former telescope rather
+  installer may annotate a *whnf'd* type former telescope rather
   than the declared one, so no `AnnotOf` claim is true of them. -/
 @[expose] def Declaration.Declares : Declaration → ConstantVal → Prop
   | .defnDecl cv _ _, cv' => cv' = cv

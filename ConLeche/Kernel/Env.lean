@@ -265,7 +265,7 @@ structure RecRule where
   /-- **The parameter-comparison bit** (install-computed, parse
   placeholder `false`): the ι step fires this rule without comparing
   the recursor's parameter arguments with the constructor's.  The
-  fixpoint route and the pinned basis blocks set it, because their rule
+  installer and the pinned basis blocks set it, because their rule
   laws hold at any pair of fitting parameter spines; the projection
   functions do not, because their laws read the comparison.  The official
   kernel compares nothing here
@@ -428,11 +428,11 @@ structure ProjTable where
   structure. -/
   guards : List Level
   /-- **The projection offset** (task #210 Part A): the position of
-  field `0` in the carrier's pair chain — `0` at a bare tuple tower
-  (the direct structure route's carrier, `mkTower fs`), `1` at the
-  TAGGED tower of the fixpoint route (`inj 0 (mkTower (fs ++ [pt]))`,
-  the tag in front), so that the model reads `.proj T i` as
-  `projS (i + off)`.  Syntactic to the kernel: the typing, iota and
+  field `0` in the carrier's pair chain — `1` at the installer's
+  TAGGED tower (`inj 0 (mkTower (fs ++ [pt]))`, the tag in front),
+  which is the only value the installer stores (`checkBlockTables`);
+  `0` would read a bare tuple tower `mkTower fs` — so that the model
+  reads `.proj T i` as `projS (i + off)`.  Syntactic to the kernel: the typing, iota and
   eta rules never look at it. -/
   off : Nat
   deriving DecidableEq, Repr, Inhabited
@@ -536,7 +536,7 @@ inductive Declaration where
   | basisDecl (kind : BasisKind)
   /-- An inductive block: type formers, constructors and recursors,
   with **the parameter count the stream DECLARES** (task #228).
-  Installed by the uniform route (`checkBlock`).
+  Installed by the inductive installer (`checkBlock`).
 
   The count is official's own declaration shape: `add_inductive`
   takes `Declaration.inductDecl lparams nparams types` with ONE
@@ -544,7 +544,7 @@ inductive Declaration where
   record's `numParams` field, `Lean4Checker/Replay.lean`), checks
   every former and every constructor against it and generates the
   recursor with it.  It is checked here by `indParamsOk` and used as
-  the block's parameter count by both routes — before task #228 the
+  the block's parameter count by the installer — before task #228 the
   count was read OFF the constructors, which agrees on every valid
   stream and cannot see a declaration that lies. -/
   | indDecl (block : List ConstantInfo) (numParams : Nat)

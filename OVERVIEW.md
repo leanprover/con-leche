@@ -582,8 +582,8 @@ on:
   `Quot.sound` is one of the three standard axioms (§8).
 
 Every other type — `Bool`, `And` and `PUnit` among them — is installed
-by the installer below, from the stream's own records (for `Bool` and
-`And`, from the built-in prelude's copy if the stream has none, §6).
+by the installer below, from the stream's own records (for `Bool`,
+from the built-in prelude's copy if the stream has none, §6).
 Two of these names are nevertheless read by the checker: `And`, whose
 recursor has a rescue for a stuck proof (§3), and `Bool`, the result
 type of the `Nat` comparisons (§6). Neither needs a pin; each section
@@ -935,7 +935,7 @@ instead of trusting the operation's name.
 * **Order independence.** The certificates are spelled over the
   structural operations, `Bool` and the basis blocks, which an export
   may emit in any order. The checker therefore carries a small built-in
-  prelude: the pinned basis blocks, `Bool` and `And`, as the toolchain
+  prelude: the pinned basis blocks and `Bool`, as the toolchain
   exports them. One pure pass between the parse and the fold puts every
   prelude declaration at the front of the records — the stream's own
   record where the stream has one, the prelude's copy only where it has

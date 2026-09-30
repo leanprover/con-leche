@@ -10,15 +10,11 @@ public import ConLeche.Frontend.Prepare
 
 **What it is.**  The checker's own little prelude: the five pinned
 basis blocks (`Eq`, `Nat`, `Empty`, `False`, `Quot` with its
-soundness axiom), the `Bool` block — every declaration the
+soundness axiom) and the `Bool` block — every declaration the
 pin-certified `Nat` operations' install needs that is neither in the
 operation's own dependency closure nor a stream-certified operation
-itself — and the `And` block, pinned by design: the one propositional
-structure whose recursor the stuck-major rescue serves
-(`majorToCtor`'s `And` branch, `ConLeche/Kernel/Core.lean`, keyed on
-the name), so the name must denote the toolchain's `And` in every
-fold.  `ConLeche/PinGen/Prelude.lean` computes the set mechanically
-(`pinnedPreludeMembers` adds `And`); the committed file is
+itself.  `ConLeche/PinGen/Prelude.lean` computes the set
+mechanically; the committed file is
 `pins/<toolchain>.prelude.ndjson`, regenerated with
 `lake exe natop-pins-export` and gated by `tests/pindump.sh`.
 
