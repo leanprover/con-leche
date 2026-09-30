@@ -20,21 +20,12 @@ There is an AI-written overview of the project in [OVERVIEW.md](./OVERVIEW.md).
 * It uses its own term representation, so it does not rely on Lean’s `Lean.Expr`, and thus does not rely on the unverified C++ routines for that type.
 * Term representation is locally nameless, with open variables represented as deBruijn level + type (inspired by [nanoda](https://github.com/ammkrn/nanoda_lib)).
 * Memoization of core checker routines via hash maps and hashes pre-computed using `@[computed_field]`, like in the official checker and [lean4lean](https://github.com/digama0/lean4lean/).
-* The checker has two strategies for handling inductives:
-
-  * Non-mutual non-nested inductives are supported natively: The checker checks the shape of the inductives, and the proof can models them abstractly.
-  * For mutual and nested inductives the checker creates, at runtime, an explicit model of these inductives, with theorems proving the iota rules of the recursor. The proof then leans on these models to justify the inductive. This step requires extensionality in the model to turn the propositional equality into a definitional equality.
-
-    The modelling code is taken from [lean-inductive-models](https://github.com/nomeata/lean-inductive-models). During development, that tool was run as a preprocessor to handle almost all inductive types, and this was very conductive to bootstrap the project. Later the naive support was extended and we dropped the dependency.
-
-* Accepted incompleteness: Primitive projections are only supported
-  - for structures that are not mutually recursive
-  - inside the projection *functions* that the elaborator produces.
+* The checker has a uniform strategy for handling inductive types, including mutual and nested, based on a positivity analysis. It does not perform the nested-to-mutual reduction that the official kernel uses. (Early versions of con-leche used an extensional modelling approach based on [lean-inductive-models](https://github.com/nomeata/lean-inductive-models), but has since phased that out.)
 * In anticipation of [lean4#14896](https://github.com/leanprover/lean4/pull/14896), theorem bodies are opaque. A k-rule like hack for `And` allows processing proofs built by Lean versions before that change.
 * Accelerated Nat operations are performed using Lean’s `Nat` type.
-* It accepts only the three standard Lean axiom in the input stream.
+* It accepts only the three standard Lean axioms in the input stream.
 
-  For practicality reasons, it silently *ignores* the the [`sorryAx`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Cached/ParsedC.lean#L232-L233) axiom declarations from the standard library, but will complain it is actually used. The (deprecated) `trustCompiler`, `ofReduceBool` and `ofReduceNat` axioms are replaced with simple definitions of the same type.
+  For practicality reasons, it silently *ignores* the [`sorryAx`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Cached/ParsedC.lean#L232-L233) axiom declarations from the standard library, but will complain it is actually used. The (deprecated) `trustCompiler`, `ofReduceBool` and `ofReduceNat` axioms are replaced with simple definitions of the same type.
 
   The checker (at the moment) will reject any other axiom.
 * The checker processes files in three phases: parsing the input stream, *installing* all declarations (including annotating) and *checking*. The last stage can be run parallel using [`--jobs`](https://github.com/leanprover/con-leche/blob/master/Main.lean#L684).
@@ -93,7 +84,7 @@ This theorem only talks about [`checkDecls`](https://github.com/leanprover/con-l
 
 The set model we assume in [`[SetTheory V]`](https://github.com/leanprover/con-leche/blob/master/ConLeche/SetTheory/Core.lean#L95-L133) is fairly standard. It assumes ZF without infinity and choice (extensionality, pairing, union, power set, regularity, replacement) plus an ω-chain of Grothendieck universes `univ 0 ∈ univ 1 ∈ …`, stated in Tarski's form. Choice is inherited from Lean as the meta-logic. See [`ConLeche/SetTheory/Core.lean`](./ConLeche/SetTheory/Core.lean) for the precise formulation of our set theory.
 
-The interface is instantiated on Mathlib's `ZFSet` from the ω-many-inaccessible-cardinals hypothesis of Carneiro's consistency analysis in [lean4lean-model](https://github.com/digama0/lean4lean-model): see the theorem [`carneiro_implies_conleche`](https://github.com/leanprover/con-leche/blob/master/bridge/lean4lean-model/ConLecheBridge/Carneiro.lean#L200-L202) in [`bridge/lean4lean-model`](./bridge/lean4lean-model) (separte package due to the Mathlib depenency).
+The interface is instantiated on Mathlib's `ZFSet` from the ω-many-inaccessible-cardinals hypothesis of Carneiro's consistency analysis in [lean4lean-model](https://github.com/digama0/lean4lean-model): see the theorem [`carneiro_implies_conleche`](https://github.com/leanprover/con-leche/blob/master/bridge/lean4lean-model/ConLecheBridge/Carneiro.lean#L200-L202) in [`bridge/lean4lean-model`](./bridge/lean4lean-model) (separte package due to the Mathlib dependency).
 
 Future work: The assumption that we need a ω-chain is maybe unnecessary strong. Every concrete stream has an upper bound of universe levels it needs, and we could assume only a chain of length `k`. For every concrete `k` we can prove their existence in lean without further assumptions, just not for all `k`.
 
@@ -143,13 +134,11 @@ There is some overhead of annotating terms and some extra checks; the certificat
 
 ## Next steps
 
-This project was published when it was barely useable – able to process mathlib within reasonable memory usage and not absurdly slow. There is more to be done:
+This project was published when it was barely usable – able to process mathlib within reasonable memory usage and not absurdly slow. There is more to be done:
 
 * Make it even faster.
-* Direct support for mutual and nested types, dropping the run-time model generation.
 * Use a verified bignum library for `Nat` handling.
 * Lots of proof refactoring to clean up oddities and detours introduced by path dependencies.
-* AI-translate the implementation to a different programming language, to be relisient against runtime and compiler bugs
 
 ## Acknowledgements
 
