@@ -8,19 +8,7 @@
    block and does structure eta on it, so all four consumers below are
    accepted.
 
-   con-leche's structure recogniser needs a SYNTACTIC `∀ p⃗, Sort`
-   (Kernel/Inductives/StructParts.lean:469), the sum route refuses `n = 1 ∧
-   nIdx = 0` and the fixpoint route wants recursion, so no direct route
-   takes the block; the preprocessor models it, but
-   `ProjRec.projRecOwners` also requires `tty.stripPis nP` to end in a
-   `.sort` (Frontend/ProjRec.lean:255), so the projection functions are
-   not rewritten and the raw `.proj` declines at `S.n`.  Task #195 taught
-   the SUM arm to whnf the former (fixture direct_idx_defhead); the
-   structure arm and the projection-owner test were not taught.
-
-   official: 0.  con-leche at master 700a06ca: 2 piped ("projection on a
-   non-structure-like type" at `def S.n`), 2 raw ("missing model for S";
-   both modes).
+   official: 0.  con-leche: 0.
    Probe of record: _tmp/indaudit/probes/P/DefHeadStruct.lean. -/
 
 import Lean

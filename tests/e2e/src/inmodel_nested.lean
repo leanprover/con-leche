@@ -1,11 +1,6 @@
 --#export InModelNested.size_example InModelNested.tv_example InModelNested.op_example InModelNested.w_example InModelNested.p_example InModelNested.NTree.use_label InModelNested.NTree.use_kids InModelNested.ab_example
 
-/- End-to-end test: NESTED inductive blocks modelled IN-PROCESS (task
-   #200, B3).  The kernel's nested→mutual reduction is read off the
-   exported recursor family (mimic members from the motives, their
-   constructors from the minors), the auxiliary family gets one member
-   per motive, and the public slots go through the pack/unpack
-   isomorphisms with `Eq.rec` transports.
+/- End-to-end test: NESTED inductive blocks (task #200, B3).
 
    Shapes: `Tree` nesting through `List` (structural recursion via
    below/brecOn, `rfl` forcing iota through `Tree.rec` and `Tree.rec_1`),
@@ -13,9 +8,8 @@
    (two mimics, one constructor with two packed fields), `W` through a
    structure `Wrap` whose field is `List W` (a mimic depending on another
    mimic), `PT` through a container at a DEPENDENT pin
-   (`DMap α (fun _ => PT α)`), the nested structure `NTree` (projection
-   functions rewritten at the generated artifacts' levels), and a
-   MUTUAL-AND-NESTED pair `A`/`B` (B4's class, same code path). -/
+   (`DMap α (fun _ => PT α)`), the nested structure `NTree` (with its
+   projection functions), and a MUTUAL-AND-NESTED pair `A`/`B`. -/
 
 namespace InModelNested
 

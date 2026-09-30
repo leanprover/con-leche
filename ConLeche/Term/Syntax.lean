@@ -10,11 +10,9 @@ module
 `Env`+`Expr` targets (`ConLeche/Verify/Denote.lean`), and it is chosen for
 proof convenience, not for fidelity to the checker's representation.
 
-The declarative typing judgment this datatype was cut for is **gone**
-(`HasType`, deleted at task #209 — see DESIGN.md's task #209 section);
-the sentences below that motivate a design choice by a typing rule are
-kept as the *reason the datatype has the shape it has*, not as a
-claim that such a rule still exists anywhere in the tree.
+There is no declarative typing judgment over this datatype (task
+#209); the sentences below that motivate a design choice by a typing
+rule give the *reason the datatype has the shape it has*.
 
 Differences from `ConLeche.Expr`, each deliberate:
 
@@ -58,17 +56,15 @@ Differences from `ConLeche.Expr`, each deliberate:
   decoded once, at the denotation (`Term.projPair?`, below), and every
   reader downstream matches on a constructor instead of carrying the
   bound.  The typing rules read `A` and `B` off the premise
-  `Γ ⊢ p : PSigma' A B` instead of off the term.  This is the same move
+  `Γ ⊢ p : Σ A B` instead of off the term.  This is the same move
   the `app` rule makes, and it pays the same way: the premise hands
   soundness the `⟦p⟧ ∈ˢ sigmaSet …` package that the set model's
   `WellDenoted` clause has to carry by hand.  Interpretation is then
-  literally `interpExpr`'s clause, `sfst`/`ssnd`.
+  literally `interp`'s clause, `sfst`/`ssnd`.
 
-  (An earlier design had projections denote to applications of basis
-  constants `psigmaFst`/`psigmaSnd`.  That is *unimplementable* for the
-  pinned pair — a denotation that is a function of the expression alone
-  cannot invent `A` and `B` — and the constants are now derivable from
-  this former anyway, so they are gone.)
+  (Projections cannot denote to applications of basis constants: for
+  the pinned pair a denotation that is a function of the expression
+  alone cannot invent `A` and `B`.)
 * **No `lit`.**  Literal computation is *derived*, not built in: any
   term satisfying an operation's certified recurrences computes it on
   numerals (the pinned `Nat` operations, `ConLeche/Kernel/NatOpPins.lean`).
@@ -96,17 +92,18 @@ Differences from `ConLeche.Expr`, each deliberate:
 ## The basis
 
 The basis type formers are the ones the checker pins by hand
-(`ConLeche/Kernel/Basis/*.lean`): `Nat`, `PUnit`, `PSigma'`, `Empty`,
-`Quot`.  `Eq` is absent from the list only because it has been promoted
-to a syntactic former.  Everything else the checker stores — every
+(`ConLeche/Kernel/Basis/*.lean`): `Nat`, `Empty`, `Quot`, plus the
+dependent pair `.psigma` and the unit type `.punit` with its point
+`.punitUnit` (the pair towers' terminator).  `Eq` is absent from the list only
+because it has been promoted to a syntactic former.  Everything else the checker stores — every
 modeled inductive, every direct structure — unfolds into this alphabet,
 which is why the alphabet can be closed.
 
-Four constants of the checker's basis are *derivable* here and
+Four constants are *derivable* here and
 therefore absent: `Eq.rec` (transport is the identity once equality is
-reflected, so `fun A a M m b h => m` types by conversion), `PSigma'.rec`
-(`fun A B M f p => f p.1 p.2`, typed by conversion along structure
-eta), and `PSigma'.fst`/`PSigma'.snd` themselves
+reflected, so `fun A a M m b h => m` types by conversion), the pair's
+recursor (`fun A B M f p => f p.1 p.2`, typed by conversion along
+structure eta), and the pair's projections themselves
 (`fun A B p => p.fst`/`p.snd`, once those are formers).  Dropping them
 removes the most index-heavy dependent types from `BConst.type`, and
 in the projections' case it is evidence that the former is the right
@@ -135,11 +132,9 @@ inductive BConst where
   | punit
   /-- `PUnit.unit.{u} : PUnit.{u}` -/
   | punitUnit
-  /-- `PUnit.rec.{u,v}` -/
-  | punitRec
-  /-- `PSigma'.{u,v} : (A : Sort u) → (A → Sort v) → Sort (max u v)` -/
+  /-- the dependent pair `.{u,v} : (A : Sort u) → (A → Sort v) → Sort (max u v)` -/
   | psigma
-  /-- `PSigma'.mk.{u,v}` -/
+  /-- the dependent pair's constructor `.{u,v}` -/
   | psigmaMk
   /-- `Empty.{u} : Sort u` (level-polymorphic, so it covers `False` too) -/
   | empty
@@ -164,15 +159,27 @@ inductive BConst where
   | choice
   /-- `lfpFam.{u,w} : Π (I : Sort u), ((I → Sort w) → (I → Sort w)) → I → Sort w`
   — the least pre-fixed point of a functor on FAMILIES over `I` (task
-  #188: the carrier of a directly installed recursive inductive type,
-  indexed from the start — `lfpFamSet`, `ConLeche/SetTheory/Derive/LfpFam.lean`).
+  #188; `lfpFamSet`, `ConLeche/SetTheory/Derive/LfpFam.lean`).
   A model-side constant with no kernel counterpart: no stream declares
-  it, only the direct route's leaves spell it.  Its value is total (the
-  empty family when no closed family exists), so it inhabits this type
-  with no certificate; the fixed-point laws hold under the semantic
-  hypothesis that a closed family exists.  (The non-indexed `lfp` of
-  the route's checkpoint was removed once the indexed leaf landed.) -/
+  it.  Its value is total (the empty family when no closed family
+  exists), so it inhabits this type with no certificate; the
+  fixed-point laws hold under the semantic hypothesis that a closed
+  family exists. -/
   | lfpFam
+  /-- `lfpTuple k .{u_0 … u_{k-1}, w}` — the least pre-fixed point of a
+  functor on **tuples** of `k` families, member `m`'s family living over
+  its own index set `I_m : Sort u_m` (`lfpTuple`,
+  `ConLeche/SetTheory/Derive/LfpTuple.lean`).  The carrier of a directly
+  installed inductive BLOCK of `k` members: the
+  argument is one tuple `Is = ⟨I_0, …, I_{k-1}⟩` of index sets and one
+  operator on the tuple of families, and the value is the tuple of the
+  members' carriers.  Like `lfpFam` it is a model-side constant with no
+  kernel counterpart — no stream declares it, only the block route's
+  leaves spell it — and its value is total (the empty tuple when no
+  closed tuple exists), so it inhabits its type with no certificate; the
+  fixed-point laws hold under the semantic hypothesis that a closed
+  tuple exists.  At `k = 1` the value is `lfpFam`'s. -/
+  | lfpTuple (k : Nat)
   deriving Repr, DecidableEq, Inhabited
 
 /-- Terms.  See the module docstring for what is *not* here. -/
@@ -196,9 +203,9 @@ inductive Term where
   producer that knows the type simply drops it. -/
   | eqE (lhs rhs : Term)
   /-- First field of a pair.  Carries **only** the subject: the pair's
-  type arguments come from the typing premise `Γ ⊢ p : PSigma' A B`,
+  type arguments come from the typing premise `Γ ⊢ p : Σ A B`,
   not from the term — see the module docstring.  Interpreted by
-  `sfst`, i.e. literally `interpExpr`'s clause. -/
+  `sfst`, i.e. literally `interp`'s clause. -/
   | fst (e : Term)
   /-- Second field of a pair; the `fst` twin, interpreted by `ssnd`. -/
   | snd (e : Term)
@@ -229,17 +236,5 @@ def projPair? : Nat → Term → Option Term
   | _ + 2, _ => none
 
 end Term
-
-/-- How many universe parameters each constant takes.  Level lists that
-are too short are read with `0` defaults (`ConLeche/Term/Const.lean`), so
-this is documentation and a bridge convention, never a side condition
-of a rule. -/
-def BConst.numLevels : BConst → Nat
-  | .nat | .natZero | .natSucc | .propext => 0
-  | .natRec | .punit | .punitUnit | .empty
-  | .quot | .quotMk | .quotInd | .quotSound | .choice => 1
-  | .lfpFam => 2
-  | .punitRec | .psigma | .psigmaMk
-  | .emptyRec | .quotLift => 2
 
 end ConLeche.Term

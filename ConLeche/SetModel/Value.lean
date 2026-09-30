@@ -2,20 +2,17 @@ module
 
 public import ConLeche.SetModel.Ops
 public import ConLeche.Term.Const
-public import ConLeche.SetTheory.Derive.Sigma
 public import ConLeche.SetTheory.Derive.Quot
 public import ConLeche.SetTheory.Derive.Choice
-public import ConLeche.SetTheory.Derive.LfpFam
+public import ConLeche.SetTheory.Derive.LfpTuple
+public import ConLeche.SetModel.TupleTower
 
 @[expose] public section
 
 /-!
-# The built-in constants, two-regime (task #151, tier B — B2)
+# The built-in constants, two-regime (task #151)
 
-`ConLeche/Term/Semantics/Value.lean`'s `bval` restated over `piR`/`lamR`.
-The old towers are `lamC`-built, so they inherit the domain-relative
-collapse; these are annotation-built, and the law surface changes with
-them in the way the tier-B design priced.
+`bval` and its value towers over `piR`/`lamR`, annotation-built.
 
 ## The annotation convention
 
@@ -35,35 +32,27 @@ valued), the relation space is `piR (max u 1) …` (`A → Prop` is a
 *type*: its codomain `Prop = Sort 0` lives in `Sort 1`), and the
 invariance/double-negation spaces are `piR 0 …` throughout.
 
-## The law surface, as priced
+## The law surface
 
-The collapse's `app_lamC` fires on domain membership alone, so under
-`bval` every constant's application law needs only its arguments'
-typings.  Here each law **splits by regime**:
+Each constant's application law **splits by regime**:
 
 * `r ≠ 0` — the graph regime — is the clean case: `app_lamR_pos`, no
-  premise beyond domain membership, strictly *fewer* hypotheses than
-  the collapse version needed;
+  premise beyond domain membership;
 * `r = 0` — the tower *is* the canonical proof, so the law holds only
-  because both sides are, which is the pre-#100
-  `v = 0 → the fibres are truth values` premise resurfacing.  Each law
-  below discharges it from its own motive/fibre hypothesis rather than
-  taking it as an extra argument, so **no statement grew a premise**:
-  `natRecV_app` needs `hM` (which `natRecV_app` also had),
-  `punitRecV_app` needs `hM`, and so on.
+  because both sides are: the `v = 0 → the fibres are truth values`
+  premise.  Each law below discharges it from its own motive/fibre
+  hypothesis rather than taking it as an extra argument: `natRecV_app`
+  needs `hM`, and so on.
 
-Two values genuinely **change**, both because the empty-domain collapse
-is gone:
+An empty-domain `lamR` is not the proof point at `v ≠ 0`:
 
-* `Empty.rec` was `pt` (its inner λ has an empty domain, and *every*
-  empty-domain `lamC` collapses).  It is now `lamR v … (lamR v ∅ …)` —
-  a graph at `v ≠ 0`, `pt` at `v = 0`.
-* `SetTheory.quotLift` is `lamC`-built, so tier B carries its own
-  `quotLiftR` (the same abstraction at an annotation).  It is the only
-  `SetTheory` operator this file has to replace; `natrec`, `schoice`,
-  `quotSet`, `quotClass`, `qrep`, `sigmaSet`, `sfst`/`ssnd` are all
-  collapse-free already, and `sigmaSet`/`quotSet`/`quotClass` are in
-  fact *already* annotation-driven — the recorded precedent.
+* `Empty.rec` is `lamR v … (lamR v ∅ …)` — a graph at `v ≠ 0`, `pt` at
+  `v = 0`.
+* `quotLiftR` is the quotient lift as an abstraction at an annotation.
+  The other `SetTheory` operators used here (`natrec`, `schoice`,
+  `quotSet`, `quotClass`, `qrep`, `sigmaSet`, `sfst`/`ssnd`) need no
+  replacement, and `sigmaSet`/`quotSet`/`quotClass` are themselves
+  annotation-driven.
 -/
 
 namespace ConLeche.SetModel
@@ -129,8 +118,7 @@ theorem natRecV_mem_fibre {u : Nat} {M z s n : V} (hM : M ∈ˢ natMotiveSpace V
 
 /-- ι for `Nat.rec`.  At `u ≠ 0` the four βs are `app_lamR_pos` — no
 premise but domain membership.  At `u = 0` both sides are the canonical
-proof, which is exactly the resurfaced pre-#100 premise, discharged
-here from `hM`. -/
+proof, the `u = 0` premise discharged here from `hM`. -/
 theorem natRecV_app {u : Nat} {M z s n : V} (hM : M ∈ˢ natMotiveSpace V u)
     (hz : z ∈ˢ app M natzero) (hs : s ∈ˢ natStepSpace V u M)
     (hn : n ∈ˢ (omega : V)) :
@@ -143,30 +131,7 @@ theorem natRecV_app {u : Nat} {M z s n : V} (hM : M ∈ˢ natMotiveSpace V u)
   · rw [natRecV, app_lamR_pos hu hM, app_lamR_pos hu hz, app_lamR_pos hu hs,
       app_lamR_pos hu hn]
 
-/-! ## `PUnit.rec` -/
-
-/-- `PUnit.{u} → Sort v`. -/
-noncomputable def punitMotiveSpace (v : Nat) : V :=
-  piR (v + 1) unitSet fun _ => univ v
-
-/-- `PUnit.rec.{u,v}`; result sort `v`. -/
-noncomputable def punitRecV (v : Nat) : V :=
-  lamR v (punitMotiveSpace V v) fun M =>
-    lamR v (app M pt) fun m =>
-      lamR v unitSet fun _ => m
-
-theorem punitRecV_app {v : Nat} {M m t : V} (hM : M ∈ˢ punitMotiveSpace V v)
-    (hm : m ∈ˢ app M pt) (ht : t ∈ˢ (unitSet : V)) :
-    app (app (app (punitRecV V v) M) m) t = m := by
-  by_cases hv : v = 0
-  · subst hv
-    have hMpt : app M pt ∈ˢ (univ 0 : V) :=
-      app_mem_piR_pos (Nat.succ_ne_zero 0) hM (pt_mem_unitSet (V := V))
-    rw [punitRecV, lamR_zero, app_pt, app_pt, app_pt]
-    exact (mem_univ_zero hMpt hm).symm
-  · rw [punitRecV, app_lamR_pos hv hM, app_lamR_pos hv hm, app_lamR_pos hv ht]
-
-/-! ## `PSigma'` -/
+/-! ## The dependent pair `.psigma` -/
 
 /-- `A → Sort v`, the fibre space. -/
 noncomputable def psigmaFibreSpace (v : Nat) (A : V) : V :=
@@ -176,7 +141,7 @@ theorem psigmaFibre_apply {v : Nat} {A B a : V} (hB : B ∈ˢ psigmaFibreSpace V
     (ha : a ∈ˢ A) : app B a ∈ˢ (univ v : V) :=
   app_mem_piR_pos (Nat.succ_ne_zero v) hB ha
 
-/-- `PSigma'.{u,v}`; result sort `max u v + 1` — a type former, so
+/-- The dependent pair `.psigma.{u,v}`; result sort `max u v + 1` — a type former, so
 always in the graph regime. -/
 noncomputable def psigmaV (u v : Nat) : V :=
   lamR (Nat.max u v + 1) (univ u) fun A =>
@@ -189,31 +154,9 @@ theorem psigmaV_app {u v : Nat} {A B : V} (hA : A ∈ˢ (univ u : V))
   rw [psigmaV, app_lamR_pos (Nat.succ_ne_zero _) hA,
     app_lamR_pos (Nat.succ_ne_zero _) hB]
 
-/-- **The pinned pair type's rigidity** (`mem_psigmaV_app`'s mirror at
-`interp`): an inhabited `PSigma'` application forces both arguments
-into their places and exhibits the inhabitant in the sigma set.  Off
-either domain the application is canonical junk, which has no members
-(`app_lamR_of_not_mem`).  Added for the caps tier's pinned-pair η row
-(task #161). -/
-theorem mem_psigmaV2_app {u v : Nat} {A B x : V}
-    (hx : x ∈ˢ app (app (psigmaV V u v) A) B) :
-    A ∈ˢ (univ u : V) ∧ B ∈ˢ psigmaFibreSpace V v A ∧
-      x ∈ˢ sigmaSet (Nat.max u v) A fun y => app B y := by
-  by_cases hA : A ∈ˢ (univ u : V)
-  · rw [psigmaV, app_lamR_pos (Nat.succ_ne_zero _) hA] at hx
-    by_cases hB : B ∈ˢ psigmaFibreSpace V v A
-    · rw [app_lamR_pos (Nat.succ_ne_zero _) hB] at hx
-      exact ⟨hA, hB, hx⟩
-    · rw [app_lamR_of_not_mem (Nat.succ_ne_zero _) hB] at hx
-      exact absurd hx (not_mem_empty x)
-  · rw [psigmaV, app_lamR_of_not_mem (Nat.succ_ne_zero _) hA,
-      app_empty] at hx
-    exact absurd hx (not_mem_empty x)
-
-/-- `PSigma'.mk.{u,v}`; result sort `max u v`.  The old value's
-explicit `if max u v = 0 then pt` tag is **gone from the definition**:
-the annotation already squashes the whole tower at `0`, so the body is
-unconditionally the Kuratowski pair. -/
+/-- Its constructor `.psigmaMk.{u,v}`; result sort `max u v`.  No explicit
+`if max u v = 0 then pt`: the annotation already squashes the whole
+tower at `0`, so the body is unconditionally the Kuratowski pair. -/
 noncomputable def psigmaMkV (u v : Nat) : V :=
   lamR (Nat.max u v) (univ u) fun A =>
     lamR (Nat.max u v) (psigmaFibreSpace V v A) fun B =>
@@ -228,76 +171,6 @@ theorem psigmaMkV_app {u v : Nat} {A B a b : V} (hA : A ∈ˢ (univ u : V))
   · rw [psigmaMkV, hw, lamR_zero, app_pt, app_pt, app_pt, app_pt, if_pos rfl]
   · rw [psigmaMkV, app_lamR_pos hw hA, app_lamR_pos hw hB, app_lamR_pos hw ha,
       app_lamR_pos hw hb, if_neg hw]
-
-/-- At a `Prop`-level pair the joint level is `0`, hence both component
-levels are. -/
-theorem psigma_zero_levels {u v : Nat} (h : Nat.max u v = 0) : u = 0 ∧ v = 0 :=
-  ⟨Nat.le_zero.mp (h ▸ Nat.le_max_left u v),
-   Nat.le_zero.mp (h ▸ Nat.le_max_right u v)⟩
-
-/-! ### The projections -/
-
-theorem sfst_mem2 {u v : Nat} {A B p : V} (hA : A ∈ˢ (univ u : V))
-    (hp : p ∈ˢ sigmaSet (Nat.max u v) A fun x => app B x) : sfst p ∈ˢ A := by
-  obtain ⟨a, b, ha, hb, h0, hne⟩ := mem_sigma_elim hp
-  by_cases hw : Nat.max u v = 0
-  · rw [h0 hw, sfst_pt]
-    exact (mem_univ_zero ((psigma_zero_levels hw).1 ▸ hA) ha) ▸ ha
-  · rw [hne hw, sfst_spair]; exact ha
-
-theorem ssnd_mem2 {u v : Nat} {A B p : V} (hA : A ∈ˢ (univ u : V))
-    (hB : B ∈ˢ psigmaFibreSpace V v A)
-    (hp : p ∈ˢ sigmaSet (Nat.max u v) A fun x => app B x) :
-    ssnd p ∈ˢ app B (sfst p) := by
-  obtain ⟨a, b, ha, hb, h0, hne⟩ := mem_sigma_elim hp
-  by_cases hw : Nat.max u v = 0
-  · obtain ⟨hu, hv⟩ := psigma_zero_levels hw
-    have hapt : a = pt := mem_univ_zero (hu ▸ hA) ha
-    have hBa : app B a ∈ˢ (univ 0 : V) := hv ▸ psigmaFibre_apply V hB ha
-    have hbpt : b = pt := mem_univ_zero hBa hb
-    rw [h0 hw, ssnd_pt, sfst_pt, show app B pt = app B a by rw [hapt]]
-    exact hbpt ▸ hb
-  · rw [hne hw, ssnd_spair, sfst_spair]; exact hb
-
-theorem sfst_mk2 {u v : Nat} {A B a b : V} (hA : A ∈ˢ (univ u : V))
-    (hB : B ∈ˢ psigmaFibreSpace V v A) (ha : a ∈ˢ A) (hb : b ∈ˢ app B a) :
-    sfst (app (app (app (app (psigmaMkV V u v) A) B) a) b) = a := by
-  rw [psigmaMkV_app V hA hB ha hb]
-  split
-  · next h =>
-    rw [sfst_pt]
-    exact (mem_univ_zero ((psigma_zero_levels h).1 ▸ hA) ha).symm
-  · next _ => exact sfst_spair a b
-
-theorem ssnd_mk2 {u v : Nat} {A B a b : V} (hA : A ∈ˢ (univ u : V))
-    (hB : B ∈ˢ psigmaFibreSpace V v A) (ha : a ∈ˢ A) (hb : b ∈ˢ app B a) :
-    ssnd (app (app (app (app (psigmaMkV V u v) A) B) a) b) = b := by
-  rw [psigmaMkV_app V hA hB ha hb]
-  split
-  · next h =>
-    rw [ssnd_pt]
-    obtain ⟨_, hv⟩ := psigma_zero_levels h
-    have hBa : app B a ∈ˢ (univ 0 : V) := hv ▸ psigmaFibre_apply V hB ha
-    exact (mem_univ_zero hBa hb).symm
-  · next _ => exact ssnd_spair a b
-
-/-- Structure η for the basis pair. -/
-theorem psigmaEta_law {u v : Nat} {A B p : V} (hA : A ∈ˢ (univ u : V))
-    (hB : B ∈ˢ psigmaFibreSpace V v A)
-    (hp : p ∈ˢ sigmaSet (Nat.max u v) A fun x => app B x) :
-    app (app (app (app (psigmaMkV V u v) A) B) (sfst p)) (ssnd p) = p := by
-  obtain ⟨a, b, ha, hb, h0, hne⟩ := mem_sigma_elim hp
-  by_cases hw : Nat.max u v = 0
-  · obtain ⟨hu, hv⟩ := psigma_zero_levels hw
-    have hapt : a = pt := mem_univ_zero (hu ▸ hA) ha
-    have hBa : app B a ∈ˢ (univ 0 : V) := hv ▸ psigmaFibre_apply V hB ha
-    have hbpt : b = pt := mem_univ_zero hBa hb
-    have hpa : (pt : V) ∈ˢ A := hapt ▸ ha
-    have hpb : (pt : V) ∈ˢ app B pt := by
-      have h1 : (pt : V) ∈ˢ app B a := hbpt ▸ hb
-      rwa [hapt] at h1
-    rw [h0 hw, sfst_pt, ssnd_pt, psigmaMkV_app V hA hB hpa hpb, if_pos hw]
-  · rw [hne hw, sfst_spair, ssnd_spair, psigmaMkV_app V hA hB ha hb, if_neg hw]
 
 /-! ## `Quot` -/
 
@@ -341,9 +214,8 @@ theorem quotMkV_app {u : Nat} {A R a : V} (hA : A ∈ˢ (univ u : V))
     rw [quotMkV, lamR_zero, app_pt, app_pt, app_pt, hcp]
   · rw [quotMkV, app_lamR_pos hu hA, app_lamR_pos hu hR, app_lamR_pos hu ha]
 
-/-- The lift of `f` to the quotient, at an annotation:
-`SetTheory.quotLift` with `lamC` replaced by `lamR v`.  This is the one
-`SetTheory` operator tier B has to carry its own copy of. -/
+/-- The lift of `f` to the quotient, at an annotation: `lamR v` over
+the quotient set, applying `f` to each class's representative. -/
 noncomputable def quotLiftR (u v : Nat) (A R f : V) : V :=
   lamR v (quotSet u A R) fun q => app f (qrep u A R q)
 
@@ -367,8 +239,7 @@ noncomputable def quotInvSpace (A R f : V) : V :=
 
 /-- The invariance premise, read off a proof's membership.  Three
 `app_mem_piR` steps, each discharging its `v = 0` fibre premise from
-`piR_zero_mem_univZero` / `eqv_mem_univZero` — the pre-#100 shape,
-recovered. -/
+`piR_zero_mem_univZero` / `eqv_mem_univZero`. -/
 theorem quotInv_of_mem {A R f h : V} (hh : h ∈ˢ quotInvSpace V A R f) :
     ∀ a b, a ∈ˢ A → b ∈ˢ A → (∃ w, w ∈ˢ app (app R a) b) →
       app f a = app f b := by
@@ -383,7 +254,7 @@ theorem quotInv_of_mem {A R f h : V} (hh : h ∈ˢ quotInvSpace V A R f) :
     app_mem_piR h1 hb fun _ _ _ => piR_zero_mem_univZero
   have h3 : app (app (app h a) b) wv ∈ˢ eqv (app f a) (app f b) :=
     app_mem_piR h2 hwv fun _ _ _ => eqv_mem_univZero _ _
-  exact mem_eqv h3
+  exact eq_of_mem_eqv h3
 
 /-- `Quot.lift.{u,v}`; result sort `v`. -/
 noncomputable def quotLiftV (u v : Nat) : V :=
@@ -406,17 +277,10 @@ theorem quotLiftV_app {u v : Nat} (hv : v ≠ 0) {A R B f h : V}
 `quotLiftV_app`'s `v ≠ 0` side condition excludes, and it needs no
 premises at all.
 
-The ENDGAME D and E seals both flagged `quotLiftR_app`/`quotLiftV_app`
-as "the only two firing laws with a `v ≠ 0` side condition", with the
-`natRecV_app` precedent recorded as not transferring.  It does not
-have to: at `v = 0` **both sides are `pt`**, because `lamR 0` is `pt`
-by `lamR_zero` and `quotLiftR` is itself a `lamR v`.  There is no
+At `v = 0` **both sides are `pt`**, because `lamR 0` is `pt` by
+`lamR_zero` and `quotLiftR` is itself a `lamR v`.  There is no
 squash-regime reasoning to do, no motive membership to consume, and no
-premise to discharge — the two collapses meet on the nose.
-
-Recorded here rather than in a seal because the ledger's rule is that
-a claim about a wall is re-checked, not inherited: this is the check,
-and it costs two lines. -/
+premise to discharge. -/
 theorem quotLiftV_app_zero {u : Nat} (A R B f h : V) :
     app (app (app (app (app (quotLiftV V u 0) A) R) B) f) h =
       quotLiftR V u 0 A R f := by
@@ -475,11 +339,8 @@ theorem choiceV_app {u : Nat} {A h : V} (hA : A ∈ˢ (univ u : V))
 
 /-! ## `Empty.rec`
 
-**The value changes.**  Under the collapse this constant is the proof
-point at every level, because its inner λ has the empty domain and
-`lamC_empty` collapses at every level.  Two-regime it is a graph
-whenever the motive is `Type`-valued — one of the two concrete places
-the #100 countermodel's cause shows up in the basis. -/
+Two-regime this constant is a graph whenever the motive is
+`Type`-valued. -/
 
 /-- `Empty.{u} → Sort v`. -/
 noncomputable def emptyMotiveSpace (v : Nat) : V :=
@@ -490,12 +351,6 @@ domain, so its value is the empty graph at `v ≠ 0` (and the canonical
 proof at `v = 0`) — **not** unconditionally `pt`. -/
 noncomputable def emptyRecV (v : Nat) : V :=
   lamR v (emptyMotiveSpace V v) fun _ => lamR v empty fun _ => empty
-
-theorem emptyRecV_ne_pt {v : Nat} (hv : v ≠ 0) : emptyRecV V v ≠ pt :=
-  lamR_ne_pt hv
-
-/-- …and it is still the canonical proof in the squash regime. -/
-theorem emptyRecV_zero : emptyRecV V 0 = pt := lamR_zero
 
 /-! ## `lfpFam` (task #188, indexed)
 
@@ -528,15 +383,169 @@ theorem lfpFamSet_mem_space (w : Nat) (I F : V) : lfpFamSet w I F ∈ˢ lfpFamSp
   rw [piR_pos (Nat.succ_ne_zero w)]
   exact lfpFamSet_mem w I F
 
-theorem lfpFamV_app {u w : Nat} {I F : V} (hI : I ∈ˢ (univ u : V))
-    (hF : F ∈ˢ lfpFamFunSpace V u w I) :
-    app (app (lfpFamV V u w) I) F = lfpFamSet w I F := by
-  rw [lfpFamV, app_lamR_pos (max_succ_ne_zero u w) hI, app_lamR_pos (max_succ_ne_zero u w) hF]
-
 theorem lfpFamV_mem (u w : Nat) :
     lfpFamV V u w ∈ˢ piR (Nat.max u (w + 1)) (univ u : V) fun I =>
       piR (Nat.max u (w + 1)) (lfpFamFunSpace V u w I) fun _ => lfpFamSpace V w I :=
   lamR_mem fun I _ => lamR_mem fun F _ => lfpFamSet_mem_space V w I F
+
+section LfpTuple
+
+open ConLeche.SetTheory.Tower (mkTower projS projS_mkTower)
+
+/-! ## `lfpTuple k` (task #315)
+
+The least pre-fixed point of a functor on **tuples** of `k` families
+(`lfpTuple`, `ConLeche/SetTheory/Derive/LfpTuple.lean`), member `m`'s
+family living over its own index set `I_m : Sort u_m`.  Both of the
+constant's binders range over a right-nested pair tower: the index-set
+tuple `Is` over `⟨Sort u_0, …⟩` and the operator over the arrow on
+`⟨proj_0 Is → Sort w, …⟩`.  Both towers are NON-dependent, so their
+carriers are the plain iterated `sigmaSet` below rather than the
+telescope-indexed `towerSet`; the members' index sets are read off `Is`
+by the uniform projection family `projS`.  Total: the value is a member
+of the family tuple for EVERY operator. -/
+
+/-- The non-dependent pair tower's carrier at level `r`: the components
+`F s, …, F (s + n - 1)`, `unitSet`-terminated. -/
+noncomputable def ndTowerSet (r : Nat) (F : Nat → V) : Nat → Nat → V
+  | _, 0 => unitSet
+  | s, n + 1 => sigmaSet r (F s) fun _ => ndTowerSet r F (s + 1) n
+
+theorem ndTowerSet_mem_univ {r : Nat} {F : Nat → V} :
+    ∀ (n s : Nat), (∀ m, m < s + n → F m ∈ˢ (univ r : V)) →
+      ndTowerSet V r F s n ∈ˢ (univ r : V)
+  | 0, _, _ => unitSet_mem_univ r
+  | n + 1, s, hF => by
+    show sigmaSet r (F s) (fun _ => ndTowerSet V r F (s + 1) n) ∈ˢ _
+    have h := sigma_mem_univ (u := r) (v := r) (hF s (by omega))
+      (fun _ _ => ndTowerSet_mem_univ n (s + 1) fun m hm => hF m (by omega))
+    rwa [show Nat.max r r = r from Nat.max_self r] at h
+
+/-- **Intro**: a tuple whose components sit in the tower's components
+is a member (graph regime — the towers here are always at a positive
+level). -/
+theorem mkTower_mem_ndTowerSet {r : Nat} (hr : r ≠ 0) {F : Nat → V} :
+    ∀ (n : Nat) (as : List V) (s : Nat), as.length = n →
+      (∀ i, ∀ h : i < as.length, as[i] ∈ˢ F (s + i)) →
+      mkTower as ∈ˢ ndTowerSet V r F s n
+  | 0, [], _, _, _ => pt_mem_unitSet
+  | 0, _ :: _, _, hlen, _ => by simp at hlen
+  | _ + 1, [], _, hlen, _ => by simp at hlen
+  | n + 1, a :: as, s, hlen, h => by
+    show spair a (mkTower as) ∈ˢ sigmaSet r (F s) fun _ => ndTowerSet V r F (s + 1) n
+    refine spair_mem hr ?_
+      (mkTower_mem_ndTowerSet hr n as (s + 1) (by simpa using hlen) fun i hi => ?_)
+    · have := h 0 (by simp)
+      simpa using this
+    · have := h (i + 1) (by simpa using hi)
+      rw [show s + (i + 1) = s + 1 + i from by omega] at this
+      simpa using this
+
+/-- The intro law at a tower given by a function on positions. -/
+theorem mkTower_map_mem_ndTowerSet {r : Nat} (hr : r ≠ 0) {F : Nat → V} (G : Nat → V)
+    (n s : Nat) (hG : ∀ i, i < n → G i ∈ˢ F (s + i)) :
+    mkTower ((List.range n).map G) ∈ˢ ndTowerSet V r F s n := by
+  refine mkTower_mem_ndTowerSet V hr n _ s (by simp) fun i hi => ?_
+  have hin : i < n := by simpa using hi
+  rw [List.getElem_map, List.getElem_range]
+  exact hG i hin
+
+/-- The tower reads its components below its own length only. -/
+theorem ndTowerSet_congr {r : Nat} {F F' : Nat → V} :
+    ∀ (n s : Nat), (∀ m, m < s + n → F m = F' m) →
+      ndTowerSet V r F s n = ndTowerSet V r F' s n
+  | 0, _, _ => rfl
+  | n + 1, s, h => by
+    show sigmaSet r (F s) _ = sigmaSet r (F' s) _
+    rw [h s (by omega), ndTowerSet_congr n (s + 1) fun m hm => h m (by omega)]
+
+/-- **Elim**: every component of a member sits in the tower's own. -/
+theorem projS_mem_ndTowerSet {r : Nat} (hr : r ≠ 0) {F : Nat → V} :
+    ∀ (n s : Nat) {x : V}, x ∈ˢ ndTowerSet V r F s n →
+      ∀ i, i < n → projS i x ∈ˢ F (s + i)
+  | 0, _, _, _, _, hi => absurd hi (Nat.not_lt_zero _)
+  | n + 1, s, x, hx, i, hi => by
+    have hx' : x ∈ˢ sigmaSet r (F s) fun _ => ndTowerSet V r F (s + 1) n := hx
+    obtain ⟨a, b, ha, hb, -, hpos⟩ := mem_sigma_elim hx'
+    subst_vars
+    rw [hpos hr]
+    cases i with
+    | zero => rw [show projS 0 (spair a b) = sfst (spair a b) from rfl, sfst_spair]; simpa using ha
+    | succ i =>
+      rw [show projS (i + 1) (spair a b) = projS i (ssnd (spair a b)) from rfl, ssnd_spair,
+        show s + (i + 1) = s + 1 + i from by omega]
+      exact projS_mem_ndTowerSet hr n (s + 1) hb i (Nat.lt_of_succ_lt_succ hi)
+
+/-- `⟨Sort u_0, …, Sort u_{k-1}⟩`'s carrier — the index-set tuples. -/
+noncomputable def tupleSortsSpace (k : Nat) (us : List Nat) : V :=
+  ndTowerSet V (ConLeche.Term.tupleIdxSort us) (fun m => (univ (lv us m) : V)) 0 k
+
+/-- `⟨proj_0 Is → Sort w, …⟩`'s carrier at an index-set tuple `Is`. -/
+noncomputable def tupleFamsSpace (k : Nat) (us : List Nat) (Is : V) : V :=
+  ndTowerSet V (ConLeche.Term.tupleFamSort k us)
+    (fun m => lfpFamSpace V (lv us k) (projS m Is)) 0 k
+
+/-- The tuple operator an argument `F` of `lfpTuple k` induces:
+component `m` of `F` applied to the tuple of the argument's first `k`
+components. -/
+noncomputable def tupleOpV (k : Nat) (F : V) : (Nat → V) → Nat → V :=
+  fun X m => projS m (app F (mkTower ((List.range k).map X)))
+
+/-- `lfpTuple k.{u_0 … u_{k-1}, w}`; result sort `tupleFamSort k us`. -/
+noncomputable def lfpTupleV (k : Nat) (us : List Nat) : V :=
+  lamR (ConLeche.Term.tupleFamSort k us) (tupleSortsSpace V k us) fun Is =>
+    lamR (ConLeche.Term.tupleFamSort k us)
+      (piR (ConLeche.Term.tupleFamSort k us) (tupleFamsSpace V k us Is)
+        fun _ => tupleFamsSpace V k us Is) fun F =>
+      mkTower ((List.range k).map fun m =>
+        lfpTuple (lv us k) k (fun c => projS c Is) (tupleOpV V k F) m)
+
+theorem tupleFamSort_ne_zero (k : Nat) (us : List Nat) :
+    ConLeche.Term.tupleFamSort k us ≠ 0 :=
+  max_succ_ne_zero _ _
+
+theorem tupleIdxSort_ne_zero (us : List Nat) :
+    ConLeche.Term.tupleIdxSort us ≠ 0 := Nat.succ_ne_zero _
+
+/-- Every level a list mentions has its universe inside the list's own
+bound universe — the sorts tower's formation premise, global in the
+index. -/
+theorem univ_lv_mem_tupleIdxSort (us : List Nat) (m : Nat) :
+    (univ (lv us m) : V) ∈ˢ (univ (ConLeche.Term.tupleIdxSort us) : V) :=
+  univ_mono (Nat.succ_le_succ (ConLeche.Term.lv_le_levMax us m)) _ (univ_mem_univ _)
+
+/-- The block carrier's tuple is a member of the family tuple, at every
+index-set tuple and every operator — the constant's totality. -/
+theorem lfpTuple_mkTower_mem (k : Nat) (us : List Nat) (Is Φ : V) :
+    mkTower ((List.range k).map fun m =>
+        lfpTuple (lv us k) k (fun c => projS c Is) (tupleOpV V k Φ) m)
+      ∈ˢ tupleFamsSpace V k us Is := by
+  unfold tupleFamsSpace
+  refine mkTower_map_mem_ndTowerSet V (tupleFamSort_ne_zero k us) _ k 0 fun i hi => ?_
+  show lfpTuple (lv us k) k (fun c => projS c Is) (tupleOpV V k Φ) i
+    ∈ˢ lfpFamSpace V (lv us k) (projS (0 + i) Is)
+  rw [lfpFamSpace, piR_pos (Nat.succ_ne_zero _), Nat.zero_add]
+  exact lfpTuple_mem (lv us k) k (fun c => projS c Is) (tupleOpV V k Φ) i hi
+
+theorem lfpTupleV_app {k : Nat} {us : List Nat} {Is F : V}
+    (hIs : Is ∈ˢ tupleSortsSpace V k us)
+    (hF : F ∈ˢ piR (ConLeche.Term.tupleFamSort k us) (tupleFamsSpace V k us Is)
+      fun _ => tupleFamsSpace V k us Is) :
+    app (app (lfpTupleV V k us) Is) F
+      = mkTower ((List.range k).map fun m =>
+          lfpTuple (lv us k) k (fun c => projS c Is) (tupleOpV V k F) m) := by
+  rw [lfpTupleV, app_lamR_pos (tupleFamSort_ne_zero k us) hIs,
+    app_lamR_pos (tupleFamSort_ne_zero k us) hF]
+
+theorem lfpTupleV_mem (k : Nat) (us : List Nat) :
+    lfpTupleV V k us ∈ˢ piR (ConLeche.Term.tupleFamSort k us) (tupleSortsSpace V k us)
+      fun Is => piR (ConLeche.Term.tupleFamSort k us)
+        (piR (ConLeche.Term.tupleFamSort k us) (tupleFamsSpace V k us Is)
+          fun _ => tupleFamsSpace V k us Is)
+        fun _ => tupleFamsSpace V k us Is :=
+  lamR_mem fun Is _ => lamR_mem fun F _ => lfpTuple_mkTower_mem V k us Is F
+
+end LfpTuple
 
 /-! ## The value assignment -/
 
@@ -553,7 +562,6 @@ noncomputable def bval : BConst → List Nat → V
   | .natRec, us => natRecV V (lv us 0)
   | .punit, _ => unitSet
   | .punitUnit, _ => pt
-  | .punitRec, us => punitRecV V (lv us 1)
   | .psigma, us => psigmaV V (lv us 0) (lv us 1)
   | .psigmaMk, us => psigmaMkV V (lv us 0) (lv us 1)
   | .empty, _ => empty
@@ -566,5 +574,6 @@ noncomputable def bval : BConst → List Nat → V
   | .propext, _ => pt
   | .choice, us => choiceV V (lv us 0)
   | .lfpFam, us => lfpFamV V (lv us 0) (lv us 1)
+  | .lfpTuple k, us => lfpTupleV V k us
 
 end ConLeche.SetModel

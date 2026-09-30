@@ -8,21 +8,12 @@ public section
 /-!
 # `denoteMeta`, closed and depth-independent (task #161, P3.2)
 
-The mirrors of `denoteAnnot_closed` (`Interp/DenoteClosed.lean`) and
-`denote2_depth_of_closed` (`Interp/Steps/Levels.lean`).
-
-**Closedness transposes for free, again.**  `denoteAnnot_closed` is not an
-induction: it is `denoteAnnot_erase` composed with v1's `denote_closed`
-and `AnnotTerm.liftN_eq_self` (a lift cannot be moved by a numeral slot).
-`denoteMeta` has the *same* erasure law (`denoteMeta_erase`, `Annot/Bit.lean`)
-onto the *same* `denote`, so the composition transports verbatim.  No
-premise of the original fed a sort run — `hlink`/`hcl` are the leaf
-valuation's, `hnf`/`hb` are the subject's scoping — so the only
-deltas are the deleted `fuel` and `mode` indices.
+**Closedness is not an induction**: it is `denoteMeta_erase`
+(`Annot/Bit.lean`) composed with `denote_closed` and
+`AnnotTerm.liftN_eq_self` (a lift cannot be moved by a numeral slot).
 
 **The depth statement drops `EnvWF`**, following the shift it is built
-on (see `BitShift.lean`): its sole use in the original is inside
-`denote2_shiftFrom`, whose mirror does not take it.
+on (see `BitShift.lean`).
 -/
 
 namespace ConLeche.Model
@@ -34,9 +25,8 @@ open ConLeche.Semantics (AnnotTerm)
 open ConLeche (Env Expr Name Level PropWhen)
 
 /-- **`denoteMeta`'s closedness law.**  A closed subject's validated
-annotation is closed, in the lifting form `EnvModelU.acval_closed` and
-`ValueResidues2.closed` state it.  Mirror of `denoteAnnot_closed`, with
-`denoteMeta_erase` in place of `denoteAnnot_erase`. -/
+annotation is closed, in the lifting form `EnvModel.acval_closed`
+states it. -/
 theorem denoteMeta_closed {acval : Name → (Name → Nat) → AnnotTerm}
     {cval : TConstVal} {env : Env} {φ : Name → Nat}
     (hlink : ∀ n ψ, (acval n ψ).erase = cval n ψ)
@@ -50,8 +40,7 @@ theorem denoteMeta_closed {acval : Name → (Name → Nat) → AnnotTerm}
       (denote_closed hcl hnf hb (denoteMeta_erase hlink 0 e h))) n
 
 /-- **A closed term's validated annotation does not depend on the
-depth**, provided the annotation itself is lift-invariant.  Mirror of
-`denote2_depth_of_closed`; `EnvWF` goes with `denoteMeta_shiftFrom`. -/
+depth**, provided the annotation itself is lift-invariant. -/
 theorem denoteMeta_depth_of_closed {env : Env} {φ : Name → Nat}
     {acval : Name → (Name → Nat) → AnnotTerm}
     (hacl : ∀ (n : Name) (ψ : Name → Nat) (k : Nat),

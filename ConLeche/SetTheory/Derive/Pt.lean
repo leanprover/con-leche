@@ -10,8 +10,7 @@ public import ConLeche.SetTheory.Derive.Universe
 * `pt := {ptTag}` with `ptTag := {∅, {{∅}}}` — the tagged proof
   point: the canonical inhabitant of every true proposition.  The tag
   is chosen so that **no data-value encoding produces `pt`** (task
-  #109; the battery was `Derive/PtFresh.lean`, deleted at task #221 with
-the collapse it served).  Selection principle:
+  #109).  Selection principle:
   `pt` must be a singleton whose element (a) has an *empty* member —
   so neither the tag nor `pt` is a Kuratowski pair, pair elements
   being nonempty (the anti-pair tag `Derive/Graphs.lean` exploits, one
@@ -23,7 +22,8 @@ the collapse it served).  Selection principle:
   `Quot.mk (· = 2 ∧ · = 2) 2` killed the `{vnat 2}` candidate).
   `ptTag`'s members `∅` and `{{∅}} = kpair ∅ ∅` live in `Nat` resp.
   pair types only, and no writable type hosts both.
-* `unitSet := {pt}` — the true truth value, and the model of `PUnit`.
+* `unitSet := {pt}` — the true truth value, and the model of the unit
+  type `.punit`.
 * `univZero := power unitSet = {∅, {pt}}` — the set of truth values,
   the `U₀ = {∅, {•}}` of Mario Carneiro, *The Type Theory of Lean*,
   master's thesis, Carnegie Mellon University, 2019; stating it as a
@@ -50,9 +50,6 @@ theorem mem_ptTag {z : V} :
 
 theorem empty_mem_ptTag : (empty : V) ∈ˢ ptTag :=
   mem_ptTag.mpr (Or.inl rfl)
-
-theorem ptTag_ne_empty : (ptTag : V) ≠ empty :=
-  ne_empty_of_mem empty_mem_ptTag
 
 /-- The tag is not a singleton: its two members `∅` and `{{∅}}`
 differ.  (Blocks `pt = kpair a a = {{a}}`.) -/
@@ -85,16 +82,6 @@ theorem pt_ne_kpair (a b : V) : (pt : V) ≠ kpair a b := by
   intro h
   obtain ⟨h1, -⟩ := upair_eq_sing h.symm
   exact ptTag_ne_sing a h1.symm
-
-/-- `pt` is not a member of its own tag (blocks the two-step membership
-cycle `pt ∈ ptTag ∈ pt` that `not_mem_self` cannot see). -/
-theorem pt_not_mem_ptTag : ¬ (pt : V) ∈ˢ ptTag := by
-  intro h
-  rcases mem_ptTag.mp h with hpe | hps
-  · exact pt_ne_empty hpe
-  · have hm := ptTag_mem_pt (V := V)
-    rw [hps] at hm
-    exact ptTag_ne_sing empty (mem_sing.mp hm)
 
 /-- The canonical singleton `{pt}`: the true truth value. -/
 noncomputable def unitSet : V := sing pt
@@ -158,17 +145,6 @@ theorem truthVal_eq_unitSet {p : Prop} (hp : p) : (truthVal p : V) = unitSet := 
 theorem truthVal_eq_empty {p : Prop} (hp : ¬ p) : (truthVal p : V) = empty := by
   unfold truthVal; exact if_neg hp
 
-/-- Truth values are `∅` or `{pt}` — never the point `{∅}` itself. -/
-theorem truthVal_ne_pt (p : Prop) : (truthVal p : V) ≠ pt := by
-  intro h
-  by_cases hp : p
-  · rw [truthVal_eq_unitSet hp] at h
-    have hm := pt_mem_unitSet (V := V)
-    rw [h] at hm
-    exact not_mem_self (pt : V) hm
-  · rw [truthVal_eq_empty hp] at h
-    exact pt_ne_empty h.symm
-
 theorem truthVal_congr {p q : Prop} (h : p ↔ q) :
     (truthVal p : V) = truthVal q := by
   rcases Classical.em p with hp | hp
@@ -182,17 +158,6 @@ theorem truthVal_mem_univZero (p : Prop) :
     exact mem_univZero.mpr (Subset.refl _)
   · rw [truthVal_eq_empty hp]
     exact mem_univZero.mpr (empty_subset _)
-
-/-- Every member of `univ 0` is the truth value of its own
-inhabitedness. -/
-theorem mem_univZero_eq_truthVal {T : V} (hT : T ∈ˢ (univZero : V)) :
-    T = truthVal (pt ∈ˢ T) := by
-  rcases Classical.em ((pt : V) ∈ˢ T) with hp | hp
-  · rw [truthVal_eq_unitSet hp]
-    exact ext fun z => ⟨fun hz => eq_pt_of_mem_univZero hT hz ▸ pt_mem_unitSet,
-      fun hz => mem_unitSet_iff.mp hz ▸ hp⟩
-  · rw [truthVal_eq_empty hp]
-    exact eq_empty fun z hz => hp (eq_pt_of_mem_univZero hT hz ▸ hz)
 
 /-- The truth value of an equality. -/
 noncomputable def eqv (x y : V) : V := truthVal (x = y)

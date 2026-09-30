@@ -147,9 +147,15 @@ A(f"| date | {meta.get('date', '?')} |")
 A(f"| machine | {meta.get('host', '?')} — {meta.get('cpu', '?')}, "
   f"{meta.get('cores', '?')} cores, {meta.get('mem', '?')} RAM, Linux {meta.get('kernelver', '?')} |")
 A("| columns | " + " · ".join(LABELS[c] for c in live) + " |")
+# `vlimit` is present only in the metadata of batteries run before the
+# address-space cap was dropped (CLAUDE.md: never `ulimit -v`); it is
+# printed so that such a table still states how it was measured.
+vl = meta.get("vlimit")
 A(f"| metric | `perf stat -e instructions:u`, one run per cell, "
-  f"`ulimit -v {meta.get('vlimit', '?')}`, `timeout {meta.get('timeout', '?')}`, `nice -n 5` "
-  f"(the `mathlib-full` row: 22 GB, 8 h, `--progress=5000`) |")
+  + (f"`ulimit -v {vl}`, " if vl else "")
+  + f"`timeout {meta.get('timeout', '?')}`, `nice -n 5` "
+  + ("(the `mathlib-full` row: 22 GB, 8 h, `--progress=5000`) |" if vl
+     else "(the `mathlib-full` row: 8 h, `--progress=5000`) |"))
 A("| check phase | one worker: every con-leche cell passes `--jobs=1` "
   "(the worker-count table below is the parallel lane) |")
 A("| streams | `lean4export` NDJSON, read unchanged by both checkers |")
@@ -200,16 +206,11 @@ if census:
     A("reports on it, both derived from the file alone (see the count note")
     A("below).  `pinned` counts the basis blocks the parse matches;")
     A("`native` is every other inductive block, which con-leche installs")
-    A("itself (the fixpoint route, or a model it generates in process),")
+    A("itself (the uniform fixpoint route),")
     A("split by shape.")
     A("")
-    A("**The `con-leche` column IS the verdict line's count.**  The")
-    A("in-process modeller's generated records (30 on `init-prelude`,")
-    A("`grind-ring-5` and `init-full` — `Lean.Syntax`'s; 2 072 on")
-    A("`mathlib-full`, for the 49 blocks modelled in process there) are")
-    A("booked as declarations of the fold, never as records of the file,")
-    A("so the census predicts the verdict.  The instruction cells count")
-    A("the same checked records either way.")
+    A("**The `con-leche` column IS the verdict line's count**: the file's")
+    A("own declaration records, so the census predicts the verdict.")
     A("")
     A("| stream | records | con-leche | official | pinned | native | structures | sums | indexed |")
     A("|" + "---|" * 9)
@@ -292,11 +293,10 @@ A("  functions of the input file alone, and the census table above")
 A("  reproduces each of them exactly from the bytes.")
 A("* **Same bytes, same job — but not the same work.**  Both sides read")
 A("  the same file and install every inductive block themselves.")
-A("  con-leche installs single blocks through its fixpoint route and a")
-A("  mutual/nested one through a `_model` family it GENERATES and then")
-A("  checks as ordinary declarations (the certification tax), and runs")
-A("  an `annotate` pass with no official counterpart; official has")
-A("  native inductive/recursor support.")
+A("  con-leche installs every block, mutual and nested ones included,")
+A("  through its uniform fixpoint route, and runs an `annotate` pass")
+A("  with no official counterpart; official has native")
+A("  inductive/recursor support.")
 A("* **`--trusted` under-checks install-only kinds** (axioms, inductive")
 A("  blocks, quot, the pinned-cert branches run at io grade), which")
 A("  flatters the trusted column on inductive-heavy streams.")

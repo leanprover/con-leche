@@ -12,12 +12,8 @@ public section
 
 Per-helper simulation walks: each cached twin
 (`ConLeche/Cached/CoreC.lean`) is `SimC`-related to its `Expr` original
-at the fueled record, on well-scoped inputs.  Ports of
-`ConLeche/Verify/DiscI1.lean`'s walks under the recipe (DESIGN.md,
-task #163): `SimAt → SimC`, denotation hypotheses → `RelC`/`RelCL`,
-no `Ext`, node inversion by `cases` instead of
-`denoteNode` unpacking.  The pure comparand side of every statement is
-byte-identical to the interned original's.
+at the fueled record, on well-scoped inputs (value relations
+`RelC`/`RelCL`, node inversion by `cases`).
 -/
 
 namespace ConLeche.Cached
@@ -26,8 +22,7 @@ open ConLeche.Expr
 
 variable {mode : CheckMode}
 
-/-- The cached conditional simulation at fuel `f` (the `SSimI` mirror):
-every cached entry point simulates the corresponding fueled family on
+/-- The cached conditional simulation at fuel `f`: every cached entry point simulates the corresponding fueled family on
 well-scoped inputs.  Declared here so the per-body walks can
 take it as their induction hypothesis; the knot batch proves it at
 every fuel. -/
@@ -79,7 +74,7 @@ section Walks
 
 variable {env : Env} {f : Nat}
 
-/-- Port of `defEqListI_sim`: the pairwise definitional-equality
+/-- The pairwise definitional-equality
 helper simulates its fueled original on related, well-scoped lists. -/
 theorem defEqListC_sim (ih : SSimC mode env f) {d : Nat} :
     ∀ {args : List Expr} {xs : List Expr} {brgs : List Expr}
@@ -126,7 +121,7 @@ theorem defEqListC_sim (ih : SSimC mode env f) {d : Nat} :
         simp only [Bool.false_eq_true, ↓reduceIte]
         exact SimC.pure hs₁ rfl
 
-/-- Port of `iotaCertsIAux_sim`: the bulk-accumulating iota-certificate
+/-- The bulk-accumulating iota-certificate
 loop simulates its fueled original. -/
 theorem iotaCertsCAux_sim (ih : SSimC mode env f) {d : Nat} {lic : Bool} :
     ∀ {args : List Expr} {xs : List Expr} {acc : List Expr}
@@ -280,7 +275,7 @@ decreasing_by
     | (apply Prod.Lex.left; simp; done)
     | (apply Prod.Lex.right' <;> simp)
 
-/-- Port of `iotaCertsI_sim`. -/
+/-- `iotaCertsI` simulates its fueled original. -/
 theorem iotaCertsC_sim (ih : SSimC mode env f) {d : Nat} {lic : Bool} :
     ∀ {args : List Expr} {xs : List Expr} {ty : Expr} {tyx : Expr}
       {s₀ : CState}, CSOK mode env s₀ →
@@ -301,7 +296,7 @@ section Walks2
 
 variable {env : Env} {f : Nat}
 
-/-- Port of `ensureSortI_sim`. -/
+/-- `ensureSortI` simulates its fueled original. -/
 theorem ensureSortC_sim (ih : SSimC mode env f) {d : Nat} {i : Expr}
     {e : Expr} {s₀ : CState} (hs : CSOK mode env s₀)
     (hden : RelC i e) (hw : Expr.WScoped d e) :
@@ -332,7 +327,7 @@ theorem ensureSortC_sim (ih : SSimC mode env f) {d : Nat} {i : Expr}
   | letE t v b => exact SimC.throw
   | proj sn j e' => exact SimC.throw
 
-/-- Port of `litToCtorIfNatI_eff`: the cached twin computes the spec's
+/-- The cached twin computes the spec's
 `litToCtorIfNat`. -/
 theorem litToCtorIfNatC_eff {s₀ : CState} (hs : CSOK mode env s₀)
     {i : Expr} {e : Expr} (hden : RelC i e) :
@@ -381,7 +376,7 @@ theorem litToCtorIfNatC_eff {s₀ : CState} (hs : CSOK mode env s₀)
   | proj sn j e' =>
     exact CEff.pure hs hden
 
-/-- Port of `unfoldDefinitionI_eff`: the cached twin computes the
+/-- The cached twin computes the
 spec's pure `unfoldDefinition`. -/
 theorem unfoldDefinitionC_eff {s₀ : CState} (hs : CSOK mode env s₀)
     {i : Expr} {e : Expr} (hden : RelC i e) :
@@ -503,7 +498,7 @@ theorem SimC.of_eff {s₀ : CState} {β α : Type} {Q : β → Prop}
   obtain ⟨hs', hQ⟩ := h v' s' hr
   exact ⟨hs', a, hPa v' hQ, 0, rfl⟩
 
-/-- Port of `litMajorToCtorI_sim`. -/
+/-- `litMajorToCtorI` simulates its fueled original. -/
 theorem litMajorToCtorC_sim (ih : SSimC mode env f) {d : Nat} {i : Expr}
     {e : Expr} {s₀ : CState} (hs : CSOK mode env s₀)
     (hden : RelC i e) (hw : Expr.WScoped d e) :
@@ -563,7 +558,7 @@ theorem litMajorToCtorC_sim (ih : SSimC mode env f) {d : Nat} {i : Expr}
     exact SimC.of_eff (litToCtorIfNatC_eff hs hden) _
       (fun b hQ => ⟨hQ, litToCtorIfNat_WScoped hw⟩)
 
-/-- Port of `projLitToCtorI_sim`. -/
+/-- `projLitToCtorI` simulates its fueled original. -/
 theorem projLitToCtorC_sim (ih : SSimC mode env f) {d : Nat} {i : Expr}
     {e : Expr} {s₀ : CState} (hs : CSOK mode env s₀)
     (hden : RelC i e) (hw : Expr.WScoped d e) :
@@ -602,7 +597,7 @@ theorem projLitToCtorC_sim (ih : SSimC mode env f) {d : Nat} {i : Expr}
   | letE t v b => exact SimC.pure hs ⟨hden, hw⟩
   | proj sn jj e' => exact SimC.pure hs ⟨hden, hw⟩
 
-/-- Port of `defeqSpineI_sim`. -/
+/-- `defeqSpineI` simulates its fueled original. -/
 theorem defeqSpineC_sim (ih : SSimC mode env f) {d : Nat} {i j : Expr}
     {a b : Expr} {s₀ : CState} (hs : CSOK mode env s₀)
     (hdena : RelC i a) (hdenb : RelC j b)
@@ -746,7 +741,7 @@ private theorem relOC_some_lit {r : Expr} {n : Nat} {d : Nat}
     RelOC d (some r) (some (.lit (.natVal n))) :=
   ⟨h, by simp [Expr.WScoped]⟩
 
-/-- Port of `reduceNatI_sim`. -/
+/-- `reduceNatI` simulates its fueled original. -/
 theorem reduceNatC_sim (ih : SSimC mode env f) {d : Nat} {i : Expr}
     {e : Expr} {s₀ : CState} (hs : CSOK mode env s₀)
     (hden : RelC i e) (hw : Expr.WScoped d e) :
@@ -921,7 +916,7 @@ theorem reduceNatC_sim (ih : SSimC mode env f) {d : Nat} {i : Expr}
   | proj sn jj e' => exact SimC.pure hs trivial
 
 /-- `reduceNatC_sim` under the defeq-side fvar guard (the guard is the
-same `Bool` on both sides after the `hasFvarI` read is peeled, so the
+same `Bool` on both sides after the `Expr.hasFvar` read is peeled, so the
 pruned branch is `pure none` twinned). -/
 theorem reduceNatIfC_sim (ih : SSimC mode env f) {d : Nat} {i : Expr}
     {e : Expr} {s₀ : CState} (hs : CSOK mode env s₀)

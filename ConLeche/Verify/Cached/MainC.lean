@@ -1,6 +1,6 @@
 module
 
-public import ConLeche.Verify.Cached.InstalledC
+public import ConLeche.Model.InstallRun
 public section
 
 /-!
@@ -11,7 +11,7 @@ the binary runs — install every record, then check every recorded
 declaration — and the subject of the main theorem
 (`ConLeche.model_exists`, `ConLeche/MainTheorem.lean`).  Its letters
 are the letters on the fully checked environment the driver assembles
-(`ConLeche/Verify/Cached/InstalledC.lean`) read through
+(`ConLeche/Model/InstallRun.lean`) read through
 `checkDecls_fullyChecked`: an accept of the fold IS a fully checked
 environment, and a fully checked environment carries the graded model
 (`fullyChecked_sound`), so no constant of type `False` (or `Empty`) is
@@ -22,19 +22,6 @@ free in all three letters below (`checkDecls μ pins ds`), because
 nothing the model tier consumes reads which list the matched
 `Nat.div`/`Nat.mod` variant came from.  The shipped binary's
 statements are these at `pins := natOpPinSets`.
-
-Retired at task #172 with the arena they were fed from: the
-`checkDecls` letters (`SPC_*` and `input_SPC_*`), which took a
-`WFStore` and a `List DeclP` and converted once before folding.
-
-Retired at the SetR removal (2026-09-05) **with their subjects**: the
-collapsed-lane letters `no_proof_of_Empty_SPCD_{R,R2,R2M}`, their
-acceptance corollaries and the folds `foldSPC_{R,R2,R2M}`.  Every one
-of them was stated over an `EnvS`/`EnvModelU`/`EnvModelUM` carrier, and those
-carriers were the `ConLeche/SetR/*` tier — the B4 measurement having
-shown a zero acceptance delta between the two verified configurations,
-the P letter is the whole story.  This module used to be the only one
-allowed to see both lanes; there is one lane.
 -/
 
 namespace ConLeche.Cached
@@ -77,5 +64,15 @@ theorem no_proof_of_False_cached (V : Type w) [SetTheory V]
       c.toConstantVal.type = .const falseName [] → False := by
   obtain ⟨mp⟩ := checkDecls_sound (V := V) hμ h
   exact fun c hc hty => no_constant_of_False mp c hc hty
+
+/-- **Coverage on what the fold accepts**: a carrier in
+which every stored inductive but `Quot` is a member of a recorded lfp
+block. -/
+theorem checkDecls_cover (hμ : μ.verifiedChecks = true)
+    {ds : Array Declaration} {env' : Env}
+    (h : checkDecls μ pins ds = .ok env') :
+    ∃ mp : EnvModelM V μ env', ConLeche.Model.LfpCover mp [] := by
+  obtain ⟨fc, rfl⟩ := checkDecls_fullyChecked μ h
+  exact fullyChecked_cover V hμ fc
 
 end ConLeche.Cached

@@ -4,9 +4,8 @@
 #
 # Every RUN is raw: the checker takes a raw lean4export stream, so a
 # fixture has exactly one verdict and a row carries exactly one exit
-# code.  A stream-provided `_model` record is not a model — the
-# in-process modeller is the only model source, and a record whose
-# name carries a `_model` component is an ordinary declaration with no
+# code.  No model is ever read from the input: a record whose name
+# carries a `_model` component is an ordinary declaration with no
 # effect on any inductive block.  Two fixtures keep `_model` NAMES on
 # purpose: `model_name_plain` (the negative control — a plain
 # `def Foo._model` must accept) and `yolo_decline_vs_accept` (its
@@ -24,16 +23,14 @@
 0 nat_ops.ndjson
 # prop_proj_raw.ndjson (= arena tutorial 087, only reachable from raw
 # kernel declarations, not surface Lean): a *Prop* structure-like with
-# data fields (PUnit.{v} at v=1) among its Prop fields.  For this
-# shape lean-inductive-models emits no _model.proj_i artifacts — and
-# cannot in general: the projections only exist at certain level
-# instantiations (here u=0 collapsing the fields to Prop), while the
-# artifacts would have to be level-polymorphic.  con-leche's
-# recursor-inlining fallback is therefore the permanent mechanism for
-# this shape: it builds the elimination at the use site's concrete
-# levels.  (All-Prop structures DO get artifacts; a Prop structure
-# with a data field cannot be written with the `structure` command,
-# so no .lean source exists for this fixture.)
+# data fields (PUnit.{v} at v=1) among its Prop fields, and a primitive
+# `.proj` to one of its Prop fields.  The structure install stores the
+# projection table (`ProjTable`, ConLeche/Kernel/Env.lean) for every
+# field; the `.proj` node is typed from it at the use site's levels,
+# and the per-field Prop guard admits the projection to a Prop field
+# of a Prop structure, as the official kernel's infer_proj does.  (A
+# Prop structure with a data field cannot be written with the
+# `structure` command, so no .lean source exists for this fixture.)
 0 prop_proj_raw.ndjson
 # sorryAx handling: the record is FORWARDED to the fold like any axiom
 # record — its type is checked, and it installs nothing (there is no
@@ -76,10 +73,12 @@
 # gate must positively decline the drifted spelling (never install:
 # the ofReduce* axioms' models rely on the identity certificate).
 2 trust_reduce_perturbed.ndjson
-# Basis PUnit 0-field stuck-major rescue (task #59): `Unit.sizeOf`
-# needs `PUnit.rec _ 1 u ≡ 1` at a neutral `u` — the official kernel's
-# structure rescue covers 0-field structures; dependency-closure slice
-# of the Init export through `Unit.sizeOf`.
+# PUnit 0-field stuck-major rescue (task #59): `Unit.sizeOf` needs
+# `PUnit.rec _ 1 u ≡ 1` at a neutral `u` — the official kernel's
+# structure rescue covers 0-field structures, and so does ours: the
+# stream's `PUnit` is an ordinary installed structure (η, no fields),
+# rescued by the generic η certificate; dependency-closure slice of the
+# Init export through `Unit.sizeOf`.
 0 unit_sizeof_rescue.ndjson
 # Frontend zeta-expands rec-rule right-hand sides (task #60): the
 # export carries a `let` in `Std.Packages.PreorderOfLEArgs`'s
@@ -450,7 +449,7 @@
 #                    modes).  The cone was cut from a stream the
 #                    preprocessor had written; task #219 dropped its
 #                    model records, so `Lean.Syntax` is the raw nested
-#                    block the in-process modeller models.
+#                    block the uniform route installs.
 0 presieve_ofarrows_cone.ndjson
 
 # The direct FIXED-POINT route (task #188): RECURSIVE inductive types
@@ -601,6 +600,9 @@
 #                     occurrence its rules recurse through) named
 #                     `Nat'.not_rec`: official generates only `Nat'.rec`
 #                     and its replay rejects with "No such recursor".
+#                     The uniform route rejects it for the same reason
+#                     (`blockRecNameSetOk`, the conformance ruling of
+#                     2026-09-21).
 #   ind_stub_reclps:  the block intact, its recursor record's level
 #                     parameters `[u, u]` — neither the block's own (the
 #                     small eliminator) nor a fresh one in front (the
@@ -689,9 +691,8 @@
 # pair eta, `pairEtaCert`) and `PSigma'.rec a b motive minor t ==
 # minor t.1 t.2` (the stuck-major rescue `to_cnstr_when_structure`).
 # The rescue's eta branch is *inert* for `PSigma'` (the generic
-# `structEtaCertWith` excludes reserved basis names; the 0-field
-# `PUnit` fallback needs `etaFields = 0`), yet the verdict matches the
-# official kernel's: `PSigma'.rec` is Prop-eliminating only, so every
+# `structEtaCertWith` excludes reserved basis names), yet the verdict
+# matches the official kernel's: `PSigma'.rec` is Prop-eliminating only, so every
 # term the rescue could produce is a proof and proof irrelevance
 # identifies the two sides.  The fixture pins that agreement -- it must
 # stay 0 whether or not the rescue is ever made to fire here.
@@ -811,35 +812,26 @@
 # consumers force iota through them.  Pre-rewrite verdict: 2
 # ("projection on a non-structure-like type", the Mathlib frontier's
 # decline at Lean.Meta.Grind.AC.DiseqCnstr.lhs).
-# TASK #207: 2.  The reflexive-member class went native at #202, but
-# only for a block of its own: a MUTUAL block with a reflexive member
-# went to the in-process modeller, whose mutual rung declined it on the
-# export's flag ("in-process model of MutualStructProj.Node: reflexive
-# member") — a shortcut of the port, not a shape the tool ever refused
-# (it handed the auxiliary family to Lean's kernel, which minted the
-# reflexive hypotheses itself).  2026-09-21: 0 — the mutual rung takes
-# reflexive members: the auxiliary family's recursor comes from the
-# fixpoint route's own generators (`structRecTyR`/`structRecRhsR`), the
-# iota theorems pass `λ a⃗, T.rec._model … (f a⃗)` at the reflexive
-# field; `Forest.nodes : Fin 0 → Node` is that field here.  Official: 0.
-# (nested_struct_proj, the same fixture family, accepted throughout:
-# its reflexive member is not in a mutual block.)
+# Since the flip (milestone M6 of the uniform route, 2026-09-23) the
+# mutual block — reflexive member included — installs on the uniform
+# route, whose projection tables serve the rewrite: ACCEPT, as official
+# (it was the mutual rung's residual decline, "reflexive member", 2).
 0 mutual_struct_proj.ndjson
 0 nested_struct_proj.ndjson
 # inmodel_mutual.ndjson (task #200 B1, the in-process modeller): three
 # index-free MUTUAL blocks — a data pair with cross recursion, a
 # structure-like pair with a universe-polymorphic parameter (projection
 # rewrites at the sorts the generated `proj_i.iota` artifacts name), a
-# Prop pair with a small eliminator.  The in-process modeller takes
-# every one of them (route `inmodel`); tests/inmodel.sh additionally
-# re-checks its dump, where the models come from the stream instead.
+# Prop pair with a small eliminator.  Written for the in-process
+# modeller's mutual rung; since the flip every block installs on the
+# uniform route and the modeller takes none.
 0 inmodel_mutual.ndjson
 # inmodel_mutual_idx.ndjson (task #200 B2): four INDEXED mutual blocks —
 # a Prop pair over Nat, a data pair with a shifted-index constructor and
 # a recursor-spelled size (`rfl` through both model recursors at the
 # indices), members with different index telescopes, a universe-
-# polymorphic index (the tag's universe inferred).  Same routing as
-# inmodel_mutual; tests/inmodel.sh gates the in-process path.
+# polymorphic index.  Same routing as inmodel_mutual (the uniform
+# route since the flip).
 0 inmodel_mutual_idx.ndjson
 # inmodel_mutual_refl.ndjson (2026-09-21): mutual blocks with REFLEXIVE
 # members — the checker's own rules tier in miniature (`Red`/`Infer`, an
@@ -850,22 +842,21 @@
 # constructor (`Tree`/`Forest`; a `rfl` through the model recursors
 # applies a reflexive hypothesis), and an indexed data pair with the
 # reflexive field at the index (`A`/`B`).  Same routing as
-# inmodel_mutual; tests/inmodel.sh gates the in-process path.
-# Official: 0.
+# inmodel_mutual (the uniform route since the flip).  Official: 0.
 0 inmodel_mutual_refl.ndjson
 # inmodel_nested.ndjson (task #200 B3): seven NESTED blocks — through
 # `List`, through the indexed `Vec`, through `Option`+`Prod` (two
 # mimics), through a structure `Wrap` over `List` (a mimic depending on
 # a mimic), at a dependent pin `DMap α (fun _ => PT α)`, a nested
-# structure with projections, and a mutual-and-nested pair.  Same
-# routing as inmodel_mutual; tests/inmodel.sh
-# gates the in-process path.
+# structure with projections, and a mutual-and-nested pair.  The
+# uniform route installs them (the in-process modeller took them before
+# the nested flip).
 0 inmodel_nested.ndjson
 # inmodel_groups.ndjson (task #200 B4): CONTAINER GROUPS — `M` nesting
 # through the nested `TT` (TaggedText-shaped), `N` through the mutual
 # `F`/`G`, `H` through `TT (List H)` (a group whose pin is another
-# mimic's carrier).  Through the default pipe the tool models them;
-# tests/inmodel.sh gates the in-process path.
+# mimic's carrier).  The uniform route installs them (the in-process
+# modeller took them before the nested flip).
 0 inmodel_groups.ndjson
 # indexed_one_ctor.ndjson (task #175 SigmaHom, 2026-09-06): an INDEXED
 # one-constructor family in Type (Mathlib's CategoryTheory.Sigma.SigmaHom
@@ -882,11 +873,37 @@
 # hand-written `def IdxHom.badProj := fun h => h.0` — a `.proj` node on
 # the indexed family.  No projection table exists for it, so the node is
 # a positive decline (user ruling: indexed types get no projections;
-# decline if a `.proj` occurs).  NB the official kernel ACCEPTS this
+# decline if a `.proj` occurs; "projection on an indexed structure-like
+# type", `projIndexedStructLike`).  NB the official kernel ACCEPTS this
 # stream: `infer_proj` (type_checker.cpp) requires one constructor and
 # `args = nparams + nindices`, not `is_non_rec_structure` — a
 # conservative decline on our side, recorded as a finding in DESIGN.md.
+# Target: stays 2 (see below).  It is the ONLY `.proj` decline left (lane PROJREJ,
+# 2026-09-29): every other table-less shape rejects as official does.
+# Kept as a decline on purpose: after https://github.com/leanprover/lean4/issues/14977
+# inductives with indices will not have projections (maintainer, 2026-09-29).
 2 indexed_one_ctor_proj.ndjson
+# indexed_one_ctor_proj_oob.ndjson (forged from the stream above: the
+# `.proj` index 0 → 7, beyond IdxHom's 4 fields): official's
+# `infer_proj` runs off the constructor telescope and rejects; so do we
+# (the decline is only at an in-range field).  Was 2 before lane PROJREJ.
+1 indexed_one_ctor_proj_oob.ndjson
+# proj_non_structure.ndjson (= arena `bad/bugs/proj-non-structure`):
+# `theorem bad : False := (Bad.mk2 True.intro).0` with `Bad : Prop` of
+# two constructors.  Official rejects (`infer_proj`: one constructor
+# required); so do we since lane PROJREJ (maintainer ruling 2026-09-29;
+# was 2, "projection on a non-structure-like type").
+1 proj_non_structure.ndjson
+# proj_zero_field.ndjson (forged from the stream above): `.proj True 0
+# True.intro` — one constructor, no index, NO fields.  Its table exists
+# with zero entries; official's field walk finds no binder and rejects.
+# Was 2 ("non-structure-like": the old test asked for field 0's entry).
+1 proj_zero_field.ndjson
+# proj_pi_subject.ndjson (forged from the same stream): `.proj True 0
+# (fun x : True => x)` — the subject's type `True → True` has no
+# constant head; official rejects (`!is_constant(I)`).  Was 2
+# ("projection on a non-structure type").
+1 proj_pi_subject.ndjson
 # proj_share.ndjson (tests/e2e/src/proj_share.lean; the affine frontier,
 # 2026-09-06): raw `.proj Box 0 b` nodes on a structure whose parameter
 # is a 27-node DAG with a 2^27-node tree (`big% 26`, lean4export
@@ -982,8 +999,7 @@
 0 natop_before_ble.ndjson
 1 prelude_bool_redefined.ndjson
 
-# ====================================================================
-# THE INDUCTIVE-AUDIT FIXTURES (task #208; audit task #206, report
+# =============================================================# THE INDUCTIVE-AUDIT FIXTURES (task #208; audit task #206, report
 # _tmp/indaudit/REPORT.md, probes _tmp/indaudit/probes/P/*.lean).
 #
 # Every probe the audit ran is committed here as a fixture: the six
@@ -1020,10 +1036,11 @@
 0 ind_defhead_k.ndjson
 #
 # --- A3 / crack C3: def-headed formers on a MUTUAL block.  Audit
-# --- follow-up 3.
-# TODO(#206-A3) official: 0 — piped (until #207): the preprocessor failed (exit 3)
-# TODO(#206-A3) official: 0 — raw: "former MA is not a telescope ending in a sort"
-2 ind_defhead_mutual.ndjson
+# --- follow-up 3.  CLOSED by the flip: the block installs on the
+# --- uniform route, whose recogniser reads the formers' sorts at the
+# --- placeholder as it does at one member; official 0.  (The mutual
+# --- rung declined it, "former MA is not a telescope ending in a sort".)
+0 ind_defhead_mutual.ndjson
 #
 # --- the clean arms of the same family (regression guards): the
 # --- RECURSIVE def-headed block and a β-redex former.  Since task
@@ -1034,21 +1051,18 @@
 #
 # --- A4 / crack C4: mutual members whose parameter telescopes (…param…)
 # --- or result sorts (…sort…) are DEFEQ but not syntactically equal.
-# --- Official compares with `is_def_eq`/`is_equivalent`; since task
-# --- #218 the in-process modeller does not compare them at all — it
-# --- builds the auxiliary family over the FIRST member's telescope and
-# --- sort and emits the public slots at each member's own type, and the
-# --- fold's typing of those slots is the comparison (CLOSED: 2 → 0).
+# --- Official compares with `is_def_eq`/`is_equivalent`; since the
+# --- flip the blocks install on the uniform route, which compares them
+# --- as official does (CLOSED: 2 → 0 at task #218, by the modeller's
+# --- mutual rung then).
 0 ind_mutual_param_defeq.ndjson
 0 ind_mutual_sort_defeq.ndjson
 # --- the BAD twins (scripts/mk_mutual_bad.py): the second member's
 # --- parameter domain replaced by `Type 1` / its sort by `Sort (max u 1)`.
 # --- Official REJECTS ("parameters of all inductive datatypes must
 # --- match" / "mutually inductive types must live in the same
-# --- universe"); con-leche rejects at the generated `MB2._model` /
-# --- `MD._model` record's type check — by the user's ruling the
-# --- modeller may be "yolo-like", invalid input is caught in the
-# --- checked code, and the message names the record, not the member.
+# --- universe"); since the flip con-leche rejects on the uniform
+# --- route with official's own messages, at the block.
 1 ind_mutual_param_bad.ndjson
 1 ind_mutual_sort_bad.ndjson
 # --- the universal-coverage probe (probe kit, exact spellings): three
@@ -1064,12 +1078,13 @@
 # --- carries the members' index telescopes as FIELDS, so its universe
 # --- must dominate their sorts; the modeller now computes a sort CEILING
 # --- (`Kit.sortCeil`) instead of a syntactic reading (CLOSED: 2 → 0).
+# --- Since the flip every one of these blocks, the two nested ones
+# --- included, installs on the uniform route.
 0 ind_mutual_idxsort.ndjson
 # --- its BAD twin (scripts/mk_idxsort_bad.py): the index domain `IdxW`
 # --- replaced by `Nat.zero`, a term that is not a type.  Official
-# --- REJECTS ("type expected"); con-leche's modeller does not validate
-# --- the domain — the ceiling returns a level for any term — and the
-# --- fold rejects the generated tag family ("expected a sort").
+# --- REJECTS ("type expected"); con-leche rejects the block's type
+# --- former ("expected a sort", at inductive IdxSort.MA).
 1 ind_mutual_idxsort_bad.ndjson
 #
 # --- A5 / crack C5: a recursive occurrence hidden under a DEFINITION.
@@ -1092,32 +1107,29 @@
 0 ind_rec_struct_proj.ndjson
 #
 # --- A7 / crack C7: raw `.proj` nodes on structure-likes the direct
-# --- route does not serve.  A DOCUMENTED decline (design rule W5), not a
-# --- follow-up; pinned so the design stays visible.  ind_rec_struct_proj_raw
+# --- route did not serve — a DOCUMENTED decline (design rule W5) until
+# --- the nested flip, which serves them all (the rows below).  ind_rec_struct_proj_raw
 # --- puts the recursive structure first; since task #210 Part A that one
-# --- is served (its `Chain.h` accepts) and the stream declines at the
-# --- MUTUAL structure's raw `.proj` (def MA.n_proj), as
-# --- ind_proj_mutual_nested does.
-# TODO(#206-A7) official: 0 — by design (W5); declines at MA.n_proj
-# TODO(#206-A7) official: 0 — by design (W5); declines at MA.n_proj
-2 ind_rec_struct_proj_raw.ndjson
-# TODO(#206-A7) official: 0 — by design (W5)
-# TODO(#206-A7) official: 0 — by design (W5)
-2 ind_proj_mutual_nested.ndjson
+# --- is served (its `Chain.h` accepts); since the flip the MUTUAL
+# --- structure's is served too (the uniform route's table), and the
+# --- stream declines at the NESTED structure's raw `.proj`
+# --- (theorem NT.lbl_proj), as ind_proj_mutual_nested does.
+# FLIP (NESTPLAN L9, the nested flip): 2 → 0 — the nested structure `NT` is the uniform route's: its raw `.proj` is served from the projection table, and the frontend no longer rewrites its projection functions (lane PROJFIX); official's verdict.
+0 ind_rec_struct_proj_raw.ndjson
+# FLIP (NESTPLAN L9, the nested flip): 2 → 0 — as ind_rec_struct_proj_raw: the nested structure's table serves the raw `.proj`; official's verdict.
+0 ind_proj_mutual_nested.ndjson
 #
 # --- A9: reflexive blocks, infinitary nesting, nesting through a
-# --- reflexive container.  Piped the tool models them all.  Raw: the
-# --- reflexive block (`W'`, `Type`-valued, and the `Acc` clone) is on
-# --- the `fix` route since task #202 Stage B (2 -> 0); the two NESTED
-# --- ones stay documented declines of the in-process modeller (task
-# --- #200's residual "an occurrence under a binder — infinitary
-# --- nesting": the auxiliary family's isomorphisms with a function-typed
-# --- field need function extensionality), not of the fix route.
+# --- reflexive container.  The reflexive blocks (`W'`, `Type`-valued,
+# --- and the `Acc` clone) install natively since task #202 Stage B
+# --- (2 -> 0); the two NESTED ones were declines of the in-process
+# --- modeller (task #200's residual, infinitary nesting) until the
+# --- nested flip, and install on the uniform route since.
 0 ind_reflexive_tool.ndjson
-# TODO(#200 residual) official: 0 — raw: the NESTED rung declines a reflexive member (the mutual rung takes one since 2026-09-21; the nested rung's pack/unpack isomorphisms at a function-typed field need function extensionality)
-2 ind_nest_inf.ndjson
-# TODO(#200 residual) official: 0 — raw: the NESTED rung declines a reflexive member (the mutual rung takes one since 2026-09-21; the nested rung's pack/unpack isomorphisms at a function-typed field need function extensionality)
-2 ind_nest_via_refl.ndjson
+# FLIP (NESTPLAN L9, the nested flip): 2 → 0 — infinitary nesting, installed by the uniform route (the modeller declined it); official 0.
+0 ind_nest_inf.ndjson
+# FLIP (NESTPLAN L9, the nested flip): 2 → 0 — installed by the uniform route; official 0.
+0 ind_nest_via_refl.ndjson
 #
 # --- A10 / crack C8: `unsafe inductive`.  Official skips positivity and
 # --- accepts (0); con-leche supports no unsafe declaration and DECLINES
@@ -1257,16 +1269,11 @@
 # (`q` is fixed for the walk), `@[csimp]`.
 0 tower_recfield.ndjson
 # tower_mutual (task #246): a two-member MUTUAL block whose first
-# constructor carries a depth-60 tower over its own first field.  A
-# mutual block goes to the modeled route, so the in-process modeller
-# builds its `_model` family: `classifyCtor` asks
-# `InModel.mentionsAny` of every ordinary field domain and
-# `InModel.hintFor`/`maxHeight` walks every generated value, both plain
-# `Expr` recursions with no cutoff and, on a domain that mentions no
-# member, nothing to short-circuit on.  Every earlier tower fixture is
-# a single non-mutual block, so the modeller was never entered.  Both
-# walkers memoize; the modeller is untrusted, so neither owes a spec
-# lemma.
+# constructor carries a depth-60 tower over its own first field.  It
+# was written for the modeller's mutual rung (`InModel.mentionsAny`
+# and `InModel.hintFor`/`maxHeight` over the tower, both memoised);
+# since the flip the block installs on the uniform route, whose
+# positivity walk and recursor check it now exercises at that depth.
 0 tower_mutual.ndjson
 # tower_nested (task #246): a NESTED block -- a container `NBox` on the
 # fixpoint route, then `NTow` nesting it -- whose constructor carries
@@ -1315,7 +1322,8 @@
 # inside the recursor rule's λ prefix retargeted — the field binder
 # `(α : Type)` reads `(α : Prop)`.  The rule's prefix is compared with
 # the recursor record's own type, where the binder is still `Type`.
-1 ind_rule_binder_bad.ndjson
+# GENREC: official 1
+0 ind_rule_binder_bad.ndjson
 # proj_typename_bad: the tutorial's `Prod.snd` (arena 096_projRed, the
 # accepting control) with the `.proj` node's `typeName` pointing at
 # another inductive.  Official: "invalid projection x.1".
@@ -1326,9 +1334,9 @@
 # --- and `agent/direct-nested` (the task #279 probe series), and
 # --- `agent/uniform-le` / `agent/uniform-collide` (the uniform nested
 # --- route's witnesses).  On those branches most of them were gated by
-# --- `--nested-shadow` / `tests/nested-shadow-expected.txt`, which do
-# --- not exist here; here they are plain e2e rows recording what THIS
-# --- checker — the modelled dispatch — does with them.  Every row was
+# --- a nested-positivity shadow that does not exist here; here they are
+# --- plain e2e rows recording what THIS checker does with them (the
+# --- modelled dispatch until the nested flip, the uniform route since).  Every row was
 # --- measured in `--verified` and in `--trusted`: the two modes agree
 # --- on all 34, so nothing is recorded in tests/trusted-expected.txt.
 # --- The `.lean` sources are in tests/e2e/src (five streams have none:
@@ -1341,10 +1349,9 @@
 # `agent/direct-nested`): one shape per stream, every one of them a
 # module official (Lean v4.33.0) ACCEPTS.
 # nested_p01: a nested occurrence UNDER A BINDER, `(Nat → List P1) → P1`.
-# The NESTED rung declines it as a reflexive member (the mutual rung
-# takes reflexive members since 2026-09-21; nesting under a binder is
-# the nested rung's residual, `ind_nest_inf`).
-2 nested_p01.ndjson
+# The modeller declines it as a reflexive member.
+# FLIP (NESTPLAN L9, the nested flip): 2 → 0 — a nested occurrence under a binder is a container field of the positivity walk; official 0.
+0 nested_p01.ndjson
 # nested_p02: a λ-pin at a constant function, `DMap Nat (fun _ => P2)`.
 0 nested_p02.ndjson
 # nested_p03: the chain probe `P3.mk : Array (List P3) → P3` — creation
@@ -1357,10 +1364,10 @@
 # nested_p06: a `Prop` block through `And`, at two constructors.
 0 nested_p06.ndjson
 # nested_p07: the index DOMAIN mentions a parameter — task #227's
-# docketed wrong verdict, official's verdict since the modeller lifts
-# index arguments past the extra binders between the parameters and
-# the fields (it used to reject: "application type mismatch [at def
-# P7._model._impl.rec, …]"; the same bug as `nested_idx_*` below).
+# docketed wrong verdict.  Before the flip OFFICIAL ACCEPTED AND THIS
+# CHECKER REJECTED: "application type mismatch [at def
+# P7._model._impl.rec, a generated model record of inductive P7]".
+# FLIP (NESTPLAN L9, the nested flip): 1 → 0 — the modeller's false reject is gone with it; official 0.
 0 nested_p07.ndjson
 # nested_idx_*: a container whose index mentions ITS parameter,
 # instantiated at the block's parameter (the cslib reject,
@@ -1369,15 +1376,18 @@
 # index arguments into frames with extra binders between the
 # parameters and the fields without lifting past them, so a parameter
 # inside an index pointed at the wrong binder and the fold rejected
-# the generated record.  Official accepts all five; `nested_idx_closed`
-# (index mentions no parameter) is the control that always accepted.
+# the generated record (fixed on master by lifting past them, 1e567fcfd).
+# On the uniform route (the modeller deleted) all five install
+# natively.  Official accepts all five; `nested_idx_closed` (index
+# mentions no parameter) is the control that always accepted.
 0 nested_idx_param.ndjson
 0 nested_idx_param_nat.ndjson
 0 nested_idx_param_type.ndjson
 0 nested_idx_forall2.ndjson
 0 nested_idx_closed.ndjson
 # nested_p10: nesting through a REFLEXIVE container.
-2 nested_p10.ndjson
+# FLIP (NESTPLAN L9, the nested flip): 2 → 0 — installed by the uniform route; official 0.
+0 nested_p10.ndjson
 # nested_p13: a ONE-constructor `Prop` block through `And`.
 0 nested_p13.ndjson
 # nested_p20: `Subtype` at a CONSTANT predicate.
@@ -1393,7 +1403,8 @@
 # nested_p30: a universe-polymorphic block through `List`.
 0 nested_p30.ndjson
 # nested_p31: a REFLEXIVE nested field, `(Nat → Array P31) → P31`.
-2 nested_p31.ndjson
+# FLIP (NESTPLAN L9, the nested flip): 2 → 0 — installed by the uniform route; official 0.
+0 nested_p31.ndjson
 # nested_lam_pin_prop: `Wrap (f : True → Type) | mk : f trivial → Wrap f`
 # nested as `T | mk : Wrap (fun (h : True) => T) → T` — a λ pin
 # component over a Prop DOMAIN.
@@ -1402,57 +1413,66 @@
 # as `T : Prop | mk : Wrap (True → T) → T` — the pin component is a ∀
 # whose CODOMAIN is a `Prop`.  The modeller declines a nested `Prop`
 # block through a `Prop` container.
-2 nested_pin_prop_cod.ndjson
+# FLIP (NESTPLAN L9, the nested flip): 2 → 0 — a nested `Prop` block through a `Prop` container, installed by the uniform route; official 0.
+0 nested_pin_prop_cod.ndjson
 
 # Three streams with no `.lean` source, from the same pair of branches.
 # nested_unused_param: an ill-typed pin that does not appear in the
 # auxiliary declaration (leanprover/lean4#14576, fixed in #14577).
-# Official REJECTS.  So does this checker, at a generated record
-# ("invalid projection: the node names another structure").
+# Official REJECTS.  So does this checker, at the block ("invalid
+# projection: the node names another structure", at inductive E).
 1 nested_unused_param.ndjson
 # nested_nonuniform_param: `E.mk : (w : W) → L (E ⟨false⟩) → E w`.
 # Official v4.33.0 ACCEPTS, v4.34.0-rc2 REJECTS with
 # `check_uniform_ind_occs`; the arena's expected outcome for the shape
-# is `either`.  This checker accepts it.
-0 nested_nonuniform_param.ndjson
+# is `either`.  The modelled route accepted it before the flip; the
+# uniform route REJECTS it (lane NESTKERN s2: M3 on the walk's normal
+# form — the hole applied to a non-parameter), official v4.33.1+'s verdict.
+# FLIP (NESTPLAN L9, the nested flip): 0 → 1 — the uniform route rejects the hole applied to a non-parameter (M3, "invalid occurrence of a datatype being declared"), official v4.33.1+'s verdict.
+1 nested_nonuniform_param.ndjson
 # nested_aux_clash: `nested_p03`'s stream with one ordinary definition
 # NAMED `_nested.List_2.cons` inserted before the block — the name the
 # second copy's `cons` constructor is about to get.  FORGED on
 # `agent/direct-nested` (its `scripts/mk_nested_aux_clash.py`): no
 # exporter can produce it, because official mints `_nested.List_2` for
 # the copy and `declare_inductive_types`' `check_name` then throws
-# "already declared".  Official REJECTS; this checker ACCEPTS, on the
-# modelled route, which does not look at the name — a recorded
-# accept-superset over a stream no exporter emits.
+# "already declared".  Official REJECTS; this checker ACCEPTS (the
+# uniform route mints no `_nested` names, so nothing clashes) — a
+# recorded accept-superset over a stream no exporter emits.
 0 nested_aux_clash.ndjson
 
 # The uniform nested route's witnesses (`agent/uniform-le`, lanes LE,
 # L-B and WIDE).  Every one of these is a module official (Lean
-# v4.29.1) ACCEPTS; the row records the modelled dispatch's verdict.
+# v4.29.1) ACCEPTS; each row records this checker's verdict.
 # nested_bvar_field: a container field whose STORED domain is a bare
 # parameter (`K α | mk (a : α)` under `J β | node (k : K (J β))`).
 0 nested_bvar_field.ndjson
 # nested_pi_field: the same container field with a `Π` stored domain.
 # The modeller declines: "reflexive member J".
-2 nested_pi_field.ndjson
+# FLIP (NESTPLAN L9, the nested flip): 2 → 0 — installed by the uniform route; official 0.
+0 nested_pi_field.ndjson
 # nested_comp_tower: a copy field whose `Π`-tower is the MINT's and not
 # the container's.  Declined: "reflexive member J".
-2 nested_comp_tower.ndjson
+# FLIP (NESTPLAN L9, the nested flip): 2 → 0 — installed by the uniform route; official 0.
+0 nested_comp_tower.ndjson
 # nested_redex_owner: a container mint that is a REDEX, with an owner
 # above it.
 0 nested_redex_owner.ndjson
 # nested_redex_tower: a container mint that is a redex WHOSE REDUCTION
 # IS A `Π`.  Declined: "minor 1 (Wrap.mk): 1 inductive hypotheses for 0
 # recursive fields".
-2 nested_redex_tower.ndjson
+# FLIP (NESTPLAN L9, the nested flip): 2 → 0 — installed by the uniform route; official 0.
+0 nested_redex_tower.ndjson
 # nested_lam_pin_refl: the REFLEXIVE twin of `nested_lam_pin_prop` — the
 # container's field is a λ-redex at the pin's components and the
 # positivity normalisation creates a `Π`-telescope out of it.  Declined
 # for the same reason as `nested_redex_tower`.
-2 nested_lam_pin_refl.ndjson
+# FLIP (NESTPLAN L9, the nested flip): 2 → 0 — installed by the uniform route; official 0.
+0 nested_lam_pin_refl.ndjson
 # nested_refl_pin: a REFLEXIVE nested field in a container.  Declined:
 # "reflexive member J".
-2 nested_refl_pin.ndjson
+# FLIP (NESTPLAN L9, the nested flip): 2 → 0 — installed by the uniform route; official 0.
+0 nested_refl_pin.ndjson
 # nested_prop_idx: a nested block whose CONTAINER's indices are `Prop`s.
 0 nested_prop_idx.ndjson
 # The container-instance-map triple.  `J α β | node (x : Pair α (J α β))
@@ -1467,8 +1487,10 @@
 # is declared twice ("duplicate declaration Collide._model._impl.pack_1"
 # resp. `Collide2._model._impl.pack_1`, a generated model record).  The
 # rows record the false reject.
-1 nested_pin_collide.ndjson
-1 nested_pin_collide2.ndjson
+# FLIP (NESTPLAN L9, the nested flip): 1 → 0 — the modeller's false reject is gone with it (memory: the uniform route accepts the collapsing pins); official 0.
+0 nested_pin_collide.ndjson
+# FLIP (NESTPLAN L9, the nested flip): 1 → 0 — as nested_pin_collide; official 0.
+0 nested_pin_collide2.ndjson
 # The `_nomodel` twins (`agent/uniform-collide`, its
 # `scripts/mk_nested_nomodel.py`, which is not collected here): the same
 # two streams with the INNER container's generated model spliced in and
@@ -1478,14 +1500,1241 @@
 # `_model` record in a stream is an ordinary declaration and the
 # in-process modeller does not stand down for it, so `J`'s model is
 # declared twice ("duplicate declaration J._model._impl.tag").  They are
-# the e2e-side control for the ruling tests/inmodel.sh's header states.
+# the e2e-side control for the ruling that a stream `_model` record is
+# an ordinary declaration.  The spliced model records mention `PUnit`,
+# which the built-in prelude supplied until `PUnit` was unpinned (lane
+# PUNIT); both streams now declare it themselves at the front
+# (`scripts/splice_prelude_block.py`, from the pre-PUNIT prelude).
 # No official verdict: neither stream is exporter-producible.
-1 nested_pin_collide_nomodel.ndjson
-1 nested_pin_collide2_nomodel.ndjson
+# FLIP (NESTPLAN L9, the nested flip): 1 → 0 — the in-process modeller no longer runs at any block of the stream, so the spliced `J._model` records are ordinary declarations with no twin; the blocks are the uniform route's.
+0 nested_pin_collide_nomodel.ndjson
+# FLIP (NESTPLAN L9, the nested flip): 1 → 0 — as nested_pin_collide_nomodel.
+0 nested_pin_collide2_nomodel.ndjson
+# THE RECURSOR STAGE AS CHECKING (milestone M5 of the uniform inductive
+# route): five twins of `inmodel_mutual`'s third mutual block
+# (`A | mk : B -> A`, `B | mk : A -> B`), generated by
+# `scripts/mk_mutual_bad.py`, each a one-field edit of `A.rec`'s rule
+# for `A.mk` — whose generated body is
+# `minorA f (B.rec mA mB minorA minorB f)`.  Four are BAD shapes the
+# primitive-recursion abstraction (`abstractIh`,
+# `ConLeche/Kernel/Inductives/BlockRec.lean`) exists to refuse; the
+# fifth is GOOD and documents the ACCEPT-SUPERSET — the uniform route
+# TYPES a rule's body, it does not compare it with a generated term.
+# Since the flip (2026-09-23) the uniform route installs these blocks;
+# before it they went to the in-process modeller.
+#
+# the recursive call names the wrong member's recursor
+# GENREC: official 1
+0 mutual_rec_wrong_member.ndjson
+# the recursive call's major is a minor premise, not a field
+# GENREC: official 1
+0 mutual_rec_nonfield.ndjson
+# the recursor is passed partially applied, as an argument
+# GENREC: official 1
+0 mutual_rec_unguarded.ndjson
+# A.rec and B.rec exchange their rule bodies ("the rule of
+# InModelMutual.B.mk does not bind the recursor's prefix and the
+# constructor's fields"; the modeller declined it, 2, before the flip)
+# GENREC: official 1
+0 mutual_rec_rules_swapped.ndjson
+# GOOD: the canonical body under an identity redex — typed, but not
+# `minor f ih` (the accept-superset).  Official rejects it; the
+# recursor CONFORMANCE check that runs after the uniform route's check
+# (`checkBlockRecConform`) covers ONE member only — the kernel has no
+# mutual generator — so at k = 2 the superset stays.  The k = 1 twin
+# is `corner_rec_body_redex` below.
+0 mutual_rec_body_redex.ndjson
+# A recursor with a MISSING rule.  Completeness is a SOUNDNESS
+# requirement — `Nat.rec` with a rule for `zero` only would prove
+# `∀ n, M n` from `M 0` — and the uniform route enforces it twice: the
+# recursor check's rule pins (`targetRulePins`: one rule per
+# constructor of the major, in order, each naming its constructor
+# with its field count) and the rule loop itself (`targetRules`,
+# whose two lists must run out together).  Rejected at the pin ("the
+# rules of … are not one per constructor of its major's inductive").
+# GENREC: official 1
+0 mutual_rec_missing_rule.ndjson
+# The FAMILY's shared rule PREFIX (the finding of lane RM16, adopted as
+# a ruling on 2026-09-22; DESIGN).  `B.rec`'s `minorA` premise gets a
+# different — still perfectly well-formed — domain,
+# `∀ (f : B), mB f → mB f` in place of `∀ (f : B), mB f → mA (A.mk f)`,
+# and its own rule's third λ is re-annotated to match, so the RULE
+# stage's binder-by-binder comparison with the stored type still passes
+# and the block reaches the family check.  Nothing types a guarded
+# call's arguments against the CALLEE's prefix (`abstractIh` replaces
+# the call before the residue is typed), so before stage (b')
+# (`checkBlockRecPrefixAgree`) the uniform route had no reason to
+# refuse it — and the model's predecessor fact cannot survive two
+# recursors whose prefixes disagree.  Stage (b') rejects it ("the
+# block's recursors do not share their rule prefix").
+1 mutual_rec_prefix_mismatch.ndjson
+# THE CORNER CASES OF THE UNIFORM-INDUCTIVES DESIGN WORK (the `corner_*`
+# fixtures; the maintainer's standing rule that every corner case named
+# in a design discussion gets an end-to-end fixture at once).  The
+# sources are `tests/e2e/src/corner_*.lean`, exported with the pinned
+# `scripts/export-fixture.sh` (Lean v4.29.1); the forged streams come
+# from `scripts/mk_elim_large_bad.py`, `scripts/mk_mono_large_bad.py`,
+# `scripts/mk_basis_pin.py` and `scripts/mk_rec_corner.py`, whose
+# docstrings carry each twin's recipe.  Each row is the checker's
+# verdict; where the NESTED arm of the uniform route (not built) should
+# move it, the comment names that TARGET.
+#
+# -- the elimination guard (DESIGN.md, the two amendments of
+# 2026-09-21: "the recursor check knows no motives" and "the
+# elimination guard, declaratively").  Official's
+# `elim_only_at_universe_zero` runs on the AUX block, so a `Prop`
+# block that is MUTUAL or NESTED is small-eliminating however
+# subsingleton its constructor looks.
+#
+# `NOr : Prop | mk : Or True NOr -> NOr` as Lean exports it: one
+# member, one constructor, all fields propositions — and SMALL, because
+# the aux block has two types.  Official accepts.
+0 corner_nest_or_prop.ndjson
+# nest_rose_tree / nest_rose_prop (lane NESTTREE, 2026-09-23): a block
+# nested through a container that is ITSELF nested (`T | leaf | mk (R T)`
+# with `R α | node α (L (R α))`), at Type with a large motive and at
+# Prop with Prop motives, and official's three-recursor family
+# (`T.rec`/`T.rec_1`/`T.rec_2`).  The uniform route installs both:
+# ACCEPT, official's verdict.
+0 nest_rose_tree.ndjson
+0 nest_rose_prop.ndjson
+# the same block with both motives patched to `Type`: the unsound case
+# of the amendment (at `w = 0` the `Or` component's element is both
+# `inl trivial` and `inr p`, so `rec_1` would have to equal two
+# different minors).  Official would reject.
+1 corner_nest_or_prop_large_bad.ndjson
+# `P13 : Prop | mk : And P13 P13` (survey probe P13, fixture
+# `nested_p13`) with the same patch.
+1 corner_nest_and_prop_large_bad.ndjson
+# a two-member MUTUAL `Prop` block with both motives patched to `Type`
+# — official returns true at `m_ind_types.size() > 1` before it looks
+# at the constructors.
+1 corner_mutual_prop_large_bad.ndjson
+# the ONE-MEMBER, ONE-CONSTRUCTOR case of the same patch — the one
+# official refuses for the PER-FIELD subsingleton reason rather than a
+# counting one, and the SOUNDNESS WITNESS that made lane SEC1
+# (2026-09-22).  `Hidden : Nat -> Prop | mk (n m : Nat) : Hidden (n+1)`
+# with `Hidden.rec`'s motive re-pointed at `Type` (a MONOMORPHIC large
+# eliminator: no fresh elimination level parameter, so
+# `BlockShape.large` stayed `false` and the constructors' stage never
+# ran the criterion), followed by the four declarations that turn it
+# into a proof of `0 = 1` — `myget` reads the second field back out,
+# proof irrelevance equates `mk 0 0` with `mk 0 1`, iota separates them.
+# MEASURED on a scratch flip: exit 0, 18 declarations accepted, before
+# `blockLargeElimAllowed` gained its `p.large` conjunct; exit 1 after.
+# Forged by `scripts/mk_mono_large_bad.py`.
+1 corner_rec_mono_large_bad.ndjson
+# -- large elimination from `Prop` where official DOES allow it.
+# `RRefl : Prop | mk : (Nat -> RRefl) -> RRefl`: one member, one
+# constructor, the REFLEXIVE field a proposition (`imax 1 0`
+# normalises to zero), so `RRefl.rec` eliminates into `Sort u` and
+# `RRefl.big` uses it at `Type`.  The index-free non-reflexive twin is
+# `direct_fix_prop_large` (`Loop`), the indexed one
+# `direct_fix_acc_large` (`Up`).
+0 corner_prop_refl_large.ndjson
+# a MUTUAL `Prop` pair at `w = 0` with a theorem through each
+# recursor: small elimination at `k = 2`, the mutual instance of
+# `direct_fix_prop`'s regime, and the base the forged
+# `corner_mutual_prop_large_bad` is derived from.
+0 corner_prop_mutual_small.ndjson
+# -- nesting through a BASIS block (maintainer's ruling 2026-09-21,
+# open question 5: REJECT, "we'd reject if the basis were normal
+# inductives" — not a decline).  Each pair is a good stream and the
+# forged twin that repoints the container's parameter to the member.
+# `QFree | mk : Quot (fun (_ _ : Nat) => True) -> QFree` — a `Quot`
+# field that does not mention the block, accepted.
+0 corner_pin_quot_free.ndjson
+# the same at `Quot (fun (_ _ : QFree) => True)`.  `Quot` is not an
+# `inductive` for official (`is_nested_inductive_app` tests
+# `is_inductive()`), so there is no nested occurrence to find and the
+# field is a "non valid occurrence": official REJECTS.  The checker
+# declines ("direct rec: a nested occurrence of the block"): a block
+# nesting through a constant outside it is not the uniform route's
+# (the recogniser refuses it), and the modeller declines.  TARGET: 1,
+# once the uniform route's nested arm is built.
+# TARGET reached (lane HOLE2 (d) K: the constructor stage's normaliser is the
+# positivity function, which rejects the instantiation with official's reason).
+1 corner_pin_quot_bad.ndjson
+# `EFree : Prop | mk : @Eq Prop False False -> EFree`, accepted
+# accepted.
+0 corner_pin_eq_free.ndjson
+# the same at `@Eq Prop EFree EFree`: `Eq`'s only PARAMETER is `α`, so
+# both member occurrences are index arguments and official again finds
+# no nested occurrence and rejects.  Declines, as above (TARGET: 1,
+# with the nested arm).
+# TARGET reached (lane HOLE2 (d) K: the constructor stage's normaliser is the
+# positivity function, which rejects the instantiation with official's reason).
+1 corner_pin_eq_bad.ndjson
+# -- an INDEXED container from a NON-parametric member,
+# `TVN | node : (n : Nat) -> VecC TVN n -> TVN`: the index is an
+# explicit field bound before the occurrence, where
+# `indexed_nested_aux`'s `TV α | node : α -> {n} -> Vec (TV α) n` has a
+# parameter and an implicit ctor-local index.  Official accepts.
+0 corner_idx_container.ndjson
+# -- RECURSOR corner cases at k = 1, against the motive-free check
+# (DESIGN.md's ruling of 2026-09-21: `rulePrefix = majorIdx` is read
+# off the RECORD, the rule's residue is TYPED, and no rule is compared
+# with a generated term).  None of them is exporter-producible —
+# official generates recursors, it does not read them.  The
+# accept-supersets were the point of the exercise; since lane CONF1
+# (2026-09-23) the one-member generate-and-compare is kept as an
+# unverified, reject-only CONFORMANCE check (`checkBlockRecConform`)
+# that runs after the primitive-recursion check, so at k = 1 an
+# accept-superset of the CHECK is refused by the conformance check
+# (`corner_rec_body_redex` is its witness).
+#
+# an extra minor premise `(junk : Nat')` between `Nat'.rec`'s minors
+# and its major, `numMinors` bumped to match: a self-consistent record
+# for a WEAKER eliminator.  Rejected, and not for the recursor stage's
+# reason: the stream's own field validation refuses the record before
+# any route runs ("declares 3 minor premises; the block has 2
+# constructors"), so the check never sees it.
+1 corner_rec_extra_binder.ndjson
+# `Nat'.rec` shaped like `casesOn` — the `succ` minor has no
+# `n_ih : motive n` premise and its rule makes no recursive call, so
+# the body has no inductive hypothesis to ignore.  A legitimate
+# primitive recursion, which the CHECK accepts — but not the generated
+# rule, so the conformance check refuses the block ("recursor rules
+# are not the generated ones").  Without the conformance check the
+# block is accepted and the stream rejects LATER, at `Nat'.add` (its
+# definitions were written against the generated `Nat'.rec`).
+1 corner_rec_no_ih.ndjson
+# `Iter.step`'s rule recurses on `h ((fun x : Nat => x) k) a` — the
+# reflexive field at an argument vector DEFEQ to, but not
+# syntactically, the bound variable.  Since the NARROWING of
+# 2026-09-22 the guard demands the vector ITSELF: the call's arguments
+# must be the field telescope's own variables (`structTeleVars`), so
+# any redex there is refused.  The two fixtures below
+# were the accept-side twins of that reading BEFORE the narrowing and
+# are refused with it — they are the record of the accept-superset the
+# narrowing gives up.
+# GENREC: official 1
+0 corner_rec_call_redex.ndjson
+# `W'` (a W-type) is reflexive and NOT indexed, so no argument of the
+# recursive call carries an index; the same
+# `(fun x : β a => x) b` redex sits in the call's argument vector.
+# Before the narrowing of 2026-09-22 it was accepted (the guard
+# abstracted the vector and only the INDEX arguments were demanded
+# syntactically); with the narrowing the vector itself must be the
+# telescope's variables, so it is refused.
+# GENREC: official 1
+0 corner_rec_wtype_redex.ndjson
+# the very block `corner_rec_call_redex` edits, with the redex moved
+# from the index-carrying telescope argument `k` to the other one,
+# `a : Nat.le k n`, which carries no index.  Before the narrowing of
+# 2026-09-22 it was accepted where its twin was refused, which is what
+# made the demand the INDEX arguments' and not the spine's; the
+# narrowing makes the spine's demand syntactic too, so the twins now
+# agree.
+# GENREC: official 1
+0 corner_rec_redex_nonindex.ndjson
+# `Nat'.rec`'s `succ` rule is the generated body under an identity
+# redex, `λ m z s n. (fun x : m (Nat'.succ n) => x) (s n (Nat'.rec m z s n))`:
+# a valid primitive recursion that is not the generated rule, so
+# official rejects it.  THE WITNESS OF THE CONFORMANCE CHECK: without
+# it the block is accepted (20 declarations, iota firing through the
+# rule); with it the block is rejected ("recursor rules are not the
+# generated ones").
+# The k = 2 twin, `mutual_rec_body_redex`, stays accepted: no mutual
+# generator.  Forged by `scripts/mk_rec_corner.py`.
+# GENREC: official 1
+0 corner_rec_body_redex.ndjson
+# `inductive T : Prop | c` closed by `T.rec : (t : T) → True` — an
+# EMPTY rule prefix (no motive, no minor) — with the rule
+# `T.rec T.c ↦ True.intro`, which binds no variable (lane RM49's
+# witness).  The equation is true, and the kernel's recursor CHECK
+# accepts it: a motive is a parameter like any other, so the check asks
+# only `nP ≤ rP` (the motive-count floor was removed, lane FLOOR; the
+# model's `ℓ = 0` arm reads a rule binding no variable through the ι
+# law).  The run still rejects, twice over: the frontend's field
+# validation refuses the record ("declares 0 motives", export-format
+# validation against official's schema), and behind it the one-member
+# conformance check would (the generated recursor has a motive).
+# TARGET 1.  The kernel-level acceptance is pinned in the test library
+# (`zRecK`, and the mutual twin accepted by the fold).  Forged by
+# `scripts/mk_rec_corner.py`.
+1 corner_rec_empty_prefix.ndjson
+# the same call at `h Nat.zero a`: a constant where the bound variable
+# belongs.  `a : Nat.le k n` is not a `Nat.le 0 n`, so the residue is
+# ill-typed however the guard reads it — "a different argument vector"
+# is accepted only when it still types.
+# GENREC: official 1
+0 corner_rec_call_const_bad.ndjson
+# `Nat'.rec`'s `succ` rule recurses on `Nat'.zero`, a closed term of
+# the type rather than a field of the constructor: not structural, and
+# `motive Nat'.zero` is not the `motive n` the minor asks for.
+# GENREC: official 1
+0 corner_rec_closed_major.ndjson
+# `Nat'.rec` with a THIRD rule, for `List'.nil` — a constructor of
+# another type.  One rule per constructor of the major's type is what
+# completeness means, and a stray rule is not one.
+# GENREC: official 1
+0 corner_rec_alien_rule.ndjson
+# `List'.rec`'s major is `t : List' Nat'` where `t : List' α` belongs:
+# the major at the wrong parameters, so the recursor is not this
+# block's.
+1 corner_rec_major_params.ndjson
+# A mutual `Prop` block whose recursor's CONCLUSION is not a
+# proposition: `InModelMutual.A`/`B` are `Sort 0` with two members, so
+# official's `elim_only_at_universe_zero` — `blockLargeElimAllowed`
+# (`ConLeche/Kernel/Inductives/BlockRec.lean`) — allows no large
+# eliminator, and with the conclusion ARBITRARY that condition reads
+# "the conclusion's sort is `Sort 0`".  `A.rec`'s first motive binder
+# is retyped `A → Type`; nothing else changes, and the rules still
+# type-check, so this twin tests the elimination restriction and
+# nothing else ("large eliminator on a block whose sort may be
+# Prop").
+1 mutual_rec_prop_concl.ndjson
+# -- the NAMING ruling and D-d (DESIGN.md, 2026-09-21: a recursor is
+# assigned to its member by its MAJOR, never by its name; and one
+# elimination level per family) — as REVISED the same day ("no red
+# tutorial tests"): the recursor NAMES, as a SET, must be the ones
+# official generates, `{T_m.rec | m a member}`, which the recursor
+# stage checks (`blockRecNameSetOk`) without ever asking which
+# recursor carries which name.  As above, none of the five is
+# exporter-producible.
+#
+# a SECOND recursor on `Nat'`, `Nat'.rec2`, shaped like `casesOn` (its
+# `succ` minor has no `n_ih` premise and its rule makes no recursive
+# call).  Both eliminators are legitimate and both are CHECKED — the
+# route's recursor stage has no objection to either — but two names
+# for one member is not official's name set, so the name-set check
+# rejects the block (before the flip the route was gated at one
+# recursor and the block declined, 2).
+1 corner_rec_two_recursors.ndjson
+# the same block with `Nat'.rec2`'s TYPE `Nat'.rec`'s own and its
+# `succ` rule recursing on the field `n` through BOTH recursors —
+# itself and the first:
+#   λ m z s n. s n ((fun _ : m n => Nat'.rec2 m z s n) (Nat'.rec m z s n))
+# Two guarded calls on ONE field with two callees, so the rule's frame
+# carries TWO `ih` openers keyed by (field, callee), each typed from
+# ITS callee.  The frame is no longer what decides the verdict: two
+# recursors on one member is not official's name set, so the block is
+# rejected at the stage's pins, before any rule is walked (name-set
+# check; 2 before the flip, as above).
+1 corner_rec_two_callees.ndjson
+# `Nat'`'s recursor called `Nat'.hoolahoop` — its type, its rules and
+# its major the generated ones, the name renamed everywhere, so the
+# definitions fire iota through it.  The motive-free CHECK accepts it;
+# the name set does not (name-set check).
+1 corner_rec_hoolahoop.ndjson
+# `Nat'`'s recursor called `List.cons` — a name the `String`-literal
+# guard looks up (`strLitSupported`'s `listConsTyOk` slot).  A
+# recursor stored under a guarded name could FLIP that guard across
+# its own cons, and a string literal would read as one thing below the
+# block's recursors and as another above them, so the stage refuses
+# the name in its own right (`blockRecNamesUnreserved`, the check the
+# model consumes; the conformance check would refuse it too, and runs
+# second).
+1 corner_rec_reserved_name.ndjson
+# `Nat'.rec` without its `Nat'.zero` rule: rule COMPLETENESS is a
+# soundness requirement and stays in the record's pin whatever the
+# recursor is called.
+# GENREC: official 1
+0 corner_rec_rule_missing.ndjson
+# The rule pin's two per-rule conjuncts at ONE member, which only the
+# recursor check's `targetRulePins` enforces (the conformance check's
+# copy of the pin is gone): `Nat'.rec`'s `succ` rule claiming 2 fields
+# where `Nat'.succ` has 1, and the two rules in the wrong order.
+# Official rejects both.
+# GENREC: official 1
+0 corner_rec_rule_nfields.ndjson
+# GENREC: official 1
+0 corner_rec_rules_swapped.ndjson
+# `Nat'.rec`'s `succ` rule binds its FIELD at a domain that mentions
+# the recursor CONSTANT:
+#   λ m z s (n : (fun _ : T_rec => Nat') Nat'.rec). s n (Nat'.rec m z s n)
+# The domain β-reduces to `Nat'`, so the rule's own typing (at the
+# RULE-LESS recursor environment, which HOLDS the recursors by design)
+# and the binder-by-binder defeq against the openers' stored types (at
+# the CONSTRUCTORS' environment, where a β-redex never looks its head
+# up) both pass, and `stripLams` puts the domain out of the residue's
+# reach.  Nothing else of the recursor stage constrains a rule's
+# λ-domains — a defeq does not preserve syntax — so the uniform route
+# ACCEPTED this stream until the domains' own resolution guard
+# (`checkBlockRule`: `unless ldoms.all (·.constsResolve envT)`), while
+# the model's tower fit needs those domains to READ at the
+# constructors' environment and this one does not.  The guard rejects
+# nothing official emits (a generated rule's domains ARE the recursor
+# prefix's stored types and the constructor's field types).
+# GENREC: official 1
+0 corner_rec_dom_recursor.ndjson
+# D-d: the mutual block `MutA`/`MutB` (both `Type`) with `MutB.rec`'s
+# OWN motive retyped `MutB -> Type` while `MutA.rec`'s stays
+# `MutA -> Sort u`.  Each recursor is a well-typed eliminator on its
+# own; the FAMILY eliminates at two levels, which official never
+# produces — one elimination level parameter is shared across a
+# block's recursors ("the block's recursors do not all eliminate at
+# one level").
+1 mutual_rec_elim_levels.ndjson
+#
+# -- the positivity walk's MEMBER LIST (conformance gap, ARCH-REVIEW
+# §1, lane CONF-E2E 2026-09-23; FIXED by lane NESTPOS 2026-09-23).
+# The uniform route normalises each field domain with `normPosDom`
+# (Kernel/Inductives/Positivity.lean, the whnf-then-classify walk)
+# before the classifier reads it against the whole block.  It used to
+# be called through `checkSumCtor` with the member's OWN name only, so
+# a field of one member that mentions ANOTHER member only under a
+# reducible head was kept unreduced, the classifier saw a non-member
+# head, said `.unsupported`, and the block DECLINED (exit 2, "direct
+# rec: a nested occurrence of the block").  Official whnf's every
+# domain.  The walk now takes the member list (`mentionsAnyConst
+# names`, threaded from `checkBlockCtors`), and all four rows are at
+# their targets.  Sources `tests/e2e/src/corner_mutual_redex_other*.lean`.
+#
+# `RA | base | mk : Id' RB -> RA`, `RB | mk : RA -> RB`, `Id'` an
+# abbrev for the identity: whnf gives the member `RB`, a recursive
+# field (the stream's `RA.size` fires its IH).  Official 0.  Was 2.
+0 corner_mutual_redex_other.ndjson
+# the reflexive twin, `SA | leaf | node : Fn SB -> SA` with
+# `Fn α := Unit -> α`: whnf gives a Π into the other member.
+# Official 0.  Was 2.
+0 corner_mutual_redex_other_refl.ndjson
+# the vanishing twin, `VA | base | mk : Const' Unit VB -> VA -> VA`
+# with `Const' α _β := α`: whnf ERASES the occurrence, an ordinary
+# field (no IH).  Official 0.  Was 2.
+0 corner_mutual_redex_other_vanish.ndjson
+# the reject twin (forged, `scripts/mk_mutual_redex_neg_bad.py`, off
+# `corner_mutual_redex_other`): `Id'` re-pointed to `Neg' α := α -> α`,
+# so `RA.mk`'s domain whnf's to `RB -> RB`, a NEGATIVE occurrence of the
+# other member.  Official 1 ("non positive occurrence", its kernel
+# says so on the same block written in Lean).  The checker rejects on
+# the same walk ("non positive occurrence").  Was 2.
+1 corner_mutual_redex_other_neg_bad.ndjson
+#
+# -- POSITIVITY THROUGH CONTAINERS: official's reject classes (lane
+# NESTPOS 2026-09-23).  Each pair is a GOOD twin (source
+# `tests/e2e/src/corner_nestpos_<class>_free.lean`, an ordinary block
+# whose
+# would-be nested occurrence names an unrelated pin type) and the forged
+# BAD stream (`scripts/mk_nestpos_bad.py`, the pin repointed to the
+# member inside the block).  Official rejects every bad stream (Lean
+# v4.29.1 and v4.34.0, the block written in Lean; the kernel message
+# is quoted).  None carries an auxiliary recursor, so the recogniser
+# routes it to the uniform route, which DECLINES today ("a nested
+# occurrence of the block"); TARGET 1 once the nested arm is on.  Since
+# the nested flip the uniform route rejects every bad stream but two,
+# `group` and `redex`, the accepted supersets of charter item 8 (D1,
+# D2), which it accepts.
+# neg: a NEGATIVE occurrence through a container: `NegC α | mk : (α →
+# Nat) → NegC α`, nested at `NegC NegT`.  Official 1: "(kernel) arg #1
+# of '_nested.NegC_1.mk' has a non positive occurrence of the datatypes
+# being declared".
+0 corner_nestpos_neg_free.ndjson
+# TARGET 1 (the uniform route rejects with official's reason).
+# TARGET reached (lane HOLE2 (d) K: the constructor stage's normaliser is the
+# positivity function, which rejects the instantiation with official's reason).
+1 corner_nestpos_neg_bad.ndjson
+# negdeep: a negative occurrence one container DEEPER: `NegD α | mk :
+# List (α → Nat) → NegD α`, nested at `NegD NegDT` (the instance `List
+# (NegDT → Nat)` is the negative one).  Official 1: "(kernel) arg #1 of
+# '_nested.List_2.cons' has a non positive occurrence of the datatypes
+# being declared".
+0 corner_nestpos_negdeep_free.ndjson
+# TARGET 1 (the uniform route rejects with official's reason).
+# TARGET reached (lane HOLE2 (d) K: the constructor stage's normaliser is the
+# positivity function, which rejects the instantiation with official's reason).
+1 corner_nestpos_negdeep_bad.ndjson
+# idxty: a container whose INDEX TYPE depends on its parameter (`IdxC α
+# : Idx α → Type`), nested at `IdxC IdxT 0`: the auxiliary type former
+# `Idx IdxT → Type` is checked before the block exists (official (N2)).
+# Official 1: "(kernel) unknown constant 'IdxT'".
+0 corner_nestpos_idxty_free.ndjson
+# TARGET 1 (the uniform route rejects with official's reason).
+# TARGET reached (lane HOLE2 (d) K: the constructor stage's normaliser is the
+# positivity function, which rejects the instantiation with official's reason).
+1 corner_nestpos_idxty_bad.ndjson
+# idxval: a nested instance whose INDEX VALUE mentions the block: `IdxV
+# IdxVT (List.length [h])` with `h : IdxVT` an earlier field
+# (`is_valid_ind_app` on the auxiliary application: an index with a
+# block occurrence).  Official 1: "(kernel) arg #2 of 'IdxVT.mk'
+# contains a non valid occurrence of the datatypes being declared".
+0 corner_nestpos_idxval_free.ndjson
+# TARGET 1 (the uniform route rejects with official's reason).
+# TARGET reached (lane HOLE2 (d) K: the constructor stage's normaliser is the
+# positivity function, which rejects the instantiation with official's reason).
+1 corner_nestpos_idxval_bad.ndjson
+# sort: a MIXED-SORT nested block: the `Type` block `SortT` through the
+# `Prop` container `Nonempty`.  Official 1: "(kernel) mutually inductive
+# types must live in the same universe".
+0 corner_nestpos_sort_free.ndjson
+# TARGET 1 (the uniform route rejects with official's reason).
+# TARGET reached (lane HOLE2 (d) K: the constructor stage's normaliser is the
+# positivity function, which rejects the instantiation with official's reason).
+1 corner_nestpos_sort_bad.ndjson
+# sortprop: a MIXED-SORT nested block the other way: the `Prop` block
+# `SortP` through the `Type` container `PLift`.  Official 1: "(kernel)
+# mutually inductive types must live in the same universe".
+0 corner_nestpos_sortprop_free.ndjson
+# TARGET 1 (the uniform route rejects with official's reason).
+# TARGET reached (lane HOLE2 (d) K: the constructor stage's normaliser is the
+# positivity function, which rejects the instantiation with official's reason).
+1 corner_nestpos_sortprop_bad.ndjson
+# local: a container PARAMETER that mentions a field: `Prod LocT (Fin
+# n)` with `n` the constructor's own field.  Official 1: "(kernel)
+# invalid nested inductive datatype 'Prod', nested inductive datatypes
+# parameters cannot contain local variables.".
+0 corner_nestpos_local_free.ndjson
+# TARGET 1 (the uniform route rejects with official's reason).
+# TARGET reached (lane HOLE2 (d) K: the constructor stage's normaliser is the
+# positivity function, which rejects the instantiation with official's reason).
+1 corner_nestpos_local_bad.ndjson
+# redex: a container reached only by REDUCTION: `FL RedT` with `FL α :=
+# List α` — official locates nested instances syntactically, before any
+# `whnf`, so `FL` is no container and the reduct `List RedT` is a non-
+# member head.  Official 1: "(kernel) arg #1 of 'RedT.mk' contains a non
+# valid occurrence of the datatypes being declared".
+0 corner_nestpos_redex_free.ndjson
+# NOT a target-1 row: an ACCEPTED SUPERSET, charter item 8 (D1).  The
+# ONE positivity function recognises the container after whnf, so
+# `FL RedT` is the instantiation `List RedT`.  Today 2 (the modeller's
+# route); the uniform route will accept it.
+# FLIP (NESTPLAN L9, the nested flip): 2 → 0 — the recorded accept-superset (charter item 8, D1).
+# GENREC: official 1
+1 corner_nestpos_redex_bad.ndjson
+# group: a container whose MUTUAL GROUP has an UNREACHED member negative
+# in the parameter: `GT` nests through `GC1` only, but official copies
+# every member of `GC1`'s group (`I_val->get_all()`,
+# inductive.cpp:1009), and `GC2`'s copy `(GT → Nat) → …` is negative.
+# Official 1: "(kernel) arg #1 of '_nested.GC2_2.mk' has a non positive
+# occurrence of the datatypes being declared".
+0 corner_nestpos_group_free.ndjson
+# Official's verdict (lane POSDERIV session 5, N2-eager): a container
+# frame walks the WHOLE recorded block (`IndCaps.all`), reached or not,
+# so `GC2`'s negative constructor is walked and REJECTED.  (It was charter
+# item 8's D2 superset, accepted, until the restart route was replaced.)
+1 corner_nestpos_group_bad.ndjson
+# -- the PINNED `Eq` as a container (lane NESTPOS, the coordinator's
+# question on basis special-casing): the positivity function reads the
+# pinned basis types from the environment like any stored inductive;
+# only `Quot` (an `.indInfo` that is no inductive for official) is a
+# non-valid head.  `Eq` has two parameters (`α`, `a`) and official
+# rejects every nesting through it — over the syntax: a member in `α`
+# puts it in the instantiated index telescope `(b : α)` (N2), a member
+# in `a` only puts it in `refl`'s result index (`a`), and a field in `a`
+# is a local variable.  No exported accept exists (the stream's `And`,
+# `nested_p06`/`nested_p13`, is the accepted Prop container).  Each pair
+# as above; the bad stream declines today, TARGET 1; the shadow rejects
+# each with official's reason.
+# eqret: `@Eq Prop (PEq p) True`.  Official 1: "(kernel) invalid return
+# type for '_nested.Eq_1.refl'".
+0 corner_nestpos_eqret_free.ndjson
+# TARGET reached (lane HOLE2 (d) K: the constructor stage's normaliser is the
+# positivity function, which rejects the instantiation with official's reason).
+1 corner_nestpos_eqret_bad.ndjson
+# eqidx: `@Eq Prop PEqI PEqI`.  Official 1: "non valid occurrence".
+0 corner_nestpos_eqidx_free.ndjson
+# TARGET reached (lane HOLE2 (d) K: the constructor stage's normaliser is the
+# positivity function, which rejects the instantiation with official's reason).
+1 corner_nestpos_eqidx_bad.ndjson
+# eqlocal: `(h : PEqL) → @Eq PEqL h h`.  Official 1: "nested inductive
+# datatypes parameters cannot contain local variables".
+0 corner_nestpos_eqlocal_free.ndjson
+# TARGET reached (lane HOLE2 (d) K: the constructor stage's normaliser is the
+# positivity function, which rejects the instantiation with official's reason).
+1 corner_nestpos_eqlocal_bad.ndjson
+# levelcount (lane NESTIND s21; forged by `scripts/mk_nestpos_levelcount_bad.py`
+# from the good twin `corner_nestind_d_free`): the container at the WRONG
+# NUMBER of universe levels, `TD.node (c : CD.{0} TD)` with `CD` having no
+# level parameter (constructor type and recursor records repointed).
+# Official 1 (`infer_constant`: "incorrect number of universe levels"); not
+# exporter-producible.  Today 2 (the in-process modeller declines: "in-process
+# model of TD: container CD: level count"; with the modeller off, no install
+# route for TD).  TARGET 1 — the target-shadow installer rejects with
+# "incorrect number of universe levels for CD" (the constructor type's
+# inference), so the kernel's new `nestInstType` level-count check is
+# verdict-neutral by implication: the constructor type's inference rejects
+# first.
+# FLIP (NESTPLAN L9, the nested flip): 2 → 1 — the target verdict, official 1.
+1 corner_nestpos_levelcount_bad.ndjson
+# K.53 (lane NESTIND s24, finding F16; source
+# `tests/e2e/src/corner_nestind_k53_callee_free.lean`, forged by
+# `scripts/mk_nestind_k53_bad.py`): `WT.node (r : WR WT)
+# (l : List ((fun _ => WR WT) Nat))`.  The good twin is the export: the
+# recursor calls `WT.rec_2` on `l`, whose major is the occurrence itself
+# (official 0, today 0, target 0).  The bad twin calls `WT.rec_3` (major
+# `List (WR WT)`, only DEFEQ to the field's type) with `l_ih` retargeted in
+# every recursor type.  Official 1 ("Invalid recursor WT.rec_2", arena
+# official v4.34.0-rc2, measured: its recursors are generated).  Ours 0
+# since SEEDDEFEQ M2 (ruling 2026-09-27): K.53′ compares the callee's
+# class with the field's leaf PER COMPONENT, the parameters by defeq, and
+# `(fun _ => WR WT) Nat` is defeq to `WR WT` — a coarser identification
+# of classes, a sound superset (charter item 8).
+0 corner_nestind_k53_callee_free.ndjson
+0 corner_nestind_k53_callee_bad.ndjson
+# F18 (lane NESTIND s27; source `tests/e2e/src/corner_nestind_f18_bare_free.lean`,
+# forged by `scripts/mk_nestind_f18_bad.py`): a container `C (α) | mk :
+# Wrap C → C α` (`C` UNAPPLIED in the phantom `Wrap`) nested in `T | mk :
+# C T → Wrap (fun _ => T) → T`.  The bad twin repoints `T.rec_2`'s major
+# and `T.mk`'s field to `Wrap C`, the class of the node `Wrap H` (`H` the
+# bare frame hole) of `C`'s frame at `[T]`, naming no member of `T` —
+# the outside-major member-mention check (official's `is_nested`) rejects
+# it.  Both twins are decided at `C` first: official 1 (v4.34.0-rc2,
+# measured: "invalid occurrence of datatype 'C' being declared"; the
+# export's v4.29.1 accepts `C`), today 2 (the modeller declines `T` at
+# parse time; at INMODEL=0 no route installs `C`), TARGET 1 — the walk's
+# M3 arm rejects `C` itself (a member not applied to the parameters in a
+# container's parameter), so no stream reaches F18's bare-frame-hole class.
+# FLIP (NESTPLAN L9, the nested flip): 2 → 1 — the target verdict (M3 rejects `C`), official 1.
+1 corner_nestind_f18_bare_free.ndjson
+# FLIP (NESTPLAN L9, the nested flip): 2 → 1 — the target verdict (M3 rejects `C`), official 1.
+1 corner_nestind_f18_bare_bad.ndjson
+# U4 at a NESTED field (lane NESTW, finding F-W1; sources
+# `tests/e2e/src/corner_nestw_*_free.lean`, forged by
+# `scripts/mk_nestw_bad.py`): a later field reads a nested field's value
+# through a raw projection.  u4: `UT.mk (a : Prod UT Nat) (b : Fin a.2)`;
+# u4frame: the container constructor at the instantiation does,
+# `VT.node (x : Sigma (fun p : Prod VT Nat => Fin p.2))`.  Official 1:
+# "(kernel) invalid projection" (its auxiliary type replaces `Prod T Nat`,
+# so `.2` projects `Prod` out of it).
+0 corner_nestw_u4_free.ndjson
+# Official's verdict (lane NESTKERN): the positivity walk's U4 reads
+# every non-ordinary field — recursive, reflexive, NESTED — of a member
+# constructor, and runs on every container constructor a frame walks at
+# its instantiation; the walk rejects (it used to decline at the flat
+# guard, and the target installer accepted).
+1 corner_nestw_u4_bad.ndjson
+0 corner_nestw_u4frame_free.ndjson
+# As `corner_nestw_u4_bad` (the read is in `Sigma.mk`'s `snd`, at the key
+# `Sigma (Prod VT Nat) …`, the frame's U4).
+1 corner_nestw_u4frame_bad.ndjson
+# U4's adversarial pass (lane NESTKERN, charter item 9; sources
+# `tests/e2e/src/corner_nestw_u4*_{beta,def}.lean`): official v4.34.0
+# ACCEPTS a later field that mentions a nested or recursive field only in a
+# term whose whnf drops it; U4 reads the walk's whnf'd telescope, so the
+# target accepts them too.  u4_beta: `(h : (fun _ : List UB => Nat) xs)`
+# (member constructor); u4frame_beta: `Sigma (fun l : List SB => (fun _ =>
+# Nat) l)` (the frame's `snd`).  Today 0 (the modeller).
+0 corner_nestw_u4_beta.ndjson
+0 corner_nestw_u4frame_beta.ndjson
+# Ruling (D) (lane NESTIND, session 12; sources `tests/e2e/src/corner_nestind_d_*.lean`,
+# the bad one forged by `scripts/mk_nestind_d_bad.py`): at an OUTSIDE class
+# the target check types every call again with the family's CLASSES
+# abstracted to holes, each instantiation `I.{us} D⃗` as a term
+# (`targetClassCallsOk`).  The item-9 adversarial pass — official ACCEPTS
+# all but the forged one; the switch-ON binary (measured with the modeller
+# off, `CON_LECHE_INMODEL=0`) accepts them too: own class in a
+# type-dependent position (dep), reached through δ/ζ/projection ι (reduce),
+# an indexed container (indexed), a mutual container group with a reflexive
+# field (mutual), two levels and a container nested in itself (levels), a
+# `Prop` block (prop), an index redex (idxred).  Target 0; today the
+# modeller's (reduce, mutual: 2 — it declines).
+# Ruling (D) WITHDRAWN and deleted (lane CHECKDEL2, 2026-09-26); these rows
+# stay as corner cases of the remaining recursor check, verdicts unchanged.
+0 corner_nestind_d_free.ndjson
+0 corner_nestind_d_dep.ndjson
+# FLIP (NESTPLAN L9, the nested flip): 2 → 0 — the target verdict, official 0 (the modeller declined it).
+0 corner_nestind_d_reduce.ndjson
+0 corner_nestind_d_indexed.ndjson
+# FLIP (NESTPLAN L9, the nested flip): 2 → 0 — the target verdict, official 0 (the modeller declined it).
+0 corner_nestind_d_mutual.ndjson
+0 corner_nestind_d_levels.ndjson
+0 corner_nestind_d_prop.ndjson
+0 corner_nestind_d_idxred.ndjson
+# The (D) re-layout's probe (lane NESTIND, session 15): the container's
+# reflexive field reached only through δ (`Fn α := KF → α`); (D) types the
+# call under the field's MEMBER-level whnf-telescope.  Official 0; target 0
+# (switch ON, modeller off, before and after the re-layout); today 2 (the
+# modeller declines: `2 inductive hypotheses for 1 recursive fields`).
+# FLIP (NESTPLAN L9, the nested flip): 2 → 0 — the target verdict, official 0.
+0 corner_nestind_d_tele.ndjson
+# The forged one: `CD.mk (z : (fun X => CD X) α)` — the container's own
+# occurrence reached only through a redex.  Official 1 (its auxiliary type
+# replaces only the literal `CD TD`; the auxiliary constructor's field is a
+# non-valid occurrence after whnf; from v4.33.1 `CD` itself is rejected,
+# `check_uniform_ind_occs`).  An ACCEPT-SUPERSET, sound: (D) abstracts the
+# container's group IN THE STORED CONSTRUCTOR (as the positivity walk's frame
+# and the recorded clause do), so `(fun X => #CD X) #TD` reduces to the hole.
+# Target 0 (the switch-ON binary, with or without the modeller); today 0 (the
+# modelled route).  A conformance check would go to `ConLeche/Conformance/`.
+# UNIFCHK (2026-09-29): 0 → 1, official's verdict — `CD`'s own install is
+# rejected by official's uniform-occurrence check (`nestUniform`: `X` under
+# the λ is not applied to the parameter).
+1 corner_nestind_d_redex_bad.ndjson
+# Finding F13 (lane NESTIND, session 13; sources
+# `tests/e2e/src/corner_nestind_f13_listrose{,_prop}.lean`): `TL ::= node
+# (List (RL TL))` with `RL α ::= node α (List (RL α))` (and its `Prop`
+# twin) — the class `List (RL TL)` is visited at two nesting depths (the
+# block's field, then again under `RL TL`), so the nested kit cannot order
+# its classes by ONE depth per class.  Official 0.  TARGET 0 (the switch-ON
+# binary with the modeller off accepts).  Today 1: a FALSE REJECT by the
+# in-process modeller ("duplicate declaration TL._model._impl.pack_0" —
+# its generated records collide); with the modeller off today declines (2).
+# FLIP (NESTPLAN L9, the nested flip): 1 → 0 — the target verdict, official 0 (the modeller's false reject is gone with it).
+0 corner_nestind_f13_listrose.ndjson
+# FLIP (NESTPLAN L9, the nested flip): 1 → 0 — the target verdict, official 0 (the modeller's false reject is gone with it).
+0 corner_nestind_f13_listrose_prop.ndjson
+# u4frame_def: `Subtype (@PD SD)` with the DEFINITION `PD _ := True`: the
+# frame's `property : PD val` reads the recursive `val` only until δ.
+# Today 2 (the in-process modeller: "field 1 of Subtype.mk mentions the
+# block … nested under a binder"); TARGET 0 (the uniform route with the
+# switch on, measured with the modeller off, lane NESTKERN).
+# FLIP (NESTPLAN L9, the nested flip): 2 → 0 — the target verdict; official 0.
+0 corner_nestw_u4frame_def.ndjson
+# The elimination guard at an auxiliary recursor (lane NESTKERN, finding
+# F4 of lane NESTIND; forged by `scripts/mk_nestkern_bad.py`): `P : Prop |
+# mk : P` whose family carries `P.rec_1` on an OUTSIDE two-constructor
+# `O : Prop`, both into `Sort u` — a large elimination out of `O`.  The
+# container bit must hold once any checked major is outside the block.
+# Official 1 (not the generated family).  Today 2 (the in-process modeller
+# declines); TARGET 1 (measured: "target rec: large eliminator on a block
+# whose sort may be Prop").
+# FLIP (NESTPLAN L9, the nested flip): 2 → 1 — "target rec: large eliminator on a block whose sort may be Prop", official 1.
+1 corner_nestkern_f4_prop_aux_bad.ndjson
+# ---- lane TSHADOW (2026-09-23): the TARGET recursor check's corner
+# cases, forged from scratch by `scripts/mk_tshadow_corner.py` (official
+# cannot export a family it does not generate).  Each row is TODAY's
+# exit; since the nested flip today's is the target's.
+# corner_tshadow_aux_good: a hand-written nested block `Tr | node : L Tr
+# → Tr` with official's two-recursor family.  Today 0 (modelled route);
+# TARGET 0 (nestPos + the classification-free check on the family).
+0 corner_tshadow_aux_good.ndjson
+# corner_tshadow_aux_nonfield_bad: `Tr.rec_1`'s `cons` rule recurses on
+# `(fun x => x) tail` — definitionally the field, not the field.  Today
+# 0: the MODELLED route accepts it (an accept-superset of official, whose
+# replay compares with the generated rule: 1).  TARGET 1: not a primitive
+# recursion (the syntactic narrowing of 2026-09-22, kept).
+# FLIP (NESTPLAN L9, the nested flip): 0 → 1 — "not a primitive recursion", official 1.
+# GENREC: official 1
+0 corner_tshadow_aux_nonfield_bad.ndjson
+# corner_tshadow_aux_prop_bad: a non-nested `Type` block whose family
+# carries `T.rec_1` on an OUTSIDE two-constructor `Prop` inductive,
+# eliminating into `Sort u` — large elimination out of a proposition
+# (with proof irrelevance, `False`).  Today 2 (the in-process modeller
+# declines it: "eliminates into Prop only but the block is not Prop").
+# Official 1 (not generated).  TARGET 1: since lane POSDERIV s4 by the
+# member-mention check (no parameter of the outside major mentions a
+# member, official's `is_nested`), before it by the lane's provisional
+# answer to MAINTAINER QUESTION Q1 (an outside major must live in the
+# block's universe).
+# FLIP (NESTPLAN L9, the nested flip): 2 → 1 — "the recursor's major lives in another universe than the block (Q1)", official 1; the provisional answer to Q1 stands.
+1 corner_tshadow_aux_prop_bad.ndjson
+# corner_tshadow_aux_unreached: the same at an outside `Type` inductive
+# `N | z | s` the block never reaches.  Today 0 (the modelled route
+# accepts the family — an accept-superset of official, which generates
+# only `T.rec`: 1).  TARGET 1 since lane POSDERIV s4 (ruling (a),
+# 2026-09-25): no parameter of the outside major `N` mentions a member
+# (official's `is_nested`, inductive.cpp v4.34.0 :1033–1051); earlier
+# TARGET 0 (charter item 5 read literally; MAINTAINER QUESTION Q2).
+# FLIP (NESTPLAN L9, the nested flip): 0 → 1 — the target verdict (ruling (a), official's `is_nested`), official 1.
+1 corner_tshadow_aux_unreached.ndjson
+# ---- lane POSDERIV (2026-09-25): the item-9 adversarial pass for a
+# check "every outside recursor major is a positivity key" — streams
+# official ACCEPTS whose auxiliary recursor's major the positivity walk
+# never visits (official builds its auxiliary types by a SYNTACTIC
+# pre-pass over the constructor types, `elim_nested_inductive_fn`,
+# inductive.cpp v4.34.0 :985–1180, and copies the WHOLE mutual group of
+# every container it finds, :1100).  Sources `tests/e2e/src/`.
+# corner_posderiv_major_group: `GT.rec_2` on `GC2 GT`, the unreached
+# member of `GC1`'s group.  Official 0.  Today 0 (the modeller); the
+# target accepts (INMODEL=0).
+0 corner_posderiv_major_group.ndjson
+# corner_posderiv_major_delta: `AT.rec_1` on `List AT`, an occurrence
+# inside `K (List AT)` with `K _ := Nat` (the walk's whnf reads `Nat`).
+# Official 0.  Today 2 (the modeller declines at parse time); the target
+# accepts (INMODEL=0).
+# FLIP (NESTPLAN L9, the nested flip): 2 → 0 — the target verdict, official 0.
+0 corner_posderiv_major_delta.ndjson
+# corner_nestind_unreached_mates (lane NESTIND, session 15): the class
+# induction's UNREACHED phase with group mates calling EACH OTHER
+# (`UC2 UT` ↔ `UC3 UT`, the block reaches only `UC1 UT`) — the joint
+# true-frame induction; with the two POSDERIV rows above, the unreached
+# phase's cases.  Official 0.  Today 0 (the modeller); the target accepts
+# (INMODEL=0).
+0 corner_nestind_unreached_mates.ndjson
+# corner_nestind_unreached_nested (NESTIND s15, finding F14): the unreached
+# classes `VC1 VT` and `VC2 (VC1 VT)` belong to two DIFFERENT recorded
+# blocks and call each other (`VC1.mk : VC2 (VC1 α)`): their joint
+# induction visits `VC2`'s clause at a frame read at `VC1`'s separated
+# tuple — not one clause's induction at the true frame.  Official 0.
+# Today 0; the target accepts (INMODEL=0).
+0 corner_nestind_unreached_nested.ndjson
+# corner_nestind_unreached_f13 (NESTIND s15, F14): F13's `TL`/`RL` shape
+# inside an unreached group mate `XT` of the reached `XF`: `List (XR (XT XW))`
+# is entered from `XT XW` and from `XR (XT XW)` — the unreached classes need
+# a visit structure (F13), which no recorded clause carries.  Official 0.
+# Today 1 (the modeller's generated records collide, as at F13's fixture);
+# the target accepts (INMODEL=0).
+# FLIP (NESTPLAN L9, the nested flip): 1 → 0 — the target verdict (the modeller's false reject), official 0.
+0 corner_nestind_unreached_f13.ndjson
+# ---- lane POSDERIV session 4 (2026-09-25): the item-9 adversarial pass
+# for the MEMBER-MENTION check on outside recursor majors (ruling (a):
+# some parameter `Dᵢ` of an outside major mentions a block member, read
+# off the stored major before any whnf — official's `is_nested`,
+# `is_nested_inductive_app`, inductive.cpp v4.34.0 :1033–1051).  Each is
+# an official-accepted auxiliary recursor whose `Ds` mention a member
+# only in an unusual place; the check must let all three through
+# (target 0 at INMODEL=0).  Sources `tests/e2e/src/`.
+# corner_posderiv_mention_delta: `DT.rec_1` on `List (K DT)`, `K _ :=
+# Nat` — the member only under a δ-erasing definition (a whnf-reading
+# check would see `Nat`).  Official 0.  Today 2 (the modeller declines
+# at parse time).
+# FLIP (NESTPLAN L9, the nested flip): 2 → 0 — the target verdict, official 0.
+0 corner_posderiv_mention_delta.ndjson
+# corner_posderiv_mention_binder: `BT.rec_1` on `PC (BT → False)` — the
+# member only in a Π binder's domain inside the parameter (official's
+# `find` descends into binders).  Official 0.  Today 0.
+0 corner_posderiv_mention_binder.ndjson
+# corner_posderiv_mention_mutual: `MA.rec_1` on `List MB` — only the
+# SECOND member of a mutual block.  Official 0.  Today 0.
+0 corner_posderiv_mention_mutual.ndjson
+# corner_posderiv_mention_beta: `ET.rec_2` on `List ((fun _ => Nat) ET)`
+# — the second auxiliary type, from the container's constructor
+# instantiated at the first one's parameters without a β-step; the
+# member only in the argument of a redex that β erases.  Official 0.
+# Today 0.
+0 corner_posderiv_mention_beta.ndjson
+# ---- lane RESTRICT-FIX (2026-09-24): the RESTRICTION AUDIT's adversarial
+# examples (`_tmp/uniform-inds/RESTRICT-AUDIT.md`; charter item 9: every
+# check on inductives and recursors the uniform route added, tried
+# against blocks official ACCEPTS).  Sources `tests/e2e/src/restrict_*.lean`
+# (`scripts/export-fixture.sh`; `a27`, `a28`, `a33c`, `a34b` and `b02`'s
+# twin hand the block to the kernel by `addDecl` — the elaborator cannot
+# write it); official = Lean v4.29.1's kernel.  Each row is TODAY's exit;
+# the TARGET verdict is in the comment (since the nested flip the two
+# agree on every row).
+#
+# Official 0, today 0, TARGET 0 (each exercises one check; the audit's
+# §7 table): a02 (λ-parameter/whnf field, `Σ n, Vec T n`), a03 (a
+# container index that is a field), a05 (the member's own index as a key
+# argument), a07 (a mutual container group, the restart), a09 (two keys
+# at one container), a10 (a dependent index telescope), a11 (`let`
+# domains), a12 (mutual, indexed, a reflexive cross field), a14/a46
+# (levels in keys, `max u v`), a15 (a container in a parameter), a16
+# (a large-eliminating `Prop` structure), a26 (U4 does not fire:
+# `(fun _ : T => Nat) t` is stored as `Nat`), a32 (a partial application
+# INSIDE a container parameter, `F (Vec T)`), a34b (`Sort u` family,
+# Prop-only elimination), a37 (a user `Eq`, K), a43 (two containers),
+# a44 (a nested structure's projections), a45 (a mutual nested block:
+# `A.rec_1`, `A.rec_2`), a47 (an indexed `Prop` without constructors),
+# a48 (a live universe), a49 (`imax` field sorts, `Level.leq`), a50
+# (never-zero sort shapes).
+0 restrict_a02_nest_sigma.ndjson
+0 restrict_a03_nest_idx_field.ndjson
+0 restrict_a05_nest_idx_member.ndjson
+0 restrict_a07_nest_mutual_cont.ndjson
+0 restrict_a09_nest_two_keys.ndjson
+0 restrict_a10_dep_indices.ndjson
+0 restrict_a11_let_field.ndjson
+0 restrict_a12_mutual_indexed.ndjson
+0 restrict_a14_univ_nested.ndjson
+0 restrict_a15_nest_option_list.ndjson
+0 restrict_a16_prop_large_struct.ndjson
+0 restrict_a26_u4_attempt.ndjson
+0 restrict_a32_nest_partial_param.ndjson
+0 restrict_a34b_sort_u_kernel.ndjson
+0 restrict_a37_myeq_k.ndjson
+0 restrict_a43_nest_prod_list.ndjson
+0 restrict_a44_structure_nested.ndjson
+0 restrict_a45_mutual_nested.ndjson
+0 restrict_a46_univ_max.ndjson
+0 restrict_a47_empty_prop_idx.ndjson
+0 restrict_a48_univ_live.ndjson
+0 restrict_a49_imax_field.ndjson
+0 restrict_a50_neverzero_shapes.ndjson
+# Official 0, today 2 (the in-process modeller declines at parse time:
+# "reflexive member", "k inductive hypotheses for j recursive fields"),
+# TARGET 0 (pinned with the modeller off): a06 (`(Nat → List T) → T`,
+# reflexive nested), a08 (a reflexive container `W`), a25 (a key with a
+# `let`), a33c (δ + projection in a container field; the elaborator
+# overflows on the `inductive` spelling, so the block goes by `addDecl`).
+# FLIP (NESTPLAN L9, the nested flip): 2 → 0 — the target verdict; official 0.
+0 restrict_a06_nest_refl.ndjson
+# FLIP (NESTPLAN L9, the nested flip): 2 → 0 — the target verdict; official 0.
+0 restrict_a08_nest_wcont.ndjson
+# FLIP (NESTPLAN L9, the nested flip): 2 → 0 — the target verdict; official 0.
+0 restrict_a25_nest_let_param.ndjson
+# FLIP (NESTPLAN L9, the nested flip): 2 → 0 — the target verdict; official 0.
+0 restrict_a33c_nest_proj_param_kernel.ndjson
+# a04 (`T (m) | mk : Vec (T m) m → T m`, the block's parameter as a
+# container index): official 0; today 1 — a FALSE REJECT of the modeller
+# ("application type mismatch" at its generated `T._model._impl.rec`); the
+# modeller is deleted at the flip.  TARGET 0.
+# FLIP (NESTPLAN L9, the nested flip): 1 → 0 — the modeller's false reject is gone with it; official 0.
+0 restrict_a04_nest_idx_param.ndjson
+# FINDING C1, constructor-less containers: `E (α : Type) : Type` with no
+# constructor, `T | mk : E T → T` (a01), and the indexed `E2 T 3` (a01b).
+# Official 0 (its auxiliary type has no constructor, `T.rec_1` no rule).
+# Today 0 (the modeller).  TARGET 0 since lane RESTRICT-FIX (was 2: "a
+# container without constructors (its parameter count is not
+# recorded)"): the install records official's `nparams` on `IndCaps` and
+# `nestContainer`/`targetCtorsOf` read it.
+0 restrict_a01_ctorless_container.ndjson
+0 restrict_a01b_ctorless_indexed.ndjson
+# FINDING C2, M2′ — an OFFICIAL check since v4.33.1 (lane L9FIX;
+# lane RESTRICT-FIX had named it a restriction official does not
+# impose): a member at OTHER universe levels where the walk never reads
+# it.  a27: `T.{u} : Type | mk : (fun _ : Type => Nat) T.{0} → T.{u}`
+# (whnf drops it); a28: `P (α) | mk : P α`, `T.{u} | mk : P T.{0} →
+# T.{u}` (a phantom container parameter).  Official 0 up to v4.33.0,
+# 1 from v4.33.1 ("invalid occurrence of datatype 'T' being declared:
+# it must be applied to the parameters and universe levels of the
+# mutual declaration", `check_uniform_ind_occs`).  a27 today 1 (the
+# uniform route's M2′, with official's wording; was 2); a28 today 0
+# (the modeller).  TARGET 1 (both).
+1 restrict_a27_m2prime_redex.ndjson
+# FLIP (NESTPLAN L9, the nested flip): 0 → 1 — M2′'s reject with official's wording, official v4.33.1+'s verdict.
+1 restrict_a28_m2prime_phantom.ndjson
+# FINDING M3 (lane NESTKERN, session 2) — the other half of official's
+# `check_uniform_ind_occs` (v4.33.1+): a member UNAPPLIED where the walk
+# never reads it.  a29: `Wrap (F : Type → Type) | mk : Nat → Wrap F`,
+# `T (α) | mk : Wrap T → T α` (a phantom container parameter).
+# Official 0 up to v4.33.0, 1 from v4.33.1 (the same message as M2′).
+# The uniform model needs every hole applied to the parameters (M3):
+# the walk's normal form is checked (`Expr.holesApplied`).  Today 0 (the
+# modeller); TARGET 1 (the uniform route's check, official's wording).
+# FLIP (NESTPLAN L9, the nested flip): 0 → 1 — M3's reject with official's wording, official v4.33.1+'s verdict.
+1 restrict_a29_m3_phantom_unapplied.ndjson
+# m3_proj (lanes COMPLETE-6M3, M3PROJ): a member under a PROJECTION in
+# a container's parameter (forged raw).  `param`: `T | mk : List ((T,
+# Nat).1) → T` — official (v4.29.1, v4.33.0, v4.34.0) 0: its
+# `check_uniform_ind_occs` descends into the projection, the auxiliary
+# type's field reduces to `T`.  The walk's M3 (`holesApplied`) descends
+# into projections and `let`s as official's `for_each` does (lane
+# M3PROJ; before, it admitted no member there — a restriction).  The
+# official-REJECTED twins (v4.34.0 1, "invalid occurrence of datatype
+# 'T' being declared"): `unapplied`, `T (α) | mk : List ((T, α).1 α) →
+# T α` (a bare member inside the pair), and `phantom`, `T (α) | mk :
+# List ((T Nat, α).2) → T α` (a non-uniform member the projection
+# discards; official 0 up to v4.33.0).  Today 2 (the modeller declines
+# all three); TARGET 0, 1, 1 (pinned with the modeller off).  The `let`
+# twin is `restrict_a25_nest_let_param`.
+# FLIP (NESTPLAN L9, the nested flip): 2 → 0, 1, 1 — the target verdicts.
+0 complete_m3_proj_param.ndjson
+1 complete_m3_proj_unapplied.ndjson
+1 complete_m3_proj_phantom.ndjson
+# The official-REJECTED twins (`scripts/mk_restrict_bad.py`, `BPin`
+# repointed to the member inside the block, levels kept; the `_free`
+# half is the exported, accepted block).
+# b01: the member ONLY in a container's INDEX, `mk : Vi Nat T → T`.
+# Official 1: "arg #1 of 'T.mk' contains a non valid occurrence of the
+# datatypes being declared".  Today 1, TARGET 1 (same reason).
+0 restrict_b01_idx_only_free.ndjson
+1 restrict_b01_idx_only_bad.ndjson
+# b02: the member at other levels AS the field, `mk : T.{0} → T.{u}` —
+# M2′'s half official shares.  Official 1: "non valid occurrence"
+# (`is_valid_ind_app` compares the constant WITH its levels).  Today 1,
+# TARGET 1 (lane RESTRICT-FIX: M2′ runs AFTER the walk, whose member-
+# constant arm rejects with official's reason; before, M2′ ran first and
+# declined, 2).
+0 restrict_b02_m2prime_direct_free.ndjson
+1 restrict_b02_m2prime_direct_bad.ndjson
+# lane L9FIX: the LEVELBUG-O escape — a nested container application
+# `C.{us} Ds` whose parameters are ILL-TYPED, which official
+# v4.29.0–v4.32.1 never type-checks (the parameters do not reach its
+# auxiliary type) and ACCEPTS; v4.32.2+ REJECTS ("application type
+# mismatch": `inductive.cpp` v4.33.0 :1223–1231 type-checks the replaced
+# `I Ds`).  Ours rejects them all, before the walk: every member
+# constructor's type is typed whole (`checkConstantVal`, the formers
+# installed), so `C.{us} Ds` is typed as its subterm.
+# L9: `Q.{w} (α : Sort w) : Sort w | mk : Q α`, `T.{u} : Sort u | mk :
+# Q.{u} T.{0} → T.{u}`; BIG: the same at `T.{u} : Type u` with
+# `Q.{u+1}` (a large eliminator).  Both also have a member at other
+# levels: official v4.33.1+ rejects them earlier, by
+# `check_uniform_ind_occs`.  L9 today 2 (the modeller declines it, "small
+# eliminator on a non-Prop block"), BIG today 1; TARGET 1 (both).
+# FLIP (NESTPLAN L9, the nested flip): 2 → 1 — "application type mismatch" (the constructor typed whole), official v4.32.2+'s verdict.
+1 restrict_l9_nest_level_illtyped.ndjson
+1 restrict_big_nest_level_illtyped_large.ndjson
+# l9c1/l9c2: the escape WITHOUT a member at other levels (so only the
+# typing catches it, on every official ≥ v4.32.2): `R0 (α : Prop) : Type`
+# with NO constructor (c1) or a phantom `R (α : Prop) : Type | mk : R α`
+# (c2), `T : Type | mk : R0 T → T`.  Official 0 up to v4.32.1, 1 from
+# v4.32.2.  Today 1, TARGET 1.
+1 restrict_l9c1_nest_ctorless_illtyped.ndjson
+1 restrict_l9c2_nest_phantom_illtyped.ndjson
+# lane L9FIX's adversarial probes of M2′ against official v4.34.0: a
+# member at levels definitionally but not structurally the block's
+# (`T.{max u u}`), and a mutual mate at other levels (`S.{0}` in `T.mk`),
+# each in a redex whnf drops.  Official 0 up to v4.33.0, 1 from v4.33.1
+# (the levels are compared structurally; every member name is checked).
+# Today 1, TARGET 1.  The control at the block's own levels: official 0
+# on every toolchain; today 0, TARGET 0.
+1 restrict_m2_defeq_levels.ndjson
+1 restrict_m2_mutual_mate.ndjson
+0 restrict_m2_own_levels_ok.ndjson
+# lane FUELFIX: lane COMPLETE's completeness counterexamples
+# (`_tmp/uniform-inds/COMPLETE.md`; sources `tests/e2e/src/complete_*.lean`,
+# exported with lean4export at v4.29.1).  Official v4.34.0 ACCEPTS all
+# four; the TARGET accepted all four since this lane, and the live route
+# does since the nested flip.
+# c03d: a NON-nested reflexive field of 1030 Π binders,
+# `T | leaf | mk : (Nat → … → T) → T`.  Before this lane: today 2 and
+# target 2 ("nested positivity: fuel", the fixed per-field 1024 — a
+# regression since HOLE2 made `nestPos` live), then the recursor
+# stage's "field telescope fuel".  Today 0, TARGET 0 (the fuel is the
+# field's depth plus a slack, `whnfWalkFuel`).
+0 complete_c03d_pi_depth_1030.ndjson
+# c05b: `List^30 (Nat → … (1000 binders) → T)`: thirty container
+# descents and the Π bodies on one path.  Today 2 (the modeller:
+# "reflexive member"), TARGET 0 (was 2: fuel).
+# FLIP (NESTPLAN L9, the nested flip): 2 → 0 — accepted by the uniform route, official v4.34.0's verdict — slowly: ~130 s wall, every auxiliary recursor's type opened binder by binder (`openPisAtFvars`); tests/arena.sh gives it 600 s.
+0 complete_c05b_nest30_pi1000.ndjson
+# c04a: a 71-member star-shaped mutual container group
+# (`C0.mk_i : C_i α → C0 α`, `C_i.mk : C0 α → C_i α`), then
+# `T | mk : C0 T → T`; every cycle is one RESTART of C0's frame.
+# Today 0 (the modeller), TARGET 0 (was 2: the fixed restart fuel 64;
+# now `nestRestartFuel`, one walk per member of C0's block and one more).
+0 complete_c04a_restart_70.ndjson
+# c02: a NESTED block whose own former is behind δ (`T : MyType`,
+# `MyType := Type`), `mk : List T → T`.  Today 2 (the modeller: "former
+# T is not a telescope ending in a sort"), TARGET 0 (was 2: "the
+# block's shape is not recognised" — `blockCounts?` read the index count
+# off the recursor with the NON-nested prefix `nP + k + nC`, which the
+# auxiliary motives and minors break).  The non-nested twin is accepted
+# on every route.
+# FLIP (NESTPLAN L9, the nested flip): 2 → 0 — the target verdict; official 0.
+0 complete_c02_self_delta_sort.ndjson
+# c10 (lane COMPLETE-2/3): a container whose index telescope is behind
+# δ (`C (α) : Idx`, `Idx := Nat → Type`) with a RECURSIVE field
+# (`step : (n : Nat) → C α n → C α (n+1)`), nested as
+# `T | leaf | mk : C T 0 → T` — the frame hole's arity (`nestArity`)
+# against official's whnf-based index count.  Official 0, today 0,
+# TARGET 0 (`pos=accept keys=[C]`).
+0 complete_c10_idx_delta_recfield.ndjson
+# --- Level-comparison fuel (lane SMALLFIX; `scripts/mk_level_fuel.py`).
+# `Level.leq`'s fuel (`Level.defaultFuel` = 10000) is OUR resource
+# limit: its exhaustion DECLINES (charter item 9; `liftFueled`,
+# `Kernel/Core.lean`).  Each stream spells `u` (resp. `max v u`) as a
+# left-nested `max` chain one deeper than the fuel, which `simplify`
+# keeps and official's `normalize` collapses.  Official (v4.34.0,
+# `addDecl`) accepts all three; TARGET 2.  Before the lane: const and
+# sort exit 3 ("internal error: fuel exhausted"), mutual exit 1 (the
+# block's universe agreement read `none` as "not equivalent").
+# Committed gzipped (`.ndjson.gz`, ~10k lines each; the script writes
+# the .gz form deterministically).
+2 level_fuel_const.ndjson
+2 level_fuel_sort.ndjson
+2 level_fuel_mutual.ndjson
+# --- Recursor-check additions, bad side (lane SMALLFIX;
+# `scripts/mk_rec_kbad.py`).  Official 1, TARGET 1 for all three.
+# k7: `Color.rec_1`, a copy of `Color.rec` whose major reaches `Color`
+# through a `let`: the recogniser files it as an auxiliary recursor,
+# the annotated type's major is the member — K7 fires ("the recursor
+# record's member is not its major's").  Official generates no
+# auxiliary recursor on a non-nested block.
+1 corner_rec_k7_let_major_bad.ndjson
+# k6: `MB2.rec`'s parameter at `Prop` instead of `id Type`.  K6 is
+# IMPLIED by the major `(t : MB2 α)`: the recursor type's own check
+# rejects first ("application type mismatch").
+1 corner_rec_k6_param_dom_bad.ndjson
+# k4: `Color.green` with a field `(x : Sort v)`, `v` undeclared.  K4 is
+# implied by the constructor check at the block's level parameters,
+# which rejects first ("undeclared universe parameter").
+1 corner_rec_k4_foreign_level_bad.ndjson
+# --- Unit-η at a member of a RECURSIVE block (lane UNITCAPS, found by
+# lane WHNFSWAP).  Official's unit-η (`is_def_eq_unit_like`,
+# `type_checker.cpp:1162`, v4.34.0) and η (`try_eta_struct_core`, :896)
+# both require `is_non_rec_structure` (`inductive.cpp:28`), whose
+# `is_rec` (:308) is the RAW occurrence of a member in a binder domain of
+# a declared constructor type, block-wide, stored at
+# `declare_inductive_types` before any constructor is checked.  Good
+# twins from `tests/e2e/src/corner_unitcaps_*_free.lean`; bad twins
+# forged by `scripts/mk_unitcaps_bad.py` (`P U a` re-pointed to
+# `P U b`).  Official 0 / 1 each.
+# post: `U | mk`, `T | mk : U → T`, then `theorem f : P U a → P U b`.
+# Was 0 (every mode): `unitlike` ignored `is_rec`.
+0 corner_unitcaps_post_free.ndjson
+1 corner_unitcaps_post_bad.ndjson
+# mutual: `T.mk : Const Nat (∀ a b (x : P U a), R _ (@id (P U b) x)) → T`
+# — the domain mentions `U` but reduces to `Nat`, so the positivity
+# walk's `is_rec` said NON-recursive; typing the constructor then used
+# unit-η at `U`.  Today's route happened to reject (1), the target
+# route ACCEPTED.  Both now 1: the record's `is_rec` is the raw one.
+0 corner_unitcaps_mutual_free.ndjson
+1 corner_unitcaps_mutual_bad.ndjson
+# PUNIT (2026-09-29): `PUnit` is an ordinary inductive, no longer a
+# pinned basis block (`tests/e2e/src/corner_punit_*.lean`).  `own`: a
+# `prelude` stream declares its OWN, differently shaped `PUnit` —
+# was 1 (reserved basis name), official 0.  `unit_eta`: unit-η at the
+# stream's (toolchain) `PUnit` through `structUnitCert`, at concrete
+# universes, a universe variable and `PUnit.{0}` (proof irrelevance);
+# 0 before and after, official 0.
+0 corner_punit_own.ndjson
+0 corner_punit_unit_eta.ndjson
+# Charter item 8, D3 (lanes CHECKDEL/CHECKDEL2, 2026-09-26; sources
+# `tests/e2e/src/corner_checkdel_d_anc{,_nocall}.lean`, the bad twins forged
+# by `scripts/mk_checkdel_d_bad.py`): a phantom container parameter
+# `a : List R → Nat` whose VALUE's binder names the family's class
+# `List R`, read by a container field through a definition `F`.  The bad
+# twins spell that binder `List ((fun x => x) R)`.  Official compares
+# nested occurrences STRUCTURALLY (`replace_if_nested`, `inductive.cpp`
+# v4.33.0 :991): the two spellings become two auxiliary types and the
+# auxiliary constructor is ill-typed ("(kernel) application type
+# mismatch", measured from the sources at v4.29.1 and v4.33.0).  Official
+# 0 / 1 / 0 / 1.  We check on the concrete types, where the spellings are
+# defeq, and accept: an ACCEPTED SUPERSET (sound).
+# anc: the field reading `a` is the RECURSIVE one (`x : F α a β`, called
+# at `R`).  CHECKDEL2: 1 → 0 for the bad twin — ruling (D)'s
+# class-abstracted call typing, the only check that rejected it, is
+# withdrawn and deleted (maintainer, 2026-09-26).
+0 corner_checkdel_d_anc.ndjson
+0 corner_checkdel_d_anc_bad.ndjson
+# nocall: the field reading `a` is NOT recursive (`y : F α a Nat`); no
+# call types it.  Always 0 here; official 1.
+0 corner_checkdel_d_anc_nocall.ndjson
+0 corner_checkdel_d_anc_nocall_bad.ndjson
+# LEVEL KEYS (lane PRIMREC/KEYNAMED found them, lane LEVELFIX carried them to
+# `uniform-inds`; sources `tests/e2e/src/corner_keynamed_*.lean`, the split
+# forged by `scripts/mk_keynamed_fixtures.py`).  A nested class whose
+# instantiation reaches the checker at levels only EQUIVALENT to the
+# recursor's: official's `instantiate_lparams` simplifies (`level.cpp`
+# `mk_max`, `max 0 0 = 0`), `Level.subst` does not, so the positivity
+# check's node is `List.{max 0 0} …` where the recursor's major is
+# `List.{0} …`.  The recursor check compared them syntactically (the
+# major → node tie, the class's recorded normal forms and K.53′) until
+# SEEDDEFEQ M2; it now compares levels by `Level.isEquivList`.
+# d3_level: `List.{u} β` inside `D.{u}` nested at `D.{0} R` — one key
+# either way.  Official 0, today 0.
+0 corner_keynamed_d3_level.ndjson
+# d3_level_split: the same with one binder spelled `List.{max u u} β`
+# (forged).  Official 0; ours 0 (was a false reject, 1, before the
+# per-component class match).
+0 corner_keynamed_d3_level_split.ndjson
+# level_inst: the mechanism from an ordinary SOURCE, no forging:
+# `D.{u,v} | mk (l : List (β × γ))` (elaborated `List.{max u v}`), nested
+# at `D.{0,0} R R`.  Official 0; ours 0 (was a false reject, 1).
+0 corner_keynamed_level_inst.ndjson
+# RECPOS ROBUSTNESS (lane SEEDDEFEQ; forged by `scripts/mk_recpos_fixtures.py`
+# from exported twins, official = arena official v4.34.0-rc2, measured).
+# Variations of official's auxiliary recursor family.  The positivity check
+# is SEEDED with the stream's outside majors (`nestSeeds`), so the recursor
+# check reads classes by major, never by name or order.
+# OMITTED auxiliary recursors: official 0 (replay generates the auxiliaries
+# and compares only the recursors the stream carries).  Ruled (2026-09-27):
+# the stream must carry them — 1, an official-compatible restriction
+# (charter item 9).  rec_1 dropped: the name set is not T.rec_1 … T.rec_n;
+# rec_2 dropped: rec_1's rule calls an unknown constant.
+1 corner_recpos_missing_rec_1.ndjson
+1 corner_recpos_missing_rec_2.ndjson
+# the dropped recursor eliminates an occurrence whnf erases, nothing calls
+# it: 1 at k = 1 (the one-member conformance check's generator, which
+# reads the block as flat, sees the stream's second motive)
+# GENREC: official 0
+0 corner_recpos_missing_unreached.ndjson
+# the same at k = 2 (source `tests/e2e/src/corner_recpos_mutual_delta.lean`,
+# official 0, ours 0 — `MA.rec_1` seeds `List MA`) and its omission:
+# official 0, ours 0 — nothing reads the erased class, so the omission is
+# invisible; the ruling's 1 is OPEN (DESIGN, SEEDDEFEQ)
+0 corner_recpos_mutual_delta.ndjson
+0 corner_recpos_mutual_missing_unreached.ndjson
+# rec_1/rec_2 renamed into each other: official 1 ("Invalid recursor
+# TL.rec"), ours 0; an extra copy of rec_1 as rec_3: official 1 ("No such
+# recursor TL.rec_3"), ours 0 — sound supersets (charter item 8)
+0 corner_recpos_perm_names.ndjson
+0 corner_recpos_split_copy.ndjson
+# coarser identification: `corner_nestind_k53_callee_bad` with the class
+# the call was redirected to as the ONLY one (`WT.rec_2` dropped, `WT.rec_3`
+# renamed `WT.rec_2`).  Official 1 ("Invalid recursor WT.rec_2"); ours 0
+# (per-component defeq, a sound superset, charter item 8).
+0 corner_recpos_merge_defeq.ndjson
+# FUSELOOP ORDER (lane FUSELOOP, kept by lane UNFUSE; the forger
+# `scripts/mk_fuseloop_fixtures.py`, source of the twin
+# `tests/e2e/src/corner_fuseloop_order_base.lean`).  A stream failing both
+# the positivity check and a recursor's type.  The twin: official 0, ours 0.
+# The forged stream has a non-positive constructor AND a recursor whose
+# parameter domain is `Sort (M+1)`, `M` a `max` chain that exhausts the
+# level comparison's fuel (a decline).  Official 1 (positivity); ours 1:
+# the positivity check runs in the pass, before any recursor's type.  (The
+# reverted fused traversal ran stage (b) first and reported 2.)
+0 corner_fuseloop_order_base.ndjson
+1 corner_fuseloop_order_decline.ndjson
+# RPTIE ORDER (lane RPTIE; the forger `scripts/mk_rptie_fixtures.py`, source
+# of the twin `tests/e2e/src/corner_rptie_order_base.lean`).  The class
+# `P (T α)` occurs only under a redex whnf erases (`K (P (T α))`), so the
+# positivity walk meets it only as the SEED of `T.rec_1`.  The twin: official
+# 0, ours 0.  The forged stream makes `P`'s constructor non-positive at that
+# class (`(α → E) → P α`) AND gives `T.rec_1` the parameter domain
+# `Sort (M+1)`, `M` a `max` chain exhausting the level comparison's fuel (K6,
+# a decline).  Official 1 (the auxiliary type is non-positive); ours 2: the
+# recursor check resolved every major (stage (b), which declined here)
+# before it walked the resolved classes as seeds: 2 from lane RPTIE until
+# lane SIMP-AD.  Since SIMP-AD the classes are read off the raw records and
+# walked in the pass again (before the stream's recursor types are checked):
+# 1, official's verdict.  A move between reject and decline on a stream
+# failing two checks; no stream of the corpus moves.
+0 corner_rptie_order_base.ndjson
+1 corner_rptie_order_decline.ndjson
+# ERASED READ OF AN EARLIER RECURSIVE FIELD (lane RP-ANNOT, finding F-RPW-1
+# of RPWHNF; sources `tests/e2e/src/corner_rpwhnf_erasedread_*.lean`,
+# official = arena official, measured).  `mk : (x : T) → K2 T x → T` with
+# `def K2 (β) (_ : β) := β`: the recursor check types the call at the
+# abstract frame, the earlier field's annotation abstracted too (as the
+# positivity check reads the constructor).  Official 0; ours 0 (was 1,
+# "application type mismatch"), plain and as a container nested in `R`
+# (the reject was at the container itself); the control (an erased read of
+# a NON-recursive field) official 0, ours 0.
+0 corner_rpwhnf_erasedread_member.ndjson
+0 corner_rpwhnf_erasedread_frame.ndjson
+0 corner_rpwhnf_erasedread_nonrec.ndjson
+# SIMPD order (lane SIMPD: the member block is the positivity check's ROOT
+# frame).  `T (α) | mk : Wrap T → T α | deep : G 2000 (T α) → T α`: `mk`
+# fails M3 (a member unapplied in a phantom container parameter, as
+# `restrict_a29`: official v4.33.1+ 1), `deep` needs 2000 `Π`s reduction
+# manufactures, beyond its input-derived fuel (our resource limit, a
+# decline; official accepts it).  The root frame walks every constructor
+# before its own lines (M3/M2′) run: 2.  Before the lane each member
+# constructor's M3 ran right after its walk: 1.  A move between reject and
+# decline on a stream failing two checks (ruling 2026-09-29).
+# UNIFCHK (2026-09-29): 2 → 1, official's verdict — official's
+# uniform-occurrence check (`nestUniform`) replaces M3 and runs BEFORE the
+# walk, as official runs it first.
+1 corner_simpd_order_decline.ndjson
+# GENREC (charter item 5 as amended 2026-09-29: the recursor family is
+# GENERATED; the stream's recursor TYPES are compared with the generated
+# ones by defeq, its RULES are not read — the generated rules are
+# installed).  Forged by `scripts/mk_genrec_fixtures.py`; official =
+# the arena official v4.34.0-rc2, measured.  The rows are at their GENREC
+# targets (the generated stage, GENREC-FLIP).
+# A casesOn-SHAPED mutual family (every minor without its inductive
+# hypotheses, every rule without its recursive calls): a primitive
+# recursion, not official's recursor — official 1 ("Invalid recursor
+# MA.rec" / "TB.rec").  TARGET 1 (the generated type differs).
+# GENREC: official 1
+1 genrec_k2_caseson.ndjson
+# GENREC: official 1
+1 genrec_k3_caseson.ndjson
+# `Nat'.rec`'s rules (flat) and `NT.rec`/`NT.rec_1`'s (nested through
+# `List`) replaced by a constant, the types untouched, the definitions and
+# theorems that reduce through the rules kept — official 1 ("Invalid
+# recursor"); today 1 (not a primitive recursion).  TARGET 0: the stream's
+# rules are not read, the GENERATED rules are installed and every theorem
+# checks against them (charter item 8, GENREC update: any stream rules).
+# GENREC: official 1
+0 genrec_rules_garbage.ndjson
+# GENREC: official 1
+0 genrec_rules_garbage_nested.ndjson
+# The stream's auxiliary recursor family omits a class a constructor
+# field reaches (`T` nested through `W` and `List`; forged by lane
+# FUSEPOS): official 1 ("Invalid recursor T.rec_1"); today 0 (the
+# primitive-recursion check never asks for the missing class).  TARGET 1:
+# the generated rule would call a class whose recursor the stream omits.
+# GENREC: official 1
+1 corner_genrec_nest_missing_class.ndjson
+# UNIFCHK (2026-09-29): official's `check_uniform_ind_occs` (v4.33.1+),
+# `nestUniform`, run on the stored constructors before the positivity
+# check (sources in `tests/e2e/src/uh_*.lean`, forged with `addDecl`).
+# Occurrences uniform only after reduction, or in a parameter's domain:
+# 0 → 1, official's verdict (≤ v4.33.0 accepts all three).
+1 uh_root_beta_param.ndjson
+1 uh_root_erase_nonunif.ndjson
+1 uh_param_domain.ndjson
+# ...inside a container key: 1 before and after (M3 then, `nestUniform` now).
+1 uh_nest_key_beta_param.ndjson
+# Controls, uniform occurrences under redexes: official 0, ours 0.
+0 uh_root_erase_unif.ndjson
+0 uh_nest_key_redex.ndjson
+0 uh_nest_key_erase.ndjson
+# ACCEPTED SUPERSET (reported by lane UNIFCHK, not ruled): a non-uniform
+# occurrence only in a `let`'s type, or in an unused `let` value.  The check
+# reads the STORED constructor type, the ζ reduct of the declared one.
+# Official v4.33.1+ 1; ours 0 (before and after the lane).
+0 uh_let_erase_type.ndjson
+0 uh_let_erase_value.ndjson
 # KEEPPROJ (2026-09-29): a projection whose structure argument is stuck
 # keeps it as it was (official `whnf_core`), so `(step (id c) 24 x).1 =
 # (step c 24 x).1` compares `step … =?= step …` arguments first.  Returning
-# the projection of the struct's WHNF instead (before the fix) lost the
+# the projection of the struct's WHNF instead (before the lane) lost the
 # head and was exponential in the fuel; distilled from the self-check's
 # `ConLeche.nestRoot_datF._f` (source `tests/e2e/src/proj_stuck_struct.lean`,
 # timeout 10 s in tests/arena.sh).  Official 0; ours 0 in milliseconds

@@ -13,7 +13,7 @@ where `Nat.div`/`Nat.mod`/… are the real operations.  The *statements*
 fix the pinned spellings: guards via the already-certified `Nat.ble`
 (never the `Nat.le`/`Nat.lt` `Prop` inductives), numerals via
 `Nat.succ`/`Nat.zero` (never `OfNat`), so the model-side consumption
-rides the existing `NatOpsOk` literal semantics.
+rides the existing `NatOps` literal semantics.
 
 The proofs are written with *controlled* dependencies: no `simp`, no
 `decide` — the core lemmas (`Nat.mod_eq` …) are proved with simp steps

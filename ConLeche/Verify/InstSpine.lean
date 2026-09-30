@@ -91,34 +91,6 @@ theorem fvarLeaves_instSpine :
       · exact Or.inr ⟨a, List.mem_cons_self, hl''⟩
     · exact Or.inr ⟨a', List.mem_cons_of_mem _ ha', hla'⟩
 
-/-- Resolution survives substitution by an arbitrary resolving term
-(the fvar-annotation-specific `constsResolve_instantiate1`
-generalized). -/
-theorem Expr.constsResolve_instantiate1_gen {env : Env} {v : Expr}
-    (hv : v.constsResolve env = true) :
-    ∀ {e : Expr} (k : Nat), e.constsResolve env = true →
-      (e.instantiate1 v k).constsResolve env = true := by
-  intro e
-  induction e <;> intro k h <;>
-    simp_all [Expr.instantiate1, Expr.constsResolve]
-  case bvar i =>
-    split
-    · exact hv
-    · split <;> simp [Expr.constsResolve]
-
-/-- Resolution survives `instSpine` (base and arguments resolving). -/
-theorem instSpine_constsResolve {env : Env} :
-    ∀ {args : List Expr} (t : Nat) {e : Expr},
-      e.constsResolve env = true →
-      (∀ a ∈ args, a.constsResolve env = true) →
-      (Expr.instSpine args t e).constsResolve env = true
-  | [], _, _, he, _ => he
-  | a :: _as, t, _e, he, hargs =>
-    instSpine_constsResolve (t - 1)
-      (Expr.constsResolve_instantiate1_gen
-        (hargs a List.mem_cons_self) t he)
-      (fun a' ha' => hargs a' (List.mem_cons_of_mem _ ha'))
-
 /-! ## The firing comparands under shifts -/
 
 /-- The level comparand of a rule does not depend on the argument
@@ -212,25 +184,7 @@ theorem instPisAt_isSome_of_stripPis :
 /-! ## The rule-shape residue
 
 The four `V`-free facts about `recRulePlain` and `recFireComparands`
-that task #148's T1 relocation pass did not cover; both verified lanes'
-recursor-group installs read them, so they sit here rather than in
-either lane (relocated verbatim from
-`ConLeche/TTVerify/DeclIndRecs.lean`, task #148 T5 stage 3). -/
-
-/-- A canonical rule's constructor parameters are among the recursor's
-prefix. -/
-theorem recRulePlain_leT {recTy : Expr} {mI rP cnP : Nat}
-    (h : Expr.recRulePlain recTy mI rP cnP = true) :
-    cnP ≤ rP := by
-  rw [Expr.recRulePlain, Bool.and_eq_true, Bool.and_eq_true] at h
-  exact of_decide_eq_true h.1.1
-
-/-- A canonical rule's prefix fits under the major's position. -/
-theorem recRulePlain_le_mIT {recTy : Expr} {mI rP cnP : Nat}
-    (h : Expr.recRulePlain recTy mI rP cnP = true) :
-    rP ≤ mI := by
-  rw [Expr.recRulePlain, Bool.and_eq_true, Bool.and_eq_true] at h
-  exact of_decide_eq_true h.1.2
+that the recursor-group installs read. -/
 
 /-- The fire comparand levels of a plain rule. -/
 theorem recFireComparands_plain {rl : RecRule} {lps : List Name}
@@ -241,23 +195,9 @@ theorem recFireComparands_plain {rl : RecRule} {lps : List Name}
   unfold recFireComparands
   rw [h]
 
-/-- The fire comparand levels of a nested rule. -/
-theorem recFireComparands_nested {rl : RecRule} {lps : List Name}
-    {us : List Level} {cvjLps : List Name} {args : List Expr} {rP : Nat}
-    {lvls : List Level} {pins : List Expr}
-    (h : RecRule.fire rl = .nested lvls pins) :
-    (recFireComparands rl lps us cvjLps args rP).1 =
-      lvls.map (Level.subst lps us) := by
-  unfold recFireComparands
-  rw [h]
-
 /-! ## Two scoping facts the cached call-discipline needs
 
-Rehomed here at task #221 with the deletion of `Verify/Disc.lean` (the
-*memoized* knot's call discipline, whose knot induction had already
-gone): these two were the only
-declarations of that module the cached discipline
-(`Verify/Cached/DiscC*.lean`) still read. -/
+Read by the cached discipline (`Verify/Cached/DiscC*.lean`). -/
 
 /-- A list of well-scoped expressions has a well-scoped `getD`. -/
 theorem wscoped_getD {d : Nat} :

@@ -17,10 +17,8 @@ can replace it later, with a proof that it refines this one.
 
 namespace ConLeche
 
-/-- **The checker's mode setting** — two values since the R core's
-retirement (2026-09-05), validated once at startup and threaded as
-configuration, never re-read at runtime (the `structsEnabled`
-discipline).
+/-- **The checker's mode setting** — two values, validated once at
+startup and threaded as configuration, never re-read at runtime.
 
 * `.verified` (the default, `--verified`): the verified lane.  The
   surface the **graded** set-theoretic
@@ -29,8 +27,8 @@ discipline).
   this binary runs.  The seven TT-lane checks (tasks #126, #129, #130,
   #135, #136, #137, #146) are off; the β-certificate gate is on — at a
   λ-binder whose **validated** annotation is `.never` the per-redex
-  argument certificate is skipped (`betaTest`,
-  `ConLeche/Kernel/Core.lean`) — and the io-graded knot slot skips the
+  argument certificate is skipped (`betaGateFires`,
+  `ConLeche/Kernel/CoreDefs.lean`) — and the io-graded knot slot skips the
   per-argument application certificate under the same licence.  Every
   other certificate family runs unconditionally.
 * `.trusted` (`--trusted`): the unverified lane — the same checker
@@ -61,10 +59,9 @@ inductive CheckMode where
   | trusted
   deriving DecidableEq, Repr, Inhabited
 
-/-- Are the seven TT-lane checks enabled?  The one accessor the kernel
-branches on — **constantly `false` since task #148 T7b**, when the
-declarative verification lane and its `.ttModel` mode were retired
-together.  The gated call sites are kept, statically unreachable, so
+/-- Are the seven TT-lane checks enabled?  **Constantly `false`**: the
+declarative verification lane they served is retired (task #148).
+The gated call sites are kept, statically unreachable, so
 that the checks themselves survive as reviewed code and the accessor
 stays the single place a future lane would turn them back on. -/
 def CheckMode.ttChecks : CheckMode → Bool
@@ -85,8 +82,8 @@ def CheckMode.verifiedChecks : CheckMode → Bool
 
 /-- Is the **β-certificate gate** on (task #161)?  The third accessor
 the kernel branches on: at a λ-binder whose validated annotation datum
-is `.never` the per-redex argument certificate is skipped (`betaTest`,
-`ConLeche/Kernel/Core.lean`).
+is `.never` the per-redex argument certificate is skipped
+(`betaGateFires`, `ConLeche/Kernel/CoreDefs.lean`).
 
 Two disciplines ride on this accessor being a *mode* accessor rather
 than a second knot:
@@ -97,7 +94,7 @@ than a second knot:
   wraps the **test** only, so no certificate a possibly-zero datum
   needs is ever skipped;
 * **the dead-branch collapse** — at `betaGate = false` the gated test
-  is definitionally the ungated one (`betaTest_of_gate_off`), which is
+  is definitionally the ungated one (`betaGateFires_off`), which is
   what keeps the trusted lane's proofs one rewrite away from their
   pre-gate form.
 
@@ -223,12 +220,7 @@ into a licence was investigated (2026-09-06, `_tmp/iota-uniform/`):
 for *indices* it is refuted at the squash regime (`Acc.rec.{1}` on a
 cross-index `Acc.intro`: the licensed major's membership in `{pt}`
 carries no information, so the uniform fire's law is false); for
-*parameters* on the modeled route it needs parameter-independence of
-the `_model` constructor values — a set-level fact about model bodies
-with no Lean-typed spelling, which the public-interface-only ruling
-forbids.  Only the tuple-tower route could fire uniformly (its values
-ignore parameters by construction); a route-keyed uniform fire is the
-option once that route owns recursive and multi-constructor families.
+*parameters* see `RecRule.paramsBlind`.
 Stake: ≤ 0.8 % of init-full instructions. -/
 inductive RecRuleFire where
   | inert
@@ -274,9 +266,9 @@ structure RecRule where
   placeholder `false`): the ι step fires this rule without comparing
   the recursor's parameter arguments with the constructor's.  The
   fixpoint route and the pinned basis blocks set it, because their rule
-  laws hold at any pair of fitting parameter spines; the modeled route
-  and the projection functions do not, because their laws read the
-  comparison.  The official kernel compares nothing here
+  laws hold at any pair of fitting parameter spines; the projection
+  functions do not, because their laws read the comparison.  The official
+  kernel compares nothing here
   (`inductive_reduce_rec`), so a set bit is a step towards it. -/
   paramsBlind : Bool := false
   deriving DecidableEq, Repr, Inhabited
@@ -337,18 +329,15 @@ def sameRegular : ReducibilityHint → ReducibilityHint → Bool
 
 end ReducibilityHint
 
-/-- The trusted basis inductives (hand-written set models; a modelled
-block's `_model` family is built over these). -/
+/-- The trusted basis inductives (hand-written set models). -/
 inductive BasisKind where
-  | eqK | natK | punitK | emptyK | falseK | quotK
+  | eqK | natK | emptyK | falseK | quotK
   deriving DecidableEq, Repr, Inhabited
-
 
 /-- Definitional capabilities of a stored inductive type, recorded at
 install: structural eta for its (single-constructor) values, unit-like
 collapse (all inhabitants definitionally equal), and rule K for its
-recursor.  The pinned basis blocks carry pinned capabilities; modeled
-blocks earn them from checked `_model` theorems. -/
+recursor.  The pinned basis blocks carry pinned capabilities. -/
 structure IndCaps where
   eta : Bool := false
   /-- The single constructor the eta law reconstructs through
@@ -364,13 +353,34 @@ structure IndCaps where
   unitParams : Nat := 0
   ruleK : Bool := false
   /-- **The family's result-sort zero-ness datum** (install-computed
-  from the stored type: `piResultZ`; the default `ifAllZero []` reads
+  from the stored type; the default `ifAllZero []` reads
   "zero at every valuation", which no rescue passes).  The structure-η
   rescue fires only where the official kernel's `is_never_zero` holds
   of the *instantiated* result sort, and this datum decides that at a
   use by one level substitution (`capsNeverZero`) instead of a walk
   down the family's type at every rescue. -/
   sortZ : PropWhen := .ifAllZero []
+  /-- **The block's members** (official's `all`): the formers installed
+  together with this one, in block
+  order, itself included.  Read by nested positivity alone — a container
+  frame's restart (`nestFrame`) abstracts only group-mates listed here,
+  so an accepted frame's holes are members of ONE recorded block (a pinned
+  basis type records `[T]`, as official does; `Quot` alone keeps `[]`). -/
+  all : List Name := []
+  /-- **The family's parameter count** (official's `inductive_val.nparams`):
+  the block's declared parameter count, recorded at every install
+  (uniform: `BlockShape.nP`; basis: the pin's).  Read by nested positivity
+  alone, and only for a
+  container WITHOUT constructors (`nestContainer`), whose parameter count
+  no constructor record carries. -/
+  nparams : Nat := 0
+  /-- **The family's constructors, in declaration order** (official's
+  `inductive_val.cnstrs`): recorded at install (uniform: the member's
+  constructors; basis: the pin's).  Read by nested positivity alone
+  (`nestContainer`): a container's constructors are looked up by name,
+  never by a scan of the environment.  `Quot` records none (it is no
+  container). -/
+  ctors : List Name := []
   deriving DecidableEq, Repr, Inhabited
 
 /-- **One structure's projection table** (task #175 S1, 2026-09-06):
@@ -392,11 +402,8 @@ annotated constructor type by substitution alone (`structProjBodies`)
 — no annotate, no infer, no pins: a slot with no legal instantiation
 simply fails the guard at every use.
 
-**Table-kind flag retired** (task #175 tower-flag, 2026-09-06): the
-modeled route installs no table at all — a family without a table IS
-a modeled one, and `findProj? = none` already says so at every
-`.proj` site.  So *every* stored table carries bodies, types its
-nodes and fires its rule, and the projection typing and iota laws
+**No table kinds** (task #175 tower-flag): every stored table carries
+bodies, types its nodes and fires its rule, and the projection typing and iota laws
 hold uniformly over every entry of every stored table. -/
 structure ProjTable where
   structName : Name
@@ -529,8 +536,7 @@ inductive Declaration where
   | basisDecl (kind : BasisKind)
   /-- An inductive block: type formers, constructors and recursors,
   with **the parameter count the stream DECLARES** (task #228).
-  Installed by a direct route, or — the modeled route — opaquely
-  after checking each member against its `_model` counterpart.
+  Installed by the uniform route (`checkBlock`).
 
   The count is official's own declaration shape: `add_inductive`
   takes `Declaration.inductDecl lparams nparams types` with ONE
@@ -560,12 +566,6 @@ inductive Declaration where
   deriving DecidableEq, Repr, Inhabited
 
 namespace Declaration
-
-/-- The name of a non-basis declaration (basis blocks install several). -/
-def name : Declaration → Name
-  | .axiomDecl v | .defnDecl v _ _ | .thmDecl v _ | .opaqueDecl v _ => v.name
-  | .quotDecl _ v => v.name
-  | .basisDecl _ | .indDecl _ _ => .anonymous
 
 end Declaration
 
@@ -621,8 +621,7 @@ def indParamsOk (nP : Nat) (block : List ConstantInfo) : Bool :=
     | _ => true
 
 /-- The public projection-*function* name for field `i` of structure
-`T` — the modeled path's degenerate-recursor projection functions
-(`checkProjFn`; a `Nat` component keeps it out of the way of exported
+`T` (a `Nat` component keeps it out of the way of exported
 identifiers; installs are duplicate-checked regardless).  Since task
 #175 S1 no table entry lives under this name: the direct install's
 table is one constant per structure, `projTableName`. -/
@@ -649,8 +648,6 @@ owes it no leaf. -/
 def isTowerEntry : ConstantInfo → Bool
   | .projInfo _ => true
   | _ => false
-
-def type (c : ConstantInfo) : Expr := c.toConstantVal.type
 
 end ConstantInfo
 
@@ -695,100 +692,5 @@ def findProj? (env : Env) (T : Name) (i : Nat) : Option ProjEntry :=
   | _ => none
 
 end Env
-
-/-! ## The block's recursor suffix, decided on the tags
-
-`checkModeled` (and its cached mirror) asks that a block's recursors
-form a SUFFIX of it, and it asks it as an equation between the block
-and its own stable partition — `block = nonrecs ++ recs`.  The
-statement is the one the fold consumes (`Semantics.DeclIndRun`'s first
-conjunct), so it stays; what changes here is the *decision*.  The
-derived `DecidableEq (List ConstantInfo)` compares every member's TYPE
-structurally, with no pointer shortcut and no memo, so a block whose
-constructor carries a DAG-shared tower is compared as a tree —
-`tests/e2e/tower_mutual.ndjson` and `tests/e2e/tower_nested.ndjson`
-exhaust memory on it.  The equation is decidable on the constructor
-TAGS alone, in one pass and without looking at an expression at all,
-and a `Decidable` instance is a subsingleton, so substituting this one
-leaves every proof about the guard untouched. -/
-
-/-- Is this member a recursor record? -/
-def ConstantInfo.isRecInfo : ConstantInfo → Bool
-  | .recInfo _ _ _ _ => true
-  | _ => false
-
-/-- Do the recursors form a suffix of the block?  The tag pass. -/
-def recsFormSuffix : List ConstantInfo → Bool
-  | [] => true
-  | ci :: rest =>
-    if ci.isRecInfo then rest.all ConstantInfo.isRecInfo
-    else recsFormSuffix rest
-
-/-- The block filters, in terms of the tag. -/
-theorem recsFilterNeg : (fun ci : ConstantInfo => match ci with
-    | .recInfo _ _ _ _ => false | _ => true) = fun ci => !ci.isRecInfo := by
-  funext ci; cases ci <;> rfl
-
-@[inherit_doc recsFilterNeg]
-theorem recsFilterPos : (fun ci : ConstantInfo => match ci with
-    | .recInfo _ _ _ _ => true | _ => false) = ConstantInfo.isRecInfo := by
-  funext ci; cases ci <;> rfl
-
-/-- **The tag pass decides the partition equation**, on the tag. -/
-theorem recsFormSuffix_iff' : ∀ block : List ConstantInfo,
-    recsFormSuffix block = true ↔
-      block = block.filter (fun ci => !ci.isRecInfo)
-        ++ block.filter ConstantInfo.isRecInfo := by
-  intro block
-  induction block with
-  | nil => simp [recsFormSuffix]
-  | cons ci rest ih =>
-    by_cases hci : ci.isRecInfo = true
-    · rw [recsFormSuffix, if_pos hci,
-        List.filter_cons_of_neg (by simp [hci]),
-        List.filter_cons_of_pos hci]
-      constructor
-      · intro hall
-        have hnil : rest.filter (fun x => !x.isRecInfo) = [] := by
-          rw [List.filter_eq_nil_iff]
-          intro x hx
-          simp [List.all_eq_true.mp hall x hx]
-        rw [hnil, List.nil_append, List.cons.injEq]
-        refine ⟨rfl, ?_⟩
-        exact (List.filter_eq_self.mpr
-          (fun x hx => List.all_eq_true.mp hall x hx)).symm
-      · intro heq
-        rcases hp : rest.filter (fun x => !x.isRecInfo) with _ | ⟨y, ys⟩
-        · refine List.all_eq_true.mpr fun x hx => ?_
-          have := (List.filter_eq_nil_iff.mp hp) x hx
-          simpa using this
-        · rw [hp, List.cons_append, List.cons.injEq] at heq
-          have hy : y ∈ rest.filter (fun x => !x.isRecInfo) := by rw [hp]; simp
-          have hy' : (!y.isRecInfo) = true := (List.mem_filter.mp hy).2
-          rw [← heq.1] at hy'
-          simp [hci] at hy'
-    · rw [recsFormSuffix, if_neg hci,
-        List.filter_cons_of_pos (by simp [hci]),
-        List.filter_cons_of_neg (by simp [hci]),
-        List.cons_append, List.cons.injEq]
-      simp [ih]
-
-@[inherit_doc recsFormSuffix_iff']
-theorem recsFormSuffix_iff (block : List ConstantInfo) :
-    recsFormSuffix block = true ↔
-      block = block.filter (fun ci => match ci with
-          | .recInfo _ _ _ _ => false | _ => true)
-        ++ block.filter (fun ci => match ci with
-          | .recInfo _ _ _ _ => true | _ => false) := by
-  rw [recsFilterNeg, recsFilterPos]
-  exact recsFormSuffix_iff' block
-
-/-- The substituted decision (`recsFormSuffix_iff`). -/
-instance blockRecSuffixDec (block : List ConstantInfo) :
-    Decidable (block = block.filter (fun ci => match ci with
-        | .recInfo _ _ _ _ => false | _ => true)
-      ++ block.filter (fun ci => match ci with
-        | .recInfo _ _ _ _ => true | _ => false)) :=
-  decidable_of_iff _ (recsFormSuffix_iff block)
 
 end ConLeche

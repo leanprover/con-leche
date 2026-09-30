@@ -7,18 +7,10 @@ public section
 /-!
 # Cached body walks, part 5: definitional equality (task #163)
 
-Port of `ConLeche/Verify/DiscI5.lean` under the recipe (DESIGN.md,
-task #163): the simulation walks for `defeqStepI`, `defeqLoopI` and
-`defeqBodyI` (`ConLeche/Cached/CoreC.lean`), whose bodies are
-character-identical to their `ConLeche/Kernel/CoreI.lean` originals up to
-`EIdx → Expr` / `CheckIM → CheckCM`.
-
-Where the interned walk needed the arena's canonicity
-(`beq_transfer`, via `denoteT_inj`) to identify an index comparison
-with the spec's structural comparison, the cached walk uses
-`Expr.beq_iff` — decided equality *is* equality of the
-erasures (`eraseC_inj`), with no store in sight.  The pure comparand
-side of every statement is byte-identical to the interned original's.
+The simulation walks for `defeqStepI`, `defeqLoopI` and `defeqBodyI`
+(`ConLeche/Cached/CoreC.lean`).  A decided `Expr` comparison on the
+cached side is the spec's structural comparison (`beq_transferC`): the
+two sides are the same terms, with no store in sight.
 -/
 
 set_option linter.unusedSimpArgs false
@@ -34,16 +26,14 @@ section Walks
 variable {env : Env} {f : Nat}
 
 /-- Decided `Expr` equality decides expression equality on the field
-invariant — the port of `beq_transfer` (whose arena leg was
-`denoteT_inj`). -/
+invariant. -/
 private theorem beq_transferC {i j : Expr} {a b : Expr}
     (ha : RelC i a) (hb : RelC j b) : (i == j) = (a == b) := by
   obtain rfl := ha
   obtain rfl := hb
   rfl
 
-/-- The one-sided-λ (right) stuck arm.  The name and binder-meta
-bridges of the interned original collapse (the cached representation
+/-- The one-sided-λ (right) stuck arm (the cached representation
 stores `Name`s and `BinderMeta`s directly). -/
 private theorem defeqC_etaR_arm (hμ : mode.verifiedChecks = true) (ih : SSimC mode env f) (henv : EnvWF env)
     {d : Nat} {a' b' t₂ b₂ : Expr} {a'x ty₂x body₂x : Expr}
@@ -224,8 +214,8 @@ theorem defeqStepC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode env f
       | false =>
       simp only [Bool.false_eq_true, ↓reduceIte]
       have hs₂ := hs₂p
-      -- peel the fvar-guard read; `hasFvarI` agrees with the spec's
-      -- `hasFvar`, so both sides carry the same guard
+      -- peel the fvar-guard read; the cached `Expr.hasFvar` agrees
+      -- with the spec's, so both sides carry the same guard
       refine SimC.pureB ?_
       rw [hasFvar_spec' ha'd, hasFvar_spec' hb'd]
       refine SimC.bind (reduceNatIfC_sim ih hs₂ ha'd hwa' _)

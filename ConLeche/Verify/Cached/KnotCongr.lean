@@ -19,8 +19,6 @@ The consumer is the re-check at a task-#108 prefix view:
 the first `k` constants have the same `find?`, so `coreKnotI_congr`
 says they run the *same* core — and the simulation stated at
 `mkFEnv env` therefore covers a run at the prefix view.
-`sharedOpsC_congr` and `opSIxC_congr` carry that to the two operation
-records the drivers hand out.
 -/
 
 namespace ConLeche.Cached
@@ -60,11 +58,6 @@ theorem strLitSupportedF_congr (hfe : fe₁.find? = fe₂.find?) :
     strLitSupportedF fe₁ = strLitSupportedF fe₂ := by
   unfold strLitSupportedF; simp only [hfe, natLitSupportedF_congr hfe]
 
-/-- `natOpGuardF` reads `fe` only through `find?`. -/
-theorem natOpGuardF_congr (hfe : fe₁.find? = fe₂.find?) :
-    natOpGuardF fe₁ = natOpGuardF fe₂ := by
-  funext c; unfold natOpGuardF; simp only [hfe, natLitSupportedF_congr hfe]
-
 /-- `natOpStoredF` reads `fe` only through `find?`. -/
 theorem natOpStoredF_congr (hfe : fe₁.find? = fe₂.find?) :
     natOpStoredF fe₁ = natOpStoredF fe₂ := by
@@ -72,11 +65,6 @@ theorem natOpStoredF_congr (hfe : fe₁.find? = fe₂.find?) :
 
 /-! ## The cached guards and stored-constant reads
 (`ConLeche/Cached/StateC.lean`) -/
-
-/-- `isUnitLikeTyC` reads `fe` only through `find?`. -/
-theorem isUnitLikeTyC_congr (hfe : fe₁.find? = fe₂.find?) :
-    isUnitLikeTyC fe₁ = isUnitLikeTyC fe₂ := by
-  funext e; unfold isUnitLikeTyC; simp only [hfe]
 
 /-- `isCtorAppC` reads `fe` only through `find?`. -/
 theorem isCtorAppC_congr (hfe : fe₁.find? = fe₂.find?) :
@@ -210,11 +198,6 @@ theorem defeqSpineI_congr (hfe : fe₁.find? = fe₂.find?) (r : CoreFnsI) :
     defeqSpineI r fe₁ = defeqSpineI r fe₂ := by
   funext depth a b; unfold defeqSpineI; simp only [defEqListI_congr hfe]
 
-/-- `proofIrrelI` reads `fe` only through `find?`. -/
-theorem proofIrrelI_congr (hfe : fe₁.find? = fe₂.find?) (r : CoreFnsI) :
-    proofIrrelI r fe₁ = proofIrrelI r fe₂ := by
-  funext depth a b; unfold proofIrrelI; simp only [isUnitLikeTyC_congr hfe]
-
 /-- `propIrrelI` reads `fe` only through `find?`. -/
 theorem propIrrelI_congr (hfe : fe₁.find? = fe₂.find?) (r : CoreFnsI) :
     propIrrelI r fe₁ = propIrrelI r fe₂ := by
@@ -264,15 +247,14 @@ theorem etaCertI_congr (_hfe : fe₁.find? = fe₂.find?) (r : CoreFnsI) :
 theorem stuckIrrelI_congr (hfe : fe₁.find? = fe₂.find?) (r : CoreFnsI) :
     stuckIrrelI mode r fe₁ = stuckIrrelI mode r fe₂ := by
   funext depth a b; unfold stuckIrrelI
-  simp only [structEtaCertI_congr hfe, structUnitCertI_congr hfe,
-    proofIrrelI_congr hfe]
+  simp only [structEtaCertI_congr hfe, structUnitCertI_congr hfe]
 
 /-- `majorToCtorI` reads `fe` only through `find?`. -/
 theorem majorToCtorI_congr (hfe : fe₁.find? = fe₂.find?) (r : CoreFnsI) :
     majorToCtorI mode r fe₁ = majorToCtorI mode r fe₂ := by
   funext depth recName rules major; unfold majorToCtorI
   simp only [isCtorAppC_congr hfe, hfe, constTyAtM_congr hfe,
-    iotaCertsI_congr hfe, proofIrrelI_congr hfe, projAppsI_congr hfe,
+    iotaCertsI_congr hfe, projAppsI_congr hfe,
     structEtaCertWithI_congr hfe, andRescueSlotsF_congr hfe]
 
 /-- `litMajorToCtorI` reads `fe` only through `find?`. -/
@@ -357,12 +339,6 @@ theorem whnfAppI_congr (hfe : fe₁.find? = fe₂.find?) (r : CoreFnsI)
     (depth : Nat) (k : Expr → CheckCM Expr) :
     whnfAppI mode r fe₁ depth k = whnfAppI mode r fe₂ depth k := by
   funext v args; exact (whnfAppI_betaPeelI_congr hfe r depth k).1 v args
-
-/-- `betaPeelI` reads `fe` only through `find?`. -/
-theorem betaPeelI_congr (hfe : fe₁.find? = fe₂.find?) (r : CoreFnsI)
-    (depth : Nat) (k : Expr → CheckCM Expr) :
-    betaPeelI mode r fe₁ depth k = betaPeelI mode r fe₂ depth k := by
-  funext t acc args; exact (whnfAppI_betaPeelI_congr hfe r depth k).2 t acc args
 
 /-- `whnfCoreStepI` reads `fe` only through `find?`. -/
 theorem whnfCoreStepI_congr (hfe : fe₁.find? = fe₂.find?) (r : CoreFnsI) :
@@ -518,7 +494,7 @@ theorem annotateBodyI_congr (hfe : fe₁.find? = fe₂.find?) (r : CoreFnsI) :
   funext depth e; unfold annotateBodyI
   simp only [natLitSupportedF_congr hfe, strLitSupportedF_congr hfe,
     annotatePisI_congr hfe, annotateLamsI_congr hfe, annotPwLamI_congr hfe,
-    findProj?_congr hfe]
+    findProj?_congr hfe, hfe]
 
 /-! ## The knot, and the operation records built on it -/
 
@@ -534,11 +510,6 @@ theorem coreKnotI_congr (hfe : fe₁.find? = fe₂.find?) :
     simp only [ih, whnfCoreBodyI_congr hfe, whnfBodyI_congr hfe,
       inferBodyI_congr hfe, defeqBodyI_congr hfe, annotateBodyI_congr hfe,
       inferBodyIOI_congr hfe]
-
-/-- `sharedOpsC` reads `fe` only through `find?`. -/
-theorem sharedOpsC_congr (hfe : fe₁.find? = fe₂.find?) :
-    sharedOpsC mode fe₁ = sharedOpsC mode fe₂ := by
-  unfold sharedOpsC opE opB opS; simp only [coreKnotI_congr hfe]
 
 /-- `opSIxC` reads `fe` only through `find?`. -/
 theorem opSIxC_congr (hfe : fe₁.find? = fe₂.find?) :

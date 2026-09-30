@@ -5,13 +5,9 @@ public import ConLeche.Verify.Knot
 public section
 
 /-!
-# `defeqStep`, inverted (task #305, lane B3)
+# `defeqStep`, inverted (task #305)
 
-`Model/Steps/DefEq.lean`'s `defeqStep_claim` (`:514`) and
-`defeqStuck_claim` (`:873`) invert `defeqStep` INLINE, against their
-own continuation contract; nothing in `ConLeche/Verify/` did, so the
-defeq bridge would have had to invert it a third time.  This module is
-the inversion on its own: the checker's case tree, read back as a
+The inversion on its own: the checker's case tree, read back as a
 disjunction of the runs each exit made, with no model in sight.
 
 Two statements.  `DefeqStuckExit` is the seventeen exits of the
@@ -118,8 +114,7 @@ inductive DefeqStuckExit (env : Env) (fuel d : Nat) : Expr → Expr → Prop whe
       etaCertFueled .verified env fuel d ty bd mb a = .ok true →
       DefeqStuckExit env fuel d a (.lam ty bd mb)
 
-/-- `Expr.isBoolTrue` reads exactly the constant `Bool.true`
-(`Model/Steps/DefEq.lean:510`'s private twin). -/
+/-- `Expr.isBoolTrue` reads exactly the constant `Bool.true`. -/
 theorem isBoolTrue_iff {e : Expr} : e.isBoolTrue = true ↔ e = .const boolTrueName [] := by
   cases e <;> (try cases ‹List Level›) <;> simp [Expr.isBoolTrue]
 

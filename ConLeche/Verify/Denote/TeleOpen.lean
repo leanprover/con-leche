@@ -1,16 +1,16 @@
 module
 
-public import ConLeche.Verify.Denote.Rename
+import ConLeche.Verify.Subst
 public import ConLeche.Verify.Denote.OpenVars
 import ConLeche.Verify.InferLemmas
+public import ConLeche.Verify.Denote.Shift
 
 public section
 
 /-!
 # Opening a telescope, and substituting a spine into what is left
 
-The phase's shared piece, named in `ConLeche/TTVerify/DeclInd.lean`:
-**the thing that moves a spine between two descriptions of the same
+**The thing that moves a spine between two descriptions of the same
 telescope.**  Both folds and both bottoms need the *residual* of a
 `∀`-telescope after `k` arguments, and the two sides describe it
 differently:
@@ -68,94 +68,12 @@ theorem instSeq_eq_self_of_closed {e : Term} (h : Closed e) :
     (us : List Nat) : instSeq as t (.const c us) = .const c us :=
   instSeq_eq_self_of_closed (e := .const c us) trivial as t
 
-theorem instSeq_app : ∀ (as : List Term) (t : Nat) (f a : Term),
-    instSeq as t (.app f a) = .app (instSeq as t f) (instSeq as t a) := by
-  intro as
-  induction as with
-  | nil => intro t f a; rfl
-  | cons x xs ih => intro t f a; rw [instSeq_cons, inst_app, ih]; rfl
-
-theorem instSeq_mkAppN : ∀ (as : List Term) (t : Nat) (f : Term)
-    (args : List Term),
-    instSeq as t (mkAppN f args) =
-      mkAppN (instSeq as t f) (args.map (instSeq as t ·)) := by
-  intro as t f args
-  induction args generalizing f with
-  | nil => rfl
-  | cons a args ih =>
-    rw [mkAppN_cons, ih, instSeq_app]
-    rfl
-
-/-- Under a binder the cut steps up — the transcription of
-`Expr.instSeq_forallE`, with the same side condition. -/
-theorem instSeq_pi : ∀ (as : List Term) (t : Nat) (A B : Term),
-    as.length ≤ t + 1 →
-    instSeq as t (.pi A B) = .pi (instSeq as t A) (instSeq as (t + 1) B) := by
-  intro as
-  induction as with
-  | nil => intro t A B _; rfl
-  | cons x xs ih =>
-    intro t A B hlen
-    simp only [List.length_cons] at hlen
-    rw [instSeq_cons, inst_pi,
-      ih (t - 1) (A.inst x t) (B.inst x (t + 1)) (by omega)]
-    rw [instSeq_cons (t := t) (e := A), instSeq_cons (t := t + 1) (e := B)]
-    cases xs with
-    | nil => rfl
-    | cons y ys => rw [show t - 1 + 1 = t + 1 - 1 from by simp at hlen; omega]
-
-/-- A variable below the substituted range is untouched. -/
-theorem instSeq_bvar_lt : ∀ (as : List Term) (t j : Nat),
-    j + as.length ≤ t → instSeq as t (.bvar j) = .bvar j := by
-  intro as
-  induction as with
-  | nil => intro t j _; rfl
-  | cons x xs ih =>
-    intro t j hlen
-    simp only [List.length_cons] at hlen
-    rw [instSeq_cons, inst_bvar, if_pos (by omega)]
-    exact ih (t - 1) j (by omega)
-
 end Term
 end ConLeche.Term
 
 namespace ConLeche.Verify
 
 open ConLeche.Term
-
-/-! ## Opening a telescope's binders
-
-The `Expr` half.  Opening is `Expr.instSeq` at a run of fresh
-variables, so `instSeq_forallE`, `instSeq_mkAppN`, `instSeq_bvar` and
-`instSeq_eq_self` all apply unchanged; the only fact this section adds
-is the one the `Expr` side was missing — that an instantiation *below*
-the substituted range passes through (`instSeq_instantiate1_in`, the
-dual of `Expr.instSeq_instantiate1_out`). -/
-
-/-- **An instantiation below the substituted range passes through.**
-The dual of `Expr.instSeq_instantiate1_out`, and the fact that lets a
-residual's *own* binders be opened by `denote` after the telescope's
-have been opened by `instSeq`. -/
-theorem instSeq_instantiate1_in {b : Expr}
-    (hbb : b.looseBVarsBounded 0 = true) :
-    ∀ (args : List Expr) (t : Nat) {e : Expr},
-      (∀ a ∈ args, a.looseBVarsBounded 0 = true) →
-      args.length ≤ t →
-      (Expr.instSeq args t e).instantiate1 b 0 =
-        Expr.instSeq args (t - 1) (e.instantiate1 b 0) := by
-  intro args
-  induction args with
-  | nil => intro t e _ _; rfl
-  | cons a as ih =>
-    intro t e hb hlen
-    simp only [List.length_cons] at hlen
-    show (Expr.instSeq as (t - 1) (e.instantiate1 a t)).instantiate1 b 0 = _
-    rw [ih (t - 1) (fun x hx => hb x (List.mem_cons_of_mem _ hx)) (by omega)]
-    show _ = Expr.instSeq as (t - 1 - 1) ((e.instantiate1 b 0).instantiate1 a (t - 1))
-    rw [show t = (t - 1) + 1 from by omega]
-    rw [Expr.instantiate1_instantiate1 (hb a List.mem_cons_self) hbb e 0 (t - 1)
-      (Nat.zero_le _)]
-    simp
 
 /-! ## The checker's opener, tied to the fold machinery
 
@@ -166,19 +84,18 @@ capability pins use `stripPis` and the folds were built on
 `Expr.instSeq (openFvars d k)`.  The two openers agree: both peel
 outermost-first, giving the `j`-th binder the variable at index
 `d + j`.  This section is that agreement, so the bottoms inherit
-`piTower_of_stripPis`, `denote_paramTuple` and everything else the
-folds built rather than re-deriving them against a second opener.
+everything the folds built rather than re-deriving it against a
+second opener.
 
 `openPisAtFvars` opens with the binder's *own* name and domain and
 `openFvars` with canonical ones; `denote` reads neither
 (`ConLeche/Verify/Denote.lean`), so the two bodies are `ErasedEq` and
-that is exactly the tolerance `denote_erasedEq` consumes. -/
+that is exactly the tolerance the denotation has. -/
 
 /-- A telescope that opens at a free variable strips.  **The `fvar`
 restriction is not cosmetic**: for a general `v` the statement is
 false, since `(.bvar 0).instantiate1 v 0 = v` may be a `∀` while
-`.bvar 0` is not.  Sibling of `stripLams_instantiate1_fvar_isSome_rev`,
-and the checker only ever opens at variables. -/
+`.bvar 0` is not; the checker only ever opens at variables. -/
 theorem stripPis_instantiate1_fvar_isSome_rev {i : Nat}
     {ty : Expr} :
     ∀ (k : Nat) {e : Expr} (j : Nat),
@@ -312,154 +229,5 @@ theorem openPisAtFvars_instSeq :
               p1.2 = Expr.instSeq p.1 (k + 1 - 1 - 1)
               (p1.2.instantiate1 (.fvar d dom) (k + 1 - 1)) from rfl,
             Nat.add_sub_cancel]
-
-/-- Indexing a prefix of a list by `range`. -/
-theorem range_map_getD_prefix {α : Type _} [Inhabited α] (xs : List α)
-    (nP : Nat) (h : nP ≤ xs.length) :
-    (List.range nP).map (fun k => xs.getD k default) = xs.take nP := by
-  refine List.ext_getElem? ?_
-  intro j
-  rw [List.getElem?_map]
-  rcases Nat.lt_or_ge j nP with hj | hj
-  · rw [List.getElem?_range hj, List.getElem?_take_of_lt hj,
-      List.getElem?_eq_getElem (show j < xs.length from by omega)]
-    simp [List.getD, List.getElem?_eq_getElem
-      (show j < xs.length from by omega)]
-  · rw [List.getElem?_eq_none (by simpa using hj),
-      List.getElem?_eq_none (by simp; omega)]
-    rfl
-
-/-- Indexing a suffix of a list by `range`. -/
-theorem range_map_getD_suffix {α : Type _} [Inhabited α] (xs : List α)
-    (nP nF : Nat) (h : xs.length = nP + nF) :
-    (List.range nF).map (fun k => xs.getD (nP + k) default) =
-      xs.drop nP := by
-  refine List.ext_getElem? ?_
-  intro j
-  rw [List.getElem?_map]
-  rcases Nat.lt_or_ge j nF with hj | hj
-  · rw [List.getElem?_range hj, List.getElem?_drop,
-      List.getElem?_eq_getElem (show nP + j < xs.length from by omega)]
-    simp [List.getD, List.getElem?_eq_getElem
-      (show nP + j < xs.length from by omega)]
-  · rw [List.getElem?_eq_none (by simpa using hj),
-      List.getElem?_eq_none (by simp; omega)]
-    rfl
-
-set_option maxHeartbeats 3200000 in
-/-- **The pinned projection statement, opened.**  `checkProjIota` pins
-the strip-form body; the bottom consumes the opened form; the pinned
-spine computes through `Expr.instSeq` at the openers. -/
-theorem projStmtParts {sty : Expr} {nP nF i : Nat}
-    {fvsO : List Expr} {sbodyO : Expr}
-    {sbinders : List (Expr × BinderMeta)}
-    {tySlot : Expr} {ℓA : Level} {Pm Cm : Name}
-    {lpsE cusE : List Level}
-    (hilt : i < nF)
-    (_hSb : sty.looseBVarsBounded 0 = true)
-    (hopenO : openPisAtFvars (nP + nF) sty 0 = some (fvsO, sbodyO))
-    (hS_strip : sty.stripPis (nP + nF) = some (sbinders,
-      .app (.app (.app (.const eqName [ℓA]) tySlot)
-        (Expr.mkAppN (.const Pm lpsE)
-          (((List.range nP).map fun k => Expr.bvar (nP + nF - 1 - k)) ++
-           [Expr.mkAppN (.const Cm cusE)
-             (((List.range nP).map fun k =>
-                 Expr.bvar (nP + nF - 1 - k)) ++
-              ((List.range nF).map fun k => Expr.bvar (nF - 1 - k)))])))
-        (.bvar (nF - 1 - i)))) :
-    fvsO.length = nP + nF ∧
-    sbodyO.getAppFn = .const eqName [ℓA] ∧
-    ∃ αS, sbodyO.getAppArgs = [αS,
-      Expr.mkAppN (.const Pm lpsE)
-        (fvsO.take nP ++
-         [Expr.mkAppN (.const Cm cusE) (fvsO.take nP ++ fvsO.drop nP)]),
-      fvsO.getD (nP + i) default] := by
-  have hbody := openPisAtFvars_instSeq (nP + nF) hopenO hS_strip
-  obtain ⟨bsS, body₀S, hstripO, hlenO, hIdx, -⟩ :=
-    openPisAtFvars_stripPis (nP + nF) hopenO
-  have hfvsB : ∀ a ∈ fvsO, a.looseBVarsBounded 0 = true := by
-    intro a ha
-    obtain ⟨j, hjlt, rfl⟩ := List.mem_iff_getElem.mp ha
-    obtain ⟨ty, hfj⟩ := hIdx j (by rw [← hlenO]; exact hjlt)
-    rw [List.getElem?_eq_getElem hjlt] at hfj
-    rw [Option.some.inj hfj]
-    rfl
-  have hbv : ∀ j, j < nP + nF →
-      Expr.instSeq fvsO (nP + nF - 1) (.bvar j) =
-        fvsO.getD (nP + nF - 1 - j) default := by
-    intro j hj
-    have hb := Expr.instSeq_bvar fvsO (nP + nF - 1) j hfvsB (by omega)
-      (by rw [hlenO]; omega)
-    have hklt : nP + nF - 1 - j < fvsO.length := by rw [hlenO]; omega
-    rw [List.getElem?_eq_getElem hklt] at hb
-    rw [show fvsO.getD (nP + nF - 1 - j) default =
-      fvsO[nP + nF - 1 - j] from by
-        simp [List.getD, List.getElem?_eq_getElem hklt]]
-    exact (Option.some.inj hb).symm
-  have hpre : ((List.range nP).map fun k =>
-      Expr.bvar (nP + nF - 1 - k)).map
-      (Expr.instSeq fvsO (nP + nF - 1)) = fvsO.take nP := by
-    rw [List.map_map,
-      show ((Expr.instSeq fvsO (nP + nF - 1)) ∘ fun k =>
-          Expr.bvar (nP + nF - 1 - k)) = fun k =>
-          Expr.instSeq fvsO (nP + nF - 1) (.bvar (nP + nF - 1 - k))
-        from rfl]
-    rw [List.map_congr_left (fun k hk => by
-      have hklt : k < nP := List.mem_range.mp hk
-      rw [hbv (nP + nF - 1 - k) (by omega),
-        show nP + nF - 1 - (nP + nF - 1 - k) = k from by omega])]
-    exact range_map_getD_prefix fvsO nP (by rw [hlenO]; omega)
-  have hsuf : ((List.range nF).map fun k =>
-      Expr.bvar (nF - 1 - k)).map
-      (Expr.instSeq fvsO (nP + nF - 1)) = fvsO.drop nP := by
-    rw [List.map_map,
-      show ((Expr.instSeq fvsO (nP + nF - 1)) ∘ fun k =>
-          Expr.bvar (nF - 1 - k)) = fun k =>
-          Expr.instSeq fvsO (nP + nF - 1) (.bvar (nF - 1 - k))
-        from rfl]
-    rw [List.map_congr_left (fun k hk => by
-      have hklt : k < nF := List.mem_range.mp hk
-      rw [hbv (nF - 1 - k) (by omega),
-        show nP + nF - 1 - (nF - 1 - k) = nP + k from by omega])]
-    exact range_map_getD_suffix fvsO nP nF hlenO
-  -- the strip body is a three-argument spine over the equality head
-  rw [show (Expr.app (.app (.app (.const eqName [ℓA]) tySlot)
-      (Expr.mkAppN (.const Pm lpsE)
-        (((List.range nP).map fun k => Expr.bvar (nP + nF - 1 - k)) ++
-         [Expr.mkAppN (.const Cm cusE)
-           (((List.range nP).map fun k =>
-               Expr.bvar (nP + nF - 1 - k)) ++
-            ((List.range nF).map fun k => Expr.bvar (nF - 1 - k)))])))
-      (.bvar (nF - 1 - i))) = Expr.mkAppN (.const eqName [ℓA])
-      [tySlot,
-       Expr.mkAppN (.const Pm lpsE)
-        (((List.range nP).map fun k => Expr.bvar (nP + nF - 1 - k)) ++
-         [Expr.mkAppN (.const Cm cusE)
-           (((List.range nP).map fun k =>
-               Expr.bvar (nP + nF - 1 - k)) ++
-            ((List.range nF).map fun k => Expr.bvar (nF - 1 - k)))]),
-       .bvar (nF - 1 - i)] from rfl,
-    Expr.instSeq_mkAppN,
-    Expr.instSeq_eq_self _ _ (show (Expr.const eqName
-      [ℓA]).looseBVarsBounded 0 = true from rfl)] at hbody
-  refine ⟨hlenO, ?_, ?_⟩
-  · rw [hbody, Expr.getAppFn_mkAppN]
-    rfl
-  · refine ⟨Expr.instSeq fvsO (nP + nF - 1) tySlot, ?_⟩
-    rw [hbody, Expr.getAppArgs_mkAppN]
-    rw [show (Expr.const eqName [ℓA]).getAppArgs = [] from rfl,
-      List.nil_append]
-    simp only [List.map_cons, List.map_nil]
-    rw [Expr.instSeq_mkAppN,
-      Expr.instSeq_eq_self _ _ (show (Expr.const Pm
-        lpsE).looseBVarsBounded 0 = true from rfl),
-      List.map_append, hpre]
-    simp only [List.map_cons, List.map_nil]
-    rw [Expr.instSeq_mkAppN,
-      Expr.instSeq_eq_self _ _ (show (Expr.const Cm
-        cusE).looseBVarsBounded 0 = true from rfl),
-      List.map_append, hpre, hsuf,
-      hbv (nF - 1 - i) (by omega),
-      show nP + nF - 1 - (nF - 1 - i) = nP + i from by omega]
 
 end ConLeche.Verify

@@ -78,7 +78,7 @@ soundness proofs, and the type-theory bridge of task #119):
   quantified pin is more general.*
 * **What this comparison forgives is what the interpretation ignores.**
   `matchesPin` accepts a stored type equal to the pin *up to binder
-  names*, and neither the set model's `interpExpr` nor the bridge's
+  names*, and neither the set model's `interp` nor
   `denote` reads a binder name — a binder is opened with a variable
   whose meaning is its de Bruijn index.  That alignment is why a
   `matchesPin` hit is usable at all: a consumer may compute on the
@@ -238,10 +238,6 @@ def iffRecRaw : ConstantInfo :=
     pi "t" (ap2 (cnst iffName) (bv 3) (bv 2)) (.app (bv 2) (bv 0))⟩
     4 4 []
 
-/-- The raw `Iff` family, as an export carries it (dependency
-order). -/
-def iffFamily : List ConstantInfo := [iffRaw, iffIntroRaw, iffRecRaw]
-
 /-- The raw `propext` declaration:
 `propext (a b : Prop) : Iff a b → Eq.{1} Prop a b`. -/
 def propextRaw : ConstantVal :=
@@ -276,10 +272,6 @@ def nonemptyRecRaw : ConstantInfo :=
         .app (bv 1) (ap2 (cnst nonemptyIntroName [u]) (bv 2) (bv 0))) <|
     pi "t" (.app (cnst nonemptyName [u]) (bv 2)) (.app (bv 2) (bv 0))⟩
     3 3 []
-
-/-- The raw `Nonempty` family. -/
-def nonemptyFamily : List ConstantInfo :=
-  [nonemptyRaw, nonemptyIntroRaw, nonemptyRecRaw]
 
 /-- The raw `Classical.choice` declaration:
 `Classical.choice.{u} (α : Sort u) : Nonempty α → α`. -/
@@ -322,16 +314,11 @@ declarative layer's takes the two implications separately
 (`ConLeche/Term/Const.lean`).  Bridging them needs the implications
 extracted from the `Iff` — and **nothing in the layer turns an
 inhabitant of an opaque family into its fields except that family's own
-recursor**, since a modeled inductive is opaque to the interpretation
-by design.  So `Iff.rec` (resp. `Nonempty.rec`) has to be pinned
+recursor**.  So `Iff.rec` (resp. `Nonempty.rec`) has to be pinned
 alongside the type, and `Iff.intro` (resp. `Nonempty.intro`) with it,
 because the recursor's minor premise is stated at the constructor.
 Only the recursors' *types* are used — never their reduction rules
-(the retired declarative lane's `StdAxiomKey.lean` and its record,
-both deleted — see DESIGN.md's task #209 section — for why that
-distinction carries a scheduling consequence).  The
-pins predate that argument; it is recorded here because it is the
-reason they are right. -/
+(DESIGN.md, task #209).  This is the reason the pins are right. -/
 def stdAxiomOk (env : Env) (cvA : ConstantVal) : Bool :=
   if cvA.name = propextName then
     decide (env.find? eqName = some eqA) &&

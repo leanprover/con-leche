@@ -8,11 +8,10 @@ import ConLeche.Model.Annot.BitInst
 public section
 
 /-!
-# The soundness of the three list walks (task #305, lane S-red)
+# The soundness of the three list walks (task #305)
 
-`Certs` (`certs_teleLic`, `Model/Steps/IotaGate.lean:123`, one step
-per constructor), `DefEqList` (`map_interp_of_defEqListFueled`,
-`Stuck.lean:223`) and `EtaProjCerts` (pointwise).
+`Certs` (one step per constructor), `DefEqList` and `EtaProjCerts`
+(pointwise).
 -/
 
 namespace ConLeche.Model.Rules
@@ -38,8 +37,7 @@ theorem Certs.nil_sound {d : Nat} {lic : Bool} {T : Expr} :
 The two `Certs` rules differ only in how `hmemA` is obtained — the
 licence's transfer or the certificate's run — so everything downstream
 (the residual's reading, its frame, its grading, the licence handed to
-the tail, and `TeleFitPA.cons`) is shared
-(`certs_telePA`/`certs_teleLic`'s common step). -/
+the tail, and `TeleFitPA.cons`) is shared. -/
 theorem certs_step {d : Nat} {lic : Bool} {ty body arg : Expr}
     {mb : ConLeche.BinderMeta} {rest : List Expr}
     {Δa : List AnnotTerm} {doma bodya fa aa : AnnotTerm}
@@ -110,7 +108,7 @@ theorem certs_step {d : Nat} {lic : Bool} {ty body arg : Expr}
       (fun x hx => hgvs x (List.mem_cons_of_mem aa hx)) hlicP'
   exact ⟨resta, fun ρ hρ => .cons (hmemA ρ hρ) (hfit ρ hρ), hgresta⟩
 
-/-- The licensed slot: `iota_slot_transfer` (`Steps/IotaGate.lean:63`). -/
+/-- The licensed slot: the head prefix's app slot transfers the argument. -/
 theorem Certs.skip_sound {d : Nat} {lic : Bool}
     {ty body arg : Expr} {mb : BinderMeta} {rest : List Expr}
     (hlic : lic = true) (hnev : mb.pw.isNever = true)
@@ -148,7 +146,7 @@ theorem Certs.skip_sound {d : Nat} {lic : Bool}
   exact certs_step hrest hCT hgT hargs hsp' hgvs hlicP hbodyw hbodyb hLbty
     hbodya haa hfarg hCarg hokA hokBody hmemA
 
-/-- The certified slot: `certs_telePA`'s step (`Steps/IotaKit.lean:246`). -/
+/-- The certified slot: the certificate's run supplies the membership. -/
 theorem Certs.cert_sound {d : Nat} {lic : Bool}
     {ty body arg ta : Expr} {mb : BinderMeta} {rest : List Expr}
     (hta : InferSemIO m φ d arg ta) (hd : DefEqSem m φ d ta ty)

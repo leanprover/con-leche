@@ -9,10 +9,7 @@ public section
 
 Simulation walks for the cached `majorToCtorI`/`pinArgsI`/`iotaRecI`
 (`ConLeche/Cached/CoreC.lean`) against `majorToCtor`/`iotaRec`
-(`ConLeche/Verify/Disc.lean`, deleted at task #221) — the port of
-`ConLeche/Verify/DiscI3.lean`
-under the task #163 recipe.  The pure comparand side of every statement
-is byte-identical to the interned original's.
+(`ConLeche/Kernel/Core.lean`).
 -/
 
 namespace ConLeche.Cached
@@ -57,7 +54,7 @@ private theorem majorToCtor_unfold (env : Env) (d : Nat) (recName : Name)
                         (fueledFns mode env).inferIO d fab >>= fun tfab =>
                         (fueledFns mode env).defeq d tmaj tfab >>= fun rd =>
                         if rd then
-                          proofIrrel (fueledFns mode env) env d fab major >>=
+                          proofIrrel (fueledFns mode env) d fab major >>=
                             fun r =>
                           if r then pure fab
                           else pure major
@@ -90,11 +87,6 @@ private theorem majorToCtor_unfold (env : Env) (d : Nat) (recName : Name)
                       structEtaCertWith mode (fueledFns mode env) env d fab major
                           tmaj >>= fun r =>
                       if r then pure fab
-                      else if caps.etaFields = 0 then
-                        proofIrrel (fueledFns mode env) env d fab major >>=
-                          fun r' =>
-                        if r' then pure fab
-                        else pure major
                       else pure major
                     else pure major
                   else pure major
@@ -122,7 +114,7 @@ private theorem majorToCtor_unfold (env : Env) (d : Nat) (recName : Name)
                       (fueledFns mode env).inferIO d fab >>= fun tfab =>
                       (fueledFns mode env).defeq d tmaj tfab >>= fun rd =>
                       if rd then
-                        proofIrrel (fueledFns mode env) env d fab major >>=
+                        proofIrrel (fueledFns mode env) d fab major >>=
                           fun r =>
                         if r then pure fab
                         else pure major
@@ -137,7 +129,7 @@ private theorem majorToCtor_unfold (env : Env) (d : Nat) (recName : Name)
       | _ => pure major
     | _ => pure major) := rfl
 
-/-- Port of `majorToCtorI_sim`. -/
+/-- `majorToCtorI` simulates its fueled original. -/
 theorem majorToCtorC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode env f) (henv : EnvWF env)
     {d : Nat} {recName : Name} {rules : List RecRule} {i : Expr}
     {major : Expr} {s₀ : CState} (hs : CSOK mode env s₀)
@@ -188,7 +180,7 @@ theorem majorToCtorC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode env
                               tfab >>= fun rd =>
                           if rd then
                             proofIrrelI (coreKnotI .verified (mkFEnv env) f)
-                                (mkFEnv env) d fab i >>= fun r =>
+                                d fab i >>= fun r =>
                             if r then pure fab
                             else pure i
                           else pure i
@@ -229,11 +221,6 @@ theorem majorToCtorC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode env
                         structEtaCertWithI .verified (coreKnotI .verified (mkFEnv env) f)
                             (mkFEnv env) d fab i tmaj >>= fun r =>
                         if r then pure fab
-                        else if caps.etaFields = 0 then
-                          proofIrrelI (coreKnotI .verified (mkFEnv env) f)
-                              (mkFEnv env) d fab i >>= fun r' =>
-                          if r' then pure fab
-                          else pure i
                         else pure i
                       else pure i
                     else pure i
@@ -271,7 +258,7 @@ theorem majorToCtorC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode env
                             tfab >>= fun rd =>
                         if rd then
                           proofIrrelI (coreKnotI .verified (mkFEnv env) f)
-                              (mkFEnv env) d fab i >>= fun r =>
+                              d fab i >>= fun r =>
                           if r then pure fab
                           else pure i
                         else pure i
@@ -533,20 +520,7 @@ theorem majorToCtorC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode env
                               exact SimC.pure hs₆ ⟨hQfab', hwfab⟩
                             | false =>
                               simp only [Bool.false_eq_true, ↓reduceIte]
-                              split
-                              · refine SimC.bind (proofIrrelC_sim ih hs₆
-                                  hQfab' hden hwfab hmaj)
-                                  (fun s₇ r₂ r₂' hs₇ hPr₂ => ?_)
-                                obtain rfl : r₂ = r₂' := hPr₂
-                                cases r₂ with
-                                | true =>
-                                  simp only [↓reduceIte]
-                                  exact SimC.pure hs₇ ⟨hQfab', hwfab⟩
-                                | false =>
-                                  simp only [Bool.false_eq_true,
-                                    ↓reduceIte]
-                                  exact SimC.pure hs₇ ⟨hden, hmaj⟩
-                              · exact SimC.pure hs₆ ⟨hden, hmaj⟩
+                              exact SimC.pure hs₆ ⟨hden, hmaj⟩
                         · exact SimC.pure hs₅ ⟨hden, hmaj⟩
                       · exact SimC.pure hs₂r ⟨hden, hmaj⟩
                     | bvar k =>
@@ -722,10 +696,8 @@ section Walks2
 
 variable {env : Env} {f : Nat}
 
-/-- Port of `pinArgsI_eff`: the cached pin instantiations denote the
-nested comparand's mapped list.  (The interned original's separate
-`us : List LIdx` / `lus : List Level` pair collapses to the single
-level list, so its `denoteLList` premise vanishes.) -/
+/-- The cached pin instantiations denote the
+nested comparand's mapped list. -/
 theorem pinArgsC_eff (lps : List Name) (us : List Level) :
     ∀ (ps : List Expr) {s₀ : CState}, CSOK mode env s₀ →
       ∀ {args : List Expr} {xs : List Expr} (t : Nat),
@@ -752,7 +724,7 @@ theorem pinArgsC_eff (lps : List Name) (us : List Level) :
       (fun s₃ rs hs₃ hQrs => ?_)
     exact CEff.pure hs₃ (RelCL.cons hQr hQrs)
 
-/-- Port of `iotaIndexOkI_sim`: the canonical-index comparison (the ι
+/-- The canonical-index comparison (the ι
 batch) simulates its fueled original. -/
 theorem iotaIndexOkC_sim (ih : SSimC mode env f) {d : Nat} {mI rP cnP : Nat}
     {tyCtor : Expr} {tyx : Expr} {margs idx : List Expr} {ys is : List Expr}
@@ -837,11 +809,10 @@ private theorem certBlock_reshape {α β γ : Type}
     | false => simp
     | true => simp only [if_true]
 
-/-- Port of `iotaRec_certs_tail`: the shared certificate tail of the
+/-- The shared certificate tail of the
 iota step (after the firing-mode comparands) — the two licensed
-telescope runs and the canonical-index comparison.  The interned
-original's `cI jI : NIdx` name indices stay as (unconstrained) `Name`
-parameters; their `denoteN` premises vanish with the name collapse. -/
+telescope runs and the canonical-index comparison.  The name indices
+`cI jI` are unconstrained `Name` parameters. -/
 private theorem iotaRec_certs_tail (ih : SSimC mode env f) (henv : EnvWF env)
     {mi : CheckMode} {d : Nat} {i major : Expr} {ex majorx : Expr} {cI jI : Name}
     {c cj : Name}
@@ -1066,10 +1037,9 @@ private theorem iotaRec_unfold (mi : CheckMode) (env : Env) (d : Nat)
       | _ => pure none
     | _ => pure none) := rfl
 
-/-- Port of `iotaRecI_sim`.  The ι mode `mi` is separate from the
-knot's `mode` (the ι batch: `iotaRecI` now reads `mi.betaGate` for the
-slot licence, so the two are no longer identified by the `ttChecks`
-collapse; the walks apply this at the ι cone's own mode `mi`). -/
+/-- `iotaRecI` simulates its fueled original.  The ι mode `mi` is
+separate from the knot's `mode` (`iotaRecI` reads `mi.betaGate` for the
+slot licence; the walks apply this at the ι cone's own mode `mi`). -/
 theorem iotaRecC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode env f) (henv : EnvWF env)
     {mi : CheckMode} (hmi : mi.verifiedChecks = true) {d : Nat} {i : Expr} {ex : Expr} {s₀ : CState}
     (hs : CSOK mode env s₀)

@@ -9,21 +9,13 @@ public section
 # Cached shared-state walks, part 1: the single-environment checker
 functions
 
-Port of `ConLeche/Verify/BridgeS1.lean` for the cached tier.  Each lemma
-relates a generic declaration-checker function instantiated at the
+Each lemma relates a generic declaration-checker function instantiated at the
 cached shared operations (`sharedOpsC mode (mkFEnv env)`, state shared
 across all operation calls) to the same function at the fueled families
 (`(fueledOpsM mode)`), as a `SimC` — the invariant `CSOK mode env` is
 threaded through every call, so cache entries created by one call are
 consumed by later ones soundly.  The per-site well-scopedness facts
 mirror the `_wfimp` walks (`ConLeche/Verify/BridgeWfImp.lean`).
-
-The *subjects* are the very same `Expr`-level checker functions as in
-the interned original — only the operations record differs, so the
-walks transpose by the recipe's substitutions alone (`SimAt → SimC`,
-`ISOK → CSOK`, no `Ext` binder, state-free value relations).  The pure
-comparand side of every statement is byte-identical to the interned
-original's.
 -/
 
 namespace ConLeche.Cached

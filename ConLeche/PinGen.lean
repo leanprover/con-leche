@@ -9,26 +9,17 @@ public meta import ConLeche.PinGen.Dump
 This module is the *computation* half of the pin machinery: it reads
 the pin-certified operations from a full-view toolchain environment and
 produces, per operation, the data the committed dump carries
-(`ConLeche/PinGen/Dump.lean`).  It is the successor of the offline
-`scripts/GenDivModPins.lean` generator (task #47) and of the elab-time
-`#gen_natop_pins` command (task #53).
+(`ConLeche/PinGen/Dump.lean`).
 
-**Task #176 moved the splice out of the checker's build.**  Until then
-`ConLeche/Kernel/NatOpPins.lean` invoked `#gen_natop_pins`, which loaded
-`ConLeche/PinGen/Certs.olean` BY NAME (`importModules` at
-`OLeanLevel.private` — the only way to see the certificate proofs from
-a `module`).  Loading an olean by name is not an import edge, Lake
-never ordered the two, and on a cold tree `lake build con-leche` failed
-with "object file '…/ConLeche/PinGen/Certs.olean' … does not exist".  Per
-the user's ruling the pins are now a COMMITTED file written by the
-`natop-pins-export` executable (`PinDump.lean`), whose root *imports*
-the certificate library; `#gen_natop_pins` is gone and nothing in the
-checker's build depends on the certificates any more.  Their trust is
-unchanged: they are still kernel-checked theorems, and their proof
-terms are still re-checked by this checker at install time against the
-hand-pinned statements.
+**The splice is outside the checker's build** (task #176): the pins are
+a COMMITTED file written by the `natop-pins-export` executable
+(`PinDump.lean`), whose root *imports* the certificate library (loading
+an olean by name is not an import edge Lake orders), so nothing in the
+checker's build depends on the certificates.  They are kernel-checked
+theorems, and their proof terms are re-checked by this checker at
+install time against the hand-pinned statements.
 
-What `computeOp`/`computeDump` produce, per operation:
+What `computeOp`/`computeOps` produce, per operation:
 
 * per operation, the *pinned defining expression*: the toolchain's own
   definition value with every local helper (`Nat.modCore`,
@@ -53,8 +44,7 @@ interface; a toolchain bump regenerates pins and proofs, and the
 checker does not care as long as the statements still check.
 
 Each operation gets one pinned definition (`…DeclPin : Expr`) and one
-certificate-proof list (`…CertProofs : List Expr`), under the same
-names the vendored `ConLeche/Kernel/DivModPins.lean` used.
+certificate-proof list (`…CertProofs : List Expr`).
 
 The stream-prefix allowlists are extracted by
 `scripts/extract_natop_prefix.py` into `scripts/natop_prefix.json`

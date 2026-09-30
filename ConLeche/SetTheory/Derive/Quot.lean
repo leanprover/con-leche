@@ -13,10 +13,10 @@ by separation, the class set by replacement); for `u = 0` the base
 lives in `Prop`, everything collapses to the proof point, and the
 quotient is `image (fun _ => pt) A` — the truth value `[A inhabited]`.
 
-`quotLift` lifts `f` to the quotient as the graph of
+The lift (`quotLiftR`, `SetModel/Value.lean`) lifts `f` to the quotient as the graph of
 `q ↦ app f (representative of q)` (representatives by choice) — except
 when `f` is the proof point, where the lift is the proof point too.
-That tag is what makes the beta law `app (quotLift …) (quotClass … a) =
+That tag is what makes the beta law `app (quotLiftR …) (quotClass … a) =
 app f a` hold with *no typing premise on `f`* (matching the interface):
 a `pt`-tagged `f` beta-reduces to `pt` on both sides, any other `f`
 goes through the representative and the invariance premise, with the
@@ -37,13 +37,6 @@ inductive QuotRel (A R : V) : V → V → Prop where
   | refl {a : V} : a ∈ˢ A → QuotRel A R a a
   | symm {a b : V} : QuotRel A R a b → QuotRel A R b a
   | trans {a b c : V} : QuotRel A R a b → QuotRel A R b c → QuotRel A R a c
-
-theorem QuotRel.mem {A R a b : V} (h : QuotRel A R a b) : a ∈ˢ A ∧ b ∈ˢ A := by
-  induction h with
-  | base ha hb _ => exact ⟨ha, hb⟩
-  | refl ha => exact ⟨ha, ha⟩
-  | symm _ ih => exact ⟨ih.2, ih.1⟩
-  | trans _ _ ih₁ ih₂ => exact ⟨ih₁.1, ih₂.2⟩
 
 /-- The `QuotRel`-class of `a` in `A`. -/
 noncomputable def qclass (A R a : V) : V := sep A (fun b => QuotRel A R a b)

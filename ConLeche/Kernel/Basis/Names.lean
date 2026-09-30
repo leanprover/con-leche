@@ -20,14 +20,6 @@ def eqName : Name := anonymous |>.str "Eq"
 /-- The name of the basis equality constructor. -/
 def eqReflName : Name := eqName |>.str "refl"
 
-/-- The name of the basis unit type. -/
-def punitName : Name := anonymous |>.str "PUnit"
-
-/-- The name of the basis unit type's recursor.  A top-level constant
-so the unit-like head test (`isUnitLikeTy`, task #161 item C1) does not
-rebuild it on every proof-irrelevance attempt. -/
-def punitRecName : Name := punitName |>.str "rec"
-
 /-- The name `Nat`. -/
 def natName : Name := anonymous |>.str "Nat"
 
@@ -36,9 +28,6 @@ def natZeroName : Name := natName |>.str "zero"
 
 /-- The name `Nat.succ`. -/
 def natSuccName : Name := natName |>.str "succ"
-
-/-- The name of the basis unit constructor. -/
-def punitUnitName : Name := punitName |>.str "unit"
 
 def emptyName : Name := anonymous |>.str "Empty"
 
@@ -96,20 +85,14 @@ stream's own `And` is dropped as an identical copy or declines the
 stream), so the name always denotes the toolchain's `And`. -/
 def andName : Name := anonymous |>.str "And"
 
-/-- The name `And.intro`. -/
-def andIntroName : Name := andName.str "intro"
-
 /-- The name `Char.ofNat`. -/
 def charOfNatName : Name := charName.str "ofNat"
 
 /-- Names reserved for the pinned basis blocks; no other declaration
-may use them.  `PSigma'` is not among them (task #175 W6): the
-modelled basis's tight pair installs through the direct
-simple-structure path as an ordinary two-field structure. -/
+may use them. -/
 def reservedBasisNames : List Name :=
   [eqName, eqReflName, eqName.str "rec",
    natName, natZeroName, natSuccName, natName.str "rec",
-   punitName, punitUnitName, punitName.str "rec",
    emptyName, emptyName.str "rec",
    falseName, falseName.str "rec",
    quotName, quotMkName, quotLiftName, quotIndName, quotSoundName]

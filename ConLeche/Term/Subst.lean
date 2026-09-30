@@ -18,11 +18,8 @@ to commute lifts and substitutions past each other.  Here the only
 metatheorem is soundness, which goes straight to the model, so the
 substitution facts that are actually needed are *semantic* ones
 (`ConLeche/Semantics/*`).  Everything below is definitions plus their
-constructor-wise `rfl` equations; what syntactic commutation the
-bridge does need is filed with the bridge, in
-`ConLeche/Verify/Denote/SubstAlgebra.lean` until task #221 deleted it
-unread; the live algebra is `ConLeche/Model/IndSubst.lean`'s, at
-`AnnotTerm`.
+constructor-wise `rfl` equations; the syntactic commutation algebra
+the model needs is `ConLeche/Model/IndSubst.lean`'s, at `AnnotTerm`.
 -/
 
 namespace ConLeche.Term
@@ -40,9 +37,6 @@ def liftN (n : Nat) : Term → (k : Nat := 0) → Term
   | .fst e, k => .fst (liftN n e k)
   | .snd e, k => .snd (liftN n e k)
   | .prf, _ => .prf
-
-/-- Weakening by one. -/
-abbrev lift (e : Term) : Term := liftN 1 e
 
 /-- Single substitution: replace the variable at depth `k` by `a`,
 decrementing the variables above it. -/
@@ -102,10 +96,5 @@ def inst : Term → Term → (k : Nat := 0) → Term
 @[simp] theorem inst_prf (a : Term) (k : Nat) : inst .prf a k = .prf := rfl
 
 end Term
-
-/-- Non-dependent function space.  (Outside the `Term` namespace so it
-can be used without `open Term`, which would collide with
-`SetTheory.app`.) -/
-def arrow (A B : Term) : Term := .pi A B.lift
 
 end ConLeche.Term

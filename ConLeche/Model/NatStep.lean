@@ -6,29 +6,15 @@ import ConLeche.Model.Rules.Inputs
 public section
 
 /-!
-# The literal tier's two semantic rows (task #161, task #305 R-nat)
+# The literal tier's two semantic rows (task #161, #305)
 
 `Rules.NatSuccRow` and `Rules.NatOpRow` (`Model/Rules/Inputs.lean`),
-discharged: `Bridge/ReduceNat.lean`'s branch analysis at the
-validated-annotation currency, standing on the sixteen numeral
-transports (`NatSemP.lean`, `NatWfP.lean`) instead of `Red.sound` —
-which is what the wall record said the P lane would have to do,
-because `Red`'s soundness consumes `EnvSHyp.nat_ops` at the *collapse*
-currency and the erasure factoring is refuted at the stored
-operations' λ-towers.
-
-The two pieces the seal-II record scoped as owed are in place here:
-`EnvModelM.nat_ops` and `EnvModelM.div_mod` (the recurrence laws, from
-the run certificates) and the transports.  The third — the whnf IH —
-belonged to the RUN side, and the rules tier retired it with the run
-rows themselves: `Rules.RulesInputs`' two literal fields
-(`Model/Rules/Inputs.lean`) ARE these rows, and `Model/Capstone.lean`'s
-`Rules.RulesInputs.ofSem` is where the two theorems below are read into
-the bundle.
-
-The reduct's reading, grading and frame conditions are unchanged from
-`Steps/Nat.lean`'s leaf analysis, which was always premise-free; what
-lands here is the `interp` equality, and with it the wall.
+discharged: the `Nat`-literal reduction's branch analysis at the
+validated-annotation currency, standing on `EnvModelM.nat_ops` and
+`EnvModelM.div_mod` (the recurrence laws, from the run certificates)
+and the sixteen numeral transports (`Model/NatSem.lean`,
+`Model/NatWf.lean`).  `Model/Capstone.lean`'s `Rules.RulesInputs.ofSem`
+reads the two theorems below into the bundle.
 -/
 
 namespace ConLeche.Model
@@ -49,8 +35,7 @@ variable {μ : CheckMode} {env : Env} {φ : Name → Nat}
 
 /-- Whatever `rawNatLit?` accepts reads to the numeral spine it
 reports — its two shapes are the literal itself and the `Nat.zero`
-constant, and `natLit … 0` *is* the `Nat.zero` leaf
-(`denote_rawNatLitR`'s mirror). -/
+constant, and `natLit … 0` *is* the `Nat.zero` leaf. -/
 theorem denoteMeta_rawNatLit (m : EnvModel V env)
     (hs : natLitSupported env = true) {a0 : Expr} {n : Nat}
     (h : ConLeche.rawNatLit? a0 = some n) (d : Nat) :

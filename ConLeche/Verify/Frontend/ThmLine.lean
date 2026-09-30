@@ -22,7 +22,7 @@ namespace ConLeche.Frontend
 
 /-- A pushed record is in the list. -/
 theorem pushDecl_mem (st : StateD) (d : Declaration) : d ∈ (pushDecl st d).decls :=
-  (noteDecl_frame _ _).decls d (Array.mem_push.mpr (.inr rfl))
+  Array.mem_push.mpr (.inr rfl)
 
 /-- The record's own semantics at the theorem line. -/
 theorem processLineCoreD_thmFalse {st st' : StateD} {k j v : Nat}
@@ -45,13 +45,8 @@ theorem processLineCoreD_thmFalse {st st' : StateD} {k j v : Nat}
     simp only [pure, Except.pure, Except.ok.injEq] at hty
     exact hty.symm
   obtain ⟨vl, _, h⟩ := exceptBind_ok h
-  try simp only at h
-  -- the push, rewritten or not
-  split at h
-  · simp only [pure, Except.pure, Except.ok.injEq, Sum.inl.injEq] at h; subst h
-    exact ⟨cvp, _, hcvp, pushDecl_mem _ _⟩
-  · simp only [pure, Except.pure, Except.ok.injEq, Sum.inl.injEq] at h; subst h
-    exact ⟨cvp, vl, hcvp, pushDecl_mem _ _⟩
+  simp only [pure, Except.pure, Except.ok.injEq, Sum.inl.injEq] at h; subst h
+  exact ⟨cvp, vl, hcvp, pushDecl_mem _ _⟩
 
 /-- **The theorem line.**  At a state whose expression `j` is `False`,
 the record `{"thm":{…,"name":k,"type":j,"value":v}}` leaves a `thmDecl`

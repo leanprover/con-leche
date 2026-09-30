@@ -3,16 +3,12 @@
 import Lean
 
 /- End-to-end test (task #61): a **stuck-major structure-eta rescue on
-   the pinned `PSigma'` basis block**.
+   the tight dependent pair `PSigma'`**.
 
-   `PSigma'` — the lean-inductive-models preprocessor's tight dependent
-   pair, `{α : Sort u} → (α → Sort v) → Sort (max u v)`, with no `max 1`
-   floor — cannot be written with Lean's `inductive` command (the
+   `PSigma'`, `{α : Sort u} → (α → Sort v) → Sort (max u v)`, with no
+   `max 1` floor, cannot be written with Lean's `inductive` command (the
    surface checker refuses a result sort that may be `Prop`), so it is
-   *kernel-added* here exactly as the preprocessor splices it
-   (`InductiveModels.psigmaPrimeDecl`).  con-leche's frontend matches the
-   resulting block against its pinned basis declarations, so this
-   fixture runs the real pin.
+   *kernel-added* here.
 
    The theorem is also kernel-added (`addDecl` → the official C++
    kernel), so nothing here depends on the *elaborator* knowing about
@@ -31,26 +27,23 @@ import Lean
 
    * `Eq.refl (motive t) (minor t.1 t.2)` must have type
      `Eq (motive t) …`, i.e. `motive (PSigma'.mk α β t.1 t.2) ≡
-     motive t` — defeq-side pair eta (`pairEtaCert` in con-leche,
+     motive t` — defeq-side pair eta (`structEtaCert` in con-leche,
      `try_eta_struct` officially);
    * the stated left-hand side `PSigma'.rec α β motive minor t` must
      be identified with `minor t.1 t.2` — the *stuck-major* rescue
-     (`to_cnstr_when_structure` / lean4lean `toCtorWhenStruct`), which
-     for the pinned `PSigma'` is inert in con-leche (the generic
-     `structEtaCertWith` excludes reserved basis names and the 0-field
-     `PUnit` fallback needs `etaFields = 0`).
+     (`to_cnstr_when_structure` / lean4lean `toCtorWhenStruct`).
 
    Note that `PSigma'.rec` is **Prop-eliminating only** (`PSigma'`'s
    result sort `max u v` may be zero, so Lean's kernel derives a small
    eliminator: `motive : PSigma' α β → Sort 0`, two level parameters).
    Every term the rescue could produce is therefore a *proof*, and
-   con-leche identifies the two sides by proof irrelevance instead — the
-   verdict is the same.  This fixture pins that equality of verdicts.
+   proof irrelevance identifies the two sides as well — the verdict is
+   the same.  This fixture pins that equality of verdicts.
 -/
 
 open Lean
 
-/- The preprocessor's tight pair, spliced through the kernel. -/
+/- The tight pair, added through the kernel. -/
 run_cmd Lean.Elab.Command.liftCoreM do
   let lu := Level.param `u
   let lv := Level.param `v

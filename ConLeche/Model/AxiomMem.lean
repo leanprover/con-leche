@@ -6,75 +6,39 @@ public import ConLeche.Verify.StdAxiomPin
 public section
 
 /-!
-# The pinned axioms' `interp` memberships (task #161, ENDGAME C, task 1a)
+# The pinned axioms' `interp` memberships (task #161)
 
-`StdAxiomKey.lean`'s two forcing arguments, re-derived at the graded
-currency.  The ENDGAME B seal wrote the route; this file executes it,
-and one step of it needed content the seal did not predict.
+The standard axioms' forcing arguments at the graded currency.
 
-## The unpredicted step, and the lemma that supplies it
+## Bit-agnostic in the companions
 
-The seal's route says: *instantiate `Iff.rec` at `ψ uN ≠ 0`, where
-every bit is `1`, so the motive space is the graph regime and
-`app_lamR_pos` computes*.  **The bits it names are the pin's, not the
-stored constant's** — `matchesPin` compares through `erasePw`, so the
-stored companions' binder data are exactly what the comparison
-forgives, and `AxiomBitsP`'s bit lemmas are unavailable here: they read
-`ConstantValR`'s recorded run, and the recorded run in scope belongs to
-the *axiom being installed*, never to `Iff.rec`, which was stored many
-declarations ago.
-
-So the route as written does not close, and the missing step is not a
-bit lemma (there is no run to read).  It is this:
+`matchesPin` compares through `erasePw`, so the stored companions'
+(`Iff`, `Iff.rec`, …) binder data are exactly what the comparison
+forgives, and `AxiomBits.lean`'s bit lemmas do not reach them: they
+read `ConstantValRun`'s recorded run, which belongs to the *axiom being
+installed*, never to `Iff.rec`, stored many declarations earlier.  The
+missing step is not a bit lemma but this:
 
 > **`pi_sort_bit_ne_zero`** — a graded `∀`-node whose codomain is a
 > *sort* and whose domain is *inhabited* has a nonzero bit.
 
 `AnnotValid`'s `pi` third component is one-directional — `v = 0 → ∀ x
-∈ A, B x ∈ˢ univZero` — which the ENDGAME A seal recorded as the reason
-it cannot *pin* a bit.  It can still *refute* one: at a sort codomain
-the consequent is `univ n ∈ˢ univZero`, and no universe is a truth
-value (`univ_not_mem_univZero`, one line from `mem_univZero` +
-`pt_not_mem_univZero`).  The domain's inhabitant is free at both
-recursors — it is the very witness being eliminated.
+∈ A, B x ∈ˢ univZero` — so it cannot *pin* a bit.  It can still
+*refute* one: at a sort codomain the consequent is `univ n ∈ˢ
+univZero`, and no universe is a truth value (`univ_not_mem_univZero`).
+The domain's inhabitant is free at both recursors — it is the very
+witness being eliminated.
 
-That makes the memberships **bit-agnostic in the companions**: every
-elimination of a stored family goes through `app_mem_piR` with its side
-condition read off `type_wellDenotedV` (the seal's dissolved case-split,
-confirmed), and the one place a *computation* is needed — the motive's
-β — is licensed by `pi_sort_bit_ne_zero` rather than by a known bit.
+So every elimination of a stored family goes through `app_mem_piR` with
+its side condition read off the node's own validity
+(`app_mem_pi_validV`), and the one place a *computation* is needed —
+the motive's β — is licensed by `pi_sort_bit_ne_zero`.
 
-## The second unpredicted step: the minor cannot be built positively
+## The minor is not built positively
 
-Removing the motive's bit is not enough.  v1's `iff_forces_eqS` builds
-the recursor's minor premise *positively*: it applies the stored
-`Iff.intro` to the arguments the recursor's own minor binder supplies.
-Those two domains are binder data of **two different stored
-constants** — `Iff.intro`'s implication binders and `Iff.rec`'s — and
-`matchesPin` forgives both, so `piR e A (fun _ => B)` and
-`piR d A (fun _ => B)` are not the same set unless `e` and `d` agree
-in zero-ness, which nothing in the tree says.  A graph is not the
-canonical proof; off a graph's domain the motive applies to `∅`; the
-minor's fibre is then empty and the premise is *unsatisfiable*.  This
-is not a gap in the proof, it is a gap in the invariant — the same
-species as ENDGAME B's `rec_rules` wall.
-
-It is routed around rather than closed, and the route is cheap:
-`Classical.byContradiction` on `A = B` makes the minor's **binders**
-vacuous.  The moment an implication and its converse are both in hand,
-`eq_of_impls` gives `A = B` and contradicts the assumption — so the
-minor is a `lamR`-tower over an unreachable body, and the stored
-`Iff.intro` never appears in the argument at all.  Two consequences
-worth recording:
-
-* the level assignment stops being a choice.  The ENDGAME B seal
-  requires `ψ uN ≠ 0` (all bits `1`) and pays a `univ_mono` residue for
-  `eqv A B ∈ˢ univ (ψ uN)`.  Here the recursor is read at `ψ0 = fun _
-  => 0`, `eqv_mem_univ` closes the fibre outright, and **`univ_mono` is
-  not used**.  The graph regime comes from the sort codomain at *every*
-  assignment;
-* `Iff.intro`'s membership — v1's `iffIntroVal_app₄_memS` — has no
-  P-tier counterpart and needs none.
+See `iff_forces_eq`: `Classical.byContradiction` on `A = B` makes the
+minor's binders vacuous, so the stored `Iff.intro` never appears and
+`univ_mono` is not used.
 -/
 
 namespace ConLeche.Model
@@ -122,8 +86,7 @@ theorem pi_sort_bit_ne_zero {ρ : Nat → V} {u v n : Nat} {Aa : AnnotTerm}
   exact univ_not_mem_univZero (V := V) n (hv.2.2 h0 x hx)
 
 /-- Elimination at a `pi` reading, with the side condition read off the
-node's own validity — the ENDGAME B seal's dissolved case-split, as a
-lemma.  **No knowledge of `v` is needed**: this is why the stored
+node's own validity.  **No knowledge of `v` is needed**: this is why the stored
 companions' unpinned bits never have to be established. -/
 theorem app_mem_pi_validV {ρ : Nat → V} {u v : Nat} {Aa Ba : AnnotTerm}
     {f a : V} (hf : f ∈ˢ interp V ρ (.pi u v Aa Ba))
@@ -139,7 +102,7 @@ theorem app_mem_pi_validV {ρ : Nat → V} {u v : Nat} {Aa Ba : AnnotTerm}
 Every domain and body of the three pins is binder-free, so the double
 erasure fixes the whole telescope and leaves exactly the binder names
 and the binder metas free — the same mechanical inversion
-`AxiomBitsP`'s `propext_shapeS` runs, at three longer shapes. -/
+`propext_shapeS` runs, at three longer shapes. -/
 
 /-- The stored `Iff` former's shape. -/
 theorem iff_shapeS {ty : Expr}
@@ -149,42 +112,11 @@ theorem iff_shapeS {ty : Expr}
       (.forallE (.sort .zero) (.sort .zero) m₂) m₁ := by
   simp only [iffA, ConstantInfo.toConstantVal, Expr.erasePw] at h
   obtain ⟨ty₁, b₁, m₁, rfl, hty₁, hb₁⟩ := erasePwNames_forallE_invS h
-  obtain rfl := erasePwNames_sort_invS hty₁
+  obtain rfl := Verify.erasePw_sort_inv hty₁
   obtain ⟨ty₂, b₂, m₂, rfl, hty₂, hb₂⟩ := erasePwNames_forallE_invS hb₁
-  obtain rfl := erasePwNames_sort_invS hty₂
-  obtain rfl := erasePwNames_sort_invS hb₂
+  obtain rfl := Verify.erasePw_sort_inv hty₂
+  obtain rfl := Verify.erasePw_sort_inv hb₂
   exact ⟨m₁, m₂, rfl⟩
-
-/-- The stored `Iff.intro`'s shape. -/
-theorem iffIntro_shapeS {ty : Expr}
-    (h : ty.erasePw
-      = iffIntroA.toConstantVal.type.erasePw) :
-    ∃ m₁ m₂ m₃ m₄ m₅ m₆,
-      ty = .forallE (.sort .zero)
-        (.forallE (.sort .zero)
-          (.forallE (.forallE (.bvar 1) (.bvar 1) m₄)
-            (.forallE (.forallE (.bvar 1) (.bvar 3) m₆)
-              (.app (.app (.const iffName []) (.bvar 3)) (.bvar 2))
-              m₅) m₃) m₂) m₁ := by
-  simp only [iffIntroA, ConstantInfo.toConstantVal, Expr.erasePw] at h
-  obtain ⟨t₁, b₁, m₁, rfl, ht₁, hb₁⟩ := erasePwNames_forallE_invS h
-  obtain rfl := erasePwNames_sort_invS ht₁
-  obtain ⟨t₂, b₂, m₂, rfl, ht₂, hb₂⟩ := erasePwNames_forallE_invS hb₁
-  obtain rfl := erasePwNames_sort_invS ht₂
-  obtain ⟨t₃, b₃, m₃, rfl, ht₃, hb₃⟩ := erasePwNames_forallE_invS hb₂
-  obtain ⟨t₄, b₄, m₄, rfl, ht₄, hb₄⟩ := erasePwNames_forallE_invS ht₃
-  obtain rfl := erasePwNames_bvar_invS ht₄
-  obtain rfl := erasePwNames_bvar_invS hb₄
-  obtain ⟨t₅, b₅, m₅, rfl, ht₅, hb₅⟩ := erasePwNames_forallE_invS hb₃
-  obtain ⟨t₆, b₆, m₆, rfl, ht₆, hb₆⟩ := erasePwNames_forallE_invS ht₅
-  obtain rfl := erasePwNames_bvar_invS ht₆
-  obtain rfl := erasePwNames_bvar_invS hb₆
-  obtain ⟨f, a, rfl, hf, ha⟩ := erasePwNames_app_invS hb₅
-  obtain ⟨f', a', rfl, hf', ha'⟩ := erasePwNames_app_invS hf
-  obtain rfl := erasePwNames_const_invS hf'
-  obtain rfl := erasePwNames_bvar_invS ha'
-  obtain rfl := erasePwNames_bvar_invS ha
-  exact ⟨m₁, m₂, m₃, m₄, m₅, m₆, rfl⟩
 
 /-- The stored `Iff.rec`'s shape.  Five telescope binders and four
 nested ones; the motive's codomain `Sort u` is what
@@ -211,18 +143,18 @@ theorem iffRec_shapeS {ty : Expr}
                 (.app (.bvar 2) (.bvar 0)) m₅) m₄) m₃) m₂) m₁ := by
   simp only [iffRecA, ConstantInfo.toConstantVal, Expr.erasePw] at h
   obtain ⟨t₁, b₁, m₁, rfl, ht₁, hb₁⟩ := erasePwNames_forallE_invS h
-  obtain rfl := erasePwNames_sort_invS ht₁
+  obtain rfl := Verify.erasePw_sort_inv ht₁
   obtain ⟨t₂, b₂, m₂, rfl, ht₂, hb₂⟩ := erasePwNames_forallE_invS hb₁
-  obtain rfl := erasePwNames_sort_invS ht₂
+  obtain rfl := Verify.erasePw_sort_inv ht₂
   obtain ⟨t₃, b₃, m₃, rfl, ht₃, hb₃⟩ := erasePwNames_forallE_invS hb₂
   -- the motive's type
   obtain ⟨tt, bt, mt, rfl, htt, hbt⟩ := erasePwNames_forallE_invS ht₃
   obtain ⟨f, a, rfl, hf, ha⟩ := erasePwNames_app_invS htt
   obtain ⟨f', a', rfl, hf', ha'⟩ := erasePwNames_app_invS hf
-  obtain rfl := erasePwNames_const_invS hf'
+  obtain rfl := erasePw_const_invS hf'
   obtain rfl := erasePwNames_bvar_invS ha'
   obtain rfl := erasePwNames_bvar_invS ha
-  obtain rfl := erasePwNames_sort_invS hbt
+  obtain rfl := Verify.erasePw_sort_inv hbt
   -- the minor
   obtain ⟨t₄, b₄, m₄, rfl, ht₄, hb₄⟩ := erasePwNames_forallE_invS hb₃
   obtain ⟨t₅, b₅, m₅, rfl, ht₅, hb₅⟩ := erasePwNames_forallE_invS ht₄
@@ -240,7 +172,7 @@ theorem iffRec_shapeS {ty : Expr}
   obtain ⟨g₂, c₂, rfl, hg₂, hc₂⟩ := erasePwNames_app_invS hg₁
   obtain ⟨g₃, c₃, rfl, hg₃, hc₃⟩ := erasePwNames_app_invS hg₂
   obtain ⟨g₄, c₄, rfl, hg₄, hc₄⟩ := erasePwNames_app_invS hg₃
-  obtain rfl := erasePwNames_const_invS hg₄
+  obtain rfl := erasePw_const_invS hg₄
   obtain rfl := erasePwNames_bvar_invS hc₄
   obtain rfl := erasePwNames_bvar_invS hc₃
   obtain rfl := erasePwNames_bvar_invS hc₂
@@ -250,7 +182,7 @@ theorem iffRec_shapeS {ty : Expr}
     erasePwNames_forallE_invS hb₄
   obtain ⟨p, q, rfl, hp, hq⟩ := erasePwNames_app_invS htt''
   obtain ⟨p', q', rfl, hp', hq'⟩ := erasePwNames_app_invS hp
-  obtain rfl := erasePwNames_const_invS hp'
+  obtain rfl := erasePw_const_invS hp'
   obtain rfl := erasePwNames_bvar_invS hq'
   obtain rfl := erasePwNames_bvar_invS hq
   obtain ⟨r, s, rfl, hr, hs⟩ := erasePwNames_app_invS hbt''
@@ -311,10 +243,8 @@ theorem eq_of_impls {A B f g : V} (hA : A ∈ˢ (univ 0 : V))
 /-- **Interpreted `Iff` forces equality of truth values, at the graded
 currency.**
 
-Not a transcription of `iff_forces_eqS`, and the difference is the
-finding this file records.  v1 builds the minor *positively*: it
-applies the stored `Iff.intro` to the recursor's own minor arguments.
-At `interp` that step does not exist — `Iff.intro`'s implication
+The minor is not built *positively* (by applying the stored
+`Iff.intro` to the recursor's own minor arguments): `Iff.intro`'s implication
 binders and `Iff.rec`'s implication binders are binder data of **two
 different stored constants**, agreeing only up to `erasePw`, so
 `piR e A (fun _ => B)` and `piR d A (fun _ => B)` need not be the same
@@ -328,8 +258,8 @@ minor is `lamR`-of-`lamR` over an unreachable body and the stored
 `Iff.intro` never appears at all.  The only computation needed is the
 motive's β, licensed by `pi_sort_bit_ne_zero`.  The level assignment
 is then free: this instantiates at `ψ0 uN = 0`, where `eqv A B ∈ˢ
-univ 0` is `eqv_mem_univ` outright and the ENDGAME B seal's `univ_mono`
-residue does not arise. -/
+univ 0` is `eqv_mem_univ` outright and no `univ_mono` residue
+arises. -/
 theorem iff_forces_eq (mp : EnvModelM V μ env)
     {cvI : ConstantVal} {caps : ConLeche.IndCaps} {cvIi cvIr : ConstantVal}
     {mI rP : Nat} {rules : List ConLeche.RecRule}
@@ -401,7 +331,7 @@ theorem iff_forces_eq (mp : EnvModelM V μ env)
   have hIc : ∀ ρ' : Nat → V,
       interp V ρ' (mp.base2.acval iffName ψ)
         = interp V ρ (mp.base2.acval iffName ψ) :=
-    fun ρ' => acval_interp_closedC mp.base2 _ ψ ρ' ρ
+    fun ρ' => acval_interp_closed mp.base2 _ ψ ρ' ρ
   -- ARG 1 and 2: the two propositions
   have hAd : A ∈ˢ interp V ρ (AnnotTerm.sort 0) := by
     rw [interp_sort]; exact hA
@@ -470,7 +400,7 @@ theorem iff_forces_eq (mp : EnvModelM V μ env)
   have h5 := app_mem_pi_validV h4 hwd' hval4
   simp only [interp_app, interp_bvar, cons_zero, cons_succ] at h5
   rw [hME, app_lamR_pos hc hw] at h5
-  exact hne (mem_eqv h5)
+  exact hne (eq_of_mem_eqv h5)
 
 /-! ## `propext`'s membership
 
@@ -536,7 +466,7 @@ theorem propext_mem (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ env)
   have hIc : ∀ ρ' : Nat → V,
       interp V ρ' (mp.base2.acval iffName ψ)
         = interp V ρ (mp.base2.acval iffName ψ) :=
-    fun ρ' => acval_interp_closedC mp.base2 _ ψ ρ' ρ
+    fun ρ' => acval_interp_closed mp.base2 _ ψ ρ' ρ
   -- three `Prop`-level products, all `pt`-inhabited
   show (pt : V) ∈ˢ _
   simp only [interp_pi, interp_sort, interp_app, interp_bvar,
@@ -569,8 +499,8 @@ theorem nonempty_shapeS {ty : Expr}
     ∃ m₁, ty = .forallE (.sort (.param uN)) (.sort .zero) m₁ := by
   simp only [nonemptyA, ConstantInfo.toConstantVal, Expr.erasePw] at h
   obtain ⟨t₁, b₁, m₁, rfl, ht₁, hb₁⟩ := erasePwNames_forallE_invS h
-  obtain rfl := erasePwNames_sort_invS ht₁
-  obtain rfl := erasePwNames_sort_invS hb₁
+  obtain rfl := Verify.erasePw_sort_inv ht₁
+  obtain rfl := Verify.erasePw_sort_inv hb₁
   exact ⟨m₁, rfl⟩
 
 /-- The stored `Nonempty.intro`'s shape. -/
@@ -582,11 +512,11 @@ theorem nonemptyIntro_shapeS {ty : Expr}
         (.app (.const nonemptyName [.param uN]) (.bvar 1)) m₂) m₁ := by
   simp only [nonemptyIntroA, ConstantInfo.toConstantVal, Expr.erasePw] at h
   obtain ⟨t₁, b₁, m₁, rfl, ht₁, hb₁⟩ := erasePwNames_forallE_invS h
-  obtain rfl := erasePwNames_sort_invS ht₁
+  obtain rfl := Verify.erasePw_sort_inv ht₁
   obtain ⟨t₂, b₂, m₂, rfl, ht₂, hb₂⟩ := erasePwNames_forallE_invS hb₁
   obtain rfl := erasePwNames_bvar_invS ht₂
   obtain ⟨f, a, rfl, hf, ha⟩ := erasePwNames_app_invS hb₂
-  obtain rfl := erasePwNames_const_invS hf
+  obtain rfl := erasePw_const_invS hf
   obtain rfl := erasePwNames_bvar_invS ha
   exact ⟨m₁, m₂, rfl⟩
 
@@ -610,14 +540,14 @@ theorem nonemptyRec_shapeS {ty : Expr}
               (.app (.bvar 2) (.bvar 0)) m₄) m₃) m₂) m₁ := by
   simp only [nonemptyRecA, ConstantInfo.toConstantVal, Expr.erasePw] at h
   obtain ⟨t₁, b₁, m₁, rfl, ht₁, hb₁⟩ := erasePwNames_forallE_invS h
-  obtain rfl := erasePwNames_sort_invS ht₁
+  obtain rfl := Verify.erasePw_sort_inv ht₁
   obtain ⟨t₂, b₂, m₂, rfl, ht₂, hb₂⟩ := erasePwNames_forallE_invS hb₁
   -- the motive's type
   obtain ⟨tt, bt, mt, rfl, htt, hbt⟩ := erasePwNames_forallE_invS ht₂
   obtain ⟨f, a, rfl, hf, ha⟩ := erasePwNames_app_invS htt
-  obtain rfl := erasePwNames_const_invS hf
+  obtain rfl := erasePw_const_invS hf
   obtain rfl := erasePwNames_bvar_invS ha
-  obtain rfl := erasePwNames_sort_invS hbt
+  obtain rfl := Verify.erasePw_sort_inv hbt
   -- the minor
   obtain ⟨t₃, b₃, m₃, rfl, ht₃, hb₃⟩ := erasePwNames_forallE_invS hb₂
   obtain ⟨tv, bv, mv, rfl, htv, hbv⟩ := erasePwNames_forallE_invS ht₃
@@ -626,13 +556,13 @@ theorem nonemptyRec_shapeS {ty : Expr}
   obtain rfl := erasePwNames_bvar_invS hg
   obtain ⟨g₁, c₁, rfl, hg₁, hc₁⟩ := erasePwNames_app_invS hc
   obtain ⟨g₂, c₂, rfl, hg₂, hc₂⟩ := erasePwNames_app_invS hg₁
-  obtain rfl := erasePwNames_const_invS hg₂
+  obtain rfl := erasePw_const_invS hg₂
   obtain rfl := erasePwNames_bvar_invS hc₂
   obtain rfl := erasePwNames_bvar_invS hc₁
   -- the major
   obtain ⟨tm, bm, m₄, rfl, htm, hbm⟩ := erasePwNames_forallE_invS hb₃
   obtain ⟨p, q, rfl, hp, hq⟩ := erasePwNames_app_invS htm
-  obtain rfl := erasePwNames_const_invS hp
+  obtain rfl := erasePw_const_invS hp
   obtain rfl := erasePwNames_bvar_invS hq
   obtain ⟨r, s, rfl, hr, hs⟩ := erasePwNames_app_invS hbm
   obtain rfl := erasePwNames_bvar_invS hr
@@ -709,7 +639,7 @@ theorem nonemptyIntroVal_app₂_memP (mp : EnvModelM V μ env)
   have hNc : ∀ ρ' : Nat → V,
       interp V ρ' (mp.base2.acval nonemptyName ψ)
         = interp V ρ (mp.base2.acval nonemptyName ψ) :=
-    fun ρ' => acval_interp_closedC mp.base2 _ ψ ρ' ρ
+    fun ρ' => acval_interp_closed mp.base2 _ ψ ρ' ρ
   have hAd : A ∈ˢ interp V ρ (AnnotTerm.sort (ψ uN)) := by
     rw [interp_sort]; exact hA
   have h1 := app_mem_pi_validV hmem hAd hval
@@ -722,7 +652,7 @@ theorem nonemptyIntroVal_app₂_memP (mp : EnvModelM V μ env)
     using h2
 
 /-- **A witness of the interpreted `Nonempty A` forces `A`
-inhabited.**  The constantly-`∅` motive, as in v1 — and here the minor
+inhabited.**  The constantly-`∅` motive — and here the minor
 really *is* vacuous by the ambient contradiction hypothesis rather than
 by restructuring, because `Nonempty.rec`'s minor binds a plain element
 of `α`.  The motive space's regime is `pi_sort_bit_ne_zero`'s, at the
@@ -781,7 +711,7 @@ theorem nonemptyVal_forces (mp : EnvModelM V μ env)
   have hNc : ∀ ρ' : Nat → V,
       interp V ρ' (mp.base2.acval nonemptyName ψ)
         = interp V ρ (mp.base2.acval nonemptyName ψ) :=
-    fun ρ' => acval_interp_closedC mp.base2 _ ψ ρ' ρ
+    fun ρ' => acval_interp_closed mp.base2 _ ψ ρ' ρ
   -- ARG 1: the type
   have hAd : A ∈ˢ interp V ρ (AnnotTerm.sort (ψ uN)) := by
     rw [interp_sort]; exact hA
@@ -915,7 +845,7 @@ theorem choice_mem (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ env)
   have hNc : ∀ ρ' : Nat → V,
       interp V ρ' (mp.base2.acval nonemptyName ψ)
         = interp V ρ (mp.base2.acval nonemptyName ψ) :=
-    fun ρ' => acval_interp_closedC mp.base2 _ ψ ρ' ρ
+    fun ρ' => acval_interp_closed mp.base2 _ ψ ρ' ρ
   show choiceV V (ψ uN) ∈ˢ _
   simp only [interp_pi, interp_sort, interp_app, interp_bvar,
     cons_zero, cons_succ, hNc]

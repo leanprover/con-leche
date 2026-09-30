@@ -1,45 +1,48 @@
 module
 
-public import ConLeche.Model.IndOpenRev
+import ConLeche.Kernel.PropWhen
+import ConLeche.Model.Annot.BitInst
+import ConLeche.Model.Annot.BitLevels
+import ConLeche.Model.Rules.IotaSoundKit
+import ConLeche.Verify.Denote.OpenRevDenote
+public import ConLeche.Model.IndReduct
+import ConLeche.Model.IndOpenRev
 public section
 
 /-!
 # The nested-pin grading, produced (task #161, IND TIER part 7)
 
-**The part-6 repair's producer.**  The probe refuted the old conjunct
-by naming the wrong object; the ratified repair grades
+`RecRuleLaw`'s nested-pin conjunct grades
 `AnnotTerm.instRevChain zs vpa` — the term the equality half already
 names — under the prefix telescope's own fit.  This file establishes
-exactly that, from exactly the certificate the checker runs.
+exactly that, from the certificate the checker runs on the
+instantiated pins.
 
-The route, in one line: the certificate is about `pinsP` at the public
+The route, in one line: the certificate is about the instantiated pin at the public
 frame, `pinCross` turns that object into this one **syntactically**,
 and `wellDenotedV_instSeq` carries the grading across the substitution
-because the fired prefix is graded (which the repaired conjunct, unlike
+because the fired prefix is graded (which the conjunct, unlike
 the interp-equality half, *does* hypothesise).
 
 ```
-   checkTypedList … pinsP cdomsP          (Inductives/Modeled.lean:290)
-     ⇒ TypedListOk.infer_of_mem           (Verify/IotaWalkInv.lean)
+   the checker's certificate on the instantiated pin
      ⇒ InferClaim                      ∀ σ, Sat V Δ σ → WellDenotedV V σ w0
      ⇒ at σ := chain V ρ (zs ++ padA…)   Sat by the prefix fit
      ⇒ wellDenotedV_instSeq                   WellDenotedV V ρ (instSeq … w0)
      ⇒ pinCross                          WellDenotedV V ρ (instRevChain zs vpa)
 ```
 
-Three things are worth naming, because each is a place the earlier
-spelling could not have gone:
+Three things are worth naming:
 
 * **the grading crosses the substitution only because the arguments
   are graded.**  `WellDenoted_inst`/`AnnotValid_inst` charge for the
   substituted value at every cut, so `wellDenotedV_instSeq` needs
-  `∀ w ∈ ws, WellDenotedV V ρ w`.  The repaired conjunct supplies it
-  (`∀ z ∈ zs, WellDenotedV V ρ z`); the interp-equality half never could,
-  which is precisely why part 4 routed the *equality* through the
-  top-down descent instead;
+  `∀ w ∈ ws, WellDenotedV V ρ w`.  The conjunct supplies it
+  (`∀ z ∈ zs, WellDenotedV V ρ z`); the interp-equality half cannot,
+  which is why the *equality* goes through the top-down descent;
 * **the padding must be graded too**, and must inhabit its context
-  slot.  v1's `dummyPropT` only had to do the second; here the spine's
-  padding is charged a grading by `wellDenotedV_instSeq`.  `.prf` is the
+  slot: the spine's padding is charged a grading by
+  `wellDenotedV_instSeq`.  `.prf` is the
   obvious candidate and it **fails**: `pt_not_mem_univZero`.  The
   padding that works is `padA := .eqE (.sort 0) (.sort 0)` —
   its reading is `eqv (univ 0) (univ 0) ∈ˢ univ 0` (`eqv_mem_univ`) and
@@ -47,8 +50,8 @@ spelling could not have gone:
 * **the certificate's context is the public frame's, padded at the
   bottom.**  The pins mention only openers `0 … rP - 1` while the run
   is at depth `rP + cnF`, so the entries the conversion consults sit
-  at indices `≥ cnF`; the `cnF` slots below them are the part-3/4
-  padding trick's `.sort 0`s, satisfied by the spine's own padding.
+  at indices `≥ cnF`; the `cnF` slots below them are padding
+  `.sort 0`s, satisfied by the spine's own padding.
 -/
 
 namespace ConLeche.Model
@@ -86,8 +89,7 @@ theorem wellDenotedV_padA (ρ : Nat → V) : WellDenotedV V ρ padA := by
 
 /-! ## The chain's ambient environment -/
 
-/-- Shifting past a whole reading chain cancels it — the `chain`
-mirror of `shiftE_envChain`. -/
+/-- Shifting past a whole reading chain cancels it. -/
 theorem shiftE_chain (ρ : Nat → V) (ws : List AnnotTerm) :
     shiftE ws.length 0 (chain V ρ ws) = ρ := by
   funext i
@@ -211,16 +213,14 @@ theorem sat_padded_chain {rP cnF : Nat} {TVa RP : AnnotTerm}
 /-! ## The producer -/
 
 set_option maxHeartbeats 1600000 in
-/-- **THE PRODUCER: the repaired nested-pin conjunct's grading half,
+/-- **THE PRODUCER: the nested-pin conjunct's grading half,
 established from the checker's own certificate.**
 
-`hcert` is the claims-layer form of `checkTypedList ops envSelf depth
-pinsP cdomsP` (`Inductives/Modeled.lean:290`) read through
-`TypedListOk.infer_of_mem` and `InferClaim`: context-guarded, at the
-public frame's padded context, on the *instantiated* pin `pinsP i` —
-the object the part-6 probe showed the certificate is actually about.
+`hcert` is the claims-layer form of the checker's certificate on the
+pins, read through `InferClaim`: context-guarded, at the public
+frame's padded context, on the *instantiated* pin `Expr.instSpine os (rP - 1) p`.
 
-The conclusion is `RecRuleLaw`'s repaired conjunct verbatim, at the
+The conclusion is `RecRuleLaw`'s conjunct verbatim, at the
 chain the equality half names. -/
 theorem nestedPinGrade {acval : Name → (Name → Nat) → AnnotTerm}
     {cval : TConstVal}

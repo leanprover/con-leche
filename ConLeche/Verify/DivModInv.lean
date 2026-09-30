@@ -13,15 +13,9 @@ public section
 `checkDivModPin` and `checkDivModCerts` are checker walks over
 `Env`/`Expr`; unpacking a successful run into the annotate/infer/defeq
 triple it performed, and reading the guards it passed, mentions no
-valuation.  All of it was written in `ConLeche/Model/DivModCert.lean`
-under that module's `variable (V) [SetTheory V]`, and is relocated here
-verbatim under the criterion #123 established: **V-free checker
-inversion belongs in `ConLeche/Verify`**, so both verification paths can
-consume it instead of restating it.
-
-`ConLeche/Model/DivModCert.lean` imports this file; the valuation-carrying
-half of that module (the frame's `EqSideOk` machinery and
-`divmod_certs_sound`) stays where it is.
+valuation, so it lives in `ConLeche/Verify` (#123).
+`ConLeche/Model/DivModCert.lean` imports this file and carries the
+valuation-carrying half.
 -/
 
 namespace ConLeche

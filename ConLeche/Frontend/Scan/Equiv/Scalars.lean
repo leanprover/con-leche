@@ -441,57 +441,6 @@ theorem extract_eq (b : ByteArray) (s e : USize) (hs : s.toNat ≤ e.toNat)
 
 /-! ### Shifting the window to `i` -/
 
-/-- `USize` is a ring: a step commutes with the shift, with no
-side condition. -/
-theorem usize_sub_add (x y : USize) : (x + 1) - y = (x - y) + 1 := by
-  apply USize.toBitVec_inj.mp
-  simp only [USize.toBitVec_add, USize.toBitVec_sub, USize.toBitVec_ofNat,
-    BitVec.sub_eq_add_neg]
-  rw [BitVec.add_assoc, BitVec.add_comm (1#System.Platform.numBits), ← BitVec.add_assoc]
-
-/-- The tail from `i`, seen as an array, has exactly those bytes. -/
-theorem bytes_tailAt (b : ByteArray) (i : USize) :
-    bytes (⟨⟨tailAt b i⟩⟩ : ByteArray) = tailAt b i := by
-  have h2 : (tailAt b i).length ≤ b.usize.toNat := by simp only [length_tailAt]; omega
-  have h3 := USize.toNat_lt_size b.usize
-  simp only [bytes, toNat_usize]
-  show List.take (((tailAt b i).length) % USize.size) (tailAt b i) = tailAt b i
-  rw [Nat.mod_eq_of_lt (by omega), List.take_length]
-
-theorem usize_tailAt (b : ByteArray) (i : USize) :
-    (⟨⟨tailAt b i⟩⟩ : ByteArray).usize.toNat = b.usize.toNat - i.toNat := by
-  have h := length_bytes (⟨⟨tailAt b i⟩⟩ : ByteArray)
-  rw [bytes_tailAt] at h
-  rw [← h, length_tailAt]
-
-theorem tailAt_shift (b : ByteArray) (i p : USize) (h : i.toNat ≤ p.toNat) :
-    tailAt (⟨⟨tailAt b i⟩⟩ : ByteArray) (p - i) = tailAt b p := by
-  have hsub : (p - i).toNat = p.toNat - i.toNat :=
-    USize.toNat_sub_of_le p i (USize.le_iff_toNat_le.mpr h)
-  show (bytes (⟨⟨tailAt b i⟩⟩ : ByteArray)).drop (p - i).toNat = tailAt b p
-  rw [bytes_tailAt, hsub]
-  show ((bytes b).drop i.toNat).drop (p.toNat - i.toNat) = (bytes b).drop p.toNat
-  rw [List.drop_drop]
-  congr 1
-  omega
-
-theorem byteAt_shift (b : ByteArray) (i p : USize) (h : i.toNat ≤ p.toNat) :
-    byteAt (⟨⟨tailAt b i⟩⟩ : ByteArray) (p - i) = byteAt b p := by
-  rw [byteAt_eq, byteAt_eq, tailAt_shift b i p h]
-
-theorem lt_usize_shift (b : ByteArray) (i p : USize) (h : i.toNat ≤ p.toNat) :
-    (p - i) < (⟨⟨tailAt b i⟩⟩ : ByteArray).usize ↔ p < b.usize := by
-  rw [USize.lt_iff_toNat_lt, USize.lt_iff_toNat_lt, usize_tailAt,
-      USize.toNat_sub_of_le p i (USize.le_iff_toNat_le.mpr h)]
-  omega
-
-theorem lt_shift (i p q : USize) (hp : i.toNat ≤ p.toNat) (hq : i.toNat ≤ q.toNat) :
-    (p - i) < (q - i) ↔ p < q := by
-  rw [USize.lt_iff_toNat_lt, USize.lt_iff_toNat_lt,
-      USize.toNat_sub_of_le p i (USize.le_iff_toNat_le.mpr hp),
-      USize.toNat_sub_of_le q i (USize.le_iff_toNat_le.mpr hq)]
-  omega
-
 /-- A byte read past the end is `0`, so a non-zero read is in range. -/
 theorem lt_usize_of_byteAt_ne_zero {b : ByteArray} {p : USize} (h : byteAt b p ≠ 0) :
     p < b.usize := by
@@ -509,15 +458,6 @@ theorem uget_eq_byteAt {b : ByteArray} {p : USize} (h : p < b.usize) :
 theorem usize_step_of_lt {p : USize} (h : p.toNat + 1 < USize.size) :
     (p + 1).toNat = p.toNat + 1 := by
   simp [USize.toNat_add, Nat.mod_eq_of_lt h]
-
-theorem hexVal_ne_zero {c : UInt8} {v : UInt32} (h : hexVal c = some v) : c ≠ 0 := by
-  intro h0; rw [h0] at h; simp [hexVal] at h
-
-theorem step_of_hexVal {b : ByteArray} {p : USize} {v : UInt32}
-    (h : hexVal (byteAt b p) = some v) :
-    p.toNat < b.usize.toNat ∧ (p + 1).toNat = p.toNat + 1 := by
-  have hlt := lt_usize_of_byteAt_ne_zero (hexVal_ne_zero h)
-  exact ⟨USize.lt_iff_toNat_lt.mp hlt, usizeStep b p hlt⟩
 
 /-- The naive body is the input up to (and excluding) its closing quote. -/
 theorem naiveStrBody_append {l body r : List UInt8} (h : naiveStrBody l = some (body, r)) :

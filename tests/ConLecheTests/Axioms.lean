@@ -2,27 +2,21 @@ module
 
 public import ConLeche.MainTheorem
 public import ConLeche.Verify.Cached.MainC
-public import ConLeche.Verify.Cached.StreamConsts
+public import ConLeche.Model.StreamConsts
 public import ConLeche.Verify.Cached.StreamThm
 public import ConLeche.Model.Fold
 public import ConLeche.Model.Capstone
 public section
 
 /-!
-# THE AXIOM PIN (2026-09-06, external review §2/§5.1)
+# THE AXIOM PIN
 
 **Why this module exists.**  The headline of this project is that the
 consistency theorems stand on nothing but Lean's three standard axioms:
 
     [propext, Classical.choice, Quot.sound]
 
-Until now that was a *claim in the design journal* — the tree had exactly
-one `#guard_msgs in #print axioms`, on the Aczel realizability leaf
-(`SetTheory/Aczel.lean`, deleted at task #212 in favour of the Mathlib
-bridge `bridge/lean4lean-model`), and none on any capstone.  An external
-reviewer could not confirm the headline without a full rebuild and a
-scratch file of their own.  The guards below are that scratch file,
-in-tree and run by `lake test`: if a `sorry`, a new axiom, or a stray
+The guards below pin that claim in-tree, run by `lake test`: if a `sorry`, a new axiom, or a stray
 `Classical`-adjacent import ever enters a capstone's proof term, the
 message changes and the build fails.
 
@@ -33,13 +27,11 @@ compiled behaviour was replaced by `@[implemented_by]` or read off a
 `@[computed_field]` word.  Two gates, two blindnesses:
 
   * this module     — what the PROOF TERM assumes (the logical TCB);
-  * trust-surface.sh — what the COMPILED CODE assumes (the runtime TCB);
-  * proofdeps.sh    — which MODULES the proof term reaches.
+  * trust-surface.sh — what the COMPILED CODE assumes (the runtime TCB).
 
 **Layering.**  This module *imports* the capstones; nothing imports it.
 It is under the `ConLecheTests` library (`lake test`), so it can never
-enter a capstone's own dependency closure — `tests/proofdeps.sh` would
-report the door if it ever did.
+enter a capstone's own dependency closure.
 
 **The eighteen pinned theorems.**  The main theorem first — that is
 the statement a reader comes for — with the functionality of the
@@ -48,10 +40,7 @@ then the letters on the fold it is stated about, the two transfer theorems betwe
 and the driver's fully checked environment, the letters on that
 environment and the model it carries, the pure fueled checker's
 letters, the business end at the invariant, and the one `@[csimp]`
-equation the compiled equality rests on.  Eleven of them are also
-`tests/proofdeps.sh`'s roots (`tests/ProofDeps.lean` names them), which
-pin the MODULES their proof terms reach.  The two gates measure
-different things and neither implies the other.
+equation the compiled equality rests on.
 
 | theorem | what it says |
 |---|---|
@@ -124,7 +113,7 @@ info: 'ConLeche.no_False_declaration' depends on axioms: [propext, Classical.cho
 #print axioms ConLeche.no_False_declaration
 
 /-! ## What the fold stores of what it reads
-(`ConLeche/Verify/Cached/StreamConsts.lean`)
+(`ConLeche/Model/StreamConsts.lean`)
 
 The other direction of the same relation between input and output:
 every record of the stream that declares a constant leaves that
@@ -158,7 +147,7 @@ info: 'ConLeche.Cached.checkDecls_sound' depends on axioms: [propext, Classical.
 #print axioms ConLeche.Cached.checkDecls_sound
 
 /-! ## The fold and the driver's fully checked environment
-(`ConLeche/Cached/Installed.lean`, `ConLeche/Verify/Cached/InstalledC.lean`) -/
+(`ConLeche/Cached/Installed.lean`, `ConLeche/Model/InstallRun.lean`) -/
 
 /--
 info: 'ConLeche.Cached.fullyChecked_checkDecls' depends on axioms: [propext, Classical.choice, Quot.sound]

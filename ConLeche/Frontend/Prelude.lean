@@ -8,8 +8,8 @@ public import ConLeche.Frontend.Prepare
 /-!
 # The built-in prelude (task #191)
 
-**What it is.**  The checker's own little prelude: the six pinned
-basis blocks (`Eq`, `Nat`, `PUnit`, `Empty`, `False`, `Quot` with its
+**What it is.**  The checker's own little prelude: the five pinned
+basis blocks (`Eq`, `Nat`, `Empty`, `False`, `Quot` with its
 soundness axiom), the `Bool` block — every declaration the
 pin-certified `Nat` operations' install needs that is neither in the
 operation's own dependency closure nor a stream-certified operation
@@ -42,10 +42,9 @@ stream that declares the toolchain's `Bool` is checked on its own
 `Bool` record.  The records install by exactly the routes a stream's
 records install by, the pinned blocks among them recognised by the fold
 (`basisPinHit`, `ConLeche/Kernel/Basis.lean`).  The main theorem
-quantifies over the prepared records; the frontend sits below it, like the
-projection rewrite of `ConLeche/Frontend/ProjRec.lean`.
+quantifies over the prepared records; the frontend sits below it.
 
-`builtinPrelude` is a 0-ary definition, so the embedded text is parsed
+`builtinPreludeE` is a 0-ary definition, so the embedded text is parsed
 once, at process initialisation (a few hundred lines).  A parse
 failure — a corrupted committed file — is `.error`, which `Main.lean`
 reports as exit 3 before reading any input; `tests/ConLecheTests` pins

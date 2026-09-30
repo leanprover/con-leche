@@ -1,18 +1,31 @@
 module
 
-public import ConLeche.Model.IotaRuleNested
 import ConLeche.Verify.Denote.EnvExt
+import ConLeche.Model.Annot.Bit
+import ConLeche.Model.Annot.BitInst
+import ConLeche.Model.Annot.BitLevels
+import ConLeche.Model.Annot.BitRename
+import ConLeche.Model.Rules.IotaSoundKit
+import ConLeche.Model.Tiers
+import ConLeche.Verify.BridgeWfImp
+import ConLeche.Verify.Denote.OpenRevDenote
+import ConLeche.Kernel.Checker
+import ConLeche.Model.IndDomGrade
+import ConLeche.Model.IndFrame
+public import ConLeche.Model.IndPinGrade
+public import ConLeche.Verify.Extend.Recs
+import ConLeche.Semantics.DeclRun
+import ConLeche.Semantics.IndBlockFacts
 public section
 
 /-!
 # The group rule-list swap, P tier (task #161, IND TIER part 10)
 
-`Install/SwapS.lean`'s twin one currency over: `EnvModelM.swapP`
-transports the P invariant across the step that attaches a recursor
-group's checked rule lists to its rule-less provisioned entries.
+`EnvModelM.swapP` transports the P invariant across the step that
+attaches a recursor group's checked rule lists to its rule-less
+provisioned entries.
 
-The workhorse is `denoteMeta_env_ext` — the `denoteMeta` mirror of
-`denote_env_ext` (`Verify/Denote/EnvExt.lean`).  It is an **equation**
+The workhorse is `denoteMeta_env_ext`.  It is an **equation**
 with no `ConstsBound` premise, unlike the extension crossing
 (`denoteMeta_envExtend_mono`): a swap changes no stored name, so the
 reading's three environment consultations — the `.const` clause's
@@ -22,9 +35,9 @@ That is why every field of the invariant crosses in *both* directions
 and the contravariant readings need no determinism trick here.
 
 The three environment-level facts about the *result* — `EnvWF`,
-`RecCtorsStored`, `RecRules` — are hypotheses, exactly as in v1: they
-are what the group install proves (the last through `iotaRules`), and
-taking them here keeps the transport free of the per-rule content.
+`RecCtorsStored`, `RecRules` — are hypotheses: they are what the group
+install proves, and taking them here keeps the transport free of the
+per-rule content.
 -/
 
 namespace ConLeche.Model
@@ -43,8 +56,7 @@ variable {V : Type w} [SetTheory V]
 /-! ## The reading across a level-preserving correspondence -/
 
 /-- **`denoteMeta` reads the environment only through the stored level
-parameters and the two literal guards** — `denote_env_ext`'s twin.  An
-equation, so a law's `denoteMeta` *hypotheses* and *conclusions* both move
+parameters and the two literal guards**.  An equation, so a law's `denoteMeta` *hypotheses* and *conclusions* both move
 across it for free, which is what makes the fired-form fields
 transportable at all. -/
 theorem denoteMeta_env_ext {acval : Name → (Name → Nat) → AnnotTerm}
@@ -134,49 +146,6 @@ theorem denoteMeta_swap {acval : Name → (Name → Nat) → AnnotTerm}
     denoteMeta acval env₀ φ d e = denoteMeta acval env₃ φ d e :=
   denoteMeta_env_ext hcg.levelsEq hcg.natEq hcg.strEq hcg.projEq d e
 
-/-! ## The fired modeled-iota contract across the swap -/
-
-/-- **A fired law reads the environment only through `denoteMeta` and the
-constructor's lookup, so it crosses the rule-list swap**
-(`RecRuleLawV.swapS`'s twin).  Both carriers have the *same* `acval`;
-the statement mentions the environment nowhere else. -/
-theorem RecRuleLaw.swapP {env₀ env₃ : Env}
-    (hcg : ConLeche.SwapCongr env₀ env₃)
-    {m₀ : EnvModel V env₀} {m₃ : EnvModel V env₃}
-    (hac : m₃.acval = m₀.acval)
-    {φ : Name → Nat} {n : Name} {cv : ConstantVal} {mI rP : Nat}
-    {rl : RecRule} (h : RecRuleLaw m₀ φ n cv mI rP rl) :
-    RecRuleLaw m₃ φ n cv mI rP rl := by
-  have hde : ∀ (d : Nat) (e : Expr),
-      denoteMeta m₀.acval env₀ φ d e = denoteMeta m₀.acval env₃ φ d e :=
-    fun d e => denoteMeta_swap hcg φ d e
-  unfold RecRuleLaw at h ⊢
-  rw [hac]
-  obtain ⟨hle, h⟩ := h
-  refine ⟨hle, ?_⟩
-  intro us hus
-  obtain ⟨Ra, hRa, hokRa, hpins, hlaw⟩ := h us hus
-  refine ⟨Ra, ?_, hokRa, ?_, ?_⟩
-  · rw [← hde]; exact hRa
-  · -- the pins' carried readings and their guarded gradings
-    intro lvls pins hfr i hi
-    obtain ⟨vpa, hvpa, hgr⟩ := hpins lvls pins hfr i hi
-    refine ⟨vpa, by rw [← hde]; exact hvpa, ?_⟩
-    intro ρ zs TVa restR hzl hzok hTVa hfit
-    rw [← hde] at hTVa
-    exact hgr ρ zs TVa restR hzl hzok hTVa hfit
-  · intro cvj cnP cnF hfc usj ρ xs ys TVa TVja restR restC hxl hyl hujl
-      hlev hplain hnested hidx hTVa hTVja hfitR hfitC
-    rw [← hde] at hTVa hTVja
-    refine hlaw cvj cnP cnF
-      (hcg.findDown _ _ hfc (fun _ _ _ _ hcon => nomatch hcon)) usj ρ
-      xs ys TVa TVja restR restC hxl hyl hujl hlev hplain ?_ hidx hTVa
-      hTVja hfitR hfitC
-    intro lvls pins hfr i hi vpa hvpa
-    refine hnested lvls pins hfr i hi vpa ?_
-    rw [← hde]
-    exact hvpa
-
 /-! ## The P invariant across the swap -/
 
 set_option maxHeartbeats 3200000 in
@@ -188,10 +157,8 @@ theorem EnvModelM.swapP {μ : CheckMode} {env₀ env₃ : Env}
     (mp : EnvModelM V μ env₀)
     (hsw : ConLeche.SwapShList env₀.consts env₃.consts)
     -- the four syntactic environment facts at the swapped
-    -- environment (`swapEnvFacts`, `SetBase/IndRecsCoreR.lean`;
-    -- task #161 S7, Wall C): taking them rather than rebuilding them
-    -- keeps this file free of the rule facts, exactly as taking the
-    -- v1 carrier used to
+    -- environment: taking them rather than rebuilding them keeps this
+    -- file free of the rule facts
     (hwf₃ : EnvWF env₃) (hctors₃ : ConLeche.RecCtorsStored env₃)
     (hbp₃ : BasisPinnedTT env₃ mp.base2.cvalE)
     (hproj₃ : ProjOkT env₃)
@@ -249,7 +216,16 @@ theorem EnvModelM.swapP {μ : CheckMode} {env₀ env₃ : Env}
             caps_ok := ?_
             rec_rules := hrecP _ rfl
             reduce_ops := ?_
-            tower_ok := ?_ },
+            tower_ok := ?_
+            -- the recorded lfp clauses: the swap touches recursors only,
+            -- and keeps every leaf
+            lfpBlocks := mp.lfpBlocks
+            lfp_ok := mp.lfp_ok_transport
+              (fun n ci hf hnr => (hsame n ci hnr).mpr hf)
+              (fun _ _ _ _ => rfl)
+              (fun _ _ _ _ ψ _ hta => by rw [← denoteMeta_swap hcg ψ 0]; exact hta)
+              (fun _ _ _ _ _ ψ _ hta => by rw [← denoteMeta_swap hcg ψ 0]; exact hta)
+              (fun _ _ _ _ _ _ ψ _ _ hta => by rw [← denoteMeta_swap hcg ψ _]; exact hta) },
           rfl, rfl⟩
   · -- `type_reads`
     intro c hc ψ

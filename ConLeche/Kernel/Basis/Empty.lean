@@ -20,7 +20,7 @@ open BasisDSL
 
 /-- `Empty : Type`. -/
 def emptyRaw : ConstantInfo :=
-  .indInfo ⟨emptyName, [], type1⟩ {}
+  .indInfo ⟨emptyName, [], type1⟩ { all := [emptyName] }
 
 /-- `Empty.rec.{u} (motive : Empty → Sort u) (t : Empty) : motive t`.
 The exporter emits the motive as an *explicit* binder here (there is

@@ -1,19 +1,12 @@
 --#export InModelMutual.even_two InModelMutual.odd_one InModelMutual.Node.valOf InModelMutual.Forest.firstVal InModelMutual.Node.kidsSize InModelMutual.noA InModelMutual.a_of_b InModelMutual.Even.isZero InModelMutual.zero_isZero
 
-/- End-to-end test: MUTUAL inductive blocks modelled IN-PROCESS (task
-   #200, B1: index-free).  The raw export carries no `_model` artifacts
-   for these blocks; the frontend's in-process modeller
-   (`ConLeche/Frontend/InModel/Mutual.lean`) generates the tag and auxiliary
-   families and the `_model` slots ahead of each block, and the modeled
-   install consumes them as it consumes any `_model` family.
+/- End-to-end test: index-free MUTUAL inductive blocks (task #200, B1).
 
    Three shapes: a data pair with recursion across the members and
    several constructors (`Even`/`Odd`; `even_two`/`odd_one` force iota
    through the two recursors on concrete majors), a structure-like pair
    with a universe-polymorphic parameter (`Node`/`Forest`, whose
-   elaborated projection functions are `.proj` nodes the frontend
-   rewrites to recursor applications at the field sort the generated
-   `proj_i.iota` artifacts name), and a `Prop` pair (`A`/`B`, small
+   elaborated projection functions are `.proj` nodes), and a `Prop` pair (`A`/`B`, small
    eliminator: `noA` eliminates by mutual induction into `False`). -/
 
 namespace InModelMutual

@@ -1,9 +1,10 @@
 module
 
--- lane S-red's kit is the SHARED one: `DenoteMetaSpine`'s list algebra,
+-- `RedSoundKit` is the SHARED kit: `DenoteMetaSpine`'s list algebra,
 -- `hoist_spine`, `frame_spine`, `denoteMeta_mkAppN(_inv)`, the
 -- `PiChain` guard and the tower entry's reading live there
 public import ConLeche.Model.Rules.RedSoundKit
+import ConLeche.Model.Rules.IotaSoundKit
 import ConLeche.Model.CtxOkKit
 import ConLeche.Model.Annot.BitLemmas
 import ConLeche.Model.Annot.BitRename
@@ -11,13 +12,11 @@ import ConLeche.Verify.PropRead
 import ConLeche.Model.IOLicense
 import ConLeche.Model.Annot.BitClosed
 import ConLeche.Verify.InstLevels
-import ConLeche.Verify.PinnedShapes
 /- `ConLeche.Kernel.PropWhen` seals its representation on purpose (the
 `Std.HashMap` pattern, task #194): the datum's module is `public` but
 not `@[expose]`d, so the `cases`-then-`rfl` steps of the squash-regime
 facts below cannot see the reduct.  `import all` restores that view
-HERE only — the transplant of `Model/Steps/IrrelFast.lean`, which
-carries the same escape for the same reason. -/
+HERE only. -/
 import all ConLeche.Kernel.PropWhen
 import ConLeche.Semantics.Hoist
 import ConLeche.Model.Annot.BitLevels
@@ -25,16 +24,13 @@ import ConLeche.Model.Annot.BitLevels
 public section
 
 /-!
-# The definitional-equality soundness kit (task #305, lane S-defeq)
+# The definitional-equality soundness kit (task #305)
 
 The plumbing the per-rule lemmas of `Model/Rules/DefEqSound.lean`
 share: the frame/grading splitters at each node shape, the two `Nat`
-constant readings, and `projAV`'s congruence.  Everything here is a
-TRANSPLANT of an argument that lived in `Model/Steps/*` until the task
-#305 closing deleted that tier (`DefEq.lean`'s `hoist_*` and
-`denoteMeta_nat*Const`, `ProjAVKit.lean`'s `projAV` family) — restated
-at the rules tier's `Frame`/`Graded` vocabulary, so that no
-`Model/Rules` module is stated over runs.
+constant readings, and `projAV`'s congruence — stated at the rules
+tier's `Frame`/`Graded` vocabulary, so that no `Model/Rules` module is
+stated over runs.
 -/
 
 namespace ConLeche.Model.Rules
@@ -72,8 +68,7 @@ theorem Frame.proj_arg {d : Nat} {s : Name} {i : Nat} {e : Expr}
   simp only [Expr.looseBVarsBounded] at hb
   exact ⟨hw, hb, fun l hl => hL l (by simp [Expr.fvarLeaves, hl])⟩
 
-/-- The opened body's frame, at an arbitrary (well-framed) domain —
-`binder_congr`'s `hLo₁`/`hLo₂` plus its two scoping arguments. -/
+/-- The opened body's frame, at an arbitrary (well-framed) domain. -/
 theorem Frame.open_body {d : Nat} {ty' bd : Expr} (hty' : Frame d ty')
     (hwb : Expr.WScoped d bd) (hbb : bd.looseBVarsBounded 1 = true)
     (hLb : Expr.LeavesBounded bd) :
@@ -126,16 +121,7 @@ theorem Frame.of_not_hasFvar {d : Nat} {e : Expr} (hf : e.hasFvar = false)
     (hb : e.looseBVarsBounded 0 = true) : Frame d e :=
   ⟨Expr.WScoped.of_not_hasFvar hf, hb, Expr.LeavesBounded.of_not_hasFvar hf⟩
 
-/-! ## The grading splitters — `Steps/DefEq.lean`'s `hoist_*`, at
-`Graded` -/
-
-theorem Graded.app {Δa : List AnnotTerm} {f a : AnnotTerm}
-    (h : Graded V Δa (.app f a)) :
-    Graded V Δa f ∧ Graded V Δa a := by
-  refine ⟨fun ρ hρ => ⟨((WellDenoted_app V ρ f a) ▸ (h ρ hρ).1).1, ?_⟩,
-    fun ρ hρ => ⟨((WellDenoted_app V ρ f a) ▸ (h ρ hρ).1).2.1, ?_⟩⟩
-  · exact ((AnnotValid_app V ρ f a) ▸ (h ρ hρ).2).1
-  · exact ((AnnotValid_app V ρ f a) ▸ (h ρ hρ).2).2
+/-! ## The grading splitters, at `Graded` -/
 
 theorem Graded.fst {Δa : List AnnotTerm} {e : AnnotTerm}
     (h : Graded V Δa (.fst e)) : Graded V Δa e := fun ρ hρ =>
@@ -147,7 +133,7 @@ theorem Graded.snd {Δa : List AnnotTerm} {e : AnnotTerm}
   ⟨((WellDenoted_snd V ρ e) ▸ (h ρ hρ).1).1,
     (AnnotValid_snd V ρ e) ▸ (h ρ hρ).2⟩
 
-/-- `hoist_pi` (`Steps/DefEq.lean:141`) at `Graded`. -/
+/-- `WellDenoted.hoist_pi` at `Graded`. -/
 theorem Graded.pi {Δa : List AnnotTerm} {u v : Nat} {A B : AnnotTerm}
     (h : Graded V Δa (.pi u v A B)) :
     Graded V Δa A ∧ Graded V (A :: Δa) B := by
@@ -160,7 +146,7 @@ theorem Graded.pi {Δa : List AnnotTerm} {u v : Nat} {A B : AnnotTerm}
       (h _ (Sat_tail hρ)).2).2.1 (ρ 0) (hρ 0 A rfl)
     rwa [hcons] at this
 
-/-- `hoist_lam` (`Steps/DefEq.lean:155`) at `Graded`. -/
+/-- `WellDenoted.hoist_lam` at `Graded`. -/
 theorem Graded.lam {Δa : List AnnotTerm} {v : Nat} {A b : AnnotTerm}
     (h : Graded V Δa (.lam v A b)) :
     Graded V Δa A ∧ Graded V (A :: Δa) b := by
@@ -189,7 +175,7 @@ theorem denoteMeta_open_rename {acval : Name → (Name → Nat) → AnnotTerm}
     (show Expr.ErasedEq (.fvar d ty') (.fvar d ty) from rfl))]
   exact h
 
-/-! ## The constant congruence (`Steps/DefEq.lean:844`) -/
+/-! ## The constant congruence -/
 
 /-- The same constant at level-equivalent instantiations has one
 validated reading. -/
@@ -221,43 +207,9 @@ theorem Graded.projAV {Δa : List AnnotTerm} {i : Nat} {e : AnnotTerm}
     (h : Graded V Δa (ConLeche.Semantics.projAV i e)) : Graded V Δa e :=
   fun ρ hρ => ProjAV.hoistV (h ρ hρ)
 
-/-! ## The stored constant's package (`Steps/IotaRows.lean:200`) -/
+/-! ## The proof-irrelevance fast arm
 
-/-- A stored declaration's instantiated type: read at every depth,
-graded, inhabited, and framed (closed, so the frames are free). -/
-theorem constType_pkg {m : EnvModel V env} (hct : ConstType m φ)
-    {n : Name} {ci : ConstantInfo} (hf : env.find? n = some ci)
-    (hnt : ci.isTowerEntry = false) {us : List Level}
-    (hlen : us.length = ci.toConstantVal.levelParams.length) :
-    ∃ ta : AnnotTerm,
-      (∀ d : Nat, denoteMeta m.acval env φ d
-        (ci.toConstantVal.type.instantiateLevelParams
-          ci.toConstantVal.levelParams us) = some ta) ∧
-      (∀ ρ : Nat → V, WellDenotedV V ρ ta) ∧
-      (∀ ρ : Nat → V,
-        interp V ρ (m.acval n
-          (Level.substFn φ ci.toConstantVal.levelParams us)) ∈ˢ interp V ρ ta) ∧
-      (ci.toConstantVal.type.instantiateLevelParams
-        ci.toConstantVal.levelParams us).hasFvar = false ∧
-      (ci.toConstantVal.type.instantiateLevelParams
-        ci.toConstantVal.levelParams us).looseBVarsBounded 0 = true := by
-  obtain ⟨ta, hta, hok, hmem⟩ := hct 0 n ci us hf hnt hlen
-  have hwf := m.wf _ (ConLeche.Semantics.Env.find?_mem hf)
-  have hnf : (ci.toConstantVal.type.instantiateLevelParams
-      ci.toConstantVal.levelParams us).hasFvar = false := by
-    rw [ConLeche.Expr.hasFvar_instantiateLevelParams]; exact hwf.1
-  have hbd : (ci.toConstantVal.type.instantiateLevelParams
-      ci.toConstantVal.levelParams us).looseBVarsBounded 0 = true := by
-    rw [ConLeche.Expr.looseBVarsBounded_instantiateLevelParams]
-    exact hwf.2.2.2.1
-  exact ⟨ta, denoteMeta_depth_of_closed m.acval_closed hnf
-      (fun k => denoteMeta_closed m.acval_erase m.cval_closed hnf hbd hta 1 k)
-      hta,
-    hok, hmem, hnf, hbd⟩
-
-/-! ## The proof-irrelevance fast arm (`Steps/IrrelFast.lean:67-419`)
-
-The whole squash-regime licence, transplanted: the `V`-level facts,
+The whole squash-regime licence: the `V`-level facts,
 the type former's `.pi` chain, and `prf_of_isProofFast` itself, with
 `ConstType` read as the rules tier's `ConstType`. -/
 
@@ -283,22 +235,6 @@ theorem pwBit_eq_zero_of_isProp {pw : PropWhen}
     (h : pw.isProp = true) (φ : Name → Nat) : pwBit φ pw = 0 := by
   rw [eq_of_beq h]
   simp [pwBit]
-
-/-- **Exactness**: `pw.isProp` is *the* datum that is zero at every
-valuation — `isNever_iff_forall_pwBit_ne_zero`'s mirror. -/
-theorem alwaysZero_iff_forall_pwBit_eq_zero {pw : PropWhen} :
-    pw.isProp = true ↔ ∀ φ : Name → Nat, pwBit φ pw = 0 := by
-  constructor
-  · exact pwBit_eq_zero_of_isProp
-  · intro h
-    cases pw with
-    | never => exact absurd (h (fun _ => 0)) (by simp [pwBit])
-    | ifAllZero ps =>
-      cases ps with
-      | nil => rfl
-      | cons n ps =>
-        have := h (fun _ => 1)
-        simp [pwBit] at this
 
 /-- A level whose zero-ness datum is always-zero evaluates to `0`. -/
 theorem eval_eq_zero_of_isProp {u : Level}
@@ -458,7 +394,7 @@ theorem typeFormer_mem_univ_zero {m : EnvModel V env}
     (hz : Level.eval (Level.substFn φ ci.toConstantVal.levelParams us) u = 0)
     (hTa : denoteMeta m.acval env φ d T = some Ta) (hokT : WellDenotedV V ρ Ta) :
     interp V ρ Ta ∈ˢ (univ 0 : V) := by
-  obtain ⟨taI, htaI, hokI, hmemI, -, -⟩ := constType_pkg hct hfI hnt hlen
+  obtain ⟨taI, htaI, hokI, hmemI, -, -⟩ := constTy_pkg hct hfI hnt hlen
   have htaI' := htaI d
   rw [denotePInstLevels] at htaI'
   have hchain := neverChain_of_peel (env := env) T.getAppArgs.length hpeel htaI'
@@ -520,7 +456,7 @@ theorem prf_of_isProofFast {m : EnvModel V env} (hct : ConstType m φ)
   · -- a constant head: the stored type decides
     rw [hfn, denoteMeta_const hf hlen] at hfa
     obtain rfl := Option.some.inj hfa
-    obtain ⟨ta, hta, hokT, hmem, hnf, -⟩ := constType_pkg hct hf hnt hlen
+    obtain ⟨ta, hta, hokT, hmem, hnf, -⟩ := constTy_pkg hct hf hnt hlen
     rcases typeSortPW_some_inv env.find? hty with
       ⟨A, B, mb, hT, rfl⟩ | rfl |
       ⟨I, us', ciI, u, hfnT, hfI, hntI, hlenI, hpeel, rfl⟩ |
@@ -644,12 +580,11 @@ theorem etaFabArgsV_eq (val : Name → V) (T : Name) (ts : List V) (b : V)
         (fun j => (ts ++ [b]).foldl SetTheory.app (val (projFnName T j))) := by
   rfl
 
-/-! ## The two proof-irrelevance sides (`Steps/Irrel.lean:71`, `:119`)
+/-! ## The two proof-irrelevance sides
 
-`prop_side_pt`/`unit_side_pt` at the motives: the run premises become
-the rule's `InferSemIO`/`RedSem` derivations, and the inferred type's
-frames — which the run lemmas `inferTypeIO_WScoped`/`_looseBVars`/
-`_fvarLeaves` supplied there — are now the motives' own conclusions. -/
+Stated at the motives: the premises are the rule's
+`InferSemIO`/`RedSem` derivations, and the inferred type's frames are
+the motives' own conclusions. -/
 
 /-- A term whose type's type reduces to a zero-equivalent sort
 interprets to `pt`. -/
@@ -674,45 +609,5 @@ theorem prop_side_pt' {m : EnvModel V env} {d : Nat} {a ta tta : Expr}
   have hT := hmemT ρ hρ
   rw [heq ρ hρ, interp_sort, h0] at hT
   exact mem_univ_zero hT (hmemA ρ hρ)
-
-/-- A term whose type reduces to a unit-like type interprets to `pt`:
-`isUnitLikeTy` accepts only the pinned `PUnit`, whose `interp` is
-`unitSet = {pt}`. -/
-theorem unit_side_pt' {m : EnvModel V env} {d : Nat} {a ta wta : Expr}
-    {Δa : List AnnotTerm} {aa : AnnotTerm}
-    (hta : InferSemIO m φ d a ta) (hwta : RedSem m φ d ta wta)
-    (hu : ConLeche.isUnitLikeTy env wta = true)
-    (hfa : Frame d a) (hCa : CtxOk m φ d Δa a)
-    (hda : denoteMeta m.acval env φ d a = some aa)
-    (hokA : Graded V Δa aa)
-    (ρ : Nat → V) (hρ : Sat V Δa ρ) : interp V ρ aa = (pt : V) := by
-  obtain ⟨hfta, hsub1, taa, htaa, hoktaa, hmemA⟩ := hta hfa hCa hda hokA
-  have hCta : CtxOk m φ d Δa ta := hCa.of_subset hsub1
-  obtain ⟨-, -, wtaa, hwtaa, -, heqW⟩ := hwta hfta hCta htaa hoktaa
-  obtain ⟨us, rfl, hfind⟩ :=
-    ConLeche.Verify.unitLike_eq_punit m.basis_pinned hu
-  rw [denoteMeta, hfind] at hwtaa
-  dsimp only at hwtaa
-  split at hwtaa
-  case isFalse => exact nomatch hwtaa
-  case isTrue hlen =>
-  obtain rfl : wtaa = m.acval ConLeche.punitName
-      (Level.substFn φ ConLeche.punitA.toConstantVal.levelParams us) :=
-    (Option.some.inj hwtaa).symm
-  have hpin : m.cvalE ConLeche.punitName
-      (Level.substFn φ ConLeche.punitA.toConstantVal.levelParams us)
-      = ConLeche.Term.punitT
-        (Level.substFn φ ConLeche.punitA.toConstantVal.levelParams us
-          ConLeche.uN) :=
-    (m.basis_pinned ConLeche.punitName _ hfind (by decide)).2 _ _ rfl
-  have hleaf : m.acval ConLeche.punitName
-      (Level.substFn φ ConLeche.punitA.toConstantVal.levelParams us)
-      = .const .punit
-        [Level.substFn φ ConLeche.punitA.toConstantVal.levelParams us
-          ConLeche.uN] :=
-    erase_eq_const (by rw [m.acval_erase, hpin]; rfl)
-  have hmem := hmemA ρ hρ
-  rw [heqW ρ hρ, hleaf, interp_const] at hmem
-  exact mem_unitSet hmem
 
 end ConLeche.Model.Rules

@@ -5,37 +5,24 @@ public import ConLeche.Model.AxiomPin
 public section
 
 /-!
-# `DeclAxiomR`'s fourth branch: `ofReduceNat`/`ofReduceBool` at the
-validated-annotation currency (task #161, ENDGAME D)
-
-The ENDGAME C seal closed three of `DeclAxiomR`'s four branches and
-named the fourth's single blocker — the `ReduceOps` field, which
-`Interp/ReduceOps.lean` now supplies.  This file is the branch, and
-the seal's prediction held **exactly**:
+# `DeclAxiomRun`'s `ofReduceNat`/`ofReduceBool` branch at the
+validated-annotation currency (task #161)
 
 * **the bits are free.**  The pin's innermost codomain is an `Eq`-spine
   over the *nose-pinned* `Eq` (`ofReduceAxOk`'s own first conjunct), so
   `inferTypeCore_eqSpineS` applies verbatim and `propext_bits`'s three
   moves transpose unchanged — all three binders carry bit `0`, by the
   same telescope collapse.  `Nat`/`Bool` appear only as the spine's
-  *type* argument, which the peel never reads: the C seal's correction
-  of the B seal's prediction is confirmed;
+  *type* argument, which the peel never reads;
 * **the membership is three `pt_mem_piR_zero_of`s.**  All bits `0`
-  makes every product a truth value, the witness is forced to `pt` —
-  and `.prf` is the leaf that denotes `pt` in *both* lanes, which is
-  why the v1 witness (`Install/Axiom.lean`, `ofReduceKeyS_mem`) ports
-  with no re-choice at all: the η-expanded identity `fun a b h => h`
-  was refused *there* for the annotated lane's sake, and the P leaf
-  inherits that decision;
-* **the innermost fibre is where the new field pays.**  The hypothesis
-  spine reads to `eqv (op x) y` and the conclusion to `eqv x y`;
-  `eq_law` gives both values and `ReduceOps` collapses `op x` to `x`,
-  so an inhabitant of the one inhabits the other.  That step — and
-  only that step — is what the C seal recorded as unreachable.
+  makes every product a truth value, the witness is forced to `pt`,
+  and `.prf` is the leaf that denotes `pt`;
+* **the innermost fibre needs the `ReduceOps` field** of `EnvModelM`.
+  The hypothesis spine reads to `eqv (op x) y` and the conclusion to
+  `eqv x y`; `eq_law` gives both values and `ReduceOps` collapses `op x`
+  to `x`, so an inhabitant of the one inhabits the other.
 
-With this branch the whole pin bundle closes: `axiomStepPB_of`
-(`Interp/FoldP.lean`, where `AxiomStepPB` is stated) assembles the
-four branches, and `FoldP`'s `hax` premise is gone.
+`axiomStepPB_of` (`Model/Fold.lean`) assembles the four branches.
 -/
 
 namespace ConLeche.Model
@@ -82,26 +69,26 @@ theorem ofReduce_shapeS {n : Name} {type' : Expr}
   rw [ConLeche.Verify.ofReducePin_type hn] at h
   simp only [Expr.mkAppN, Expr.erasePw] at h
   obtain ⟨ty₁, b₁, m₁, rfl, hty₁, hb₁⟩ := erasePwNames_forallE_invS h
-  obtain rfl := erasePwNames_const_invS hty₁
+  obtain rfl := erasePw_const_invS hty₁
   obtain ⟨ty₂, b₂, m₂, rfl, hty₂, hb₂⟩ := erasePwNames_forallE_invS hb₁
-  obtain rfl := erasePwNames_const_invS hty₂
+  obtain rfl := erasePw_const_invS hty₂
   obtain ⟨ty₃, b₃, m₃, rfl, hty₃, hb₃⟩ := erasePwNames_forallE_invS hb₂
   -- the hypothesis spine
   obtain ⟨f, a, rfl, hf, ha⟩ := erasePwNames_app_invS hty₃
   obtain ⟨f', a', rfl, hf', ha'⟩ := erasePwNames_app_invS hf
   obtain ⟨f'', a'', rfl, hf'', ha''⟩ := erasePwNames_app_invS hf'
-  obtain rfl := erasePwNames_const_invS hf''
-  obtain rfl := erasePwNames_const_invS ha''
+  obtain rfl := erasePw_const_invS hf''
+  obtain rfl := erasePw_const_invS ha''
   obtain ⟨g, gb, rfl, hg, hgb⟩ := erasePwNames_app_invS ha'
-  obtain rfl := erasePwNames_const_invS hg
+  obtain rfl := erasePw_const_invS hg
   obtain rfl := erasePwNames_bvar_invS hgb
   obtain rfl := erasePwNames_bvar_invS ha
   -- the conclusion spine
   obtain ⟨p, q, rfl, hp, hq⟩ := erasePwNames_app_invS hb₃
   obtain ⟨p', q', rfl, hp', hq'⟩ := erasePwNames_app_invS hp
   obtain ⟨p'', q'', rfl, hp'', hq''⟩ := erasePwNames_app_invS hp'
-  obtain rfl := erasePwNames_const_invS hp''
-  obtain rfl := erasePwNames_const_invS hq''
+  obtain rfl := erasePw_const_invS hp''
+  obtain rfl := erasePw_const_invS hq''
   obtain rfl := erasePwNames_bvar_invS hq'
   obtain rfl := erasePwNames_bvar_invS hq
   exact ⟨m₁, m₂, m₃, rfl⟩
@@ -161,8 +148,8 @@ theorem ofReduce_bits (hμ : μ.verifiedChecks = true)
 
 /-! ## The gates, unpacked -/
 
-/-- `ofReduceAxOk`'s four conjuncts, in the forms the membership reads
-(the v1 key's own unpacking, one file over). -/
+/-- `ofReduceAxOk`'s four conjuncts, in the forms the membership
+reads. -/
 theorem ofReduce_gatesS {cvA : ConstantVal}
     (hok : ConLeche.ofReduceAxOk env cvA = true) :
     env.find? eqName = some eqA ∧
@@ -282,11 +269,11 @@ theorem ofReduce_mem (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ env)
           (ConLeche.reduceElemName (ConLeche.ofReduceOp cvA.name)) ψ)
         = interp V ρ (mp.base2.acval
           (ConLeche.reduceElemName (ConLeche.ofReduceOp cvA.name)) ψ) :=
-    fun ρ' => acval_interp_closedC mp.base2 _ ψ ρ' ρ
+    fun ρ' => acval_interp_closed mp.base2 _ ψ ρ' ρ
   have hclO : ∀ ρ' : Nat → V,
       interp V ρ' (mp.base2.acval (ConLeche.ofReduceOp cvA.name) ψ)
         = interp V ρ (mp.base2.acval (ConLeche.ofReduceOp cvA.name) ψ) :=
-    fun ρ' => acval_interp_closedC mp.base2 _ ψ ρ' ρ
+    fun ρ' => acval_interp_closed mp.base2 _ ψ ρ' ρ
   have hclQ : ∀ ρ' : Nat → V,
       interp V ρ' (mp.base2.acval eqName
           (Level.substFn ψ eqA.toConstantVal.levelParams
@@ -294,7 +281,7 @@ theorem ofReduce_mem (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ env)
         = interp V ρ (mp.base2.acval eqName
           (Level.substFn ψ eqA.toConstantVal.levelParams
             [Level.zero.succ])) :=
-    fun ρ' => acval_interp_closedC mp.base2 _ _ ρ' ρ
+    fun ρ' => acval_interp_closed mp.base2 _ _ ρ' ρ
   -- the element type inhabits `Sort 1`
   have hEmem : interp V ρ (mp.base2.acval
       (ConLeche.reduceElemName (ConLeche.ofReduceOp cvA.name)) ψ)
@@ -317,14 +304,13 @@ theorem ofReduce_mem (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ env)
   rw [(mp.eq_law hEq _).1 ρ _ x y (by rw [heqψ]; exact hEmem) hx hy]
     at hh
   rw [(mp.eq_law hEq _).1 ρ _ x y (by rw [heqψ]; exact hEmem) hx hy]
-  rw [mem_eqv hh]
+  rw [eq_of_mem_eqv hh]
   exact pt_mem_eqv_self y
 
 /-! ## The branch -/
 
 /-- **The `ofReduce*` branch, discharged.**  The leaf is `.prf`, the
-canonical proof — the same witness the v1 key installs
-(`ofReduceKeyS_mem`), which is why every syntactic obligation is `rfl`
+canonical proof, which is why every syntactic obligation is `rfl`
 or a `simp` on a leaf clause and the whole content is the
 membership. -/
 theorem axiomOfReduce (hμ : μ.verifiedChecks = true)
@@ -334,8 +320,8 @@ theorem axiomOfReduce (hμ : μ.verifiedChecks = true)
       cv.name = ConLeche.ofReduceBoolName)
     (hok : ConLeche.ofReduceAxOk env ⟨cv.name, cv.levelParams, type'⟩
       = true) :
-    Nonempty (EnvModelM V μ
-      ⟨.axiomInfo ⟨cv.name, cv.levelParams, type'⟩ :: env.consts⟩) := by
+    CoverStep mp
+      ⟨.axiomInfo ⟨cv.name, cv.levelParams, type'⟩ :: env.consts⟩ := by
   have hcv' := hcv
   obtain ⟨hfind, hnres, hpshape, hnd, hlbt, hitf, hann, htp, htr,
     hrunT⟩ := hcv'
@@ -358,9 +344,5 @@ theorem axiomOfReduce (hμ : μ.verifiedChecks = true)
     (by rcases hor with h | h <;> rw [h] <;> decide)
   intro ψ ta hta ρ
   exact ofReduce_mem hμ mp hok hor hst ψ ta hta ρ
-
--- (`axiomStepPB_of`, which assembles these four branches, lands in
--- `Interp/FoldP.lean`: `AxiomStepPB` is stated there, beside the two
--- bundles still routed.)
 
 end ConLeche.Model

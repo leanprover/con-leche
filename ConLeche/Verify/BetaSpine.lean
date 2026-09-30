@@ -8,15 +8,15 @@ public section
 # Bulk beta: the spine loop and its identification with `whnfCoreBody`
 (task #50)
 
-The interned twin's app case (`whnfAppI`/`betaPeelI`,
-`ConLeche/Kernel/CoreI.lean`) consumes a whole application spine in one
+The cached checker's app case (`whnfAppI`/`betaPeelI`,
+`ConLeche/Cached/CoreC.lean`) consumes a whole application spine in one
 loop, batching consecutive lambda binders into a single bulk
 substitution.  This file provides the pure mirrors (`whnfApp` /
 `betaPeel`, generic over the core record like every helper) and proves
 the **soundness of the loop against the chained spec**: a successful
 loop run at the pure fueled knot is reproduced by the original
 one-argument-at-a-time `whnfCoreBody` recursion at some fuel
-(`whnfApp_sound_body`).  The interned walk (`ConLeche/Verify/DiscI4`)
+(`whnfApp_sound`).  The cached walk (`ConLeche/Verify/Cached/DiscC4`)
 composes its simulation against the mirror with this theorem, so the
 `Expr`-level specification — and everything above it — is unchanged.
 
@@ -74,7 +74,7 @@ theorem whnfCoreBody_app (r : CoreFns m) (env : Env) (depth : Nat)
 
 mutual
 
-/-- Pure mirror of the interned bulk-beta loop `whnfAppI`: consume the
+/-- Pure mirror of the cached bulk-beta loop `whnfAppI`: consume the
 spine against the whnf'd head. -/
 @[expose] def whnfApp (mode : CheckMode) (r : CoreFns m) (env : Env) (depth : Nat)
     (k : Expr → m Expr) :
@@ -102,7 +102,7 @@ decreasing_by
     | (apply Prod.Lex.left; simp; done)
     | (apply Prod.Lex.right' <;> simp)
 
-/-- Pure mirror of the interned peel loop `betaPeelI`: `t` is the raw
+/-- Pure mirror of the cached peel loop `betaPeelI`: `t` is the raw
 lambda body after the binders consumed so far, `acc` their arguments
 (innermost first). -/
 def betaPeel (mode : CheckMode) (r : CoreFns m) (env : Env) (depth : Nat)
@@ -232,10 +232,10 @@ theorem iotaRec_head_not_const (r : CoreFns m) (env : Env) (depth : Nat)
 
 /-! ## The head-normalization loop mirror (task #106)
 
-The interned `whnfCoreStepI`/`whnfCoreLoopI` run beta, iota and
+The cached `whnfCoreStepI`/`whnfCoreLoopI` run beta, iota and
 projection steps as *iteration* on their own step budget instead of
 chaining them through the knot.  These are the pure `Expr`-level
-mirrors; `ConLeche/Verify/DiscI4.lean` simulates the interned loop
+mirrors; `ConLeche/Verify/Cached/DiscC4.lean` simulates the cached loop
 against them, and `whnfCoreLoop_sound_body` below reproduces a
 successful mirror run by the chained specification `whnfCoreBody` at
 some knot fuel — so the specification (and everything above it) is
@@ -913,7 +913,7 @@ A loop run whose continuation is *sound* (every success it reports is
 reproduced by the chained `whnfCore` at some fuel) is itself
 reproduced by a loop run whose continuation **is** `whnfCore`; the
 existing `snoc`/`sound` machinery then reduces it to `whnfCoreBody`.
-This is what lets the interned loop (task #106) run its reduction
+This is what lets the cached loop (task #106) run its reduction
 chain on its own step budget while the specification stays
 chained. -/
 
@@ -1176,7 +1176,7 @@ theorem whnfCoreStepM_sound {d : Nat} (k : Expr → FueledM Expr)
       exact H
 
 /-- `KSound` for the loop mirror itself: by induction on the step
-budget.  This is the bridge the interned walk composes with — a
+budget.  This is the bridge the cached walk composes with — a
 successful *loop* run is reproduced by the chained specification at
 some knot fuel, so `whnfCoreBody` (and everything above it) never sees
 the loop. -/
@@ -1202,7 +1202,7 @@ theorem whnfCoreLoopM_ksound {d : Nat} :
           exact h)
     exact ⟨F' + 1, by rw [whnfCore_succ]; exact hF'⟩
 
-/-- The bridge the interned walk uses: a successful *loop* run at the
+/-- The bridge the cached walk uses: a successful *loop* run at the
 fueled record is reproduced by `whnfCoreBody` on the same node, at
 some knot fuel. -/
 theorem whnfCoreLoop_sound_body (d : Nat) (e vres : Expr) (n F : Nat)
@@ -1243,7 +1243,7 @@ theorem inferBody_app_pure (env : Env) (F depth : Nat) (f a : Expr) :
       = (pureFns mode env F).infer depth f >>= fun tf =>
           inferStep (pureFns mode env F) depth tf a := by rfl
 
-/-- Pure mirror of the interned inference spine loop `inferSpineI`:
+/-- Pure mirror of the cached inference spine loop `inferSpineI`:
 `ty` is the raw Π-telescope after the binders consumed so far, `acc`
 their arguments (innermost first). -/
 @[expose] def inferSpine (r : CoreFns m) (depth : Nat) :
@@ -1572,7 +1572,7 @@ theorem inferSpine_sound {d : Nat} (xs : List Expr) (h th vres : Expr)
     (by rw [hx]; exact H)
   rwa [hx] at this
 
-/-- The bridge the interned walk uses. -/
+/-- The bridge the cached walk uses. -/
 theorem inferSpine_sound_body (d : Nat) (fx ax : Expr) (vres : Expr)
     (F : Nat)
     (H : ((fueledFns mode env).infer d (Expr.app fx ax).getAppFn >>=

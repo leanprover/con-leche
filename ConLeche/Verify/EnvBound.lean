@@ -7,7 +7,7 @@ public section
 /-!
 # The index's installation counters and the prefix view (task #108)
 
-`FEnv` (`ConLeche/Kernel/CoreI.lean`) stores, beside each indexed
+`FEnv` (`ConLeche/Kernel/FEnv.lean`) stores, beside each indexed
 constant, the number of constants installed before it — its
 *installation counter* — and a bound `visibleBelow`; `FEnv.find?`
 hides every entry whose counter is at or above the bound.  This file
@@ -15,21 +15,12 @@ proves what that bound means:
 
 * `mkFEnv_find?` — with nothing hidden the index *is* `Env.find?`
   (the pre-#108 statement, now with the counters in play);
-* `mkFEnv_find?_visibleBelow_some` — **unconditional soundness**:
-  anything the bounded lookup returns is what the environment
-  truncated to that prefix returns.  A bounded lookup can therefore
-  never reach a constant installed at or after the bound; this is the
-  no-circularity fact the split driver rests on.
 * `mkFEnv_find?_visibleBelow` — the full equivalence
   `bounded find? = find? in the truncated environment`, under name
   uniqueness (the only thing the bounded lookup can miss is an *older*
   constant shadowed by a same-named newer one; the checker rejects
   duplicate names at insertion, so this never happens on an accepted
-  stream, and its absence is the safe direction anyway);
-* `restrictTo_push_find?` — pushing the next installed constant onto a
-  restricted view is the same as raising the bound by one, so a
-  re-check that walks a declaration's provisional environments sees
-  exactly what the original interleaved run saw.
+  stream, and its absence is the safe direction anyway).
 
 Spec-side only: nothing here is called by the checker.
 -/
@@ -153,35 +144,6 @@ private theorem idxBelow_cons_neg {k : Nat} {n : Name} {cj : ConstantInfo}
     idxBelow (cj :: cs) k n = idxBelow cs k n := by
   rw [idxBelow, idxSpec, if_neg hn, idxBelow]
 
-/-- **Soundness of the bound, unconditional**: whatever the bounded
-lookup finds, the truncated list finds too — a bounded lookup can never
-see past its bound. -/
-private theorem idxBelow_eq_some {k : Nat} {n : Name} {ci : ConstantInfo} :
-    ∀ {l : List ConstantInfo}, idxBelow l k n = some ci →
-      (l.drop (l.length - k)).find? (·.name == n) = some ci
-  | [], h => by simp [idxBelow, idxSpec] at h
-  | cj :: cs, h => by
-    by_cases hn : cj.name == n
-    · rw [idxBelow_cons_pos hn] at h
-      by_cases hk : cs.length < k
-      · rw [if_pos hk] at h
-        injection h with h; subst h
-        rw [List.length_cons, Nat.sub_eq_zero_of_le hk, List.drop_zero,
-          List.find?_cons]
-        simp only [hn]
-      · rw [if_neg hk] at h; exact absurd h (by simp)
-    · rw [idxBelow_cons_neg hn] at h
-      have ih := idxBelow_eq_some (l := cs) h
-      by_cases hk : cs.length < k
-      · rw [List.length_cons, Nat.sub_eq_zero_of_le hk, List.drop_zero,
-          List.find?_cons]
-        simp only [Bool.of_not_eq_true hn]
-        rwa [Nat.sub_eq_zero_of_le (Nat.le_of_lt hk), List.drop_zero] at ih
-      · rw [List.length_cons,
-          show cs.length + 1 - k = (cs.length - k) + 1 by omega,
-          List.drop_succ_cons]
-        exact ih
-
 /-- **The bound is the prefix**: under name uniqueness the bounded
 lookup is exactly the lookup in the truncated list.  (Without it the
 bounded lookup can only return *less*: a name shadowed inside the
@@ -225,53 +187,16 @@ private theorem restrictTo_find?_eq (env : Env) (k : Nat) (n : Name) :
         | none => none) = _
   rw [mkFEnv_idx, idxBelow]
 
-/-- **Soundness of the bound** (unconditional): a bounded lookup in the
-full index returns only what the environment truncated to that prefix
-returns.  Nothing installed at or after the bound is reachable. -/
-theorem mkFEnv_find?_visibleBelow_some {env : Env} {k : Nat} {n : Name}
-    {ci : ConstantInfo} (h : ((mkFEnv env).restrictTo k).find? n = some ci) :
-    (env.prefixTo k).find? n = some ci := by
-  rw [restrictTo_find?_eq] at h
-  exact idxBelow_eq_some h
-
 /-- **The bounded index is the prefix environment** (the load-bearing
 equivalence for the split driver): looking a name up in the full index
 with the bound `k` is looking it up in the environment truncated to its
 first `k` installed constants.  The hypothesis is name uniqueness, which
-the checker establishes at insertion (`checkConstantValP` rejects a
+the checker establishes at insertion (`checkConstantVal` rejects a
 duplicate name before any push). -/
 theorem mkFEnv_find?_visibleBelow (env : Env) (k : Nat) (n : Name)
     (hnd : (env.consts.map (·.name)).Nodup) :
     ((mkFEnv env).restrictTo k).find? n = (env.prefixTo k).find? n := by
   rw [restrictTo_find?_eq, idxBelow_eq hnd, Env.prefixTo, Env.find?]
-
-/-- Pushing the next installed constant onto a restricted view is
-raising the bound by one: a re-check that walks a declaration's
-provisional environments sees exactly what the original interleaved run
-saw at each of them. -/
-theorem restrictTo_push_find? (env : Env) (k : Nat) (n : Name)
-    (ci : ConstantInfo) (hnd : (env.consts.map (·.name)).Nodup)
-    (hci : (env.prefixTo (k + 1)).consts = ci :: (env.prefixTo k).consts) :
-    (((mkFEnv env).restrictTo k).push ci).find? n
-      = ((mkFEnv env).restrictTo (k + 1)).find? n := by
-  show (match ((mkFEnv env).idx.insert ci.name (k, ci))[n]? with
-        | some (c, cj) => if c < k + 1 then some cj else none
-        | none => none)
-      = ((mkFEnv env).restrictTo (k + 1)).find? n
-  rw [Std.HashMap.getElem?_insert]
-  by_cases hn : ci.name == n
-  · rw [if_pos hn]
-    show (if k < k + 1 then some ci else none) = _
-    rw [if_pos (Nat.lt_succ_self k)]
-    have hb := mkFEnv_find?_visibleBelow env (k + 1) n hnd
-    rw [hb, Env.find?, hci, List.find?_cons]
-    simp only [hn]
-  · rw [if_neg hn]
-    show _ = (match (mkFEnv env).idx[n]? with
-        | some (c, cj) => if c < k + 1 then some cj else none
-        | none => none)
-    rfl
-
 
 /-! ## The `FEnv` index agrees with `Env.find?`
 
@@ -304,20 +229,5 @@ theorem natOpGuardF_eq (env : Env) (c : Name) :
     natOpGuardF (mkFEnv env) c = natOpGuard env c := by
   simp only [natOpGuardF, natOpGuard, mkFEnv_find?, natLitSupportedF_eq]
   rfl
-
-/-! ## The `Pi`-residual spelling
-
-`Expr.instPis` (the spec's telescope instantiation) and the core's
-`piResidual` are the same function; both engines' `inferSpine` reduce
-through it. -/
-
-/-- `Expr.instPis` and the core's `piResidual` are the same function. -/
-theorem instPis_eq_piResidual :
-    ∀ (e : Expr) (as : List Expr), e.instPis as = piResidual e as
-  | _, [] => rfl
-  | .forallE _ b _, a :: as => instPis_eq_piResidual (b.instantiate1 a) as
-  | .bvar _, _ :: _ | .fvar _ _, _ :: _ | .sort _, _ :: _
-  | .const _ _, _ :: _ | .app _ _, _ :: _ | .lam _ _ _, _ :: _
-  | .letE _ _ _, _ :: _ | .lit _, _ :: _ | .proj _ _ _, _ :: _ => rfl
 
 end ConLeche

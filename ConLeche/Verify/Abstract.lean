@@ -67,19 +67,6 @@ theorem WScoped.abstract1 {d : Nat} :
     · simp only [hidx, if_false, WScoped]
       exact ⟨by omega, hw.2⟩
 
-/-- Consistency at `d` survives abstracting a *different* index. -/
-theorem fvarConsistent_abstract1 {d d' : Nat} {ty : Expr}
-    (hne : d ≠ d') :
-    ∀ (e : Expr) (k : Nat), fvarConsistent d ty e →
-      fvarConsistent d ty (e.abstract1 d' k) := by
-  intro e
-  induction e <;> intro k hc <;>
-    simp_all [Expr.abstract1, Expr.fvarConsistent]
-  case fvar idx ty'' ih =>
-    split
-    · simp [Expr.fvarConsistent]
-    · simpa [Expr.fvarConsistent] using hc
-
 /-- Opening lowers the loose-bvar bound by one. -/
 theorem looseBVarsBounded_instantiate1 {d : Nat} {ty : Expr} :
     ∀ (e : Expr) (k : Nat), e.looseBVarsBounded (k + 1) = true →
@@ -252,7 +239,7 @@ run only at the verified modes and only over the parse placeholder
 (`annotPwPi` / `annotPwLam`).  The datum is *data*, not a check —
 whatever it computes, the node's skeleton is the same — so the
 inversions below take it existentially.  Every consumer in this file
-(`WScoped`, `looseBVarsBounded`, `LeafEquiv`) is blind to binder
+(`WScoped`, `looseBVarsBounded`) is blind to binder
 metadata, so the existential is exactly the right strength; the
 consumers that *do* need the written value (the annotation-validation
 battery) read it off the rebuilt node instead. -/
@@ -497,33 +484,12 @@ theorem annotateCore_looseBVars {env : Env} :
       (looseBVarsBounded_instantiate1_gen hb.1.2 hb.2)
 
 
-/-! ## Leaf equivalence
-
-`annotate`-then-`abstract1` returns a term with the same skeleton and the
-same `fvar`/`bvar` leaves as the unopened input — only binder annotations
-(and inner binder bodies, recursively in the same way) differ.  `LeafEquiv`
-captures exactly what `FvarsOk` can see, so `FvarsOk` transports across it.
--/
-
-/-- Same constructor skeleton and identical `fvar`/`bvar` leaves;
-binder metadata may differ. -/
-def Expr.LeafEquiv : Expr → Expr → Prop
-  | .bvar i, .bvar j => i = j
-  | .fvar idx ty, .fvar idx' ty' => idx = idx' ∧ ty = ty'
-  | .sort _, .sort _ => True
-  | .const _ _, .const _ _ => True
-  | .lit _, .lit _ => True
-  | .app f a, .app f' a' => LeafEquiv f f' ∧ LeafEquiv a a'
-  | .lam ty b _, .lam ty' b' _ => LeafEquiv ty ty' ∧ LeafEquiv b b'
-  | .forallE ty b _, .forallE ty' b' _ => LeafEquiv ty ty' ∧ LeafEquiv b b'
-  | .letE ty v b, .letE ty' v' b' =>
-    LeafEquiv ty ty' ∧ LeafEquiv v v' ∧ LeafEquiv b b'
-  | .proj _ _ e, .proj _ _ e' => LeafEquiv e e'
-  | _, _ => False
-
-theorem Expr.LeafEquiv.refl : ∀ (e : Expr), Expr.LeafEquiv e e := by
+/-- `resetMeta` commutes with abstraction. -/
+theorem resetMeta_abstract1 (d : Nat) :
+    ∀ (e : Expr) (k : Nat),
+      (e.abstract1 d k).resetMeta = e.resetMeta.abstract1 d k := by
   intro e
-  induction e <;> simp_all [Expr.LeafEquiv]
-
+  induction e <;> intro k <;> simp_all [abstract1, resetMeta]
+  case fvar idx ty ih => split <;> simp [resetMeta, abstract1, *]
 
 end ConLeche

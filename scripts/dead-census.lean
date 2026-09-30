@@ -27,8 +27,7 @@ plus two edges a `getUsedConstants` walk does not have:
 
 A theorem's proof term is reached by matching `.thmInfo` **directly**:
 `ConstantInfo.value?` returns `none` for theorems, which would silently
-make the walk report the empty set (`tests/ProofDeps.lean`'s note, the
-same trap).
+make the walk report the empty set.
 
 The `@[csimp]` theorem names are dumped too, as `#csimp <name>` lines:
 a csimp theorem is reached by nothing and is what makes its fast twin
@@ -70,9 +69,20 @@ def main (args : List String) : IO UInt32 := do
     return 1
   initSearchPath (← findSysroot)
   let env ← importModules (args.toArray.map fun m => ({ module := m.toName } : Import)) {}
-  let st := Lean.Compiler.CSimp.ext.getState env
-  let csimpTo : Std.HashMap Name (Name × Name) :=
-    st.map.fold (fun acc k e => acc.insert k (e.toDeclName, e.thmName)) {}
+  -- The csimp table is read from the imported MODULE ENTRIES: without
+  -- `loadExts := true` the extension's state comes back EMPTY (every
+  -- csimp theorem and fast twin then read dead), and
+  -- `loadExts` needs `enableInitializersExecution`, an `unsafe` entry
+  -- the trust-surface gate rightly refuses.
+  let mut csimpTo : Std.HashMap Name (Name × Name) := {}
+  let mut csimpThms : Array Name := #[]
+  for i in [:env.header.moduleNames.size] do
+    for se in Lean.Compiler.CSimp.ext.ext.getModuleEntries env i do
+      let e := match se with
+        | .global e => e
+        | .scoped _ e => e
+      csimpTo := csimpTo.insert e.fromDeclName (e.toDeclName, e.thmName)
+      csimpThms := csimpThms.push e.thmName
   let mut out : Array String := #[]
   for (n, ci) in env.constants.toList do
     if isOurs env n then
@@ -81,7 +91,17 @@ def main (args : List String) : IO UInt32 := do
         | .defnInfo v => v.value.getUsedConstants
         | .opaqueInfo v => v.value.getUsedConstants
         | _ => #[]
-      let extra : Array Name :=
+      -- the members of one mutual block, each to the others: a
+      -- well-founded mutual block compiles to one `X._mutual` holding
+      -- every member's body, with a call to a sibling replaced by a
+      -- call to `_mutual` itself, so no member's value names the
+      -- sibling it calls.
+      let sibs : Array Name := match ci with
+        | .thmInfo v => v.all.toArray
+        | .defnInfo v => v.all.toArray
+        | .opaqueInfo v => v.all.toArray
+        | _ => #[]
+      let extra : Array Name := sibs ++
         (match Lean.Compiler.getImplementedBy? env n with
          | some i => #[i]
          | none => #[]) ++
@@ -98,7 +118,7 @@ def main (args : List String) : IO UInt32 := do
           uniq := uniq.push d
       out := out.push
         s!"{n}\t{moduleOf env n}\t{kindOf ci}\t{String.intercalate " " (uniq.toList.map toString)}"
-  for n in st.thmNames.toList do
+  for n in csimpThms do
     if isOurs env n then out := out.push s!"#csimp\t{n}"
   for l in out.qsort (· < ·) do IO.println l
   return 0

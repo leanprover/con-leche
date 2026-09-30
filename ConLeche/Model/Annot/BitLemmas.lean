@@ -7,24 +7,13 @@ public section
 /-!
 # The `denoteMeta` lemma battery (task #161, P3.2)
 
-The Steps ladder consumes `denoteAnnot` through a fixed lemma surface —
+The fixed lemma surface the model tier consumes `denoteMeta` through —
 clause equations, inversions, the depth shift, the environment
-crossing — stated and proved at `DefEqRun.lean`'s prelude,
-`Dispatch.lean`, and `Denote2Extend.lean`.  This file is that surface
-for `denoteMeta`, mirror by mirror, with the systematic deltas of the
-validated-annotation reading:
-
-* **no fuel parameter** — the fuel-monotonicity/cross-fuel/`fuelDown`
-  family has no mirror because there is nothing to be monotone in;
-* **no sort-run conjuncts** — the binder inversions conclude
-  `ea = .pi 0 (pwBit φ mb.pw) ta ba` (resp. `.lam (pwBit φ mb.pw)`)
-  *definitionally*, where `denoteAnnot`'s conclude `sortOfE`/`lamSortE`
-  successes;
-* **premises that existed only to move a sort run are dropped** —
-  `EnvWF` in the depth shift, `SortAgree` in the environment crossing.
-  A premise kept by a mirror is one the *reading itself* needs
-  (`hacl`: leaf lift-invariance; `FindPreserved`/`LitGuardsAgree`:
-  the constant and literal clauses read the environment).
+crossing.  Fuel-free, and the binder inversions conclude
+`ea = .pi 0 (pwBit φ mb.pw) ta ba` (resp. `.lam (pwBit φ mb.pw)`)
+*definitionally*.  Every premise is one the *reading itself* needs
+(`hacl`: leaf lift-invariance; `FindPreserved`/`LitGuardsAgree`: the
+constant and literal clauses read the environment).
 -/
 
 namespace ConLeche.Model
@@ -80,25 +69,6 @@ theorem denoteMeta_proj (acval : Name → (Name → Nat) → AnnotTerm)
         | none => AnnotTerm.projPair? i ea) := by
   rw [denoteMeta]
   rfl
-
-/-- The clause at an absent entry — the pre-W3 shape, for consumers
-holding an absence fact. -/
-theorem denoteMeta_proj_pair (acval : Name → (Name → Nat) → AnnotTerm)
-    (d : Nat) (s : Name) (i : Nat) (e : Expr)
-    (hnt : env.findProj? s i = none) :
-    denoteMeta acval env φ d (.proj s i e)
-      = (do
-        let ea ← denoteMeta acval env φ d e
-        AnnotTerm.projPair? i ea) := by
-  rw [denoteMeta_proj]
-  cases he : denoteMeta acval env φ d e with
-  | none => rfl
-  | some ea =>
-    show (match env.findProj? s i with
-      | some entry => some (projAV (i + entry.off) ea)
-      | none => AnnotTerm.projPair? i ea)
-        = AnnotTerm.projPair? i ea
-    rw [hnt]
 
 theorem denoteMeta_forallE (acval : Name → (Name → Nat) → AnnotTerm)
     (d : Nat) (ty body : Expr) (mb : ConLeche.BinderMeta) :
@@ -168,19 +138,6 @@ theorem denoteMeta_proj_inv {d : Nat} {s : Name} {i : Nat} {e : Expr}
       dsimp only at h
       exact ⟨ia, rfl, Or.inr ⟨rfl, h⟩⟩
 
-/-- The inversion at an absent entry — the pre-W3 shape, for consumers
-holding an absence fact. -/
-theorem denoteMeta_proj_inv_pair {d : Nat} {s : Name} {i : Nat} {e : Expr}
-    {ea : AnnotTerm}
-    (hnt : env.findProj? s i = none)
-    (h : denoteMeta acval env φ d (.proj s i e) = some ea) :
-    ∃ ia, denoteMeta acval env φ d e = some ia ∧
-      AnnotTerm.projPair? i ia = some ea := by
-  obtain ⟨ia, hia, hcase⟩ := denoteMeta_proj_inv h
-  rcases hcase with ⟨entry, hfp, -⟩ | ⟨-, hdec⟩
-  · rw [hnt] at hfp; exact nomatch hfp
-  · exact ⟨ia, hia, hdec⟩
-
 theorem denoteMeta_forallE_inv {d : Nat} {ty bd : Expr}
     {mb : ConLeche.BinderMeta} {ea : AnnotTerm}
     (h : denoteMeta acval env φ d (.forallE ty bd mb) = some ea) :
@@ -227,17 +184,13 @@ theorem denoteMeta_natLit_inv {d n : Nat} {ea : AnnotTerm}
   · next hg => exact ⟨hg, (Option.some.inj h).symm⟩
   · exact nomatch h
 
-/-! ## The spine kit (from `Model/Steps/{Stuck,CapsRows,IotaRows,TowerKit}.lean`,
-task #305 closing)
+/-! ## The spine kit
 
-`DenoteSpine`/`denote_mkAppN_inv` (`Verify/Denote/Tele.lean`) at the
-validated reading.  Fuel-free, so the inversion is one induction and
-the reconciliation of two readings is `Option.some.inj`.  Collected
-here at the task #305 closing, from the four `Model/Steps` rows that
-grew it; each statement and proof is the one it carried there. -/
+Application spines at the validated reading.  Fuel-free, so the
+inversion is one induction and the reconciliation of two readings is
+`Option.some.inj`. -/
 
-/-- Each expression of a spine reads to the corresponding annotation
-(`DenoteSpine`'s P transpose). -/
+/-- Each expression of a spine reads to the corresponding annotation. -/
 inductive DenoteMetaSpine (acval : Name → (Name → Nat) → AnnotTerm)
     (env : Env) (φ : Name → Nat) (d : Nat) :
     List Expr → List AnnotTerm → Prop
@@ -246,21 +199,6 @@ inductive DenoteMetaSpine (acval : Name → (Name → Nat) → AnnotTerm)
       denoteMeta acval env φ d a = some v →
       DenoteMetaSpine acval env φ d as vs →
       DenoteMetaSpine acval env φ d (a :: as) (v :: vs)
-
-/-- A member of a read spine reads (`DenoteMetaSpine`'s membership form —
-the shape the projection clause's `getD` selection needs).  Relocated
-from the retired `Steps/ProjPinsP.lean` (task #175 W6). -/
-theorem DenoteMetaSpine.mem {acval : Name → (Name → Nat) → AnnotTerm} {d : Nat}
-    {as : List Expr} {vs : List AnnotTerm}
-    (h : DenoteMetaSpine acval env φ d as vs) :
-    ∀ x ∈ as, ∃ v, denoteMeta acval env φ d x = some v := by
-  induction h with
-  | nil => intro x hx; exact nomatch hx
-  | cons ha _ ih =>
-    intro x hx
-    rcases List.mem_cons.mp hx with rfl | hx'
-    · exact ⟨_, ha⟩
-    · exact ih x hx'
 
 /-- A read spine has the length of its source. -/
 theorem DenoteMetaSpine.length {acval : Name → (Name → Nat) → AnnotTerm}
@@ -272,7 +210,7 @@ theorem DenoteMetaSpine.length {acval : Name → (Name → Nat) → AnnotTerm}
 
 /-- **The application spine, inverted at the validated reading**: the
 head and every argument read, and the value is their `AnnotTerm`
-application.  `denote_mkAppN_inv` without the fuel. -/
+application. -/
 theorem denoteMeta_mkAppN_inv {acval : Name → (Name → Nat) → AnnotTerm}
     {d : Nat} : ∀ {as : List Expr} {f : Expr} {ea : AnnotTerm},
     denoteMeta acval env φ d (Expr.mkAppN f as) = some ea →
@@ -320,7 +258,7 @@ theorem DenoteMetaSpine.append {acval : Name → (Name → Nat) → AnnotTerm}
   | nil => exact h2
   | cons ha _ ih => exact DenoteMetaSpine.cons ha ih
 
-/-- A mapped spine reads pointwise (`DenoteSpine.map_list`'s mirror). -/
+/-- A mapped spine reads pointwise. -/
 theorem DenoteMetaSpine.map_list {acval : Name → (Name → Nat) → AnnotTerm}
     {d : Nat} {β : Type _} {g : β → Expr} {G : β → AnnotTerm} :
     ∀ l : List β, (∀ j ∈ l, denoteMeta acval env φ d (g j) = some (G j)) →
@@ -408,5 +346,12 @@ theorem DenoteMetaSpine.getD_read {d : Nat} :
   | _, _, .cons _ hsp, k + 1, hk => by
     simpa [List.getD] using
       DenoteMetaSpine.getD_read hsp (Nat.lt_of_succ_lt_succ hk)
+
+/-- An application spine splits at any point. -/
+theorem annotMkAppN_append (f : AnnotTerm) :
+    ∀ (as bs : List AnnotTerm),
+      AnnotTerm.mkAppN f (as ++ bs) = AnnotTerm.mkAppN (AnnotTerm.mkAppN f as) bs
+  | [], _ => rfl
+  | _ :: as, bs => annotMkAppN_append _ as bs
 
 end ConLeche.Model

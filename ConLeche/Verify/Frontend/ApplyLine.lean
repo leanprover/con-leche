@@ -18,8 +18,7 @@ other line of the file.  This module proves what it needs of
   are untouched and the record list only grows.
   `processLineCoreD_frame` is the case analysis over the six kinds;
   the inductive kind is `validateIndD` — which returns no state —
-  followed by `installIndD`, whose pushes go through `pushDecl`,
-  `pushGenList` and the projection-owner registration.
+  followed by `installIndD`, whose one push is `pushDecl`.
 * **preservation across any line** (`applyLine_keeps`): a bound index
   stays bound to its entry (a rebinding is a parse error since task
   #290) and a pushed record stays.
@@ -40,97 +39,22 @@ structure Frame (st st' : StateD) : Prop where
   exprs : st'.exprs = st.exprs
   decls : ∀ d ∈ st.decls, d ∈ st'.decls
 
-theorem Frame.refl (st : StateD) : Frame st st :=
-  ⟨rfl, rfl, rfl, fun _ h => h⟩
-
-theorem Frame.trans {st st₁ st₂ : StateD} (h₁ : Frame st st₁) (h₂ : Frame st₁ st₂) :
-    Frame st st₂ :=
-  ⟨h₂.names.trans h₁.names, h₂.levels.trans h₁.levels, h₂.exprs.trans h₁.exprs,
-   fun d hd => h₂.decls d (h₁.decls d hd)⟩
-
-/-- A state update that touches none of the framed fields. -/
-theorem Frame.of_eq {st st' : StateD} (hn : st'.names = st.names) (hl : st'.levels = st.levels)
-    (he : st'.exprs = st.exprs) (hd : st'.decls = st.decls) : Frame st st' :=
-  ⟨hn, hl, he, fun _ h => hd ▸ h⟩
-
-theorem noteDecl_frame (st : StateD) (d : Declaration) : Frame st (noteDecl st d) :=
-  Frame.of_eq rfl rfl rfl rfl
-
 /-- Pushing a record. -/
 theorem push_frame (st : StateD) (x : Declaration) :
     Frame st { st with decls := st.decls.push x } :=
   ⟨rfl, rfl, rfl, fun _ h => Array.mem_push.mpr (.inl h)⟩
 
 theorem pushDecl_frame (st : StateD) (d : Declaration) : Frame st (pushDecl st d) :=
-  (push_frame _ _).trans (noteDecl_frame _ _)
-
-theorem noteProjIota_frame (st : StateD) (cv : ConstantVal) : Frame st (noteProjIota st cv) := by
-  unfold noteProjIota
-  split
-  · split
-    · exact Frame.of_eq rfl rfl rfl rfl
-    · exact Frame.refl _
-  · exact Frame.refl _
-
-theorem pushGenD_frame (st : StateD) (d : Declaration) : Frame st (pushGenD st d) := by
-  unfold pushGenD
-  split
-  · exact (noteProjIota_frame _ _).trans (pushDecl_frame _ _)
-  · exact pushDecl_frame _ _
-
-theorem noteGen_frame (st : StateD) (d : Declaration) (T0 : Name) :
-    Frame st (noteGen st d T0) := by
-  unfold noteGen
-  exact Frame.of_eq rfl rfl rfl rfl
-
-theorem pushGenList_frame (st : StateD) (gen : List Declaration) (T0 : Name) :
-    Frame st (pushGenList st gen T0) := by
-  induction gen generalizing st with
-  | nil => exact Frame.refl _
-  | cons d ds ih =>
-    exact ((pushGenD_frame _ _).trans (noteGen_frame _ _ _)).trans (ih _)
-
-theorem registerProjOwners_frame {st st' : StateD} {tys cts rcs block}
-    (h : registerProjOwners st tys cts rcs block = .ok st') : Frame st st' := by
-  unfold registerProjOwners at h
-  obtain ⟨_, _, h⟩ := exceptBind_ok h
-  obtain ⟨_, _, h⟩ := exceptBind_ok h
-  obtain ⟨_, _, h⟩ := exceptBind_ok h
-  try dsimp only at h
-  split at h
-  · simp only [pure, Except.pure, Except.ok.injEq] at h; subst h; exact Frame.refl _
-  · simp only [pure, Except.pure, Except.ok.injEq] at h; subst h
-    exact Frame.of_eq rfl rfl rfl rfl
+  push_frame _ _
 
 theorem installIndD_frame {st st' : StateD} {tys cts rcs nPd}
-    (h : installIndD st tys cts rcs nPd = .ok (.inl st')) : Frame st st' := by
+    (h : installIndD st tys cts rcs nPd = .ok st') : Frame st st' := by
   unfold installIndD at h
   obtain ⟨_, _, h⟩ := exceptBind_ok h
   obtain ⟨_, _, h⟩ := exceptBind_ok h
   obtain ⟨_, _, h⟩ := exceptBind_ok h
-  try dsimp only at h
-  obtain ⟨st₁, hreg, h⟩ := exceptBind_ok h
-  have hf₁ := registerProjOwners_frame hreg
-  refine hf₁.trans ?_
-  try dsimp only at h
-  obtain ⟨b, _, h⟩ := exceptBind_ok h
-  try dsimp only at h
-  refine (Frame.of_eq (st := st₁) (st' := { st₁ with indBlocks :=
-    (b.types.foldl (fun m t => m.insert t.cv.name b) st₁.indBlocks) })
-    rfl rfl rfl rfl).trans ?_
-  split at h
-  · split at h
-    · split at h
-      · simp only [pure, Except.pure, Except.ok.injEq, Sum.inl.injEq] at h; subst h
-        refine (Frame.of_eq ?_ ?_ ?_ ?_).trans (pushDecl_frame _ _) <;> rfl
-      · exact absurd h (by simp [pure, Except.pure])
-    · rename_i gen _
-      simp only [pure, Except.pure, Except.ok.injEq, Sum.inl.injEq] at h; subst h
-      refine Frame.trans ?_ (pushDecl_frame _ _)
-      exact ⟨(pushGenList_frame _ gen _).names, (pushGenList_frame _ gen _).levels,
-        (pushGenList_frame _ gen _).exprs, fun d hd => (pushGenList_frame _ gen _).decls d hd⟩
-  · simp only [pure, Except.pure, Except.ok.injEq, Sum.inl.injEq] at h; subst h
-    exact pushDecl_frame _ _
+  simp only [pure, Except.pure, Except.ok.injEq] at h; subst h
+  exact pushDecl_frame _ _
 
 theorem processLineCoreD_frame {st st' : StateD} {d : DeclRec}
     (h : processLineCoreD st d = .ok (.inl st')) : Frame st st' := by
@@ -150,22 +74,15 @@ theorem processLineCoreD_frame {st st' : StateD} {d : DeclRec}
     split at h
     · obtain ⟨vl, _, h⟩ := exceptBind_ok h
       try dsimp only at h
-      split at h
-      · simp only [pure, Except.pure, Except.ok.injEq, Sum.inl.injEq] at h; subst h
-        exact (pushDecl_frame _ _).trans (Frame.of_eq rfl rfl rfl rfl)
-      · simp only [pure, Except.pure, Except.ok.injEq, Sum.inl.injEq] at h; subst h
-        exact pushDecl_frame _ _
+      simp only [pure, Except.pure, Except.ok.injEq, Sum.inl.injEq] at h; subst h
+      exact pushDecl_frame _ _
     · exact absurd h (by simp [pure, Except.pure])
   | thm cvr value =>
     unfold processLineCoreD at h
     obtain ⟨cvp, _, h⟩ := exceptBind_ok h
     obtain ⟨vl, _, h⟩ := exceptBind_ok h
-    try dsimp only at h
-    split at h
-    · simp only [pure, Except.pure, Except.ok.injEq, Sum.inl.injEq] at h; subst h
-      exact (pushDecl_frame _ _).trans (Frame.of_eq rfl rfl rfl rfl)
-    · simp only [pure, Except.pure, Except.ok.injEq, Sum.inl.injEq] at h; subst h
-      exact pushDecl_frame _ _
+    simp only [pure, Except.pure, Except.ok.injEq, Sum.inl.injEq] at h; subst h
+    exact pushDecl_frame _ _
   | opaq cvr value isUnsafe =>
     unfold processLineCoreD at h
     obtain ⟨cvp, _, h⟩ := exceptBind_ok h
@@ -189,8 +106,9 @@ theorem processLineCoreD_frame {st st' : StateD} {d : DeclRec}
     try dsimp only at h
     split at h
     · exact absurd h (by simp [pure, Except.pure])
-    · exact (Frame.of_eq (st := st) (st' := { st with indCount := st.indCount + 1 }) rfl rfl rfl
-        rfl).trans (installIndD_frame h)
+    · obtain ⟨st₁, hin, h⟩ := exceptBind_ok h
+      simp only [pure, Except.pure, Except.ok.injEq, Sum.inl.injEq] at h; subst h
+      exact installIndD_frame hin
 
 /-- A declaration record IS its semantics (task #292: no pre-scan). -/
 theorem applyDeclD_frame {st st' : StateD} {d : DeclRec}

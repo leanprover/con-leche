@@ -3,12 +3,11 @@
 /- End-to-end fixture (task #208; inductive audit #206, A5's clean twin):
    a recursive occurrence hidden under a definition, FINITARY case —
    `T | leaf | node (x : Id' T)` with `Id' α := α`.  Official whnf's the
-   field and sees a plain recursive argument.  con-leche's fixpoint route is
-   syntactic and reports `.unsupported`, but the preprocessor models the
-   block and the stream accepts; raw it declines for a missing model.
-   The regression guard beside ind_pos_whnf_fn, where the tool errors.
+   field and sees a plain recursive argument; so does con-leche's
+   positivity check, and the stream accepts.  The finitary twin of
+   ind_pos_whnf_fn.
 
-   official: 0.  con-leche at master 700a06ca: 0 piped, 2 raw (both modes).
+   official: 0.  con-leche: 0 (both modes).
    Probe of record: _tmp/indaudit/probes/P/WhnfPosId.lean. -/
 
 import Lean

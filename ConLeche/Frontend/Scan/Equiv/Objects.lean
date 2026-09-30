@@ -1307,7 +1307,7 @@ theorem scanIndRecs_eq (b : ByteArray) (i : USize) :
   exact listWrap naiveIndRec_rest_suffix (scanIndRecListLoop_eq b (i + 1) [] true)
 
 
-/- `IndRecs` is now a slot scanner of the objects below. -/
+/- `scanIndRecs` is a slot scanner of the objects below. -/
 macro_rules
   | `(tactic| sub_suffix) => `(tactic| exact naiveIndRecs_rest_suffix _)
 macro_rules
@@ -1366,7 +1366,7 @@ theorem scanIndTypes_eq (b : ByteArray) (i : USize) :
   exact listWrap naiveIndType_rest_suffix (scanIndTypeListLoop_eq b (i + 1) [] true)
 
 
-/- `IndTypes` is now a slot scanner of the objects below. -/
+/- `scanIndTypes` is a slot scanner of the objects below. -/
 macro_rules
   | `(tactic| sub_suffix) => `(tactic| exact naiveIndTypes_rest_suffix _)
 macro_rules
@@ -1424,7 +1424,7 @@ theorem scanIndCtors_eq (b : ByteArray) (i : USize) :
   exact listWrap naiveIndCtor_rest_suffix (scanIndCtorListLoop_eq b (i + 1) [] true)
 
 
-/- `IndCtors` is now a slot scanner of the objects below. -/
+/- `scanIndCtors` is a slot scanner of the objects below. -/
 macro_rules
   | `(tactic| sub_suffix) => `(tactic| exact naiveIndCtors_rest_suffix _)
 macro_rules

@@ -8,22 +8,14 @@ public section
 /-!
 # `denoteMeta`'s depth shift (task #161, P3.2)
 
-`denote2_shiftFrom`/`denote2_weaken_top` (`Interp/Steps/Dispatch.lean`)
-mirrored for the validated-annotation reading.
-
-**The dropped premise.**  `denote2_shiftFrom` takes `ConLeche.EnvWF env`
-and uses it in exactly two places — `sortOfE_shiftFrom` in the `∀`
-clause, `lamSortE_shiftFrom` in the `λ` clause, the two rewrites that
-move a *checker run* across the shift.  `denoteMeta` runs no checker: its
-binder numeral is `pwBit φ mb.pw`, a function of the term's own meta,
-and `Expr.shiftFrom` carries metas through unchanged — so the numeral
-is literally the same expression on both sides and the clause closes
-by the recursion alone.  `EnvWF` therefore has no occurrence left and
-is dropped.
+**No `EnvWF`.**  `denoteMeta` runs no checker: its binder numeral is
+`pwBit φ mb.pw`, a function of the term's own meta, and
+`Expr.shiftFrom` carries metas through unchanged — so the numeral is
+literally the same expression on both sides and the clause closes by
+the recursion alone.
 
 `hacl` is kept: it is the *leaf* obligation (stored annotations are
-lift-invariant), which the constant and literal clauses need and which
-has nothing to do with sorts.
+lift-invariant), which the constant and literal clauses need.
 -/
 
 namespace ConLeche.Model
@@ -37,10 +29,8 @@ open ConLeche (Env Expr Name Level PropWhen)
 variable {env : Env} {φ : Name → Nat}
 variable {acval : Name → (Name → Nat) → AnnotTerm}
 
-/-- The `Nat`-literal spine is lift-invariant when its two heads are.
-A private local copy of `Dispatch.lean`'s helper of the same name,
-which is `private` there and so not in scope here. -/
-private theorem natLitAV_liftN {za sa : AnnotTerm} {k : Nat}
+/-- The `Nat`-literal spine is lift-invariant when its two heads are. -/
+theorem natLitAV_liftN {za sa : AnnotTerm} {k : Nat}
     (hz : za.liftN 1 k = za) (hs : sa.liftN 1 k = sa) :
     ∀ n : Nat, (natLitAV za sa n).liftN 1 k = natLitAV za sa n := by
   intro n
@@ -51,7 +41,7 @@ private theorem natLitAV_liftN {za sa : AnnotTerm} {k : Nat}
     rw [AnnotTerm.liftN_app, hs, ih]
     rfl
 
-/-- Ditto the character-list spine (private local copy, as above). -/
+/-- Ditto the character-list spine. -/
 private theorem charListAV_liftN {nilA consA ofNatA za sa : AnnotTerm}
     {k : Nat} (hn : nilA.liftN 1 k = nilA)
     (hc : consA.liftN 1 k = consA) (ho : ofNatA.liftN 1 k = ofNatA)
@@ -68,12 +58,10 @@ private theorem charListAV_liftN {nilA consA ofNatA za sa : AnnotTerm}
       natLitAV_liftN hz hs, ih]
     rfl
 
-/-- **`denoteMeta`'s depth shift.**  `denote2_shiftFrom` with the two
-sort-run rewrites deleted — see the module docstring for why `EnvWF`
-goes with them.
+/-- **`denoteMeta`'s depth shift.**  See the module docstring for why
+`EnvWF` is absent.
 
-Generalized over the cut `p` for the same reason both ancestors are:
-the binder clause compares `denoteMeta (d+2) (body.instantiate1 (.fvar
+Generalized over the cut `p` because the binder clause compares `denoteMeta (d+2) (body.instantiate1 (.fvar
 (d+1) …))` with `denoteMeta (d+1) (body.instantiate1 (.fvar d …))`, two
 genuinely different expressions related by `Expr.shiftFrom d`. -/
 theorem denoteMeta_shiftFrom
@@ -201,9 +189,8 @@ decreasing_by
      simp [ConLeche.Expr.sizeB]; omega)
   | (simp [ConLeche.Expr.sizeB])
 
-/-- **One level of weakening.**  `denote2_weaken_top`'s mirror: a
-`d`-scoped term denoted at `d + 1` is its depth-`d` annotation,
-lifted.  `EnvWF` goes with the shift it is derived from. -/
+/-- **One level of weakening**: a `d`-scoped term denoted at `d + 1` is
+its depth-`d` annotation, lifted. -/
 theorem denoteMeta_weaken_top
     (hacl : ∀ (n : Name) (ψ : Name → Nat) (k : Nat),
       (acval n ψ).liftN 1 k = acval n ψ) {d : Nat} {e : Expr}

@@ -73,10 +73,12 @@
 # every run (`--no-verify-names` turns that off for a tree where the
 # sources are not present).
 #
-# RESOURCES (CLAUDE.md): every checker run is under `ulimit -v` and
-# `timeout`, and passes an explicit `--jobs=4` — the default worker
-# count is the hardware thread count and each worker reserves address
-# space, which aborts under the limit.  Builds get a `timeout` only.
+# RESOURCES (CLAUDE.md): every checker run gets a `timeout` and an
+# explicit `--jobs=4` (one memo state per worker keeps memory modest on
+# a shared machine); there is NO `ulimit -v` — each worker thread
+# reserves ~1 GiB of address space, so a cap aborts the run at thread
+# creation (exit 134) before it bounds anything.  Builds get a
+# `timeout` only.
 #
 # Usage:
 #   scripts/natop-matrix.sh [OPTIONS] <toolchain>
@@ -87,8 +89,6 @@
 #                          (default .lake/build/bin/con-leche)
 #     --work DIR           scratch root (default _tmp/pin-matrix)
 #     --jobs N             checker worker threads (default 4)
-#     --mem KB             checker address-space limit
-#                          (default 16000000, i.e. ~16 GiB)
 #     --timeout SECS       checker timeout (default 900)
 #     --no-verify-names    skip the cross-check of the constant list
 #                          against ConLeche/Kernel/Core.lean
@@ -102,7 +102,6 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BINARY="$ROOT/.lake/build/bin/con-leche"
 WORK="$ROOT/_tmp/pin-matrix"
 JOBS=4
-MEMKB=16000000
 CHECK_TIMEOUT=900
 BUILD_TIMEOUT=1800
 VERIFY_NAMES=1
@@ -114,7 +113,6 @@ while (($#)); do
     --binary) BINARY="$2"; shift 2 ;;
     --work) WORK="$2"; shift 2 ;;
     --jobs) JOBS="$2"; shift 2 ;;
-    --mem) MEMKB="$2"; shift 2 ;;
     --timeout) CHECK_TIMEOUT="$2"; shift 2 ;;
     --no-verify-names) VERIFY_NAMES=0; shift ;;
     -h|--help) awk 'NR > 1 && /^#/ { print; next } NR > 1 { exit }' \
@@ -326,10 +324,8 @@ fi
 [ -x "$BINARY" ] || die no-binary "no con-leche binary at $BINARY"
 
 LOG="$WORK/exports/$(basename "$STREAM" .ndjson).log"
-(
-  ulimit -v "$MEMKB"
-  timeout "$CHECK_TIMEOUT" "$BINARY" --verified --jobs="$JOBS" "$STREAM"
-) > "$LOG" 2>&1
+timeout "$CHECK_TIMEOUT" "$BINARY" --verified --jobs="$JOBS" "$STREAM" \
+  > "$LOG" 2>&1
 rc=$?
 sed 's/^/    /' "$LOG" >&2
 

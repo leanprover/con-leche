@@ -5,14 +5,11 @@ public import ConLeche.SetModel.Ops
 public section
 
 /-!
-# The io license kit (task #161 stage 2, the io-license batch)
+# The io license kit (task #161)
 
-The graph-regime license for the io lane's skipped argument check, and
-the squash-regime refutation that fences it — promoted verbatim from
-the round-D feasibility study (`agent/inferonly-study` @ `17e943d0`,
-probes in `_tmp/inferonly-study/ProbeIO.lean`) to stand beside their
-consumer, the io app clause (`Steps/InferIO.lean`).  These four
-theorems are the *entire* new mathematics of verified infer-only:
+The graph-regime license for the io lane's skipped argument check
+(the io app clause), and the squash-regime refutation that fences it.
+These four theorems are the *entire* new mathematics of verified infer-only:
 
 * **The license** (`io_domain_transfer`, `io_app_mem`) — the fact an
   inferOnly-grade app clause skips is `⟦a⟧ ∈ ⟦Aa⟧` for the *computed*
@@ -29,15 +26,14 @@ theorems are the *entire* new mathematics of verified infer-only:
 
 * **The fence** (`io_squash_no_transfer`,
   `io_membership_fails_at_squash`) — the license's boundary stated as
-  a theorem, the way `gate_zero_kind_unreachable` (`Steps/Gate.lean`)
-  fences the β-gate.  At `v' = 0` the premise package does NOT pin the
+  a theorem.  At `v' = 0` the premise package does NOT pin the
   domain (both products are truth values inhabited by `pt`) and the
   io-membership conclusion is outright **false** on a closed witness:
   all premises of the premise-form io app claim hold while
   `app ⟦f⟧ ⟦a⟧ ∉ ⟦B'⟧ ⟦a⟧`.  Truth values do not remember domains, so
   **no** proof-irrelevant set model can license official's full
-  inferOnly — this is the semantic survivor of the #124
-  `InferOnlyRefuted` witness `(fun (x : False) => x) 0`
+  inferOnly — this is the #124 witness
+  `(fun (x : False) => x) 0`
   (spike `inferonly-metatheory`).  Consequence, binding: a verified
   infer-only mode must KEEP the per-argument check at binders whose
   validated `pw` can be zero, and may skip it exactly at

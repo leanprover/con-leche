@@ -50,16 +50,6 @@ def LocalAt (f : List UInt8 → NRes α) (l r : List UInt8) : Prop :=
 def LineLocal (f : List UInt8 → NRes α) : Prop :=
   ∀ l : List UInt8, 10 ∉ l → ∃ r : List UInt8, r <:+ l ∧ LocalAt f l r
 
-/-- A `LineLocal` scanner stays so under `map`. -/
-theorem LineLocal.map {f : List UInt8 → NRes α} (hf : LineLocal f) (g : α → β) :
-    LineLocal (fun l => (f l).map g) := by
-  intro l hl
-  obtain ⟨r, hr, h⟩ := hf l hl
-  refine ⟨r, hr, ?_⟩
-  rcases h with ⟨v, hv⟩ | ⟨t, ht⟩
-  · exact .inl ⟨g v, fun x => by simp only [hv x, NRes.map]⟩
-  · exact .inr ⟨t, fun x => by simp only [ht x, NRes.map]⟩
-
 /-! ## Newline facts about lists -/
 
 theorem not_mem_of_suffix {l r : List UInt8} (hr : r <:+ l) (hl : 10 ∉ l) : 10 ∉ r :=
@@ -103,26 +93,6 @@ theorem split_first_nl {l : List UInt8} (h : 10 ∈ l) :
         rcases List.mem_cons.mp hm with hm | hm
         · exact hc hm.symm
         · exact hpre hm⟩
-
-/-- A newline-free prefix ending at the newline is determined. -/
-theorem nl_split_unique {pre pre' x x' : List UInt8} (h : pre ++ 10 :: x = pre' ++ 10 :: x')
-    (hpre : 10 ∉ pre) (hpre' : 10 ∉ pre') : pre = pre' ∧ x = x' := by
-  induction pre generalizing pre' with
-  | nil =>
-    cases pre' with
-    | nil => simp_all
-    | cons c pre' =>
-      simp only [List.nil_append, List.cons_append, List.cons.injEq] at h
-      exact absurd (h.1 ▸ List.mem_cons_self ..) hpre'
-  | cons c pre ih =>
-    cases pre' with
-    | nil =>
-      simp only [List.cons_append, List.nil_append, List.cons.injEq] at h
-      exact absurd (h.1.symm ▸ List.mem_cons_self ..) hpre
-    | cons c' pre' =>
-      simp only [List.cons_append, List.cons.injEq] at h
-      obtain ⟨rfl, hx⟩ := ih h.2 (not_mem_cons_tail hpre) (not_mem_cons_tail hpre')
-      exact ⟨by rw [h.1], hx⟩
 
 /-! ## Scalars -/
 

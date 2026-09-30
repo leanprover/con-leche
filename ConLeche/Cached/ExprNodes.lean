@@ -8,27 +8,15 @@ public import ConLeche.Kernel.Expr
 /-!
 # The node constructors, and the trust census of the one expression type
 
-**Task #172 B3a — the type unified; task #285 — the name gone.**  The
-cached engine once had a second expression inductive, `ExprC`, whose
-constructors carried four hand-rolled derived fields (`h bb fb lp`),
-maintained by smart constructors and related to `ConLeche.Expr` by an
-erasure.  #172 B3a made it an *abbreviation* for `ConLeche.Expr`,
-which carries those four as Lean `@[computed_field]`s
-(`ConLeche/Kernel/Expr.lean`) — the user's ruling, *"Adopt
-computed_fields.  It's a compiler feature, we trust the compiler."* —
-and #285 deleted the abbreviation and its namespace: there is **one**
-expression type and one namespace over it, `ConLeche.Expr`.  The
-executed, memoized operations live there beside the pure specs they
-are proved equal to, under a `C` suffix wherever the spec already owns
-the name (`instantiate1C`, `wscopedBC`, …); this module holds the node
-constructors they build with.
-
-What died with the type: `WFc`'s smart-constructor discipline
-(nothing to maintain — the fields are the compiler's), the erasure's
-mediation between a spec type and a runtime type (there is one type),
-and, with the hash a *function* rather than a stored datum, the
-`beqSpec` normal-form apparatus: the executed equality's specification
-is now plain decidable equality.
+There is **one** expression type, `ConLeche.Expr`, carrying its
+derived fields as Lean `@[computed_field]`s (`ConLeche/Kernel/Expr.lean`;
+tasks #172 B3a, #285).  The executed, memoized operations live in its
+namespace beside the pure specs they are proved equal to, under a `C`
+suffix wherever the spec already owns the name (`instantiate1C`,
+`wscopedBC`, …); this module holds the node constructors they build
+with.  The fields being the compiler's, there is no smart-constructor
+discipline to maintain, and with the hash a *function* of the node the
+executed equality's specification is plain decidable equality.
 
 Equality (`Expr.beq`) is the official kernel's: pointer equality
 first, then the computed hashes, then structural descent.  Together
@@ -40,10 +28,9 @@ instantiation shares every unchanged subterm with its input, and the
 pointer test then decides equality of those subterms in O(1) exactly
 as an arena index comparison does.
 
-## THE TRUST CENSUS (task #172 B3a, 2026-09-04) — the escapes, all of
-them
+## THE TRUST CENSUS (task #172 B3a) — the escapes, all of them
 
-`#print axioms` and `tests/proofdeps.sh` measure the *proof* term; an
+`#print axioms` measures the *proof* term; an
 `implemented_by` escape is invisible to both, so the escapes are
 enumerated here by hand and this list is the pin.  It has ONE row.
 
@@ -58,17 +45,13 @@ enumerated here by hand and this list is the pin.  It has ONE row.
    generator's*, not a theorem of this repository.  `Lean/Elab/ComputedFields.lean:33`, verbatim: *"This
    file implements the computed fields feature by simulating it via
    `implemented_by`."*  Hence it is an escape, and it is likewise
-   invisible to `#print axioms` and to `tests/proofdeps.sh`.
+   invisible to `#print axioms`.
 
    **USER RULING, 2026-09-04, verbatim:** *"Adopt computed_fields.
    It's a compiler feature, we trust the compiler."*
 
-   What the row buys, measured before adoption (task #172 B2 §5,
-   probes `_tmp/tricore-b2/{CF,CF2,CF3}.lean`): the field functions
-   reduce definitionally on constructors, so `WFc` — the hand-rolled
-   field invariant — **disappears** rather than becomes true, and with
-   it the smart-constructor discipline, the `WExprC`/`WDeclC`
-   subtypes, `eraseC`/`ofExpr` and their injectivity lemma.  The
+   What the row buys: the field functions reduce definitionally on
+   constructors, so no hand-rolled field invariant is needed.  The
    escape replaces a hand-maintained discipline (every construction
    site must use a smart constructor) with the compiler's own, on the
    feature `Lean.Expr` itself is built from.
@@ -95,11 +78,8 @@ namespace ConLeche.Expr
 
 /-! ## The constructors
 
-Before task #172 B3a these were *smart* constructors: each computed the
-four derived fields from its children's, and `WFc` was the discipline
-that no raw constructor application escaped them.  Under
-`@[computed_field]` the compiler does that, so each is now its own
-constructor.  The names survive because they are the term the whole
+Under `@[computed_field]` the compiler computes the derived fields, so
+each of these is the plain constructor.  The names survive because they are the term the whole
 cached tier and its verification are written in; each is `@[inline]`,
 so nothing is added at runtime. -/
 
@@ -127,37 +107,18 @@ so nothing is added at runtime. -/
 
 /-! ## Equality, hashing and the trust census
 
-Both moved to `ConLeche/Kernel/Expr.lean` at task #172 B3a, with the type
+Both live in `ConLeche/Kernel/Expr.lean`, with the type
 itself: `BEq Expr` must be **one** instance tree-wide (the pure tier
 compares `Expr`s too, and two defeq-but-distinct instances make `rw`
 and `simp` fail across the seam — measured, on `DiscC5`'s `defeqStep`
 simulation).  `Expr.beq` is `Expr.beq`, verified there (`Expr.beqMemo_eq`); the
 trust census is this module's header. -/
 
-/-! ## The former `Expr` boundary, and the former field invariant
-
-**Both are gone with the type** (task #172 B3a for the boundary, B3b
-for the invariant).  `ofExpr`/`toExpr` converted between the checker's
-`Expr`-typed declaration layer and the core's `Expr`; with one type
-there is nothing to convert, and every call site passes its argument
-through.  The erasure `eraseC` and its injectivity lemma likewise: the
-fields are functions of the node, so a node *is* its own erasure.
-
-`WFc` outlived them by one batch, as the predicate of the `WDeclC`
-subtype six direct-parse capstone letters were stated over.  With those
-letters restated over `List Declaration` (ratified; a strengthening — the
-dropped hypothesis was provable of everything), the whole tier goes:
-`WFc`, `WFc_all`, `WFc.mk*`, `WExprC` and the `mk*W` constructors,
-`DeclCWFc`/`WDeclC`, `ofExpr`/`ofExprSpec`.  What the invariant used to
-buy — that every node's derived data satisfies its recurrence — is now
-the compiler's, which is what the census's second escape names. -/
-
 /-! ### The constructor equations
 
-`mkApp f a = .app f a` and its nine siblings, all `rfl`.  They were
-the erasure's "smart constructor erases to the plain constructor"
-lemmas (`mkApp_eq` &c.); with one type they are the constructors'
-own equations, and the tier still rewrites with them. -/
+`mkApp f a = .app f a` and its nine siblings, all `rfl`; the cached
+tier rewrites with them.  That every node's derived data satisfies its
+recurrence is the compiler's (the census row above). -/
 
 @[simp] theorem mkFVar_eq (idx : Nat) (ty : Expr) :
     mkFVar idx ty = .fvar idx ty := rfl

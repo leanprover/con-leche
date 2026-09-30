@@ -1,13 +1,13 @@
 name = "con-leche"
-defaultTargets = ["ConLecheBase", "ConLecheModel", "ConLecheCaps", "con-leche"]
+defaultTargets = ["ConLecheBase", "ConLecheModel", "ConLecheCaps", "ConLecheComplete",
+                  "con-leche"]
 testDriver = "ConLecheTests"
 
 # NO DEPENDENCIES (task #207).  The package requires nothing: the
 # `lean_inductive_models` preprocessor — its `require`, the
 # `con-leche-preprocess` executable that wrapped it and the process
 # spawn in `Main.lean` — is gone, and every inductive block is
-# installed by a direct route or through the frontend's own in-process
-# `_model` generator (`ConLeche/Frontend/InModel/*`).  A fresh clone
+# installed by the checker's own uniform fixpoint route.  A fresh clone
 # resolves with an empty `packages` array and needs the network only
 # for elan.
 
@@ -124,6 +124,17 @@ roots = ["ConLeche.Model"]
 name = "ConLecheCaps"
 roots = ["ConLeche.Verify.Cached", "ConLeche.MainTheorem",
          "ConLeche.Verify.Frontend.Prepare"]
+
+# The PARKED completeness work (`ConLeche/Complete/*`): official's nested
+# elimination/positivity as a spec and the positivity walk's completeness
+# against it.  Results, not lemmas: no capstone consumes them.  Their own
+# lib keeps them out of the Base library (and its dead-code census) while
+# a default target keeps them built — `lake build`, hence CI, so they do
+# not rot.  Nothing outside the directory may import it
+# (`tests/layering.sh`).
+[[lean_lib]]
+name = "ConLecheComplete"
+roots = ["ConLeche.Complete"]
 
 # THE PALOMAR CHALLENGE MODULE (task #183).  `ConLeche/Challenge.lean` is
 # the small readable statement of `ConLeche.no_proof_of_False` with

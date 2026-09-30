@@ -3,13 +3,11 @@
 /- End-to-end fixture (task #208; inductive audit #206, §2 "probed and
    clean"): a one-constructor block whose FORMER'S TYPE IS A β-REDEX,
    `(fun x => x) Type` — official whnf's it; no definition is involved,
-   so the preprocessor's exemption for the def-headed case does not
-   apply.  The tool models the block and the stream accepts; raw it
-   declines for a missing model.  The regression guard beside
-   ind_defhead_struct / ind_defhead_k / ind_defhead_mutual, where the
-   same "whnf the former" gap is a crack.
+   so no def-headed exemption applies.  The installer whnf's the former
+   and the stream accepts.  The regression guard beside
+   ind_defhead_struct / ind_defhead_k / ind_defhead_mutual.
 
-   official: 0.  con-leche at master 700a06ca: 0 piped, 2 raw (both modes).
+   official: 0.  con-leche: 0 (both modes).
    Probe of record: _tmp/indaudit/probes/P/FormerRedex.lean. -/
 
 import Lean

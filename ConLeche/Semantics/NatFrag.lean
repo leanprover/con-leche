@@ -6,27 +6,17 @@ public import ConLeche.Verify.InferLeaves
 @[expose] public section
 
 /-!
-# The pinned-`Nat` fragment's syntactic package (task #161 S4, THE
-SEPARATION)
+# The pinned-`Nat` fragment's syntactic package (task #161 S4)
 
-One lemma, and it is a *split*: `natEqFrame_of_frag`
-(`SetR/Bridge/Decl.lean`) proves five things about a fragment
-expression with the operation's stored value substituted in — four
-syntactic (scoping, `bvar`-closedness, leaf boundedness, the `Nat`
-leaf annotation) and one semantic (it denotes at the collapsed
-valuation).  The **graded lane consumes only the four**: both of
-`Model/NatEqs.lean`'s call sites destructure `⟨hw, hb, hL, hleaf, -⟩`.
-
-So the four move below both lanes, where a statement mentioning only
-`Env` and `Expr` belongs, and `natEqFrame_of_frag` keeps its name, its
-statement and its consumers — it now assembles this package with its
-own denotation induction (`natFrag_subst_denotes`).  This is the design
-census §3.3's split recipe applied to the last S4-tagged crossing.
+One lemma, `natFrag_subst_syntax`: four syntactic facts (scoping,
+`bvar`-closedness, leaf boundedness, the `Nat` leaf annotation) about a
+fragment expression with the operation's stored value substituted in.
+`Model/NatEqs.lean` consumes it at both of its call sites.
 
 The file is separate from `Verify/NatOpFrag.lean` (where `natFragOk`
 lives) only because `Expr.LeavesBounded` is `Verify/InferLeaves.lean`'s,
-and pulling that into `NatOpFrag` would push it onto the TT lane's
-cone for one definition.
+and pulling that into `NatOpFrag` would widen its import cone for one
+definition.
 -/
 
 namespace ConLeche.Verify
@@ -36,8 +26,7 @@ open ConLeche.Term
 variable {env : Env}
 
 
-/-- **The fragment's syntactic package**, model-free (task #161 S4, THE
-SEPARATION).
+/-- **The fragment's syntactic package**, model-free (task #161 S4).
 
 Substituting the operation's own stored value into a fragment
 expression leaves it inside the two-variable `Nat` frame: scoped at
@@ -45,16 +34,7 @@ depth `2`, `bvar`-closed, with every `fvar` leaf below `2` and
 annotated by `Nat`.  Four facts, one induction over `natFragOk`'s four
 constructors, and **no valuation anywhere** — the operation `c` is the
 one being defined, so it is not stored, and its occurrences are exactly
-what `substConst0` replaces by `v`, whose own two guards stand in.
-
-This is the model-free half of the collapsed lane's
-`natEqFrame_of_frag` (`SetR/Bridge/Decl.lean`), split out here because
-the graded lane consumes **only** these four conjuncts — it drops the
-denotation half at both of its call sites (`Model/NatEqs.lean`) — and
-because a lemma that mentions only `Env`/`Expr` belongs below both
-lanes, which is this file's own stated threshold ("a second consumer
-and nothing lane-specific in the statement").  `natEqFrame_of_frag`
-now calls it for its first four components. -/
+what `substConst0` replaces by `v`, whose own two guards stand in. -/
 theorem natFrag_subst_syntax {c : Name} {v : Expr}
     (hvf : v.hasFvar = false) (hvb : v.looseBVarsBounded 0 = true) :
     ∀ {e : Expr}, natFragOk env c e = true →

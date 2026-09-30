@@ -7,52 +7,35 @@ public import ConLeche.Verify.EnvBound
 public section
 
 /-!
-# The cached representation's guard walks and the conversion boundary
+# The cached representation's guard walks (task #163)
 
-Task #163, batch 4.  The pieces of the cached clone that sit *between*
-the parse arena and the core:
+The cached syntactic walks, each related to its `Expr`-side spec:
 
 * the fabrication leaf guard (`fvarLeaves`/`leafMem`/`leavesSubC`/
-  `leafGuard`) — the transposition of `leafGuard_spec'`
-  (`ConLeche/Verify/IExprOps.lean`);
-* the level-parameter definedness walk
-  (`Expr.allLevelParamsDefined`) — the transposition of
-  `allLevelParamsDefinedI_spec`;
-* the constant-resolution walk (`constsResolveFC`) — the transposition
-  of `constsResolveFI_spec`;
-* the arena→`Expr` conversion (`ofStoreGo`/`ofStore`), the clone's
-  counterpart of `EStore.readbackGo`: on a well-formed parse arena the
-  conversion of a denoting index succeeds and yields a term whose
-  erasure *is* the denotation.
+  `leafGuard`, `leafGuard_spec`);
+* the level-parameter definedness walk (`Expr.allLevelParamsDefined`,
+  `allLevelParamsDefinedC_spec`);
+* the constant-resolution walk (`constsResolveFC`,
+  `constsResolveFC_spec`);
+* the environment-index guards (`*_spec'`).
 
-Two structural differences from the arena twins are paid for here.
+The cached `fvarLeaves` walk carries a **`seen` set**, so the leaf
+*list* it returns is deduplicated and is **not** `Expr.fvarLeaves` —
+only its *set of elements* is.  Since the only consumer (`leafMem`) is
+a membership test, a membership characterization is exactly what is
+needed.
 
-1. The clone's `fvarLeaves` walk carries a **`seen` set** (the arena's
-   is a result memo), so the leaf *list* it returns is deduplicated and
-   is **not** `Expr.fvarLeaves` of the erasure — only its *set of
-   elements* is.  Since the only consumer (`leafMem`) is a membership
-   test, a membership characterization is exactly what is needed, and
-   `leafGuard_spec` still lands on `leafGuard_spec'`'s `Expr`-side
-   right-hand side verbatim.
-
-   Marking a node *before* descending into it is what makes the `seen`
-   invariant ("a marked node's leaves are already in the accumulator")
-   momentarily false for the node being processed and for its
-   ancestors.  The proof closes that gap the way a DFS on an acyclic
-   graph does: the invariant is relaxed by a *gray* predicate `G` on
-   erasures ("…*or* the marked node is gray"), the call at `e` requires
-   every gray erasure to be strictly bigger than `e` — which is
-   what rules a hit at `e` itself out — and the call's post-condition
-   pops `e` off `G` again, because by then `e`'s leaves *are* in
-   the accumulator.  Acyclicity is free here: `Expr` is an inductive
-   *tree*, so the size side-condition is discharged by each
-   constructor's own `sizeF` recurrence.
-
-2. `ofStoreGo` has `emlt` guards on every child (they make the
-   traversal's `(etier, epos)` measure decrease without an arena
-   hypothesis).  On a `TWF` store the children of a denoting node are
-   `emlt`-below it (`denoteT_some_inv`), so no guard ever fires — the
-   same discharge `readbackGo_spec` performs.
+Marking a node *before* descending into it is what makes the `seen`
+invariant ("a marked node's leaves are already in the accumulator")
+momentarily false for the node being processed and for its ancestors.
+The proof closes that gap the way a DFS on an acyclic graph does: the
+invariant is relaxed by a *gray* predicate `G` ("…*or* the marked node
+is gray"), the call at `e` requires every gray term to be strictly
+bigger than `e` — which is what rules a hit at `e` itself out — and
+the call's post-condition pops `e` off `G` again, because by then
+`e`'s leaves *are* in the accumulator.  Acyclicity is free here:
+`Expr` is an inductive *tree*, so the size side-condition is
+discharged by each constructor's own `sizeF` recurrence.
 -/
 
 namespace ConLeche.Expr
@@ -72,7 +55,7 @@ level parameter has all of them defined. -/
 private theorem lpdP_cut_spec {ps : List Name} {e : Expr} (h : ¬ e.hasLP = true) :
     true = Expr.allLevelParamsDefined ps e :=
   (Expr.allLevelParamsDefined_of_not_hasLevelParam (params := ps)
-    (by rw [← hasLP_eq _]; simpa using h)).symm
+    (by rw [← Expr.hasLP_eq _]; simpa using h)).symm
 
 /-- **The plain descent is `Expr.allLevelParamsDefined`.** -/
 theorem allLevelParamsDefinedP_spec {ps : List Name} : ∀ {e : Expr},
@@ -193,8 +176,7 @@ private theorem fvarLeaves_nil_of_fvarsBelow_zero : ∀ (e : Expr),
       fvarLeaves_const, fvarLeaves_lit, fvarLeaves_app,
       fvarLeaves_lam, fvarLeaves_forallE, fvarLeaves_letE, fvarLeaves_proj]
 
-/-- Erasure of a cached leaf list (the counterpart of the arena's
-`leavesDen`; the annotation component goes through `eraseC`). -/
+/-- Erasure of a cached leaf list (componentwise the identity). -/
 @[expose] def leavesEr (xs : List (Nat × Expr)) : List (Nat × Expr) :=
   xs.map fun l => (l.1, l.2)
 
@@ -206,7 +188,7 @@ private theorem fvarLeaves_nil_of_fvarsBelow_zero : ∀ (e : Expr),
 
 /-! ### The `seen`-set walk
 
-`fvarLeavesGo` marks a node **before** descending into it, so the
+`fvarLeavesGoC` marks a node **before** descending into it, so the
 obvious invariant ("a marked node's leaves are already in the
 accumulator") is false for the node currently being processed and for
 its ancestors.  The invariant is therefore relaxed by a *gray*
@@ -736,8 +718,7 @@ private theorem leavesSubC_spec {bl : List (Nat × Expr)} {B' : List (Nat × Exp
   · rw [Expr.resBool_eq]; exact leavesSubP_spec hbl
 
 /-- **The fabrication leaf guard agrees with the `Expr`-level
-leaf-subset boolean** — `leafGuard_spec'`'s right-hand side, verbatim,
-with the arena denotation replaced by the erasure. -/
+leaf-subset boolean** (the right-hand side of `leafGuard_spec'`). -/
 theorem leafGuard_spec {fab base : Expr} :
     Expr.leafGuard fab base
       = ((Expr.fvarLeaves fab).all
@@ -790,32 +771,6 @@ simulation carries. -/
 theorem rawNatLitC?_spec' {w : Expr} {wx : Expr}
     (h : w = wx) : rawNatLitC? w = rawNatLit? wx := by
   rw [rawNatLitC?_spec, h]
-
-open Expr in
-/-- The unit-like-type guard agrees with the spec's `isUnitLikeTy` on
-the erasure — again a top-level match on the whnf'd node, so no
-invariant is needed; only the `FEnv` index has to be resolved. -/
-theorem isUnitLikeTyC_spec {env : Env} (e : Expr) :
-    isUnitLikeTyC (mkFEnv env) e = isUnitLikeTy env e := by
-  cases e with
-  | const cn us =>
-    show (cn == punitName &&
-      (match (mkFEnv env).find? punitName with
-        | some (.indInfo _ _) => true
-        | _ => false) &&
-      (match (mkFEnv env).find? punitRecName with
-        | some (.recInfo _ mI rP [r]) => mI == rP && r.nfields == 0
-        | _ => false)) = _
-    rw [mkFEnv_find?, mkFEnv_find?]
-    rfl
-  | _ => rfl
-
-open Expr in
-/-- `isUnitLikeTyC_spec` transported along the value equation. -/
-theorem isUnitLikeTyC_spec' {env : Env} {w : Expr} {wx : Expr}
-    (h : w = wx) :
-    isUnitLikeTyC (mkFEnv env) w = isUnitLikeTy env wx := by
-  rw [isUnitLikeTyC_spec, h]
 
 open Expr in
 /-- The constructor-application guard agrees with the spec's
@@ -1024,16 +979,11 @@ theorem constsResolveFC_spec {fe : FEnv} {e : Expr} :
   rw [constsResolveFC.eq_def, Expr.resBool_eq]
   exact constsResolveFP_spec
 
-/-! ### The zero-ness readout (task #163, batch 9; task #272)
+/-! ### The zero-ness readout (task #272)
 
-The binder-telescope loops used to read the zero-ness datum out of a
-`Level`-keyed memo (`PWMemo`/`zeronessOfLGo`), with a correspondence
-battery here saying an entry *is* the readout of its key.  Task #272
-deleted the table: the `inferPisOutI` fold THREADS the datum (every
-node of a ∀ telescope shares it, `zeronessOf (imax u v) = zeronessOf
-v`), where the memo missed on every node and paid the readout over the
-growing level; the three remaining readouts are one call each, and the
-mirror reads `Level.zeronessOf` directly, so their agreement is
-`rfl`. -/
+The `inferPisOutI` fold threads the zero-ness datum (every node of a
+∀ telescope shares it, `zeronessOf (imax u v) = zeronessOf v`); the
+three remaining readouts are one call each, and the mirror reads
+`Level.zeronessOf` directly, so their agreement is `rfl`. -/
 
 end ConLeche.Cached

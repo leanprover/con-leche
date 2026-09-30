@@ -9,19 +9,15 @@ public import ConLeche.SetTheory.Basic
 /-!
 # The div/mod certificates' model-free half (task #161, S1)
 
-THE SEPARATION's shared base: the syntactic and `V`-generic half of
-`SetR/DivModPin.lean` (design census §3.3, edge 11) — the two
+The syntactic and `V`-generic half of the div/mod certificates: the two
 `substConst0` invariances, the pinned-type inversions, the applied
 form's leaf lemmas, the `dmLeavesOk` decision procedure, the frame's
 well-scopedness lemmas and `dmEvalV`, the statement fragment's value
-at a valuation of the heads.  None of them mentions `EnvS`, `denote`
+at a valuation of the heads.  None of them mentions `denote`
 or a relation of the `Infer`/`DefEq` family: `dmEvalV` is `SetTheory`
 evaluation over an abstract `val : Name → W`, and the rest is `Expr`
-syntax.  The collapsed lane's `DivModPin.lean` builds its certificate
-discharges on them; the graded lane's `Interp/DivModCertP.lean`
-consumes exactly these 17 symbols and nothing else of that file.
-
-Statements verbatim from their old home; the namespace is unchanged.
+syntax.  `Model/DivModCert.lean` builds its certificate discharges on
+them.
 -/
 
 universe w
@@ -48,7 +44,7 @@ theorem fvarLeaves_substConst0 {n : Name} {r : Expr}
   | .bvar _ | .fvar _ _ | .sort _ | .lit _ | .lam _ _ _
   | .forallE _ _ _ | .letE _ _ _ | .proj _ _ _ => rfl
 
-/-- A `looseBVars`-closed replacement keeps the bound. -/
+/-- A closed (`looseBVarsBounded 0`) replacement keeps the bound. -/
 theorem looseBVarsBounded_substConst0 {n : Name} {r : Expr}
     (hr : r.looseBVarsBounded 0 = true) :
     ∀ (e : Expr) {k : Nat}, e.looseBVarsBounded k = true →
@@ -89,26 +85,6 @@ theorem natOpTyPinned_binaryE {env : Env} {n : Name} {ty : Expr}
   | .forallE _ (.app _ _) _ | .forallE _ (.lam _ _ _) _
   | .forallE _ (.letE _ _ _) _ | .forallE _ (.lit _) _
   | .forallE _ (.proj _ _ _) _ => intro h; exact nomatch h
-
-/-- The codomain is a stored, level-monomorphic constant. -/
-theorem natOpCod_stored {env : Env} {n : Name} {cod : Expr}
-    (h : natOpCod env n cod = true) :
-    (∃ ci, cod = .const boolName [] ∧
-      env.find? boolName = some ci ∧
-      ci.toConstantVal.levelParams = []) ∨ cod = .const natName [] := by
-  unfold natOpCod at h
-  split at h
-  · refine Or.inl ?_
-    simp only [Bool.and_eq_true, beq_iff_eq] at h
-    obtain ⟨rfl, h2⟩ := h
-    revert h2
-    cases hb : env.find? boolName with
-    | none => intro h2; exact nomatch h2
-    | some ci =>
-      intro h2
-      simp only [Bool.and_eq_true, List.isEmpty_iff, beq_iff_eq] at h2
-      exact ⟨ci, rfl, rfl, h2.1⟩
-  · exact Or.inr (by simpa using h)
 
 /-- `Nat.ble`'s codomain is the stored `Bool`. -/
 theorem natOpCod_ble {env : Env} {cod : Expr}
@@ -281,7 +257,7 @@ noncomputable def dmEvalV (W : Type w) [SetTheory W]
 
 /-- The `ble`-guarded value-level clauses of a pin-certified
 WF-recursive operation, over a value valuation of the level-mono
-heads (`DivModClauses` transpose, verbatim — value-level). -/
+heads. -/
 def DivModClausesV (V : Type w) [SetTheory V] (val : Name → V) (c : Name) (x y : V) : Prop :=
   let vT := val boolTrueName
   let vF := val boolFalseName

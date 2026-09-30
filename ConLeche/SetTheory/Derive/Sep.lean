@@ -49,12 +49,6 @@ theorem mem_sep {a z : V} {p : V → Prop} : z ∈ˢ sep a p ↔ z ∈ˢ a ∧ p
 theorem sep_subset {a : V} {p : V → Prop} : sep a p ⊆ˢ a :=
   fun _ hz => (mem_sep.mp hz).1
 
-theorem sep_congr {a : V} {p q : V → Prop} (h : ∀ x, x ∈ˢ a → (p x ↔ q x)) :
-    sep a p = sep a q :=
-  ext fun z => by
-    rw [mem_sep, mem_sep]
-    exact ⟨fun ⟨hz, hp⟩ => ⟨hz, (h z hz).mp hp⟩, fun ⟨hz, hq⟩ => ⟨hz, (h z hz).mpr hq⟩⟩
-
 /-- Image congruence, the companion fact. -/
 theorem image_congr {a : V} {f g : V → V} (h : ∀ x, x ∈ˢ a → f x = g x) :
     image f a = image g a :=

@@ -5,15 +5,8 @@
    telescope — the shape of Mathlib's `CategoryTheory.Presieve.ofArrows`
    (`inductive ofArrows … : Presieve X` with `Presieve X := ∀ ⦃Y⦄, Set
    (Y ⟶ X)`), whose declared type ends in `Presieve C inst X` while the
-   kernel counts two indices.  The direct routes read the former's
-   declared type as a syntactic telescope (`stripPis (nP + nIdx)` ending
-   in a `Sort`), so they do NOT take such a block; the preprocessor's
-   predicate used to say `native` off `numIndices` alone, and the
-   checker then had neither a model nor a direct install — a decline.
-   With `conlecheFormerTelescope` in the predicate the block is modelled
-   again and the stream ACCEPTS through the modelled path.  `Rel` is the
-   control: the same family declared with its telescope spelled out,
-   which the direct indexed route takes. -/
+   kernel counts two indices.  The stream ACCEPTS.  `Rel` is the
+   control: the same family declared with its telescope spelled out. -/
 
 universe u
 

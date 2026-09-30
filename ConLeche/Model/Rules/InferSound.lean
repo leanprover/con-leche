@@ -11,22 +11,21 @@ import ConLeche.Model.WellDenotedTransport
 import ConLeche.Semantics.Frame
 import ConLeche.Semantics.LitStep
 import ConLeche.Semantics.Skeleton
+import ConLeche.Model.Rules.RedSoundKit
 
 public section
 
 /-!
-# The soundness of the inference rules (task #305, lane S-infer)
+# The soundness of the inference rules (task #305)
 
 One lemma per constructor of `Infer`, at the constructor's grade
 (`InferSem m φ g …` dispatches to the establishment motive at `.full`
-and the consumption motive at `.io`).  The io lemmas mine
-`Model/Steps/InferIO.lean` (the application clause's `appSkip` is
-`infer_app_claimIO`'s gated arm: `io_domain_transfer` against the
-subject's own hereditary app slot); the full ones `Model/Steps/Infer.lean`.
+and the consumption motive at `.io`).  The application clause's
+`appSkip` is the io grade's gated arm: `io_domain_transfer` against
+the subject's own hereditary app slot.
 
 The λ rule's chain case needs the SHAPE of the body's inferred type
-(a ∀ at the inner λ's own annotation, `infer_lam_meta_copy`'s twin
-`Infer.lam_shape`), which the master induction reads off the premise
+(a ∀ at the inner λ's own annotation, `Infer.lam_shape`), which the master induction reads off the premise
 derivation and hands in as `hshape`.
 -/
 
@@ -108,8 +107,8 @@ theorem InferSem.of_uniform {g : Grade} {d : Nat} {e t : Expr}
     obtain ⟨hft, hsub, -, ta, hta, hgt, hmem⟩ := h hfe hC hea (fun _ => hge)
     exact ⟨hft, hsub, ta, hta, hgt, hmem⟩
 
-/-- **The sort fact at a grade** (`sortSemAt_of_claims`,
-`Steps/Infer.lean:798`, at the motives): a subject whose inferred type
+/-- **The sort fact at a grade** (`sortSemAt_of_claims` at the
+motives): a subject whose inferred type
 reduces to `.sort u` reads into the universe — and is graded, which at
 the io grade is the premise and at the full grade the first motive's
 conclusion.  The totality factor the run version routes
@@ -132,7 +131,7 @@ theorem sortSem_of {g : Grade} {d : Nat} {e s : Expr} {u : Level}
   rw [heq ρ hρ, interp_sort] at hm
   exact hm
 
-/-- `infer_sort_claim` / `infer_sort_claimIO`. -/
+/-- A sort has the successor sort. -/
 theorem Infer.sort_sound {g : Grade} {d : Nat} {u : Level} :
     InferSem m φ g d (.sort u) (.sort (.succ u)) := by
   refine InferSemFull.toSem ?_
@@ -148,7 +147,7 @@ theorem Infer.sort_sound {g : Grade} {d : Nat} {u : Level} :
   intro ρ _
   exact (sound_sort V ρ (u.eval φ)).2
 
-/-- `infer_fvar_claim(IO)`: `CtxOk`'s leaf package. -/
+/-- A free variable: `CtxOk`'s leaf package. -/
 theorem Infer.fvar_sound {g : Grade} {d idx : Nat} {ty : Expr} (h : idx < d) :
     InferSem m φ g d (.fvar idx ty) ty := by
   refine InferSemFull.toSem ?_
@@ -169,7 +168,7 @@ theorem Infer.fvar_sound {g : Grade} {d idx : Nat} {ty : Expr} (h : idx < d) :
   rw [interp_bvar, hlink ρ hρ]
   exact hρ (d - 1 - idx) Aa hi
 
-/-- `infer_const_claim(IO)`: `ConstType` + `AcvalValid`. -/
+/-- A constant: `ConstType` + `AcvalValid`. -/
 theorem Infer.const_sound (hin : RulesInputs V m φ) {g : Grade} {d : Nat}
     {n : Name} {us : List Level} {ci : ConLeche.ConstantInfo}
     (hf : env.find? n = some ci) (htower : ci.isTowerEntry = false)
@@ -197,7 +196,7 @@ theorem Infer.const_sound (hin : RulesInputs V m φ) {g : Grade} {d : Nat}
     ta, hta, fun ρ _ => ⟨m.acval_wellDenoted n _ ρ, hin.leaf_valid n _ ρ⟩,
     fun ρ _ => hok ρ, fun ρ _ => hmem ρ⟩
 
-/-- `infer_natLit_claim(IO)`: `NatHeads` + `AcvalValid`. -/
+/-- A `Nat` literal: `NatHeads` + `AcvalValid`. -/
 theorem Infer.natLit_sound (hin : RulesInputs V m φ) {g : Grade} {d n : Nat}
     (h : ConLeche.natLitSupported env = true) :
     InferSem m φ g d (.lit (.natVal n)) (.const natName []) := by
@@ -242,7 +241,7 @@ theorem Infer.natLit_sound (hin : RulesInputs V m φ) {g : Grade} {d n : Nat}
       fun ρ _ => ⟨m.acval_wellDenoted _ _ ρ, hin.leaf_valid _ _ ρ⟩,
       fun ρ _ => (hrow ρ).2⟩
 
-/-- `inferStrLitStep_of_claims` (`Steps/StrLit.lean:451`). -/
+/-- A string literal: `strLitFacts`. -/
 theorem Infer.strLit_sound (hin : RulesInputs V m φ) {g : Grade} {d : Nat}
     {s : String} (h : ConLeche.strLitSupported env = true) :
     InferSem m φ g d (.lit (.strVal s)) (.const stringName []) := by
@@ -264,8 +263,7 @@ theorem Infer.strLit_sound (hin : RulesInputs V m φ) {g : Grade} {d : Nat}
     fun ρ _ => ⟨m.acval_wellDenoted _ _ ρ, hin.leaf_valid _ _ ρ⟩,
     fun ρ _ => (strLitFacts hin.const_ty hin.leaf_valid hin.nat_heads h hea ρ).2⟩
 
-/-- `infer_forallE_claim(IO)` (`Steps/Infer.lean:254`, `InferIO.lean:339`):
-the two sort facts (`sortSemAt_of_claims`'s content) and the bit law. -/
+/-- A product: the two sort facts (`sortSemAt_of_claims`'s content) and the bit law. -/
 theorem Infer.forallE_sound {g : Grade} {d : Nat}
     {ty body s bs : Expr} {u v : Level} {mb : BinderMeta}
     (hs : InferSem m φ g d ty s) (hu : RedSem m φ d s (.sort u))
@@ -353,8 +351,7 @@ theorem Infer.forallE_sound {g : Grade} {d : Nat}
     obtain ⟨hft, hsub, ta, hta, -, hgt, hmem⟩ := main hfr hC hea (fun _ => hge)
     exact ⟨hft, hsub, ta, hta, hgt, hmem⟩
 
-/-- `infer_lam_claim(IO)` (`Steps/Infer.lean:358`, `InferIO.lean:456`):
-the fibre regime fact from the leaf sort run or, at a chain node, from
+/-- A λ: the fibre regime fact from the leaf sort run or, at a chain node, from
 the copied annotation (`piR_zero_mem_univZero`). -/
 theorem Infer.lam_sound {g : Grade} {d : Nat}
     {ty body s bt btt : Expr} {u v : Level} {mb : BinderMeta}
@@ -510,8 +507,7 @@ theorem Infer.lam_sound {g : Grade} {d : Nat}
       (fun x hx => hrowM (cons x ρ) (Sat_cons V hρ hx))
       (fun h0 x hx => hzfib h0 (cons x ρ) (Sat_cons V hρ hx))).2
 
-/-- `infer_app_claim` / `infer_app_claimIO`'s kept arm
-(`Steps/Infer.lean:842`, `InferIO.lean:609`). -/
+/-- An application, the kept arm. -/
 theorem Infer.app_sound {g : Grade} {d : Nat}
     {f a tf ty body ta : Expr} {mt : BinderMeta}
     (htf : InferSem m φ g d f tf) (hw : RedSem m φ d tf (.forallE ty body mt))
@@ -618,7 +614,7 @@ theorem Infer.app_sound {g : Grade} {d : Nat}
     exact (sound_app V (hgfa ρ hρ).1 (hgaa ρ hρ).1 (hf2 ρ hρ)
       (ha2 ρ hρ) (hcod0 ρ hρ)).2
 
-/-- **The io licence** (`infer_app_claimIO`'s gated arm): the skipped
+/-- **The io licence** (the application's gated arm): the skipped
 membership from the subject's own hereditary app slot,
 `io_domain_transfer` + `piR_dom_unique` at a bit pinned positive by
 `pwBit_ne_zero_of_isNever`. -/
@@ -706,8 +702,7 @@ theorem Infer.appSkip_sound {d : Nat}
     exact (sound_app V (hokf ρ hρ).1 (hoka ρ hρ).1 (hf2 ρ hρ)
       (ha2 ρ hρ) (hcod0 ρ hρ)).2
 
-/-- `inferProjStep_of_claims` / `inferProjStepIO_of_claims`
-(`Steps/ProjRows.lean:71`, `:160`): the tower law's typing clause. -/
+/-- A projection: the tower law's typing clause. -/
 theorem Infer.proj_sound (hin : RulesInputs V m φ) {g : Grade} {d : Nat}
     {sn : Name} {i : Nat} {pe tpe te : Expr} {us : List Level}
     {entry : ProjEntry}
@@ -732,7 +727,7 @@ theorem Infer.proj_sound (hin : RulesInputs V m φ) {g : Grade} {d : Nat}
   obtain ⟨vp, hvp, rfl⟩ := denoteMeta_proj_inv_tower hent hea
   -- the io grade's premise, hoisted through the projection spelling
   have hoist : g = .io → Graded V Δa vp := fun hg ρ hρ =>
-    WellDenotedV_projAV_hoist ((hgr hg) ρ hρ)
+    ProjAV.hoistV ((hgr hg) ρ hρ)
   -- the scrutinee's inferred type, and its reduct
   obtain ⟨htpef, htpesub, hokPe, tpea, htpea, hokTpe, hmemPe⟩ :=
     htpe.apply ⟨hws, hb, hLpe⟩ hCpe hvp hoist

@@ -42,8 +42,8 @@ unchanged — which is what the resume-here meant.
 
 The relation is deliberately **not** an equivalence-by-erasure: it
 demands the two trees be structurally identical, so it cannot silently
-identify a `.lam` with a `.pi` or move a leaf.  `erase_eq` records that
-it refines erasure-equality, and it is strictly finer.
+identify a `.lam` with a `.pi` or move a leaf: it is strictly finer
+than erasure-equality.
 -/
 
 -- `AnnotTerm.BitAgree` extends `ConLeche.Semantics.AnnotTerm` (dot notation on
@@ -95,39 +95,6 @@ theorem refl : ∀ e : AnnotTerm, BitAgree e e
   | .eqE a b => .eqE (refl a) (refl b)
   | .fst e => .fst (refl e)
   | .snd e => .snd (refl e)
-
-/-- Symmetry. -/
-theorem symm : ∀ {e e' : AnnotTerm}, BitAgree e e' → BitAgree e' e := by
-  intro e e' h
-  induction h with
-  | bvar i => exact .bvar i
-  | sort u => exact .sort u
-  | const c us => exact .const c us
-  | prf => exact .prf
-  | app _ _ ihf iha => exact .app ihf iha
-  | lam hz _ _ ihA ihb => exact .lam hz.symm ihA ihb
-  | pi hz _ _ ihA ihB => exact .pi hz.symm ihA ihB
-  | eqE _ _ iha ihb => exact .eqE iha ihb
-  | fst _ ih => exact .fst ih
-  | snd _ ih => exact .snd ih
-
-/-- **The relation refines erasure-equality** — and strictly: erasure
-also forgets the *structure* of the numerals' binders, while `BitAgree`
-demands the trees be identical. -/
-theorem erase_eq : ∀ {e e' : AnnotTerm}, BitAgree e e' →
-    e.erase = e'.erase := by
-  intro e e' h
-  induction h with
-  | bvar i => rfl
-  | sort u => rfl
-  | const c us => rfl
-  | prf => rfl
-  | app _ _ ihf iha => simp [AnnotTerm.erase, ihf, iha]
-  | lam _ _ _ ihA ihb => simp [AnnotTerm.erase, ihA, ihb]
-  | pi _ _ _ ihA ihB => simp [AnnotTerm.erase, ihA, ihB]
-  | eqE _ _ iha ihb => simp [AnnotTerm.erase, iha, ihb]
-  | fst _ ih => simp [AnnotTerm.erase, ih]
-  | snd _ ih => simp [AnnotTerm.erase, ih]
 
 variable (V : Type w) [SetTheory V]
 

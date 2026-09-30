@@ -6,17 +6,10 @@ public import ConLeche.Verify.EnvPreds
 @[expose] public section
 
 /-!
-# The basis blocks' stored rules, at the base (task #161 S7, Wall C)
+# The basis blocks' stored rules (task #161 S7)
 
 `Nat.rec`'s two stored rules and the entry equation that names them.
-They are pure `RecRule`/`Expr` syntax — no `V`, no `denote`, no
-`EnvS` — and were declared in `SetR/Install/BasisS.lean` only because
-the collapsed install needed them first.  Both lanes read them (the P
-lane at `BasisBlocksP`'s `Nat.rec` row), so they belong here; the
-census's "the gate sees imports, not crossings" finding is what hid
-the crossing until the `BasisEmptyP → Install/BasisS` import died.
-
-Statements verbatim from their old home; names unchanged.
+They are pure `RecRule`/`Expr` syntax — no `V`, no `denote`.
 -/
 
 namespace ConLeche.Semantics

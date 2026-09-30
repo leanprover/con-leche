@@ -83,7 +83,7 @@ inductive Grade where
   deriving DecidableEq, Repr
 
 /-- The fourteen binary `Nat` operations `reduceNat` accelerates
-(`Core.lean:180-183`; official `reduce_nat`, `type_checker.cpp:639-668`):
+(`Kernel/Core.lean`; official `reduce_nat`, `type_checker.cpp:639-668`):
 the six structural ones and the eight pin-certified WF ones. -/
 def natBinOpNames : List Name :=
   [natAddName, natSubName, natMulName, natPowName, natBeqName, natBleName] ++
@@ -95,7 +95,7 @@ mutual
 chained. -/
 inductive Red (env : Env) : Nat → Expr → Expr → Prop where
   /-- Every `pure e` exit: the value clauses of `whnfCoreBody`
-  (`Core.lean:970-975`), the stuck fallbacks (`:1003`, `:1033-1035`),
+  (`Kernel/Core.lean`), the stuck fallbacks (`:1003`, `:1033-1035`),
   an uncertified redex (`:1001`), `iotaRec = none` (`:1003`), the
   loop's fixpoint (`whnfStep`'s `pure e₁`, `:1088`). -/
   | refl {d : Nat} {e : Expr} : Red env d e e
@@ -106,27 +106,27 @@ inductive Red (env : Env) : Nat → Expr → Expr → Prop where
   | trans {d : Nat} {e₁ e₂ e₃ : Expr} :
       Red env d e₁ e₂ → Red env d e₂ e₃ → Red env d e₁ e₃
   /-- Head normalisation inside an application (`whnfCoreBody`'s
-  `.app` clause, `Core.lean:976-977`: `whnfCore f` before the redex
+  `.app` clause, `Kernel/Core.lean`: `whnfCore f` before the redex
   tests). -/
   | appFn {d : Nat} {f f' a : Expr} :
       Red env d f f' → Red env d (.app f a) (.app f' a)
   /-- Reduction of a projection's scrutinee (`whnfCoreBody`'s `.proj`
-  clause, `Core.lean:1004-1006`: `whnf pe`). -/
+  clause, `Kernel/Core.lean`: `whnf pe`). -/
   | projArg {d : Nat} {sn : Name} {i : Nat} {e e' : Expr} :
       Red env d e e' → Red env d (.proj sn i e) (.proj sn i e')
-  /-- **β at a fired gate** (`Core.lean:989-990`, `betaGateFires` at
+  /-- **β at a fired gate** (`Kernel/Core.lean`, `betaGateFires` at
   `.verified`): a λ whose validated annotation datum is `.never`
   reduces with no certificate — the graph-regime licence
-  (`WellDenotedV_beta_gate`, `Model/Steps/Gate.lean`). -/
+  (`Red.betaGate_sound`, `Model/Rules/RedSound.lean`). -/
   | betaGate {d : Nat} {ty body a : Expr} {mb : BinderMeta} :
       mb.pw.isNever = true →
       Red env d (.app (.lam ty body mb) a) (body.instantiate1 a)
-  /-- **β, certified** (`Core.lean:996-998`): the argument's io-grade
+  /-- **β, certified** (`Kernel/Core.lean`): the argument's io-grade
   type is definitionally equal to the domain. -/
   | beta {d : Nat} {ty body a ta : Expr} {mb : BinderMeta} :
       Infer env .io d a ta → DefEq env d ta ty →
       Red env d (.app (.lam ty body mb) a) (body.instantiate1 a)
-  /-- **δ** (`whnfStep`, `Core.lean:1079-1089`; also every lazy-delta
+  /-- **δ** (`whnfStep`, `Kernel/Core.lean`; also every lazy-delta
   continuation of `defeqStep`, `:1537-1577`): one definition unfolded
   at the head.  A theorem never unfolds (`unfoldDefinition`). -/
   | delta {d : Nat} {e e' : Expr} :
@@ -137,19 +137,19 @@ inductive Red (env : Env) : Nat → Expr → Expr → Prop where
       natLitSupported env = true →
       Red env d (.lit (.natVal n)) (natLitToConstructor n)
   /-- A `String` literal expands to its constructor form
-  (`litMajorToCtor`, `Core.lean:736-738`; `projLitToCtor`, `:752-754`;
+  (`litMajorToCtor`, `Kernel/Core.lean`; `projLitToCtor`, `:752-754`;
   `defeqStep`'s string arms, `:1610-1617` — one rule for the three
   sites; the sites that re-reduce chain a `Red` after it). -/
   | strLit {d : Nat} {s : String} :
       strLitSupported env = true →
       Red env d (.lit (.strVal s)) (strLitToConstructor s)
-  /-- **`Nat.succ` packing** (`reduceNat`, `Core.lean:171-178`): the
+  /-- **`Nat.succ` packing** (`reduceNat`, `Kernel/Core.lean`): the
   argument reduces to a literal reading. -/
   | natSucc {d : Nat} {a w : Expr} {n : Nat} :
       natLitSupported env = true →
       Red env d a w → rawNatLit? w = some n →
       Red env d (.app (.const natSuccName []) a) (.lit (.natVal (n + 1)))
-  /-- **Binary `Nat` acceleration** (`reduceNat`, `Core.lean:181-201`):
+  /-- **Binary `Nat` acceleration** (`reduceNat`, `Kernel/Core.lean`):
   a stored operation on two arguments that reduce to literal readings
   folds to `natOpResult`. -/
   | natOp {d : Nat} {c : Name} {a wa b wb r : Expr} {n₁ n₂ : Nat} :
@@ -159,7 +159,7 @@ inductive Red (env : Env) : Nat → Expr → Expr → Prop where
       natOpResult c n₁ n₂ = some r →
       Red env d (.app (.app (.const c []) a) b) r
   /-- **The structural projection** `proj_i (ctor p⃗ x⃗) ↦ x_i`
-  (`whnfCoreBody`'s `.proj` clause, `Core.lean:1013-1030`), driven by
+  (`whnfCoreBody`'s `.proj` clause, `Kernel/Core.lean`), driven by
   the projection table, fired under the entry's guard, and certified
   by the constructor spine's licensed telescope certificate
   (`projCertAt` at `.verified` = `projCert`, `:940-965`). -/
@@ -175,7 +175,7 @@ inductive Red (env : Env) : Nat → Expr → Expr → Prop where
       Certs env d true (cvC.type.instantiateLevelParams cvC.levelParams us)
         e.getAppArgs →
       Red env d (.proj sn i e) (e.getAppArgs.getD (entry.numParams + i) (.bvar 0))
-  /-- **ι** (`iotaRec`, `Core.lean:809-938`): a stored recursor
+  /-- **ι** (`iotaRec`, `Kernel/Core.lean`): a stored recursor
   applied to exactly its telescope, whose prepared major (the `Red`
   premise: `prepareMajor`'s whnf / literal / rescue chain) is a
   constructor application with a firing rule.  The level comparands,
@@ -215,7 +215,7 @@ inductive Red (env : Env) : Nat → Expr → Expr → Prop where
       Red env d e
         (Expr.mkAppN (rl.rhs.instantiateLevelParams cv.levelParams us)
           (e.getAppArgs.take rP ++ major.getAppArgs.drop rl.ctorParams))
-  /-- **The K rescue** (`majorToCtor`'s K branch, `Core.lean:570-620`;
+  /-- **The K rescue** (`majorToCtor`'s K branch, `Kernel/Core.lean`;
   official `to_cnstr_when_K`): at a K-flagged single-rule recursor the
   parameters-only constructor application is fabricated from the
   major's io-inferred, head-normalised type, scope-guarded, certified
@@ -244,16 +244,15 @@ inductive Red (env : Env) : Nat → Expr → Expr → Prop where
       DefEq env d fab major →
       Red env d major fab
   /-- **The structure-η rescue** (`majorToCtor`'s η branch,
-  `Core.lean:621-672`; official `to_cnstr_when_structure`): at an
+  `Kernel/Core.lean`; official `to_cnstr_when_structure`): at an
   η-flagged single-rule recursor whose major's type is a never-`Prop`
   instance of the structure, the constructor of the major's
   projections is fabricated, scope-guarded, certified against the
   constructor's telescope, and equated to the major by the structure-η
-  certificate (or, at a field-less structure, by proof irrelevance —
-  either way the last `DefEq` premise).  At a projection-function
+  certificate (the last `DefEq` premise).  At a projection-function
   family the per-field telescope certificates are a premise of their
   own, as in `DefEq.structEta`: the rescue's η certificate runs
-  `structEtaProjCerts` there (`structEtaCertWith`, `Core.lean:412-417`),
+  `structEtaProjCerts` there (`structEtaCertWith`, `Kernel/Core.lean`),
   and the fabrication READS only through those slots' storage. -/
   | rescueEta {d : Nat} {major tm tmaj fab : Expr} {recName : Name}
       {cv : ConstantVal} {mI rP : Nat} {rl : RecRule} {cvj : ConstantVal}
@@ -281,7 +280,7 @@ inductive Red (env : Env) : Nat → Expr → Expr → Prop where
       DefEq env d fab major →
       Red env d major fab
   /-- **The `And` rescue** (`majorToCtor`'s `And` branch,
-  `Core.lean:673-732`; `And` only, by ruling): `And.intro a b
+  `Kernel/Core.lean`; `And` only, by ruling): `And.intro a b
   (.proj And 0 h) (.proj And 1 h)` is fabricated for a stuck proof
   `h`, certified the K branch's way. -/
   | rescueAnd {d : Nat} {major tm tmaj fab tf : Expr} {recName : Name}
@@ -340,7 +339,7 @@ inductive DefEq (env : Env) : Nat → Expr → Expr → Prop where
   right-hand-side variant of a one-sided rule is derived. -/
   | symm {d : Nat} {a b : Expr} : DefEq env d a b → DefEq env d b a
   /-- **Reduce the left side, then continue** — the recursive-structure
-  rule (ruling 1).  Covers `whnfCore` of both sides (`Core.lean:1466-1467`,
+  rule (ruling 1).  Covers `whnfCore` of both sides (`Kernel/Core.lean`,
   with `symm`), literal acceleration (`:1517-1529`), every lazy-delta
   continuation (`:1537-1577`), and the string-literal expansion. -/
   | redL {d : Nat} {a a' b : Expr} :
@@ -348,7 +347,7 @@ inductive DefEq (env : Env) : Nat → Expr → Expr → Prop where
   /-- Two sorts (`Core.lean:1581`). -/
   | sort {d : Nat} {u v : Level} :
       Level.isEquiv u v = some true → DefEq env d (.sort u) (.sort v)
-  /-- Two free variables of the same index (`Core.lean:1618-1620`).  The
+  /-- Two free variables of the same index (`Kernel/Core.lean`).  The
   annotations are NOT compared, as the checker does not compare them:
   at a well-formed call `CtxOk` pins every opened variable's
   annotation, so the reading ignores them.  This is one half of why
@@ -356,19 +355,19 @@ inductive DefEq (env : Env) : Nat → Expr → Expr → Prop where
   | fvar {d i : Nat} {ty₁ ty₂ : Expr} :
       DefEq env d (.fvar i ty₁) (.fvar i ty₂)
   /-- Two constants of the same name at equivalent levels
-  (`Core.lean:1621-1626`). -/
+  (`Kernel/Core.lean`). -/
   | const {d : Nat} {n : Name} {us us' : List Level} :
       Level.isEquivList us us' = some true →
       DefEq env d (.const n us) (.const n us')
-  /-- The packed zero against `Nat.zero` (`Core.lean:1586-1591`; no
+  /-- The packed zero against `Nat.zero` (`Kernel/Core.lean`; no
   support guard is read there). -/
   | natZero {d : Nat} : DefEq env d (.lit (.natVal 0)) (.const natZeroName [])
   /-- A packed successor against `Nat.succ x`: unpack one layer and
-  continue (`Core.lean:1592-1597`). -/
+  continue (`Kernel/Core.lean`). -/
   | natSucc {d : Nat} {k : Nat} {x : Expr} :
       DefEq env d (.lit (.natVal k)) x →
       DefEq env d (.lit (.natVal (k + 1))) (.app (.const natSuccName []) x)
-  /-- ∀-congruence (`Core.lean:1627-1643`): domains, then bodies opened
+  /-- ∀-congruence (`Kernel/Core.lean`): domains, then bodies opened
   with the RIGHT domain, then the annotation agreement. -/
   | forallE {d : Nat} {ty₁ body₁ ty₂ body₂ : Expr} {m₁ m₂ : BinderMeta} :
       DefEq env d ty₁ ty₂ →
@@ -376,7 +375,7 @@ inductive DefEq (env : Env) : Nat → Expr → Expr → Prop where
         (body₂.instantiate1 (.fvar d ty₂)) →
       m₁.pw = m₂.pw →
       DefEq env d (.forallE ty₁ body₁ m₁) (.forallE ty₂ body₂ m₂)
-  /-- λ-congruence (`Core.lean:1644-1651`), as for ∀. -/
+  /-- λ-congruence (`Kernel/Core.lean`), as for ∀. -/
   | lam {d : Nat} {ty₁ body₁ ty₂ body₂ : Expr} {m₁ m₂ : BinderMeta} :
       DefEq env d ty₁ ty₂ →
       DefEq env (d + 1) (body₁.instantiate1 (.fvar d ty₂))
@@ -384,16 +383,16 @@ inductive DefEq (env : Env) : Nat → Expr → Expr → Prop where
       m₁.pw = m₂.pw →
       DefEq env d (.lam ty₁ body₁ m₁) (.lam ty₂ body₂ m₂)
   /-- Per-node application congruence.  The checker's spine-wise
-  congruence (`Core.lean:1652-1678`) and the same-head short-circuit
+  congruence (`Kernel/Core.lean`) and the same-head short-circuit
   (`defeqSpine`, `:1426-1458`) are derived from it
   (`DefEq.spine`, `DefEq.constSpine`). -/
   | app {d : Nat} {f₁ a₁ f₂ a₂ : Expr} :
       DefEq env d f₁ f₂ → DefEq env d a₁ a₂ →
       DefEq env d (.app f₁ a₁) (.app f₂ a₂)
-  /-- Projection congruence at the same table slot (`Core.lean:1679-1689`). -/
+  /-- Projection congruence at the same table slot (`Kernel/Core.lean`). -/
   | proj {d : Nat} {s : Name} {i : Nat} {e₁ e₂ : Expr} :
       DefEq env d e₁ e₂ → DefEq env d (.proj s i e₁) (.proj s i e₂)
-  /-- **η** (`etaCert`, `Core.lean:508-534`, at the one-sided λ arm
+  /-- **η** (`etaCert`, `Kernel/Core.lean`, at the one-sided λ arm
   `:1690-1692`): `b`'s io-inferred type head-normalises to a ∀ whose
   domain is definitionally equal to the λ's, the body is pointwise
   `b` applied, and the annotations agree. -/
@@ -404,13 +403,13 @@ inductive DefEq (env : Env) : Nat → Expr → Expr → Prop where
         (.app b (.fvar d ty₁)) →
       m₁.pw = m₂.pw →
       DefEq env d (.lam ty₁ body₁ m₁) b
-  /-- **The `isProofFast` yes-arm** (`propIrrel`, `Core.lean:331-332`):
+  /-- **The `isProofFast` yes-arm** (`propIrrel`, `Kernel/Core.lean`):
   both heads' validated data say "a proposition at every valuation" —
   the squash-regime licence (`prf_of_isProofFast`). -/
   | proofFast {d : Nat} {a b : Expr} :
       isProofFast env.find? a = true → isProofFast env.find? b = true →
       DefEq env d a b
-  /-- **Proof irrelevance** (`propIrrel`'s slow arm, `Core.lean:338-356`,
+  /-- **Proof irrelevance** (`propIrrel`'s slow arm, `Kernel/Core.lean`,
   and `proofIrrel`'s `Prop` arm, `:295-325`): both sides' io-inferred
   types have sort `Prop`.  The two types are never compared — the
   model licenses that (every proof is the point). -/
@@ -420,14 +419,8 @@ inductive DefEq (env : Env) : Nat → Expr → Expr → Prop where
       Infer env .io d b tb → Infer env .io d tb ttb →
       Red env d ttb (.sort v) → Level.isEquiv v .zero = some true →
       DefEq env d a b
-  /-- **Unit-likeness** (`proofIrrel`'s first arm, `Core.lean:287-294`):
-  both sides' io-inferred types head-normalise to the basis unit type. -/
-  | unitLike {d : Nat} {a ta wta b tb wtb : Expr} :
-      Infer env .io d a ta → Red env d ta wta → isUnitLikeTy env wta = true →
-      Infer env .io d b tb → Red env d tb wtb → isUnitLikeTy env wtb = true →
-      DefEq env d a b
   /-- **Structure η** (`structEtaCert` → `structEtaCertWith`,
-  `Core.lean:379-458`, `:460-476`; the same certificate serves the
+  `Kernel/Core.lean`, `:460-476`; the same certificate serves the
   η rescue at the type it already computed): `a` is a fully applied
   constructor of an η-capable stored structure, `b`'s io-inferred type
   head-normalises to that structure at agreeing levels, the type
@@ -462,7 +455,7 @@ inductive DefEq (env : Env) : Nat → Expr → Expr → Prop where
       DefEqList env d (a.getAppArgs.drop caps.etaParams)
         (etaProjs env T us' wtb.getAppArgs b caps.etaFields) →
       DefEq env d a b
-  /-- **Unit-like structure** (`structUnitCert`, `Core.lean:478-506`):
+  /-- **Unit-like structure** (`structUnitCert`, `Kernel/Core.lean`):
   both sides inhabit the same stored unit-like family — `a`'s
   io-inferred type head-normalises to it, `b`'s type is definitionally
   equal, and the type application is certified against the family's
@@ -487,11 +480,11 @@ inductive Infer (env : Env) : Grade → Nat → Expr → Expr → Prop where
   /-- `Core.lean:1114` / `:1294`. -/
   | sort {g : Grade} {d : Nat} {u : Level} :
       Infer env g d (.sort u) (.sort (.succ u))
-  /-- `Core.lean:1115-1123` / `:1295-1297`: an opened variable's stored
+  /-- `Kernel/Core.lean` / `:1295-1297`: an opened variable's stored
   type, at the leaf scope check. -/
   | fvar {g : Grade} {d idx : Nat} {ty : Expr} :
       idx < d → Infer env g d (.fvar idx ty) ty
-  /-- `Core.lean:1125-1136` / `:1298-1309`: a stored constant that is
+  /-- `Kernel/Core.lean` / `:1298-1309`: a stored constant that is
   not a projection table, at the right level arity. -/
   | const {g : Grade} {d : Nat} {n : Name} {us : List Level}
       {ci : ConstantInfo} :
@@ -500,15 +493,15 @@ inductive Infer (env : Env) : Grade → Nat → Expr → Expr → Prop where
       Infer env g d (.const n us)
         (ci.toConstantVal.type.instantiateLevelParams
           ci.toConstantVal.levelParams us)
-  /-- `Core.lean:1137-1139` / `:1310-1312`. -/
+  /-- `Kernel/Core.lean` / `:1310-1312`. -/
   | natLit {g : Grade} {d n : Nat} :
       natLitSupported env = true →
       Infer env g d (.lit (.natVal n)) (.const natName [])
-  /-- `Core.lean:1140-1146` / `:1313-1316`. -/
+  /-- `Kernel/Core.lean` / `:1313-1316`. -/
   | strLit {g : Grade} {d : Nat} {s : String} :
       strLitSupported env = true →
       Infer env g d (.lit (.strVal s)) (.const stringName [])
-  /-- **∀-formation** (`Core.lean:1147-1163` / `:1317-1326`): the domain's
+  /-- **∀-formation** (`Kernel/Core.lean` / `:1317-1326`): the domain's
   type reduces to a sort, the opened body's type reduces to a sort, and
   the node's datum is the codomain sort's zero-ness (validated at
   `.verified`). -/
@@ -519,7 +512,7 @@ inductive Infer (env : Env) : Grade → Nat → Expr → Expr → Prop where
       Red env (d + 1) bs (.sort v) →
       Level.zeronessOf v = mb.pw →
       Infer env g d (.forallE ty body mb) (.sort (.imax u v))
-  /-- **λ** (`Core.lean:1164-1214` / `:1327-1348`).  At the full grade the
+  /-- **λ** (`Kernel/Core.lean` / `:1327-1348`).  At the full grade the
   domain's type reduces to a sort (`g = .full →`: official's
   `infer_lambda` skips it at `infer_only`, and so does the io body);
   the opened body is inferred at the grade; the codomain datum is
@@ -537,7 +530,7 @@ inductive Infer (env : Env) : Grade → Nat → Expr → Expr → Prop where
       (body.lamPw = none → Red env (d + 1) btt (.sort v)) →
       (body.lamPw = none → Level.zeronessOf v = mb.pw) →
       Infer env g d (.lam ty body mb) (.forallE ty (bt.abstract1 d) mb)
-  /-- **Application, certified** (`Core.lean:1215-1227`; the io body at
+  /-- **Application, certified** (`Kernel/Core.lean`; the io body at
   a possibly-zero datum, `:1367-1370`): the head's type reduces to a
   ∀, and the argument's type at the grade is definitionally equal to
   the domain. -/
@@ -545,14 +538,14 @@ inductive Infer (env : Env) : Grade → Nat → Expr → Expr → Prop where
       Infer env g d f tf → Red env d tf (.forallE ty body mt) →
       Infer env g d a ta → DefEq env d ta ty →
       Infer env g d (.app f a) (body.instantiate1 a)
-  /-- **THE io SITE** (`Core.lean:1349-1372`): at the io grade, a ∀ whose
+  /-- **THE io SITE** (`Kernel/Core.lean`): at the io grade, a ∀ whose
   validated datum is `.never` needs no argument certificate — the
   graph-regime licence (`io_domain_transfer`, `Model/IOLicense.lean`). -/
   | appSkip {d : Nat} {f a tf ty body : Expr} {mt : BinderMeta} :
       Infer env .io d f tf → Red env d tf (.forallE ty body mt) →
       mt.pw.isNever = true →
       Infer env .io d (.app f a) (body.instantiate1 a)
-  /-- **Projection** (`Core.lean:1228-1289` / `:1373-1409`): the
+  /-- **Projection** (`Kernel/Core.lean` / `:1373-1409`): the
   scrutinee's type reduces to an application of the node's own
   structure with a table entry at the right arities, the `Prop`
   restriction holds, and the type is the entry's body at the spine
@@ -569,10 +562,11 @@ inductive Infer (env : Env) : Grade → Nat → Expr → Expr → Prop where
           = some true) →
       Infer env g d (.proj sn i pe) (entry.typeAt us te.getAppArgs pe)
 
-/-- **The telescope certificate** (`iotaCerts`, `Core.lean:230-244`):
+/-- **The telescope certificate** (`iotaCerts`, `Kernel/Core.lean`):
 each argument's io-grade type is definitionally equal to its binder
 domain, the domains instantiated along the spine; at a licensed walk a
-`.never` slot is skipped (the ι-slot licence, `Model/Steps/IotaGate.lean`). -/
+`.never` slot is skipped (the ι-slot licence, `Certs.skip_sound`,
+`Model/Rules/CertsSound.lean`). -/
 inductive Certs (env : Env) : Nat → Bool → Expr → List Expr → Prop where
   | nil {d : Nat} {lic : Bool} {T : Expr} : Certs env d lic T []
   | skip {d : Nat} {lic : Bool} {ty body arg : Expr} {mb : BinderMeta}
@@ -586,7 +580,7 @@ inductive Certs (env : Env) : Nat → Bool → Expr → List Expr → Prop where
       Certs env d lic (body.instantiate1 arg) rest →
       Certs env d lic (.forallE ty body mb) (arg :: rest)
 
-/-- **Pairwise definitional equality** (`defEqList`, `Core.lean:246-252`). -/
+/-- **Pairwise definitional equality** (`defEqList`, `Kernel/Core.lean`). -/
 inductive DefEqList (env : Env) : Nat → List Expr → List Expr → Prop where
   | nil {d : Nat} : DefEqList env d [] []
   | cons {d : Nat} {a b : Expr} {as bs : List Expr} :
@@ -595,7 +589,7 @@ inductive DefEqList (env : Env) : Nat → List Expr → List Expr → Prop where
 
 /-- **The per-field telescope certificates of a structure-η
 certification at a projection-function family**
-(`structEtaProjCerts`, `Core.lean:358-377`). -/
+(`structEtaProjCerts`, `Kernel/Core.lean`). -/
 inductive EtaProjCerts (env : Env) :
     Nat → Name → List Level → List Expr → Expr → List Name → List Nat → Prop
     where

@@ -13,7 +13,7 @@ public section
 Reduction and inference only ever *copy* material from the input (delta
 unfoldings are closed), so their outputs' free-variable leaves are a
 subset of the input's — which transports every leaf-closure condition
-(`FvarsOk`, `LeavesBounded`, `LeafCond`) for free.  Loose-bvar bounds
+(`LeavesBounded`, `LeafCond`) for free.  Loose-bvar bounds
 are threaded via `LeavesBounded` (the `fvar` rule jumps into the
 annotation).
 -/
@@ -76,50 +76,6 @@ theorem piResidual_WScoped {d : Nat} :
       exact piResidual_WScoped h'
         (WScoped.instantiate1_gen (has a (List.mem_cons_self ..)) 0 hw'.2)
         (fun x hx => has x (List.mem_cons_of_mem _ hx))
-
-open Expr in
-/-- Peeling only introduces the telescope's and the arguments'
-leaves. -/
-theorem piResidual_fvarLeaves :
-    ∀ {as : List Expr} {t res : Expr}, piResidual t as = some res →
-      ∀ l ∈ res.fvarLeaves,
-        l ∈ t.fvarLeaves ∨ ∃ x ∈ as, l ∈ x.fvarLeaves
-  | [], t, res, h, l, hl => by
-    simp only [piResidual, Option.some.injEq] at h
-    exact Or.inl (h ▸ hl)
-  | a :: as, t, res, h, l, hl => by
-    match t, h with
-    | .forallE ty body mb, h =>
-      have h' : piResidual (body.instantiate1 a) as = some res := h
-      rcases piResidual_fvarLeaves h' l hl with hb | ⟨x, hx, hlx⟩
-      · rcases fvarLeaves_instantiate1 body 0 hb with hb | hb
-        · exact Or.inl (by simp [Expr.fvarLeaves, hb])
-        · exact Or.inr ⟨a, List.mem_cons_self .., hb⟩
-      · exact Or.inr ⟨x, List.mem_cons_of_mem _ hx, hlx⟩
-
-open Expr in
-/-- Peeling a bounded telescope along bounded arguments stays
-bounded. -/
-theorem piResidual_looseBVars :
-    ∀ {as : List Expr} {t res : Expr}, piResidual t as = some res →
-      t.looseBVarsBounded 0 = true →
-      (∀ x ∈ as, x.looseBVarsBounded 0 = true) →
-      res.looseBVarsBounded 0 = true
-  | [], t, res, h, hb, _ => by
-    simp only [piResidual, Option.some.injEq] at h
-    exact h ▸ hb
-  | a :: as, t, res, h, hb, has => by
-    match t, h with
-    | .forallE ty body mb, h =>
-      have hb' : ty.looseBVarsBounded 0 = true ∧
-          body.looseBVarsBounded 1 = true := by
-        simpa only [Expr.looseBVarsBounded, Bool.and_eq_true] using hb
-      have h' : piResidual (body.instantiate1 a) as = some res := h
-      exact piResidual_looseBVars h'
-        (looseBVarsBounded_instantiate1_gen
-          (has a (List.mem_cons_self ..)) hb'.2)
-        (fun x hx => has x (List.mem_cons_of_mem _ hx))
-
 
 open Expr
 
@@ -233,16 +189,6 @@ theorem Expr.LeavesBounded.of_not_hasFvar {e : Expr} (h : e.hasFvar = false) :
   intro l hl
   rw [fvarLeaves_eq_nil_of_not_hasFvar h] at hl
   cases hl
-
-theorem fvarLeaves_getAppFn :
-    ∀ {e : Expr}, ∀ l ∈ e.getAppFn.fvarLeaves, l ∈ e.fvarLeaves := by
-  intro e
-  induction e with
-  | app f a ihf _ =>
-    intro l hl
-    simp only [fvarLeaves, List.mem_append]
-    exact Or.inl (ihf l hl)
-  | _ => intro l hl; exact hl
 
 theorem fvarLeaves_getAppArgs :
     ∀ {e x : Expr}, x ∈ e.getAppArgs → ∀ l ∈ x.fvarLeaves, l ∈ e.fvarLeaves := by
@@ -688,26 +634,12 @@ theorem whnfPres_looseBVars {env : Env} (henv : EnvWF env) :
       intro d e e' h hb
       exact hloop whnfLoopFuel h hb
 
-/-- Head normalization only shrinks the leaf closure. -/
-theorem whnfCore_fvarLeaves {env : Env} (henv : EnvWF env)
-    (fuel : Nat) {d : Nat} {e e' : Expr}
-    (h : whnfCore mode env fuel d e = .ok e') :
-    ∀ l ∈ e'.fvarLeaves, l ∈ e.fvarLeaves :=
-  (whnfPres_fvarLeaves henv fuel).1 h
-
 /-- The reduction loop only shrinks the leaf closure. -/
 theorem whnf_fvarLeaves {env : Env} (henv : EnvWF env)
     (fuel : Nat) {d : Nat} {e e' : Expr}
     (h : whnf mode env fuel d e = .ok e') :
     ∀ l ∈ e'.fvarLeaves, l ∈ e.fvarLeaves :=
   (whnfPres_fvarLeaves henv fuel).2 h
-
-/-- Head normalization preserves the bvar bound. -/
-theorem whnfCore_looseBVars {env : Env} (henv : EnvWF env)
-    (fuel : Nat) {d : Nat} {e e' : Expr}
-    (h : whnfCore mode env fuel d e = .ok e')
-    (hb : e.looseBVarsBounded 0 = true) : e'.looseBVarsBounded 0 = true :=
-  (whnfPres_looseBVars henv fuel).1 h hb
 
 /-- The reduction loop preserves the bvar bound. -/
 theorem whnf_looseBVars {env : Env} (henv : EnvWF env)

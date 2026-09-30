@@ -377,6 +377,84 @@ def instantiateListFast (e : Expr) (vs : List Expr) (d : Nat := 0) : Expr :=
   funext e vs d
   exact (instantiateListGo_spec e d {} InstLMemoInv.empty).1.symm
 
+/-! ### `instantiateList` as the `instantiate1` fold (task #50)
+
+The two laws the one-pass telescope opening (`openPisAtFvarsF`,
+`ConLeche/Kernel/CheckerBase.lean`) needs for its `@[csimp]`; the rest
+of the family is in `ConLeche/Verify/InstList.lean`. -/
+
+set_option linter.unusedSimpArgs false in
+theorem instantiateList_nil : ∀ (e : Expr) (d : Nat),
+    e.instantiateList [] d = e := by
+  intro e
+  induction e <;> intro d <;> simp [instantiateList, *] <;> omega
+
+set_option linter.unusedSimpArgs false in
+theorem instantiateList_cons :
+    ∀ (vs : List Expr) (e : Expr) (v : Expr) (d : Nat),
+      e.instantiateList (v :: vs) d
+        = (e.instantiateList vs (d + 1)).instantiate1 v d
+  | vs, .bvar j, v, d => by
+    by_cases hjd : j < d
+    · have hjd1 : j < d + 1 := by omega
+      simp [instantiateList, instantiate1, hjd, hjd1,
+        show ¬ j = d by omega, show ¬ j > d by omega]
+    · by_cases hje : j = d
+      · subst hje
+        simp [instantiateList, hjd, instantiate1, instantiateList_nil]
+      · -- j > d: either a replacement from the tail, or above the range
+        obtain ⟨i, rfl⟩ : ∃ i, j = d + 1 + i := ⟨j - d - 1, by omega⟩
+        have hd1 : ¬ d + 1 + i < d + 1 := by omega
+        have hsub : d + 1 + i - d = i + 1 := by omega
+        have hsub2 : d + 1 + i - (d + 1) = i := by omega
+        by_cases hin : i < vs.length
+        · -- in range: the replacement, recursively substituted
+          have hin' : d + 1 + i - d < (v :: vs).length := by simp; omega
+          have hin2 : d + 1 + i - (d + 1) < vs.length := by omega
+          have hr : (Expr.bvar (d + 1 + i)).instantiateList vs (d + 1)
+              = vs[i].instantiateList (vs.take i) (d + 1) := by
+            rw [instantiateList, if_neg hd1, dif_pos hin2]
+            simp only [hsub2]
+          rw [instantiateList, if_neg hjd, dif_pos hin', hr]
+          simp only [hsub, List.getElem_cons_succ, List.take_succ_cons]
+          exact instantiateList_cons (vs.take i) vs[i] v d
+        · -- above the range: lowered
+          have hnin : ¬ d + 1 + i - d < (v :: vs).length := by simp; omega
+          have hnin2 : ¬ d + 1 + i - (d + 1) < vs.length := by omega
+          have hr : (Expr.bvar (d + 1 + i)).instantiateList vs (d + 1)
+              = .bvar (d + 1 + i - vs.length) := by
+            rw [instantiateList, if_neg hd1, dif_neg hnin2]
+          rw [instantiateList, if_neg hjd, dif_neg hnin, hr]
+          have hgt2 : d + 1 + i - vs.length > d := by omega
+          simp [instantiate1, show ¬ d + 1 + i - vs.length = d by omega,
+            hgt2]
+          omega
+  | vs, .fvar idx ty, v, d => by simp [instantiateList, instantiate1]
+  | vs, .sort u, v, d => by simp [instantiateList, instantiate1]
+  | vs, .const n us, v, d => by simp [instantiateList, instantiate1]
+  | vs, .app f a, v, d => by
+    simp only [instantiateList, instantiate1]
+    rw [instantiateList_cons vs f v d, instantiateList_cons vs a v d]
+  | vs, .lam ty body bi, v, d => by
+    simp only [instantiateList, instantiate1]
+    rw [instantiateList_cons vs ty v d, instantiateList_cons vs body v (d + 1)]
+  | vs, .forallE ty body bi, v, d => by
+    simp only [instantiateList, instantiate1]
+    rw [instantiateList_cons vs ty v d, instantiateList_cons vs body v (d + 1)]
+  | vs, .letE ty val body, v, d => by
+    simp only [instantiateList, instantiate1]
+    rw [instantiateList_cons vs ty v d, instantiateList_cons vs val v d,
+      instantiateList_cons vs body v (d + 1)]
+  | vs, .lit l, v, d => by simp [instantiateList, instantiate1]
+  | vs, .proj s i e, v, d => by
+    simp only [instantiateList, instantiate1]
+    rw [instantiateList_cons vs e v d]
+termination_by vs e => (vs.length, sizeOf e)
+decreasing_by
+  all_goals first
+    | (apply Prod.Lex.left; simp [List.length_take]; omega)
+    | (apply Prod.Lex.right; simp; omega)
+
 /-- Bump every loose bound variable `≥ cutoff` by `amount`.  Used to
 transport a constructor-telescope field domain (parameters, then prior
 fields) into a recursor-rule telescope (parameters, motive, minors,
@@ -838,12 +916,9 @@ verification-side `WScoped`).
 
 Not on any per-memo-op path (task #43): the executed knot's cache
 operations run unguarded, justified by the proven call discipline
-(`ConLeche/Verify/Cached/DiscC*.lean`; the memoized knot's own
-discipline, `ConLeche/Verify/Disc.lean`, went with that knot at task
-#221).  Remaining executable call sites are the
+(`ConLeche/Verify/Cached/DiscC*.lean`).  Remaining executable call sites are the
 scope guards on checker-fabricated terms in `ConLeche/Kernel/Core.lean`
-(the stuck-major rescues in `majorToCtor`; the projection
-eliminations went with task #175 wiring W5), each O(small
+(the stuck-major rescues in `majorToCtor`), each O(small
 fabricated term) once per fabrication.  TODO(cleanup, task #26):
 interning should cache the fvar range per node, making those O(1). -/
 def wscopedB : (d : Nat) → Expr → Bool
@@ -893,14 +968,6 @@ def lamPw : Expr → Option PropWhen
   | .lam _ _ mbI => some mbI.pw
   | _ => none
 
-/-- The ∀ twin of `lamPw`: a ∀ node's prop-ness datum, read off the
-node.  Task #161 P5 repair — `annotPwPi` reads it to realise the
-telescope collapse (`zeronessOf (imax u v) = zeronessOf v`) as a chain
-rule, exactly as `annotPwLam` reads `lamPw`. -/
-def forallPw : Expr → Option PropWhen
-  | .forallE _ _ mbI => some mbI.pw
-  | _ => none
-
 /-- Does the expression contain any free variable (`fvar`)?  Input
 declarations must be `fvar`-free; the checker introduces `fvar`s only
 internally when opening binders. -/
@@ -928,9 +995,7 @@ def mkAppN (f : Expr) : List Expr → Expr
   | a :: as => mkAppN (.app f a) as
 
 /-- Rename constants throughout (including inside `fvar` type
-annotations and `proj` type names); levels and binders untouched.  Used
-to compare a modeled inductive's members against their `_model`
-counterparts. -/
+annotations and `proj` type names); levels and binders untouched. -/
 def renameConsts (f : Name → Name) : Expr → Expr
   | .bvar i => .bvar i
   | .fvar i ty => .fvar i (renameConsts f ty)
@@ -944,13 +1009,7 @@ def renameConsts (f : Name → Name) : Expr → Expr
     .letE (renameConsts f ty) (renameConsts f v) (renameConsts f body)
   | .lit l => .lit l
   -- Task #175 wiring W5: a `.proj` node's struct name is NOT renamed.
-  -- The renaming exists for the modeled-block contract (a public
-  -- block's types against its `_model` artifacts, compared with `==`
-  -- since task #205, and the fire comparands); a block's own projections can never be
-  -- spelled inside its types (their entries do not exist when the
-  -- types are annotated), and a `.proj` on any *other* structure names
-  -- it the same on both sides — so the rename never had a matching
-  -- case here.  Fixing the name keeps the entry-kind readings
+  -- Fixing the name keeps the entry-kind readings
   -- (`denote`/`denoteMeta`, which consult the table at the struct name)
   -- rename-invariant by construction (DESIGN, "W5 opening seam").
   | .proj s i e => .proj s i (renameConsts f e)
@@ -960,10 +1019,7 @@ def renameConsts (f : Name → Name) : Expr → Expr
 `renameConsts` is a plain structural **rebuild**, so on a DAG-shared
 argument it costs `O(tree)`, not `O(DAG)` — the second row of task
 #213's tree-size-budget audit, and one of the two walkers that kept the
-budget on inductive blocks.  It is on the executed path of the modeled
-inductive install (`ConLeche/Kernel/Inductives/Modeled.lean`,
-`ConLeche/Kernel/DeclCheck.lean`), which meets whole annotated member
-types.
+budget on inductive blocks.
 
 The memoized walk below is swapped in by `@[csimp]`, so this is a
 *kernel-checked* replacement of the compiled code and no trust point:
@@ -975,9 +1031,8 @@ call, since the answer depends on `f`.
 
 No cutoff and no exclusivity read here (unlike `Expr.beqMemo` and the
 walks of `ConLeche/Cached/ExprOpsC.lean`, which memoise only what
-`withExclusive` reports shared): `renameConsts` is reached only from
-the modeled install, once per member type, never from a hot
-small-term path — measured on `init-full` at the task's gate. -/
+`withExclusive` reports shared): `renameConsts` is on no hot
+small-term path. -/
 
 /-- The memo's invariant: every recorded answer is the real one. -/
 def RenameMemoInv (f : Name → Name) (memo : Std.HashMap Expr Expr) : Prop :=
@@ -1117,6 +1172,168 @@ def renameConstsFast (f : Name → Name) (e : Expr) : Expr :=
   funext f e
   exact (renameConstsGo_spec e RenameMemoInv.empty).1.symm
 
+/-! ### `replaceConsts`: constants to terms
+
+The member abstraction of the positivity function (charter item 2:
+"the holes are ordinary open terms (members abstracted to fvars)"):
+every constant `c.{us}` with `f c us = some e` becomes `e`, inside
+`fvar` annotations too; a `.proj` node's structure name is untouched.
+Memoized exactly as `renameConsts` (the memo keyed by the node, dropped
+after each call; `@[csimp]`, kernel-checked, no trust point). -/
+
+/-- Replace the constants `f` maps. -/
+def replaceConsts (f : Name → List Level → Option Expr) : Expr → Expr
+  | .bvar i => .bvar i
+  | .fvar i ty => .fvar i (replaceConsts f ty)
+  | .sort u => .sort u
+  | .const n us => (f n us).getD (.const n us)
+  | .app a b => .app (replaceConsts f a) (replaceConsts f b)
+  | .lam ty body m => .lam (replaceConsts f ty) (replaceConsts f body) m
+  | .forallE ty body m => .forallE (replaceConsts f ty) (replaceConsts f body) m
+  | .letE ty v body =>
+    .letE (replaceConsts f ty) (replaceConsts f v) (replaceConsts f body)
+  | .lit l => .lit l
+  | .proj s i e => .proj s i (replaceConsts f e)
+
+/-- The memo's invariant: every recorded answer is the real one. -/
+def ReplaceMemoInv (f : Name → List Level → Option Expr) (memo : Std.HashMap Expr Expr) : Prop :=
+  ∀ k v, memo[k]? = some v → v = replaceConsts f k
+
+theorem ReplaceMemoInv.empty {f : Name → List Level → Option Expr} : ReplaceMemoInv f {} := by
+  intro k v h; simp at h
+
+theorem ReplaceMemoInv.insert {f : Name → List Level → Option Expr}
+    {memo : Std.HashMap Expr Expr}
+    (hm : ReplaceMemoInv f memo) {e r : Expr} (heq : r = replaceConsts f e) :
+    ReplaceMemoInv f (memo.insert e r) := by
+  intro k v hk
+  rw [Std.HashMap.getElem?_insert] at hk
+  split at hk
+  · rename_i hbeq
+    cases hk
+    rw [← eq_of_beq hbeq]
+    exact heq
+  · exact hm k v hk
+
+/-- Memoized `replaceConsts`. -/
+def replaceConstsGo (f : Name → List Level → Option Expr) (memo : Std.HashMap Expr Expr) :
+    Expr → Expr × Std.HashMap Expr Expr
+  | e@(.bvar _) => (e, memo)
+  | e@(.sort _) => (e, memo)
+  | e@(.lit _) => (e, memo)
+  | .const n us => ((f n us).getD (.const n us), memo)
+  | e =>
+    match memo[e]? with
+    | some r => (r, memo)
+    | none =>
+      let (r, memo) : Expr × Std.HashMap Expr Expr :=
+        match e with
+        | .fvar i ty =>
+          let (t, memo) := replaceConstsGo f memo ty
+          (.fvar i t, memo)
+        | .app a b =>
+          let (a', memo) := replaceConstsGo f memo a
+          let (b', memo) := replaceConstsGo f memo b
+          (.app a' b', memo)
+        | .lam ty body m =>
+          let (t, memo) := replaceConstsGo f memo ty
+          let (b, memo) := replaceConstsGo f memo body
+          (.lam t b m, memo)
+        | .forallE ty body m =>
+          let (t, memo) := replaceConstsGo f memo ty
+          let (b, memo) := replaceConstsGo f memo body
+          (.forallE t b m, memo)
+        | .letE ty v body =>
+          let (t, memo) := replaceConstsGo f memo ty
+          let (v', memo) := replaceConstsGo f memo v
+          let (b, memo) := replaceConstsGo f memo body
+          (.letE t v' b, memo)
+        | .proj s i sub =>
+          let (u, memo) := replaceConstsGo f memo sub
+          (.proj s i u, memo)
+        | e => (e, memo)
+      (r, memo.insert e r)
+
+/-- **The memoized walk is `replaceConsts`.** -/
+theorem replaceConstsGo_spec {f : Name → List Level → Option Expr} :
+    ∀ (e : Expr) {memo : Std.HashMap Expr Expr}, ReplaceMemoInv f memo →
+      (replaceConstsGo f memo e).1 = replaceConsts f e ∧
+        ReplaceMemoInv f (replaceConstsGo f memo e).2 := by
+  intro e
+  induction e with
+  | bvar i => intro memo hm; exact ⟨rfl, hm⟩
+  | sort u => intro memo hm; exact ⟨rfl, hm⟩
+  | lit l => intro memo hm; exact ⟨rfl, hm⟩
+  | const n us => intro memo hm; exact ⟨rfl, hm⟩
+  | fvar i ty ih =>
+    intro memo hm
+    rw [replaceConstsGo]
+    split
+    · rename_i r hhit
+      exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
+    · obtain ⟨h1, h2⟩ := ih hm
+      refine ⟨by simp [replaceConsts, h1], ?_⟩
+      exact h2.insert (by simp [replaceConsts, h1])
+  | app a b iha ihb =>
+    intro memo hm
+    rw [replaceConstsGo]
+    split
+    · rename_i r hhit
+      exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
+    · obtain ⟨h1, h2⟩ := iha hm
+      obtain ⟨h3, h4⟩ := ihb h2
+      refine ⟨by simp [replaceConsts, h1, h3], ?_⟩
+      exact h4.insert (by simp [replaceConsts, h1, h3])
+  | lam ty body m iht ihb =>
+    intro memo hm
+    rw [replaceConstsGo]
+    split
+    · rename_i r hhit
+      exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
+    · obtain ⟨h1, h2⟩ := iht hm
+      obtain ⟨h3, h4⟩ := ihb h2
+      refine ⟨by simp [replaceConsts, h1, h3], ?_⟩
+      exact h4.insert (by simp [replaceConsts, h1, h3])
+  | forallE ty body m iht ihb =>
+    intro memo hm
+    rw [replaceConstsGo]
+    split
+    · rename_i r hhit
+      exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
+    · obtain ⟨h1, h2⟩ := iht hm
+      obtain ⟨h3, h4⟩ := ihb h2
+      refine ⟨by simp [replaceConsts, h1, h3], ?_⟩
+      exact h4.insert (by simp [replaceConsts, h1, h3])
+  | letE ty v body iht ihv ihb =>
+    intro memo hm
+    rw [replaceConstsGo]
+    split
+    · rename_i r hhit
+      exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
+    · obtain ⟨h1, h2⟩ := iht hm
+      obtain ⟨h3, h4⟩ := ihv h2
+      obtain ⟨h5, h6⟩ := ihb h4
+      refine ⟨by simp [replaceConsts, h1, h3, h5], ?_⟩
+      exact h6.insert (by simp [replaceConsts, h1, h3, h5])
+  | proj s i sub ih =>
+    intro memo hm
+    rw [replaceConstsGo]
+    split
+    · rename_i r hhit
+      exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
+    · obtain ⟨h1, h2⟩ := ih hm
+      refine ⟨by simp [replaceConsts, h1], ?_⟩
+      exact h2.insert (by simp [replaceConsts, h1])
+
+/-- The executed `replaceConsts` (one memoized DAG walk). -/
+def replaceConstsFast (f : Name → List Level → Option Expr) (e : Expr) : Expr :=
+  (replaceConstsGo f {} e).1
+
+@[csimp] theorem replaceConsts_eq_replaceConstsFast :
+    @replaceConsts = @replaceConstsFast := by
+  funext f e
+  exact (replaceConstsGo_spec e ReplaceMemoInv.empty).1.symm
+
 /-- Strip `k` leading lambdas: the binder list (outermost first) and
 the body. -/
 def stripLams : Nat → Expr → Option (List (Expr × BinderMeta) × Expr)
@@ -1138,12 +1355,6 @@ it is not a `∀`). -/
 def piResult : Expr → Expr
   | .forallE _ b _ => piResult b
   | e => e
-
-/-- Instantiate a `∀`-telescope with arguments, in order. -/
-def instPis : Expr → List Expr → Option Expr
-  | e, [] => some e
-  | .forallE _ body _, a :: as => instPis (body.instantiate1 a) as
-  | _, _ :: _ => none
 
 /-- Instantiate the leading `∀`-binders at the given arguments,
 returning each binder's (progressively instantiated) domain together
@@ -1209,6 +1420,70 @@ def instLamsAtF (args : List Expr) (e : Expr) : Option (List Expr × Expr) :=
   | some r => some r
   | none => instLamsAt args e
 
+theorem instPisAtFGo_sound :
+    ∀ (args : List Expr) (e : Expr) (acc : List Expr)
+      {r : List Expr × Expr},
+      instPisAtFGo acc args e = some r →
+      instPisAt args (e.instantiateList acc) = some r
+  | [], e, acc, r, h => by
+    simp only [instPisAtFGo, Option.some.injEq] at h
+    simp only [instPisAt, ← h]
+  | a :: as, .forallE dom body bi, acc, r, h => by
+    simp only [instPisAtFGo, Option.map_eq_some_iff] at h
+    obtain ⟨⟨ds, rest⟩, hgo, rfl⟩ := h
+    have ih := instPisAtFGo_sound as body (a :: acc) hgo
+    rw [instantiateList_cons] at ih
+    simp only [instantiateList, instPisAt, ih, Option.map_some]
+
+theorem instPisAtF_eq (args : List Expr) (e : Expr) :
+    instPisAtF args e = instPisAt args e := by
+  unfold instPisAtF
+  match h : instPisAtFGo [] args e with
+  | some r =>
+    have := instPisAtFGo_sound args e [] h
+    rw [instantiateList_nil] at this
+    exact this.symm
+  | none => rfl
+
+theorem instLamsAtFGo_sound :
+    ∀ (args : List Expr) (e : Expr) (acc : List Expr)
+      {r : List Expr × Expr},
+      instLamsAtFGo acc args e = some r →
+      instLamsAt args (e.instantiateList acc) = some r
+  | [], e, acc, r, h => by
+    simp only [instLamsAtFGo, Option.some.injEq] at h
+    simp only [instLamsAt, ← h]
+  | a :: as, .lam dom body bi, acc, r, h => by
+    simp only [instLamsAtFGo, Option.map_eq_some_iff] at h
+    obtain ⟨⟨ds, rest⟩, hgo, rfl⟩ := h
+    have ih := instLamsAtFGo_sound as body (a :: acc) hgo
+    rw [instantiateList_cons] at ih
+    simp only [instantiateList, instLamsAt, ih, Option.map_some]
+
+theorem instLamsAtF_eq (args : List Expr) (e : Expr) :
+    instLamsAtF args e = instLamsAt args e := by
+  unfold instLamsAtF
+  match h : instLamsAtFGo [] args e with
+  | some r =>
+    have := instLamsAtFGo_sound args e [] h
+    rw [instantiateList_nil] at this
+    exact this.symm
+  | none => rfl
+
+/-- **`instPisAt`/`instLamsAt` run one-pass**: the
+sequential definitions rewrite the whole remaining body once per
+binder; the recursor stage opens a rule's λ-telescope (`rP + nF`
+binders over the rule's whole body) at every rule.  Kernel-checked;
+every proof keeps consuming the sequential definitions. -/
+@[csimp] theorem instPisAt_eq_instPisAtF : @instPisAt = @instPisAtF := by
+  funext args e
+  exact (instPisAtF_eq args e).symm
+
+@[csimp] theorem instLamsAt_eq_instLamsAtF : @instLamsAt = @instLamsAtF := by
+  funext args e
+  exact (instLamsAtF_eq args e).symm
+
+
 /-- The type annotation of a free-variable leaf (the expression itself
 otherwise; used to read the domains off an opened telescope's
 variables). -/
@@ -1231,8 +1506,8 @@ are exactly the recursor's own leading arguments: the major premise's
 type applies the eliminated family to the first `cnP` telescope
 variables.  Rules for nested auxiliary constructors (whose parameters
 are instantiations like `Array Syntax`) are not canonical; they are
-stored `.nested` when the certification against the model's `iota_j`
-theorem succeeds (see `checkIotaThmN`) and `.inert` otherwise —
+stored `.nested` when the syntactic reading succeeds (`nestedRuleSyn`
+below) and `.inert` otherwise —
 `iotaRec` never fires an inert rule, so it carries no fold
 obligation. -/
 def recRulePlain (recTy : Expr) (mI rP cnP : Nat) : Bool :=
@@ -1243,41 +1518,45 @@ def recRulePlain (recTy : Expr) (mI rP cnP : Nat) : Bool :=
       (List.range cnP).map (fun k => Expr.bvar (mI - 1 - k))
   | _ => false
 
-/-- Convert the first `k` `∀`-binders into `λ`-binders over a body.
-
-The copied binder metadata keeps only the display info: a ∀'s `pw`
-claims the *codomain*'s prop-ness, which is not the λ's claim (the sort
-of the body's *type*), so carrying it over would be a wrong annotation.
-The result is emitted at the parse placeholder `.never` and **every
-consumer must run the annotate pass over it before storing or using
-it** — audited: `CheckerS.checkProjRule` and `CheckerBase`'s projection
-rule builder feed `ops.annotate` (DESIGN.md, task #161,
-manufacture-site audit row 9; the third consumer, `annotateProjRec`,
-went with task #175 wiring W5). -/
-def pisToLams : Nat → Expr → Expr → Option Expr
-  | 0, _, body => some body
-  | k + 1, .forallE ty rest _, body =>
-    (pisToLams k rest body).map fun b => .lam ty b ⟨.never⟩
-  | _ + 1, _, _ => none
-
-/-- Replace the body under the first `k` `∀`-binders (binder domains and
-names kept, codomain-sort annotations reset — the caller annotates). -/
-def replacePiBody : Nat → Expr → Expr → Option Expr
-  | 0, _, b => some b
-  | k + 1, .forallE ty rest m, b =>
-    (replacePiBody k rest b).map fun r => .forallE ty r ⟨m.pw⟩
-  | _ + 1, _, _ => none
-
-/-- The length of the leading `∀`-telescope. -/
-def piArity : Expr → Nat
-  | .forallE _ b _ => piArity b + 1
-  | _ => 0
-
-/-- The result sort at the end of a `∀`-telescope. -/
-def resultSort : Expr → Option Level
-  | .forallE _ b _ => resultSort b
-  | .sort u => some u
-  | _ => none
+/-- **The syntactic reading of a nested rule's instantiation**: the
+major's level and parameter instantiations, read off the
+recursor type's major-premise domain
+(`∀ …prefix… …indices…, ∀ (t : D.{lvls} p₁ … p_cnP i₁ … i_k), …`,
+`k = mI - rP`).  The parameter instantiations are returned *lowered into
+the rule-prefix context* (`rP` binders; `lowerBVars`) — the lift-back
+roundtrip certifies that no index variable occurs in them — and the
+domain's trailing arguments must be exactly the index variables in
+order.  `none` when the prefix exceeds the major's position, the major
+domain is not a constant-headed application of exactly `cnP + k`
+arguments of this split shape, or an instantiation fails the syntactic
+well-formedness guards (closed, bounded by the prefix telescope,
+constants resolving by `resolves`, levels declared in `lps`) — the
+facts `EnvWF` records for a stored `.nested` rule
+(`nestedRuleSyn_inv`).  The uniform route stores it
+for the rules of a recursor whose major is outside its block
+(`tgtStoredRules`, `auxRuleFireR`). -/
+def nestedRuleSyn (resolves : Expr → Bool) (lps : List Name) (tyA : Expr) (mI rP cnP : Nat) :
+    Option (List Level × List Expr) :=
+  if rP ≤ mI then
+    match tyA.stripPis mI with
+    | some (_, .forallE dom _ _) =>
+      match dom.getAppFn with
+      | .const _D lvls =>
+        let args := dom.getAppArgs
+        let k := mI - rP
+        let pins := (args.take cnP).map (lowerBVars k 0)
+        if args.length = cnP + k ∧
+            args.take cnP == pins.map (liftLooseBVars k 0) ∧
+            args.drop cnP ==
+              (List.range k).map (fun i => Expr.bvar (k - 1 - i)) ∧
+            pins.all (fun p => !p.hasFvar && p.looseBVarsBounded rP &&
+              resolves p && p.allLevelParamsDefined lps) ∧
+            lvls.all (Level.allParamsDefined lps) then
+          some (lvls, pins)
+        else none
+      | _ => none
+    | _ => none
+  else none
 
 /-! ## Derived-field spec functions, and their exactness
 
@@ -1285,15 +1564,11 @@ The four `@[computed_field]`s of `Expr` (`ConLeche/Kernel/Expr.lean`) are
 declared by their recurrences; these are the same recurrences written
 as ordinary definitions, together with the equivalences that make a
 field read license the traversal cutoff it guards.  Self-contained:
-they mention nothing but `Expr`.
-
-They lived in `ConLeche/Kernel/ArenaWF.lean` (the parallel-array
-exactness proofs) and `ConLeche/Verify/IExpr.lean` until task #172's
-interned removal; the cached engine's field facts
+they mention nothing but `Expr`.  The cached engine's field facts
 (`ConLeche/Verify/Cached/Erase.lean`) are stated against them. -/
 
 /-- The least `k` with `looseBVarsBounded k` (the spec function of the
-eager `bvarBs` entries). -/
+computed field `bvarB`). -/
 def _root_.ConLeche.Expr.bvarBound : Expr → Nat
   | .bvar i => i + 1
   | .fvar _ _ | .sort _ | .const _ _ | .lit _ => 0
@@ -1311,8 +1586,8 @@ theorem looseBVarsBounded_iff {x : Expr} :
     (try simp [Expr.looseBVarsBounded, Expr.bvarBound, Nat.max_le, *]) <;>
     omega
 
-/-- The least `d` with `fvarsBelow d` (the spec function of the eager
-`fvarBs` entries; `fvar` type annotations are not descended, matching
+/-- The least `d` with `fvarsBelow d` (the spec function of the computed
+field `fvarB`; `fvar` type annotations are not descended, matching
 `fvarsBelow` and the abstraction traversals). -/
 def _root_.ConLeche.Expr.fvarRange : Expr → Nat
   | .fvar idx _ => idx + 1
@@ -1737,8 +2012,8 @@ def looseBVarsBoundedFast (k : Nat) (e : Expr) : Bool := decide (e.bvarB ≤ k)
 `abstract1` closes a binder body by turning `fvar d` leaves into
 `bvar k`, and it rebuilds every node on the way — so on a
 DAG-shared term it is `O(tree)`.  It is the walk the native install
-route runs per binder (`closeTelescope`, `normPosDom` in
-`Kernel/Inductives/SumInstall.lean`), and
+route runs per binder (`closeTelescope`, the positivity function's
+normal form in `Kernel/Inductives/Positivity.lean`), and
 `tests/e2e/tower_proj.ndjson` — a two-field structure whose field
 types carry a depth-60 shared tower — exhausts memory on it.
 
@@ -1939,13 +2214,10 @@ def abstract1Fast (e : Expr) (d : Nat) (k : Nat := 0) : Expr :=
 
 `lowerBVars` rebuilds every node it walks, so on a DAG-shared term it
 is `O(tree)` — the same shape `abstract1` had before task #233.  It is
-the walk the modeled route runs on the rule-prefix pins
-(`Kernel/Inductives/Modeled.lean`, `Kernel/DeclCheck.lean`) and the
-in-process modeller runs on the nested rung's motives, pins and
-domains (`Frontend/InModel/Nested.lean`), and
-`tests/e2e/tower_nested.ndjson` — a nested block whose constructor
-carries a depth-60 shared tower over the constructor's own first
-field — exhausts memory on it.
+the walk the nested rule reading runs on the rule-prefix pins
+(`nestedRuleSyn`); `tests/e2e/tower_nested.ndjson` — a nested block
+whose constructor carries a depth-60 shared tower over the
+constructor's own first field — is its fixture.
 
 Both remedies, as `abstract1` carries both: a node whose loose-bvar
 bound is at or below `c + amount` holds no variable the lowering
@@ -2157,10 +2429,8 @@ def lowerBVarsFast (amount : Nat) (c : Nat) (e : Expr) : Expr :=
 The pure capture-avoiding substitution is the last of the three
 rebuilds on an install path without either guard (the cached engine's
 twin, `Cached.instantiate1Lift`, has carried both since task #214):
-`Frontend/ProjRec` and `structProjBodiesGo` run it down a constructor
-telescope, and the in-process modeller's nested rung runs it through
-the specialised container.  `tests/e2e/tower_nested.ndjson` is what
-walks it.  Same arrangement as `abstract1`: the `O(1)` bound read
+`structProjBodiesGo` runs it down a constructor telescope.
+`tests/e2e/tower_nested.ndjson` is the fixture that walked it.  Same arrangement as `abstract1`: the `O(1)` bound read
 first, the memo — keyed by the node and the CURSOR `d`, which shifts
 under binders — behind it. -/
 
@@ -2395,12 +2665,10 @@ succeeds without walking either expression. -/
 `hasLP` computed field (`ConLeche/Kernel/Expr.lean`); the lemmas below
 are the shortcuts a `false` reading licenses.  Self-contained, and the
 cached engine's field facts (`ConLeche/Verify/Cached/Erase.lean`) are
-stated against them.  They lived in `ConLeche/Kernel/ArenaWF.lean` until
-task #172. -/
+stated against them. -/
 
-/-- Whether a level mentions any parameter (the spec function of the
-eager `lparamBs` entries; official kernel `level.cpp` `has_param`,
-task #87). -/
+/-- Whether a level mentions any parameter (official kernel `level.cpp`
+`has_param`). -/
 def _root_.ConLeche.Level.hasParam : Level → Bool
   | .param _ => true
   | .zero => false
@@ -2420,7 +2688,7 @@ theorem _root_.ConLeche.Level.allParamsDefined_of_not_hasParam
   induction l <;> simp_all [Level.hasParam, Level.allParamsDefined]
 
 /-- Whether an expression mentions any level parameter (the spec
-function of the eager `eparamBs` entries; `fvar` type annotations
+function of the computed field `hasLP`; `fvar` type annotations
 included, matching `Expr.instantiateLevelParams`; binder prop-ness
 data included since task #161 — `instantiateLevelParams` substitutes
 into them, so the shortcut must see their parameters). -/
@@ -2509,11 +2777,9 @@ theorem _root_.ConLeche.Expr.instantiateLevelParams_eq_self
 /-! ### `instantiateLevelParams` reads the level-param flag, and memoizes
 
 The cached engine's twin (`Cached.instLevelParams`) has had both since
-task #210 Part B; the pure walk, which the install paths and the
-in-process modeller run, had neither.  `tests/e2e/tower_mutual.ndjson`
-is what walks it — the modeller's generated declarations carry the
-block's constructor domains, and the substitution rebuilds each shared
-node once per path.
+task #210 Part B; the pure walk, which the install paths run, had
+neither.  `tests/e2e/tower_mutual.ndjson` is its fixture: without the
+memo the substitution rebuilds each shared node once per path.
 
 The `hasLP` field read answers "this node mentions no level parameter"
 in `O(1)`, and on a tower of ordinary applications that is the whole
@@ -2521,9 +2787,8 @@ answer; the memo behind it covers the case the flag cannot — a shared
 node that *does* mention a parameter, reached along many paths. -/
 
 /-- The `hasLP` field's level walkers are `Level.hasParam` and its
-list fold (the cached tier re-proves these facts, and `hasLP_eq`
-itself, in `ConLeche/Verify/Cached/Erase.lean`; the layering keeps the
-two apart). -/
+list fold (the cached tier's proofs, `ConLeche/Verify/Cached/Erase.lean`,
+use these facts and `hasLP_eq` from here). -/
 theorem Expr.levelHasParam_eq : ∀ u : Level, levelHasParam u = u.hasParam := by
   intro u
   induction u <;> simp_all [levelHasParam, Level.hasParam]

@@ -1,12 +1,9 @@
 --#export ZA.self ZB.elim
 
 /- End-to-end fixture (task #208; inductive audit #206, §2 "probed and
-   clean"): a mutual block with a ZERO-CONSTRUCTOR member.  Both official
-   and con-leche (in-process modeller, route `ZA inmodel`) accept, piped and
-   raw.  A regression guard for the in-process modeller's empty-member
-   arm.
+   clean"): a mutual block with a ZERO-CONSTRUCTOR member.
 
-   official: 0.  con-leche at master 700a06ca: 0 piped, 0 raw (both modes).
+   official: 0.  con-leche: 0.
    Probe of record: _tmp/indaudit/probes/P/MutualZeroCtor.lean. -/
 mutual
   inductive ZA

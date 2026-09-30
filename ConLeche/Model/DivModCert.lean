@@ -7,28 +7,24 @@ public section
 
 /-!
 # The WF-recursive operations' clauses, established at `interp` from
-the pin certificates (task #161, literal tier — the divmod leg, part 3)
+the pin certificates (task #161, literal tier — the divmod leg)
 
-`DivModPin.lean` extracts `DivModV`'s clauses from the checker's
-`checkDivModCerts` verdict at the collapse currency.  This file is its
-mirror at the validated-annotation currency, and the shape is the one
-`NatEqsP.lean` established for the structural recurrences:
-**establishment from run certificates**.  The certificate's three runs
+This file extracts `DivModClausesV` from the checker's
+`checkDivModCerts` verdict, the shape `Model/NatEqs.lean` uses for the
+structural recurrences: **establishment from run certificates**.  The certificate's three runs
 (`annotateCore`/`inferTypeCore`/`isDefEqCore` at depth 4, unpacked by
 the currency-free `checkDivModCerts_inv`) are converted by
 `InferClaim`/`DefEqClaim` at the pre-insertion environment into
 "the statement's interpretation is inhabited", and the pinned `Eq`
 law turns inhabited into equal.
 
-Everything `V`-free in `DivModPin.lean` is reused as it stands
-(`dmFragOk`, `dmEvalV`, `dmLeavesOk` and its lemmas,
-`fvarLeaves_substConst0`, `divModCertApplied_mem1`/`2`, the applied
-forms' frame lemmas, the pinned-type inversions).  What is genuinely
-new here is the **grading**: `CtxOk`, `InferClaim` and
-`DefEqClaim` all demand `WellDenotedV` of what they compare, and
-`CtxOkR` demanded nothing of the sort.  So the statements' fragment
-gets a graded walk (`dmNatFrag_graded`), built the way `NatEqsP.lean`'s
-`NatArg` walk is: argument memberships from the frame, head
+The `V`-free parts live in `Semantics/DivModEval.lean` (`dmEvalV`,
+`dmLeavesOk` and its lemmas, `fvarLeaves_substConst0`,
+`divModCertApplied_mem1`/`2`, …).  The **grading** is this file's:
+`CtxOk`, `InferClaim` and `DefEqClaim` all demand `WellDenotedV` of
+what they compare, so the statements' fragment gets a graded walk
+(`dmNatFrag_graded`), built the way `Model/NatEqs.lean`'s `NatArg`
+walk is: argument memberships from the frame, head
 memberships from `mem_type` at the pinned types, and the fibre facts
 at *unknown* regime bits from `type_wellDenotedV`'s `AnnotValid` — so no bit
 positivity is taken anywhere.
@@ -128,7 +124,7 @@ theorem DmUnV.ok1 {natS codS f x : V} (h : DmUnV natS codS f)
 
 `mem_type` at a pinned operation type gives the membership;
 `type_wellDenotedV`'s `AnnotValid` gives the fibre facts.  (These are
-`NatEqsP.lean`'s `natBinHead_of_stored`/`natUnHead_of_stored` with
+`Model/NatEqs.lean`'s `natBinHead_of_stored`/`natUnHead_of_stored` with
 the two-variable context stripped off — the certificate frame is a
 different context, and the packages never read one.) -/
 
@@ -154,9 +150,9 @@ theorem dmBinV_of_parts (m : EnvModel V env) {ψ : Name → Nat}
           (fun _ => interp V ρ (m.acval codN ψ)) := by
     rw [interp_pi]
     congr 1
-    · exact acval_interp_closedC m _ ψ _ ρ
+    · exact acval_interp_closed m _ ψ _ ρ
     · funext y
-      exact acval_interp_closedC m _ ψ _ ρ
+      exact acval_interp_closed m _ ψ _ ρ
   refine ⟨b₁, b₂, ?_, ?_, ?_⟩
   · rw [interp_pi] at hmem
     rw [show (fun x => interp V (cons x ρ)
@@ -167,9 +163,9 @@ theorem dmBinV_of_parts (m : EnvModel V env) {ψ : Name → Nat}
       funext x
       rw [interp_pi]
       congr 1
-      · exact acval_interp_closedC m _ ψ _ ρ
+      · exact acval_interp_closed m _ ψ _ ρ
       · funext y
-        exact acval_interp_closedC m _ ψ _ ρ] at hmem
+        exact acval_interp_closed m _ ψ _ ρ] at hmem
     exact hmem
   · intro hz x hx
     have hv := htok.2
@@ -182,9 +178,9 @@ theorem dmBinV_of_parts (m : EnvModel V env) {ψ : Name → Nat}
             (fun _ => interp V ρ (m.acval codN ψ)) from by
       rw [interp_pi]
       congr 1
-      · exact acval_interp_closedC m _ ψ _ ρ
+      · exact acval_interp_closed m _ ψ _ ρ
       · funext y
-        exact acval_interp_closedC m _ ψ _ ρ] at h
+        exact acval_interp_closed m _ ψ _ ρ] at h
     exact h
   · intro hz x hx
     have hv := htok.2
@@ -192,8 +188,8 @@ theorem dmBinV_of_parts (m : EnvModel V env) {ψ : Name → Nat}
     have hinner := hv.2.1 x hx
     rw [AnnotValid_pi] at hinner
     have h := hinner.2.2 hz x
-      (by rw [acval_interp_closedC m _ ψ (cons x ρ) ρ]; exact hx)
-    rwa [acval_interp_closedC m _ ψ _ ρ] at h
+      (by rw [acval_interp_closed m _ ψ (cons x ρ) ρ]; exact hx)
+    rwa [acval_interp_closed m _ ψ _ ρ] at h
 
 /-- **A unary head, from its parts.** -/
 theorem dmUnV_of_parts (m : EnvModel V env) {ψ : Name → Nat}
@@ -211,13 +207,13 @@ theorem dmUnV_of_parts (m : EnvModel V env) {ψ : Name → Nat}
     rw [show (fun x => interp V (cons x ρ) (m.acval codN ψ))
         = fun _ => interp V ρ (m.acval codN ψ) from by
       funext x
-      exact acval_interp_closedC m _ ψ _ ρ] at hmem
+      exact acval_interp_closed m _ ψ _ ρ] at hmem
     exact hmem
   · intro hz x hx
     have hv := htok.2
     rw [AnnotValid_pi] at hv
     have h := hv.2.2 hz x hx
-    rwa [acval_interp_closedC m _ ψ _ ρ] at h
+    rwa [acval_interp_closed m _ ψ _ ρ] at h
 
 /-- **A stored pinned binary head, at the value level.** -/
 theorem dmBinV_of_stored (mp : EnvModelM V μ env) (ψ : Name → Nat)
@@ -283,10 +279,8 @@ theorem dmUnV_of_stored (mp : EnvModelM V μ env) (ψ : Name → Nat)
 
 /-! ## The statements' `Nat`-valued fragment, and its graded walk
 
-`dmFragOk` (v1) is the loose grammar: it does not record which heads
-are unary and which binary, because v1 never needs to *type* a
-subterm.  The P side does — a grading is a typing derivation — so the
-walk below runs on the tighter grammar `dmNatFrag`, which is what the
+A grading is a typing derivation, so the walk records which heads are
+unary and which binary: it runs on the grammar `dmNatFrag`, which is what the
 certificate statements' `Nat`-valued sides actually are: the two frame
 variables, `Nat.zero`, and saturated applications of the listed
 unary/binary heads.  Membership of a concrete statement side in this
@@ -411,17 +405,16 @@ theorem dmNatFrag_graded {m : EnvModel V env} {ψ : Name → Nat}
 
 /-! ## One certificate, converted
 
-`certValueS`'s mirror.  The run's three components become, in order:
+The run's three components become, in order:
 the annotated applied proof keeps the frame (currency-free), the
 `InferClaim` row gives its reading's membership in the inferred
 type's, and the `DefEqClaim` row identifies that type with the
 pinned statement — so the statement's interpretation is inhabited.
 
-Two premises v1 does not have, both the grading tax: the statement's
-reading must be graded (`DefEqClaim` compares graded readings), and
-the applied proof must *read* at all (v1's `InferClaimsR` concluded
-existence; the P claim takes the reading as a premise, so the reads
-bundle supplies it). -/
+Two premises are the grading tax: the statement's reading must be
+graded (`DefEqClaim` compares graded readings), and the applied proof
+must *read* at all (the claim takes the reading as a premise, so the
+reads bundle supplies it). -/
 
 /-- **One certificate, extracted at `interp`.** -/
 theorem certValue {F : Nat} (mp : EnvModelM V μ env) (ψ : Name → Nat)
@@ -490,12 +483,11 @@ theorem certValue {F : Nat} (mp : EnvModelM V μ env) (ψ : Name → Nat)
 
 /-! ## The frame's leaf discipline
 
-`CtxOkR.pinnedCtxLift`'s mirror.  `CtxOk` is slack in the same way
-`CtxOkR` is — it asks for the leaf annotation's *reading* to agree with
+`CtxOk` is slack — it asks for the leaf annotation's *reading* to agree with
 the entry read one telescope deeper, not for entry equality — so a
 hypothesis slot may carry its type's reading at the depth the type is
-*stated*, with the depth-4 reading its lift.  The P side adds the
-grading conjunct, which is supplied at the depth-4 reading and
+*stated*, with the depth-4 reading its lift.  The grading
+conjunct, which is supplied at the depth-4 reading and
 transported by the same equation. -/
 
 /-- Two weakenings, composed. -/
@@ -542,7 +534,7 @@ theorem ctxOk_pinnedLift {m : EnvModel V env} {ψ : Name → Nat}
 
 /-! ## The pinned `Eq` spine, read and graded -/
 
-/-- The pinned `Eq` spine's reading (`denote_eqSpine`'s mirror): the
+/-- The pinned `Eq` spine's reading: the
 head carries `Eq.{1}`, whose level argument is not `[]`, so the
 operation substitution leaves it alone. -/
 theorem denoteMeta_eqSpine {acval : Name → (Name → Nat) → AnnotTerm}
@@ -708,8 +700,7 @@ theorem wscoped_substConst0 {c : Name} {v : Expr}
 Everything the nine clause blocks are read against, at one assignment:
 the extension's valuation with its closedness and grading, the frame's
 `Nat` and `Bool` as universes, the statements' heads as functions on
-`Nat`, and the pinned `Eq`.  This is `dmFrameS`'s existential tuple as
-a structure. -/
+`Nat`, and the pinned `Eq`. -/
 
 /-- **The div/mod certificate frame at `interp`.** -/
 structure DmFrame {env : Env} (mp : EnvModelM V μ env) (c : Name)
@@ -806,7 +797,7 @@ end DmFrame
 
 /-! ## The statement's equation, at a satisfied frame
 
-`dmCertEq1S`/`dmCertEq2S`'s content, with the two hypothesis-slot
+The certificate's equation, with the two hypothesis-slot
 shapes factored out: what the certificate delivers depends on the
 *frame* being satisfied, not on how many hypotheses it took to satisfy
 it.  The caller supplies the four-entry telescope with its two `Nat`
@@ -869,7 +860,7 @@ theorem dmSat_slots {mp : EnvModelM V μ env} {ψ : Name → Nat}
     rfl
   have e3 := hsat 3 _ (by rw [hg 3 (by omega), h3])
   have e2 := hsat 2 _ (by rw [hg 2 (by omega), h2])
-  rw [acval_interp_closedC mp.base2 _ ψ _ ρ₀] at e3 e2
+  rw [acval_interp_closed mp.base2 _ ψ _ ρ₀] at e3 e2
   exact ⟨e3, e2⟩
 
 /-- **The certificate's equation, at a satisfied frame.**  The
@@ -916,7 +907,7 @@ theorem dmStmtEq {F : Nat} {mp : EnvModelM V μ env} {c : Name}
   have hmove : ∀ ρ : Nat → V,
       interp V ρ (mp.base2.acval ConLeche.natName ψ)
         = interp V ρ4 (mp.base2.acval ConLeche.natName ψ) :=
-    fun ρ => acval_interp_closedC mp.base2 _ ψ ρ ρ4
+    fun ρ => acval_interp_closed mp.base2 _ ψ ρ ρ4
   have hread : ∀ n ∈ ConLeche.natZeroName ::
       (dmBinNames c ++ dmUnNames c), ∀ d' : Nat,
       denoteMeta mp.base2.acval env ψ d'
@@ -1061,7 +1052,7 @@ theorem dmWalkInputs {mp : EnvModelM V μ env} {c : Name}
   have hmove : ∀ ρ : Nat → V,
       interp V ρ (mp.base2.acval ConLeche.natName ψ)
         = interp V ρ₀ (mp.base2.acval ConLeche.natName ψ) :=
-    fun ρ => acval_interp_closedC mp.base2 _ ψ ρ ρ₀
+    fun ρ => acval_interp_closed mp.base2 _ ψ ρ ρ₀
   refine ⟨fun n hn d' => fr.read (mem_dmHeadNames hn) d', ?_, ?_, ?_⟩
   · intro n hn ρ
     have h := fr.binHead n hn ρ
@@ -1141,7 +1132,7 @@ theorem dmGuardSpine {mp : EnvModelM V μ env} {c : Name}
   have hbleV := fr.bleHead ρ
   have hmoveN : interp V ρ (mp.base2.acval ConLeche.natName ψ)
       = interp V ρ₀ (mp.base2.acval ConLeche.natName ψ) :=
-    acval_interp_closedC mp.base2 _ ψ ρ ρ₀
+    acval_interp_closed mp.base2 _ ψ ρ ρ₀
   rw [hmoveN] at hbleV
   have hbleOk : WellDenotedV V ρ
       ((.app (.app (dmLeaf mp.base2 c A ψ ConLeche.natBleName) t1a) t2a
@@ -1174,7 +1165,7 @@ theorem dmGuardSpine {mp : EnvModelM V μ env} {c : Name}
 
 /-! ## A guarded clause, discharged
 
-`dmClause1S`'s mirror: build the four-entry telescope with the guard's
+Build the four-entry telescope with the guard's
 depth-2 reading in its hypothesis slot, satisfy it (the slot's
 inhabitant is the canonical proof, because the guard *fired*), and
 hand the statement to `dmStmtEq`. -/
@@ -1272,7 +1263,7 @@ theorem dmClause1 {F : Nat} {mp : EnvModelM V μ env} {c : Name}
   have hnatCl : ∀ ρ' ρ'' : Nat → V,
       interp V ρ' (mp.base2.acval ConLeche.natName ψ)
         = interp V ρ'' (mp.base2.acval ConLeche.natName ψ) :=
-    fun ρ' ρ'' => acval_interp_closedC mp.base2 _ ψ ρ' ρ''
+    fun ρ' ρ'' => acval_interp_closed mp.base2 _ ψ ρ' ρ''
   have hshift : (fun j => cons xx (cons pt (cons yy (cons xx ρ)))
       (j + 1 + 1)) = cons yy (cons xx ρ) := funext fun _ => rfl
   have hsat : Sat V [mp.base2.acval ConLeche.natName ψ, H1a,
@@ -1528,7 +1519,7 @@ theorem dmClause2 {F : Nat} {mp : EnvModelM V μ env} {c : Name}
   have hnatCl : ∀ ρ' ρ'' : Nat → V,
       interp V ρ' (mp.base2.acval ConLeche.natName ψ)
         = interp V ρ'' (mp.base2.acval ConLeche.natName ψ) :=
-    fun ρ' ρ'' => acval_interp_closedC mp.base2 _ ψ ρ' ρ''
+    fun ρ' ρ'' => acval_interp_closed mp.base2 _ ψ ρ' ρ''
   have hsat : Sat V [H2a, H1a,
       mp.base2.acval ConLeche.natName ψ,
       mp.base2.acval ConLeche.natName ψ]
@@ -1695,7 +1686,7 @@ theorem dmClause2 {F : Nat} {mp : EnvModelM V μ env} {c : Name}
 
 /-! ## The frame, assembled from the guards
 
-`dmFrameS`'s mirror.  Everything is read off `divModEnvGuard` at the
+Everything is read off `divModEnvGuard` at the
 *extension* and descended to the prefix, except the operation's own
 head, which comes through the value front door's products the harvest
 already holds (`hmemA`/`hTok`) — `c` is not stored in `env`; it is
@@ -1847,7 +1838,7 @@ theorem dmFrame_of {mp : EnvModelM V μ env} {c : Name}
       exact interp_closed V (hAerCl ψ) ρ ρ'
     · rw [dmLeaf, show acvalWith mp.base2.acval c A n
         = mp.base2.acval n from acvalWith_ne hn]
-      exact acval_interp_closedC mp.base2 _ ψ ρ ρ'
+      exact acval_interp_closed mp.base2 _ ψ ρ ρ'
   -- a stored constant's `.sort 1` type gives its universe membership
   have huniv : ∀ (n : Name) (ci : ConstantInfo),
       env.find? n = some ci →

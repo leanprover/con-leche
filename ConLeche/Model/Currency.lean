@@ -10,10 +10,9 @@ public section
 /-!
 # The P currency — the truthfulness predicate and the context discipline
 
-the P currency — the truthfulness predicate and the context discipline —
-in a module whose imports are what the two definitions need and nothing
+A module whose imports are what the two definitions need and nothing
 else, so that the rules tier (`Model/Rules/*`) can state its motives
-without importing the run-stated claims (task #305 closing)
+without importing the run-stated claims (task #305).
 -/
 
 namespace ConLeche.Model
@@ -29,15 +28,15 @@ universe w
 variable {V : Type w} [SetTheory V]
 
 /-- The P-tier truthfulness currency: hereditary truthfulness plus
-bit validity.  (from `Model/Claims.lean`, task #305 closing) -/
+bit validity. -/
 @[expose] def WellDenotedV (V : Type w) [SetTheory V] (ρ : Nat → V) (e : AnnotTerm) :
     Prop :=
   WellDenoted V ρ e ∧ AnnotValid V ρ e
 
-/-- The P-tier context discipline: `CtxOk2D`'s package over `denoteMeta`
+/-- The P-tier context discipline over `denoteMeta`
 — scope bound, leaf types annotate, their interpretations read the
 telescope, and they are `WellDenotedV` under every satisfying valuation.
-No fuel parameter.  (from `Model/Claims.lean`, task #305 closing) -/
+No fuel parameter. -/
 @[expose] def CtxOk {env : Env} (m : EnvModel V env)
     (φ : Name → Nat) (d : Nat) (Δa : List AnnotTerm) (e : Expr) : Prop :=
   Δa.length = d ∧

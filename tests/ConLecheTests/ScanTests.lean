@@ -142,7 +142,7 @@ def chunkFixture : String :=
 -- the whole-buffer parse and the three-byte-piece parse agree record
 -- for record
 #guard
-  match parseExportD chunkFixture, chunked (.init true) chunkFixture.toUTF8 3 0 .empty 0 with
+  match parseExportD chunkFixture, chunked .init chunkFixture.toUTF8 3 0 .empty 0 with
   | .ok r, .ok st =>
     let s := ParseResultD.ofState st
     r.decls.size == s.decls.size && r.decls.size > 0 &&

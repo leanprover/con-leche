@@ -23,13 +23,13 @@
 # declines, no rejections, no internal errors.  See DESIGN.md
 # "TASK #199 — THE SELF-CHECK".
 #
-# On the `uniform-inds` branch at lane KEEPPROJ (2026-09-29): 17,915
-# roots, a 708 MB / 13.26M-line export, **exit 0, 44,811 declarations
-# accepted** (`--verified --jobs=8`), 20.5 s wall, 1.3 GB peak RSS, 893 G
-# instructions:u.  Before that lane the check ran out of memory on that
-# branch's `ConLeche.nestRoot_datF._f` (a stuck projection's structure
-# argument was replaced by its WHNF, losing the head the defeq check
-# needed); the same kernel fix is on master as task #323 (DESIGN.md).
+# On uniform-inds at lane KEEPPROJ (2026-09-29): 17,915 roots, a 708 MB /
+# 13.26M-line export, **exit 0, 44,811 declarations accepted**
+# (`--verified --jobs=8`), 20.5 s wall, 1.3 GB peak RSS, 893 G
+# instructions:u.  Before that lane the check ran out of memory on
+# `ConLeche.nestRoot_datF._f` (a stuck projection's structure argument
+# was replaced by its WHNF, losing the head the defeq check needed; see
+# DESIGN.md "KEEPPROJ").
 #
 # WHAT IS NOT EXPORTED, and why.
 #
