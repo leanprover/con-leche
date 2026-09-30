@@ -44,8 +44,8 @@ con-leche's proof has no typing judgement and none of that metatheory.
 In its place is a description of what the checker _does_: three
 inductively defined relations (six in the real proof, where premises
 about lists get relations of their own; §6) — one for #src("ConLeche/Rules/Rel.lean", 96)[reduction], one for the verdicts of the
-#src("ConLeche/Rules/Rel.lean", 334)[definitional-equality test], one for
-#src("ConLeche/Rules/Rel.lean", 486)[type inference] — whose rules are exactly the
+#src("ConLeche/Rules/Rel.lean", 333)[definitional-equality test], one for
+#src("ConLeche/Rules/Rel.lean", 479)[type inference] — whose rules are exactly the
 moves the checker makes, each rule's premises being what the checker
 verified at that point. On the model side there is a total,
 term-directed #src("ConLeche/Semantics/Interp.lean", 150, 160)[interpretation]: every term denotes a set, well-typed or
@@ -53,7 +53,7 @@ not, and the interpretation needs no information beyond what is in the
 term itself — in particular no typing information, nothing that would
 have to be inferred.
 Where a typing judgement would say "this term has that type", there is a
-#src("ConLeche/Semantics/WellDenoted.lean", 81, 95)[semantic invariant] on the term's set, imposed at every subterm: every application
+#src("ConLeche/Semantics/WellDenoted.lean", 56, 70)[semantic invariant] on the term's set, imposed at every subterm: every application
 applies a function to a member of its domain, every function's values
 lie in a bounded set, and so on.
 #src("ConLeche/Model/Rules/Sound.lean", 43, 44)[One induction over the three relations] then proves three claims at once:
@@ -72,7 +72,7 @@ different kinds of sets: a function type is a set of graphs, a
 proposition is a truth value — a set with at most one element, so that
 proof irrelevance is built in. The two cases look the same on the page,
 and telling them apart takes the sort of `B`, that is, type inference.
-The checker resolves this by #src("ConLeche/Kernel/PropWhen.lean", 413, 415)[storing the answer]. On every `∀` and every
+The checker resolves this by #src("ConLeche/Kernel/PropWhen.lean", 407, 409)[storing the answer]. On every `∀` and every
 `λ` it records whether the body is a proposition — and, because
 declarations are polymorphic in their universe levels, _when_ it is:
 #ann[never], or #ann[exactly when these level parameters are all zero].

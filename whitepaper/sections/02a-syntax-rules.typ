@@ -28,7 +28,7 @@ $lambda x : A thin ann(PW). thin b$; or a dependent function type
 $forall x : A thin ann(PW). thin B$, written $A -> B$ when $x$ does not
 occur in $B$.  Types are terms; there is no separate class.
 (#src("whitepaper/Fragment/Syntax.lean", 30, 46)[fragment],
-#src("ConLeche/Kernel/Expr.lean", 344, 354)[real checker].)
+#src("ConLeche/Kernel/Expr.lean", 328, 338)[real checker].)
 
 The paper writes named variables, with the usual conventions: terms
 are taken up to renaming of bound variables, and $B[x := a]$ is the
@@ -58,8 +58,8 @@ A datum is _read_ at a valuation: $ann(never)$ reads false, and
 $ann(whenZero \{p_1\, ...\, p_k\})$ reads true exactly when
 $phi(p_1) = ... = phi(p_k) = 0$.
 (#src("whitepaper/Fragment/PropWhen.lean", 176, 194)[fragment],
-#src("ConLeche/Kernel/PropWhen.lean", 413, 415)[real checker], with its
-#src("ConLeche/Kernel/PropWhen.lean", 694, 700)[readout].)
+#src("ConLeche/Kernel/PropWhen.lean", 407, 409)[real checker], with its
+#src("ConLeche/Kernel/PropWhen.lean", 688, 694)[readout].)
 
 The datum is _canonical_: the parameter set is stored as a strictly
 ascending list, and every operation that produces a datum normalises.
@@ -67,7 +67,7 @@ The payoff is that two data are equal — plain equality, `=`, the thing
 a checker can compare in constant time — exactly when they hold at the
 same valuations
 (#src("whitepaper/Fragment/PropWhen.lean", 232, 235)[fragment],
-#src("ConLeche/Kernel/PropWhen.lean", 833, 834)[real checker]).
+#src("ConLeche/Kernel/PropWhen.lean", 827, 828)[real checker]).
 So wherever a rule below compares two annotations with `=`, the
 comparison is semantic, and no separate notion of "equivalent
 annotations" exists.
@@ -106,7 +106,7 @@ $
 
 with $p$ a level parameter of the enclosing declaration
 (#src("whitepaper/Fragment/Level.lean", 32, 46)[fragment],
-#src("ConLeche/Kernel/Expr.lean", 41, 46)[real checker]).  A level
+#src("ConLeche/Kernel/Expr.lean", 39, 44)[real checker]).  A level
 means a natural number once a valuation $phi$ fixes the parameters:
 $0$, successor, maximum, and $imax(u, v)$ is $0$ when $v$ is $0$ and
 $max(u, v)$ otherwise
@@ -123,10 +123,10 @@ specification: $u <= v$ is answered yes exactly when the value of $u$
 is at most the value of $v$ at every valuation, and $u = v$ exactly
 when the values agree at every valuation
 (#src("whitepaper/Fragment/Level.lean", 117, 130)[fragment];
-#src("ConLeche/Kernel/Level.lean", 138, 140)[the real $<=$],
-#src("ConLeche/Kernel/Level.lean", 158, 161)[the real $=$] and their
+#src("ConLeche/Kernel/Level.lean", 143, 145)[the real $<=$],
+#src("ConLeche/Kernel/Level.lean", 163, 166)[the real $=$] and their
 #src("ConLeche/Verify/Level.lean", 173, 174)[soundness]
-#src("ConLeche/Verify/Level.lean", 339, 341)[proofs]).  We write
+#src("ConLeche/Verify/Level.lean", 201, 202)[proofs]).  We write
 $u eq.dot v$ for "the oracle says $u = v$".
 
 *Zero-ness.*  One function on levels _is_ defined, because the
@@ -143,14 +143,14 @@ Here $inter$ is the intersection of two data: it holds where both hold,
 so $never inter PW = never$ and $whenZero S inter whenZero T =
 whenZero (S union T)$
 (#src("whitepaper/Fragment/PropWhen.lean", 208, 212)[fragment],
-#src("ConLeche/Kernel/PropWhen.lean", 866)[real checker]).
+#src("ConLeche/Kernel/PropWhen.lean", 860)[real checker]).
 The function is exact:
 
 #lemma(name: "exactness")[
   For every level $u$ and valuation $phi$, the datum $zn(u)$ holds at
   $phi$ if and only if $u$ evaluates to $0$ at $phi$.
   (#src("whitepaper/Fragment/PropWhen.lean", 279, 302)[fragment],
-  #src("ConLeche/Kernel/Level.lean", 190, 195)[real checker] and its
+  #src("ConLeche/Kernel/Level.lean", 191, 196)[real checker] and its
   #src("ConLeche/Verify/PropWhen.lean", 52, 53)[proof].)
 ] <lem:zeroness>
 
@@ -247,7 +247,7 @@ follows), and it interleaves with
 reduction in one way: reduce the left side, then continue.  Sorts
 are compared through the level oracle
 (#src("whitepaper/Fragment/Rules.lean", 176, 195)[fragment],
-#src("ConLeche/Rules/Rel.lean", 334, 362)[real checker]).
+#src("ConLeche/Rules/Rel.lean", 333, 361)[real checker]).
 
 #rules(
   rule(name: "refl", $Gamma tack a equiv a$),
@@ -261,7 +261,7 @@ The congruences descend into the two binders and into applications.
 Domains are compared first, then the bodies, under the right-hand
 domain; the two annotations must be the same datum
 (#src("whitepaper/Fragment/Rules.lean", 196, 209)[fragment],
-#src("ConLeche/Rules/Rel.lean", 373, 392)[real checker]).
+#src("ConLeche/Rules/Rel.lean", 372, 391)[real checker]).
 
 #rules(
   rule(name: "pi",
@@ -282,7 +282,7 @@ applied to the bound variable.  Two terms are equal by proof
 irrelevance when both are proofs: each one's type has type
 $Sort u$ with $u$ oracle-equal to $0$
 (#src("whitepaper/Fragment/Rules.lean", 210, 230)[fragment],
-#src("ConLeche/Rules/Rel.lean", 400, 422)[real checker]).
+#src("ConLeche/Rules/Rel.lean", 399, 421)[real checker]).
 
 #rules(
   rule(name: "fun-eta",
@@ -320,7 +320,7 @@ point, and there is nothing to compare.
 *No transitivity.*  The list has no rule "$a equiv b$ and $b equiv c$
 give $a equiv c$", and none can be added
 (#src("whitepaper/Fragment/Rules.lean", 158, 175)[fragment],
-#src("ConLeche/Rules/Rel.lean", 310, 333)[real checker]).  Look at the shape of the
+#src("ConLeche/Rules/Rel.lean", 309, 332)[real checker]).  Look at the shape of the
 rules above: the two terms of every equality premise are each either a
 subterm of the conclusion (the congruences, the $eta$ body) or a
 term that another premise _produced_ — a reduct (red-l) or an
@@ -343,7 +343,7 @@ reduce, then continue, which is red-l.
 A variable's type is read off the context, and a sort has the next
 sort
 (#src("whitepaper/Fragment/Rules.lean", 233, 246)[fragment],
-#src("ConLeche/Rules/Rel.lean", 486, 502)[real checker]).
+#src("ConLeche/Rules/Rel.lean", 479, 495)[real checker]).
 
 #rules(
   rule(name: "var", $(x : A) in Gamma$, $Gamma tack x => A$),
@@ -358,7 +358,7 @@ $v$.  For a $lambda$, the body's type $B$ is inferred; then the type
 of $B$ is inferred and reduced to a sort $Sort v$, and the stored
 datum must be the zero-ness of $v$
 (#src("whitepaper/Fragment/Rules.lean", 247, 266)[fragment],
-#src("ConLeche/Rules/Rel.lean", 515, 539)[real checker]).
+#src("ConLeche/Rules/Rel.lean", 508, 532)[real checker]).
 
 #rules(
   rule(name: "pi",
@@ -387,7 +387,7 @@ fragment does it at every $lambda$.
 An application infers the head's type, reduces it to a $forall$,
 infers the argument's type and compares it with the domain
 (#src("whitepaper/Fragment/Rules.lean", 267, 276)[fragment],
-#src("ConLeche/Rules/Rel.lean", 544, 547)[real checker]).
+#src("ConLeche/Rules/Rel.lean", 537, 540)[real checker]).
 
 #rules(
   rule(name: "app",

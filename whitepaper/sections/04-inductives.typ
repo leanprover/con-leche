@@ -47,7 +47,7 @@ real checker's "fixpoint route"
 fields may be recursive or reflexive. The block is given by a
 _specification_
 (#src("whitepaper/Fragment/Decl.lean", 166, 189)[fragment],
-#src("ConLeche/Kernel/Inductives/NativeParts.lean", 179, 192)[real checker]):
+#src("ConLeche/Kernel/Inductives/BlockParts.lean", 104, 122)[real checker]):
 
 - a name $I$ and level parameters $arrow(p)$;
 - a _parameter_ telescope $(x_1 : P_1) dots (x_k : P_k)$ and, under
@@ -62,7 +62,7 @@ _specification_
 
 A field is one of three kinds
 (#src("whitepaper/Fragment/Decl.lean", 129, 142)[fragment],
-#src("ConLeche/Kernel/Inductives/NativeParts.lean", 62, 70)[real checker]):
+#src("ConLeche/Kernel/Inductives/FieldTele.lean", 29, 37)[real checker]):
 _ordinary_, with a domain that does not mention $I$; _recursive_, with
 domain $I thick arrow(x) thick arrow(e)$ — a member of the family
 being defined, at the block's own parameters and some index
@@ -75,7 +75,7 @@ anywhere else (in the fragment, the specification's pieces are
 scope-checked in the environment _before_ $I$ is added, so they
 cannot mention it at all — #src("whitepaper/Fragment/Decl.lean", 431, 445)[the scope of a field];
 the real checker classifies the normalised domains,
-#src("ConLeche/Kernel/Inductives/NativeParts.lean", 97, 113)[positivity]).
+#src("ConLeche/Kernel/Inductives/Positivity.lean", 1453, 1454)[positivity]).
 One more condition of shape: nothing after a recursive or reflexive
 field may depend on its value
 (#src("whitepaper/Fragment/Decl.lean", 447, 453)[fragment], as in Lean's
@@ -159,8 +159,8 @@ and the major, and ends in $C thick arrow(y) thick t$. (Generated:
 #src("whitepaper/Fragment/Decl.lean", 297, 306)[a minor premise],
 #src("whitepaper/Fragment/Decl.lean", 313, 318)[the recursor's type]
 and #src("whitepaper/Fragment/Decl.lean", 358, 365)[a rule's right-hand side];
-real checker: #src("ConLeche/Kernel/Inductives/NativeParts.lean", 349, 361)[the type],
-#src("ConLeche/Kernel/Inductives/NativeParts.lean", 368, 386)[a rule].)
+real checker: #src("ConLeche/Kernel/Inductives/GenRec.lean", 181, 188)[the type],
+#src("ConLeche/Kernel/Inductives/GenRec.lean", 193, 212)[a rule].)
 The annotation on the recursor's binders is
 $ann(q) = zn(ell)$ where $ell$ is the _elimination level_: the fresh
 parameter for a large eliminator, $0$ for a small one.
@@ -186,8 +186,8 @@ plus #src("whitepaper/Fragment/Decl.lean", 543)[the constructor count], required
 eliminator on a family whose sort _may_ be zero
 (#src("whitepaper/Fragment/Decl.lean", 486, 488)[never zero: $1 <= u$ at every valuation]);
 the real checker runs the same two checks
-(#src("ConLeche/Kernel/Inductives/SumInstall.lean", 124, 138)[per field],
-#src("ConLeche/Kernel/Inductives/NativeInstall.lean", 584, 588)[the count]).
+(#src("ConLeche/Kernel/Inductives/SumInstall.lean", 85, 99)[per field],
+#src("ConLeche/Kernel/Inductives/BlockRec.lean", 82, 84)[the count]).
 
 Here the zero-ness question of §2 reappears. "This field is a
 proposition" is a question about the field's sort $v$, and the
@@ -225,7 +225,7 @@ regime these data can put it in.
 
 *The checks.* A block is accepted when
 (#src("whitepaper/Fragment/Decl.lean", 499, 547)[fragment],
-#src("ConLeche/Kernel/Inductives/NativeInstall.lean", 617)[real checker]):
+#src("ConLeche/Kernel/Inductives/BlockTail.lean", 143)[real checker]):
 its names are distinct and fresh; the specification is in scope
 (positivity included); the generated former's type has a type in the
 current environment; each generated constructor's type has a type in
@@ -255,7 +255,7 @@ major premise (the recursor's argument groups; @ex:nat shows them on
 $Nat$) — and its reduction rules, one per constructor, each a closed
 right-hand side over the recursor's level parameters
 (#src("whitepaper/Fragment/Env.lean", 30, 43)[fragment],
-#src("ConLeche/Kernel/Env.lean", 249, 262)[real checker]). The
+#src("ConLeche/Kernel/Env.lean", 241, 254)[real checker]). The
 rules' right-hand sides are generated and stored, not inferred: they
 mention the recursor itself, and Lean's kernel infers no rule either.
 That the rules are _sound_ is the model's business — it is
@@ -309,11 +309,11 @@ The family the block defines is #src("whitepaper/Fragment/IndSem.lean", 308, 314
 bound on the fields makes every instance it admits a bounded one.
 The real proof proves that law from its Grothendieck universes: its
 least fixed point is
-#src("ConLeche/SetTheory/Derive/LfpFam.lean", 64, 71)[an intersection of closed families] and needs a closed family
+#src("ConLeche/SetTheory/Derive/LfpFam.lean", 60, 67)[an intersection of closed families] and needs a closed family
 in the universe to intersect — for finitary blocks
-#src("ConLeche/SetModel/Iter.lean", 8, 24)[the $omega$-iterate], and
+the $omega$-iterate, and
 for blocks with reflexive fields, where no countable iteration
-reaches a fixed point, #src("ConLeche/SetModel/Container.lean", 598, 600)[a theorem about containers] that builds
+reaches a fixed point, a theorem about containers that builds
 the closed family from tree codes; this is the largest single piece
 of the real model. Everything else about the least fixed point — the
 fixed-point equation, induction, and the fact that the recursor's
@@ -357,9 +357,9 @@ denotes the point.
 #src("whitepaper/Fragment/IndSem.lean", 329, 331)[a constructor's value],
 #src("whitepaper/Fragment/IndSem.lean", 1183, 1187)[the former's set],
 #src("whitepaper/Fragment/IndSem.lean", 1193, 1198)[a constructor's set]. In the real proof
-the constructors are #src("ConLeche/SetModel/TaggedSum.lean", 76)[tagged pairs] of
+the constructors are #src("ConLeche/SetModel/TaggedSum.lean", 65)[tagged pairs] of
 #src("ConLeche/SetModel/TupleTower.lean", 87)[nested pairs], the two regimes in
-#src("ConLeche/SetModel/TaggedSum.lean", 72, 73)[one carrier].)
+#src("ConLeche/SetModel/TaggedSum.lean", 61, 62)[one carrier].)
 
 This is where the two regimes of §2 are decided for a whole family
 at once, by the one datum $ann(PW)$ stored on the constructors'
@@ -392,7 +392,7 @@ the choice irrelevant: #src("whitepaper/Fragment/Uniq.lean", 60, 65)[any two wit
 denotes #src("whitepaper/Fragment/IndSem.lean", 1214, 1218)[the graph of the resulting function], curried over the
 parameters, the motive, the minors, the indices and the major — a
 #src("whitepaper/Fragment/InstallInd.lean", 676, 677)[member of its generated type], which is law 1 for the recursor
-(#src("ConLeche/SetModel/RecGraph.lean", 232, 235)[the real proof's recursion theorem]).
+(#src("ConLeche/SetModel/GraphRec.lean", 227, 229)[the real proof's recursion theorem]).
 When the elimination level $ell$ is zero the recursor's type is a
 proposition, the recursor and every minor premise denote the point,
 and there is nothing to construct.
@@ -433,7 +433,7 @@ comparison an equality of sets
 So the $iota$ law is stated on values, with the fits and the
 equalities as premises
 (#src("whitepaper/Fragment/EnvModel.lean", 102, 161)[fragment],
-#src("ConLeche/Model/Annot/Laws.lean", 436, 439)[real proof]):
+#src("ConLeche/Model/Annot/Laws.lean", 366, 369)[real proof]):
 
 #definition(name: [the $iota$ law of a rule])[
   Let $r$ be a stored recursor and $R_j$ the right-hand side of its
@@ -458,14 +458,14 @@ $iota$ case of @thm:sound is then a translation: certificates to
 fits, comparisons to equalities, the reduced major's value for the
 argument's, and the law
 (#src("whitepaper/Fragment/Sound.lean", 207, 245)[fragment],
-#src("ConLeche/Model/Rules/IotaSound.lean", 87)[real proof]).
+#src("ConLeche/Model/Rules/IotaSound.lean", 69)[real proof]).
 
 #theorem(name: [the $iota$ law holds])[
   Every rule of the recursor of an accepted block satisfies its
   $iota$ law in the model of @sec:ind-model.
   (#src("whitepaper/Fragment/InstallIota.lean", 706, 712)[fragment], with
   #src("whitepaper/Fragment/IndSem.lean", 1022, 1027)[the equation on the semantic recursor]\; real proof:
-  #src("ConLeche/Model/Inductives/DeclNative.lean", 62, 66)[the whole install].)
+  #src("ConLeche/Model/Inductives/DeclBlockStep.lean", 72, 77)[the whole install].)
 ] <thm:iota>
 
 #proof[
@@ -536,7 +536,7 @@ An environment is #src("whitepaper/Fragment/Consistency.lean", 36, 47)[_accepted
 environment by the two steps of §3 and §4: a definition that
 passes its checks, or an inductive block that passes its checks and
 is installed (the real checker's declaration fold is
-#src("ConLeche/Model/Fold.lean", 225, 227)[folded over the same way]).
+#src("ConLeche/Model/Fold.lean", 198, 200)[folded over the same way]).
 An accepted environment is closed — #src("whitepaper/Fragment/Consistency.lean", 50, 55)[every stored term mentions only stored constants] — which is what the
 two install theorems assumed of the environment they extend.
 
@@ -562,7 +562,7 @@ two install theorems assumed of the environment they extend.
   particular no stored constant has type $I$
   (#src("whitepaper/Fragment/Consistency.lean", 104, 113)[fragment], and
   #src("whitepaper/Fragment/Consistency.lean", 149, 154)[at the block `inductive False : Prop`]\;
-  #src("ConLeche/Model/Fold.lean", 308, 315)[real proof]).
+  #src("ConLeche/Model/Fold.lean", 276, 283)[real proof]).
 ] <cor:consistency>
 
 #proof[

@@ -67,11 +67,11 @@ model, and §2 used the first already. A proposition denotes a
 #src("whitepaper/Fragment/Lib.lean", 115, 121)[truth value], a subset of
 ${pt}$, so any two proofs of any two propositions denote the same
 set — the proof-irrel case of @thm:sound, which never compared the
-two propositions (#src("ConLeche/Model/Rules/DefEqSound.lean", 313, 320)[real proof]). And two
+two propositions (#src("ConLeche/Model/Rules/DefEqSound.lean", 309, 316)[real proof]). And two
 propositions that imply each other have
 #src("whitepaper/Fragment/Lib.lean", 146, 147)[the same truth value], by extensionality of sets: that is Lean's
 axiom `propext`, which the real checker accepts and
-#src("ConLeche/Model/AxiomMem.lean", 484, 492)[the real model verifies] the same way.
+#src("ConLeche/Model/AxiomMem.lean", 414, 422)[the real model verifies] the same way.
 
 == K-like reduction
 
@@ -115,7 +115,7 @@ makes it well-denoted. Both are premises of @lem:k, not steps of its
 proof. The real checker states the rule exactly so, as a reduction of
 the stuck major to the fabrication
 (#src("ConLeche/Rules/Rel.lean", 225, 244)[the rescue]), and its case
-(#src("ConLeche/Model/Rules/IotaSound.lean", 524, 525)[real proof])
+(#src("ConLeche/Model/Rules/IotaSound.lean", 505, 506)[real proof])
 identifies the two values by proof irrelevance; no theorem about the
 block is consulted.
 
@@ -162,23 +162,23 @@ fields $a_i$ the constructor was actually applied to, and the lemma
 does the rest. Where the structure's instance is a proposition both
 sides are the point, and the checker does not try the rule there.
 The real checker has the rule as
-#src("ConLeche/Rules/Rel.lean", 438, 441)[a certificate on the
+#src("ConLeche/Rules/Rel.lean", 431, 434)[a certificate on the
 fields], with its case at
-#src("ConLeche/Model/Rules/DefEqSound.lean", 339, 341)[the real proof],
+#src("ConLeche/Model/Rules/DefEqSound.lean", 321, 323)[the real proof],
 and uses the same certificate to rescue a recursor stuck on a
 non-constructor $s$
-(#src("ConLeche/Model/Rules/IotaSound.lean", 603, 604)[the η rescue]).
+(#src("ConLeche/Model/Rules/IotaSound.lean", 584, 585)[the η rescue]).
 The law itself it establishes once per block, at the block's
 install. On the native route this is the argument above, on the
 tagged tower that models the block
-(#src("ConLeche/Model/Inductives/FixEntryLaw.lean", 27, 28)[a member is
+(#src("ConLeche/Model/Inductives/FixKit.lean", 804, 805)[a member is
 the constructor at the parameters and its own projections]); on the
 route for mutual and nested blocks it is the firing, in the model, of
 a theorem `T._model.eta` that the stream supplies and the checker has
 verified
-(#src("ConLeche/Kernel/Inductives/Modeled.lean", 587, 596)[the
-statement shape the checker requires],
-#src("ConLeche/Model/IndEtaLaw.lean", 111)[its firing]).
+(the
+statement shape the checker requires,
+its firing).
 
 == Unit-likeness
 
@@ -202,19 +202,19 @@ whose types reduce to it.
 The two regimes are the two shapes a "set with at most one member"
 takes in the model, and the lemma is the same sentence in each. The
 real checker has two rules. One is for
-#src("ConLeche/Rules/Rel.lean", 425, 428)[the pinned `PUnit`], which
-#src("ConLeche/Model/Rules/DefEqSoundKit.lean", 678, 680)[the real model
-interprets as ${pt}$ outright], so that
-#src("ConLeche/Model/Rules/DefEqSound.lean", 325, 327)[both sides denote
-the point]. The other is for
-#src("ConLeche/Rules/Rel.lean", 470, 475)[any stored unit-like family],
+the pinned `PUnit`, which
+the real model
+interprets as ${pt}$ outright, so that
+both sides denote
+the point. The other is for
+#src("ConLeche/Rules/Rel.lean", 463, 468)[any stored unit-like family],
 with its case at
-#src("ConLeche/Model/Rules/DefEqSound.lean", 716, 717)[the real proof];
+#src("ConLeche/Model/Rules/DefEqSound.lean", 698, 699)[the real proof];
 the law is established at the install, from the fixed point on the
-native route (#src("ConLeche/Model/Inductives/FixZeroField.lean", 109, 112)[the
+native route (#src("ConLeche/Model/Inductives/FixKit.lean", 1754, 1755)[the
 fibre is the one tagged empty tuple]) and from a verified
 `T._model.unitlike` on the other
-(#src("ConLeche/Model/IndUnitLaw.lean", 234)[its firing]).
+(its firing).
 
 == What is not free
 

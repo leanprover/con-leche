@@ -13,19 +13,19 @@ share.
 
 #left-out[Projections][Lean's primitive projection `e.i`, the `i`-th
 field of a structure value. The real checker #src("ConLeche/Rules/Rel.lean", 166, 175)[reduces a projection of a
-constructor application to that field] and #src("ConLeche/Rules/Rel.lean", 560, 570)[infers its type from
+constructor application to that field] and #src("ConLeche/Rules/Rel.lean", 553, 563)[infers its type from
 the structure's stored projection table]\; in the model a structure
-value is a nested pair and a projection reads a component, which #src("ConLeche/Model/ProjInstall.lean", 411, 415)[the
-install of a structure's projection functions] establishes.]
+value is a nested pair and a projection reads a component, which the
+install of a structure's projection functions establishes.]
 
 #left-out[Mutual and nested inductive types][The real checker installs
 natively only what the fragment does: a single, non-mutual, non-nested
 block. For a mutual or nested block the frontend generates, in-process,
-#src("ConLeche/Frontend/InModel.lean", 41)[an explicit model of the block] — a tag type and one auxiliary indexed
+an explicit model of the block — a tag type and one auxiliary indexed
 family — together with theorems proving the recursor's reduction rules. The generated declarations
 are checked by the declaration fold — `checkDecls`, the loop that
 installs and checks the declarations one after another — like any
-other, and the block is then #src("ConLeche/Kernel/Inductives/Modeled.lean", 794)[installed against them].]
+other, and the block is then installed against them.]
 
 #left-out[Nat and String literals, and the fast Nat path][Numerals and
 strings are terms of their own; the checker expands a literal to its
@@ -35,12 +35,12 @@ constructor form when reduction needs it
 binary `Nat` operations] on literals with machine arithmetic. The folding is sound only for
 the operations as the toolchain defines them, so the checker compares
 each stream's definition against #src("ConLeche/Kernel/NatOpPins.lean", 8, 21)[a pinned copy] and the model
-#src("ConLeche/Model/NatEqs.lean", 1099, 1103)[establishes the operations' recurrences] from that comparison.]
+#src("ConLeche/Model/NatEqs.lean", 1093, 1097)[establishes the operations' recurrences] from that comparison.]
 
 #left-out[Quotients][`Quot`, `Quot.mk`, `Quot.lift`, `Quot.ind` and the
-axiom `Quot.sound` are installed from #src("ConLeche/Kernel/Basis/Quot.lean", 8, 14)[a built-in pin] and modelled by #src("ConLeche/SetTheory/Derive/Quot.lean", 69, 71)[the
+axiom `Quot.sound` are installed from #src("ConLeche/Kernel/Basis/Quot.lean", 8, 14)[a built-in pin] and modelled by #src("ConLeche/SetTheory/Derive/Quot.lean", 62, 64)[the
 set-theoretic quotient of a set by a relation], for which the pinned
-constants are #src("ConLeche/Model/BasisQuot.lean", 2224, 2228)[shown to be members of their types].]
+constants are #src("ConLeche/Model/BasisQuot.lean", 2212, 2216)[shown to be members of their types].]
 
 #left-out[Pinned blocks][In the fragment `False` is whatever empty
 proposition the stream declares. The real checker does not read
@@ -53,7 +53,7 @@ can name `False` and `Eq` and say what they denote.]
 
 #left-out[Axioms][The fragment has none. The real checker accepts
 exactly Lean's three standard axioms: `propext` and `Classical.choice`,
-each #src("ConLeche/Kernel/StdAxioms.lean", 10, 17)[pinned to the toolchain's statement] and each #src("ConLeche/Model/AxiomMem.lean", 879, 883)[true in the
+each #src("ConLeche/Kernel/StdAxioms.lean", 10, 17)[pinned to the toolchain's statement] and each #src("ConLeche/Model/AxiomMem.lean", 809, 813)[true in the
 model] — `propext` by the extensionality of truth values, `choice` by
 choice in the meta-logic — and `Quot.sound` as
 part of the pinned `Quot` block above. Any other axiom record declines
@@ -73,31 +73,31 @@ application] from the proof's type and equates the two by proof
 irrelevance. §5 shows this
 follows from the extensionality of the model.]
 
-#left-out[Structure η and unit-likeness][#src("ConLeche/Rules/Rel.lean", 438, 441)[A constructor applied to the
-projections of `b` is definitionally equal to `b`], and #src("ConLeche/Rules/Rel.lean", 470, 475)[any two terms of a
+#left-out[Structure η and unit-likeness][#src("ConLeche/Rules/Rel.lean", 431, 434)[A constructor applied to the
+projections of `b` is definitionally equal to `b`], and #src("ConLeche/Rules/Rel.lean", 463, 468)[any two terms of a
 structure type with one field-less constructor are equal]
-(#src("ConLeche/Rules/Rel.lean", 425, 428)[unitLike])\; the real proof takes the
+(unitLike)\; the real proof takes the
 two laws from theorems about the installed type
-(#src("ConLeche/Model/IndEtaLaw.lean", 111)[η],
-#src("ConLeche/Model/IndUnitLaw.lean", 234)[unit-likeness]), and §5 derives both from
+(η,
+unit-likeness), and §5 derives both from
 extensionality.]
 
 #left-out[The `And` rescue][A concession to the fact that this checker
 never unfolds a theorem, unlike Lean's kernel, which still does: at a
 stuck proof `h` of `A ∧ B` — which older elaborators emit for a case
-split on a conjunction — the recursor #src("ConLeche/Rules/Rel.lean", 287, 307)[fires on `And.intro h.1 h.2`],
+split on a conjunction — the recursor #src("ConLeche/Rules/Rel.lean", 286, 306)[fires on `And.intro h.1 h.2`],
 fabricated and certified the way the K rescue is.]
 
 #left-out[`let`][The fragment has no `let`. The real checker's
-#src("ConLeche/Kernel/Core.lean", 1852, 1881)[annotation pass], which runs once when a declaration enters, replaces
+#src("ConLeche/Kernel/Core.lean", 1861, 1890)[annotation pass], which runs once when a declaration enters, replaces
 every `let x := v; b` by `b[x := v]`, so no later stage ever sees one.]
 
 #left-out[The infer-only grade][The real checker infers types at #src("ConLeche/Rules/Rel.lean", 77, 82)[two
 grades]: the full grade of the
 fragment, and an "infer-only" grade used inside reduction and the
-equality test on terms that were checked once already, which #src("ConLeche/Rules/Rel.lean", 551, 554)[skips the
+equality test on terms that were checked once already, which #src("ConLeche/Rules/Rel.lean", 544, 547)[skips the
 argument check] at an application whose binder is annotated #ann[never] and the domain check at a
-`λ`. Beside it sits #src("ConLeche/Rules/Rel.lean", 410, 412)[a fast path for proof irrelevance] that reads the
+`λ`. Beside it sits #src("ConLeche/Rules/Rel.lean", 409, 411)[a fast path for proof irrelevance] that reads the
 annotations at the two terms' heads instead of inferring their types. Both are justified by the
 semantic invariant of §2: at a #ann[never] binder the domain can be read off the
 function's set, and two terms whose head annotations say #ann[always a
@@ -112,11 +112,11 @@ binary runs is a further clone with memo tables, proved to #src("ConLeche/Verify
 fuelled one]. The
 subsection below says how these fit together.]
 
-#left-out[The two-phase parallel fold][#src("ConLeche/Cached/Installed.lean", 450, 455)[The fold] installs every
+#left-out[The two-phase parallel fold][#src("ConLeche/Cached/Installed.lean", 454, 459)[The fold] installs every
 declaration first and then checks the recorded declarations one by one,
 each against the prefix of the environment it was installed at\; the binary runs the
-second phase on #src("ConLeche/Cached/Installed.lean", 350, 361)[a pool of workers] whose results are reassembled in
-record order, so its verdict is the fold's. #src("ConLeche/Verify/Cached/MainC.lean", 50, 53)[The proof reads an
+second phase on #src("ConLeche/Cached/Installed.lean", 354, 365)[a pool of workers] whose results are reassembled in
+record order, so its verdict is the fold's. #src("ConLeche/Verify/Cached/MainC.lean", 37, 40)[The proof reads an
 accept of the fold] as an environment in which every declaration was
 checked where it was installed, which is what the one-declaration-at-a-time
 argument of §3 and §4 needs.]
@@ -131,9 +131,9 @@ describes it.]
 *Free variables carry their types.* The paper uses named variables and a
 context. The real checker keeps no context at all. When it opens a binder it
 substitutes a free variable that carries its own type,
-#src("ConLeche/Kernel/Expr.lean", 344, 346)[`fvar idx type`], identified by the depth at which it was opened\; so a variable is never
+#src("ConLeche/Kernel/Expr.lean", 328, 330)[`fvar idx type`], identified by the depth at which it was opened\; so a variable is never
 looked up, the relations are indexed by the opening depth in place of a
-context, and two free variables are #src("ConLeche/Rules/Rel.lean", 356, 357)[compared by depth alone]. Stored types are closed
+context, and two free variables are #src("ConLeche/Rules/Rel.lean", 355, 356)[compared by depth alone]. Stored types are closed
 terms, and the statement's relation reads them with de Bruijn indices
 under binders, with no opening at all.
 
@@ -143,7 +143,7 @@ checker's terms directly. It first reads a term into an erased language,
 indices, sorts at concrete numbers (the level valuation already
 applied), built-in constants at concrete levels, and at every binder
 the sort of the body as a number — the annotation and the level
-valuation combined into one numeral. That reading, #src("ConLeche/Model/Annot/Bit.lean", 153, 156)[`denoteMeta`], is partial only for
+valuation combined into one numeral. That reading, #src("ConLeche/Model/Annot/Bit.lean", 144, 147)[`denoteMeta`], is partial only for
 syntactic reasons — a `let`, an unknown constant, a wrong number of
 levels, a projection with no table — and it reads the annotation without
 checking it: the check is the semantic invariant, which the theorem below
@@ -155,9 +155,9 @@ coloured datum at the level valuation directly.
 
 *Six relations, not three, and a second grade.* Beside reduction,
 definitional equality and inference the real description has three
-list-walking relations: #src("ConLeche/Rules/Rel.lean", 576, 587)[the certification of an argument spine against
+list-walking relations: #src("ConLeche/Rules/Rel.lean", 570, 581)[the certification of an argument spine against
 a binder telescope],
-#src("ConLeche/Rules/Rel.lean", 590, 594)[pairwise definitional equality], and #src("ConLeche/Rules/Rel.lean", 599, 601)[the per-field
+#src("ConLeche/Rules/Rel.lean", 584, 588)[pairwise definitional equality], and #src("ConLeche/Rules/Rel.lean", 593, 595)[the per-field
 certificates of structure η] at a family of projection functions. A rule with a premise
 about a list needs a relation of its own in a mutual block; the paper
 inlines them into the rules that use them. Inference also carries a
@@ -176,7 +176,7 @@ the result to the declaration fold.
 *The statement over `Denotes`.* The main theorem is not stated over the
 erased layer and `interp` but over #src("ConLeche/Denotes.lean", 132, 135)[`Denotes`], a relation on the checker's
 own terms with no intermediate language, one rule per syntax form,
-written to be read in one sitting; and over the structure #src("ConLeche/Denotes.lean", 270, 290)[`Model`] built on it. #src("ConLeche/Model/Denotes.lean", 222, 228)[A theorem]
+written to be read in one sitting; and over the structure #src("ConLeche/Denotes.lean", 270, 290)[`Model`] built on it. #src("ConLeche/Model/Denotes.lean", 221, 227)[A theorem]
 connects the two: wherever the erased reading exists and satisfies the
 semantic invariant, its interpretation is a `Denotes`-denotation of the term. The paper's theorem is
 the model side directly.
@@ -188,14 +188,14 @@ equality and inference. #src("ConLeche/Verify/Cached/SimC.lean", 10, 15)[A simul
 that every successful run of the cached core is a successful run of the
 pure fuelled core at some fuel, with the memo tables' invariant
 preserved\; the main
-theorem #src("ConLeche/Verify/Cached/MainC.lean", 50, 53)[composes it with the fold's soundness].
+theorem #src("ConLeche/Verify/Cached/MainC.lean", 37, 40)[composes it with the fold's soundness].
 
 *The frontend.* Between the export file and the declaration fold sit a
 parser and a few transformations of the parsed list: the pinned
 declarations are moved to the front; the projection functions of
-structures the native install does not serve are #src("ConLeche/Frontend/ProjRec.lean", 283, 284)[rewritten to recursor
-form]\; and the models
-of mutual and nested blocks are #src("ConLeche/Frontend/InModel.lean", 41)[generated]. Everything generated is
+structures the native install does not serve are rewritten to recursor
+form\; and the models
+of mutual and nested blocks are generated. Everything generated is
 checked, so a wrong generation cannot be accepted; but the theorem is
 about the list the fold receives, and that the list means the same as
 the export is a review claim about small, inspectable rewrites, not a
