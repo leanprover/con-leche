@@ -7,6 +7,7 @@ public import ConLeche.Kernel.Basis.Nat
 public import ConLeche.Kernel.Basis.Empty
 public import ConLeche.Kernel.Basis.False
 public import ConLeche.Kernel.Basis.Quot
+public import ConLeche.Kernel.Basis.And
 public import ConLeche.Kernel.Canon
 
 @[expose] public section
@@ -15,17 +16,19 @@ public import ConLeche.Kernel.Canon
 # The pinned basis inductives
 
 The checker pins `Eq`, `Nat`, `Quot`, `Empty` and `False`
-natively (hand-written set models).  The pinned declarations are the
-toolchain's own — the frontend
-compares incoming records against these and declines anything else.  One module per basis type under
-`ConLeche/Kernel/Basis/`, hand-written against the toolchain's
-`Init.Prelude` through the small builder in `Basis/Builder.lean`.
+natively (hand-written set models), and pins `And` by recognition
+alone (below).  The pinned declarations are the toolchain's own — the
+fold compares incoming records against these (a differing block under
+a pinned name is rejected, a differing quotient record declined).  One
+module per pinned type under `ConLeche/Kernel/Basis/`, hand-written
+against the toolchain's `Init.Prelude` through the small builder in
+`Basis/Builder.lean`.
 
 **Raw only.**  The *annotated* forms — what the installation actually
 stores — are computed from these by the checker's own annotation pass
 in `ConLeche/Kernel/BasisA.lean`, which therefore sits above
 `ConLeche.Kernel.TypeChecker`.  This module sits below it: the kernel
-core needs the raw pins (the frontend matches incoming records against
+core needs the raw pins (the fold matches incoming records against
 them) and nothing else.
 -/
 
@@ -68,5 +71,28 @@ constant at the slot it declares itself at.  The two are compared at
 `toConstantVal`. -/
 def quotPinHit (k : QuotKind) (cv : ConstantVal) : Bool :=
   ConstantVal.canonEq cv (BasisKind.quotK.decls.getD k.slot (.axiomInfo default)).toConstantVal
+
+/-! ## The pinned `And`
+
+`And` is recognised, not installed from literals
+(`ConLeche/Kernel/Basis/And.lean`): the block that matches the pin goes
+through the ordinary inductive installer.  What the pin adds is a
+REJECT — a record that declares `And`, `And.intro` or `And.rec` and is
+not the pinned block is invalid input, as a basis redefinition is — so
+that in every accepted environment the name `And` is the toolchain's
+`And` and the stuck-proof rescue that serves it (`majorToCtor`'s `And`
+branch) is available.  The fold asks this of every record before its
+dispatch (`annotDeclStep`, `ConLeche/Cached/Installed.lean`). -/
+
+/-- **The `And` pin's test**: the record declares none of the pinned
+`And` block's names, or it IS that block — two parameters, and equal
+to `andPin` up to `ConstantInfo.canon`. -/
+def andPinOk : Declaration → Bool
+  | .indDecl block nP =>
+    !(block.any fun c => andPinNames.contains c.name) ||
+      (nP == 2 && canonEqList block andPin)
+  | .axiomDecl cv | .defnDecl cv .. | .thmDecl cv .. | .opaqueDecl cv ..
+  | .quotDecl _ cv => !andPinNames.contains cv.name
+  | .basisDecl _ => true
 
 end ConLeche

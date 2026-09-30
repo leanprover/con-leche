@@ -98,14 +98,16 @@ needs its own; the nightly variant covers lean4 master since the
 `Decidable` rewrite).
 
 **The prelude is one file**, the repository toolchain's.  It holds
-only the pinned basis blocks and the `Bool` block, which have
+only the pinned basis blocks and the `Bool`/`And` blocks, which have
 not changed across the supported toolchains (the nightly's generated
 prelude is byte-identical to v4.33.0's below its meta line).  A
 stream's own record is used wherever it has one — the prelude's copy
-only fills in what the stream lacks — and `tests/pindump.sh` diffs
-every pinner's regenerated prelude against the committed one, so a
-toolchain that does change them shows up loudly there and would need
-the prelude generalised the way the pins were.
+only fills in what the stream lacks; `And` is pinned by the fold, so a
+stream's `And` that is not the toolchain's is rejected — and
+`tests/pindump.sh` diffs every pinner's regenerated prelude against
+the committed one, so a toolchain that does change them shows up
+loudly there and would need the prelude generalised the way the pins
+were.
 
 ### Adding a toolchain's variant
 

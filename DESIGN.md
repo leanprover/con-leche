@@ -95832,3 +95832,101 @@ Acting on OVEDIT's findings.
   and `Model/StreamConsts` (now "the installer"). History comments with
   task numbers left as they are. OVERVIEW §5/§6 sentences listing
   `And` as a prelude member updated.
+
+## ANDPIN — `And` pinned again: recognised by the fold, supplied by the prelude (2026-09-30, `agent/andpin`)
+
+Maintainer's ruling on PRELAND: *"If it doesn't pass then a feature
+gets disabled silently. Put the pin back in, we have code for 'the
+And', and we want to be sure that it works."* PRELAND's argument (the
+rescue is sound for any `And`) is right about SOUNDNESS and beside the
+point: the rescue (`majorToCtor`'s `T = andName` branch,
+`andRescueSlots`) is code for the toolchain's `And`, and a stream whose
+`And` differs was accepted with that code silently dead.
+
+**How the old pin was lost.** Task #258 pinned `And` "the way `Bool`
+is": a built-in prelude member (`pinnedPreludeMembers`), with the
+guarantee coming from `pushDecl`'s dedupe in the parser — a stream's
+own copy of a prelude declaration was dropped when identical and
+DECLINED the stream otherwise. Task #293 (`preparePrelude`, the
+maintainer's layering ruling: the parser decodes, the fold decides)
+deleted the dedupe for every prelude member and made the stream's own
+record the one checked. For `Bool` that was the intent (DESIGN #293:
+`prelude_bool_redefined` 2 → 1, `tower_prelude` 2 → 0); for `And` it
+silently removed the only mechanism making the name mean the
+toolchain's `And`, while `pinnedPreludeMembers`' and `andName`'s
+docstrings kept describing the dedupe. OVEDIT found the stale comments,
+PRELAND concluded the prelude copy was inert and dropped it.
+
+**Mechanism: (b′) recognition in the fold, installation by the
+installer.** Not a `BasisKind` (option (a)): a basis block is installed
+from literals and needs a hand-written block model (`Eq`'s is ~1.3k
+lines; `And` would add a projection table), and #258 already found the
+model tier cannot take a reserved-named block — while nothing in the
+model needs `And` (the rescue row is proof irrelevance). Not a
+comparison against the prelude's record (option (b) literally): the
+prelude is a frontend artefact parsed at process start, and
+`preparePrelude` has no error channel by ruling. Instead the pin is a
+raw literal beside the basis pins, and the FOLD rejects:
+
+* `ConLeche/Kernel/Basis/And.lean`: `andPin = [And, And.intro,
+  And.rec]` written with the basis builder against `Init.Prelude`
+  (`And (a b : Prop) : Prop`, `intro (left : a) (right : b)`,
+  `And.rec.{u}` with its one rule), `andPinNames`.
+* `ConLeche/Kernel/Basis.lean`: `andPinOk : Declaration → Bool` — the
+  record declares none of `And`/`And.intro`/`And.rec`, or it is an
+  `indDecl` with 2 declared parameters equal to `andPin` up to
+  `ConstantInfo.canon` (the basis blocks' comparison, `canonEqList`,
+  lockstep via csimp).
+* `ConLeche/Cached/Installed.lean`: `annotDeclStep` — the fold's step,
+  run path and `checkDecls` alike — asks `andPinOk` first and rejects
+  `.invalid "`And` must be the standard `And`"` (exit 1). A matching
+  block goes on to the ordinary installer (projection table included).
+  The verdict follows the basis convention: a block under a pinned name
+  that differs is a REJECT (task #181: a basis redefinition is invalid
+  input); only quotient/standard-axiom shape mismatches decline.
+* Why the step and not `checkDecl`/`checkDeclC`: one rule over every
+  record kind (a `def And` is caught too — value kinds never reach
+  `checkDeclC` in phase A, they go through `annotStepC`'s own arms), in
+  one place, and the proofs never need it (it only removes accepts): the
+  pure spec `checkDecl` and the cached→pure simulation are untouched.
+  Proof churn: `annotDeclStep_ok` gained one `split`.
+* Prelude restored (revert of PRELAND's data): `pinnedPreludeMembers =
+  [And]`, the three pin dumps' `preludeMembers`/`preludeNames`, the
+  v4.33.0 prelude (11 records), `PreludeTests` (11 records, 24
+  constants, 12 prepared). A stream that does not declare `And` gets the
+  toolchain's block. PreludeTests now also pins that the prelude's `And`
+  record IS `andPin` up to canon (the literal is checked against the
+  export) and that `andPinOk` holds of every prelude record and fails on
+  a `def`/`axiom` under an `And` name and on the block at 1 parameter.
+* PRELAND's comment fixes kept (installer naming, PUnit, projection
+  offset); the And-specific docstrings (`andName`, `Frontend/Prelude`
+  header, `pinnedPreludeMembers`, pins/pinners READMEs, `pindump.sh`)
+  restated to the new fact. OVERVIEW: §3 (the rescue is sound without
+  the pin; the pin makes it available), §5 (five pinned types; new
+  subsection "The pinned `And`" linking `andPinOk`), §6 (the prelude
+  carries `And`). README unchanged except its rotted `checkDecls`
+  anchor (`Installed.lean` grew 14 lines); its text stays true.
+
+**Fixtures** (`tests/e2e/src/corner_andpin_*.lean`, `prelude` modules;
+`scripts/mk_andpin_noand.py`):
+
+| fixture | verdict | official |
+|---|---|---|
+| `corner_andpin_std` (the toolchain's `structure And`, projections used) | 0 | 0 |
+| `corner_andpin_swapped_bad` (fields `right`, `left`) | 1 | 0 |
+| `corner_andpin_type_bad` (`And … : Type`) | 1 | 0 |
+| `corner_andpin_def_bad` (`def And a b := a`) | 1 | 0 |
+| `and_rec_opaque_noand` (`and_rec_opaque` minus its `And` record; the rescue fires on the prelude's `And`) | 0 | 1 (unknown constant) |
+
+The existing `and_rec_opaque`/`and_rec_def` (stream declares the
+toolchain's `And`, exported by v4.29.1) stay 0.
+
+**Redundancies the pin makes provable (NOT removed, per the brief).**
+In an environment where every `And` came through `andPinOk`,
+`andRescueSlots`' per-call conjuncts are invariants: the two tower
+entries exist (the installer stores a table at every index-free
+one-constructor type), `e.ctor == And.intro`, `e.numParams == 2`,
+`e.numFields == 2`, and `fireOk` holds at every level list (both fields
+are propositions, `fieldSort = 0`). Stating that needs an environment
+invariant ("the stored `And` is the installer's image of `andPin`") the
+proofs do not carry today, so the gate stays as it is.

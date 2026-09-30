@@ -79,11 +79,14 @@ def charName : Name := anonymous |>.str "Char"
 
 /-- The name `And`: the one propositional structure whose recursor is
 rescued on a stuck proof (`majorToCtor`'s `And` branch,
-`ConLeche/Kernel/Core.lean`, gated by `andRescueSlots`).  `And` is an
-ordinary inductive, not pinned and not in the built-in prelude: a
-stream that uses it declares it and the installer checks that record
-like any other; the rescue reads only the name and the stored
-declaration, and is sound whatever the stream's `And` is. -/
+`ConLeche/Kernel/Core.lean`, gated by `andRescueSlots`).  `And` is
+pinned (`andPin`, `ConLeche/Kernel/Basis/And.lean`): a record that
+declares one of its names and is not the toolchain's block is rejected
+(`andPinOk`), the matching block installs through the ordinary
+installer, and the built-in prelude supplies it to a stream that does
+not declare it — so the name always denotes the toolchain's `And` and
+the rescue is always available.  (The rescue's soundness does not rest
+on the pin: its certificate is proof irrelevance.) -/
 def andName : Name := anonymous |>.str "And"
 
 /-- The name `Char.ofNat`. -/

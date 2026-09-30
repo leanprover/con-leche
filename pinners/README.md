@@ -32,7 +32,7 @@ and name its output, and refuses to run if that name disagrees with
 `<toolchain>.prelude.ndjson` and prints both paths.
 
 Only the repository toolchain's `.prelude.ndjson` is committed: the
-prelude holds the pinned basis blocks and `Bool`, which have not
+prelude holds the pinned basis blocks and `Bool`/`And`, which have not
 drifted across the supported toolchains.  A foreign pinner's regenerated
 prelude must match the committed one below its meta line, and the gate
 checks it.

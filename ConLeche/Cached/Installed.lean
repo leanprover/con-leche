@@ -184,14 +184,26 @@ def annotStepC (pins : List NatOpPinSet) (i : Nat) (fe : FEnv)
 /-- Phase A's step with the position carried and the error tagged: the
 accumulator is `(i, fe, pend)`, and a failing step reports the
 `CheckError` together with `i`, the fold position of the declaration
-that failed. -/
+that failed.
+
+**The `And` pin comes first** (`andPinOk`, `ConLeche/Kernel/Basis.lean`):
+a record that declares `And`, `And.intro` or `And.rec` and is not the
+toolchain's `And` block is REJECTED here, whatever its kind — so the
+name `And` in an accepted environment is the pinned block, installed
+by the ordinary installer, and the stuck-proof rescue that serves it
+(`majorToCtor`'s `And` branch) is always available.  The test sits in
+the fold's step, ahead of the kind dispatch, because it is one rule
+over every kind of record; the soundness proofs never read it (the
+rescue is sound for any `And`), so `checkDecl` does not repeat it. -/
 def annotDeclStep (pins : List NatOpPinSet)
     (p : Nat × FEnv × Array PendingCheck) (pd : Declaration) :
     StateT CState (Except (CheckError × Nat)) (Nat × FEnv × Array PendingCheck) :=
   fun s =>
-    match annotStepC mode pins p.1 p.2.1 p.2.2 pd s with
-    | .ok ((fe', pend'), s') => .ok ((p.1 + 1, fe', pend'), s')
-    | .error e => .error (e, p.1)
+    if andPinOk pd then
+      match annotStepC mode pins p.1 p.2.1 p.2.2 pd s with
+      | .ok ((fe', pend'), s') => .ok ((p.1 + 1, fe', pend'), s')
+      | .error e => .error (e, p.1)
+    else .error (.invalid "`And` must be the standard `And`", p.1)
 
 /-- **Phase A's accepting run**: a chain of accepting `annotDeclStep`s
 over the records, from an accumulator and memo state to the final
@@ -215,6 +227,8 @@ theorem annotDeclStep_ok {mode : CheckMode} {pins : List NatOpPinSet}
     ∃ fe' pend', q = (p.1 + 1, fe', pend') ∧
       annotStepC mode pins p.1 p.2.1 p.2.2 pd s = .ok ((fe', pend'), s') := by
   unfold annotDeclStep at h
+  split at h
+  case isFalse => exact nomatch h
   cases hs : annotStepC mode pins p.1 p.2.1 p.2.2 pd s with
   | error e => rw [hs] at h; exact nomatch h
   | ok r =>

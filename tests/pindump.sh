@@ -41,7 +41,7 @@
 # embeds.
 #
 # THE PRELUDE IS ONE FILE, the repository toolchain's — the pinned
-# basis blocks and `Bool`, which have not drifted across the
+# basis blocks and `Bool`/`And`, which have not drifted across the
 # supported toolchains.  A foreign pinner's regenerated prelude is
 # therefore diffed against the committed one BELOW ITS META LINE (which
 # carries the generating Lean's version and githash); a difference

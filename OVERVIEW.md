@@ -235,7 +235,7 @@ constructors are stored as declared, but they are installed with their
 block and are left out with it.
 
 `checkDecls`
-([function `checkDecls` in `ConLeche/Cached/Installed.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Cached/Installed.lean#L440-L445))
+([function `checkDecls` in `ConLeche/Cached/Installed.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Cached/Installed.lean#L454-L459))
 installs every declaration of `ds` first — a definition, theorem or
 opaque annotated and pushed with its check recorded, everything else
 checked in full as it is installed — and then checks every recorded
@@ -288,7 +288,7 @@ Read from the outside in:
    against the *prefix* of the installed index it was installed at — an
    `O(1)` view whose lookup hides everything installed later — from a
    fresh memo state. A record's check is its own evidence
-   ([definition `checkRecord` in `ConLeche/Cached/Installed.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Cached/Installed.lean#L355-L357)):
+   ([definition `checkRecord` in `ConLeche/Cached/Installed.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Cached/Installed.lean#L369-L371)):
    the fact that the record is checked, or its error tagged with the
    record's position in the stream. The installed environment — read-only from the
    boundary on — is marked persistent once, so that no check pays
@@ -300,7 +300,7 @@ Read from the outside in:
    ([function `checkPool` in `Main.lean`](https://github.com/leanprover/con-leche/blob/master/Main.lean#L295))
    claims records one at a time off a shared counter, and the results,
    merged by record index, are walked in record order
-   ([definition `collectChecks` in `ConLeche/Cached/Installed.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Cached/Installed.lean#L389-L393))
+   ([definition `collectChecks` in `ConLeche/Cached/Installed.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Cached/Installed.lean#L403-L407))
    — the walk stops at the first failing record in fold order, so the
    pool's verdict is the sequential walk's, and what it assembles is
    the same fact about every record. Either way what comes out is a
@@ -312,18 +312,18 @@ Read from the outside in:
    ([function `checkDeclsIO` in `Main.lean`](https://github.com/leanprover/con-leche/blob/master/Main.lean#L334-L337))
    turns the fully checked environment into its environment with the
    proof that `checkDecls` returns it
-   ([theorem `fullyChecked_checkDecls` in `ConLeche/Cached/Installed.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Cached/Installed.lean#L524-L526)).
+   ([theorem `fullyChecked_checkDecls` in `ConLeche/Cached/Installed.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Cached/Installed.lean#L538-L540)).
 2. **The fully checked environment**
-   ([structure `InstalledEnv` in `ConLeche/Cached/Installed.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Cached/Installed.lean#L242-L246))
+   ([structure `InstalledEnv` in `ConLeche/Cached/Installed.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Cached/Installed.lean#L256-L260))
    is stated over the executable steps: the installed environment is
    the accepting install run
-   ([inductive `InstallRun` in the same file](https://github.com/leanprover/con-leche/blob/master/ConLeche/Cached/Installed.lean#L200-L208)),
+   ([inductive `InstallRun` in the same file](https://github.com/leanprover/con-leche/blob/master/ConLeche/Cached/Installed.lean#L212-L220)),
    and a record is checked when its check at the prefix view succeeded
-   ([definition `GroupChecked` in the same file](https://github.com/leanprover/con-leche/blob/master/ConLeche/Cached/Installed.lean#L275-L279)).
+   ([definition `GroupChecked` in the same file](https://github.com/leanprover/con-leche/blob/master/ConLeche/Cached/Installed.lean#L289-L293)).
    The records' checks are independent of one another, which is what
    lets a later loop hand them to workers. An accept of `checkDecls`
    is exactly such an environment, and conversely
-   ([theorem `checkDecls_fullyChecked` in the same file](https://github.com/leanprover/con-leche/blob/master/ConLeche/Cached/Installed.lean#L535-L536)),
+   ([theorem `checkDecls_fullyChecked` in the same file](https://github.com/leanprover/con-leche/blob/master/ConLeche/Cached/Installed.lean#L549-L550)),
    which is how the theorem about the fold is read off the argument
    of step 3.
 3. **The cached checker** (`ConLeche/Cached/*`) is the implementation
@@ -401,9 +401,10 @@ recursor is stuck on a proof `h`: `And.intro a b h.1 h.2` is built and
 certified by proof irrelevance. The official kernel has no such rescue;
 this checker needs it because theorems are opaque here, so `And.rec`
 applied to a theorem would otherwise never reduce. The rescue is keyed
-on the name `And` only, to keep its reach small, and it needs no pin:
-the certificate is proof irrelevance, so it is sound whatever block the
-stream declares under that name. Two things differ from a textbook
+on the name `And` only, to keep its reach small. Its certificate is
+proof irrelevance, so it would be sound whatever block the stream
+declared under that name; `And` is pinned (§5) so that the rescue is
+always there to fire. Two things differ from a textbook
 presentation and matter for the proof:
 
 * **Annotation.** Before a declaration's terms are checked, an
@@ -542,9 +543,10 @@ operations of §6.
 
 ## 5. Inductive types
 
-Inductive blocks are not trusted from the stream. Four inductive types
-are pinned: the checker installs its own copy of each. Every other
-block — one type or several mutually inductive ones, nested or not —
+Inductive blocks are not trusted from the stream. Five inductive types
+are pinned: four the checker installs from its own copy, and `And`,
+which must agree with its pin and is then installed like any other
+block. Every other block — one type or several mutually inductive ones, nested or not —
 goes through one installer, which checks the block the way the official
 kernel does and generates the block's recursors itself.
 
@@ -556,7 +558,7 @@ and so is the quotient `Quot` with its soundness axiom, which is a
 kernel primitive rather than an inductive type. The fold recognises
 them: a block whose members carry a pin's names and agree with it up
 to renaming of universe parameters installs the pin
-([the recogniser `basisPinHit` in `ConLeche/Kernel/Basis.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Basis.lean#L61-L63)),
+([the recogniser `basisPinHit` in `ConLeche/Kernel/Basis.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Basis.lean#L64-L66)),
 a block under one of those names that does not agree is rejected (the
 names are reserved), and a quotient record that does not match its pin
 is declined.
@@ -581,13 +583,29 @@ on:
   rule are primitives: there is no inductive declaration to check, and
   `Quot.sound` is one of the three standard axioms (§8).
 
-Every other type — `Bool`, `And` and `PUnit` among them — is installed
-by the installer below, from the stream's own records (for `Bool`,
-from the built-in prelude's copy if the stream has none, §6).
-Two of these names are nevertheless read by the checker: `And`, whose
-recursor has a rescue for a stuck proof (§3), and `Bool`, the result
-type of the `Nat` comparisons (§6). Neither needs a pin; each section
-says why.
+### The pinned `And`
+
+`And` is pinned for a different reason: the checker has code for it.
+The stuck-proof rescue of §3 builds `And.intro a b h.1 h.2`, which
+works only if `And` is the toolchain's structure `And (a b : Prop) :
+Prop` with its one constructor `And.intro (left : a) (right : b)`. So
+the fold rejects any record that declares `And`, `And.intro` or
+`And.rec` and does not agree with the pin up to renaming of universe
+parameters
+([function `andPinOk` in `ConLeche/Kernel/Basis.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Basis.lean#L90-L96)),
+and the block that does agree goes through the installer below, which
+stores its projections as it does for any structure. A stream that does
+not declare `And` gets the toolchain's block from the built-in prelude
+(§6). The model needs nothing about `And`: the rescue is sound by proof
+irrelevance alone. The pin guarantees that the rescue is available in
+every accepted stream, rather than silently absent in one whose `And`
+differs.
+
+Every other type — `Bool` and `PUnit` among them — is installed by the
+installer below, from the stream's own records (for `Bool`, from the
+built-in prelude's copy if the stream has none, §6). One of these
+names is nevertheless read by the checker: `Bool`, the result type of
+the `Nat` comparisons. It needs no pin; §6 says why.
 
 ### The installer
 
@@ -935,8 +953,8 @@ instead of trusting the operation's name.
 * **Order independence.** The certificates are spelled over the
   structural operations, `Bool` and the basis blocks, which an export
   may emit in any order. The checker therefore carries a small built-in
-  prelude: the pinned basis blocks and `Bool`, as the toolchain
-  exports them. One pure pass between the parse and the fold puts every
+  prelude: the pinned basis blocks, `Bool` and the pinned `And`
+  (§5), as the toolchain exports them. One pure pass between the parse and the fold puts every
   prelude declaration at the front of the records — the stream's own
   record where the stream has one, the prelude's copy only where it has
   none — and moves the structural operations a pinned operation's

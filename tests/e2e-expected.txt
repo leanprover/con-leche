@@ -2740,3 +2740,19 @@
 # timeout 10 s in tests/arena.sh).  Official 0; ours 0 in milliseconds
 # (before: out of time/memory).
 0 proj_stuck_struct.ndjson
+# ANDPIN (2026-09-30): `And` is pinned (`andPinOk`, `ConLeche/Kernel/Basis.lean`):
+# a record declaring `And`, `And.intro` or `And.rec` must be the toolchain's
+# block, so the stuck-proof `And` rescue is always available (sources in
+# `tests/e2e/src/corner_andpin_*.lean`).  `std`: the toolchain's `And`
+# declared in a `prelude` stream — official 0, ours 0.  `swapped` (fields
+# in the other order), `type` (`And … : Type`), `def` (`And` a definition):
+# official 0 (no pins), ours 1 — the target ("`And` must be the standard
+# `And`"; a basis redefinition is likewise a reject).  `and_rec_opaque_noand`
+# (`scripts/mk_andpin_noand.py` over `and_rec_opaque`): the stream USES
+# `And` without declaring it; the built-in prelude supplies the pinned block
+# and the rescue fires — 0 (official: unknown constant, 1).
+0 corner_andpin_std.ndjson
+1 corner_andpin_swapped_bad.ndjson
+1 corner_andpin_type_bad.ndjson
+1 corner_andpin_def_bad.ndjson
+0 and_rec_opaque_noand.ndjson

@@ -150,6 +150,17 @@ pin-certified WF ones (`opSpecs`). -/
 def streamCertifiedOps : List Lean.Name :=
   structuralOps ++ opSpecs.map (·.op)
 
+/-- **Prelude members pinned by design**, beyond what the order
+analysis finds: `And`.  The fold pins it (`andPinOk`,
+`ConLeche/Kernel/Basis.lean`: any other record declaring `And`,
+`And.intro` or `And.rec` is rejected), so a stream that does not
+declare `And` must still find it installed, and the stuck-proof rescue
+that serves it (`majorToCtor`'s `And` branch,
+`ConLeche/Kernel/Core.lean`) available: the prelude supplies the
+toolchain's block wherever the stream has none. -/
+def pinnedPreludeMembers : List Lean.Name :=
+  [``And]
+
 /-! ## The analysis -/
 
 /-- One operation's order-sensitivity report. -/
@@ -530,7 +541,7 @@ def computeDumpAndPrelude (toolchainString : String) :
     IO (PinDumpFile × Array String) := do
   let (env, results) ← computeOps
   let mut reports : Array OpSensitivity := #[]
-  let mut members : NameSet := {}
+  let mut members : NameSet := pinnedPreludeMembers.foldl (·.insert ·) {}
   for (spec, pin, proofs) in results do
     let sens := sensitiveOf env spec pin proofs
     match classifyOp env spec sens with
