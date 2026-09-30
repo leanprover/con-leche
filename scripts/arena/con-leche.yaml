@@ -28,7 +28,9 @@ version: "local worktree build"
 # and comes from the environment, so nothing depends on that directory.
 run: |
   set -u
-  ulimit -v "${CON_LECHE_VLIMIT:-16000000}"
+  # No `ulimit -v`: each worker thread reserves ~1 GiB of address space,
+  # so an address-space cap aborts the run at thread creation (exit 134)
+  # before it bounds anything.  The bound is the `timeout`.
   # SCRATCH.  A run writes no scratch file at all (task #180/#207).
   # `TMPDIR` is still pointed at disk here, as the project's standing rule
   # for anything that does need scratch.

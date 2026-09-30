@@ -33,8 +33,9 @@ so nothing here is wired into `lake test`.  A landing gate can run `run-small`
 against an already-built corpus in ten minutes.
 
 **The big four** (`init`, `std`, `cedar`, `cslib`: 0.3 – 2.0 GB of raw export)
-are Mathlib-scale in memory.  Run them strictly one at a time under
-`ulimit -v 22000000`, and only when the machine's single Mathlib-scale slot is
+are Mathlib-scale in memory.  Run them strictly one at a time (never under
+`ulimit -v`: the worker threads' address-space reservations make it abort the
+run), and only when the machine's single Mathlib-scale slot is
 yours — ask the coordinator; do not poll other lanes' processes.
 
 ## `results/` — the committed record

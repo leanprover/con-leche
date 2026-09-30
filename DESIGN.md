@@ -95664,3 +95664,43 @@ growing to ~8 GB.  `scripts/selfcheck.sh` drops `ulimit -v`
 instructions:u`, base `1e567fcfd`): exit 0, 53 093 declarations both;
 418.87 G → 418.80 G (−0.02 %).  No Mathlib sweep (the `uniform-inds`
 lane measured Mathlib at −0.19 % with the identical kernel change).
+
+## MERGE2 — master's task #323 merged in; `ulimit -v` removed from every script (2026-09-30, `agent/uinds-MERGE2`)
+
+**The merge.**  `master` (3ca9e2fe7, task #323, the KEEPPROJ port) merged
+into uniform-inds, which already carried the same fix (2f3997ab9,
+494054c90).  The Lean sources merged to uniform-inds' content exactly;
+`Kernel/CoreGated.lean` stays deleted; `tests/arena.sh` keeps the
+`E2E_TIMEOUT` table with both entries; the `proj_stuck_struct` fixture
+and source are byte-identical on both sides (one expected entry);
+OVERVIEW.md, its link table and `scripts/selfcheck.sh` take
+uniform-inds' side; both DESIGN records stay.
+
+**No `ulimit -v` anywhere** (CLAUDE.md: the worker threads' ~1 GiB
+stack reservations count against an address-space cap, which aborts
+the run at thread creation, exit 134, before it bounds anything).
+* `tests/arena.sh`, the DAG-tower gate: `ulimit -v 8000000` and the
+  `--jobs=4` that existed only to fit under it are gone; the `timeout
+  60` is the bound (a hanging walk still fails in a minute).  A
+  resident-memory bound, if ever wanted, is a cgroup (`systemd-run
+  --user --scope -p MemoryMax=…`); GNU `time` is not installed here, so
+  a measured-max-RSS assertion was not an option without a new
+  dependency.
+* `scripts/perf-tables.sh`: `VLIMIT`/`PERF_VLIMIT`, `stream_vlimit`
+  and both capped subshells gone, no `vlimit` metadata key written.
+  `scripts/perf-tables-render.py` prints the `ulimit -v` in the metric
+  row only when the metadata carries `vlimit` — the tracked
+  `perf-data/meta.txt` does (its cells WERE measured under one), so
+  `--render` still reproduces PERF.md byte for byte.
+* `scripts/natop-matrix.sh`: the `--mem` option and its cap gone
+  (no caller passed it); `--jobs=4` stays, for memory on a shared
+  machine.
+* `scripts/arena/con-leche.yaml`, `run-suite.sh`, `README.md`: the
+  cap and `CON_LECHE_VLIMIT`/`CON_LECHE_VLIMIT_BIG` gone.  The
+  upstream arena's `checkers/con-leche.yaml` never had one (it runs
+  `--verified --jobs=4` with `threads: 4`).
+* `Main.lean`'s `--jobs` docstring no longer says the project's gates
+  are capped.  The help text, OVERVIEW and PERF's parallel note still
+  explain what a cap does to the pool — a fact for users, not an
+  instruction.  The study notes under `docs/study-306/` record how
+  their numbers were measured and are left as they are.

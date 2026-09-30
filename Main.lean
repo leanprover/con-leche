@@ -449,8 +449,8 @@ about 25 MB per worker), so a run under an address-space limit
 16 GB, four under 8 GB — and past that the thread creation fails and
 the runtime aborts ("failed to create thread", exit 134).  Such a run
 lowers the count with the flag; the shipped default is not shaped by
-a development-environment limit, and the project's own capped gates
-pass an explicit count. -/
+a development-environment limit, and the project's own gates run
+under no address-space limit (only a `timeout`). -/
 def jobsCount (v : String) : Except String Nat :=
   match v.toNat? with
   | some 0 => .error "--jobs takes a worker count of at least 1 \

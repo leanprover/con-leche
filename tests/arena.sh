@@ -513,11 +513,10 @@ echo "progress lane: $prog_ok/$prog_total as expected"
 # the first in fold order must be named whichever worker finished
 # first, and at more workers than records); a bad count is a usage
 # error.  The full arena and e2e suites re-run at --jobs=1 and
-# --jobs=4 in the sweeps at the end.  Each worker thread reserves
-# about 1 GiB of ADDRESS SPACE — including the single worker the
-# check phase always runs on — so every checker run under a
-# `ulimit -v` in this battery (the tower gate's 8 GB) passes an
-# explicit count that fits; the uncapped runs use the default.
+# --jobs=4 in the sweeps at the end.  No run in this battery is under
+# `ulimit -v` (CLAUDE.md): each worker thread reserves about 1 GiB of
+# ADDRESS SPACE, so an address-space cap aborts the default worker
+# count at thread creation (exit 134) before it bounds anything.
 SPLIT_BAD2=tests/annot/annot_split_bad2.ndjson
 jobs_ok=0
 jobs_total=0
@@ -578,8 +577,11 @@ echo "worker pool: $jobs_ok/$jobs_total as expected"
 # added the three block shapes the earlier kinds never entered: a
 # RECURSIVE field (the fvar-occurrence question the install asks of
 # every later field), and a MUTUAL and a NESTED block (where the
-# modeller this checker once had ran its own walkers).  The memory
-# cap makes an unbounded walk fail fast instead of swapping the machine.
+# modeller this checker once had ran its own walkers).  The `timeout`
+# makes an unbounded walk fail fast.  There is no memory cap: an
+# address-space cap (`ulimit -v`) is ruled out (CLAUDE.md), and a
+# resident-memory bound, if one is ever wanted, is a cgroup
+# (`systemd-run --user --scope -p MemoryMax=…`), not a ulimit.
 tower_ok=0
 tower_total=0
 tower_check() { # <description> <condition-result>
@@ -592,11 +594,7 @@ tower_check() { # <description> <condition-result>
 }
 tower_run() { # <fixture> <expected-exit> <description>
   t_code=0
-  # `--jobs=4`: a worker thread reserves ~1 GiB of address space, and
-  # the default is one worker per hardware thread — under this cap
-  # the default would abort at thread creation on a large machine
-  ( ulimit -v 8000000; timeout 60 "$BIN" --jobs=4 "tests/e2e/$1.ndjson" >/dev/null 2>&1 ) \
-    || t_code=$?
+  timeout 60 "$BIN" "tests/e2e/$1.ndjson" >/dev/null 2>&1 || t_code=$?
   tower_check "$3" "$([ "$t_code" = "$2" ] && echo ok)"
 }
 tower_run tower_thm 0 "a depth-60 tower in a theorem's type and value accepts"

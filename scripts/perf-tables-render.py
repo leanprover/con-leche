@@ -147,9 +147,15 @@ A(f"| date | {meta.get('date', '?')} |")
 A(f"| machine | {meta.get('host', '?')} — {meta.get('cpu', '?')}, "
   f"{meta.get('cores', '?')} cores, {meta.get('mem', '?')} RAM, Linux {meta.get('kernelver', '?')} |")
 A("| columns | " + " · ".join(LABELS[c] for c in live) + " |")
+# `vlimit` is present only in the metadata of batteries run before the
+# address-space cap was dropped (CLAUDE.md: never `ulimit -v`); it is
+# printed so that such a table still states how it was measured.
+vl = meta.get("vlimit")
 A(f"| metric | `perf stat -e instructions:u`, one run per cell, "
-  f"`ulimit -v {meta.get('vlimit', '?')}`, `timeout {meta.get('timeout', '?')}`, `nice -n 5` "
-  f"(the `mathlib-full` row: 22 GB, 8 h, `--progress=5000`) |")
+  + (f"`ulimit -v {vl}`, " if vl else "")
+  + f"`timeout {meta.get('timeout', '?')}`, `nice -n 5` "
+  + ("(the `mathlib-full` row: 22 GB, 8 h, `--progress=5000`) |" if vl
+     else "(the `mathlib-full` row: 8 h, `--progress=5000`) |"))
 A("| check phase | one worker: every con-leche cell passes `--jobs=1` "
   "(the worker-count table below is the parallel lane) |")
 A("| streams | `lean4export` NDJSON, read unchanged by both checkers |")
