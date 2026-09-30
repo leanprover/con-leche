@@ -95704,3 +95704,102 @@ the run at thread creation, exit 134, before it bounds anything).
   explain what a cap does to the pool — a fact for users, not an
   instruction.  The study notes under `docs/study-306/` record how
   their numbers were measured and are left as they are.
+
+## OVEDIT — OVERVIEW copy-edit; the pinned basis rationale; do `And` and `Bool` still need special handling? (2026-09-30, `agent/ovedit`)
+
+**OVERVIEW edits** (documentation only, no code change).
+* §5 rewritten as a section, not one bullet: "four inductive types are
+  pinned" (`Eq`, `Nat`, `Empty`, `False` — `basisPinHit`,
+  `Kernel/Basis.lean:61`; `Quot` is the primitive fifth, `quotPinHit`)
+  with the CURRENT rationale — no doubt about their denotation, each
+  one needed by a statement or a primitive (`False`/`Eq`: the main
+  theorem's `Model` fields `false_empty`/`eq_equality`; `Nat`:
+  literals; `Empty`: the `no_proof_of_Empty_*` companions; `Quot`:
+  primitive, no declaration to check) — then ONE installer for every
+  other block, nested included (the code has one route: `checkDecl`'s
+  `.indDecl` arm, `Kernel/CheckDecl.lean:178-199`, dispatches on the
+  recogniser alone). "Uniform route" is gone as a name; the stale
+  "`Bool` and `And` are not pinned … carried only to supply a stream
+  that declares neither" moved to §6/§3.
+* The pseudo-code block became an "installer, step by step" algorithm
+  description in markdown (steps 1–8, a table for `POS`, the three
+  proof-only checks collected at the end); content unchanged, the
+  terms "frame", "hole", "class", "reference entry" defined at first
+  use; "walk" replaced by "positivity check"/"visit".
+* §3: the `And` rescue restated — no longer "the pinned `And`" and "by
+  ruling"; why it exists (opaque theorems) and why it needs no pin.
+  §6: a new `Bool` bullet, and the prelude's contents (pinned blocks,
+  `Bool`, `And`). §9: the `And` rescue added as the fourth deliberate
+  accept-superset; "nothing is added" corrected (the prelude fills in
+  what the file lacks). §1/§6/§9: the ground hoist described correctly
+  (it moves the structural ops a pinned op's certificates are spelled
+  over, which are NOT in its dependency closure — the old text said
+  "dependency closure"). §10: the `I`/`F` examples named functions
+  that no longer exist (`nativeRecAVI`, `checkNativeRecF`); now
+  `checkStructFieldSortsI`, `natLitSupportedF`; `Struct*`/`Sum*`
+  described as parts of the one installer. Jargon pass: "fold
+  position", "letter", "knot", "seal", "graded", "grades",
+  "certificate walks", "towers", "capstones", "Comparator pair",
+  "compiler-escape scan", "SHARED/ONE" replaced or defined.
+
+**Findings: `And` and `Bool` (read-only investigation).**
+* Neither is pinned in the checker's sense. `reservedBasisNames`
+  (`Kernel/Basis/Names.lean:93-98`) and `basisPinHit` cover only
+  `Eq`/`Nat`/`Empty`/`False` (+ `Quot`). Both are *prelude members*:
+  `preparePrelude` (`Frontend/Prepare.lean:130-164`, `frontOf`/`prepareD`) moves
+  the stream's OWN record to the front and synthesises the prelude's
+  copy only when the stream has none; either way the block goes through
+  `checkBlock`. `tests/e2e/prelude_bool_redefined.ndjson` (expected 1)
+  pins that a differing stream `Bool` is checked, not declined.
+* `Bool`'s special handling is entirely the Nat operations' (plus the
+  compiler-trust family): `natOpGuard` (`Kernel/CoreDefs.lean:556-568`,
+  `Bool.true`/`Bool.false` stored level-monomorphic for `beq`/`ble`/the
+  WF ops), `natOpCod` (`:611-618`, `Bool : Type`), `natOpEquations`/
+  `natOpResult` (`:496-550`, the recurrences and literal results name
+  the constructors), `divModEnvGuard` (`Kernel/Checker.lean:280-288`,
+  its F twin `Kernel/DeclCheck.lean:307`), the prelude's reason to
+  carry `Bool` (`PinGen/Prelude.lean` header: certificate statements
+  spelled over `Bool`), and `reduceElemOk`
+  (`Kernel/TrustAxioms.lean:185`, `ofReduceBool` wants a standard
+  `Bool`). `Expr.isBoolTrue` (`CoreDefs.lean:381`) is official's
+  eq-true shortcut in `defeqStep` (`Kernel/Core.lean:1489`), name-keyed
+  but sound for any `Bool` (it compares a whnf result with the same
+  constant). The model reads nothing about `Bool`'s denotation
+  (`Model/NatEqs.lean`, `NatStep.lean`: the guards' storedness only).
+  So `Bool` already goes through the ordinary installer like `PUnit`;
+  there is nothing to unpin. Its discussion now lives in OVERVIEW §6.
+* `And`'s special handling is the stuck-proof rescue only:
+  `majorToCtor`'s `T = andName` branch (`Kernel/Core.lean:697-744`),
+  its cached twin (`Cached/CoreC.lean:618`), `andRescueSlots`
+  (`CoreDefs.lean:753-770`), the rules-tier constructor
+  `Red.rescueAnd` (`Rules/Rel.lean:282-305`) and its soundness
+  `Red.rescueAnd_sound` (`Model/Rules/IotaSound.lean:872`), which is
+  proved over any environment: the certificate is proof irrelevance,
+  so it holds whatever block is stored as `And`. Nothing in `Denotes`,
+  `Model` or the capstones mentions `And`. The prelude copy
+  (`pinnedPreludeMembers = [And]`, `PinGen/Prelude.lean:161`) is
+  therefore INERT: a stream that mentions `And` declares it and its
+  own record is used; a stream that does not can never reach the
+  rescue. Recommendation: drop `And` from `pinnedPreludeMembers`
+  (regenerate `pins/<toolchain>.prelude.ndjson`, `tests/pindump.sh`;
+  `tests/ConLecheTests/PreludeTests.lean:24,48,64-66` pin the
+  prelude's contents and counts, 24 → 21 constants). Cost: a prelude
+  regeneration and those test counts; nothing in the proof changes.
+  The rescue itself must stay (opaque theorems; lean4#14925 absent).
+* Stale docstrings found (not changed, code lane): `andName`
+  (`Kernel/Basis/Names.lean:80-86`) and `pinnedPreludeMembers`
+  (`PinGen/Prelude.lean:153-160`) still say a stream's own `And` "is
+  dropped as an identical copy or declines the stream (`pushDecl`)" —
+  true before `preparePrelude` (task #293), false now (`pushDecl`,
+  `Frontend/ExportC.lean:71`, only pushes); `Frontend/Prelude.lean`'s
+  header says `And` is "pinned by design … so the name must denote the
+  toolchain's `And` in every fold", which the prelude does not ensure
+  and the rescue does not need; `Kernel/Core.lean:113` and
+  `Kernel/CoreDefs.lean:53,800` still mention a basis `PUnit`;
+  `Kernel/CheckDecl.lean`'s header and `Kernel/Env.lean:539` still say
+  "the uniform route".
+* Side finding: `Empty` is pinned only for the `no_proof_of_Empty_*`
+  companions (`Model/Capstone.lean:126`, `Verify/Cached/MainC.lean:47`,
+  pinned in `tests/ConLecheTests/Axioms.lean:51-58`); the main theorem
+  and corollary do not name it. Unpinning it would mean dropping those
+  statements.

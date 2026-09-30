@@ -62,7 +62,7 @@ The check phase always runs on worker threads, never on the main
 thread: its per-record memo state is allocated out of the running
 thread's heap, and the main thread's heap is the one the parse and the
 install have just fragmented, which at Mathlib scale costs the
-single-worker lane a factor of two in wall time at the same
+single-worker run a factor of two in wall time at the same
 instruction count. Each worker thread reserves about 1 GiB of address space (its stack
 reservation; the resident set grows by about 25 MB per worker), so a
 run under an address-space limit (`ulimit -v`) must lower the count
@@ -71,8 +71,7 @@ worker count the installed environment is marked persistent once at
 the phase boundary, which removes the atomic reference counting the
 workers would otherwise pay on it and is worth 18–32 % of wall time on
 the pool, growing with the worker count, and 3.5 % at one worker;
-`--no-mark-persistent` turns that off
-and is how the difference is measured. The
+`--no-mark-persistent` turns it off. The
 verdict, and the declaration a rejection names, are the same at every
 `n`: the results are walked in record order, so the first failing
 record in fold order is the one reported. The flag
@@ -119,9 +118,9 @@ reader can take in at one sitting: the relation
 one rule per syntax form on the checker's own terms — a bound variable
 reads its environment, `Sort u` the universe chain, a constant its
 set, an application the function's graph, a binder the dependent
-product or the truth value of its body depending on the *regime* the
-checker annotated it with, which it may claim only if the body really
-denotes a truth value there — and the structure
+product, or the truth value of its body when the checker annotated the
+binder as proposition-valued — an annotation it may make only if the
+body really denotes a truth value there — and the structure
 [`Model` in the same file](https://github.com/leanprover/con-leche/blob/master/ConLeche/Denotes.lean#L270-L290).
 So every theorem the stream proves is true in the model, and the
 theorem certifies every proposition annotation the checker stored.
@@ -206,8 +205,9 @@ with the streaming reader's running byte count as the same guard the
 wholesale parse applies up front); and the template's lines scan to
 exactly the records the fold then forbids
 ([`parseChunks_jsonWithTheoremFalse` in `ConLeche/Verify/Frontend/FileFalse.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Frontend/FileFalse.lean#L173)).
-The preparation puts the built-in prelude's records first and hoists
-the ground of the pinned `Nat` operations; it is a permutation of the
+The preparation puts the built-in prelude's records first and moves
+the definitions a pinned `Nat` operation's certificates are spelled
+over ahead of it (§6); it is a permutation of the
 parsed records plus the prelude's, so the record is still there
 ([`mem_preparePrelude` in `ConLeche/Verify/Frontend/Prepare.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Frontend/Prepare.lean#L174)).
 
@@ -228,11 +228,11 @@ A `basisDecl` record declares nothing of its own — it names one of the
 checker's pinned basis blocks, and what is installed is the pins'.
 
 The members of an inductive block are deliberately outside that claim,
-and the module says why. On the uniform route a type former's telescope
-may be stored reduced to weak head normal form. That is a definitional
-equality, not an annotation, so the relation above would be false of
-it; the constructors are stored as declared, but they are installed
-with their block and are left out with it.
+and the module says why: a type former's telescope may be stored
+reduced to weak head normal form, which is a definitional equality, not
+an annotation, so the relation above would be false of it. The
+constructors are stored as declared, but they are installed with their
+block and are left out with it.
 
 `checkDecls`
 ([function `checkDecls` in `ConLeche/Cached/Installed.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Cached/Installed.lean#L440-L445))
@@ -289,8 +289,8 @@ Read from the outside in:
    `O(1)` view whose lookup hides everything installed later — from a
    fresh memo state. A record's check is its own evidence
    ([definition `checkRecord` in `ConLeche/Cached/Installed.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Cached/Installed.lean#L355-L357)):
-   the fact that the record is checked, or its error tagged with its
-   fold position. The installed environment — read-only from the
+   the fact that the record is checked, or its error tagged with the
+   record's position in the stream. The installed environment — read-only from the
    boundary on — is marked persistent once, so that no check pays
    reference counting on it, and the checks are then run on worker
    threads: at `--jobs=1` the check loop
@@ -324,8 +324,8 @@ Read from the outside in:
    lets a later loop hand them to workers. An accept of `checkDecls`
    is exactly such an environment, and conversely
    ([theorem `checkDecls_fullyChecked` in the same file](https://github.com/leanprover/con-leche/blob/master/ConLeche/Cached/Installed.lean#L535-L536)),
-   which is how the theorem about the fold is read off the walk of
-   step 3.
+   which is how the theorem about the fold is read off the argument
+   of step 3.
 3. **The cached checker** (`ConLeche/Cached/*`) is the implementation
    that ships: the same terms with a packed hash on every node, memo
    tables for reduction, inference and definitional equality keyed by
@@ -341,22 +341,23 @@ Read from the outside in:
    the truncated environment have the same lookup, and the cached core
    reads its environment through that lookup alone
    ([theorem `coreKnotI_congr` in `ConLeche/Verify/Cached/KnotCongr.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Cached/KnotCongr.lean#L503-L504)).
-   The walk carries the model to the final environment
+   Carried along the install run and then through every record's
+   check, the model reaches the final environment
    ([theorem `fullyChecked_sound` in `ConLeche/Model/InstallRun.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/InstallRun.lean#L242-L244)),
-   and the fold's letter
+   and the statement about the fold
    ([theorem `no_proof_of_False_cached` in `ConLeche/Verify/Cached/MainC.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Cached/MainC.lean#L59-L65))
    is that model read through `checkDecls_fullyChecked`
    ([theorem `checkDecls_sound` in the same file](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Cached/MainC.lean#L37-L42)).
 4. **The pure checker** (`ConLeche/Kernel/*`) is a fueled, memo-free
    presentation of the same algorithm: `whnfCore`, `whnf`, `inferType`,
-   `isDefEq` and the annotation pass are tied in a knot over a fuel
-   parameter
+   `isDefEq` and the annotation pass are defined by one mutual
+   recursion on a fuel parameter
    ([the entry points in `ConLeche/Kernel/TypeChecker.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/TypeChecker.lean#L28-L54));
    on exhaustion every operation throws
-   ([the fuel knot's base case in `ConLeche/Kernel/Core.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Core.lean#L1935-L1941)).
+   ([the fuel recursion's base case in `ConLeche/Kernel/Core.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Core.lean#L1935-L1941)).
    Its declaration fold is what the model tier proves things about
    ([theorem `no_proof_of_False_pure` in `ConLeche/Model/Fold.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/Fold.lean#L276-L283)).
-5. **The model tier** (`ConLeche/Model/*`, the graded set model)
+5. **The model tier** (`ConLeche/Model/*`, the set model of the checker)
    shows that each declaration step preserves an invariant on the
    environment
    ([theorem `declStep_preserves` in `ConLeche/Model/Fold.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/Fold.lean#L141)),
@@ -380,8 +381,10 @@ cannot depend on a proof.
 
 Two modes exist, `--verified` (default) and `--trusted`
 ([the type `CheckMode` in `ConLeche/Kernel/Env.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Env.lean#L57)).
-Trusted mode is verified mode minus certification-only steps; it is
-faster and is outside the theorem. Both use the same core.
+Trusted mode is verified mode minus the certification-only steps —
+checks the official kernel does not make, which exist so that the proof
+can rely on their outcome; it is faster and is outside the theorem.
+Both use the same core.
 
 The checker is a Lean-kernel-style type checker in the shape of the
 official one: `whnfCore` does β/ι/projection/quotient reduction,
@@ -392,11 +395,16 @@ paths
 ([function `whnfBody` in `ConLeche/Kernel/Core.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Core.lean#L1117)),
 `inferType` computes a type, and `isDefEq` decides conversion with lazy
 unfolding, η, proof irrelevance, structure η, unit-likeness and K-like
-reduction as the environment's capability flags permit; one
-proposition, the pinned `And`, is additionally rescued when its
-recursor is stuck on a proof (`And.intro a b h.1 h.2` is fabricated
-and certified by proof irrelevance — `And` only, by ruling). Two things
-differ from a textbook presentation and matter for the proof:
+reduction as the flags the install stored for each inductive type
+permit. One proposition, `And`, is additionally rescued when its
+recursor is stuck on a proof `h`: `And.intro a b h.1 h.2` is built and
+certified by proof irrelevance. The official kernel has no such rescue;
+this checker needs it because theorems are opaque here, so `And.rec`
+applied to a theorem would otherwise never reduce. The rescue is keyed
+on the name `And` only, to keep its reach small, and it needs no pin:
+the certificate is proof irrelevance, so it is sound whatever block the
+stream declares under that name. Two things differ from a textbook
+presentation and matter for the proof:
 
 * **Annotation.** Before a declaration's terms are checked, an
   annotation pass
@@ -418,13 +426,13 @@ differ from a textbook presentation and matter for the proof:
   ([theorem `checkDecls_skels` in `ConLeche/Verify/Cached/AgreeFloor.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Cached/AgreeFloor.lean#L1280-L1282)).
   Binder names and binder infos are not stored at all; `Expr` carries a
   packed hash and loose-variable bounds as computed fields, which is
-  what makes the DAG-safe traversals cheap.  The substitution walks
-  memoise only the nodes the runtime reports SHARED — a reference-count
-  read, with a memo keyed by the node's address and validated by
-  pointer identity, so an unshared node costs no key and no probe —
-  and that is the tree's ONE discipline for every traversal memo,
-  structural equality (`Expr.beq`) and the syntactic guard walks
-  included
+  what makes traversals of shared terms (DAGs) cheap. The
+  substitutions memoise only the nodes the runtime reports as shared —
+  a reference-count read, with a memo keyed by the node's address and
+  validated by pointer identity, so an unshared node costs no key and
+  no probe — and every other traversal memo in the checker, structural
+  equality (`Expr.beq`) and the syntactic guard traversals included,
+  follows the same discipline
   ([`withExclusive`'s account in `ConLeche/Kernel/Exclusive.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Exclusive.lean#L6-L42)).
 
 ## 4. The proof idea
@@ -469,9 +477,10 @@ closedness and the pins of the basis constants
 annotated terms and `interp` but over `Denotes` (§1), a relation on
 the checker's own terms with no annotated intermediate. The two agree
 where the invariant reads: wherever the invariant's reading of a term
-is defined and graded, `interp` of the reading is a `Denotes`-denotation
-of the term, with the invariant's sort facts discharging the regime
-premises of the binder rules
+is defined and satisfies the invariant, `interp` of the reading is a
+`Denotes`-denotation of the term, with the invariant's sort facts
+discharging the binder rules' premises about which bodies are
+propositions
 ([theorem `Denotes_of_denoteMeta` in `ConLeche/Model/Denotes.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/Denotes.lean#L220-L226)).
 The relation reads a binder's body under the binder with de Bruijn
 indices while the checker opens it with a fresh free variable; a small
@@ -490,8 +499,8 @@ direction only
 They are proved through a *relational description* of the checker.
 Six mutually inductive relations over the checker's own terms say what
 moves the core makes — a reduction step, a definitional-equality
-decision, an inference at one of two grades, and three certificate
-walks — with the fuel, the unfolding heuristics and the dispatch order
+decision, a type inference (checking, or infer-only as in the official
+kernel's `infer_only` mode), and three certificate checks — with the fuel, the unfolding heuristics and the dispatch order
 out of sight; a rule's premises are exactly the certificates the
 checker ran at that site, and the symmetric and derived variants are
 theorems, not constructors
@@ -533,275 +542,323 @@ operations of §6.
 
 ## 5. Inductive types
 
-Inductive blocks are not trusted from the stream. Three cases:
+Inductive blocks are not trusted from the stream. Four inductive types
+are pinned: the checker installs its own copy of each. Every other
+block — one type or several mutually inductive ones, nested or not —
+goes through one installer, which checks the block the way the official
+kernel does and generates the block's recursors itself.
 
-* **Pinned basis blocks.** `Eq`, `Nat`, `Empty`, `False` and
-  `Quot` (with its soundness axiom) are installed from built-in pins
-  ([the `False` pin in `ConLeche/Kernel/Basis/False.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Basis/False.lean#L52)).
-  The fold recognises them: a block whose members carry the pin's
-  names and agree with it up to level-parameter renaming installs the
-  PIN
-  ([the recogniser `basisPinHit` in `ConLeche/Kernel/Basis.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Basis.lean#L61-L63)),
-  and a block under one of those names that does not agree is rejected
-  at the reserved-name check. Their denotations are fixed sets, which
-  is why the main theorem can name `False` without a hypothesis about
-  how the stream declared it. `Bool` and `And` are not pinned: they are
-  installed from the stream's own records, and the checker carries a
-  copy of the toolchain's only to supply a stream that declares
-  neither.
-* **The uniform route** takes every other block, whether it has one
-  member or several mutually inductive ones, and whether or not it is
-  nested: any number of parameters, indices, constructors and fields,
-  recursive, reflexive and nested fields, `Prop` or `Type`. The
-  recogniser reads the block's shape
-  ([function `blockParts?` in `ConLeche/Kernel/Inductives/BlockParts.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/BlockParts.lean#L446)) —
-  its parameter count as the stream DECLARES it,
-  checked against the type formers' telescopes and against every
-  constructor record before either route runs
-  ([function `indParamsOk` in `ConLeche/Kernel/Env.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Env.lean#L614-L621)),
-  each member's index count off what is left of its type former's
-  telescope, as official reads them; the stream's recursor records are
-  read there but pinned only later, by the recursor stage. The install
-  checks every type former, then the constructors against the whole
-  member list, stores each constructor as declared, reads the classes
-  the stream's recursors eliminate (below), and runs one positivity
-  function over them — official's walk, weak head normal form before
-  classifying and again under each Π binder, the block itself its root
-  frame, walked like any container's
-  ([function `nestRoot` in `ConLeche/Kernel/Inductives/Positivity.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/Positivity.lean#L1592)) —
-  whose normal forms are the fields the model reads
-  ([function `checkBlockPositivity` in `ConLeche/Kernel/Inductives/BlockInstall.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/BlockInstall.lean#L284)),
-  and runs official's checks — uniform occurrences (every member
-  applied to exactly the parameters, before anything reduces),
-  universe bound, elimination restriction and index occurrence. The recursors are then GENERATED, as official
-  generates them: the stream's recursor types name the classes they
-  eliminate (the block's members and, at a nested block, containers at
-  instantiations), each class's constructors are read off the positivity
-  function's recorded normal forms, and from them the checker builds
-  every recursor's type and rules — the minor premises over the
-  constructors' declared fields, each inductive hypothesis over its
-  field's normal form. A generated type must be definitionally equal to
-  the stream's; the stream's rules are never read, the generated
-  recursors are installed
-  ([function `genRecCheck` in `ConLeche/Kernel/Inductives/GenRec.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/GenRec.lean#L560)).
-  Where a class is visited at several places of the positivity walk, the
-  checker also requires every visit to agree with the one it generated
-  from — the only step made for the proof alone.
-  The whole install is one entry
-  ([function `checkBlock` in `ConLeche/Kernel/Inductives/BlockTail.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/BlockTail.lean#L143)).
-  In the model the block's carrier is the least fixed point of its
-  family functor over the index fibres
-  ([the fixed-point family space in `ConLeche/SetModel/Value.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/SetModel/Value.lean#L365-L372)),
-  for several members a least fixed TUPLE of families. That it is a
-  member of the universe follows from one abstract theorem about
-  *accessible* operators, those where every element of the output needs
-  only elements of the input indexed by one fixed set of the universe
-  ([theorem `closed_of_acc` in `ConLeche/SetModel/Access.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/SetModel/Access.lean#L242)):
-  such an operator has a closed tuple in the universe. The run of the
-  positivity check shows the block's operator accessible, for finitary
-  and reflexive fields alike.
-  Each recursor is read as the unique value of its GRAPH, the least
-  relation closed under the recursor's rules read over the ways a
-  value decodes as a constructor application; the block's induction
-  makes that relation a function at every sort
-  (`ConLeche/SetModel/GraphRec.lean`), and the only sort-dependent
-  fact it needs is the kernel's own large-elimination guard.
-  The model-tier theorem for the whole install is
-  [theorem `declBlock` in `ConLeche/Model/Inductives/DeclBlockStep.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/Inductives/DeclBlockStep.lean#L72-L77).
-  Structure-like members additionally get first-class projections, η,
-  unit-likeness and K exactly under official's conditions.
-* **Nested blocks** go through the same install. The positivity
-  function looks through a container at its CONCRETE instantiation: at
-  a field `List T` it walks `List`'s own constructors with `T` in place
-  of the parameter, after weak head normal form, and records the
-  instantiation
-  ([function `nestContNew` in `ConLeche/Kernel/Inductives/Positivity.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/Positivity.lean#L1363-L1365)).
-  Nothing is stated or cached about a container in its parameter, and
-  no auxiliary block is built: official's nested-to-mutual encoding is
-  not mirrored. The stream's auxiliary recursors (`T.rec_1`, …) name the
-  instantiations they eliminate: before the positivity check, the
-  install reads each class off the stream's recursor types and checks it
-  as a major
-  ([function `targetMajorOf` in `ConLeche/Kernel/Inductives/RecCheck.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/RecCheck.lean#L384-L386)),
-  and the positivity function then walks every class from the empty
-  stack — the members as the root frame, every outside class like a
-  container instance met there — so every class the recursors eliminate
-  is a walked instantiation, one that weak head normal form erases from
-  every field included
-  ([function `classSeeds` in `ConLeche/Kernel/Inductives/GenRec.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/GenRec.lean#L496)).
-  The auxiliary recursors are then generated like the block's own, at
-  their classes.
-  Their rules fire at the major's instantiation, read off the recursor
-  type
-  ([function `tgtStoredRules` in `ConLeche/Kernel/Inductives/RecCheck.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/RecCheck.lean#L592-L593)).
-  In the model a nested block is still the least fixed point of its
-  constructor types with holes at its members; a container field reads
-  the container's own least fixed point at the holes' values, and the
-  closure witness comes from accessibility rather than from a
-  presentation as a member container
-  ([theorem `closed_of_acc` in `ConLeche/SetModel/Access.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/SetModel/Access.lean#L242-L243)).
-  Nested blocks go through the same model-tier theorem,
-  [theorem `declBlock` in `ConLeche/Model/Inductives/DeclBlockStep.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/Inductives/DeclBlockStep.lean#L72-L77).
+### The pinned basis types
 
-A block the recogniser does not read has its type formers checked
-as constants, so that official's rejects stay rejects, and is then a
-positive decline
+`Eq`, `Nat`, `Empty` and `False` are installed from built-in pins
+([the `False` pin in `ConLeche/Kernel/Basis/False.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Basis/False.lean#L52)),
+and so is the quotient `Quot` with its soundness axiom, which is a
+kernel primitive rather than an inductive type. The fold recognises
+them: a block whose members carry a pin's names and agree with it up
+to renaming of universe parameters installs the pin
+([the recogniser `basisPinHit` in `ConLeche/Kernel/Basis.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Basis.lean#L61-L63)),
+a block under one of those names that does not agree is rejected (the
+names are reserved), and a quotient record that does not match its pin
+is declined.
+
+They are pinned so that there is no doubt about what they denote. The
+model does not read their denotations off whatever the stream declared,
+as it does for every other type; each is a fixed set written down by
+hand, and each is one a statement or a primitive of the checker relies
+on:
+
+* `False` denotes the empty set and `Eq` denotes set equality. The main
+  theorem's `Model` states exactly these two facts (§1), so the theorem
+  needs no hypothesis about how the stream declared either, and the
+  main corollary rests on the first.
+* `Nat` denotes the natural numbers. A numeric literal is a term former
+  of its own and denotes its numeral, and the `Nat` operations of §6
+  compute on literals.
+* `Empty` denotes the empty set, for the companion statements about it
+  (`no_proof_of_Empty_cached` and its siblings, checked in the axiom
+  test).
+* `Quot`, its constructor, its two eliminators and their reduction
+  rule are primitives: there is no inductive declaration to check, and
+  `Quot.sound` is one of the three standard axioms (§8).
+
+Every other type — `Bool`, `And` and `PUnit` among them — is installed
+by the installer below, from the stream's own records (for `Bool` and
+`And`, from the built-in prelude's copy if the stream has none, §6).
+Two of these names are nevertheless read by the checker: `And`, whose
+recursor has a rescue for a stuck proof (§3), and `Bool`, the result
+type of the `Nat` comparisons (§6). Neither needs a pin; each section
+says why.
+
+### The installer
+
+The recogniser reads the block's shape
+([function `blockParts?` in `ConLeche/Kernel/Inductives/BlockParts.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/BlockParts.lean#L446)):
+its parameter count as the stream declares it, checked against the
+type formers' telescopes and against every constructor record before
+anything else runs
+([function `indParamsOk` in `ConLeche/Kernel/Env.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Env.lean#L614-L621)),
+and each member's index count off what is left of its type former's
+telescope, as the official kernel reads them. Any number of parameters,
+indices, constructors and fields is supported; fields may be recursive,
+reflexive (a function returning the type) or nested (the type under
+construction inside another inductive type, as in `List T`); the block
+may live in `Prop` or in `Type`. The install checks the type formers,
+then the constructors, then runs the positivity check and the
+official kernel's remaining checks — parameters applied uniformly,
+universe bound, elimination restriction, index occurrence — and
+finally the recursor check. The whole install is one entry
+([function `checkBlock` in `ConLeche/Kernel/Inductives/BlockTail.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/BlockTail.lean#L143)).
+
+**The classes.** The recursors a block comes with eliminate one
+*class* each: a member of the block, or — in a nested block — another
+inductive type at the instantiation the block uses, such as `List T`
+for the auxiliary recursor `T.rec_1`. Before the positivity check the
+installer reads the classes off the stream's recursor types and checks
+each one as a well-formed major premise
+([function `targetMajorOf` in `ConLeche/Kernel/Inductives/RecCheck.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/RecCheck.lean#L384-L386)).
+
+**The positivity check** follows the official kernel's: a field's type
+is put in weak head normal form before it is classified, and again
+under each Π binder. The difference is nesting. The official kernel
+rewrites a nested block into an auxiliary mutual block; this checker
+builds no auxiliary block and instead looks through the container at
+its concrete instantiation: at a field `List T` it checks `List`'s own
+stored constructors with `T` in place of the parameter, after weak
+head normal form, and records the instantiation
+([function `nestContNew` in `ConLeche/Kernel/Inductives/Positivity.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/Positivity.lean#L1363-L1365)).
+In the constructors it checks, every application `T_j p⃗` of a block
+member to the block's parameters is replaced by a *hole*, a variable
+standing for that whole application. The block itself is checked the
+same way as a container, as the outermost level of the nesting
+([function `nestRoot` in `ConLeche/Kernel/Inductives/Positivity.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/Positivity.lean#L1592)),
+and the check starts from every class, so every class a recursor
+eliminates is an instantiation it has visited — including one that
+weak head normal form erases from every field
+([function `classSeeds` in `ConLeche/Kernel/Inductives/GenRec.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/GenRec.lean#L496)).
+Nothing is stated or cached about a container in its parameter. The
+normal forms the check records are the fields the model reads
+([function `checkBlockPositivity` in `ConLeche/Kernel/Inductives/BlockInstall.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/BlockInstall.lean#L284)).
+
+**The recursor check.** The recursors are generated in the official
+kernel's shape: each class's constructors are read off the positivity
+check's recorded normal forms, and from them the checker builds every
+recursor's type and rules — the minor premises over the constructors'
+declared fields, each inductive hypothesis over its field's normal
+form. Each generated type must be definitionally equal to the stream's
+recursor type; the stream's rules are never read, and the generated
+recursors are the ones installed
+([function `genRecCheck` in `ConLeche/Kernel/Inductives/GenRec.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/GenRec.lean#L560)).
+The rules of a recursor for an outside class fire at the instantiation
+read off its type
+([function `tgtStoredRules` in `ConLeche/Kernel/Inductives/RecCheck.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/RecCheck.lean#L592-L593)).
+Members of the right shape additionally get primitive projections,
+structure η and unit-likeness (one constructor, no indices, not
+recursive) and K-like reduction (a proposition with one constructor
+and no fields), exactly under the official kernel's conditions.
+
+**In the model** the block's carrier is the least fixed point of its
+family functor over the index fibres
+([the fixed-point family space in `ConLeche/SetModel/Value.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/SetModel/Value.lean#L365-L372)),
+for several members a least fixed tuple of families, and a container
+field reads the container's own least fixed point at the holes'
+values. That the fixed point is a member of the universe follows from
+one abstract theorem about *accessible* operators, those where every
+element of the output needs only elements of the input indexed by one
+fixed set of the universe
+([theorem `closed_of_acc` in `ConLeche/SetModel/Access.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/SetModel/Access.lean#L242)):
+such an operator has a closed tuple in the universe. The run of the
+positivity check shows the block's operator accessible, for finitary,
+reflexive and nested fields alike. Each recursor is read as the unique
+value of its *graph*, the least relation closed under the recursor's
+rules read over the ways a value decodes as a constructor application;
+the block's induction makes that relation a function at every sort
+(`ConLeche/SetModel/GraphRec.lean`), and the only sort-dependent fact
+it needs is the kernel's own large-elimination guard. The model-tier
+theorem for the whole install is
+[theorem `declBlock` in `ConLeche/Model/Inductives/DeclBlockStep.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/Inductives/DeclBlockStep.lean#L72-L77).
+
+A block the recogniser does not read has its type formers checked as
+constants, so that the official kernel's rejects stay rejects, and is
+then positively declined
 ([function `checkShapeless` in `ConLeche/Kernel/CheckDecl.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/CheckDecl.lean#L32-L33)),
-never an acceptance.
+never accepted.
 
-### The uniform install in pseudo-code
+### The installer, step by step
 
-The idea in one sentence: instead of building official's auxiliary
-mutual types, the positivity check walks every container at its
-concrete instantiation, as the container's own stored constructors with
-the types under construction as holes; that one walk is the positivity
-check and is what the monotonicity proof is read off, and the recursors
-are generated for the instantiations the stream's recursors name (the
-classes), every one of which that walk visits from the empty stack.
+The steps below are in the order the checker runs them. Notation: the
+block's members are `T_1 … T_k` with parameters `p⃗`; a class is written
+`I us Ds` (an inductive type, its universe levels, its parameter
+arguments). A *frame* is one type whose constructors are being checked:
+the block itself (the root frame) or a container instantiation met in a
+field. Frames nest, so the positivity check carries a stack of them.
 
-The steps, in the order the checker runs them. A line marked
-`[proof]` is a check official has no counterpart to, made only because
-the checker's own proof reads it.
+**1. Shape.** Split the block into type formers `T_1 … T_k` with one
+parameter count, their constructors, and the recursors. Member names
+and constructor names are distinct. `isRec` is the official kernel's
+syntactic test: some member occurs in a constructor's binder domain.
 
-```
-checkBlock(env, block):          -- block = formers, constructors, recursors from the stream
-  -- 0. shape
-  split into type formers T_1..T_k (one parameter count nP), their constructors, recursors
-  member names distinct, constructor names distinct
-  isRec := official's syntactic is_rec (a member in a constructor's binder domain)
+**2. Type formers** (in the environment `env` before the block).
+* Each `T_m` type-checks, and its type, in weak head normal form, is
+  `Π (p⃗ : P⃗) (indices), Sort s_m`.
+* Every member's parameter domains are definitionally equal to
+  `T_1`'s, and every `s_m` is equivalent to `s_1`, called `s`.
+* `env1` is `env` plus all type formers, with the η, unit-like and K
+  capability flags computed from `isRec`.
 
-  -- 1. formers (at env)
-  each T_m: type-check; whnf its type as Π (p⃗ : P⃗) (indices) → Sort s_m
-  every member's parameter domains defeq to T_1's; every s_m ≡ s_1 =: s
-  env1 := env + all formers   (η / unit-like / K capability flags, read at isRec)
+**3. Constructors** (in `env1`), stored as declared.
+* Each constructor of `T_m` type-checks, and its type is
+  `Π p⃗ (fields), T_m p⃗ idx`, with parameter domains definitionally
+  equal to `T_m`'s.
+* Every field's sort is at most `s`. In a `Prop` block with a large
+  eliminator, every field is a proof or one of the result's index
+  expressions (the subsingleton criterion).
 
-  -- 2. constructors (at env1), as declared
-  each constructor c of T_m: type-check; its type is Π p⃗ (fields) → T_m p⃗ idx
-  parameter domains defeq to T_m's
-  field sorts ≤ s; at a Prop block with a large eliminator: every field a proof
-    or one of the result's index expressions (the subsingleton criterion)
+**4. Classes** (in `env1`).
+* Read off the stream's recursor types, without checking yet: the
+  classes (one per motive `∀ ı⃗ (t : I us Ds ı⃗), Sort ℓ`), the layout of
+  the shared prefix (the motives, the minor premises and each minor
+  premise's inductive hypotheses) and the class of every recursor
+  ([function `classRead` in `ConLeche/Kernel/Inductives/ClassRead.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/ClassRead.lean#L130)).
+  What is read here is only a guess; the rest of this step and step 8
+  check it.
+* Every class, its parameter arguments `Ds` moved to the block's
+  parameters and annotated, is checked as a major premise:
+  * a member class is `T_m` at the block's levels and parameters, one
+    class per member;
+  * an outside class names a stored inductive type other than `Quot`;
+    its `Ds` mention only parameters and mention a member (the official
+    kernel's nested-occurrence test); its sort is equivalent to `s`;
+    `Ds` and `I us Ds` type-check.
 
-  -- 3. the classes (at env1)
-  [unverified] read off the stream's recursor types (raw): the CLASSES (one per
-        motive ∀ ı⃗ (t : I us Ds ı⃗), Sort ℓ), the prefix layout (the motives, the
-        minor premises and each one's ihs) and every recursor's class
-  every class I us Ds, its Ds moved to p⃗ and annotated, checked as a major:
-     a member  → I = T_m at the block's levels and parameters (one class per member)
-     outside   → I a stored inductive, not Quot; Ds mention only parameters and name a
-                 member (official's is_nested); I's sort ≡ s; Ds and I us Ds type-check
+**5. Positivity** (in `env1`).
+* First, per constructor, on its stored type: every occurrence of a
+  member is `T_j` at the block's levels applied to exactly `p⃗`, and no
+  parameter's domain mentions a member (the official kernel's
+  uniform-parameters check).
+* Then the members, as the root frame: `CTORS` of the block's
+  constructors, at the instance `(T⃗, the block's levels, p⃗)`, with
+  holes `X⃗`, where `X_j` stands for `T_j p⃗`, a family over `T_j`'s
+  indices.
+* Then every outside class `I us Ds`: `CONT(I, us, Ds)` with an empty
+  frame stack.
 
-  -- 4. positivity check (at env1): every class from the empty frame stack
-  first official's uniform occurrences, per constructor, on its stored type: every
-    member occurrence is T_j at the block's levels applied to exactly p⃗, and no
-    parameter's domain mentions a member
-  the members first, as the ROOT frame:
-    CTORS(the block's constructors, key (T⃗, the block's levels, p⃗), holes X⃗ —
-          X_j stands for the whole application T_j p⃗, a family over T_j's indices)
-    [proof] (at a Type block) its normal form's field sorts are ≤ s at the holes
-  then every outside class: CONT(I, us, Ds, [])
+The three procedures:
 
-POS(e, frames):
-  w := whnf e
-  if w mentions no member and no hole          → ordinary field
-  if w = Π a. b                                → reject if a mentions a member or hole,
-                                                 else POS(b, frames)
-  if w = H idx, H a hole — the root frame's (a member X_j, standing for T_j p⃗) or
-       a container frame's (Y, standing for its container at the key) — idx
-       hole-free, fully applied               → a recursive field (X_j) or a field of
-                                                 the container in progress (Y)
-  if w = C us Ds idx, C a stored inductive (not a member, not Quot):
-       Ds free of local variables; idx hole-free; fully applied
-       C's level count right; C's index telescope at Ds mentions no member or hole;
-       C's sort ≡ s
-       CONT(C, us, Ds, frames)
-  else reject ("non-valid occurrence")
+*`POS(e)`* classifies one field type `e`. Let `w` be the weak head
+normal form of `e`:
 
-CONT(C, us, Ds, frames):
-  key := (C, us, Ds)
-  if key is being walked                           → reject (an instantiation in
-                                                     progress, reached through reduction)
-  if key is cached and Ds mention no frame hole    → done
-  group := C's whole mutual block, each member's whole application C_j q⃗ ↦ a fresh
-           frame hole Y_j, typed by C_j's former at Ds (a family over its indices;
-           each C_j's former checked at Ds as above)
-  C us Ds type-checks
-  CTORS(the group's constructors, key, holes Y⃗)
-  cache the group's keys if Ds mention no frame hole
+| `w` is … | then |
+|---|---|
+| free of members and holes | an ordinary field |
+| `Π a, b` | reject if `a` mentions a member or a hole, else `POS(b)` |
+| `H idx`, `H` a hole, `idx` free of holes, fully applied | a recursive field (a root hole `X_j`) or a field of the container being checked (a frame's hole `Y_j`) |
+| `C us Ds idx`, `C` a stored inductive type, not a member, not `Quot` | `CONT(C, us, Ds)`, provided `Ds` has no local variables, `idx` no holes, the application is full, `C`'s level count is right, `C`'s index telescope at `Ds` mentions no member or hole, and `C`'s sort is equivalent to `s` |
+| anything else | reject (a non-valid occurrence) |
 
-CTORS(constructors, key, holes):    -- the one constructor loop: the root's, every frame's
-  for each constructor:
-      its stored type at the key's levels, every whole application of a group member
-        to the parameters ↦ its hole, BEFORE the parameters are instantiated at the
-        key's (no β-step); type-check it
-        [proof, at the root] the member-abstracted constructor typed with the holes
-        in context (official types the declared one, step 2)
-      for each field: POS(field, frames)
-      no later field and not the result reads a non-ordinary field
-      the result is headed by a hole; its indices are hole-free
-      record its normal form at the key (each hole read back as the application it
-        stands for)
-                                                   [a table local to the install]
+*`CONT(C, us, Ds)`* checks the container instance `(C, us, Ds)`:
+1. If that instance is already being checked further down the frame
+   stack, reject: the instantiation was reached again through
+   reduction.
+2. If it was checked before and `Ds` mentions no hole, it is done.
+3. Otherwise take `C`'s whole mutual block; each member's application
+   `C_j q⃗` to its parameters becomes a fresh hole `Y_j`, typed by
+   `C_j`'s type former at `Ds` (each such former is checked at `Ds` as
+   in the table above).
+4. `C us Ds` type-checks.
+5. Run `CTORS` of that block's constructors at the instance, with the
+   holes `Y⃗`, as a new frame.
+6. Remember the block's instances as checked, if `Ds` mentions no hole.
 
-  -- 5. tail
-  index sorts read
-  env2 := env1 + constructors
+*`CTORS`* is the one constructor loop, for the root and for every
+frame. For each constructor:
+1. Take its stored type at the instance's levels and replace every
+   application of a block member to the parameters by its hole —
+   before the parameters are instantiated at the instance's, so no
+   β-step is involved — and type-check the result.
+2. Run `POS` on every field.
+3. No later field, and not the result, may depend on a field that is
+   not ordinary.
+4. The result is headed by a hole, with hole-free indices.
+5. Record the constructor's normal form at the instance, each hole
+   read back as the application it stands for, in a table local to
+   the install.
 
-  -- 6. the recursors, GENERATED (at env2), from the classes and step 4's table
-  pins: level parameters (the block's, one elimination level in front when large);
-        names {T_m.rec} for member classes, {T_1.rec_1 .. T_1.rec_n} for the others;
-        constructor grouping
-  the stream's recursor types type-checked
-  a large eliminator on a block that may be a Prop: one member with at most one
-     constructor and no outside class (official's elim_only_at_universe_zero)
-  per class, per constructor x:
-     its entries := the recorded normal forms of x at a key the class matches (levels
-        equivalent, parameters defeq with the members abstracted); the first is the DATUM
-     x's minor premise's ihs are exactly the datum's recursive fields (a field whose
-        walked type names a member), one each
-     [proof] node agreement: at EVERY entry every recursive field has the datum's
-        telescope, leaf head and indices, and a leaf class matching the ih's class
-  GENERATE (official's mk_rec_infos / mk_rec_rules):
-     the shared prefix: the parameters, then per slot a motive ∀ ı⃗ (t : I us Ds ı⃗), Sort ℓ
-        or a minor premise ∀ (f⃗ : x's DECLARED fields at the class)
-        (ih_i : ∀ a⃗, motive_t e⃗ (f_i a⃗)), motive_c (x's result indices) (x Ds f⃗),
-        a⃗ and e⃗ off the datum's walked field i
-     per recursor (class c): Π prefix (ı⃗ : c's index telescope) (t : I us Ds ı⃗), motive_c ı⃗ t
-     per recursor and constructor x: λ prefix f⃗, minor_x f⃗ (λ a⃗, rec_t prefix e⃗ (f_i a⃗))…
-        with rec_t the family's recursor at the ih's class (none: reject)
-  per recursor: its generated type type-checked as a constant, and isDefEq to the
-     stream's (reject-only)
-  envR := env2 + the generated recursors without rules
-  per generated rule: annotated, resolved and type-checked at envR
-  env3 := env2 + the GENERATED recursors with their GENERATED rules (an outside class's
-          fire at its instantiation) + projection tables for structure-like members
-```
+**6. Tail.** The index sorts are read; `env2` is `env1` plus the
+constructors.
 
-The entry is
+**7. Generating the recursors** (in `env2`), from the classes and the
+table of step 5, as the official kernel's `mk_rec_infos` and
+`mk_rec_rules` do.
+* Fixed by the checker: the universe parameters (the block's, with one
+  elimination level in front for a large eliminator); the names
+  `T_m.rec` for member classes and `T_1.rec_1 … T_1.rec_n` for the
+  others; which constructors belong to which recursor.
+* The stream's recursor types type-check.
+* A large eliminator on a block that may be a `Prop` requires one
+  member, at most one constructor and no outside class (the official
+  kernel's `elim_only_at_universe_zero`).
+* For each class and each of its constructors `x`: the table's entries
+  for `x` at an instance the class matches (levels equivalent,
+  parameters definitionally equal with the members abstracted); the
+  first is the *reference entry*. The inductive hypotheses of `x`'s
+  minor premise are exactly the reference entry's recursive fields,
+  one each.
+* The shared prefix: the parameters, then per slot either a motive
+  `∀ ı⃗ (t : I us Ds ı⃗), Sort ℓ` or a minor premise
+  `∀ (f⃗ : x's declared fields) (ih_i : ∀ a⃗, motive_t e⃗ (f_i a⃗)), motive_c (x's result indices) (x Ds f⃗)`,
+  with `a⃗` and `e⃗` taken from the reference entry's field `i`.
+* Each recursor, for a class `c`, has the type
+  `Π prefix (ı⃗ : c's index telescope) (t : I us Ds ı⃗), motive_c ı⃗ t`,
+  and for each constructor `x` the rule
+  `λ prefix f⃗, minor_x f⃗ (λ a⃗, rec_t prefix e⃗ (f_i a⃗)) …`, where
+  `rec_t` is the recursor for the inductive hypothesis's class
+  (reject if there is none).
+
+**8. The recursor check.**
+* Each generated type type-checks as a constant and is definitionally
+  equal to the stream's recursor type.
+* Every generated rule is annotated, its constants are resolved, and
+  it is type-checked in `env2` plus the generated recursors without
+  rules.
+* `env3` is `env2` plus the generated recursors with their generated
+  rules (an outside class's rules fire at its instantiation), plus the
+  projection tables of structure-like members.
+
+**Checks made for the proof alone.** Three checks have no counterpart
+in the official kernel; they are there because the proof reads them:
+* in step 5, at a `Type` block, the field sorts of the root frame's
+  normal forms are at most `s` with the holes in place;
+* in `CTORS` at the root, the constructor with its members replaced by
+  holes is type-checked with the holes in context (the official kernel
+  type-checks only the declared constructor, step 3);
+* in step 7, at every table entry of a constructor, every recursive
+  field has the reference entry's telescope, head and indices, and a
+  class matching its inductive hypothesis's.
+
+Where the steps live: the entry is
 [function `checkBlock` in `ConLeche/Kernel/Inductives/BlockTail.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/BlockTail.lean#L143);
-steps 1–4 are
+steps 1–5 are
 [function `checkBlockPass` in the same file](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/BlockTail.lean#L62),
-the constructor check of step 2 is
+the constructor check of step 3 is
 [function `checkSumCtor` in `ConLeche/Kernel/Inductives/SumInstall.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/SumInstall.lean#L114),
-step 3 is
+step 4 is
 [function `checkBlockClasses` in `ConLeche/Kernel/Inductives/GenRec.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/GenRec.lean#L524),
-with the unverified reading of the stream's recursor types in
-[function `classRead` in `ConLeche/Kernel/Inductives/ClassRead.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/ClassRead.lean#L130)
-and a class's parameters moved and annotated in
-[function `classKeyOf`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/GenRec.lean#L509),
+with a class's parameters moved and annotated in
+[function `classKeyOf`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/GenRec.lean#L509);
 `POS` is
 [function `nestPos` in `ConLeche/Kernel/Inductives/Positivity.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/Positivity.lean#L1453),
-its hole's entry (the root frame's, then the frames')
+its hole lookup
 [function `nestHoleAt` in the same file](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/Positivity.lean#L733),
 `CONT` is
 [function `nestContKey`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/Positivity.lean#L1395),
 `CTORS` is
 [function `nestCtors`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/Positivity.lean#L1213),
-and the uniform occurrences
-[function `nestUniform`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/Positivity.lean#L1564),
-step 5 is
-[function `checkBlockTail` in `BlockTail.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/BlockTail.lean#L129),
-and step 6 is `genRecCheck` (above), with
-a constructor's datum and node agreement in
+and the uniform-parameters check
+[function `nestUniform`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/Positivity.lean#L1564);
+step 6 is
+[function `checkBlockTail` in `BlockTail.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/BlockTail.lean#L129);
+steps 7 and 8 are `genRecCheck` (above), with a constructor's
+reference entry and the third proof-only check in
 [function `classCtorOf` in `ConLeche/Kernel/Inductives/GenRec.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/GenRec.lean#L299),
 the generated type and rule in
 [function `classGenRecTy`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/GenRec.lean#L181)
@@ -860,13 +917,32 @@ instead of trusting the operation's name.
   [theorem `divMod_install` in `ConLeche/Model/DivModCert.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/DivModCert.lean#L2014).
   That is why the two statements of §1 quantify over the list: the pins
   buy accepted `Nat.div` streams, never consistency.
+* **`Bool`.** `Nat.beq` and `Nat.ble` return `Bool.true` or
+  `Bool.false`, and the well-founded operations' certificates are
+  guarded by `Nat.ble`, so these operations install only once `Bool`
+  and its two constructors are stored, with no universe parameters and
+  with `Bool : Type`
+  ([function `natOpGuard` in `ConLeche/Kernel/CoreDefs.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/CoreDefs.lean#L556-L568),
+  [function `natOpCod` in the same file](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/CoreDefs.lean#L611-L618)).
+  That is the only reason the checker knows the name. `Bool` is not
+  pinned: it is the stream's own block, installed like any other, and
+  nothing depends on what it denotes — the fast path's result is the
+  constant `Bool.true` or `Bool.false`, and the model proves from the
+  certified recurrences that the operation's application denotes
+  whatever that constant denotes. (The compiler-trust axiom
+  `Lean.ofReduceBool` of §8 likewise asks for a `Bool` of the standard
+  shape.)
 * **Order independence.** The certificates are spelled over the
-  structural operations and the basis blocks, which an export may emit
-  in any order. One pure pass between the parse and the fold puts every
-  declaration the checker's prelude names at the front of the records —
-  the stream's own record where the stream has one — and moves a pinned
-  operation's dependency closure ahead of it when the stream has it
-  later
+  structural operations, `Bool` and the basis blocks, which an export
+  may emit in any order. The checker therefore carries a small built-in
+  prelude: the pinned basis blocks, `Bool` and `And`, as the toolchain
+  exports them. One pure pass between the parse and the fold puts every
+  prelude declaration at the front of the records — the stream's own
+  record where the stream has one, the prelude's copy only where it has
+  none — and moves the structural operations a pinned operation's
+  certificates are spelled over (`Nat.ble`, `Nat.sub`, `Nat.mul`),
+  which are not in its own dependency closure, ahead of it when the
+  stream has them later
   ([`preparePrelude` in `ConLeche/Frontend/Prepare.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Frontend/Prepare.lean#L165-L172),
   [the reordering pass `ConLeche/Frontend/NatOpGround.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Frontend/NatOpGround.lean#L8-L25)).
   Both are reorderings of the parsed records below the verified fold,
@@ -956,8 +1032,10 @@ declare it.)
   transformations of that list. Two are reorderings, and a theorem says
   so (`preparePrelude`, §6): the declarations the prelude names are
   moved to the front, the prelude's own copy filling in only what the
-  file does not declare, and a pinned Nat operation's dependencies are
-  moved ahead of it. Nothing is rewritten and nothing is added.
+  file does not declare, and the structural operations a pinned Nat
+  operation's certificates mention are moved ahead of it. Nothing is
+  rewritten, and nothing is added but the prelude records the file
+  lacks.
   Two guarantees have to be kept apart
   here. What §5 and §6 establish is that everything the frontend
   hands over is checked: the prelude's records and a Nat operation's
@@ -968,13 +1046,13 @@ declare it.)
 * `--trusted` mode.
 * Non-acceptance: a decline or a reject carries no claim. The verdict
   line reports the count of accepted stream records.
-* Three deliberate accept-supersets relative to the official kernel, a
-  semantic comparison of universe levels, a proof-irrelevance
-  fall-through, and the large eliminator of a single-constructor block
-  whose result sort can be zero — where the official kernel generates
-  only the small one, this checker takes the subsingleton case under
-  the per-field `PropWhen` criterion. All three are licensed by the
-  soundness proof.
+* Four places where the checker deliberately accepts more than the
+  official kernel: a semantic comparison of universe levels; a
+  proof-irrelevance fall-through; the large eliminator of a
+  single-constructor block whose result sort can be zero — where the
+  official kernel generates only the small one, this checker takes the
+  subsingleton case under the per-field `PropWhen` criterion; and the
+  `And` rescue of §3. All four are covered by the soundness proof.
 
 ## 10. Naming conventions
 
@@ -984,21 +1062,21 @@ listed here carries meaning**.
 | marker | reading |
 |---|---|
 | `C` | the *cached* checker's twin of a pure definition (`checkDeclC`, `CoreC`, `Expr.instantiate1C`, `SimC`) — the implementation that ships; there is one `Expr` type and one `Declaration` type, so the marker is on the function, never on the type |
-| `I` | indexed (`nativeRecAVI`-style readings that carry an index) |
-| `F` | stated over the environment-with-index `FEnv` (`checkNativeRecF`) |
+| `I` | the variant that also handles an inductive family's index arguments (`checkStructFieldSortsI`) |
+| `F` | stated over `FEnv`, the environment together with its lookup index (`natLitSupportedF`) |
 | `D` | the direct parse and the functions over its output (`parseExportD`, `trusted_agrees_skels_D`) |
 | `AV`, `Annot` | annotated terms: `AnnotTerm` is `Term` with a numeral sort at every binder, and `*AV` names are its readers (`sumTyAV`, `natLitAV`) |
 | `WF` | well-formedness (`EnvWF`, `BlockWF`) |
-| `_pure` / `_cached` / `_checked` | the capstones over the pure fueled fold, over the cached fold `checkDecls`, and over the driver's fully checked environment (`no_proof_of_False_pure`, `no_proof_of_False_cached`, `no_proof_of_False_checked`) |
+| `_pure` / `_cached` / `_checked` | the final theorems over the pure fueled fold, over the cached fold `checkDecls`, and over the driver's fully checked environment (`no_proof_of_False_pure`, `no_proof_of_False_cached`, `no_proof_of_False_checked`) |
 
-A few words name things rather than tiers. An inductive block is
-installed by the **uniform** route (`checkBlock`,
-`Kernel/Inductives/Block*.lean`), which builds the block's carrier as
-a least fixed point and generates its recursors; it is the only one.
-`Struct*` and `Sum*` inside those directories are the two stage kits
-the uniform route builds on —
-the structure-shaped kit (projections, η, the entry telescope) and the
-tagged-sum kit (the constructors as a sum). `Fueled` marks a
+A few words name things rather than tiers. Every inductive block
+that is not pinned is installed by one installer (`checkBlock`,
+`Kernel/Inductives/Block*.lean`), whose model is a least fixed point
+and which generates the block's recursors. The `Struct*` and `Sum*` files inside
+those directories are parts of it, not separate routes: `Sum*` holds
+the type-former and constructor stages, `Struct*` the projection tables
+of structure-like members and the syntactic pieces of the generated
+recursors. `Fueled` marks a
 record-parameterised helper applied to the pure functions at a fuel
 (`Verify/Knot.lean`).
 
@@ -1013,8 +1091,8 @@ proof file's bodies and proof terms are both private and only its statements
 are interface.  The erased term language, the `SetTheory` interface, the pure
 set constructions and the denotation (`Term/*`, `SetTheory/*`, `SetModel/*`,
 `Semantics/*`) keep the blanket for the same reason the checker does — the
-tiers above unfold them. The one deliberate
-seal is `Kernel/PropWhen`, whose representation stays hidden behind its
+tiers above unfold them. The one module
+deliberately kept opaque is `Kernel/PropWhen`, whose representation stays hidden behind its
 API and laws; the proofs that need to see through it say `import all
 ConLeche.Kernel.PropWhen`, and every such line carries its reason.
 
@@ -1023,17 +1101,17 @@ ConLeche.Kernel.PropWhen`, and every such line carries its reason.
 | Directory | Contents |
 |---|---|
 | `Main.lean` | The driver: argument parsing, the stream parse, the install and check loops, verdict and exit codes. |
-| `ConLeche/Kernel/` | The pure checker: `Expr`/`Level`/`Name`, `PropWhen`, the core reduction/inference/conversion knot (`Core.lean`), declaration checking (`Checker.lean`, `DeclCheck.lean`), the basis pins (`Basis/`), the inductive installer (`Inductives/`: the recogniser `BlockParts.lean`, the positivity check `Positivity.lean`, the entry `checkBlock` with its structure and sum kits, the recursor generator `GenRec.lean` and its unverified pre-pass `ClassRead.lean`), the Nat-op pins. Imports no theory module. |
+| `ConLeche/Kernel/` | The pure checker: `Expr`/`Level`/`Name`, `PropWhen`, the mutually recursive core of reduction, inference and conversion (`Core.lean`), declaration checking (`Checker.lean`, `DeclCheck.lean`), the basis pins (`Basis/`), the inductive installer (`Inductives/`: the recogniser `BlockParts.lean`, the positivity check `Positivity.lean`, the entry `checkBlock` with its constructor stages (`Sum*`) and projection tables (`Struct*`), the recursor generator and check `GenRec.lean`, and `ClassRead.lean`, which reads the classes off the stream's recursor types without checking them), the Nat-op pins. Imports no theory module. |
 | `ConLeche/Cached/` | The shipped cached checker: hashed expressions, memo state, the cached core and declaration step, the parsed-record step (`ParsedC.lean`), the declaration fold `checkDecls` with its install and check phases and the fully checked environment the driver assembles (`Installed.lean`). |
-| `ConLeche/Frontend/` | The export parser: the dialect's byte recogniser and syntax records (`Scan/`) and the semantic layer over them (`ExportC.lean`), which decodes the file's records and nothing else; the preparation of the fold's input (`Prepare.lean`, with the built-in prelude of `Prelude.lean` and the Nat-op ground reordering of `NatOpGround.lean`). |
+| `ConLeche/Frontend/` | The export parser: the dialect's byte recogniser and syntax records (`Scan/`) and the semantic layer over them (`ExportC.lean`), which decodes the file's records and nothing else; the preparation of the fold's input (`Prepare.lean`, with the built-in prelude of `Prelude.lean` and the reordering of `NatOpGround.lean`, which moves what a pinned Nat operation's certificates mention ahead of it). |
 | `ConLeche/PinGen/` | Elaboration-time generation of the Nat-op pins and certificate proofs; the committed dump lives in `pins/`. |
 | `ConLeche/Term/` | The erased term language, its substitution algebra and the basis constants. |
 | `ConLeche/SetTheory/` | The `SetTheory` class and the derived set operations. |
-| `ConLeche/SetModel/` | Pure set constructions with no expressions in sight: tuples and tuple towers, tagged sums, the fixpoint iteration, the recursor's graph, member containers. |
-| `ConLeche/Semantics/` | The annotated term language, the interpretation, the semantic invariant, the tower semantics of inductive blocks, the declaration-level facts. |
-| `ConLeche/Rules/` | The relational description of the core checker: six mutually inductive relations over the checker's own `Expr` — reduction, definitional equality, type inference at two grades, and three certificate walks — with fuel, unfolding heuristics and dispatch order out of sight (`Rel.lean`), and the derived rules (`Derived.lean`). Imports the fuel-free helpers of the kernel and nothing else of it. |
+| `ConLeche/SetModel/` | Pure set constructions with no expressions in sight: tuples and nested tuples, tagged sums, the fixpoint iteration, the recursor's graph, member containers. |
+| `ConLeche/Semantics/` | The annotated term language, the interpretation, the semantic invariant, the semantics of inductive blocks, the declaration-level facts. |
+| `ConLeche/Rules/` | The relational description of the core checker: six mutually inductive relations over the checker's own `Expr` — reduction, definitional equality, type inference (checking and infer-only), and three certificate checks — with fuel, unfolding heuristics and dispatch order out of sight (`Rel.lean`), and the derived rules (`Derived.lean`). Imports the fuel-free helpers of the kernel and nothing else of it. |
 | `ConLeche/Verify/Rules/` | The bridge: an accepting run of a kernel function, at any fuel, yields a derivation (`Bridge.lean`, from one step theorem per entry point and the certificate bridges). |
-| `ConLeche/Model/` | The graded set model of the checker: the environment invariant and its laws (`Annot/`), the claims, the soundness of the rules tier's derivations (`Rules/`: the motives, the environment inputs, one lemma per rule over shared kits, the master induction, and the recomposition of the claims from the bridge), the run-stated remainder the declaration fold reads (`Tiers.lean`), the declaration step, the inductive installs (`Inductives/`, `Ind*`), the Nat-op certification, the capstones, and the model read through the statement's relation (`Denotes.lean`). |
+| `ConLeche/Model/` | The graded set model of the checker: the environment invariant and its laws (`Annot/`), the claims, the soundness of the rules tier's derivations (`Rules/`: the motives, the environment inputs, one lemma per rule over shared kits, the master induction, and the recomposition of the claims from the bridge), the run-stated remainder the declaration fold reads (`Tiers.lean`), the declaration step, the inductive installs (`Inductives/`, `Ind*`), the Nat-op certification, the final theorems (`Capstone.lean`), and the model read through the statement's relation (`Denotes.lean`). |
 | `ConLeche/Verify/` | Proofs about kernel functions that need no model: well-formedness, scoping, the cached-to-pure simulation (`Cached/`), the inductive installer's kernel-side invariants (`Inductives/`), and the parser's (`Frontend/`: line locality, the parse as a line fold, chunk independence, what a line does to the parse state, the template's lines). |
 | `ConLeche/Accepts.lean` | The file-level vocabulary of the statement: `jsonWithTheoremFalse`, the whole-file template of one JSON file that declares a theorem of type `False`. |
 | `ConLeche/Denotes.lean` | The statement's semantics: what a term denotes (`Denotes`) and what a model of an environment is (`Model`); imports nothing from the proof tiers. |
@@ -1045,14 +1123,14 @@ ConLeche.Kernel.PropWhen`, and every such line carries its reason.
 ## 12. Gates
 
 `tests/arena.sh` is the standard battery: the layering fence
-(`tests/layering.sh`: no base module imports the model lane, no
+(`tests/layering.sh`: no base module imports the model tier, no
 implementation module imports the theory, and no module of the
 rules tier of §4 has the pure implementation in the environment it
 elaborates in — its direct imports plus, transitively, their
 `public import`s, computed from source; the implementation modules
 that the base tiers' own re-exports still carry in are listed in the
-script and the list may only shrink), the compiler-escape scan, the pin
-dump freshness, the Comparator pair (`tests/challenge.sh`: the
+script and the list may only shrink), the trust-surface scan (`tests/trust-surface.sh`: no `unsafe`, `implemented_by` or `native_decide` outside an allowlist), the pin
+dump freshness, the challenge comparison (`tests/challenge.sh`: the
 challenge module builds with its `sorry` warnings and nothing else,
 and every statement it makes is token-identical to the solution's),
 the arena tutorial tests, the end-to-end and annotation fixtures with

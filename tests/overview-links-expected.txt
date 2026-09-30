@@ -866,8 +866,24 @@
    620      | .ctorInfo _ nPc _ => nPc == nP
    621      | _ => true
 
+== ConLeche/Kernel/Inductives/BlockTail.lean#L143
+   143  def checkBlock (ops : CheckerOps m) (env : Env) (block : List ConstantInfo) (p₀ : BlockParts) :
+
+== ConLeche/Kernel/Inductives/RecCheck.lean#L384-L386
+   384  def targetMajorOf (fe : FEnv) (p : BlockShape)
+   385      (ctorsAs : List (List (ConstantVal × Nat))) (pfvs fvs : List Expr)
+   386      (mty : Expr) : m TargetMajor := do
+
+== ConLeche/Kernel/Inductives/Positivity.lean#L1363-L1365
+  1363  no frame hole, the only keys that can hit (`nestContKey`). -/
+  1364  def nestContNew (ctx : NestCtx) (ops : CheckerOps m) (env : Env)
+  1365      (rec : List NestHole → Nat → Nat → Expr → NestState → m (NestFieldKind × Expr × NestState))
+
 == ConLeche/Kernel/Inductives/Positivity.lean#L1592
   1592  def nestRoot (ops : CheckerOps m) (env : Env) (ctx : NestCtx) (holes : List Expr) :
+
+== ConLeche/Kernel/Inductives/GenRec.lean#L496
+   496  def classSeeds (ctx : NestCtx) (holes : List Expr) (Ms : List TargetMajor) :
 
 == ConLeche/Kernel/Inductives/BlockInstall.lean#L284
    284  def checkBlockPositivity (ops : CheckerOps m) (env₁ : Env) (find? : Name → Option ConstantInfo)
@@ -875,8 +891,9 @@
 == ConLeche/Kernel/Inductives/GenRec.lean#L560
    560  def genRecCheck (so : ShadowOps m) (fe : FEnv) (p : BlockShape) (nestedBit : Bool)
 
-== ConLeche/Kernel/Inductives/BlockTail.lean#L143
-   143  def checkBlock (ops : CheckerOps m) (env : Env) (block : List ConstantInfo) (p₀ : BlockParts) :
+== ConLeche/Kernel/Inductives/RecCheck.lean#L592-L593
+   592  def tgtStoredRules (find? : Name → Option ConstantInfo) (resolves : Expr → Bool)
+   593      (cv : ConstantVal) (mI rP : Nat) (M : TargetMajor) (rhss : List Expr) : List RecRule :=
 
 == ConLeche/SetModel/Value.lean#L365-L372
    365  noncomputable def lfpFamSpace (w : Nat) (I : V) : V := piR (w + 1) I fun _ => univ w
@@ -899,38 +916,12 @@
     76      (hrun : ConLeche.Semantics.DeclBlockRun μ F env block p₀ env₂) (hcov : LfpCover mp []) :
     77      ∃ mp' : EnvModelM V μ env₂, LfpCover mp' [] := by
 
-== ConLeche/Kernel/Inductives/Positivity.lean#L1363-L1365
-  1363  no frame hole, the only keys that can hit (`nestContKey`). -/
-  1364  def nestContNew (ctx : NestCtx) (ops : CheckerOps m) (env : Env)
-  1365      (rec : List NestHole → Nat → Nat → Expr → NestState → m (NestFieldKind × Expr × NestState))
-
-== ConLeche/Kernel/Inductives/RecCheck.lean#L384-L386
-   384  def targetMajorOf (fe : FEnv) (p : BlockShape)
-   385      (ctorsAs : List (List (ConstantVal × Nat))) (pfvs fvs : List Expr)
-   386      (mty : Expr) : m TargetMajor := do
-
-== ConLeche/Kernel/Inductives/GenRec.lean#L496
-   496  def classSeeds (ctx : NestCtx) (holes : List Expr) (Ms : List TargetMajor) :
-
-== ConLeche/Kernel/Inductives/RecCheck.lean#L592-L593
-   592  def tgtStoredRules (find? : Name → Option ConstantInfo) (resolves : Expr → Bool)
-   593      (cv : ConstantVal) (mI rP : Nat) (M : TargetMajor) (rhss : List Expr) : List RecRule :=
-
-== ConLeche/SetModel/Access.lean#L242-L243
-   242  theorem closed_of_acc (hw : w ≠ 0) (hA : A ∈ˢ (univ w : V)) (hmaps : MapsTuple w k Is Φ)
-   243      (hacc : AccTuple w k Is k Is Φ A) : ∃ L, IsClosedTuple w k Is Φ L := by
-
-== ConLeche/Model/Inductives/DeclBlockStep.lean#L72-L77
-    72  theorem declBlock (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
-    73      {block : List ConstantInfo} {nPd : Nat} {p₀ : BlockParts}
-    74      (mp : EnvModelM V μ env)
-    75      (hE : ConLeche.EtaFamiliesClosed env) (hdp : ConLeche.blockParts? nPd block = some p₀)
-    76      (hrun : ConLeche.Semantics.DeclBlockRun μ F env block p₀ env₂) (hcov : LfpCover mp []) :
-    77      ∃ mp' : EnvModelM V μ env₂, LfpCover mp' [] := by
-
 == ConLeche/Kernel/CheckDecl.lean#L32-L33
     32  def checkShapeless (ops : CheckerOps m) (env : Env) (block : List ConstantInfo) :
     33      m Env := do
+
+== ConLeche/Kernel/Inductives/ClassRead.lean#L130
+   130  def classRead (nP : Nat) (nPc : Name → Nat) (recs : List RecShape) : Option ClassRead := do
 
 == ConLeche/Kernel/Inductives/BlockTail.lean#L143
    143  def checkBlock (ops : CheckerOps m) (env : Env) (block : List ConstantInfo) (p₀ : BlockParts) :
@@ -943,9 +934,6 @@
 
 == ConLeche/Kernel/Inductives/GenRec.lean#L524
    524  def checkBlockClasses (ops : CheckerOps m) (fe₁ : FEnv) (env₁ : Env) (p : BlockShape)
-
-== ConLeche/Kernel/Inductives/ClassRead.lean#L130
-   130  def classRead (nP : Nat) (nPc : Name → Nat) (recs : List RecShape) : Option ClassRead := do
 
 == ConLeche/Kernel/Inductives/GenRec.lean#L509
    509  def classKeyOf (ops : CheckerOps m) (env : Env) (nP : Nat) (params : List Expr)
@@ -1079,6 +1067,31 @@
 
 == ConLeche/Model/DivModCert.lean#L2014
   2014  run-certificate conversion for the WF-recursive family. -/
+
+== ConLeche/Kernel/CoreDefs.lean#L556-L568
+   556  def natOpGuard (env : Env) (c : Name) : Bool :=
+   557    natLitSupported env &&
+   558    (natOpDeps c).all (fun n => match env.find? n with
+   559      | some (.defnInfo cv _ _) => cv.levelParams.isEmpty
+   560      | _ => false) &&
+   561    (if c = natBeqName || c = natBleName || natDivModNames.contains c then
+   562      (match env.find? boolTrueName with
+   563        | some ci => ci.toConstantVal.levelParams.isEmpty
+   564        | none => false) &&
+   565      (match env.find? boolFalseName with
+   566        | some ci => ci.toConstantVal.levelParams.isEmpty
+   567        | none => false)
+   568     else true)
+
+== ConLeche/Kernel/CoreDefs.lean#L611-L618
+   611  def natOpCod (env : Env) (c : Name) (e : Expr) : Bool :=
+   612    if c = natBeqName || c = natBleName then
+   613      e == .const boolName [] &&
+   614      (match env.find? boolName with
+   615       | some ci => ci.toConstantVal.levelParams.isEmpty &&
+   616           ci.toConstantVal.type == .sort (.succ .zero)
+   617       | none => false)
+   618    else e == .const natName []
 
 == ConLeche/Frontend/Prepare.lean#L165-L172
    165  /-- **`preparePrelude`**: the parsed stream, prepared for the fold —
