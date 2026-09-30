@@ -79488,3 +79488,54 @@ moves 1 → 0.
 the only moved row `nested_p07`.  cslib (`--verified --jobs=4`):
 exit 0, 383 976 declarations (was exit 1).  init-full: exit 0, 53 093
 declarations.
+
+## TASK #323 — a stuck projection keeps its structure argument: KEEPPROJ ported from `uniform-inds` (2026-09-30, `agent/master-keepproj`)
+
+The port of the `uniform-inds` lane KEEPPROJ (its record there: "KEEPPROJ —
+a stuck projection keeps its structure argument", commits `2f3997ab9`,
+`494054c90`).  **The bug.**  `whnfCore`'s `.proj` arm returned
+`.proj sn i e'`, `e'` the WHNF of the scrutinee, whenever the projection
+did not fire; official `whnf_core` (and lean4lean's `whnfCore'`) returns
+the INPUT (`reduce_proj` fails, `r = e`).  The WHNF has lost the
+scrutinee's head constant, so `a.i =?= b.i` with `a`, `b` headed by the
+same regular constant could not reach the arguments-first comparison of
+lazy delta and unfolded both bodies instead: exponential in the
+recursion depth.  On `uniform-inds` the self-check export ran out of
+memory on `ConLeche.nestRoot_datF._f` (a definition that exists only on
+that branch); master has the same kernel arm, so the same shape is
+exponential here too (the fixture below).
+
+**The change** is the one of the `uniform-inds` lane, file for file: every
+non-firing arm (table miss, non-constructor head, failed conditions,
+failed certificate) returns the input — `whnfCoreBody`
+(`Kernel/Core.lean`), the cached twin `whnfCoreStepI`
+(`Cached/CoreC.lean`, returns `e` itself), the mirrors `whnfCoreStepM`
+(`Verify/BetaSpine.lean`) and the `DiscC4` unfolding lemma and
+simulation.  `whnf_proj_inv`'s stuck arm is now `e' = .proj sn i e`; its
+consumers on master (fvar leaves, loose bvars, `WScoped` in
+`InferLeaves`/`InferLemmas`, `whnfCore_bridge` via `Red.refl` in
+`Rules/RedBridge`) close it from the input's hypothesis.  The
+`uniform-inds` diff also touched `Verify/Inductives/NfMemberFree.lean`
+(the `occDeep` consumer), which does not exist on master.  Master in
+turn still has the Gated lane (retired on `uniform-inds`), whose
+`whnfCoreBodyGated` (`Kernel/CoreGated.lean`) carries a verbatim copy of
+the projection clause, and `whnfCoreBodyGated_eq`
+(`Verify/CoreGated.lean`) proves the copy by `rfl`; its four stuck arms
+get the same change (the executable does not link it: the binary is
+byte-identical with and without that edit).  The other Lean files
+applied without conflict.  Semantically a
+reflexivity: nothing in the model tier moved.
+
+**Fixture** `tests/e2e/proj_stuck_struct.ndjson` (source
+`tests/e2e/src/proj_stuck_struct.lean`): `(step (id c) 24 x).1 =
+(step c 24 x).1` by `rfl`.  Master before the fix: out of time at 10 s
+(exit 124); after: exit 0 in 0.02 s.  `tests/arena.sh` gains the
+per-fixture timeout table `E2E_TIMEOUT` (master had only the flat 60 s)
+with this fixture at 10 s, so a regression fails fast instead of
+growing to ~8 GB.  `scripts/selfcheck.sh` drops `ulimit -v`
+(CLAUDE.md), as on `uniform-inds`.
+
+**Measured** (init-full, `--verified --jobs=8`, `perf stat -e
+instructions:u`, base `1e567fcfd`): exit 0, 53 093 declarations both;
+418.87 G → 418.80 G (−0.02 %).  No Mathlib sweep (the `uniform-inds`
+lane measured Mathlib at −0.19 % with the identical kernel change).

@@ -261,6 +261,15 @@ arena_half() {
 # fixtures keep `_model` NAMES on purpose, as the controls that the
 # name is not special: `model_name_plain`, `budget_model` and
 # `yolo_decline_vs_accept`.
+# Per-fixture timeouts other than the default 60 s, each with its reason.
+# proj_stuck_struct: BELOW the default, on purpose — the fixture checks in
+# milliseconds, and a regression (a stuck projection's struct replaced by
+# its WHNF) is exponential in time AND memory (~8 GB at 60 s), so it
+# fails fast here instead.
+declare -A E2E_TIMEOUT=(
+  [proj_stuck_struct.ndjson]=10
+)
+
 e2e_half() {
   e2e_ok=0
   e2e_total=0
@@ -275,7 +284,7 @@ e2e_half() {
       gunzip -c "$src.gz" > "$tmpf" || { echo "E2E FAIL $rel: gunzip failed"; fail=1; continue; }
       src="$tmpf"
     fi
-    timeout 60 "$BIN" $MODEFLAG "$src" >/dev/null 2>&1
+    timeout "${E2E_TIMEOUT[$rel]:-60}" "$BIN" $MODEFLAG "$src" >/dev/null 2>&1
     got=$?
     if [ "$got" != "$want" ]; then
       mismatch "E2E FAIL" "$rel" "$want" "$got"

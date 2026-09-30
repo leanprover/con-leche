@@ -1482,3 +1482,12 @@
 # No official verdict: neither stream is exporter-producible.
 1 nested_pin_collide_nomodel.ndjson
 1 nested_pin_collide2_nomodel.ndjson
+# KEEPPROJ (2026-09-29): a projection whose structure argument is stuck
+# keeps it as it was (official `whnf_core`), so `(step (id c) 24 x).1 =
+# (step c 24 x).1` compares `step … =?= step …` arguments first.  Returning
+# the projection of the struct's WHNF instead (before the fix) lost the
+# head and was exponential in the fuel; distilled from the self-check's
+# `ConLeche.nestRoot_datF._f` (source `tests/e2e/src/proj_stuck_struct.lean`,
+# timeout 10 s in tests/arena.sh).  Official 0; ours 0 in milliseconds
+# (before: out of time/memory).
+0 proj_stuck_struct.ndjson
