@@ -10,7 +10,11 @@
 # canonical table and the perf-eng "honest gap" round):
 #   * `perf stat -e instructions:u`, ONE run per cell; instructions are
 #     the only metric reported (contention-independent).
-#   * every run under `ulimit -v 16G`, `nice -n 5`, `timeout`.  (Until
+#   * every run under `nice -n 5` and a `timeout`, and NO `ulimit -v`
+#     (CLAUDE.md: the worker threads' stack reservations count against
+#     an address-space cap, which aborts the run at thread creation,
+#     exit 134, before it bounds anything; batteries before 2026-09-30
+#     ran under one, and their metadata says so).  (Until
 #     task #230 this line also carried the environment variable that
 #     kept the driver from re-exec'ing itself under the OOM supervisor;
 #     the supervisor is gone, so the checker is always the one process
@@ -59,7 +63,6 @@ DATA=${PERF_DATA:-$ROOT/perf-data}
 # rather than re-running all of them.
 REPS=${PERF_REPS:-1}
 TIMEOUT=${PERF_TIMEOUT:-3000}
-VLIMIT=${PERF_VLIMIT:-16000000}   # 16 GB virtual, the standing ceiling
 
 # Streams: label -> raw arena ndjson.  Ordered cheapest first so a
 # broken kit surfaces in seconds, not hours.  `mathlib-full` (task #187)
@@ -85,7 +88,7 @@ stream_path() {
 #
 #  * The stream is the raw full-Mathlib export, cut once by hand and
 #    named by `stream_path`.  If the file is absent the row is skipped.
-#  * The caps are the user's Mathlib ceiling: 22 GB virtual, 8 h.
+#  * The time cap is the user's Mathlib ceiling: 8 h.
 #  * The con-leche cells run under `--progress=5000` so a stalled hour is
 #    visible in a timestamped log rather than as silence.  Measured cost
 #    of that on init-full (2026-09-06): 666 084 645 143 instructions
@@ -95,7 +98,6 @@ stream_path() {
 #    acceptable producer for Mathlib-scale runs.
 # The Mathlib row also records peak RSS (`time -v`) and wall minutes,
 # which the renderer prints for that row only, as data.
-stream_vlimit()  { case "$1" in mathlib-full) echo 22000000 ;; *) echo "$VLIMIT" ;; esac; }
 stream_timeout() { case "$1" in mathlib-full) echo 28800 ;; *) echo "$TIMEOUT" ;; esac; }
 stream_progress(){ case "$1" in mathlib-full) echo 5000 ;; *) echo 0 ;; esac; }
 
@@ -106,8 +108,7 @@ CONFIG_IDS=(official trusted verified)
 # The con-leche cells run at `--jobs=1`: the check phase runs on one
 # worker per hardware thread by default, the pool's atomic reference
 # counting adds about 1 % of instructions that is not the checker's
-# work, and each worker thread reserves ~1 GiB of address space under
-# the cells' `ulimit -v` — the sequential lane is the apples-to-apples
+# work — the sequential lane is the apples-to-apples
 # cell against official, and the one every earlier row was measured on.
 config_cmd() { # $1 = config id, $2 = stream file -> fills CMD
   case "$1" in
@@ -156,8 +157,8 @@ TIMEBIN=$(command -v time)
 cell() { # $1 = stream label, $2 = config id, $3 = stream path
   local instrs=() walls=() ex=0 decls="" verdict="" load="" rss=""
   config_cmd "$2" "$3"
-  local r po tv t0 t1 out i vl to pg
-  vl=$(stream_vlimit "$1"); to=$(stream_timeout "$1"); pg=$(stream_progress "$1")
+  local r po tv t0 t1 out i to pg
+  to=$(stream_timeout "$1"); pg=$(stream_progress "$1")
   # the progress heartbeat is a con-leche knob; official has none
   [ "$2" = official ] && pg=0
   # ... and it is a FLAG since task #229, so it goes into the command
@@ -173,16 +174,14 @@ cell() { # $1 = stream label, $2 = config id, $3 = stream path
     if [ "$1" = mathlib-full ]; then
       # the Mathlib row: `time -v` for peak RSS, and the progress lane's
       # timestamped stderr kept as a receipt
-      out=$( (ulimit -v $vl; \
-                perf stat -e instructions:u -x, -o "$po" \
+      out=$( (perf stat -e instructions:u -x, -o "$po" \
                 timeout "$to" nice -n 5 "$TIMEBIN" -v -o "$tv" "${CMD[@]}" \
                 2> >(awk '{ printf "%d %s\n", systime(), $0; fflush() }' \
                        >> "$CACHE/$1.$2.err")) 2>&1 )
       ex=$?
       rss=$(awk '/Maximum resident/{print $NF}' "$tv" 2>/dev/null)
     else
-      out=$( (ulimit -v $vl; \
-                perf stat -e instructions:u -x, -o "$po" \
+      out=$( (perf stat -e instructions:u -x, -o "$po" \
                 timeout "$to" nice -n 5 "${CMD[@]}") 2>&1 )
       ex=$?
     fi
@@ -285,7 +284,6 @@ else
     echo "configs	$CONFIGS"
     echo "reps	$REPS"
     echo "timeout	$TIMEOUT"
-    echo "vlimit	$VLIMIT"
   } > "$CACHE/meta.txt"
 fi
 

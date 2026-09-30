@@ -34,9 +34,6 @@ namespace ConLeche
   | natZeroA := natZeroRaw
   | natSuccA := natSuccRaw
   | natRecA := natRecRaw
-  | punitA := punitRaw
-  | punitUnitA := punitUnitRaw
-  | punitRecA := punitRecRaw
   | emptyA := emptyRaw
   | emptyRecA := emptyRecRaw
   | falseA := falseRaw
@@ -51,7 +48,6 @@ namespace ConLeche
 def BasisKind.declsA : BasisKind → List ConstantInfo
   | .eqK => [eqA, eqReflA, eqRecA]
   | .natK => [natA, natZeroA, natSuccA, natRecA]
-  | .punitK => [punitA, punitUnitA, punitRecA]
   | .emptyK => [emptyA, emptyRecA]
   | .falseK => [falseA, falseRecA]
   | .quotK => [quotA, quotMkA, quotLiftA, quotIndA, quotSoundA]

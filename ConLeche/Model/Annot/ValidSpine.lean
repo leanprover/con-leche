@@ -34,20 +34,4 @@ theorem AnnotValid_natLitAV {za sa : AnnotTerm} {ρ : Nat → V}
     rw [natLitAV, AnnotValid_app]
     exact ⟨hs, AnnotValid_natLitAV hz hs n⟩
 
-/-- The character-list spine is bit-valid at valid leaves. -/
-theorem AnnotValid_charListAV {nilA consA ofNatA za sa : AnnotTerm}
-    {ρ : Nat → V}
-    (h1 : AnnotValid V ρ nilA) (h2 : AnnotValid V ρ consA)
-    (h3 : AnnotValid V ρ ofNatA) (hz : AnnotValid V ρ za)
-    (hs : AnnotValid V ρ sa) :
-    ∀ cs : List Char,
-      AnnotValid V ρ (charListAV nilA consA ofNatA za sa cs)
-  | [] => h1
-  | c :: cs => by
-    rw [charListAV, AnnotValid_app, AnnotValid_app]
-    exact ⟨⟨h2, by
-      rw [AnnotValid_app]
-      exact ⟨h3, AnnotValid_natLitAV hz hs c.toNat⟩⟩,
-      AnnotValid_charListAV h1 h2 h3 hz hs cs⟩
-
 end ConLeche.Model

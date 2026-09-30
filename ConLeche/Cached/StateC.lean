@@ -14,10 +14,8 @@ persistent bulk-instantiation memo, with the linear-update discipline
 (detach a component from the state record before mutating it) each of
 them is written in.
 
-Task #198 removed the last of the arena's shape from this module: the
-unit `CStore` and its twenty forwarding "methods", and the `withStore`
-wrapper that ran a query against it.  The environment-index guards
-below (`isUnitLikeTyC`, `isCtorAppC`, `headHintC`, `unfoldableHeadC`,
+The environment-index guards
+below (`isCtorAppC`, `headHintC`, `unfoldableHeadC`,
 `sameConstHeadsC`, `rawNatLitC?`, `etaCtorShapeC`) are what the core
 calls directly.
 
@@ -44,20 +42,6 @@ namespace ConLeche.Cached
 open ConLeche
 
 /-! ## The environment-index guards -/
-
-/-- `isUnitLikeTy` through the index, on a (whnf'd) `Expr`. -/
-def isUnitLikeTyC (fe : FEnv) (e : Expr) : Bool :=
-  match e with
-  | .const cn _ .. =>
-    -- task #161 item C1: the pinned-name test (see `isUnitLikeTy`)
-    cn == punitName &&
-    (match fe.find? punitName with
-      | some (.indInfo _ _) => true
-      | _ => false) &&
-    (match fe.find? punitRecName with
-      | some (.recInfo _ mI rP [r]) => mI == rP && r.nfields == 0
-      | _ => false)
-  | _ => false
 
 /-- `isCtorApp` through the index. -/
 def isCtorAppC (fe : FEnv) (e : Expr) : Bool :=
@@ -157,8 +141,7 @@ structure CState where
 
 instance : Inhabited CState := ⟨{}⟩
 
-/-- Entry bound for the persistent bulk-instantiation memo (the
-`instCCap` of the retired interned checker, reused unchanged). -/
+/-- Entry bound for the persistent bulk-instantiation memo. -/
 def instCCapC : Nat := 32000000
 
 /-- The cached checker's monad: the per-declaration memo state over
@@ -235,28 +218,6 @@ decided comparison is never recomputed. -/
 @[inline] def substLevelTreesM (ks : List Name) (us : List Level)
     (ls : List Level) : CheckCM (List Level) :=
   pure (ls.map (Level.subst ks us))
-
-/-- `Level.simplify`, persistently memoized. -/
-def simplifyLM (u : Level) : CheckCM Level :=
-  modifyGet fun s =>
-    match s.lsimpC[u]? with
-    | some r => (r, s)
-    | none =>
-      let mp := s.lsimpC
-      let s := { s with lsimpC := {} }
-      let r := Level.simplify u
-      (r, { s with lsimpC := mp.insert u r })
-
-/-- `Level.isNonZero`, persistently memoized. -/
-def isNonZeroLM (u : Level) : CheckCM Bool :=
-  modifyGet fun s =>
-    match s.lnzC[u]? with
-    | some r => (r, s)
-    | none =>
-      let mp := s.lnzC
-      let s := { s with lnzC := {} }
-      let r := Level.isNonZero u
-      (r, { s with lnzC := mp.insert u r })
 
 /-- Level equivalence with a persistent result cache: simplify both
 sides, compare, then the `leqCore` cascade both ways.
@@ -399,11 +360,9 @@ def CState.flushed (s : CState) : CState :=
 
 def flushC : CheckCM Unit := modify (·.flushed)
 
-
 /-! ## The parsed-index driver's syntactic guards
 
-`Expr.constsResolveF` as a memoized `Expr` DAG walk (the counterpart
-of `constsResolveFIGo`): the tree-walking `Expr` version is what makes
+`Expr.constsResolveF` as a memoized `Expr` DAG walk: the tree-walking `Expr` version is what makes
 the `Expr`-typed driver quadratic — or worse — on shared declarations.
 
 The walk is the substitution walks' design over a `Bool`
@@ -519,8 +478,7 @@ def constsResolveFC (fe : FEnv) (e : Expr) : Bool :=
   Expr.resBool (constsResolveFXP fe none e)
 
 /-- Record an accepted constant's converted type/value, tagged with the
-very `Expr` objects pushed into the environment (the counterpart of
-`recordIConst`). -/
+very `Expr` objects pushed into the environment. -/
 def recordCConst (n : Name) (tyE : Expr) (ty : Expr)
     (val : Option (Expr × Expr)) : CheckCM Unit :=
   modify fun s =>

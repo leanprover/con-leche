@@ -1,45 +1,30 @@
 module
 
-public import ConLeche.Verify.Cached.BridgeCSDecl
 import ConLeche.Cached.ParsedC
+public import ConLeche.Verify.Cached.GenRecC
 
 public section
 
 /-!
 # The cached parsed-declaration driver, bridged (task #163)
 
-Port of the SP layer of `ConLeche/Verify/BridgeP.lean` (and, at the end,
-of `ConLeche/Verify/BridgePDecl.lean`) for the cached tier: each lemma
-relates a `ParsedC` driver function (`ConLeche/Cached/ParsedC.lean`,
-`checkConstantValC` …) to the generic declaration checker at the fueled
-families, as a `SimC` from any invariant state.
+Each lemma relates a `ParsedC` driver function
+(`ConLeche/Cached/ParsedC.lean`, `checkConstantValC` …) to the generic
+declaration checker at the fueled families, as a `SimC` from any
+invariant state.
 
-The subjects are the `Expr`-native twins of the parsed-index drivers.
-Against `BridgeP` the systematic deletions of the tier carry through —
-no arena, hence no `Ext`, no `denoteT`/`denote` distinction and no
-tier flag (`hoff`) anywhere — plus the representation differences the
-`Expr` currency forces, all of which are *shrinkages*:
-
-* the DAG-memoized syntactic guards are pure `Expr` walks —
+* the syntactic guards are pure `Expr` walks —
   `Expr.looseBVarsBounded`/`Expr.hasFvar`/
   `Expr.allLevelParamsDefined`/`constsResolveFC` — and their agreement
   with the `Expr`-side guards is `ConLeche/Verify/Cached/GuardsC.lean`'s
-  `*_spec` family, so every store-read peel disappears;
-* the readback `readbackEM j` is the pure `Expr.toExpr j`
-  (`toExpr_eq`: the memoized readback *is* the erasure), so every
-  `readbackEM_eff` step disappears;
-* `opSIxC` has no level-readback wrapper (levels are already trees),
-  so `opSIxC_sim` is `ensureSortC_sim` plus the `ensureSort_atF`
-  rewrite;
+  `*_spec` family;
+* `opSIxC` has no level-readback wrapper (levels are trees), so
+  `opSIxC_sim` is `ensureSortC_sim` plus the `ensureSort_atF` rewrite;
 * `recordCConst`'s effect (`recordCConst_eff`,
-  `ConLeche/Verify/Cached/SimCEff.lean`) takes `RelC` facts where
-  `recordIConst_eff` took `denoteT` facts at a flag-off state.
+  `ConLeche/Verify/Cached/SimCEff.lean`) takes `RelC` facts.
 
-`Declaration` is now one type for both tiers (task #285), so the
-interned premise `denoteDeclP s₀.store pd = some d` has no counterpart
-at all: the two drivers are given the same record.  Everything else —
-the guard order, the branch structure, the pure comparand of every
-statement — is byte-identical to the interned original's.
+`Declaration` is one type for both drivers (task #285): the two are
+given the same record.
 -/
 
 namespace ConLeche.Cached
@@ -52,11 +37,9 @@ variable {pins : List NatOpPinSet}
 
 /-! ## The declaration
 
-The parsed-index layer's premise was `denoteDeclP s₀.store pd = some d`
-and the cached tier's a per-constructor erasure relation `DeclCRel`.
 With one declaration type (task #285) there is nothing to relate: the
 cached driver and the pure checker are given the SAME record, and the
-per-branch `RelC` premises the relation carried are `rfl`. -/
+per-branch `RelC` premises are `rfl`. -/
 section WalksP
 
 variable {env : Env} {s₀ : CState}
@@ -68,12 +51,6 @@ private theorem fueledM_bind_pure' {α : Type} (x : FueledM α) :
   cases x.val F <;> rfl
 
 /-! ## The `Expr` guards agree with the `Expr` guards -/
-
-/-- `Expr.hasFvar` is `Expr.hasFvar` of the erasure (the store-shaped
-`hasFvar_spec'` at the unit store). -/
-theorem hasFvar_spec {e : Expr} {ex : Expr}
-    (h : e = ex) : e.hasFvar = ex.hasFvar :=
-  hasFvar_spec' h
 
 /-! ## Parsed-index entry operations -/
 
@@ -128,7 +105,7 @@ theorem checkConstantValC_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF e
     simp only [if_neg h5]
     exact SimC.throw_bind
   simp only [if_pos h5]
-  rw [hasFvar_spec rfl]
+  rw [hasFvar_spec' rfl]
   by_cases h6 : Expr.hasFvar cvp.type = true
   · simp only [if_pos h6]
     exact SimC.throw_bind
@@ -177,7 +154,7 @@ theorem checkDefnValC_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) 
     simp only [if_neg h1]
     exact SimC.throw_bind
   simp only [if_pos h1]
-  rw [hasFvar_spec rfl]
+  rw [hasFvar_spec' rfl]
   by_cases h2 : Expr.hasFvar value = true
   · simp only [if_pos h2]
     exact SimC.throw_bind
@@ -256,7 +233,7 @@ theorem checkThmValC_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) {
     simp only [if_neg h1]
     exact SimC.throw_bind
   simp only [if_pos h1]
-  rw [hasFvar_spec rfl]
+  rw [hasFvar_spec' rfl]
   by_cases h2 : Expr.hasFvar value = true
   · simp only [if_pos h2]
     exact SimC.throw_bind
@@ -311,7 +288,7 @@ theorem checkOpaqueValC_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env
     simp only [if_neg h1]
     exact SimC.throw_bind
   simp only [if_pos h1]
-  rw [hasFvar_spec rfl]
+  rw [hasFvar_spec' rfl]
   by_cases h2 : Expr.hasFvar value = true
   · simp only [if_pos h2]
     exact SimC.throw_bind
@@ -392,9 +369,8 @@ theorem checkBasisDeclC_sim (hs : CSOK mode env s₀) (kind : BasisKind) :
 
 /-- The non-inductive branches of the converted-declaration driver
 `checkDeclC` simulate the generic `checkDecl` at the fueled families
-on the related declaration.  (There is no bracket in the cached driver
-— `checkDeclC` *is* the plain path — so this is the mirror of
-`checkDeclSPPlain_sim`.) -/
+on the related declaration.  (There is no bracket in the cached driver:
+`checkDeclC` *is* the plain path.) -/
 theorem checkDeclC_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) (hs : CSOK mode env s₀)
     {pd : Declaration}
     (hnotind : ∀ block nP, pd ≠ .indDecl block nP) :
@@ -636,9 +612,9 @@ theorem checkDeclStepC_run (hμ : mode.verifiedChecks = true) {env : Env} (henv 
         | some kind => checkBasisDeclC (mkFEnv env) kind
         | none =>
           if indParamsOk nP block = true then
-            (match nativeParts? nP block with
-              | some p => checkNativeS mode (mkFEnv env) p
-              | none => checkIndDeclSF mode (mkFEnv env) block)
+            (match blockParts? nP block with
+              | some p => checkBlockKS mode (mkFEnv env) block p
+              | none => checkShapelessS mode (mkFEnv env) block)
           else throw (CheckError.invalid "number of parameters mismatch"))
         s₀.flushed = .ok (fe', s') := h
     cases hpin : basisPinHit block with

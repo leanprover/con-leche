@@ -1,0 +1,221 @@
+--#export T.rec T.rec_1
+/- COMPLETE c04a_restart_70: a container group of 71 mutual members, star-shaped:
+   C0.mk_i : C_i α → C0 α, C_i.mk : C0 α → C_i α, C0.base : α → C0 α.  Each cycle is
+   discovered by a separate RESTART of C0's frame (restart fuel 64). -/
+mutual
+inductive C0 (α : Type) : Type where
+  | base : α → C0 α
+  | mk1 : C1 α → C0 α
+  | mk2 : C2 α → C0 α
+  | mk3 : C3 α → C0 α
+  | mk4 : C4 α → C0 α
+  | mk5 : C5 α → C0 α
+  | mk6 : C6 α → C0 α
+  | mk7 : C7 α → C0 α
+  | mk8 : C8 α → C0 α
+  | mk9 : C9 α → C0 α
+  | mk10 : C10 α → C0 α
+  | mk11 : C11 α → C0 α
+  | mk12 : C12 α → C0 α
+  | mk13 : C13 α → C0 α
+  | mk14 : C14 α → C0 α
+  | mk15 : C15 α → C0 α
+  | mk16 : C16 α → C0 α
+  | mk17 : C17 α → C0 α
+  | mk18 : C18 α → C0 α
+  | mk19 : C19 α → C0 α
+  | mk20 : C20 α → C0 α
+  | mk21 : C21 α → C0 α
+  | mk22 : C22 α → C0 α
+  | mk23 : C23 α → C0 α
+  | mk24 : C24 α → C0 α
+  | mk25 : C25 α → C0 α
+  | mk26 : C26 α → C0 α
+  | mk27 : C27 α → C0 α
+  | mk28 : C28 α → C0 α
+  | mk29 : C29 α → C0 α
+  | mk30 : C30 α → C0 α
+  | mk31 : C31 α → C0 α
+  | mk32 : C32 α → C0 α
+  | mk33 : C33 α → C0 α
+  | mk34 : C34 α → C0 α
+  | mk35 : C35 α → C0 α
+  | mk36 : C36 α → C0 α
+  | mk37 : C37 α → C0 α
+  | mk38 : C38 α → C0 α
+  | mk39 : C39 α → C0 α
+  | mk40 : C40 α → C0 α
+  | mk41 : C41 α → C0 α
+  | mk42 : C42 α → C0 α
+  | mk43 : C43 α → C0 α
+  | mk44 : C44 α → C0 α
+  | mk45 : C45 α → C0 α
+  | mk46 : C46 α → C0 α
+  | mk47 : C47 α → C0 α
+  | mk48 : C48 α → C0 α
+  | mk49 : C49 α → C0 α
+  | mk50 : C50 α → C0 α
+  | mk51 : C51 α → C0 α
+  | mk52 : C52 α → C0 α
+  | mk53 : C53 α → C0 α
+  | mk54 : C54 α → C0 α
+  | mk55 : C55 α → C0 α
+  | mk56 : C56 α → C0 α
+  | mk57 : C57 α → C0 α
+  | mk58 : C58 α → C0 α
+  | mk59 : C59 α → C0 α
+  | mk60 : C60 α → C0 α
+  | mk61 : C61 α → C0 α
+  | mk62 : C62 α → C0 α
+  | mk63 : C63 α → C0 α
+  | mk64 : C64 α → C0 α
+  | mk65 : C65 α → C0 α
+  | mk66 : C66 α → C0 α
+  | mk67 : C67 α → C0 α
+  | mk68 : C68 α → C0 α
+  | mk69 : C69 α → C0 α
+  | mk70 : C70 α → C0 α
+inductive C1 (α : Type) : Type where
+  | mk : C0 α → C1 α
+inductive C2 (α : Type) : Type where
+  | mk : C0 α → C2 α
+inductive C3 (α : Type) : Type where
+  | mk : C0 α → C3 α
+inductive C4 (α : Type) : Type where
+  | mk : C0 α → C4 α
+inductive C5 (α : Type) : Type where
+  | mk : C0 α → C5 α
+inductive C6 (α : Type) : Type where
+  | mk : C0 α → C6 α
+inductive C7 (α : Type) : Type where
+  | mk : C0 α → C7 α
+inductive C8 (α : Type) : Type where
+  | mk : C0 α → C8 α
+inductive C9 (α : Type) : Type where
+  | mk : C0 α → C9 α
+inductive C10 (α : Type) : Type where
+  | mk : C0 α → C10 α
+inductive C11 (α : Type) : Type where
+  | mk : C0 α → C11 α
+inductive C12 (α : Type) : Type where
+  | mk : C0 α → C12 α
+inductive C13 (α : Type) : Type where
+  | mk : C0 α → C13 α
+inductive C14 (α : Type) : Type where
+  | mk : C0 α → C14 α
+inductive C15 (α : Type) : Type where
+  | mk : C0 α → C15 α
+inductive C16 (α : Type) : Type where
+  | mk : C0 α → C16 α
+inductive C17 (α : Type) : Type where
+  | mk : C0 α → C17 α
+inductive C18 (α : Type) : Type where
+  | mk : C0 α → C18 α
+inductive C19 (α : Type) : Type where
+  | mk : C0 α → C19 α
+inductive C20 (α : Type) : Type where
+  | mk : C0 α → C20 α
+inductive C21 (α : Type) : Type where
+  | mk : C0 α → C21 α
+inductive C22 (α : Type) : Type where
+  | mk : C0 α → C22 α
+inductive C23 (α : Type) : Type where
+  | mk : C0 α → C23 α
+inductive C24 (α : Type) : Type where
+  | mk : C0 α → C24 α
+inductive C25 (α : Type) : Type where
+  | mk : C0 α → C25 α
+inductive C26 (α : Type) : Type where
+  | mk : C0 α → C26 α
+inductive C27 (α : Type) : Type where
+  | mk : C0 α → C27 α
+inductive C28 (α : Type) : Type where
+  | mk : C0 α → C28 α
+inductive C29 (α : Type) : Type where
+  | mk : C0 α → C29 α
+inductive C30 (α : Type) : Type where
+  | mk : C0 α → C30 α
+inductive C31 (α : Type) : Type where
+  | mk : C0 α → C31 α
+inductive C32 (α : Type) : Type where
+  | mk : C0 α → C32 α
+inductive C33 (α : Type) : Type where
+  | mk : C0 α → C33 α
+inductive C34 (α : Type) : Type where
+  | mk : C0 α → C34 α
+inductive C35 (α : Type) : Type where
+  | mk : C0 α → C35 α
+inductive C36 (α : Type) : Type where
+  | mk : C0 α → C36 α
+inductive C37 (α : Type) : Type where
+  | mk : C0 α → C37 α
+inductive C38 (α : Type) : Type where
+  | mk : C0 α → C38 α
+inductive C39 (α : Type) : Type where
+  | mk : C0 α → C39 α
+inductive C40 (α : Type) : Type where
+  | mk : C0 α → C40 α
+inductive C41 (α : Type) : Type where
+  | mk : C0 α → C41 α
+inductive C42 (α : Type) : Type where
+  | mk : C0 α → C42 α
+inductive C43 (α : Type) : Type where
+  | mk : C0 α → C43 α
+inductive C44 (α : Type) : Type where
+  | mk : C0 α → C44 α
+inductive C45 (α : Type) : Type where
+  | mk : C0 α → C45 α
+inductive C46 (α : Type) : Type where
+  | mk : C0 α → C46 α
+inductive C47 (α : Type) : Type where
+  | mk : C0 α → C47 α
+inductive C48 (α : Type) : Type where
+  | mk : C0 α → C48 α
+inductive C49 (α : Type) : Type where
+  | mk : C0 α → C49 α
+inductive C50 (α : Type) : Type where
+  | mk : C0 α → C50 α
+inductive C51 (α : Type) : Type where
+  | mk : C0 α → C51 α
+inductive C52 (α : Type) : Type where
+  | mk : C0 α → C52 α
+inductive C53 (α : Type) : Type where
+  | mk : C0 α → C53 α
+inductive C54 (α : Type) : Type where
+  | mk : C0 α → C54 α
+inductive C55 (α : Type) : Type where
+  | mk : C0 α → C55 α
+inductive C56 (α : Type) : Type where
+  | mk : C0 α → C56 α
+inductive C57 (α : Type) : Type where
+  | mk : C0 α → C57 α
+inductive C58 (α : Type) : Type where
+  | mk : C0 α → C58 α
+inductive C59 (α : Type) : Type where
+  | mk : C0 α → C59 α
+inductive C60 (α : Type) : Type where
+  | mk : C0 α → C60 α
+inductive C61 (α : Type) : Type where
+  | mk : C0 α → C61 α
+inductive C62 (α : Type) : Type where
+  | mk : C0 α → C62 α
+inductive C63 (α : Type) : Type where
+  | mk : C0 α → C63 α
+inductive C64 (α : Type) : Type where
+  | mk : C0 α → C64 α
+inductive C65 (α : Type) : Type where
+  | mk : C0 α → C65 α
+inductive C66 (α : Type) : Type where
+  | mk : C0 α → C66 α
+inductive C67 (α : Type) : Type where
+  | mk : C0 α → C67 α
+inductive C68 (α : Type) : Type where
+  | mk : C0 α → C68 α
+inductive C69 (α : Type) : Type where
+  | mk : C0 α → C69 α
+inductive C70 (α : Type) : Type where
+  | mk : C0 α → C70 α
+end
+inductive T where
+  | leaf : T
+  | mk : C0 T → T

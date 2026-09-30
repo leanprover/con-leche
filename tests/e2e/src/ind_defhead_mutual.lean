@@ -6,14 +6,7 @@
    parameters and comparing result sorts (inductive.cpp:222-250), so it
    accepts.
 
-   con-leche's in-process modeller requires a syntactic `stripPis … .sort`
-   (Frontend/InModel/Mutual.lean:158-166), and the preprocessor's native
-   predicate (`conlecheFormerTelescope`) leaves the block to the tool, whose
-   own generator then reports "a mutual one-layer owner does not end in a
-   sort" -> exit 3.  Raw, the in-process modeller declines: "former MA is
-   not a telescope ending in a sort".
-
-   official: 0.  con-leche at master 700a06ca: 3 piped, 2 raw (both modes).
+   official: 0.  con-leche: 0.
    Probe of record: _tmp/indaudit/probes/P/DefHeadMutualOnly.lean. -/
 def MyType := Type
 

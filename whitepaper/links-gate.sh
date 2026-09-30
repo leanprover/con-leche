@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# whitepaper/links-gate.sh — THE WHITEPAPER LINK GATE (task #323).
+# whitepaper/links-gate.sh — THE WHITEPAPER LINK GATE (task #324).
 #
 # An independent copy of the idea of `tests/overview-links.sh`, for the
 # whitepaper's sources.  The paper cites the real proof and its own

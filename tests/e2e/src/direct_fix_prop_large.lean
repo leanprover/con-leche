@@ -3,10 +3,8 @@
 /- End-to-end test (task #188): a ONE-constructor recursive `Prop`.  The
    official kernel gives it the LARGE eliminator (every field is a
    proposition — the recursive field itself), so `Loop.rec` eliminates
-   into `Sort u`; the direct fixed-point route DECLINES the block
-   positively (exit 2): at a squash instantiation the recursor would be
-   the fixed point of its own unfolding on the proof point, which the
-   route does not model yet (DESIGN.md, task #188).  The type is empty
+   into `Sort u`.  The uniform installer accepts the block, large
+   eliminator included (exit 0, official's verdict).  The type is empty
    (no base constructor). -/
 
 universe u

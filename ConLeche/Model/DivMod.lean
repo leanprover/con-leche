@@ -8,11 +8,8 @@ public section
 # The WF-recursive `Nat` operations' guarded clauses at `interp`
 (task #161, literal tier — the divmod leg, part 1)
 
-`DivMod` (`Annot/EnvModelM.lean`) is `DivModV`'s mirror at the
-validated-annotation currency, and `DivModClausesV` is reused verbatim
-because it was already stated over a bare valuation `Name → V`: only
-the valuation it is fed changes (`fun n => interp V ρ (m.acval n φ)`
-in place of `fun n => interp V ρ (cval n (Level.substFn φ [] []))`).
+`DivMod` (`Annot/Laws.lean`) states `DivModClausesV`, stated over a
+bare valuation `Name → V`, at `fun n => interp V ρ (m.acval n φ)`.
 
 This file carries the two currency-independent halves of the field:
 
@@ -25,8 +22,8 @@ This file carries the two currency-independent halves of the field:
   `acvalWith_ne` at each mentioned head, and each head is `≠` the fresh
   name because the guard says it is stored.
 
-The establishment at the operation's own install is part 2
-(`Interp/DivModCertP.lean`).
+The establishment at the operation's own install is
+`Model/DivModCert.lean`.
 -/
 
 namespace ConLeche.Model
@@ -57,8 +54,7 @@ def dmValNames (c : Name) : List Name :=
 
 -- The nine branches sit at different depths of `DivModClausesV`'s
 -- `if`-chain, so `if_true` fires in one of them and `if_false` in the
--- rest: the same escape `ConLeche/SetR/DivModPin.lean` takes, for the
--- same reason.
+-- rest.
 set_option linter.unusedSimpArgs false in
 /-- **The clauses read the valuation only at `dmValNames`.**  Proved
 per operation: with `c` concrete the `if`-chain reduces to one branch,

@@ -26,7 +26,7 @@ namespace ConLeche.Expr
 
 /-- Every reachable `fvar` index is `< d`.  (Type annotations of `fvar`s
 are not descended into: the interpretation never reads them at leaves;
-their well-formedness is tracked separately by `FvarsOk`.) -/
+their well-formedness is tracked separately by `LeafCond`.) -/
 @[expose] def fvarsBelow (d : Nat) : Expr → Prop
   | .bvar _ | .sort _ | .const .. | .lit _ => True
   | .fvar idx _ => idx < d
@@ -60,33 +60,11 @@ theorem fvarsBelow_mono {d d' : Nat} (h : d ≤ d') :
   | .lit l => .lit l
   | .proj s i e => .proj s i (shiftFrom p e)
 
-/-- Shifting preserves the head shape, so the λ-rule's chain guard
-(task #152) reads the same on both sides of a shift. -/
-theorem isLam_shiftFrom {p : Nat} :
-    ∀ (e : Expr), (shiftFrom p e).isLam = e.isLam := by
-  intro e
-  cases e with
-  | fvar idx ty =>
-    simp only [shiftFrom]
-    split <;> rfl
-  | _ => rfl
-
 /-- Shifting reads through to a λ's prop-ness datum unchanged (task
 #161 P5): `shiftFrom` copies binder metadata, so the chain rule's
 `(lam-cod-chain)` read is the same on both sides of a shift. -/
 theorem lamPw_shiftFrom {p : Nat} :
     ∀ (e : Expr), (shiftFrom p e).lamPw = e.lamPw := by
-  intro e
-  cases e with
-  | fvar idx ty =>
-    simp only [shiftFrom]
-    split <;> rfl
-  | _ => rfl
-
-/-- The ∀ twin: shifting reads through to a ∀'s prop-ness datum
-unchanged, so `annotPwPi`'s chain read is shift-stable. -/
-theorem forallPw_shiftFrom {p : Nat} :
-    ∀ (e : Expr), (shiftFrom p e).forallPw = e.forallPw := by
   intro e
   cases e with
   | fvar idx ty =>
@@ -536,7 +514,7 @@ theorem shiftLeaf_injective {p : Nat} {l₁ l₂ : Nat × Expr}
 
 /-- Every recorded leaf of a well-scoped term has index below the bound
 (hereditarily: annotations are scoped below their own leaf's index). -/
-theorem fvarLeaves_fst_lt :
+theorem fvarLeaves_lt_of_wscoped :
     ∀ {e : Expr} {d : Nat}, WScoped d e → ∀ l ∈ e.fvarLeaves, l.1 < d := by
   intro e
   induction e with
@@ -612,7 +590,7 @@ theorem fvarLeaves_shiftFrom {p : Nat} :
       exact congrArg _ (ih hp hw.2)
     · simp only [shiftFrom, if_neg hp, fvarLeaves, List.map, shiftLeaf]
       rw [map_shiftLeaf_eq_self (fun l hl =>
-        Nat.lt_of_lt_of_le (fvarLeaves_fst_lt hw.2 l hl) (by omega))]
+        Nat.lt_of_lt_of_le (fvarLeaves_lt_of_wscoped hw.2 l hl) (by omega))]
   | app f a ihf iha =>
     intro d hpd hw
     simp only [WScoped] at hw
@@ -686,41 +664,6 @@ theorem shiftFrom_beq {p : Nat} (a b : Expr) :
     have hne' : shiftFrom p a ≠ shiftFrom p b :=
       fun h => hne (shiftFrom_injective h)
     simp [hne']
-
-/-- Shifting commutes with instantiating a `∀`-telescope. -/
-theorem instPis_shiftFrom {p : Nat} :
-    ∀ (as : List Expr) (t : Expr),
-      Expr.instPis (shiftFrom p t) (as.map (shiftFrom p)) =
-        (Expr.instPis t as).map (shiftFrom p)
-  | [], t => rfl
-  | a :: as, t => by
-    cases t <;> try rfl
-    case fvar => simp only [shiftFrom]; split <;> rfl
-    case forallE ty body mb =>
-      show Expr.instPis ((shiftFrom p body).instantiate1 (shiftFrom p a))
-        (as.map (shiftFrom p)) = _
-      rw [← shiftFrom_instantiate1_gen]
-      exact instPis_shiftFrom as _
-
-/-- Shifting commutes with converting `∀`-binders to `λ`-binders. -/
-theorem pisToLams_shiftFrom {p : Nat} :
-    ∀ (k : Nat) (t body : Expr),
-      Expr.pisToLams k (shiftFrom p t) (shiftFrom p body) =
-        (Expr.pisToLams k t body).map (shiftFrom p)
-  | 0, _, _ => rfl
-  | k + 1, t, body => by
-    cases t <;> try rfl
-    case fvar => simp only [shiftFrom]; split <;> rfl
-    case forallE ty rest mb =>
-      -- task #161 P5: `pisToLams` emits the parse placeholder `.never`
-      -- (a ∀'s `pw` is not the λ's claim); the shift commutation is
-      -- unaffected — `shiftFrom` never reads binder metadata.
-      show (Expr.pisToLams k (shiftFrom p rest) (shiftFrom p body)).map
-          (fun b => Expr.lam (shiftFrom p ty) b ⟨.never⟩) =
-        ((Expr.pisToLams k rest body).map
-          (fun b => Expr.lam ty b ⟨.never⟩)).map (shiftFrom p)
-      rw [pisToLams_shiftFrom k rest body]
-      cases Expr.pisToLams k rest body <;> rfl
 
 theorem looseBVarsBounded_mono {k k' : Nat} (h : k ≤ k') :
     ∀ {e : Expr}, looseBVarsBounded k e = true → looseBVarsBounded k' e = true := by

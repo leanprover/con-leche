@@ -13,19 +13,17 @@ public section
 /-!
 # Effect specs for the cached checker's state wrappers (task #163, batch 5)
 
-One `CEff` lemma per `ConLeche/Cached/StateC.lean` wrapper — the port of
-`SimI.lean`'s `Effects`/`LevelEffects`/`CacheFill` sections.
+One `CEff` lemma per `ConLeche/Cached/StateC.lean` wrapper.
 
-Almost every wrapper of the clone is a `pure`, so almost every lemma
-here is a two-liner consuming the batch-3 commutation spec of the
+Almost every wrapper is a `pure`, so almost every lemma here is a
+two-liner consuming the commutation spec (`OpsC.lean`) of the
 underlying `Expr` operation.  The three that are *not* pure are the
 persistent memos — the bulk-instantiation cache (`instListM`), the
-level memos (`simplifyLM`/`isNonZeroLM`/`isEquivLM`) and the lazy
+level memo (`isEquivLM`) and the lazy
 stored-constant caches (`constTyAtM`/`constValAtM`/`ruleRhsAtM`) — and
 they carry their own insert lemmas against the matching `CSOK` clause,
-in the erasure-function-of-key discipline: a memo hit's key is only
-`BEq`-equal to the query, so what a collision transports is the
-erasure, never the fields.
+in the function-of-key discipline: a memo hit's key is only
+`BEq`-equal to the query.
 -/
 
 namespace ConLeche.Cached
@@ -135,8 +133,7 @@ section Effects
 variable {s₀ : CState}
 
 /-- Building one node: the cached core allocates it outright, so the
-effect is the value's own reflexivity (task #198 -- this was
-`internI_eff`, whose `internI` was a `pure` of the built node). -/
+effect is the value's own reflexivity (task #198). -/
 theorem pureC_eff (hs : CSOK mode env s₀) (x : Expr) :
     CEff mode env s₀ (fun i => RelC i x) (pure x) :=
   CEff.pure hs (RelC.refl x)
@@ -179,8 +176,7 @@ theorem abstractRangeM_eff (hs : CSOK mode env s₀) {e : Expr} {d k : Nat}
   rw [abstractRangeC_spec (d := d) (k := k) (c := 0), he.erase]
 
 /-- The `O(1)` loose-bvar bound field is exact on the invariant, so the
-value it returns bounds the erasure (the port of `bvarBoundM_eff`,
-whose arena leg was `TWF.bvarBoundD_le2`). -/
+value it returns bounds the term. -/
 theorem bvarBoundM_eff (hs : CSOK mode env s₀) {e : Expr} :
     CEff mode env s₀ (fun b => (Expr.looseBVarsBounded b e) = true)
       (bvarBoundM e) :=
@@ -222,8 +218,7 @@ theorem instLevelParamsM_eff (hs : CSOK mode env s₀) {ks : List Name}
   show _ = _
   rw [instLevelParams_spec (ks := ks) (us := us), he.erase]
 
-/-- The binder-telescope peel fuel is a constant (the clone has no
-arena node count to read). -/
+/-- The binder-telescope peel fuel is a constant. -/
 theorem peelFuelM_eff (hs : CSOK mode env s₀) :
     CEff mode env s₀ (fun n => n = peelFuel) peelFuelM :=
   CEff.pure hs rfl
@@ -254,8 +249,7 @@ section LevelEffects
 
 variable {s₀ : CState}
 
-/-- The inlined `simplify`-with-memo step of `isEquivLM` (the clone's
-counterpart of the interned `simplifyLIGo` call). -/
+/-- The inlined `simplify`-with-memo step of `isEquivLM`. -/
 private def simplifyMemo (mp : Std.HashMap Level Level) (u : Level) :
     Level × Std.HashMap Level Level :=
   match mp[u]? with
@@ -331,11 +325,9 @@ private theorem isEquiv_cascade (l r : Level)
       | some b2 => rfl
 
 /-- The `isEquiv` result cache: a hit is certified by the `eqvC`
-clause, a miss runs the same `simplify`/`leqCore` cascade the interned
-wrapper runs — through the `lsimpC` memo, whose entries are the spec
-values by the `lsimp` clause.  Where the interned proof needed
-`denoteL_inj` to turn index equality into level equality, the tree keys
-are `LawfulBEq`, so `ls == rs` *is* `ls = rs`. -/
+clause, a miss runs the spec's `simplify`/`leqCore` cascade — through
+the `lsimpC` memo, whose entries are the spec values by the `lsimp`
+clause.  The tree keys are `LawfulBEq`, so `ls == rs` *is* `ls = rs`. -/
 theorem isEquivLM_eff (hs : CSOK mode env s₀) (l r : Level) :
     CEff mode env s₀ (fun ob => ob = Level.isEquiv l r) (isEquivLM l r) := by
   intro v' s' hrun
@@ -504,8 +496,7 @@ private theorem instListM_run (e : Expr) (vs : List Expr) (d : Nat)
                  mp.insert (e, vs, d) (Expr.instantiateListC e vs d) })) := rfl
 
 /-- Bulk instantiation through the persistent memo.  A hit is *exact*
-here — the stored key is the query key, not merely an index denoting
-the same term — so the interned proof's determinism step disappears. -/
+here: the stored key is the query key. -/
 theorem instListM_eff (hs : CSOK mode env s₀) {e : Expr} {vs : List Expr}
     {d : Nat} {a : Expr} {ws : List Expr}
     (he : RelC e a) (hvs : RelCL vs ws) :

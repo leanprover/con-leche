@@ -6,7 +6,7 @@
    Regenerate by exporting this module with the arena's lean4export
    (task #207: the stream is raw — not a single `_model` declaration
    in it).  Everything here goes through
-   `checkSum`: the type former with no capability, the three
+   the block install (`checkBlock`): the type former with no capability, the three
    constructors, the recursor with three minor premises and three
    rules.  The consumers exercise iota on every constructor (`rfl`
    through `Color.rec` and `Color.casesOn`), Lean's own auxiliaries on

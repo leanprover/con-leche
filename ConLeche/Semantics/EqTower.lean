@@ -8,16 +8,11 @@ public import ConLeche.Verify.Denote.VClosed
 /-!
 # The `Eq` block's canonical value towers (task #161, S1)
 
-THE SEPARATION's shared base: the three canonical `Term` towers of the
-`Eq` basis block, lifted out of `SetR/Install/BasisS.lean` (design
-census §3.3, edge 5).  They are **model-free data** — closed `Term`
-literals over the level valuation, naming no `EnvS`, no `interp` and no
-relation of the `Infer`/`DefEq` family.  The collapsed lane installs
-them (`Install/BasisS.lean`, which keeps every lemma ABOUT them); the
-graded lane's `Interp/EqTowerP.lean` states its annotated towers'
-`erase` against them by `rfl`.
-
-Statements verbatim from their old home; the namespace is unchanged.
+The three canonical `Term` towers of the `Eq` basis block.  They are
+**model-free data** — closed `Term` literals over the level valuation,
+naming no `interp` and no relation of the `Infer`/`DefEq` family.
+`Model/EqTower.lean` states its annotated towers' `erase` against them
+by `rfl`.
 -/
 
 namespace ConLeche.Semantics
@@ -33,8 +28,7 @@ def eqReflValT (ψ : Name → Nat) : Term :=
   .lam (.sort (ψ uN)) (.lam (.bvar 0) .prf)
 
 /-- `Eq.rec`'s valuation: the minor premise, returned.  Transport is
-the identity — `eqRec_derivable` (`ConLeche/Term/Examples.lean`), which is
-why the layer does not carry `Eq.rec` at all. -/
+the identity, which is why the layer does not carry `Eq.rec` at all. -/
 def eqRecValT (ψ : Name → Nat) : Term :=
   .lam (.sort (ψ uN))
     (.lam (.bvar 0)
@@ -49,9 +43,7 @@ def eqRecValT (ψ : Name → Nat) : Term :=
 
 
 
-/-! ## The tower's closedness (task #161 S7, Wall C: relocated
-from `SetR/Install/BasisS.lean`, statements verbatim — both lanes
-read them and neither reading is semantic). -/
+/-! ## The tower's closedness -/
 
 /-- The tower is closed. -/
 theorem eqValT_closed (ψ : Name → Nat) : Term.Closed (eqValT ψ) := by

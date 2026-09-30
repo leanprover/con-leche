@@ -1,7 +1,7 @@
 # The whitepaper
 
 A self-contained account of the core proof idea of con-leche
-(task #323; the shared brief is [`PLAN.md`](./PLAN.md)). One Typst
+(task #324; the shared brief is [`PLAN.md`](./PLAN.md)). One Typst
 source — `main.typ`, `sections/NN-name.typ`, the macro library
 `lib.typ`, `style.css` — rendered to PDF and HTML by the same compiler.
 

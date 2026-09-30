@@ -10,33 +10,24 @@ public section
 # The cached-core faithfulness kit (task #163, batch 5)
 
 The relation and combinators for proving that the cached clone core
-(`ConLeche/Cached/CoreC.lean`) simulates the pure fueled families — the
-port of `ConLeche/Verify/SimI.lean` minus the arena, and (task #172 B3a)
-minus the erasure: the cached and pure sides are *the same terms*, so
-the value relation is equality.
+(`ConLeche/Cached/CoreC.lean`) simulates the pure fueled families.  The
+cached and pure sides are *the same terms*, so the value relation is
+equality.
 
 * `CSOK mode env s` — the cached-state invariant: the lazy
   stored-constant caches hold `RelC`-related conversions of the
   level-instantiated stored data and every entry-point memo entry is
   backed by a pure run at some fuel, valid at every depth at which the
-  key is well scoped (`ISOK`'s `CacheOK` shape, with no denotation to
-  transport along).
+  key is well scoped.
 * `SimC mode env s₀ P c p` — a successful cached run of `c` from `s₀`
   preserves `CSOK` and produces a value `P`-related to a successful run
   of the fueled computation `p` at some fuel.
 * `CEff mode env s₀ Q c` — a twin-only effect (conversion, cache fill):
   no fueled counterpart, just invariant preservation plus a value fact.
 
-Two systematic deletions against `SimAt` carry through every ported
-walk: there is **no `Ext`** (no arena to extend) and the value relation
-is **state-free** (no denotation to transport).  Everything else keeps
-`SimAt`'s names and argument order, so the `DiscI*` walks port by local
-edits.
-
-Memo clauses obey the binding rule of the P1 freeze: a clause asserts
-facts that are a **function of the key**, never `WFc` of keys — a `beq`
-collision pins the stored key to the query (`beq_sound`, which since
-B3a is `eq_of_beq`).
+The value relation is **state-free**.  Memo clauses assert facts that
+are a **function of the key** — a `beq` collision pins the stored key
+to the query (`beq_sound`, i.e. `eq_of_beq`).
 -/
 
 namespace ConLeche.Cached
@@ -184,29 +175,16 @@ end ListKey
 
 /-! ## The value relations -/
 
-/-- The cached counterpart of a denotation fact.  State-free — there is
-no arena to be relative to — and, since task #172 B3b, **equality**: it
-was `WFc v' ∧ v' = v`, the invariant conjunct went with `WFc`, and one
-type made the second conjunct an equation between the two sides
-themselves.  The name is kept because the whole `DiscC` family is
-written in it, and it still marks *which* side is which. -/
+/-- The cached value relation: state-free **equality**.  The name marks
+*which* side is which (the `DiscC*.lean` walks are written in it). -/
 @[expose] def RelC (v' : Expr) (v : Expr) : Prop := v' = v
 
 theorem RelC.erase {v' : Expr} {v : Expr} (h : RelC v' v) : v' = v := h
 
-/-- `RelC` determines the pure value. -/
-theorem RelC.det {v' : Expr} {a b : Expr} (ha : RelC v' a)
-    (hb : RelC v' b) : a = b := ha.symm.trans hb
-
-/-- `RelC` determines the cached value. -/
-theorem RelC.det' {a b : Expr} {v : Expr} (ha : RelC a v)
-    (hb : RelC b v) : a = b := ha.trans hb.symm
-
 /-- Every expression is related to itself (there is one type). -/
 theorem RelC.refl (x : Expr) : RelC x x := by rfl
 
-/-- The list-level relation: the `DiscC` walks' replacement for the
-arena's `DenL`. -/
+/-- The list-level relation of the `DiscC*.lean` walks. -/
 @[expose] def RelCL (l : List Expr) (xs : List Expr) : Prop := l = xs
 
 namespace RelCL
@@ -220,9 +198,6 @@ theorem cons {x : Expr} {v : Expr} {l : List Expr} {xs : List Expr}
 /-- The list projection. -/
 theorem map {l : List Expr} {xs : List Expr} (h : RelCL l xs) :
     l = xs := h
-
-theorem intro {l : List Expr} {xs : List Expr}
-    (hm : l = xs) : RelCL l xs := hm
 
 theorem nil_inv {xs : List Expr} (h : RelCL [] xs) : xs = [] := h.symm
 
@@ -239,26 +214,15 @@ theorem append {l₁ l₂ : List Expr} {xs₁ xs₂ : List Expr}
     RelCL (l₁ ++ l₂) (xs₁ ++ xs₂) := by
   rw [show l₁ = xs₁ from h₁, show l₂ = xs₂ from h₂]; rfl
 
-theorem reverse {l : List Expr} {xs : List Expr} (h : RelCL l xs) :
-    RelCL l.reverse xs.reverse := by
-  rw [show l = xs from h]; rfl
-
-/-- `RelCL` determines the pure list. -/
-theorem det {l : List Expr} {xs ys : List Expr} (hx : RelCL l xs)
-    (hy : RelCL l ys) : xs = ys := hx.symm.trans hy
-
 end RelCL
 
 /-! ## The state invariant -/
 
-/-- The cached-state invariant (see the module docstring): the port of
-`ISOK` with every denotation leg replaced by `RelC`/`eraseC` and every
-arena index key replaced by the tree key it became.  No arena clause,
-no tiers.
+/-- The cached-state invariant (see the module docstring); its value
+legs are `RelC` and its keys are trees.
 
-The memo clauses are *erasure-functions of their keys* — the binding
-rule of the P1 freeze — so a `beq` collision, which pins the stored key
-to the query only up to erasure, preserves them. -/
+The memo clauses are *functions of their keys*, so a `beq` collision,
+which pins the stored key to the query, preserves them. -/
 structure CSOK (mode : CheckMode) (env : Env) (s : CState) : Prop where
   constTy : ∀ n us i, s.constTyAt[(n, us)]? = some i → ∃ ci,
     env.find? n = some ci ∧
@@ -312,8 +276,7 @@ structure CSOK (mode : CheckMode) (env : Env) (s : CState) : Prop where
 
 /-- The environment-free residue: exactly the clauses `flushC`
 preserves — the level-operation memos and the self-certifying
-converted-constant cache.  (There is no arena clause: the port of
-`ISOKF` loses `wf` along with the arena.) -/
+converted-constant cache. -/
 structure CSOKF (s : CState) : Prop where
   lsimp : ∀ u v, s.lsimpC[u]? = some v → v = Level.simplify u
   lnz : ∀ u b, s.lnzC[u]? = some b → b = Level.isNonZero u
@@ -326,11 +289,6 @@ structure CSOKF (s : CState) : Prop where
 theorem CSOK.residue {env : Env} {s : CState} (h : CSOK mode env s) :
     CSOKF s := ⟨h.lsimp, h.lnz, h.eqv, h.ienv⟩
 
-/-- The empty state satisfies the invariant for any environment. -/
-theorem CSOK.empty (env : Env) : CSOK mode env ({} : CState) := by
-  refine ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩ <;>
-    (intros; simp_all)
-
 /-- The empty state carries the residue. -/
 theorem CSOKF.empty : CSOKF ({} : CState) := by
   refine ⟨?_, ?_, ?_, ?_⟩ <;> (intros; simp_all)
@@ -339,8 +297,7 @@ theorem CSOKF.empty : CSOKF ({} : CState) := by
 
 `flushC` drops every environment-dependent cache, so from the residue
 it re-establishes the full invariant *for any environment* — the
-transition lemma the declaration fold uses (the port of
-`flushS_isok`). -/
+transition lemma the declaration fold uses. -/
 
 theorem flushC_run (s : CState) : flushC s = .ok ((), s.flushed) := rfl
 
@@ -360,9 +317,7 @@ theorem CSOKF.flushed {s : CState} (hs : CSOKF s) : CSOKF s.flushed :=
 /-! ## The simulation and effect relations -/
 
 /-- A successful cached run from `s₀` preserves the invariant and its
-value is `P`-related to the value of a successful fueled run.  The
-port of `SimAt` minus the arena extension and minus the state in the
-value relation. -/
+value is `P`-related to the value of a successful fueled run. -/
 @[expose] def SimC (mode : CheckMode) (env : Env) (s₀ : CState) {β α : Type}
     (P : β → α → Prop) (c : CheckCM β) (p : FueledM α) : Prop :=
   ∀ v' s', c s₀ = .ok (v', s') →
@@ -482,8 +437,7 @@ protected theorem throw_bind {β β' α : Type}
   exact nomatch hr
 
 /-- Peel a pure read: same state, the continuation at the value.
-(Task #198: the port of the retired `withStore` peel — the cached
-checker's syntactic reads are plain `pure`s.) -/
+(Task #198: the cached checker's syntactic reads are plain `pure`s.) -/
 protected theorem pureB {β α γ : Type} {P : β → α → Prop}
     {x : γ} {k : γ → CheckCM β} {p : FueledM α}
     (h : SimC mode env s₀ P (k x) p) :
@@ -492,33 +446,6 @@ protected theorem pureB {β α γ : Type} {P : β → α → Prop}
   apply h v' s'
   simpa only [Bind.bind, StateT.bind, pure,
     StateT.pure, Except.pure, Except.bind] using hr
-
-/-- Bind that *remembers* the first component's fueled run: the
-continuation may consume the existence of a successful pure run. -/
-protected theorem bindR {β β' α α' : Type}
-    {P : β → α → Prop} {Q : β' → α' → Prop}
-    {c : CheckCM β} {k : β → CheckCM β'}
-    {p : FueledM α} {q : α → FueledM α'}
-    (hx : SimC mode env s₀ P c p)
-    (hf : ∀ s₁ b a, CSOK mode env s₁ → P b a → (∃ F, p.val F = .ok a) →
-      SimC mode env s₁ Q (k b) (q a)) :
-    SimC mode env s₀ Q (c >>= k) (p >>= q) := by
-  intro v' s' hr
-  simp only [Bind.bind, StateT.bind] at hr
-  cases hc : c s₀ with
-  | error e => rw [hc] at hr; exact nomatch hr
-  | ok pr =>
-    obtain ⟨b, s₁⟩ := pr
-    rw [hc] at hr
-    dsimp only [Except.bind] at hr
-    obtain ⟨hs₁, a, hP, F₁, hp₁⟩ := hx b s₁ hc
-    obtain ⟨hs', a', hQ, F₂, hp₂⟩ := hf s₁ b a hs₁ hP ⟨F₁, hp₁⟩ v' s' hr
-    refine ⟨hs', a', hQ, max F₁ F₂, ?_⟩
-    rw [FueledM.atF_bind]
-    simp only [Bind.bind]
-    rw [p.property (Nat.le_max_left F₁ F₂) hp₁]
-    dsimp only [Except.bind]
-    exact (q a).property (Nat.le_max_right F₁ F₂) hp₂
 
 /-- Strengthen the value relation using the fueled run's success. -/
 protected theorem wp {β α : Type} {P Q : β → α → Prop}
@@ -570,11 +497,6 @@ protected theorem pure {β : Type} {Q : β → Prop} {b : β}
   simp only [pure, StateT.pure, Except.pure, Except.ok.injEq] at hr
   obtain ⟨rfl, rfl⟩ := Prod.mk.injEq .. ▸ hr
   exact ⟨hs, h⟩
-
-protected theorem throw {β : Type} {Q : β → Prop} {e : CheckError} :
-    CEff mode env s₀ Q (throw e) := by
-  intro v' s' hr
-  exact nomatch hr
 
 protected theorem bind {β β' : Type} {Q : β → Prop} {R : β' → Prop}
     {c : CheckCM β} {k : β → CheckCM β'}

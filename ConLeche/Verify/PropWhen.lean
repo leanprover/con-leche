@@ -71,16 +71,6 @@ theorem zeronessOf_sound (φ : Name → Nat) :
         by simpa using hm
       rw [h1, if_neg hb, h2]
 
-/-- An intersection is unsatisfiable exactly when one side is. -/
-theorem isNever_inter (a b : PropWhen) :
-    (a.inter b).isNever = (a.isNever || b.isNever) := by
-  cases a with
-  | never => simp
-  | ifAllZero ps =>
-    cases b with
-    | never => simp
-    | ifAllZero qs => simp
-
 end ConLeche.PropWhen
 
 namespace ConLeche.Level
@@ -103,21 +93,6 @@ theorem zeronessOf_subst (ks : List Name) (vs : List Level) :
   | .imax a b => by
     show zeronessOf (subst ks vs b) = _
     exact zeronessOf_subst ks vs b
-
-/-- **The syntactic never-zero test IS the datum's unsatisfiability**:
-`isNeverZero` and `zeronessOf` are the same case analysis, one
-answering "no valuation makes this zero" and the other reading off
-which valuations do. -/
-theorem isNeverZero_eq_isNever :
-    ∀ l : Level, l.isNeverZero = (zeronessOf l).isNever
-  | .zero => rfl
-  | .succ _ => rfl
-  | .param _ => rfl
-  | .max a b => by
-    rw [Level.isNeverZero, zeronessOf, isNever_inter,
-      isNeverZero_eq_isNever a, isNeverZero_eq_isNever b]
-  | .imax _ b => by
-    rw [Level.isNeverZero, zeronessOf, isNeverZero_eq_isNever b]
 
 /-- `subst.go` at the identity substitution. -/
 theorem subst_go_self (ks : List Name) (n : Name) :
@@ -172,7 +147,7 @@ theorem subst_go_map (σ : Level → Level) :
       simp [h]
 
 /-- Composition of datum instantiations, under the same
-parameter-definedness the level side's `subst_subst` has: parameters
+parameter-definedness the level side's `substFn_map_subst` has: parameters
 of the datum are covered by the inner substitution. -/
 theorem substPW_comp {ks : List Name} {us : List Level}
     {ps : List Name} {vs : List Level} {pw : PropWhen}
@@ -223,56 +198,10 @@ theorem zeronessOf_paramsDefined {ps' : List Name} :
     show (zeronessOf b).paramsDefined ps' = true
     exact zeronessOf_paramsDefined h.2
 
-/-- A parameter resolved within the pairing lands in the replacement
-list. -/
-theorem subst_go_mem :
-    ∀ {ks : List Name} {us : List Level} {n : Name},
-      n ∈ ks → us.length = ks.length → subst.go ks us n ∈ us
-  | [], _, n, hn, _ => by simp at hn
-  | _ :: _, [], n, _, hl => by simp at hl
-  | k :: ks, u :: us, n, hn, hl => by
-    show (if k = n then u else subst.go ks us n) ∈ u :: us
-    by_cases h : k = n
-    · simp [h]
-    · have hn' : n ∈ ks := by
-        cases hn with
-        | head => exact absurd rfl h
-        | tail _ h' => exact h'
-      simp only [h, if_false]
-      exact List.mem_cons_of_mem u (subst_go_mem hn' (by simpa using hl))
-
-/-- The pushforward keeps datum parameters within the bound of the
-substituted levels — the datum half of
-`Level.allParamsDefined_subst`. -/
-theorem substPW_paramsDefined {ks : List Name} {us : List Level}
-    {ps' : List Name} (hl : us.length = ks.length)
-    (hus : ∀ u ∈ us, u.allParamsDefined ps' = true) :
-    ∀ {pw : PropWhen}, pw.paramsDefined ks = true →
-      (substPW ks us pw).paramsDefined ps' = true := by
-  intro pw h
-  cases pw with
-  | never => rfl
-  | ifAllZero pws =>
-    rw [show substPW ks us (PropWhen.ifAllZero pws)
-          = bindZ.go (fun n => zeronessOf (subst.go ks us n)) pws from
-        bindZ_ifAllZero _ _]
-    simp only [PropWhen.paramsDefined_ifAllZero, List.all_eq_true] at h
-    induction pws with
-    | nil => rfl
-    | cons n rest ih =>
-      show (PropWhen.inter _ _).paramsDefined ps' = true
-      exact PropWhen.paramsDefined_inter_of
-        (zeronessOf_paramsDefined (hus _ (subst_go_mem
-          (by simpa [List.contains_iff_mem] using h n (by simp)) hl)))
-        (ih fun m hm => h m (by simp [hm]))
-
 /-- **The pushforward's semantic reading** (task #161 P3): the
 instantiated datum's bit at `φ` is the datum's bit at the composed
 valuation `Level.substFn φ ks vs` — the same composed valuation
-`denoteAnnot`'s constant clause uses.  The `denoteMeta` level crossing rides
-this where the canonical lane needed the open checker metatheorems
-(`SortOfEInstLevels`/`LamSortEInstLevels`,
-`ConLeche/SetR/Interp/Steps/Levels.lean`). -/
+`denoteMeta`'s constant clause uses; its level crossing rides this. -/
 theorem holds_substPW (φ : Name → Nat) (ks : List Name)
     (vs : List Level) : ∀ pw : PropWhen,
     (substPW ks vs pw).holds φ = pw.holds (substFn φ ks vs) := by

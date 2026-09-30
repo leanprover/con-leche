@@ -1,22 +1,16 @@
 --#export InModelMutualIdx.even_two InModelMutualIdx.odd_pos InModelMutualIdx.p_of_q InModelMutualIdx.q_base InModelMutualIdx.r_of_s InModelMutualIdx.size_example
 
-/- End-to-end test: INDEXED mutual inductive blocks modelled IN-PROCESS
-   (task #200, B2).  The tag constructors carry the members' index
-   telescopes (`tag.m : ∀ p⃗ ı⃗_m, tag p⃗`), the auxiliary family is
-   indexed by the tag, the recursor models take the index arguments
-   before the major, and the iota statements carry the constructors'
-   and the recursive fields' index expressions.
+/- End-to-end test: INDEXED mutual inductive blocks (task #200, B2).
 
    Four shapes: a `Prop` pair over `Nat` (`Even`/`Odd`; `odd_pos`
    eliminates by mutual induction into a Prop motive over the index), a
    data pair with a recursor-spelled size function (`Tm`/`Args`, with a
    constructor at a shifted index so the index is not promoted to a
-   parameter; `size_example`'s `rfl` forces iota through both model
+   parameter; `size_example`'s `rfl` forces iota through both
    recursors at the indices), a
    pair whose members have DIFFERENT index telescopes (`P : Nat → Prop`,
    `Q : Nat → Bool → Prop`), and a pair with a universe-polymorphic index
-   (`R`/`S` over `α : Type u`, so the tag's universe is inferred as
-   `max 1 (u+1)`). -/
+   (`R`/`S` over `α : Type u`). -/
 
 namespace InModelMutualIdx
 

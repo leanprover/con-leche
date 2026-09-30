@@ -20,24 +20,15 @@ There is an AI-written overview of the project in [OVERVIEW.md](./OVERVIEW.md).
 * It uses its own term representation, so it does not rely on Lean’s `Lean.Expr`, and thus does not rely on the unverified C++ routines for that type.
 * Term representation is locally nameless, with open variables represented as deBruijn level + type (inspired by [nanoda](https://github.com/ammkrn/nanoda_lib)).
 * Memoization of core checker routines via hash maps and hashes pre-computed using `@[computed_field]`, like in the official checker and [lean4lean](https://github.com/digama0/lean4lean/).
-* The checker has two strategies for handling inductives:
-
-  * Non-mutual non-nested inductives are supported natively: The checker checks the shape of the inductives, and the proof can models them abstractly.
-  * For mutual and nested inductives the checker creates, at runtime, an explicit model of these inductives, with theorems proving the iota rules of the recursor. The proof then leans on these models to justify the inductive. This step requires extensionality in the model to turn the propositional equality into a definitional equality.
-
-    The modelling code is taken from [lean-inductive-models](https://github.com/nomeata/lean-inductive-models). During development, that tool was run as a preprocessor to handle almost all inductive types, and this was very conductive to bootstrap the project. Later the naive support was extended and we dropped the dependency.
-
-* Accepted incompleteness: Primitive projections are only supported
-  - for structures that are not mutually recursive
-  - inside the projection *functions* that the elaborator produces.
+* The checker has a uniform strategy for handling inductive types, including mutual and nested, based on a positivity analysis. It does not perform the nested-to-mutual reduction that the official kernel uses. (Early versions of con-leche used an extensional modelling approach based on [lean-inductive-models](https://github.com/nomeata/lean-inductive-models), but has since phased that out.)
 * In anticipation of [lean4#14896](https://github.com/leanprover/lean4/pull/14896), theorem bodies are opaque. A k-rule like hack for `And` allows processing proofs built by Lean versions before that change.
 * Accelerated Nat operations are performed using Lean’s `Nat` type.
-* It accepts only the three standard Lean axiom in the input stream.
+* It accepts only the three standard Lean axioms in the input stream.
 
-  For practicality reasons, it silently *ignores* the the [`sorryAx`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Cached/ParsedC.lean#L226-L227) axiom declarations from the standard library, but will complain it is actually used. The (deprecated) `trustCompiler`, `ofReduceBool` and `ofReduceNat` axioms are replaced with simple definitions of the same type.
+  For practicality reasons, it silently *ignores* the [`sorryAx`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Cached/ParsedC.lean#L232-L233) axiom declarations from the standard library, but will complain it is actually used. The (deprecated) `trustCompiler`, `ofReduceBool` and `ofReduceNat` axioms are replaced with simple definitions of the same type.
 
   The checker (at the moment) will reject any other axiom.
-* The checker processes files in three phases: parsing the input stream, *installing* all declarations (including annotating) and *checking*. The last stage can be run parallel using [`--jobs`](https://github.com/leanprover/con-leche/blob/master/Main.lean#L747).
+* The checker processes files in three phases: parsing the input stream, *installing* all declarations (including annotating) and *checking*. The last stage can be run parallel using [`--jobs`](https://github.com/leanprover/con-leche/blob/master/Main.lean#L684).
 * The parser is a fast agentic-hand-written parser over the input bytes (verified with respect to a naive one, see below).
 
 ## Design of the checker proof
@@ -64,7 +55,7 @@ theorem no_False_declaration (V : Type w) [SetTheory V]
 
 The meaning of [`False`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Basis/False.lean#L51-L52) is hard-coded, so no tricks involving odd definitions for `False` will confuse the checker. This is a meaningful theorem if you assume that worrisome kernel implementation bugs or flaws in the theory are those that can be used to prove anything, in particular `False`.
 
-The program's actual [`main`](https://github.com/leanprover/con-leche/blob/master/Main.lean#L992) function is of course more than this; in particular it performs IO (reading the input file in chunks, reporting progress, spawning threads). You are invited to read through the `main` function and convince yourself that the above theorem says something about the data flow through the actual main function.
+The program's actual [`main`](https://github.com/leanprover/con-leche/blob/master/Main.lean#L894) function is of course more than this; in particular it performs IO (reading the input file in chunks, reporting progress, spawning threads). You are invited to read through the `main` function and convince yourself that the above theorem says something about the data flow through the actual main function.
 
 ### The Main Theorem
 
@@ -83,17 +74,17 @@ Denotation of terms and types is captured by the inductive relation [`Denotes`](
 
 The `Model` relation is *not* the strongest property proven (and carried through the induction) about the environment, but a simplified one. For example, it does not contain the delta and iota equations – but since they can easily be added as an explicit `theorem : lhs = rhs := rfl`, this is hopefully not an oversimplification.
 
-This theorem only talks about [`checkDecls`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Cached/Installed.lean#L450-L455) and its output `env`, which has the form that we define our semantics about. You may want to look through the code and consult additional theorems that relate this to your input in a meaningful way. You may want to check that
+This theorem only talks about [`checkDecls`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Cached/Installed.lean#L454-L459) and its output `env`, which has the form that we define our semantics about. You may want to look through the code and consult additional theorems that relate this to your input in a meaningful way. You may want to check that
 
 * The parser is faithful.
 * [`preparePrelude`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Frontend/Prepare.lean#L165-L172) only reorders declarations and adds missing prelude declarations, but does not drop any (see [`theorem Frontend.preparePrelude_perm`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Frontend/Prepare.lean#L157-L162)).
-* The definitions, theorems and axioms in the output of `checkDecls` are as they are in the input, up to annotations, zeta-reduction and dropping the `sorryAx` declaration (see [`theorem checkDecls_consts`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Cached/StreamConsts.lean#L781-L786)).
+* The definitions, theorems and axioms in the output of `checkDecls` are as they are in the input, up to annotations, zeta-reduction and dropping the `sorryAx` declaration (see [`theorem checkDecls_consts`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/StreamConsts.lean#L764-L769)).
 
 ### Set theory assumption
 
 The set model we assume in [`[SetTheory V]`](https://github.com/leanprover/con-leche/blob/master/ConLeche/SetTheory/Core.lean#L95-L133) is fairly standard. It assumes ZF without infinity and choice (extensionality, pairing, union, power set, regularity, replacement) plus an ω-chain of Grothendieck universes `univ 0 ∈ univ 1 ∈ …`, stated in Tarski's form. Choice is inherited from Lean as the meta-logic. See [`ConLeche/SetTheory/Core.lean`](./ConLeche/SetTheory/Core.lean) for the precise formulation of our set theory.
 
-The interface is instantiated on Mathlib's `ZFSet` from the ω-many-inaccessible-cardinals hypothesis of Carneiro's consistency analysis in [lean4lean-model](https://github.com/digama0/lean4lean-model): see the theorem [`carneiro_implies_conleche`](https://github.com/leanprover/con-leche/blob/master/bridge/lean4lean-model/ConLecheBridge/Carneiro.lean#L200-L202) in [`bridge/lean4lean-model`](./bridge/lean4lean-model) (separte package due to the Mathlib depenency).
+The interface is instantiated on Mathlib's `ZFSet` from the ω-many-inaccessible-cardinals hypothesis of Carneiro's consistency analysis in [lean4lean-model](https://github.com/digama0/lean4lean-model): see the theorem [`carneiro_implies_conleche`](https://github.com/leanprover/con-leche/blob/master/bridge/lean4lean-model/ConLecheBridge/Carneiro.lean#L200-L202) in [`bridge/lean4lean-model`](./bridge/lean4lean-model) (separte package due to the Mathlib dependency).
 
 Future work: The assumption that we need a ω-chain is maybe unnecessary strong. Every concrete stream has an upper bound of universe levels it needs, and we could assume only a chain of length `k`. For every concrete `k` we can prove their existence in lean without further assumptions, just not for all `k`.
 
@@ -101,7 +92,7 @@ Future work: The assumption that we need a ω-chain is maybe unnecessary strong.
 
 In our set interpretation, false propositions are *∅* and true propositions are *{∅}*, so proof irrelevance and propositional extensionality is built in. This causes problems when interpreting Lean’s `∀`: If the pi type is building a proposition we need to model this differently than if we are building a type. But we want the interpretation to be syntax directed, and *not* depend on type inference!
 
-To resolve this, the checker annotates every `.pi` and `.lambda` with a [`PropWhen`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/PropWhen.lean#L413-L415) datum that says under which level assignments this is a proposition or a type. This is either “always type” or “prop when all of these level parameters are zero”.
+To resolve this, the checker annotates every `.pi` and `.lambda` with a [`PropWhen`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/PropWhen.lean#L407-L409) datum that says under which level assignments this is a proposition or a type. This is either “always type” or “prop when all of these level parameters are zero”.
 
 With this annotation we can have a syntactic interpretation `[e]`. On top of this we define a *semantic* typing predicate that we can then show is preserved by reduction.
 
@@ -109,7 +100,7 @@ What's more: For functions producing types (but not those that are propositions)
 
 ### The certification tax
 
-For sort-polymorphic functions the checker does perform an extra `infer` of the argument at run time. This happens relatively rarely in practice, so we still get a usable checker, but is part of what we call the *certification tax* in this project: Work we only do because our proof is not better. The checker can be run in [`--trusted`](https://github.com/leanprover/con-leche/blob/master/Main.lean#L730) mode where these checks are omitted to quantify the cost.
+For sort-polymorphic functions the checker does perform an extra `infer` of the argument at run time. This happens relatively rarely in practice, so we still get a usable checker, but is part of what we call the *certification tax* in this project: Work we only do because our proof is not better. The checker can be run in [`--trusted`](https://github.com/leanprover/con-leche/blob/master/Main.lean#L667) mode where these checks are omitted to quantify the cost.
 
 ### Nat operations
 
@@ -143,13 +134,11 @@ There is some overhead of annotating terms and some extra checks; the certificat
 
 ## Next steps
 
-This project was published when it was barely useable – able to process mathlib within reasonable memory usage and not absurdly slow. There is more to be done:
+This project was published when it was barely usable – able to process mathlib within reasonable memory usage and not absurdly slow. There is more to be done:
 
 * Make it even faster.
-* Direct support for mutual and nested types, dropping the run-time model generation.
 * Use a verified bignum library for `Nat` handling.
 * Lots of proof refactoring to clean up oddities and detours introduced by path dependencies.
-* AI-translate the implementation to a different programming language, to be relisient against runtime and compiler bugs
 
 ## Acknowledgements
 

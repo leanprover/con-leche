@@ -8,20 +8,16 @@ public section
 /-!
 # Cached body walks, part 4: head normalization and the whnf loop
 
-The port of `ConLeche/Verify/DiscI4.lean` under the recipe (DESIGN.md,
-task #163): simulation walks for the cached `whnfAppI`/`betaPeelI`,
+Simulation walks (task #163) for the cached `whnfAppI`/`betaPeelI`,
 `whnfCoreStepI`/`whnfCoreLoopI`/`whnfCoreBodyI`,
 `whnfStepI`/`whnfLoopI`/`whnfBodyI`, `inferSpineI` and `inferBodyI`
-(`ConLeche/Cached/CoreC.lean`) against the same pure fueled comparands
-the interned walks use.  `SimAt → SimC`, denotation hypotheses →
-`RelC`/`RelCL`, no `Ext`, node inversion by `cases` on
-the `Expr` constructor.  The pure comparand side of every statement is
-byte-identical to the interned original's.
+(`ConLeche/Cached/CoreC.lean`) against the pure fueled comparands, with
+value relations `RelC`/`RelCL` and node inversion by `cases` on the
+`Expr` constructor.
 
-The one code-shape deviation from the interned original (recorded at
-the batch-10 re-sync) lives in `inferBodyI`: the binder-telescope peel
-fuel is the constant `peelFuelM`, opaque to the binder-loop tails,
-which quantify over the fuel.
+In `inferBodyI` the binder-telescope peel fuel is the constant
+`peelFuelM`, opaque to the binder-loop tails, which quantify over the
+fuel.
 -/
 
 set_option linter.unusedSimpArgs false
@@ -118,10 +114,10 @@ private theorem whnfCoreStepM_unfold (env : Env) (d : Nat)
               fun b =>
             if b then
               kM (e'.getAppArgs.getD (entry.numParams + i) (.bvar 0))
-            else pure (.proj sn i e')
-          else pure (.proj sn i e')
-        | _ => pure (.proj sn i e')
-      | none => pure (.proj sn i e')
+            else pure (.proj sn i pe)
+          else pure (.proj sn i pe)
+        | _ => pure (.proj sn i pe)
+      | none => pure (.proj sn i pe)
     | .letE _ _ _ =>
       throw (.internal "whnfCore: `let` in an annotated expression")
     | .bvar _ =>
@@ -174,7 +170,7 @@ theorem whnfAppC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode env f) 
         = Expr.lam ty body mb from rfl, whnfApp_lam]
       unfold whnfAppLam
       -- task #161: the β gate reads the *same* `mb` on both sides
-      -- (`eraseC` copies the binder meta), so one `by_cases`
+      -- (the cached and pure terms are the same), so one `by_cases`
       rw [betaSkip_of_verifiedChecks hμ]
       by_cases hgate : betaGateFires mode mb.pw = true
       · simp only [hgate, ↓reduceIte]
@@ -567,8 +563,7 @@ theorem whnfCoreStepC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode en
       (fun s₁ e' e'x hs₁ hP => ?_)
     obtain ⟨rfl, hwe'⟩ := hP
     have he'd : RelC e' e' := rfl
-    have hwproj : Expr.WScoped d (Expr.proj sn ip e') := by
-      simpa only [Expr.WScoped] using hwe'
+    have hwproj : Expr.WScoped d (Expr.proj sn ip pe) := hw
     refine SimC.bind_left (pureEq_eff hs₁ sn)
       (fun s₁' snw hs₁ hsnw => ?_)
     subst snw
@@ -577,7 +572,7 @@ theorem whnfCoreStepC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode en
     | none =>
       dsimp only
       exact SimC.of_eff
-        (pureC_eff hs₁ (x := Expr.proj sn ip e')) _
+        (pureC_eff hs₁ (x := Expr.proj sn ip pe)) _
         (fun pr hQ => ⟨hQ, hwproj⟩)
     | some entry =>
       dsimp only
@@ -615,46 +610,46 @@ theorem whnfCoreStepC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode en
           | false =>
             simp only [Bool.false_eq_true, ↓reduceIte]
             exact SimC.of_eff
-              (pureC_eff hs₃ (x := Expr.proj sn ip e')) _
+              (pureC_eff hs₃ (x := Expr.proj sn ip pe)) _
               (fun pr hQ => ⟨hQ, hwproj⟩)
         · exact SimC.of_eff
-            (pureC_eff hs₁ (x := Expr.proj sn ip e')) _
+            (pureC_eff hs₁ (x := Expr.proj sn ip pe)) _
             (fun pr hQ => ⟨hQ, hwproj⟩)
       | bvar k =>
         exact SimC.of_eff
-          (pureC_eff hs₁ (x := Expr.proj sn ip e')) _
+          (pureC_eff hs₁ (x := Expr.proj sn ip pe)) _
           (fun pr hQ => ⟨hQ, hwproj⟩)
       | sort u =>
         exact SimC.of_eff
-          (pureC_eff hs₁ (x := Expr.proj sn ip e')) _
+          (pureC_eff hs₁ (x := Expr.proj sn ip pe)) _
           (fun pr hQ => ⟨hQ, hwproj⟩)
       | lit l =>
         exact SimC.of_eff
-          (pureC_eff hs₁ (x := Expr.proj sn ip e')) _
+          (pureC_eff hs₁ (x := Expr.proj sn ip pe)) _
           (fun pr hQ => ⟨hQ, hwproj⟩)
       | fvar idx t =>
         exact SimC.of_eff
-          (pureC_eff hs₁ (x := Expr.proj sn ip e')) _
+          (pureC_eff hs₁ (x := Expr.proj sn ip pe)) _
           (fun pr hQ => ⟨hQ, hwproj⟩)
       | app f₂ a₂ =>
         exact SimC.of_eff
-          (pureC_eff hs₁ (x := Expr.proj sn ip e')) _
+          (pureC_eff hs₁ (x := Expr.proj sn ip pe)) _
           (fun pr hQ => ⟨hQ, hwproj⟩)
       | lam t b m =>
         exact SimC.of_eff
-          (pureC_eff hs₁ (x := Expr.proj sn ip e')) _
+          (pureC_eff hs₁ (x := Expr.proj sn ip pe)) _
           (fun pr hQ => ⟨hQ, hwproj⟩)
       | forallE t b m =>
         exact SimC.of_eff
-          (pureC_eff hs₁ (x := Expr.proj sn ip e')) _
+          (pureC_eff hs₁ (x := Expr.proj sn ip pe)) _
           (fun pr hQ => ⟨hQ, hwproj⟩)
       | letE t v b =>
         exact SimC.of_eff
-          (pureC_eff hs₁ (x := Expr.proj sn ip e')) _
+          (pureC_eff hs₁ (x := Expr.proj sn ip pe)) _
           (fun pr hQ => ⟨hQ, hwproj⟩)
       | proj s' j' e'' =>
         exact SimC.of_eff
-          (pureC_eff hs₁ (x := Expr.proj sn ip e')) _
+          (pureC_eff hs₁ (x := Expr.proj sn ip pe)) _
           (fun pr hQ => ⟨hQ, hwproj⟩)
 
 /-- The head-normalization *loop* simulates its mirror, by induction on
@@ -684,34 +679,6 @@ theorem whnfCoreBodyC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode en
   unfold whnfCoreBodyI
   exact SimC.wr (whnfCoreLoopC_sim hμ ih henv whnfCoreLoopFuel hs hden hw)
     (fun v F hF => whnfCoreLoop_sound_body d ex v whnfCoreLoopFuel F hF)
-
-/-! ## The named concrete core's simulation (task #172, batch B2; the
-R letter retired 2026-09-05)
-
-**THE MEASUREMENT the batch was dispatched for.**  The walks above are
-generic in `mode` (under `hμ : mode.verifiedChecks = true`, task
-#185), so one proof serves every instantiation; the capstone is the
-instance at `.verified`, where `hμ` is `rfl`.  The per-core letter is
-therefore `exact` with no conversion step and no restated lemma: the
-tower **INSTANTIATES**, and per concrete core the whnfCore family
-costs **one proof line** (a term application) and **zero** new proof
-steps.
-
-`whnfCoreBodyRC_sim` was this letter's R twin.  It retired with its
-subject when the R core went (2026-09-05): `whnfCoreBodyRC` and `cfgR`
-are gone, so the statement has nothing left to be about.  The
-measurement it recorded is not lost — it is the same one this letter
-records, at the core that ships. -/
-
-/-- The P core's head normalization simulates the specification. -/
-theorem whnfCoreBodyPC_sim (ih : SSimC .verified env f) (henv : EnvWF env)
-    {d : Nat} {i : Expr} {ex : Expr} {s₀ : CState}
-    (hs : CSOK .verified env s₀)
-    (hden : RelC i ex) (hw : Expr.WScoped d ex) :
-    SimC .verified env s₀ (RelEC d)
-      (whnfCoreBodyPC (coreKnotI .verified (mkFEnv env) f) (mkFEnv env) d i)
-      (whnfCoreBody .verified (fueledFns .verified env) env d ex) :=
-  whnfCoreBodyC_sim rfl ih henv hs hden hw
 
 end Walks
 

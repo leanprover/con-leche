@@ -277,10 +277,10 @@ theorem parseChunks_go :
 /-- **The chunk boundary is invisible.**  The streaming parse of any
 chunking of a byte string that fits in the address space is the line
 fold of the whole. -/
-theorem parseChunks_eq_parseLines (inModel census : Bool)
+theorem parseChunks_eq_parseLines
     (cs : List ByteArray) (hsz : (concatBytes cs).size < USize.size) :
-    parseChunks cs inModel census =
-      (parseLines (.init inModel census) (bytes (concatBytes cs)) 0).map
+    parseChunks cs =
+      (parseLines .init (bytes (concatBytes cs)) 0).map
         ParseResultD.ofState := by
   unfold parseChunks
   rw [parseChunks_go cs _ ByteArray.empty 0 0
@@ -289,11 +289,11 @@ theorem parseChunks_eq_parseLines (inModel census : Bool)
 
 /-- The streaming parse of a list of chunks is the wholesale parse of
 their concatenation, whenever that fits in the address space. -/
-theorem parseChunks_eq_parseBytes (inModel census : Bool)
+theorem parseChunks_eq_parseBytes
     (cs : List ByteArray) (hsz : (concatBytes cs).size < USize.size) :
-    parseChunks cs inModel census = parseBytes (concatBytes cs) inModel census := by
-  rw [parseChunks_eq_parseLines inModel census cs hsz,
-    parseBytes_eq_parseLines (concatBytes cs) inModel census hsz]
+    parseChunks cs = parseBytes (concatBytes cs) := by
+  rw [parseChunks_eq_parseLines cs hsz,
+    parseBytes_eq_parseLines (concatBytes cs) hsz]
 
 /-! ## The streaming guard -/
 
@@ -341,18 +341,18 @@ theorem parseChunks_go_ok_size :
 
 /-- **The streaming guard**: a result of the streaming parse is a
 result about chunks that fit in the address space. -/
-theorem parseChunks_ok_size {inModel census : Bool} {cs : List ByteArray} {r : ParseResultD}
-    (h : parseChunks cs inModel census = .ok r) : (concatBytes cs).size < USize.size := by
+theorem parseChunks_ok_size {cs : List ByteArray} {r : ParseResultD}
+    (h : parseChunks cs = .ok r) : (concatBytes cs).size < USize.size := by
   unfold parseChunks at h
   simpa using parseChunks_go_ok_size cs _ ByteArray.empty 0 0 USize.size_pos h
 
 /-- **The chunk boundary is invisible, without a size hypothesis**: a
 result of the streaming parse of a list of chunks is the result of
 `parseBytes` on their concatenation. -/
-theorem parseChunks_ok_parseBytes {inModel census : Bool} {cs : List ByteArray}
-    {r : ParseResultD} (h : parseChunks cs inModel census = .ok r) :
-    parseBytes (concatBytes cs) inModel census = .ok r := by
-  rw [← parseChunks_eq_parseBytes inModel census cs (parseChunks_ok_size h)]
+theorem parseChunks_ok_parseBytes {cs : List ByteArray}
+    {r : ParseResultD} (h : parseChunks cs = .ok r) :
+    parseBytes (concatBytes cs) = .ok r := by
+  rw [← parseChunks_eq_parseBytes cs (parseChunks_ok_size h)]
   exact h
 
 end ConLeche.Frontend

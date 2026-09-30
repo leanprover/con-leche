@@ -14,7 +14,7 @@
 #
 # THE BIG FOUR (`run-big`: init, std, cedar, cslib — 0.3 to 2.0 GB of raw
 # export each).  They are Mathlib-scale in memory, so: strictly one at a time,
-# `ulimit -v 22000000`, and only when the machine's single Mathlib-scale slot
+# and only when the machine's single Mathlib-scale slot
 # is yours (ask the coordinator; do NOT poll other lanes' processes).
 # `run-small` is the rest and is harmless (the biggest cell is perf/app-lam at
 # ~4 GB).
@@ -33,7 +33,7 @@
 #
 # The checker definition is scripts/arena/con-leche.yaml; it is copied into the
 # clone's checkers/ on every run, and takes the binary, the mode and the
-# limits from the environment (see below), so the arena clone stays a pure
+# timeout from the environment (see below), so the arena clone stays a pure
 # checkout.
 set -uo pipefail
 
@@ -50,9 +50,9 @@ export CON_LECHE_MODE=${CON_LECHE_MODE:---verified}
 export CON_LECHE_TMPDIR=${CON_LECHE_TMPDIR:-$WORK/tmp}
 mkdir -p "$CON_LECHE_TMPDIR"
 export TMPDIR=$CON_LECHE_TMPDIR
-# The standing ceilings for this project: 22 GB / 4 h for the large streams
-# (cedar, cslib, init, std), 16 GB / 50 min otherwise.  Set per invocation.
-export CON_LECHE_VLIMIT=${CON_LECHE_VLIMIT:-16000000}
+# The standing time ceilings for this project: 4 h for the large streams
+# (cedar, cslib, init, std), 50 min otherwise.  Set per invocation.  There is
+# no address-space cap (`ulimit -v` aborts the worker pool at thread creation).
 export CON_LECHE_TIMEOUT=${CON_LECHE_TIMEOUT:-3000}
 
 # GNU time (see above).  Anything already on PATH wins.
@@ -125,8 +125,7 @@ case "${1:-all}" in
     IFS=$'\n' read -r -d '' -a pats < <(small_tests; printf '\0')
     run_group "${pats[@]}" ;;
   run-big)
-    # one at a time, 22 GB / 4 h, and nothing else of ours running
-    CON_LECHE_VLIMIT=${CON_LECHE_VLIMIT_BIG:-22000000} \
+    # one at a time, 4 h, and nothing else of ours running
     CON_LECHE_TIMEOUT=${CON_LECHE_TIMEOUT_BIG:-14400} \
       run_group $BIG ;;
   table)

@@ -1,34 +1,22 @@
 module
 
 public import ConLeche.Semantics.Decl
+public import ConLeche.Kernel.CheckDecl
 public import ConLeche.Verify.Extend.Inversions
-import ConLeche.Verify.IotaWalkInv
+import ConLeche.Kernel.Checker
 
 @[expose] public section
 
 /-!
-# The declaration-level RUN inversions (task #148 T6; the derivation
-half removed 2026-09-05)
+# The declaration-level RUN inversions (task #148 T6)
 
 Three inversions from `checkDecl`'s own steps into the V-free run
-records of `SetBase/Decl.lean`: `certifyNatEqs` into `NatEqsRun`, and
+records of `Semantics/Decl.lean`: `certifyNatEqs` into `NatEqsRun`, and
 the pinned basis fold into `BasisInstallRun`/`DeclBasisRun`.  Each inverts a statement
 about the checker into a statement about the checker; no valuation, no
 relation and no model appears in any of them.
 
-**What this file used to be.**  2 755 lines: the six per-kind
-declaration bridges (`declDefnR`, `declThmR`, `declOpaqueR`,
-`declAxiomR`, the `indDecl` walk packs, the four pin bridges) that took
-`checkDecl`'s run and produced a `DeclR` *derivation* — the collapsed
-model's front door, premised throughout on `checkBridge`
-(`SetBase/Bridge/Main.lean`) and hence on `mode.betaGate = false`.  The
-SetR removal's Stage C deleted the relation family those derivations
-inhabited, so the bridges went with it; a proof-term probe had already
-put every one of them outside both surviving capstones' closures and
-outside the run route the graded fold calls.
-
-The four survivors are here, and not in the grave, because each has a
-live consumer: `SetBase/Bridge/DeclRun.lean` for the walks' runs and
+Consumers: `Semantics/Bridge/DeclRun.lean` for the walks' runs and
 the template fold, and `checkDeclRun_of`'s basis arm for the pair
 below.
 -/
@@ -43,9 +31,7 @@ variable {pins : List NatOpPinSet}
 literal tier): the verdict is one `isDefEqCore` success per equation,
 and the recorded form is the checker's literal call —
 `fueledOps_isDefEq` at fuel `F`, depth `2`.  The P tier's
-`NatOps` establishment consumes these through `DefEqClaim`
-instead of the relational `NatEqsR` below (whose `DefEq` only has
-collapse-currency soundness). -/
+`NatOps` establishment consumes these through `DefEqClaim`. -/
 theorem natEqsRun_of_certs {μ : CheckMode} {F : Nat} {env : Env} :
     ∀ (eqs : List (Expr × Expr)),
       certifyNatEqs (m := CheckM) (fueledOps μ F) env eqs = .ok true →

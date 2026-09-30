@@ -28,20 +28,15 @@ representation:
                   `basisDecl` (-3) and swallowed `Quot.sound` (-1).
 
 and the BLOCK census: every inductive record con-leche installs itself
-(`native`: a direct route, or a `_model` family generated in process),
+(`native`: the uniform fixpoint route),
 split by shape — indexed (numIndices > 0), structure (no indices, one
 constructor), sum (no indices, not one constructor) — beside the
 pinned basis blocks.
 
-`fold` PREDICTS THE VERDICT LINE.  Between tasks #200 and #219 it did
-not: the in-process modeller pushed its generated records into the
-parsed list and the driver counted them, so the verdict ran ahead of
-the file by the size of every generated model family (exactly 30 on
-`init-full`, 2 168 on `mathlib-full`).  Task #219 books those records
-as what they are — declarations of the fold, never records of the file
-— and the two agree again.  There is no `modeled` column any more: a
-`_model` record in a stream is an ordinary declaration and has no
-effect on any block.
+`fold` PREDICTS THE VERDICT LINE: the checker's fold runs over the
+file's own records (after the built-in prelude), and nothing is added
+to them.  There is no `modeled` column: a `_model` record in a stream
+is an ordinary declaration and has no effect on any block.
 
     scripts/stream-census.py STREAM.ndjson [...]
 """

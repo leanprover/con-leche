@@ -2,20 +2,15 @@
 
 /- End-to-end test: the projection functions of a NESTED structure
    (`kids : List Tree`) and of a directly RECURSIVE one (`Stream'.tail :
-   Unit → Stream'`), rewritten to recursor applications by the frontend
-   (`ConLeche/Frontend/ProjRec.lean`, 2026-09-06; the mutual twin is
-   `mutual_struct_proj.lean`).
+   Unit → Stream'`); the mutual twin is `mutual_struct_proj.lean`.
 
    `Tree.rec` carries two motives (the tree's and the auxiliary one
    over `List Tree`) and four minors (`node`, then `List.nil`/`List.cons`
-   at the container); `Tree.label`/`Tree.kids` become
-   `Tree.rec (motive_1 := fun _ => F_i) (motive_2 := fun _ => PUnit)
-   … self`, and the constructor minor ignores the auxiliary inductive
-   hypothesis.  `Stream'` is a reflexive recursive structure with no
-   base case (uninhabited), so its projections are checked but never
+   at the container).  `Stream'` is a reflexive recursive structure with
+   no base case (uninhabited), so its projections are checked but never
    reduced.  `sum` is the nested-recursion consumer whose
    equation-compiler output reads `Tree.kids` inside `brecOn`, and the
-   `rfl`s force iota through the rewritten projections. -/
+   `rfl`s force iota through the projections. -/
 
 namespace NestedStructProj
 

@@ -9,8 +9,8 @@ public section
 
 `substFvarAt p a e` replaces every reachable `fvar p` leaf by `a` and
 lowers higher `fvar` indices by one — the syntactic side of
-substitution, under the denotation's own substitution lemmas
-(`ConLeche/Verify/Denote/Inst.lean`).  The key equation is the *beta
+substitution, under the denotation's own substitution lemmas.
+The key equation is the *beta
 bridge*: opening a binder with a fresh variable and then substituting
 that variable equals opening with the term directly.
 -/
@@ -76,32 +76,6 @@ theorem instantiate1_instantiate1 {a b : Expr}
   | lit l => intro j k hjk; simp [instantiate1]
   | proj s i e ih => intro j k hjk; simp [instantiate1, ih _ _ hjk]
 
-/-- A stripped telescope's body stays loose-bvar-bounded by the strip
-depth. -/
-theorem stripPis_body_bounded :
-    ∀ (k : Nat) {e : Expr} {bs : List (Expr × BinderMeta)}
-      {body : Expr} {j : Nat},
-      e.stripPis k = some (bs, body) → e.looseBVarsBounded j = true →
-      body.looseBVarsBounded (j + k) = true := by
-  intro k
-  induction k with
-  | zero =>
-    intro e bs body j h hb
-    simp only [stripPis, Option.some.injEq, Prod.mk.injEq] at h
-    rw [← h.2]
-    exact hb
-  | succ k ih =>
-    intro e bs body j h hb
-    match e, h with
-    | .forallE ty b m, h =>
-      simp only [stripPis, Option.map_eq_some_iff] at h
-      obtain ⟨⟨bs', body'⟩, hbstrip, heq⟩ := h
-      obtain ⟨-, rfl⟩ : (ty, m) :: bs' = bs ∧ body' = body := by
-        simpa using heq
-      simp only [looseBVarsBounded, Bool.and_eq_true] at hb
-      have := ih hbstrip hb.2
-      rw [show j + 1 + k = j + (k + 1) from by omega] at this
-      exact this
 
 /-- Instantiation preserves a `∀`-telescope's arity. -/
 theorem stripPis_instantiate1_isSome {v : Expr} :
@@ -200,27 +174,6 @@ theorem ErasedEq.instantiate1 :
     | .proj sn' i' pe', he =>
       exact ⟨he.1, he.2.1, ih he.2.2 hv⟩
 
-/-- The first `k` binder domains of a λ-tower and a `∀`-telescope agree
-syntactically. -/
-def LamPiDomsEq : Nat → Expr → Expr → Prop
-  | 0, _, _ => True
-  | k + 1, .lam d₁ b₁ _, .forallE d₂ b₂ _ => d₁ = d₂ ∧ LamPiDomsEq k b₁ b₂
-  | _ + 1, _, _ => False
-
-/-- Domain agreement survives instantiation (same argument on both
-sides). -/
-theorem LamPiDomsEq.instantiate1 {v : Expr} :
-    ∀ (k : Nat) {e₁ e₂ : Expr} (j : Nat), LamPiDomsEq k e₁ e₂ →
-      LamPiDomsEq k (e₁.instantiate1 v j) (e₂.instantiate1 v j) := by
-  intro k
-  induction k with
-  | zero => intro e₁ e₂ j _; trivial
-  | succ k ih =>
-    intro e₁ e₂ j h
-    match e₁, e₂, h with
-    | .lam d₁ b₁ m₁, .forallE d₂ b₂ m₂, h =>
-      exact ⟨by rw [h.1], ih (j + 1) h.2⟩
-
 /-- Lifting a bvar-closed expression is the identity. -/
 theorem liftLooseBVars_eq_self {k : Nat} :
     ∀ {e : Expr} {c : Nat}, e.looseBVarsBounded c = true →
@@ -235,54 +188,6 @@ theorem liftLooseBVars_eq_self {k : Nat} :
   | _ =>
     intro c hb
     simp_all [looseBVarsBounded, liftLooseBVars]
-
-/-- A zero lift is the identity. -/
-theorem liftLooseBVars_zero : ∀ (e : Expr) (c : Nat),
-    e.liftLooseBVars 0 c = e := by
-  intro e
-  induction e <;> intro c <;> simp_all [liftLooseBVars]
-
-/-- Instantiating any freshly inserted slot of a lift eats one lift
-level: the lifted expression never references the inserted range. -/
-theorem instantiate1_liftLooseBVars {v : Expr} :
-    ∀ {e : Expr} {k c j : Nat}, c ≤ j → j ≤ c + k →
-      (e.liftLooseBVars (k + 1) c).instantiate1 v j =
-        e.liftLooseBVars k c := by
-  intro e
-  induction e with
-  | bvar i =>
-    intro k c j hcj hjk
-    simp only [liftLooseBVars]
-    split
-    · next h =>
-      simp only [instantiate1]
-      rw [if_neg (by omega), if_pos (by omega)]
-      exact congrArg Expr.bvar (by omega)
-    · next h =>
-      simp only [instantiate1]
-      rw [if_neg (by omega), if_neg (by omega)]
-  | fvar idx ty => intro k c j hcj hjk; rfl
-  | sort u => intro k c j hcj hjk; rfl
-  | const n us => intro k c j hcj hjk; rfl
-  | app f a ihf iha =>
-    intro k c j hcj hjk
-    simp only [liftLooseBVars, instantiate1, ihf hcj hjk, iha hcj hjk]
-  | lam ty body m ihty ihbody =>
-    intro k c j hcj hjk
-    simp only [liftLooseBVars, instantiate1, ihty hcj hjk,
-      ihbody (by omega : c + 1 ≤ j + 1) (by omega : j + 1 ≤ c + 1 + k)]
-  | forallE ty body m ihty ihbody =>
-    intro k c j hcj hjk
-    simp only [liftLooseBVars, instantiate1, ihty hcj hjk,
-      ihbody (by omega : c + 1 ≤ j + 1) (by omega : j + 1 ≤ c + 1 + k)]
-  | letE ty vl body ihty ihv ihbody =>
-    intro k c j hcj hjk
-    simp only [liftLooseBVars, instantiate1, ihty hcj hjk, ihv hcj hjk,
-      ihbody (by omega : c + 1 ≤ j + 1) (by omega : j + 1 ≤ c + 1 + k)]
-  | lit l => intro k c j hcj hjk; rfl
-  | proj sn i pe ih =>
-    intro k c j hcj hjk
-    simp only [liftLooseBVars, instantiate1, ih hcj hjk]
 
 /-- Instantiation below the lift's cutoff commutes with the lift. -/
 theorem liftLooseBVars_instantiate1 {v : Expr}
@@ -538,58 +443,6 @@ theorem ErasedEq.trans :
         exact show sn = sn₃ ∧ i = i₃ ∧ ErasedEq pe pe₃ from
           ⟨x.1.trans y.1, x.2.1.trans y.2.1, ih x.2.2 y.2.2⟩
 
-/-- Invert `stripPis` across erasure: a strip of one side of an
-`ErasedEq` pair comes from a strip of the other, with pointwise-erased
-domains, equal binder metadata, and erased bodies. -/
-theorem ErasedEq.stripPis_inv :
-    ∀ (k : Nat) {e₁ e₂ : Expr} {bs₂ : List (Expr × BinderMeta)}
-      {body₂ : Expr},
-      ErasedEq e₁ e₂ → e₂.stripPis k = some (bs₂, body₂) →
-      ∃ bs₁ body₁, e₁.stripPis k = some (bs₁, body₁) ∧
-        bs₁.length = bs₂.length ∧
-        (∀ (i : Nat) (b₁ b₂' : Expr × BinderMeta),
-          bs₁[i]? = some b₁ → bs₂[i]? = some b₂' →
-          ErasedEq b₁.1 b₂'.1 ∧ b₁.2 = b₂'.2) ∧
-        ErasedEq body₁ body₂ := by
-  intro k
-  induction k with
-  | zero =>
-    intro e₁ e₂ bs₂ body₂ he h
-    simp only [stripPis, Option.some.injEq, Prod.mk.injEq] at h
-    obtain ⟨rfl, rfl⟩ := h
-    exact ⟨[], e₁, by simp [stripPis], by simp,
-      fun i b₁ b₂' hb₁ hb₂ => by simp at hb₁, he⟩
-  | succ k ih =>
-    intro e₁ e₂ bs₂ body₂ he h
-    match e₂, h with
-    | .forallE ty₂ b₂ m₂, h =>
-      match e₁, he with
-      | .forallE ty₁ b₁ m₁, he =>
-        obtain ⟨rfl, hety, heb⟩ :
-            m₁ = m₂ ∧ ErasedEq ty₁ ty₂ ∧ ErasedEq b₁ b₂ := he
-        simp only [stripPis] at h
-        cases hs : b₂.stripPis k with
-        | none => rw [hs] at h; exact nomatch h
-        | some pr =>
-          rw [hs] at h
-          obtain ⟨bs₀, body₀⟩ := pr
-          simp only [Option.map_some, Option.some.injEq,
-            Prod.mk.injEq] at h
-          obtain ⟨rfl, rfl⟩ := h
-          obtain ⟨bs₁', body₁', hstrip, hlen, hdoms, hbody⟩ := ih heb hs
-          refine ⟨(ty₁, m₁) :: bs₁', body₁', ?_, by simp [hlen],
-            ?_, hbody⟩
-          · simp only [stripPis, hstrip, Option.map_some]
-          · intro i b₁' b₂'' hb₁ hb₂
-            match i with
-            | 0 =>
-              obtain rfl : (ty₁, m₁) = b₁' := by simpa using hb₁
-              obtain rfl : (ty₂, m₁) = b₂'' := by simpa using hb₂
-              exact ⟨hety, Eq.refl _⟩
-            | i + 1 =>
-              exact hdoms i b₁' b₂'' (by simpa using hb₁)
-                (by simpa using hb₂)
-
 /-- Instantiate a sequence of arguments at descending indices (the
 per-domain effect of peeling a telescope). -/
 @[expose] def instSeq : List Expr → Nat → Expr → Expr
@@ -607,70 +460,6 @@ theorem instSeq_erasedEq :
   | cons a as ih =>
     intro t X Y h
     exact ih (t - 1) (ErasedEq.instantiate1 h (ErasedEq.rfl a))
-
-/-- `instSeq` congruence under erasure across two argument spines
-(pairwise erased-equal, e.g. the same-index free variables of two
-frames). -/
-theorem instSeq_erasedEq_args :
-    ∀ (args₁ args₂ : List Expr) (t : Nat) {X Y : Expr},
-      ErasedEq X Y →
-      (∀ (k : Nat) (a₁ a₂ : Expr), args₁[k]? = some a₁ →
-        args₂[k]? = some a₂ → ErasedEq a₁ a₂) →
-      args₁.length = args₂.length →
-      ErasedEq (instSeq args₁ t X) (instSeq args₂ t Y)
-  | [], [], t, X, Y, hXY, _, _ => hXY
-  | [], _ :: _, _, _, _, _, _, hlen => by simp at hlen
-  | _ :: _, [], _, _, _, _, _, hlen => by simp at hlen
-  | a₁ :: as₁, a₂ :: as₂, t, X, Y, hXY, hpt, hlen => by
-    refine instSeq_erasedEq_args as₁ as₂ (t - 1)
-      (ErasedEq.instantiate1 hXY (hpt 0 a₁ a₂ rfl rfl)) ?_
-      (by simpa using hlen)
-    intro k b₁ b₂ hb₁ hb₂
-    exact hpt (k + 1) b₁ b₂ (by simpa using hb₁) (by simpa using hb₂)
-
-/-- Instantiations strictly above a lift's inserted range drop past
-it. -/
-theorem instSeq_liftLooseBVars {kL c : Nat} :
-    ∀ (args : List Expr) (t : Nat) {e : Expr},
-      (∀ a ∈ args, a.looseBVarsBounded 0 = true) →
-      t + 1 ≥ args.length + c + kL →
-      instSeq args t (e.liftLooseBVars kL c) =
-        (instSeq args (t - kL) e).liftLooseBVars kL c := by
-  intro args
-  induction args with
-  | nil => intro t e _ _; rfl
-  | cons a as ih =>
-    intro t e hb ht
-    simp only [List.length_cons] at ht
-    obtain ⟨j, rfl⟩ : ∃ j, t = j + kL := ⟨t - kL, by omega⟩
-    show instSeq as (j + kL - 1)
-        ((e.liftLooseBVars kL c).instantiate1 a (j + kL)) =
-      (instSeq as (j + kL - kL - 1)
-        (e.instantiate1 a (j + kL - kL))).liftLooseBVars kL c
-    rw [liftLooseBVars_instantiate1 (hb a List.mem_cons_self)
-      (by omega : j ≥ c)]
-    rw [show j + kL - kL = j from by omega]
-    rw [ih (j + kL - 1) (fun x hx => hb x (List.mem_cons_of_mem _ hx))
-      (by omega)]
-    rw [show j + kL - 1 - kL = j - 1 from by omega]
-
-/-- Instantiating every inserted slot of a lift, top down, restores the
-original expression. -/
-theorem instSeq_lift_eat {c : Nat} :
-    ∀ (extras : List Expr) {e : Expr},
-      instSeq extras (c + extras.length - 1)
-        (e.liftLooseBVars extras.length c) = e := by
-  intro extras
-  induction extras with
-  | nil => intro e; exact liftLooseBVars_zero e c
-  | cons x xs ih =>
-    intro e
-    show instSeq xs (c + (xs.length + 1) - 1 - 1)
-      ((e.liftLooseBVars (xs.length + 1) c).instantiate1 x
-        (c + (xs.length + 1) - 1)) = e
-    rw [instantiate1_liftLooseBVars (by omega) (by omega)]
-    rw [show c + (xs.length + 1) - 1 - 1 = c + xs.length - 1 from by omega]
-    exact ih
 
 /-- A successful telescope decomposition has exactly `k` binders. -/
 theorem stripPis_length :
@@ -698,83 +487,6 @@ theorem stripPis_length :
         subst hb
         have := ih (e := b) (bs := p.1) (body := p.2) (by rw [hs])
         simp [this]
-
-/-- An instantiation sequence splits along list append. -/
-theorem instSeq_append :
-    ∀ (as bs : List Expr) (t : Nat) (X : Expr),
-      instSeq (as ++ bs) t X = instSeq bs (t - as.length) (instSeq as t X) := by
-  intro as
-  induction as with
-  | nil => intro bs t X; simp [instSeq]
-  | cons a as ih =>
-    intro bs t X
-    show instSeq (as ++ bs) (t - 1) (X.instantiate1 a t) = _
-    rw [ih bs (t - 1) (X.instantiate1 a t)]
-    congr 1
-    simp
-    omega
-
-/-- Pull an instantiation at the top index out of a closed-argument
-sequence: the remaining substitutions shift its slot down by their
-count. -/
-theorem instSeq_instantiate1_out {b : Expr}
-    (hbb : b.looseBVarsBounded 0 = true) :
-    ∀ (args : List Expr) (t : Nat) (e : Expr),
-      (∀ a ∈ args, a.looseBVarsBounded 0 = true) →
-      args.length ≤ t →
-      instSeq args (t - 1) (e.instantiate1 b t) =
-        (instSeq args (t - 1) e).instantiate1 b (t - args.length) := by
-  intro args
-  induction args with
-  | nil =>
-    intro t e _ _
-    simp [instSeq]
-  | cons a as ih =>
-    intro t e hcl hlen
-    simp only [List.length_cons] at hlen
-    obtain ⟨t', rfl⟩ : ∃ t', t = t' + 1 := ⟨t - 1, by omega⟩
-    show instSeq as (t' + 1 - 1 - 1)
-        ((e.instantiate1 b (t' + 1)).instantiate1 a (t' + 1 - 1)) = _
-    rw [show t' + 1 - 1 = t' from rfl]
-    rw [instantiate1_instantiate1 hbb (hcl a List.mem_cons_self) e t' t'
-      (Nat.le_refl t')]
-    have ih' := ih t' (e.instantiate1 a t')
-      (fun x hx => hcl x (List.mem_cons_of_mem _ hx)) (by omega)
-    rw [ih']
-    show (instSeq as (t' - 1) (e.instantiate1 a t')).instantiate1 b
-        (t' - as.length) =
-      (instSeq as (t' - 1) (e.instantiate1 a t')).instantiate1 b
-        (t' + 1 - (as.length + 1))
-    congr 1
-    omega
-
-/-- Instantiating a middle segment of closed arguments through a lift
-of its width collapses the lift: the parameters land above, the fields
-below, and the middle slots eat the inserted range. -/
-theorem instSeq_mid_collapse (A B C : List Expr) {X : Expr}
-    (hA : ∀ a ∈ A, a.looseBVarsBounded 0 = true) :
-    instSeq (A ++ B ++ C) (A.length + B.length + C.length - 1)
-      (X.liftLooseBVars B.length C.length) =
-    instSeq (A ++ C) (A.length + C.length - 1) X := by
-  rw [instSeq_append (A ++ B) C, instSeq_append A B, instSeq_append A C]
-  rw [instSeq_liftLooseBVars A _ hA (by simp; omega)]
-  have h1 : A.length + B.length + C.length - 1 - B.length =
-      A.length + C.length - 1 + B.length - B.length := by omega
-  rw [h1, Nat.add_sub_cancel]
-  have h2 : A.length + B.length + C.length - 1 - A.length =
-      C.length + B.length - 1 := by omega
-  rw [h2]
-  rw [instSeq_lift_eat]
-  congr 1
-  simp only [List.length_append]
-  omega
-
-/-- A spine head is never an application. -/
-theorem getAppFn_not_app : ∀ (e f a : Expr), e.getAppFn ≠ .app f a := by
-  intro e
-  induction e with
-  | app g b ihg ihb => intro f a; exact ihg f a
-  | _ => intro f a h; exact nomatch h
 
 /-- An instantiation sequence is a no-op on bvar-closed expressions. -/
 theorem instSeq_eq_self :
@@ -876,7 +588,7 @@ theorem instSeq_bvar :
 
 /-! ### The capture-avoiding instantiation sequence
 
-`Expr.instPisAtLift` (the opener behind `structProjTy`) substitutes
+`Expr.instPisAtLift` (the opener behind `structProjBodies`) substitutes
 *open* arguments, so it lifts each inserted copy past the binders it
 descends under.  What the model needs is that a subsequent **closed**
 instantiation of the ambient variables collapses the whole thing onto
@@ -1087,35 +799,6 @@ theorem instSeq_instSeqLift (sp : List Expr) (t : Nat)
         as.length)
     rw [show as.length + 1 + t = as.length + t + 1 from by omega]
 
-/-- Peel `instSeqLift` through a `∀`-binder (the shift index stays in
-step with the remaining arguments), exactly as `instSeq_forallE`. -/
-theorem instSeqLift_forallE :
-    ∀ (args : List Expr) (t : Nat) (d b : Expr)
-      (m : BinderMeta), args.length ≤ t + 1 →
-      instSeqLift args t (.forallE d b m) =
-        .forallE (instSeqLift args t d) (instSeqLift args (t + 1) b) m := by
-  intro args
-  induction args with
-  | nil => intro t d b m _; rfl
-  | cons a as ih =>
-    intro t d b m hlen
-    show instSeqLift as (t - 1)
-      (.forallE (d.instantiate1Lift a t) (b.instantiate1Lift a (t + 1)) m)
-      = _
-    rw [ih (t - 1) (d.instantiate1Lift a t) (b.instantiate1Lift a (t + 1)) m
-      (by simp only [List.length_cons] at hlen; omega)]
-    show Expr.forallE (instSeqLift as (t - 1) (d.instantiate1Lift a t))
-        (instSeqLift as (t - 1 + 1) (b.instantiate1Lift a (t + 1))) m =
-      Expr.forallE (instSeqLift as (t - 1) (d.instantiate1Lift a t))
-        (instSeqLift as (t + 1 - 1) (b.instantiate1Lift a (t + 1))) m
-    cases as with
-    | nil => rfl
-    | cons a2 as2 =>
-      have ht : t - 1 + 1 = t + 1 - 1 := by
-        simp only [List.length_cons] at hlen
-        omega
-      rw [ht]
-
 /-- `stripPis` commutes with the capture-avoiding substitution. -/
 theorem stripPis_instantiate1Lift_full {v : Expr} :
     ∀ (k : Nat) {e : Expr} {bs : List (Expr × BinderMeta)}
@@ -1216,33 +899,6 @@ theorem instPisAtLift_head :
           (by rw [hpos as.length b hb]; simp)
         exact ⟨bodyR, by rw [hhead]; rfl⟩
 
-/-- A successful λ-tower decomposition has exactly `k` binders. -/
-theorem stripLams_length :
-    ∀ (k : Nat) {e : Expr} {bs : List (Expr × BinderMeta)}
-      {body : Expr}, e.stripLams k = some (bs, body) → bs.length = k := by
-  intro k
-  induction k with
-  | zero =>
-    intro e bs body h
-    simp only [stripLams, Option.some.injEq, Prod.mk.injEq] at h
-    obtain ⟨rfl, rfl⟩ := h
-    rfl
-  | succ k ih =>
-    intro e bs body h
-    match e, h with
-    | .lam d b m, h =>
-      simp only [stripLams] at h
-      cases hs : b.stripLams k with
-      | none => rw [hs] at h; exact nomatch h
-      | some p =>
-        rw [hs] at h
-        simp only [Option.map_some, Option.some.injEq] at h
-        obtain ⟨hb, -⟩ : (d, m) :: p.1 = bs ∧ p.2 = body := by
-          cases h; exact ⟨rfl, rfl⟩
-        subst hb
-        have := ih (e := b) (bs := p.1) (body := p.2) (by rw [hs])
-        simp [this]
-
 /-- Instantiation preserves a λ-tower's arity. -/
 theorem stripLams_instantiate1_isSome {v : Expr} :
     ∀ (k : Nat) {e : Expr} (j : Nat), (e.stripLams k).isSome →
@@ -1308,36 +964,6 @@ theorem stripLams_instantiate1_eq {v : Expr} :
         rw [hdoms i bb bb' hbb hbb']
         congr 1
         omega
-
-/-- Substituting a *free variable* cannot create λ-binders: a λ-tower
-of the instantiated term certifies one of the term itself. -/
-theorem stripLams_instantiate1_fvar_isSome_rev {i : Nat}
-    {t : Expr} :
-    ∀ (k : Nat) (e : Expr) (j : Nat),
-      ((e.instantiate1 (.fvar i t) j).stripLams k).isSome = true →
-      (e.stripLams k).isSome = true := by
-  intro k
-  induction k with
-  | zero => intro e j _; rfl
-  | succ k ih =>
-    intro e j h
-    match e with
-    | .lam d b m =>
-      simp only [instantiate1, stripLams, Option.isSome_map] at h ⊢
-      exact ih b (j + 1) h
-    | .bvar l =>
-      simp only [instantiate1] at h
-      split at h
-      · simp [stripLams] at h
-      · split at h <;> simp [stripLams] at h
-    | .fvar _ _ => simp [instantiate1, stripLams] at h
-    | .sort _ => simp [instantiate1, stripLams] at h
-    | .const _ _ => simp [instantiate1, stripLams] at h
-    | .app _ _ => simp [instantiate1, stripLams] at h
-    | .forallE _ _ _ => simp [instantiate1, stripLams] at h
-    | .letE _ _ _ => simp [instantiate1, stripLams] at h
-    | .lit _ => simp [instantiate1, stripLams] at h
-    | .proj _ _ _ => simp [instantiate1, stripLams] at h
 
 /-- Peel `instSeq` through a `∀`-binder (the shift index stays in step
 with the remaining arguments). -/

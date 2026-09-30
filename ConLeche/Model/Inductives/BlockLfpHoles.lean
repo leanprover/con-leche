@@ -1,0 +1,131 @@
+module
+
+public import ConLeche.Model.Inductives.BlockRep
+public import ConLeche.Model.Inductives.StoredShapes
+import ConLeche.Semantics.Kit
+public section
+
+/-!
+# The block's lfp clause IN HOLE FORM, from the representation
+
+Charter item 2: every stored `I p⃗` is the least fixed point of its
+right-hand-side operator — the interpretation of its constructor types
+with holes at the block's members.  The clause the environment records
+(`Model/Annot/BlockLfp.lean`) says so through `LfpClause.holes`: the fit
+relation of the operator's fibre IS the telescope fit of the
+constructors' fields with holes (`BlockData.absF`, `BlockRep.lean`) at
+the hole frame (`LfpDatum.frame`: the parameter frame with each member's
+hole holding the tuple's family, curried).
+
+This file proves it for a uniform block from its representation
+(`BlockModelAt`) and what the stages record of its constructors
+(`BlockHoleFacts`: their reading facts, the stored field shape facts
+`StoredFieldShapes`, and the telescopes' lengths): the clause
+(`BlockModelAt.toLfp`) takes
+`functor`, `fibre`, `leaf`, `mkZero`, `mkInj` from the representation
+and `ctor` at the stored fit the hole fit at the carrier is.
+-/
+
+namespace ConLeche.Model
+open ConLeche.Semantics
+open ConLeche.SetModel
+open SetTheory
+open ConLeche.Term ConLeche.Verify
+open ConLeche.SetTheory
+open ConLeche.SetTheory.Tower
+open ConLeche.Semantics (AnnotTerm)
+open ConLeche (CheckMode Env Expr Name Level ConstantVal ConstantInfo)
+
+universe w
+
+variable {V : Type w} [SetTheory V]
+
+/-! ## Frames -/
+
+/-- **A frame's `k`-th entry, as a bvar.** -/
+theorem interp_bvarAt {L : List V} {ρ : Nat → V} {k : Nat} (hk : k < L.length) :
+    interp V (consList L ρ) (.bvar (L.length - 1 - k)) = L.getD k pt := by
+  rw [interp_bvar, consList_getD_of_lt L ρ _ (by omega),
+    show L.length - 1 - (L.length - 1 - k) = k from by omega]
+
+/-! ## Reading below the holes -/
+
+/-- **A term lifted over variables inserted below a spine** reads at the
+frame with them as the term at the frame without. -/
+theorem interp_liftN_consList2 (e : AnnotTerm) (bs hs : List V) (ρ : Nat → V) :
+    interp V (consList bs (consList hs ρ)) (e.liftN hs.length bs.length)
+      = interp V (consList bs ρ) e := by
+  rw [interp_liftN, ConLeche.Semantics.shiftE_consList_len, shiftE_consList]
+
+
+/-! ## `BlockHoleFacts` and the clause -/
+
+section Clause
+
+variable {env : Env} {m : EnvModel V env} {names : List Name} {d : BlockData V} {lps : List Name}
+
+/-- **What the clause's production reads off the stages** beside the
+representation: every constructor's reading facts, the stored field
+shape facts, and the lengths of the parameter telescope and of the
+result index readings. -/
+structure BlockHoleFacts (m : EnvModel V env) (d : BlockData V) (lps : List Name) : Prop where
+  facts : ∀ c, c < d.N → ∀ j cA, (d.ctorsM c)[j]? = some cA → BlockCtorRead m d lps c j cA
+  /-- the stored field shape facts: the fields with holes against the
+  stored field readings, the members' leaves at the model (the ONE
+  interface every reading of the fields' shape goes through) -/
+  shapes : ∀ ψ c, c < d.N → ∀ j, j < (d.ctorsM c).length →
+    StoredFieldShapes V d.k d.nP (d.w ψ) d.nIdxAt (fun t => m.acval (d.memberName t) ψ)
+      (d.params ψ).reverse (d.absF ψ c j) ((d.Fss c ψ).getD j [])
+  lenP : ∀ ψ, (d.params ψ).length = d.nP
+  /-- every member's own parameter telescope: `nP` long, satisfied where
+  the block's is -/
+  parsLen : ∀ ψ m, m < d.k → (d.toLfp.pars m ψ).length = d.nP
+  parsSat : ∀ ψ m, m < d.k → ∀ ρ : Nat → V, Sat V (d.params ψ).reverse ρ →
+    Sat V (d.toLfp.pars m ψ).reverse ρ
+  parsSatInv : ∀ ψ m, m < d.k → ∀ ρ : Nat → V, Sat V (d.toLfp.pars m ψ).reverse ρ →
+    Sat V (d.params ψ).reverse ρ
+  lenE : ∀ ψ c, c < d.N → ∀ j, j < (d.ctorsM c).length →
+    ((d.Ess c ψ).getD j []).length = (d.IdsM c ψ).length
+
+
+/-- **The representation's lfp clause, in hole form** — `functor`,
+`fibre`, `leaf`, `mkZero`, `mkInj` verbatim; `ctor` is the
+representation's `ctor` at the stored fit the hole fit at the carrier is
+(`BlockModelAt.carrier`). -/
+theorem BlockModelAt.toLfp (hM : BlockModelAt m names d) (hH : BlockHoleFacts m d lps)
+    (hres : LfpResIdxFit d.toLfp)
+    (hne : ∀ ψ : Name → Nat, d.w ψ ≠ 0 → ∀ c j fs, d.inj ψ c j fs ≠ pt)
+    (hfok : ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (d.params ψ).reverse ρp → d.w ψ ≠ 0 →
+      ∀ X, InTupleSpace (d.toLfp.w ψ) d.toLfp.N (d.toLfp.idx ψ ρp) X →
+      ∀ c, c < d.toLfp.N → ∀ j, j < d.toLfp.nctors c →
+        FieldsOkB (d.toLfp.w ψ) (d.toLfp.frame ψ ρp X) (d.toLfp.fields ψ c j)) :
+    LfpClause m.acval d.toLfp where
+  kN := Nat.le_add_right _ _
+  idxOk := hM.idxOk
+  functor := hM.functor
+  fibre := hM.fibre
+  fitsMono := hM.fitsMono
+  leaf := hM.leaf
+  mkZero := hM.mkZero
+  mkInj := fun ψ hw c hc j fs j' fs' hj hj' hl hl' h =>
+    hM.mkInj ψ hw c hc j fs j' fs' hj hj'
+      (by rw [hl]; exact (hH.shapes ψ c hc j hj).len)
+      (by rw [hl']; exact (hH.shapes ψ c hc j' hj').len) h
+  ctor := fun c hc j ψ ρ as fs t hsa ht hf => by
+    have hsat := d.satOfSpine hsa
+    obtain ⟨hj, hsp, -⟩ := (hM.carrier ψ (consList as ρ) hsat c hc t ht j fs).mp hf
+    have hcj : (d.ctorsM c)[j]? = some (d.ctorsM c)[j] := List.getElem?_eq_getElem hj
+    show (as ++ fs).foldl app (interp V ρ (m.acval ((d.ctorsM c).getD j default).1.name ψ))
+      = d.inj ψ c j fs
+    rw [List.getD_eq_getElem?_getD, hcj]
+    exact hM.ctor c hc j _ hcj ψ ρ as fs hsa hsp
+  parsLen := fun mm hmm ψ => (hH.parsLen ψ mm hmm).trans (hH.lenP ψ).symm
+  parsSat := fun mm hmm ψ ρ hs => hH.parsSat ψ mm hmm ρ hs
+  parsSatInv := fun mm hmm ψ ρ hs => hH.parsSatInv ψ mm hmm ρ hs
+  resIdxFit := hres
+  injNePt := fun ψ hw _ c j fs => hne ψ hw c j fs
+  fieldsOk := hfok
+
+end Clause
+
+end ConLeche.Model

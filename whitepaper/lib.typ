@@ -1,4 +1,4 @@
-// whitepaper/lib.typ — the macro library of the whitepaper (task #323).
+// whitepaper/lib.typ — the macro library of the whitepaper (task #324).
 //
 // ONE SOURCE, TWO RENDERINGS.  `build.sh` compiles `main.typ` twice, to
 // PDF and to HTML, both with `--features html`; every macro below asks

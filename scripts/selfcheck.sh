@@ -23,6 +23,14 @@
 # declines, no rejections, no internal errors.  See DESIGN.md
 # "TASK #199 — THE SELF-CHECK".
 #
+# On uniform-inds at lane KEEPPROJ (2026-09-29): 17,915 roots, a 708 MB /
+# 13.26M-line export, **exit 0, 44,811 declarations accepted**
+# (`--verified --jobs=8`), 20.5 s wall, 1.3 GB peak RSS, 893 G
+# instructions:u.  Before that lane the check ran out of memory on
+# `ConLeche.nestRoot_datF._f` (a stuck projection's structure argument
+# was replaced by its WHNF, losing the head the defeq check needed; see
+# DESIGN.md "KEEPPROJ").
+#
 # WHAT IS NOT EXPORTED, and why.
 #
 #   * `ConLeche.Challenge` — the Palomar challenge statement is a deliberate
@@ -120,9 +128,8 @@ echo "[selfcheck] $(wc -l < "$OUTDIR/con-leche-decls.txt") root declarations"
 # CHECK that is Mathlib-scale, not this.
 if [ ! -s "$OUTDIR/con-leche-export.ndjson" ]; then
   echo "[selfcheck] exporting"
-  ( ulimit -v 22000000
-    timeout 3600 lake env "$L4E/.lake/build/bin/lean4export" "${ROOTS[@]}" \
-      -- $(cat "$OUTDIR/con-leche-decls.txt") > "$OUTDIR/con-leche-export.ndjson" )
+  timeout 3600 lake env "$L4E/.lake/build/bin/lean4export" "${ROOTS[@]}" \
+    -- $(cat "$OUTDIR/con-leche-decls.txt") > "$OUTDIR/con-leche-export.ndjson"
 fi
 echo "[selfcheck] export: $(du -h "$OUTDIR/con-leche-export.ndjson" | cut -f1), \
 $(wc -l < "$OUTDIR/con-leche-export.ndjson") lines"
@@ -132,12 +139,13 @@ lake build con-leche
 echo "[selfcheck] checking ($MODE)"
 # `--progress` is not passed by default; add it by hand for a
 # diagnostic run (it changes no verdict: the heartbeat is printed
-# between the steps of the one driver, Main.lean).  `--jobs=8`: a
-# worker thread reserves ~1 GiB of address space, and the default is
-# one worker per hardware thread, which the 22 GB cap below cannot
-# afford on a large machine.
+# between the steps of the one driver, Main.lean).  `--jobs=8` keeps
+# the pool's memory modest on a large shared machine (one memo state
+# per worker).  There is NO `ulimit -v` (CLAUDE.md): it caps address
+# space, which the worker threads' stack reservations exhaust long
+# before any real memory is used (`failed to create thread`, exit 134
+# at the default job count); the bound is the `timeout`.
 (
-  ulimit -v 22000000
   set +e
   timeout 4h ./.lake/build/bin/con-leche "$MODE" --jobs=8 \
     "$OUTDIR/con-leche-export.ndjson" \

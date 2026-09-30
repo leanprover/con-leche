@@ -11,29 +11,18 @@ public section
 /-!
 # The cached representation's syntactic operations are the pure ones
 
-Task #163, batch 3; rewritten at #172 B3a/B3b.  Every operation of
-`ConLeche/Cached/ExprOpsC.lean` — memoized, `Std.HashMap`-backed — is
-proved **equal to its `ConLeche.Expr` counterpart**.  These are the
-transpositions of the arena twins' `*I_spec` theorems in
-`ConLeche/Verify/IExprOps.lean`: same case structure, no store, no
-`Ext`, no `TWF`.
+Task #163.  Every operation of `ConLeche/Cached/ExprOpsC.lean` —
+memoized, `Std.HashMap`-backed — is proved **equal to its
+`ConLeche.Expr` counterpart**, at the *same* argument.
 
-Two conjuncts each of these statements used to carry are gone: the
-erasure (B3a — one type, so the equation is between the cached and the
-pure function at the *same* argument) and the field invariant `WFc` of
-the result (B3b — the fields are the compiler's, so there is nothing
-for an operation to preserve).  What is left is the memo invariant,
-which is real: a clause says every stored value is the pure function at
-its key, and insert-preservation goes through
-`Std.HashMap.getElem?_insert` plus `beq_sound` on the colliding key —
-a memo hit's key is only `BEq`-equal to the query.
-
-That last shape is gone from the walks: not one of them carries a memo
-invariant any more (tasks #317, #319).  Each is verified intrinsically
-— its result type carries its proof against a plain descent — and its
-memo's entries prove themselves, so what this file states about them is
-the plain descents (`*P`) and the wrappers.  It survives only where a
-memo is not a per-call traversal memo.
+The walks carry no memo invariant (tasks #317, #319): each is verified
+intrinsically — its result type carries its proof against a plain
+descent — and its memo's entries prove themselves, so what this file
+states about them is the plain descents (`*P`) and the wrappers.  Where
+a memo is not a per-call traversal memo, a clause says every stored
+value is the pure function at its key, and insert-preservation goes
+through `Std.HashMap.getElem?_insert` plus `beq_sound` on the colliding
+key — a memo hit's key is only `BEq`-equal to the query.
 -/
 
 namespace ConLeche.Expr
@@ -82,14 +71,10 @@ theorem pairKey_inv {a c : Expr} {b d : β} (h : ((a, b) == (c, d)) = true) :
 
 end PairKey
 
-/-! ## Optional results
-
-The arena's `OptDen` (an optional index relates to an optional
-expression) transposes to this. -/
+/-! ## Optional results -/
 
 /-- An optional cached result agrees with the optional `Expr`-side
-result.  (Before task #172 B3b this also carried the field invariant
-of the value; the invariant is the compiler's now.) -/
+result. -/
 @[expose] def OptEr : Option Expr → Option Expr → Prop
   | none, none => True
   | some e, some x => e = x
@@ -494,13 +479,11 @@ theorem instSpineC_spec {args : List Expr} {t : Nat} {e : Expr} :
 
 /-! ## Bulk instantiation on a reversed accumulator
 
-As in the arena (`instantiateRevIGo_eq`), the reversed walk is the
-forward walk on the reversed array — proved pointwise, so every
-`instantiateList` fact transfers. -/
+The reversed walk is the forward walk on the reversed array — proved
+pointwise, so every `instantiateList` fact transfers. -/
 
 /-- The reversed plain descent is the forward one on the reversed
-array — `instantiateRevBC_eq` without the fuel, so every
-`instantiateList` fact transfers unchanged. -/
+array, so every `instantiateList` fact transfers unchanged. -/
 theorem instantiateRevP_eq {vs : Array Expr} :
     ∀ (k : Nat) (e : Expr) (d : Nat),
       Expr.instantiateRevP vs e k d
@@ -636,12 +619,10 @@ theorem instantiateRev_spec {e : Expr} {vs : Array Expr} {d : Nat}
 
 /-! ## Abstraction
 
-The clone's abstraction walks carry a **documented deviation** from the
-arena twins: a node whose cached fvar range is at or below the
-abstracted level is returned unchanged (the arena does not need the
-cutoff — its rebuild re-interns to the same index).  The identity is
-exactly `abstractRange_eq_self` / its `abstract1` twin below, so the
-value is the same either way. -/
+The cached abstraction walks return a node whose fvar range is at or
+below the abstracted level unchanged.  The identity is exactly
+`abstractRange_eq_self` / its `abstract1` twin below, so the value is
+the spec's. -/
 
 /-- `Expr.abstract1` at or above a term's fvar range is the identity —
 the `abstract1` twin of `abstractRange_eq_self`, which `ConLeche/Verify`
@@ -752,12 +733,6 @@ theorem abstract1C_spec {e : Expr} {d k : Nat} :
 
 /-! ### Bulk abstraction -/
 
-/-- Abstracting an empty range is the identity. -/
-private theorem abstractRange_zero : ∀ (e : Expr) (d c : Nat),
-    e.abstractRange d 0 c = e := by
-  intro e
-  induction e <;> intro d c <;> simp_all [Expr.abstractRange]
-
 /-- **The plain bulk descent computes `Expr.abstractRange`**: the
 reference of `abstractRangeXP`. -/
 theorem abstractRangeP_spec {d k : Nat} : ∀ (e : Expr) (c : Nat),
@@ -849,7 +824,7 @@ theorem abstractRangeP_spec {d k : Nat} : ∀ (e : Expr) (c : Nat),
 theorem abstractRangeC_spec {e : Expr} {d k c : Nat} :
       (Expr.abstractRangeC e d k c) = (Expr.abstractRange e d k c) := by
   cases k with
-  | zero => exact (abstractRange_zero _ _ _).symm
+  | zero => exact (ConLeche.abstractRange_zero _ _ _).symm
   | succ k' =>
     rw [Expr.abstractRangeC]
     split
@@ -1073,7 +1048,7 @@ theorem wscopedBC_spec {d : Nat} {e : Expr} :
 
 /-! ## The `∀`-telescope residual
 
-`piResidualAcc` follows the arena twin's accumulator discipline: the
+`piResidualAcc`'s accumulator discipline: the
 `forallE` arm consumes an argument into the accumulator, the `bvar` arm
 flushes a nonempty accumulator by one bulk instantiation and re-enters.
 The induction is the function's own measure `(as.length, acc.length)`. -/

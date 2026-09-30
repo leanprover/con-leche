@@ -9,29 +9,15 @@ public section
 /-!
 # The level crossing for `denoteMeta`: algebra, outright (task #161, P3)
 
-`Steps/Levels.lean` factored the canonical reading's level crossing
-(`Denote2InstLevels`) into algebra plus **two open checker
-metatheorems** — `SortOfEInstLevels`/`LamSortEInstLevels`, "inference
-and head normalisation commute with level instantiation" — refuted as
-stated over a bare `Env` (`Steps/LevelsInst.lean`), repaired under
-`EnvWF`, and still residues.
-
-For the validated-annotation reading the crossing **is** the algebra:
-`denoteMeta` runs no checker function, its binder numerals ride the metas
-that `Expr.instantiateLevelParams` pushes `Level.substPW` through, and
-`PropWhen.holds_substPW` says the pushed datum reads out the composed
-valuation's bit.  So the theorem below is
+The crossing **is** algebra: `denoteMeta` runs no checker function,
+its binder numerals ride the metas that `Expr.instantiateLevelParams`
+pushes `Level.substPW` through, and `PropWhen.holds_substPW` says the
+pushed datum reads out the composed valuation's bit.  So the theorem
+below is
 
 * **unconditional** — no checker residue, no `EnvWF`, and
-* an **equality** — not `Denote2InstLevels`' one-directional
-  implication with `∃ F' ≥ F` fuel slack; there is no fuel, and no run
-  that instantiation could make succeed or fail asymmetrically.
-
-This is the P3 pivot's first full payoff, measured: what was two open
-metatheorems plus a conditional induction is one proved walk.
-
-Lives in `Model/Annot/` since task #305 closing (it was
-`Model/Steps/BitLevels.lean`; nothing in it is stated over a run).
+* an **equality** — there is no fuel, and no run that instantiation
+  could make succeed or fail asymmetrically.
 -/
 
 namespace ConLeche.Model
@@ -47,12 +33,9 @@ universe w
 variable {V : Type w} [SetTheory V]
 variable {μ : CheckMode} {env : Env} {φ : Name → Nat}
 
-/-! ### The literal-support slot lemmas, transposed to the core
+/-! ### The literal-support slot lemmas
 
-`Steps/Levels.lean`'s `acval_isEmpty`/`acval_oneParam`/`acval_scalar`/
-`acval_one`/`acval_natPair` are stated over `EnvModelUM`; each reads the
-`acval_params` field and nothing else, so each re-proves verbatim over
-`EnvModel` (batch 8 — the canonical file stays untouched). -/
+Each reads the `acval_params` field of `EnvModel` and nothing else. -/
 
 /-- A parameter-free slot is valued independently of the assignment. -/
 theorem acval_isEmpty (m : EnvModel V env) {n : Name}
@@ -141,8 +124,7 @@ theorem acval_natPair (m : EnvModel V env)
 reading an instantiated term at `φ` is reading the term at the
 composed valuation `Level.substFn φ ks us`.  The binder step is
 `pwBit_substPW` (i.e. `PropWhen.holds_substPW`); the constant step is
-`EnvModel.acval_params` + `Level.substFn_map_subst`, as in the canonical
-walk. -/
+`EnvModel.acval_params` + `Level.substFn_map_subst`. -/
 theorem denotePInstLevels (m : EnvModel V env)
     (φ : Name → Nat) (ks : List Name) (us : List Level) :
     ∀ (d : Nat) (e : Expr),
@@ -256,11 +238,10 @@ theorem denotePInstLevels (m : EnvModel V env)
       | strVal s => exact absurd rfl (hstr s)
 
 /-- **The reading's φ-congruence at the expression's own parameters**
-(`denote_params_ext`'s mirror; the harvest layer's `hAparams`
-supplier).  The one new step against the v1 walk is the binder
-numeral: `PropWhen.holds_ext` at the meta's `paramsDefined` conjunct —
-which is exactly why task #161 folded the datum's footprint into
-`Expr.allLevelParamsDefined`. -/
+(the harvest layer's `hAparams` supplier).  The binder numeral's step
+is `PropWhen.holds_ext` at the meta's `paramsDefined` conjunct — which
+is why the datum's footprint is folded into
+`Expr.allLevelParamsDefined` (task #161). -/
 theorem denoteMeta_params_ext (m : EnvModel V env)
     {ps : List Name} {φ₁ φ₂ : Name → Nat}
     (hφ : ∀ p ∈ ps, φ₁ p = φ₂ p) :

@@ -5,7 +5,6 @@ public import ConLeche.Model.Annot.EnvModelM
 public import ConLeche.Verify.Close
 import ConLeche.Verify.Denote.VClosed
 import ConLeche.SetModel.TupleTower
-import ConLeche.Semantics.Tower.TowerLeaf
 import ConLeche.Model.Annot.BitLemmas
 
 public section

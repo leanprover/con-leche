@@ -17,11 +17,9 @@ expansions, the projection certificate, the stuck-major rescues, the
 major's preparation, ι, and the two loops.
 
 Inversions: `whnf_app_inv` (the `.app` clause: β gated/certified, ι,
-stuck), `whnf_proj_inv` (the `.proj` clause), `whnfCore_leaf_*`
-(`Semantics/WhnfCoreLeaf.lean`), `whnfCore_letE_inv`, `whnfStep_inv`,
+stuck), `whnf_proj_inv` (the `.proj` clause), `whnfCore_letE_inv`, `whnfStep_inv`,
 `whnfLoopFuel_succ`, `reduceNat`'s branches (no inversion lemma:
-`Model/Steps/Nat.lean`'s `natLeaf_unary`/`natLeaf_binary` do the
-case analysis), `litMajorToCtorFueled_inv`, `projLitToCtorFueled_inv`,
+split inline), `litMajorToCtorFueled_inv`, `projLitToCtorFueled_inv`,
 `projCertAtFueled_verified` + `projCert_inv`, `majorToCtor_inv`,
 `prepareMajorFueled_ind`, `iotaRec_inv`, `iotaIndexOk_inv`.
 -/
@@ -198,14 +196,9 @@ theorem majorToCtor_bridge (hw : WhnfBridge env fuel)
       hfn hlen hlps hnz rfl hsc1 hsc2 hsc3 (iotaCerts_bridge hd hio hcerts)
       ?_ ?_
     · -- the per-field telescope certificates: the η certificate ran
-      -- them (`structEtaCertWith_projCerts_bridge`); the field-less
-      -- proof-irrelevance fallback has no field to certify
-      rcases hcert with hse | ⟨h0, -⟩
-      · exact structEtaCertWith_projCerts_bridge hd hio hfn hfT hse
-      · exact fun _ => by rw [h0]; exact .nil
-    · rcases hcert with hse | ⟨-, hpirr⟩
-      · exact structEtaCertWith_bridge hw hd hio hinf hwh hse
-      · exact proofIrrel_bridge hw hio hpirr
+      -- them (`structEtaCertWith_projCerts_bridge`)
+      exact structEtaCertWith_projCerts_bridge hd hio hfn hfT hcert
+    · exact structEtaCertWith_bridge hw hd hio hinf hwh hcert
   · exact .rescueAnd hfr hfj hpi hfT (inferTypeIO_bridge hio hinf) (hw hwh) hfn
       hlen hlps hslots rfl hsc1 hsc2 hsc3 (iotaCerts_bridge hd hio hcerts)
       (inferTypeIO_bridge hio htf) (hd hdq) (proofIrrel_bridge hw hio hpirr)
@@ -279,7 +272,7 @@ theorem whnfCore_bridge_succ (hwc : WhnfCoreBridge env fuel)
     have hR : Red env d (.proj sn i pe) (.proj sn i e₃) :=
       .trans (.projArg (hw hwh)) (.projArg (projLitToCtor_bridge hw hlit))
     rcases hcase with rfl | ⟨us, entry, hfn, hfp, hi, hlen, hus, hfire, hcont, hcert⟩
-    · exact hR
+    · exact .refl
     · obtain ⟨cvC, nP, nF, hc, hcerts⟩ := projCertAt_bridge hd hio hcert
       exact .trans hR (.trans (.proj hfp hfn hi hlen hus hfire hc hcerts) (hwc hcont))
 

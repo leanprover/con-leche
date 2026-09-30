@@ -1,4 +1,4 @@
-// whitepaper/main.typ — the con-leche whitepaper (task #323).
+// whitepaper/main.typ — the con-leche whitepaper (task #324).
 // Rendered by build.sh to _build/whitepaper.pdf and _build/index.html.
 // Sections live in sections/NN-name.typ, in PLAN.md's order of
 // presentation; each starts with `#import "../lib.typ": *`.

@@ -16,8 +16,7 @@ description: |
 
   Exit codes follow the arena convention exactly: 0 accept, 1 reject, 2 decline
   (only when the checker *positively detects* a feature it does not support
-  yet), 3 error.  An out-of-memory panic in the checking process is translated
-  into 3 by an in-binary supervisor rather than being reported as a rejection.
+  yet), 3 error.
 
   This definition is the *local* one used by `scripts/arena/run-suite.sh` in
   the con-leche tree; it runs a prebuilt binary out of the working tree instead of
@@ -28,7 +27,9 @@ version: "local worktree build"
 # and comes from the environment, so nothing depends on that directory.
 run: |
   set -u
-  ulimit -v "${CON_LECHE_VLIMIT:-16000000}"
+  # No `ulimit -v`: each worker thread reserves ~1 GiB of address space,
+  # so an address-space cap aborts the run at thread creation (exit 134)
+  # before it bounds anything.  The bound is the `timeout`.
   # SCRATCH.  A run writes no scratch file at all (task #180/#207).
   # `TMPDIR` is still pointed at disk here, as the project's standing rule
   # for anything that does need scratch.

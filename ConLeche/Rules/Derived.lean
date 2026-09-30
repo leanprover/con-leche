@@ -37,22 +37,6 @@ theorem Expr.mkAppN_getApp' : ∀ (e : Expr),
   | .bvar _ | .fvar _ _ | .sort _ | .const _ _ | .lam _ _ _
   | .forallE _ _ _ | .letE _ _ _ | .lit _ | .proj _ _ _ => rfl
 
-/-! ## `DefEqList` kit -/
-
-theorem DefEqList.length {d : Nat} : ∀ {as bs : List Expr},
-    DefEqList env d as bs → as.length = bs.length
-  | _, _, .nil => rfl
-  | _, _, .cons _ h => by simp [DefEqList.length h]
-
-theorem DefEqList.refl {d : Nat} : ∀ (as : List Expr), DefEqList env d as as
-  | [] => .nil
-  | _ :: as => .cons .refl (DefEqList.refl as)
-
-theorem DefEqList.symm {d : Nat} : ∀ {as bs : List Expr},
-    DefEqList env d as bs → DefEqList env d bs as
-  | _, _, .nil => .nil
-  | _, _, .cons h hs => .cons h.symm hs.symm
-
 /-! ## `Red` derived rules -/
 
 /-- A string literal expands and re-reduces (`litMajorToCtor`'s and
@@ -133,10 +117,6 @@ theorem DefEq.boolTrue {d : Nat} {a w : Expr}
   subst this
   exact .ofRed h
 
-/-- Two equal literals (`Core.lean:1582`). -/
-theorem DefEq.lit {d : Nat} {l : Literal} : DefEq env d (.lit l) (.lit l) :=
-  .refl
-
 /-- `Nat.zero` against the packed zero (`Core.lean:1589-1591`). -/
 theorem DefEq.natZeroR {d : Nat} :
     DefEq env d (.const natZeroName []) (.lit (.natVal 0)) :=
@@ -163,17 +143,6 @@ theorem DefEq.strLitR {d : Nat} {s : String} {a : Expr}
     (h : DefEq env d a (strLitToConstructor s)) :
     DefEq env d a (.lit (.strVal s)) :=
   .redR (.strLit hsup) h
-
-/-- η with the λ on the right (`Core.lean:1693-1696`: `etaCert ty₂ body₂
-m₂ a₁`). -/
-theorem DefEq.etaR {d : Nat} {a ta ty₁ B ty₂ body₂ : Expr} {m₁ m₂ : BinderMeta}
-    (hi : Infer env .io d a ta) (hr : Red env d ta (.forallE ty₁ B m₁))
-    (hty : DefEq env d ty₁ ty₂)
-    (hbody : DefEq env (d + 1) (body₂.instantiate1 (.fvar d ty₂))
-      (.app a (.fvar d ty₂)))
-    (hpw : m₂.pw = m₁.pw) :
-    DefEq env d a (.lam ty₂ body₂ m₂) :=
-  .symm (.eta hi hr hty hbody hpw)
 
 /-- Congruence along a spine: the head and the arguments pairwise. -/
 theorem DefEq.mkAppN {d : Nat} : ∀ {as bs : List Expr} {f g : Expr},
@@ -213,8 +182,8 @@ theorem DefEq.structEtaR {d : Nat} {a b : Expr} (h : DefEq env d b a) :
 
 /-! ## Shape facts read off a derivation's conclusion -/
 
-/-- The inferred type of a λ is a ∀ at the λ's own annotation
-(`infer_lam_meta_copy`'s twin); the λ clause's chain case consumes it. -/
+/-- The inferred type of a λ is a ∀ at the λ's own annotation; the λ
+clause's chain case consumes it. -/
 theorem Infer.lam_shape {g : Grade} {d : Nat} {ty body t : Expr}
     {mb : BinderMeta} (h : Infer env g d (.lam ty body mb) t) :
     ∃ bt, t = .forallE ty bt mb := by

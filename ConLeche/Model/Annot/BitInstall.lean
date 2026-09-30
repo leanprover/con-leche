@@ -10,26 +10,13 @@ public section
 # `denoteMeta` at an install (task #161, P3.2)
 
 The install-tier surface: the leaf-valuation congruence and its fresh
-corollary (`Interp/Install.lean`), the same-run agreement
-(`Interp/Step2Cons.lean`), and the spine head swap
-(`Interp/Steps/Levels.lean`).
+corollary, and the spine head swap.  `pwBit φ m.pw` mentions no
+valuation and `denoteMeta` has no fuel, so:
 
-All four are VERIFIED-grade mirrors — the sort steps in the originals
-are valuation- and spine-independent and simply vanish:
-
-* `denoteMeta_acval_congr` walks the same fifteen clauses; the binder
-  cases were `rw [denoteAnnot, denoteAnnot, ihty, ihbody]` and stay exactly
-  that, because `pwBit φ m.pw` mentions no valuation;
-* `denoteMeta_mkAppN_swap` loses the fuel-move (`F ≤ F'` and its
-  `denote2_fuelMono` step) — with no fuel there is nothing to move,
-  so the swap is stated at one reading and the argument rides along
-  on `rfl`;
-* `denoteMeta_agree_same` loses its content with the fuel it quantified
-  over.  `denote2_agree_same` says two successes *at different fuels*
-  agree; `denoteMeta` has one reading per subject, so the mirror is
-  `Option.some.inj`.  It is kept, at its mirror name, because the
-  consumers of the original (`hback` in `declStep2_of_value`) call it
-  by name at exactly this instance.
+* `denoteMeta_acval_congr` walks the fifteen clauses, the binder cases
+  by the induction hypotheses alone;
+* `denoteMeta_mkAppN_swap` is stated at one reading and the argument
+  rides along on `rfl`.
 -/
 
 namespace ConLeche.Model
@@ -132,26 +119,12 @@ theorem denoteMeta_acvalWith_fresh
   rw [h, hfresh] at hc
   exact nomatch hc
 
-/-! ## One reading per subject -/
-
-/-- **`denote2_agree_same`'s mirror.**  The original reconciles two
-successes at *different fuels* through `denote2_fuelMono`; `denoteMeta`
-takes no fuel, so the two runs are the same run and the reconciliation
-is `Option.some.inj`.  Kept at the mirror name because the consumers
-of the original invoke it at exactly this instance. -/
-theorem denoteMeta_agree_same {acval : Name → (Name → Nat) → AnnotTerm}
-    {ψ : Name → Nat} {value : Expr} {ra ra' : AnnotTerm}
-    (h : denoteMeta acval env ψ 0 value = some ra)
-    (h' : denoteMeta acval env ψ 0 value = some ra') : ra = ra' :=
-  Option.some.inj (h.symm.trans h')
-
 /-! ## The spine -/
 
 /-- **Head swap under a spine.**  If the head's annotation survives a
 move to another head — for whatever reason: the same term, an
 unfolding, a different term with the same validated annotation — then
-so does the whole application's, unchanged.  `denote2_mkAppN_swap`
-without the fuel move. -/
+so does the whole application's, unchanged. -/
 theorem denoteMeta_mkAppN_swap {acval : Name → (Name → Nat) → AnnotTerm}
     {d : Nat} :
     ∀ (as : List Expr) {f g : Expr} {ea : AnnotTerm},

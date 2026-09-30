@@ -33,7 +33,7 @@ variable {V : Type u} [SetTheory V]
 semantic laws at ONE instantiation: constructor typing plus Prop
 elimination (elimination into `Prop` is always allowed, so this slice
 exists for every structure).  `M` enters as a meta-level function; in
-the real invariant it is a `lam`-graph and `app_lam`/`app_mem` mediate,
+the real invariant it is a `lam`-graph and the application laws mediate,
 which changes nothing below. -/
 structure RecElim0 (C F : V) (mk : V → V) : Prop where
   mk_mem : ∀ a, a ∈ˢ F → mk a ∈ˢ C
@@ -263,7 +263,7 @@ theorem coh_of_disjoint {ι : Sort v} (C F : ι → V) (mk : ι → V → V)
   exact hinj i a b ha hb heq
 
 /-! ## Part 4 — the ADDENDUM variant: the proof tier builds the model
-(generalizing the pinned `PSigma'` basis)
+(generalizing a pinned dependent-pair basis)
 
 For a qualifying structure the carrier is not read off a `_model`
 artifact at all: it is BUILT as (an iteration of) `sigmaSet`, the

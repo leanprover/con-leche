@@ -1,4 +1,4 @@
-# whitepaper/flake.nix — the document toolchain (task #323).
+# whitepaper/flake.nix — the document toolchain (task #324).
 #
 # `nix develop ./whitepaper -c whitepaper/build.sh` from the repo root,
 # or `direnv allow` inside this directory and then `./build.sh`.

@@ -1,6 +1,6 @@
 module
 
--- lane S-red's kit is the SHARED one: `DenoteMetaSpine`'s list algebra,
+-- `RedSoundKit` is the SHARED kit: `DenoteMetaSpine`'s list algebra,
 -- `denoteMeta_mkAppN(_inv)`, `frame_spine`, `hoist_spine`,
 -- `mkAppN_of_fitA`, `PiChain`/`peelPis_of_piChain` and the tower
 -- entry's reading live there, not here.
@@ -16,28 +16,18 @@ import ConLeche.Semantics.DenoteClosed
 public section
 
 /-!
-# The ι lane's transplanted kit (task #305, lane S-iota)
+# The ι kit (task #305)
 
 The spine, frame and fit lemmas the ι rule and the three stuck-major
-rescues need, restated over `Model/Annot/BitLemmas.lean`'s
-`DenoteMetaSpine` and proved here rather than imported: every row this
-lane mines is TRANSPLANTED from the `Model/Steps/*` file the docstring
-cites — the argument, not the import — and that tier is gone since the
-task #305 closing.
+rescues need, stated over `Model/Annot/BitLemmas.lean`'s
+`DenoteMetaSpine` and the `Frame`/`Graded`/`LeavesSub` abbreviations
+of `Motive.lean`:
 
-Provenance, row by row (the original is the docstring's citation):
-
-* the `DenoteMetaSpine` residue this lane alone uses
+* the `DenoteMetaSpine` residue only the ι rules use
   (`exists_of_all`); the rest of the spine API is
   `Model/Annot/BitLemmas.lean`'s, shared;
-* `interp_mkAppN_congrK` — `Model/Steps/Stuck.lean:146`;
-* `constTy_pkg` — `constType_pkg` (`Model/Steps/IotaRows.lean:200`);
-* `denoteMeta_const_arityK` — `denoteMeta_const_arity` (`:233`);
-* the annotated `take`/`drop`/`getD` list algebra — `IotaRows.lean:107-153`.
-
-Nothing here is new mathematics; the statements are the originals',
-with the `Frame`/`Graded`/`LeavesSub` abbreviations of `Motive.lean`
-in place of the claims' spelled-out conjunctions.
+* `interp_mkAppN_congrK`, `constTy_pkg`, `denoteMeta_const_arityK`;
+* the annotated `take`/`drop`/`getD` list algebra.
 -/
 
 namespace ConLeche.Model.Rules
@@ -54,8 +44,8 @@ variable {V : Type w} [SetTheory V] {env : Env} {φ : Name → Nat}
 
 /-! ## The `DenoteMetaSpine` API
 
-`mem` and `getD` are `Model/Annot/BitLemmas.lean`'s since the task
-#305 closing; what is left here is the residue only this lane uses. -/
+`mem` and `getD` are `Model/Annot/BitLemmas.lean`'s; what is left here
+is the residue only the ι rules use. -/
 
 namespace DenoteMetaSpine
 
@@ -76,8 +66,7 @@ theorem exists_of_all :
 
 end DenoteMetaSpine
 
-/-- **The spine congruence at `interp`** (`interp_mkAppN_congr`,
-`Model/Steps/Stuck.lean:146`). -/
+/-- **The spine congruence at `interp`.** -/
 theorem interp_mkAppN_congrK {ρ : Nat → V} :
     ∀ (asa bsa : List AnnotTerm) {fa fb : AnnotTerm},
       interp V ρ fa = interp V ρ fb →
@@ -130,8 +119,7 @@ theorem leavesSub_of_not_hasFvar {f e : Expr} (h : f.hasFvar = false) :
 /-! ## The stored data -/
 
 /-- A stored declaration's instantiated type: read at every depth,
-graded, inhabited, and closed (`constType_pkg`,
-`Model/Steps/IotaRows.lean:200`). -/
+graded, inhabited, and closed. -/
 theorem constTy_pkg {m : EnvModel V env} (hct : ConstType m φ)
     {n : Name} {ci : ConLeche.ConstantInfo} (hf : env.find? n = some ci)
     (hnt : ci.isTowerEntry = false) {us : List Level}
@@ -174,8 +162,7 @@ theorem frame_of_not_hasFvar {m : EnvModel V env} {d : Nat}
       exact nomatch hl⟩⟩
 
 /-- A `.const` that reads was applied at the stored arity, and its
-reading is the leaf (`denoteMeta_const_arity`,
-`Model/Steps/IotaRows.lean:233`). -/
+reading is the leaf. -/
 theorem denoteMeta_const_arityK {acval : Name → (Name → Nat) → AnnotTerm}
     {d : Nat} {n : Name} {us : List Level} {ci : ConLeche.ConstantInfo}
     {ea : AnnotTerm} (hf : env.find? n = some ci)
@@ -188,10 +175,7 @@ theorem denoteMeta_const_arityK {acval : Name → (Name → Nat) → AnnotTerm}
   · next hlen => exact ⟨hlen, (Option.some.inj h).symm⟩
   · exact nomatch h
 
-/-! ## The annotated list algebra
-
-`map_interp_getD_eq`, `getD_takeA`, `getD_dropA`, `take_getD_splitA`
-(`Model/Steps/IotaRows.lean:107-153`), transplanted verbatim. -/
+/-! ## The annotated list algebra -/
 
 /-- Pointwise reading of a map equality at `getD` slots. -/
 theorem map_interp_getD_eqK {ρ : Nat → V} {as bs : List AnnotTerm}
@@ -240,17 +224,10 @@ theorem take_getD_splitAK {as : List AnnotTerm} {k : Nat}
 
 /-! ## The redex's own slots
 
-`AnnotTerm.mkAppN_append`, `wellDenotedV_app_congr_arg` and
-`wellDenotedV_mkAppN_snoc_congr` (`Model/Steps/IotaGate.lean:81-115`):
+`wellDenotedV_app_congr_argK` and `wellDenotedV_mkAppN_snoc_congrK`:
 the subject's grading is about the ORIGINAL major slot and the licensed
 walk is handed the prepared one, so the last argument is exchanged
 along the reduction's own `interp` equation. -/
-
-theorem AnnotTerm.mkAppN_appendK (f : AnnotTerm) :
-    ∀ (as bs : List AnnotTerm),
-      AnnotTerm.mkAppN f (as ++ bs) = AnnotTerm.mkAppN (AnnotTerm.mkAppN f as) bs
-  | [], _ => rfl
-  | _ :: as, bs => AnnotTerm.mkAppN_appendK _ as bs
 
 /-- **An app's argument may be exchanged for an interpretation-equal
 graded one**. -/
@@ -274,13 +251,12 @@ theorem wellDenotedV_mkAppN_snoc_congrK {ρ : Nat → V} {f a a' : AnnotTerm}
     (h : WellDenotedV V ρ (AnnotTerm.mkAppN f (as ++ [a])))
     (ha' : WellDenotedV V ρ a') (heq : interp V ρ a = interp V ρ a') :
     WellDenotedV V ρ (AnnotTerm.mkAppN f (as ++ [a'])) := by
-  rw [AnnotTerm.mkAppN_appendK] at h ⊢
+  rw [annotMkAppN_append] at h ⊢
   exact wellDenotedV_app_congr_argK h ha' heq
 
 /-! ## The fired rule's right-hand side and the telescope residual -/
 
-/-- The fired rule's right-hand side reads at every depth
-(`recRhs_depth`, `Model/Steps/IotaRows.lean:296`). -/
+/-- The fired rule's right-hand side reads at every depth. -/
 theorem recRhs_depthK {m : EnvModel V env}
     {n : Name} {cv : ConstantVal} {mI rP : Nat}
     {rules : List RecRule} (hf : env.find? n = some (.recInfo cv mI rP rules))
@@ -309,8 +285,8 @@ theorem recRhs_depthK {m : EnvModel V env}
       hRa0,
     hnf, hbd⟩
 
-/-- The frame of a `∀`-telescope's residual (`piResidual_frame`,
-`Model/Steps/IotaRows.lean:155`, at `Motive.lean`'s `Frame`). -/
+/-- The frame of a `∀`-telescope's residual (at `Motive.lean`'s
+`Frame`). -/
 theorem piResidual_frameK {m : EnvModel V env} {d : Nat}
     {Δa : List AnnotTerm} :
     ∀ {T : Expr} {args : List Expr} {rest : Expr},
@@ -353,7 +329,7 @@ theorem piResidual_frameK {m : EnvModel V env} {d : Nat}
         | exact hCa.2 l h2
 
 /-- **A `TeleFitPA` fit's residual is the reading of the checker's own
-`piResidual`** (`teleFitPA_residual`, `Model/Steps/IotaKit.lean:174`). -/
+`piResidual`**. -/
 theorem teleFitPA_residualK {acval : Name → (Name → Nat) → AnnotTerm}
     (hacl : ∀ (n : Name) (ψ : Name → Nat) (k : Nat),
       (acval n ψ).liftN 1 k = acval n ψ)
@@ -407,17 +383,14 @@ theorem teleFitPA_residualK {acval : Name → (Name → Nat) → AnnotTerm}
 
 /-! ## The reverse opening, read
 
-`denoteMeta_openRev_base` and `denoteMeta_openRev`
-(`Model/Steps/IotaKit.lean:66`, `:103`), transplanted — the ONE copy
-since the task #305 closing, which is why `Model/IndOpenRev.lean` and
-`Model/IndBottomNested.lean` read them from here: the `.nested`
+`denoteMeta_openRev_base` and `denoteMeta_openRev` — the ONE copy,
+which `Model/IndOpenRev.lean` reads from here: the `.nested`
 fire's comparands are stored pins instantiated at the recursor's
 parameter prefix, and this is what turns the law's OPEN reading at
 depth `rP` into the instantiated comparand's reading at the ambient
 depth. -/
 
-/-- **The base-independence of the opened validated reading**
-(`denote_openRev_base`'s mirror, `Model/Steps/IotaKit.lean:66`): a
+/-- **The base-independence of the opened validated reading**: a
 constant-frame subject's reverse opening reads to the same annotation at every base.  The lift the
 induction has to absorb is killed by `AnnotTerm.liftN_eq_self` at the
 erasure's bvar bound — `denoteMeta_closed`'s route, one depth up. -/
@@ -457,8 +430,7 @@ theorem denoteMeta_openRev_base {acval : Name → (Name → Nat) → AnnotTerm}
         (denoteMeta_erase hlink n (openRev 0 n e) hden)
       exact hbv.mono (by omega)
 
-/-- **Real-argument instantiation, read through the reverse opening**
-(`denote_openRev`'s mirror, `Model/Steps/IotaKit.lean:103`). -/
+/-- **Real-argument instantiation, read through the reverse opening.** -/
 theorem denoteMeta_openRev {acval : Name → (Name → Nat) → AnnotTerm}
     (hacl : ∀ (n : Name) (ψ : Name → Nat) (k : Nat),
       (acval n ψ).liftN 1 k = acval n ψ)
@@ -523,23 +495,8 @@ theorem denoteMeta_openRev {acval : Name → (Name → Nat) → AnnotTerm}
         = AnnotTerm.instRevChain vs' (X.inst (va.liftN vs'.length) 0) from rfl,
         hsp'.length]
 
-/-- **The base-independence of the opened validated reading**, at the
-lane's own spelling — `denoteMeta_openRev_base` above, whose statement
-this is. -/
-theorem denoteMeta_openRev_baseK {acval : Name → (Name → Nat) → AnnotTerm}
-    {cval : TConstVal}
-    (hacl : ∀ (n : Name) (ψ : Name → Nat) (k : Nat),
-      (acval n ψ).liftN 1 k = acval n ψ)
-    (hlink : ∀ n ψ, (acval n ψ).erase = cval n ψ)
-    (hcl : ∀ n ψ, Term.Closed (cval n ψ))
-    {e : Expr} (hnf : e.hasFvar = false) {n : Nat}
-    (hb : e.looseBVarsBounded n = true) :
-    ∀ d : Nat, denoteMeta acval env φ (d + n) (openRev d n e)
-      = denoteMeta acval env φ n (openRev 0 n e) :=
-  denoteMeta_openRev_base hacl hlink hcl hnf hb
-
 /-- **Real-argument instantiation, read through the reverse opening**,
-at the lane's own spelling — `denoteMeta_openRev` above at `m.acval`. -/
+`denoteMeta_openRev` above at `m.acval`. -/
 theorem denoteMeta_openRevK {m : EnvModel V env}
     (hacl : ∀ (n : Name) (ψ : Name → Nat) (k : Nat),
       (m.acval n ψ).liftN 1 k = m.acval n ψ)

@@ -9,18 +9,15 @@ import ConLeche.Rules.Derived
 public section
 
 /-!
-# The definitional-equality bridge (task #305, lane B3)
+# The definitional-equality bridge (task #305)
 
 `isDefEqCore` at `fuel + 1` from the five bridges at `fuel`: one
 `defeqStep` under a bridged continuation is a derivation, the loop
 follows by induction on its budget, the body is the loop at
 `defeqLoopFuel`.
 
-The inversion is `Verify/Rules/DefEqStepInv.lean`'s `defeqStep_inv`
-(the lane's by-product: the model tier's `defeqStep_claim`,
-`Model/Steps/DefEq.lean:514`, inverts the step inline against its
-continuation contract `DefEqCont`, and nothing in `Verify/` did).  It
-hands back the prefix's three exits, the two `whnfCore` reducts, and
+The inversion is `Verify/Rules/DefEqStepInv.lean`'s `defeqStep_inv`.
+It hands back the prefix's three exits, the two `whnfCore` reducts, and
 under them the nine ways the step ends — the last being
 `DefeqStuckExit`, the stuck tree's seventeen.  Each lands on one rule:
 

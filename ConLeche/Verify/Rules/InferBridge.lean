@@ -7,7 +7,7 @@ import ConLeche.Verify.InferIOLemmas
 public section
 
 /-!
-# The inference bridges (task #305, lane B4)
+# The inference bridges (task #305)
 
 `inferTypeCore` (full grade) and `inferTypeCoreIO` (io grade) at
 `fuel + 1` from the five bridges at `fuel`.  Eleven shapes each:
@@ -17,9 +17,9 @@ public section
 | `.sort` | inline | `inferTypeCoreIO_sort_eq` | `Infer.sort` |
 | `.bvar` | throws | throws | — |
 | `.fvar` | inline | `inferTypeCoreIO_fvar_eq` | `Infer.fvar` |
-| `.const` | `inferTypeCore_const_inv` (+ the arity guard, `Accepted.lean:70`) | `inferTypeCoreIO_const_eq` | `Infer.const` |
-| `.lit` | `inferTypeCore_natLit_inv` / `_strLit_inv` (`Accepted.lean`) | `inferTypeCoreIO_lit_eq` | `Infer.natLit` / `strLit` |
-| `.forallE` | `inferTypeCore_forall_inv` | `inferTypeCoreIO_forall_inv` | `Infer.forallE` (+ `ensureSort_bridge`) |
+| `.const` | `inferTypeCore_const_inv_full` | `inferTypeCoreIO_const_eq` | `Infer.const` |
+| `.lit` | `inferTypeCore_natLit_inv'` / `_strLit_inv'` | `inferTypeCoreIO_lit_eq` | `Infer.natLit` / `strLit` |
+| `.forallE` | `inferTypeCore_forall_inv` | `inferTypeCoreIO_forall_inv` | `Infer.forallE` (+ `ensureSortCore_inv`) |
 | `.lam` | `inferTypeCore_lam_inv` | `inferTypeCoreIO_lam_inv` | `Infer.lam` |
 | `.app` | `inferTypeCore_app_inv` | `inferTypeCoreIO_app_inv` | `Infer.app` / `Infer.appSkip` |
 | `.proj` | `inferTypeCore_proj_inv` | `inferTypeCoreIO_proj_inv` | `Infer.proj` |
@@ -38,11 +38,10 @@ variable {env : Env} {fuel : Nat}
 
 `Verify/InferLemmas.lean` inverts the four recursive clauses; the six
 leaves (`.sort`, `.fvar`, `.const`'s arity, the two literals, the
-`.bvar` throw) have no inversion there because no previous consumer
-needed one.  `Model/Steps/Accepted.lean:70-109` has three of them in
-the model tier; they are transplanted here (the rules tier may not
-import `Model/*`) and completed with the missing shapes and the io
-twins.  Each is one `simp only [inferBody, …]` deep. -/
+`.bvar` throw) have no inversion there; they are stated here (the
+rules tier may not import `Model/*`, whose `Tiers.lean` has the two
+literal ones) with the io twins.  Each is one `simp only [inferBody, …]`
+deep. -/
 
 variable {mode : CheckMode}
 
@@ -76,7 +75,7 @@ theorem inferTypeCore_bvar_inv {d i : Nat} {t : Expr}
 /-- The `.const` clause, whole: the stored constant, the table-entry
 guard, the level arity and the instantiated type
 (`inferTypeCore_const_inv` drops the arity — it is consumed inside its
-own `split`; `Model/Steps/Accepted.lean:70`'s `_inv_len` recovers it). -/
+own `split`). -/
 theorem inferTypeCore_const_inv_full {d : Nat} {n : Name} {us : List Level}
     {t : Expr} (h : inferTypeCore mode env (fuel + 1) d (.const n us) = .ok t) :
     ∃ ci, env.find? n = some ci ∧ ci.isTowerEntry = false ∧

@@ -23,21 +23,17 @@ this step) and checks the recorded declarations afterwards; the
 binary's driver (`Main.lean`) runs that fold with a heartbeat between
 the steps and returns its environment together with the proof that
 `checkDecls` returns it.  The fold runs at `.verified` and at
-`.trusted` alike (the twin driver `checkDeclsT` /
-`ConLeche/Cached/ParsedT.lean` retired 2026-09-06; the trusted lane is
-the same fold at the other mode, and nothing else): acceptance at
+`.trusted` alike (the trusted mode is the same fold at the other
+mode, and nothing else): acceptance at
 `.verified` is covered by the main corollary
 `no_False_declaration` (`ConLeche/MainTheorem.lean`, through
 `no_False_theorem_accepted` in `ConLeche/Verify/Cached/StreamThm.lean`), and the two
 modes agree on the install skeletons whenever both accept
 (`trusted_agrees_skels_D`, `ConLeche/Verify/Cached/AgreeFloor.lean`).
 
-The driver's parameter is the `CheckMode` itself (task #185; from
-2026-09-06 to then a configuration record stood in for it): the knot it
-ties (`coreKnotI mode`) and the install-time stages
-(`checkIotaRulesF`, `checkProjIotaF`, `indBlockCapsF`,
-`ctorResidualOkF` — each reads only the uninhabited-true `ttChecks`)
-all take the same mode.
+The driver's parameter is the `CheckMode` itself (task #185): the knot it
+ties (`coreKnotI mode`) and the install-time stages all take the same
+mode.
 -/
 
 namespace ConLeche.Cached
@@ -79,7 +75,17 @@ def checkConstantValC (fe : FEnv) (cv : ConstantVal) :
   let tyE := jty
   pure (⟨cv.name, cv.levelParams, tyE⟩, jty)
 
-/-- `checkDefnValP` over `Expr`. -/
+/-- `checkShapeless` (`ConLeche/Kernel/CheckDecl.lean`) through the index:
+a block the recogniser does not read has its type formers checked as
+constants, then declines.  It never returns an index. -/
+def checkShapelessS (fe : FEnv) (block : List ConstantInfo) : CheckCM FEnv := do
+  block.foldlM (fun (_ : Unit) ci => match ci with
+    | .indInfo cv _ => discard <| checkConstantValC mode fe cv
+    | _ => pure ()) ()
+  throw (.notImplemented s!"inductive block \
+    {(block.head?.map (·.name)).getD .anonymous}: shape not recognised")
+
+/-- Check and install a definition's value against its annotated type `jty`. -/
 def checkDefnValC (fe : FEnv) (cvA : ConstantVal) (jty : Expr)
     (value : Expr) (hint : ReducibilityHint) : CheckCM FEnv := do
   unless Expr.looseBVarsBounded 0 value do
@@ -98,7 +104,7 @@ def checkDefnValC (fe : FEnv) (cvA : ConstantVal) (jty : Expr)
     throw (.invalid s!"type mismatch in definition {cvA.name}")
   pure (fe.push (.defnInfo cvA vE hint))
 
-/-- `checkThmValP` over `Expr`. -/
+/-- Check a theorem's value against its `Prop` statement `jty`; stored opaque. -/
 def checkThmValC (fe : FEnv) (cvA : ConstantVal) (jty : Expr)
     (value : Expr) : CheckCM FEnv := do
   let jsty ← (coreKnotI mode fe checkFuel).infer 0 jty
@@ -121,7 +127,7 @@ def checkThmValC (fe : FEnv) (cvA : ConstantVal) (jty : Expr)
   -- stored by statement: the record's own value, unread (opaque)
   pure (fe.push (.thmInfo cvA value))
 
-/-- `checkOpaqueValP` over `Expr`. -/
+/-- Check an opaque's value against `jty`; installed as an axiom. -/
 def checkOpaqueValC (fe : FEnv) (cvA : ConstantVal) (jty : Expr)
     (value : Expr) : CheckCM FEnv := do
   unless Expr.looseBVarsBounded 0 value do
@@ -147,8 +153,8 @@ def checkBasisDeclC (fe : FEnv) (kind : BasisKind) : CheckCM FEnv := do
       throw (.notImplemented "quotient basis requires the pinned Eq basis")
   kind.declsA.foldlM installBasisDeclF fe
 
-/-- One converted declaration (mirrors `checkDeclSPPlain` branch by
-branch; inductive and basis blocks reuse the `Expr`-level drivers).
+/-- One converted declaration (inductive and basis blocks reuse the
+`Expr`-level drivers).
 `pins` is the `Nat.div`/`Nat.mod` pin-variant list the install gate
 tries (task #304), threaded from the fold. -/
 def checkDeclC (pins : List NatOpPinSet) (fe : FEnv) (pd : Declaration) :
@@ -237,14 +243,14 @@ def checkDeclC (pins : List NatOpPinSet) (fe : FEnv) (pd : Declaration) :
     | some kind => checkBasisDeclC fe kind
     | none =>
     -- TASK #228: the stream's DECLARED parameter count, checked before
-    -- the dispatch and for both routes (`checkDecl`'s twin).
+    -- the dispatch (`checkDecl`'s twin).
     if indParamsOk nP block then
       -- ONE ROUTE (task #210), dispatched by the RECOGNISER alone (task
-      -- #219): a recognised block is the fixpoint route's, every other
-      -- one the modeled path's (its model the in-process modeller's).
-      match nativeParts? nP block with
-      | some p => checkNativeS mode fe p
-      | none => checkIndDeclSF mode fe block
+      -- #219): a recognised block is the installer's, nested ones
+      -- included; any other declines (`checkShapelessS`).
+      match blockParts? nP block with
+      | some p => checkBlockKS mode fe block p
+      | none => checkShapelessS mode fe block
     else throw (.invalid "number of parameters mismatch")
   | .quotDecl k cv =>
     -- `checkDecl`'s twin (task #293): the `type` record installs the

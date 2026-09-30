@@ -5,7 +5,7 @@ public import ConLeche.Model.Caps
 public section
 
 /-!
-# The fired modeled-iota contract across a fresh cons (task #161, iota
+# The fired iota contract across a fresh cons (task #161, iota
 tier)
 
 `recRules_cons_fresh`, the obligation every value-kind harvest
@@ -13,20 +13,12 @@ discharges for the new `EnvModelM` field `rec_rules`.  The statements
 live in `Annot/EnvModelM.lean` beside `CapsOk` (the field must mention
 them); this is the preservation half, `capsOk_cons_fresh`'s sibling.
 
-## FINDING — every crossing is FORWARD; no equality-form transfer
+## Every crossing is FORWARD; no equality-form transfer
 
-The freeze anticipated that the law's reading *premises* (`TVa`,
-`TVja`, and the `.nested` clause's `vpa`) would have to move
-**backward** across the cons, through the equality-form
-`denoteMeta_cons_fresh`, and flagged that as legal at value-kind conses
-because the `noConfusion` pair supplies `LitGuardsAgree`.
-
-Neither the backward transfer nor that justification is needed, and
-the justification would not have held: the literal tier's seal I
-already showed `LitGuardsAgree` is **refutable** at a value-kind cons
-(a `def` named `String.ofList` completes string support and flips the
-`str` half), which is exactly why `LitStabilityP` was deleted.  Only
-the `nat` half is free from the `noConfusion` pair.
+The law's reading *premises* (`TVa`, `TVja`, and the `.nested` clause's
+`vpa`) need not move **backward** across the cons (and `LitGuardsAgree`
+is refutable at a value-kind cons: a `def` named `String.ofList`
+completes string support and flips the `str` half).
 
 What makes the backward direction unnecessary is that the readings
 sit in *premise* position, so the transfer they need is contravariant:
@@ -74,18 +66,16 @@ theorem constsBound_openRev {env₀ : Env} {e : Expr}
       (.fvar (d + n) (.sort .zero)) 0)
     exact ConstsBound.instantiate1 (by simp) _ 0 ih
 
-/-- **The fired modeled-iota contract survives a fresh cons that is
+/-- **The fired iota contract survives a fresh cons that is
 not itself a recursor.**
 
 The recursor disequality is the cons's kind.  The *constructor*
-disequality was a second premise until ENDGAME D, and it is not
-needed: `EnvS.rec_ctors` (`RecCtorsStored`, `Verify/EnvPreds.lean:64`)
+disequality needs no premise: `EnvModel.rec_ctors` (`RecCtorsStored`)
 says every stored recursor rule's constructor is itself **stored**, and
 the cons is fresh — so `RecRule.ctor rl ≠ c₀.name` follows from the
-environment invariant rather than from the cons's kind.  Dropping it is
-what lets the **basis** tier use this lemma at its `indInfo`/`ctorInfo`
-conses, where the kind premise is false (`Interp/BasisConsP.lean`'s
-`rec_rules` row recorded that as a wall; it is not one).
+environment invariant rather than from the cons's kind.  That is what
+lets the **basis** tier use this lemma at its `indInfo`/`ctorInfo`
+conses, where a kind premise would be false.
 
 A recursor cons with rules still establishes its *own* rules bespoke —
 that is the firing-law work, not a transport.  A recursor cons with
@@ -219,7 +209,7 @@ theorem recRuleLaw_cons_prefix (mp : EnvModelM V μ env)
     exact hlaw cvj cnP cnF hfcjE usj ρ xs ys _ _ restR restC hxl hyl
       hujl hψ hplain hnested' hpin hTVa' hTVja' hfitR hfitC
 
-/-- **The fired modeled-iota contract survives a fresh cons that is
+/-- **The fired iota contract survives a fresh cons that is
 not itself a recursor** — `recRuleLaw_cons_prefix` at every stored
 row, the freshness supplying the disequality. -/
 theorem recRules_cons_fresh (mp : EnvModelM V μ env)
@@ -247,7 +237,7 @@ theorem recRules_cons_fresh (mp : EnvModelM V μ env)
     (by rw [ConLeche.Env.find?_cons, if_neg (fun hh => hnN hh.symm)] at hf
         exact hf) hmem hfire
 
-/-- **The fired modeled-iota contract at a *recursor* cons.**  The
+/-- **The fired iota contract at a *recursor* cons.**  The
 prefix rows are `recRuleLaw_cons_prefix` unchanged; the new
 constant's own rows are the block's bespoke firing work, taken here as
 a premise.  ENDGAME F's §3 established that all six basis recursors

@@ -5,7 +5,7 @@ one denotation on annotated terms, a semantic invariant instead of a
 typing judgement, a set theory given as a class — the con-leche proof
 could be simpler or more elegant. One numbered list, one observation
 per item, each naming the fragment files and the real-proof files it
-compares and the lane that made it (task #323, all of 2026-09-25).
+compares and the lane that made it (task #324, all of 2026-09-25).
 Typst and tooling traps are not here: they are the "Typst notes"
 comment block at the top of `lib.typ`.
 

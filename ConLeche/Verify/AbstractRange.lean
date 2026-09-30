@@ -11,8 +11,8 @@ public section
 traversal; `abstractRange_succ` identifies it with the innermost-first
 `abstract1` chain a telescope rebuild folds over (see
 `ConLeche/Verify/BinderLoop.lean`), and `abstractRange_zero` is the empty
-range.  Kept below `ConLeche/Verify/IExpr.lean` in the import DAG: the
-interned `abstractRangeIGo` spec consumes these.
+range.  The cached walk's spec (`abstractRangeP_spec`,
+`ConLeche/Verify/Cached/OpsC.lean`) consumes these.
 -/
 
 namespace ConLeche
@@ -55,7 +55,7 @@ theorem abstractRange_succ :
     simp_all [Expr.abstractRange, Expr.abstract1]
 
 /-- Abstracting a range at or above a term's fvar range is the
-identity (the fvar-range cutoff of the interned traversal, task #86;
+identity (the fvar-range cutoff of the cached traversal, task #86;
 `Expr.fvarsBelow` is the annotation-free fvar bound of
 `ConLeche/Verify/Shift.lean`). -/
 theorem abstractRange_eq_self : ∀ {e : Expr} {d k c : Nat},

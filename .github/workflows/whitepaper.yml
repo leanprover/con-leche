@@ -1,4 +1,4 @@
-# The whitepaper (task #323): build the document from its one Typst
+# The whitepaper (task #324): build the document from its one Typst
 # source, run its link gate, keep the rendering as an artifact, and on
 # master publish the HTML to GitHub Pages (enable Pages with source
 # "GitHub Actions" in the repository settings once).

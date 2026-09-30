@@ -43,16 +43,13 @@ application is stuck.
 
 **Task #161, the β gate.**  The beta disjunct's certificate premise is
 a *disjunction* — "either the mode's gate fired at a `.never` binder,
-or the certificate ran and passed" (`betaGateTest`,
+or the certificate ran and passed" (`betaGateFires`,
 `Verify/BetaGate.lean`).  The statement is therefore mode-generic and
 true at every mode, gated or not, which is what keeps the whole
 population of consumers that *discard* the certificate component
 (`whnfPres_*`, the leaf/level/bridge/simulation families) verbatim.
 
-Consumers that *consume* the certificate use `whnf_app_inv_ungated`
-below and owe a `mode.betaGate = false` hypothesis: they are the R
-lane, whose `Red.beta` needs the argument's domain membership and has
-no annotation to read it off. -/
+-/
 theorem whnf_app_inv {env : Env} {fuel d : Nat} {f a e' : Expr}
     (h : whnfCore mode env (fuel + 1) d (.app f a) = .ok e') :
     ∃ f', whnfCore mode env fuel d f = .ok f' ∧
@@ -123,30 +120,6 @@ theorem whnf_app_inv {env : Env} {fuel d : Nat} {f a e' : Expr}
         simp only [pure, Except.pure, Except.ok.injEq] at h
         exact Or.inr (Or.inr h.symm)
 
-/-- `whnf_app_inv` at a mode whose β gate is off — the **pre-gate
-letter**, verbatim: the beta disjunct carries the certificate itself.
-The dead-branch collapse (`betaGateTest_off`) is the whole proof. -/
-theorem whnf_app_inv_ungated {env : Env} {fuel d : Nat} {f a e' : Expr}
-    (hg : mode.betaGate = false)
-    (h : whnfCore mode env (fuel + 1) d (.app f a) = .ok e') :
-    ∃ f', whnfCore mode env fuel d f = .ok f' ∧
-      ((∃ ty body m, f' = .lam ty body m ∧
-          whnfCore mode env fuel d (body.instantiate1 a) = .ok e' ∧
-          ∃ ta, inferTypeCore mode env fuel d a = .ok ta ∧
-            isDefEqCore mode env fuel d ta ty = .ok true) ∨
-        (∃ e'', iotaRecFueled mode env fuel d (.app f' a) = .ok (some e'') ∧
-          whnfCore mode env fuel d e'' = .ok e') ∨
-        e' = .app f' a) := by
-  obtain ⟨f', hwf, hcase⟩ := whnf_app_inv h
-  refine ⟨f', hwf, ?_⟩
-  rcases hcase with ⟨ty, body, m, hf', hbeta, hc⟩ | hrest
-  · rcases hc with hfired | hcert
-    · rw [betaGateFires_off hg] at hfired; exact absurd hfired (by simp)
-    · obtain ⟨ta, hta, hde⟩ := hcert
-      rw [inferTypeIO_off hg] at hta
-      exact Or.inl ⟨ty, body, m, hf', hbeta, ta, hta, hde⟩
-  · exact Or.inr hrest
-
 /-- Inversion for one iteration of the reduction loop
 (`whnfStep`): head-normalize, then either the literal acceleration or
 one definition unfolding hands the reduct to the loop's continuation
@@ -195,12 +168,9 @@ theorem whnfStep_inv {env : Env} {fuel d : Nat} {k : Expr → CheckM Expr}
 
 /-- Inversion for the λ-rule of `inferTypeCore` (infer-only: the
 annotation is reused whole).  The last conjunct is the **codomain
-sort** (task #152), delivered at the verified modes only: it is the
-`HasSort (A :: Δ) B v` premise the set lane's annotation pass needs at
-every λ node, in the shape the checker computes it (infer, then whnf
-to a sort — `ConLeche/SetR/Annot/Pass.lean`'s `HasSort` unfolded along
-the bridge).  At `.trusted` — the trusted lane, which does not
-run the check — it is vacuous. -/
+sort** (task #152), delivered at the verified modes only, in the
+shape the checker computes it (infer, then whnf to a sort).  At
+`.trusted`, which does not run the check, it is vacuous. -/
 theorem inferTypeCore_lam_inv {env : Env} {fuel d : Nat}
     {ty body t : Expr} {m : BinderMeta}
     (h : inferTypeCore mode env (fuel + 1) d (.lam ty body m) = .ok t) :
@@ -302,22 +272,6 @@ theorem inferTypeCore_lam_inv {env : Env} {fuel d : Nat}
     | .bvar _ | .fvar _ _ | .const _ _ | .app _ _ | .lam _ _ _
     | .forallE _ _ _ | .letE _ _ _ | .lit _ | .proj _ _ _ =>
       intro h; simp [throw, throwThe, MonadExceptOf.throw] at h
-
-/-- **The λ→∀ meta copy, named** (task #161 P3, piece 3): the type
-`inferTypeCore` returns for a λ is a `∀` carrying the λ's *own*
-binder meta — annotation included.  This is definitional
-(`Core.lean`'s λ clause returns `.forallE ty (bt.abstract1 depth)
-mb`), and it is why an inferred type needs no ∀-front-door pass of its
-own: the codomain check the λ clause ran (chain or leaf) *is* the
-validation of the copied datum, and the `denoteMeta` readings of the λ
-and of its inferred type dispatch on the same regime numeral
-`pwBit φ m.pw` by their clause equations. -/
-theorem infer_lam_meta_copy {env : Env} {fuel d : Nat}
-    {ty body t : Expr} {m : BinderMeta}
-    (h : inferTypeCore mode env (fuel + 1) d (.lam ty body m) = .ok t) :
-    ∃ bt, t = .forallE ty bt m := by
-  obtain ⟨tty, u, bt, -, -, -, -, -, ht⟩ := inferTypeCore_lam_inv h
-  exact ⟨bt.abstract1 d, ht⟩
 
 /-- Inversion for the application rule of `inferTypeCore` (task #100
 de-gating: the per-argument re-check runs unconditionally — the former
@@ -599,17 +553,6 @@ theorem Expr.WScoped.mkAppN {d : Nat} : ∀ {xs : List Expr} {f : Expr},
     simp only [WScoped]
     exact ⟨hf, hxs x List.mem_cons_self⟩
 
-theorem looseBVarsBounded_getAppFn {k : Nat} :
-    ∀ {e : Expr}, e.looseBVarsBounded k = true →
-      e.getAppFn.looseBVarsBounded k = true := by
-  intro e
-  induction e with
-  | app f a ihf _ =>
-    intro hb
-    simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hb
-    exact ihf hb.1
-  | _ => intro hb; exact hb
-
 theorem looseBVarsBounded_getAppArgs {k : Nat} :
     ∀ {e : Expr}, e.looseBVarsBounded k = true →
       ∀ x ∈ e.getAppArgs, x.looseBVarsBounded k = true := by
@@ -619,20 +562,6 @@ theorem looseBVarsBounded_getAppArgs {k : Nat} :
     intro hb x hx
     simp only [Expr.getAppArgs, List.mem_append, List.mem_singleton] at hx
     simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hb
-    rcases hx with hx | rfl
-    · exact ihf hb.1 x hx
-    · exact hb.2
-  | _ => intro hb x hx; simp [Expr.getAppArgs] at hx
-
-theorem hasFvar_getAppArgs :
-    ∀ {e : Expr}, e.hasFvar = false →
-      ∀ x ∈ e.getAppArgs, x.hasFvar = false := by
-  intro e
-  induction e with
-  | app f a ihf iha =>
-    intro hb x hx
-    simp only [Expr.getAppArgs, List.mem_append, List.mem_singleton] at hx
-    simp only [Expr.hasFvar, Bool.or_eq_false_iff] at hb
     rcases hx with hx | rfl
     · exact ihf hb.1 x hx
     · exact hb.2
@@ -673,13 +602,15 @@ theorem Expr.getAppArgs_mkAppN : ∀ (args : List Expr) (f : Expr),
     simp [Expr.getAppArgs]
 
 /-- Inversion for `whnfCore` on projections: the scrutinee whnf, then
-the string-literal expansion step (`projLitToCtorFueled`), then either a
-stuck projection of the converted scrutinee or a firing table entry. -/
+the string-literal expansion step (`projLitToCtorFueled`), then either the
+input itself (a stuck projection keeps its scrutinee as it was, official
+`whnf_core`: `reduce_proj` fails and the input is returned) or a firing
+table entry. -/
 theorem whnf_proj_inv {env : Env} {fuel d : Nat} {sn : Name} {i : Nat} {e e' : Expr}
     (h : whnfCore mode env (fuel + 1) d (.proj sn i e) = .ok e') :
     ∃ e₂ e₃, whnf mode env fuel d e = .ok e₂ ∧
       projLitToCtorFueled mode env fuel d e₂ = .ok e₃ ∧
-      (e' = .proj sn i e₃ ∨
+      (e' = .proj sn i e ∨
         ∃ us entry, e₃.getAppFn = .const entry.ctor us ∧
           env.findProj? sn i = some entry ∧
           i < entry.numFields ∧
@@ -1015,24 +946,6 @@ theorem iotaIndexOk_inv {env : Env} {fuel d mI rP cnP : Nat} {tyCtor : Expr}
   | none => rw [hres] at h; simp [pure, Except.pure] at h
   | some residual => rw [hres] at h; exact ⟨residual, rfl, h⟩
 
-/-- **The stored zero-ness datum decides the official never-zero
-test**: at a capability record whose `sortZ` is the family's own
-(`piResultZ` of the type the environment stores — what every install
-route computes it from), reading the datum at a use's levels gives
-exactly the walk `piResultNeverZero` would have made down that type. -/
-theorem capsNeverZero_eq {lps : List Name} {us : List Level}
-    {caps : IndCaps} {e : Expr} (h : caps.sortZ = piResultZ e) :
-    capsNeverZero lps us caps = piResultNeverZero lps us e := by
-  unfold capsNeverZero piResultNeverZero
-  rw [h]
-  unfold piResultZ
-  cases e.piResult with
-  | sort u =>
-    rw [← Level.zeronessOf_subst, ← Level.isNeverZero_eq_isNever]
-  | _ =>
-    rw [Level.substPW_eq_self (by simp)]
-    simp
-
 /-- Inversion of the stuck-major rescue: either the major is returned
 unchanged, or a constructor application was fabricated — in the
 K branch certified by proof irrelevance, in the structure-eta branch by
@@ -1074,9 +987,7 @@ theorem majorToCtor_inv {env : Env} {fuel d : Nat} {recName : Name}
            (cvj.type.instantiateLevelParams cvj.levelParams ust)
            (etaFabArgsE env T ust tmaj.getAppArgs major caps.etaFields)
            = .ok true ∧
-         (structEtaCertWithFueled mode env fuel d major' major tmaj = .ok true ∨
-          (caps.etaFields = 0 ∧
-           proofIrrelFueled mode env fuel d major' major = .ok true))) ∨
+         structEtaCertWithFueled mode env fuel d major' major tmaj = .ok true) ∨
         (T = andName ∧
          tmaj.getAppArgs.length = cnP ∧
          cvj.levelParams.length = ust.length ∧
@@ -1539,36 +1450,9 @@ theorem majorToCtor_inv {env : Env} {fuel d : Nat} {recName : Name}
     dsimp only at h
     cases bse with
     | false =>
-      simp only [Bool.false_eq_true, ↓reduceIte] at h
-      by_cases hZ : caps.etaFields = 0
-      case neg =>
-        rw [if_neg hZ] at h
-        simp only [pure, Except.pure, Except.ok.injEq] at h
-        exact Or.inl h.symm
-      rw [if_pos hZ] at h
-      try simp only [Bind.bind, Except.bind] at h
-      cases hpi : proofIrrelFueled mode env fuel d
-          (Expr.mkAppN (.const caps.etaCtor ust)
-            (etaFabArgsE env T' ust tmaj.getAppArgs major caps.etaFields))
-          major with
-      | error err => rw [hpi] at h; exact nomatch h
-      | ok bpi =>
-      rw [hpi] at h
-      dsimp only at h
-      cases bpi with
-      | false =>
-        simp only [Bool.false_eq_true, ↓reduceIte, pure, Except.pure,
-          Except.ok.injEq] at h
-        exact Or.inl h.symm
-      | true =>
-      simp only [↓reduceIte, pure, Except.pure, Except.ok.injEq] at h
-      subst h
-      simp only [Bool.and_eq_true] at hguard
-      exact Or.inr ⟨hguard.1.1, hguard.1.2, hguard.2,
-        rl, cvj, cnP, cnF, tmaj₀, tmaj, T', us₀, ust, cvT, caps,
-        rfl, hfj, hpr, hfT, rfl, htw, hth,
-        Or.inr (Or.inl ⟨hE, hnz, hplen, hlvl, rfl, hcertE,
-          Or.inr ⟨hZ, hpi⟩⟩)⟩
+      simp only [Bool.false_eq_true, ↓reduceIte, pure, Except.pure,
+        Except.ok.injEq] at h
+      exact Or.inl h.symm
     | true =>
     simp only [↓reduceIte, pure, Except.pure, Except.ok.injEq] at h
     subst h
@@ -1576,8 +1460,7 @@ theorem majorToCtor_inv {env : Env} {fuel d : Nat} {recName : Name}
     exact Or.inr ⟨hguard.1.1, hguard.1.2, hguard.2,
       rl, cvj, cnP, cnF, tmaj₀, tmaj, T', us₀, ust, cvT, caps,
       rfl, hfj, hpr, hfT, rfl, htw, hth,
-      Or.inr (Or.inl ⟨hE, hnz, hplen, hlvl, rfl, hcertE,
-        Or.inl hse⟩)⟩
+      Or.inr (Or.inl ⟨hE, hnz, hplen, hlvl, rfl, hcertE, hse⟩)⟩
 
 /-- Inversion of one pairwise-defeq step. -/
 theorem defEqList_step_inv {env : Env} {fuel d : Nat} {a b : Expr}
@@ -1675,68 +1558,6 @@ theorem iotaCerts_step_inv_gate {env : Env} {fuel d : Nat} {lic : Bool}
   | true =>
   simp only [↓reduceIte] at h
   exact ⟨ta, rfl, hde, h⟩
-
-/-- Inversion of one certification step at an unlicensed walk (the
-rescue's synthetic certifications): the certificate ran. -/
-theorem iotaCerts_step_inv {env : Env} {fuel d : Nat}
-    {ty body : Expr} {m : BinderMeta} {arg : Expr} {rest : List Expr}
-    (h : iotaCertsFueled mode env fuel d false (.forallE ty body m) (arg :: rest) =
-      .ok true) :
-    ∃ ta, inferTypeIO mode env fuel d arg = .ok ta ∧
-      isDefEqCore mode env fuel d ta ty = .ok true ∧
-      iotaCertsFueled mode env fuel d false (body.instantiate1 arg) rest = .ok true := by
-  rcases iotaCerts_step_inv_gate h with ⟨hg, -⟩ | hrun
-  · exact absurd hg (by simp)
-  · exact hrun
-
-/-- Inversion of the unit-type check.
-
-Task #161 item C1: the test is now the pinned-name one, so the
-inversion additionally reads off `c = punitName` — the conclusion is
-unchanged (`reservedBasisNames.contains (punitName.str "rec")` is
-`true` by computation), which is what keeps `unitLike_eq_punit` and
-every downstream consumer working verbatim. -/
-theorem isUnitLikeTy_inv {env : Env} {e : Expr}
-    (h : isUnitLikeTy env e = true) :
-    ∃ c us cvi capsi cvr mI rP r, e = .const c us ∧
-      env.find? c = some (.indInfo cvi capsi) ∧
-      env.find? (c.str "rec") = some (.recInfo cvr mI rP [r]) ∧
-      mI = rP ∧ r.nfields = 0 ∧
-      reservedBasisNames.contains (c.str "rec") = true := by
-  match e, h with
-  | .const c us, h =>
-    simp only [isUnitLikeTy, Bool.and_eq_true, beq_iff_eq] at h
-    obtain ⟨⟨hc, h1⟩, h2⟩ := h
-    subst hc
-    revert h1
-    match hfc : env.find? punitName with
-    | none => intro h1; exact nomatch h1
-    | some (.axiomInfo _) => intro h1; exact nomatch h1
-    | some (.projInfo _) => intro h1; exact nomatch h1
-    | some (.defnInfo _ _ _) => intro h1; exact nomatch h1
-    | some (.thmInfo _ _) => intro h1; exact nomatch h1
-    | some (.ctorInfo _ _ _) => intro h1; exact nomatch h1
-    | some (.recInfo _ _ _ _) => intro h1; exact nomatch h1
-    | some (.indInfo cvi capsi) => ?_
-    intro _
-    revert h2
-    match hfr : env.find? punitRecName with
-    | none => intro h2; exact nomatch h2
-    | some (.axiomInfo _) => intro h2; exact nomatch h2
-    | some (.projInfo _) => intro h2; exact nomatch h2
-    | some (.defnInfo _ _ _) => intro h2; exact nomatch h2
-    | some (.thmInfo _ _) => intro h2; exact nomatch h2
-    | some (.ctorInfo _ _ _) => intro h2; exact nomatch h2
-    | some (.indInfo _ _) => intro h2; exact nomatch h2
-    | some (.recInfo cvr mI rP rules) => ?_
-    intro h2
-    match rules, h2 with
-    | [r], h2 =>
-      simp only [Bool.and_eq_true, beq_iff_eq] at h2
-      exact ⟨punitName, us, cvi, capsi, cvr, mI, rP, r, rfl, hfc, hfr,
-        h2.1, h2.2, by decide⟩
-    | [], h2 => exact nomatch h2
-    | _ :: _ :: _, h2 => exact nomatch h2
 
 /-- Inversion of a successful hoisted `Prop`-branch certification
 (task #168): either the fast "yes" arm fired — both sides'
@@ -1836,25 +1657,19 @@ theorem propIrrel_inv {env : Env} {fuel d : Nat} {a b : Expr}
     cases okA <;> cases okB <;> simp_all
   exact ⟨ta, sta, uT, tb, stb, vT, rfl, hsta, hwta, heq1, rfl, hstb, hwtb, heq2⟩
 
-/-- Inversion of a successful proof-irrelevance certification: either
-both sides' types whnf to the basis unit type, or both types' sorts are
-`Prop`. -/
+/-- Inversion of a successful proof-irrelevance certification: both
+types' sorts are `Prop`. -/
 theorem proofIrrel_inv {env : Env} {fuel d : Nat} {a b : Expr}
     (h : proofIrrelFueled mode env fuel d a b = .ok true) :
-    ∃ ta wta,
+    ∃ ta sta uT tb stb vT,
       inferTypeIO mode env fuel d a = .ok ta ∧
-      whnf mode env fuel d ta = .ok wta ∧
-      ((isUnitLikeTy env wta = true ∧
-        ∃ tb wtb, inferTypeIO mode env fuel d b = .ok tb ∧
-          whnf mode env fuel d tb = .ok wtb ∧ isUnitLikeTy env wtb = true) ∨
-       (∃ sta uT tb stb vT,
-        inferTypeIO mode env fuel d ta = .ok sta ∧
-        whnf mode env fuel d sta = .ok (.sort uT) ∧
-        Level.isEquiv uT .zero = some true ∧
-        inferTypeIO mode env fuel d b = .ok tb ∧
-        inferTypeIO mode env fuel d tb = .ok stb ∧
-        whnf mode env fuel d stb = .ok (.sort vT) ∧
-        Level.isEquiv vT .zero = some true)) := by
+      inferTypeIO mode env fuel d ta = .ok sta ∧
+      whnf mode env fuel d sta = .ok (.sort uT) ∧
+      Level.isEquiv uT .zero = some true ∧
+      inferTypeIO mode env fuel d b = .ok tb ∧
+      inferTypeIO mode env fuel d tb = .ok stb ∧
+      whnf mode env fuel d stb = .ok (.sort vT) ∧
+      Level.isEquiv vT .zero = some true := by
   dsimp only [proofIrrelFueled] at h
   simp only [proofIrrel, Bind.bind, Except.bind] at h
   simp only [inferTypeIO_def, whnf_def] at h
@@ -1863,97 +1678,70 @@ theorem proofIrrel_inv {env : Env} {fuel d : Nat} {a b : Expr}
   | ok ta =>
   rw [hta] at h
   dsimp only at h
-  cases hwta0 : whnf mode env fuel d ta with
-  | error err => rw [hwta0] at h; exact nomatch h
-  | ok wta0 =>
-  rw [hwta0] at h
+  cases hsta : inferTypeIO mode env fuel d ta with
+  | error err => rw [hsta] at h; exact nomatch h
+  | ok sta =>
+  rw [hsta] at h
   dsimp only at h
-  refine ⟨ta, wta0, rfl, hwta0, ?_⟩
-  by_cases hu : isUnitLikeTy env wta0 = true
-  · -- unit branch
-    rw [if_pos hu] at h
-    try simp only [Bind.bind, Except.bind] at h
-    cases htb : inferTypeIO mode env fuel d b with
-    | error err => rw [htb] at h; exact nomatch h
-    | ok tb =>
-    rw [htb] at h
-    dsimp only at h
-    cases hwtb : whnf mode env fuel d tb with
-    | error err => rw [hwtb] at h; exact nomatch h
-    | ok wtb =>
-    rw [hwtb] at h
-    dsimp only at h
-    by_cases hub : isUnitLikeTy env wtb = true
-    · exact Or.inl ⟨hu, tb, wtb, rfl, hwtb, hub⟩
-    · rw [if_neg hub] at h
-      simp [pure, Except.pure] at h
-  · -- Prop branch
-    rw [if_neg hu] at h
-    try simp only [Bind.bind, Except.bind] at h
-    cases hsta : inferTypeIO mode env fuel d ta with
-    | error err => rw [hsta] at h; exact nomatch h
-    | ok sta =>
-    rw [hsta] at h
-    dsimp only at h
-    cases hwta : whnf mode env fuel d sta with
-    | error err => rw [hwta] at h; exact nomatch h
-    | ok wta =>
-    rw [hwta] at h
-    match wta, h with
-    | .sort uT, h => ?_
-    | .bvar i2, h => exact nomatch h
-    | .fvar i2 t2, h => exact nomatch h
-    | .const n2 us2, h => exact nomatch h
-    | .app f2 a2, h => exact nomatch h
-    | .lam t2 b2 m2, h => exact nomatch h
-    | .forallE t2 b2 m2, h => exact nomatch h
-    | .letE t2 v2 b2, h => exact nomatch h
-    | .lit l2, h => exact nomatch h
-    | .proj s2 i2 e3, h => exact nomatch h
-    dsimp only at h
-    cases heq1 : Level.isEquiv uT .zero with
-    | none => rw [heq1] at h; simp [liftFueled] at h
-    | some okA =>
-    rw [heq1] at h
-    try dsimp only [liftFueled] at h
-    try simp only [Bind.bind, Except.bind, pure, Except.pure] at h
-    try dsimp only at h
-    cases htb : inferTypeIO mode env fuel d b with
-    | error err => rw [htb] at h; exact nomatch h
-    | ok tb =>
-    rw [htb] at h
-    dsimp only at h
-    cases hstb : inferTypeIO mode env fuel d tb with
-    | error err => rw [hstb] at h; exact nomatch h
-    | ok stb =>
-    rw [hstb] at h
-    dsimp only at h
-    cases hwtb : whnf mode env fuel d stb with
-    | error err => rw [hwtb] at h; exact nomatch h
-    | ok wtb =>
-    rw [hwtb] at h
-    match wtb, h with
-    | .sort vT, h => ?_
-    | .bvar i2, h => exact nomatch h
-    | .fvar i2 t2, h => exact nomatch h
-    | .const n2 us2, h => exact nomatch h
-    | .app f2 a2, h => exact nomatch h
-    | .lam t2 b2 m2, h => exact nomatch h
-    | .forallE t2 b2 m2, h => exact nomatch h
-    | .letE t2 v2 b2, h => exact nomatch h
-    | .lit l2, h => exact nomatch h
-    | .proj s2 i2 e3, h => exact nomatch h
-    dsimp only at h
-    cases heq2 : Level.isEquiv vT .zero with
-    | none => rw [heq2] at h; simp [liftFueled] at h
-    | some okB =>
-    rw [heq2] at h
-    try dsimp only [liftFueled] at h
-    try simp only [pure, Except.pure, Except.ok.injEq] at h
-    obtain ⟨rfl, rfl⟩ : okA = true ∧ okB = true := by
-      have := h
-      cases okA <;> cases okB <;> simp_all
-    exact Or.inr ⟨sta, uT, tb, stb, vT, rfl, hwta, heq1, rfl, hstb, hwtb, heq2⟩
+  cases hwta : whnf mode env fuel d sta with
+  | error err => rw [hwta] at h; exact nomatch h
+  | ok wta =>
+  rw [hwta] at h
+  match wta, h with
+  | .sort uT, h => ?_
+  | .bvar i2, h => exact nomatch h
+  | .fvar i2 t2, h => exact nomatch h
+  | .const n2 us2, h => exact nomatch h
+  | .app f2 a2, h => exact nomatch h
+  | .lam t2 b2 m2, h => exact nomatch h
+  | .forallE t2 b2 m2, h => exact nomatch h
+  | .letE t2 v2 b2, h => exact nomatch h
+  | .lit l2, h => exact nomatch h
+  | .proj s2 i2 e3, h => exact nomatch h
+  dsimp only at h
+  cases heq1 : Level.isEquiv uT .zero with
+  | none => rw [heq1] at h; simp [liftFueled] at h
+  | some okA =>
+  rw [heq1] at h
+  try dsimp only [liftFueled] at h
+  try simp only [Bind.bind, Except.bind, pure, Except.pure] at h
+  try dsimp only at h
+  cases htb : inferTypeIO mode env fuel d b with
+  | error err => rw [htb] at h; exact nomatch h
+  | ok tb =>
+  rw [htb] at h
+  dsimp only at h
+  cases hstb : inferTypeIO mode env fuel d tb with
+  | error err => rw [hstb] at h; exact nomatch h
+  | ok stb =>
+  rw [hstb] at h
+  dsimp only at h
+  cases hwtb : whnf mode env fuel d stb with
+  | error err => rw [hwtb] at h; exact nomatch h
+  | ok wtb =>
+  rw [hwtb] at h
+  match wtb, h with
+  | .sort vT, h => ?_
+  | .bvar i2, h => exact nomatch h
+  | .fvar i2 t2, h => exact nomatch h
+  | .const n2 us2, h => exact nomatch h
+  | .app f2 a2, h => exact nomatch h
+  | .lam t2 b2 m2, h => exact nomatch h
+  | .forallE t2 b2 m2, h => exact nomatch h
+  | .letE t2 v2 b2, h => exact nomatch h
+  | .lit l2, h => exact nomatch h
+  | .proj s2 i2 e3, h => exact nomatch h
+  dsimp only at h
+  cases heq2 : Level.isEquiv vT .zero with
+  | none => rw [heq2] at h; simp [liftFueled] at h
+  | some okB =>
+  rw [heq2] at h
+  try dsimp only [liftFueled] at h
+  try simp only [pure, Except.pure, Except.ok.injEq] at h
+  obtain ⟨rfl, rfl⟩ : okA = true ∧ okB = true := by
+    have := h
+    cases okA <;> cases okB <;> simp_all
+  exact ⟨ta, sta, uT, tb, stb, vT, rfl, hsta, hwta, heq1, rfl, hstb, hwtb, heq2⟩
 
 /-- `towerSlotsAll`, slot by slot. -/
 theorem towerSlotsAll_slot {env : Env} {T : Name} {nF : Nat}
@@ -2216,10 +2004,8 @@ theorem structEtaCertWith_inv {env : Env} {fuel d : Nat} {a b wtb : Expr}
   | false => simp [pure, Except.pure] at h
   | true => ?_
   simp only [↓reduceIte] at h
-  -- task #137's constructor-telescope certificate, exposed for the
-  -- bridge's `EtaLawTT` premise (task #119: the `EtaRhsTyped` binder
-  -- moved into the law); a TT-lane check since task #147 — split on
-  -- the mode gate first
+  -- task #137's constructor-telescope certificate, gated on
+  -- `mode.ttChecks` — split on the mode gate first
   cases htt : mode.ttChecks with
   | false =>
     rw [htt] at h
@@ -2664,39 +2450,6 @@ theorem instPisAt_WScoped {d : Nat} :
     | bvar _ | fvar _ _ | sort _ | const _ _ | app _ _ | lam _ _ _
     | letE _ _ _ | lit _ | proj _ _ _ => exact nomatch h
 
-/-- Peeling a `∀`-telescope along bounded arguments keeps the residual
-bvar-closed. -/
-theorem instPisAt_looseBVars :
-    ∀ (args : List Expr) (ty : Expr) {doms : List Expr} {res : Expr},
-      Expr.instPisAt args ty = some (doms, res) →
-      ty.looseBVarsBounded 0 = true →
-      (∀ a ∈ args, a.looseBVarsBounded 0 = true) →
-      res.looseBVarsBounded 0 = true
-  | [], ty, doms, res, h, hty, _ => by
-    simp only [Expr.instPisAt, Option.some.injEq, Prod.mk.injEq] at h
-    obtain ⟨rfl, rfl⟩ := h
-    exact hty
-  | a :: as, ty, doms, res, h, hty, hargs => by
-    cases ty with
-    | forallE dom body mb =>
-      simp only [Expr.instPisAt] at h
-      revert h
-      cases hrec : Expr.instPisAt as (body.instantiate1 a) with
-      | none => intro h; exact nomatch h
-      | some p =>
-        obtain ⟨ds, rest⟩ := p
-        intro h
-        simp only [Option.map_some, Option.some.injEq,
-          Prod.mk.injEq] at h
-        obtain ⟨rfl, rfl⟩ := h
-        simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hty
-        exact instPisAt_looseBVars as _ hrec
-          (looseBVarsBounded_instantiate1_gen
-            (hargs a List.mem_cons_self) hty.2)
-          (fun x hx => hargs x (List.mem_cons_of_mem _ hx))
-    | bvar _ | fvar _ _ | sort _ | const _ _ | app _ _ | lam _ _ _
-    | letE _ _ _ | lit _ | proj _ _ _ => exact nomatch h
-
 /-! ## Well-scopedness preservation through reduction -/
 
 /-- The constructor form of a literal is closed. -/
@@ -2842,79 +2595,6 @@ theorem natOpResult_shape {c : Name} {a b : Nat} {e₂ : Expr}
   by_cases h16 : c = natBleName
   · rw [if_pos h16] at h
     exact Or.inr ⟨_, (Option.some.inj h).symm⟩
-  rw [if_neg h16] at h
-  exact nomatch h
-
-/-- The fast-path reducts, **identified**: every arithmetic branch
-returns a `Nat` literal, and the only branches returning a constant are
-the two comparisons, whose result is one of the two `Bool`
-constructors.  The strengthening of `natOpResult_shape` that a bridge
-needs in order to *denote* the reduct: `natOpGuard` pins exactly
-`boolTrueName`/`boolFalseName` (and only for `beq`/`ble`/div-mod), so
-knowing "some constant" is not enough. -/
-theorem natOpResult_atom {c : Name} {a b : Nat} {e₂ : Expr}
-    (h : natOpResult c a b = some e₂) :
-    (∃ n, e₂ = .lit (.natVal n)) ∨
-      ((c = natBeqName ∨ c = natBleName) ∧
-        (e₂ = .const boolTrueName [] ∨ e₂ = .const boolFalseName [])) := by
-  unfold natOpResult at h
-  by_cases h1 : c = natPredName
-  · rw [if_pos h1] at h; exact Or.inl ⟨_, (Option.some.inj h).symm⟩
-  rw [if_neg h1] at h
-  by_cases h2 : c = natAddName
-  · rw [if_pos h2] at h; exact Or.inl ⟨_, (Option.some.inj h).symm⟩
-  rw [if_neg h2] at h
-  by_cases h3 : c = natSubName
-  · rw [if_pos h3] at h; exact Or.inl ⟨_, (Option.some.inj h).symm⟩
-  rw [if_neg h3] at h
-  by_cases h4 : c = natMulName
-  · rw [if_pos h4] at h; exact Or.inl ⟨_, (Option.some.inj h).symm⟩
-  rw [if_neg h4] at h
-  by_cases h5 : c = natPowName
-  · rw [if_pos h5] at h
-    split at h
-    · exact nomatch h
-    · exact Or.inl ⟨_, (Option.some.inj h).symm⟩
-  rw [if_neg h5] at h
-  by_cases h6 : c = natDivName
-  · rw [if_pos h6] at h; exact Or.inl ⟨_, (Option.some.inj h).symm⟩
-  rw [if_neg h6] at h
-  by_cases h7 : c = natModName
-  · rw [if_pos h7] at h; exact Or.inl ⟨_, (Option.some.inj h).symm⟩
-  rw [if_neg h7] at h
-  by_cases h8 : c = natGcdName
-  · rw [if_pos h8] at h; exact Or.inl ⟨_, (Option.some.inj h).symm⟩
-  rw [if_neg h8] at h
-  by_cases h9 : c = natLandName
-  · rw [if_pos h9] at h; exact Or.inl ⟨_, (Option.some.inj h).symm⟩
-  rw [if_neg h9] at h
-  by_cases h10 : c = natLorName
-  · rw [if_pos h10] at h; exact Or.inl ⟨_, (Option.some.inj h).symm⟩
-  rw [if_neg h10] at h
-  by_cases h11 : c = natXorName
-  · rw [if_pos h11] at h; exact Or.inl ⟨_, (Option.some.inj h).symm⟩
-  rw [if_neg h11] at h
-  by_cases h12 : c = natShiftLeftName
-  · rw [if_pos h12] at h; exact Or.inl ⟨_, (Option.some.inj h).symm⟩
-  rw [if_neg h12] at h
-  by_cases h13 : c = natShiftRightName
-  · rw [if_pos h13] at h; exact Or.inl ⟨_, (Option.some.inj h).symm⟩
-  rw [if_neg h13] at h
-  by_cases h15 : c = natBeqName
-  · rw [if_pos h15] at h
-    refine Or.inr ⟨Or.inl h15, ?_⟩
-    rw [← Option.some.inj h]
-    by_cases hab : a = b
-    · exact Or.inl (by rw [if_pos hab])
-    · exact Or.inr (by rw [if_neg hab])
-  rw [if_neg h15] at h
-  by_cases h16 : c = natBleName
-  · rw [if_pos h16] at h
-    refine Or.inr ⟨Or.inr h16, ?_⟩
-    rw [← Option.some.inj h]
-    by_cases hab : a ≤ b
-    · exact Or.inl (by rw [if_pos hab])
-    · exact Or.inr (by rw [if_neg hab])
   rw [if_neg h16] at h
   exact nomatch h
 
@@ -3175,7 +2855,7 @@ theorem whnfPres_WScoped {env : Env} (henv : EnvWF env) :
           · exact ihLoop hred (strLitToConstructor_WScoped s d)
         rcases hcase with rfl |
           ⟨us, entry, hfn, hf, hi, hlen, hus, -, hred, -⟩
-        · simpa [WScoped] using hwe₃
+        · simpa [WScoped] using hw
         · exact ihCore hred (hwe₃.getAppArgs _ (getD_mem (by omega)))
     · -- whnf loop: the reduction chain is iteration on the loop's own
       -- step budget (task #106), so this is an induction on that

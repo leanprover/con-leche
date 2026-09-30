@@ -63,9 +63,6 @@ theorem upair_eq_sing {a b c : V} (h : upair a b = sing c) : a = c ∧ b = c := 
 theorem mem_upair_left (a b : V) : a ∈ˢ upair a b := mem_upair.mpr (Or.inl rfl)
 theorem mem_upair_right (a b : V) : b ∈ˢ upair a b := mem_upair.mpr (Or.inr rfl)
 
-theorem upair_comm (a b : V) : upair a b = upair b a :=
-  ext fun z => by rw [mem_upair, mem_upair]; exact Or.comm
-
 /-- First-component injectivity of the Kuratowski pair. -/
 theorem kpair_inj_left {a b c d : V} (h : kpair a b = kpair c d) : a = c := by
   have hac : sing a ∈ˢ kpair c d := h ▸ mem_upair_left (sing a) (upair a b)
@@ -101,20 +98,11 @@ theorem kpair_inj {a b c d : V} (h : kpair a b = kpair c d) : a = c ∧ b = d :=
       · exact hdb.symm
     · exact hbd
 
-theorem kpair_ne_empty {a b : V} : kpair a b ≠ empty :=
-  ne_empty_of_mem (mem_upair_left (sing a) (upair a b))
-
 /-- Every member of a Kuratowski pair is nonempty — the fact that keeps
 `{∅}` (the proof point) out of the pair/graph world. -/
 theorem mem_kpair_nonempty {a b z : V} (hz : z ∈ˢ kpair a b) : ∃ w, w ∈ˢ z := by
   rcases mem_upair.mp hz with h | h <;> subst h
   · exact ⟨a, mem_sing.mpr rfl⟩
   · exact ⟨a, mem_upair_left a b⟩
-
-theorem mem_sUnion_kpair_left (a b : V) : a ∈ˢ sUnion (kpair a b) :=
-  mem_sUnion.mpr ⟨sing a, mem_upair_left _ _, mem_sing.mpr rfl⟩
-
-theorem mem_sUnion_kpair_right (a b : V) : b ∈ˢ sUnion (kpair a b) :=
-  mem_sUnion.mpr ⟨upair a b, mem_upair_right _ _, mem_upair_right a b⟩
 
 end ConLeche.SetTheory

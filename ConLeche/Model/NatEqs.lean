@@ -10,19 +10,14 @@ public section
 # The structural-`Nat` recurrences, established at `interp` from run
 certificates (task #161, literal tier)
 
-The literal tier's wall (`Steps/Nat.lean`) is exactly one law wide:
-the stored operations' recurrences at `interp`.  This file builds the
-recorded resumption route — **establishment from run certificates**:
-`DeclDefnR` records one `isDefEqCore` run per substituted equation
-(`NatEqsRun`, the H1 exposure), and `DefEqClaim` at the
-pre-insertion environment converts each run into an `interp` equality
-at the two-variable `Nat` context.  The v1 route (`NatEqsR`'s `DefEq`
-+ `DefEq.sound`) is *not* transferable — its soundness lives at the
-collapse currency only (the wall record's finding 2).
+The stored operations' recurrences at `interp`, by **establishment
+from run certificates**: the definition's run records one
+`isDefEqCore` run per substituted equation (`NatEqsRun`), and
+`DefEqClaim` at the pre-insertion environment converts each run into
+an `interp` equality at the two-variable `Nat` context.
 
-What the conversion costs beyond v1: `DefEqClaim` demands the
-compared readings **graded** (`WellDenotedV` under `Sat`), which the
-collapse-lane `DefEqClaimsR` never did.  The grading of an equation
+`DefEqClaim` demands the compared readings **graded** (`WellDenotedV`
+under `Sat`).  The grading of an equation
 side — an application spine over stored `Nat`-operation heads,
 `Nat.zero`/`Nat.succ`, and two `Nat` free variables — is assembled
 here from the environment invariant alone:
@@ -80,9 +75,8 @@ noncomputable def natLeafV {env : Env} (m : EnvModel V env)
     (ψ : Name → Nat) (ρ : Nat → V) : V :=
   interp V ρ (natLeafAV m ψ)
 
-/-- A leaf's interpretation does not read the environment
-(`acval_interp2_closed` at the core carrier). -/
-theorem acval_interp_closedC (m : EnvModel V env) (n : Name)
+/-- A leaf's interpretation does not read the environment. -/
+theorem acval_interp_closed (m : EnvModel V env) (n : Name)
     (ψ : Name → Nat) (ρ ρ' : Nat → V) :
     interp V ρ (m.acval n ψ) = interp V ρ' (m.acval n ψ) :=
   interp_closed V
@@ -92,15 +86,15 @@ theorem acval_interp_closedC (m : EnvModel V env) (n : Name)
 theorem natLeafAV_interp_closed (m : EnvModel V env) (ψ : Name → Nat)
     (ρ ρ' : Nat → V) :
     interp V ρ (natLeafAV m ψ) = interp V ρ' (natLeafAV m ψ) :=
-  acval_interp_closedC m _ ψ ρ ρ'
+  acval_interp_closed m _ ψ ρ ρ'
 
 /-- The two-variable context: both slots are the `Nat` leaf. -/
 def natCtx2 {env : Env} (m : EnvModel V env) (ψ : Name → Nat) :
     List AnnotTerm :=
   [natLeafAV m ψ, natLeafAV m ψ]
 
-/-- Two `Nat` members satisfy the two-variable context (`sat_two`'s P
-mirror; the slot readings collapse by leaf closedness). -/
+/-- Two `Nat` members satisfy the two-variable context (the slot
+readings collapse by leaf closedness). -/
 theorem sat_natCtx2 (m : EnvModel V env) {ψ : Name → Nat}
     {ρ : Nat → V} {x y : V}
     (hx : x ∈ˢ natLeafV m ψ ρ) (hy : y ∈ˢ natLeafV m ψ ρ) :
@@ -485,9 +479,9 @@ theorem natBinHead_of_parts (m : EnvModel V env) {ψ : Name → Nat}
       funext x
       rw [interp_pi]
       congr 1
-      · exact acval_interp_closedC m _ ψ _ ρ
+      · exact acval_interp_closed m _ ψ _ ρ
       · funext y
-        exact acval_interp_closedC m _ ψ _ ρ
+        exact acval_interp_closed m _ ψ _ ρ
     rw [hfib] at h
     exact h
   · -- the outer fibre fact, from validity
@@ -502,9 +496,9 @@ theorem natBinHead_of_parts (m : EnvModel V env) {ψ : Name → Nat}
             (fun _ => interp V ρ (m.acval codN ψ)) from by
       rw [interp_pi]
       congr 1
-      · exact acval_interp_closedC m _ ψ _ ρ
+      · exact acval_interp_closed m _ ψ _ ρ
       · funext y
-        exact acval_interp_closedC m _ ψ _ ρ] at h
+        exact acval_interp_closed m _ ψ _ ρ] at h
     exact h
   · -- the inner fibre fact, from validity one binder in
     intro hz x hx
@@ -513,8 +507,8 @@ theorem natBinHead_of_parts (m : EnvModel V env) {ψ : Name → Nat}
     have hinner := hv.2.1 x hx
     rw [AnnotValid_pi] at hinner
     have h := hinner.2.2 hz x
-      (by rw [acval_interp_closedC m _ ψ (cons x ρ) ρ]; exact hx)
-    rwa [acval_interp_closedC m _ ψ _ ρ] at h
+      (by rw [acval_interp_closed m _ ψ (cons x ρ) ρ]; exact hx)
+    rwa [acval_interp_closed m _ ψ _ ρ] at h
 
 /-- **The unary head package, from its parts.** -/
 theorem natUnHead_of_parts (m : EnvModel V env) {ψ : Name → Nat}
@@ -533,14 +527,14 @@ theorem natUnHead_of_parts (m : EnvModel V env) {ψ : Name → Nat}
     have hfib : (fun x => interp V (cons x ρ) (m.acval codN ψ))
         = fun _ => interp V ρ (m.acval codN ψ) := by
       funext x
-      exact acval_interp_closedC m _ ψ _ ρ
+      exact acval_interp_closed m _ ψ _ ρ
     rw [hfib] at h
     exact h
   · intro hz x hx
     have hv := (htok ρ).2
     rw [AnnotValid_pi] at hv
     have h := hv.2.2 hz x hx
-    rwa [acval_interp_closedC m _ ψ _ ρ] at h
+    rwa [acval_interp_closed m _ ψ _ ρ] at h
 
 /-! ## Head packages from the environment invariant
 
@@ -680,7 +674,7 @@ theorem natEqLaw_of_run (mp : EnvModelM V μ env) {ψ : Name → Nat}
     hla hra hga hgr (cons y (cons x ρ)) hρ
 
 /-! ## The crossing: substituted readings at the prefix are raw
-readings at the extension (`denote_substConst0`'s P mirror) -/
+readings at the extension -/
 
 /-- **The substitution crossing for the install's own constant**: on
 the shallow fragment, reading in the extended environment under the

@@ -29,7 +29,7 @@ door, and let the inferences that reduction and definitional equality
 perform on their own intermediate terms re-derive types **without
 re-checking application arguments** (`infer_type_core(e, infer_only)`,
 lean4lean's `inferType (inferOnly := true)`).  ConLeche cannot copy that
-wholesale: `Typable e → InferOnly e t → (e really has type t)` is refuted
+wholesale: "a typable `e` really has its infer-only type" is refuted
 (spike `inferonly-metatheory`), and its semantic residue survives at
 the *squash* regime — closed `V`-values satisfy every premise of the
 premise-form io claim with `app ⟦f⟧ ⟦a⟧ ∉ ⟦B'⟧⟦a⟧`
@@ -65,9 +65,8 @@ strict direction needs no argument.
 `coreKnotIO` is a **leaf** lane: its `whnfCore`/`whnf`/`defeq`/
 `annotate` are the *full* knot's, unchanged, so every certificate the
 reduction and definitional-equality bodies run is the certified one and
-every claim tier that models those bodies (`Red`/`Infer`/`DefEq` in
-`SetR/Rel.lean`, the `denoteAnnot` D lane, the graded P lane) keeps its
-present subject.  Only `infer` is the io body, and only the io body
+every relation that models those bodies (`Red`/`Infer`/`DefEq` in
+`ConLeche/Rules/Rel.lean`) keeps its subject.  Only `infer` is the io body, and only the io body
 calls it.  Consequently
 
 * the new statement surface is **exactly one family**

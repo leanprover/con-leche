@@ -8,26 +8,18 @@ public import ConLeche.Kernel.Core
 /-!
 # The cached syntactic operations on `Expr`
 
-The **executed** counterparts of the arena operations in
-`ConLeche/Kernel/IExpr.lean` — same clauses, same memo discipline, same
-cutoffs; the mechanism differs only in where the derived data lives (a
-field of the node instead of a parallel array indexed by the node's
-arena position) and in how a rebuilt node is obtained (allocation
-instead of a cons-table probe).
-
-Two structural consequences of dropping the arena, both load-bearing
-for the pilot's numbers:
+The **executed**, memoized syntactic operations; the derived data they
+cut off on is a field of the node.  Two structural facts, both
+load-bearing for performance:
 
 * the scope and definedness walks' memos are keyed on `Expr` itself
   (`O(1)` hashing off the cached field, pointer-first equality), so
-  shared sub-DAGs are still visited once — a `Std.HashMap Expr α`
-  replaces the arena's `Std.HashMap EIdx α` one for one.  The
+  shared sub-DAGs are still visited once (`Std.HashMap Expr α`).  The
   SUBSTITUTION walks key theirs by address instead; see "The
   substitution walks" below;
 * a cutoff (`bvarB ≤ d`, `fvarB ≤ d`, `!hasLP`) returns the node
   **itself**, so the result shares memory with the input and later
-  pointer comparisons on it are `O(1)` — the analogue of the arena
-  returning the same index.
+  pointer comparisons on it are `O(1)`.
 -/
 
 namespace ConLeche.Expr
@@ -635,7 +627,7 @@ theorem abstract1P_cut {d : Nat} {e : Expr} {k : Nat} (h : e.fvarB ≤ d) :
     abstract1P d e k = e := by
   rw [abstract1P.eq_def]; simp [h]
 
-/-- (Task #316.) The child step of `abstract1XP`: the pointer-keyed twin of `enterAbs1`. -/
+/-- (Task #316.) The child step of `abstract1XP`, pointer-keyed. -/
 @[inline] def enterAbs1P (d : Nat) (e : @& Expr) (k : Nat) (memo : MemoXP (abstract1P d))
     (rec : (hcut : ¬ e.fvarB ≤ d) → Squash (ResXP (abstract1P d) e k)) :
     Squash (ResXP (abstract1P d) e k) :=
@@ -703,7 +695,7 @@ theorem abstractRangeP_cut {d k : Nat} {e : Expr} {c : Nat} (h : e.fvarB ≤ d) 
     abstractRangeP d k e c = e := by
   rw [abstractRangeP.eq_def]; simp [h]
 
-/-- (Task #316.) The child step of `abstractRangeXP`: the pointer-keyed twin of `enterAbsR`. -/
+/-- (Task #316.) The child step of `abstractRangeXP`, pointer-keyed. -/
 @[inline] def enterAbsRP (d k : Nat) (e : @& Expr) (c : Nat) (memo : MemoXP (abstractRangeP d k))
     (rec : (hcut : ¬ e.fvarB ≤ d) → Squash (ResXP (abstractRangeP d k) e c)) :
     Squash (ResXP (abstractRangeP d k) e c) :=

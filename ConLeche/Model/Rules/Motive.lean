@@ -21,9 +21,8 @@ recursive-structure rules (ruling 1):
    reduct's / the type's reading (`∃ ea', denoteMeta … e' = some ea'`)
    instead of taking it as a premise.  A rule like `DefEq.redL` needs
    the middle term's reading to apply the continuation's motive, and
-   nothing else can supply it: this is where the whole `*Reads` /
-   `*Exists` totality family of `Model/Steps/Reads.lean` dissolves into
-   the main statements.  The dual-success claims follow by
+   nothing else can supply it: reading totality is part of the main
+   statements.  The dual-success claims follow by
    `Option.some.inj`.
 2. **The frame in the conclusion.**  `RedSem` and `InferSem` also
    conclude the reduct's / the type's frame and leaf inclusion, so the
@@ -125,10 +124,9 @@ grading is a premise (`InferClaimIO`'s premise form). -/
   | .io, d, e, t => InferSemIO m φ d e t
 
 /-- **`Certs`' motive**: the certified spine fits the telescope's
-reading, substitution-peeling (`certs_telePA` / `certs_teleLic`,
-`Model/Steps/IotaKit.lean:246`, `IotaGate.lean:123`).  At a licensed
+reading, substitution-peeling.  At a licensed
 walk the skipped slots are recovered from the spine's own grading and
-the head's membership (`iota_slot_transfer`), which are therefore
+the head's membership (`slotTransfer`), which are therefore
 premises exactly there. -/
 @[expose] def CertsSem {env : Env} (m : EnvModel V env) (φ : Name → Nat)
     (d : Nat) (lic : Bool) (ty : Expr) (args : List Expr) : Prop :=
@@ -148,8 +146,7 @@ premises exactly there. -/
         Graded V Δa resta
 
 /-- **`DefEqList`'s motive**: the walk's LENGTH, and pointwise `interp`
-equality (`map_interp_of_defEqListFueled`, `Model/Steps/Stuck.lean:223`,
-with `defEqListFueled_length`).  The length is a conclusion of its own
+equality.  The length is a conclusion of its own
 because the pointwise equality is only available once both lists have
 been handed over as read spines — and a consumer (`Red.iota_sound`'s
 `.nested` pin block) needs the length to BUILD the second spine. -/

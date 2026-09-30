@@ -11,10 +11,8 @@ public import ConLeche.Verify.Denote.VClosed
 Two halves.
 
 **The substitution stack** — `interp_liftN` and `interp_inst`, the
-layer's *entire* substitution metatheory, transposed from
-`ConLeche/Term/Semantics/Interp.lean` unchanged in shape.  That they
-transpose is the point: `interp` is structural, so removing the
-collapse costs nothing here.  (lean4lean needs ~123 syntactic lemmas at
+layer's *entire* substitution metatheory: `interp` is structural, so
+two lemmas suffice.  (lean4lean needs ~123 syntactic lemmas at
 this spot because its metatheory is syntactic; soundness against a
 model needs two semantic ones.)
 
@@ -139,18 +137,14 @@ theorem interp_inst :
 
 /-! ### Interpretation invariance below a bound
 
-`interp_congr_below`/`interp_closed`'s analogue
-(`ConLeche/SetR/AnnotOkV.lean`): a closed term's interpretation does not
-read the environment.  Stated through the **erasure's** bound rather
+A closed term's interpretation does not read the environment.  Stated through the **erasure's** bound rather
 than a fresh `AnnotTerm.bvarsBelow`: `erase` maps `bvar i` to `bvar i` and
 preserves every former's shape, so `Term.bvarsBelow k e.erase` says
 exactly "`e`'s indices are below `k`", and no new predicate is needed.
 
-Needed by the literal clauses of any `Claims2` discharge: the `Nat`/
-`String` blocks of `Sound/{Lit,NatOps,NatOpsWf}.lean` touch the
+Needed by the literal clauses: the `Nat`/`String` blocks touch the
 interpretation only through `interp_app`, `interp_bvar`, `interp_sort`,
-`interp_pi` and `interp_closed`, and this was the one of the five with
-no `interp` analogue. -/
+`interp_pi` and `interp_closed`. -/
 
 theorem interp_congr_below :
     ∀ (e : AnnotTerm) (k : Nat) (ρ ρ' : Nat → V),
@@ -228,9 +222,9 @@ the fibres pointwise, it applies to the canonical junk `∅` off the
 domain, and it is not the proof point.
 
 All four clauses hold **by definition** of the positive regime — no
-case split, no `mem_piC_cases`, and in particular nothing about what
+case split, and in particular nothing about what
 the fibres `⟦B⟧` are: `interp_univ_cod_inversion`
-(`Interp/Univ.lean`) is this lemma at universe-valued fibres. -/
+(`Semantics/Univ.lean`) is this lemma at universe-valued fibres. -/
 theorem interp_mem_pi_pos {v : Nat} (hv : v ≠ 0) {u : Nat} {ρ : Nat → V}
     {A B : AnnotTerm} {f : V} (hf : f ∈ˢ interp V ρ (.pi u v A B)) :
     graph (fun x => SetTheory.app f x) (interp V ρ A) = f ∧
@@ -277,9 +271,7 @@ theorem interp_beta_zero (ρ : Nat → V) (A b a : AnnotTerm) {B : V → V}
 
 /-- **The proof point never inhabits a graph-regime product.**
 Unconditional in the domain and in the fibres — in particular at
-universe-valued codomains, where the collapse's
-`pt ∈ˢ piC A (fun _ => univ 0)` was the wall that the eta-law
-derivation had to dodge. -/
+universe-valued codomains. -/
 theorem interp_not_pt_mem_pi_pos {v : Nat} (hv : v ≠ 0) {u : Nat}
     {ρ : Nat → V} {A B : AnnotTerm} :
     ¬ (pt : V) ∈ˢ interp V ρ (.pi u v A B) :=

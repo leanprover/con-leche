@@ -7,11 +7,12 @@ import ConLeche.Semantics.BasisRules
 `@[expose]`d, so a `cases`-then-`rfl` proof cannot see the reduct.
 `import all` restores that view HERE only. -/
 import all ConLeche.Kernel.PropWhen
+import ConLeche.Model.Cover
 
 public section
 
 /-!
-# The `Quot` block, P tier (task #161, ENDGAME H)
+# The `Quot` block, P tier (task #161)
 
 The basis tier's fourth block, and the only one that
 
@@ -19,21 +20,18 @@ The basis tier's fourth block, and the only one that
   branch, unused by every earlier block), and
 * reads a leaf that is **not** `pinnedStructT`: `Quot.lift`'s and
   `Quot.sound`'s stored types both mention the pinned `Eq` former,
-  whose annotated leaf is the basis install's own tower.  Where v1
-  crosses that gap with `EnvS.eq_lawV` (`quotInv_interpS` /
-  `quotSoundTy_interpS`), the P tier crosses it with **`EqLaw`** —
-  the `EnvModelM` field whose *supplier* is this very bundle, and whose
-  grading half (v1 has no analogue: `AnnotOkV` has no bit content) is
-  exactly what the reading's `htyOk` row needs.  The field is
+  whose annotated leaf is the basis install's own tower.  The P tier
+  crosses that gap with **`EqLaw`** — the `EnvModelM` field whose
+  *supplier* is the `Eq` block, and whose grading half is exactly what
+  the reading's `htyOk` row needs.  The field is
   available at the `Quot` cons because `DeclBasisRun`'s first conjunct
   puts `Eq` in the prefix.
 
-Everything else is the `BasisBlocksP.lean` recipe: five pinned
+Everything else is the `BasisBlocks.lean` recipe: five pinned
 towers, five type readings, two `.plain` `RecRuleLaw` rows.  Both
 recursors' motives land in `Sort 0`, so both rows are `Prop`-motive
-rows and both fired equalities are the `PUnit.rec` observation seen
-twice more — the reading's `lamR 0` and the value law's squash regime
-are the same point.
+rows and both fired equalities are one observation — the reading's
+`lamR 0` and the value law's squash regime are the same point.
 -/
 
 namespace ConLeche.Model
@@ -174,9 +172,9 @@ theorem bitAgree_quotMkA (ψ : Name → Nat) :
 /-- **`Quot`, installed at the P tier.** -/
 theorem extendQuot (mp : EnvModelM V μ env)
     (hfresh : env.find? quotName = none)
-    (hwf : EnvWF ⟨quotA :: env.consts⟩) :
-    Nonempty (EnvModelM V μ ⟨quotA :: env.consts⟩) := by
-  refine nonempty_of_exists (declStep_preserves_of_basis_cons mp
+    (hwf : EnvWF ⟨quotA :: env.consts⟩) {ex : List Name} :
+    CoverTo mp ex ⟨quotA :: env.consts⟩ ex := by
+  refine coverTo_cons hfresh (fun _ _ _ => rfl) (declStep_preserves_of_basis_cons mp
     (A := fun ψ => AnnotTerm.const .quot [ψ uN]) hfresh
     (fun _ _ _ h => nomatch h)
     (by decide) (by decide) (by decide) (by decide)
@@ -209,12 +207,14 @@ theorem extendQuot (mp : EnvModelM V μ env)
 theorem extendQuotMk (mp : EnvModelM V μ env)
     (hQ : env.find? quotName = some quotA)
     (hfresh : env.find? quotMkName = none)
-    (hwf : EnvWF ⟨quotMkA :: env.consts⟩) :
-    Nonempty (EnvModelM V μ ⟨quotMkA :: env.consts⟩) := by
+    (hwf : EnvWF ⟨quotMkA :: env.consts⟩) {ex : List Name} :
+    CoverTo mp ex ⟨quotMkA :: env.consts⟩ ex := by
   have hty := fun ψ =>
     denoteMeta_quotMkA_type (m := mp.base2)
       (A := fun ψ => AnnotTerm.const .quotMk [ψ uN]) ψ hQ
-  refine nonempty_of_exists (declStep_preserves_of_basis_cons mp
+  refine coverTo_cons hfresh (fun _ _ h => nomatch h)
+    (hhead := hhead_ctor (c₀ := quotMkA) rfl rfl rfl (Or.inr ⟨_, _, hQ, rfl⟩))
+    (declStep_preserves_of_basis_cons mp
     (A := fun ψ => AnnotTerm.const .quotMk [ψ uN]) hfresh
     (fun _ _ _ h => nomatch h)
     (by decide) (by decide) (by decide) (by decide)
@@ -486,8 +486,8 @@ theorem bitAgree_quotIndA (ψ : Name → Nat) :
 Everything `Quot.ind` builds — its tower, its rule's right-hand side,
 and every application of either — lives at bit `0`, where `lamR` is
 `pt` and a fibre only has to be an inhabited truth value.  These three
-lemmas are that observation, stated once; `Quot.sound` and (at the
-`PSigma'` block) `PSigma'.rec` read them too. -/
+lemmas are that observation, stated once; `Quot.sound` reads them
+too. -/
 
 /-- The inhabited truth value a squash-regime tower's grading picks for
 its fibre: `True`, as a `piR 0`. -/
@@ -763,12 +763,12 @@ theorem extendQuotInd (mp : EnvModelM V μ env)
     (hQ : env.find? quotName = some quotA)
     (hM : env.find? quotMkName = some quotMkA)
     (hfresh : env.find? quotIndA.name = none)
-    (hwf : EnvWF ⟨quotIndA :: env.consts⟩) :
-    Nonempty (EnvModelM V μ ⟨quotIndA :: env.consts⟩) := by
+    (hwf : EnvWF ⟨quotIndA :: env.consts⟩) {ex : List Name} :
+    CoverTo mp ex ⟨quotIndA :: env.consts⟩ ex := by
   have hty := fun ψ =>
     denoteMeta_quotIndA_type (m := mp.base2)
       (A := fun ψ => AnnotTerm.const .quotInd [ψ uN]) ψ hQ hM
-  refine nonempty_of_exists (declStep_preserves_of_basis_rec_cons mp
+  refine coverTo_cons hfresh (fun _ _ h => nomatch h) (declStep_preserves_of_basis_rec_cons mp
     (A := fun ψ => AnnotTerm.const .quotInd [ψ uN]) hfresh
     (fun _ _ _ h => nomatch h)
     (by decide) (by decide) (by decide) (by decide)
@@ -812,13 +812,11 @@ theorem extendQuotInd (mp : EnvModelM V μ env)
 /-! ## The `Eq` bridge
 
 `Quot.sound`'s and `Quot.lift`'s stored types conclude at the pinned
-`Eq` former, whose annotated leaf is **not** `pinnedStructT` (the
-ENDGAME D finding) — it is the basis install's own tower.  v1 crosses
-the gap with `EnvS.eq_lawV`; here the crossing is `EqLaw`, the
-`EnvModelM` field this very bundle supplies, and it crosses **both**
-halves at once: its value half computes the spine, and its grading
-half — which v1 has no analogue for, because `AnnotOkV` has no bit
-content — is exactly the reading's `htyOk` obligation at that slot.
+`Eq` former, whose annotated leaf is **not** `pinnedStructT` — it is
+the basis install's own tower.  The crossing is `EqLaw`, the
+`EnvModelM` field, and it crosses **both** halves at once: its value
+half computes the spine, and its grading half is exactly the reading's
+`htyOk` obligation at that slot.
 
 Both consumers below take the two halves as plain hypotheses at the
 level the constant reads `Eq` at, so neither mentions `EnvModelM`. -/
@@ -1133,12 +1131,12 @@ theorem extendQuotSound (mp : EnvModelM V μ env)
     (hM : env.find? quotMkName = some quotMkA)
     (hE : env.find? eqName = some eqA)
     (hfresh : env.find? quotSoundA.name = none)
-    (hwf : EnvWF ⟨quotSoundA :: env.consts⟩) :
-    Nonempty (EnvModelM V μ ⟨quotSoundA :: env.consts⟩) := by
+    (hwf : EnvWF ⟨quotSoundA :: env.consts⟩) {ex : List Name} :
+    CoverTo mp ex ⟨quotSoundA :: env.consts⟩ ex := by
   have hty := fun ψ =>
     denoteMeta_quotSoundA_type (m := mp.base2)
       (A := fun ψ => AnnotTerm.const .quotSound [ψ uN]) ψ hQ hM hE
-  refine nonempty_of_exists (declStep_preserves_of_basis_cons mp
+  refine coverTo_cons hfresh (fun _ _ h => nomatch h) (declStep_preserves_of_basis_cons mp
     (A := fun ψ => AnnotTerm.const .quotSound [ψ uN]) hfresh
     (fun _ _ _ h => nomatch h)
     (by decide) (by decide) (by decide) (by decide)
@@ -1172,8 +1170,7 @@ theorem extendQuotSound (mp : EnvModelM V μ env)
 The block's last constant, and the only one whose type reading is not
 `Prop`-valued: its six binders carry `.ifAllZero [v]`, so their bit is
 `0` exactly when the target sort is — which is precisely the condition
-`quotLiftV`'s own two regimes are separated by (`quotLiftV_app_any`,
-ENDGAME G §4).  The invariance premise is `Prop`-valued throughout and
+`quotLiftV`'s own two regimes are separated by (`quotLiftV_app_any`).  The invariance premise is `Prop`-valued throughout and
 concludes at the `Eq` former read **at `v`**, so the bridge is
 `EqLaw` at the substituted assignment. -/
 
@@ -1519,7 +1516,7 @@ domain carries a *chain* of instantiations at cuts `k-1, …, 0`.
 `interp_inst0` turns the outermost into a `cons`; these four turn the
 rest into `cons`es too, so a `k`-deep telescope domain's reading is
 read at the `k`-fold `cons` environment — which is the environment
-every space lemma above is stated at.  (`BasisBlocksP.lean`'s
+every space lemma above is stated at.  (`BasisBlocks.lean`'s
 `interp_liftN_succ_inst` is the special case where the domain is a
 *lifted* earlier argument; this is the general shape.) -/
 
@@ -1583,15 +1580,6 @@ theorem interp_inst_cons4 (e a : AnnotTerm) (x1 x2 x3 x4 : V)
   | 3 => rfl
   | 4 => rfl
   | (_ + 5) => rfl
-
-/-- Every stored leaf absorbs instantiation: `EnvS.cval_closed`
-through `EnvModel.acval_erase` and `AnnotTerm.inst_eq_self`. -/
-theorem acval_inst_eq_self (m : EnvModel V env) (n : Name)
-    (ψ : Name → Nat) (a : AnnotTerm) (k : Nat) :
-    (m.acval n ψ).inst a k = m.acval n ψ :=
-  AnnotTerm.inst_eq_self _
-    (Term.bvarsBelow.mono (Nat.zero_le k)
-      (by rw [m.acval_erase]; exact m.cval_closed n ψ)) a
 
 /-! ### `Quot.lift`'s type reading, and its rule -/
 
@@ -2226,15 +2214,15 @@ theorem extendQuotLift (mp : EnvModelM V μ env)
     (hM : env.find? quotMkName = some quotMkA)
     (hE : env.find? eqName = some eqA)
     (hfresh : env.find? quotLiftA.name = none)
-    (hwf : EnvWF ⟨quotLiftA :: env.consts⟩) :
-    Nonempty (EnvModelM V μ ⟨quotLiftA :: env.consts⟩) := by
+    (hwf : EnvWF ⟨quotLiftA :: env.consts⟩) {ex : List Name} :
+    CoverTo mp ex ⟨quotLiftA :: env.consts⟩ ex := by
   have hty := fun ψ =>
     denoteMeta_quotLiftA_type (m := mp.base2)
       (A := fun ψ => AnnotTerm.const .quotLift [ψ uN, ψ vN]) ψ hQ hE
   have hz : ∀ ψ : Name → Nat,
       pwBit ψ (ConLeche.PropWhen.ifAllZero [vN]) = 0 ↔ ψ vN = 0 :=
     fun ψ => pwBit_ifAllZero_single ψ vN
-  refine nonempty_of_exists (declStep_preserves_of_basis_rec_cons mp
+  refine coverTo_cons hfresh (fun _ _ h => nomatch h) (declStep_preserves_of_basis_rec_cons mp
     (A := fun ψ => AnnotTerm.const .quotLift [ψ uN, ψ vN]) hfresh
     (fun _ _ _ h => nomatch h)
     (by decide) (by decide) (by decide) (by decide)
@@ -2289,7 +2277,7 @@ theorem declBasisPB_quotK {env₁ : Env} (mp : EnvModelM V μ env)
     (hEq : env.find? eqName = some eqA)
     (h : ConLeche.Semantics.BasisInstallRun env
       ConLeche.BasisKind.quotK.declsA env₁) :
-    Nonempty (EnvModelM V μ env₁) := by
+    CoverStep mp env₁ := by
   rw [show ConLeche.BasisKind.quotK.declsA
     = [quotA, quotMkA, quotLiftA, quotIndA, quotSoundA] from rfl] at h
   obtain ⟨h1, h2, h3, h4, h5, hnil⟩ := h
@@ -2304,7 +2292,7 @@ theorem declBasisPB_quotK {env₁ : Env} (mp : EnvModelM V μ env)
         | (refine ConLeche.IndCapsWF.of_caps ?_ ?_ <;> intro h <;>
             first | exact absurd h (by decide) | rfl)
         | exact fun _ _ heq => ConstantInfo.noConfusion heq)⟩
-  obtain ⟨mp1⟩ := extendQuot mp hf1  hwf1
+  refine (extendQuot mp hf1  hwf1).trans fun mp1 => ?_
   have hQ1 : (⟨quotA :: env.consts⟩ : Env).find? quotName
       = some quotA := by
     rw [ConLeche.Env.find?_cons]; exact if_pos rfl
@@ -2337,7 +2325,7 @@ theorem declBasisPB_quotK {env₁ : Env} (mp : EnvModelM V μ env)
             { pw := .ifAllZero [uN] })
           { pw := .ifAllZero [uN] } from rfl]
     simp [Expr.constsResolve, hf]
-  obtain ⟨mp2⟩ := extendQuotMk mp1 hQ1 hf2  hwf2
+  refine (extendQuotMk mp1 hQ1 hf2  hwf2).trans fun mp2 => ?_
   have hQ2 : (⟨quotMkA :: quotA :: env.consts⟩ : Env).find? quotName
       = some quotA := by
     rw [ConLeche.Env.find?_cons, if_neg (by decide)]; exact hQ1
@@ -2410,7 +2398,7 @@ theorem declBasisPB_quotK {env₁ : Env} (mp : EnvModelM V μ env)
           simp [Expr.constsResolve, quotLiftRule, hfE], rfl,
           fun lvls pins heqf => nomatch heqf⟩
       · exact nomatch hr'
-  obtain ⟨mp3⟩ := extendQuotLift mp2 hQ2 hM2 hE2 hf3  hwf3
+  refine (extendQuotLift mp2 hQ2 hM2 hE2 hf3  hwf3).trans fun mp3 => ?_
   have hQ3 : (⟨quotLiftA :: quotMkA :: quotA :: env.consts⟩
       : Env).find? quotName = some quotA := by
     rw [ConLeche.Env.find?_cons, if_neg (by decide)]; exact hQ2
@@ -2478,7 +2466,7 @@ theorem declBasisPB_quotK {env₁ : Env} (mp : EnvModelM V μ env)
           simp [Expr.constsResolve, quotIndRule, hfQ, hfM], rfl,
           fun lvls pins heqf => nomatch heqf⟩
       · exact nomatch hr'
-  obtain ⟨mp4⟩ := extendQuotInd mp3 hQ3 hM3 hf4  hwf4
+  refine (extendQuotInd mp3 hQ3 hM3 hf4  hwf4).trans fun mp4 => ?_
   have hQ4 : (⟨quotIndA :: quotLiftA :: quotMkA :: quotA
       :: env.consts⟩ : Env).find? quotName = some quotA := by
     rw [ConLeche.Env.find?_cons, if_neg (by decide)]; exact hQ3

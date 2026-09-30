@@ -5,22 +5,11 @@ public import ConLeche.Semantics.Interp
 @[expose] public section
 
 /-!
-# `SetBase/Sat` — the annotated context's satisfaction, and its
-transitivity kit
+# `Sat` — the annotated context's satisfaction, and its transitivity kit
 
-`Sat` (with its two introduction lemmas) and `interpC_trans`, re-based
-at THE SEPARATION's S2 (task #161).
-
-`interpC_trans` is the **two-edit sever**'s second edit: the graded
-lane's `Steps/WhnfP` imported the whole 2U module `Steps/Whnf` for this
-one eight-line composition.  The lemma is model-free — it is `Eq.trans`
-under a valuation quantifier — but its *statement* names `Sat`, which
-lived in `Annot/EnvModel.lean` beside the `EnvS`-containing invariant.  A
-base module may not import a lane, so `Sat` comes down with it; it is
-model-free in exactly the same sense (a `List AnnotTerm`, a valuation, and
-`interp`), and both lanes state their context currency with it.
-
-Statements verbatim, namespace (`ConLeche.SetR.Interp`) unchanged.
+`Sat` with its introduction lemmas.  It is model-free (a
+`List AnnotTerm`, a valuation, and `interp`), and the model states its
+context currency with it.
 -/
 
 namespace ConLeche.Semantics
@@ -67,17 +56,17 @@ theorem Sat_tail {Δa : List AnnotTerm} {Ba : AnnotTerm} {ρ : Nat → V}
   intro i Aa hi
   exact hρ (i + 1) Aa (by simpa using hi)
 
-/-- Equalities compose per valuation; the invariant does not travel
-with them, because in the hoisted currency it is carried separately
-and uniformly. -/
-theorem interpC_trans {Δa : List AnnotTerm} {a b c : AnnotTerm}
-    (h1 : ∀ ρ : Nat → V, Sat V Δa ρ →
-      interp V ρ a = interp V ρ b)
-    (h2 : ∀ ρ : Nat → V, Sat V Δa ρ →
-      interp V ρ b = interp V ρ c) :
-    ∀ ρ : Nat → V, Sat V Δa ρ →
-      interp V ρ a = interp V ρ c :=
-  fun ρ hρ => (h1 ρ hρ).trans (h2 ρ hρ)
+/-- Dropping entries shifts the valuation. -/
+theorem Sat_drop {Δ : List AnnotTerm} {ρ : Nat → V} (h : Sat V Δ ρ)
+    (m : Nat) : Sat V (Δ.drop m) (fun j => ρ (j + m)) := by
+  intro i Aa hi
+  rw [List.getElem?_drop] at hi
+  have h1 := h (m + i) Aa hi
+  show ρ (i + m) ∈ˢ interp V (fun j => ρ (j + i + 1 + m)) Aa
+  have e : (fun j => ρ (j + i + 1 + m)) = fun j => ρ (j + (m + i) + 1) := by
+    funext j; congr 1; omega
+  rw [e, Nat.add_comm i m]
+  exact h1
 
 end
 

@@ -34,13 +34,6 @@ theorem erasePw_sort_inv {e : Expr} {u : Level}
 every fact below is stated once and discharged by `rcases` on the two
 possibilities. -/
 
-/-- The element type expression of an `ofReduce*` axiom's operation. -/
-theorem ofReduce_elemTy {n : Name} :
-    reduceElemTy (ofReduceOp n)
-      = .const (reduceElemName (ofReduceOp n)) [] := by
-  unfold reduceElemTy reduceElemName
-  split <;> rfl
-
 /-- The pinned type of an `ofReduce*` axiom, in the uniform spelling
 its two instances share. -/
 theorem ofReducePin_type {n : Name}
@@ -59,15 +52,6 @@ theorem ofReducePin_type {n : Name}
                .bvar 2, .bvar 1]) ⟨.ifAllZero []⟩)
           ⟨.ifAllZero []⟩)
         ⟨.ifAllZero []⟩ := by
-  rcases hn with rfl | rfl <;> rfl
-
-/-- The pinned type of the operation itself. -/
-theorem reduceOpCv_type {n : Name}
-    (hn : n = ofReduceNatName ∨ n = ofReduceBoolName) :
-    (reduceOpCvA (ofReduceOp n)).type =
-      .forallE
-        (.const (reduceElemName (ofReduceOp n)) [])
-        (.const (reduceElemName (ofReduceOp n)) []) ⟨.never⟩ := by
   rcases hn with rfl | rfl <;> rfl
 
 /-- The element inductive's pinned type is `Sort 1`. -/

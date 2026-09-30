@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# whitepaper/fragment-gate.sh — THE WHITEPAPER FRAGMENT GATE (task #323).
+# whitepaper/fragment-gate.sh — THE WHITEPAPER FRAGMENT GATE (task #324).
 #
 # `whitepaper/Fragment/*.lean` is the self-contained Lean verification
 # of the fragment the whitepaper presents: its own lake library

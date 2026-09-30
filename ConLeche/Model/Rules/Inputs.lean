@@ -16,9 +16,7 @@ Seven fields are the laws `EnvModelM` already carries: `ConstType`,
 `AcvalValid`, `NatHeads`, `AcvalDefnInst`, `TowerOk`, `RecRules` and
 `CapsOk`, all of them `Model/Annot/Laws.lean`'s (re-exported by
 `Model/Annot/EnvModelM.lean`).  `RulesInputs.ofEnvModelM` below reads
-each of them off the fold's invariant.  No `Model/Steps/*` exists: the
-tier was deleted at the task #305 closing, and the definitions that
-used to be restated here are the originals.
+each of them off the fold's invariant.
 
 Two fields are NEW SHAPES:
 
@@ -33,8 +31,8 @@ Two fields are NEW SHAPES:
 
 The row for the `Red.natLit` step (`lit n ↦ natLitToConstructor n`)
 needs no input: the reading is invisible to the step
-(`denoteMeta_litToCtorIfNat`); the string expansion likewise
-(`denotePStrLit_of_guard`).
+(`denoteMeta_natLitToConstructor`); the string expansion likewise
+(`denoteMeta_strLitToConstructor`).
 -/
 namespace ConLeche.Model.Rules
 open ConLeche.Semantics
@@ -105,8 +103,7 @@ structure RulesInputs (V : Type w) [SetTheory V] {env : Env}
 the two literal rows is an `EnvModelM` projection; the rows stay
 arguments because `natSuccRow_of`/`natOpRow_of` (`Model/NatStep.lean`)
 sit above this file — `Model/Capstone.lean`'s `RulesInputs.ofSem`
-supplies them.  Replaces `TierInputsAt.ofEnvModelM` (task #305
-closing). -/
+supplies them. -/
 theorem RulesInputs.ofEnvModelM {env : Env} {φ : Name → Nat}
     (mp : EnvModelM V μ env)
     (hsucc : NatSuccRow mp.base2 φ) (hop : NatOpRow mp.base2 φ) :

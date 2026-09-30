@@ -7,11 +7,8 @@ public section
 /-!
 # The cached knot: memo wrappers and the conditional simulation
 
-Port of `ConLeche/Verify/SimIKnot.lean` and `ConLeche/Verify/BridgeI.lean`'s
-induction (lines 22-51) under the recipe (DESIGN.md, task #163).
-
-`SSimC mode env f` (declared in `ConLeche/Verify/Cached/DiscC1.lean`) is
-the cached analogue of `SSimI`: at fuel `f`, every cached entry point
+`SSimC mode env f` (task #163; declared in
+`ConLeche/Verify/Cached/DiscC1.lean`): at fuel `f`, every cached entry point
 (`ConLeche.Cached.coreKnotI mode (mkFEnv env) f`) simulates the
 corresponding fueled family on well-scoped inputs.  This module
 proves the *memo-wrapper step*: from per-body simulation walks at fuel
@@ -20,11 +17,8 @@ at `f + 1` — a cache hit consumes the backed `CSOK` clause at the query
 key (an *erasure-function* of the key, so it yields the pure run at the
 query's erasure directly), a miss runs the body walk and re-inserts the
 result in the depth-universal form via the `Expr`-side depth-invariance
-theorems (`ConLeche/Verify/Deep.lean`), exactly as the interned and
-`Expr`-level bridges do.  `ssimC` then ties the two by fuel induction.
-
-The pure comparand side of every statement is byte-identical to the
-interned original's.
+theorems (`ConLeche/Verify/Deep.lean`).  `ssimC` then ties the two by
+fuel induction.
 -/
 
 set_option linter.unusedSimpArgs false
@@ -38,9 +32,7 @@ variable {mode : CheckMode}
 
 /-! ## Cache-insert preservation for the entry-point memos
 
-The port of `ISOK.insert*`: the
-depth-universal backing run replace the arena's two denotation legs.
-A `beq` collision pins the stored key to the query (`beq_sound`),
+Each clause's backing run is depth-universal.  A `beq` collision pins the stored key to the query (`beq_sound`),
 which is exactly what the clauses — erasure
 functions of their keys — need. -/
 
@@ -523,7 +515,7 @@ end Wrappers
 
 /-! ## The knot induction -/
 
-/-- Port of `ssimI`: the cached knot simulates the fueled families at
+/-- The cached knot simulates the fueled families at
 every fuel.  The wrapper steps tie each entry point at `f + 1` to the
 body walks at `f`, which consume the simulation at `f` as their
 induction hypothesis. -/

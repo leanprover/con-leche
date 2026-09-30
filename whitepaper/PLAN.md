@@ -5,7 +5,7 @@ proof idea of con-leche: the modelling and consistency proof that bridges
 annotated expressions, the *inductive* (relational) description of checking,
 and a set theory given *with libraries*. Authorship line on every rendering:
 "Joachim Breitner, Lean FRO" (the AI-authorship note at the top says the rest). Maintainer rulings of 2026-09-25
-are recorded here so every lane works from the same spec. Task #323.
+are recorded here so every lane works from the same spec. Task #324.
 
 ## Deliverables
 

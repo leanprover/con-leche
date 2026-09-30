@@ -9,18 +9,16 @@ public section
 /-!
 # The numeral transports at `interp` (task #161, literal tier)
 
-`Sound/NatOps.lean`'s literal meta-inductions, re-proved at the
-validated-annotation currency: the stored structural operations'
-closed forms on `denoteMeta`'s own numeral spine, standing on the
-`EnvModelM.nat_ops` recurrence law (the run-certificate product of
-`NatEqsP.lean`) instead of the collapse-lane `EnvSHyp.nat_ops`.
+The literal meta-inductions at the validated-annotation currency: the
+stored structural operations' closed forms on `denoteMeta`'s own
+numeral spine, standing on the `EnvModelM.nat_ops` recurrence law (the
+run-certificate product of `Model/NatEqs.lean`).
 
-The value environment plumbing is one degree simpler than v1's: every
-head leaf is closed, so the two-slot extension collapses through
-`acval_interp_closedC`, and the numeral spine is `denoteMeta`'s literal
+Every head leaf is closed, so the two-slot extension collapses through
+`acval_interp_closed`, and the numeral spine is `denoteMeta`'s literal
 clause verbatim (`natLit` below **is** `denoteMeta_natLit`'s output).
 
-Worked example: `natOpV_add` (the lead-proved species).  The other
+Worked example: `natOpV_add`.  The other
 six structural operations follow the same recipe: read the two
 recurrence clauses at values (`natEq_value` at computed `denoteMeta`
 readings), close by the literal meta-induction
@@ -95,8 +93,7 @@ theorem natLit_mem (m : EnvModel V env) (hnh : NatHeads m φ)
 
 /-! ## Reading one recurrence at values -/
 
-/-- One certified recurrence equation, read at value slots
-(`natEq_value`'s mirror over `NatOps`). -/
+/-- One certified recurrence equation, read at value slots. -/
 theorem natEq_value (m : EnvModel V env) (hops : NatOps m φ)
     {c : Name} (hc : c ∈ ConLeche.natOpNames) {cv : ConstantVal}
     {v : Expr} {hint : ReducibilityHint}
@@ -120,7 +117,7 @@ theorem natEq_value (m : EnvModel V env) (hops : NatOps m φ)
 
 /-- The common shape of the binary structural recurrences: a base
 clause at `y = 0` and a successor clause, assembled by induction on
-the second literal (`natOpV_bin_of_clauses`, transposed). -/
+the second literal. -/
 theorem natOpV_bin_of_clauses (m : EnvModel V env)
     {opv : V} {ρ : Nat → V} (res : Nat → Nat → Nat)
     (h0 : ∀ a : Nat,
@@ -153,7 +150,7 @@ theorem natOpV_bin_of_clauses (m : EnvModel V env)
 
 /-! ## `Nat.add`, the worked example -/
 
-/-- `Nat.add` on literal values (`natOpV_add`'s mirror). -/
+/-- `Nat.add` on literal values. -/
 theorem natOpV_add (m : EnvModel V env) (hops : NatOps m φ)
     (hnh : NatHeads m φ) (hval : AcvalValid m)
     {cv : ConstantVal} {v : Expr} {hint : ReducibilityHint}
@@ -213,8 +210,8 @@ theorem natOpV_add (m : EnvModel V env) (hops : NatOps m φ)
       (by rw [denoteMeta_fvar])
       hx hzm
     simp only [interp_app, interp_bvar, cons_succ, cons_zero,
-      acval_interp_closedC m ConLeche.natAddName φ _ ρ,
-      acval_interp_closedC m ConLeche.natZeroName φ _ ρ] at h
+      acval_interp_closed m ConLeche.natAddName φ _ ρ,
+      acval_interp_closed m ConLeche.natZeroName φ _ ρ] at h
     exact h
   -- successor clause, read at values
   have hS : ∀ x y : V,
@@ -256,8 +253,8 @@ theorem natOpV_add (m : EnvModel V env) (hops : NatOps m φ)
           rfl)
       hx hy
     simp only [interp_app, interp_bvar, cons_succ, cons_zero,
-      acval_interp_closedC m ConLeche.natAddName φ _ ρ,
-      acval_interp_closedC m ConLeche.natSuccName φ _ ρ] at h
+      acval_interp_closed m ConLeche.natAddName φ _ ρ,
+      acval_interp_closed m ConLeche.natSuccName φ _ ρ] at h
     exact h
   refine natOpV_bin_of_clauses m (fun a b => a + b) (fun a => ?_)
     (fun a b ih => ?_)
@@ -271,12 +268,11 @@ theorem natOpV_add (m : EnvModel V env) (hops : NatOps m φ)
 
 /-! ## The remaining structural operations
 
-Mechanical mirrors of `Sound/NatOps.lean`'s `natOpV_*`, at the
-currencies the module docstring lists.  `sub` reads `pred`'s closed
+The same recipe as `natOpV_add`.  `sub` reads `pred`'s closed
 form, `mul` reads `add`'s, `pow` reads `mul`'s — each dependency's
 `find?` comes from `natOpGuard_inv`'s `hdeps`. -/
 
-/-- `Nat.pred` on literal values (`natOpV_pred`'s mirror). -/
+/-- `Nat.pred` on literal values. -/
 theorem natOpV_pred (m : EnvModel V env) (hops : NatOps m φ)
     (hnh : NatHeads m φ) (hval : AcvalValid m)
     {cv : ConstantVal} {v : Expr} {hint : ReducibilityHint}
@@ -325,8 +321,8 @@ theorem natOpV_pred (m : EnvModel V env) (hops : NatOps m φ)
       (R := m.acval ConLeche.natZeroName φ)
       (by rw [denoteMeta_app, hKp 2, hKz 2]; rfl) (hKz 2) hzm hzm
     simp only [interp_app,
-      acval_interp_closedC m ConLeche.natPredName φ _ ρ,
-      acval_interp_closedC m ConLeche.natZeroName φ _ ρ] at h
+      acval_interp_closed m ConLeche.natPredName φ _ ρ,
+      acval_interp_closed m ConLeche.natZeroName φ _ ρ] at h
     exact h
   -- successor clause, read at values
   have hS : ∀ x : V,
@@ -351,8 +347,8 @@ theorem natOpV_pred (m : EnvModel V env) (hops : NatOps m φ)
       (by rw [denoteMeta_fvar])
       hx hzm
     simp only [interp_app, interp_bvar, cons_succ, cons_zero,
-      acval_interp_closedC m ConLeche.natPredName φ _ ρ,
-      acval_interp_closedC m ConLeche.natSuccName φ _ ρ] at h
+      acval_interp_closed m ConLeche.natPredName φ _ ρ,
+      acval_interp_closed m ConLeche.natSuccName φ _ ρ] at h
     exact h
   intro a
   match a with
@@ -362,7 +358,7 @@ theorem natOpV_pred (m : EnvModel V env) (hops : NatOps m φ)
       hS _ (natLit_mem m hnh hval hs ρ a)]
     rfl
 
-/-- `Nat.sub` on literal values (`natOpV_sub`'s mirror). -/
+/-- `Nat.sub` on literal values. -/
 theorem natOpV_sub (m : EnvModel V env) (hops : NatOps m φ)
     (hnh : NatHeads m φ) (hval : AcvalValid m)
     {cv : ConstantVal} {v : Expr} {hint : ReducibilityHint}
@@ -429,8 +425,8 @@ theorem natOpV_sub (m : EnvModel V env) (hops : NatOps m φ)
       (by rw [denoteMeta_fvar])
       hx hzm
     simp only [interp_app, interp_bvar, cons_succ, cons_zero,
-      acval_interp_closedC m ConLeche.natSubName φ _ ρ,
-      acval_interp_closedC m ConLeche.natZeroName φ _ ρ] at h
+      acval_interp_closed m ConLeche.natSubName φ _ ρ,
+      acval_interp_closed m ConLeche.natZeroName φ _ ρ] at h
     exact h
   have hS : ∀ x y : V,
       x ∈ˢ interp V ρ (m.acval ConLeche.natName φ) →
@@ -471,9 +467,9 @@ theorem natOpV_sub (m : EnvModel V env) (hops : NatOps m φ)
           rfl)
       hx hy
     simp only [interp_app, interp_bvar, cons_succ, cons_zero,
-      acval_interp_closedC m ConLeche.natSubName φ _ ρ,
-      acval_interp_closedC m ConLeche.natSuccName φ _ ρ,
-      acval_interp_closedC m ConLeche.natPredName φ _ ρ] at h
+      acval_interp_closed m ConLeche.natSubName φ _ ρ,
+      acval_interp_closed m ConLeche.natSuccName φ _ ρ,
+      acval_interp_closed m ConLeche.natPredName φ _ ρ] at h
     exact h
   refine natOpV_bin_of_clauses m (fun a b => a - b) (fun a => ?_)
     (fun a b ih => ?_)
@@ -483,7 +479,7 @@ theorem natOpV_sub (m : EnvModel V env) (hops : NatOps m φ)
       natOpV_pred m hops hnh hval hfp ρ (a - b)]
     rfl
 
-/-- `Nat.mul` on literal values (`natOpV_mul`'s mirror). -/
+/-- `Nat.mul` on literal values. -/
 theorem natOpV_mul (m : EnvModel V env) (hops : NatOps m φ)
     (hnh : NatHeads m φ) (hval : AcvalValid m)
     {cv : ConstantVal} {v : Expr} {hint : ReducibilityHint}
@@ -550,8 +546,8 @@ theorem natOpV_mul (m : EnvModel V env) (hops : NatOps m φ)
       (hKz 2)
       hx hzm
     simp only [interp_app, interp_bvar, cons_succ, cons_zero,
-      acval_interp_closedC m ConLeche.natMulName φ _ ρ,
-      acval_interp_closedC m ConLeche.natZeroName φ _ ρ] at h
+      acval_interp_closed m ConLeche.natMulName φ _ ρ,
+      acval_interp_closed m ConLeche.natZeroName φ _ ρ] at h
     exact h
   have hS : ∀ x y : V,
       x ∈ˢ interp V ρ (m.acval ConLeche.natName φ) →
@@ -592,9 +588,9 @@ theorem natOpV_mul (m : EnvModel V env) (hops : NatOps m φ)
       (by simp only [denoteMeta_app, hKa 2, hKc 2, denoteMeta_fvar]; rfl)
       hx hy
     simp only [interp_app, interp_bvar, cons_succ, cons_zero,
-      acval_interp_closedC m ConLeche.natMulName φ _ ρ,
-      acval_interp_closedC m ConLeche.natSuccName φ _ ρ,
-      acval_interp_closedC m ConLeche.natAddName φ _ ρ] at h
+      acval_interp_closed m ConLeche.natMulName φ _ ρ,
+      acval_interp_closed m ConLeche.natSuccName φ _ ρ,
+      acval_interp_closed m ConLeche.natAddName φ _ ρ] at h
     exact h
   refine natOpV_bin_of_clauses m (fun a b => a * b) (fun a => ?_)
     (fun a b ih => ?_)
@@ -604,7 +600,7 @@ theorem natOpV_mul (m : EnvModel V env) (hops : NatOps m φ)
       natOpV_add m hops hnh hval hfa ρ (a * b) a]
     rfl
 
-/-- `Nat.pow` on literal values (`natOpV_pow`'s mirror). -/
+/-- `Nat.pow` on literal values. -/
 theorem natOpV_pow (m : EnvModel V env) (hops : NatOps m φ)
     (hnh : NatHeads m φ) (hval : AcvalValid m)
     {cv : ConstantVal} {v : Expr} {hint : ReducibilityHint}
@@ -675,9 +671,9 @@ theorem natOpV_pow (m : EnvModel V env) (hops : NatOps m φ)
       (by rw [denoteMeta_app, hKs 2, hKz 2]; rfl)
       hx hzm
     simp only [interp_app, interp_bvar, cons_succ, cons_zero,
-      acval_interp_closedC m ConLeche.natPowName φ _ ρ,
-      acval_interp_closedC m ConLeche.natZeroName φ _ ρ,
-      acval_interp_closedC m ConLeche.natSuccName φ _ ρ] at h
+      acval_interp_closed m ConLeche.natPowName φ _ ρ,
+      acval_interp_closed m ConLeche.natZeroName φ _ ρ,
+      acval_interp_closed m ConLeche.natSuccName φ _ ρ] at h
     exact h
   have hS : ∀ x y : V,
       x ∈ˢ interp V ρ (m.acval ConLeche.natName φ) →
@@ -718,9 +714,9 @@ theorem natOpV_pow (m : EnvModel V env) (hops : NatOps m φ)
       (by simp only [denoteMeta_app, hKm 2, hKc 2, denoteMeta_fvar]; rfl)
       hx hy
     simp only [interp_app, interp_bvar, cons_succ, cons_zero,
-      acval_interp_closedC m ConLeche.natPowName φ _ ρ,
-      acval_interp_closedC m ConLeche.natSuccName φ _ ρ,
-      acval_interp_closedC m ConLeche.natMulName φ _ ρ] at h
+      acval_interp_closed m ConLeche.natPowName φ _ ρ,
+      acval_interp_closed m ConLeche.natSuccName φ _ ρ,
+      acval_interp_closed m ConLeche.natMulName φ _ ρ] at h
     exact h
   refine natOpV_bin_of_clauses m (fun a b => a ^ b) (fun a => ?_)
     (fun a b ih => ?_)
@@ -730,7 +726,7 @@ theorem natOpV_pow (m : EnvModel V env) (hops : NatOps m φ)
       natOpV_mul m hops hnh hval hfm ρ (a ^ b) a]
     rfl
 
-/-- `Nat.beq` on literal values (`natOpV_beq`'s mirror). -/
+/-- `Nat.beq` on literal values. -/
 theorem natOpV_beq (m : EnvModel V env) (hops : NatOps m φ)
     (hnh : NatHeads m φ) (hval : AcvalValid m)
     {cv : ConstantVal} {v : Expr} {hint : ReducibilityHint}
@@ -797,9 +793,9 @@ theorem natOpV_beq (m : EnvModel V env) (hops : NatOps m φ)
       (by rw [denoteMeta_app, denoteMeta_app, hKc 2, hKz 2]; rfl)
       (hKT 2) hzm hzm
     simp only [interp_app,
-      acval_interp_closedC m ConLeche.natBeqName φ _ ρ,
-      acval_interp_closedC m ConLeche.natZeroName φ _ ρ,
-      acval_interp_closedC m ConLeche.boolTrueName φ _ ρ] at h
+      acval_interp_closed m ConLeche.natBeqName φ _ ρ,
+      acval_interp_closed m ConLeche.natZeroName φ _ ρ,
+      acval_interp_closed m ConLeche.boolTrueName φ _ ρ] at h
     exact h
   have h0S : ∀ y : V,
       y ∈ˢ interp V ρ (m.acval ConLeche.natName φ) →
@@ -826,10 +822,10 @@ theorem natOpV_beq (m : EnvModel V env) (hops : NatOps m φ)
           rfl)
       (hKF 2) hzm hy
     simp only [interp_app, interp_bvar, cons_zero,
-      acval_interp_closedC m ConLeche.natBeqName φ _ ρ,
-      acval_interp_closedC m ConLeche.natZeroName φ _ ρ,
-      acval_interp_closedC m ConLeche.natSuccName φ _ ρ,
-      acval_interp_closedC m ConLeche.boolFalseName φ _ ρ] at h
+      acval_interp_closed m ConLeche.natBeqName φ _ ρ,
+      acval_interp_closed m ConLeche.natZeroName φ _ ρ,
+      acval_interp_closed m ConLeche.natSuccName φ _ ρ,
+      acval_interp_closed m ConLeche.boolFalseName φ _ ρ] at h
     exact h
   have hS0 : ∀ x : V,
       x ∈ˢ interp V ρ (m.acval ConLeche.natName φ) →
@@ -857,10 +853,10 @@ theorem natOpV_beq (m : EnvModel V env) (hops : NatOps m φ)
           rfl)
       (hKF 2) hx hzm
     simp only [interp_app, interp_bvar, cons_succ, cons_zero,
-      acval_interp_closedC m ConLeche.natBeqName φ _ ρ,
-      acval_interp_closedC m ConLeche.natZeroName φ _ ρ,
-      acval_interp_closedC m ConLeche.natSuccName φ _ ρ,
-      acval_interp_closedC m ConLeche.boolFalseName φ _ ρ] at h
+      acval_interp_closed m ConLeche.natBeqName φ _ ρ,
+      acval_interp_closed m ConLeche.natZeroName φ _ ρ,
+      acval_interp_closed m ConLeche.natSuccName φ _ ρ,
+      acval_interp_closed m ConLeche.boolFalseName φ _ ρ] at h
     exact h
   have hSS : ∀ x y : V,
       x ∈ˢ interp V ρ (m.acval ConLeche.natName φ) →
@@ -898,8 +894,8 @@ theorem natOpV_beq (m : EnvModel V env) (hops : NatOps m φ)
           rfl)
       hx hy
     simp only [interp_app, interp_bvar, cons_succ, cons_zero,
-      acval_interp_closedC m ConLeche.natBeqName φ _ ρ,
-      acval_interp_closedC m ConLeche.natSuccName φ _ ρ] at h
+      acval_interp_closed m ConLeche.natBeqName φ _ ρ,
+      acval_interp_closed m ConLeche.natSuccName φ _ ρ] at h
     exact h
   intro a
   induction a with
@@ -924,7 +920,7 @@ theorem natOpV_beq (m : EnvModel V env) (hops : NatOps m φ)
       · rw [if_pos hab, if_pos (by omega)]
       · rw [if_neg hab, if_neg (by omega)]
 
-/-- `Nat.ble` on literal values (`natOpV_ble`'s mirror). -/
+/-- `Nat.ble` on literal values. -/
 theorem natOpV_ble (m : EnvModel V env) (hops : NatOps m φ)
     (hnh : NatHeads m φ) (hval : AcvalValid m)
     {cv : ConstantVal} {v : Expr} {hint : ReducibilityHint}
@@ -993,9 +989,9 @@ theorem natOpV_ble (m : EnvModel V env) (hops : NatOps m φ)
           rfl)
       (hKT 2) hzm hy
     simp only [interp_app, interp_bvar, cons_zero,
-      acval_interp_closedC m ConLeche.natBleName φ _ ρ,
-      acval_interp_closedC m ConLeche.natZeroName φ _ ρ,
-      acval_interp_closedC m ConLeche.boolTrueName φ _ ρ] at h
+      acval_interp_closed m ConLeche.natBleName φ _ ρ,
+      acval_interp_closed m ConLeche.natZeroName φ _ ρ,
+      acval_interp_closed m ConLeche.boolTrueName φ _ ρ] at h
     exact h
   have hS0 : ∀ x : V,
       x ∈ˢ interp V ρ (m.acval ConLeche.natName φ) →
@@ -1023,10 +1019,10 @@ theorem natOpV_ble (m : EnvModel V env) (hops : NatOps m φ)
           rfl)
       (hKF 2) hx hzm
     simp only [interp_app, interp_bvar, cons_succ, cons_zero,
-      acval_interp_closedC m ConLeche.natBleName φ _ ρ,
-      acval_interp_closedC m ConLeche.natZeroName φ _ ρ,
-      acval_interp_closedC m ConLeche.natSuccName φ _ ρ,
-      acval_interp_closedC m ConLeche.boolFalseName φ _ ρ] at h
+      acval_interp_closed m ConLeche.natBleName φ _ ρ,
+      acval_interp_closed m ConLeche.natZeroName φ _ ρ,
+      acval_interp_closed m ConLeche.natSuccName φ _ ρ,
+      acval_interp_closed m ConLeche.boolFalseName φ _ ρ] at h
     exact h
   have hSS : ∀ x y : V,
       x ∈ˢ interp V ρ (m.acval ConLeche.natName φ) →
@@ -1064,8 +1060,8 @@ theorem natOpV_ble (m : EnvModel V env) (hops : NatOps m φ)
           rfl)
       hx hy
     simp only [interp_app, interp_bvar, cons_succ, cons_zero,
-      acval_interp_closedC m ConLeche.natBleName φ _ ρ,
-      acval_interp_closedC m ConLeche.natSuccName φ _ ρ] at h
+      acval_interp_closed m ConLeche.natBleName φ _ ρ,
+      acval_interp_closed m ConLeche.natSuccName φ _ ρ] at h
     exact h
   intro a
   induction a with

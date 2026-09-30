@@ -25,7 +25,7 @@ def eqRaw : ConstantInfo :=
     piI "α" (srt u) <|
     pi "a" (bv 0) <|
     pi "b" (bv 1) prop⟩
-    { ruleK := true }
+    { ruleK := true, all := [eqName], nparams := 2, ctors := [eqReflName] }
 
 /-- `Eq.refl.{u} {α : Sort u} (a : α) : Eq α a a`. -/
 def eqReflRaw : ConstantInfo :=

@@ -5,10 +5,10 @@ public import ConLeche.Kernel.Inductives.StructInstallF
 @[expose] public section
 
 /-!
-# The direct sum install, through the index
+# The shared install stages, through the index
 
-`checkSum`'s stages (`ConLeche/Kernel/Inductives/SumInstall.lean`)
-over an `FEnv`, the mirrors the cached drivers run.
+The stages of `ConLeche/Kernel/Inductives/SumInstall.lean` over an
+`FEnv`, the mirrors the cached drivers run.
 -/
 
 namespace ConLeche
@@ -28,19 +28,6 @@ def checkSumTeleF (ops : CheckerOps m) (fe : FEnv) (cv : ConstantVal) (n : Nat)
     let (bs, s) ← whnfTelescope ops fe.env 0 n cvTa₀.type
     let cvTa ← checkConstantValF ops fe { cv with type := closeTelescope bs 0 (.sort s) }
     pure (cvTa, s)
-
-/-- `checkSumInd` through the index. -/
-def checkSumIndF (ops : CheckerOps m) (fe : FEnv) (p : InductiveShape)
-    (capsOf : InductiveShape → IndCaps) :
-    m (FEnv × ConstantVal × InductiveShape) := do
-  let cvTa₀ ← checkConstantValF ops fe p.cvT
-  let (cvTa, s) ← checkSumTeleF ops fe p.cvT (p.nP + p.nIdx) cvTa₀
-  let (_, tbody) ← unwrapOr (cvTa.type.stripPis (p.nP + p.nIdx))
-    (.internal "direct sum: type former telescope")
-  unless tbody == Expr.sort s do
-    throw (.internal "direct sum: type former result sort")
-  let p' := p.withSort s
-  pure (fe.push (.indInfo cvTa (capsOf p')), cvTa, p')
 
 /-- `checkStructFieldSortsI` through the index. -/
 def checkStructFieldSortsIF (ops : CheckerOps m) (fe : FEnv) (isProp large : Bool)
@@ -80,26 +67,11 @@ def checkStructFieldSortsIFA (ops : CheckerOps m) (fe : FEnv) (isProp large : Bo
     let rest ← checkStructFieldSortsIFA ops fe isProp large s nP fvs idxArgs j
     pure (rest ++ [u])
 
-/-- `normCtorVal` through the index (the whnf walk at `fe.env`, the
-re-check through `checkConstantValF`). -/
-def normCtorValF (ops : CheckerOps m) (fe : FEnv) (T : Name) (nP nF : Nat)
-    (cvC cvCa : ConstantVal) : m ConstantVal := do
-  let (cbs, _) ← unwrapOr (cvCa.type.stripPis nP)
-    (.notImplemented "direct sum: constructor telescope")
-  let (fvsP, crest) ← unwrapOr (openPisAtFvars nP cvCa.type 0)
-    (.notImplemented "direct sum: constructor telescope")
-  let pbs := List.zipWith (fun (x : Expr) (b : Expr × BinderMeta) => (x.fvarTypeD, b.2)) fvsP cbs
-  let (fbs, resid) ← normFieldDoms ops fe.env T nP nF crest
-  let ty' := closeTelescope (pbs ++ fbs) 0 resid
-  if ty' == cvCa.type then pure cvCa
-  else checkConstantValF ops fe { cvC with type := ty' }
-
 /-- `checkSumCtor` through the index. -/
 def checkSumCtorF (ops : CheckerOps m) (fe₀ fe : FEnv) (T : Name)
     (lps : List Name) (nP nIdx : Nat) (resSort : Level) (isProp large : Bool)
     (cvC : ConstantVal) (nF : Nat) (cvTa : ConstantVal) : m (ConstantVal × List Level) := do
-  let cvCa₀ ← checkConstantValF ops fe cvC
-  let cvCa ← normCtorValF ops fe T nP nF cvC cvCa₀
+  let cvCa ← checkConstantValF ops fe cvC
   let (_, cbody) ← unwrapOr (cvCa.type.stripPis (nP + nF))
     (.notImplemented "direct sum: constructor telescope")
   -- official's `is_valid_ind_app` on the constructor's result

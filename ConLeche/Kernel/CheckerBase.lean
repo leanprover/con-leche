@@ -1,6 +1,6 @@
 module
 
-public import ConLeche.Kernel.StdAxioms
+import ConLeche.Kernel.StdAxioms
 public import ConLeche.Kernel.TypeChecker
 public import ConLeche.Kernel.NatOpPins
 public import ConLeche.Kernel.Inductives.StructParts
@@ -13,11 +13,8 @@ public import ConLeche.Kernel.Inductives.StructParts
 The core entry-point record (`CheckerOps`) with its pure and memoized
 instantiations, the common per-declaration constant check
 (`checkConstantVal`), and the small strategy-independent helpers the
-install paths share (`domsMatchAux`, `openPisAtFvars`,
-`checkTypedList`, `checkDefEqList`, `piResultSort`).  The
-modeled-inductive install builds on this in
-`ConLeche/Kernel/Inductives/Modeled.lean`, everything else in
-`ConLeche/Kernel/Checker.lean`.
+install paths share (`openPisAtFvars`, `unwrapOr`).
+Everything else is in `ConLeche/Kernel/Checker.lean`.
 -/
 
 namespace ConLeche
@@ -118,15 +115,6 @@ def checkConstantVal (ops : CheckerOps m) (env : Env) (cv : ConstantVal) : m Con
   let _u ← ops.ensureSort env 0 stype
   pure { cv with type := type }
 
-/-- Compare binder domains at offsets `o₁`/`o₂` for `n` positions, the
-right side viewed through `g` (identity, lifting, or renaming). -/
-def domsMatchAux (g : Nat → Expr → Expr)
-    (bs₁ bs₂ : List (Expr × BinderMeta)) (o₁ o₂ n : Nat) : Bool :=
-  (List.range n).all fun i =>
-    match bs₁[o₁ + i]?, bs₂[o₂ + i]? with
-    | some b₁, some b₂ => b₁.1 == g i b₂.1
-    | _, _ => false
-
 /-- Open the first `n` `∀`-binders at fresh free variables `0..n-1`
 (each fvar's type is the binder domain, instantiated with the earlier
 fvars).  Returns the fvars and the opened body. -/
@@ -138,17 +126,6 @@ def openPisAtFvars : Nat → Expr → Nat → Option (List Expr × Expr)
     | some (fvs, e) => some (fv :: fvs, e)
     | none => none
   | _ + 1, _, _ => none
-
-/-- `domsMatchAux` over arrays (equal to it at `List.toArray`:
-`domsMatchAuxA_eq`) — positional list indexing is linear per access,
-which made the binder-domain comparison quadratic on wide
-telescopes. -/
-def domsMatchAuxA (g : Nat → Expr → Expr)
-    (bs₁ bs₂ : Array (Expr × BinderMeta)) (o₁ o₂ n : Nat) : Bool :=
-  (List.range n).all fun i =>
-    match bs₁[o₁ + i]?, bs₂[o₂ + i]? with
-    | some b₁, some b₂ => b₁.1 == g i b₂.1
-    | _, _ => false
 
 /-- Core of `openPisAtFvarsF`: `acc` holds the already-created fvars,
 innermost binder first.  Computes
@@ -175,60 +152,48 @@ def openPisAtFvarsF (n : Nat) (e : Expr) (i : Nat) :
   | some r => some r
   | none => openPisAtFvars n e i
 
-/-- Check each expression's inferred type against the corresponding
-expected type (definitionally); throws on a length mismatch.  Used to
-pin a nested rule's stored parameter instantiations to the
-constructor's parameter domains. -/
-def checkTypedList (ops : CheckerOps m) (env : Env) (depth : Nat) :
-    List Expr → List Expr → m Unit
-  | [], [] => pure ()
-  | a :: as, t :: ts => do
-    let ty ← ops.inferType env depth a
-    unless ← ops.isDefEq env depth ty t do
-      throw (.notImplemented "nested pin type mismatch")
-    checkTypedList ops env depth as ts
-  | _, _ => throw (.notImplemented "nested pin arity mismatch")
+open Expr in
+theorem openPisAtFvarsFGo_sound :
+    ∀ (n : Nat) (e : Expr) (i : Nat) (acc : List Expr)
+      {r : List Expr × Expr},
+      openPisAtFvarsFGo acc n e i = some r →
+      openPisAtFvars n (e.instantiateList acc) i = some r
+  | 0, e, i, acc, r, h => by
+    simp only [openPisAtFvarsFGo, Option.some.injEq] at h
+    simp only [openPisAtFvars, ← h]
+  | n + 1, .forallE dom body bi, i, acc, r, h => by
+    simp only [openPisAtFvarsFGo] at h
+    split at h
+    case _ fvs e' hgo =>
+      have ih := openPisAtFvarsFGo_sound n body (i + 1)
+        (Expr.fvar i (dom.instantiateList acc) :: acc) hgo
+      rw [instantiateList_cons] at ih
+      simp only [instantiateList, openPisAtFvars, ih]
+      exact h
+    case _ => exact nomatch h
 
-/-- Check that each expression is a fixed point of the annotation pass
-in the given context: its codomain-sort annotations are exactly the
-ones annotation reconstructs.  Used to certify a nested rule's stored
-parameter instantiations (opened at the rule-prefix variables): the
-soundness layer needs their annotation truthfulness at the canonical
-frame, and index premises between the prefix and the major put them
-out of reach of the recursor-type walk. -/
-def checkAnnotList (ops : CheckerOps m) (env : Env) (depth : Nat) :
-    List Expr → m Unit
-  | [] => pure ()
-  | a :: as => do
-    let aA ← ops.annotate env depth a
-    unless aA == a do
-      throw (.notImplemented "nested pin annotation mismatch")
-    checkAnnotList ops env depth as
+open Expr in
+theorem openPisAtFvarsF_eq (n : Nat) (e : Expr) (i : Nat) :
+    openPisAtFvarsF n e i = openPisAtFvars n e i := by
+  unfold openPisAtFvarsF
+  match h : openPisAtFvarsFGo [] n e i with
+  | some r =>
+    have := openPisAtFvarsFGo_sound n e i [] h
+    rw [instantiateList_nil] at this
+    exact this.symm
+  | none => rfl
 
-/-- Is the expression the pinned equality former at one level? -/
-def isEqHead : Expr → Bool
-  | .const c [_ℓ] => c == eqName
-  | _ => false
-
-/-- The level an equality head carries — the statement's own `Eq.{ℓ}`
-level, read off a head `isEqHead` has accepted (task #146: the iota
-statements' type slot is certified to inhabit *this* sort).  Off shape
-it is `.zero`, which `isEqHead` has already rejected wherever the
-result is used. -/
-def eqHeadLevel : Expr → Level
-  | .const _ [ℓ] => ℓ
-  | _ => .zero
-
-/-- Pairwise definitional-equality check of two spines (throws on any
-mismatch, including a length difference). -/
-def checkDefEqList (ops : CheckerOps m) (env : Env) (depth : Nat) :
-    List Expr → List Expr → m Unit
-  | [], [] => pure ()
-  | a :: as, b :: bs => do
-    unless ← ops.isDefEq env depth a b do
-      throw (.notImplemented "iota statement component mismatch")
-    checkDefEqList ops env depth as bs
-  | _, _ => throw (.notImplemented "iota statement component arity")
+/-- **Every `openPisAtFvars` runs as `openPisAtFvarsF`**: the
+sequential definition rewrites the whole remaining body once per
+binder (`instantiate1`), quadratic in binders × body — the recursor stage
+opens each (auxiliary) recursor's type, `mI + 1`
+binders over a body carrying every motive and minor, at every rule.
+The one-pass form instantiates each domain once and the body once.
+Kernel-checked; every proof keeps consuming `openPisAtFvars`. -/
+@[csimp] theorem openPisAtFvars_eq_openPisAtFvarsF :
+    @openPisAtFvars = @openPisAtFvarsF := by
+  funext n e i
+  exact (openPisAtFvarsF_eq n e i).symm
 
 /-- Unwrap an optional value or fail with the given error (the
 `Option`-shaped checks below stay bind-shaped for the verification
@@ -237,78 +202,5 @@ def unwrapOr {α : Type} (o : Option α) (err : CheckError) : m α :=
   match o with
   | some a => pure a
   | none => throw err
-
-/-- The stored constant under `n`, as a `ConstantVal`, if any.  The
-iota-certificate checks below consume only the stored constant's
-*type* (any stored constant witnesses its type's inhabitation in the
-model — `EnvModel.mem_type` is kind-agnostic), so no theorem-kind
-filter is imposed. -/
-def Env.findCV? (env : Env) (n : Name) : Option ConstantVal :=
-  (env.find? n).map (·.toConstantVal)
-
-/-- The result sort of a syntactic pi telescope (the sort the type
-former's type ends in), if it ends in a sort at all. -/
-def piResultSort (e : Expr) : Option Level :=
-  match e.piResult with
-  | .sort u => some u
-  | _ => none
-
-
-/-- Stage 2b: the projection type's parameter telescope is
-*syntactically* the constructor's, and the constructor's residual is
-the family applied to exactly the parameters — the syntactic pins the
-rule's total λ-equality derivation folds over (task #58; completeness-
-safe: both telescopes spell the family's parameter types, and a
-structure constructor targets the family at its parameters). -/
-def checkProjShape (pty ctorTy : Expr) (nP nF : Nat) : m Unit := do
-  let some (_abinders, _) := pty.stripPis nP
-    | throw (.notImplemented "projection type telescope")
-  let some (_, cbody) := ctorTy.stripPis (nP + nF)
-    | throw (.notImplemented "projection constructor telescope")
-  unless cbody.getAppArgs.length == nP do
-    throw (.notImplemented "projection constructor residual arity")
-  match cbody.getAppFn with
-  | .const _ _ => pure ()
-  | _ => throw (.notImplemented "projection constructor residual head")
-
-/-- Stage 3: the reduction rule — λ over the constructor telescope
-returning field `i`, annotated; its λ-domains stay the constructor's. -/
-def checkProjRule (ops : CheckerOps m) (env' : Env) (pty : Expr) (cvj : ConstantVal) (lps : List Name)
-    (nP nF i : Nat) : m Expr := do
-  let some rhs := Expr.pisToLams (nP + nF) cvj.type (.bvar (nF - 1 - i))
-    | throw (.notImplemented "projection rule telescope")
-  unless !rhs.hasFvar && rhs.looseBVarsBounded 0 do
-    throw (.notImplemented "projection rule scoping")
-  let rhsA ← ops.annotate env' 0 rhs
-  unless rhsA.allLevelParamsDefined lps && rhsA.constsResolve env' &&
-      rhsA.looseBVarsBounded 0 && !rhsA.hasFvar do
-    throw (.notImplemented "projection rule wellformedness")
-  let some (rbinders, rrbody) := rhsA.stripLams (nP + nF)
-    | throw (.notImplemented "projection rule telescope")
-  unless rrbody == Expr.bvar (nF - 1 - i) do
-    throw (.notImplemented "projection rule body")
-  let some (cbindersR, _) := cvj.type.stripPis (nP + nF)
-    | throw (.notImplemented "projection constructor telescope")
-  unless domsMatchAux (fun _ e => e) rbinders cbindersR 0 0 (nP + nF) do
-    throw (.notImplemented "projection rule domain mismatch")
-  -- the frame walks and the definitional parameter/domain pins
-  -- (task #58): the projection type's opened parameter annotations are
-  -- definitionally the constructor's instantiated parameter domains,
-  -- and the whole frame's annotations are definitionally the rule
-  -- λ-tower's instantiated domains
-  let some (fvsP, _) := openPisAtFvars nP pty 0
-    | throw (.notImplemented "projection type telescope")
-  let some (cdomsP, crestP) := Expr.instPisAt fvsP cvj.type
-    | throw (.notImplemented "projection constructor telescope")
-  checkDefEqList ops env' (nP + nF) (fvsP.map Expr.fvarTypeD) cdomsP
-  let some (xFvs, _) := openPisAtFvars nF crestP nP
-    | throw (.notImplemented "projection constructor telescope")
-  let some (ldoms, _) := Expr.instLamsAt (fvsP ++ xFvs) rhsA
-    | throw (.notImplemented "projection rule telescope")
-  checkDefEqList ops env' (nP + nF) ((fvsP ++ xFvs).map Expr.fvarTypeD)
-    ldoms
-  let _rhsTy ← ops.inferType env' 0 rhsA
-  pure rhsA
-
 
 end ConLeche

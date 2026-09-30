@@ -1,50 +1,32 @@
 module
 
-public import ConLeche.Verify.InferLemmas
+import ConLeche.Verify.InferLemmas
 import ConLeche.Verify.InferLeaves
-public import ConLeche.Verify.Denote.Levels
 public import ConLeche.Verify.EnvPreds
-import ConLeche.Verify.Denote
+public import ConLeche.Verify.Denote
 import ConLeche.Verify.Denote.OpenVars
 public import ConLeche.Verify.Denote.VClosed
 
 @[expose] public section
 
 /-!
-# `EnvFacts`: the environment facts the bridge consumes (task #148, T3)
+# `EnvFacts`: the V-free environment facts (task #148, T3)
 
-**Relocated to the base at task #161 S6** (whole-module move of
-`ConLeche/SetR/Bridge/Env.lean`, statements byte-unchanged, namespace
-`ConLeche.SetR` kept).  The file never had a lane: the docstring below
-already said every field is V-free, and its four imports were base
-already.  What forced the move is that **both** lanes now build an
-`EnvFacts` — the R lane by `EnvS.toEnvFacts`, the P lane by `EnvModelM.toEnvFacts`
-— and the P lane may not import `ConLeche/SetR/*`.
-
-The bridge (`ConLeche/SetR/Bridge/*`) turns a successful `--verified`
-checker run into a derivation of the relation family
-(`ConLeche/SetR/Rel.lean`).  Doing so needs a handful of facts about the
-environment it runs against, and **all of them are V-free**: the bridge
-never mentions a set, a membership or an interpretation.  They are
-collected here rather than taken as loose hypotheses because there are
-seven of them and every clause lemma would otherwise carry all seven.
+The facts about the environment a checker run is read against, and
+**all of them are V-free**: none mentions a set, a membership or an
+interpretation.  They are collected here rather than taken as loose
+hypotheses because there are seven of them and every clause lemma would
+otherwise carry all seven.
 
 **This is an interface, not a new invariant.**  Each field below is
-either literally a field of `ConLeche/TTVerify/EnvTT.lean`'s `EnvTT` or an
-immediate consequence of one, and each is listed in the campaign
-design's §2 among `EnvS`'s *syntactic* fields ("verbatim from `EnvTT`,
-all mode-independent").  When T5 builds `EnvS`, it supplies an `EnvFacts`
-by projection — one adapter, written once; nothing in the bridge has to
-change, and nothing in the bridge depends on a semantic field.
+a projection of the model's environment invariant or an immediate
+consequence of one, supplied by one adapter written once
+(`EnvModelM.toEnvFacts`, whose docstring tabulates the sources).
 
-The one field that is *not* a verbatim `EnvTT` field is `ty_denotes`,
-and it is deliberately the **weakest** form that works: `EnvTT.has_type`
-and `EnvS.mem_type` both say "the stored type denotes **and** the
-constant's valuation inhabits it"; the bridge only ever uses the first
-conjunct (the `.const` inference clause and the iota clause's stored
-telescopes need a denotation to name, never a typing).  Taking the
-weaker fact keeps the bridge free of any semantic content, which is the
-whole point of the factoring.
+The one semantic-looking field, `ty_denotes`, is deliberately the
+**weakest** form that works: the consumers (the `.const` inference
+clause and the iota clause's stored telescopes) need a denotation to
+name, never a typing.
 -/
 
 namespace ConLeche.Semantics
@@ -59,10 +41,10 @@ equations (which are what make delta steps invisible — design §7.2).
 Every field is V-free and mode-independent. -/
 structure EnvFacts (env : Env) where
   /-- The type-theory term of each constant (the same `TConstVal` the
-  denotation and `EnvTT` use). -/
+  denotation uses). -/
   cval : TConstVal
   /-- Every constant denotes to a closed term.  Consumed by every
-  lifting step (`denote_weaken_top`, `denote_lift`) and by M1. -/
+  lifting step. -/
   cval_closed : ∀ (n : Name) (ψ : Name → Nat), Term.Closed (cval n ψ)
   /-- Stored declarations are syntactically well-formed.  Consumed by
   the frame-condition lemmas of `ConLeche/Verify/*`. -/
@@ -72,10 +54,9 @@ structure EnvFacts (env : Env) where
   val_params : ∀ n ci, env.find? n = some ci →
     ∀ φ₁ φ₂ : Name → Nat, (∀ p ∈ ci.toConstantVal.levelParams, φ₁ p = φ₂ p) →
       cval n φ₁ = cval n φ₂
-  /-- **Every stored constant's type denotes.**  The weakest form of
-  `EnvTT.has_type` / `EnvS.mem_type` the bridge needs: it names the
-  `Term` the `.const` rule's `denoteClosed` side condition asks for,
-  and nothing else. -/
+  /-- **Every stored constant's type denotes.**  It names the `Term`
+  the `.const` rule's `denoteClosed` side condition asks for, and
+  nothing else. -/
   ty_denotes : ∀ c ∈ env.consts, ∀ ψ : Name → Nat,
     ∃ t, denoteClosed cval env ψ c.toConstantVal.type = some t
   /-- Every definition is denoted by its body — the fact that makes a
@@ -91,9 +72,8 @@ structure EnvFacts (env : Env) where
   `EnvWF` gives it `hasFvar = false`, `constsResolve` and
   `looseBVarsBounded 0`, but `constsResolve` records *existence* of the
   referenced constants, not the level-arity matches `denote`'s `.const`
-  clause tests — so denotability is a genuinely extra fact.
-  `EnvS.rec_rules` carries it; consumed by R11's `denoteClosed` side
-  condition (batch g). -/
+  clause tests — so denotability is a genuinely extra fact, consumed by
+  the ι rule's `denoteClosed` side condition. -/
   rec_rhs_denotes : ∀ n cv mI rP rules,
     env.find? n = some (.recInfo cv mI rP rules) →
     ∀ r ∈ rules, RecRule.fire r ≠ .inert →
@@ -102,45 +82,33 @@ structure EnvFacts (env : Env) where
         ∃ R, denoteClosed cval env ψ
           (r.rhs.instantiateLevelParams cv.levelParams us) = some R
   /-- **A stored recursor's parameter count does not exceed its major
-  index.**  The bridge-side half of the D3 split: `EnvWF` concludes
-  `rP ≤ mI` only inside the `.nested` branch, so R11's *nested* premise
-  carries it, while R11's *index* side condition needs it on `.plain`
-  fires too (premise 6's length disjunct is otherwise open at
-  `mI < rP`).  The soundness side takes the same fact from
-  `EnvS.rec_rules`' first component; this field is backed by it. -/
+  index.**  `EnvWF` concludes `rP ≤ mI` only inside the `.nested`
+  branch, while the ι rule's *index* side condition needs it on
+  `.plain` fires too (its length disjunct is otherwise open at
+  `mI < rP`).  Backed by `rec_rules`' `RecRuleLaw`. -/
   rec_params_le : ∀ n cv mI rP rules,
     env.find? n = some (.recInfo cv mI rP rules) →
     ∀ r ∈ rules, RecRule.fire r ≠ .inert → rP ≤ mI
   /-- Every stored native projection-table entry is a pinned pair entry
-  with its block stored (`ProjOkT`).  Syntactic; the bridge's I9 and R6
+  with its block stored (`ProjOkT`).  Syntactic; the projection
   clauses need it to identify the entry's type as a *concrete* closed
-  expression (`ConLeche/SetR/ProjPins.lean`), which is what makes their
-  denotation and residual walks computations.  `EnvS` carries the same
-  field. -/
+  expression, which is what makes their denotation and residual walks
+  computations. -/
   proj_ok : ProjOkT env
   /-- **The install fold's `Nat`-op invariant, narrowed to what the
-  literal fast path reads** (task #161 de-gating item B3, harvest site
-  37 / list entry P7): a *stored* one of the sixteen accelerated
-  operations is a *guarded* one.
+  literal fast path reads** (task #161 B3): a *stored* one of the
+  sixteen accelerated operations is a *guarded* one.
 
-  `reduceNat` used to re-derive `natOpGuard` at every literal hit — a
-  dozen `Env.find?`s and a dependency-list build; it now tests
-  `natOpStored`, one lookup.  This field is what turns that test back
-  into the guard the R9/R10 premises name, and it is not new evidence:
-  `EnvS.nat_ops`/`EnvS.div_mod` state exactly this under their
+  `reduceNat` tests `natOpStored`, one lookup, instead of re-deriving
+  `natOpGuard` at every literal hit.  This field turns that test back
+  into the guard the literal rules name, and it is not new evidence:
+  the model's `nat_ops`/`div_mod` state exactly this under their
   `defnInfo` hypothesis (they are what `checkDecl` establishes, by
-  declining a stream that stores one of these names unguarded), and
-  `EnvS.toEnvFacts` supplies the field from them.  V-free, like every other
-  field here. -/
+  declining a stream that stores one of these names unguarded). -/
   nat_op_guard : ∀ c, (c ∈ natOpNames ∨ c ∈ natDivModNames) →
     natOpStored env c = true → natOpGuard env c = true
 
-/-! ## Two `find?` readings, at the base
-
-Both lanes use them everywhere (the P lane at twenty-one files), and
-they were declared in `SetR/EnvS.lean` only because that is where
-`EnvS` needed them first.  Relocated verbatim at task #161 S7, Wall C
-— names unchanged. -/
+/-! ## Two `find?` readings -/
 
 /-- A `find?` hit names the stored constant. -/
 theorem Env.find?_name {env : Env} {n : Name} {ci : ConstantInfo}

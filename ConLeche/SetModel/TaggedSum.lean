@@ -18,10 +18,7 @@ number of constructors other than one**: a value is the pair of a
 
 `natFibre f` is the fibre function over `ω`: `f i` at `vnat i`, junk
 (`empty`) off the numerals — never consulted there, since every member
-of `ω` is a unique numeral (`mem_omega_iff`/`vnat_inj`).  The same
-function is the **case split** the recursor performs: on a member
-`inj i a` the recursor reads `i` back through `natFibre` and applies
-the `i`-th branch to `a` (`sumRec`).
+of `ω` is a unique numeral (`mem_omega_iff`/`vnat_inj`).
 
 Both regimes ride one definition: `sigmaSet` reads `w` only through
 its zero test, so at `w = 0` the carrier is the truth value "some
@@ -60,14 +57,6 @@ theorem natFibre_of_mem (f : Nat → V) {k : V} (hk : k ∈ˢ (omega : V)) :
   obtain ⟨i, rfl⟩ := mem_omega_iff.mp hk
   exact ⟨i, rfl, natFibre_vnat f i⟩
 
-/-- Fibre functions agreeing on the numerals agree on `ω`. -/
-theorem natFibre_congr {f g : Nat → V} (h : ∀ i, f i = g i) (k : V) :
-    natFibre f k = natFibre g k := by
-  unfold natFibre
-  split
-  · rw [h]
-  · rfl
-
 /-- **The tagged sum carrier.** -/
 noncomputable def sumSet (w : Nat) (f : Nat → V) : V :=
   sigmaSet w omega (natFibre f)
@@ -75,17 +64,7 @@ noncomputable def sumSet (w : Nat) (f : Nat → V) : V :=
 /-- **The injection** of constructor `i`. -/
 noncomputable def inj (i : Nat) (a : V) : V := spair (vnat i) a
 
-/-- The recursor's case split: the branch selected by the tag, applied
-to the payload (`natFibre` over the branches). -/
-noncomputable def sumRec (r : Nat → V → V) (x : V) : V :=
-  natFibre (fun i => r i (ssnd x)) (sfst x)
-
 /-! ## Laws -/
-
-theorem sumSet_congr {w : Nat} {f g : Nat → V} (h : ∀ i, f i = g i) :
-    sumSet w f = sumSet w g := by
-  unfold sumSet
-  exact sigma_congr fun k _ => natFibre_congr h k
 
 /-- **Intro** (graph regime): the injection of a fitting payload is in
 the carrier. -/
@@ -134,9 +113,6 @@ theorem inj_inj {i j : Nat} {a b : V} (h : inj i a = inj j b) : i = j ∧ a = b 
   rw [ssnd_spair, ssnd_spair] at h2
   exact ⟨vnat_inj h1, h2⟩
 
-theorem sfst_inj (i : Nat) (a : V) : sfst (inj i a) = vnat i := sfst_spair _ _
-theorem ssnd_inj (i : Nat) (a : V) : ssnd (inj i a) = a := ssnd_spair _ _
-
 /-- **Formation** (graph regime): with every tower in `univ w`, the
 carrier is too — the tag domain `ω` sits in every `univ w` above `0`. -/
 theorem sumSet_mem_univ {w : Nat} (hw : w ≠ 0) {f : Nat → V}
@@ -154,14 +130,6 @@ theorem sumSet_zero_mem_univZero (f : Nat → V) : sumSet 0 f ∈ˢ (univZero : 
   unfold sumSet
   rw [sigmaSet_zero]
   exact truthVal_mem_univZero _
-
-/-- **Iota** for the case split — unconditional. -/
-theorem sumRec_inj (r : Nat → V → V) (i : Nat) (a : V) : sumRec r (inj i a) = r i a := by
-  unfold sumRec
-  rw [sfst_inj, ssnd_inj, natFibre_vnat]
-
-/-- **Storage hygiene**: the carrier is never the proof point. -/
-theorem sumSet_ne_pt {w : Nat} (f : Nat → V) : sumSet w f ≠ (pt : V) := sigmaSet_ne_pt
 
 /-! ## Degeneracy checks -/
 

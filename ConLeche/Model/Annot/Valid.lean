@@ -27,12 +27,11 @@ else:
   rides the identical rewrites).
 
 **Establishment is from run inversions, never a validity
-metatheorem.**  `ValidInfer` — "every inferred type has a sort" — is
-*refuted* at the application clause (`Annot/Validity.lean`, the
-`DefEq`-crossing wall), so `AnnotValid` is never established by
+metatheorem.**  "Every inferred type has a sort" is *refuted* at the
+application clause (the `DefEq`-crossing wall), so `AnnotValid` is never established by
 recursion on derivations.  It is established at the checker's own
 visit sites, where the P2 validation conjunct
-(`zeronessOf v = m.pw`, `inferTypeCore_forallE_inv`) meets the
+(`zeronessOf v = m.pw`, `inferTypeCore_forall_inv`) meets the
 run lemma's semantic sort fact; `pwBit_zero_mem_univZero` below is
 that establishment step, isolated.  Preservation is the substitution
 pair (`AnnotValid_liftN`/`AnnotValid_inst`) + the level-crossing
@@ -133,6 +132,19 @@ theorem pwBit_zero_mem_univZero {v : Level} {pw : PropWhen}
     exact (pwBit_zeronessOf φ v).mp hb
   rw [h0, univ_zero] at hx
   exact hx
+
+/-- The uniform projection spelling is bit-valid whenever its subject
+is (the projections' validity clause is hereditary). -/
+theorem projAV_validV :
+    ∀ {i : Nat} {e : AnnotTerm} {σ : Nat → V},
+      AnnotValid V σ e → AnnotValid V σ (projAV i e)
+  | 0, e, σ, h => by
+    show AnnotValid V σ (.fst e)
+    rw [AnnotValid_fst]
+    exact h
+  | i + 1, e, σ, h => by
+    show AnnotValid V σ (projAV i (.snd e))
+    exact projAV_validV (by rw [AnnotValid_snd]; exact h)
 
 /-! ## Preservation: the substitution pair
 

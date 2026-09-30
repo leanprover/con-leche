@@ -10,17 +10,25 @@ declare `main`, so they cannot be imported into one environment),
 chooses the seeds, walks the graph, and classifies what is left against
 the sources.
 
-    scripts/dead-census.py [--out DIR] [--skip-lean]
+    scripts/dead-census.py [--out DIR] [--skip-lean] [--candidates FILE]
 
 ## LIVE = the union of
 
-* the **seven capstone roots** of `tests/ProofDeps.lean` — the
-  statements the project exists to make;
+* the **capstone roots** (CAPSTONES below), the theorems
+  `comparator.json` names, and every `theorem`/`def` the README links
+  by name (``[`theorem X`](…)``) — the statements the project exists to
+  make — and every declaration an OVERVIEW link names (its first
+  backticked identifier, resolved in the linked module: the tour cites
+  results no capstone is a corollary of, e.g. `parseChunks_ok_parseBytes`);
 * the **executable closure**: `main`, in each of the two environments;
 * everything the **test suite** (`ConLecheTests*`), the **Challenge**
-  module and the **pin certificates** (`ConLeche.PinGen.Certs`, read by
+  module, the **parked completeness work** (`ConLeche/Complete/*`: results,
+  not corollaries — kept, and what they use with them) and the **pin
+  certificates** (`ConLeche.PinGen.Certs`, read by
   name out of the built olean at pin-generation time — no static walk
   can see that) declare;
+* every raw pin an **`#annotate_basis`/`#annotate_pins`** command names
+  (read by name at elaboration time, like the pin certificates);
 * every **`@[csimp]`** theorem (reached by nothing, and what makes a
   fast twin reachable at all) and, through the graph's own extra edges,
   the `@[implemented_by]` targets;
@@ -44,6 +52,35 @@ the sources.
    Only a reader can tell those apart; #209's rule stands — "imported
    by nothing" is not a dead-code criterion in a verification tree.
 
+## THE CHALLENGE IS ITS OWN ENVIRONMENT (lane GATEFIX)
+
+`ConLeche/Challenge.lean` restates `model_exists` and
+`no_False_declaration` under the SAME names as `ConLeche/MainTheorem.lean`
+(it is the challenge half of the Comparator pair), so the two cannot share
+an environment: `importModules` either rejects the pair (when the two
+statements differ — a stale Challenge olean, since `lake build` does not
+build it) or silently keeps the first-imported copy (identical theorem
+statements are tolerated), which made the census walk the Challenge's
+`sorry` in place of the main theorem's proof.  The Challenge therefore gets
+a third pass of its own; the driver builds it (and the test library) first.
+
+## DEAD = DELETABLE TOGETHER (lane GATEFIX, after DNEW-B's fixpoint)
+
+Name-level DEAD is closed under users by construction (a user of a dead
+constant is dead), but it is not a deletion set: equation lemmas, match
+auxiliaries, projections and constructors are not written in the source,
+and a dead FIELD of a live structure cannot be cut on its own.  The
+driver therefore folds every constant into its OWNER — the longest prefix
+of its (de-privatised) name that is a source declaration of its own
+module — and works at owner level: an owner is dead when none of its
+constants is live.  The DELETION SET is then the fixpoint of the dead
+owners (or of `--candidates FILE`, one name per line, intersected with
+them) under two rules (DNEW-B's): an owner used by an owner outside the
+set is held back, and a `@[simp]` owner is held back unless its whole
+module goes (a `simp` use leaves no trace in the proof term).  Over the
+full dead set the first rule never fires; with `--candidates` it is what
+makes a partial deletion safe.
+
 ## OUTPUT (default `_tmp/deadcode/`)
 
     census.tsv     name / module / kind / live       (the joined passes)
@@ -59,6 +96,9 @@ the sources.
                    (equation lemmas, `.rec`, match auxiliaries,
                    anonymous instances)
     modules.txt    modules with no live declaration at all
+    deletable.txt  the deletion set: owner / module / constants folded in
+    held.txt       dead owners (or candidates) held back, with the reason
+    deletable-modules.txt  modules every owner of which is in the set
     summary.txt    the counts
 """
 
@@ -74,7 +114,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 TEXT_EXT = (".lean", ".sh", ".py", ".md", ".toml", ".json", ".txt")
 SKIP_DIRS = {".lake", ".git", "_tmp", "perf-data", "pins", "bridge", "_probe"}
 
-MODIFIERS = (r"(?:public\s+|private\s+|protected\s+|partial\s+|noncomputable\s+"
+MODIFIERS = (r"(?:public\s+|private\s+|protected\s+|partial\s+|noncomputable\s+|meta\s+"
              r"|unsafe\s+|scoped\s+|local\s+|nonrec\s+)*")
 DECL_RE = re.compile(
     r"^\s*" + MODIFIERS +
@@ -113,18 +153,65 @@ CAPSTONES = [
     "ConLeche.Model.no_proof_of_Empty_pure",
 ]
 SEED_MODULE_PREFIXES = ("ConLecheTests", "ConLeche.Challenge",
-                        "ConLeche.PinGen.Certs")
+                        "ConLeche.PinGen.Certs", "ConLeche.Complete")
+CHALLENGE = "ConLeche.Challenge"
+README_LINK_RE = re.compile(r"\[`(?:theorem|def)\s+([A-Za-z_][A-Za-z0-9_'!?.]*)`\]"
+                            r"\(https://[^)]*?/blob/[^/]+/([^#)]+)\.lean")
+# OVERVIEW's links name their target more freely ("theorem `X` in `path`",
+# "the list `X` in …", "`X`'s account in …"): the first backticked
+# identifier of a link text into a `.lean` file, when the linked module
+# declares it (a text naming a file or a prose topic resolves to nothing
+# and seeds nothing).
+OVERVIEW_LINK_RE = re.compile(r"\[[^\]`]*`([A-Za-z_][A-Za-z0-9_'!?.]*)`[^\]]*\]"
+                              r"\(https://[^)]*?/blob/[^/]+/([^#)]+)\.lean")
+
+
+def doc_seeds():
+    """the theorems `comparator.json` names (full names), and the README's
+    by-name links as (short name, module) pairs, resolved against the graph"""
+    names, links = set(), set()
+    try:
+        import json
+        cj = json.load(open(os.path.join(ROOT, "comparator.json")))
+        names |= set(cj.get("theorem_names", [])) | set(cj.get("definition_names", []))
+    except OSError:
+        pass
+    try:
+        links |= {(n, path.replace("/", "."))
+                  for n, path in README_LINK_RE.findall(open(os.path.join(ROOT, "README.md")).read())}
+    except OSError:
+        pass
+    soft = set()
+    try:
+        soft |= {(n, path.replace("/", "."))
+                 for n, path in OVERVIEW_LINK_RE.findall(open(os.path.join(ROOT, "OVERVIEW.md")).read())}
+    except OSError:
+        pass
+    return names, links, soft
 
 
 def lean_modules():
+    """every module under `ConLeche/` but the Challenge (its own pass)"""
     mods = ["ConLeche"]
     for dirpath, dirnames, filenames in os.walk(os.path.join(ROOT, "ConLeche")):
         dirnames.sort()
         for fn in sorted(filenames):
             if fn.endswith(".lean"):
                 rel = os.path.relpath(os.path.join(dirpath, fn), ROOT)
-                mods.append(rel[:-5].replace("/", "."))
+                m = rel[:-5].replace("/", ".")
+                if m != CHALLENGE:
+                    mods.append(m)
     return mods
+
+
+def build():
+    """the passes read built oleans: the default targets, and the two
+    libraries `lake build` leaves out (the tests, the Challenge)"""
+    for cmd in (["lake", "build"], ["lake", "build", "ConLecheTests", CHALLENGE]):
+        r = subprocess.run(cmd, cwd=ROOT, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        if r.returncode != 0:
+            sys.stderr.write(r.stdout.decode()[-4000:])
+            sys.exit(1)
 
 
 def run_lean(mods, out_path):
@@ -145,9 +232,9 @@ def read_pass(path):
             if parts[0] == "#csimp":
                 csimp.add(parts[1])
                 continue
-            if len(parts) != 4:
+            if len(parts) < 4:
                 continue
-            name, mod, kind, deps = parts
+            name, mod, kind, deps = parts[:4]
             graph[name] = deps.split() if deps else []
             info[name] = (mod, kind)
     return graph, info, csimp
@@ -160,6 +247,30 @@ def module_file(mod):
 def suffixes(name):
     parts = name.split(".")
     return [".".join(parts[i:]) for i in range(len(parts))]
+
+
+# `#annotate_basis`/`#annotate_pins` (`Kernel/BasisGen.lean`) read their
+# raw pins BY NAME at elaboration time (`| xA := xRaw`), like the pin
+# certificates: the olean records no edge, so every identifier the command
+# names (the raw pins, the `over` environment) is a seed, resolved in the
+# invoking module.
+ANNOTATE_RE = re.compile(r"^#annotate_\w+[^\n]*(?:\n[ \t]+[^\n]*)*", re.M)
+ANNOTATE_RHS_RE = TOKEN_RE
+
+
+def annotate_seeds():
+    """(short name, module) for every raw pin an `#annotate_*` command names"""
+    out = set()
+    for dirpath, dirnames, filenames in os.walk(os.path.join(ROOT, "ConLeche")):
+        for fn in filenames:
+            if not fn.endswith(".lean"):
+                continue
+            path = os.path.relpath(os.path.join(dirpath, fn), ROOT)
+            text = open(os.path.join(ROOT, path), errors="replace").read()
+            mod = path[:-len(".lean")].replace("/", ".")
+            for block in ANNOTATE_RE.findall(text):
+                out |= {(n, mod) for n in ANNOTATE_RHS_RE.findall(block)}
+    return out
 
 
 def source_index():
@@ -227,30 +338,58 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--out", default="_tmp/deadcode")
     ap.add_argument("--skip-lean", action="store_true",
-                    help="reuse the two raw passes already in --out")
+                    help="reuse the three raw passes already in --out")
+    ap.add_argument("--candidates", metavar="FILE",
+                    help="restrict the deletion set to these names (one per line)")
     args = ap.parse_args()
     out = os.path.join(ROOT, args.out)
     os.makedirs(out, exist_ok=True)
 
     p1 = os.path.join(out, "pass-main.tsv")
     p2 = os.path.join(out, "pass-pindump.tsv")
+    p3 = os.path.join(out, "pass-challenge.tsv")
     if not args.skip_lean:
-        run_lean(lean_modules() + ["Main", "ConLecheTests", "ConLeche.Challenge"], p1)
+        build()
+        run_lean(lean_modules() + ["Main", "ConLecheTests"], p1)
         run_lean(lean_modules() + ["PinDump"], p2)
+        run_lean([CHALLENGE], p3)
 
     graph, info, csimp = read_pass(p1)
-    g2, i2, c2 = read_pass(p2)
-    for n, ds in g2.items():
-        if n in graph:
-            graph[n] = sorted(set(graph[n]) | set(ds))
-        else:
-            graph[n], info[n] = ds, i2[n]
-    csimp |= c2
+    for extra in (p2, p3):
+        g2, i2, c2 = read_pass(extra)
+        for n, ds in g2.items():
+            if n in graph:
+                graph[n] = sorted(set(graph[n]) | set(ds))
+            else:
+                graph[n], info[n] = ds, i2[n]
+        csimp |= c2
+    challenge_decls = {n for n, (mod, _k) in read_pass(p3)[1].items() if mod == CHALLENGE}
+    clash = sorted(n for n in challenge_decls if info[n][0] != CHALLENGE)
+    if clash:
+        sys.stdout.write(f"challenge/main clash (kept apart, main's module recorded): "
+                         f"{' '.join(clash)}\n")
 
     decls, attrs, registered, elab_files, tokens = source_index()
 
     # ---- seeds -------------------------------------------------------
-    seeds = set(CAPSTONES) | csimp
+    comparator, links, overview = doc_seeds()
+    named_seeds = set(CAPSTONES) | comparator
+    missing = sorted(n for n in named_seeds if n not in graph)
+    for short, mod in sorted(links):
+        hits = {n for n, (m, _k) in info.items()
+                if m == mod and (n == short or n.endswith("." + short))}
+        if hits:
+            named_seeds |= hits
+        else:
+            missing.append(f"{short} (README link into {mod})")
+    for short, mod in sorted(overview | annotate_seeds()):
+        named_seeds |= {n for n, (m, _k) in info.items()
+                        if m == mod and (n == short or n.endswith("." + short))}
+    if missing:
+        sys.stderr.write("dead-census: seed names that no longer exist: "
+                         + " ".join(missing) + "\n")
+        sys.exit(1)
+    seeds = named_seeds | csimp | challenge_decls
     seeds.add("main")
     for n, (mod, _kind) in info.items():
         own = module_file(mod)
@@ -264,6 +403,15 @@ def main():
             if s in decls:
                 break
     seeds &= set(graph)
+
+    # a `partial def f` is an opaque constant whose code is `f._unsafe_rec`;
+    # the dump has no edge between them, so a live `f` would leave its
+    # body's callees dead
+    for n in list(graph):
+        if n.endswith("._unsafe_rec"):
+            parent = n[: -len("._unsafe_rec")]
+            if parent in graph:
+                graph[parent] = sorted(set(graph[parent]) | {n})
 
     # ---- closure -----------------------------------------------------
     live, todo = set(), list(seeds)
@@ -328,6 +476,99 @@ def main():
         for m in empty_mods:
             fh.write(f"{m}\t{per_mod_dead[m]}\n")
 
+    # ---- owners, and the deletion set -------------------------------
+    def has_source(name):
+        mod = info[name][0]
+        u = name
+        pp = "_private." + mod + ".0."
+        if u.startswith(pp):
+            u = u[len(pp):]
+        own = module_file(mod)
+        return any(own in decls.get(x, ()) for x in suffixes(u))
+
+    def owner(name, depth=0):
+        """a source declaration owns itself; a generated constant (an
+        equation lemma, a matcher, a projection, a constructor — realised
+        in whatever module first needed it) is owned by the owner of its
+        longest proper prefix that is a constant of ours"""
+        if has_source(name):
+            return name
+        pp = "_private." + info[name][0] + ".0."
+        u = name[len(pp):] if name.startswith(pp) else name
+        parts = u.split(".")
+        for k in range(len(parts) - 1, 0, -1):
+            pre = ".".join(parts[:k])
+            # a lemma realised in the private scope names a public
+            # constant's `_private` twin, and vice versa
+            for c in (pp + pre, pre):
+                if c in info and depth < 8:
+                    return owner(c, depth + 1)
+        return None
+
+    own_of = {n: owner(n) for n in info}
+    members = defaultdict(set)
+    for n, o in own_of.items():
+        members[o or n].add(n)
+    owner_mod = {o: info[next(iter(ns))][0] for o, ns in members.items()}
+    # Lean SHARES a matcher (`f.match_3`, its `_sparseCasesOn`, `splitter`
+    # and equations) with every later definition that matches on the same
+    # patterns, so a matcher's liveness or users say nothing about `f`: a
+    # deleted `f`'s matcher is simply re-created by the next user.
+    def is_matcher(n):
+        return any(c.startswith(("match_", "_sparseCasesOn"))
+                   for c in n.split(".")[1:])
+
+    live_owner = {o for o, ns in members.items()
+                  if ((o in live) if (o in info and has_source(o)) else (ns & live))}
+    users = defaultdict(set)
+    for n, ds in graph.items():
+        on = own_of.get(n) or n
+        for d in ds:
+            od = own_of.get(d) or d
+            if od != on and not is_matcher(d):
+                users[od].add(on)
+
+    def is_simp(o):
+        own = module_file(owner_mod[o])
+        return any("simp" in attrs.get((x, own), ()) for x in suffixes(o))
+
+    held = {}
+    sourced = {o for o in members if o in info and has_source(o)}
+    cand = {o for o in sourced if o not in live_owner}
+    if args.candidates:
+        want = {l.strip() for l in open(args.candidates) if l.strip()}
+        want_own = {own_of.get(w) or w for w in want}
+        for w in sorted(want_own):
+            if w not in members:
+                held[w] = "unknown name"
+            elif w in live_owner:
+                held[w] = "live"
+        cand &= want_own
+    S = set(cand)
+    mod_owners = defaultdict(set)
+    for o in members:
+        mod_owners[owner_mod[o]].add(o)
+    while True:
+        changed = False
+        for o in sorted(S):
+            out_users = sorted(u for u in users[o] if u not in S)
+            if out_users:
+                S.discard(o); held[o] = "used by " + " ".join(out_users[:3]); changed = True
+            elif is_simp(o) and not mod_owners[owner_mod[o]] <= S:
+                S.discard(o); held[o] = "@[simp], module survives"; changed = True
+        if not changed:
+            break
+    with open(os.path.join(out, "deletable.txt"), "w") as fh:
+        for o in sorted(S):
+            fh.write(f"{o}\t{owner_mod[o]}\t{len(members[o])}\n")
+    with open(os.path.join(out, "held.txt"), "w") as fh:
+        for o in sorted(held):
+            fh.write(f"{o}\t{owner_mod.get(o, '?')}\t{held[o]}\n")
+    whole = sorted(m for m, os_ in mod_owners.items() if os_ <= S)
+    with open(os.path.join(out, "deletable-modules.txt"), "w") as fh:
+        for m in whole:
+            fh.write(m + "\n")
+
     summary = (
         f"constants (ours):  {len(info)}\n"
         f"live:              {len(live)}\n"
@@ -337,6 +578,9 @@ def main():
         f"  hard candidates: {len(hard)}\n"
         f"  soft candidates: {len(soft)}\n"
         f"modules with no live declaration: {len(empty_mods)}\n"
+        f"owners:            {len(members)} ({len(live_owner)} live)\n"
+        f"deletion set:      {len(S)} owners, {sum(len(members[o]) for o in S)} constants"
+        f" ({len(held)} held back); {len(whole)} modules whole\n"
     )
     with open(os.path.join(out, "summary.txt"), "w") as fh:
         fh.write(summary)

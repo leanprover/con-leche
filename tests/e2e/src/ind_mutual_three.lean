@@ -12,17 +12,13 @@
      spells `α`'s domain through `id` and its sort as `max 1 1`, and
      carries an INDEX; three members with cross recursion
      (`TA.mk … (t : TB α β)`, `TB.mk … (c : TC α β n)`, `TC.mk … (a : TA α β)`),
-     `TA` structure-like (its projection artifacts at a large
-     eliminator), `TB` with two constructors;
+     `TA` structure-like, `TB` with two constructors;
    * `PA : Prop`, `PB : Sort (max 0 0)` — a Prop pair with the small
      eliminator, cross recursion and a nullary constructor.
 
    Official compares the parameter domains with `is_def_eq` and the
    sorts with `is_equivalent` (`check_inductive_types`, inductive.cpp:230
-   and :250) and accepts.  con-leche's modeller (task #218) builds the tag
-   and the auxiliary family over the FIRST member's telescope and sort and
-   emits every public slot at the member's own declared type; the fold's
-   typing of those slots is the comparison, and the block accepts.
+   and :250) and accepts; so does con-leche.
 
    The blocks are added through the probe kit (`debug.skipKernelTC` for
    the theorems, `add_inductive` proper for the blocks) so the spellings
@@ -31,7 +27,7 @@
    dependency of the block's first member (the arena's official checker
    replays constants by dependency).
 
-   official: 0.  con-leche: 0 (both modes; sibling twins
+   official: 0.  con-leche: 0 (sibling twins
    ind_mutual_param_bad / ind_mutual_sort_bad reject with 1). -/
 
 import Lean

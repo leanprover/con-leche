@@ -46,16 +46,12 @@ theorem Reach.keeps {st st' : StateD} (h : Reach st st') : Keeps st st' := by
 
 /-! ## The initial state -/
 
-theorem init_names (inModel census : Bool) :
-    (StateD.init inModel census).names = IdTable.singleton .anonymous := rfl
+theorem init_names :
+    StateD.init.names = IdTable.singleton .anonymous := rfl
 
 /-! ## The bytes of a file that matches the template -/
 
 theorem lit_nl : lit "\n" = [10] := by rw [lit_eq_toByteArray]; decide
-
-/-- The bytes of a string's UTF-8 are its literal's. -/
-theorem toUTF8_toList (s : String) : s.toUTF8.data.toList = lit s := by
-  rw [String.toUTF8_eq_toByteArray, lit_eq_toByteArray]
 
 /-! ## Cutting the template up
 
@@ -176,11 +172,11 @@ theorem parseLines_template {st st' : StateD} {n : Nat}
 parse, parse to records holding a theorem record of type `False`. -/
 theorem parseChunks_jsonWithTheoremFalse {chunks : List ByteArray}
     (h : jsonWithTheoremFalse chunks)
-    {inModel census : Bool} {r : ParseResultD}
-    (hp : parseChunks chunks inModel census = .ok r) :
+    {r : ParseResultD}
+    (hp : parseChunks chunks = .ok r) :
     ∃ cv vl, cv.type = .const falseName [] ∧ Declaration.thmDecl cv vl ∈ r.decls := by
   have hsz := parseChunks_ok_size hp
-  rw [parseChunks_eq_parseLines inModel census chunks hsz] at hp
+  rw [parseChunks_eq_parseLines chunks hsz] at hp
   obtain ⟨before, b₁, b₂, b₃, after, name, i, j, k, v, heq⟩ := h
   -- the bytes: the parts and the four lines, each ended by its newline
   have hb : bytes (concatBytes chunks) = lit before ++ 10 ::
@@ -197,13 +193,13 @@ theorem parseChunks_jsonWithTheoremFalse {chunks : List ByteArray}
       Array.toList_append, ← lit_eq_toByteArray, lit_append, lit_nl, List.append_assoc,
       List.cons_append, List.nil_append]
   rw [hb] at hp
-  cases hpl : parseLines (.init inModel census) _ 0 with
+  cases hpl : parseLines .init _ 0 with
   | error e => rw [hpl] at hp; simp [Except.map] at hp
   | ok st' =>
     rw [hpl] at hp
     simp only [Except.map, Except.ok.injEq] at hp
     subst hp
-    have h0 : (StateD.init inModel census).names.get? 0 = some .anonymous := by
+    have h0 : StateD.init.names.get? 0 = some .anonymous := by
       rw [init_names, IdTable.get?_singleton]; rfl
     obtain ⟨cv, vl, hty, hmem⟩ := parseLines_template _ _ _ _ _ i j k v name hpl h0
     exact ⟨cv, vl, hty, hmem⟩

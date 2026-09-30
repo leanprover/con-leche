@@ -164,7 +164,7 @@ jobs:
             exit 1
           fi
 
-      # THE WHITEPAPER FRAGMENT (task #323): the paper's own Lean
+      # THE WHITEPAPER FRAGMENT (task #324): the paper's own Lean
       # verification is a library off the default targets, so the build
       # above never touches it; its gate builds it warning-free and its
       # axiom pin is a `#guard_msgs` in the library's root.  Here, not in

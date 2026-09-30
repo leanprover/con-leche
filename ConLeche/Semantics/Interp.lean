@@ -28,7 +28,7 @@ Three properties, each a design constraint rather than an observation:
   level, so `⟦fun (x : ∀ p : Prop, p) => Prop⟧ = pt` and guarded beta
   produces `app pt univZero = pt ≠ univZero`.  Here
   `⟦fun (x : A) => e⟧` with a `Type`-sorted body is a graph over `⟦A⟧`
-  whatever `⟦A⟧` is, empty included (`lamR_pos_empty`).
+  whatever `⟦A⟧` is, empty included (`lamR_pos`).
 
 The clauses in one line each:
 
@@ -180,5 +180,15 @@ noncomputable def interp : (Nat → V) → AnnotTerm → V
 @[simp] theorem interp_snd (ρ : Nat → V) (e : AnnotTerm) :
     interp V ρ (.snd e) = ssnd (interp V ρ e) := rfl
 @[simp] theorem interp_prf (ρ : Nat → V) : interp V ρ .prf = pt := rfl
+
+variable {V} in
+/-- `interp` of an application spine, as a `map`-then-`foldl`. -/
+theorem interp_mkAppN_foldl (ρ : Nat → V) :
+    ∀ (f : AnnotTerm) (es : List AnnotTerm),
+      interp V ρ (AnnotTerm.mkAppN f es) = (es.map (interp V ρ)).foldl SetTheory.app (interp V ρ f)
+  | _, [] => rfl
+  | f, e :: es => by
+    rw [AnnotTerm.mkAppN_cons, interp_mkAppN_foldl ρ (.app f e) es]
+    rfl
 
 end ConLeche.Semantics

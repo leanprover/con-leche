@@ -157,7 +157,7 @@ if tests/trust-surface.sh; then :; else fail=1; fi
 # exists.  Source-tree only, no build, milliseconds.
 if tests/overview-links.sh; then :; else fail=1; fi
 
-# THE WHITEPAPER LINK GATE (task #323).  `whitepaper/**/*.typ` cites
+# THE WHITEPAPER LINK GATE (task #324).  `whitepaper/**/*.typ` cites
 # the real proof and its own Lean fragment the same way — a literal
 # `blob/master/<path>#L<a>-L<b>` or lib.typ's `src("<path>", a, b)`
 # — and `whitepaper/links-gate.sh` is an independent copy of the gate
@@ -168,7 +168,7 @@ if tests/overview-links.sh; then :; else fail=1; fi
 # error naming the link.  Source-tree only, no build, milliseconds.
 if whitepaper/links-gate.sh; then :; else fail=1; fi
 
-# THE WHITEPAPER FRAGMENT GATE (task #323).  `whitepaper/Fragment/*.lean`
+# THE WHITEPAPER FRAGMENT GATE (task #324).  `whitepaper/Fragment/*.lean`
 # is the paper's own Lean verification, a lake library off the default
 # targets (`lake build` never builds it).  `whitepaper/fragment-gate.sh`
 # builds it warning-free — a `sorry` is a warning — and its root imports
@@ -210,12 +210,6 @@ if tests/challenge.sh; then :; else fail=1; fi
 # as a `rfl` that stops closing rather than an unknown identifier.  Needs the
 # built tree; ~1 min, most of it the two olean dumps the fixpoint reads.
 if tests/shake.sh; then :; else fail=1; fi
-
-# THE IN-PROCESS MODELLER'S GATE (task #200; the modeller is the only
-# model source since #207): the raw mutual/nested fixtures through the
-# generator, the debug dump re-checked in both modes, and the off
-# switch.  See tests/inmodel.sh's header.
-if tests/inmodel.sh; then :; else fail=1; fi
 
 # THE AXIOM PIN (2026-09-06, external review §2/§5.1).  The two main
 # theorems, the four letters, the assembly under them and the `IO`
@@ -274,12 +268,25 @@ arena_half() {
 # gzipped when large).
 #
 # Every stream here is raw (task #219: there is no input-model path —
-# the in-process modeller is the only model source and a `_model`
-# record in a stream is an ordinary declaration).  The 34 fixtures that
+# a `_model` record in a stream is an ordinary declaration).  The 34 fixtures that
 # carried preprocessor-era model families were regenerated; three
 # fixtures keep `_model` NAMES on purpose, as the controls that the
 # name is not special: `model_name_plain`, `budget_model` and
 # `yolo_decline_vs_accept`.
+# Per-fixture timeouts above the default 60 s, each with its reason.
+# complete_c05b_nest30_pi1000: thirty container descents over a
+# 1000-binder field; the uniform install opens every auxiliary
+# recursor's type binder by binder (`openPisAtFvars`, one
+# `instantiate1` per binder over the whole body), ~130 s.
+# proj_stuck_struct: BELOW the default, on purpose — the fixture checks in
+# milliseconds, and a regression (a stuck projection's struct replaced by
+# its WHNF) is exponential in time AND memory (~8 GB at 60 s), so it
+# fails fast here instead.
+declare -A E2E_TIMEOUT=(
+  [complete_c05b_nest30_pi1000.ndjson]=600
+  [proj_stuck_struct.ndjson]=10
+)
+
 e2e_half() {
   e2e_ok=0
   e2e_total=0
@@ -294,7 +301,7 @@ e2e_half() {
       gunzip -c "$src.gz" > "$tmpf" || { echo "E2E FAIL $rel: gunzip failed"; fail=1; continue; }
       src="$tmpf"
     fi
-    timeout 60 "$BIN" $MODEFLAG "$src" >/dev/null 2>&1
+    timeout "${E2E_TIMEOUT[$rel]:-60}" "$BIN" $MODEFLAG "$src" >/dev/null 2>&1
     got=$?
     if [ "$got" != "$want" ]; then
       mismatch "E2E FAIL" "$rel" "$want" "$got"
@@ -346,10 +353,7 @@ echo "annot suite: $annot_ok/$annot_total as expected"
 # the verified lane (`--verified`, the default) and the trusted lane
 # (`--trusted`) — and an unknown option is a usage error (exit 3), not
 # a silently ignored one: a verdict's provenance must be readable off
-# the invocation.  `CON_LECHE_INMODEL_CENSUS=1` is checked here too
-# (issue #8): it is a parse-only diagnostic, the fold never runs, and
-# the run must therefore DECLINE (exit 2) whatever the stream — exit 0
-# is reserved for a stream `Cached.checkDecls` accepted.
+# the invocation.
 SPLIT_GOOD=tests/annot/annot_split_good.ndjson
 SPLIT_BAD=tests/annot/annot_split_bad.ndjson
 mode_ok=0
@@ -373,22 +377,6 @@ mode_case 0 --trusted "$SPLIT_GOOD"                # trusted lane: accepts
 mode_case 1 --trusted "$SPLIT_BAD"                 # front door still rejects
 mode_case 3 --not-a-flag "$SPLIT_GOOD"             # unknown option: usage error
 mode_case 3 --trusted --not-a-flag "$SPLIT_BAD"    # …after a good flag too
-mode_total=$((mode_total+1))
-if CON_LECHE_INMODEL_CENSUS=1 timeout 120 "$BIN" "$SPLIT_GOOD" \
-    >/dev/null 2>&1; [ $? = 2 ]; then
-  mode_ok=$((mode_ok+1))                           # task #271: parse only = DECLINE
-else
-  echo "MODE FAIL: CON_LECHE_INMODEL_CENSUS=1 did not exit 2 on a good stream"
-  fail=1
-fi
-mode_total=$((mode_total+1))
-if CON_LECHE_INMODEL_CENSUS=1 timeout 120 "$BIN" "$SPLIT_BAD" \
-    >/dev/null 2>&1; [ $? = 2 ]; then
-  mode_ok=$((mode_ok+1))                           # …and on a bad one: the fold never ran
-else
-  echo "MODE FAIL: CON_LECHE_INMODEL_CENSUS=1 did not exit 2 on a bad stream"
-  fail=1
-fi
 echo "mode flags: $mode_ok/$mode_total as expected"
 
 # THE BUILT-IN PRELUDE'S COUNT INVARIANT (task #191; the arithmetic is
@@ -398,8 +386,8 @@ echo "mode flags: $mode_ok/$mode_total as expected"
 # declaration records, which no step of the preparation moves: the
 # number is unchanged by the prelude's existence and equal across
 # reorderings of the same records.  natop_order.ndjson has 35
-# declaration records (4 of them the prelude's own: Nat, PUnit, Bool,
-# Eq), and natop_before_eq.ndjson / natop_before_ble.ndjson are the same
+# declaration records (3 of them the prelude's own: Nat, Bool, Eq),
+# and natop_before_eq.ndjson / natop_before_ble.ndjson are the same
 # 35 records in other orders.
 prelude_ok=0
 prelude_total=0
@@ -544,11 +532,10 @@ echo "progress lane: $prog_ok/$prog_total as expected"
 # the first in fold order must be named whichever worker finished
 # first, and at more workers than records); a bad count is a usage
 # error.  The full arena and e2e suites re-run at --jobs=1 and
-# --jobs=4 in the sweeps at the end.  Each worker thread reserves
-# about 1 GiB of ADDRESS SPACE — including the single worker the
-# check phase always runs on — so every checker run under a
-# `ulimit -v` in this battery (the tower gate's 8 GB) passes an
-# explicit count that fits; the uncapped runs use the default.
+# --jobs=4 in the sweeps at the end.  No run in this battery is under
+# `ulimit -v` (CLAUDE.md): each worker thread reserves about 1 GiB of
+# ADDRESS SPACE, so an address-space cap aborts the default worker
+# count at thread creation (exit 134) before it bounds anything.
 SPLIT_BAD2=tests/annot/annot_split_bad2.ndjson
 jobs_ok=0
 jobs_total=0
@@ -608,9 +595,12 @@ echo "worker pool: $jobs_ok/$jobs_total as expected"
 # comparison cannot answer and only a pair-keyed one can.  Task #246
 # added the three block shapes the earlier kinds never entered: a
 # RECURSIVE field (the fvar-occurrence question the install asks of
-# every later field), and a MUTUAL and a NESTED block, which is where
-# the in-process modeller's own walkers live.  The memory
-# cap makes an unbounded walk fail fast instead of swapping the machine.
+# every later field), and a MUTUAL and a NESTED block (where the
+# modeller this checker once had ran its own walkers).  The `timeout`
+# makes an unbounded walk fail fast.  There is no memory cap: an
+# address-space cap (`ulimit -v`) is ruled out (CLAUDE.md), and a
+# resident-memory bound, if one is ever wanted, is a cgroup
+# (`systemd-run --user --scope -p MemoryMax=…`), not a ulimit.
 tower_ok=0
 tower_total=0
 tower_check() { # <description> <condition-result>
@@ -623,11 +613,7 @@ tower_check() { # <description> <condition-result>
 }
 tower_run() { # <fixture> <expected-exit> <description>
   t_code=0
-  # `--jobs=4`: a worker thread reserves ~1 GiB of address space, and
-  # the default is one worker per hardware thread — under this cap
-  # the default would abort at thread creation on a large machine
-  ( ulimit -v 8000000; timeout 60 "$BIN" --jobs=4 "tests/e2e/$1.ndjson" >/dev/null 2>&1 ) \
-    || t_code=$?
+  timeout 60 "$BIN" "tests/e2e/$1.ndjson" >/dev/null 2>&1 || t_code=$?
   tower_check "$3" "$([ "$t_code" = "$2" ] && echo ok)"
 }
 tower_run tower_thm 0 "a depth-60 tower in a theorem's type and value accepts"

@@ -9,15 +9,12 @@ public section
 tier)
 
 The statements (`TeleFit`, `projSpines`/`etaFabArgsV`, `EtaLaw`,
-`UnitLaw`, `CapsOk`) live in `Annot/EnvModelM.lean` beside `NatOps`,
+`UnitLaw`, `CapsOk`) live in `Annot/Laws.lean` beside `NatOps`,
 `DivMod` and `EqLaw` — the `EnvModelM` field `caps_ok` must mention
-them, and `EnvModelM` is upstream of everything in `Interp/`.  This file
-is the *preservation* half: `capsOk_cons_fresh`, the obligation every
+them.  This file is the *preservation* half: `capsOk_cons_fresh`, the obligation every
 value-kind harvest discharges.
 
-The shape is `CapsOkV.cons`'s non-head case (`Install/Cons.lean:204`)
-at the P currency, with one addition the value currency does not have:
-the law **carries the instantiated former type's reading**, so the
+The law **carries the instantiated former type's reading**, so the
 crossing must move that reading forward too
 (`denoteMeta_cons_fresh_mono`, on `ConstsBound` of the instantiated type
 — `constsBound_instType`).  Everything else is `acvalWith_ne` at the
@@ -50,9 +47,8 @@ variable {μ : CheckMode} {env : Env}
 
 /-! ## The instantiated former type is prefix-bound
 
-`CapsOkV.cons` needs the same fact one currency over and gets it from
-`Expr.constsResolve_instantiateLevelParams`; the P side needs it as a
-`ConstsBound`, which is that lemma composed with
+The law needs it as a `ConstsBound`:
+`Expr.constsResolve_instantiateLevelParams` composed with
 `constsBound_of_constsResolve`. -/
 
 /-- **A stored constant's level-instantiated type is prefix-bound.**
@@ -116,43 +112,26 @@ theorem etaFamilyStored_descend {c₀ : ConstantInfo} {T : Name}
     rw [hdown _ (hnP j hj)] at hf2
     exact ⟨cv2, mI2, rP2, rules2, hf2⟩
 
-/-! ## THE CAPS TIER'S NAMED WALL: the unit half's `EtaFamilyStored`
-premise is not consumable
+/-! ## Why the unit half of `CapsOk` carries no `EtaFamilyStored` premise
 
-`CapsOk`'s docstring says the field is "keyed identically" to
-`CapsOkV` (`Sound/Motives.lean:305`).  It is not: the **unit half**
-gained a fourth premise, `EtaFamilyStored env T caps`, that the v1
-field does not have — and neither does `DefEq.structUnit`
-(`Rel.lean:759`) nor the install-side obligation `MemberUnitS`
-(`Install/IndMembersS.lean:67`), both of which key the unit law on
-exactly `find? = indInfo`, `unitlike`, `¬reserved`.
-
-The premise makes the field **unusable by its own consumer**.
-`StructUnitIrrel`'s only evidence is `structUnitCertFueled`'s verdict, and
-`structUnitCert_inv` (`Verify/InferLemmas.lean:2305`) yields nine
+`DefEq.structUnit` (`Rules/Rel.lean`) keys the unit law on exactly
+`find? = indInfo`, `unitlike`, `¬reserved`, and an `EtaFamilyStored env
+T caps` premise would make the field **unusable by its own consumer**.
+The unit law's only evidence is `structUnitCertFueled`'s verdict, and
+`structUnitCert_inv` (`Verify/InferLemmas.lean`) yields nine
 facts, *none* of which mentions `caps.etaCtor` or `projFnName T j`:
 the certificate never looks at a constructor or a projection.  Nor is
 the premise derivable from the environment: `EtaFamilyStored` is a
 statement about what is *stored* under two name families that an
 `indInfo` entry's `caps` record merely *names*, and `EnvWF` relates
-the two not at all.  `indBlockCaps` (`Inductives/Modeled.lean:713`)
+the two not at all.  `blockCapsAt` (`Kernel/Inductives/BlockInstall.lean`)
 computes `eta` and `unitlike` by two independent checks, so a
 `unitlike`-but-not-`eta` family — whose projection indices install as
 elimination *templates* (`projInfo`), not projection functions
 (`recInfo`) — is exactly the shape the premise excludes and the
 certificate accepts.
 
-`etaFamilyStored_not_derivable` below is that gap, mechanized.
-
-**The wall statement.**  `StructUnitIrrel` is not a consequence of
-the frozen `CapsOk` plus the claims.  The fix is one deletion — drop
-`ConLeche.EtaFamilyStored env T caps →` from `CapsOk`'s second
-conjunct, restoring `CapsOkV`'s keying — which *strengthens* the
-field (fewer premises = more obligations) and so cannot weaken any
-downstream statement; establishment is unaffected, since `MemberUnitS`
-already discharges the unpremised form.  Per the batch protocol the
-statement is frozen, so the deletion is NOT taken here: the row stays
-in the census, named, for the lane lead. -/
+`etaFamilyStored_not_derivable` below is that gap, mechanized. -/
 
 /-- The witnessing capability record: `unitlike` without `eta`, naming
 a constructor that is stored nowhere. -/
@@ -171,10 +150,9 @@ def unitNoFamilyEnv : Env :=
   ⟨[.indInfo ⟨Name.anonymous.str "ConLecheCapsWall.T", [], .sort .zero⟩
       unitNoFamilyCaps]⟩
 
-/-- **The wall, mechanized**: a well-formed environment storing a
-non-reserved `unitlike` family for which `EtaFamilyStored` is FALSE.
-Everything `structUnitCert`'s inversion can ever hand a consumer holds
-here, and the frozen `CapsOk`'s unit half is vacuous. -/
+/-- A well-formed environment storing a non-reserved `unitlike` family
+for which `EtaFamilyStored` is FALSE.  Everything `structUnitCert`'s
+inversion can ever hand a consumer holds here. -/
 theorem etaFamilyStored_not_derivable :
     ∃ (env : Env) (T : Name) (cvT : ConstantVal) (caps : IndCaps),
       ConLeche.EnvWF env ∧
@@ -198,8 +176,7 @@ theorem etaFamilyStored_not_derivable :
 /-- **`CapsOk` at a fresh value-kind cons** — every `defnInfo`,
 `thmInfo` and `axiomInfo` harvest discharges its `caps_ok` obligation
 here.  (An `indInfo`/`ctorInfo`/`recInfo` cons may *complete* a family
-and so genuinely owes the law; those installs supply it bespoke —
-`IndStepPB`'s bill.) -/
+and so genuinely owes the law; those installs supply it bespoke.) -/
 theorem capsOk_cons_fresh (mp : EnvModelM V μ env)
     (hprev : CapsOk mp.base2)
     {c₀ : ConstantInfo} {A : (Name → Nat) → AnnotTerm}

@@ -2,11 +2,14 @@ module
 
 public import ConLeche
 public import ConLeche.Frontend.ExportC
-public import ConLeche.Verify.Cached.StreamConsts
+public import ConLeche.Model.StreamConsts
 import ConLecheTests.PreludeTests
 import ConLecheTests.ScanTests
 import ConLecheTests.Axioms
 import ConLecheTests.FileTests
+import ConLecheTests.NestedTests
+import ConLecheTests.RecCheckTests
+import ConLecheTests.AccessTests
 /- The suite's `#guard`s are EVALUATED, so every constant they name must be
 reachable from meta code too; a module needed at both levels is imported
 twice (`public import` for the `example`s' statements, `meta import` for
@@ -14,7 +17,7 @@ the evaluation). -/
 meta import ConLeche
 meta import ConLeche.Frontend.ExportC
 meta import ConLeche.Cached.Installed
-meta import ConLeche.Verify.Cached.StreamConsts
+meta import ConLeche.Model.StreamConsts
 
 public section
 
@@ -35,25 +38,21 @@ is silently vacuous if a flag it assumes is compiled the other way;
 these guards pin the actual values.  One `#guard` per pinned value,
 each naming the theorem family that depends on it. -/
 
--- `CheckMode` has TWO values since the SetR removal (2026-09-05), and
--- `.verified` -- the verified graded lane, `--verified` -- is the
--- first constructor, so it is both the `Inhabited` default and
--- `Main.lean`'s `Args.mode`.  Those agreed by accident before and
--- agree by construction now.  (The constructors were `.setModel` /
--- `.noModel` until the mode rename of 2026-09-06.)
+-- `CheckMode` has TWO values, and `.verified` -- the verified graded
+-- lane, `--verified` -- is the first constructor, so it is both the
+-- `Inhabited` default and `Main.lean`'s `Args.mode`.
 --
 -- The β-certificate gate is ON at it and only at it: the two accessors
--- `betaGate` and `verifiedChecks` now separate the same two modes,
+-- `betaGate` and `verifiedChecks` separate the same two modes,
 -- which is what "two cores" means at the mode level.
 #guard (default : CheckMode) == .verified
 #guard CheckMode.betaGate .verified == true
 #guard CheckMode.betaGate .trusted == false
 
--- The seven-check gate is OFF at every mode since task #148 T7b: the
--- declarative lane that turned it on (and its `.ttModel` value) was
--- deleted with the mode.  The gated call sites are kept, statically
--- unreachable; these guards are what would notice a mode being added
--- back without the lane that justifies it.
+-- The seven-check gate is OFF at every mode (task #148 T7b).  The
+-- gated call sites are kept, statically unreachable; these guards are
+-- what would notice a mode being added back without the lane that
+-- justifies it.
 #guard CheckMode.ttChecks .verified == false
 #guard CheckMode.ttChecks .trusted == false
 
@@ -67,14 +66,6 @@ each naming the theorem family that depends on it. -/
 #guard CheckMode.verifiedChecks .verified == true
 #guard CheckMode.verifiedChecks .trusted == false
 
--- The direct simple-structure master switch ships OFF since task #148
--- T0b (it shipped ON from #119/#120 until 2026-08-27).  BOTH verified
--- lanes assumed the switched-off configuration; the set lane's
--- relation family covers no direct-install rule, so a set-lane theorem
--- stated at the default mode would be
--- VACUOUS-BY-FALSE-HYPOTHESIS (risk R4) if this were compiled `true`.
--- Flipping it back is therefore a verification-scope change, not a
--- configuration tweak — this guard makes the flip fail `lake test`.
 def dummyAxiom : Declaration :=
   .axiomDecl { name := .str .anonymous "foo", levelParams := [], type := .sort .zero }
 
@@ -91,7 +82,7 @@ def dummyAxiom : Declaration :=
   | .ok e => e.consts.isEmpty
   | .error _ => false
 
--- The compiler-trust family is no longer tolerated: it *installs*
+-- The compiler-trust family is not tolerated: it *installs*
 -- (task #95), so without its pinned prerequisites (the True family)
 -- a trustCompiler record is a positive decline at its own record.
 #guard checkDecl .verified (pureOps .verified) natOpPinSets Env.empty
@@ -155,11 +146,10 @@ private def mkDef (n : String) (ps : List String) (type value : Expr) : Declarat
   (.forallE (.sort .zero) (.bvar 0) ⟨.ifAllZero []⟩)]).toBool
 
 -- … and the same declaration with the unannotated (`.never`) binder is
--- **accepted** since task #161 P5: `.never` is the parser's placeholder
+-- **accepted** (task #161 P5): `.never` is the parser's placeholder
 -- for an absent `"pw"` field, so the annotate pass recomputes it (here
 -- to `.ifAllZero []`) and the front door then validates its own write.
--- Before the pass this was a positive decline at `(forall-cod)`.  The
--- design records the consequence deliberately: an explicit
+-- The design records the consequence deliberately: an explicit
 -- `"pw": "never"` is indistinguishable from an absent field and is
 -- silently corrected rather than falsified, so the falsifiable claims
 -- are exactly the `ifAllZero` ones (see the `bad*` guards below).
@@ -211,7 +201,7 @@ cannot be reached through the spec knot by any input: every path to
 them first infers both compared expressions (`proofIrrel` runs before
 the structural arms and before eta), and the front door validates
 every binder an infer walks, so by comparison time both annotations
-are valid for the same (level-equivalent) codomain sort and `equiv`
+are valid for the same (level-equivalent) codomain sort and `==`
 (complete) accepts.  That redundancy is by design — the checks are
 placed last so they fire only on an otherwise-successful comparison —
 so they are unit-tested here against a stub `CoreFns` whose `infer`
@@ -241,8 +231,8 @@ private def pwLam (pw : PropWhen) : Expr :=
 #guard defeqStep .trusted stubFns Env.empty 0 (fun _ a b => pure (a == b)) true
     (pwForall (.ifAllZero [])) (pwForall .never)
   matches .ok true
--- Equivalent-but-unequal annotations pass: `equiv` is semantic
--- containment, not list equality.
+-- Equivalent-but-unequal annotations pass: `PropWhen`'s `==` is
+-- semantic agreement, not list equality.
 #guard defeqStep .verified stubFns Env.empty 0 (fun _ a b => pure (a == b)) true
     (pwForall (.ifAllZero [.str .anonymous "u", .str .anonymous "u"]))
     (pwForall (.ifAllZero [.str .anonymous "u"]))
@@ -336,25 +326,21 @@ private def emptyModelAuxName : Name :=
 -- The frontend keeps both declarations (`def Eq._model : Type := Prop`,
 -- `def Empty._model.proj_0 : Type := Prop`) …
 #guard match Frontend.parseExportD basisModelExport with
-  | .ok ⟨ds, _, _, _, _, _, _⟩ => ds.map declCName == #[eqModelName, emptyModelAuxName]
+  | .ok ⟨ds⟩ => ds.map declCName == #[eqModelName, emptyModelAuxName]
   | .error _ => false
 
 -- … and the shipped driver accepts them as ordinary definitions.
 #guard match Frontend.parseExportD basisModelExport with
-  | .ok ⟨ds, _, _, _, _, _, _⟩ =>
+  | .ok ⟨ds⟩ =>
     (ConLeche.Cached.checkDecls .verified natOpPinSets ds).toBool
   | .error _ => false
 
 /-! ## Frontend: `sorryAx` is the fold's
 
 The parser forwards every declaration record, the `sorryAx` axiom
-record included (task #292, user ruling: *"it should not be the parser
-that drops sorryAx"*).  The fold checks that record's type, installs
-NOTHING for it — there is no set model for it — and DECLINES at the
-first record that uses the name.  What stood here before was a
-read-only taint pre-scan that dropped the axiom record and every
-declaration reaching it, transitively, and turned a non-empty skip list
-into a decline at the END of the run. -/
+record included (task #292).  The fold checks that record's type,
+installs NOTHING for it — there is no set model for it — and DECLINES
+at the first record that uses the name. -/
 
 private def usesAxName : Name := Name.anonymous |>.str "usesAx"
 private def usesUseName : Name := Name.anonymous |>.str "usesUse"
@@ -382,7 +368,7 @@ private def sorryAxExport : String := String.intercalate "\n" [
   "{\"ie\":6,\"sort\":1}",
   "{\"def\":{\"name\":5,\"levelParams\":[],\"type\":6,\"value\":1,\"safety\":\"safe\"}}"]
 
--- EVERY record reaches the fold now — the axiom's, both uses', and
+-- EVERY record reaches the fold — the axiom's, both uses', and
 -- the independent definition's.
 #guard match Frontend.parseExportD sorryAxExport with
   | .ok r =>
@@ -446,18 +432,13 @@ The constructor form pins the reference kernels' exact spelling
 -- the guard is `false` without the support declarations
 #guard strLitSupported Env.empty == false
 
-/-! ## The β-certificate gate (task #161 S9, `ConLeche/Kernel/CoreGated.lean`)
-
-The gated knot is only worth its duplication if the gate is (a) LIVE —
-it reduces a redex the ungated `whnfCore` leaves stuck — and (b)
-MODE-GATED, per law 1 clause (i): at `--trusted` the annotation is not
-validated, so the datum must mean nothing there.  Both are pinned
-here, in the vacuity-protection discipline of the config audit above.
+/-! ## The β certificate at `--trusted`
 
 The subject is `(fun x : Prop => x) Prop`: the argument's type is
-`Type`, not `Prop`, so the per-redex certificate FAILS and the ungated
-reduction is stuck at the redex.  Only the binder's `pw` datum and the
-mode distinguish the outcomes. -/
+`Type`, not `Prop`, so the per-redex certificate FAILS and the
+reduction is stuck at the redex.  At `--trusted` the annotation is not
+validated, so the knot runs the certificate unconditionally (the
+task-#100 de-gating), whatever the binder's `pw` datum says. -/
 
 private def gateNever : BinderMeta := ⟨.never⟩
 private def gateMaybe : BinderMeta := ⟨.ifAllZero []⟩
@@ -468,35 +449,6 @@ private def gateRedex (mb : BinderMeta) : Expr :=
 
 private def gateStuck (mb : BinderMeta) : Expr := gateRedex mb
 
--- The UNGATED-KNOT guards retired 2026-09-05: they read
---     whnfCore .verified … == some (gateStuck …)      at BOTH data
--- and pinned that the ungated knot runs the per-redex certificate
--- unconditionally (the task-#100 de-gating).  `.verified` was the R
--- mode then; the R core and its mode value are deleted, so the guards
--- pinned a mode that no longer exists.  What survives of the property
--- is (c) below, at `--trusted` — the only ungated mode left.
-
--- (a) THE GATE IS LIVE: at a validated `.never` binder the gated knot
--- skips the certificate and reduces.  If this guard ever reads
--- `some (gateStuck …)` the duplicated knot has become a no-op.
-#guard (whnfCoreGated .verified Env.empty 100 0 (gateRedex gateNever)).toOption
-  == some (.sort .zero)
-
--- (b) THE GATE IS DATUM-EXACT: at a possibly-zero datum the
--- certificate runs unconditionally — the establishment/consumption
--- asymmetry fence.
-#guard (whnfCoreGated .verified Env.empty 100 0 (gateRedex gateMaybe)).toOption
-  == some (gateStuck gateMaybe)
-
--- (c) THE GATE IS MODE-GATED (law 1 (i)): at `--trusted` the
--- annotation is not validated, so the gated knot is the ungated one —
--- and, since the R core's retirement, this is also the tree's only
--- witness that the UNGATED knot runs the certificate unconditionally
--- (the task-#100 de-gating), at both data.
-#guard (whnfCoreGated .trusted Env.empty 100 0 (gateRedex gateNever)).toOption
-  == some (gateStuck gateNever)
-#guard (whnfCoreGated .trusted Env.empty 100 0 (gateRedex gateMaybe)).toOption
-  == some (gateStuck gateMaybe)
 #guard (whnfCore .trusted Env.empty 100 0 (gateRedex gateNever)).toOption
   == some (gateStuck gateNever)
 #guard CheckMode.verifiedChecks .trusted == false
@@ -507,10 +459,9 @@ The take-the-waiver probe for the io app clause's statement, at the
 kernel level: the gated arm of `inferTypeCoreIO_app_inv`'s disjunction
 must be REACHABLE (else the clause's gated branch is a vacuous theorem
 wearing a disjunction), and it must be exactly scoped — datum-exact,
-and (since the licence ruling of 2026-09-06) datum-**only**: the io
-skip is a LICENCE, not certification-only work, so it fires on the
-binder's `pw` alone, in both modes.  That is the one point where this
-battery stopped mirroring the β gate's above, which still reads
+and datum-**only**: the io skip is a LICENCE, not certification-only
+work, so it fires on the binder's `pw` alone, in both modes.  That is
+where this battery differs from the β gate's above, which reads
 `mode.betaGate` in the mode-parametric spec.
 
 The subject applies a ∀-typed head to `.bvar 0`, whose inference
@@ -535,9 +486,7 @@ private def ioRedex (mb : BinderMeta) : Expr :=
 #guard (inferTypeCoreIO .verified Env.empty 6 1 (ioRedex gateMaybe)).toOption
   == none
 
--- (c) THE io LICENCE IS NOT MODE-GATED (the ruling of 2026-09-06,
--- superseding the "mode-gated, law 1 (i)" guard that stood here): the
--- trusted mode omits the *validation* of the datum, never the licence
+-- (c) THE io LICENCE IS NOT MODE-GATED: the trusted mode omits the *validation* of the datum, never the licence
 -- that reads it — so at `--trusted` the licence fires exactly as at
 -- `--verified`, and it is still DATUM-exact there.
 #guard (inferTypeCoreIO .trusted Env.empty 6 1 (ioRedex gateNever)).toOption
@@ -551,7 +500,7 @@ private def ioRedex (mb : BinderMeta) : Expr :=
   == none
 
 /-! ## The ζ reduct, and the relation between a declared and a stored
-type (`ConLeche/Verify/Cached/StreamConsts.lean`)
+type (`ConLeche/Model/StreamConsts.lean`)
 
 `AnnotOf declared stored` is `stored.resetMeta = declared.zeta.resetMeta`:
 the annotation pass inlines every `let` and rewrites every binder's
@@ -583,5 +532,69 @@ halves of `Expr.zeta` a reader is most likely to get wrong. -/
 -- (d) So `let x := v; x` is declared where `v` is stored.
 example : ConLeche.AnnotOf
     (.letE (.sort .zero) (.const (Name.anonymous.str "v") []) (.bvar 0)) (.const (Name.anonymous.str "v") []) := rfl
+
+/-! ## Zero-motive recursors
+
+The recursor stage GENERATES the family and compares the stream's
+recursors with it, so a recursor record without the generated motive is
+rejected — official's verdict ("invalid recursor").  The witness is
+`inductive ZT : Prop | c` closed by `ZT.rec : (t : ZT) → ZT` with the
+rule `ZT.rec ZT.c ↦ ZT.c` — an EMPTY rule prefix, no motive.  From a
+stream the frontend already refuses such a record ("declares 0 motives",
+e2e `corner_rec_empty_prefix`), so these drive the kernel directly. -/
+
+private def zNm (s : String) : Name := .str .anonymous s
+
+private def zRule (c : Name) (rhs : Expr) : RecRule :=
+  { ctor := c, nfields := 0, ctorParams := 0, fire := .inert, rhs := rhs }
+
+/-- `inductive T : Prop | c` with the zero-motive `T.rec : (t : T) → T`
+and the given rule right-hand side. -/
+private def zBlock (T : Name) (rhs : Expr) : List ConstantInfo :=
+  [.indInfo ⟨T, [], .sort .zero⟩ {},
+    .ctorInfo ⟨T.str "c", [], .const T []⟩ 0 0,
+    .recInfo ⟨T.str "rec", [], .forallE (.const T []) (.const T []) default⟩ 0 0
+      [zRule (T.str "c") rhs]]
+
+/-- The kernel's recursor stage (`checkBlockRec`, the generated stage) on
+a one-member block, after the pass over the formers, the constructors
+and the classes: the number of recursors it stores. -/
+private def zRecK (block : List ConstantInfo) : Except CheckError Nat := do
+  let some p₀ := blockParts? 0 block | throw (.internal "blockParts?")
+  let q ← checkBlockPass (pureOps .verified) Env.empty p₀ false
+  let env₂ := consBlockCtors q.p.nP q.ctorsAs q.env₁
+  let out ← checkBlockRec (pureOps .verified) env₂ q.p false q.params q.tbl.toList q.rd q.cls
+    block q.cvTas
+  pure out.length
+
+-- The stage REJECTS the zero-motive recursor, whatever its rule.
+#guard zRecK (zBlock (zNm "ZT") (.const ((zNm "ZT").str "c") [])) matches .error (.invalid _)
+#guard zRecK (zBlock (zNm "ZT") (.const (zNm "ZT") [])) matches .error (.invalid _)
+
+-- And so does the whole fold.
+#guard checkDeclsPure .verified (pureOps .verified) natOpPinSets
+    [.indDecl (zBlock (zNm "ZT") (.const ((zNm "ZT").str "c") [])) 0]
+  matches .error (.invalid _)
+
+/-- The MUTUAL twin: `ZA ZB : Prop`, one constructor each, each with a
+zero-motive recursor. -/
+private def zMutual (rA rB : Expr) : Declaration :=
+  let A := zNm "ZA"; let B := zNm "ZB"
+  .indDecl [.indInfo ⟨A, [], .sort .zero⟩ {}, .indInfo ⟨B, [], .sort .zero⟩ {},
+    .ctorInfo ⟨A.str "c", [], .const A []⟩ 0 0, .ctorInfo ⟨B.str "c", [], .const B []⟩ 0 0,
+    .recInfo ⟨A.str "rec", [], .forallE (.const A []) (.const A []) default⟩ 0 0
+      [zRule (A.str "c") rA],
+    .recInfo ⟨B.str "rec", [], .forallE (.const B []) (.const B []) default⟩ 0 0
+      [zRule (B.str "c") rB]] 0
+
+-- Rejected at two members too, with the right rules …
+#guard checkDeclsPure .verified (pureOps .verified) natOpPinSets
+    [zMutual (.const ((zNm "ZA").str "c") []) (.const ((zNm "ZB").str "c") [])]
+  matches .error (.invalid _)
+
+-- … and with a wrong one.
+#guard checkDeclsPure .verified (pureOps .verified) natOpPinSets
+    [zMutual (.const ((zNm "ZA").str "c") []) (.const (zNm "ZB") [])]
+  matches .error (.invalid _)
 
 end ConLecheTests

@@ -1,0 +1,334 @@
+module
+
+public import ConLeche
+/- The `#guard`s below are EVALUATED, so the constants they name have to
+be reachable from meta code too; a module needed at both levels is
+imported twice. -/
+meta import ConLeche
+
+public section
+
+/-!
+# Positivity through containers, unit tests
+
+`nestedBlockPositivity` (`ConLeche/Kernel/Inductives/Positivity.lean`),
+the walk the install runs, on a hand-built context; the e2e corpus
+measures it through the install.  These guards run the
+PURE instantiation (`pureOps`) directly on a hand-built environment —
+a container `L α | nil | cons : α → L α → L α`, a container negative in
+its parameter `N α | mk : (α → Nat) → N α`, and the member `T : Type`
+— so the pure path is exercised too, on each of official's clauses.
+-/
+
+namespace ConLecheTests.Nested
+
+open ConLeche
+
+@[expose] def nm (s : String) : Name := .str .anonymous s
+@[expose] def ty1 : Expr := .sort (.succ .zero)
+@[expose] def pi (d b : Expr) : Expr := .forallE d b default
+@[expose] def cL : Expr := .const (nm "L") []
+@[expose] def cN : Expr := .const (nm "N") []
+@[expose] def cT : Expr := .const (nm "T") []
+@[expose] def cNat : Expr := .const (nm "Nat") []
+
+/-- The environment the block's constructors are read at: the two
+containers with their constructors, the member's former, and `Nat`
+(a container frame's constructors are TYPED, so every constant they
+name must exist). -/
+@[expose] def envT : Env := ⟨[
+  .indInfo ⟨nm "T", [], ty1⟩ {},
+  .ctorInfo ⟨nm "N.mk", [], pi ty1 (pi (pi (.bvar 0) cNat) (.app cN (.bvar 1)))⟩ 1 1,
+  .indInfo ⟨nm "N", [], pi ty1 ty1⟩ { ctors := [nm "N.mk"] },
+  .ctorInfo ⟨nm "L.cons", [],
+    pi ty1 (pi (.bvar 0) (pi (.app cL (.bvar 1)) (.app cL (.bvar 2))))⟩ 1 2,
+  .ctorInfo ⟨nm "L.nil", [], pi ty1 (.app cL (.bvar 0))⟩ 1 0,
+  .indInfo ⟨nm "L", [], pi ty1 ty1⟩ { ctors := [nm "L.nil", nm "L.cons"] },
+  .indInfo ⟨nm "Nat", [], ty1⟩ {}]⟩
+
+/-- The one-member block `T : Type`, no parameters. -/
+@[expose] def ctxT : NestCtx :=
+  ⟨[nm "T"], [], 0, [0], [], .succ .zero, envT.find?⟩
+
+/-- `T` with one constructor `T.mk : dom → T`. -/
+@[expose] def runT (dom : Expr) : Except CheckError NestedPositivity :=
+  nestedBlockPositivity (pureOps .verified) envT ctxT
+    [[(⟨nm "T.mk", [], pi dom cT⟩, 1)]]
+
+@[expose] def kindsOf : Except CheckError NestedPositivity → Option (List NestFieldKind)
+  | .ok r => some (r.kinds.flatten.flatten)
+  | .error _ => none
+
+@[expose] def keysOf : Except CheckError NestedPositivity → Option (List Name)
+  | .ok r => some (r.keys.toList.map (·.cname))
+  | .error _ => none
+
+-- a plain recursive field: no instance located
+#guard kindsOf (runT cT) == some [.recursive 0]
+#guard keysOf (runT cT) == some []
+-- `L T`: one instance, the field nests through it
+#guard kindsOf (runT (.app cL cT)) == some [.nested false]
+#guard keysOf (runT (.app cL cT)) == some [nm "L"]
+-- `Nat → L T`: a reflexive nested field
+#guard kindsOf (runT (pi cNat (.app cL cT))) == some [.nested true]
+-- `L (L T)`: outermost first, then the instance its constructors reach
+#guard keysOf (runT (.app cL (.app cL cT))) == some [nm "L", nm "L"]
+-- `N T`: the instantiated constructor `(T → Nat) → …` is negative
+#guard runT (.app cN cT) matches .error (.invalid _)
+-- `L T → Nat`: a negative occurrence at the field itself
+#guard runT (pi (.app cL cT) cNat) matches .error (.invalid _)
+-- `(x : Type) → L (x → T) → T`: a container parameter mentioning a
+-- field ("parameters cannot contain local variables")
+#guard (nestedBlockPositivity (pureOps .verified) envT ctxT
+    [[(⟨nm "T.mk", [], pi ty1 (pi (.app cL (pi (.bvar 0) cT)) cT)⟩, 2)]])
+  matches .error (.invalid _)
+
+/-! ### The container case at a CONCRETE instantiation, λ included -/
+
+/-- `LF (f : Type → Type) | mk : f Nat → LF f` — its parameter is a
+FUNCTION, so an instantiation at a λ creates a redex the function
+reduces with the kernel's whnf (`(fun _ => T) Nat ⇝ T`). -/
+@[expose] def cLF : Expr := .const (nm "LF") []
+@[expose] def envF : Env := ⟨[
+  .indInfo ⟨nm "T", [], ty1⟩ {},
+  .ctorInfo ⟨nm "LF.mk", [], pi (pi ty1 ty1) (pi (.app (.bvar 0) cNat)
+    (.app cLF (.bvar 1)))⟩ 1 1,
+  .indInfo ⟨nm "LF", [], pi (pi ty1 ty1) ty1⟩ { ctors := [nm "LF.mk"] }] ++ envT.consts⟩
+@[expose] def ctxF : NestCtx :=
+  ⟨[nm "T"], [], 0, [0], [], .succ .zero, envF.find?⟩
+@[expose] def runF (dom : Expr) : Except CheckError NestedPositivity :=
+  nestedBlockPositivity (pureOps .verified) envF ctxF [[(⟨nm "T.mk", [], pi dom cT⟩, 1)]]
+
+-- `LF (fun _ => T)`: the λ-pin is an ordinary instantiation
+#guard kindsOf (runF (.app cLF (.lam ty1 cT default))) == some [.nested false]
+-- `LF (fun _ => T → Nat)`: negative AT this instantiation
+#guard runF (.app cLF (.lam ty1 (pi cT cNat) default)) matches .error (.invalid _)
+
+/-! ### The holes are variables
+
+The members are abstracted to free variables BEFORE the walk
+(unapplied), so a redex that produces a member only after whnf still
+reaches the hole; a container's own occurrences in its constructors are
+its frame's hole; a container's frame abstracts its WHOLE recorded
+block (N2-eager), so a cycle through a mutual container group is met at
+the frame's holes. -/
+
+-- `(fun (_ : Type) => T) Nat`: a hole only after β
+#guard kindsOf (runT (.app (.lam ty1 cT default) cNat)) == some [.recursive 0]
+
+/-- Mutual containers `A α | mk : B α → A α` and `B α | mk : A α → B α`. -/
+@[expose] def cA : Expr := .const (nm "A") []
+@[expose] def cB : Expr := .const (nm "B") []
+@[expose] def envM : Env := ⟨[
+  .indInfo ⟨nm "T", [], ty1⟩ {},
+  .ctorInfo ⟨nm "B.mk", [], pi ty1 (pi (.app cA (.bvar 0)) (.app cB (.bvar 1)))⟩ 1 1,
+  .ctorInfo ⟨nm "A.mk", [], pi ty1 (pi (.app cB (.bvar 0)) (.app cA (.bvar 1)))⟩ 1 1,
+  .indInfo ⟨nm "B", [], pi ty1 ty1⟩ { all := [nm "A", nm "B"], ctors := [nm "B.mk"] },
+  .indInfo ⟨nm "A", [], pi ty1 ty1⟩ { all := [nm "A", nm "B"], ctors := [nm "A.mk"] }]⟩
+@[expose] def ctxM : NestCtx :=
+  ⟨[nm "T"], [], 0, [0], [], .succ .zero, envM.find?⟩
+@[expose] def runM (dom : Expr) : Except CheckError NestedPositivity :=
+  nestedBlockPositivity (pureOps .verified) envM ctxM [[(⟨nm "T.mk", [], pi dom cT⟩, 1)]]
+
+-- `A T`: accepted; `A T`'s frame abstracts the whole block `[A, B]`, so
+-- both are walked in one frame
+#guard (runM (.app cA cT)) matches .ok _
+#guard keysOf (runM (.app cA cT)) == some [nm "A", nm "B"]
+
+/-- A container whose own constructor uses it at ANOTHER parameter
+(`W α | mk : W Nat → W α`, which no installed inductive has): a frame's
+hole is the WHOLE application at the key's parameters, so `W Nat` is no
+hole — an ordinary field naming no member — and the instance `W T` is
+ACCEPTED (as official's nested elimination does: `W Nat` mentions no
+block member, so it is not a nested occurrence). -/
+@[expose] def cW : Expr := .const (nm "W") []
+@[expose] def envW : Env := ⟨[
+  .indInfo ⟨nm "T", [], ty1⟩ {},
+  .ctorInfo ⟨nm "W.mk", [], pi ty1 (pi (.app cW cNat) (.app cW (.bvar 1)))⟩ 1 1,
+  .indInfo ⟨nm "W", [], pi ty1 ty1⟩ { ctors := [nm "W.mk"] },
+  .indInfo ⟨nm "Nat", [], ty1⟩ {}]⟩
+@[expose] def ctxW : NestCtx :=
+  ⟨[nm "T"], [], 0, [0], [], .succ .zero, envW.find?⟩
+#guard (nestedBlockPositivity (pureOps .verified) envW ctxW
+    [[(⟨nm "T.mk", [], pi (.app cW cT) cT⟩, 1)]]) matches .ok _
+
+/-- A cycle through an intermediate container (`F α | mk : L (G α) → F α`,
+`G α | mk : F α → G α`) and a three-member cycle (`P → Q → R → P`). -/
+@[expose] def cF : Expr := .const (nm "F") []
+@[expose] def cG : Expr := .const (nm "G") []
+@[expose] def cP : Expr := .const (nm "P") []
+@[expose] def cQ : Expr := .const (nm "Q") []
+@[expose] def cR : Expr := .const (nm "R") []
+@[expose] def envC : Env := ⟨[
+  .indInfo ⟨nm "T", [], ty1⟩ {},
+  .ctorInfo ⟨nm "R.mk", [], pi ty1 (pi (.app cP (.bvar 0)) (.app cR (.bvar 1)))⟩ 1 1,
+  .ctorInfo ⟨nm "Q.mk", [], pi ty1 (pi (.app cR (.bvar 0)) (.app cQ (.bvar 1)))⟩ 1 1,
+  .ctorInfo ⟨nm "P.mk", [], pi ty1 (pi (.app cQ (.bvar 0)) (.app cP (.bvar 1)))⟩ 1 1,
+  .indInfo ⟨nm "R", [], pi ty1 ty1⟩ { all := [nm "P", nm "Q", nm "R"], ctors := [nm "R.mk"] },
+  .indInfo ⟨nm "Q", [], pi ty1 ty1⟩ { all := [nm "P", nm "Q", nm "R"], ctors := [nm "Q.mk"] },
+  .indInfo ⟨nm "P", [], pi ty1 ty1⟩ { all := [nm "P", nm "Q", nm "R"], ctors := [nm "P.mk"] },
+  .ctorInfo ⟨nm "G.mk", [], pi ty1 (pi (.app cF (.bvar 0)) (.app cG (.bvar 1)))⟩ 1 1,
+  .ctorInfo ⟨nm "F.mk", [], pi ty1 (pi (.app cL (.app cG (.bvar 0))) (.app cF (.bvar 1)))⟩ 1 1,
+  .indInfo ⟨nm "G", [], pi ty1 ty1⟩ { all := [nm "F", nm "G"], ctors := [nm "G.mk"] },
+  .indInfo ⟨nm "F", [], pi ty1 ty1⟩ { all := [nm "F", nm "G"], ctors := [nm "F.mk"] }] ++ envT.consts⟩
+@[expose] def ctxC : NestCtx :=
+  ⟨[nm "T"], [], 0, [0], [], .succ .zero, envC.find?⟩
+@[expose] def runC (dom : Expr) : Except CheckError NestedPositivity :=
+  nestedBlockPositivity (pureOps .verified) envC ctxC [[(⟨nm "T.mk", [], pi dom cT⟩, 1)]]
+
+#guard (runC (.app cF cT)) matches .ok _
+#guard (runC (.app cP cT)) matches .ok _
+#guard (keysOf (runC (.app cP cT))).map (·.length) == some 3
+
+/-! ### G1: a frame's holes stay inside ONE recorded block
+
+The same mutual pair with NO recorded block (`IndCaps.all` empty): `A`'s
+frame walks `A` alone and meets `B T`, whose frame meets `A T` as a
+CONSTANT while it is in progress, and REJECTS (never on a checked
+environment). -/
+@[expose] def envM0 : Env := ⟨[
+  .indInfo ⟨nm "T", [], ty1⟩ {},
+  .ctorInfo ⟨nm "B.mk", [], pi ty1 (pi (.app cA (.bvar 0)) (.app cB (.bvar 1)))⟩ 1 1,
+  .ctorInfo ⟨nm "A.mk", [], pi ty1 (pi (.app cB (.bvar 0)) (.app cA (.bvar 1)))⟩ 1 1,
+  .indInfo ⟨nm "B", [], pi ty1 ty1⟩ { ctors := [nm "B.mk"] },
+  .indInfo ⟨nm "A", [], pi ty1 ty1⟩ { ctors := [nm "A.mk"] }]⟩
+#guard (nestedBlockPositivity (pureOps .verified) envM0
+    ⟨[nm "T"], [], 0, [0], [], .succ .zero, envM0.find?⟩
+    [[(⟨nm "T.mk", [], pi (.app cA cT) cT⟩, 1)]]) matches .error (.invalid _)
+
+/-! ### N2-eager, and occurrences whnf erases
+
+A frame walks every member of the container's recorded block, reached or
+not (official copies the whole block).  The walk reads fields after whnf:
+an occurrence whnf ERASES is no node of the walk itself — the recursor
+check walks it as a SEED when the stream's recursor family eliminates it
+(`checkBlockSeeds`, every class stage (b) resolved; e2e
+`corner_posderiv_major_delta`), so every class of the family is a node by
+construction. -/
+
+@[expose] def cA2 : Expr := .const (nm "A2") []
+@[expose] def cB2 : Expr := .const (nm "B2") []
+/-- `L`, `N` with their recorded parameter counts, and a mutual pair
+`A2 α | mk : α → A2 α`, `B2 α | mk : (α → Nat) → B2 α` whose second member
+is unreached from the first and negative in its parameter. -/
+@[expose] def envS : Env := ⟨[
+  .indInfo ⟨nm "T", [], ty1⟩ {},
+  .ctorInfo ⟨nm "B2.mk", [], pi ty1 (pi (pi (.bvar 0) cNat) (.app cB2 (.bvar 1)))⟩ 1 1,
+  .ctorInfo ⟨nm "A2.mk", [], pi ty1 (pi (.bvar 0) (.app cA2 (.bvar 1)))⟩ 1 1,
+  .indInfo ⟨nm "B2", [], pi ty1 ty1⟩ { all := [nm "A2", nm "B2"], nparams := 1, ctors := [nm "B2.mk"] },
+  .indInfo ⟨nm "A2", [], pi ty1 ty1⟩ { all := [nm "A2", nm "B2"], nparams := 1, ctors := [nm "A2.mk"] },
+  .ctorInfo ⟨nm "N.mk", [], pi ty1 (pi (pi (.bvar 0) cNat) (.app cN (.bvar 1)))⟩ 1 1,
+  .indInfo ⟨nm "N", [], pi ty1 ty1⟩ { all := [nm "N"], nparams := 1, ctors := [nm "N.mk"] },
+  .ctorInfo ⟨nm "L.cons", [],
+    pi ty1 (pi (.bvar 0) (pi (.app cL (.bvar 1)) (.app cL (.bvar 2))))⟩ 1 2,
+  .ctorInfo ⟨nm "L.nil", [], pi ty1 (.app cL (.bvar 0))⟩ 1 0,
+  .indInfo ⟨nm "L", [], pi ty1 ty1⟩ { all := [nm "L"], nparams := 1, ctors := [nm "L.nil", nm "L.cons"] },
+  .indInfo ⟨nm "Nat", [], ty1⟩ {}]⟩
+@[expose] def runS (dom : Expr) : Except CheckError NestedPositivity :=
+  nestedBlockPositivity (pureOps .verified) envS
+    ⟨[nm "T"], [], 0, [0], [], .succ .zero, envS.find?⟩
+    [[(⟨nm "T.mk", [], pi dom cT⟩, 1)]]
+/-- `(fun _ => Nat) x`: a redex whnf reduces to `Nat`, erasing `x`. -/
+@[expose] def erase (x : Expr) : Expr := .app (.lam ty1 cNat default) x
+
+-- `A2 T`: the unreached group-mate `B2` is walked too, and is negative:
+-- REJECTED, as official (it copies `B2` at `T`)
+#guard runS (.app cA2 cT) matches .error (.invalid _)
+-- `(fun _ => Nat) (L T)`: the field reads `Nat`; the walk meets no container
+#guard kindsOf (runS (erase (.app cL cT))) == some [.ordinary]
+#guard keysOf (runS (erase (.app cL cT))) == some []
+-- `(fun _ => Nat) (N T)`: the erased occurrence is not walked (the lfp is
+-- monotone: the field reads `Nat`); unseeded, it is no node
+#guard runS (erase (.app cN cT)) matches .ok _
+-- `L T`: walked once
+#guard keysOf (runS (.app cL cT)) == some [nm "L"]
+
+/-! ### M2′: a member at other universe levels rejects (as official
+≥ v4.33.1's `check_uniform_ind_occs`)
+
+`T.{u} | mk : (fun (_ : Type) => Nat) (L T.{0}) → T.{u}` — the member
+occurs at levels other than the block's, inside a redex its whnf
+drops: the abstracted constructor type still names `T`. -/
+@[expose] def envLv : Env := ⟨[
+  .indInfo ⟨nm "T", [nm "u"], ty1⟩ {}] ++ envT.consts⟩
+#guard (nestedBlockPositivity (pureOps .verified) envLv
+    ⟨[nm "T"], [nm "u"], 0, [0], [], .succ .zero, envLv.find?⟩
+    [[(⟨nm "T.mk", [nm "u"], pi (.app (.lam ty1 cNat default)
+        (.app cL (.const (nm "T") [.zero]))) (.const (nm "T") [.param (nm "u")])⟩, 1)]])
+  matches .error (.invalid _)
+-- the same at the block's own levels is a hole-free field
+#guard (nestedBlockPositivity (pureOps .verified) envLv
+    ⟨[nm "T"], [nm "u"], 0, [0], [], .succ .zero, envLv.find?⟩
+    [[(⟨nm "T.mk", [nm "u"], pi (.app (.lam ty1 cNat default)
+        (.app cL (.const (nm "T") [.param (nm "u")]))) (.const (nm "T") [.param (nm "u")])⟩,
+      1)]]) matches .ok _
+
+/-! ### A container WITHOUT constructors
+
+`E (α : Type) : Type` with no constructor: official nests through it
+(its auxiliary type has no constructor).  The parameter count is the
+RECORDED one (`IndCaps.nparams`), so `E T` is an instance whose frame
+walks nothing; `E T` with `E`'s count unrecorded (`0`) reads `T` as an
+index mentioning the block — official's "non valid occurrence". -/
+@[expose] def cE : Expr := .const (nm "E") []
+@[expose] def envE (n : Nat) : Env := ⟨[
+  .indInfo ⟨nm "T", [], ty1⟩ {},
+  .indInfo ⟨nm "E", [], pi ty1 ty1⟩ { all := [nm "E"], nparams := n }]⟩
+@[expose] def runE (n : Nat) (dom : Expr) : Except CheckError NestedPositivity :=
+  nestedBlockPositivity (pureOps .verified) (envE n)
+    ⟨[nm "T"], [], 0, [0], [], .succ .zero, (envE n).find?⟩
+    [[(⟨nm "T.mk", [], pi dom cT⟩, 1)]]
+#guard (runE 1 (.app cE cT)) matches .ok _
+#guard keysOf (runE 1 (.app cE cT)) == some [nm "E"]
+#guard (runE 0 (.app cE cT)) matches .error (.invalid _)
+
+/-! ### A container instance is fully applied
+
+`V (α : Type) : Nat → Type | mk : (n : Nat) → V α n`: the field `V T`
+(no index) is a family, not a type — the walk rejects it (official:
+"type expected"); `V T z` is an ordinary instance. -/
+@[expose] def cV : Expr := .const (nm "V") []
+@[expose] def envV : Env := ⟨[
+  .indInfo ⟨nm "T", [], ty1⟩ {},
+  .axiomInfo ⟨nm "z", [], cNat⟩,
+  .ctorInfo ⟨nm "V.mk", [], pi ty1 (pi cNat (.app (.app cV (.bvar 1)) (.bvar 0)))⟩ 1 1,
+  .indInfo ⟨nm "V", [], pi ty1 (pi cNat ty1)⟩ { ctors := [nm "V.mk"] },
+  .indInfo ⟨nm "Nat", [], ty1⟩ {}]⟩
+@[expose] def runV (dom : Expr) : Except CheckError NestedPositivity :=
+  nestedBlockPositivity (pureOps .verified) envV
+    ⟨[nm "T"], [], 0, [0], [], .succ .zero, envV.find?⟩
+    [[(⟨nm "T.mk", [], pi dom cT⟩, 1)]]
+#guard runV (.app cV cT) matches .error (.invalid _)
+#guard keysOf (runV (.app (.app cV cT) (.const (nm "z") []))) == some [nm "V"]
+
+/-! ### U4 and the normal form
+
+U4: a later field using a recursive field rejects — reachable only in
+a hand-built environment (`F4 : T → Type` after `T`): on a stream
+official accepts, a later field's normal form never mentions a
+recursive field (anything applied to it would mention the block, which
+official rejects).  The normal form: `nestedBlockPositivity` returns
+every constructor's type in official's `check_positivity` form (a
+field `Id' T` normalised to `T`, the member abstracted to its hole),
+the one function's product. -/
+
+@[expose] def cF4 : Expr := .const (nm "F4") []
+@[expose] def cId : Expr := .const (nm "Id'") []
+@[expose] def envU : Env := ⟨[
+  .axiomInfo ⟨nm "F4", [], pi cT ty1⟩,
+  .defnInfo ⟨nm "Id'", [], pi ty1 ty1⟩ (.lam ty1 (.bvar 0) default) .abbrev] ++ envT.consts⟩
+@[expose] def ctxU : NestCtx :=
+  ⟨[nm "T"], [], 0, [0], [], .succ .zero, envU.find?⟩
+
+-- `(t : T) → F4 t → T`: a later field uses the recursive field: REJECTED
+#guard (nestedBlockPositivity (pureOps .verified) envU ctxU
+    [[(⟨nm "T.mk", [], pi cT (pi (.app cF4 (.bvar 0)) cT)⟩, 2)]])
+  matches .error (.invalid _)
+-- `Id' T → T`: recursive after δβ; normalised to `T → T` (the member
+-- abstracted to its hole, the free variable `0`)
+#guard (nestedBlockPositivity (pureOps .verified) envU ctxU
+    [[(⟨nm "T.mk", [], pi (.app cId cT) cT⟩, 1)]]).toOption.map (·.normals)
+  == some [[pi (.fvar 0 ty1) (.fvar 0 ty1)]]
+
+
+end ConLecheTests.Nested

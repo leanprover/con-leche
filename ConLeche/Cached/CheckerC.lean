@@ -1,6 +1,6 @@
 module
 
-public import ConLeche.Kernel.Inductives.NativeInstallF
+public import ConLeche.Kernel.Inductives.BlockTail
 public import ConLeche.Cached.CoreC
 
 @[expose] public section
@@ -15,11 +15,7 @@ entry-point record over the cached core.
 
 What the layer is *for*: the per-declaration phase driver that the
 parsed-declaration driver (`ConLeche/Cached/ParsedC.lean`) and its bridges
-consume — at a `CheckMode` (the trusted twin `ParsedT`/`CoreT` retired
-2026-09-06, the configuration record that briefly stood in for the mode
-retired at task #185; see `ParsedC.lean`'s header).  The `Expr`-typed
-shared fold `checkDeclsShared` went at task #172 with the interned
-checker it existed to compare against.
+consume — at a `CheckMode` (see `ParsedC.lean`'s header).
 -/
 
 namespace ConLeche.Cached
@@ -59,11 +55,8 @@ variable (mode : CheckMode)
 
 /-! ## The entry-point record over the cached core
 
-`opE`/`opB`/`opS` used to convert their `Expr` arguments in and their
-results out.  Since task #172 B3a there is one expression type, so they
-pass their arguments through — measured at −3.5 % / −3.8 % instructions
-on `init-prelude` / `app-lam`, which is where that batch's win came
-from. -/
+`opE`/`opB`/`opS` pass their `Expr` arguments through: there is one
+expression type (task #172 B3a). -/
 
 /-- Shared-state unary entry point: run the cached knot. -/
 def opE (fe : FEnv) (pick : CoreFnsI → Nat → Expr → CheckCM Expr)
@@ -102,169 +95,87 @@ clause; the differences are exactly: `flushC` at environment
 transitions, `FEnv.push` maintaining the index, and *every*
 environment lookup routed through the index (task #63). -/
 
-/-- One non-recursor member (mirrors `checkIndMember`). -/
-def checkIndMemberS (blockNames : List Name) (caps : IndCaps)
-    (fe : FEnv) (ci : ConstantInfo) : CheckCM FEnv := do
-  flushC
-  let cvA ← checkMemberValF (sharedOpsC mode fe) blockNames fe ci.toConstantVal
-  match ci with
-  | .indInfo _ _ => pure (fe.push (.indInfo cvA caps))
-  | .ctorInfo _ nP nF => pure (fe.push (.ctorInfo cvA nP nF))
-  | _ => throw (.invalid s!"non-inductive member {cvA.name} in block")
+/-- **The rule stage's operations at the rule-less recursors'
+environment**: `sharedOpsC` at `feR`, with a `flushC`
+ENTERING its `annotate` and LEAVING its `inferType`.
 
-/-- Phase 0 of the recursor group (mirrors `provisionRecs`). -/
-def provisionRecsS (blockNames : List Name) :
-    FEnv → List ConstantInfo →
-    CheckCM (FEnv × List (ConstantVal × Nat × Nat × List RecRule))
-  | feAcc, [] => pure (feAcc, [])
-  | feAcc, ci :: rest =>
-    match ci with
-    | .recInfo _ mI rP rules => do
+One rule runs operations at TWO environments, interleaved: its
+right-hand side is annotated and typed at `feR` (the `k` rule-less
+recursors consed), and everything after — the λ-domains' defeq, the
+residue's inference, the conclusion's defeq — at the constructors'
+index.  The memo caches are keyed by the term alone, and their
+invariant (`CSOK`, `ConLeche/Verify/Cached/SimC.lean`) is a claim at
+ONE environment, so a state threaded unflushed across the two is not
+a state of either: an entry the `feR` half wrote (a term naming a
+recursor, typed where the recursor is stored) is not a claim at the
+constructors' environment, where the recursor is absent.  The flushes
+are the drivers' own discipline (`flushC` at every environment
+transition), placed where the transitions are: the stage's `feR` half
+is exactly those two operations, the `annotate` first and the
+`inferType` last (`classRuleOk`,
+`ConLeche/Kernel/Inductives/GenRec.lean`, infers only).  Every other
+operation is `sharedOpsC`'s. -/
+def sharedOpsRuleR (fe : FEnv) : CheckerOps CheckCM :=
+  { sharedOpsC mode fe with
+    annotate := fun _ d e => do
       flushC
-      let cvA ← checkMemberValF (sharedOpsC mode feAcc) blockNames feAcc
-        ci.toConstantVal
-      let (feSelf, others) ← provisionRecsS blockNames
-        (feAcc.push (.recInfo cvA mI rP [])) rest
-      pure (feSelf, (cvA, mI, rP, rules) :: others)
-    | _ => throw (.notImplemented "recursor before other block members")
+      opE mode fe (·.annotate) d e
+    inferType := fun _ d e => do
+      let t ← opE mode fe (·.infer) d e
+      flushC
+      pure t }
 
-/-- The recursor group (mirrors `checkIndRecs`).  All iota-rule checks
-run at `envSelf` — one flush entering the phase, none inside the fold
-(the fold's accumulator environments are never passed to the
-operations).  The ruled recursors are installed on the `env₂` snapshot
-of the index. -/
-def checkIndRecsS (blockNames : List Name) (fe₂ : FEnv)
-    (recs : List ConstantInfo) : CheckCM FEnv := do
-  if recs.isEmpty then
-    pure fe₂
-  else do
-    let f : Name → Name := fun n =>
-      if blockNames.contains n then n.str "_model" else n
-    unless fe₂.find? eqName = some eqA do
-      throw (.notImplemented "modeled recursor requires the pinned Eq basis")
-    let (feSelf, checked) ← provisionRecsS mode blockNames fe₂ recs
-    flushC
-    checked.foldlM (fun (acc : FEnv) c => do
-        let rules' ← checkIotaRulesF mode (sharedOpsC mode feSelf) fe₂ feSelf
-          f c.1.name c.1.levelParams c.1.type c.2.1 c.2.2.1 0 c.2.2.2
-        pure (acc.push (.recInfo c.1 c.2.1 c.2.2.1 rules')))
-      fe₂
+/-- **The shadow operations of the cached driver**: the index-bound
+operations `sharedOpsC`, the rule variant `sharedOpsRuleR` (a flush at
+each of a rule's two environment transitions), `flushC` at every
+environment change, and the memoised walkers.  The recursor stage
+(`checkBlockTailS`) runs `genRecCheck` at them. -/
+def shadowOpsC : ShadowOps CheckCM :=
+  ⟨sharedOpsC mode, sharedOpsRuleR mode, flushC, structWalkersC⟩
 
-/-- The public projection function for field `i` (mirrors
-`checkProjFn`; the single-environment stages are the generic ones). -/
-def checkProjFnS (fe : FEnv) (T ctorName : Name) (lps : List Name)
-    (nP nF i : Nat) : CheckCM FEnv := do
-  let (cvj, mcv) ← checkProjLookupsF (m := CheckCM) fe T ctorName lps
-    nP nF i
-  let pty ← checkProjTyF (m := CheckCM) fe T ctorName lps mcv.type nP nF
-  checkProjShape (m := CheckCM) pty cvj.type nP nF
-  unless i < nF do
-    throw (.invalid "projection index out of range")
-  let rhsA ← checkProjRuleF (sharedOpsC mode fe) fe pty cvj lps nP nF i
-  checkProjIotaF mode (sharedOpsC mode fe) fe T ctorName lps cvj nP nF i
-  pure (fe.push (.recInfo ⟨projFnName T i, lps, pty⟩ nP nP
-    [projFnRule fe.find? T ctorName pty nP nF i rhsA]))
-
-/-- One projection-function install step (mirrors `installProjFnStep`;
-the artifact lookup goes through the index). -/
-def installProjFnStepS (T ctorName : Name) (lps : List Name)
-    (nP nF : Nat) (fe : FEnv) (i : Nat) : CheckCM FEnv := do
-  if (fe.find? (projModelName T i)).isSome then do
-    flushC
-    checkProjFnS mode fe T ctorName lps nP nF i
-  else pure fe
-
-/-- `checkNativePass` through the index (task #268): one flush per
-environment transition. -/
-def checkNativePassS (fe : FEnv) (p₀ : NativeParts) (isRec : Bool) :
-    CheckCM (NativePass FEnv × Bool) := do
-  let (fe₁, cvTa, p₁) ← checkSumIndF (sharedOpsC mode fe) fe p₀.toInductiveShape
-    (fun p₁ => nativeCapsAt p₁ isRec)
+/-- **`checkBlockPass` through the index**: the k
+formers checked and consed — one flush entering the environment that
+holds them all — then the constructors per member at that
+environment, the classes, and the positivity check walking every class
+(the members' root frame first). -/
+def checkBlockPassS (fe : FEnv) (p₀ : BlockParts) (isRec : Bool) :
+    CheckCM (BlockPass FEnv) := do
+  let (fe₁, cvTas, p₁) ← checkBlockIndsF (sharedOpsC mode fe) fe p₀ isRec
   let pC := p₀.complete p₁
   flushC
-  let (ctorsA, sortss) ← checkSumCtorsF (sharedOpsC mode fe₁) fe₁ fe₁ pC.cvT.name
-    pC.cvT.levelParams pC.nP pC.nIdx pC.resSort pC.isProp pC.large cvTa pC.ctors
-  let kinds ← classifyFixKinds (m := CheckCM) pC.cvT.name pC.cvT.levelParams pC.nP pC.nIdx
-    ctorsA
-  let p := pC.withKinds kinds
-  pure (⟨fe₁, cvTa, p, ctorsA, sortss⟩, nativeCaps p == nativeCapsAt p₁ isRec)
+  let (ctorsAs, sortsss) ← checkBlockCtorsF (sharedOpsC mode fe₁) fe₁ fe₁ pC.toBlockShape
+    (pC.members.zip cvTas)
+  let (ctx, holes) ← blockNestCtx pC.toBlockShape cvTas fe₁.find?
+  let (rd, Ms) ← checkBlockClasses (sharedOpsC mode fe₁) fe₁ fe₁.env pC.toBlockShape
+    ctx.params ctorsAs
+  let (kinds, nfs, pos) ← checkBlockPositivity (sharedOpsC mode fe₁) fe₁.env fe₁.find?
+    pC cvTas ctorsAs
+  let st ← nestSeeds (sharedOpsC mode fe₁) fe₁.env ctx (classSeeds ctx holes Ms) pos
+  pure ⟨fe₁, cvTas, pC, ctorsAs, sortsss, kinds, nfs, ctx.params, rd, Ms, st.ctorNfs⟩
 
-/-- `checkNativeTail` through the index: one flush entering the
-recursor's environment. -/
-def checkNativeTailS (fe : FEnv) (q : NativePass FEnv) : CheckCM FEnv := do
+/-- **`checkBlockTail` through the index**: one flush
+entering the recursors' environment. -/
+def checkBlockTailS (block : List ConstantInfo) (q : BlockPass FEnv) :
+    CheckCM FEnv := do
   let p := q.p
-  if p.large && !p.resSort.isNeverZero && decide (2 ≤ p.ctors.length) then
-    throw (.invalid "direct rec: large eliminator on a multi-constructor inductive \
-      whose sort may be Prop")
-  let tq ← unwrapOr (openPisAtFvars (p.nP + p.nIdx) q.cvTa.type 0)
-    (.internal "direct rec: type former telescope")
-  let _isorts ← checkStructFieldSortsIF (sharedOpsC mode q.env₁) q.env₁ true false p.resSort
-    p.nP (tq.1.drop p.nP) [] p.nIdx
-  unless nativeFieldsOkF structWalkersC fe p.cvT.name p.cvT.levelParams p.nP p.nIdx q.ctorsA
-      p.kinds do
-    throw (.internal "direct rec: field kinds")
-  unless nativeRulesOk p.cvR.name (p.cvR.levelParams.map .param) .never p.nP p.ctors.length
-      q.ctorsA p.kinds p.rhss p.cvR.type do
-    throw (.invalid "direct rec: recursor rules are not the generated ones")
-  let fe₂ := consSumCtorsF p.nP q.ctorsA q.env₁
+  let _isorts ← checkBlockIdxSortsF (sharedOpsC mode q.env₁) q.env₁ p.toBlockShape
+    (p.members.zip q.cvTas)
+  let fe₂ := consBlockCtorsF p.nP q.ctorsAs q.env₁
   flushC
-  let (cvRa, rhss) ← checkNativeRecF (sharedOpsC mode fe₂) structWalkersC fe₂ p q.cvTa q.ctorsA
-  -- the projection table at a structure-like block (task #210 Part A)
-  checkNativeTableF (m := CheckCM) structWalkersC p q.ctorsA q.sortss (fe₂.push (.recInfo cvRa
-    p.majorIdx p.rulePrefix (sumRules fe₂.find? cvRa.name p.nP p.majorIdx p.rulePrefix
-      cvRa.type q.ctorsA rhss)))
+  let out ← genRecCheck (shadowOpsC mode) fe₂ p.toBlockShape
+    (blockNestedBit p.toBlockShape q.kinds) q.params q.tbl.toList q.rd q.cls q.cvTas block
+  let fe₃ := consBlockRecsTF fe₂.find? (·.constsResolveF fe₂) p.toBlockShape 0 out fe₂
+  checkBlockTablesF (m := CheckCM) structWalkersC p.toBlockShape
+    (p.members.zip (q.ctorsAs.zip q.sortsss)) fe₃
 
-/-- `checkNative` through the index (task #188): the pass at the
-syntactic `is_rec` reading, again at the classified verdict where the
-reading overshot (task #268), and the install after it. -/
-def checkNativeS (fe : FEnv) (p₀ : NativeParts) : CheckCM FEnv := do
-  unless (p₀.ctors.map (·.1.name)).Nodup do
+/-- **`checkBlock` through the index**: the k-ary
+mirror, at any number of members. -/
+def checkBlockKS (fe : FEnv) (block : List ConstantInfo) (p₀ : BlockParts) :
+    CheckCM FEnv := do
+  unless (p₀.allCtors.map (·.1.name)).Nodup ∧ p₀.memberNames.Nodup do
     throw (.invalid "direct rec: duplicate constructor")
   flushC
-  let (q, settled) ← checkNativePassS mode fe p₀ (nativeRawRec p₀)
-  if settled then checkNativeTailS mode fe q
-  else do
-    flushC
-    let (q', settled') ← checkNativePassS mode fe p₀ (nativeIsRec q.p.kinds)
-    unless settled' do
-      throw (.internal "direct rec: the capability record did not settle")
-    checkNativeTailS mode fe q'
-
-/-- The modeled inductive block (mirrors `checkModeled`), returning
-the extended index. -/
-def checkIndDeclSF (fe : FEnv) (block : List ConstantInfo) :
-    CheckCM FEnv := do
-  let recs := block.filter (fun ci => match ci with
-    | .recInfo _ _ _ _ => true | _ => false)
-  let nonrecs := block.filter (fun ci => match ci with
-    | .recInfo _ _ _ _ => false | _ => true)
-  -- the tag pass, not the derived structural equality on the members'
-  -- types (`ConLeche/Kernel/Env.lean`): the STATEMENT is unchanged, the
-  -- decision is `recsFormSuffix`
-  unless @decide _ (blockRecSuffixDec block) do
-    throw (.notImplemented "recursor before other block members")
-  let blockNames := block.map (·.name)
-  match block.filter (fun ci => match ci with
-      | .indInfo _ _ => true | _ => false),
-    block.filter (fun ci => match ci with
-      | .ctorInfo _ _ _ => true | _ => false) with
-  | [.indInfo cvT _], [.ctorInfo cvC nP nF] =>
-    let caps ← pure (indBlockCapsF mode fe cvT cvC nP nF)
-    let fe₂ ← nonrecs.foldlM (checkIndMemberS mode blockNames caps) fe
-    let fe₃ ← checkIndRecsS mode blockNames fe₂ recs
-    unless ctorResidualOkF mode fe₃ cvT.name cvC.name cvT.levelParams nP nF
-        caps.eta do
-      throw (.notImplemented "modeled structure: eta constructor residual")
-    unless (List.range nF).all
-        (fun j => (fe₃.find? (projFnName cvT.name j)).isNone) do
-      throw (.invalid "projection name family taken")
-    if ctorTargetsFam cvC.type cvT.name cvT.levelParams nP nF then
-      (List.range nF).foldlM
-        (installProjFnStepS mode cvT.name cvC.name cvT.levelParams nP nF)
-        fe₃
-    else pure fe₃
-  | _, _ => do
-    let fe₂ ← nonrecs.foldlM (checkIndMemberS mode blockNames {}) fe
-    checkIndRecsS mode blockNames fe₂ recs
+  let q ← checkBlockPassS mode fe p₀ (blockRawRec p₀)
+  checkBlockTailS mode block q
 
 end ConLeche.Cached

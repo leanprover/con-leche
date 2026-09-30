@@ -5,34 +5,29 @@ public import ConLeche.Model.Annot.BitExtend
 public import ConLeche.Model.Annot.BitConsCross
 public import ConLeche.Semantics.ConstsBound
 public import ConLeche.Verify.Extend.Sibs
+import ConLeche.Model.Annot.CanonCrest
 
 public section
 
 /-!
 # The P declaration step (task #161, P4 — the fold's species)
 
-`declStep_preserves_of_cons`: extending `EnvModelM` by one fresh constant, in
-the shape the declaration fold consumes — `declStep2M_of_cons`
-(`Step2Cons.lean`) transposed to the P invariant.  The systematic
-deltas:
+`declStep_preserves_of_cons`: extending `EnvModelM` by one fresh
+constant, in the shape the declaration fold consumes:
 
 * the new leaf `A` is the value's **`denoteMeta` reading** (bit
-  numerals), and the denoteAnnot-currency uniqueness premises
-  (`hdefnA`/`hthmA`) become the **existence** premise `hvalReads` —
-  the P carrier stores no denoteAnnot field, which is the `EnvModel`
-  finding made structural;
-* the crossing premise is not routed: `denoteMeta_envExtend` is a
-  theorem, so the old constants' facts transfer from
-  `findPreserved_cons` + a literal-guard agreement — where the
-  canonical step routes `Denote2EnvExtend` per mode;
+  numerals), with the **existence** premise `hvalReads`;
+* the crossing is not routed: `denoteMeta_envExtend` is a theorem, so
+  the old constants' facts transfer from `findPreserved_cons` + a
+  literal-guard agreement;
 * the new constant's own facts (`htyReads`/`htyOk`/`hmemNew` and the
   leaf laws) are the **front-door harvest**: at the fold they come
   from `checkSoundAt` at the prefix environment applied to the
   declaration's checked runs.
 
 `nat_heads` at the extension is taken as a premise
-(`declStepPM_natHeads_fresh` discharges it whenever the new constant
-is not a literal pin; the pin installs supply it bespoke).
+(`natHeads_cons_fresh` discharges it whenever the new constant is not
+a literal pin; the pin installs supply it bespoke).
 -/
 
 namespace ConLeche.Model
@@ -77,24 +72,6 @@ theorem acvalWith_validV {acval : Name → (Name → Nat) → AnnotTerm}
   by_cases hm : m = n
   · subst hm; rw [acvalWith_self]; exact hA ψ ρ
   · rw [acvalWith_ne hm]; exact h m ψ ρ
-
-/-- **The fresh-cons transfer**: readings of prefix-bound subjects
-survive the extension and ignore the fresh leaf — the composition of
-`denoteMeta_envExtend` (a theorem) and `denoteMeta_acvalWith_fresh`.  The
-harvest layer reads it directly; `declStep_preserves_of_cons` uses it for
-every old-constant field. -/
-theorem denoteMeta_cons_fresh {acval : Name → (Name → Nat) → AnnotTerm}
-    {c₀ : ConstantInfo} {A : (Name → Nat) → AnnotTerm}
-    (hfresh : env.find? c₀.name = none)
-    (hntc : ∀ entry, c₀ ≠ .projInfo entry)
-    (hlga : LitGuardsAgree env ⟨c₀ :: env.consts⟩)
-    (ψ : Name → Nat) (d : Nat) (e : Expr) (hcb : ConstsBound env e) :
-    denoteMeta (acvalWith acval c₀.name A) ⟨c₀ :: env.consts⟩ ψ d e
-      = denoteMeta acval env ψ d e := by
-  rw [← denoteMeta_envExtend (findPreserved_cons hfresh) hlga
-      (ConLeche.Verify.findProj?_cons_of_base_none hntc)
-      d e hcb,
-    denoteMeta_acvalWith_fresh hfresh d e]
 
 /-- **The fresh-cons forward transfer** (the monotone form; the
 equality form is refutable at support-completing installs — see
@@ -163,25 +140,22 @@ theorem basisPinnedTT_consFresh {cval cval' : TConstVal}
     rw [← hag n (fun hh => hn hh.symm)]
     exact (h n ci hf hres).2 t ψ hp
 
-/-! ## The core at a fresh cons, model-free (task #161 S7, Wall C)
+/-! ## The core at a fresh cons, model-free (task #161 S7)
 
-`coreOfBase` reads `EnvModel`'s five syntactic fields off a contained
-`EnvS`.  `coreCons` builds them from the *prefix core's own* fields
-plus the head's obligations — `BasisPinnedTT.cons`, `ProjOkT.cons`,
-`RecCtorsStored.cons` (`Verify/Denote/Install`, `Verify/Extend/Sibs`),
-all model-free — which is what lets `EnvModelM.base` go.
+`coreCons` builds `EnvModel`'s syntactic fields from the *prefix
+core's own* fields plus the head's obligations — `BasisPinnedTT.cons`,
+`ProjOkT.cons`, `RecCtorsStored.cons`, all model-free.
 -/
 
-/-- **The head obligations of a fresh cons** (task #161 S7, Wall C
-step (b)): what `declStep_preserves_of_cons` used to read off the contained
-`EnvS`, stated at the new leaf.  Bundled because the wrapper stack
+/-- **The head obligations of a fresh cons** (task #161 S7): what
+`declStep_preserves_of_cons` needs of the new leaf.  Bundled because the wrapper stack
 between the step and its 40 call sites re-states it thirty-five
 times. -/
 structure ConsHead (env : Env) (c₀ : ConstantInfo)
     (A : (Name → Nat) → AnnotTerm) : Prop where
   /-- the extended store is syntactically well-formed -/
   wf : EnvWF ⟨c₀ :: env.consts⟩
-  /-- the new leaf's erasure is closed (`EnvS.cval_closed` at the head) -/
+  /-- the new leaf's erasure is closed -/
   vclosed : ∀ ψ : Name → Nat, Term.Closed ((A ψ).erase)
   /-- if the head sits at a reserved basis name, it is the pinned
   declaration and its leaf erases to the direct pin -/
@@ -255,8 +229,7 @@ theorem ConsHead.ofFresh {c₀ : ConstantInfo}
     fun tbl heq => absurd heq (hprojTower tbl),
     hctors⟩
 
-/-- **The de-based core at a fresh cons** — `coreOfBase`'s successor
-(task #161 S7).  Every field is the prefix's own, stepped by the
+/-- **The core at a fresh cons** (task #161 S7).  Every field is the prefix's own, stepped by the
 head's obligation; nothing of the collapsed model is consulted. -/
 @[expose] def coreCons (m : EnvModel V env) {c₀ : ConstantInfo}
     (A : (Name → Nat) → AnnotTerm)
@@ -295,7 +268,7 @@ head's obligation; nothing of the collapsed model is consulted. -/
 
 /-- **The P declaration step, cons shape** (see the module
 docstring). -/
-theorem declStep_preserves_of_cons_guarded (mp : EnvModelM V μ env)
+theorem declStep_preserves_of_cons (mp : EnvModelM V μ env)
     {c₀ : ConstantInfo} {A : (Name → Nat) → AnnotTerm}
     (hfresh : env.find? c₀.name = none)
     (hh : ConsHead env c₀ A)
@@ -437,62 +410,21 @@ theorem declStep_preserves_of_cons_guarded (mp : EnvModelM V μ env)
     caps_ok := hcaps_ok
     rec_rules := hrec_rules
     reduce_ops := hreduce_ops
-    tower_ok := htower_ok }, rfl⟩
-
-
-/-- **The P step at a cons, at an unconditional membership premise**
-(every caller but the tower-entry kit: a table entry's leaf owes no
-membership, `EnvModelM.mem_type`'s guard). -/
-theorem declStep_preserves_of_cons (mp : EnvModelM V μ env)
-    {c₀ : ConstantInfo} {A : (Name → Nat) → AnnotTerm}
-    (hfresh : env.find? c₀.name = none)
-    (hh : ConsHead env c₀ A)
-    (hAclosed : ∀ (ψ : Name → Nat) (k : Nat), (A ψ).liftN 1 k = A ψ)
-    (hAparams : ∀ ψ₁ ψ₂ : Name → Nat,
-      (∀ p ∈ c₀.toConstantVal.levelParams, ψ₁ p = ψ₂ p) →
-      A ψ₁ = A ψ₂)
-    (hAok : ∀ (ψ : Name → Nat) (ρ : Nat → V), WellDenoted V ρ (A ψ))
-    (hAvalid : ∀ (ψ : Name → Nat) (ρ : Nat → V),
-      AnnotValid V ρ (A ψ))
-    (htyReads : ∀ ψ : Name → Nat,
-      ∃ ta : AnnotTerm,
-        denoteMeta (acvalWith mp.base2.acval c₀.name A)
-          ⟨c₀ :: env.consts⟩ ψ 0 c₀.toConstantVal.type = some ta)
-    (htyOk : ∀ (ψ : Name → Nat) (ta : AnnotTerm),
-      denoteMeta (acvalWith mp.base2.acval c₀.name A)
-          ⟨c₀ :: env.consts⟩ ψ 0 c₀.toConstantVal.type = some ta →
-      ∀ ρ : Nat → V, WellDenotedV V ρ ta)
-    (hmemNew : ∀ (ψ : Name → Nat) (ta : AnnotTerm),
-      denoteMeta (acvalWith mp.base2.acval c₀.name A)
-          ⟨c₀ :: env.consts⟩ ψ 0 c₀.toConstantVal.type = some ta →
-      ∀ ρ : Nat → V, interp V ρ (A ψ) ∈ˢ interp V ρ ta)
-    (hvalReads : ∀ (ψ : Name → Nat) (cv : ConstantVal)
-      (value : Expr),
-      (∃ hint : ReducibilityHint,
-        ConstantInfo.defnInfo cv value hint = c₀) →
-      denoteMeta (acvalWith mp.base2.acval c₀.name A)
-          ⟨c₀ :: env.consts⟩ ψ 0 value = some (A ψ))
-    (hnh : ∀ φ : Name → Nat,
-      NatHeads (V := V)
-        (coreCons mp.base2 A hfresh hh hAclosed hAparams hAok) φ)
-    (hnat_ops : ∀ φ : Name → Nat,
-      NatOps (V := V)
-        ((coreCons mp.base2 A hfresh hh hAclosed hAparams hAok) : EnvModel V _) φ)
-    (hdiv_mod : ∀ φ : Name → Nat,
-      DivMod (V := V) ((coreCons mp.base2 A hfresh hh hAclosed hAparams hAok) : EnvModel V _) φ)
-    (heq_law : EqLaw (V := V) ((coreCons mp.base2 A hfresh hh hAclosed hAparams hAok) : EnvModel V _))
-    (hcaps_ok : CapsOk (V := V)
-        ((coreCons mp.base2 A hfresh hh hAclosed hAparams hAok) : EnvModel V _))
-    (hrec_rules : ∀ φ : Name → Nat,
-      RecRules (V := V) ((coreCons mp.base2 A hfresh hh hAclosed hAparams hAok) : EnvModel V _) φ)
-    (hreduce_ops : ReduceOps (V := V)
-        ((coreCons mp.base2 A hfresh hh hAclosed hAparams hAok) : EnvModel V _))
-    (htower_ok : ∀ φ : Name → Nat,
-      TowerOk (V := V) ((coreCons mp.base2 A hfresh hh hAclosed hAparams hAok) : EnvModel V _) φ) :
-    ∃ mp' : EnvModelM V μ ⟨c₀ :: env.consts⟩,
-      mp'.base2.acval = acvalWith mp.base2.acval c₀.name A :=
-  declStep_preserves_of_cons_guarded mp hfresh hh hAclosed hAparams hAok hAvalid htyReads htyOk
-    hmemNew hvalReads hnh hnat_ops hdiv_mod heq_law hcaps_ok hrec_rules hreduce_ops
-    htower_ok
+    tower_ok := htower_ok
+    -- the recorded lfp clauses: a fresh cons re-reads no stored name
+    lfpBlocks := mp.lfpBlocks
+    lfp_ok := mp.lfp_ok_transport (fun _ _ hf _ => findPreserved_cons hfresh hf)
+      (fun n _ hf _ => acvalWith_ne fun h => by
+        rw [h, hfresh] at hf; exact nomatch hf)
+      (fun _ _ _ hf ψ _ hta =>
+        have hm := ConLeche.Semantics.Env.find?_mem hf
+        hcompM ψ _ (hbound _ hm).1 (hh.projTower.type hm) hta)
+      (fun _ _ _ _ hf ψ _ hta =>
+        have hm := ConLeche.Semantics.Env.find?_mem hf
+        hcompM ψ _ (hbound _ hm).1 (hh.projTower.type hm) hta)
+      (fun _ _ hf _ _ hA ψ d _ hta =>
+        have hm := ConLeche.Semantics.Env.find?_mem hf
+        denoteMeta_cons_mono hfresh (canonOf_consCrossAt (hh.projTower.type hm) hA) ψ d
+          (canonOf_constsBound (hbound _ hm).1 hA) hta) }, rfl⟩
 
 end ConLeche.Model

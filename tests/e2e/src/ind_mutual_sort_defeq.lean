@@ -7,30 +7,15 @@
    (`check_inductive_types`, inductive.cpp:250) and accepts the block and
    its recursors.
 
-   con-leche's in-process modeller compares them with `==`
-   (Frontend/InModel/Mutual.lean:164, Nested.lean:351) and declines:
-   "member MD: parameter telescope or sort differs from MC's".  The
-   preprocessor's native predicate checks only counts, so the block stays
-   in-process and the generator's decline is the run's — piped and raw.
-
    The parameter variant is ind_mutual_param_defeq.  Only the sort half
    of the probe is exported here: the probe file also carried an
    `id Type` mutual pair whose first member the v4.29.1 kernel rejects,
    which would have masked this verdict.
 
-   official: 0.  con-leche at master 700a06ca: 2 piped, 2 raw (both modes).
-   Probe of record: _tmp/indaudit/probes/P/MutualDefEq.lean.
-
-   CLOSED by task #218: the modeller no longer compares the sorts; it
-   builds the auxiliary family at the first member's `Sort (max u v)` and
-   emits `MD._model : Sort (max v u) := aux tag.1`, whose definition
-   check is official's `is_equivalent`.  (The block has a SMALL
-   eliminator — a possibly-zero sort with two members — which exposed
-   that the projection artifacts of a structure-like member assumed an
-   elimination level; they are now emitted only under a large one.)
-   con-leche: 0 (both modes).  The bad twin ind_mutual_sort_bad
-   (`MD : Sort (max u 1)`, scripts/mk_mutual_bad.py) rejects there, as
-   official does. -/
+   official: 0.  con-leche: 0.  The bad twin ind_mutual_sort_bad
+   (`MD : Sort (max u 1)`, scripts/mk_mutual_bad.py) rejects, as
+   official does.
+   Probe of record: _tmp/indaudit/probes/P/MutualDefEq.lean. -/
 
 import Lean
 open Lean Elab Command

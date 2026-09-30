@@ -176,18 +176,6 @@ theorem canonExprEqFast_iff (m m' : Name → Name) :
     intro b; cases b <;>
       simp [canonExprEqFast, canonExpr, Bool.and_eq_true, ih, and_assoc]
 
-/-- The common data of a canonical form is the canonical form of the
-common data: `ConstantInfo.canon` rebuilds `toConstantVal` the same
-way in every arm but the table one, which is the identity (a table
-never occurs in parsed input).  The quotient records — parsed
-`axiomInfo`s, pinned `indInfo`/`ctorInfo`/`recInfo`/`axiomInfo`s — are
-compared at this projection. -/
-theorem ConstantInfo.canon_toConstantVal :
-    ∀ {ci : ConstantInfo}, (∀ t, ci ≠ .projInfo t) →
-      (ConstantInfo.canon ci).toConstantVal = ConstantVal.canon ci.toConstantVal := by
-  intro ci h
-  cases ci <;> first | rfl | exact absurd rfl (h _)
-
 /-- A `Bool` identity from the `= true` equivalence. -/
 private theorem boolEq_of_iff {a b : Bool} (h : a = true ↔ b = true) : a = b := by
   cases a <;> cases b <;> simp_all

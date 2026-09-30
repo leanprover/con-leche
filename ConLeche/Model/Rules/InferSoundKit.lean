@@ -1,6 +1,6 @@
 module
 
--- lane S-red's kit is the SHARED one: `DenoteMetaSpine`'s list algebra,
+-- `RedSoundKit` is the SHARED kit: `DenoteMetaSpine`'s list algebra,
 -- `denoteMeta_mkAppN(_inv)`, `denoteMeta_proj_inv_tower`,
 -- `teleFit_nil_inv` and the tower entry's reading live there
 public import ConLeche.Model.Rules.Inputs
@@ -14,21 +14,16 @@ import ConLeche.Model.Annot.ValidSpine
 public section
 
 /-!
-# The S-infer kit (task #305, lane S-infer)
+# The inference kit (task #305)
 
-The pieces the inference rules' soundness needs, restated here **by
-transplant** from the `Model/Steps/*` rows that carried them until the
-task #305 closing deleted that tier (the citations below are their
-provenance):
+The pieces the inference rules' soundness needs:
 
-* `wellDenotedV_mkAppN_of_fit` (`Steps/CapsRows.lean:402`) — the
-  fit-to-application kit the string chain rides (`teleFit_nil_inv`,
-  the spine inversion and the entry-kind inversion come from lane
-  S-red's `RedSoundKit.lean`);
-* `charList_facts` and `strLitFacts` (`Steps/StrLit.lean:70`, `:176`)
-  — the `String`-literal clause's whole content, stated over
-  `RulesInputs`' fields (`ConstType`/`AcvalValid`/`NatHeads` are
-  `ConstType`/`AcvalValid`/`NatHeads` verbatim).
+* `wellDenotedV_mkAppN_of_fit` — the fit-to-application kit the
+  string chain rides (`teleFit_nil_inv`, the spine inversion and the
+  entry-kind inversion come from `RedSoundKit.lean`);
+* `charList_facts` and `strLitFacts` — the `String`-literal clause's
+  whole content, stated over `RulesInputs`' fields
+  (`ConstType`/`AcvalValid`/`NatHeads`).
 -/
 
 namespace ConLeche.Model.Rules
@@ -44,7 +39,7 @@ universe w
 variable {V : Type w} [SetTheory V]
 variable {env : Env} {φ : Name → Nat}
 
-/-! ## The `WellDenotedV` splitters (`Steps/InferIO.lean:75`, `:123`, `:142`)
+/-! ## The `WellDenotedV` splitters
 
 The consumption motive's entry into every non-leaf clause: the io
 grade's premise splits hereditarily into the parts' gradings, and at
@@ -95,7 +90,7 @@ theorem WellDenotedV.hoist_app {Δa : List AnnotTerm} {f a : AnnotTerm}
       ((AnnotValid_app V ρ f a) ▸ (h ρ hρ).2).2⟩,
     fun ρ hρ => ((WellDenoted_app V ρ f a) ▸ (h ρ hρ).1).2.2⟩
 
-/-! ## The fit-to-application kit (`Steps/CapsRows.lean`) -/
+/-! ## The fit-to-application kit -/
 
 theorem wellDenotedV_mkAppN_of_fit {ρ : Nat → V} :
     ∀ (vs : List AnnotTerm) {Ta f : AnnotTerm} {σ : Nat → V} {rest : V},
@@ -142,7 +137,7 @@ theorem wellDenotedV_mkAppN_of_fit {ρ : Nat → V} :
       exact ih (hokB _ hx) hstep
         (fun y hy => hoks y (List.mem_cons_of_mem x hy)) hmem' hfit'
 
-/-! ## The character-list chain (`Steps/StrLit.lean`) -/
+/-! ## The character-list chain -/
 
 /-- **The character-list facts** — `natLit_factsAV`'s companion.  Every
 `denoteMeta` character list is graded and inhabits `List Char`'s reading,
@@ -246,14 +241,13 @@ theorem charList_facts {ρ : Nat → V}
 /-! ## The chain at the environment
 
 The five head packages, read off `ConstType` at the guard's pinned
-types.  Note what is *absent*: `List`'s own membership
-(`strLit_facts`' `hListMem`) and the four hand-built type gradings —
-the P residue delivers a stored type's grading with its reading, so
+types.  Note what is *absent*: `List`'s own membership and
+hand-built type gradings — the P residue delivers a stored type's grading with its reading, so
 the only environment facts consumed are the four memberships and
 `Char`'s universe membership. -/
 
-/-- **The string chain, at the environment.**  `strLit_facts`' mirror
-at the validated-annotation currency. -/
+/-- **The string chain, at the environment**, at the
+validated-annotation currency. -/
 theorem strLitFacts {m : EnvModel V env} (hct : ConstType m φ)
     (hval : AcvalValid m) (hnh : NatHeads m φ)
     (hg : ConLeche.strLitSupported env = true) {d : Nat} {s : String}
@@ -523,41 +517,17 @@ theorem strLitFacts {m : EnvModel V env} (hct : ConstType m φ)
   have h2 := h.2
   rwa [hleafC ConLeche.stringName (Level.substFn φ [] []) _] at h2
 
-/-! ## `projAV`'s hoist (`Steps/ProjAVKit.lean:32`, `:41`, `:80`) -/
+/-! ## The tower-entry kit
 
-/-- The subject of a graded projection spine is graded. -/
-theorem WellDenoted_projAV_hoist :
-    ∀ {i : Nat} {e : AnnotTerm} {σ : Nat → V},
-      WellDenoted V σ (projAV i e) → WellDenoted V σ e
-  | 0, e, σ, h => ((WellDenoted_fst V σ e) ▸ h).1
-  | i + 1, e, σ, h =>
-    ((WellDenoted_snd V σ e) ▸
-      (WellDenoted_projAV_hoist (i := i) (e := .snd e) h)).1
-
-/-- The subject of a bit-valid projection spine is bit-valid. -/
-theorem AnnotValid_projAV_hoist :
-    ∀ {i : Nat} {e : AnnotTerm} {σ : Nat → V},
-      AnnotValid V σ (projAV i e) → AnnotValid V σ e
-  | 0, e, σ, h => (AnnotValid_fst V σ e) ▸ h
-  | i + 1, e, σ, h =>
-    (AnnotValid_snd V σ e) ▸
-      (AnnotValid_projAV_hoist (i := i) (e := .snd e) h)
-
-/-- `WellDenotedV` of the subject, off the spine's. -/
-theorem WellDenotedV_projAV_hoist {i : Nat} {e : AnnotTerm} {σ : Nat → V}
-    (hok : WellDenotedV V σ (projAV i e)) : WellDenotedV V σ e :=
-  ⟨WellDenoted_projAV_hoist hok.1, AnnotValid_projAV_hoist hok.2⟩
-
-/-! ## The tower-entry kit (`Steps/TowerKit.lean`, `Steps/Stuck.lean`)
-
-The `.proj` rule's reading walk, transplanted: the spine inversion,
+The `.proj` rule's reading walk: the spine inversion,
 the entry-kind inversion, and the fit-free residual — the checker's
 `instPisAt` peel of the stored entry type reads to the syntactic peel
 of its reading.  The spine relation and its algebra are
 `Model/Annot/BitLemmas.lean`'s `DenoteMetaSpine`. -/
 
 /-- **The checker's `instPisAt` peel reads to the syntactic peel of
-the type's reading** — `teleFitPA_residual` without the fit: the two
+the type's reading** — the fit's residual (`TeleFitPA.peelPis`)
+without the fit: the two
 walks step in lockstep (`body.instantiate1 a` against `B.inst a`), and
 the per-step content is `denoteMeta_beta`, once. -/
 theorem denoteMeta_instPisAt_peel

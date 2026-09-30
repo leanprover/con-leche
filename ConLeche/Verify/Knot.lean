@@ -232,7 +232,7 @@ abbrev defEqListFueled (mode : CheckMode) (env : Env) (fuel : Nat) : Nat → Lis
     List Expr → CheckM Bool := defEqList (pureFns mode env fuel) env
 
 abbrev proofIrrelFueled (mode : CheckMode) (env : Env) (fuel : Nat) : Nat → Expr → Expr →
-    CheckM Bool := proofIrrel (pureFns mode env fuel) env
+    CheckM Bool := proofIrrel (pureFns mode env fuel)
 
 abbrev propIrrelFueled (mode : CheckMode) (env : Env) (fuel : Nat) : Nat → Expr → Expr →
     CheckM Bool := propIrrel (pureFns mode env fuel) env
@@ -296,7 +296,7 @@ theorem iotaIndexOk_fold (env : Env) (fuel : Nat) :
 theorem defEqList_fold (env : Env) (fuel : Nat) :
     defEqList (pureFns mode env fuel) env = defEqListFueled mode env fuel := rfl
 theorem proofIrrel_fold (env : Env) (fuel : Nat) :
-    proofIrrel (pureFns mode env fuel) env = proofIrrelFueled mode env fuel := rfl
+    proofIrrel (pureFns mode env fuel) = proofIrrelFueled mode env fuel := rfl
 theorem propIrrel_fold (env : Env) (fuel : Nat) :
     propIrrel (pureFns mode env fuel) env = propIrrelFueled mode env fuel := rfl
 theorem stuckIrrel_fold (env : Env) (fuel : Nat) :

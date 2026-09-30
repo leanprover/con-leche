@@ -8,20 +8,16 @@ public import ConLeche.Cached.StateC
 # The cached checker core
 
 The core over the computed-field representation: `whnfCore`, `whnf`,
-`infer`, `defeq` and `annotate`, each memoized in `CState`.  Task #198
-removed the last of the deleted arena's shape from these bodies — the
-`CStore` no-ops and the `withStore` reads that ran queries against
-them; a syntactic read is now the operation itself.
+`infer`, `defeq` and `annotate`, each memoized in `CState`; a
+syntactic read is the operation itself (task #198).
 
 See DESIGN.md, "The cached checker".
 
-**One body, two modes (2026-09-06, `agent/coret-retire`; the mode is
-the only parameter since task #185).**  Every body below is a template
+**One body, two modes.**  Every body below is a template
 over `mode : CheckMode`, and the knot at the end (`coreKnotI mode`)
 ties them at a mode.  The verified core is this knot at `.verified`;
 the trusted core is this same knot at `.trusted` — there is no second
-implementation.  The hand-written cert-skipping twin
-(`ConLeche/Cached/CoreT.lean`, retired with this batch) is gone: what
+implementation: what
 the trusted mode omits is exactly what `mode.verifiedChecks` gates
 here (group A: the annotation validations, the λ-codomain sort check,
 the projection certificate) plus what `mode.certs` gates (the
@@ -238,34 +234,25 @@ def defeqSpineI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (a b : Expr) :
   | _ => pure false
 
 /-- Twin of `proofIrrel`. -/
-def proofIrrelI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (a b : Expr) :
+def proofIrrelI (r : CoreFnsI) (depth : Nat) (a b : Expr) :
     CheckCM Bool := do
   let ta ← r.inferIO depth a
-  let wta ← r.whnf depth ta
-  if ← pure (isUnitLikeTyC fe wta) then do
+  let tta ← r.inferIO depth ta
+  let wtta ← r.whnf depth tta
+  match wtta with
+  | .sort uT => do
+    let z ← pure .zero
+    let okA ← liftFueled "level comparison" (← isEquivLM uT z)
     let tb ← r.inferIO depth b
-    let wtb ← r.whnf depth tb
-    if ← pure (isUnitLikeTyC fe wtb) then
-      pure true
-    else
-      pure false
-  else do
-    let tta ← r.inferIO depth ta
-    let wtta ← r.whnf depth tta
-    match wtta with
-    | .sort uT => do
+    let ttb ← r.inferIO depth tb
+    let wttb ← r.whnf depth ttb
+    match wttb with
+    | .sort vT => do
       let z ← pure .zero
-      let okA ← liftFueled "level comparison" (← isEquivLM uT z)
-      let tb ← r.inferIO depth b
-      let ttb ← r.inferIO depth tb
-      let wttb ← r.whnf depth ttb
-      match wttb with
-      | .sort vT => do
-        let z ← pure .zero
-        let okB ← liftFueled "level comparison" (← isEquivLM vT z)
-        pure (okA && okB)
-      | _ => pure false
+      let okB ← liftFueled "level comparison" (← isEquivLM vT z)
+      pure (okA && okB)
     | _ => pure false
+  | _ => pure false
 
 /- Task #172 batch B2 — **THE BODY TEMPLATE'S PARAMETER** (the mode
 itself since task #185).  Every configured body below takes
@@ -538,7 +525,7 @@ def stuckIrrelI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (a b : Expr) :
   if ← structEtaCertI mode r fe depth a b then pure true
   else if ← structEtaCertI mode r fe depth b a then pure true
   else if ← structUnitCertI mode r fe depth a b then pure true
-  else proofIrrelI r fe depth a b
+  else proofIrrelI r depth a b
 
 /-- Twin of `majorToCtor`. -/
 def majorToCtorI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
@@ -585,7 +572,7 @@ def majorToCtorI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
                       -- `.trusted`
                       let tfab ← r.inferIO depth fab
                       if ← r.defeq depth tmaj tfab then
-                        if ← certAtI mode (proofIrrelI r fe depth fab major) then
+                        if ← certAtI mode (proofIrrelI r depth fab major) then
                           pure fab
                         else pure major
                       else pure major
@@ -623,10 +610,6 @@ def majorToCtorI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
                     if ← structEtaCertWithI mode r fe depth fab major
                         tmaj then
                       pure fab
-                    else if caps.etaFields = 0 then
-                      if ← proofIrrelI r fe depth fab major then
-                        pure fab
-                      else pure major
                     else pure major
                   else pure major
                 else pure major
@@ -655,7 +638,7 @@ def majorToCtorI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
                       (margs ++ projs)) then do
                     let tfab ← r.inferIO depth fab
                     if ← r.defeq depth tmaj tfab then
-                      if ← certAtI mode (proofIrrelI r fe depth fab major) then
+                      if ← certAtI mode (proofIrrelI r depth fab major) then
                         pure fab
                       else pure major
                     else pure major
@@ -939,7 +922,7 @@ decreasing_by
 
 end
 
-/-- Twin of `whnfCoreStep`: one head-normalization step (beta, iota,
+/-- One head-normalization step of `whnfCoreBody` (beta, iota,
 projection) with the loop's continuation `k` abstracted, in the
 open-recursion style of the whole module.  Only the spine head's
 normalization stays a knot call (genuine nesting, bounded by the
@@ -961,6 +944,7 @@ def whnfCoreStepI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
       let v ← r.whnfCore depth h
       whnfAppI mode r fe depth k v args
     | .proj sn i pe => do
+      -- stuck: the input itself, scrutinee as it was (see `whnfCoreBody`)
       let e' ← r.whnf depth pe
       let e' ← projLitToCtorI r fe depth e'
       let snn ← pure sn
@@ -983,10 +967,10 @@ def whnfCoreStepI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
             -- trusted mode runs none (`projCertAt`).
             if ← projCertAtI r fe depth mode.verifiedChecks mode.betaGate c us args then
               k arg
-            else pure (Expr.proj sn i e')
-          else pure (Expr.proj sn i e')
-        | _ => pure (Expr.proj sn i e')
-      | none => pure (Expr.proj sn i e')
+            else pure e
+          else pure e
+        | _ => pure e
+      | none => pure e
     | .letE _ _ _ =>
       -- unreachable by construction, as in the spec body (task #241):
       -- the annotate pass returns the ζ reduct, so no `letE` node
@@ -995,8 +979,8 @@ def whnfCoreStepI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
     | .bvar _ =>
       throw (.notImplemented "whnf beyond the supported fragment")
 
-/-- Twin of `whnfCoreLoop`: iterate `whnfCoreStepI` on its own step
-budget. -/
+/-- Iterate `whnfCoreStepI` on its own step budget (pure mirror:
+`whnfCoreLoopM`, `ConLeche/Verify/BetaSpine.lean`). -/
 def whnfCoreLoopI (r : CoreFnsI) (fe : FEnv) (depth : Nat) :
     Nat → Expr → CheckCM Expr
   | 0, _ => throw (.internal "fuel exhausted: whnfCore loop")
@@ -1128,8 +1112,8 @@ annotate the leaf once on the bulk-opened body, then rebuild with one
 `abstractRange` per domain and one over the leaf.  Each loop replays
 exactly the per-binder checks of the chained recursion, in order; the
 value-level identification with the chained spec bodies is
-`ConLeche/Verify/BinderLoop.lean` (the `DiscI` walks relate the loops to
-their pure mirrors, and `_sound_body` theorems reproduce a mirror run
+`ConLeche/Verify/BinderLoop.lean` (`Verify/Cached/BinderLoopC.lean` relates the loops to
+their pure mirrors, and `_sound` theorems reproduce a mirror run
 in the original one-binder-at-a-time body at some fuel).
 The peel fuel is semantically transparent: on exhaustion the leaf phase hands
 the residual binder chain back to the knot, which is exactly the
@@ -1474,8 +1458,8 @@ def defeqStepI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
     -- Literal folding only when both sides are fvar-free, mirroring
     -- the official kernel (`type_checker.cpp`, `lazy_delta_reduction`)
     -- and lean4lean (`TypeChecker.lean:782`); see `defeqBody` for the
-    -- full rationale.  `hasFvarI` is an `O(1)` read of the eager
-    -- per-node fvar-range array.
+    -- full rationale.  `Expr.hasFvar` is an `O(1)` read of the
+    -- fvar-range field (`@[csimp]` to `hasFvarFast`).
     let fold ← pure (!Expr.hasFvar a' && !Expr.hasFvar b')
     match ← (if fold then reduceNatI r fe depth a' else pure none) with
     | some a₂ => k true a₂ b'
@@ -1623,15 +1607,6 @@ def defeqLoopI (r : CoreFnsI) (fe : FEnv) (depth : Nat) :
 /-- Twin of `defeqBody`. -/
 def defeqBodyI (r : CoreFnsI) (fe : FEnv) : Nat → Expr → Expr → CheckCM Bool :=
   fun depth a b => defeqLoopI mode r fe depth defeqLoopFuel true a b
-
-/-- Twin of `isPropType`. -/
-def isPropTypeI (r : CoreFnsI) (_fe : FEnv) (depth : Nat) (ty : Expr) :
-    CheckCM Bool := do
-  let ty' ← r.annotate depth ty
-  let tty ← r.inferIO depth ty'
-  let s ← ensureSortI r depth tty
-  let z ← pure .zero
-  liftFueled "level comparison" (← isEquivLM s z)
 
 /-! ### Annotation binder-telescope loops (task #72; see the
 `inferLamsI` block comment) -/
@@ -1861,10 +1836,10 @@ def annotateBodyI (r : CoreFnsI) (fe : FEnv) : Nat → Expr → CheckCM Expr :=
             throw (.invalid "projection parameter mismatch")
           pure (Expr.proj T i e')
         | none =>
-          throw (if (fe.findProj? Tn 0).isSome then
-              CheckError.invalid "projection index out of range"
-            else .notImplemented "projection on a non-structure-like type")
-      | _ => throw (.notImplemented "projection on a non-structure type")
+          -- official's `infer_proj` verdict, as in the pure twin
+          throw (projMissError fe.find? (fe.find? (projTableName Tn)).isSome Tn sn i
+            (Expr.getAppArgsC te).length)
+      | _ => throw (.invalid "invalid projection: not a structure-like type, or no such field")
 
 /-! ## The memoized knot -/
 
@@ -1974,117 +1949,5 @@ def coreKnotI (fe : FEnv) : Nat → CoreFnsI
         else
           memoEI (·.inferC) (fun st mp => { st with inferC := mp })
             (fun d e => inferBodyI mode (prev ()) fe d e) }
-
-/-! ## The named concrete cores (task #172, batches B2 and B3; the R
-half retired 2026-09-05; the T half instantiated 2026-09-06)
-
-The template's whole point, spelled out: these are **definitions, not
-clones** — one body, one name per family, and each unfolds to a term
-with no `CheckMode` branch left in it.  Since the twin's retirement
-the trusted core is the second instantiation of the same four bodies,
-at `.trusted` (`…TC` below): of the `CheckMode` functions
-(`ConLeche/Kernel/Env.lean`) only `verifiedChecks` and `certs` differ
-between the two constructors (`betaGate` does too, but every read of
-it here sits under a `certs` read or a `verifiedChecks` read that is
-off at `.trusted`), so **the `mode.verifiedChecks` reads plus the
-`certAtI`/`certUnlessI`/`betaSkip`/`ioSkip` reads in this module are
-the complete list of what the trusted mode omits**.
-
-`whnfCoreBodyPC` is the P core's head normalization:
-`CheckMode.betaSkip .verified` is `PropWhen.isNever`, so the surviving
-branch reads the redex's **validated annotation datum**.  That is
-data, and it is the licence's own subject (`WellDenotedV_beta_gate`), not
-a flag.
-
-B3 added the remaining three configured families.  Their config read
-is `mode.verifiedChecks` — the λ-codomain sort check and the ∀/λ annotation
-validation — which is `true` at `.verified`, so at the named core the `if`
-is its own *then* arm by `rfl` and the check is unconditionally
-present:
-
-* `inferBodyPC` — the λ-chain codomain sort check and the ∀/λ
-  chain-rule `pw` agreement, both unconditional;
-* `defeqBodyPC` — the `pw`-agreement comparisons at the ∀/λ conversion
-  clauses and inside `etaCertI`, unconditional;
-* `annotateBodyPC` — the two annotation `pw` writes, unconditional.
-
-**THE R HALF IS RETIRED** (2026-09-05).  `whnfCoreBodyRC`,
-`inferBodyRC`, `defeqBodyRC` and `annotateBodyRC` were the same four
-bodies at `cfgR` — every certificate unconditional, the census's part 2
-§2(b) core.  The user's ruling removed the collapsed-model consistency
-proof that was the R core's whole reason to exist, and with the
-acceptance delta against the graded core measured at ZERO (B4: 225
-fixtures plus init-full, byte-identical), the core went with its proof.
-`cfgR` is gone, with the whole configuration record (task #185).
-
-**`whnf` needs no instantiation and that is a finding, not an
-omission.**  `whnfBodyI` (and `whnfStepI`/`whnfLoopI` under it) reads
-no mode function at all: the whole δ/ι/β content sits in
-`whnfCore`, which `whnf` reaches through the knot.
-
-The `rfl` identities of the mode functions at the two constructors are
-in `ConLeche/Verify/BetaGate.lean` (the implementation tier may not
-import `Verify`): every landed statement about `inferBodyI mode`
-(etc.) is a statement about this core at the concrete mode,
-definitionally. -/
-
-/-- **The P core's head-normalization body.**  Flag-free by
-construction; the one surviving branch reads the validated annotation
-datum. -/
-def whnfCoreBodyPC (r : CoreFnsI) (fe : FEnv) : Nat → Expr → CheckCM Expr :=
-  whnfCoreBodyI .verified r fe
-
-/-- **The P core's inference body.**  Flag-free:
-`CheckMode.verifiedChecks .verified` is `true`, so the λ-codomain sort
-check and the chain-rule annotation agreement are unconditional. -/
-def inferBodyPC (r : CoreFnsI) (fe : FEnv) : Nat → Expr → CheckCM Expr :=
-  inferBodyI .verified r fe
-
-/-- **The P core's conversion body.**  Flag-free: the ∀/λ `pw`
-agreement checks are unconditional. -/
-def defeqBodyPC (r : CoreFnsI) (fe : FEnv) :
-    Nat → Expr → Expr → CheckCM Bool :=
-  defeqBodyI .verified r fe
-
-/-- **The P core's annotation pass.**  Flag-free: the two `pw` writes
-are unconditional.  (Annotation stays its own pass in every core — the
-user's concession; what the template removes is the *flag*, not the
-pass.) -/
-def annotateBodyPC (r : CoreFnsI) (fe : FEnv) :
-    Nat → Expr → CheckCM Expr :=
-  annotateBodyI r fe
-
-/-! ### The trusted core — the same bodies at `.trusted`
-
-Unverified by construction (no capstone covers `.trusted`, and none will:
-the mode is defined as *unvalidated*), but not a second
-implementation: each definition below is its `…PC` sibling with the
-mode swapped, and `verifiedChecks`/`certs` (both `false` at
-`.trusted`) are the only reads that compute differently.
-`annotateBodyI` reads no mode, so the annotation pass has one name for
-both cores. -/
-
-/-- **The trusted core's head-normalization body**: the β argument
-certificate, the ι telescope certificates and index comparison, the
-η/unit/K-rescue certificates and the projection certificate family
-are all off (`CheckMode.certs .trusted`, `CheckMode.verifiedChecks
-.trusted`); every guard and comparison official performs runs. -/
-def whnfCoreBodyTC (r : CoreFnsI) (fe : FEnv) : Nat → Expr → CheckCM Expr :=
-  whnfCoreBodyI .trusted r fe
-
-/-- **The trusted core's inference body**: the λ-codomain sort check
-and the ∀/λ annotation validations are off; its io grade
-(`inferBodyIOI .trusted`, the knot's `inferIO` slot) runs no
-per-argument certificate at all (`ioSkip_trusted`). -/
-def inferBodyTC (r : CoreFnsI) (fe : FEnv) : Nat → Expr → CheckCM Expr :=
-  inferBodyI .trusted r fe
-
-/-- **The trusted core's conversion body**: the ∀/λ `pw` agreement
-checks (and `etaCertI`'s) are off, and so are the structure-η,
-unit-like and K-rescue certificate families reached through
-`stuckIrrelI`/`whnfCore`. -/
-def defeqBodyTC (r : CoreFnsI) (fe : FEnv) :
-    Nat → Expr → Expr → CheckCM Bool :=
-  defeqBodyI .trusted r fe
 
 end ConLeche.Cached

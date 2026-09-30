@@ -9,10 +9,9 @@ import ConLeche.Verify.Denote.VClosed
 
 `NoBVar P e`: no de Bruijn variable whose index satisfies `P` occurs
 in `e` (`P` shifted under each binder).  Its consequence — the one the
-recursive route needs — is that the interpretation and the grading of
-such a term do not depend on the frame's values at those indices
-(`interp_congr_noBVar`, `WellDenoted_congr_noBVar`): the constructor
-tower functor of a recursive type is spelled over the field chains
+recursive route needs — is that the interpretation of such a term does
+not depend on the frame's values at those indices
+(`interp_congr_noBVar`): the constructor tower functor of a recursive type is spelled over the field chains
 with the recursive slots reading an arbitrary set `X`, while the
 ordinary domains' grading was established at a frame whose recursive
 slots hold the proof point (the constructors are read at a dummy
@@ -60,11 +59,6 @@ theorem agreeOff_cons {P : Nat → Prop} {σ σ' : Nat → V} (h : AgreeOff P σ
   | zero => rfl
   | succ i => exact h i hi
 
-omit [SetTheory V] in
-theorem agreeOff_cons_of {P : Nat → Prop} {σ σ' : Nat → V} (h : AgreeOff P σ σ') {x x' : V}
-    (hx : x = x') : AgreeOff (shiftP P) (cons x σ) (cons x' σ') := by
-  subst hx; exact agreeOff_cons h x
-
 /-- **The interpretation of a term ignores the variables it does not
 mention.** -/
 theorem interp_congr_noBVar :
@@ -101,42 +95,6 @@ theorem interp_congr_noBVar :
     simp only [interp_snd, ihe h hag]
   | prf => intros; rfl
 
-/-- **The grading of a term ignores the variables it does not
-mention.** -/
-theorem WellDenoted_congr_noBVar :
-    ∀ (e : AnnotTerm) {P : Nat → Prop} {σ σ' : Nat → V},
-      NoBVar P e → AgreeOff P σ σ' → (WellDenoted V σ e ↔ WellDenoted V σ' e) := by
-  intro e
-  induction e with
-  | bvar i => intros; simp
-  | sort u => intros; simp
-  | const c us => intros; simp
-  | app f a ihf iha =>
-    intro P σ σ' h hag
-    rw [WellDenoted_app, WellDenoted_app, ihf h.1 hag, iha h.2 hag,
-      interp_congr_noBVar f h.1 hag, interp_congr_noBVar a h.2 hag]
-  | lam v A b ihA ihb =>
-    intro P σ σ' h hag
-    rw [WellDenoted_lam, WellDenoted_lam, ihA h.1 hag, interp_congr_noBVar A h.1 hag]
-    refine and_congr Iff.rfl (and_congr
-      (forall_congr' fun x => imp_congr Iff.rfl (ihb h.2 (agreeOff_cons hag x)))
-      (exists_congr fun B => and_congr
-        (forall_congr' fun x => imp_congr Iff.rfl ?_) Iff.rfl))
-    rw [interp_congr_noBVar b h.2 (agreeOff_cons hag x)]
-  | pi u v A B ihA ihB =>
-    intro P σ σ' h hag
-    rw [WellDenoted_pi, WellDenoted_pi, ihA h.1 hag, interp_congr_noBVar A h.1 hag]
-    exact and_congr Iff.rfl (forall_congr' fun x => imp_congr Iff.rfl (ihB h.2 (agreeOff_cons hag x)))
-  | eqE a b iha ihb =>
-    intro P σ σ' h hag
-    rw [WellDenoted_eqE, WellDenoted_eqE, iha h.1 hag, ihb h.2 hag]
-  | fst e ihe =>
-    intro P σ σ' h hag
-    rw [WellDenoted_fst, WellDenoted_fst, ihe h hag, interp_congr_noBVar e h hag]
-  | snd e ihe =>
-    intro P σ σ' h hag
-    rw [WellDenoted_snd, WellDenoted_snd, ihe h hag, interp_congr_noBVar e h hag]
-  | prf => intros; simp
 
 omit [SetTheory V] in
 theorem shiftP_mono {P Q : Nat → Prop} (h : ∀ i, Q i → P i) : ∀ i, shiftP Q i → shiftP P i

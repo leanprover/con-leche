@@ -5,25 +5,20 @@ public import ConLeche.Semantics.Kit
 @[expose] public section
 
 /-!
-# `CheckStep2`, the definitional-equality quarter — Tier A clauses
+# The definitional-equality clauses — pure `interp` algebra
 
-*(Re-based to `ConLeche/SetBase/*` at THE SEPARATION's S2, task #161:
-every theorem here is pure `interp` algebra — no `EnvS`, no
-environment invariant, no claim carrier — and BOTH lanes' definitional
--equality quarters consume it.  Path and module name changed; the Lean
-namespace, the statements and the proofs are verbatim.)*
+Every theorem here is pure `interp` algebra — no environment
+invariant, no claim carrier.
 
-Per-clause lemmas for `DefEqClaims2`.  The claim is **unconditional in
-truthfulness** — an `interp` equality and nothing else — which is the
-grading `DeqS` uses and for the same reason: `symm`, `trans` and the
-binder congruences are one-liners only if no `WellDenoted` has to cross a
-`DefEq`.  Breaking that grading would immediately re-break them.
+Per-clause lemmas for the definitional-equality claim.  The claim is
+**unconditional in truthfulness** — an `interp` equality and nothing
+else: `symm`, `trans` and the binder congruences are one-liners only if
+no `WellDenoted` has to cross a `DefEq`.
 
 `defeqStep`'s seventh block (structural congruence) is seventeen cases;
-Tier A is the fifteen that are pure interpretation algebra.  The two
-that are not — the capability rescues (`structEta`, `structUnit`,
-`pairEta`) and the literal acceleration — are Tier C and Tier B
-respectively, and appear here only as names.
+the fifteen here are pure interpretation algebra.  The two that are
+not — the capability rescues (`structEta`, `structUnit`) and the
+literal acceleration — are proved in `Model/Rules/DefEqSound.lean`.
 -/
 
 namespace ConLeche.Semantics
@@ -35,17 +30,6 @@ open ConLeche.Semantics (AnnotTerm)
 universe w
 
 variable {V : Type w} [SetTheory V]
-
-/-! ## The equivalence -/
-
-theorem deqStep_symm {ρ : Nat → V} {aa ba : AnnotTerm}
-    (h : interp V ρ aa = interp V ρ ba) :
-    interp V ρ ba = interp V ρ aa := h.symm
-
-theorem deqStep_trans {ρ : Nat → V} {aa ba ca : AnnotTerm}
-    (h₁ : interp V ρ aa = interp V ρ ba)
-    (h₂ : interp V ρ ba = interp V ρ ca) :
-    interp V ρ aa = interp V ρ ca := h₁.trans h₂
 
 /-! ## The congruences
 
@@ -80,8 +64,8 @@ theorem deqStep_piCong {ρ : Nat → V} {u u' v : Nat}
   exact piR_congr hB
 
 /-- **λ-congruence**, at a shared codomain numeral — which is what the
-run supplies, since both sides' annotations come from one `denoteAnnot`
-walk (R1's coherence, in the form the consumer needs it). -/
+run supplies, since both sides' annotations come from one annotation
+walk. -/
 theorem deqStep_lamCong {ρ : Nat → V} {v : Nat} {Aa Ab ba bb : AnnotTerm}
     (hA : interp V ρ Aa = interp V ρ Ab)
     (hb : ∀ x, x ∈ˢ interp V ρ Aa →

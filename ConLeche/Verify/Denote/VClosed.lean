@@ -8,30 +8,16 @@ public section
 # Closed `Term`s
 
 `bvarsBelow n v` — `v` mentions no de Bruijn index `≥ n` — with the two
-facts the bridge consumes: a term closed at the cut is invariant under
+facts the model consumes: a term closed at the cut is invariant under
 lifting and under instantiation *at that cut*.
 
-## Why the bridge needs this and the set model does not
-
-This is the exact mirror image of the saving recorded in
-`ConLeche/Verify/Denote.lean`.  There, the free-variable valuation `ρ`
-disappeared because the opened binder *is* a variable, so `denote`
-needs no valuation parameter where `interpExpr` needs one.  Here we pay
-for the same fact: `Term` has variables and `V` does not, so a
-constant's denotation is a *term* that must be **closed**, and lifting
-past it must be a no-op.  `interpExpr` needs no such condition because
-`cval n ψ : V` is a set and there is nothing in it to lift.
-
-So `EnvTT` carries a `cval_closed` field with no counterpart in
-`EnvModel`, and it is not an accident: it is the syntactic shadow of
-`EnvModel.val_params`' "a constant's value only reads its own level
-parameters" — a constant's meaning does not depend on the local
-context, which for a term means it has no loose variables.
+`Term` has variables, so a constant's denotation is a *term* that must
+be **closed**, and lifting past it must be a no-op: a constant's
+meaning does not depend on the local context, which for a term means
+it has no loose variables (`EnvModel`'s closedness fields).
 
 The two lemmas below are structural inductions and nothing more; this
-is not the beginning of a syntactic metatheory (cf.
-`ConLeche/Term/DESIGN.md` §6), and like `ConLeche/TTVerify/Inversion.lean`
-they live on the bridge side so that they stay marked as a bridge need.
+is not the beginning of a syntactic metatheory.
 -/
 
 namespace ConLeche.Term
@@ -110,11 +96,6 @@ theorem inst_eq_self : ∀ {v : Term} {k : Nat}, bvarsBelow k v →
     intro k h a; rw [inst_eqE, ihb h.1, ihc h.2]
   | fst e ihe => intro k h a; rw [inst_fst, ihe h]
   | snd e ihe => intro k h a; rw [inst_snd, ihe h]
-
-/-- A closed term is invariant under lifting at any cut. -/
-theorem liftN_eq_self_of_closed {v : Term} (h : Closed v) (n k : Nat) :
-    liftN n v k = v :=
-  liftN_eq_self (bvarsBelow.mono (Nat.zero_le k) h) n
 
 /-- A closed term is invariant under instantiation at any cut. -/
 theorem inst_eq_self_of_closed {v : Term} (h : Closed v) (a : Term)

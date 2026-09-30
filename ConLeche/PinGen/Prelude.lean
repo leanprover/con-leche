@@ -52,7 +52,7 @@ operation `c`:
    stream-certified operation sits under — today exactly the `Bool`
    block.  They go into the built-in prelude as the toolchain's own
    export records, installed by the ordinary routes (`Bool` through
-   the direct sum install) at the head of every fold;
+   the block install) at the head of every fold;
 3. **the residual**: order-sensitive constants that ARE
    stream-certified operations (`Nat.ble`, `Nat.sub`, `Nat.mul` — the
    structural ops the statements are spelled over).  These cannot be
@@ -130,13 +130,13 @@ def ownersOf (env : Environment) (s : NameSet) : NameSet :=
 /-- The pinned basis blocks' record heads, in the checker's install
 order (`ConLeche/Kernel/BasisA.lean`); `Quot.sound` rides with `Quot`. -/
 def basisHeads : List Lean.Name :=
-  [`Eq, `Nat, `PUnit, `Empty, `False, `Quot]
+  [`Eq, `Nat, `Empty, `False, `Quot]
 
 /-- The roots the prelude serializer starts from for the basis: the
-six blocks and the quotient soundness axiom (an `axiom` record of its
+five blocks and the quotient soundness axiom (an `axiom` record of its
 own in the export, folded into the `Quot` basis block by the parser). -/
 def basisRoots : List Lean.Name :=
-  [`Eq, `Nat, `PUnit, `Empty, `False, `Quot, ``Quot.sound]
+  [`Eq, `Nat, `Empty, `False, `Quot, ``Quot.sound]
 
 /-- The structural `Nat` operations (`natOpNames` in
 `ConLeche/Kernel/Core.lean`, mirrored: `Core` is a classic library, out of
@@ -151,13 +151,13 @@ def streamCertifiedOps : List Lean.Name :=
   structuralOps ++ opSpecs.map (·.op)
 
 /-- **Prelude members pinned by design**, beyond what the order
-analysis finds: `And`, the one propositional structure whose recursor
-the checker rescues on a stuck proof (`majorToCtor`'s `And` branch,
-`ConLeche/Kernel/Core.lean`, keyed on the name).  Carrying it in the
-prelude is what makes the name denote the toolchain's `And` in every
-fold: the block is installed first, and a stream's own `And` is dropped
-as an identical copy or declines the stream (`pushDecl`,
-`ConLeche/Frontend/ExportC.lean`). -/
+analysis finds: `And`.  The fold pins it (`andPinOk`,
+`ConLeche/Kernel/Basis.lean`: any other record declaring `And`,
+`And.intro` or `And.rec` is rejected), so a stream that does not
+declare `And` must still find it installed, and the stuck-proof rescue
+that serves it (`majorToCtor`'s `And` branch,
+`ConLeche/Kernel/Core.lean`) available: the prelude supplies the
+toolchain's block wherever the stream has none. -/
 def pinnedPreludeMembers : List Lean.Name :=
   [``And]
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# whitepaper/build.sh — render the whitepaper (task #323).
+# whitepaper/build.sh — render the whitepaper (task #324).
 #
 # ONE source (main.typ + sections/*.typ + lib.typ + style.css), TWO
 # renderings by the same typst, both with `--features html` so that

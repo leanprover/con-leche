@@ -10,21 +10,18 @@ public section
 
 /-!
 # The compiler-trust identity law, established at `interp` from the
-recorded certificate run (task #161, ENDGAME D — the pin bundle's
-last field)
+recorded certificate run (task #161)
 
-The ENDGAME C seal named exactly one blocker for `DeclAxiomR`'s
-`ofReduce*` branch: the innermost membership obligation is `op a = a`,
-which is `EnvS.reduce_ops` (`ReduceOpsV`) — a **v1** field with no
-`EnvModelM` mirror, and none derivable (the transfer would be an
-erasure factoring of `interp` through `interp`, refuted at the very
-λ-nodes the operation's leaf is made of).  `ReduceOps`
-(`Annot/EnvModelM.lean`) is that mirror, and this file is its supplier.
+`DeclAxiomRun`'s `ofReduce*` branch needs the innermost membership
+obligation `op a = a`: the `EnvModelM` field `ReduceOps`
+(`Annot/Laws.lean`), which is not derivable (an erasure factoring of
+`interp` is refuted at the very λ-nodes the operation's leaf is made
+of).  This file is its supplier.
 
-## The route: the run-certificate move, fifth execution
+## The route: the run-certificate move
 
-`checkReducePin` runs the identity certificate and `ReducePinR`
-**records the run** (`SetR/Decl.lean:270`):
+`checkReducePin` runs the identity certificate and the install
+**records the run** (`checkReducePin_inv`):
 
 > `isDefEqCore μ env F 1 (.app valA (reduceCertVar c)) (reduceCertVar c)
 > = .ok true`
@@ -36,7 +33,7 @@ into an `interp` equality of the two sides' readings, and the two
 readings are `.app (A ψ) (.bvar 0)` and `.bvar 0`: the law falls out
 by `interp_app` and leaf closedness.
 
-This is `NatEqsP.lean`'s species at a one-variable context instead of
+This is `Model/NatEqs.lean`'s species at a one-variable context instead of
 two, and the element type is a stored *level-free constant*
 (`reduceElemTy c`, whose `reduceElemOk` guard stores it), so the
 context kit collapses to `elemA`/`sat_elemCtx` below.
@@ -62,8 +59,7 @@ and every part of it is already established at the install:
 * the `v = 0` fibre clause is the type reading's **`AnnotValid` `pi`
   third component** — `htyOk`'s own content.  So **no bit is needed**:
   the regime datum `mb₀.pw` stays abstract throughout, exactly as the
-  literal tier found (`NatEqsP.lean`'s "no bit positivity is ever
-  needed"), and the doctrine that bits are never taken from a
+  literal tier found (`Model/NatEqs.lean`), and the doctrine that bits are never taken from a
   metatheorem is not even approached.
 
 The preservation half is `reduceOps_cons_fresh` (`DivMod.lean`,
@@ -108,14 +104,13 @@ theorem sat_elemCtx (m : EnvModel V env) {c : Name} {ψ : Name → Nat}
   | 0 =>
     obtain rfl : elemA m c ψ = Aa := by simpa [elemCtx] using hi
     show x ∈ˢ interp V _ (m.acval (ConLeche.reduceElemName c) ψ)
-    rw [acval_interp_closedC m _ ψ _ ρ]
+    rw [acval_interp_closed m _ ψ _ ρ]
     exact hx
 
 /-! ## The pinned operation type, inverted -/
 
 /-- The element type expression is the element inductive's bare
-constant (`Verify/OfReducePin.lean`'s `ofReduce_elemTy` at the
-*operation*'s index rather than the axiom's). -/
+constant, at the *operation*'s index. -/
 theorem reduceElemTy_constS (c : Name) :
     ConLeche.reduceElemTy c = .const (ConLeche.reduceElemName c) [] := by
   unfold ConLeche.reduceElemTy ConLeche.reduceElemName
@@ -146,8 +141,8 @@ theorem reduceOp_shapeS {c : Name} {type' : Expr}
   obtain ⟨ty', b', m', rfl, hty', hb'⟩ := erasePwNames_forallE_invS h
   have hE := reduceElemTy_constS c
   rw [hE] at hty' hb'
-  obtain rfl := erasePwNames_const_invS hty'
-  obtain rfl := erasePwNames_const_invS hb'
+  obtain rfl := erasePw_const_invS hty'
+  obtain rfl := erasePw_const_invS hb'
   exact ⟨m', by rw [hE]⟩
 
 -- (`reduceElem_sort` in `Verify/OfReducePin.lean` already says the
@@ -232,7 +227,7 @@ theorem reduceOps_install (hμ : μ.verifiedChecks = true)
   have hclA : ∀ ρ₁ ρ₂ : Nat → V, ∀ ψ : Name → Nat,
       interp V ρ₁ (A ψ) = interp V ρ₂ (A ψ) := by
     intro ρ₁ ρ₂ ψ
-    have h := acval_interp_closedC m₂ cv.name ψ ρ₁ ρ₂
+    have h := acval_interp_closed m₂ cv.name ψ ρ₁ ρ₂
     rwa [hmoveC] at h
   -- the stored entry is the pinned type, and the pin fixes its shape
   rw [ConLeche.Env.find?_cons, if_pos (show (ConstantInfo.axiomInfo
@@ -308,7 +303,7 @@ theorem reduceOps_install (hμ : μ.verifiedChecks = true)
       mp.base2.acval (ConLeche.reduceElemName cv.name) ψ,
       elemA mp.base2 cv.name ψ, hdenE ψ 1, rfl, fun ρ' _ => ?_,
       fun ρ' _ => ⟨mp.base2.acval_wellDenoted _ ψ ρ', mp.acval_validV _ ψ ρ'⟩⟩
-    exact acval_interp_closedC mp.base2 _ ψ _ _
+    exact acval_interp_closed mp.base2 _ ψ _ _
   have hctxApp : ∀ ψ : Name → Nat,
       CtxOk mp.base2 ψ 1 (elemCtx mp.base2 cv.name ψ)
         (Expr.app valA (ConLeche.reduceCertVar cv.name)) := by
@@ -350,7 +345,7 @@ theorem reduceOps_install (hμ : μ.verifiedChecks = true)
     have h : ρ' 0 ∈ˢ interp V (fun j => ρ' (j + 0 + 1))
         (mp.base2.acval (ConLeche.reduceElemName cv.name) ψ) :=
       hsat 0 (elemA mp.base2 cv.name ψ) rfl
-    rwa [acval_interp_closedC mp.base2 _ ψ _ ρ'] at h
+    rwa [acval_interp_closed mp.base2 _ ψ _ ρ'] at h
   -- the gradings: the bare variable is free, the applied side is the
   -- constant's own `mem_type`/`type_wellDenotedV` content
   have hgradeCert : ∀ ρ' : Nat → V, Sat V (elemCtx mp.base2 cv.name ψ) ρ' →
@@ -364,7 +359,7 @@ theorem reduceOps_install (hμ : μ.verifiedChecks = true)
           (mp.base2.acval (ConLeche.reduceElemName cv.name) ψ))
         = fun _ : V => interp V ρ'
             (mp.base2.acval (ConLeche.reduceElemName cv.name) ψ) :=
-      funext fun y => acval_interp_closedC mp.base2 _ ψ _ ρ'
+      funext fun y => acval_interp_closed mp.base2 _ ψ _ ρ'
     have hm := hmemA ψ ρ'
     rw [hTaShape ψ, interp_pi, hfib] at hm
     have hv := (hTaOk ψ ρ').2
@@ -376,7 +371,7 @@ theorem reduceOps_install (hμ : μ.verifiedChecks = true)
         (mp.base2.acval (ConLeche.reduceElemName cv.name) ψ),
       hm, hslot ρ' hsat, fun h0 y hy => ?_⟩
     have := hv.2.2 h0 y hy
-    rwa [acval_interp_closedC mp.base2 _ ψ _ ρ'] at this
+    rwa [acval_interp_closed mp.base2 _ ψ _ ρ'] at this
   -- the run, converted
   have heq := ihd (d := 1)
     (a := Expr.app valA (ConLeche.reduceCertVar cv.name))

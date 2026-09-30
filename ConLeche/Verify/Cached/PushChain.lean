@@ -10,14 +10,14 @@ public section
 /-!
 # Every accepted install is a chain of fresh pushes (task #253)
 
-The two-phase driver (`checkDeclsTwoPhase`, `ConLeche/Cached/ParsedC.lean`)
+The two-phase driver (`checkDecls`, `ConLeche/Cached/Installed.lean`)
 checks each recorded value against a PREFIX VIEW of the final
 environment, `feFinal.restrictTo vis`, and the prefix view's `find?` is
 the truncated environment's only under name uniqueness
 (`mkFEnv_find?_visibleBelow`, `ConLeche/Verify/EnvBound.lean`).  Name
 uniqueness is an install-time invariant: every push a driver step
 performs is guarded by a lookup — `checkConstantValC`'s duplicate
-guard, `checkMemberValF`'s, `installBasisDeclF`'s, the projection
+guard, `installBasisDeclF`'s, the projection
 name-family guards — so this file proves, once and OPERATIONALLY (no
 environment well-formedness, no simulation: the final-value discipline
 of `ConLeche/Verify/Cached/AgreeFloor.lean`), that an accepted step
@@ -84,20 +84,10 @@ theorem PushChain.push {env : Env} {fe : FEnv} (h : PushChain env fe)
     rw [PushChain.find? ⟨hc, ⟨new, hnew⟩, hnd⟩] at hfresh
     exact Env.find?_none_notin hfresh
 
-theorem PushChain.trans {env : Env} {fe₁ fe₂ : FEnv} (h₁ : PushChain env fe₁)
-    (h₂ : PushChain fe₁.env fe₂) : PushChain env fe₂ := by
-  obtain ⟨hc₁, ⟨new₁, hnew₁⟩, hnd₁⟩ := h₁
-  obtain ⟨hc₂, ⟨new₂, hnew₂⟩, hnd₂⟩ := h₂
-  exact ⟨hc₂, ⟨new₂ ++ new₁, by rw [hnew₂, hnew₁, List.append_assoc]⟩,
-    fun h => hnd₂ (hnd₁ h)⟩
-
 /-- A list of names, pairwise distinct and all fresh at `env`: pushing
 constants of these names in this order is a fresh chain. -/
 def FreshNames (env : Env) (ns : List Name) : Prop :=
   ns.Nodup ∧ ∀ n ∈ ns, env.find? n = none
-
-theorem FreshNames.nil (env : Env) : FreshNames env [] :=
-  ⟨List.nodup_nil, fun _ h => nomatch h⟩
 
 /-- After pushing the head's constant, the tail is fresh at the
 extended environment. -/
@@ -109,43 +99,7 @@ theorem FreshNames.step {env : Env} {c : ConstantInfo} {ns : List Name}
   rw [Env.find?_cons, if_neg (fun he => hnd.1 (by rw [he]; exact hn))]
   exact hfr n (List.mem_cons_of_mem _ hn)
 
-/-- Freshness at the extended environment, with the head fresh at the
-base, is freshness of the whole list at the base. -/
-theorem FreshNames.cons_of {env : Env} {c : ConstantInfo} {ns : List Name}
-    (hc : env.find? c.name = none) (h : FreshNames ⟨c :: env.consts⟩ ns) :
-    FreshNames env (c.name :: ns) := by
-  obtain ⟨hnd, hfr⟩ := h
-  have hne : ∀ n ∈ ns, c.name ≠ n ∧ env.find? n = none := by
-    intro n hn
-    have := hfr n hn
-    rw [Env.find?_cons] at this
-    by_cases he : c.name = n
-    · rw [if_pos he] at this; exact nomatch this
-    · rw [if_neg he] at this; exact ⟨he, this⟩
-  refine ⟨List.nodup_cons.mpr ⟨fun hm => (hne _ hm).1 rfl, hnd⟩, ?_⟩
-  intro n hn
-  rcases List.mem_cons.mp hn with rfl | hn
-  · exact hc
-  · exact (hne n hn).2
-
 /-! ## The generic stage helpers keep the name and record the guard -/
-
-theorem checkConstantValF_fresh (ops : CheckerOps CheckCM) (fe : FEnv)
-    (cv : ConstantVal) :
-    Yields (checkConstantValF ops fe cv)
-      (fun cvA => cvA.name = cv.name ∧ fe.find? cv.name = none) := by
-  unfold checkConstantValF
-  yields
-  all_goals exact Yields.pure ⟨rfl, Option.not_isSome_iff_eq_none.mp (by assumption)⟩
-
-theorem checkMemberValF_fresh (ops : CheckerOps CheckCM)
-    (blockNames : List Name) (fe : FEnv) (cv : ConstantVal) :
-    Yields (checkMemberValF ops blockNames fe cv)
-      (fun cvA => cvA.name = cv.name ∧ fe.find? cv.name = none) := by
-  unfold checkMemberValF
-  refine Yields.bind' (checkConstantValF_fresh ops fe cv) fun cvA hcvA => ?_
-  yields
-  all_goals (apply Yields.pure; exact hcvA)
 
 theorem checkConstantValC_fresh (mode : CheckMode) (fe : FEnv)
     (cv : ConstantVal) :
@@ -184,241 +138,7 @@ theorem checkOpaqueValC_push (mode : CheckMode) {env : Env} {fe : FEnv}
   yields
   all_goals (apply Yields.pure; exact h.push hfr)
 
-/-! ## The modeled route -/
-
-theorem checkIndMemberS_push (mode : CheckMode) (blockNames : List Name)
-    (caps : IndCaps) {env : Env} {fe : FEnv} (h : PushChain env fe)
-    (ci : ConstantInfo) :
-    Yields (checkIndMemberS mode blockNames caps fe ci)
-      (fun fe' => PushChain env fe') := by
-  unfold checkIndMemberS
-  ybind
-  refine Yields.bind'
-    (checkMemberValF_fresh (sharedOpsC mode fe) blockNames fe ci.toConstantVal)
-    fun cvA hcvA => ?_
-  obtain ⟨hn, hfr⟩ := hcvA
-  cases ci with
-  | indInfo cvI capsI =>
-    refine Yields.pure (h.push ?_)
-    show fe.find? cvA.name = none
-    rw [hn]; exact hfr
-  | ctorInfo cvI nP nF =>
-    refine Yields.pure (h.push ?_)
-    show fe.find? cvA.name = none
-    rw [hn]; exact hfr
-  | _ => exact Yields.ofThrow
-
-theorem provisionRecsS_fresh (mode : CheckMode) (blockNames : List Name) :
-    ∀ (recs : List ConstantInfo) {env : Env} (feAcc : FEnv),
-      PushChain env feAcc →
-      Yields (provisionRecsS mode blockNames feAcc recs)
-        (fun p => FreshNames feAcc.env (p.2.map (·.1.name)))
-  | [], env, feAcc, _ => by
-    unfold provisionRecsS
-    exact Yields.pure (FreshNames.nil _)
-  | ci :: rest, env, feAcc, h => by
-    unfold provisionRecsS
-    cases ci with
-    | recInfo cv mI rP rules =>
-      ybind
-      refine Yields.bind'
-        (checkMemberValF_fresh (sharedOpsC mode feAcc) blockNames feAcc _)
-        fun cvA hcvA => ?_
-      obtain ⟨hn, hfr⟩ := hcvA
-      have hfr' : feAcc.find? cvA.name = none := by rw [hn]; exact hfr
-      refine Yields.bind'
-        (provisionRecsS_fresh mode blockNames rest
-          (feAcc.push (.recInfo cvA mI rP [])) (h.push hfr'))
-        fun q hq => ?_
-      obtain ⟨feSelf, others⟩ := q
-      refine Yields.pure ?_
-      rw [h.find?] at hfr'
-      exact FreshNames.cons_of (c := .recInfo cvA mI rP []) hfr' hq
-    | _ => exact Yields.ofThrow
-
-/-- The recursor group's install fold: the provisioned names are pushed
-in order onto the group's base index. -/
-theorem recFold_push (mode : CheckMode) (blockNames : List Name)
-    (fe₂ feSelf : FEnv) (f : Name → Name) :
-    ∀ (checked : List (ConstantVal × Nat × Nat × List RecRule)) {env : Env}
-      (acc : FEnv), PushChain env acc →
-      FreshNames acc.env (checked.map (·.1.name)) →
-      Yields (checked.foldlM (fun (acc : FEnv) c => do
-          let rules' ← checkIotaRulesF mode (sharedOpsC mode feSelf) fe₂ feSelf
-            f c.1.name c.1.levelParams c.1.type c.2.1 c.2.2.1 0 c.2.2.2
-          pure (acc.push (.recInfo c.1 c.2.1 c.2.2.1 rules'))) acc)
-        (fun acc' => PushChain env acc')
-  | [], env, acc, h, _ => by
-    simp only [List.foldlM_nil]
-    exact Yields.pure h
-  | c :: cs, env, acc, h, hf => by
-    simp only [List.foldlM_cons]
-    have hfr : acc.find? c.1.name = none := by
-      rw [h.find?]
-      exact hf.2 _ (by simp)
-    refine Yields.bind' (Q := fun acc' => ∃ rules',
-        acc' = acc.push (.recInfo c.1 c.2.1 c.2.2.1 rules'))
-      (Yields.bind fun rules' => Yields.pure ⟨rules', rfl⟩) fun acc' hacc' => ?_
-    obtain ⟨rules', rfl⟩ := hacc'
-    exact recFold_push mode blockNames fe₂ feSelf f cs _ (h.push hfr)
-      (FreshNames.step (c := .recInfo c.1 c.2.1 c.2.2.1 rules') hf)
-
-theorem checkIndRecsS_push (mode : CheckMode) (blockNames : List Name)
-    {env : Env} {fe₂ : FEnv} (h : PushChain env fe₂)
-    (recs : List ConstantInfo) :
-    Yields (checkIndRecsS mode blockNames fe₂ recs)
-      (fun fe' => PushChain env fe') := by
-  unfold checkIndRecsS
-  simp only []
-  split
-  · exact Yields.pure h
-  · split
-    · refine Yields.bind'
-        (provisionRecsS_fresh mode blockNames recs fe₂ h) fun q hq => ?_
-      obtain ⟨feSelf, checked⟩ := q
-      ybind
-      exact recFold_push mode blockNames fe₂ feSelf _ checked fe₂ h hq
-    · exact Yields.ofThrowBind
-
-theorem checkProjLookupsF_fresh (fe : FEnv) (T ctorName : Name)
-    (lps : List Name) (nP nF i : Nat) :
-    Yields (checkProjLookupsF (m := CheckCM) fe T ctorName lps nP nF i)
-      (fun _ => fe.find? (projFnName T i) = none) := by
-  unfold checkProjLookupsF
-  yields
-  all_goals (apply Yields.pure; exact Option.isNone_iff_eq_none.mp (by assumption))
-
-theorem checkProjFnS_push (mode : CheckMode) {env : Env} {fe : FEnv}
-    (h : PushChain env fe) (T ctorName : Name) (lps : List Name)
-    (nP nF i : Nat) :
-    Yields (checkProjFnS mode fe T ctorName lps nP nF i)
-      (fun fe' => PushChain env fe') := by
-  unfold checkProjFnS
-  refine Yields.bind' (checkProjLookupsF_fresh fe T ctorName lps nP nF i)
-    fun pr hfr => ?_
-  yields
-  all_goals (apply Yields.pure; exact h.push hfr)
-
-theorem installProjFnStepS_push (mode : CheckMode) {env : Env} {fe : FEnv}
-    (h : PushChain env fe) (T ctorName : Name) (lps : List Name)
-    (nP nF i : Nat) :
-    Yields (installProjFnStepS mode T ctorName lps nP nF fe i)
-      (fun fe' => PushChain env fe') := by
-  unfold installProjFnStepS
-  split
-  · ybind
-    exact checkProjFnS_push mode h T ctorName lps nP nF i
-  · exact Yields.pure h
-
-/-- The members-then-recursors phase, shared by both arms of
-`checkIndDeclSF`'s block match. -/
-theorem indBase_push (mode : CheckMode) (blockNames : List Name)
-    (caps : IndCaps) {env : Env} {fe : FEnv} (h : PushChain env fe)
-    (nonrecs recs : List ConstantInfo) :
-    Yields (do
-        let fe₂ ← nonrecs.foldlM (checkIndMemberS mode blockNames caps) fe
-        checkIndRecsS mode blockNames fe₂ recs)
-      (fun fe' => PushChain env fe') := by
-  refine Yields.bind'
-    (Yields.foldlM_rel (R := fun fe (_ : Unit) => PushChain env fe)
-      (g := fun u _ => u)
-      (fun acc ci _ hacc => checkIndMemberS_push mode blockNames caps hacc ci)
-      nonrecs fe () h) fun fe₂ h₂ => ?_
-  exact checkIndRecsS_push mode blockNames h₂ recs
-
-theorem checkIndDeclSF_push (mode : CheckMode) {env : Env} {fe : FEnv}
-    (h : PushChain env fe) (block : List ConstantInfo) :
-    Yields (checkIndDeclSF mode fe block)
-      (fun fe' => PushChain env fe') := by
-  unfold checkIndDeclSF
-  simp only []
-  split
-  case isFalse => exact Yields.ofThrowBind
-  case isTrue =>
-    split
-    case h_1 cvT capsT cvC nP nF hI hC =>
-      ybind
-      refine Yields.bind'
-        (Yields.foldlM_rel (R := fun fe (_ : Unit) => PushChain env fe)
-          (g := fun u _ => u)
-          (fun acc ci _ hacc => checkIndMemberS_push mode _ _ hacc ci) _ fe () h)
-        fun fe₂ h₂ => ?_
-      refine Yields.bind' (checkIndRecsS_push mode _ h₂ _) fun fe₃ h₃ => ?_
-      split
-      case isFalse => exact Yields.ofThrowBind
-      case isTrue =>
-        split
-        case isFalse => exact Yields.ofThrowBind
-        case isTrue =>
-          split
-          · exact Yields.foldlM_rel (R := fun fe (_ : Unit) => PushChain env fe)
-              (g := fun u _ => u)
-              (fun acc i _ hacc =>
-                installProjFnStepS_push mode hacc cvT.name cvC.name
-                  cvT.levelParams nP nF i) (List.range nF) fe₃ () h₃
-          · exact Yields.pure h₃
-    case h_2 => exact indBase_push mode _ _ h _ _
-
-/-! ## The fixpoint route -/
-
-theorem checkSumIndF_push {env : Env} {fe : FEnv} (h : PushChain env fe)
-    (ops : CheckerOps CheckCM) (p : InductiveShape)
-    (capsOf : InductiveShape → IndCaps) :
-    Yields (checkSumIndF ops fe p capsOf)
-      (fun r => PushChain env r.1 ∧ ∃ s, r.2.2 = p.withSort s) := by
-  unfold checkSumIndF
-  refine Yields.bind' (checkConstantValF_fresh ops fe p.cvT) fun cvTa₀ h₀ => ?_
-  obtain ⟨hn₀, hfr⟩ := h₀
-  refine Yields.bind' (checkSumTeleF_name ops fe p.cvT _ cvTa₀) fun r hn => ?_
-  obtain ⟨cvTa, s⟩ := r
-  have hn' : cvTa.name = p.cvT.name := by
-    rcases hn with h1 | h1
-    · exact h1.trans hn₀
-    · exact h1
-  yields
-  all_goals
-    (refine Yields.pure ⟨h.push ?_, s, rfl⟩
-     show fe.find? cvTa.name = none
-     rw [hn']; exact hfr)
-
-theorem checkSumCtorF_fresh (ops : CheckerOps CheckCM) (fe₀ fe : FEnv)
-    (T : Name) (lps : List Name) (nP nIdx : Nat) (rs : Level) (isProp large : Bool)
-    (cvC : ConstantVal) (nF : Nat) (cvTa : ConstantVal) :
-    Yields (checkSumCtorF ops fe₀ fe T lps nP nIdx rs isProp large cvC nF cvTa)
-      (fun r => r.1.name = cvC.name ∧ fe.find? cvC.name = none) := by
-  unfold checkSumCtorF
-  refine Yields.bind' (checkConstantValF_fresh ops fe cvC) fun cvCa₀ h₀ => ?_
-  obtain ⟨hn₀, hfr⟩ := h₀
-  refine Yields.bind' (normCtorValF_name ops fe T nP nF cvC cvCa₀ hn₀) fun cvCa hn => ?_
-  yields
-  all_goals (apply Yields.pure; exact ⟨hn, hfr⟩)
-
-theorem checkSumCtorsF_fresh (ops : CheckerOps CheckCM) (fe₀ fe : FEnv)
-    (T : Name) (lps : List Name) (nP nIdx : Nat) (rs : Level) (isProp large : Bool)
-    (cvTa : ConstantVal) :
-    ∀ (cs : List (ConstantVal × Nat)),
-      Yields (checkSumCtorsF ops fe₀ fe T lps nP nIdx rs isProp large cvTa cs)
-        (fun r => r.1.map (·.1.name) = cs.map (·.1.name) ∧
-          ∀ c ∈ r.1, fe.find? c.1.name = none)
-  | [] => Yields.pure ⟨rfl, fun _ hc => nomatch hc⟩
-  | c :: cs => by
-    unfold checkSumCtorsF
-    refine Yields.bind' (checkSumCtorF_fresh ops fe₀ fe T lps nP nIdx rs isProp
-      large c.1 c.2 cvTa) fun q hq => ?_
-    obtain ⟨cvCa, sorts⟩ := q
-    obtain ⟨hn, hfr⟩ := hq
-    refine Yields.bind' (checkSumCtorsF_fresh ops fe₀ fe T lps nP nIdx rs isProp
-      large cvTa cs) fun rest hrest => ?_
-    obtain ⟨rest, srest⟩ := rest
-    obtain ⟨hrest, hfrs⟩ := hrest
-    have hn' : cvCa.name = c.1.name := hn
-    have hrest' : rest.map (·.1.name) = cs.map (·.1.name) := hrest
-    refine Yields.pure ⟨by simp [hn', hrest'], ?_⟩
-    intro d hd
-    rcases List.mem_cons.mp hd with rfl | hd
-    · show fe.find? cvCa.name = none
-      rw [hn]; exact hfr
-    · exact hfrs d hd
+/-! ## The constructors' conses -/
 
 /-- The constructors' conses: a fresh chain from the former's index. -/
 theorem consSumCtorsF_push (nP : Nat) :
@@ -433,25 +153,6 @@ theorem consSumCtorsF_push (nP : Nat) :
     exact consSumCtorsF_push nP (ctorsA := cs) (h.push hfr)
       (FreshNames.step (c := .ctorInfo c.1 nP c.2) hf)
 
-theorem checkNativeRecF_fresh (ops : CheckerOps CheckCM) {w : StructWalkers}
-    (fe : FEnv) (p : NativeParts) (cvTa : ConstantVal)
-    (ctorsA : List (ConstantVal × Nat)) :
-    Yields (checkNativeRecF ops w fe p cvTa ctorsA)
-      (fun r => r.1.name = p.cvR.name ∧ fe.find? p.cvR.name = none) := by
-  unfold checkNativeRecF
-  refine Yields.letFun ?_
-  refine Yields.ofDecCases (fun _ => Yields.ofThrowBind) (fun _ => ?_)
-  try simp only []
-  refine Yields.letFun ?_
-  refine Yields.ofDecCases (fun _ => Yields.ofThrowBind) (fun _ => ?_)
-  try simp only []
-  refine Yields.letFun ?_
-  refine Yields.ofDecCases (fun _ => Yields.ofThrowBind) (fun _ => ?_)
-  try simp only []
-  refine Yields.bind' (checkConstantValF_fresh ops fe p.cvR) fun cvRi hcv => ?_
-  yields
-  all_goals (apply Yields.pure; exact ⟨rfl, hcv.2⟩)
-
 theorem checkStructProjTableF_push {w : StructWalkers} {env : Env} {fe : FEnv}
     (h : PushChain env fe) (T C : Name) (lps : List Name) (nP nF : Nat)
     (resSort : Level) (guards : List Level) (off : Nat) (cvCa : ConstantVal) :
@@ -462,121 +163,252 @@ theorem checkStructProjTableF_push {w : StructWalkers} {env : Env} {fe : FEnv}
   yields
   all_goals exact Yields.pure (h.push (Option.isNone_iff_eq_none.mp (by assumption)))
 
-theorem checkNativeTableF_push {w : StructWalkers} {env : Env} {fe : FEnv}
-    (h : PushChain env fe) (p : NativeParts) (ctorsA : List (ConstantVal × Nat))
-    (sortss : List (List Level)) :
-    Yields (checkNativeTableF (m := CheckCM) w p ctorsA sortss fe)
-      (fun fe' => PushChain env fe') := by
-  unfold checkNativeTableF
-  split
-  · split
-    · exact checkStructProjTableF_push h _ _ _ _ _ _ _ _ _
-    · exact Yields.pure h
-  · exact Yields.pure h
+/-! ## The block install at k members
 
-/-- One pass (task #268): the former's cons keeps the chain, the
-constructors are the block's by name and fresh at its environment. -/
-theorem checkNativePassS_push (mode : CheckMode) {env : Env} {fe : FEnv}
-    (h : PushChain env fe) (p : NativeParts) (isRec : Bool) :
-    Yields (checkNativePassS mode fe p isRec)
-      (fun r => PushChain env r.1.env₁ ∧ r.1.p.ctors = p.ctors ∧
-        r.1.ctorsA.map (·.1.name) = r.1.p.ctors.map (·.1.name) ∧
-        ∀ c ∈ r.1.ctorsA, r.1.env₁.find? c.1.name = none) := by
-  unfold checkNativePassS
-  refine Yields.bind' (checkSumIndF_push h _ p.toInductiveShape
-    (fun p₁ => nativeCapsAt p₁ isRec)) fun r₁ h₁ => ?_
-  obtain ⟨fe₁, cvTa, p₁⟩ := r₁
-  obtain ⟨h₁, s, hps⟩ := h₁
-  try simp only [] at hps
+The k-ary install pushes the k formers, then every member's
+constructors, then the k recursors, then a table per structure-like
+member.  Every push is fresh: the formers and the constructors by their
+own stages' lookups and the install's distinct-name guard, the
+recursors by the type stage's lookup (at the constructors' index) and —
+for the k names among themselves — by the recursor NAME-SET check
+(`blockRecNameSetOk`), which with the members' own distinct names is a
+pigeonhole. -/
+
+/-- The formers' conses: a fresh chain. -/
+theorem consBlockIndsF_push (p₁ : BlockShape) (isRec : Bool) {env : Env} :
+    ∀ {cvTas : List ConstantVal} {i : Nat} {fe : FEnv}, PushChain env fe →
+      FreshNames fe.env (cvTas.map (·.name)) →
+      PushChain env (consBlockIndsF p₁ isRec cvTas i fe)
+  | [], _, _, h, _ => h
+  | cvTa :: rest, i, fe, h, hf => by
+    have hfr : fe.find? cvTa.name = none := by
+      rw [h.find?]; exact hf.2 _ (by simp)
+    exact consBlockIndsF_push p₁ isRec (cvTas := rest) (i := i + 1)
+      (h.push (ci := .indInfo cvTa (blockCapsAt p₁ i isRec)) hfr)
+      (FreshNames.step (c := .indInfo cvTa (blockCapsAt p₁ i isRec)) hf)
+
+/-- One pass at k members: the formers' conses keep the chain, and the
+constructors are the block's by name, fresh at the formers'
+environment. -/
+theorem checkBlockPassS_push (mode : CheckMode) {env : Env} {fe : FEnv}
+    (h : PushChain env fe) (p₀ : BlockParts) (isRec : Bool)
+    (hnd : (p₀.members.map (·.cvT.name)).Nodup) :
+    Yields (checkBlockPassS mode fe p₀ isRec)
+      (fun r => PushChain env r.env₁ ∧ r.p.members = p₀.members ∧
+        (r.ctorsAs.flatten.map (·.1.name)) = p₀.allCtors.map (·.1.name) ∧
+        ∀ c ∈ r.ctorsAs.flatten, r.env₁.find? c.1.name = none) := by
+  unfold checkBlockPassS
+  refine Yields.bind' (checkBlockIndsF_fresh _ fe p₀ isRec) fun r₁ h₁ => ?_
+  obtain ⟨fe₁, cvTas, p₁⟩ := r₁
+  obtain ⟨⟨s, hps⟩, hfe₁, hn, hfr⟩ := h₁
+  try simp only [] at hps hfe₁ hn hfr
   subst hps
   try simp only []
+  have h₁ : PushChain env fe₁ := by
+    rw [hfe₁]
+    refine consBlockIndsF_push _ isRec h ⟨by rw [hn]; exact hnd, ?_⟩
+    intro n hn'
+    rw [hn] at hn'
+    obtain ⟨ms, hms, rfl⟩ := List.mem_map.mp hn'
+    rw [← h.find?]
+    exact hfr ms hms
   ybind
-  refine Yields.bind' (checkSumCtorsF_fresh _ fe₁ fe₁ _ _ _ _ _ _ _ cvTa _) fun r hr => ?_
-  obtain ⟨ctorsA, sortss⟩ := r
-  obtain ⟨hns, hfrs⟩ := hr
+  have hlen : (p₀.members.zip cvTas).map (fun x => x.1) = p₀.members := by
+    have := congrArg List.length hn
+    simp only [List.length_map] at this
+    rw [List.map_fst_zip (by omega)]
+  refine Yields.bind' (checkBlockCtorsF_fresh _ fe₁ fe₁ _ _) fun r hr => ?_
+  obtain ⟨ctorsAs, sortsss⟩ := r
+  obtain ⟨hns, -, hfrs⟩ := hr
   try simp only []
+  refine Yields.bind fun _ => ?_
+  refine Yields.bind fun _ => ?_
   refine Yields.bind fun kinds => ?_
-  refine Yields.pure ⟨h₁, ?_, ?_, hfrs⟩
-  · simp [NativeParts.withKinds, NativeParts.complete, InductiveShape.withSort]
-  · rw [hns]
-    simp [NativeParts.withKinds, NativeParts.complete, InductiveShape.withSort]
+  refine Yields.bind fun _ => ?_
+  refine Yields.pure ⟨h₁, rfl, ?_, ?_⟩
+  · simp only [BlockParts.complete_members, BlockShape.withSort_members] at hns
+    have := congrArg (fun l => (l.map (List.map Prod.fst)).flatten) hns
+    simp only [List.map_map, Function.comp_def] at this
+    simp only [List.map_flatten, BlockShape.allCtors]
+    rw [this]
+    conv => rhs; rw [← hlen]
+    simp only [List.map_map, Function.comp_def]
+  · intro c hc
+    obtain ⟨cs, hcs, hc⟩ := List.mem_flatten.mp hc
+    exact hfrs cs hcs c hc
+
+/-- **The pigeonhole**: a list as long as a `Nodup` list it covers is
+itself `Nodup`. -/
+theorem nodup_of_covering {α : Type} [BEq α] [LawfulBEq α] :
+    ∀ {L M : List α}, M.Nodup → M ⊆ L → L.length ≤ M.length → L.Nodup
+  | [], _, _, _, _ => List.nodup_nil
+  | a :: L', M, hM, hML, hlen => by
+    have hdup : a ∉ L' := by
+      intro ha
+      have hsub : M ⊆ L' := by
+        intro x hx
+        rcases List.mem_cons.mp (hML hx) with rfl | h
+        · exact ha
+        · exact h
+      have := List.Nodup.length_le_of_subset hM hsub
+      simp only [List.length_cons] at hlen
+      omega
+    refine List.nodup_cons.mpr ⟨hdup, ?_⟩
+    by_cases hmem : a ∈ M
+    · refine nodup_of_covering (M := M.erase a) (List.Nodup.erase a hM) ?_ ?_
+      · intro x hx
+        rcases List.mem_cons.mp (hML (List.mem_of_mem_erase hx)) with rfl | h
+        · exact absurd hx (List.Nodup.not_mem_erase hM)
+        · exact h
+      · rw [List.length_erase_of_mem hmem]
+        simp only [List.length_cons] at hlen
+        omega
+    · exfalso
+      have hsub : M ⊆ L' := by
+        intro x hx
+        rcases List.mem_cons.mp (hML hx) with rfl | h
+        · exact absurd hx hmem
+        · exact h
+      have := List.Nodup.length_le_of_subset hM hsub
+      simp only [List.length_cons] at hlen
+      omega
+
+/-- **The recursor NAME-SET check makes the recursors' names
+distinct**, given the members' own (the pigeonhole). -/
+theorem blockRecNameSetOk_nodup {p : BlockShape} (h : blockRecNameSetOk p = true)
+    (hnd : (p.members.map (·.cvT.name)).Nodup) : (p.recs.map (·.cvR.name)).Nodup := by
+  unfold blockRecNameSetOk at h
+  simp only [Bool.and_eq_true, beq_iff_eq, List.length_map] at h
+  obtain ⟨⟨hlen, hwant⟩, -⟩ := h
+  have hM : (p.members.map fun ms => ms.cvT.name.str "rec").Nodup := by
+    have : (p.members.map fun ms => ms.cvT.name.str "rec")
+        = (p.members.map (·.cvT.name)).map (fun n => n.str "rec") := by
+      rw [List.map_map]; rfl
+    rw [this]
+    refine List.Pairwise.map _ (fun x y hxy hh => ?_) hnd
+    exact hxy (by injection hh)
+  refine nodup_of_covering hM ?_ (by simp [hlen])
+  intro x hx
+  exact List.elem_iff.mp (List.all_eq_true.mp hwant x hx)
+
+/-- The recursor stage stores fresh, distinct names: the generated stage
+stores one recursor per record, under the record's name, fresh at the
+constructors' index (the generated constant's lookup) and pairwise
+distinct (the record pins). -/
+theorem genRecCheckS_fresh (mode : CheckMode) (fe : FEnv)
+    (p : BlockParts) (nested : Bool) (params : List Expr) (tbl : List NestCtorNf)
+    (rd : ClassRead) (Ms₀ : List TargetMajor)
+    (block : List ConstantInfo) (cvTas : List ConstantVal) :
+    Yields (genRecCheck (shadowOpsC mode) fe p.toBlockShape nested params tbl rd Ms₀ cvTas block)
+      (fun out => (out.map (·.1.name)).Nodup ∧ ∀ o ∈ out, fe.find? o.1.name = none) := by
+  refine Yields.mono (genRecCheck_names (shadowOpsC mode) fe
+    p.toBlockShape nested params tbl rd Ms₀ cvTas block) fun out hout => ?_
+  obtain ⟨hnd, hlen, hall⟩ := hout
+  have hnames : out.map (·.1.name) = p.recs.map (·.cvR.name) := by
+    apply List.ext_getElem?
+    intro j
+    simp only [List.getElem?_map]
+    cases hj : p.recs[j]? with
+    | none =>
+      have : out[j]? = none := by
+        rw [List.getElem?_eq_none_iff] at hj ⊢
+        have : p.toBlockShape.recs.length = p.recs.length := rfl
+        omega
+      simp [this]
+    | some rc =>
+      obtain ⟨o, hoj, hname, -⟩ := hall j rc hj
+      simp [hoj, hname]
+  refine ⟨by rw [hnames]; exact hnd, ?_⟩
+  intro o ho
+  obtain ⟨j, hoj⟩ := List.getElem?_of_mem ho
+  have hjl : j < p.recs.length := by
+    have := (List.getElem?_eq_some_iff.mp hoj).1
+    have h2 : p.toBlockShape.recs.length = p.recs.length := rfl
+    omega
+  obtain ⟨o', hoj', hname, hfr⟩ := hall j p.recs[j] (List.getElem?_eq_getElem hjl)
+  rw [hoj] at hoj'
+  obtain rfl := Option.some.inj hoj'
+  rw [hname]; exact hfr
+
+/-- The recursors' conses at their majors: a fresh chain. -/
+theorem consBlockRecsTF_push (find? : Name → Option ConstantInfo) (resolves : Expr → Bool)
+    (q : BlockShape) {env : Env} :
+    ∀ {out : List (ConstantVal × TargetMajor × List Expr)} {m : Nat}
+      {fe : FEnv}, PushChain env fe → FreshNames fe.env (out.map (·.1.name)) →
+      PushChain env (consBlockRecsTF find? resolves q m out fe)
+  | [], _, _, h, _ => h
+  | (cv, M, rhss) :: rest, m, fe, h, hf => by
+    have hfr : fe.find? cv.name = none := by
+      rw [h.find?]; exact hf.2 _ (by simp)
+    let ci : ConstantInfo := .recInfo cv (q.majorIdxAt m) (q.rulePrefixAt m)
+      (tgtStoredRules find? resolves cv (q.majorIdxAt m) (q.rulePrefixAt m) M rhss)
+    exact consBlockRecsTF_push find? resolves q (out := rest) (m := m + 1)
+      (h.push (ci := ci) hfr) (FreshNames.step (c := ci) hf)
+
+/-- The projection tables: every push is guarded by its own lookup. -/
+theorem checkBlockTablesF_push {w : StructWalkers} (p : BlockShape) {env : Env} :
+    ∀ (l : List (MemberShape × List (ConstantVal × Nat) × List (List Level))) {fe : FEnv},
+      PushChain env fe →
+      Yields (checkBlockTablesF (m := CheckCM) w p l fe) (fun fe' => PushChain env fe')
+  | [], _, h => Yields.pure h
+  | (ms, ctorsA, sortss) :: rest, fe, h => by
+    unfold checkBlockTablesF
+    have key : Yields
+        (match ctorsA, sortss with
+         | [cA], [sorts] =>
+           if ms.nIdx == 0 then
+             checkStructProjTableF (m := CheckCM) w ms.cvT.name cA.1.name p.lps p.nP cA.2
+               p.resSort (structProjGuards cA.1.type p.nP cA.2 sorts) 1 cA.1 fe
+           else pure fe
+         | _, _ => pure fe) (fun fe' => PushChain env fe') := by
+      split
+      · split
+        · exact checkStructProjTableF_push h _ _ _ _ _ _ _ _ _
+        · exact Yields.pure h
+      · exact Yields.pure h
+    exact Yields.bind' key fun fe' h' => checkBlockTablesF_push p rest h'
 
 /-- The install after the pass keeps the chain. -/
-theorem checkNativeTailS_push (mode : CheckMode) {env : Env} {fe : FEnv}
-    {q : NativePass FEnv} (h₁ : PushChain env q.env₁)
-    (hnd : (q.p.ctors.map (·.1.name)).Nodup)
-    (hns : q.ctorsA.map (·.1.name) = q.p.ctors.map (·.1.name))
-    (hfrs : ∀ c ∈ q.ctorsA, q.env₁.find? c.1.name = none) :
-    Yields (checkNativeTailS mode fe q) (fun fe' => PushChain env fe') := by
-  unfold checkNativeTailS
-  -- the elimination restriction, on the completed record
-  try apply Yields.letFun
-  refine Yields.ofDecCases (fun _ => ?elim) (fun _ => Yields.ofThrowBind)
-  case elim =>
-  ybind
-  refine Yields.bind fun _isorts => ?_
-  try simp only []
-  try ylet
-  split
-  case isFalse => exact Yields.ofThrowBind
-  case isTrue hk =>
-  try ylet
-  split
-  case isFalse => exact Yields.ofThrowBind
-  case isTrue _ =>
-  ybind
-  have hbase : PushChain env (consSumCtorsF q.p.nP q.ctorsA q.env₁) := by
-    refine consSumCtorsF_push q.p.nP h₁ ⟨?_, ?_⟩
-    · rw [hns]; exact hnd
-    · intro n hn
-      obtain ⟨c, hc, rfl⟩ := List.mem_map.mp hn
-      rw [← h₁.find?]
-      exact hfrs c hc
-  refine Yields.bind' (checkNativeRecF_fresh _ (consSumCtorsF q.p.nP q.ctorsA q.env₁) q.p q.cvTa
-    q.ctorsA) fun r₃ h₃ => ?_
-  obtain ⟨cvRa, rhss⟩ := r₃
-  obtain ⟨hnR, hfrR⟩ := h₃
-  try simp only [] at hnR hfrR
-  try simp only []
-  have hpush := hbase.push (ci := .recInfo cvRa q.p.majorIdx q.p.rulePrefix
-    (sumRules (consSumCtorsF q.p.nP q.ctorsA q.env₁).find? cvRa.name
-      q.p.nP q.p.majorIdx q.p.rulePrefix cvRa.type q.ctorsA rhss))
-    (by show (consSumCtorsF q.p.nP q.ctorsA q.env₁).find? cvRa.name = none
-        rw [hnR]; exact hfrR)
-  exact checkNativeTableF_push hpush q.p q.ctorsA q.sortss
+theorem checkBlockTailS_push (mode : CheckMode) {env : Env}
+    {block : List ConstantInfo} {q : BlockPass FEnv} (h₁ : PushChain env q.env₁)
+    (hndC : (q.ctorsAs.flatten.map (·.1.name)).Nodup)
+    (hfrs : ∀ c ∈ q.ctorsAs.flatten, q.env₁.find? c.1.name = none) :
+    Yields (checkBlockTailS mode block q) (fun fe' => PushChain env fe') := by
+  unfold checkBlockTailS
+  dsimp only
+  refine Yields.bind fun _ => ?_
+  refine Yields.bind fun _ => ?_
+  have h₂ : PushChain env (consBlockCtorsF q.p.nP q.ctorsAs q.env₁) := by
+    rw [consBlockCtorsF_flatten]
+    refine consSumCtorsF_push q.p.nP h₁ ⟨hndC, ?_⟩
+    intro n hn
+    obtain ⟨c, hc, rfl⟩ := List.mem_map.mp hn
+    rw [← h₁.find?]
+    exact hfrs c hc
+  refine Yields.bind' (genRecCheckS_fresh mode _ q.p _ _ _ _ _ block q.cvTas)
+    fun out hrs => ?_
+  refine checkBlockTablesF_push _ _ (consBlockRecsTF_push _ _ _ h₂ ⟨hrs.1, ?_⟩)
+  intro n hn
+  obtain ⟨r, hr, rfl⟩ := List.mem_map.mp hn
+  rw [← h₂.find?]
+  exact hrs.2 r hr
 
-theorem checkNativeS_push (mode : CheckMode) {env : Env} {fe : FEnv}
-    (h : PushChain env fe) (p : NativeParts) :
-    Yields (checkNativeS mode fe p) (fun fe' => PushChain env fe') := by
-  unfold checkNativeS
-  -- the front guard: the distinct constructor names
+/-- **The uniform install at k members keeps the chain**. -/
+theorem checkBlockKS_push (mode : CheckMode) {env : Env} {fe : FEnv}
+    (h : PushChain env fe) (block : List ConstantInfo) (p : BlockParts) :
+    Yields (checkBlockKS mode fe block p) (fun fe' => PushChain env fe') := by
+  unfold checkBlockKS
   try apply Yields.letFun
   refine Yields.ofDecCases (fun _ => Yields.ofThrowBind) (fun hnd => ?main)
   case main =>
   ybind
-  -- the pass at the syntactic reading, and again where it overshot
-  refine Yields.bind' (checkNativePassS_push mode h p (nativeRawRec p)) fun r hr => ?_
-  obtain ⟨q, settled⟩ := r
-  obtain ⟨h₁, hpC, hns, hfrs⟩ := hr
-  try simp only [] at h₁ hpC hns hfrs
+  have hndC : (p.allCtors.map (·.1.name)).Nodup := hnd.1
+  have hndM : (p.members.map (·.cvT.name)).Nodup := hnd.2
+  refine Yields.bind' (checkBlockPassS_push mode h p (blockRawRec p) hndM) fun q hr => ?_
+  obtain ⟨h₁, hm, hns, hfrs⟩ := hr
+  try simp only [] at h₁ hm hns hfrs
   try simp only []
-  cases settled with
-  | true =>
-    simp only [↓reduceIte]
-    exact checkNativeTailS_push mode h₁ (by rw [hpC]; exact hnd) hns hfrs
-  | false =>
-  simp only [Bool.false_eq_true, ↓reduceIte]
-  ybind
-  refine Yields.bind' (checkNativePassS_push mode h p (nativeIsRec q.p.kinds)) fun r' hr' => ?_
-  obtain ⟨q', settled'⟩ := r'
-  obtain ⟨h₁', hpC', hns', hfrs'⟩ := hr'
-  try simp only [] at h₁' hpC' hns' hfrs'
-  try simp only []
-  try ylet
-  split
-  case isFalse => exact Yields.ofThrowBind
-  case isTrue _ =>
-  exact checkNativeTailS_push mode h₁' (by rw [hpC']; exact hnd) hns' hfrs'
+  exact checkBlockTailS_push mode h₁ (by rw [hns]; exact hndC) hfrs
 
 /-! ## The declaration clause and the two drivers' steps -/
 
@@ -688,9 +520,9 @@ theorem checkDeclC_push (mode : CheckMode) {env : Env} {fe : FEnv}
     split
     · exact checkBasisDeclC_push h _
     · split
-      · cases nativeParts? nP block with
-        | none => exact checkIndDeclSF_push mode h block
-        | some p => exact checkNativeS_push mode h p
+      · cases hbp : blockParts? nP block with
+        | none => exact Yields.bind fun _ => Yields.ofThrow
+        | some p => exact checkBlockKS_push mode h block p
       · exact Yields.ofThrow
 
 theorem checkDeclStepC_push (mode : CheckMode) {env : Env} {fe : FEnv}
