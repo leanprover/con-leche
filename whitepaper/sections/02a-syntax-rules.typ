@@ -12,7 +12,7 @@
 
 == Terms <sec:terms>
 
-The terms of the fragment are Lean's kernel terms, minus what §6
+The terms of the fragment are Lean's kernel terms, minus what @sec:left-out
 leaves out.  The grammar, with the annotation in colour:
 
 $

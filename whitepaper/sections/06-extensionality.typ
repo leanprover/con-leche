@@ -15,10 +15,10 @@
 
 = What extensionality gives for free <sec:ext>
 
-Lean's kernel has a few rules of definitional equality that the
+The official kernel has a few rules of definitional equality that the
 fragment does not have: reduction of a recursor on a proof that is
 not a constructor application (K-like reduction), η for structures,
-and unit-likeness. §6 lists them among the omissions; this section
+and unit-likeness. @sec:left-out lists them among the omissions; this section
 says what adding them would cost. The answer is one case of the
 master induction each, and no new idea. In the model, each rule is a
 consequence of what the values _are_: a proof is the point, a
@@ -34,9 +34,9 @@ applications], and §2 proved its case.) Below, each rule is stated in
 words, then the argument against the assumed laws, then the
 link to the real proof's case.
 
-Recall what §4 sets up. A constructor application $c thick arrow(p)
+Recall what @sec:ind sets up. A constructor application $c thick arrow(p)
 thick arrow(f)$ of a block whose family is not a proposition denotes
-a #src("whitepaper/Fragment/IndLib.lean", 65, 78)[tagged tuple]
+a #src("whitepaper/Fragment/IndLib.lean", 145, 159)[tagged tuple]
 $tag(i, chevron.l lden f_1 rden, ..., lden f_n rden chevron.r)$ — the
 constructor's number $i$, then its fields
 (#src("whitepaper/Fragment/IndSem.lean", 329, 331)[fragment]) — and
@@ -46,7 +46,7 @@ under the constructor steps], so that
 #src("whitepaper/Fragment/IndSem.lean", 365, 367)[a member of the
 family is a tagged tuple that one constructor step produces] from
 members of the field domains (this is the fixed-point equation of §4,
-#src("whitepaper/Fragment/IndLib.lean", 152, 155)[read from left to
+#src("whitepaper/Fragment/IndLib.lean", 246, 249)[read from left to
 right]). When the family _is_ a proposition — the binders of the
 constructors' types, whose bodies are the family, are annotated
 $ann(zn(u))$ for the result sort $Sort u$, and that datum holds at
@@ -56,9 +56,9 @@ instead: the constructor step's tuple is not stored, only whether some
 such tuple exists, and #src("whitepaper/Fragment/IndSem.lean", 378, 381)[a
 member of the family, like a constructor application, is the point].
 Tuples and tags are injective
-(#src("whitepaper/Fragment/IndLib.lean", 67)[tuples],
-#src("whitepaper/Fragment/IndLib.lean", 74)[tags]) and a tagged
-value is #src("whitepaper/Fragment/IndLib.lean", 78)[never the point].
+(#src("whitepaper/Fragment/IndLib.lean", 148)[tuples],
+#src("whitepaper/Fragment/IndLib.lean", 155)[tags]) and a tagged
+value is #src("whitepaper/Fragment/IndLib.lean", 159)[never the point].
 
 == Proof irrelevance and propositional extensionality
 
@@ -107,7 +107,7 @@ which the ordinary $iota$ rule fires on a constructor application.
   sides are one. The reduct's semantic invariant is the hypothesis.
 ]
 
-The kernel's type comparison is not idle. It puts the fabrication
+The checker's type comparison is not idle. It puts the fabrication
 into the recursor's _own_ fibre — for `Eq`, it is the comparison
 $a equiv b$ — which is what the $iota$ rule's telescope certificate on
 the reduct needs; and the inference of the fabrication's type is what
@@ -123,12 +123,12 @@ block is consulted.
 
 _The rule._ A _structure_ is a block with one constructor `mk`, no
 indices, no recursive field, and a family that is not a proposition.
-Lean's kernel equates any $s$ of the structure type with the
+The official kernel equates any $s$ of the structure type with the
 constructor applied to $s$'s projections: $s equiv$ `mk` $arrow(p)
-thick s.1 dots s.n$. The kernel checks that $s$'s type reduces to the
+thick s.1 dots s.n$. The check is that $s$'s type reduces to the
 structure at the parameters $arrow(p)$, and compares each field of
 the constructor application with the corresponding projection of
-$s$. The fragment has no projection terms (§6); read $s.i$ below as
+$s$. The fragment has no projection terms (@sec:left-out); read $s.i$ below as
 the projection defined through the recursor, `S.rec` $(lambda
 arrow(f). thin f_i) thick s$, whose value is the $i$-th component of
 the tuple by the ι law — or as a primitive projection, whose
@@ -159,8 +159,10 @@ of the family" means, read from left to right, plus the fact that a
 tuple determines its components. In the soundness case the checker's
 field comparisons deliver $lden a_i rden = lden s.i rden$ for the
 fields $a_i$ the constructor was actually applied to, and the lemma
-does the rest. Where the structure's instance is a proposition both
-sides are the point, and the checker does not try the rule there.
+does the rest. A block declared in `Prop` is never granted the rule;
+where an instance of a `Sort u` structure happens to be a
+proposition, both sides are the point, and the law's proposition case
+covers it.
 The real checker has the rule as
 #src("ConLeche/Rules/Rel.lean", 431, 434)[a certificate on the
 fields], with its case at
@@ -168,17 +170,19 @@ fields], with its case at
 and uses the same certificate to rescue a recursor stuck on a
 non-constructor $s$
 (#src("ConLeche/Model/Rules/IotaSound.lean", 584, 585)[the η rescue]).
-The law itself it establishes once per block, at the block's
-install. On the native route this is the argument above, on the
-tagged tower that models the block
+Whether a type has the rule at all is decided once, at its install,
+from its shape — one constructor, no index, not a proposition, in a
+block where no constructor is recursive — and
+#src("ConLeche/Kernel/Inductives/BlockInstall.lean", 67, 80)[recorded
+with the type]\; and the law itself is established there too, not at
+the use. It is the η law of the structure's _projection table_ — the
+record of its fields' types that the installer stores for every
+one-constructor, index-free type (@sec:left-out, "Projections")
 (#src("ConLeche/Model/Inductives/FixKit.lean", 804, 805)[a member is
-the constructor at the parameters and its own projections]); on the
-route for mutual and nested blocks it is the firing, in the model, of
-a theorem `T._model.eta` that the stream supplies and the checker has
-verified
-(the
-statement shape the checker requires,
-its firing).
+the constructor at the parameters and its own projections]), proved
+when #src("ConLeche/Model/Inductives/BlockStageTables.lean", 10, 12)[the
+installer stores the table], by the argument above on the tagged
+tuple.
 
 == Unit-likeness
 
@@ -201,20 +205,16 @@ whose types reduce to it.
 
 The two regimes are the two shapes a "set with at most one member"
 takes in the model, and the lemma is the same sentence in each. The
-real checker has two rules. One is for
-the pinned `PUnit`, which
-the real model
-interprets as ${pt}$ outright, so that
-both sides denote
-the point. The other is for
+real checker has the rule for
 #src("ConLeche/Rules/Rel.lean", 463, 468)[any stored unit-like family],
 with its case at
-#src("ConLeche/Model/Rules/DefEqSound.lean", 698, 699)[the real proof];
-the law is established at the install, from the fixed point on the
-native route (#src("ConLeche/Model/Inductives/FixKit.lean", 1754, 1755)[the
-fibre is the one tagged empty tuple]) and from a verified
-`T._model.unitlike` on the other
-(its firing).
+#src("ConLeche/Model/Rules/DefEqSound.lean", 698, 699)[the real proof].
+Unit-likeness is recorded at the install like η (one constructor, no
+index, no field, in a block where no constructor is recursive), and the law is established there
+from the fixed point
+(#src("ConLeche/Model/Inductives/FixKit.lean", 1754, 1755)[the fibre
+is the one tagged empty tuple]). Neither `PUnit` nor `True` is special
+to the checker: both are installed like any other block.
 
 == What is not free
 

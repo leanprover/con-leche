@@ -327,7 +327,7 @@ possibly-propositional redex, and the proof pays nothing.
     $lden e rden_rho in lden T rden_rho$.
   (#src("whitepaper/Fragment/Sound.lean", 679, 683)[fragment], with
   #src("whitepaper/Fragment/Motive.lean", 40, 53)[the three claims stated]\; #src("ConLeche/Model/Rules/Motive.lean", 70, 104)[real
-  proof], whose claims also carry the erased reading of the term, §6.)
+  proof], whose claims also carry the erased reading of the term, @sec:left-out.)
 ] <thm:sound>
 
 Look at where the semantic invariant sits in the three statements. Reduction and

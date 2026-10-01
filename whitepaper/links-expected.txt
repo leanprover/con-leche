@@ -3230,26 +3230,30 @@
    282    obtain ⟨mp⟩ := checkDeclsPure_sound_of (V := V) hμ h
    283    exact fun c hc hty => no_constant_of_False mp c hc hty
 
->>> whitepaper/sections/05-extensionality.typ
+>>> whitepaper/sections/05-nested.typ
+
+
+>>> whitepaper/sections/06-extensionality.typ
 
 == whitepaper/Fragment/Lib.lean#L92
     92    graph_app_eq : ∀ {A f : V} {B : V → V}, Mem f (piSet A B) → graph (fun x => app f x) A = f
 
-== whitepaper/Fragment/IndLib.lean#L65-L78
-    65  /-! ## Telescopes of sets and constructor telescopes -/
-    66  
-    67  /-- A dependent telescope of sets, outermost first: each set may
-    68  depend on the values of the earlier ones. -/
-    69  inductive TeleS (V : Type u) : Type u where
-    70    /-- The empty telescope. -/
-    71    | nil : TeleS V
-    72    /-- A set, then a telescope depending on a member of it. -/
-    73    | cons (A : V) (B : V → TeleS V) : TeleS V
-    74  
-    75  namespace TeleS
-    76  
-    77  variable {V : Type u} [SetLib V]
-    78  
+== whitepaper/Fragment/IndLib.lean#L145-L159
+   145    /-- The n-ary tuple of a list of sets. -/
+   146    tuple : List V → V
+   147    /-- Tuples are injective. -/
+   148    tuple_inj : ∀ {xs ys : List V}, tuple xs = tuple ys → xs = ys
+   149    /-- A tuple of members of a positive universe is a member of it. -/
+   150    tuple_mem_univ : ∀ {n : Nat} {xs : List V}, n ≠ 0 →
+   151      (∀ x ∈ xs, Mem x (univ n)) → Mem (tuple xs) (univ n)
+   152    /-- A value tagged with a number. -/
+   153    tag : Nat → V → V
+   154    /-- Tags are injective. -/
+   155    tag_inj : ∀ {i j : Nat} {x y : V}, tag i x = tag j y → i = j ∧ x = y
+   156    /-- A tagged member of a positive universe is a member of it. -/
+   157    tag_mem_univ : ∀ {n i : Nat} {x : V}, n ≠ 0 → Mem x (univ n) → Mem (tag i x) (univ n)
+   158    /-- A tagged value is never the point. -/
+   159    tag_ne_pt : ∀ {i : Nat} {x : V}, tag i x ≠ pt
 
 == whitepaper/Fragment/IndSem.lean#L329-L331
    329  /-- **A constructor's value** at its fields: the point at a
@@ -3267,11 +3271,11 @@
    366  theorem Mem_elim {ps is : List V} {x : V} (h : S.Mem M ls ps is x) :
    367      S.step M ls (S.bound M ls) (S.Mem M ls) ps is x :=
 
-== whitepaper/Fragment/IndLib.lean#L152-L155
-   152    /-- A value tagged with a number. -/
-   153    tag : Nat → V → V
-   154    /-- Tags are injective. -/
-   155    tag_inj : ∀ {i j : Nat} {x y : V}, tag i x = tag j y → i = j ∧ x = y
+== whitepaper/Fragment/IndLib.lean#L246-L249
+   246  /-- The least fixed point is a fixed point: a member is a step from
+   247  members. -/
+   248  theorem unfold (hm : Mono Φ) {a : α} (h : Lfp Φ a) : Φ (Lfp Φ) a :=
+   249    h (fun b => Φ (Lfp Φ) b) fun b hb => hm _ _ (fun _ hc => closed hm hc) b hb
 
 == whitepaper/Fragment/IndSem.lean#L84-L87
     84  /-- **A fibre at a regime**: at a proposition (`z = true`) the truth
@@ -3285,14 +3289,14 @@
    380  theorem mem_Fam_true {ps is : List V} {t : V} (hz : S.z ls = true) :
    381      t ∈ˢ S.Fam M ls ps is ↔ t = pt ∧ ∃ x, S.Mem M ls ps is x := by
 
-== whitepaper/Fragment/IndLib.lean#L67
-    67  /-- A dependent telescope of sets, outermost first: each set may
+== whitepaper/Fragment/IndLib.lean#L148
+   148    tuple_inj : ∀ {xs ys : List V}, tuple xs = tuple ys → xs = ys
 
-== whitepaper/Fragment/IndLib.lean#L74
-    74  
+== whitepaper/Fragment/IndLib.lean#L155
+   155    tag_inj : ∀ {i j : Nat} {x y : V}, tag i x = tag j y → i = j ∧ x = y
 
-== whitepaper/Fragment/IndLib.lean#L78
-    78  
+== whitepaper/Fragment/IndLib.lean#L159
+   159    tag_ne_pt : ∀ {i : Nat} {x : V}, tag i x ≠ pt
 
 == whitepaper/Fragment/Lib.lean#L115-L121
    115  /-- The truth value of a proposition: `{pt}` if it holds, `∅` if
@@ -3373,9 +3377,30 @@
    584  theorem Red.rescueEta_sound (hin : RulesInputs V m φ) {d : Nat}
    585      {major tm tmaj fab : Expr} {recName : Name} {cv : ConstantVal}
 
+== ConLeche/Kernel/Inductives/BlockInstall.lean#L67-L80
+    67  def blockCapsAt (p : BlockShape) (mi : Nat) (isRec : Bool) : IndCaps :=
+    68    match (p.members.getD mi default).ctors, (p.members.getD mi default).nIdx with
+    69    | [c], nIdx =>
+    70      { eta := nIdx == 0 && !p.isProp && !isRec
+    71        etaCtor := c.1.name
+    72        etaParams := p.nP
+    73        etaFields := c.2
+    74        unitlike := nIdx == 0 && c.2 == 0 && !isRec
+    75        unitParams := p.nP
+    76        ruleK := p.k == 1 && c.2 == 0 && p.isProp
+    77        sortZ := Level.zeronessOf p.resSort
+    78        all := p.memberNames
+    79        nparams := p.nP
+    80        ctors := [c.1.name] }
+
 == ConLeche/Model/Inductives/FixKit.lean#L804-L805
    804  * **(C) the η law** (`fixEntryEtaCore`): a member is the constructor at
    805    the parameters and its own projections below the tag.
+
+== ConLeche/Model/Inductives/BlockStageTables.lean#L10-L12
+    10  `stageBlockTables`: the loop `checkBlockTables` runs — a table at
+    11  every member with ONE constructor and no index, nothing at any other
+    12  member — with `stageFixTable` at each table (abstract in the former's
 
 == ConLeche/Rules/Rel.lean#L463-L468
    463    | structUnit {d : Nat} {a ta wta b tb wtb : Expr} {T : Name}
@@ -3393,7 +3418,13 @@
   1754  /-- **Unit-likeness at a fieldless one-constructor block's leaf**: the
   1755  fibre is the one tagged empty tuple (the point at a squash instance).
 
->>> whitepaper/sections/06-left-out.typ
+>>> whitepaper/sections/07-left-out.typ
+
+== ConLeche/Kernel/Inductives/BlockTail.lean#L108-L111
+   108  /-- **The projection table at every STRUCTURE-LIKE member** (one
+   109  constructor, no index): the member's table at the tagged tower's
+   110  projection offset `1`; nothing at any other member. -/
+   111  def checkBlockTables (p : BlockShape) :
 
 == ConLeche/Rules/Rel.lean#L166-L175
    166    | proj {d : Nat} {sn : Name} {i : Nat} {e : Expr} {entry : ProjEntry}
@@ -3419,6 +3450,54 @@
    561          Level.isEquiv (Level.subst entry.levelParams us entry.fieldSort) .zero
    562            = some true) →
    563        Infer env g d (.proj sn i pe) (entry.typeAt us te.getAppArgs pe)
+
+== ConLeche/Model/Inductives/BlockStageTables.lean#L10-L12
+    10  `stageBlockTables`: the loop `checkBlockTables` runs — a table at
+    11  every member with ONE constructor and no index, nothing at any other
+    12  member — with `stageFixTable` at each table (abstract in the former's
+
+== ConLeche/Model/Inductives/FixKit.lean#L798-L803
+   798  * **(A) the typing law** (`fixEntryTypingCore`): a member projects at
+   799    `i + 1` into the body's residual — the graph regime by the tower's
+   800    projection membership below the tag, the squash regime by the point;
+   801  * **(B) the iota law** (`fixEntryIotaCore`/`fixEntryIotaCoreZero`): the
+   802    projection of a graded constructor application is the selected field
+   803    (`sumMkAV_fold`: the application folds to the tagged tuple);
+
+== ConLeche/SetTheory/Derive/LfpTuple.lean#L8-L12
+     8  
+     9  The carrier of a block of `k` inductive families `T₀ … T_{k-1}` is the
+    10  simultaneous least pre-fixed point of its constructor-tower functor
+    11  acting on **tuples of families** — a meta-level tuple `X : Nat → V`
+    12  whose `m`-th component (`m < k`) is a family over member `m`'s own
+
+== ConLeche/Kernel/Inductives/Positivity.lean#L269-L278
+   269  * a stored inductive `C` (not a member) applied to parameters `Ds`
+   270    (some mentioning a member, none a field or binder variable — official
+   271    :962) and member-free indices (`contApp`): an instantiation IN
+   272    PROGRESS is a `Y` hole; one already accepted is a cache hit; else its
+   273    checks — (N2) the instantiated index telescope names no member
+   274    (official checks the auxiliary type former before the block exists,
+   275    :219), (N3) its sort `Level.isEquiv` the block's (:250) — and then
+   276    `nestPos` on every field of every constructor of `C` AT the
+   277    instantiation, the instantiation pushed onto the in-progress list,
+   278    and the constructor's result indices member-free;
+
+== tests/e2e/src/nested_p03.lean#L5-L6
+     5  inductive P3 where
+     6    | mk : Array (List P3) → P3
+
+== tests/e2e/src/nested_p25.lean#L7-L8
+     7  inductive P25 where
+     8    | mk : P25V P25 3 → P25
+
+== tests/e2e/src/ind_nest_via_refl.lean#L9-L14
+     9  inductive W1 (α : Type)
+    10    | sup (a : α) (f : Nat → W1 α)
+    11  
+    12  inductive ViaRefl
+    13    | leaf
+    14    | node (w : W1 ViaRefl)
 
 == ConLeche/Rules/Rel.lean#L136-L138
    136    | natLit {d : Nat} {n : Nat} :
@@ -3503,6 +3582,21 @@
     14  are not part of an `Expr` (task #205; `piI`/`lmI` mark where the
     15  signature says `{…}`, for the reader), the `pw` datum at the parse
 
+== ConLeche/Kernel/Basis.lean#L64-L67
+    64  def basisPinHit (block : List ConstantInfo) : Option BasisKind :=
+    65    ([BasisKind.eqK, .natK, .emptyK, .falseK].find? fun k =>
+    66        k.decls.map (·.name) == block.map (·.name)).filter fun k =>
+    67      canonEqList block k.decls
+
+== ConLeche/Kernel/Basis.lean#L90-L96
+    90  def andPinOk : Declaration → Bool
+    91    | .indDecl block nP =>
+    92      !(block.any fun c => andPinNames.contains c.name) ||
+    93        (nP == 2 && canonEqList block andPin)
+    94    | .axiomDecl cv | .defnDecl cv .. | .thmDecl cv .. | .opaqueDecl cv ..
+    95    | .quotDecl _ cv => !andPinNames.contains cv.name
+    96    | .basisDecl _ => true
+
 == ConLeche/Kernel/StdAxioms.lean#L10-L17
     10  # Recognized standard axioms and their prerequisite shapes
     11  
@@ -3561,6 +3655,22 @@
    466        wta.getAppFn = .const T us' →
    467        env.find? T = some (.indInfo cvT caps) →
    468        caps.unitlike = true →
+
+== ConLeche/Kernel/Inductives/BlockInstall.lean#L67-L80
+    67  def blockCapsAt (p : BlockShape) (mi : Nat) (isRec : Bool) : IndCaps :=
+    68    match (p.members.getD mi default).ctors, (p.members.getD mi default).nIdx with
+    69    | [c], nIdx =>
+    70      { eta := nIdx == 0 && !p.isProp && !isRec
+    71        etaCtor := c.1.name
+    72        etaParams := p.nP
+    73        etaFields := c.2
+    74        unitlike := nIdx == 0 && c.2 == 0 && !isRec
+    75        unitParams := p.nP
+    76        ruleK := p.k == 1 && c.2 == 0 && p.isProp
+    77        sortZ := Level.zeronessOf p.resSort
+    78        all := p.memberNames
+    79        nparams := p.nP
+    80        ctors := [c.1.name] }
 
 == ConLeche/Rules/Rel.lean#L286-L306
    286    | rescueAnd {d : Nat} {major tm tmaj fab tf : Expr} {recName : Name}
@@ -3834,6 +3944,14 @@
     38      {ds : Array Declaration} {env' : Env}
     39      (h : checkDecls μ pins ds = .ok env') :
     40      Nonempty (EnvModelM V μ env') := by
+
+== ConLeche/Frontend/Prepare.lean#L171-L172
+   171  def preparePrelude (pre : PreludeIx) (ds : Array Declaration) : Array Declaration :=
+   172    (prepareD pre ds).decls
+
+== ConLeche/Verify/Frontend/Prepare.lean#L160-L161
+   160  theorem preparePrelude_perm (pre : PreludeIx) (ds : Array Declaration) :
+   161      ∃ extra : List Declaration, (∀ d ∈ extra, d ∈ pre.decls.toList) ∧
 
 >>> whitepaper/README.md
 
