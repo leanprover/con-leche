@@ -539,6 +539,156 @@ section Readings
 variable {V : Type u} [IndLib V] {M : Name → List Nat → V} {φ : Name → Nat} {env : Env}
   {M' : Name → List Nat → V} {φ' : Name → Nat}
 
+/-! ### Small pieces -/
+
+/-- The two values at the end of a pushed list, by position. -/
+theorem getD_append_two {vs : List V} (a b : V) :
+    (vs ++ [a, b]).getD vs.length pt = a ∧ (vs ++ [a, b]).getD (vs.length + 1) pt = b := by
+  constructor
+  · rw [List.getD_eq_getElem?_getD, List.getElem?_append_right (Nat.le_refl _), Nat.sub_self]; rfl
+  · rw [List.getD_eq_getElem?_getD, List.getElem?_append_right (by omega), Nat.add_sub_cancel_left]; rfl
+
+omit [IndLib V] in
+/-- A list splits at any length it has. -/
+theorem exists_split {l : List V} {a : Nat} (h : a ≤ l.length) :
+    ∃ l₁ l₂, l = l₁ ++ l₂ ∧ l₁.length = a :=
+  ⟨l.take a, l.drop a, (List.take_append_drop _ _).symm, by simp [List.length_take]; omega⟩
+
+/-- Pointwise equivalent relations relate the same lists. -/
+theorem ListRel_iff {α β : Type _} {R R' : α → β → Prop} (h : ∀ a b, R a b ↔ R' a b)
+    {l : List α} {l' : List β} : ListRel R l l' ↔ ListRel R' l l' :=
+  ⟨ListRel.mono (fun a b => (h a b).mp), ListRel.mono (fun a b => (h a b).mpr)⟩
+
+/-- Distinct level parameters read back the concrete levels assigned
+to them positionally. -/
+theorem map_valOf_eq : ∀ {ps : List Name}, ps.Nodup → ∀ {ls : List Nat}, ls.length = ps.length →
+    ps.map (valOf ps ls) = ls
+  | [], _, [], _ => rfl
+  | [], _, _ :: _, hlen => by simp at hlen
+  | _ :: _, _, [], hlen => by simp at hlen
+  | p :: ps, hnd, l :: ls, hlen => by
+    simp only [List.length_cons, Nat.add_right_cancel_iff] at hlen
+    obtain ⟨hp, hnd'⟩ := List.nodup_cons.mp hnd
+    simp only [List.map_cons, List.cons.injEq]
+    refine ⟨by simp [valOf], ?_⟩
+    calc ps.map (valOf (p :: ps) (l :: ls)) = ps.map (valOf ps ls) := by
+          refine List.map_congr_left fun n hn => ?_
+          have hne : (n == p) = false := by
+            have : n ≠ p := fun h => hp (h ▸ hn)
+            simpa using this
+          simp [valOf, List.zip_cons_cons, List.lookup_cons, hne]
+      _ = ls := map_valOf_eq hnd' hlen
+
+/-- The nested hypothesis typing is the plain one at the extras' two
+motives. -/
+theorem IhTypedN_iff {ls : List Nat} {q : Bool} {ps : List V} {ex : RecEx V} {fs : List V}
+    {kf : Nat × Field} {ih : V} :
+    S.IhTypedN M ls q ps ex fs kf ih ↔ S.IhTyped M ls q ps ex.m ex.m1 fs kf ih := by
+  obtain ⟨k, f⟩ := kf
+  cases f <;> exact Iff.rfl
+
+/-! ### The generated contexts, entry by entry -/
+
+/-- A context of one generated entry per constructor, as a recursion
+(innermost first): the later constructors' entries, then this one
+outermost — `minorsFrom` for any generator. -/
+def ctxFrom (T : CtorSpec → Nat → Expr) : List CtorSpec → Nat → List Expr
+  | [], _ => []
+  | c :: cs, j => ctxFrom T cs (j + 1) ++ [T c j]
+
+theorem ctxFrom_eq (T : CtorSpec → Nat → Expr) : ∀ (cs : List CtorSpec) (j : Nat),
+    ((List.range cs.length).map fun i => T (cs.getD i ⟨"", [], []⟩) (j + i)).reverse
+      = ctxFrom T cs j
+  | [], _ => rfl
+  | c :: cs, j => by
+    rw [List.length_cons, List.range_succ_eq_map, List.map_cons, List.map_map, List.reverse_cons]
+    simp only [ctxFrom, List.getD_cons_zero, Nat.add_zero]
+    congr 1
+    rw [← ctxFrom_eq T cs (j + 1)]
+    congr 1
+    apply List.map_congr_left
+    intro i _
+    simp [Function.comp, Nat.add_assoc, Nat.add_comm 1 i]
+
+theorem length_ctxFrom (T : CtorSpec → Nat → Expr) :
+    ∀ (cs : List CtorSpec) (j : Nat), (ctxFrom T cs j).length = cs.length
+  | [], _ => rfl
+  | _ :: cs, j => by simp [ctxFrom, length_ctxFrom T cs (j + 1)]
+
+theorem minorsCtxN_eq : S.minorsCtxN = ctxFrom S.minorTyN S.ctors 0 := by
+  rw [minorsCtxN, ← ctxFrom_eq]
+  simp [n]
+
+theorem minorsCtxK_eq : S.minorsCtxK N = ctxFrom (S.minorTyK N) N.K.ctors 0 := by
+  rw [minorsCtxK, ← ctxFrom_eq]
+  simp [NestInfo.nK]
+
+theorem length_minorsCtxN : S.minorsCtxN.length = S.n := by
+  rw [minorsCtxN_eq, length_ctxFrom]; rfl
+
+theorem length_minorsCtxK : (S.minorsCtxK N).length = N.nK := by
+  rw [minorsCtxK_eq, length_ctxFrom]; rfl
+
+theorem length_extrasN : (S.extrasN N).length = S.oN N := by
+  simp only [extrasN, List.length_append, length_minorsCtxK, length_minorsCtxN, List.length_cons,
+    List.length_nil, oN]
+  omega
+
+theorem length_recCtxN : (S.recCtxN N).length = 1 + S.nI + S.oN N + S.nP := by
+  simp only [recCtxN, List.length_cons, List.length_append, length_indicesAt, length_extrasN, nP]
+  omega
+
+theorem length_rec1Ctx : (S.rec1Ctx N).length = 1 + S.oN N + S.nP := by
+  simp only [rec1Ctx, List.length_cons, List.length_append, length_extrasN, nP]
+  omega
+
+/-- **A context of one entry per constructor, read**: each value is a
+member of its entry under the values before it. -/
+theorem fits_ctxFrom (T : CtorSpec → Nat → Expr) :
+    ∀ (cs : List CtorSpec) (j : Nat) (E : Nat → V) (minsI : List V),
+      FitsVals M' φ' E (ctxFrom T cs j) minsI →
+      ∀ i c, cs[i]? = some c →
+        minsI.getD (cs.length - 1 - i) pt ∈ˢ
+          interp M' φ' (consList (minsI.drop (cs.length - i)) E) (T c (j + i))
+  | [], _, _, _, _, i, _, h => by simp at h
+  | c :: cs, j, E, minsI, hfit, i, c', hc' => by
+    have hlen := FitsVals_length M' φ' hfit
+    simp only [ctxFrom, List.length_append, length_ctxFrom, List.length_singleton] at hlen
+    obtain ⟨minsI', v, rfl⟩ : ∃ minsI' v, minsI = minsI' ++ [v] := by
+      rcases List.eq_nil_or_concat minsI with h | ⟨l, v, h⟩
+      · subst h; simp at hlen
+      · exact ⟨l, v, by simpa [List.concat_eq_append] using h⟩
+    have hl' : minsI'.length = (ctxFrom T cs (j + 1)).length := by
+      rw [length_ctxFrom]; simp at hlen; omega
+    obtain ⟨h1, h2⟩ := (FitsVals_append M' φ' hl').mp hfit
+    have hl'' : minsI'.length = cs.length := by rw [hl', length_ctxFrom]
+    cases i with
+    | zero =>
+      simp only [List.getElem?_cons_zero, Option.some.injEq] at hc'
+      subst hc'
+      have hd : (minsI' ++ [v]).drop ((c :: cs).length - 0) = [] := by
+        simp [hl'']
+      rw [hd, consList_nil, show (c :: cs).length - 1 - 0 = minsI'.length by simp [hl''],
+        getD_append_length, Nat.add_zero]
+      simpa [FitsVals] using h1.2
+    | succ i =>
+      simp only [List.getElem?_cons_succ] at hc'
+      have hi : i < cs.length := (List.getElem?_eq_some_iff.mp hc').1
+      have ih := fits_ctxFrom T cs (j + 1) (cons v E) minsI' h2 i c' hc'
+      rw [show (c :: cs).length - 1 - (i + 1) = cs.length - 1 - i by simp only [List.length_cons]; omega,
+        show (c :: cs).length - (i + 1) = cs.length - i by simp only [List.length_cons]; omega,
+        List.getD_eq_getElem?_getD, List.getElem?_append_left (by omega),
+        ← List.getD_eq_getElem?_getD, List.drop_append_of_le_length (by omega), consList_append,
+        show j + (i + 1) = j + 1 + i by omega]
+      exact ih
+
+theorem ihCtxAt_eq (c : CtorSpec) (o : Nat) :
+    S.ihCtxAt c o = S.ihCtxAux c.fields.length o c.recFields 0 := by
+  rw [ihCtxAt, ← ihCtxAux_eq]
+  simp
+
+/-! ### The class's motive -/
+
 /-- The class's motive's type, read: the product over the class into
 the elimination universe. -/
 theorem Reader.read_motiveTy1 (hS : S.Scoped env) (R : S.Reader (env := env) M φ M' φ')
@@ -548,7 +698,12 @@ theorem Reader.read_motiveTy1 (hS : S.Scoped env) (R : S.Reader (env := env) M �
       (S.memberIdx M (S.lparams.map φ) N ps)) :
     interp M' φ' (cons m (consList ps ρ)) (S.motiveTy1 N)
       = piSet (S.classAt M (S.lparams.map φ) N ps) fun _ => univ (Level.eval φ' S.ℓ) := by
-  sorry
+  unfold motiveTy1
+  rw [interp_mkPis, PropWhen.holds_never, piCtx_cons, piCtx_nil, piR_false]
+  have := R.classTy_fit hS hN (vs := [m]) (k := 1) (ps := ps) (ρ := ρ) rfl hps hp hidx
+  rw [consList_cons, consList_nil] at this
+  rw [this]
+  rfl
 
 /-- **The class's motive's typing**: a member of its type sends a
 member of the class into the elimination universe. -/
@@ -560,7 +715,134 @@ theorem Reader.motive1Ok_of_mem (hS : S.Scoped env) (R : S.Reader (env := env) M
     (hm1 : m1 ∈ˢ interp M' φ' (cons m (consList ps ρ)) (S.motiveTy1 N)) :
     ∀ t, t ∈ˢ S.classAt M (S.lparams.map φ) N ps →
       appList m1 [t] ∈ˢ (univ (Level.eval φ' S.ℓ) : V) := by
-  sorry
+  intro t ht
+  rw [Reader.read_motiveTy1 S N hS R hN hps hp hidx] at hm1
+  rw [appList_cons, appList_nil]
+  exact app_mem_piSet hm1 ht
+
+/-! ### The two recursors' contexts -/
+
+/-- **Values fitting `T.rec`'s context**: the parameters fit, the two
+motives are in their types, both minor lists fit, the indices fit and
+the major is in the fibre — and conversely. -/
+theorem Reader.fits_recCtxN_iff (hS : S.Scoped env) (R : S.Reader (env := env) M φ M' φ')
+    (hN : S.nest = some N) {ρ : Nat → V} {t : V} {is minsK mins : List V} {m1 m : V} {ps : List V}
+    (hi : is.length = S.nI) (hminsK : minsK.length = N.nK) (hmins : mins.length = S.n)
+    (hps : ps.length = S.nP) :
+    FitsVals M' φ' ρ (S.recCtxN N) (t :: is ++ minsK ++ mins ++ [m1, m] ++ ps) ↔
+      FitsVals M (S.ψ (S.lparams.map φ)) base S.params ps ∧
+      m ∈ˢ interp M' φ' (consList ps ρ) S.motiveTy ∧
+      m1 ∈ˢ interp M' φ' (cons m (consList ps ρ)) (S.motiveTy1 N) ∧
+      FitsVals M' φ' (consList [m1, m] (consList ps ρ)) S.minorsCtxN mins ∧
+      FitsVals M' φ' (consList (mins ++ [m1, m]) (consList ps ρ)) (S.minorsCtxK N) minsK ∧
+      FitsVals M (S.ψ (S.lparams.map φ)) (envP ps) S.indices is ∧
+      t ∈ˢ S.Fam M (S.lparams.map φ) ps is := by
+  have _hN := hN
+  have hosl : (minsK ++ mins ++ [m1, m]).length = S.oN N := by
+    simp only [List.length_append, List.length_cons, List.length_nil, hminsK, hmins, oN]; omega
+  have e1 : t :: is ++ minsK ++ mins ++ [m1, m] = (t :: is) ++ (minsK ++ mins ++ [m1, m]) := by simp
+  have e2 : consList mins (consList [m1, m] (consList ps ρ))
+      = consList (mins ++ [m1, m]) (consList ps ρ) := by
+    rw [consList_append]
+  unfold recCtxN extrasN
+  rw [FitsVals_append M' φ' (by simp [hi, hminsK, hmins, length_indicesAt, length_minorsCtxN,
+      length_minorsCtxK]),
+    e1, FitsVals_append M' φ' (by simp [hi, length_indicesAt]),
+    FitsVals_append M' φ' (by simp [hminsK, hmins, length_minorsCtxN, length_minorsCtxK]),
+    FitsVals_append M' φ' (by simp [hminsK, length_minorsCtxK]), e2, FitsVals_cons]
+  simp only [FitsVals_cons, FitsVals_nil_nil, true_and, consList_cons, consList_nil]
+  unfold indicesAt
+  rw [FitsVals_liftCtx_liftN M' φ' _ _ _ hosl, R.fits_indices hS hps, R.fits_params hS]
+  constructor
+  · rintro ⟨hp, ⟨⟨hm, hm1⟩, hmn, hmnK⟩, his, ht⟩
+    refine ⟨hp, hm, hm1, hmn, hmnK, his, ?_⟩
+    rwa [R.read_famVars hS hosl hps hp his] at ht
+  · rintro ⟨hp, hm, hm1, hmn, hmnK, his, ht⟩
+    refine ⟨hp, ⟨⟨hm, hm1⟩, hmn, hmnK⟩, his, ?_⟩
+    rwa [R.read_famVars hS hosl hps hp his]
+
+/-- **Values fitting `T.rec_1`'s context**: as for `T.rec`, with the
+major in the class. -/
+theorem Reader.fits_rec1Ctx_iff (hS : S.Scoped env) (R : S.Reader (env := env) M φ M' φ')
+    (hN : S.nest = some N) {ρ : Nat → V} {t : V} {minsK mins : List V} {m1 m : V} {ps : List V}
+    (hminsK : minsK.length = N.nK) (hmins : mins.length = S.n) (hps : ps.length = S.nP)
+    (hidx : ∀ ps', FitsVals M (S.ψ (S.lparams.map φ)) base S.params ps' →
+      FitsVals M (S.ψ (S.lparams.map φ)) (envP ps') S.indices
+        (S.memberIdx M (S.lparams.map φ) N ps')) :
+    FitsVals M' φ' ρ (S.rec1Ctx N) (t :: minsK ++ mins ++ [m1, m] ++ ps) ↔
+      FitsVals M (S.ψ (S.lparams.map φ)) base S.params ps ∧
+      m ∈ˢ interp M' φ' (consList ps ρ) S.motiveTy ∧
+      m1 ∈ˢ interp M' φ' (cons m (consList ps ρ)) (S.motiveTy1 N) ∧
+      FitsVals M' φ' (consList [m1, m] (consList ps ρ)) S.minorsCtxN mins ∧
+      FitsVals M' φ' (consList (mins ++ [m1, m]) (consList ps ρ)) (S.minorsCtxK N) minsK ∧
+      t ∈ˢ S.classAt M (S.lparams.map φ) N ps := by
+  have hosl : (minsK ++ mins ++ [m1, m]).length = S.oN N := by
+    simp only [List.length_append, List.length_cons, List.length_nil, hminsK, hmins, oN]; omega
+  have e1 : t :: minsK ++ mins ++ [m1, m] = t :: (minsK ++ mins ++ [m1, m]) := by simp
+  have e2 : consList mins (consList [m1, m] (consList ps ρ))
+      = consList (mins ++ [m1, m]) (consList ps ρ) := by
+    rw [consList_append]
+  unfold rec1Ctx extrasN
+  rw [FitsVals_append M' φ' (by simp [hminsK, hmins, length_minorsCtxN, length_minorsCtxK]),
+    e1, FitsVals_cons,
+    FitsVals_append M' φ' (by simp [hminsK, hmins, length_minorsCtxN, length_minorsCtxK]),
+    FitsVals_append M' φ' (by simp [hminsK, length_minorsCtxK]), e2]
+  simp only [FitsVals_cons, FitsVals_nil_nil, true_and, consList_cons, consList_nil]
+  rw [R.fits_params hS]
+  constructor
+  · rintro ⟨hp, ⟨⟨hm, hm1⟩, hmn, hmnK⟩, ht⟩
+    refine ⟨hp, hm, hm1, hmn, hmnK, ?_⟩
+    rw [R.classTy_fit hS hN hosl hps hp (hidx ps hp)] at ht
+    exact ht
+  · rintro ⟨hp, hm, hm1, hmn, hmnK, ht⟩
+    refine ⟨hp, ⟨⟨hm, hm1⟩, hmn, hmnK⟩, ?_⟩
+    rw [R.classTy_fit hS hN hosl hps hp (hidx ps hp)]
+    exact ht
+
+/-- Any list fitting `T.rec`'s context splits as the major, the
+indices, the class's minors, the block's minors, the two motives and
+the parameters. -/
+theorem fits_recCtxN_split (N : NestInfo) {ρ : Nat → V} {vs : List V}
+    (h : FitsVals M' φ' ρ (S.recCtxN N) vs) :
+    ∃ (t : V) (is minsK mins : List V) (m1 m : V) (ps : List V),
+      vs = t :: is ++ minsK ++ mins ++ [m1, m] ++ ps ∧ is.length = S.nI ∧ minsK.length = N.nK ∧
+        mins.length = S.n ∧ ps.length = S.nP := by
+  have hl := FitsVals_length M' φ' h
+  rw [length_recCtxN] at hl
+  simp only [oN] at hl
+  cases vs with
+  | nil => simp at hl; omega
+  | cons t rest =>
+    simp only [List.length_cons] at hl
+    obtain ⟨is, r₁, rfl, hi⟩ := exists_split (l := rest) (a := S.nI) (by omega)
+    obtain ⟨minsK, r₂, rfl, hminsK⟩ := exists_split (l := r₁) (a := N.nK) (by simp at hl; omega)
+    obtain ⟨mins, r₃, rfl, hmins⟩ := exists_split (l := r₂) (a := S.n) (by simp at hl; omega)
+    obtain ⟨m1, m, ps, rfl⟩ : ∃ m1 m ps, r₃ = m1 :: m :: ps := by
+      match r₃, (by simp at hl; omega : 2 ≤ r₃.length) with
+      | m1 :: m :: ps, _ => exact ⟨m1, m, ps, rfl⟩
+    refine ⟨t, is, minsK, mins, m1, m, ps, by simp, hi, hminsK, hmins, ?_⟩
+    simp at hl; omega
+
+/-- Any list fitting `T.rec_1`'s context splits likewise. -/
+theorem fits_rec1Ctx_split (N : NestInfo) {ρ : Nat → V} {vs : List V}
+    (h : FitsVals M' φ' ρ (S.rec1Ctx N) vs) :
+    ∃ (t : V) (minsK mins : List V) (m1 m : V) (ps : List V),
+      vs = t :: minsK ++ mins ++ [m1, m] ++ ps ∧ minsK.length = N.nK ∧
+        mins.length = S.n ∧ ps.length = S.nP := by
+  have hl := FitsVals_length M' φ' h
+  rw [length_rec1Ctx] at hl
+  simp only [oN] at hl
+  cases vs with
+  | nil => simp at hl; omega
+  | cons t rest =>
+    simp only [List.length_cons] at hl
+    obtain ⟨minsK, r₂, rfl, hminsK⟩ := exists_split (l := rest) (a := N.nK) (by omega)
+    obtain ⟨mins, r₃, rfl, hmins⟩ := exists_split (l := r₂) (a := S.n) (by simp at hl; omega)
+    obtain ⟨m1, m, ps, rfl⟩ : ∃ m1 m ps, r₃ = m1 :: m :: ps := by
+      match r₃, (by simp at hl; omega : 2 ≤ r₃.length) with
+      | m1 :: m :: ps, _ => exact ⟨m1, m, ps, rfl⟩
+    refine ⟨t, minsK, mins, m1, m, ps, by simp, hminsK, hmins, ?_⟩
+    simp at hl; omega
 
 /-- **The container's constructor applied to the class's arguments
 and fields**, read: the tagged tuple of the fields — the container's
@@ -583,58 +865,6 @@ theorem Reader.classCtorApp_eq (hS : S.Scoped env) (R : S.Reader (env := env) M 
           (S.classArgs N (nIh + (S.classCtor N c).fields.length + o) ++
             Expr.varsAt nIh (S.classCtor N c).fields.length))
       = tag j (tuple fs.reverse) := by
-  sorry
-
-/-- **Values fitting `T.rec`'s context**: the parameters fit, the two
-motives are in their types, both minor lists fit, the indices fit and
-the major is in the fibre — and conversely. -/
-theorem Reader.fits_recCtxN_iff (hS : S.Scoped env) (R : S.Reader (env := env) M φ M' φ')
-    (hN : S.nest = some N) {ρ : Nat → V} {t : V} {is minsK mins : List V} {m1 m : V} {ps : List V}
-    (hi : is.length = S.nI) (hminsK : minsK.length = N.nK) (hmins : mins.length = S.n)
-    (hps : ps.length = S.nP) :
-    FitsVals M' φ' ρ (S.recCtxN N) (t :: is ++ minsK ++ mins ++ [m1, m] ++ ps) ↔
-      FitsVals M (S.ψ (S.lparams.map φ)) base S.params ps ∧
-      m ∈ˢ interp M' φ' (consList ps ρ) S.motiveTy ∧
-      m1 ∈ˢ interp M' φ' (cons m (consList ps ρ)) (S.motiveTy1 N) ∧
-      FitsVals M' φ' (consList [m1, m] (consList ps ρ)) S.minorsCtxN mins ∧
-      FitsVals M' φ' (consList (mins ++ [m1, m]) (consList ps ρ)) (S.minorsCtxK N) minsK ∧
-      FitsVals M (S.ψ (S.lparams.map φ)) (envP ps) S.indices is ∧
-      t ∈ˢ S.Fam M (S.lparams.map φ) ps is := by
-  sorry
-
-/-- **Values fitting `T.rec_1`'s context**: as for `T.rec`, with the
-major in the class. -/
-theorem Reader.fits_rec1Ctx_iff (hS : S.Scoped env) (R : S.Reader (env := env) M φ M' φ')
-    (hN : S.nest = some N) {ρ : Nat → V} {t : V} {minsK mins : List V} {m1 m : V} {ps : List V}
-    (hminsK : minsK.length = N.nK) (hmins : mins.length = S.n) (hps : ps.length = S.nP)
-    (hidx : ∀ ps', FitsVals M (S.ψ (S.lparams.map φ)) base S.params ps' →
-      FitsVals M (S.ψ (S.lparams.map φ)) (envP ps') S.indices
-        (S.memberIdx M (S.lparams.map φ) N ps')) :
-    FitsVals M' φ' ρ (S.rec1Ctx N) (t :: minsK ++ mins ++ [m1, m] ++ ps) ↔
-      FitsVals M (S.ψ (S.lparams.map φ)) base S.params ps ∧
-      m ∈ˢ interp M' φ' (consList ps ρ) S.motiveTy ∧
-      m1 ∈ˢ interp M' φ' (cons m (consList ps ρ)) (S.motiveTy1 N) ∧
-      FitsVals M' φ' (consList [m1, m] (consList ps ρ)) S.minorsCtxN mins ∧
-      FitsVals M' φ' (consList (mins ++ [m1, m]) (consList ps ρ)) (S.minorsCtxK N) minsK ∧
-      t ∈ˢ S.classAt M (S.lparams.map φ) N ps := by
-  sorry
-
-/-- Any list fitting `T.rec`'s context splits as the major, the
-indices, the class's minors, the block's minors, the two motives and
-the parameters. -/
-theorem fits_recCtxN_split (N : NestInfo) {ρ : Nat → V} {vs : List V}
-    (h : FitsVals M' φ' ρ (S.recCtxN N) vs) :
-    ∃ (t : V) (is minsK mins : List V) (m1 m : V) (ps : List V),
-      vs = t :: is ++ minsK ++ mins ++ [m1, m] ++ ps ∧ is.length = S.nI ∧ minsK.length = N.nK ∧
-        mins.length = S.n ∧ ps.length = S.nP := by
-  sorry
-
-/-- Any list fitting `T.rec_1`'s context splits likewise. -/
-theorem fits_rec1Ctx_split (N : NestInfo) {ρ : Nat → V} {vs : List V}
-    (h : FitsVals M' φ' ρ (S.rec1Ctx N) vs) :
-    ∃ (t : V) (minsK mins : List V) (m1 m : V) (ps : List V),
-      vs = t :: minsK ++ mins ++ [m1, m] ++ ps ∧ minsK.length = N.nK ∧
-        mins.length = S.n ∧ ps.length = S.nP := by
   sorry
 
 /-- **The block's minors' typing gives `MinorOkN`** for every
