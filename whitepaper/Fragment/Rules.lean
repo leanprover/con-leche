@@ -87,7 +87,10 @@ inductive Red (env : Env) : List Expr → Expr → Expr → Prop where
   premise — whose major reduces to a constructor application with a
   rule, fires the rule: the rule's right-hand side, at the use's
   levels, applied to the parameters, motives and minors, then to the
-  constructor's fields (its arguments after the parameters).
+  constructor's fields (its arguments after the parameters).  The rule
+  is one of the block's own constructors' (no stored instantiation,
+  `RecRule.inst`); an auxiliary recursor's rule fires by
+  `Red.iotaNested`.
 
   The two **telescope certificates** are `Rel.lean`'s `Certs` walks
   (`:576-587`) folded in: the recursor's argument spine (with the
@@ -126,7 +129,7 @@ inductive Red (env : Env) : List Expr → Expr → Expr → Prop where
       Red env Γ (args.getD (numParams + numMotives + numMinors + numIndices) (bvar 0))
         major →
       major = mkAppN (const cj usj) margs →
-      rl ∈ rules → rl.ctor = cj →
+      rl ∈ rules → rl.ctor = cj → rl.inst = none →
       env.find? cj = some cij →
       usj.length = cij.lparams.length →
       margs.length = numParams + rl.nfields →

@@ -1,6 +1,6 @@
 module
 
-public import Fragment.InstallNest
+public import Fragment.NestInstall
 public import Fragment.Sound
 
 @[expose] public section

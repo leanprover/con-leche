@@ -1240,9 +1240,10 @@ theorem motives_inhabited_prop {M : Name → List Nat → V} {ls : List Nat}
 variable (hs : Env.Scoped env) (m : BlockModel V env) (hok : S.OkN N env)
 include hs m hok
 
+omit hs in
 /-- The container's constructors are stored. -/
 theorem K_ctors_stored : ∀ (j : Nat) (c : CtorSpec), N.K.ctors[j]? = some c → (env.find? c.name).isSome :=
-  fun j c hc => by rw [(K_law hs m hok).2.2.2.1 j c hc]; rfl
+  fun j c hc => by rw [(K_law m hok).2.2.2.1 j c hc]; rfl
 
 /-- **The member's index values fit the index context** at every
 fitting parameter list: from the class having a sort at the block's
@@ -1319,8 +1320,8 @@ theorem recSetN_eq (φ : Name → Nat) (ρ : Nat → V) {us : List Level}
     have := wd_recTypeN hs m hok (Level.substVal φ S.recLparams us) ρ
     rw [recTypeN_eq, WellDenoted_mkPis] at this
     exact this.1
-  have hagree := R₂.agree_recCtxN hS R₃ hagr hok.nest (K_law hs m hok).1 hok.freshI
-    (K_ctors_stored hs m hok) base ρ (fun ps hp => memberIdx_fits hs m hok _ hp)
+  have hagree := R₂.agree_recCtxN hS R₃ hagr hok.nest (K_law m hok).1 hok.freshI
+    (K_ctors_stored m hok) base ρ (fun ps hp => memberIdx_fits hs m hok _ hp)
     (wdFieldCtxN hs m hok _ ρ) hwd
   have e : S.M₃N m.M N S.recName (us.map (Level.eval φ)) = S.recSetN m.M N (us.map (Level.eval φ)) := by
     simp [M₃N, hok.rec_ne_aux]
@@ -1363,8 +1364,8 @@ theorem rec1Set_eq (φ : Name → Nat) (ρ : Nat → V) {us : List Level}
     have := wd_rec1Type hs m hok (Level.substVal φ S.recLparams us) ρ
     rw [rec1Type_eq, WellDenoted_mkPis] at this
     exact this.1
-  have hagree := R₂.agree_rec1Ctx hS R₃ hagr hok.nest (K_law hs m hok).1 hok.freshI
-    (K_ctors_stored hs m hok) base ρ (fun ps hp => memberIdx_fits hs m hok _ hp)
+  have hagree := R₂.agree_rec1Ctx hS R₃ hagr hok.nest (K_law m hok).1 hok.freshI
+    (K_ctors_stored m hok) base ρ (fun ps hp => memberIdx_fits hs m hok _ hp)
     (wdFieldCtxN hs m hok _ ρ) hwd
   have e : S.M₃N m.M N N.aux (us.map (Level.eval φ)) = S.rec1Set m.M N (us.map (Level.eval φ)) := by
     simp [M₃N]
@@ -1410,7 +1411,7 @@ theorem recs_typed (φr : Name → Nat) (ρ : Nat → V) {ps : List V} {m1 m' : 
       (∀ t, t ∈ˢ S.classAt m.M (S.lparams.map φr) N ps → appList m1 [t] = one)) := by
   have hS := hok.scoped
   have hN := hok.nest
-  have hK := K_law hs m hok
+  have hK := K_law m hok
   have R₃ := reader₃N hs m hok φr
   have hidx := memberIdx_fits hs m hok φr hp
   have hwdC := wdFieldCtxN hs m hok φr ρ
@@ -1443,7 +1444,7 @@ theorem recs_typed (φr : Name → Nat) (ρ : Nat → V) {ps : List V} {m1 m' : 
         S.MinorOkK m.M (S.lparams.map φr) N (S.q.holds φr) ps ⟨m', m1, mins, minsK⟩ j c :=
       fun j c hc fs hfit ihs hihs =>
         (Reader₂.minorOkK_of_fits S N hS R₃ hN (nestFacts hs m hok φr) hK.1 hK.2.2.2.2.2.1
-          (K_ctors_stored hs m hok) hz hps hp hmins hminsK hwdCK hidx hmot1 hmnK j c hc fs hfit
+          (K_ctors_stored m hok) hz hps hp hmins hminsK hwdCK hidx hmot1 hmnK j c hc fs hfit
           ihs hihs).1
     rw [hq] at hmin hminK
     exact S.recSemN_mem m.M _ N false hN hz hcl ⟨m', m1, mins, minsK⟩ hmin hminK
@@ -1469,7 +1470,7 @@ theorem recs_typed (φr : Name → Nat) (ρ : Nat → V) {ps : List V} {m1 m' : 
           S.MinorOkK m.M (S.lparams.map φr) N (S.q.holds φr) ps ⟨m', m1, mins, minsK⟩ j c :=
         fun j c hc fs hfit ihs hihs =>
           (Reader₂.minorOkK_of_fits S N hS R₃ hN (nestFacts hs m hok φr) hK.1 hK.2.2.2.2.2.1
-            (K_ctors_stored hs m hok) hz hps hp hmins hminsK hwdCK hidx hmot1 hmnK j c hc fs hfit
+            (K_ctors_stored m hok) hz hps hp hmins hminsK hwdCK hidx hmot1 hmnK j c hc fs hfit
             ihs hihs).1
       rw [hq] at hmin hminK
       exact S.motive_inhabitedN m.M _ N true hN hcl ⟨m', m1, mins, minsK⟩ hmin hminK (fun _ => hmo)
@@ -1482,7 +1483,7 @@ theorem recs_typed (φr : Name → Nat) (ρ : Nat → V) {ps : List V} {m1 m' : 
               appList (minorKAt N minsK j) (fs.reverse ++ ihs) ∈ˢ appList m1 [pt] :=
         fun j c hc fs hfit ihs hihs =>
           (Reader₂.minorOkK_of_fits_prop hS R₃ hN (nestFacts hs m hok φr) hK.1 hK.2.2.2.2.2.1
-            (K_ctors_stored hs m hok) hz hps hp hmins hminsK hwdCK hidx hmot1 hmnK j c hc fs hfit
+            (K_ctors_stored m hok) hz hps hp hmins hminsK hwdCK hidx hmot1 hmnK j c hc fs hfit
             ihs hihs).1
       rw [hq] at hmin hminK'
       exact motives_inhabited_prop (nestFacts hs m hok φr) hNS.2.2.2.2.1 hNS.2.2.1 hK.1 hN hz true hp
@@ -1785,10 +1786,6 @@ theorem ctor_appN (φ : Name → Nat) (ρ : Nat → V) {usj : List Level}
 
 /-! ## The rules' contexts -/
 
-omit [LevelOracle] hs m hok in
-theorem length_ruleCtxN (c : CtorSpec) : (S.ruleCtxN N c).length = c.fields.length + S.oN N + S.nP := by
-  simp only [ruleCtxN, List.length_append, length_fieldCtxAt, length_extrasN, nP]
-
 omit [LevelOracle] hs hok in
 /-- Any list fitting a rule's context splits as the fields, the class's
 minors, the block's minors, the two motives and the parameters. -/
@@ -1881,7 +1878,7 @@ theorem fits_ruleCtxK (φr : Name → Nat) (ρ : Nat → V)
         (S.Mem m.M (S.lparams.map φr)) ps (S.classCtor N c).fields fs := by
   have hS := hok.scoped
   have R₃ := reader₃N hs m hok φr
-  have hsc := S.classCtor_fieldScoped N hS hok.nest (K_law hs m hok).1 (List.mem_of_getElem? hc)
+  have hsc := S.classCtor_fieldScoped N hS hok.nest (K_law m hok).1 (List.mem_of_getElem? hc)
   have hosl : (minsK ++ mins ++ [m1, m']).length = S.oN N := by
     simp only [List.length_append, List.length_cons, List.length_nil, hminsK, hmins, oN]; omega
   have e1 : fs ++ minsK ++ mins ++ [m1, m'] ++ ps = fs ++ (minsK ++ mins ++ [m1, m']) ++ ps := by simp
@@ -2621,11 +2618,11 @@ theorem ctor_appK (φ : Name → Nat) (ρ : Nat → V) {usj : List Level}
       (ps₂.reverse ++ fs.reverse)) :
     appList (S.M₃N m.M N c.name (usj.map (Level.eval φ))) (ps₂.reverse ++ fs.reverse)
       = N.KS.ctorVal (N.KS.lparams.map (Level.substVal φ N.KS.lparams usj)) j fs := by
-  have hK := K_law hs m hok
+  have hK := K_law m hok
   have hKS := hK.1
   have hNS := hok.nestScoped N hok.nest
   have hcm : c ∈ N.K.ctors := List.mem_of_getElem? hc
-  have hstored : (env.find? c.name).isSome := K_ctors_stored hs m hok j c hc
+  have hstored : (env.find? c.name).isSome := K_ctors_stored m hok j c hc
   have hwd : WellDenoted (S.M₃N m.M N) (Level.substVal φ N.KS.lparams usj) ρ (N.KS.ctorType c) := by
     have := ((m₃N hs m hok).type_ok c.name (N.KS.ctorInfo c) (hK.2.2.2.1 j c hc) φ ρ usj husj).1
     rw [m₃N_M, WellDenoted_instL] at this
@@ -2702,7 +2699,7 @@ theorem rule1_core (φ : Name → Nat) (ρ : Nat → V) {us usj : List Level} {x
   subst hnd
   have hS := hok.scoped
   have hN := hok.nest
-  have hK := K_law hs m hok
+  have hK := K_law m hok
   have hKS := hK.1
   have hNS := hok.nestScoped N hN
   have hcm : c ∈ N.K.ctors := List.mem_of_getElem? hc
@@ -2802,14 +2799,14 @@ theorem rule1_core (φ : Name → Nat) (ρ : Nat → V) {us usj : List Level} {x
         rw [(nestFacts hs m hok _).z_eq]; exact hz
       have hfitCl := (S.ClassFits_iff_FitsFields N hN _ hp' R₃.R.good c.fields).mpr hfitF'
       have h := Reader.classCtorApp_eq S N hS R₃.R.toReader hN (nestFacts hs m hok _) hKS
-        hK.2.2.2.2.2.1 (K_ctors_stored hs m hok) hz hc (ihsE := []) (nIh := 0) (o := S.oN N)
+        hK.2.2.2.2.2.1 (K_ctors_stored m hok) hz hc (ihsE := []) (nIh := 0) (o := S.oN N)
         (os := minsK' ++ mins' ++ [m1', m'']) (ρ := ρ) rfl hf'' hos hps' hp' (hidxM ps' hp') hfitCl
       rw [consList_nil, Nat.zero_add] at h
       rw [h]
       simp [ctorVal, hzK, KS_tagOf]
     · have hzK : N.KS.z (S.lsK (S.lparams.map (Level.substVal φ S.recLparams us)) N) = true := by
         rw [(nestFacts hs m hok _).z_eq]; exact hz
-      have h := Reader.classCtorApp_read hS R₃.R.toReader hN (K_ctors_stored hs m hok j c hc)
+      have h := Reader.classCtorApp_read hS R₃.R.toReader hN (K_ctors_stored m hok j c hc)
         (ihsE := []) (nIh := 0) (o := S.oN N) (os := minsK' ++ mins' ++ [m1', m'']) (ρ := ρ) rfl hf''
         hos hps' hp' (hidxM ps' hp')
       rw [consList_nil, Nat.zero_add] at h
@@ -2872,14 +2869,14 @@ theorem rule1_core (φ : Name → Nat) (ρ : Nat → V) {us usj : List Level} {x
         rw [(nestFacts hs m hok _).z_eq]; exact hz
       have hfitCl := (S.ClassFits_iff_FitsFields N hN _ hp' R₃.R.good c.fields).mpr hfitF'
       have h := Reader₂.minorOkK_of_fits S N hS R₃ hN (nestFacts hs m hok _) hKS hK.2.2.2.2.2.1
-        (K_ctors_stored hs m hok) hz hps' hp' hmins' hminsK' hwdCK (hidxM ps' hp') hmot1 hmnK' j c hc
+        (K_ctors_stored m hok) hz hps' hp' hmins' hminsK' hwdCK (hidxM ps' hp') hmot1 hmnK' j c hc
         fs' hfitCl ihs hihs
       simp only [ctorVal, hzK, Bool.false_eq_true, if_false, KS_tagOf]
       exact h
     · have hzK : N.KS.z (S.lsK (S.lparams.map (Level.substVal φ S.recLparams us)) N) = true := by
         rw [(nestFacts hs m hok _).z_eq]; exact hz
       have h := Reader₂.minorOkK_of_fits_prop hS R₃ hN (nestFacts hs m hok _) hKS hK.2.2.2.2.2.1
-        (K_ctors_stored hs m hok) hz hps' hp' hmins' hminsK' hwdCK (hidxM ps' hp') hmot1 hmnK' j c hc
+        (K_ctors_stored m hok) hz hps' hp' hmins' hminsK' hwdCK (hidxM ps' hp') hmot1 hmnK' j c hc
         fs' hfitF' ihs hihs
       simp only [ctorVal, hzK, if_true]
       exact h
@@ -3001,41 +2998,6 @@ theorem rec_rule_law1N {j : Nat} {c : CtorSpec} (hc : N.K.ctors[j]? = some c) :
       ⟨c.name, c.fields.length, S.rule1Rhs N c j, some (N.lsK, S.classArgs N 0)⟩ (N.KS.ctorInfo c) := by
   intro φ ρ us usj xs ys hus husj hxs hys hfitR hfitC _
   exact rule1_core hs m hok φ ρ hc hus husj hxs hys hfitR hfitC N.nPK rfl
-
-/-- **The plain ι law of a `T.rec_1` rule** (`RecRuleLaw`,
-`EnvModel.lean`), at the RECURSOR's parameter count, which the plain
-rule drops from the constructor's spine.  When the container has more
-parameters than the block, the dropped list is not the fields and the
-law is not provable from its hypotheses; with at most as many, either
-the counts agree (`rule1_core`) or the constructor's spine walks past
-its telescope (`TeleFitV_mkAppN_not_pi`). -/
-theorem rec_rule_law1 (hnP : N.nPK ≤ S.nP) {j : Nat} {c : CtorSpec} (hc : N.K.ctors[j]? = some c) :
-    RecRuleLaw (S.M₃N m.M N) N.aux (S.rec1Info N) S.nP (S.nP + 2 + (S.n + N.nK))
-      (S.nP + 2 + (S.n + N.nK) + 0)
-      ⟨c.name, c.fields.length, S.rule1Rhs N c j, some (N.lsK, S.classArgs N 0)⟩ (N.KS.ctorInfo c) := by
-  intro φ ρ us usj xs ys hus husj hxs hys hfitR hfitC _ _ _
-  rcases Nat.lt_or_eq_of_le hnP with hlt | heq
-  · exfalso
-    simp only [ctorInfo] at hfitC
-    rw [TeleFitV_instL] at hfitC
-    unfold ctorType at hfitC
-    obtain ⟨vs, ws, hvw, hlen⟩ := exists_split (l := ys) (a := N.nPK + c.fields.length)
-      (by rw [hys]; show N.nPK + c.fields.length ≤ S.nP + c.fields.length; omega)
-    rw [hvw, TeleFitV_mkPis_append _ _ _ (by
-        rw [hlen, List.length_append, N.KS.length_fieldCtx]
-        show N.nPK + c.fields.length = c.fields.length + N.K.params.length
-        unfold NestInfo.nPK
-        omega)] at hfitC
-    cases ws with
-    | nil =>
-      have := congrArg List.length hvw
-      rw [List.append_nil, hlen, hys] at this
-      change S.nP + c.fields.length = N.nPK + c.fields.length at this
-      omega
-    | cons w ws =>
-      unfold famAt at hfitC
-      exact TeleFitV_mkAppN_not_pi _ _ _ _ _ (fun _ _ _ h => Expr.noConfusion h) hfitC.2
-  · exact rule1_core hs m hok φ ρ hc hus husj hxs (by rw [hys, heq]) hfitR hfitC S.nP heq.symm
 
 end IndSpec
 

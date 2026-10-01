@@ -207,7 +207,7 @@ noncomputable def mIndN : EnvModel V (S.envInd env) where
     split at hfind
     · cases hfind; simp [indInfo, ConstInfo.value?, ConstKind.value?] at hv
     · exact (m₃N hs m hok).unfold c ci v hfind hv φ ρ ls hls
-  rec_rules := fun c ci nP nM nMin nI rules hfind hkind rl hrl cij hcij => by
+  rec_rules := fun c ci nP nM nMin nI rules hfind hkind rl hrl hinst cij hcij => by
     rw [S.envInd_find?] at hfind
     split at hfind
     · cases hfind; simp [indInfo] at hkind
@@ -218,7 +218,7 @@ noncomputable def mIndN : EnvModel V (S.envInd env) where
         have := ((hs c ci hfind).2.2 nP nM nMin nI rules hkind rl hrl).2
         rw [h, hok.freshI] at this
         simp at this
-      · exact (m₃N hs m hok).rec_rules c ci nP nM nMin nI rules hfind hkind rl hrl cij hcij
+      · exact (m₃N hs m hok).rec_rules c ci nP nM nMin nI rules hfind hkind rl hrl hinst cij hcij
   rec_rules_nested := fun c ci nP nM nMin nI rules hfind hkind rl hrl lvs pinst hinst cij I nPc nf
       hcij hcijk => by
     rw [S.envInd_find?] at hfind
@@ -689,7 +689,7 @@ noncomputable def mCtorsN : EnvModel V (S.envCtors env) where
     split at hfind
     · cases hfind; simp [ctorInfo, ConstInfo.value?, ConstKind.value?] at hv
     · exact (mIndN hs m hok).unfold c ci v hfind hv φ ρ ls hls
-  rec_rules := fun c ci nP nM nMin nI rules hfind hkind rl hrl cij hcij => by
+  rec_rules := fun c ci nP nM nMin nI rules hfind hkind rl hrl hinst cij hcij => by
     rw [S.envCtors_find? env hok.nodup_ctors] at hfind
     split at hfind
     · cases hfind; simp [ctorInfo] at hkind
@@ -715,7 +715,7 @@ noncomputable def mCtorsN : EnvModel V (S.envCtors env) where
             (List.mem_map.mpr ⟨c', hc', rfl⟩))))] at hstored
           simp at hstored
       rw [hnone] at hcij
-      exact (mIndN hs m hok).rec_rules c ci nP nM nMin nI rules hfind hkind rl hrl cij hcij
+      exact (mIndN hs m hok).rec_rules c ci nP nM nMin nI rules hfind hkind rl hrl hinst cij hcij
   rec_rules_nested := fun c ci nP nM nMin nI rules hfind hkind rl hrl lvs pinst hinst cij I nPc nf
       hcij hcijk => by
     rw [S.envCtors_find? env hok.nodup_ctors] at hfind
@@ -772,30 +772,5 @@ theorem wd_rule1Type {c : CtorSpec} (hc : c ∈ N.K.ctors) (φ : Name → Nat) (
   rwa [mCtorsN_M] at this
 
 end IndSpec
-
-/-- **Installing a nested block preserves having a block model.**
-Every stored constant keeps its set; the new block, being nested,
-stores no block law of its own. -/
-theorem install_nest {env : Env} {S : IndSpec} {N : NestInfo} (hs : Env.Scoped env)
-    (m : BlockModel V env) (hok : S.OkN N env) :
-    ∃ m' : BlockModel V (S.install env), ∀ n, (env.find? n).isSome → ∀ ls, m'.M n ls = m.M n ls := by
-  sorry
-
-/-- **Installing any accepted block preserves having a block model.** -/
-theorem install_ind_any {env : Env} {S : IndSpec} (hs : Env.Scoped env) (m : BlockModel V env)
-    (hok : IndOk env S) :
-    ∃ m' : BlockModel V (S.install env), ∀ n, (env.find? n).isSome → ∀ ls, m'.M n ls = m.M n ls := by
-  unfold IndOk at hok
-  split at hok
-  · exact install_ind' ‹_› hs m hok
-  · exact install_nest hs m hok
-
-/-- A closed environment stays closed under any accepted block. -/
-theorem _root_.Fragment.Env.Scoped.install_any {env : Env} {S : IndSpec} (hs : Env.Scoped env)
-    (hok : IndOk env S) : Env.Scoped (S.install env) := by
-  unfold IndOk at hok
-  split at hok
-  · exact hs.install S ‹_› hok
-  · exact hs.installN hok
 
 end Fragment

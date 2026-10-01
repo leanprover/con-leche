@@ -176,8 +176,8 @@ def EnvModel.transport {env : Env} (m : EnvModel V env) (hs : Env.Scoped env)
         exact h d (((hs c ci hfind).2.1 v hv).2.1 d hd) ls'
     have := m.unfold c ci v hfind hv φ ρ ls hlen
     rwa [WellDenoted_consts hc, interp_consts hc, h c (by simp [hfind])] at this
-  rec_rules := fun c ci nP nM nMin nI rules hfind hkind rl hrl cij hcij => by
-    have law := m.rec_rules c ci nP nM nMin nI rules hfind hkind rl hrl cij hcij
+  rec_rules := fun c ci nP nM nMin nI rules hfind hkind rl hrl hinst cij hcij => by
+    have law := m.rec_rules c ci nP nM nMin nI rules hfind hkind rl hrl hinst cij hcij
     have hsc := hs c ci hfind
     have hsj := hs rl.ctor cij hcij
     have hT : ∀ us, ∀ d ∈ (ci.type.instL ci.lparams us).consts, ∀ ls, m.M d ls = M' d ls :=
@@ -359,7 +359,7 @@ theorem install_def {env : Env} {c : Name} {ci : ConstInfo} (hs : Env.Scoped env
     · have := m₀.unfold n ci' v' hfind hv' φ ρ ls hlen
       rwa [hm₀] at this
   · -- `rec_rules`: the new constant is a definition, not a recursor
-    intro n ci' nP nM nMin nI rules hfind hk rl hrl cij hcij
+    intro n ci' nP nM nMin nI rules hfind hk rl hrl hinst cij hcij
     rw [Env.find?_add] at hfind
     split at hfind
     · cases hfind
@@ -367,7 +367,7 @@ theorem install_def {env : Env} {c : Name} {ci : ConstInfo} (hs : Env.Scoped env
       cases hk
     · have hctor := ((hs n ci' hfind).2.2 nP nM nMin nI rules hk rl hrl).2
       rw [Env.find?_add_of_ne env ci (Env.ne_of_isSome_find? hctor hfresh)] at hcij
-      have := m₀.rec_rules n ci' nP nM nMin nI rules hfind hk rl hrl cij hcij
+      have := m₀.rec_rules n ci' nP nM nMin nI rules hfind hk rl hrl hinst cij hcij
       rwa [hm₀] at this
   · -- `rec_rules_nested`: likewise
     intro n ci' nP nM nMin nI rules hfind hk rl hrl lvs pinst hinst cij I nPc nf hcij hcijk

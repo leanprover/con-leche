@@ -208,12 +208,12 @@ structure EnvModel (V : Type u) [SetLib V] (env : Env) where
     ∀ (φ : Name → Nat) (ρ : Nat → V) (ls : List Level), ls.length = ci.lparams.length →
       WellDenoted M φ ρ (v.instL ci.lparams ls) ∧
       interp M φ ρ (v.instL ci.lparams ls) = M c (ls.map (Level.eval φ))
-  /-- Every rule of every stored recursor satisfies its ι law. -/
+  /-- Every plain rule of every stored recursor satisfies its ι law. -/
   rec_rules : ∀ (c : Name) (ci : ConstInfo) (numParams numMotives numMinors numIndices : Nat)
     (rules : List RecRule),
     env.find? c = some ci →
     ci.kind = .recursor numParams numMotives numMinors numIndices rules →
-    ∀ rl ∈ rules, ∀ cij : ConstInfo, env.find? rl.ctor = some cij →
+    ∀ rl ∈ rules, rl.inst = none → ∀ cij : ConstInfo, env.find? rl.ctor = some cij →
       RecRuleLaw M c ci numParams (numParams + numMotives + numMinors)
         (numParams + numMotives + numMinors + numIndices) rl cij
   /-- Every nested rule of every stored recursor satisfies its ι law,

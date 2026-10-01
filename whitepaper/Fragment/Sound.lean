@@ -219,7 +219,7 @@ theorem iota_sound [LevelOracle] {Γ : List Expr} {c : Name} {us : List Level} {
     (hpis : ci.type.hasPis (majorIdx + 1) = true)
     (hmaj : RedSem m φ Γ (args.getD majorIdx (Expr.bvar 0)) major)
     (hmeq : major = Expr.mkAppN (Expr.const cj usj) margs)
-    (hrl : rl ∈ rules) (hctor : rl.ctor = cj)
+    (hrl : rl ∈ rules) (hctor : rl.ctor = cj) (hinst : rl.inst = none)
     (hcij : env.find? cj = some cij)
     (husj : usj.length = cij.lparams.length)
     (hmlen : margs.length = numParams + rl.nfields)
@@ -327,7 +327,7 @@ theorem iota_sound [LevelOracle] {Γ : List Expr} {c : Name} {us : List Level} {
     exact hXsem (r, x) hrx
   -- the environment's ι law
   obtain ⟨heq, hwrhs, hspine⟩ := m.rec_rules c ci numParams numMotives numMinors numIndices rules
-    hfind hkind rl hrl cij hcij φ ρ us usj _ _ hus husj
+    hfind hkind rl hrl hinst cij hcij φ ρ us usj _ _ hus husj
     (by simp only [List.length_map, List.length_take, hlen]; omega) (by simp [hmlen])
     hfitV hfitV' ((Level.eqList_iff _ _).mp hlv φ) hP' hX'
   have hvals : (args.take (numParams + numMotives + numMinors) ++ margs.drop numParams).map
@@ -761,9 +761,9 @@ theorem red_sound [LevelOracle] : ∀ {Γ : List Expr} {e e' : Expr}, Red env Γ
   | _, _, _, .betaGate => Red.betaGate_sound
   | _, _, _, .beta hta hd => Red.beta_sound (infer_sound hta) (defeq_sound hd)
   | _, _, _, .delta hfind hv hls => Red.delta_sound hfind hv hls
-  | _, _, _, .iota hfind hkind hus hlen hpis hmaj hmeq hrl hctor hcij husj hmlen hpis' hdoms htys
+  | _, _, _, .iota hfind hkind hus hlen hpis hmaj hmeq hrl hctor hinst hcij husj hmlen hpis' hdoms htys
       hI hD hdoms' htys' hI' hD' hlv hP hres hshape hrps hX =>
-    Red.iota_sound rfl rfl hfind hkind hus hlen hpis (red_sound hmaj) hmeq hrl hctor hcij husj
+    Red.iota_sound rfl rfl hfind hkind hus hlen hpis (red_sound hmaj) hmeq hrl hctor hinst hcij husj
       hmlen hpis' hdoms htys (fun p hp => infer_sound (hI p hp)) (fun p hp => defeq_sound (hD p hp))
       hdoms' htys' (fun p hp => infer_sound (hI' p hp)) (fun p hp => defeq_sound (hD' p hp))
       hlv (fun p hp => defeq_sound (hP p hp)) hres hshape hrps

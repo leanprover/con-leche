@@ -62,7 +62,7 @@ noncomputable def mInstall : EnvModel V (S.install env) where
     · cases hfind
       simp [recInfo, ConstInfo.value?, ConstKind.value?] at hv
     · exact (mCtors hpl hs m hok).unfold c ci v hfind hv φ ρ ls hls
-  rec_rules := fun c ci nP nM nMin nI rules hfind hkind rl hrl cij hcij => by
+  rec_rules := fun c ci nP nM nMin nI rules hfind hkind rl hrl hinst cij hcij => by
     rw [S.install_find? hpl] at hfind
     split at hfind
     · -- the new recursor: one of the generated rules, at its constructor
@@ -90,7 +90,7 @@ noncomputable def mInstall : EnvModel V (S.install env) where
       have hne : rl.ctor ≠ S.recName :=
         Env.ne_of_isSome_find? hstored (hok.fresh _ (by simp))
       rw [S.install_find? hpl, if_neg hne] at hcij
-      exact (mCtors hpl hs m hok).rec_rules c ci nP nM nMin nI rules hfind hkind rl hrl cij hcij
+      exact (mCtors hpl hs m hok).rec_rules c ci nP nM nMin nI rules hfind hkind rl hrl hinst cij hcij
   rec_rules_nested := fun c ci nP nM nMin nI rules hfind hkind rl hrl lvs pinst hinst cij I nPc nf
       hcij hcijk => by
     rw [S.install_find? hpl] at hfind

@@ -36,6 +36,7 @@ public import Fragment.Install
 public import Fragment.BlockModel
 public import Fragment.InstallNest
 public import Fragment.NestIota
+public import Fragment.NestInstall
 public import Fragment.Motive
 public import Fragment.Sound
 public import Fragment.Consistency

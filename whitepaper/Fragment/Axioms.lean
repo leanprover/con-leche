@@ -59,3 +59,63 @@ info: 'Fragment.no_empty_inductive_inhabitant' depends on axioms: [propext, Clas
 info: 'Fragment.no_empty_prop_inhabitant' depends on axioms: [propext, Classical.choice, Quot.sound]
 -/
 #guard_msgs in #print axioms Fragment.no_empty_prop_inhabitant
+
+/--
+info: 'Fragment.Red.iotaNested_sound' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in #print axioms Fragment.Red.iotaNested_sound
+
+/--
+info: 'Fragment.IndSpec.contGood_of' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in #print axioms Fragment.IndSpec.contGood_of
+
+/--
+info: 'Fragment.IndSpec.contInBound_of' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in #print axioms Fragment.IndSpec.contInBound_of
+
+/--
+info: 'Fragment.IndSpec.classLaws_of' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in #print axioms Fragment.IndSpec.classLaws_of
+
+/--
+info: 'Fragment.IndSpec.RecGraphN_fun' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in #print axioms Fragment.IndSpec.RecGraphN_fun
+
+/--
+info: 'Fragment.IndSpec.RecGraphN_total' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in #print axioms Fragment.IndSpec.RecGraphN_total
+
+/--
+info: 'Fragment.IndSpec.recSemN_eq' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in #print axioms Fragment.IndSpec.recSemN_eq
+
+/--
+info: 'Fragment.IndSpec.rec1Sem_eq' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in #print axioms Fragment.IndSpec.rec1Sem_eq
+
+/--
+info: 'Fragment.IndSpec.rec_rule_lawN' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in #print axioms Fragment.IndSpec.rec_rule_lawN
+
+/--
+info: 'Fragment.IndSpec.rec_rule_law1N' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in #print axioms Fragment.IndSpec.rec_rule_law1N
+
+/--
+info: 'Fragment.install_nest' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in #print axioms Fragment.install_nest
+
+/--
+info: 'Fragment.install_ind_any' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in #print axioms Fragment.install_ind_any

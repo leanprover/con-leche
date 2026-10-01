@@ -202,7 +202,7 @@ noncomputable def mInd : EnvModel V (S.envInd env) where
     split at hfind
     · cases hfind; simp [indInfo, ConstInfo.value?, ConstKind.value?] at hv
     · exact (m₃ hs m hok).unfold c ci v hfind hv φ ρ ls hls
-  rec_rules := fun c ci nP nM nMin nI rules hfind hkind rl hrl cij hcij => by
+  rec_rules := fun c ci nP nM nMin nI rules hfind hkind rl hrl hinst cij hcij => by
     rw [S.envInd_find?] at hfind
     split at hfind
     · cases hfind; simp [indInfo] at hkind
@@ -214,7 +214,7 @@ noncomputable def mInd : EnvModel V (S.envInd env) where
         have := ((hs c ci hfind).2.2 nP nM nMin nI rules hkind rl hrl).2
         rw [h, hok.freshI] at this
         simp at this
-      · exact (m₃ hs m hok).rec_rules c ci nP nM nMin nI rules hfind hkind rl hrl cij hcij
+      · exact (m₃ hs m hok).rec_rules c ci nP nM nMin nI rules hfind hkind rl hrl hinst cij hcij
   rec_rules_nested := fun c ci nP nM nMin nI rules hfind hkind rl hrl lvs pinst hinst cij I nPc nf
       hcij hcijk => by
     rw [S.envInd_find?] at hfind
@@ -567,7 +567,7 @@ noncomputable def mCtors : EnvModel V (S.envCtors env) where
     split at hfind
     · cases hfind; simp [ctorInfo, ConstInfo.value?, ConstKind.value?] at hv
     · exact (mInd hpl hs m hok).unfold c ci v hfind hv φ ρ ls hls
-  rec_rules := fun c ci nP nM nMin nI rules hfind hkind rl hrl cij hcij => by
+  rec_rules := fun c ci nP nM nMin nI rules hfind hkind rl hrl hinst cij hcij => by
     rw [S.envCtors_find? env hok.nodup_ctors] at hfind
     split at hfind
     · cases hfind; simp [ctorInfo] at hkind
@@ -593,7 +593,7 @@ noncomputable def mCtors : EnvModel V (S.envCtors env) where
             (List.mem_map.mpr ⟨c', hc', rfl⟩)))] at hstored
           simp at hstored
       rw [hnone] at hcij
-      exact (mInd hpl hs m hok).rec_rules c ci nP nM nMin nI rules hfind hkind rl hrl cij hcij
+      exact (mInd hpl hs m hok).rec_rules c ci nP nM nMin nI rules hfind hkind rl hrl hinst cij hcij
   rec_rules_nested := fun c ci nP nM nMin nI rules hfind hkind rl hrl lvs pinst hinst cij I nPc nf
       hcij hcijk => by
     rw [S.envCtors_find? env hok.nodup_ctors] at hfind
