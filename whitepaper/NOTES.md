@@ -5,7 +5,9 @@ one denotation on annotated terms, a semantic invariant instead of a
 typing judgement, a set theory given as a class — the con-leche proof
 could be simpler or more elegant. One numbered list, one observation
 per item, each naming the fragment files and the real-proof files it
-compares and the lane that made it (task #324, all of 2026-09-25).
+compares and the lane that made it (task #324; 2026-09-25 unless the
+item says otherwise — the items marked 2026-10-01 were written after
+the uniform installer landed upstream).
 Typst and tooling traps are not here: they are the "Typst notes"
 comment block at the top of `lib.typ`.
 
@@ -75,40 +77,55 @@ comment block at the top of `lib.typ`.
    the checker's opened bodies and the relation's de Bruijn reading.
    (Fragment lane, stages 1–3.)
 
-7. **The ι comparisons are load-bearing exactly in the Prop regime.**
-   `Red.iota` (`Rules/Rel.lean:206-231`) compares the constructor's
-   levels with the recursor's (`Level.isEquivList`), its parameters
-   (`DefEqList`) and its residual's index expressions with the
-   recursor's index arguments. Where the family is a *type* they are
-   redundant: the certificate puts the major — a tagged tuple of the
-   fields — in the family at the recursor's parameters and indices,
-   and the fixpoint's inversion reads everything off it. Where the
-   family is a *proposition* the major denotes the point and the
-   certificates say only that the fibre is inhabited: with
-   `P : Nat → Prop`, one constructor `mk : ∀ n, P n` and a large
-   eliminator (the subsingleton criterion admits it — `n` is an
-   index), a rule without the comparisons would let
-   `P.rec motive minor 7 (mk 5)` reduce to `minor 5`, while the
-   recursor's set, a function of its arguments alone, has one value at
-   index `7`. The fragment's `Red.iota` carries all three and its ι
-   law (`RecRuleLaw`) takes their semantic forms as premises; in the
-   proof (`Fragment/InstallIota.lean`) the levels make the block's
-   valuation the same through both instantiations, the parameters
-   make the constructor's fit a fit at the recursor's parameters, and
-   the indices make the recursor's index values the constructor's
-   index expressions read under the fields. Lean's kernel gets the
-   same facts by type-checking the major's type against the
-   recursor's, which a semantic proof cannot read off a `DefEq`
-   verdict between two propositions — worth one sentence in
-   con-leche's ι docstring. (Fragment lane, stages 1–3; fragment lane,
-   part 2 — ι; fragment lane, stages 3–4.)
+7. **The ι comparisons: the index comparison is load-bearing, the
+   level comparison is assumed, the parameter comparison is dead.**
+   `Red.iota` (`Rules/Rel.lean`) compares the constructor's levels
+   with the recursor's (`Level.isEquivList`), its parameters
+   (`DefEqList`, only when `RecRule.compareParams`) and its residual's
+   index expressions with the recursor's index arguments. Where the
+   family is a *type* all three are redundant: the certificate puts
+   the major — a tagged tuple of the fields — in the family at the
+   recursor's parameters and indices, and the fixed point's inversion
+   reads everything off it. Where the family is a *proposition* with
+   a large eliminator the major denotes the point and the certificates
+   say only that the fibre is inhabited, and the INDEX comparison is
+   indispensable: with `P : Nat → Prop` and one constructor
+   `mk : ∀ n, P n` (the subsingleton criterion admits it — `n` is an
+   index), a rule without it would let `P.rec motive minor 7 (mk 5)`
+   reduce to `minor 5`, while the recursor's set, a function of its
+   arguments alone, has one value at index `7`. The LEVEL comparison
+   is what the fragment's law for a rule on the block's own
+   constructors assumes (`RecRuleLaw`, `Fragment/EnvModel.lean`: the
+   constructor's levels evaluate as the recursor's last ones) and what
+   `Fragment/InstallIota.lean` uses first (`block_valuation_eq`): it
+   makes the block's valuation the same through both instantiations,
+   so a field that is a proposition on the recursor's side is one on
+   the constructor's. The PARAMETER comparison cannot matter: the
+   reduct takes its parameters from the recursor's spine and only the
+   fields from the major, and in the `Prop` regime every field is a
+   proof — the point at any parameters — or an index, fixed by the
+   index comparison. The real checker fires the rules it generates
+   without it (`paramsBlind`, `Kernel/Inductives/SumInstall.lean`;
+   `RecRule.compareParams`, `Kernel/Env.lean`) and
+   `blockRecRuleLaw_gen` (`Model/Inductives/BlockRecLaw.lean`) notes
+   it unused; the fragment's `RecRuleLaw` still carries the premise
+   and `InstallIota.lean` uses it to move the constructor's fit to
+   the recursor's parameters — dropping it would align the fragment
+   with the checker and shorten the law by one conjunct. The official
+   kernel compares nothing at an ι step (`inductive_reduce_rec` fires
+   by constructor name and `nfields`; typing justifies it), which a
+   semantic proof cannot do: a `DefEq` verdict between two
+   propositions is an equality of truth values. (Fragment lane,
+   stages 1–3; fragment lane, part 2 — ι; §4 lane, 2026-10-01.)
 
 8. **Retracted: the three ι comparisons follow from the telescope
    certificates and could be dropped from the rule.** The fragment's
    first `Red.iota` carried the two telescope certificates only, on
    that reasoning. Refuted by the Prop-regime counterexample of item 7:
-   the comparisons are redundant where the family is a type and
-   indispensable where it is a proposition with a large eliminator.
+   the comparisons are redundant where the family is a type, and
+   where it is a proposition with a large eliminator the index
+   comparison is indispensable and the level comparison is what the
+   law assumes — only the parameter comparison could go.
    (Fragment lane, part 2 — ι.)
 
 9. **`trans` cannot be refuted in the fragment; argue structurally.**
@@ -200,6 +217,21 @@ comment block at the top of `lib.typ`.
     from the strength of the universes and could be presented as one
     theorem with the closure law as its statement, consumed nowhere
     else. (Fragment lane, part 2 — least fixed points; §3 lane.)
+    *After the uniform installer* (2026-10-01, §4 lane): the container
+    theorem is gone, and the closed family of a block's operator comes
+    from `closed_of_acc` (`SetModel/Access.lean`) — an operator whose
+    every output element depends on a bounded set of input elements,
+    for one bound in the universe, has a closed tuple, by iteration
+    along well-founded trees with the union kept small by coding a
+    tree as its paths. That is the fragment's `inductive_closure`
+    proved once, as this item asked. But the positivity run is still
+    read twice: `blockCtorPos_of_run`
+    (`Model/Inductives/BlockPosRunCont.lean`) for monotonicity and
+    `blockAcc_of_run` (`BlockAccRunCont.lean`) for accessibility,
+    while `AccTuple.monoTuple` (`Access.lean`) says an accessible
+    operator is monotone. One reading of the run would give
+    `LfpClause.functor`'s three conjuncts, with the `Prop`-valued case
+    (`closedTuple_zero`, no bound needed) as its degenerate case.
 
 16. **One recursion theorem for both regimes.** The real proof builds
     the recursor of a type-valued block as a fixed point of its
@@ -222,7 +254,14 @@ comment block at the top of `lib.typ`.
     (`motive_inhabited`) need no uniqueness. This also makes the
     criterion's semantic meaning explicit, which con-leche's
     `checkStructFieldSortsI` docstring only attributes to official.
-    (Fragment lane, stages 3–4; §3 lane.)
+    (Fragment lane, stages 3–4; §3 lane.) *After the uniform
+    installer* (2026-10-01): the real proof has the one construction
+    too — the graph as the least relation closed under the rules
+    (`SetModel/GraphRec.lean`), `FixRec.lean` and `RecGraph.lean` are
+    gone — and takes the sort-dependent fact as one premise, "two
+    decodings are equal or the motive's value is a subsingleton",
+    discharged three ways (`Model/Inductives/ClassGenUniq.lean`); the
+    witness device is the fragment's way of discharging the third.
 
 17. **Readers instead of `EnvExtend` transport.** The block's
     generated syntax is read in the model as it grows — the former
@@ -251,7 +290,7 @@ comment block at the top of `lib.typ`.
     model's construction has to be carried across later installations,
     only that some model exists (`accepted_model`). The real proof
     states its capstones only for the pinned `False` and `Empty`
-    (`Capstone.lean`'s `no_constant_of_emptyPin`), because the pin
+    (`Model/Capstone.lean`'s `no_constant_of_emptyPin`), because the pin
     fixes the leaf; the pins are there so the *statement* can name
     `False` and `Eq`, not because the proof needs them. The same
     one-line argument from `EnvModelM.mem_type` at the stream's own
@@ -286,7 +325,13 @@ comment block at the top of `lib.typ`.
     what the stream happened to include. Likewise the two `PUnit`
     rules (`unitLike` on the pinned `PUnit`, `structUnit` on a stored
     unit-like family) are one rule in the model: "the family has at
-    most one member". (§4 lane.)
+    most one member". (§4 lane.) *After the uniform installer*
+    (2026-10-01): the stream artefacts and the three firing files are
+    gone; whether a block has η or is unit-like is decided at its
+    install from its shape (`blockCapsAt`,
+    `Kernel/Inductives/BlockInstall.lean`) and both laws are
+    established from the fixed point (`fixEntryEtaCore`,
+    `Model/Inductives/FixKit.lean`), as this item proposed.
 
 20. **Two block conditions that carry semantic weight.** The
     fragment's `Ok` (`Fragment/Decl.lean`) asks two things of a block
@@ -346,44 +391,7 @@ comment block at the top of `lib.typ`.
     no cost downstream as long as the inversion lemmas exist, and the
     transport lemmas are cheaper as term inductions. (Invariant lane.)
 
-23. **Accessibility is the whole set-theoretic input, and it already
-    contains monotonicity.** After the uniform installer, the real
-    proof obtains the closed family of a block's operator from
-    `closed_of_acc` (`SetModel/Access.lean`): an operator whose every
-    output element depends on a bounded set of input elements, for one
-    bound in the universe, has a closed tuple — iteration along
-    Brouwer trees, the union kept small by coding a tree as its paths.
-    That is the fragment's `inductive_closure` law
-    (`Fragment/IndLib.lean`) proved once, with the ω-iterate and the
-    container theorem of item 15 gone. But the positivity run is still
-    read twice: `blockCtorPos_of_run` (`Model/Inductives/BlockPosRunCont.lean`)
-    for monotonicity along the tuple order, and `blockAcc_of_run`
-    (`BlockAccRunCont.lean`) for accessibility — while
-    `AccTuple.monoTuple` (`Access.lean`) says an accessible operator is
-    monotone. At a positive level one reading of the run would give
-    `LfpClause.functor`'s three conjuncts; only the `Prop`-valued case
-    (`closedTuple_zero`, no bound needed) keeps the direct monotonicity
-    argument alive, and it could be the degenerate case of the same
-    reading. (§4 lane.)
-
-24. **The parameter comparison of ι is dead in both proofs.** The real
-    checker fires the rules it generates without it (`paramsBlind`,
-    `Kernel/Inductives/SumInstall.lean`, `RecRule.compareParams` in
-    `Kernel/Env.lean`), and `blockRecRuleLaw_gen`
-    (`Model/Inductives/BlockRecLaw.lean`) notes the comparison unused.
-    The fragment's `RecRuleLaw` (`Fragment/EnvModel.lean`) still
-    carries the parameter premise, and `Fragment/InstallIota.lean` uses
-    it to move the constructor's fit to the recursor's parameters
-    (item 7). The §4 proof shows why it is dispensable: in the regime
-    of types the tuple carries the parameters' consequences, and in the
-    `Prop` regime with a large eliminator every field is a proof — the
-    point at any parameters — or one of the result indices, whose
-    value the index comparison fixes directly. Dropping the premise
-    from the fragment's rule and law would align it with the checker
-    and shorten the law by one conjunct; the level comparison stays
-    (the fields' data are read at the block's valuation). (§4 lane.)
-
-25. **The recursor record's pre-pass is only needed for nesting.** The
+23. **The recursor record's pre-pass is only needed for nesting.** The
     generated-recursor stage reads the stream's recursor types in an
     unverified pre-pass (`Kernel/Inductives/ClassRead.lean`) for the
     classes a family eliminates and the layout of its motives and minor
@@ -398,7 +406,7 @@ comment block at the top of `lib.typ`.
     stream genuinely supplies information (which containers get an
     auxiliary recursor). (§4 lane.)
 
-26. **The elimination criterion's two halves, and the `Sort u`
+24. **The elimination criterion's two halves, and the `Sort u`
     superset's reason.** The real checker asks the per-field
     subsingleton criterion only of a family whose sort is provably zero
     (`checkStructFieldSortsI`, `Kernel/Inductives/SumInstall.lean`) and
@@ -416,7 +424,7 @@ comment block at the top of `lib.typ`.
     docstring would record it; a fragment that tested "provably zero"
     instead of "may be zero" would need exactly that lemma. (§4 lane.)
 
-27. **A nested rule's stored instantiation is never load-bearing.**
+25. **A nested rule's stored instantiation is never load-bearing.**
     The real checker certifies an auxiliary recursor's rule against
     the constructor's expected levels and parameters (`.nested`
     certification, `tests/e2e/src/nested_rec.lean`); the fragment's
@@ -427,11 +435,12 @@ comment block at the top of `lib.typ`.
     recursion equation is only ever needed above a proposition, where
     the major is itself the tagged tuple and its membership in the
     class pins the fields (`ClassLaws.inv`, `Fragment/NestRec.lean`).
-    Item 24's observation for the plain parameter comparison holds
-    for the nested one without even the `Prop` exception. (Nested
-    lane, 2026-10-01.)
+    Item 7's observation on the parameter comparison holds for the
+    nested one without even the `Prop` exception, and the level
+    comparison is not assumed there either. (Nested lane,
+    2026-10-01.)
 
-28. **The container's constructors join the block's closure; no new
+26. **The container's constructors join the block's closure; no new
     law.** The real proof's "existence of the fixed point by
     accessibility, not by a container theorem" is, at this altitude,
     the one closure law of `IndLib` applied ONCE to the block's
@@ -445,9 +454,9 @@ comment block at the top of `lib.typ`.
     (`Fragment/NestSem.lean`) needs. Whether the real proof's
     accessibility route could be replaced by listing the container's
     constructor telescopes in the existing container theorem is worth
-    a look. (Nested lane.)
+    a look. (Nested lane, 2026-10-01.)
 
-29. **The guard is established before the constructors are read.**
+27. **The guard is established before the constructors are read.**
     Monotonicity of the class in the member (`ContGood`,
     `Fragment/IndSem.lean`) is what a container field's clause is read
     under; it is proved from the class having a sort at the block's
@@ -463,24 +472,24 @@ comment block at the top of `lib.typ`.
     law per plain block — scope, the former's and constructors' sets
     as the fixed point's graphs, the domains bounded at fitting
     parameters — and that is exactly what a later nesting consumes
-    (`NestFacts`). (Nested lane.)
+    (`NestFacts`). (Nested lane, 2026-10-01.)
 
-30. **What the fragment's positivity leaves out, and why.** Beyond
+28. **What the fragment's positivity leaves out, and why.** Beyond
     the rulings (depth one, no indices, no reflexive container field)
     the fragment asks that the class's arguments and the member's
     index expressions be closed under the block's parameters, and that
     no field of the container after a member field read it
     (`NestInfo.Positive`, `Fragment/Spec.lean`). Both are prices of
-    the closure device of item 28: the container's telescope joins the
+    the closure device of item 26. The container's telescope joins the
     closure with the member field as a recursive position, whose value
-    is junked (`toTeleXK`), so nothing may read it; and the class's
+    is junked (`toTeleXK`), so nothing may read it. And the class's
     arguments must fit the container's parameters at EVERY member set
     of the universe (`NestFacts.argsFit`), which a field-dependent
     argument could not do without a fitting instance at the final
-    family — the real checker's `nestPos` admits both
-    (`Kernel/Inductives/Positivity.lean`). (Nested lane.)
+    family. The real checker's `nestPos` admits both
+    (`Kernel/Inductives/Positivity.lean`). (Nested lane, 2026-10-01.)
 
-31. **One generator for the block's and the class's minors.** The
+29. **One generator for the block's and the class's minors.** The
     container's constructors translated into the block's own field
     kinds — the member field a recursive field at the member's index
     expressions, the container's recursive fields container fields,
@@ -493,5 +502,5 @@ comment block at the top of `lib.typ`.
     (`Kernel/Inductives/GenRec.lean`) reads the container's
     constructors separately (`classCtorOf`, node agreement); a
     translation to the block's field kinds would let one generator
-    and one reading serve both. (Nested lane.)
+    and one reading serve both. (Nested lane, 2026-10-01.)
 

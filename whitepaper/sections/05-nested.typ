@@ -149,7 +149,8 @@ $TRec1$, whose major is a member of the class.
     & forall (C_1 : forall (ts : List thick (Tree thick alpha)) thin ann(never). thin Sort ell) thin ann(q). \
     & forall (s : forall (a : alpha) thin ann(q). thin forall (ts : List thick (Tree thick alpha)) thin ann(q). thin forall (h : C_1 thick ts) thin ann(q). thin C thick (node thick a thick ts)) thin ann(q). \
     & forall (n : C_1 thick nil) thin ann(q). \
-    & forall (c : forall (t : Tree thick alpha) thin ann(q). thin forall (ts : List thick (Tree thick alpha)) thin ann(q). thin forall (h : C thick t) thin ann(q). thin forall (h_1 : C_1 thick ts) thin ann(q). thin C_1 thick (cons thick t thick ts)) thin ann(q). \
+    & forall (c : forall (t : Tree thick alpha) thin ann(q). thin forall (ts : List thick (Tree thick alpha)) thin ann(q). \
+    & quad quad forall (h : C thick t) thin ann(q). thin forall (h_1 : C_1 thick ts) thin ann(q). thin C_1 thick (cons thick t thick ts)) thin ann(q). \
     & forall (t : Tree thick alpha) thin ann(q). thin C thick t \
     TreeRec1.\{ell\} : & dots.c thin forall (ts : List thick (Tree thick alpha)) thin ann(q). thin C_1 thick ts
   $
@@ -165,12 +166,13 @@ $TRec1$, whose major is a member of the class.
   (#src("whitepaper/Fragment/Decl.lean", 350, 357)[the translation],
   #src("whitepaper/Fragment/Decl.lean", 382, 384)[a translated constructor]).
   There are three rules, one per constructor of the block and of
-  the container:
+  the container; $arrow(r)$ abbreviates the shared prefix
+  $alpha thick C thick C_1 thick s thick n thick c$:
 
   $
-    TreeRec thick alpha thick C thick C_1 thick s thick n thick c thick (node thick a thick ts) & red s thick a thick ts thick (TreeRec1 thick alpha thick C thick C_1 thick s thick n thick c thick ts) \
-    TreeRec1 thick alpha thick C thick C_1 thick s thick n thick c thick nil & red n \
-    TreeRec1 thick alpha thick C thick C_1 thick s thick n thick c thick (cons thick t thick ts) & red c thick t thick ts thick (TreeRec thick alpha thick C thick C_1 thick s thick n thick c thick t) thick (TreeRec1 thick alpha thick C thick C_1 thick s thick n thick c thick ts).
+    TreeRec thick arrow(r) thick (node thick a thick ts) & red s thick a thick ts thick (TreeRec1 thick arrow(r) thick ts) \
+    TreeRec1 thick arrow(r) thick nil & red n \
+    TreeRec1 thick arrow(r) thick (cons thick t thick ts) & red c thick t thick ts thick (TreeRec thick arrow(r) thick t) thick (TreeRec1 thick arrow(r) thick ts).
   $
 ] <ex:tree-rec>
 
