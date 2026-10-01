@@ -184,9 +184,11 @@ constructors at the instantiation, `Positivity.lean`): the container
 has no indices and no reflexive or container field; the member
 parameter's domain is a sort; no later parameter's domain mentions
 the member parameter; every field of every constructor is the member
-field, a recursive field, or an ordinary field whose domain does not
-mention the member parameter — the member never occurs to the left of
-an arrow, under a binder or inside another type. -/
+field, a recursive field, or an ordinary field whose domain mentions neither the member parameter nor
+an earlier member field — the member never occurs to the left of an
+arrow, under a binder or inside another type, and nothing after a
+member field reads its value (the member is read at the family's
+bound when the container's constructors join the closure). -/
 def Positive : Prop :=
   N.K.indices = [] ∧
   N.p < N.nPK ∧
@@ -196,7 +198,9 @@ def Positive : Prop :=
   (∀ c ∈ N.K.ctors, c.idx = [] ∧ ∀ i f, c.fields[i]? = some f →
     match f with
     | Field.ordinary A => A = Expr.bvar (N.memberVar (c.fields.length - 1 - i)) ∨
-        A.usesVar (N.memberVar (c.fields.length - 1 - i)) = false
+        (A.usesVar (N.memberVar (c.fields.length - 1 - i)) = false ∧
+          ∀ i' f', c.fields[i']? = some f' → i < i' →
+            N.isMember (c.fields.length - 1 - i') f' = true → A.usesVar (i' - i - 1) = false)
     | Field.recursive es => es = []
     | Field.reflexive _ _ => False
     | Field.container => False)

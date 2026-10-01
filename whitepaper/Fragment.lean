@@ -17,6 +17,8 @@ public import Fragment.Decl
 public import Fragment.Hygiene
 public import Fragment.Ctx
 public import Fragment.IndSem
+public import Fragment.NestSem
+public import Fragment.NestRec
 public import Fragment.GenScope
 public import Fragment.InstallDef
 public import Fragment.Read
