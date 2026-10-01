@@ -2297,8 +2297,8 @@
 
 == whitepaper/Fragment/Spec.lean#L79-L102
     79  /-- **The data of a single inductive block** without its class
-    80  (con-leche's `NativeParts`/`InductiveShape`, `NativeParts.lean:180`,
-    81  `SumParts.lean:79`). -/
+    80  (con-leche's `MemberShape`/`InductiveShape`, `BlockParts.lean:62`,
+    81  `SumParts.lean:36`). -/
     82  structure IndBase where
     83    /-- The type former's name. -/
     84    name : Name
@@ -2344,7 +2344,7 @@
 
 == whitepaper/Fragment/Spec.lean#L28-L40
     28  /-- A constructor field, as the positivity check classifies it
-    29  (con-leche's `RecFieldKind`, `NativeParts.lean:51`).  Its domain is an
+    29  (con-leche's `RecFieldKind`, `FieldTele.lean:29`).  Its domain is an
     30  expression under the parameters and the earlier fields. -/
     31  inductive Field where
     32    /-- An ordinary field: any domain that does not mention the block. -/
@@ -2379,7 +2379,7 @@
    610  field's index expressions are as many as the indices.  No piece
    611  mentions the block (it is not stored in `env`): that is **strict
    612  positivity** in the shape the fragment admits (con-leche's
-   613  `recPositivity` and `recFamOk`, `NativeParts.lean:73-89`). -/
+   613  `nestPos`, `ConLeche/Kernel/Inductives/Positivity.lean:1453`). -/
    614  def fieldScoped (env : Env) (k : Nat) : Field → Prop
    615    | .ordinary A => Expr.Scoped env S.lparams (S.nP + k) A
    616    | .recursive es => es.length = S.nI ∧ ∀ e ∈ es, Expr.Scoped env S.lparams (S.nP + k) e
@@ -2396,8 +2396,8 @@
    623  a reflexive field's telescope entries and its index expressions, and
    624  a recursive field's index expressions do not use the variable of any
    625  earlier recursive or reflexive field (con-leche's `structUsedLater`
-   626  guard, `NativeParts.lean:120`: the model reads the domains at a frame
-   627  whose recursive slots hold an arbitrary value). -/
+   626  guard, `StructParts.lean:393`, run by `nestCtors`, `Positivity.lean:1247`:
+   627  the model reads the domains at a frame with arbitrary recursive slots). -/
    628  def fieldNoRecDep (earlier : List Field) : Field → Prop
 
 == ConLeche/Kernel/Inductives/Positivity.lean#L1246-L1249
@@ -2502,7 +2502,7 @@
 == whitepaper/Fragment/Decl.lean#L275-L280
    275  /-- **The recursor's type**
    276  `∀ params (motive : motiveTy) minors indices (t : I params indices), motive indices t`
-   277  (con-leche's `structRecTyR`, `NativeParts.lean:349`). -/
+   277  (con-leche's `classGenRecTy`, `GenRec.lean:181`). -/
    278  def recType : Expr :=
    279    mkPis S.q (S.famVars (S.n + 1) :: S.indicesAt (S.n + 1) ++ S.minorsCtx ++ [S.motiveTy] ++ S.params)
    280      (mkAppN (.bvar (1 + S.nI + S.n)) (varsAt 1 S.nI ++ [.bvar 0]))
@@ -2510,7 +2510,7 @@
 == whitepaper/Fragment/Decl.lean#L321-L328
    321  /-- **A rule's right-hand side** for constructor `j`:
    322  `fun params motive minors fields => minor_j fields ihs`
-   323  (con-leche's `structRecRhsR`, `NativeParts.lean:368`). -/
+   323  (con-leche's `classGenRule`, `GenRec.lean:193`). -/
    324  def ruleRhs (c : CtorSpec) (j : Nat) : Expr :=
    325    let nF := c.fields.length
    326    mkLams S.q (S.ruleCtx c)
@@ -2603,8 +2603,8 @@
    684    LevelOracle.eq S.sort .zero = true ∨ LevelOracle.le v S.sort = true
 
 == whitepaper/Fragment/Decl.lean#L699-L744
-   699  /-- **The block is accepted** (con-leche's `checkNative`,
-   700  `NativeInstall.lean:617`):
+   699  /-- **The block is accepted** (con-leche's `checkBlock`,
+   700  `ConLeche/Kernel/Inductives/BlockTail.lean:143`):
    701  
    702  * the block's names are distinct and fresh;
    703  * the specification is in scope (closed, stored constants, declared
@@ -2626,9 +2626,9 @@
    719    the former and the constructors.
    720  
    721  The recursor's rules are generated and stored, not checked: they
-   722  mention the recursor, and con-leche does not infer them either
-   723  (`NativeInstall.lean`, "the rules … are scope-checked at the
-   724  environment holding its constant and NOT inferred"). -/
+   722  mention the recursor.  Con-leche does type its generated rules, in
+   723  the environment holding the recursors without their rules
+   724  (`classRuleOk`, `GenRec.lean:427`); the fragment stores them as is. -/
    725  def Ok (env : Env) : Prop :=
    726    (S.name :: S.recName :: S.ctors.map (·.name)).Nodup ∧
    727    (∀ m ∈ S.name :: S.recName :: S.ctors.map (·.name), env.find? m = none) ∧
@@ -2661,9 +2661,9 @@
 == whitepaper/Fragment/Decl.lean#L314-L319
    314  /-- **A rule's type**: `∀ params motive minors fields, motive idx (C params fields)`
    315  — the recursor's binder prefix with the constructor's fields in place
-   316  of the indices and the major (con-leche compares the rule's binders
-   317  with the recursor's, `nativeRulePrefixOk`, `NativeParts.lean:426`;
-   318  the fragment infers the rule's type, which subsumes it). -/
+   316  of the indices and the major (con-leche generates the rule and
+   317  type-checks it, `classRuleOk`, `GenRec.lean:427`; the stream's rules
+   318  are never read; the fragment infers the rule's type likewise). -/
    319  def ruleType (c : CtorSpec) : Expr := mkPis S.q (S.ruleCtx c) (S.ruleBodyTy c)
 
 == ConLeche/Kernel/Inductives/GenRec.lean#L427-L448
@@ -2861,7 +2861,7 @@
    101  field — a function from a telescope of sets into the family at
    102  targets depending on the arguments.  After a recursive or reflexive
    103  field the rest does not depend on the value (con-leche's
-   104  `structUsedLater` guard, `NativeParts.lean:120`). -/
+   104  `structUsedLater` guard run by `nestCtors`, `Positivity.lean:1247`). -/
    105  inductive TeleX (ι : Type u) (V : Type u) : Type u where
    106    /-- No more fields. -/
    107    | nil : TeleX ι V
@@ -3656,7 +3656,7 @@
   1453  def nestPos (ops : CheckerOps m) (env : Env) (ctx : NestCtx) :
 
 == whitepaper/Fragment/Decl.lean#L746-L789
-   746  /-- **A nested block is accepted** (con-leche's `checkNative` with
+   746  /-- **A nested block is accepted** (con-leche's `checkBlock` with
    747  the positivity walk through the container and the generated recursors
    748  of every class, `Positivity.lean`, `GenRec.lean`): as `Ok` for the
    749  former and the constructors, and then

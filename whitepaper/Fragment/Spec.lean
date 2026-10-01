@@ -17,7 +17,7 @@ checks and stores about a block is generated from this
 the type former (`ConstKind.induct`, `Env.lean`), so that a later
 block nesting through this one can read it back.
 
-Con-leche's counterparts: `BlockShape`/`NativeParts` for the block,
+Con-leche's counterparts: `BlockShape` (`BlockParts.lean`) for the block,
 and the container-instance record of the positivity walk
 (`ConLeche/Kernel/Inductives/Positivity.lean`, `nestContainer`) for
 the class.
@@ -26,7 +26,7 @@ the class.
 namespace Fragment
 
 /-- A constructor field, as the positivity check classifies it
-(con-leche's `RecFieldKind`, `NativeParts.lean:51`).  Its domain is an
+(con-leche's `RecFieldKind`, `FieldTele.lean:29`).  Its domain is an
 expression under the parameters and the earlier fields. -/
 inductive Field where
   /-- An ordinary field: any domain that does not mention the block. -/
@@ -77,8 +77,8 @@ structure CtorSpec where
   deriving DecidableEq
 
 /-- **The data of a single inductive block** without its class
-(con-leche's `NativeParts`/`InductiveShape`, `NativeParts.lean:180`,
-`SumParts.lean:79`). -/
+(con-leche's `MemberShape`/`InductiveShape`, `BlockParts.lean:62`,
+`SumParts.lean:36`). -/
 structure IndBase where
   /-- The type former's name. -/
   name : Name

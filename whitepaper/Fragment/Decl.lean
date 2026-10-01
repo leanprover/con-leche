@@ -21,9 +21,9 @@ the value's inferred type is definitionally equal to the declared
 type, the name is fresh, and both terms are closed, mention only
 stored constants and use only the declared level parameters.
 
-**Inductive blocks** (`IndOk`; con-leche's fixpoint route,
-`ConLeche/Kernel/Inductives/NativeInstall.lean`, with its recogniser
-`NativeParts.lean` and the generators of `StructParts.lean`).  A block
+**Inductive blocks** (`IndOk`; con-leche's uniform installer,
+`ConLeche/Kernel/Inductives/BlockTail.lean`, with its recogniser
+`BlockParts.lean` and the generators of `GenRec.lean`).  A block
 is given by a **specification** (`IndSpec`): a type former with level
 parameters, a parameter telescope, an index telescope and a result
 sort, and constructors whose fields are *ordinary* (any domain not
@@ -49,7 +49,7 @@ parameters and the earlier fields, and reappears in a minor premise
 under the motive, the earlier minors, the fields and the earlier
 inductive hypotheses, and in a rule under the motive, all the minors
 and the fields.  `atCtx` is the one lifting that moves it
-(con-leche's `structIdxAt`, `NativeParts.lean:229`).
+(con-leche's `ClassGen.ihParts`, `GenRec.lean:138`, opens it at a depth).
 
 Contexts are innermost first throughout, as in `Rules.lean`: a
 telescope `[Aₙ, …, A₁]` binds `A₁` outermost, and `Aᵢ` may mention the
@@ -274,7 +274,7 @@ def minorsCtx : List Expr :=
 
 /-- **The recursor's type**
 `∀ params (motive : motiveTy) minors indices (t : I params indices), motive indices t`
-(con-leche's `structRecTyR`, `NativeParts.lean:349`). -/
+(con-leche's `classGenRecTy`, `GenRec.lean:181`). -/
 def recType : Expr :=
   mkPis S.q (S.famVars (S.n + 1) :: S.indicesAt (S.n + 1) ++ S.minorsCtx ++ [S.motiveTy] ++ S.params)
     (mkAppN (.bvar (1 + S.nI + S.n)) (varsAt 1 S.nI ++ [.bvar 0]))
@@ -313,14 +313,14 @@ def ruleBodyTy (c : CtorSpec) : Expr :=
 
 /-- **A rule's type**: `∀ params motive minors fields, motive idx (C params fields)`
 — the recursor's binder prefix with the constructor's fields in place
-of the indices and the major (con-leche compares the rule's binders
-with the recursor's, `nativeRulePrefixOk`, `NativeParts.lean:426`;
-the fragment infers the rule's type, which subsumes it). -/
+of the indices and the major (con-leche generates the rule and
+type-checks it, `classRuleOk`, `GenRec.lean:427`; the stream's rules
+are never read; the fragment infers the rule's type likewise). -/
 def ruleType (c : CtorSpec) : Expr := mkPis S.q (S.ruleCtx c) (S.ruleBodyTy c)
 
 /-- **A rule's right-hand side** for constructor `j`:
 `fun params motive minors fields => minor_j fields ihs`
-(con-leche's `structRecRhsR`, `NativeParts.lean:368`). -/
+(con-leche's `classGenRule`, `GenRec.lean:193`). -/
 def ruleRhs (c : CtorSpec) (j : Nat) : Expr :=
   let nF := c.fields.length
   mkLams S.q (S.ruleCtx c)
@@ -610,7 +610,7 @@ expressions under the whole telescope; a recursive or reflexive
 field's index expressions are as many as the indices.  No piece
 mentions the block (it is not stored in `env`): that is **strict
 positivity** in the shape the fragment admits (con-leche's
-`recPositivity` and `recFamOk`, `NativeParts.lean:73-89`). -/
+`nestPos`, `ConLeche/Kernel/Inductives/Positivity.lean:1453`). -/
 def fieldScoped (env : Env) (k : Nat) : Field → Prop
   | .ordinary A => Expr.Scoped env S.lparams (S.nP + k) A
   | .recursive es => es.length = S.nI ∧ ∀ e ∈ es, Expr.Scoped env S.lparams (S.nP + k) e
@@ -623,8 +623,8 @@ def fieldScoped (env : Env) (k : Nat) : Field → Prop
 a reflexive field's telescope entries and its index expressions, and
 a recursive field's index expressions do not use the variable of any
 earlier recursive or reflexive field (con-leche's `structUsedLater`
-guard, `NativeParts.lean:120`: the model reads the domains at a frame
-whose recursive slots hold an arbitrary value). -/
+guard, `StructParts.lean:393`, run by `nestCtors`, `Positivity.lean:1247`:
+the model reads the domains at a frame with arbitrary recursive slots). -/
 def fieldNoRecDep (earlier : List Field) : Field → Prop
   | .ordinary A => ∀ i f, earlier[i]? = some f → f.isRec = true → A.usesVar i = false
   | .recursive es => ∀ i f, earlier[i]? = some f → f.isRec = true →
@@ -696,8 +696,8 @@ large eliminator on a block whose sort may be `Prop`. -/
 def SubsingletonField (v : Level) (i : Nat) (idx : List Expr) : Prop :=
   S.large = true → ¬ S.NeverProp → (LevelOracle.eq v .zero = true ∨ Expr.bvar i ∈ idx)
 
-/-- **The block is accepted** (con-leche's `checkNative`,
-`NativeInstall.lean:617`):
+/-- **The block is accepted** (con-leche's `checkBlock`,
+`ConLeche/Kernel/Inductives/BlockTail.lean:143`):
 
 * the block's names are distinct and fresh;
 * the specification is in scope (closed, stored constants, declared
@@ -719,9 +719,9 @@ def SubsingletonField (v : Level) (i : Nat) (idx : List Expr) : Prop :=
   the former and the constructors.
 
 The recursor's rules are generated and stored, not checked: they
-mention the recursor, and con-leche does not infer them either
-(`NativeInstall.lean`, "the rules … are scope-checked at the
-environment holding its constant and NOT inferred"). -/
+mention the recursor.  Con-leche does type its generated rules, in
+the environment holding the recursors without their rules
+(`classRuleOk`, `GenRec.lean:427`); the fragment stores them as is. -/
 def Ok (env : Env) : Prop :=
   (S.name :: S.recName :: S.ctors.map (·.name)).Nodup ∧
   (∀ m ∈ S.name :: S.recName :: S.ctors.map (·.name), env.find? m = none) ∧
@@ -743,7 +743,7 @@ def Ok (env : Env) : Prop :=
   (S.large = true → ¬ S.NeverProp → S.ctors.length ≤ 1) ∧
   (∃ T, Infer (S.envCtors env) [] S.recType T)
 
-/-- **A nested block is accepted** (con-leche's `checkNative` with
+/-- **A nested block is accepted** (con-leche's `checkBlock` with
 the positivity walk through the container and the generated recursors
 of every class, `Positivity.lean`, `GenRec.lean`): as `Ok` for the
 former and the constructors, and then

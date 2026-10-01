@@ -59,14 +59,14 @@ valuation is `valOf S.lparams ls` (`IndSpec.ψ`).
   (`recSem_mem`).
 
 Con-leche: the least pre-fixed family `lfpFamSet`
-(`ConLeche/SetTheory/Derive/LfpFam.lean`) over the constructor-tower
-functor (`ConLeche/Semantics/Tower/FixLeafI.lean`), the tagged tuples
+(`ConLeche/SetTheory/Derive/LfpFam.lean`) over the block's hole
+operator (`ConLeche/Model/Annot/BlockLfp.lean`), the tagged tuples
 of `ConLeche/SetModel/TaggedSum.lean` and `TupleTower.lean`, the
-closed member from the container theorem
-(`ConLeche/SetModel/Container.lean`), and the recursor as a fixed
-point of its unfolding (`ConLeche/Semantics/Tower/FixRecI.lean`) with
-`recGraph` (`ConLeche/SetModel/RecGraph.lean`) for the recursive
-squash regime.
+closed member from accessibility instead of a container theorem
+(`closed_of_acc`, `ConLeche/SetModel/Access.lean`), and the recursor as
+the single value of its graph (`GraphRecKit.exu`,
+`ConLeche/SetModel/GraphRec.lean`; `Semantics/Tower/BlockRecTower.lean`),
+one mechanism for every sort and regime.
 -/
 
 namespace Fragment

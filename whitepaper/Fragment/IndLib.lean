@@ -45,14 +45,14 @@ family the block defines is separated from that member, so its fibres
 are members, and its constructor values lie in it because every
 instance the checker's universe bound admits is bounded.
 
-Con-leche works inside the set theory instead — `lfpSet`/`lfpFamSet`
-(`ConLeche/SetTheory/Derive/Lfp.lean`, `LfpFam.lean`) are separations
-over a chosen closed member of the universe, the recursion theorem is
-`recGraph` (`ConLeche/SetModel/RecGraph.lean`), and the closed member
-is exhibited by the container theorem (`container_closed_exists`,
-`ConLeche/SetModel/Container.lean`), which is the inductive-closure
-law proved from Grothendieck universes: the family of decoded tree
-codes.  The tuple and tag laws mirror
+Con-leche works inside the set theory instead — `lfpFamSet`/`lfpTuple`
+(`ConLeche/SetTheory/Derive/LfpFam.lean`, `LfpTuple.lean`) are
+separations over a chosen closed member of the universe, the recursion
+theorem is the graph's uniqueness (`GraphRecKit.exu`,
+`ConLeche/SetModel/GraphRec.lean`), and the closed member comes not
+from a container theorem but from the operator's accessibility, read
+off the positivity check's run (`Semantics/Inductives/HoleAcc.lean`,
+`closed_of_acc` in `SetModel/Access.lean`).  The tuple and tag laws mirror
 `ConLeche/SetModel/TupleTower.lean` (`mkTower`, `mkTower_inj`) and
 `ConLeche/SetModel/TaggedSum.lean` (`inj`, `inj_inj`).
 -/
@@ -101,7 +101,7 @@ depending on its value; a *recursive* field at an index; a *reflexive*
 field — a function from a telescope of sets into the family at
 targets depending on the arguments.  After a recursive or reflexive
 field the rest does not depend on the value (con-leche's
-`structUsedLater` guard, `NativeParts.lean:120`). -/
+`structUsedLater` guard run by `nestCtors`, `Positivity.lean:1247`). -/
 inductive TeleX (ι : Type u) (V : Type u) : Type u where
   /-- No more fields. -/
   | nil : TeleX ι V
