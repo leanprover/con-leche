@@ -70,14 +70,6 @@ theorem WellDenoted_spec {env : Env} {ps : List Name} {k : Nat} {e : Expr}
   rw [WellDenoted_closedAt hc hρ, WellDenoted_lparams hl hφ]
   exact WellDenoted_consts fun c hcc ls => hM c (hcs c hcc) ls
 
-omit [IndLib V] in
-/-- Environments built by pushing the same values agree below the
-pushed values' number. -/
-theorem consList_agree_lt {vs : List V} {ρ ρ' : Nat → V} :
-    ∀ i, i < vs.length → consList vs ρ i = consList vs ρ' i := by
-  intro i hi
-  rw [consList_lt hi, consList_lt hi]
-
 /-- Domain-wise agreement of two readings of a context **at fitting
 prefixes**: each entry reads alike under values fitting the earlier
 entries (in the first reading). -/

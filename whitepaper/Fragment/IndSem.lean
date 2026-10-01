@@ -199,6 +199,25 @@ theorem valOf_map_congr (ps : List Name) {f g : Name → Nat} (h : ∀ n ∈ ps,
   · exact h n ‹_›
   · rfl
 
+/-- At a parameter of `ps`, the positional valuation of the evaluated
+levels is the substituted valuation: both read the first occurrence. -/
+theorem valOf_map_eval (φ : Name → Nat) :
+    ∀ {ps : List Name} {ls : List Level}, ls.length = ps.length → ∀ {n : Name}, n ∈ ps →
+      valOf ps (ls.map (Level.eval φ)) n = Level.substVal φ ps ls n
+  | [], _, _, _, hn => by simp at hn
+  | _ :: _, [], hlen, _, _ => by simp at hlen
+  | p :: ps, l :: ls, hlen, n, hn => by
+    simp only [List.length_cons, Nat.add_right_cancel_iff] at hlen
+    simp only [valOf, Level.substVal, Level.lookupLevel, List.map_cons, List.zip_cons_cons,
+      List.lookup_cons]
+    by_cases h : n = p
+    · subst h
+      simp
+    · have hb : (n == p) = false := by simpa using h
+      have ih := valOf_map_eval φ hlen (List.mem_of_ne_of_mem h hn)
+      simp only [valOf, Level.substVal, Level.lookupLevel] at ih
+      simpa [hb] using ih
+
 /-- A family predicate: parameters, indices, candidate member. -/
 abbrev FamP (V : Type u) := List V → List V → V → Prop
 

@@ -356,10 +356,22 @@ def classField (N : NestInfo) (k : Nat) : Field → Field
   | .recursive _ => .container
   | f => f
 
+/-- The container's fields (innermost first), in the block's terms. -/
+def classFields (N : NestInfo) : List Field → List Field
+  | [] => []
+  | f :: rest => S.classField N rest.length f :: classFields N rest
+
+@[simp] theorem classFields_nil (N : NestInfo) : S.classFields N [] = [] := rfl
+@[simp] theorem classFields_cons (N : NestInfo) (f : Field) (rest : List Field) :
+    S.classFields N (f :: rest) = S.classField N rest.length f :: S.classFields N rest := rfl
+
+theorem length_classFields (N : NestInfo) : ∀ fs : List Field, (S.classFields N fs).length = fs.length
+  | [] => rfl
+  | _ :: rest => by simp [length_classFields N rest]
+
 /-- A constructor of the container, in the block's terms: its fields
 translated, no indices. -/
-def classCtor (N : NestInfo) (c : CtorSpec) : CtorSpec :=
-  ⟨c.name, c.fields.mapIdx fun i f => S.classField N (c.fields.length - 1 - i) f, []⟩
+def classCtor (N : NestInfo) (c : CtorSpec) : CtorSpec := ⟨c.name, S.classFields N c.fields, []⟩
 
 /-- The extras of the nested recursors' prefix: two motives and all
 minor premises. -/

@@ -81,6 +81,13 @@ theorem consList_lt {vs : List V} {ρ : Nat → V} {i : Nat} (h : i < vs.length)
     | zero => rfl
     | succ i => exact ih (by simpa using h)
 
+/-- Environments built by pushing the same values agree below the
+pushed values' number. -/
+theorem consList_agree_lt {vs : List V} {ρ ρ' : Nat → V} :
+    ∀ i, i < vs.length → consList vs ρ i = consList vs ρ' i := by
+  intro i hi
+  rw [consList_lt hi, consList_lt hi]
+
 theorem consList_ge (vs : List V) (ρ : Nat → V) (i : Nat) :
     consList vs ρ (i + vs.length) = ρ i := by
   induction vs with

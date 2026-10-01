@@ -19,6 +19,7 @@ public import Fragment.Ctx
 public import Fragment.IndSem
 public import Fragment.NestSem
 public import Fragment.NestRec
+public import Fragment.NestClass
 public import Fragment.GenScope
 public import Fragment.InstallDef
 public import Fragment.Read
