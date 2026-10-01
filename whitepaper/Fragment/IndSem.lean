@@ -383,7 +383,7 @@ ordinary, read with the point at the member's position. -/
 def toTeleXK (N : NestInfo) (ps : List V) : List Field → List V → TeleX (JIdx V) V
   | [], _ => .nil
   | f :: rest, fs' =>
-    if N.isMember rest.length f then
+    if N.isMember fs'.length f then
       .recur (false, S.memberIdx M ls N ps) (toTeleXK N ps rest (pt :: fs'))
     else
       match f with
