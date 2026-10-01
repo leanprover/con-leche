@@ -162,3 +162,40 @@ in HTML the phrase shows the cited lines on hover.
 * (2026-09-26) Not "library": the set theory is "the set theory we
   assume" / "the axioms" — an axiomatised, deliberately non-minimal
   theory in Lean's higher-order logic. Said once in §2.
+
+## Rulings of 2026-10-01 (after origin/master's uniform installer landed)
+
+* The inductive story is rewritten upstream: ONE installer for every
+  block; the family is the least fixed point of the operator read off
+  the constructor types (the real proof calls it the hole operator);
+  positivity looks through a container instance such as `List T` by
+  walking `List`'s own stored block at that instantiation; recursors
+  are GENERATED (the stream's recursor records supply only their types,
+  compared up to definitional equality; rule bodies are ignored); the
+  recursor's set is the least relation closed under the rules, shown
+  single-valued (the real proof's "graph route"); existence of the
+  fixed point is by accessibility, not by a container theorem; large
+  elimination is refused for nested blocks; mutual blocks are the same
+  installer with a tuple of operators.
+* Sections: §4 "Adding inductive types" (simple blocks, rewritten to
+  the new story), §5 "Nested inductive types" (NEW), §6 extensionality
+  (re-cited), §7 what we left out. MUTUAL blocks are skipped: one
+  sentence in §7.
+* NO pen-and-paper claim without the Lean fragment behind it. The
+  nested section is backed by a nested extension of the fragment with
+  this scope: a block may have CONTAINER fields, a previously installed
+  block `K` applied to the member in one of `K`'s parameter positions
+  (`List (Tree α)`); positivity through `K`'s stored constructors at
+  that instantiation; the model reads the field through `K`'s own
+  fixed-point clause at the given parameters, monotone by `K`'s
+  positivity plus leastness; generated `T.rec` and auxiliary `T.rec_1`
+  for the outside class with their ι laws, by one graph over both;
+  large elimination refused for nested blocks. Left to the real proof,
+  listed in §7: nesting at depth ≥ 2, containers with indices, nesting
+  through a reflexive field.
+* Terminology: the maintainer's current names; NEVER "native route",
+  "fixpoint route", "direct route". "Class", "outside class", "frame",
+  "hole", "graph route" are jargon: avoid where a plain phrase does the
+  job, otherwise gloss at first use.
+* Worked example for §5: `Tree α` with `node : α → List (Tree α) →
+  Tree α` (the fixture `tests/e2e/src/nested_rec.lean`).
