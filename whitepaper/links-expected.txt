@@ -2276,16 +2276,18 @@
    141    | reflexive (tele : List Expr) (es : List Expr)
    142    deriving DecidableEq
 
-== ConLeche/Kernel/Inductives/FieldTele.lean#L29-L37
-    29  inductive RecFieldKind where
-    30    /-- the domain does not mention the block -/
-    31    | ordinary
-    32    /-- the domain is exactly `T p⃗ e⃗`: a finitary recursive field -/
-    33    | recursive
-    34    /-- the domain is `Π a⃗ : A⃗, T p⃗ e⃗(a⃗)` with `A⃗` free of the block: a
-    35    REFLEXIVE (function-space) recursive field (task #202) -/
-    36    | reflexive
-    37    /-- a non-positive (or non-valid) occurrence: the official kernel
+== ConLeche/Kernel/Inductives/Positivity.lean#L598-L608
+   598  /-- The field's kind as the run found it: hole-free, a member hole
+   599  (finitary or under `Π` binders), an instantiation IN PROGRESS (a `Y`
+   600  hole — only inside a container's constructors), or an accepted
+   601  instantiation (under `Π` binders when `refl`). -/
+   602  inductive NestFieldKind where
+   603    | ordinary
+   604    | recursive (tgt : Nat)
+   605    | reflexive (tgt : Nat)
+   606    | inProgress
+   607    | nested (refl : Bool)
+   608    deriving DecidableEq, Inhabited
 
 == whitepaper/Fragment/Decl.lean#L431-L445
    431  /-- The scope of a field's pieces: with `k` earlier fields, an
@@ -2316,6 +2318,49 @@
    451  guard, `NativeParts.lean:120`: the model reads the domains at a frame
    452  whose recursive slots hold an arbitrary value). -/
    453  def fieldNoRecDep (earlier : List Field) : Field → Prop
+
+== ConLeche/Kernel/Inductives/Positivity.lean#L1246-L1249
+  1246      if (List.range nF).any (fun i => ks.getD i .ordinary != .ordinary &&
+  1247          structUsedLater (closeTelescope nds hi cur) 0 i) then
+  1248        throw (.invalid "nested positivity: non valid occurrence of the datatypes being \
+  1249          declared (a later field or the result depends on a recursive or nested field)")
+
+== ConLeche/Kernel/Inductives/SumInstall.lean#L102-L103
+   102  /-- Stage 2, one constructor's type: the ordinary constant check (the
+   103  constructor is stored AS DECLARED), the annotated result
+
+== ConLeche/Kernel/Inductives/GenRec.lean#L394-L407
+   394  def classRecTyOk (ops : CheckerOps m) (fe : FEnv) (g : ClassGen) (k : Nat) (rc : RecShape)
+   395      (cvRi : ConstantVal) (c : Nat) : m ConstantVal := do
+   396    let ci := g.cls.getD c default
+   397    unless rc.tgt == ci.member.getD k do
+   398      throw (.invalid "generated recursor: the recursor record's member is not its class's")
+   399    unless rc.rP == g.nP + g.slots.length && rc.mI == rc.rP + ci.nIdx do
+   400      throw (.invalid "generated recursor: the recursor record's rule prefix or major index is \
+   401        not the generated one")
+   402    let gty ← unwrapOr (classGenRecTy g c) (.internal "generated recursor: recursor type")
+   403    let cvG ← classConstOk ops fe { rc.cvR with type := gty }
+   404    unless ← ops.isDefEq fe.env 0 cvRi.type cvG.type do
+   405      throw (.invalid s!"generated recursor: the type of {rc.cvR.name} is not the generated one \
+   406        (official: invalid recursor)")
+   407    pure cvG
+
+== ConLeche/Kernel/Inductives/ClassRead.lean#L24-L32
+    24  This file READS that data off the recursor types, syntactically, and
+    25  checks nothing.  Everything it returns is re-established by the stage:
+    26  every class is checked like a major (`targetMajorOf`), the inductive
+    27  hypotheses read here must be exactly the positivity check's recursive
+    28  fields, and every recursor TYPE is generated from the classes and the
+    29  positivity check's recorded constructors and compared by `isDefEq` with
+    30  the stream's.  What the stage installs is the generated family, never
+    31  anything read here: a wrong reading can only make the generated type
+    32  differ from the stream's, i.e. reject.
+
+== ConLeche/Kernel/Inductives/GenRec.lean#L560-L563
+   560  def genRecCheck (so : ShadowOps m) (fe : FEnv) (p : BlockShape) (nestedBit : Bool)
+   561      (params : List Expr) (tbl : List NestCtorNf) (rd : ClassRead) (Ms : List TargetMajor)
+   562      (cvTas : List ConstantVal) (block : List ConstantInfo) :
+   563      m (List (ConstantVal × TargetMajor × List Expr)) := do
 
 == whitepaper/Fragment/Decl.lean#L205-L208
    205  /-- The annotation of every binder whose body is a member of the
@@ -2441,6 +2486,16 @@
    487  (con-leche's `Level.isNeverZero`). -/
    488  def NeverProp : Prop := LevelOracle.le (.succ .zero) S.sort = true
 
+== ConLeche/Kernel/Inductives/BlockRec.lean#L82-L84
+    82  def blockLargeElimAllowed (p : BlockShape) (nested : Bool) : Bool :=
+    83    p.resSort.isNeverZero ||
+    84      (p.large && p.k == 1 && !nested && (p.numCtors == 0 || p.numCtors == 1))
+
+== ConLeche/Kernel/Inductives/GenRec.lean#L571-L573
+   571    if p.large && !blockLargeElimAllowed p (nestedBit || Ms.any (·.member.isNone)) then
+   572      throw (.invalid "generated recursor: large eliminator on a block whose sort may be Prop \
+   573        (official: elim_only_at_universe_zero)")
+
 == ConLeche/Kernel/Inductives/SumInstall.lean#L85-L99
     85  def checkStructFieldSortsI (ops : CheckerOps m) (env : Env) (isProp large : Bool)
     86      (s : Level) (nP : Nat) (fvs idxArgs : List Expr) : Nat → m (List Level)
@@ -2457,11 +2512,6 @@
     97          throw (.invalid "direct sum: large eliminator with a non-propositional \
     98            field outside the indices")
     99      let rest ← checkStructFieldSortsI ops env isProp large s nP fvs idxArgs j
-
-== ConLeche/Kernel/Inductives/BlockRec.lean#L82-L84
-    82  def blockLargeElimAllowed (p : BlockShape) (nested : Bool) : Bool :=
-    83    p.resSort.isNeverZero ||
-    84      (p.large && p.k == 1 && !nested && (p.numCtors == 0 || p.numCtors == 1))
 
 == whitepaper/Fragment/Decl.lean#L479-L484
    479  /-- The universe bound on a field of sort `v`: the family is a
@@ -2522,8 +2572,13 @@
    546  end IndSpec
    547  
 
-== ConLeche/Kernel/Inductives/BlockTail.lean#L143
+== ConLeche/Kernel/Inductives/BlockTail.lean#L143-L148
    143  def checkBlock (ops : CheckerOps m) (env : Env) (block : List ConstantInfo) (p₀ : BlockParts) :
+   144      m Env := do
+   145    unless (p₀.allCtors.map (·.1.name)).Nodup ∧ p₀.memberNames.Nodup do
+   146      throw (.invalid "direct rec: duplicate constructor")
+   147    let q ← checkBlockPass ops env p₀ (blockRawRec p₀)
+   148    checkBlockTail ops block q
 
 == whitepaper/Fragment/Decl.lean#L351-L356
    351  /-- **A rule's type**: `∀ params motive minors fields, motive idx (C params fields)`
@@ -2532,6 +2587,30 @@
    354  with the recursor's, `nativeRulePrefixOk`, `NativeParts.lean:426`;
    355  the fragment infers the rule's type, which subsumes it). -/
    356  def ruleType (c : CtorSpec) : Expr := mkPis S.q (S.ruleCtx c) (S.ruleBodyTy c)
+
+== ConLeche/Kernel/Inductives/GenRec.lean#L427-L448
+   427  def classRuleOk (ops : CheckerOps m) (w : StructWalkers) (feT feR : FEnv) (cvR : ConstantVal)
+   428      (pw : PropWhen) (n : Nat) (gen : Expr) : m Expr := do
+   429    unless gen.looseBVarsBounded 0 && !gen.hasFvar do
+   430      throw (.internal s!"generated recursor: a rule of {cvR.name} is not closed")
+   431    let genA := gen
+   432    unless genA.allLevelParamsDefined cvR.levelParams do
+   433      throw (.internal s!"generated recursor: a rule of {cvR.name} names an undeclared universe \
+   434        parameter")
+   435    unless w.resolve feR genA do
+   436      throw (unresolvedConstsError s!"generated rule of {cvR.name}" genA)
+   437    let _ ← ops.inferType feR.env 0 genA
+   438    let (rbs, _) ← unwrapOr (genA.stripLams n)
+   439      (.internal s!"generated recursor: a rule of {cvR.name} is not a λ-telescope over the \
+   440        recursor's prefix and the constructor's fields")
+   441    unless rbs.all (fun b => w.resolve feT b.1) do
+   442      throw (unresolvedConstsError s!"the domains of a generated rule of {cvR.name}" genA)
+   443    unless rbs.all (fun b => b.2.pw == pw) do
+   444      throw (.internal s!"generated recursor: a rule of {cvR.name} does not annotate its \
+   445        λ-binders with the family's elimination datum")
+   446    pure genA
+   447  
+   448  /-- A recursor's generated rules, one per constructor of its class. -/
 
 == whitepaper/Fragment/Decl.lean#L373-L395
    373  /-! ### What is stored -/
@@ -2718,15 +2797,44 @@
    717  theorem ctorVal_mem_Fam {j : Nat} {c : CtorSpec} {ps fs : List V} (hc : S.ctors[j]? = some c)
    718      (hfit : S.FitsFields M ls (S.bound M ls) (S.Mem M ls) ps c.fields fs)
 
-== ConLeche/SetTheory/Derive/LfpFam.lean#L60-L67
-    60  open Classical in
-    61  /-- **The least pre-fixed family of `F` over `I`** — fibrewise the
-    62  intersection of the closed families when there is one (separated from
-    63  a chosen closed family), the empty family otherwise. -/
-    64  noncomputable def lfpFamSet (w : Nat) (I F : V) : V :=
-    65    if h : ∃ L, IsClosedFam w I F L then
-    66      graph (fun i => sep (app (Classical.choose h) i)
-    67        (fun x => ∀ X, IsClosedFam w I F X → x ∈ˢ app X i)) I
+== ConLeche/SetTheory/Derive/LfpTuple.lean#L67-L75
+    67  /-- **The least pre-fixed tuple of `Φ`** — componentwise, fibrewise the
+    68  intersection of the closed tuples when there is one (separated from a
+    69  chosen closed tuple), the empty tuple otherwise. -/
+    70  noncomputable def lfpTuple (w k : Nat) (Is : Nat → V) (Φ : (Nat → V) → Nat → V) : Nat → V :=
+    71    fun m =>
+    72      if h : ∃ L, IsClosedTuple w k Is Φ L then
+    73        graph (fun i => sep (app (Classical.choose h m) i)
+    74          (fun x => ∀ X, IsClosedTuple w k Is Φ X → x ∈ˢ app (X m) i)) (Is m)
+    75      else graph (fun _ => empty) (Is m)
+
+== ConLeche/SetModel/Access.lean#L239-L243
+   239  /-- **(W) from accessibility.**  At a positive level, an operator that
+   240  maps the tuple space into itself and is `A`-accessible for a set `A` of
+   241  the level has a closed tuple.  No monotonicity is used. -/
+   242  theorem closed_of_acc (hw : w ≠ 0) (hA : A ∈ˢ (univ w : V)) (hmaps : MapsTuple w k Is Φ)
+   243      (hacc : AccTuple w k Is k Is Φ A) : ∃ L, IsClosedTuple w k Is Φ L := by
+
+== ConLeche/Model/Inductives/BlockAccRunCont.lean#L315-L320
+   315  /-- **The hole operator of a uniform block is accessible, with a bound
+   316  that is a set of the level, at every `Type`-valued parameter frame**
+   317  — what `closed_of_acc` turns into (W): the block theorem with the
+   318  container rules read at the walk's carrier (coverage) and the walk
+   319  context's sort (the block's level). -/
+   320  theorem blockAcc_of_run {μ : ConLeche.CheckMode} (hμ : μ.verifiedChecks = true) {F : Nat}
+
+== ConLeche/Model/Inductives/BlockDatum.lean#L925-L935
+   925      · -- (W) from accessibility, at every block
+   926        have hGw : ∀ c, c < dZ.N → ∀ j, j < (dZ.ctorsM c).length →
+   927            ∀ X, InTupleSpace (dZ.toLfp.w ψ) dZ.toLfp.N (dZ.toLfp.idx ψ ρp) X →
+   928            FieldsOkB (dZ.w ψ) (dZ.toLfp.frame ψ ρp X) (dZ.absF ψ c j) :=
+   929          fun c hc j hj X hX => (((hGZ ψ c hc j hj).2 ρp hs X hX)).1
+   930        obtain ⟨A, hA, hacc⟩ : ∃ A, A ∈ˢ (univ (dZ.toLfp.w ψ) : V) ∧
+   931            AccTuple (dZ.toLfp.w ψ) dZ.toLfp.N (dZ.toLfp.idx ψ ρp) dZ.toLfp.N
+   932              (dZ.toLfp.idx ψ ρp) (dZ.toLfp.holeOp ψ ρp) A := by
+   933          exact blockAcc_of_run hμ mpD hNZ hctxZ hHZ hPos hpN hpL hpP hpI hpR hlenN.symm
+   934            rfl hlenCtorsAs (fun c hc => hCA c hc) hclosedZ hnfZ hcovD ψ ρp hs hw hIdxZ hGw
+   935        exact closed_of_acc hw hA (blockPhi_maps_of ((hchZ ψ).1 ρp hs)) hacc
 
 == whitepaper/Fragment/EnvModel.lean#L60-L67
     60  /-- **Semantic fit of values to a telescope**: each value is a member
@@ -2795,6 +2903,41 @@
   1197    lamCtx (S.M₁ M) (S.ψ ls) (S.z ls) base (S.fieldCtx c.fields ++ S.params) fun ρ' =>
   1198      S.ctorVal ls j (readEnv c.fields.length ρ')
 
+== ConLeche/Model/Annot/LfpHoleOp.lean#L121-L123
+   121  /-- **The hole operator**: the block operator at the hole chains. -/
+   122  @[expose] noncomputable def holeOp (ψ : Name → Nat) (ρp : Nat → V) : (Nat → V) → Nat → V :=
+   123    blockPhiG D.N (D.w ψ) ρp (fun c => D.u c ψ) (fun c => D.ids c ψ) (D.holeChains ψ)
+
+== ConLeche/Model/Inductives/BlockPosRunCont.lean#L40-L44
+    40  /-- **Every member constructor of a uniform block is positive along the
+    41  tuple order at the hole frame**, under
+    42  coverage at the formers' carrier (some model with the carrier's
+    43  readings, the block's members exempt). -/
+    44  theorem blockCtorPos_of_run {μ : ConLeche.CheckMode} (hμ : μ.verifiedChecks = true)
+
+== ConLeche/Model/Annot/BlockLfp.lean#L261-L265
+   261    /-- **`Φ` is a monotone tuple functor** with a closed tuple -/
+   262    functor : ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (D.params ψ).reverse ρp →
+   263      MonoTuple (D.w ψ) D.N (D.idx ψ ρp) (D.Φ ψ ρp) ∧
+   264      MapsTuple (D.w ψ) D.N (D.idx ψ ρp) (D.Φ ψ ρp) ∧
+   265      ∃ L, IsClosedTuple (D.w ψ) D.N (D.idx ψ ρp) (D.Φ ψ ρp) L
+
+== ConLeche/Model/Annot/BlockLfp.lean#L266-L271
+   266    /-- **what `Φ` is**: component `c`'s fibre at `(X, t)` is the set of
+   267    injections of the spines fitting one of `c`'s constructors -/
+   268    fibre : ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (D.params ψ).reverse ρp →
+   269      ∀ X, InTupleSpace (D.w ψ) D.N (D.idx ψ ρp) X → ∀ c, c < D.N →
+   270      ∀ t, t ∈ˢ D.idx ψ ρp c → ∀ x,
+   271        x ∈ˢ app (D.Φ ψ ρp X c) t ↔ ∃ j fs, D.HFits ψ ρp X t c j fs ∧ x = D.inj ψ c j fs
+
+== ConLeche/Model/Annot/BlockLfp.lean#L279-L284
+   279    /-- **the leaf**: a member's former at fitting parameters and its own
+   280    indices is the carrier's component at the index tuple -/
+   281    leaf : ∀ mm, mm < D.k → ∀ (ψ : Name → Nat) (ρ : Nat → V) (as is : List V),
+   282      SpineFit ρ (D.params ψ) as → SpineFit (consList as ρ) (D.ids mm ψ) is →
+   283      (as ++ is).foldl app (interp V ρ (acval (D.member mm) ψ))
+   284        = app (D.carrier ψ (consList as ρ) mm) (tupW (D.u mm ψ) is)
+
 == ConLeche/SetModel/TaggedSum.lean#L65
     65  noncomputable def inj (i : Nat) (a : V) : V := spair (vnat i) a
 
@@ -2856,10 +2999,39 @@
    676  /-- **The recursor's set is in the recursor's type.** -/
    677  theorem recSet_mem (φ : Name → Nat) (ρ : Nat → V) {lsr : List Level}
 
+== ConLeche/SetModel/GraphRec.lean#L101-L103
+   101  /-- **The recursor family's graph**: the least fixed point of the graph
+   102  functor. -/
+   103  noncomputable def gGraph : V := lfpFamSet ℓ U (gStep ℓ U Dec pred B st)
+
 == ConLeche/SetModel/GraphRec.lean#L227-L229
    227  
    228  /-- **The recursion theorem, from induction**: the graph has exactly
    229  one value at every major. -/
+
+== ConLeche/SetModel/GraphRec.lean#L266-L270
+   266  /-- **The ι law, at ANY decoding**: the recursor at a major is the
+   267  step at that decoding, the `ih`s being the recursor at the
+   268  predecessors. -/
+   269  theorem rec_eq {u : V} {d : R} (hu : u ∈ˢ U) (hd : K.Dec u d) :
+   270      K.recAt u = K.st d (graph (fun j => K.recAt j) (K.pred d)) := by
+
+== ConLeche/SetModel/GraphRec.lean#L186-L188
+   186    /-- **the sort-dependent fact**: decodings are unique, or the bound is a subsingleton -/
+   187    huniq : ∀ u, u ∈ˢ U → ∀ d d', Dec u d → Dec u d' →
+   188      d = d' ∨ ∀ v v', v ∈ˢ B u → v' ∈ˢ B u → v = v'
+
+== ConLeche/Model/Inductives/ClassGenUniq.lean#L13-L19
+    13  * **`huniq`** (`genUniq`): two decodings of a major are equal, or the
+    14    motive's value at it is a subsingleton.  At `ℓ = 0` the bound is a truth
+    15    value (from `hconclTy`); at a nonzero width the class's recorded clause
+    16    injection is injective (`LfpClause.mkInj`), given the class's fit is the
+    17    clause's hole fit at its carrier and its injection the clause's; at a
+    18    `Prop`-valued class under a large eliminator a per-major LICENCE (fits at
+    19    one index tuple coincide — the elimination guard's criterion).
+
+== ConLeche/Model/Inductives/ClassGenUniq.lean#L57
+    57  theorem genUniq (D : Nat → LfpDatum V) (ψ : Nat → Name → Nat) (fr : Nat → Nat → V)
 
 == whitepaper/Fragment/Rules.lean#L84-L156
     84    /-- **ι** (`Red.iota`, `Rel.lean:184`): a stored recursor applied to
@@ -2936,7 +3108,8 @@
    155          (mkAppN (rl.rhs.instL ci.lparams us)
    156            (args.take (numParams + numMotives + numMinors) ++ margs.drop numParams))
 
-== ConLeche/Rules/Rel.lean#L179-L224
+== ConLeche/Rules/Rel.lean#L178-L217
+   178    /-- **ι** (`iotaRec`, `Kernel/Core.lean`): a stored recursor
    179    applied to exactly its telescope, whose prepared major (the `Red`
    180    premise: `prepareMajor`'s whnf / literal / rescue chain) is a
    181    constructor application with a firing rule.  The level comparands,
@@ -2976,13 +3149,17 @@
    215        Red env d e
    216          (Expr.mkAppN (rl.rhs.instantiateLevelParams cv.levelParams us)
    217            (e.getAppArgs.take rP ++ major.getAppArgs.drop rl.ctorParams))
-   218    /-- **The K rescue** (`majorToCtor`'s K branch, `Kernel/Core.lean`;
-   219    official `to_cnstr_when_K`): at a K-flagged single-rule recursor the
-   220    parameters-only constructor application is fabricated from the
-   221    major's io-inferred, head-normalised type, scope-guarded, certified
-   222    against the constructor's telescope, type-checked against the major's
-   223    type, and equated to the major by proof irrelevance (the last `DefEq`
-   224    premise: the bridge builds it from `proofIrrel`'s two arms). -/
+
+== ConLeche/Kernel/Env.lean#L265-L273
+   265    /-- **The parameter-comparison bit** (install-computed, parse
+   266    placeholder `false`): the ι step fires this rule without comparing
+   267    the recursor's parameter arguments with the constructor's.  The
+   268    installer and the pinned basis blocks set it, because their rule
+   269    laws hold at any pair of fitting parameter spines; the projection
+   270    functions do not, because their laws read the comparison.  The official
+   271    kernel compares nothing here
+   272    (`inductive_reduce_rec`), so a set bit is a step towards it. -/
+   273    paramsBlind : Bool := false
 
 == whitepaper/Fragment/Sound.lean#L77-L84
     77  /-- **Certificates give fit**: a spine whose arguments are typed against
@@ -3131,13 +3308,16 @@
   1026  tagged tuple of these very fields. -/
   1027  theorem recSem_eq (hu : S.Uniq M ls) {j : Nat} {c : CtorSpec} {ps : List V}
 
-== ConLeche/Model/Inductives/DeclBlockStep.lean#L72-L77
-    72  theorem declBlock (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
-    73      {block : List ConstantInfo} {nPd : Nat} {p₀ : BlockParts}
-    74      (mp : EnvModelM V μ env)
-    75      (hE : ConLeche.EtaFamiliesClosed env) (hdp : ConLeche.blockParts? nPd block = some p₀)
-    76      (hrun : ConLeche.Semantics.DeclBlockRun μ F env block p₀ env₂) (hcov : LfpCover mp []) :
-    77      ∃ mp' : EnvModelM V μ env₂, LfpCover mp' [] := by
+== ConLeche/Model/Inductives/BlockRecLaw.lean#L448-L456
+   448  /-- **A new block recursor's rule law, at either firing**.  `hpins` is
+   449  `RecRuleLaw`'s outer `.nested` conjunct — the pins'
+   450  open readings and their context-guarded grading — vacuous at a `.plain`
+   451  rule; `hrhs` receives the fire's two parameter comparisons, the
+   452  `.plain` one (unused by a block rule, `paramsBlind`) and the `.nested`
+   453  one: at an OUTSIDE major the constructor's parameters are the pins read
+   454  at the prefix, which is what identifies the fired spine with the rule's
+   455  own (`BlockRuleDataAt`'s `mk` conjunct) at a container constructor. -/
+   456  theorem blockRecRuleLaw_gen {env : Env} {m₃ : EnvModel V env} {φ : Name → Nat}
 
 == whitepaper/Fragment/IndLib.lean#L246-L249
    246  /-- The least fixed point is a fixed point: a member is a step from
@@ -3199,6 +3379,14 @@
    102      (hok : IndOk env S) :
    103      ∃ m' : EnvModel V (S.install env), ∀ n, (env.find? n).isSome → ∀ ls, m'.M n ls = m.M n ls :=
    104    ⟨S.mInstall hs m hok, fun n hn ls => (S.agree_M₃ hok m.M n hn ls).symm⟩
+
+== ConLeche/Model/Inductives/DeclBlockStep.lean#L72-L77
+    72  theorem declBlock (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
+    73      {block : List ConstantInfo} {nPd : Nat} {p₀ : BlockParts}
+    74      (mp : EnvModelM V μ env)
+    75      (hE : ConLeche.EtaFamiliesClosed env) (hdp : ConLeche.blockParts? nPd block = some p₀)
+    76      (hrun : ConLeche.Semantics.DeclBlockRun μ F env block p₀ env₂) (hcov : LfpCover mp []) :
+    77      ∃ mp' : EnvModelM V μ env₂, LfpCover mp' [] := by
 
 == whitepaper/Fragment/Consistency.lean#L104-L113
    104  /-- **No closed term inhabits an empty inductive type.**  For a block

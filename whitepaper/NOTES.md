@@ -345,3 +345,73 @@ comment block at the top of `lib.typ`.
     the real proof: splitting the regimes is a presentation choice with
     no cost downstream as long as the inversion lemmas exist, and the
     transport lemmas are cheaper as term inductions. (Invariant lane.)
+
+23. **Accessibility is the whole set-theoretic input, and it already
+    contains monotonicity.** After the uniform installer, the real
+    proof obtains the closed family of a block's operator from
+    `closed_of_acc` (`SetModel/Access.lean`): an operator whose every
+    output element depends on a bounded set of input elements, for one
+    bound in the universe, has a closed tuple — iteration along
+    Brouwer trees, the union kept small by coding a tree as its paths.
+    That is the fragment's `inductive_closure` law
+    (`Fragment/IndLib.lean`) proved once, with the ω-iterate and the
+    container theorem of item 15 gone. But the positivity run is still
+    read twice: `blockCtorPos_of_run` (`Model/Inductives/BlockPosRunCont.lean`)
+    for monotonicity along the tuple order, and `blockAcc_of_run`
+    (`BlockAccRunCont.lean`) for accessibility — while
+    `AccTuple.monoTuple` (`Access.lean`) says an accessible operator is
+    monotone. At a positive level one reading of the run would give
+    `LfpClause.functor`'s three conjuncts; only the `Prop`-valued case
+    (`closedTuple_zero`, no bound needed) keeps the direct monotonicity
+    argument alive, and it could be the degenerate case of the same
+    reading. (§4 lane.)
+
+24. **The parameter comparison of ι is dead in both proofs.** The real
+    checker fires the rules it generates without it (`paramsBlind`,
+    `Kernel/Inductives/SumInstall.lean`, `RecRule.compareParams` in
+    `Kernel/Env.lean`), and `blockRecRuleLaw_gen`
+    (`Model/Inductives/BlockRecLaw.lean`) notes the comparison unused.
+    The fragment's `RecRuleLaw` (`Fragment/EnvModel.lean`) still
+    carries the parameter premise, and `Fragment/InstallIota.lean` uses
+    it to move the constructor's fit to the recursor's parameters
+    (item 7). The §4 proof shows why it is dispensable: in the regime
+    of types the tuple carries the parameters' consequences, and in the
+    `Prop` regime with a large eliminator every field is a proof — the
+    point at any parameters — or one of the result indices, whose
+    value the index comparison fixes directly. Dropping the premise
+    from the fragment's rule and law would align it with the checker
+    and shorten the law by one conjunct; the level comparison stays
+    (the fields' data are read at the block's valuation). (§4 lane.)
+
+25. **The recursor record's pre-pass is only needed for nesting.** The
+    generated-recursor stage reads the stream's recursor types in an
+    unverified pre-pass (`Kernel/Inductives/ClassRead.lean`) for the
+    classes a family eliminates and the layout of its motives and minor
+    premises, then checks the classes as majors and generates the
+    family. For a block with one type former and no container field
+    the classes and the layout are determined by the constructors
+    alone — the fragment generates the recursor from the specification
+    and reads nothing (`Fragment/Decl.lean`'s generators). The real
+    checker could generate the layout from the block in that case and
+    read the stream's record for its type only, leaving the pre-pass,
+    the class checks and node agreement to the nested case where the
+    stream genuinely supplies information (which containers get an
+    auxiliary recursor). (§4 lane.)
+
+26. **The elimination criterion's two halves, and the `Sort u`
+    superset's reason.** The real checker asks the per-field
+    subsingleton criterion only of a family whose sort is provably zero
+    (`checkStructFieldSortsI`, `Kernel/Inductives/SumInstall.lean`) and
+    the count guard when the sort is not never-zero
+    (`blockLargeElimAllowed`, `Kernel/Inductives/BlockRec.lean`); the
+    fragment asks the criterion whenever the sort may be zero
+    (`Fragment/Decl.lean`). The checker's superset — a `Sort u` family
+    with one constructor eliminating into any sort — is sound for a
+    reason that neither docstring states: the universe bound on a
+    non-`Prop` family holds at every valuation, so at a valuation
+    sending `u` to zero every field is a proposition and the criterion
+    holds vacuously. The model side sees this as `genUniq`'s width-zero
+    case (`Model/Inductives/ClassGenUniq.lean`) discharged by the fit's
+    values being the point. One sentence in `checkStructFieldSortsI`'s
+    docstring would record it; a fragment that tested "provably zero"
+    instead of "may be zero" would need exactly that lemma. (§4 lane.)

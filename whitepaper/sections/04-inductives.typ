@@ -31,8 +31,8 @@ the same shape of argument as a definition (@sec:defs), and its
 reduction rule $iota$ reads the environment as $delta$ does; the two
 new pieces of work are showing that the constructed sets — the
 family, the constructors, the recursor — are members of their
-generated types (law 1), and the $iota$ law, the contract's third
-law (law 3), which this section states. This
+generated types (law 1), and the $iota$ law — the contract's third
+law (law 3) — which this section states and proves. This
 section says what the checker checks for
 a block and what it stores, how the model grows by a least fixed point
 so that the three laws keep holding, and then the consistency
@@ -41,10 +41,11 @@ corollary, which is two lines.
 == Inductive types: what is checked <sec:ind-checks>
 
 An inductive block declares a family of types by its constructors.
-The fragment takes single, non-mutual, non-nested blocks — the
-real checker's "fixpoint route"
-(#overview(5)) — with parameters, indices, and constructors whose
-fields may be recursive or reflexive. The block is given by a
+The fragment takes a block with one type former, neither mutual nor
+nested — nesting is added in @sec:nested of this document; the real
+checker has one installer for every block (#overview(5)), and what
+follows describes its run on a block of this
+shape. The block is given by a
 _specification_
 (#src("whitepaper/Fragment/Decl.lean", 166, 189)[fragment],
 #src("ConLeche/Kernel/Inductives/BlockParts.lean", 104, 122)[real checker]):
@@ -62,7 +63,7 @@ _specification_
 
 A field is one of three kinds
 (#src("whitepaper/Fragment/Decl.lean", 129, 142)[fragment],
-#src("ConLeche/Kernel/Inductives/FieldTele.lean", 29, 37)[real checker]):
+#src("ConLeche/Kernel/Inductives/Positivity.lean", 598, 608)[real checker]):
 _ordinary_, with a domain that does not mention $I$; _recursive_, with
 domain $I thick arrow(x) thick arrow(e)$ — a member of the family
 being defined, at the block's own parameters and some index
@@ -73,13 +74,17 @@ introduced below, since the body is the family). This is the strictly positive s
 the only one the fragment admits: no field's domain mentions $I$
 anywhere else (in the fragment, the specification's pieces are
 scope-checked in the environment _before_ $I$ is added, so they
-cannot mention it at all — #src("whitepaper/Fragment/Decl.lean", 431, 445)[the scope of a field];
-the real checker classifies the normalised domains,
-#src("ConLeche/Kernel/Inductives/Positivity.lean", 1453, 1454)[positivity]).
+cannot mention it at all — #src("whitepaper/Fragment/Decl.lean", 431, 445)[the scope of a field]).
+The real checker's positivity check classifies each domain after
+weak head normal form, with $I$ at the block's parameters replaced by
+a variable standing for the family being defined; @sec:nested uses the same
+check
+(#src("ConLeche/Kernel/Inductives/Positivity.lean", 1453, 1454)[positivity]).
 One more condition of shape: nothing after a recursive or reflexive
 field may depend on its value
-(#src("whitepaper/Fragment/Decl.lean", 447, 453)[fragment], as in Lean's
-kernel) — the model will read a constructor's domains without knowing
+(#src("whitepaper/Fragment/Decl.lean", 447, 453)[fragment],
+#src("ConLeche/Kernel/Inductives/Positivity.lean", 1246, 1249)[real checker], as in the
+official kernel) — the model will read a constructor's domains without knowing
 what its recursive fields are.
 
 Reflexive fields matter to the model. A tree type with a constructor
@@ -93,9 +98,24 @@ some other way (@sec:ind-model).
 *The generated declarations.* From the specification the checker
 generates the types of the former, the constructors and the
 recursor, and the recursor's rules; nothing about them is read from
-the input (the real checker reads the stream's records, recognises the
-block's shape, generates the same declarations, and rejects a record
-that is not the generated one — #overview(5)). The former's type is
+the input. (The real checker reads a stream of records: the former
+and the constructors it checks and stores as the stream declares them
+(#src("ConLeche/Kernel/Inductives/SumInstall.lean", 102, 103)[a constructor]);
+the recursor it _generates_, as the official kernel does, and from the
+stream's recursor record it takes the name, the level parameters and
+the type — which must be definitionally equal to the generated one —
+and the record's two layout counts, which must equal the generated
+ones
+(#src("ConLeche/Kernel/Inductives/GenRec.lean", 394, 407)[the comparison]);
+and, read off that type by an unverified pre-pass — a wrong reading
+can only make the comparison fail — which type it eliminates and the
+layout of its motive and minor premises, the recursor's arguments
+named on $Nat$ in @ex:nat
+(#src("ConLeche/Kernel/Inductives/ClassRead.lean", 24, 32)[the pre-pass]).
+The record's rules are never read; the generated recursor and its
+rules are what is stored
+(#src("ConLeche/Kernel/Inductives/GenRec.lean", 560, 563)[the recursor stage]).)
+The former's type is
 the one displayed above; a constructor's type is
 $forall arrow(x) : arrow(P) thin ann(PW). thin forall arrow(f) : arrow(F) thin ann(PW). thin I thick arrow(x) thick arrow(e)_j$
 with the annotation
@@ -172,7 +192,7 @@ parameter: _large elimination_. For a family of _propositions_ the
 rule is stricter. In the model every proof is the point, so a
 recursor applied to a proof cannot see which constructor built it
 or with which fields; a recursor into types would have to return one
-value for all of them. Lean allows
+value for all of them. The official kernel allows
 large elimination out of a proposition only under the _subsingleton
 criterion_: the block has at most one constructor, and every field
 of that constructor is either itself a proposition or occurs among
@@ -184,10 +204,22 @@ fragment the criterion is
 #src("whitepaper/Fragment/Decl.lean", 490, 497)[a condition per field]
 plus #src("whitepaper/Fragment/Decl.lean", 543)[the constructor count], required of a large
 eliminator on a family whose sort _may_ be zero
-(#src("whitepaper/Fragment/Decl.lean", 486, 488)[never zero: $1 <= u$ at every valuation]);
-the real checker runs the same two checks
-(#src("ConLeche/Kernel/Inductives/SumInstall.lean", 85, 99)[per field],
-#src("ConLeche/Kernel/Inductives/BlockRec.lean", 82, 84)[the count]).
+(#src("whitepaper/Fragment/Decl.lean", 486, 488)[never zero: $1 <= u$ at every valuation]).
+The real checker also splits the criterion in two, but asks the
+per-field half less often: a count guard —
+a large eliminator is allowed when the sort is never zero, and
+otherwise only on a block with one type former, not nested, with at
+most one constructor
+(#src("ConLeche/Kernel/Inductives/BlockRec.lean", 82, 84)[the guard],
+#src("ConLeche/Kernel/Inductives/GenRec.lean", 571, 573)[applied]) —
+and the condition per field
+(#src("ConLeche/Kernel/Inductives/SumInstall.lean", 85, 99)[per field]),
+asked only of a family whose sort is _provably_ zero. So a family in
+$Sort u$ with one constructor may eliminate into any sort whatever
+its fields are, where the official kernel insists that each field be
+provably a proposition or an index: a deliberate superset, sound
+because the universe bound below makes every field a proposition at
+any valuation that sends $u$ to zero.
 
 Here the zero-ness question of §2 reappears. "This field is a
 proposition" is a question about the field's sort $v$, and the
@@ -225,14 +257,14 @@ regime these data can put it in.
 
 *The checks.* A block is accepted when
 (#src("whitepaper/Fragment/Decl.lean", 499, 547)[fragment],
-#src("ConLeche/Kernel/Inductives/BlockTail.lean", 143)[real checker]):
+#src("ConLeche/Kernel/Inductives/BlockTail.lean", 143, 148)[real checker]):
 its names are distinct and fresh; the specification is in scope
 (positivity included); the generated former's type has a type in the
 current environment; each generated constructor's type has a type in
 the environment holding the former, and every field's domain has a
 sort $v$ that respects the universe bound and, where a large
-eliminator asks it, the subsingleton criterion (likewise the binders
-of a reflexive field's own telescope); the constructor count respects
+eliminator asks it, the subsingleton criterion (the binders of a
+reflexive field's own telescope respect the universe bound too); the constructor count respects
 the elimination rule; and, in the environment holding the former and
 the constructors, the generated recursor's type has a type, and so
 has #src("whitepaper/Fragment/Decl.lean", 351, 356)[each rule's type] — the recursor's binder prefix
@@ -242,22 +274,24 @@ context ($S$ is a sort for a generated type, but nothing checks that:
 the model needs only the inference) — so the generated types are
 checked like a definition's, and the $forall$ rule of @sec:rules
 checks each generated annotation against the sort it computes for
-the body. What is stored is the former, the constructors
+the body. The real checker runs the same steps in this order, and
+type-checks each generated rule in the environment holding the
+rule-less recursor
+(#src("ConLeche/Kernel/Inductives/GenRec.lean", 427, 448)[a generated rule]).
+What is stored is the former, the constructors
 and the recursor, with its rules
 (#src("whitepaper/Fragment/Decl.lean", 373, 395)[fragment]) — the
 three kinds of constant that @sec:defs left to this section: an
-_inductive type former_ carries its
-parameter and index counts and the names of its constructors; a
-_constructor_ names its type and carries its parameter and field
-counts; a _recursor_ carries the shape of its argument list — how
-many parameters, motives, minor premises and indices precede the
-major premise (the recursor's argument groups; @ex:nat shows them on
+_inductive type former_ carries its parameter and index counts and
+its constructors' names; a _constructor_ its parameter and field
+counts; a _recursor_ the sizes of its argument groups — parameters,
+motive, minors, indices, then the major (@ex:nat shows them on
 $Nat$) — and its reduction rules, one per constructor, each a closed
 right-hand side over the recursor's level parameters
 (#src("whitepaper/Fragment/Env.lean", 30, 43)[fragment],
 #src("ConLeche/Kernel/Env.lean", 241, 254)[real checker]). The
 rules' right-hand sides are generated and stored, not inferred: they
-mention the recursor itself, and Lean's kernel infers no rule either.
+mention the recursor itself, and the official kernel infers no rule either.
 That the rules are _sound_ is the model's business — it is
 #src("whitepaper/Fragment/EnvModel.lean", 182, 189)[law 3 of the contract]
 (@sec:defs), and the next subsection proves it.
@@ -307,15 +341,23 @@ The family the block defines is #src("whitepaper/Fragment/IndSem.lean", 308, 314
 #src("whitepaper/Fragment/IndSem.lean", 391, 393)[its fibres are members], and
 #src("whitepaper/Fragment/IndSem.lean", 715, 718)[every constructor value lands in it] because the checker's universe
 bound on the fields makes every instance it admits a bounded one.
-The real proof proves that law from its Grothendieck universes: its
-least fixed point is
-#src("ConLeche/SetTheory/Derive/LfpFam.lean", 60, 67)[an intersection of closed families] and needs a closed family
-in the universe to intersect — for finitary blocks
-the $omega$-iterate, and
-for blocks with reflexive fields, where no countable iteration
-reaches a fixed point, a theorem about containers that builds
-the closed family from tree codes; this is the largest single piece
-of the real model. Everything else about the least fixed point — the
+The real proof proves that law from its Grothendieck universes. Its
+least fixed point is built inside the set theory —
+#src("ConLeche/SetTheory/Derive/LfpTuple.lean", 67, 75)[the intersection of the closed families, separated from a chosen one] — so a family
+in the universe that is closed under the operator must exist first. It comes from
+_accessibility_: an operator is accessible when each element it
+produces depends on only a bounded set of elements of its input, for
+one bound fixed in the universe. Such an operator has a closed family
+in the universe
+(#src("ConLeche/SetModel/Access.lean", 239, 243)[the theorem]): not
+by iterating it $omega$ times, which reflexive fields defeat, but
+along well-founded trees of arbitrary branching, the union over all
+trees kept small by coding a tree as its set of paths through the
+bound. The positivity check's run shows the block's operator
+accessible, for recursive and reflexive fields alike
+(#src("ConLeche/Model/Inductives/BlockAccRunCont.lean", 315, 320)[from the run]),
+and that is #src("ConLeche/Model/Inductives/BlockDatum.lean", 925, 935)[the closed family the block's fixed point is separated from].
+Everything else about the least fixed point — the
 fixed-point equation, induction, and the fact that the recursor's
 graph is a least fixed point too — is available for free one level
 up.
@@ -356,10 +398,25 @@ denotes the point.
 (Fragment: #src("whitepaper/Fragment/IndSem.lean", 84, 88)[the fibre in each regime],
 #src("whitepaper/Fragment/IndSem.lean", 329, 331)[a constructor's value],
 #src("whitepaper/Fragment/IndSem.lean", 1183, 1187)[the former's set],
-#src("whitepaper/Fragment/IndSem.lean", 1193, 1198)[a constructor's set]. In the real proof
-the constructors are #src("ConLeche/SetModel/TaggedSum.lean", 65)[tagged pairs] of
+#src("whitepaper/Fragment/IndSem.lean", 1193, 1198)[a constructor's set].)
+The real proof's operator is the same one, read off the stored
+constructor types with the positivity check's variable — a _hole_ —
+standing for the family
+(#src("ConLeche/Model/Annot/LfpHoleOp.lean", 121, 123)[the hole operator]),
+monotone by the positivity check's run
+(#src("ConLeche/Model/Inductives/BlockPosRunCont.lean", 40, 44)[from the run]).
+What it records of an installed block, and all its recursor model
+later reads, is one clause: the operator is monotone and has a closed
+family
+(#src("ConLeche/Model/Annot/BlockLfp.lean", 261, 265)[the operator]),
+its fibres are the tagged tuples of fitting fields
+(#src("ConLeche/Model/Annot/BlockLfp.lean", 266, 271)[the fibres]),
+and the former at parameters and indices denotes the least fixed
+point's fibre there
+(#src("ConLeche/Model/Annot/BlockLfp.lean", 279, 284)[the former]).
+Its constructors are #src("ConLeche/SetModel/TaggedSum.lean", 65)[tagged pairs] of
 #src("ConLeche/SetModel/TupleTower.lean", 87)[nested pairs], the two regimes in
-#src("ConLeche/SetModel/TaggedSum.lean", 61, 62)[one carrier].)
+#src("ConLeche/SetModel/TaggedSum.lean", 61, 62)[one carrier].
 
 This is where the two regimes of §2 are decided for a whole family
 at once, by the one datum $ann(PW)$ stored on the constructors'
@@ -391,11 +448,30 @@ the choice irrelevant: #src("whitepaper/Fragment/Uniq.lean", 60, 65)[any two wit
 @thm:iota's proof shows. The recursor
 denotes #src("whitepaper/Fragment/IndSem.lean", 1214, 1218)[the graph of the resulting function], curried over the
 parameters, the motive, the minors, the indices and the major — a
-#src("whitepaper/Fragment/InstallInd.lean", 676, 677)[member of its generated type], which is law 1 for the recursor
-(#src("ConLeche/SetModel/GraphRec.lean", 227, 229)[the real proof's recursion theorem]).
+#src("whitepaper/Fragment/InstallInd.lean", 676, 677)[member of its generated type], which is law 1 for the recursor.
 When the elimination level $ell$ is zero the recursor's type is a
 proposition, the recursor and every minor premise denote the point,
 and there is nothing to construct.
+
+The real proof's recursor is built the same way — it calls this
+the _graph route_ — and one construction serves every sort. Over the
+set of majors, the graph is #src("ConLeche/SetModel/GraphRec.lean", 101, 103)[the least relation] closed under the
+rules, each read over the ways a major _decodes_ — is the value of a
+constructor applied to some fields; a decoding is that constructor
+and those fields; it has
+#src("ConLeche/SetModel/GraphRec.lean", 227, 229)[exactly one value at every major] by the family's own
+induction, and the equation at any decoding is
+#src("ConLeche/SetModel/GraphRec.lean", 266, 270)[the $iota$ law]. The one fact about sorts it asks is a
+premise: at every major,
+#src("ConLeche/SetModel/GraphRec.lean", 186, 188)[two decodings are equal, or the motive's value there has at most one member] — the
+elimination rule of @sec:ind-checks, read three ways
+(#src("ConLeche/Model/Inductives/ClassGenUniq.lean", 13, 19)[the three cases],
+#src("ConLeche/Model/Inductives/ClassGenUniq.lean", 57)[the theorem]):
+at $ell = 0$ the motive's values are truth values; at a family of
+types, tags and tuples are injective; at a family of propositions
+with a large eliminator, the subsingleton criterion makes the
+decoding a function of the index — the fragment's witness argument,
+as one premise.
 
 *What the $iota$ rule knows.* Before the $iota$ law, look at what the
 rule's premises say and what the model has to supply. The rule fires
@@ -407,7 +483,7 @@ a rule with right-hand side $R_j$; the reduct is
 $R_j[arrow(p) := arrow(ell)]$ applied to the parameters, motive and
 minors from $arrow(a)$ and to the fields $arrow(f)$
 (#src("whitepaper/Fragment/Rules.lean", 84, 156)[fragment],
-#src("ConLeche/Rules/Rel.lean", 179, 224)[real checker]). Its
+#src("ConLeche/Rules/Rel.lean", 178, 217)[real checker]). Its
 premises, besides the lookups, are two _telescope certificates_ and
 three _comparisons_:
 
@@ -422,10 +498,14 @@ three _comparisons_:
   equal to the recursor's; and the index expressions of the
   constructor's result type at $arrow(a)' thick arrow(f)$ — the
   _residual_ of its telescope — are definitionally equal to the
-  recursor's index arguments.
+  recursor's index arguments. (The real checker's rule carries the
+  parameter comparison only for rules whose law reads it; a block's
+  rules are installed #src("ConLeche/Kernel/Env.lean", 265, 273)[without it], because their law holds at any
+  pair of fitting parameter spines. The fragment keeps the comparison
+  and uses it.)
 
 The certificates are, in the real checker, walks of their own
-(§6); the fragment folds them into the rule. By @thm:sound each
+(@sec:left-out); the fragment folds them into the rule. By @thm:sound each
 certificate becomes a _fit_ of values to the stored telescope
 (#src("whitepaper/Fragment/Sound.lean", 77, 84)[fragment]), and each
 comparison an equality of sets
@@ -465,7 +545,7 @@ argument's, and the law
   $iota$ law in the model of @sec:ind-model.
   (#src("whitepaper/Fragment/InstallIota.lean", 706, 712)[fragment], with
   #src("whitepaper/Fragment/IndSem.lean", 1022, 1027)[the equation on the semantic recursor]\; real proof:
-  #src("ConLeche/Model/Inductives/DeclBlockStep.lean", 72, 77)[the whole install].)
+  #src("ConLeche/Model/Inductives/BlockRecLaw.lean", 448, 456)[the graph's equation, lifted to the law of @def:iota-law].)
 ] <thm:iota>
 
 #proof[
@@ -525,7 +605,7 @@ the domain $P thick 7$ and would have refused; but on values that
 comparison is ${pt} = {pt}$ and says nothing about $5$ and $7$. The
 index comparison, $5 equiv 7$, is what the model can use. In the
 regime of types the comparison is redundant — the tagged tuple
-carries its indices — and Lean's kernel, which type-checks the
+carries its indices — and the official kernel, which type-checks the
 major's type against the recursor's, never needs it as a separate
 step; a semantic proof does, because a definitional equality between
 two propositions is an equality of truth values.
@@ -552,7 +632,9 @@ two install theorems assumed of the environment they extend.
   a definition step is @thm:install-def; a block step is the
   construction of @sec:ind-model, #src("whitepaper/Fragment/Install.lean", 99, 104)[assembled]: law 1 is its
   membership claims, law 2 has no new instance, and law 3 is
-  @thm:iota.
+  @thm:iota (in the real proof the block step is one theorem,
+  #src("ConLeche/Model/Inductives/DeclBlockStep.lean", 72, 77)[the install of a block], read off the installer's run stage
+  by stage).
 ]
 
 #corollary(name: "No proof of an empty proposition")[
@@ -586,10 +668,10 @@ two install theorems assumed of the environment they extend.
 The real theorem differs in two ways. Its checker does not read
 `False` from the stream but installs it from a built-in copy and
 rejects a stream that declares it differently — likewise `Eq`, `Nat`
-and a few others (§6) — so the main theorem can name `False` and say
+and a few others (@sec:left-out) — so the main theorem can name `False` and say
 that it denotes the empty set and `Eq` set equality, with no
 hypothesis about the stream (#overview(1)); and its acceptance is
 the run of a program, the declaration fold, rather than a relation,
 so a bridge theorem turns each accepting run into the derivations
-§3 and §4 consume (§6). The argument in between is the one
+§3 and §4 consume (@sec:left-out). The argument in between is the one
 above.
