@@ -641,7 +641,11 @@ arguments and the member's index expressions are closed under the
 block's parameters, mention stored constants and use the block's level
 parameters (so the class reads alike wherever the block's parameters
 do); the member fills the one missing parameter position; the container
-is positive in it (`NestInfo.Positive`) and is not the block itself. -/
+is positive in it (`NestInfo.Positive`) and is not the block itself;
+the container's constructors' fields are in the container's scope and
+its constructors are stored (both as checked when the container was
+installed: the translated constructors and the rules of `T.rec_1` are
+read against them). -/
 def NestScoped (env : Env) : Prop :=
   ∀ N, S.nest = some N →
     (env.find? N.K.name).isSome ∧ N.K.name ≠ S.name ∧
@@ -649,7 +653,10 @@ def NestScoped (env : Env) : Prop :=
     N.args.length + 1 = N.nPK ∧ N.idx.length = S.nI ∧
     (∀ e ∈ N.args, Expr.Scoped env S.lparams S.nP e) ∧
     (∀ e ∈ N.idx, Expr.Scoped env S.lparams S.nP e) ∧
-    N.Positive
+    N.Positive ∧
+    (∀ c ∈ N.K.ctors, ∀ i f, c.fields[i]? = some f →
+      N.KS.fieldScoped env (c.fields.length - 1 - i) f) ∧
+    (∀ c ∈ N.K.ctors, (env.find? c.name).isSome)
 
 /-- **The specification is in scope** of the environment: every
 expression of it is closed at its depth, mentions only stored

@@ -424,7 +424,7 @@ theorem classField_scoped (hS : S.Scoped env) (hN : S.nest = some N) (hKS : N.KS
     {c : CtorSpec} (hc : c ∈ N.K.ctors) {i : Nat} {f : Field} (hi : c.fields[i]? = some f) :
     S.fieldScoped env (c.fields.length - 1 - i) (S.classField N (c.fields.length - 1 - i) f) := by
   have hNS := hS.2.2.2.2.2.2 N hN
-  have hpos := hNS.2.2.2.2.2.2.2.2
+  have hpos := hNS.2.2.2.2.2.2.2.2.1
   have hpf := positive_field N hpos hc (List.drop_zero (l := c.fields)) hi
   have hlen := hNS.2.2.2.2.1
   have hpK : N.p < N.nPK := hpos.2.1
