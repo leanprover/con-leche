@@ -415,3 +415,83 @@ comment block at the top of `lib.typ`.
     values being the point. One sentence in `checkStructFieldSortsI`'s
     docstring would record it; a fragment that tested "provably zero"
     instead of "may be zero" would need exactly that lemma. (§4 lane.)
+
+27. **A nested rule's stored instantiation is never load-bearing.**
+    The real checker certifies an auxiliary recursor's rule against
+    the constructor's expected levels and parameters (`.nested`
+    certification, `tests/e2e/src/nested_rec.lean`); the fragment's
+    `Red.iotaNested` (`Fragment/Rules.lean`) compares them too, but
+    its law `RecRuleLawN` (`Fragment/EnvModel.lean`) does not consume
+    the comparisons: large elimination is refused for a nested block
+    whose sort may be `Prop` (`blockLargeElimAllowed`), so the
+    recursion equation is only ever needed above a proposition, where
+    the major is itself the tagged tuple and its membership in the
+    class pins the fields (`ClassLaws.inv`, `Fragment/NestRec.lean`).
+    Item 24's observation for the plain parameter comparison holds
+    for the nested one without even the `Prop` exception. (Nested
+    lane, 2026-10-01.)
+
+28. **The container's constructors join the block's closure; no new
+    law.** The real proof's "existence of the fixed point by
+    accessibility, not by a container theorem" is, at this altitude,
+    the one closure law of `IndLib` applied ONCE to the block's
+    constructors and the container's at the instantiation, over a
+    joint index — the family's fibres and the class
+    (`IndSpec.ctorsX`, `JIdx`, `Fragment/IndSem.lean`); the block's
+    constructors are tagged after the container's (`tagOf`) so that
+    the closure's tags are the model's. The bound for the class is
+    then closed under the container's constructors with the member
+    at the family's bound, which is all `contInBound_of`
+    (`Fragment/NestSem.lean`) needs. Whether the real proof's
+    accessibility route could be replaced by listing the container's
+    constructor telescopes in the existing container theorem is worth
+    a look. (Nested lane.)
+
+29. **The guard is established before the constructors are read.**
+    Monotonicity of the class in the member (`ContGood`,
+    `Fragment/IndSem.lean`) is what a container field's clause is read
+    under; it is proved from the class having a sort at the block's
+    parameters — a check read in a model of the environment holding
+    the former only, which needs nothing of the class
+    (`InstallNest.lean`, `argsFit_of`: the former's set is a graph
+    tower, so `appList_of_wd` puts the class's arguments in the
+    container's parameters, and positivity lets the member be any set
+    of the universe). The reader structure had to be split for this
+    (`Reader` / `ReaderG`, `Fragment/Read.lean`). The real proof's
+    `EnvModelM` carries the installed blocks' data (`lfpBlocks`); the
+    fragment's `BlockModel` (`Fragment/BlockModel.lean`) carries one
+    law per plain block — scope, the former's and constructors' sets
+    as the fixed point's graphs, the domains bounded at fitting
+    parameters — and that is exactly what a later nesting consumes
+    (`NestFacts`). (Nested lane.)
+
+30. **What the fragment's positivity leaves out, and why.** Beyond
+    the rulings (depth one, no indices, no reflexive container field)
+    the fragment asks that the class's arguments and the member's
+    index expressions be closed under the block's parameters, and that
+    no field of the container after a member field read it
+    (`NestInfo.Positive`, `Fragment/Spec.lean`). Both are prices of
+    the closure device of item 28: the container's telescope joins the
+    closure with the member field as a recursive position, whose value
+    is junked (`toTeleXK`), so nothing may read it; and the class's
+    arguments must fit the container's parameters at EVERY member set
+    of the universe (`NestFacts.argsFit`), which a field-dependent
+    argument could not do without a fitting instance at the final
+    family — the real checker's `nestPos` admits both
+    (`Kernel/Inductives/Positivity.lean`). (Nested lane.)
+
+31. **One generator for the block's and the class's minors.** The
+    container's constructors translated into the block's own field
+    kinds — the member field a recursive field at the member's index
+    expressions, the container's recursive fields container fields,
+    its ordinary fields with the container's parameters substituted
+    (`IndSpec.classCtor`, `Fragment/Decl.lean`) — are in the block's
+    scope (`classCtor_fieldScoped`, `Fragment/NestRead.lean`), so the
+    block's readers read the class's minor premises verbatim; only the
+    conclusion's head (the container's constructor at the class's
+    arguments) and its motive differ. The real proof's `ClassGen`
+    (`Kernel/Inductives/GenRec.lean`) reads the container's
+    constructors separately (`classCtorOf`, node agreement); a
+    translation to the block's field kinds would let one generator
+    and one reading serve both. (Nested lane.)
+
