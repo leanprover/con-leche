@@ -292,7 +292,7 @@ theorem famSetK_eq (φ : Name → Nat) :
     N.KS.famSet m.M (S.lsK (S.lparams.map φ) N)
       = lamCtx (S.M₃N m.M N) φ false base (N.KS.params.map (Expr.instL N.K.lparams N.lsK))
           fun ρ' => N.KS.Fam m.M (S.lsK (S.lparams.map φ) N) (readEnv N.KS.nP ρ') [] := by
-  have hidx : N.KS.indices = [] := (hok.nestScoped N hok.nest).2.2.2.2.2.2.2.2.1
+  have hidx : N.KS.indices = [] := (hok.nestScoped N hok.nest).2.2.2.2.2.2.2.2.1.1
   unfold famSet
   rw [lamCtx_instL, hidx, List.nil_append]
   show lamCtx m.M _ false base N.KS.params _ = _
@@ -343,7 +343,7 @@ theorem FitsVals_psK_replace (φ : Name → Nat) {ps : List V} {G X : V}
     FitsVals m.M (N.KS.ψ (S.lsK (S.lparams.map φ) N)) base N.KS.params
       (S.psK m.M (S.lparams.map φ) N ps X) := by
   have hNS := hok.nestScoped N hok.nest
-  have hpos : N.Positive := hNS.2.2.2.2.2.2.2.2
+  have hpos : N.Positive := hNS.2.2.2.2.2.2.2.2.1
   have hlen : N.args.length + 1 = N.nPK := hNS.2.2.2.2.1
   have hpK : N.p < N.nPK := hpos.2.1
   obtain ⟨ℓ, hℓp⟩ := hpos.2.2.1
@@ -406,7 +406,7 @@ theorem argsFit_of (φ : Name → Nat) {ps : List V}
   have hNS := hok.nestScoped N hN
   have hK := K_law hs m hok
   have hKS := hK.1
-  have hpos : N.Positive := hNS.2.2.2.2.2.2.2.2
+  have hpos : N.Positive := hNS.2.2.2.2.2.2.2.2.1
   have hlen : N.args.length + 1 = N.nPK := hNS.2.2.2.2.1
   have hpK : N.p < N.nPK := hpos.2.1
   have hlsK : N.lsK.length = N.K.lparams.length := hNS.2.2.1
@@ -465,7 +465,7 @@ theorem nestFacts (φ : Name → Nat) : S.NestFacts m.M (S.lparams.map φ) N := 
   have hK := K_law hs m hok
   have hNS := hok.nestScoped N hok.nest
   have hlsK : N.lsK.length = N.K.lparams.length := hNS.2.2.1
-  refine ⟨hK.2.2.2.2.1, hK.2.1, hNS.2.2.2.2.2.2.2.2, fun c hc => (hK.1.2.2.2.1 c hc).2.1,
+  refine ⟨hK.2.2.2.2.1, hK.2.1, hNS.2.2.2.2.2.2.2.2.1, fun c hc => (hK.1.2.2.2.1 c hc).2.1,
     fun ps' hps' => hK.2.2.2.2.2.2 _ ps' hps', fun ps hp X hX => argsFit_of hs m hok φ hp hX, ?_,
     hNS.2.2.2.2.1⟩
   -- N3: the container's sort at the instantiation is the block's
