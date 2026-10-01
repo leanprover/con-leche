@@ -67,23 +67,6 @@ theorem accepted_model {env : Env} (h : Accepted env) : Nonempty (EnvModel V env
     obtain ⟨m', -⟩ := install_ind hpl h.scoped m hok
     exact ⟨m'⟩
 
-omit [IndLib V] [LevelOracle] in
-/-- Instantiating the level parameters by themselves changes no
-valuation. -/
-theorem Level.substVal_self (φ : Name → Nat) (ps : List Name) :
-    Level.substVal φ ps (ps.map .param) = φ := by
-  funext n
-  simp only [Level.substVal]
-  suffices h : Level.lookupLevel ps (ps.map .param) n = .param n by rw [h]; rfl
-  induction ps with
-  | nil => rfl
-  | cons p ps ih =>
-    simp only [Level.lookupLevel, List.map_cons, List.zip_cons_cons, List.lookup_cons] at ih ⊢
-    by_cases hp : n = p
-    · subst hp; simp
-    · have : (n == p) = false := by simpa using hp
-      simpa [this] using ih
-
 namespace IndSpec
 
 /-- **The empty proposition** as a block: `inductive False : Prop`
