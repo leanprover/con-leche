@@ -305,8 +305,8 @@ theorem classCtor_fields_get (c : CtorSpec) {k : Nat} {f : Field}
     (h : (S.classCtor N c).fields[(S.classCtor N c).fields.length - 1 - k]? = some f)
     (hk : k < (S.classCtor N c).fields.length) :
     ∃ f₀, c.fields[c.fields.length - 1 - k]? = some f₀ ∧ f = S.classField N k f₀ := by
-  simp only [classCtor, List.length_mapIdx] at h hk
-  rw [List.getElem?_mapIdx] at h
+  simp only [classCtor, S.length_classFields] at h hk
+  rw [S.classFields_getElem?] at h
   cases hf₀ : c.fields[c.fields.length - 1 - k]? with
   | none => simp [hf₀] at h
   | some f₀ =>

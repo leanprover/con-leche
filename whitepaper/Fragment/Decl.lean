@@ -369,6 +369,16 @@ theorem length_classFields (N : NestInfo) : ∀ fs : List Field, (S.classFields 
   | [] => rfl
   | _ :: rest => by simp [length_classFields N rest]
 
+theorem classFields_getElem? (N : NestInfo) : ∀ (fs : List Field) (i : Nat),
+    (S.classFields N fs)[i]? = (fs[i]?).map fun f => S.classField N (fs.length - 1 - i) f
+  | [], _ => rfl
+  | f :: fs, 0 => by simp
+  | f :: fs, i + 1 => by
+    have : (f :: fs).length - 1 - (i + 1) = fs.length - 1 - i := by simp; omega
+    rw [this]
+    simp only [classFields_cons, List.getElem?_cons_succ]
+    exact classFields_getElem? N fs i
+
 /-- A constructor of the container, in the block's terms: its fields
 translated, no indices. -/
 def classCtor (N : NestInfo) (c : CtorSpec) : CtorSpec := ⟨c.name, S.classFields N c.fields, []⟩

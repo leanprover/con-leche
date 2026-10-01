@@ -369,16 +369,6 @@ namespace IndSpec
 
 variable (S : IndSpec) {env : Env} (N : NestInfo)
 
-theorem classFields_getElem? : ∀ (fs : List Field) (i : Nat),
-    (S.classFields N fs)[i]? = (fs[i]?).map fun f => S.classField N (fs.length - 1 - i) f
-  | [], _ => rfl
-  | f :: fs, 0 => by simp
-  | f :: fs, i + 1 => by
-    have : (f :: fs).length - 1 - (i + 1) = fs.length - 1 - i := by simp; omega
-    rw [this]
-    simp only [classFields_cons, List.getElem?_cons_succ]
-    exact classFields_getElem? fs i
-
 theorem length_classArgs (hlen : N.args.length + 1 = N.nPK) (hpK : N.p < N.nPK) (o : Nat) :
     (S.classArgs N o).length = N.nPK := by
   have hp : N.p ≤ N.args.length := by omega

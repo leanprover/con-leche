@@ -38,12 +38,13 @@ section Subst
 
 variable {V : Type u} [SetLib V] (M : Name → List Nat → V) (φ : Name → Nat)
 
-/-- **The substitution chain under `d` binders, read**: the arguments
-(outermost first) read under the base environment are inserted,
-innermost first, under the `d` values. -/
+omit [SetLib V] M φ in
 theorem instE_consList' {vs : List V} {k : Nat} (h : vs.length = k) (x : V) (ρ : Nat → V) :
     instE k x (consList vs ρ) = consList vs (cons x ρ) := h ▸ instE_consList vs x ρ
 
+/-- **The substitution chain under `d` binders, read**: the arguments
+(outermost first) read under the base environment are inserted,
+innermost first, under the `d` values. -/
 theorem interp_instChainAt {d : Nat} (ρ₀ : Nat → V) :
     ∀ (as : List Expr) (e : Expr) (ys : List V), ys.length = d →
       interp M φ (consList ys ρ₀) (Expr.instChainAt e as d) =
@@ -347,7 +348,7 @@ theorem KS_tagOf (j : Nat) : N.KS.tagOf j = j := by
 container field. -/
 theorem KS_contInBound (hf : S.NestFacts M ls N) (ps' : List V) :
     N.KS.ContInBound M (S.lsK ls N) ps' :=
-  fun _ c hc _ _ k hk _ => (N.KS.noCont_absurd hf.noCont hc hk).elim
+  fun _ _c hc _ _ _k hk _ => (N.KS.noCont_absurd hf.noCont hc hk).elim
 
 /-- A fit of the container's fields relative to its family and a
 restriction on the recursive values also restricts them to the family's
@@ -439,6 +440,19 @@ theorem classLaws_of (hf : S.NestFacts M ls N) (hlen : N.args.length + 1 = N.nPK
       (List.drop_zero (l := c.fields)) hfit
   mem_univ := fun X hX => (S.contGood_of hf hN N hN ps hp).2 X hX
   mono := fun X Y hXY hX hY => (S.contGood_of hf hN N hN ps hp).1 X Y hXY hX hY
+  noRefl := fun c hc tele es hmem => by
+    simp only [classCtor] at hmem
+    obtain ⟨i, hi⟩ := List.mem_iff_getElem?.mp hmem
+    rw [S.classFields_getElem?, Option.map_eq_some_iff] at hi
+    obtain ⟨f, hf₀, hf'⟩ := hi
+    have hpf := positive_field N hf.positive hc (List.drop_zero (l := c.fields)) hf₀
+    cases f with
+    | ordinary A =>
+      simp only [classField] at hf'
+      split at hf' <;> cases hf'
+    | recursive _ => simp [classField] at hf'
+    | reflexive _ _ => exact hpf.elim
+    | container => exact hpf.elim
 
 end Corr
 
