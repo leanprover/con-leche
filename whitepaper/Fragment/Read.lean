@@ -345,8 +345,15 @@ structure Reader (M' : Name → List Nat → V) (φ' : Name → Nat) : Prop wher
   fam : ∀ ls', M' S.name ls' = S.famSet M ls'
   /-- Agreement with `φ` on the block's level parameters. -/
   val : ∀ n ∈ S.lparams, φ' n = φ n
-  /-- The class is well-behaved at the member (vacuous for a plain
-  block): what the container field's clause is read under. -/
+
+/-- **A reader under the class's guard**: a reader that also knows the
+class is well-behaved at the member (`ContGood`; vacuous for a plain
+block) — what a container field's domain is read under.  The former's
+own reading needs no guard, which is how the guard of a nested block
+is established before its constructors are read (`InstallNest.lean`). -/
+structure ReaderG (M' : Name → List Nat → V) (φ' : Name → Nat)
+    extends S.Reader (env := env) M φ M' φ' : Prop where
+  /-- The class's guard. -/
   good : S.ContGood M (S.lparams.map φ)
 
 variable {S M φ}
@@ -658,7 +665,7 @@ theorem Reader.classTy_fit (hS : S.Scoped env) (R : S.Reader (env := env) M φ M
 
 /-- **A field's domain, read by β** at fitting index expressions: the
 field's set. -/
-theorem Reader.fieldDom_fit (hS : S.Scoped env) (R : S.Reader (env := env) M φ M' φ')
+theorem ReaderG.fieldDom_fit (hS : S.Scoped env) (R : S.ReaderG (env := env) M φ M' φ')
     {k : Nat} {f : Field} (hsc : S.fieldScoped env k f) {vs ps : List V} {ρ : Nat → V}
     (hk : vs.length = k) (hps : ps.length = S.nP)
     (hp : FitsVals M (S.ψ (S.lparams.map φ)) base S.params ps)
@@ -699,7 +706,7 @@ theorem Reader.fieldDom_fit (hS : S.Scoped env) (R : S.Reader (env := env) M φ 
 
 /-- **A field's domain, read from the invariant**: the field's set,
 and its index expressions fit. -/
-theorem Reader.fieldDom_wd (hS : S.Scoped env) (R : S.Reader (env := env) M φ M' φ')
+theorem ReaderG.fieldDom_wd (hS : S.Scoped env) (R : S.ReaderG (env := env) M φ M' φ')
     {k : Nat} {f : Field} (hsc : S.fieldScoped env k f) {vs ps : List V} {ρ : Nat → V}
     (hk : vs.length = k) (hps : ps.length = S.nP)
     (hp : FitsVals M (S.ψ (S.lparams.map φ)) base S.params ps)
@@ -771,7 +778,7 @@ theorem CtxWD_append' {ρ : Nat → V} :
 /-- **The field context, read**: at parameter values, values fit the
 generated field context exactly when they fit the constructor's
 fields semantically — and then every field's index expressions fit. -/
-theorem Reader.fits_fieldCtx (hS : S.Scoped env) (R : S.Reader (env := env) M φ M' φ') :
+theorem ReaderG.fits_fieldCtx (hS : S.Scoped env) (R : S.ReaderG (env := env) M φ M' φ') :
     ∀ {fields : List Field},
       (∀ i f, fields[i]? = some f → S.fieldScoped env (fields.length - 1 - i) f) →
       ∀ {ps : List V} {ρ : Nat → V}, ps.length = S.nP →
@@ -839,7 +846,7 @@ theorem Reader.fits_fieldCtx (hS : S.Scoped env) (R : S.Reader (env := env) M φ
 /-- **Fitting the fields semantically gives fitting the generated
 context** in any reader, by β, once the index expressions are known to
 fit. -/
-theorem Reader.fits_fieldCtx_of_idx (hS : S.Scoped env) (R : S.Reader (env := env) M φ M' φ') :
+theorem ReaderG.fits_fieldCtx_of_idx (hS : S.Scoped env) (R : S.ReaderG (env := env) M φ M' φ') :
     ∀ {fields : List Field},
       (∀ i f, fields[i]? = some f → S.fieldScoped env (fields.length - 1 - i) f) →
       ∀ {ps : List V} {ρ : Nat → V}, ps.length = S.nP →
@@ -942,7 +949,7 @@ theorem consList_getD {vs : List V} {ρ : Nat → V} {i : Nat} (h : i < vs.lengt
 
 /-- **A field's lifted domain**, read under the extras: the field's
 set. -/
-theorem Reader.read_fieldCtxAt (hS : S.Scoped env) (R : S.Reader (env := env) M φ M' φ')
+theorem ReaderG.read_fieldCtxAt (hS : S.Scoped env) (R : S.ReaderG (env := env) M φ M' φ')
     {c : CtorSpec} (hc : c ∈ S.ctors) {o i : Nat} {A : Expr}
     (hA : (S.fieldCtxAt c o)[i]? = some A) {vs os ps : List V} {ρ : Nat → V}
     (hv : vs.length = c.fields.length - 1 - i) (ho : os.length = o) (hps : ps.length = S.nP)
@@ -981,15 +988,15 @@ theorem appList_lamCtx_false :
 constructor its set. -/
 structure Reader₂ (S : IndSpec) (M : Name → List Nat → V) (φ : Name → Nat)
     (M' : Name → List Nat → V) (φ' : Name → Nat) : Prop where
-  /-- The underlying reader. -/
-  R : S.Reader (env := env) M φ M' φ'
+  /-- The underlying reader, under the class's guard. -/
+  R : S.ReaderG (env := env) M φ M' φ'
   /-- The constructors' sets. -/
   ctor : ∀ j c, S.ctors[j]? = some c → ∀ ls', M' c.name ls' = S.ctorSet M ls' j c
 
 /-- The model with the former added is a reader at the block's own
 valuation. -/
 theorem reader₁ (hfresh : env.find? S.name = none) (hg : S.ContGood M (S.lparams.map φ)) :
-    S.Reader (env := env) M φ (S.M₁ M) (S.ψ (S.lparams.map φ)) where
+    S.ReaderG (env := env) M φ (S.M₁ M) (S.ψ (S.lparams.map φ)) where
   agree := fun c hc ls => by
     have hne : c ≠ S.name := fun h => by subst h; simp [hfresh] at hc
     simp [M₁, hne]

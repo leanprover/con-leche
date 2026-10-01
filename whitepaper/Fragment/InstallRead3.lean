@@ -67,8 +67,8 @@ theorem _root_.Fragment.Expr.liftCtx_drop (f : Nat → Expr → Expr) :
 
 /-- The lifted field context agrees between two readers, once
 well-denoted in the second. -/
-theorem Reader.agree_fieldCtxAt (hS : S.Scoped env) {M₁ M₂ : Name → List Nat → V} {φ₁ φ₂ : Name → Nat}
-    (R₁ : S.Reader (env := env) M φ M₁ φ₁) (R₂ : S.Reader (env := env) M φ M₂ φ₂)
+theorem ReaderG.agree_fieldCtxAt (hS : S.Scoped env) {M₁ M₂ : Name → List Nat → V} {φ₁ φ₂ : Name → Nat}
+    (R₁ : S.ReaderG (env := env) M φ M₁ φ₁) (R₂ : S.ReaderG (env := env) M φ M₂ φ₂)
     {c : CtorSpec} (hc : c ∈ S.ctors) {o : Nat} {os₁ os₂ ps : List V} {ρ₁ ρ₂ : Nat → V}
     (ho₁ : os₁.length = o) (ho₂ : os₂.length = o) (hps : ps.length = S.nP)
     (hp : FitsVals M (S.ψ (S.lparams.map φ)) base S.params ps)
@@ -168,7 +168,7 @@ theorem Reader₂.agree_minorTy (hS : S.Scoped env) {M₁ M₂ : Name → List N
   · refine CtxAgree_append hagF fun fs hfs => ?_
     obtain ⟨hf, -, -⟩ := hfits fs hfs
     rw [ihCtx_eq]
-    exact R₁.R.agree_ihCtxAux hS R₂.R hq hcm hf hos (by omega)
+    exact R₁.R.agree_ihCtxAux hS R₂.R.toReader hq hcm hf hos (by omega)
       (fun ⟨i, hi⟩ => (S.noCont_absurd hnc hcm hi).elim) hps c.recFields (fun _ h => h)
       (ihsE := []) rfl
   · obtain ⟨ihsR, fs, rfl, hl₁⟩ : ∃ ihsR fs, vs = ihsR ++ fs ∧ ihsR.length = (S.ihCtx c j).length := by
@@ -235,7 +235,7 @@ theorem Reader₂.agree_recCtx (hS : S.Scoped env) {M₁ M₂ : Name → List Na
       CtxWD M₂ φ₂ (consList ps ρ₂) (S.fieldCtx c.fields)) :
     CtxAgree M₁ M₂ φ₁ φ₂ ρ₁ ρ₂ S.recCtx := by
   unfold recCtx
-  refine CtxAgree_append (R₁.R.agree_params₂ hS R₂.R ρ₁ ρ₂) fun ps hps₁ => ?_
+  refine CtxAgree_append (R₁.R.agree_params₂ hS R₂.R.toReader ρ₁ ρ₂) fun ps hps₁ => ?_
   have hp := (R₁.R.fits_params hS).mp hps₁
   have hps : ps.length = S.nP := by have := FitsVals_length _ _ hps₁; simpa [nP] using this
   refine CtxAgree_append ?_ fun ms hms => ?_
@@ -278,7 +278,7 @@ theorem Reader₂.agree_recCtx (hS : S.Scoped env) {M₁ M₂ : Name → List Na
     have hvl : vs.length = S.indices.length - 1 - i := by
       rw [hl, List.length_drop, Expr.length_liftCtx]; omega
     rw [← hvl, interp_liftCtx_liftN_entry M₁ φ₁ ρ₁ _ hos, interp_liftCtx_liftN_entry M₂ φ₂ ρ₂ _ hos]
-    exact R₁.R.read₂ R₂.R (hS.2.1 i A₀ hA₀) (by simp only [hvl, hps, nI]; omega)
+    exact R₁.R.read₂ R₂.R.toReader (hS.2.1 i A₀ hA₀) (by simp only [hvl, hps, nI]; omega)
   · unfold indicesAt at his
     rw [FitsVals_liftCtx_liftN M₁ φ₁ _ _ _ hos, R₁.R.fits_indices hS hps] at his
     rw [R₁.R.read_famVars hS hos hps hp his, R₂.R.read_famVars hS hos hps hp his]

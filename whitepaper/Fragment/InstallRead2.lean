@@ -93,8 +93,8 @@ theorem Reader.famSet_mem (hS : S.Scoped env) {M' : Name → List Nat → V} {φ
 /-- **The field context agrees between two readers** once its domains
 are well-denoted in one of them (the invariant supplies the index
 expressions' fits, and then every domain reads by β in both). -/
-theorem Reader.agree_fieldCtx (hS : S.Scoped env) {M₁ M₂ : Name → List Nat → V} {φ₁ φ₂ : Name → Nat}
-    (R₁ : S.Reader (env := env) M φ M₁ φ₁) (R₂ : S.Reader (env := env) M φ M₂ φ₂)
+theorem ReaderG.agree_fieldCtx (hS : S.Scoped env) {M₁ M₂ : Name → List Nat → V} {φ₁ φ₂ : Name → Nat}
+    (R₁ : S.ReaderG (env := env) M φ M₁ φ₁) (R₂ : S.ReaderG (env := env) M φ M₂ φ₂)
     {ps : List V} {ρ₁ ρ₂ : Nat → V} (hps : ps.length = S.nP)
     (hp : FitsVals M (S.ψ (S.lparams.map φ)) base S.params ps) :
     ∀ {fields : List Field},
@@ -120,8 +120,8 @@ theorem Reader.agree_fieldCtx (hS : S.Scoped env) {M₁ M₂ : Name → List Nat
 
 /-- **Every field's index expressions fit**, from the constructor's
 type being well-denoted. -/
-theorem Reader.idxFit_of_wd (hS : S.Scoped env) {M' : Name → List Nat → V} {φ' : Name → Nat}
-    (R : S.Reader (env := env) M φ M' φ') {c : CtorSpec} (hc : c ∈ S.ctors) {ρ : Nat → V}
+theorem ReaderG.idxFit_of_wd (hS : S.Scoped env) {M' : Name → List Nat → V} {φ' : Name → Nat}
+    (R : S.ReaderG (env := env) M φ M' φ') {c : CtorSpec} (hc : c ∈ S.ctors) {ρ : Nat → V}
     (hwd : WellDenoted M' φ' ρ (S.ctorType c)) {ps : List V} (hps : ps.length = S.nP)
     (hp : FitsVals M (S.ψ (S.lparams.map φ)) base S.params ps) :
     CtxWD M' φ' (consList ps ρ) (S.fieldCtx c.fields) ∧
