@@ -1118,7 +1118,7 @@ theorem Reader.classCtorApp_eq (hS : S.Scoped env) (R : S.Reader (env := env) M 
     simp only [IndSpec.lsK, List.length_map]; exact hNS.2.2.1
   have hmapK : N.KS.lparams.map (N.KS.ψ (S.lsK (S.lparams.map φ) N)) = S.lsK (S.lparams.map φ) N :=
     map_valOf_eq hKS.2.2.2.2.2.1 hlsK
-  have RK : N.KS.Reader (env := env) M (N.KS.ψ (S.lsK (S.lparams.map φ) N)) M
+  have RK : N.KS.ReaderG (env := env) M (N.KS.ψ (S.lsK (S.lparams.map φ) N)) M
       (N.KS.ψ (S.lsK (S.lparams.map φ) N)) :=
     { agree := fun _ _ _ => rfl
       fam := fun ls' => hf.fam ls'
@@ -1254,7 +1254,7 @@ theorem Reader₂.minorOkN_of_fits (hS : S.Scoped env) (R₂ : S.Reader₂ (env 
       (S.ihCtxAt c (2 + j) ++ S.fieldCtxAt c (2 + j)) (ihs.reverse ++ fs) := by
     refine (FitsVals_append M' φ' hlenI).mpr ⟨(hfieldsF fs).mpr hfit, ?_⟩
     rw [ihCtxAt_eq, henv]
-    have := (Reader.fits_ihCtxAux' S R hsc (os := minsE ++ [m1, m]) (ρ := ρ) hf hos (by omega)
+    have := (Reader.fits_ihCtxAux' S R.toReader hsc (os := minsE ++ [m1, m]) (ρ := ρ) hf hos (by omega)
       (fun _ => by omega) hps c.recFields (fun _ h => h) ihs (l := 0) (ihsE := []) rfl).mpr
     rw [hgetm, hgetm1] at this
     exact this hihs'
@@ -1372,7 +1372,7 @@ theorem Reader₂.minorOkK_of_fits (hS : S.Scoped env) (R₂ : S.Reader₂ (env 
         = appList m1 [tag j (tuple fs'.reverse)] := by
     intro fs' ihsR hf' hi' hfit'
     rw [interp_mkAppN_appList, interp_bvar, List.map_singleton, henv,
-      Reader.classCtorApp_eq S N hS R hN hf hKS hctor hcst hz hc (o := 2 + S.n + j) hi' hf' hos hps hp
+      Reader.classCtorApp_eq S N hS R.toReader hN hf hKS hctor hcst hz hc (o := 2 + S.n + j) hi' hf' hos hps hp
         hidx hfit']
     rw [show (S.classCtor N c).recFields.length + (S.classCtor N c).fields.length + (2 + S.n + j) - 2
         = ((2 + S.n + j - 2) + (S.classCtor N c).fields.length) + (S.classCtor N c).recFields.length by
@@ -1392,7 +1392,7 @@ theorem Reader₂.minorOkK_of_fits (hS : S.Scoped env) (R₂ : S.Reader₂ (env 
       (ihs.reverse ++ fs) := by
     refine (FitsVals_append M' φ' hlenI).mpr ⟨(hfieldsF fs).mpr hfit, ?_⟩
     rw [ihCtxAt_eq, henv]
-    have := (Reader.fits_ihCtxAux' S R hsc (os := minsE ++ mins ++ [m1, m]) (ρ := ρ) hf hos (by omega)
+    have := (Reader.fits_ihCtxAux' S R.toReader hsc (os := minsE ++ mins ++ [m1, m]) (ρ := ρ) hf hos (by omega)
       (fun _ => by omega) hps (S.classCtor N c).recFields (fun _ h => h) ihs (l := 0) (ihsE := [])
       rfl).mpr
     rw [hgetm, hgetm1] at this
