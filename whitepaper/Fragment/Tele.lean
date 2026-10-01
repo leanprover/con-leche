@@ -95,6 +95,9 @@ theorem shiftE_consList (vs : List V) (ρ : Nat → V) :
   funext i
   simp [shiftE, consList_ge]
 
+theorem shiftE_consList' {vs : List V} {k : Nat} (h : vs.length = k) (ρ : Nat → V) :
+    shiftE k 0 (consList vs ρ) = ρ := h ▸ shiftE_consList vs ρ
+
 /-- An instantiation below the pushed values is a push onto the
 instantiated environment. -/
 theorem instE_consList (vs : List V) (x : V) (ρ : Nat → V) :
@@ -155,17 +158,6 @@ theorem mkAppN_inst (a : Expr) (k : Nat) (f : Expr) (args : List Expr) :
   induction args generalizing f with
   | nil => rfl
   | cons b args ih => simp [ih]
-
-/-- **The substitution chain** of walking a telescope along
-arguments: the first argument is substituted for the outermost
-binder (which sits under the others), and so on. -/
-def instChain : Expr → List Expr → Expr
-  | e, [] => e
-  | e, a :: as => instChain (e.inst a as.length) as
-
-@[simp] theorem instChain_nil (e : Expr) : instChain e [] = e := rfl
-@[simp] theorem instChain_cons (e a : Expr) (as : List Expr) :
-    instChain e (a :: as) = instChain (e.inst a as.length) as := rfl
 
 theorem instChain_const (c : Name) (ls : List Level) (as : List Expr) :
     instChain (const c ls) as = const c ls := by

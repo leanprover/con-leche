@@ -313,7 +313,7 @@ theorem idx_fits_of_mem_Fam {ps : List V}
     FitsVals M (S.ψ ls) (envP ps) S.indices is := by
   refine S.memb_of_fibre M ls (Q := fun _ => FitsVals M (S.ψ ls) (envP ps) S.indices is)
     (fibreR_mono (fun x hx => ⟨hx, ?_⟩) _ ht)
-  obtain ⟨j, c, fs, hc, hfit, his, -⟩ := Lfp.unfold (S.stepT_mono M ls (S.bound M ls)) hx
+  obtain ⟨j, c, fs, hc, hfit, his, -⟩ := Lfp.unfold (S.stepT_mono M ls (S.bound M ls) (S.boundOk_bound M ls)) hx
   dsimp only at hfit his
   rw [his]
   exact hidx j c hc fs hfit
@@ -322,7 +322,7 @@ theorem idx_fits_of_mem_Fam {ps : List V}
 witnesses): by induction over the family, from the minors' typing — at
 a proposition the inductive hypotheses are inhabited truth values, so
 their values need not be the recursor's. -/
-theorem motive_inhabited (q : Bool) {ps : List V} (m : V) (mins : List V)
+theorem motive_inhabited (hnc : S.NoCont) (q : Bool) {ps : List V} (m : V) (mins : List V)
     (hmin : ∀ j c, S.ctors[j]? = some c → S.MinorOk M ls q ps m mins j c)
     (hmo : q = true → ∀ is t, t ∈ˢ S.Fam M ls ps is → appList m (is.reverse ++ [t]) ∈ˢ (univ 0 : V))
     {is : List V} {t : V} (ht : t ∈ˢ S.Fam M ls ps is) : ∃ v, v ∈ˢ appList m (is.reverse ++ [t]) := by
@@ -337,9 +337,9 @@ theorem motive_inhabited (q : Bool) {ps : List V} (m : V) (mins : List V)
   intro ps' is x hs hps
   subst hps
   obtain ⟨j, c, fs, hc, hfit, his, hx⟩ := hs
-  have hfitM := S.FitsFields_mono M ls (fun _ _ _ h => h.1) ps' hfit
+  have hfitM := S.FitsFields_mono M ls (S.boundOk_bound M ls) (fun _ _ _ h => h.1) ps' hfit
   subst his hx
-  have hmemb : S.memb ls (tag j (tuple fs.reverse)) = S.ctorVal ls j fs := rfl
+  have hmemb : S.memb ls (tag (S.tagOf j) (tuple fs.reverse)) = S.ctorVal ls j fs := rfl
   rw [hmemb]
   have hget' : ∀ {k : Nat} {f : Field}, c.fields[c.fields.length - 1 - k]? = some f →
       k < c.fields.length → fieldVal fs k ∈ˢ S.fieldSet M ls (S.bound M ls)
@@ -347,13 +347,14 @@ theorem motive_inhabited (q : Bool) {ps : List V} (m : V) (mins : List V)
           ∃ v, v ∈ˢ appList m (is.reverse ++ [S.memb ls x]))) ps' (earlier fs k) f :=
     fun hf hk => S.FitsFields_get M ls hfit hf hk
   -- the inductive hypotheses: one inhabitant of each hypothesis' type
-  obtain ⟨ihs, hihs⟩ : ∃ ihs, ListRel (S.IhTyped M ls q ps' m fs) c.recFields ihs := by
+  obtain ⟨ihs, hihs⟩ : ∃ ihs, ListRel (S.IhTyped M ls q ps' m pt fs) c.recFields ihs := by
     refine ListRel.exists fun kf hkf => ?_
     obtain ⟨hf, hk, hrec⟩ := mem_recFields hkf
     have hget := hget' hf hk
     obtain ⟨k, f⟩ := kf
     cases f with
     | ordinary _ => simp [Field.isRec] at hrec
+    | container => exact (S.noCont_absurd hnc (List.mem_of_getElem? hc) hf).elim
     | recursive es =>
       dsimp only [fieldSet] at hget
       dsimp only [IhTyped]

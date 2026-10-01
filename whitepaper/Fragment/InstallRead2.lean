@@ -32,10 +32,6 @@ theorem readEnv_consList_take {vs : List V} {n : Nat} (h : n ≤ vs.length) (ρ 
   rw [this, readEnv_consList (by simp [h])]
 
 omit [IndLib V] in
-theorem shiftE_consList' {vs : List V} {k : Nat} (h : vs.length = k) (ρ : Nat → V) :
-    shiftE k 0 (consList vs ρ) = ρ := h ▸ shiftE_consList vs ρ
-
-omit [IndLib V] in
 /-- Reading `n` pushed values past the first `k`. -/
 theorem readEnv_shiftE_consList {vs : List V} {k n : Nat} (h : k + n ≤ vs.length) (ρ : Nat → V) :
     readEnv n (shiftE k 0 (consList vs ρ)) = (vs.drop k).take n := by
@@ -161,11 +157,13 @@ theorem Reader₂.ctorSet_mem (hS : S.Scoped env) {M' : Name → List Nat → V}
     {j : Nat} {c : CtorSpec} (hc : S.ctors[j]? = some c) {ρ : Nat → V}
     (hwd : WellDenoted M' φ' ρ (S.ctorType c)) (hnr : S.NoRecDep)
     (hb : ∀ ps, FitsVals M (S.ψ (S.lparams.map φ)) base S.params ps →
-      S.DomsBounded M (S.lparams.map φ) ps) :
+      S.DomsBounded M (S.lparams.map φ) ps)
+    (hcb : ∀ ps, FitsVals M (S.ψ (S.lparams.map φ)) base S.params ps →
+      S.ContInBound M (S.lparams.map φ) ps) :
     S.ctorSet M (S.lparams.map φ) j c ∈ˢ interp M' φ' ρ (S.ctorType c) := by
   have R := R₂.R
   have hcm : c ∈ S.ctors := List.mem_of_getElem? hc
-  have R₁ := S.reader₁ (M := M) (φ := φ) hfresh
+  have R₁ := S.reader₁ (M := M) (φ := φ) hfresh R.good
   have hwd' := hwd
   unfold ctorType at hwd' ⊢
   rw [WellDenoted_mkPis] at hwd'
@@ -217,7 +215,7 @@ theorem Reader₂.ctorSet_mem (hS : S.Scoped env) {M' : Name → List Nat → V}
       (by rw [← hlf', shiftE_consList, readEnv_consList hpsl]) (hS.2.2.2.1 c hcm).2.2.1 hbody').2.2,
       R.idxVals_eq (hS.2.2.2.1 c hcm).2.2.2 (by simp [hlf', hpsl]; omega)]
   · rw [readEnv_consList hlf']
-    exact S.ctorVal_mem_Fam M _ hc hfit hnr (hb ps hp)
+    exact S.ctorVal_mem_Fam M _ hc hfit hnr (hb ps hp) (hcb ps hp)
   · have := S.Fam_mem_univ M (S.lparams.map φ) ps (S.idxVals M (S.lparams.map φ) (consList fs (envP ps)) c.idx)
     rwa [(S.z_iff _).mp hz] at this
 

@@ -252,10 +252,20 @@ theorem envCtors_find? (env : Env) (hnodup : (S.ctors.map (·.name)).Nodup) (n :
 
 /-- The installed environment: the recursor under its name, the rest
 as in `envCtors`. -/
-theorem install_find? (env : Env) (n : Name) :
+theorem install_find? (hpl : S.nest = none) (env : Env) (n : Name) :
     (S.install env).find? n =
-      if n = S.recName then some S.recInfo else (S.envCtors env).find? n :=
-  Env.find?_add _ S.recName n S.recInfo
+      if n = S.recName then some S.recInfo else (S.envCtors env).find? n := by
+  simp only [install, hpl]
+  exact Env.find?_add _ S.recName n S.recInfo
+
+/-- The installed nested environment: the auxiliary recursor, the
+recursor, the rest as in `envCtors`. -/
+theorem installN_find? (N : NestInfo) (env : Env) (n : Name) :
+    (S.installN N env).find? n =
+      if n = N.aux then some (S.rec1Info N)
+      else if n = S.recName then some (S.recInfoN N) else (S.envCtors env).find? n := by
+  unfold installN
+  rw [Env.find?_add, Env.find?_add]
 
 /-- A stored name is found as before in `envInd`, when the block's
 names are fresh. -/
@@ -281,10 +291,11 @@ theorem find?_mono_envCtors (env : Env) (hfresh : ∀ m ∈ S.name :: S.recName 
 
 /-- A stored name is found as before in the installed environment,
 when the block's names are fresh. -/
-theorem find?_mono_install (env : Env) (hfresh : ∀ m ∈ S.name :: S.recName :: S.ctors.map (·.name), env.find? m = none)
+theorem find?_mono_install (hpl : S.nest = none) (env : Env)
+    (hfresh : ∀ m ∈ S.name :: S.recName :: S.ctors.map (·.name), env.find? m = none)
     {n : Name} {ci : ConstInfo} (h : env.find? n = some ci) :
     (S.install env).find? n = some ci := by
-  rw [install_find?, if_neg, S.find?_mono_envCtors env hfresh h]
+  rw [install_find? S hpl, if_neg, S.find?_mono_envCtors env hfresh h]
   rintro rfl
   rw [hfresh S.recName (List.mem_cons_of_mem _ List.mem_cons_self)] at h
   cases h
@@ -352,11 +363,36 @@ theorem lparamsIn_indices (hS : S.Scoped env) : ∀ T ∈ S.indices, T.lparamsIn
   obtain ⟨t, ht⟩ := List.mem_iff_getElem?.mp hT
   exact (hS.2.1 t T ht).2.2
 
+/-- The class's arguments are over the block's parameters. -/
+theorem lparamsIn_classArgs (hS : S.Scoped env) {N : NestInfo} (hN : S.nest = some N) (o : Nat) :
+    ∀ e ∈ S.classArgs N o, e.lparamsIn S.lparams = true := by
+  have hNS := hS.2.2.2.2.2.2 N hN
+  intro e he
+  simp only [classArgs, List.mem_append, List.mem_map, List.mem_singleton] at he
+  rcases he with (⟨a, ha, rfl⟩ | rfl) | ⟨a, ha, rfl⟩
+  · rw [Expr.lparamsIn_liftN]; exact (hNS.2.2.2.2.2.2.1 a (List.mem_of_mem_take ha)).2.2
+  · refine S.lparamsIn_famAt _ fun e he => ?_
+    obtain ⟨a, ha, rfl⟩ := List.mem_map.mp he
+    rw [Expr.lparamsIn_liftN]; exact (hNS.2.2.2.2.2.2.2.1 a ha).2.2
+  · rw [Expr.lparamsIn_liftN]; exact (hNS.2.2.2.2.2.2.1 a (List.mem_of_mem_drop ha)).2.2
+
+/-- The class is over the block's parameters. -/
+theorem lparamsIn_classTy (hS : S.Scoped env) {N : NestInfo} (hN : S.nest = some N) (o : Nat) :
+    (S.classTy N o).lparamsIn S.lparams = true := by
+  have hNS := hS.2.2.2.2.2.2 N hN
+  refine Expr.lparamsIn_mkAppN ?_ (S.lparamsIn_classArgs hS hN o)
+  simp only [Expr.lparamsIn_const, List.all_eq_true]
+  exact hNS.2.2.2.1
+
 /-- A field's domain, at any number of earlier fields, is over the
 block's parameters. -/
 theorem lparamsIn_fieldDom (hS : S.Scoped env) {k : Nat} {f : Field} (hf : S.fieldScoped env k f)
     (k' : Nat) : (S.fieldDom k' f).lparamsIn S.lparams = true := by
   cases f with
+  | container =>
+    obtain ⟨N, hN⟩ := Option.isSome_iff_exists.mp hf
+    simp only [fieldDom, hN]
+    exact S.lparamsIn_classTy hS hN k'
   | ordinary A => exact hf.2.2
   | recursive es => exact S.lparamsIn_famAt _ fun e he => (hf.2 e he).2.2
   | reflexive tele es =>
@@ -439,6 +475,7 @@ theorem lparamsIn_ihTy {k : Nat} {f : Field} (hf : S.fieldScoped env k f) (nF k'
   have hR := S.lparams_sub_recLparams
   cases f with
   | ordinary A => rfl
+  | container => rfl
   | recursive es =>
     refine Expr.lparamsIn_mkAppN rfl fun a ha => ?_
     rcases List.mem_append.mp ha with ha | ha
@@ -568,6 +605,7 @@ theorem lparamsIn_ihVal {k : Nat} {f : Field} (hf : S.fieldScoped env k f) (nF k
   have hR := S.lparams_sub_recLparams
   cases f with
   | ordinary A => rfl
+  | container => rfl
   | recursive es =>
     simp only [ihVal]
     refine Expr.lparamsIn_mkAppN (S.lparamsIn_const_recLvls _) fun a ha => ?_
@@ -624,6 +662,7 @@ theorem closedAt_ihVal {k : Nat} {f : Field} (hf : S.fieldScoped env k f) {nF : 
     (S.ihVal nF k f).closedAt (nF + S.n + 1 + S.nP) = true := by
   cases f with
   | ordinary A => rfl
+  | container => rfl
   | recursive es =>
     simp only [ihVal]
     refine Expr.closedAt_mkAppN rfl fun a ha => ?_
@@ -684,23 +723,25 @@ theorem closedAt_ruleRhs [LevelOracle] (hS : S.Scoped env) {c : CtorSpec} {j : N
 
 /-- An inductive hypothesis' value mentions the recursor and the
 specification's constants, all stored in the installed environment. -/
-theorem consts_ihVal (hfresh : ∀ m ∈ S.name :: S.recName :: S.ctors.map (·.name), env.find? m = none)
+theorem consts_ihVal (hpl : S.nest = none)
+    (hfresh : ∀ m ∈ S.name :: S.recName :: S.ctors.map (·.name), env.find? m = none)
     {k : Nat} {f : Field} (hf : S.fieldScoped env k f) (nF k' : Nat) :
     ∀ d ∈ (S.ihVal nF k' f).consts, ((S.install env).find? d).isSome := by
   have hrec : ∀ d ∈ (Expr.const S.recName S.recLvls).consts, ((S.install env).find? d).isSome := by
     intro d hd
     rw [Expr.consts_const, List.mem_singleton] at hd
     subst hd
-    rw [install_find?, if_pos rfl]
+    rw [install_find? S hpl, if_pos rfl]
     rfl
   have hspec : ∀ {e : Expr} {k'' : Nat}, Expr.Scoped env S.lparams k'' e →
       ∀ d ∈ e.consts, ((S.install env).find? d).isSome := by
     intro e k'' he d hd
     obtain ⟨ci, hci⟩ := Option.isSome_iff_exists.mp (he.2.1 d hd)
-    rw [S.find?_mono_install env hfresh hci]
+    rw [S.find?_mono_install hpl env hfresh hci]
     rfl
   cases f with
   | ordinary A => intro d hd; simp [ihVal] at hd
+  | container => intro d hd; simp [ihVal] at hd
   | recursive es =>
     intro d hd
     simp only [ihVal] at hd
@@ -740,7 +781,7 @@ theorem consts_ihVal (hfresh : ∀ m ∈ S.name :: S.recName :: S.ctors.map (·.
 /-- **A rule's right-hand side mentions only stored constants**: its
 context's are the rule type's (inferred), its body's are the
 recursor's and the specification's. -/
-theorem consts_ruleRhs [LevelOracle] (hS : S.Scoped env)
+theorem consts_ruleRhs [LevelOracle] (hpl : S.nest = none) (hS : S.Scoped env)
     (hfresh : ∀ m ∈ S.name :: S.recName :: S.ctors.map (·.name), env.find? m = none)
     {c : CtorSpec} {j : Nat} (hc : S.ctors[j]? = some c)
     (hty : ∃ T, Infer (S.envCtors env) [] (S.ruleType c) T) :
@@ -756,8 +797,9 @@ theorem consts_ruleRhs [LevelOracle] (hS : S.Scoped env)
     · rcases List.mem_append.mp ha with ha | ha
       · rw [Expr.consts_varsAt _ _ a ha] at hd; simp at hd
       · obtain ⟨kf, hkf, rfl⟩ := List.mem_map.mp ha
-        exact S.consts_ihVal hfresh (S.fieldScoped_of_mem_recFields hS hc' hkf).1 _ _ d hd
+        exact S.consts_ihVal hpl hfresh (S.fieldScoped_of_mem_recFields hS hc' hkf).1 _ _ d hd
   · have := Infer.consts hT d (by rw [ruleType]; exact Expr.consts_mkPis_of _ _ _ hA hd)
+    simp only [install, hpl]
     exact Env.isSome_find?_add this _ _
 
 end Generated
@@ -766,7 +808,7 @@ end Generated
 
 /-- A rule of the recursor is constructor `j`'s. -/
 theorem mem_rules {rl : RecRule} (h : rl ∈ S.rules) :
-    ∃ j c, S.ctors[j]? = some c ∧ rl = ⟨c.name, c.fields.length, S.ruleRhs c j⟩ := by
+    ∃ j c, S.ctors[j]? = some c ∧ rl = ⟨c.name, c.fields.length, S.ruleRhs c j, none⟩ := by
   rw [rules, List.mem_map] at h
   obtain ⟨j, hj, rfl⟩ := h
   rw [List.mem_range] at hj
@@ -803,8 +845,9 @@ name with a type the checker inferred (closed, stored constants) over
 the constant's own level parameters; the recursor's rules are closed,
 mention stored constants, use the recursor's parameters and fire on
 stored constructors. -/
-theorem _root_.Fragment.Env.Scoped.install [LevelOracle] {env : Env} (hs : Env.Scoped env)
-    (hok : S.Ok env) : Env.Scoped (S.install env) := by
+theorem _root_.Fragment.Env.Scoped.install [LevelOracle] {env : Env} (hpl : S.nest = none)
+    (hs : Env.Scoped env) (hok : S.Ok env) : Env.Scoped (S.install env) := by
+  simp only [IndSpec.install, hpl]
   obtain ⟨hnodup, hfresh, hS, ⟨T₀, hind⟩, hctors, _, ⟨T₁, hrec⟩⟩ := hok
   rw [List.nodup_cons, List.nodup_cons] at hnodup
   obtain ⟨hname, hrecName, hcnodup⟩ := hnodup
@@ -841,10 +884,11 @@ theorem _root_.Fragment.Env.Scoped.install [LevelOracle] {env : Env} (hs : Env.S
     obtain ⟨_, _, _, _, rfl⟩ := hk
     obtain ⟨j, c, hj, rfl⟩ := S.mem_rules hrl
     have hcj := List.mem_of_getElem? hj
+    have hinst : (S.envCtors env).add S.recName S.recInfo = S.install env := by
+      simp only [IndSpec.install, hpl]
     refine ⟨⟨S.closedAt_ruleRhs hS hj (hctors c hcj).2.2.2,
-      S.consts_ruleRhs hS hfresh hj (hctors c hcj).2.2.2, S.lparamsIn_ruleRhs hS hj⟩, ?_⟩
-    show ((S.install env).find? c.name).isSome
-    rw [install_find?, if_neg (fun h => hrecName (by rw [← h]; exact List.mem_map_of_mem hcj)),
+      hinst ▸ S.consts_ruleRhs hpl hS hfresh hj (hctors c hcj).2.2.2, S.lparamsIn_ruleRhs hS hj⟩, ?_⟩
+    rw [Env.find?_add, if_neg (fun h => hrecName (by rw [← h]; exact List.mem_map_of_mem hcj)),
       envCtors_find? S env hcnodup, S.ctorOf?_of_getElem? hcnodup hj]
     rfl
 

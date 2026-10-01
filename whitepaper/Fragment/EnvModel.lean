@@ -160,7 +160,36 @@ def RecRuleLaw (M : Name → List Nat → V) (c : Name) (ci : ConstInfo)
     WellDenoted M φ ρ (rl.rhs.instL ci.lparams us) ∧
     SpineOk (interp M φ ρ (rl.rhs.instL ci.lparams us)) (xs.take numBefore ++ ys.drop numParams)
 
-/-- **A model of an environment**: the assignment and the three laws. -/
+/-- **The ι law of a nested rule** (`Red.iotaNested`): for the
+recursor `c` with `numParams` parameters and a rule `rl` firing on a
+constructor `cij` of the block's container, with `nPc` parameters of
+its own — the comparisons against the stored instantiation are
+*checked* by the ι step, but the law does not consume them: the
+constructor's fields are pinned by the major's membership in the
+class (the recursor's telescope fit), as tags and tuples are
+injective, and the elimination level of a nested block whose sort may
+be `Prop` is `Prop` (`blockLargeElimAllowed`, `BlockRec.lean:82`),
+where the equation is trivial.  Otherwise as `RecRuleLaw`. -/
+def RecRuleLawN (M : Name → List Nat → V) (c : Name) (ci : ConstInfo)
+    (nPc numBefore majorIdx : Nat) (rl : RecRule) (cij : ConstInfo) : Prop :=
+  ∀ (φ : Name → Nat) (ρ : Nat → V) (us usj : List Level) (xs ys : List V),
+    us.length = ci.lparams.length → usj.length = cij.lparams.length →
+    xs.length = majorIdx → ys.length = nPc + rl.nfields →
+    TeleFitV M φ ρ (ci.type.instL ci.lparams us)
+      (xs ++ [appList (M rl.ctor (usj.map (Level.eval φ))) ys]) →
+    TeleFitV M φ ρ (cij.type.instL cij.lparams usj) ys →
+    (∀ (B : Expr) (ρ' : Nat → V) (I : Name) (lsI : List Level) (rps ridx : List Expr),
+      piBodyV ρ (cij.type.instL cij.lparams usj) ys = some (B, ρ') →
+      B = Expr.mkAppN (.const I lsI) (rps ++ ridx) → rps.length = nPc →
+      ∀ p ∈ (ridx.map (interp M φ ρ')).zip (xs.drop numBefore), p.1 = p.2) →
+    appList (M c (us.map (Level.eval φ)))
+        (xs ++ [appList (M rl.ctor (usj.map (Level.eval φ))) ys])
+      = appList (interp M φ ρ (rl.rhs.instL ci.lparams us))
+          (xs.take numBefore ++ ys.drop nPc) ∧
+    WellDenoted M φ ρ (rl.rhs.instL ci.lparams us) ∧
+    SpineOk (interp M φ ρ (rl.rhs.instL ci.lparams us)) (xs.take numBefore ++ ys.drop nPc)
+
+/-- **A model of an environment**: the assignment and the laws. -/
 structure EnvModel (V : Type u) [SetLib V] (env : Env) where
   /-- The set of every constant at every list of concrete levels. -/
   M : Name → List Nat → V
@@ -187,6 +216,17 @@ structure EnvModel (V : Type u) [SetLib V] (env : Env) where
     ∀ rl ∈ rules, ∀ cij : ConstInfo, env.find? rl.ctor = some cij →
       RecRuleLaw M c ci numParams (numParams + numMotives + numMinors)
         (numParams + numMotives + numMinors + numIndices) rl cij
+  /-- Every nested rule of every stored recursor satisfies its ι law,
+  at its constructor's own parameter count. -/
+  rec_rules_nested : ∀ (c : Name) (ci : ConstInfo) (numParams numMotives numMinors numIndices : Nat)
+    (rules : List RecRule),
+    env.find? c = some ci →
+    ci.kind = .recursor numParams numMotives numMinors numIndices rules →
+    ∀ rl ∈ rules, ∀ (lvs : List Level) (pinst : List Expr), rl.inst = some (lvs, pinst) →
+      ∀ (cij : ConstInfo) (I : Name) (nPc nf : Nat), env.find? rl.ctor = some cij →
+        cij.kind = .ctor I nPc nf →
+        RecRuleLawN M c ci nPc (numParams + numMotives + numMinors)
+          (numParams + numMotives + numMinors + numIndices) rl cij
 
 /-- The empty environment has a model: any assignment, vacuous laws. -/
 def EnvModel.empty (M : Name → List Nat → V) : EnvModel V Env.empty where
@@ -194,5 +234,6 @@ def EnvModel.empty (M : Name → List Nat → V) : EnvModel V Env.empty where
   type_ok := fun _ _ h => by simp at h
   unfold := fun _ _ _ h => by simp at h
   rec_rules := fun _ _ _ _ _ _ _ h => by simp at h
+  rec_rules_nested := fun _ _ _ _ _ _ _ h => by simp at h
 
 end Fragment

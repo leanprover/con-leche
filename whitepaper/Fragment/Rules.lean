@@ -154,6 +154,64 @@ inductive Red (env : Env) : List Expr → Expr → Expr → Prop where
       Red env Γ (mkAppN (const c us) args)
         (mkAppN (rl.rhs.instL ci.lparams us)
           (args.take (numParams + numMotives + numMinors) ++ margs.drop numParams))
+  /-- **ι, nested** (con-leche's `.nested`-certified rules, task #48):
+  a rule of an auxiliary recursor fires on a constructor of the
+  block's *container*, whose parameters are not the recursor's.  The
+  rule stores the constructor's expected levels (over the recursor's
+  level parameters) and expected parameters (terms under the
+  recursor's parameter binders, `RecRule.inst`); the three
+  comparisons of `Red.iota` become: the constructor's levels are the
+  stored ones at the use's levels, its parameters are definitionally
+  the stored ones at the recursor's parameter arguments
+  (`Expr.instChain`), and the residual's index expressions are
+  definitionally the recursor's index arguments.  The constructor's
+  own parameter count comes from its record.  The telescope
+  certificates are as in `Red.iota`. -/
+  | iotaNested {Γ : List Expr} {c : Name} {us : List Level} {ci : ConstInfo}
+      {numParams numMotives numMinors numIndices : Nat} {rules : List RecRule}
+      {args : List Expr} {major : Expr} {cj : Name} {usj : List Level}
+      {cij : ConstInfo} {I' : Name} {nPc nfj : Nat} {margs : List Expr} {rl : RecRule}
+      {lvs : List Level} {pinst : List Expr}
+      {doms tys doms' tys' : List Expr}
+      {residual : Expr} {I : Name} {lsI : List Level} {rps ridx : List Expr} :
+      env.find? c = some ci →
+      ci.kind = .recursor numParams numMotives numMinors numIndices rules →
+      us.length = ci.lparams.length →
+      args.length = numParams + numMotives + numMinors + numIndices + 1 →
+      ci.type.hasPis (numParams + numMotives + numMinors + numIndices + 1) = true →
+      Red env Γ (args.getD (numParams + numMotives + numMinors + numIndices) (bvar 0))
+        major →
+      major = mkAppN (const cj usj) margs →
+      rl ∈ rules → rl.ctor = cj → rl.inst = some (lvs, pinst) →
+      env.find? cj = some cij →
+      cij.kind = .ctor I' nPc nfj →
+      usj.length = cij.lparams.length →
+      margs.length = nPc + rl.nfields →
+      cij.type.hasPis (nPc + rl.nfields) = true →
+      piDomains (ci.type.instL ci.lparams us)
+        (args.take (numParams + numMotives + numMinors + numIndices) ++ [major]) = some doms →
+      tys.length = doms.length →
+      (∀ p ∈ (args.take (numParams + numMotives + numMinors + numIndices) ++ [major]).zip tys,
+        Infer env Γ p.1 p.2) →
+      (∀ p ∈ tys.zip doms, DefEq env Γ p.1 p.2) →
+      piDomains (cij.type.instL cij.lparams usj) margs = some doms' →
+      tys'.length = doms'.length →
+      (∀ p ∈ margs.zip tys', Infer env Γ p.1 p.2) →
+      (∀ p ∈ tys'.zip doms', DefEq env Γ p.1 p.2) →
+      -- the constructor's levels and parameters against the stored instantiation
+      Level.eqList usj (lvs.map (Level.subst ci.lparams us)) = true →
+      pinst.length = nPc →
+      (∀ p ∈ (margs.take nPc).zip
+        (pinst.map fun e => instChain (e.instL ci.lparams us) (args.take numParams)),
+        DefEq env Γ p.1 p.2) →
+      piResidual (cij.type.instL cij.lparams usj) margs = some residual →
+      residual = mkAppN (const I lsI) (rps ++ ridx) →
+      rps.length = nPc →
+      (∀ p ∈ ridx.zip ((args.take (numParams + numMotives + numMinors + numIndices)).drop
+        (numParams + numMotives + numMinors)), DefEq env Γ p.1 p.2) →
+      Red env Γ (mkAppN (const c us) args)
+        (mkAppN (rl.rhs.instL ci.lparams us)
+          (args.take (numParams + numMotives + numMinors) ++ margs.drop nPc))
 
 /-- **Definitional equality**: the verdict `true` of the checker's
 `isDefEq`.

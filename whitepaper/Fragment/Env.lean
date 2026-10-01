@@ -1,6 +1,6 @@
 module
 
-public import Fragment.Syntax
+public import Fragment.Spec
 
 @[expose] public section
 
@@ -40,6 +40,16 @@ structure RecRule where
   /-- The right-hand side, a closed term over the recursor's level
   parameters, `fun params motives minors fields => …`. -/
   rhs : Expr
+  /-- **The stored instantiation** of a nested rule (an auxiliary
+  recursor's rule, firing on a constructor of the block's *container*):
+  the constructor's expected levels, over the recursor's level
+  parameters, and its expected parameters, terms under the recursor's
+  own parameter binders — what the ι step compares the constructor
+  application against (`Red.iotaNested`).  `none` for a rule of the
+  block's own constructors, whose levels and parameters are the
+  recursor's (`Red.iota`).  Con-leche's `.nested` certification of a
+  rule (`tests/e2e/src/nested_rec.lean`). -/
+  inst : Option (List Level × List Expr) := none
   deriving DecidableEq
 
 /-- What kind of constant a name is stored as. -/
@@ -47,8 +57,11 @@ inductive ConstKind where
   /-- A definition: its value unfolds (δ). -/
   | defn (value : Expr)
   /-- An inductive type former with `numParams` parameters,
-  `numIndices` indices and these constructors. -/
-  | induct (numParams numIndices : Nat) (ctors : List Name)
+  `numIndices` indices and these constructors — and the block's
+  specification it was generated from (`Spec.lean`), which a later
+  block nesting through this one reads back (con-leche stores the
+  block's shape with the former likewise, `IndCaps`). -/
+  | induct (numParams numIndices : Nat) (ctors : List Name) (spec : IndSpec)
   /-- A constructor of the inductive `induct`, with `numParams`
   parameters (the inductive's) and `nfields` fields. -/
   | ctor (induct : Name) (numParams nfields : Nat)

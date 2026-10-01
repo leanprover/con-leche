@@ -124,70 +124,6 @@ def atCtx (nF k l o d : Nat) (e : Expr) : Expr :=
 
 end Expr
 
-/-! ## The specification of a block -/
-
-/-- A constructor field, as the positivity check classifies it
-(con-leche's `RecFieldKind`, `NativeParts.lean:51`).  Its domain is an
-expression under the parameters and the earlier fields. -/
-inductive Field where
-  /-- An ordinary field: any domain that does not mention the block. -/
-  | ordinary (A : Expr)
-  /-- A recursive field: the family at the block's parameters and the
-  index expressions `es` (a spine, outermost first). -/
-  | recursive (es : List Expr)
-  /-- A reflexive field: `∀ tele, I params es` — a function space into
-  the family; `tele` is a context (innermost first) under the
-  parameters and the earlier fields, `es` a spine under `tele` too. -/
-  | reflexive (tele : List Expr) (es : List Expr)
-  deriving DecidableEq
-
-namespace Field
-
-/-- Does the field carry an inductive hypothesis? -/
-def isRec : Field → Bool
-  | ordinary _ => false
-  | recursive _ => true
-  | reflexive _ _ => true
-
-end Field
-
-/-- A constructor: its name, its fields (a context, innermost first)
-and the index expressions of its result `I params idx` (a spine,
-outermost first, under the parameters and all the fields). -/
-structure CtorSpec where
-  /-- The constructor's name. -/
-  name : Name
-  /-- The fields, innermost first. -/
-  fields : List Field
-  /-- The result's index expressions, outermost first. -/
-  idx : List Expr
-  deriving DecidableEq
-
-/-- **The specification of a single inductive block**
-(con-leche's `NativeParts`/`InductiveShape`, `NativeParts.lean:180`,
-`SumParts.lean:79`). -/
-structure IndSpec where
-  /-- The type former's name. -/
-  name : Name
-  /-- The block's level parameters. -/
-  lparams : List Name
-  /-- The parameter telescope (a context, innermost first). -/
-  params : List Expr
-  /-- The index telescope (a context under the parameters). -/
-  indices : List Expr
-  /-- The result sort `Sort u`. -/
-  sort : Level
-  /-- The constructors, in order. -/
-  ctors : List CtorSpec
-  /-- The recursor's name. -/
-  recName : Name
-  /-- Large elimination: the recursor eliminates into `Sort ℓ` for a
-  fresh level parameter `ℓ`; otherwise into `Prop`. -/
-  large : Bool
-  /-- The fresh elimination level parameter (read only if `large`). -/
-  elim : Name
-  deriving DecidableEq
-
 namespace IndSpec
 
 open Expr
@@ -226,11 +162,30 @@ def famAt (o : Nat) (es : List Expr) : Expr :=
 variables (`0` up): the type of a major premise. -/
 def famVars (e : Nat) : Expr := S.famAt (e + S.nI) (varsAt 0 S.nI)
 
-/-- A field's domain, with `k` earlier fields. -/
+/-! ### The class of a nested block -/
+
+/-- **The class's arguments** under `o` binders above the parameters:
+the container's other arguments with the member `I params idx` at
+position `p` (outermost first). -/
+def classArgs (N : NestInfo) (o : Nat) : List Expr :=
+  (N.args.take N.p).map (liftN o ·) ++ [S.famAt o (N.idx.map (liftN o ·))] ++
+    (N.args.drop N.p).map (liftN o ·)
+
+/-- **The class** `K.{lsK} args[member]` under `o` binders above the
+parameters: the domain of a container field, the major of the
+auxiliary recursor. -/
+def classTy (N : NestInfo) (o : Nat) : Expr := mkAppN (.const N.K.name N.lsK) (S.classArgs N o)
+
+/-- A field's domain, with `k` earlier fields.  (A container field's
+is the class, when the block has one.) -/
 def fieldDom (k : Nat) : Field → Expr
   | .ordinary A => A
   | .recursive es => S.famAt k es
   | .reflexive tele es => mkPis S.pw tele (S.famAt (k + tele.length) es)
+  | .container =>
+    match S.nest with
+    | some N => S.classTy N k
+    | none => .sort .zero
 
 /-- A constructor's field context: the domains, innermost first (the
 head has all the others as earlier fields). -/
@@ -288,6 +243,13 @@ def ihTy (nF k l o : Nat) : Field → Expr
     mkPis S.q (liftCtx (fun t T => atCtx nF k l o t T) tele)
       (mkAppN (.bvar (nF + l + o - 1 + m))
         (es.map (atCtx nF k l o m) ++ [mkAppN (.bvar (nF - 1 - k + l + m)) (varsAt 0 m)]))
+  | .container => mkAppN (.bvar (nF + l + o - 2)) [.bvar (nF - 1 - k + l)]
+
+/-- The inductive hypotheses of a constructor under `o` binders
+between the parameters and the fields, as a context (innermost
+first). -/
+def ihCtxAt (c : CtorSpec) (o : Nat) : List Expr :=
+  (c.recFields.mapIdx fun l kf => S.ihTy c.fields.length kf.1 l o kf.2).reverse
 
 /-- The inductive hypotheses of a constructor in minor premise `j`, as
 a context (innermost first). -/
@@ -324,6 +286,7 @@ field's index expressions and the field (under the field's own
 telescope at a reflexive field). -/
 def ihVal (nF k : Nat) : Field → Expr
   | .ordinary _ => .sort .zero
+  | .container => .sort .zero
   | .recursive es =>
     mkAppN (.const S.recName S.recLvls)
       (varsAt (nF + S.n + 1) S.nP ++ [.bvar (nF + S.n)] ++ varsAt nF S.n ++
@@ -368,12 +331,183 @@ def ruleRhs (c : CtorSpec) (j : Nat) : Expr :=
 def rules : List RecRule :=
   (List.range S.n).map fun j =>
     let c := S.ctors.getD j ⟨"", [], []⟩
-    ⟨c.name, c.fields.length, S.ruleRhs c j⟩
+    ⟨c.name, c.fields.length, S.ruleRhs c j, none⟩
+
+/-! ### The nested block's recursors
+
+A block with a class has two recursors with one telescope prefix —
+the parameters, the motive for the block, the motive for the class,
+the minor premises for the block's constructors and the minor
+premises for the container's constructors *at the instantiation* —
+differing in the major: the block's family at its indices for `T.rec`,
+the class for `T.rec_1` (con-leche's `classGenRecTy`, `GenRec.lean`).
+The container's constructors are read in the block's own terms
+(`classCtor`): the member field becomes a recursive field of the block
+at the member's index expressions, a recursive field of the container
+becomes a container field, an ordinary field has the container's
+parameters replaced by the class's arguments. -/
+
+/-- The container's field with `k` earlier fields, in the block's
+terms. -/
+def classField (N : NestInfo) (k : Nat) : Field → Field
+  | .ordinary A =>
+    if N.isMember k (.ordinary A) then .recursive (N.idx.map (liftN k ·))
+    else .ordinary (instChainAt (A.instL N.K.lparams N.lsK) (S.classArgs N 0) k)
+  | .recursive _ => .container
+  | f => f
+
+/-- A constructor of the container, in the block's terms: its fields
+translated, no indices. -/
+def classCtor (N : NestInfo) (c : CtorSpec) : CtorSpec :=
+  ⟨c.name, c.fields.mapIdx fun i f => S.classField N (c.fields.length - 1 - i) f, []⟩
+
+/-- The extras of the nested recursors' prefix: two motives and all
+minor premises. -/
+def oN (N : NestInfo) : Nat := 2 + S.n + N.nK
+
+/-- **The class's motive's type**, under the parameters and the
+block's motive: `∀ (t : K args[member]), Sort ℓ`. -/
+def motiveTy1 (N : NestInfo) : Expr := mkPis .never [S.classTy N 1] (.sort S.ℓ)
+
+/-- **A minor premise of the block's constructor `j`** in a nested
+block: as `minorTy`, under the two motives and the `j` earlier minors. -/
+def minorTyN (c : CtorSpec) (j : Nat) : Expr :=
+  let nF := c.fields.length
+  let nIh := c.recFields.length
+  let o := 2 + j
+  mkPis S.q (S.ihCtxAt c o ++ S.fieldCtxAt c o)
+    (mkAppN (.bvar (nIh + nF + o - 1))
+      (c.idx.map (atCtx nF nF nIh o 0) ++
+        [mkAppN (.const c.name S.lvls) (varsAt (nIh + nF + o) S.nP ++ varsAt nIh nF)]))
+
+/-- **A minor premise of the container's constructor `j`** at the
+instantiation: under the two motives, the block's minors and the `j`
+earlier class minors, `∀ fields ihs, motive_1 (C.{lsK} args[member] fields)`
+— the fields the translated ones, a member field's hypothesis the
+block's motive at the member, a container field's the class's. -/
+def minorTyK (N : NestInfo) (c : CtorSpec) (j : Nat) : Expr :=
+  let c' := S.classCtor N c
+  let nF := c'.fields.length
+  let nIh := c'.recFields.length
+  let o := 2 + S.n + j
+  mkPis S.q (S.ihCtxAt c' o ++ S.fieldCtxAt c' o)
+    (mkAppN (.bvar (nIh + nF + o - 2))
+      [mkAppN (.const c.name N.lsK) (S.classArgs N (nIh + nF + o) ++ varsAt nIh nF)])
+
+/-- The block's minors in a nested block, as a context (innermost
+first). -/
+def minorsCtxN : List Expr :=
+  ((List.range S.n).map fun j => S.minorTyN (S.ctors.getD j ⟨"", [], []⟩) j).reverse
+
+/-- The class's minors, as a context (innermost first). -/
+def minorsCtxK (N : NestInfo) : List Expr :=
+  ((List.range (N.nK)).map fun j => S.minorTyK N (N.K.ctors.getD j ⟨"", [], []⟩) j).reverse
+
+/-- The extras of the nested recursors' prefix, as a context: the
+class's minors, the block's minors, the class's motive, the block's
+motive (innermost first). -/
+def extrasN (N : NestInfo) : List Expr :=
+  S.minorsCtxK N ++ S.minorsCtxN ++ [S.motiveTy1 N, S.motiveTy]
+
+/-- The context of `T.rec`: the major at the family, the indices, the
+extras, the parameters. -/
+def recCtxN (N : NestInfo) : List Expr :=
+  S.famVars (S.oN N) :: S.indicesAt (S.oN N) ++ S.extrasN N ++ S.params
+
+/-- **`T.rec`'s type** in a nested block:
+`∀ params motive motive_1 minors minors_1 indices (t : I params indices), motive indices t`. -/
+def recTypeN (N : NestInfo) : Expr :=
+  mkPis S.q (S.recCtxN N) (mkAppN (.bvar (S.nI + S.oN N)) (varsAt 1 S.nI ++ [.bvar 0]))
+
+/-- The context of `T.rec_1`: the major at the class, the extras, the
+parameters. -/
+def rec1Ctx (N : NestInfo) : List Expr := S.classTy N (S.oN N) :: S.extrasN N ++ S.params
+
+/-- **`T.rec_1`'s type**: the same prefix, the major at the class,
+the class's motive at it. -/
+def rec1Type (N : NestInfo) : Expr :=
+  mkPis S.q (S.rec1Ctx N) (mkAppN (.bvar (S.oN N - 1)) [.bvar 0])
+
+/-- **An inductive hypothesis' value** in a rule of a nested block:
+`T.rec` at the field for a recursive field, `T.rec_1` at the field
+for a container field — each at the parameters and all the extras. -/
+def ihValN (N : NestInfo) (nF k : Nat) : Field → Expr
+  | .ordinary _ => .sort .zero
+  | .recursive es =>
+    mkAppN (.const S.recName S.recLvls)
+      (varsAt (nF + S.oN N) S.nP ++ varsAt nF (S.oN N) ++
+        es.map (atCtx nF k 0 (S.oN N) 0) ++ [.bvar (nF - 1 - k)])
+  | .reflexive tele es =>
+    let m := tele.length
+    mkLams S.q (liftCtx (fun t T => atCtx nF k 0 (S.oN N) t T) tele)
+      (mkAppN (.const S.recName S.recLvls)
+        (varsAt (m + nF + S.oN N) S.nP ++ varsAt (m + nF) (S.oN N) ++
+          es.map (atCtx nF k 0 (S.oN N) m) ++ [mkAppN (.bvar (m + nF - 1 - k)) (varsAt 0 m)]))
+  | .container =>
+    mkAppN (.const N.aux S.recLvls)
+      (varsAt (nF + S.oN N) S.nP ++ varsAt nF (S.oN N) ++ [.bvar (nF - 1 - k)])
+
+/-- The context of a rule of a nested block: the parameters, the
+extras and the constructor's fields (the block's or the translated
+container's). -/
+def ruleCtxN (N : NestInfo) (c : CtorSpec) : List Expr :=
+  S.fieldCtxAt c (S.oN N) ++ S.extrasN N ++ S.params
+
+/-- A `T.rec` rule's type body: `motive idx (C params fields)`. -/
+def ruleBodyTyN (N : NestInfo) (c : CtorSpec) : Expr :=
+  let nF := c.fields.length
+  mkAppN (.bvar (nF + S.oN N - 1))
+    (c.idx.map (atCtx nF nF 0 (S.oN N) 0) ++
+      [mkAppN (.const c.name S.lvls) (varsAt (nF + S.oN N) S.nP ++ varsAt 0 nF)])
+
+/-- A `T.rec` rule's type. -/
+def ruleTypeN (N : NestInfo) (c : CtorSpec) : Expr := mkPis S.q (S.ruleCtxN N c) (S.ruleBodyTyN N c)
+
+/-- A `T.rec_1` rule's type body: `motive_1 (C.{lsK} args[member] fields)`. -/
+def rule1BodyTy (N : NestInfo) (c : CtorSpec) : Expr :=
+  let nF := (S.classCtor N c).fields.length
+  mkAppN (.bvar (nF + S.oN N - 2))
+    [mkAppN (.const c.name N.lsK) (S.classArgs N (nF + S.oN N) ++ varsAt 0 nF)]
+
+/-- A `T.rec_1` rule's type. -/
+def rule1Type (N : NestInfo) (c : CtorSpec) : Expr :=
+  mkPis S.q (S.ruleCtxN N (S.classCtor N c)) (S.rule1BodyTy N c)
+
+/-- **A `T.rec` rule's right-hand side** for the block's constructor
+`j`: `fun params motives minors fields => minor_j fields ihs`. -/
+def ruleRhsN (N : NestInfo) (c : CtorSpec) (j : Nat) : Expr :=
+  let nF := c.fields.length
+  mkLams S.q (S.ruleCtxN N c)
+    (mkAppN (.bvar (nF + N.nK + S.n - 1 - j))
+      (varsAt 0 nF ++ c.recFields.map fun kf => S.ihValN N nF kf.1 kf.2))
+
+/-- **A `T.rec_1` rule's right-hand side** for the container's
+constructor `j`: `fun params motives minors fields => minor_1_j fields ihs`. -/
+def rule1Rhs (N : NestInfo) (c : CtorSpec) (j : Nat) : Expr :=
+  let c' := S.classCtor N c
+  let nF := c'.fields.length
+  mkLams S.q (S.ruleCtxN N c')
+    (mkAppN (.bvar (nF + N.nK - 1 - j))
+      (varsAt 0 nF ++ c'.recFields.map fun kf => S.ihValN N nF kf.1 kf.2))
+
+/-- `T.rec`'s rules, one per constructor of the block. -/
+def rulesN (N : NestInfo) : List RecRule :=
+  (List.range S.n).map fun j =>
+    let c := S.ctors.getD j ⟨"", [], []⟩
+    ⟨c.name, c.fields.length, S.ruleRhsN N c j, none⟩
+
+/-- `T.rec_1`'s rules, one per constructor of the container, each
+with its stored instantiation: the container's levels and the class's
+arguments. -/
+def rules1 (N : NestInfo) : List RecRule :=
+  (List.range (N.nK)).map fun j =>
+    let c := N.K.ctors.getD j ⟨"", [], []⟩
+    ⟨c.name, c.fields.length, S.rule1Rhs N c j, some (N.lsK, S.classArgs N 0)⟩
 
 /-! ### What is stored -/
 
 /-- The type former's constant. -/
-def indInfo : ConstInfo := ⟨S.lparams, S.indType, .induct S.nP S.nI (S.ctors.map (·.name))⟩
+def indInfo : ConstInfo := ⟨S.lparams, S.indType, .induct S.nP S.nI (S.ctors.map (·.name)) S⟩
 
 /-- A constructor's constant. -/
 def ctorInfo (c : CtorSpec) : ConstInfo :=
@@ -391,8 +525,26 @@ in order. -/
 def envCtors (env : Env) : Env :=
   S.ctors.foldl (fun e c => e.add c.name (S.ctorInfo c)) (S.envInd env)
 
-/-- **The installed block**: former, constructors, recursor. -/
-def install (env : Env) : Env := (S.envCtors env).add S.recName S.recInfo
+/-- `T.rec`'s constant in a nested block: `nP` parameters, two
+motives, `n + nK` minors, `nI` indices. -/
+def recInfoN (N : NestInfo) : ConstInfo :=
+  ⟨S.recLparams, S.recTypeN N, .recursor S.nP 2 (S.n + N.nK) S.nI (S.rulesN N)⟩
+
+/-- `T.rec_1`'s constant: the same prefix, no indices. -/
+def rec1Info (N : NestInfo) : ConstInfo :=
+  ⟨S.recLparams, S.rec1Type N, .recursor S.nP 2 (S.n + N.nK) 0 (S.rules1 N)⟩
+
+/-- **The installed nested block**: former, constructors, the two
+recursors. -/
+def installN (N : NestInfo) (env : Env) : Env :=
+  ((S.envCtors env).add S.recName (S.recInfoN N)).add N.aux (S.rec1Info N)
+
+/-- **The installed block**: former, constructors, recursor — and the
+auxiliary recursor for a nested block. -/
+def install (env : Env) : Env :=
+  match S.nest with
+  | none => (S.envCtors env).add S.recName S.recInfo
+  | some N => S.installN N env
 
 end IndSpec
 
@@ -443,6 +595,7 @@ def fieldScoped (env : Env) (k : Nat) : Field → Prop
   | .reflexive tele es =>
     (∀ t T, tele[t]? = some T → Expr.Scoped env S.lparams (S.nP + k + (tele.length - 1 - t)) T) ∧
     es.length = S.nI ∧ (∀ e ∈ es, Expr.Scoped env S.lparams (S.nP + k + tele.length) e)
+  | .container => S.nest.isSome = true
 
 /-- **No field reads an earlier recursive field**: an ordinary domain,
 a reflexive field's telescope entries and its index expressions, and
@@ -458,6 +611,23 @@ def fieldNoRecDep (earlier : List Field) : Field → Prop
     (∀ i f, earlier[i]? = some f → f.isRec = true →
       (∀ (t : Nat) (T : Expr), tele[t]? = some T → T.usesVar (tele.length - 1 - t + i) = false) ∧
       ∀ e ∈ es, e.usesVar (tele.length + i) = false)
+  | .container => True
+
+/-- **The class is in scope**: when the block has one, the container
+is stored, with as many levels as it has parameters; the class's
+arguments and the member's index expressions are closed under the
+block's parameters, mention stored constants and use the block's level
+parameters (so the class reads alike wherever the block's parameters
+do); the member fills the one missing parameter position; the container
+is positive in it (`NestInfo.Positive`) and is not the block itself. -/
+def NestScoped (env : Env) : Prop :=
+  ∀ N, S.nest = some N →
+    (env.find? N.K.name).isSome ∧ N.K.name ≠ S.name ∧
+    N.lsK.length = N.K.lparams.length ∧ (∀ l ∈ N.lsK, l.paramsIn S.lparams = true) ∧
+    N.args.length + 1 = N.nPK ∧ N.idx.length = S.nI ∧
+    (∀ e ∈ N.args, Expr.Scoped env S.lparams S.nP e) ∧
+    (∀ e ∈ N.idx, Expr.Scoped env S.lparams S.nP e) ∧
+    N.Positive
 
 /-- **The specification is in scope** of the environment: every
 expression of it is closed at its depth, mentions only stored
@@ -474,7 +644,8 @@ def Scoped (env : Env) : Prop :=
     c.idx.length = S.nI ∧
     (∀ e ∈ c.idx, Expr.Scoped env S.lparams (S.nP + c.fields.length) e)) ∧
   (S.large = true → S.elim ∉ S.lparams) ∧
-  S.lparams.Nodup
+  S.lparams.Nodup ∧
+  S.NestScoped env
 
 /-- The universe bound on a field of sort `v`: the family is a
 proposition, or `v ≤ u` (official's "universe level of `type_of(arg)`
@@ -543,9 +714,58 @@ def Ok (env : Env) : Prop :=
   (S.large = true → ¬ S.NeverProp → S.ctors.length ≤ 1) ∧
   (∃ T, Infer (S.envCtors env) [] S.recType T)
 
+/-- **A nested block is accepted** (con-leche's `checkNative` with
+the positivity walk through the container and the generated recursors
+of every class, `Positivity.lean`, `GenRec.lean`): as `Ok` for the
+former and the constructors, and then
+
+* the container is stored with its specification, which is plain
+  (depth one) and positive in the member's position;
+* the container's sort at the instantiation is the block's sort
+  (official's N3), and so is the member parameter's domain sort —
+  the member, a fibre of the block, is a member of that domain;
+* the class, at the block's parameters, has a sort in the environment
+  holding the former: its arguments fit the container's parameters;
+* **large elimination is refused unless the sort is never `Prop`**
+  (`blockLargeElimAllowed`, `BlockRec.lean:82`): the subsingleton
+  criterion is never consulted for a nested block;
+* the two recursors' types and every rule's type have sorts in the
+  environment holding the former and the constructors. -/
+def OkN (N : NestInfo) (env : Env) : Prop :=
+  S.nest = some N ∧
+  (S.name :: S.recName :: N.aux :: S.ctors.map (·.name)).Nodup ∧
+  (∀ m ∈ S.name :: S.recName :: N.aux :: S.ctors.map (·.name), env.find? m = none) ∧
+  S.Scoped env ∧
+  (∃ T, Infer env [] S.indType T) ∧
+  (∀ c ∈ S.ctors,
+    (∃ T, Infer (S.envInd env) [] (S.ctorType c) T) ∧
+    (∀ i A, (S.fieldCtx c.fields)[i]? = some A →
+      ∃ s v, Infer (S.envInd env) ((S.fieldCtx c.fields).drop (i + 1) ++ S.params) A s ∧
+        Red (S.envInd env) ((S.fieldCtx c.fields).drop (i + 1) ++ S.params) s (.sort v) ∧
+        S.FieldBound v) ∧
+    (∀ i tele es, c.fields[i]? = some (.reflexive tele es) → ∀ t T, tele[t]? = some T →
+      ∃ s w, Infer (S.envInd env)
+          (tele.drop (t + 1) ++ (S.fieldCtx c.fields).drop (i + 1) ++ S.params) T s ∧
+        Red (S.envInd env) (tele.drop (t + 1) ++ (S.fieldCtx c.fields).drop (i + 1) ++ S.params)
+          s (.sort w) ∧
+        S.FieldBound w) ∧
+    (∃ T, Infer (S.envCtors env) [] (S.ruleTypeN N c) T)) ∧
+  (∃ ci, env.find? N.K.name = some ci ∧ ci.kind = .induct N.nPK 0 (N.K.ctors.map (·.name)) N.K.spec) ∧
+  LevelOracle.eq (N.K.sort.subst N.K.lparams N.lsK) S.sort = true ∧
+  LevelOracle.eq (N.memberLevel.subst N.K.lparams N.lsK) S.sort = true ∧
+  (∃ T, Infer (S.envInd env) S.params (S.classTy N 0) T) ∧
+  (S.large = true → S.NeverProp) ∧
+  (∀ c ∈ N.K.ctors, ∃ T, Infer (S.envCtors env) [] (S.rule1Type N c) T) ∧
+  (∃ T, Infer (S.envCtors env) [] (S.recTypeN N) T) ∧
+  (∃ T, Infer (S.envCtors env) [] (S.rec1Type N) T)
+
 end IndSpec
 
-/-- `IndOk env S`: the block `S` is accepted on top of `env`. -/
-abbrev IndOk (env : Env) (S : IndSpec) : Prop := S.Ok env
+/-- `IndOk env S`: the block `S` is accepted on top of `env` — by the
+plain checks, or the nested ones when it has a class. -/
+def IndOk (env : Env) (S : IndSpec) : Prop :=
+  match S.nest with
+  | none => S.Ok env
+  | some N => S.OkN N env
 
 end Fragment

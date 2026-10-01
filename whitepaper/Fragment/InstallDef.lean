@@ -215,6 +215,47 @@ def EnvModel.transport {env : Env} (m : EnvModel V env) (hs : Env.Scoped env)
       exact hidx B ρ' I lsI rps ridx hpb hB hlen
     have res := law φ ρ us usj xs ys h1 h2 h3 h4 hfit1 hfit2 hlv hps hidx'
     rwa [hc, hctor, interp_consts (hR us), WellDenoted_consts (hR us)] at res
+  rec_rules_nested := fun c ci nP nM nMin nI rules hfind hkind rl hrl lvs pinst hinst cij I nPc nf
+      hcij hcijk => by
+    have law := m.rec_rules_nested c ci nP nM nMin nI rules hfind hkind rl hrl lvs pinst hinst cij
+      I nPc nf hcij hcijk
+    have hsc := hs c ci hfind
+    have hsj := hs rl.ctor cij hcij
+    have hT : ∀ us, ∀ d ∈ (ci.type.instL ci.lparams us).consts, ∀ ls, m.M d ls = M' d ls :=
+      fun us d hd ls => by
+        rw [Expr.consts_instL] at hd
+        exact h d (hsc.1.2.1 d hd) ls
+    have hTj : ∀ us, ∀ d ∈ (cij.type.instL cij.lparams us).consts, ∀ ls, m.M d ls = M' d ls :=
+      fun us d hd ls => by
+        rw [Expr.consts_instL] at hd
+        exact h d (hsj.1.2.1 d hd) ls
+    have hR : ∀ us, ∀ d ∈ (rl.rhs.instL ci.lparams us).consts, ∀ ls, m.M d ls = M' d ls :=
+      fun us d hd ls => by
+        rw [Expr.consts_instL] at hd
+        exact h d ((hsc.2.2 nP nM nMin nI rules hkind rl hrl).1.2.1 d hd) ls
+    have hc : ∀ ls, m.M c ls = M' c ls := h c (by simp [hfind])
+    have hctor : ∀ ls, m.M rl.ctor ls = M' rl.ctor ls := h rl.ctor (by simp [hcij])
+    intro φ ρ us usj xs ys h1 h2 h3 h4 hfit1 hfit2 hidx
+    rw [← hctor, ← TeleFitV_congr_model (hT us)] at hfit1
+    rw [← TeleFitV_congr_model (hTj usj)] at hfit2
+    have hidx' : ∀ (B : Expr) (ρ' : Nat → V) (I : Name) (lsI : List Level) (rps ridx : List Expr),
+        piBodyV ρ (cij.type.instL cij.lparams usj) ys = some (B, ρ') →
+        B = Expr.mkAppN (.const I lsI) (rps ++ ridx) → rps.length = nPc →
+        ∀ p ∈ (ridx.map (interp m.M φ ρ')).zip (xs.drop (nP + nM + nMin)), p.1 = p.2 := by
+      intro B ρ' I lsI rps ridx hpb hB hlen
+      have hmap : ridx.map (interp m.M φ ρ') = ridx.map (interp M' φ ρ') := by
+        apply List.map_congr_left
+        intro e he
+        apply interp_consts
+        intro d hd ls
+        apply hTj usj
+        apply piBodyV_consts hpb
+        rw [hB, Expr.consts_mkAppN, List.mem_append, List.mem_flatMap]
+        exact Or.inr ⟨e, List.mem_append_right _ he, hd⟩
+      rw [hmap]
+      exact hidx B ρ' I lsI rps ridx hpb hB hlen
+    have res := law φ ρ us usj xs ys h1 h2 h3 h4 hfit1 hfit2 hidx'
+    rwa [hc, hctor, interp_consts (hR us), WellDenoted_consts (hR us)] at res
 
 /-- The transported model's assignment is the new one. -/
 theorem EnvModel.transport_M {env : Env} (m : EnvModel V env) (hs : Env.Scoped env)
@@ -310,7 +351,7 @@ theorem install_def {env : Env} {c : Name} {ci : ConstInfo} (hs : Env.Scoped env
     rw [hm₀] at hTsem hvsem heq
     rw [WellDenoted_instL, WellDenoted_instL, interp_instL, interp_instL, ← heq]
     exact ⟨hTsem.1, hvsem.1, hvsem.2.2⟩
-  refine ⟨{ M := M', type_ok := ?_, unfold := ?_, rec_rules := ?_ },
+  refine ⟨{ M := M', type_ok := ?_, unfold := ?_, rec_rules := ?_, rec_rules_nested := ?_ },
     fun n hn ls => hM'n n (Env.ne_of_isSome_find? hn hfresh) ls⟩
   · -- `type_ok`
     intro n ci' hfind φ ρ ls hlen
@@ -346,6 +387,18 @@ theorem install_def {env : Env} {c : Name} {ci : ConstInfo} (hs : Env.Scoped env
     · have hctor := ((hs n ci' hfind).2.2 nP nM nMin nI rules hk rl hrl).2
       rw [Env.find?_add_of_ne env ci (Env.ne_of_isSome_find? hctor hfresh)] at hcij
       have := m₀.rec_rules n ci' nP nM nMin nI rules hfind hk rl hrl cij hcij
+      rwa [hm₀] at this
+  · -- `rec_rules_nested`: likewise
+    intro n ci' nP nM nMin nI rules hfind hk rl hrl lvs pinst hinst cij I nPc nf hcij hcijk
+    rw [Env.find?_add] at hfind
+    split at hfind
+    · cases hfind
+      rw [hkind] at hk
+      cases hk
+    · have hctor := ((hs n ci' hfind).2.2 nP nM nMin nI rules hk rl hrl).2
+      rw [Env.find?_add_of_ne env ci (Env.ne_of_isSome_find? hctor hfresh)] at hcij
+      have := m₀.rec_rules_nested n ci' nP nM nMin nI rules hfind hk rl hrl lvs pinst hinst cij I
+        nPc nf hcij hcijk
       rwa [hm₀] at this
 
 end Fragment

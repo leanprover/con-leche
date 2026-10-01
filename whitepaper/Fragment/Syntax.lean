@@ -184,6 +184,30 @@ theorem hasPis_inst (a : Expr) :
   | app _ _, _, _ + 1, h => by simp [hasPis] at h
   | lam _ _ _, _, _ + 1, h => by simp [hasPis] at h
 
+/-- **The substitution chain** of walking a telescope along
+arguments: the first argument is substituted for the outermost
+binder (which sits under the others), and so on.  (Also the
+instantiation of a stored term's parameter binders at a use's
+parameter arguments, `Red.iotaNested`.) -/
+def instChain : Expr → List Expr → Expr
+  | e, [] => e
+  | e, a :: as => instChain (e.inst a as.length) as
+
+@[simp] theorem instChain_nil (e : Expr) : instChain e [] = e := rfl
+@[simp] theorem instChain_cons (e a : Expr) (as : List Expr) :
+    instChain e (a :: as) = instChain (e.inst a as.length) as := rfl
+
+/-- The substitution chain under `d` binders: the arguments
+(outermost first) replace the `as.length` binders sitting just above
+the `d` innermost ones.  `instChainAt e as 0` is `instChain e as`. -/
+def instChainAt : Expr → List Expr → Nat → Expr
+  | e, [], _ => e
+  | e, a :: as, d => instChainAt (e.inst a (d + as.length)) as d
+
+@[simp] theorem instChainAt_nil (e : Expr) (d : Nat) : instChainAt e [] d = e := rfl
+@[simp] theorem instChainAt_cons (e a : Expr) (as : List Expr) (d : Nat) :
+    instChainAt e (a :: as) d = instChainAt (e.inst a (d + as.length)) as d := rfl
+
 /-- The **residual** of walking a syntactic `Π`-telescope along a list
 of arguments: what is left of the type once every argument has met
 its binder and been substituted in — for a constructor's type walked

@@ -43,8 +43,8 @@ inductive Accepted : Env → Prop
   /-- A definition (`DefOk`, `Decl.lean`). -/
   | defn {env : Env} {c : Name} {ci : ConstInfo} :
       Accepted env → DefOk env c ci → Accepted (env.add c ci)
-  /-- An inductive block (`IndOk`, `Decl.lean`). -/
-  | ind {env : Env} (S : IndSpec) : Accepted env → IndOk env S → Accepted (S.install env)
+  /-- A plain inductive block (`IndSpec.Ok`, `Decl.lean`). -/
+  | ind {env : Env} (S : IndSpec) : Accepted env → S.nest = none → S.Ok env → Accepted (S.install env)
 
 omit [IndLib V] in
 /-- An accepted environment is closed: its stored terms mention only
@@ -52,7 +52,7 @@ stored constants, at their own level parameters. -/
 theorem Accepted.scoped : ∀ {env : Env}, Accepted env → Env.Scoped env
   | _, .empty => Env.Scoped.empty
   | _, .defn h hok => h.scoped.add_def hok
-  | _, .ind S h hok => h.scoped.install S hok
+  | _, .ind S h hpl hok => h.scoped.install S hpl hok
 
 /-- **Every accepted environment has a model** (in any `IndLib`). -/
 theorem accepted_model {env : Env} (h : Accepted env) : Nonempty (EnvModel V env) := by
@@ -62,9 +62,9 @@ theorem accepted_model {env : Env} (h : Accepted env) : Nonempty (EnvModel V env
     obtain ⟨m⟩ := ih
     obtain ⟨m', -⟩ := install_def h.scoped m hok
     exact ⟨m'⟩
-  | ind S h hok ih =>
+  | ind S h hpl hok ih =>
     obtain ⟨m⟩ := ih
-    obtain ⟨m', -⟩ := install_ind h.scoped m hok
+    obtain ⟨m', -⟩ := install_ind hpl h.scoped m hok
     exact ⟨m'⟩
 
 omit [IndLib V] [LevelOracle] in
@@ -90,7 +90,7 @@ namespace IndSpec
 with no constructors, and its recursor eliminating into any universe
 (`large`: the subsingleton criterion is vacuous). -/
 def falseSpec (name recName elim : Name) : IndSpec :=
-  ⟨name, [], [], [], .zero, [], recName, true, elim⟩
+  ⟨⟨name, [], [], [], .zero, [], recName, true, elim⟩, none⟩
 
 end IndSpec
 
