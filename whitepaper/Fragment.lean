@@ -32,6 +32,7 @@ public import Fragment.NestRead
 public import Fragment.InstallInd
 public import Fragment.InstallIota
 public import Fragment.Install
+public import Fragment.BlockModel
 public import Fragment.Motive
 public import Fragment.Sound
 public import Fragment.Consistency

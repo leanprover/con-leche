@@ -486,6 +486,221 @@ theorem classCtor_fieldScoped (hS : S.Scoped env) (hN : S.nest = some N) (hKS : 
   rw [S.length_classFields]
   exact S.classField_scoped N hS hN hKS hc hf₀
 
+/-! ## The sets of the two recursors -/
+
+section Sets
+
+variable {V : Type u} [IndLib V] (M : Name → List Nat → V)
+
+/-- **`T.rec`'s set** at its levels `lsr`: the abstraction over its
+context — the parameters, the two motives, both minor lists, the
+indices, the major — of `T.rec`'s semantic value. -/
+noncomputable def recSetN (N : NestInfo) (lsr : List Nat) : V :=
+  let ψr := valOf S.recLparams lsr
+  let ls := S.lparams.map ψr
+  let q := S.q.holds ψr
+  lamCtx (S.M₂ M) ψr q base (S.recCtxN N) fun ρ' =>
+    S.recSemN M ls N q (readEnv S.nP (shiftE (1 + S.nI + S.oN N) 0 ρ'))
+      ⟨ρ' (S.nI + S.oN N), ρ' (S.nI + S.oN N - 1),
+        readEnv S.n (shiftE (1 + S.nI + N.nK) 0 ρ'), readEnv N.nK (shiftE (1 + S.nI) 0 ρ')⟩
+      (readEnv S.nI (shiftE 1 0 ρ')) (ρ' 0)
+
+/-- **`T.rec_1`'s set** at its levels: the abstraction over its context
+— the same prefix, the major at the class — of `T.rec_1`'s semantic
+value. -/
+noncomputable def rec1Set (N : NestInfo) (lsr : List Nat) : V :=
+  let ψr := valOf S.recLparams lsr
+  let ls := S.lparams.map ψr
+  let q := S.q.holds ψr
+  lamCtx (S.M₂ M) ψr q base (S.rec1Ctx N) fun ρ' =>
+    S.rec1Sem M ls N q (readEnv S.nP (shiftE (1 + S.oN N) 0 ρ'))
+      ⟨ρ' (S.oN N), ρ' (S.oN N - 1),
+        readEnv S.n (shiftE (1 + N.nK) 0 ρ'), readEnv N.nK (shiftE 1 0 ρ')⟩
+      (ρ' 0)
+
+/-- **The model of the installed nested block**: the two recursors on
+top of the former and the constructors. -/
+noncomputable def M₃N (N : NestInfo) : Name → List Nat → V :=
+  fun n ls' =>
+    if n = N.aux then S.rec1Set M N ls'
+    else if n = S.recName then S.recSetN M N ls' else S.M₂ M n ls'
+
+end Sets
+
+/-! ## The nested recursors' contexts, read
+
+What the readers say about the generated contexts of the two
+recursors: the extras' context, both recursors' contexts, the rules'
+contexts and the minor premises, with the class's minors' conclusion
+read through the container's constructor's set. -/
+
+section Readings
+
+variable {V : Type u} [IndLib V] {M : Name → List Nat → V} {φ : Name → Nat} {env : Env}
+  {M' : Name → List Nat → V} {φ' : Name → Nat}
+
+/-- The class's motive's type, read: the product over the class into
+the elimination universe. -/
+theorem Reader.read_motiveTy1 (hS : S.Scoped env) (R : S.Reader (env := env) M φ M' φ')
+    (hN : S.nest = some N) {ps : List V} {m : V} {ρ : Nat → V} (hps : ps.length = S.nP)
+    (hp : FitsVals M (S.ψ (S.lparams.map φ)) base S.params ps)
+    (hidx : FitsVals M (S.ψ (S.lparams.map φ)) (envP ps) S.indices
+      (S.memberIdx M (S.lparams.map φ) N ps)) :
+    interp M' φ' (cons m (consList ps ρ)) (S.motiveTy1 N)
+      = piSet (S.classAt M (S.lparams.map φ) N ps) fun _ => univ (Level.eval φ' S.ℓ) := by
+  sorry
+
+/-- **The class's motive's typing**: a member of its type sends a
+member of the class into the elimination universe. -/
+theorem Reader.motive1Ok_of_mem (hS : S.Scoped env) (R : S.Reader (env := env) M φ M' φ')
+    (hN : S.nest = some N) {ps : List V} {m m1 : V} {ρ : Nat → V} (hps : ps.length = S.nP)
+    (hp : FitsVals M (S.ψ (S.lparams.map φ)) base S.params ps)
+    (hidx : FitsVals M (S.ψ (S.lparams.map φ)) (envP ps) S.indices
+      (S.memberIdx M (S.lparams.map φ) N ps))
+    (hm1 : m1 ∈ˢ interp M' φ' (cons m (consList ps ρ)) (S.motiveTy1 N)) :
+    ∀ t, t ∈ˢ S.classAt M (S.lparams.map φ) N ps →
+      appList m1 [t] ∈ˢ (univ (Level.eval φ' S.ℓ) : V) := by
+  sorry
+
+/-- **The container's constructor applied to the class's arguments
+and fields**, read: the tagged tuple of the fields — the container's
+constructor's set is its graph (the block law), applied by β at the
+instantiation (`ClassFits_iff` puts the fields in the container's own
+telescope). -/
+theorem Reader.classCtorApp_eq (hS : S.Scoped env) (R : S.Reader (env := env) M φ M' φ')
+    (hN : S.nest = some N) (hf : S.NestFacts M (S.lparams.map φ) N) (hKS : N.KS.Scoped env)
+    (hctor : ∀ j c, N.K.ctors[j]? = some c → ∀ ls', M c.name ls' = N.KS.ctorSet M ls' j c)
+    (hz : S.z (S.lparams.map φ) = false)
+    {j : Nat} {c : CtorSpec} (hc : N.K.ctors[j]? = some c) {o nIh : Nat}
+    {ihsE fs os ps : List V} {ρ : Nat → V} (hi : ihsE.length = nIh)
+    (hfl : fs.length = (S.classCtor N c).fields.length) (ho : os.length = o) (hps : ps.length = S.nP)
+    (hp : FitsVals M (S.ψ (S.lparams.map φ)) base S.params ps)
+    (hfit : S.ClassFits M (S.lparams.map φ) N
+      (S.Fam M (S.lparams.map φ) ps (S.memberIdx M (S.lparams.map φ) N ps)) (fun _ => True) ps
+      (S.classCtor N c).fields fs) :
+    interp M' φ' (consList ihsE (consList fs (consList os (consList ps ρ))))
+        (Expr.mkAppN (.const c.name N.lsK)
+          (S.classArgs N (nIh + (S.classCtor N c).fields.length + o) ++
+            Expr.varsAt nIh (S.classCtor N c).fields.length))
+      = tag j (tuple fs.reverse) := by
+  sorry
+
+/-- **Values fitting `T.rec`'s context**: the parameters fit, the two
+motives are in their types, both minor lists fit, the indices fit and
+the major is in the fibre — and conversely. -/
+theorem Reader.fits_recCtxN_iff (hS : S.Scoped env) (R : S.Reader (env := env) M φ M' φ')
+    (hN : S.nest = some N) {ρ : Nat → V} {t : V} {is minsK mins : List V} {m1 m : V} {ps : List V}
+    (hi : is.length = S.nI) (hminsK : minsK.length = N.nK) (hmins : mins.length = S.n)
+    (hps : ps.length = S.nP) :
+    FitsVals M' φ' ρ (S.recCtxN N) (t :: is ++ minsK ++ mins ++ [m1, m] ++ ps) ↔
+      FitsVals M (S.ψ (S.lparams.map φ)) base S.params ps ∧
+      m ∈ˢ interp M' φ' (consList ps ρ) S.motiveTy ∧
+      m1 ∈ˢ interp M' φ' (cons m (consList ps ρ)) (S.motiveTy1 N) ∧
+      FitsVals M' φ' (consList [m1, m] (consList ps ρ)) S.minorsCtxN mins ∧
+      FitsVals M' φ' (consList (mins ++ [m1, m]) (consList ps ρ)) (S.minorsCtxK N) minsK ∧
+      FitsVals M (S.ψ (S.lparams.map φ)) (envP ps) S.indices is ∧
+      t ∈ˢ S.Fam M (S.lparams.map φ) ps is := by
+  sorry
+
+/-- **Values fitting `T.rec_1`'s context**: as for `T.rec`, with the
+major in the class. -/
+theorem Reader.fits_rec1Ctx_iff (hS : S.Scoped env) (R : S.Reader (env := env) M φ M' φ')
+    (hN : S.nest = some N) {ρ : Nat → V} {t : V} {minsK mins : List V} {m1 m : V} {ps : List V}
+    (hminsK : minsK.length = N.nK) (hmins : mins.length = S.n) (hps : ps.length = S.nP)
+    (hidx : ∀ ps', FitsVals M (S.ψ (S.lparams.map φ)) base S.params ps' →
+      FitsVals M (S.ψ (S.lparams.map φ)) (envP ps') S.indices
+        (S.memberIdx M (S.lparams.map φ) N ps')) :
+    FitsVals M' φ' ρ (S.rec1Ctx N) (t :: minsK ++ mins ++ [m1, m] ++ ps) ↔
+      FitsVals M (S.ψ (S.lparams.map φ)) base S.params ps ∧
+      m ∈ˢ interp M' φ' (consList ps ρ) S.motiveTy ∧
+      m1 ∈ˢ interp M' φ' (cons m (consList ps ρ)) (S.motiveTy1 N) ∧
+      FitsVals M' φ' (consList [m1, m] (consList ps ρ)) S.minorsCtxN mins ∧
+      FitsVals M' φ' (consList (mins ++ [m1, m]) (consList ps ρ)) (S.minorsCtxK N) minsK ∧
+      t ∈ˢ S.classAt M (S.lparams.map φ) N ps := by
+  sorry
+
+/-- Any list fitting `T.rec`'s context splits as the major, the
+indices, the class's minors, the block's minors, the two motives and
+the parameters. -/
+theorem fits_recCtxN_split (N : NestInfo) {ρ : Nat → V} {vs : List V}
+    (h : FitsVals M' φ' ρ (S.recCtxN N) vs) :
+    ∃ (t : V) (is minsK mins : List V) (m1 m : V) (ps : List V),
+      vs = t :: is ++ minsK ++ mins ++ [m1, m] ++ ps ∧ is.length = S.nI ∧ minsK.length = N.nK ∧
+        mins.length = S.n ∧ ps.length = S.nP := by
+  sorry
+
+/-- Any list fitting `T.rec_1`'s context splits likewise. -/
+theorem fits_rec1Ctx_split (N : NestInfo) {ρ : Nat → V} {vs : List V}
+    (h : FitsVals M' φ' ρ (S.rec1Ctx N) vs) :
+    ∃ (t : V) (minsK mins : List V) (m1 m : V) (ps : List V),
+      vs = t :: minsK ++ mins ++ [m1, m] ++ ps ∧ minsK.length = N.nK ∧
+        mins.length = S.n ∧ ps.length = S.nP := by
+  sorry
+
+/-- **The block's minors' typing gives `MinorOkN`** for every
+constructor of the block, from the minors fitting their context (two
+motives above them). -/
+theorem Reader₂.minorOkN_of_fits (hS : S.Scoped env) (R₂ : S.Reader₂ (env := env) M φ M' φ')
+    (hfresh : env.find? S.name = none) (hN : S.nest = some N) {ps : List V} {ρ : Nat → V}
+    {m1 m : V} {mins : List V} (hps : ps.length = S.nP)
+    (hp : FitsVals M (S.ψ (S.lparams.map φ)) base S.params ps)
+    (hmins : mins.length = S.n)
+    (hwdC : ∀ c ∈ S.ctors, CtxWD M' φ' (consList ps ρ) (S.fieldCtx c.fields))
+    (hres : ∀ c ∈ S.ctors, ∀ fs, S.FitsFields M (S.lparams.map φ) (S.bound M (S.lparams.map φ))
+        (S.Mem M (S.lparams.map φ)) ps c.fields fs →
+      FitsVals M (S.ψ (S.lparams.map φ)) (envP ps) S.indices
+        (S.idxVals M (S.lparams.map φ) (consList fs (envP ps)) c.idx))
+    (hmot : ∀ is, FitsVals M (S.ψ (S.lparams.map φ)) (envP ps) S.indices is →
+      ∀ t, t ∈ˢ S.Fam M (S.lparams.map φ) ps is →
+        appList m (is.reverse ++ [t]) ∈ˢ (univ (Level.eval φ' S.ℓ) : V))
+    (hmot1 : ∀ t, t ∈ˢ S.classAt M (S.lparams.map φ) N ps →
+        appList m1 [t] ∈ˢ (univ (Level.eval φ' S.ℓ) : V))
+    (hnr : S.NoRecDep) (hb : S.DomsBounded M (S.lparams.map φ) ps)
+    (hcb : S.ContInBound M (S.lparams.map φ) ps)
+    (hmn : FitsVals M' φ' (consList [m1, m] (consList ps ρ)) S.minorsCtxN mins) :
+    ∀ j c, S.ctors[j]? = some c →
+      ∀ fs, S.FitsFields M (S.lparams.map φ) (S.bound M (S.lparams.map φ))
+          (S.Mem M (S.lparams.map φ)) ps c.fields fs →
+        ∀ ihs, ListRel (S.IhTypedN M (S.lparams.map φ) (S.q.holds φ') ps ⟨m, m1, mins, []⟩ fs)
+            c.recFields ihs →
+          appList (S.minorAt mins j) (fs.reverse ++ ihs) ∈ˢ
+            appList m ((S.idxVals M (S.lparams.map φ) (consList fs (envP ps)) c.idx).reverse ++
+              [S.ctorVal (S.lparams.map φ) j fs]) ∧
+          SpineOk (S.minorAt mins j) (fs.reverse ++ ihs) := by
+  sorry
+
+/-- **The class's minors' typing gives `MinorOkK`** for every
+constructor of the container, from the class's minors fitting their
+context. -/
+theorem Reader₂.minorOkK_of_fits (hS : S.Scoped env) (R₂ : S.Reader₂ (env := env) M φ M' φ')
+    (hfresh : env.find? S.name = none) (hN : S.nest = some N)
+    (hf : S.NestFacts M (S.lparams.map φ) N) (hKS : N.KS.Scoped env)
+    (hctor : ∀ j c, N.K.ctors[j]? = some c → ∀ ls', M c.name ls' = N.KS.ctorSet M ls' j c)
+    (hz : S.z (S.lparams.map φ) = false)
+    {ps : List V} {ρ : Nat → V} {m1 m : V} {mins minsK : List V} (hps : ps.length = S.nP)
+    (hp : FitsVals M (S.ψ (S.lparams.map φ)) base S.params ps)
+    (hmins : mins.length = S.n) (hminsK : minsK.length = N.nK)
+    (hwdC : ∀ c ∈ N.K.ctors, CtxWD M' φ' (consList ps ρ) (S.fieldCtx (S.classCtor N c).fields))
+    (hidx : FitsVals M (S.ψ (S.lparams.map φ)) (envP ps) S.indices
+      (S.memberIdx M (S.lparams.map φ) N ps))
+    (hmot : ∀ is, FitsVals M (S.ψ (S.lparams.map φ)) (envP ps) S.indices is →
+      ∀ t, t ∈ˢ S.Fam M (S.lparams.map φ) ps is →
+        appList m (is.reverse ++ [t]) ∈ˢ (univ (Level.eval φ' S.ℓ) : V))
+    (hmot1 : ∀ t, t ∈ˢ S.classAt M (S.lparams.map φ) N ps →
+        appList m1 [t] ∈ˢ (univ (Level.eval φ' S.ℓ) : V))
+    (hmnK : FitsVals M' φ' (consList (mins ++ [m1, m]) (consList ps ρ)) (S.minorsCtxK N) minsK) :
+    ∀ j c, N.K.ctors[j]? = some c →
+      ∀ fs, S.ClassFits M (S.lparams.map φ) N
+          (S.Fam M (S.lparams.map φ) ps (S.memberIdx M (S.lparams.map φ) N ps)) (fun _ => True) ps
+          (S.classCtor N c).fields fs →
+        ∀ ihs, ListRel (S.IhTypedN M (S.lparams.map φ) (S.q.holds φ') ps ⟨m, m1, mins, minsK⟩ fs)
+            (S.classCtor N c).recFields ihs →
+          appList (minorKAt N minsK j) (fs.reverse ++ ihs) ∈ˢ appList m1 [tag j (tuple fs.reverse)] ∧
+          SpineOk (minorKAt N minsK j) (fs.reverse ++ ihs) := by
+  sorry
+
+end Readings
+
 end IndSpec
 
 end Fragment
