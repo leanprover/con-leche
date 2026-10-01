@@ -643,7 +643,7 @@ two install theorems assumed of the environment they extend.
   environment. Then no closed term $e$ has $tack e => I$; in
   particular no stored constant has type $I$
   (#src("whitepaper/Fragment/Consistency.lean", 104, 113)[fragment], and
-  #src("whitepaper/Fragment/Consistency.lean", 149, 154)[at the block `inductive False : Prop`]\;
+  #src("whitepaper/Fragment/Consistency.lean", 136, 140)[at the block `inductive False : Prop`]\;
   #src("ConLeche/Model/Fold.lean", 276, 283)[real proof]).
 ] <cor:consistency>
 

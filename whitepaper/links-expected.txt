@@ -256,20 +256,20 @@
     31    | .param n => φ n
 
 == whitepaper/Fragment/Level.lean#L117-L130
-   117  /-- **The level oracle** — the checker's decision procedures for `≤` and
-   118  `=` on levels, assumed sound and complete with respect to `eval`: a
-   119  parameter of the development, never defined here.  (`le` is what the
-   120  inductive installs of the environment section consume; the env-free
-   121  fragment uses `eq` alone.) -/
-   122  class LevelOracle where
-   123    /-- `le u v = true` decides `u ≤ v` at every valuation. -/
-   124    le : Level → Level → Bool
-   125    /-- `eq u v = true` decides `u = v` at every valuation. -/
-   126    eq : Level → Level → Bool
-   127    /-- Soundness and completeness of `le`. -/
-   128    le_iff : ∀ a b : Level, le a b = true ↔ ∀ φ : Name → Nat, Level.eval φ a ≤ Level.eval φ b
-   129    /-- Soundness and completeness of `eq`. -/
-   130    eq_iff : ∀ a b : Level, eq a b = true ↔ ∀ φ : Name → Nat, Level.eval φ a = Level.eval φ b
+   117  /-- Instantiating the level parameters by themselves changes no
+   118  valuation. -/
+   119  theorem Level.substVal_self (φ : Name → Nat) (ps : List Name) :
+   120      Level.substVal φ ps (ps.map .param) = φ := by
+   121    funext n
+   122    simp only [Level.substVal]
+   123    suffices h : Level.lookupLevel ps (ps.map .param) n = .param n by rw [h]; rfl
+   124    induction ps with
+   125    | nil => rfl
+   126    | cons p ps ih =>
+   127      simp only [Level.lookupLevel, List.map_cons, List.zip_cons_cons, List.lookup_cons] at ih ⊢
+   128      by_cases hp : n = p
+   129      · subst hp; simp
+   130      · have : (n == p) = false := by simpa using hp
 
 == ConLeche/Kernel/Level.lean#L143-L145
    143  /-- Decide `l ≤ r` semantically; `none` is an exhausted comparison. -/
@@ -383,195 +383,195 @@
     87    premise — whose major reduces to a constructor application with a
     88    rule, fires the rule: the rule's right-hand side, at the use's
     89    levels, applied to the parameters, motives and minors, then to the
-    90    constructor's fields (its arguments after the parameters).
-    91  
-    92    The two **telescope certificates** are `Rel.lean`'s `Certs` walks
-    93    (`:576-587`) folded in: the recursor's argument spine (with the
-    94    reduced major) and the constructor's argument spine are each typed
-    95    against the stored type's `Π`-telescope — every argument's type is
-    96    inferred and found definitionally equal to the binder domain it
-    97    meets (`Expr.piDomains`), and the stored type has the spine's
-    98    length of syntactic binders (`Expr.hasPis`; a generated type does).
-    99    They are what makes the environment's ι law (`EnvModel.lean`,
-   100    `RecRuleLaw`) applicable: they put every argument in its domain.
-   101  
-   102    The **three comparisons** after them are `Rel.lean`'s too
-   103    (`:206-231`): the constructor's levels are the recursor's (its last
-   104    `usj.length` ones — a large eliminator carries one extra level in
-   105    front), the constructor's parameters are definitionally the
-   106    recursor's, and the constructor's residual type
-   107    (`Expr.piResidual`: the family at the constructor's own parameters
-   108    and index expressions, with the fields substituted in) has index
-   109    expressions definitionally equal to the recursor's index arguments.
-   110    In the model they matter exactly when the family is a proposition:
-   111    there the major denotes the one point, the certificates say only
-   112    that the fibre is inhabited, and the fields the rule's right-hand
-   113    side receives can be related to the recursor's own parameters and
-   114    indices through these comparisons alone (`Install.lean`). -/
-   115    | iota {Γ : List Expr} {c : Name} {us : List Level} {ci : ConstInfo}
-   116        {numParams numMotives numMinors numIndices : Nat} {rules : List RecRule}
-   117        {args : List Expr} {major : Expr} {cj : Name} {usj : List Level}
-   118        {cij : ConstInfo} {margs : List Expr} {rl : RecRule}
-   119        {doms tys doms' tys' : List Expr}
-   120        {residual : Expr} {I : Name} {lsI : List Level} {rps ridx : List Expr} :
-   121        env.find? c = some ci →
-   122        ci.kind = .recursor numParams numMotives numMinors numIndices rules →
-   123        us.length = ci.lparams.length →
-   124        args.length = numParams + numMotives + numMinors + numIndices + 1 →
-   125        ci.type.hasPis (numParams + numMotives + numMinors + numIndices + 1) = true →
-   126        Red env Γ (args.getD (numParams + numMotives + numMinors + numIndices) (bvar 0))
-   127          major →
-   128        major = mkAppN (const cj usj) margs →
-   129        rl ∈ rules → rl.ctor = cj →
-   130        env.find? cj = some cij →
-   131        usj.length = cij.lparams.length →
-   132        margs.length = numParams + rl.nfields →
-   133        cij.type.hasPis (numParams + rl.nfields) = true →
-   134        -- the recursor's telescope certificate, on the spine with the reduced major
-   135        piDomains (ci.type.instL ci.lparams us)
-   136          (args.take (numParams + numMotives + numMinors + numIndices) ++ [major]) = some doms →
-   137        tys.length = doms.length →
-   138        (∀ p ∈ (args.take (numParams + numMotives + numMinors + numIndices) ++ [major]).zip tys,
-   139          Infer env Γ p.1 p.2) →
-   140        (∀ p ∈ tys.zip doms, DefEq env Γ p.1 p.2) →
-   141        -- the constructor's telescope certificate
-   142        piDomains (cij.type.instL cij.lparams usj) margs = some doms' →
-   143        tys'.length = doms'.length →
-   144        (∀ p ∈ margs.zip tys', Infer env Γ p.1 p.2) →
-   145        (∀ p ∈ tys'.zip doms', DefEq env Γ p.1 p.2) →
-   146        -- the constructor's levels, parameters and residual indices against the recursor's
-   147        Level.eqList usj (us.drop (us.length - usj.length)) = true →
-   148        (∀ p ∈ (margs.take numParams).zip (args.take numParams), DefEq env Γ p.1 p.2) →
-   149        piResidual (cij.type.instL cij.lparams usj) margs = some residual →
-   150        residual = mkAppN (const I lsI) (rps ++ ridx) →
-   151        rps.length = numParams →
-   152        (∀ p ∈ ridx.zip ((args.take (numParams + numMotives + numMinors + numIndices)).drop
-   153          (numParams + numMotives + numMinors)), DefEq env Γ p.1 p.2) →
-   154        Red env Γ (mkAppN (const c us) args)
-   155          (mkAppN (rl.rhs.instL ci.lparams us)
-   156            (args.take (numParams + numMotives + numMinors) ++ margs.drop numParams))
-   157  
-   158  /-- **Definitional equality**: the verdict `true` of the checker's
-   159  `isDefEq`.
-   160  
-   161  **There is no `trans` rule, deliberately** (`Rel.lean:310-333`, task
-   162  #309).  The relation is the checker's verdict on two terms that are
-   163  well-formed *together*, a fact no rule states because well-formedness
-   164  is semantic (`WellDenoted`) and may not enter this inductive.  Every
-   165  rule respects one discipline instead: **the subject of each `DefEq`
-   166  premise is a subterm of the conclusion or is produced by a `Red` or
-   167  `Infer` premise** (a reduct, an inferred type), so the soundness proof
-   168  always has the premise's terms — and their invariant — in hand.  A
-   169  `trans` rule is the unique rule that would break it: its middle term
-   170  comes from nowhere, so nothing supplies its invariant, and the
-   171  induction has nothing to apply the hypothesis to.  In the real checker
-   172  the rule is not merely unprovable but unsound (`fvar`s carry
-   173  annotations `DefEq.fvar` does not compare while `DefEq.proofFast`
-   174  reads; `trans` lets the two meet).  The one sound chaining is "reduce,
-   175  then continue": `redL`. -/
-   176  inductive DefEq (env : Env) : List Expr → Expr → Expr → Prop where
-   177    /-- The syntactic fast path (`DefEq.refl`, `Rel.lean:338`). -/
-   178    | refl {Γ : List Expr} {a : Expr} : DefEq env Γ a a
-   179    /-- Symmetry (`DefEq.symm`, `Rel.lean:341`).  Not a checker move: the
-   180    constructor from which every right-hand variant of a one-sided rule
-   181    is derived. -/
-   182    | symm {Γ : List Expr} {a b : Expr} : DefEq env Γ a b → DefEq env Γ b a
-   183    /-- **Reduce the left side, then continue** (`DefEq.redL`,
-   184    `Rel.lean:346`): the recursive structure of `isDefEq` — head
-   185    normalisation of either side (with `symm`) and every lazy-δ
-   186    continuation. -/
-   187    | redL {Γ : List Expr} {a a' b : Expr} :
-   188        Red env Γ a a' → DefEq env Γ a' b → DefEq env Γ a b
-   189    /-- Two sorts, by the level oracle (`DefEq.sort`, `Rel.lean:349`). -/
-   190    | sort {Γ : List Expr} {u v : Level} :
-   191        LevelOracle.eq u v = true → DefEq env Γ (sort u) (sort v)
-   192    /-- Two constants of the same name at oracle-equal levels
-   193    (`DefEq.const`, `Rel.lean:360`). -/
-   194    | const {Γ : List Expr} {c : Name} {ls ls' : List Level} :
-   195        Level.eqList ls ls' = true → DefEq env Γ (const c ls) (const c ls')
-   196    /-- `∀`-congruence (`DefEq.forallE`, `Rel.lean:373`): domains, then
-   197    bodies under the RIGHT domain, and the annotations must agree (they
-   198    are compared with `=`, which is semantic: `PropWhen.eq_iff`). -/
-   199    | pi {Γ : List Expr} {A₁ B₁ A₂ B₂ : Expr} {pw : PropWhen} :
-   200        DefEq env Γ A₁ A₂ → DefEq env (A₂ :: Γ) B₁ B₂ →
-   201        DefEq env Γ (pi A₁ pw B₁) (pi A₂ pw B₂)
-   202    /-- λ-congruence (`DefEq.lam`, `Rel.lean:380`), as for `∀`. -/
-   203    | lam {Γ : List Expr} {A₁ b₁ A₂ b₂ : Expr} {pw : PropWhen} :
-   204        DefEq env Γ A₁ A₂ → DefEq env (A₂ :: Γ) b₁ b₂ →
-   205        DefEq env Γ (lam A₁ pw b₁) (lam A₂ pw b₂)
-   206    /-- Application congruence (`DefEq.app`, `Rel.lean:390`). -/
-   207    | app {Γ : List Expr} {f₁ a₁ f₂ a₂ : Expr} :
-   208        DefEq env Γ f₁ f₂ → DefEq env Γ a₁ a₂ →
-   209        DefEq env Γ (app f₁ a₁) (app f₂ a₂)
-   210    /-- **η** (`DefEq.eta`, `Rel.lean:400`): a λ against a term `b`
-   211    whose inferred type reduces to a `∀` with a definitionally equal
-   212    domain and the same annotation, when the λ's body is `b` applied to
-   213    the variable.  Sound because a member of a function space is the
-   214    abstraction of its applications (`SetLib.graph_app_eq`) — and at a
-   215    proposition both sides are the one proof. -/
-   216    | eta {Γ : List Expr} {A₁ b₁ b tb A₂ B : Expr} {pw : PropWhen} :
-   217        Infer env Γ b tb → Red env Γ tb (pi A₂ pw B) →
-   218        DefEq env Γ A₂ A₁ →
-   219        DefEq env (A₁ :: Γ) b₁ (app (b.liftN 1) (bvar 0)) →
-   220        DefEq env Γ (lam A₁ pw b₁) b
-   221    /-- **Proof irrelevance** (`DefEq.proofIrrel`, `Rel.lean:417`): both
-   222    sides' inferred types have sort `Prop`.  **The two types are never
-   223    compared**: the model licenses that, because every proof denotes the
-   224    one point. -/
-   225    | proofIrrel {Γ : List Expr} {a ta tta b tb ttb : Expr} {u v : Level} :
-   226        Infer env Γ a ta → Infer env Γ ta tta → Red env Γ tta (sort u) →
-   227        LevelOracle.eq u .zero = true →
-   228        Infer env Γ b tb → Infer env Γ tb ttb → Red env Γ ttb (sort v) →
-   229        LevelOracle.eq v .zero = true →
-   230        DefEq env Γ a b
-   231  
-   232  /-- **Type inference.** -/
-   233  inductive Infer (env : Env) : List Expr → Expr → Expr → Prop where
-   234    /-- A bound variable's type is its context entry, lifted over the
-   235    binders in between (`Infer.fvar`, `Rel.lean:492`; the real checker
-   236    reads the type off the free variable). -/
-   237    | bvar {Γ : List Expr} {i : Nat} {A : Expr} :
-   238        Γ[i]? = some A → Infer env Γ (bvar i) (A.liftN (i + 1))
-   239    /-- `Sort u : Sort (u + 1)` (`Infer.sort`, `Rel.lean:488`). -/
-   240    | sort {Γ : List Expr} {u : Level} :
-   241        Infer env Γ (sort u) (sort (.succ u))
-   242    /-- A stored constant at the right number of levels has its
-   243    declared type, instantiated (`Infer.const`, `Rel.lean:496`). -/
-   244    | const {Γ : List Expr} {c : Name} {ls : List Level} {ci : ConstInfo} :
-   245        env.find? c = some ci → ls.length = ci.lparams.length →
-   246        Infer env Γ (const c ls) (ci.type.instL ci.lparams ls)
-   247    /-- **`∀`-formation** (`Infer.forallE`, `Rel.lean:515`): the domain's
-   248    type reduces to a sort `u`, the body's type (under the domain)
-   249    reduces to a sort `v`, the result is `Sort (imax u v)` — and **the
-   250    annotation is checked**: it must be the zero-ness datum of `v`. -/
-   251    | pi {Γ : List Expr} {A B s t : Expr} {u v : Level} {pw : PropWhen} :
-   252        Infer env Γ A s → Red env Γ s (sort u) →
-   253        Infer env (A :: Γ) B t → Red env (A :: Γ) t (sort v) →
-   254        Level.zeroness v = pw →
-   255        Infer env Γ (pi A pw B) (sort (.imax u v))
-   256    /-- **λ** (`Infer.lam`, `Rel.lean:530`): the domain's type reduces to
-   257    a sort, the body is inferred under the domain, the body's type has a
-   258    sort `v`, and **the annotation is checked** against `v`.  (The real
-   259    checker validates the datum once per λ-chain; the fragment does it
-   260    at every λ.) -/
-   261    | lam {Γ : List Expr} {A b s bt btt : Expr} {u v : Level} {pw : PropWhen} :
-   262        Infer env Γ A s → Red env Γ s (sort u) →
-   263        Infer env (A :: Γ) b bt →
-   264        Infer env (A :: Γ) bt btt → Red env (A :: Γ) btt (sort v) →
-   265        Level.zeroness v = pw →
-   266        Infer env Γ (lam A pw b) (pi A pw bt)
-   267    /-- **Application** (`Infer.app`, `Rel.lean:544`): the head's type
-   268    reduces to a `∀`, and the argument's inferred type is definitionally
-   269    equal to its domain.  This is where a syntactic proof would need
-   270    Π-injectivity and the semantic one does not: the `∀` the head's type
-   271    reduces to *is* a function space, and membership in it is what the
-   272    model needs (`Sound.lean`, `infer_sound`'s `app` case). -/
-   273    | app {Γ : List Expr} {f a tf A B ta : Expr} {pw : PropWhen} :
-   274        Infer env Γ f tf → Red env Γ tf (pi A pw B) →
-   275        Infer env Γ a ta → DefEq env Γ ta A →
-   276        Infer env Γ (app f a) (B.inst a)
-   277  
-   278  end
+    90    constructor's fields (its arguments after the parameters).  The rule
+    91    is one of the block's own constructors' (no stored instantiation,
+    92    `RecRule.inst`); an auxiliary recursor's rule fires by
+    93    `Red.iotaNested`.
+    94  
+    95    The two **telescope certificates** are `Rel.lean`'s `Certs` walks
+    96    (`:576-587`) folded in: the recursor's argument spine (with the
+    97    reduced major) and the constructor's argument spine are each typed
+    98    against the stored type's `Π`-telescope — every argument's type is
+    99    inferred and found definitionally equal to the binder domain it
+   100    meets (`Expr.piDomains`), and the stored type has the spine's
+   101    length of syntactic binders (`Expr.hasPis`; a generated type does).
+   102    They are what makes the environment's ι law (`EnvModel.lean`,
+   103    `RecRuleLaw`) applicable: they put every argument in its domain.
+   104  
+   105    The **three comparisons** after them are `Rel.lean`'s too
+   106    (`:206-231`): the constructor's levels are the recursor's (its last
+   107    `usj.length` ones — a large eliminator carries one extra level in
+   108    front), the constructor's parameters are definitionally the
+   109    recursor's, and the constructor's residual type
+   110    (`Expr.piResidual`: the family at the constructor's own parameters
+   111    and index expressions, with the fields substituted in) has index
+   112    expressions definitionally equal to the recursor's index arguments.
+   113    In the model they matter exactly when the family is a proposition:
+   114    there the major denotes the one point, the certificates say only
+   115    that the fibre is inhabited, and the fields the rule's right-hand
+   116    side receives can be related to the recursor's own parameters and
+   117    indices through these comparisons alone (`Install.lean`). -/
+   118    | iota {Γ : List Expr} {c : Name} {us : List Level} {ci : ConstInfo}
+   119        {numParams numMotives numMinors numIndices : Nat} {rules : List RecRule}
+   120        {args : List Expr} {major : Expr} {cj : Name} {usj : List Level}
+   121        {cij : ConstInfo} {margs : List Expr} {rl : RecRule}
+   122        {doms tys doms' tys' : List Expr}
+   123        {residual : Expr} {I : Name} {lsI : List Level} {rps ridx : List Expr} :
+   124        env.find? c = some ci →
+   125        ci.kind = .recursor numParams numMotives numMinors numIndices rules →
+   126        us.length = ci.lparams.length →
+   127        args.length = numParams + numMotives + numMinors + numIndices + 1 →
+   128        ci.type.hasPis (numParams + numMotives + numMinors + numIndices + 1) = true →
+   129        Red env Γ (args.getD (numParams + numMotives + numMinors + numIndices) (bvar 0))
+   130          major →
+   131        major = mkAppN (const cj usj) margs →
+   132        rl ∈ rules → rl.ctor = cj → rl.inst = none →
+   133        env.find? cj = some cij →
+   134        usj.length = cij.lparams.length →
+   135        margs.length = numParams + rl.nfields →
+   136        cij.type.hasPis (numParams + rl.nfields) = true →
+   137        -- the recursor's telescope certificate, on the spine with the reduced major
+   138        piDomains (ci.type.instL ci.lparams us)
+   139          (args.take (numParams + numMotives + numMinors + numIndices) ++ [major]) = some doms →
+   140        tys.length = doms.length →
+   141        (∀ p ∈ (args.take (numParams + numMotives + numMinors + numIndices) ++ [major]).zip tys,
+   142          Infer env Γ p.1 p.2) →
+   143        (∀ p ∈ tys.zip doms, DefEq env Γ p.1 p.2) →
+   144        -- the constructor's telescope certificate
+   145        piDomains (cij.type.instL cij.lparams usj) margs = some doms' →
+   146        tys'.length = doms'.length →
+   147        (∀ p ∈ margs.zip tys', Infer env Γ p.1 p.2) →
+   148        (∀ p ∈ tys'.zip doms', DefEq env Γ p.1 p.2) →
+   149        -- the constructor's levels, parameters and residual indices against the recursor's
+   150        Level.eqList usj (us.drop (us.length - usj.length)) = true →
+   151        (∀ p ∈ (margs.take numParams).zip (args.take numParams), DefEq env Γ p.1 p.2) →
+   152        piResidual (cij.type.instL cij.lparams usj) margs = some residual →
+   153        residual = mkAppN (const I lsI) (rps ++ ridx) →
+   154        rps.length = numParams →
+   155        (∀ p ∈ ridx.zip ((args.take (numParams + numMotives + numMinors + numIndices)).drop
+   156          (numParams + numMotives + numMinors)), DefEq env Γ p.1 p.2) →
+   157        Red env Γ (mkAppN (const c us) args)
+   158          (mkAppN (rl.rhs.instL ci.lparams us)
+   159            (args.take (numParams + numMotives + numMinors) ++ margs.drop numParams))
+   160    /-- **ι, nested** (con-leche's `.nested`-certified rules, task #48):
+   161    a rule of an auxiliary recursor fires on a constructor of the
+   162    block's *container*, whose parameters are not the recursor's.  The
+   163    rule stores the constructor's expected levels (over the recursor's
+   164    level parameters) and expected parameters (terms under the
+   165    recursor's parameter binders, `RecRule.inst`); the three
+   166    comparisons of `Red.iota` become: the constructor's levels are the
+   167    stored ones at the use's levels, its parameters are definitionally
+   168    the stored ones at the recursor's parameter arguments
+   169    (`Expr.instChain`), and the residual's index expressions are
+   170    definitionally the recursor's index arguments.  The constructor's
+   171    own parameter count comes from its record.  The telescope
+   172    certificates are as in `Red.iota`. -/
+   173    | iotaNested {Γ : List Expr} {c : Name} {us : List Level} {ci : ConstInfo}
+   174        {numParams numMotives numMinors numIndices : Nat} {rules : List RecRule}
+   175        {args : List Expr} {major : Expr} {cj : Name} {usj : List Level}
+   176        {cij : ConstInfo} {I' : Name} {nPc nfj : Nat} {margs : List Expr} {rl : RecRule}
+   177        {lvs : List Level} {pinst : List Expr}
+   178        {doms tys doms' tys' : List Expr}
+   179        {residual : Expr} {I : Name} {lsI : List Level} {rps ridx : List Expr} :
+   180        env.find? c = some ci →
+   181        ci.kind = .recursor numParams numMotives numMinors numIndices rules →
+   182        us.length = ci.lparams.length →
+   183        args.length = numParams + numMotives + numMinors + numIndices + 1 →
+   184        ci.type.hasPis (numParams + numMotives + numMinors + numIndices + 1) = true →
+   185        Red env Γ (args.getD (numParams + numMotives + numMinors + numIndices) (bvar 0))
+   186          major →
+   187        major = mkAppN (const cj usj) margs →
+   188        rl ∈ rules → rl.ctor = cj → rl.inst = some (lvs, pinst) →
+   189        env.find? cj = some cij →
+   190        cij.kind = .ctor I' nPc nfj →
+   191        usj.length = cij.lparams.length →
+   192        margs.length = nPc + rl.nfields →
+   193        cij.type.hasPis (nPc + rl.nfields) = true →
+   194        piDomains (ci.type.instL ci.lparams us)
+   195          (args.take (numParams + numMotives + numMinors + numIndices) ++ [major]) = some doms →
+   196        tys.length = doms.length →
+   197        (∀ p ∈ (args.take (numParams + numMotives + numMinors + numIndices) ++ [major]).zip tys,
+   198          Infer env Γ p.1 p.2) →
+   199        (∀ p ∈ tys.zip doms, DefEq env Γ p.1 p.2) →
+   200        piDomains (cij.type.instL cij.lparams usj) margs = some doms' →
+   201        tys'.length = doms'.length →
+   202        (∀ p ∈ margs.zip tys', Infer env Γ p.1 p.2) →
+   203        (∀ p ∈ tys'.zip doms', DefEq env Γ p.1 p.2) →
+   204        -- the constructor's levels and parameters against the stored instantiation
+   205        Level.eqList usj (lvs.map (Level.subst ci.lparams us)) = true →
+   206        pinst.length = nPc →
+   207        (∀ p ∈ (margs.take nPc).zip
+   208          (pinst.map fun e => instChain (e.instL ci.lparams us) (args.take numParams)),
+   209          DefEq env Γ p.1 p.2) →
+   210        piResidual (cij.type.instL cij.lparams usj) margs = some residual →
+   211        residual = mkAppN (const I lsI) (rps ++ ridx) →
+   212        rps.length = nPc →
+   213        (∀ p ∈ ridx.zip ((args.take (numParams + numMotives + numMinors + numIndices)).drop
+   214          (numParams + numMotives + numMinors)), DefEq env Γ p.1 p.2) →
+   215        Red env Γ (mkAppN (const c us) args)
+   216          (mkAppN (rl.rhs.instL ci.lparams us)
+   217            (args.take (numParams + numMotives + numMinors) ++ margs.drop nPc))
+   218  
+   219  /-- **Definitional equality**: the verdict `true` of the checker's
+   220  `isDefEq`.
+   221  
+   222  **There is no `trans` rule, deliberately** (`Rel.lean:310-333`, task
+   223  #309).  The relation is the checker's verdict on two terms that are
+   224  well-formed *together*, a fact no rule states because well-formedness
+   225  is semantic (`WellDenoted`) and may not enter this inductive.  Every
+   226  rule respects one discipline instead: **the subject of each `DefEq`
+   227  premise is a subterm of the conclusion or is produced by a `Red` or
+   228  `Infer` premise** (a reduct, an inferred type), so the soundness proof
+   229  always has the premise's terms — and their invariant — in hand.  A
+   230  `trans` rule is the unique rule that would break it: its middle term
+   231  comes from nowhere, so nothing supplies its invariant, and the
+   232  induction has nothing to apply the hypothesis to.  In the real checker
+   233  the rule is not merely unprovable but unsound (`fvar`s carry
+   234  annotations `DefEq.fvar` does not compare while `DefEq.proofFast`
+   235  reads; `trans` lets the two meet).  The one sound chaining is "reduce,
+   236  then continue": `redL`. -/
+   237  inductive DefEq (env : Env) : List Expr → Expr → Expr → Prop where
+   238    /-- The syntactic fast path (`DefEq.refl`, `Rel.lean:338`). -/
+   239    | refl {Γ : List Expr} {a : Expr} : DefEq env Γ a a
+   240    /-- Symmetry (`DefEq.symm`, `Rel.lean:341`).  Not a checker move: the
+   241    constructor from which every right-hand variant of a one-sided rule
+   242    is derived. -/
+   243    | symm {Γ : List Expr} {a b : Expr} : DefEq env Γ a b → DefEq env Γ b a
+   244    /-- **Reduce the left side, then continue** (`DefEq.redL`,
+   245    `Rel.lean:346`): the recursive structure of `isDefEq` — head
+   246    normalisation of either side (with `symm`) and every lazy-δ
+   247    continuation. -/
+   248    | redL {Γ : List Expr} {a a' b : Expr} :
+   249        Red env Γ a a' → DefEq env Γ a' b → DefEq env Γ a b
+   250    /-- Two sorts, by the level oracle (`DefEq.sort`, `Rel.lean:349`). -/
+   251    | sort {Γ : List Expr} {u v : Level} :
+   252        LevelOracle.eq u v = true → DefEq env Γ (sort u) (sort v)
+   253    /-- Two constants of the same name at oracle-equal levels
+   254    (`DefEq.const`, `Rel.lean:360`). -/
+   255    | const {Γ : List Expr} {c : Name} {ls ls' : List Level} :
+   256        Level.eqList ls ls' = true → DefEq env Γ (const c ls) (const c ls')
+   257    /-- `∀`-congruence (`DefEq.forallE`, `Rel.lean:373`): domains, then
+   258    bodies under the RIGHT domain, and the annotations must agree (they
+   259    are compared with `=`, which is semantic: `PropWhen.eq_iff`). -/
+   260    | pi {Γ : List Expr} {A₁ B₁ A₂ B₂ : Expr} {pw : PropWhen} :
+   261        DefEq env Γ A₁ A₂ → DefEq env (A₂ :: Γ) B₁ B₂ →
+   262        DefEq env Γ (pi A₁ pw B₁) (pi A₂ pw B₂)
+   263    /-- λ-congruence (`DefEq.lam`, `Rel.lean:380`), as for `∀`. -/
+   264    | lam {Γ : List Expr} {A₁ b₁ A₂ b₂ : Expr} {pw : PropWhen} :
+   265        DefEq env Γ A₁ A₂ → DefEq env (A₂ :: Γ) b₁ b₂ →
+   266        DefEq env Γ (lam A₁ pw b₁) (lam A₂ pw b₂)
+   267    /-- Application congruence (`DefEq.app`, `Rel.lean:390`). -/
+   268    | app {Γ : List Expr} {f₁ a₁ f₂ a₂ : Expr} :
+   269        DefEq env Γ f₁ f₂ → DefEq env Γ a₁ a₂ →
+   270        DefEq env Γ (app f₁ a₁) (app f₂ a₂)
+   271    /-- **η** (`DefEq.eta`, `Rel.lean:400`): a λ against a term `b`
+   272    whose inferred type reduces to a `∀` with a definitionally equal
+   273    domain and the same annotation, when the λ's body is `b` applied to
+   274    the variable.  Sound because a member of a function space is the
+   275    abstraction of its applications (`SetLib.graph_app_eq`) — and at a
+   276    proposition both sides are the one proof. -/
+   277    | eta {Γ : List Expr} {A₁ b₁ b tb A₂ B : Expr} {pw : PropWhen} :
+   278        Infer env Γ b tb → Red env Γ tb (pi A₂ pw B) →
 
 == ConLeche/Rules/Rel.lean#L92-L96
     92  mutual
@@ -643,26 +643,26 @@
    128        Red env d (.app (.lam ty body mb) a) (body.instantiate1 a)
 
 == whitepaper/Fragment/Rules.lean#L176-L195
-   176  inductive DefEq (env : Env) : List Expr → Expr → Expr → Prop where
-   177    /-- The syntactic fast path (`DefEq.refl`, `Rel.lean:338`). -/
-   178    | refl {Γ : List Expr} {a : Expr} : DefEq env Γ a a
-   179    /-- Symmetry (`DefEq.symm`, `Rel.lean:341`).  Not a checker move: the
-   180    constructor from which every right-hand variant of a one-sided rule
-   181    is derived. -/
-   182    | symm {Γ : List Expr} {a b : Expr} : DefEq env Γ a b → DefEq env Γ b a
-   183    /-- **Reduce the left side, then continue** (`DefEq.redL`,
-   184    `Rel.lean:346`): the recursive structure of `isDefEq` — head
-   185    normalisation of either side (with `symm`) and every lazy-δ
-   186    continuation. -/
-   187    | redL {Γ : List Expr} {a a' b : Expr} :
-   188        Red env Γ a a' → DefEq env Γ a' b → DefEq env Γ a b
-   189    /-- Two sorts, by the level oracle (`DefEq.sort`, `Rel.lean:349`). -/
-   190    | sort {Γ : List Expr} {u v : Level} :
-   191        LevelOracle.eq u v = true → DefEq env Γ (sort u) (sort v)
-   192    /-- Two constants of the same name at oracle-equal levels
-   193    (`DefEq.const`, `Rel.lean:360`). -/
-   194    | const {Γ : List Expr} {c : Name} {ls ls' : List Level} :
-   195        Level.eqList ls ls' = true → DefEq env Γ (const c ls) (const c ls')
+   176        {cij : ConstInfo} {I' : Name} {nPc nfj : Nat} {margs : List Expr} {rl : RecRule}
+   177        {lvs : List Level} {pinst : List Expr}
+   178        {doms tys doms' tys' : List Expr}
+   179        {residual : Expr} {I : Name} {lsI : List Level} {rps ridx : List Expr} :
+   180        env.find? c = some ci →
+   181        ci.kind = .recursor numParams numMotives numMinors numIndices rules →
+   182        us.length = ci.lparams.length →
+   183        args.length = numParams + numMotives + numMinors + numIndices + 1 →
+   184        ci.type.hasPis (numParams + numMotives + numMinors + numIndices + 1) = true →
+   185        Red env Γ (args.getD (numParams + numMotives + numMinors + numIndices) (bvar 0))
+   186          major →
+   187        major = mkAppN (const cj usj) margs →
+   188        rl ∈ rules → rl.ctor = cj → rl.inst = some (lvs, pinst) →
+   189        env.find? cj = some cij →
+   190        cij.kind = .ctor I' nPc nfj →
+   191        usj.length = cij.lparams.length →
+   192        margs.length = nPc + rl.nfields →
+   193        cij.type.hasPis (nPc + rl.nfields) = true →
+   194        piDomains (ci.type.instL ci.lparams us)
+   195          (args.take (numParams + numMotives + numMinors + numIndices) ++ [major]) = some doms →
 
 == ConLeche/Rules/Rel.lean#L333-L361
    333  inductive DefEq (env : Env) : Nat → Expr → Expr → Prop where
@@ -696,20 +696,20 @@
    361        DefEq env d (.const n us) (.const n us')
 
 == whitepaper/Fragment/Rules.lean#L196-L209
-   196    /-- `∀`-congruence (`DefEq.forallE`, `Rel.lean:373`): domains, then
-   197    bodies under the RIGHT domain, and the annotations must agree (they
-   198    are compared with `=`, which is semantic: `PropWhen.eq_iff`). -/
-   199    | pi {Γ : List Expr} {A₁ B₁ A₂ B₂ : Expr} {pw : PropWhen} :
-   200        DefEq env Γ A₁ A₂ → DefEq env (A₂ :: Γ) B₁ B₂ →
-   201        DefEq env Γ (pi A₁ pw B₁) (pi A₂ pw B₂)
-   202    /-- λ-congruence (`DefEq.lam`, `Rel.lean:380`), as for `∀`. -/
-   203    | lam {Γ : List Expr} {A₁ b₁ A₂ b₂ : Expr} {pw : PropWhen} :
-   204        DefEq env Γ A₁ A₂ → DefEq env (A₂ :: Γ) b₁ b₂ →
-   205        DefEq env Γ (lam A₁ pw b₁) (lam A₂ pw b₂)
-   206    /-- Application congruence (`DefEq.app`, `Rel.lean:390`). -/
-   207    | app {Γ : List Expr} {f₁ a₁ f₂ a₂ : Expr} :
-   208        DefEq env Γ f₁ f₂ → DefEq env Γ a₁ a₂ →
-   209        DefEq env Γ (app f₁ a₁) (app f₂ a₂)
+   196        tys.length = doms.length →
+   197        (∀ p ∈ (args.take (numParams + numMotives + numMinors + numIndices) ++ [major]).zip tys,
+   198          Infer env Γ p.1 p.2) →
+   199        (∀ p ∈ tys.zip doms, DefEq env Γ p.1 p.2) →
+   200        piDomains (cij.type.instL cij.lparams usj) margs = some doms' →
+   201        tys'.length = doms'.length →
+   202        (∀ p ∈ margs.zip tys', Infer env Γ p.1 p.2) →
+   203        (∀ p ∈ tys'.zip doms', DefEq env Γ p.1 p.2) →
+   204        -- the constructor's levels and parameters against the stored instantiation
+   205        Level.eqList usj (lvs.map (Level.subst ci.lparams us)) = true →
+   206        pinst.length = nPc →
+   207        (∀ p ∈ (margs.take nPc).zip
+   208          (pinst.map fun e => instChain (e.instL ci.lparams us) (args.take numParams)),
+   209          DefEq env Γ p.1 p.2) →
 
 == ConLeche/Rules/Rel.lean#L372-L391
    372    | forallE {d : Nat} {ty₁ body₁ ty₂ body₂ : Expr} {m₁ m₂ : BinderMeta} :
@@ -734,27 +734,27 @@
    391        DefEq env d (.app f₁ a₁) (.app f₂ a₂)
 
 == whitepaper/Fragment/Rules.lean#L210-L230
-   210    /-- **η** (`DefEq.eta`, `Rel.lean:400`): a λ against a term `b`
-   211    whose inferred type reduces to a `∀` with a definitionally equal
-   212    domain and the same annotation, when the λ's body is `b` applied to
-   213    the variable.  Sound because a member of a function space is the
-   214    abstraction of its applications (`SetLib.graph_app_eq`) — and at a
-   215    proposition both sides are the one proof. -/
-   216    | eta {Γ : List Expr} {A₁ b₁ b tb A₂ B : Expr} {pw : PropWhen} :
-   217        Infer env Γ b tb → Red env Γ tb (pi A₂ pw B) →
-   218        DefEq env Γ A₂ A₁ →
-   219        DefEq env (A₁ :: Γ) b₁ (app (b.liftN 1) (bvar 0)) →
-   220        DefEq env Γ (lam A₁ pw b₁) b
-   221    /-- **Proof irrelevance** (`DefEq.proofIrrel`, `Rel.lean:417`): both
-   222    sides' inferred types have sort `Prop`.  **The two types are never
-   223    compared**: the model licenses that, because every proof denotes the
-   224    one point. -/
-   225    | proofIrrel {Γ : List Expr} {a ta tta b tb ttb : Expr} {u v : Level} :
-   226        Infer env Γ a ta → Infer env Γ ta tta → Red env Γ tta (sort u) →
-   227        LevelOracle.eq u .zero = true →
-   228        Infer env Γ b tb → Infer env Γ tb ttb → Red env Γ ttb (sort v) →
-   229        LevelOracle.eq v .zero = true →
-   230        DefEq env Γ a b
+   210        piResidual (cij.type.instL cij.lparams usj) margs = some residual →
+   211        residual = mkAppN (const I lsI) (rps ++ ridx) →
+   212        rps.length = nPc →
+   213        (∀ p ∈ ridx.zip ((args.take (numParams + numMotives + numMinors + numIndices)).drop
+   214          (numParams + numMotives + numMinors)), DefEq env Γ p.1 p.2) →
+   215        Red env Γ (mkAppN (const c us) args)
+   216          (mkAppN (rl.rhs.instL ci.lparams us)
+   217            (args.take (numParams + numMotives + numMinors) ++ margs.drop nPc))
+   218  
+   219  /-- **Definitional equality**: the verdict `true` of the checker's
+   220  `isDefEq`.
+   221  
+   222  **There is no `trans` rule, deliberately** (`Rel.lean:310-333`, task
+   223  #309).  The relation is the checker's verdict on two terms that are
+   224  well-formed *together*, a fact no rule states because well-formedness
+   225  is semantic (`WellDenoted`) and may not enter this inductive.  Every
+   226  rule respects one discipline instead: **the subject of each `DefEq`
+   227  premise is a subterm of the conclusion or is produced by a `Red` or
+   228  `Infer` premise** (a reduct, an inferred type), so the soundness proof
+   229  always has the premise's terms — and their invariant — in hand.  A
+   230  `trans` rule is the unique rule that would break it: its middle term
 
 == ConLeche/Rules/Rel.lean#L399-L421
    399    | eta {d : Nat} {ty₁ body₁ b tb ty₂ B : Expr} {m₁ m₂ : BinderMeta} :
@@ -782,24 +782,24 @@
    421        DefEq env d a b
 
 == whitepaper/Fragment/Rules.lean#L158-L175
-   158  /-- **Definitional equality**: the verdict `true` of the checker's
-   159  `isDefEq`.
-   160  
-   161  **There is no `trans` rule, deliberately** (`Rel.lean:310-333`, task
-   162  #309).  The relation is the checker's verdict on two terms that are
-   163  well-formed *together*, a fact no rule states because well-formedness
-   164  is semantic (`WellDenoted`) and may not enter this inductive.  Every
-   165  rule respects one discipline instead: **the subject of each `DefEq`
-   166  premise is a subterm of the conclusion or is produced by a `Red` or
-   167  `Infer` premise** (a reduct, an inferred type), so the soundness proof
-   168  always has the premise's terms — and their invariant — in hand.  A
-   169  `trans` rule is the unique rule that would break it: its middle term
-   170  comes from nowhere, so nothing supplies its invariant, and the
-   171  induction has nothing to apply the hypothesis to.  In the real checker
-   172  the rule is not merely unprovable but unsound (`fvar`s carry
-   173  annotations `DefEq.fvar` does not compare while `DefEq.proofFast`
-   174  reads; `trans` lets the two meet).  The one sound chaining is "reduce,
-   175  then continue": `redL`. -/
+   158          (mkAppN (rl.rhs.instL ci.lparams us)
+   159            (args.take (numParams + numMotives + numMinors) ++ margs.drop numParams))
+   160    /-- **ι, nested** (con-leche's `.nested`-certified rules, task #48):
+   161    a rule of an auxiliary recursor fires on a constructor of the
+   162    block's *container*, whose parameters are not the recursor's.  The
+   163    rule stores the constructor's expected levels (over the recursor's
+   164    level parameters) and expected parameters (terms under the
+   165    recursor's parameter binders, `RecRule.inst`); the three
+   166    comparisons of `Red.iota` become: the constructor's levels are the
+   167    stored ones at the use's levels, its parameters are definitionally
+   168    the stored ones at the recursor's parameter arguments
+   169    (`Expr.instChain`), and the residual's index expressions are
+   170    definitionally the recursor's index arguments.  The constructor's
+   171    own parameter count comes from its record.  The telescope
+   172    certificates are as in `Red.iota`. -/
+   173    | iotaNested {Γ : List Expr} {c : Name} {us : List Level} {ci : ConstInfo}
+   174        {numParams numMotives numMinors numIndices : Nat} {rules : List RecRule}
+   175        {args : List Expr} {major : Expr} {cj : Name} {usj : List Level}
 
 == ConLeche/Rules/Rel.lean#L309-L332
    309  /-- **Definitional equality**: the verdict `true` of `isDefEq`.
@@ -828,20 +828,20 @@
    332  its right-hand and δ variants are derived in `Derived.lean`. -/
 
 == whitepaper/Fragment/Rules.lean#L233-L246
-   233  inductive Infer (env : Env) : List Expr → Expr → Expr → Prop where
-   234    /-- A bound variable's type is its context entry, lifted over the
-   235    binders in between (`Infer.fvar`, `Rel.lean:492`; the real checker
-   236    reads the type off the free variable). -/
-   237    | bvar {Γ : List Expr} {i : Nat} {A : Expr} :
-   238        Γ[i]? = some A → Infer env Γ (bvar i) (A.liftN (i + 1))
-   239    /-- `Sort u : Sort (u + 1)` (`Infer.sort`, `Rel.lean:488`). -/
-   240    | sort {Γ : List Expr} {u : Level} :
-   241        Infer env Γ (sort u) (sort (.succ u))
-   242    /-- A stored constant at the right number of levels has its
-   243    declared type, instantiated (`Infer.const`, `Rel.lean:496`). -/
-   244    | const {Γ : List Expr} {c : Name} {ls : List Level} {ci : ConstInfo} :
-   245        env.find? c = some ci → ls.length = ci.lparams.length →
-   246        Infer env Γ (const c ls) (ci.type.instL ci.lparams ls)
+   233  the rule is not merely unprovable but unsound (`fvar`s carry
+   234  annotations `DefEq.fvar` does not compare while `DefEq.proofFast`
+   235  reads; `trans` lets the two meet).  The one sound chaining is "reduce,
+   236  then continue": `redL`. -/
+   237  inductive DefEq (env : Env) : List Expr → Expr → Expr → Prop where
+   238    /-- The syntactic fast path (`DefEq.refl`, `Rel.lean:338`). -/
+   239    | refl {Γ : List Expr} {a : Expr} : DefEq env Γ a a
+   240    /-- Symmetry (`DefEq.symm`, `Rel.lean:341`).  Not a checker move: the
+   241    constructor from which every right-hand variant of a one-sided rule
+   242    is derived. -/
+   243    | symm {Γ : List Expr} {a b : Expr} : DefEq env Γ a b → DefEq env Γ b a
+   244    /-- **Reduce the left side, then continue** (`DefEq.redL`,
+   245    `Rel.lean:346`): the recursive structure of `isDefEq` — head
+   246    normalisation of either side (with `symm`) and every lazy-δ
 
 == ConLeche/Rules/Rel.lean#L479-L495
    479  inductive Infer (env : Env) : Grade → Nat → Expr → Expr → Prop where
@@ -863,26 +863,26 @@
    495            ci.toConstantVal.levelParams us)
 
 == whitepaper/Fragment/Rules.lean#L247-L266
-   247    /-- **`∀`-formation** (`Infer.forallE`, `Rel.lean:515`): the domain's
-   248    type reduces to a sort `u`, the body's type (under the domain)
-   249    reduces to a sort `v`, the result is `Sort (imax u v)` — and **the
-   250    annotation is checked**: it must be the zero-ness datum of `v`. -/
-   251    | pi {Γ : List Expr} {A B s t : Expr} {u v : Level} {pw : PropWhen} :
-   252        Infer env Γ A s → Red env Γ s (sort u) →
-   253        Infer env (A :: Γ) B t → Red env (A :: Γ) t (sort v) →
-   254        Level.zeroness v = pw →
-   255        Infer env Γ (pi A pw B) (sort (.imax u v))
-   256    /-- **λ** (`Infer.lam`, `Rel.lean:530`): the domain's type reduces to
-   257    a sort, the body is inferred under the domain, the body's type has a
-   258    sort `v`, and **the annotation is checked** against `v`.  (The real
-   259    checker validates the datum once per λ-chain; the fragment does it
-   260    at every λ.) -/
-   261    | lam {Γ : List Expr} {A b s bt btt : Expr} {u v : Level} {pw : PropWhen} :
-   262        Infer env Γ A s → Red env Γ s (sort u) →
-   263        Infer env (A :: Γ) b bt →
-   264        Infer env (A :: Γ) bt btt → Red env (A :: Γ) btt (sort v) →
-   265        Level.zeroness v = pw →
-   266        Infer env Γ (lam A pw b) (pi A pw bt)
+   247    continuation. -/
+   248    | redL {Γ : List Expr} {a a' b : Expr} :
+   249        Red env Γ a a' → DefEq env Γ a' b → DefEq env Γ a b
+   250    /-- Two sorts, by the level oracle (`DefEq.sort`, `Rel.lean:349`). -/
+   251    | sort {Γ : List Expr} {u v : Level} :
+   252        LevelOracle.eq u v = true → DefEq env Γ (sort u) (sort v)
+   253    /-- Two constants of the same name at oracle-equal levels
+   254    (`DefEq.const`, `Rel.lean:360`). -/
+   255    | const {Γ : List Expr} {c : Name} {ls ls' : List Level} :
+   256        Level.eqList ls ls' = true → DefEq env Γ (const c ls) (const c ls')
+   257    /-- `∀`-congruence (`DefEq.forallE`, `Rel.lean:373`): domains, then
+   258    bodies under the RIGHT domain, and the annotations must agree (they
+   259    are compared with `=`, which is semantic: `PropWhen.eq_iff`). -/
+   260    | pi {Γ : List Expr} {A₁ B₁ A₂ B₂ : Expr} {pw : PropWhen} :
+   261        DefEq env Γ A₁ A₂ → DefEq env (A₂ :: Γ) B₁ B₂ →
+   262        DefEq env Γ (pi A₁ pw B₁) (pi A₂ pw B₂)
+   263    /-- λ-congruence (`DefEq.lam`, `Rel.lean:380`), as for `∀`. -/
+   264    | lam {Γ : List Expr} {A₁ b₁ A₂ b₂ : Expr} {pw : PropWhen} :
+   265        DefEq env Γ A₁ A₂ → DefEq env (A₂ :: Γ) b₁ b₂ →
+   266        DefEq env Γ (lam A₁ pw b₁) (lam A₂ pw b₂)
 
 == ConLeche/Rules/Rel.lean#L508-L532
    508    | forallE {g : Grade} {d : Nat} {ty body s bs : Expr} {u v : Level}
@@ -912,16 +912,16 @@
    532        Infer env g d (.lam ty body mb) (.forallE ty (bt.abstract1 d) mb)
 
 == whitepaper/Fragment/Rules.lean#L267-L276
-   267    /-- **Application** (`Infer.app`, `Rel.lean:544`): the head's type
-   268    reduces to a `∀`, and the argument's inferred type is definitionally
-   269    equal to its domain.  This is where a syntactic proof would need
-   270    Π-injectivity and the semantic one does not: the `∀` the head's type
-   271    reduces to *is* a function space, and membership in it is what the
-   272    model needs (`Sound.lean`, `infer_sound`'s `app` case). -/
-   273    | app {Γ : List Expr} {f a tf A B ta : Expr} {pw : PropWhen} :
-   274        Infer env Γ f tf → Red env Γ tf (pi A pw B) →
-   275        Infer env Γ a ta → DefEq env Γ ta A →
-   276        Infer env Γ (app f a) (B.inst a)
+   267    /-- Application congruence (`DefEq.app`, `Rel.lean:390`). -/
+   268    | app {Γ : List Expr} {f₁ a₁ f₂ a₂ : Expr} :
+   269        DefEq env Γ f₁ f₂ → DefEq env Γ a₁ a₂ →
+   270        DefEq env Γ (app f₁ a₁) (app f₂ a₂)
+   271    /-- **η** (`DefEq.eta`, `Rel.lean:400`): a λ against a term `b`
+   272    whose inferred type reduces to a `∀` with a definitionally equal
+   273    domain and the same annotation, when the λ's body is `b` applied to
+   274    the variable.  Sound because a member of a function space is the
+   275    abstraction of its applications (`SetLib.graph_app_eq`) — and at a
+   276    proposition both sides are the one proof. -/
 
 == ConLeche/Rules/Rel.lean#L537-L540
    537    | app {g : Grade} {d : Nat} {f a tf ty body ta : Expr} {mt : BinderMeta} :
@@ -1283,11 +1283,11 @@
    294      WellDenoted V ρ (b.inst a) := by
 
 == whitepaper/Fragment/Sound.lean#L679-L683
-   679  theorem soundness [LevelOracle] (m : EnvModel V env) (φ : Name → Nat) :
-   680      (∀ {Γ : List Expr} {e e' : Expr}, Red env Γ e e' → RedSem m φ Γ e e') ∧
-   681      (∀ {Γ : List Expr} {a b : Expr}, DefEq env Γ a b → DefEqSem m φ Γ a b) ∧
-   682      (∀ {Γ : List Expr} {e T : Expr}, Infer env Γ e T → InferSem m φ Γ e T) :=
-   683    ⟨red_sound, defeq_sound, infer_sound⟩
+   679        intro x hx
+   680        exact univ_mono (Nat.le_max_right _ _) (hbody x hx).2
+   681  
+   682  /-- **λ.**  The body is inferred under the domain, so the λ's fibres
+   683  are the body type's denotations and the λ is a member of the `∀`;
 
 == whitepaper/Fragment/Motive.lean#L40-L53
     40  def RedSem (m : EnvModel V env) (φ : Name → Nat) (Γ : List Expr) (e e' : Expr) : Prop :=
@@ -1343,60 +1343,60 @@
    104          ∀ ρ : Nat → V, Sat V Δa ρ → interp V ρ ea ∈ˢ interp V ρ ta
 
 == whitepaper/Fragment/Sound.lean#L687-L690
-   687  theorem closed_infer [LevelOracle] (m : EnvModel V env) (φ : Name → Nat) {e T : Expr}
-   688      (h : Infer env [] e T) (ρ : Nat → V) :
-   689      interp m.M φ ρ e ∈ˢ interp m.M φ ρ T :=
-   690    (infer_sound h ρ (Sat_nil m.M φ ρ)).2.2
+   687  proof's: nothing here uses it. -/
+   688  theorem lam_sound {Γ : List Expr} {A b s bt btt : Expr} {u v : Level} {pw : PropWhen}
+   689      (hA : InferSem m φ Γ A s) (_hu : RedSem m φ Γ s (Expr.sort u))
+   690      (hb : InferSem m φ (A :: Γ) b bt)
 
 == whitepaper/Fragment/Sound.lean#L622-L669
-   622  mutual
-   623  
-   624  /-- Every reduction is sound. -/
-   625  theorem red_sound [LevelOracle] : ∀ {Γ : List Expr} {e e' : Expr}, Red env Γ e e' → RedSem m φ Γ e e'
-   626    | _, _, _, .refl => Red.refl_sound
-   627    | _, _, _, .trans h₁ h₂ => Red.trans_sound (red_sound h₁) (red_sound h₂)
-   628    | _, _, _, .appFn h => Red.appFn_sound (red_sound h)
-   629    | _, _, _, .betaGate => Red.betaGate_sound
-   630    | _, _, _, .beta hta hd => Red.beta_sound (infer_sound hta) (defeq_sound hd)
-   631    | _, _, _, .delta hfind hv hls => Red.delta_sound hfind hv hls
-   632    | _, _, _, .iota hfind hkind hus hlen hpis hmaj hmeq hrl hctor hcij husj hmlen hpis' hdoms htys
-   633        hI hD hdoms' htys' hI' hD' hlv hP hres hshape hrps hX =>
-   634      Red.iota_sound rfl rfl hfind hkind hus hlen hpis (red_sound hmaj) hmeq hrl hctor hcij husj
-   635        hmlen hpis' hdoms htys (fun p hp => infer_sound (hI p hp)) (fun p hp => defeq_sound (hD p hp))
-   636        hdoms' htys' (fun p hp => infer_sound (hI' p hp)) (fun p hp => defeq_sound (hD' p hp))
-   637        hlv (fun p hp => defeq_sound (hP p hp)) hres hshape hrps
-   638        (fun p hp => defeq_sound (hX p hp))
+   622      InferSem m φ Γ (Expr.bvar i) (A.liftN (i + 1)) := by
+   623    intro ρ hs
+   624    obtain ⟨hw, hmem⟩ := Sat_get m.M φ hs h
+   625    refine ⟨.bvar, ?_, ?_⟩
+   626    · rw [WellDenoted_liftN]; exact hw
+   627    · rw [interp_bvar, interp_liftN]; exact hmem
+   628  
+   629  theorem sort_sound {Γ : List Expr} {u : Level} :
+   630      InferSem m φ Γ (Expr.sort u) (Expr.sort (.succ u)) :=
+   631    fun _ _ => ⟨.sort, .sort, by simp only [interp_sort, Level.eval_succ]; exact univ_mem_succ _⟩
+   632  
+   633  theorem const_sound {Γ : List Expr} {c : Name} {ls : List Level} {ci : ConstInfo}
+   634      (hfind : env.find? c = some ci) (hls : ls.length = ci.lparams.length) :
+   635      InferSem m φ Γ (Expr.const c ls) (ci.type.instL ci.lparams ls) := by
+   636    intro ρ _
+   637    obtain ⟨hw, hmem⟩ := m.type_ok c ci hfind φ ρ ls hls
+   638    exact ⟨.const, hw, hmem⟩
    639  
-   640  /-- Every definitional-equality verdict is sound. -/
-   641  theorem defeq_sound [LevelOracle] : ∀ {Γ : List Expr} {a b : Expr}, DefEq env Γ a b → DefEqSem m φ Γ a b
-   642    | _, _, _, .refl => DefEq.refl_sound
-   643    | _, _, _, .symm h => DefEq.symm_sound (defeq_sound h)
-   644    | _, _, _, .redL hr h => DefEq.redL_sound (red_sound hr) (defeq_sound h)
-   645    | _, _, _, .sort h => DefEq.sort_sound h
-   646    | _, _, _, .const h => DefEq.const_sound h
-   647    | _, _, _, .pi hA hB => DefEq.pi_sound (defeq_sound hA) (defeq_sound hB)
-   648    | _, _, _, .lam hA hb => DefEq.lam_sound (defeq_sound hA) (defeq_sound hb)
-   649    | _, _, _, .app hf ha => DefEq.app_sound (defeq_sound hf) (defeq_sound ha)
-   650    | _, _, _, .eta htb hr hA hbody =>
-   651      DefEq.eta_sound (infer_sound htb) (red_sound hr) (defeq_sound hA) (defeq_sound hbody)
-   652    | _, _, _, .proofIrrel hta htta hu hu0 htb httb hv hv0 =>
-   653      DefEq.proofIrrel_sound (infer_sound hta) (infer_sound htta) (red_sound hu) hu0
-   654        (infer_sound htb) (infer_sound httb) (red_sound hv) hv0
-   655  
-   656  /-- Every inference is sound. -/
-   657  theorem infer_sound [LevelOracle] : ∀ {Γ : List Expr} {e T : Expr}, Infer env Γ e T → InferSem m φ Γ e T
-   658    | _, _, _, .bvar h => Infer.bvar_sound h
-   659    | _, _, _, .sort => Infer.sort_sound
-   660    | _, _, _, .const hfind hls => Infer.const_sound hfind hls
-   661    | _, _, _, .pi hA hu hB hv hz =>
-   662      Infer.pi_sound (infer_sound hA) (red_sound hu) (infer_sound hB) (red_sound hv) hz
-   663    | _, _, _, .lam hA hu hb hbt hv hz =>
-   664      Infer.lam_sound (infer_sound hA) (red_sound hu) (infer_sound hb) (infer_sound hbt)
-   665        (red_sound hv) hz
-   666    | _, _, _, .app hf hr ha hd =>
-   667      Infer.app_sound (infer_sound hf) (red_sound hr) (infer_sound ha) (defeq_sound hd)
-   668  
-   669  end
+   640  /-- **`∀`-formation.**  The body denotes a member of `univ (eval v)` at
+   641  every point of the domain; the annotation is `zeroness v`, so it
+   642  reads `true` exactly when `eval v = 0` — which is exactly when the
+   643  product is a truth value (in `univ 0`, impredicatively, whatever the
+   644  domain) and when `imax u v` is `0`.  Above `0` the product is a graph
+   645  space in `univ (max u v)` by the library's closure law. -/
+   646  theorem pi_sound {Γ : List Expr} {A B s t : Expr} {u v : Level} {pw : PropWhen}
+   647      (hA : InferSem m φ Γ A s) (hu : RedSem m φ Γ s (Expr.sort u))
+   648      (hB : InferSem m φ (A :: Γ) B t) (hv : RedSem m φ (A :: Γ) t (Expr.sort v))
+   649      (hz : Level.zeroness v = pw) :
+   650      InferSem m φ Γ (Expr.pi A pw B) (Expr.sort (.imax u v)) := by
+   651    intro ρ hs
+   652    obtain ⟨hwA, hws, hmemA⟩ := hA ρ hs
+   653    obtain ⟨-, hes⟩ := hu ρ hs hws
+   654    rw [hes, interp_sort] at hmemA
+   655    have hbody : ∀ x, x ∈ˢ interp m.M φ ρ A →
+   656        WellDenoted m.M φ (cons x ρ) B ∧ interp m.M φ (cons x ρ) B ∈ˢ univ (Level.eval φ v) := by
+   657      intro x hx
+   658      have hs' : Sat m.M φ (A :: Γ) (cons x ρ) := (Sat_cons m.M φ).mpr ⟨hs, hwA, hx⟩
+   659      obtain ⟨hwB, hwt, hmemB⟩ := hB (cons x ρ) hs'
+   660      obtain ⟨-, het⟩ := hv (cons x ρ) hs' hwt
+   661      rw [het, interp_sort] at hmemB
+   662      exact ⟨hwB, hmemB⟩
+   663    have hzero := holds_of_zeroness (φ := φ) hz
+   664    refine ⟨?_, .sort, ?_⟩
+   665    · rw [WellDenoted_pi]
+   666      refine ⟨hwA, fun x hx => (hbody x hx).1, fun hp x hx => ?_⟩
+   667      have := (hbody x hx).2
+   668      rwa [hzero.mp hp] at this
+   669    · rw [interp_pi, interp_sort, Level.eval_imax]
 
 == ConLeche/Model/Rules/Sound.lean#L43-L44
     43  theorem red_sound (hin : RulesInputs V m φ) :
@@ -1434,11 +1434,11 @@
    200      RedSem m φ d (.app (.lam ty body mb) a) (body.instantiate1 a) := by
 
 == whitepaper/Fragment/Sound.lean#L369-L373
-   369  theorem redL_sound {Γ : List Expr} {a a' b : Expr}
-   370      (hr : RedSem m φ Γ a a') (h : DefEqSem m φ Γ a' b) : DefEqSem m φ Γ a b := by
-   371    intro ρ hs ha hb
-   372    obtain ⟨ha', he⟩ := hr ρ hs ha
-   373    exact he.trans (h ρ hs ha' hb)
+   369      (hmaj : RedSem m φ Γ (args.getD majorIdx (Expr.bvar 0)) major)
+   370      (hmeq : major = Expr.mkAppN (Expr.const cj usj) margs)
+   371      (hrl : rl ∈ rules) (hctor : rl.ctor = cj) (hinst : rl.inst = some (lvs, pinst))
+   372      (hcij : env.find? cj = some cij) (hcijk : cij.kind = .ctor I' nPc nfj)
+   373      (husj : usj.length = cij.lparams.length)
 
 == ConLeche/Model/Rules/DefEqSound.lean#L47-L49
     47  theorem DefEq.redL_sound {d : Nat} {a a' b : Expr}
@@ -1446,9 +1446,9 @@
     49      DefEqSem m φ d a b := by
 
 == whitepaper/Fragment/Sound.lean#L375-L377
-   375  theorem sort_sound [LevelOracle] {Γ : List Expr} {u v : Level} (h : LevelOracle.eq u v = true) :
-   376      DefEqSem m φ Γ (Expr.sort u) (Expr.sort v) :=
-   377    fun _ _ _ _ => by simp [eval_eq_of_oracle h]
+   375      (hpis' : cij.type.hasPis (nPc + rl.nfields) = true)
+   376      (hdoms : Expr.piDomains (ci.type.instL ci.lparams us) (args.take majorIdx ++ [major]) = some doms)
+   377      (htys : tys.length = doms.length)
 
 == ConLeche/Model/Rules/DefEqSound.lean#L56-L58
     56  theorem DefEq.sort_sound {d : Nat} {u v : Level}
@@ -1456,41 +1456,41 @@
     58      DefEqSem m φ d (.sort u) (.sort v) := by
 
 == whitepaper/Fragment/Sound.lean#L424-L458
-   424  theorem eta_sound {Γ : List Expr} {A₁ b₁ b tb A₂ B : Expr} {pw : PropWhen}
-   425      (htb : InferSem m φ Γ b tb) (hr : RedSem m φ Γ tb (Expr.pi A₂ pw B))
-   426      (hA : DefEqSem m φ Γ A₂ A₁)
-   427      (hbody : DefEqSem m φ (A₁ :: Γ) b₁ (Expr.app (b.liftN 1) (Expr.bvar 0))) :
-   428      DefEqSem m φ Γ (Expr.lam A₁ pw b₁) b := by
-   429    intro ρ hs hlam hwb
-   430    -- `⟦b⟧` is a member of the product its type reduces to
-   431    obtain ⟨-, hwtb, hmemb⟩ := htb ρ hs
-   432    obtain ⟨hwpi, hepi⟩ := hr ρ hs hwtb
-   433    rw [hepi, interp_pi] at hmemb
-   434    rw [WellDenoted_pi] at hwpi
-   435    rw [WellDenoted_lam] at hlam
-   436    have heA : interp m.M φ ρ A₂ = interp m.M φ ρ A₁ := hA ρ hs hwpi.1 hlam.1
-   437    -- the lifted `b` under the binder is `b`
-   438    have hsh : ∀ x, shiftE 1 0 (cons x ρ) = ρ := by
-   439      intro x; funext i; simp [shiftE]
-   440    have hlift : ∀ x, interp m.M φ (cons x ρ) (b.liftN 1) = interp m.M φ ρ b := by
-   441      intro x
-   442      rw [interp_liftN, hsh]
-   443    -- the body, pointwise, is `b` applied
-   444    have hpt : ∀ x, x ∈ˢ interp m.M φ ρ A₁ →
-   445        interp m.M φ (cons x ρ) b₁ = SetLib.app (interp m.M φ ρ b) x := by
-   446      intro x hx
-   447      have hx₂ : x ∈ˢ interp m.M φ ρ A₂ := by rw [heA]; exact hx
-   448      have happ : WellDenoted m.M φ (cons x ρ) (Expr.app (b.liftN 1) (Expr.bvar 0)) := by
-   449        rw [WellDenoted_app]
-   450        refine ⟨(WellDenoted_liftN m.M φ 1 b 0 (cons x ρ)).mpr ?_, .bvar,
-   451          pw.holds φ, interp m.M φ ρ A₂, fun y => interp m.M φ (cons y ρ) B, ?_, hx₂, hwpi.2.2⟩
-   452        · rw [hsh]; exact hwb
-   453        · rw [hlift]; exact hmemb
-   454      have := hbody (cons x ρ) ((Sat_cons m.M φ).mpr ⟨hs, hlam.1, hx⟩) (hlam.2.1 x hx) happ
-   455      rw [this, interp_app, interp_bvar, cons_zero, hlift]
-   456    -- η in the model
-   457    rw [interp_lam, lamR_congr hpt, ← heA]
-   458    exact lamR_eta hmemb
+   424    have hfitV' := teleFitV_of_teleFit m.M φ ρ
+   425      (by rw [Expr.hasPis_instL, hmlen]; exact hpis') hfit'
+   426    rw [List.map_append, List.map_singleton, hmajv] at hfitV
+   427    have hwres : WellDenoted m.M φ ρ residual :=
+   428      WellDenoted_piResidual (m.type_ok _ cij hcij φ ρ usj husj).1 hmargs hfit' hres
+   429    rw [hshape] at hwres
+   430    obtain ⟨-, hwridx⟩ := WellDenoted_mkAppN hwres
+   431    have hXsem : ∀ p ∈ ridx.zip
+   432        ((args.take (numParams + numMotives + numMinors + numIndices)).drop
+   433          (numParams + numMotives + numMinors)),
+   434        interp m.M φ ρ p.1 = interp m.M φ ρ p.2 := by
+   435      intro p hp
+   436      exact hX p hp ρ hs (hwridx _ (List.mem_append_right _ (List.of_mem_zip hp).1))
+   437        (hwxs _ (List.mem_of_mem_drop (List.of_mem_zip hp).2))
+   438    have hX' : ∀ (B : Expr) (ρ' : Nat → V) (I' : Name) (lsI' : List Level) (rps' ridx' : List Expr),
+   439        piBodyV ρ (cij.type.instL cij.lparams usj) (margs.map (interp m.M φ ρ)) = some (B, ρ') →
+   440        B = Expr.mkAppN (.const I' lsI') (rps' ++ ridx') → rps'.length = nPc →
+   441        ∀ p ∈ (ridx'.map (interp m.M φ ρ')).zip
+   442          (((args.take (numParams + numMotives + numMinors + numIndices)).map
+   443            (interp m.M φ ρ)).drop (numParams + numMotives + numMinors)), p.1 = p.2 := by
+   444      intro B ρ' I' lsI' rps' ridx' hB hBs hrps' p hp
+   445      have hRB := piResidual_of_piBodyV m.M φ ρ hres hB
+   446      rw [hshape, hBs, Expr.instChain_mkAppN, Expr.instChain_const] at hRB
+   447      obtain ⟨-, -, hargs_eq⟩ := Expr.mkAppN_const_inj hRB
+   448      rw [List.map_append] at hargs_eq
+   449      have hridx : ridx = ridx'.map (Expr.instChain · margs) :=
+   450        List.append_inj_right hargs_eq (by simp [hrps, hrps'])
+   451      rw [piBodyV_env hB] at hp
+   452      have hmap : ridx'.map (interp m.M φ (consList (margs.map (interp m.M φ ρ)).reverse ρ))
+   453          = ridx.map (interp m.M φ ρ) := by
+   454        rw [hridx, List.map_map]
+   455        apply List.map_congr_left
+   456        intro r _
+   457        simp [Function.comp, interp_instChain]
+   458      rw [hmap, ← List.map_drop, List.zip_map] at hp
 
 == ConLeche/Model/Rules/DefEqSound.lean#L193-L200
    193  theorem DefEq.eta_sound {d : Nat}
@@ -1503,27 +1503,27 @@
    200      DefEqSem m φ d (.lam ty₁ body₁ m₁) b := by
 
 == whitepaper/Fragment/Sound.lean#L461-L481
-   461  theorem eq_pt_of_prop [LevelOracle] {Γ : List Expr} {a ta tta : Expr} {u : Level}
-   462      (hta : InferSem m φ Γ a ta) (htta : InferSem m φ Γ ta tta)
-   463      (hu : RedSem m φ Γ tta (Expr.sort u)) (hu0 : LevelOracle.eq u .zero = true)
-   464      (ρ : Nat → V) (hs : Sat m.M φ Γ ρ) : interp m.M φ ρ a = pt := by
-   465    obtain ⟨-, hwta, hmem⟩ := hta ρ hs
-   466    obtain ⟨-, hwtta, hmem₂⟩ := htta ρ hs
-   467    obtain ⟨-, heq⟩ := hu ρ hs hwtta
-   468    rw [heq, interp_sort, eval_eq_of_oracle hu0, Level.eval_zero] at hmem₂
-   469    exact eq_pt_of_mem_univ_zero hmem₂ hmem
-   470  
-   471  /-- **Proof irrelevance is sound, for free.**  Each side's type has
-   472  sort `Prop`, so each side's denotation is a member of a truth value,
-   473  hence the point; the two types are never compared, and need not be. -/
-   474  theorem proofIrrel_sound [LevelOracle] {Γ : List Expr} {a ta tta b tb ttb : Expr} {u v : Level}
-   475      (hta : InferSem m φ Γ a ta) (htta : InferSem m φ Γ ta tta)
-   476      (hu : RedSem m φ Γ tta (Expr.sort u)) (hu0 : LevelOracle.eq u .zero = true)
-   477      (htb : InferSem m φ Γ b tb) (httb : InferSem m φ Γ tb ttb)
-   478      (hv : RedSem m φ Γ ttb (Expr.sort v)) (hv0 : LevelOracle.eq v .zero = true) :
-   479      DefEqSem m φ Γ a b := by
-   480    intro ρ hs _ _
-   481    rw [eq_pt_of_prop hta htta hu hu0 ρ hs, eq_pt_of_prop htb httb hv hv0 ρ hs]
+   461    obtain ⟨heq, hwrhs, hspine⟩ := m.rec_rules_nested c ci numParams numMotives numMinors numIndices
+   462      rules hfind hkind rl hrl lvs pinst hinst cij I' nPc nfj hcij hcijk φ ρ us usj _ _ hus husj
+   463      (by simp only [List.length_map, List.length_take, hlen]; omega) (by simp [hmlen])
+   464      hfitV hfitV' hX'
+   465    have hvals : (args.take (numParams + numMotives + numMinors) ++ margs.drop nPc).map
+   466          (interp m.M φ ρ)
+   467        = ((args.take (numParams + numMotives + numMinors + numIndices)).map
+   468            (interp m.M φ ρ)).take (numParams + numMotives + numMinors)
+   469          ++ (margs.map (interp m.M φ ρ)).drop nPc := by
+   470      rw [List.map_append, ← List.map_take, ← List.map_drop, List.take_take,
+   471        Nat.min_eq_left (by omega)]
+   472    refine ⟨?_, ?_⟩
+   473    · apply WellDenoted_mkAppN_of_spineOk m.M φ ρ hwrhs
+   474      · intro a ha
+   475        rcases List.mem_append.mp ha with ha | ha
+   476        · exact hargs a (List.mem_of_mem_take ha)
+   477        · exact hmargs a (List.mem_of_mem_drop ha)
+   478      · rw [hvals]; exact hspine
+   479    · conv => lhs; rw [hsplit]
+   480      rw [interp_mkAppN_appList, interp_mkAppN_appList, hvals, interp_const, List.map_append,
+   481        List.map_singleton, hemaj, hmajv]
 
 == ConLeche/Model/Rules/DefEqSound.lean#L309-L316
    309  theorem DefEq.proofIrrel_sound {d : Nat}
@@ -1536,41 +1536,41 @@
    316    intro hfa hfb Δa aa ba hCa hCb haa hba hga hgb ρ hρ
 
 == whitepaper/Fragment/Sound.lean#L514-L548
-   514  theorem pi_sound {Γ : List Expr} {A B s t : Expr} {u v : Level} {pw : PropWhen}
-   515      (hA : InferSem m φ Γ A s) (hu : RedSem m φ Γ s (Expr.sort u))
-   516      (hB : InferSem m φ (A :: Γ) B t) (hv : RedSem m φ (A :: Γ) t (Expr.sort v))
-   517      (hz : Level.zeroness v = pw) :
-   518      InferSem m φ Γ (Expr.pi A pw B) (Expr.sort (.imax u v)) := by
-   519    intro ρ hs
-   520    obtain ⟨hwA, hws, hmemA⟩ := hA ρ hs
-   521    obtain ⟨-, hes⟩ := hu ρ hs hws
-   522    rw [hes, interp_sort] at hmemA
-   523    have hbody : ∀ x, x ∈ˢ interp m.M φ ρ A →
-   524        WellDenoted m.M φ (cons x ρ) B ∧ interp m.M φ (cons x ρ) B ∈ˢ univ (Level.eval φ v) := by
-   525      intro x hx
-   526      have hs' : Sat m.M φ (A :: Γ) (cons x ρ) := (Sat_cons m.M φ).mpr ⟨hs, hwA, hx⟩
-   527      obtain ⟨hwB, hwt, hmemB⟩ := hB (cons x ρ) hs'
-   528      obtain ⟨-, het⟩ := hv (cons x ρ) hs' hwt
-   529      rw [het, interp_sort] at hmemB
-   530      exact ⟨hwB, hmemB⟩
-   531    have hzero := holds_of_zeroness (φ := φ) hz
-   532    refine ⟨?_, .sort, ?_⟩
-   533    · rw [WellDenoted_pi]
-   534      refine ⟨hwA, fun x hx => (hbody x hx).1, fun hp x hx => ?_⟩
-   535      have := (hbody x hx).2
-   536      rwa [hzero.mp hp] at this
-   537    · rw [interp_pi, interp_sort, Level.eval_imax]
-   538      by_cases h0 : Level.eval φ v = 0
-   539      · rw [hzero.mpr h0, (Level.imaxNat_eq_zero_iff _ _).mpr h0]
-   540        exact piR_true_mem_univ_zero
-   541      · have hp : pw.holds φ = false := by
-   542          cases hh : pw.holds φ
-   543          · rfl
-   544          · exact absurd (hzero.mp hh) h0
-   545        rw [hp, Level.imaxNat_of_ne_zero h0]
-   546        refine piR_false_mem_univ (by omega) (univ_mono (Nat.le_max_left _ _) hmemA) ?_
-   547        intro x hx
-   548        exact univ_mono (Nat.le_max_right _ _) (hbody x hx).2
+   514  
+   515  theorem pi_sound {Γ : List Expr} {A₁ B₁ A₂ B₂ : Expr} {pw : PropWhen}
+   516      (hA : DefEqSem m φ Γ A₁ A₂) (hB : DefEqSem m φ (A₂ :: Γ) B₁ B₂) :
+   517      DefEqSem m φ Γ (Expr.pi A₁ pw B₁) (Expr.pi A₂ pw B₂) := by
+   518    intro ρ hs h₁ h₂
+   519    rw [WellDenoted_pi] at h₁ h₂
+   520    have heA := hA ρ hs h₁.1 h₂.1
+   521    simp only [interp_pi]
+   522    rw [heA]
+   523    apply piR_congr
+   524    intro x hx
+   525    have hx₁ : x ∈ˢ interp m.M φ ρ A₁ := by rw [heA]; exact hx
+   526    exact hB (cons x ρ) ((Sat_cons m.M φ).mpr ⟨hs, h₂.1, hx⟩) (h₁.2.1 x hx₁) (h₂.2.1 x hx)
+   527  
+   528  theorem lam_sound {Γ : List Expr} {A₁ b₁ A₂ b₂ : Expr} {pw : PropWhen}
+   529      (hA : DefEqSem m φ Γ A₁ A₂) (hb : DefEqSem m φ (A₂ :: Γ) b₁ b₂) :
+   530      DefEqSem m φ Γ (Expr.lam A₁ pw b₁) (Expr.lam A₂ pw b₂) := by
+   531    intro ρ hs h₁ h₂
+   532    rw [WellDenoted_lam] at h₁ h₂
+   533    have heA := hA ρ hs h₁.1 h₂.1
+   534    simp only [interp_lam]
+   535    rw [heA]
+   536    apply lamR_congr
+   537    intro x hx
+   538    have hx₁ : x ∈ˢ interp m.M φ ρ A₁ := by rw [heA]; exact hx
+   539    exact hb (cons x ρ) ((Sat_cons m.M φ).mpr ⟨hs, h₂.1, hx⟩) (h₁.2.1 x hx₁) (h₂.2.1 x hx)
+   540  
+   541  theorem app_sound {Γ : List Expr} {f₁ a₁ f₂ a₂ : Expr}
+   542      (hf : DefEqSem m φ Γ f₁ f₂) (ha : DefEqSem m φ Γ a₁ a₂) :
+   543      DefEqSem m φ Γ (Expr.app f₁ a₁) (Expr.app f₂ a₂) := by
+   544    intro ρ hs h₁ h₂
+   545    rw [WellDenoted_app] at h₁ h₂
+   546    simp only [interp_app]
+   547    rw [hf ρ hs h₁.1 h₂.1, ha ρ hs h₁.2.1 h₂.2.1]
+   548  
 
 == whitepaper/Fragment/Sound.lean#L46-L48
     46  theorem holds_of_zeroness {v : Level} {pw : PropWhen} (h : Level.zeroness v = pw) :
@@ -1587,41 +1587,41 @@
    273      InferSem m φ g d (.forallE ty body mb) (.sort (.imax u v)) := by
 
 == whitepaper/Fragment/Sound.lean#L556-L590
-   556  theorem lam_sound {Γ : List Expr} {A b s bt btt : Expr} {u v : Level} {pw : PropWhen}
-   557      (hA : InferSem m φ Γ A s) (_hu : RedSem m φ Γ s (Expr.sort u))
-   558      (hb : InferSem m φ (A :: Γ) b bt)
-   559      (hbt : InferSem m φ (A :: Γ) bt btt) (hv : RedSem m φ (A :: Γ) btt (Expr.sort v))
-   560      (hz : Level.zeroness v = pw) :
-   561      InferSem m φ Γ (Expr.lam A pw b) (Expr.pi A pw bt) := by
-   562    intro ρ hs
-   563    obtain ⟨hwA, -, -⟩ := hA ρ hs
-   564    have hbody : ∀ x, x ∈ˢ interp m.M φ ρ A →
-   565        WellDenoted m.M φ (cons x ρ) b ∧ WellDenoted m.M φ (cons x ρ) bt ∧
-   566        interp m.M φ (cons x ρ) b ∈ˢ interp m.M φ (cons x ρ) bt ∧
-   567        interp m.M φ (cons x ρ) bt ∈ˢ univ (Level.eval φ v) := by
-   568      intro x hx
-   569      have hs' : Sat m.M φ (A :: Γ) (cons x ρ) := (Sat_cons m.M φ).mpr ⟨hs, hwA, hx⟩
-   570      obtain ⟨hwb, hwbt, hmemb⟩ := hb (cons x ρ) hs'
-   571      obtain ⟨-, hwbtt, hmembt⟩ := hbt (cons x ρ) hs'
-   572      obtain ⟨-, hebtt⟩ := hv (cons x ρ) hs' hwbtt
-   573      rw [hebtt, interp_sort] at hmembt
-   574      exact ⟨hwb, hwbt, hmemb, hmembt⟩
-   575    have hzero := holds_of_zeroness (φ := φ) hz
-   576    have hpi : WellDenoted m.M φ ρ (Expr.pi A pw bt) := by
-   577      rw [WellDenoted_pi]
-   578      refine ⟨hwA, fun x hx => (hbody x hx).2.1, fun hp x hx => ?_⟩
-   579      have := (hbody x hx).2.2.2
-   580      rwa [hzero.mp hp] at this
-   581    refine ⟨?_, hpi, ?_⟩
-   582    · rw [WellDenoted_lam]
-   583      refine ⟨hwA, fun x hx => (hbody x hx).1, fun x => interp m.M φ (cons x ρ) bt,
-   584        fun x hx => (hbody x hx).2.2.1, fun hp x hx => ?_⟩
-   585      have := (hbody x hx).2.2.2
-   586      rwa [hzero.mp hp] at this
-   587    · rw [interp_lam, interp_pi]
-   588      refine lamR_mem (fun x hx => (hbody x hx).2.2.1) fun hp x hx => ?_
-   589      have := (hbody x hx).2.2.2
-   590      rwa [hzero.mp hp] at this
+   556  theorem eta_sound {Γ : List Expr} {A₁ b₁ b tb A₂ B : Expr} {pw : PropWhen}
+   557      (htb : InferSem m φ Γ b tb) (hr : RedSem m φ Γ tb (Expr.pi A₂ pw B))
+   558      (hA : DefEqSem m φ Γ A₂ A₁)
+   559      (hbody : DefEqSem m φ (A₁ :: Γ) b₁ (Expr.app (b.liftN 1) (Expr.bvar 0))) :
+   560      DefEqSem m φ Γ (Expr.lam A₁ pw b₁) b := by
+   561    intro ρ hs hlam hwb
+   562    -- `⟦b⟧` is a member of the product its type reduces to
+   563    obtain ⟨-, hwtb, hmemb⟩ := htb ρ hs
+   564    obtain ⟨hwpi, hepi⟩ := hr ρ hs hwtb
+   565    rw [hepi, interp_pi] at hmemb
+   566    rw [WellDenoted_pi] at hwpi
+   567    rw [WellDenoted_lam] at hlam
+   568    have heA : interp m.M φ ρ A₂ = interp m.M φ ρ A₁ := hA ρ hs hwpi.1 hlam.1
+   569    -- the lifted `b` under the binder is `b`
+   570    have hsh : ∀ x, shiftE 1 0 (cons x ρ) = ρ := by
+   571      intro x; funext i; simp [shiftE]
+   572    have hlift : ∀ x, interp m.M φ (cons x ρ) (b.liftN 1) = interp m.M φ ρ b := by
+   573      intro x
+   574      rw [interp_liftN, hsh]
+   575    -- the body, pointwise, is `b` applied
+   576    have hpt : ∀ x, x ∈ˢ interp m.M φ ρ A₁ →
+   577        interp m.M φ (cons x ρ) b₁ = SetLib.app (interp m.M φ ρ b) x := by
+   578      intro x hx
+   579      have hx₂ : x ∈ˢ interp m.M φ ρ A₂ := by rw [heA]; exact hx
+   580      have happ : WellDenoted m.M φ (cons x ρ) (Expr.app (b.liftN 1) (Expr.bvar 0)) := by
+   581        rw [WellDenoted_app]
+   582        refine ⟨(WellDenoted_liftN m.M φ 1 b 0 (cons x ρ)).mpr ?_, .bvar,
+   583          pw.holds φ, interp m.M φ ρ A₂, fun y => interp m.M φ (cons y ρ) B, ?_, hx₂, hwpi.2.2⟩
+   584        · rw [hsh]; exact hwb
+   585        · rw [hlift]; exact hmemb
+   586      have := hbody (cons x ρ) ((Sat_cons m.M φ).mpr ⟨hs, hlam.1, hx⟩) (hlam.2.1 x hx) happ
+   587      rw [this, interp_app, interp_bvar, cons_zero, hlift]
+   588    -- η in the model
+   589    rw [interp_lam, lamR_congr hpt, ← heA]
+   590    exact lamR_eta hmemb
 
 == ConLeche/Model/Rules/InferSound.lean#L356-L367
    356  theorem Infer.lam_sound {g : Grade} {d : Nat}
@@ -1638,23 +1638,23 @@
    367      InferSem m φ g d (.lam ty body mb) (.forallE ty (bt.abstract1 d) mb) := by
 
 == whitepaper/Fragment/Sound.lean#L600-L616
-   600  theorem app_sound {Γ : List Expr} {f a tf A B ta : Expr} {pw : PropWhen}
-   601      (hf : InferSem m φ Γ f tf) (hr : RedSem m φ Γ tf (Expr.pi A pw B))
-   602      (ha : InferSem m φ Γ a ta) (hd : DefEqSem m φ Γ ta A) :
-   603      InferSem m φ Γ (Expr.app f a) (B.inst a) := by
-   604    intro ρ hs
-   605    obtain ⟨hwf, hwtf, hmemf⟩ := hf ρ hs
-   606    obtain ⟨hwpi, hepi⟩ := hr ρ hs hwtf
-   607    rw [hepi] at hmemf
-   608    obtain ⟨hwa, hwta, hmema⟩ := ha ρ hs
-   609    have hwpi' := hwpi
-   610    rw [WellDenoted_pi] at hwpi'
-   611    rw [hd ρ hs hwta hwpi'.1] at hmema
-   612    refine ⟨WellDenoted_app_of m.M φ hwf hwa hwpi hmemf hmema,
-   613      (WellDenoted_inst0 m.M φ hwa).mpr (hwpi'.2.1 _ hmema), ?_⟩
-   614    rw [interp_app, interp_inst0]
-   615    rw [interp_pi] at hmemf
-   616    exact app_mem_piR hmemf hmema
+   600    rw [heq, interp_sort, eval_eq_of_oracle hu0, Level.eval_zero] at hmem₂
+   601    exact eq_pt_of_mem_univ_zero hmem₂ hmem
+   602  
+   603  /-- **Proof irrelevance is sound, for free.**  Each side's type has
+   604  sort `Prop`, so each side's denotation is a member of a truth value,
+   605  hence the point; the two types are never compared, and need not be. -/
+   606  theorem proofIrrel_sound [LevelOracle] {Γ : List Expr} {a ta tta b tb ttb : Expr} {u v : Level}
+   607      (hta : InferSem m φ Γ a ta) (htta : InferSem m φ Γ ta tta)
+   608      (hu : RedSem m φ Γ tta (Expr.sort u)) (hu0 : LevelOracle.eq u .zero = true)
+   609      (htb : InferSem m φ Γ b tb) (httb : InferSem m φ Γ tb ttb)
+   610      (hv : RedSem m φ Γ ttb (Expr.sort v)) (hv0 : LevelOracle.eq v .zero = true) :
+   611      DefEqSem m φ Γ a b := by
+   612    intro ρ hs _ _
+   613    rw [eq_pt_of_prop hta htta hu hu0 ρ hs, eq_pt_of_prop htb httb hv hv0 ρ hs]
+   614  
+   615  end DefEq
+   616  
 
 == ConLeche/Model/Rules/InferSound.lean#L511-L515
    511  theorem Infer.app_sound {g : Grade} {d : Nat}
@@ -1685,47 +1685,47 @@
    156    exact ⟨hf', ha, p, A, B, he ▸ hslot, hmem, hB⟩
 
 == whitepaper/Fragment/Sound.lean#L358-L363
-   358  theorem refl_sound {Γ : List Expr} {a : Expr} : DefEqSem m φ Γ a a :=
-   359    fun _ _ _ _ => rfl
-   360  
-   361  theorem symm_sound {Γ : List Expr} {a b : Expr} (h : DefEqSem m φ Γ a b) :
-   362      DefEqSem m φ Γ b a :=
-   363    fun ρ hs hb ha => (h ρ hs ha hb).symm
+   358      {cij : ConstInfo} {I' : Name} {nPc nfj : Nat} {margs : List Expr} {rl : RecRule}
+   359      {lvs : List Level} {pinst : List Expr}
+   360      {doms tys doms' tys' : List Expr} {numBefore majorIdx : Nat}
+   361      {residual : Expr} {I : Name} {lsI : List Level} {rps ridx : List Expr}
+   362      (hnB : numBefore = numParams + numMotives + numMinors)
+   363      (hmI : majorIdx = numParams + numMotives + numMinors + numIndices)
 
 == whitepaper/Fragment/Sound.lean#L383-L415
-   383  theorem pi_sound {Γ : List Expr} {A₁ B₁ A₂ B₂ : Expr} {pw : PropWhen}
-   384      (hA : DefEqSem m φ Γ A₁ A₂) (hB : DefEqSem m φ (A₂ :: Γ) B₁ B₂) :
-   385      DefEqSem m φ Γ (Expr.pi A₁ pw B₁) (Expr.pi A₂ pw B₂) := by
-   386    intro ρ hs h₁ h₂
-   387    rw [WellDenoted_pi] at h₁ h₂
-   388    have heA := hA ρ hs h₁.1 h₂.1
-   389    simp only [interp_pi]
-   390    rw [heA]
-   391    apply piR_congr
-   392    intro x hx
-   393    have hx₁ : x ∈ˢ interp m.M φ ρ A₁ := by rw [heA]; exact hx
-   394    exact hB (cons x ρ) ((Sat_cons m.M φ).mpr ⟨hs, h₂.1, hx⟩) (h₁.2.1 x hx₁) (h₂.2.1 x hx)
-   395  
-   396  theorem lam_sound {Γ : List Expr} {A₁ b₁ A₂ b₂ : Expr} {pw : PropWhen}
-   397      (hA : DefEqSem m φ Γ A₁ A₂) (hb : DefEqSem m φ (A₂ :: Γ) b₁ b₂) :
-   398      DefEqSem m φ Γ (Expr.lam A₁ pw b₁) (Expr.lam A₂ pw b₂) := by
-   399    intro ρ hs h₁ h₂
-   400    rw [WellDenoted_lam] at h₁ h₂
-   401    have heA := hA ρ hs h₁.1 h₂.1
-   402    simp only [interp_lam]
-   403    rw [heA]
-   404    apply lamR_congr
-   405    intro x hx
-   406    have hx₁ : x ∈ˢ interp m.M φ ρ A₁ := by rw [heA]; exact hx
-   407    exact hb (cons x ρ) ((Sat_cons m.M φ).mpr ⟨hs, h₂.1, hx⟩) (h₁.2.1 x hx₁) (h₂.2.1 x hx)
-   408  
-   409  theorem app_sound {Γ : List Expr} {f₁ a₁ f₂ a₂ : Expr}
-   410      (hf : DefEqSem m φ Γ f₁ f₂) (ha : DefEqSem m φ Γ a₁ a₂) :
-   411      DefEqSem m φ Γ (Expr.app f₁ a₁) (Expr.app f₂ a₂) := by
-   412    intro ρ hs h₁ h₂
-   413    rw [WellDenoted_app] at h₁ h₂
-   414    simp only [interp_app]
-   415    rw [hf ρ hs h₁.1 h₂.1, ha ρ hs h₁.2.1 h₂.2.1]
+   383      (hD' : ∀ p ∈ tys'.zip doms', DefEqSem m φ Γ p.1 p.2)
+   384      (hres : Expr.piResidual (cij.type.instL cij.lparams usj) margs = some residual)
+   385      (hshape : residual = Expr.mkAppN (Expr.const I lsI) (rps ++ ridx))
+   386      (hrps : rps.length = nPc)
+   387      (hX : ∀ p ∈ ridx.zip ((args.take majorIdx).drop numBefore), DefEqSem m φ Γ p.1 p.2) :
+   388      RedSem m φ Γ (Expr.mkAppN (Expr.const c us) args)
+   389        (Expr.mkAppN (rl.rhs.instL ci.lparams us) (args.take numBefore ++ margs.drop nPc)) := by
+   390    intro ρ hs hw
+   391    subst hnB hmI hmeq hctor
+   392    obtain ⟨-, hargs⟩ := WellDenoted_mkAppN hw
+   393    have hsplit := List.take_append_getD (Expr.bvar 0) args _ hlen
+   394    have hwmaj : WellDenoted m.M φ ρ
+   395        (args.getD (numParams + numMotives + numMinors + numIndices) (Expr.bvar 0)) := by
+   396      have hlt : numParams + numMotives + numMinors + numIndices < args.length := by omega
+   397      simp only [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hlt, Option.getD_some]
+   398      exact hargs _ (List.getElem_mem hlt)
+   399    have hwxs : ∀ a ∈ args.take (numParams + numMotives + numMinors + numIndices),
+   400        WellDenoted m.M φ ρ a :=
+   401      fun a ha => hargs a (List.mem_of_mem_take ha)
+   402    obtain ⟨hwmajor, hemaj⟩ := hmaj ρ hs hwmaj
+   403    obtain ⟨-, hmargs⟩ := WellDenoted_mkAppN hwmajor
+   404    have hfit := teleFit_of_certs hs (m.type_ok c ci hfind φ ρ us hus).1
+   405      (fun a ha => by
+   406        rcases List.mem_append.mp ha with ha | ha
+   407        · exact hwxs a ha
+   408        · rw [List.mem_singleton.mp ha]; exact hwmajor)
+   409      hdoms htys hI hD
+   410    have hfit' := teleFit_of_certs hs (m.type_ok _ cij hcij φ ρ usj husj).1 hmargs
+   411      hdoms' htys' hI' hD'
+   412    have hmajv : interp m.M φ ρ (Expr.mkAppN (Expr.const rl.ctor usj) margs)
+   413        = appList (m.M rl.ctor (usj.map (Level.eval φ))) (margs.map (interp m.M φ ρ)) := by
+   414      rw [interp_mkAppN_appList, interp_const]
+   415    have hfitV := teleFitV_of_teleFit m.M φ ρ
 
 == ConLeche/Model/Rules/DefEqSound.lean#L111-L117
    111  theorem DefEq.forallE_sound {d : Nat} {ty₁ body₁ ty₂ body₂ : Expr}
@@ -1751,17 +1751,17 @@
    161      DefEqSem m φ d (.app f₁ a₁) (.app f₂ a₂) := by
 
 == whitepaper/Fragment/Sound.lean#L489-L499
-   489  theorem bvar_sound {Γ : List Expr} {i : Nat} {A : Expr} (h : Γ[i]? = some A) :
-   490      InferSem m φ Γ (Expr.bvar i) (A.liftN (i + 1)) := by
-   491    intro ρ hs
-   492    obtain ⟨hw, hmem⟩ := Sat_get m.M φ hs h
-   493    refine ⟨.bvar, ?_, ?_⟩
-   494    · rw [WellDenoted_liftN]; exact hw
-   495    · rw [interp_bvar, interp_liftN]; exact hmem
+   489  
+   490  theorem refl_sound {Γ : List Expr} {a : Expr} : DefEqSem m φ Γ a a :=
+   491    fun _ _ _ _ => rfl
+   492  
+   493  theorem symm_sound {Γ : List Expr} {a b : Expr} (h : DefEqSem m φ Γ a b) :
+   494      DefEqSem m φ Γ b a :=
+   495    fun ρ hs hb ha => (h ρ hs ha hb).symm
    496  
-   497  theorem sort_sound {Γ : List Expr} {u : Level} :
-   498      InferSem m φ Γ (Expr.sort u) (Expr.sort (.succ u)) :=
-   499    fun _ _ => ⟨.sort, .sort, by simp only [interp_sort, Level.eval_succ]; exact univ_mem_succ _⟩
+   497  /-- Reduce, then continue: the reduct is well-denoted with the same
+   498  denotation, so the continuation applies to it.  (This is exactly what
+   499  a `trans` rule could not do: its middle term's invariant has no
 
 == ConLeche/Model/Rules/InferSound.lean#L135-L136
    135  theorem Infer.sort_sound {g : Grade} {d : Nat} {u : Level} :
@@ -1772,82 +1772,82 @@
    152      InferSem m φ g d (.fvar idx ty) ty := by
 
 == whitepaper/Fragment/Rules.lean#L161-L175
-   161  **There is no `trans` rule, deliberately** (`Rel.lean:310-333`, task
-   162  #309).  The relation is the checker's verdict on two terms that are
-   163  well-formed *together*, a fact no rule states because well-formedness
-   164  is semantic (`WellDenoted`) and may not enter this inductive.  Every
-   165  rule respects one discipline instead: **the subject of each `DefEq`
-   166  premise is a subterm of the conclusion or is produced by a `Red` or
-   167  `Infer` premise** (a reduct, an inferred type), so the soundness proof
-   168  always has the premise's terms — and their invariant — in hand.  A
-   169  `trans` rule is the unique rule that would break it: its middle term
-   170  comes from nowhere, so nothing supplies its invariant, and the
-   171  induction has nothing to apply the hypothesis to.  In the real checker
-   172  the rule is not merely unprovable but unsound (`fvar`s carry
-   173  annotations `DefEq.fvar` does not compare while `DefEq.proofFast`
-   174  reads; `trans` lets the two meet).  The one sound chaining is "reduce,
-   175  then continue": `redL`. -/
+   161    a rule of an auxiliary recursor fires on a constructor of the
+   162    block's *container*, whose parameters are not the recursor's.  The
+   163    rule stores the constructor's expected levels (over the recursor's
+   164    level parameters) and expected parameters (terms under the
+   165    recursor's parameter binders, `RecRule.inst`); the three
+   166    comparisons of `Red.iota` become: the constructor's levels are the
+   167    stored ones at the use's levels, its parameters are definitionally
+   168    the stored ones at the recursor's parameter arguments
+   169    (`Expr.instChain`), and the residual's index expressions are
+   170    definitionally the recursor's index arguments.  The constructor's
+   171    own parameter count comes from its record.  The telescope
+   172    certificates are as in `Red.iota`. -/
+   173    | iotaNested {Γ : List Expr} {c : Name} {us : List Level} {ci : ConstInfo}
+   174        {numParams numMotives numMinors numIndices : Nat} {rules : List RecRule}
+   175        {args : List Expr} {major : Expr} {cj : Name} {usj : List Level}
 
 >>> whitepaper/sections/03-definitions.typ
 
 == whitepaper/Fragment/Env.lean#L88-L104
-    88  /-- **The environment**: the accepted constants, most recent first.  A
-    89  name is stored at most once; `find?` reads the first entry. -/
-    90  structure Env where
-    91    /-- The stored constants. -/
-    92    consts : List (Name × ConstInfo)
-    93    deriving DecidableEq
-    94  
-    95  namespace Env
-    96  
-    97  /-- Look a name up. -/
-    98  def find? (env : Env) (n : Name) : Option ConstInfo := env.consts.lookup n
-    99  
-   100  /-- The empty environment. -/
-   101  def empty : Env := ⟨[]⟩
-   102  
-   103  /-- Store one more constant. -/
-   104  def add (env : Env) (n : Name) (ci : ConstInfo) : Env := ⟨(n, ci) :: env.consts⟩
+    88    /-- The declared type, a closed term over `lparams`. -/
+    89    type : Expr
+    90    /-- The kind. -/
+    91    kind : ConstKind
+    92    deriving DecidableEq
+    93  
+    94  namespace ConstInfo
+    95  
+    96  /-- The value, for a definition. -/
+    97  def value? (ci : ConstInfo) : Option Expr := ci.kind.value?
+    98  
+    99  end ConstInfo
+   100  
+   101  /-- **The environment**: the accepted constants, most recent first.  A
+   102  name is stored at most once; `find?` reads the first entry. -/
+   103  structure Env where
+   104    /-- The stored constants. -/
 
 == ConLeche/Kernel/Env.lean#L674
    674  structure Env where
 
 == whitepaper/Fragment/Env.lean#L45-L79
-    45  /-- What kind of constant a name is stored as. -/
-    46  inductive ConstKind where
-    47    /-- A definition: its value unfolds (δ). -/
-    48    | defn (value : Expr)
-    49    /-- An inductive type former with `numParams` parameters,
-    50    `numIndices` indices and these constructors. -/
-    51    | induct (numParams numIndices : Nat) (ctors : List Name)
-    52    /-- A constructor of the inductive `induct`, with `numParams`
-    53    parameters (the inductive's) and `nfields` fields. -/
-    54    | ctor (induct : Name) (numParams nfields : Nat)
-    55    /-- A recursor with the given telescope shape — `numParams`
-    56    parameters, `numMotives` motives, `numMinors` minor premises,
-    57    `numIndices` indices, then the major premise — and its rules. -/
-    58    | recursor (numParams numMotives numMinors numIndices : Nat) (rules : List RecRule)
-    59    deriving DecidableEq
-    60  
-    61  namespace ConstKind
-    62  
-    63  /-- The value a definition unfolds to. -/
-    64  def value? : ConstKind → Option Expr
-    65    | defn v => some v
-    66    | _ => none
-    67  
-    68  end ConstKind
-    69  
-    70  /-- A stored constant: its level parameters, its type (closed, over
-    71  those parameters) and its kind. -/
-    72  structure ConstInfo where
-    73    /-- The level parameters. -/
-    74    lparams : List Name
-    75    /-- The declared type, a closed term over `lparams`. -/
-    76    type : Expr
-    77    /-- The kind. -/
-    78    kind : ConstKind
-    79    deriving DecidableEq
+    45    the constructor's expected levels, over the recursor's level
+    46    parameters, and its expected parameters, terms under the recursor's
+    47    own parameter binders — what the ι step compares the constructor
+    48    application against (`Red.iotaNested`).  `none` for a rule of the
+    49    block's own constructors, whose levels and parameters are the
+    50    recursor's (`Red.iota`).  Con-leche's `.nested` certification of a
+    51    rule (`tests/e2e/src/nested_rec.lean`). -/
+    52    inst : Option (List Level × List Expr) := none
+    53    deriving DecidableEq
+    54  
+    55  /-- What kind of constant a name is stored as. -/
+    56  inductive ConstKind where
+    57    /-- A definition: its value unfolds (δ). -/
+    58    | defn (value : Expr)
+    59    /-- An inductive type former with `numParams` parameters,
+    60    `numIndices` indices and these constructors — and the block's
+    61    specification it was generated from (`Spec.lean`), which a later
+    62    block nesting through this one reads back (con-leche stores the
+    63    block's shape with the former likewise, `IndCaps`). -/
+    64    | induct (numParams numIndices : Nat) (ctors : List Name) (spec : IndSpec)
+    65    /-- A constructor of the inductive `induct`, with `numParams`
+    66    parameters (the inductive's) and `nfields` fields. -/
+    67    | ctor (induct : Name) (numParams nfields : Nat)
+    68    /-- A recursor with the given telescope shape — `numParams`
+    69    parameters, `numMotives` motives, `numMinors` minor premises,
+    70    `numIndices` indices, then the major premise — and its rules. -/
+    71    | recursor (numParams numMotives numMinors numIndices : Nat) (rules : List RecRule)
+    72    deriving DecidableEq
+    73  
+    74  namespace ConstKind
+    75  
+    76  /-- The value a definition unfolds to. -/
+    77  def value? : ConstKind → Option Expr
+    78    | defn v => some v
+    79    | _ => none
 
 == ConLeche/Kernel/Env.lean#L468-L482
    468  inductive ConstantInfo where
@@ -1924,18 +1924,18 @@
    208    pw.bindZ fun n => zeronessOf (subst.go ks vs n)
 
 == whitepaper/Fragment/Rules.lean#L242-L246
-   242    /-- A stored constant at the right number of levels has its
-   243    declared type, instantiated (`Infer.const`, `Rel.lean:496`). -/
-   244    | const {Γ : List Expr} {c : Name} {ls : List Level} {ci : ConstInfo} :
-   245        env.find? c = some ci → ls.length = ci.lparams.length →
-   246        Infer env Γ (const c ls) (ci.type.instL ci.lparams ls)
+   242    is derived. -/
+   243    | symm {Γ : List Expr} {a b : Expr} : DefEq env Γ a b → DefEq env Γ b a
+   244    /-- **Reduce the left side, then continue** (`DefEq.redL`,
+   245    `Rel.lean:346`): the recursive structure of `isDefEq` — head
+   246    normalisation of either side (with `symm`) and every lazy-δ
 
 == whitepaper/Fragment/Rules.lean#L191-L195
-   191        LevelOracle.eq u v = true → DefEq env Γ (sort u) (sort v)
-   192    /-- Two constants of the same name at oracle-equal levels
-   193    (`DefEq.const`, `Rel.lean:360`). -/
-   194    | const {Γ : List Expr} {c : Name} {ls ls' : List Level} :
-   195        Level.eqList ls ls' = true → DefEq env Γ (const c ls) (const c ls')
+   191        usj.length = cij.lparams.length →
+   192        margs.length = nPc + rl.nfields →
+   193        cij.type.hasPis (nPc + rl.nfields) = true →
+   194        piDomains (ci.type.instL ci.lparams us)
+   195          (args.take (numParams + numMotives + numMinors + numIndices) ++ [major]) = some doms →
 
 == ConLeche/Rules/Rel.lean#L489-L495
    489    | const {g : Grade} {d : Nat} {n : Name} {us : List Level}
@@ -1971,17 +1971,17 @@
    133        unfoldDefinition env e = some e' → Red env d e e'
 
 == whitepaper/Fragment/Decl.lean#L415-L425
-   415  /-- **A definition is accepted** (con-leche's `checkDefnVal`): the
-   416  name is fresh, the declared type's type reduces to a sort, the
-   417  value's inferred type is definitionally equal to the declared type,
-   418  and both terms are in scope (closed, stored constants, declared level
-   419  parameters). -/
-   420  def DefOk (env : Env) (c : Name) (ci : ConstInfo) : Prop :=
-   421    env.find? c = none ∧
-   422    (∃ s u, Infer env [] ci.type s ∧ Red env [] s (.sort u)) ∧
-   423    (∃ v T, ci.kind = .defn v ∧ Infer env [] v T ∧ DefEq env [] T ci.type ∧
-   424      Expr.Scoped env ci.lparams 0 v) ∧
-   425    Expr.Scoped env ci.lparams 0 ci.type
+   415    mkPis S.q (S.ihCtxAt c' o ++ S.fieldCtxAt c' o)
+   416      (mkAppN (.bvar (nIh + nF + o - 2))
+   417        [mkAppN (.const c.name N.lsK) (S.classArgs N (nIh + nF + o) ++ varsAt nIh nF)])
+   418  
+   419  /-- The block's minors in a nested block, as a context (innermost
+   420  first). -/
+   421  def minorsCtxN : List Expr :=
+   422    ((List.range S.n).map fun j => S.minorTyN (S.ctors.getD j ⟨"", [], []⟩) j).reverse
+   423  
+   424  /-- The class's minors, as a context (innermost first). -/
+   425  def minorsCtxK (N : NestInfo) : List Expr :=
 
 == ConLeche/Kernel/CheckerBase.lean#L96-L116
     96  def checkConstantVal (ops : CheckerOps m) (env : Env) (cv : ConstantVal) : m ConstantVal := do
@@ -2026,11 +2026,11 @@
     50  /-- Check a `theorem` declaration's value against its checked constant
 
 == whitepaper/Fragment/Decl.lean#L403-L407
-   403  /-- **A term in scope** of an environment and level parameters, under
-   404  `k` binders: closed at `k`, every constant stored, every level
-   405  parameter declared. -/
-   406  def Scoped (env : Env) (ps : List Name) (k : Nat) (e : Expr) : Prop :=
-   407    e.closedAt k = true ∧ (∀ c ∈ e.consts, (env.find? c).isSome) ∧ e.lparamsIn ps = true
+   403          [mkAppN (.const c.name S.lvls) (varsAt (nIh + nF + o) S.nP ++ varsAt nIh nF)]))
+   404  
+   405  /-- **A minor premise of the container's constructor `j`** at the
+   406  instantiation: under the two motives, the block's minors and the `j`
+   407  earlier class minors, `∀ fields ihs, motive_1 (C.{lsK} args[member] fields)`
 
 == whitepaper/Fragment/Hygiene.lean#L498-L500
    498  theorem interp_consts {e : Expr} (h : ∀ c ∈ e.consts, ∀ ls, M c ls = M' c ls) {ρ : Nat → V} :
@@ -2062,52 +2062,52 @@
    217        interp M φ ρ (e.instL ps ls) = interp M (Level.substVal φ ps ls) ρ e := by
 
 == whitepaper/Fragment/EnvModel.lean#L163-L189
-   163  /-- **A model of an environment**: the assignment and the three laws. -/
-   164  structure EnvModel (V : Type u) [SetLib V] (env : Env) where
-   165    /-- The set of every constant at every list of concrete levels. -/
-   166    M : Name → List Nat → V
-   167    /-- Every stored constant's type, instantiated, is well-denoted, and
-   168    the constant is a member of it — at every valuation and every
-   169    environment (the types are closed, so `ρ` is irrelevant, and stating
-   170    it for all `ρ` saves a closedness lemma). -/
-   171    type_ok : ∀ (c : Name) (ci : ConstInfo), env.find? c = some ci →
-   172      ∀ (φ : Name → Nat) (ρ : Nat → V) (ls : List Level), ls.length = ci.lparams.length →
-   173        WellDenoted M φ ρ (ci.type.instL ci.lparams ls) ∧
-   174        M c (ls.map (Level.eval φ)) ∈ˢ interp M φ ρ (ci.type.instL ci.lparams ls)
-   175    /-- A definition's value, instantiated, is well-denoted and denotes
-   176    the constant. -/
-   177    unfold : ∀ (c : Name) (ci : ConstInfo) (v : Expr), env.find? c = some ci →
-   178      ci.value? = some v →
-   179      ∀ (φ : Name → Nat) (ρ : Nat → V) (ls : List Level), ls.length = ci.lparams.length →
-   180        WellDenoted M φ ρ (v.instL ci.lparams ls) ∧
-   181        interp M φ ρ (v.instL ci.lparams ls) = M c (ls.map (Level.eval φ))
-   182    /-- Every rule of every stored recursor satisfies its ι law. -/
-   183    rec_rules : ∀ (c : Name) (ci : ConstInfo) (numParams numMotives numMinors numIndices : Nat)
-   184      (rules : List RecRule),
-   185      env.find? c = some ci →
-   186      ci.kind = .recursor numParams numMotives numMinors numIndices rules →
-   187      ∀ rl ∈ rules, ∀ cij : ConstInfo, env.find? rl.ctor = some cij →
-   188        RecRuleLaw M c ci numParams (numParams + numMotives + numMinors)
-   189          (numParams + numMotives + numMinors + numIndices) rl cij
+   163  /-- **The ι law of a nested rule** (`Red.iotaNested`): for the
+   164  recursor `c` with `numParams` parameters and a rule `rl` firing on a
+   165  constructor `cij` of the block's container, with `nPc` parameters of
+   166  its own — the comparisons against the stored instantiation are
+   167  *checked* by the ι step, but the law does not consume them: the
+   168  constructor's fields are pinned by the major's membership in the
+   169  class (the recursor's telescope fit), as tags and tuples are
+   170  injective, and the elimination level of a nested block whose sort may
+   171  be `Prop` is `Prop` (`blockLargeElimAllowed`, `BlockRec.lean:82`),
+   172  where the equation is trivial.  Otherwise as `RecRuleLaw`. -/
+   173  def RecRuleLawN (M : Name → List Nat → V) (c : Name) (ci : ConstInfo)
+   174      (nPc numBefore majorIdx : Nat) (rl : RecRule) (cij : ConstInfo) : Prop :=
+   175    ∀ (φ : Name → Nat) (ρ : Nat → V) (us usj : List Level) (xs ys : List V),
+   176      us.length = ci.lparams.length → usj.length = cij.lparams.length →
+   177      xs.length = majorIdx → ys.length = nPc + rl.nfields →
+   178      TeleFitV M φ ρ (ci.type.instL ci.lparams us)
+   179        (xs ++ [appList (M rl.ctor (usj.map (Level.eval φ))) ys]) →
+   180      TeleFitV M φ ρ (cij.type.instL cij.lparams usj) ys →
+   181      (∀ (B : Expr) (ρ' : Nat → V) (I : Name) (lsI : List Level) (rps ridx : List Expr),
+   182        piBodyV ρ (cij.type.instL cij.lparams usj) ys = some (B, ρ') →
+   183        B = Expr.mkAppN (.const I lsI) (rps ++ ridx) → rps.length = nPc →
+   184        ∀ p ∈ (ridx.map (interp M φ ρ')).zip (xs.drop numBefore), p.1 = p.2) →
+   185      appList (M c (us.map (Level.eval φ)))
+   186          (xs ++ [appList (M rl.ctor (usj.map (Level.eval φ))) ys])
+   187        = appList (interp M φ ρ (rl.rhs.instL ci.lparams us))
+   188            (xs.take numBefore ++ ys.drop nPc) ∧
+   189      WellDenoted M φ ρ (rl.rhs.instL ci.lparams us) ∧
 
 == whitepaper/Fragment/EnvModel.lean#L167-L174
-   167    /-- Every stored constant's type, instantiated, is well-denoted, and
-   168    the constant is a member of it — at every valuation and every
-   169    environment (the types are closed, so `ρ` is irrelevant, and stating
-   170    it for all `ρ` saves a closedness lemma). -/
-   171    type_ok : ∀ (c : Name) (ci : ConstInfo), env.find? c = some ci →
-   172      ∀ (φ : Name → Nat) (ρ : Nat → V) (ls : List Level), ls.length = ci.lparams.length →
-   173        WellDenoted M φ ρ (ci.type.instL ci.lparams ls) ∧
-   174        M c (ls.map (Level.eval φ)) ∈ˢ interp M φ ρ (ci.type.instL ci.lparams ls)
+   167  *checked* by the ι step, but the law does not consume them: the
+   168  constructor's fields are pinned by the major's membership in the
+   169  class (the recursor's telescope fit), as tags and tuples are
+   170  injective, and the elimination level of a nested block whose sort may
+   171  be `Prop` is `Prop` (`blockLargeElimAllowed`, `BlockRec.lean:82`),
+   172  where the equation is trivial.  Otherwise as `RecRuleLaw`. -/
+   173  def RecRuleLawN (M : Name → List Nat → V) (c : Name) (ci : ConstInfo)
+   174      (nPc numBefore majorIdx : Nat) (rl : RecRule) (cij : ConstInfo) : Prop :=
 
 == whitepaper/Fragment/EnvModel.lean#L175-L181
-   175    /-- A definition's value, instantiated, is well-denoted and denotes
-   176    the constant. -/
-   177    unfold : ∀ (c : Name) (ci : ConstInfo) (v : Expr), env.find? c = some ci →
-   178      ci.value? = some v →
-   179      ∀ (φ : Name → Nat) (ρ : Nat → V) (ls : List Level), ls.length = ci.lparams.length →
-   180        WellDenoted M φ ρ (v.instL ci.lparams ls) ∧
-   181        interp M φ ρ (v.instL ci.lparams ls) = M c (ls.map (Level.eval φ))
+   175    ∀ (φ : Name → Nat) (ρ : Nat → V) (us usj : List Level) (xs ys : List V),
+   176      us.length = ci.lparams.length → usj.length = cij.lparams.length →
+   177      xs.length = majorIdx → ys.length = nPc + rl.nfields →
+   178      TeleFitV M φ ρ (ci.type.instL ci.lparams us)
+   179        (xs ++ [appList (M rl.ctor (usj.map (Level.eval φ))) ys]) →
+   180      TeleFitV M φ ρ (cij.type.instL cij.lparams usj) ys →
+   181      (∀ (B : Expr) (ρ' : Nat → V) (I : Name) (lsI : List Level) (rps ridx : List Expr),
 
 == ConLeche/Model/Annot/EnvModelM.lean#L159-L185
    159  structure EnvModelM (μ : CheckMode) (env : Env) where
@@ -2139,19 +2139,19 @@
    185    /-- the two `Nat`-literal head facts, at every assignment -/
 
 == whitepaper/Fragment/EnvModel.lean#L191-L196
-   191  /-- The empty environment has a model: any assignment, vacuous laws. -/
-   192  def EnvModel.empty (M : Name → List Nat → V) : EnvModel V Env.empty where
-   193    M := M
-   194    type_ok := fun _ _ h => by simp at h
-   195    unfold := fun _ _ _ h => by simp at h
-   196    rec_rules := fun _ _ _ _ _ _ _ h => by simp at h
+   191  
+   192  /-- **A model of an environment**: the assignment and the laws. -/
+   193  structure EnvModel (V : Type u) [SetLib V] (env : Env) where
+   194    /-- The set of every constant at every list of concrete levels. -/
+   195    M : Name → List Nat → V
+   196    /-- Every stored constant's type, instantiated, is well-denoted, and
 
 == whitepaper/Fragment/Sound.lean#L679-L683
-   679  theorem soundness [LevelOracle] (m : EnvModel V env) (φ : Name → Nat) :
-   680      (∀ {Γ : List Expr} {e e' : Expr}, Red env Γ e e' → RedSem m φ Γ e e') ∧
-   681      (∀ {Γ : List Expr} {a b : Expr}, DefEq env Γ a b → DefEqSem m φ Γ a b) ∧
-   682      (∀ {Γ : List Expr} {e T : Expr}, Infer env Γ e T → InferSem m φ Γ e T) :=
-   683    ⟨red_sound, defeq_sound, infer_sound⟩
+   679        intro x hx
+   680        exact univ_mono (Nat.le_max_right _ _) (hbody x hx).2
+   681  
+   682  /-- **λ.**  The body is inferred under the domain, so the λ's fibres
+   683  are the body type's denotations and the λ is a member of the `∀`;
 
 == whitepaper/Fragment/Sound.lean#L193-L199
    193  theorem delta_sound {Γ : List Expr} {c : Name} {ls : List Level} {ci : ConstInfo} {v : Expr}
@@ -2167,9 +2167,9 @@
    241      (h : ConLeche.unfoldDefinition env e = some e') : RedSem m φ d e e' := by
 
 == whitepaper/Fragment/Sound.lean#L379-L381
-   379  theorem const_sound [LevelOracle] {Γ : List Expr} {c : Name} {ls ls' : List Level}
-   380      (h : Level.eqList ls ls' = true) : DefEqSem m φ Γ (Expr.const c ls) (Expr.const c ls') :=
-   381    fun _ _ _ _ => by simp [(Level.eqList_iff ls ls').mp h φ]
+   379      (hD : ∀ p ∈ tys.zip doms, DefEqSem m φ Γ p.1 p.2)
+   380      (hdoms' : Expr.piDomains (cij.type.instL cij.lparams usj) margs = some doms')
+   381      (htys' : tys'.length = doms'.length)
 
 == ConLeche/Model/Rules/DefEqSound.lean#L76-L78
     76  theorem DefEq.const_sound {d : Nat} {n : Name} {us us' : List Level}
@@ -2177,12 +2177,12 @@
     78      DefEqSem m φ d (.const n us) (.const n us') := by
 
 == whitepaper/Fragment/Sound.lean#L501-L506
-   501  theorem const_sound {Γ : List Expr} {c : Name} {ls : List Level} {ci : ConstInfo}
-   502      (hfind : env.find? c = some ci) (hls : ls.length = ci.lparams.length) :
-   503      InferSem m φ Γ (Expr.const c ls) (ci.type.instL ci.lparams ls) := by
-   504    intro ρ _
-   505    obtain ⟨hw, hmem⟩ := m.type_ok c ci hfind φ ρ ls hls
-   506    exact ⟨.const, hw, hmem⟩
+   501  theorem redL_sound {Γ : List Expr} {a a' b : Expr}
+   502      (hr : RedSem m φ Γ a a') (h : DefEqSem m φ Γ a' b) : DefEqSem m φ Γ a b := by
+   503    intro ρ hs ha hb
+   504    obtain ⟨ha', he⟩ := hr ρ hs ha
+   505    exact he.trans (h ρ hs ha' hb)
+   506  
 
 == ConLeche/Model/Rules/InferSound.lean#L172-L177
    172  theorem Infer.const_sound (hin : RulesInputs V m φ) {g : Grade} {d : Nat}
@@ -2193,12 +2193,12 @@
    177        (ci.toConstantVal.type.instantiateLevelParams ci.toConstantVal.levelParams us) := by
 
 == whitepaper/Fragment/InstallDef.lean#L281-L286
-   281  /-- **Installing a definition preserves having a model.**  The new
-   282  constant's set is its value's (`defVal`); every stored constant keeps
-   283  its set. -/
-   284  theorem install_def {env : Env} {c : Name} {ci : ConstInfo} (hs : Env.Scoped env)
-   285      (m : EnvModel V env) (hok : DefOk env c ci) :
-   286      ∃ m' : EnvModel V (env.add c ci), ∀ n, (env.find? n).isSome → ∀ ls, m'.M n ls = m.M n ls := by
+   281      (φ : Name → Nat) (ρ : Nat → V) {ls : List Level} (hlen : ls.length = ci.lparams.length) :
+   282      defVal M ci v (ls.map (Level.eval φ)) = interp M' φ ρ (v.instL ci.lparams ls) := by
+   283    unfold defVal
+   284    rw [interp_instL, interp_consts fun d hd ls => hM d (hvs.2.1 d hd) ls,
+   285      interp_lparams hvs.2.2 fun n hn => valOf_map_eval φ hlen hn,
+   286      interp_closedAt (ρ' := ρ) hvs.1 fun i hi => absurd hi (Nat.not_lt_zero i)]
 
 == ConLeche/Model/Install.lean#L271-L273
    271  theorem declStep_preserves_of_cons (mp : EnvModelM V μ env)
@@ -2214,30 +2214,30 @@
 >>> whitepaper/sections/04-inductives.typ
 
 == whitepaper/Fragment/Decl.lean#L166-L189
-   166  /-- **The specification of a single inductive block**
-   167  (con-leche's `NativeParts`/`InductiveShape`, `NativeParts.lean:180`,
-   168  `SumParts.lean:79`). -/
-   169  structure IndSpec where
-   170    /-- The type former's name. -/
-   171    name : Name
-   172    /-- The block's level parameters. -/
-   173    lparams : List Name
-   174    /-- The parameter telescope (a context, innermost first). -/
-   175    params : List Expr
-   176    /-- The index telescope (a context under the parameters). -/
-   177    indices : List Expr
-   178    /-- The result sort `Sort u`. -/
-   179    sort : Level
-   180    /-- The constructors, in order. -/
-   181    ctors : List CtorSpec
-   182    /-- The recursor's name. -/
-   183    recName : Name
-   184    /-- Large elimination: the recursor eliminates into `Sort ℓ` for a
-   185    fresh level parameter `ℓ`; otherwise into `Prop`. -/
-   186    large : Bool
-   187    /-- The fresh elimination level parameter (read only if `large`). -/
-   188    elim : Name
-   189    deriving DecidableEq
+   166  
+   167  /-- **The class's arguments** under `o` binders above the parameters:
+   168  the container's other arguments with the member `I params idx` at
+   169  position `p` (outermost first). -/
+   170  def classArgs (N : NestInfo) (o : Nat) : List Expr :=
+   171    (N.args.take N.p).map (liftN o ·) ++ [S.famAt o (N.idx.map (liftN o ·))] ++
+   172      (N.args.drop N.p).map (liftN o ·)
+   173  
+   174  /-- **The class** `K.{lsK} args[member]` under `o` binders above the
+   175  parameters: the domain of a container field, the major of the
+   176  auxiliary recursor. -/
+   177  def classTy (N : NestInfo) (o : Nat) : Expr := mkAppN (.const N.K.name N.lsK) (S.classArgs N o)
+   178  
+   179  /-- A field's domain, with `k` earlier fields.  (A container field's
+   180  is the class, when the block has one.) -/
+   181  def fieldDom (k : Nat) : Field → Expr
+   182    | .ordinary A => A
+   183    | .recursive es => S.famAt k es
+   184    | .reflexive tele es => mkPis S.pw tele (S.famAt (k + tele.length) es)
+   185    | .container =>
+   186      match S.nest with
+   187      | some N => S.classTy N k
+   188      | none => .sort .zero
+   189  
 
 == ConLeche/Kernel/Inductives/BlockParts.lean#L104-L122
    104  structure BlockShape where
@@ -2261,20 +2261,20 @@
    122  
 
 == whitepaper/Fragment/Decl.lean#L129-L142
-   129  /-- A constructor field, as the positivity check classifies it
-   130  (con-leche's `RecFieldKind`, `NativeParts.lean:51`).  Its domain is an
-   131  expression under the parameters and the earlier fields. -/
-   132  inductive Field where
-   133    /-- An ordinary field: any domain that does not mention the block. -/
-   134    | ordinary (A : Expr)
-   135    /-- A recursive field: the family at the block's parameters and the
-   136    index expressions `es` (a spine, outermost first). -/
-   137    | recursive (es : List Expr)
-   138    /-- A reflexive field: `∀ tele, I params es` — a function space into
-   139    the family; `tele` is a context (innermost first) under the
-   140    parameters and the earlier fields, `es` a spine under `tele` too. -/
-   141    | reflexive (tele : List Expr) (es : List Expr)
-   142    deriving DecidableEq
+   129  open Expr
+   130  
+   131  variable (S : IndSpec)
+   132  
+   133  /-- The number of parameters. -/
+   134  def nP : Nat := S.params.length
+   135  /-- The number of indices. -/
+   136  def nI : Nat := S.indices.length
+   137  /-- The number of constructors. -/
+   138  def n : Nat := S.ctors.length
+   139  /-- The block's level parameters as levels. -/
+   140  def lvls : List Level := S.lparams.map .param
+   141  /-- The annotation of every binder whose body is a member of the
+   142  family or the family itself — a proposition exactly when the result
 
 == ConLeche/Kernel/Inductives/Positivity.lean#L598-L608
    598  /-- The field's kind as the run found it: hole-free, a member hole
@@ -2290,34 +2290,34 @@
    608    deriving DecidableEq, Inhabited
 
 == whitepaper/Fragment/Decl.lean#L431-L445
-   431  /-- The scope of a field's pieces: with `k` earlier fields, an
-   432  ordinary domain is in scope under the parameters and them; a recursive
-   433  field's index expressions too; a reflexive field's telescope entries
-   434  under the earlier telescope entries as well, and its index
-   435  expressions under the whole telescope; a recursive or reflexive
-   436  field's index expressions are as many as the indices.  No piece
-   437  mentions the block (it is not stored in `env`): that is **strict
-   438  positivity** in the shape the fragment admits (con-leche's
-   439  `recPositivity` and `recFamOk`, `NativeParts.lean:73-89`). -/
-   440  def fieldScoped (env : Env) (k : Nat) : Field → Prop
-   441    | .ordinary A => Expr.Scoped env S.lparams (S.nP + k) A
-   442    | .recursive es => es.length = S.nI ∧ ∀ e ∈ es, Expr.Scoped env S.lparams (S.nP + k) e
-   443    | .reflexive tele es =>
-   444      (∀ t T, tele[t]? = some T → Expr.Scoped env S.lparams (S.nP + k + (tele.length - 1 - t)) T) ∧
-   445      es.length = S.nI ∧ (∀ e ∈ es, Expr.Scoped env S.lparams (S.nP + k + tele.length) e)
+   431  def extrasN (N : NestInfo) : List Expr :=
+   432    S.minorsCtxK N ++ S.minorsCtxN ++ [S.motiveTy1 N, S.motiveTy]
+   433  
+   434  /-- The context of `T.rec`: the major at the family, the indices, the
+   435  extras, the parameters. -/
+   436  def recCtxN (N : NestInfo) : List Expr :=
+   437    S.famVars (S.oN N) :: S.indicesAt (S.oN N) ++ S.extrasN N ++ S.params
+   438  
+   439  /-- **`T.rec`'s type** in a nested block:
+   440  `∀ params motive motive_1 minors minors_1 indices (t : I params indices), motive indices t`. -/
+   441  def recTypeN (N : NestInfo) : Expr :=
+   442    mkPis S.q (S.recCtxN N) (mkAppN (.bvar (S.nI + S.oN N)) (varsAt 1 S.nI ++ [.bvar 0]))
+   443  
+   444  /-- The context of `T.rec_1`: the major at the class, the extras, the
+   445  parameters. -/
 
 == ConLeche/Kernel/Inductives/Positivity.lean#L1453-L1454
   1453  def nestPos (ops : CheckerOps m) (env : Env) (ctx : NestCtx) :
   1454      Nat → List NestHole → Nat → Nat → Expr → NestState → m (NestFieldKind × Expr × NestState)
 
 == whitepaper/Fragment/Decl.lean#L447-L453
-   447  /-- **No field reads an earlier recursive field**: an ordinary domain,
-   448  a reflexive field's telescope entries and its index expressions, and
-   449  a recursive field's index expressions do not use the variable of any
-   450  earlier recursive or reflexive field (con-leche's `structUsedLater`
-   451  guard, `NativeParts.lean:120`: the model reads the domains at a frame
-   452  whose recursive slots hold an arbitrary value). -/
-   453  def fieldNoRecDep (earlier : List Field) : Field → Prop
+   447  
+   448  /-- **`T.rec_1`'s type**: the same prefix, the major at the class,
+   449  the class's motive at it. -/
+   450  def rec1Type (N : NestInfo) : Expr :=
+   451    mkPis S.q (S.rec1Ctx N) (mkAppN (.bvar (S.oN N - 1)) [.bvar 0])
+   452  
+   453  /-- **An inductive hypothesis' value** in a rule of a nested block:
 
 == ConLeche/Kernel/Inductives/Positivity.lean#L1246-L1249
   1246      if (List.range nF).any (fun i => ks.getD i .ordinary != .ordinary &&
@@ -2363,78 +2363,78 @@
    563      m (List (ConstantVal × TargetMajor × List Expr)) := do
 
 == whitepaper/Fragment/Decl.lean#L205-L208
-   205  /-- The annotation of every binder whose body is a member of the
-   206  family or the family itself — a proposition exactly when the result
-   207  sort is zero. -/
-   208  def pw : PropWhen := Level.zeroness S.sort
+   205  /-- The index context moved under `o` binders inserted between the
+   206  parameters and the indices. -/
+   207  def indicesAt (o : Nat) : List Expr := liftCtx (fun t T => T.liftN o t) S.indices
+   208  
 
 == whitepaper/Fragment/Decl.lean#L256-L263
-   256  /-- **The type former's type** `∀ params indices, Sort u`; no binder is
-   257  a proposition. -/
-   258  def indType : Expr := mkPis .never (S.indices ++ S.params) (.sort S.sort)
-   259  
-   260  /-- **A constructor's type** `∀ params fields, I params idx`; every
-   261  binder is a proposition exactly when the family is. -/
-   262  def ctorType (c : CtorSpec) : Expr :=
-   263    mkPis S.pw (S.fieldCtx c.fields ++ S.params) (S.famAt c.fields.length c.idx)
+   256  def ihCtx (c : CtorSpec) (j : Nat) : List Expr :=
+   257    (c.recFields.mapIdx fun l kf => S.ihTy c.fields.length kf.1 l (j + 1) kf.2).reverse
+   258  
+   259  /-- **A minor premise** for constructor `j`, under the parameters, the
+   260  motive and the `j` earlier minors:
+   261  `∀ fields ihs, motive idx (C params fields)`. -/
+   262  def minorTy (c : CtorSpec) (j : Nat) : Expr :=
+   263    let nF := c.fields.length
 
 == whitepaper/Fragment/Decl.lean#L209-L213
-   209  /-- The elimination level: the fresh parameter, or `Prop`. -/
-   210  def ℓ : Level := if S.large then .param S.elim else .zero
-   211  /-- The annotation of the recursor's binders: a proposition exactly
-   212  when the elimination level is zero. -/
-   213  def q : PropWhen := Level.zeroness S.ℓ
+   209  /-! ### The generated types -/
+   210  
+   211  /-- **The type former's type** `∀ params indices, Sort u`; no binder is
+   212  a proposition. -/
+   213  def indType : Expr := mkPis .never (S.indices ++ S.params) (.sort S.sort)
 
 == whitepaper/Fragment/Decl.lean#L265-L267
-   265  /-- The motive's type, under the parameters:
-   266  `∀ indices (t : I params indices), Sort ℓ`. -/
-   267  def motiveTy : Expr := mkPis .never (S.famVars 0 :: S.indices) (.sort S.ℓ)
+   265    mkPis S.q (S.ihCtx c j ++ S.fieldCtxAt c (j + 1))
+   266      (mkAppN (.bvar (nIh + nF + j))
+   267        (c.idx.map (atCtx nF nF nIh (j + 1) 0) ++
 
 == whitepaper/Fragment/Decl.lean#L277-L290
-   277  /-- **An inductive hypothesis' type** for the field with `k` earlier
-   278  fields, `l` earlier hypotheses, `o` binders between the parameters
-   279  and the fields (the motive sits `nF + l + o - 1` binders above):
-   280  `motive es f` at a recursive field, `∀ tele, motive es (f tele)` at a
-   281  reflexive one. -/
-   282  def ihTy (nF k l o : Nat) : Field → Expr
-   283    | .ordinary _ => .sort .zero
-   284    | .recursive es =>
-   285      mkAppN (.bvar (nF + l + o - 1)) (es.map (atCtx nF k l o 0) ++ [.bvar (nF - 1 - k + l)])
-   286    | .reflexive tele es =>
-   287      let m := tele.length
-   288      mkPis S.q (liftCtx (fun t T => atCtx nF k l o t T) tele)
-   289        (mkAppN (.bvar (nF + l + o - 1 + m))
-   290          (es.map (atCtx nF k l o m) ++ [mkAppN (.bvar (nF - 1 - k + l + m)) (varsAt 0 m)]))
+   277  (con-leche's `structRecTyR`, `NativeParts.lean:349`). -/
+   278  def recType : Expr :=
+   279    mkPis S.q (S.famVars (S.n + 1) :: S.indicesAt (S.n + 1) ++ S.minorsCtx ++ [S.motiveTy] ++ S.params)
+   280      (mkAppN (.bvar (1 + S.nI + S.n)) (varsAt 1 S.nI ++ [.bvar 0]))
+   281  
+   282  /-- **An inductive hypothesis' value** in a rule, for the field with
+   283  `k` earlier fields under all `nF` fields, the `n` minors and the
+   284  motive: the recursor at the parameters, motive and minors, the
+   285  field's index expressions and the field (under the field's own
+   286  telescope at a reflexive field). -/
+   287  def ihVal (nF k : Nat) : Field → Expr
+   288    | .ordinary _ => .sort .zero
+   289    | .container => .sort .zero
+   290    | .recursive es =>
 
 == whitepaper/Fragment/Decl.lean#L297-L306
-   297  /-- **A minor premise** for constructor `j`, under the parameters, the
-   298  motive and the `j` earlier minors:
-   299  `∀ fields ihs, motive idx (C params fields)`. -/
-   300  def minorTy (c : CtorSpec) (j : Nat) : Expr :=
-   301    let nF := c.fields.length
-   302    let nIh := c.recFields.length
-   303    mkPis S.q (S.ihCtx c j ++ S.fieldCtxAt c (j + 1))
-   304      (mkAppN (.bvar (nIh + nF + j))
-   305        (c.idx.map (atCtx nF nF nIh (j + 1) 0) ++
-   306          [mkAppN (.const c.name S.lvls) (varsAt (nIh + nF + j + 1) S.nP ++ varsAt nIh nF)]))
+   297        (mkAppN (.const S.recName S.recLvls)
+   298          (varsAt (m + nF + S.n + 1) S.nP ++ [.bvar (m + nF + S.n)] ++ varsAt (m + nF) S.n ++
+   299            es.map (atCtx nF k 0 (S.n + 1) m) ++ [mkAppN (.bvar (m + nF - 1 - k)) (varsAt 0 m)]))
+   300  
+   301  /-- The context of a rule: the parameters, the motive, the minors and
+   302  the constructor's fields (under the motive and all minors). -/
+   303  def ruleCtx (c : CtorSpec) : List Expr :=
+   304    S.fieldCtxAt c (S.n + 1) ++ S.minorsCtx ++ [S.motiveTy] ++ S.params
+   305  
+   306  /-- A rule's type body, under its context: `motive idx (C params fields)`
 
 == whitepaper/Fragment/Decl.lean#L313-L318
-   313  /-- **The recursor's type**
-   314  `∀ params (motive : motiveTy) minors indices (t : I params indices), motive indices t`
-   315  (con-leche's `structRecTyR`, `NativeParts.lean:349`). -/
-   316  def recType : Expr :=
-   317    mkPis S.q (S.famVars (S.n + 1) :: S.indicesAt (S.n + 1) ++ S.minorsCtx ++ [S.motiveTy] ++ S.params)
-   318      (mkAppN (.bvar (1 + S.nI + S.n)) (varsAt 1 S.nI ++ [.bvar 0]))
+   313  
+   314  /-- **A rule's type**: `∀ params motive minors fields, motive idx (C params fields)`
+   315  — the recursor's binder prefix with the constructor's fields in place
+   316  of the indices and the major (con-leche compares the rule's binders
+   317  with the recursor's, `nativeRulePrefixOk`, `NativeParts.lean:426`;
+   318  the fragment infers the rule's type, which subsumes it). -/
 
 == whitepaper/Fragment/Decl.lean#L358-L365
-   358  /-- **A rule's right-hand side** for constructor `j`:
-   359  `fun params motive minors fields => minor_j fields ihs`
-   360  (con-leche's `structRecRhsR`, `NativeParts.lean:368`). -/
-   361  def ruleRhs (c : CtorSpec) (j : Nat) : Expr :=
-   362    let nF := c.fields.length
-   363    mkLams S.q (S.ruleCtx c)
-   364      (mkAppN (.bvar (nF + S.n - 1 - j))
-   365        (varsAt 0 nF ++ c.recFields.map fun kf => S.ihVal nF kf.1 kf.2))
+   358  
+   359  /-- The container's fields (innermost first), in the block's terms. -/
+   360  def classFields (N : NestInfo) : List Field → List Field
+   361    | [] => []
+   362    | f :: rest => S.classField N rest.length f :: classFields N rest
+   363  
+   364  @[simp] theorem classFields_nil (N : NestInfo) : S.classFields N [] = [] := rfl
+   365  @[simp] theorem classFields_cons (N : NestInfo) (f : Field) (rest : List Field) :
 
 == ConLeche/Kernel/Inductives/GenRec.lean#L181-L188
    181  def classGenRecTy (g : ClassGen) (c : Nat) : Option Expr := do
@@ -2469,22 +2469,22 @@
    212    pure (closeLams (pre ++ fvs.map g.binder) 0 (Expr.mkAppN (g.slotVar s) (fvs ++ ihs)))
 
 == whitepaper/Fragment/Decl.lean#L490-L497
-   490  /-- **The subsingleton criterion** for a field of sort `v` at
-   491  position `i` (innermost first) of a constructor with index
-   492  expressions `idx`: the field is a proposition, or it is one of the
-   493  result's indices (official's `elim_only_at_universe_zero` at one
-   494  constructor; con-leche's `checkStructFieldSortsI`).  Required only of a
-   495  large eliminator on a block whose sort may be `Prop`. -/
-   496  def SubsingletonField (v : Level) (i : Nat) (idx : List Expr) : Prop :=
-   497    S.large = true → ¬ S.NeverProp → (LevelOracle.eq v .zero = true ∨ Expr.bvar i ∈ idx)
+   490    let nF := (S.classCtor N c).fields.length
+   491    mkAppN (.bvar (nF + S.oN N - 2))
+   492      [mkAppN (.const c.name N.lsK) (S.classArgs N (nF + S.oN N) ++ varsAt 0 nF)]
+   493  
+   494  /-- A `T.rec_1` rule's type. -/
+   495  def rule1Type (N : NestInfo) (c : CtorSpec) : Expr :=
+   496    mkPis S.q (S.ruleCtxN N (S.classCtor N c)) (S.rule1BodyTy N c)
+   497  
 
 == whitepaper/Fragment/Decl.lean#L543
-   543    (S.large = true → ¬ S.NeverProp → S.ctors.length ≤ 1) ∧
+   543  def envInd (env : Env) : Env := env.add S.name S.indInfo
 
 == whitepaper/Fragment/Decl.lean#L486-L488
-   486  /-- "The result sort is never `Prop`": `1 ≤ u` at every valuation
-   487  (con-leche's `Level.isNeverZero`). -/
-   488  def NeverProp : Prop := LevelOracle.le (.succ .zero) S.sort = true
+   486  def ruleTypeN (N : NestInfo) (c : CtorSpec) : Expr := mkPis S.q (S.ruleCtxN N c) (S.ruleBodyTyN N c)
+   487  
+   488  /-- A `T.rec_1` rule's type body: `motive_1 (C.{lsK} args[member] fields)`. -/
 
 == ConLeche/Kernel/Inductives/BlockRec.lean#L82-L84
     82  def blockLargeElimAllowed (p : BlockShape) (nested : Bool) : Bool :=
@@ -2514,63 +2514,63 @@
     99      let rest ← checkStructFieldSortsI ops env isProp large s nP fvs idxArgs j
 
 == whitepaper/Fragment/Decl.lean#L479-L484
-   479  /-- The universe bound on a field of sort `v`: the family is a
-   480  proposition, or `v ≤ u` (official's "universe level of `type_of(arg)`
-   481  is too big" check, `checkStructFieldSortsI`,
-   482  `ConLeche/Kernel/Inductives/SumInstall.lean:124`). -/
-   483  def FieldBound (v : Level) : Prop :=
-   484    LevelOracle.eq S.sort .zero = true ∨ LevelOracle.le v S.sort = true
+   479  def ruleBodyTyN (N : NestInfo) (c : CtorSpec) : Expr :=
+   480    let nF := c.fields.length
+   481    mkAppN (.bvar (nF + S.oN N - 1))
+   482      (c.idx.map (atCtx nF nF 0 (S.oN N) 0) ++
+   483        [mkAppN (.const c.name S.lvls) (varsAt (nF + S.oN N) S.nP ++ varsAt 0 nF)])
+   484  
 
 == whitepaper/Fragment/Decl.lean#L499-L547
-   499  /-- **The block is accepted** (con-leche's `checkNative`,
-   500  `NativeInstall.lean:617`):
-   501  
-   502  * the block's names are distinct and fresh;
-   503  * the specification is in scope (closed, stored constants, declared
-   504    level parameters — positivity included);
-   505  * the generated type former's type has a sort in the current
-   506    environment;
-   507  * each generated constructor's type has a sort in the environment
-   508    holding the former, every field's domain has a sort respecting the
-   509    universe bound and, where a large eliminator asks it, the
-   510    subsingleton criterion, and so does every binder of a reflexive
-   511    field's telescope (the domain's sort implies it; the fragment lists
-   512    it, as the checker infers it);
-   513  * each rule's type (`ruleType`, the recursor's binder prefix with the
-   514    constructor's fields in place of the indices and the major) has a
-   515    sort in the environment holding the former and the constructors;
-   516  * a large eliminator on a block whose sort may be `Prop` has at most
-   517    one constructor (official's `elim_only_at_universe_zero`);
-   518  * the generated recursor's type has a sort in the environment holding
-   519    the former and the constructors.
+   499  `j`: `fun params motives minors fields => minor_j fields ihs`. -/
+   500  def ruleRhsN (N : NestInfo) (c : CtorSpec) (j : Nat) : Expr :=
+   501    let nF := c.fields.length
+   502    mkLams S.q (S.ruleCtxN N c)
+   503      (mkAppN (.bvar (nF + N.nK + S.n - 1 - j))
+   504        (varsAt 0 nF ++ c.recFields.map fun kf => S.ihValN N nF kf.1 kf.2))
+   505  
+   506  /-- **A `T.rec_1` rule's right-hand side** for the container's
+   507  constructor `j`: `fun params motives minors fields => minor_1_j fields ihs`. -/
+   508  def rule1Rhs (N : NestInfo) (c : CtorSpec) (j : Nat) : Expr :=
+   509    let c' := S.classCtor N c
+   510    let nF := c'.fields.length
+   511    mkLams S.q (S.ruleCtxN N c')
+   512      (mkAppN (.bvar (nF + N.nK - 1 - j))
+   513        (varsAt 0 nF ++ c'.recFields.map fun kf => S.ihValN N nF kf.1 kf.2))
+   514  
+   515  /-- `T.rec`'s rules, one per constructor of the block. -/
+   516  def rulesN (N : NestInfo) : List RecRule :=
+   517    (List.range S.n).map fun j =>
+   518      let c := S.ctors.getD j ⟨"", [], []⟩
+   519      ⟨c.name, c.fields.length, S.ruleRhsN N c j, none⟩
    520  
-   521  The recursor's rules are generated and stored, not checked: they
-   522  mention the recursor, and con-leche does not infer them either
-   523  (`NativeInstall.lean`, "the rules … are scope-checked at the
-   524  environment holding its constant and NOT inferred"). -/
-   525  def Ok (env : Env) : Prop :=
-   526    (S.name :: S.recName :: S.ctors.map (·.name)).Nodup ∧
-   527    (∀ m ∈ S.name :: S.recName :: S.ctors.map (·.name), env.find? m = none) ∧
-   528    S.Scoped env ∧
-   529    (∃ T, Infer env [] S.indType T) ∧
-   530    (∀ c ∈ S.ctors,
-   531      (∃ T, Infer (S.envInd env) [] (S.ctorType c) T) ∧
-   532      (∀ i A, (S.fieldCtx c.fields)[i]? = some A →
-   533        ∃ s v, Infer (S.envInd env) ((S.fieldCtx c.fields).drop (i + 1) ++ S.params) A s ∧
-   534          Red (S.envInd env) ((S.fieldCtx c.fields).drop (i + 1) ++ S.params) s (.sort v) ∧
-   535          S.FieldBound v ∧ S.SubsingletonField v i c.idx) ∧
-   536      (∀ i tele es, c.fields[i]? = some (.reflexive tele es) → ∀ t T, tele[t]? = some T →
-   537        ∃ s w, Infer (S.envInd env)
-   538            (tele.drop (t + 1) ++ (S.fieldCtx c.fields).drop (i + 1) ++ S.params) T s ∧
-   539          Red (S.envInd env) (tele.drop (t + 1) ++ (S.fieldCtx c.fields).drop (i + 1) ++ S.params)
-   540            s (.sort w) ∧
-   541          S.FieldBound w) ∧
-   542      (∃ T, Infer (S.envCtors env) [] (S.ruleType c) T)) ∧
-   543    (S.large = true → ¬ S.NeverProp → S.ctors.length ≤ 1) ∧
-   544    (∃ T, Infer (S.envCtors env) [] S.recType T)
-   545  
-   546  end IndSpec
-   547  
+   521  /-- `T.rec_1`'s rules, one per constructor of the container, each
+   522  with its stored instantiation: the container's levels and the class's
+   523  arguments. -/
+   524  def rules1 (N : NestInfo) : List RecRule :=
+   525    (List.range (N.nK)).map fun j =>
+   526      let c := N.K.ctors.getD j ⟨"", [], []⟩
+   527      ⟨c.name, c.fields.length, S.rule1Rhs N c j, some (N.lsK, S.classArgs N 0)⟩
+   528  
+   529  /-! ### What is stored -/
+   530  
+   531  /-- The type former's constant. -/
+   532  def indInfo : ConstInfo := ⟨S.lparams, S.indType, .induct S.nP S.nI (S.ctors.map (·.name)) S⟩
+   533  
+   534  /-- A constructor's constant. -/
+   535  def ctorInfo (c : CtorSpec) : ConstInfo :=
+   536    ⟨S.lparams, S.ctorType c, .ctor S.name S.nP c.fields.length⟩
+   537  
+   538  /-- The recursor's constant: `nP` parameters, one motive, `n` minors,
+   539  `nI` indices, the generated rules. -/
+   540  def recInfo : ConstInfo := ⟨S.recLparams, S.recType, .recursor S.nP 1 S.n S.nI S.rules⟩
+   541  
+   542  /-- The environment with the type former added. -/
+   543  def envInd (env : Env) : Env := env.add S.name S.indInfo
+   544  
+   545  /-- The environment with the type former and the constructors added,
+   546  in order. -/
+   547  def envCtors (env : Env) : Env :=
 
 == ConLeche/Kernel/Inductives/BlockTail.lean#L143-L148
    143  def checkBlock (ops : CheckerOps m) (env : Env) (block : List ConstantInfo) (p₀ : BlockParts) :
@@ -2581,12 +2581,12 @@
    148    checkBlockTail ops block q
 
 == whitepaper/Fragment/Decl.lean#L351-L356
-   351  /-- **A rule's type**: `∀ params motive minors fields, motive idx (C params fields)`
-   352  — the recursor's binder prefix with the constructor's fields in place
-   353  of the indices and the major (con-leche compares the rule's binders
-   354  with the recursor's, `nativeRulePrefixOk`, `NativeParts.lean:426`;
-   355  the fragment infers the rule's type, which subsumes it). -/
-   356  def ruleType (c : CtorSpec) : Expr := mkPis S.q (S.ruleCtx c) (S.ruleBodyTy c)
+   351  terms. -/
+   352  def classField (N : NestInfo) (k : Nat) : Field → Field
+   353    | .ordinary A =>
+   354      if N.isMember k (.ordinary A) then .recursive (N.idx.map (liftN k ·))
+   355      else .ordinary (instChainAt (A.instL N.K.lparams N.lsK) (S.classArgs N 0) k)
+   356    | .recursive _ => .container
 
 == ConLeche/Kernel/Inductives/GenRec.lean#L427-L448
    427  def classRuleOk (ops : CheckerOps m) (w : StructWalkers) (feT feR : FEnv) (cvR : ConstantVal)
@@ -2613,29 +2613,29 @@
    448  /-- A recursor's generated rules, one per constructor of its class. -/
 
 == whitepaper/Fragment/Decl.lean#L373-L395
-   373  /-! ### What is stored -/
-   374  
-   375  /-- The type former's constant. -/
-   376  def indInfo : ConstInfo := ⟨S.lparams, S.indType, .induct S.nP S.nI (S.ctors.map (·.name))⟩
-   377  
-   378  /-- A constructor's constant. -/
-   379  def ctorInfo (c : CtorSpec) : ConstInfo :=
-   380    ⟨S.lparams, S.ctorType c, .ctor S.name S.nP c.fields.length⟩
+   373      (S.classFields N fs)[i]? = (fs[i]?).map fun f => S.classField N (fs.length - 1 - i) f
+   374    | [], _ => rfl
+   375    | f :: fs, 0 => by simp
+   376    | f :: fs, i + 1 => by
+   377      have : (f :: fs).length - 1 - (i + 1) = fs.length - 1 - i := by simp; omega
+   378      rw [this]
+   379      simp only [classFields_cons, List.getElem?_cons_succ]
+   380      exact classFields_getElem? N fs i
    381  
-   382  /-- The recursor's constant: `nP` parameters, one motive, `n` minors,
-   383  `nI` indices, the generated rules. -/
-   384  def recInfo : ConstInfo := ⟨S.recLparams, S.recType, .recursor S.nP 1 S.n S.nI S.rules⟩
+   382  /-- A constructor of the container, in the block's terms: its fields
+   383  translated, no indices. -/
+   384  def classCtor (N : NestInfo) (c : CtorSpec) : CtorSpec := ⟨c.name, S.classFields N c.fields, []⟩
    385  
-   386  /-- The environment with the type former added. -/
-   387  def envInd (env : Env) : Env := env.add S.name S.indInfo
-   388  
-   389  /-- The environment with the type former and the constructors added,
-   390  in order. -/
-   391  def envCtors (env : Env) : Env :=
-   392    S.ctors.foldl (fun e c => e.add c.name (S.ctorInfo c)) (S.envInd env)
+   386  /-- The extras of the nested recursors' prefix: two motives and all
+   387  minor premises. -/
+   388  def oN (N : NestInfo) : Nat := 2 + S.n + N.nK
+   389  
+   390  /-- **The class's motive's type**, under the parameters and the
+   391  block's motive: `∀ (t : K args[member]), Sort ℓ`. -/
+   392  def motiveTy1 (N : NestInfo) : Expr := mkPis .never [S.classTy N 1] (.sort S.ℓ)
    393  
-   394  /-- **The installed block**: former, constructors, recursor. -/
-   395  def install (env : Env) : Env := (S.envCtors env).add S.recName S.recInfo
+   394  /-- **A minor premise of the block's constructor `j`** in a nested
+   395  block: as `minorTy`, under the two motives and the `j` earlier minors. -/
 
 == whitepaper/Fragment/Env.lean#L30-L43
     30  /-- One computation rule of a recursor: the major premise built by
@@ -2651,7 +2651,7 @@
     40    /-- The right-hand side, a closed term over the recursor's level
     41    parameters, `fun params motives minors fields => …`. -/
     42    rhs : Expr
-    43    deriving DecidableEq
+    43    /-- **The stored instantiation** of a nested rule (an auxiliary
 
 == ConLeche/Kernel/Env.lean#L241-L254
    241  structure RecRule where
@@ -2670,14 +2670,14 @@
    254    one, its constructor has no fields, and that constructor's
 
 == whitepaper/Fragment/EnvModel.lean#L182-L189
-   182    /-- Every rule of every stored recursor satisfies its ι law. -/
-   183    rec_rules : ∀ (c : Name) (ci : ConstInfo) (numParams numMotives numMinors numIndices : Nat)
-   184      (rules : List RecRule),
-   185      env.find? c = some ci →
-   186      ci.kind = .recursor numParams numMotives numMinors numIndices rules →
-   187      ∀ rl ∈ rules, ∀ cij : ConstInfo, env.find? rl.ctor = some cij →
-   188        RecRuleLaw M c ci numParams (numParams + numMotives + numMinors)
-   189          (numParams + numMotives + numMinors + numIndices) rl cij
+   182        piBodyV ρ (cij.type.instL cij.lparams usj) ys = some (B, ρ') →
+   183        B = Expr.mkAppN (.const I lsI) (rps ++ ridx) → rps.length = nPc →
+   184        ∀ p ∈ (ridx.map (interp M φ ρ')).zip (xs.drop numBefore), p.1 = p.2) →
+   185      appList (M c (us.map (Level.eval φ)))
+   186          (xs ++ [appList (M rl.ctor (usj.map (Level.eval φ))) ys])
+   187        = appList (interp M φ ρ (rl.rhs.instL ci.lparams us))
+   188            (xs.take numBefore ++ ys.drop nPc) ∧
+   189      WellDenoted M φ ρ (rl.rhs.instL ci.lparams us) ∧
 
 == whitepaper/Fragment/IndLib.lean#L134-L159
    134  /-- **The library for inductive types**: `SetLib` with separation
@@ -2778,24 +2778,24 @@
    128    | refl tele tgt rest, v :: vs =>
 
 == whitepaper/Fragment/IndSem.lean#L308-L314
-   308  /-- **The bounding family** at the parameters: what the inductive
-   309  closure law supplies for the block's constructors (the point where
-   310  the result sort is zero: no bound is needed there). -/
-   311  noncomputable def bound (ps : List V) : List V → V :=
-   312    open Classical in if h : S.u₀ ls ≠ 0 then Classical.choose (inductive_closure h (S.ctorsX M ls ps)) else fun _ => pt
+   308  def ContGood : Prop :=
+   309    ∀ N, S.nest = some N → ∀ ps, FitsVals M (S.ψ ls) base S.params ps →
+   310      (∀ X Y, X ⊆ˢ Y → X ∈ˢ (univ (S.u₀ ls) : V) → Y ∈ˢ (univ (S.u₀ ls) : V) →
+   311        S.classSet M ls N ps X ⊆ˢ S.classSet M ls N ps Y) ∧
+   312      (∀ X, X ∈ˢ (univ (S.u₀ ls) : V) → S.classSet M ls N ps X ∈ˢ (univ (S.u₀ ls) : V))
    313  
-   314  theorem bound_spec (ps : List V) (h : S.u₀ ls ≠ 0) :
+   314  /-! ## The family -/
 
 == whitepaper/Fragment/IndSem.lean#L391-L393
-   391  /-- **The fibre is in the result universe.** -/
-   392  theorem Fam_mem_univ (ps is : List V) : S.Fam M ls ps is ∈ˢ (univ (S.u₀ ls) : V) :=
-   393    fibreR_mem_univ (S.z_iff ls) fun hz =>
+   391  
+   392  /-- The container's parameter values with `X` at the member's position
+   393  (innermost first). -/
 
 == whitepaper/Fragment/IndSem.lean#L715-L718
-   715  /-- **A constructor's value is in the fibre** at its index expressions
-   716  when its fields fit. -/
-   717  theorem ctorVal_mem_Fam {j : Nat} {c : CtorSpec} {ps fs : List V} (hc : S.ctors[j]? = some c)
-   718      (hfit : S.FitsFields M ls (S.bound M ls) (S.Mem M ls) ps c.fields fs)
+   715      cases hr : f.isRec with
+   716      | false => rfl
+   717      | true =>
+   718        exfalso
 
 == ConLeche/SetTheory/Derive/LfpTuple.lean#L67-L75
     67  /-- **The least pre-fixed tuple of `Φ`** — componentwise, fibrewise the
@@ -2867,14 +2867,14 @@
    219      rw [hi x hx]; exact mem_one.mpr rfl
 
 == whitepaper/Fragment/IndSem.lean#L273-L276
-   273  /-- **The operator** whose least fixed point is the family: `x` is the
-   274  tagged tuple of fields fitting some constructor, and `is` are that
-   275  constructor's index expressions read under the fields. -/
-   276  def step (B : List V → List V → V) (P : FamP V) (ps is : List V) (x : V) : Prop :=
+   273  container's set — **already in the model**, assigned to `K` when `K`
+   274  was installed — applied to the class's arguments, with a set `X` at
+   275  the member's position.  In the family's operator `X` is the fibre of
+   276  the *approximant* at the member's index expressions, and the operator
 
 == whitepaper/Fragment/IndSem.lean#L323-L324
-   323  /-- **The family**, as a predicate: the least fixed point of `step`. -/
-   324  noncomputable def Mem (ps is : List V) (x : V) : Prop := Lfp (S.stepT M ls (S.bound M ls)) (ps, is, x)
+   323    | .recursive es =>
+   324      let is := S.idxVals M ls (consList fs (envP ps)) es
 
 == whitepaper/Fragment/IndSem.lean#L84-L88
     84  /-- **A fibre at a regime**: at a proposition (`z = true`) the truth
@@ -2884,24 +2884,24 @@
     88    if z then truthVal (∃ x, P x) else sep U P
 
 == whitepaper/Fragment/IndSem.lean#L329-L331
-   329  /-- **A constructor's value** at its fields: the point at a
-   330  proposition, the tagged tuple above. -/
-   331  def ctorVal (j : Nat) (fs : List V) : V := if S.z ls then pt else tag j (tuple fs.reverse)
+   329        fibreR (S.z ls) (B ps is) (P ps is)
+   330    | .container =>
+   331      match S.nest with
 
 == whitepaper/Fragment/IndSem.lean#L1183-L1187
-  1183  /-- **The type former's set** at `ls`: the graph over the index and
-  1184  parameter contexts whose value is the fibre. -/
-  1185  noncomputable def famSet : V :=
-  1186    lamCtx M (S.ψ ls) false base (S.indices ++ S.params) fun ρ' =>
-  1187      S.Fam M ls (readEnv S.nP (shiftE S.nI 0 ρ')) (readEnv S.nI ρ')
+  1183    have hget := S.FitsFields_get M ls hfit hf hk
+  1184    obtain ⟨k, f⟩ := kf
+  1185    cases f with
+  1186    | ordinary _ => simp [Field.isRec] at hrec
+  1187    | container => exact (S.noCont_absurd hnc (List.mem_of_getElem? hc) hf).elim
 
 == whitepaper/Fragment/IndSem.lean#L1193-L1198
-  1193  /-- **A constructor's set**: the abstraction over the parameters and
-  1194  fields (read in the model with the former) of the constructor's
-  1195  value. -/
-  1196  noncomputable def ctorSet (j : Nat) (c : CtorSpec) : V :=
-  1197    lamCtx (S.M₁ M) (S.ψ ls) (S.z ls) base (S.fieldCtx c.fields ++ S.params) fun ρ' =>
-  1198      S.ctorVal ls j (readEnv c.fields.length ρ')
+  1193    | reflexive tele es =>
+  1194      dsimp only [fieldSet] at hget
+  1195      dsimp only [IhOk, ihSem]
+  1196      refine ⟨_, rfl, ?_⟩
+  1197      intro ys hys
+  1198      have hlen := FitsVals_length M _ hys
 
 == ConLeche/Model/Annot/LfpHoleOp.lean#L121-L123
    121  /-- **The hole operator**: the block operator at the hole chains. -/
@@ -2949,36 +2949,36 @@
     62    sigmaSet w omega (natFibre f)
 
 == whitepaper/Fragment/IndSem.lean#L822-L823
-   822  /-- **The recursor's graph**: the least fixed point of `rstep`. -/
-   823  noncomputable def RecGraph (ps : List V) (m : V) (mins is : List V) (x v : V) : Prop :=
+   822        rw [hc', hfs'] at hfit
+   823        exact S.FitsFields_middle M ls (by simpa using hl') hfit
 
 == whitepaper/Fragment/IndSem.lean#L863-L866
-   863  /-- **Single-valuedness of the graph**: tags and tuples are injective,
-   864  so two values at one witness come from one constructor and one list of
-   865  fields, and their inductive hypotheses agree by induction. -/
-   866  theorem RecGraph_fun {ps : List V} {m : V} {mins is : List V} {x v v' : V}
+   863        simpa [junkRec_cons, Field.isRec] using ih
+   864      | ordinary A =>
+   865        simp only [toTeleX, TeleX.FitsB]
+   866        have hA : interp M (S.ψ ls) (consList (junkRec done fsDone) (envP ps)) A
 
 == whitepaper/Fragment/IndSem.lean#L943-L947
-   943  /-- **Totality of the graph on the family** (with single-valuedness,
-   944  the recursion theorem): by induction over the family, the inductive
-   945  hypotheses exist because the fields' witnesses are members with
-   946  values. -/
-   947  theorem RecGraph_total (hu : S.Uniq M ls) {ps : List V}
+   943      simpa [bound] using this
+   944    · rw [mem_Fam_true _ _ _ hz]
+   945      exact ⟨rfl, _, hmem⟩
+   946  
+   947  /-! ## The recursor -/
 
 == whitepaper/Fragment/IndSem.lean#L743-L755
-   743  /-- A witness of the fibre: some member of the family at `ps`, `is`,
-   744  or the point when there is none. -/
-   745  noncomputable def pick (ps is : List V) : V :=
-   746    open Classical in if h : ∃ x, S.Mem M ls ps is x then Classical.choose h else pt
-   747  
-   748  theorem Mem_pick {ps is : List V} (h : ∃ x, S.Mem M ls ps is x) :
-   749      S.Mem M ls ps is (S.pick M ls ps is) := by
-   750    unfold pick; rw [dif_pos h]; exact Classical.choose_spec h
-   751  
-   752  /-- **The witness the recursor recurses on**: at a proposition the
-   753  major is the point and carries nothing, so the fibre's witness stands
-   754  in; above, the major itself. -/
-   755  noncomputable def wit (ps is : List V) (t : V) : V := if S.z ls then S.pick M ls ps is else t
+   743  theorem TeleS_pi_toTeleS_append (A : Expr) :
+   744      ∀ (L : List Expr) (ρ : Nat → V) (F : List V → V),
+   745        TeleS.pi (toTeleS M (S.ψ ls) ρ (L ++ [A])) F
+   746          = TeleS.pi (toTeleS M (S.ψ ls) ρ L) fun ys =>
+   747              piSet (interp M (S.ψ ls) (consList ys.reverse ρ) A) fun x => F (ys ++ [x])
+   748    | [], ρ, F => by simp [toTeleS, TeleS.pi]
+   749    | T :: L, ρ, F => by
+   750      simp only [List.cons_append, toTeleS, TeleS.pi]
+   751      congr 1
+   752      funext y
+   753      rw [TeleS_pi_toTeleS_append A L (cons y ρ)]
+   754      congr 1
+   755      funext ys
 
 == whitepaper/Fragment/Uniq.lean#L60-L65
     60  
@@ -2989,15 +2989,15 @@
     65  theorem uniq_of_subsingleton (hsub : S.Subsingleton M ls) : S.Uniq M ls := by
 
 == whitepaper/Fragment/IndSem.lean#L1214-L1218
-  1214  /-- **The recursor's set** at its own levels `lsr` (the elimination
-  1215  level in front, if large): the abstraction over its context — the
-  1216  parameters, the motive, the minors, the indices, the major — of the
-  1217  recursor's semantic value, the family read at the block's levels. -/
-  1218  noncomputable def recSet (lsr : List Nat) : V :=
+  1214    obtain ⟨hf, hk, hrec⟩ := mem_recFields hkf
+  1215    have hget := S.FitsFields_get M ls hfit hf hk
+  1216    obtain ⟨k, f⟩ := kf
+  1217    cases f with
+  1218    | ordinary _ => simp [Field.isRec] at hrec
 
 == whitepaper/Fragment/InstallInd.lean#L676-L677
-   676  /-- **The recursor's set is in the recursor's type.** -/
-   677  theorem recSet_mem (φ : Name → Nat) (ρ : Nat → V) {lsr : List Level}
+   676  omit [LevelOracle] hpl hs m hok in
+   677  /-- The recursor's body, read at values of its context. -/
 
 == ConLeche/SetModel/GraphRec.lean#L101-L103
    101  /-- **The recursor family's graph**: the least fixed point of the graph
@@ -3040,73 +3040,73 @@
     87    premise — whose major reduces to a constructor application with a
     88    rule, fires the rule: the rule's right-hand side, at the use's
     89    levels, applied to the parameters, motives and minors, then to the
-    90    constructor's fields (its arguments after the parameters).
-    91  
-    92    The two **telescope certificates** are `Rel.lean`'s `Certs` walks
-    93    (`:576-587`) folded in: the recursor's argument spine (with the
-    94    reduced major) and the constructor's argument spine are each typed
-    95    against the stored type's `Π`-telescope — every argument's type is
-    96    inferred and found definitionally equal to the binder domain it
-    97    meets (`Expr.piDomains`), and the stored type has the spine's
-    98    length of syntactic binders (`Expr.hasPis`; a generated type does).
-    99    They are what makes the environment's ι law (`EnvModel.lean`,
-   100    `RecRuleLaw`) applicable: they put every argument in its domain.
-   101  
-   102    The **three comparisons** after them are `Rel.lean`'s too
-   103    (`:206-231`): the constructor's levels are the recursor's (its last
-   104    `usj.length` ones — a large eliminator carries one extra level in
-   105    front), the constructor's parameters are definitionally the
-   106    recursor's, and the constructor's residual type
-   107    (`Expr.piResidual`: the family at the constructor's own parameters
-   108    and index expressions, with the fields substituted in) has index
-   109    expressions definitionally equal to the recursor's index arguments.
-   110    In the model they matter exactly when the family is a proposition:
-   111    there the major denotes the one point, the certificates say only
-   112    that the fibre is inhabited, and the fields the rule's right-hand
-   113    side receives can be related to the recursor's own parameters and
-   114    indices through these comparisons alone (`Install.lean`). -/
-   115    | iota {Γ : List Expr} {c : Name} {us : List Level} {ci : ConstInfo}
-   116        {numParams numMotives numMinors numIndices : Nat} {rules : List RecRule}
-   117        {args : List Expr} {major : Expr} {cj : Name} {usj : List Level}
-   118        {cij : ConstInfo} {margs : List Expr} {rl : RecRule}
-   119        {doms tys doms' tys' : List Expr}
-   120        {residual : Expr} {I : Name} {lsI : List Level} {rps ridx : List Expr} :
-   121        env.find? c = some ci →
-   122        ci.kind = .recursor numParams numMotives numMinors numIndices rules →
-   123        us.length = ci.lparams.length →
-   124        args.length = numParams + numMotives + numMinors + numIndices + 1 →
-   125        ci.type.hasPis (numParams + numMotives + numMinors + numIndices + 1) = true →
-   126        Red env Γ (args.getD (numParams + numMotives + numMinors + numIndices) (bvar 0))
-   127          major →
-   128        major = mkAppN (const cj usj) margs →
-   129        rl ∈ rules → rl.ctor = cj →
-   130        env.find? cj = some cij →
-   131        usj.length = cij.lparams.length →
-   132        margs.length = numParams + rl.nfields →
-   133        cij.type.hasPis (numParams + rl.nfields) = true →
-   134        -- the recursor's telescope certificate, on the spine with the reduced major
-   135        piDomains (ci.type.instL ci.lparams us)
-   136          (args.take (numParams + numMotives + numMinors + numIndices) ++ [major]) = some doms →
-   137        tys.length = doms.length →
-   138        (∀ p ∈ (args.take (numParams + numMotives + numMinors + numIndices) ++ [major]).zip tys,
-   139          Infer env Γ p.1 p.2) →
-   140        (∀ p ∈ tys.zip doms, DefEq env Γ p.1 p.2) →
-   141        -- the constructor's telescope certificate
-   142        piDomains (cij.type.instL cij.lparams usj) margs = some doms' →
-   143        tys'.length = doms'.length →
-   144        (∀ p ∈ margs.zip tys', Infer env Γ p.1 p.2) →
-   145        (∀ p ∈ tys'.zip doms', DefEq env Γ p.1 p.2) →
-   146        -- the constructor's levels, parameters and residual indices against the recursor's
-   147        Level.eqList usj (us.drop (us.length - usj.length)) = true →
-   148        (∀ p ∈ (margs.take numParams).zip (args.take numParams), DefEq env Γ p.1 p.2) →
-   149        piResidual (cij.type.instL cij.lparams usj) margs = some residual →
-   150        residual = mkAppN (const I lsI) (rps ++ ridx) →
-   151        rps.length = numParams →
-   152        (∀ p ∈ ridx.zip ((args.take (numParams + numMotives + numMinors + numIndices)).drop
-   153          (numParams + numMotives + numMinors)), DefEq env Γ p.1 p.2) →
-   154        Red env Γ (mkAppN (const c us) args)
-   155          (mkAppN (rl.rhs.instL ci.lparams us)
-   156            (args.take (numParams + numMotives + numMinors) ++ margs.drop numParams))
+    90    constructor's fields (its arguments after the parameters).  The rule
+    91    is one of the block's own constructors' (no stored instantiation,
+    92    `RecRule.inst`); an auxiliary recursor's rule fires by
+    93    `Red.iotaNested`.
+    94  
+    95    The two **telescope certificates** are `Rel.lean`'s `Certs` walks
+    96    (`:576-587`) folded in: the recursor's argument spine (with the
+    97    reduced major) and the constructor's argument spine are each typed
+    98    against the stored type's `Π`-telescope — every argument's type is
+    99    inferred and found definitionally equal to the binder domain it
+   100    meets (`Expr.piDomains`), and the stored type has the spine's
+   101    length of syntactic binders (`Expr.hasPis`; a generated type does).
+   102    They are what makes the environment's ι law (`EnvModel.lean`,
+   103    `RecRuleLaw`) applicable: they put every argument in its domain.
+   104  
+   105    The **three comparisons** after them are `Rel.lean`'s too
+   106    (`:206-231`): the constructor's levels are the recursor's (its last
+   107    `usj.length` ones — a large eliminator carries one extra level in
+   108    front), the constructor's parameters are definitionally the
+   109    recursor's, and the constructor's residual type
+   110    (`Expr.piResidual`: the family at the constructor's own parameters
+   111    and index expressions, with the fields substituted in) has index
+   112    expressions definitionally equal to the recursor's index arguments.
+   113    In the model they matter exactly when the family is a proposition:
+   114    there the major denotes the one point, the certificates say only
+   115    that the fibre is inhabited, and the fields the rule's right-hand
+   116    side receives can be related to the recursor's own parameters and
+   117    indices through these comparisons alone (`Install.lean`). -/
+   118    | iota {Γ : List Expr} {c : Name} {us : List Level} {ci : ConstInfo}
+   119        {numParams numMotives numMinors numIndices : Nat} {rules : List RecRule}
+   120        {args : List Expr} {major : Expr} {cj : Name} {usj : List Level}
+   121        {cij : ConstInfo} {margs : List Expr} {rl : RecRule}
+   122        {doms tys doms' tys' : List Expr}
+   123        {residual : Expr} {I : Name} {lsI : List Level} {rps ridx : List Expr} :
+   124        env.find? c = some ci →
+   125        ci.kind = .recursor numParams numMotives numMinors numIndices rules →
+   126        us.length = ci.lparams.length →
+   127        args.length = numParams + numMotives + numMinors + numIndices + 1 →
+   128        ci.type.hasPis (numParams + numMotives + numMinors + numIndices + 1) = true →
+   129        Red env Γ (args.getD (numParams + numMotives + numMinors + numIndices) (bvar 0))
+   130          major →
+   131        major = mkAppN (const cj usj) margs →
+   132        rl ∈ rules → rl.ctor = cj → rl.inst = none →
+   133        env.find? cj = some cij →
+   134        usj.length = cij.lparams.length →
+   135        margs.length = numParams + rl.nfields →
+   136        cij.type.hasPis (numParams + rl.nfields) = true →
+   137        -- the recursor's telescope certificate, on the spine with the reduced major
+   138        piDomains (ci.type.instL ci.lparams us)
+   139          (args.take (numParams + numMotives + numMinors + numIndices) ++ [major]) = some doms →
+   140        tys.length = doms.length →
+   141        (∀ p ∈ (args.take (numParams + numMotives + numMinors + numIndices) ++ [major]).zip tys,
+   142          Infer env Γ p.1 p.2) →
+   143        (∀ p ∈ tys.zip doms, DefEq env Γ p.1 p.2) →
+   144        -- the constructor's telescope certificate
+   145        piDomains (cij.type.instL cij.lparams usj) margs = some doms' →
+   146        tys'.length = doms'.length →
+   147        (∀ p ∈ margs.zip tys', Infer env Γ p.1 p.2) →
+   148        (∀ p ∈ tys'.zip doms', DefEq env Γ p.1 p.2) →
+   149        -- the constructor's levels, parameters and residual indices against the recursor's
+   150        Level.eqList usj (us.drop (us.length - usj.length)) = true →
+   151        (∀ p ∈ (margs.take numParams).zip (args.take numParams), DefEq env Γ p.1 p.2) →
+   152        piResidual (cij.type.instL cij.lparams usj) margs = some residual →
+   153        residual = mkAppN (const I lsI) (rps ++ ridx) →
+   154        rps.length = numParams →
+   155        (∀ p ∈ ridx.zip ((args.take (numParams + numMotives + numMinors + numIndices)).drop
+   156          (numParams + numMotives + numMinors)), DefEq env Γ p.1 p.2) →
 
 == ConLeche/Rules/Rel.lean#L178-L217
    178    /-- **ι** (`iotaRec`, `Kernel/Core.lean`): a stored recursor
@@ -3263,7 +3263,7 @@
    219      (hpis : ci.type.hasPis (majorIdx + 1) = true)
    220      (hmaj : RedSem m φ Γ (args.getD majorIdx (Expr.bvar 0)) major)
    221      (hmeq : major = Expr.mkAppN (Expr.const cj usj) margs)
-   222      (hrl : rl ∈ rules) (hctor : rl.ctor = cj)
+   222      (hrl : rl ∈ rules) (hctor : rl.ctor = cj) (hinst : rl.inst = none)
    223      (hcij : env.find? cj = some cij)
    224      (husj : usj.length = cij.lparams.length)
    225      (hmlen : margs.length = numParams + rl.nfields)
@@ -3292,21 +3292,21 @@
     69  theorem Red.iota_sound (hin : RulesInputs V m φ) {d : Nat} {e : Expr} {c : Name}
 
 == whitepaper/Fragment/InstallIota.lean#L706-L712
-   706  /-- **The ι law of a generated rule** (`RecRuleLaw`, `EnvModel.lean`)
-   707  for the recursor's constant and the constructor's, at the recursor's
-   708  `nP` parameters, `nP + 1 + n` arguments before the indices and the
-   709  major at `nP + 1 + n + nI`. -/
-   710  theorem rec_rule_law {j : Nat} {c : CtorSpec} (hc : S.ctors[j]? = some c) :
-   711      RecRuleLaw (S.M₃ m.M) S.recName S.recInfo S.nP (S.nP + 1 + S.n) (S.nP + 1 + S.n + S.nI)
-   712        ⟨c.name, c.fields.length, S.ruleRhs c j⟩ (S.ctorInfo c) := by
+   706    · simp only [List.length_take, List.length_drop, hl]; omega
+   707  
+   708  /-- **The ι law of a generated rule** (`RecRuleLaw`, `EnvModel.lean`)
+   709  for the recursor's constant and the constructor's, at the recursor's
+   710  `nP` parameters, `nP + 1 + n` arguments before the indices and the
+   711  major at `nP + 1 + n + nI`. -/
+   712  theorem rec_rule_law {j : Nat} {c : CtorSpec} (hc : S.ctors[j]? = some c) :
 
 == whitepaper/Fragment/IndSem.lean#L1022-L1027
-  1022  /-- **The ι equation**: at a constructor value whose fields fit, the
-  1023  recursor is the minor at the fields and the inductive hypotheses'
-  1024  values.  At a proposition the constructor value is the point and the
-  1025  recursor looks at the fibre's witness, which by uniqueness is the
-  1026  tagged tuple of these very fields. -/
-  1027  theorem recSem_eq (hu : S.Uniq M ls) {j : Nat} {c : CtorSpec} {ps : List V}
+  1022  
+  1023  /-- The operator on sextuples. -/
+  1024  noncomputable def rstepT (R : List V × V × List V × List V × V × V → Prop)
+  1025      (t : List V × V × List V × List V × V × V) : Prop :=
+  1026    S.rstep M ls q (fun ps m mins is x v => R (ps, m, mins, is, x, v))
+  1027      t.1 t.2.1 t.2.2.1 t.2.2.2.1 t.2.2.2.2.1 t.2.2.2.2.2
 
 == ConLeche/Model/Inductives/BlockRecLaw.lean#L448-L456
    448  /-- **A new block recursor's rule law, at either firing**.  `hpins` is
@@ -3336,7 +3336,7 @@
     43    /-- A definition (`DefOk`, `Decl.lean`). -/
     44    | defn {env : Env} {c : Name} {ci : ConstInfo} :
     45        Accepted env → DefOk env c ci → Accepted (env.add c ci)
-    46    /-- An inductive block (`IndOk`, `Decl.lean`). -/
+    46    /-- An inductive block, plain or nested (`IndOk`, `Decl.lean`). -/
     47    | ind {env : Env} (S : IndSpec) : Accepted env → IndOk env S → Accepted (S.install env)
 
 == ConLeche/Model/Fold.lean#L198-L200
@@ -3350,21 +3350,21 @@
     52  theorem Accepted.scoped : ∀ {env : Env}, Accepted env → Env.Scoped env
     53    | _, .empty => Env.Scoped.empty
     54    | _, .defn h hok => h.scoped.add_def hok
-    55    | _, .ind S h hok => h.scoped.install S hok
+    55    | _, .ind S h hok => h.scoped.install_any hok
 
 == whitepaper/Fragment/Consistency.lean#L57-L68
-    57  /-- **Every accepted environment has a model** (in any `IndLib`). -/
-    58  theorem accepted_model {env : Env} (h : Accepted env) : Nonempty (EnvModel V env) := by
-    59    induction h with
-    60    | empty => exact ⟨EnvModel.empty fun _ _ => pt⟩
-    61    | defn h hok ih =>
-    62      obtain ⟨m⟩ := ih
-    63      obtain ⟨m', -⟩ := install_def h.scoped m hok
-    64      exact ⟨m'⟩
-    65    | ind S h hok ih =>
-    66      obtain ⟨m⟩ := ih
-    67      obtain ⟨m', -⟩ := install_ind h.scoped m hok
-    68      exact ⟨m'⟩
+    57  /-- **Every accepted environment has a model** (in any `IndLib`) — a
+    58  block model, which remembers its blocks for the nestings to come. -/
+    59  theorem accepted_model {env : Env} (h : Accepted env) : Nonempty (BlockModel V env) := by
+    60    induction h with
+    61    | empty => exact ⟨BlockModel.empty fun _ _ => pt⟩
+    62    | defn h hok ih =>
+    63      obtain ⟨m⟩ := ih
+    64      obtain ⟨m', -⟩ := install_def' h.scoped m hok
+    65      exact ⟨m'⟩
+    66    | ind S h hok ih =>
+    67      obtain ⟨m⟩ := ih
+    68      obtain ⟨m', -⟩ := install_ind_any h.scoped m hok
 
 == ConLeche/MainTheorem.lean#L96-L99
     96  theorem model_exists (V : Type w) [SetTheory V]
@@ -3373,12 +3373,12 @@
     99      Nonempty (Model V env) := by
 
 == whitepaper/Fragment/Install.lean#L99-L104
-    99  /-- **Installing an inductive block preserves having a model.**  Every
-   100  stored constant keeps its set. -/
-   101  theorem install_ind {env : Env} {S : IndSpec} (hs : Env.Scoped env) (m : EnvModel V env)
-   102      (hok : IndOk env S) :
-   103      ∃ m' : EnvModel V (S.install env), ∀ n, (env.find? n).isSome → ∀ ls, m'.M n ls = m.M n ls :=
-   104    ⟨S.mInstall hs m hok, fun n hn ls => (S.agree_M₃ hok m.M n hn ls).symm⟩
+    99        rename_i hc
+   100        subst hc
+   101        cases hfind
+   102        simp only [recInfo, ConstKind.recursor.injEq] at hkind
+   103        obtain ⟨rfl, rfl, rfl, rfl, rfl⟩ := hkind
+   104        obtain ⟨j, c', hc', rfl⟩ := S.mem_rules hrl
 
 == ConLeche/Model/Inductives/DeclBlockStep.lean#L72-L77
     72  theorem declBlock (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
@@ -3389,24 +3389,23 @@
     77      ∃ mp' : EnvModelM V μ env₂, LfpCover mp' [] := by
 
 == whitepaper/Fragment/Consistency.lean#L104-L113
-   104  /-- **No closed term inhabits an empty inductive type.**  For a block
-   105  without constructors, parameters, indices and level parameters whose
-   106  recursor the environment stores, no closed term has the type former's
-   107  type: in a model, the recursor's set lies in the product over the
-   108  motives and the fibre, and at the motive with the empty fibre a
-   109  member of the type would be a member of the empty set. -/
-   110  theorem no_empty_inductive_inhabitant {env : Env} (hacc : Accepted env) {S : IndSpec}
-   111      (hctors : S.ctors = []) (hparams : S.params = []) (hidx : S.indices = [])
-   112      (hlp : S.lparams = []) (hrec : env.find? S.recName = some S.recInfo) (e : Expr) :
-   113      ¬ Infer env [] e (.const S.name []) := by
+   104    rw [interp_instL, Level.substVal_self] at hR
+   105    -- the elimination level is zero
+   106    have hℓ : Level.eval (fun _ => 0) S.ℓ = 0 := by
+   107      unfold IndSpec.ℓ
+   108      split <;> rfl
+   109    have hq : S.q.holds (fun _ => 0) = true := by
+   110      rw [S.q_holds, hℓ]
+   111      rfl
+   112    -- the recursor's type, read: `∀ (motive : I → Sort 0) (t : I), motive t`
+   113    simp only [IndSpec.recType, IndSpec.famVars, IndSpec.famAt, IndSpec.indicesAt, IndSpec.minorsCtx,
 
-== whitepaper/Fragment/Consistency.lean#L149-L154
-   149  /-- **No closed term inhabits an empty proposition**: the block
-   150  `inductive False : Prop`, installed in an accepted environment, has
-   151  no closed inhabitant. -/
-   152  theorem no_empty_prop_inhabitant {env : Env} (hacc : Accepted env) {name recName elim : Name}
-   153      (hrec : env.find? recName = some (IndSpec.falseSpec name recName elim).recInfo) (e : Expr) :
-   154      ¬ Infer env [] e (.const name []) :=
+== whitepaper/Fragment/Consistency.lean#L136-L140
+   136  theorem no_empty_prop_inhabitant {env : Env} (hacc : Accepted env) {name recName elim : Name}
+   137      (hrec : env.find? recName = some (IndSpec.falseSpec name recName elim).recInfo) (e : Expr) :
+   138      ¬ Infer env [] e (.const name []) :=
+   139    no_empty_inductive_inhabitant V hacc (S := IndSpec.falseSpec name recName elim) rfl rfl rfl rfl
+   140      hrec e
 
 == ConLeche/Model/Fold.lean#L276-L283
    276  theorem no_proof_of_False_pure (V : Type w) [SetTheory V]
@@ -3444,20 +3443,20 @@
    159    tag_ne_pt : ∀ {i : Nat} {x : V}, tag i x ≠ pt
 
 == whitepaper/Fragment/IndSem.lean#L329-L331
-   329  /-- **A constructor's value** at its fields: the point at a
-   330  proposition, the tagged tuple above. -/
-   331  def ctorVal (j : Nat) (fs : List V) : V := if S.z ls then pt else tag j (tuple fs.reverse)
+   329        fibreR (S.z ls) (B ps is) (P ps is)
+   330    | .container =>
+   331      match S.nest with
 
 == whitepaper/Fragment/IndSem.lean#L323-L326
-   323  /-- **The family**, as a predicate: the least fixed point of `step`. -/
-   324  noncomputable def Mem (ps is : List V) (x : V) : Prop := Lfp (S.stepT M ls (S.bound M ls)) (ps, is, x)
-   325  
-   326  /-- **The fibre** of the family at parameters and indices. -/
+   323    | .recursive es =>
+   324      let is := S.idxVals M ls (consList fs (envP ps)) es
+   325      fibreR (S.z ls) (B ps is) (P ps is)
+   326    | .reflexive tele es =>
 
 == whitepaper/Fragment/IndSem.lean#L365-L367
-   365  /-- Inversion: a member is a step from members. -/
-   366  theorem Mem_elim {ps is : List V} {x : V} (h : S.Mem M ls ps is x) :
-   367      S.step M ls (S.bound M ls) (S.Mem M ls) ps is x :=
+   365    S.step M ls B (fun ps is x => P (ps, is, x)) t.1 t.2.1 t.2.2
+   366  
+   367  /-! ### The bounding family -/
 
 == whitepaper/Fragment/IndLib.lean#L246-L249
    246  /-- The least fixed point is a fixed point: a member is a step from
@@ -3472,10 +3471,10 @@
     87  def fibreR (z : Bool) (U : V) (P : V → Prop) : V :=
 
 == whitepaper/Fragment/IndSem.lean#L378-L381
-   378  /-- A member of a propositional fibre is the point; of a type-valued
-   379  one, a member of the family. -/
-   380  theorem mem_Fam_true {ps is : List V} {t : V} (hz : S.z ls = true) :
-   381      t ∈ˢ S.Fam M ls ps is ↔ t = pt ∧ ∃ x, S.Mem M ls ps is x := by
+   378  its value).  A container field is a recursive field at the class's
+   379  index. -/
+   380  def toTeleX (ps : List V) : List Field → List V → TeleX (JIdx V) V
+   381    | [], _ => .nil
 
 == whitepaper/Fragment/IndLib.lean#L148
    148    tuple_inj : ∀ {xs ys : List V}, tuple xs = tuple ys → xs = ys
