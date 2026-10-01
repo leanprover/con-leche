@@ -24,14 +24,14 @@ corollary follow in @sec:ind.
 
 *The environment* $E$ — fixed throughout, like the valuation — is a
 list of the constants accepted so far, most recent first
-(#src("whitepaper/Fragment/Env.lean", 88, 104)[fragment],
+(#src("whitepaper/Fragment/Env.lean", 101, 117)[fragment],
 #src("ConLeche/Kernel/Env.lean", 674)[real checker]). A stored
 constant has its level parameters $arrow(p)$, its type — a closed
 term over $arrow(p)$ — and its _kind_; we write
 $(c.\{arrow(p)\} : T) in E$ for "$c$ is stored with parameters
 $arrow(p)$ and type $T$", and $(c.\{arrow(p)\} : T := v) in E$ when
 it is a definition with value $v$
-(#src("whitepaper/Fragment/Env.lean", 45, 79)[fragment],
+(#src("whitepaper/Fragment/Env.lean", 55, 92)[fragment],
 #src("ConLeche/Kernel/Env.lean", 468, 482)[real checker]): a
 _definition_ carries a value; the other kinds — type former,
 constructor, recursor — are what an inductive block stores, and
@@ -61,8 +61,8 @@ annotated for the levels it is now used at
 *The rules for constants.* A constant has its declared type at the
 levels it is used at, and two constants of the same name are compared
 through the level oracle
-(#src("whitepaper/Fragment/Rules.lean", 242, 246)[fragment, inference]
-and #src("whitepaper/Fragment/Rules.lean", 191, 195)[equality]\;
+(#src("whitepaper/Fragment/Rules.lean", 303, 307)[fragment, inference]
+and #src("whitepaper/Fragment/Rules.lean", 252, 256)[equality]\;
 #src("ConLeche/Rules/Rel.lean", 489, 495)[real checker, inference]
 and #src("ConLeche/Rules/Rel.lean", 356, 361)[equality]).
 
@@ -91,7 +91,7 @@ head rule of @sec:rules, an applied definition unfolds at its head.
 *What a definition must satisfy.* Before the checker stores a
 definition $c$ with parameters $arrow(p)$, type $T$ and value $v$, it
 checks four things
-(#src("whitepaper/Fragment/Decl.lean", 415, 425)[fragment],
+(#src("whitepaper/Fragment/Decl.lean", 589, 599)[fragment],
 #src("ConLeche/Kernel/CheckerBase.lean", 96, 116)[real checker, the common checks]
 and #src("ConLeche/Kernel/Checker.lean", 34, 50)[the value check]): the
 name is fresh; the type has a sort, $tack T => S red Sort u$; the
@@ -99,7 +99,7 @@ value's inferred type is definitionally equal to the declared type,
 $tack v => T' $ and $tack T' equiv T$; and both terms are _in scope_
 — closed, mentioning only stored constants, using only the level
 parameters $arrow(p)$
-(#src("whitepaper/Fragment/Decl.lean", 403, 407)[fragment]). All
+(#src("whitepaper/Fragment/Decl.lean", 577, 581)[fragment]). All
 in the empty context: stored terms are closed. The scope check is
 what lets the model read a stored term without looking at anything
 that is added later: the interpretation of a term depends only on
@@ -128,17 +128,17 @@ invariant gains the clause that a constant, like a variable or a
 sort, is always well-denoted.
 
 *The three-law contract.* What the soundness theorem, extended below,
-assumes of the environment: #src("whitepaper/Fragment/EnvModel.lean", 163, 189)[a _model_]
+assumes of the environment: #src("whitepaper/Fragment/EnvModel.lean", 192, 229)[a _model_]
 is an assignment $M(c, arrow(n))$ of a set to every constant $c$ and
 every list of natural numbers $arrow(n)$ — the values of its level
 parameters — such that
 
-+ #src("whitepaper/Fragment/EnvModel.lean", 167, 174)[every stored constant is a member of its type]: for every
++ #src("whitepaper/Fragment/EnvModel.lean", 196, 203)[every stored constant is a member of its type]: for every
   stored $c$ with parameters $arrow(p)$ and type $T$, at every list
   of levels $arrow(ell)$ of the right length and every valuation
   $phi$, the instantiated type $T[arrow(p) := arrow(ell)]$ is
   well-denoted and $M(c, phi(arrow(ell))) in lden T[arrow(p) := arrow(ell)] rden$;
-+ #src("whitepaper/Fragment/EnvModel.lean", 175, 181)[a definition's value denotes the constant]: for a stored
++ #src("whitepaper/Fragment/EnvModel.lean", 204, 210)[a definition's value denotes the constant]: for a stored
   definition $c$ with value $v$, the instantiated value is
   well-denoted and $lden v[arrow(p) := arrow(ell)] rden = M(c, phi(arrow(ell)))$;
 + every rule of a stored recursor satisfies its $iota$ law — a law
@@ -153,13 +153,13 @@ constant is added, no stored term mentions it, so every old law is
 read off the extended assignment exactly as off the old one, and
 nothing has to be re-proved. The empty environment has a model
 trivially: any assignment, and three laws with nothing to say
-(#src("whitepaper/Fragment/EnvModel.lean", 191, 196)[fragment]).
+(#src("whitepaper/Fragment/EnvModel.lean", 231, 237)[fragment]).
 
 *Soundness, extended.* @thm:sound holds for the relations extended by
 the three rules above, with one more hypothesis: fix a model of the
 environment, a valuation $phi$, and let $rho$ satisfy $Gamma$; then
 the three claims hold as stated
-(#src("whitepaper/Fragment/Sound.lean", 679, 683)[fragment]), and
+(#src("whitepaper/Fragment/Sound.lean", 817, 821)[fragment]), and
 @cor:closed holds under every model. The induction of @sec:claims
 gains three cases, one per rule.
 
@@ -173,14 +173,14 @@ gains three cases, one per rule.
   The redex's semantic invariant is not even needed.
   @thm:install-def shows the law holds when a definition is added.
 
-  #src("whitepaper/Fragment/Sound.lean", 379, 381)[_const_, equality]
+  #src("whitepaper/Fragment/Sound.lean", 511, 513)[_const_, equality]
   ($c.\{arrow(ell)\} equiv c.\{arrow(ell)'\}$ when
   $arrow(ell) eq.dot arrow(ell)'$ pointwise). The oracle answers yes
   only if the levels agree at every valuation (@sec:levels), so the
   two constants read the same entry of $M$
   (#src("ConLeche/Model/Rules/DefEqSound.lean", 76, 78)[real proof]).
 
-  #src("whitepaper/Fragment/Sound.lean", 501, 506)[_const_, inference]
+  #src("whitepaper/Fragment/Sound.lean", 633, 638)[_const_, inference]
   ($c.\{arrow(ell)\} => T[arrow(p) := arrow(ell)]$). The constant is
   well-denoted, and law 1 says its instantiated type is well-denoted
   and contains the constant's set
@@ -190,7 +190,7 @@ gains three cases, one per rule.
 #theorem(name: "Installing a definition")[
   If the environment has a model and the definition $c$ passes the
   checks above, then the environment extended with $c$ has a model.
-  (#src("whitepaper/Fragment/InstallDef.lean", 281, 286)[fragment],
+  (#src("whitepaper/Fragment/InstallDef.lean", 303, 308)[fragment],
   #src("ConLeche/Model/Install.lean", 271, 273)[real proof].)
 ] <thm:install-def>
 
