@@ -325,7 +325,7 @@ possibly-propositional redex, and the proof pays nothing.
   + inference establishes the semantic invariant and a membership: if
     $Gamma tack e => T$, then $e$ and $T$ are well-denoted and
     $lden e rden_rho in lden T rden_rho$.
-  (#src("whitepaper/Fragment/Sound.lean", 679, 683)[fragment], with
+  (#src("whitepaper/Fragment/Sound.lean", 817, 821)[fragment], with
   #src("whitepaper/Fragment/Motive.lean", 40, 53)[the three claims stated]\; #src("ConLeche/Model/Rules/Motive.lean", 70, 104)[real
   proof], whose claims also carry the erased reading of the term, @sec:left-out.)
 ] <thm:sound>
@@ -340,7 +340,7 @@ other two relations are handed well-denoted terms and pass the
 invariant along.
 
 #corollary[
-  If the checker infers $tack e => T$ in the empty context, then $lden e rden_rho in lden T rden_rho$ #src("whitepaper/Fragment/Sound.lean", 687, 690)[at every valuation]
+  If the checker infers $tack e => T$ in the empty context, then $lden e rden_rho in lden T rden_rho$ #src("whitepaper/Fragment/Sound.lean", 825, 828)[at every valuation]
   and every $rho$.
 ] <cor:closed>
 
@@ -349,7 +349,7 @@ declaration is accepted when its value's inferred type is
 definitionally equal to its declared type, and the corollary, with the
 second claim, puts the value's set into the declared type's set.
 
-The three claims are proved together, by #src("whitepaper/Fragment/Sound.lean", 622, 669)[one structural induction] over
+The three claims are proved together, by #src("whitepaper/Fragment/Sound.lean", 754, 807)[one structural induction] over
 the three mutually inductive relations (#src("ConLeche/Model/Rules/Sound.lean", 43, 44)[the real proof's
 master induction]).
 Every rule is one case, and every case is a lemma about that rule
@@ -375,7 +375,7 @@ where the argument lives.
   semantic invariants in hand, one from the redex and one from the inference —
   and never without.
 
-  #src("whitepaper/Fragment/Sound.lean", 369, 373)[Rule red-l] ($Gamma tack a equiv b$ from $Gamma tack a red a'$ and
+  #src("whitepaper/Fragment/Sound.lean", 501, 505)[Rule red-l] ($Gamma tack a equiv b$ from $Gamma tack a red a'$ and
   $Gamma tack a' equiv b$). By the first claim, $a'$ is well-denoted
   and $lden a rden_rho = lden a' rden_rho$; now both $a'$ and $b$ are
   well-denoted, so the second claim applies to the continuation, and
@@ -383,13 +383,13 @@ where the argument lives.
   because a reduction step _produces_ the semantic invariant of its result; see
   the discussion of transitivity below.
 
-  #src("whitepaper/Fragment/Sound.lean", 375, 377)[Rule sort] ($Sort u equiv Sort v$ when $u eq.dot v$).
+  #src("whitepaper/Fragment/Sound.lean", 507, 509)[Rule sort] ($Sort u equiv Sort v$ when $u eq.dot v$).
   The oracle is assumed correct: it
   answers yes only if the levels agree at every valuation
   (@sec:levels), so the two universes are the same universe
   (#src("ConLeche/Model/Rules/DefEqSound.lean", 56, 58)[real proof]).
 
-  #src("whitepaper/Fragment/Sound.lean", 424, 458)[Rule fun-eta] ($lambda x : A_1 thin ann(PW). thin b_1 equiv b$ when
+  #src("whitepaper/Fragment/Sound.lean", 556, 590)[Rule fun-eta] ($lambda x : A_1 thin ann(PW). thin b_1 equiv b$ when
   $Gamma tack b => T red forall x : A_2 thin ann(PW). thin B$,
   $Gamma tack A_2 equiv A_1$, and $Gamma, x : A_1 tack b_1 equiv b thick x$).
   The third claim, then the first, put $lden b rden_rho$ in the denotation
@@ -409,7 +409,7 @@ where the argument lives.
   the $lambda$ to be the same datum; that is what makes the two sides
   fall into the same regime at every $phi$.
 
-  #src("whitepaper/Fragment/Sound.lean", 461, 481)[Rule proof-irrel] ($a equiv b$ when $Gamma tack a => T_a => S_a red Sort u$
+  #src("whitepaper/Fragment/Sound.lean", 593, 613)[Rule proof-irrel] ($a equiv b$ when $Gamma tack a => T_a => S_a red Sort u$
   with $u eq.dot 0$, and likewise for $b$). By the third claim twice
   and the first once, $lden a rden_rho in lden T_a rden_rho$ and
   $lden T_a rden_rho in cal(U)_(phi(u))$, and $phi(u) = 0$ because the
@@ -421,7 +421,7 @@ where the argument lives.
   and $b$ were not even used: there is only one proof in the whole
   model, so any two proofs of anything are equal in it.
 
-  #src("whitepaper/Fragment/Sound.lean", 514, 548)[Rule pi] ($Gamma tack forall x : A thin ann(PW). thin B => Sort (imax(u,
+  #src("whitepaper/Fragment/Sound.lean", 646, 680)[Rule pi] ($Gamma tack forall x : A thin ann(PW). thin B => Sort (imax(u,
   v))$ when $Gamma tack A => S red Sort u$, $Gamma, x : A tack B => T
   red Sort v$, and $ann(zn(v) = PW)$). This is where the annotation is
   _established_. The third claim for $A$ gives $A$ well-denoted and
@@ -444,7 +444,7 @@ where the argument lives.
   (#src("ConLeche/Model/Rules/InferSound.lean", 267, 273)[real proof]). The sort $Sort (imax(u, v))$ is well-denoted, as every
   sort is.
 
-  #src("whitepaper/Fragment/Sound.lean", 556, 590)[Rule lam] ($Gamma tack lambda x : A thin ann(PW). thin b => forall x : A
+  #src("whitepaper/Fragment/Sound.lean", 688, 722)[Rule lam] ($Gamma tack lambda x : A thin ann(PW). thin b => forall x : A
   thin ann(PW). thin B$ when $Gamma tack A => S red Sort u$,
   $Gamma, x : A tack b => B ann(=> T red Sort v)$, and $ann(zn(v) = PW)$).
   The same argument one level down. Under $x |-> v'$ for $v' in
@@ -465,7 +465,7 @@ where the argument lives.
   used: it is the checker's, and the model needs only that $A$ is
   well-denoted, which the inference of $A$ supplies.
 
-  #src("whitepaper/Fragment/Sound.lean", 600, 616)[Rule app] ($Gamma tack f thick a => B[x := a]$ when
+  #src("whitepaper/Fragment/Sound.lean", 732, 748)[Rule app] ($Gamma tack f thick a => B[x := a]$ when
   $Gamma tack f => T red forall x : A thin ann(PW). thin B$,
   $Gamma tack a => T_a$ and $Gamma tack T_a equiv A$). By the third
   claim, $f$ and $T$ are well-denoted and $lden f rden_rho in lden T rden_rho$;
@@ -500,8 +500,8 @@ where the argument lives.
     trans chains two reductions, passing the semantic invariant along; head
     reduces the function of a well-denoted application and keeps the
     application's rule, because the function's set did not change.
-  - #src("whitepaper/Fragment/Sound.lean", 358, 363)[Equality]: refl is again $lden e rden_rho = lden e rden_rho$, and
-    sym swaps the two semantic invariants. #src("whitepaper/Fragment/Sound.lean", 383, 415)[The congruences]
+  - #src("whitepaper/Fragment/Sound.lean", 490, 495)[Equality]: refl is again $lden e rden_rho = lden e rden_rho$, and
+    sym swaps the two semantic invariants. #src("whitepaper/Fragment/Sound.lean", 515, 547)[The congruences]
     for $forall$ and $lambda$ apply the hypothesis to the domains, then
     to the bodies at every value of the domain, and finish with
     the congruence laws; the congruence for applications
@@ -509,7 +509,7 @@ where the argument lives.
     #src("ConLeche/Model/Rules/DefEqSound.lean", 111, 117)[∀],
     #src("ConLeche/Model/Rules/DefEqSound.lean", 135, 141)[λ],
     #src("ConLeche/Model/Rules/DefEqSound.lean", 159, 161)[app]).
-  - #src("whitepaper/Fragment/Sound.lean", 489, 499)[Inference]: a variable's type is read off the satisfied context; a
+  - #src("whitepaper/Fragment/Sound.lean", 621, 631)[Inference]: a variable's type is read off the satisfied context; a
     sort's type is the next universe, which contains it (real proof:
     #src("ConLeche/Model/Rules/InferSound.lean", 135, 136)[sort],
     #src("ConLeche/Model/Rules/InferSound.lean", 151, 152)[variable]).
@@ -525,7 +525,7 @@ second claim assumes both sides well-denoted. In a transitivity case
 the induction would have to apply the hypothesis to $a equiv b$, and
 for that it needs $b$ well-denoted — but $b$ is neither a subterm of
 $a$ or $c$ nor produced by a premise, so nothing supplies its semantic
-invariant. #src("whitepaper/Fragment/Rules.lean", 161, 175)[Every other rule] keeps the discipline of @sec:rules, and the
+invariant. #src("whitepaper/Fragment/Rules.lean", 222, 236)[Every other rule] keeps the discipline of @sec:rules, and the
 corresponding claim delivers the invariant of every produced term. The
 one way to chain is therefore "reduce, then continue", and that is how
 the checker's equality test is structured: it head-normalises a side

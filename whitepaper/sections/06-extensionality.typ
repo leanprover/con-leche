@@ -39,11 +39,11 @@ thick arrow(f)$ of a block whose family is not a proposition denotes
 a #src("whitepaper/Fragment/IndLib.lean", 145, 159)[tagged tuple]
 $tag(i, chevron.l lden f_1 rden, ..., lden f_n rden chevron.r)$ — the
 constructor's number $i$, then its fields
-(#src("whitepaper/Fragment/IndSem.lean", 329, 331)[fragment]) — and
+(#src("whitepaper/Fragment/IndSem.lean", 484, 486)[fragment]) — and
 the family at parameters and indices denotes
-#src("whitepaper/Fragment/IndSem.lean", 323, 326)[the least set closed
+#src("whitepaper/Fragment/IndSem.lean", 478, 481)[the least set closed
 under the constructor steps], so that
-#src("whitepaper/Fragment/IndSem.lean", 365, 367)[a member of the
+#src("whitepaper/Fragment/IndSem.lean", 543, 545)[a member of the
 family is a tagged tuple that one constructor step produces] from
 members of the field domains (this is the fixed-point equation of §4,
 #src("whitepaper/Fragment/IndLib.lean", 246, 249)[read from left to
@@ -53,7 +53,7 @@ $ann(zn(u))$ for the result sort $Sort u$, and that datum holds at
 $phi$ — the family denotes
 #src("whitepaper/Fragment/IndSem.lean", 84, 87)[a truth value]
 instead: the constructor step's tuple is not stored, only whether some
-such tuple exists, and #src("whitepaper/Fragment/IndSem.lean", 378, 381)[a
+such tuple exists, and #src("whitepaper/Fragment/IndSem.lean", 556, 559)[a
 member of the family, like a constructor application, is the point].
 Tuples and tags are injective
 (#src("whitepaper/Fragment/IndLib.lean", 148)[tuples],

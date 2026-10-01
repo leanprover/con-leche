@@ -122,7 +122,7 @@ and does not verify it.  It _assumes_ two Boolean functions with a
 specification: $u <= v$ is answered yes exactly when the value of $u$
 is at most the value of $v$ at every valuation, and $u = v$ exactly
 when the values agree at every valuation
-(#src("whitepaper/Fragment/Level.lean", 117, 130)[fragment];
+(#src("whitepaper/Fragment/Level.lean", 133, 146)[fragment];
 #src("ConLeche/Kernel/Level.lean", 143, 145)[the real $<=$],
 #src("ConLeche/Kernel/Level.lean", 163, 166)[the real $=$] and their
 #src("ConLeche/Verify/Level.lean", 173, 174)[soundness]
@@ -169,7 +169,7 @@ together by inference rules: _reduction_ $Gamma tack e red e'$,
 _definitional equality_ $Gamma tack a equiv b$, and _inference_
 $Gamma tack e => T$.  A context $Gamma$ lists the variables in scope
 with their types.  The complete rule sets are at
-#src("whitepaper/Fragment/Rules.lean", 46, 278)[fragment] and
+#src("whitepaper/Fragment/Rules.lean", 46, 339)[fragment] and
 #src("ConLeche/Rules/Rel.lean", 92, 96)[real checker].
 
 *How to read them.*  The three relations describe _what the checker
@@ -246,7 +246,7 @@ below — red-l, $eta$ — need be written once and its mirror image
 follows), and it interleaves with
 reduction in one way: reduce the left side, then continue.  Sorts
 are compared through the level oracle
-(#src("whitepaper/Fragment/Rules.lean", 176, 195)[fragment],
+(#src("whitepaper/Fragment/Rules.lean", 237, 256)[fragment],
 #src("ConLeche/Rules/Rel.lean", 333, 361)[real checker]).
 
 #rules(
@@ -260,7 +260,7 @@ are compared through the level oracle
 The congruences descend into the two binders and into applications.
 Domains are compared first, then the bodies, under the right-hand
 domain; the two annotations must be the same datum
-(#src("whitepaper/Fragment/Rules.lean", 196, 209)[fragment],
+(#src("whitepaper/Fragment/Rules.lean", 257, 270)[fragment],
 #src("ConLeche/Rules/Rel.lean", 372, 391)[real checker]).
 
 #rules(
@@ -281,7 +281,7 @@ compared with the $lambda$'s, and the body is compared with $b$
 applied to the bound variable.  Two terms are equal by proof
 irrelevance when both are proofs: each one's type has type
 $Sort u$ with $u$ oracle-equal to $0$
-(#src("whitepaper/Fragment/Rules.lean", 210, 230)[fragment],
+(#src("whitepaper/Fragment/Rules.lean", 271, 291)[fragment],
 #src("ConLeche/Rules/Rel.lean", 399, 421)[real checker]).
 
 #rules(
@@ -319,7 +319,7 @@ point, and there is nothing to compare.
 
 *No transitivity.*  The list has no rule "$a equiv b$ and $b equiv c$
 give $a equiv c$", and none can be added
-(#src("whitepaper/Fragment/Rules.lean", 158, 175)[fragment],
+(#src("whitepaper/Fragment/Rules.lean", 219, 236)[fragment],
 #src("ConLeche/Rules/Rel.lean", 309, 332)[real checker]).  Look at the shape of the
 rules above: the two terms of every equality premise are each either a
 subterm of the conclusion (the congruences, the $eta$ body) or a
@@ -342,7 +342,7 @@ reduce, then continue, which is red-l.
 
 A variable's type is read off the context, and a sort has the next
 sort
-(#src("whitepaper/Fragment/Rules.lean", 233, 246)[fragment],
+(#src("whitepaper/Fragment/Rules.lean", 294, 307)[fragment],
 #src("ConLeche/Rules/Rel.lean", 479, 495)[real checker]).
 
 #rules(
@@ -357,7 +357,7 @@ $Sort (imax(u, v))$, and the stored datum must be the zero-ness of
 $v$.  For a $lambda$, the body's type $B$ is inferred; then the type
 of $B$ is inferred and reduced to a sort $Sort v$, and the stored
 datum must be the zero-ness of $v$
-(#src("whitepaper/Fragment/Rules.lean", 247, 266)[fragment],
+(#src("whitepaper/Fragment/Rules.lean", 308, 327)[fragment],
 #src("ConLeche/Rules/Rel.lean", 508, 532)[real checker]).
 
 #rules(
@@ -386,7 +386,7 @@ fragment does it at every $lambda$.
 
 An application infers the head's type, reduces it to a $forall$,
 infers the argument's type and compares it with the domain
-(#src("whitepaper/Fragment/Rules.lean", 267, 276)[fragment],
+(#src("whitepaper/Fragment/Rules.lean", 328, 337)[fragment],
 #src("ConLeche/Rules/Rel.lean", 537, 540)[real checker]).
 
 #rules(
