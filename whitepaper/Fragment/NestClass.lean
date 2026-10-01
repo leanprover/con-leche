@@ -225,6 +225,64 @@ theorem isMember_false_of_usesVar {k : Nat} {A : Expr} (hu : A.usesVar (N.member
     simp [NestInfo.isMember, hu]
   | _ => rfl
 
+/-- **An ordinary field of the container, read in the block's terms**
+(the member field included): its translated field's set at any member
+set `X` is the container's own field set at the instantiation `psK X`
+— whatever the regime, the bound and the family predicate (an
+ordinary field's set is its domain's reading). -/
+theorem classFieldSet_eq_ordinary (hf : S.NestFacts M ls N) (hlen : N.args.length + 1 = N.nPK)
+    (hlsK : N.lsK.length = N.K.lparams.length) (hKS : N.KS.Scoped env)
+    {c : CtorSpec} (hc : c ∈ N.K.ctors) {fields : List Field} {n : Nat} (hd : c.fields.drop n = fields)
+    {i : Nat} {A : Expr} (hi : fields[i]? = some (.ordinary A)) (X : V) (Q : V → Prop) (ps : List V)
+    (B : List V → List V → V) (P : FamP V)
+    {fs : List V} (hk : fs.length = fields.length - 1 - i) :
+    S.classFieldSet M ls N X Q ps fs (S.classField N (fields.length - 1 - i) (.ordinary A))
+      = N.KS.fieldSet M (S.lsK ls N) B P (S.psK M ls N ps X) fs (.ordinary A) := by
+  have hpf := positive_field N hf.positive hc hd hi
+  have hpN : N.p < N.nPK := hf.positive.2.1
+  rcases hpf with rfl | ⟨hu, -⟩
+  · -- the member field
+    simp only [classField, NestInfo.isMember, beq_self_eq_true, if_true, classFieldSet, fieldSet,
+      interp_bvar]
+    rw [S.read_memberVar M ls N hlen hpN hk]
+  · -- an ordinary field, not mentioning the member
+    rw [classField, if_neg (by rw [isMember_false_of_usesVar N hu]; exact Bool.false_ne_true)]
+    simp only [classFieldSet, fieldSet]
+    rw [interp_instChainAt M (S.ψ ls) (envP ps) (S.classArgs N 0) _ fs hk, S.classArgs_read M ls N ps,
+      interp_instL]
+    -- the container's scope of the domain
+    have hlt : i < fields.length := (List.getElem?_eq_some_iff.mp hi).1
+    have hsc : Expr.Scoped env N.KS.lparams (N.KS.nP + (fields.length - 1 - i)) A := by
+      have := (hKS.2.2.2.1 c hc).1 (n + i) (.ordinary A)
+        (by subst hd; rw [List.getElem?_drop] at hi; exact hi)
+      subst hd
+      rw [List.length_drop] at hlt ⊢
+      rwa [show c.fields.length - 1 - (n + i) = c.fields.length - n - 1 - i by omega] at this
+    have hnPK : N.KS.nP = N.nPK := rfl
+    -- the valuation: the container's parameters instantiated
+    rw [interp_lparams (ps := N.K.lparams) hsc.2.2 (φ' := N.KS.ψ (S.lsK ls N))
+      (fun m hm => (valOf_map_eval (S.ψ ls) (ps := N.K.lparams) hlsK hm).symm)]
+    -- the environment below the container's parameters, then the member's position
+    have hG : interp M (N.KS.ψ (S.lsK ls N))
+        (consList fs (consList (S.classArgsV M ls N ps
+          (interp M (S.ψ ls) (envP ps) (S.famAt 0 (N.idx.map (Expr.liftN 0 ·))))).reverse (envP ps))) A
+        = interp M (N.KS.ψ (S.lsK ls N))
+          (consList fs (envP (S.psK M ls N ps
+            (interp M (S.ψ ls) (envP ps) (S.famAt 0 (N.idx.map (Expr.liftN 0 ·))))))) A := by
+      refine interp_closedAt (k := N.KS.nP + (fields.length - 1 - i)) hsc.1 fun j hj => ?_
+      rw [show envP (S.psK M ls N ps _) = consList (S.classArgsV M ls N ps _).reverse base from rfl,
+        ← consList_append, ← consList_append]
+      refine consList_agree_lt j ?_
+      have h1 : N.KS.nP = N.args.length + 1 := hlen.symm
+      have h2 : N.p ≤ N.args.length := by
+        have h3 := hpN; have h4 := hlen; unfold NestInfo.nPK at h3 h4; omega
+      simp only [List.length_append, List.length_reverse, hk]
+      unfold classArgsV
+      simp only [List.length_append, List.length_map, List.length_take, List.length_drop,
+        List.length_singleton]
+      omega
+    rw [hG, S.read_pfree M ls N hlen hpN hk ps _ X _ hu]
+
 /-- **A field of the container, read in the block's terms**: its
 translated field's set at a member set `X` and a restriction `Q` is
 the container's own field set at the instantiation `psK X`, relative
@@ -243,49 +301,7 @@ theorem classFieldSet_eq (hf : S.NestFacts M ls N) (hlen : N.args.length + 1 = N
   have hpN : N.p < N.nPK := hf.positive.2.1
   have hzK : N.KS.z (S.lsK ls N) = false := by rw [hf.z_eq]; exact hz
   cases f with
-  | ordinary A =>
-    rcases hpf with rfl | ⟨hu, -⟩
-    · -- the member field
-      simp only [classField, NestInfo.isMember, beq_self_eq_true, if_true, classFieldSet, fieldSet,
-        interp_bvar]
-      rw [S.read_memberVar M ls N hlen hpN hk]
-    · -- an ordinary field, not mentioning the member
-      rw [classField, if_neg (by rw [isMember_false_of_usesVar N hu]; exact Bool.false_ne_true)]
-      simp only [classFieldSet, fieldSet]
-      rw [interp_instChainAt M (S.ψ ls) (envP ps) (S.classArgs N 0) _ fs hk, S.classArgs_read M ls N ps,
-        interp_instL]
-      -- the container's scope of the domain
-      have hlt : i < fields.length := (List.getElem?_eq_some_iff.mp hi).1
-      have hsc : Expr.Scoped env N.KS.lparams (N.KS.nP + (fields.length - 1 - i)) A := by
-        have := (hKS.2.2.2.1 c hc).1 (n + i) (.ordinary A)
-          (by subst hd; rw [List.getElem?_drop] at hi; exact hi)
-        subst hd
-        rw [List.length_drop] at hlt ⊢
-        rwa [show c.fields.length - 1 - (n + i) = c.fields.length - n - 1 - i by omega] at this
-      have hnPK : N.KS.nP = N.nPK := rfl
-      -- the valuation: the container's parameters instantiated
-      rw [interp_lparams (ps := N.K.lparams) hsc.2.2 (φ' := N.KS.ψ (S.lsK ls N))
-        (fun m hm => (valOf_map_eval (S.ψ ls) (ps := N.K.lparams) hlsK hm).symm)]
-      -- the environment below the container's parameters, then the member's position
-      have hG : interp M (N.KS.ψ (S.lsK ls N))
-          (consList fs (consList (S.classArgsV M ls N ps
-            (interp M (S.ψ ls) (envP ps) (S.famAt 0 (N.idx.map (Expr.liftN 0 ·))))).reverse (envP ps))) A
-          = interp M (N.KS.ψ (S.lsK ls N))
-            (consList fs (envP (S.psK M ls N ps
-              (interp M (S.ψ ls) (envP ps) (S.famAt 0 (N.idx.map (Expr.liftN 0 ·))))))) A := by
-        refine interp_closedAt (k := N.KS.nP + (fields.length - 1 - i)) hsc.1 fun j hj => ?_
-        rw [show envP (S.psK M ls N ps _) = consList (S.classArgsV M ls N ps _).reverse base from rfl,
-          ← consList_append, ← consList_append]
-        refine consList_agree_lt j ?_
-        have h1 : N.KS.nP = N.args.length + 1 := hlen.symm
-        have h2 : N.p ≤ N.args.length := by
-          have h3 := hpN; have h4 := hlen; unfold NestInfo.nPK at h3 h4; omega
-        simp only [List.length_append, List.length_reverse, hk]
-        unfold classArgsV
-        simp only [List.length_append, List.length_map, List.length_take, List.length_drop,
-          List.length_singleton]
-        omega
-      rw [hG, S.read_pfree M ls N hlen hpN hk ps _ X _ hu]
+  | ordinary A => exact S.classFieldSet_eq_ordinary M ls N hf hlen hlsK hKS hc hd hi X Q ps _ _ hk
   | recursive es =>
     simp only [classField, classFieldSet, fieldSet, hpf, idxVals, List.map_nil, List.reverse_nil, hzK]
     rw [S.classSet_eq_Fam hf hp hX]
