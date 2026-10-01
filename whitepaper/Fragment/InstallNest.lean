@@ -2,6 +2,7 @@ module
 
 public import Fragment.BlockModel
 public import Fragment.NestRead
+public import Fragment.NestScope
 public import Fragment.InstallIota
 
 @[expose] public section
@@ -157,6 +158,7 @@ theorem lparams_map_substValN (hok : S.OkN N env) (φ : Name → Nat) {ls : List
 variable (hs : Env.Scoped env) (m : BlockModel V env) (hok : S.OkN N env)
 include hs m hok
 
+omit hs in
 /-- The container's block law, in the model. -/
 theorem K_law : N.KS.Scoped env ∧ N.KS.NoCont ∧
     env.find? N.K.name = some N.KS.indInfo ∧
@@ -234,7 +236,7 @@ noncomputable def mIndN : EnvModel V (S.envInd env) where
 
 theorem mIndN_M : (mIndN hs m hok).M = S.M₃N m.M N := rfl
 
-omit hs m hok in
+omit [LevelOracle] hs m hok in
 /-- An abstraction over a level-instantiated context is the
 abstraction over the context at the substituted valuation. -/
 theorem lamCtx_instL (M : Name → List Nat → V) (φ : Name → Nat) (ps : List Name) (ls : List Level)
@@ -248,7 +250,7 @@ theorem lamCtx_instL (M : Name → List Nat → V) (φ : Name → Nat) (ps : Lis
     funext ρ'
     rw [interp_instL]
 
-omit hs m hok in
+omit [LevelOracle] hs m hok in
 theorem FitsVals_instL (M : Name → List Nat → V) (φ : Name → Nat) (ps : List Name) (ls : List Level) :
     ∀ (Γ : List Expr) (ρ : Nat → V) (vs : List V),
     FitsVals M φ ρ (Γ.map (Expr.instL ps ls)) vs ↔ FitsVals M (Level.substVal φ ps ls) ρ Γ vs
@@ -268,13 +270,14 @@ theorem lsK_eq_map (φ : Name → Nat) : S.lsK (S.lparams.map φ) N = N.lsK.map 
   exact Level.eval_congr (fun n hn => (ψ_map_agree S φ n hn).symm)
     ((hok.nestScoped N hok.nest).2.2.2.1 l hl)
 
+omit hs in
 /-- The container's parameter context reads alike in the final
 assignment at the substituted valuation and in the old model at the
 container's valuation. -/
 theorem agree_paramsK (φ : Name → Nat) (ρ : Nat → V) :
     CtxAgree (S.M₃N m.M N) m.M (Level.substVal φ N.K.lparams N.lsK)
       (N.KS.ψ (S.lsK (S.lparams.map φ) N)) ρ base N.KS.params := by
-  have hKS := (K_law hs m hok).1
+  have hKS := (K_law m hok).1
   have hlsK := hok.nestScoped N hok.nest |>.2.2.1
   rw [lsK_eq_map hok φ]
   intro i A hA vs hvs
@@ -285,6 +288,7 @@ theorem agree_paramsK (φ : Name → Nat) (ρ : Nat → V) :
   have hnP : N.KS.nP = N.KS.params.length := rfl
   exact consList_agree_lt j (by simp [hl, List.length_drop] at *; omega)
 
+omit hs in
 /-- **The container's set, read in the final assignment**: the
 abstraction over its level-instantiated parameter context of its
 family. -/
@@ -296,16 +300,17 @@ theorem famSetK_eq (φ : Name → Nat) :
   unfold famSet
   rw [lamCtx_instL, hidx, List.nil_append]
   show lamCtx m.M _ false base N.KS.params _ = _
-  refine (lamCtx_congr₂ (agree_paramsK hs m hok φ base) fun vs hvs => ?_).symm
+  refine (lamCtx_congr₂ (agree_paramsK m hok φ base) fun vs hvs => ?_).symm
   simp only [nI, hidx, List.length_nil, shiftE_zero_zero, readEnv]
   rfl
 
+omit hs in
 /-- The member parameter's domain level is the block's universe (the
 check on the member domain's sort). -/
 theorem memberLevel_eq (φ : Name → Nat) {ℓ : Level}
     (hℓp : N.K.params[N.nPK - 1 - N.p]? = some (.sort ℓ)) :
     Level.eval (N.KS.ψ (S.lsK (S.lparams.map φ) N)) ℓ = S.u₀ (S.lparams.map φ) := by
-  have hK := K_law hs m hok
+  have hK := K_law m hok
   have hNS := hok.nestScoped N hok.nest
   have hlsK : N.lsK.length = N.K.lparams.length := hNS.2.2.1
   have hml : N.memberLevel = ℓ := by simp [NestInfo.memberLevel, hℓp]
@@ -331,6 +336,7 @@ theorem FitsVals_split {M : Name → List Nat → V} {φ : Name → Nat} {ρ : N
   · rintro ⟨⟨h1, h2⟩, h3⟩; exact ⟨h1, h2, h3⟩
   · rintro ⟨h1, h2, h3⟩; exact ⟨⟨h1, h2⟩, h3⟩
 
+omit hs in
 /-- **The member set may be any set of the universe**: the class's
 arguments fitting the container's parameters at one member set fit at
 any member set of the block's universe — the member's domain is a
@@ -371,7 +377,7 @@ theorem FitsVals_psK_replace (φ : Name → Nat) {ps : List V} {G X : V}
   rw [hsplit, hpsK, FitsVals_split hl₁]
   obtain ⟨h1, -, h3⟩ := hfit
   refine ⟨h1, ?_, ?_⟩
-  · rw [interp_sort, memberLevel_eq hs m hok φ hℓp]
+  · rw [interp_sort, memberLevel_eq m hok φ hℓp]
     exact hX
   · refine (FitsVals_congr₂ ?_).mp h3
     intro i A hA vs hvs
@@ -404,7 +410,7 @@ theorem argsFit_of (φ : Name → Nat) {ps : List V}
       (S.psK m.M (S.lparams.map φ) N ps X) := by
   have hN := hok.nest
   have hNS := hok.nestScoped N hN
-  have hK := K_law hs m hok
+  have hK := K_law m hok
   have hKS := hK.1
   have hpos : N.Positive := hNS.2.2.2.2.2.2.2.2.1
   have hlen : N.args.length + 1 = N.nPK := hNS.2.2.2.2.1
@@ -432,13 +438,13 @@ theorem argsFit_of (φ : Name → Nat) {ps : List V}
       = lamCtx (S.M₃N m.M N) φ false base (N.KS.params.map (Expr.instL N.K.lparams N.lsK))
           fun ρ' => N.KS.Fam m.M (S.lsK (S.lparams.map φ) N) (readEnv N.KS.nP ρ') [] := by
     rw [interp_const, ← lsK_eq_map hok φ, ← agree_M₃N hok m.M _ hNS.1, hK.2.2.2.2.1,
-      famSetK_eq hs m hok φ]
+      famSetK_eq m hok φ]
   have hlenA : (S.classArgs N 0).length = (N.KS.params.map (Expr.instL N.K.lparams N.lsK)).length := by
     rw [S.length_classArgs N hlen hpK, List.length_map]; rfl
   obtain ⟨hfit, -⟩ := appList_of_wd (S.M₃N m.M N) φ hsem hf hlenA
     (G := fun _ => univ (N.KS.u₀ (S.lsK (S.lparams.map φ) N)))
     (fun _ _ => N.KS.Fam_mem_univ m.M _ _ _)
-  rw [FitsVals_instL, FitsVals_congr₂ (agree_paramsK hs m hok φ base)] at hfit
+  rw [FitsVals_instL, FitsVals_congr₂ (agree_paramsK m hok φ base)] at hfit
   -- the arguments' values: the class's arguments at the member's reading
   have hvals : (S.classArgs N 0).map (interp (S.M₃N m.M N) φ (consList ps base))
       = S.classArgsV m.M (S.lparams.map φ) N ps
@@ -457,12 +463,12 @@ theorem argsFit_of (φ : Name → Nat) {ps : List V}
     · exact List.map_congr_left fun a ha => hread a (List.mem_of_mem_drop ha)
   rw [hvals] at hfit
   -- the member set may be any set of the universe
-  exact FitsVals_psK_replace hs m hok φ hfit hX
+  exact FitsVals_psK_replace m hok φ hfit hX
 
 /-- **The container's facts** at every valuation: from its block law,
 the nested checks and the scope. -/
 theorem nestFacts (φ : Name → Nat) : S.NestFacts m.M (S.lparams.map φ) N := by
-  have hK := K_law hs m hok
+  have hK := K_law m hok
   have hNS := hok.nestScoped N hok.nest
   have hlsK : N.lsK.length = N.K.lparams.length := hNS.2.2.1
   refine ⟨hK.2.2.2.2.1, hK.2.1, hNS.2.2.2.2.2.2.2.2.1, fun c hc => (hK.1.2.2.2.1 c hc).2.1,
@@ -509,7 +515,7 @@ theorem classLaws (φ : Name → Nat) (hz : S.z (S.lparams.map φ) = false) {ps 
     (hp : FitsVals m.M (S.ψ (S.lparams.map φ)) base S.params ps) :
     S.ClassLaws m.M (S.lparams.map φ) N ps :=
   S.classLaws_of m.M _ N (nestFacts hs m hok φ) (hok.nestScoped N hok.nest).2.2.2.2.1
-    (hok.nestScoped N hok.nest).2.2.1 (K_law hs m hok).1 hok.nest hz hp
+    (hok.nestScoped N hok.nest).2.2.1 (K_law m hok).1 hok.nest hz hp
 
 omit hs m in
 /-- Above a proposition whenever the eliminator is large: a nested
@@ -766,17 +772,6 @@ theorem wd_rule1Type {c : CtorSpec} (hc : c ∈ N.K.ctors) (φ : Name → Nat) (
   rwa [mCtorsN_M] at this
 
 end IndSpec
-
-/-! ## The installed nested environment -/
-
-omit [IndLib V] in
-/-- **The installed nested environment is closed** (the twin of
-`Env.Scoped.install` for a nested block: the two recursors' types and
-rules are in scope, the rules of `T.rec_1` fire on the container's
-stored constructors). -/
-theorem Env.Scoped.installN {env : Env} {S : IndSpec} {N : NestInfo}
-    (hs : Env.Scoped env) (hok : S.OkN N env) : Env.Scoped (S.install env) := by
-  sorry
 
 /-- **Installing a nested block preserves having a block model.**
 Every stored constant keeps its set; the new block, being nested,

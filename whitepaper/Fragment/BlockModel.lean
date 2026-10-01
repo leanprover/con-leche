@@ -170,9 +170,10 @@ theorem fieldScoped.mono {env env' : Env} {k : Nat} {f : Field} (h : S.fieldScop
 theorem NestScoped.mono {env env' : Env} (h : S.NestScoped env)
     (hm : ∀ n, (env.find? n).isSome → (env'.find? n).isSome) : S.NestScoped env' := by
   intro N hN
-  obtain ⟨h1, h2, h3, h4, h5, h6, h7, h8, h9⟩ := h N hN
+  obtain ⟨h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11⟩ := h N hN
   exact ⟨hm _ h1, h2, h3, h4, h5, h6, fun e he => (h7 e he).mono hm,
-    fun e he => (h8 e he).mono hm, h9⟩
+    fun e he => (h8 e he).mono hm, h9, fun c hc i f hf => (h10 c hc i f hf).mono hm,
+    fun c hc => hm _ (h11 c hc)⟩
 
 /-- A specification in scope stays in scope when the environment
 grows. -/

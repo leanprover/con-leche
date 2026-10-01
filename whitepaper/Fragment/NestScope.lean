@@ -85,18 +85,6 @@ theorem isSome_find?_installN (N : NestInfo) (env : Env) {n : Name}
 
 theorem oN_eq (N : NestInfo) : S.oN N = 2 + S.n + N.nK := rfl
 
-theorem length_minorsCtxN : S.minorsCtxN.length = S.n := by
-  simp [minorsCtxN]
-
-theorem length_minorsCtxK (N : NestInfo) : (S.minorsCtxK N).length = N.nK := by
-  simp [minorsCtxK]
-
-/-- The extras are as many as the binders they stand for. -/
-theorem length_extrasN (N : NestInfo) : (S.extrasN N).length = S.oN N := by
-  simp only [extrasN, List.length_append, length_minorsCtxK, length_minorsCtxN,
-    List.length_cons, List.length_nil, oN_eq]
-  omega
-
 /-- A nested rule's context holds the fields, the extras and the
 parameters. -/
 theorem length_ruleCtxN (N : NestInfo) (c : CtorSpec) :

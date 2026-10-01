@@ -351,8 +351,8 @@ class is well-behaved at the member (`ContGood`; vacuous for a plain
 block) — what a container field's domain is read under.  The former's
 own reading needs no guard, which is how the guard of a nested block
 is established before its constructors are read (`InstallNest.lean`). -/
-structure ReaderG (M' : Name → List Nat → V) (φ' : Name → Nat)
-    extends S.Reader (env := env) M φ M' φ' : Prop where
+structure ReaderG (M' : Name → List Nat → V) (φ' : Name → Nat) : Prop
+    extends S.Reader (env := env) M φ M' φ' where
   /-- The class's guard. -/
   good : S.ContGood M (S.lparams.map φ)
 
