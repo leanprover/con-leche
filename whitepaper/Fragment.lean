@@ -28,6 +28,7 @@ public import Fragment.InstallScope
 public import Fragment.InstallRead1
 public import Fragment.InstallRead2
 public import Fragment.InstallRead3
+public import Fragment.NestRead
 public import Fragment.InstallInd
 public import Fragment.InstallIota
 public import Fragment.Install
