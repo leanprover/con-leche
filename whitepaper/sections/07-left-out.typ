@@ -14,7 +14,7 @@ share.
 #left-out[Projections][Lean's primitive projection `e.i`, the `i`-th
 field of a structure value. For every member with one constructor and
 no index the installer stores #src("ConLeche/Kernel/Inductives/BlockTail.lean", 108, 111)[a
-projection table] — the fields' types, read off the constructor; the
+projection table] — the fields' types, read off the constructor. The
 real checker #src("ConLeche/Rules/Rel.lean", 166, 175)[reduces a projection of a
 constructor application to that field] and #src("ConLeche/Rules/Rel.lean", 553, 563)[infers its type from
 the table]\; in the model a structure value is the tagged tuple of
@@ -33,17 +33,11 @@ least fixed point]. Nothing in it is new — only the presentation gets
 heavier — so this document skips it.]
 
 #left-out[Nesting beyond @sec:nested][That section nests one level
-deep, through a container with parameters only. The real checker's
-positivity walk #src("ConLeche/Kernel/Inductives/Positivity.lean", 269, 278)[recurses
-into the container's constructors at the instantiation] to any depth,
-so it also accepts a type nested at depth two
-(#src("tests/e2e/src/nested_p03.lean", 5, 6)[`Array (List P3)`]),
-through a container with indices
-(#src("tests/e2e/src/nested_p25.lean", 7, 8)[`P25V P25 3`]) and
-through a reflexive field
-(#src("tests/e2e/src/ind_nest_via_refl.lean", 9, 14)[a field of type
-`W1 ViaRefl`]); the real proof covers these accepts, and this
-document leaves them to it.]
+deep, through a container with parameters only. The real checker
+also accepts nesting at any depth, through containers with indices
+or from a mutual block, and through a reflexive field; @sec:nest-beyond
+names the fixtures and the walk that accepts them, the real proof
+covers these accepts, and this document leaves them to it.]
 
 #left-out[Nat and String literals, and the fast Nat path][Numerals and
 strings are terms of their own; the checker expands a literal to its

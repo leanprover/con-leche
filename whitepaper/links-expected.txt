@@ -4611,34 +4611,6 @@
     11  acting on **tuples of families** — a meta-level tuple `X : Nat → V`
     12  whose `m`-th component (`m < k`) is a family over member `m`'s own
 
-== ConLeche/Kernel/Inductives/Positivity.lean#L269-L278
-   269  * a stored inductive `C` (not a member) applied to parameters `Ds`
-   270    (some mentioning a member, none a field or binder variable — official
-   271    :962) and member-free indices (`contApp`): an instantiation IN
-   272    PROGRESS is a `Y` hole; one already accepted is a cache hit; else its
-   273    checks — (N2) the instantiated index telescope names no member
-   274    (official checks the auxiliary type former before the block exists,
-   275    :219), (N3) its sort `Level.isEquiv` the block's (:250) — and then
-   276    `nestPos` on every field of every constructor of `C` AT the
-   277    instantiation, the instantiation pushed onto the in-progress list,
-   278    and the constructor's result indices member-free;
-
-== tests/e2e/src/nested_p03.lean#L5-L6
-     5  inductive P3 where
-     6    | mk : Array (List P3) → P3
-
-== tests/e2e/src/nested_p25.lean#L7-L8
-     7  inductive P25 where
-     8    | mk : P25V P25 3 → P25
-
-== tests/e2e/src/ind_nest_via_refl.lean#L9-L14
-     9  inductive W1 (α : Type)
-    10    | sup (a : α) (f : Nat → W1 α)
-    11  
-    12  inductive ViaRefl
-    13    | leaf
-    14    | node (w : W1 ViaRefl)
-
 == ConLeche/Rules/Rel.lean#L136-L138
    136    | natLit {d : Nat} {n : Nat} :
    137        natLitSupported env = true →

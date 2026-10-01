@@ -98,19 +98,19 @@ some other way (@sec:ind-model).
 *The generated declarations.* From the specification the checker
 generates the types of the former, the constructors and the
 recursor, and the recursor's rules; nothing about them is read from
-the input. (The real checker reads a stream of records: the former
+the input. (The real checker reads a stream of records. The former
 and the constructors it checks and stores as the stream declares them
-(#src("ConLeche/Kernel/Inductives/SumInstall.lean", 102, 103)[a constructor]);
-the recursor it _generates_, as the official kernel does, and from the
-stream's recursor record it takes the name, the level parameters and
-the type — which must be definitionally equal to the generated one —
-and the record's two layout counts, which must equal the generated
-ones
-(#src("ConLeche/Kernel/Inductives/GenRec.lean", 394, 407)[the comparison]);
-and, read off that type by an unverified pre-pass — a wrong reading
-can only make the comparison fail — which type it eliminates and the
-layout of its motive and minor premises, the recursor's arguments
-named on $Nat$ in @ex:nat
+(#src("ConLeche/Kernel/Inductives/SumInstall.lean", 102, 103)[a constructor]).
+The recursor it _generates_, as the official kernel does; from the
+stream's recursor record it takes only the name, the level parameters
+and the type, which must be definitionally equal to the generated
+one, and the record's two layout counts, which must equal the
+generated ones
+(#src("ConLeche/Kernel/Inductives/GenRec.lean", 394, 407)[the comparison]).
+Which type the recursor eliminates, and how its motive and minor
+premises are laid out — the arguments named on $Nat$ in @ex:nat — an
+unverified pre-pass reads off that type; a wrong reading can only
+make the comparison fail
 (#src("ConLeche/Kernel/Inductives/ClassRead.lean", 24, 32)[the pre-pass]).
 The record's rules are never read; the generated recursor and its
 rules are what is stored
@@ -281,7 +281,7 @@ rule-less recursor
 What is stored is the former, the constructors
 and the recursor, with its rules
 (#src("whitepaper/Fragment/Decl.lean", 529, 570)[fragment]) — the
-three kinds of constant that @sec:defs left to this section: an
+three kinds of constant that @sec:defs left to this section. An
 _inductive type former_ carries its parameter and index counts and
 its constructors' names; a _constructor_ its parameter and field
 counts; a _recursor_ the sizes of its argument groups — parameters,
@@ -566,8 +566,8 @@ argument's, and the law
   field in its domain at the recursor's own parameters, which is
   what the $beta$ steps inside $R_j$ require (@lem:beta-cert, with
   the membership supplied), and the recursion theorem's equation at
-  $tag(j, tuple(arrow(F)))$ is the rule's equation. The three
-  comparisons are not used: the fields, their parameters and their
+  $tag(j, tuple(arrow(F)))$ is the rule's equation. None of the three
+  comparisons is needed: the fields, their parameters and their
   indices are all read off the tuple.
 
   _The family of propositions_ ($ann(PW)$ holds). Now the major's
@@ -577,20 +577,27 @@ argument's, and the law
   still applies — some constructor reaches those indices with some
   fields $arrow(F)''$ — but nothing connects $arrow(F)''$ to the
   fields $arrow(F)'$ the right-hand side is applied to. This is
-  what the three comparisons are for. When the elimination level is
-  zero both sides of the equation are the point and there is nothing
-  to prove. When it is not, the block passed the subsingleton
+  where the comparisons come in. When the elimination level is zero
+  both sides of the equation are the point and there is nothing to
+  prove. When it is not, the block passed the subsingleton
   criterion: one constructor, so $j' = j$; and each field is a
-  proposition, whose value is the point on both sides, or occurs
-  among the constructor's result indices, whose values the index
-  comparison identifies with the recursor's index arguments on both
-  sides — the parameter comparison and the level comparison do the
-  same for the parameters and levels the fields' domains are read
-  at. So $arrow(F)'' = arrow(F)$ after all, and the recursion
-  theorem's equation is again the rule's.
+  proposition or occurs among the constructor's result indices. A
+  propositional field is the point on both sides — provided both
+  sides read its domain in the same regime, which is what the level
+  comparison secures: the constructor's levels evaluate as the
+  recursor's, so the block's level parameters have one valuation on
+  both sides. An index field's value the index comparison identifies
+  with the recursor's index argument, on both sides. So
+  $arrow(F)'' = arrow(F)$ after all, and the recursion theorem's
+  equation is again the rule's. The parameter comparison played no
+  part: the reduct takes its parameters from the recursor's side and
+  only its fields from the major, and both kinds of field were fixed
+  without it. The fragment's law assumes it all the same, and its
+  proof uses it to move the constructor's fit to the recursor's
+  parameters; the real checker fires a block's rules without it.
 ]
 
-*Why the comparisons are load-bearing.* Return to @ex:P and take
+*Why the index comparison is load-bearing.* Return to @ex:P and take
 the spine $C, h, 7, mk thick 5$. Every $P thick n$ is inhabited, by
 $mk thick n$, so $lden P thick 7 rden = {pt}$, and the recursor's fit
 asks only that $lden mk thick 5 rden = pt$ lie in it — which it
@@ -605,10 +612,12 @@ the domain $P thick 7$ and would have refused; but on values that
 comparison is ${pt} = {pt}$ and says nothing about $5$ and $7$. The
 index comparison, $5 equiv 7$, is what the model can use. In the
 regime of types the comparison is redundant — the tagged tuple
-carries its indices — and the official kernel, which type-checks the
-major's type against the recursor's, never needs it as a separate
-step; a semantic proof does, because a definitional equality between
-two propositions is an equality of truth values.
+carries its indices — and the official kernel never makes it: at an
+$iota$ step it compares nothing and relies on the term being
+well-typed, which its typing judgement guarantees. This proof has no
+typing judgement, and on values a definitional equality between two
+propositions is an equality of truth values; so the comparison has
+to be a premise of the rule.
 
 == Consistency <sec:consistency>
 
@@ -632,7 +641,7 @@ two install theorems assumed of the environment they extend.
   a definition step is @thm:install-def; a block step is the
   construction of @sec:ind-model, #src("whitepaper/Fragment/Install.lean", 124, 129)[assembled]: law 1 is its
   membership claims, law 2 has no new instance, and law 3 is
-  @thm:iota (in the real proof the block step is one theorem,
+  @thm:iota — for a nested block, @thm:install-nest (in the real proof the block step is one theorem,
   #src("ConLeche/Model/Inductives/DeclBlockStep.lean", 72, 77)[the install of a block], read off the installer's run stage
   by stage).
 ]
