@@ -1,6 +1,6 @@
 module
 
-public import Fragment.Install
+public import Fragment.InstallNest
 public import Fragment.Sound
 
 @[expose] public section
@@ -43,8 +43,8 @@ inductive Accepted : Env → Prop
   /-- A definition (`DefOk`, `Decl.lean`). -/
   | defn {env : Env} {c : Name} {ci : ConstInfo} :
       Accepted env → DefOk env c ci → Accepted (env.add c ci)
-  /-- A plain inductive block (`IndSpec.Ok`, `Decl.lean`). -/
-  | ind {env : Env} (S : IndSpec) : Accepted env → S.nest = none → S.Ok env → Accepted (S.install env)
+  /-- An inductive block, plain or nested (`IndOk`, `Decl.lean`). -/
+  | ind {env : Env} (S : IndSpec) : Accepted env → IndOk env S → Accepted (S.install env)
 
 omit [IndLib V] in
 /-- An accepted environment is closed: its stored terms mention only
@@ -52,19 +52,20 @@ stored constants, at their own level parameters. -/
 theorem Accepted.scoped : ∀ {env : Env}, Accepted env → Env.Scoped env
   | _, .empty => Env.Scoped.empty
   | _, .defn h hok => h.scoped.add_def hok
-  | _, .ind S h hpl hok => h.scoped.install S hpl hok
+  | _, .ind S h hok => h.scoped.install_any hok
 
-/-- **Every accepted environment has a model** (in any `IndLib`). -/
-theorem accepted_model {env : Env} (h : Accepted env) : Nonempty (EnvModel V env) := by
+/-- **Every accepted environment has a model** (in any `IndLib`) — a
+block model, which remembers its blocks for the nestings to come. -/
+theorem accepted_model {env : Env} (h : Accepted env) : Nonempty (BlockModel V env) := by
   induction h with
-  | empty => exact ⟨EnvModel.empty fun _ _ => pt⟩
+  | empty => exact ⟨BlockModel.empty fun _ _ => pt⟩
   | defn h hok ih =>
     obtain ⟨m⟩ := ih
-    obtain ⟨m', -⟩ := install_def h.scoped m hok
+    obtain ⟨m', -⟩ := install_def' h.scoped m hok
     exact ⟨m'⟩
-  | ind S h hpl hok ih =>
+  | ind S h hok ih =>
     obtain ⟨m⟩ := ih
-    obtain ⟨m', -⟩ := install_ind hpl h.scoped m hok
+    obtain ⟨m', -⟩ := install_ind_any h.scoped m hok
     exact ⟨m'⟩
 
 namespace IndSpec
@@ -122,7 +123,7 @@ theorem no_empty_inductive_inhabitant {env : Env} (hacc : Accepted env) {S : Ind
     lamR_mem (fun _ _ => truthVal_mem_univ_zero _) fun h => nomatch h
   have h₁ := app_mem_piR hR hmo
   -- a member of the type would be a member of the empty set
-  have ht := closed_infer m (fun _ => 0) he base
+  have ht := closed_infer m.toEnvModel (fun _ => 0) he base
   simp only [interp_const, List.map_nil] at ht
   have h₂ := app_mem_piR h₁ ht
   rw [app_lamR_false ht] at h₂

@@ -767,4 +767,40 @@ theorem wd_rule1Type {c : CtorSpec} (hc : c ∈ N.K.ctors) (φ : Name → Nat) (
 
 end IndSpec
 
+/-! ## The installed nested environment -/
+
+omit [IndLib V] in
+/-- **The installed nested environment is closed** (the twin of
+`Env.Scoped.install` for a nested block: the two recursors' types and
+rules are in scope, the rules of `T.rec_1` fire on the container's
+stored constructors). -/
+theorem Env.Scoped.installN {env : Env} {S : IndSpec} {N : NestInfo}
+    (hs : Env.Scoped env) (hok : S.OkN N env) : Env.Scoped (S.install env) := by
+  sorry
+
+/-- **Installing a nested block preserves having a block model.**
+Every stored constant keeps its set; the new block, being nested,
+stores no block law of its own. -/
+theorem install_nest {env : Env} {S : IndSpec} {N : NestInfo} (hs : Env.Scoped env)
+    (m : BlockModel V env) (hok : S.OkN N env) :
+    ∃ m' : BlockModel V (S.install env), ∀ n, (env.find? n).isSome → ∀ ls, m'.M n ls = m.M n ls := by
+  sorry
+
+/-- **Installing any accepted block preserves having a block model.** -/
+theorem install_ind_any {env : Env} {S : IndSpec} (hs : Env.Scoped env) (m : BlockModel V env)
+    (hok : IndOk env S) :
+    ∃ m' : BlockModel V (S.install env), ∀ n, (env.find? n).isSome → ∀ ls, m'.M n ls = m.M n ls := by
+  unfold IndOk at hok
+  split at hok
+  · exact install_ind' ‹_› hs m hok
+  · exact install_nest hs m hok
+
+/-- A closed environment stays closed under any accepted block. -/
+theorem _root_.Fragment.Env.Scoped.install_any {env : Env} {S : IndSpec} (hs : Env.Scoped env)
+    (hok : IndOk env S) : Env.Scoped (S.install env) := by
+  unfold IndOk at hok
+  split at hok
+  · exact hs.install S ‹_› hok
+  · exact hs.installN hok
+
 end Fragment
