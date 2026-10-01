@@ -96062,3 +96062,43 @@ the maintainer's requests as they came; one whole-document review at
 the end.  Every section had a critical-reviewer subagent before its
 merge.  The coordinator's own edits were the maintainer's line-level
 requests on §1.  The maintainer pushes; nothing was pushed.
+
+### Task #324, continued — the inductive sections retold on the uniform installer, nested blocks added (2026-10-01, `whitepaper`)
+
+After origin/master's `uniform-inds` landed, `origin/master` was merged
+into `whitepaper` (the whitepaper's record renumbered from #323 to #324,
+master having taken #323). Rulings (in `whitepaper/PLAN.md`, "Rulings
+of 2026-10-01"): §4 retold for simple blocks on the new story (the
+installer, generated recursors, the family as the least fixed point of
+the operator read off the constructor types, the closed family by
+accessibility, the recursor by the graph route, ι lifted to the
+unchanged `RecRuleLaw`); a NEW §5 on nested blocks; MUTUAL blocks
+skipped (one sentence in §7); NO pen-and-paper claim without the
+fragment behind it, so the fragment gained a nested extension
+(`Fragment/{Spec,NestSem,NestRec,NestClass,NestIota,BlockModel,
+NestInstall}.lean` and extensions of `Decl`/`Rules`/`EnvModel`/`IndSem`/
+`Consistency`; 23k lines, imports nothing from `ConLeche.*`, axioms
+pinned) with this scope: container fields at depth one through a
+previously installed block without indices, positivity through the
+container's stored constructors, generated `T.rec` and auxiliary
+`T.rec_1` with their ι laws by one graph over both families, large
+elimination refused; the monotonicity of the operator in the member
+from the container's positivity plus the leastness of its fixed point
+is the one new idea. Terminology: the maintainer's current names,
+never "native/fixpoint/direct route", jargon glossed at first use.
+
+Two gate lessons: (1) `whitepaper/links-gate.sh` aborted on a hard
+error (an out-of-range anchor) BEFORE diffing the other citations, so a
+`--update` after the nested fragment landed silently re-snapshotted 82
+drifted citations; the gate now writes the snapshot with `!!` segments
+for broken links and shows the full diff, refusing `--update` while a
+link is broken. (2) `scripts/pub-import-plan.py` leaves `whitepaper/`
+out (its own lake library, outside the census roots).
+
+Side fix for master, on branch `fix/help-text` (a31e82979): `--help`
+still said the installer checks the stream's recursor records and
+generates nothing — the pre-GENREC story.
+
+Gates at the end: `lake build`/`lake test` warning-free, `tests/arena.sh`
+exit 0 (454 e2e fixtures), the whitepaper's build, link and fragment
+gates green.
