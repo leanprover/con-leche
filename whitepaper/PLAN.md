@@ -211,3 +211,6 @@ in HTML the phrase shows the cited lines on hover.
   interleaved with the paper's own argument; inline, only the citation
   links remain. "The input" means the specification in this paper; the
   stream and raw declarations exist only inside `#real` blocks.
+* (2026-10-02) Use display style liberally: a formula longer than a few
+  symbols (a telescope, a generated type, a rule's right-hand side) is
+  set on its own line, not inline.
