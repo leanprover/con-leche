@@ -2103,14 +2103,6 @@
    605      v.lparamsIn ci.lparams = true) ∧
    606    ci.type.lparamsIn ci.lparams = true
 
-== whitepaper/Fragment/ScopeOfInfer.lean#L36-L37
-    36  theorem Infer.closedAt : ∀ {Γ : List Expr} {e T : Expr}, Infer env Γ e T →
-    37      e.closedAt Γ.length = true
-
-== whitepaper/Fragment/ScopeOfInfer.lean#L55-L56
-    55  theorem Infer.consts : ∀ {Γ : List Expr} {e T : Expr}, Infer env Γ e T →
-    56      ∀ c ∈ e.consts, (env.find? c).isSome
-
 == whitepaper/Fragment/Hygiene.lean#L498-L500
    498  theorem interp_consts {e : Expr} (h : ∀ c ∈ e.consts, ∀ ls, M c ls = M' c ls) {ρ : Nat → V} :
    499      interp M φ ρ e = interp M' φ ρ e := by
@@ -2301,6 +2293,14 @@
    159  /-- A model's laws survive changing the assignment away from the
    160  stored names: every stored term mentions only stored constants. -/
    161  def EnvModel.transport {env : Env} (m : EnvModel V env) (hs : Env.Scoped env)
+
+== whitepaper/Fragment/ScopeOfInfer.lean#L36-L37
+    36  theorem Infer.closedAt : ∀ {Γ : List Expr} {e T : Expr}, Infer env Γ e T →
+    37      e.closedAt Γ.length = true
+
+== whitepaper/Fragment/ScopeOfInfer.lean#L55-L56
+    55  theorem Infer.consts : ∀ {Γ : List Expr} {e T : Expr}, Infer env Γ e T →
+    56      ∀ c ∈ e.consts, (env.find? c).isSome
 
 >>> whitepaper/sections/04-inductives.typ
 
