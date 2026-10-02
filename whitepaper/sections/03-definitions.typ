@@ -99,11 +99,16 @@ and #src("ConLeche/Kernel/Checker.lean", 34, 50)[the value check]):
 - the type has a sort: $tack T => S red Sort u$;
 - the value's inferred type is definitionally equal to the declared
   type: $tack v => T'$ and $tack T' equiv T$;
-- both terms are _in scope_: closed, mentioning only stored constants,
-  using only the level parameters $arrow(p)$
-  (#src("whitepaper/Fragment/Decl.lean", 577, 581)[fragment]).
+- both terms use only the level parameters $arrow(p)$
+  (#src("whitepaper/Fragment/Decl.lean", 577, 581)[fragment]) — the
+  one condition the typing derivations do not give, since the rules
+  accept $Sort u$ for any level $u$. That both terms are closed and
+  mention only stored constants follows from the two derivations
+  being in the empty context: no rule types a variable there, and the
+  constant rule requires the constant to be stored. The fragment
+  states the three conditions together as one _scope_ predicate.
 
-All in the empty context: stored terms are closed. The scope check is
+The scope check is
 what lets the model read a stored term without looking at anything
 that is added later: the interpretation of a term depends only on
 the constants and the free variables it mentions and the level
