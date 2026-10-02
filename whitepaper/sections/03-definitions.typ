@@ -139,21 +139,29 @@ invariant gains the clause that a constant, like a variable or a
 sort, is always well-denoted.
 
 *The three-law contract.* What the soundness theorem, extended below,
-assumes of the environment: #src("whitepaper/Fragment/EnvModel.lean", 192, 229)[a _model_]
-is an assignment $M(c, arrow(n))$ of a set to every constant $c$ and
-every list of natural numbers $arrow(n)$ — the values of its level
-parameters — such that
+assumes of the environment is #src("whitepaper/Fragment/EnvModel.lean", 192, 229)[a _model_]: an
+assignment $M(c, arrow(n))$ of a set to every constant $c$ and every
+list of natural numbers $arrow(n)$ — the values of its level
+parameters — satisfying three laws. Throughout, $arrow(ell)$ ranges
+over level lists with $|arrow(ell)| = |arrow(p)|$, $phi$ over
+valuations and $rho$ over variable environments, and $rho models e$ is
+the semantic invariant of @sec:inv.
 
-+ #src("whitepaper/Fragment/EnvModel.lean", 196, 203)[every stored constant is a member of its type]: for every
-  stored $c$ with parameters $arrow(p)$ and type $T$, at every list
-  of levels $arrow(ell)$ of the right length and every valuation
-  $phi$, the instantiated type $T[arrow(p) := arrow(ell)]$ is
-  well-denoted and $M(c, phi(arrow(ell))) in lden T[arrow(p) := arrow(ell)] rden$;
-+ #src("whitepaper/Fragment/EnvModel.lean", 204, 210)[a definition's value denotes the constant]: for a stored
-  definition $c$ with value $v$, the instantiated value is
-  well-denoted and $lden v[arrow(p) := arrow(ell)] rden = M(c, phi(arrow(ell)))$;
-+ every rule of a stored recursor satisfies its $iota$ law — a law
-  about the declarations of @sec:ind, stated and used there.
+#definition(name: "Model of an environment")[
+  #set enum(numbering: "1.")
+  + #src("whitepaper/Fragment/EnvModel.lean", 196, 203)[Typing]: for every $(c.\{arrow(p)\} : T) in E$,
+    $ rho models T[arrow(p) := arrow(ell)] quad "and" quad
+      M(c, phi(arrow(ell))) in lden T[arrow(p) := arrow(ell)] rden_rho. $
+  + #src("whitepaper/Fragment/EnvModel.lean", 204, 210)[Unfolding]: for every $(c.\{arrow(p)\} : T := v) in E$,
+    $ rho models v[arrow(p) := arrow(ell)] quad "and" quad
+      lden v[arrow(p) := arrow(ell)] rden_rho = M(c, phi(arrow(ell))). $
+  + $iota$: every rule of a stored recursor satisfies its $iota$ law —
+    a law about the declarations of @sec:ind, stated and used there.
+] <def:model>
+
+In words: every stored constant is a member of its type, and a
+definition's value denotes the constant, at every instantiation of
+the declared level parameters.
 
 The real proof's carrier has the same three laws among others
 (#src("ConLeche/Model/Annot/EnvModelM.lean", 159, 185)[the carrier's invariant]).
@@ -175,24 +183,27 @@ the three claims hold as stated
 gains three cases, one per rule.
 
 #proof[
-  #src("whitepaper/Fragment/Sound.lean", 193, 199)[_δ_] ($c.\{arrow(ell)\} red v[arrow(p) := arrow(ell)]$ for a
+  *#src("whitepaper/Fragment/Sound.lean", 193, 199)[Rule delta]* — $c.\{arrow(ell)\} red v[arrow(p) := arrow(ell)]$ for a
   definition $c$ with parameters $arrow(p)$ and value $v$, at
-  $|arrow(ell)| = |arrow(p)|$ levels). Law 2 says the instantiated
+  $|arrow(ell)| = |arrow(p)|$ levels: \
+  Law 2 says the instantiated
   value is well-denoted and denotes $M(c, phi(arrow(ell)))$, which is
   what the constant denotes
   (#src("ConLeche/Model/Rules/RedSound.lean", 240, 241)[real proof]).
   The redex's semantic invariant is not even needed.
   @thm:install-def shows the law holds when a definition is added.
 
-  #src("whitepaper/Fragment/Sound.lean", 511, 513)[_const_, equality]
-  ($c.\{arrow(ell)\} equiv c.\{arrow(ell)'\}$ when
-  $arrow(ell) eq.dot arrow(ell)'$ pointwise). The oracle answers yes
+  *#src("whitepaper/Fragment/Sound.lean", 511, 513)[Rule const, equality]*
+  — $c.\{arrow(ell)\} equiv c.\{arrow(ell)'\}$ when
+  $arrow(ell) eq.dot arrow(ell)'$ pointwise: \
+  The oracle answers yes
   only if the levels agree at every valuation (@sec:levels), so the
   two constants read the same entry of $M$
   (#src("ConLeche/Model/Rules/DefEqSound.lean", 76, 78)[real proof]).
 
-  #src("whitepaper/Fragment/Sound.lean", 633, 638)[_const_, inference]
-  ($c.\{arrow(ell)\} => T[arrow(p) := arrow(ell)]$). The constant is
+  *#src("whitepaper/Fragment/Sound.lean", 633, 638)[Rule const, inference]*
+  — $c.\{arrow(ell)\} => T[arrow(p) := arrow(ell)]$: \
+  The constant is
   well-denoted, and law 1 says its instantiated type is well-denoted
   and contains the constant's set
   (#src("ConLeche/Model/Rules/InferSound.lean", 172, 177)[real proof]).
