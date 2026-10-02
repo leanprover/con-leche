@@ -61,6 +61,14 @@
 //   #left-out[Projections][one sentence]
 //                      an item of the "what we left out" list.
 //
+//   #real[...]         a set-off remark about the REAL proof/checker
+//                      (PLAN.md, 2026-10-02): a paragraph the reader can
+//                      skip at a glance — thin rule on the left, the
+//                      label in small caps, body slightly smaller, all in
+//                      the muted colour (never the annotation colour), no
+//                      background.  `#real(label: "In the real checker")[...]`
+//                      overrides the default label "In the real proof".
+//
 // ADDING A MACRO: give it both branches (paged and html), a CSS class in
 // `style.css` for the html one, and a line up here.
 //
@@ -215,9 +223,10 @@
           + html.elem("span", attrs: (class: "src-tip-code"), numbered)))
   } else {
     // The label itself is the link, in the running text's colour (the
-    // template's `show link` blue is overridden), marked by a muted
-    // dotted underline.
-    link(url, text(fill: black,
+    // template's `show link` blue is overridden by the fill in force
+    // outside the link — black in prose, muted inside a `real` block),
+    // marked by a muted dotted underline.
+    link(url, text(fill: text.fill,
       underline(stroke: (paint: luma(150), thickness: 0.7pt, dash: "dotted"),
         offset: 2.2pt, label)))
   }
@@ -266,6 +275,22 @@
     html.elem("strong", what) + [ — ] + why)
 } else {
   block(width: 100%, inset: (y: 0.15em))[*#what* — #why]
+}
+
+// --- remarks about the real proof ------------------------------------------
+// `real[...]`, `real(label: "In the real checker")[...]`: the set-off,
+// skippable paragraph of PLAN.md (2026-10-02) about the REAL proof or
+// checker.  Muted throughout — rule, label and body — so the eye passes
+// over it; the HTML export drops `text(fill: …)`, so there `style.css`
+// (`.real`) carries the colour, size and small caps.
+#let muted = luma(106)   // = the CSS --muted, #6a6a6a
+#let real(label: "In the real proof", body) = context if is-html() {
+  html.elem("div", attrs: (class: "real"),
+    html.elem("span", attrs: (class: "real-label"), label) + [ ] + body)
+} else {
+  block(width: 100%, inset: (left: 0.9em, y: 0.3em),
+    stroke: (left: 0.7pt + muted), breakable: true,
+    text(size: 0.92em, fill: muted, [#smallcaps(label)#h(0.7em)#body]))
 }
 
 // --- the template -------------------------------------------------------------
