@@ -199,3 +199,8 @@ in HTML the phrase shows the cited lines on hover.
   job, otherwise gloss at first use.
 * Worked example for §5: `Tree α` with `node : α → List (Tree α) →
   Tree α` (the fixture `tests/e2e/src/nested_rec.lean`).
+* (2026-10-02) Paper and fragment stay IN SYNC: when the prose says what
+  is checked, derived, or assumed, that is what the fragment checks,
+  derives, or assumes — change the Lean, not just the words, when a
+  ruling moves a condition (e.g. "closedness follows from typing" means
+  `DefOk` no longer demands it and a lemma proves it).
