@@ -100,16 +100,10 @@ and #src("ConLeche/Kernel/Checker.lean", 34, 50)[the value check]):
 - the value's inferred type is definitionally equal to the declared
   type: $tack v => T'$ and $tack T' equiv T$;
 - both terms use only the level parameters $arrow(p)$
-  (#src("whitepaper/Fragment/Decl.lean", 605, 606)[fragment]) — the
-  one condition the typing derivations do not give, since the rules
-  accept $Sort u$ for any level $u$. That both terms are closed and
-  mention only stored constants follows from the two derivations
-  being in the empty context: no rule types a variable there
-  (#src("whitepaper/Fragment/ScopeOfInfer.lean", 36, 37)[fragment]),
-  and the constant rule requires the constant to be stored
-  (#src("whitepaper/Fragment/ScopeOfInfer.lean", 55, 56)[fragment]).
+  (#src("whitepaper/Fragment/Decl.lean", 605, 606)[fragment]).
 
-These three facts are
+A stored term is thus closed, mentions only stored constants and
+uses only the declared level parameters. These three facts are
 what let the model read a stored term without looking at anything
 that is added later: the interpretation of a term depends only on
 the constants and the free variables it mentions and the level
@@ -232,9 +226,12 @@ gains three cases, one per rule.
   $tack T' equiv T$ and gives $lden v rden in lden T rden$. This holds
   at every valuation, and instantiating the level parameters is the
   same as changing the valuation (above), so it holds at every
-  $arrow(ell)$; and $v$ and $T$ mention no constant but old ones, so
-  the two sets are the same under $M'$ as under $M$ (the scope check,
-  above). That is law 1, and law 2 is the definition of $M'$ at $c$.
+  $arrow(ell)$; and $v$ and $T$ are closed and mention no constant but
+  old ones — the derivations are in the empty context, where
+  #src("whitepaper/Fragment/ScopeOfInfer.lean", 36, 37)[no rule types a variable] and
+  #src("whitepaper/Fragment/ScopeOfInfer.lean", 55, 56)[the constant rule requires the constant stored] — so
+  the two sets are the same under $M'$ as under $M$. That is law 1,
+  and law 2 is the definition of $M'$ at $c$.
 ]
 
 The proof is two lines because everything difficult was done in §2:
