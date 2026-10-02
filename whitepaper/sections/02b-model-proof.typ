@@ -358,13 +358,15 @@ Most cases are routine and are listed at the end; the ones below are
 where the argument lives.
 
 #proof[
-  #src("whitepaper/Fragment/Sound.lean", 166, 170)[Rule beta-gate] ($(lambda x : A thin ann(never). thin b) thick a red b[x :=
-  a]$). This is @lem:beta-graph, verbatim: the rule has no premise, and
+  *#src("whitepaper/Fragment/Sound.lean", 166, 170)[Rule beta-gate]* — $(lambda x : A thin ann(never). thin b) thick a red b[x :=
+  a]$: \
+  This is @lem:beta-graph, verbatim: the rule has no premise, and
   the lemma needs none
   (#src("ConLeche/Model/Rules/RedSound.lean", 180, 182)[real proof]).
 
-  #src("whitepaper/Fragment/Sound.lean", 180, 190)[Rule beta-cert] ($(lambda x : A thin ann(PW). thin b) thick a red b[x := a]$
-  from $ann(Gamma tack a => T)$ and $ann(Gamma tack T equiv A)$). The
+  *#src("whitepaper/Fragment/Sound.lean", 180, 190)[Rule beta-cert]* — $(lambda x : A thin ann(PW). thin b) thick a red b[x := a]$
+  from $ann(Gamma tack a => T)$ and $ann(Gamma tack T equiv A)$: \
+  The
   redex is well-denoted, so by the application rule the $lambda$ is,
   and by the $lambda$ rule $A$ is. The induction
   hypothesis for the inference gives $T$ well-denoted and
@@ -375,24 +377,25 @@ where the argument lives.
   semantic invariants in hand, one from the redex and one from the inference —
   and never without.
 
-  #src("whitepaper/Fragment/Sound.lean", 501, 505)[Rule red-l] ($Gamma tack a equiv b$ from $Gamma tack a red a'$ and
-  $Gamma tack a' equiv b$). By the first claim, $a'$ is well-denoted
+  *#src("whitepaper/Fragment/Sound.lean", 501, 505)[Rule red-l]* — $Gamma tack a equiv b$ from $Gamma tack a red a'$ and
+  $Gamma tack a' equiv b$: \
+  By the first claim, $a'$ is well-denoted
   and $lden a rden_rho = lden a' rden_rho$; now both $a'$ and $b$ are
   well-denoted, so the second claim applies to the continuation, and
   the two equalities chain (#src("ConLeche/Model/Rules/DefEqSound.lean", 47, 49)[real proof]). This is the one sound way to chain in the equality relation,
   because a reduction step _produces_ the semantic invariant of its result; see
   the discussion of transitivity below.
 
-  #src("whitepaper/Fragment/Sound.lean", 507, 509)[Rule sort] ($Sort u equiv Sort v$ when $u eq.dot v$).
-  The oracle is assumed correct: it
+  *#src("whitepaper/Fragment/Sound.lean", 507, 509)[Rule sort]* — $Sort u equiv Sort v$ when $u eq.dot v$: \
+    The oracle is assumed correct: it
   answers yes only if the levels agree at every valuation
   (@sec:levels), so the two universes are the same universe
   (#src("ConLeche/Model/Rules/DefEqSound.lean", 56, 58)[real proof]).
 
-  #src("whitepaper/Fragment/Sound.lean", 556, 590)[Rule fun-eta] ($lambda x : A_1 thin ann(PW). thin b_1 equiv b$ when
+  *#src("whitepaper/Fragment/Sound.lean", 556, 590)[Rule fun-eta]* — $lambda x : A_1 thin ann(PW). thin b_1 equiv b$ when
   $Gamma tack b => T red forall x : A_2 thin ann(PW). thin B$,
-  $Gamma tack A_2 equiv A_1$, and $Gamma, x : A_1 tack b_1 equiv b thick x$).
-  The third claim, then the first, put $lden b rden_rho$ in the denotation
+  $Gamma tack A_2 equiv A_1$, and $Gamma, x : A_1 tack b_1 equiv b thick x$: \
+    The third claim, then the first, put $lden b rden_rho$ in the denotation
   of the $forall$, which is well-denoted; the $lambda$ is well-denoted
   by assumption. The second claim on the domains, both well-denoted by
   the two binder rules, gives $lden A_2 rden_rho = lden A_1 rden_rho$. Under
@@ -409,8 +412,9 @@ where the argument lives.
   the $lambda$ to be the same datum; that is what makes the two sides
   fall into the same regime at every $phi$.
 
-  #src("whitepaper/Fragment/Sound.lean", 593, 613)[Rule proof-irrel] ($a equiv b$ when $Gamma tack a => T_a => S_a red Sort u$
-  with $u eq.dot 0$, and likewise for $b$). By the third claim twice
+  *#src("whitepaper/Fragment/Sound.lean", 593, 613)[Rule proof-irrel]* — $a equiv b$ when $Gamma tack a => T_a => S_a red Sort u$
+  with $u eq.dot 0$, and likewise for $b$: \
+  By the third claim twice
   and the first once, $lden a rden_rho in lden T_a rden_rho$ and
   $lden T_a rden_rho in cal(U)_(phi(u))$, and $phi(u) = 0$ because the
   oracle said $u eq.dot 0$ (@sec:levels). A member of $cal(U)_0$ has
@@ -421,9 +425,10 @@ where the argument lives.
   and $b$ were not even used: there is only one proof in the whole
   model, so any two proofs of anything are equal in it.
 
-  #src("whitepaper/Fragment/Sound.lean", 646, 680)[Rule pi] ($Gamma tack forall x : A thin ann(PW). thin B => Sort (imax(u,
+  *#src("whitepaper/Fragment/Sound.lean", 646, 680)[Rule pi]* — $Gamma tack forall x : A thin ann(PW). thin B => Sort (imax(u,
   v))$ when $Gamma tack A => S red Sort u$, $Gamma, x : A tack B => T
-  red Sort v$, and $ann(zn(v) = PW)$). This is where the annotation is
+  red Sort v$, and $ann(zn(v) = PW)$: \
+  This is where the annotation is
   _established_. The third claim for $A$ gives $A$ well-denoted and
   $lden A rden_rho in lden S rden_rho$, and the first turns $lden S rden_rho$ into
   $cal(U)_(phi(u))$. For any $v' in lden A rden_rho$ the environment
@@ -444,10 +449,10 @@ where the argument lives.
   (#src("ConLeche/Model/Rules/InferSound.lean", 267, 273)[real proof]). The sort $Sort (imax(u, v))$ is well-denoted, as every
   sort is.
 
-  #src("whitepaper/Fragment/Sound.lean", 688, 722)[Rule lam] ($Gamma tack lambda x : A thin ann(PW). thin b => forall x : A
+  *#src("whitepaper/Fragment/Sound.lean", 688, 722)[Rule lam]* — $Gamma tack lambda x : A thin ann(PW). thin b => forall x : A
   thin ann(PW). thin B$ when $Gamma tack A => S red Sort u$,
-  $Gamma, x : A tack b => B ann(=> T red Sort v)$, and $ann(zn(v) = PW)$).
-  The same argument one level down. Under $x |-> v'$ for $v' in
+  $Gamma, x : A tack b => B ann(=> T red Sort v)$, and $ann(zn(v) = PW)$: \
+    The same argument one level down. Under $x |-> v'$ for $v' in
   lden A rden_rho$, the third claim for $b$ gives $b$ and $B$ well-denoted
   and $lden b rden_(rho, x |-> v') in lden B rden_(rho, x |-> v')$; the coloured
   premises and the first claim give $lden B rden_(rho, x |-> v') in
@@ -465,9 +470,10 @@ where the argument lives.
   used: it is the checker's, and the model needs only that $A$ is
   well-denoted, which the inference of $A$ supplies.
 
-  #src("whitepaper/Fragment/Sound.lean", 732, 748)[Rule app] ($Gamma tack f thick a => B[x := a]$ when
+  *#src("whitepaper/Fragment/Sound.lean", 732, 748)[Rule app]* — $Gamma tack f thick a => B[x := a]$ when
   $Gamma tack f => T red forall x : A thin ann(PW). thin B$,
-  $Gamma tack a => T_a$ and $Gamma tack T_a equiv A$). By the third
+  $Gamma tack a => T_a$ and $Gamma tack T_a equiv A$: \
+  By the third
   claim, $f$ and $T$ are well-denoted and $lden f rden_rho in lden T rden_rho$;
   by the first, the $forall$ is well-denoted and
   $lden T rden_rho = lden forall x : A thin ann(PW). thin B rden_rho$. By the
