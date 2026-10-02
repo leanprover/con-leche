@@ -204,3 +204,5 @@ in HTML the phrase shows the cited lines on hover.
   derives, or assumes — change the Lean, not just the words, when a
   ruling moves a condition (e.g. "closedness follows from typing" means
   `DefOk` no longer demands it and a lemma proves it).
+* (2026-10-02) "Installer" is jargon too: say "the checker" (and "checks
+  … uniformly" for the one-installer point).

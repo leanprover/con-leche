@@ -44,9 +44,9 @@ corollary, which is two lines.
 An inductive block declares a family of types by its constructors.
 The fragment takes a block with one type former, neither mutual nor
 nested — nesting is added in @sec:nested of this document; the real
-checker has one installer for every block (#overview(5)), and what
-follows describes its run on a block of this
-shape. The block is given by a
+checker handles simple, mutual and nested blocks uniformly
+(#overview(5)), and what follows describes what it does on a block of
+this shape. The block is given by a
 _specification_
 (#src("whitepaper/Fragment/Spec.lean", 79, 102)[fragment],
 #src("ConLeche/Kernel/Inductives/BlockParts.lean", 104, 122)[real checker]):

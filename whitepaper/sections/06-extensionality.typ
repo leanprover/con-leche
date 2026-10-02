@@ -176,12 +176,12 @@ block where no constructor is recursive — and
 #src("ConLeche/Kernel/Inductives/BlockInstall.lean", 67, 80)[recorded
 with the type]\; and the law itself is established there too, not at
 the use. It is the η law of the structure's _projection table_ — the
-record of its fields' types that the installer stores for every
+record of its fields' types that the checker stores for every
 one-constructor, index-free type (@sec:left-out, "Projections")
 (#src("ConLeche/Model/Inductives/FixKit.lean", 804, 805)[a member is
 the constructor at the parameters and its own projections]), proved
 when #src("ConLeche/Model/Inductives/BlockStageTables.lean", 10, 12)[the
-installer stores the table], by the argument above on the tagged
+checker stores the table], by the argument above on the tagged
 tuple.
 
 == Unit-likeness
