@@ -91,7 +91,7 @@ head rule of @sec:rules, an applied definition unfolds at its head.
 *What a definition must satisfy.* Before the checker stores a
 definition $c$ with parameters $arrow(p)$, type $T$ and value $v$, it
 checks four things
-(#src("whitepaper/Fragment/Decl.lean", 592, 606)[fragment],
+(#src("whitepaper/Fragment/Decl.lean", 585, 599)[fragment],
 #src("ConLeche/Kernel/CheckerBase.lean", 96, 116)[real checker, the common checks]
 and #src("ConLeche/Kernel/Checker.lean", 34, 50)[the value check]):
 
@@ -100,7 +100,7 @@ and #src("ConLeche/Kernel/Checker.lean", 34, 50)[the value check]):
 - the value's inferred type is definitionally equal to the declared
   type: $tack v => T'$ and $tack T' equiv T$;
 - both terms use only the level parameters $arrow(p)$
-  (#src("whitepaper/Fragment/Decl.lean", 605, 606)[fragment]).
+  (#src("whitepaper/Fragment/Decl.lean", 598, 599)[fragment]).
 
 A stored term is thus closed, mentions only stored constants and
 uses only the declared level parameters. These three facts are

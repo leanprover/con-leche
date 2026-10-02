@@ -604,7 +604,6 @@ theorem domsBounded_ofN (φ : Name → Nat) (ρ : Nat → V) {ps : List V} (hps 
       exact hz' (by rw [hu₀, this])
     · rw [hu₀]; exact (LevelOracle.le_iff _ _).mp h φ
   cases f with
-  | recursive _ => trivial
   | container => trivial
   | ordinary A =>
     obtain ⟨s, v, hI, hR, hb⟩ := (hok.2.2.2.2.2.1 c hc).2.1 _ A hget

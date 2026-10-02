@@ -21,10 +21,10 @@ valuation is `valOf S.lparams ls` (`IndSpec.ψ`).
   order) fitting constructor `j`'s telescope at `ps`, with `is` the
   constructor's index expressions read under the fields".  A field
   fits an *ordinary* domain when it is a member of that domain's set;
-  a *recursive* domain when it is a member of the **fibre** of the
-  family at the field's index expressions; a *reflexive* domain when
-  it is a member of the product over the field's telescope into those
-  fibres.  The fibre reads the **regime** `z` (is the result sort zero
+  a *reflexive* domain when it is a member of the product over the
+  field's telescope into the **fibres** of the family at the field's
+  index expressions — with an empty telescope (a *recursive* field),
+  when it is a member of the fibre itself.  The fibre reads the **regime** `z` (is the result sort zero
   at this valuation?): at a proposition it is the truth value "some
   `x` is a member" (`fibreR`), above it the members of a bounding set
   that satisfy `Mem` — so a member of a propositional family is always
@@ -320,9 +320,6 @@ values `fs`.  A container field ranges over the class at the fibre of
 the class's guard (`ContGood`), empty otherwise. -/
 def fieldSet (B : List V → List V → V) (P : FamP V) (ps fs : List V) : Field → V
   | .ordinary A => interp M (S.ψ ls) (consList fs (envP ps)) A
-  | .recursive es =>
-    let is := S.idxVals M ls (consList fs (envP ps)) es
-    fibreR (S.z ls) (B ps is) (P ps is)
   | .reflexive tele es =>
     piCtx M (S.ψ ls) (S.z ls) (consList fs (envP ps)) tele fun ρ' =>
       let is := S.idxVals M ls ρ' es
@@ -374,15 +371,14 @@ abbrev JIdx (V : Type u) := Bool × List V
 
 /-- A field telescope read as a constructor telescope of sets at the
 parameters, the earlier values accumulated (innermost first, the
-point at recursive positions — nothing after a recursive field reads
-its value).  A container field is a recursive field at the class's
-index. -/
+point at recursive positions — nothing after a reflexive or container
+field reads its value).  A reflexive field is a function over its
+telescope into the family (`TeleX.refl`); a container field is in
+the family at the class's index (`TeleX.recur`). -/
 def toTeleX (ps : List V) : List Field → List V → TeleX (JIdx V) V
   | [], _ => .nil
   | .ordinary A :: rest, fs' =>
     .ord (interp M (S.ψ ls) (consList fs' (envP ps)) A) fun v => toTeleX ps rest (v :: fs')
-  | .recursive es :: rest, fs' =>
-    .recur (false, S.idxVals M ls (consList fs' (envP ps)) es) (toTeleX ps rest (pt :: fs'))
   | .reflexive tele es :: rest, fs' =>
     .refl (toTeleS M (S.ψ ls) (consList fs' (envP ps)) tele.reverse)
       (fun ys => (false, S.idxVals M ls (consList ys.reverse (consList fs' (envP ps))) es))
@@ -395,8 +391,8 @@ def psK (N : NestInfo) (ps : List V) (X : V) : List V := (S.classArgsV M ls N ps
 
 /-- **The container's field telescope at the instantiation**, as a
 constructor telescope of sets over the joint index: its member field
-is a recursive field at the member's index values, its recursive
-fields are recursive fields at the class's index, its other fields
+is in the family at the member's index values, its recursive fields
+are in the family at the class's index (both `TeleX.recur`), its other fields
 (which mention neither the member parameter nor the member field) are
 ordinary, read with the point at the member's position. -/
 def toTeleXK (N : NestInfo) (ps : List V) : List Field → List V → TeleX (JIdx V) V
@@ -503,7 +499,6 @@ theorem fieldSet_mono {B : List V → List V → V} (hB : S.BoundOk ls B) {P Q :
     (h : ∀ ps is x, P ps is x → Q ps is x) (ps fs : List V) :
     ∀ f : Field, S.fieldSet M ls B P ps fs f ⊆ˢ S.fieldSet M ls B Q ps fs f
   | .ordinary _ => Sub.refl _
-  | .recursive _ => fibreR_mono (h _ _)
   | .reflexive tele es => by
     simp only [fieldSet]
     exact piCtx_sub M _ (fun _ _ => fibreR_mono (h _ _)) fun hz _ _ => by
@@ -656,7 +651,6 @@ noncomputable def DomsBounded (ps : List V) : Prop :=
       | .ordinary A => interp M (S.ψ ls) (consList (earlier fs k) (envP ps)) A ∈ˢ (univ (S.u₀ ls) : V)
       | .reflexive tele _ =>
         TeleS.Bounded (S.u₀ ls) (toTeleS M (S.ψ ls) (consList (earlier fs k) (envP ps)) tele.reverse)
-      | .recursive _ => True
       | .container => True
 
 /-- **The container fields of a fitting instance are in the class's
@@ -805,7 +799,6 @@ theorem FitsB_of_FitsFields (hz : S.z ls = false) {c : CtorSpec} {ps fs : List V
       | .ordinary A => interp M (S.ψ ls) (consList (earlier fs k) (envP ps)) A ∈ˢ (univ (S.u₀ ls) : V)
       | .reflexive tele _ =>
         TeleS.Bounded (S.u₀ ls) (toTeleS M (S.ψ ls) (consList (earlier fs k) (envP ps)) tele.reverse)
-      | .recursive _ => True
       | .container => True)
     (hcb : ∀ k, c.fields[c.fields.length - 1 - k]? = some .container → k < c.fields.length →
       fieldVal fs k ∈ˢ S.classBound M ls ps) :
@@ -869,20 +862,6 @@ theorem FitsB_of_FitsFields (hz : S.z ls = false) {c : CtorSpec} {ps fs : List V
           simpa using hnr' i f' hf' hr
       rw [hA]
       refine ⟨hb', hfv, ?_⟩
-      simpa [junkRec_cons, Field.isRec] using ih
-    | recursive es =>
-      simp only [toTeleX, TeleX.FitsB]
-      have hes : S.idxVals M ls (consList (junkRec done fsDone) (envP ps)) es
-          = S.idxVals M ls (consList fsDone (envP ps)) es := by
-        simp only [idxVals]
-        congr 1
-        apply List.map_congr_left
-        intro e he
-        exact S.interp_junkRec M ls (envP ps) e (ys := []) rfl
-          fun i f' hf' hr => by simpa using hnr' i f' hf' hr e he
-      rw [hes]
-      simp only [fieldSet, hz] at hfv
-      refine ⟨(mem_fibreR_false.mp hfv).1, ?_⟩
       simpa [junkRec_cons, Field.isRec] using ih
     | reflexive tele es =>
       simp only [toTeleX, TeleX.FitsB]
@@ -971,8 +950,8 @@ noncomputable def Uniq : Prop :=
   S.z ls = true → ∀ ps : List V, FitsVals M (S.ψ ls) base S.params ps →
     ∀ (is : List V) (x x' : V), S.Mem M ls ps is x → S.Mem M ls ps is x' → x = x'
 
-/-- The witness of a fitting recursive field is a member of the
-family at the field's indices — and, given uniqueness, has every
+/-- The witness of a fitting member of a fibre is a member of the
+family at the fibre's indices — and, given uniqueness, has every
 property some member has. -/
 theorem wit_of_fibre {ps is : List V} {v : V} {P : FamP V} (hu : S.Uniq M ls)
     (hp : FitsVals M (S.ψ ls) base S.params ps)
@@ -992,13 +971,11 @@ theorem wit_of_fibre {ps is : List V} {v : V} {P : FamP V} (hu : S.Uniq M ls)
 variable (q : Bool)
 
 /-- **An inductive hypothesis' value** relative to a graph `R`: at a
-recursive field, `R`'s value at the field's index expressions and the
-witness of the field; at a reflexive field, the abstraction over the
-field's telescope of those values. -/
+reflexive field, the abstraction over the field's telescope of `R`'s
+values at the field's index expressions and the witness of the field
+applied to the telescope's variables (at a recursive field — the
+telescope empty — just `R`'s value at the witness of the field). -/
 noncomputable def IhOk (R : RecP V) (ps : List V) (m : V) (mins fs : List V) : Nat × Field → V → Prop
-  | (k, .recursive es), ih =>
-    let is := S.idxVals M ls (consList (earlier fs k) (envP ps)) es
-    R ps m mins is (S.wit M ls ps is (fieldVal fs k)) ih
   | (k, .reflexive tele es), ih =>
     let env := consList (earlier fs k) (envP ps)
     ∃ g : (Nat → V) → V, ih = lamCtx M (S.ψ ls) q env tele g ∧
@@ -1038,7 +1015,6 @@ theorem IhOk_mono {R R' : RecP V} (h : ∀ ps m mins is x v, R ps m mins is x v 
   match kf, hh with
   | (_, .ordinary _), hh => exact hh.elim
   | (_, .container), hh => exact hh.elim
-  | (_, .recursive _), hh => exact h _ _ _ _ _ _ hh
   | (_, .reflexive _ _), ⟨g, hg, hall⟩ => exact ⟨g, hg, fun ys hys => h _ _ _ _ _ _ (hall ys hys)⟩
 
 theorem rstepT_mono : Mono (S.rstepT M ls q) := by
@@ -1092,7 +1068,6 @@ theorem RecGraph_fun {ps : List V} {m : V} {mins is : List V} {x v v' : V}
   match kf, h1, h2 with
   | (_, .ordinary _), h1, _ => exact h1.elim
   | (_, .container), h1, _ => exact h1.elim
-  | (_, .recursive _), h1, h2 => exact h1.2 _ h2
   | (_, .reflexive _ _), ⟨_, hg1, hg⟩, ⟨_, hg1', hg'⟩ =>
     rw [hg1, hg1']
     exact lamCtx_congr M _ fun ys hys => (hg ys hys).2 _ (hg' ys hys)
@@ -1119,12 +1094,9 @@ indices and the major: the graph's value at the witness. -/
 noncomputable def recSem (ps : List V) (m : V) (mins is : List V) (t : V) : V :=
   S.recFn M ls q ps m mins is (S.wit M ls ps is t)
 
-/-- **The inductive hypotheses' semantic values**, one per recursive
-or reflexive field: the recursor at the field (through its telescope
-at a reflexive field). -/
+/-- **The inductive hypotheses' semantic values**, one per reflexive
+field: the recursor at the field, through the field's telescope. -/
 noncomputable def ihSem (ps : List V) (m : V) (mins fs : List V) : Nat × Field → V
-  | (k, .recursive es) =>
-    S.recSem M ls q ps m mins (S.idxVals M ls (consList (earlier fs k) (envP ps)) es) (fieldVal fs k)
   | (k, .reflexive tele es) =>
     let env := consList (earlier fs k) (envP ps)
     lamCtx M (S.ψ ls) q env tele fun ρ' =>
@@ -1139,8 +1111,8 @@ theorem noCont_absurd {c : CtorSpec} (hnc : S.NoCont) (hcm : c ∈ S.ctors) {i :
   have := hnc c hcm _ (List.mem_of_getElem? hf)
   simp [Field.isCont] at this
 
-/-- A recursive position of a constructor is a recursive or reflexive
-field at that position. -/
+/-- A recursive position of a constructor is a reflexive (or
+container) field at that position. -/
 theorem _root_.Fragment.mem_recFields {c : CtorSpec} {kf : Nat × Field} (h : kf ∈ c.recFields) :
     c.fields[c.fields.length - 1 - kf.1]? = some kf.2 ∧ kf.1 < c.fields.length ∧ kf.2.isRec = true := by
   simp only [CtorSpec.recFields, List.mem_filterMap, List.mem_range] at h
@@ -1185,11 +1157,6 @@ theorem RecGraph_total (hnc : S.NoCont) (hu : S.Uniq M ls) {ps : List V}
   cases f with
   | ordinary _ => simp [Field.isRec] at hrec
   | container => exact (S.noCont_absurd hnc (List.mem_of_getElem? hc) hf).elim
-  | recursive es =>
-    dsimp only [fieldSet] at hget
-    obtain ⟨-, hP, -⟩ := S.wit_of_fibre M ls hu hp
-      (P := fun a is x => a = ps → ∀ m mins, ∃ v, S.RecGraph M ls q a m mins is x v) hget
-    exact S.RecGraph_recFn M ls q (hP rfl m mins)
   | reflexive tele es =>
     dsimp only [fieldSet] at hget
     dsimp only [IhOk, ihSem]
@@ -1217,13 +1184,6 @@ theorem IhOk_ihSem (hnc : S.NoCont) (hu : S.Uniq M ls) {ps : List V} (hp : FitsV
   cases f with
   | ordinary _ => simp [Field.isRec] at hrec
   | container => exact (S.noCont_absurd hnc hcm hf).elim
-  | recursive es =>
-    simp only [fieldSet] at hget
-    have hget' : fieldVal fs k ∈ˢ fibreR (S.z ls) (S.bound M ls ps _)
-        fun x => S.Mem M ls ps _ x ∧ True :=
-      fibreR_mono (fun _ h => ⟨h, trivial⟩) _ hget
-    obtain ⟨hw, -, -⟩ := S.wit_of_fibre M ls hu hp (P := fun _ _ _ => True) hget'
-    exact S.RecGraph_recFn M ls q (S.RecGraph_total M ls q hnc hu hp hw m mins)
   | reflexive tele es =>
     simp only [fieldSet] at hget
     dsimp only [IhOk, ihSem]
@@ -1268,8 +1228,6 @@ theorem recSem_eq (hnc : S.NoCont) (hu : S.Uniq M ls) {j : Nat} {c : CtorSpec} {
 /-- An inductive hypothesis' value lies in the motive at the field's
 indices and the field (through the telescope at a reflexive field). -/
 noncomputable def IhTyped (ps : List V) (m m1 : V) (fs : List V) : Nat × Field → V → Prop
-  | (k, .recursive es), ih =>
-    ih ∈ˢ appList m ((S.idxVals M ls (consList (earlier fs k) (envP ps)) es).reverse ++ [fieldVal fs k])
   | (k, .reflexive tele es), ih =>
     let env := consList (earlier fs k) (envP ps)
     ih ∈ˢ piCtx M (S.ψ ls) q env tele fun ρ' =>
@@ -1336,13 +1294,6 @@ theorem recSem_mem (hnc : S.NoCont) (hu : S.Uniq M ls) {ps : List V} (hp : FitsV
   cases f with
   | ordinary _ => simp [Field.isRec] at hrec
   | container => exact (S.noCont_absurd hnc (List.mem_of_getElem? hc) hf).elim
-  | recursive es =>
-    dsimp only [fieldSet] at hget
-    obtain ⟨-, hP, hmb⟩ := S.wit_of_fibre M ls hu hp (P := fun a is x => a = ps' →
-      S.recFn M ls q ps' m mins is x ∈ˢ appList m (is.reverse ++ [S.memb ls x])) hget
-    dsimp only [IhTyped, ihSem, recSem]
-    have := hP rfl
-    rwa [hmb] at this
   | reflexive tele es =>
     dsimp only [fieldSet] at hget
     dsimp only [IhTyped, ihSem]
@@ -1378,10 +1329,6 @@ theorem IhTyped_ihSem (hnc : S.NoCont) (hu : S.Uniq M ls) {ps : List V} (hp : Fi
   cases f with
   | ordinary _ => simp [Field.isRec] at hrec
   | container => exact (S.noCont_absurd hnc hcm hf).elim
-  | recursive es =>
-    dsimp only [fieldSet] at hget
-    dsimp only [IhTyped, ihSem]
-    exact S.recSem_mem M ls q hnc hu hp m mins hmin hmo hget
   | reflexive tele es =>
     dsimp only [fieldSet] at hget
     dsimp only [IhTyped, ihSem]

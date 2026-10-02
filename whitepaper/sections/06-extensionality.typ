@@ -36,29 +36,29 @@ link to the real proof's case.
 
 Recall what @sec:ind sets up. A constructor application $c thick arrow(p)
 thick arrow(f)$ of a block whose family is not a proposition denotes
-a #src("whitepaper/Fragment/IndLib.lean", 145, 159)[tagged tuple]
+a #src("whitepaper/Fragment/IndLib.lean", 147, 161)[tagged tuple]
 $tag(i, chevron.l lden f_1 rden, ..., lden f_n rden chevron.r)$ — the
 constructor's number $i$, then its fields
-(#src("whitepaper/Fragment/IndSem.lean", 484, 486)[fragment]) — and
+(#src("whitepaper/Fragment/IndSem.lean", 480, 482)[fragment]) — and
 the family at parameters and indices denotes
-#src("whitepaper/Fragment/IndSem.lean", 478, 481)[the least set closed
+#src("whitepaper/Fragment/IndSem.lean", 474, 477)[the least set closed
 under the constructor steps], so that
-#src("whitepaper/Fragment/IndSem.lean", 543, 545)[a member of the
+#src("whitepaper/Fragment/IndSem.lean", 538, 540)[a member of the
 family is a tagged tuple that one constructor step produces] from
 members of the field domains (this is the fixed-point equation of §4,
-#src("whitepaper/Fragment/IndLib.lean", 246, 249)[read from left to
+#src("whitepaper/Fragment/IndLib.lean", 248, 251)[read from left to
 right]). When the family _is_ a proposition — the binders of the
 constructors' types, whose bodies are the family, are annotated
 $ann(zn(u))$ for the result sort $Sort u$, and that datum holds at
 $phi$ — the family denotes
 #src("whitepaper/Fragment/IndSem.lean", 84, 87)[a truth value]
 instead: the constructor step's tuple is not stored, only whether some
-such tuple exists, and #src("whitepaper/Fragment/IndSem.lean", 556, 559)[a
+such tuple exists, and #src("whitepaper/Fragment/IndSem.lean", 551, 554)[a
 member of the family, like a constructor application, is the point].
 Tuples and tags are injective
-(#src("whitepaper/Fragment/IndLib.lean", 148)[tuples],
-#src("whitepaper/Fragment/IndLib.lean", 155)[tags]) and a tagged
-value is #src("whitepaper/Fragment/IndLib.lean", 159)[never the point].
+(#src("whitepaper/Fragment/IndLib.lean", 150)[tuples],
+#src("whitepaper/Fragment/IndLib.lean", 157)[tags]) and a tagged
+value is #src("whitepaper/Fragment/IndLib.lean", 161)[never the point].
 
 == Proof irrelevance and propositional extensionality
 

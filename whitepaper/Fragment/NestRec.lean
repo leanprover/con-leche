@@ -16,9 +16,9 @@ fields and the inductive hypotheses) and the class's rules (at a
 tagged tuple of fields fitting a constructor of the container at the
 instantiation — read in the block's terms, `classCtor` — the value is
 that constructor's class minor at the fields and the hypotheses),
-where a hypothesis at a recursive field is the graph's value at the
-member (`(false, is)`) and at a container field the graph's value at
-the class (`(true, [])`).  The graph is single-valued (tags and tuples
+where a hypothesis at a reflexive field is the graph's value at the
+member (`(false, is)`, under the field's telescope) and at a container
+field the graph's value at the class (`(true, [])`).  The graph is single-valued (tags and tuples
 are injective) and total on the family and the class together, **by
 induction over the family and over the class interleaved**: a
 container field's value is in the class at the approximant, and the
@@ -68,12 +68,13 @@ variable (S : IndSpec) (M : Name → List Nat → V) (ls : List Nat) (N : NestIn
 
 /-- The field sets of a constructor of the container read in the
 block's terms, at a member set `X` and with the class's members
-restricted by `Q`: a (translated) recursive field is the member field,
-ranging over `X`; a container field is the container's recursive
-field, ranging over the class at `X` restricted by `Q`; an ordinary
-field is the container's, read as the block reads it. -/
+restricted by `Q`: a (translated) reflexive field is the member field
+(recursive: the telescope is empty), ranging over `X`; a container
+field is the container's recursive field, ranging over the class at
+`X` restricted by `Q`; an ordinary field is the container's, read as
+the block reads it. -/
 noncomputable def classFieldSet (X : V) (Q : V → Prop) (ps fs : List V) : Field → V
-  | .recursive _ => X
+  | .reflexive _ _ => X
   | .container => sep (S.classSet M ls N ps X) Q
   | f => S.fieldSet M ls (S.bound M ls) (S.Mem M ls) ps fs f
 
@@ -127,27 +128,18 @@ structure ClassLaws (ps : List V) : Prop where
   /-- The class grows with the member set. -/
   mono : ∀ X Y, X ⊆ˢ Y → X ∈ˢ (univ (S.u₀ ls) : V) → Y ∈ˢ (univ (S.u₀ ls) : V) →
     S.classSet M ls N ps X ⊆ˢ S.classSet M ls N ps Y
-  /-- No translated constructor has a reflexive field (the container
-  is positive: its fields are the member, its own recursive fields and
-  ordinary ones).  The interleaved inductions need it: a reflexive
-  field of the class would range over the *whole* family, which the
-  outer induction's approximant does not reach. -/
-  noRefl : ∀ c ∈ N.K.ctors, ∀ tele es, Field.reflexive tele es ∉ (S.classCtor N c).fields
 
 /-! ## The graph -/
 
 variable (q : Bool)
 
 /-- **An inductive hypothesis' value** relative to a graph `R`: at a
-recursive field the graph's value at the family (at the field's index
-values) and the field; at a reflexive field the abstraction over the
-field's telescope of those values; at a container field the graph's
-value at the class and the field. -/
+reflexive field the abstraction over the field's telescope of the
+graph's values at the family (at the field's index values) and the
+field applied to the telescope's variables; at a container field the
+graph's value at the class and the field. -/
 noncomputable def IhOkN (R : RecPN V) (ps : List V) (ex : RecEx V) (fs : List V) :
     Nat × Field → V → Prop
-  | (k, .recursive es), ih =>
-    let is := S.idxVals M ls (consList (earlier fs k) (envP ps)) es
-    R ps ex (false, is) (fieldVal fs k) ih
   | (k, .reflexive tele es), ih =>
     let env := consList (earlier fs k) (envP ps)
     ∃ g : (Nat → V) → V, ih = lamCtx M (S.ψ ls) q env tele g ∧
@@ -156,6 +148,22 @@ noncomputable def IhOkN (R : RecPN V) (ps : List V) (ex : RecEx V) (fs : List V)
         R ps ex (false, is) (appList (fieldVal fs k) ys.reverse) (g (consList ys env))
   | (k, .container), ih => R ps ex (true, []) (fieldVal fs k) ih
   | (_, .ordinary _), _ => False
+
+/-- An inductive hypothesis' value at a recursive field (a reflexive
+field with an empty telescope): the graph's value at the field. -/
+theorem IhOkN_nil (R : RecPN V) (ps : List V) (ex : RecEx V) (fs : List V) (k : Nat)
+    (es : List Expr) (ih : V) :
+    S.IhOkN M ls q R ps ex fs (k, .reflexive [] es) ih ↔
+      R ps ex (false, S.idxVals M ls (consList (earlier fs k) (envP ps)) es) (fieldVal fs k) ih := by
+  simp only [IhOkN, lamCtx_nil]
+  constructor
+  · rintro ⟨g, rfl, hall⟩
+    exact hall [] trivial
+  · intro h
+    refine ⟨fun _ => ih, rfl, fun ys hys => ?_⟩
+    cases ys with
+    | nil => exact h
+    | cons _ _ => exact hys.elim
 
 /-- The class minor for the container's constructor `j` among the
 class minors (innermost first). -/
@@ -203,11 +211,9 @@ noncomputable def rec1Sem (ps : List V) (ex : RecEx V) (t : V) : V :=
   S.recFnN M ls N q ps ex (true, []) t
 
 /-- **The inductive hypotheses' semantic values**: `T.rec` at a
-recursive field (through its telescope at a reflexive one), `T.rec_1`
-at a container field. -/
+reflexive field (through its telescope), `T.rec_1` at a container
+field. -/
 noncomputable def ihSemN (ps : List V) (ex : RecEx V) (fs : List V) : Nat × Field → V
-  | (k, .recursive es) =>
-    S.recSemN M ls N q ps ex (S.idxVals M ls (consList (earlier fs k) (envP ps)) es) (fieldVal fs k)
   | (k, .reflexive tele es) =>
     let env := consList (earlier fs k) (envP ps)
     lamCtx M (S.ψ ls) q env tele fun ρ' =>
@@ -220,8 +226,6 @@ noncomputable def ihSemN (ps : List V) (ex : RecEx V) (fs : List V) : Nat × Fie
 field's index values and the field (through the telescope at a
 reflexive field), or in the class's motive at the field. -/
 noncomputable def IhTypedN (ps : List V) (ex : RecEx V) (fs : List V) : Nat × Field → V → Prop
-  | (k, .recursive es), ih =>
-    ih ∈ˢ appList ex.m ((S.idxVals M ls (consList (earlier fs k) (envP ps)) es).reverse ++ [fieldVal fs k])
   | (k, .reflexive tele es), ih =>
     let env := consList (earlier fs k) (envP ps)
     ih ∈ˢ piCtx M (S.ψ ls) q env tele fun ρ' =>
@@ -317,22 +321,27 @@ theorem classCtor_fields_get (c : CtorSpec) {k : Nat} {f : Field}
     exact congrArg (fun i => S.classField N i f₀)
       (by omega : c.fields.length - 1 - (c.fields.length - 1 - k) = k)
 
-/-- The only recursive field of a translated constructor is the
-member field, at the member's index expressions lifted over the
-earlier fields. -/
-theorem classField_recursive {k : Nat} {f₀ : Field} {es : List Expr}
-    (h : S.classField N k f₀ = .recursive es) : es = N.idx.map (Expr.liftN k ·) := by
+/-- The only reflexive field of a translated constructor is the
+member field — recursive (an empty telescope), at the member's index
+expressions lifted over the earlier fields.  (A reflexive field with
+a telescope never arises: the container is positive, so its fields
+are the member, its own recursive fields and ordinary ones.  The
+interleaved inductions need that: such a field of the class would
+range over the *whole* family, which the outer induction's
+approximant does not reach.) -/
+theorem classField_reflexive {k : Nat} {f₀ : Field} {tele es : List Expr}
+    (h : S.classField N k f₀ = .reflexive tele es) : tele = [] ∧ es = N.idx.map (Expr.liftN k ·) := by
   cases f₀ with
   | ordinary A =>
     simp only [classField] at h
     by_cases hm : N.isMember k (.ordinary A) = true
     · rw [if_pos hm] at h
-      exact (Field.recursive.inj h).symm
+      exact ⟨(Field.reflexive.inj h).1.symm, (Field.reflexive.inj h).2.symm⟩
     · rw [if_neg hm] at h
       exact Field.noConfusion h
-  | recursive _ => simp [classField] at h
   | reflexive _ _ => simp [classField] at h
   | container => simp [classField] at h
+
 
 /-- Lifted expressions read under pushed values of the lifting's
 length read as under the environment below. -/
@@ -397,13 +406,12 @@ theorem classFieldSet_mono {ps : List V} (hcl : S.ClassLaws M ls N ps) {X Y : V}
     (hX : X ∈ˢ (univ (S.u₀ ls) : V)) (hY : Y ∈ˢ (univ (S.u₀ ls) : V)) (hXY : X ⊆ˢ Y)
     {Q : V → Prop} (fs : List V) :
     ∀ f : Field, S.classFieldSet M ls N X Q ps fs f ⊆ˢ S.classFieldSet M ls N Y (fun _ => True) ps fs f
-  | .recursive _ => hXY
+  | .reflexive _ _ => hXY
   | .container => by
     intro v hv
     simp only [classFieldSet, mem_sep] at hv ⊢
     exact ⟨hcl.mono X Y hXY hX hY v hv.1, trivial⟩
   | .ordinary _ => Sub.refl _
-  | .reflexive _ _ => Sub.refl _
 
 /-- Fields fitting a translated constructor at a member set fit it at
 a larger one, unrestricted. -/
@@ -431,7 +439,6 @@ theorem IhOkN_mono {R R' : RecPN V}
   match kf, hh with
   | (_, .ordinary _), hh => exact hh.elim
   | (_, .container), hh => exact h _ _ _ _ _ hh
-  | (_, .recursive _), hh => exact h _ _ _ _ _ hh
   | (_, .reflexive _ _), ⟨g, hg, hall⟩ => exact ⟨g, hg, fun ys hys => h _ _ _ _ _ (hall ys hys)⟩
 
 theorem rstepTN_mono : Mono (S.rstepTN M ls N q) := by
@@ -479,7 +486,6 @@ theorem RecGraphN_fun {ps : List V} {ex : RecEx V} {tgt : JIdx V} {x v v' : V}
     match kf, h1, h2 with
     | (_, .ordinary _), h1, _ => exact h1.elim
     | (_, .container), h1, h2 => exact h1.2 _ h2
-    | (_, .recursive _), h1, h2 => exact h1.2 _ h2
     | (_, .reflexive _ _), ⟨_, hg1, hg⟩, ⟨_, hg1', hg'⟩ =>
       rw [hg1, hg1']
       exact lamCtx_congr M _ fun ys hys => (hg ys hys).2 _ (hg' ys hys)
@@ -530,11 +536,11 @@ theorem RecGraphN_recFnN {ps : List V} {ex : RecEx V} {tgt : JIdx V} {x : V}
 a member set `X` with a graph value at every member of `X` and at
 every `Q`-member of the class at `X`, the hypotheses' semantic values
 are what the graph demands. -/
-theorem IhOkN_ihSemN_class_of {ps : List V} (hcl : S.ClassLaws M ls N ps) (ex : RecEx V)
+theorem IhOkN_ihSemN_class_of {ps : List V} (ex : RecEx V)
     {X : V} {Q : V → Prop}
     (hkey : ∀ x, x ∈ˢ X → ∃ v, S.RecGraphN M ls N q ps ex (false, S.memberIdx M ls N ps) x v)
     (hQ : ∀ y, y ∈ˢ S.classSet M ls N ps X → Q y → ∃ v, S.RecGraphN M ls N q ps ex (true, []) y v)
-    {c : CtorSpec} (hcm : c ∈ N.K.ctors) {fs : List V}
+    {c : CtorSpec} {fs : List V}
     (hfit : S.ClassFits M ls N X Q ps (S.classCtor N c).fields fs) :
     ListRel (S.IhOkN M ls q (S.RecGraphN M ls N q) ps ex fs) (S.classCtor N c).recFields
       ((S.classCtor N c).recFields.map (S.ihSemN M ls N q ps ex fs)) := by
@@ -546,14 +552,14 @@ theorem IhOkN_ihSemN_class_of {ps : List V} (hcl : S.ClassLaws M ls N ps) (ex : 
   obtain ⟨k, f⟩ := kf
   cases f with
   | ordinary _ => simp [Field.isRec] at hrec
-  | reflexive tele es => exact (hcl.noRefl c hcm tele es (List.mem_of_getElem? hf)).elim
-  | recursive es =>
+  | reflexive tele es =>
     obtain ⟨f₀, -, hfe⟩ := S.classCtor_fields_get N c hf hk
-    have hes := S.classField_recursive N hfe.symm
+    obtain ⟨rfl, hes⟩ := S.classField_reflexive N hfe.symm
     dsimp only at hes
     subst hes
     dsimp only [classFieldSet] at hget
-    dsimp only [IhOkN, ihSemN, recSemN]
+    rw [S.IhOkN_nil]
+    dsimp only [ihSemN, lamCtx_nil, readEnv_zero, List.reverse_nil, appList_nil, recSemN]
     rw [S.memberIdx_earlier M ls N ps (by omega)]
     exact S.RecGraphN_recFnN M ls N q (hkey _ hget)
   | container =>
@@ -572,7 +578,7 @@ theorem class_total_of {ps : List V} (hcl : S.ClassLaws M ls N ps) (ex : RecEx V
   intro j c fs hc hfit
   exact ⟨_, S.RecGraphN_intro M ls N q (Or.inr ⟨j, c, fs, _, rfl, hc,
     S.ClassFits_mono M ls N hcl hX (S.Fam_mem_univ M ls _ _) hXF hfit, rfl,
-    S.IhOkN_ihSemN_class_of M ls N q hcl ex hkey (fun _ _ hy => hy.2) (List.mem_of_getElem? hc) hfit,
+    S.IhOkN_ihSemN_class_of M ls N q ex hkey (fun _ _ hy => hy.2) hfit,
     rfl⟩)⟩
 
 /-- **Totality of the joint graph** on the family and on the class
@@ -602,10 +608,6 @@ theorem RecGraphN_total (hN : S.nest = some N) (hz : S.z ls = false) {ps : List 
     obtain ⟨k, f⟩ := kf
     cases f with
     | ordinary _ => simp [Field.isRec] at hrec
-    | recursive es =>
-      dsimp only [fieldSet] at hget
-      rw [hz, mem_fibreR_false] at hget
-      exact S.RecGraphN_recFnN M ls N q (hget.2.2 rfl)
     | reflexive tele es =>
       dsimp only [fieldSet] at hget
       dsimp only [IhOkN, ihSemN]
@@ -645,10 +647,6 @@ theorem IhOkN_ihSemN (hN : S.nest = some N) (hz : S.z ls = false) {ps : List V}
   obtain ⟨k, f⟩ := kf
   cases f with
   | ordinary _ => simp [Field.isRec] at hrec
-  | recursive es =>
-    dsimp only [fieldSet] at hget
-    rw [hz, mem_fibreR_false] at hget
-    exact S.RecGraphN_recFnN M ls N q (ht.1 _ _ hget.2)
   | reflexive tele es =>
     dsimp only [fieldSet] at hget
     dsimp only [IhOkN, ihSemN]
@@ -668,14 +666,14 @@ theorem IhOkN_ihSemN (hN : S.nest = some N) (hz : S.z ls = false) {ps : List V}
 demands, at a container constructor's fitting fields. -/
 theorem IhOkN_ihSemN_class (hN : S.nest = some N) (hz : S.z ls = false) {ps : List V}
     (hcl : S.ClassLaws M ls N ps) (ex : RecEx V)
-    {c : CtorSpec} (hcm : c ∈ N.K.ctors) {fs : List V}
+    {c : CtorSpec} {fs : List V}
     (hfit : S.ClassFits M ls N (S.Fam M ls ps (S.memberIdx M ls N ps)) (fun _ => True) ps
       (S.classCtor N c).fields fs) :
     ListRel (S.IhOkN M ls q (S.RecGraphN M ls N q) ps ex fs) (S.classCtor N c).recFields
       ((S.classCtor N c).recFields.map (S.ihSemN M ls N q ps ex fs)) := by
   have ht := S.RecGraphN_total M ls N q hN hz hcl ex
-  exact S.IhOkN_ihSemN_class_of M ls N q hcl ex
-    (fun x hx => ht.1 _ _ (S.Mem_of_mem_Fam_false M ls hz hx)) (fun y hy _ => ht.2 y hy) hcm hfit
+  exact S.IhOkN_ihSemN_class_of M ls N q ex
+    (fun x hx => ht.1 _ _ (S.Mem_of_mem_Fam_false M ls hz hx)) (fun y hy _ => ht.2 y hy) hfit
 
 /-- **The ι equation of `T.rec`**: at a constructor value whose fields
 fit, the recursor is the minor at the fields and the hypotheses'
@@ -706,7 +704,7 @@ theorem rec1Sem_eq (hN : S.nest = some N) (hz : S.z ls = false) {ps : List V}
           (fs.reverse ++ (S.classCtor N c).recFields.map (S.ihSemN M ls N q ps ex fs)) := by
   unfold rec1Sem
   exact S.recFnN_eq M ls N q (S.RecGraphN_intro M ls N q (Or.inr ⟨j, c, fs, _, rfl, hc, hfit, rfl,
-    S.IhOkN_ihSemN_class M ls N q hN hz hcl ex (List.mem_of_getElem? hc) hfit, rfl⟩))
+    S.IhOkN_ihSemN_class M ls N q hN hz hcl ex hfit, rfl⟩))
 
 /-! ## Typing -/
 
@@ -714,13 +712,13 @@ theorem rec1Sem_eq (hN : S.nest = some N) (hz : S.z ls = false) {ps : List V}
 constructor at a member set on which `T.rec` is typed, with `T.rec_1`
 typed on the `Q`-members of the class at it, the hypotheses' semantic
 values are typed. -/
-theorem IhTypedN_ihSemN_class_of {ps : List V} (hcl : S.ClassLaws M ls N ps) (ex : RecEx V)
+theorem IhTypedN_ihSemN_class_of {ps : List V} (ex : RecEx V)
     {X : V} {Q : V → Prop}
     (hkey : ∀ x, x ∈ˢ X → S.recFnN M ls N q ps ex (false, S.memberIdx M ls N ps) x ∈ˢ
       appList ex.m ((S.memberIdx M ls N ps).reverse ++ [x]))
     (hQ : ∀ y, y ∈ˢ S.classSet M ls N ps X → Q y →
       S.rec1Sem M ls N q ps ex y ∈ˢ appList ex.m1 [y])
-    {c : CtorSpec} (hcm : c ∈ N.K.ctors) {fs : List V}
+    {c : CtorSpec} {fs : List V}
     (hfit : S.ClassFits M ls N X Q ps (S.classCtor N c).fields fs) :
     ListRel (S.IhTypedN M ls q ps ex fs) (S.classCtor N c).recFields
       ((S.classCtor N c).recFields.map (S.ihSemN M ls N q ps ex fs)) := by
@@ -732,14 +730,14 @@ theorem IhTypedN_ihSemN_class_of {ps : List V} (hcl : S.ClassLaws M ls N ps) (ex
   obtain ⟨k, f⟩ := kf
   cases f with
   | ordinary _ => simp [Field.isRec] at hrec
-  | reflexive tele es => exact (hcl.noRefl c hcm tele es (List.mem_of_getElem? hf)).elim
-  | recursive es =>
+  | reflexive tele es =>
     obtain ⟨f₀, -, hfe⟩ := S.classCtor_fields_get N c hf hk
-    have hes := S.classField_recursive N hfe.symm
+    obtain ⟨rfl, hes⟩ := S.classField_reflexive N hfe.symm
     dsimp only at hes
     subst hes
     dsimp only [classFieldSet] at hget
-    dsimp only [IhTypedN, ihSemN, recSemN]
+    dsimp only [IhTypedN, ihSemN, piCtx_nil, lamCtx_nil, readEnv_zero, List.reverse_nil, appList_nil,
+      recSemN]
     rw [S.memberIdx_earlier M ls N ps (by omega)]
     exact hkey _ hget
   | container =>
@@ -762,8 +760,8 @@ theorem class_mem_of (hN : S.nest = some N) (hz : S.z ls = false) {ps : List V}
   have hfitM := S.ClassFits_mono M ls N hcl hX (S.Fam_mem_univ M ls _ _) hXF hfit
   show S.rec1Sem M ls N q ps ex (tag j (tuple fs.reverse)) ∈ˢ appList ex.m1 [tag j (tuple fs.reverse)]
   rw [S.rec1Sem_eq M ls N q hN hz hcl ex hc hfitM]
-  exact hminK j c hc fs hfitM _ (S.IhTypedN_ihSemN_class_of M ls N q hcl ex hkey
-    (fun _ _ hy => hy.2) (List.mem_of_getElem? hc) hfit)
+  exact hminK j c hc fs hfitM _ (S.IhTypedN_ihSemN_class_of M ls N q ex hkey
+    (fun _ _ hy => hy.2) hfit)
 
 /-- **The recursors' typing** (above a proposition): at a member of
 the fibre, `T.rec`'s value lies in the block's motive at the indices
@@ -800,11 +798,6 @@ theorem recSemN_mem (hN : S.nest = some N) (hz : S.z ls = false) {ps : List V}
     obtain ⟨k, f⟩ := kf
     cases f with
     | ordinary _ => simp [Field.isRec] at hrec
-    | recursive es =>
-      dsimp only [fieldSet] at hget
-      rw [hz, mem_fibreR_false] at hget
-      dsimp only [IhTypedN, ihSemN, recSemN]
-      exact hget.2.2 rfl
     | reflexive tele es =>
       dsimp only [fieldSet] at hget
       dsimp only [IhTypedN, ihSemN]
@@ -849,10 +842,6 @@ theorem IhTypedN_ihSemN (hN : S.nest = some N) (hz : S.z ls = false) {ps : List 
   obtain ⟨k, f⟩ := kf
   cases f with
   | ordinary _ => simp [Field.isRec] at hrec'
-  | recursive es =>
-    dsimp only [fieldSet] at hget
-    dsimp only [IhTypedN, ihSemN]
-    exact hrec.1 _ _ hget
   | reflexive tele es =>
     dsimp only [fieldSet] at hget
     dsimp only [IhTypedN, ihSemN]
@@ -877,14 +866,14 @@ theorem IhTypedN_ihSemN_class (hN : S.nest = some N) (hz : S.z ls = false) {ps :
     (hmin : ∀ j c, S.ctors[j]? = some c → S.MinorOkN M ls q ps ex j c)
     (hminK : ∀ j c, N.K.ctors[j]? = some c → S.MinorOkK M ls N q ps ex j c)
     (hmo : q = true → ∀ is t, t ∈ˢ S.Fam M ls ps is → appList ex.m (is.reverse ++ [t]) ∈ˢ (univ 0 : V))
-    {c : CtorSpec} (hcm : c ∈ N.K.ctors) {fs : List V}
+    {c : CtorSpec} {fs : List V}
     (hfit : S.ClassFits M ls N (S.Fam M ls ps (S.memberIdx M ls N ps)) (fun _ => True) ps
       (S.classCtor N c).fields fs) :
     ListRel (S.IhTypedN M ls q ps ex fs) (S.classCtor N c).recFields
       ((S.classCtor N c).recFields.map (S.ihSemN M ls N q ps ex fs)) := by
   have hrec := S.recSemN_mem M ls N q hN hz hcl ex hmin hminK hmo
-  exact S.IhTypedN_ihSemN_class_of M ls N q hcl ex (fun x hx => hrec.1 _ _ hx)
-    (fun y hy _ => hrec.2 y hy) hcm hfit
+  exact S.IhTypedN_ihSemN_class_of M ls N q ex (fun x hx => hrec.1 _ _ hx)
+    (fun y hy _ => hrec.2 y hy) hfit
 
 /-- **The motives are inhabited** on the family and on the class, at
 a proposition (where the values are not the recursors'): by the
@@ -915,14 +904,12 @@ theorem motive_inhabitedN (hN : S.nest = some N) {ps : List V}
       cases f with
       | ordinary _ => simp [Field.isRec] at hrec
       | reflexive tele es =>
-        exact (hcl.noRefl c (List.mem_of_getElem? hc) tele es (List.mem_of_getElem? hf)).elim
-      | recursive es =>
         obtain ⟨f₀, -, hfe⟩ := S.classCtor_fields_get N c hf hk
-        have hes := S.classField_recursive N hfe.symm
+        obtain ⟨rfl, hes⟩ := S.classField_reflexive N hfe.symm
         dsimp only at hes
         subst hes
         dsimp only [classFieldSet] at hget
-        dsimp only [IhTypedN]
+        dsimp only [IhTypedN, piCtx_nil, readEnv_zero, List.reverse_nil, appList_nil]
         rw [S.memberIdx_earlier M ls N ps (by omega)]
         exact hkey _ hget
       | container =>
@@ -951,11 +938,6 @@ theorem motive_inhabitedN (hN : S.nest = some N) {ps : List V}
       obtain ⟨k, f⟩ := kf
       cases f with
       | ordinary _ => simp [Field.isRec] at hrec
-      | recursive es =>
-        dsimp only [fieldSet] at hget
-        dsimp only [IhTypedN]
-        exact S.memb_of_fibreN M ls (Q := fun t => ∃ v, v ∈ˢ appList ex.m (_ ++ [t]))
-          (fibreR_mono (fun x hx => ⟨hx.1, hx.2 rfl⟩) _ hget)
       | reflexive tele es =>
         dsimp only [fieldSet] at hget
         dsimp only [IhTypedN]

@@ -162,7 +162,6 @@ theorem fieldScoped.mono {env env' : Env} {k : Nat} {f : Field} (h : S.fieldScop
     (hm : ∀ n, (env.find? n).isSome → (env'.find? n).isSome) : S.fieldScoped env' k f := by
   cases f with
   | ordinary A => exact Expr.Scoped.mono h hm
-  | recursive es => exact ⟨h.1, fun e he => (h.2 e he).mono hm⟩
   | reflexive tele es =>
     exact ⟨fun t T hT => (h.1 t T hT).mono hm, h.2.1, fun e he => (h.2.2 e he).mono hm⟩
   | container => exact h
@@ -290,9 +289,6 @@ theorem Agree.fieldSet_eq (h : S.Agree env M M' ls ls') (B : List V → List V �
     S.fieldSet M ls B P ps fs f = S.fieldSet M' ls' B P ps fs f := by
   cases f with
   | ordinary A => exact h.read hf _
-  | recursive es =>
-    simp only [fieldSet]
-    rw [h.z_eq, h.idxVals_eq hf.2]
   | reflexive tele es =>
     simp only [fieldSet]
     rw [h.z_eq]
@@ -347,9 +343,6 @@ theorem Agree.toTeleX_eq (h : S.Agree env M M' ls ls') (ps : List V) :
       congr 1
       funext v
       exact ih _
-    | recursive es =>
-      simp only [toTeleX]
-      rw [h.idxVals_eq hk.2, ih]
     | reflexive tele es =>
       simp only [toTeleX]
       rw [h.toTeleS_eq (tele_in hk), ih]
@@ -378,9 +371,6 @@ theorem Agree.toTeleXK_eq (h : S.Agree env M M' ls ls') {N : NestInfo} (hN : S.n
         congr 1
         funext v
         exact ih _
-      | recursive es =>
-        simp only [toTeleXK, if_neg hm]
-        rw [ih]
       | reflexive tele es =>
         simp only [toTeleXK, if_neg hm]
         rw [ih]
@@ -532,7 +522,6 @@ theorem consts_fieldDom (hS : S.Scoped env) {k : Nat} {f : Field} (hf : S.fieldS
     ∀ c ∈ (S.fieldDom k f).consts, c = S.name ∨ (env.find? c).isSome := by
   cases f with
   | ordinary A => exact fun c hc => Or.inr (hf.2.1 c hc)
-  | recursive es => exact S.consts_famAt fun e he => (hf.2 e he).2.1
   | reflexive tele es =>
     intro c hc
     simp only [fieldDom] at hc
@@ -582,7 +571,6 @@ theorem Agree.domsBounded_imp (h : S.Agree env M M' ls ls') (ps : List V) :
   | reflexive tele es =>
     dsimp only at this ⊢
     rwa [h.toTeleS_eq (tele_in hsc), h.u₀_eq] at this
-  | recursive _ => trivial
   | container => trivial
 
 /-! ### The hygiene lemmas, at one assignment change -/

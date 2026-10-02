@@ -10,8 +10,9 @@ public import Fragment.NestRec
 
 The container's constructors are generated into the block's recursors
 in the block's own terms (`classCtor`, `Decl.lean`): the member field
-becomes a recursive field at the member's index expressions, the
-container's recursive fields become container fields, and an ordinary
+becomes a recursive field (reflexive with an empty telescope) at the
+member's index expressions, the container's recursive fields become
+container fields, and an ordinary
 field has the container's parameters replaced by the class's
 arguments (`instChainAt`).  This file shows that the fields of a
 translated constructor fit (`ClassFits`, `NestRec.lean`) exactly when
@@ -189,8 +190,7 @@ theorem positive_field (hpos : N.Positive) {c : CtorSpec} (hc : c ∈ N.K.ctors)
         (A.usesVar (N.memberVar (fields.length - 1 - i)) = false ∧
           ∀ i' f', fields[i']? = some f' → i < i' →
             N.isMember (fields.length - 1 - i') f' = true → A.usesVar (i' - i - 1) = false)
-    | Field.recursive es => es = []
-    | Field.reflexive _ _ => False
+    | Field.reflexive tele es => tele = [] ∧ es = []
     | Field.container => False := by
   subst hd
   have hlt : i < (c.fields.drop n).length := (List.getElem?_eq_some_iff.mp hi).1
@@ -211,7 +211,6 @@ theorem positive_field (hpos : N.Positive) {c : CtorSpec} (hc : c ∈ N.K.ctors)
       have := hlater (n + i') f' (by rw [List.getElem?_drop] at hi'; exact hi') (by omega)
         (by rw [hk']; exact hm)
       rwa [show n + i' - (n + i) - 1 = i' - i - 1 by omega] at this
-  | recursive es => exact h
   | reflexive _ _ => exact h
   | container => exact h
 
@@ -302,8 +301,10 @@ theorem classFieldSet_eq (hf : S.NestFacts M ls N) (hlen : N.args.length + 1 = N
   have hzK : N.KS.z (S.lsK ls N) = false := by rw [hf.z_eq]; exact hz
   cases f with
   | ordinary A => exact S.classFieldSet_eq_ordinary M ls N hf hlen hlsK hKS hc hd hi X Q ps _ _ hk
-  | recursive es =>
-    simp only [classField, classFieldSet, fieldSet, hpf, idxVals, List.map_nil, List.reverse_nil, hzK]
+  | reflexive tele es =>
+    obtain ⟨rfl, rfl⟩ := hpf
+    simp only [classField, classFieldSet, fieldSet, piCtx_nil, idxVals, List.map_nil,
+      List.reverse_nil, hzK]
     rw [S.classSet_eq_Fam hf hp hX]
     unfold Fam
     rw [hzK]
@@ -311,7 +312,6 @@ theorem classFieldSet_eq (hf : S.NestFacts M ls N) (hlen : N.args.length + 1 = N
     intro y
     simp only [mem_fibreR_false, mem_sep, hP]
     exact ⟨fun ⟨⟨h1, h2⟩, h3⟩ => ⟨h1, h2, h3⟩, fun ⟨h1, h2, h3⟩ => ⟨⟨h1, h2⟩, h3⟩⟩
-  | reflexive _ _ => exact hpf.elim
   | container => exact hpf.elim
 
 theorem ClassFits_length' {X : V} {Q : V → Prop} {ps : List V} :
@@ -389,10 +389,9 @@ theorem KS_FitsFields_class (hf : S.NestFacts M ls N) (hz : S.z ls = false) {X :
     have hzK : N.KS.z (S.lsK ls N) = false := by rw [hf.z_eq]; exact hz
     cases f with
     | ordinary _ => exact h2
-    | recursive es =>
-      simp only at hpf
-      subst hpf
-      simp only [fieldSet, hzK, idxVals, List.map_nil, List.reverse_nil] at h2 ⊢
+    | reflexive tele es =>
+      obtain ⟨rfl, rfl⟩ := hpf
+      simp only [fieldSet, piCtx_nil, hzK, idxVals, List.map_nil, List.reverse_nil] at h2 ⊢
       rw [mem_fibreR_false] at h2 ⊢
       have hb := h2.1
       have hm := (hP v h2.2).1
@@ -402,7 +401,6 @@ theorem KS_FitsFields_class (hf : S.NestFacts M ls N) (hz : S.z ls = false) {X :
       unfold Fam
       rw [hzK, mem_fibreR_false]
       exact ⟨hb, hm⟩
-    | reflexive _ _ => exact hpf.elim
     | container => exact hpf.elim
 
 /-- **The class's laws** from the container's fixed point: inversion,
@@ -456,19 +454,6 @@ theorem classLaws_of (hf : S.NestFacts M ls N) (hlen : N.args.length + 1 = N.nPK
       (List.drop_zero (l := c.fields)) hfit
   mem_univ := fun X hX => (S.contGood_of hf hN N hN ps hp).2 X hX
   mono := fun X Y hXY hX hY => (S.contGood_of hf hN N hN ps hp).1 X Y hXY hX hY
-  noRefl := fun c hc tele es hmem => by
-    simp only [classCtor] at hmem
-    obtain ⟨i, hi⟩ := List.mem_iff_getElem?.mp hmem
-    rw [S.classFields_getElem?, Option.map_eq_some_iff] at hi
-    obtain ⟨f, hf₀, hf'⟩ := hi
-    have hpf := positive_field N hf.positive hc (List.drop_zero (l := c.fields)) hf₀
-    cases f with
-    | ordinary A =>
-      simp only [classField] at hf'
-      split at hf' <;> cases hf'
-    | recursive _ => simp [classField] at hf'
-    | reflexive _ _ => exact hpf.elim
-    | container => exact hpf.elim
 
 end Corr
 

@@ -36,8 +36,8 @@ the universe; that it is a *member* — a type, not a proper class — is
 the strength of the universes (an inaccessible cardinal), and the
 class states it once, as **inductive closure**: for any list of
 constructor telescopes (`TeleX`: ordinary fields with domains
-depending on the earlier ordinary fields, recursive fields at an
-index, reflexive fields — functions from a telescope of sets into the
+depending on the earlier ordinary fields, fields in the family at an
+index, fields that are functions from a telescope of sets into the
 family — after which nothing depends on the value) some family of
 members is closed under every *bounded instance* of every constructor
 (every domain met along the fields a member of the universe).  The
@@ -97,20 +97,22 @@ end TeleS
 
 /-- **A constructor telescope** relative to a family over an index
 type `ι`, outermost first: an *ordinary* field with a domain, the rest
-depending on its value; a *recursive* field at an index; a *reflexive*
-field — a function from a telescope of sets into the family at
-targets depending on the arguments.  After a recursive or reflexive
-field the rest does not depend on the value (con-leche's
+depending on its value; a field *in the family* at an index (`recur`:
+what a container field, and the member field of a container, is read
+as); a field that is a *function* from a telescope of sets into the
+family at targets depending on the arguments (`refl`: a reflexive
+field of the block, with the empty telescope when it is recursive).
+After either the rest does not depend on the value (con-leche's
 `structUsedLater` guard run by `nestCtors`, `Positivity.lean:1247`). -/
 inductive TeleX (ι : Type u) (V : Type u) : Type u where
   /-- No more fields. -/
   | nil : TeleX ι V
   /-- An ordinary field. -/
   | ord (A : V) (rest : V → TeleX ι V) : TeleX ι V
-  /-- A recursive field, in the family at `i`. -/
+  /-- A field in the family at `i`. -/
   | recur (i : ι) (rest : TeleX ι V) : TeleX ι V
-  /-- A reflexive field: a function over `tele` into the family at
-  `tgt` of the arguments. -/
+  /-- A field that is a function over `tele` into the family at `tgt`
+  of the arguments (a reflexive field). -/
   | refl (tele : TeleS V) (tgt : List V → ι) (rest : TeleX ι V) : TeleX ι V
 
 namespace TeleX
@@ -119,7 +121,7 @@ variable {ι : Type u} {V : Type u} [SetLib V]
 
 /-- **A bounded instance** of a constructor telescope relative to a
 family `W`: values (outermost first) fitting it, every domain met a
-member of `univ n`, recursive values in `W` at their index, reflexive
+member of `univ n`, `recur` values in `W` at their index, `refl`
 values in the function space into `W` at the targets. -/
 def FitsB (n : Nat) (W : ι → V) : TeleX ι V → List V → Prop
   | nil, [] => True

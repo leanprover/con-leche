@@ -355,11 +355,6 @@ theorem motive_inhabited (hnc : S.NoCont) (q : Bool) {ps : List V} (m : V) (mins
     cases f with
     | ordinary _ => simp [Field.isRec] at hrec
     | container => exact (S.noCont_absurd hnc (List.mem_of_getElem? hc) hf).elim
-    | recursive es =>
-      dsimp only [fieldSet] at hget
-      dsimp only [IhTyped]
-      exact S.memb_of_fibre M ls (Q := fun t => ∃ v, v ∈ˢ appList m (_ ++ [t]))
-        (fibreR_mono (fun x hx => ⟨hx.1, hx.2 rfl⟩) _ hget)
     | reflexive tele es =>
       dsimp only [fieldSet] at hget
       dsimp only [IhTyped]

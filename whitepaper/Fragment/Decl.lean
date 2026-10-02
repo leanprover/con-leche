@@ -30,10 +30,11 @@ derivations being in the empty context (`ScopeOfInfer.lean`).
 is given by a **specification** (`IndSpec`): a type former with level
 parameters, a parameter telescope, an index telescope and a result
 sort, and constructors whose fields are *ordinary* (any domain not
-mentioning the block), *recursive* (the family at the block's
-parameters and some index expressions) or *reflexive* (a function
-space into the family — the one shape that makes an inductive type
-large).  The types of the former, the constructors and the recursor,
+mentioning the block) or *reflexive* (a function space, under a
+telescope of binders, into the family at the block's parameters and
+some index expressions — the one shape that makes an inductive type
+large; with an empty telescope the field is simply *recursive*, the
+family itself).  The types of the former, the constructors and the recursor,
 and the recursor's rules, are **generated** from the specification
 (`indType`, `ctorType`, `recType`, `ruleRhs`); the checker's checks
 are then: the generated former's and constructors' types have sorts
@@ -183,7 +184,6 @@ def classTy (N : NestInfo) (o : Nat) : Expr := mkAppN (.const N.K.name N.lsK) (S
 is the class, when the block has one.) -/
 def fieldDom (k : Nat) : Field → Expr
   | .ordinary A => A
-  | .recursive es => S.famAt k es
   | .reflexive tele es => mkPis S.pw tele (S.famAt (k + tele.length) es)
   | .container =>
     match S.nest with
@@ -224,8 +224,9 @@ def ctorType (c : CtorSpec) : Expr :=
 `∀ indices (t : I params indices), Sort ℓ`. -/
 def motiveTy : Expr := mkPis .never (S.famVars 0 :: S.indices) (.sort S.ℓ)
 
-/-- The fields with an inductive hypothesis, outermost first, each
-with its number of earlier fields. -/
+/-- The fields with an inductive hypothesis (the reflexive ones —
+recursive when the telescope is empty — and the container ones),
+outermost first, each with its number of earlier fields. -/
 def _root_.Fragment.CtorSpec.recFields (c : CtorSpec) : List (Nat × Field) :=
   ((List.range c.fields.length).filterMap fun k =>
     match c.fields[c.fields.length - 1 - k]? with
@@ -235,12 +236,10 @@ def _root_.Fragment.CtorSpec.recFields (c : CtorSpec) : List (Nat × Field) :=
 /-- **An inductive hypothesis' type** for the field with `k` earlier
 fields, `l` earlier hypotheses, `o` binders between the parameters
 and the fields (the motive sits `nF + l + o - 1` binders above):
-`motive es f` at a recursive field, `∀ tele, motive es (f tele)` at a
-reflexive one. -/
+`∀ tele, motive es (f tele)` at a reflexive field (`motive es f` when
+the telescope is empty). -/
 def ihTy (nF k l o : Nat) : Field → Expr
   | .ordinary _ => .sort .zero
-  | .recursive es =>
-    mkAppN (.bvar (nF + l + o - 1)) (es.map (atCtx nF k l o 0) ++ [.bvar (nF - 1 - k + l)])
   | .reflexive tele es =>
     let m := tele.length
     mkPis S.q (liftCtx (fun t T => atCtx nF k l o t T) tele)
@@ -290,10 +289,6 @@ telescope at a reflexive field). -/
 def ihVal (nF k : Nat) : Field → Expr
   | .ordinary _ => .sort .zero
   | .container => .sort .zero
-  | .recursive es =>
-    mkAppN (.const S.recName S.recLvls)
-      (varsAt (nF + S.n + 1) S.nP ++ [.bvar (nF + S.n)] ++ varsAt nF S.n ++
-        es.map (atCtx nF k 0 (S.n + 1) 0) ++ [.bvar (nF - 1 - k)])
   | .reflexive tele es =>
     let m := tele.length
     mkLams S.q (liftCtx (fun t T => atCtx nF k 0 (S.n + 1) t T) tele)
@@ -346,18 +341,19 @@ differing in the major: the block's family at its indices for `T.rec`,
 the class for `T.rec_1` (con-leche's `classGenRecTy`, `GenRec.lean`).
 The container's constructors are read in the block's own terms
 (`classCtor`): the member field becomes a recursive field of the block
-at the member's index expressions, a recursive field of the container
-becomes a container field, an ordinary field has the container's
-parameters replaced by the class's arguments. -/
+(reflexive with an empty telescope) at the member's index expressions,
+a recursive field of the container becomes a container field, an
+ordinary field has the container's parameters replaced by the class's
+arguments. -/
 
 /-- The container's field with `k` earlier fields, in the block's
 terms. -/
 def classField (N : NestInfo) (k : Nat) : Field → Field
   | .ordinary A =>
-    if N.isMember k (.ordinary A) then .recursive (N.idx.map (liftN k ·))
+    if N.isMember k (.ordinary A) then .reflexive [] (N.idx.map (liftN k ·))
     else .ordinary (instChainAt (A.instL N.K.lparams N.lsK) (S.classArgs N 0) k)
-  | .recursive _ => .container
-  | f => f
+  | .reflexive _ _ => .container
+  | .container => .container
 
 /-- The container's fields (innermost first), in the block's terms. -/
 def classFields (N : NestInfo) : List Field → List Field
@@ -454,14 +450,11 @@ def rec1Type (N : NestInfo) : Expr :=
   mkPis S.q (S.rec1Ctx N) (mkAppN (.bvar (S.oN N - 1)) [.bvar 0])
 
 /-- **An inductive hypothesis' value** in a rule of a nested block:
-`T.rec` at the field for a recursive field, `T.rec_1` at the field
-for a container field — each at the parameters and all the extras. -/
+`T.rec` at the field (under its telescope) for a reflexive field,
+`T.rec_1` at the field for a container field — each at the parameters
+and all the extras. -/
 def ihValN (N : NestInfo) (nF k : Nat) : Field → Expr
   | .ordinary _ => .sort .zero
-  | .recursive es =>
-    mkAppN (.const S.recName S.recLvls)
-      (varsAt (nF + S.oN N) S.nP ++ varsAt nF (S.oN N) ++
-        es.map (atCtx nF k 0 (S.oN N) 0) ++ [.bvar (nF - 1 - k)])
   | .reflexive tele es =>
     let m := tele.length
     mkLams S.q (liftCtx (fun t T => atCtx nF k 0 (S.oN N) t T) tele)
@@ -627,32 +620,29 @@ namespace IndSpec
 variable (S : IndSpec)
 
 /-- The scope of a field's pieces: with `k` earlier fields, an
-ordinary domain is in scope under the parameters and them; a recursive
-field's index expressions too; a reflexive field's telescope entries
-under the earlier telescope entries as well, and its index
-expressions under the whole telescope; a recursive or reflexive
-field's index expressions are as many as the indices.  No piece
+ordinary domain is in scope under the parameters and them; a
+reflexive field's telescope entries under the earlier telescope
+entries as well, and its index expressions under the whole telescope
+(under the parameters and the earlier fields alone when the telescope
+is empty); a reflexive field's index expressions are as many as the
+indices.  No piece
 mentions the block (it is not stored in `env`): that is **strict
 positivity** in the shape the fragment admits (con-leche's
 `nestPos`, `ConLeche/Kernel/Inductives/Positivity.lean:1453`). -/
 def fieldScoped (env : Env) (k : Nat) : Field → Prop
   | .ordinary A => Expr.Scoped env S.lparams (S.nP + k) A
-  | .recursive es => es.length = S.nI ∧ ∀ e ∈ es, Expr.Scoped env S.lparams (S.nP + k) e
   | .reflexive tele es =>
     (∀ t T, tele[t]? = some T → Expr.Scoped env S.lparams (S.nP + k + (tele.length - 1 - t)) T) ∧
     es.length = S.nI ∧ (∀ e ∈ es, Expr.Scoped env S.lparams (S.nP + k + tele.length) e)
   | .container => S.nest.isSome = true
 
-/-- **No field reads an earlier recursive field**: an ordinary domain,
-a reflexive field's telescope entries and its index expressions, and
-a recursive field's index expressions do not use the variable of any
-earlier recursive or reflexive field (con-leche's `structUsedLater`
+/-- **No field reads an earlier recursive field**: an ordinary domain
+and a reflexive field's telescope entries and index expressions do not
+use the variable of any earlier reflexive field (con-leche's `structUsedLater`
 guard, `StructParts.lean:393`, run by `nestCtors`, `Positivity.lean:1247`:
 the model reads the domains at a frame with arbitrary recursive slots). -/
 def fieldNoRecDep (earlier : List Field) : Field → Prop
   | .ordinary A => ∀ i f, earlier[i]? = some f → f.isRec = true → A.usesVar i = false
-  | .recursive es => ∀ i f, earlier[i]? = some f → f.isRec = true →
-      ∀ e ∈ es, e.usesVar i = false
   | .reflexive tele es =>
     (∀ i f, earlier[i]? = some f → f.isRec = true →
       (∀ (t : Nat) (T : Expr), tele[t]? = some T → T.usesVar (tele.length - 1 - t + i) = false) ∧

@@ -518,3 +518,29 @@ comment block at the top of `lib.typ`.
     checks on a definition (`Kernel/CheckerBase.lean`); the model
     proof could take them from the derivations the same way. (Scope
     lane, 2026-10-02.)
+
+
+31. **A recursive field is a reflexive field with an empty telescope.**
+    The fragment's `Field` had both kinds (`recursive es` and
+    `reflexive tele es`), as the real checker's `RecFieldKind` has
+    (`Kernel/Inductives/FieldTele.lean`); but every generator
+    (`fieldDom`, `ihTy`, `ihVal`, `ihValN`, `Fragment/Decl.lean`) and
+    every semantic clause (`fieldSet`, `IhOk`, `ihSem`, `IhTyped`,
+    `Fragment/IndSem.lean`; their nested twins in `NestRec.lean`)
+    produced, at `tele = []`, exactly the recursive clause's term or
+    set — `mkPis pw [] b = b`, `piCtx … [] F = F ρ`, `lamCtx … [] g =
+    g ρ` are all `rfl`. Merging the kinds (`reflexive [] es` for the
+    old `recursive es`) removed 88 `recursive` match arms over 18
+    files — about twenty definitional clauses, the rest duplicated
+    proof cases, each a special case of the reflexive one — for a net
+    −303 lines, and one law of the class (`ClassLaws.noRefl`, "no
+    translated constructor has a reflexive field") became a two-line
+    lemma (`classField_reflexive`, `Fragment/NestRec.lean`: the only
+    reflexive field a translation produces is the member's, with the
+    empty telescope). The positivity clause for a container's own
+    recursive field is now `tele = [] ∧ es = []`
+    (`NestInfo.Positive`, `Fragment/Spec.lean`). The real checker
+    could do the same: its `recursive` kind is `reflexive` with an
+    empty telescope, and its generators and the model's field
+    readings would lose their duplicated case. (Field-merge lane,
+    2026-10-02.)

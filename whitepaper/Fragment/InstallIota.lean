@@ -552,23 +552,6 @@ theorem ihVal_ok (φ : Name → Nat) (ρ : Nat → V) {us : List Level}
   cases f with
   | ordinary _ => simp [Field.isRec] at hrec
   | container => exact (S.noCont_absurd (hok.noCont hpl) hcm hkf').elim
-  | recursive es =>
-    -- the field's domain: the family at its index expressions
-    simp only [fieldDom] at hwdD
-    obtain ⟨-, hwdes⟩ := WellDenoted_mkAppN' _ _ hwdD
-    have his : FitsVals m.M (S.ψ (S.lparams.map (Level.substVal φ S.recLparams us))) (envP ps)
-        S.indices (S.idxVals m.M _ (consList (earlier fs k) (envP ps)) es) :=
-      hidx.2.1 k _ hkf' hk
-    simp only [fieldSet] at hget
-    have h := recCall_ok hpl hs m hok φ ρ hus (c := c) (mt := 0) (Nat.le_of_lt hk) (es := es)
-      (fun e he => by simpa using hsc.2 e he) (ys := []) rfl hf hmins hps hp hm hmn
-      (last := Expr.bvar (c.fields.length - 1 - k)) (t := fieldVal fs k)
-      (by simpa using hfv) (by simp) (fun e he => by simpa using hwdes e (List.mem_append_right _ he))
-      (by simpa using his) hget
-    simp only [consList_nil, Nat.zero_add] at h
-    refine ⟨h.1, ?_, h.2.2.2⟩
-    dsimp only [IhTyped]
-    exact h.2.2.1
   | reflexive tele es =>
     have hmt : tele.length = tele.length := rfl
     -- the field's domain: a product over the telescope

@@ -435,7 +435,7 @@ theorem classField_scoped (hS : S.Scoped env) (hN : S.nest = some N) (hKS : N.KS
   | ordinary A =>
     rcases hpf with rfl | ⟨hu, -⟩
     · simp only [classField, NestInfo.isMember, beq_self_eq_true, if_true, fieldScoped]
-      refine ⟨by simpa using hNS.2.2.2.2.2.1, fun e he => ?_⟩
+      refine ⟨fun _ _ hT => by simp at hT, by simpa using hNS.2.2.2.2.2.1, fun e he => ?_⟩
       obtain ⟨b, hb, rfl⟩ := List.mem_map.mp he
       have hb' := hNS.2.2.2.2.2.2.2.1 b hb
       exact ⟨Expr.closedAt_liftN (n := k) (k := 0) hb'.1, by rw [Expr.consts_liftN]; exact hb'.2.1,
@@ -467,10 +467,7 @@ theorem classField_scoped (hS : S.Scoped env) (hN : S.nest = some N) (hKS : N.KS
       · -- level parameters
         refine Expr.lparamsIn_instChainAt _ _ _ ?_ (S.classArgs_lparamsIn' N hS hN 0)
         exact Expr.lparamsIn_instL hNS.2.2.2.1 hNS.2.2.1 hsc.2.2
-  | recursive es =>
-    cases hpf
-    simp [classField, fieldScoped, hN]
-  | reflexive _ _ => exact hpf.elim
+  | reflexive _ _ => simp [classField, fieldScoped, hN]
   | container => exact hpf.elim
 
 /-- **The translated constructor's fields are in the block's scope**,
@@ -899,15 +896,14 @@ theorem classFieldSet_classField (hN : S.nest = some N) (ls : List Nat) {ps : Li
   | ordinary A =>
     simp only [classField]
     split
-    · simp only [classFieldSet, fieldSet]
+    · simp only [classFieldSet, fieldSet, piCtx_nil]
       rw [S.idxVals_liftN M ls ps hk]
       rfl
     · rfl
-  | recursive _ =>
+  | reflexive _ _ =>
     simp only [classField, classFieldSet, fieldSet, hN]
     rw [sep_true trivial, sep_true ⟨hp, hg⟩]
     rfl
-  | reflexive _ _ => rfl
   | container =>
     simp only [classField, classFieldSet, fieldSet, hN]
     rw [sep_true trivial, sep_true ⟨hp, hg⟩]
@@ -978,20 +974,6 @@ theorem Reader.read_ihTy' (R : S.Reader (env := env) M φ M' φ') {c : CtorSpec}
         consList_ge, ← hf, consList_ge, consList_getD (by omega)]
     simp only [ihTy, ihSet]
     rw [interp_mkAppN_appList, interp_bvar, List.map_singleton, interp_bvar, hhead1, hfv]
-  | recursive es =>
-    simp only [ihTy, ihSet]
-    rw [interp_mkAppN_appList, interp_bvar, List.map_append, List.map_map, List.map_singleton,
-      interp_bvar, hhead, hfv]
-    congr 2
-    unfold idxVals
-    rw [List.reverse_reverse]
-    apply List.map_congr_left
-    intro e he
-    simp only [Function.comp]
-    have h1 := interp_atCtx M' φ' ρ e (ys := []) (d := 0) (k := k) (ps := ps) rfl hi hf ho (by omega)
-    simp only [consList_nil] at h1
-    rw [h1, hkd]
-    exact R.read (hsc.2 e he) (by simp [earlier, hf, hps]; omega)
   | reflexive tele es =>
     simp only [ihTy, ihSet]
     rw [interp_mkPis, R.piCtx_liftCtx_atCtx hi hf ho (by omega) hps _ tele hsc.1, hkd]
@@ -1133,13 +1115,12 @@ theorem Reader.classCtorApp_eq (hS : S.Scoped env) (R : S.Reader (env := env) M 
     have hpf := positive_field N hf.positive hcm (List.drop_zero (l := c.fields)) hkf
     cases f with
     | ordinary _ => trivial
-    | recursive es =>
-      simp only at hpf
-      subst hpf
-      simp only [IdxFitAt, idxVals, List.map_nil, List.reverse_nil]
+    | reflexive tele es =>
+      obtain ⟨rfl, rfl⟩ := hpf
+      intro ys _
+      simp only [idxVals, List.map_nil, List.reverse_nil]
       rw [show N.KS.indices = [] from hf.positive.1]
       trivial
-    | reflexive _ _ => exact hpf.elim
     | container => exact hpf.elim
   have hfitC : FitsVals M (N.KS.ψ (S.lsK (S.lparams.map φ) N)) base
       (N.KS.fieldCtx c.fields ++ N.KS.params) (fs ++ S.psK M (S.lparams.map φ) N ps (S.Fam M (S.lparams.map φ) ps (S.memberIdx M (S.lparams.map φ) N ps))) :=

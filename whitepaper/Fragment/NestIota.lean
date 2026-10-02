@@ -837,7 +837,7 @@ theorem FitsFields_classFields_of_KS {M : Name → List Nat → V} {ls : List Na
       · -- the member field
         simp only [List.length_cons, Nat.add_sub_cancel, Nat.sub_zero] at hA
         subst hA
-        simp only [classField, NestInfo.isMember, beq_self_eq_true, if_true, fieldSet]
+        simp only [classField, NestInfo.isMember, beq_self_eq_true, if_true, fieldSet, piCtx_nil]
         simp only [fieldSet, interp_bvar] at h2
         rw [S.read_memberVar M ls N hlen hpN hl] at h2
         rw [S.idxVals_liftN M ls ps hl]
@@ -851,19 +851,17 @@ theorem FitsFields_classFields_of_KS {M : Name → List Nat → V} {ls : List Na
         rw [← e] at h2
         rw [classField, if_neg (by rw [isMember_false_of_usesVar N hu]; exact Bool.false_ne_true)] at h2 ⊢
         exact h2
-    | recursive es =>
-      simp only at hpf
-      subst hpf
+    | reflexive tele es =>
+      obtain ⟨rfl, rfl⟩ := hpf
       simp only [classField]
       rw [S.mem_fieldSet_container M ls N hN]
       refine ⟨?_, hp, S.contGood_of hf hN⟩
-      simp only [fieldSet, idxVals, List.map_nil, List.reverse_nil, hzK] at h2
+      simp only [fieldSet, piCtx_nil, idxVals, List.map_nil, List.reverse_nil, hzK] at h2
       rw [mem_fibreR_true] at h2
       obtain ⟨rfl, y, hy⟩ := h2
       show pt ∈ˢ S.classSet M ls N ps (S.Fam M ls ps (S.memberIdx M ls N ps))
       rw [S.classSet_eq_Fam hf hp (S.Fam_mem_univ M ls _ _), N.KS.mem_Fam_true M _ hzK]
       exact ⟨rfl, y, (S.Mem_psK_mono hf hp hXF (S.Fam_mem_univ M ls _ _) (hP y hy)).1⟩
-    | reflexive _ _ => exact hpf.elim
     | container => exact hpf.elim
 
 omit [LevelOracle] in
@@ -897,7 +895,7 @@ theorem KS_FitsFields_of_classFields {M : Name → List Nat → V} {ls : List Na
       · -- the member field
         simp only [List.length_cons, Nat.add_sub_cancel, Nat.sub_zero] at hA
         subst hA
-        simp only [classField, NestInfo.isMember, beq_self_eq_true, if_true, fieldSet] at h2
+        simp only [classField, NestInfo.isMember, beq_self_eq_true, if_true, fieldSet, piCtx_nil] at h2
         rw [S.idxVals_liftN M ls ps hl] at h2
         simp only [fieldSet, interp_bvar]
         rw [S.read_memberVar M ls N hlen hpN hl]
@@ -910,18 +908,16 @@ theorem KS_FitsFields_of_classFields {M : Name → List Nat → V} {ls : List Na
         rw [← e]
         rw [classField, if_neg (by rw [isMember_false_of_usesVar N hu]; exact Bool.false_ne_true)] at h2 ⊢
         exact h2
-    | recursive es =>
-      simp only at hpf
-      subst hpf
+    | reflexive tele es =>
+      obtain ⟨rfl, rfl⟩ := hpf
       simp only [classField] at h2
       rw [S.mem_fieldSet_container M ls N hN] at h2
       have h2' : v ∈ˢ S.classSet M ls N ps (S.Fam M ls ps (S.memberIdx M ls N ps)) := h2.1
       rw [S.classSet_eq_Fam hf hp (S.Fam_mem_univ M ls _ _)] at h2'
-      simp only [fieldSet, idxVals, List.map_nil, List.reverse_nil, hzK]
+      simp only [fieldSet, piCtx_nil, idxVals, List.map_nil, List.reverse_nil, hzK]
       unfold Fam at h2'
       rw [hzK] at h2'
       exact h2'
-    | reflexive _ _ => exact hpf.elim
     | container => exact hpf.elim
 
 omit [LevelOracle] in
@@ -1145,7 +1141,7 @@ theorem motives_inhabited_prop {M : Name → List Nat → V} {ls : List Nat}
           subst hA
           simp only [classField, NestInfo.isMember, beq_self_eq_true, if_true] at hfe
           subst hfe
-          dsimp only [IhTypedN]
+          dsimp only [IhTypedN, piCtx_nil, List.length_nil, readEnv_zero, List.reverse_nil, appList_nil]
           rw [S.memberIdx_earlier M ls N ps (by omega)]
           simp only [fieldSet, interp_bvar] at hget
           rw [S.read_memberVar M ls N hlen hpN (length_earlier (by omega))] at hget
@@ -1155,18 +1151,16 @@ theorem motives_inhabited_prop {M : Name → List Nat → V} {ls : List Nat}
           rw [classField, if_neg (by rw [isMember_false_of_usesVar N hu]; exact Bool.false_ne_true)] at hfe
           subst hfe
           simp [Field.isRec] at hrec
-      | recursive es =>
-        simp only at hpf
-        subst hpf
+      | reflexive tele es =>
+        obtain ⟨rfl, rfl⟩ := hpf
         simp only [classField] at hfe
         subst hfe
         dsimp only [IhTypedN]
-        simp only [fieldSet, idxVals, List.map_nil, List.reverse_nil, hzK] at hget
+        simp only [fieldSet, piCtx_nil, idxVals, List.map_nil, List.reverse_nil, hzK] at hget
         rw [mem_fibreR_true] at hget
         obtain ⟨hpt, y', -, hP⟩ := hget
         rw [hpt]
         exact hP (by trivial)
-      | reflexive _ _ => exact hpf.elim
       | container => exact hpf.elim
     exact ⟨_, hminK j c hc fs hfitB ihs hihs⟩
   -- the outer induction, over the family
@@ -1189,11 +1183,6 @@ theorem motives_inhabited_prop {M : Name → List Nat → V} {ls : List Nat}
       obtain ⟨k, f⟩ := kf
       cases f with
       | ordinary _ => simp [Field.isRec] at hrec
-      | recursive es =>
-        dsimp only [fieldSet] at hget
-        dsimp only [IhTypedN]
-        exact S.memb_of_fibreN M ls (Q := fun t => ∃ v, v ∈ˢ appList ex.m (_ ++ [t]))
-          (fibreR_mono (fun x hx => ⟨hx.1, hx.2 rfl⟩) _ hget)
       | reflexive tele es =>
         dsimp only [fieldSet] at hget
         dsimp only [IhTypedN]
@@ -2154,8 +2143,8 @@ theorem rec1Call_ok (φ : Name → Nat) (ρ : Nat → V) {us : List Level}
 (for any scoped constructor whose field context is well-denoted):
 well-denoted, a member of the hypothesis' set (`IhTypedN`), and in the
 graph regime the semantic inductive hypothesis — a `T.rec` call at a
-recursive field (through its telescope at a reflexive one), a
-`T.rec_1` call at a container field. -/
+reflexive field (through its telescope), a `T.rec_1` call at a
+container field. -/
 theorem ihValN_ok (φ : Name → Nat) (ρ : Nat → V) {us : List Level}
     (hus : us.length = S.recLparams.length) {c : CtorSpec}
     (hsc : ∀ i f, c.fields[i]? = some f → S.fieldScoped env (c.fields.length - 1 - i) f)
@@ -2214,22 +2203,6 @@ theorem ihValN_ok (φ : Name → Nat) (ρ : Nat → V) {us : List Level}
       ((S.mem_fieldSet_container m.M _ N hok.nest).mp hget).1
     have h := rec1Call_ok hs m hok φ ρ hus hf hk hminsK hmins hps hp hm hm1 hmn hmnK ht
     exact ⟨h.1, h.2.1, h.2.2⟩
-  | recursive es =>
-    simp only [fieldDom] at hwdD
-    obtain ⟨-, hwdes⟩ := WellDenoted_mkAppN' _ _ hwdD
-    have his : FitsVals m.M (S.ψ (S.lparams.map (Level.substVal φ S.recLparams us))) (envP ps)
-        S.indices (S.idxVals m.M _ (consList (earlier fs k) (envP ps)) es) :=
-      hidx k _ hkf' hk
-    simp only [fieldSet] at hget
-    have h := recCall_okN hs m hok φ ρ hus (c := c) (mt := 0) (Nat.le_of_lt hk) (es := es)
-      (fun e he => by simpa using hsc'.2 e he) (ys := []) rfl hf hminsK hmins hps hp hm hm1 hmn hmnK
-      (last := Expr.bvar (c.fields.length - 1 - k)) (t := fieldVal fs k)
-      (by simpa using hfv) (by simp) (fun e he => by simpa using hwdes e (List.mem_append_right _ he))
-      (by simpa using his) hget
-    simp only [consList_nil, Nat.zero_add] at h
-    refine ⟨h.1, ?_, h.2.2.2⟩
-    dsimp only [IhTypedN]
-    exact h.2.2.1
   | reflexive tele es =>
     simp only [fieldDom] at hwdD
     rw [WellDenoted_mkPis] at hwdD

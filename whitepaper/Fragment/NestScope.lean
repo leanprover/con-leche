@@ -151,9 +151,10 @@ section Generated
 variable {env : Env}
 
 /-- **A recursive position of a translated constructor is in the
-block's scope**: a member field became a recursive field at the
-member's index expressions (lifted over the earlier fields), a
-recursive field of the container a container field; an ordinary
+block's scope**: a member field became a recursive field (reflexive
+with an empty telescope) at the member's index expressions (lifted
+over the earlier fields), a recursive field of the container a
+container field; an ordinary
 field carries no hypothesis.  Needs nothing of the container's own
 scope. -/
 theorem classCtor_recField_scoped (hS : S.Scoped env) {N : NestInfo} (hN : S.nest = some N)
@@ -177,7 +178,7 @@ theorem classCtor_recField_scoped (hS : S.Scoped env) {N : NestInfo} (hN : S.nes
   | ordinary A =>
     rcases hpf with rfl | ⟨hu, -⟩
     · simp only [classField, NestInfo.isMember, beq_self_eq_true, if_true, fieldScoped]
-      refine ⟨by simpa using hNS.2.2.2.2.2.1, fun e he => ?_⟩
+      refine ⟨fun _ _ hT => by simp at hT, by simpa using hNS.2.2.2.2.2.1, fun e he => ?_⟩
       obtain ⟨b, hb, rfl⟩ := List.mem_map.mp he
       have hb' := hNS.2.2.2.2.2.2.2.1 b hb
       exact ⟨Expr.closedAt_liftN (n := k) (k := 0) hb'.1, by rw [Expr.consts_liftN]; exact hb'.2.1,
@@ -185,9 +186,7 @@ theorem classCtor_recField_scoped (hS : S.Scoped env) {N : NestInfo} (hN : S.nes
     · rw [classField, if_neg (by rw [isMember_false_of_usesVar N hu]; exact Bool.false_ne_true)]
         at hrec
       simp [Field.isRec] at hrec
-  | recursive es =>
-    simp [classField, fieldScoped, hN]
-  | reflexive _ _ => exact hpf.elim
+  | reflexive _ _ => simp [classField, fieldScoped, hN]
   | container => exact hpf.elim
 
 /-- **A translated field's domain uses the block's level
@@ -217,10 +216,9 @@ theorem lparamsIn_classField_dom (hS : S.Scoped env) {N : NestInfo} (hN : S.nest
       simp only [fieldDom]
       refine Expr.lparamsIn_instChainAt _ _ _ ?_ (S.classArgs_lparamsIn' N hS hN 0)
       exact Expr.lparamsIn_instL hNS.2.2.2.1 hNS.2.2.1 hsc.2.2
-  | recursive es =>
+  | reflexive _ _ =>
     simp only [classField, fieldDom, hN]
     exact S.lparamsIn_classTy hS hN k'
-  | reflexive _ _ => exact hpf.elim
   | container => exact hpf.elim
 
 /-- A translated constructor's field context is over the block's
@@ -391,16 +389,6 @@ theorem lparamsIn_ihValN (N : NestInfo) {k : Nat} {f : Field} (hf : S.fieldScope
     · exact Expr.lparamsIn_varsAt _ _ _ a ha
     · exact Expr.lparamsIn_varsAt _ _ _ a ha
     · rfl
-  | recursive es =>
-    simp only [ihValN]
-    refine Expr.lparamsIn_mkAppN (S.lparamsIn_const_recLvls _) fun a ha => ?_
-    simp only [List.mem_append, List.mem_singleton, List.mem_map] at ha
-    rcases ha with ((ha | ha) | ⟨e, he, rfl⟩) | rfl
-    · exact Expr.lparamsIn_varsAt _ _ _ a ha
-    · exact Expr.lparamsIn_varsAt _ _ _ a ha
-    · rw [Expr.lparamsIn_atCtx]
-      exact Expr.lparamsIn_mono hR (hf.2 e he).2.2
-    · rfl
   | reflexive tele es =>
     simp only [ihValN]
     refine Expr.lparamsIn_mkLams S.q_paramsIn (fun T hT => ?_) ?_
@@ -469,17 +457,6 @@ theorem closedAt_ihValN (N : NestInfo) {k : Nat} {f : Field} (hf : S.fieldScoped
     rcases ha with (ha | ha) | rfl
     · exact Expr.closedAt_varsAt (by omega) a ha
     · exact Expr.closedAt_varsAt (by omega) a ha
-    · rw [Expr.closedAt_bvar, decide_eq_true_eq]
-      omega
-  | recursive es =>
-    simp only [ihValN]
-    refine Expr.closedAt_mkAppN rfl fun a ha => ?_
-    simp only [List.mem_append, List.mem_singleton, List.mem_map] at ha
-    rcases ha with ((ha | ha) | ⟨e, he, rfl⟩) | rfl
-    · exact Expr.closedAt_varsAt (by omega) a ha
-    · exact Expr.closedAt_varsAt (by omega) a ha
-    · exact Expr.closedAt_mono (by omega)
-        (Expr.closedAt_atCtx (j := S.nP + k) (d := 0) (hf.2 e he).1)
     · rw [Expr.closedAt_bvar, decide_eq_true_eq]
       omega
   | reflexive tele es =>
@@ -590,19 +567,6 @@ theorem consts_ihValN (N : NestInfo) (env : Env)
       rcases ha with (ha | ha) | rfl
       · rw [Expr.consts_varsAt _ _ a ha] at hd; simp at hd
       · rw [Expr.consts_varsAt _ _ a ha] at hd; simp at hd
-      · simp at hd
-  | recursive es =>
-    intro d hd
-    simp only [ihValN] at hd
-    rw [Expr.consts_mkAppN, List.mem_append, List.mem_flatMap] at hd
-    rcases hd with hd | ⟨a, ha, hd⟩
-    · exact hrec d hd
-    · simp only [List.mem_append, List.mem_singleton, List.mem_map] at ha
-      rcases ha with ((ha | ha) | ⟨e, he, rfl⟩) | rfl
-      · rw [Expr.consts_varsAt _ _ a ha] at hd; simp at hd
-      · rw [Expr.consts_varsAt _ _ a ha] at hd; simp at hd
-      · rw [Expr.consts_atCtx] at hd
-        exact hspec (hf.2 e he) d hd
       · simp at hd
   | reflexive tele es =>
     intro d hd

@@ -99,7 +99,6 @@ theorem noCont_of_plain (hpl : S.nest = none) (hS : S.Scoped env) : S.NoCont := 
     have := (hS.2.2.2.1 c hc).1 i _ hi
     simp [fieldScoped, hpl] at this
   | ordinary _ => rfl
-  | recursive _ => rfl
   | reflexive _ _ => rfl
 
 omit [LevelOracle] in
@@ -377,7 +376,6 @@ theorem domsBounded_of (φ : Name → Nat) (ρ : Nat → V) {ps : List V} (hps :
       exact hz' (by rw [hu₀, this])
     · rw [hu₀]; exact (LevelOracle.le_iff _ _).mp h φ
   cases f with
-  | recursive _ => trivial
   | container => simp [fieldScoped, hpl] at hsc'
   | ordinary A =>
     obtain ⟨s, v, hI, hR, hb, -⟩ := (hok.2.2.2.2.1 c hc).2.1 _ A hget
@@ -510,10 +508,6 @@ theorem uniq_of (φ : Name → Nat) (hz : S.z (S.lparams.map φ) = true) (hlarge
   | container =>
     have := (hok.scoped.2.2.2.1 c hc).1 _ _ hpos
     simp [fieldScoped, hpl] at this
-  | recursive es =>
-    left
-    simp only [fieldSet, hz] at hget
-    exact (mem_fibreR_true.mp hget).1
   | reflexive tele es =>
     left
     simp only [fieldSet, hz] at hget

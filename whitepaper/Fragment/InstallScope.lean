@@ -394,7 +394,6 @@ theorem lparamsIn_fieldDom (hS : S.Scoped env) {k : Nat} {f : Field} (hf : S.fie
     simp only [fieldDom, hN]
     exact S.lparamsIn_classTy hS hN k'
   | ordinary A => exact hf.2.2
-  | recursive es => exact S.lparamsIn_famAt _ fun e he => (hf.2 e he).2.2
   | reflexive tele es =>
     refine Expr.lparamsIn_mkPis (S.pw_paramsIn hS) (fun T hT => ?_)
       (S.lparamsIn_famAt _ fun e he => (hf.2.2 e he).2.2)
@@ -476,15 +475,6 @@ theorem lparamsIn_ihTy {k : Nat} {f : Field} (hf : S.fieldScoped env k f) (nF k'
   cases f with
   | ordinary A => rfl
   | container => rfl
-  | recursive es =>
-    refine Expr.lparamsIn_mkAppN rfl fun a ha => ?_
-    rcases List.mem_append.mp ha with ha | ha
-    · obtain ⟨e, he, rfl⟩ := List.mem_map.mp ha
-      rw [Expr.lparamsIn_atCtx]
-      exact Expr.lparamsIn_mono hR (hf.2 e he).2.2
-    · rw [List.mem_singleton] at ha
-      subst ha
-      rfl
   | reflexive tele es =>
     simp only [ihTy]
     refine Expr.lparamsIn_mkPis S.q_paramsIn (fun T hT => ?_) ?_
@@ -606,17 +596,6 @@ theorem lparamsIn_ihVal {k : Nat} {f : Field} (hf : S.fieldScoped env k f) (nF k
   cases f with
   | ordinary A => rfl
   | container => rfl
-  | recursive es =>
-    simp only [ihVal]
-    refine Expr.lparamsIn_mkAppN (S.lparamsIn_const_recLvls _) fun a ha => ?_
-    simp only [List.mem_append, List.mem_singleton, List.mem_map] at ha
-    rcases ha with (((ha | rfl) | ha) | ⟨e, he, rfl⟩) | rfl
-    · exact Expr.lparamsIn_varsAt _ _ _ a ha
-    · rfl
-    · exact Expr.lparamsIn_varsAt _ _ _ a ha
-    · rw [Expr.lparamsIn_atCtx]
-      exact Expr.lparamsIn_mono hR (hf.2 e he).2.2
-    · rfl
   | reflexive tele es =>
     simp only [ihVal]
     refine Expr.lparamsIn_mkLams S.q_paramsIn (fun T hT => ?_) ?_
@@ -663,19 +642,6 @@ theorem closedAt_ihVal {k : Nat} {f : Field} (hf : S.fieldScoped env k f) {nF : 
   cases f with
   | ordinary A => rfl
   | container => rfl
-  | recursive es =>
-    simp only [ihVal]
-    refine Expr.closedAt_mkAppN rfl fun a ha => ?_
-    simp only [List.mem_append, List.mem_singleton, List.mem_map] at ha
-    rcases ha with (((ha | rfl) | ha) | ⟨e, he, rfl⟩) | rfl
-    · exact Expr.closedAt_varsAt (by omega) a ha
-    · rw [Expr.closedAt_bvar, decide_eq_true_eq]
-      omega
-    · exact Expr.closedAt_varsAt (by omega) a ha
-    · exact Expr.closedAt_mono (by omega)
-        (Expr.closedAt_atCtx (j := S.nP + k) (d := 0) (hf.2 e he).1)
-    · rw [Expr.closedAt_bvar, decide_eq_true_eq]
-      omega
   | reflexive tele es =>
     simp only [ihVal]
     refine Expr.closedAt_mkLams (fun t T hT => ?_) ?_
@@ -742,20 +708,6 @@ theorem consts_ihVal (hpl : S.nest = none)
   cases f with
   | ordinary A => intro d hd; simp [ihVal] at hd
   | container => intro d hd; simp [ihVal] at hd
-  | recursive es =>
-    intro d hd
-    simp only [ihVal] at hd
-    rw [Expr.consts_mkAppN, List.mem_append, List.mem_flatMap] at hd
-    rcases hd with hd | ⟨a, ha, hd⟩
-    · exact hrec d hd
-    · simp only [List.mem_append, List.mem_singleton, List.mem_map] at ha
-      rcases ha with (((ha | rfl) | ha) | ⟨e, he, rfl⟩) | rfl
-      · rw [Expr.consts_varsAt _ _ a ha] at hd; simp at hd
-      · simp at hd
-      · rw [Expr.consts_varsAt _ _ a ha] at hd; simp at hd
-      · rw [Expr.consts_atCtx] at hd
-        exact hspec (hf.2 e he) d hd
-      · simp at hd
   | reflexive tele es =>
     intro d hd
     simp only [ihVal] at hd

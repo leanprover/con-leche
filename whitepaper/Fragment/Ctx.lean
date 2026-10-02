@@ -42,6 +42,8 @@ def readEnv (n : Nat) (ρ : Nat → V) : List V := (List.range n).map ρ
 theorem length_readEnv (n : Nat) (ρ : Nat → V) : (readEnv n ρ).length = n := by
   simp [readEnv]
 
+@[simp] theorem readEnv_zero (ρ : Nat → V) : readEnv 0 ρ = [] := rfl
+
 theorem readEnv_consList {vs : List V} {n : Nat} (h : vs.length = n) (ρ : Nat → V) :
     readEnv n (consList vs ρ) = vs := by
   subst h

@@ -48,7 +48,7 @@ checker handles simple, mutual and nested blocks uniformly
 (#overview(5)), and what follows describes what it does on a block of
 this shape. The block is given by a
 _specification_
-(#src("whitepaper/Fragment/Spec.lean", 79, 102)[fragment],
+(#src("whitepaper/Fragment/Spec.lean", 80, 103)[fragment],
 #src("ConLeche/Kernel/Inductives/BlockParts.lean", 104, 122)[real checker]):
 
 - a name $I$ and level parameters $arrow(p)$;
@@ -62,31 +62,37 @@ _specification_
   under the parameters and the fields, the index expressions
   $arrow(e)_j$ of its result $I thick arrow(x) thick arrow(e)_j$.
 
-A field is one of three kinds
-(#src("whitepaper/Fragment/Spec.lean", 28, 40)[fragment],
+A field is one of two kinds
+(#src("whitepaper/Fragment/Spec.lean", 28, 42)[fragment],
 #src("ConLeche/Kernel/Inductives/Positivity.lean", 598, 608)[real checker]):
-_ordinary_, with a domain that does not mention $I$; _recursive_, with
-domain $I thick arrow(x) thick arrow(e)$ — a member of the family
-being defined, at the block's own parameters and some index
-expressions; or _reflexive_, with domain
+_ordinary_, with a domain that does not mention $I$; or _reflexive_,
+with domain
 $forall arrow(z) : arrow(A) thin ann(PW). thin I thick arrow(x) thick arrow(e)$
-— a function into the family (its binders carry the family's datum,
-introduced below, since the body is the family). This is the strictly positive shape, and
-the only one the fragment admits: no field's domain mentions $I$
-anywhere else (in the fragment, the specification's pieces are
-scope-checked in the environment _before_ $I$ is added, so they
-cannot mention it at all — #src("whitepaper/Fragment/Decl.lean", 629, 643)[the scope of a field]).
+— a function, under a telescope of binders $arrow(z)$ whose domains
+do not mention $I$, into the family being defined at the block's own
+parameters and some index expressions (the binders carry the
+family's datum, introduced below, since the body is the family). The
+telescope may be empty: then the domain is $I thick arrow(x) thick arrow(e)$,
+a member of the family itself, and the field is simply _recursive_ —
+the common case, and the name this document uses for it; one kind
+covers both, since the generated terms and the model treat them
+alike. This is the strictly positive shape, and the only one the
+fragment admits: no
+field's domain mentions $I$ anywhere else (in the fragment, the
+specification's pieces are scope-checked in the environment _before_
+$I$ is added, so they cannot mention it at all —
+#src("whitepaper/Fragment/Decl.lean", 622, 636)[the scope of a field]).
 The real checker's positivity check classifies each domain after
 weak head normal form, with $I$ at the block's parameters replaced by
 a variable standing for the family being defined; @sec:nested uses the same
 check
 (#src("ConLeche/Kernel/Inductives/Positivity.lean", 1453, 1454)[positivity]).
-One more condition of shape: nothing after a recursive or reflexive
-field may depend on its value
-(#src("whitepaper/Fragment/Decl.lean", 646, 652)[fragment],
+One more condition of shape: nothing after a reflexive field may
+depend on its value
+(#src("whitepaper/Fragment/Decl.lean", 639, 644)[fragment],
 #src("ConLeche/Kernel/Inductives/Positivity.lean", 1246, 1249)[real checker], as in the
 official kernel) — the model will read a constructor's domains without knowing
-what its recursive fields are.
+the values of its reflexive fields.
 
 Reflexive fields matter to the model. A tree type with a constructor
 $sans("node") : (Nat -> sans("Tree")) -> sans("Tree")$ has nodes with
@@ -120,7 +126,7 @@ The former's type is
 the one displayed above; a constructor's type is
 $forall arrow(x) : arrow(P) thin ann(PW). thin forall arrow(f) : arrow(F) thin ann(PW). thin I thick arrow(x) thick arrow(e)_j$
 with the annotation
-#src("whitepaper/Fragment/Decl.lean", 144, 147)[$ann(PW) = zn(u)$]
+#src("whitepaper/Fragment/Decl.lean", 145, 148)[$ann(PW) = zn(u)$]
 on every binder: every body ends in the family, which is a
 proposition exactly when $u$ is zero
 (#src("whitepaper/Fragment/Decl.lean", 214, 221)[the two generators]).
@@ -129,7 +135,7 @@ The recursor is best shown on an example.
 #example(name: [$Nat$])[
   The block $Nat$ has no parameters, no indices, sort $Sort 1$, and
   two constructors: $zero$ with no field and $succ$ with one recursive
-  field. So $ann(PW) = zn(1) = ann(never)$, and the generated
+  field — reflexive with the empty telescope. So $ann(PW) = zn(1) = ann(never)$, and the generated
   constructor types are $zero : Nat$ and
   $succ : forall (n : Nat) thin ann(never). thin Nat$. The recursor
   eliminates into $Sort ell$ for a fresh level parameter $ell$ —
@@ -142,7 +148,7 @@ The recursor is best shown on an example.
     & forall (t : Nat) thin ann(q). thin C thick t
   $
 
-  with #src("whitepaper/Fragment/Decl.lean", 148, 152)[$ann(q) = zn(ell) = ann(whenZero \{ell\})$] on
+  with #src("whitepaper/Fragment/Decl.lean", 149, 153)[$ann(q) = zn(ell) = ann(whenZero \{ell\})$] on
   every binder: each body ends in $C thick dots$, a member of
   $Sort ell$, so it is a proposition exactly when $ell$ is
   instantiated to zero. $C$ is the _motive_; $z$ and $s$ are the _minor premises_,
@@ -166,20 +172,21 @@ The recursor is best shown on an example.
 ] <ex:nat>
 
 The general shape is the same with parameters, indices and
-reflexive fields added: the motive takes the indices and a member of
+telescopes added: the motive takes the indices and a member of
 the family, $forall arrow(y) : arrow(J) thin ann(never). thin forall (t : I thick arrow(x) thick arrow(y)) thin ann(never). thin Sort ell$;
 a minor premise for $c_j$ takes the fields, then one inductive
-hypothesis per recursive or reflexive field — at a reflexive field
+hypothesis per reflexive field — at
 $f : forall arrow(z) : arrow(A) thin ann(PW). thin I thick arrow(x) thick arrow(e)$
-the hypothesis is $forall arrow(z) : arrow(A) thin ann(q). thin C thick arrow(e) thick (f thick arrow(z))$
+the hypothesis is $forall arrow(z) : arrow(A) thin ann(q). thin C thick arrow(e) thick (f thick arrow(z))$,
+which at the empty telescope is the $C thick n$ of @ex:nat
 — and ends in $C thick arrow(e)_j thick (c_j thick arrow(x) thick arrow(f))$;
 the recursor takes the parameters, the motive, the minors, the indices
 and the major, and ends in $C thick arrow(y) thick t$. (Generated:
 #src("whitepaper/Fragment/Decl.lean", 223, 225)[the motive],
-#src("whitepaper/Fragment/Decl.lean", 235, 248)[an inductive hypothesis],
-#src("whitepaper/Fragment/Decl.lean", 262, 271)[a minor premise],
-#src("whitepaper/Fragment/Decl.lean", 278, 283)[the recursor's type]
-and #src("whitepaper/Fragment/Decl.lean", 324, 331)[a rule's right-hand side];
+#src("whitepaper/Fragment/Decl.lean", 236, 247)[an inductive hypothesis],
+#src("whitepaper/Fragment/Decl.lean", 261, 270)[a minor premise],
+#src("whitepaper/Fragment/Decl.lean", 277, 282)[the recursor's type]
+and #src("whitepaper/Fragment/Decl.lean", 319, 326)[a rule's right-hand side];
 real checker: #src("ConLeche/Kernel/Inductives/GenRec.lean", 181, 188)[the type],
 #src("ConLeche/Kernel/Inductives/GenRec.lean", 193, 212)[a rule].)
 The annotation on the recursor's binders is
@@ -202,10 +209,10 @@ determines every field: the propositional ones are all the same
 proof, and the others can be read off the indices. Otherwise the
 motive lands in $Prop$, $ell = 0$: _small elimination_. In the
 fragment the criterion is
-#src("whitepaper/Fragment/Decl.lean", 714, 721)[a condition per field]
-plus #src("whitepaper/Fragment/Decl.lean", 767)[the constructor count], required of a large
+#src("whitepaper/Fragment/Decl.lean", 704, 711)[a condition per field]
+plus #src("whitepaper/Fragment/Decl.lean", 757)[the constructor count], required of a large
 eliminator on a family whose sort _may_ be zero
-(#src("whitepaper/Fragment/Decl.lean", 710, 712)[never zero: $1 <= u$ at every valuation]).
+(#src("whitepaper/Fragment/Decl.lean", 700, 702)[never zero: $1 <= u$ at every valuation]).
 The real checker also splits the criterion in two, but asks the
 per-field half less often: a count guard —
 a large eliminator is allowed when the sort is never zero, and
@@ -226,7 +233,7 @@ Here the zero-ness question of §2 reappears. "This field is a
 proposition" is a question about the field's sort $v$, and the
 checker answers it with the level oracle, $v eq.dot 0$. The same
 oracle decides the universe bound on the fields of a family of types
-— every field's sort is at most $u$, #src("whitepaper/Fragment/Decl.lean", 703, 708)[or the family is a proposition and there is no bound], which is
+— every field's sort is at most $u$, #src("whitepaper/Fragment/Decl.lean", 693, 698)[or the family is a proposition and there is no bound], which is
 Lean's impredicativity of $Prop$ — and whether the family's sort is
 never zero. In §2 the coloured datum decided how to interpret a
 $forall$ or a $lambda$; here the same question, asked of the oracle
@@ -257,7 +264,7 @@ regime these data can put it in.
 ] <ex:P>
 
 *The checks.* A block is accepted when
-(#src("whitepaper/Fragment/Decl.lean", 723, 768)[fragment],
+(#src("whitepaper/Fragment/Decl.lean", 713, 758)[fragment],
 #src("ConLeche/Kernel/Inductives/BlockTail.lean", 143, 148)[real checker]):
 its names are distinct and fresh; the specification is in scope
 (positivity included); the generated former's type has a type in the
@@ -268,7 +275,7 @@ eliminator asks it, the subsingleton criterion (the binders of a
 reflexive field's own telescope respect the universe bound too); the constructor count respects
 the elimination rule; and, in the environment holding the former and
 the constructors, the generated recursor's type has a type, and so
-has #src("whitepaper/Fragment/Decl.lean", 317, 322)[each rule's type] — the recursor's binder prefix
+has #src("whitepaper/Fragment/Decl.lean", 312, 317)[each rule's type] — the recursor's binder prefix
 with the constructor's fields in place of the indices and the major.
 Each "has a type" is an inference $tack T => S$ of §2, in the empty
 context ($S$ is a sort for a generated type, but nothing checks that:
@@ -281,7 +288,7 @@ rule-less recursor
 (#src("ConLeche/Kernel/Inductives/GenRec.lean", 427, 448)[a generated rule]).
 What is stored is the former, the constructors
 and the recursor, with its rules
-(#src("whitepaper/Fragment/Decl.lean", 532, 573)[fragment]) — the
+(#src("whitepaper/Fragment/Decl.lean", 525, 566)[fragment]) — the
 three kinds of constant that @sec:defs left to this section. An
 _inductive type former_ carries its parameter and index counts and
 its constructors' names; a _constructor_ its parameter and field
@@ -306,7 +313,7 @@ denotes. Each is stated against a small extension of §2's axioms.
 
 *The axioms, extended.* Beyond the laws of @sec:lib the inductive
 section uses
-#src("whitepaper/Fragment/IndLib.lean", 134, 159)[four small laws]:
+#src("whitepaper/Fragment/IndLib.lean", 136, 161)[four small laws]:
 _separation stays in the universe_ — a separated part of a member of
 a positive universe is a member of it; _transitivity_ of the positive
 universes — a member of
@@ -321,10 +328,10 @@ fixed point of an operator: "a member is a constructor applied to
 fields that are members". In the fragment this is not a set
 construction at all. The operator acts on _predicates_, and the least
 fixed point of a monotone operator $Phi$ on predicates is
-#src("whitepaper/Fragment/IndLib.lean", 229, 232)[a definition]:
+#src("whitepaper/Fragment/IndLib.lean", 231, 234)[a definition]:
 $lfp(Phi)(a)$ holds when every predicate closed under $Phi$ holds at
 $a$. That it is closed, that it is a fixed point and that it
-supports induction are #src("whitepaper/Fragment/IndLib.lean", 238, 257)[ten lines of proof] — the
+supports induction are #src("whitepaper/Fragment/IndLib.lean", 240, 259)[ten lines of proof] — the
 definition quantifies over all predicates, which the ambient logic's
 impredicative $Prop$ permits. Separation then turns a fibre of the
 predicate into a set. One thing this does _not_ give for free: the
@@ -335,13 +342,13 @@ $cal(U)_(phi(u))$ the fibre has to be separated from some member of
 $cal(U)_(phi(u))$ that already contains every tagged tuple a
 constructor can build — for reflexive fields as for the others. That
 bounding set is the one thing the argument genuinely needs from set
-theory, and the fragment states it as one law, #src("whitepaper/Fragment/IndLib.lean", 160, 169)[_inductive closure_]:
-for any list of #src("whitepaper/Fragment/IndLib.lean", 98, 114)[constructor telescopes] there is a family of members of
-the universe closed under every #src("whitepaper/Fragment/IndLib.lean", 120, 128)[_bounded instance_] of every
+theory, and the fragment states it as one law, #src("whitepaper/Fragment/IndLib.lean", 162, 171)[_inductive closure_]:
+for any list of #src("whitepaper/Fragment/IndLib.lean", 98, 116)[constructor telescopes] there is a family of members of
+the universe closed under every #src("whitepaper/Fragment/IndLib.lean", 122, 130)[_bounded instance_] of every
 constructor — fields whose every domain is a member of the universe.
-The family the block defines is #src("whitepaper/Fragment/IndSem.lean", 431, 439)[separated from that member], so
-#src("whitepaper/Fragment/IndSem.lean", 569, 571)[its fibres are members], and
-#src("whitepaper/Fragment/IndSem.lean", 922, 925)[every constructor value lands in it] because the checker's universe
+The family the block defines is #src("whitepaper/Fragment/IndSem.lean", 427, 435)[separated from that member], so
+#src("whitepaper/Fragment/IndSem.lean", 564, 566)[its fibres are members], and
+#src("whitepaper/Fragment/IndSem.lean", 901, 904)[every constructor value lands in it] because the checker's universe
 bound on the fields makes every instance it admits a bounded one.
 The real proof proves that law from its Grothendieck universes. Its
 least fixed point is built inside the set theory —
@@ -376,13 +383,13 @@ $arrow(Y)$ are the values of $c_j$'s index expressions at $arrow(F)$.
 of the domain it meets, the later domains read under the earlier
 values
 (#src("whitepaper/Fragment/EnvModel.lean", 60, 67)[fragment]). A
-recursive field's domain is a fibre of $Z$; a reflexive field's is a
-function space into fibres of $Z$, and the function space is
-monotone in its fibres
-(#src("whitepaper/Fragment/IndLib.lean", 202, 219)[fragment]), so
+reflexive field's domain is a function space into fibres of $Z$ —
+at the empty telescope, a fibre of $Z$ itself — and the function
+space is monotone in its fibres
+(#src("whitepaper/Fragment/IndLib.lean", 204, 221)[fragment]), so
 $Phi$ is monotone and has a least fixed point
-(#src("whitepaper/Fragment/IndSem.lean", 356, 359)[the operator],
-#src("whitepaper/Fragment/IndSem.lean", 478, 479)[its least fixed point]). Then, in the regime
+(#src("whitepaper/Fragment/IndSem.lean", 353, 356)[the operator],
+#src("whitepaper/Fragment/IndSem.lean", 474, 475)[its least fixed point]). Then, in the regime
 where $ann(PW)$ does not hold at $phi$ — the family is a family of
 types —
 
@@ -398,9 +405,9 @@ fibre is the truth value $tv(exists x. thin lfp(Phi)(arrow(Y), x))$,
 "some constructor reaches these indices", and every constructor
 denotes the point.
 (Fragment: #src("whitepaper/Fragment/IndSem.lean", 84, 88)[the fibre in each regime],
-#src("whitepaper/Fragment/IndSem.lean", 484, 486)[a constructor's value],
-#src("whitepaper/Fragment/IndSem.lean", 1405, 1409)[the former's set],
-#src("whitepaper/Fragment/IndSem.lean", 1415, 1420)[a constructor's set].)
+#src("whitepaper/Fragment/IndSem.lean", 480, 482)[a constructor's value],
+#src("whitepaper/Fragment/IndSem.lean", 1352, 1356)[the former's set],
+#src("whitepaper/Fragment/IndSem.lean", 1362, 1367)[a constructor's set].)
 The real proof's operator is the same one, read off the stored
 constructor types with the positivity check's variable — a _hole_ —
 standing for the family
@@ -429,28 +436,29 @@ the point and carries nothing. The difference will matter in a moment.
 *The recursor.* Fix values $C$ for the motive and $arrow(S)$ for the
 minor premises. The recursor's value on a member of the family is
 determined by the rules: on $tag(j, tuple(arrow(F)))$ it must be
-$S_j$ applied to $arrow(F)$ and to the inductive hypotheses — the
-recursor's own value at each recursive field, and at a reflexive
-field the function sending $arrow(z)$ to the recursor's value at
-$f dot.op arrow(z)$. That this equation has exactly one solution is
+$S_j$ applied to $arrow(F)$ and to the inductive hypotheses — at
+each reflexive field $f$ the function sending $arrow(z)$ to the
+recursor's own value at $f dot.op arrow(z)$, which at the empty
+telescope is just the recursor's value at $f$. That this equation
+has exactly one solution is
 the _recursion theorem_, and in the fragment it is proved by the
 same device as the family: the recursor's _graph_ — the relation
 "the value at $(arrow(Y), x)$ is $v$" — is
-#src("whitepaper/Fragment/IndSem.lean", 1029, 1030)[the least fixed point] of
+#src("whitepaper/Fragment/IndSem.lean", 1006, 1007)[the least fixed point] of
 the operator that reads the equation as a step; it is
-#src("whitepaper/Fragment/IndSem.lean", 1071, 1074)[single-valued] by
+#src("whitepaper/Fragment/IndSem.lean", 1047, 1050)[single-valued] by
 induction over the graph, using that tags and tuples are injective,
-and #src("whitepaper/Fragment/IndSem.lean", 1160, 1164)[total] by induction over the
+and #src("whitepaper/Fragment/IndSem.lean", 1132, 1136)[total] by induction over the
 family. When the family is a family of propositions and the motive is
 not, the major is the point and carries no fields; the recursor's
 value at $(arrow(Y), pt)$ is its value at a chosen
-#src("whitepaper/Fragment/IndSem.lean", 949, 961)[_witness_] of the fibre — any $x$ with
+#src("whitepaper/Fragment/IndSem.lean", 928, 940)[_witness_] of the fibre — any $x$ with
 $lfp(Phi)(arrow(Y), x)$ — and the subsingleton criterion is what makes
 the choice irrelevant: #src("whitepaper/Fragment/Uniq.lean", 60, 65)[any two witnesses are the same tagged tuple], as
 @thm:iota's proof shows. The recursor
-denotes #src("whitepaper/Fragment/IndSem.lean", 1436, 1440)[the graph of the resulting function], curried over the
+denotes #src("whitepaper/Fragment/IndSem.lean", 1383, 1387)[the graph of the resulting function], curried over the
 parameters, the motive, the minors, the indices and the major — a
-#src("whitepaper/Fragment/InstallInd.lean", 759, 760)[member of its generated type], which is law 1 for the recursor.
+#src("whitepaper/Fragment/InstallInd.lean", 753, 754)[member of its generated type], which is law 1 for the recursor.
 When the elimination level $ell$ is zero the recursor's type is a
 proposition, the recursor and every minor premise denote the point,
 and there is nothing to construct.
@@ -545,8 +553,8 @@ argument's, and the law
 #theorem(name: [the $iota$ law holds])[
   Every rule of the recursor of an accepted block satisfies its
   $iota$ law in the model of @sec:ind-model.
-  (#src("whitepaper/Fragment/InstallIota.lean", 708, 714)[fragment], with
-  #src("whitepaper/Fragment/IndSem.lean", 1241, 1246)[the equation on the semantic recursor]\; real proof:
+  (#src("whitepaper/Fragment/InstallIota.lean", 691, 697)[fragment], with
+  #src("whitepaper/Fragment/IndSem.lean", 1201, 1206)[the equation on the semantic recursor]\; real proof:
   #src("ConLeche/Model/Inductives/BlockRecLaw.lean", 448, 456)[the graph's equation, lifted to the law of @def:iota-law].)
 ] <thm:iota>
 
@@ -558,7 +566,7 @@ argument's, and the law
   $tag(j, tuple(arrow(F)))$, $arrow(F)$ the fields among $arrow(F)'$;
   and here is the point of
   the least fixed point: a member of the fibre is a step from
-  members (#src("whitepaper/Fragment/IndLib.lean", 246, 249)[the fixed-point equation, read backwards]), so it is
+  members (#src("whitepaper/Fragment/IndLib.lean", 248, 251)[the fixed-point equation, read backwards]), so it is
   $tag(j', tuple(arrow(F)''))$ for some constructor $j'$ and fields
   $arrow(F)''$ fitting $c_(j')$'s field telescope _at the recursor's
   parameters_, with the recursor's indices as the values of

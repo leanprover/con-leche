@@ -562,16 +562,13 @@ theorem Reader.famAt_wd (hS : S.Scoped env) (R : S.Reader (env := env) M φ M' �
 
 /-! ### The field context -/
 
-/-- **A field's index expressions fit** (a recursive field's at the
-earlier fields, a reflexive field's at every fitting telescope) — what
+/-- **A field's index expressions fit** (a reflexive field's at every
+fitting telescope over the earlier fields) — what
 the invariant of the constructor's type supplies and the field's
 domain is read with. -/
 def IdxFitAt (S : IndSpec) (M : Name → List Nat → V) (φ : Name → Nat) (ps vs : List V) :
     Field → Prop
   | .ordinary _ => True
-  | .recursive es =>
-    FitsVals M (S.ψ (S.lparams.map φ)) (envP ps) S.indices
-      (S.idxVals M (S.lparams.map φ) (consList vs (envP ps)) es)
   | .reflexive tele es =>
     ∀ ys, FitsVals M (S.ψ (S.lparams.map φ)) (consList vs (envP ps)) tele ys →
       FitsVals M (S.ψ (S.lparams.map φ)) (envP ps) S.indices
@@ -675,13 +672,6 @@ theorem ReaderG.fieldDom_fit (hS : S.Scoped env) (R : S.ReaderG (env := env) M �
           (S.Mem M (S.lparams.map φ)) ps vs f := by
   cases f with
   | ordinary A => exact R.read hsc (by omega)
-  | recursive es =>
-    simp only [fieldDom, fieldSet]
-    rw [R.famAt_fit hS (o := k) (ρ'' := consList vs (consList ps ρ)) (ps := ps)
-      (isv := S.idxVals M (S.lparams.map φ) (consList vs (envP ps)) es)
-      (by rw [← hk, shiftE_consList, readEnv_consList hps])
-      (R.idxVals_eq hsc.2 (by omega)) hp hidx]
-    rfl
   | reflexive tele es =>
     simp only [fieldDom, fieldSet]
     rw [interp_mkPis, R.pw_holds hS.2.2.1]
@@ -718,10 +708,6 @@ theorem ReaderG.fieldDom_wd (hS : S.Scoped env) (R : S.ReaderG (env := env) M φ
   have hidx : IdxFitAt S M φ ps vs f := by
     cases f with
     | ordinary _ => trivial
-    | recursive es =>
-      have := (R.famAt_wd hS (o := k) (ρ'' := consList vs (consList ps ρ)) (ps := ps)
-        (by rw [← hk, shiftE_consList, readEnv_consList hps]) hsc.1 hw).2.1
-      rwa [R.idxVals_eq hsc.2 (by omega)] at this
     | reflexive tele es =>
       intro ys hys
       have hys' := (FitsVals_congr₂ (R.agree_tele (ρ := ρ) hsc.1 hk hps)).mpr hys
@@ -909,7 +895,7 @@ theorem minorsCtx_eq : S.minorsCtx = S.minorsFrom S.ctors 0 := by
   simp [n]
 
 /-- The inductive hypotheses' context as a recursion (innermost
-first): the hypotheses of the later recursive fields, then this
+first): the hypotheses of the later recursive positions, then this
 field's outermost, with `l` earlier hypotheses. -/
 def ihCtxAux (S : IndSpec) (nF o : Nat) : List (Nat × Field) → Nat → List Expr
   | [], _ => []
@@ -1048,9 +1034,6 @@ theorem Reader.read_motiveTy (hS : S.Scoped env) (R : S.Reader (env := env) M φ
 `IndSem.lean`, as a set). -/
 noncomputable def ihSet (S : IndSpec) (M : Name → List Nat → V) (φ : Name → Nat) (q : Bool)
     (ps : List V) (m m1 : V) (fs : List V) : Nat × Field → V
-  | (k, .recursive es) =>
-    appList m ((S.idxVals M (S.lparams.map φ) (consList (earlier fs k) (envP ps)) es).reverse ++
-      [fieldVal fs k])
   | (k, .reflexive tele es) =>
     piCtx M (S.ψ (S.lparams.map φ)) q (consList (earlier fs k) (envP ps)) tele fun ρ' =>
       appList m ((S.idxVals M (S.lparams.map φ) ρ' es).reverse ++
@@ -1064,7 +1047,6 @@ theorem IhTyped_iff {q : Bool} {ps : List V} {m m1 : V} {fs : List V} {kf : Nat 
   obtain ⟨k, f⟩ := kf
   cases f with
   | ordinary _ => simp [Field.isRec] at hrec
-  | recursive _ => rfl
   | reflexive _ _ => rfl
   | container => rfl
 
@@ -1075,7 +1057,6 @@ theorem IhTyped_m1 {q : Bool} {ps : List V} {m m1 m1' : V} {fs : List V} {kf : N
   obtain ⟨k, f⟩ := kf
   cases f with
   | ordinary _ => exact Iff.rfl
-  | recursive _ => exact Iff.rfl
   | reflexive _ _ => exact Iff.rfl
   | container => simp [Field.isCont] at hnc
 
@@ -1170,20 +1151,6 @@ theorem Reader.read_ihTy (hS : S.Scoped env) (R : S.Reader (env := env) M φ M' 
         consList_ge, ← hf, consList_ge, consList_getD (by omega)]
     simp only [ihTy, ihSet]
     rw [interp_mkAppN_appList, interp_bvar, List.map_singleton, interp_bvar, hhead1, hfv]
-  | recursive es =>
-    simp only [ihTy, ihSet]
-    rw [interp_mkAppN_appList, interp_bvar, List.map_append, List.map_map, List.map_singleton,
-      interp_bvar, hhead, hfv]
-    congr 2
-    unfold idxVals
-    rw [List.reverse_reverse]
-    apply List.map_congr_left
-    intro e he
-    simp only [Function.comp]
-    have h1 := interp_atCtx M' φ' ρ e (ys := []) (d := 0) (k := k) (ps := ps) rfl hi hf ho (by omega)
-    simp only [consList_nil] at h1
-    rw [h1, hkd]
-    exact R.read (hsc.2 e he) (by simp [earlier, hf, hps]; omega)
   | reflexive tele es =>
     simp only [ihTy, ihSet]
     rw [interp_mkPis, R.piCtx_liftCtx_atCtx hi hf ho (by omega) hps _ tele hsc.1, hkd]

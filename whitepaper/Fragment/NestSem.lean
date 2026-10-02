@@ -50,9 +50,6 @@ variable {V : Type u} [IndLib V]
 /-! ## Small list and environment facts -/
 
 omit [IndLib V] in
-theorem readEnv_zero (ρ : Nat → V) : readEnv 0 ρ = [] := rfl
-
-omit [IndLib V] in
 /-- The value at the seam of a pushed list `l₁ ++ x :: l₂` is `x`. -/
 theorem consList_append_cons_self (l₁ : List V) (x : V) (l₂ : List V) (ρ : Nat → V) :
     consList (l₁ ++ x :: l₂) ρ l₁.length = x := by
@@ -98,8 +95,8 @@ namespace NestInfo
 variable (N : NestInfo)
 
 /-- **Positivity's clause for one field** at position `i` (innermost
-first) of a field list: the member field, a recursive field with no
-index expressions, or an ordinary field mentioning neither the member
+first) of a field list: the member field, a recursive field (an empty
+telescope) with no index expressions, or an ordinary field mentioning neither the member
 parameter nor a later-listed (earlier) member field — `Positive`'s
 match, with the constructor's field list abstracted so that it passes
 to the tails. -/
@@ -108,8 +105,7 @@ def FieldPos (fields : List Field) (i : Nat) : Field → Prop
       (A.usesVar (N.memberVar (fields.length - 1 - i)) = false ∧
         ∀ i' f', fields[i']? = some f' → i < i' →
           N.isMember (fields.length - 1 - i') f' = true → A.usesVar (i' - i - 1) = false)
-  | .recursive es => es = []
-  | .reflexive _ _ => False
+  | .reflexive tele es => tele = [] ∧ es = []
   | .container => False
 
 theorem FieldPos_of_positive (hpos : N.Positive) {c : CtorSpec} (hc : c ∈ N.K.ctors) :
@@ -137,7 +133,6 @@ theorem FieldPos_tail {f : Field} {rest : List Field}
         (by rw [show (f :: rest).length - 1 - (i' + 1) = rest.length - 1 - i' by
               simp only [List.length_cons]; omega]; exact hm)
       rwa [show i' + 1 - (i + 1) - 1 = i' - i - 1 by omega] at this
-  | recursive es => exact this
   | reflexive tele es => exact this
   | container => exact this
 
@@ -320,8 +315,8 @@ theorem classSet_eq_Fam (hf : S.NestFacts M ls N) {ps : List V}
 /-- **Fitting fields at a smaller member set fit at a larger one**,
 relative to the family at the larger set: by positivity each field is
 the member field (its value is in the smaller set, hence in the
-larger), a recursive field (the induction hypothesis `hP`), or an
-ordinary field not mentioning the member (the same set). -/
+larger), a recursive field (reflexive with an empty telescope: the
+induction hypothesis `hP`), or an ordinary field not mentioning the member (the same set). -/
 theorem FitsFields_psK_mono (hf : S.NestFacts M ls N) {X Y : V} (hXY : X ⊆ˢ Y) {ps : List V}
     {P : FamP V}
     (hP : ∀ x, P (S.psK M ls N ps X) [] x →
@@ -353,10 +348,9 @@ theorem FitsFields_psK_mono (hf : S.NestFacts M ls N) {X Y : V} (hXY : X ⊆ˢ Y
       · simp only [fieldSet] at hfv ⊢
         rw [S.interp_psK_env_congr hf _ X Y A hv hv hA (fun _ _ _ => rfl)] at hfv
         exact hfv
-    | recursive es =>
-      simp only [NestInfo.FieldPos] at hFP
-      subst hFP
-      simp only [fieldSet, idxVals, List.map_nil, List.reverse_nil] at hfv ⊢
+    | reflexive tele es =>
+      obtain ⟨rfl, rfl⟩ := hFP
+      simp only [fieldSet, piCtx_nil, idxVals, List.map_nil, List.reverse_nil] at hfv ⊢
       cases hz : N.KS.z (S.lsK ls N)
       · rw [hz] at hfv
         rw [mem_fibreR_false] at hfv ⊢
@@ -365,7 +359,6 @@ theorem FitsFields_psK_mono (hf : S.NestFacts M ls N) {X Y : V} (hXY : X ⊆ˢ Y
         rw [mem_fibreR_true] at hfv ⊢
         obtain ⟨rfl, y, hy⟩ := hfv
         exact ⟨rfl, y, (hP y hy.2).1⟩
-    | reflexive tele es => simp only [NestInfo.FieldPos] at hFP
     | container => simp only [NestInfo.FieldPos] at hFP
 
 /-- **Every member of the container's family at a smaller member set
@@ -549,15 +542,13 @@ theorem FitsB_of_FitsFieldsK (hf : S.NestFacts M ls N) {ps : List V}
         rw [hdom]
         refine ⟨by rw [← hf.u₀_eq]; exact hb', hfv, ?_⟩
         simpa [N.junkK_cons, Field.isRec, hnm] using ih
-    | recursive es =>
-      simp only [NestInfo.FieldPos] at hFP
-      subst hFP
+    | reflexive tele es =>
+      obtain ⟨rfl, rfl⟩ := hFP
       simp only [toTeleXK, NestInfo.isMember, Bool.false_eq_true, if_false, TeleX.FitsB]
       refine ⟨?_, ?_⟩
-      · simp only [fieldSet, idxVals, List.map_nil, List.reverse_nil, hzK] at hfv
+      · simp only [fieldSet, piCtx_nil, idxVals, List.map_nil, List.reverse_nil, hzK] at hfv
         exact hP v (mem_fibreR_false.mp hfv).2.2
       · simpa [N.junkK_cons, Field.isRec] using ih
-    | reflexive tele es => simp only [NestInfo.FieldPos] at hFP
     | container => simp only [NestInfo.FieldPos] at hFP
   | [], _, _ :: _, _, hl, _, _ => by simp at hl
   | _ :: _, _, [], _, hl, _, _ => by simp at hl

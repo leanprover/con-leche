@@ -31,12 +31,14 @@ expression under the parameters and the earlier fields. -/
 inductive Field where
   /-- An ordinary field: any domain that does not mention the block. -/
   | ordinary (A : Expr)
-  /-- A recursive field: the family at the block's parameters and the
-  index expressions `es` (a spine, outermost first). -/
-  | recursive (es : List Expr)
   /-- A reflexive field: `∀ tele, I params es` — a function space into
-  the family; `tele` is a context (innermost first) under the
-  parameters and the earlier fields, `es` a spine under `tele` too. -/
+  the family at the block's parameters and the index expressions `es`;
+  `tele` is a context (innermost first) under the parameters and the
+  earlier fields, `es` a spine (outermost first) under `tele` too.
+  With an empty telescope the field is simply **recursive**: the
+  family itself (`reflexive [] es`) — one kind covers both, as the
+  generated terms and the model treat them alike.  (Con-leche keeps
+  them apart: `RecFieldKind.recursive`/`.reflexive`, `FieldTele.lean`.) -/
   | reflexive (tele : List Expr) (es : List Expr)
   /-- **A container field** (nested blocks): the block's class — a
   previously installed block `K` applied to arguments one of which is
@@ -53,7 +55,6 @@ namespace Field
 does: the class's motive at the field.) -/
 def isRec : Field → Bool
   | ordinary _ => false
-  | recursive _ => true
   | reflexive _ _ => true
   | container => true
 
@@ -181,14 +182,16 @@ def isMember (k : Nat) : Field → Bool
 /-- **Strict positivity of the container in the member's
 position** (con-leche's `nestPos` walking the container's stored
 constructors at the instantiation, `Positivity.lean`): the container
-has no indices and no reflexive or container field; the member
-parameter's domain is a sort; no later parameter's domain mentions
-the member parameter; every field of every constructor is the member
-field, a recursive field, or an ordinary field whose domain mentions neither the member parameter nor
-an earlier member field — the member never occurs to the left of an
-arrow, under a binder or inside another type, and nothing after a
-member field reads its value (the member is read at the family's
-bound when the container's constructors join the closure). -/
+has no indices and no container field; the member parameter's domain
+is a sort; no later parameter's domain mentions the member parameter;
+every field of every constructor is the member field, a recursive
+field (reflexive with an empty telescope, and no index expressions),
+or an ordinary field whose domain mentions neither the member
+parameter nor an earlier member field — the member never occurs to
+the left of an arrow, under a binder or inside another type, and
+nothing after a member field reads its value (the member is read at
+the family's bound when the container's constructors join the
+closure). -/
 def Positive : Prop :=
   N.K.indices = [] ∧
   N.p < N.nPK ∧
@@ -201,8 +204,7 @@ def Positive : Prop :=
         (A.usesVar (N.memberVar (c.fields.length - 1 - i)) = false ∧
           ∀ i' f', c.fields[i']? = some f' → i < i' →
             N.isMember (c.fields.length - 1 - i') f' = true → A.usesVar (i' - i - 1) = false)
-    | Field.recursive es => es = []
-    | Field.reflexive _ _ => False
+    | Field.reflexive tele es => tele = [] ∧ es = []
     | Field.container => False)
 
 /-- The member parameter's domain level (`Sort ℓ`), when `Positive`;
