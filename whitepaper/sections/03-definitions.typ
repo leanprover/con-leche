@@ -165,12 +165,15 @@ the declared level parameters.
 
 The real proof's carrier has the same laws among others
 (#src("ConLeche/Model/Annot/EnvModelM.lean", 159, 185)[the carrier's invariant]).
-The laws mention the model only at the _stored_ terms — the types,
-the values, and in @sec:ind the rules' right-hand sides — and quantify over sets
-where a use site would have terms. That is deliberate: when a fresh
-constant is added, no stored term mentions it, so every old law is
-read off the extended assignment exactly as off the old one, and
-nothing has to be re-proved. The empty environment has a model
+Note what the laws talk about: only terms that are _stored_ — a
+declared type, a definition's value, in @sec:ind a rule's right-hand
+side — and, for everything else, arbitrary sets: the values of the
+levels, the variable environment, in @sec:ind the recursor's
+arguments. No law mentions a term from a later declaration, a use
+site. That is deliberate: when a fresh constant is added, no stored
+term mentions it, so every stored term denotes the same set under the
+extended assignment as before, and every old law carries over without
+a new proof. The empty environment has a model
 trivially: any assignment, and laws with nothing to say
 (#src("whitepaper/Fragment/EnvModel.lean", 231, 237)[fragment]).
 
