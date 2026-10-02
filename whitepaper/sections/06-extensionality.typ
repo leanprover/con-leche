@@ -31,11 +31,11 @@ line or two. (η for functions, which the fragment already has, is the
 same law at graphs: a member of a function space is
 #src("whitepaper/Fragment/Lib.lean", 92)[the graph of its
 applications], and §2 proved its case.) Below, each rule is stated in
-words, then the argument against the assumed laws, then the
-link to the real proof's case.
+words, then the argument against the assumed laws, then, set off,
+the real proof's case.
 
 Recall what @sec:ind sets up. A constructor application $c thick arrow(p)
-thick arrow(f)$ of a block whose family is not a proposition denotes
+thick arrow(f)$ of a block whose family is type-valued denotes
 a #src("whitepaper/Fragment/IndLib.lean", 147, 161)[tagged tuple]
 $tag(i, chevron.l lden f_1 rden, ..., lden f_n rden chevron.r)$ — the
 constructor's number $i$, then its fields
@@ -47,7 +47,7 @@ under the constructor steps], so that
 family is a tagged tuple that one constructor step produces] from
 members of the field domains (this is the fixed-point equation of §4,
 #src("whitepaper/Fragment/IndLib.lean", 248, 251)[read from left to
-right]). When the family _is_ a proposition — the binders of the
+right]). When the family is proposition-valued — the binders of the
 constructors' types, whose bodies are the family, are annotated
 $ann(zn(u))$ for the result sort $Sort u$, and that datum holds at
 $phi$ — the family denotes
@@ -112,17 +112,22 @@ into the recursor's _own_ fibre — for `Eq`, it is the comparison
 $a equiv b$ — which is what the $iota$ rule's telescope certificate on
 the reduct needs; and the inference of the fabrication's type is what
 makes it well-denoted. Both are premises of @lem:k, not steps of its
-proof. The real checker states the rule exactly so, as a reduction of
-the stuck major to the fabrication
-(#src("ConLeche/Rules/Rel.lean", 225, 244)[the rescue]), and its case
-(#src("ConLeche/Model/Rules/IotaSound.lean", 505, 506)[real proof])
-identifies the two values by proof irrelevance; no theorem about the
-block is consulted.
+proof.
+
+#real[
+  The rule is stated exactly so, as a reduction of the stuck major
+  to the fabrication
+  (#src("ConLeche/Rules/Rel.lean", 225, 244)[the rescue]), and its
+  case
+  (#src("ConLeche/Model/Rules/IotaSound.lean", 505, 506)[real proof])
+  identifies the two values by proof irrelevance; no theorem about
+  the block is consulted.
+]
 
 == η for structures
 
 _The rule._ A _structure_ is a block with one constructor `mk`, no
-indices, no recursive field, and a family that is not a proposition.
+indices, no recursive field, and a type-valued family.
 The official kernel equates any $s$ of the structure type with the
 constructor applied to $s$'s projections: $s equiv$ `mk` $arrow(p)
 thick s.1 dots s.n$. The check is that $s$'s type reduces to the
@@ -163,26 +168,28 @@ does the rest. A block declared in `Prop` is never granted the rule;
 where an instance of a `Sort u` structure happens to be a
 proposition, both sides are the point, and the law's proposition case
 covers it.
-The real checker has the rule as
-#src("ConLeche/Rules/Rel.lean", 431, 434)[a certificate on the
-fields], with its case at
-#src("ConLeche/Model/Rules/DefEqSound.lean", 321, 323)[the real proof],
-and uses the same certificate to rescue a recursor stuck on a
-non-constructor $s$
-(#src("ConLeche/Model/Rules/IotaSound.lean", 584, 585)[the η rescue]).
-Whether a type has the rule at all is decided once, at its install,
-from its shape — one constructor, no index, not a proposition, in a
-block where no constructor is recursive — and
-#src("ConLeche/Kernel/Inductives/BlockInstall.lean", 67, 80)[recorded
-with the type]\; and the law itself is established there too, not at
-the use. It is the η law of the structure's _projection table_ — the
-record of its fields' types that the checker stores for every
-one-constructor, index-free type (@sec:left-out, "Projections")
-(#src("ConLeche/Model/Inductives/FixKit.lean", 804, 805)[a member is
-the constructor at the parameters and its own projections]), proved
-when #src("ConLeche/Model/Inductives/BlockStageTables.lean", 10, 12)[the
-checker stores the table], by the argument above on the tagged
-tuple.
+
+#real[
+  The checker has the rule as
+  #src("ConLeche/Rules/Rel.lean", 431, 434)[a certificate on the fields],
+  with its case at
+  #src("ConLeche/Model/Rules/DefEqSound.lean", 321, 323)[the real proof],
+  and uses the same certificate to rescue a recursor stuck on a
+  non-constructor $s$
+  (#src("ConLeche/Model/Rules/IotaSound.lean", 584, 585)[the η rescue]).
+  Whether a type has the rule at all is decided once, at its install,
+  from its shape — one constructor, no index, not a proposition, in a
+  block where no constructor is recursive — and
+  #src("ConLeche/Kernel/Inductives/BlockInstall.lean", 67, 80)[recorded with the type]\;
+  and the law itself is established there too, not at the use. It is
+  the η law of the structure's _projection table_ — the record of
+  its fields' types that the checker stores for every
+  one-constructor, index-free type (@sec:left-out, "Projections")
+  (#src("ConLeche/Model/Inductives/FixKit.lean", 804, 805)[a member is the constructor at the parameters and its own projections]),
+  proved when
+  #src("ConLeche/Model/Inductives/BlockStageTables.lean", 10, 12)[the checker stores the table],
+  by the argument above on the tagged tuple.
+]
 
 == Unit-likeness
 
@@ -197,24 +204,27 @@ whose types reduce to it.
 ] <lem:unit>
 
 #proof[
-  When the family is not a proposition, @lem:eta-struct with $n = 0$:
+  When the family is type-valued, @lem:eta-struct with $n = 0$:
   each member is $tag(0, chevron.l chevron.r)$, the one tagged empty
-  tuple. When it is, the family is a truth value and both members are
-  the point.
+  tuple. When it is proposition-valued, the family is a truth value
+  and both members are the point.
 ]
 
 The two regimes are the two shapes a "set with at most one member"
-takes in the model, and the lemma is the same sentence in each. The
-real checker has the rule for
-#src("ConLeche/Rules/Rel.lean", 463, 468)[any stored unit-like family],
-with its case at
-#src("ConLeche/Model/Rules/DefEqSound.lean", 698, 699)[the real proof].
-Unit-likeness is recorded at the install like η (one constructor, no
-index, no field, in a block where no constructor is recursive), and the law is established there
-from the fixed point
-(#src("ConLeche/Model/Inductives/FixKit.lean", 1754, 1755)[the fibre
-is the one tagged empty tuple]). Neither `PUnit` nor `True` is special
-to the checker: both are installed like any other block.
+takes in the model, and the lemma is the same sentence in each.
+
+#real[
+  The checker has the rule for
+  #src("ConLeche/Rules/Rel.lean", 463, 468)[any stored unit-like family],
+  with its case at
+  #src("ConLeche/Model/Rules/DefEqSound.lean", 698, 699)[the real proof].
+  Unit-likeness is recorded at the install like η (one constructor,
+  no index, no field, in a block where no constructor is recursive),
+  and the law is established there from the fixed point
+  (#src("ConLeche/Model/Inductives/FixKit.lean", 1754, 1755)[the fibre is the one tagged empty tuple]).
+  Neither `PUnit` nor `True` is special to the checker: both are
+  installed like any other block.
+]
 
 == What is not free
 

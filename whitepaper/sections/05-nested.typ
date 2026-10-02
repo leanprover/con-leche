@@ -62,11 +62,15 @@ block gains this one datum
 container's stored data, its levels and other arguments, the position
 $p$ of the member among its parameters, the member's index
 expressions, and the name of the companion recursor $TRec1$
-introduced in @sec:nest-rec. (The real checker finds the container
-by reducing the field's domain to an application of a stored
-inductive type, and records the instantiation — the levels and the
-arguments with the member in place
-(#src("ConLeche/Kernel/Inductives/Positivity.lean", 1406, 1415)[the container case]).)
+introduced in @sec:nest-rec.
+
+#real(label: "In the real checker")[
+  The container is found by reducing the field's domain to an
+  application of a stored inductive type, and the instantiation —
+  the levels and the arguments with the member in place — is
+  recorded
+  (#src("ConLeche/Kernel/Inductives/Positivity.lean", 1406, 1415)[the container case]).
+]
 
 What the fragment admits is nesting at depth one — the member is an
 argument of the container directly, not of a container inside a
@@ -98,13 +102,16 @@ container's constructors have no index expressions, that the
 member's parameter domain is a sort and that no later parameter
 depends on it
 (#src("whitepaper/Fragment/Spec.lean", 182, 208)[strict positivity in the member's position]).
-The real checker does this inside the one positivity walk of
-@sec:ind-checks: at an application of a stored inductive type it
-walks that type's stored constructors at the instantiation, with the
-container instance being walked — like the family itself — replaced
-by a variable standing for the whole application
-(#src("ConLeche/Kernel/Inductives/Positivity.lean", 260, 279)[the cases],
-#src("ConLeche/Kernel/Inductives/Positivity.lean", 1442, 1453)[the walk]).
+
+#real(label: "In the real checker")[
+  This happens inside the one positivity walk of @sec:ind-checks: at
+  an application of a stored inductive type the walk descends into
+  that type's stored constructors at the instantiation, with the
+  container instance being walked — like the family itself —
+  replaced by a variable standing for the whole application
+  (#src("ConLeche/Kernel/Inductives/Positivity.lean", 260, 279)[the cases],
+  #src("ConLeche/Kernel/Inductives/Positivity.lean", 1442, 1453)[the walk]).
+]
 
 *The other checks.* A nested block passes the checks of
 @sec:ind-checks for its former and its constructors — a container
@@ -126,7 +133,7 @@ block unless its sort is never zero_
 as in the official kernel. The subsingleton criterion is therefore
 never asked of a nested block, and the model never needs the witness
 device of @thm:iota's proof for a nested block: wherever the
-recursion equation has content, the family is a family of types and
+recursion equation has content, the family is type-valued and
 every major carries its fields.
 
 == The generated recursors <sec:nest-rec>
@@ -217,7 +224,7 @@ more parameters than the block; the second rule drops the
 constructor's own. The model's $iota$ law for such a rule assumes
 neither comparison against the instantiation, and its proof uses no
 comparison at all (@sec:nest-model), for the same reason the plain
-law needs none in the regime of types: the major is a tagged tuple
+law needs none in the type-valued regime: the major is a tagged tuple
 and carries its fields.
 
 == The model <sec:nest-model>
@@ -304,20 +311,23 @@ field read as a recursive field at the family's bound
 #src("whitepaper/Fragment/IndSem.lean", 392, 408)[the container's constructors at the instantiation]);
 by one more induction over $K$'s family, the class at the family's
 fibre lies inside its part of that bound
-(#src("whitepaper/Fragment/NestSem.lean", 579, 584)[fragment]). In
-the real proof the bound comes from accessibility as in §4, read off
-the positivity walk's run case by case
-(#src("ConLeche/Semantics/Inductives/HoleAcc.lean", 8, 19)[accessibility in the holes]),
-with a container instance accessible as soon as the container's
-constructors are, at the instantiation
-(#src("ConLeche/Model/Inductives/ContAcc.lean", 15, 29)[the container case]);
-monotonicity is inverted from the same run, one lemma per case of
-the walk
-(#src("ConLeche/Semantics/Inductives/HoleMono.lean", 9, 23)[monotonicity in the holes]),
-the container case reading the container's least fixed point at two
-parameter instantiations and asking nothing of the container in its
-parameter
-(#src("ConLeche/SetModel/HoleClose.lean", 7, 15)[the set-level half]).
+(#src("whitepaper/Fragment/NestSem.lean", 579, 584)[fragment]).
+
+#real[
+  The bound comes from accessibility as in §4, read off the
+  positivity walk's run case by case
+  (#src("ConLeche/Semantics/Inductives/HoleAcc.lean", 8, 19)[accessibility in the holes]),
+  with a container instance accessible as soon as the container's
+  constructors are, at the instantiation
+  (#src("ConLeche/Model/Inductives/ContAcc.lean", 15, 29)[the container case]);
+  monotonicity is inverted from the same run, one lemma per case of
+  the walk
+  (#src("ConLeche/Semantics/Inductives/HoleMono.lean", 9, 23)[monotonicity in the holes]),
+  the container case reading the container's least fixed point at
+  two parameter instantiations and asking nothing of the container
+  in its parameter
+  (#src("ConLeche/SetModel/HoleClose.lean", 7, 15)[the set-level half]).
+]
 
 *The two recursors.* Both recursors are read off one _graph_, the
 least relation closed under the rules of both. At a tagged tuple
@@ -352,13 +362,15 @@ Both recursion equations follow
 and each recursor's set is a member of its type
 (#src("whitepaper/Fragment/NestIota.lean", 1481, 1485)[$TRec$],
 #src("whitepaper/Fragment/NestIota.lean", 1511, 1515)[$TRec1$]).
-The real proof's
-graph is the one of @sec:ind-model over the recursor's classes, and
-the induction over the majors is proved from the classes' own
-fixed-point clauses by a strengthened predicate, without a joint
-operator
-(#src("ConLeche/SetModel/NestRec.lean", 9, 19)[the nested graph kit],
-#src("ConLeche/Model/Inductives/TargetNestKit.lean", 8, 19)[the classes as clauses]).
+
+#real[
+  The graph is the one of @sec:ind-model over the recursor's
+  classes, and the induction over the majors is proved from the
+  classes' own fixed-point clauses by a strengthened predicate,
+  without a joint operator
+  (#src("ConLeche/SetModel/NestRec.lean", 9, 19)[the nested graph kit],
+  #src("ConLeche/Model/Inductives/TargetNestKit.lean", 8, 19)[the classes as clauses]).
+]
 
 #theorem(name: [the $iota$ laws of a nested block])[
   Every rule of $TRec$ satisfies the $iota$ law of
@@ -374,7 +386,7 @@ operator
 ] <thm:iota-nested>
 
 #proof[
-  As for @thm:iota in the regime of types, which is the only regime
+  As for @thm:iota in the type-valued regime, which is the only regime
   with content: by the elimination guard, the elimination level of a
   nested block whose family may be a proposition is zero, and then
   both sides are the point. For a rule of $TRec1$ the

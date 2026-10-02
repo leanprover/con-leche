@@ -28,10 +28,15 @@ are assumed outright with their laws, because how they are built does
 not matter to the argument. The promise is literal: in the Lean
 fragment the structure is a class,
 #src("whitepaper/Fragment/Lib.lean", 44, 99)[#lean[SetLib]], and every theorem of the
-fragment is proved against that class. (The real proof is parametric in
-#src("ConLeche/SetTheory/Core.lean", 95, 100)[a smaller interface] — ZF without infinity plus a chain of Grothendieck
-universes, sets closed under all the set-forming operations — from which it
-derives the operators below.)
+fragment is proved against that class.
+
+#real[
+  The real proof is parametric in
+  #src("ConLeche/SetTheory/Core.lean", 95, 100)[a smaller interface] —
+  ZF without infinity plus a chain of Grothendieck universes, sets
+  closed under all the set-forming operations — from which it derives
+  the operators below.
+]
 
 Here are the laws, in four groups.
 

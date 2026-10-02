@@ -2351,6 +2351,12 @@
    121    deriving Repr, Inhabited
    122  
 
+== whitepaper/Fragment/Decl.lean#L145-L148
+   145  /-- The annotation of every binder whose body is a member of the
+   146  family or the family itself — a proposition exactly when the result
+   147  sort is zero. -/
+   148  def pw : PropWhen := Level.zeroness S.sort
+
 == whitepaper/Fragment/Spec.lean#L28-L42
     28  /-- A constructor field, as the positivity check classifies it
     29  (con-leche's `RecFieldKind`, `FieldTele.lean:29`).  Its domain is an
@@ -2398,10 +2404,6 @@
    635      (∀ t T, tele[t]? = some T → Expr.Scoped env S.lparams (S.nP + k + (tele.length - 1 - t)) T) ∧
    636      es.length = S.nI ∧ (∀ e ∈ es, Expr.Scoped env S.lparams (S.nP + k + tele.length) e)
 
-== ConLeche/Kernel/Inductives/Positivity.lean#L1453-L1454
-  1453  def nestPos (ops : CheckerOps m) (env : Env) (ctx : NestCtx) :
-  1454      Nat → List NestHole → Nat → Nat → Expr → NestState → m (NestFieldKind × Expr × NestState)
-
 == whitepaper/Fragment/Decl.lean#L639-L644
    639  /-- **No field reads an earlier recursive field**: an ordinary domain
    640  and a reflexive field's telescope entries and index expressions do not
@@ -2415,6 +2417,27 @@
   1247          structUsedLater (closeTelescope nds hi cur) 0 i) then
   1248        throw (.invalid "nested positivity: non valid occurrence of the datatypes being \
   1249          declared (a later field or the result depends on a recursive or nested field)")
+
+== ConLeche/Kernel/Inductives/Positivity.lean#L1453-L1454
+  1453  def nestPos (ops : CheckerOps m) (env : Env) (ctx : NestCtx) :
+  1454      Nat → List NestHole → Nat → Nat → Expr → NestState → m (NestFieldKind × Expr × NestState)
+
+== whitepaper/Fragment/Decl.lean#L214-L221
+   214  /-- **The type former's type** `∀ params indices, Sort u`; no binder is
+   215  a proposition. -/
+   216  def indType : Expr := mkPis .never (S.indices ++ S.params) (.sort S.sort)
+   217  
+   218  /-- **A constructor's type** `∀ params fields, I params idx`; every
+   219  binder is a proposition exactly when the family is. -/
+   220  def ctorType (c : CtorSpec) : Expr :=
+   221    mkPis S.pw (S.fieldCtx c.fields ++ S.params) (S.famAt c.fields.length c.idx)
+
+== whitepaper/Fragment/Decl.lean#L149-L153
+   149  /-- The elimination level: the fresh parameter, or `Prop`. -/
+   150  def ℓ : Level := if S.large then .param S.elim else .zero
+   151  /-- The annotation of the recursor's binders: a proposition exactly
+   152  when the elimination level is zero. -/
+   153  def q : PropWhen := Level.zeroness S.ℓ
 
 == ConLeche/Kernel/Inductives/SumInstall.lean#L102-L103
    102  /-- Stage 2, one constructor's type: the ordinary constant check (the
@@ -2452,29 +2475,6 @@
    561      (params : List Expr) (tbl : List NestCtorNf) (rd : ClassRead) (Ms : List TargetMajor)
    562      (cvTas : List ConstantVal) (block : List ConstantInfo) :
    563      m (List (ConstantVal × TargetMajor × List Expr)) := do
-
-== whitepaper/Fragment/Decl.lean#L145-L148
-   145  /-- The annotation of every binder whose body is a member of the
-   146  family or the family itself — a proposition exactly when the result
-   147  sort is zero. -/
-   148  def pw : PropWhen := Level.zeroness S.sort
-
-== whitepaper/Fragment/Decl.lean#L214-L221
-   214  /-- **The type former's type** `∀ params indices, Sort u`; no binder is
-   215  a proposition. -/
-   216  def indType : Expr := mkPis .never (S.indices ++ S.params) (.sort S.sort)
-   217  
-   218  /-- **A constructor's type** `∀ params fields, I params idx`; every
-   219  binder is a proposition exactly when the family is. -/
-   220  def ctorType (c : CtorSpec) : Expr :=
-   221    mkPis S.pw (S.fieldCtx c.fields ++ S.params) (S.famAt c.fields.length c.idx)
-
-== whitepaper/Fragment/Decl.lean#L149-L153
-   149  /-- The elimination level: the fresh parameter, or `Prop`. -/
-   150  def ℓ : Level := if S.large then .param S.elim else .zero
-   151  /-- The annotation of the recursor's binders: a proposition exactly
-   152  when the elimination level is zero. -/
-   153  def q : PropWhen := Level.zeroness S.ℓ
 
 == whitepaper/Fragment/Decl.lean#L223-L225
    223  /-- The motive's type, under the parameters:
@@ -3461,11 +3461,6 @@
     46    /-- An inductive block, plain or nested (`IndOk`, `Decl.lean`). -/
     47    | ind {env : Env} (S : IndSpec) : Accepted env → IndOk env S → Accepted (S.install env)
 
-== ConLeche/Model/Fold.lean#L198-L200
-   198  theorem foldPM (hμ : μ.verifiedChecks = true) {F : Nat} :
-   199      ∀ (ds : List Declaration) (env : Env) {env' : Env},
-   200        EnvModelOk V μ env →
-
 == whitepaper/Fragment/Consistency.lean#L50-L55
     50  /-- An accepted environment is closed: its stored terms mention only
     51  stored constants, at their own level parameters. -/
@@ -3539,6 +3534,11 @@
    281        c.toConstantVal.type = .const falseName [] → False := by
    282    obtain ⟨mp⟩ := checkDeclsPure_sound_of (V := V) hμ h
    283    exact fun c hc hty => no_constant_of_False mp c hc hty
+
+== ConLeche/Model/Fold.lean#L198-L200
+   198  theorem foldPM (hμ : μ.verifiedChecks = true) {F : Nat} :
+   199      ∀ (ds : List Declaration) (env : Env) {env' : Env},
+   200        EnvModelOk V μ env →
 
 >>> whitepaper/sections/05-nested.typ
 

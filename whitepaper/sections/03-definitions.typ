@@ -157,8 +157,11 @@ In words: every stored constant is a member of its type, and a
 definition's value denotes the constant, at every instantiation of
 the declared level parameters.
 
-The real proof's carrier has the same laws among others
-(#src("ConLeche/Model/Annot/EnvModelM.lean", 159, 185)[the carrier's invariant]).
+#real[
+  The real proof's model carries the same two laws among others
+  (#src("ConLeche/Model/Annot/EnvModelM.lean", 159, 185)[the carrier's invariant]).
+]
+
 The empty environment has a model
 trivially: any assignment, and laws with nothing to say
 (#src("whitepaper/Fragment/EnvModel.lean", 231, 237)[fragment]).
