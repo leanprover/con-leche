@@ -93,14 +93,17 @@ definition $c$ with parameters $arrow(p)$, type $T$ and value $v$, it
 checks four things
 (#src("whitepaper/Fragment/Decl.lean", 589, 599)[fragment],
 #src("ConLeche/Kernel/CheckerBase.lean", 96, 116)[real checker, the common checks]
-and #src("ConLeche/Kernel/Checker.lean", 34, 50)[the value check]): the
-name is fresh; the type has a sort, $tack T => S red Sort u$; the
-value's inferred type is definitionally equal to the declared type,
-$tack v => T' $ and $tack T' equiv T$; and both terms are _in scope_
-— closed, mentioning only stored constants, using only the level
-parameters $arrow(p)$
-(#src("whitepaper/Fragment/Decl.lean", 577, 581)[fragment]). All
-in the empty context: stored terms are closed. The scope check is
+and #src("ConLeche/Kernel/Checker.lean", 34, 50)[the value check]):
+
+- the name $c$ is fresh;
+- the type has a sort: $tack T => S red Sort u$;
+- the value's inferred type is definitionally equal to the declared
+  type: $tack v => T'$ and $tack T' equiv T$;
+- both terms are _in scope_: closed, mentioning only stored constants,
+  using only the level parameters $arrow(p)$
+  (#src("whitepaper/Fragment/Decl.lean", 577, 581)[fragment]).
+
+All in the empty context: stored terms are closed. The scope check is
 what lets the model read a stored term without looking at anything
 that is added later: the interpretation of a term depends only on
 the constants and the free variables it mentions and the level
