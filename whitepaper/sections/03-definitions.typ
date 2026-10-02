@@ -128,7 +128,10 @@ $
 
 with $phi(arrow(ell))$ the list of the levels' values
 (#src("whitepaper/Fragment/Interp.lean", 124, 130)[fragment]). It
-stays term-directed: no environment lookup, no derivation, no type.
+stays term-directed: $M$ is a parameter like $rho$, consulted at a
+constant the way $rho$ is at a variable; the environment $E$ itself —
+the stored types and values — is never read, and no derivation and
+no type is needed.
 A third lemma joins the two of @sec:interp, by the same induction:
 #src("whitepaper/Fragment/Interp.lean", 215, 217)[instantiating
 level parameters] is changing the valuation. And the semantic
