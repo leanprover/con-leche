@@ -31,8 +31,9 @@ the same shape of argument as a definition (@sec:defs), and its
 reduction rule $iota$ reads the environment as $delta$ does; the two
 new pieces of work are showing that the constructed sets — the
 family, the constructors, the recursor — are members of their
-generated types (law 1), and the $iota$ law — the contract's third
-law (law 3) — which this section states and proves. This
+generated types (law 1), and the $iota$ law — a third law that
+joins the contract of @sec:defs here (law 3) — which this section
+states and proves. This
 section says what the checker checks for
 a block and what it stores, how the model grows by a least fixed point
 so that the three laws keep holding, and then the consistency
@@ -292,9 +293,10 @@ right-hand side over the recursor's level parameters
 #src("ConLeche/Kernel/Env.lean", 241, 254)[real checker]). The
 rules' right-hand sides are generated and stored, not inferred: they
 mention the recursor itself, and the official kernel infers no rule either.
-That the rules are _sound_ is the model's business — it is
-#src("whitepaper/Fragment/EnvModel.lean", 211, 218)[law 3 of the contract]
-(@sec:defs), and the next subsection proves it.
+That the rules are _sound_ is the model's business. It is the
+contract's #src("whitepaper/Fragment/EnvModel.lean", 211, 218)[third law], which @def:model of @sec:defs now gains:
+every rule of every stored recursor satisfies its $iota$ law
+(@def:iota-law below). The next subsection proves it.
 
 == Inductive types: the model <sec:ind-model>
 

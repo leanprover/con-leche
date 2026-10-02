@@ -139,11 +139,12 @@ level parameters] is changing the valuation. And the semantic
 invariant gains the clause that a constant, like a variable or a
 sort, is always well-denoted.
 
-*The three-law contract.* What the soundness theorem, extended below,
+*The contract.* What the soundness theorem, extended below,
 assumes of the environment is #src("whitepaper/Fragment/EnvModel.lean", 192, 229)[a _model_]: an
 assignment $M(c, arrow(n))$ of a set to every constant $c$ and every
 list of natural numbers $arrow(n)$ — the values of its level
-parameters — satisfying three laws. Throughout, $arrow(ell)$ ranges
+parameters — satisfying two laws (a third, for recursors, joins in
+@sec:ind). Throughout, $arrow(ell)$ ranges
 over level lists with $|arrow(ell)| = |arrow(p)|$, $phi$ over
 valuations and $rho$ over variable environments, and $rho models e$ is
 the semantic invariant of @sec:inv.
@@ -156,15 +157,13 @@ the semantic invariant of @sec:inv.
   + #src("whitepaper/Fragment/EnvModel.lean", 204, 210)[Unfolding]: for every $(c.\{arrow(p)\} : T := v) in E$,
     $ rho models v[arrow(p) := arrow(ell)] quad "and" quad
       lden v[arrow(p) := arrow(ell)] rden_rho = M(c, phi(arrow(ell))). $
-  + $iota$: every rule of a stored recursor satisfies its $iota$ law —
-    a law about the declarations of @sec:ind, stated and used there.
 ] <def:model>
 
 In words: every stored constant is a member of its type, and a
 definition's value denotes the constant, at every instantiation of
 the declared level parameters.
 
-The real proof's carrier has the same three laws among others
+The real proof's carrier has the same laws among others
 (#src("ConLeche/Model/Annot/EnvModelM.lean", 159, 185)[the carrier's invariant]).
 The laws mention the model only at the _stored_ terms — the types,
 the values, and in @sec:ind the rules' right-hand sides — and quantify over sets
@@ -172,7 +171,7 @@ where a use site would have terms. That is deliberate: when a fresh
 constant is added, no stored term mentions it, so every old law is
 read off the extended assignment exactly as off the old one, and
 nothing has to be re-proved. The empty environment has a model
-trivially: any assignment, and three laws with nothing to say
+trivially: any assignment, and laws with nothing to say
 (#src("whitepaper/Fragment/EnvModel.lean", 231, 237)[fragment]).
 
 *Soundness, extended.* @thm:sound holds for the relations extended by
@@ -233,7 +232,6 @@ gains three cases, one per rule.
   $arrow(ell)$; and $v$ and $T$ mention no constant but old ones, so
   the two sets are the same under $M'$ as under $M$ (the scope check,
   above). That is law 1, and law 2 is the definition of $M'$ at $c$.
-  Law 3 has no new instance.
 ]
 
 The proof is two lines because everything difficult was done in §2:
