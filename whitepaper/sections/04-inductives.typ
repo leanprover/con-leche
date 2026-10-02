@@ -74,7 +74,7 @@ introduced below, since the body is the family). This is the strictly positive s
 the only one the fragment admits: no field's domain mentions $I$
 anywhere else (in the fragment, the specification's pieces are
 scope-checked in the environment _before_ $I$ is added, so they
-cannot mention it at all — #src("whitepaper/Fragment/Decl.lean", 605, 619)[the scope of a field]).
+cannot mention it at all — #src("whitepaper/Fragment/Decl.lean", 629, 643)[the scope of a field]).
 The real checker's positivity check classifies each domain after
 weak head normal form, with $I$ at the block's parameters replaced by
 a variable standing for the family being defined; @sec:nested uses the same
@@ -82,7 +82,7 @@ check
 (#src("ConLeche/Kernel/Inductives/Positivity.lean", 1453, 1454)[positivity]).
 One more condition of shape: nothing after a recursive or reflexive
 field may depend on its value
-(#src("whitepaper/Fragment/Decl.lean", 622, 628)[fragment],
+(#src("whitepaper/Fragment/Decl.lean", 646, 652)[fragment],
 #src("ConLeche/Kernel/Inductives/Positivity.lean", 1246, 1249)[real checker], as in the
 official kernel) — the model will read a constructor's domains without knowing
 what its recursive fields are.
@@ -119,10 +119,10 @@ The former's type is
 the one displayed above; a constructor's type is
 $forall arrow(x) : arrow(P) thin ann(PW). thin forall arrow(f) : arrow(F) thin ann(PW). thin I thick arrow(x) thick arrow(e)_j$
 with the annotation
-#src("whitepaper/Fragment/Decl.lean", 141, 144)[$ann(PW) = zn(u)$]
+#src("whitepaper/Fragment/Decl.lean", 144, 147)[$ann(PW) = zn(u)$]
 on every binder: every body ends in the family, which is a
 proposition exactly when $u$ is zero
-(#src("whitepaper/Fragment/Decl.lean", 211, 218)[the two generators]).
+(#src("whitepaper/Fragment/Decl.lean", 214, 221)[the two generators]).
 The recursor is best shown on an example.
 
 #example(name: [$Nat$])[
@@ -141,7 +141,7 @@ The recursor is best shown on an example.
     & forall (t : Nat) thin ann(q). thin C thick t
   $
 
-  with #src("whitepaper/Fragment/Decl.lean", 145, 149)[$ann(q) = zn(ell) = ann(whenZero \{ell\})$] on
+  with #src("whitepaper/Fragment/Decl.lean", 148, 152)[$ann(q) = zn(ell) = ann(whenZero \{ell\})$] on
   every binder: each body ends in $C thick dots$, a member of
   $Sort ell$, so it is a proposition exactly when $ell$ is
   instantiated to zero. $C$ is the _motive_; $z$ and $s$ are the _minor premises_,
@@ -174,11 +174,11 @@ the hypothesis is $forall arrow(z) : arrow(A) thin ann(q). thin C thick arrow(e)
 — and ends in $C thick arrow(e)_j thick (c_j thick arrow(x) thick arrow(f))$;
 the recursor takes the parameters, the motive, the minors, the indices
 and the major, and ends in $C thick arrow(y) thick t$. (Generated:
-#src("whitepaper/Fragment/Decl.lean", 220, 222)[the motive],
-#src("whitepaper/Fragment/Decl.lean", 232, 245)[an inductive hypothesis],
-#src("whitepaper/Fragment/Decl.lean", 259, 268)[a minor premise],
-#src("whitepaper/Fragment/Decl.lean", 275, 280)[the recursor's type]
-and #src("whitepaper/Fragment/Decl.lean", 321, 328)[a rule's right-hand side];
+#src("whitepaper/Fragment/Decl.lean", 223, 225)[the motive],
+#src("whitepaper/Fragment/Decl.lean", 235, 248)[an inductive hypothesis],
+#src("whitepaper/Fragment/Decl.lean", 262, 271)[a minor premise],
+#src("whitepaper/Fragment/Decl.lean", 278, 283)[the recursor's type]
+and #src("whitepaper/Fragment/Decl.lean", 324, 331)[a rule's right-hand side];
 real checker: #src("ConLeche/Kernel/Inductives/GenRec.lean", 181, 188)[the type],
 #src("ConLeche/Kernel/Inductives/GenRec.lean", 193, 212)[a rule].)
 The annotation on the recursor's binders is
@@ -201,10 +201,10 @@ determines every field: the propositional ones are all the same
 proof, and the others can be read off the indices. Otherwise the
 motive lands in $Prop$, $ell = 0$: _small elimination_. In the
 fragment the criterion is
-#src("whitepaper/Fragment/Decl.lean", 690, 697)[a condition per field]
-plus #src("whitepaper/Fragment/Decl.lean", 743)[the constructor count], required of a large
+#src("whitepaper/Fragment/Decl.lean", 714, 721)[a condition per field]
+plus #src("whitepaper/Fragment/Decl.lean", 767)[the constructor count], required of a large
 eliminator on a family whose sort _may_ be zero
-(#src("whitepaper/Fragment/Decl.lean", 686, 688)[never zero: $1 <= u$ at every valuation]).
+(#src("whitepaper/Fragment/Decl.lean", 710, 712)[never zero: $1 <= u$ at every valuation]).
 The real checker also splits the criterion in two, but asks the
 per-field half less often: a count guard —
 a large eliminator is allowed when the sort is never zero, and
@@ -225,7 +225,7 @@ Here the zero-ness question of §2 reappears. "This field is a
 proposition" is a question about the field's sort $v$, and the
 checker answers it with the level oracle, $v eq.dot 0$. The same
 oracle decides the universe bound on the fields of a family of types
-— every field's sort is at most $u$, #src("whitepaper/Fragment/Decl.lean", 679, 684)[or the family is a proposition and there is no bound], which is
+— every field's sort is at most $u$, #src("whitepaper/Fragment/Decl.lean", 703, 708)[or the family is a proposition and there is no bound], which is
 Lean's impredicativity of $Prop$ — and whether the family's sort is
 never zero. In §2 the coloured datum decided how to interpret a
 $forall$ or a $lambda$; here the same question, asked of the oracle
@@ -256,7 +256,7 @@ regime these data can put it in.
 ] <ex:P>
 
 *The checks.* A block is accepted when
-(#src("whitepaper/Fragment/Decl.lean", 699, 744)[fragment],
+(#src("whitepaper/Fragment/Decl.lean", 723, 768)[fragment],
 #src("ConLeche/Kernel/Inductives/BlockTail.lean", 143, 148)[real checker]):
 its names are distinct and fresh; the specification is in scope
 (positivity included); the generated former's type has a type in the
@@ -267,7 +267,7 @@ eliminator asks it, the subsingleton criterion (the binders of a
 reflexive field's own telescope respect the universe bound too); the constructor count respects
 the elimination rule; and, in the environment holding the former and
 the constructors, the generated recursor's type has a type, and so
-has #src("whitepaper/Fragment/Decl.lean", 314, 319)[each rule's type] — the recursor's binder prefix
+has #src("whitepaper/Fragment/Decl.lean", 317, 322)[each rule's type] — the recursor's binder prefix
 with the constructor's fields in place of the indices and the major.
 Each "has a type" is an inference $tack T => S$ of §2, in the empty
 context ($S$ is a sort for a generated type, but nothing checks that:
@@ -280,7 +280,7 @@ rule-less recursor
 (#src("ConLeche/Kernel/Inductives/GenRec.lean", 427, 448)[a generated rule]).
 What is stored is the former, the constructors
 and the recursor, with its rules
-(#src("whitepaper/Fragment/Decl.lean", 529, 570)[fragment]) — the
+(#src("whitepaper/Fragment/Decl.lean", 532, 573)[fragment]) — the
 three kinds of constant that @sec:defs left to this section. An
 _inductive type former_ carries its parameter and index counts and
 its constructors' names; a _constructor_ its parameter and field

@@ -2,6 +2,7 @@ module
 
 public import Fragment.Rules
 public import Fragment.Scope
+public import Fragment.ScopeOfInfer
 
 @[expose] public section
 
@@ -18,8 +19,10 @@ a model.
 **Definitions** (`DefOk`; con-leche's `checkDefnVal`,
 `ConLeche/Kernel/Checker.lean:36-52`): the declared type has a sort,
 the value's inferred type is definitionally equal to the declared
-type, the name is fresh, and both terms are closed, mention only
-stored constants and use only the declared level parameters.
+type, the name is fresh, and both terms use only the declared level
+parameters — the one scope condition beyond typing; that they are
+closed and mention only stored constants follows from their typing
+derivations being in the empty context (`ScopeOfInfer.lean`).
 
 **Inductive blocks** (`IndOk`; con-leche's uniform installer,
 `ConLeche/Kernel/Inductives/BlockTail.lean`, with its recogniser
@@ -589,14 +592,35 @@ variable [LevelOracle]
 /-- **A definition is accepted** (con-leche's `checkDefnVal`): the
 name is fresh, the declared type's type reduces to a sort, the
 value's inferred type is definitionally equal to the declared type,
-and both terms are in scope (closed, stored constants, declared level
-parameters). -/
+and both terms use only the declared level parameters.  That is the
+one scope condition the typing derivations do not give (the sort rule
+accepts `Sort u` at any level `u`); closedness and stored constants
+they do give (`Infer.closedAt`, `Infer.consts`,
+`ScopeOfInfer.lean`), so the environment section recovers the full
+scope of both terms (`DefOk.type_scoped`, `DefOk.value_scoped`). -/
 def DefOk (env : Env) (c : Name) (ci : ConstInfo) : Prop :=
   env.find? c = none ∧
   (∃ s u, Infer env [] ci.type s ∧ Red env [] s (.sort u)) ∧
   (∃ v T, ci.kind = .defn v ∧ Infer env [] v T ∧ DefEq env [] T ci.type ∧
-    Expr.Scoped env ci.lparams 0 v) ∧
-  Expr.Scoped env ci.lparams 0 ci.type
+    v.lparamsIn ci.lparams = true) ∧
+  ci.type.lparamsIn ci.lparams = true
+
+/-- An accepted definition's type is in scope: closed and over stored
+constants by its typing derivation, over the declared level
+parameters by the check. -/
+theorem DefOk.type_scoped {env : Env} {c : Name} {ci : ConstInfo} (h : DefOk env c ci) :
+    Expr.Scoped env ci.lparams 0 ci.type :=
+  have ⟨_, ⟨_, _, hT, _⟩, _, hps⟩ := h
+  ⟨hT.closedAt, hT.consts, hps⟩
+
+/-- An accepted definition's value is in scope, for the same reasons. -/
+theorem DefOk.value_scoped {env : Env} {c : Name} {ci : ConstInfo} (h : DefOk env c ci) :
+    ∀ v, ci.kind = .defn v → Expr.Scoped env ci.lparams 0 v := by
+  obtain ⟨_, _, ⟨v, T, hkind, hv, _, hps⟩, _⟩ := h
+  intro v' hv'
+  rw [hkind] at hv'
+  cases hv'
+  exact ⟨hv.closedAt, hv.consts, hps⟩
 
 namespace IndSpec
 

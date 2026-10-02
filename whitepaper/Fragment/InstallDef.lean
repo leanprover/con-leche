@@ -292,11 +292,13 @@ variable [LevelOracle]
 /-- A closed environment stays closed under an accepted definition. -/
 theorem Env.Scoped.add_def {env : Env} {c : Name} {ci : ConstInfo} (hs : Env.Scoped env)
     (hok : DefOk env c ci) : Env.Scoped (env.add c ci) := by
-  obtain ⟨hfresh, _, ⟨v, _, hkind, _, _, hvs⟩, hts⟩ := hok
+  have hts := hok.type_scoped
+  have hvs := hok.value_scoped
+  obtain ⟨hfresh, _, ⟨v, _, hkind, _, _, _⟩, _⟩ := hok
   refine hs.add hfresh hts (fun v' hv' => ?_) (fun _ _ _ _ _ hk => ?_)
   · simp only [ConstInfo.value?, hkind, ConstKind.value?, Option.some.injEq] at hv'
     rw [← hv']
-    exact hvs
+    exact hvs v hkind
   · rw [hkind] at hk
     cases hk
 
@@ -306,7 +308,9 @@ its set. -/
 theorem install_def {env : Env} {c : Name} {ci : ConstInfo} (hs : Env.Scoped env)
     (m : EnvModel V env) (hok : DefOk env c ci) :
     ∃ m' : EnvModel V (env.add c ci), ∀ n, (env.find? n).isSome → ∀ ls, m'.M n ls = m.M n ls := by
-  obtain ⟨hfresh, ⟨s, u, hT, _⟩, ⟨v, T, hkind, hv, hd, hvs⟩, hts⟩ := hok
+  have hvs' := hok.value_scoped
+  obtain ⟨hfresh, ⟨s, u, hT, _⟩, ⟨v, T, hkind, hv, hd, _⟩, _⟩ := hok
+  have hvs := hvs' v hkind
   -- The new assignment: the value's set at `c`, the old sets elsewhere.
   obtain ⟨M', hM'c, hM'n⟩ : ∃ M' : Name → List Nat → V,
       (∀ ls, M' c ls = defVal m.M ci v ls) ∧ (∀ n, n ≠ c → ∀ ls, M' n ls = m.M n ls) :=

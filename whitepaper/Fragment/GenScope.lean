@@ -6,18 +6,16 @@ public import Fragment.Hygiene
 @[expose] public section
 
 /-!
-# Scope of inferred and generated terms
+# Scope of generated terms
 
-Two groups of syntactic facts the environment section reads when it
+The syntactic facts the environment section reads when it
 moves a declaration's scope (`Expr.Scoped`, `Decl.lean`) from the
 checks to the stored constants.
 
-**Inferred terms are in scope.**  An inferred term is closed at its
-context's depth and mentions only stored constants: the checker's
-`looseBVarsBounded` and `constsResolve` checks are consequences of
-inference, not extra premises (`Infer.closedAt`, `Infer.consts`).
-Level parameters are not: inference never reads a level, so
-`lparamsIn` stays a separate check (`allLevelParamsDefined`).
+**Inferred terms are in scope** (`Infer.closedAt`, `Infer.consts`,
+`ScopeOfInfer.lean`): closedness and stored constants are
+consequences of inference, not extra premises; only `lparamsIn` is a
+check.
 
 **Generated telescopes are in scope.**  The generators of `Decl.lean`
 build the former's, the constructors' and the recursor's types out of
@@ -29,49 +27,6 @@ what `CtxClosedAt` says.
 -/
 
 namespace Fragment
-
-/-! ## Scope of inferred terms -/
-
-/-- An inferred term is closed at its context's depth: every bound
-variable has a context entry, and the binder rules extend the context
-with the domain. -/
-theorem Infer.closedAt [LevelOracle] {env : Env} :
-    ∀ {Γ : List Expr} {e T : Expr}, Infer env Γ e T → e.closedAt Γ.length = true
-  | _, _, _, .bvar h => by
-    rw [Expr.closedAt_bvar, decide_eq_true_eq]
-    exact (List.getElem?_eq_some_iff.mp h).1
-  | _, _, _, .sort => rfl
-  | _, _, _, .const _ _ => rfl
-  | _, _, _, .pi hA _ hB _ _ => by
-    rw [Expr.closedAt_pi, Bool.and_eq_true]
-    exact ⟨Infer.closedAt hA, Infer.closedAt hB⟩
-  | _, _, _, .lam hA _ hb _ _ _ => by
-    rw [Expr.closedAt_lam, Bool.and_eq_true]
-    exact ⟨Infer.closedAt hA, Infer.closedAt hb⟩
-  | _, _, _, .app hf _ ha _ => by
-    rw [Expr.closedAt_app, Bool.and_eq_true]
-    exact ⟨Infer.closedAt hf, Infer.closedAt ha⟩
-
-/-- An inferred term mentions only stored constants: the constant rule
-looks each one up. -/
-theorem Infer.consts [LevelOracle] {env : Env} :
-    ∀ {Γ : List Expr} {e T : Expr}, Infer env Γ e T → ∀ c ∈ e.consts, (env.find? c).isSome
-  | _, _, _, .bvar _, _, hc => by simp at hc
-  | _, _, _, .sort, _, hc => by simp at hc
-  | _, _, _, .const hfind _, _, hc => by
-    rw [Expr.consts_const, List.mem_singleton] at hc
-    subst hc
-    rw [hfind]
-    rfl
-  | _, _, _, .pi hA _ hB _ _, c, hc => by
-    rw [Expr.consts_pi, List.mem_append] at hc
-    exact hc.elim (Infer.consts hA c) (Infer.consts hB c)
-  | _, _, _, .lam hA _ hb _ _ _, c, hc => by
-    rw [Expr.consts_lam, List.mem_append] at hc
-    exact hc.elim (Infer.consts hA c) (Infer.consts hb c)
-  | _, _, _, .app hf _ ha _, c, hc => by
-    rw [Expr.consts_app, List.mem_append] at hc
-    exact hc.elim (Infer.consts hf c) (Infer.consts ha c)
 
 /-! ## Generated telescopes -/
 

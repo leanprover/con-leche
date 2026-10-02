@@ -91,7 +91,7 @@ head rule of @sec:rules, an applied definition unfolds at its head.
 *What a definition must satisfy.* Before the checker stores a
 definition $c$ with parameters $arrow(p)$, type $T$ and value $v$, it
 checks four things
-(#src("whitepaper/Fragment/Decl.lean", 589, 599)[fragment],
+(#src("whitepaper/Fragment/Decl.lean", 592, 606)[fragment],
 #src("ConLeche/Kernel/CheckerBase.lean", 96, 116)[real checker, the common checks]
 and #src("ConLeche/Kernel/Checker.lean", 34, 50)[the value check]):
 
@@ -100,16 +100,17 @@ and #src("ConLeche/Kernel/Checker.lean", 34, 50)[the value check]):
 - the value's inferred type is definitionally equal to the declared
   type: $tack v => T'$ and $tack T' equiv T$;
 - both terms use only the level parameters $arrow(p)$
-  (#src("whitepaper/Fragment/Decl.lean", 577, 581)[fragment]) — the
+  (#src("whitepaper/Fragment/Decl.lean", 605, 606)[fragment]) — the
   one condition the typing derivations do not give, since the rules
   accept $Sort u$ for any level $u$. That both terms are closed and
   mention only stored constants follows from the two derivations
-  being in the empty context: no rule types a variable there, and the
-  constant rule requires the constant to be stored. The fragment
-  states the three conditions together as one _scope_ predicate.
+  being in the empty context: no rule types a variable there
+  (#src("whitepaper/Fragment/ScopeOfInfer.lean", 36, 37)[fragment]),
+  and the constant rule requires the constant to be stored
+  (#src("whitepaper/Fragment/ScopeOfInfer.lean", 55, 56)[fragment]).
 
-The scope check is
-what lets the model read a stored term without looking at anything
+These three facts are
+what let the model read a stored term without looking at anything
 that is added later: the interpretation of a term depends only on
 the constants and the free variables it mentions and the level
 parameters it uses
@@ -212,7 +213,7 @@ gains three cases, one per rule.
 #theorem(name: "Installing a definition")[
   If the environment has a model and the definition $c$ passes the
   checks above, then the environment extended with $c$ has a model.
-  (#src("whitepaper/Fragment/InstallDef.lean", 303, 308)[fragment],
+  (#src("whitepaper/Fragment/InstallDef.lean", 305, 310)[fragment],
   #src("ConLeche/Model/Install.lean", 271, 273)[real proof].)
 ] <thm:install-def>
 

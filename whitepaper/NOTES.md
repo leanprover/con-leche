@@ -504,3 +504,17 @@ comment block at the top of `lib.typ`.
     translation to the block's field kinds would let one generator
     and one reading serve both. (Nested lane, 2026-10-01.)
 
+
+30. **Two of a definition's three scope conditions are not checks.**
+    A definition's type and value are typed in the empty context, so
+    they are closed and mention only stored constants by the typing
+    derivations themselves (`Infer.closedAt`, `Infer.consts`,
+    `Fragment/ScopeOfInfer.lean`, structural inductions over `Infer`
+    alone); only "uses the declared level parameters" is a condition
+    beyond typing, and the fragment's `DefOk` (`Fragment/Decl.lean`)
+    now states that one alone, the environment section recovering the
+    full scope (`DefOk.type_scoped`, `DefOk.value_scoped`). The real
+    checker runs `looseBVarsBounded` and `constsResolve` as separate
+    checks on a definition (`Kernel/CheckerBase.lean`); the model
+    proof could take them from the derivations the same way. (Scope
+    lane, 2026-10-02.)

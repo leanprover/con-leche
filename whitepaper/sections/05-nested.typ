@@ -109,7 +109,7 @@ by a variable standing for the whole application
 @sec:ind-checks for its former and its constructors — a container
 field's domain, the class, is type-checked like any other domain —
 and then four more
-(#src("whitepaper/Fragment/Decl.lean", 746, 789)[fragment]). The
+(#src("whitepaper/Fragment/Decl.lean", 770, 813)[fragment]). The
 container is stored, with no container field of its own, and is
 positive in the member's position. Its sort at the instantiation is
 the block's sort, and so is the sort of the member parameter's
@@ -120,7 +120,7 @@ two recursors' types and every rule's type have types in the
 environment holding the former and the constructors. One rule of
 @sec:ind-checks tightens: _large elimination is refused for a nested
 block unless its sort is never zero_
-(#src("whitepaper/Fragment/Decl.lean", 786)[fragment],
+(#src("whitepaper/Fragment/Decl.lean", 810)[fragment],
 #src("ConLeche/Kernel/Inductives/BlockRec.lean", 82, 84)[the real checker's guard]),
 as in the official kernel. The subsingleton criterion is therefore
 never asked of a nested block, and the model never needs the witness
@@ -163,8 +163,8 @@ $TRec1$, whose major is a member of the class.
   the container's constructors are read as if they were constructors
   of the block: the member field becomes a recursive field, the
   container's recursive field a container field
-  (#src("whitepaper/Fragment/Decl.lean", 350, 357)[the translation],
-  #src("whitepaper/Fragment/Decl.lean", 382, 384)[a translated constructor]).
+  (#src("whitepaper/Fragment/Decl.lean", 353, 360)[the translation],
+  #src("whitepaper/Fragment/Decl.lean", 385, 387)[a translated constructor]).
   There are three rules, one per constructor of the block and of
   the container; $arrow(r)$ abbreviates the shared prefix
   $alpha thick C thick C_1 thick s thick n thick c$:
@@ -183,11 +183,11 @@ with the inductive hypothesis at a container field being the class's
 motive at the field, and the rules' right-hand sides call
 $TRec$ at a recursive field and $TRec1$ at a
 container field. (Generated:
-#src("whitepaper/Fragment/Decl.lean", 390, 392)[the class's motive],
-#src("whitepaper/Fragment/Decl.lean", 405, 417)[a class minor],
-#src("whitepaper/Fragment/Decl.lean", 439, 451)[the two types],
-#src("whitepaper/Fragment/Decl.lean", 453, 470)[an inductive hypothesis' value]
-and #src("whitepaper/Fragment/Decl.lean", 506, 513)[a rule of $TRec1$]\;
+#src("whitepaper/Fragment/Decl.lean", 393, 395)[the class's motive],
+#src("whitepaper/Fragment/Decl.lean", 408, 420)[a class minor],
+#src("whitepaper/Fragment/Decl.lean", 442, 454)[the two types],
+#src("whitepaper/Fragment/Decl.lean", 456, 473)[an inductive hypothesis' value]
+and #src("whitepaper/Fragment/Decl.lean", 509, 516)[a rule of $TRec1$]\;
 real checker: #src("ConLeche/Kernel/Inductives/GenRec.lean", 180, 187)[the type],
 #src("ConLeche/Kernel/Inductives/GenRec.lean", 189, 212)[a rule],
 one recursor per class.)

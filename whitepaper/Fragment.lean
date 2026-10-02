@@ -13,6 +13,7 @@ public import Fragment.EnvModel
 public import Fragment.IndLib
 public import Fragment.Tele
 public import Fragment.Scope
+public import Fragment.ScopeOfInfer
 public import Fragment.Decl
 public import Fragment.Hygiene
 public import Fragment.Ctx
