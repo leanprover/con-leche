@@ -206,3 +206,8 @@ in HTML the phrase shows the cited lines on hover.
   `DefOk` no longer demands it and a lemma proves it).
 * (2026-10-02) "Installer" is jargon too: say "the checker" (and "checks
   … uniformly" for the one-installer point).
+* (2026-10-02) Prose about the REAL proof/checker lives in its own
+  set-off block (`#real[…]`: labelled, muted, skippable), never
+  interleaved with the paper's own argument; inline, only the citation
+  links remain. "The input" means the specification in this paper; the
+  stream and raw declarations exist only inside `#real` blocks.
