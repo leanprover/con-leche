@@ -49,9 +49,8 @@ beyond it.
   defined (#src("tests/e2e/src/nested_rec.lean", 17, 18)[the fixture]).
 ] <ex:tree>
 
-Such a field is a _container field_, the fourth kind of field after
-the three of @sec:ind-checks
-(#src("whitepaper/Fragment/Spec.lean", 43, 49)[fragment]). Its
+Such a field is a #src("whitepaper/Fragment/Spec.lean", 43, 49)[_container field_], the fourth kind of field after
+the three of @sec:ind-checks. Its
 domain is a previously installed block $K$ — the _container_ — at
 some levels, applied to arguments one of which is the _nested
 occurrence_ $I thick arrow(x) thick arrow(e)$: the type being
@@ -119,8 +118,7 @@ and that no later parameter depends on it
 *The other checks.* A nested block passes the checks of
 @sec:ind-checks for its type former and its constructors — a container
 field's domain, the class, is type-checked like any other domain —
-and then four more
-(#src("whitepaper/Fragment/Decl.lean", 760, 803)[fragment]). The
+and then #src("whitepaper/Fragment/Decl.lean", 760, 803)[four more]. The
 container is stored, with no container field of its own, and is
 positive at the nested position. Its sort at the instantiation is
 the block's sort, and so is the sort of the parameter's domain at
@@ -130,10 +128,9 @@ The class has a type at the block's parameters, which is what puts
 the class's arguments in the container's parameter domains. And the
 two recursors' types and every rule's type have types in the
 environment holding the type former and the constructors. One rule of
-@sec:ind-checks tightens: _large elimination is refused for a nested
+@sec:ind-checks #src("whitepaper/Fragment/Decl.lean", 800)[tightens]: _large elimination is refused for a nested
 block unless its sort is never zero_
-(#src("whitepaper/Fragment/Decl.lean", 800)[fragment],
-#src("ConLeche/Kernel/Inductives/BlockRec.lean", 82, 84)[the real checker's guard]),
+(#src("ConLeche/Kernel/Inductives/BlockRec.lean", 82, 84)[con-leche's guard]),
 as in the official kernel. The subsingleton criterion is therefore
 never asked of a nested block, and the model never needs the
 agreement of decodings that @thm:iota's proof draws from it: wherever the
@@ -211,16 +208,14 @@ recursor's. For a rule of $TRec1$ that comparison is wrong:
 the constructor is $cons$, whose parameter — left implicit in
 @ex:tree-rec — is $Tree thick alpha$, while the recursor's is
 $alpha$. So each stored rule of
-$TRec1$ carries its _instantiation_ — the container's
+$TRec1$ carries its #src("whitepaper/Fragment/Env.lean", 43, 52)[_instantiation_] — the container's
 levels and the class's arguments, terms under the recursor's
 parameter binders
-(#src("whitepaper/Fragment/Env.lean", 43, 52)[fragment],
-#src("ConLeche/Kernel/Env.lean", 196, 206)[real checker]) — and
-fires by a second $iota$ rule that compares the constructor's levels
+(#src("ConLeche/Kernel/Env.lean", 196, 206)[as in con-leche]) — and
+fires by #src("whitepaper/Fragment/Rules.lean", 160, 172)[a second $iota$ rule] that compares the constructor's levels
 and parameters with the stored instantiation at the recursor's
 levels and parameter arguments
-(#src("whitepaper/Fragment/Rules.lean", 160, 172)[fragment],
-#src("ConLeche/Kernel/Inductives/RecCheck.lean", 587, 597)[the stored rules, firing at their instantiation]).
+(#src("ConLeche/Kernel/Inductives/RecCheck.lean", 587, 597)[the stored rules, firing at their instantiation]).
 The plain $iota$ rule applies only to a rule without a stored
 instantiation, and not just because of the comparison: it finds the
 constructor's fields by dropping the _recursor's_ parameter count
@@ -252,9 +247,9 @@ was installed — a fact about its set, not about monotonicity or
 accessibility — the graph over $K$'s parameters of $K$'s family. For a set $Y$
 write $arrow(d)[Y]$ for the class's arguments read at $arrow(X)$, with
 $Y$ at the nested position $p$, and $Phi_K^(arrow(d)[Y])$ for $K$'s
-operator at those parameter values. The _class at $Y$_ is $K$'s set
-applied to $arrow(d)[Y]$
-(#src("whitepaper/Fragment/IndCommon.lean", 201, 204)[fragment]). By
+operator at those parameter values. The
+#src("whitepaper/Fragment/IndCommon.lean", 201, 204)[_class at $Y$_] is $K$'s set
+applied to $arrow(d)[Y]$. By
 $beta$ it is $K$'s family at those parameters, a single set because
 $K$ has no indices
 (#src("whitepaper/Fragment/NestSem.lean", 311, 315)[the class is the container's family]):
@@ -275,15 +270,14 @@ go field kind by field kind, and at a container field they ask of
 $cal(C)$ what they ask of a reflexive field's product. It must grow
 with its argument. A member of $cal(C)(Y)$ must have a support in $Y$,
 coded inside one bound fixed in advance. And $cal(C)(Y)$ must lie in
-the universe whenever $Y$ does. These facts are the _container's
-clause_
-(#src("whitepaper/Fragment/IndSem.lean", 452, 471)[fragment]).
+the universe whenever $Y$ does. These facts are the
+#src("whitepaper/Fragment/IndSem.lean", 452, 471)[_container's clause_].
 Given the clause, the proofs of @sec:ind-model go through unchanged
 (#src("whitepaper/Fragment/IndSem.lean", 596, 609)[a field's set grows, the container case last],
 #src("whitepaper/Fragment/IndSem.lean", 1193, 1200)[the operator is accessible]),
 and the bound gains, per container field, the class's bound $A_K$ of
-@lem:class-acc with each of its paths prefixed by the field's position
-(#src("whitepaper/Fragment/IndSem.lean", 973, 990)[fragment]).
+@lem:class-acc with each of its paths
+#src("whitepaper/Fragment/IndSem.lean", 973, 990)[prefixed by the field's position].
 
 One observation about $K$ proves the clause. Recall from
 @sec:nest-checks that positivity sorts $K$'s fields into three kinds.
@@ -294,11 +288,10 @@ of an earlier parameter field; and by the second shape condition of
 @sec:ind-checks, which $K$ passed when it was installed, nothing reads
 the value of an earlier recursive field. So a list of
 fields that fits a constructor of $K$, at the parameter $Y$ and
-relative to a family $L$, still fits in a changed setting: at another
+relative to a family $L$, #src("whitepaper/Fragment/NestSem.lean", 385, 399)[still fits in a changed setting]: at another
 parameter $Y'$ and relative to another family $L'$, provided the
 parameter fields are replaced by members of $Y'$, the recursive
-fields by members of $L'$, and the ordinary fields are kept
-(#src("whitepaper/Fragment/NestSem.lean", 385, 399)[fragment]).
+fields by members of $L'$, and the ordinary fields are kept.
 This is where positivity is used: were the parameter to occur to the
 left of an arrow, say in a field of type $Y -> B$, a function on $Y$
 would not be a function on a larger $Y'$, and neither lemma below
@@ -306,8 +299,8 @@ would hold.
 
 #lemma(name: "the class grows with the approximant")[
   Let $Y subset.eq Y'$ be members of $cal(U)_(phi(u))$, the
-  universe of the block's sort. Then $cal(C)(Y) subset.eq cal(C)(Y')$
-  (#src("whitepaper/Fragment/NestSem.lean", 504, 515)[fragment]).
+  universe of the block's sort. Then
+  #src("whitepaper/Fragment/NestSem.lean", 504, 515)[$cal(C)(Y) subset.eq cal(C)(Y')$].
 ] <lem:class-mono>
 
 #proof[
@@ -322,29 +315,25 @@ would hold.
 ]
 
 #lemma(name: "the class is accessible in the approximant")[
-  In the type-valued regime, every member $v$ of $cal(C)(Y)$, for $Y in cal(U)_(phi(u))$, has a support in $Y$. That is, there are a subset
+  In the type-valued regime, every member $v$ of $cal(C)(Y)$, for $Y in cal(U)_(phi(u))$, #src("whitepaper/Fragment/NestSem.lean", 700, 710)[has a support in $Y$]. That is, there are a subset
   $B$ of the _class's bound_ $A_K$ and an element $g(b) in Y$ for each
   $b in B$, such that $v in cal(C)(Y')$ for every $Y'$ in the universe
   holding every $g(b)$. The bound $A_K$, the finite paths over the
   numerals below the length of $K$'s longest field list, is computed
   from the specification alone and is a member of the universe
-  (#src("whitepaper/Fragment/NestSem.lean", 700, 710)[fragment],
-  #src("whitepaper/Fragment/IndSem.lean", 431, 439)[the bound]).
+  (#src("whitepaper/Fragment/IndSem.lean", 431, 439)[the bound]).
 ] <lem:class-acc>
 
 #proof[
-  Read $K$'s operator as a function of two arguments, the parameter
-  $Y$ and its own family $L$
-  (#src("whitepaper/Fragment/NestSem.lean", 532, 536)[fragment]).
+  Read $K$'s operator as a #src("whitepaper/Fragment/NestSem.lean", 532, 536)[function of two arguments], the parameter
+  $Y$ and its own family $L$.
   As such it is accessible with one code per field position. A
   constructor value's support is its parameter fields, which are
   occurrences in $Y$, and its recursive fields, which are occurrences
-  in $L$. By the observation, the value is produced from every pair
-  holding them
-  (#src("whitepaper/Fragment/NestSem.lean", 546, 554)[fragment]).
-  The _nested case of accessibility_ turns this into accessibility
-  of $Y |-> L_Y$
-  (#src("whitepaper/Fragment/Access.lean", 411, 423)[fragment]).
+  in $L$. By the observation, #src("whitepaper/Fragment/NestSem.lean", 546, 554)[the value is produced] from every pair
+  holding them.
+  The #src("whitepaper/Fragment/Access.lean", 411, 423)[_nested case of accessibility_] turns this into accessibility
+  of $Y |-> L_Y$.
   The argument is an induction over $L_Y$. A member produced by the
   operator has a support of occurrences, each either in $Y$ or in
   $L_Y$. An occurrence in $L_Y$ has a support in $Y$ by the induction
@@ -362,9 +351,8 @@ one possible element is coded by the point, a member of $A_K$, and
 @sec:ind-model. That bound reads the telescopes at the one-fibre
 family, where a container field needs a stand-in value. So the class
 at ${pt}$ must be inhabited whenever the class at some $Y$ is. This is
-an induction over $L_Y$ that replaces the parameter fields by the
-point, using the observation once more
-(#src("whitepaper/Fragment/NestSem.lean", 725, 733)[fragment]). The
+#src("whitepaper/Fragment/NestSem.lean", 725, 733)[an induction over $L_Y$] that replaces the parameter fields by the
+point, using the observation once more. The
 clause is assembled from these lemmas, from the class's membership in
 the universe — a fibre of $K$'s family lies in the universe $K$'s
 sort names, which the checker compared with the block's — and from
@@ -389,9 +377,8 @@ monotone, maps the universe to itself and is accessible, so it has a
 closed family (@thm:closed-of-acc), and the block's family is its
 least fixed point
 (#src("whitepaper/Fragment/IndSem.lean", 1296, 1314)[the closed family and the family]).
-The fixed-point equation, the constructors' values and law, and
-induction over the family are as in @sec:ind-model
-(#src("whitepaper/Fragment/IndSem.lean", 1324, 1359)[fragment]).
+The #src("whitepaper/Fragment/IndSem.lean", 1324, 1359)[fixed-point equation], the constructors' values and law, and
+induction over the family are as in @sec:ind-model.
 
 #real[
   Monotonicity and accessibility are read off the positivity check's
@@ -427,10 +414,9 @@ graph's value at the family (under the field's telescope), at a
 container field its value at the class
 (#src("whitepaper/Fragment/NestRec.lean", 181, 196)[the step],
 #src("whitepaper/Fragment/NestRec.lean", 202, 205)[the graph]).
-The graph is single-valued because tagged tuples are injective,
+The graph #src("whitepaper/Fragment/NestRec.lean", 450, 454)[is single-valued] because tagged tuples are injective,
 the block's constructors being tagged after the container's so that
-no block value is a class value
-(#src("whitepaper/Fragment/NestRec.lean", 450, 454)[fragment]). It
+no block value is a class value. It
 is total on the family and on the class by an induction over the
 family with an inner induction over the class, the two
 _interleaved_. The outer induction runs over the family's separation
@@ -490,15 +476,13 @@ and each recursor's set is a member of its type
 #theorem(name: "Installing a nested block")[
   If the environment has a model that remembers its blocks and the
   nested block passes the checks of @sec:nest-checks, then the
-  extended environment has one, with every old constant's set
-  unchanged
-  (#src("whitepaper/Fragment/NestInstall.lean", 194, 199)[fragment]).
+  #src("whitepaper/Fragment/NestInstall.lean", 194, 199)[extended environment has one], with every old constant's set
+  unchanged.
   With the plain block step of @sec:ind-model this gives
   #src("whitepaper/Fragment/NestInstall.lean", 203, 206)[one installation theorem for any accepted block],
   which is what the proof of @thm:accepted-model runs at a block
-  step — the acceptance relation's block step is stated over any
-  block, plain or nested
-  (#src("whitepaper/Fragment/Consistency.lean", 46, 47)[fragment]) —
+  step — the acceptance relation's block step
+  #src("whitepaper/Fragment/Consistency.lean", 46, 47)[is stated over any block], plain or nested —
   and @cor:consistency holds as stated.
 ] <thm:install-nest>
 

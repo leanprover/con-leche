@@ -47,9 +47,8 @@ one type, or one proposition, per choice of indices — _type-valued_
 or _proposition-valued_, the two regimes of §2 for a whole family at
 once. The fragment takes a block with one type former, neither mutual
 nor nested; nesting is added in @sec:nested. The block is given by a
-_specification_
-(#src("whitepaper/Fragment/Spec.lean", 80, 103)[fragment],
-#src("ConLeche/Kernel/Inductives/BlockParts.lean", 104, 122)[real checker]):
+#src("whitepaper/Fragment/Spec.lean", 80, 103)[_specification_]
+(#src("ConLeche/Kernel/Inductives/BlockParts.lean", 104, 122)[as in con-leche]):
 
 - a name $I$ and level parameters $arrow(p)$;
 - a _parameter_ telescope $(x_1 : P_1) dots (x_k : P_k)$ and, under
@@ -62,9 +61,8 @@ _specification_
   under the parameters and the fields, the index expressions
   $arrow(e)_j$ of its result $I thick arrow(x) thick arrow(e)_j$.
 
-A field is one of two kinds
-(#src("whitepaper/Fragment/Spec.lean", 28, 42)[fragment],
-#src("ConLeche/Kernel/Inductives/Positivity.lean", 598, 608)[real checker]):
+A field is one of #src("whitepaper/Fragment/Spec.lean", 28, 42)[two kinds]
+(#src("ConLeche/Kernel/Inductives/Positivity.lean", 598, 608)[as in con-leche]):
 
 - _ordinary_: its domain does not mention $I$;
 - _reflexive_: its domain is
@@ -78,9 +76,9 @@ A field is one of two kinds
 Two conditions of shape come with the kinds. No field's domain
 mentions $I$ anywhere else — this is
 #src("whitepaper/Fragment/Decl.lean", 622, 636)[strict positivity].
-And nothing after a reflexive field may depend on its value
-(#src("whitepaper/Fragment/Decl.lean", 639, 644)[fragment],
-#src("ConLeche/Kernel/Inductives/Positivity.lean", 1246, 1249)[real checker], as in the
+And nothing after a reflexive field
+#src("whitepaper/Fragment/Decl.lean", 639, 644)[may depend on its value]
+(#src("ConLeche/Kernel/Inductives/Positivity.lean", 1246, 1249)[as in con-leche] and the
 official kernel): the model will read a constructor's domains without
 knowing the values of its reflexive fields.
 
@@ -286,9 +284,8 @@ the checker answers each with the level oracle:
   this example.
 ] <ex:P>
 
-*The checks.* A block is accepted when
-(#src("whitepaper/Fragment/Decl.lean", 713, 758)[fragment],
-#src("ConLeche/Kernel/Inductives/BlockTail.lean", 143, 148)[real checker]):
+*The checks.* A block #src("whitepaper/Fragment/Decl.lean", 713, 758)[is accepted] when
+(#src("ConLeche/Kernel/Inductives/BlockTail.lean", 143, 148)[as in con-leche]):
 
 - its names are distinct and fresh;
 - the specification is in scope, positivity included;
@@ -318,11 +315,10 @@ the body.
   (#src("ConLeche/Kernel/Inductives/GenRec.lean", 427, 448)[a generated rule]).
 ]
 
-*What is stored.* The block adds three kinds of constant to the
+*What is stored.* The block #src("whitepaper/Fragment/Decl.lean", 525, 566)[adds three kinds of constant] to the
 environment, the ones @sec:defs left to this section
-(#src("whitepaper/Fragment/Decl.lean", 525, 566)[fragment],
-#src("whitepaper/Fragment/Env.lean", 56, 72)[the kinds],
-#src("ConLeche/Kernel/Env.lean", 241, 254)[real checker]). Written
+(#src("whitepaper/Fragment/Env.lean", 56, 72)[the kinds],
+#src("ConLeche/Kernel/Env.lean", 241, 254)[as in con-leche]). Written
 with the notation of @sec:defs, a stored declaration is one of
 
 - $(c.\{arrow(p)\} : T := v)$ — a definition (@sec:defs);
@@ -352,10 +348,8 @@ against an extension of §2's axioms.
 
 *The axioms, extended.* Beyond the laws of @sec:lib this section
 assumes that the positive universes $cal(U)_n$, $n >= 1$,
-are _Grothendieck universes_
-(#src("whitepaper/Fragment/Univ.lean", 43, 88)[fragment]), and
-that there are tagged tuples
-(#src("whitepaper/Fragment/IndLib.lean", 46, 63)[fragment]):
+are #src("whitepaper/Fragment/Univ.lean", 43, 88)[_Grothendieck universes_], and
+that there are #src("whitepaper/Fragment/IndLib.lean", 46, 63)[tagged tuples]:
 
 + #src("whitepaper/Fragment/Univ.lean", 49, 64)[_Pairing, union, power set, replacement_],
   on all sets: for sets $a, b, x, A$ and a function $F$ (of the
@@ -430,8 +424,7 @@ the fields' sets
 (#src("whitepaper/Fragment/IndSem.lean", 484, 533)[the construction],
 #src("whitepaper/Fragment/IndSem.lean", 544, 548)[its members are as displayed]).
 When the family is proposition-valued ($ann(PW)$ holds at $phi$) a
-constructor value is the point instead of the tagged tuple
-(#src("whitepaper/Fragment/IndCommon.lean", 225, 227)[fragment]),
+constructor value #src("whitepaper/Fragment/IndCommon.lean", 225, 227)[is the point] instead of the tagged tuple,
 so every fibre of $Phi(W)$ is a subset of ${pt}$: the truth value
 "some constructor reaches these indices".
 
@@ -455,20 +448,18 @@ _Accessible by positivity._ @thm:closed-of-acc below, which supplies
 the closed family the least fixed point needs, asks for more than
 monotonicity. An _occurrence_ in a family $W$ is a pair
 $(arrow(Y), v)$ of index values and a member $v in W(arrow(Y))$ of the
-fibre there; write $(arrow(Y), v) in W$. Call $Phi$ _accessible with
-the bound_ $A$, a set, when every element $x$ of a fibre of $Phi(W)$
+fibre there; write $(arrow(Y), v) in W$. Call $Phi$ #src("whitepaper/Fragment/Access.lean", 68, 78)[_accessible with
+the bound_ $A$], a set, when every element $x$ of a fibre of $Phi(W)$
 has a _support_: a subset $B subset.eq A$ together with a map $g$ that
 names, for each $a in B$, an occurrence $g(a)$ in $W$ — such that $x$
 is produced from every family in the universe that contains those
 occurrences:
 $ forall W in cal(U)_n, arrow(Y), x in Phi(W)(arrow(Y)). thick exists B subset.eq A, g. thick & (forall a in B. thin g(a) in W) \
   & and forall W' in cal(U)_n. thin (forall a in B. thin g(a) in W') => x in Phi(W')(arrow(Y)) $
-($W in cal(U)_n$: every fibre of $W$ is a member of $cal(U)_n$)
-(#src("whitepaper/Fragment/Access.lean", 68, 78)[fragment]).
+($W in cal(U)_n$: every fibre of $W$ is a member of $cal(U)_n$).
 Whether an element is produced depends on at most $A$-many elements
 of the input and on nothing else, for the one set $A$. An accessible
-operator is monotone, since the support in $W$ is in the larger $W'$
-(#src("whitepaper/Fragment/Access.lean", 80, 85)[fragment]).
+operator #src("whitepaper/Fragment/Access.lean", 80, 85)[is monotone], since the support in $W$ is in the larger $W'$.
 
 The block's operator is accessible. Take as an example a tree type
 with a constructor $sans("node") : (Nat -> T) -> T$ and an element
@@ -476,27 +467,25 @@ $x = tag(j, f)$ of $Phi(W)$: the field $f$ is a function from the
 naturals into a fibre of $W$. Three things have to be shown.
 
 + _The support._ The value $x$ depends on $W$ only through the
-  children $f dot.op 0, f dot.op 1, dots$, so its support is those
-  children: one occurrence for each argument $z$ of the field,
+  children $f dot.op 0, f dot.op 1, dots$, so #src("whitepaper/Fragment/IndSem.lean", 1050, 1075)[its support is those
+  children]: one occurrence for each argument $z$ of the field,
   $(arrow(e)(z), f dot.op z)$, where $arrow(e)(z)$ are the field's
   index expressions. In general a reflexive field with telescope
   $arrow(z)$ contributes one occurrence per $arrow(z)$ fitting the
   telescope (a recursive field, with the empty telescope, exactly
   one), and an ordinary field contributes nothing; each occurrence is
-  named by the field's position and the tuple $arrow(z)$
-  (#src("whitepaper/Fragment/IndSem.lean", 1050, 1075)[fragment]).
+  named by the field's position and the tuple $arrow(z)$.
 + _A family holding the support produces $x$._ If every child lies
   in the matching fibre of $W'$, then $f$, a function whose
-  applications all lie in fibres of $W'$, is a member of the product
+  applications all lie in fibres of $W'$,
+  #src("whitepaper/Fragment/IndSem.lean", 1130, 1143)[is a member of the product]
   into those fibres (by η), and ordinary fields do not mention the
-  family; so $x in Phi(W')$
-  (#src("whitepaper/Fragment/IndSem.lean", 1130, 1143)[fragment]).
+  family; so $x in Phi(W')$.
 + _One bound for every family._ The names of the occurrences — field
   position and argument tuple — must come from one set $A$, the same
   whatever $W$ is. For $sans("node")$ that is the naturals. In
   general $A$ collects, per constructor and reflexive field, the
-  tuples fitting the field's telescope
-  (#src("whitepaper/Fragment/IndSem.lean", 973, 995)[fragment]). A
+  #src("whitepaper/Fragment/IndSem.lean", 973, 995)[tuples fitting the field's telescope]. A
   telescope may mention earlier fields, but by the second shape
   condition of @sec:ind-checks never a reflexive field's value, so the
   telescopes do not depend on $W$; the bound reads them at the
@@ -509,12 +498,12 @@ Hence #src("whitepaper/Fragment/IndSem.lean", 1193, 1200)[the operator is access
 In the type-valued regime, that the bound is a member of
 $cal(U)_(phi(u))$, and that $Phi$ maps families in $cal(U)_(phi(u))$
 to families in $cal(U)_(phi(u))$, follows from the semantic form of
-the checker's universe bound, the _universe bound on the fields_:
+the checker's universe bound, the
+#src("whitepaper/Fragment/IndSem.lean", 632, 653)[_universe bound on the fields_]:
 along any instance of any family
 in the universe, every ordinary domain and every entry of a reflexive
 field's telescope is a member of $cal(U)_(phi(u))$
-(#src("whitepaper/Fragment/IndSem.lean", 632, 653)[fragment],
-#src("whitepaper/Fragment/IndSem.lean", 997, 1001)[the bound is a member],
+(#src("whitepaper/Fragment/IndSem.lean", 997, 1001)[the bound is a member],
 #src("whitepaper/Fragment/IndSem.lean", 788, 795)[the operator maps the universe to itself]).
 It comes from the checker's field-sort check, $v <= u$, read in a
 model in which the type former denotes an arbitrary family of the
@@ -554,30 +543,26 @@ $cal(U)_(phi(v))$, a member of $cal(U)_(phi(u))$ by cumulativity
 ]
 
 *The closed family and the least fixed point.* A family $L$ is
-_closed_ under $Phi$, in $cal(U)_n$, when every fibre of $L$ is a
-member of $cal(U)_n$ and $Phi(L) subset.eq L$ fibrewise
-(#src("whitepaper/Fragment/LfpSet.lean", 64, 67)[fragment]).
+#src("whitepaper/Fragment/LfpSet.lean", 64, 67)[_closed_ under $Phi$], in $cal(U)_n$, when every fibre of $L$ is a
+member of $cal(U)_n$ and $Phi(L) subset.eq L$ fibrewise.
 
 #theorem(name: "A closed family from accessibility")[
   Let $n >= 1$. An operator $Phi$ on families that maps families in
   $cal(U)_n$ to families in $cal(U)_n$ and is accessible with a bound
-  $A in cal(U)_n$ has a closed family in $cal(U)_n$
-  (#src("whitepaper/Fragment/Access.lean", 292, 303)[fragment]\;
-  real proof: #src("ConLeche/SetModel/Access.lean", 239, 243)[the theorem]).
+  $A in cal(U)_n$ #src("whitepaper/Fragment/Access.lean", 292, 303)[has a closed family] in $cal(U)_n$
+  (#src("ConLeche/SetModel/Access.lean", 239, 243)[as in con-leche]).
 ] <thm:closed-of-acc>
 
 #proof[
-  Iterate $Phi$ along well-founded trees branching over all sets — a
+  Iterate $Phi$ along #src("whitepaper/Fragment/Access.lean", 163, 198)[well-founded trees] branching over all sets — a
   leaf, or a node with a subtree for every set: the _stage_ at a leaf
   is the empty family, the stage at a node is $Phi$ of the union over
   $a in A$ of its subtrees' stages, and the closed family is the
-  union of the stages over all trees
-  (#src("whitepaper/Fragment/Access.lean", 163, 198)[fragment]).
-  It is closed by accessibility: an element $Phi$ produces from it has
+  union of the stages over all trees.
+  It is #src("whitepaper/Fragment/Access.lean", 304, 320)[closed by accessibility]: an element $Phi$ produces from it has
   a support of at most $A$-many occurrences, each in some stage, and
   the node whose subtree at $a$ is a tree of the occurrence $g(a)$'s
-  stage produces the element at its own stage
-  (#src("whitepaper/Fragment/Access.lean", 304, 320)[fragment]).
+  stage produces the element at its own stage.
   It is in the universe because every stage is — $Phi$ preserves the
   universe, which is closed under $A$-indexed unions — and because the union over all
   trees is a union over a _set_: a stage depends on its tree only
@@ -591,12 +576,11 @@ member of $cal(U)_n$ and $Phi(L) subset.eq L$ fibrewise
 ]
 
 With a closed family $L_0$ in hand, the least fixed point is a set
-construction, inside the set theory: fibrewise the intersection of
-the closed families, separated from $L_0$,
-$ lfp(Phi)(arrow(Y)) = { x in L_0 (arrow(Y)) mid(|) x in L(arrow(Y)) "for every closed family" L } $
-(#src("whitepaper/Fragment/LfpSet.lean", 82, 89)[fragment]).
-Its fibres are members of $cal(U)_n$, as separations from members
-(#src("whitepaper/Fragment/LfpSet.lean", 111, 113)[fragment]); it
+construction, inside the set theory: fibrewise
+#src("whitepaper/Fragment/LfpSet.lean", 82, 89)[the intersection of the closed families],
+separated from $L_0$,
+$ lfp(Phi)(arrow(Y)) = { x in L_0 (arrow(Y)) mid(|) x in L(arrow(Y)) "for every closed family" L }. $
+Its fibres #src("whitepaper/Fragment/LfpSet.lean", 111, 113)[are members of $cal(U)_n$], as separations from members; it
 lies #src("whitepaper/Fragment/LfpSet.lean", 106, 108)[below every closed family]\;
 and when $Phi$ is monotone and maps $cal(U)_n$ to itself it is
 #src("whitepaper/Fragment/LfpSet.lean", 137, 141)[a fixed point],
@@ -606,9 +590,8 @@ property that holds of every element $Phi$ produces from the family's
 separation by it holds on the whole family — the separation is a
 closed family, so the least one lies below it. At a proposition no
 bound is needed: every fibre of a family in $cal(U)_0$ is a subset of
-${pt}$, so the constant family ${pt}$ is closed under any operator
-into $cal(U)_0$
-(#src("whitepaper/Fragment/LfpSet.lean", 170, 174)[fragment]).
+${pt}$, so #src("whitepaper/Fragment/LfpSet.lean", 170, 174)[the constant family ${pt}$ is closed] under any operator
+into $cal(U)_0$.
 
 *The family and the constructors.* The block's operator has a
 closed family in $cal(U)_(phi(u))$ — from @thm:closed-of-acc in the
@@ -619,32 +602,29 @@ proposition-valued one
 $ lden I rden dot.op arrow(X) dot.op arrow(Y) = lfp(Phi)(arrow(Y)) $
 (#src("whitepaper/Fragment/IndSem.lean", 1311, 1314)[the family],
 #src("whitepaper/Fragment/IndSem.lean", 1431, 1433)[the type former's set],
-its graph over the parameters and indices). Its fibres are members
-of $cal(U)_(phi(u))$
-(#src("whitepaper/Fragment/IndSem.lean", 1316, 1320)[fragment]),
-which is law 1 for the type former
-(#src("whitepaper/Fragment/InstallInd.lean", 160, 164)[fragment]).
-The fixed-point equation
-(#src("whitepaper/Fragment/IndSem.lean", 1324, 1329)[fragment]),
+its graph over the parameters and indices). Its fibres
+#src("whitepaper/Fragment/IndSem.lean", 1316, 1320)[are members] of $cal(U)_(phi(u))$,
+which is #src("whitepaper/Fragment/InstallInd.lean", 160, 164)[law 1 for the type former].
+The #src("whitepaper/Fragment/IndSem.lean", 1324, 1329)[fixed-point equation],
 read in both directions, is what the rest of this section lives on:
-a member of the fibre at $arrow(Y)$ is a constructor value whose
+a member of the fibre at $arrow(Y)$
+#src("whitepaper/Fragment/IndSem.lean", 1331, 1338)[is a constructor value] whose
 fields fit the family and whose index expressions read as $arrow(Y)$,
-and conversely
-(#src("whitepaper/Fragment/IndSem.lean", 1331, 1338)[fragment]).
+and conversely.
 The converse is law 1 for the constructors: $c_j$ denotes the
 function that takes the parameters and the fields and returns
 $tag(j, arrow(F))$
 (#src("whitepaper/Fragment/IndSem.lean", 1446, 1451)[a constructor's set]),
-a value in the fibre at its index expressions whenever its fields fit
-(#src("whitepaper/Fragment/IndSem.lean", 1340, 1348)[fragment],
-#src("whitepaper/Fragment/InstallInd.lean", 656, 660)[the law]).
+a value #src("whitepaper/Fragment/IndSem.lean", 1340, 1348)[in the fibre] at its index expressions
+whenever its fields fit
+(#src("whitepaper/Fragment/InstallInd.lean", 656, 660)[the law]).
 The forward direction is the _inversion_ the $iota$ law needs, and
 the least fixed point's induction principle is
 #src("whitepaper/Fragment/IndSem.lean", 1350, 1359)[induction over the family],
 on which the recursor is built. In the proposition-valued regime
-every constructor value is the point, so the fibre is the truth value
-"some constructor reaches these indices"
-(#src("whitepaper/Fragment/IndSem.lean", 1392, 1396)[fragment]) and
+every constructor value is the point, so the fibre
+#src("whitepaper/Fragment/IndSem.lean", 1392, 1396)[is the truth value]
+"some constructor reaches these indices" and
 every constructor denotes the point; where the recursor needs it —
 under a large eliminator — the subsingleton criterion makes the
 _decodings_ of the point, the constructors with fitting fields that
@@ -694,8 +674,8 @@ same device as the family: the recursor's _graph_ — the relation
 #src("whitepaper/Fragment/IndRec.lean", 91, 94)[the least fixed point] of
 #src("whitepaper/Fragment/IndRec.lean", 75, 83)[the operator that reads the equation as a step],
 a least fixed point on predicates this time, which the ambient
-logic's impredicative $Prop$ provides outright
-(#src("whitepaper/Fragment/IndLib.lean", 115, 118)[fragment]); it is
+logic's impredicative $Prop$
+#src("whitepaper/Fragment/IndLib.lean", 115, 118)[provides outright]; it is
 #src("whitepaper/Fragment/IndRec.lean", 157, 162)[single-valued] by
 induction over the graph, using that tagged tuples are injective,
 and #src("whitepaper/Fragment/IndRec.lean", 215, 224)[total] by induction over the
@@ -742,16 +722,15 @@ and there is nothing to construct.
 ]
 
 *What the $iota$ rule knows.* Before the $iota$ law, look at what the
-rule's premises say and what the model has to supply. The rule fires
-on $r.\{arrow(ell)\} thick arrow(a) thick t$ where $r$ is a stored
+rule's premises say and what the model has to supply. The
+#src("whitepaper/Fragment/Rules.lean", 84, 159)[rule fires] on $r.\{arrow(ell)\} thick arrow(a) thick t$ where $r$ is a stored
 recursor, $arrow(a)$ are its parameters, motive, minors and indices,
 and the major $t$ reduces to a constructor application
 $c_j.\{arrow(ell)'\} thick arrow(a)' thick arrow(f)$ for which $r$ has
 a rule with right-hand side $R_j$; the reduct is
 $R_j[arrow(p) := arrow(ell)]$ applied to the parameters, motive and
 minors from $arrow(a)$ and to the fields $arrow(f)$
-(#src("whitepaper/Fragment/Rules.lean", 84, 159)[fragment],
-#src("ConLeche/Rules/Rel.lean", 178, 217)[real checker]). Its
+(#src("ConLeche/Rules/Rel.lean", 178, 217)[as in con-leche]). Its
 premises, besides the lookups, are two _telescope certificates_ and
 three _comparisons_:
 
@@ -779,14 +758,11 @@ three _comparisons_:
 ]
 
 By @thm:sound each
-certificate becomes a _fit_ of values to the stored telescope
-(#src("whitepaper/Fragment/Sound.lean", 77, 84)[fragment]), and each
+certificate becomes a #src("whitepaper/Fragment/Sound.lean", 77, 84)[_fit_ of values] to the stored telescope, and each
 comparison an equality of sets
 (#src("whitepaper/Fragment/Sound.lean", 201, 206)[the $iota$ case]).
-So the $iota$ law is stated on values, with the fits and the
-equalities as premises
-(#src("whitepaper/Fragment/EnvModel.lean", 102, 161)[fragment],
-#src("ConLeche/Model/Annot/Laws.lean", 366, 369)[real proof]):
+So the #src("whitepaper/Fragment/EnvModel.lean", 102, 161)[$iota$ law] is stated on values, with
+#src("ConLeche/Model/Annot/Laws.lean", 366, 369)[the fits and the equalities] as premises:
 
 #definition(name: [the $iota$ law of a rule])[
   Let $r$ be a stored recursor and $R_j$ the right-hand side of its
@@ -807,18 +783,16 @@ equalities as premises
 
 The second conjunct is what makes the reduct well-denoted, as the
 first claim of @thm:sound demands; the first is the equation. The
-$iota$ case of @thm:sound is then a translation: certificates to
+$iota$ case of @thm:sound is then
+#src("whitepaper/Fragment/Sound.lean", 207, 245)[a translation]: certificates to
 fits, comparisons to equalities, the reduced major's value for the
-argument's, and the law
-(#src("whitepaper/Fragment/Sound.lean", 207, 245)[fragment],
-#src("ConLeche/Model/Rules/IotaSound.lean", 69)[real proof]).
+argument's, and #src("ConLeche/Model/Rules/IotaSound.lean", 69)[the law].
 
 #theorem(name: [the $iota$ law holds])[
-  Every rule of the recursor of an accepted block satisfies its
-  $iota$ law in the model of @sec:ind-model.
-  (#src("whitepaper/Fragment/InstallIota.lean", 687, 693)[fragment], with
-  #src("whitepaper/Fragment/IndRec.lean", 282, 292)[the equation on the semantic recursor]\; real proof:
-  #src("ConLeche/Model/Inductives/BlockRecLaw.lean", 448, 456)[the graph's equation, lifted to the law of @def:iota-law].)
+  Every rule of the recursor of an accepted block
+  #src("whitepaper/Fragment/InstallIota.lean", 687, 693)[satisfies its $iota$ law] in the model of @sec:ind-model.
+  (Via #src("whitepaper/Fragment/IndRec.lean", 282, 292)[the equation on the semantic recursor]\; in con-leche,
+  #src("ConLeche/Model/Inductives/BlockRecLaw.lean", 448, 456)[the graph's equation], lifted to the law of @def:iota-law.)
 ] <thm:iota>
 
 #proof[
@@ -904,9 +878,8 @@ An accepted environment is closed — #src("whitepaper/Fragment/Consistency.lean
 
 #theorem(name: "Every accepted environment has a model")[
   For every model of the extended theory, every accepted environment
-  has a model in it
-  (#src("whitepaper/Fragment/Consistency.lean", 57, 70)[fragment]\; real proof:
-  #src("ConLeche/MainTheorem.lean", 96, 99)[the main theorem]).
+  #src("whitepaper/Fragment/Consistency.lean", 57, 70)[has a model in it]
+  (#src("ConLeche/MainTheorem.lean", 96, 99)[con-leche's main theorem]).
 ] <thm:accepted-model>
 
 #proof[
@@ -926,11 +899,10 @@ An accepted environment is closed — #src("whitepaper/Fragment/Consistency.lean
 #corollary(name: "No proof of an empty proposition")[
   Let $I$ be an inductive type with no constructors, no parameters,
   no indices and no level parameters, installed in an accepted
-  environment. Then no closed term $e$ has $tack e => I$; in
+  environment. Then #src("whitepaper/Fragment/Consistency.lean", 89, 98)[no closed term $e$ has] $tack e => I$; in
   particular no stored constant has type $I$
-  (#src("whitepaper/Fragment/Consistency.lean", 89, 98)[fragment], and
-  #src("whitepaper/Fragment/Consistency.lean", 137, 141)[at the block `inductive False : Prop`]\;
-  #src("ConLeche/Model/Fold.lean", 276, 283)[real proof]).
+  (#src("whitepaper/Fragment/Consistency.lean", 137, 141)[at the block `inductive False : Prop`]\;
+  #src("ConLeche/Model/Fold.lean", 276, 283)[as in con-leche]).
 ] <cor:consistency>
 
 #proof[

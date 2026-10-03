@@ -145,9 +145,8 @@ $tv(forall v in A. thin B(v) = {pt})$: when the fibres $B(v)$ are
 truth values it is their intersection $inter.big_(v in A) B(v)$ (the
 empty intersection being ${pt}$), which is ${pt}$ exactly when every
 fibre is and $emptyset$ otherwise — the product of subsets of a
-singleton. (The two binder clauses, each with its two
-cases: #src("whitepaper/Fragment/Lib.lean", 167, 172)[fragment],
-#src("ConLeche/SetModel/Ops.lean", 56, 62)[real proof].)
+singleton. (The #src("whitepaper/Fragment/Lib.lean", 167, 172)[two binder clauses], each with
+#src("ConLeche/SetModel/Ops.lean", 56, 62)[its two cases].)
 
 A binder has two regimes. When the body is not a proposition, a
 $lambda$ is a graph and a $forall$ is a set of such graphs, a
@@ -167,15 +166,14 @@ lemmas about the interpretation are needed later, both proved by
 induction on the term: #src("whitepaper/Fragment/Interp.lean", 210, 212)[substituting a term for a variable] is extending
 the environment with the term's value,
 $lden b[x := a] rden_rho = lden b rden_(rho, x |-> lden a rden_rho)$\; and #src("whitepaper/Fragment/Interp.lean", 151, 153)[a term does not
-see a variable it does not mention]. (#src("ConLeche/Semantics/Interp.lean", 150, 156)[The real proof's
+see a variable it does not mention]. (#src("ConLeche/Semantics/Interp.lean", 150, 156)[Con-leche's
 interpretation].)
 
 == The semantic invariant <sec:inv>
 
 There is no typing judgement in the proof. In its place is a predicate
 on terms, the _semantic invariant_: a term is #src("whitepaper/Fragment/WellDenoted.lean", 62, 119)[_well-denoted_] when its
-set is put together honestly
-(#src("ConLeche/Semantics/WellDenoted.lean", 56, 70)[the real proof's version]). It is stated under a valuation $phi$ and an environment
+set is #src("ConLeche/Semantics/WellDenoted.lean", 56, 70)[put together honestly]. It is stated under a valuation $phi$ and an environment
 $rho$, like the interpretation, and it is an inductively defined
 judgement: it holds of a term when it holds of the subterms and one
 condition on the term's own shape is met. We write $rho models e$
@@ -272,9 +270,8 @@ in _the λ's own_ domain — and the semantic invariant has given us $A'$, not $
   If $(lambda x : A thin ann(never). thin b) thick a$ is well-denoted
   under $rho$, then
   $lden (lambda x : A thin ann(never). thin b) thick a rden_rho = lden b[x := a] rden_rho$
-  and $b[x := a]$ is well-denoted under $rho$
-  (#src("whitepaper/Fragment/WellDenoted.lean", 469, 489)[fragment],
-  #src("ConLeche/Semantics/WellDenoted.lean", 256, 260)[real proof]).
+  and $b[x := a]$ #src("whitepaper/Fragment/WellDenoted.lean", 469, 489)[is well-denoted under $rho$]
+  (#src("ConLeche/Semantics/WellDenoted.lean", 256, 260)[as in con-leche]).
 ] <lem:beta-graph>
 
 #proof[
@@ -293,8 +290,8 @@ in _the λ's own_ domain — and the semantic invariant has given us $A'$, not $
 #lemma(name: "β at any binder, given the membership")[
   If $(lambda x : A thin ann(PW). thin b) thick a$ is well-denoted under
   $rho$ and $lden a rden_rho in lden A rden_rho$, then the same two conclusions
-  hold (#src("whitepaper/Fragment/WellDenoted.lean", 495, 505)[fragment],
-  #src("ConLeche/Semantics/WellDenoted.lean", 290, 294)[real proof]).
+  #src("whitepaper/Fragment/WellDenoted.lean", 495, 505)[hold]
+  (#src("ConLeche/Semantics/WellDenoted.lean", 290, 294)[as in con-leche]).
 ] <lem:beta-cert>
 
 #proof[
@@ -332,9 +329,9 @@ possibly-propositional redex, and the proof pays nothing.
   + inference establishes the semantic invariant and a membership: if
     $Gamma tack e => T$, then $e$ and $T$ are well-denoted and
     $lden e rden_rho in lden T rden_rho$.
-  (#src("whitepaper/Fragment/Sound.lean", 817, 821)[fragment], with
-  #src("whitepaper/Fragment/Motive.lean", 40, 53)[the three claims stated]\; #src("ConLeche/Model/Rules/Motive.lean", 70, 104)[real
-  proof], whose claims also carry the erased reading of the term, @sec:left-out.)
+  (The theorem is #src("whitepaper/Fragment/Sound.lean", 817, 821)[`soundness`], with
+  #src("whitepaper/Fragment/Motive.lean", 40, 53)[the three claims stated]\;
+  #src("ConLeche/Model/Rules/Motive.lean", 70, 104)[con-leche's claims] also carry the erased reading of the term, @sec:left-out.)
 ] <thm:sound>
 
 Look at where the semantic invariant sits in the three statements. Reduction and
@@ -368,8 +365,7 @@ where the argument lives.
   *#src("whitepaper/Fragment/Sound.lean", 166, 170)[Rule beta-gate]* — $(lambda x : A thin ann(never). thin b) thick a red b[x :=
   a]$: \
   This is @lem:beta-graph, verbatim: the rule has no premise, and
-  the lemma needs none
-  (#src("ConLeche/Model/Rules/RedSound.lean", 180, 182)[real proof]).
+  #src("ConLeche/Model/Rules/RedSound.lean", 180, 182)[the lemma needs none].
 
   *#src("whitepaper/Fragment/Sound.lean", 180, 190)[Rule beta-cert]* — $(lambda x : A thin ann(PW). thin b) thick a red b[x := a]$
   from $ann(Gamma tack a => T)$ and $ann(Gamma tack T equiv A)$: \
@@ -378,9 +374,9 @@ where the argument lives.
   and by the $lambda$ rule $A$ is. The induction
   hypothesis for the inference gives $T$ well-denoted and
   $lden a rden_rho in lden T rden_rho$. Now both $T$ and $A$ are well-denoted,
-  so the hypothesis for the equality applies and gives
+  so #src("ConLeche/Model/Rules/RedSound.lean", 197, 200)[the hypothesis for the equality applies] and gives
   $lden T rden_rho = lden A rden_rho$; hence $lden a rden_rho in lden A rden_rho$, and
-  @lem:beta-cert finishes (#src("ConLeche/Model/Rules/RedSound.lean", 197, 200)[real proof]). Note how the second claim was used: with both sides'
+  @lem:beta-cert finishes. Note how the second claim was used: with both sides'
   semantic invariants in hand, one from the redex and one from the inference —
   and never without.
 
@@ -389,15 +385,15 @@ where the argument lives.
   By the first claim, $a'$ is well-denoted
   and $lden a rden_rho = lden a' rden_rho$; now both $a'$ and $b$ are
   well-denoted, so the second claim applies to the continuation, and
-  the two equalities chain (#src("ConLeche/Model/Rules/DefEqSound.lean", 47, 49)[real proof]). This is the one sound way to chain in the equality relation,
+  #src("ConLeche/Model/Rules/DefEqSound.lean", 47, 49)[the two equalities chain]. This is the one sound way to chain in the equality relation,
   because a reduction step _produces_ the semantic invariant of its result; see
   the discussion of transitivity below.
 
   *#src("whitepaper/Fragment/Sound.lean", 507, 509)[Rule sort]* — $Sort u equiv Sort v$ when $u eq.dot v$: \
     The oracle is assumed correct: it
   answers yes only if the levels agree at every valuation
-  (@sec:levels), so the two universes are the same universe
-  (#src("ConLeche/Model/Rules/DefEqSound.lean", 56, 58)[real proof]).
+  (@sec:levels), so the two universes are
+  #src("ConLeche/Model/Rules/DefEqSound.lean", 56, 58)[the same universe].
 
   *#src("whitepaper/Fragment/Sound.lean", 556, 590)[Rule fun-eta]* — $lambda x : A_1 thin ann(PW). thin b_1 equiv b$ when
   $Gamma tack b => T red forall x : A_2 thin ann(PW). thin B$,
@@ -415,7 +411,7 @@ where the argument lives.
   $lden A_2 rden_rho$ of $v |-> lden b rden_rho dot.op v$; and that is
   $lden b rden_rho$ by the η law when $ann(PW)$ does not hold at
   $phi$, and because both are the point when it does — $lden b rden_rho$ is
-  then a member of a truth value (#src("ConLeche/Model/Rules/DefEqSound.lean", 193, 200)[real proof]). The rule requires the annotation on the $forall$ and on
+  then #src("ConLeche/Model/Rules/DefEqSound.lean", 193, 200)[a member of a truth value]. The rule requires the annotation on the $forall$ and on
   the $lambda$ to be the same datum; that is what makes the two sides
   fall into the same regime at every $phi$.
 
@@ -425,9 +421,8 @@ where the argument lives.
   and the first once, $lden a rden_rho in lden T_a rden_rho$ and
   $lden T_a rden_rho in cal(U)_(phi(u))$, and $phi(u) = 0$ because the
   oracle said $u eq.dot 0$ (@sec:levels). A member of $cal(U)_0$ has
-  only the point as a member, so
-  $lden a rden_rho = pt$; likewise $lden b rden_rho = pt$
-  (#src("ConLeche/Model/Rules/DefEqSound.lean", 309, 316)[real proof]). The two
+  #src("ConLeche/Model/Rules/DefEqSound.lean", 309, 316)[only the point as a member], so
+  $lden a rden_rho = pt$; likewise $lden b rden_rho = pt$. The two
   types $T_a$ and $T_b$ were never compared, and the semantic invariants of $a$
   and $b$ were not even used: there is only one proof in the whole
   model, so any two proofs of anything are equal in it.
@@ -451,9 +446,8 @@ where the argument lives.
   closure law puts the space there — and that is
   $cal(U)_(phi(imax(u, v)))$. When it holds, every fibre lies in
   $cal(U)_0$ and is a truth value — the $forall$ rule of the semantic
-  invariant is met — and the $forall$ denotes a truth value, which is
-  in $cal(U)_0 = cal(U)_(phi(imax(u, v)))$ since $phi(v) = 0$
-  (#src("ConLeche/Model/Rules/InferSound.lean", 267, 273)[real proof]). The sort $Sort (imax(u, v))$ is well-denoted, as every
+  invariant is met — and the $forall$ #src("ConLeche/Model/Rules/InferSound.lean", 267, 273)[denotes a truth value], which is
+  in $cal(U)_0 = cal(U)_(phi(imax(u, v)))$ since $phi(v) = 0$. The sort $Sort (imax(u, v))$ is well-denoted, as every
   sort is.
 
   *#src("whitepaper/Fragment/Sound.lean", 688, 722)[Rule lam]* — $Gamma tack lambda x : A thin ann(PW). thin b => forall x : A
@@ -468,8 +462,8 @@ where the argument lives.
   $ann(PW)$ holds at $phi$ — then $phi(v) = 0$ by exactness, so every
   $lden B rden_(rho, x |-> v')$ lies in $cal(U)_0$. That is the
   $lambda$ rule; the $forall$ rule of the inferred type is met the
-  same way; and the introduction law puts the abstraction into the
-  space (#src("ConLeche/Model/Rules/InferSound.lean", 356, 367)[real proof]): a graph into the function space, or, when $ann(PW)$
+  same way; and #src("ConLeche/Model/Rules/InferSound.lean", 356, 367)[the introduction law] puts the abstraction into the
+  space: a graph into the function space, or, when $ann(PW)$
   holds, the point into the truth value — whose proposition holds
   because each fibre is a truth value containing the body's value,
   hence ${pt}$. This is where the proof uses that the fibres are
@@ -492,8 +486,8 @@ where the argument lives.
   substitution transport, since $B$ is well-denoted under
   $x |-> lden a rden_rho$; and the elimination law puts
   $lden f rden_rho dot.op lden a rden_rho$ into the fibre at $lden a rden_rho$, which
-  is $lden B[x := a] rden_rho$ by the substitution lemma
-  (#src("ConLeche/Model/Rules/InferSound.lean", 511, 515)[real proof]). When
+  is $lden B[x := a] rden_rho$ by
+  #src("ConLeche/Model/Rules/InferSound.lean", 511, 515)[the substitution lemma]. When
   $ann(PW)$ holds, "elimination" reads: the $forall$ is a truth value
   containing $lden f rden_rho$, so $lden f rden_rho$ is the point and every fibre
   is ${pt}$; the application is the point, which is in the fibre at

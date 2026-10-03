@@ -39,8 +39,7 @@ Recall what @sec:ind sets up. A constructor application $c thick arrow(p)
 thick arrow(f)$ of a block whose family is type-valued denotes
 a #src("whitepaper/Fragment/IndLib.lean", 49, 63)[tagged tuple]
 $tag(i, chevron.l lden f_1 rden, ..., lden f_n rden chevron.r)$ — the
-constructor's number $i$, then its fields
-(#src("whitepaper/Fragment/IndCommon.lean", 225, 227)[fragment]) — and
+#src("whitepaper/Fragment/IndCommon.lean", 225, 227)[constructor's number $i$], then its fields — and
 the family at parameters and indices denotes
 #src("whitepaper/Fragment/IndSem.lean", 1311, 1314)[the least set closed
 under the constructor steps], so that
@@ -67,12 +66,12 @@ These two are not rules that need adding; they are built into the
 model, and §2 used the first already. A proposition denotes a
 #src("whitepaper/Fragment/Lib.lean", 115, 121)[truth value], a subset of
 ${pt}$, so any two proofs of any two propositions denote the same
-set — the proof-irrel case of @thm:sound, which never compared the
-two propositions (#src("ConLeche/Model/Rules/DefEqSound.lean", 309, 316)[real proof]). And two
+set — the proof-irrel case of @thm:sound, which
+#src("ConLeche/Model/Rules/DefEqSound.lean", 309, 316)[never compared the two propositions]. And two
 propositions that imply each other have
 #src("whitepaper/Fragment/Lib.lean", 146, 147)[the same truth value], by extensionality of sets: that is Lean's
-axiom `propext`, which therefore holds in the model
-(#src("ConLeche/Model/AxiomMem.lean", 414, 422)[real proof]).
+axiom `propext`, which therefore
+#src("ConLeche/Model/AxiomMem.lean", 414, 422)[holds in the model].
 
 == K-like reduction <sec:ext-k>
 
@@ -118,9 +117,8 @@ proof.
 #real[
   The rule is stated exactly so, as a reduction of the stuck major
   to the fabrication
-  (#src("ConLeche/Rules/Rel.lean", 225, 244)[the rescue]), and its
-  case
-  (#src("ConLeche/Model/Rules/IotaSound.lean", 505, 506)[real proof])
+  (#src("ConLeche/Rules/Rel.lean", 225, 244)[the rescue]), and
+  #src("ConLeche/Model/Rules/IotaSound.lean", 505, 506)[its case]
   identifies the two values by proof irrelevance; no theorem about
   the block is consulted.
 ]
@@ -173,8 +171,8 @@ covers it.
 #real[
   The checker has the rule as
   #src("ConLeche/Rules/Rel.lean", 431, 434)[a certificate on the fields],
-  with its case at
-  #src("ConLeche/Model/Rules/DefEqSound.lean", 321, 323)[the real proof],
+  with
+  #src("ConLeche/Model/Rules/DefEqSound.lean", 321, 323)[its soundness case],
   and uses the same certificate to rescue a recursor stuck on a
   non-constructor $s$
   (#src("ConLeche/Model/Rules/IotaSound.lean", 584, 585)[the η rescue]).
@@ -217,8 +215,8 @@ takes in the model, and the lemma is the same sentence in each.
 #real[
   The checker has the rule for
   #src("ConLeche/Rules/Rel.lean", 463, 468)[any stored unit-like family],
-  with its case at
-  #src("ConLeche/Model/Rules/DefEqSound.lean", 698, 699)[the real proof].
+  with
+  #src("ConLeche/Model/Rules/DefEqSound.lean", 698, 699)[its soundness case].
   Unit-likeness is recorded at the install like η (one constructor,
   no index, no field, in a block where no constructor is recursive),
   and the law is established there from the fixed point
