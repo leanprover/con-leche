@@ -61,7 +61,7 @@ Tuples and tags are injective
 #src("whitepaper/Fragment/IndLib.lean", 157)[tags]) and a tagged
 value is #src("whitepaper/Fragment/IndLib.lean", 161)[$!= pt$].
 
-== Proof irrelevance and propositional extensionality
+== Proof irrelevance and propositional extensionality <sec:ext-irrel>
 
 These two are not rules that need adding; they are built into the
 model, and §2 used the first already. A proposition denotes a
@@ -74,7 +74,7 @@ propositions that imply each other have
 axiom `propext`, which the real checker accepts and
 #src("ConLeche/Model/AxiomMem.lean", 414, 422)[the real model verifies] the same way.
 
-== K-like reduction
+== K-like reduction <sec:ext-k>
 
 _The rule._ Take an inductive proposition with one constructor whose
 only arguments are the block's parameters — `Eq` is the example that
@@ -125,7 +125,7 @@ proof.
   the block is consulted.
 ]
 
-== η for structures
+== η for structures <sec:ext-eta>
 
 _The rule._ A _structure_ is a block with one constructor `mk`, no
 indices, no recursive field, and a type-valued family.
@@ -192,7 +192,7 @@ covers it.
   by the argument above on the tagged tuple.
 ]
 
-== Unit-likeness
+== Unit-likeness <sec:ext-unit>
 
 _The rule._ A block with one constructor, no indices and no fields —
 `PUnit`, or at `Prop` the proposition `True` — has, up to
@@ -226,15 +226,3 @@ takes in the model, and the lemma is the same sentence in each.
   Neither `PUnit` nor `True` is special to the checker: both are
   installed like any other block.
 ]
-
-== What is not free
-
-The rules above are sound because of what the values are; the
-checker's certificates enter only to put the terms into the sets the
-lemmas speak about. Two things in §2 are of a different kind: the
-β-step at a binder that may be a proposition, where the point
-remembers no domain and the certificate is the only source of the
-membership (@lem:beta-cert); and the chaining of two equalities
-through a middle term, whose semantic invariant nothing supplies
-(@sec:claims). Extensionality says what a set is once its parts are
-known; it does not say where the parts come from.
