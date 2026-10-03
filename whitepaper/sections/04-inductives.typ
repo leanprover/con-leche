@@ -325,18 +325,14 @@ environment, the ones @sec:defs left to this section
 #src("ConLeche/Kernel/Env.lean", 241, 254)[real checker]). Written
 with the notation of @sec:defs, a stored declaration is one of
 
-#table(
-  columns: (auto, 1fr), stroke: none, column-gutter: 1em, inset: (x: 0pt, y: 0.3em),
-  $(c.\{arrow(p)\} : T := v)$,
-  [a definition (@sec:defs);],
-  $(I.\{arrow(p)\} : T)^sans("type") [k, m; c_1, dots, c_n]$,
-  [a type former: $k$ parameters, $m$ indices, constructors $c_1, dots, c_n$;],
-  $(c_j.\{arrow(p)\} : T)^sans("ctor") [I; k, f]$,
-  [a constructor of $I$: $k$ parameters, $f$ fields;],
-  $(r.\{arrow(ell)\} : T)^sans("rec") [k, 1, n, m; R_1, dots, R_n]$,
-  [a recursor: $k$ parameters, one motive, $n$ minors, $m$ indices, the
-   major; rules $R_1, dots, R_n$.],
-)
+- $(c.\{arrow(p)\} : T := v)$ — a definition (@sec:defs);
+- $(I.\{arrow(p)\} : T)^sans("type") [k, m; c_1, dots, c_n]$ — a type
+  former: $k$ parameters, $m$ indices, constructors $c_1, dots, c_n$;
+- $(c_j.\{arrow(p)\} : T)^sans("ctor") [I; k, f]$ — a constructor of
+  $I$: $k$ parameters, $f$ fields;
+- $(r.\{arrow(ell)\} : T)^sans("rec") [k, 1, n, m; R_1, dots, R_n]$ — a
+  recursor: $k$ parameters, one motive, $n$ minors, $m$ indices, the
+  major; rules $R_1, dots, R_n$.
 
 The counts are the sizes of the argument groups (@ex:nat shows them
 on $Nat$). A rule $R_j$ is a closed right-hand side over the
