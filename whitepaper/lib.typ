@@ -66,8 +66,8 @@
 //                      skip at a glance — thin rule on the left, the
 //                      label in small caps, body slightly smaller, all in
 //                      the muted colour (never the annotation colour), no
-//                      background.  `#real(label: "In the real checker")[...]`
-//                      overrides the default label "In the real proof".
+//                      background.  `#real(label: "…")[...]`
+//                      overrides the default label "In con-leche".
 //
 // ADDING A MACRO: give it both branches (paged and html), a CSS class in
 // `style.css` for the html one, and a line up here.
@@ -278,7 +278,7 @@
 }
 
 // --- remarks about the real proof ------------------------------------------
-// `real[...]`, `real(label: "In the real checker")[...]`: the set-off,
+// `real[...]`, `real(label: "…")[...]`: the set-off,
 // skippable paragraph of PLAN.md (2026-10-02) about the REAL proof or
 // checker.  Muted throughout — rule, label and body — so the eye passes
 // over it; the HTML export drops `text(fill: …)`, so there `style.css`
