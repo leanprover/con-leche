@@ -311,6 +311,15 @@
 
 // --- the template -------------------------------------------------------------
 // `#show: template.with(title: .., authors: .., note: ..)` in main.typ.
+// The git revision, passed by build.sh (`--input rev=… --input revdate=…`).
+#let revision = sys.inputs.at("rev", default: "unknown")
+#let revision-date = sys.inputs.at("revdate", default: "")
+#let revision-line = {
+  let label = "Revision " + revision + if revision-date != "" { ", " + revision-date } else { "" }
+  if revision.ends-with("-dirty") or revision == "unknown" { label }
+  else { link("https://github.com/leanprover/con-leche/commit/" + revision, label) }
+}
+
 #let template(title: "", authors: "", note: none, doc) = {
   set document(title: title, author: authors)
   set heading(numbering: "1.")
@@ -367,6 +376,7 @@
       html.elem("header", attrs: (class: "title"),
         html.elem("h1", title)
         + html.elem("p", attrs: (class: "authors"), authors)
+        + html.elem("p", attrs: (class: "revision"), revision-line)
         + html.elem("p", attrs: (class: "pdf-link"),
             html.elem("a", attrs: (href: "con-leche-proof-idea.pdf"), "PDF version"))
         + if note != none { html.elem("p", attrs: (class: "note"), note) })
@@ -393,6 +403,8 @@
       text(font: "Libertinus Sans", size: 20pt, weight: "bold", title)
       v(0.6em)
       text(size: 11pt, authors)
+      v(0.2em)
+      text(size: 8.5pt, fill: luma(110), revision-line)
       v(0.4em)
     })
     if note != none {
