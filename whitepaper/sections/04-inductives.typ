@@ -79,7 +79,9 @@ The telescope may be empty: then the domain is $I thick arrow(x) thick arrow(e)$
 a member of the family itself, and the field is simply _recursive_ —
 the common case, and the name this document uses for it; one kind
 covers both, since the generated terms and the model treat them
-alike. This is the strictly positive shape, and the only one the
+alike.
+
+This is the strictly positive shape, and the only one the
 fragment admits: no
 field's domain mentions $I$ anywhere else (in the fragment, the
 specification's pieces — the domains $arrow(P)$, $arrow(J)$ and
@@ -88,6 +90,7 @@ are scope-checked in the environment _before_ $I$ is added, so none
 of them mentions $I$; a reflexive field's $I$ is given by its kind,
 not written in a term —
 #src("whitepaper/Fragment/Decl.lean", 622, 636)[the scope of a field]).
+
 One more condition of shape: nothing after a reflexive field may
 depend on its value
 (#src("whitepaper/Fragment/Decl.lean", 639, 644)[fragment],
