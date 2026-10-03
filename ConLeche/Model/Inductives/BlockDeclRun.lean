@@ -166,10 +166,9 @@ theorem blockModelAt_seam
       (blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf).memberNames
       (blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf) := by
   obtain ⟨R⟩ := id h
-  -- the operator's monotonicity is the recorded clause's (the install
-  -- derived it from positivity when it recorded the clause)
+  -- the hole fit's growth is the recorded clause's (the install derived
+  -- it from positivity when it recorded the clause)
   exact blockModelAt_of_records hN hS hcore rfl R.fam.k_pos (fun _ _ => rfl) (fun _ _ _ _ => rfl)
-    (fun ψ ρp hs => ((mpC.lfpClause_of_mem hlfp).functor ψ ρp hs).1)
     (mpC.lfpClause_of_mem hlfp).fitsMono
 
 /-- **The seam's canonical constructor-type reading**: the stored type

@@ -888,16 +888,16 @@ theorem blockTablesStage_of (hμ : μ.verifiedChecks = true) {F : Nat} {env envI
       exact nfFieldsRead_params mpD.base2 (hlpN c j) hφ
     · exact BlockData.absE_congr rfl (by rw [hes c]) (by rw [congrFun hfz c])
   -- ## the hole operator's fixed-point premises: monotone by
-  -- positivity, closed by accessibility
+  -- positivity, accessible at a `Type`-valued block ((W) by `AccW.closed`)
   have hposZ := blockCtorPos_of_run hμ mpD hNZ hctxZ hPos hpN hpL hpP hpI hlenN.symm
     rfl hlenCtorsAs (fun c hc => hCA c hc) hclosedZ hnfZ hcovD
   have hfunZ : ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (dZ.params ψ).reverse ρp →
       MonoTuple (dZ.w ψ) dZ.k (blockIdx (fun c => dZ.uM c ψ) ρp (fun c => dZ.IdsM c ψ))
         (blockPhiG dZ.k (dZ.w ψ) ρp (fun c => dZ.uM c ψ) (fun c => dZ.IdsM c ψ)
           (dZ.toLfp.holeChains ψ)) ∧
-      ∃ L, IsClosedTuple (dZ.w ψ) dZ.k (blockIdx (fun c => dZ.uM c ψ) ρp (fun c => dZ.IdsM c ψ))
+      AccW (dZ.w ψ) dZ.k (blockIdx (fun c => dZ.uM c ψ) ρp (fun c => dZ.IdsM c ψ))
         (blockPhiG dZ.k (dZ.w ψ) ρp (fun c => dZ.uM c ψ) (fun c => dZ.IdsM c ψ)
-          (dZ.toLfp.holeChains ψ)) L := by
+          (dZ.toLfp.holeChains ψ)) := by
     intro ψ ρp hs
     have hIdxZ : ∀ c, c < dZ.N → IdxOk (dZ.uM c ψ) ρp (dZ.IdsM c ψ) := fun c hc => by
       have hck : c < q.k := by have : c < q.k + 0 := hc; omega
@@ -917,22 +917,14 @@ theorem blockTablesStage_of (hμ : μ.verifiedChecks = true) {F : Nat} {env envI
         simp only [BlockData.absE, List.length_map]
         exact hHZ.lenE ψ c hc j hj
       exact LfpDatum.holeOp_fibre hok hkN X hres ht x
-    refine ⟨monoTuple_of_tupRel (D := dZ.toLfp) hfib (hposZ ψ ρp hs), ?_⟩
-    by_cases hw : dZ.w ψ = 0
-    · have hmaps := blockPhi_maps_of ((hchZ ψ).1 ρp hs)
-      rw [hw] at hmaps ⊢
-      exact closedTuple_zero hmaps
-    · -- (W) from accessibility, at every block
-      have hGw : ∀ c, c < dZ.N → ∀ j, j < (dZ.ctorsM c).length →
-          ∀ X, InTupleSpace (dZ.toLfp.w ψ) dZ.toLfp.N (dZ.toLfp.idx ψ ρp) X →
-          FieldsOkB (dZ.w ψ) (dZ.toLfp.frame ψ ρp X) (dZ.absF ψ c j) :=
-        fun c hc j hj X hX => (((hGZ ψ c hc j hj).2 ρp hs X hX)).1
-      obtain ⟨A, hA, hacc⟩ : ∃ A, A ∈ˢ (univ (dZ.toLfp.w ψ) : V) ∧
-          AccTuple (dZ.toLfp.w ψ) dZ.toLfp.N (dZ.toLfp.idx ψ ρp) dZ.toLfp.N
-            (dZ.toLfp.idx ψ ρp) (dZ.toLfp.holeOp ψ ρp) A := by
-        exact blockAcc_of_run hμ mpD hNZ hctxZ hHZ hPos hpN hpL hpP hpI hpR hlenN.symm
-          rfl hlenCtorsAs (fun c hc => hCA c hc) hclosedZ hnfZ hcovD ψ ρp hs hw hIdxZ hGw
-      exact closed_of_acc hw hA (blockPhi_maps_of ((hchZ ψ).1 ρp hs)) hacc
+    refine ⟨monoTuple_of_tupRel (D := dZ.toLfp) hfib (hposZ ψ ρp hs), fun hw => ?_⟩
+    -- accessibility, at every `Type`-valued block
+    have hGw : ∀ c, c < dZ.N → ∀ j, j < (dZ.ctorsM c).length →
+        ∀ X, InTupleSpace (dZ.toLfp.w ψ) dZ.toLfp.N (dZ.toLfp.idx ψ ρp) X →
+        FieldsOkB (dZ.w ψ) (dZ.toLfp.frame ψ ρp X) (dZ.absF ψ c j) :=
+      fun c hc j hj X hX => (((hGZ ψ c hc j hj).2 ρp hs X hX)).1
+    exact blockAcc_of_run hμ mpD hNZ hctxZ hHZ hPos hpN hpL hpP hpI hpR hlenN.symm
+      rfl hlenCtorsAs (fun c hc => hCA c hc) hclosedZ hnfZ hcovD ψ ρp hs hw hIdxZ hGw
   -- a unit-like member's hole leaf folds to the one tagged empty tuple
   have hfoldZH : ∀ (j : Nat) (cvTa : ConstantVal), cvTas[j]? = some cvTa →
       (ConLeche.blockCapsAt q j isRec).unitlike = true →

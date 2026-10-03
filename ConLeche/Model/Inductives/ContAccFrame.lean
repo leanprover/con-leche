@@ -713,8 +713,11 @@ set_option maxHeartbeats 1600000 in
 the group operator mixed into the carrier (`mixT`) is jointly accessible
 in the enclosing frame and the group's own components (`AccJointG`), so
 its least tuple — the carrier on the group (`lfpTuple_mixT`) — is
-accessible in the enclosing frame (`lfpP_acc_group`). -/
-theorem frameAccOut_of {w : Nat} (hw : w ≠ 0)
+accessible in the enclosing frame (`lfpP_acc_group`).  The stored
+container's own facts used are its clause's accessibility (`acc`, at
+its `Type`-valued level `w`: the sections' accessibility and
+monotonicity) and (W). -/
+theorem frameAccOut_of {w : Nat} (hw : w ≠ 0) (hwD : D.w (Level.substFn φ lps us) = w)
     {prog : List NestHole} (hhi : ctx.hiAt prog.length = hi)
     {Δh : List AnnotTerm} {R₀ : FrameRel V} (hR₀ : HoleRelA mp.base2 φ ctx prog hi Δh R₀)
     (hfit : ∀ ρ ρ', R₀ ρ ρ' →
@@ -842,11 +845,22 @@ theorem frameAccOut_of {w : Nat} (hw : w ≠ 0)
         (C := D.carrier (Level.substFn φ lps us) (keyFrame dsa hi p')) (lfpTuple_mem _ _ _ _) hY'
       exact (h.fibre _ _ hs' _ hmixS' m hm i (by rw [← hIs p p' hR' m hGm]; exact hiI) _).mpr
         ⟨j, fs, hf', rfl⟩
+  -- the stored container's accessibility at the key frame, and its monotonicity
+  have hw' : D.w (Level.substFn φ lps us) ≠ 0 := by rw [hwD]; exact hw
+  have hDacc : ∀ p p₀, R₀ p p₀ → ∃ A', AccTuple (D.w (Level.substFn φ lps us)) D.N
+      (D.idx (Level.substFn φ lps us) (keyFrame dsa hi p)) D.N
+      (D.idx (Level.substFn φ lps us) (keyFrame dsa hi p))
+      (D.Φ (Level.substFn φ lps us) (keyFrame dsa hi p)) A' :=
+    fun p p₀ hp => (h.acc _ _ (hfit p p₀ hp).1 hw').elim fun A hA => ⟨A, hA.2⟩
+  have hDmono : ∀ p p₀, R₀ p p₀ → MonoTuple (D.w (Level.substFn φ lps us)) D.N
+      (D.idx (Level.substFn φ lps us) (keyFrame dsa hi p))
+      (D.Φ (Level.substFn φ lps us) (keyFrame dsa hi p)) :=
+    fun p p₀ hp => (hDacc p p₀ hp).elim fun _ hA => hA.monoTuple
   have hmain := lfpP_acc_group (O := Occ V) hIs
     (fun p ⟨p₀, hp⟩ => ⟨_, mixT_isClosed (G := InGrp D grp)
-      (h.functor _ _ (hfit p p₀ hp).1).2.2 (h.functor _ _ (hfit p p₀ hp).1).1⟩)
-    (fun p ⟨p₀, hp⟩ => mixT_monoTuple (G := InGrp D grp) (h.functor _ _ (hfit p p₀ hp).1).1
-      (lfpTuple_mem _ _ _ _)) hacc
+      (h.closed (hfit p p₀ hp).1) (hDmono p p₀ hp)⟩)
+    (fun p ⟨p₀, hp⟩ => (hDacc p p₀ hp).elim fun A' hA' =>
+      ⟨A', accTuple_mixT (G := InGrp D grp) hA' (lfpTuple_mem _ _ _ _)⟩) hacc
   -- the carrier on the group is the mixed operator's least tuple
   have hcarr : ∀ ρ ρ₀, R₀ ρ ρ₀ → ∀ c, InGrp D grp c →
       lfpTuple (D.w (Level.substFn φ lps us)) D.N
@@ -855,8 +869,7 @@ theorem frameAccOut_of {w : Nat} (hw : w ≠ 0)
             (mixT (InGrp D grp) (D.carrier (Level.substFn φ lps us) (keyFrame dsa hi ρ)) Y)) c
         = D.carrier (Level.substFn φ lps us) (keyFrame dsa hi ρ) c := by
     intro ρ ρ₀ hr c hc
-    obtain ⟨hmono0, -, hcl0⟩ := h.functor _ _ (hfit ρ ρ₀ hr).1
-    exact lfpTuple_mixT hcl0 hmono0 c (Nat.lt_of_lt_of_le hc.1 hkNN) hc
+    exact lfpTuple_mixT (h.closed (hfit ρ ρ₀ hr).1) (hDmono ρ ρ₀ hr) c (Nat.lt_of_lt_of_le hc.1 hkNN) hc
   refine ⟨fun ρ => accPaths (A0 ρ), fun ρ => accPaths_mem hw (hA0 ρ), fun ρ ρ' hag => ?_, ?_⟩
   · show accPaths (A0 ρ) = accPaths (A0 ρ')
     have : A0 ρ = A0 ρ' := by
@@ -941,7 +954,7 @@ theorem frameIterAcc (hin : RulesInputs V mp.base2 φ) {w : Nat} (hw : w ≠ 0)
         (frame_fieldsBound mp hD hnN hkN hfind hlps hnd hul hds hdsa hlenP hg hwD hw hfit hGc hj
           hlT hTys hEqF))
     hQ
-  refine frameAccOut_of mp hD hnN hkN hfind hlps hnd hul hds hdsa hlenP hg hw hhi hR₀ hfit
+  refine frameAccOut_of mp hD hnN hkN hfind hlps hnd hul hds hdsa hlenP hg hw hwD hhi hR₀ hfit
     fun g j hG hj => ?_
   obtain ⟨x, hxmem, hfc⟩ := grpCtor_found hcov hgc hG hj
   exact frameCtor_acc mp hD hnN hkN hfind hlps hnd hul hds hdsa hlenP hg hw hwD hhi hR₀ hfit hG hj

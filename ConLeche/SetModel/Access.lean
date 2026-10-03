@@ -621,20 +621,24 @@ theorem skolem_suppG {β : Type _} [Nonempty β] {S : V} {Q : V → V → (V →
 /-- **The container case at a frame's group**: the parameter is the
 enclosing frame (abstract, related by `Rp`), the group `G` the reached
 members.  The least tuple is `accPaths A`-accessible in the parameter at
-the group's components; (W) and monotonicity of each section are
-hypotheses. -/
+the group's components; (W) of each section is a hypothesis, its
+monotonicity comes from the section's own accessibility (on ALL its
+components: the joint accessibility covers the group's only, and the
+least tuple's laws read every component) — as in `lfpP_acc`. -/
 theorem lfpP_acc_group {P O : Type _} [Nonempty O] {w kY : Nat} {IsY : P → Nat → V}
     {Sp : P → Prop} {Rp : P → P → Prop} {HasP : P → O → Prop} {G : Nat → Prop}
     {Θ : P → (Nat → V) → Nat → V} {A : P → V}
     (hIs : ∀ p p', Rp p p' → ∀ m, G m → IsY p m = IsY p' m)
     (hcl : ∀ p, Sp p → ∃ L, IsClosedTuple w kY (IsY p) (Θ p) L)
-    (hmono : ∀ p, Sp p → MonoTuple w kY (IsY p) (Θ p))
+    (hsacc : ∀ p, Sp p → ∃ A', AccTuple w kY (IsY p) kY (IsY p) (Θ p) A')
     (hacc : AccJointG w kY IsY Sp Rp HasP G Θ A) :
     ∀ p, Sp p → ∀ m, m < kY → G m → ∀ i, i ∈ˢ IsY p m →
       ∀ x, x ∈ˢ app (lfpTuple w kY (IsY p) (Θ p) m) i →
         ∃ (B : V) (g : V → O), B ⊆ˢ accPaths (A p) ∧ (∀ b, b ∈ˢ B → HasP p (g b)) ∧
           ∀ p', Rp p p' → Sp p' → (∀ b, b ∈ˢ B → HasP p' (g b)) →
             x ∈ˢ app (lfpTuple w kY (IsY p') (Θ p') m) i := by
+  have hmono : ∀ p, Sp p → MonoTuple w kY (IsY p) (Θ p) := fun p hp =>
+    (hsacc p hp).elim fun _ h => h.monoTuple
   intro p hp
   -- the property proved by induction over the least tuple at `p`
   let Q : Nat → V → V → Prop := fun m i y => G m →

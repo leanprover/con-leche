@@ -36,9 +36,10 @@ a member has a stored former whose leaf the environment model reads.
 `names`:
 
 * at every parameter frame each component's index telescope is graded
-  (`idxOk`) and `Φ` is a monotone, space-preserving tuple functor with
-  a closed tuple (`functor` — its third conjunct is (W) at tuples,
-  `closed_of_acc`, `SetModel/Access.lean`), whose component `c`'s fibre at
+  (`idxOk`) and `Φ` is a space-preserving tuple functor (`maps`),
+  accessible at a `Type`-valued block (`acc` — (W) at tuples by
+  `AccW.closed`, `SetModel/Access.lean`; its monotonicity is
+  `BlockModelAt.mono`, from `fibre` and `fitsMono`), whose component `c`'s fibre at
   `(X, t)` consists exactly of the injections `inj c j fs` of the
   spines fitting component `c`'s constructor `j` at `(X, t)`
   (`fibre`), the fit being the constructor's fields WITH HOLES at the
@@ -55,9 +56,9 @@ a member has a stored former whose leaf the environment model reads.
   (`mkInj` — cross-component disjointness is never needed: the
   recursor's union tags the components).
 
-`fibre` and `functor` quantify over ALL tuples of the tuple space and
+`fibre` and `maps` quantify over ALL tuples of the tuple space and
 ALL parameter frames in the `Sat` domain, never over the carrier:
-formation `inj … ∈ univ w` is derivable from `functor`'s `MapsTuple`
+formation `inj … ∈ univ w` is derivable from `maps`
 and `fibre` only at that strength.
 
 The per-constant facts of a STORED member (its type's strip, the
@@ -282,13 +283,14 @@ structure BlockModelAt (m : EnvModel V env) (names : List Name) (d : BlockData V
   /-- at every parameter frame every component's index telescope is graded -/
   idxOk : ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (d.params ψ).reverse ρp →
     ∀ c, c < d.N → IdxOk (d.uM c ψ) ρp (d.IdsM c ψ)
-  /-- **`Φ` is a monotone tuple functor** on the tuple space over the
-  components' index-tuple sets, mapping it into itself, with a closed
-  tuple ((W) at tuples) -/
-  functor : ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (d.params ψ).reverse ρp →
-    MonoTuple (d.w ψ) d.N (d.idx ψ ρp) (d.Φ ψ ρp) ∧
-    MapsTuple (d.w ψ) d.N (d.idx ψ ρp) (d.Φ ψ ρp) ∧
-    ∃ L, IsClosedTuple (d.w ψ) d.N (d.idx ψ ρp) (d.Φ ψ ρp) L
+  /-- **`Φ` maps the tuple space** over the components' index-tuple sets
+  into itself -/
+  maps : ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (d.params ψ).reverse ρp →
+    MapsTuple (d.w ψ) d.N (d.idx ψ ρp) (d.Φ ψ ρp)
+  /-- **`Φ` is accessible at a `Type`-valued block** ((W) at tuples, by
+  `AccW.closed`) -/
+  acc : ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (d.params ψ).reverse ρp →
+    AccW (d.w ψ) d.N (d.idx ψ ρp) (d.Φ ψ ρp)
   /-- **the container functor**: component `c`'s fibre at `(X, t)` is
   the set of injections of the spines fitting one of component `c`'s
   constructors' fields WITH HOLES at the hole frame of `X` (charter
@@ -345,6 +347,24 @@ structure BlockModelAt (m : EnvModel V env) (names : List Name) (d : BlockData V
     d.inj ψ c j fs = d.inj ψ c j' fs' → j = j' ∧ fs = fs'
 
 /-! ## Derived laws -/
+
+/-- **(W)** of the representation's operator, from its accessibility. -/
+theorem BlockModelAt.closed {m : EnvModel V env} {names : List Name} {d : BlockData V}
+    (hM : BlockModelAt m names d) {ψ : Name → Nat} {ρp : Nat → V}
+    (hsat : Sat V (d.params ψ).reverse ρp) :
+    ∃ L, IsClosedTuple (d.w ψ) d.N (d.idx ψ ρp) (d.Φ ψ ρp) L :=
+  (hM.acc ψ ρp hsat).closed (hM.maps ψ ρp hsat)
+
+/-- **The representation's operator is monotone**, from the fibre law and
+the hole fit's growth (task #326). -/
+theorem BlockModelAt.mono {m : EnvModel V env} {names : List Name} {d : BlockData V}
+    (hM : BlockModelAt m names d) {ψ : Name → Nat} {ρp : Nat → V}
+    (hsat : Sat V (d.params ψ).reverse ρp) :
+    MonoTuple (d.w ψ) d.N (d.idx ψ ρp) (d.Φ ψ ρp) := by
+  intro X Y hX hY hXY c hc t ht x hx
+  obtain ⟨j, fs, hf, rfl⟩ := (hM.fibre ψ ρp hsat X hX c hc t ht x).mp hx
+  exact (hM.fibre ψ ρp hsat Y hY c hc t ht _).mpr
+    ⟨j, fs, hM.fitsMono ψ ρp hsat X Y hX hY hXY c hc t j fs hf, rfl⟩
 
 /-- A fitting parameter spine satisfies the parameter telescope. -/
 theorem BlockData.satOfSpine (d : BlockData V) {ψ : Name → Nat} {ρ : Nat → V} {as : List V}

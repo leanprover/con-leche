@@ -149,30 +149,34 @@ theorem lfp0_clause {acval : Name → (Name → Nat) → AnnotTerm} {C : (Name �
     (hctor : ∀ j, j < n → ∀ (ψ : Name → Nat) (ρ : Nat → V) (fs : List V),
       SpineFit (cons (C ψ) ρ) (flds j) fs → fs.foldl app (interp V ρ (acval (cn j) ψ)) = inj j fs)
     (hfok : ∀ (ψ : Name → Nat) (ρp : Nat → V) (S : V), w ψ ≠ 0 → S ∈ˢ (univ (w ψ) : V) →
-      ∀ j, j < n → FieldsOkB (w ψ) (cons S ρp) (flds j)) :
+      ∀ j, j < n → FieldsOkB (w ψ) (cons S ρp) (flds j))
+    -- the fibre function is accessible with a bound of the level (at `Type`)
+    (hFacc : ∀ ψ, w ψ ≠ 0 → ∃ A, A ∈ˢ (univ (w ψ) : V) ∧ ∀ S x, x ∈ˢ F S →
+      ∃ (B : V) (g : V → V), B ⊆ˢ A ∧ (∀ b, b ∈ˢ B → g b ∈ˢ S) ∧
+        ∀ S', (∀ b, b ∈ˢ B → g b ∈ˢ S') → x ∈ˢ F S') :
     LfpClause acval (lfp0 nm w F inj n cn flds) where
   kN := Nat.le_refl 1
   idxOk := fun _ _ _ _ _ => ⟨trivial, trivial⟩
-  functor := fun ψ ρp _ => by
+  maps := fun ψ ρp _ => by
     have hI : (lfp0 nm w F inj n cn flds).idx ψ ρp = fun _ => (unitSet : V) :=
       funext (lfp0_idx ψ ρp)
-    refine ⟨?_, ?_, ?_⟩
-    · rw [hI]
-      intro X Y _ _ hle m _ i hi x hx
-      obtain rfl := mem_unitSet_iff.mp hi
-      rw [app_lfp0_Φ] at hx ⊢
-      exact hmono _ _ (hle 0 Nat.one_pos pt pt_mem_unitSet) x hx
-    · rw [hI]
-      intro X hX m _
-      exact graph_mem_famSpace fun _ _ =>
-        hmaps ψ _ (famSpace_app (hX 0 Nat.one_pos) pt_mem_unitSet)
-    · refine ⟨fun _ => graph (fun _ => C ψ) unitSet, ?_⟩
-      rw [hI]
-      refine ⟨fun _ _ => graph_mem_famSpace fun _ _ => hCu ψ, fun m _ i hi x hx => ?_⟩
-      obtain rfl := mem_unitSet_iff.mp hi
-      rw [app_lfp0_Φ, app_graph pt_mem_unitSet] at hx
-      rw [app_graph pt_mem_unitSet]
-      exact hC ψ x hx
+    rw [hI]
+    intro X hX m _
+    exact graph_mem_famSpace fun _ _ =>
+      hmaps ψ _ (famSpace_app (hX 0 Nat.one_pos) pt_mem_unitSet)
+  acc := fun ψ ρp _ hw => by
+    obtain ⟨A, hA, hF⟩ := hFacc ψ hw
+    have hpt : ∀ c, (pt : V) ∈ˢ (lfp0 nm w F inj n cn flds).idx ψ ρp c := fun c => by
+      rw [lfp0_idx]; exact pt_mem_unitSet
+    refine ⟨A, hA, fun X _ m _ i hi x hx => ?_⟩
+    rw [lfp0_idx] at hi
+    obtain rfl := mem_unitSet_iff.mp hi
+    rw [app_lfp0_Φ] at hx
+    obtain ⟨B, g, hB, hg, hs⟩ := hF _ x hx
+    refine ⟨B, fun b => (0, pt, g b), hB, fun b hb => ⟨Nat.one_pos, hpt 0, hg b hb⟩,
+      fun X' _ h' => ?_⟩
+    rw [app_lfp0_Φ]
+    exact hs _ fun b hb => (h' b hb).2.2
   fibre := fun ψ ρp _ X _ c _ t ht x => by
     rw [lfp0_idx] at ht
     obtain rfl := mem_unitSet_iff.mp ht
@@ -246,6 +250,7 @@ theorem emptyLfp_clause {acval : Name → (Name → Nat) → AnnotTerm} {nm : Na
     (fun _ _ j _ _ _ hj => absurd hj (Nat.not_lt_zero j))
     (fun j hj => absurd hj (Nat.not_lt_zero j))
     (fun _ _ _ _ _ j hj => absurd hj (Nat.not_lt_zero j))
+    (fun _ _ => ⟨empty, empty_mem_univ w, fun _ x hx => absurd hx (not_mem_empty x)⟩)
 
 theorem spineFit_nil_iff {ρ : Nat → V} {fs : List V} : SpineFit ρ [] fs ↔ fs = [] := by
   cases fs <;> simp [SpineFit]
@@ -392,6 +397,14 @@ theorem natLfp_clause {acval : Name → (Name → Nat) → AnnotTerm} {nm zn sn 
       split
       · trivial
       · exact ⟨by simp, fun _ => by simpa using hS, fun _ _ => trivial⟩)
+    -- the successor's support is its predecessor
+    (fun _ _ => by
+      refine ⟨unitSet, unitSet_mem_univ 1, fun S x hx => ?_⟩
+      rcases mem_natF.mp hx with rfl | ⟨m, hm, rfl⟩
+      · exact ⟨empty, fun _ => empty, empty_subset _, fun b hb => absurd hb (not_mem_empty b),
+          fun _ _ => mem_natF.mpr (Or.inl rfl)⟩
+      · exact ⟨unitSet, fun _ => m, Subset.refl _, fun _ _ => hm,
+          fun _ h => mem_natF.mpr (Or.inr ⟨m, h pt pt_mem_unitSet, rfl⟩)⟩)
 
 /-! ## `Eq`: two parameters, one index, one field-less constructor
 
@@ -479,12 +492,10 @@ theorem eqLfp_clause {acval : Name → (Name → Nat) → AnnotTerm}
       have := hs 1 (.sort (lv ψ)) rfl
       simpa using this
     exact ⟨⟨by simp, fun _ => hA, fun _ _ => trivial⟩, ⟨hA, fun _ _ => trivial⟩⟩
-  functor := fun ψ ρp _ => by
-    have hmaps : ∀ X, InTupleSpace 0 1 ((eqLfp (V := V) nm cn lv).idx ψ ρp)
-        ((eqLfp (V := V) nm cn lv).Φ ψ ρp X) := fun _ _ _ =>
-      graph_mem_famSpace fun _ _ => by rw [univ_zero]; exact truthVal_mem_univZero _
-    exact ⟨fun _ _ _ _ _ => TupleLe.refl _ _ _, fun X _ => hmaps X,
-      ⟨_, hmaps (fun _ => empty), TupleLe.refl _ _ _⟩⟩
+  maps := fun ψ ρp _ X _ _ _ =>
+    graph_mem_famSpace fun _ _ => by
+      show _ ∈ˢ (univ 0 : V); rw [univ_zero]; exact truthVal_mem_univZero _
+  acc := fun _ _ _ hw => absurd rfl hw
   fibre := fun ψ ρp _ X _ c _ t ht x => by
     have hfr : (eqLfp (V := V) nm cn lv).frame ψ ρp X 1 = ρp 0 := by
       show consList [_] ρp 1 = ρp 0

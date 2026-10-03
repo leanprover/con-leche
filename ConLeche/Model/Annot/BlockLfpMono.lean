@@ -22,16 +22,20 @@ positivity must deliver:
 * **Positivity of a constructor** along a frame relation (`CtorPos`)
   and the hole fit's growth along it (`LfpDatum.hfits_mono`).
 * **The consumer** (`monoTuple_of_holes`): the operator is monotone
-  (`LfpClause.functor`'s first conjunct, PROVED rather than recorded)
   as soon as every field reading is `MonoOn` the hole order
-  — which is what the run of `nestPos` on the field delivers.
+  — which is what the run of `nestPos` on the field delivers.  The
+  install reads it at the constructors' stage (`BlockCtorsStage.holeFun`);
+  the recorded clause records only the fit's growth (`fitsMono`) and
+  derives the operator's monotonicity from it (`LfpClause.mono`, task
+  #326).
 * **The container case** (`LfpClause.carrier_le_on_group'`): a stored
   container's reached group-mates, read at two parameter frames, grow
   as soon as the hole fit at the larger carrier on the group does
   (`lfpTuple_le_on`).  No premise "C is monotone in its parameter"
   (charter item 4): the comparison is of THIS instantiation's two
   frames, and the only container facts used are its clause's closure
-  and monotonicity in its own holes.
+  and monotonicity in its own holes (both derived: `LfpClause.closed`,
+  `LfpClause.mono`).
 -/
 
 namespace ConLeche.Model
@@ -82,9 +86,8 @@ end LfpDatum
 
 /-! ## The consumer: the operator is monotone, from the field readings -/
 
-/-- **The block's operator is monotone** — `LfpClause.functor`'s first
-conjunct, DERIVED: from the fibre law, the clause's link to the hole
-reading, and positivity of every constructor along the hole order `R`
+/-- **The block's operator is monotone**, DERIVED: from the fibre law,
+the clause's link to the hole reading, and positivity of every constructor along the hole order `R`
 (the frames of two ordered tuples are `R`-related).  The positivity
 premise is what `nestPos`'s run on each field delivers. -/
 theorem monoTuple_of_holes {D : LfpDatum V}
@@ -123,7 +126,8 @@ theorem carrier_le_on_group' (h : LfpClause acval D) {ψ : Name → Nat} {ρp ρ
       D.HFits ψ ρp (fun x => if G x then D.carrier ψ ρp' x else D.carrier ψ ρp x) t g j fs →
       D.HFits ψ ρp' (D.carrier ψ ρp') t g j fs) :
     ∀ g, g < D.N → G g → FamLe (D.idx ψ ρp g) (D.carrier ψ ρp g) (D.carrier ψ ρp' g) := by
-  obtain ⟨hmono, -, hcl⟩ := h.functor ψ ρp hs
+  have hmono := h.mono hs
+  have hcl := h.closed hs
   let B : Nat → V := fun x => if G x then D.carrier ψ ρp' x else D.carrier ψ ρp x
   have hB : InTupleSpace (D.w ψ) D.N (D.idx ψ ρp) B := by
     intro m hm

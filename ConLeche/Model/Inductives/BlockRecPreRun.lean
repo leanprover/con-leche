@@ -77,7 +77,7 @@ constructor that built it.  `BlockModelAt.fibre` says that at the
 OPERATOR: component `c`'s fibre of `Φ X` at `t` consists exactly of
 the injections of the spines fitting one of `c`'s constructors.  The
 carrier is the least pre-fixed TUPLE, and the fixed-point equation
-(`app_lfpTuple_eq`, off the clause's own `functor`) moves the
+(`app_lfpTuple_eq`, off the representation's `maps`, `acc` and `mono`) moves the
 statement onto it.
 
 At a `Type`-valued block (`w ψ ≠ 0`) the decomposition is UNIQUE
@@ -102,8 +102,7 @@ theorem blockCarrier_case {env : Env} {mo : EnvModel V env} {names : List Name}
     (ht : t ∈ˢ d.idx ψ ρp c) {x : V}
     (hx : x ∈ˢ app (lfpTuple (d.w ψ) d.N (d.idx ψ ρp) (d.Φ ψ ρp) c) t) :
     ∃ j fs, d.StoredFit ψ ρp t c j fs ∧ x = d.inj ψ c j fs := by
-  obtain ⟨hmono, hmaps, hcl⟩ := hM.functor ψ ρp hsat
-  rw [← app_lfpTuple_eq hcl hmono hmaps hc ht] at hx
+  rw [← app_lfpTuple_eq (hM.closed hsat) (hM.mono hsat) (hM.maps ψ ρp hsat) hc ht] at hx
   obtain ⟨j, fs, hf, rfl⟩ := (hM.fibre ψ ρp hsat _ (lfpTuple_mem _ _ _ _) c hc t ht x).mp hx
   exact ⟨j, fs, (hM.carrier ψ ρp hsat c hc t ht j fs).mp hf, rfl⟩
 

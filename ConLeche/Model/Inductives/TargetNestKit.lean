@@ -22,7 +22,7 @@ classes read (`NestNodeInd.ind_recNodesOn`, `SetModel/NestRecCls.lean`).
   over parameter frames, its index sets pinned at `Is` (the TRUE
   frame's: a container instance's index telescope is hole-free — the
   walk's N2 — so it reads alike at every frame the induction visits);
-  `lfpSClause_okAt` — the kit's `ok`, from the clause's `functor` and
+  `lfpSClause_okAt` — the kit's `ok`, from the clause's `mono`/`closed` and
   `fibre`; `lfpSClause_carrier` — its carrier is the datum's.
 * `lfpNestKit` — the kit over clause classes, `ok` proved; the three
   premises that read the RUN (`trans`: positivity at the instantiation,
@@ -64,11 +64,12 @@ theorem lfpSClause_carrier (hIs : D.idx ψ ρp = Is) :
 
 /-- **The kit's `ok`, from the clause**: at a frame satisfying the
 parameter telescope whose index sets are `Is`, the class is a clause —
-monotone with a closed tuple (`functor`) and its fibre the fitting
+monotone (`LfpClause.mono`) with a closed tuple (`LfpClause.closed`) and its fibre the fitting
 constructors' injections (`fibre`). -/
 theorem lfpSClause_okAt (h : LfpClause acval D) (hsat : Sat V (D.params ψ).reverse ρp)
     (hIs : ∀ c, c < D.N → D.idx ψ ρp c = Is c) : (lfpSClause D ψ Is).OkAt ρp := by
-  obtain ⟨hmono, -, ⟨L, hL⟩⟩ := h.functor ψ ρp hsat
+  have hmono := h.mono hsat
+  obtain ⟨L, hL⟩ := h.closed hsat
   have hsp : ∀ X, InTupleSpace (D.w ψ) D.N Is X ↔ InTupleSpace (D.w ψ) D.N (D.idx ψ ρp) X :=
     fun X => ⟨fun hX m hm => by rw [hIs m hm]; exact hX m hm,
       fun hX m hm => by rw [← hIs m hm]; exact hX m hm⟩

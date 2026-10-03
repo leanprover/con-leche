@@ -22,7 +22,7 @@ This file proves it for a uniform block from its representation
 (`BlockHoleFacts`: their reading facts, the stored field shape facts
 `StoredFieldShapes`, and the telescopes' lengths): the clause
 (`BlockModelAt.toLfp`) takes
-`functor`, `fibre`, `leaf`, `mkZero`, `mkInj` from the representation
+`maps`, `acc`, `fibre`, `leaf`, `mkZero`, `mkInj` from the representation
 and `ctor` at the stored fit the hole fit at the carrier is.
 -/
 
@@ -88,7 +88,7 @@ structure BlockHoleFacts (m : EnvModel V env) (d : BlockData V) (lps : List Name
     ((d.Ess c ψ).getD j []).length = (d.IdsM c ψ).length
 
 
-/-- **The representation's lfp clause, in hole form** — `functor`,
+/-- **The representation's lfp clause, in hole form** — `maps`, `acc`,
 `fibre`, `leaf`, `mkZero`, `mkInj` verbatim; `ctor` is the
 representation's `ctor` at the stored fit the hole fit at the carrier is
 (`BlockModelAt.carrier`). -/
@@ -102,7 +102,8 @@ theorem BlockModelAt.toLfp (hM : BlockModelAt m names d) (hH : BlockHoleFacts m 
     LfpClause m.acval d.toLfp where
   kN := Nat.le_add_right _ _
   idxOk := hM.idxOk
-  functor := hM.functor
+  maps := hM.maps
+  acc := hM.acc
   fibre := hM.fibre
   fitsMono := hM.fitsMono
   leaf := hM.leaf

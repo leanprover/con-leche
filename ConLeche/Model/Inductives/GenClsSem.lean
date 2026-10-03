@@ -900,7 +900,8 @@ theorem genCls_dec (hμ : μ.verifiedChecks = true)
   · rw [htupE, Rd.hnIdx, hES]; exact hret
   · rw [hmk]; rfl
   · rw [htupE, hCr]
-    obtain ⟨hmono, -, hcl⟩ := hC.functor _ _ hsat'
+    have hmono := hC.mono hsat'
+    have hcl := hC.closed hsat'
     exact lfpTuple_closed hcl hmono _ hmN _ (tupW_mem hIdsF) _
       ((hC.fibre _ _ hsat' _ (lfpTuple_mem _ _ _ _) _ hmN _
         (tupW_mem hIdsF) _).mpr ⟨j, as₂, hHF, rfl⟩)

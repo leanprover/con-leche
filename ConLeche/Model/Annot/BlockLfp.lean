@@ -2,6 +2,7 @@ module
 
 public import ConLeche.Semantics.Sat
 public import ConLeche.Semantics.Tower.FixTower
+public import ConLeche.SetModel.Access
 public section
 
 /-!
@@ -33,14 +34,22 @@ instance is read ordinarily, it is not a component.
 parameter frame `ρp` satisfying the parameter telescope (exactly the
 quantification `BlockModelAt` has, which is what the install proves):
 
-* `functor` — `Φ` is monotone, maps the tuple space into itself, and
-  has a closed tuple: the three facts `lfpTuple`'s laws need
-  (`lfpTuple_induction` takes the first and the third);
+* `maps` — `Φ` maps the tuple space into itself;
+* `acc` — at a `Type`-valued block `Φ` is ACCESSIBLE with a bound of the
+  level (`AccW`, `SetModel/Access.lean`): (W) follows at every level
+  (`LfpClause.closed`, `AccW.closed`);
 * `fibre` — component `c`'s fibre at `(X, t)` is the set of injections
   of the spines fitting one of `c`'s constructors at `(X, t)`;
+* `fitsMono` — the hole fit grows with the tuple (positivity's);
 * `leaf` — a member's former, at fitting parameters and its own
   indices, is the least pre-fixed tuple's component at the index
   tuple.
+
+**Monotonicity is derived, not recorded** (task #326):
+`LfpClause.mono` reads it off `fibre` and `fitsMono` at every level.
+At a `Type`-valued block it follows from `acc` as well
+(`AccTuple.monoTuple`); at a `Prop`-valued one there is no recorded
+accessibility, and `fitsMono` is its only source.
 
 **Universe instantiation.**  `leaf` holds at EVERY level assignment
 `ψ`.  A use `.const I us` under `φ` reads the leaf at
@@ -258,11 +267,13 @@ structure LfpClause (acval : Name → (Name → Nat) → AnnotTerm) (D : LfpDatu
   an index tuple back to its spine (`isOfW_tupW`) needs at a container -/
   idxOk : ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (D.params ψ).reverse ρp →
     ∀ c, c < D.N → IdxOk (D.u c ψ) ρp (D.ids c ψ)
-  /-- **`Φ` is a monotone tuple functor** with a closed tuple -/
-  functor : ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (D.params ψ).reverse ρp →
-    MonoTuple (D.w ψ) D.N (D.idx ψ ρp) (D.Φ ψ ρp) ∧
-    MapsTuple (D.w ψ) D.N (D.idx ψ ρp) (D.Φ ψ ρp) ∧
-    ∃ L, IsClosedTuple (D.w ψ) D.N (D.idx ψ ρp) (D.Φ ψ ρp) L
+  /-- **`Φ` maps the tuple space into itself** -/
+  maps : ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (D.params ψ).reverse ρp →
+    MapsTuple (D.w ψ) D.N (D.idx ψ ρp) (D.Φ ψ ρp)
+  /-- **`Φ` is accessible at a `Type`-valued block**, with a bound of the
+  level ((W) by accessibility; monotonicity at that level) -/
+  acc : ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (D.params ψ).reverse ρp →
+    AccW (D.w ψ) D.N (D.idx ψ ρp) (D.Φ ψ ρp)
   /-- **what `Φ` is**: component `c`'s fibre at `(X, t)` is the set of
   injections of the spines fitting one of `c`'s constructors -/
   fibre : ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (D.params ψ).reverse ρp →
@@ -339,7 +350,8 @@ theorem congr (h : LfpClause acval D) {acval' : Name → (Name → Nat) → Anno
     LfpClause acval' D where
   kN := h.kN
   idxOk := h.idxOk
-  functor := h.functor
+  maps := h.maps
+  acc := h.acc
   fibre := h.fibre
   fitsMono := h.fitsMono
   leaf := fun mm hmm ψ ρ as is hsa hsi => by
@@ -356,12 +368,28 @@ theorem congr (h : LfpClause acval D) {acval' : Name → (Name → Nat) → Anno
   fieldsOk := h.fieldsOk
 
 
+/-- **(W)**: the operator has a closed tuple, from its accessibility
+(`AccW.closed`). -/
+theorem closed (h : LfpClause acval D) {ψ : Name → Nat} {ρp : Nat → V}
+    (hsat : Sat V (D.params ψ).reverse ρp) :
+    ∃ L, IsClosedTuple (D.w ψ) D.N (D.idx ψ ρp) (D.Φ ψ ρp) L :=
+  (h.acc ψ ρp hsat).closed (h.maps ψ ρp hsat)
+
+/-- **The operator is monotone**, from the fibre law and the hole fit's
+growth (task #326: derived, not recorded). -/
+theorem mono (h : LfpClause acval D) {ψ : Name → Nat} {ρp : Nat → V}
+    (hsat : Sat V (D.params ψ).reverse ρp) :
+    MonoTuple (D.w ψ) D.N (D.idx ψ ρp) (D.Φ ψ ρp) := by
+  intro X Y hX hY hXY c hc t ht x hx
+  obtain ⟨j, fs, hf, rfl⟩ := (h.fibre ψ ρp hsat X hX c hc t ht x).mp hx
+  exact (h.fibre ψ ρp hsat Y hY c hc t ht _).mpr
+    ⟨j, fs, h.fitsMono ψ ρp hsat X Y hX hY hXY c hc t j fs hf, rfl⟩
+
 /-- **The carrier is a fixed point**, componentwise. -/
 theorem carrier_eq (h : LfpClause acval D) {ψ : Name → Nat} {ρp : Nat → V}
     (hsat : Sat V (D.params ψ).reverse ρp) {c : Nat} (hc : c < D.N) :
-    D.Φ ψ ρp (D.carrier ψ ρp) c = D.carrier ψ ρp c := by
-  obtain ⟨hmono, hmaps, hcl⟩ := h.functor ψ ρp hsat
-  exact lfpTuple_eq hcl hmono hmaps hc
+    D.Φ ψ ρp (D.carrier ψ ρp) c = D.carrier ψ ρp c :=
+  lfpTuple_eq (h.closed hsat) (h.mono hsat) (h.maps ψ ρp hsat) hc
 
 /-- **The carrier's case analysis**: an element of component `c`'s
 carrier is the injection of a spine fitting one of `c`'s constructors

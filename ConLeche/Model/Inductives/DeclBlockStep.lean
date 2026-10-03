@@ -338,14 +338,15 @@ theorem declBlock (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
     rw [hbC]; exact hcoreC'
   -- ## the block's LFP CLAUSE, recorded at the constructors' environment
   -- the representation is built from the stages' three
-  -- records (`blockModelAt_of_records`) and its `functor`/`fibre`/`leaf`
+  -- records (`blockModelAt_of_records`) and its `maps`/`acc`/`fibre`/`leaf`
   -- enter the invariant (`EnvModelM.addLfp`), so the recursor stage
   -- below — and every later environment — carries it
   have hk0 : 0 < (blockDataOf V p₁ ctorsAs pk uOf ppsOf).k := by
     rw [← hN.2.2, hcvTas]; exact Nat.succ_pos _
-  -- the operator's MONOTONICITY is positivity's: every
-  -- constructor positive along the tuple order at the hole frame, from the
-  -- positivity stage's run at the formers' environment (conjunct 3)
+  -- the hole fit's GROWTH is positivity's (the operator's monotonicity
+  -- follows, `BlockModelAt.mono`): every constructor positive along the
+  -- tuple order at the hole frame, from the positivity stage's run at the
+  -- formers' environment (conjunct 3)
   -- the constructors' types are closed (stored in a well-formed environment)
   have hclosedC : ∀ (c j : Nat) (cA : ConstantVal × Nat),
       ((blockDataOf V p₁ ctorsAs pk uOf ppsOf).ctorsM c)[j]? = some cA →
@@ -364,9 +365,7 @@ theorem declBlock (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
       have hw := mpC₀.base2.wf _ (List.mem_of_find?_eq_some hf)
       exact ⟨hw.1, hw.2.2.2.1⟩)
   have hMC := blockModelAt_of_records hN hS.toBlockCtorsStage hcoreC rfl hk0
-    (fun _ _ => rfl) (fun _ _ _ _ => rfl)
-    (blockMono_of_pos hN hS.toBlockCtorsStage hcoreC hk0 (fun _ _ => rfl) (fun _ _ _ _ => rfl)
-      hposC) (blockFitsMono_of_pos hposC)
+    (fun _ _ => rfl) (fun _ _ _ _ => rfl) (blockFitsMono_of_pos hposC)
   have hLC := blockLfpClause_of_records hN hS.toBlockCtorsStage hcoreC rfl hk0
     (fun _ _ => rfl) (fun _ _ _ _ => rfl) hposC
     -- the fields with holes are small at a `Type`-valued block (the grading)
