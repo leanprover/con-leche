@@ -11,7 +11,7 @@ source — `main.typ`, `sections/NN-name.typ`, the macro library
     ./build.sh                        # or, from the repo root, without direnv:
     nix develop ./whitepaper -c whitepaper/build.sh
 
-Output: `whitepaper/_build/con-leche-proof-idea.pdf` and `whitepaper/_build/index.html`
+Output: `whitepaper/_build/con-leche-proof-idea.pdf` and `whitepaper/_build/con-leche-proof-idea.html` (plus the landing page `index.html`)
 (gitignored), copied to `_out/whitepaper/` at the repo root for reading.
 `build.sh` fails on any typst warning.
 

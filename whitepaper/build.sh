@@ -6,7 +6,8 @@
 # lib.typ's `target()` branches are reachable in either:
 #
 #   _build/con-leche-proof-idea.pdf   paged, embedded fonts only (reproducible)
-#   _build/index.html       self-contained (inline CSS, MathML, SVG)
+#   _build/con-leche-proof-idea.html  self-contained (inline CSS, MathML, SVG)
+#   _build/index.html       the site's landing page (copied from site/index.html)
 #
 # then synced to <repo root>/_out/whitepaper/ (gitignored) so the
 # maintainer can read it.  Runnable as
@@ -49,7 +50,8 @@ render() {  # render <format> <output>
 }
 
 render pdf  _build/con-leche-proof-idea.pdf
-render html _build/index.html
+render html _build/con-leche-proof-idea.html
+cp -f site/index.html _build/index.html
 
 if [ $fail -ne 0 ]; then
   echo "build.sh: FAIL" >&2
@@ -58,5 +60,5 @@ fi
 
 outdir=$root/_out/whitepaper
 mkdir -p "$outdir"
-cp -f _build/con-leche-proof-idea.pdf _build/index.html "$outdir/"
+cp -f _build/con-leche-proof-idea.pdf _build/con-leche-proof-idea.html _build/index.html "$outdir/"
 echo "build.sh: synced to $outdir"

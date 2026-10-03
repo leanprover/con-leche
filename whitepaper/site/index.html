@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>con-leche documents</title>
+<style>
+  :root { --fg: #1d1d1f; --muted: #6b6b70; --link: #2a52be; --bg: #ffffff; }
+  @media (prefers-color-scheme: dark) {
+    :root { --fg: #e6e6e8; --muted: #a0a0a8; --link: #8fa8ff; --bg: #17171a; }
+  }
+  body { margin: 0; background: var(--bg); color: var(--fg);
+         font: 1.1rem/1.6 "Libertinus Serif", Georgia, serif; }
+  main { max-width: 42rem; margin: 3rem auto; padding: 0 1rem; }
+  h1, h2 { font-family: "Libertinus Sans", "Helvetica Neue", Arial, sans-serif; font-weight: 600; }
+  a { color: var(--link); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  .muted { color: var(--muted); }
+</style>
+</head>
+<body>
+<main>
+<h1>con-leche</h1>
+<p class="muted">A verified kernel checker for Lean 4 —
+<a href="https://github.com/leanprover/con-leche">repository</a>.</p>
+
+<h2>The con-leche proof idea</h2>
+<p>Joachim Breitner, Lean FRO. An account of the core of con-leche's
+consistency proof: annotated terms, a relational description of the
+checker, and a set-theoretic model, with a small Lean development
+that checks the argument.</p>
+<p><a href="con-leche-proof-idea.html">Read online</a> ·
+<a href="con-leche-proof-idea.pdf">PDF</a></p>
+</main>
+</body>
+</html>
