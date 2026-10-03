@@ -470,32 +470,40 @@ of the input and on nothing else, for the one set $A$. An accessible
 operator is monotone, since the support in $W$ is in the larger $W'$
 (#src("whitepaper/Fragment/Access.lean", 80, 85)[fragment]).
 
-The block's operator is accessible, again field kind by field kind.
-The support of a constructor value $tag(j, arrow(F))$: an
-ordinary field contributes nothing; a reflexive field $f$ with
-telescope $arrow(z)$ contributes the occurrences
-$(arrow(e)(arrow(z)), f dot.op arrow(z))$ for every $arrow(z)$ fitting
-its telescope — at the empty telescope the one occurrence
-$(arrow(e), f)$ — each coded by the field's position and the tuple
-$arrow(z)$
-(#src("whitepaper/Fragment/IndSem.lean", 1050, 1075)[fragment]).
-A family $W'$ holding the support produces the value: ordinary fields
-are read without the family, and a reflexive field's value, a
-function whose applications all lie in fibres of $W'$, is a member of
-the product into those fibres, by η
-(#src("whitepaper/Fragment/IndSem.lean", 1130, 1143)[fragment]). The
-bound collects, per constructor and per reflexive field, the tuples
-of the field's telescope at every list fitting the earlier fields,
-coded by the field's position
-(#src("whitepaper/Fragment/IndSem.lean", 973, 995)[fragment]). It is
-_one_ set, the same for every input family, by the second shape
-condition of @sec:ind-checks: nothing after a reflexive field depends
-on its value, so the telescopes met along an instance — a constructor
-value with fitting fields — are the same whichever family it is an instance of — the bound reads them at the
-_one-fibre family_, every fibre ${pt}$, the instance's recursive
-values replaced by the point abstracted over the telescope
-(#src("whitepaper/Fragment/IndSem.lean", 845, 855)[the replacement],
-#src("whitepaper/Fragment/IndSem.lean", 959, 964)[the telescope reads alike]).
+The block's operator is accessible. Take as an example a tree type
+with a constructor $sans("node") : (Nat -> T) -> T$ and an element
+$x = tag(j, f)$ of $Phi(W)$: the field $f$ is a function from the
+naturals into a fibre of $W$. Three things have to be shown.
+
++ _The support._ The value $x$ depends on $W$ only through the
+  children $f dot.op 0, f dot.op 1, dots$, so its support is those
+  children: one occurrence for each argument $z$ of the field,
+  $(arrow(e)(z), f dot.op z)$, where $arrow(e)(z)$ are the field's
+  index expressions. In general a reflexive field with telescope
+  $arrow(z)$ contributes one occurrence per $arrow(z)$ fitting the
+  telescope (a recursive field, with the empty telescope, exactly
+  one), and an ordinary field contributes nothing; each occurrence is
+  named by the field's position and the tuple $arrow(z)$
+  (#src("whitepaper/Fragment/IndSem.lean", 1050, 1075)[fragment]).
++ _A family holding the support produces $x$._ If every child lies
+  in the matching fibre of $W'$, then $f$, a function whose
+  applications all lie in fibres of $W'$, is a member of the product
+  into those fibres (by η), and ordinary fields do not mention the
+  family; so $x in Phi(W')$
+  (#src("whitepaper/Fragment/IndSem.lean", 1130, 1143)[fragment]).
++ _One bound for every family._ The names of the occurrences — field
+  position and argument tuple — must come from one set $A$, the same
+  whatever $W$ is. For $sans("node")$ that is the naturals. In
+  general $A$ collects, per constructor and reflexive field, the
+  tuples fitting the field's telescope
+  (#src("whitepaper/Fragment/IndSem.lean", 973, 995)[fragment]). A
+  telescope may mention earlier fields, but by the second shape
+  condition of @sec:ind-checks never a reflexive field's value, so the
+  telescopes do not depend on $W$; the bound reads them at the
+  _one-fibre family_, every fibre ${pt}$
+  (#src("whitepaper/Fragment/IndSem.lean", 845, 855)[the replacement],
+  #src("whitepaper/Fragment/IndSem.lean", 959, 964)[the telescope reads alike]).
+
 Hence #src("whitepaper/Fragment/IndSem.lean", 1193, 1200)[the operator is accessible with this bound].
 
 In the type-valued regime, that the bound is a member of
