@@ -38,28 +38,43 @@ A block of @sec:ind mentions the type being defined only directly: a
 recursive field's domain is the family itself, a reflexive field's a
 function type into it. The standard example of such a nested block is
 #src("tests/e2e/src/nested_rec.lean", 17, 18)[a tree whose children form a _list_ of trees]:
-one parameter, sort $Sort 1$, and one constructor
-$ node : forall (alpha : Sort 1) thin ann(never). thin forall (a : alpha) thin ann(never). thin forall (ts : List thick (Tree thick alpha)) thin ann(never). thin Tree thick alpha. $
-The domain of $ts$ is the block $List$, installed earlier — the
-_container_ — applied to the type being defined. The type $Tree thick alpha$
-there is the _nested occurrence_, and $List thick (Tree thick alpha)$,
+```lean
+inductive Tree (α : Type) where
+  | node : α → List (Tree α) → Tree α
+```
+The domain of the field `List (Tree α)` is the block `List`, installed
+earlier — the _container_ — applied to the type being defined. The
+type `Tree α` there is the _nested occurrence_, and `List (Tree α)`,
 the container at given levels and parameters, is an _instantiation_ of
 the container.
 
-#src("tests/e2e/src/nested_p01.lean", 4, 5)[A container may sit under a binder],
-as in
-$ mk : forall (f : forall (n : Nat) thin ann(never). thin List thick P) thin ann(never). thin P, $
-and nesting may go deeper. With lists $L$ and rose trees $R$,
-$ & nil : L thick alpha, quad cons : alpha -> L thick alpha -> L thick alpha, \
-  & node : alpha -> L thick (R thick alpha) -> R thick alpha, $
-#src("tests/e2e/src/nest_rose_tree.lean", 15, 24)[the block]
-$ leaf : T, quad mk : R thick T -> T $
-is nested through $R$, a container that is itself nested: inside
-$R thick T$, the constructor $node$ holds an $L thick (R thick T)$, so
-$T$ occurs at depth two. Containers with indices are allowed too: a
-vector type $sans("Vec") thick alpha thick n$ can hold the type being
-defined, as in
-#src("tests/e2e/src/indexed_nested_aux.lean", 13, 18)[a field of type $sans("Vec") thick (T thick alpha) thick n$].
+The container may also sit under a binder,
+#src("tests/e2e/src/nested_p01.lean", 4, 5)[as in]
+```lean
+inductive P where
+  | mk : (Nat → List P) → P
+```
+and nesting may go deeper. With
+#src("tests/e2e/src/nest_rose_tree.lean", 15, 24)[lists, rose trees and]
+```lean
+inductive L (α : Type) where
+  | nil : L α
+  | cons : α → L α → L α
+inductive R (α : Type) where
+  | node : α → L (R α) → R α
+inductive T where
+  | leaf : T
+  | mk : R T → T
+```
+the block `T` is nested through `R`, a container that is itself
+nested: inside `R T`, the constructor `R.node` holds an `L (R T)`, so
+`T` occurs at depth two. Containers with indices are allowed too,
+#src("tests/e2e/src/indexed_nested_aux.lean", 13, 18)[as in]
+```lean
+inductive TV (α : Type) where
+  | node : α → {n : Nat} → Vec (TV α) n → TV α
+```
+with `Vec α n` the vectors of length `n`.
 
 == The positivity check <sec:nest-checks>
 
