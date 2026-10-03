@@ -3,6 +3,7 @@
 // Notation local to this file, matching §4.
 #let PW = $italic("pw")$
 #let never = $sans("never")$
+#let always = $sans("always")$
 #let Sort = $sans("Sort")$
 #let Prop = $sans("Prop")$
 #let zn = $sans("zeroness")$

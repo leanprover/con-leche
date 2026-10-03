@@ -3,7 +3,8 @@
 // Notation local to this file, matching §2 and §3.
 #let PW = $italic("pw")$
 #let never = $sans("never")$
-#let whenZero = $sans("whenZero")$
+#let always = $sans("always")$
+#let whenZero = $sans("zero")$
 #let Sort = $sans("Sort")$
 #let Prop = $sans("Prop")$
 #let zn = $sans("zeroness")$
@@ -266,7 +267,7 @@ the checker answers each with the level oracle:
   Let
   $ P : forall (n : Nat) thin ann(never). thin Prop $
   have one constructor
-  $ mk : forall (n : Nat) thin ann(whenZero \{\}). thin P thick n $
+  $ mk : forall (n : Nat) thin ann(always). thin P thick n $
   — a proposition-valued family, indexed by a number, with one ordinary
   field $n$ that is not a proposition but occurs in the result's
   index. The subsingleton criterion holds, so the recursor may

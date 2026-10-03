@@ -3,6 +3,7 @@
 // Notation local to this file, matching §2–§4.
 #let PW = $italic("pw")$
 #let never = $sans("never")$
+#let always = $sans("always")$
 #let Sort = $sans("Sort")$
 #let zn = $sans("zeroness")$
 #let red = sym.arrow.r.squiggly

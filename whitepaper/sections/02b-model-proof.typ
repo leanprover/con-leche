@@ -3,6 +3,7 @@
 // Notation local to this file, matching the first half of the section.
 #let PW = $italic("pw")$
 #let never = $sans("never")$
+#let always = $sans("always")$
 #let Sort = $sans("Sort")$
 #let imax = $op("imax")$
 #let zn = $sans("zeroness")$

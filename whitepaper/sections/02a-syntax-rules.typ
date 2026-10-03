@@ -4,7 +4,8 @@
 // here once, so the rules below read the same in the PDF and the HTML.
 #let PW = $italic("pw")$
 #let never = $sans("never")$
-#let whenZero = $sans("whenZero")$
+#let always = $sans("always")$
+#let whenZero = $sans("zero")$
 #let Sort = $sans("Sort")$
 #let imax = $op("imax")$
 #let zn = $sans("zeroness")$
@@ -53,8 +54,9 @@ proposition?_  The answer is one of two shapes:
 - $ann(never)$: the body is not a proposition, whatever the level
   parameters are;
 - $ann(whenZero \{p_1\, ...\, p_k\})$: the body is a proposition exactly
-  when the level parameters $p_1, ..., p_k$ are all zero.
-  $ann(whenZero \{\})$ means "always".
+  when the level parameters $p_1, ..., p_k$ are all zero; we write
+  $ann(always)$ for the case of no parameters, $ann(whenZero \{\})$,
+  which holds at every valuation.
 
 A _valuation_ $phi$ assigns a natural number to every level parameter.
 A datum is _read_ at a valuation: $ann(never)$ reads false, and
@@ -140,7 +142,7 @@ annotation design needs it and it is small: $zn$ turns a level into
 the datum that says when the level is zero.
 
 $
-  zn(0) & = whenZero \{\} & quad zn(u + 1) & = never \
+  zn(0) & = always & quad zn(u + 1) & = never \
   zn(p) & = whenZero \{p\} & quad zn(max(u, v)) & = zn(u) inter zn(v) \
   zn(imax(u, v)) & = zn(v)
 $
