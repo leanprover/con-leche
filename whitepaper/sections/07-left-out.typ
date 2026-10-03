@@ -95,7 +95,7 @@ split on a conjunction — the recursor #src("ConLeche/Rules/Rel.lean", 286, 306
 fabricated and certified the way the K rescue is.]
 
 #left-out[`let`][The fragment has no `let`. The real checker's
-#src("ConLeche/Kernel/Core.lean", 1861, 1890)[annotation pass], which runs once when a declaration enters, replaces
+#src("ConLeche/Kernel/Core.lean", 1953, 1982)[annotation pass], which runs once when a declaration enters, replaces
 every `let x := v; b` by `b[x := v]`, so no later stage ever sees one.]
 
 #left-out[The infer-only grade][The real checker infers types at #src("ConLeche/Rules/Rel.lean", 77, 82)[two

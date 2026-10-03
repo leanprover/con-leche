@@ -285,7 +285,7 @@ not the recursor's $alpha$, and $List$'s level names, not $Tree$'s. So
 — the container's levels and parameters, as terms in the recursor's
 level parameters and parameters — and fires only on a constructor
 application whose levels and parameters equal
-#src("ConLeche/Kernel/CoreDefs.lean", 884, 891)[the stored ones, instantiated at the recursor's levels and parameter arguments]
+#src("ConLeche/Kernel/CoreDefs.lean", 870, 877)[the stored ones, instantiated at the recursor's levels and parameter arguments]
 (#src("ConLeche/Rules/Rel.lean", 197, 204)[the levels by the level oracle, the parameters definitionally]);
 the constructor's fields are what follows its own parameters, and the
 index comparison is as before
