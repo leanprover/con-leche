@@ -367,33 +367,41 @@ One further law, about size — _inductive closure_ — is stated below
 where it is needed. Notably absent is any law about least fixed
 points.
 
-*Least fixed points cost nothing.* The family of a block is the least
-fixed point of an operator: "a member is a constructor applied to
-fields that are members". In the fragment this is not a set
-construction at all. The operator acts on _predicates_, and the least
-fixed point of a monotone operator $Phi$ on predicates is
+*Least fixed points, from the axioms.* No law about fixed points is
+needed, because in the fragment a least fixed point is not a set
+construction at all. The operators of this section act on
+_predicates_ over sets, and the least fixed point of a monotone
+operator $Phi$ on predicates is
 #src("whitepaper/Fragment/IndLib.lean", 231, 234)[a definition]:
 $lfp(Phi)(a)$ holds when every predicate closed under $Phi$ holds at
-$a$. That it is closed, that it is a fixed point and that it
-supports induction are #src("whitepaper/Fragment/IndLib.lean", 240, 259)[ten lines of proof] — the
+$a$. That it is closed, that it is a fixed point and that it supports
+induction are #src("whitepaper/Fragment/IndLib.lean", 240, 259)[ten lines of proof] — the
 definition quantifies over all predicates, which the ambient logic's
-impredicative $Prop$ permits. Separation then turns a fibre of the
-predicate into a set. One thing this does _not_ give for free: the
-fibre must be a _member_ of $cal(U)_(phi(u))$, since the type former's
-type ends in $Sort u$, and a separated part of $cal(U)_(phi(u))$
-itself is a member of the next universe, not of this one. To land in
-$cal(U)_(phi(u))$ the fibre has to be separated from some member of
-$cal(U)_(phi(u))$ that already contains every tagged tuple a
-constructor can build — for reflexive fields as for the others. That
-bounding set is the one thing the argument genuinely needs from set
-theory, and the fragment states it as one law, #src("whitepaper/Fragment/IndLib.lean", 162, 171)[_inductive closure_]:
-for any list of #src("whitepaper/Fragment/IndLib.lean", 98, 116)[constructor telescopes] there is a family of members of
-the universe closed under every #src("whitepaper/Fragment/IndLib.lean", 122, 130)[_bounded instance_] of every
-constructor — fields whose every domain is a member of the universe.
-The family the block defines is #src("whitepaper/Fragment/IndSem.lean", 427, 435)[separated from that member], so
-#src("whitepaper/Fragment/IndSem.lean", 564, 566)[its fibres are members], and
-#src("whitepaper/Fragment/IndSem.lean", 901, 904)[every constructor value lands in it] because the checker's universe
-bound on the fields makes every instance it admits a bounded one.
+impredicative $Prop$ permits. Separation then turns the predicate,
+restricted to any set, into a set.
+
+What the axioms do not give is that such a set is a _member_ of a
+universe $cal(U)_n$: a part separated from $cal(U)_n$ itself is a
+member of the next universe, not of this one. To land in $cal(U)_n$
+the predicate has to be separated from some member of $cal(U)_n$ that
+already contains everything the operator can produce. That bounding
+set is the one thing this section genuinely needs from set theory,
+and the fragment states it as one law, #src("whitepaper/Fragment/IndLib.lean", 162, 171)[_inductive closure_]:
+for any list of #src("whitepaper/Fragment/IndLib.lean", 98, 116)[telescopes] of domains there is a member of
+$cal(U)_n$ closed under forming a tagged tuple from every
+#src("whitepaper/Fragment/IndLib.lean", 122, 130)[_bounded instance_] of a
+telescope — a tuple whose every component lies in a domain that is a
+member of $cal(U)_n$.
+
+*The family of a block* is the least fixed point of the operator "a
+member is a constructor applied to fields that are members", at every
+choice of the indices. It is #src("whitepaper/Fragment/IndSem.lean", 427, 435)[separated from the member] the
+closure law provides for the block's constructor telescopes, so
+#src("whitepaper/Fragment/IndSem.lean", 564, 566)[its fibres are members] of $cal(U)_(phi(u))$ — the type former's
+type ends in $Sort u$ — and
+#src("whitepaper/Fragment/IndSem.lean", 901, 904)[every constructor value lands in it], because the checker's
+universe bound on the fields makes every instance it admits a bounded
+one.
 
 #real[
   That law is proved from the Grothendieck universes. The least
