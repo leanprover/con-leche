@@ -224,7 +224,7 @@
         + html.elem("span", attrs: (class: "more"), "… " + str(b - last) + " more lines"))
     }
     html.elem("span", attrs: (class: "src-wrap"),
-      html.elem("a", attrs: (class: "src", href: url, title: where), label)
+      html.elem("a", attrs: (class: if path.starts-with("whitepaper/Fragment/") { "src frag" } else { "src" }, href: url, title: where), label)
       + html.elem("span", attrs: (class: "src-tip"),
           html.elem("span", attrs: (class: "src-tip-head"), where)
           + html.elem("span", attrs: (class: "src-tip-code"), numbered)))
@@ -232,9 +232,11 @@
     // The label itself is the link, in the running text's colour (the
     // template's `show link` blue is overridden by the fill in force
     // outside the link — black in prose, muted inside a `real` block),
-    // marked by a muted dotted underline.
+    // marked by a muted underline: dotted for con-leche, dashed for the
+    // fragment.
     link(url, text(fill: text.fill,
-      underline(stroke: (paint: luma(150), thickness: 0.7pt, dash: "dotted"),
+      underline(stroke: (paint: luma(150), thickness: 0.7pt,
+        dash: if path.starts-with("whitepaper/Fragment/") { "dashed" } else { "dotted" }),
         offset: 2.2pt, label)))
   }
 }

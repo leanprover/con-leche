@@ -17,6 +17,13 @@
     98      (accepted : checkDecls .verified pins ds = .ok env) :
     99      Nonempty (Model V env) := by
 
+== whitepaper/Fragment/Sound.lean#L817-L821
+   817  theorem soundness [LevelOracle] (m : EnvModel V env) (φ : Name → Nat) :
+   818      (∀ {Γ : List Expr} {e e' : Expr}, Red env Γ e e' → RedSem m φ Γ e e') ∧
+   819      (∀ {Γ : List Expr} {a b : Expr}, DefEq env Γ a b → DefEqSem m φ Γ a b) ∧
+   820      (∀ {Γ : List Expr} {e T : Expr}, Infer env Γ e T → InferSem m φ Γ e T) :=
+   821    ⟨red_sound, defeq_sound, infer_sound⟩
+
 >>> whitepaper/sections/01-introduction.typ
 
 == ConLeche/MainTheorem.lean#L96-L99

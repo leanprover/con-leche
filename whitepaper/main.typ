@@ -15,8 +15,10 @@
     given axiomatically. The real proof lives in the repository, and
     phrases underlined like
     #src("ConLeche/MainTheorem.lean", 96, 99)[this one] link to it on
-    `master`, at the definition or theorem being described; in the web
-    version, hovering over such a phrase shows the cited lines.],
+    `master`, at the definition or theorem being described; phrases
+    underlined like #src("whitepaper/Fragment/Sound.lean", 817, 821)[this one]
+    link to the paper's own Lean fragment. In the web version, hovering
+    over such a phrase shows the cited lines.],
 )
 
 #include "sections/01-introduction.typ"
