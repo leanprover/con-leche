@@ -134,11 +134,6 @@ accept of the fold] as an environment in which every declaration was
 checked where it was installed, which is what the one-declaration-at-a-time
 argument of §3 and §4 needs.]
 
-#left-out[The erased intermediate layer][The paper interprets annotated
-terms directly. The real proof reads a checker term into a second,
-erased term language first and interprets that; the subsection below
-describes it.]
-
 == How the real proof differs from the fragment
 
 *Free variables carry their types.* The paper uses named variables and a
