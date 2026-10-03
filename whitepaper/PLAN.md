@@ -245,3 +245,9 @@ laws; the ad-hoc "inductive closure" law goes.
   container: "the nested occurrence"), "the parameter field" for the
   container's field whose domain is the parameter, and "the
   approximant" for the family the operator is applied to.
+* (2026-10-03) Source links attach to a phrase of the sentence, never a
+  generic label: the underline style already says where it goes (dashed:
+  the fragment, dotted: con-leche). No "(fragment)", "(real checker)",
+  "(real proof)" labels; when a sentence cites both, attach each link
+  to a different natural phrase (e.g. the name of the thing for one,
+  the property claimed for the other).
