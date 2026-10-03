@@ -3305,6 +3305,13 @@
    439      (hp : FitsVals m.M (S.ψ (S.lparams.map φ)) base S.params ps) :
    440      S.DomsBounded m.M (S.lparams.map φ) ps := by
 
+== whitepaper/Fragment/LfpSet.lean#L170-L174
+   170  /-- **At a proposition no bound is needed**: every member of `univ 0`
+   171  is a subset of `{pt}`, so the constant family `{pt}` is closed under
+   172  any operator into `univ 0`.  Con-leche: `closedTuple_zero`,
+   173  `ConLeche/SetModel/Access.lean`. -/
+   174  theorem closedFam_zero {Φ : (ι → V) → ι → V} (hmaps : MapsFam 0 Φ) : ∃ L, IsClosedFam 0 Φ L := by
+
 == ConLeche/Model/Annot/LfpHoleOp.lean#L121-L123
    121  /-- **The hole operator**: the block operator at the hole chains. -/
    122  @[expose] noncomputable def holeOp (ψ : Name → Nat) (ρp : Nat → V) : (Nat → V) → Nat → V :=
@@ -3516,13 +3523,6 @@
    158  theorem lfpFamSet_induction (h : ∃ L, IsClosedFam n Φ L) (hmono : MonoFam n Φ) (P : ι → V → Prop)
    159      (hP : ∀ i x, x ∈ˢ Φ (sepFam n Φ P) i → P i x) :
    160      ∀ i x, x ∈ˢ lfpFamSet n Φ i → P i x := by
-
-== whitepaper/Fragment/LfpSet.lean#L170-L174
-   170  /-- **At a proposition no bound is needed**: every member of `univ 0`
-   171  is a subset of `{pt}`, so the constant family `{pt}` is closed under
-   172  any operator into `univ 0`.  Con-leche: `closedTuple_zero`,
-   173  `ConLeche/SetModel/Access.lean`. -/
-   174  theorem closedFam_zero {Φ : (ι → V) → ι → V} (hmaps : MapsFam 0 Φ) : ∃ L, IsClosedFam 0 Φ L := by
 
 == whitepaper/Fragment/IndSem.lean#L1296-L1301
   1296  /-- **A closed family in the universe**: at a proposition the family

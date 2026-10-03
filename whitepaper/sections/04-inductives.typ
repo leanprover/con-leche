@@ -516,6 +516,13 @@ and @thm:sound read there puts every field's domain in
 $cal(U)_(phi(v))$, a member of $cal(U)_(phi(u))$ by cumulativity
 (#src("whitepaper/Fragment/InstallInd.lean", 431, 440)[the universe bound, at every family]).
 
+In the proposition-valued regime none of this is needed. Every
+constructor value is the point, so every fibre of $Phi(W)$ is a
+subset of ${pt}$, and
+#src("whitepaper/Fragment/LfpSet.lean", 170, 174)[the constant family ${pt}$ is closed]
+under $Phi$ and lies in $cal(U)_0$: the least fixed point below needs
+no bound, no accessibility and no universe bound on the fields.
+
 #real[
   The operator is read off the stored constructor types with the
   positivity check's variable — a _hole_ — standing for the family
@@ -588,10 +595,7 @@ $Phi(lfp(Phi)) = lfp(Phi)$, and supports
 #src("whitepaper/Fragment/LfpSet.lean", 154, 160)[induction]: a
 property that holds of every element $Phi$ produces from the family's
 separation by it holds on the whole family — the separation is a
-closed family, so the least one lies below it. At a proposition no
-bound is needed: every fibre of a family in $cal(U)_0$ is a subset of
-${pt}$, so #src("whitepaper/Fragment/LfpSet.lean", 170, 174)[the constant family ${pt}$ is closed] under any operator
-into $cal(U)_0$.
+closed family, so the least one lies below it.
 
 *The family and the constructors.* The block's operator has a
 closed family in $cal(U)_(phi(u))$ — from @thm:closed-of-acc in the
