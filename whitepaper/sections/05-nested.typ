@@ -427,7 +427,7 @@ graph's value at the family (under the field's telescope), at a
 container field its value at the class
 (#src("whitepaper/Fragment/NestRec.lean", 181, 196)[the step],
 #src("whitepaper/Fragment/NestRec.lean", 202, 205)[the graph]).
-The graph is single-valued because tags and tuples are injective,
+The graph is single-valued because tagged tuples are injective,
 the block's constructors being tagged after the container's so that
 no block value is a class value
 (#src("whitepaper/Fragment/NestRec.lean", 450, 454)[fragment]). It
