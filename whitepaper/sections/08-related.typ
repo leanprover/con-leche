@@ -74,7 +74,7 @@ the choice from the annotation, and @thm:sound is an induction over
 the checker's three relations that uses neither. Werner interprets an
 inductive type of a universe as the least fixed point, in that
 universe, of the monotone operator that strict positivity provides,
-and uses no inductive propositions; here proposition-valued families
+and his calculus has no inductive propositions; here proposition-valued families
 are least fixed points too, in $cal(U)_0$ (@sec:ind-model).
 
 *Barras, "Sets in Coq, Coq in Sets".* Barras @barras2010 axiomatises
