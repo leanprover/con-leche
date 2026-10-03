@@ -454,12 +454,14 @@ fibre is a subset of ${pt}$, so a fibre that is ${pt}$ stays ${pt}$.
 
 _Accessible by positivity._ @thm:closed-of-acc below, which supplies
 the closed family the least fixed point needs, asks for more than
-monotonicity. Call $Phi$ _accessible with the bound_ $A$, a set, when every element $x$ of a fibre
-$Phi(W)(arrow(Y))$, for $W$ in the universe, has a _support_ in $W$
-— a subset $B subset.eq A$ and, for each $a in B$, an occurrence
-$g(a)$ in $W$, a pair of index values and a member of the fibre there
-— such that $x$ is produced at $arrow(Y)$ from every family in the
-universe containing the support:
+monotonicity. An _occurrence_ in a family $W$ is a pair
+$(arrow(Y), v)$ of index values and a member $v in W(arrow(Y))$ of the
+fibre there; write $(arrow(Y), v) in W$. Call $Phi$ _accessible with
+the bound_ $A$, a set, when every element $x$ of a fibre of $Phi(W)$
+has a _support_: a subset $B subset.eq A$ together with a map $g$ that
+names, for each $a in B$, an occurrence $g(a)$ in $W$ — such that $x$
+is produced from every family in the universe that contains those
+occurrences:
 $ forall W in cal(U)_n, arrow(Y), x in Phi(W)(arrow(Y)). thick exists B subset.eq A, g. thick & (forall a in B. thin g(a) in W) \
   & and forall W' in cal(U)_n. thin (forall a in B. thin g(a) in W') => x in Phi(W')(arrow(Y)) $
 ($W in cal(U)_n$: every fibre of $W$ is a member of $cal(U)_n$)
