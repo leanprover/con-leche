@@ -64,39 +64,37 @@ _specification_
 A field is one of two kinds
 (#src("whitepaper/Fragment/Spec.lean", 28, 42)[fragment],
 #src("ConLeche/Kernel/Inductives/Positivity.lean", 598, 608)[real checker]):
-_ordinary_, with a domain that does not mention $I$; or _reflexive_,
-with domain
-$ forall arrow(z) : arrow(A) thin ann(PW). thin I thick arrow(x) thick arrow(e) $
-— a function, under a telescope of binders $arrow(z)$ whose domains
-do not mention $I$, into the family being defined at the block's own
-parameters and some index expressions. Here and in every generated
-type below, a binder whose body is the family — a member of
-$Sort u$ — carries the datum
-#src("whitepaper/Fragment/Decl.lean", 145, 148)[$ann(PW) = zn(u)$],
-"a proposition exactly when $u$ is zero".
 
-The telescope may be empty: then the domain is $I thick arrow(x) thick arrow(e)$,
-a member of the family itself, and the field is simply _recursive_ —
-the common case, and the name this document uses for it; one kind
-covers both, since the generated terms and the model treat them
-alike.
+- _ordinary_: its domain does not mention $I$;
+- _reflexive_: its domain is
+  $ forall arrow(z) : arrow(A) thin ann(PW). thin I thick arrow(x) thick arrow(e), $
+  a function, under a telescope of binders $arrow(z)$ whose domains
+  do not mention $I$, into the family being defined at the block's own
+  parameters and some index expressions. The telescope may be empty;
+  then the domain is $I thick arrow(x) thick arrow(e)$, a member of
+  the family itself, and the field is simply _recursive_.
 
-This is the strictly positive shape, and the only one the
-fragment admits: no
-field's domain mentions $I$ anywhere else (in the fragment, the
-specification's pieces — the domains $arrow(P)$, $arrow(J)$ and
-$arrow(A)$, an ordinary field's domain and the index expressions —
-are scope-checked in the environment _before_ $I$ is added, so none
-of them mentions $I$; a reflexive field's $I$ is given by its kind,
-not written in a term —
+Two conditions of shape come with the kinds. No field's domain
+mentions $I$ anywhere else — this is strict positivity, and the only
+shape the fragment admits (there it holds by construction: the
+domains $arrow(P)$, $arrow(J)$ and $arrow(A)$, an ordinary field's
+domain and the index expressions are scope-checked in the environment
+_before_ $I$ is added, and a reflexive field's $I$ is given by its
+kind, not written in a term —
 #src("whitepaper/Fragment/Decl.lean", 622, 636)[the scope of a field]).
-
-One more condition of shape: nothing after a reflexive field may
-depend on its value
+And nothing after a reflexive field may depend on its value
 (#src("whitepaper/Fragment/Decl.lean", 639, 644)[fragment],
 #src("ConLeche/Kernel/Inductives/Positivity.lean", 1246, 1249)[real checker], as in the
-official kernel) — the model will read a constructor's domains without knowing
-the values of its reflexive fields.
+official kernel): the model will read a constructor's domains without
+knowing the values of its reflexive fields.
+
+Two remarks on notation. "Recursive" is the common case, and the name
+this document uses for it; one kind covers both, since the generated
+terms and the model treat them alike. And here, as in every generated
+type below, a binder whose body is the family — a member of $Sort u$
+— carries the datum
+#src("whitepaper/Fragment/Decl.lean", 145, 148)[$ann(PW) = zn(u)$],
+"a proposition exactly when $u$ is zero".
 
 #real(label: "In the real checker")[
   Simple, mutual and nested blocks are checked uniformly

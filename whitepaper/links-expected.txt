@@ -2381,12 +2381,6 @@
    607    | nested (refl : Bool)
    608    deriving DecidableEq, Inhabited
 
-== whitepaper/Fragment/Decl.lean#L145-L148
-   145  /-- The annotation of every binder whose body is a member of the
-   146  family or the family itself — a proposition exactly when the result
-   147  sort is zero. -/
-   148  def pw : PropWhen := Level.zeroness S.sort
-
 == whitepaper/Fragment/Decl.lean#L622-L636
    622  /-- The scope of a field's pieces: with `k` earlier fields, an
    623  ordinary domain is in scope under the parameters and them; a
@@ -2417,6 +2411,12 @@
   1247          structUsedLater (closeTelescope nds hi cur) 0 i) then
   1248        throw (.invalid "nested positivity: non valid occurrence of the datatypes being \
   1249          declared (a later field or the result depends on a recursive or nested field)")
+
+== whitepaper/Fragment/Decl.lean#L145-L148
+   145  /-- The annotation of every binder whose body is a member of the
+   146  family or the family itself — a proposition exactly when the result
+   147  sort is zero. -/
+   148  def pw : PropWhen := Level.zeroness S.sort
 
 == ConLeche/Kernel/Inductives/Positivity.lean#L1453-L1454
   1453  def nestPos (ops : CheckerOps m) (env : Env) (ctx : NestCtx) :
