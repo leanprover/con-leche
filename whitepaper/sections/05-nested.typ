@@ -329,7 +329,7 @@ instantiation, with $W$ in place of the type being defined: for
 `Tree`, the field `List (Tree α)` of $TreeNode$ ranges over the lists
 whose entries all lie in $W$.
 That family is known, because every installed block leaves
-#src("ConLeche/Model/Annot/BlockLfp.lean", 32, 43)[a clause in the model]:
+#src("ConLeche/Model/Annot/BlockLfp.lean", 32, 46)[a clause in the model]:
 its type former denotes, at all parameter values, the least fixed
 point of its operator. So the container's least fixed point is
 reused, at each approximant, and nothing new is constructed for it. At
@@ -348,7 +348,7 @@ by
 #src("ConLeche/Semantics/Inductives/HoleAcc.lean", 39, 45)[the same case-by-case argument as §4's],
 #src("ConLeche/Model/Inductives/ContAcc.lean", 15, 35)[run on the frame];
 and
-#src("ConLeche/SetModel/Access.lean", 506, 516)[the least fixed point of such an operator is accessible in its first argument],
+#src("ConLeche/SetModel/Access.lean", 524, 534)[the least fixed point of such an operator is accessible in its first argument],
 the supports of an element's sub-values collected along paths into
 one support. Monotonicity follows from accessibility as in §4;
 con-leche proves it case by case too, the container's row

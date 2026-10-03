@@ -915,8 +915,8 @@
    371  /-- `lfpFam.{u,w}`; result sort `max (u + 1) (w + 1)`. -/
    372  noncomputable def lfpFamV (u w : Nat) : V :=
 
-== ConLeche/SetModel/Access.lean#L242
-   242  theorem closed_of_acc (hw : w ≠ 0) (hA : A ∈ˢ (univ w : V)) (hmaps : MapsTuple w k Is Φ)
+== ConLeche/SetModel/Access.lean#L244
+   244  theorem closed_of_acc (hw : w ≠ 0) (hA : A ∈ˢ (univ w : V)) (hmaps : MapsTuple w k Is Φ)
 
 == ConLeche/Model/Inductives/DeclBlockStep.lean#L72-L77
     72  theorem declBlock (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}

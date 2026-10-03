@@ -541,13 +541,13 @@ which holds in both regimes, is used there only for monotonicity.
   (the recursive field). Assembled along the fields, that is
   #src("ConLeche/Model/Inductives/BlockPosRunCont.lean", 40, 44)[the operator's monotonicity]
   and #src("ConLeche/Model/Inductives/BlockAccRunCont.lean", 315, 320)[its accessibility with a bound in the universe]
-  (#src("ConLeche/SetModel/Access.lean", 54, 61)[the notion above]).
+  (#src("ConLeche/SetModel/Access.lean", 56, 63)[the notion above]).
   The fragment's simplifications are to take the field kinds from the
   specification instead of the run, and to derive monotonicity from
   accessibility instead of proving it separately. The universe bound on the fields the real proof records
   from a check made for the proof alone, the constructor type-checked
   with the holes in context
-  (#src("ConLeche/Model/Annot/BlockLfp.lean", 322, 328)[the recorded bound]);
+  (#src("ConLeche/Model/Annot/BlockLfp.lean", 333, 339)[the recorded bound]);
   the fragment reads it off the constructor's ordinary typing.
 ]
 
@@ -561,7 +561,7 @@ member of $cal(U)_n$ and $Phi(L) subset.eq L$ fibrewise.
   Let $n >= 1$. An operator $Phi$ on families that maps families in
   $cal(U)_n$ to families in $cal(U)_n$ and is accessible with a bound
   $A in cal(U)_n$ #src("whitepaper/Fragment/Access.lean", 292, 303)[has a closed family] in $cal(U)_n$
-  (#src("ConLeche/SetModel/Access.lean", 239, 243)[as in con-leche]).
+  (#src("ConLeche/SetModel/Access.lean", 241, 245)[as in con-leche]).
 ] <thm:closed-of-acc>
 
 #proof[
@@ -641,15 +641,18 @@ every constructor denotes the point.
   #src("ConLeche/SetTheory/Derive/LfpTuple.lean", 67, 75)[the same construction]
   over a tuple of families, one per type former of the block, each a
   graph over an index set. What the model records of an installed
-  block is one clause: the operator is monotone, maps the universe to
-  itself and has a closed family
-  (#src("ConLeche/Model/Annot/BlockLfp.lean", 261, 265)[the operator]\;
-  #src("ConLeche/Model/Inductives/BlockDatum.lean", 925, 935)[the constant family at a proposition, and from accessibility in the type-valued regime]),
+  block is one clause: the operator maps the universe to itself and,
+  in the type-valued regime, is accessible
+  (#src("ConLeche/Model/Annot/BlockLfp.lean", 270, 276)[the operator]),
+  so it has a closed family
+  (#src("ConLeche/SetModel/Access.lean", 297, 302)[the constant family at a proposition, and from accessibility in the type-valued regime]),
+  and a fit grows with the family, so it is
+  #src("ConLeche/Model/Annot/BlockLfp.lean", 378, 382)[monotone];
   its fibres are the tagged tuples of fitting fields
-  (#src("ConLeche/Model/Annot/BlockLfp.lean", 266, 271)[the fibres]),
+  (#src("ConLeche/Model/Annot/BlockLfp.lean", 277, 282)[the fibres]),
   and the type former denotes
-  #src("ConLeche/Model/Annot/BlockLfp.lean", 173, 175)[the least fixed point]
-  (#src("ConLeche/Model/Annot/BlockLfp.lean", 359, 362)[the fixed-point equation]).
+  #src("ConLeche/Model/Annot/BlockLfp.lean", 182, 184)[the least fixed point]
+  (#src("ConLeche/Model/Annot/BlockLfp.lean", 388, 391)[the fixed-point equation]).
   Its constructors are
   #src("ConLeche/SetModel/TaggedSum.lean", 65)[tagged pairs] of
   #src("ConLeche/SetModel/TupleTower.lean", 87)[nested pairs], the

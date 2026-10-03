@@ -96269,3 +96269,121 @@ commit containing them is `c1a2a3a8b` (`git show c1a2a3a8b:<path>`).
 `CLAUDE.md`'s module-system rule and the skip lists of
 `scripts/dead-census.py` and `scripts/pub-import-plan.py` no longer
 mention `_probe/`.
+
+## TASK #326 — operator monotonicity from accessibility (2026-10-03, `agent/mono-acc`)
+
+The maintainer's rulings: the scope is the monotonicity of the block's
+OPERATOR only. Derive it from accessibility and delete the separate
+monotonicity path. Replace the recorded clause's monotone conjunct with
+an accessibility field. For `fitsMono`, the design call was mine: replace
+it with a fit-level accessibility statement, or keep it. The recursor's
+frame monotonicity stays as it is (`FrameMono`, `posD_mono`, `HoleMono`,
+`PosDerivMono`, `BlockPosRun`, `ContWalk.frameIter`, `ContCtor`).
+
+**THE FINDING: there is no accessibility at a `Prop`-valued block.**
+The survey said only the bound's membership lemmas (`teleBound_mem`,
+`finUnion_mem`) need `w ≠ 0`, and that a bound one universe up would
+do. That is not the case. The accessibility derivation is calibrated
+to fields that are small at the tuple space's own level, and three of
+its steps fail at `w = 0`:
+- `AccOn w` gives supports only to elements of `univ w`.
+  `teleBound_support` needs every field's value in `univ w` (`haw`, from
+  `TeleAccP`'s `interp F ∈ univ w`, the install's `FieldsOkB`). A field
+  of a `Prop`-valued block can range over any universe (`Exists.intro`'s
+  witness), so at `w = 0` it has no support.
+- The Π-into-`Prop` case (`posD_acc`, `pwBit = 0`) is closed by the type
+  regime: a truth-valued reading reads no hole, because holes are rich
+  (`accRel_rich`, which takes `hw : D.w ψ ≠ 0`: a fibre holding `pt` can
+  be enlarged). At `w = 0` every fibre is a subset of `{pt}`, and the
+  field `∀ y, r y x → Acc r y` is a truth-valued Π that reads the hole.
+- The container frames (`frame_accD`, `contNew_accD`, `FrameAccOut`)
+  are stated at `w ≠ 0`.
+
+So an accessible operator at `w = 0` would need its own theory: supports
+at the fields' level, a gluing Π case over a small domain in place of
+the type regime, and containers. That is a lane of its own, not this
+task. One more point: without the size bound, accessibility is no more
+than monotonicity on the space (take every occurrence of `X` as the
+support), so an unsized field would only relabel the monotone conjunct.
+
+**What the clause records now** (`LfpClause`, `Model/Annot/BlockLfp.lean`;
+`BlockModelAt`, `Model/Inductives/BlockRep.lean`, has the same shape):
+- `functor` (monotone ∧ maps ∧ closed tuple) is replaced by `maps` and
+  `acc : AccW (D.w ψ) D.N (D.idx ψ ρp) (D.Φ ψ ρp)`.
+- `AccW` (`SetModel/Access.lean`) says: at `w ≠ 0`, `A`-accessible for
+  one `A ∈ univ w`; at `w = 0`, nothing.
+- Derived: `LfpClause.closed`, which is (W) at every level by
+  `AccW.closed` (`closed_of_acc` at `w ≠ 0`, `closedTuple_zero` at
+  `w = 0`). The closed-tuple conjunct is gone too, so (W) has one source.
+- Derived: `LfpClause.mono`, from `fibre` and `fitsMono`, at every
+  level.
+- `fitsMono` STAYS RECORDED, and it is positivity's (`CtorPos` along
+  `tupRel`, `blockFitsMono_of_pos`). At a `Prop`-valued block it has no
+  other source, and it already gives the operator's monotonicity at
+  every level. A fit-level accessibility statement exists only at
+  `w ≠ 0` (`teleBound_support` inside `accTuple_holeOp`). Splitting
+  `fitsMono` by level would have added a second path and deleted none.
+- Where accessibility is in hand, it is what is used. The one site that
+  needed a container's monotonicity at `w ≠ 0`, `frameAccOut_of`, now
+  takes it from the stored container's `acc` (`AccTuple.monoTuple`).
+
+**Re-proved / restated.**
+- `lfpP_acc_group` takes each section's accessibility, as `lfpP_acc`
+  does, in place of its monotonicity. The group-joint accessibility
+  (`AccJointG`) covers only the group's components, but the least
+  tuple's laws read every component, so the section's own
+  accessibility is the premise.
+- `accTuple_mixT`: the group operator mixed into a fixed tuple inherits
+  the operator's accessibility and bound.
+- `frameAccOut_of` gains `hwD`.
+- The constructors' stage's `holeFun` carries `AccW` in place of the
+  closed tuple. The install's `blockAcc_of_run` result is stored as is,
+  not turned into (W) on the spot. `blockHoleFold(_params)` derive (W).
+- The basis clauses: `lfp0_clause` gains `hFacc`, its fibre function's
+  accessibility (`Empty`: bound `∅`; `Nat`: bound `{pt}`, the successor's
+  support is its predecessor). `Eq` is `Prop`-valued, so its `acc` is
+  vacuous.
+
+**Deleted.**
+- `blockMono_of_pos`.
+- The monotonicity premises of `blockModelAt_of_records` and
+  `blockModelAt_of_stages`.
+- The clause's monotone conjunct and every proof of it (basis, `Eq`,
+  `toLfp`).
+- The install's on-the-spot (W).
+
+Diff over `ConLeche/`: +241 −153 in 17 files. Most of the plus side is
+`AccW` and its lemmas (+46), the basis accessibility (+11 net) and
+docstrings.
+
+**What stays, and why.**
+- The constructors' stage keeps the operator's monotonicity
+  (`holeFun.1`, `monoTuple_of_tupRel` over `hposZ`) at every level. It
+  is the same fact as `fitsMono` read through the fibre law, it is
+  needed at `w = 0`, and `blockHoleFold` unfolds the fixed point before
+  any clause exists.
+- `monoTuple_of_holes` and `monoTuple_of_tupRel` stay: they are that
+  derivation.
+- `carrier_le_on_group'` and `lfpTuple_le_on` stay: they are
+  `frameIter`'s carrier growth, which the rulings leave as it is. They
+  now read the derived `LfpClause.mono`/`closed`.
+- The recursor's frame monotonicity is untouched.
+
+**Documents.**
+- OVERVIEW: one anchor moved (`closed_of_acc`). Its text says nothing
+  about what the clause records, so nothing else changed.
+- Whitepaper: ten citations moved (§4, §5). §4's sentence on what the
+  model records of a block now reads: it maps the universe to itself
+  and, at a type-valued block, is accessible, so it has a closed family
+  (cited at `AccW.closed`). A fit grows with the family, so it is
+  monotone. `BlockDatum`'s on-the-spot (W), which §4 cited, is gone.
+
+**Gates.**
+- `lake build` and `lake test`: warning-free.
+- `tests/shake.sh`: one demotable `public import` of `SetModel.Access`
+  in `LfpAcc.lean`, demoted; it is now re-exported through `BlockLfp`.
+- `tests/layering.sh`, `tests/overview-links.sh`, `tests/quote-gate.sh`
+  and `whitepaper/links-gate.sh`: OK.
+- `tests/arena.sh`: exit 0. Its counts (arena tutorial 90/92, e2e
+  456/456, sweeps as expected) are the same as before; the change is
+  proof-only and leaves the kernel untouched.

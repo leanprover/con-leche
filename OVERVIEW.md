@@ -689,7 +689,7 @@ values. That the fixed point is a member of the universe follows from
 one abstract theorem about *accessible* operators, those where every
 element of the output needs only elements of the input indexed by one
 fixed set of the universe
-([theorem `closed_of_acc` in `ConLeche/SetModel/Access.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/SetModel/Access.lean#L242)):
+([theorem `closed_of_acc` in `ConLeche/SetModel/Access.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/SetModel/Access.lean#L244)):
 such an operator has a closed tuple in the universe. The run of the
 positivity check shows the block's operator accessible, for finitary,
 reflexive and nested fields alike. Each recursor is read as the unique

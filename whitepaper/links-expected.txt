@@ -3338,24 +3338,24 @@
    319  context's sort (the block's level). -/
    320  theorem blockAcc_of_run {μ : ConLeche.CheckMode} (hμ : μ.verifiedChecks = true) {F : Nat}
 
-== ConLeche/SetModel/Access.lean#L54-L61
-    54  /-- **`A`-accessibility** of an operator from `kI`-tuples over `IsI` to
-    55  `kO`-tuples over `IsO`. -/
-    56  def AccTuple (w kI : Nat) (IsI : Nat → V) (kO : Nat) (IsO : Nat → V)
-    57      (Φ : (Nat → V) → Nat → V) (A : V) : Prop :=
-    58    ∀ X, InTupleSpace w kI IsI X → ∀ m, m < kO → ∀ i, i ∈ˢ IsO m → ∀ x, x ∈ˢ app (Φ X m) i →
-    59      ∃ (B : V) (g : V → Nat × V × V), B ⊆ˢ A ∧ (∀ a, a ∈ˢ B → InTup kI IsI X (g a)) ∧
-    60        ∀ X', InTupleSpace w kI IsI X' → (∀ a, a ∈ˢ B → InTup kI IsI X' (g a)) →
-    61          x ∈ˢ app (Φ X' m) i
+== ConLeche/SetModel/Access.lean#L56-L63
+    56  /-- **`A`-accessibility** of an operator from `kI`-tuples over `IsI` to
+    57  `kO`-tuples over `IsO`. -/
+    58  def AccTuple (w kI : Nat) (IsI : Nat → V) (kO : Nat) (IsO : Nat → V)
+    59      (Φ : (Nat → V) → Nat → V) (A : V) : Prop :=
+    60    ∀ X, InTupleSpace w kI IsI X → ∀ m, m < kO → ∀ i, i ∈ˢ IsO m → ∀ x, x ∈ˢ app (Φ X m) i →
+    61      ∃ (B : V) (g : V → Nat × V × V), B ⊆ˢ A ∧ (∀ a, a ∈ˢ B → InTup kI IsI X (g a)) ∧
+    62        ∀ X', InTupleSpace w kI IsI X' → (∀ a, a ∈ˢ B → InTup kI IsI X' (g a)) →
+    63          x ∈ˢ app (Φ X' m) i
 
-== ConLeche/Model/Annot/BlockLfp.lean#L322-L328
-   322    /-- **the constructors' fields are small** at a `Type`-valued block, at
-   323    every hole frame of the tuple space (the frame walk of a container reads its constructors' fields along the
-   324    accessibility relation, which supports small elements only — the
-   325    install's own `FieldsOkB`, recorded) -/
-   326    fieldsOk : ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (D.params ψ).reverse ρp → D.w ψ ≠ 0 →
-   327      ∀ X, InTupleSpace (D.w ψ) D.N (D.idx ψ ρp) X → ∀ c, c < D.N → ∀ j, j < D.nctors c →
-   328        FieldsOkB (D.w ψ) (D.frame ψ ρp X) (D.fields ψ c j)
+== ConLeche/Model/Annot/BlockLfp.lean#L333-L339
+   333    /-- **the constructors' fields are small** at a `Type`-valued block, at
+   334    every hole frame of the tuple space (the frame walk of a container reads its constructors' fields along the
+   335    accessibility relation, which supports small elements only — the
+   336    install's own `FieldsOkB`, recorded) -/
+   337    fieldsOk : ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (D.params ψ).reverse ρp → D.w ψ ≠ 0 →
+   338      ∀ X, InTupleSpace (D.w ψ) D.N (D.idx ψ ρp) X → ∀ c, c < D.N → ∀ j, j < D.nctors c →
+   339        FieldsOkB (D.w ψ) (D.frame ψ ρp X) (D.fields ψ c j)
 
 == whitepaper/Fragment/LfpSet.lean#L64-L67
     64  /-- A **closed family** of `Φ`: in the universe, and a pre-fixed point.
@@ -3377,12 +3377,12 @@
    302  theorem closed_of_acc (hn : n ≠ 0) (hA : A ∈ˢ (univ n : V)) (hmaps : MapsFam n Φ)
    303      (hacc : AccFam n Φ A) : ∃ L, IsClosedFam n Φ L := by
 
-== ConLeche/SetModel/Access.lean#L239-L243
-   239  /-- **(W) from accessibility.**  At a positive level, an operator that
-   240  maps the tuple space into itself and is `A`-accessible for a set `A` of
-   241  the level has a closed tuple.  No monotonicity is used. -/
-   242  theorem closed_of_acc (hw : w ≠ 0) (hA : A ∈ˢ (univ w : V)) (hmaps : MapsTuple w k Is Φ)
-   243      (hacc : AccTuple w k Is k Is Φ A) : ∃ L, IsClosedTuple w k Is Φ L := by
+== ConLeche/SetModel/Access.lean#L241-L245
+   241  /-- **(W) from accessibility.**  At a positive level, an operator that
+   242  maps the tuple space into itself and is `A`-accessible for a set `A` of
+   243  the level has a closed tuple.  No monotonicity is used. -/
+   244  theorem closed_of_acc (hw : w ≠ 0) (hA : A ∈ˢ (univ w : V)) (hmaps : MapsTuple w k Is Φ)
+   245      (hacc : AccTuple w k Is k Is Φ A) : ∃ L, IsClosedTuple w k Is Φ L := by
 
 == whitepaper/Fragment/Access.lean#L163-L198
    163  /-- Lean-level well-founded trees branching over the sets: a leaf, or
@@ -3606,44 +3606,48 @@
     74          (fun x => ∀ X, IsClosedTuple w k Is Φ X → x ∈ˢ app (X m) i)) (Is m)
     75      else graph (fun _ => empty) (Is m)
 
-== ConLeche/Model/Annot/BlockLfp.lean#L261-L265
-   261    /-- **`Φ` is a monotone tuple functor** with a closed tuple -/
-   262    functor : ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (D.params ψ).reverse ρp →
-   263      MonoTuple (D.w ψ) D.N (D.idx ψ ρp) (D.Φ ψ ρp) ∧
-   264      MapsTuple (D.w ψ) D.N (D.idx ψ ρp) (D.Φ ψ ρp) ∧
-   265      ∃ L, IsClosedTuple (D.w ψ) D.N (D.idx ψ ρp) (D.Φ ψ ρp) L
+== ConLeche/Model/Annot/BlockLfp.lean#L270-L276
+   270    /-- **`Φ` maps the tuple space into itself** -/
+   271    maps : ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (D.params ψ).reverse ρp →
+   272      MapsTuple (D.w ψ) D.N (D.idx ψ ρp) (D.Φ ψ ρp)
+   273    /-- **`Φ` is accessible at a `Type`-valued block**, with a bound of the
+   274    level ((W) by accessibility; monotonicity at that level) -/
+   275    acc : ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (D.params ψ).reverse ρp →
+   276      AccW (D.w ψ) D.N (D.idx ψ ρp) (D.Φ ψ ρp)
 
-== ConLeche/Model/Inductives/BlockDatum.lean#L925-L935
-   925      · -- (W) from accessibility, at every block
-   926        have hGw : ∀ c, c < dZ.N → ∀ j, j < (dZ.ctorsM c).length →
-   927            ∀ X, InTupleSpace (dZ.toLfp.w ψ) dZ.toLfp.N (dZ.toLfp.idx ψ ρp) X →
-   928            FieldsOkB (dZ.w ψ) (dZ.toLfp.frame ψ ρp X) (dZ.absF ψ c j) :=
-   929          fun c hc j hj X hX => (((hGZ ψ c hc j hj).2 ρp hs X hX)).1
-   930        obtain ⟨A, hA, hacc⟩ : ∃ A, A ∈ˢ (univ (dZ.toLfp.w ψ) : V) ∧
-   931            AccTuple (dZ.toLfp.w ψ) dZ.toLfp.N (dZ.toLfp.idx ψ ρp) dZ.toLfp.N
-   932              (dZ.toLfp.idx ψ ρp) (dZ.toLfp.holeOp ψ ρp) A := by
-   933          exact blockAcc_of_run hμ mpD hNZ hctxZ hHZ hPos hpN hpL hpP hpI hpR hlenN.symm
-   934            rfl hlenCtorsAs (fun c hc => hCA c hc) hclosedZ hnfZ hcovD ψ ρp hs hw hIdxZ hGw
-   935        exact closed_of_acc hw hA (blockPhi_maps_of ((hchZ ψ).1 ρp hs)) hacc
+== ConLeche/SetModel/Access.lean#L297-L302
+   297  theorem AccW.closed {w k : Nat} {Is : Nat → V} {Φ : (Nat → V) → Nat → V}
+   298      (h : AccW w k Is Φ) (hmaps : MapsTuple w k Is Φ) : ∃ L, IsClosedTuple w k Is Φ L := by
+   299    by_cases hw : w = 0
+   300    · subst hw; exact closedTuple_zero hmaps
+   301    · obtain ⟨A, hA, hacc⟩ := h hw
+   302      exact closed_of_acc hw hA hmaps hacc
 
-== ConLeche/Model/Annot/BlockLfp.lean#L266-L271
-   266    /-- **what `Φ` is**: component `c`'s fibre at `(X, t)` is the set of
-   267    injections of the spines fitting one of `c`'s constructors -/
-   268    fibre : ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (D.params ψ).reverse ρp →
-   269      ∀ X, InTupleSpace (D.w ψ) D.N (D.idx ψ ρp) X → ∀ c, c < D.N →
-   270      ∀ t, t ∈ˢ D.idx ψ ρp c → ∀ x,
-   271        x ∈ˢ app (D.Φ ψ ρp X c) t ↔ ∃ j fs, D.HFits ψ ρp X t c j fs ∧ x = D.inj ψ c j fs
+== ConLeche/Model/Annot/BlockLfp.lean#L378-L382
+   378  /-- **The operator is monotone**, from the fibre law and the hole fit's
+   379  growth (task #326: derived, not recorded). -/
+   380  theorem mono (h : LfpClause acval D) {ψ : Name → Nat} {ρp : Nat → V}
+   381      (hsat : Sat V (D.params ψ).reverse ρp) :
+   382      MonoTuple (D.w ψ) D.N (D.idx ψ ρp) (D.Φ ψ ρp) := by
 
-== ConLeche/Model/Annot/BlockLfp.lean#L173-L175
-   173  /-- **The carrier**: the least pre-fixed tuple of the operator. -/
-   174  @[expose] noncomputable def carrier (ψ : Name → Nat) (ρp : Nat → V) : Nat → V :=
-   175    lfpTuple (D.w ψ) D.N (D.idx ψ ρp) (D.Φ ψ ρp)
+== ConLeche/Model/Annot/BlockLfp.lean#L277-L282
+   277    /-- **what `Φ` is**: component `c`'s fibre at `(X, t)` is the set of
+   278    injections of the spines fitting one of `c`'s constructors -/
+   279    fibre : ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (D.params ψ).reverse ρp →
+   280      ∀ X, InTupleSpace (D.w ψ) D.N (D.idx ψ ρp) X → ∀ c, c < D.N →
+   281      ∀ t, t ∈ˢ D.idx ψ ρp c → ∀ x,
+   282        x ∈ˢ app (D.Φ ψ ρp X c) t ↔ ∃ j fs, D.HFits ψ ρp X t c j fs ∧ x = D.inj ψ c j fs
 
-== ConLeche/Model/Annot/BlockLfp.lean#L359-L362
-   359  /-- **The carrier is a fixed point**, componentwise. -/
-   360  theorem carrier_eq (h : LfpClause acval D) {ψ : Name → Nat} {ρp : Nat → V}
-   361      (hsat : Sat V (D.params ψ).reverse ρp) {c : Nat} (hc : c < D.N) :
-   362      D.Φ ψ ρp (D.carrier ψ ρp) c = D.carrier ψ ρp c := by
+== ConLeche/Model/Annot/BlockLfp.lean#L182-L184
+   182  /-- **The carrier**: the least pre-fixed tuple of the operator. -/
+   183  @[expose] noncomputable def carrier (ψ : Name → Nat) (ρp : Nat → V) : Nat → V :=
+   184    lfpTuple (D.w ψ) D.N (D.idx ψ ρp) (D.Φ ψ ρp)
+
+== ConLeche/Model/Annot/BlockLfp.lean#L388-L391
+   388  /-- **The carrier is a fixed point**, componentwise. -/
+   389  theorem carrier_eq (h : LfpClause acval D) {ψ : Name → Nat} {ρp : Nat → V}
+   390      (hsat : Sat V (D.params ψ).reverse ρp) {c : Nat} (hc : c < D.N) :
+   391      D.Φ ψ ρp (D.carrier ψ ρp) c = D.carrier ψ ρp c :=
 
 == ConLeche/SetModel/TaggedSum.lean#L65
     65  noncomputable def inj (i : Nat) (a : V) : V := spair (vnat i) a
@@ -4773,19 +4777,22 @@
    270          hypothesis's class at every node of the positivity check (official: invalid recursor)")
    271      classNodesAgree ops env p formerTys Mc tele leaf fvs i ctor es
 
-== ConLeche/Model/Annot/BlockLfp.lean#L32-L43
-    32  **The clause** (`LfpClause`), at every level assignment `ψ` and every
-    33  parameter frame `ρp` satisfying the parameter telescope (exactly the
-    34  quantification `BlockModelAt` has, which is what the install proves):
-    35  
-    36  * `functor` — `Φ` is monotone, maps the tuple space into itself, and
-    37    has a closed tuple: the three facts `lfpTuple`'s laws need
-    38    (`lfpTuple_induction` takes the first and the third);
-    39  * `fibre` — component `c`'s fibre at `(X, t)` is the set of injections
-    40    of the spines fitting one of `c`'s constructors at `(X, t)`;
-    41  * `leaf` — a member's former, at fitting parameters and its own
-    42    indices, is the least pre-fixed tuple's component at the index
-    43    tuple.
+== ConLeche/Model/Annot/BlockLfp.lean#L32-L46
+    32  
+    33  **The clause** (`LfpClause`), at every level assignment `ψ` and every
+    34  parameter frame `ρp` satisfying the parameter telescope (exactly the
+    35  quantification `BlockModelAt` has, which is what the install proves):
+    36  
+    37  * `maps` — `Φ` maps the tuple space into itself;
+    38  * `acc` — at a `Type`-valued block `Φ` is ACCESSIBLE with a bound of the
+    39    level (`AccW`, `SetModel/Access.lean`): (W) follows at every level
+    40    (`LfpClause.closed`, `AccW.closed`);
+    41  * `fibre` — component `c`'s fibre at `(X, t)` is the set of injections
+    42    of the spines fitting one of `c`'s constructors at `(X, t)`;
+    43  * `fitsMono` — the hole fit grows with the tuple (positivity's);
+    44  * `leaf` — a member's former, at fitting parameters and its own
+    45    indices, is the least pre-fixed tuple's component at the index
+    46    tuple.
 
 == ConLeche/Semantics/Inductives/HoleAcc.lean#L39-L45
     39  | case | accessibility | bound | type regime |
@@ -4819,18 +4826,18 @@
     34  without parameters reads no hole.
     35  -/
 
-== ConLeche/SetModel/Access.lean#L506-L516
-   506  /-- **THE NESTED CASE: the least tuple is accessible in its parameter.**
-   507  If the joint operator `Θ` (parameter components first, then its own) is
-   508  `A`-accessible and maps the space into itself, then `X ↦ lfp_Y Θ(X, Y)`
-   509  is `accPaths A`-accessible — no key, no wide operator, no container
-   510  presentation.  (W) of each section and its monotonicity come from
-   511  `closed_of_acc` / `AccTuple.monoTuple`. -/
-   512  theorem lfpP_acc (hw : w ≠ 0) {Θ : (Nat → V) → Nat → V} {A : V} (hA : A ∈ˢ (univ w : V))
-   513      (hmaps : ∀ X Y, InTupleSpace w kX IsX X → InTupleSpace w kY IsY Y →
-   514        InTupleSpace w kY IsY (Θ (catT kX X Y)))
-   515      (hacc : AccTuple w (kX + kY) (catT kX IsX IsY) kY IsY Θ A) :
-   516      AccTuple w kX IsX kY IsY (lfpP w kX kY IsY Θ) (accPaths A) := by
+== ConLeche/SetModel/Access.lean#L524-L534
+   524  /-- **THE NESTED CASE: the least tuple is accessible in its parameter.**
+   525  If the joint operator `Θ` (parameter components first, then its own) is
+   526  `A`-accessible and maps the space into itself, then `X ↦ lfp_Y Θ(X, Y)`
+   527  is `accPaths A`-accessible — no key, no wide operator, no container
+   528  presentation.  (W) of each section and its monotonicity come from
+   529  `closed_of_acc` / `AccTuple.monoTuple`. -/
+   530  theorem lfpP_acc (hw : w ≠ 0) {Θ : (Nat → V) → Nat → V} {A : V} (hA : A ∈ˢ (univ w : V))
+   531      (hmaps : ∀ X Y, InTupleSpace w kX IsX X → InTupleSpace w kY IsY Y →
+   532        InTupleSpace w kY IsY (Θ (catT kX X Y)))
+   533      (hacc : AccTuple w (kX + kY) (catT kX IsX IsY) kY IsY Θ A) :
+   534      AccTuple w kX IsX kY IsY (lfpP w kX kY IsY Θ) (accPaths A) := by
 
 == ConLeche/Semantics/Inductives/HoleMono.lean#L17-L23
     17  | `nestPos` case | lemma |

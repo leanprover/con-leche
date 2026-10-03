@@ -3,7 +3,7 @@ module
 public import ConLeche.Model.Annot.LfpHoleOp
 import ConLeche.Model.Annot.BlockLfpTup
 public import ConLeche.Semantics.Inductives.TeleAcc
-public import ConLeche.SetModel.Access
+import ConLeche.SetModel.Access
 
 public section
 
