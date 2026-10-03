@@ -40,7 +40,7 @@ a block and what it stores, how the model grows by a least fixed point
 so that the three laws keep holding, and then the consistency
 corollary.
 
-== Inductive types: what is checked <sec:ind-checks>
+== What is checked <sec:ind-checks>
 
 An inductive block declares an _indexed family_ by its constructors:
 one type, or one proposition, per choice of indices — _type-valued_
@@ -108,7 +108,9 @@ depth $k$": it is not reached by iterating the constructors $omega$
 times, as $Nat$'s is, and a model must obtain the least fixed point
 some other way (@sec:ind-model).
 
-*The generated declarations.* From the specification the checker
+=== The generated declarations
+
+From the specification the checker
 generates the types of the type former, the constructors and the
 recursor, and the recursor's rules. The type former's type is the one
 displayed above; a constructor's type is
@@ -210,7 +212,9 @@ and #src("whitepaper/Fragment/Decl.lean", 319, 326)[a rule's right-hand side];
 real checker: #src("ConLeche/Kernel/Inductives/GenRec.lean", 181, 188)[the type],
 #src("ConLeche/Kernel/Inductives/GenRec.lean", 193, 212)[a rule].)
 
-*The elimination rule.* Into which sorts may the motive land? For a
+=== The elimination rule
+
+Into which sorts may the motive land? For a
 type-valued family — $Sort u$ with $u$ never zero — the recursor
 eliminates into any $Sort ell$, $ell$ a fresh level parameter: large
 elimination. For a proposition-valued family the rule is stricter.
@@ -284,7 +288,9 @@ the checker answers each with the level oracle:
   this example.
 ] <ex:P>
 
-*The checks.* A block #src("whitepaper/Fragment/Decl.lean", 713, 758)[is accepted] when
+=== When a block is accepted
+
+A block #src("whitepaper/Fragment/Decl.lean", 713, 758)[is accepted] when
 (#src("ConLeche/Kernel/Inductives/BlockTail.lean", 143, 148)[as in con-leche]):
 
 - its names are distinct and fresh;
@@ -315,7 +321,9 @@ the body.
   (#src("ConLeche/Kernel/Inductives/GenRec.lean", 427, 448)[a generated rule]).
 ]
 
-*What is stored.* The block #src("whitepaper/Fragment/Decl.lean", 525, 566)[adds three kinds of constant] to the
+=== What is stored
+
+The block #src("whitepaper/Fragment/Decl.lean", 525, 566)[adds three kinds of constant] to the
 environment, the ones @sec:defs left to this section
 (#src("whitepaper/Fragment/Env.lean", 56, 72)[the kinds],
 #src("ConLeche/Kernel/Env.lean", 241, 254)[as in con-leche]). Written
@@ -336,7 +344,7 @@ recursor's level parameters, one per constructor; the rules are
 generated and stored, not inferred: they mention the recursor itself,
 and the official kernel infers no rule either.
 
-== Inductive types: the model <sec:ind-model>
+== The model <sec:ind-model>
 
 The model of a block has three parts: the set the type former
 denotes at each choice of indices, the sets the constructors denote,
@@ -346,7 +354,9 @@ every rule of every stored recursor satisfies its $iota$ law
 (@def:iota-law), which this subsection proves. All of it is stated
 against an extension of §2's axioms.
 
-*The axioms, extended.* Beyond the laws of @sec:lib this section
+=== The axioms, extended
+
+Beyond the laws of @sec:lib this section
 assumes that the positive universes $cal(U)_n$, $n >= 1$,
 are #src("whitepaper/Fragment/Univ.lean", 43, 88)[_Grothendieck universes_], and
 that there are #src("whitepaper/Fragment/IndLib.lean", 46, 63)[tagged tuples]:
@@ -397,7 +407,9 @@ the hereditarily finite sets satisfy every other law in this list.
   the rest of §2's laws.
 ]
 
-*The operator.* Fix a block as in @sec:ind-checks, a valuation
+=== The operator
+
+Fix a block as in @sec:ind-checks, a valuation
 $phi$, and values $arrow(X)$ for the parameters. A _family_ is a
 function $W$ from index values $arrow(Y)$ to sets, its _fibres_. The
 block's operator $Phi$ sends a family to a family: its fibre at
@@ -428,7 +440,9 @@ constructor value #src("whitepaper/Fragment/IndCommon.lean", 212, 214)[is the po
 so every fibre of $Phi(W)$ is a subset of ${pt}$: the truth value
 "some constructor reaches these indices".
 
-_Accessible by positivity._ @thm:closed-of-acc below, which supplies
+=== Accessibility
+
+@thm:closed-of-acc below, which supplies
 the closed family the least fixed point needs, asks for
 _accessibility_. An _occurrence_ in a family $W$ is a pair
 $(arrow(Y), v)$ of index values and a member $v in W(arrow(Y))$ of the
@@ -537,7 +551,9 @@ which holds in both regimes, is used there only for monotonicity.
   the fragment reads it off the constructor's ordinary typing.
 ]
 
-*The closed family and the least fixed point.* A family $L$ is
+=== The least fixed point
+
+A family $L$ is
 #src("whitepaper/Fragment/LfpSet.lean", 64, 67)[_closed_ under $Phi$], in $cal(U)_n$, when every fibre of $L$ is a
 member of $cal(U)_n$ and $Phi(L) subset.eq L$ fibrewise.
 
@@ -585,7 +601,9 @@ property that holds of every element $Phi$ produces from the family's
 separation by it holds on the whole family — the separation is a
 closed family, so the least one lies below it.
 
-*The family and the constructors.* The block's operator has a
+=== The family and the constructors
+
+The block's operator has a
 closed family in $cal(U)_(phi(u))$ — from @thm:closed-of-acc in the
 type-valued regime, the constant family ${pt}$ in the
 proposition-valued one
@@ -646,7 +664,9 @@ binders. A member of a fibre in the first regime is a tagged tuple
 and carries its constructor and its fields; a member in the second is
 the point and carries nothing. The difference will matter in a moment.
 
-*The recursor.* Fix values $C$ for the motive and $arrow(S)$ for the
+=== The recursor
+
+Fix values $C$ for the motive and $arrow(S)$ for the
 minor premises. The recursor's value on a member of the family is
 determined by the rules: on $tag(j, arrow(F))$ it must be
 $S_j$ applied to $arrow(F)$ and to the inductive hypotheses — at
@@ -710,7 +730,9 @@ and there is nothing to construct.
   of decodings, as one premise.
 ]
 
-*What the $iota$ rule knows.* Before the $iota$ law, look at what the
+=== The $iota$ law
+
+Before the $iota$ law, look at what the
 rule's premises say and what the model has to supply. The
 #src("whitepaper/Fragment/Rules.lean", 84, 159)[rule fires] on $r.\{arrow(ell)\} thick arrow(a) thick t$ where $r$ is a stored
 recursor, $arrow(a)$ are its parameters, motive, minors and indices,

@@ -501,7 +501,7 @@ where the argument lives.
   the reduction did not change the set, and that set _is_ a function
   space or a truth value by the interpretation's rule.
 
-  _The rest_, by induction on the derivation.
+  *The rest*, by induction on the derivation.
 
   - #src("whitepaper/Fragment/Sound.lean", 138, 156)[Reduction]: the no-step reduction is $lden e rden_rho = lden e rden_rho$;
     trans chains two reductions, passing the semantic invariant along; head
