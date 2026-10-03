@@ -444,11 +444,13 @@ field's set is a product into fibres of the family, which
 by §2's laws; so a list fitting at $W$ fits at $W'$
 (#src("whitepaper/Fragment/IndSem.lean", 596, 609)[a field's set grows],
 #src("whitepaper/Fragment/IndSem.lean", 622, 628)[the operator is monotone]).
-Monotonicity is stated for families whose fibres are members of
-$cal(U)_(phi(u))$ — the type former's type ends in $Sort u$ —
-because at a proposition the product into the larger fibres is a
-truth value only when those fibres are truth values, which
-membership in $cal(U)_0$ secures.
+One restriction: monotonicity holds for families whose fibres are
+members of $cal(U)_(phi(u))$, the universe the family lives in. It
+matters only for a proposition-valued block. There a reflexive
+field's set is a propositional product, $Pi_0$, the truth value of
+"every fibre equals ${pt}$" (@sec:interp); a fibre that grew from
+${pt}$ to a larger set would make it false. In $cal(U)_0$ every
+fibre is a subset of ${pt}$, so a fibre that is ${pt}$ stays ${pt}$.
 
 _Accessible by positivity._ @thm:closed-of-acc below, which supplies
 the closed family the least fixed point needs, asks for more than
