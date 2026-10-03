@@ -38,7 +38,7 @@ derivable judgements, and show that derivable judgements are true in the
 model. The first step needs the metatheory of the type theory — that
 reduction preserves types (subject reduction), that reduction is
 confluent, that a function type determines its domain and codomain
-(injectivity of Π). This proof needs none of it.
+(injectivity of Π). Our proof needs none of it.
 
 con-leche's proof has no typing judgement and none of that metatheory.
 In its place is a description of what the checker _does_: three

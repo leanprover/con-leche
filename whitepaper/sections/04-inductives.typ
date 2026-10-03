@@ -878,7 +878,7 @@ index comparison, $5 equiv 7$, is what the model can use. In the
 type-valued regime the comparison is redundant — the tagged tuple
 carries its indices — and the official kernel never makes it: at an
 $iota$ step it compares nothing and relies on the term being
-well-typed, which its typing judgement guarantees. This proof has no
+well-typed, which its typing judgement guarantees. Our proof has no
 typing judgement, and on values a definitional equality between two
 propositions is an equality of truth values; so the comparison has
 to be a premise of the rule.

@@ -389,7 +389,7 @@ and then argue that its domain is the right one; it reduces the
 inferred type until a $forall$ is syntactically there.  This is the
 site where a syntactic soundness proof needs injectivity of $forall$
 — that $forall x : A. B equiv forall x : A'. B'$ forces $A equiv A'$
-— a property this proof never needs, and one that the
+— a property our proof never needs, and one that the
 model does not even validate: $forall x : A. thin sans("True")$ and
 $forall x : A'. thin sans("True")$ denote the same truth value whatever
 $A$ and $A'$ are.  The semantic proof never needs it.  The $forall$ the head's type reduces to denotes a

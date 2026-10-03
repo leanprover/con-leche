@@ -310,7 +310,7 @@ has collapsed into it, and no semantic fact about the point can recover
 $lden A rden_rho$. A syntactic proof would at this point want subject
 reduction — that the argument has the domain's type, and that this
 survives the reductions and substitutions that brought the redex here.
-This proof wants a certificate from the checker instead: at such a redex
+Our proof wants a certificate from the checker instead: at such a redex
 the checker infers the argument's type and compares it with the domain
 (rule beta-cert of @sec:rules), and the soundness of that comparison —
 the second and third claims below — supplies precisely the premise of

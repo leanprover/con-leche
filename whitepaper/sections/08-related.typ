@@ -13,7 +13,7 @@ theory con-leche assumes
 Lean4Lean @carneiro2025lean4lean is a checker for Lean 4 written in
 Lean, parts of which are verified against a typing judgement that
 formalises the thesis's presentation. All three reason about a typing
-judgement; this proof has none, and connects what the checker accepts
+judgement; our proof has none, and connects what the checker accepts
 to the model directly.
 
 *Set-theoretic models with an impredicative `Prop`.* Werner

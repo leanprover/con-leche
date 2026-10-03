@@ -260,3 +260,5 @@ laws; the ad-hoc "inductive closure" law goes.
   accessibility is defined, and once for the container's clause.
 * (2026-10-03) Banned words: "load-bearing", "licenses" (and the other
   rules above). Say "needed", "used", "justifies".
+* (2026-10-03) "Our proof" (or "the present proof"), never "this proof"
+  — ambiguous after a sentence about another proof.
