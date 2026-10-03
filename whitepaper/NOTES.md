@@ -7,7 +7,12 @@ could be simpler or more elegant. One numbered list, one observation
 per item, each naming the fragment files and the real-proof files it
 compares and the lane that made it (task #324; 2026-09-25 unless the
 item says otherwise — the items marked 2026-10-01 were written after
-the uniform installer landed upstream).
+the uniform block check landed upstream, those marked 2026-10-03
+after the inductive model was rebuilt on Grothendieck universes and
+accessibility). Items made obsolete by those changes are removed or
+marked *superseded* / *done upstream*; "member" is set membership
+throughout, the type being defined inside a container is "the nested
+occurrence".
 Typst and tooling traps are not here: they are the "Typst notes"
 comment block at the top of `lib.typ`.
 
@@ -194,74 +199,48 @@ comment block at the top of `lib.typ`.
     would go through in the real proof too. (Fragment lane, part 2 —
     ι; §3 lane.)
 
-15. **Least fixed points cost nothing; the fibre bound is the one
-    set-theoretic input.** The ambient logic's `Prop` is
-    impredicative, so the least fixed point of a monotone operator on
-    predicates is a definition (`Lfp` in `Fragment/IndLib.lean`, the
-    intersection of the closed predicates) with its fixed-point
-    equation and induction principle as ten-line theorems, and
-    separation turns a fibre into a set. Con-leche builds
-    `lfpSet`/`lfpFamSet` inside the set theory (a separation over a
-    classically chosen closed member) and then needs a closed member
-    of the universe to exist — the ω-iterate for finitary blocks
-    (`SetModel/Iter.lean`), the container theorem for reflexive ones
-    (`SetModel/Container.lean`, 600 lines). With the predicate form
-    the closed member is asked for once: the fibre must be a *member*
-    of `univ u`, and a separation of `univ u` lands in `univ (u+1)`,
-    so the fragment states `inductive_closure` in its class (for any
-    list of constructor telescopes some family of members is closed
-    under every bounded instance) and separates the family from that
-    member. `container_closed_exists` is exactly that law proved from
-    Grothendieck universes, the ω-iterate its finitary special case:
-    `Container.lean` is the whole of what the inductive model takes
-    from the strength of the universes and could be presented as one
-    theorem with the closure law as its statement, consumed nowhere
-    else. (Fragment lane, part 2 — least fixed points; §3 lane.)
-    *After the uniform installer* (2026-10-01, §4 lane): the container
-    theorem is gone, and the closed family of a block's operator comes
-    from `closed_of_acc` (`SetModel/Access.lean`) — an operator whose
-    every output element depends on a bounded set of input elements,
-    for one bound in the universe, has a closed tuple, by iteration
-    along well-founded trees with the union kept small by coding a
-    tree as its paths. That is the fragment's `inductive_closure`
-    proved once, as this item asked. But the positivity run is still
-    read twice: `blockCtorPos_of_run`
-    (`Model/Inductives/BlockPosRunCont.lean`) for monotonicity and
-    `blockAcc_of_run` (`BlockAccRunCont.lean`) for accessibility,
-    while `AccTuple.monoTuple` (`Access.lean`) says an accessible
+15. **The least fixed point inside the set theory, and one reading
+    of the positivity run.** *Superseded* (2026-10-03): this item once
+    proposed the fragment's predicate-level least fixed point with an
+    `inductive_closure` law in the class as the simpler presentation; the
+    ruling that the fragment follows con-leche's proof replaced it. The
+    fragment now has con-leche's construction — Grothendieck universes
+    (`Fragment/Univ.lean`), `closed_of_acc` proved along well-founded
+    trees (`Fragment/Access.lean`), the least fixed point as a separation
+    inside the set theory (`lfpFamSet`, `Fragment/LfpSet.lean`) — and the
+    law is gone. What remains of the item is one suggestion for the real
+    proof: the positivity run is read twice, by `blockCtorPos_of_run`
+    (`Model/Inductives/BlockPosRunCont.lean`) for monotonicity and by
+    `blockAcc_of_run` (`BlockAccRunCont.lean`) for accessibility, while
+    `AccTuple.monoTuple` (`SetModel/Access.lean`) says an accessible
     operator is monotone. One reading of the run would give
-    `LfpClause.functor`'s three conjuncts, with the `Prop`-valued case
-    (`closedTuple_zero`, no bound needed) as its degenerate case.
+    `LfpClause.functor`'s three conjuncts, with the proposition-valued
+    case (`closedTuple_zero`, no bound needed) as its degenerate case.
+    (Fragment lane, part 2; §3 lane; §4 lane, 2026-10-01; revised
+    2026-10-03.)
 
-16. **One recursion theorem for both regimes.** The real proof builds
-    the recursor of a type-valued block as a fixed point of its
-    unfolding chosen by `Classical.choice`
-    (`Semantics/Tower/FixRec.lean`) and, separately, `recGraph`
-    (`SetModel/RecGraph.lean`) for the squash regime — a Prop family
-    with a large eliminator. The fragment (`Fragment/IndSem.lean`) has
-    one construction: the recursor's graph as a least fixed point,
-    single-valued by induction over the graph (tags and tuples are
-    injective), total by induction over the family, and `graph` of
-    the resulting function is the recursor's set — no `recGraph`
-    family space, no choice of a fixed point of an unfolding. The
-    squash regime is then not a second construction but a *choice of
-    witness* at the point (`pick`/`wit`), whose irrelevance IS the
-    subsingleton criterion: `Uniq.lean` proves "two members at one
-    index are the same tagged tuple" from the syntactic criterion,
-    and exactly one place needs it, the recursion equation at a
-    constructor value (`recSem_eq`); the recursor's typing
-    (`recSem_mem`) and the motive's inhabitation at a proposition
-    (`motive_inhabited`) need no uniqueness. This also makes the
-    criterion's semantic meaning explicit, which con-leche's
-    `checkStructFieldSortsI` docstring only attributes to official.
-    (Fragment lane, stages 3–4; §3 lane.) *After the uniform
-    installer* (2026-10-01): the real proof has the one construction
-    too — the graph as the least relation closed under the rules
-    (`SetModel/GraphRec.lean`), `FixRec.lean` and `RecGraph.lean` are
-    gone — and takes the sort-dependent fact as one premise, "two
-    decodings are equal or the motive's value is a subsingleton",
-    discharged three ways (`Model/Inductives/ClassGenUniq.lean`); the
-    witness device is the fragment's way of discharging the third.
+16. **One recursion theorem for both regimes, keyed on decodings.**
+    The recursor's set is the graph of one function, read off the least
+    relation closed under the rules: single-valued by induction over the
+    graph, total by induction over the family (`RecGraph`, `RecGraph_fun`,
+    `recSem_eq`, `Fragment/IndRec.lean`; con-leche's `GraphRecKit`,
+    `SetModel/GraphRec.lean`). The graph is keyed on the major itself —
+    `pt` at a proposition — with the major's *decodings* (a constructor
+    and fields fitting it that reach the indices) as the rule's data, and
+    the sort-dependent fact is one premise: two decodings of one major
+    agree (`decode_unique`: tags and tuples are injective in the
+    type-valued regime, the subsingleton criterion in the
+    proposition-valued one, `Fragment/Uniq.lean`) — con-leche's `huniq`,
+    "two decodings are equal or the motive's value is a subsingleton",
+    discharged three ways (`Model/Inductives/ClassGenUniq.lean`). An
+    earlier fragment read a propositional major through a chosen
+    witness (`pick`/`wit`) and needed uniqueness of witnesses; that
+    detour is gone, and so are the real proof's former two constructions
+    (`FixRec.lean`, `RecGraph.lean`). What the fragment adds is the
+    criterion's semantic meaning, stated (`Subsingleton`, `Uniq.lean`),
+    which con-leche's `checkStructFieldSortsI` docstring only attributes
+    to the official kernel. (Fragment lane, stages 3–4; §3 lane; lane 2,
+    2026-10-03.)
 
 17. **Readers instead of `EnvExtend` transport.** The block's
     generated syntax is read in the model as it grows — the former
@@ -297,41 +276,22 @@ comment block at the top of `lib.typ`.
     recursor would give the corollary for every zero-constructor block
     the stream declares. (§3 lane; fragment lane, stages 3–4.)
 
-19. **Structure η and unit-likeness from one model-side lemma, not
-    from stream artefacts.** Against the library laws the three rules
-    the fragment drops are small: K is `eq_pt_of_mem_truthVal` twice;
-    structure η is the fixed-point equation read left to right
-    (`Lfp.unfold`: a member IS a tagged tuple) plus
-    `tuple_inj`/`tag_inj`; unit-likeness is η at zero fields, or the
-    truth value at a `Prop` instance. The real proof has the same
-    argument on the native route (`FixEntryLaw.lean`'s clause (C),
-    `fixEntryEtaCore`; `FixZeroField.lean`'s `fixFibreUnitLaw`,
-    `fixFibreEtaLaw0`) but obtains the same two laws on the modeled
-    route from stream artefacts — a `T._model.eta` and a
-    `T._model.unitlike` theorem the checker checks and the model tier
-    *fires* (`IndEtaLaw.lean`, `IndUnitLaw.lean`, `IndProjEta.lean`:
-    three files of `EtaLaw`/`UnitLaw` producers, each built around
-    `Eq`-slot rigidity and a valuation bridge through
-    `BlockAcvalInstalled`). Those artefacts carry no information the
-    model does not already have: the modeled block's family is a
-    tagged union over the generated tag type, and a member of it is a
-    tagged tuple by the same inversion. One model-side lemma per
-    representation ("every member of the carrier is the constructor
-    at its own projections", which is `towerSet_elim` for the tower
-    already) would replace the two generated theorems, their
-    pinned-shape checks (`checkEtaThm`, `checkUnitThm`) and the three
-    firing files, and would make the η capability a property of the
-    block's shape (as `nativeCapsAt` already computes it) instead of
-    what the stream happened to include. Likewise the two `PUnit`
-    rules (`unitLike` on the pinned `PUnit`, `structUnit` on a stored
-    unit-like family) are one rule in the model: "the family has at
-    most one member". (§4 lane.) *After the uniform installer*
-    (2026-10-01): the stream artefacts and the three firing files are
-    gone; whether a block has η or is unit-like is decided at its
-    install from its shape (`blockCapsAt`,
-    `Kernel/Inductives/BlockInstall.lean`) and both laws are
+19. **Structure η and unit-likeness from the fixed point — done
+    upstream.** Against the axioms the three rules the fragment drops
+    are small: K is `eq_pt_of_mem_truthVal` twice; structure η is the
+    fixed-point equation read left to right (an element of the family IS
+    a tagged tuple) plus `tuple_inj`/`tag_inj`; unit-likeness is η at
+    zero fields, or the truth value at a `Prop` instance. This item once
+    proposed replacing the stream artefacts (`T._model.eta`,
+    `T._model.unitlike`) and their three firing files by that argument;
+    the real checker now decides at the install, from the block's shape,
+    whether a type has η or is unit-like (`blockCapsAt`,
+    `Kernel/Inductives/BlockInstall.lean`), and both laws are
     established from the fixed point (`fixEntryEtaCore`,
-    `Model/Inductives/FixKit.lean`), as this item proposed.
+    `Model/Inductives/FixKit.lean`). Still open: the two `PUnit` rules
+    (`unitLike` on the pinned `PUnit`, `structUnit` on a stored unit-like
+    family) are one rule in the model, "the family has at most one
+    element". (§4 lane; revised 2026-10-01.)
 
 20. **Two block conditions that carry semantic weight.** The
     fragment's `Ok` (`Fragment/Decl.lean`) asks two things of a block
@@ -355,8 +315,8 @@ comment block at the top of `lib.typ`.
     introduction (`lamR_mem`, the λ case) gains it. The cost shows in
     the inductive section (`Fragment/IndSem.lean`,
     `Fragment/InstallRead1.lean`, `Fragment/InstallInd.lean`): a
-    Prop-valued motive's fibres must be truth values at every
-    member's indices, so the recursor's typing needs the
+    Prop-valued motive's fibres must be truth values at the indices
+    of every element, so the recursor's typing needs the
     constructors' index expressions to fit (`idx_fits_of_mem_Fam`) —
     a well-formedness fact the "inhabited" reading never consulted at
     that level. Net +62 lines over the fragment; whichever way the
@@ -440,59 +400,27 @@ comment block at the top of `lib.typ`.
     comparison is not assumed there either. (Nested lane,
     2026-10-01.)
 
-26. **The container's constructors join the block's closure; no new
-    law.** The real proof's "existence of the fixed point by
-    accessibility, not by a container theorem" is, at this altitude,
-    the one closure law of `IndLib` applied ONCE to the block's
-    constructors and the container's at the instantiation, over a
-    joint index — the family's fibres and the class
-    (`IndSpec.ctorsX`, `JIdx`, `Fragment/IndSem.lean`); the block's
-    constructors are tagged after the container's (`tagOf`) so that
-    the closure's tags are the model's. The bound for the class is
-    then closed under the container's constructors with the member
-    at the family's bound, which is all `contInBound_of`
-    (`Fragment/NestSem.lean`) needs. Whether the real proof's
-    accessibility route could be replaced by listing the container's
-    constructor telescopes in the existing container theorem is worth
-    a look. (Nested lane, 2026-10-01.)
+26. **What the fragment's positivity asks beyond the rulings, and
+    why.** Beyond depth one, no indices and no reflexive container field,
+    the fragment asks that the class's arguments and the nested
+    occurrence's index expressions be closed under the block's
+    parameters, and that no field of the container after a parameter
+    field read its value (`NestInfo.Positive`, `Fragment/Spec.lean`). The
+    second is what the replacement lemma (item 34) needs: the class is
+    read at every approximant, so a parameter field's value must be free
+    to move. The first is what lets the class's arguments fit the
+    container's parameters at EVERY parameter set of the universe
+    (`NestFacts.argsFit`, proved in `InstallNest.lean` from the class
+    having a sort in the environment holding the type former only), which
+    a field-dependent argument could not do. The real checker's `nestPos`
+    admits both (`Kernel/Inductives/Positivity.lean`). (Nested lane,
+    2026-10-01; revised 2026-10-03.)
 
-27. **The guard is established before the constructors are read.**
-    Monotonicity of the class in the member (`ContGood`,
-    `Fragment/IndSem.lean`) is what a container field's clause is read
-    under; it is proved from the class having a sort at the block's
-    parameters — a check read in a model of the environment holding
-    the former only, which needs nothing of the class
-    (`InstallNest.lean`, `argsFit_of`: the former's set is a graph
-    tower, so `appList_of_wd` puts the class's arguments in the
-    container's parameters, and positivity lets the member be any set
-    of the universe). The reader structure had to be split for this
-    (`Reader` / `ReaderG`, `Fragment/Read.lean`). The real proof's
-    `EnvModelM` carries the installed blocks' data (`lfpBlocks`); the
-    fragment's `BlockModel` (`Fragment/BlockModel.lean`) carries one
-    law per plain block — scope, the former's and constructors' sets
-    as the fixed point's graphs, the domains bounded at fitting
-    parameters — and that is exactly what a later nesting consumes
-    (`NestFacts`). (Nested lane, 2026-10-01.)
-
-28. **What the fragment's positivity leaves out, and why.** Beyond
-    the rulings (depth one, no indices, no reflexive container field)
-    the fragment asks that the class's arguments and the member's
-    index expressions be closed under the block's parameters, and that
-    no field of the container after a member field read it
-    (`NestInfo.Positive`, `Fragment/Spec.lean`). Both are prices of
-    the closure device of item 26. The container's telescope joins the
-    closure with the member field as a recursive position, whose value
-    is junked (`toTeleXK`), so nothing may read it. And the class's
-    arguments must fit the container's parameters at EVERY member set
-    of the universe (`NestFacts.argsFit`), which a field-dependent
-    argument could not do without a fitting instance at the final
-    family. The real checker's `nestPos` admits both
-    (`Kernel/Inductives/Positivity.lean`). (Nested lane, 2026-10-01.)
-
-29. **One generator for the block's and the class's minors.** The
+27. **One generator for the block's and the class's minors.** The
     container's constructors translated into the block's own field
-    kinds — the member field a recursive field at the member's index
-    expressions, the container's recursive fields container fields,
+    kinds — the parameter field a recursive field at the nested
+    occurrence's index expressions, the container's recursive fields
+    container fields,
     its ordinary fields with the container's parameters substituted
     (`IndSpec.classCtor`, `Fragment/Decl.lean`) — are in the block's
     scope (`classCtor_fieldScoped`, `Fragment/NestRead.lean`), so the
@@ -504,8 +432,7 @@ comment block at the top of `lib.typ`.
     translation to the block's field kinds would let one generator
     and one reading serve both. (Nested lane, 2026-10-01.)
 
-
-30. **Two of a definition's three scope conditions are not checks.**
+28. **Two of a definition's three scope conditions are not checks.**
     A definition's type and value are typed in the empty context, so
     they are closed and mention only stored constants by the typing
     derivations themselves (`Infer.closedAt`, `Infer.consts`,
@@ -519,8 +446,7 @@ comment block at the top of `lib.typ`.
     proof could take them from the derivations the same way. (Scope
     lane, 2026-10-02.)
 
-
-31. **A recursive field is a reflexive field with an empty telescope.**
+29. **A recursive field is a reflexive field with an empty telescope.**
     The fragment's `Field` had both kinds (`recursive es` and
     `reflexive tele es`), as the real checker's `RecFieldKind` has
     (`Kernel/Inductives/FieldTele.lean`); but every generator
@@ -536,8 +462,8 @@ comment block at the top of `lib.typ`.
     −303 lines, and one law of the class (`ClassLaws.noRefl`, "no
     translated constructor has a reflexive field") became a two-line
     lemma (`classField_reflexive`, `Fragment/NestRec.lean`: the only
-    reflexive field a translation produces is the member's, with the
-    empty telescope). The positivity clause for a container's own
+    reflexive field a translation produces is the parameter field,
+    with the empty telescope). The positivity clause for a container's own
     recursive field is now `tele = [] ∧ es = []`
     (`NestInfo.Positive`, `Fragment/Spec.lean`). The real checker
     could do the same: its `recursive` kind is `reflexive` with an
@@ -545,7 +471,7 @@ comment block at the top of `lib.typ`.
     readings would lose their duplicated case. (Field-merge lane,
     2026-10-02.)
 
-32. **The fixed point and accessibility need no graphs.** The real
+30. **The fixed point and accessibility need no graphs.** The real
     proof's family layer (`SetTheory/Derive/LfpTuple.lean`,
     `SetModel/Access.lean`) works on tuples of *graphs*: a family is
     `graph (i ↦ …) (Is m)`, membership is `x ∈ app (X m) i`, and
@@ -566,7 +492,7 @@ comment block at the top of `lib.typ`.
     lose their `app`/`famSpace` premises the same way. (Accessibility
     lane, 2026-10-03.)
 
-33. **The universal field bound needs no holes-in-context check.**
+31. **The universal field bound needs no holes-in-context check.**
     `closed_of_acc` needs the block's operator to map families of
     the universe to families of the universe, i.e. the constructors'
     fields bounded along instances of EVERY family of the universe,
@@ -584,22 +510,9 @@ comment block at the top of `lib.typ`.
     bound at that family (`domsBounded_of`).  The real proof could
     drop the holes-in-context check and `fieldsOk` the same way:
     `EnvModelM`'s constant clause holds of any assignment that sends
-    each member to a family of its tuple space.  (Lane 2, 2026-10-03.)
+    each type former of the block to a family of its tuple space.  (Lane 2, 2026-10-03.)
 
-34. **The recursor's graph is keyed on the member, not on a
-    witness.**  The old fragment's recursor read a propositional
-    major through a chosen tagged-tuple witness (`pick`/`wit`) and
-    needed uniqueness of witnesses for the ι law.  Rebuilt on the
-    set-theoretic family, the graph is keyed on the member itself
-    (`pt` at a proposition) with the member's DECODINGS as the rule's
-    data (`Mem`, `IndRec.lean`), totality is the family's own
-    induction (`Fam_induction`, i.e. `lfpFamSet_induction`), and
-    single-valuedness is `decode_unique`: injectivity of tags and
-    tuples above a proposition, the subsingleton criterion at one —
-    exactly con-leche's `GraphRecKit.huniq` (`SetModel/GraphRec.lean`).
-    The witness detour was never needed.  (Lane 2, 2026-10-03.)
-
-35. **The accessibility bound is one set because no field reads a
+32. **The accessibility bound is one set because no field reads a
     recursive one.**  The fragment's bound (`bound`, `IndSem.lean`) is,
     per constructor and per reflexive field, the tuples of the field's
     telescope at every prefix fitting the ONE-FIBRE family (every fibre
@@ -616,72 +529,60 @@ comment block at the top of `lib.typ`.
     so `MapsFam` is immediate there and no bound is consulted
     (`closedFam_zero`).  (Lane 2, 2026-10-03.)
 
-36. **For the nested lane's port: the two families agree.**  The
-    nested lane still reads a container's installation through the
-    frozen `BlockLaw` (`NstBlockModel.lean`), stated with the OLD
-    family; `NstSeam.lean` proves the new family equal to it at
-    fitting parameters (`Fam_eq_old`: the old family is closed under
-    the new operator by the old constructor law, and the old
-    predicate's induction puts every old member into the new family),
-    which is what lets the new installation satisfy the old law.  The
-    port of `NestSem` onto the new family can start from that lemma
-    and delete the scaffolding (`NstPrelude`, `NstBound`, `Nst*.lean`,
-    `NstSeam`) as it goes.  (Lane 2, 2026-10-03.)
-
-37. **The container's clause is one more case of the operator, and
+33. **The container's clause is one more case of the operator, and
     two facts about the container are all it needs.**  The nested
     block's operator reads a container field as the class at the
     approximant's fibre at the nested occurrence (`fieldSet`'s
     container clause, `Fragment/IndSem.lean`, through `classSet`: the
     container's set in the model at the class's arguments with that
-    fibre in the member's position).  Monotonicity and accessibility
+    fibre in the nested position).  Monotonicity and accessibility
     of the operator then ask of that clause exactly what they ask of a
     reflexive field's product: it grows with the fibre, and a value
     in it has a support in the fibre coded inside one set
     (`ContClause`: `mono`, `acc`; plus `mem_univ` for the operator to
-    stay in the universe, and `inhab_one`, item 39).  The installation
+    stay in the universe, and `inhab_one`, item 35).  The installation
     proves the four from the container's positivity and the leastness
     of its fixed point (`Fragment/NestSem.lean`, `contClause_of`) —
     the real proof's container case of `Model/Annot/BlockLfpMono.lean`
     (monotone through the container's lfp clause,
     `SetModel/HoleClose.lean`) and `Model/Inductives/ContAcc.lean`,
     with the container's frames and the walk of its constructors
-    replaced by one lemma about its fields (item 38).  Nothing is asked
+    replaced by one lemma about its fields (item 34).  Nothing is asked
     of a plain block (`contOk_of_plain`).  (Lane 3, 2026-10-03.)
 
-38. **One replacement lemma carries monotonicity, accessibility and
+34. **One replacement lemma carries monotonicity, accessibility and
     the one-fibre counterpart.**  Positivity of the container in the
-    member's position says a constructor reads the member set only
-    through its member fields and its own family only through its
+    nested position says a constructor reads the parameter set only
+    through its parameter fields and its own family only through its
     recursive fields, and an ordinary field reads neither; so a
-    fitting list stays fitting when the member values are replaced by
-    members of another member set, the recursive values by members of
+    fitting list stays fitting when the parameter-field values are
+    replaced by members of another parameter set, the recursive values by members of
     another family's fibre, and the ordinary values kept
     (`FitsFields_psK_repl`, `Fragment/NestSem.lean`; the real proof's
     `spineFit_mono` along the instantiation's relation, `CtorPos`).
-    From it: the family at a larger member set is closed under the
+    From it: the family at a larger parameter set is closed under the
     operator at a smaller one, so by leastness the family grows with
-    the member set (`Fam_psK_mono`); the operator is accessible
-    jointly in the member set and its own family with one code per
+    the parameter set (`Fam_psK_mono`); the operator is accessible
+    jointly in the parameter set and its own family with one code per
     field position (`jointOp_acc`), so by the nested case of
     accessibility (`lfpP_acc`, `Fragment/Access.lean`, a port of
     `SetModel/Access.lean`'s `lfpP_acc` over Lean-level families with a
-    sum type of indices) the family is accessible in the member set
+    sum type of indices) the family is accessible in the parameter set
     with the bound `accPaths` of the positions (`Fam_psK_acc`) — a set
-    computed from the specification alone (`classBound`, item 39).
+    computed from the specification alone (`classBound`, item 35).
     (Lane 3, 2026-10-03.)
 
-39. **The one-fibre reading of the fields needs the class inhabited at
+35. **The one-fibre reading of the fields needs the class inhabited at
     `{pt}`, and the class's bound is spec-computed.**  Lane 2's bound
     is one set because the telescopes are read at the one-fibre
     family with every recursive value replaced by the point
-    abstracted over the telescope (item 35).  A container value has
+    abstracted over the telescope (item 32).  A container value has
     no such canonical stand-in: the class at `{pt}` may be empty while
     the class at a larger fibre is not (`K α := wrap (a : α)`), and the
     universe bound on the fields (`DomsBounded`) is only recorded at
     fitting prefixes.  So the container's clause includes
     `inhab_one`: the class at `{pt}` is inhabited whenever the class is
-    inhabited at any member set of the universe — by induction over
+    inhabited at any parameter set of the universe — by induction over
     the container's family, every constructor instance has a
     counterpart at `{pt}` (`Fam_psK_inhab_one`, the replacement lemma
     once more) — and `toOne` replaces a container value by a chosen
@@ -692,22 +593,27 @@ comment block at the top of `lib.typ`.
     container's bound as a function of the frame (`ContAccFrame.lean`,
     `frameAccOut_of`).  (Lane 3, 2026-10-03.)
 
-40. **One reader for plain and nested blocks.**  The frozen lane read
-    a container field's domain under a guard (`ReaderG.good`); the
-    rebuilt `Reader` (`Fragment/Read.lean`) has no plainness field and
+36. **One reader for plain and nested blocks, and a model that
+    remembers its blocks.**  The first nested lane read a container
+    field's domain under a guard (`ReaderG.good`, a split of the reader
+    structure); the rebuilt `Reader` (`Fragment/Read.lean`) has no plainness field and
     reads the domain by β through the container's set, a stored
     constant the reader agrees on (`classTy_fit`), as the fibre of the
     reader's family at the nested occurrence; `IdxFitAt`'s container
-    clause is that the member's index values fit the indices, read off
-    the invariant (`fieldDom_wd`).  Only the lemmas about the PLAIN
+    clause is that the nested occurrence's index values fit the indices, read off
+    the semantic invariant (`fieldDom_wd`).  Only the lemmas about the PLAIN
     recursor's hypotheses' context (`read_ihTy`, `fits_ihCtxAux`,
     `Reader₂.minorOk`, and `IndRec`'s totality and typing) take
     `S.nest = none` explicitly; `ctorSet_mem` takes the container's
     clause at fitting parameters, which is how a nested block's
     constructors get their type law without a "class in the bound"
     condition (`InstallNest.lean`, `type_ok_ctorN`).  The frozen
-    copies `Nst*.lean`, `NstSeam.lean`, `NstBound.lean` (with the
-    closure theorem `inductive_closure`) and `NstPrelude.lean` are
-    gone; `BlockModel.lean` states the block law with the new family
-    and pushes agreement through the operator (`Agree.famOp_eq`,
+    copies of the first nested lane, with the old closure law, are
+    gone.  The real proof's `EnvModelM` carries the installed blocks'
+    data (`lfpBlocks`); the fragment's `BlockModel`
+    (`Fragment/BlockModel.lean`) carries one law per plain block —
+    scope, the type former's and constructors' sets as the fixed
+    point's graphs, the fields' universe bound at fitting parameters —
+    which is exactly what a later nesting consumes (`NestFacts`), and
+    pushes agreement through the operator (`Agree.famOp_eq`,
     `Agree.Fam_eq`).  (Lane 3, 2026-10-03.)
