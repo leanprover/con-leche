@@ -101,7 +101,7 @@ type below, a binder whose body is the family — a member of $Sort u$
   (#src("ConLeche/Kernel/Inductives/Positivity.lean", 1453, 1454)[positivity]).
 ]
 
-Reflexive fields matter to the model. A tree type with a constructor
+Genuinely reflexive fields — a non-empty telescope — matter to the model. A tree type with a constructor
 $sans("node") : (Nat -> sans("Tree")) -> sans("Tree")$ has nodes with
 countably many children, so a node may have children of every finite
 depth and the set of all trees is not the union of the "trees of
