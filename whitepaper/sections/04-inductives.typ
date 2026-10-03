@@ -629,13 +629,7 @@ on which the recursor is built. In the proposition-valued regime
 every constructor value is the point, so the fibre
 #src("whitepaper/Fragment/IndSem.lean", 1392, 1396)[is the truth value]
 "some constructor reaches these indices" and
-every constructor denotes the point; where the recursor needs it —
-under a large eliminator — the subsingleton criterion makes the
-_decodings_ of the point, the constructors with fitting fields that
-reach these indices, all the same tagged tuple
-(#src("whitepaper/Fragment/Uniq.lean", 40, 50)[the criterion, semantically],
-#src("whitepaper/Fragment/Uniq.lean", 60, 64)[uniqueness],
-#src("whitepaper/Fragment/InstallInd.lean", 610, 615)[from the checker's criterion]).
+every constructor denotes the point.
 
 #real[
   The least fixed point is
@@ -688,9 +682,12 @@ not, the major is the point and carries no fields: the equation has
 one instance per decoding of the point — per constructor and
 fitting fields that reach the indices $arrow(Y)$ — and the graph is
 single-valued only because
-#src("whitepaper/Fragment/IndRec.lean", 133, 143)[any two decodings agree],
-which is what the subsingleton criterion was for, as @thm:iota's
-proof shows. The recursor denotes
+#src("whitepaper/Fragment/IndRec.lean", 133, 143)[any two decodings agree]:
+under a large eliminator the subsingleton criterion
+#src("whitepaper/Fragment/InstallInd.lean", 610, 615)[as the checker states it]
+#src("whitepaper/Fragment/Uniq.lean", 40, 50)[reads semantically] as
+#src("whitepaper/Fragment/Uniq.lean", 60, 64)[uniqueness of decodings],
+as @thm:iota's proof shows. The recursor denotes
 #src("whitepaper/Fragment/IndRec.lean", 396, 408)[the graph of the resulting function]
 (#src("whitepaper/Fragment/IndRec.lean", 183, 188)[its value]), curried over the
 parameters, the motive, the minors, the indices and the major — a

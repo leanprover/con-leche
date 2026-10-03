@@ -3620,34 +3620,6 @@
   1395      (hco : S.ContOk M ls ps) (hz : S.z ls = true) {is : List V} {t : V} :
   1396      t ∈ˢ S.Fam M ls ps is ↔ t = pt ∧ ∃ x, S.Mem M ls ps is x := by
 
-== whitepaper/Fragment/Uniq.lean#L40-L50
-    40  /-- **The subsingleton criterion, semantically**: at a proposition,
-    41  at most one constructor, and every field of a fitting instance is
-    42  the point (its domain is a proposition) or is read off the
-    43  constructor's index expressions (the field's variable is one of
-    44  them). -/
-    45  def Subsingleton : Prop :=
-    46    S.ctors.length ≤ 1 ∧
-    47    ∀ c ∈ S.ctors, ∀ ps : List V, FitsVals M (S.ψ ls) base S.params ps → ∀ fs : List V,
-    48      S.FitsFields M ls (S.Fam M ls ps) ps c.fields fs →
-    49      ∀ k, k < c.fields.length →
-    50        fieldVal fs k = pt ∨ Expr.bvar (c.fields.length - 1 - k) ∈ c.idx
-
-== whitepaper/Fragment/Uniq.lean#L60-L64
-    60  /-- **Uniqueness from the subsingleton criterion**: two decodings
-    61  at one index are equal — each is the tagged tuple of
-    62  fields every one of which is the point or one of the (shared) index
-    63  values. -/
-    64  theorem uniq_of_subsingleton (hsub : S.Subsingleton M ls) : S.Uniq M ls := by
-
-== whitepaper/Fragment/InstallInd.lean#L610-L615
-   610  /-- **Uniqueness of decodings** under the subsingleton
-   611  criterion: at a proposition with a large eliminator the checker admits
-   612  at most one constructor, every field of which is a proposition or one
-   613  of the indices. -/
-   614  theorem uniq_of (φ : Name → Nat) (hz : S.z (S.lparams.map φ) = true) (hlarge : S.large = true) :
-   615      S.Uniq m.M (S.lparams.map φ) := by
-
 == ConLeche/SetTheory/Derive/LfpTuple.lean#L67-L75
     67  /-- **The least pre-fixed tuple of `Φ`** — componentwise, fibrewise the
     68  intersection of the closed tuples when there is one (separated from a
@@ -3763,6 +3735,34 @@
    141      (his : is = S.idxVals M ls (consList fs (envP ps)) c.idx)
    142      (his' : is = S.idxVals M ls (consList fs' (envP ps)) c'.idx)
    143      (ht : S.ctorVal ls j fs = S.ctorVal ls j' fs') : j = j' ∧ fs = fs' := by
+
+== whitepaper/Fragment/InstallInd.lean#L610-L615
+   610  /-- **Uniqueness of decodings** under the subsingleton
+   611  criterion: at a proposition with a large eliminator the checker admits
+   612  at most one constructor, every field of which is a proposition or one
+   613  of the indices. -/
+   614  theorem uniq_of (φ : Name → Nat) (hz : S.z (S.lparams.map φ) = true) (hlarge : S.large = true) :
+   615      S.Uniq m.M (S.lparams.map φ) := by
+
+== whitepaper/Fragment/Uniq.lean#L40-L50
+    40  /-- **The subsingleton criterion, semantically**: at a proposition,
+    41  at most one constructor, and every field of a fitting instance is
+    42  the point (its domain is a proposition) or is read off the
+    43  constructor's index expressions (the field's variable is one of
+    44  them). -/
+    45  def Subsingleton : Prop :=
+    46    S.ctors.length ≤ 1 ∧
+    47    ∀ c ∈ S.ctors, ∀ ps : List V, FitsVals M (S.ψ ls) base S.params ps → ∀ fs : List V,
+    48      S.FitsFields M ls (S.Fam M ls ps) ps c.fields fs →
+    49      ∀ k, k < c.fields.length →
+    50        fieldVal fs k = pt ∨ Expr.bvar (c.fields.length - 1 - k) ∈ c.idx
+
+== whitepaper/Fragment/Uniq.lean#L60-L64
+    60  /-- **Uniqueness from the subsingleton criterion**: two decodings
+    61  at one index are equal — each is the tagged tuple of
+    62  fields every one of which is the point or one of the (shared) index
+    63  values. -/
+    64  theorem uniq_of_subsingleton (hsub : S.Subsingleton M ls) : S.Uniq M ls := by
 
 == whitepaper/Fragment/IndRec.lean#L396-L408
    396  /-- **The recursor's set** at its own levels `lsr` (the elimination
