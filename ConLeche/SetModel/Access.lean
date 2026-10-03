@@ -28,6 +28,8 @@ small}` has the universe's ordinals as its least fixed point.
   `A`-paths (a subset of the small set `accPaths A`), on which the
   stage depends only.
 * `AccTuple.monoTuple`: accessible operators are monotone.
+* `AccW`: accessibility at a `Type`-valued level, the form the lfp clause
+  records; `AccW.closed` is (W) at every level.
 * The closure lemmas over READINGS (`AccRead`, one fibre): constants,
   a hole, sums, images, Σ over a hole-free first field, Π over a
   hole-free domain,
@@ -282,6 +284,22 @@ theorem closedTuple_zero {k : Nat} {Is : Nat → V} {Φ : (Nat → V) → Nat �
   rw [univ_zero] at this
   exact mem_univZero.mp this x hx
 
+/-- **Accessibility at a `Type`-valued level**: at `w ≠ 0` the operator
+is `A`-accessible for one `A` of the level.  At `w = 0` nothing is asked
+(the top tuple is closed, `closedTuple_zero`; the fields of a
+`Prop`-valued block need not be small, so the walk's accessibility does
+not reach it — task #326). -/
+def AccW (w k : Nat) (Is : Nat → V) (Φ : (Nat → V) → Nat → V) : Prop :=
+  w ≠ 0 → ∃ A, A ∈ˢ (univ w : V) ∧ AccTuple w k Is k Is Φ A
+
+/-- **(W) from `AccW`**, at every level: `closed_of_acc` at `w ≠ 0`,
+`closedTuple_zero` at `w = 0`. -/
+theorem AccW.closed {w k : Nat} {Is : Nat → V} {Φ : (Nat → V) → Nat → V}
+    (h : AccW w k Is Φ) (hmaps : MapsTuple w k Is Φ) : ∃ L, IsClosedTuple w k Is Φ L := by
+  by_cases hw : w = 0
+  · subst hw; exact closedTuple_zero hmaps
+  · obtain ⟨A, hA, hacc⟩ := h hw
+    exact closed_of_acc hw hA hmaps hacc
 
 /-! ## Accessibility implies monotonicity -/
 
@@ -701,6 +719,30 @@ theorem mixT_le {C Y Y' : Nat → V} (h : TupleLe k Is Y Y') :
 theorem mixT_monoTuple (hmono : MonoTuple w k Is Φ) {C : Nat → V}
     (hC : InTupleSpace w k Is C) : MonoTuple w k Is (fun Y => Φ (mixT G C Y)) :=
   fun _ _ hX hY hXY => hmono _ _ (mixT_mem hC hX) (mixT_mem hC hY) (mixT_le hXY)
+
+/-- **The group operator is accessible**, with the operator's bound: a
+support item off the group lies in the fixed tuple `C`, so it is
+dropped. -/
+theorem accTuple_mixT {A : V} (h : AccTuple w k Is k Is Φ A) {C : Nat → V}
+    (hC : InTupleSpace w k Is C) : AccTuple w k Is k Is (fun Y => Φ (mixT G C Y)) A := by
+  classical
+  intro Y hY m hm i hi x hx
+  obtain ⟨B, g, hB, hg, hs⟩ := h _ (mixT_mem hC hY) m hm i hi x hx
+  refine ⟨sep B fun a => G (g a).1, g, Subset.trans sep_subset hB, fun a ha => ?_,
+    fun Y' hY' h' => hs _ (mixT_mem hC hY') fun a ha => ?_⟩
+  · obtain ⟨haB, hG⟩ := mem_sep.mp ha
+    have := hg a haB
+    unfold InTup mixT at this
+    rw [if_pos hG] at this
+    exact this
+  · have hga := hg a ha
+    unfold InTup mixT at hga ⊢
+    by_cases hG : G (g a).1
+    · rw [if_pos hG]
+      have := h' a (mem_sep.mpr ⟨ha, hG⟩)
+      exact this
+    · rw [if_neg hG] at hga ⊢
+      exact hga
 
 /-- **The least tuple is closed for the group operator.** -/
 theorem mixT_isClosed (h : ∃ L, IsClosedTuple w k Is Φ L) (hmono : MonoTuple w k Is Φ) :
