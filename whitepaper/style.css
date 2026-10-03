@@ -1,5 +1,5 @@
 /* whitepaper/style.css — inlined into the HTML rendering by lib.typ's
-   template.  Plain and readable: serif body, sans headings, ~70ch
+   template.  Plain and readable: serif body, sans headings, ~88ch
    measure, light and dark.  The ONE annotation colour is --ann.
    The page shell (`.page`, `.toc`): a sticky table of contents in a
    left column on wide viewports, a collapsible one under the title on
@@ -37,10 +37,10 @@ body {
 /* The page shell: header, ToC and article on a grid.  One column up
    to --wide (the ToC stacked under the title), two from there on (the
    ToC a sticky sidebar spanning the header's and the article's rows).
-   `minmax(0, 70ch)` is the measure; the pair is centred. */
+   `minmax(0, 88ch)` is the measure (wide, for formulas; about the PDF's line length); the pair is centred. */
 .page {
   display: grid;
-  grid-template-columns: minmax(0, 70ch);
+  grid-template-columns: minmax(0, 88ch);
   grid-template-areas: "header" "toc" "main";
   justify-content: center;
   column-gap: 3rem;
@@ -52,7 +52,7 @@ body {
 .page > main { grid-area: main; min-width: 0; }
 @media (min-width: 1100px) {
   .page {
-    grid-template-columns: 17rem minmax(0, 70ch);
+    grid-template-columns: 17rem minmax(0, 88ch);
     grid-template-areas: "toc header" "toc main";
   }
   .page > aside.toc {
