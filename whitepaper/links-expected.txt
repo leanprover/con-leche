@@ -2742,31 +2742,24 @@
    565    | some N => S.installN N env
    566  
 
-== whitepaper/Fragment/Env.lean#L30-L53
-    30  /-- One computation rule of a recursor: the major premise built by
-    31  `ctor` with `nfields` fields reduces to `rhs`, a closed term over the
-    32  recursor's level parameters, applied to the recursor's parameters,
-    33  motives and minor premises and then the constructor's fields. -/
-    34  structure RecRule where
-    35    /-- The constructor this rule fires on. -/
-    36    ctor : Name
-    37    /-- The constructor's field count (its arguments after the
-    38    parameters). -/
-    39    nfields : Nat
-    40    /-- The right-hand side, a closed term over the recursor's level
-    41    parameters, `fun params motives minors fields => …`. -/
-    42    rhs : Expr
-    43    /-- **The stored instantiation** of a nested rule (an auxiliary
-    44    recursor's rule, firing on a constructor of the block's *container*):
-    45    the constructor's expected levels, over the recursor's level
-    46    parameters, and its expected parameters, terms under the recursor's
-    47    own parameter binders — what the ι step compares the constructor
-    48    application against (`Red.iotaNested`).  `none` for a rule of the
-    49    block's own constructors, whose levels and parameters are the
-    50    recursor's (`Red.iota`).  Con-leche's `.nested` certification of a
-    51    rule (`tests/e2e/src/nested_rec.lean`). -/
-    52    inst : Option (List Level × List Expr) := none
-    53    deriving DecidableEq
+== whitepaper/Fragment/Env.lean#L56-L72
+    56  inductive ConstKind where
+    57    /-- A definition: its value unfolds (δ). -/
+    58    | defn (value : Expr)
+    59    /-- An inductive type former with `numParams` parameters,
+    60    `numIndices` indices and these constructors — and the block's
+    61    specification it was generated from (`Spec.lean`), which a later
+    62    block nesting through this one reads back (con-leche stores the
+    63    block's shape with the former likewise, `IndCaps`). -/
+    64    | induct (numParams numIndices : Nat) (ctors : List Name) (spec : IndSpec)
+    65    /-- A constructor of the inductive `induct`, with `numParams`
+    66    parameters (the inductive's) and `nfields` fields. -/
+    67    | ctor (induct : Name) (numParams nfields : Nat)
+    68    /-- A recursor with the given telescope shape — `numParams`
+    69    parameters, `numMotives` motives, `numMinors` minor premises,
+    70    `numIndices` indices, then the major premise — and its rules. -/
+    71    | recursor (numParams numMotives numMinors numIndices : Nat) (rules : List RecRule)
+    72    deriving DecidableEq
 
 == ConLeche/Kernel/Env.lean#L241-L254
    241  structure RecRule where
