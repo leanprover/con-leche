@@ -368,10 +368,10 @@ where it is needed. Notably absent is any law about least fixed
 points.
 
 *Least fixed points, from the axioms.* No law about fixed points is
-needed, because in the fragment a least fixed point is not a set
-construction at all. The operators of this section act on
-_predicates_ over sets, and the least fixed point of a monotone
-operator $Phi$ on predicates is
+needed, because the least fixed point is taken on _predicates_ over
+sets, in the ambient logic, and only afterwards turned into a set.
+The operators of this section act on predicates, and the least fixed
+point of a monotone operator $Phi$ on predicates is
 #src("whitepaper/Fragment/IndLib.lean", 231, 234)[a definition]:
 $lfp(Phi)(a)$ holds when every predicate closed under $Phi$ holds at
 $a$. That it is closed, that it is a fixed point and that it supports
