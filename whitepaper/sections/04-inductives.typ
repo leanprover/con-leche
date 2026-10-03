@@ -362,11 +362,18 @@ all for positive universes $cal(U)_n$, $n >= 1$:
   when every component is.
 + _Tags_ $tag(j, x)$, a set with a number $j$ attached: injective,
   in $cal(U)_n$ when $x$ is, and $tag(j, x) != pt$.
-+ #src("whitepaper/Fragment/IndLib.lean", 162, 171)[_Inductive closure_], a law about size: for any list of
-  #src("whitepaper/Fragment/IndLib.lean", 98, 116)[telescopes] of domains there is a member of $cal(U)_n$
-  closed under forming a tagged tuple from every
-  #src("whitepaper/Fragment/IndLib.lean", 122, 130)[_bounded instance_] of a telescope — a tuple whose
-  every component lies in a domain that is a member of $cal(U)_n$.
++ #src("whitepaper/Fragment/IndLib.lean", 162, 171)[_Inductive closure_], a law about size. For every index
+  set $iota$ and every list of
+  #src("whitepaper/Fragment/IndLib.lean", 98, 116)[constructor telescopes] $C_1, dots, C_m$ with target
+  indices $t_1, dots, t_m$, there is a family $W$ with
+  $ & W(i) in cal(U)_n quad "for every" i in iota, "and" \
+    & tag(j, tuple(arrow(f))) in W(t_j (arrow(f))) quad "for every bounded instance" arrow(f) "of" C_j "relative to" W, $
+  where a #src("whitepaper/Fragment/IndLib.lean", 122, 130)[_bounded instance_] is a list of values fitting the
+  telescope such that every ordinary domain met is a member of
+  $cal(U)_n$ and the value lies in it, a value for a field in the
+  family at $i$ lies in $W(i)$, and a value for a reflexive field
+  lies in the function space over its binders into $W$ at the
+  targets.
 
 Notably absent is any law about least fixed points.
 
