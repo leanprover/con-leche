@@ -351,7 +351,7 @@ every rule of every stored recursor satisfies its $iota$ law
 
 *The axioms, extended.* Beyond the laws of @sec:lib the inductive
 section uses
-#src("whitepaper/Fragment/IndLib.lean", 136, 161)[four small laws],
+#src("whitepaper/Fragment/IndLib.lean", 136, 171)[five laws],
 all for positive universes $cal(U)_n$, $n >= 1$:
 
 + _Separation stays in the universe_: if $A in cal(U)_n$ then
@@ -362,10 +362,13 @@ all for positive universes $cal(U)_n$, $n >= 1$:
   when every component is.
 + _Tags_ $tag(j, x)$, a set with a number $j$ attached: injective,
   in $cal(U)_n$ when $x$ is, and $tag(j, x) != pt$.
++ #src("whitepaper/Fragment/IndLib.lean", 162, 171)[_Inductive closure_], a law about size: for any list of
+  #src("whitepaper/Fragment/IndLib.lean", 98, 116)[telescopes] of domains there is a member of $cal(U)_n$
+  closed under forming a tagged tuple from every
+  #src("whitepaper/Fragment/IndLib.lean", 122, 130)[_bounded instance_] of a telescope — a tuple whose
+  every component lies in a domain that is a member of $cal(U)_n$.
 
-One further law, about size — _inductive closure_ — is stated below
-where it is needed. Notably absent is any law about least fixed
-points.
+Notably absent is any law about least fixed points.
 
 *Least fixed points, from the axioms.* No law about fixed points is
 needed, because the least fixed point is taken on _predicates_ over
@@ -386,12 +389,7 @@ member of the next universe, not of this one. To land in $cal(U)_n$
 the predicate has to be separated from some member of $cal(U)_n$ that
 already contains everything the operator can produce. That bounding
 set is the one thing this section genuinely needs from set theory,
-and the fragment states it as one law, #src("whitepaper/Fragment/IndLib.lean", 162, 171)[_inductive closure_]:
-for any list of #src("whitepaper/Fragment/IndLib.lean", 98, 116)[telescopes] of domains there is a member of
-$cal(U)_n$ closed under forming a tagged tuple from every
-#src("whitepaper/Fragment/IndLib.lean", 122, 130)[_bounded instance_] of a
-telescope — a tuple whose every component lies in a domain that is a
-member of $cal(U)_n$.
+and it is what the fifth law, inductive closure, provides.
 
 *The family of a block* is the least fixed point of the operator "a
 member is a constructor applied to fields that are members", at every

@@ -2787,7 +2787,7 @@
    217        RecRuleLaw M c ci numParams (numParams + numMotives + numMinors)
    218          (numParams + numMotives + numMinors + numIndices) rl cij
 
-== whitepaper/Fragment/IndLib.lean#L136-L161
+== whitepaper/Fragment/IndLib.lean#L136-L171
    136  /-- **The library for inductive types**: `SetLib` with separation
    137  inside the universes, transitivity, tuples, tags and inductive
    138  closure. -/
@@ -2814,34 +2814,16 @@
    159    tag_mem_univ : ∀ {n i : Nat} {x : V}, n ≠ 0 → Mem x (univ n) → Mem (tag i x) (univ n)
    160    /-- A tagged value is never the point. -/
    161    tag_ne_pt : ∀ {i : Nat} {x : V}, tag i x ≠ pt
-
-== whitepaper/Fragment/IndLib.lean#L231-L234
-   231  /-- **The least fixed point** of an operator on predicates: the
-   232  intersection of every predicate closed under it. -/
-   233  def Lfp {α : Sort _} (Φ : (α → Prop) → (α → Prop)) : α → Prop :=
-   234    fun a => ∀ P : α → Prop, (∀ b, Φ P b → P b) → P a
-
-== whitepaper/Fragment/IndLib.lean#L240-L259
-   240  /-- The least fixed point is below every closed predicate. -/
-   241  theorem least {P : α → Prop} (h : ∀ b, Φ P b → P b) {a : α} (ha : Lfp Φ a) : P a :=
-   242    ha P h
-   243  
-   244  /-- The least fixed point is closed. -/
-   245  theorem closed (hm : Mono Φ) {a : α} (h : Φ (Lfp Φ) a) : Lfp Φ a :=
-   246    fun P hP => hP a (hm _ _ (fun _ hb => hb P hP) a h)
-   247  
-   248  /-- The least fixed point is a fixed point: a member is a step from
-   249  members. -/
-   250  theorem unfold (hm : Mono Φ) {a : α} (h : Lfp Φ a) : Φ (Lfp Φ) a :=
-   251    h (fun b => Φ (Lfp Φ) b) fun b hb => hm _ _ (fun _ hc => closed hm hc) b hb
-   252  
-   253  /-- **Induction**: a property that holds at every step from members
-   254  that have it (and are members) holds on the least fixed point. -/
-   255  theorem induction (hm : Mono Φ) {P : α → Prop}
-   256      (h : ∀ b, Φ (fun c => Lfp Φ c ∧ P c) b → P b) {a : α} (ha : Lfp Φ a) : P a :=
-   257    (least (P := fun c => Lfp Φ c ∧ P c)
-   258      (fun b hb => ⟨closed hm (hm _ _ (fun _ hc => hc.1) b hb), h b hb⟩) ha).2
-   259  
+   162    /-- **Inductive closure** of the positive universes: for every list
+   163    of constructor telescopes with their target indices, some family of
+   164    members of `univ n` is closed under every bounded instance of every
+   165    constructor — the tagged tuple of the instance's values is a member
+   166    of the family at the constructor's target. -/
+   167    inductive_closure : ∀ {ι : Type u} {n : Nat}, n ≠ 0 →
+   168      ∀ cs : List (TeleX ι V × (List V → ι)),
+   169        ∃ W : ι → V, (∀ i, Mem (W i) (univ n)) ∧
+   170          ∀ (j : Nat) (c : TeleX ι V × (List V → ι)) (fs : List V), cs[j]? = some c →
+   171            TeleX.FitsB n W c.1 fs → Mem (tag j (tuple fs)) (W (c.2 fs))
 
 == whitepaper/Fragment/IndLib.lean#L162-L171
    162    /-- **Inductive closure** of the positive universes: for every list
@@ -2886,6 +2868,34 @@
    128    | ord A rest, v :: vs => A ∈ˢ univ n ∧ v ∈ˢ A ∧ FitsB n W (rest v) vs
    129    | recur i rest, v :: vs => v ∈ˢ W i ∧ FitsB n W rest vs
    130    | refl tele tgt rest, v :: vs =>
+
+== whitepaper/Fragment/IndLib.lean#L231-L234
+   231  /-- **The least fixed point** of an operator on predicates: the
+   232  intersection of every predicate closed under it. -/
+   233  def Lfp {α : Sort _} (Φ : (α → Prop) → (α → Prop)) : α → Prop :=
+   234    fun a => ∀ P : α → Prop, (∀ b, Φ P b → P b) → P a
+
+== whitepaper/Fragment/IndLib.lean#L240-L259
+   240  /-- The least fixed point is below every closed predicate. -/
+   241  theorem least {P : α → Prop} (h : ∀ b, Φ P b → P b) {a : α} (ha : Lfp Φ a) : P a :=
+   242    ha P h
+   243  
+   244  /-- The least fixed point is closed. -/
+   245  theorem closed (hm : Mono Φ) {a : α} (h : Φ (Lfp Φ) a) : Lfp Φ a :=
+   246    fun P hP => hP a (hm _ _ (fun _ hb => hb P hP) a h)
+   247  
+   248  /-- The least fixed point is a fixed point: a member is a step from
+   249  members. -/
+   250  theorem unfold (hm : Mono Φ) {a : α} (h : Lfp Φ a) : Φ (Lfp Φ) a :=
+   251    h (fun b => Φ (Lfp Φ) b) fun b hb => hm _ _ (fun _ hc => closed hm hc) b hb
+   252  
+   253  /-- **Induction**: a property that holds at every step from members
+   254  that have it (and are members) holds on the least fixed point. -/
+   255  theorem induction (hm : Mono Φ) {P : α → Prop}
+   256      (h : ∀ b, Φ (fun c => Lfp Φ c ∧ P c) b → P b) {a : α} (ha : Lfp Φ a) : P a :=
+   257    (least (P := fun c => Lfp Φ c ∧ P c)
+   258      (fun b hb => ⟨closed hm (hm _ _ (fun _ hc => hc.1) b hb), h b hb⟩) ha).2
+   259  
 
 == whitepaper/Fragment/IndSem.lean#L427-L435
    427  /-- **The bounding family** at the parameters, over the joint index:
