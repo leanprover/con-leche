@@ -305,7 +305,7 @@ nested block.
   and each class is then checked: the type being defined at the
   block's levels and parameters, or
   #src("ConLeche/Kernel/Inductives/RecCheck.lean", 400, 437)[a stored inductive type, not the quotient, whose parameters mention the type being defined and nothing but the block's parameters, in the block's sort].
-  #src("ConLeche/Kernel/Inductives/Positivity.lean", 1646, 1654)[Every outside class is walked]
+  #src("ConLeche/Kernel/Inductives/Positivity.lean", 1646, 1654)[Every class other than the type being defined is walked]
   as a container met at the root, so every class is an instantiation
   the walk visited; a field landing at a class the stream gives
   #src("ConLeche/Kernel/Inductives/GenRec.lean", 453, 456)[no recursor] for
