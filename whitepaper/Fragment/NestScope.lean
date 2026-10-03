@@ -37,8 +37,7 @@ is in scope of it (`Env.Scoped`, `InstallDef.lean`).
   container, stored by `NestScoped`), or a constant stored before.
 -/
 
-namespace Fragment.IndSpec.Nst
-open Fragment.NestInfo (nPK nK memberVar isMember Positive memberLevel)
+namespace Fragment.IndSpec.Nst open Fragment.NestInfo (nPK nK memberVar isMember Positive memberLevel)
 
 namespace IndSpec
 

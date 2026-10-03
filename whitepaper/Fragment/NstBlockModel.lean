@@ -32,8 +32,7 @@ Con-leche: the `lfpBlocks` of `EnvModelM`
 block kept with the model.
 -/
 
-namespace Fragment.IndSpec.Nst
-open Fragment.NestInfo (nPK nK memberVar isMember Positive memberLevel)
+namespace Fragment.IndSpec.Nst open Fragment.NestInfo (nPK nK memberVar isMember Positive memberLevel)
 open SetLib IndLib
 
 universe u

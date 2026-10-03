@@ -31,11 +31,7 @@ open SetLib IndLib
 
 universe u
 
-variable (V : Type u) [IndLib V] [LevelOracle]
-
-/-! The block model and the two installations that keep it live in the
-nested lane's frozen namespace for now (`NstPrelude.lean`). -/
-open IndSpec.Nst (BlockModel install_def' install_ind_any)
+variable (V : Type u) [IndLib V] [LevelOracle] open IndSpec.Nst (BlockModel install_def' install_ind_any)
 
 /-- **The environments the checker accepts**: the empty environment,
 a definition the definition check passes, an inductive block the

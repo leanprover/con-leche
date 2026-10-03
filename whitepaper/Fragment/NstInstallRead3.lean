@@ -19,8 +19,7 @@ its inductive hypotheses (their types read as the sets `IhTyped`
 names) into the motive at the constructor value.
 -/
 
-namespace Fragment.IndSpec.Nst
-open Fragment.NestInfo (nPK nK memberVar isMember Positive memberLevel)
+namespace Fragment.IndSpec.Nst open Fragment.NestInfo (nPK nK memberVar isMember Positive memberLevel)
 open SetLib IndLib
 
 universe u

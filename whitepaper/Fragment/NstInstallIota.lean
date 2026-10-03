@@ -34,8 +34,7 @@ same spine fit gives the terms' invariant, and the minor's typing
 gives the application chain (`Reader₂.minorOk`).
 -/
 
-namespace Fragment.IndSpec.Nst
-open Fragment.NestInfo (nPK nK memberVar isMember Positive memberLevel)
+namespace Fragment.IndSpec.Nst open Fragment.NestInfo (nPK nK memberVar isMember Positive memberLevel)
 open SetLib IndLib
 
 universe u

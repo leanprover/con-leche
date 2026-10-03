@@ -25,8 +25,7 @@ the recursor's in its (`type_ok_rec`: the recursor's typing,
 block's own reader and the final one).
 -/
 
-namespace Fragment.IndSpec.Nst
-open Fragment.NestInfo (nPK nK memberVar isMember Positive memberLevel)
+namespace Fragment.IndSpec.Nst open Fragment.NestInfo (nPK nK memberVar isMember Positive memberLevel)
 open SetLib IndLib
 
 universe u

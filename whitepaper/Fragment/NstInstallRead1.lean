@@ -30,8 +30,7 @@ at a proposition the inductive hypotheses are inhabited truth values,
 whatever their value.
 -/
 
-namespace Fragment.IndSpec.Nst
-open Fragment.NestInfo (nPK nK memberVar isMember Positive memberLevel)
+namespace Fragment.IndSpec.Nst open Fragment.NestInfo (nPK nK memberVar isMember Positive memberLevel)
 open SetLib IndLib
 
 universe u

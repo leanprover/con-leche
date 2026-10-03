@@ -69,8 +69,7 @@ the single value of its graph (`GraphRecKit.exu`,
 one mechanism for every sort and regime.
 -/
 
-namespace Fragment.IndSpec.Nst
-open Fragment.NestInfo (nPK nK memberVar isMember Positive memberLevel)
+namespace Fragment.IndSpec.Nst open Fragment.NestInfo (nPK nK memberVar isMember Positive memberLevel)
 open SetLib UnivLib IndLib
 
 universe u

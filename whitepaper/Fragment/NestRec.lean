@@ -36,8 +36,7 @@ Con-leche: the graph route of `Model/Inductives/BlockRecGraph.lean`,
 the class rows of `GenClsSem.lean`.
 -/
 
-namespace Fragment.IndSpec.Nst
-open Fragment.NestInfo (nPK nK memberVar isMember Positive memberLevel)
+namespace Fragment.IndSpec.Nst open Fragment.NestInfo (nPK nK memberVar isMember Positive memberLevel)
 open SetLib IndLib
 
 universe u

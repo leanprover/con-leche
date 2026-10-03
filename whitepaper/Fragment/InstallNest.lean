@@ -41,8 +41,7 @@ Con-leche: `Model/Inductives/DeclNative.lean` with the class rows of
 `GenClsSem.lean` and `ClassGenUniq.lean`.
 -/
 
-namespace Fragment.IndSpec.Nst
-open Fragment.NestInfo (nPK nK memberVar isMember Positive memberLevel)
+namespace Fragment.IndSpec.Nst open Fragment.NestInfo (nPK nK memberVar isMember Positive memberLevel)
 open SetLib IndLib
 
 universe u

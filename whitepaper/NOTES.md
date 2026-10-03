@@ -565,3 +565,65 @@ comment block at the top of `lib.typ`.
     `AccRead` closure lemmas, `lfpP_acc` and the Bekić lemma would
     lose their `app`/`famSpace` premises the same way. (Accessibility
     lane, 2026-10-03.)
+
+33. **The universal field bound needs no holes-in-context check.**
+    `closed_of_acc` needs the block's operator to map families of
+    the universe to families of the universe, i.e. the constructors'
+    fields bounded along instances of EVERY family of the universe,
+    not just the block's own (`DomsBounded`, `Fragment/IndSem.lean`;
+    con-leche's `LfpClause.fieldsOk`).  The real proof obtains that
+    from a proof-only check — the constructor type-checked with the
+    holes in context (`nestCtors`, OVERVIEW §5, "Checks made for the
+    proof alone") — recorded as `FieldsOkB` at every hole frame.  The
+    fragment obtains it from the ORDINARY typing of the constructor
+    in the environment holding the former (`Ok`, `Decl.lean`): the
+    former's type `∀ params indices, Sort u` is inhabited by the
+    graph of any family of members of `univ u`, so the environment
+    has a model for each such family (`mIndF`, `readerF`,
+    `Fragment/InstallInd.lean`), and soundness read there gives the
+    bound at that family (`domsBounded_of`).  The real proof could
+    drop the holes-in-context check and `fieldsOk` the same way:
+    `EnvModelM`'s constant clause holds of any assignment that sends
+    each member to a family of its tuple space.  (Lane 2, 2026-10-03.)
+
+34. **The recursor's graph is keyed on the member, not on a
+    witness.**  The old fragment's recursor read a propositional
+    major through a chosen tagged-tuple witness (`pick`/`wit`) and
+    needed uniqueness of witnesses for the ι law.  Rebuilt on the
+    set-theoretic family, the graph is keyed on the member itself
+    (`pt` at a proposition) with the member's DECODINGS as the rule's
+    data (`Mem`, `IndRec.lean`), totality is the family's own
+    induction (`Fam_induction`, i.e. `lfpFamSet_induction`), and
+    single-valuedness is `decode_unique`: injectivity of tags and
+    tuples above a proposition, the subsingleton criterion at one —
+    exactly con-leche's `GraphRecKit.huniq` (`SetModel/GraphRec.lean`).
+    The witness detour was never needed.  (Lane 2, 2026-10-03.)
+
+35. **The accessibility bound is one set because no field reads a
+    recursive one.**  The fragment's bound (`bound`, `IndSem.lean`) is,
+    per constructor and per reflexive field, the tuples of the field's
+    telescope at every prefix fitting the ONE-FIBRE family (every fibre
+    `{pt}`), coded by the field's position; an instance of any family
+    has its support inside it because the telescope reads the same at
+    the instance's earlier values once the recursive values are
+    replaced by the one-fibre family's canonical member — the point
+    abstracted over the telescope (`toOne`, `ctxSet_toOne`), which is
+    `NoRecDep` (con-leche's `structUsedLater` guard) and nothing else.
+    The real proof carries the bound as a function of the frame and
+    makes it uniform with `InvOn`/`TeleAcc`; the fragment suggests the
+    uniform bound can be stated directly off the positivity guard.
+    Also: at a proposition the operator's fibres are subsets of `{pt}`,
+    so `MapsFam` is immediate there and no bound is consulted
+    (`closedFam_zero`).  (Lane 2, 2026-10-03.)
+
+36. **For the nested lane's port: the two families agree.**  The
+    nested lane still reads a container's installation through the
+    frozen `BlockLaw` (`NstBlockModel.lean`), stated with the OLD
+    family; `NstSeam.lean` proves the new family equal to it at
+    fitting parameters (`Fam_eq_old`: the old family is closed under
+    the new operator by the old constructor law, and the old
+    predicate's induction puts every old member into the new family),
+    which is what lets the new installation satisfy the old law.  The
+    port of `NestSem` onto the new family can start from that lemma
+    and delete the scaffolding (`NstPrelude`, `NstBound`, `Nst*.lean`,
+    `NstSeam`) as it goes.  (Lane 2, 2026-10-03.)

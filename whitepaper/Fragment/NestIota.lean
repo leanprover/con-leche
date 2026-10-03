@@ -56,8 +56,7 @@ the fields, and the law is not provable from its hypotheses —
 `rec_rule_law1` assumes `N.nPK ≤ S.nP`.
 -/
 
-namespace Fragment.IndSpec.Nst
-open Fragment.NestInfo (nPK nK memberVar isMember Positive memberLevel)
+namespace Fragment.IndSpec.Nst open Fragment.NestInfo (nPK nK memberVar isMember Positive memberLevel)
 open SetLib IndLib
 
 universe u

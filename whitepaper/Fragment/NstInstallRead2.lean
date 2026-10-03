@@ -16,8 +16,7 @@ index expressions fit (`idxFit_of_wd`) and the residual's do
 (`hres_of_wd`) — and the motive's typing (`motiveOk_of_mem`).
 -/
 
-namespace Fragment.IndSpec.Nst
-open Fragment.NestInfo (nPK nK memberVar isMember Positive memberLevel)
+namespace Fragment.IndSpec.Nst open Fragment.NestInfo (nPK nK memberVar isMember Positive memberLevel)
 open SetLib IndLib
 
 universe u
