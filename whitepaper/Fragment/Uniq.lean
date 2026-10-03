@@ -5,7 +5,7 @@ public import Fragment.IndRec
 @[expose] public section
 
 /-!
-# Uniqueness of witnesses under the subsingleton criterion
+# Uniqueness of decodings under the subsingleton criterion
 
 At a proposition every instance decodes the point, and the
 recursor's graph is single-valued only if all its decodings agree

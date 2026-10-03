@@ -926,7 +926,8 @@ theorem recSet_mem (φ : Name → Nat) (ρ : Nat → V) {lsr : List Level}
         appList m' (is.reverse ++ [t]) ∈ˢ (univ 0 : V) := fun is t ht => by
       rw [← hz]
       refine R₃.R.motiveOk_of_mem hS hps hp hm is
-        (S.idx_fits_of_mem_Fam m.M _ hpl (noRecDep hok) (domsBounded_of hpl hs m hok _ ρ hps hp) ?_ ht) t ht
+        (S.idx_fits_of_mem_Fam m.M _ (noRecDep hok) (domsBounded_of hpl hs m hok _ ρ hps hp)
+          (S.contOk_of_plain m.M _ hpl ps) ?_ ht) t ht
       intro j c hc fs hfit
       have hcm : c ∈ S.ctors := List.mem_of_getElem? hc
       exact ((R₃.R.idxFit_of_wd hS hcm (wd_ctorType hs m hok hcm _ ρ) hps hp).2 fs hfit).2.2

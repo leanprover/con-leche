@@ -230,14 +230,14 @@ variable (S : IndSpec) (M : Name → List Nat → V) (ls : List Nat)
 
 /-- The indices of a member of the family fit the index context, once
 every constructor's index expressions fit at fitting fields. -/
-theorem idx_fits_of_mem_Fam {ps : List V} (hpl : S.nest = none) (hnr : S.NoRecDep)
-    (hb : S.DomsBounded M ls ps)
+theorem idx_fits_of_mem_Fam {ps : List V} (hnr : S.NoRecDep) (hb : S.DomsBounded M ls ps)
+    (hco : S.ContOk M ls ps)
     (hidx : ∀ (j : Nat) (c : CtorSpec), S.ctors[j]? = some c → ∀ fs,
       S.FitsFields M ls (S.Fam M ls ps) ps c.fields fs →
       FitsVals M (S.ψ ls) (envP ps) S.indices (S.idxVals M ls (consList fs (envP ps)) c.idx))
     {is : List V} {t : V} (ht : t ∈ˢ S.Fam M ls ps is) :
     FitsVals M (S.ψ ls) (envP ps) S.indices is := by
-  obtain ⟨j, c, fs, hc, hfit, his, -⟩ := (S.mem_Fam M ls hnr hb (S.contOk_of_plain M ls hpl ps)).mp ht
+  obtain ⟨j, c, fs, hc, hfit, his, -⟩ := (S.mem_Fam M ls hnr hb hco).mp ht
   rw [his]
   exact hidx j c hc fs hfit
 

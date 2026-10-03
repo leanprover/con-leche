@@ -33,34 +33,6 @@ variable {V : Type u} [IndLib V]
 
 /-- The closed base environment: every variable the point. -/
 def base : Nat → V := fun _ => pt
-/-- **A fibre at a regime**: at a proposition (`z = true`) the truth
-value "`P` has a member", above it the members of `U` satisfying
-`P`. -/
-def fibreR (z : Bool) (U : V) (P : V → Prop) : V :=
-  if z then truthVal (∃ x, P x) else sep U P
-
-theorem mem_fibreR_true {U : V} {P : V → Prop} {x : V} :
-    x ∈ˢ fibreR true U P ↔ x = pt ∧ ∃ y, P y := by
-  simp [fibreR, mem_truthVal]
-
-theorem mem_fibreR_false {U : V} {P : V → Prop} {x : V} :
-    x ∈ˢ fibreR false U P ↔ x ∈ˢ U ∧ P x := by
-  simp [fibreR, mem_sep]
-
-theorem fibreR_mono {z : Bool} {U : V} {P Q : V → Prop} (h : ∀ x, P x → Q x) :
-    fibreR z U P ⊆ˢ fibreR z U Q := by
-  intro x hx
-  cases z
-  · rw [mem_fibreR_false] at hx ⊢; exact ⟨hx.1, h x hx.2⟩
-  · rw [mem_fibreR_true] at hx ⊢; exact ⟨hx.1, hx.2.imp h⟩
-
-/-- A fibre is in the universe: a truth value is in `univ 0`, a
-separated part of a member of a positive universe is in it. -/
-theorem fibreR_mem_univ {z : Bool} {n : Nat} {U : V} {P : V → Prop} (h : z = true ↔ n = 0)
-    (hU : z = false → U ∈ˢ (univ n : V)) : fibreR z U P ∈ˢ (univ n : V) := by
-  cases z
-  · exact sep_mem_univ (hU rfl)
-  · rw [h.mp rfl]; exact truthVal_mem_univ_zero _
 /-- The point applied to anything is the point. -/
 theorem appList_pt : ∀ vs : List V, appList (pt : V) vs = pt
   | [] => rfl
@@ -166,9 +138,6 @@ theorem valOf_map_eval (φ : Name → Nat) :
       have ih := valOf_map_eval φ hlen (List.mem_of_ne_of_mem h hn)
       simp only [valOf, Level.substVal, Level.lookupLevel] at ih
       simpa [hb] using ih
-/-- A family predicate: parameters, indices, candidate member. -/
-abbrev FamP (V : Type u) := List V → List V → V → Prop
-
 /-- The graph relation's shape: parameters, motive, minors, indices,
 witness, value. -/
 abbrev RecP (V : Type u) := List V → V → List V → List V → V → V → Prop
@@ -271,63 +240,12 @@ theorem earlier_cons {v : V} {fs : List V} {k : Nat} (hk : k ≤ fs.length) :
     earlier (v :: fs) k = earlier fs k := by
   simp only [earlier, List.length_cons]
   rw [show fs.length + 1 - k = (fs.length - k) + 1 by omega, List.drop_succ_cons]
-/-- Replace the values at recursive positions by the point. -/
-def junkRec : List Field → List V → List V
-  | f :: fields, v :: vs => (if f.isRec then pt else v) :: junkRec fields vs
-  | _, vs => vs
-
 /-- **No field reads an earlier recursive field** (the block-level
 hypothesis). -/
 def NoRecDep : Prop :=
   ∀ c ∈ S.ctors, ∀ i f, c.fields[i]? = some f → fieldNoRecDep (c.fields.drop (i + 1)) f
 /-- No container field: a plain block's constructors. -/
 def NoCont : Prop := ∀ c ∈ S.ctors, ∀ f ∈ c.fields, f.isCont = false
-theorem junkRec_length : ∀ (fields : List Field) (fs : List V), (junkRec fields fs).length = fs.length
-  | [], _ => rfl
-  | _ :: _, [] => rfl
-  | _ :: fields, _ :: fs => by simp [junkRec, junkRec_length fields fs]
-
-theorem junkRec_cons (f : Field) (fields : List Field) (v : V) (fs : List V) :
-    junkRec (f :: fields) (v :: fs) = (if f.isRec then pt else v) :: junkRec fields fs := rfl
-
-/-- The junked values agree with the values at every non-recursive
-position. -/
-theorem consList_junkRec_eq (ρ : Nat → V) :
-    ∀ (fields : List Field) (fs : List V) (i : Nat),
-      (∀ f, fields[i]? = some f → f.isRec = false) →
-      consList (junkRec fields fs) ρ i = consList fs ρ i
-  | [], _, _, _ => rfl
-  | _ :: _, [], _, _ => rfl
-  | f :: _, _ :: _, 0, h => by
-    have := h f rfl
-    simp [junkRec_cons, this]
-  | _ :: fields, _ :: fs, i + 1, h => by
-    simp only [junkRec_cons, consList_cons, cons_succ]
-    exact consList_junkRec_eq ρ fields fs i fun f' hf' => h f' hf'
-
-/-- An expression that reads no recursive earlier field reads alike
-under the values and under the junked values (`d` own binders on
-top). -/
-theorem interp_junkRec {fields : List Field} {fs ys : List V} {d : Nat} (ρ : Nat → V) (e : Expr)
-    (hy : ys.length = d)
-    (h : ∀ i f, fields[i]? = some f → f.isRec = true → e.usesVar (d + i) = false) :
-    interp M (S.ψ ls) (consList ys (consList (junkRec fields fs) ρ)) e
-      = interp M (S.ψ ls) (consList ys (consList fs ρ)) e := by
-  apply interp_usesVar
-  intro j hj
-  by_cases hjd : j < d
-  · rw [consList_lt (by omega), consList_lt (by omega)]
-  · obtain ⟨i, rfl⟩ : ∃ i, j = i + d := ⟨j - d, by omega⟩
-    rw [← hy, consList_ge, consList_ge]
-    apply consList_junkRec_eq
-    intro f hf
-    cases hr : f.isRec with
-    | false => rfl
-    | true =>
-      exfalso
-      have := h i f hf hr
-      rw [Nat.add_comm] at hj
-      simp [this] at hj
 /-- The minor for constructor `j` among the minors (innermost first). -/
 def minorAt (mins : List V) (j : Nat) : V := mins.getD (S.n - 1 - j) pt
 /-- A container field in a plain block is impossible. -/

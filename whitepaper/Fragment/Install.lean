@@ -15,8 +15,8 @@ The two environment steps and their models:
   keeps its set.
 * **An inductive block** (`install_ind`, here): the former's set is
   the graph over the parameters and indices of the fibre — the least
-  fixed point of the constructors' operator, separated from a set
-  the closure law bounds it by (`IndSem.lean`); each constructor's
+  fixed point of the block's operator inside the set theory
+  (`IndSem.lean`); each constructor's
   set is the graph of its tagged tuple, the recursor's the graph of
   the model's recursor (the recursion theorem over the fixed point);
   every stored constant keeps its set (`agree_M₃`).  The three laws:
