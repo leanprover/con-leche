@@ -364,22 +364,32 @@ operator maps the universe to itself. With accessibility,
 the least fixed point as in @sec:ind-model, with its fixed-point
 equation and its induction.
 
-*The recursors.* All recursors of the block are read off one graph: the
-least relation between a class, an element of it and a value that is
-closed under the rules of every recursor — at a constructor of a class,
-the class's minor applied to the fields and to the graph's values at
-the fields' landing classes. It is single-valued as in @sec:ind-model,
-since tagged tuples are injective and, at the elimination level zero,
-both sides are the point; the guard spares the model the agreement of
-decodings that a large eliminator out of a proposition needs. It is
-total by one induction over all the classes together: the family's
-induction, entering at each nested field the container's own induction
-at the instantiation, as deep as the walk went
+*The recursors.* For a simple block, @sec:ind-model defines the
+recursor's value by the recursion equation and obtains it as a
+_graph_ in the set-theoretic sense: a relation between elements of the
+family and values, the least one closed under the equation, which is
+then shown to be a function. A nested block has several recursors,
+one per class, and they call each other: the $iota$ rules of
+@sec:nest-rec, read as equations, define $TreeRec$ on $TreeNode$ in
+terms of $TreeRec1$ at the list of children, and $TreeRec1$ on
+$ListCons$ in terms of $TreeRec$ at the head. So the two are defined together, by one relation: the
+least relation between a class (here `Tree α` or `List (Tree α)`), an
+element of that class, and a value, closed under all these equations
+at once. As in @sec:ind-model it is single-valued, because tagged
+tuples are injective (at the elimination level zero both sides are the
+point; a large eliminator out of a proposition is refused for nested
+blocks, so the decodings argument of @sec:ind-model is not needed).
+It is total by one induction over all the classes together: the
+family's induction, entering, at each nested field, the container's own
+induction at the instantiation, as deep as the walk went
 (#src("ConLeche/SetModel/NestRec.lean", 8, 46)[the induction over the classes],
 #src("ConLeche/SetModel/NestRecCls.lean", 6, 29)[read at the recursors' classes]).
-The $iota$ laws follow as in @sec:ind-model: for a rule of
-$T.sans("rec")_1$ the major is a container's constructor applied; the
+Each recursor is then this relation restricted to its class, curried
+over its arguments.
+
+*The ι laws.* They follow as in @sec:ind-model. For a rule of
+$TreeRec1$ the major is a constructor of `List` applied; the
 recursor's fit puts its value in the class at the recursor's
-parameters, and the container's fixed-point equation there identifies
-the constructor and the fields with the rule's
+parameters, and `List`'s fixed-point equation there identifies the
+constructor and the fields with the rule's
 (#src("ConLeche/Model/Inductives/BlockRecLaw.lean", 448, 456)[the graph's equation, lifted to the law]).
