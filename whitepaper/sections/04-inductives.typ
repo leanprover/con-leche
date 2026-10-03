@@ -351,7 +351,7 @@ every rule of every stored recursor satisfies its $iota$ law
 
 *The axioms, extended.* Beyond the laws of @sec:lib the inductive
 section uses
-#src("whitepaper/Fragment/IndLib.lean", 136, 171)[five laws],
+#src("whitepaper/Fragment/IndLib.lean", 46, 63)[five laws],
 all for positive universes $cal(U)_n$, $n >= 1$:
 
 + _Separation stays in the universe_: if $A in cal(U)_n$ then
@@ -362,13 +362,13 @@ all for positive universes $cal(U)_n$, $n >= 1$:
   when every component is.
 + _Tags_ $tag(j, x)$, a set with a number $j$ attached: injective,
   in $cal(U)_n$ when $x$ is, and $tag(j, x) != pt$.
-+ #src("whitepaper/Fragment/IndLib.lean", 162, 171)[_Inductive closure_], a law about size. For every index
++ #src("whitepaper/Fragment/IndLibCompat.lean", 106, 115)[_Inductive closure_], a law about size. For every index
   set $iota$ and every list of
-  #src("whitepaper/Fragment/IndLib.lean", 98, 116)[constructor telescopes] $C_1, dots, C_m$ with target
+  #src("whitepaper/Fragment/IndLibCompat.lean", 65, 83)[constructor telescopes] $C_1, dots, C_m$ with target
   indices $t_1, dots, t_m$, there is a family $W$ with
   $ & W(i) in cal(U)_n quad "for every" i in iota, "and" \
     & tag(j, tuple(arrow(f))) in W(t_j (arrow(f))) quad "for every bounded instance" arrow(f) "of" C_j "relative to" W, $
-  where a #src("whitepaper/Fragment/IndLib.lean", 122, 130)[_bounded instance_] is a list of values fitting the
+  where a #src("whitepaper/Fragment/IndLibCompat.lean", 89, 97)[_bounded instance_] is a list of values fitting the
   telescope such that every ordinary domain met is a member of
   $cal(U)_n$ and the value lies in it, a value for a field in the
   family at $i$ lies in $W(i)$, and a value for a reflexive field
@@ -382,10 +382,10 @@ needed, because the least fixed point is taken on _predicates_ over
 sets, in the ambient logic, and only afterwards turned into a set.
 The operators of this section act on predicates, and the least fixed
 point of a monotone operator $Phi$ on predicates is
-#src("whitepaper/Fragment/IndLib.lean", 231, 234)[a definition]:
+#src("whitepaper/Fragment/IndLib.lean", 115, 118)[a definition]:
 $lfp(Phi)(a)$ holds when every predicate closed under $Phi$ holds at
 $a$. That it is closed, that it is a fixed point and that it supports
-induction #src("whitepaper/Fragment/IndLib.lean", 240, 259)[follow directly] — the
+induction #src("whitepaper/Fragment/IndLib.lean", 124, 142)[follow directly] — the
 definition quantifies over all predicates, which the ambient logic's
 impredicative $Prop$ permits. Separation then turns the predicate,
 restricted to any set, into a set.
@@ -447,7 +447,7 @@ values
 reflexive field's domain is a function space into fibres of $Z$ —
 at the empty telescope, a fibre of $Z$ itself — and the function
 space is monotone in its fibres
-(#src("whitepaper/Fragment/IndLib.lean", 204, 221)[fragment]), so
+(#src("whitepaper/Fragment/IndLib.lean", 81, 98)[fragment]), so
 $Phi$ is monotone and has a least fixed point
 (#src("whitepaper/Fragment/IndSem.lean", 353, 356)[the operator],
 #src("whitepaper/Fragment/IndSem.lean", 474, 475)[its least fixed point]). Then, in the regime
@@ -639,7 +639,7 @@ argument's, and the law
   $tag(j, tuple(arrow(F)))$, $arrow(F)$ the fields among $arrow(F)'$;
   and here is the point of
   the least fixed point: a member of the fibre is a step from
-  members (#src("whitepaper/Fragment/IndLib.lean", 248, 251)[the fixed-point equation, read backwards]), so it is
+  members (#src("whitepaper/Fragment/IndLib.lean", 132, 135)[the fixed-point equation, read backwards]), so it is
   $tag(j', tuple(arrow(F)''))$ for some constructor $j'$ and fields
   $arrow(F)''$ fitting $c_(j')$'s field telescope _at the recursor's
   parameters_, with the recursor's indices as the values of

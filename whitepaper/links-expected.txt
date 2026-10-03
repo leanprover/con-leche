@@ -2787,115 +2787,96 @@
    217        RecRuleLaw M c ci numParams (numParams + numMotives + numMinors)
    218          (numParams + numMotives + numMinors + numIndices) rl cij
 
-== whitepaper/Fragment/IndLib.lean#L136-L171
-   136  /-- **The library for inductive types**: `SetLib` with separation
-   137  inside the universes, transitivity, tuples, tags and inductive
-   138  closure. -/
-   139  class IndLib (V : Type u) extends SetLib V where
-   140    /-- A separated part of a member of a positive universe is a member of
-   141    it. -/
-   142    sep_mem_univ : ∀ {n : Nat} {A : V} {P : V → Prop}, n ≠ 0 →
-   143      Mem A (univ n) → Mem (sep A P) (univ n)
-   144    /-- The positive universes are transitive: a member of a member is a
-   145    member. -/
-   146    univ_trans : ∀ {n : Nat} {A x : V}, n ≠ 0 → Mem A (univ n) → Mem x A → Mem x (univ n)
-   147    /-- The n-ary tuple of a list of sets. -/
-   148    tuple : List V → V
-   149    /-- Tuples are injective. -/
-   150    tuple_inj : ∀ {xs ys : List V}, tuple xs = tuple ys → xs = ys
-   151    /-- A tuple of members of a positive universe is a member of it. -/
-   152    tuple_mem_univ : ∀ {n : Nat} {xs : List V}, n ≠ 0 →
-   153      (∀ x ∈ xs, Mem x (univ n)) → Mem (tuple xs) (univ n)
-   154    /-- A value tagged with a number. -/
-   155    tag : Nat → V → V
-   156    /-- Tags are injective. -/
-   157    tag_inj : ∀ {i j : Nat} {x y : V}, tag i x = tag j y → i = j ∧ x = y
-   158    /-- A tagged member of a positive universe is a member of it. -/
-   159    tag_mem_univ : ∀ {n i : Nat} {x : V}, n ≠ 0 → Mem x (univ n) → Mem (tag i x) (univ n)
-   160    /-- A tagged value is never the point. -/
-   161    tag_ne_pt : ∀ {i : Nat} {x : V}, tag i x ≠ pt
-   162    /-- **Inductive closure** of the positive universes: for every list
-   163    of constructor telescopes with their target indices, some family of
-   164    members of `univ n` is closed under every bounded instance of every
-   165    constructor — the tagged tuple of the instance's values is a member
-   166    of the family at the constructor's target. -/
-   167    inductive_closure : ∀ {ι : Type u} {n : Nat}, n ≠ 0 →
-   168      ∀ cs : List (TeleX ι V × (List V → ι)),
-   169        ∃ W : ι → V, (∀ i, Mem (W i) (univ n)) ∧
-   170          ∀ (j : Nat) (c : TeleX ι V × (List V → ι)) (fs : List V), cs[j]? = some c →
-   171            TeleX.FitsB n W c.1 fs → Mem (tag j (tuple fs)) (W (c.2 fs))
+== whitepaper/Fragment/IndLib.lean#L46-L63
+    46  /-- **The library for inductive types**: the universes with tuples and
+    47  tags. -/
+    48  class IndLib (V : Type u) extends UnivLib V where
+    49    /-- The n-ary tuple of a list of sets. -/
+    50    tuple : List V → V
+    51    /-- Tuples are injective. -/
+    52    tuple_inj : ∀ {xs ys : List V}, tuple xs = tuple ys → xs = ys
+    53    /-- A tuple of members of a positive universe is a member of it. -/
+    54    tuple_mem_univ : ∀ {n : Nat} {xs : List V}, n ≠ 0 →
+    55      (∀ x ∈ xs, Mem x (univ n)) → Mem (tuple xs) (univ n)
+    56    /-- A value tagged with a number. -/
+    57    tag : Nat → V → V
+    58    /-- Tags are injective. -/
+    59    tag_inj : ∀ {i j : Nat} {x y : V}, tag i x = tag j y → i = j ∧ x = y
+    60    /-- A tagged member of a positive universe is a member of it. -/
+    61    tag_mem_univ : ∀ {n i : Nat} {x : V}, n ≠ 0 → Mem x (univ n) → Mem (tag i x) (univ n)
+    62    /-- A tagged value is never the point. -/
+    63    tag_ne_pt : ∀ {i : Nat} {x : V}, tag i x ≠ pt
 
-== whitepaper/Fragment/IndLib.lean#L162-L171
-   162    /-- **Inductive closure** of the positive universes: for every list
-   163    of constructor telescopes with their target indices, some family of
-   164    members of `univ n` is closed under every bounded instance of every
-   165    constructor — the tagged tuple of the instance's values is a member
-   166    of the family at the constructor's target. -/
-   167    inductive_closure : ∀ {ι : Type u} {n : Nat}, n ≠ 0 →
-   168      ∀ cs : List (TeleX ι V × (List V → ι)),
-   169        ∃ W : ι → V, (∀ i, Mem (W i) (univ n)) ∧
-   170          ∀ (j : Nat) (c : TeleX ι V × (List V → ι)) (fs : List V), cs[j]? = some c →
-   171            TeleX.FitsB n W c.1 fs → Mem (tag j (tuple fs)) (W (c.2 fs))
+== whitepaper/Fragment/IndLibCompat.lean#L106-L115
+   106    /-- **Inductive closure** (the old law): for every list of
+   107    constructor telescopes with their target indices, some family of
+   108    members of `univ n` is closed under every bounded instance of every
+   109    constructor — the tagged tuple of the instance's values is a member
+   110    of the family at the constructor's target. -/
+   111    inductive_closure : ∀ {ι : Type u} {n : Nat}, n ≠ 0 →
+   112      ∀ cs : List (TeleX ι V × (List V → ι)),
+   113        ∃ W : ι → V, (∀ i, Mem (W i) (univ n)) ∧
+   114          ∀ (j : Nat) (c : TeleX ι V × (List V → ι)) (fs : List V), cs[j]? = some c →
+   115            TeleX.FitsB n W c.1 fs → Mem (tag j (tuple fs)) (W (c.2 fs))
 
-== whitepaper/Fragment/IndLib.lean#L98-L116
-    98  /-- **A constructor telescope** relative to a family over an index
-    99  type `ι`, outermost first: an *ordinary* field with a domain, the rest
-   100  depending on its value; a field *in the family* at an index (`recur`:
-   101  what a container field, and the member field of a container, is read
-   102  as); a field that is a *function* from a telescope of sets into the
-   103  family at targets depending on the arguments (`refl`: a reflexive
-   104  field of the block, with the empty telescope when it is recursive).
-   105  After either the rest does not depend on the value (con-leche's
-   106  `structUsedLater` guard run by `nestCtors`, `Positivity.lean:1247`). -/
-   107  inductive TeleX (ι : Type u) (V : Type u) : Type u where
-   108    /-- No more fields. -/
-   109    | nil : TeleX ι V
-   110    /-- An ordinary field. -/
-   111    | ord (A : V) (rest : V → TeleX ι V) : TeleX ι V
-   112    /-- A field in the family at `i`. -/
-   113    | recur (i : ι) (rest : TeleX ι V) : TeleX ι V
-   114    /-- A field that is a function over `tele` into the family at `tgt`
-   115    of the arguments (a reflexive field). -/
-   116    | refl (tele : TeleS V) (tgt : List V → ι) (rest : TeleX ι V) : TeleX ι V
+== whitepaper/Fragment/IndLibCompat.lean#L65-L83
+    65  /-- **A constructor telescope** relative to a family over an index
+    66  type `ι`, outermost first: an *ordinary* field with a domain, the rest
+    67  depending on its value; a field *in the family* at an index (`recur`:
+    68  what a container field, and the member field of a container, is read
+    69  as); a field that is a *function* from a telescope of sets into the
+    70  family at targets depending on the arguments (`refl`: a reflexive
+    71  field of the block, with the empty telescope when it is recursive).
+    72  After either the rest does not depend on the value (con-leche's
+    73  `structUsedLater` guard run by `nestCtors`, `Positivity.lean:1247`). -/
+    74  inductive TeleX (ι : Type u) (V : Type u) : Type u where
+    75    /-- No more fields. -/
+    76    | nil : TeleX ι V
+    77    /-- An ordinary field. -/
+    78    | ord (A : V) (rest : V → TeleX ι V) : TeleX ι V
+    79    /-- A field in the family at `i`. -/
+    80    | recur (i : ι) (rest : TeleX ι V) : TeleX ι V
+    81    /-- A field that is a function over `tele` into the family at `tgt`
+    82    of the arguments (a reflexive field). -/
+    83    | refl (tele : TeleS V) (tgt : List V → ι) (rest : TeleX ι V) : TeleX ι V
 
-== whitepaper/Fragment/IndLib.lean#L122-L130
-   122  /-- **A bounded instance** of a constructor telescope relative to a
-   123  family `W`: values (outermost first) fitting it, every domain met a
-   124  member of `univ n`, `recur` values in `W` at their index, `refl`
-   125  values in the function space into `W` at the targets. -/
-   126  def FitsB (n : Nat) (W : ι → V) : TeleX ι V → List V → Prop
-   127    | nil, [] => True
-   128    | ord A rest, v :: vs => A ∈ˢ univ n ∧ v ∈ˢ A ∧ FitsB n W (rest v) vs
-   129    | recur i rest, v :: vs => v ∈ˢ W i ∧ FitsB n W rest vs
-   130    | refl tele tgt rest, v :: vs =>
+== whitepaper/Fragment/IndLibCompat.lean#L89-L97
+    89  /-- **A bounded instance** of a constructor telescope relative to a
+    90  family `W`: values (outermost first) fitting it, every domain met a
+    91  member of `univ n`, `recur` values in `W` at their index, `refl`
+    92  values in the function space into `W` at the targets. -/
+    93  def FitsB (n : Nat) (W : ι → V) : TeleX ι V → List V → Prop
+    94    | nil, [] => True
+    95    | ord A rest, v :: vs => A ∈ˢ univ n ∧ v ∈ˢ A ∧ FitsB n W (rest v) vs
+    96    | recur i rest, v :: vs => v ∈ˢ W i ∧ FitsB n W rest vs
+    97    | refl tele tgt rest, v :: vs =>
 
-== whitepaper/Fragment/IndLib.lean#L231-L234
-   231  /-- **The least fixed point** of an operator on predicates: the
-   232  intersection of every predicate closed under it. -/
-   233  def Lfp {α : Sort _} (Φ : (α → Prop) → (α → Prop)) : α → Prop :=
-   234    fun a => ∀ P : α → Prop, (∀ b, Φ P b → P b) → P a
+== whitepaper/Fragment/IndLib.lean#L115-L118
+   115  /-- **The least fixed point** of an operator on predicates: the
+   116  intersection of every predicate closed under it. -/
+   117  def Lfp {α : Sort _} (Φ : (α → Prop) → (α → Prop)) : α → Prop :=
+   118    fun a => ∀ P : α → Prop, (∀ b, Φ P b → P b) → P a
 
-== whitepaper/Fragment/IndLib.lean#L240-L259
-   240  /-- The least fixed point is below every closed predicate. -/
-   241  theorem least {P : α → Prop} (h : ∀ b, Φ P b → P b) {a : α} (ha : Lfp Φ a) : P a :=
-   242    ha P h
-   243  
-   244  /-- The least fixed point is closed. -/
-   245  theorem closed (hm : Mono Φ) {a : α} (h : Φ (Lfp Φ) a) : Lfp Φ a :=
-   246    fun P hP => hP a (hm _ _ (fun _ hb => hb P hP) a h)
-   247  
-   248  /-- The least fixed point is a fixed point: a member is a step from
-   249  members. -/
-   250  theorem unfold (hm : Mono Φ) {a : α} (h : Lfp Φ a) : Φ (Lfp Φ) a :=
-   251    h (fun b => Φ (Lfp Φ) b) fun b hb => hm _ _ (fun _ hc => closed hm hc) b hb
-   252  
-   253  /-- **Induction**: a property that holds at every step from members
-   254  that have it (and are members) holds on the least fixed point. -/
-   255  theorem induction (hm : Mono Φ) {P : α → Prop}
-   256      (h : ∀ b, Φ (fun c => Lfp Φ c ∧ P c) b → P b) {a : α} (ha : Lfp Φ a) : P a :=
-   257    (least (P := fun c => Lfp Φ c ∧ P c)
-   258      (fun b hb => ⟨closed hm (hm _ _ (fun _ hc => hc.1) b hb), h b hb⟩) ha).2
-   259  
+== whitepaper/Fragment/IndLib.lean#L124-L142
+   124  /-- The least fixed point is below every closed predicate. -/
+   125  theorem least {P : α → Prop} (h : ∀ b, Φ P b → P b) {a : α} (ha : Lfp Φ a) : P a :=
+   126    ha P h
+   127  
+   128  /-- The least fixed point is closed. -/
+   129  theorem closed (hm : Mono Φ) {a : α} (h : Φ (Lfp Φ) a) : Lfp Φ a :=
+   130    fun P hP => hP a (hm _ _ (fun _ hb => hb P hP) a h)
+   131  
+   132  /-- The least fixed point is a fixed point: a member is a step from
+   133  members. -/
+   134  theorem unfold (hm : Mono Φ) {a : α} (h : Lfp Φ a) : Φ (Lfp Φ) a :=
+   135    h (fun b => Φ (Lfp Φ) b) fun b hb => hm _ _ (fun _ hc => closed hm hc) b hb
+   136  
+   137  /-- **Induction**: a property that holds at every step from members
+   138  that have it (and are members) holds on the least fixed point. -/
+   139  theorem induction (hm : Mono Φ) {P : α → Prop}
+   140      (h : ∀ b, Φ (fun c => Lfp Φ c ∧ P c) b → P b) {a : α} (ha : Lfp Φ a) : P a :=
+   141    (least (P := fun c => Lfp Φ c ∧ P c)
+   142      (fun b hb => ⟨closed hm (hm _ _ (fun _ hc => hc.1) b hb), h b hb⟩) ha).2
 
 == whitepaper/Fragment/IndSem.lean#L427-L435
    427  /-- **The bounding family** at the parameters, over the joint index:
@@ -2968,25 +2949,25 @@
     66    | ρ, .pi A _ B, v :: vs => v ∈ˢ interp M φ ρ A ∧ TeleFitV M φ (cons v ρ) B vs
     67    | _, _, _ :: _ => False
 
-== whitepaper/Fragment/IndLib.lean#L204-L221
-   204  /-- The function space is monotone in its fibres. -/
-   205  theorem piSet_mono {A : V} {B B' : V → V} (h : ∀ x, x ∈ˢ A → B x ⊆ˢ B' x) :
-   206      piSet A B ⊆ˢ piSet A B' := by
-   207    intro f hf
-   208    rw [← graph_app_eq hf]
-   209    exact graph_mem_piSet fun x hx => h x hx _ (app_mem_piSet hf hx)
-   210  
-   211  /-- The two-regime product is monotone in its fibres; at a proposition
-   212  the larger fibres must be truth values. -/
-   213  theorem piR_mono {p : Bool} {A : V} {B B' : V → V} (h : ∀ x, x ∈ˢ A → B x ⊆ˢ B' x)
-   214      (hB' : p = true → ∀ x, x ∈ˢ A → B' x ∈ˢ univ 0) :
-   215      piR p A B ⊆ˢ piR p A B' := by
-   216    cases p
-   217    · exact piSet_mono h
-   218    · intro f hf
-   219      obtain ⟨rfl, hi⟩ := mem_truthVal.mp hf
-   220      refine pt_mem_truthVal fun x hx => eq_one_of_mem_univ_zero (hB' rfl x hx) (h x hx pt ?_)
-   221      rw [hi x hx]; exact mem_one.mpr rfl
+== whitepaper/Fragment/IndLib.lean#L81-L98
+    81  /-- The function space is monotone in its fibres. -/
+    82  theorem piSet_mono {A : V} {B B' : V → V} (h : ∀ x, x ∈ˢ A → B x ⊆ˢ B' x) :
+    83      piSet A B ⊆ˢ piSet A B' := by
+    84    intro f hf
+    85    rw [← graph_app_eq hf]
+    86    exact graph_mem_piSet fun x hx => h x hx _ (app_mem_piSet hf hx)
+    87  
+    88  /-- The two-regime product is monotone in its fibres; at a proposition
+    89  the larger fibres must be truth values. -/
+    90  theorem piR_mono {p : Bool} {A : V} {B B' : V → V} (h : ∀ x, x ∈ˢ A → B x ⊆ˢ B' x)
+    91      (hB' : p = true → ∀ x, x ∈ˢ A → B' x ∈ˢ univ 0) :
+    92      piR p A B ⊆ˢ piR p A B' := by
+    93    cases p
+    94    · exact piSet_mono h
+    95    · intro f hf
+    96      obtain ⟨rfl, hi⟩ := mem_truthVal.mp hf
+    97      refine pt_mem_truthVal fun x hx => eq_one_of_mem_univ_zero (hB' rfl x hx) (h x hx pt ?_)
+    98      rw [hi x hx]; exact mem_one.mpr rfl
 
 == whitepaper/Fragment/IndSem.lean#L353-L356
    353  /-- **The operator** whose least fixed point is the family: `x` is the
@@ -3444,11 +3425,11 @@
    455  own (`BlockRuleDataAt`'s `mk` conjunct) at a container constructor. -/
    456  theorem blockRecRuleLaw_gen {env : Env} {m₃ : EnvModel V env} {φ : Name → Nat}
 
-== whitepaper/Fragment/IndLib.lean#L248-L251
-   248  /-- The least fixed point is a fixed point: a member is a step from
-   249  members. -/
-   250  theorem unfold (hm : Mono Φ) {a : α} (h : Lfp Φ a) : Φ (Lfp Φ) a :=
-   251    h (fun b => Φ (Lfp Φ) b) fun b hb => hm _ _ (fun _ hc => closed hm hc) b hb
+== whitepaper/Fragment/IndLib.lean#L132-L135
+   132  /-- The least fixed point is a fixed point: a member is a step from
+   133  members. -/
+   134  theorem unfold (hm : Mono Φ) {a : α} (h : Lfp Φ a) : Φ (Lfp Φ) a :=
+   135    h (fun b => Φ (Lfp Φ) b) fun b hb => hm _ _ (fun _ hc => closed hm hc) b hb
 
 == whitepaper/Fragment/Consistency.lean#L36-L47
     36  /-- **The environments the checker accepts**: the empty environment,
@@ -4034,7 +4015,7 @@
 == whitepaper/Fragment/BlockModel.lean#L61-L66
     61  /-- **A model of an environment that remembers its blocks**: an
     62  `EnvModel` with the block law of every stored block. -/
-    63  structure BlockModel (V : Type u) [IndLib V] (env : Env) extends EnvModel V env where
+    63  structure BlockModel (V : Type u) [IndLibCompat V] (env : Env) extends EnvModel V env where
     64    /-- Every stored block's law. -/
     65    blocks : ∀ (K : Name) (ci : ConstInfo) (nP nI : Nat) (cs : List Name) (spec : IndSpec),
     66      env.find? K = some ci → ci.kind = .induct nP nI cs spec → spec.BlockLaw env M
@@ -4386,22 +4367,22 @@
 == whitepaper/Fragment/Lib.lean#L92
     92    graph_app_eq : ∀ {A f : V} {B : V → V}, Mem f (piSet A B) → graph (fun x => app f x) A = f
 
-== whitepaper/Fragment/IndLib.lean#L147-L161
-   147    /-- The n-ary tuple of a list of sets. -/
-   148    tuple : List V → V
-   149    /-- Tuples are injective. -/
-   150    tuple_inj : ∀ {xs ys : List V}, tuple xs = tuple ys → xs = ys
-   151    /-- A tuple of members of a positive universe is a member of it. -/
-   152    tuple_mem_univ : ∀ {n : Nat} {xs : List V}, n ≠ 0 →
-   153      (∀ x ∈ xs, Mem x (univ n)) → Mem (tuple xs) (univ n)
-   154    /-- A value tagged with a number. -/
-   155    tag : Nat → V → V
-   156    /-- Tags are injective. -/
-   157    tag_inj : ∀ {i j : Nat} {x y : V}, tag i x = tag j y → i = j ∧ x = y
-   158    /-- A tagged member of a positive universe is a member of it. -/
-   159    tag_mem_univ : ∀ {n i : Nat} {x : V}, n ≠ 0 → Mem x (univ n) → Mem (tag i x) (univ n)
-   160    /-- A tagged value is never the point. -/
-   161    tag_ne_pt : ∀ {i : Nat} {x : V}, tag i x ≠ pt
+== whitepaper/Fragment/IndLib.lean#L49-L63
+    49    /-- The n-ary tuple of a list of sets. -/
+    50    tuple : List V → V
+    51    /-- Tuples are injective. -/
+    52    tuple_inj : ∀ {xs ys : List V}, tuple xs = tuple ys → xs = ys
+    53    /-- A tuple of members of a positive universe is a member of it. -/
+    54    tuple_mem_univ : ∀ {n : Nat} {xs : List V}, n ≠ 0 →
+    55      (∀ x ∈ xs, Mem x (univ n)) → Mem (tuple xs) (univ n)
+    56    /-- A value tagged with a number. -/
+    57    tag : Nat → V → V
+    58    /-- Tags are injective. -/
+    59    tag_inj : ∀ {i j : Nat} {x y : V}, tag i x = tag j y → i = j ∧ x = y
+    60    /-- A tagged member of a positive universe is a member of it. -/
+    61    tag_mem_univ : ∀ {n i : Nat} {x : V}, n ≠ 0 → Mem x (univ n) → Mem (tag i x) (univ n)
+    62    /-- A tagged value is never the point. -/
+    63    tag_ne_pt : ∀ {i : Nat} {x : V}, tag i x ≠ pt
 
 == whitepaper/Fragment/IndSem.lean#L480-L482
    480  /-- **A constructor's value** at its fields: the point at a
@@ -4419,11 +4400,11 @@
    539  theorem Mem_elim {ps is : List V} {x : V} (h : S.Mem M ls ps is x) :
    540      S.step M ls (S.bound M ls) (S.Mem M ls) ps is x :=
 
-== whitepaper/Fragment/IndLib.lean#L248-L251
-   248  /-- The least fixed point is a fixed point: a member is a step from
-   249  members. -/
-   250  theorem unfold (hm : Mono Φ) {a : α} (h : Lfp Φ a) : Φ (Lfp Φ) a :=
-   251    h (fun b => Φ (Lfp Φ) b) fun b hb => hm _ _ (fun _ hc => closed hm hc) b hb
+== whitepaper/Fragment/IndLib.lean#L132-L135
+   132  /-- The least fixed point is a fixed point: a member is a step from
+   133  members. -/
+   134  theorem unfold (hm : Mono Φ) {a : α} (h : Lfp Φ a) : Φ (Lfp Φ) a :=
+   135    h (fun b => Φ (Lfp Φ) b) fun b hb => hm _ _ (fun _ hc => closed hm hc) b hb
 
 == whitepaper/Fragment/IndSem.lean#L84-L87
     84  /-- **A fibre at a regime**: at a proposition (`z = true`) the truth
@@ -4437,14 +4418,14 @@
    553  theorem mem_Fam_true {ps is : List V} {t : V} (hz : S.z ls = true) :
    554      t ∈ˢ S.Fam M ls ps is ↔ t = pt ∧ ∃ x, S.Mem M ls ps is x := by
 
-== whitepaper/Fragment/IndLib.lean#L150
-   150    tuple_inj : ∀ {xs ys : List V}, tuple xs = tuple ys → xs = ys
+== whitepaper/Fragment/IndLib.lean#L52
+    52    tuple_inj : ∀ {xs ys : List V}, tuple xs = tuple ys → xs = ys
 
-== whitepaper/Fragment/IndLib.lean#L157
-   157    tag_inj : ∀ {i j : Nat} {x y : V}, tag i x = tag j y → i = j ∧ x = y
+== whitepaper/Fragment/IndLib.lean#L59
+    59    tag_inj : ∀ {i j : Nat} {x y : V}, tag i x = tag j y → i = j ∧ x = y
 
-== whitepaper/Fragment/IndLib.lean#L161
-   161    tag_ne_pt : ∀ {i : Nat} {x : V}, tag i x ≠ pt
+== whitepaper/Fragment/IndLib.lean#L63
+    63    tag_ne_pt : ∀ {i : Nat} {x : V}, tag i x ≠ pt
 
 == whitepaper/Fragment/Lib.lean#L115-L121
    115  /-- The truth value of a proposition: `{pt}` if it holds, `∅` if

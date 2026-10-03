@@ -37,7 +37,7 @@ the real proof's case.
 
 Recall what @sec:ind sets up. A constructor application $c thick arrow(p)
 thick arrow(f)$ of a block whose family is type-valued denotes
-a #src("whitepaper/Fragment/IndLib.lean", 147, 161)[tagged tuple]
+a #src("whitepaper/Fragment/IndLib.lean", 49, 63)[tagged tuple]
 $tag(i, chevron.l lden f_1 rden, ..., lden f_n rden chevron.r)$ — the
 constructor's number $i$, then its fields
 (#src("whitepaper/Fragment/IndSem.lean", 480, 482)[fragment]) — and
@@ -47,7 +47,7 @@ under the constructor steps], so that
 #src("whitepaper/Fragment/IndSem.lean", 538, 540)[a member of the
 family is a tagged tuple that one constructor step produces] from
 members of the field domains (this is the fixed-point equation of §4,
-#src("whitepaper/Fragment/IndLib.lean", 248, 251)[read from left to
+#src("whitepaper/Fragment/IndLib.lean", 132, 135)[read from left to
 right]). When the family is proposition-valued — the binders of the
 constructors' types, whose bodies are the family, are annotated
 $ann(zn(u))$ for the result sort $Sort u$, and that datum holds at
@@ -57,9 +57,9 @@ instead: the constructor step's tuple is not stored, only whether some
 such tuple exists, and #src("whitepaper/Fragment/IndSem.lean", 551, 554)[a
 member of the family, like a constructor application, is the point].
 Tuples and tags are injective
-(#src("whitepaper/Fragment/IndLib.lean", 150)[tuples],
-#src("whitepaper/Fragment/IndLib.lean", 157)[tags]) and a tagged
-value is #src("whitepaper/Fragment/IndLib.lean", 161)[$!= pt$].
+(#src("whitepaper/Fragment/IndLib.lean", 52)[tuples],
+#src("whitepaper/Fragment/IndLib.lean", 59)[tags]) and a tagged
+value is #src("whitepaper/Fragment/IndLib.lean", 63)[$!= pt$].
 
 == Proof irrelevance and propositional extensionality <sec:ext-irrel>
 
