@@ -207,29 +207,7 @@ theorem ctxSet_congr (M : Name → List Nat → V) (φ : Name → Nat) :
       obtain ⟨ys, hys, rfl⟩ := (mem_ctxSet M φ ρ').mp ht
       rw [untuple_tuple, h 0 A rfl ys (by simpa using (ihf ys).mpr hys)]
 
-/-! ## Codes: the projections of a path step, numerals -/
-
-open Classical in
-/-- The first component of a path step (`pcons`), the point off them. -/
-noncomputable def pfst (b : V) : V :=
-  if h : ∃ a q : V, pcons a q = b then Classical.choose h else pt
-
-open Classical in
-/-- The second component of a path step, the point off them. -/
-noncomputable def psnd (b : V) : V :=
-  if h : ∃ a q : V, pcons a q = b then Classical.choose (Classical.choose_spec h) else pt
-
-theorem pfst_pcons (a q : V) : pfst (pcons a q) = a := by
-  unfold pfst
-  have h : ∃ a' q' : V, pcons a' q' = pcons a q := ⟨a, q, rfl⟩
-  rw [dif_pos h]
-  exact (pcons_inj (Classical.choose_spec (Classical.choose_spec h))).1
-
-theorem psnd_pcons (a q : V) : psnd (pcons a q) = q := by
-  unfold psnd
-  have h : ∃ a' q' : V, pcons a' q' = pcons a q := ⟨a, q, rfl⟩
-  rw [dif_pos h]
-  exact (pcons_inj (Classical.choose_spec (Classical.choose_spec h))).2
+/-! ## Numerals -/
 
 theorem nat_mem_univ {n : Nat} (hn : n ≠ 0) (k : Nat) : (nat k : V) ∈ˢ univ n :=
   univ_trans hn (omega_mem_univ hn) (mem_omega.mpr ⟨k, rfl⟩)

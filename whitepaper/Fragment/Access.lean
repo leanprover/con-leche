@@ -105,6 +105,28 @@ theorem pcons_mem_univ {n : Nat} {a q : V} (hn : n ≠ 0) (ha : a ∈ˢ univ n) 
   · exact ha
   · exact hq
 
+open Classical in
+/-- The first component of a path step (`pcons`), the point off them. -/
+noncomputable def pfst (b : V) : V :=
+  if h : ∃ a q : V, pcons a q = b then Classical.choose h else pt
+
+open Classical in
+/-- The second component of a path step, the point off them. -/
+noncomputable def psnd (b : V) : V :=
+  if h : ∃ a q : V, pcons a q = b then Classical.choose (Classical.choose_spec h) else pt
+
+theorem pfst_pcons (a q : V) : pfst (pcons a q) = a := by
+  unfold pfst
+  have h : ∃ a' q' : V, pcons a' q' = pcons a q := ⟨a, q, rfl⟩
+  rw [dif_pos h]
+  exact (pcons_inj (Classical.choose_spec (Classical.choose_spec h))).1
+
+theorem psnd_pcons (a q : V) : psnd (pcons a q) = q := by
+  unfold psnd
+  have h : ∃ a' q' : V, pcons a' q' = pcons a q := ⟨a, q, rfl⟩
+  rw [dif_pos h]
+  exact (pcons_inj (Classical.choose_spec (Classical.choose_spec h))).2
+
 /-- Paths of length `k` over `A`: the empty path is the point, a
 longer path a step onto a shorter one.  Con-leche: `accPathsN`. -/
 noncomputable def accPathsN (A : V) : Nat → V
@@ -300,5 +322,164 @@ theorem closed_of_acc (hn : n ≠ 0) (hA : A ∈ˢ (univ n : V)) (hmaps : MapsFa
 end AccIter
 
 export AccIter (closed_of_acc)
+
+/-! ## The nested case: the least family is accessible in its parameter
+
+A container field of a nested block ranges over the container's family
+read at the nested position set to the block's approximant — a least
+fixed point in its OWN family, with the approximant as a PARAMETER.
+The block's accessibility needs the container value's dependence on
+that parameter to be bounded, and here is where it comes from: when
+the container's operator is accessible JOINTLY in the parameter and
+its own family, with one bound `A`, the least fixed point as a
+function of the parameter is accessible with the bound `accPaths A`.
+The support of a member of the least fixed point at `X` is read off
+its own induction: a member produced by the operator has a support of
+at most `A`-many occurrences, each either an occurrence in `X` (a
+leaf) or a member of the least fixed point whose support in `X` the
+induction hypothesis gives; the paths glue them (`pcons`).  The
+family's closedness at every parameter is `closed_of_acc` of the
+section.  Con-leche: `lfpP_acc`, `ConLeche/SetModel/Access.lean`
+("THE NESTED CASE: the least tuple is accessible in its parameter"),
+with the parameter and own components of a tuple here a sum type of
+indices. -/
+
+section Param
+
+variable [Nonempty ι] [Nonempty κ] {n : Nat}
+
+omit [Nonempty ι] [Nonempty κ] in
+/-- A family over a sum of index types from one over each.  Con-leche:
+`catT`. -/
+theorem InUniv.elim {X : ι → V} {Y : κ → V} (hX : InUniv n X) (hY : InUniv n Y) :
+    InUniv n (Sum.elim X Y) := by
+  intro i
+  cases i with
+  | inl i => exact hX i
+  | inr j => exact hY j
+
+omit [Nonempty ι] in
+/-- **The section at a parameter** of a jointly accessible operator is
+accessible: the support's occurrences in the parameter are already
+held, the others are occurrences in the own family.  Con-leche:
+`AccTuple.section`. -/
+theorem AccFam.section {Θ : (ι ⊕ κ → V) → κ → V} {A : V} (h : AccFam n Θ A) {X : ι → V}
+    (hX : InUniv n X) : AccFam n (fun Y => Θ (Sum.elim X Y)) A := by
+  intro Y hY j x hx
+  obtain ⟨B, g, hB, hg, hs⟩ := h _ (hX.elim hY) j x hx
+  classical
+  refine ⟨sep B fun a => ∃ j', (g a).1 = Sum.inr j',
+    fun a => ((match (g a).1 with | .inl _ => Classical.ofNonempty | .inr j' => j'), (g a).2),
+    sep_sub.trans hB, ?_, ?_⟩
+  · intro a ha
+    obtain ⟨haB, j', hj'⟩ := mem_sep.mp ha
+    have := hg a haB
+    unfold InFam at this ⊢
+    rw [hj'] at this
+    simpa [hj'] using this
+  · intro Y' hY' h'
+    refine hs _ (hX.elim hY') fun a ha => ?_
+    have := hg a ha
+    unfold InFam at this ⊢
+    cases hga : (g a).1 with
+    | inl i => rw [hga] at this; simpa using this
+    | inr j' =>
+      have := h' a (mem_sep.mpr ⟨ha, j', hga⟩)
+      unfold InFam at this
+      simpa [hga] using this
+
+omit [Nonempty ι] [Nonempty κ] in
+/-- **The least family of `Θ` at the parameter `X`**: the least fixed
+point of `Θ`'s section at `X` — a container's family at an
+instantiation.  Con-leche: `lfpP`. -/
+noncomputable def lfpP (n : Nat) (Θ : (ι ⊕ κ → V) → κ → V) (X : ι → V) : κ → V :=
+  lfpFamSet n fun Y => Θ (Sum.elim X Y)
+
+omit [Nonempty κ] in
+/-- Supports chosen for every code of a set (skolemisation).
+Con-leche: `skolem_supp`. -/
+theorem skolem_supp {S : V} {Q : V → V → (V → ι × V) → Prop}
+    (h : ∀ a, a ∈ˢ S → ∃ B g, Q a B g) :
+    ∃ (Bf : V → V) (gf : V → V → ι × V), ∀ a, a ∈ˢ S → Q a (Bf a) (gf a) := by
+  classical
+  refine ⟨fun a => if h' : a ∈ˢ S then Classical.choose (h a h') else empty,
+    fun a => if h' : a ∈ˢ S then Classical.choose (Classical.choose_spec (h a h'))
+      else fun _ => (Classical.ofNonempty, pt), fun a ha => ?_⟩
+  simp only [dif_pos ha]
+  exact Classical.choose_spec (Classical.choose_spec (h a ha))
+
+/-- **The nested case: the least family is accessible in its
+parameter.**  If the joint operator (the parameter's indices on the
+left, its own on the right) is `A`-accessible and maps families in
+the universe to families in the universe, then `X ↦ lfpP Θ X` is
+`accPaths A`-accessible: by induction over the least family at `X`, a
+member's support is the paths through the operator's support — a leaf
+for an occurrence in `X`, the induction hypothesis' support below an
+occurrence in the least family — and every parameter holding it
+produces the member by the closedness of its least family.
+Con-leche: `lfpP_acc`. -/
+theorem lfpP_acc (hn : n ≠ 0) {Θ : (ι ⊕ κ → V) → κ → V} {A : V} (hA : A ∈ˢ (univ n : V))
+    (hmaps : ∀ X Y, InUniv n X → InUniv n Y → InUniv n (Θ (Sum.elim X Y)))
+    (hacc : AccFam n Θ A) : AccFam n (lfpP n Θ) (accPaths A) := by
+  -- the closed family and the monotonicity of every section
+  have hcl : ∀ X, InUniv n X → ∃ L, IsClosedFam n (fun Y => Θ (Sum.elim X Y)) L :=
+    fun X hX => closed_of_acc hn hA (fun Y hY => hmaps X Y hX hY) (hacc.section hX)
+  have hmono : ∀ X, InUniv n X → MonoFam n (fun Y => Θ (Sum.elim X Y)) :=
+    fun X hX => (hacc.section hX).mono
+  intro X hX
+  -- the property, proved by induction over the least family at `X`
+  let P : κ → V → Prop := fun j y =>
+    ∃ (B : V) (g : V → ι × V), B ⊆ˢ accPaths A ∧ (∀ a, a ∈ˢ B → InFam X (g a)) ∧
+      ∀ X', InUniv n X' → (∀ a, a ∈ˢ B → InFam X' (g a)) → y ∈ˢ lfpP n Θ X' j
+  refine lfpFamSet_induction (hcl X hX) (hmono X hX) P ?_
+  intro j y hy
+  have hS := sepFam_mem n (fun Y => Θ (Sum.elim X Y)) P
+  obtain ⟨B0, g0, hB0, hg0, hs0⟩ := hacc _ (hX.elim hS) j y hy
+  -- the sub-support below every code: a leaf in `X`, or the induction hypothesis'
+  obtain ⟨Bf, gf, hsk⟩ := skolem_supp (S := B0)
+    (Q := fun a B g => B ⊆ˢ accPaths A ∧ (∀ q, q ∈ˢ B → InFam X (g q)) ∧
+      ∀ X', InUniv n X' → (∀ q, q ∈ˢ B → InFam X' (g q)) →
+        InFam (Sum.elim X' (lfpP n Θ X')) (g0 a))
+    (by
+      intro a ha
+      have hin := hg0 a ha
+      unfold InFam at hin
+      cases hga : (g0 a).1 with
+      | inl i =>
+        rw [hga] at hin
+        simp only [Sum.elim_inl] at hin
+        refine ⟨one, fun _ => (i, (g0 a).2), fun q hq => ?_, fun _ _ => hin, fun X' _ h' => ?_⟩
+        · rw [mem_one.mp hq]; exact pt_mem_accPaths A
+        · unfold InFam
+          rw [hga, Sum.elim_inl]
+          exact h' pt (mem_one.mpr rfl)
+      | inr j' =>
+        rw [hga] at hin
+        simp only [Sum.elim_inr, sepFam, mem_sep] at hin
+        obtain ⟨B, g, hB, hg, hs⟩ := hin.2
+        refine ⟨B, g, hB, hg, fun X' hX' h' => ?_⟩
+        unfold InFam
+        rw [hga, Sum.elim_inr]
+        exact hs X' hX' h')
+  refine ⟨famUnion B0 fun a => image (pcons a) (Bf a), fun p => gf (pfst p) (psnd p), ?_, ?_, ?_⟩
+  · intro p hp
+    obtain ⟨a, ha, hp⟩ := mem_famUnion.mp hp
+    obtain ⟨q, hq, rfl⟩ := mem_image.mp hp
+    exact pcons_mem_accPaths (hB0 a ha) ((hsk a ha).1 q hq)
+  · intro p hp
+    obtain ⟨a, ha, hp⟩ := mem_famUnion.mp hp
+    obtain ⟨q, hq, rfl⟩ := mem_image.mp hp
+    show InFam X (gf (pfst (pcons a q)) (psnd (pcons a q)))
+    rw [pfst_pcons, psnd_pcons]
+    exact (hsk a ha).2.1 q hq
+  · intro X' hX' h'
+    have hL' := lfpFamSet_mem n fun Y => Θ (Sum.elim X' Y)
+    refine lfpFamSet_closed (hcl X' hX') (hmono X' hX') j y ?_
+    refine hs0 _ (hX'.elim hL') fun a ha => (hsk a ha).2.2 X' hX' fun q hq => ?_
+    have := h' (pcons a q) (mem_famUnion.mpr ⟨a, ha, mem_image.mpr ⟨q, hq, rfl⟩⟩)
+    show InFam X' (gf a q)
+    rwa [show gf a q = gf (pfst (pcons a q)) (psnd (pcons a q)) by rw [pfst_pcons, psnd_pcons]]
+
+end Param
 
 end Fragment
