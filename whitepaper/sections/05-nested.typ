@@ -325,8 +325,9 @@ carries over. For more details, see the linked con-leche proof.
 *The operator.* Fix the parameters, and let $W$ be the _approximant_,
 the family the operator is applied to, as in @sec:ind-model. A
 container field ranges over the container's own family at the
-instantiation, with $W$ in place of the type being defined: the
-children of a node range over the lists whose entries all lie in $W$.
+instantiation, with $W$ in place of the type being defined: for
+`Tree`, the field `List (Tree α)` of $TreeNode$ ranges over the lists
+whose entries all lie in $W$.
 That family is known, because every installed block leaves
 #src("ConLeche/Model/Annot/BlockLfp.lean", 32, 43)[a clause in the model]:
 its type former denotes, at all parameter values, the least fixed
