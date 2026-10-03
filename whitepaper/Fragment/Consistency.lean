@@ -31,7 +31,7 @@ open SetLib IndLib
 
 universe u
 
-variable (V : Type u) [IndLib V] [LevelOracle]
+variable (V : Type u) [IndLibCompat V] [LevelOracle]
 
 /-- **The environments the checker accepts**: the empty environment,
 a definition the definition check passes, an inductive block the
@@ -46,7 +46,7 @@ inductive Accepted : Env → Prop
   /-- An inductive block, plain or nested (`IndOk`, `Decl.lean`). -/
   | ind {env : Env} (S : IndSpec) : Accepted env → IndOk env S → Accepted (S.install env)
 
-omit [IndLib V] in
+omit [IndLibCompat V] in
 /-- An accepted environment is closed: its stored terms mention only
 stored constants, at their own level parameters. -/
 theorem Accepted.scoped : ∀ {env : Env}, Accepted env → Env.Scoped env

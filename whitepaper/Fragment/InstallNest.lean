@@ -46,7 +46,7 @@ open SetLib IndLib
 
 universe u
 
-variable {V : Type u} [IndLib V] [LevelOracle]
+variable {V : Type u} [IndLibCompat V] [LevelOracle]
 
 namespace IndSpec
 
@@ -652,7 +652,7 @@ theorem domsBounded_ofN (φ : Name → Nat) (ρ : Nat → V) {ps : List V} (hps 
         (by simp [hyl, hel, hps]; omega), consList_append] at hmem
     exact univ_mono (hbound hb) hmem
 
-omit [IndLib V] hs m in
+omit [IndLibCompat V] hs m in
 /-- No field reads an earlier recursive field. -/
 theorem noRecDepN : S.NoRecDep := fun c hc => (hok.scoped.2.2.2.1 c hc).2.1
 

@@ -1,149 +1,51 @@
 module
 
-public import Fragment.Lib
+public import Fragment.Univ
 
 @[expose] public section
 
 /-!
 # The library for inductive types
 
-What the environment section uses of set theory beyond `SetLib`
-(`Lib.lean`), again as laws only: that **separation** (a law of
-`SetLib`) stays inside the positive universes — a separated part of a
-member of one is a member —, **transitivity** of the positive
-universes, **n-ary tuples** (injective, universe-closed) and **tagged
-values** (injective, universe-closed, never the point).  A constructor
-application denotes a tagged tuple — the constructor's number, then
-its fields — and the family is separated from the universe by the
-least-fixed-point predicate below.
+What the environment section uses of set theory beyond the universes
+(`Lib.lean`, `Univ.lean`), again as laws only: **n-ary tuples**
+(injective, universe-closed) and **tagged values** (injective,
+universe-closed, never the point).  A constructor application denotes
+a tagged tuple — the constructor's number, then its fields.  The
+operations are abstract, so their closure laws cannot be derived from
+the universe laws and stay laws.
 
-**Least fixed points are theorems, not laws.**  The family of an
-inductive block is the least fixed point of a monotone operator on
-*predicates*; the ambient logic's `Prop` is impredicative, so that
-least fixed point is a definition (`Lfp`: the intersection of all
-closed predicates), and the fixed-point equation and the induction
-principle are proved below the class — nothing set-theoretic is
-consumed.  Likewise the **recursion theorem** (the recursor as a
-function on the fixed point, one step per constructor with the
-recursive calls supplied) is a theorem of the environment section
-(`IndSem.lean`): the recursor's graph is itself a least fixed point,
-total by induction over the family and single-valued by induction
-over the graph, and the recursor's set is the `graph` of the resulting
-function.
+**Nothing here is about size.**  That a fibre of an inductive family
+is a *member* of the universe — a type, not a proper class — is the
+strength of the universes, and it is a theorem: the block's operator
+is accessible, an accessible operator has a closed family in the
+universe (`closed_of_acc`, `Access.lean`), and the family is the least
+fixed point inside the set theory (`lfpFamSet`, `LfpSet.lean`).
 
-**One law is about size.**  A fibre of the family is a *subset* of
-the universe; that it is a *member* — a type, not a proper class — is
-the strength of the universes (an inaccessible cardinal), and the
-class states it once, as **inductive closure**: for any list of
-constructor telescopes (`TeleX`: ordinary fields with domains
-depending on the earlier ordinary fields, fields in the family at an
-index, fields that are functions from a telescope of sets into the
-family — after which nothing depends on the value) some family of
-members is closed under every *bounded instance* of every constructor
-(every domain met along the fields a member of the universe).  The
-family the block defines is separated from that member, so its fibres
-are members, and its constructor values lie in it because every
-instance the checker's universe bound admits is bounded.
+**Least fixed points on predicates** (`Lfp`, below) are kept for one
+consumer: the **recursion theorem** (`IndSem.lean`), where the
+recursor's graph is a least fixed point on *predicates* — the ambient
+logic's `Prop` is impredicative, so that is a definition (the
+intersection of all closed predicates), total by induction over the
+family and single-valued by induction over the graph, and the
+recursor's set is the `graph` of the resulting function; nothing
+set-theoretic is consumed there.
 
-Con-leche works inside the set theory instead — `lfpFamSet`/`lfpTuple`
-(`ConLeche/SetTheory/Derive/LfpFam.lean`, `LfpTuple.lean`) are
-separations over a chosen closed member of the universe, the recursion
-theorem is the graph's uniqueness (`GraphRecKit.exu`,
-`ConLeche/SetModel/GraphRec.lean`), and the closed member comes not
-from a container theorem but from the operator's accessibility, read
-off the positivity check's run (`Semantics/Inductives/HoleAcc.lean`,
-`closed_of_acc` in `SetModel/Access.lean`).  The tuple and tag laws mirror
+Con-leche: the tuple and tag laws mirror
 `ConLeche/SetModel/TupleTower.lean` (`mkTower`, `mkTower_inj`) and
-`ConLeche/SetModel/TaggedSum.lean` (`inj`, `inj_inj`).
+`ConLeche/SetModel/TaggedSum.lean` (`inj`, `inj_inj`); the recursion
+theorem is the graph's uniqueness (`GraphRecKit.exu`,
+`ConLeche/SetModel/GraphRec.lean`).
 -/
 
 namespace Fragment
-open SetLib
+open SetLib UnivLib
 
 universe u
 
-/-! ## Telescopes of sets and constructor telescopes -/
-
-/-- A dependent telescope of sets, outermost first: each set may
-depend on the values of the earlier ones. -/
-inductive TeleS (V : Type u) : Type u where
-  /-- The empty telescope. -/
-  | nil : TeleS V
-  /-- A set, then a telescope depending on a member of it. -/
-  | cons (A : V) (B : V → TeleS V) : TeleS V
-
-namespace TeleS
-
-variable {V : Type u} [SetLib V]
-
-/-- Values fitting a telescope (outermost first). -/
-def Fits : TeleS V → List V → Prop
-  | nil, [] => True
-  | cons A B, v :: vs => v ∈ˢ A ∧ Fits (B v) vs
-  | _, _ => False
-
-/-- The nested function space over a telescope, into fibres indexed by
-the values. -/
-def pi : TeleS V → (List V → V) → V
-  | nil, F => F []
-  | cons A B, F => piSet A fun v => pi (B v) fun vs => F (v :: vs)
-
-/-- Every set met along fitting values is a member of `univ n`. -/
-def Bounded (n : Nat) : TeleS V → Prop
-  | nil => True
-  | cons A B => A ∈ˢ univ n ∧ ∀ v, v ∈ˢ A → Bounded n (B v)
-
-end TeleS
-
-/-- **A constructor telescope** relative to a family over an index
-type `ι`, outermost first: an *ordinary* field with a domain, the rest
-depending on its value; a field *in the family* at an index (`recur`:
-what a container field, and the member field of a container, is read
-as); a field that is a *function* from a telescope of sets into the
-family at targets depending on the arguments (`refl`: a reflexive
-field of the block, with the empty telescope when it is recursive).
-After either the rest does not depend on the value (con-leche's
-`structUsedLater` guard run by `nestCtors`, `Positivity.lean:1247`). -/
-inductive TeleX (ι : Type u) (V : Type u) : Type u where
-  /-- No more fields. -/
-  | nil : TeleX ι V
-  /-- An ordinary field. -/
-  | ord (A : V) (rest : V → TeleX ι V) : TeleX ι V
-  /-- A field in the family at `i`. -/
-  | recur (i : ι) (rest : TeleX ι V) : TeleX ι V
-  /-- A field that is a function over `tele` into the family at `tgt`
-  of the arguments (a reflexive field). -/
-  | refl (tele : TeleS V) (tgt : List V → ι) (rest : TeleX ι V) : TeleX ι V
-
-namespace TeleX
-
-variable {ι : Type u} {V : Type u} [SetLib V]
-
-/-- **A bounded instance** of a constructor telescope relative to a
-family `W`: values (outermost first) fitting it, every domain met a
-member of `univ n`, `recur` values in `W` at their index, `refl`
-values in the function space into `W` at the targets. -/
-def FitsB (n : Nat) (W : ι → V) : TeleX ι V → List V → Prop
-  | nil, [] => True
-  | ord A rest, v :: vs => A ∈ˢ univ n ∧ v ∈ˢ A ∧ FitsB n W (rest v) vs
-  | recur i rest, v :: vs => v ∈ˢ W i ∧ FitsB n W rest vs
-  | refl tele tgt rest, v :: vs =>
-    tele.Bounded n ∧ v ∈ˢ tele.pi (fun ys => W (tgt ys)) ∧ FitsB n W rest vs
-  | _, _ => False
-
-end TeleX
-
-/-- **The library for inductive types**: `SetLib` with separation
-inside the universes, transitivity, tuples, tags and inductive
-closure. -/
-class IndLib (V : Type u) extends SetLib V where
-  /-- A separated part of a member of a positive universe is a member of
-  it. -/
-  sep_mem_univ : ∀ {n : Nat} {A : V} {P : V → Prop}, n ≠ 0 →
-    Mem A (univ n) → Mem (sep A P) (univ n)
-  /-- The positive universes are transitive: a member of a member is a
-  member. -/
-  univ_trans : ∀ {n : Nat} {A x : V}, n ≠ 0 → Mem A (univ n) → Mem x A → Mem x (univ n)
+/-- **The library for inductive types**: the universes with tuples and
+tags. -/
+class IndLib (V : Type u) extends UnivLib V where
   /-- The n-ary tuple of a list of sets. -/
   tuple : List V → V
   /-- Tuples are injective. -/
@@ -159,31 +61,6 @@ class IndLib (V : Type u) extends SetLib V where
   tag_mem_univ : ∀ {n i : Nat} {x : V}, n ≠ 0 → Mem x (univ n) → Mem (tag i x) (univ n)
   /-- A tagged value is never the point. -/
   tag_ne_pt : ∀ {i : Nat} {x : V}, tag i x ≠ pt
-  /-- **Inductive closure** of the positive universes: for every list
-  of constructor telescopes with their target indices, some family of
-  members of `univ n` is closed under every bounded instance of every
-  constructor — the tagged tuple of the instance's values is a member
-  of the family at the constructor's target. -/
-  inductive_closure : ∀ {ι : Type u} {n : Nat}, n ≠ 0 →
-    ∀ cs : List (TeleX ι V × (List V → ι)),
-      ∃ W : ι → V, (∀ i, Mem (W i) (univ n)) ∧
-        ∀ (j : Nat) (c : TeleX ι V × (List V → ι)) (fs : List V), cs[j]? = some c →
-          TeleX.FitsB n W c.1 fs → Mem (tag j (tuple fs)) (W (c.2 fs))
-
-namespace SetLib
-
-variable {V : Type u} [SetLib V]
-
-/-- Inclusion. -/
-def Sub (A B : V) : Prop := ∀ x, x ∈ˢ A → x ∈ˢ B
-
-@[inherit_doc] scoped infix:50 " ⊆ˢ " => Sub
-
-theorem Sub.refl (A : V) : A ⊆ˢ A := fun _ h => h
-
-theorem Sub.trans {A B C : V} (h₁ : A ⊆ˢ B) (h₂ : B ⊆ˢ C) : A ⊆ˢ C := fun x hx => h₂ x (h₁ x hx)
-
-end SetLib
 
 namespace IndLib
 
@@ -222,7 +99,14 @@ theorem piR_mono {p : Bool} {A : V} {B B' : V → V} (h : ∀ x, x ∈ˢ A → B
 
 end IndLib
 
-/-! ## Least fixed points of monotone operators on predicates -/
+/-! ## Least fixed points of monotone operators on predicates
+
+Kept for the recursor's graph (`IndSem.lean`, `rstepT`): the graph of
+the recursor is the least fixed point of a monotone operator on
+predicates, which the ambient logic's impredicative `Prop` provides
+outright.  The *family* of a block is not this: it is `lfpFamSet`
+(`LfpSet.lean`), a least fixed point whose fibres are members of the
+universe. -/
 
 /-- A monotone operator on predicates over `α`. -/
 def Mono {α : Sort _} (Φ : (α → Prop) → (α → Prop)) : Prop :=

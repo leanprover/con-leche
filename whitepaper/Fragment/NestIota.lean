@@ -61,7 +61,7 @@ open SetLib IndLib
 
 universe u
 
-variable {V : Type u} [IndLib V] [LevelOracle]
+variable {V : Type u} [IndLibCompat V] [LevelOracle]
 
 omit [LevelOracle] in
 /-- A context lifted entry-wise by `liftN o` over `o` extras is

@@ -39,18 +39,18 @@ open SetLib IndLib
 
 universe u
 
-variable {V : Type u} [IndLib V] [LevelOracle]
+variable {V : Type u} [IndLibCompat V] [LevelOracle]
 
 /-! ## Two syntactic facts -/
 
-omit [IndLib V] [LevelOracle] in
+omit [IndLibCompat V] [LevelOracle] in
 theorem Expr.instL_mkAppN (ps : List Name) (ls : List Level) (f : Expr) (args : List Expr) :
     (Expr.mkAppN f args).instL ps ls = Expr.mkAppN (f.instL ps ls) (args.map (·.instL ps ls)) := by
   induction args generalizing f with
   | nil => rfl
   | cons a args ih => simp [ih]
 
-omit [IndLib V] [LevelOracle] in
+omit [IndLibCompat V] [LevelOracle] in
 theorem Expr.map_instL_varsAt (ps : List Name) (ls : List Level) (o n : Nat) :
     (Expr.varsAt o n).map (·.instL ps ls) = Expr.varsAt o n := by
   simp [Expr.varsAt, List.map_map, Function.comp]
@@ -63,7 +63,7 @@ theorem Expr.wd_of_mem_varsAt {M : Name → List Nat → V} {φ : Name → Nat} 
 
 /-! ## Levels: the recursor's parameters and the block's -/
 
-omit [IndLib V] [LevelOracle] in
+omit [IndLibCompat V] [LevelOracle] in
 /-- Substituting one more parameter in front does not change the
 others' substitutes. -/
 theorem Level.substVal_cons_of_ne (φ : Name → Nat) {p n : Name} (h : n ≠ p) (ps : List Name)
@@ -100,14 +100,14 @@ namespace IndSpec
 
 variable {env : Env} {S : IndSpec}
 
-omit [IndLib V] [LevelOracle] in
+omit [IndLibCompat V] [LevelOracle] in
 theorem recLparams_nodup (hS : S.Scoped env) : S.recLparams.Nodup := by
   unfold recLparams
   cases hl : S.large
   · simpa using hS.2.2.2.2.2.1
   · simpa using List.nodup_cons.mpr ⟨hS.2.2.2.2.1 hl, hS.2.2.2.2.2.1⟩
 
-omit [IndLib V] [LevelOracle] in
+omit [IndLibCompat V] [LevelOracle] in
 /-- The recursor's level list instantiated: the block's parameters
 read as the recursor's last levels. -/
 theorem lparams_map_substVal_rec (hS : S.Scoped env) (φ : Name → Nat) {us : List Level}
@@ -129,7 +129,7 @@ theorem lparams_map_substVal_rec (hS : S.Scoped env) (φ : Name → Nat) {us : L
       exact List.map_congr_left fun n hn =>
         Level.substVal_cons_of_ne φ (fun h => hS.2.2.2.2.1 hl (by rw [← h]; exact hn)) _ _ _
 
-omit [IndLib V] [LevelOracle] in
+omit [IndLibCompat V] [LevelOracle] in
 /-- The recursor's own levels, instantiated and evaluated, are the
 concrete levels. -/
 theorem recLvls_map_eval (hS : S.Scoped env) (φ : Name → Nat) {us : List Level}
@@ -138,7 +138,7 @@ theorem recLvls_map_eval (hS : S.Scoped env) (φ : Name → Nat) {us : List Leve
   simp only [recLvls, List.map_map]
   exact map_substVal_eq φ (recLparams_nodup hS) hus
 
-omit [IndLib V] [LevelOracle] in
+omit [IndLibCompat V] [LevelOracle] in
 /-- **The level comparison of `Red.iota`, semantically**: when the
 constructor's levels evaluate as the recursor's last ones, the block's
 valuation is the same whether read through the constructor's

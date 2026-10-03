@@ -487,7 +487,7 @@ theorem classCtor_fieldScoped (hS : S.Scoped env) (hN : S.nest = some N) (hKS : 
 
 section Sets
 
-variable {V : Type u} [IndLib V] (M : Name → List Nat → V)
+variable {V : Type u} [IndLibCompat V] (M : Name → List Nat → V)
 
 /-- **`T.rec`'s set** at its levels `lsr`: the abstraction over its
 context — the parameters, the two motives, both minor lists, the
@@ -533,7 +533,7 @@ read through the container's constructor's set. -/
 
 section Readings
 
-variable {V : Type u} [IndLib V] {M : Name → List Nat → V} {φ : Name → Nat} {env : Env}
+variable {V : Type u} [IndLibCompat V] {M : Name → List Nat → V} {φ : Name → Nat} {env : Env}
   {M' : Name → List Nat → V} {φ' : Name → Nat}
 
 /-! ### Small pieces -/
@@ -545,7 +545,7 @@ theorem getD_append_two {vs : List V} (a b : V) :
   · rw [List.getD_eq_getElem?_getD, List.getElem?_append_right (Nat.le_refl _), Nat.sub_self]; rfl
   · rw [List.getD_eq_getElem?_getD, List.getElem?_append_right (by omega), Nat.add_sub_cancel_left]; rfl
 
-omit [IndLib V] in
+omit [IndLibCompat V] in
 /-- A list splits at any length it has. -/
 theorem exists_split {l : List V} {a : Nat} (h : a ≤ l.length) :
     ∃ l₁ l₂, l = l₁ ++ l₂ ∧ l₁.length = a :=

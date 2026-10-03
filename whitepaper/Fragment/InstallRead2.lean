@@ -21,9 +21,9 @@ open SetLib IndLib
 
 universe u
 
-variable {V : Type u} [IndLib V]
+variable {V : Type u} [IndLibCompat V]
 
-omit [IndLib V] in
+omit [IndLibCompat V] in
 /-- Reading the first `n` pushed values. -/
 theorem readEnv_consList_take {vs : List V} {n : Nat} (h : n ≤ vs.length) (ρ : Nat → V) :
     readEnv n (consList vs ρ) = vs.take n := by
@@ -31,7 +31,7 @@ theorem readEnv_consList_take {vs : List V} {n : Nat} (h : n ≤ vs.length) (ρ 
     rw [← consList_append, List.take_append_drop]
   rw [this, readEnv_consList (by simp [h])]
 
-omit [IndLib V] in
+omit [IndLibCompat V] in
 /-- Reading `n` pushed values past the first `k`. -/
 theorem readEnv_shiftE_consList {vs : List V} {k n : Nat} (h : k + n ≤ vs.length) (ρ : Nat → V) :
     readEnv n (shiftE k 0 (consList vs ρ)) = (vs.drop k).take n := by

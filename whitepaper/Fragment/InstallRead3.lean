@@ -24,7 +24,7 @@ open SetLib IndLib
 
 universe u
 
-variable {V : Type u} [IndLib V]
+variable {V : Type u} [IndLibCompat V]
 
 namespace IndSpec
 

@@ -544,3 +544,24 @@ comment block at the top of `lib.typ`.
     empty telescope, and its generators and the model's field
     readings would lose their duplicated case. (Field-merge lane,
     2026-10-02.)
+
+32. **The fixed point and accessibility need no graphs.** The real
+    proof's family layer (`SetTheory/Derive/LfpTuple.lean`,
+    `SetModel/Access.lean`) works on tuples of *graphs*: a family is
+    `graph (i ↦ …) (Is m)`, membership is `x ∈ app (X m) i`, and
+    `famSpace`, `graph_mem_famSpace`, `famSpace_app`, `app_graph`
+    and `famSpace_ext` thread through every statement and proof
+    (`lfpTuple_eq` is `famSpace_ext` over `app_lfpTuple_eq`;
+    `stage_eq_of_code` needs `image_congr` under `app`). The
+    fragment states the same definitions and proves the same
+    theorems — `lfpFamSet`, `closed_of_acc`, line by line the same
+    proof — on Lean-level families `ι → V` with "every fibre a member
+    of `univ n`" (`Fragment/LfpSet.lean`, `Fragment/Access.lean`),
+    and the graph laws are simply absent: `lfpFamSet_eq` is
+    `Sub.antisymm` of the two inclusions, the limit family is a
+    `famUnion` per fibre. The real proof denotes the carrier as a
+    set, so it needs a graph *once*, at the end — `graph (lfpFamSet …)
+    I` — not in the fixed-point and accessibility layer; the
+    `AccRead` closure lemmas, `lfpP_acc` and the Bekić lemma would
+    lose their `app`/`famSpace` premises the same way. (Accessibility
+    lane, 2026-10-03.)

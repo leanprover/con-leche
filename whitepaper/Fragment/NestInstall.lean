@@ -20,7 +20,7 @@ open SetLib IndLib
 
 universe u
 
-variable {V : Type u} [IndLib V] [LevelOracle]
+variable {V : Type u} [IndLibCompat V] [LevelOracle]
 
 namespace IndSpec
 

@@ -45,17 +45,17 @@ open SetLib IndLib
 
 universe u
 
-variable {V : Type u} [IndLib V]
+variable {V : Type u} [IndLibCompat V]
 
 /-! ## Small list and environment facts -/
 
-omit [IndLib V] in
+omit [IndLibCompat V] in
 /-- The value at the seam of a pushed list `l₁ ++ x :: l₂` is `x`. -/
 theorem consList_append_cons_self (l₁ : List V) (x : V) (l₂ : List V) (ρ : Nat → V) :
     consList (l₁ ++ x :: l₂) ρ l₁.length = x := by
   rw [consList_append, ← Nat.zero_add l₁.length, consList_ge]; rfl
 
-omit [IndLib V] in
+omit [IndLibCompat V] in
 /-- Two pushed lists differing at one position read alike elsewhere. -/
 theorem consList_append_cons_ne {l₁ : List V} {x y : V} {l₂ : List V} {ρ : Nat → V} {i : Nat}
     (h : i ≠ l₁.length) : consList (l₁ ++ x :: l₂) ρ i = consList (l₁ ++ y :: l₂) ρ i := by

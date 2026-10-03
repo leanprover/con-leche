@@ -35,7 +35,7 @@ open SetLib IndLib
 
 universe u
 
-variable {V : Type u} [IndLib V]
+variable {V : Type u} [IndLibCompat V]
 
 /-! ## Contexts -/
 
@@ -62,7 +62,7 @@ theorem WellDenoted_mkLams_sem (M : Name → List Nat → V) (φ : Name → Nat)
     · rw [interp_lam]
       exact lamR_mem (fun x hx => (hb (x :: vs) ⟨hvs, hx⟩).2) fun hp x hx => hG hp (x :: vs) ⟨hvs, hx⟩
 
-omit [IndLib V] in
+omit [IndLibCompat V] in
 /-- The environment the one lifting shifts to (the environment
 computation of `interp_atCtx`, on its own). -/
 theorem shiftE_atCtx {nF k l o d : Nat} {ys ihs fs os ps : List V} (ρ : Nat → V)
@@ -171,7 +171,7 @@ theorem TeleFitV_instL (M : Name → List Nat → V) (φ : Name → Nat) (ps : L
   | _, .app _ _, _ :: _ => Iff.rfl
   | _, .lam _ _ _, _ :: _ => Iff.rfl
 
-omit [IndLib V] in
+omit [IndLibCompat V] in
 /-- The body a level-instantiated telescope leaves is the body the
 telescope leaves, instantiated. -/
 theorem piBodyV_instL (ps : List Name) (ls : List Level) : ∀ {ρ : Nat → V} {T : Expr} {vs : List V},

@@ -30,7 +30,7 @@ open SetLib IndLib
 
 universe u
 
-variable {V : Type u} [IndLib V] [LevelOracle]
+variable {V : Type u} [IndLibCompat V] [LevelOracle]
 
 namespace IndSpec
 
@@ -525,7 +525,7 @@ theorem uniq_of (φ : Name → Nat) (hz : S.z (S.lparams.map φ) = true) (hlarge
 
 /-! ## The constructors' type laws and the model with the constructors -/
 
-omit [IndLib V] hpl hs m in
+omit [IndLibCompat V] hpl hs m in
 /-- No field reads an earlier recursive field. -/
 theorem noRecDep : S.NoRecDep := fun c hc => (hok.scoped.2.2.2.1 c hc).2.1
 
@@ -634,7 +634,7 @@ theorem wd_ruleType {c : CtorSpec} (hc : c ∈ S.ctors) (φ : Name → Nat) (ρ 
 
 /-! ## The recursor's type law -/
 
-omit [IndLib V] [LevelOracle] hpl hs m hok in
+omit [IndLibCompat V] [LevelOracle] hpl hs m hok in
 /-- A small eliminator's level is zero, so a nonzero elimination level
 comes from a large eliminator. -/
 theorem large_of_q_false {φ' : Name → Nat} (hq : S.q.holds φ' = false) : S.large = true := by
@@ -646,7 +646,7 @@ theorem large_of_q_false {φ' : Name → Nat} (hq : S.q.holds φ' = false) : S.l
     rw [hl] at hq
     simp at hq
 
-omit [IndLib V] [LevelOracle] hpl hs m hok in
+omit [IndLibCompat V] [LevelOracle] hpl hs m hok in
 /-- The recursor's valuation at concrete levels agrees with the
 substituted one on its level parameters. -/
 theorem recVal_agree (φ : Name → Nat) {lsr : List Level} (hlsr : lsr.length = S.recLparams.length) :
@@ -654,14 +654,14 @@ theorem recVal_agree (φ : Name → Nat) {lsr : List Level} (hlsr : lsr.length =
       = Level.substVal φ S.recLparams lsr n :=
   fun _ hn => valOf_map_eval φ hlsr hn
 
-omit [IndLib V] [LevelOracle] hpl hs m hok in
+omit [IndLibCompat V] [LevelOracle] hpl hs m hok in
 theorem block_levels_eq (φ : Name → Nat) {lsr : List Level}
     (hlsr : lsr.length = S.recLparams.length) :
     S.lparams.map (valOf S.recLparams (lsr.map (Level.eval φ)))
       = S.lparams.map (Level.substVal φ S.recLparams lsr) :=
   List.map_congr_left fun n hn => recVal_agree φ hlsr n (S.lparams_sub_recLparams hn)
 
-omit [IndLib V] [LevelOracle] hpl hs m hok in
+omit [IndLibCompat V] [LevelOracle] hpl hs m hok in
 theorem recAgree_of (φ : Name → Nat) {lsr : List Level}
     (hlsr : lsr.length = S.recLparams.length) :
     RecAgree (valOf S.recLparams (lsr.map (Level.eval φ))) (Level.substVal φ S.recLparams lsr) S :=

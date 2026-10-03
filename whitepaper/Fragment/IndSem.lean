@@ -1,6 +1,6 @@
 module
 
-public import Fragment.IndLib
+public import Fragment.IndLibCompat
 public import Fragment.Ctx
 
 @[expose] public section
@@ -70,11 +70,11 @@ one mechanism for every sort and regime.
 -/
 
 namespace Fragment
-open SetLib IndLib
+open SetLib UnivLib IndLib IndLibCompat
 
 universe u
 
-variable {V : Type u} [IndLib V]
+variable {V : Type u} [IndLibCompat V]
 
 /-! ## Small pieces -/
 
@@ -107,7 +107,7 @@ separated part of a member of a positive universe is in it. -/
 theorem fibreR_mem_univ {z : Bool} {n : Nat} {U : V} {P : V → Prop} (h : z = true ↔ n = 0)
     (hU : z = false → U ∈ˢ (univ n : V)) : fibreR z U P ∈ˢ (univ n : V) := by
   cases z
-  · exact sep_mem_univ (fun h0 => by simp [h0] at h) (hU rfl)
+  · exact sep_mem_univ (hU rfl)
   · rw [h.mp rfl]; exact truthVal_mem_univ_zero _
 
 /-- The point applied to anything is the point. -/
@@ -587,7 +587,7 @@ theorem fieldVal_cons {v : V} {fs : List V} {k : Nat} (hk : k < fs.length) :
   simp only [fieldVal, List.length_cons]
   rw [show fs.length + 1 - 1 - k = (fs.length - 1 - k) + 1 by omega, List.getD_cons_succ]
 
-omit [IndLib V] in
+omit [IndLibCompat V] in
 theorem earlier_cons {v : V} {fs : List V} {k : Nat} (hk : k ≤ fs.length) :
     earlier (v :: fs) k = earlier fs k := by
   simp only [earlier, List.length_cons]

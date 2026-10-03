@@ -33,11 +33,11 @@ block kept with the model.
 -/
 
 namespace Fragment
-open SetLib IndLib
+open SetLib IndLib IndLibCompat
 
 universe u
 
-variable {V : Type u} [IndLib V]
+variable {V : Type u} [IndLibCompat V]
 
 namespace IndSpec
 
@@ -60,7 +60,7 @@ end IndSpec
 
 /-- **A model of an environment that remembers its blocks**: an
 `EnvModel` with the block law of every stored block. -/
-structure BlockModel (V : Type u) [IndLib V] (env : Env) extends EnvModel V env where
+structure BlockModel (V : Type u) [IndLibCompat V] (env : Env) extends EnvModel V env where
   /-- Every stored block's law. -/
   blocks : ∀ (K : Name) (ci : ConstInfo) (nP nI : Nat) (cs : List Name) (spec : IndSpec),
     env.find? K = some ci → ci.kind = .induct nP nI cs spec → spec.BlockLaw env M
@@ -111,11 +111,11 @@ structure Agree (env : Env) (M M' : Name → List Nat → V) (ls ls' : List Nat)
 
 variable {S}
 
-omit [IndLib V] in
+omit [IndLibCompat V] in
 theorem Agree.symm (h : S.Agree env M M' ls ls') : S.Agree env M' M ls' ls :=
   ⟨h.block, h.cont, fun c hc l => (h.agree c hc l).symm, h.ψ.symm⟩
 
-omit [IndLib V] in
+omit [IndLibCompat V] in
 /-- The same agreement at any other levels (the valuations identical). -/
 theorem Agree.same (h : S.Agree env M M' ls ls') (l : List Nat) : S.Agree env M M' l l :=
   ⟨h.block, h.cont, h.agree, rfl⟩
@@ -214,17 +214,17 @@ theorem Agree.fitsParams_iff (h : S.Agree env M M' ls ls') (ps : List V) :
 
 /-! ### The regime, the class -/
 
-omit [IndLib V] in
+omit [IndLibCompat V] in
 theorem Agree.z_eq (h : S.Agree env M M' ls ls') : S.z ls = S.z ls' := by
   unfold z
   rw [h.ψ]
 
-omit [IndLib V] in
+omit [IndLibCompat V] in
 theorem Agree.u₀_eq (h : S.Agree env M M' ls ls') : S.u₀ ls = S.u₀ ls' := by
   unfold u₀
   rw [h.ψ]
 
-omit [IndLib V] in
+omit [IndLibCompat V] in
 theorem Agree.lsK_eq (h : S.Agree env M M' ls ls') (N : NestInfo) : S.lsK ls N = S.lsK ls' N := by
   unfold lsK
   rw [h.ψ]

@@ -41,7 +41,7 @@ open SetLib IndLib
 
 universe u
 
-variable {V : Type u} [IndLib V]
+variable {V : Type u} [IndLibCompat V]
 
 /-! ## Congruence under the specification's scope -/
 
@@ -371,7 +371,7 @@ theorem Reader.lvls_map {env : Env} {M' : Name → List Nat → V} {φ' : Name �
   intro n hn
   simp [R.val n hn]
 
-omit [IndLib V] in
+omit [IndLibCompat V] in
 /-- The two environments a specification expression is read under —
 values over parameter values over any base — agree below the values. -/
 theorem consList₂_agree {vs ps : List V} {ρ ρ' : Nat → V} :
@@ -990,7 +990,7 @@ theorem reader₁ (hfresh : env.find? S.name = none) (hg : S.ContGood M (S.lpara
   val := fun n hn => (ψ_map_agree S φ n hn).symm
   good := hg
 
-omit [IndLib V] in
+omit [IndLibCompat V] in
 /-- The environment of the recursor's contexts, regrouped. -/
 theorem consList_three (a b c : List V) (ρ : Nat → V) :
     consList a (consList b (consList c ρ)) = consList (a ++ b ++ c) ρ := by

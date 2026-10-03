@@ -1,6 +1,7 @@
 module
 
 public import Fragment.Consistency
+public import Fragment.Access
 
 public section
 
@@ -119,3 +120,18 @@ info: 'Fragment.install_nest' depends on axioms: [propext, Classical.choice, Quo
 info: 'Fragment.install_ind_any' depends on axioms: [propext, Classical.choice, Quot.sound]
 -/
 #guard_msgs in #print axioms Fragment.install_ind_any
+
+/--
+info: 'Fragment.AccIter.closed_of_acc' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in #print axioms Fragment.AccIter.closed_of_acc
+
+/--
+info: 'Fragment.lfpFamSet_eq' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in #print axioms Fragment.lfpFamSet_eq
+
+/--
+info: 'Fragment.lfpFamSet_induction' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in #print axioms Fragment.lfpFamSet_induction

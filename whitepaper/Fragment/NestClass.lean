@@ -107,7 +107,7 @@ end Envs
 
 namespace IndSpec
 
-variable {V : Type u} [IndLib V]
+variable {V : Type u} [IndLibCompat V]
 variable (S : IndSpec) (M : Name → List Nat → V) (ls : List Nat) (N : NestInfo)
 
 /-! ## The container's parameter environment at the instantiation -/
