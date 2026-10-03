@@ -351,15 +351,21 @@ every rule of every stored recursor satisfies its $iota$ law
 
 *The axioms, extended.* Beyond the laws of @sec:lib the inductive
 section uses
-#src("whitepaper/Fragment/IndLib.lean", 136, 161)[four small laws]:
-_separation stays in the universe_ — a separated part of a member of
-a positive universe is a member of it; _transitivity_ of the positive
-universes — a member of
-a member is a member; _tuples_ $tuple(x_1, dots, x_k)$, injective and
-universe-closed; and _tags_ $tag(j, x)$, a set with a number
-attached, injective, universe-closed and never the point — and one
-law about size, _inductive closure_, stated below where it is
-needed. Notably absent is any law about least fixed points.
+#src("whitepaper/Fragment/IndLib.lean", 136, 161)[four small laws],
+all for positive universes $cal(U)_n$, $n >= 1$:
+
++ _Separation stays in the universe_: if $A in cal(U)_n$ then
+  ${x in A | P(x)} in cal(U)_n$.
++ _Transitivity_: if $x in A$ and $A in cal(U)_n$ then
+  $x in cal(U)_n$.
++ _Tuples_ $tuple(x_1, dots, x_k)$: injective, and in $cal(U)_n$
+  when every component is.
++ _Tags_ $tag(j, x)$, a set with a number $j$ attached: injective,
+  in $cal(U)_n$ when $x$ is, and never the point.
+
+One further law, about size — _inductive closure_ — is stated below
+where it is needed. Notably absent is any law about least fixed
+points.
 
 *Least fixed points cost nothing.* The family of a block is the least
 fixed point of an operator: "a member is a constructor applied to
