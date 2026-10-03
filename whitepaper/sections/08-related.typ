@@ -2,6 +2,10 @@
 
 = Related work <sec:related>
 
+This section compares our proof with a small selection of the most
+closely related work. It is not a survey and makes no claim to be
+comprehensive.
+
 *Lean's type theory.* Carneiro's thesis @carneiro2019 presents Lean's
 type theory by a typing judgement and builds a set-theoretic model of
 it, from which Lean's consistency follows relative to ZFC together
