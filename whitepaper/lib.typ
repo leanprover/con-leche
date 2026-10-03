@@ -284,7 +284,7 @@
 // over it; the HTML export drops `text(fill: …)`, so there `style.css`
 // (`.real`) carries the colour, size and small caps.
 #let muted = luma(106)   // = the CSS --muted, #6a6a6a
-#let real(label: "In the real proof", body) = context if is-html() {
+#let real(label: "In con-leche", body) = context if is-html() {
   html.elem("div", attrs: (class: "real"),
     html.elem("span", attrs: (class: "real-label"), label) + [ ] + body)
 } else {

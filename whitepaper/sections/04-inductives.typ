@@ -91,7 +91,7 @@ type below, a binder whose body is the family — a member of $Sort u$
 #src("whitepaper/Fragment/Decl.lean", 145, 148)[$ann(PW) = zn(u)$],
 "a proposition exactly when $u$ is zero".
 
-#real(label: "In the real checker")[
+#real[
   Simple, mutual and nested blocks are checked uniformly
   (#overview(5)); this section describes that check on a block of
   the fragment's shape. Its positivity check classifies each field's
@@ -124,7 +124,7 @@ of $Sort ell$, so its binders carry
 #src("whitepaper/Fragment/Decl.lean", 149, 153)[$ann(q) = zn(ell)$],
 "a proposition exactly when $ell$ is zero".
 
-#real(label: "In the real checker")[
+#real[
   The input is a stream of raw declarations: the former, the
   constructors and the recursor as the exporting toolchain stated
   them. The checker recovers the specification from the former's and
@@ -232,7 +232,7 @@ plus #src("whitepaper/Fragment/Decl.lean", 757)[the constructor count], required
 eliminator on a family whose sort _may_ be zero
 (#src("whitepaper/Fragment/Decl.lean", 700, 702)[never zero: $1 <= u$ at every valuation]).
 
-#real(label: "In the real checker")[
+#real[
   The criterion is split in two the same way, but the per-field half
   is asked less often: a count guard — a large eliminator is allowed
   when the sort is never zero, and otherwise only on a block with one
@@ -319,7 +319,7 @@ checked like a definition's, and the $forall$ rule of @sec:rules
 checks each generated annotation against the sort it computes for
 the body.
 
-#real(label: "In the real checker")[
+#real[
   The same steps run in this order, and each generated rule is
   type-checked in the environment holding the rule-less recursor
   (#src("ConLeche/Kernel/Inductives/GenRec.lean", 427, 448)[a generated rule]).
@@ -560,7 +560,7 @@ three _comparisons_:
   _residual_ of its telescope — are definitionally equal to the
   recursor's index arguments.
 
-#real(label: "In the real checker")[
+#real[
   The rule carries the parameter comparison only for rules whose law
   reads it; a block's rules are installed
   #src("ConLeche/Kernel/Env.lean", 265, 273)[without it], because

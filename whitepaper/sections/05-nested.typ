@@ -64,7 +64,7 @@ $p$ of the member among its parameters, the member's index
 expressions, and the name of the companion recursor $TRec1$
 introduced in @sec:nest-rec.
 
-#real(label: "In the real checker")[
+#real[
   The container is found by reducing the field's domain to an
   application of a stored inductive type, and the instantiation —
   the levels and the arguments with the member in place — is
@@ -103,7 +103,7 @@ member's parameter domain is a sort and that no later parameter
 depends on it
 (#src("whitepaper/Fragment/Spec.lean", 182, 208)[strict positivity in the member's position]).
 
-#real(label: "In the real checker")[
+#real[
   This happens inside the one positivity walk of @sec:ind-checks: at
   an application of a stored inductive type the walk descends into
   that type's stored constructors at the instantiation, with the

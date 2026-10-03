@@ -38,7 +38,7 @@ between its occurrence and its own), and a rule that mentions the types of the
 variables in scope carries a _context_ $Gamma$, a list of those types.
 No rule in this paper needs index arithmetic in its named form.
 
-#real(label: "In the real checker")[
+#real[
   Neither device is used: the checker opens a binder with a fresh
   free variable that carries its own type, so it keeps no context at
   all — a performance device that changes nothing below.
@@ -83,7 +83,7 @@ and only check them: the inference rules for $forall$ and $lambda$
 datum, so a wrong annotation makes the term rejected, never accepted
 wrongly.
 
-#real(label: "In the real checker")[
+#real[
   The annotation is written into the binder's metadata.
 ]
 
@@ -336,7 +336,7 @@ that matters, once the proof is on the table.  What the
 checker does instead of chaining equalities is chain reductions:
 reduce, then continue, which is red-l.
 
-#real(label: "In the real checker")[
+#real[
   Such a rule would even be unsound.  The relation there has two
   further rules, one that compares free variables by index alone and
   one that reads a variable's annotation to decide "this is a proof",
@@ -392,7 +392,7 @@ By the exactness lemma (@lem:zeroness) the check $ann(zn(v) = PW)$ is
 a semantic statement: the datum holds at a valuation exactly when $v$
 is $0$ there, which is exactly when the body is a proposition.
 
-#real(label: "In the real checker")[
+#real[
   The datum is validated once per chain of $lambda$s, not at every
   $lambda$ as the fragment does.
 ]
