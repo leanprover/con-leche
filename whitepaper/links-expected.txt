@@ -4213,52 +4213,119 @@
 
 >>> whitepaper/sections/05-nested.typ
 
+== whitepaper/Fragment/NestInstall.lean#L197-L201
+   197  theorem install_nest {env : Env} {S : IndSpec} {N : NestInfo} (hs : Env.Scoped env)
+   198      (m : BlockModel V env) (hok : S.OkN N env) :
+   199      ∃ m' : BlockModel V (S.install env), ∀ n, (env.find? n).isSome → ∀ ls, m'.M n ls = m.M n ls := by
+   200    exact ⟨{ toEnvModel := IndSpec.mInstallN hs m hok, blocks := IndSpec.blocksN m hok },
+   201      fun n hn ls => (IndSpec.agree_M₃N hok m.M n hn ls).symm⟩
+
 == tests/e2e/src/nested_rec.lean#L17-L18
     17  inductive Tree (α : Type) where
     18    | node : α → List (Tree α) → Tree α
 
-== whitepaper/Fragment/Spec.lean#L43-L49
-    43    /-- **A container field** (nested blocks): the block's class — a
-    44    previously installed block `K` applied to arguments one of which is
-    45    the nested occurrence `I params idx` (`NestInfo`).  The domain is
-    46    `K.{lsK} args[nested]` lifted over the earlier fields; the field
-    47    carries an inductive hypothesis for the class's motive
-    48    (con-leche's container instance, `Positivity.lean`, `contApp`). -/
-    49    | container
+== tests/e2e/src/nested_p01.lean#L4-L5
+     4  inductive P1 where
+     5    | mk : (Nat → List P1) → P1
 
-== whitepaper/Fragment/Spec.lean#L105-L136
-   105  /-- **The class of a nested block**: the one container instantiation
-   106  its container fields are read through — a previously installed block
-   107  `K` (its data, as stored with its type former), at levels `lsK` over
-   108  the block's level parameters, applied to arguments `args` (outermost
-   109  first, under the block's parameters only; the nested position `p`
-   110  omitted) with the nested occurrence `I params idx` at position `p` of `K`'s
-   111  parameters.  `K` has parameters but no indices, and the nesting is at
-   112  depth one: the nested occurrence is `K`'s argument directly.
-   113  
-   114  Con-leche: the container instance `C.{us} Ds` of the positivity walk
-   115  (`Positivity.lean`, `contApp`) and the outside class of the recursor
-   116  check (`GenRec.lean`, `ClassGen`); the fixture `tests/e2e/src/nested_rec.lean`
-   117  has `K = List`, `args = []`, `p = 0`, `idx = []`. -/
-   118  structure NestInfo where
-   119    /-- The container's block data (as stored with its type former). -/
-   120    K : IndBase
-   121    /-- The container's levels at the instantiation, over the block's
-   122    level parameters. -/
-   123    lsK : List Level
-   124    /-- The container's other arguments, outermost first, under the
-   125    block's parameters (position `p` left out). -/
-   126    args : List Expr
-   127    /-- The nested position among the container's parameters
-   128    (outermost first). -/
-   129    p : Nat
-   130    /-- The nested occurrence's index expressions, outermost first, under the
-   131    block's parameters. -/
-   132    idx : List Expr
-   133    /-- The auxiliary recursor's name (`T.rec_1`): the recursor for the
-   134    class. -/
-   135    aux : Name
-   136    deriving DecidableEq
+== tests/e2e/src/nest_rose_tree.lean#L15-L24
+    15  inductive L (α : Type u) : Type u where
+    16    | nil : L α
+    17    | cons : α → L α → L α
+    18  
+    19  inductive R (α : Type u) : Type u where
+    20    | node : α → L (R α) → R α
+    21  
+    22  inductive T : Type where
+    23    | leaf : T
+    24    | mk : R T → T
+
+== tests/e2e/src/indexed_nested_aux.lean#L13-L18
+    13  inductive Vec (α : Type) : Nat → Type where
+    14    | nil : Vec α 0
+    15    | cons {n : Nat} : α → Vec α n → Vec α (n + 1)
+    16  
+    17  inductive TV (α : Type) where
+    18    | node : α → {n : Nat} → Vec (TV α) n → TV α
+
+== ConLeche/Kernel/Inductives/Positivity.lean#L1453-L1496
+  1453  def nestPos (ops : CheckerOps m) (env : Env) (ctx : NestCtx) :
+  1454      Nat → List NestHole → Nat → Nat → Expr → NestState → m (NestFieldKind × Expr × NestState)
+  1455    | 0, _, _, _, _, _ => throw (.notImplemented "nested positivity: fuel")
+  1456    | fuel + 1, prog, dep, kb, e, st => do
+  1457      let hi := ctx.hiAt prog.length
+  1458      let w ← ops.whnf env dep e
+  1459      -- `const`: the reduct mentions no member and no hole; the normal
+  1460      -- form is the input when it mentions none either, else the reduct
+  1461      if !w.nestOcc ctx.names ctx.nP hi then
+  1462        return (.ordinary, (if e.nestOcc ctx.names ctx.nP hi then w else e), st)
+  1463      match w with
+  1464      | .forallE a b bm =>
+  1465        -- `pi`: the domain hole-free, the codomain positive
+  1466        if a.nestOcc ctx.names ctx.nP hi then
+  1467          throw (.invalid "nested positivity: non positive occurrence of the datatypes \
+  1468            being declared")
+  1469        let (k, nb, st) ←
+  1470          nestPos ops env ctx fuel prog (dep + 1) (kb + 1) (b.instantiate1 (.fvar dep a)) st
+  1471        pure (k, .forallE a (nb.abstract1 dep) bm, st)
+  1472      | _ =>
+  1473        let args := w.getAppArgs
+  1474        match w.getAppFn with
+  1475        | .fvar i _ =>
+  1476          -- `holeApp`: a hole (`nestHoleAt`) — a member's, the ROOT frame's,
+  1477          -- or a container frame's, its instantiation in progress — standing
+  1478          -- for its entry's whole application to the parameters, applied to
+  1479          -- hole-free indices, at its full arity (official
+  1480          -- `is_valid_ind_app`, :338–341)
+  1481          match nestHoleAt ctx prog i with
+  1482          | some h =>
+  1483            if args.all (fun x => !x.nestOcc ctx.names ctx.nP hi) &&
+  1484                args.length + h.key.ds.length == nestArity ctx h.key.cname then
+  1485              return (if i < ctx.hiAt 0 then
+  1486                  (if kb == 0 then .recursive (i - ctx.nP) else .reflexive (i - ctx.nP))
+  1487                else .inProgress, w, st)
+  1488            else throw nestNonValid
+  1489          | none => throw nestNonValid
+  1490        | .const n us =>
+  1491          -- a member constant left after the abstraction (other levels)
+  1492          if ctx.names.contains n then throw nestNonValid
+  1493          -- `contApp`: a stored inductive at a concrete instantiation
+  1494          let (k, st) ← nestCont ctx ops env (nestPos ops env ctx fuel) prog kb n us args st
+  1495          pure (k, w, st)
+  1496        | _ => throw nestNonValid
+
+== ConLeche/Kernel/Inductives/Positivity.lean#L1555-L1569
+  1555  def nestUniformOk (ctx : NestCtx) (cv : ConstantVal) : Bool :=
+  1556    !cv.type.piDomsOcc ctx.names ctx.nP (ctx.hiAt 0) ctx.nP &&
+  1557      match nestRootCanon ctx cv with
+  1558      | some crest => !crest.nestOcc ctx.names 0 0
+  1559      | none => false
+  1560  
+  1561  /-- `nestUniformOk` at every stored constructor of every member, before
+  1562  the walk (official runs it before anything else): a REJECT with
+  1563  official's wording. -/
+  1564  def nestUniform (ctx : NestCtx) (ctorss : List (List (ConstantVal × Nat))) : m Unit :=
+  1565    match ctorss.findSome? (·.find? (!nestUniformOk ctx ·.1)) with
+  1566    | some c => throw (.invalid s!"invalid occurrence of a datatype being declared in the \
+  1567        type of {c.1.name}: it must be applied to the parameters and universe levels of the \
+  1568        mutual declaration")
+  1569    | none => pure ()
+
+== ConLeche/Kernel/Inductives/Positivity.lean#L1110-L1116
+  1110  /-- **A stored constructor type at a key** (see the section header): its
+  1111  canonical abstraction (`nestCanonCrest`, the group `names` at the key's
+  1112  levels `us`), then the key's parameters `ds` and the frame's holes
+  1113  `holes` (one per member of `names`, in order) put in. -/
+  1114  def nestCrest (names : List Name) (us : List Level) (ds holes : List Expr) (cty : Expr) :
+  1115      Option Expr :=
+  1116    (nestCanonCrest names us ds.length cty).map (·.replaceFVars (nestKeyMap ds holes))
+
+== ConLeche/Kernel/Inductives/Positivity.lean#L1458
+  1458      let w ← ops.whnf env dep e
+
+== ConLeche/Kernel/Inductives/Positivity.lean#L1461-L1462
+  1461      if !w.nestOcc ctx.names ctx.nP hi then
+  1462        return (.ordinary, (if e.nestOcc ctx.names ctx.nP hi then w else e), st)
 
 == ConLeche/Kernel/Inductives/Positivity.lean#L1464-L1471
   1464      | .forallE a b bm =>
@@ -4270,213 +4337,251 @@
   1470          nestPos ops env ctx fuel prog (dep + 1) (kb + 1) (b.instantiate1 (.fvar dep a)) st
   1471        pure (k, .forallE a (nb.abstract1 dep) bm, st)
 
-== ConLeche/Kernel/Inductives/Positivity.lean#L1406-L1415
-  1406  /-- **The container case** of `nestPos`: the reduct `w` is the stored
-  1407  inductive `n.{us}` applied to `args` (`contApp`), `rec` the walk
-  1408  itself one fuel lower (at a frame's fields).  The container's
-  1409  constructors are looked up by the names its record lists
-  1410  (`nestContainer`); its checks (constructors
-  1411  exist, enough arguments and hole-free indices, not `Quot`, parameters
-  1412  without local variables); then the instantiation (`nestContKey`).  Split
-  1413  off so that the monotonicity theorem can take the container case as its
-  1414  own lemma. -/
+== ConLeche/Kernel/Inductives/Positivity.lean#L1475-L1489
+  1475        | .fvar i _ =>
+  1476          -- `holeApp`: a hole (`nestHoleAt`) — a member's, the ROOT frame's,
+  1477          -- or a container frame's, its instantiation in progress — standing
+  1478          -- for its entry's whole application to the parameters, applied to
+  1479          -- hole-free indices, at its full arity (official
+  1480          -- `is_valid_ind_app`, :338–341)
+  1481          match nestHoleAt ctx prog i with
+  1482          | some h =>
+  1483            if args.all (fun x => !x.nestOcc ctx.names ctx.nP hi) &&
+  1484                args.length + h.key.ds.length == nestArity ctx h.key.cname then
+  1485              return (if i < ctx.hiAt 0 then
+  1486                  (if kb == 0 then .recursive (i - ctx.nP) else .reflexive (i - ctx.nP))
+  1487                else .inProgress, w, st)
+  1488            else throw nestNonValid
+  1489          | none => throw nestNonValid
+
+== ConLeche/Kernel/Inductives/Positivity.lean#L1415-L1440
   1415  def nestCont (ctx : NestCtx) (ops : CheckerOps m) (env : Env)
+  1416      (rec : List NestHole → Nat → Nat → Expr → NestState → m (NestFieldKind × Expr × NestState))
+  1417      (prog : List NestHole) (kb : Nat) (n : Name) (us : List Level) (args : List Expr)
+  1418      (st : NestState) : m (NestFieldKind × NestState) := do
+  1419    let q ← unwrapOr (nestContainer ctx n) nestNonValid
+  1420    if args.length < q.1 ||
+  1421        !(args.drop q.1).all (fun x => !x.nestOcc ctx.names ctx.nP (ctx.hiAt prog.length)) then
+  1422      throw nestNonValid
+  1423    -- `Quot` is stored as an `.indInfo` but is no inductive for
+  1424    -- official (`is_nested_inductive_app` asks `is_inductive()`):
+  1425    -- the one name read here.  Every other basis type (`Eq`, `Nat`,
+  1426    -- `Empty`, `False`, and `And`) is a container like any stored
+  1427    -- inductive.
+  1428    if n == quotName then throw nestNonValid
+  1429    unless (args.take q.1).all (fun x => x.bvarB == 0 && x.fvarB ≤ ctx.hiAt prog.length) do
+  1430      throw (.invalid "nested positivity: nested inductive datatypes parameters \
+  1431        cannot contain local variables")
+  1432    -- the instance is FULLY applied: the container case
+  1433    -- compares the container's family at the index tuple, and a partial
+  1434    -- application is a function, whose graph does not grow with its values.
+  1435    -- A field's domain is a type, so a checked constructor never has one.
+  1436    let ni ← nestInstType ctx (ctx.hiAt prog.length) ⟨n, us, args.take q.1⟩
+  1437    unless args.length == q.1 + ni.1 do
+  1438      throw (.invalid "nested positivity: type expected (a container instance that is not \
+  1439        fully applied)")
+  1440    nestContKey ctx ops env rec prog kb n us (args.take q.1) q.1 ni.2 st
 
-== whitepaper/Fragment/Spec.lean#L182-L208
-   182  /-- **Strict positivity of the container in the nested
-   183  position** (con-leche's `nestPos` walking the container's stored
-   184  constructors at the instantiation, `Positivity.lean`): the container
-   185  has no indices and no container field; the nested parameter's domain
-   186  is a sort; no later parameter's domain mentions the nested parameter;
-   187  every field of every constructor is the parameter field, a recursive
-   188  field (reflexive with an empty telescope, and no index expressions),
-   189  or an ordinary field whose domain mentions neither the nested
-   190  parameter nor an earlier parameter field — the nested parameter never occurs to
-   191  the left of an arrow, under a binder or inside another type, and
-   192  nothing after a parameter field reads its value (the class is read at
-   193  every approximant, so a parameter field's value must be free to
-   194  move). -/
-   195  def Positive : Prop :=
-   196    N.K.indices = [] ∧
-   197    N.p < N.nPK ∧
-   198    (∃ ℓ : Level, N.K.params[N.nPK - 1 - N.p]? = some (.sort ℓ)) ∧
-   199    (∀ i A, N.K.params[i]? = some A → i < N.nPK - 1 - N.p →
-   200      A.usesVar (N.nPK - 2 - i - N.p) = false) ∧
-   201    (∀ c ∈ N.K.ctors, c.idx = [] ∧ ∀ i f, c.fields[i]? = some f →
-   202      match f with
-   203      | Field.ordinary A => A = Expr.bvar (N.memberVar (c.fields.length - 1 - i)) ∨
-   204          (A.usesVar (N.memberVar (c.fields.length - 1 - i)) = false ∧
-   205            ∀ i' f', c.fields[i']? = some f' → i < i' →
-   206              N.isMember (c.fields.length - 1 - i') f' = true → A.usesVar (i' - i - 1) = false)
-   207      | Field.reflexive tele es => tele = [] ∧ es = []
-   208      | Field.container => False)
+== ConLeche/Kernel/Inductives/Positivity.lean#L1124-L1158
+  1124  def nestInstType (ctx : NestCtx) (hi : Nat) (key : NestKey) : m (Nat × Expr) := do
+  1125    let cvC ← unwrapOr (match ctx.find? key.cname with
+  1126        | some (.indInfo cv _) => some cv
+  1127        | _ => none)
+  1128      (.internal "nested positivity: container vanished")
+  1129    -- the container is applied at its own level count (official:
+  1130    -- `infer_constant`'s "incorrect number of universe levels", which every
+  1131    -- constant of a checked constructor type — and of every
+  1132    -- reduct of it — passed; the model reads the key's constants at it)
+  1133    unless key.lvls.length = cvC.levelParams.length do
+  1134      throw (.invalid "nested positivity: incorrect number of universe levels for a nested \
+  1135        inductive datatype (official: incorrect number of universe levels)")
+  1136    -- the container's parameters are a SYNTACTIC telescope (its canonical
+  1137    -- instantiation exists, so the N2 check below reads
+  1138    -- against the container's recorded index telescope; every stored
+  1139    -- inductive's parameters are binders of its type, as official checks)
+  1140    unless (cvC.type.stripPis key.ds.length).isSome do
+  1141      throw (.invalid "nested positivity: invalid nested inductive datatype, its type does \
+  1142        not bind its parameters (official: ill-formed inductive type)")
+  1143    let ty ← unwrapOr (instPisWith key.ds
+  1144        (cvC.type.instantiateLevelParams cvC.levelParams key.lvls))
+  1145      (.invalid "nested positivity: invalid nested inductive datatype, its type does not bind \
+  1146        its parameters (official: ill-formed inductive type)")
+  1147    let s ← unwrapOr (match ty.piBinders.2 with
+  1148        | .sort s => some s
+  1149        | _ => none)
+  1150      (.invalid "nested positivity: invalid nested inductive datatype, its type is not a \
+  1151        telescope ending in a sort (official: type expected)")
+  1152    if ty.piBinders.1.any (fun b => b.1.nestOcc ctx.names ctx.nP hi) then
+  1153      throw (.invalid "nested positivity: a container's index telescope mentions the block \
+  1154        (official: unknown constant)")
+  1155    unless ← liftFueled "level comparison" (Level.isEquiv s ctx.sort) do
+  1156      throw (.invalid "nested positivity: mutually inductive types must live in the \
+  1157        same universe")
+  1158    pure (ty.piBinders.1.length, ty)
 
-== ConLeche/Kernel/Inductives/Positivity.lean#L260-L279
-   260  **`nestPos`, the function**, by structural recursion on its fuel; its
-   261  cases are the monotonicity induction's:
-   262  
-   263  * the whnf of the domain mentions no member — hole-free (`const`);
-   264  * a `Π` whose domain mentions no member — recurse on the body (`pi`);
-   265  * a hole at its frame's own parameters with hole-free indices, at its
-   266    full arity (`holeApp`, official's `is_valid_ind_app` :338): a member
-   267    hole — the ROOT frame's, at the block's parameters — or a container
-   268    frame's (its instantiation in progress);
-   269  * a stored inductive `C` (not a member) applied to parameters `Ds`
-   270    (some mentioning a member, none a field or binder variable — official
-   271    :962) and member-free indices (`contApp`): an instantiation IN
-   272    PROGRESS is a `Y` hole; one already accepted is a cache hit; else its
-   273    checks — (N2) the instantiated index telescope names no member
-   274    (official checks the auxiliary type former before the block exists,
-   275    :219), (N3) its sort `Level.isEquiv` the block's (:250) — and then
-   276    `nestPos` on every field of every constructor of `C` AT the
-   277    instantiation, the instantiation pushed onto the in-progress list,
-   278    and the constructor's result indices member-free;
-   279  * anything else — official's "non valid occurrence".
+== ConLeche/Kernel/Inductives/Positivity.lean#L1395-L1404
+  1395  def nestContKey (ctx : NestCtx) (ops : CheckerOps m) (env : Env)
+  1396      (rec : List NestHole → Nat → Nat → Expr → NestState → m (NestFieldKind × Expr × NestState))
+  1397      (prog : List NestHole) (kb : Nat) (n : Name) (us : List Level) (ds : List Expr) (nPc : Nat)
+  1398      (cty : Expr) (st : NestState) : m (NestFieldKind × NestState) :=
+  1399    if st.active.contains ⟨n, us, ds⟩ then
+  1400      throw (.invalid "nested positivity: non valid occurrence of the datatypes being \
+  1401        declared (an instantiation in progress, reached through reduction)")
+  1402    else if ds.all (fun x => x.fvarB ≤ ctx.hiAt 0) && st.keys.contains ⟨n, us, ds⟩ then
+  1403      pure (.nested (kb != 0), st)
+  1404    else nestContNew ctx ops env rec prog kb n us ds nPc cty st
 
-== ConLeche/Kernel/Inductives/Positivity.lean#L1442-L1453
-  1442  /-- **The positivity function** (see the section header): the domain
-  1443  `e` at depth `dep`, `kb` `Π` binders into the field, `prog` the
-  1444  instantiations in progress (innermost first; frame `i` from the
-  1445  outside has its hole at `ctx.hiAt i`).  The block's members are HOLES
-  1446  (the free variables `nP ..< nP + k`, abstracted by
-  1447  `nestedBlockPositivity`), and so is each instantiation in progress (its
-  1448  container abstracted to its frame's hole before its constructors are
-  1449  instantiated) — so every hole the monotonicity induction varies is a
-  1450  variable of the term `ops.whnf` reduces.  Throws official's verdict on
-  1451  a non-positive or non-valid occurrence; returns the field's kind and
-  1452  the cache. -/
-  1453  def nestPos (ops : CheckerOps m) (env : Env) (ctx : NestCtx) :
+== ConLeche/Kernel/Inductives/Positivity.lean#L1488-L1496
+  1488            else throw nestNonValid
+  1489          | none => throw nestNonValid
+  1490        | .const n us =>
+  1491          -- a member constant left after the abstraction (other levels)
+  1492          if ctx.names.contains n then throw nestNonValid
+  1493          -- `contApp`: a stored inductive at a concrete instantiation
+  1494          let (k, st) ← nestCont ctx ops env (nestPos ops env ctx fuel) prog kb n us args st
+  1495          pure (k, w, st)
+  1496        | _ => throw nestNonValid
 
-== whitepaper/Fragment/Decl.lean#L760-L803
-   760  /-- **A nested block is accepted** (con-leche's `checkBlock` with
-   761  the positivity walk through the container and the generated recursors
-   762  of every class, `Positivity.lean`, `GenRec.lean`): as `Ok` for the
-   763  former and the constructors, and then
-   764  
-   765  * the container is stored with its specification, which is plain
-   766    (depth one) and positive in the nested position;
-   767  * the container's sort at the instantiation is the block's sort
-   768    (official's N3), and so is the nested parameter's domain sort —
-   769    the nested occurrence, a fibre of the block, is a member of that domain;
-   770  * the class, at the block's parameters, has a sort in the environment
-   771    holding the former: its arguments fit the container's parameters;
-   772  * **large elimination is refused unless the sort is never `Prop`**
-   773    (`blockLargeElimAllowed`, `BlockRec.lean:82`): the subsingleton
-   774    criterion is never consulted for a nested block;
-   775  * the two recursors' types and every rule's type have sorts in the
-   776    environment holding the former and the constructors. -/
-   777  def OkN (N : NestInfo) (env : Env) : Prop :=
-   778    S.nest = some N ∧
-   779    (S.name :: S.recName :: N.aux :: S.ctors.map (·.name)).Nodup ∧
-   780    (∀ m ∈ S.name :: S.recName :: N.aux :: S.ctors.map (·.name), env.find? m = none) ∧
-   781    S.Scoped env ∧
-   782    (∃ T, Infer env [] S.indType T) ∧
-   783    (∀ c ∈ S.ctors,
-   784      (∃ T, Infer (S.envInd env) [] (S.ctorType c) T) ∧
-   785      (∀ i A, (S.fieldCtx c.fields)[i]? = some A →
-   786        ∃ s v, Infer (S.envInd env) ((S.fieldCtx c.fields).drop (i + 1) ++ S.params) A s ∧
-   787          Red (S.envInd env) ((S.fieldCtx c.fields).drop (i + 1) ++ S.params) s (.sort v) ∧
-   788          S.FieldBound v) ∧
-   789      (∀ i tele es, c.fields[i]? = some (.reflexive tele es) → ∀ t T, tele[t]? = some T →
-   790        ∃ s w, Infer (S.envInd env)
-   791            (tele.drop (t + 1) ++ (S.fieldCtx c.fields).drop (i + 1) ++ S.params) T s ∧
-   792          Red (S.envInd env) (tele.drop (t + 1) ++ (S.fieldCtx c.fields).drop (i + 1) ++ S.params)
-   793            s (.sort w) ∧
-   794          S.FieldBound w) ∧
-   795      (∃ T, Infer (S.envCtors env) [] (S.ruleTypeN N c) T)) ∧
-   796    (∃ ci, env.find? N.K.name = some ci ∧ ci.kind = .induct N.nPK 0 (N.K.ctors.map (·.name)) N.K.spec) ∧
-   797    LevelOracle.eq (N.K.sort.subst N.K.lparams N.lsK) S.sort = true ∧
-   798    LevelOracle.eq (N.memberLevel.subst N.K.lparams N.lsK) S.sort = true ∧
-   799    (∃ T, Infer (S.envInd env) S.params (S.classTy N 0) T) ∧
-   800    (S.large = true → S.NeverProp) ∧
-   801    (∀ c ∈ N.K.ctors, ∃ T, Infer (S.envCtors env) [] (S.rule1Type N c) T) ∧
-   802    (∃ T, Infer (S.envCtors env) [] (S.recTypeN N) T) ∧
-   803    (∃ T, Infer (S.envCtors env) [] (S.rec1Type N) T)
+== ConLeche/Kernel/Inductives/Positivity.lean#L1333-L1351
+  1333  def nestFrame (ctx : NestCtx) (ops : CheckerOps m) (env : Env)
+  1334      (rec : List NestHole → Nat → Nat → Expr → NestState → m (NestFieldKind × Expr × NestState))
+  1335      (prog : List NestHole) (hi : Nat) (us : List Level) (ds : List Expr) (nPc : Nat)
+  1336      (grp : List (Name × Expr)) (st : NestState) : m NestState := do
+  1337    -- K.52: the instantiation `C.{us} ds` is TYPED at the
+  1338    -- frame's own depth (its holes typed by their containers' formers, as
+  1339    -- the constants they stand for).  Official imposes it: after the nested
+  1340    -- elimination, `add_inductive` type-checks every replaced nested
+  1341    -- application `I Ds` (`tc.check(nested, …)` over `m_aux2nested`,
+  1342    -- `inductive.cpp` v4.32.2 :1186–1189, v4.34.0 :1320–1323), and a reduct
+  1343    -- of a typed term is typed.  The model grades the key's parameters in
+  1344    -- the frame's stack context by it.
+  1345    let _ ← ops.inferType env hi (Expr.mkAppN (.const (grp.headD default).1 us) ds)
+  1346    let prog' := (grp.mapIdx fun _ (c, _) =>
+  1347      ({ key := ⟨c, us, ds⟩, base := hi } : NestHole)).reverse ++ prog
+  1348    let ctors ← nestGroupCtors ctx nPc (grp.map (·.1))
+  1349    let (_, st) ← nestCtors ctx ops env (fun _ => rec) prog' (hi + grp.length) us ds (grp.map (·.1))
+  1350      (grp.mapIdx fun i (_, ty) => Expr.fvar (hi + i) ty) ctors st
+  1351    pure st
 
-== whitepaper/Fragment/Decl.lean#L800
-   800    (S.large = true → S.NeverProp) ∧
+== ConLeche/Kernel/Inductives/Positivity.lean#L1213-L1262
+  1213  def nestCtors (ctx : NestCtx) (ops : CheckerOps m) (env : Env)
+  1214      (rec : Expr → List NestHole → Nat → Nat → Expr → NestState →
+  1215        m (NestFieldKind × Expr × NestState))
+  1216      (prog : List NestHole) (hi : Nat) (us : List Level) (ds : List Expr) (names : List Name)
+  1217      (holes : List Expr) :
+  1218      List (ConstantVal × Nat) → NestState → m (List (List NestFieldKind × Expr) × NestState)
+  1219    | [], st => pure ([], st)
+  1220    | (cv, nF) :: cs, st => do
+  1221      -- the constructor's level parameters are distinct (the substitution law
+  1222      -- instantiates them as the recorded reading does;
+  1223      -- every stored constant passed `checkConstantVal`'s own check)
+  1224      unless Name.nodup cv.levelParams do
+  1225        throw (.invalid "nested positivity: invalid nested inductive datatype, its constructor \
+  1226          has a duplicate universe level parameter (official: duplicate universe level \
+  1227          parameter)")
+  1228      -- the container's constructor at the key, its group's WHOLE
+  1229      -- applications replaced by the holes BEFORE its parameters are
+  1230      -- instantiated (`nestCrest`), WITHOUT a β-step (official's
+  1231      -- `instantiate_pi_params`, `inductive.cpp` v4.34.0)
+  1232      let crest ← unwrapOr
+  1233        (nestCrest names us ds holes (cv.type.instantiateLevelParams cv.levelParams us))
+  1234        (.invalid "nested positivity: invalid nested inductive datatype, its constructor type \
+  1235          does not bind the parameters (official: ill-formed constructor)")
+  1236      let ty ← ops.inferType env hi crest
+  1237      let _ ← ops.ensureSort env hi ty
+  1238      let (ks, nds, cur, st) ← nestFields (rec crest) prog hi
+  1239        (.invalid "nested positivity: invalid nested inductive datatype, its constructor type \
+  1240          does not bind its fields (official: ill-formed constructor)") nF 0 crest st
+  1241      -- U4 on the instantiated constructor: no later field and not the result
+  1242      -- reads a field that is
+  1243      -- not ordinary (recursive, reflexive, nested or in progress) — on the
+  1244      -- walked (whnf'd) telescope.  Official rejects every instance
+  1245      -- (charter item 9)
+  1246      if (List.range nF).any (fun i => ks.getD i .ordinary != .ordinary &&
+  1247          structUsedLater (closeTelescope nds hi cur) 0 i) then
+  1248        throw (.invalid "nested positivity: non valid occurrence of the datatypes being \
+  1249          declared (a later field or the result depends on a recursive or nested field)")
+  1250      -- official's "invalid return type" on the instantiated constructor; its
+  1251      -- result is headed by its hole, applied to its indices alone (never
+  1252      -- fires: a stored constructor's result is its inductive applied to
+  1253      -- the parameters, which `nestCrest` abstracts)
+  1254      unless nestResHead cur && cur.getAppArgs.all
+  1255          (fun x => !x.nestOcc ctx.names ctx.nP hi) do
+  1256        throw (.invalid "nested positivity: invalid return type — a constructor's result \
+  1257          index mentions the block")
+  1258      -- K.53′: the constructor's walked normal form at the
+  1259      -- frame's key, read back (`NestCtorNf`)
+  1260      let st := { st with ctorNfs := st.ctorNfs.push (nestCtorNf ctx prog hi us ds cv nds cur) }
+  1261      let (os, st) ← nestCtors ctx ops env rec prog hi us ds names holes cs st
+  1262      pure ((ks, closeTelescope nds hi cur) :: os, st)
 
-== ConLeche/Kernel/Inductives/BlockRec.lean#L82-L84
-    82  def blockLargeElimAllowed (p : BlockShape) (nested : Bool) : Bool :=
-    83    p.resSort.isNeverZero ||
-    84      (p.large && p.k == 1 && !nested && (p.numCtors == 0 || p.numCtors == 1))
+== ConLeche/Kernel/Inductives/Positivity.lean#L1592-L1600
+  1592  def nestRoot (ops : CheckerOps m) (env : Env) (ctx : NestCtx) (holes : List Expr) :
+  1593      List (List (ConstantVal × Nat)) → NestState →
+  1594        m (List (List (List NestFieldKind × Expr)) × NestState)
+  1595    | [], st => pure ([], st)
+  1596    | cs :: css, st => do
+  1597      let (o, st) ← nestCtors ctx ops env (fun crest => nestPos ops env ctx (whnfWalkFuel crest)) []
+  1598        (ctx.hiAt 0) (ctx.lps.map .param) ctx.params ctx.names holes cs st
+  1599      let (os, st) ← nestRoot ops env ctx holes css st
+  1600      pure (o :: os, st)
 
-== whitepaper/Fragment/Decl.lean#L349-L356
-   349  /-- The container's field with `k` earlier fields, in the block's
-   350  terms. -/
-   351  def classField (N : NestInfo) (k : Nat) : Field → Field
-   352    | .ordinary A =>
-   353      if N.isMember k (.ordinary A) then .reflexive [] (N.idx.map (liftN k ·))
-   354      else .ordinary (instChainAt (A.instL N.K.lparams N.lsK) (S.classArgs N 0) k)
-   355    | .reflexive _ _ => .container
-   356    | .container => .container
+== ConLeche/Kernel/Inductives/Positivity.lean#L658-L664
+   658  structure NestState where
+   659    keys : Array NestKey := #[]
+   660    /-- the instantiations whose frames are being walked (every group
+   661    member at the key), outermost last: an instantiation walked at the
+   662    EMPTY stack (`nestWalkStack`) is still in progress for the cycle check
+   663    (`nestContKey`) -/
+   664    active : List NestKey := []
 
-== whitepaper/Fragment/Decl.lean#L381-L383
-   381  /-- A constructor of the container, in the block's terms: its fields
-   382  translated, no indices. -/
-   383  def classCtor (N : NestInfo) (c : CtorSpec) : CtorSpec := ⟨c.name, S.classFields N c.fields, []⟩
+== ConLeche/Kernel/Inductives/Positivity.lean#L1364-L1382
+  1364  def nestContNew (ctx : NestCtx) (ops : CheckerOps m) (env : Env)
+  1365      (rec : List NestHole → Nat → Nat → Expr → NestState → m (NestFieldKind × Expr × NestState))
+  1366      (prog : List NestHole) (kb : Nat) (n : Name) (us : List Level) (ds : List Expr) (nPc : Nat)
+  1367      (cty : Expr) (st : NestState) : m (NestFieldKind × NestState) := do
+  1368    -- an instantiation whose parameters mention no frame hole is walked at
+  1369    -- the EMPTY frame stack: its frame
+  1370    -- reads nothing of the frames it was met under, so every cached frame
+  1371    -- is derived at the root and a hit's subtree owns all its holes
+  1372    let wp := nestWalkStack ctx prog ds
+  1373    let grp ← nestGrowGroup ctx (ctx.hiAt wp.length) us ds (nestFrameMates ctx n) [(n, cty)]
+  1374    let act := st.active
+  1375    let st := { st with active := grp.map (fun p => ({ cname := p.1, lvls := us, ds := ds } : NestKey)) ++ act }
+  1376    let st ← nestFrame ctx ops env rec wp (ctx.hiAt wp.length) us ds nPc grp st
+  1377    -- the group is accepted with it — cached only when its parameters
+  1378    -- mention no frame hole: only such a key can ever hit (`nestContKey`)
+  1379    return (.nested (kb != 0),
+  1380      { st with active := act,
+  1381                keys := if ds.all (fun x => x.fvarB ≤ ctx.hiAt 0) then
+  1382                  nestAcceptGroup us ds grp st.keys else st.keys })
 
-== whitepaper/Fragment/Decl.lean#L389-L391
-   389  /-- **The class's motive's type**, under the parameters and the
-   390  block's motive: `∀ (t : K args[nested]), Sort ℓ`. -/
-   391  def motiveTy1 (N : NestInfo) : Expr := mkPis .never [S.classTy N 1] (.sort S.ℓ)
+== ConLeche/Kernel/Inductives/Positivity.lean#L1356-L1357
+  1356  def nestWalkStack (ctx : NestCtx) (prog : List NestHole) (ds : List Expr) : List NestHole :=
+  1357    if ds.all (fun x => x.fvarB ≤ ctx.hiAt 0) then [] else prog
 
-== whitepaper/Fragment/Decl.lean#L404-L416
-   404  /-- **A minor premise of the container's constructor `j`** at the
-   405  instantiation: under the two motives, the block's minors and the `j`
-   406  earlier class minors, `∀ fields ihs, motive_1 (C.{lsK} args[nested] fields)`
-   407  — the fields the translated ones, a parameter field's hypothesis the
-   408  block's motive at the nested occurrence, a container field's the class's. -/
-   409  def minorTyK (N : NestInfo) (c : CtorSpec) (j : Nat) : Expr :=
-   410    let c' := S.classCtor N c
-   411    let nF := c'.fields.length
-   412    let nIh := c'.recFields.length
-   413    let o := 2 + S.n + j
-   414    mkPis S.q (S.ihCtxAt c' o ++ S.fieldCtxAt c' o)
-   415      (mkAppN (.bvar (nIh + nF + o - 2))
-   416        [mkAppN (.const c.name N.lsK) (S.classArgs N (nIh + nF + o) ++ varsAt nIh nF)])
-
-== whitepaper/Fragment/Decl.lean#L438-L450
-   438  /-- **`T.rec`'s type** in a nested block:
-   439  `∀ params motive motive_1 minors minors_1 indices (t : I params indices), motive indices t`. -/
-   440  def recTypeN (N : NestInfo) : Expr :=
-   441    mkPis S.q (S.recCtxN N) (mkAppN (.bvar (S.nI + S.oN N)) (varsAt 1 S.nI ++ [.bvar 0]))
-   442  
-   443  /-- The context of `T.rec_1`: the major at the class, the extras, the
-   444  parameters. -/
-   445  def rec1Ctx (N : NestInfo) : List Expr := S.classTy N (S.oN N) :: S.extrasN N ++ S.params
-   446  
-   447  /-- **`T.rec_1`'s type**: the same prefix, the major at the class,
-   448  the class's motive at it. -/
-   449  def rec1Type (N : NestInfo) : Expr :=
-   450    mkPis S.q (S.rec1Ctx N) (mkAppN (.bvar (S.oN N - 1)) [.bvar 0])
-
-== whitepaper/Fragment/Decl.lean#L452-L466
-   452  /-- **An inductive hypothesis' value** in a rule of a nested block:
-   453  `T.rec` at the field (under its telescope) for a reflexive field,
-   454  `T.rec_1` at the field for a container field — each at the parameters
-   455  and all the extras. -/
-   456  def ihValN (N : NestInfo) (nF k : Nat) : Field → Expr
-   457    | .ordinary _ => .sort .zero
-   458    | .reflexive tele es =>
-   459      let m := tele.length
-   460      mkLams S.q (liftCtx (fun t T => atCtx nF k 0 (S.oN N) t T) tele)
-   461        (mkAppN (.const S.recName S.recLvls)
-   462          (varsAt (m + nF + S.oN N) S.nP ++ varsAt (m + nF) (S.oN N) ++
-   463            es.map (atCtx nF k 0 (S.oN N) m) ++ [mkAppN (.bvar (m + nF - 1 - k)) (varsAt 0 m)]))
-   464    | .container =>
-   465      mkAppN (.const N.aux S.recLvls)
-   466        (varsAt (nF + S.oN N) S.nP ++ varsAt nF (S.oN N) ++ [.bvar (nF - 1 - k)])
-
-== whitepaper/Fragment/Decl.lean#L502-L509
-   502  /-- **A `T.rec_1` rule's right-hand side** for the container's
-   503  constructor `j`: `fun params motives minors fields => minor_1_j fields ihs`. -/
-   504  def rule1Rhs (N : NestInfo) (c : CtorSpec) (j : Nat) : Expr :=
-   505    let c' := S.classCtor N c
-   506    let nF := c'.fields.length
-   507    mkLams S.q (S.ruleCtxN N c')
-   508      (mkAppN (.bvar (nF + N.nK - 1 - j))
-   509        (varsAt 0 nF ++ c'.recFields.map fun kf => S.ihValN N nF kf.1 kf.2))
+== ConLeche/Kernel/Inductives/GenRec.lean#L143-L163
+   143  /-- Constructor `x`'s minor premise type at depth `d`, of class `c`: its
+   144  declared fields, then per recursive field `f` (walked type `w`) the
+   145  inductive hypothesis `∀ a⃗, motive_t e⃗ (f a⃗)`, over the motive at the
+   146  declared result indices and the constructor applied. -/
+   147  def ClassGen.minorTy (g : ClassGen) (c : Nat) (x : ClassCtor) (d : Nat) : Option Expr := do
+   148    let ci := g.cls.getD c default
+   149    let (fvs, res) ← openPisAtFvars x.nF x.tyD d
+   150    let ws ← targetPiDomsWith fvs x.tyN
+   151    let recs := (List.range x.nF).filterMap fun i =>
+   152      match x.kinds.getD i .ordinary with
+   153      | .recursive t tele => some (i, t, tele)
+   154      | .ordinary => none
+   155    let ihs ← (List.range recs.length).mapM fun l => do
+   156      let (i, t, tele) := recs.getD l default
+   157      let e := d + x.nF + l
+   158      let (xs, idx) ← g.ihParts t tele (ws.getD i default) e
+   159      pure (closeTelescope (xs.map g.binder) e
+   160        (Expr.mkAppN (g.motVar t) (idx ++ [Expr.mkAppN (fvs.getD i default) xs])), g.bm)
+   161    let concl := Expr.mkAppN (g.motVar c)
+   162      (res.getAppArgs.drop ci.nPc ++ [Expr.mkAppN (.const x.cv.name ci.lvls) (ci.ds ++ fvs)])
+   163    pure (closeTelescope (fvs.map g.binder ++ ihs) d concl)
 
 == ConLeche/Kernel/Inductives/GenRec.lean#L180-L187
    180  /-- **The generated recursor type** at class `c`. -/
@@ -4514,18 +4619,6 @@
    211          (Expr.mkAppN (.const r rlvls) (pvars ++ idx ++ [Expr.mkAppN f xs]))))
    212    pure (closeLams (pre ++ fvs.map g.binder) 0 (Expr.mkAppN (g.slotVar s) (fvs ++ ihs)))
 
-== whitepaper/Fragment/Env.lean#L43-L52
-    43    /-- **The stored instantiation** of a nested rule (an auxiliary
-    44    recursor's rule, firing on a constructor of the block's *container*):
-    45    the constructor's expected levels, over the recursor's level
-    46    parameters, and its expected parameters, terms under the recursor's
-    47    own parameter binders — what the ι step compares the constructor
-    48    application against (`Red.iotaNested`).  `none` for a rule of the
-    49    block's own constructors, whose levels and parameters are the
-    50    recursor's (`Red.iota`).  Con-leche's `.nested` certification of a
-    51    rule (`tests/e2e/src/nested_rec.lean`). -/
-    52    inst : Option (List Level × List Expr) := none
-
 == ConLeche/Kernel/Env.lean#L196-L206
    196  * `.nested lvls pins` — a certified nested-auxiliary rule: the
    197    constructor's levels and parameters are *fixed instantiations*, read
@@ -4539,27 +4632,27 @@
    205    parameters are checked against these, instantiated at the recursor's
    206    actual level and leading-argument spine.
 
-== whitepaper/Fragment/Rules.lean#L160-L172
-   160    /-- **ι, nested** (con-leche's `.nested`-certified rules, task #48):
-   161    a rule of an auxiliary recursor fires on a constructor of the
-   162    block's *container*, whose parameters are not the recursor's.  The
-   163    rule stores the constructor's expected levels (over the recursor's
-   164    level parameters) and expected parameters (terms under the
-   165    recursor's parameter binders, `RecRule.inst`); the three
-   166    comparisons of `Red.iota` become: the constructor's levels are the
-   167    stored ones at the use's levels, its parameters are definitionally
-   168    the stored ones at the recursor's parameter arguments
-   169    (`Expr.instChain`), and the residual's index expressions are
-   170    definitionally the recursor's index arguments.  The constructor's
-   171    own parameter count comes from its record.  The telescope
-   172    certificates are as in `Red.iota`. -/
+== ConLeche/Kernel/CoreDefs.lean#L884-L891
+   884  def recFireComparands (rl : RecRule) (lps : List Name)
+   885      (us : List Level) (cvjLps : List Name) (args : List Expr)
+   886      (rP : Nat) : List Level × List Expr :=
+   887    match rl.fire with
+   888    | .nested lvls pins =>
+   889      (lvls.map (Level.subst lps us),
+   890       pins.map fun p => Expr.instSpine (args.take rP) (rP - 1)
+   891         (p.instantiateLevelParams lps us))
 
-== ConLeche/Kernel/Inductives/RecCheck.lean#L587-L597
-   587  /-- **One checked recursor's stored rules, at its major**: `sumRules` at the
-   588  MAJOR's parameter count and constructors;
-   589  at an OUTSIDE major (a nested block's auxiliary recursor) every rule
-   590  fires as `auxRuleFireR` reads it (`.nested` at the major's
-   591  instantiation), at a member major as `sumRules` builds it. -/
+== ConLeche/Rules/Rel.lean#L197-L204
+   197        rl.fire ≠ .inert →
+   198        Level.isEquivList usj
+   199          (recFireComparands rl cv.levelParams us cvj.levelParams
+   200            e.getAppArgs rP).1 = some true →
+   201        (rl.compareParams = true →
+   202          DefEqList env d (major.getAppArgs.take rl.ctorParams)
+   203            (recFireComparands rl cv.levelParams us cvj.levelParams
+   204              e.getAppArgs rP).2) →
+
+== ConLeche/Kernel/Inductives/RecCheck.lean#L592-L597
    592  def tgtStoredRules (find? : Name → Option ConstantInfo) (resolves : Expr → Bool)
    593      (cv : ConstantVal) (mI rP : Nat) (M : TargetMajor) (rhss : List Expr) : List RecRule :=
    594    let rules := sumRules find? cv.name M.nPc mI rP cv.type M.ctors rhss
@@ -4567,379 +4660,166 @@
    596    | none => rules.map fun rl => { rl with fire := auxRuleFireR resolves cv mI rP M.nPc }
    597    | some _ => rules
 
-== whitepaper/Fragment/IndCommon.lean#L188-L191
-   188  /-- **The class at a parameter set**: the container's set in the model,
-   189  applied to the class's arguments with `X` at the nested position. -/
-   190  def classSet (N : NestInfo) (ps : List V) (X : V) : V :=
-   191    appList (M N.K.name (S.lsK ls N)) (S.classArgsV M ls N ps X)
+== ConLeche/Kernel/Inductives/BlockRec.lean#L82-L84
+    82  def blockLargeElimAllowed (p : BlockShape) (nested : Bool) : Bool :=
+    83    p.resSort.isNeverZero ||
+    84      (p.large && p.k == 1 && !nested && (p.numCtors == 0 || p.numCtors == 1))
 
-== whitepaper/Fragment/NestSem.lean#L306-L310
-   306  /-- **The class is the container's family** at the instantiation
-   307  (the container's set applied by β to fitting parameter values). -/
-   308  theorem classSet_eq_Fam (hf : S.NestFacts M ls N) {ps : List V}
-   309      (hp : FitsVals M (S.ψ ls) base S.params ps) {X : V} (hX : X ∈ˢ (univ (S.u₀ ls) : V)) :
-   310      S.classSet M ls N ps X = N.KS.Fam M (S.lsK ls N) (S.psK M ls N ps X) [] := by
+== ConLeche/Kernel/Inductives/GenRec.lean#L569-L573
+   569    unless 0 < p.k do
+   570      throw (.invalid "generated recursor: the block declares no family")
+   571    if p.large && !blockLargeElimAllowed p (nestedBit || Ms.any (·.member.isNone)) then
+   572      throw (.invalid "generated recursor: large eliminator on a block whose sort may be Prop \
+   573        (official: elim_only_at_universe_zero)")
 
-== whitepaper/Fragment/IndSem.lean#L278-L298
-   278  /-- **The set a field ranges over**, relative to a family `W` (index
-   279  values to sets), at parameters `ps` and the earlier field values `fs`
-   280  (innermost first): an ordinary field's domain; for a reflexive field
-   281  the product over its telescope into the fibres of `W` at the field's
-   282  index expressions read under the telescope's values — the fibre
-   283  itself when the telescope is empty; for a container field the class
-   284  at the fibre of `W` at the nested occurrence's index expressions
-   285  (`classSet`: the container's family, read at the class's arguments
-   286  with that fibre in the nested position; a plain block has no
-   287  container field, and the clause is empty).  Con-leche: a field's
-   288  reading with holes, `LfpDatum.fields`, read at the hole frame of the
-   289  tuple (`HFits`, `BlockLfp.lean`); the container clause `contApp`
-   290  through the container's lfp clause (`BlockLfpMono.lean`). -/
-   291  def fieldSet (W : List V → V) (ps fs : List V) : Field → V
-   292    | .ordinary A => interp M (S.ψ ls) (consList fs (envP ps)) A
-   293    | .reflexive tele es =>
-   294      piCtx M (S.ψ ls) (S.z ls) (consList fs (envP ps)) tele fun ρ' => W (S.idxVals M ls ρ' es)
-   295    | .container =>
-   296      match S.nest with
-   297      | some N => S.classSet M ls N ps (W (S.memberIdx M ls N ps))
-   298      | none => empty
+== ConLeche/Kernel/Inductives/ClassRead.lean#L15-L32
+    15  * the CLASSES — the types the family eliminates, one per MOTIVE of the
+    16    shared rule prefix (a motive `∀ ı⃗ (t : I.{us} D⃗ ı⃗), Sort ℓ` names the
+    17    class `I.{us} D⃗`);
+    18  * the LAYOUT of the prefix — which binder after the parameters is which
+    19    motive, which is the minor premise of which constructor of which class;
+    20  * per minor premise, which fields have an inductive hypothesis and at
+    21    which class (`∀ a⃗, motive_t e⃗ (f_i a⃗)`), and per recursor the class its
+    22    conclusion eliminates.
+    23  
+    24  This file READS that data off the recursor types, syntactically, and
+    25  checks nothing.  Everything it returns is re-established by the stage:
+    26  every class is checked like a major (`targetMajorOf`), the inductive
+    27  hypotheses read here must be exactly the positivity check's recursive
+    28  fields, and every recursor TYPE is generated from the classes and the
+    29  positivity check's recorded constructors and compared by `isDefEq` with
+    30  the stream's.  What the stage installs is the generated family, never
+    31  anything read here: a wrong reading can only make the generated type
+    32  differ from the stream's, i.e. reject.
 
-== whitepaper/Fragment/IndSem.lean#L300-L303
-   300  /-- The container clause, when the block has a class. -/
-   301  theorem fieldSet_container {N : NestInfo} (hN : S.nest = some N) (W : List V → V) (ps fs : List V) :
-   302      S.fieldSet M ls W ps fs .container = S.classSet M ls N ps (W (S.memberIdx M ls N ps)) := by
-   303    simp [fieldSet, hN]
+== ConLeche/Kernel/Inductives/RecCheck.lean#L400-L437
+   400      | none => do
+   401        -- an OUTSIDE inductive (a nested block's container)
+   402        if I == quotName then
+   403          throw (.invalid "target rec: the recursor's major is Quot, which is no inductive")
+   404        let some (nPc, ctors) := targetCtorsOf fe I
+   405          | throw (.invalid "target rec: the recursor's major is not a stored inductive")
+   406        let ds := args.take nPc
+   407        unless ds.length == nPc &&
+   408            ds.all (fun x => x.bvarB == 0 && x.fvarB ≤ p.nP) do
+   409          throw (.invalid "target rec: the major's parameters mention more than the \
+   410            recursor's parameters")
+   411        -- **An auxiliary type of the block**, official's `is_nested`: some
+   412        -- parameter `Dᵢ` names a member of the block (`inductive.cpp` v4.34.0
+   413        -- :1033–1049: `find` over each of the `nparams` arguments for a
+   414        -- constant of `m_new_types`; every auxiliary type is such an
+   415        -- application, restored verbatim by `restore_nested`, and official
+   416        -- accepts an auxiliary recursor exactly at an auxiliary type).  The
+   417        -- calls' proof reads it: a call on a field whose walked type names no
+   418        -- member and no hole targets no class.  Read without whnf and without
+   419        -- entering a free variable's annotation (`nestOcc` at an empty hole
+   420        -- range).  Every class resolved here SEEDS the positivity walk
+   421        -- (`classSeeds`, `GenRec.lean`), so it is a node of the walk by
+   422        -- construction: nothing ties it to a node here.
+   423        unless ds.any (fun x => x.nestOcc p.memberNames 0 0) do
+   424          throw (.invalid "target rec: the recursor's major is an outside inductive at an \
+   425            instantiation that is no auxiliary type of the block (official generates no such \
+   426            auxiliary recursor: `elim_nested_inductive`, `is_nested`)")
+   427        let (nIdx, sI) ← targetOutsideInst fe I us ds
+   428        -- **Q1**: an outside major in ANOTHER
+   429        -- universe than the block (a Type block's family eliminating a
+   430        -- Prop inductive, or the converse) is refused here: the
+   431        -- elimination guard is the BLOCK's (`blockLargeElimAllowed`),
+   432        -- and it says nothing about another universe's inductive
+   433        unless ← liftFueled "level comparison" (Level.isEquiv sI p.resSort) do
+   434          throw (.invalid "target rec: the recursor's major lives in another universe than \
+   435            the block (Q1)")
+   436        pure { ind := I, lvls := us, ds := ds, nPc := nPc, nIdx := nIdx, ctors := ctors,
+   437               member := none, pfvs := pfvs }
 
-== whitepaper/Fragment/IndSem.lean#L451-L469
-   451  /-- **The container's clause, as the operator needs it** at the
-   452  parameters `ps` (see the section heading): the class is in the result
-   453  universe, accessible with the class's bound, and inhabited at the
-   454  one-fibre set when inhabited at all.  That it grows with the parameter
-   455  set is not a field: it follows from accessibility
-   456  (`ContClause.mono`). -/
-   457  structure ContClause (N : NestInfo) (ps : List V) : Prop where
-   458    /-- The class at a parameter set of the universe is in the universe. -/
-   459    mem_univ : ∀ X, X ∈ˢ (univ (S.u₀ ls) : V) → S.classSet M ls N ps X ∈ˢ (univ (S.u₀ ls) : V)
-   460    /-- Every member of the class at `X` has a support in `X`, coded in
-   461    the class's bound, carrying it to the class at every parameter set
-   462    holding the support. -/
-   463    acc : ∀ X, X ∈ˢ (univ (S.u₀ ls) : V) → ∀ v, v ∈ˢ S.classSet M ls N ps X →
-   464      ∃ (B : V) (g : V → V), B ⊆ˢ S.classBound ∧ (∀ b, b ∈ˢ B → g b ∈ˢ X) ∧
-   465        ∀ X', X' ∈ˢ (univ (S.u₀ ls) : V) → (∀ b, b ∈ˢ B → g b ∈ˢ X') → v ∈ˢ S.classSet M ls N ps X'
-   466    /-- The class at the one-fibre set is inhabited when the class at
-   467    some parameter set of the universe is. -/
-   468    inhab_one : ∀ X, X ∈ˢ (univ (S.u₀ ls) : V) → (∃ v, v ∈ˢ S.classSet M ls N ps X) →
-   469      ∃ v, v ∈ˢ S.classSet M ls N ps one
+== ConLeche/Kernel/Inductives/Positivity.lean#L1646-L1654
+  1646  def nestSeeds (ops : CheckerOps m) (env : Env) (ctx : NestCtx) :
+  1647      List (NestKey × Nat) → NestState → m NestState
+  1648    | [], st => pure st
+  1649    | (key, nPc) :: ks, st => do
+  1650      let F := key.ds.foldl (fun a d => max a (whnfWalkFuel d)) fuelSlack
+  1651      let (_, cty) ← nestInstType ctx (ctx.hiAt 0) key
+  1652      let (_, st) ← nestContKey ctx ops env (nestPos ops env ctx F) [] 0 key.cname key.lvls
+  1653        key.ds nPc cty st
+  1654      nestSeeds ops env ctx ks st
 
-== whitepaper/Fragment/IndSem.lean#L471-L480
-   471  /-- **The class grows with the parameter set**, by accessibility: the
-   472  support in `X` is in the larger `Y`.  Con-leche: `AccTuple.monoTuple`
-   473  at the container instance. -/
-   474  theorem ContClause.mono {S : IndSpec} {M : Name → List Nat → V} {ls : List Nat} {N : NestInfo}
-   475      {ps : List V} (h : S.ContClause M ls N ps) {X Y : V}
-   476      (hXY : X ⊆ˢ Y) (hX : X ∈ˢ (univ (S.u₀ ls) : V)) (hY : Y ∈ˢ (univ (S.u₀ ls) : V)) :
-   477      S.classSet M ls N ps X ⊆ˢ S.classSet M ls N ps Y := by
-   478    intro v hv
-   479    obtain ⟨B, g, -, hg, hs⟩ := h.acc X hX v hv
-   480    exact hs Y hY fun b hb => hXY _ (hg b hb)
+== ConLeche/Kernel/Inductives/GenRec.lean#L453-L456
+   453    | x :: xs => do
+   454      let gen ← unwrapOr (classGenRule g recOf (cvR.levelParams.map .param) c x)
+   455        (.invalid s!"generated recursor: the rule of {x.cv.name} calls a class whose recursor the \
+   456          stream omits (official: unknown constant)")
 
-== whitepaper/Fragment/IndSem.lean#L1155-L1162
-  1155  /-- **The operator is accessible with the bound** — by positivity:
-  1156  every constructor value's support is coded inside the bound, lies in
-  1157  the input family, and carries the value to every family of the
-  1158  universe holding it; at a container field by the container's clause.
-  1159  Con-leche: `blockAcc_of_run`, the `AccTuple` `closed_of_acc`
-  1160  consumes. -/
-  1161  theorem famOp_acc {ps : List V} (hnr : S.NoRecDep) (hco : S.ContOk M ls ps) :
-  1162      AccFam (S.u₀ ls) (S.famOp M ls ps) (S.bound M ls ps) := by
+== tests/e2e/src/corner_nestind_f13_listrose.lean#L12-L15
+    12  inductive RL (α : Type) : Type where
+    13    | node (a : α) (cs : List (RL α)) : RL α
+    14  inductive TL : Type where
+    15    | node (l : List (RL TL)) : TL
 
-== whitepaper/Fragment/IndSem.lean#L935-L952
-   935  /-- **A constructor's support bound**: for each reflexive field, the
-   936  tuples of its telescope at every list fitting the fields before it
-   937  relative to the one-fibre family, each coded by the field's position
-   938  (a numeral in a path step, `pcons`); for each container field, the
-   939  class's bound, coded likewise.  An ordinary field contributes
-   940  nothing; a recursive field, whose telescope is empty, contributes the
-   941  one tuple `tuple []` per prefix.  Con-leche: `piBound` glued along the
-   942  telescope (`HoleAcc.lean`), made uniform along the fields
-   943  (`TeleAcc.lean`); the container's bound `accPaths` of
-   944  `ContAccFrame.lean`. -/
-   945  noncomputable def ctorBound (ps : List V) (c : CtorSpec) : V :=
-   946    listUnion ((List.range c.fields.length).map fun k =>
-   947      match c.fields[c.fields.length - 1 - k]? with
-   948      | some (.reflexive tele _) =>
-   949        famUnion (S.fitsSet M ls oneFam ps (c.fields.drop (c.fields.length - k))) fun t =>
-   950          image (pcons (nat k)) (ctxSet M (S.ψ ls) (consList (untuple t) (envP ps)) tele)
-   951      | some .container => image (pcons (nat k)) S.classBound
-   952      | _ => empty)
+== ConLeche/Kernel/Inductives/GenRec.lean#L256-L271
+   256  /-- **Node agreement at one recursive field** (K.53′): at every entry
+   257  `E` of the constructor, field `i` (opened at the datum's variables `fvs`)
+   258  has the datum's telescope `tele`, the datum's leaf head and indices, and
+   259  a leaf class matching the inductive hypothesis's class `Mc` per component
+   260  (`targetK53`). -/
+   261  def classNodesAgree (ops : CheckerOps m) (env : Env) (p : BlockShape) (formerTys : List Expr)
+   262      (Mc : TargetMajor) (tele : List (Expr × BinderMeta)) (leaf : Expr) (fvs : List Expr)
+   263      (i : Nat) (ctor : Name) : List NestCtorNf → m Unit
+   264    | [] => pure ()
+   265    | e :: es => do
+   266      let some f := ((targetPiDomsWith fvs e.ty).getD [])[i]?
+   267        | throw (.invalid s!"generated recursor: a recorded normal form of {ctor} is too short")
+   268      unless ← targetK53 ops env p formerTys Mc tele leaf f do
+   269        throw (.invalid s!"generated recursor: field {i} of {ctor} does not land at its inductive \
+   270          hypothesis's class at every node of the positivity check (official: invalid recursor)")
+   271      classNodesAgree ops env p formerTys Mc tele leaf fvs i ctor es
 
-== whitepaper/Fragment/NestSem.lean#L380-L394
-   380  /-- **A fitting list of a positive container stays fitting under a
-   381  replacement**, at the parameter set and family the replacement reads:
-   382  a parameter field's value lands in the new parameter set, a recursive
-   383  field's in the new family's fibre, and an ordinary field — mentioning
-   384  neither the nested parameter nor an earlier parameter or recursive field
-   385  — reads the same set at both.  (The fields are a suffix of a
-   386  constructor's, so that positivity's clause and the no-dependency
-   387  condition pass to the tails.) -/
-   388  theorem FitsFields_psK_repl (hf : S.NestFacts M ls N) {X Y : V} {W W' : List V → V} {ps : List V} :
-   389      ∀ {fields : List Field} {fs fs' : List V},
-   390        (∀ i f, fields[i]? = some f → N.FieldPos fields i f) →
-   391        ListNoRecDep fields →
-   392        N.KS.FitsFields M (S.lsK ls N) W (S.psK M ls N ps X) fields fs →
-   393        Repl N Y W' fields fs fs' →
-   394        N.KS.FitsFields M (S.lsK ls N) W' (S.psK M ls N ps Y) fields fs'
+== ConLeche/Model/Annot/BlockLfp.lean#L32-L43
+    32  **The clause** (`LfpClause`), at every level assignment `ψ` and every
+    33  parameter frame `ρp` satisfying the parameter telescope (exactly the
+    34  quantification `BlockModelAt` has, which is what the install proves):
+    35  
+    36  * `functor` — `Φ` is monotone, maps the tuple space into itself, and
+    37    has a closed tuple: the three facts `lfpTuple`'s laws need
+    38    (`lfpTuple_induction` takes the first and the third);
+    39  * `fibre` — component `c`'s fibre at `(X, t)` is the set of injections
+    40    of the spines fitting one of `c`'s constructors at `(X, t)`;
+    41  * `leaf` — a member's former, at fitting parameters and its own
+    42    indices, is the least pre-fixed tuple's component at the index
+    43    tuple.
 
-== whitepaper/Fragment/NestSem.lean#L634-L646
-   634  /-- **The container's family is accessible in the parameter set**, with
-   635  the class's bound: the nested case of accessibility (`lfpP_acc`)
-   636  applied to the joint operator — in both regimes (at a proposition the
-   637  container's family is closed in `{pt}`, `lfpP_acc`).  Con-leche:
-   638  `accConcl_of_frameAccOut` (`ContAcc.lean`) over `frameIterAcc`, above
-   639  a proposition. -/
-   640  theorem Fam_psK_acc (hf : S.NestFacts M ls N) (hN : S.nest = some N) {ps : List V}
-   641      (hp : FitsVals M (S.ψ ls) base S.params ps) {X : V}
-   642      (hX : X ∈ˢ (univ (S.u₀ ls) : V)) {v : V}
-   643      (hv : v ∈ˢ N.KS.Fam M (S.lsK ls N) (S.psK M ls N ps X) []) :
-   644      ∃ (B : V) (g : V → V), B ⊆ˢ S.classBound ∧ (∀ b, b ∈ˢ B → g b ∈ˢ X) ∧
-   645        ∀ X', X' ∈ˢ (univ (S.u₀ ls) : V) → (∀ b, b ∈ˢ B → g b ∈ˢ X') →
-   646          v ∈ˢ N.KS.Fam M (S.lsK ls N) (S.psK M ls N ps X') [] := by
-
-== whitepaper/Fragment/IndSem.lean#L435-L443
-   435  /-- **The class's bound**: the finite paths over the container's field
-   436  positions — the bound of the container's family's accessibility in
-   437  the parameter set (`lfpP_acc`, the paths over the container's joint
-   438  bound, which is one code per field position).  Empty for a plain
-   439  block. -/
-   440  noncomputable def classBound : V :=
-   441    match S.nest with
-   442    | some N => accPaths (natsBelow N.maxFields)
-   443    | none => empty
-
-== whitepaper/Fragment/NestSem.lean#L466-L470
-   466  /-- **The container's operator, jointly in the parameter set and its own
-   467  family**: the parameter set at the left index, the family at the right.
-   468  Con-leche: the joint operator `Θ` of `lfpP_acc`. -/
-   469  noncomputable def jointOp (ps : List V) (Z : Unit ⊕ List V → V) : List V → V :=
-   470    N.KS.famOp M (S.lsK ls N) (S.psK M ls N ps (Z (Sum.inl ()))) fun is => Z (Sum.inr is)
-
-== whitepaper/Fragment/NestSem.lean#L480-L488
-   480  /-- **The container's operator is accessible jointly in the parameter set
-   481  and its own family**, with one code per field position: a
-   482  constructor value depends on its parameter fields (occurrences in the
-   483  parameter set) and its recursive fields (occurrences in the family), and
-   484  fits at every parameter set and family holding them
-   485  (`FitsFields_psK_repl`).  Con-leche: `frameCtor_acc`
-   486  (`ContAccFrame.lean`). -/
-   487  theorem jointOp_acc (hf : S.NestFacts M ls N) (ps : List V) :
-   488      AccFam (S.u₀ ls) (S.jointOp M ls N ps) (natsBelow N.maxFields) := by
-
-== whitepaper/Fragment/Access.lean#L414-L429
-   414  /-- **The nested case: the least family is accessible in its
-   415  parameter.**  If the joint operator (the parameter's indices on the
-   416  left, its own on the right) is `A`-accessible and maps families in
-   417  the universe to families in the universe, then `X ↦ lfpP Θ X` is
-   418  `accPaths A`-accessible: by induction over the least family at `X`, a
-   419  member's support is the paths through the operator's support — a leaf
-   420  for an occurrence in `X`, the induction hypothesis' support below an
-   421  occurrence in the least family — and every parameter holding it
-   422  produces the member by the closedness of its least family.  The bound
-   423  must be a member of the universe only above a proposition, where the
-   424  section's closed family is `closed_of_acc`'s; at a proposition it is
-   425  `{pt}` (`closedFam_zero`).  Con-leche: `lfpP_acc` (above a
-   426  proposition). -/
-   427  theorem lfpP_acc {Θ : (ι ⊕ κ → V) → κ → V} {A : V} (hA : n ≠ 0 → A ∈ˢ (univ n : V))
-   428      (hmaps : ∀ X Y, InUniv n X → InUniv n Y → InUniv n (Θ (Sum.elim X Y)))
-   429      (hacc : AccFam n Θ A) : AccFam n (lfpP n Θ) (accPaths A) := by
-
-== whitepaper/Fragment/NestSem.lean#L673-L681
-   673  /-- **The container's family at the one-fibre set is inhabited when
-   674  the family at any parameter set of the universe is**: by induction over
-   675  the family, every constructor instance has a counterpart at `{pt}`
-   676  — the parameter fields replaced by the point, the recursive fields by
-   677  the counterparts the induction supplies, the ordinary fields kept. -/
-   678  theorem Fam_psK_inhab_one (hf : S.NestFacts M ls N) {ps : List V}
-   679      (hp : FitsVals M (S.ψ ls) base S.params ps) {X : V} (hX : X ∈ˢ (univ (S.u₀ ls) : V))
-   680      (hex : ∃ v, v ∈ˢ N.KS.Fam M (S.lsK ls N) (S.psK M ls N ps X) []) :
-   681      ∃ v, v ∈ˢ N.KS.Fam M (S.lsK ls N) (S.psK M ls N ps one) [] := by
-
-== whitepaper/Fragment/NestSem.lean#L737-L745
-   737  /-- **The container's clause, from positivity and leastness**
-   738  (`ContClause`): the class is the container's family at the
-   739  instantiation (`classSet_eq_Fam`), which lies in the result universe
-   740  (`Fam_mem_univ`, N3), is accessible with the class's bound
-   741  (`Fam_psK_acc`, in both regimes), and is inhabited at the one-fibre
-   742  set when inhabited at all (`Fam_psK_inhab_one`).  That it grows with
-   743  the parameter set follows (`ContClause.mono`). -/
-   744  theorem contClause_of (hf : S.NestFacts M ls N) (hN : S.nest = some N) {ps : List V}
-   745      (hp : FitsVals M (S.ψ ls) base S.params ps) : S.ContClause M ls N ps where
-
-== whitepaper/Fragment/NestSem.lean#L190-L218
-   190  /-- **What is known about the container** when a block nests through
-   191  it: its set in the model is its family's graph (its installation's
-   192  law), it is positive in the nested position, no field reads an
-   193  earlier recursive field, the universe bound on its fields holds at
-   194  every fitting parameter list (its own checks), the class's arguments
-   195  fit its parameters at every parameter set in the result universe (the
-   196  nested block's check), and its result universe at the instantiation
-   197  is the block's (N3). -/
-   198  structure NestFacts : Prop where
-   199    /-- The container's set is its family's graph. -/
-   200    fam : ∀ ls', M N.K.name ls' = N.KS.famSet M ls'
-   201    /-- The container is positive in the nested position. -/
-   202    positive : N.Positive
-   203    /-- No field of the container reads an earlier recursive field. -/
-   204    noRecDep : N.KS.NoRecDep
-   205    /-- The universe bound on the container's fields, at fitting
-   206    parameters. -/
-   207    domsBounded : ∀ ps', FitsVals M (N.KS.ψ (S.lsK ls N)) base N.KS.params ps' →
-   208      N.KS.DomsBounded M (S.lsK ls N) ps'
-   209    /-- The class's arguments fit the container's parameters at every
-   210    parameter set in the result universe. -/
-   211    argsFit : ∀ ps, FitsVals M (S.ψ ls) base S.params ps → ∀ X, X ∈ˢ (univ (S.u₀ ls) : V) →
-   212      FitsVals M (N.KS.ψ (S.lsK ls N)) base N.KS.params (S.psK M ls N ps X)
-   213    /-- The container's result universe at the instantiation is the
-   214    block's. -/
-   215    u₀_eq : N.KS.u₀ (S.lsK ls N) = S.u₀ ls
-   216    /-- The class's arguments fill all but the nested position of the
-   217    container's parameters (`NestScoped`). -/
-   218    args_len : N.args.length + 1 = N.nPK
-
-== whitepaper/Fragment/BlockModel.lean#L46-L57
-    46  /-- **The block's law** in a model: for a plain block, its scope, its
-    47  constants stored, its former's set the family's graph, its
-    48  constructors' sets their graphs, and the universe bound on its fields
-    49  at fitting parameters.  Vacuous for a nested block. -/
-    50  def BlockLaw (env : Env) (M : Name → List Nat → V) : Prop :=
-    51    S.nest = none →
-    52      S.Scoped env ∧ S.NoCont ∧
-    53      env.find? S.name = some S.indInfo ∧
-    54      (∀ (j : Nat) (c : CtorSpec), S.ctors[j]? = some c → env.find? c.name = some (S.ctorInfo c)) ∧
-    55      (∀ ls, M S.name ls = S.famSet M ls) ∧
-    56      (∀ (j : Nat) (c : CtorSpec), S.ctors[j]? = some c → ∀ ls, M c.name ls = S.ctorSet M ls j c) ∧
-    57      (∀ ls ps, FitsVals M (S.ψ ls) base S.params ps → S.DomsBounded M ls ps)
-
-== whitepaper/Fragment/BlockModel.lean#L61-L66
-    61  /-- **A model of an environment that remembers its blocks**: an
-    62  `EnvModel` with the block law of every stored block. -/
-    63  structure BlockModel (V : Type u) [IndLib V] (env : Env) extends EnvModel V env where
-    64    /-- Every stored block's law. -/
-    65    blocks : ∀ (K : Name) (ci : ConstInfo) (nP nI : Nat) (cs : List Name) (spec : IndSpec),
-    66      env.find? K = some ci → ci.kind = .induct nP nI cs spec → spec.BlockLaw env M
-
-== whitepaper/Fragment/IndSem.lean#L1294-L1312
-  1294  /-- **A closed family in the universe**: at a proposition the family
-  1295  of truth values `{pt}` (`closedFam_zero`); above one, from
-  1296  accessibility (`closed_of_acc`).  Con-leche: `LfpClause.functor`'s
-  1297  third conjunct, `closedTuple_zero` and `closed_of_acc`. -/
-  1298  theorem closedFam {ps : List V} (hnr : S.NoRecDep) (hb : S.DomsBounded M ls ps)
-  1299      (hco : S.ContOk M ls ps) : ∃ L, IsClosedFam (S.u₀ ls) (S.famOp M ls ps) L := by
-  1300    cases hz : S.z ls with
-  1301    | true =>
-  1302      have hm := S.famOp_maps M ls hb hco
-  1303      rw [(S.z_iff ls).mp hz] at hm ⊢
-  1304      exact closedFam_zero hm
-  1305    | false =>
-  1306      exact closed_of_acc (S.u₀_ne_zero ls hz) (S.bound_mem_univ M ls hz hb hco)
-  1307        (S.famOp_maps M ls hb hco) (S.famOp_acc M ls hnr hco)
-  1308  
-  1309  /-- **The family**: the fibre at the index values `is` is the least
-  1310  fixed point of the block's operator inside the set theory.
-  1311  Con-leche: `LfpDatum.carrier`, `lfpTuple` of the hole operator. -/
-  1312  noncomputable def Fam (ps is : List V) : V := lfpFamSet (S.u₀ ls) (S.famOp M ls ps) is
-
-== whitepaper/Fragment/IndSem.lean#L1322-L1357
-  1322  /-- **The fixed-point equation**: the operator at the family is the
-  1323  family.  Con-leche: `LfpClause.carrier_eq`. -/
-  1324  theorem famOp_Fam {ps : List V} (hnr : S.NoRecDep) (hb : S.DomsBounded M ls ps)
-  1325      (hco : S.ContOk M ls ps) (is : List V) :
-  1326      S.famOp M ls ps (S.Fam M ls ps) is = S.Fam M ls ps is :=
-  1327    lfpFamSet_eq (S.closedFam M ls hnr hb hco) (S.famOp_mono M ls hnr hco) (S.famOp_maps M ls hb hco) is
-  1328  
-  1329  /-- **The family's case analysis**: a member of the fibre at `is` is
-  1330  a constructor instance over the family at `is`, and conversely.
-  1331  Con-leche: `LfpClause.carrier_case`. -/
-  1332  theorem mem_Fam {ps : List V} (hnr : S.NoRecDep) (hb : S.DomsBounded M ls ps)
-  1333      (hco : S.ContOk M ls ps) {is : List V} {t : V} :
-  1334      t ∈ˢ S.Fam M ls ps is ↔ S.Inst M ls (S.Fam M ls ps) ps is t := by
-  1335    rw [← S.famOp_Fam M ls hnr hb hco]
-  1336    exact S.mem_famOp M ls
-  1337  
-  1338  /-- **A constructor's value is in the fibre** at its index expressions
-  1339  when its fields fit the family.  Con-leche: `LfpClause.ctor` with the
-  1340  carrier's closure. -/
-  1341  theorem ctorVal_mem_Fam {ps : List V} (hnr : S.NoRecDep) (hb : S.DomsBounded M ls ps)
-  1342      (hco : S.ContOk M ls ps) {j : Nat}
-  1343      {c : CtorSpec} (hc : S.ctors[j]? = some c) {fs : List V}
-  1344      (hfit : S.FitsFields M ls (S.Fam M ls ps) ps c.fields fs) :
-  1345      S.ctorVal ls j fs ∈ˢ S.Fam M ls ps (S.idxVals M ls (consList fs (envP ps)) c.idx) :=
-  1346    (S.mem_Fam M ls hnr hb hco).mpr ⟨j, c, fs, hc, hfit, rfl, rfl⟩
-  1347  
-  1348  /-- **Induction over the family**: a property that holds of every
-  1349  constructor instance over the family's separation by it holds on the
-  1350  family.  Con-leche: `lfpTuple_induction`, the block's induction the
-  1351  recursor's graph is built with. -/
-  1352  theorem Fam_induction {ps : List V} (hnr : S.NoRecDep) (hb : S.DomsBounded M ls ps)
-  1353      (hco : S.ContOk M ls ps) (P : List V → V → Prop)
-  1354      (h : ∀ is x, S.Inst M ls (fun is' => sep (S.Fam M ls ps is') (P is')) ps is x → P is x) :
-  1355      ∀ is x, x ∈ˢ S.Fam M ls ps is → P is x :=
-  1356    lfpFamSet_induction (S.closedFam M ls hnr hb hco) (S.famOp_mono M ls hnr hco) P fun is x hx =>
-  1357      h is x ((S.mem_famOp M ls).mp hx)
-
-== ConLeche/Semantics/Inductives/HoleMono.lean#L23
-    23  | `contApp`: a container instance | `Model/Annot/BlockLfpMono.lean`'s container case, through the container's lfp clause |
-
-== ConLeche/Model/Annot/BlockLfpMono.lean#L113-L125
-   113  /-- **The carrier below on a group, with the index sets agreeing on `G` only**:
-   114  the frame's key checks the index telescopes of the
-   115  REACHED group-mates alone (`nestInstType`'s N2), so only they are known
-   116  to have the same index sets at the two parameter frames.  The bound is
-   117  taken at the tuple that is the larger carrier on `G` and the smaller one
-   118  elsewhere, which lies in the smaller frame's tuple space. -/
-   119  theorem carrier_le_on_group' (h : LfpClause acval D) {ψ : Name → Nat} {ρp ρp' : Nat → V}
-   120      (hs : Sat V (D.params ψ).reverse ρp) (hs' : Sat V (D.params ψ).reverse ρp')
-   121      (G : Nat → Prop) (hidx : ∀ g, g < D.N → G g → D.idx ψ ρp g = D.idx ψ ρp' g)
-   122      (hwalk : ∀ g, g < D.N → G g → ∀ t, t ∈ˢ D.idx ψ ρp g → ∀ j fs,
-   123        D.HFits ψ ρp (fun x => if G x then D.carrier ψ ρp' x else D.carrier ψ ρp x) t g j fs →
-   124        D.HFits ψ ρp' (D.carrier ψ ρp') t g j fs) :
-   125      ∀ g, g < D.N → G g → FamLe (D.idx ψ ρp g) (D.carrier ψ ρp g) (D.carrier ψ ρp' g) := by
-
-== ConLeche/SetModel/HoleClose.lean#L61-L70
-    61  /-- **The least tuple lies below `B` on a group `G` of components**
-    62  (a container frame abstracts only the reached part `G` of its group;
-    63  the other components are held at the least tuple itself): if the operator, at the least tuple with its
-    64  `G`-components replaced by `B`'s, lies below `B` on `G`, then so does
-    65  the least tuple.  By induction (`lfpTuple_induction`) at the separation
-    66  "on `G`, inside `B`": no Bekić needed. -/
-    67  theorem lfpTuple_le_on (h : ∃ L, IsClosedTuple w k Is Φ L) (hmono : MonoTuple w k Is Φ)
-    68      (G : Nat → Prop) {B : Nat → V} (hB : InTupleSpace w k Is B)
-    69      (hZ : ∀ g, g < k → G g →
-    70        FamLe (Is g) (Φ (fun x => if G x then B x else lfpTuple w k Is Φ x) g) (B g)) :
-
-== ConLeche/Semantics/Inductives/HoleAcc.lean#L41-L45
+== ConLeche/Semantics/Inductives/HoleAcc.lean#L39-L45
+    39  | case | accessibility | bound | type regime |
+    40  |---|---|---|---|
     41  | a hole-free reading | `ConstOn.accOn` | `∅` | `ConstOn.typeReg` |
     42  | the `whnf` step | `AccOn.of_eqOn` | the reduct's | `TypeReg.of_eqOn` |
     43  | Π, hole-free domain, `v ≠ 0` | `AccOn.pi` | `piBound` | `TypeReg.pi` |
     44  | Π, hole-free domain, `v = 0` | `ConstOn.pi` (via the body's `TypeReg`) | `∅` | `TypeReg.pi` |
     45  | a hole at hole-free arguments | `AccOn.holeApp` | `{pt}` | `TypeReg.holeApp` |
 
-== ConLeche/Model/Inductives/ContAccFrame.lean#L486-L491
-   486  /-- **One constructor of a frame's group is accessible** (the accessibility
-   487  twin of `frameIter`'s per-constructor transfer): a bound of the level
-   488  reading only the parameter positions, and for every fit of the recorded
-   489  constructor at a group tuple mixed into the carrier, a support of the
-   490  frame's walk valuation carrying the fit to any related frame and tuple. -/
-   491  theorem frameCtor_acc {w : Nat} (hw : w ≠ 0) (hwD : D.w (Level.substFn φ lps us) = w)
+== ConLeche/Model/Inductives/ContAcc.lean#L15-L35
+    15  /-!
+    16  # A container instance is accessible
+    17  
+    18  The container pieces of the accessibility induction on the positivity
+    19  derivation (`posD_acc`, `PosDerivAcc.lean`):
+    20  
+    21  * the leaf (`accConcl_of_frameAccOut`, over `keyLeaf`): a frame's
+    22    accessibility at the key frames makes the container instance
+    23    accessible along the enclosing relation;
+    24  * a frame's accessibility at EMPTY enclosing frames, read back at the
+    25    frameless relation (`frameAccOut_unextend`, with
+    26    `HoleRelA.extendEmpty`);
+    27  * a key accessible at the block's own depth (`KeyAcc`) makes a cache
+    28    hit's instance accessible (`contHit_acc`, at the enclosing relation
+    29    seen at that depth, `HoleRelA.dropBase`).
+    30  
+    31  The TYPE REGIME of a container instance: the container lives at the
+    32  block's level (`n2_sort`, the kernel's N3), so a truth-valued fibre of a
+    33  parameterised container is empty (`LfpClause.injNePt`); a container
+    34  without parameters reads no hole.
+    35  -/
 
-== ConLeche/Model/Inductives/ContAcc.lean#L131-L137
-   131  /-- **A frame's accessibility, read at the reduct** (the leaf, `keyLeaf`):
-   132  a container instance `C.{us} (ds ++ is)` at depth `dep` whose key's
-   133  parameters are read at `b` (the frame's depth), with hole-free indices,
-   134  is in the type regime and accessible along the enclosing relation with
-   135  the frame's bound read `dep - b` positions down (it reads parameter
-   136  positions only). -/
-   137  theorem accConcl_of_frameAccOut {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env)
-
-== ConLeche/SetModel/Access.lean#L506-L515
+== ConLeche/SetModel/Access.lean#L506-L516
    506  /-- **THE NESTED CASE: the least tuple is accessible in its parameter.**
    507  If the joint operator `Θ` (parameter components first, then its own) is
    508  `A`-accessible and maps the space into itself, then `X ↦ lfp_Y Θ(X, Y)`
@@ -4950,107 +4830,27 @@
    513      (hmaps : ∀ X Y, InTupleSpace w kX IsX X → InTupleSpace w kY IsY Y →
    514        InTupleSpace w kY IsY (Θ (catT kX X Y)))
    515      (hacc : AccTuple w (kX + kY) (catT kX IsX IsY) kY IsY Θ A) :
+   516      AccTuple w kX IsX kY IsY (lfpP w kX kY IsY Θ) (accPaths A) := by
 
-== whitepaper/Fragment/NestRec.lean#L181-L196
-   181  /-- **The operator** whose least fixed point is the joint graph: the
-   182  block's rules at the family, the class's rules at the class. -/
-   183  noncomputable def rstepN (R : RecPN V) (ps : List V) (ex : RecEx V) (tgt : JIdx V) (x v : V) :
-   184      Prop :=
-   185    (∃ j c fs ihs is, tgt = (false, is) ∧ S.ctors[j]? = some c ∧
-   186      S.FitsFields M ls (S.Fam M ls ps) ps c.fields fs ∧
-   187      is = S.idxVals M ls (consList fs (envP ps)) c.idx ∧ x = tag (S.tagOf j) (tuple fs.reverse) ∧
-   188      ListRel (S.IhOkN M ls q R ps ex fs) c.recFields ihs ∧
-   189      v = appList (S.minorAt ex.mins j) (fs.reverse ++ ihs)) ∨
-   190    (∃ j c fs ihs, tgt = (true, []) ∧ N.K.ctors[j]? = some c ∧
-   191      S.ClassFits M ls N (S.Fam M ls ps (S.memberIdx M ls N ps)) (fun _ => True) ps
-   192        (S.classCtor N c).fields fs ∧
-   193      x = tag j (tuple fs.reverse) ∧
-   194      ListRel (S.IhOkN M ls q R ps ex fs) (S.classCtor N c).recFields ihs ∧
-   195      v = appList (minorKAt N ex.minsK j) (fs.reverse ++ ihs))
-   196  
+== ConLeche/Semantics/Inductives/HoleMono.lean#L17-L23
+    17  | `nestPos` case | lemma |
+    18  |---|---|
+    19  | the `whnf` step before every case | `MonoOn.of_eqOn` (the reading of the reduct is the reading of the term — `WhnfClaim`'s conclusion shape) |
+    20  | `const`: the reduct mentions no hole | `ConstOn.of_noBVar`, `ConstOn.monoOn` |
+    21  | `pi`: hole-free domain, positive codomain | `MonoOn.pi` |
+    22  | `holeApp`: a hole applied to hole-free arguments | `MonoOn.holeApp` |
+    23  | `contApp`: a container instance | `Model/Annot/BlockLfpMono.lean`'s container case, through the container's lfp clause |
 
-== whitepaper/Fragment/NestRec.lean#L202-L205
-   202  /-- **The joint graph** of the two recursors: the least fixed point of
-   203  `rstepN`. -/
-   204  noncomputable def RecGraphN (ps : List V) (ex : RecEx V) (tgt : JIdx V) (x v : V) : Prop :=
-   205    Lfp (S.rstepTN M ls N q) (ps, ex, tgt, x, v)
+== ConLeche/SetModel/HoleClose.lean#L17-L22
+    17  * `tupleLe_of_fibre` — two tuples compare as soon as their components'
+    18    fibre laws' fit relations do;
+    19  * `lfpTuple_le_on` — the least tuple lies below `B` on a group `G` of
+    20    its components as soon as the operator, at the least tuple with its
+    21    `G`-components replaced by `B`'s, does: a container frame abstracts
+    22    only the reached part of its group, the rest is read concretely.
 
-== whitepaper/Fragment/NestRec.lean#L450-L454
-   450  /-- **Single-valuedness of the joint graph**: tags and tuples are
-   451  injective, and a block value's tag is never a class value's — the
-   452  block's constructors are tagged after the container's. -/
-   453  theorem RecGraphN_fun {ps : List V} {ex : RecEx V} {tgt : JIdx V} {x v v' : V}
-   454      (h : S.RecGraphN M ls N q ps ex tgt x v) (h' : S.RecGraphN M ls N q ps ex tgt x v') : v = v' := by
-
-== whitepaper/Fragment/NestRec.lean#L598-L606
-   598  /-- **Totality of the joint graph** on the family and on the class
-   599  (above a proposition): by induction over the family, with an inner
-   600  induction over the class at the approximant's fibre at every container
-   601  field. -/
-   602  theorem RecGraphN_total (hN : S.nest = some N) (hz : S.z ls = false) {ps : List V}
-   603      (hnr : S.NoRecDep) (hb : S.DomsBounded M ls ps) (hco : S.ContOk M ls ps)
-   604      (hcl : S.ClassLaws M ls N ps) (ex : RecEx V) :
-   605      (∀ is x, x ∈ˢ S.Fam M ls ps is → ∃ v, S.RecGraphN M ls N q ps ex (false, is) x v) ∧
-   606      (∀ x, x ∈ˢ S.classAt M ls N ps → ∃ v, S.RecGraphN M ls N q ps ex (true, []) x v) := by
-
-== whitepaper/Fragment/NestRec.lean#L555-L560
-   555  /-- **The inner induction**: the graph is total on the class at a
-   556  parameter set inside the fibre on which it is total. -/
-   557  theorem class_total_of {ps : List V} (hcl : S.ClassLaws M ls N ps) (ex : RecEx V) {X : V}
-   558      (hX : X ∈ˢ (univ (S.u₀ ls) : V)) (hXF : X ⊆ˢ S.Fam M ls ps (S.memberIdx M ls N ps))
-   559      (hkey : ∀ x, x ∈ˢ X → ∃ v, S.RecGraphN M ls N q ps ex (false, S.memberIdx M ls N ps) x v) :
-   560      ∀ x, x ∈ˢ S.classSet M ls N ps X → ∃ v, S.RecGraphN M ls N q ps ex (true, []) x v := by
-
-== whitepaper/Fragment/NestClass.lean#L360-L368
-   360  /-- **The class's laws** from the container's fixed point: inversion,
-   361  introduction and induction are the container's `mem_Fam`,
-   362  `ctorVal_mem_Fam` and `Fam_induction` at the instantiation, read in
-   363  the block's terms through `ClassFits_iff`; size and monotonicity are
-   364  the container's clause (`contClause_of`; monotonicity by its
-   365  accessibility, `ContClause.mono`). -/
-   366  theorem classLaws_of (hf : S.NestFacts M ls N) (hlen : N.args.length + 1 = N.nPK)
-   367      (hlsK : N.lsK.length = N.K.lparams.length) (hKS : N.KS.Scoped env) (hN : S.nest = some N)
-   368      (hz : S.z ls = false) {ps : List V} (hp : FitsVals M (S.ψ ls) base S.params ps) :
-
-== whitepaper/Fragment/NestRec.lean#L686-L694
-   686  /-- **The ι equation of `T.rec`**: at a constructor value whose fields
-   687  fit, the recursor is the minor at the fields and the hypotheses'
-   688  values. -/
-   689  theorem recSemN_eq (hN : S.nest = some N) (hz : S.z ls = false) {ps : List V}
-   690      (hnr : S.NoRecDep) (hb : S.DomsBounded M ls ps) (hco : S.ContOk M ls ps)
-   691      (hcl : S.ClassLaws M ls N ps) (ex : RecEx V)
-   692      {j : Nat} {c : CtorSpec} (hc : S.ctors[j]? = some c) {fs : List V}
-   693      (hfit : S.FitsFields M ls (S.Fam M ls ps) ps c.fields fs) :
-   694      S.recSemN M ls N q ps ex (S.idxVals M ls (consList fs (envP ps)) c.idx) (S.ctorVal ls j fs)
-
-== whitepaper/Fragment/NestRec.lean#L702-L712
-   702  /-- **The ι equation of `T.rec_1`**: at a container constructor's
-   703  value (the tagged tuple of fields fitting it at the instantiation),
-   704  the auxiliary recursor is the class minor at the fields and the
-   705  hypotheses' values. -/
-   706  theorem rec1Sem_eq (hN : S.nest = some N) (hz : S.z ls = false) {ps : List V}
-   707      (hnr : S.NoRecDep) (hb : S.DomsBounded M ls ps) (hco : S.ContOk M ls ps)
-   708      (hcl : S.ClassLaws M ls N ps) (ex : RecEx V)
-   709      {j : Nat} {c : CtorSpec} (hc : N.K.ctors[j]? = some c) {fs : List V}
-   710      (hfit : S.ClassFits M ls N (S.Fam M ls ps (S.memberIdx M ls N ps)) (fun _ => True) ps
-   711        (S.classCtor N c).fields fs) :
-   712      S.rec1Sem M ls N q ps ex (tag j (tuple fs.reverse))
-
-== whitepaper/Fragment/NestIota.lean#L1452-L1456
-  1452  /-- **`T.rec`'s set is in `T.rec`'s type.** -/
-  1453  theorem recSetN_mem (φ : Name → Nat) (ρ : Nat → V) {lsr : List Level}
-  1454      (hlsr : lsr.length = S.recLparams.length) :
-  1455      S.recSetN m.M N (lsr.map (Level.eval φ)) ∈ˢ
-  1456        interp (S.M₃N m.M N) (Level.substVal φ S.recLparams lsr) ρ (S.recTypeN N) := by
-
-== whitepaper/Fragment/NestIota.lean#L1482-L1486
-  1482  /-- **`T.rec_1`'s set is in `T.rec_1`'s type.** -/
-  1483  theorem rec1Set_mem (φ : Name → Nat) (ρ : Nat → V) {lsr : List Level}
-  1484      (hlsr : lsr.length = S.recLparams.length) :
-  1485      S.rec1Set m.M N (lsr.map (Level.eval φ)) ∈ˢ
-  1486        interp (S.M₃N m.M N) (Level.substVal φ S.recLparams lsr) ρ (S.rec1Type N) := by
-
-== ConLeche/SetModel/NestRec.lean#L9-L19
+== ConLeche/SetModel/NestRec.lean#L8-L46
+     8  /-!
      9  # The nested recursor's graph kit: majors over several CLASSES
     10  
     11  The graph kit (`SetModel/GraphRec.lean`, `GraphRecKit`) asks ONE thing of
@@ -5062,148 +4862,70 @@
     17  the parameter frame the instantiation reads).  This module builds the
     18  kit over such a family of classes and proves `ind` from the classes'
     19  own clauses, by a STRENGTHENED PREDICATE:
+    20  
+    21  * a class is a clause (`SClause`: an operator per parameter frame, its
+    22    fit relation and injections) at its TRUE frame `fr b`;
+    23  * its container fields' classes are reached, during the induction, at
+    24    SEPARATED frames — the instantiation read at the enclosing class's
+    25    separated tuple; which frames count is the kit's `Adm` (admissible:
+    26    "a frame whose parameter positions hold elements satisfying `G`");
+    27  * at such a frame the class's own induction runs with the predicate
+    28    "lies in the TRUE class ∧ the property"; membership in the true class
+    29    is re-established at each constructor by the class's clause at the
+    30    TRUE frame (the fibre law, backwards, and closure), after moving the
+    31    constructor's fit from the separated frame and tuple to the true ones
+    32    (`trans`).  The only inclusion the induction itself produces is the
+    33    separation `sep ⊆ carrier`.
+    34  
+    35  **What is used of a class** (charter items 2, 4): its clause at each
+    36  frame the induction visits (`OkAt`: monotone in its own holes, a closed
+    37  tuple, the fibre law) and ONE fact per class tying a frame to the true
+    38  one, `trans`: a constructor fitting at an admissible frame, at holes
+    39  below the true carrier, fits at the true frame and the true carrier.  At
+    40  the term level `trans` is `LfpDatum.hfits_mono` along the relation
+    41  between the instantiation's two hole frames (the constructor's
+    42  positivity AT THE INSTANTIATION, `CtorPos` — what `nestPos`'s container
+    43  descent certifies, keyed by the instantiation) followed by the clause's
+    44  own `fitsMono` at the true frame.  Nothing is asked of a container "in
+    45  its parameter": no monotonicity of its value or carrier, no Bekić, no
+    46  joint (wide) operator.
 
-== ConLeche/Model/Inductives/TargetNestKit.lean#L8-L19
-     8  /-!
-     9  # The nested recursor's classes as LFP CLAUSES
-    10  
-    11  The recursor model at a nested block (`graphRecPre_core`,
-    12  `BlockRecGraph.lean`) is over the recursor's CLASSES: a member of the
-    13  block, or a container at an instantiation (an outside major).  Charter
-    14  item 5: "the model uses nothing from an inductive but its lfp clause" —
-    15  so every class is presented by ONE recorded clause (`LfpClause`,
-    16  `Model/Annot/BlockLfp.lean`) at a level assignment and a parameter
-    17  frame, and this module turns clauses into the set-level kit
-    18  `NestKit` (`SetModel/NestRec.lean`) whose induction the recursor's
-    19  classes read (`NestNodeInd.ind_recNodesOn`, `SetModel/NestRecCls.lean`).
+== ConLeche/SetModel/NestRecCls.lean#L6-L29
+     6  /-!
+     7  # The nested kit's induction at the RECURSOR's classes
+     8  
+     9  The nested kit `NestKit` (`SetModel/NestRec.lean`: `trans` at every
+    10  admissible frame) proves the induction principle of its majors,
+    11  the tagged elements `nenc b m t x` of every CLAUSE class `b` (a member
+    12  block, or a container at an instantiation — a positivity NODE),
+    13  component `m`.  `NestNodeInd` is that principle, DECODED (a major's
+    14  predecessors are the kit's `pred` at a decoding at the true frame and
+    15  carrier), and the one interface the recursor side reads; `NestKit.toNodeInd`
+    16  is its instance.
+    17  
+    18  The recursor model's graph kit (`graphKitG`,
+    19  `Model/Inductives/BlockRecGraph.lean`) is stated over the RECURSOR's
+    20  classes: recursor `c`'s majors are `tagged c t x`, its decodings are the
+    21  rule data's, and its predecessors are the rule's call targets (`predR`).
+    22  `NestNodeInd.ind_recNodesOn` transports the one to the other, with
+    23  SEVERAL nodes per class (`Rel c b`: node `b` visits recursor `c`'s class
+    24  at component `mOf c b`; one instantiation may be visited at several
+    25  nodes), on a set `S` of classes that have nodes.
+    26  The property is read back along every node of a class: `P'` holds at the
+    27  node major `nenc b (mOf c b) t x` when `P` holds at `tagged c t x`
+    28  for every related recursor `c`; the kit's predecessors must contain every
+    29  related recursor's call targets (`hpredR`).
 
-== whitepaper/Fragment/EnvModel.lean#L163-L190
-   163  /-- **The ι law of a nested rule** (`Red.iotaNested`): for the
-   164  recursor `c` with `numParams` parameters and a rule `rl` firing on a
-   165  constructor `cij` of the block's container, with `nPc` parameters of
-   166  its own — the comparisons against the stored instantiation are
-   167  *checked* by the ι step, but the law does not consume them: the
-   168  constructor's fields are pinned by the major's membership in the
-   169  class (the recursor's telescope fit), as tags and tuples are
-   170  injective, and the elimination level of a nested block whose sort may
-   171  be `Prop` is `Prop` (`blockLargeElimAllowed`, `BlockRec.lean:82`),
-   172  where the equation is trivial.  Otherwise as `RecRuleLaw`. -/
-   173  def RecRuleLawN (M : Name → List Nat → V) (c : Name) (ci : ConstInfo)
-   174      (nPc numBefore majorIdx : Nat) (rl : RecRule) (cij : ConstInfo) : Prop :=
-   175    ∀ (φ : Name → Nat) (ρ : Nat → V) (us usj : List Level) (xs ys : List V),
-   176      us.length = ci.lparams.length → usj.length = cij.lparams.length →
-   177      xs.length = majorIdx → ys.length = nPc + rl.nfields →
-   178      TeleFitV M φ ρ (ci.type.instL ci.lparams us)
-   179        (xs ++ [appList (M rl.ctor (usj.map (Level.eval φ))) ys]) →
-   180      TeleFitV M φ ρ (cij.type.instL cij.lparams usj) ys →
-   181      (∀ (B : Expr) (ρ' : Nat → V) (I : Name) (lsI : List Level) (rps ridx : List Expr),
-   182        piBodyV ρ (cij.type.instL cij.lparams usj) ys = some (B, ρ') →
-   183        B = Expr.mkAppN (.const I lsI) (rps ++ ridx) → rps.length = nPc →
-   184        ∀ p ∈ (ridx.map (interp M φ ρ')).zip (xs.drop numBefore), p.1 = p.2) →
-   185      appList (M c (us.map (Level.eval φ)))
-   186          (xs ++ [appList (M rl.ctor (usj.map (Level.eval φ))) ys])
-   187        = appList (interp M φ ρ (rl.rhs.instL ci.lparams us))
-   188            (xs.take numBefore ++ ys.drop nPc) ∧
-   189      WellDenoted M φ ρ (rl.rhs.instL ci.lparams us) ∧
-   190      SpineOk (interp M φ ρ (rl.rhs.instL ci.lparams us)) (xs.take numBefore ++ ys.drop nPc)
-
-== whitepaper/Fragment/NestIota.lean#L2282-L2289
-  2282  /-- **The ι law of a `T.rec` rule** (`RecRuleLaw`, `EnvModel.lean`) for
-  2283  the recursor's constant and the block's constructor's, at `nP`
-  2284  parameters, `nP + 2 + (n + nK)` arguments before the indices and the
-  2285  major at `nP + 2 + (n + nK) + nI`. -/
-  2286  theorem rec_rule_lawN {j : Nat} {c : CtorSpec} (hc : S.ctors[j]? = some c) :
-  2287      RecRuleLaw (S.M₃N m.M N) S.recName (S.recInfoN N) S.nP (S.nP + 2 + (S.n + N.nK))
-  2288        (S.nP + 2 + (S.n + N.nK) + S.nI) ⟨c.name, c.fields.length, S.ruleRhsN N c j, none⟩
-  2289        (S.ctorInfo c) := by
-
-== whitepaper/Fragment/NestIota.lean#L2925-L2930
-  2925  /-- **The nested ι law of a `T.rec_1` rule** (`RecRuleLawN`,
-  2926  `EnvModel.lean`): at the container's parameter count. -/
-  2927  theorem rec_rule_law1N {j : Nat} {c : CtorSpec} (hc : N.K.ctors[j]? = some c) :
-  2928      RecRuleLawN (S.M₃N m.M N) N.aux (S.rec1Info N) N.nPK (S.nP + 2 + (S.n + N.nK))
-  2929        (S.nP + 2 + (S.n + N.nK) + 0)
-  2930        ⟨c.name, c.fields.length, S.rule1Rhs N c j, some (N.lsK, S.classArgs N 0)⟩ (N.KS.ctorInfo c) := by
-
-== ConLeche/Model/Annot/Laws.lean#L294-L297
-   294  * **The `.nested` pin clause quantifies the pin's own open reading**
-   295    (`denoteMeta` at depth `rP`), concluding at the reading substituted
-   296    along the argument prefix — `AnnotTerm.instRevChain`.  The supplier
-   297    converts the recorded comparand runs through the claims.
-
-== whitepaper/Fragment/NestIota.lean#L2612-L2620
-  2612  /-- **The core of the ι law of a `T.rec_1` rule**: from the two
-  2613  telescope fits alone — the recursor's spine, ending in the container's
-  2614  constructor applied, and the constructor's own spine — the equation,
-  2615  the right-hand side's invariant and its application chain.  Above a
-  2616  proposition the major sits in the class, which pins the fields
-  2617  (`ClassLaws.inv`); at a proposition both sides are the point, and the
-  2618  chain's values each lie in the domain they meet in their own
-  2619  telescope. -/
-  2620  theorem rule1_core (φ : Name → Nat) (ρ : Nat → V) {us usj : List Level} {xs ys : List V}
-
-== whitepaper/Fragment/NestInstall.lean#L194-L199
-   194  /-- **Installing a nested block preserves having a block model.**
-   195  Every stored constant keeps its set; the new block, being nested,
-   196  stores no block law of its own. -/
-   197  theorem install_nest {env : Env} {S : IndSpec} {N : NestInfo} (hs : Env.Scoped env)
-   198      (m : BlockModel V env) (hok : S.OkN N env) :
-   199      ∃ m' : BlockModel V (S.install env), ∀ n, (env.find? n).isSome → ∀ ls, m'.M n ls = m.M n ls := by
-
-== whitepaper/Fragment/NestInstall.lean#L203-L206
-   203  /-- **Installing any accepted block preserves having a block model.** -/
-   204  theorem install_ind_any {env : Env} {S : IndSpec} (hs : Env.Scoped env) (m : BlockModel V env)
-   205      (hok : IndOk env S) :
-   206      ∃ m' : BlockModel V (S.install env), ∀ n, (env.find? n).isSome → ∀ ls, m'.M n ls = m.M n ls := by
-
-== whitepaper/Fragment/Consistency.lean#L46-L47
-    46    /-- An inductive block, plain or nested (`IndOk`, `Decl.lean`). -/
-    47    | ind {env : Env} (S : IndSpec) : Accepted env → IndOk env S → Accepted (S.install env)
-
-== ConLeche/Kernel/Inductives/Positivity.lean#L1359-L1364
-  1359  /-- An instantiation's frame (`nestCont`'s last cases): the group-mates'
-  1360  former checks (`nestGrowGroup`; the instantiation's own, `nestInstType`,
-  1361  ran at the occurrence and gave `cty`, the type of its hole), the frame
-  1362  (`nestFrame`), and the whole group cached — when its parameters mention
-  1363  no frame hole, the only keys that can hit (`nestContKey`). -/
-  1364  def nestContNew (ctx : NestCtx) (ops : CheckerOps m) (env : Env)
-
-== tests/e2e/src/nested_p03.lean#L5-L6
-     5  inductive P3 where
-     6    | mk : Array (List P3) → P3
-
-== tests/e2e/src/nested_p25.lean#L7-L8
-     7  inductive P25 where
-     8    | mk : P25V P25 3 → P25
-
-== ConLeche/Kernel/Inductives/Positivity.lean#L1285-L1291
-  1285  /-- **A frame's group-mates** (N2-eager): every
-  1286  OTHER member of the container `C`'s recorded block (`IndCaps.all`), each
-  1287  once.  Official copies the whole block of every container it finds
-  1288  (`for J_name : I_val->get_all()`, `inductive.cpp` v4.34.0), reachable or
-  1289  not; so does the frame. -/
-  1290  def nestFrameMates (ctx : NestCtx) (C : Name) : List Name :=
-  1291    (nestBlockOf ctx C).eraseDups.filter (· != C)
-
-== tests/e2e/src/ind_nest_via_refl.lean#L9-L14
-     9  inductive W1 (α : Type)
-    10    | sup (a : α) (f : Nat → W1 α)
-    11  
-    12  inductive ViaRefl
-    13    | leaf
-    14    | node (w : W1 ViaRefl)
-
-== ConLeche/Kernel/Inductives/GenRec.lean#L18-L27
-    18  * **The classes** (`checkBlockClasses`, in the install's PASS, before the
-    19    positivity check).  An UNVERIFIED pre-pass (`ClassRead.lean`) reads the
-    20    classes (one per motive), the prefix layout (motives, minor premises,
-    21    their inductive hypotheses) and every recursor's class off the stream's
-    22    RAW recursor types (they mention the constructors, so they are checked
-    23    only here, at the constructors' environment).  Every class key is moved
-    24    to the block's canonical parameters and annotated (`classKeyOf`), then
-    25    checked as a major (`targetMajorOf`: a member at the block's levels and
-    26    parameters, or a stored inductive at an auxiliary type of the block,
-    27    `is_nested`), with exactly one class per member.
+== ConLeche/Model/Inductives/BlockRecLaw.lean#L448-L456
+   448  /-- **A new block recursor's rule law, at either firing**.  `hpins` is
+   449  `RecRuleLaw`'s outer `.nested` conjunct — the pins'
+   450  open readings and their context-guarded grading — vacuous at a `.plain`
+   451  rule; `hrhs` receives the fire's two parameter comparisons, the
+   452  `.plain` one (unused by a block rule, `paramsBlind`) and the `.nested`
+   453  one: at an OUTSIDE major the constructor's parameters are the pins read
+   454  at the prefix, which is what identifies the fired spine with the rule's
+   455  own (`BlockRuleDataAt`'s `mk` conjunct) at a container constructor. -/
+   456  theorem blockRecRuleLaw_gen {env : Env} {m₃ : EnvModel V env} {φ : Name → Nat}
 
 >>> whitepaper/sections/06-extensionality.typ
 

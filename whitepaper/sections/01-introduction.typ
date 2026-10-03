@@ -98,8 +98,9 @@ and each such use is one case of the soundness proof.
 
 This document is a pen-and-paper account of that argument on a
 simplified fragment of the checker. The fragment has no projections, no
-number or string literals, no mutual inductive types and no nesting
-deeper than one container, no
+number or string literals, no mutual inductive types, nesting only one container
+deep and not under a binder (@sec:nested describes the full check,
+without proof), no
 quotients, no axioms, no built-in copies of `False`, `Eq`, `Nat` and
 their kin (the real checker pins these rather than reading them from
 the stream), no `let`, no distinction between a theorem and a
@@ -125,9 +126,11 @@ definition unfolds, and the model that grows with it. §4 adds inductive
 types as least fixed points in the model, their recursors and reduction
 rules, large elimination, and the consistency corollary: no accepted
 environment stores a constant whose type is an inductive proposition
-with no constructors. §5 adds nested inductive types, whose
-constructors mention the type being defined inside another one, as in
-`List (Tree α)`. §6 shows that three features of Lean's
+with no constructors. §5 changes tack: it describes
+con-leche's check for nested inductive types, whose constructors
+mention the type being defined inside another one, as in
+`List (Tree α)`, and their generated recursors in full, and only
+sketches how the model extends to them. §6 shows that three features of Lean's
 definitional equality which the fragment drops — reduction of proofs at
 `Eq`-like types, η for structures, and unit-likeness — follow from the
 extensionality of the model, at the cost of one proof case each. §7 lists what was left

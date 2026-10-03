@@ -46,7 +46,7 @@ An inductive block declares an _indexed family_ by its constructors:
 one type, or one proposition, per choice of indices — _type-valued_
 or _proposition-valued_, the two regimes of §2 for a whole family at
 once. The fragment takes a block with one type former, neither mutual
-nor nested; nesting is added in @sec:nested. The block is given by a
+nor nested; nested blocks are the subject of @sec:nested. The block is given by a
 #src("whitepaper/Fragment/Spec.lean", 80, 103)[_specification_]
 (#src("ConLeche/Kernel/Inductives/BlockParts.lean", 104, 122)[as in con-leche]):
 
@@ -890,8 +890,8 @@ environment by the two steps of §3 and §4: a definition that
 passes its checks, or an inductive block that passes its checks and
 is installed.
 An accepted environment is closed — #src("whitepaper/Fragment/Consistency.lean", 50, 55)[every stored term mentions only stored constants] — which is what
-@thm:install-def, the construction of @sec:ind-model and
-@thm:install-nest assumed of the environment they extend.
+@thm:install-def and the construction of @sec:ind-model
+assumed of the environment they extend.
 
 #theorem(name: "Every accepted environment has a model")[
   For every model of the extended theory, every accepted environment
@@ -904,7 +904,7 @@ An accepted environment is closed — #src("whitepaper/Fragment/Consistency.lean
   a definition step is @thm:install-def; a block step is the
   construction of @sec:ind-model, #src("whitepaper/Fragment/Install.lean", 124, 129)[assembled]: law 1 is its
   membership claims, law 2 has no new instance, and law 3 is
-  @thm:iota — for a nested block, @thm:install-nest.
+  @thm:iota.
 ]
 
 #real[

@@ -1,162 +1,229 @@
 #import "../lib.typ": *
 
 // Notation local to this file, matching §4.
-#let PW = $italic("pw")$
 #let never = $sans("never")$
-#let always = $sans("always")$
 #let Sort = $sans("Sort")$
-#let Prop = $sans("Prop")$
-#let zn = $sans("zeroness")$
+#let Nat = $sans("Nat")$
 #let red = sym.arrow.r.squiggly
-#let pt = $sans("pt")$
-#let tag = $op("tag")$
-#let tuple = $op("tuple")$
-#let lfp = $op("lfp")$
-#let lden = sym.bracket.l.stroked
-#let rden = sym.bracket.r.stroked
 #let Tree = $sans("Tree")$
 #let List = $sans("List")$
 #let node = $sans("node")$
 #let nil = $sans("nil")$
 #let cons = $sans("cons")$
+#let mk = $sans("mk")$
+#let leaf = $sans("leaf")$
+#let P = $sans("P")$
+#let L = $sans("L")$
+#let R = $sans("R")$
+#let T = $sans("T")$
 #let TreeRec = $sans("Tree.rec")$
 #let TreeRec1 = $sans("Tree.rec")_1$
-#let TRec = $sans("T.rec")$
-#let TRec1 = $sans("T.rec")_1$
 #let ts = $italic("ts")$
 
 = Nested inductive types <sec:nested>
 
-A block of @sec:ind mentions the family it defines only directly: a
-recursive field's domain _is_ the family, a reflexive field's domain
-a function type into it. A _nested_ block mentions it inside another type,
-as in a tree whose children are a _list_ of trees. The checks and
-the model of §4 carry over with one addition each — the positivity
-check looks through the other type, and the model reads that type's
-own least fixed point — and the recursor gains a companion. This
-section does the same work as §4 for that addition, on the
-fragment's nested extension, and says what the real proof does
-beyond it.
+This section changes tack. The previous sections present a fragment of
+the checker and prove it sound; this one describes con-leche's check
+for _nested_ blocks, which mention the type being defined inside
+another inductive type, in full (mutual blocks aside), and then only
+sketches how the construction and the proofs of @sec:ind-model extend
+to them. Nothing is proved here, and the citations go to con-leche. A
+restricted case — one container instantiation, at depth one, not under
+a binder — is verified in the paper's Lean fragment:
+#src("whitepaper/Fragment/NestInstall.lean", 197, 201)[installing such a block keeps a model of the environment].
 
-== A nested block <sec:nest-what>
+== Nested blocks <sec:nest-what>
 
-#example(name: [$Tree$])[
-  The block $Tree$ has one parameter $(alpha : Sort 1)$, no index, sort
-  $Sort 1$, and one constructor
-  $ node : forall (alpha : Sort 1) thin ann(never). thin forall (a : alpha) thin ann(never). thin forall (ts : List thick (Tree thick alpha)) thin ann(never). thin Tree thick alpha. $
-  The second field's domain is $List thick (Tree thick alpha)$: the
-  block $List$, installed earlier, applied to the family being
-  defined (#src("tests/e2e/src/nested_rec.lean", 17, 18)[the fixture]).
-] <ex:tree>
+A block of @sec:ind mentions the type being defined only directly: a
+recursive field's domain is the family itself, a reflexive field's a
+function type into it. The standard nested block is
+#src("tests/e2e/src/nested_rec.lean", 17, 18)[a tree whose children form a _list_ of trees]:
+one parameter, sort $Sort 1$, and one constructor
+$ node : forall (alpha : Sort 1) thin ann(never). thin forall (a : alpha) thin ann(never). thin forall (ts : List thick (Tree thick alpha)) thin ann(never). thin Tree thick alpha. $
+The domain of $ts$ is the block $List$, installed earlier — the
+_container_ — applied to the type being defined. The type $Tree thick alpha$
+there is the _nested occurrence_, and $List thick (Tree thick alpha)$,
+the container at given levels and parameters, is an _instantiation_ of
+the container.
 
-Such a field is a #src("whitepaper/Fragment/Spec.lean", 43, 49)[_container field_], the fourth kind of field after
-the three of @sec:ind-checks. Its
-domain is a previously installed block $K$ — the _container_ — at
-some levels, applied to arguments one of which is the _nested
-occurrence_ $I thick arrow(x) thick arrow(e)$: the type being
-defined at the block's own parameters and some index expressions.
-That domain is the block's _class_, a type the recursion has to
-pass through; here it is $List thick (Tree thick alpha)$. The fragment's specification of a
-block gains this one datum
-(#src("whitepaper/Fragment/Spec.lean", 105, 136)[the class]): the
-container's stored data, its levels and other arguments, the _nested
-position_ $p$ — the position of the type being defined among the
-container's parameters — the index expressions of the nested
-occurrence, and the name of the companion recursor $TRec1$
-introduced in @sec:nest-rec.
+#src("tests/e2e/src/nested_p01.lean", 4, 5)[A container may sit under a binder],
+as in
+$ mk : forall (f : forall (n : Nat) thin ann(never). thin List thick P) thin ann(never). thin P, $
+and nesting may go deeper. With lists $L$ and rose trees $R$,
+$ & nil : L thick alpha, quad cons : alpha -> L thick alpha -> L thick alpha, \
+  & node : alpha -> L thick (R thick alpha) -> R thick alpha, $
+#src("tests/e2e/src/nest_rose_tree.lean", 15, 24)[the block]
+$ leaf : T, quad mk : R thick T -> T $
+is nested through $R$, a container that is itself nested: inside
+$R thick T$, the constructor $node$ holds an $L thick (R thick T)$, so
+$T$ occurs at depth two. Containers with indices are allowed too: a
+vector type $sans("Vec") thick alpha thick n$ can hold the type being
+defined, as in
+#src("tests/e2e/src/indexed_nested_aux.lean", 13, 18)[a field of type $sans("Vec") thick (T thick alpha) thick n$].
+
+== The positivity check <sec:nest-checks>
+
+@sec:ind-checks sorts a field by the shape of its domain. The checker
+does this with
+#src("ConLeche/Kernel/Inductives/Positivity.lean", 1453, 1496)[one walk over the constructors],
+the same for every block, which also looks through containers; on a
+block of §4's shape only the first three cases below accept, and they
+are §4's sorting.
+
+*Holes and frames.* The walk works on variables in place of types.
+Before a constructor is examined, every application of the type being
+defined to the block's parameters, $I thick arrow(x)$, is replaced by a
+variable $X$ — a _hole_ — standing for that whole application, a family
+over the indices. For this to catch every occurrence, the walk is
+preceded by a
+#src("ConLeche/Kernel/Inductives/Positivity.lean", 1555, 1569)[uniformity check]:
+the type being defined occurs in a constructor only applied to exactly
+the block's parameters, at the block's own levels, and in no
+parameter's domain. A _frame_ is one type whose constructors are being
+walked, at one instantiation: the block itself, the _root_ frame, or a
+container instantiation met in a field, such as $List$ at
+$Tree thick alpha$. A container's frame has holes of its own: in
+$List$'s constructors the application $List thick alpha$ of the
+container to its own parameter is replaced by a hole $Y$
+#src("ConLeche/Kernel/Inductives/Positivity.lean", 1110, 1116)[_before_ $alpha$ is instantiated],
+so it is not confused with an application at another instantiation.
+Frames nest: walking one may meet another container, whose frame is
+walked inside it. At any point the _types in progress_ are the type
+being defined and every instantiation whose frame is open, each
+present as its hole.
+
+*The cases.* The walk first puts a field's domain in
+#src("ConLeche/Kernel/Inductives/Positivity.lean", 1458)[weak head normal form]
+$w$, and every case reads $w$, never the domain's syntax — so a
+container reached only by unfolding a definition counts as one. Inside
+the current frame:
+
++ _Ordinary._ If $w$ mentions no type in progress, the field is
+  #src("ConLeche/Kernel/Inductives/Positivity.lean", 1461, 1462)[_ordinary_].
++ _A $forall$._ If $w$ is $forall (z : A). thin B$, the domain $A$ must
+  not mention a type in progress — otherwise the block is rejected,
+  "non positive occurrence" — and
+  #src("ConLeche/Kernel/Inductives/Positivity.lean", 1464, 1471)[the walk continues with $B$],
+  $z$ a new variable. The binders passed form the field's telescope.
++ _A hole._ If $w$ is a hole applied to arguments, the arguments — the
+  indices of the type the hole stands for — must all be present and
+  must not mention a type in progress; otherwise "non valid
+  occurrence". The root frame's hole makes the field _recursive_
+  (_reflexive_ when a $forall$ was passed); the hole of a container
+  frame, this one or an enclosing one, stands for an instantiation in
+  progress — the tail of a $cons$, for instance — and
+  #src("ConLeche/Kernel/Inductives/Positivity.lean", 1475, 1489)[is accepted].
++ _A container._ If $w$ is a stored inductive type $C$ — not one of the
+  block's, and not the quotient type — at levels $arrow(u)$ applied to
+  arguments, the first $k_C$ of them ($C$'s parameter count) are its
+  parameters $arrow(D)$, the rest its indices.
+  #src("ConLeche/Kernel/Inductives/Positivity.lean", 1415, 1440)[It is required]
+  that
+  - the indices mention no type in progress — they may mention earlier
+    fields, as the $n$ of $sans("Vec") thick (T thick alpha) thick n$
+    does;
+  - the parameters mention no variable but the block's parameters and
+    the holes — no field, no variable bound by a $forall$ of the field
+    ("parameters cannot contain local variables");
+  - $arrow(u)$ has $C$'s number of levels, and every index of $C$ is
+    supplied;
+  - #src("ConLeche/Kernel/Inductives/Positivity.lean", 1124, 1158)[$C$'s index telescope at $arrow(D)$]
+    mentions no type in progress, and $C$'s sort is equivalent to the
+    block's ("must live in the same universe").
+  The parameters may mention the types in progress anywhere — in
+  $List thick (Nat -> Tree thick alpha)$, say; the frame decides whether
+  that is positive. Then
+  #src("ConLeche/Kernel/Inductives/Positivity.lean", 1395, 1404)[the instantiation $C.\{arrow(u)\} thick arrow(D)$ is looked up]:
+  if it is in progress, it is rejected — its syntactic occurrences
+  have become its hole, so meeting it as a type here means reduction
+  produced it; otherwise its frame is walked, as described next
+  (unless the same instantiation was accepted before). The field is
+  then _nested_, under the $forall$s it passed.
++ _Anything else_ — the type being defined at other levels, a variable
+  that is not a hole, a quotient — is
+  #src("ConLeche/Kernel/Inductives/Positivity.lean", 1488, 1496)[rejected as a "non valid occurrence"].
+
+*Walking a frame.* At an instantiation $C.\{arrow(u)\} thick arrow(D)$,
+the walk checks that $C.\{arrow(u)\} thick arrow(D)$ has a type, and
+#src("ConLeche/Kernel/Inductives/Positivity.lean", 1333, 1351)[gives every type of $C$'s mutual block a hole]
+at the instantiation — it walks them all, reached or not, as the
+official kernel does. It then
+#src("ConLeche/Kernel/Inductives/Positivity.lean", 1213, 1262)[takes each of their constructors in turn]:
+
+- its stored type at $arrow(u)$, the frame's applications replaced by
+  the holes and the parameters instantiated at $arrow(D)$, must be a
+  type;
+- every field is classified by the cases above, inside this frame;
+- no later field and no result index may depend on a field that is not
+  ordinary (§4's second shape condition, at the instantiation);
+- the result's indices mention no type in progress;
+- the constructor's walked type is recorded, every hole read back as
+  the application it stands for, for the recursors below.
+
+#src("ConLeche/Kernel/Inductives/Positivity.lean", 1592, 1600)[The root frame]
+is the same loop over the block's own constructors.
+
+On $Tree$, the field $ts$ meets the container case at $List$ with the
+parameter $X$. In $List$'s frame, $nil$ has no field, and $cons$ has
+the fields $h : X$, the root's hole — recursive — and $t : Y$, the
+frame's own hole — accepted. In $mk : (Nat -> List thick P) -> P$ the
+walk passes a $forall$ over $Nat$ and meets $List$ at $X$ the same
+way. For the rose trees, $mk$'s field meets $R$ at $X$; in $R$'s
+frame, with its hole $Y_R$, $node$'s fields are $X$ and $L thick Y_R$,
+so $L$'s frame opens inside $R$'s, with its hole $Y_L$, and there
+$cons$'s fields are $Y_R$ and $Y_L$, both accepted. A container that
+uses its parameter to the left of an arrow, such as $C thick alpha$
+with a constructor of type $(alpha -> Nat) -> C thick alpha$, fails at
+the instantiation: in its frame that field's domain is $X -> Nat$, a
+$forall$ whose domain mentions the hole. Whether a container is
+positive in its parameter is thus decided at the instantiation, by
+walking it; nothing about it is recorded when the container is
+installed.
 
 #real[
-  The container is found by reducing the field's domain and walking
-  down its $forall$s — whose domains must not mention the type being
-  defined — to an application of a stored inductive type
-  (#src("ConLeche/Kernel/Inductives/Positivity.lean", 1464, 1471)[the binder case]);
-  so con-leche also accepts a container under a binder, as in
-  $(sans("Nat") -> sans("List") thick T) -> T$, which the fragment does not
-  (@sec:nest-beyond). The instantiation —
-  the levels and the arguments with the type being defined in place
-  — is recorded
-  (#src("ConLeche/Kernel/Inductives/Positivity.lean", 1406, 1415)[the container case]).
+  The official kernel translates a nested block into an auxiliary
+  mutual block, with a copy of the container per instantiation, and
+  checks that; con-leche builds no auxiliary type and walks the
+  container at the instantiation (#overview(5)). It keeps
+  #src("ConLeche/Kernel/Inductives/Positivity.lean", 658, 664)[a record of the instantiations it accepted, beside the set of open ones],
+  and an accepted instantiation is not walked again — unless its
+  parameters mention a container frame's hole, since one hole variable
+  stands for different instantiations in different frames
+  (#src("ConLeche/Kernel/Inductives/Positivity.lean", 1364, 1382)[a new frame]).
+  An instantiation whose parameters mention no such hole is
+  #src("ConLeche/Kernel/Inductives/Positivity.lean", 1356, 1357)[walked outside the enclosing frames],
+  as it reads nothing of them. The walk runs on fuel derived from the
+  constructor's size, and running out declines.
 ]
 
-What the fragment admits is nesting at depth one — the type being
-defined is an argument of the container directly, not of a container
-inside a container — through one container instance per block, where
-the container has parameters and no indices and the type being
-defined fills one parameter position; the container's own fields are ordinary or
-recursive — reflexive only with the empty telescope — and never
-themselves container fields. What
-the real checker accepts beyond this is @sec:nest-beyond.
+== Classes and their recursors <sec:nest-rec>
 
-== What is checked <sec:nest-checks>
-
-*Positivity through the container.* A recursive field is positive
-because the family occurs as the whole domain; a container field
-puts the family _inside_ $K$, and whether that is positive depends
-on how $K$ uses its parameter. The checker answers by reading $K$'s
-own stored constructors with the type being defined in the
-parameter's place. For @ex:tree it fetches $List$'s constructors,
-$nil$ and
-$ cons : forall (h : alpha) thin ann(never). thin forall (t : List thick alpha) thin ann(never). thin List thick alpha, $
-and reads them at $alpha := Tree thick alpha$. The condition is that
-every field of every constructor of the container is one of three
-things: the _parameter field_ — the parameter at the nested position
-itself, as $h$ is; a _recursive field_ of the container, as $t$ is;
-or an ordinary field whose domain mentions neither that parameter
-nor an earlier parameter field. So the parameter never occurs to the
-left of an arrow, under a binder or inside yet another type, and
-nothing after a parameter field reads its value. The fragment also
-asks that the container's constructors have no index expressions,
-that the domain of the parameter at the nested position is a sort
-and that no later parameter depends on it
-(#src("whitepaper/Fragment/Spec.lean", 182, 208)[strict positivity at the nested position]).
-
-#real[
-  This happens inside the one positivity walk of @sec:ind-checks: at
-  an application of a stored inductive type the walk descends into
-  that type's stored constructors at the instantiation, with the
-  container instance being walked — like the family itself —
-  replaced by a variable standing for the whole application
-  (#src("ConLeche/Kernel/Inductives/Positivity.lean", 260, 279)[the cases],
-  #src("ConLeche/Kernel/Inductives/Positivity.lean", 1442, 1453)[the walk]).
-]
-
-*The other checks.* A nested block passes the checks of
-@sec:ind-checks for its type former and its constructors — a container
-field's domain, the class, is type-checked like any other domain —
-and then #src("whitepaper/Fragment/Decl.lean", 760, 803)[four more]. The
-container is stored, with no container field of its own, and is
-positive at the nested position. Its sort at the instantiation is
-the block's sort, and so is the sort of the parameter's domain at
-the nested position, so that a fibre of the family can be the
-parameter's value.
-The class has a type at the block's parameters, which is what puts
-the class's arguments in the container's parameter domains. And the
-two recursors' types and every rule's type have types in the
-environment holding the type former and the constructors. One rule of
-@sec:ind-checks #src("whitepaper/Fragment/Decl.lean", 800)[tightens]: _large elimination is refused for a nested
-block unless its sort is never zero_
-(#src("ConLeche/Kernel/Inductives/BlockRec.lean", 82, 84)[con-leche's guard]),
-as in the official kernel. The subsingleton criterion is therefore
-never asked of a nested block, and the model never needs the
-agreement of decodings that @thm:iota's proof draws from it: wherever the
-recursion equation has content, the family is type-valued and
-every major carries its fields.
-
-== The generated recursors <sec:nest-rec>
-
-A recursion over a tree has to pass through the list of its
-children, so the recursor has two motives and two kinds of minor
-premise, and there are two recursors sharing one prefix. In the
-fragment, where the class is one container instance, they are
-$TRec$, whose major is a member of the family, and
-$TRec1$, whose major is a member of the class.
+A recursion over a tree has to pass through the list of its children.
+So a nested block's recursors eliminate several types, its _classes_:
+the type being defined and the container instantiations the recursion
+passes through — every instantiation at which a field of the block or
+of a walked container lands, read with its holes back as the types
+they stand for, needs one. For $Tree$ the classes are
+$Tree thick alpha$ and $List thick (Tree thick alpha)$; for the rose
+trees, $T$, $R thick T$ and $L thick (R thick T)$. Each class gets a
+motive and a recursor — $T.sans("rec")$ for the type being defined,
+$T.sans("rec")_1, T.sans("rec")_2, dots$ for the others — and each
+constructor of each class a minor premise; all recursors share one
+prefix: the parameters, the motives and the minor premises.
+#src("ConLeche/Kernel/Inductives/GenRec.lean", 143, 163)[A minor premise]
+is generated as in @sec:ind-checks from the constructor's fields at
+the instantiation, with one inductive hypothesis per recursive or
+nested field: the motive of the class where the field lands, under the
+field's $forall$s, read off the walk's recorded type
+(#src("ConLeche/Kernel/Inductives/GenRec.lean", 180, 187)[a recursor's type],
+#src("ConLeche/Kernel/Inductives/GenRec.lean", 189, 212)[a rule]).
 
 #example(name: [$Tree$'s recursors])[
   With $C$ the motive for $Tree thick alpha$ and $C_1$ the motive for
-  $List thick (Tree thick alpha)$ — the class's motive takes no index
-  and a member of the class — the shared prefix is the parameter,
-  the two motives, a minor premise for $node$ and one for each of
-  $List$'s constructors at the instantiation:
+  $List thick (Tree thick alpha)$, and $ann(q)$ as in @ex:nat, the
+  shared prefix is the parameter, the two motives, a minor premise for
+  $node$ and one for each of $List$'s constructors at the
+  instantiation:
 
   $
     TreeRec.\{ell\} : & forall (alpha : Sort 1) thin ann(q). thin forall (C : forall (t : Tree thick alpha) thin ann(never). thin Sort ell) thin ann(q). \
@@ -169,20 +236,12 @@ $TRec1$, whose major is a member of the class.
     TreeRec1.\{ell\} : & dots.c thin forall (ts : List thick (Tree thick alpha)) thin ann(q). thin C_1 thick ts
   $
 
-  (the $dots.c$ is the same prefix, and the constructors' own
-  parameter arguments are left implicit). The minor for $node$ has
-  one inductive hypothesis, the _class's_ motive at the container
-  field; the minor for $cons$ has two, the block's motive at the
-  parameter field $t$ and the class's at the recursive field $ts$ —
-  so the container's constructors are read as if they were
-  constructors of the block: the parameter field becomes a recursive
-  field, the
-  container's recursive field a container field
-  (#src("whitepaper/Fragment/Decl.lean", 349, 356)[the translation],
-  #src("whitepaper/Fragment/Decl.lean", 381, 383)[a translated constructor]).
-  There are three rules, one per constructor of the block and of
-  the container; $arrow(r)$ abbreviates the shared prefix
-  $alpha thick C thick C_1 thick s thick n thick c$:
+  (the $dots.c$ is the same prefix; the constructors' own parameter
+  arguments are left implicit). The minor for $node$ has one inductive
+  hypothesis, $C_1$ at the nested field; the minor for $cons$ has two,
+  $C$ at the field that held the hole $X$ and $C_1$ at the one that
+  held $Y$. With $arrow(r)$ for the prefix
+  $alpha thick C thick C_1 thick s thick n thick c$, the three rules are
 
   $
     TreeRec thick arrow(r) thick (node thick a thick ts) & red s thick a thick ts thick (TreeRec1 thick arrow(r) thick ts) \
@@ -191,316 +250,113 @@ $TRec1$, whose major is a member of the class.
   $
 ] <ex:tree-rec>
 
-In general the prefix is the parameters, the block's motive, the
-class's motive, the block's minors and the class's minors; a minor
-is generated as in @sec:ind-checks from the constructor's fields,
-with the inductive hypothesis at a container field being the class's
-motive at the field, and the rules' right-hand sides call
-$TRec$ at a reflexive field (under its telescope, as in §4) and
-$TRec1$ at a container field. (Generated:
-#src("whitepaper/Fragment/Decl.lean", 389, 391)[the class's motive],
-#src("whitepaper/Fragment/Decl.lean", 404, 416)[a class minor],
-#src("whitepaper/Fragment/Decl.lean", 438, 450)[the two types],
-#src("whitepaper/Fragment/Decl.lean", 452, 466)[an inductive hypothesis' value]
-and #src("whitepaper/Fragment/Decl.lean", 502, 509)[a rule of $TRec1$]\;
-real checker: #src("ConLeche/Kernel/Inductives/GenRec.lean", 180, 187)[the type],
-#src("ConLeche/Kernel/Inductives/GenRec.lean", 189, 212)[a rule],
-one recursor per class.)
+A nested field under binders gets its hypothesis under the same
+binders: for $mk : (Nat -> List thick P) -> P$ the minor premise is
+$ forall (f : Nat -> List thick P) thin ann(q). thin forall (h : forall (n : Nat) thin ann(q). thin C_1 thick (f thick n)) thin ann(q). thin C thick (mk thick f). $
 
-*Where a rule of $TRec1$ fires.* The $iota$ rule of
-@sec:ind-model compares the constructor's parameters with the
-recursor's. For a rule of $TRec1$ that comparison is wrong:
-the constructor is $cons$, whose parameter — left implicit in
-@ex:tree-rec — is $Tree thick alpha$, while the recursor's is
-$alpha$. So each stored rule of
-$TRec1$ carries its #src("whitepaper/Fragment/Env.lean", 43, 52)[_instantiation_] — the container's
-levels and the class's arguments, terms under the recursor's
-parameter binders
-(#src("ConLeche/Kernel/Env.lean", 196, 206)[as in con-leche]) — and
-fires by #src("whitepaper/Fragment/Rules.lean", 160, 172)[a second $iota$ rule] that compares the constructor's levels
-and parameters with the stored instantiation at the recursor's
-levels and parameter arguments
-(#src("ConLeche/Kernel/Inductives/RecCheck.lean", 587, 597)[the stored rules, firing at their instantiation]).
-The plain $iota$ rule applies only to a rule without a stored
-instantiation, and not just because of the comparison: it finds the
-constructor's fields by dropping the _recursor's_ parameter count
-from the constructor's spine, the wrong count when the container has
-more parameters than the block; the second rule drops the
-constructor's own. The model's $iota$ law for such a rule assumes
-neither comparison against the instantiation, and its proof uses no
-comparison at all (@sec:nest-model), for the same reason the plain
-law needs none in the type-valued regime: the major is a tagged tuple
-and carries its fields.
+*Where a rule of $T.sans("rec")_1$ fires.* A rule of @sec:ind-model
+takes the constructor's levels and parameters to be the recursor's
+own. At a container class they are not: $cons$ in the class
+$List thick (Tree thick alpha)$ has the parameter $Tree thick alpha$,
+not the recursor's $alpha$, and $List$'s level names, not $Tree$'s. So
+#src("ConLeche/Kernel/Env.lean", 196, 206)[each rule of a recursor at a container class stores the instantiation]
+— the container's levels and parameters, as terms in the recursor's
+level parameters and parameters — and fires only on a constructor
+application whose levels and parameters equal
+#src("ConLeche/Kernel/CoreDefs.lean", 884, 891)[the stored ones, instantiated at the recursor's levels and parameter arguments]
+(#src("ConLeche/Rules/Rel.lean", 197, 204)[the levels by the level oracle, the parameters definitionally]);
+the constructor's fields are what follows its own parameters, and the
+index comparison is as before
+(#src("ConLeche/Kernel/Inductives/RecCheck.lean", 592, 597)[the stored rules at a container class]).
 
-== The model <sec:nest-model>
-
-Fix a nested block, a valuation $phi$ and parameter values
-$arrow(X)$. The block's operator $Phi$ is the operator of
-@sec:ind-model with one more case, the set a container field ranges
-over. The story of @sec:ind-model then repeats with that case added:
-$Phi$ is accessible, so it has a closed family (@thm:closed-of-acc)
-and is monotone, and its least fixed point is the family. What is
-new is why the clause is accessible. The reason is not a
-fact recorded about the container when it was installed. It follows
-from two things the model already knows: the container is positive
-at the nested position, which the checker verified, and its family is
-a _least_ fixed point.
-
-=== A container field's set
-
-The container $K$ was installed before,
-so the model already assigns it a set: by the law recorded when $K$
-was installed — a fact about its set, not about accessibility — the graph over $K$'s parameters of $K$'s family. For a set $Y$
-write $arrow(d)[Y]$ for the class's arguments read at $arrow(X)$, with
-$Y$ at the nested position $p$, and $Phi_K^(arrow(d)[Y])$ for $K$'s
-operator at those parameter values. The
-#src("whitepaper/Fragment/IndCommon.lean", 188, 191)[_class at $Y$_] is $K$'s set
-applied to $arrow(d)[Y]$. By
-$beta$ it is $K$'s family at those parameters, a single set because
-$K$ has no indices
-(#src("whitepaper/Fragment/NestSem.lean", 306, 310)[the class is the container's family]):
-$ cal(C)(Y) = lden K rden dot.op arrow(d)[Y] = lfp(Phi_K^(arrow(d)[Y])). $
-Let $W$ be the family $Phi$ is applied to, the _approximant_. A
-container field ranges over the class at $W$'s fibre at the nested
-occurrence's index expressions $arrow(e)$:
-$ cal(C)(W(arrow(e))) $
-(#src("whitepaper/Fragment/IndSem.lean", 278, 298)[a field's set],
-#src("whitepaper/Fragment/IndSem.lean", 300, 303)[the container clause]).
-For @ex:tree, relative to the approximant $W$, the children of a node
-range over the lists whose entries all lie in $W$. Nothing new is
-constructed. The container's least fixed point is reused, at every
-approximant.
-
-=== What the operator asks of the class
-
-The proofs of @sec:ind-model
-go field kind by field kind, and at a container field they ask of
-$cal(C)$ what they ask of a reflexive field's product. A member of
-$cal(C)(Y)$ must have a support in $Y$,
-coded inside one bound fixed in advance. And $cal(C)(Y)$ must lie in
-the universe whenever $Y$ does. These facts are the
-#src("whitepaper/Fragment/IndSem.lean", 451, 469)[_container's clause_].
-That $cal(C)$ grows with its argument is not asked: as for the
-operator, accessibility implies it, since
-#src("whitepaper/Fragment/IndSem.lean", 471, 480)[a support in $Y$ lies in any larger $Y'$].
-Given the clause, the proofs of @sec:ind-model go through unchanged
-(#src("whitepaper/Fragment/IndSem.lean", 1155, 1162)[the operator is accessible]),
-and the bound gains, per container field, the class's bound $A_K$ of
-@lem:class-acc with each of its paths
-#src("whitepaper/Fragment/IndSem.lean", 935, 952)[prefixed by the field's position].
-
-One observation about $K$ proves the clause. Recall from
-@sec:nest-checks that positivity sorts $K$'s fields into three kinds.
-A constructor of $K$ reads the parameter at the nested position only
-through its parameter fields. It reads $K$'s own family only through
-its recursive fields. An ordinary field reads neither, nor the value
-of an earlier parameter field; and by the second shape condition of
-@sec:ind-checks, which $K$ passed when it was installed, nothing reads
-the value of an earlier recursive field. So a list of
-fields that fits a constructor of $K$, at the parameter $Y$ and
-relative to a family $L$, #src("whitepaper/Fragment/NestSem.lean", 380, 394)[still fits in a changed setting]: at another
-parameter $Y'$ and relative to another family $L'$, provided the
-parameter fields are replaced by members of $Y'$, the recursive
-fields by members of $L'$, and the ordinary fields are kept.
-This is where positivity is used: were the parameter to occur to the
-left of an arrow, say in a field of type $Y -> B$, a function on $Y$
-would not be a function on a larger $Y'$, and the lemma below would
-fail.
-
-#lemma(name: "the class is accessible in the approximant")[
-  Every member $v$ of $cal(C)(Y)$, for $Y in cal(U)_(phi(u))$, #src("whitepaper/Fragment/NestSem.lean", 634, 646)[has a support in $Y$]. That is, there are a subset
-  $B$ of the _class's bound_ $A_K$ and an element $g(b) in Y$ for each
-  $b in B$, such that $v in cal(C)(Y')$ for every $Y'$ in the universe
-  holding every $g(b)$. The bound $A_K$, the finite paths over the
-  numerals below the length of $K$'s longest field list, is computed
-  from the specification alone and is a member of the universe
-  (#src("whitepaper/Fragment/IndSem.lean", 435, 443)[the bound]).
-] <lem:class-acc>
-
-#proof[
-  Read $K$'s operator as a #src("whitepaper/Fragment/NestSem.lean", 466, 470)[function of two arguments], the parameter
-  $Y$ and its own family $L$.
-  As such it is accessible with one code per field position. A
-  constructor value's support is its parameter fields, which are
-  occurrences in $Y$, and its recursive fields, which are occurrences
-  in $L$. By the observation, #src("whitepaper/Fragment/NestSem.lean", 480, 488)[the value is produced] from every pair
-  holding them.
-  The #src("whitepaper/Fragment/Access.lean", 414, 429)[_nested case of accessibility_] turns this into accessibility
-  of $Y |-> L_Y$.
-  The argument is an induction over $L_Y$. A member produced by the
-  operator has a support of occurrences, each either in $Y$ or in
-  $L_Y$. An occurrence in $L_Y$ has a support in $Y$ by the induction
-  hypothesis. Prefix each of these supports with the position it
-  came from, and the member's support becomes a set of paths. If
-  $Y'$ holds all of them then $L_(Y')$ holds every occurrence, and
-  $L_(Y')$ produces the member: it is a fixed point, because $K$'s
-  operator with the parameter held at $Y'$ is still accessible and so
-  has a closed family (@thm:closed-of-acc; at a proposition, the
-  constant family ${pt}$).
-]
-
-One more fact enters the clause, for the bound of
-@sec:ind-model. That bound reads the telescopes at the one-fibre
-family, where a container field needs a stand-in value. So the class
-at ${pt}$ must be inhabited whenever the class at some $Y$ is. This is
-#src("whitepaper/Fragment/NestSem.lean", 673, 681)[an induction over $L_Y$] that replaces the parameter fields by the
-point, using the observation once more. The
-clause is assembled from @lem:class-acc, this induction, the class's membership in
-the universe — a fibre of $K$'s family lies in the universe $K$'s
-sort names, which the checker compared with the block's — and
-what is known about the container
-(#src("whitepaper/Fragment/NestSem.lean", 737, 745)[the clause],
-#src("whitepaper/Fragment/NestSem.lean", 190, 218)[what is known]).
-That knowledge is the container's law, its shape condition of
-@sec:ind-checks, and the nested block's checks of @sec:nest-checks.
-So the model of an environment remembers, for every plain block it
-holds, that the block's type former denotes the graph of its family,
-its constructors their tagged tuples, and that the universe bound on
-its fields holds at every fitting parameter list
-(#src("whitepaper/Fragment/BlockModel.lean", 46, 57)[the block's law],
-#src("whitepaper/Fragment/BlockModel.lean", 61, 66)[a model that remembers its blocks]).
-A nested block is never a container in the fragment, so it stores no
-such law.
-
-=== The family and the constructors
-
-With the clause in hand, the rest
-of @sec:ind-model applies as stated: the theorems there take the
-clause as a premise and are the same theorems. The operator maps the
-universe to itself and is accessible, so it has a closed family
-(@thm:closed-of-acc) and is monotone, and the block's family is its
-least fixed point
-(#src("whitepaper/Fragment/IndSem.lean", 1294, 1312)[the closed family and the family]).
-The #src("whitepaper/Fragment/IndSem.lean", 1322, 1357)[fixed-point equation], the constructors' values and law, and
-induction over the family are as in @sec:ind-model.
+*Large elimination.* A nested block may eliminate into every sort only
+if #src("ConLeche/Kernel/Inductives/BlockRec.lean", 82, 84)[its sort is never zero]
+(#src("ConLeche/Kernel/Inductives/GenRec.lean", 569, 573)[the guard, applied]),
+as in the official kernel. A nested proposition eliminates only into
+$sans("Prop")$, and the subsingleton criterion is never asked of a
+nested block.
 
 #real[
-  Monotonicity and accessibility are read off the positivity check's
-  run, case by case, as in @sec:ind-model. At a container instance,
-  monotonicity compares the container's least fixed point at two
-  parameter instantiations
-  (#src("ConLeche/Semantics/Inductives/HoleMono.lean", 23)[the container row],
-  #src("ConLeche/Model/Annot/BlockLfpMono.lean", 113, 125)[the container case]).
-  Its set-level half is leastness
-  (#src("ConLeche/SetModel/HoleClose.lean", 61, 70)[the least tuple lies below]).
-  Accessibility in the holes has no container row
-  (#src("ConLeche/Semantics/Inductives/HoleAcc.lean", 41, 45)[the cases]).
-  A container instance is accessible once the container's
-  constructors are, at the instantiation
-  (#src("ConLeche/Model/Inductives/ContAccFrame.lean", 486, 491)[one constructor of a frame],
-  #src("ConLeche/Model/Inductives/ContAcc.lean", 131, 137)[the instance]),
-  by the same nested case of accessibility
-  (#src("ConLeche/SetModel/Access.lean", 506, 515)[the least tuple is accessible in its parameter]).
-  No monotonicity or accessibility fact about the container is
-  recorded when it is installed. The fragment replaces the walk of
-  the container's constructors at the instantiation by the
-  observation about its fields, and derives the container's
-  monotonicity from its accessibility.
+  As for a simple block (@sec:ind-checks), the classes and the layout
+  of the prefix are read off the stream's recursor types by
+  #src("ConLeche/Kernel/Inductives/ClassRead.lean", 15, 32)[an unverified pre-pass],
+  and each class is then checked: the type being defined at the
+  block's levels and parameters, or
+  #src("ConLeche/Kernel/Inductives/RecCheck.lean", 400, 437)[a stored inductive type, not the quotient, whose parameters mention the type being defined and nothing but the block's parameters, in the block's sort].
+  #src("ConLeche/Kernel/Inductives/Positivity.lean", 1646, 1654)[Every outside class is walked]
+  as a container met at the root, so every class is an instantiation
+  the walk visited; a field landing at a class the stream gives
+  #src("ConLeche/Kernel/Inductives/GenRec.lean", 453, 456)[no recursor] for
+  is rejected. One class may be visited at several places: in
+  #src("tests/e2e/src/corner_nestind_f13_listrose.lean", 12, 15)[a block with a field of type $List thick (sans("RL") thick sans("TL"))$],
+  with $sans("RL") thick alpha$ a rose tree over lists, that
+  instantiation is met at the block's field and again inside
+  $sans("RL") thick sans("TL")$; the generator checks that
+  #src("ConLeche/Kernel/Inductives/GenRec.lean", 256, 271)[every visit gives each field the same inductive hypothesis].
 ]
 
-=== The two recursors
+== The model, as a sketch <sec:nest-model>
 
-Both recursors are read off one _graph_, the
-least relation closed under the rules of both. At a tagged tuple
-fitting a constructor of the block, the value at the family is the
-block's minor at the fields and the inductive hypotheses; at a
-tagged tuple fitting a constructor of the container at the
-instantiation, the value at the class is the class's minor at the
-fields and the hypotheses. A hypothesis at a reflexive field is the
-graph's value at the family (under the field's telescope), at a
-container field its value at the class
-(#src("whitepaper/Fragment/NestRec.lean", 181, 196)[the step],
-#src("whitepaper/Fragment/NestRec.lean", 202, 205)[the graph]).
-The graph #src("whitepaper/Fragment/NestRec.lean", 450, 454)[is single-valued] because tagged tuples are injective,
-the block's constructors being tagged after the container's so that
-no block value is a class value. It
-is total on the family and on the class by an induction over the
-family with an inner induction over the class, the two
-_interleaved_. The outer induction runs over the family's separation
-by "the graph has a value here", so a container field's value lies in
-the class at a subset $Y$ of the family's fibre on which the graph is
-already total; the inner induction over $cal(C)(Y)$ then supplies the
-values at its members, its parameter fields being in $Y$
-(#src("whitepaper/Fragment/NestRec.lean", 598, 606)[totality],
-#src("whitepaper/Fragment/NestRec.lean", 555, 560)[the inner induction]).
-The inner induction is the container's own: the class's inversion,
-introduction and induction principles are $K$'s fixed-point laws at
-the instantiation, read in the block's terms
-(#src("whitepaper/Fragment/NestClass.lean", 360, 368)[the class's laws]).
-Both recursion equations follow
-(#src("whitepaper/Fragment/NestRec.lean", 686, 694)[$TRec$],
-#src("whitepaper/Fragment/NestRec.lean", 702, 712)[$TRec1$]),
-and each recursor's set is a member of its type
-(#src("whitepaper/Fragment/NestIota.lean", 1452, 1456)[$TRec$],
-#src("whitepaper/Fragment/NestIota.lean", 1482, 1486)[$TRec1$]).
+What follows is intuition for how the construction of @sec:ind-model
+carries over; con-leche's proof is linked, and no step here is proved.
 
-#real[
-  The graph is the one of @sec:ind-model over the recursor's
-  classes, and the induction over the majors is proved from the
-  classes' own fixed-point clauses by a strengthened predicate,
-  without a joint operator
-  (#src("ConLeche/SetModel/NestRec.lean", 9, 19)[the nested graph kit],
-  #src("ConLeche/Model/Inductives/TargetNestKit.lean", 8, 19)[the classes as clauses]).
-]
+*The operator.* Fix the parameters, and let $W$ be the _approximant_,
+the family the operator is applied to, as in @sec:ind-model. A
+container field ranges over the container's own family at the
+instantiation, with $W$ in place of the type being defined: the
+children of a node range over the lists whose entries all lie in $W$.
+That family is known, because every installed block leaves
+#src("ConLeche/Model/Annot/BlockLfp.lean", 32, 43)[a clause in the model]:
+its type former denotes, at all parameter values, the least fixed
+point of its operator. So the container's least fixed point is
+reused, at each approximant, and nothing new is constructed for it. At
+depth two the same holds one level down: an element of $R thick W$
+holds a list from $L$'s family at the parameter $R thick W$.
 
-=== The $iota$ laws
+*Accessibility.* The block's operator stays accessible, because the
+walk that checked positivity also bounds the support. An element of
+the container's family at $W$ depends on $W$ only through the
+positions the walk found: the fields that held the root's hole, such
+as the entries of a list, and, through the fields that held the
+frame's own hole, the same positions of its sub-values. Read as an
+operator of two arguments — the approximant and the container's own
+family — the container's operator at the instantiation is accessible
+by
+#src("ConLeche/Semantics/Inductives/HoleAcc.lean", 39, 45)[the same case-by-case argument as §4's],
+#src("ConLeche/Model/Inductives/ContAcc.lean", 15, 35)[run on the frame];
+and
+#src("ConLeche/SetModel/Access.lean", 506, 516)[the least fixed point of such an operator is accessible in its first argument],
+the supports of an element's sub-values collected along paths into
+one support. Monotonicity follows from accessibility as in §4;
+con-leche proves it case by case too, the container's row
+#src("ConLeche/Semantics/Inductives/HoleMono.lean", 17, 23)[comparing its least fixed points at two instantiations]
+#src("ConLeche/SetModel/HoleClose.lean", 17, 22)[by leastness].
+Nothing about the container's parameter is recorded at its install:
+the walk at the instantiation is what makes the argument go through.
 
-#theorem(name: [the $iota$ laws of a nested block])[
-  Every rule of $TRec$ satisfies the $iota$ law of
-  @def:iota-law, and every rule of $TRec1$ satisfies the
-  $iota$ law of the second $iota$ rule — the same statement at the
-  container's parameter count, with the index comparison as its
-  only comparison premise: the comparisons against the stored
-  instantiation, which the rule checks, are not part of the law
-  (#src("whitepaper/Fragment/EnvModel.lean", 163, 190)[the law]).
-  (#src("whitepaper/Fragment/NestIota.lean", 2282, 2289)[$TRec$],
-  #src("whitepaper/Fragment/NestIota.lean", 2925, 2930)[$TRec1$]\;
-  real proof: #src("ConLeche/Model/Annot/Laws.lean", 294, 297)[the stored instantiation's clause of the law].)
-] <thm:iota-nested>
+*The family.* The container lives in the block's sort (case 4), so its
+family at an approximant in the universe is in the universe, and the
+operator maps the universe to itself. With accessibility,
+@thm:closed-of-acc gives a closed family, and the block's family is
+the least fixed point as in @sec:ind-model, with its fixed-point
+equation and its induction.
 
-#proof[
-  As for @thm:iota in the type-valued regime, which is the only regime
-  with content: by the elimination guard, the elimination level of a
-  nested block whose family may be a proposition is zero, and then
-  both sides are the point. For a rule of $TRec1$ the
-  major is the container's constructor applied, and the recursor's
-  fit puts it in the class at the recursor's parameters; the class's
-  inversion says it is a tagged tuple of fields fitting that
-  constructor at the instantiation, and injectivity of tags and
-  tuples identifies constructor and fields with the rule's. Neither
-  the index comparison nor the stored instantiation is used
-  (#src("whitepaper/Fragment/NestIota.lean", 2612, 2620)[the core]).
-]
-
-#theorem(name: "Installing a nested block")[
-  If the environment has a model that remembers its blocks and the
-  nested block passes the checks of @sec:nest-checks, then the
-  #src("whitepaper/Fragment/NestInstall.lean", 194, 199)[extended environment has one], with every old constant's set
-  unchanged.
-  With the plain block step of @sec:ind-model this gives
-  #src("whitepaper/Fragment/NestInstall.lean", 203, 206)[one installation theorem for any accepted block],
-  which is what the proof of @thm:accepted-model runs at a block
-  step — the acceptance relation's block step
-  #src("whitepaper/Fragment/Consistency.lean", 46, 47)[is stated over any block], plain or nested —
-  and @cor:consistency holds as stated.
-] <thm:install-nest>
-
-== Beyond the fragment <sec:nest-beyond>
-
-The real checker's positivity walk carries a stack of _frames_ — a
-frame is one type whose constructors are being checked, the block
-itself or a container instance met in a field. So it accepts a
-container inside a container
-(#src("ConLeche/Kernel/Inductives/Positivity.lean", 1359, 1364)[a new frame],
-#src("tests/e2e/src/nested_p03.lean", 5, 6)[a block nested at depth two]),
-containers with indices
-(#src("tests/e2e/src/nested_p25.lean", 7, 8)[a block nested through an indexed container]),
-containers from a mutual block, whose types are walked together
-(#src("ConLeche/Kernel/Inductives/Positivity.lean", 1285, 1291)[a frame's group-mates]),
-and nesting through a reflexive field
-(#src("tests/e2e/src/ind_nest_via_refl.lean", 9, 14)[a field of type `W1 ViaRefl`]).
-The recursors then come one per class, the classes read off the
-stream's recursor types
-(#src("ConLeche/Kernel/Inductives/GenRec.lean", 18, 27)[the classes]).
-The real proof covers these accepts; the account of them is
-#overview(5), and this document leaves them there (@sec:left-out).
+*The recursors.* All recursors of the block are read off one graph: the
+least relation between a class, an element of it and a value that is
+closed under the rules of every recursor — at a constructor of a class,
+the class's minor applied to the fields and to the graph's values at
+the fields' landing classes. It is single-valued as in @sec:ind-model,
+since tagged tuples are injective and, at the elimination level zero,
+both sides are the point; the guard spares the model the agreement of
+decodings that a large eliminator out of a proposition needs. It is
+total by one induction over all the classes together: the family's
+induction, entering at each nested field the container's own induction
+at the instantiation, as deep as the walk went
+(#src("ConLeche/SetModel/NestRec.lean", 8, 46)[the induction over the classes],
+#src("ConLeche/SetModel/NestRecCls.lean", 6, 29)[read at the recursors' classes]).
+The $iota$ laws follow as in @sec:ind-model: for a rule of
+$T.sans("rec")_1$ the major is a container's constructor applied; the
+recursor's fit puts its value in the class at the recursor's
+parameters, and the container's fixed-point equation there identifies
+the constructor and the fields with the rule's
+(#src("ConLeche/Model/Inductives/BlockRecLaw.lean", 448, 456)[the graph's equation, lifted to the law]).

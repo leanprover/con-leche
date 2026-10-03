@@ -32,13 +32,6 @@ family is a component of their #src("ConLeche/SetTheory/Derive/LfpTuple.lean", 8
 least fixed point]. Nothing in it is new — only the presentation gets
 heavier — so this document skips it.]
 
-#left-out[Nesting beyond @sec:nested][That section nests one level
-deep, through a container with parameters only. The real checker
-also accepts nesting at any depth, through containers with indices
-or from a mutual block, and through a reflexive field; @sec:nest-beyond
-names the fixtures and the walk that accepts them, the real proof
-covers these accepts, and this document leaves them to it.]
-
 #left-out[Nat and String literals, and the fast Nat path][Numerals and
 strings are terms of their own; the checker expands a literal to its
 constructor form when reduction needs it
