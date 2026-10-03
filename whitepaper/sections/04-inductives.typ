@@ -38,7 +38,7 @@ states and proves. This
 section says what the checker checks for
 a block and what it stores, how the model grows by a least fixed point
 so that the three laws keep holding, and then the consistency
-corollary, which is two lines.
+corollary.
 
 == Inductive types: what is checked <sec:ind-checks>
 

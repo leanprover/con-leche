@@ -229,7 +229,7 @@ gains three cases, one per rule.
   and law 2 is the definition of $M'$ at $c$.
 ]
 
-The proof is two lines because everything difficult was done in §2:
+The proof is short because everything difficult was done in §2:
 the checks a definition passes are exactly the premises of the
 corollary, and the corollary's conclusion is exactly law 1.
 

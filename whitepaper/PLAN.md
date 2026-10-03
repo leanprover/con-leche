@@ -216,3 +216,5 @@ in HTML the phrase shows the cited lines on hover.
   set on its own line, not inline.
 * (2026-10-03) Always "the type former", never a bare "the former"
   (confusable with "the former/the latter").
+* (2026-10-03) No boasting, no line counts ("ten lines", "two lines",
+  "costs nothing"): say what follows from what.
