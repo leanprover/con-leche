@@ -160,10 +160,10 @@ the current frame:
 
 *Walking a frame.* At an instantiation $C.\{arrow(u)\} thick arrow(D)$,
 the walk checks that $C.\{arrow(u)\} thick arrow(D)$ has a type, and
-#src("ConLeche/Kernel/Inductives/Positivity.lean", 1333, 1351)[gives every type of $C$'s mutual block a hole]
-at the instantiation — it walks them all, reached or not, as the
-official kernel does. It then
-#src("ConLeche/Kernel/Inductives/Positivity.lean", 1213, 1262)[takes each of their constructors in turn]:
+#src("ConLeche/Kernel/Inductives/Positivity.lean", 1333, 1351)[introduces a hole for it]:
+a variable standing for the container's type former applied at this
+instantiation. It then
+#src("ConLeche/Kernel/Inductives/Positivity.lean", 1213, 1262)[takes each of $C$'s constructors in turn]:
 
 - its stored type at $arrow(u)$, the frame's applications replaced by
   the holes and the parameters instantiated at $arrow(D)$, must be a
