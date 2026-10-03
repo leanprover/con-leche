@@ -118,6 +118,10 @@ structure CState where
   constValAt : Std.HashMap (Name × List Level) Expr := {}
   ruleRhsAt : Std.HashMap (Name × Name × List Level) Expr := {}
   whnfCoreC : Std.HashMap Expr Expr := {}
+  /-- The cheap-projection head normalization's memo (`whnfCore` at
+  `cheap_proj`, `whnfCoreBody`): a separate map, since the two modes'
+  results differ on a stuck projection. -/
+  whnfCoreCheapC : Std.HashMap Expr Expr := {}
   whnfC : Std.HashMap Expr Expr := {}
   inferC : Std.HashMap Expr Expr := {}
   /-- **The io-grade inference memo** (task #170 / #172 B4): results of
@@ -355,7 +359,7 @@ memos — survive. -/
 def CState.flushed (s : CState) : CState :=
   { s with
       constTyAt := {}, constValAt := {}, ruleRhsAt := {},
-      whnfCoreC := {}, whnfC := {}, inferC := {}, inferIOC := {},
+      whnfCoreC := {}, whnfCoreCheapC := {}, whnfC := {}, inferC := {}, inferIOC := {},
       defeqC := {}, annotC := {}, instC := {} }
 
 def flushC : CheckCM Unit := modify (·.flushed)

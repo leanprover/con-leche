@@ -97,7 +97,7 @@ end PairM
 io slot joins as the sixth component.) -/
 @[expose] def FnsRel (rel : MonadRel M₁ M₂) (r₁ : CoreFns M₁) (r₂ : CoreFns M₂) :
     Prop :=
-  (∀ d e, rel.R (r₁.whnfCore d e) (r₂.whnfCore d e)) ∧
+  (∀ c d e, rel.R (r₁.whnfCore c d e) (r₂.whnfCore c d e)) ∧
   (∀ d e, rel.R (r₁.whnf d e) (r₂.whnf d e)) ∧
   (∀ d e, rel.R (r₁.infer d e) (r₂.infer d e)) ∧
   (∀ d a b, rel.R (r₁.defeq d a b) (r₂.defeq d a b)) ∧
@@ -114,7 +114,7 @@ theorem FnsRel.ioView {rel : MonadRel M₁ M₂} {r₁ : CoreFns M₁}
 /-- The paired record. -/
 def pairFns {rel : MonadRel M₁ M₂} (r₁ : CoreFns M₁) (r₂ : CoreFns M₂)
     (h : FnsRel rel r₁ r₂) : CoreFns (PairM rel) where
-  whnfCore d e := ⟨(r₁.whnfCore d e, r₂.whnfCore d e), h.1 d e⟩
+  whnfCore c d e := ⟨(r₁.whnfCore c d e, r₂.whnfCore c d e), h.1 c d e⟩
   whnf d e := ⟨(r₁.whnf d e, r₂.whnf d e), h.2.1 d e⟩
   infer d e := ⟨(r₁.infer d e, r₂.infer d e), h.2.2.1 d e⟩
   defeq d a b := ⟨(r₁.defeq d a b, r₂.defeq d a b), h.2.2.2.1 d a b⟩
@@ -778,9 +778,10 @@ theorem projLitToCtor_snd_proj (d : Nat) (e : Expr) :
   unfold projLitToCtor
   snd_tac2
 
-macro "fst_step3" : tactic =>
+macro "fst_core3" x:tactic : tactic =>
   `(tactic| repeat (first
     | rfl
+    | $x:tactic
     | (rw [liftFueled_fst_proj])
     | (rw [iotaCerts_fst])
     | (rw [iotaIndexOk_fst])
@@ -804,15 +805,18 @@ macro "fst_step3" : tactic =>
     | (dsimp only [])
     | split))
 
+macro "fst_step3" : tactic => `(tactic| fst_core3 (fail))
+
 macro "fst_tac3" : tactic =>
   `(tactic| fst_step3 <;> fst_step3 <;> fst_step3 <;> fst_step3 <;>
     fst_step3 <;> fst_step3 <;> fst_step3 <;> fst_step3 <;>
     fst_step3 <;> fst_step3 <;> fst_step3 <;> fst_step3 <;>
     fst_step3 <;> fst_step3 <;> fst_step3)
 
-macro "snd_step3" : tactic =>
+macro "snd_core3" x:tactic : tactic =>
   `(tactic| repeat (first
     | rfl
+    | $x:tactic
     | (rw [liftFueled_snd_proj])
     | (rw [iotaCerts_snd])
     | (rw [iotaIndexOk_snd])
@@ -835,6 +839,8 @@ macro "snd_step3" : tactic =>
     | ((rw [PairM.snd_bind]; congr 1 <;> try rfl) <;> try funext _)
     | (dsimp only [])
     | split))
+
+macro "snd_step3" : tactic => `(tactic| snd_core3 (fail))
 
 macro "snd_tac3" : tactic =>
   `(tactic| snd_step3 <;> snd_step3 <;> snd_step3 <;> snd_step3 <;>
@@ -866,6 +872,130 @@ theorem iotaRec_snd_proj (d : Nat) (e : Expr) :
   unfold iotaRec
   snd_tac3
 
+theorem reduceProjCore_fst_proj (d : Nat) (sn : Name) (i : Nat) (e : Expr) :
+    (reduceProjCore mode (pairFns r₁ r₂ h) env d sn i e).val.1 =
+      reduceProjCore mode r₁ env d sn i e := by
+  unfold reduceProjCore
+  fst_tac3
+
+theorem reduceProjCore_snd_proj (d : Nat) (sn : Name) (i : Nat) (e : Expr) :
+    (reduceProjCore mode (pairFns r₁ r₂ h) env d sn i e).val.2 =
+      reduceProjCore mode r₂ env d sn i e := by
+  unfold reduceProjCore
+  snd_tac3
+
+theorem quickDefEq_fst_proj (d : Nat) (a b : Expr) :
+    (quickDefEq mode (pairFns r₁ r₂ h) d a b).val.1 = quickDefEq mode r₁ d a b := by
+  unfold quickDefEq
+  fst_tac3
+
+theorem quickDefEq_snd_proj (d : Nat) (a b : Expr) :
+    (quickDefEq mode (pairFns r₁ r₂ h) d a b).val.2 = quickDefEq mode r₂ d a b := by
+  unfold quickDefEq
+  snd_tac3
+
+theorem defeqOffset_fst_proj (d : Nat) (a b : Expr) :
+    (defeqOffset (pairFns r₁ r₂ h) d a b).val.1 = defeqOffset r₁ d a b := by
+  unfold defeqOffset
+  fst_tac3
+
+theorem defeqOffset_snd_proj (d : Nat) (a b : Expr) :
+    (defeqOffset (pairFns r₁ r₂ h) d a b).val.2 = defeqOffset r₂ d a b := by
+  unfold defeqOffset
+  snd_tac3
+
+theorem tryUnfoldProjApp_fst_proj (d : Nat) (e : Expr) :
+    (tryUnfoldProjApp (pairFns r₁ r₂ h) d e).val.1 = tryUnfoldProjApp r₁ d e := by
+  unfold tryUnfoldProjApp
+  fst_tac3
+
+theorem tryUnfoldProjApp_snd_proj (d : Nat) (e : Expr) :
+    (tryUnfoldProjApp (pairFns r₁ r₂ h) d e).val.2 = tryUnfoldProjApp r₂ d e := by
+  unfold tryUnfoldProjApp
+  snd_tac3
+
+theorem deltaQuick_fst_proj (d : Nat) (a b : Expr) :
+    (deltaQuick mode (pairFns r₁ r₂ h) d a b).val.1 = deltaQuick mode r₁ d a b := by
+  unfold deltaQuick
+  fst_core3 (rw [quickDefEq_fst_proj])
+
+theorem deltaQuick_snd_proj (d : Nat) (a b : Expr) :
+    (deltaQuick mode (pairFns r₁ r₂ h) d a b).val.2 = deltaQuick mode r₂ d a b := by
+  unfold deltaQuick
+  snd_core3 (rw [quickDefEq_snd_proj])
+
+theorem lazyDeltaStep_fst_proj (d : Nat) (a b : Expr) :
+    (lazyDeltaStep mode (pairFns r₁ r₂ h) env d a b).val.1 =
+      lazyDeltaStep mode r₁ env d a b := by
+  unfold lazyDeltaStep
+  fst_core3 (first | rw [deltaQuick_fst_proj] | rw [tryUnfoldProjApp_fst_proj] | rw [defeqSpine_fst])
+
+theorem lazyDeltaStep_snd_proj (d : Nat) (a b : Expr) :
+    (lazyDeltaStep mode (pairFns r₁ r₂ h) env d a b).val.2 =
+      lazyDeltaStep mode r₂ env d a b := by
+  unfold lazyDeltaStep
+  snd_core3 (first | rw [deltaQuick_snd_proj] | rw [tryUnfoldProjApp_snd_proj] | rw [defeqSpine_snd])
+
+theorem lazyDeltaReduction_fst_proj (d : Nat) :
+    ∀ (n : Nat) (a b : Expr),
+      (lazyDeltaReduction mode (pairFns r₁ r₂ h) env d n a b).val.1 =
+        lazyDeltaReduction mode r₁ env d n a b
+  | 0, _, _ => rfl
+  | n + 1, a, b => by
+    unfold lazyDeltaReduction
+    fst_core3 (first | rw [lazyDeltaStep_fst_proj] | rw [defeqOffset_fst_proj] | rw [lazyDeltaReduction_fst_proj d n])
+
+theorem lazyDeltaReduction_snd_proj (d : Nat) :
+    ∀ (n : Nat) (a b : Expr),
+      (lazyDeltaReduction mode (pairFns r₁ r₂ h) env d n a b).val.2 =
+        lazyDeltaReduction mode r₂ env d n a b
+  | 0, _, _ => rfl
+  | n + 1, a, b => by
+    unfold lazyDeltaReduction
+    snd_core3 (first | rw [lazyDeltaStep_snd_proj] | rw [defeqOffset_snd_proj] | rw [lazyDeltaReduction_snd_proj d n])
+
+theorem lazyDeltaProjReduction_fst_proj (d : Nat) (sn : Name) (i : Nat) :
+    ∀ (n : Nat) (a b : Expr),
+      (lazyDeltaProjReduction mode (pairFns r₁ r₂ h) env d sn i n a b).val.1 =
+        lazyDeltaProjReduction mode r₁ env d sn i n a b
+  | 0, _, _ => rfl
+  | n + 1, a, b => by
+    unfold lazyDeltaProjReduction
+    fst_core3 (first | rw [lazyDeltaStep_fst_proj] | rw [reduceProjCore_fst_proj] | rw [lazyDeltaProjReduction_fst_proj d sn i n])
+
+theorem lazyDeltaProjReduction_snd_proj (d : Nat) (sn : Name) (i : Nat) :
+    ∀ (n : Nat) (a b : Expr),
+      (lazyDeltaProjReduction mode (pairFns r₁ r₂ h) env d sn i n a b).val.2 =
+        lazyDeltaProjReduction mode r₂ env d sn i n a b
+  | 0, _, _ => rfl
+  | n + 1, a, b => by
+    unfold lazyDeltaProjReduction
+    snd_core3 (first | rw [lazyDeltaStep_snd_proj] | rw [reduceProjCore_snd_proj] | rw [lazyDeltaProjReduction_snd_proj d sn i n])
+
+theorem defeqProjPair_fst_proj (d : Nat) (a b : Expr) :
+    (defeqProjPair mode (pairFns r₁ r₂ h) env d a b).val.1 =
+      defeqProjPair mode r₁ env d a b := by
+  unfold defeqProjPair
+  fst_core3 (rw [lazyDeltaProjReduction_fst_proj])
+
+theorem defeqProjPair_snd_proj (d : Nat) (a b : Expr) :
+    (defeqProjPair mode (pairFns r₁ r₂ h) env d a b).val.2 =
+      defeqProjPair mode r₂ env d a b := by
+  unfold defeqProjPair
+  snd_core3 (rw [lazyDeltaProjReduction_snd_proj])
+
+theorem defeqStuck_fst_proj (d : Nat) (a b : Expr) :
+    (defeqStuck mode (pairFns r₁ r₂ h) env d a b).val.1 =
+      defeqStuck mode r₁ env d a b := by
+  unfold defeqStuck
+  fst_core3 (rw [stuckIrrel_fst_proj])
+
+theorem defeqStuck_snd_proj (d : Nat) (a b : Expr) :
+    (defeqStuck mode (pairFns r₁ r₂ h) env d a b).val.2 =
+      defeqStuck mode r₂ env d a b := by
+  unfold defeqStuck
+  snd_core3 (rw [stuckIrrel_snd_proj])
+
 /-- The level-4 cascade, parameterized over one extra alternative so
 that loop-body lemmas can feed in their continuation hypothesis
 (`fst_step4k`) without duplicating the rewrite list. -/
@@ -894,6 +1024,11 @@ macro "fst_core4" x:tactic : tactic =>
     | (rw [iotaRec_fst_proj])
     | (rw [projLitToCtor_fst_proj])
     | (rw [defeqSpine_fst])
+    | (rw [reduceProjCore_fst_proj])
+    | (rw [quickDefEq_fst_proj])
+    | (rw [lazyDeltaReduction_fst_proj])
+    | (rw [defeqProjPair_fst_proj])
+    | (rw [defeqStuck_fst_proj])
     | ((rw [PairM.fst_bind]; congr 1 <;> try rfl) <;> try funext _)
     -- task #161: the β gate's dead branch — unfolding the *one* gate
     -- primitive hands both arms back to the cascade's own `split`
@@ -947,6 +1082,11 @@ macro "snd_core4" x:tactic : tactic =>
     | (rw [iotaRec_snd_proj])
     | (rw [projLitToCtor_snd_proj])
     | (rw [defeqSpine_snd])
+    | (rw [reduceProjCore_snd_proj])
+    | (rw [quickDefEq_snd_proj])
+    | (rw [lazyDeltaReduction_snd_proj])
+    | (rw [defeqProjPair_snd_proj])
+    | (rw [defeqStuck_snd_proj])
     | ((rw [PairM.snd_bind]; congr 1 <;> try rfl) <;> try funext _)
     -- task #161: the β gate's dead branch — unfolding the *one* gate
     -- primitive hands both arms back to the cascade's own `split`
@@ -972,15 +1112,15 @@ macro "snd_tac4" : tactic =>
     snd_step4 <;> snd_step4 <;> snd_step4 <;> snd_step4 <;>
     snd_step4 <;> snd_step4 <;> snd_step4)
 
-theorem whnfCoreBody_fst_proj (d : Nat) (e : Expr) :
-    (whnfCoreBody mode (pairFns r₁ r₂ h) env d e).val.1 =
-      whnfCoreBody mode r₁ env d e := by
+theorem whnfCoreBody_fst_proj (c : Bool) (d : Nat) (e : Expr) :
+    (whnfCoreBody mode (pairFns r₁ r₂ h) env c d e).val.1 =
+      whnfCoreBody mode r₁ env c d e := by
   unfold whnfCoreBody
   fst_tac4
 
-theorem whnfCoreBody_snd_proj (d : Nat) (e : Expr) :
-    (whnfCoreBody mode (pairFns r₁ r₂ h) env d e).val.2 =
-      whnfCoreBody mode r₂ env d e := by
+theorem whnfCoreBody_snd_proj (c : Bool) (d : Nat) (e : Expr) :
+    (whnfCoreBody mode (pairFns r₁ r₂ h) env c d e).val.2 =
+      whnfCoreBody mode r₂ env c d e := by
   unfold whnfCoreBody
   snd_tac4
 
@@ -1056,49 +1196,17 @@ theorem inferBodyIO_snd_proj (d : Nat) (e : Expr) :
   unfold inferBodyIO
   snd_tac4
 
-theorem defeqStep_fst_proj (d : Nat) (k : Bool → Expr → Expr → PairM rel Bool)
-    (k₁ : Bool → Expr → Expr → M₁ Bool)
-    (hk : ∀ pi a b, (k pi a b).val.1 = k₁ pi a b) (pi : Bool) (a b : Expr) :
-    (defeqStep mode (pairFns r₁ r₂ h) env d k pi a b).val.1 =
-      defeqStep mode r₁ env d k₁ pi a b := by
-  unfold defeqStep
-  fst_tac4k hk
-
-theorem defeqStep_snd_proj (d : Nat) (k : Bool → Expr → Expr → PairM rel Bool)
-    (k₂ : Bool → Expr → Expr → M₂ Bool)
-    (hk : ∀ pi a b, (k pi a b).val.2 = k₂ pi a b) (pi : Bool) (a b : Expr) :
-    (defeqStep mode (pairFns r₁ r₂ h) env d k pi a b).val.2 =
-      defeqStep mode r₂ env d k₂ pi a b := by
-  unfold defeqStep
-  snd_tac4k hk
-
-theorem defeqLoop_fst_proj (d : Nat) :
-    ∀ (n : Nat) (pi : Bool) (a b : Expr),
-      (defeqLoop mode (pairFns r₁ r₂ h) env d n pi a b).val.1 =
-        defeqLoop mode r₁ env d n pi a b
-  | 0, _, _, _ => rfl
-  | n + 1, pi, a, b =>
-    defeqStep_fst_proj d _ _ (fun pi' x y => defeqLoop_fst_proj d n pi' x y)
-      pi a b
-
-theorem defeqLoop_snd_proj (d : Nat) :
-    ∀ (n : Nat) (pi : Bool) (a b : Expr),
-      (defeqLoop mode (pairFns r₁ r₂ h) env d n pi a b).val.2 =
-        defeqLoop mode r₂ env d n pi a b
-  | 0, _, _, _ => rfl
-  | n + 1, pi, a, b =>
-    defeqStep_snd_proj d _ _ (fun pi' x y => defeqLoop_snd_proj d n pi' x y)
-      pi a b
-
 theorem defeqBody_fst_proj (d : Nat) (a b : Expr) :
     (defeqBody mode (pairFns r₁ r₂ h) env d a b).val.1 =
-      defeqBody mode r₁ env d a b :=
-  defeqLoop_fst_proj d defeqLoopFuel true a b
+      defeqBody mode r₁ env d a b := by
+  unfold defeqBody
+  fst_tac4
 
 theorem defeqBody_snd_proj (d : Nat) (a b : Expr) :
     (defeqBody mode (pairFns r₁ r₂ h) env d a b).val.2 =
-      defeqBody mode r₂ env d a b :=
-  defeqLoop_snd_proj d defeqLoopFuel true a b
+      defeqBody mode r₂ env d a b := by
+  unfold defeqBody
+  snd_tac4
 
 -- Task #161 P5: the ∀/λ clauses' untrusted `pw` write is one more
 -- inference call under the same cascade (`annotPwPi` = infer +

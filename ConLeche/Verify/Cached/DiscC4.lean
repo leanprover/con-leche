@@ -85,9 +85,9 @@ private theorem iotaArityOk_guard {mi : CheckMode} {r : CoreFnsI}
   · rw [if_pos h]
   · rw [if_neg h, iotaRecI_of_arityOk_false (Bool.not_eq_true _ |>.mp h)]
 
-private theorem whnfCoreStepM_unfold (env : Env) (d : Nat)
+private theorem whnfCoreStepM_unfold (env : Env) (cheap : Bool) (d : Nat)
     (kM : Expr → FueledM Expr) (e : Expr) :
-    whnfCoreStepM mode (fueledFns mode env) env d kM e =
+    whnfCoreStepM mode (fueledFns mode env) env cheap d kM e =
     (match e with
     | .sort u => pure (.sort u)
     | .fvar idx ty => pure (.fvar idx ty)
@@ -96,33 +96,76 @@ private theorem whnfCoreStepM_unfold (env : Env) (d : Nat)
     | .const n us => pure (.const n us)
     | .lit l => pure (.lit l)
     | .app g' a =>
-      (fueledFns mode env).whnfCore d (Expr.app g' a).getAppFn >>= fun v =>
+      (fueledFns mode env).whnfCore cheap d (Expr.app g' a).getAppFn >>= fun v =>
         whnfApp mode (fueledFns mode env) env d kM v (Expr.app g' a).getAppArgs
     | .proj sn i pe =>
-      (fueledFns mode env).whnf d pe >>= fun e' =>
-      projLitToCtor (fueledFns mode env) env d e' >>= fun e' =>
-      match env.findProj? sn i with
-      | some entry =>
-        match e'.getAppFn with
-        | .const c us =>
-          if c = entry.ctor ∧ i < entry.numFields ∧
-              e'.getAppArgs.length = entry.numParams + entry.numFields ∧
-              us.length = entry.levelParams.length ∧
-              entry.fireOk us = true then
-            projCertAt (fueledFns mode env) env d mode.verifiedChecks mode.betaGate c us
-                e'.getAppArgs >>=
-              fun b =>
-            if b then
-              kM (e'.getAppArgs.getD (entry.numParams + i) (.bvar 0))
-            else pure (.proj sn i pe)
-          else pure (.proj sn i pe)
-        | _ => pure (.proj sn i pe)
+      (if cheap then (fueledFns mode env).whnfCore true d pe
+        else (fueledFns mode env).whnf d pe) >>= fun c =>
+      reduceProjCore mode (fueledFns mode env) env d sn i c >>= fun o =>
+      match o with
+      | some m' => kM m'
       | none => pure (.proj sn i pe)
     | .letE _ _ _ =>
       throw (.internal "whnfCore: `let` in an annotated expression")
     | .bvar _ =>
       throw (.notImplemented "whnf beyond the supported fragment")) := by
-  cases e <;> rfl
+  cases e <;> try rfl
+  case proj sn i pe => cases cheap <;> rfl
+
+/-- The projection rule simulates its specification. -/
+theorem reduceProjCoreC_sim (ih : SSimC mode env f) (henv : EnvWF env)
+    {d : Nat} {sn : Name} {ip : Nat} {i : Expr} {ex : Expr} {s₀ : CState}
+    (hs : CSOK mode env s₀) (hden : RelC i ex) (hw : Expr.WScoped d ex) :
+    SimC mode env s₀ (RelOC d)
+      (reduceProjCoreI mode (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d sn ip i)
+      (reduceProjCore mode (fueledFns mode env) env d sn ip ex) := by
+  unfold reduceProjCoreI reduceProjCore
+  refine SimC.bind (projLitToCtorC_sim ih hs hden hw)
+    (fun s₁ e' e'x hs₁ hP => ?_)
+  obtain ⟨rfl, hwe'⟩ := hP
+  refine SimC.bind_left (pureEq_eff hs₁ sn)
+    (fun s₁' snw hs₁ hsnw => ?_)
+  subst snw
+  rw [mkFEnv_findProj?]
+  cases hfp : env.findProj? sn ip with
+  | none => exact SimC.pure hs₁ trivial
+  | some entry =>
+    dsimp only
+    generalize hg : Expr.getAppFn e' = g
+    cases g with
+    | const c us =>
+      dsimp only
+      refine SimC.pureB ?_
+      have hargs : RelCL (Expr.getAppArgsC e') ((Expr.getAppArgs e')) :=
+        Expr.getAppArgsC_spec e'
+      refine SimC.bind_left (pureEq_eff hs₁ (c == entry.ctor))
+        (fun s₁b bq hs₁ hbq => ?_)
+      subst bq
+      rw [hargs.length]
+      simp only [beq_iff_eq]
+      have hwarg : Expr.WScoped d
+          ((Expr.getAppArgs e').getD (entry.numParams + ip) (.bvar 0)) :=
+        wscoped_getD hwe'.getAppArgs _
+      split
+      · rename_i hcond
+        obtain ⟨rfl, -, -, -⟩ := hcond
+        refine SimC.bind_left
+          (pureBvar_eff hs₁ 0)
+          (fun s₂ bvar0 hs₂ hQ0 => ?_)
+        refine SimC.bind (projCertAtC_sim ih henv hs₂ hargs
+            (fun x hx => hwe'.getAppArgs x hx))
+          (fun s₃ b b' hs₃ hPb => ?_)
+        obtain rfl : b = b' := hPb
+        cases b with
+        | true =>
+          simp only [↓reduceIte]
+          exact SimC.pure hs₃
+            (show RelEC d _ _ from ⟨RelCL.getD hQ0 (entry.numParams + ip) hargs, hwarg⟩)
+        | false =>
+          simp only [Bool.false_eq_true, ↓reduceIte]
+          exact SimC.pure hs₃ trivial
+      · exact SimC.pure hs₁ trivial
+    | _ => exact SimC.pure hs₁ trivial
 
 mutual
 
@@ -512,15 +555,15 @@ theorem betaPeelC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode env f)
 end
 
 theorem whnfCoreStepC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode env f) (henv : EnvWF env)
-    {d : Nat} {kI : Expr → CheckCM Expr} {kM : Expr → FueledM Expr}
+    {c : Bool} {d : Nat} {kI : Expr → CheckCM Expr} {kM : Expr → FueledM Expr}
     (hk : ∀ {s : CState} {i : Expr} {ex : Expr}, CSOK mode env s →
       RelC i ex → Expr.WScoped d ex →
       SimC mode env s (RelEC d) (kI i) (kM ex))
     {i : Expr} {ex : Expr} {s₀ : CState} (hs : CSOK mode env s₀)
     (hden : RelC i ex) (hw : Expr.WScoped d ex) :
     SimC mode env s₀ (RelEC d)
-      (whnfCoreStepI mode (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d kI i)
-      (whnfCoreStepM mode (fueledFns mode env) env d kM ex) := by
+      (whnfCoreStepI mode (coreKnotI mode (mkFEnv env) f) (mkFEnv env) c d kI i)
+      (whnfCoreStepM mode (fueledFns mode env) env c d kM ex) := by
   unfold whnfCoreStepI
   rw [whnfCoreStepM_unfold]
   obtain rfl := hden
@@ -556,111 +599,54 @@ theorem whnfCoreStepC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode en
     have hwpe : Expr.WScoped d pe := by
       have hw' : Expr.WScoped d (Expr.proj sn ip pe) := hw
       simpa only [Expr.WScoped] using hw'
-    refine SimC.bind (ih.whnf hs rfl hwpe)
-      (fun s₀' e₀ e₀x hs₀' hP₀ => ?_)
-    obtain ⟨he₀d, hwe₀⟩ := hP₀
-    refine SimC.bind (projLitToCtorC_sim ih hs₀' he₀d hwe₀)
-      (fun s₁ e' e'x hs₁ hP => ?_)
-    obtain ⟨rfl, hwe'⟩ := hP
-    have he'd : RelC e' e' := rfl
     have hwproj : Expr.WScoped d (Expr.proj sn ip pe) := hw
-    refine SimC.bind_left (pureEq_eff hs₁ sn)
-      (fun s₁' snw hs₁ hsnw => ?_)
-    subst snw
-    rw [mkFEnv_findProj?]
-    cases hfp : env.findProj? sn ip with
-    | none =>
-      dsimp only
-      exact SimC.of_eff
-        (pureC_eff hs₁ (x := Expr.proj sn ip pe)) _
-        (fun pr hQ => ⟨hQ, hwproj⟩)
-    | some entry =>
-      dsimp only
-      refine SimC.pureB ?_
-      generalize hg : Expr.getAppFn e' = g
-      cases g with
-      | const c us =>
-        dsimp only
-        refine SimC.pureB ?_
-        have hargs : RelCL (Expr.getAppArgsC e') ((Expr.getAppArgs e')) :=
-          Expr.getAppArgsC_spec e'
-        refine SimC.bind_left (pureEq_eff hs₁ (c == entry.ctor))
-          (fun s₁b bq hs₁ hbq => ?_)
-        subst bq
-        rw [hargs.length]
-        simp only [beq_iff_eq]
-        have hwarg : Expr.WScoped d
-            ((Expr.getAppArgs e').getD (entry.numParams + ip) (.bvar 0)) :=
-          wscoped_getD hwe'.getAppArgs _
-        split
-        · rename_i hcond
-          obtain ⟨rfl, -, -, -⟩ := hcond
-          refine SimC.bind_left
-            (pureBvar_eff hs₁ 0)
-            (fun s₂ bvar0 hs₂ hQ0 => ?_)
-          refine SimC.bind (projCertAtC_sim ih henv hs₂ hargs
-              (fun x hx => hwe'.getAppArgs x hx))
-            (fun s₃ b b' hs₃ hPb => ?_)
-          obtain rfl : b = b' := hPb
-          cases b with
-          | true =>
-            simp only [↓reduceIte]
-            exact hk hs₃
-              (RelCL.getD hQ0 (entry.numParams + ip) hargs) hwarg
-          | false =>
-            simp only [Bool.false_eq_true, ↓reduceIte]
-            exact SimC.of_eff
-              (pureC_eff hs₃ (x := Expr.proj sn ip pe)) _
-              (fun pr hQ => ⟨hQ, hwproj⟩)
-        · exact SimC.of_eff
-            (pureC_eff hs₁ (x := Expr.proj sn ip pe)) _
-            (fun pr hQ => ⟨hQ, hwproj⟩)
-      | bvar k =>
-        exact SimC.of_eff
-          (pureC_eff hs₁ (x := Expr.proj sn ip pe)) _
-          (fun pr hQ => ⟨hQ, hwproj⟩)
-      | sort u =>
-        exact SimC.of_eff
-          (pureC_eff hs₁ (x := Expr.proj sn ip pe)) _
-          (fun pr hQ => ⟨hQ, hwproj⟩)
-      | lit l =>
-        exact SimC.of_eff
-          (pureC_eff hs₁ (x := Expr.proj sn ip pe)) _
-          (fun pr hQ => ⟨hQ, hwproj⟩)
-      | fvar idx t =>
-        exact SimC.of_eff
-          (pureC_eff hs₁ (x := Expr.proj sn ip pe)) _
-          (fun pr hQ => ⟨hQ, hwproj⟩)
-      | app f₂ a₂ =>
-        exact SimC.of_eff
-          (pureC_eff hs₁ (x := Expr.proj sn ip pe)) _
-          (fun pr hQ => ⟨hQ, hwproj⟩)
-      | lam t b m =>
-        exact SimC.of_eff
-          (pureC_eff hs₁ (x := Expr.proj sn ip pe)) _
-          (fun pr hQ => ⟨hQ, hwproj⟩)
-      | forallE t b m =>
-        exact SimC.of_eff
-          (pureC_eff hs₁ (x := Expr.proj sn ip pe)) _
-          (fun pr hQ => ⟨hQ, hwproj⟩)
-      | letE t v b =>
-        exact SimC.of_eff
-          (pureC_eff hs₁ (x := Expr.proj sn ip pe)) _
-          (fun pr hQ => ⟨hQ, hwproj⟩)
-      | proj s' j' e'' =>
-        exact SimC.of_eff
-          (pureC_eff hs₁ (x := Expr.proj sn ip pe)) _
-          (fun pr hQ => ⟨hQ, hwproj⟩)
+    cases c with
+    | false =>
+      simp only [Bool.false_eq_true, ↓reduceIte]
+      refine SimC.bind (ih.whnf hs rfl hwpe)
+        (fun s₀' e₀ e₀x hs₀' hP₀ => ?_)
+      obtain ⟨he₀d, hwe₀⟩ := hP₀
+      refine SimC.bind (reduceProjCoreC_sim ih henv hs₀' he₀d hwe₀)
+        (fun s₁ o ox hs₁ hPo => ?_)
+      cases o with
+      | some m =>
+        cases ox with
+        | none => exact absurd hPo (by simp [RelOC])
+        | some mx =>
+          obtain ⟨hmd, hwm⟩ := hPo
+          exact hk hs₁ hmd hwm
+      | none =>
+        cases ox with
+        | some mx => exact absurd hPo (by simp [RelOC])
+        | none => exact SimC.pure hs₁ ⟨rfl, hwproj⟩
+    | true =>
+      simp only [↓reduceIte]
+      refine SimC.bind (ih.whnfCore hs rfl hwpe)
+        (fun s₀' e₀ e₀x hs₀' hP₀ => ?_)
+      obtain ⟨he₀d, hwe₀⟩ := hP₀
+      refine SimC.bind (reduceProjCoreC_sim ih henv hs₀' he₀d hwe₀)
+        (fun s₁ o ox hs₁ hPo => ?_)
+      cases o with
+      | some m =>
+        cases ox with
+        | none => exact absurd hPo (by simp [RelOC])
+        | some mx =>
+          obtain ⟨hmd, hwm⟩ := hPo
+          exact hk hs₁ hmd hwm
+      | none =>
+        cases ox with
+        | some mx => exact absurd hPo (by simp [RelOC])
+        | none => exact SimC.pure hs₁ ⟨rfl, hwproj⟩
 
 /-- The head-normalization *loop* simulates its mirror, by induction on
 the shared step budget (task #106). -/
 theorem whnfCoreLoopC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode env f) (henv : EnvWF env)
-    {d : Nat} :
+    {c : Bool} {d : Nat} :
     ∀ (n : Nat) {i : Expr} {ex : Expr} {s₀ : CState}, CSOK mode env s₀ →
       RelC i ex → Expr.WScoped d ex →
       SimC mode env s₀ (RelEC d)
-        (whnfCoreLoopI mode (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d n i)
-        (whnfCoreLoopM mode (fueledFns mode env) env d n ex)
+        (whnfCoreLoopI mode (coreKnotI mode (mkFEnv env) f) (mkFEnv env) c d n i)
+        (whnfCoreLoopM mode (fueledFns mode env) env c d n ex)
   | 0, _, _, _, _, _, _ => SimC.throw
   | n + 1, _, _, _, hs, hden, hw => by
     simp only [whnfCoreLoopI, whnfCoreLoopM]
@@ -671,14 +657,14 @@ theorem whnfCoreLoopC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode en
 specification body: the loop run is reproduced by `whnfCoreBody` at
 some knot fuel (`whnfCoreLoop_sound_body`). -/
 theorem whnfCoreBodyC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode env f) (henv : EnvWF env)
-    {d : Nat} {i : Expr} {ex : Expr} {s₀ : CState} (hs : CSOK mode env s₀)
+    {c : Bool} {d : Nat} {i : Expr} {ex : Expr} {s₀ : CState} (hs : CSOK mode env s₀)
     (hden : RelC i ex) (hw : Expr.WScoped d ex) :
     SimC mode env s₀ (RelEC d)
-      (whnfCoreBodyI mode (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d i)
-      (whnfCoreBody mode (fueledFns mode env) env d ex) := by
+      (whnfCoreBodyI mode (coreKnotI mode (mkFEnv env) f) (mkFEnv env) c d i)
+      (whnfCoreBody mode (fueledFns mode env) env c d ex) := by
   unfold whnfCoreBodyI
   exact SimC.wr (whnfCoreLoopC_sim hμ ih henv whnfCoreLoopFuel hs hden hw)
-    (fun v F hF => whnfCoreLoop_sound_body d ex v whnfCoreLoopFuel F hF)
+    (fun v F hF => whnfCoreLoop_sound_body (c := c) d ex v whnfCoreLoopFuel F hF)
 
 end Walks
 
@@ -689,7 +675,7 @@ variable {env : Env} {f : Nat}
 private theorem whnfStep_unfold (env : Env) (d : Nat)
     (kM : Expr → FueledM Expr) (e : Expr) :
     whnfStep (fueledFns mode env) env d kM e =
-    ((fueledFns mode env).whnfCore d e >>= fun e₁ =>
+    ((fueledFns mode env).whnfCore false d e >>= fun e₁ =>
       reduceNat (fueledFns mode env) env d e₁ >>= fun o =>
       match o with
       | some e₂ => kM e₂

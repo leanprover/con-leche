@@ -363,16 +363,16 @@ set_option maxHeartbeats 1600000 in
 closure. -/
 theorem whnfPres_fvarLeaves {env : Env} (henv : EnvWF env) :
     ∀ (fuel : Nat),
-      (∀ {d : Nat} {e e' : Expr}, whnfCore mode env fuel d e = .ok e' →
+      (∀ {c : Bool} {d : Nat} {e e' : Expr}, whnfCore mode env fuel d e c = .ok e' →
         ∀ l ∈ e'.fvarLeaves, l ∈ e.fvarLeaves) ∧
       (∀ {d : Nat} {e e' : Expr}, whnf mode env fuel d e = .ok e' →
         ∀ l ∈ e'.fvarLeaves, l ∈ e.fvarLeaves)
-  | 0 => ⟨(fun {_ _ _} h => nomatch h), (fun {_ _ _} h => nomatch h)⟩
+  | 0 => ⟨(fun {_ _ _ _} h => nomatch h), (fun {_ _ _} h => nomatch h)⟩
   | fuel + 1 => by
     obtain ⟨ihCore, ihLoop⟩ := whnfPres_fvarLeaves henv fuel
     constructor
     · -- whnfCore
-      intro d e e' h
+      intro c d e e' h
       cases e with
       | sort u =>
         rw [whnfCore_succ] at h
@@ -472,21 +472,23 @@ theorem whnfPres_fvarLeaves {env : Env} (henv : EnvWF env) :
           · exact Or.inr hl
       | proj sn i pe =>
         intro l hl
-        obtain ⟨e₂, e₃, he, hlit, hcase⟩ := whnf_proj_inv h
-        have hsub₃ : ∀ l ∈ e₃.fvarLeaves, l ∈ e₂.fvarLeaves := by
-          rcases projLitToCtorFueled_inv hlit with rfl | ⟨s, -, -, hred⟩
-          · exact fun l hl => hl
-          · intro l hl
-            have := ihLoop hred l hl
-            rw [strLitToConstructor_fvarLeaves] at this
-            cases this
+        obtain ⟨e₂, hst, hcase⟩ := whnf_proj_inv h
+        have hsub₂ : ∀ l ∈ e₂.fvarLeaves, l ∈ pe.fvarLeaves := by
+          rcases hst with ⟨-, h2⟩ | ⟨-, h2⟩
+          · exact ihCore h2
+          · exact ihLoop h2
         simp only [fvarLeaves]
-        rcases hcase with rfl |
-          ⟨us, entry, hfn, hf, hi, hlen, hus, -, hred, -⟩
+        rcases hcase with rfl | ⟨m, hr, hm⟩
         · simpa only [fvarLeaves] using hl
-        · have hl2 := ihCore hred l hl
-          exact ihLoop he l (hsub₃ l
-            (fvarLeaves_getAppArgs (getD_mem (by omega)) l hl2))
+        · have hsub := reduceProjCore_pres
+            (fun x => ∀ l ∈ x.fvarLeaves, l ∈ e₂.fvarLeaves)
+            (fun hx y hy l hl => hx l (fvarLeaves_getAppArgs hy l hl))
+            (fun hw hx l hl => hx l (ihLoop hw l hl))
+            (fun s _ l hl => by
+              rw [strLitToConstructor_fvarLeaves] at hl
+              cases hl)
+            hr (fun l hl => hl)
+          exact hsub₂ l (hsub l (ihCore hm l hl))
     · -- whnf loop: induction on the loop's own step budget (task #106)
       have hloop : ∀ (n : Nat) {d : Nat} {e e' : Expr},
           whnfLoop (pureFns mode env fuel) env d n e = .ok e' →
@@ -513,16 +515,16 @@ set_option maxHeartbeats 1600000 in
 bound. -/
 theorem whnfPres_looseBVars {env : Env} (henv : EnvWF env) :
     ∀ (fuel : Nat),
-      (∀ {d : Nat} {e e' : Expr}, whnfCore mode env fuel d e = .ok e' →
+      (∀ {c : Bool} {d : Nat} {e e' : Expr}, whnfCore mode env fuel d e c = .ok e' →
         e.looseBVarsBounded 0 = true → e'.looseBVarsBounded 0 = true) ∧
       (∀ {d : Nat} {e e' : Expr}, whnf mode env fuel d e = .ok e' →
         e.looseBVarsBounded 0 = true → e'.looseBVarsBounded 0 = true)
-  | 0 => ⟨(fun {_ _ _} h _ => nomatch h), (fun {_ _ _} h _ => nomatch h)⟩
+  | 0 => ⟨(fun {_ _ _ _} h _ => nomatch h), (fun {_ _ _} h _ => nomatch h)⟩
   | fuel + 1 => by
     obtain ⟨ihCore, ihLoop⟩ := whnfPres_looseBVars henv fuel
     constructor
     · -- whnfCore
-      intro d e e' h hb
+      intro c d e e' h hb
       cases e with
       | sort u =>
         rw [whnfCore_succ] at h
@@ -604,17 +606,16 @@ theorem whnfPres_looseBVars {env : Env} (henv : EnvWF env) :
           exact ⟨hbf', hb.2⟩
       | proj sn i pe =>
         simp only [looseBVarsBounded] at hb
-        obtain ⟨e₂, e₃, he, hlit, hcase⟩ := whnf_proj_inv h
-        have hbe₂ := ihLoop he hb
-        have hbe₃ : e₃.looseBVarsBounded 0 = true := by
-          rcases projLitToCtorFueled_inv hlit with rfl | ⟨s, -, -, hred⟩
-          · exact hbe₂
-          · exact ihLoop hred (strLitToConstructor_looseBVars s 0)
-        rcases hcase with rfl |
-          ⟨us, entry, hfn, hf, hi, hlen, hus, -, hred, -⟩
+        obtain ⟨e₂, hst, hcase⟩ := whnf_proj_inv h
+        have hbe₂ : e₂.looseBVarsBounded 0 = true := by
+          rcases hst with ⟨-, h2⟩ | ⟨-, h2⟩
+          · exact ihCore h2 hb
+          · exact ihLoop h2 hb
+        rcases hcase with rfl | ⟨m, hr, hm⟩
         · simpa [looseBVarsBounded] using hb
-        · exact ihCore hred
-            (looseBVarsBounded_getAppArgs hbe₃ _ (getD_mem (by omega)))
+        · exact ihCore hm (reduceProjCore_pres (fun x => x.looseBVarsBounded 0 = true)
+            looseBVarsBounded_getAppArgs ihLoop
+            (fun s _ => strLitToConstructor_looseBVars s 0) hr hbe₂)
     · -- whnf loop: induction on the loop's own step budget (task #106)
       have hloop : ∀ (n : Nat) {d : Nat} {e e' : Expr},
           whnfLoop (pureFns mode env fuel) env d n e = .ok e' →

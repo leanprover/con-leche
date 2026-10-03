@@ -2756,3 +2756,19 @@
 1 corner_andpin_type_bad.ndjson
 1 corner_andpin_def_bad.ndjson
 0 and_rec_opaque_noand.ndjson
+# proj_cheap_struct.ndjson: `(S u).re = (S ()).re` with `S` Θ(2^17) to
+# evaluate (distilled from a Palomar submission, `Complex.re` of two
+# `Finset.range (2^17)` sums).  Official's defeq whnf_core is cheap_proj:
+# the projections' structs stay stuck at `S _` and are compared by their
+# arguments (5 kernel unfoldings).  Full whnf of the struct evaluates `S`
+# into the whnf loop's fuel (exit 3 before lane CHEAPPROJ, whose cheap
+# `whnfCore` mode makes it accept in milliseconds).  Official accepts.
+0 proj_cheap_struct.ndjson
+# proj_lazy_struct.ndjson: `(P (slow 100000)).1 = (Q (slow 100001)).1`,
+# the scrutinees differing only in the field not projected.  Official's
+# `lazy_delta_proj_reduction` unfolds `P`/`Q`, then projects both
+# (`reduce_proj_core`) and compares `0 =?= 0` (4 kernel unfoldings);
+# comparing the whole scrutinees reaches `slow 100000 =?= slow 100001`
+# and runs out of the lazy-delta fuel (exit 3; the first CHEAPPROJ
+# attempt, commit 48fce542, did that).  Official accepts.
+0 proj_lazy_struct.ndjson

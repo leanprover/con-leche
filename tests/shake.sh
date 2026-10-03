@@ -91,13 +91,13 @@ mkdir -p "$WORK" || exit 3
 fail=0
 
 # --- (a) shake ------------------------------------------------------
-if ! out=$(lake shake --keep-implied $ROOTS 2>&1); then :; fi
-if printf '%s\n' "$out" | grep -q '^error:'; then
+if ! shake_out=$(lake shake --keep-implied $ROOTS 2>&1); then :; fi
+if printf '%s\n' "$shake_out" | grep -q '^error:'; then
   echo 'SHAKE GATE ERROR — lake shake did not run:'
-  printf '%s\n' "$out" | sed 's/^/    /' | head -10
+  printf '%s\n' "$shake_out" | sed 's/^/    /' | head -10
   exit 3
 fi
-printf '%s\n' "$out" > "$WORK/shake.txt"
+printf '%s\n' "$shake_out" > "$WORK/shake.txt"
 
 python3 - "$ALLOW" "$PWD" "$WORK/shake.txt" <<'PY' || fail=1
 import sys

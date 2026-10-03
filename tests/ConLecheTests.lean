@@ -209,7 +209,7 @@ does not walk (standing in for the hostile hypothetical the P3/P4
 proof rules out). -/
 
 private def stubFns : CoreFns CheckM where
-  whnfCore _ e := pure e
+  whnfCore _ _ e := pure e
   whnf _ e := pure e
   infer _ _ := pure (.sort (.succ .zero))
   defeq _ a b := pure (a == b)
@@ -224,19 +224,19 @@ private def pwLam (pw : PropWhen) : Expr :=
 
 -- (defeq-forall): inequivalent binder annotations on otherwise defeq
 -- ∀s are a positive decline at the verified mode …
-#guard defeqStep .verified stubFns Env.empty 0 (fun _ a b => pure (a == b)) true
+#guard quickDefEq .verified stubFns 0
     (pwForall (.ifAllZero [])) (pwForall .never)
   matches .error (.notImplemented _)
 -- … and no check at the unverified (trusted) lane.
-#guard defeqStep .trusted stubFns Env.empty 0 (fun _ a b => pure (a == b)) true
+#guard quickDefEq .trusted stubFns 0
     (pwForall (.ifAllZero [])) (pwForall .never)
-  matches .ok true
+  matches .ok (some true)
 -- Equivalent-but-unequal annotations pass: `PropWhen`'s `==` is
 -- semantic agreement, not list equality.
-#guard defeqStep .verified stubFns Env.empty 0 (fun _ a b => pure (a == b)) true
+#guard quickDefEq .verified stubFns 0
     (pwForall (.ifAllZero [.str .anonymous "u", .str .anonymous "u"]))
     (pwForall (.ifAllZero [.str .anonymous "u"]))
-  matches .ok true
+  matches .ok (some true)
 
 -- (pw-canonical, task #194): the datum is canonical by construction —
 -- equal parameter SETS are equal VALUES, so `==`, `DecidableEq` and
@@ -264,12 +264,12 @@ private def nW : Name := .str .anonymous "w"
   == PropWhen.ifAllZero [nU, nW]
 
 -- (defeq-lam): the λ congruence arm, same discipline.
-#guard defeqStep .verified stubFns Env.empty 0 (fun _ a b => pure (a == b)) true
+#guard quickDefEq .verified stubFns 0
     (pwLam (.ifAllZero [])) (pwLam .never)
   matches .error (.notImplemented _)
-#guard defeqStep .trusted stubFns Env.empty 0 (fun _ a b => pure (a == b)) true
+#guard quickDefEq .trusted stubFns 0
     (pwLam (.ifAllZero [])) (pwLam .never)
-  matches .ok true
+  matches .ok (some true)
 
 -- (eta): η-certifying `fun p => f p` against a stuck `f` whose stored
 -- ∀-type carries an inequivalent annotation.  The real knot suffices

@@ -83,8 +83,7 @@ theorem DefEq.redBoth {d : Nat} {a a' b b' : Expr}
   .redL ha (.redR hb h)
 
 /-- **Unfold the left head, then continue** (the maintainer's example
-of ruling 1; `defeqStep`'s one-sided and hint-guided unfoldings,
-`Core.lean:1537-1545`, `:1551-1554`). -/
+of ruling 1; `lazyDeltaStep`'s one-sided and hint-guided unfoldings). -/
 theorem DefEq.deltaL {d : Nat} {a a' b : Expr}
     (h : unfoldDefinition env a = some a') (h' : DefEq env d a' b) :
     DefEq env d a b :=
@@ -104,7 +103,7 @@ theorem DefEq.deltaBoth {d : Nat} {a a' b b' : Expr}
   .deltaL ha (.deltaR hb h)
 
 /-- **The `Bool.true` shortcut** (`boolTrueShortcut`, `Core.lean:1415-1424`,
-at `defeqStep`'s entry `:1468-1471`): the left side reduces to the
+at `defeqBody`'s entry): the left side reduces to the
 constant `Bool.true` — `refl` after the reduction. -/
 theorem DefEq.boolTrue {d : Nat} {a w : Expr}
     (h : Red env d a w) (hw : w.isBoolTrue = true) :
@@ -153,8 +152,8 @@ theorem DefEq.mkAppN {d : Nat} : ∀ {as bs : List Expr} {f g : Expr},
     simp only [Expr.mkAppN]
     exact DefEq.mkAppN (.app hfg hab) hs
 
-/-- **The spine-wise application congruence** (`defeqStep`'s stuck
-application arm, `Core.lean:1652-1678`; official `is_def_eq_app`):
+/-- **The spine-wise application congruence** (`defeqStuck`'s
+application arm; official `is_def_eq_app`):
 equal spine lengths (implied), one head comparison, the argument lists
 pairwise. -/
 theorem DefEq.spine {d : Nat} {a b : Expr}

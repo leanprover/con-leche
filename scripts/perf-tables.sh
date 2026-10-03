@@ -174,14 +174,14 @@ cell() { # $1 = stream label, $2 = config id, $3 = stream path
     if [ "$1" = mathlib-full ]; then
       # the Mathlib row: `time -v` for peak RSS, and the progress lane's
       # timestamped stderr kept as a receipt
-      out=$( (perf stat -e instructions:u -x, -o "$po" \
+      run_out=$( (perf stat -e instructions:u -x, -o "$po" \
                 timeout "$to" nice -n 5 "$TIMEBIN" -v -o "$tv" "${CMD[@]}" \
                 2> >(awk '{ printf "%d %s\n", systime(), $0; fflush() }' \
                        >> "$CACHE/$1.$2.err")) 2>&1 )
       ex=$?
       rss=$(awk '/Maximum resident/{print $NF}' "$tv" 2>/dev/null)
     else
-      out=$( (perf stat -e instructions:u -x, -o "$po" \
+      run_out=$( (perf stat -e instructions:u -x, -o "$po" \
                 timeout "$to" nice -n 5 "${CMD[@]}") 2>&1 )
       ex=$?
     fi
@@ -190,8 +190,8 @@ cell() { # $1 = stream label, $2 = config id, $3 = stream path
     rm -f "$po" "$tv"
     instrs+=("${i:-0}")
     walls+=("$(awk "BEGIN{printf \"%.2f\", $t1 - $t0}")")
-    decls=$(printf '%s' "$out" | grep -oE '[0-9]+ declarations' | head -1 | cut -d' ' -f1)
-    verdict=$(printf '%s' "$out" | tr '\n' ' ' | sed 's/\t/ /g' | cut -c1-90)
+    decls=$(printf '%s' "$run_out" | grep -oE '[0-9]+ declarations' | head -1 | cut -d' ' -f1)
+    verdict=$(printf '%s' "$run_out" | tr '\n' ' ' | sed 's/\t/ /g' | cut -c1-90)
   done
   printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
     "$1" "$2" "$(median "${instrs[@]}")" "$(median "${walls[@]}")" \

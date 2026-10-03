@@ -66,11 +66,11 @@ def appStep (mode : CheckMode) (r : CoreFns m) (env : Env) (depth : Nat)
 
 /-- `whnfCoreBody`'s app case is one head normalization followed by
 `appStep`. -/
-theorem whnfCoreBody_app (r : CoreFns m) (env : Env) (depth : Nat)
+theorem whnfCoreBody_app (r : CoreFns m) (env : Env) (c : Bool) (depth : Nat)
     (f a : Expr) :
-    whnfCoreBody mode r env depth (.app f a)
-      = r.whnfCore depth f >>= fun w =>
-          appStep mode r env depth (r.whnfCore depth) w a := by rfl
+    whnfCoreBody mode r env c depth (.app f a)
+      = r.whnfCore c depth f >>= fun w =>
+          appStep mode r env depth (r.whnfCore c depth) w a := by rfl
 
 mutual
 
@@ -243,8 +243,8 @@ unchanged. -/
 
 /-- Pure mirror of `whnfCoreStepI`: one head-normalization step with
 the loop's continuation `k` abstracted. -/
-@[expose] def whnfCoreStepM (mode : CheckMode) (r : CoreFns m) (env : Env) (depth : Nat)
-    (k : Expr → m Expr) : Expr → m Expr
+@[expose] def whnfCoreStepM (mode : CheckMode) (r : CoreFns m) (env : Env) (cheap : Bool)
+    (depth : Nat) (k : Expr → m Expr) : Expr → m Expr
   | .sort u => pure (.sort u)
   | .fvar idx ty => pure (.fvar idx ty)
   | .forallE ty body bi => pure (.forallE ty body bi)
@@ -252,26 +252,12 @@ the loop's continuation `k` abstracted. -/
   | .const n us => pure (.const n us)
   | .lit l => pure (.lit l)
   | .app f a =>
-    r.whnfCore depth (Expr.app f a).getAppFn >>= fun v =>
+    r.whnfCore cheap depth (Expr.app f a).getAppFn >>= fun v =>
       whnfApp mode r env depth k v (Expr.app f a).getAppArgs
   | .proj sn i pe => do
-    let e' ← r.whnf depth pe
-    let e' ← projLitToCtor r env depth e'
-    match env.findProj? sn i with
-    | some entry =>
-      match e'.getAppFn with
-      | .const c us =>
-        let args := e'.getAppArgs
-        if c = entry.ctor ∧ i < entry.numFields ∧
-            args.length = entry.numParams + entry.numFields ∧
-            us.length = entry.levelParams.length ∧
-            entry.fireOk us = true then
-          let arg := args.getD (entry.numParams + i) (.bvar 0)
-          if ← projCertAt r env depth mode.verifiedChecks mode.betaGate c us args then
-            k arg
-          else pure (.proj sn i pe)
-        else pure (.proj sn i pe)
-      | _ => pure (.proj sn i pe)
+    let c ← if cheap then r.whnfCore true depth pe else r.whnf depth pe
+    match ← reduceProjCore mode r env depth sn i c with
+    | some m' => k m'
     | none => pure (.proj sn i pe)
   | .letE _ _ _ =>
     -- unreachable by construction, as in `whnfCoreStepI` (task #241)
@@ -280,10 +266,10 @@ the loop's continuation `k` abstracted. -/
 
 /-- Pure mirror of `whnfCoreLoopI`: iterate `whnfCoreStepM` on the
 step budget. -/
-@[expose] def whnfCoreLoopM (mode : CheckMode) (r : CoreFns m) (env : Env) (depth : Nat) :
-    Nat → Expr → m Expr
+@[expose] def whnfCoreLoopM (mode : CheckMode) (r : CoreFns m) (env : Env) (cheap : Bool)
+    (depth : Nat) : Nat → Expr → m Expr
   | 0, _ => throw (.internal "fuel exhausted: whnfCore loop")
-  | n + 1, e => whnfCoreStepM mode r env depth (whnfCoreLoopM mode r env depth n) e
+  | n + 1, e => whnfCoreStepM mode r env cheap depth (whnfCoreLoopM mode r env cheap depth n) e
 
 /-! ## `atF` equations and fuel monotonicity for the mirrors -/
 
@@ -393,11 +379,11 @@ decreasing_by
 
 end
 
-theorem whnfCoreStepM_atF (d : Nat) (k : Expr → FueledM Expr)
+theorem whnfCoreStepM_atF (c : Bool) (d : Nat) (k : Expr → FueledM Expr)
     (kF : Expr → CheckM Expr) (F : Nat) (hk : ∀ e, (k e).val F = kF e)
     (e : Expr) :
-    (whnfCoreStepM mode (fueledFns mode env) env d k e).val F
-      = whnfCoreStepM mode (pureFns mode env F) env d kF e := by
+    (whnfCoreStepM mode (fueledFns mode env) env c d k e).val F
+      = whnfCoreStepM mode (pureFns mode env F) env c d kF e := by
   cases e <;> (unfold whnfCoreStepM; try rfl)
   case app f a =>
     rw [FueledM.atF_bind]
@@ -407,15 +393,15 @@ theorem whnfCoreStepM_atF (d : Nat) (k : Expr → FueledM Expr)
   case proj sn i pe =>
     atF_tac4k hk
 
-theorem whnfCoreLoopM_atF (d : Nat) :
+theorem whnfCoreLoopM_atF (c : Bool) (d : Nat) :
     ∀ (n : Nat) (e : Expr) (F : Nat),
-      (whnfCoreLoopM mode (fueledFns mode env) env d n e).val F
-        = whnfCoreLoopM mode (pureFns mode env F) env d n e
+      (whnfCoreLoopM mode (fueledFns mode env) env c d n e).val F
+        = whnfCoreLoopM mode (pureFns mode env F) env c d n e
   | 0, _, _ => rfl
   | n + 1, e, F => by
     simp only [whnfCoreLoopM]
-    exact whnfCoreStepM_atF d _ _ F
-      (fun x => whnfCoreLoopM_atF d n x F) e
+    exact whnfCoreStepM_atF c d _ _ F
+      (fun x => whnfCoreLoopM_atF c d n x F) e
 
 /-- Fuel monotonicity of the loop (via `whnfApp_atF` and the `FueledM`
 bundle). -/
@@ -477,6 +463,13 @@ theorem projCertAt_mono {d : Nat} {v lic : Bool} {c : Name} {us : List Level}
     rw [if_neg hv] at h
     exact h
 
+theorem reduceProjCore_mono {d : Nat} {sn : Name} {i : Nat} {e : Expr} {F F' : Nat}
+    (hle : F ≤ F') {o : Option Expr}
+    (h : reduceProjCore mi (pureFns mode env F) env d sn i e = .ok o) :
+    reduceProjCore mi (pureFns mode env F') env d sn i e = .ok o := by
+  rw [← reduceProjCore_atF] at h ⊢
+  exact (reduceProjCore mi (fueledFns mode env) env d sn i e).property hle h
+
 theorem iotaRec_mono {d : Nat} {e : Expr} {F F' : Nat}
     (hle : F ≤ F') {o : Option Expr}
     (h : iotaRec mi (pureFns mode env F) env d e = .ok o) :
@@ -486,8 +479,8 @@ theorem iotaRec_mono {d : Nat} {e : Expr} {F F' : Nat}
 
 /-- `whnfCore` is the identity on a lambda (at nonzero fuel). -/
 theorem whnfCore_lam (F d : Nat) (ty body : Expr)
-    (mb : BinderMeta) :
-    whnfCore mode env (F + 1) d (.lam ty body mb)
+    (mb : BinderMeta) {c : Bool} :
+    whnfCore mode env (F + 1) d (.lam ty body mb) c
       = .ok (.lam ty body mb) := rfl
 
 end AtF
@@ -496,7 +489,7 @@ end AtF
 
 section Snoc
 
-variable {env : Env}
+variable {env : Env} {c : Bool}
 
 private theorem bind_ok {α β : Type} {x : Except CheckError α}
     {f : α → Except CheckError β} {b : β}
@@ -565,11 +558,11 @@ mutual
 
 theorem whnfApp_snoc {d : Nat} :
     ∀ (xs : List Expr) (v a : Expr) (F : Nat) (vres : Expr),
-      whnfApp mode (pureFns mode env F) env d (whnfCore mode env F d) v (xs ++ [a])
+      whnfApp mode (pureFns mode env F) env d (fun x => whnfCore mode env F d x c) v (xs ++ [a])
           = .ok vres →
       ∃ F' w,
-        whnfApp mode (pureFns mode env F') env d (whnfCore mode env F' d) v xs = .ok w ∧
-        appStep mode (pureFns mode env F') env d (whnfCore mode env F' d) w a = .ok vres
+        whnfApp mode (pureFns mode env F') env d (fun x => whnfCore mode env F' d x c) v xs = .ok w ∧
+        appStep mode (pureFns mode env F') env d (fun x => whnfCore mode env F' d x c) w a = .ok vres
   | [], v, a, F, vres => by
     intro H
     rw [List.nil_append] at H
@@ -642,12 +635,12 @@ theorem whnfApp_snoc {d : Nat} :
       · rw [if_pos hgate] at H
         obtain ⟨F₁, w, hw, hstep⟩ := betaPeel_snoc xs' body [x] a F vres H
         refine ⟨max F F₁, w, ?_,
-          appStep_mono ((fueledFns mode env).whnfCore d) _ _ (fun _ => rfl)
+          appStep_mono ((fueledFns mode env).whnfCore c d) _ _ (fun _ => rfl)
             (fun _ => rfl) (Nat.le_max_right F F₁) hstep⟩
         rw [whnfApp_lam]
         unfold whnfAppLam
         rw [if_pos hgate]
-        exact betaPeel_mono ((fueledFns mode env).whnfCore d) _ _ (fun _ => rfl)
+        exact betaPeel_mono ((fueledFns mode env).whnfCore c d) _ _ (fun _ => rfl)
           (fun _ => rfl) (Nat.le_max_right F F₁) hw
       rw [if_neg hgate] at H
       obtain ⟨ta, hta, H⟩ := bind_ok H
@@ -657,7 +650,7 @@ theorem whnfApp_snoc {d : Nat} :
         simp only [↓reduceIte] at H
         obtain ⟨F₁, w, hw, hstep⟩ := betaPeel_snoc xs' body [x] a F vres H
         refine ⟨max F F₁, w, ?_,
-          appStep_mono ((fueledFns mode env).whnfCore d) _ _ (fun _ => rfl)
+          appStep_mono ((fueledFns mode env).whnfCore c d) _ _ (fun _ => rfl)
             (fun _ => rfl) (Nat.le_max_right F F₁) hstep⟩
         rw [whnfApp_lam]
         unfold whnfAppLam
@@ -665,7 +658,7 @@ theorem whnfApp_snoc {d : Nat} :
           inferTypeIO_mono (Nat.le_max_left F F₁) hta, ok_bind,
           defeq_def, isDefEqCore_mono (Nat.le_max_left F F₁) hb, ok_bind]
         simp only [↓reduceIte]
-        exact betaPeel_mono ((fueledFns mode env).whnfCore d) _ _ (fun _ => rfl)
+        exact betaPeel_mono ((fueledFns mode env).whnfCore c d) _ _ (fun _ => rfl)
           (fun _ => rfl) (Nat.le_max_right F F₁) hw
       | false =>
         simp only [Bool.false_eq_true, ↓reduceIte] at H
@@ -693,25 +686,25 @@ theorem whnfApp_snoc {d : Nat} :
         obtain ⟨v', hv', H⟩ := bind_ok H
         obtain ⟨F₁, w, hw, hstep⟩ := whnfApp_snoc xs' v' a F vres H
         refine ⟨max F F₁, w, ?_,
-          appStep_mono ((fueledFns mode env).whnfCore d) _ _ (fun _ => rfl)
+          appStep_mono ((fueledFns mode env).whnfCore c d) _ _ (fun _ => rfl)
             (fun _ => rfl) (Nat.le_max_right F F₁) hstep⟩
         rw [whnfApp_ne_lam _ _ _ _ hv]
         unfold whnfAppIota
         rw [iotaRec_mono (Nat.le_max_left F F₁) ho, ok_bind]
         dsimp only
         rw [whnfCore_mono (Nat.le_max_left F F₁) hv', ok_bind]
-        exact whnfApp_mono ((fueledFns mode env).whnfCore d) _ _ (fun _ => rfl)
+        exact whnfApp_mono ((fueledFns mode env).whnfCore c d) _ _ (fun _ => rfl)
           (fun _ => rfl) (Nat.le_max_right F F₁) hw
       | none =>
         obtain ⟨F₁, w, hw, hstep⟩ := whnfApp_snoc xs' (.app v x) a F vres H
         refine ⟨max F F₁, w, ?_,
-          appStep_mono ((fueledFns mode env).whnfCore d) _ _ (fun _ => rfl)
+          appStep_mono ((fueledFns mode env).whnfCore c d) _ _ (fun _ => rfl)
             (fun _ => rfl) (Nat.le_max_right F F₁) hstep⟩
         rw [whnfApp_ne_lam _ _ _ _ hv]
         unfold whnfAppIota
         rw [iotaRec_mono (Nat.le_max_left F F₁) ho, ok_bind]
         dsimp only
-        exact whnfApp_mono ((fueledFns mode env).whnfCore d) _ _ (fun _ => rfl)
+        exact whnfApp_mono ((fueledFns mode env).whnfCore c d) _ _ (fun _ => rfl)
           (fun _ => rfl) (Nat.le_max_right F F₁) hw
 termination_by xs => (xs.length, 0)
 decreasing_by
@@ -722,12 +715,12 @@ decreasing_by
 theorem betaPeel_snoc {d : Nat} :
     ∀ (xs : List Expr) (t : Expr) (acc : List Expr) (a : Expr) (F : Nat)
       (vres : Expr),
-      betaPeel mode (pureFns mode env F) env d (whnfCore mode env F d) t acc (xs ++ [a])
+      betaPeel mode (pureFns mode env F) env d (fun x => whnfCore mode env F d x c) t acc (xs ++ [a])
           = .ok vres →
       ∃ F' w,
-        betaPeel mode (pureFns mode env F') env d (whnfCore mode env F' d) t acc xs
+        betaPeel mode (pureFns mode env F') env d (fun x => whnfCore mode env F' d x c) t acc xs
           = .ok w ∧
-        appStep mode (pureFns mode env F') env d (whnfCore mode env F' d) w a = .ok vres
+        appStep mode (pureFns mode env F') env d (fun x => whnfCore mode env F' d x c) w a = .ok vres
   | [], t, acc, a, F, vres => by
     intro H
     rw [List.nil_append] at H
@@ -736,7 +729,7 @@ theorem betaPeel_snoc {d : Nat} :
       rw [betaPeel_lam] at H
       unfold betaPeelLam at H
       have hid : betaPeel mode (pureFns mode env (F + 1)) env d
-          (whnfCore mode env (F + 1) d) (Expr.lam ty body mb) acc []
+          (fun x => whnfCore mode env (F + 1) d x c) (Expr.lam ty body mb) acc []
           = .ok (.lam (ty.instantiateList acc)
               (body.instantiateList acc 1) mb) := by
         rw [betaPeel_nil, instList_lam]
@@ -779,7 +772,7 @@ theorem betaPeel_snoc {d : Nat} :
       injection hw with hw'
       subst hw'
       refine ⟨max F F₁, v₀, ?_,
-        appStep_mono ((fueledFns mode env).whnfCore d) _ _ (fun _ => rfl)
+        appStep_mono ((fueledFns mode env).whnfCore c d) _ _ (fun _ => rfl)
             (fun _ => rfl) (Nat.le_max_right F F₁) hstep⟩
       rw [betaPeel_nil]
       exact whnfCore_mono (Nat.le_max_left F F₁) hv₀
@@ -795,12 +788,12 @@ theorem betaPeel_snoc {d : Nat} :
         obtain ⟨F₁, w, hw, hstep⟩ :=
           betaPeel_snoc xs' body (x :: acc) a F vres H
         refine ⟨max F F₁, w, ?_,
-          appStep_mono ((fueledFns mode env).whnfCore d) _ _ (fun _ => rfl)
+          appStep_mono ((fueledFns mode env).whnfCore c d) _ _ (fun _ => rfl)
             (fun _ => rfl) (Nat.le_max_right F F₁) hstep⟩
         rw [betaPeel_lam]
         unfold betaPeelLam
         rw [if_pos hgate]
-        exact betaPeel_mono ((fueledFns mode env).whnfCore d) _ _ (fun _ => rfl)
+        exact betaPeel_mono ((fueledFns mode env).whnfCore c d) _ _ (fun _ => rfl)
           (fun _ => rfl) (Nat.le_max_right F F₁) hw
       rw [if_neg hgate] at H
       obtain ⟨ta, hta, H⟩ := bind_ok H
@@ -811,7 +804,7 @@ theorem betaPeel_snoc {d : Nat} :
         obtain ⟨F₁, w, hw, hstep⟩ :=
           betaPeel_snoc xs' body (x :: acc) a F vres H
         refine ⟨max F F₁, w, ?_,
-          appStep_mono ((fueledFns mode env).whnfCore d) _ _ (fun _ => rfl)
+          appStep_mono ((fueledFns mode env).whnfCore c d) _ _ (fun _ => rfl)
             (fun _ => rfl) (Nat.le_max_right F F₁) hstep⟩
         rw [betaPeel_lam]
         unfold betaPeelLam
@@ -819,7 +812,7 @@ theorem betaPeel_snoc {d : Nat} :
           inferTypeIO_mono (Nat.le_max_left F F₁) hta, ok_bind,
           defeq_def, isDefEqCore_mono (Nat.le_max_left F F₁) hb, ok_bind]
         simp only [↓reduceIte]
-        exact betaPeel_mono ((fueledFns mode env).whnfCore d) _ _ (fun _ => rfl)
+        exact betaPeel_mono ((fueledFns mode env).whnfCore c d) _ _ (fun _ => rfl)
           (fun _ => rfl) (Nat.le_max_right F F₁) hw
       | false =>
         simp only [Bool.false_eq_true, ↓reduceIte] at H
@@ -849,11 +842,11 @@ theorem betaPeel_snoc {d : Nat} :
       obtain ⟨v₀, hv₀, H⟩ := bind_ok H
       obtain ⟨F₁, w, hw, hstep⟩ := whnfApp_snoc (x :: xs') v₀ a F vres H
       refine ⟨max F F₁, w, ?_,
-        appStep_mono ((fueledFns mode env).whnfCore d) _ _ (fun _ => rfl)
+        appStep_mono ((fueledFns mode env).whnfCore c d) _ _ (fun _ => rfl)
             (fun _ => rfl) (Nat.le_max_right F F₁) hstep⟩
       rw [betaPeel_ne_lam _ _ _ _ ht,
         whnfCore_mono (Nat.le_max_left F F₁) hv₀, ok_bind]
-      exact whnfApp_mono ((fueledFns mode env).whnfCore d) _ _ (fun _ => rfl)
+      exact whnfApp_mono ((fueledFns mode env).whnfCore c d) _ _ (fun _ => rfl)
           (fun _ => rfl) (Nat.le_max_right F F₁) hw
 termination_by xs => (xs.length, 1)
 decreasing_by
@@ -869,14 +862,14 @@ end Snoc
 
 section Sound
 
-variable {env : Env}
+variable {env : Env} {c : Bool}
 
 private theorem whnfApp_sound_rev {d : Nat} :
     ∀ (rxs : List Expr) (h vh vres : Expr) (F₀ F : Nat),
-      whnfCore mode env F₀ d h = .ok vh →
-      whnfApp mode (pureFns mode env F) env d (whnfCore mode env F d) vh rxs.reverse
+      whnfCore mode env F₀ d h c = .ok vh →
+      whnfApp mode (pureFns mode env F) env d (fun x => whnfCore mode env F d x c) vh rxs.reverse
           = .ok vres →
-      ∃ F', whnfCore mode env F' d (Expr.mkAppN h rxs.reverse) = .ok vres
+      ∃ F', whnfCore mode env F' d (Expr.mkAppN h rxs.reverse) c = .ok vres
   | [], h, vh, vres, F₀, F => by
     intro hh H
     rw [List.reverse_nil, whnfApp_nil] at H
@@ -892,16 +885,16 @@ private theorem whnfApp_sound_rev {d : Nat} :
     rw [List.reverse_cons, Expr.mkAppN_append_one, whnfCore_succ,
       whnfCoreBody_app, whnfCore_def,
       whnfCore_mono (Nat.le_max_left F₂ F₁) hP, ok_bind]
-    exact appStep_mono ((fueledFns mode env).whnfCore d) _ _ (fun _ => rfl)
+    exact appStep_mono ((fueledFns mode env).whnfCore c d) _ _ (fun _ => rfl)
       (fun _ => rfl) (Nat.le_max_right F₂ F₁) hstep
 
 /-- A successful loop run over a normalized head is reproduced by the
 chained `whnfCore` recursion on the whole application, at some fuel. -/
 theorem whnfApp_sound {d : Nat} (xs : List Expr) (h vh vres : Expr)
-    (F₀ F : Nat) (hh : whnfCore mode env F₀ d h = .ok vh)
-    (H : whnfApp mode (pureFns mode env F) env d (whnfCore mode env F d) vh xs
+    (F₀ F : Nat) (hh : whnfCore mode env F₀ d h c = .ok vh)
+    (H : whnfApp mode (pureFns mode env F) env d (fun x => whnfCore mode env F d x c) vh xs
       = .ok vres) :
-    ∃ F', whnfCore mode env F' d (Expr.mkAppN h xs) = .ok vres := by
+    ∃ F', whnfCore mode env F' d (Expr.mkAppN h xs) c = .ok vres := by
   have hx : xs.reverse.reverse = xs := List.reverse_reverse xs
   have := whnfApp_sound_rev (d := d) xs.reverse h vh vres F₀ F hh
     (by rw [hx]; exact H)
@@ -918,18 +911,19 @@ chain on its own step budget while the specification stays
 chained. -/
 
 /-- The soundness hypothesis carried by a loop continuation. -/
-def KSound (mode : CheckMode) (env : Env) (d : Nat) (k : Expr → FueledM Expr) : Prop :=
+def KSound (mode : CheckMode) (env : Env) (c : Bool) (d : Nat)
+    (k : Expr → FueledM Expr) : Prop :=
   ∀ (G : Nat) (e v : Expr), (k e).val G = .ok v →
-    ∃ M, whnfCore mode env M d e = .ok v
+    ∃ M, whnfCore mode env M d e c = .ok v
 
 mutual
 
 theorem whnfApp_ksound {d : Nat} (k : Expr → FueledM Expr)
-    (hks : KSound mode env d k) :
+    (hks : KSound mode env c d k) :
     ∀ (xs : List Expr) (v res : Expr) (F : Nat),
       whnfApp mode (pureFns mode env F) env d (fun e => (k e).val F) v xs
         = .ok res →
-      ∃ F', whnfApp mode (pureFns mode env F') env d (whnfCore mode env F' d) v xs
+      ∃ F', whnfApp mode (pureFns mode env F') env d (fun x => whnfCore mode env F' d x c) v xs
         = .ok res
   | [], v, res, F => by
     intro H
@@ -950,7 +944,7 @@ theorem whnfApp_ksound {d : Nat} (k : Expr → FueledM Expr)
         rw [whnfApp_lam]
         unfold whnfAppLam
         rw [if_pos hgate]
-        exact betaPeel_mono ((fueledFns mode env).whnfCore d) _ _
+        exact betaPeel_mono ((fueledFns mode env).whnfCore c d) _ _
           (fun _ => rfl) (fun _ => rfl) (Nat.le_max_right F F₁) hP
       rw [if_neg hgate] at H
       obtain ⟨ta, hta, H⟩ := bind_ok H
@@ -967,7 +961,7 @@ theorem whnfApp_ksound {d : Nat} (k : Expr → FueledM Expr)
           ok_bind, defeq_def,
           isDefEqCore_mono (Nat.le_max_left F F₁) hb, ok_bind]
         simp only [↓reduceIte]
-        exact betaPeel_mono ((fueledFns mode env).whnfCore d) _ _
+        exact betaPeel_mono ((fueledFns mode env).whnfCore c d) _ _
           (fun _ => rfl) (fun _ => rfl) (Nat.le_max_right F F₁) hP
       | false =>
         simp only [Bool.false_eq_true, ↓reduceIte] at H
@@ -997,7 +991,7 @@ theorem whnfApp_ksound {d : Nat} (k : Expr → FueledM Expr)
         dsimp only
         rw [whnfCore_mono (Nat.le_trans (Nat.le_max_right F M)
           (Nat.le_max_left _ F₁)) hM, ok_bind]
-        exact whnfApp_mono ((fueledFns mode env).whnfCore d) _ _
+        exact whnfApp_mono ((fueledFns mode env).whnfCore c d) _ _
           (fun _ => rfl) (fun _ => rfl) (Nat.le_max_right _ F₁) hP
       | none =>
         obtain ⟨F₁, hP⟩ := whnfApp_ksound k hks rest (.app v a) res F H
@@ -1006,7 +1000,7 @@ theorem whnfApp_ksound {d : Nat} (k : Expr → FueledM Expr)
         unfold whnfAppIota
         rw [iotaRec_mono (Nat.le_max_left F F₁) ho, ok_bind]
         dsimp only
-        exact whnfApp_mono ((fueledFns mode env).whnfCore d) _ _
+        exact whnfApp_mono ((fueledFns mode env).whnfCore c d) _ _
           (fun _ => rfl) (fun _ => rfl) (Nat.le_max_right F F₁) hP
 termination_by xs => (xs.length, 0)
 decreasing_by
@@ -1015,12 +1009,12 @@ decreasing_by
     | (apply Prod.Lex.right' <;> simp)
 
 theorem betaPeel_ksound {d : Nat} (k : Expr → FueledM Expr)
-    (hks : KSound mode env d k) :
+    (hks : KSound mode env c d k) :
     ∀ (xs : List Expr) (t : Expr) (acc : List Expr) (res : Expr)
       (F : Nat),
       betaPeel mode (pureFns mode env F) env d (fun e => (k e).val F) t acc xs
         = .ok res →
-      ∃ F', betaPeel mode (pureFns mode env F') env d (whnfCore mode env F' d) t acc xs
+      ∃ F', betaPeel mode (pureFns mode env F') env d (fun x => whnfCore mode env F' d x c) t acc xs
         = .ok res
   | [], t, acc, res, F => by
     intro H
@@ -1041,7 +1035,7 @@ theorem betaPeel_ksound {d : Nat} (k : Expr → FueledM Expr)
         rw [betaPeel_lam]
         unfold betaPeelLam
         rw [if_pos hgate]
-        exact betaPeel_mono ((fueledFns mode env).whnfCore d) _ _
+        exact betaPeel_mono ((fueledFns mode env).whnfCore c d) _ _
           (fun _ => rfl) (fun _ => rfl) (Nat.le_max_right F F₁) hP
       rw [if_neg hgate] at H
       obtain ⟨ta, hta, H⟩ := bind_ok H
@@ -1059,7 +1053,7 @@ theorem betaPeel_ksound {d : Nat} (k : Expr → FueledM Expr)
           ok_bind, defeq_def,
           isDefEqCore_mono (Nat.le_max_left F F₁) hb, ok_bind]
         simp only [↓reduceIte]
-        exact betaPeel_mono ((fueledFns mode env).whnfCore d) _ _
+        exact betaPeel_mono ((fueledFns mode env).whnfCore c d) _ _
           (fun _ => rfl) (fun _ => rfl) (Nat.le_max_right F F₁) hP
       | false =>
         simp only [Bool.false_eq_true, ↓reduceIte] at H
@@ -1080,7 +1074,7 @@ theorem betaPeel_ksound {d : Nat} (k : Expr → FueledM Expr)
       refine ⟨max M F₁, ?_⟩
       rw [betaPeel_ne_lam _ _ _ _ ht,
         whnfCore_mono (Nat.le_max_left M F₁) hM, ok_bind]
-      exact whnfApp_mono ((fueledFns mode env).whnfCore d) _ _
+      exact whnfApp_mono ((fueledFns mode env).whnfCore c d) _ _
         (fun _ => rfl) (fun _ => rfl) (Nat.le_max_right M F₁) hP
 termination_by xs => (xs.length, 1)
 decreasing_by
@@ -1093,10 +1087,10 @@ end
 /-- One loop *step* whose continuation is sound is reproduced by the
 chained specification body `whnfCoreBody` at some knot fuel. -/
 theorem whnfCoreStepM_sound {d : Nat} (k : Expr → FueledM Expr)
-    (hks : KSound mode env d k) {e res : Expr} (F : Nat)
-    (H : whnfCoreStepM mode (pureFns mode env F) env d (fun x => (k x).val F) e
+    (hks : KSound mode env c d k) {e res : Expr} (F : Nat)
+    (H : whnfCoreStepM mode (pureFns mode env F) env c d (fun x => (k x).val F) e
       = .ok res) :
-    ∃ F', whnfCoreBody mode (pureFns mode env F') env d e = .ok res := by
+    ∃ F', whnfCoreBody mode (pureFns mode env F') env c d e = .ok res := by
   cases e with
   | bvar j => exact absurd H (by simp [whnfCoreStepM])
   | sort u => exact ⟨F, H⟩
@@ -1119,61 +1113,45 @@ theorem whnfCoreStepM_sound {d : Nat} (k : Expr → FueledM Expr)
     | zero => rw [whnfCore_zero] at hQ; exact nomatch hQ
     | succ G => exact ⟨G, by rw [← whnfCore_succ]; exact hQ⟩
   | proj sn i pe =>
-    simp only [whnfCoreStepM] at H
-    obtain ⟨w, hw, H⟩ := bind_ok H
-    obtain ⟨w', hw', H⟩ := bind_ok H
-    revert H
-    cases hfp : env.findProj? sn i with
-    | none =>
-      intro H
-      refine ⟨F, ?_⟩
-      simp only [whnfCoreBody]
-      rw [hw, ok_bind, hw', ok_bind, hfp]
-      exact H
-    | some entry =>
-    cases hfn : w'.getAppFn with
-    | const c us =>
-      dsimp only
-      split
-      · rename_i hcond
-        intro H
-        obtain ⟨b, hb, H⟩ := bind_ok H
-        cases b with
-        | false =>
-          refine ⟨F, ?_⟩
-          simp only [whnfCoreBody]
-          rw [hw, ok_bind, hw', ok_bind, hfp, hfn]
-          dsimp only
-          rw [if_pos hcond, hb, ok_bind]
-          simpa only [Bool.false_eq_true, ↓reduceIte] using H
-        | true =>
-          simp only [↓reduceIte] at H
-          obtain ⟨M, hM⟩ := hks F _ _ H
-          refine ⟨max F M, ?_⟩
-          simp only [whnfCoreBody]
-          rw [whnf_def, whnf_mono (Nat.le_max_left F M) hw, ok_bind,
-            projLitToCtor_mono (Nat.le_max_left F M) hw', ok_bind,
-            hfp, hfn]
-          dsimp only
-          rw [if_pos hcond,
-            projCertAt_mono (Nat.le_max_left F M) hb, ok_bind]
-          simp only [↓reduceIte]
-          rw [whnfCore_def]
-          exact whnfCore_mono (Nat.le_max_right F M) hM
-      · rename_i hcond
-        intro H
+    cases c with
+    | false =>
+      simp only [whnfCoreStepM, Bool.false_eq_true, ↓reduceIte] at H
+      obtain ⟨w, hw, H⟩ := bind_ok H
+      obtain ⟨o, ho, H⟩ := bind_ok H
+      cases o with
+      | none =>
         refine ⟨F, ?_⟩
-        simp only [whnfCoreBody]
-        rw [hw, ok_bind, hw', ok_bind, hfp, hfn]
-        dsimp only
-        rw [if_neg hcond]
+        simp only [whnfCoreBody, Bool.false_eq_true, ↓reduceIte]
+        rw [hw, ok_bind, ho, ok_bind]
         exact H
-    | _ =>
-      intro H
-      refine ⟨F, ?_⟩
-      simp only [whnfCoreBody]
-      rw [hw, ok_bind, hw', ok_bind, hfp, hfn]
-      exact H
+      | some m' =>
+        obtain ⟨M, hM⟩ := hks F _ _ H
+        refine ⟨max F M, ?_⟩
+        simp only [whnfCoreBody, Bool.false_eq_true, ↓reduceIte]
+        rw [whnf_def, whnf_mono (Nat.le_max_left F M) hw, ok_bind,
+          reduceProjCore_mono (Nat.le_max_left F M) ho, ok_bind]
+        dsimp only
+        rw [whnfCore_def]
+        exact whnfCore_mono (Nat.le_max_right F M) hM
+    | true =>
+      simp only [whnfCoreStepM, ↓reduceIte] at H
+      obtain ⟨w, hw, H⟩ := bind_ok H
+      obtain ⟨o, ho, H⟩ := bind_ok H
+      cases o with
+      | none =>
+        refine ⟨F, ?_⟩
+        simp only [whnfCoreBody, ↓reduceIte]
+        rw [hw, ok_bind, ho, ok_bind]
+        exact H
+      | some m' =>
+        obtain ⟨M, hM⟩ := hks F _ _ H
+        refine ⟨max F M, ?_⟩
+        simp only [whnfCoreBody, ↓reduceIte]
+        rw [whnfCore_def, whnfCore_mono (Nat.le_max_left F M) hw, ok_bind,
+          reduceProjCore_mono (Nat.le_max_left F M) ho, ok_bind]
+        dsimp only
+        rw [whnfCore_def]
+        exact whnfCore_mono (Nat.le_max_right F M) hM
 
 /-- `KSound` for the loop mirror itself: by induction on the step
 budget.  This is the bridge the cached walk composes with — a
@@ -1182,23 +1160,23 @@ some knot fuel, so `whnfCoreBody` (and everything above it) never sees
 the loop. -/
 theorem whnfCoreLoopM_ksound {d : Nat} :
     ∀ (n : Nat),
-      KSound mode env d (fun e => whnfCoreLoopM mode (fueledFns mode env) env d n e)
+      KSound mode env c d (fun e => whnfCoreLoopM mode (fueledFns mode env) env c d n e)
   | 0 => by
     intro G e v h
-    rw [whnfCoreLoopM_atF d 0 e G] at h
+    rw [whnfCoreLoopM_atF c d 0 e G] at h
     exact absurd h (by simp [whnfCoreLoopM])
   | n + 1 => by
     intro G e v h
-    rw [whnfCoreLoopM_atF d (n + 1) e G] at h
+    rw [whnfCoreLoopM_atF c d (n + 1) e G] at h
     simp only [whnfCoreLoopM] at h
     obtain ⟨F', hF'⟩ :=
       whnfCoreStepM_sound (env := env) (d := d)
-        (fun x => whnfCoreLoopM mode (fueledFns mode env) env d n x)
+        (fun x => whnfCoreLoopM mode (fueledFns mode env) env c d n x)
         (whnfCoreLoopM_ksound n) (e := e) (res := v) G
         (by
-          rw [show (fun x => (whnfCoreLoopM mode (fueledFns mode env) env d n x).val G)
-              = whnfCoreLoopM mode (pureFns mode env G) env d n from
-            funext fun x => whnfCoreLoopM_atF d n x G]
+          rw [show (fun x => (whnfCoreLoopM mode (fueledFns mode env) env c d n x).val G)
+              = whnfCoreLoopM mode (pureFns mode env G) env c d n from
+            funext fun x => whnfCoreLoopM_atF c d n x G]
           exact h)
     exact ⟨F' + 1, by rw [whnfCore_succ]; exact hF'⟩
 
@@ -1206,8 +1184,8 @@ theorem whnfCoreLoopM_ksound {d : Nat} :
 fueled record is reproduced by `whnfCoreBody` on the same node, at
 some knot fuel. -/
 theorem whnfCoreLoop_sound_body (d : Nat) (e vres : Expr) (n F : Nat)
-    (H : (whnfCoreLoopM mode (fueledFns mode env) env d n e).val F = .ok vres) :
-    ∃ F', (whnfCoreBody mode (fueledFns mode env) env d e).val F' = .ok vres := by
+    (H : (whnfCoreLoopM mode (fueledFns mode env) env c d n e).val F = .ok vres) :
+    ∃ F', (whnfCoreBody mode (fueledFns mode env) env c d e).val F' = .ok vres := by
   obtain ⟨M, hM⟩ := whnfCoreLoopM_ksound n F e vres H
   cases M with
   | zero => rw [whnfCore_zero] at hM; exact nomatch hM

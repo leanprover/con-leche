@@ -7,8 +7,10 @@ public section
 /-!
 # Cached body walks, part 5: definitional equality (task #163)
 
-The simulation walks for `defeqStepI`, `defeqLoopI` and `defeqBodyI`
-(`ConLeche/Cached/CoreC.lean`).  A decided `Expr` comparison on the
+The simulation walks for the definitional-equality pieces
+(`quickDefEqI`, `defeqOffsetI`, `tryUnfoldProjAppI`, `lazyDeltaStepI`,
+the two lazy-delta loops, `defeqProjPairI`, `defeqStuckI`) and
+`defeqBodyI` (`ConLeche/Cached/CoreC.lean`).  A decided `Expr` comparison on the
 cached side is the spec's structural comparison (`beq_transferC`): the
 two sides are the same terms, with no store in sight.
 -/
@@ -100,774 +102,632 @@ private theorem defeqC_etaL_arm (hμ : mode.verifiedChecks = true) (ih : SSimC m
     simp only [Bool.false_eq_true, ↓reduceIte]
     exact stuckIrrelC_sim hμ ih henv hs₁ haS hbS hwa' hwb'
 
-/-- The lazy-delta "unfold both sides" branch (task #106: the
-unfoldings are materialized only here, inside the branch that consumes
-them). -/
-private theorem defeqBothC (_ih : SSimC mode env f) (henv : EnvWF env)
-    {d : Nat} {kI : Bool → Expr → Expr → CheckCM Bool}
-    {kM : Bool → Expr → Expr → FueledM Bool}
-    (hk : ∀ (pi : Bool) {s : CState} {p q : Expr} {x y : Expr},
-      CSOK mode env s → RelC p x → RelC q y →
-      Expr.WScoped d x → Expr.WScoped d y →
-      SimC mode env s RelVC (kI pi p q) (kM pi x y))
-    {i j : Expr} {a b : Expr} {s₀ : CState} (hs : CSOK mode env s₀)
+/-- A lazy-delta step's outcome, related: equal, the handed-on pair in
+scope. -/
+def RelDSC (d : Nat) (s s' : DeltaStep) : Prop :=
+  s = s' ∧ (∀ a b, s' = .cont a b → Expr.WScoped d a ∧ Expr.WScoped d b)
+
+/-- The lazy-delta loop's outcome, related: equal, the stuck pair in
+scope. -/
+def RelLSC (d : Nat) (r r' : LazyRes) : Prop :=
+  r = r' ∧ (∀ a b, r' = .unknown a b → Expr.WScoped d a ∧ Expr.WScoped d b)
+
+/-- The binder arms of `quickDefEq` (∀ and λ alike). -/
+private theorem quickBinderC (ih : SSimC mode env f)
+    {d : Nat} {t₁ b₁ t₂ b₂ : Expr} {m₁ m₂ : BinderMeta} {msg : String}
+    {s₆ : CState} (hs₆ : CSOK mode env s₆)
+    (h1 : Expr.WScoped d t₁ ∧ Expr.WScoped d b₁)
+    (h2 : Expr.WScoped d t₂ ∧ Expr.WScoped d b₂) :
+    SimC mode env s₆ RelVC
+      (do
+        unless ← (coreKnotI mode (mkFEnv env) f).defeq d t₁ t₂ do return some false
+        let fv ← pure (Expr.fvar d t₂)
+        let o₁ ← inst1M b₁ fv
+        let o₂ ← inst1M b₂ fv
+        unless ← (coreKnotI mode (mkFEnv env) f).defeq (d + 1) o₁ o₂ do return some false
+        if mode.verifiedChecks && !(m₁.pw == m₂.pw) then
+          throw (.notImplemented msg)
+        pure (some true) : CheckCM (Option Bool))
+      (do
+        unless ← (fueledFns mode env).defeq d t₁ t₂ do return some false
+        unless ← (fueledFns mode env).defeq (d + 1)
+            (b₁.instantiate1 (.fvar d t₂))
+            (b₂.instantiate1 (.fvar d t₂)) do return some false
+        if mode.verifiedChecks && !(m₁.pw == m₂.pw) then
+          throw (.notImplemented msg)
+        pure (some true) : FueledM (Option Bool)) := by
+  refine SimC.bind (ih.defeq hs₆ rfl rfl h1.1 h2.1)
+    (fun s₇ r₁ r₁' hs₇ hP₁ => ?_)
+  obtain rfl : r₁ = r₁' := hP₁
+  cases r₁ with
+  | false =>
+    simp only [Bool.false_eq_true, ↓reduceIte]
+    exact SimC.pure hs₇ rfl
+  | true =>
+    simp only [↓reduceIte]
+    refine SimC.bind_left
+      (pureC_eff hs₇ (x := Expr.fvar d t₂))
+      (fun s₈ fv hs₈ hQf => ?_)
+    have hQf' : RelC fv (Expr.fvar d t₂) := hQf
+    refine SimC.bind_left
+      (inst1M_eff hs₈ rfl hQf')
+      (fun s₉ ob₁ hs₉ hQo₁ => ?_)
+    refine SimC.bind_left
+      (inst1M_eff hs₉ rfl hQf')
+      (fun s₁₁ ob₂ hs₁₁ hQo₂ => ?_)
+    refine SimC.bind (ih.defeq hs₁₁ hQo₁ hQo₂
+      (Expr.WScoped.instantiate1 h2.1 0 h1.2)
+      (Expr.WScoped.instantiate1 h2.1 0 h2.2))
+      (fun s₁₂ r₂ r₂x hs₁₂ hPr₂ => ?_)
+    obtain rfl : r₂ = r₂x := hPr₂
+    cases r₂ with
+    | false =>
+      simp only [Bool.false_eq_true, ↓reduceIte]
+      exact SimC.pure hs₁₂ rfl
+    | true =>
+      simp only [↓reduceIte]
+      by_cases hpw : (mode.verifiedChecks && !m₁.pw == m₂.pw) = true
+      · simp only [hpw, ↓reduceIte]
+        exact SimC.throw_bind
+      · simp only [Bool.not_eq_true] at hpw
+        simp only [hpw, ↓reduceIte]
+        exact SimC.pure hs₁₂ rfl
+
+/-- The easy cases simulate their specification. -/
+theorem quickDefEqC_sim (_hμ : mode.verifiedChecks = true) (ih : SSimC mode env f)
+    {d : Nat} {i j : Expr} {a b : Expr} {s₀ : CState} (hs : CSOK mode env s₀)
     (hdena : RelC i a) (hdenb : RelC j b)
     (hwa : Expr.WScoped d a) (hwb : Expr.WScoped d b) :
     SimC mode env s₀ RelVC
-      (unfoldDefinitionI (mkFEnv env) i >>= fun ua =>
-        unfoldDefinitionI (mkFEnv env) j >>= fun ub =>
-        match ua, ub with
-        | some a₂, some b₂ => kI false a₂ b₂
-        | _, _ => pure false)
-      (match unfoldDefinition env a, unfoldDefinition env b with
-        | some a₂, some b₂ => kM false a₂ b₂
-        | _, _ => pure false) := by
-  refine SimC.bind_left (unfoldDefinitionC_eff hs hdena)
+      (quickDefEqI mode (coreKnotI mode (mkFEnv env) f) d i j)
+      (quickDefEq mode (fueledFns mode env) d a b) := by
+  obtain rfl := hdena
+  obtain rfl := hdenb
+  unfold quickDefEqI quickDefEq
+  by_cases hab : (i == j) = true
+  · rw [if_pos hab, if_pos hab]
+    exact SimC.pure hs rfl
+  rw [if_neg hab, if_neg hab]
+  cases i <;> cases j <;> (try exact SimC.pure hs rfl)
+  case sort.sort u₁ u₂ =>
+    refine SimC.bind_left (isEquivLM_eff hs u₁ u₂)
+      (fun sE o hsE ho => ?_)
+    subst ho
+    refine SimC.bind (SimC.liftFueled _ _ hsE)
+      (fun s₁ ok ok' hs₁ hP => ?_)
+    obtain rfl : ok = ok' := hP
+    exact SimC.pure hs₁ rfl
+  case forallE.forallE t₁ b₁ m₁ t₂ b₂ m₂ =>
+    exact quickBinderC ih hs (by simpa only [Expr.WScoped] using hwa)
+      (by simpa only [Expr.WScoped] using hwb)
+  case lam.lam t₁ b₁ m₁ t₂ b₂ m₂ =>
+    exact quickBinderC ih hs (by simpa only [Expr.WScoped] using hwa)
+      (by simpa only [Expr.WScoped] using hwb)
+
+/-- Offsets simulate their specification. -/
+theorem defeqOffsetC_sim (ih : SSimC mode env f)
+    {d : Nat} {i j : Expr} {a b : Expr} {s₀ : CState} (hs : CSOK mode env s₀)
+    (hdena : RelC i a) (hdenb : RelC j b)
+    (hwa : Expr.WScoped d a) (hwb : Expr.WScoped d b) :
+    SimC mode env s₀ RelVC
+      (defeqOffsetI (coreKnotI mode (mkFEnv env) f) d i j)
+      (defeqOffset (fueledFns mode env) d a b) := by
+  obtain rfl := hdena
+  obtain rfl := hdenb
+  unfold defeqOffsetI defeqOffset
+  by_cases hz : (i.isNatZero && j.isNatZero) = true
+  · rw [if_pos hz, if_pos hz]
+    exact SimC.pure hs rfl
+  rw [if_neg hz, if_neg hz]
+  by_cases hl : (i.isLit && j.isLit) = true
+  · rw [if_pos hl, if_pos hl]
+    exact SimC.pure hs rfl
+  rw [if_neg hl, if_neg hl]
+  cases hx : i.natPred? <;> cases hy : j.natPred? <;> (try exact SimC.pure hs rfl)
+  rename_i x y
+  dsimp only
+  refine SimC.bind (ih.defeq hs rfl rfl (natPred?_WScoped hx hwa)
+    (natPred?_WScoped hy hwb)) (fun s₁ v v' hs₁ hP => ?_)
+  obtain rfl : v = v' := hP
+  exact SimC.pure hs₁ rfl
+
+/-- `try_unfold_proj_app` simulates its specification. -/
+theorem tryUnfoldProjAppC_sim (ih : SSimC mode env f)
+    {d : Nat} {i : Expr} {e : Expr} {s₀ : CState} (hs : CSOK mode env s₀)
+    (hden : RelC i e) (hw : Expr.WScoped d e) :
+    SimC mode env s₀ (RelOC d)
+      (tryUnfoldProjAppI (coreKnotI mode (mkFEnv env) f) d i)
+      (tryUnfoldProjApp (fueledFns mode env) d e) := by
+  obtain rfl := hden
+  unfold tryUnfoldProjAppI tryUnfoldProjApp
+  by_cases hp : i.headIsProj = true
+  · rw [if_pos hp, if_pos hp]
+    refine SimC.bind (ih.whnfCore hs rfl hw) (fun s₁ e' e'x hs₁ hP => ?_)
+    obtain ⟨rfl, hwe'⟩ := hP
+    by_cases he : (e' == i) = true
+    · rw [if_pos he, if_pos he]
+      exact SimC.pure hs₁ trivial
+    · rw [if_neg he, if_neg he]
+      exact SimC.pure hs₁ (show RelEC d e' e' from ⟨rfl, hwe'⟩)
+  · rw [if_neg hp, if_neg hp]
+    exact SimC.pure hs trivial
+
+/-- The end of a step simulates its specification. -/
+theorem deltaQuickC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode env f)
+    {d : Nat} {i j : Expr} {a b : Expr} {s₀ : CState} (hs : CSOK mode env s₀)
+    (hdena : RelC i a) (hdenb : RelC j b)
+    (hwa : Expr.WScoped d a) (hwb : Expr.WScoped d b) :
+    SimC mode env s₀ (RelDSC d)
+      (deltaQuickI mode (coreKnotI mode (mkFEnv env) f) d i j)
+      (deltaQuick mode (fueledFns mode env) d a b) := by
+  obtain rfl := hdena
+  obtain rfl := hdenb
+  unfold deltaQuickI deltaQuick
+  refine SimC.bind (quickDefEqC_sim hμ ih hs rfl rfl hwa hwb)
+    (fun s₁ o o' hs₁ hP => ?_)
+  obtain rfl : o = o' := hP
+  match o with
+  | none =>
+    exact SimC.pure hs₁ ⟨rfl, fun x y h => by
+      cases h
+      exact ⟨hwa, hwb⟩⟩
+  | some true => exact SimC.pure hs₁ ⟨rfl, fun _ _ h => nomatch h⟩
+  | some false => exact SimC.pure hs₁ ⟨rfl, fun _ _ h => nomatch h⟩
+
+/-- One side unfolded and put through the cheap `whnfCore`, then the
+step's end. -/
+private theorem unfoldQuickLC (hμ : mode.verifiedChecks = true) (ih : SSimC mode env f)
+    (henv : EnvWF env) {d : Nat} {a b : Expr} {s₀ : CState} (hs : CSOK mode env s₀)
+    (hwa : Expr.WScoped d a) (hwb : Expr.WScoped d b) :
+    SimC mode env s₀ (RelDSC d)
+      (unfoldDefinitionI (mkFEnv env) a >>= fun ua =>
+        match ua with
+        | some a₂ => do
+          let a₃ ← (coreKnotI mode (mkFEnv env) f).whnfCore true d a₂
+          deltaQuickI mode (coreKnotI mode (mkFEnv env) f) d a₃ b
+        | none => pure .unknown)
+      (match unfoldDefinition env a with
+        | some a₂ => do
+          let a₃ ← (fueledFns mode env).whnfCore true d a₂
+          deltaQuick mode (fueledFns mode env) d a₃ b
+        | none => pure .unknown) := by
+  refine SimC.bind_left (unfoldDefinitionC_eff hs rfl)
     (fun s₁ ua hs₁ hQa => ?_)
-  refine SimC.bind_left (unfoldDefinitionC_eff hs₁ hdenb)
-    (fun s₂ ub hs₂ hQb => ?_)
   cases hua : unfoldDefinition env a with
   | none =>
     rw [hua] at hQa
     cases ua with
     | some a₂ => exact absurd hQa (by simp [OptEr])
-    | none => cases ub <;> exact SimC.pure hs₂ rfl
+    | none => exact SimC.pure hs₁ ⟨rfl, fun _ _ h => nomatch h⟩
   | some a₂x =>
     rw [hua] at hQa
     cases ua with
     | none => exact absurd hQa (by simp [OptEr])
     | some a₂ =>
-      cases hub : unfoldDefinition env b with
-      | none =>
-        rw [hub] at hQb
-        cases ub with
-        | some b₂ => exact absurd hQb (by simp [OptEr])
-        | none => exact SimC.pure hs₂ rfl
-      | some b₂x =>
-        rw [hub] at hQb
-        cases ub with
-        | none => exact absurd hQb (by simp [OptEr])
-        | some b₂ =>
-          exact hk _ hs₂ hQa hQb
-            (unfoldDefinition_WScoped henv hua hwa)
-            (unfoldDefinition_WScoped henv hub hwb)
+      dsimp only
+      refine SimC.bind (ih.whnfCore hs₁ hQa (unfoldDefinition_WScoped henv hua hwa))
+        (fun s₂ a₃ a₃x hs₂ hP => ?_)
+      exact deltaQuickC_sim hμ ih hs₂ hP.1 rfl hP.2 hwb
 
-theorem defeqStepC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode env f) (henv : EnvWF env)
-    {d : Nat} {kI : Bool → Expr → Expr → CheckCM Bool}
-    {kM : Bool → Expr → Expr → FueledM Bool}
-    (hk : ∀ (pi : Bool) {s : CState} {p q : Expr} {x y : Expr},
-      CSOK mode env s → RelC p x → RelC q y →
-      Expr.WScoped d x → Expr.WScoped d y →
-      SimC mode env s RelVC (kI pi p q) (kM pi x y))
-    (pi : Bool)
-    {i j : Expr} {a b : Expr} {s₀ : CState} (hs : CSOK mode env s₀)
+private theorem unfoldQuickRC (hμ : mode.verifiedChecks = true) (ih : SSimC mode env f)
+    (henv : EnvWF env) {d : Nat} {a b : Expr} {s₀ : CState} (hs : CSOK mode env s₀)
+    (hwa : Expr.WScoped d a) (hwb : Expr.WScoped d b) :
+    SimC mode env s₀ (RelDSC d)
+      (unfoldDefinitionI (mkFEnv env) b >>= fun ub =>
+        match ub with
+        | some b₂ => do
+          let b₃ ← (coreKnotI mode (mkFEnv env) f).whnfCore true d b₂
+          deltaQuickI mode (coreKnotI mode (mkFEnv env) f) d a b₃
+        | none => pure .unknown)
+      (match unfoldDefinition env b with
+        | some b₂ => do
+          let b₃ ← (fueledFns mode env).whnfCore true d b₂
+          deltaQuick mode (fueledFns mode env) d a b₃
+        | none => pure .unknown) := by
+  refine SimC.bind_left (unfoldDefinitionC_eff hs rfl)
+    (fun s₁ ub hs₁ hQb => ?_)
+  cases hub : unfoldDefinition env b with
+  | none =>
+    rw [hub] at hQb
+    cases ub with
+    | some b₂ => exact absurd hQb (by simp [OptEr])
+    | none => exact SimC.pure hs₁ ⟨rfl, fun _ _ h => nomatch h⟩
+  | some b₂x =>
+    rw [hub] at hQb
+    cases ub with
+    | none => exact absurd hQb (by simp [OptEr])
+    | some b₂ =>
+      dsimp only
+      refine SimC.bind (ih.whnfCore hs₁ hQb (unfoldDefinition_WScoped henv hub hwb))
+        (fun s₂ b₃ b₃x hs₂ hP => ?_)
+      exact deltaQuickC_sim hμ ih hs₂ rfl hP.1 hwa hP.2
+
+/-- One lazy-delta step simulates its specification. -/
+theorem lazyDeltaStepC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode env f)
+    (henv : EnvWF env)
+    {d : Nat} {i j : Expr} {a b : Expr} {s₀ : CState} (hs : CSOK mode env s₀)
+    (hdena : RelC i a) (hdenb : RelC j b)
+    (hwa : Expr.WScoped d a) (hwb : Expr.WScoped d b) :
+    SimC mode env s₀ (RelDSC d)
+      (lazyDeltaStepI mode (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d i j)
+      (lazyDeltaStep mode (fueledFns mode env) env d a b) := by
+  obtain rfl := hdena
+  obtain rfl := hdenb
+  unfold lazyDeltaStepI lazyDeltaStep
+  refine SimC.pureB ?_
+  refine SimC.pureB ?_
+  rw [unfoldableHeadC_spec' rfl, unfoldableHeadC_spec' rfl]
+  cases hda : unfoldableHead env i <;> cases hdb : unfoldableHead env j <;> dsimp only
+  · exact SimC.pure hs ⟨rfl, fun _ _ h => nomatch h⟩
+  · refine SimC.bind (tryUnfoldProjAppC_sim ih hs rfl hwa)
+      (fun s₁ o ox hs₁ hPo => ?_)
+    cases o with
+    | some a₂ =>
+      cases ox with
+      | none => exact absurd hPo (by simp [RelOC])
+      | some a₂x =>
+        obtain ⟨ha₂d, hwa₂⟩ := hPo
+        exact deltaQuickC_sim hμ ih hs₁ ha₂d rfl hwa₂ hwb
+    | none =>
+      cases ox with
+      | some a₂x => exact absurd hPo (by simp [RelOC])
+      | none => exact unfoldQuickRC hμ ih henv hs₁ hwa hwb
+  · refine SimC.bind (tryUnfoldProjAppC_sim ih hs rfl hwb)
+      (fun s₁ o ox hs₁ hPo => ?_)
+    cases o with
+    | some b₂ =>
+      cases ox with
+      | none => exact absurd hPo (by simp [RelOC])
+      | some b₂x =>
+        obtain ⟨hb₂d, hwb₂⟩ := hPo
+        exact deltaQuickC_sim hμ ih hs₁ rfl hb₂d hwa hwb₂
+    | none =>
+      cases ox with
+      | some b₂x => exact absurd hPo (by simp [RelOC])
+      | none => exact unfoldQuickLC hμ ih henv hs₁ hwa hwb
+  · refine SimC.pureB ?_
+    refine SimC.pureB ?_
+    rw [headHintC_spec' rfl, headHintC_spec' rfl]
+    by_cases hlt₁ : ReducibilityHint.lt (headHint env j) (headHint env i) = true
+    · rw [if_pos hlt₁, if_pos hlt₁]
+      exact unfoldQuickLC hμ ih henv hs hwa hwb
+    rw [if_neg hlt₁, if_neg hlt₁]
+    by_cases hlt₂ : ReducibilityHint.lt (headHint env i) (headHint env j) = true
+    · rw [if_pos hlt₂, if_pos hlt₂]
+      exact unfoldQuickRC hμ ih henv hs hwa hwb
+    rw [if_neg hlt₂, if_neg hlt₂]
+    refine SimC.pureB ?_
+    rw [sameConstHeadsC_spec' rfl rfl]
+    have hboth : ∀ {s₀ : CState}, CSOK mode env s₀ → SimC mode env s₀ (RelDSC d)
+        (unfoldDefinitionI (mkFEnv env) i >>= fun ua =>
+          unfoldDefinitionI (mkFEnv env) j >>= fun ub =>
+          match ua, ub with
+          | some a₂, some b₂ => do
+            let a₃ ← (coreKnotI mode (mkFEnv env) f).whnfCore true d a₂
+            let b₃ ← (coreKnotI mode (mkFEnv env) f).whnfCore true d b₂
+            deltaQuickI mode (coreKnotI mode (mkFEnv env) f) d a₃ b₃
+          | _, _ => pure .unknown)
+        (match unfoldDefinition env i, unfoldDefinition env j with
+          | some a₂, some b₂ => do
+            let a₃ ← (fueledFns mode env).whnfCore true d a₂
+            let b₃ ← (fueledFns mode env).whnfCore true d b₂
+            deltaQuick mode (fueledFns mode env) d a₃ b₃
+          | _, _ => pure .unknown) := by
+      intro s₀ hs
+      refine SimC.bind_left (unfoldDefinitionC_eff hs rfl)
+        (fun s₁ ua hs₁ hQa => ?_)
+      refine SimC.bind_left (unfoldDefinitionC_eff hs₁ rfl)
+        (fun s₂ ub hs₂ hQb => ?_)
+      cases hua : unfoldDefinition env i with
+      | none =>
+        rw [hua] at hQa
+        cases ua with
+        | some a₂ => exact absurd hQa (by simp [OptEr])
+        | none => cases ub <;> exact SimC.pure hs₂ ⟨rfl, fun _ _ h => nomatch h⟩
+      | some a₂x =>
+        rw [hua] at hQa
+        cases ua with
+        | none => exact absurd hQa (by simp [OptEr])
+        | some a₂ =>
+          cases hub : unfoldDefinition env j with
+          | none =>
+            rw [hub] at hQb
+            cases ub with
+            | some b₂ => exact absurd hQb (by simp [OptEr])
+            | none => exact SimC.pure hs₂ ⟨rfl, fun _ _ h => nomatch h⟩
+          | some b₂x =>
+            rw [hub] at hQb
+            cases ub with
+            | none => exact absurd hQb (by simp [OptEr])
+            | some b₂ =>
+              dsimp only
+              refine SimC.bind (ih.whnfCore hs₂ hQa (unfoldDefinition_WScoped henv hua hwa))
+                (fun s₃ a₃ a₃x hs₃ hPa => ?_)
+              refine SimC.bind (ih.whnfCore hs₃ hQb (unfoldDefinition_WScoped henv hub hwb))
+                (fun s₄ b₃ b₃x hs₄ hPb => ?_)
+              exact deltaQuickC_sim hμ ih hs₄ hPa.1 hPb.1 hPa.2 hPb.2
+    by_cases hsr : (ReducibilityHint.sameRegular (headHint env i) (headHint env j) &&
+        sameConstHeads i j) = true
+    · rw [if_pos hsr, if_pos hsr]
+      refine SimC.bind (defeqSpineC_sim ih hs rfl rfl hwa hwb)
+        (fun s₇ sp sp' hs₇ hPsp => ?_)
+      obtain rfl : sp = sp' := hPsp
+      cases sp with
+      | true =>
+        simp only [↓reduceIte]
+        exact SimC.pure hs₇ ⟨rfl, fun _ _ h => nomatch h⟩
+      | false =>
+        simp only [Bool.false_eq_true, ↓reduceIte]
+        exact hboth hs₇
+    · rw [if_neg hsr, if_neg hsr]
+      refine SimC.pureB ?_
+      refine SimC.bind_pure_right ?_
+      simp only [Bool.false_eq_true, ↓reduceIte]
+      exact hboth hs
+
+/-- The lazy-delta loop simulates its specification, by induction on
+its step budget. -/
+theorem lazyDeltaReductionC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode env f)
+    (henv : EnvWF env) {d : Nat} :
+    ∀ (n : Nat) {i j : Expr} {a b : Expr} {s₀ : CState}, CSOK mode env s₀ →
+      RelC i a → RelC j b → Expr.WScoped d a → Expr.WScoped d b →
+      SimC mode env s₀ (RelLSC d)
+        (lazyDeltaReductionI mode (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d n i j)
+        (lazyDeltaReduction mode (fueledFns mode env) env d n a b)
+  | 0, _, _, _, _, _, _, _, _, _, _ => SimC.throw
+  | n + 1, i, j, _, _, s₀, hs, hda, hdb, hwa, hwb => by
+    obtain rfl := hda
+    obtain rfl := hdb
+    simp only [lazyDeltaReductionI, lazyDeltaReduction]
+    refine SimC.bind (defeqOffsetC_sim ih hs rfl rfl hwa hwb)
+      (fun s₁ o o' hs₁ hP => ?_)
+    obtain rfl : o = o' := hP
+    cases o with
+    | some v => exact SimC.pure hs₁ ⟨rfl, fun _ _ h => nomatch h⟩
+    | none =>
+    dsimp only
+    refine SimC.pureB ?_
+    rw [hasFvar_spec' rfl, hasFvar_spec' rfl]
+    refine SimC.bind (reduceNatIfC_sim ih hs₁ rfl hwa _)
+      (fun s₂ oa oax hs₂ hPa => ?_)
+    cases oa with
+    | some a₂ =>
+      cases oax with
+      | none => exact absurd hPa (by simp [RelOC])
+      | some a₂x =>
+        obtain ⟨ha₂d, hwa₂⟩ := hPa
+        dsimp only
+        refine SimC.bind (ih.defeq hs₂ ha₂d rfl hwa₂ hwb)
+          (fun s₃ v v' hs₃ hv => ?_)
+        obtain rfl : v = v' := hv
+        exact SimC.pure hs₃ ⟨rfl, fun _ _ h => nomatch h⟩
+    | none =>
+      cases oax with
+      | some a₂x => exact absurd hPa (by simp [RelOC])
+      | none =>
+      dsimp only
+      refine SimC.bind (reduceNatIfC_sim ih hs₂ rfl hwb _)
+        (fun s₃ ob obx hs₃ hPb => ?_)
+      cases ob with
+      | some b₂ =>
+        cases obx with
+        | none => exact absurd hPb (by simp [RelOC])
+        | some b₂x =>
+          obtain ⟨hb₂d, hwb₂⟩ := hPb
+          dsimp only
+          refine SimC.bind (ih.defeq hs₃ rfl hb₂d hwa hwb₂)
+            (fun s₄ v v' hs₄ hv => ?_)
+          obtain rfl : v = v' := hv
+          exact SimC.pure hs₄ ⟨rfl, fun _ _ h => nomatch h⟩
+      | none =>
+        cases obx with
+        | some b₂x => exact absurd hPb (by simp [RelOC])
+        | none =>
+        dsimp only
+        refine SimC.bind (lazyDeltaStepC_sim hμ ih henv hs₃ rfl rfl hwa hwb)
+          (fun s₄ st st' hs₄ hPs => ?_)
+        obtain ⟨rfl, hsc⟩ := hPs
+        cases st with
+        | cont a' b' =>
+          obtain ⟨hwa', hwb'⟩ := hsc a' b' rfl
+          exact lazyDeltaReductionC_sim hμ ih henv n hs₄ rfl rfl hwa' hwb'
+        | eq => exact SimC.pure hs₄ ⟨rfl, fun _ _ h => nomatch h⟩
+        | diff => exact SimC.pure hs₄ ⟨rfl, fun _ _ h => nomatch h⟩
+        | unknown => exact SimC.pure hs₄ ⟨rfl, fun x y h => by
+            cases h
+            exact ⟨hwa, hwb⟩⟩
+
+/-- `lazy_delta_proj_reduction` simulates its specification. -/
+theorem lazyDeltaProjReductionC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode env f)
+    (henv : EnvWF env) {d : Nat} {sn : Name} {ip : Nat} :
+    ∀ (n : Nat) {i j : Expr} {a b : Expr} {s₀ : CState}, CSOK mode env s₀ →
+      RelC i a → RelC j b → Expr.WScoped d a → Expr.WScoped d b →
+      SimC mode env s₀ RelVC
+        (lazyDeltaProjReductionI mode (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d sn ip
+          n i j)
+        (lazyDeltaProjReduction mode (fueledFns mode env) env d sn ip n a b)
+  | 0, _, _, _, _, _, _, _, _, _, _ => SimC.throw
+  | n + 1, i, j, _, _, s₀, hs, hda, hdb, hwa, hwb => by
+    obtain rfl := hda
+    obtain rfl := hdb
+    simp only [lazyDeltaProjReductionI, lazyDeltaProjReduction]
+    refine SimC.bind (lazyDeltaStepC_sim hμ ih henv hs rfl rfl hwa hwb)
+      (fun s₁ st st' hs₁ hPs => ?_)
+    obtain ⟨rfl, hsc⟩ := hPs
+    cases st
+    case cont a' b' =>
+      obtain ⟨hwa', hwb'⟩ := hsc a' b' rfl
+      exact lazyDeltaProjReductionC_sim hμ ih henv n hs₁ rfl rfl hwa' hwb'
+    case eq => exact SimC.pure hs₁ rfl
+    all_goals
+      dsimp only
+      refine SimC.bind (reduceProjCoreC_sim ih henv hs₁ rfl hwa)
+        (fun s₂ ox oxx hs₂ hPx => ?_)
+      cases ox with
+      | none =>
+        cases oxx with
+        | some _ => exact absurd hPx (by simp [RelOC])
+        | none => exact ih.defeq hs₂ rfl rfl hwa hwb
+      | some x =>
+        cases oxx with
+        | none => exact absurd hPx (by simp [RelOC])
+        | some xx =>
+        obtain ⟨hxd, hwx⟩ := hPx
+        dsimp only
+        refine SimC.bind (reduceProjCoreC_sim ih henv hs₂ rfl hwb)
+          (fun s₃ oy oyx hs₃ hPy => ?_)
+        cases oy with
+        | none =>
+          cases oyx with
+          | some _ => exact absurd hPy (by simp [RelOC])
+          | none => exact ih.defeq hs₃ rfl rfl hwa hwb
+        | some y =>
+          cases oyx with
+          | none => exact absurd hPy (by simp [RelOC])
+          | some yx =>
+          obtain ⟨hyd, hwy⟩ := hPy
+          exact ih.defeq hs₃ hxd hyd hwx hwy
+
+/-- The proj/proj check simulates its specification. -/
+theorem defeqProjPairC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode env f)
+    (henv : EnvWF env)
+    {d : Nat} {i j : Expr} {a b : Expr} {s₀ : CState} (hs : CSOK mode env s₀)
     (hdena : RelC i a) (hdenb : RelC j b)
     (hwa : Expr.WScoped d a) (hwb : Expr.WScoped d b) :
     SimC mode env s₀ RelVC
-      (defeqStepI mode (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d kI pi i j)
-      (defeqStep mode (fueledFns mode env) env d kM pi a b) := by
-  unfold defeqStepI
-  unfold defeqStep
-  rw [beq_transferC hdena hdenb]
-  by_cases hab : (a == b) = true
-  · simp only [if_pos hab]
-    exact SimC.pure hs rfl
-  · simp only [if_neg hab]
-    -- the eq-true shortcut (E2): two store reads for the guard, then the
-    -- guarded `whnf`
-    refine SimC.pureB ?_
-    rw [isBoolTrue_spec' hdenb]
-    refine SimC.pureB ?_
-    rw [hasFvar_spec' hdena]
-    refine SimC.bind (boolTrueShortcutIfC_sim ih hs hdena hwa _)
-      (fun s₀b rbt rbtx hs₀b hPbt => ?_)
-    cases hPbt
-    cases rbt with
-    | true =>
-      simp only [↓reduceIte]
-      exact SimC.pure hs₀b rfl
-    | false =>
-    simp only [Bool.false_eq_true, ↓reduceIte]
-    have hs := hs₀b
-    refine SimC.bind (ih.whnfCore hs hdena hwa)
-      (fun s₁ a' a'x hs₁ hPa => ?_)
-    obtain ⟨ha'd, hwa'⟩ := hPa
-    refine SimC.bind (ih.whnfCore hs₁ hdenb hwb)
-      (fun s₂ b' b'x hs₂ hPb => ?_)
-    obtain ⟨hb'd, hwb'⟩ := hPb
-    rw [beq_transferC ha'd hb'd]
-    by_cases hab' : (a'x == b'x) = true
-    · simp only [if_pos hab']
-      exact SimC.pure hs₂ rfl
-    · simp only [if_neg hab']
-      -- hoisted proof irrelevance (the `Prop` branch, task #168)
-      -- the D4 quick-pair read
-      refine SimC.pureB ?_
-      rw [quickPair_spec' ha'd hb'd]
-      refine SimC.bind (propIrrelIfC_sim ih hs₂ ha'd hb'd hwa' hwb' _)
-        (fun s₂p rpi rpix hs₂p hPpi => ?_)
-      cases hPpi
-      cases rpi with
+      (defeqProjPairI mode (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d i j)
+      (defeqProjPair mode (fueledFns mode env) env d a b) := by
+  obtain rfl := hdena
+  obtain rfl := hdenb
+  unfold defeqProjPairI defeqProjPair
+  cases i <;> cases j <;> (try exact SimC.pure hs rfl)
+  case proj.proj s₁ i₁ e₁ s₂ i₂ e₂ =>
+    dsimp only
+    by_cases hii : (s₁ == s₂ && i₁ == i₂) = true
+    · rw [if_pos hii, if_pos hii]
+      exact lazyDeltaProjReductionC_sim hμ ih henv _ hs rfl rfl
+        (by simpa only [Expr.WScoped] using hwa) (by simpa only [Expr.WScoped] using hwb)
+    · rw [if_neg hii, if_neg hii]
+      exact SimC.pure hs rfl
+
+set_option maxHeartbeats 3200000 in
+/-- The stuck comparison simulates its specification. -/
+theorem defeqStuckC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode env f)
+    (henv : EnvWF env)
+    {d : Nat} {i j : Expr} {a b : Expr} {s₀ : CState} (hs : CSOK mode env s₀)
+    (hdena : RelC i a) (hdenb : RelC j b)
+    (hwa : Expr.WScoped d a) (hwb : Expr.WScoped d b) :
+    SimC mode env s₀ RelVC
+      (defeqStuckI mode (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d i j)
+      (defeqStuck mode (fueledFns mode env) env d a b) := by
+  obtain rfl := hdena
+  obtain rfl := hdenb
+  have haS : RelC i i := rfl
+  have hbS : RelC j j := rfl
+  unfold defeqStuckI defeqStuck
+  cases i <;> cases j <;> dsimp only <;>
+    first
+    | exact stuckIrrelC_sim hμ ih henv hs haS hbS hwa hwb
+    | exact defeqC_etaL_arm hμ ih henv hs haS rfl rfl hbS hwa hwb
+    | exact defeqC_etaR_arm hμ ih henv hs haS rfl rfl hbS hwa hwb
+    | skip
+  case lit.app l f x =>
+    cases l <;> cases f <;> dsimp only <;>
+      first
+      | exact stuckIrrelC_sim hμ ih henv hs haS hbS hwa hwb
+      | skip
+    rename_i str cf usf
+    rw [strLitSupportedF_eq]
+    refine SimC.bind_left (pureEq_eff hs (cf == stringOfListName))
+      (fun s₆b bq hs₆b hbq => ?_)
+    subst bq
+    simp only [beq_iff_eq]
+    by_cases hsc : cf = stringOfListName ∧ usf = [] ∧ strLitSupported env = true
+    · rw [if_pos hsc, if_pos hsc]
+      refine SimC.bind_left (pureC_eff hs₆b (strLitToConstructor str))
+        (fun s₇ sc hs₇ hQs => ?_)
+      exact ih.defeq hs₇ hQs hbS (strLitToConstructor_WScoped str d) hwb
+    · rw [if_neg hsc, if_neg hsc]
+      exact stuckIrrelC_sim hμ ih henv hs₆b haS hbS hwa hwb
+  case app.lit f x l =>
+    cases l <;> cases f <;> dsimp only <;>
+      first
+      | exact stuckIrrelC_sim hμ ih henv hs haS hbS hwa hwb
+      | skip
+    rename_i str cf usf
+    rw [strLitSupportedF_eq]
+    refine SimC.bind_left (pureEq_eff hs (cf == stringOfListName))
+      (fun s₆b bq hs₆b hbq => ?_)
+    subst bq
+    simp only [beq_iff_eq]
+    by_cases hsc : cf = stringOfListName ∧ usf = [] ∧ strLitSupported env = true
+    · rw [if_pos hsc, if_pos hsc]
+      refine SimC.bind_left (pureC_eff hs₆b (strLitToConstructor str))
+        (fun s₇ sc hs₇ hQs => ?_)
+      exact ih.defeq hs₇ haS hQs hwa (strLitToConstructor_WScoped str d)
+    · rw [if_neg hsc, if_neg hsc]
+      exact stuckIrrelC_sim hμ ih henv hs₆b haS hbS hwa hwb
+  case fvar.fvar i₁ t₁ i₂ t₂ =>
+    by_cases hij : (i₁ == i₂) = true
+    · rw [if_pos hij, if_pos hij]
+      exact SimC.pure hs rfl
+    · rw [if_neg hij, if_neg hij]
+      exact stuckIrrelC_sim hμ ih henv hs haS hbS hwa hwb
+  case const.const c₁ us₁ c₂ us₂ =>
+    by_cases hcc : c₁ = c₂
+    · rw [if_pos hcc, if_pos hcc]
+      refine SimC.bind_left (isEquivListLM_eff hs)
+        (fun sE o hsE ho => ?_)
+      subst ho
+      refine SimC.bind (SimC.liftFueled _ _ hsE)
+        (fun s₇ ok ok' hs₇ hPok => ?_)
+      obtain rfl : ok = ok' := hPok
+      cases ok with
       | true =>
         simp only [↓reduceIte]
-        exact SimC.pure hs₂p rfl
+        exact SimC.pure hs₇ rfl
       | false =>
-      simp only [Bool.false_eq_true, ↓reduceIte]
-      have hs₂ := hs₂p
-      -- peel the fvar-guard read; the cached `Expr.hasFvar` agrees
-      -- with the spec's, so both sides carry the same guard
+        simp only [Bool.false_eq_true, ↓reduceIte]
+        exact stuckIrrelC_sim hμ ih henv hs₇ haS hbS hwa hwb
+    · rw [if_neg hcc, if_neg hcc]
+      exact stuckIrrelC_sim hμ ih henv hs haS hbS hwa hwb
+  case app.app f₁ x₁ f₂ x₂ =>
+    refine SimC.pureB ?_
+    refine SimC.pureB ?_
+    have hAA : RelCL (Expr.getAppArgsC (Expr.app f₁ x₁)) (Expr.app f₁ x₁).getAppArgs :=
+      Expr.getAppArgsC_spec _
+    have hBB : RelCL (Expr.getAppArgsC (Expr.app f₂ x₂)) (Expr.app f₂ x₂).getAppArgs :=
+      Expr.getAppArgsC_spec _
+    have hlena : (Expr.getAppArgsC (Expr.app f₁ x₁)).length
+        = (Expr.app f₁ x₁).getAppArgs.length := RelCL.length hAA
+    have hlenb : (Expr.getAppArgsC (Expr.app f₂ x₂)).length
+        = (Expr.app f₂ x₂).getAppArgs.length := RelCL.length hBB
+    simp only [hlena, hlenb]
+    by_cases hlen : (Expr.app f₁ x₁).getAppArgs.length = (Expr.app f₂ x₂).getAppArgs.length
+    · rw [if_pos hlen, if_pos hlen]
       refine SimC.pureB ?_
-      rw [hasFvar_spec' ha'd, hasFvar_spec' hb'd]
-      refine SimC.bind (reduceNatIfC_sim ih hs₂ ha'd hwa' _)
-        (fun s₃ o₁ o₁x hs₃ hPo₁ => ?_)
-      cases o₁ with
-      | some a₂ =>
-        cases o₁x with
-        | none => exact absurd hPo₁ (by simp [RelOC])
-        | some a₂x =>
-          obtain ⟨ha₂d, hwa₂⟩ := hPo₁
-          exact hk _ hs₃ ha₂d hb'd hwa₂ hwb'
-      | none =>
-        cases o₁x with
-        | some a₂x => exact absurd hPo₁ (by simp [RelOC])
-        | none =>
-          refine SimC.bind (reduceNatIfC_sim ih hs₃ hb'd hwb' _)
-            (fun s₄ o₂ o₂x hs₄ hPo₂ => ?_)
-          cases o₂ with
-          | some b₂ =>
-            cases o₂x with
-            | none => exact absurd hPo₂ (by simp [RelOC])
-            | some b₂x =>
-              obtain ⟨hb₂d, hwb₂⟩ := hPo₂
-              exact hk _ hs₄ ha'd hb₂d hwa' hwb₂
-          | none =>
-            cases o₂x with
-            | some b₂x => exact absurd hPo₂ (by simp [RelOC])
-            | none =>
-              -- Lazy delta, decision before materialization (task #106)
-              refine SimC.pureB ?_
-              refine SimC.pureB ?_
-              rw [unfoldableHeadC_spec' ha'd,
-                unfoldableHeadC_spec' hb'd]
-              cases hda : unfoldableHead env a'x with
-              | true =>
-                cases hdb : unfoldableHead env b'x with
-                | false =>
-                  dsimp only
-                  refine SimC.bind_left (unfoldDefinitionC_eff hs₄ ha'd)
-                    (fun s₅ ua hs₅ hQa => ?_)
-                  cases hua : unfoldDefinition env a'x with
-                  | none =>
-                    rw [hua] at hQa
-                    cases ua with
-                    | some a₂ => exact absurd hQa (by simp [OptEr])
-                    | none => exact SimC.pure hs₅ rfl
-                  | some a₂x =>
-                    rw [hua] at hQa
-                    cases ua with
-                    | none => exact absurd hQa (by simp [OptEr])
-                    | some a₂ =>
-                      exact hk _ hs₅ hQa hb'd
-                        (unfoldDefinition_WScoped henv hua hwa') hwb'
-                | true =>
-                  dsimp only
-                  refine SimC.pureB ?_
-                  refine SimC.pureB ?_
-                  rw [headHintC_spec' ha'd,
-                    headHintC_spec' hb'd]
-                  by_cases hlt₁ : ReducibilityHint.lt
-                      (headHint env b'x) (headHint env a'x) = true
-                  · rw [if_pos hlt₁, if_pos hlt₁]
-                    refine SimC.bind_left (unfoldDefinitionC_eff hs₄ ha'd)
-                      (fun s₅ ua hs₅ hQa => ?_)
-                    cases hua : unfoldDefinition env a'x with
-                    | none =>
-                      rw [hua] at hQa
-                      cases ua with
-                      | some a₂ => exact absurd hQa (by simp [OptEr])
-                      | none => exact SimC.pure hs₅ rfl
-                    | some a₂x =>
-                      rw [hua] at hQa
-                      cases ua with
-                      | none => exact absurd hQa (by simp [OptEr])
-                      | some a₂ =>
-                        exact hk _ hs₅ hQa hb'd
-                          (unfoldDefinition_WScoped henv hua hwa') hwb'
-                  · rw [if_neg hlt₁, if_neg hlt₁]
-                    by_cases hlt₂ : ReducibilityHint.lt
-                        (headHint env a'x) (headHint env b'x) = true
-                    · rw [if_pos hlt₂, if_pos hlt₂]
-                      refine SimC.bind_left (unfoldDefinitionC_eff hs₄ hb'd)
-                        (fun s₅ ub hs₅ hQb => ?_)
-                      cases hub : unfoldDefinition env b'x with
-                      | none =>
-                        rw [hub] at hQb
-                        cases ub with
-                        | some b₂ => exact absurd hQb (by simp [OptEr])
-                        | none => exact SimC.pure hs₅ rfl
-                      | some b₂x =>
-                        rw [hub] at hQb
-                        cases ub with
-                        | none => exact absurd hQb (by simp [OptEr])
-                        | some b₂ =>
-                          exact hk _ hs₅ ha'd hQb hwa'
-                            (unfoldDefinition_WScoped henv hub hwb')
-                    · rw [if_neg hlt₂, if_neg hlt₂]
-                      refine SimC.pureB ?_
-                      rw [sameConstHeadsC_spec' ha'd hb'd]
-                      by_cases hsr : (ReducibilityHint.sameRegular
-                          (headHint env a'x) (headHint env b'x) &&
-                          sameConstHeads a'x b'x) = true
-                      · rw [if_pos hsr, if_pos hsr]
-                        refine SimC.bind (defeqSpineC_sim ih hs₄
-                          ha'd hb'd hwa' hwb')
-                          (fun s₇ sp sp' hs₇ hPsp => ?_)
-                        obtain rfl : sp = sp' := hPsp
-                        cases sp with
-                        | true =>
-                          simp only [↓reduceIte]
-                          exact SimC.pure hs₇ rfl
-                        | false =>
-                          simp only [Bool.false_eq_true, ↓reduceIte]
-                          exact defeqBothC ih henv hk hs₇ ha'd hb'd hwa' hwb'
-                      · rw [if_neg hsr, if_neg hsr]
-                        exact defeqBothC ih henv hk hs₄ ha'd hb'd hwa' hwb'
-              | false =>
-              cases hdb : unfoldableHead env b'x with
-              | true =>
-                dsimp only
-                refine SimC.bind_left (unfoldDefinitionC_eff hs₄ hb'd)
-                  (fun s₅ ub hs₅ hQb => ?_)
-                cases hub : unfoldDefinition env b'x with
-                | none =>
-                  rw [hub] at hQb
-                  cases ub with
-                  | some b₂ => exact absurd hQb (by simp [OptEr])
-                  | none => exact SimC.pure hs₅ rfl
-                | some b₂x =>
-                  rw [hub] at hQb
-                  cases ub with
-                  | none => exact absurd hQb (by simp [OptEr])
-                  | some b₂ =>
-                    exact hk _ hs₅ ha'd hQb hwa'
-                      (unfoldDefinition_WScoped henv hub hwb')
-              | false =>
-                dsimp only
-                have haS := ha'd
-                have hbS := hb'd
-                have hs₆ := hs₄
-                obtain rfl := ha'd
-                obtain rfl := hb'd
-                cases a' with
-                | sort u₁ =>
-                  cases b' with
-                  | sort u₂ =>
-                    dsimp only
-                    refine SimC.bind_left (isEquivLM_eff hs₆ u₁ u₂)
-                      (fun sE o hsE ho => ?_)
-                    subst ho
-                    exact SimC.liftFueled _ _ hsE
-                  | lam t₂ b₂ m₂ =>
-                    dsimp only
-                    exact defeqC_etaR_arm hμ ih henv hs₆ haS rfl
-                      rfl hbS hwa' hwb'
-                  | _ =>
-                    dsimp only
-                    exact stuckIrrelC_sim hμ ih henv hs₆ haS hbS hwa' hwb'
-                | lit l₁ =>
-                  cases l₁ with
-                  | natVal n₁ =>
-                    cases b' with
-                    | lit l₂ =>
-                      dsimp only
-                      exact SimC.pure hs₆ rfl
-                    | const c₂ us₂ =>
-                      dsimp only
-                      refine SimC.bind_left (pureEq_eff hs₆ (c₂ == natZeroName))
-                        (fun s₆b bq hs₆b hbq => ?_)
-                      subst bq
-                      simp only [beq_iff_eq]
-                      by_cases hz : c₂ = natZeroName ∧ us₂ = []
-                      · rw [if_pos hz, if_pos hz]
-                        exact SimC.pure hs₆b rfl
-                      · rw [if_neg hz, if_neg hz]
-                        exact stuckIrrelC_sim hμ ih henv hs₆b haS hbS hwa' hwb'
-                    | app f₂ x₂ =>
-                      have hwb'' : Expr.WScoped d
-                        (Expr.app (f₂) (x₂)) := hwb'
-                      have h2 : Expr.WScoped d (f₂) ∧
-                          Expr.WScoped d (x₂) := by
-                        simpa only [Expr.WScoped] using hwb''
-                      dsimp only
-                      cases n₁ with
-                      | zero =>
-                        dsimp only
-                        exact stuckIrrelC_sim hμ ih henv hs₆ haS hbS hwa' hwb'
-                      | succ k =>
-                        cases f₂ with
-                        | const cf usf =>
-                          cases usf with
-                          | cons u us' =>
-                            dsimp only
-                            exact stuckIrrelC_sim hμ ih henv hs₆ haS hbS hwa' hwb'
-                          | nil =>
-                            dsimp only
-                            refine SimC.bind_left
-                              (pureEq_eff hs₆ (cf == natSuccName))
-                              (fun s₆b bq hs₆b hbq => ?_)
-                            subst bq
-                            simp only [beq_iff_eq]
-                            by_cases hsc : cf = natSuccName
-                            · rw [if_pos hsc, if_pos hsc]
-                              refine SimC.bind_left (pureC_eff hs₆b
-                                (x := Expr.lit (.natVal k)))
-                                (fun s₇ kl hs₇ hQk => ?_)
-                              have hQk' : RelC kl
-                                (Expr.lit (.natVal k)) := hQk
-                              exact ih.defeq hs₇ hQk' rfl
-                                (by simp [Expr.WScoped]) h2.2
-                            · rw [if_neg hsc, if_neg hsc]
-                              exact stuckIrrelC_sim hμ ih henv hs₆b haS hbS
-                                hwa' hwb'
-                        | _ =>
-                          dsimp only
-                          exact stuckIrrelC_sim hμ ih henv hs₆ haS hbS hwa' hwb'
-                    | lam t₂ b₂ m₂ =>
-                      dsimp only
-                      exact defeqC_etaR_arm hμ ih henv hs₆ haS rfl
-                        rfl hbS hwa' hwb'
-                    | _ =>
-                      dsimp only
-                      exact stuckIrrelC_sim hμ ih henv hs₆ haS hbS hwa' hwb'
-                  | strVal str =>
-                    cases b' with
-                    | lit l₂ =>
-                      dsimp only
-                      exact SimC.pure hs₆ rfl
-                    | app f₂ x₂ =>
-                      dsimp only
-                      cases f₂ with
-                      | const cf usf =>
-                        dsimp only
-                        rw [strLitSupportedF_eq]
-                        refine SimC.bind_left
-                          (pureEq_eff hs₆ (cf == stringOfListName))
-                          (fun s₆b bq hs₆b hbq => ?_)
-                        subst bq
-                        simp only [beq_iff_eq]
-                        by_cases hsc : cf = stringOfListName ∧ usf = [] ∧
-                            strLitSupported env = true
-                        · rw [if_pos hsc, if_pos hsc]
-                          refine SimC.bind_left (pureC_eff hs₆b
-                            (strLitToConstructor str))
-                            (fun s₇ sc hs₇ hQs => ?_)
-                          exact ih.defeq hs₇ hQs hbS
-                            (strLitToConstructor_WScoped str d) hwb'
-                        · rw [if_neg hsc, if_neg hsc]
-                          exact stuckIrrelC_sim hμ ih henv hs₆b haS hbS hwa' hwb'
-                      | _ =>
-                        dsimp only
-                        exact stuckIrrelC_sim hμ ih henv hs₆ haS hbS hwa' hwb'
-                    | lam t₂ b₂ m₂ =>
-                      dsimp only
-                      exact defeqC_etaR_arm hμ ih henv hs₆ haS rfl
-                        rfl hbS hwa' hwb'
-                    | _ =>
-                      dsimp only
-                      exact stuckIrrelC_sim hμ ih henv hs₆ haS hbS hwa' hwb'
-                | fvar i₁ t₁ =>
-                  cases b' with
-                  | fvar i₂ t₂ =>
-                    dsimp only
-                    by_cases hij : (i₁ == i₂) = true
-                    · rw [if_pos hij, if_pos hij]
-                      exact SimC.pure hs₆ rfl
-                    · rw [if_neg hij, if_neg hij]
-                      exact stuckIrrelC_sim hμ ih henv hs₆ haS hbS hwa' hwb'
-                  | lam t₂ b₂ m₂ =>
-                    dsimp only
-                    exact defeqC_etaR_arm hμ ih henv hs₆ haS rfl
-                      rfl hbS hwa' hwb'
-                  | _ =>
-                    dsimp only
-                    exact stuckIrrelC_sim hμ ih henv hs₆ haS hbS hwa' hwb'
-                | const c₁ us₁ =>
-                  cases b' with
-                  | const c₂ us₂ =>
-                    dsimp only
-                    by_cases hcc : c₁ = c₂
-                    · rw [if_pos hcc, if_pos hcc]
-                      refine SimC.bind_left (isEquivListLM_eff hs₆)
-                        (fun sE o hsE ho => ?_)
-                      subst ho
-                      refine SimC.bind (SimC.liftFueled _ _ hsE)
-                        (fun s₇ ok ok' hs₇ hPok => ?_)
-                      obtain rfl : ok = ok' := hPok
-                      cases ok with
-                      | true =>
-                        simp only [↓reduceIte]
-                        exact SimC.pure hs₇ rfl
-                      | false =>
-                        simp only [Bool.false_eq_true, ↓reduceIte]
-                        exact stuckIrrelC_sim hμ ih henv hs₇ haS hbS hwa' hwb'
-                    · rw [if_neg hcc, if_neg hcc]
-                      exact stuckIrrelC_sim hμ ih henv hs₆ haS hbS hwa' hwb'
-                  | lit l₂ =>
-                    cases l₂ with
-                    | natVal n₂ =>
-                      dsimp only
-                      refine SimC.bind_left (pureEq_eff hs₆ (c₁ == natZeroName))
-                        (fun s₆b bq hs₆b hbq => ?_)
-                      subst bq
-                      simp only [beq_iff_eq]
-                      by_cases hz : c₁ = natZeroName ∧ us₁ = []
-                      · rw [if_pos hz, if_pos hz]
-                        exact SimC.pure hs₆b rfl
-                      · rw [if_neg hz, if_neg hz]
-                        exact stuckIrrelC_sim hμ ih henv hs₆b haS hbS hwa' hwb'
-                    | strVal str =>
-                      dsimp only
-                      exact stuckIrrelC_sim hμ ih henv hs₆ haS hbS hwa' hwb'
-                  | lam t₂ b₂ m₂ =>
-                    dsimp only
-                    exact defeqC_etaR_arm hμ ih henv hs₆ haS rfl
-                      rfl hbS hwa' hwb'
-                  | _ =>
-                    dsimp only
-                    exact stuckIrrelC_sim hμ ih henv hs₆ haS hbS hwa' hwb'
-                | forallE t₁ b₁ m₁ =>
-                  have hwa'' : Expr.WScoped d
-                    (Expr.forallE (t₁) (b₁) m₁) := hwa'
-                  have h1 : Expr.WScoped d (t₁) ∧
-                      Expr.WScoped d (b₁) := by
-                    simpa only [Expr.WScoped] using hwa''
-                  cases b' with
-                  | forallE t₂ b₂ m₂ =>
-                    dsimp only
-                    have hwb'' : Expr.WScoped d
-                      (Expr.forallE (t₂) (b₂) m₂) := hwb'
-                    have h2 : Expr.WScoped d (t₂) ∧
-                        Expr.WScoped d (b₂) := by
-                      simpa only [Expr.WScoped] using hwb''
-                    refine SimC.bind
-                      (ih.defeq hs₆ rfl rfl h1.1 h2.1)
-                      (fun s₇ r₁ r₁' hs₇ hP₁ => ?_)
-                    obtain rfl : r₁ = r₁' := hP₁
-                    cases r₁ with
-                    | false =>
-                      simp only [Bool.false_eq_true, ↓reduceIte]
-                      exact SimC.pure hs₇ rfl
-                    | true =>
-                      simp only [↓reduceIte]
-                      -- one shared local for both bodies (official
-                      -- `is_def_eq_binding`; task #201)
-                      refine SimC.bind_left
-                        (pureC_eff hs₇ (x := Expr.fvar d t₂))
-                        (fun s₈ fv hs₈ hQf => ?_)
-                      have hQf' : RelC fv
-                        (Expr.fvar d (t₂)) := hQf
-                      refine SimC.bind_left
-                        (inst1M_eff hs₈ rfl hQf')
-                        (fun s₉ ob₁ hs₉ hQo₁ => ?_)
-                      refine SimC.bind_left
-                        (inst1M_eff hs₉ rfl hQf')
-                        (fun s₁₁ ob₂ hs₁₁ hQo₂ => ?_)
-                      refine SimC.bind (ih.defeq hs₁₁ hQo₁ hQo₂
-                        (Expr.WScoped.instantiate1 h2.1 0 h1.2)
-                        (Expr.WScoped.instantiate1 h2.1 0 h2.2))
-                        (fun s₁₂ r₂ r₂x hs₁₂ hPr₂ => ?_)
-                      obtain rfl : r₂ = r₂x := hPr₂
-                      cases r₂ with
-                      | false =>
-                        simp only [Bool.false_eq_true, ↓reduceIte]
-                        exact SimC.pure hs₁₂ rfl
-                      | true =>
-                        -- task #172 B3 method row: the cached side's
-                        -- guard reads `mode.verified`, the
-                        -- pure side's `mode.verifiedChecks`.  They are
-                        -- `rfl`-equal but their `Decidable` instances
-                        -- are not syntactically one, so `split`
-                        -- decides only one `if`; `by_cases` on the
-                        -- guard plus `↓reduceIte` decides both.
-                        simp only [↓reduceIte]
-                        by_cases hpw :
-                            (mode.verifiedChecks && !m₁.pw == m₂.pw) = true
-                        · simp only [hpw, ↓reduceIte]
-                          exact SimC.throw_bind
-                        · simp only [Bool.not_eq_true] at hpw
-                          simp only [hpw, ↓reduceIte]
-                          exact SimC.pure hs₁₂ rfl
-                  | lam t₂ b₂ m₂ =>
-                    dsimp only
-                    exact defeqC_etaR_arm hμ ih henv hs₆ haS rfl
-                      rfl hbS hwa' hwb'
-                  | _ =>
-                    dsimp only
-                    exact stuckIrrelC_sim hμ ih henv hs₆ haS hbS hwa' hwb'
-                | lam t₁ b₁ m₁ =>
-                  have hwa'' : Expr.WScoped d
-                    (Expr.lam (t₁) (b₁) m₁) := hwa'
-                  have h1 : Expr.WScoped d (t₁) ∧
-                      Expr.WScoped d (b₁) := by
-                    simpa only [Expr.WScoped] using hwa''
-                  cases b' with
-                  | lam t₂ b₂ m₂ =>
-                    dsimp only
-                    have hwb'' : Expr.WScoped d
-                      (Expr.lam (t₂) (b₂) m₂) := hwb'
-                    have h2 : Expr.WScoped d (t₂) ∧
-                        Expr.WScoped d (b₂) := by
-                      simpa only [Expr.WScoped] using hwb''
-                    refine SimC.bind
-                      (ih.defeq hs₆ rfl rfl h1.1 h2.1)
-                      (fun s₇ r₁ r₁' hs₇ hP₁ => ?_)
-                    obtain rfl : r₁ = r₁' := hP₁
-                    cases r₁ with
-                    | false =>
-                      simp only [Bool.false_eq_true, ↓reduceIte]
-                      exact SimC.pure hs₇ rfl
-                    | true =>
-                      simp only [↓reduceIte]
-                      -- one shared local for both bodies (official
-                      -- `is_def_eq_binding`; task #201)
-                      refine SimC.bind_left
-                        (pureC_eff hs₇ (x := Expr.fvar d t₂))
-                        (fun s₈ fv hs₈ hQf => ?_)
-                      have hQf' : RelC fv
-                        (Expr.fvar d (t₂)) := hQf
-                      refine SimC.bind_left
-                        (inst1M_eff hs₈ rfl hQf')
-                        (fun s₉ ob₁ hs₉ hQo₁ => ?_)
-                      refine SimC.bind_left
-                        (inst1M_eff hs₉ rfl hQf')
-                        (fun s₁₁ ob₂ hs₁₁ hQo₂ => ?_)
-                      refine SimC.bind (ih.defeq hs₁₁ hQo₁ hQo₂
-                        (Expr.WScoped.instantiate1 h2.1 0 h1.2)
-                        (Expr.WScoped.instantiate1 h2.1 0 h2.2))
-                        (fun s₁₂ r₂ r₂x hs₁₂ hPr₂ => ?_)
-                      obtain rfl : r₂ = r₂x := hPr₂
-                      cases r₂ with
-                      | false =>
-                        simp only [Bool.false_eq_true, ↓reduceIte]
-                        exact SimC.pure hs₁₂ rfl
-                      | true =>
-                        -- task #172 B3 method row: the cached side's
-                        -- guard reads `mode.verified`, the
-                        -- pure side's `mode.verifiedChecks`.  They are
-                        -- `rfl`-equal but their `Decidable` instances
-                        -- are not syntactically one, so `split`
-                        -- decides only one `if`; `by_cases` on the
-                        -- guard plus `↓reduceIte` decides both.
-                        simp only [↓reduceIte]
-                        by_cases hpw :
-                            (mode.verifiedChecks && !m₁.pw == m₂.pw) = true
-                        · simp only [hpw, ↓reduceIte]
-                          exact SimC.throw_bind
-                        · simp only [Bool.not_eq_true] at hpw
-                          simp only [hpw, ↓reduceIte]
-                          exact SimC.pure hs₁₂ rfl
-                  | _ =>
-                    dsimp only
-                    exact defeqC_etaL_arm hμ ih henv hs₆ haS rfl
-                      rfl hbS hwa' hwb'
-                | app f₁ x₁ =>
-                  have hwa'' : Expr.WScoped d
-                    (Expr.app (f₁) (x₁)) := hwa'
-                  have h1 : Expr.WScoped d (f₁) ∧
-                      Expr.WScoped d (x₁) := by
-                    simpa only [Expr.WScoped] using hwa''
-                  cases b' with
-                  | app f₂ x₂ =>
-                    dsimp only
-                    -- spine-wise congruence (task #106)
-                    refine SimC.pureB ?_
-                    refine SimC.pureB ?_
-                    have hAA : RelCL
-                        (Expr.getAppArgsC (Expr.app f₁ x₁))
-                        (Expr.app (f₁) (x₁)).getAppArgs :=
-                      Expr.getAppArgsC_spec _
-                    have hBB : RelCL
-                        (Expr.getAppArgsC (Expr.app f₂ x₂))
-                        (Expr.app (f₂) (x₂)).getAppArgs :=
-                      Expr.getAppArgsC_spec _
-                    have hlena :
-                        (Expr.getAppArgsC
-                          (Expr.app f₁ x₁)).length
-                        = (Expr.app (f₁) (x₁)).getAppArgs.length :=
-                      RelCL.length hAA
-                    have hlenb :
-                        (Expr.getAppArgsC
-                          (Expr.app f₂ x₂)).length
-                        = (Expr.app (f₂) (x₂)).getAppArgs.length :=
-                      RelCL.length hBB
-                    simp only [hlena, hlenb]
-                    by_cases hlen :
-                        (Expr.app (f₁) (x₁)).getAppArgs.length
-                          = (Expr.app (f₂) (x₂)).getAppArgs.length
-                    · rw [if_pos hlen, if_pos hlen]
-                      refine SimC.pureB ?_
-                      refine SimC.pureB ?_
-                      refine SimC.bind (ih.defeq hs₆ rfl rfl
-                        hwa''.getAppFn hwb'.getAppFn)
-                        (fun s₇ r₁ r₁' hs₇ hP₁ => ?_)
-                      obtain rfl : r₁ = r₁' := hP₁
-                      cases r₁ with
-                      | true =>
-                        simp only [↓reduceIte]
-                        refine SimC.bind (defEqListC_sim ih hs₇ hAA hBB
-                          hwa''.getAppArgs hwb'.getAppArgs)
-                          (fun s₈ r₂ r₂' hs₈ hP₂ => ?_)
-                        obtain rfl : r₂ = r₂' := hP₂
-                        cases r₂ with
-                        | true =>
-                          simp only [↓reduceIte]
-                          exact SimC.pure hs₈ rfl
-                        | false =>
-                          simp only [Bool.false_eq_true, ↓reduceIte]
-                          exact stuckIrrelC_sim hμ ih henv hs₈ haS hbS hwa' hwb'
-                      | false =>
-                        simp only [Bool.false_eq_true, ↓reduceIte]
-                        exact stuckIrrelC_sim hμ ih henv hs₇ haS hbS hwa' hwb'
-                    · rw [if_neg hlen, if_neg hlen]
-                      exact stuckIrrelC_sim hμ ih henv hs₆ haS hbS hwa' hwb'
-                  | lit l₂ =>
-                    cases l₂ with
-                    | natVal nn =>
-                      dsimp only
-                      cases nn with
-                      | zero =>
-                        dsimp only
-                        exact stuckIrrelC_sim hμ ih henv hs₆ haS hbS hwa' hwb'
-                      | succ k =>
-                        cases f₁ with
-                        | const cf usf =>
-                          cases usf with
-                          | cons u us' =>
-                            dsimp only
-                            exact stuckIrrelC_sim hμ ih henv hs₆ haS hbS hwa' hwb'
-                          | nil =>
-                            dsimp only
-                            refine SimC.bind_left
-                              (pureEq_eff hs₆ (cf == natSuccName))
-                              (fun s₆b bq hs₆b hbq => ?_)
-                            subst bq
-                            simp only [beq_iff_eq]
-                            by_cases hsc : cf = natSuccName
-                            · rw [if_pos hsc, if_pos hsc]
-                              refine SimC.bind_left (pureC_eff hs₆b
-                                (x := Expr.lit (.natVal k)))
-                                (fun s₇ kl hs₇ hQk => ?_)
-                              have hQk' : RelC kl
-                                (Expr.lit (.natVal k)) := hQk
-                              exact ih.defeq hs₇ rfl hQk' h1.2
-                                (by simp [Expr.WScoped])
-                            · rw [if_neg hsc, if_neg hsc]
-                              exact stuckIrrelC_sim hμ ih henv hs₆b haS hbS
-                                hwa' hwb'
-                        | _ =>
-                          dsimp only
-                          exact stuckIrrelC_sim hμ ih henv hs₆ haS hbS hwa' hwb'
-                    | strVal str =>
-                      dsimp only
-                      cases f₁ with
-                      | const cf usf =>
-                        dsimp only
-                        rw [strLitSupportedF_eq]
-                        refine SimC.bind_left
-                          (pureEq_eff hs₆ (cf == stringOfListName))
-                          (fun s₆b bq hs₆b hbq => ?_)
-                        subst bq
-                        simp only [beq_iff_eq]
-                        by_cases hsc : cf = stringOfListName ∧ usf = [] ∧
-                            strLitSupported env = true
-                        · rw [if_pos hsc, if_pos hsc]
-                          refine SimC.bind_left (pureC_eff hs₆b
-                            (strLitToConstructor str))
-                            (fun s₇ sc hs₇ hQs => ?_)
-                          exact ih.defeq hs₇ haS hQs hwa'
-                            (strLitToConstructor_WScoped str d)
-                        · rw [if_neg hsc, if_neg hsc]
-                          exact stuckIrrelC_sim hμ ih henv hs₆b haS hbS hwa' hwb'
-                      | _ =>
-                        dsimp only
-                        exact stuckIrrelC_sim hμ ih henv hs₆ haS hbS hwa' hwb'
-                  | lam t₂ b₂ m₂ =>
-                    dsimp only
-                    exact defeqC_etaR_arm hμ ih henv hs₆ haS rfl
-                      rfl hbS hwa' hwb'
-                  | _ =>
-                    dsimp only
-                    exact stuckIrrelC_sim hμ ih henv hs₆ haS hbS hwa' hwb'
-                | bvar k₁ =>
-                  cases b' with
-                  | lam t₂ b₂ m₂ =>
-                    dsimp only
-                    exact defeqC_etaR_arm hμ ih henv hs₆ haS rfl
-                      rfl hbS hwa' hwb'
-                  | _ =>
-                    dsimp only
-                    exact stuckIrrelC_sim hμ ih henv hs₆ haS hbS hwa' hwb'
-                | letE t₁ v₁ b₁ =>
-                  cases b' with
-                  | lam t₂ b₂ m₂ =>
-                    dsimp only
-                    exact defeqC_etaR_arm hμ ih henv hs₆ haS rfl
-                      rfl hbS hwa' hwb'
-                  | _ =>
-                    dsimp only
-                    exact stuckIrrelC_sim hμ ih henv hs₆ haS hbS hwa' hwb'
-                | proj s₁' j₁ e₁ =>
-                  have hwa'' : Expr.WScoped d
-                    (Expr.proj s₁' j₁ (e₁)) := hwa'
-                  have h1 : Expr.WScoped d (e₁) := by
-                    simpa only [Expr.WScoped] using hwa''
-                  cases b' with
-                  | proj s₂' j₂ e₂ =>
-                    dsimp only
-                    have hwb'' : Expr.WScoped d
-                      (Expr.proj s₂' j₂ (e₂)) := hwb'
-                    have h2 : Expr.WScoped d (e₂) := by
-                      simpa only [Expr.WScoped] using hwb''
-                    by_cases hjj : (s₁' == s₂' && j₁ == j₂) = true
-                    · rw [if_pos hjj, if_pos hjj]
-                      refine SimC.bind
-                        (ih.defeq hs₆ rfl rfl h1 h2)
-                        (fun s₇ r₁ r₁' hs₇ hP₁ => ?_)
-                      obtain rfl : r₁ = r₁' := hP₁
-                      cases r₁ with
-                      | true =>
-                        simp only [↓reduceIte]
-                        exact SimC.pure hs₇ rfl
-                      | false =>
-                        simp only [Bool.false_eq_true, ↓reduceIte]
-                        exact stuckIrrelC_sim hμ ih henv hs₇ haS hbS hwa' hwb'
-                    · rw [if_neg hjj, if_neg hjj]
-                      exact stuckIrrelC_sim hμ ih henv hs₆ haS hbS hwa' hwb'
-                  | lam t₂ b₂ m₂ =>
-                    dsimp only
-                    exact defeqC_etaR_arm hμ ih henv hs₆ haS rfl
-                      rfl hbS hwa' hwb'
-                  | _ =>
-                    dsimp only
-                    exact stuckIrrelC_sim hμ ih henv hs₆ haS hbS hwa' hwb'
-
-/-- The lazy-delta *loop* simulates its specification, by induction on
-the shared step budget (task #106). -/
-theorem defeqLoopC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode env f) (henv : EnvWF env) {d : Nat} :
-    ∀ (n : Nat) (pi : Bool) {i j : Expr} {a b : Expr} {s₀ : CState},
-      CSOK mode env s₀ →
-      RelC i a → RelC j b →
-      Expr.WScoped d a → Expr.WScoped d b →
-      SimC mode env s₀ RelVC
-        (defeqLoopI mode (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d n pi i j)
-        (defeqLoop mode (fueledFns mode env) env d n pi a b)
-  | 0, _, _, _, _, _, _, _, _, _, _, _ => SimC.throw
-  | n + 1, pi, _, _, _, _, _, hs, hda, hdb, hwa, hwb => by
-    simp only [defeqLoopI, defeqLoop]
-    exact defeqStepC_sim hμ ih henv
-      (fun pi' {_ _ _ _ _} h1 h2 h3 h4 h5 =>
-        defeqLoopC_sim hμ ih henv n pi' h1 h2 h3 h4 h5)
-      pi hs hda hdb hwa hwb
+      refine SimC.pureB ?_
+      refine SimC.bind (ih.defeq hs rfl rfl hwa.getAppFn hwb.getAppFn)
+        (fun s₇ r₁ r₁' hs₇ hP₁ => ?_)
+      obtain rfl : r₁ = r₁' := hP₁
+      cases r₁ with
+      | true =>
+        simp only [↓reduceIte]
+        refine SimC.bind (defEqListC_sim ih hs₇ hAA hBB hwa.getAppArgs hwb.getAppArgs)
+          (fun s₈ r₂ r₂' hs₈ hP₂ => ?_)
+        obtain rfl : r₂ = r₂' := hP₂
+        cases r₂ with
+        | true =>
+          simp only [↓reduceIte]
+          exact SimC.pure hs₈ rfl
+        | false =>
+          simp only [Bool.false_eq_true, ↓reduceIte]
+          exact stuckIrrelC_sim hμ ih henv hs₈ haS hbS hwa hwb
+      | false =>
+        simp only [Bool.false_eq_true, ↓reduceIte]
+        exact stuckIrrelC_sim hμ ih henv hs₇ haS hbS hwa hwb
+    · rw [if_neg hlen, if_neg hlen]
+      exact stuckIrrelC_sim hμ ih henv hs haS hbS hwa hwb
 
 theorem defeqBodyC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode env f) (henv : EnvWF env)
     {d : Nat} {i j : Expr} {a b : Expr} {s₀ : CState} (hs : CSOK mode env s₀)
@@ -875,8 +735,81 @@ theorem defeqBodyC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode env f
     (hwa : Expr.WScoped d a) (hwb : Expr.WScoped d b) :
     SimC mode env s₀ RelVC
       (defeqBodyI mode (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d i j)
-      (defeqBody mode (fueledFns mode env) env d a b) :=
-  defeqLoopC_sim hμ ih henv defeqLoopFuel true hs hdena hdenb hwa hwb
+      (defeqBody mode (fueledFns mode env) env d a b) := by
+  obtain rfl := hdena
+  obtain rfl := hdenb
+  unfold defeqBodyI defeqBody
+  by_cases hab : (i == j) = true
+  · simp only [if_pos hab]
+    exact SimC.pure hs rfl
+  simp only [if_neg hab]
+  refine SimC.pureB ?_
+  rw [isBoolTrue_spec' rfl]
+  refine SimC.pureB ?_
+  rw [hasFvar_spec' rfl]
+  refine SimC.bind (boolTrueShortcutIfC_sim ih hs rfl hwa _)
+    (fun s₀b rbt rbtx hs₀b hPbt => ?_)
+  cases hPbt
+  cases rbt with
+  | true =>
+    simp only [↓reduceIte]
+    exact SimC.pure hs₀b rfl
+  | false =>
+  simp only [Bool.false_eq_true, ↓reduceIte]
+  refine SimC.bind (ih.whnfCore hs₀b rfl hwa)
+    (fun s₁ a' a'x hs₁ hPa => ?_)
+  obtain ⟨rfl, hwa'⟩ := hPa
+  refine SimC.bind (ih.whnfCore hs₁ rfl hwb)
+    (fun s₂ b' b'x hs₂ hPb => ?_)
+  obtain ⟨rfl, hwb'⟩ := hPb
+  refine SimC.bind (quickDefEqC_sim hμ ih hs₂ rfl rfl hwa' hwb')
+    (fun s₃ o o' hs₃ hPo => ?_)
+  obtain rfl : o = o' := hPo
+  cases o with
+  | some v => exact SimC.pure hs₃ rfl
+  | none =>
+  dsimp only
+  refine SimC.bind (propIrrelC_sim ih hs₃ rfl rfl hwa' hwb')
+    (fun s₄ rp rp' hs₄ hPp => ?_)
+  obtain rfl : rp = rp' := hPp
+  cases rp with
+  | true =>
+    simp only [↓reduceIte]
+    exact SimC.pure hs₄ rfl
+  | false =>
+  simp only [Bool.false_eq_true, ↓reduceIte]
+  refine SimC.bind (lazyDeltaReductionC_sim hμ ih henv _ hs₄ rfl rfl hwa' hwb')
+    (fun s₅ lr lr' hs₅ hPl => ?_)
+  obtain ⟨rfl, hsc⟩ := hPl
+  cases lr with
+  | verdict v => exact SimC.pure hs₅ rfl
+  | unknown a₁ b₁ =>
+  obtain ⟨hwa₁, hwb₁⟩ := hsc a₁ b₁ rfl
+  dsimp only
+  refine SimC.bind (defeqProjPairC_sim hμ ih henv hs₅ rfl rfl hwa₁ hwb₁)
+    (fun s₆ rq rq' hs₆ hPq => ?_)
+  obtain rfl : rq = rq' := hPq
+  cases rq with
+  | true =>
+    simp only [↓reduceIte]
+    exact SimC.pure hs₆ rfl
+  | false =>
+  simp only [Bool.false_eq_true, ↓reduceIte]
+  by_cases hhp : (!a₁.headIsProj && !b₁.headIsProj) = true
+  · rw [if_pos hhp, if_pos hhp]
+    exact defeqStuckC_sim hμ ih henv hs₆ rfl rfl hwa₁ hwb₁
+  rw [if_neg hhp, if_neg hhp]
+  refine SimC.bind (ih.whnfCore hs₆ rfl hwa₁)
+    (fun s₇ a₂ a₂x hs₇ hPa₂ => ?_)
+  obtain ⟨rfl, hwa₂⟩ := hPa₂
+  refine SimC.bind (ih.whnfCore hs₇ rfl hwb₁)
+    (fun s₈ b₂ b₂x hs₈ hPb₂ => ?_)
+  obtain ⟨rfl, hwb₂⟩ := hPb₂
+  by_cases hun : (a₂ == a₁ && b₂ == b₁) = true
+  · rw [if_pos hun, if_pos hun]
+    exact defeqStuckC_sim hμ ih henv hs₈ rfl rfl hwa₁ hwb₁
+  · rw [if_neg hun, if_neg hun]
+    exact ih.defeq hs₈ rfl rfl hwa₂ hwb₂
 
 end Walks
 

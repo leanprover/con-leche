@@ -801,11 +801,6 @@ theorem isCtorAppC_spec' {env : Env} {e : Expr} {ex : Expr}
     isCtorAppC (mkFEnv env) e = isCtorApp env ex := by
   rw [isCtorAppC_spec, h]
 
-/-- `Expr.quickPair` transported along the value equations. -/
-theorem quickPair_spec' {a b : Expr} {ax bx : Expr}
-    (ha : a = ax) (hb : b = bx) : Expr.quickPair a b = Expr.quickPair ax bx := by
-  rw [ha, hb]
-
 /-- The eta constructor-shape gate agrees with the spec's `etaCtorShape`
 (`Expr = Expr`; only the environment lookup differs). -/
 theorem etaCtorShapeC_spec' {env : Env} {e : Expr} {ex : Expr}

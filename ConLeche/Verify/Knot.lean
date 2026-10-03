@@ -32,9 +32,9 @@ theorem whnfLoopFuel_succ : ∃ n, whnfLoopFuel = n + 1 :=
   ⟨99999, by unfold whnfLoopFuel; rfl⟩
 
 
-@[simp] theorem pureFns_whnfCore (env : Env) (f d : Nat) (e : Expr) :
-    (pureFns mode env (f + 1)).whnfCore d e =
-      whnfCoreBody mode (pureFns mode env f) env d e := rfl
+@[simp] theorem pureFns_whnfCore (env : Env) (f d : Nat) (e : Expr) (c : Bool) :
+    (pureFns mode env (f + 1)).whnfCore c d e =
+      whnfCoreBody mode (pureFns mode env f) env c d e := rfl
 
 @[simp] theorem pureFns_whnf (env : Env) (f d : Nat) (e : Expr) :
     (pureFns mode env (f + 1)).whnf d e = whnfBody (pureFns mode env f) env d e := rfl
@@ -50,8 +50,8 @@ theorem whnfLoopFuel_succ : ∃ n, whnfLoopFuel = n + 1 :=
     (pureFns mode env (f + 1)).annotate d e =
       annotateBody (pureFns mode env f) env d e := rfl
 
-theorem whnfCore_succ (env : Env) (f d : Nat) (e : Expr) :
-    whnfCore mode env (f + 1) d e = whnfCoreBody mode (pureFns mode env f) env d e := rfl
+theorem whnfCore_succ (env : Env) (f d : Nat) (e : Expr) {c : Bool} :
+    whnfCore mode env (f + 1) d e c = whnfCoreBody mode (pureFns mode env f) env c d e := rfl
 
 theorem whnf_succ (env : Env) (f d : Nat) (e : Expr) :
     whnf mode env (f + 1) d e = whnfBody (pureFns mode env f) env d e := rfl
@@ -72,8 +72,8 @@ fields are the full knot's at the same fuel, so the equations below
 fold them straight back to the full spellings and the io claims family
 consumes the sealed four unchanged. -/
 
-@[simp] theorem pureFnsIO_whnfCore (env : Env) (f d : Nat) (e : Expr) :
-    (pureFnsIO mode env f).whnfCore d e = whnfCore mode env f d e := by
+@[simp] theorem pureFnsIO_whnfCore (env : Env) (f d : Nat) (e : Expr) (c : Bool) :
+    (pureFnsIO mode env f).whnfCore c d e = whnfCore mode env f d e c := by
   cases f <;> rfl
 
 @[simp] theorem pureFnsIO_whnf (env : Env) (f d : Nat) (e : Expr) :
@@ -180,8 +180,8 @@ theorem inferTypeIO_on (hg : mode.betaGate = true) (env : Env) :
       (funext fun d' => funext fun a => funext fun b =>
         (pureFnsIO_defeq env f d' a b).symm) d e
 
-theorem whnfCore_def (env : Env) (f d : Nat) (e : Expr) :
-    (pureFns mode env f).whnfCore d e = whnfCore mode env f d e := rfl
+theorem whnfCore_def (env : Env) (f d : Nat) (e : Expr) {c : Bool} :
+    (pureFns mode env f).whnfCore c d e = whnfCore mode env f d e c := rfl
 
 theorem whnf_def (env : Env) (f d : Nat) (e : Expr) :
     (pureFns mode env f).whnf d e = whnf mode env f d e := rfl
@@ -196,8 +196,8 @@ theorem annotate_def (env : Env) (f d : Nat) (e : Expr) :
     (pureFns mode env f).annotate d e = annotateCore mode env f d e := rfl
 
 /-- Fuel-zero spellings throw. -/
-theorem whnfCore_zero (env : Env) (d : Nat) (e : Expr) :
-    whnfCore mode env 0 d e = throw (.internal "fuel exhausted: whnfCore") := rfl
+theorem whnfCore_zero (env : Env) (d : Nat) (e : Expr) {c : Bool} :
+    whnfCore mode env 0 d e c = throw (.internal "fuel exhausted: whnfCore") := rfl
 
 theorem whnf_zero (env : Env) (d : Nat) (e : Expr) :
     whnf mode env 0 d e = throw (.internal "fuel exhausted: whnf") := rfl
@@ -284,6 +284,37 @@ abbrev boolTrueShortcutFueled (mode : CheckMode) (env : Env) (fuel : Nat) : Nat 
 abbrev defeqSpineFueled (mode : CheckMode) (env : Env) (fuel : Nat) : Nat → Expr → Expr →
     CheckM Bool := defeqSpine (pureFns mode env fuel) env
 
+abbrev reduceProjCoreFueled (mode : CheckMode) (env : Env) (fuel : Nat) : Nat → Name →
+    Nat → Expr → CheckM (Option Expr) := reduceProjCore mode (pureFns mode env fuel) env
+
+abbrev quickDefEqFueled (mode : CheckMode) (env : Env) (fuel : Nat) : Nat → Expr → Expr →
+    CheckM (Option Bool) := quickDefEq mode (pureFns mode env fuel)
+
+abbrev defeqOffsetFueled (mode : CheckMode) (env : Env) (fuel : Nat) : Nat → Expr → Expr →
+    CheckM (Option Bool) := defeqOffset (pureFns mode env fuel)
+
+abbrev tryUnfoldProjAppFueled (mode : CheckMode) (env : Env) (fuel : Nat) : Nat → Expr →
+    CheckM (Option Expr) := tryUnfoldProjApp (pureFns mode env fuel)
+
+abbrev deltaQuickFueled (mode : CheckMode) (env : Env) (fuel : Nat) : Nat → Expr → Expr →
+    CheckM DeltaStep := deltaQuick mode (pureFns mode env fuel)
+
+abbrev lazyDeltaStepFueled (mode : CheckMode) (env : Env) (fuel : Nat) : Nat → Expr → Expr →
+    CheckM DeltaStep := lazyDeltaStep mode (pureFns mode env fuel) env
+
+abbrev lazyDeltaReductionFueled (mode : CheckMode) (env : Env) (fuel : Nat) : Nat → Nat →
+    Expr → Expr → CheckM LazyRes := lazyDeltaReduction mode (pureFns mode env fuel) env
+
+abbrev lazyDeltaProjReductionFueled (mode : CheckMode) (env : Env) (fuel : Nat) : Nat →
+    Name → Nat → Nat → Expr → Expr → CheckM Bool :=
+  lazyDeltaProjReduction mode (pureFns mode env fuel) env
+
+abbrev defeqProjPairFueled (mode : CheckMode) (env : Env) (fuel : Nat) : Nat → Expr → Expr →
+    CheckM Bool := defeqProjPair mode (pureFns mode env fuel) env
+
+abbrev defeqStuckFueled (mode : CheckMode) (env : Env) (fuel : Nat) : Nat → Expr → Expr →
+    CheckM Bool := defeqStuck mode (pureFns mode env fuel) env
+
 /-! Folding rewrites: record-applied helper spellings into their fueled
 `P` names (used right after unfolding a body in an inversion proof). -/
 
@@ -329,5 +360,27 @@ theorem boolTrueShortcut_fold (env : Env) (fuel : Nat) :
     boolTrueShortcut (pureFns mode env fuel) = boolTrueShortcutFueled mode env fuel := rfl
 theorem defeqSpine_fold (env : Env) (fuel : Nat) :
     defeqSpine (pureFns mode env fuel) env = defeqSpineFueled mode env fuel := rfl
+theorem reduceProjCore_fold (env : Env) (fuel : Nat) :
+    reduceProjCore mode (pureFns mode env fuel) env = reduceProjCoreFueled mode env fuel := rfl
+theorem quickDefEq_fold (env : Env) (fuel : Nat) :
+    quickDefEq mode (pureFns mode env fuel) = quickDefEqFueled mode env fuel := rfl
+theorem defeqOffset_fold (env : Env) (fuel : Nat) :
+    defeqOffset (pureFns mode env fuel) = defeqOffsetFueled mode env fuel := rfl
+theorem tryUnfoldProjApp_fold (env : Env) (fuel : Nat) :
+    tryUnfoldProjApp (pureFns mode env fuel) = tryUnfoldProjAppFueled mode env fuel := rfl
+theorem deltaQuick_fold (env : Env) (fuel : Nat) :
+    deltaQuick mode (pureFns mode env fuel) = deltaQuickFueled mode env fuel := rfl
+theorem lazyDeltaStep_fold (env : Env) (fuel : Nat) :
+    lazyDeltaStep mode (pureFns mode env fuel) env = lazyDeltaStepFueled mode env fuel := rfl
+theorem lazyDeltaReduction_fold (env : Env) (fuel : Nat) :
+    lazyDeltaReduction mode (pureFns mode env fuel) env =
+      lazyDeltaReductionFueled mode env fuel := rfl
+theorem lazyDeltaProjReduction_fold (env : Env) (fuel : Nat) :
+    lazyDeltaProjReduction mode (pureFns mode env fuel) env =
+      lazyDeltaProjReductionFueled mode env fuel := rfl
+theorem defeqProjPair_fold (env : Env) (fuel : Nat) :
+    defeqProjPair mode (pureFns mode env fuel) env = defeqProjPairFueled mode env fuel := rfl
+theorem defeqStuck_fold (env : Env) (fuel : Nat) :
+    defeqStuck mode (pureFns mode env fuel) env = defeqStuckFueled mode env fuel := rfl
 
 end ConLeche

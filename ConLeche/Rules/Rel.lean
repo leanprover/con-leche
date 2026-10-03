@@ -46,7 +46,7 @@ checker does):
 the *shape* of the conclusion (the stored data read, the arity tests,
 the level checks).  Pure dispatch guards that only select a branch and
 contribute nothing to the conclusion's shape or to soundness are not
-premises (the `a == b` fast path, `quickPair`, `notProofFast`,
+premises (the `a == b` fast path, `headIsProj`, `notProofFast`,
 `isCtorApp`), so the relation is a superset of the run relation, and
 every rule is sound on its own.  No mode index: the relation describes
 the `.verified` checker (`betaGate = verifiedChecks = true`), so the
@@ -126,8 +126,8 @@ inductive Red (env : Env) : Nat → Expr → Expr → Prop where
   | beta {d : Nat} {ty body a ta : Expr} {mb : BinderMeta} :
       Infer env .io d a ta → DefEq env d ta ty →
       Red env d (.app (.lam ty body mb) a) (body.instantiate1 a)
-  /-- **δ** (`whnfStep`, `Kernel/Core.lean`; also every lazy-delta
-  continuation of `defeqStep`, `:1537-1577`): one definition unfolded
+  /-- **δ** (`whnfStep`, `Kernel/Core.lean`; also every unfolding of
+  `lazyDeltaStep`): one definition unfolded
   at the head.  A theorem never unfolds (`unfoldDefinition`). -/
   | delta {d : Nat} {e e' : Expr} :
       unfoldDefinition env e = some e' → Red env d e e'
@@ -138,7 +138,7 @@ inductive Red (env : Env) : Nat → Expr → Expr → Prop where
       Red env d (.lit (.natVal n)) (natLitToConstructor n)
   /-- A `String` literal expands to its constructor form
   (`litMajorToCtor`, `Kernel/Core.lean`; `projLitToCtor`, `:752-754`;
-  `defeqStep`'s string arms, `:1610-1617` — one rule for the three
+  `defeqStuck`'s string arms — one rule for the three
   sites; the sites that re-reduce chain a `Red` after it). -/
   | strLit {d : Nat} {s : String} :
       strLitSupported env = true →
@@ -331,7 +331,7 @@ proof-engineering convenience but what keeps the relation sound; the
 one chaining that is sound, "reduce, then continue", is `redL`, and
 its right-hand and δ variants are derived in `Derived.lean`. -/
 inductive DefEq (env : Env) : Nat → Expr → Expr → Prop where
-  /-- The syntactic fast paths (`defeqStep`, `Core.lean:1463`, `:1472`),
+  /-- The syntactic fast paths (`defeqBody`, `quickDefEq`),
   the literal leaf (`:1582`), a same-index `fvar` pair is `fvar`
   below. -/
   | refl {d : Nat} {a : Expr} : DefEq env d a a

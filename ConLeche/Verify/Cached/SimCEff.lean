@@ -78,7 +78,7 @@ theorem CSOK.withLsimp {s : CState} (hs : CSOK mode env s)
     {m' : Std.HashMap Level Level}
     (hm : ∀ u v, m'[u]? = some v → v = Level.simplify u) :
     CSOK mode env { s with lsimpC := m' } :=
-  ⟨hs.constTy, hs.constVal, hs.ruleRhs, hs.whnfCoreC, hs.whnfC,
+  ⟨hs.constTy, hs.constVal, hs.ruleRhs, hs.whnfCoreC, hs.whnfCoreCheapC, hs.whnfC,
     hs.inferC, hs.inferIOC, hs.annotC, hs.defeqC, hm, hs.lnz, hs.eqv, hs.ienv,
     hs.instC⟩
 
@@ -89,7 +89,7 @@ theorem CSOK.withLsimpEqv {s : CState} (hs : CSOK mode env s)
     (hm : ∀ u v, m'[u]? = some v → v = Level.simplify u)
     (he : ∀ l r b, ec'[(l, r)]? = some b → Level.isEquiv l r = some b) :
     CSOK mode env { s with lsimpC := m', eqvC := ec' } :=
-  ⟨hs.constTy, hs.constVal, hs.ruleRhs, hs.whnfCoreC, hs.whnfC,
+  ⟨hs.constTy, hs.constVal, hs.ruleRhs, hs.whnfCoreC, hs.whnfCoreCheapC, hs.whnfC,
     hs.inferC, hs.inferIOC, hs.annotC, hs.defeqC, hm, hs.lnz, he, hs.ienv, hs.instC⟩
 
 /-! ### The memo-insert closures -/
@@ -469,7 +469,7 @@ theorem CSOK.insertInstC {s : CState} (hs : CSOK mode env s)
         r' = (Expr.instantiateList i vs' d'))
     (hE : r = (Expr.instantiateList e vs d)) :
     CSOK mode env { s with instC := mp.insert (e, vs, d) r } := by
-  refine ⟨hs.constTy, hs.constVal, hs.ruleRhs, hs.whnfCoreC, hs.whnfC,
+  refine ⟨hs.constTy, hs.constVal, hs.ruleRhs, hs.whnfCoreC, hs.whnfCoreCheapC, hs.whnfC,
     hs.inferC, hs.inferIOC, hs.annotC, hs.defeqC, hs.lsimp, hs.lnz, hs.eqv, hs.ienv, ?_⟩
   intro i' vs' d' r' hl
   simp only at hl
@@ -545,7 +545,7 @@ theorem CSOK.insertIEnv {s : CState} (hs : CSOK mode env s) {n : Name}
     {ent : CConstE} (hty : RelC ent.ty ent.tyE)
     (hval : ∀ vE vi, ent.val = some (vE, vi) → RelC vi vE) :
     CSOK mode env { s with ienv := s.ienv.insert n ent } := by
-  refine ⟨hs.constTy, hs.constVal, hs.ruleRhs, hs.whnfCoreC, hs.whnfC,
+  refine ⟨hs.constTy, hs.constVal, hs.ruleRhs, hs.whnfCoreC, hs.whnfCoreCheapC, hs.whnfC,
     hs.inferC, hs.inferIOC, hs.annotC, hs.defeqC, hs.lsimp, hs.lnz, hs.eqv, ?_,
     hs.instC⟩
   intro nm ent' hl
@@ -566,7 +566,7 @@ theorem CSOK.insertConstTy {s : CState} (hs : CSOK mode env s)
     (hrel : RelC i (ci.toConstantVal.type.instantiateLevelParams
       ci.toConstantVal.levelParams us)) :
     CSOK mode env { s with constTyAt := s.constTyAt.insert (n, us) i } := by
-  refine ⟨?_, hs.constVal, hs.ruleRhs, hs.whnfCoreC, hs.whnfC, hs.inferC, hs.inferIOC,
+  refine ⟨?_, hs.constVal, hs.ruleRhs, hs.whnfCoreC, hs.whnfCoreCheapC, hs.whnfC, hs.inferC, hs.inferIOC,
     hs.annotC, hs.defeqC, hs.lsimp, hs.lnz, hs.eqv, hs.ienv, hs.instC⟩
   intro n' us' i' hl
   simp only at hl
@@ -589,7 +589,7 @@ theorem CSOK.insertConstVal {s : CState} (hs : CSOK mode env s)
     (hfind : env.find? n = some (.defnInfo cv v hint))
     (hrel : RelC i (v.instantiateLevelParams cv.levelParams us)) :
     CSOK mode env { s with constValAt := s.constValAt.insert (n, us) i } := by
-  refine ⟨hs.constTy, ?_, hs.ruleRhs, hs.whnfCoreC, hs.whnfC, hs.inferC, hs.inferIOC,
+  refine ⟨hs.constTy, ?_, hs.ruleRhs, hs.whnfCoreC, hs.whnfCoreCheapC, hs.whnfC, hs.inferC, hs.inferIOC,
     hs.annotC, hs.defeqC, hs.lsimp, hs.lnz, hs.eqv, hs.ienv, hs.instC⟩
   intro n' us' i' hl
   simp only at hl
@@ -614,7 +614,7 @@ theorem CSOK.insertRuleRhs {s : CState} (hs : CSOK mode env s)
     (hrel : RelC i (rl.rhs.instantiateLevelParams cv.levelParams us)) :
     CSOK mode env
       { s with ruleRhsAt := s.ruleRhsAt.insert (c, j, us) i } := by
-  refine ⟨hs.constTy, hs.constVal, ?_, hs.whnfCoreC, hs.whnfC, hs.inferC, hs.inferIOC,
+  refine ⟨hs.constTy, hs.constVal, ?_, hs.whnfCoreC, hs.whnfCoreCheapC, hs.whnfC, hs.inferC, hs.inferIOC,
     hs.annotC, hs.defeqC, hs.lsimp, hs.lnz, hs.eqv, hs.ienv, hs.instC⟩
   intro c' j' us' i' hl
   simp only at hl

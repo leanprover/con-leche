@@ -382,20 +382,6 @@ def Expr.isBoolTrue : Expr → Bool
   | .const c [] => c == boolTrueName
   | _ => false
 
-/-- The pairs official's `quick_is_def_eq` decides by itself
-(`type_checker.cpp:770-793`): two sorts, two literals, two `∀`s, two
-`λ`s.  On such a pair `is_def_eq_core` never reaches proof irrelevance
-— the divergence audit's D4 — so `defeqStep`'s hoisted `propIrrel` is
-additionally gated on `!quickPair`; the arms themselves are the
-structural ones further down (values are `whnfCore`-inert, so nothing
-else happens in between). -/
-def Expr.quickPair : Expr → Expr → Bool
-  | .sort _, .sort _ => true
-  | .lit _, .lit _ => true
-  | .forallE .., .forallE .. => true
-  | .lam .., .lam .. => true
-  | _, _ => false
-
 /-- The certified structural-`Nat` operations.  Six of them
 (`add sub mul pow beq ble`) carry a literal fast path; `Nat.pred` is
 here without one — it has no fast path (official's `reduce_nat` folds
