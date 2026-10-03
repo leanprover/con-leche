@@ -34,7 +34,7 @@ the checker and prove it sound; this one describes con-leche's check
 for _nested_ blocks, which mention the type being defined inside
 another inductive type, in full (mutual blocks aside), and then only
 sketches how the construction and the proofs of @sec:ind-model extend
-to them. Nothing is proved here, and the citations go to con-leche. A
+to them; the details are in the linked con-leche proof. A
 restricted case — one container instantiation, at depth one, not under
 a binder — is verified in the paper's Lean fragment:
 #src("whitepaper/Fragment/NestInstall.lean", 197, 201)[installing such a block keeps a model of the environment].
@@ -320,7 +320,7 @@ nested block.
 == The model, as a sketch <sec:nest-model>
 
 What follows is intuition for how the construction of @sec:ind-model
-carries over; con-leche's proof is linked, and no step here is proved.
+carries over. For more details, see the linked con-leche proof.
 
 *The operator.* Fix the parameters, and let $W$ be the _approximant_,
 the family the operator is applied to, as in @sec:ind-model. A
