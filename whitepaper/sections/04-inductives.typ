@@ -318,30 +318,40 @@ the body.
   (#src("ConLeche/Kernel/Inductives/GenRec.lean", 427, 448)[a generated rule]).
 ]
 
-*What is stored* is the type former, the constructors
-and the recursor, with its rules
-(#src("whitepaper/Fragment/Decl.lean", 525, 566)[fragment]) — the
-three kinds of constant that @sec:defs left to this section. An
-_inductive type former_ carries its parameter and index counts and
-its constructors' names; a _constructor_ its parameter and field
-counts; a _recursor_ the sizes of its argument groups — parameters,
-motive, minors, indices, then the major (@ex:nat shows them on
-$Nat$) — and its reduction rules, one per constructor, each a closed
-right-hand side over the recursor's level parameters
-(#src("whitepaper/Fragment/Env.lean", 30, 53)[fragment],
-#src("ConLeche/Kernel/Env.lean", 241, 254)[real checker]). The
-rules' right-hand sides are generated and stored, not inferred: they
-mention the recursor itself, and the official kernel infers no rule either.
-That the rules are _sound_ is the model's business. It is the
-contract's #src("whitepaper/Fragment/EnvModel.lean", 211, 218)[third law], which @def:model of @sec:defs now gains:
-every rule of every stored recursor satisfies its $iota$ law
-(@def:iota-law below). The next subsection proves it.
+*What is stored.* The block adds three kinds of constant to the
+environment, the ones @sec:defs left to this section
+(#src("whitepaper/Fragment/Decl.lean", 525, 566)[fragment],
+#src("whitepaper/Fragment/Env.lean", 56, 72)[the kinds],
+#src("ConLeche/Kernel/Env.lean", 241, 254)[real checker]). Written
+with the notation of @sec:defs, a stored declaration is one of
+
+#table(
+  columns: (auto, 1fr), stroke: none, column-gutter: 1em, inset: (x: 0pt, y: 0.3em),
+  $(c.\{arrow(p)\} : T := v)$,
+  [a definition (@sec:defs);],
+  $(I.\{arrow(p)\} : T)^sans("type") [k, m; c_1, dots, c_n]$,
+  [a type former: $k$ parameters, $m$ indices, constructors $c_1, dots, c_n$;],
+  $(c_j.\{arrow(p)\} : T)^sans("ctor") [I; k, f]$,
+  [a constructor of $I$: $k$ parameters, $f$ fields;],
+  $(r.\{arrow(ell)\} : T)^sans("rec") [k, 1, n, m; R_1, dots, R_n]$,
+  [a recursor: $k$ parameters, one motive, $n$ minors, $m$ indices, the
+   major; rules $R_1, dots, R_n$.],
+)
+
+The counts are the sizes of the argument groups (@ex:nat shows them
+on $Nat$). A rule $R_j$ is a closed right-hand side over the
+recursor's level parameters, one per constructor; the rules are
+generated and stored, not inferred: they mention the recursor itself,
+and the official kernel infers no rule either.
 
 == Inductive types: the model <sec:ind-model>
 
 The model of a block has three parts: the sets the family's fibres
 denote, the sets the constructors denote, and the set the recursor
-denotes. Each is stated against a small extension of §2's axioms.
+denotes. With the recursor, the contract of @sec:defs gains its
+#src("whitepaper/Fragment/EnvModel.lean", 211, 218)[third law]:
+every rule of every stored recursor satisfies its $iota$ law
+(@def:iota-law), which this subsection proves. Each is stated against a small extension of §2's axioms.
 
 *The axioms, extended.* Beyond the laws of @sec:lib the inductive
 section uses
