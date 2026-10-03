@@ -361,8 +361,10 @@ the walk at the instantiation is what makes the argument go through.
 family at an approximant in the universe is in the universe, and the
 operator maps the universe to itself. With accessibility,
 @thm:closed-of-acc gives a closed family, and the block's family is
-the least fixed point as in @sec:ind-model, with its fixed-point
-equation and its induction.
+the least fixed point as in @sec:ind-lfp, with its fixed-point
+equation and its induction principle: a property that holds of every
+element the operator produces from elements having it holds of the
+whole family.
 
 *The recursors.* For a simple block, @sec:ind-model defines the
 recursor's value by the recursion equation and obtains it as a
@@ -379,9 +381,11 @@ at once. As in @sec:ind-model it is single-valued, because tagged
 tuples are injective (at the elimination level zero both sides are the
 point; a large eliminator out of a proposition is refused for nested
 blocks, so the decodings argument of @sec:ind-model is not needed).
-It is total by one induction over all the classes together: the
-family's induction, entering, at each nested field, the container's own
-induction at the instantiation, as deep as the walk went
+It is total — every element of every class has a value — by one
+induction over all the classes together: the induction principle of
+`Tree`'s family, which at the nested field `List (Tree α)` hands over
+to the induction principle of `List`'s family at that instantiation,
+and so on as deep as the walk went
 (#src("ConLeche/SetModel/NestRec.lean", 8, 46)[the induction over the classes],
 #src("ConLeche/SetModel/NestRecCls.lean", 6, 29)[read at the recursors' classes]).
 Each recursor is then this relation restricted to its class, curried

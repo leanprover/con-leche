@@ -551,7 +551,7 @@ which holds in both regimes, is used there only for monotonicity.
   the fragment reads it off the constructor's ordinary typing.
 ]
 
-=== The least fixed point
+=== The least fixed point <sec:ind-lfp>
 
 A family $L$ is
 #src("whitepaper/Fragment/LfpSet.lean", 64, 67)[_closed_ under $Phi$], in $cal(U)_n$, when every fibre of $L$ is a
