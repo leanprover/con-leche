@@ -358,8 +358,8 @@ that there are tuples and tags
 (#src("whitepaper/Fragment/IndLib.lean", 46, 63)[fragment]):
 
 + #src("whitepaper/Fragment/Univ.lean", 49, 64)[_Pairing, union, power set, replacement_],
-  on all sets: for sets $a, b, x, A$ and a function $F$ from sets to
-  sets, the sets ${a, b}$, $union.big x$, $cal(P)(x)$ and $F[A]$ with
+  on all sets: for sets $a, b, x, A$ and a function $F$ (of the
+  meta-theory) from sets to sets, the sets ${a, b}$, $union.big x$, $cal(P)(x)$ and $F[A]$ with
   $ z in {a, b} & <==> z = a or z = b,
     & quad z in union.big x & <==> z in y "for some" y in x, \
     z in cal(P)(x) & <==> z subset.eq x,

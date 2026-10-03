@@ -67,8 +67,9 @@ $cal(U)_(n+1)$, and the chain is cumulative: a member of $cal(U)_m$ is
 a member of every later $cal(U)_n$.
 
 *Graphs, function spaces, application.* For a function $F$ from sets to
-sets and a set $A$, a set $graph(F, A)$; for a set $A$ and a family
-$B$ of sets indexed by sets, a set $Pi(A, B)$, the _dependent function
+sets — a function of the meta-theory, not a set — and a set $A$, a set
+$graph(F, A)$; for a set $A$ and a family $B$ of sets indexed by sets,
+again a function of the meta-theory, a set $Pi(A, B)$, the _dependent function
 space_; and for two sets $f$ and $a$ a set $f dot.op a$, #src("whitepaper/Fragment/Lib.lean", 69, 75)[the
 _application_]. Their laws:
 
