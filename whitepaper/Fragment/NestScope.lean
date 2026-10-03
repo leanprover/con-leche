@@ -37,7 +37,7 @@ is in scope of it (`Env.Scoped`, `InstallDef.lean`).
   container, stored by `NestScoped`), or a constant stored before.
 -/
 
-namespace Fragment.IndSpec.Nst open Fragment.NestInfo (nPK nK memberVar isMember Positive memberLevel)
+namespace Fragment open NestInfo (nPK nK memberVar isMember Positive memberLevel)
 
 namespace IndSpec
 
@@ -736,4 +736,4 @@ theorem _root_.Fragment.Env.Scoped.installN [LevelOracle] {env : Env} {S : IndSp
 
 end IndSpec
 
-end Fragment.IndSpec.Nst
+end Fragment
