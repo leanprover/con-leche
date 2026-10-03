@@ -12,6 +12,13 @@
 #let cons = $sans("cons")$
 #let mk = $sans("mk")$
 #let leaf = $sans("leaf")$
+#let TreeNode = $sans("Tree.node")$
+#let ListNil = $sans("List.nil")$
+#let ListCons = $sans("List.cons")$
+#let PMk = $sans("P.mk")$
+#let TMk = $sans("T.mk")$
+#let RNode = $sans("R.node")$
+#let LCons = $sans("L.cons")$
 #let P = $sans("P")$
 #let L = $sans("L")$
 #let R = $sans("R")$
@@ -126,7 +133,7 @@ the current frame:
   occurrence". The root frame's hole makes the field _recursive_
   (_reflexive_ when a $forall$ was passed); the hole of a container
   frame, this one or an enclosing one, stands for an instantiation in
-  progress — the tail of a $cons$, for instance — and
+  progress — the tail of a $ListCons$, for instance — and
   #src("ConLeche/Kernel/Inductives/Positivity.lean", 1475, 1489)[is accepted].
 + _A container._ If $w$ is a stored inductive type $C$ — not one of the
   block's, and not the quotient type — at levels $arrow(u)$ applied to
@@ -179,14 +186,14 @@ instantiation. It then
 is the same loop over the block's own constructors.
 
 On $Tree$, the field $ts$ meets the container case at $List$ with the
-parameter $X$. In $List$'s frame, $nil$ has no field, and $cons$ has
+parameter $X$. In $List$'s frame, $ListNil$ has no field, and $ListCons$ has
 the fields $h : X$, the root's hole — recursive — and $t : Y$, the
-frame's own hole — accepted. In $mk : (Nat -> List thick P) -> P$ the
+frame's own hole — accepted. In $PMk : (Nat -> List thick P) -> P$ the
 walk passes a $forall$ over $Nat$ and meets $List$ at $X$ the same
-way. For the rose trees, $mk$'s field meets $R$ at $X$; in $R$'s
-frame, with its hole $Y_R$, $node$'s fields are $X$ and $L thick Y_R$,
+way. For the rose trees, $TMk$'s field meets $R$ at $X$; in $R$'s
+frame, with its hole $Y_R$, $RNode$'s fields are $X$ and $L thick Y_R$,
 so $L$'s frame opens inside $R$'s, with its hole $Y_L$, and there
-$cons$'s fields are $Y_R$ and $Y_L$, both accepted. A container that
+$LCons$'s fields are $Y_R$ and $Y_L$, both accepted. A container that
 uses its parameter to the left of an arrow, such as $C thick alpha$
 with a constructor of type $(alpha -> Nat) -> C thick alpha$, fails at
 the instantiation: in its frame that field's domain is $X -> Nat$, a
@@ -237,41 +244,41 @@ field's $forall$s, read off the walk's recorded type
   With $C$ the motive for $Tree thick alpha$ and $C_1$ the motive for
   $List thick (Tree thick alpha)$, and $ann(q)$ as in @ex:nat, the
   shared prefix is the parameter, the two motives, a minor premise for
-  $node$ and one for each of $List$'s constructors at the
+  $TreeNode$ and one for each of $List$'s constructors at the
   instantiation:
 
   $
     TreeRec.\{ell\} : & forall (alpha : Sort 1) thin ann(q). thin forall (C : forall (t : Tree thick alpha) thin ann(never). thin Sort ell) thin ann(q). \
     & forall (C_1 : forall (ts : List thick (Tree thick alpha)) thin ann(never). thin Sort ell) thin ann(q). \
-    & forall (s : forall (a : alpha) thin ann(q). thin forall (ts : List thick (Tree thick alpha)) thin ann(q). thin forall (h : C_1 thick ts) thin ann(q). thin C thick (node thick a thick ts)) thin ann(q). \
-    & forall (n : C_1 thick nil) thin ann(q). \
+    & forall (s : forall (a : alpha) thin ann(q). thin forall (ts : List thick (Tree thick alpha)) thin ann(q). thin forall (h : C_1 thick ts) thin ann(q). thin C thick (TreeNode thick a thick ts)) thin ann(q). \
+    & forall (n : C_1 thick ListNil) thin ann(q). \
     & forall (c : forall (t : Tree thick alpha) thin ann(q). thin forall (ts : List thick (Tree thick alpha)) thin ann(q). \
-    & quad quad forall (h : C thick t) thin ann(q). thin forall (h_1 : C_1 thick ts) thin ann(q). thin C_1 thick (cons thick t thick ts)) thin ann(q). \
+    & quad quad forall (h : C thick t) thin ann(q). thin forall (h_1 : C_1 thick ts) thin ann(q). thin C_1 thick (ListCons thick t thick ts)) thin ann(q). \
     & forall (t : Tree thick alpha) thin ann(q). thin C thick t \
     TreeRec1.\{ell\} : & dots.c thin forall (ts : List thick (Tree thick alpha)) thin ann(q). thin C_1 thick ts
   $
 
   (the $dots.c$ is the same prefix; the constructors' own parameter
-  arguments are left implicit). The minor for $node$ has one inductive
-  hypothesis, $C_1$ at the nested field; the minor for $cons$ has two,
+  arguments are left implicit). The minor for $TreeNode$ has one inductive
+  hypothesis, $C_1$ at the nested field; the minor for $ListCons$ has two,
   $C$ at the field that held the hole $X$ and $C_1$ at the one that
   held $Y$. With $arrow(r)$ for the prefix
   $alpha thick C thick C_1 thick s thick n thick c$, the three rules are
 
   $
-    TreeRec thick arrow(r) thick (node thick a thick ts) & red s thick a thick ts thick (TreeRec1 thick arrow(r) thick ts) \
-    TreeRec1 thick arrow(r) thick nil & red n \
-    TreeRec1 thick arrow(r) thick (cons thick t thick ts) & red c thick t thick ts thick (TreeRec thick arrow(r) thick t) thick (TreeRec1 thick arrow(r) thick ts).
+    TreeRec thick arrow(r) thick (TreeNode thick a thick ts) & red s thick a thick ts thick (TreeRec1 thick arrow(r) thick ts) \
+    TreeRec1 thick arrow(r) thick ListNil & red n \
+    TreeRec1 thick arrow(r) thick (ListCons thick t thick ts) & red c thick t thick ts thick (TreeRec thick arrow(r) thick t) thick (TreeRec1 thick arrow(r) thick ts).
   $
 ] <ex:tree-rec>
 
 A nested field under binders gets its hypothesis under the same
-binders: for $mk : (Nat -> List thick P) -> P$ the minor premise is
-$ forall (f : Nat -> List thick P) thin ann(q). thin forall (h : forall (n : Nat) thin ann(q). thin C_1 thick (f thick n)) thin ann(q). thin C thick (mk thick f). $
+binders: for $PMk : (Nat -> List thick P) -> P$ the minor premise is
+$ forall (f : Nat -> List thick P) thin ann(q). thin forall (h : forall (n : Nat) thin ann(q). thin C_1 thick (f thick n)) thin ann(q). thin C thick (PMk thick f). $
 
 *Where a rule of $T.sans("rec")_1$ fires.* A rule of @sec:ind-model
 takes the constructor's levels and parameters to be the recursor's
-own. At a container class they are not: $cons$ in the class
+own. At a container class they are not: $ListCons$ in the class
 $List thick (Tree thick alpha)$ has the parameter $Tree thick alpha$,
 not the recursor's $alpha$, and $List$'s level names, not $Tree$'s. So
 #src("ConLeche/Kernel/Env.lean", 196, 206)[each rule of a recursor at a container class stores the instantiation]
