@@ -74,7 +74,7 @@ end FueledM
 /-- The fueled record: each entry is the family of its fueled runs,
 monotone by `Mono.lean`. -/
 @[expose] def fueledFns (mode : CheckMode) (env : Env) : CoreFns FueledM where
-  whnfCore d e := ⟨fun F => whnfCore mode env F d e, fun hle h => whnfCore_mono hle h⟩
+  whnfCore c d e := ⟨fun F => whnfCore mode env F d e c, fun hle h => whnfCore_mono hle h⟩
   whnf d e := ⟨fun F => whnf mode env F d e, fun hle h => whnf_mono hle h⟩
   infer d e := ⟨fun F => inferTypeCore mode env F d e,
     fun hle h => inferTypeCore_mono hle h⟩
@@ -407,9 +407,10 @@ theorem projLitToCtor_atF (d : Nat) (e : Expr) (F : Nat) :
   unfold projLitToCtor
   atF_tac2
 
-macro "atF_step3" : tactic =>
+macro "atF_core3" x:tactic : tactic =>
   `(tactic| repeat (first
     | rfl
+    | $x:tactic
     | (rw [liftFueled_atF])
     | (rw [iotaCerts_atF])
     | (rw [iotaIndexOk_atF])
@@ -433,6 +434,8 @@ macro "atF_step3" : tactic =>
     | (dsimp only [])
     | split))
 
+macro "atF_step3" : tactic => `(tactic| atF_core3 (fail))
+
 macro "atF_tac3" : tactic =>
   `(tactic| atF_step3 <;> atF_step3 <;> atF_step3 <;> atF_step3 <;>
     atF_step3 <;> atF_step3 <;> atF_step3 <;> atF_step3 <;>
@@ -450,6 +453,72 @@ theorem iotaRec_atF (d : Nat) (e : Expr) (F : Nat) :
       iotaRec mi (pureFns mode env F) env d e := by
   unfold iotaRec
   atF_tac3
+
+theorem reduceProjCore_atF (d : Nat) (sn : Name) (i : Nat) (e : Expr) (F : Nat) :
+    (reduceProjCore mi (fueledFns mode env) env d sn i e).val F =
+      reduceProjCore mi (pureFns mode env F) env d sn i e := by
+  unfold reduceProjCore
+  atF_core3 (rw [projLitToCtor_atF])
+
+theorem quickDefEq_atF (d : Nat) (a b : Expr) (F : Nat) :
+    (quickDefEq mi (fueledFns mode env) d a b).val F =
+      quickDefEq mi (pureFns mode env F) d a b := by
+  unfold quickDefEq
+  atF_tac3
+
+theorem defeqOffset_atF (d : Nat) (a b : Expr) (F : Nat) :
+    (defeqOffset (fueledFns mode env) d a b).val F =
+      defeqOffset (pureFns mode env F) d a b := by
+  unfold defeqOffset
+  atF_tac3
+
+theorem tryUnfoldProjApp_atF (d : Nat) (e : Expr) (F : Nat) :
+    (tryUnfoldProjApp (fueledFns mode env) d e).val F =
+      tryUnfoldProjApp (pureFns mode env F) d e := by
+  unfold tryUnfoldProjApp
+  atF_tac3
+
+theorem deltaQuick_atF (d : Nat) (a b : Expr) (F : Nat) :
+    (deltaQuick mi (fueledFns mode env) d a b).val F =
+      deltaQuick mi (pureFns mode env F) d a b := by
+  unfold deltaQuick
+  atF_core3 (rw [quickDefEq_atF])
+
+theorem lazyDeltaStep_atF (d : Nat) (a b : Expr) (F : Nat) :
+    (lazyDeltaStep mi (fueledFns mode env) env d a b).val F =
+      lazyDeltaStep mi (pureFns mode env F) env d a b := by
+  unfold lazyDeltaStep
+  atF_core3 (first | rw [deltaQuick_atF] | rw [tryUnfoldProjApp_atF] | rw [defeqSpine_atF])
+
+theorem lazyDeltaReduction_atF (d : Nat) (F : Nat) :
+    ∀ (n : Nat) (a b : Expr),
+      (lazyDeltaReduction mi (fueledFns mode env) env d n a b).val F =
+        lazyDeltaReduction mi (pureFns mode env F) env d n a b
+  | 0, _, _ => rfl
+  | n + 1, a, b => by
+    unfold lazyDeltaReduction
+    atF_core3 (first | rw [lazyDeltaStep_atF] | rw [defeqOffset_atF] | rw [lazyDeltaReduction_atF d F n])
+
+theorem lazyDeltaProjReduction_atF (d : Nat) (sn : Name) (i : Nat) (F : Nat) :
+    ∀ (n : Nat) (a b : Expr),
+      (lazyDeltaProjReduction mi (fueledFns mode env) env d sn i n a b).val F =
+        lazyDeltaProjReduction mi (pureFns mode env F) env d sn i n a b
+  | 0, _, _ => rfl
+  | n + 1, a, b => by
+    unfold lazyDeltaProjReduction
+    atF_core3 (first | rw [lazyDeltaStep_atF] | rw [reduceProjCore_atF] | rw [lazyDeltaProjReduction_atF d sn i F n])
+
+theorem defeqProjPair_atF (d : Nat) (a b : Expr) (F : Nat) :
+    (defeqProjPair mi (fueledFns mode env) env d a b).val F =
+      defeqProjPair mi (pureFns mode env F) env d a b := by
+  unfold defeqProjPair
+  atF_core3 (rw [lazyDeltaProjReduction_atF])
+
+theorem defeqStuck_atF (d : Nat) (a b : Expr) (F : Nat) :
+    (defeqStuck mi (fueledFns mode env) env d a b).val F =
+      defeqStuck mi (pureFns mode env F) env d a b := by
+  unfold defeqStuck
+  atF_core3 (rw [stuckIrrel_atF])
 
 /-- The level-4 cascade, parameterized over one extra alternative so
 that the loop-body lemmas can feed in their continuation hypothesis
@@ -479,6 +548,11 @@ macro "atF_core4" x:tactic : tactic =>
     | (rw [iotaRec_atF])
     | (rw [projLitToCtor_atF])
     | (rw [defeqSpine_atF])
+    | (rw [reduceProjCore_atF])
+    | (rw [quickDefEq_atF])
+    | (rw [lazyDeltaReduction_atF])
+    | (rw [defeqProjPair_atF])
+    | (rw [defeqStuck_atF])
     | ((rw [FueledM.atF_bind]; congr 1 <;> try rfl) <;> try funext _)
     -- task #161: the β gate's dead branch — unfolding the *one* gate
     -- primitive hands both arms back to the cascade's own `split`
@@ -504,9 +578,9 @@ macro "atF_tac4" : tactic =>
     atF_step4 <;> atF_step4 <;> atF_step4 <;> atF_step4 <;>
     atF_step4 <;> atF_step4 <;> atF_step4)
 
-theorem whnfCoreBody_atF (d : Nat) (e : Expr) (F : Nat) :
-    (whnfCoreBody mode (fueledFns mode env) env d e).val F =
-      whnfCoreBody mode (pureFns mode env F) env d e := by
+theorem whnfCoreBody_atF (c : Bool) (d : Nat) (e : Expr) (F : Nat) :
+    (whnfCoreBody mode (fueledFns mode env) env c d e).val F =
+      whnfCoreBody mode (pureFns mode env F) env c d e := by
   unfold whnfCoreBody
   atF_tac4
 
@@ -546,26 +620,11 @@ theorem inferBodyIO_atF (d : Nat) (e : Expr) (F : Nat) :
   -- field `ensureSort` reads) untouched, so the plain lemma closes them
   all_goals exact ensureSort_atF _ _ _
 
-theorem defeqStep_atF (d : Nat) (k : Bool → Expr → Expr → FueledM Bool)
-    (kF : Bool → Expr → Expr → CheckM Bool)
-    (hk : ∀ pi a b, (k pi a b).val F = kF pi a b) (pi : Bool) (a b : Expr) :
-    (defeqStep mode (fueledFns mode env) env d k pi a b).val F =
-      defeqStep mode (pureFns mode env F) env d kF pi a b := by
-  unfold defeqStep
-  atF_tac4k hk
-
-theorem defeqLoop_atF (d : Nat) (F : Nat) :
-    ∀ (n : Nat) (pi : Bool) (a b : Expr),
-      (defeqLoop mode (fueledFns mode env) env d n pi a b).val F =
-        defeqLoop mode (pureFns mode env F) env d n pi a b
-  | 0, _, _, _ => rfl
-  | n + 1, pi, a, b =>
-    defeqStep_atF d _ _ (fun pi' x y => defeqLoop_atF d F n pi' x y) pi a b
-
 theorem defeqBody_atF (d : Nat) (a b : Expr) (F : Nat) :
     (defeqBody mode (fueledFns mode env) env d a b).val F =
-      defeqBody mode (pureFns mode env F) env d a b :=
-  defeqLoop_atF d F defeqLoopFuel true a b
+      defeqBody mode (pureFns mode env F) env d a b := by
+  unfold defeqBody
+  atF_tac4
 
 theorem annotateBody_atF (d : Nat) (e : Expr) (F : Nat) :
     (annotateBody (fueledFns mode env) env d e).val F =

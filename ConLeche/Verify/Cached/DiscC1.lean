@@ -27,11 +27,11 @@ well-scoped inputs.  Declared here so the per-body walks can
 take it as their induction hypothesis; the knot batch proves it at
 every fuel. -/
 structure SSimC (mode : CheckMode) (env : Env) (f : Nat) : Prop where
-  whnfCore : ∀ {s₀ : CState} {d : Nat} {i : Expr} {e : Expr},
+  whnfCore : ∀ {c : Bool} {s₀ : CState} {d : Nat} {i : Expr} {e : Expr},
     CSOK mode env s₀ → RelC i e → Expr.WScoped d e →
     SimC mode env s₀ (RelEC d)
-      ((coreKnotI mode (mkFEnv env) f).whnfCore d i)
-      ((fueledFns mode env).whnfCore d e)
+      ((coreKnotI mode (mkFEnv env) f).whnfCore c d i)
+      ((fueledFns mode env).whnfCore c d e)
   whnf : ∀ {s₀ : CState} {d : Nat} {i : Expr} {e : Expr},
     CSOK mode env s₀ → RelC i e → Expr.WScoped d e →
     SimC mode env s₀ (RelEC d)

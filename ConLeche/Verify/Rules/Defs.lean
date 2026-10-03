@@ -36,8 +36,8 @@ variable {env : Env}
 
 /-- `whnfCore` at `fuel` is bridged. -/
 @[expose] def WhnfCoreBridge (env : Env) (fuel : Nat) : Prop :=
-  ∀ {d : Nat} {e e' : Expr},
-    whnfCore .verified env fuel d e = .ok e' → Red env d e e'
+  ∀ {c : Bool} {d : Nat} {e e' : Expr},
+    whnfCore .verified env fuel d e c = .ok e' → Red env d e e'
 
 /-- `whnf` at `fuel` is bridged. -/
 @[expose] def WhnfBridge (env : Env) (fuel : Nat) : Prop :=
@@ -71,7 +71,7 @@ theorem inferTypeIO_bridge {fuel : Nat} (hio : InferIOBridge env fuel)
 /-! ## The zero cases: every entry point throws at fuel `0` -/
 
 theorem whnfCore_bridge_zero : WhnfCoreBridge env 0 := by
-  intro d e e' h
+  intro c d e e' h
   rw [whnfCore_zero] at h
   simp [throw, throwThe, MonadExceptOf.throw] at h
 

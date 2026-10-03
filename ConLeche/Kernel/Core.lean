@@ -141,12 +141,13 @@ def projMissError (find? : Name → Option ConstantInfo) (hasTable : Bool)
   else .invalid "invalid projection: not a structure-like type, or no such field"
 
 /-- The record of mutually recursive core entry points.  `whnfCore`
-computes a head normal form without delta; `whnf` is the full reduction
+computes a head normal form without delta — its first argument is the
+official kernel's `cheap_proj` flag (`whnfCoreBody`); `whnf` is the full reduction
 loop; `infer` is type inference;
 `defeq` is definitional equality; `annotate` computes binder
 annotations (and is the one place typing is checked). -/
 structure CoreFns (m : Type → Type u) where
-  whnfCore : Nat → Expr → m Expr
+  whnfCore : Bool → Nat → Expr → m Expr
   whnf : Nat → Expr → m Expr
   infer : Nat → Expr → m Expr
   defeq : Nat → Expr → Expr → m Bool
@@ -974,13 +975,55 @@ def projCertAt (r : CoreFns m) (env : Env) (depth : Nat) (verified lic : Bool)
     (c : Name) (us : List Level) (args : List Expr) : m Bool :=
   if verified then projCert r env depth lic c us args else pure true
 
+/-- **The projection rule on a reduced scrutinee** (the official
+kernel's `reduce_proj_core`): `proj_i (ctor p⃗ x⃗) ↦ x_i`, driven by the
+projection table (never by basis names) — the table entry for
+(structName, i) supplies the constructor, the counts and the
+possibly-Prop level guard.  A string-literal scrutinee first expands to
+its reduced constructor form (`projLitToCtor`, official: `whnf
+(string_lit_to_constructor c)`).  At the verified mode the fire is
+certified (`projCertAt`: the constructor spine against the
+constructor's stored type, task #175 W6; official certifies nothing).
+`none` when the rule does not fire.  Callers: `whnfCoreBody`'s `.proj`
+clause and `lazyDeltaProjReduction`. -/
+def reduceProjCore (r : CoreFns m) (env : Env) (depth : Nat) (sn : Name)
+    (i : Nat) (c : Expr) : m (Option Expr) := do
+  let c ← projLitToCtor r env depth c
+  match env.findProj? sn i with
+  | some entry =>
+    match c.getAppFn with
+    | .const k us =>
+      let args := c.getAppArgs
+      if k = entry.ctor ∧ i < entry.numFields ∧
+          args.length = entry.numParams + entry.numFields ∧
+          us.length = entry.levelParams.length ∧
+          entry.fireOk us = true then
+        -- Task #100 de-gating: the former nonzero-sort gate is
+        -- unsound-to-model under the domain-relative collapse, so the
+        -- certificate runs unconditionally at the verified mode; the
+        -- trusted mode runs none (`projCertAt`).
+        if ← projCertAt r env depth mode.verifiedChecks mode.betaGate k us args then
+          pure (some (args.getD (entry.numParams + i) (.bvar 0)))
+        else pure none
+      else pure none
+    | _ => pure none
+  | none => pure none
+
 /-- The head-normalization body: beta (with the per-redex argument
 certificate, unconditional since the task-#100 de-gating), iota (with
 the stuck-major machinery) and the native basis pair projection — but
 **no delta**; unfolding happens in the `whnf` loop.  Values (sorts,
-binders, constants, literals) return themselves. -/
-def whnfCoreBody (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
-  fun depth e =>
+binders, constants, literals) return themselves.
+
+`cheap` is the official kernel's `cheap_proj` (`whnf_core(e,
+cheap_rec = false, cheap_proj)`): a projection's scrutinee is reduced
+with `whnfCore` itself instead of `whnf`, and the flag propagates to
+every recursive head normalization.  `whnf` runs the full mode;
+definitional equality runs the cheap mode on its entry and after every
+lazy-delta unfolding, so that `a.i =?= b.i` compares `a =?= b` before
+reducing either scrutinee (`tests/e2e/src/proj_cheap_struct.lean`). -/
+def whnfCoreBody (r : CoreFns m) (env : Env) : Bool → Nat → Expr → m Expr :=
+  fun cheap depth e =>
     match e with
     | .sort u => pure (.sort u)
     | .fvar idx ty => pure (.fvar idx ty)
@@ -989,7 +1032,7 @@ def whnfCoreBody (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
     | .const n us => pure (.const n us)
     | .lit l => pure (.lit l)
     | .app f a => do
-      match ← r.whnfCore depth f with
+      match ← r.whnfCore cheap depth f with
       | .lam ty body mb => do
         -- Certify the argument against the domain before reducing
         -- (the soundness proof needs `⟦a⟧ ∈ ⟦ty⟧` at every level
@@ -1002,7 +1045,7 @@ def whnfCoreBody (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
         -- #161 β gate, which reads a *validated* annotation instead
         -- (`betaGateFires`, and only at `mode.betaGate`).
         if betaGateFires mode mb.pw then
-          r.whnfCore depth (body.instantiate1 a)
+          r.whnfCore cheap depth (body.instantiate1 a)
         else do
           -- task #172 B4: the certificate's inference runs at the io
           -- grade — the argument sits inside a subject whose WellDenotedV
@@ -1010,51 +1053,25 @@ def whnfCoreBody (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
           -- around), and official's whnf never infers here at all
           let ta ← r.inferIO depth a
           if ← r.defeq depth ta ty then
-            r.whnfCore depth (body.instantiate1 a)
+            r.whnfCore cheap depth (body.instantiate1 a)
           else pure (.app (.lam ty body mb) a)
       | f' => do
         match ← iotaRec mode r env depth (.app f' a) with
-        | some e'' => r.whnfCore depth e''
+        | some e'' => r.whnfCore cheap depth e''
         | none => pure (.app f' a)
     | .proj sn i pe => do
-      let e' ← r.whnf depth pe
-      -- A string-literal scrutinee first expands to its reduced
-      -- constructor form (`projLitToCtor`) — the references' proj
-      -- expansion site.
-      let e' ← projLitToCtor r env depth e'
-      -- The structural rule `proj_i (ctor p⃗ x⃗) ↦ x_i`, driven by the
-      -- projection table (never by basis names): the table entry for
-      -- (structName, i) supplies the constructor, the counts, and the
-      -- possibly-Prop level guard.  When it does not fire, the INPUT is
-      -- returned — its scrutinee as it was, not the WHNF computed here
-      -- (official `whnf_core`: `reduce_proj` fails, `r = e`).  The WHNF
-      -- has lost the scrutinee's head constant, and with it the defeq
-      -- check's arguments-first comparison of `a.i =?= b.i`
-      -- (lane KEEPPROJ: exponential on the self-check's
-      -- `nestRoot_datF._f`, `tests/e2e/src/proj_stuck_struct.lean`).
-      match env.findProj? sn i with
-      | some entry =>
-        match e'.getAppFn with
-        | .const c us =>
-          let args := e'.getAppArgs
-          if c = entry.ctor ∧ i < entry.numFields ∧
-              args.length = entry.numParams + entry.numFields ∧
-              us.length = entry.levelParams.length ∧
-              entry.fireOk us = true then
-            let arg := args.getD (entry.numParams + i) (.bvar 0)
-            -- Certify the reduction at the verified mode: the
-            -- constructor spine against the constructor's stored type
-            -- (task #175 W6; see `projCert`).  Task #100 de-gating:
-            -- the former nonzero-sort gate is unsound-to-model under
-            -- the domain-relative collapse, so the certificate runs
-            -- unconditionally there; the trusted mode runs none
-            -- (`projCertAt`: official's `reduce_proj` certifies
-            -- nothing).
-            if ← projCertAt r env depth mode.verifiedChecks mode.betaGate c us args then
-              r.whnfCore depth arg
-            else pure (.proj sn i pe)
-          else pure (.proj sn i pe)
-        | _ => pure (.proj sn i pe)
+      -- official `reduce_proj`: the scrutinee by `whnf`, or by the
+      -- cheap `whnf_core` in the cheap mode; then `reduce_proj_core`.
+      -- When it does not fire, the INPUT is returned — its scrutinee as
+      -- it was, not the WHNF computed here (official `whnf_core`:
+      -- `reduce_proj` fails, `r = e`).  The WHNF has lost the
+      -- scrutinee's head constant, and with it the defeq check's
+      -- arguments-first comparison of `a.i =?= b.i` (lane KEEPPROJ:
+      -- exponential on the self-check's `nestRoot_datF._f`,
+      -- `tests/e2e/src/proj_stuck_struct.lean`).
+      let c ← if cheap then r.whnfCore true depth pe else r.whnf depth pe
+      match ← reduceProjCore mode r env depth sn i c with
+      | some m' => r.whnfCore cheap depth m'
       | none => pure (.proj sn i pe)
     | .letE _ _ _ =>
       -- **Unreachable by construction** (task #241).  The former ζ step
@@ -1099,7 +1116,7 @@ calls itself: the continuation is abstracted exactly like the record
 about `k`, and the loop lemma is one induction on the budget. -/
 def whnfStep (r : CoreFns m) (env : Env) (depth : Nat)
     (k : Expr → m Expr) (e : Expr) : m Expr := do
-  let e₁ ← r.whnfCore depth e
+  let e₁ ← r.whnfCore false depth e
   match ← reduceNat r env depth e₁ with
   | some e₂ => k e₂
   | none =>
@@ -1428,8 +1445,8 @@ def inferBodyIO (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
 the right side is the constant `Bool.true` and the left side has no
 free variables, the left side is fully head-normalised (`whnf`, the
 cached loop) and the verdict is `true` iff the reduct is `Bool.true`; on
-failure the step continues.  Only the reduction is here; the guard is
-`defeqStep`'s, and it fires only at an `is_def_eq_core` entry (`pi`).
+failure the comparison continues.  Only the reduction is here; the
+guard is `defeqBody`'s.
 Verdict-neutral against lazy delta (a `whnf` reduct is what the
 unfolding loop reaches, one step at a time), one memoised `whnf`
 instead of one loop iteration per unfolding. -/
@@ -1458,285 +1475,360 @@ def defeqSpine (r : CoreFns m) (env : Env) (depth : Nat) (a b : Expr) :
     | _ => pure false
   | _ => pure false
 
-/-- The definitional-equality body: syntactic fast path, head
-normalization of both sides (**no delta** — `whnfCore`), proof
-irrelevance (the official kernel's `is_def_eq_proof_irrel`, run after
-`whnf_core` and before any delta), then the
-*lazy delta* strategy of real kernels: literal acceleration first
-(mirroring the `whnf` loop order), then — when a side's head is an
-unfoldable definition — unfold lazily, guided by the reducibility
-hints (unfold only the side with the greater hint; at equal hints try
-the same-head congruence short-circuit, then unfold both).  Each
-literal-acceleration and unfolding step is one **iteration of this
-loop** (the reference kernels' `lazy_delta_reduction` loop; lean4lean
-runs it on `FuelConfig.lazyDelta`), and every re-entry re-runs the
-syntactic fast path and `whnfCore` (the official kernel's `whnf_core`
-after each unfold).  Task #106: these steps used to recurse through
-`r.defeq`, charging a delta chain to the shared *recursion depth*
-budget one unit per step.  Only when neither head unfolds does
-structural congruence with the stuck fallbacks decide.  The hints
-steer *order only*: every branch below is an independently sound
-reduction or comparison, so the verdict never depends on the hint
-values. -/
-def defeqStep (r : CoreFns m) (env : Env) (depth : Nat)
-    (k : Bool → Expr → Expr → m Bool) (pi : Bool) (a b : Expr) : m Bool := do
-    -- syntactic fast path (the references' most-hit branch)
-    if a == b then pure true else
-    -- the eq-true shortcut (E2, `boolTrueShortcut`): right side
-    -- `Bool.true`, left side fvar-free, at an entry only — official's
-    -- `(!has_fvar(t) || m_eager_reduce) && is_constant(s, Bool.true)`
-    -- (`:1097`; the eager flag is not mirrored yet, see the audit)
-    if ← (if pi && b.isBoolTrue && !a.hasFvar then boolTrueShortcut r depth a
-        else pure false) then pure true else
-    let a' ← r.whnfCore depth a
-    let b' ← r.whnfCore depth b
-    if a' == b' then pure true else
-    -- Proof irrelevance, hoisted before lazy delta exactly as in the
-    -- official kernel (`is_def_eq_proof_irrel` runs after `whnf_core`
-    -- and before `lazy_delta_reduction`): with theorem values
-    -- delta-unfolding (task #66), leaving it in the stuck fallback
-    -- would grind through proof bodies first (init-prelude probe:
-    -- 227 G → recovered by the hoist).  The fallback's copy stays
-    -- (memoized; reachable when a reduction step rewrites a side).
-    -- Task #168 (Option U): the hoist is the `Prop` branch only, with
-    -- the head-symbol fast arms; the unit-like test is `stuckIrrel`'s
-    -- (every structural-failure exit below reaches it).
-    --
-    -- **Once per `is_def_eq_core` entry** (the divergence audit's D3,
-    -- DESIGN.md "THE DIVERGENCE AUDIT"): official runs
-    -- `is_def_eq_proof_irrel` before `lazy_delta_reduction` and never
-    -- inside the loop — after an unfolding only `quick_is_def_eq` runs
-    -- (`type_checker.cpp:965-969`, `:1118-1122`).  `pi` is the entry
-    -- flag: `true` at the body's entry and at the literal-acceleration
-    -- re-entries (official restarts `is_def_eq_core` there,
-    -- `:1010-1012`), `false` on the delta continuations.  A re-run
-    -- could not answer differently — a proof stays a proof under
-    -- unfolding — so the gate is cost only (5× per delta step on the
-    -- audit's lockstep-chain witness).
-    -- D4: never on a pair official's `quick_is_def_eq` decides itself
-    -- (sort/sort, lit/lit, ∀/∀, λ/λ — `Expr.quickPair`): the binder
-    -- arms commit their own verdict there, without proof irrelevance
-    if ← (if pi && !a'.quickPair b' then propIrrel r env depth a' b'
-        else pure false) then
-      pure true else
-    -- Literal acceleration is guarded on *both* sides being free of
-    -- free variables, mirroring the official kernel
-    -- (`type_checker.cpp`, `lazy_delta_reduction`:
-    -- `if ((!has_fvar(t_n) && !has_fvar(s_n)) || m_eager_reduce)`) and
-    -- lean4lean (`TypeChecker.lean:782`).  Unguarded folding is a
-    -- forbidden strategy superset (DESIGN.md, reduction-strategy
-    -- ruling): on an *open* `Int32`/`Int64` arithmetic pair it whnfs
-    -- an open argument and delta-grinds the `Nat.brecOn` tower toward
-    -- `2^31`/`2^63` unary `succ` steps; guarded, such pairs fall
-    -- through to the `sameRegular` spine congruence below (the
-    -- official kernel's `is_def_eq_args`).  The whnf-loop `reduceNat`
-    -- (`whnfBody`) stays unguarded — the official whnf loop is too.
-    -- The `hasFvar` traversals cost no more than the `a' == b'`
-    -- comparison already above (this Expr-level body is the
-    -- specification; the executable interned twin reads an `O(1)`
-    -- eager per-node fvar range instead).
-    match ← (if !a'.hasFvar && !b'.hasFvar then
-        reduceNat r env depth a' else pure none) with
-    | some a₂ => k true a₂ b'
+/-- **The easy cases** (the official kernel's `quick_is_def_eq`): the
+syntactic fast path, and the pairs whose verdict is decided on the spot
+— two sorts (level equivalence), two literals, two `∀`s and two `λ`s
+(binder congruence: domains, then bodies opened at the RIGHT domain,
+then, at the verified modes, the prop-ness annotations, task #161).
+`none` is "not an easy case".  `defeqBody` runs it after the cheap
+head normalization, and `lazyDeltaStep` after every unfolding.  (The
+positive `is_def_eq` cache of official's version is the cached core's
+`defeq` memo.)
+
+The annotation comparison runs LAST — only a pair that is otherwise
+definitionally equal can reach it, so a firing mismatch is exactly the
+cross-provenance coherence corner, declined loudly.  (The official
+kernel compares no annotations.) -/
+def quickDefEq (r : CoreFns m) (depth : Nat) (a b : Expr) : m (Option Bool) :=
+  if a == b then pure (some true) else
+  match a, b with
+  | .sort u, .sort v => do
+    let ok ← liftFueled "level comparison" (Level.isEquiv u v)
+    pure (some ok)
+  | .lit l₁, .lit l₂ => pure (some (l₁ == l₂))
+  | .forallE ty₁ body₁ m₁, .forallE ty₂ body₂ m₂ => do
+    unless ← r.defeq depth ty₁ ty₂ do return some false
+    unless ← r.defeq (depth + 1)
+        (body₁.instantiate1 (.fvar depth ty₂))
+        (body₂.instantiate1 (.fvar depth ty₂)) do return some false
+    if mode.verifiedChecks && !(m₁.pw == m₂.pw) then
+      throw (.notImplemented "sort-annotation mismatch (defeq-forall)")
+    pure (some true)
+  | .lam ty₁ body₁ m₁, .lam ty₂ body₂ m₂ => do
+    unless ← r.defeq depth ty₁ ty₂ do return some false
+    unless ← r.defeq (depth + 1)
+        (body₁.instantiate1 (.fvar depth ty₂))
+        (body₂.instantiate1 (.fvar depth ty₂)) do return some false
+    if mode.verifiedChecks && !(m₁.pw == m₂.pw) then
+      throw (.notImplemented "sort-annotation mismatch (defeq-lam)")
+    pure (some true)
+  | _, _ => pure none
+
+/-- `Nat.zero` or the literal `0` (official `is_nat_zero`). -/
+def Expr.isNatZero : Expr → Bool
+  | .lit (.natVal 0) => true
+  | .const c [] => c == natZeroName
+  | _ => false
+
+/-- Is `e` a literal? -/
+def Expr.isLit : Expr → Bool
+  | .lit _ => true
+  | _ => false
+
+/-- The predecessor of a successor form (official `is_nat_succ`): a
+nonzero literal, or `Nat.succ x`. -/
+def Expr.natPred? : Expr → Option Expr
+  | .lit (.natVal (n + 1)) => some (.lit (.natVal n))
+  | .app (.const c []) x => if c = natSuccName then some x else none
+  | _ => none
+
+/-- **Offsets** (the official kernel's `is_def_eq_offset`, the first
+check of each lazy-delta iteration): two zeros are equal, two
+successor forms compare their predecessors.  Two literals never reach
+it (`quickDefEq` decides them first), and are left out so that the
+predecessor comparison only ever pairs a literal with a `Nat.succ`. -/
+def defeqOffset (r : CoreFns m) (depth : Nat) (a b : Expr) : m (Option Bool) :=
+  if a.isNatZero && b.isNatZero then pure (some true) else
+  if a.isLit && b.isLit then pure none else
+  match a.natPred?, b.natPred? with
+  | some x, some y => do
+    let ok ← r.defeq depth x y
+    pure (some ok)
+  | _, _ => pure none
+
+/-- Is the head of the application spine a projection? -/
+def Expr.headIsProj (e : Expr) : Bool :=
+  match e.getAppFn with
+  | .proj _ _ _ => true
+  | _ => false
+
+/-- Official `try_unfold_proj_app`: a term whose head is a projection
+is put through the FULL `whnfCore` (the scrutinee reduced with
+`whnf`); `some` whenever that changed it — also when only the
+scrutinee moved and the projection did not fire. -/
+def tryUnfoldProjApp (r : CoreFns m) (depth : Nat) (e : Expr) : m (Option Expr) :=
+  if e.headIsProj then do
+    let e' ← r.whnfCore false depth e
+    if e' == e then pure none else pure (some e')
+  else pure none
+
+/-- The outcome of one lazy-delta step (official `reduction_status`):
+continue with the reduced pair, or a verdict, or "neither side
+unfolds". -/
+inductive DeltaStep where
+  | cont (a b : Expr)
+  | eq
+  | diff
+  | unknown
+
+/-- The end of a lazy-delta step: `quick_is_def_eq` on the new pair. -/
+def deltaQuick (r : CoreFns m) (depth : Nat) (a b : Expr) : m DeltaStep := do
+  match ← quickDefEq mode r depth a b with
+  | some true => pure .eq
+  | some false => pure .diff
+  | none => pure (.cont a b)
+
+/-- **One lazy-delta step** (the official kernel's
+`lazy_delta_reduction_step`): read the two heads' unfoldability and
+hints, unfold the side with the greater height (both at equal hints,
+after the same-head argument shortcut at equal *regular* hints), put
+the unfolded side through the cheap `whnfCore`, and finish with
+`quickDefEq`.  With one side unfoldable, a projection application on
+the other side is reduced instead (`tryUnfoldProjApp`): `expensive =?=
+inst.1 a` must not unfold `expensive` lazily to the bottom.
+
+The same-head shortcut's `sameRegular` guard mirrors the reference
+kernels and is deliberate: at equal `abbrev` (or `opaque`) hints both
+sides unfold eagerly instead (abbrevs are meant to unfold; a spine
+attempt on abbrev-headed applications risks reduction bombs).  Do not
+generalize it.  The `.unknown` exits under a successful
+`unfoldableHead` are unreachable (`unfoldableHead env e` is
+`(unfoldDefinition env e).isSome`). -/
+def lazyDeltaStep (r : CoreFns m) (env : Env) (depth : Nat) (a b : Expr) :
+    m DeltaStep := do
+  match unfoldableHead env a, unfoldableHead env b with
+  | false, false => pure .unknown
+  | true, false =>
+    match ← tryUnfoldProjApp r depth b with
+    | some b₂ => deltaQuick mode r depth a b₂
     | none =>
-    match ← (if !a'.hasFvar && !b'.hasFvar then
-        reduceNat r env depth b' else pure none) with
-    | some b₂ => k true a' b₂
+      match unfoldDefinition env a with
+      | some a₂ => do
+        let a₃ ← r.whnfCore true depth a₂
+        deltaQuick mode r depth a₃ b
+      | none => pure .unknown
+  | false, true =>
+    match ← tryUnfoldProjApp r depth a with
+    | some a₂ => deltaQuick mode r depth a₂ b
     | none =>
-    -- Lazy delta, **decision before materialization** (the official
-    -- kernel's `lazy_delta_reduction_step` reads a `delta_step` off
-    -- the two heads and their hints and calls `unfold_definition`
-    -- only inside the branch that consumes it; lean4lean's
-    -- `isDefEqDelta` likewise).  The former spelling built *both*
-    -- unfoldings in the match scrutinee before deciding which one it
-    -- needed — pure waste on every one-sided step and on every
-    -- short-circuited same-head step (measured at ~19 000 unfoldings
-    -- per side on `Std.Time…toDays._proof_1`, task #106).  The
-    -- `pure false` fallbacks are unreachable — `unfoldableHead env e`
-    -- is `(unfoldDefinition env e).isSome` by construction — and
-    -- sound (`false` is never a certificate).
-    match unfoldableHead env a', unfoldableHead env b' with
-    | true, false =>
-      match unfoldDefinition env a' with
-      | some a₂ => k false a₂ b'
-      | none => pure false
-    | false, true =>
-      match unfoldDefinition env b' with
-      | some b₂ => k false a' b₂
-      | none => pure false
-    | true, true =>
-      let ha := headHint env a'
-      let hb := headHint env b'
-      if ReducibilityHint.lt hb ha then
-        match unfoldDefinition env a' with
-        | some a₂ => k false a₂ b'
-        | none => pure false
-      else if ReducibilityHint.lt ha hb then
-        match unfoldDefinition env b' with
-        | some b₂ => k false a' b₂
-        | none => pure false
-      else if ReducibilityHint.sameRegular ha hb && sameConstHeads a' b' then
-        -- Same constant at equal *regular* hints: cheap congruence
-        -- first — this short-circuit is where lazy delta wins on
-        -- large proof terms, and (task #106) it now runs *before* any
-        -- unfolding is built, as `try_eq_const_app` does.  The
-        -- `sameRegular` guard mirrors the reference kernels (nanoda
-        -- `try_eq_const_app`, the official kernel) exactly and is
-        -- deliberate: at equal `abbrev` (or `opaque`) hints both
-        -- sides unfold eagerly instead, because proof authors rely on
-        -- abbrevs unfolding eagerly and a spine defeq attempt on
-        -- abbrev-headed applications risks reduction bombs (spines
-        -- only equal after reduction, retried at every congruence
-        -- level).  Do not generalize this guard.
-        if ← defeqSpine r env depth a' b' then pure true
-        else
-          match unfoldDefinition env a', unfoldDefinition env b' with
-          | some a₂, some b₂ => k false a₂ b₂
-          | _, _ => pure false
-      else
-        match unfoldDefinition env a', unfoldDefinition env b' with
-        | some a₂, some b₂ => k false a₂ b₂
-        | _, _ => pure false
-    | false, false =>
-    match a', b' with
-    | .sort u, .sort v => liftFueled "level comparison" (Level.isEquiv u v)
-    | .lit l₁, .lit l₂ => pure (l₁ == l₂)
-    -- a packed literal against a constructor form: compare
-    -- shape-directed (an unpack-and-retry would immediately repack in
-    -- `reduceNat` and loop)
-    | .lit (.natVal n), .const c us =>
-      if c = natZeroName ∧ us = [] then pure (n == 0)
-      else stuckIrrel mode r env depth (.lit (.natVal n)) (.const c us)
-    | .const c us, .lit (.natVal n) =>
-      if c = natZeroName ∧ us = [] then pure (n == 0)
-      else stuckIrrel mode r env depth (.const c us) (.lit (.natVal n))
-    | .lit (.natVal nn), .app f x =>
-      match nn, f with
-      | k + 1, .const c [] =>
-        if c = natSuccName then r.defeq depth (.lit (.natVal k)) x
-        else stuckIrrel mode r env depth (.lit (.natVal nn)) (.app f x)
-      | _, _ => stuckIrrel mode r env depth (.lit (.natVal nn)) (.app f x)
-    | .app f x, .lit (.natVal nn) =>
-      match nn, f with
-      | k + 1, .const c [] =>
-        if c = natSuccName then r.defeq depth x (.lit (.natVal k))
-        else stuckIrrel mode r env depth (.app f x) (.lit (.natVal nn))
-      | _, _ => stuckIrrel mode r env depth (.app f x) (.lit (.natVal nn))
-    -- a string literal against a unary `String.ofList` application:
-    -- expand the literal to its constructor form and compare — the
-    -- reference kernels' `tryStringLitExpansion` (lean4lean
-    -- `TypeChecker.lean`, nanoda `try_string_lit_expansion`), which
-    -- fires exactly when the other side's function part is the bare
-    -- `String.ofList` constant
-    | .lit (.strVal st), .app (.const cO usO) x =>
+      match unfoldDefinition env b with
+      | some b₂ => do
+        let b₃ ← r.whnfCore true depth b₂
+        deltaQuick mode r depth a b₃
+      | none => pure .unknown
+  | true, true =>
+    let ha := headHint env a
+    let hb := headHint env b
+    if ReducibilityHint.lt hb ha then
+      match unfoldDefinition env a with
+      | some a₂ => do
+        let a₃ ← r.whnfCore true depth a₂
+        deltaQuick mode r depth a₃ b
+      | none => pure .unknown
+    else if ReducibilityHint.lt ha hb then
+      match unfoldDefinition env b with
+      | some b₂ => do
+        let b₃ ← r.whnfCore true depth b₂
+        deltaQuick mode r depth a b₃
+      | none => pure .unknown
+    else if ← (if ReducibilityHint.sameRegular ha hb && sameConstHeads a b then
+        defeqSpine r env depth a b else pure false) then pure .eq
+    else
+      match unfoldDefinition env a, unfoldDefinition env b with
+      | some a₂, some b₂ => do
+        let a₃ ← r.whnfCore true depth a₂
+        let b₃ ← r.whnfCore true depth b₂
+        deltaQuick mode r depth a₃ b₃
+      | _, _ => pure .unknown
+
+/-- The outcome of the lazy-delta loop: a verdict, or the pair it got
+stuck on (official `lazy_delta_reduction` returns `l_undef` and updates
+`t_n`, `s_n`). -/
+inductive LazyRes where
+  | verdict (v : Bool)
+  | unknown (a b : Expr)
+
+/-- Step budget of the two lazy-delta loops (lean4lean's
+`FuelConfig.lazyDelta`, generously sized).  Exhaustion is an internal
+error, never a verdict. -/
+@[irreducible] def defeqLoopFuel : Nat := 100000
+
+/-- **The lazy-delta loop** (the official kernel's
+`lazy_delta_reduction`): per iteration the offset check, the literal
+acceleration — guarded on both sides being free of free variables, as
+in the official kernel and lean4lean (an open `Int32`/`Int64` pair
+would otherwise delta-grind the `Nat.brecOn` tower; the whnf-loop
+`reduceNat` stays unguarded, as the official whnf loop is) — whose
+reduct restarts the comparison (`defeq`, official `is_def_eq_core`),
+then one `lazyDeltaStep`.  Each unfolding is one iteration of this
+loop on its own step budget (task #106: not one unit of the knot's
+recursion depth). -/
+def lazyDeltaReduction (r : CoreFns m) (env : Env) (depth : Nat) :
+    Nat → Expr → Expr → m LazyRes
+  | 0, _, _ => throw (.internal "fuel exhausted: defeq loop")
+  | n + 1, a, b => do
+    match ← defeqOffset r depth a b with
+    | some v => pure (.verdict v)
+    | none =>
+    match ← (if !a.hasFvar && !b.hasFvar then reduceNat r env depth a
+        else pure none) with
+    | some a₂ => do
+      let v ← r.defeq depth a₂ b
+      pure (.verdict v)
+    | none =>
+    match ← (if !a.hasFvar && !b.hasFvar then reduceNat r env depth b
+        else pure none) with
+    | some b₂ => do
+      let v ← r.defeq depth a b₂
+      pure (.verdict v)
+    | none =>
+    match ← lazyDeltaStep mode r env depth a b with
+    | .cont a' b' => lazyDeltaReduction r env depth n a' b'
+    | .eq => pure (.verdict true)
+    | .diff => pure (.verdict false)
+    | .unknown => pure (.unknown a b)
+
+/-- **`a.i =?= b.i` by its scrutinees** (the official kernel's
+`lazy_delta_proj_reduction`): lazy-delta steps on the two scrutinees;
+when neither unfolds any more (or the step found them different), the
+projection is tried on both (`reduceProjCore`) and only the projected
+fields are compared; failing that, the scrutinees themselves. -/
+def lazyDeltaProjReduction (r : CoreFns m) (env : Env) (depth : Nat)
+    (sn : Name) (i : Nat) : Nat → Expr → Expr → m Bool
+  | 0, _, _ => throw (.internal "fuel exhausted: lazy delta projection loop")
+  | n + 1, a, b => do
+    match ← lazyDeltaStep mode r env depth a b with
+    | .cont a' b' => lazyDeltaProjReduction r env depth sn i n a' b'
+    | .eq => pure true
+    | .diff | .unknown =>
+      match ← reduceProjCore mode r env depth sn i a with
+      | some x =>
+        match ← reduceProjCore mode r env depth sn i b with
+        | some y => r.defeq depth x y
+        | none => r.defeq depth a b
+      | none => r.defeq depth a b
+
+/-- The proj/proj check of `is_def_eq_core`: two projections at the
+same slot go through `lazyDeltaProjReduction` on their scrutinees. -/
+def defeqProjPair (r : CoreFns m) (env : Env) (depth : Nat) (a b : Expr) :
+    m Bool :=
+  match a, b with
+  | .proj s₁ i₁ e₁, .proj s₂ i₂ e₂ =>
+    if s₁ == s₂ && i₁ == i₂ then
+      lazyDeltaProjReduction mode r env depth s₁ i₁ defeqLoopFuel e₁ e₂
+    else pure false
+  | _, _ => pure false
+
+/-- **The stuck comparison** (the tail of the official kernel's
+`is_def_eq_core`, after lazy delta, the proj/proj check and the full
+`whnf_core` restart): the same constant at equivalent levels, the same
+free variable, a string literal against `String.ofList`
+(`try_string_lit_expansion`), the application spine
+(`is_def_eq_app`), η on a one-sided λ; every failing arm ends in
+`stuckIrrel` (proof irrelevance, structure η, unit-likeness).  Two
+constants or two free variables are inert under `whnfCore`, so checking
+them here, after the restart, instead of before it is the same
+verdict. -/
+def defeqStuck (r : CoreFns m) (env : Env) (depth : Nat) (a b : Expr) :
+    m Bool :=
+  match a, b with
+  -- a string literal against a unary `String.ofList` application:
+  -- expand the literal to its constructor form and compare — the
+  -- reference kernels' `tryStringLitExpansion` (lean4lean
+  -- `TypeChecker.lean`, nanoda `try_string_lit_expansion`), which
+  -- fires exactly when the other side's function part is the bare
+  -- `String.ofList` constant
+  | .lit l, .app f x =>
+    match l, f with
+    | .strVal st, .const cO usO =>
       if cO = stringOfListName ∧ usO = [] ∧ strLitSupported env then
         r.defeq depth (strLitToConstructor st) (.app (.const cO usO) x)
       else stuckIrrel mode r env depth (.lit (.strVal st)) (.app (.const cO usO) x)
-    | .app (.const cO usO) x, .lit (.strVal st) =>
+    | _, _ => stuckIrrel mode r env depth (.lit l) (.app f x)
+  | .app f x, .lit l =>
+    match l, f with
+    | .strVal st, .const cO usO =>
       if cO = stringOfListName ∧ usO = [] ∧ strLitSupported env then
         r.defeq depth (.app (.const cO usO) x) (strLitToConstructor st)
       else stuckIrrel mode r env depth (.app (.const cO usO) x) (.lit (.strVal st))
-    | .fvar i ty₁, .fvar j ty₂ =>
-      if i == j then pure true
-      else stuckIrrel mode r env depth (.fvar i ty₁) (.fvar j ty₂)
-    | .const n us, .const n' us' =>
-      if n = n' then
-        if ← liftFueled "level comparison" (Level.isEquivList us us') then
-          pure true
-        else stuckIrrel mode r env depth (.const n us) (.const n' us')
+    | _, _ => stuckIrrel mode r env depth (.app f x) (.lit l)
+  | .fvar i ty₁, .fvar j ty₂ =>
+    if i == j then pure true
+    else stuckIrrel mode r env depth (.fvar i ty₁) (.fvar j ty₂)
+  | .const n us, .const n' us' =>
+    if n = n' then do
+      if ← liftFueled "level comparison" (Level.isEquivList us us') then
+        pure true
       else stuckIrrel mode r env depth (.const n us) (.const n' us')
-    | .forallE ty₁ body₁ m₁, .forallE ty₂ body₂ m₂ => do
-      -- Binder congruence.  Task #161: at the verified modes the two
-      -- prop-ness annotations must agree (`==`; the datum is canonical) for the
-      -- two-regime interpretations to coincide (`piR_zero_agree`'s
-      -- premise).  The comparison runs LAST — only a pair that is
-      -- otherwise definitionally equal can reach it, so benign
-      -- cert-fallthrough `false`s are untouched and a firing mismatch
-      -- is exactly the cross-provenance coherence corner, declined
-      -- loudly.  (The official kernel compares no annotations; the
-      -- pre-#100 zero-ness comparison is back in validated clothing.)
-      unless ← r.defeq depth ty₁ ty₂ do return false
-      unless ← r.defeq (depth + 1)
-          (body₁.instantiate1 (.fvar depth ty₂))
-          (body₂.instantiate1 (.fvar depth ty₂)) do return false
-      if mode.verifiedChecks && !(m₁.pw == m₂.pw) then
-        throw (.notImplemented "sort-annotation mismatch (defeq-forall)")
-      pure true
-    | .lam ty₁ body₁ m₁, .lam ty₂ body₂ m₂ => do
-      unless ← r.defeq depth ty₁ ty₂ do return false
-      unless ← r.defeq (depth + 1)
-          (body₁.instantiate1 (.fvar depth ty₂))
-          (body₂.instantiate1 (.fvar depth ty₂)) do return false
-      if mode.verifiedChecks && !(m₁.pw == m₂.pw) then
-        throw (.notImplemented "sort-annotation mismatch (defeq-lam)")
-      pure true
-    | .app f₁ a₁, .app f₂ a₂ => do
-      -- Stuck applications: **spine-wise** congruence (the official
-      -- kernel's `is_def_eq_app`, lean4lean's `isDefEqApp`, nanoda's
-      -- `def_eq_app`): equal spine lengths, one head comparison, then
-      -- the argument lists pairwise.  Task #106: the former spelling
-      -- recursed `defeq` on the *partial* applications `f₁ ≡ f₂`, so
-      -- a length-`n` spine re-entered the whole body `n` times —
-      -- `n` syntactic fast paths, `n` `whnfCore` pairs, `n` proof
-      -- irrelevance probes (two `infer`s each!) and `n` lazy delta
-      -- decisions, at `n` levels of knot recursion.  No reference
-      -- kernel does that, and nothing is lost: `whnfCore` already
-      -- normalized the function parts, and the `unfoldableHead`
-      -- guards above are read off the *head* constant, which the
-      -- partial applications share.  Then the stuck fallbacks (proof
-      -- irrelevance is additionally hoisted before lazy delta at the
-      -- top of this body, as in the official kernel; the fallback
-      -- copy here fires when a reduction step rewrote a side after
-      -- the hoist ran).
-      if (Expr.app f₁ a₁).getAppArgs.length =
-          (Expr.app f₂ a₂).getAppArgs.length then
-        if ← r.defeq depth (Expr.app f₁ a₁).getAppFn
-            (Expr.app f₂ a₂).getAppFn then
-          if ← defEqList r env depth (Expr.app f₁ a₁).getAppArgs
-              (Expr.app f₂ a₂).getAppArgs then pure true
-          else stuckIrrel mode r env depth (.app f₁ a₁) (.app f₂ a₂)
+    else stuckIrrel mode r env depth (.const n us) (.const n' us')
+  | .app f₁ a₁, .app f₂ a₂ => do
+    -- Stuck applications: **spine-wise** congruence (the official
+    -- kernel's `is_def_eq_app`, lean4lean's `isDefEqApp`, nanoda's
+    -- `def_eq_app`): equal spine lengths, one head comparison, then
+    -- the argument lists pairwise (task #106: never the partial
+    -- applications one by one).
+    if (Expr.app f₁ a₁).getAppArgs.length =
+        (Expr.app f₂ a₂).getAppArgs.length then
+      if ← r.defeq depth (Expr.app f₁ a₁).getAppFn
+          (Expr.app f₂ a₂).getAppFn then
+        if ← defEqList r env depth (Expr.app f₁ a₁).getAppArgs
+            (Expr.app f₂ a₂).getAppArgs then pure true
         else stuckIrrel mode r env depth (.app f₁ a₁) (.app f₂ a₂)
       else stuckIrrel mode r env depth (.app f₁ a₁) (.app f₂ a₂)
-    | .proj s₁ i₁ e₁, .proj s₂ i₂ e₂ => do
-      -- Stuck projections: congruence, else the stuck fallbacks.
-      -- Task #175 wiring W5: congruence requires the same struct name
-      -- — the entry-kind readings differ across names, and on
-      -- annotated terms the name is the subject type's head, so
-      -- defeq subjects always agree (transitional: dissolves at W6).
-      if s₁ == s₂ && i₁ == i₂ then
-        if ← r.defeq depth e₁ e₂ then pure true
-        else stuckIrrel mode r env depth (.proj s₁ i₁ e₁) (.proj s₂ i₂ e₂)
-      else stuckIrrel mode r env depth (.proj s₁ i₁ e₁) (.proj s₂ i₂ e₂)
-    -- One-sided λ: eta, else the stuck fallbacks.
-    | .lam ty₁ body₁ m₁, b₂ => do
-      if ← etaCert mode r env depth ty₁ body₁ m₁ b₂ then pure true
-      else stuckIrrel mode r env depth (.lam ty₁ body₁ m₁) b₂
-    | a₁, .lam ty₂ body₂ m₂ => do
-      if ← etaCert mode r env depth ty₂ body₂ m₂ a₁ then pure true
-      else stuckIrrel mode r env depth a₁ (.lam ty₂ body₂ m₂)
-    -- Distinct whnf-stuck head symbols: only the stuck fallbacks can
-    -- equate them; `false` is always sound, and `whnf` has already
-    -- thrown on unsupported heads, so no unimplemented case can hide
-    -- here.
-    | e₁, e₂ => stuckIrrel mode r env depth e₁ e₂
+    else stuckIrrel mode r env depth (.app f₁ a₁) (.app f₂ a₂)
+  -- One-sided λ: eta, else the stuck fallbacks.  (Two λs never get
+  -- here: `quickDefEq` decides them.)
+  | .lam ty₁ body₁ m₁, b₂ => do
+    if ← etaCert mode r env depth ty₁ body₁ m₁ b₂ then pure true
+    else stuckIrrel mode r env depth (.lam ty₁ body₁ m₁) b₂
+  | a₁, .lam ty₂ body₂ m₂ => do
+    if ← etaCert mode r env depth ty₂ body₂ m₂ a₁ then pure true
+    else stuckIrrel mode r env depth a₁ (.lam ty₂ body₂ m₂)
+  -- Distinct whnf-stuck head symbols: only the stuck fallbacks can
+  -- equate them; `false` is always sound.
+  | e₁, e₂ => stuckIrrel mode r env depth e₁ e₂
 
-/-- The lazy-delta loop: iterate `defeqStep` on its own step budget. -/
-def defeqLoop (r : CoreFns m) (env : Env) (depth : Nat) :
-    Nat → Bool → Expr → Expr → m Bool
-  | 0, _, _, _ => throw (.internal "fuel exhausted: defeq loop")
-  | fl + 1, pi, a, b =>
-    defeqStep mode r env depth (defeqLoop r env depth fl) pi a b
-
-/-- Step budget of the lazy-delta loop (lean4lean's
-`FuelConfig.lazyDelta`, generously sized here because this loop also
-absorbs the literal-acceleration re-entries lean4lean routes through
-`isDefEqCore`).  Exhaustion is an internal error, never a verdict. -/
-@[irreducible] def defeqLoopFuel : Nat := 100000
-
-/-- The definitional-equality body: the lazy-delta loop at its own
-step budget. -/
+/-- **The definitional-equality body** (the official kernel's
+`is_def_eq_core`, clause for clause): the syntactic fast path; the
+`Bool.true` shortcut (E2, `boolTrueShortcut`: right side `Bool.true`,
+left side fvar-free — official's `(!has_fvar(t) || m_eager_reduce) &&
+is_constant(s, Bool.true)`; the eager flag is not mirrored); the cheap
+head normalization of both sides (`whnfCore` with `cheap_proj`);
+`quickDefEq`; proof irrelevance (`is_def_eq_proof_irrel`, before any
+delta — with theorem values delta-unfolding, task #66, a later probe
+would grind through proof bodies first); the lazy-delta loop
+(`lazyDeltaReduction`); the proj/proj check (`defeqProjPair`); the
+FULL `whnfCore` of both sides and, if either changed, a restart; and
+the stuck comparison (`defeqStuck`).  The restarts — after a literal
+acceleration in the loop and after the full `whnfCore` — are `defeq`
+calls, as official's are `is_def_eq_core` calls, so every entry runs
+the prefix (proof irrelevance included) exactly once (the divergence
+audit's D3 holds by construction); the long chains — the unfoldings —
+are iterations of the lazy loops. -/
 def defeqBody (r : CoreFns m) (env : Env) : Nat → Expr → Expr → m Bool :=
-  fun depth a b => defeqLoop mode r env depth defeqLoopFuel true a b
+  fun depth a b => do
+    if a == b then pure true else
+    if ← (if b.isBoolTrue && !a.hasFvar then boolTrueShortcut r depth a
+        else pure false) then pure true else
+    let a' ← r.whnfCore true depth a
+    let b' ← r.whnfCore true depth b
+    match ← quickDefEq mode r depth a' b' with
+    | some v => pure v
+    | none =>
+    if ← propIrrel r env depth a' b' then pure true else
+    match ← lazyDeltaReduction mode r env depth defeqLoopFuel a' b' with
+    | .verdict v => pure v
+    | .unknown a₁ b₁ =>
+    if ← defeqProjPair mode r env depth a₁ b₁ then pure true else
+    -- the full `whnfCore` can only differ from the cheap one where the
+    -- cheap mode left a projection stuck, which is then the spine head
+    -- (`whnfCore` stops there); without one, the restart's test
+    -- would find both sides unchanged, so it is skipped (cost only)
+    if !a₁.headIsProj && !b₁.headIsProj then defeqStuck mode r env depth a₁ b₁ else
+    let a₂ ← r.whnfCore false depth a₁
+    let b₂ ← r.whnfCore false depth b₁
+    if a₂ == a₁ && b₂ == b₁ then defeqStuck mode r env depth a₁ b₁
+    else r.defeq depth a₂ b₂
 
 /-! ### The untrusted annotation writes (task #161 P5)
 
@@ -1934,7 +2026,7 @@ def coreKnot {m : Type → Type} [Monad m] [MonadExceptOf CheckError m]
     (mode : CheckMode) (env : Env)
     (wrap : CoreFns m → CoreFns m) : Nat → CoreFns m
   | 0 =>
-    { whnfCore := fun _ _ => throw (.internal "fuel exhausted: whnfCore")
+    { whnfCore := fun _ _ _ => throw (.internal "fuel exhausted: whnfCore")
       whnf := fun _ _ => throw (.internal "fuel exhausted: whnf")
       infer := fun _ _ => throw (.internal "fuel exhausted: infer")
       defeq := fun _ _ _ => throw (.internal "fuel exhausted: defeq")
@@ -1942,8 +2034,8 @@ def coreKnot {m : Type → Type} [Monad m] [MonadExceptOf CheckError m]
       inferIO := fun _ _ => throw (.internal "fuel exhausted: infer") }
   | fuel + 1 =>
     wrap
-      { whnfCore := fun d e =>
-          whnfCoreBody mode (coreKnot mode env wrap fuel) env d e
+      { whnfCore := fun c d e =>
+          whnfCoreBody mode (coreKnot mode env wrap fuel) env c d e
         whnf := fun d e => whnfBody (coreKnot mode env wrap fuel) env d e
         infer := fun d e =>
           inferBody mode (coreKnot mode env wrap fuel) env d e

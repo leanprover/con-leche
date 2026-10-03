@@ -239,6 +239,11 @@ structure CSOK (mode : CheckMode) (env : Env) (s : CState) : Prop where
   whnfCoreC : ∀ k v, s.whnfCoreC[k]? = some v →
     ∃ F, ∀ d, (Expr.wscopedB d k) = true →
       whnfCore mode env F d k = .ok v
+  /-- The cheap-projection head normalization's memo (`whnfCore` at
+  `cheap_proj`, lane CHEAPPROJ). -/
+  whnfCoreCheapC : ∀ k v, s.whnfCoreCheapC[k]? = some v →
+    ∃ F, ∀ d, (Expr.wscopedB d k) = true →
+      whnfCore mode env F d k true = .ok v
   whnfC : ∀ k v, s.whnfC[k]? = some v →
     ∃ F, ∀ d, (Expr.wscopedB d k) = true →
       whnf mode env F d k = .ok v
@@ -306,7 +311,7 @@ surviving components are the residue and the dropped caches' clauses
 are vacuous. -/
 theorem flushC_csok {env' : Env} {s : CState} (hs : CSOKF s) :
     CSOK mode env' s.flushed := by
-  refine ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, hs.lsimp, hs.lnz, hs.eqv,
+  refine ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, hs.lsimp, hs.lnz, hs.eqv,
     hs.ienv, ?_⟩ <;> (intros; simp_all [CState.flushed])
 
 /-- Flushing preserves the residue (it touches none of its

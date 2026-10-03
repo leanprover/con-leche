@@ -15,7 +15,8 @@ Per-clause lemmas for the definitional-equality claim.  The claim is
 else: `symm`, `trans` and the binder congruences are one-liners only if
 no `WellDenoted` has to cross a `DefEq`.
 
-`defeqStep`'s seventh block (structural congruence) is seventeen cases;
+The structural arms of the definitional-equality body (`quickDefEq`,
+`defeqStuck`) are many cases;
 the fifteen here are pure interpretation algebra.  The two that are
 not — the capability rescues (`structEta`, `structUnit`) and the
 literal acceleration — are proved in `Model/Rules/DefEqSound.lean`.

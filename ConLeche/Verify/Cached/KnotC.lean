@@ -45,7 +45,7 @@ theorem CSOK.insertWhnfCoreC {s : CState} (hs : CSOK mode env s)
     (hrun : ∃ F, ∀ d, (Expr.wscopedB d i) = true →
       whnfCore mode env F d i = .ok j) :
     CSOK mode env { s with whnfCoreC := s.whnfCoreC.insert i j } := by
-  refine ⟨hs.constTy, hs.constVal, hs.ruleRhs, ?_, hs.whnfC, hs.inferC, hs.inferIOC,
+  refine ⟨hs.constTy, hs.constVal, hs.ruleRhs, ?_, hs.whnfCoreCheapC, hs.whnfC, hs.inferC, hs.inferIOC,
     hs.annotC, hs.defeqC, hs.lsimp, hs.lnz, hs.eqv, hs.ienv, hs.instC⟩
   intro k v hl
   simp only at hl
@@ -58,12 +58,30 @@ theorem CSOK.insertWhnfCoreC {s : CState} (hs : CSOK mode env s)
   · rw [if_neg hk] at hl
     exact hs.whnfCoreC k v hl
 
+theorem CSOK.insertWhnfCoreCheapC {s : CState} (hs : CSOK mode env s)
+    {i j : Expr}
+    (hrun : ∃ F, ∀ d, (Expr.wscopedB d i) = true →
+      whnfCore mode env F d i true = .ok j) :
+    CSOK mode env { s with whnfCoreCheapC := s.whnfCoreCheapC.insert i j } := by
+  refine ⟨hs.constTy, hs.constVal, hs.ruleRhs, hs.whnfCoreC, ?_, hs.whnfC, hs.inferC,
+    hs.inferIOC, hs.annotC, hs.defeqC, hs.lsimp, hs.lnz, hs.eqv, hs.ienv, hs.instC⟩
+  intro k v hl
+  simp only at hl
+  rw [Std.HashMap.getElem?_insert] at hl
+  by_cases hk : i == k
+  · rw [if_pos hk] at hl
+    cases hl
+    rw [← beq_sound hk]
+    exact hrun
+  · rw [if_neg hk] at hl
+    exact hs.whnfCoreCheapC k v hl
+
 theorem CSOK.insertWhnfC {s : CState} (hs : CSOK mode env s)
     {i j : Expr}
     (hrun : ∃ F, ∀ d, (Expr.wscopedB d i) = true →
       whnf mode env F d i = .ok j) :
     CSOK mode env { s with whnfC := s.whnfC.insert i j } := by
-  refine ⟨hs.constTy, hs.constVal, hs.ruleRhs, hs.whnfCoreC, ?_, hs.inferC, hs.inferIOC,
+  refine ⟨hs.constTy, hs.constVal, hs.ruleRhs, hs.whnfCoreC, hs.whnfCoreCheapC, ?_, hs.inferC, hs.inferIOC,
     hs.annotC, hs.defeqC, hs.lsimp, hs.lnz, hs.eqv, hs.ienv, hs.instC⟩
   intro k v hl
   simp only at hl
@@ -81,7 +99,7 @@ theorem CSOK.insertInferC {s : CState} (hs : CSOK mode env s)
     (hrun : ∃ F, ∀ d, (Expr.wscopedB d i) = true →
       inferTypeCore mode env F d i = .ok j) :
     CSOK mode env { s with inferC := s.inferC.insert i j } := by
-  refine ⟨hs.constTy, hs.constVal, hs.ruleRhs, hs.whnfCoreC, hs.whnfC, ?_,
+  refine ⟨hs.constTy, hs.constVal, hs.ruleRhs, hs.whnfCoreC, hs.whnfCoreCheapC, hs.whnfC, ?_,
     hs.inferIOC, hs.annotC, hs.defeqC, hs.lsimp, hs.lnz, hs.eqv, hs.ienv,
     hs.instC⟩
   intro k v hl
@@ -102,7 +120,7 @@ theorem CSOK.insertInferIOC {s : CState} (hs : CSOK mode env s)
     (hrun : ∃ F, ∀ d, (Expr.wscopedB d i) = true →
       inferTypeIO mode env F d i = .ok j) :
     CSOK mode env { s with inferIOC := s.inferIOC.insert i j } := by
-  refine ⟨hs.constTy, hs.constVal, hs.ruleRhs, hs.whnfCoreC, hs.whnfC,
+  refine ⟨hs.constTy, hs.constVal, hs.ruleRhs, hs.whnfCoreC, hs.whnfCoreCheapC, hs.whnfC,
     hs.inferC, ?_, hs.annotC, hs.defeqC, hs.lsimp, hs.lnz, hs.eqv,
     hs.ienv, hs.instC⟩
   intro k v hl
@@ -121,7 +139,7 @@ theorem CSOK.insertAnnotC {s : CState} (hs : CSOK mode env s)
     (hrun : ∃ F, ∀ d, (Expr.wscopedB d i) = true →
       annotateCore mode env F d i = .ok j) :
     CSOK mode env { s with annotC := s.annotC.insert i j } := by
-  refine ⟨hs.constTy, hs.constVal, hs.ruleRhs, hs.whnfCoreC, hs.whnfC,
+  refine ⟨hs.constTy, hs.constVal, hs.ruleRhs, hs.whnfCoreC, hs.whnfCoreCheapC, hs.whnfC,
     hs.inferC, hs.inferIOC, ?_, hs.defeqC, hs.lsimp, hs.lnz, hs.eqv,
     hs.ienv, hs.instC⟩
   intro k v hl
@@ -141,7 +159,7 @@ theorem CSOK.insertDefeqC {s : CState} (hs : CSOK mode env s)
       (Expr.wscopedB d j) = true →
       isDefEqCore mode env F d i j = .ok r) :
     CSOK mode env { s with defeqC := s.defeqC.insert (i, j) r } := by
-  refine ⟨hs.constTy, hs.constVal, hs.ruleRhs, hs.whnfCoreC, hs.whnfC,
+  refine ⟨hs.constTy, hs.constVal, hs.ruleRhs, hs.whnfCoreC, hs.whnfCoreCheapC, hs.whnfC,
     hs.inferC, hs.inferIOC, hs.annotC, ?_, hs.lsimp, hs.lnz, hs.eqv, hs.ienv, hs.instC⟩
   intro a b r' hl
   simp only at hl
@@ -164,22 +182,22 @@ section Wrappers
 
 variable {env : Env} {f : Nat}
 
-theorem memoEI_whnfCore_sim (henv : EnvWF env)
+private theorem memoEI_whnfCoreFull_sim (henv : EnvWF env)
     (hbody : ∀ {s₀ : CState} {d : Nat} {i : Expr} {e : Expr},
       CSOK mode env s₀ → RelC i e → Expr.WScoped d e →
       SimC mode env s₀ (RelEC d)
-        (whnfCoreBodyI mode (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d i)
-        (whnfCoreBody mode (fueledFns mode env) env d e))
+        (whnfCoreBodyI mode (coreKnotI mode (mkFEnv env) f) (mkFEnv env) false d i)
+        (whnfCoreBody mode (fueledFns mode env) env false d e))
     {s₀ : CState} {d : Nat} {i : Expr} {e : Expr}
     (hs : CSOK mode env s₀) (hden : RelC i e) (hw : Expr.WScoped d e) :
-    SimC mode env s₀ (RelEC d) ((coreKnotI mode (mkFEnv env) (f + 1)).whnfCore d i)
-      ((fueledFns mode env).whnfCore d e) := by
+    SimC mode env s₀ (RelEC d) ((coreKnotI mode (mkFEnv env) (f + 1)).whnfCore false d i)
+      ((fueledFns mode env).whnfCore false d e) := by
   obtain rfl := hden
   have hden : RelC i i := rfl
   intro v' s' hr
-  rw [show (coreKnotI mode (mkFEnv env) (f + 1)).whnfCore d i =
+  rw [show (coreKnotI mode (mkFEnv env) (f + 1)).whnfCore false d i =
     memoEI (·.whnfCoreC) (fun st mp => { st with whnfCoreC := mp })
-      (fun d e => whnfCoreBodyI mode (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d e)
+      (fun d e => whnfCoreBodyI mode (coreKnotI mode (mkFEnv env) f) (mkFEnv env) false d e)
       d i from rfl] at hr
   simp only [memoEI, Bind.bind, StateT.bind, get, getThe,
     MonadStateOf.get, StateT.get, pure, StateT.pure, Except.pure,
@@ -197,7 +215,7 @@ theorem memoEI_whnfCore_sim (henv : EnvWF env)
     rw [hl] at hr
     try dsimp only at hr
     try simp only [StateT.bind] at hr
-    cases hb : whnfCoreBodyI mode (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d i s₀
+    cases hb : whnfCoreBodyI mode (coreKnotI mode (mkFEnv env) f) (mkFEnv env) false d i s₀
         with
     | error err =>
       rw [hb] at hr
@@ -218,6 +236,75 @@ theorem memoEI_whnfCore_sim (henv : EnvWF env)
           rw [whnfCore_depth_inv henv (F + 1) hd' hw.to_wscopedB]
           exact hF⟩
       exact ⟨hins, r, ⟨rfl, hwv⟩, F + 1, hF⟩
+
+private theorem memoEI_whnfCoreCheap_sim (henv : EnvWF env)
+    (hbody : ∀ {s₀ : CState} {d : Nat} {i : Expr} {e : Expr},
+      CSOK mode env s₀ → RelC i e → Expr.WScoped d e →
+      SimC mode env s₀ (RelEC d)
+        (whnfCoreBodyI mode (coreKnotI mode (mkFEnv env) f) (mkFEnv env) true d i)
+        (whnfCoreBody mode (fueledFns mode env) env true d e))
+    {s₀ : CState} {d : Nat} {i : Expr} {e : Expr}
+    (hs : CSOK mode env s₀) (hden : RelC i e) (hw : Expr.WScoped d e) :
+    SimC mode env s₀ (RelEC d) ((coreKnotI mode (mkFEnv env) (f + 1)).whnfCore true d i)
+      ((fueledFns mode env).whnfCore true d e) := by
+  obtain rfl := hden
+  have hden : RelC i i := rfl
+  intro v' s' hr
+  rw [show (coreKnotI mode (mkFEnv env) (f + 1)).whnfCore true d i =
+    memoEI (·.whnfCoreCheapC) (fun st mp => { st with whnfCoreCheapC := mp })
+      (fun d e => whnfCoreBodyI mode (coreKnotI mode (mkFEnv env) f) (mkFEnv env) true d e)
+      d i from rfl] at hr
+  simp only [memoEI, Bind.bind, StateT.bind, get, getThe,
+    MonadStateOf.get, StateT.get, pure, StateT.pure, Except.pure,
+    Except.bind] at hr
+  cases hl : s₀.whnfCoreCheapC[i]? with
+  | some j =>
+    rw [hl] at hr
+    simp only [pure, StateT.pure, Except.pure, Except.ok.injEq] at hr
+    obtain ⟨rfl, rfl⟩ := Prod.mk.injEq .. ▸ hr
+    obtain ⟨F, hall⟩ := hs.whnfCoreCheapC i _ hl
+    have hrun := hall d hw.to_wscopedB
+    exact ⟨hs, j, ⟨rfl, whnfCore_WScoped henv F hrun hw⟩,
+      F, hrun⟩
+  | none =>
+    rw [hl] at hr
+    try dsimp only at hr
+    try simp only [StateT.bind] at hr
+    cases hb : whnfCoreBodyI mode (coreKnotI mode (mkFEnv env) f) (mkFEnv env) true d i s₀
+        with
+    | error err =>
+      rw [hb] at hr
+      simp only [Bind.bind, Except.bind] at hr
+      exact nomatch hr
+    | ok pr =>
+      obtain ⟨r, s₁⟩ := pr
+      rw [hb] at hr
+      simp only [Bind.bind, Except.bind, modify, modifyGet,
+        MonadStateOf.modifyGet, StateT.modifyGet, StateT.pure, pure,
+        Except.pure, Except.ok.injEq] at hr
+      obtain ⟨rfl, rfl⟩ := Prod.mk.injEq .. ▸ hr
+      obtain ⟨hs₁, v, ⟨rfl, hwv⟩, F, hF⟩ := hbody hs hden hw r s₁ hb
+      rw [whnfCoreBody_atF] at hF
+      rw [← whnfCore_succ] at hF
+      have hins := hs₁.insertWhnfCoreCheapC
+        ⟨F + 1, fun d' hd' => by
+          rw [whnfCore_depth_inv henv (F + 1) hd' hw.to_wscopedB]
+          exact hF⟩
+      exact ⟨hins, r, ⟨rfl, hwv⟩, F + 1, hF⟩
+
+theorem memoEI_whnfCore_sim (henv : EnvWF env)
+    (hbody : ∀ {c : Bool} {s₀ : CState} {d : Nat} {i : Expr} {e : Expr},
+      CSOK mode env s₀ → RelC i e → Expr.WScoped d e →
+      SimC mode env s₀ (RelEC d)
+        (whnfCoreBodyI mode (coreKnotI mode (mkFEnv env) f) (mkFEnv env) c d i)
+        (whnfCoreBody mode (fueledFns mode env) env c d e))
+    {c : Bool} {s₀ : CState} {d : Nat} {i : Expr} {e : Expr}
+    (hs : CSOK mode env s₀) (hden : RelC i e) (hw : Expr.WScoped d e) :
+    SimC mode env s₀ (RelEC d) ((coreKnotI mode (mkFEnv env) (f + 1)).whnfCore c d i)
+      ((fueledFns mode env).whnfCore c d e) := by
+  cases c
+  · exact memoEI_whnfCoreFull_sim henv hbody hs hden hw
+  · exact memoEI_whnfCoreCheap_sim henv hbody hs hden hw
 
 theorem memoEI_whnf_sim (henv : EnvWF env)
     (hbody : ∀ {s₀ : CState} {d : Nat} {i : Expr} {e : Expr},

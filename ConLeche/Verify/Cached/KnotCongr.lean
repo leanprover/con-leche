@@ -340,17 +340,22 @@ theorem whnfAppI_congr (hfe : fe₁.find? = fe₂.find?) (r : CoreFnsI)
     whnfAppI mode r fe₁ depth k = whnfAppI mode r fe₂ depth k := by
   funext v args; exact (whnfAppI_betaPeelI_congr hfe r depth k).1 v args
 
+/-- `reduceProjCoreI` reads `fe` only through `find?`. -/
+theorem reduceProjCoreI_congr (hfe : fe₁.find? = fe₂.find?) (r : CoreFnsI) :
+    reduceProjCoreI mode r fe₁ = reduceProjCoreI mode r fe₂ := by
+  funext depth sn i c; unfold reduceProjCoreI
+  simp only [projLitToCtorI_congr hfe, findProj?_congr hfe, projCertAtI_congr hfe]
+
 /-- `whnfCoreStepI` reads `fe` only through `find?`. -/
 theorem whnfCoreStepI_congr (hfe : fe₁.find? = fe₂.find?) (r : CoreFnsI) :
     whnfCoreStepI mode r fe₁ = whnfCoreStepI mode r fe₂ := by
-  funext depth k e; unfold whnfCoreStepI
-  simp only [whnfAppI_congr hfe, projLitToCtorI_congr hfe,
-    findProj?_congr hfe, projCertAtI_congr hfe]
+  funext cheap depth k e; unfold whnfCoreStepI
+  simp only [whnfAppI_congr hfe, reduceProjCoreI_congr hfe]
 
 /-- `whnfCoreLoopI` reads `fe` only through `find?`. -/
 theorem whnfCoreLoopI_congr (hfe : fe₁.find? = fe₂.find?) (r : CoreFnsI) :
     whnfCoreLoopI mode r fe₁ = whnfCoreLoopI mode r fe₂ := by
-  funext depth n
+  funext cheap depth n
   induction n with
   | zero => rfl
   | succ n ih =>
@@ -359,7 +364,7 @@ theorem whnfCoreLoopI_congr (hfe : fe₁.find? = fe₂.find?) (r : CoreFnsI) :
 /-- `whnfCoreBodyI` reads `fe` only through `find?`. -/
 theorem whnfCoreBodyI_congr (hfe : fe₁.find? = fe₂.find?) (r : CoreFnsI) :
     whnfCoreBodyI mode r fe₁ = whnfCoreBodyI mode r fe₂ := by
-  funext depth e; unfold whnfCoreBodyI; rw [whnfCoreLoopI_congr hfe]
+  funext cheap depth e; unfold whnfCoreBodyI; rw [whnfCoreLoopI_congr hfe]
 
 /-- `inferSpineI` only threads `fe`. -/
 theorem inferSpineI_congr (_hfe : fe₁.find? = fe₂.find?) (r : CoreFnsI) :
@@ -409,28 +414,52 @@ theorem inferBodyIOI_congr (hfe : fe₁.find? = fe₂.find?) (r : CoreFnsI) :
   funext depth e; unfold inferBodyIOI
   simp only [inferSpineIOI_congr hfe, inferBodyI_congr hfe]
 
-/-- `defeqStepI` reads `fe` only through `find?`. -/
-theorem defeqStepI_congr (hfe : fe₁.find? = fe₂.find?) (r : CoreFnsI) :
-    defeqStepI mode r fe₁ = defeqStepI mode r fe₂ := by
-  funext depth k pi a b; unfold defeqStepI
-  simp only [propIrrelI_congr hfe, reduceNatI_congr hfe,
-    unfoldableHeadC_congr hfe, unfoldDefinitionI_congr hfe,
-    headHintC_congr hfe, defeqSpineI_congr hfe, stuckIrrelI_congr hfe,
-    strLitSupportedF_congr hfe, defEqListI_congr hfe, etaCertI_congr hfe]
+/-- `lazyDeltaStepI` reads `fe` only through `find?`. -/
+theorem lazyDeltaStepI_congr (hfe : fe₁.find? = fe₂.find?) (r : CoreFnsI) :
+    lazyDeltaStepI mode r fe₁ = lazyDeltaStepI mode r fe₂ := by
+  funext depth a b; unfold lazyDeltaStepI
+  simp only [unfoldableHeadC_congr hfe, unfoldDefinitionI_congr hfe,
+    headHintC_congr hfe, defeqSpineI_congr hfe]
 
-/-- `defeqLoopI` reads `fe` only through `find?`. -/
-theorem defeqLoopI_congr (hfe : fe₁.find? = fe₂.find?) (r : CoreFnsI) :
-    defeqLoopI mode r fe₁ = defeqLoopI mode r fe₂ := by
+/-- `lazyDeltaReductionI` reads `fe` only through `find?`. -/
+theorem lazyDeltaReductionI_congr (hfe : fe₁.find? = fe₂.find?) (r : CoreFnsI) :
+    lazyDeltaReductionI mode r fe₁ = lazyDeltaReductionI mode r fe₂ := by
   funext depth n
   induction n with
   | zero => rfl
   | succ n ih =>
-    funext pi a b; unfold defeqLoopI; rw [ih, defeqStepI_congr hfe]
+    funext a b; unfold lazyDeltaReductionI
+    simp only [ih, reduceNatI_congr hfe, lazyDeltaStepI_congr hfe]
+
+/-- `lazyDeltaProjReductionI` reads `fe` only through `find?`. -/
+theorem lazyDeltaProjReductionI_congr (hfe : fe₁.find? = fe₂.find?) (r : CoreFnsI) :
+    lazyDeltaProjReductionI mode r fe₁ = lazyDeltaProjReductionI mode r fe₂ := by
+  funext depth sn i n
+  induction n with
+  | zero => rfl
+  | succ n ih =>
+    funext a b; unfold lazyDeltaProjReductionI
+    simp only [ih, lazyDeltaStepI_congr hfe, reduceProjCoreI_congr hfe]
+
+/-- `defeqProjPairI` reads `fe` only through `find?`. -/
+theorem defeqProjPairI_congr (hfe : fe₁.find? = fe₂.find?) (r : CoreFnsI) :
+    defeqProjPairI mode r fe₁ = defeqProjPairI mode r fe₂ := by
+  funext depth a b; unfold defeqProjPairI
+  simp only [lazyDeltaProjReductionI_congr hfe]
+
+/-- `defeqStuckI` reads `fe` only through `find?`. -/
+theorem defeqStuckI_congr (hfe : fe₁.find? = fe₂.find?) (r : CoreFnsI) :
+    defeqStuckI mode r fe₁ = defeqStuckI mode r fe₂ := by
+  funext depth a b; unfold defeqStuckI
+  simp only [stuckIrrelI_congr hfe, strLitSupportedF_congr hfe,
+    defEqListI_congr hfe, etaCertI_congr hfe]
 
 /-- `defeqBodyI` reads `fe` only through `find?`. -/
 theorem defeqBodyI_congr (hfe : fe₁.find? = fe₂.find?) (r : CoreFnsI) :
     defeqBodyI mode r fe₁ = defeqBodyI mode r fe₂ := by
-  funext depth a b; unfold defeqBodyI; rw [defeqLoopI_congr hfe]
+  funext depth a b; unfold defeqBodyI
+  simp only [propIrrelI_congr hfe, lazyDeltaReductionI_congr hfe,
+    defeqProjPairI_congr hfe, defeqStuckI_congr hfe]
 
 /-- `annotPwPiI` reads `fe` only through `find?`. -/
 theorem annotPwPiI_congr (hfe : fe₁.find? = fe₂.find?) (r : CoreFnsI) :

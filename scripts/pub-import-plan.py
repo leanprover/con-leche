@@ -54,6 +54,13 @@ DIR   = os.environ.get('PUBPLAN_DIR', '_tmp/m3')
 # a tree whose `rfl`s stop closing, so they stay public and the gate must not
 # ask for them again.
 FALLBACK = {
+    # lane CHEAPPROJ: `DefEqBridge`'s public statements name `DefEqBridge`/
+    # `DefEq` (through `Defs`) and `QuickExit`/`quickDefEqFueled` (through
+    # `DefEqStepInv`); the census attributes them to its private `RedBridge`
+    # import instead.  Each MEASURED by demoting it alone (unknown
+    # identifier `DefEqBridge`, `DefEqBridge.lean:39`; `QuickExit`, `:40`).
+    ('ConLeche.Verify.Rules.DefEqBridge', 'ConLeche.Verify.Rules.Defs'),
+    ('ConLeche.Verify.Rules.DefEqBridge', 'ConLeche.Verify.Rules.DefEqStepInv'),
     # lane SIMP-AD: measured — demoting it breaks the file's own statements
     # (`Expr.eraseFVarTys`, `NestCallSyn.lean:34`; `targetPiDomsWith`, `:112`).
     ('ConLeche.Verify.Inductives.NestCallSyn', 'ConLeche.Kernel.Inductives.RecCheck'),

@@ -24,9 +24,11 @@ variable (mode : CheckMode)
 def pureFns (env : Env) : Nat → CoreFns CheckM :=
   coreKnot mode env id
 
-/-- Head normalization without delta (fueled). -/
-def whnfCore (env : Env) (fuel depth : Nat) (e : Expr) : CheckM Expr :=
-  (pureFns mode env fuel).whnfCore depth e
+/-- Head normalization without delta (fueled); `cheap` is the official
+kernel's `cheap_proj` (`whnfCoreBody`), off by default. -/
+def whnfCore (env : Env) (fuel depth : Nat) (e : Expr) (cheap : Bool := false) :
+    CheckM Expr :=
+  (pureFns mode env fuel).whnfCore cheap depth e
 
 /-- The full reduction loop (fueled). -/
 def whnf (env : Env) (fuel depth : Nat) (e : Expr) : CheckM Expr :=

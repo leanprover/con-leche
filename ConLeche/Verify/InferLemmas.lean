@@ -50,22 +50,22 @@ population of consumers that *discard* the certificate component
 (`whnfPres_*`, the leaf/level/bridge/simulation families) verbatim.
 
 -/
-theorem whnf_app_inv {env : Env} {fuel d : Nat} {f a e' : Expr}
-    (h : whnfCore mode env (fuel + 1) d (.app f a) = .ok e') :
-    ∃ f', whnfCore mode env fuel d f = .ok f' ∧
+theorem whnf_app_inv {env : Env} {fuel d : Nat} {f a e' : Expr} {c : Bool}
+    (h : whnfCore mode env (fuel + 1) d (.app f a) c = .ok e') :
+    ∃ f', whnfCore mode env fuel d f c = .ok f' ∧
       ((∃ ty body m, f' = .lam ty body m ∧
-          whnfCore mode env fuel d (body.instantiate1 a) = .ok e' ∧
+          whnfCore mode env fuel d (body.instantiate1 a) c = .ok e' ∧
           (betaGateFires mode m.pw = true ∨
             ∃ ta, inferTypeIO mode env fuel d a = .ok ta ∧
               isDefEqCore mode env fuel d ta ty = .ok true)) ∨
         (∃ e'', iotaRecFueled mode env fuel d (.app f' a) = .ok (some e'') ∧
-          whnfCore mode env fuel d e'' = .ok e') ∨
+          whnfCore mode env fuel d e'' c = .ok e') ∨
         e' = .app f' a) := by
   rw [whnfCore_succ] at h
   simp only [whnfCoreBody, Bind.bind, Except.bind] at h
   simp only [whnfCore_def, infer_def, inferTypeIO_def, defeq_def,
     iotaRec_fold] at h
-  cases hwf : whnfCore mode env fuel d f with
+  cases hwf : whnfCore mode env fuel d f c with
   | error err => rw [hwf] at h; exact nomatch h
   | ok f' =>
   rw [hwf] at h
@@ -432,8 +432,8 @@ theorem inferTypeCore_letE_inv {env : Env} {fuel d : Nat}
 reason: it is a positive `.internal` error, because reduction only ever
 sees let-free expressions. -/
 theorem whnfCore_letE_inv {env : Env} {fuel d : Nat}
-    {ty v b e' : Expr}
-    (h : whnfCore mode env (fuel + 1) d (.letE ty v b) = .ok e') :
+    {ty v b e' : Expr} {c : Bool}
+    (h : whnfCore mode env (fuel + 1) d (.letE ty v b) c = .ok e') :
     False := by
   rw [whnfCore_succ] at h
   simp [whnfCoreBody, throw, throwThe, MonadExceptOf.throw] at h
@@ -601,79 +601,105 @@ theorem Expr.getAppArgs_mkAppN : ∀ (args : List Expr) (f : Expr),
       Expr.getAppArgs_mkAppN as]
     simp [Expr.getAppArgs]
 
-/-- Inversion for `whnfCore` on projections: the scrutinee whnf, then
-the string-literal expansion step (`projLitToCtorFueled`), then either the
-input itself (a stuck projection keeps its scrutinee as it was, official
-`whnf_core`: `reduce_proj` fails and the input is returned) or a firing
-table entry. -/
-theorem whnf_proj_inv {env : Env} {fuel d : Nat} {sn : Name} {i : Nat} {e e' : Expr}
-    (h : whnfCore mode env (fuel + 1) d (.proj sn i e) = .ok e') :
-    ∃ e₂ e₃, whnf mode env fuel d e = .ok e₂ ∧
-      projLitToCtorFueled mode env fuel d e₂ = .ok e₃ ∧
-      (e' = .proj sn i e ∨
-        ∃ us entry, e₃.getAppFn = .const entry.ctor us ∧
-          env.findProj? sn i = some entry ∧
-          i < entry.numFields ∧
-          e₃.getAppArgs.length = entry.numParams + entry.numFields ∧
-          us.length = entry.levelParams.length ∧
-          entry.fireOk us = true ∧
-          whnfCore mode env fuel d
-            (e₃.getAppArgs.getD (entry.numParams + i) (.bvar 0)) = .ok e' ∧
-          projCertAtFueled mode env fuel d mode.verifiedChecks mode.betaGate entry.ctor us
-            e₃.getAppArgs = .ok true) := by
-  rw [whnfCore_succ] at h
-  simp only [whnfCoreBody, Bind.bind, Except.bind] at h
-  simp only [whnfCore_def, whnf_def, projCertAt_fold,
-    projLitToCtor_fold] at h
-  cases he : whnf mode env fuel d e with
-  | error err => rw [he] at h; exact nomatch h
-  | ok e₂ =>
-  rw [he] at h
-  dsimp only at h
-  cases hlit : projLitToCtorFueled mode env fuel d e₂ with
+/-- Inversion for a firing projection rule (`reduceProjCore`): the
+string-literal expansion step (`projLitToCtorFueled`), then a firing
+table entry, certified, and the selected field. -/
+theorem reduceProjCore_inv {env : Env} {fuel d : Nat} {sn : Name} {i : Nat}
+    {c m : Expr}
+    (h : reduceProjCoreFueled mode env fuel d sn i c = .ok (some m)) :
+    ∃ e₃ us entry, projLitToCtorFueled mode env fuel d c = .ok e₃ ∧
+      e₃.getAppFn = .const entry.ctor us ∧
+      env.findProj? sn i = some entry ∧
+      i < entry.numFields ∧
+      e₃.getAppArgs.length = entry.numParams + entry.numFields ∧
+      us.length = entry.levelParams.length ∧
+      entry.fireOk us = true ∧
+      m = e₃.getAppArgs.getD (entry.numParams + i) (.bvar 0) ∧
+      projCertAtFueled mode env fuel d mode.verifiedChecks mode.betaGate entry.ctor us
+        e₃.getAppArgs = .ok true := by
+  simp only [reduceProjCoreFueled, reduceProjCore, Bind.bind, Except.bind,
+    projCertAt_fold, projLitToCtor_fold] at h
+  cases hlit : projLitToCtorFueled mode env fuel d c with
   | error err => rw [hlit] at h; exact nomatch h
   | ok e₃ =>
   rw [hlit] at h
   dsimp only at h
-  refine ⟨e₂, e₃, rfl, hlit, ?_⟩
   cases hfp : env.findProj? sn i with
-  | none => rw [hfp] at h; exact Or.inl (Except.ok.inj h).symm
+  | none => rw [hfp] at h; simp [pure, Except.pure] at h
   | some entry =>
   rw [hfp] at h
   dsimp only at h
   cases hfn : e₃.getAppFn with
-  | const c us =>
+  | const k us =>
     rw [hfn] at h
     dsimp only at h
     split at h
     next hcond =>
       obtain ⟨rfl, hi, hlen, hus, hfire⟩ := hcond
       try simp only [Bind.bind, Except.bind] at h
-      try dsimp only at h
-      cases hcert : projCertAtFueled mode env fuel d mode.verifiedChecks mode.betaGate entry.ctor us
-          e₃.getAppArgs with
+      cases hcert : projCertAtFueled mode env fuel d mode.verifiedChecks mode.betaGate
+          entry.ctor us e₃.getAppArgs with
       | error err => rw [hcert] at h; exact nomatch h
       | ok b =>
       rw [hcert] at h
       cases b with
       | true =>
-        simp only [if_true] at h
-        try dsimp only at h
-        exact Or.inr ⟨us, entry, rfl, rfl, hi, hlen, hus, hfire, h, hcert⟩
-      | false =>
-        simp only [Bool.false_eq_true, if_false] at h
-        exact Or.inl (Except.ok.inj h).symm
-    next hcond =>
-      exact Or.inl (Except.ok.inj h).symm
-  | bvar i2 => rw [hfn] at h; exact Or.inl (Except.ok.inj h).symm
-  | sort u => rw [hfn] at h; exact Or.inl (Except.ok.inj h).symm
-  | fvar i2 t2 => rw [hfn] at h; exact Or.inl (Except.ok.inj h).symm
-  | app f2 a2 => rw [hfn] at h; exact Or.inl (Except.ok.inj h).symm
-  | lam t2 b2 m2 => rw [hfn] at h; exact Or.inl (Except.ok.inj h).symm
-  | forallE t2 b2 m2 => rw [hfn] at h; exact Or.inl (Except.ok.inj h).symm
-  | letE t2 v2 b2 => rw [hfn] at h; exact Or.inl (Except.ok.inj h).symm
-  | lit l2 => rw [hfn] at h; exact Or.inl (Except.ok.inj h).symm
-  | proj s2 i2 e3 => rw [hfn] at h; exact Or.inl (Except.ok.inj h).symm
+        simp only [if_true, pure, Except.pure, Except.ok.injEq, Option.some.injEq] at h
+        exact ⟨e₃, us, entry, rfl, hfn, rfl, hi, hlen, hus, hfire, h.symm, hcert⟩
+      | false => simp [pure, Except.pure] at h
+    next => simp [pure, Except.pure] at h
+  | _ => rw [hfn] at h; simp [pure, Except.pure] at h
+
+/-- Inversion for `whnfCore` on projections: the scrutinee reduced
+(`whnf`, or the cheap `whnfCore` at `cheap_proj`), then either the input
+itself (a stuck projection keeps its scrutinee as it was, official
+`whnf_core`: `reduce_proj` fails and the input is returned) or a firing
+projection rule (`reduceProjCore`) and the field's head normalization. -/
+theorem whnf_proj_inv {env : Env} {fuel d : Nat} {sn : Name} {i : Nat} {e e' : Expr}
+    {c : Bool}
+    (h : whnfCore mode env (fuel + 1) d (.proj sn i e) c = .ok e') :
+    ∃ e₂, ((c = true ∧ whnfCore mode env fuel d e true = .ok e₂) ∨
+        (c = false ∧ whnf mode env fuel d e = .ok e₂)) ∧
+      (e' = .proj sn i e ∨
+        ∃ m, reduceProjCoreFueled mode env fuel d sn i e₂ = .ok (some m) ∧
+          whnfCore mode env fuel d m c = .ok e') := by
+  rw [whnfCore_succ] at h
+  simp only [whnfCoreBody, Bind.bind, Except.bind] at h
+  simp only [whnfCore_def, whnf_def, reduceProjCore_fold] at h
+  cases c with
+  | true =>
+    simp only [↓reduceIte] at h
+    cases hx : whnfCore mode env fuel d e true with
+    | error err => rw [hx] at h; exact nomatch h
+    | ok e₂ =>
+    rw [hx] at h
+    dsimp only at h
+    refine ⟨e₂, (Or.inl ⟨rfl, rfl⟩), ?_⟩
+    cases hr : reduceProjCoreFueled mode env fuel d sn i e₂ with
+    | error err => rw [hr] at h; exact nomatch h
+    | ok o =>
+    rw [hr] at h
+    dsimp only at h
+    cases o with
+    | some m => exact Or.inr ⟨m, rfl, h⟩
+    | none => exact Or.inl (Except.ok.inj h).symm
+
+  | false =>
+    simp only [Bool.false_eq_true, ↓reduceIte] at h
+    cases hx : whnf mode env fuel d e with
+    | error err => rw [hx] at h; exact nomatch h
+    | ok e₂ =>
+    rw [hx] at h
+    dsimp only at h
+    refine ⟨e₂, (Or.inr ⟨rfl, rfl⟩), ?_⟩
+    cases hr : reduceProjCoreFueled mode env fuel d sn i e₂ with
+    | error err => rw [hr] at h; exact nomatch h
+    | ok o =>
+    rw [hr] at h
+    dsimp only at h
+    cases o with
+    | some m => exact Or.inr ⟨m, rfl, h⟩
+    | none => exact Or.inl (Except.ok.inj h).symm
 
 /-- At the verified mode the fire's gate runs the certificate
 (`projCertAt`; parity mirrors official, 2026-09-06). -/
@@ -2515,6 +2541,23 @@ theorem projLitToCtorFueled_inv {env : Env} {fuel d : Nat} {e e₁ : Expr}
       Except.ok.injEq] at h
     exact Or.inl h.symm
 
+
+/-- A predicate passes through a firing projection rule
+(`reduceProjCore`) when it passes to an application's arguments,
+through `whnf` and to a string literal's constructor form. -/
+theorem reduceProjCore_pres {env : Env} {fuel d : Nat} {sn : Name} {i : Nat}
+    {c m : Expr} (P : Expr → Prop)
+    (hargs : ∀ {x : Expr}, P x → ∀ y ∈ x.getAppArgs, P y)
+    (hW : ∀ {x y : Expr}, whnf mode env fuel d x = .ok y → P x → P y)
+    (hstr : ∀ s, strLitSupported env = true → P (strLitToConstructor s))
+    (h : reduceProjCoreFueled mode env fuel d sn i c = .ok (some m)) (hc : P c) :
+    P m := by
+  obtain ⟨e₃, us, entry, hlit, -, -, hi, hlen, -, -, rfl, -⟩ := reduceProjCore_inv h
+  have h3 : P e₃ := by
+    rcases projLitToCtorFueled_inv hlit with rfl | ⟨s, -, hs, hred⟩
+    · exact hc
+    · exact hW hred (hstr s hs)
+  exact hargs h3 _ (getD_mem (by omega))
 /-- The literal-major conversion preserves well-scopedness. -/
 theorem litToCtorIfNat_WScoped {env : Env} {d : Nat} {e : Expr}
     (hw : WScoped d e) : WScoped d (litToCtorIfNat env e) := by
@@ -2755,16 +2798,16 @@ set_option maxHeartbeats 1600000 in
 well-scopedness. -/
 theorem whnfPres_WScoped {env : Env} (henv : EnvWF env) :
     ∀ (fuel : Nat),
-      (∀ {d : Nat} {e e' : Expr}, whnfCore mode env fuel d e = .ok e' →
+      (∀ {c : Bool} {d : Nat} {e e' : Expr}, whnfCore mode env fuel d e c = .ok e' →
         WScoped d e → WScoped d e') ∧
       (∀ {d : Nat} {e e' : Expr}, whnf mode env fuel d e = .ok e' →
         WScoped d e → WScoped d e')
-  | 0 => ⟨(fun {_ _ _} h _ => nomatch h), (fun {_ _ _} h _ => nomatch h)⟩
+  | 0 => ⟨(fun {_ _ _ _} h _ => nomatch h), (fun {_ _ _} h _ => nomatch h)⟩
   | fuel + 1 => by
     obtain ⟨ihCore, ihLoop⟩ := whnfPres_WScoped henv fuel
     constructor
     · -- whnfCore
-      intro d e e' h hw
+      intro c d e e' h hw
       cases e with
       | sort u =>
         rw [whnfCore_succ] at h
@@ -2847,16 +2890,16 @@ theorem whnfPres_WScoped {env : Env} (henv : EnvWF env) :
           exact ⟨hwf', hw.2⟩
       | proj sn i pe =>
         simp only [WScoped] at hw
-        obtain ⟨e₂, e₃, he, hlit, hcase⟩ := whnf_proj_inv h
-        have hwe₂ : WScoped d e₂ := ihLoop he hw
-        have hwe₃ : WScoped d e₃ := by
-          rcases projLitToCtorFueled_inv hlit with rfl | ⟨s, -, -, hred⟩
-          · exact hwe₂
-          · exact ihLoop hred (strLitToConstructor_WScoped s d)
-        rcases hcase with rfl |
-          ⟨us, entry, hfn, hf, hi, hlen, hus, -, hred, -⟩
+        obtain ⟨e₂, hst, hcase⟩ := whnf_proj_inv h
+        have hwe₂ : WScoped d e₂ := by
+          rcases hst with ⟨-, h2⟩ | ⟨-, h2⟩
+          · exact ihCore h2 hw
+          · exact ihLoop h2 hw
+        rcases hcase with rfl | ⟨m, hr, hm⟩
         · simpa [WScoped] using hw
-        · exact ihCore hred (hwe₃.getAppArgs _ (getD_mem (by omega)))
+        · exact ihCore hm (reduceProjCore_pres (WScoped d)
+            (fun hx => hx.getAppArgs) ihLoop
+            (fun s _ => strLitToConstructor_WScoped s d) hr hwe₂)
     · -- whnf loop: the reduction chain is iteration on the loop's own
       -- step budget (task #106), so this is an induction on that
       -- budget at the *same* knot fuel; `ihCore` covers the per-step
@@ -2881,8 +2924,8 @@ theorem whnfPres_WScoped {env : Env} (henv : EnvWF env) :
 
 /-- Head normalization preserves well-scopedness. -/
 theorem whnfCore_WScoped {env : Env} (henv : EnvWF env)
-    (fuel : Nat) {d : Nat} {e e' : Expr}
-    (h : whnfCore mode env fuel d e = .ok e') (hw : WScoped d e) : WScoped d e' :=
+    (fuel : Nat) {d : Nat} {e e' : Expr} {c : Bool}
+    (h : whnfCore mode env fuel d e c = .ok e') (hw : WScoped d e) : WScoped d e' :=
   (whnfPres_WScoped henv fuel).1 h hw
 
 /-- The reduction loop preserves well-scopedness. -/
@@ -2908,5 +2951,232 @@ theorem prepareMajorFueled_WScoped {env : Env} (henv : EnvWF env)
       · exact hwe
       · exact WScoped.of_wscopedB hwsc)
     hw
+
+/-- The predecessor of a successor form is in scope. -/
+theorem natPred?_WScoped {d : Nat} {e x : Expr} (h : e.natPred? = some x)
+    (hw : WScoped d e) : WScoped d x := by
+  match e, h with
+  | .lit (.natVal (n + 1)), h =>
+    simp only [Expr.natPred?, Option.some.injEq] at h
+    subst h
+    simp [WScoped]
+  | .app (.const c []) y, h =>
+    simp only [Expr.natPred?] at h
+    split at h
+    · simp only [Option.some.injEq] at h
+      subst h
+      simp only [WScoped] at hw
+      exact hw.2
+    · exact nomatch h
+
+
+/-! ## The lazy-delta loops' pairs (lane CHEAPPROJ)
+
+A predicate preserved by unfolding and by `whnfCore` (either mode) is
+preserved along the lazy-delta step and loop: every pair they hand on
+is reached from the input pair by those operations. -/
+
+section LazyPres
+
+variable {env : Env} {fuel d : Nat}
+
+/-- `deltaQuick` hands on its own pair. -/
+theorem deltaQuick_cont {x y a' b' : Expr}
+    (h : deltaQuickFueled mode env fuel d x y = .ok (.cont a' b')) :
+    a' = x ∧ b' = y := by
+  simp only [deltaQuickFueled, deltaQuick, Bind.bind, Except.bind, quickDefEq_fold] at h
+  cases hq : quickDefEqFueled mode env fuel d x y with
+  | error err => rw [hq] at h; exact nomatch h
+  | ok o =>
+  rw [hq] at h
+  dsimp only at h
+  match o, h with
+  | none, h =>
+    simp only [pure, Except.pure, Except.ok.injEq, DeltaStep.cont.injEq] at h
+    exact ⟨h.1.symm, h.2.symm⟩
+  | some true, h => simp [pure, Except.pure] at h
+  | some false, h => simp [pure, Except.pure] at h
+
+/-- **The lazy-delta step's pair** is reached by unfolding and
+`whnfCore`. -/
+theorem lazyDeltaStep_pres (P : Expr → Prop)
+    (hu : ∀ {x y : Expr}, unfoldDefinition env x = some y → P x → P y)
+    (hC : ∀ {c : Bool} {x y : Expr}, whnfCore mode env fuel d x c = .ok y → P x → P y)
+    {a b a' b' : Expr}
+    (h : lazyDeltaStepFueled mode env fuel d a b = .ok (.cont a' b'))
+    (ha : P a) (hb : P b) : P a' ∧ P b' := by
+  simp only [lazyDeltaStepFueled, lazyDeltaStep, Bind.bind, Except.bind,
+    whnfCore_def, tryUnfoldProjApp_fold, deltaQuick_fold, defeqSpine_fold] at h
+  have hT : ∀ {x x' : Expr}, tryUnfoldProjAppFueled mode env fuel d x = .ok (some x') →
+      P x → P x' := by
+    intro x x' ht hx
+    simp only [tryUnfoldProjAppFueled, tryUnfoldProjApp, Bind.bind, Except.bind,
+      whnfCore_def] at ht
+    split at ht
+    · cases hw : whnfCore mode env fuel d x with
+      | error err => rw [hw] at ht; exact nomatch ht
+      | ok x₁ =>
+      rw [hw] at ht
+      dsimp only at ht
+      split at ht
+      · simp [pure, Except.pure] at ht
+      · simp only [pure, Except.pure, Except.ok.injEq, Option.some.injEq] at ht
+        subst ht
+        exact hC hw hx
+    · simp [pure, Except.pure] at ht
+  have hQ : ∀ {x y : Expr}, deltaQuickFueled mode env fuel d x y = .ok (.cont a' b') →
+      P x → P y → P a' ∧ P b' := by
+    intro x y hq hx hy
+    obtain ⟨rfl, rfl⟩ := deltaQuick_cont hq
+    exact ⟨hx, hy⟩
+  cases hda : unfoldableHead env a <;> cases hdb : unfoldableHead env b <;>
+    rw [hda, hdb] at h <;> dsimp only at h
+  · simp [pure, Except.pure] at h
+  · cases ht : tryUnfoldProjAppFueled mode env fuel d a with
+    | error err => rw [ht] at h; exact nomatch h
+    | ok o =>
+    rw [ht] at h
+    dsimp only at h
+    cases o with
+    | some a₂ => exact hQ h (hT ht ha) hb
+    | none =>
+      dsimp only at h
+      cases hu' : unfoldDefinition env b with
+      | none => rw [hu'] at h; simp [pure, Except.pure] at h
+      | some b₂ =>
+        rw [hu'] at h; dsimp only at h
+        cases hw : whnfCore mode env fuel d b₂ true with
+        | error err => rw [hw] at h; exact nomatch h
+        | ok b₃ => rw [hw] at h; exact hQ h ha (hC hw (hu hu' hb))
+  · cases ht : tryUnfoldProjAppFueled mode env fuel d b with
+    | error err => rw [ht] at h; exact nomatch h
+    | ok o =>
+    rw [ht] at h
+    dsimp only at h
+    cases o with
+    | some b₂ => exact hQ h ha (hT ht hb)
+    | none =>
+      dsimp only at h
+      cases hu' : unfoldDefinition env a with
+      | none => rw [hu'] at h; simp [pure, Except.pure] at h
+      | some a₂ =>
+        rw [hu'] at h; dsimp only at h
+        cases hw : whnfCore mode env fuel d a₂ true with
+        | error err => rw [hw] at h; exact nomatch h
+        | ok a₃ => rw [hw] at h; exact hQ h (hC hw (hu hu' ha)) hb
+  · split at h
+    · cases hu' : unfoldDefinition env a with
+      | none => rw [hu'] at h; simp [pure, Except.pure] at h
+      | some a₂ =>
+        rw [hu'] at h; dsimp only at h
+        cases hw : whnfCore mode env fuel d a₂ true with
+        | error err => rw [hw] at h; exact nomatch h
+        | ok a₃ => rw [hw] at h; exact hQ h (hC hw (hu hu' ha)) hb
+    split at h
+    · cases hu' : unfoldDefinition env b with
+      | none => rw [hu'] at h; simp [pure, Except.pure] at h
+      | some b₂ =>
+        rw [hu'] at h; dsimp only at h
+        cases hw : whnfCore mode env fuel d b₂ true with
+        | error err => rw [hw] at h; exact nomatch h
+        | ok b₃ => rw [hw] at h; exact hQ h ha (hC hw (hu hu' hb))
+    cases hsp : (if ReducibilityHint.sameRegular (headHint env a) (headHint env b) &&
+        sameConstHeads a b then defeqSpineFueled mode env fuel d a b
+        else pure false) with
+    | error err => rw [hsp] at h; exact nomatch h
+    | ok sp =>
+    rw [hsp] at h
+    dsimp only at h
+    cases sp with
+    | true => simp [pure, Except.pure] at h
+    | false =>
+    simp only [Bool.false_eq_true, ↓reduceIte] at h
+    cases hua : unfoldDefinition env a with
+    | none => rw [hua] at h; simp [pure, Except.pure] at h
+    | some a₂ =>
+    cases hub : unfoldDefinition env b with
+    | none => rw [hua, hub] at h; simp [pure, Except.pure] at h
+    | some b₂ =>
+    rw [hua, hub] at h
+    dsimp only at h
+    cases hwa : whnfCore mode env fuel d a₂ true with
+    | error err => rw [hwa] at h; exact nomatch h
+    | ok a₃ =>
+    rw [hwa] at h
+    dsimp only at h
+    cases hwb : whnfCore mode env fuel d b₂ true with
+    | error err => rw [hwb] at h; exact nomatch h
+    | ok b₃ =>
+    rw [hwb] at h
+    exact hQ h (hC hwa (hu hua ha)) (hC hwb (hu hub hb))
+
+/-- **The lazy-delta loop's stuck pair** is reached by unfolding and
+`whnfCore`. -/
+theorem lazyDeltaReduction_pres (P : Expr → Prop)
+    (hu : ∀ {x y : Expr}, unfoldDefinition env x = some y → P x → P y)
+    (hC : ∀ {c : Bool} {x y : Expr}, whnfCore mode env fuel d x c = .ok y → P x → P y) :
+    ∀ (n : Nat) {a b a₁ b₁ : Expr},
+      lazyDeltaReductionFueled mode env fuel d n a b = .ok (.unknown a₁ b₁) →
+      P a → P b → P a₁ ∧ P b₁
+  | 0, _, _, _, _, h, _, _ => by
+    simp [lazyDeltaReductionFueled, lazyDeltaReduction, throw, throwThe,
+      MonadExceptOf.throw] at h
+  | n + 1, a, b, a₁, b₁, h, ha, hb => by
+    simp only [lazyDeltaReductionFueled, lazyDeltaReduction, Bind.bind, Except.bind,
+      defeqOffset_fold, reduceNat_fold, lazyDeltaStep_fold, defeq_def] at h
+    cases ho : defeqOffsetFueled mode env fuel d a b with
+    | error err => rw [ho] at h; exact nomatch h
+    | ok o =>
+    rw [ho] at h
+    dsimp only at h
+    cases o with
+    | some v => simp [pure, Except.pure] at h
+    | none =>
+    dsimp only at h
+    cases hna : (if !a.hasFvar && !b.hasFvar then
+        reduceNatFueled mode env fuel d a else pure none) with
+    | error err => rw [hna] at h; exact nomatch h
+    | ok o₁ =>
+    rw [hna] at h
+    dsimp only at h
+    cases o₁ with
+    | some a₂ =>
+      dsimp only at h
+      cases hde : isDefEqCore mode env fuel d a₂ b with
+      | error err => rw [hde] at h; exact nomatch h
+      | ok v => rw [hde] at h; simp [pure, Except.pure] at h
+    | none =>
+    dsimp only at h
+    cases hnb : (if !a.hasFvar && !b.hasFvar then
+        reduceNatFueled mode env fuel d b else pure none) with
+    | error err => rw [hnb] at h; exact nomatch h
+    | ok o₂ =>
+    rw [hnb] at h
+    dsimp only at h
+    cases o₂ with
+    | some b₂ =>
+      dsimp only at h
+      cases hde : isDefEqCore mode env fuel d a b₂ with
+      | error err => rw [hde] at h; exact nomatch h
+      | ok v => rw [hde] at h; simp [pure, Except.pure] at h
+    | none =>
+    dsimp only at h
+    cases hs : lazyDeltaStepFueled mode env fuel d a b with
+    | error err => rw [hs] at h; exact nomatch h
+    | ok st =>
+    rw [hs] at h
+    dsimp only at h
+    cases st with
+    | cont a' b' =>
+      obtain ⟨ha', hb'⟩ := lazyDeltaStep_pres P hu hC hs ha hb
+      exact lazyDeltaReduction_pres P hu hC n h ha' hb'
+    | eq => simp [pure, Except.pure] at h
+    | diff => simp [pure, Except.pure] at h
+    | unknown =>
+      simp only [pure, Except.pure, Except.ok.injEq, LazyRes.unknown.injEq] at h
+      obtain ⟨rfl, rfl⟩ := h
+      exact ⟨ha, hb⟩
+
+end LazyPres
 
 end ConLeche

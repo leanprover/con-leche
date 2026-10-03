@@ -103,7 +103,7 @@ gated mode.  Its own `inferIO` slot is the io body again — the io
 grade is idempotent (there is nothing below io to select). -/
 def coreKnotIO (env : Env) : Nat → CoreFns m
   | 0 =>
-    { whnfCore := fun _ _ => throw (.internal "fuel exhausted: whnfCore")
+    { whnfCore := fun _ _ _ => throw (.internal "fuel exhausted: whnfCore")
       whnf := fun _ _ => throw (.internal "fuel exhausted: whnf")
       infer := fun _ _ => throw (.internal "fuel exhausted: infer")
       defeq := fun _ _ _ => throw (.internal "fuel exhausted: defeq")

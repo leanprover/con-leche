@@ -38,7 +38,7 @@ variable {m : Type → Type}
 
 /-- The record of mutually recursive cached entry points. -/
 structure CoreFnsI where
-  whnfCore : Nat → Expr → CheckCM Expr
+  whnfCore : Bool → Nat → Expr → CheckCM Expr
   whnf : Nat → Expr → CheckCM Expr
   infer : Nat → Expr → CheckCM Expr
   defeq : Nat → Expr → Expr → CheckCM Bool
@@ -835,6 +835,31 @@ def projCertAtI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (verified lic : Bool)
     (c : Name) (us : List Level) (args : List Expr) : CheckCM Bool :=
   if verified then projCertI r fe depth lic c us args else pure true
 
+/-- Twin of `reduceProjCore`. -/
+def reduceProjCoreI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (sn : Name)
+    (i : Nat) (c : Expr) : CheckCM (Option Expr) := do
+  let e' ← projLitToCtorI r fe depth c
+  let snn ← pure sn
+  match fe.findProj? snn i with
+  | some entry =>
+    match Expr.getAppFn e' with
+    | .const k us => do
+      let args ← pure (Expr.getAppArgsC e')
+      if (← pure (k == entry.ctor)) ∧ i < entry.numFields ∧
+          args.length = entry.numParams + entry.numFields ∧
+          us.length = entry.levelParams.length ∧
+          entry.fireOk us = true then do
+        let bvar0 ← pure (Expr.mkBvar 0)
+        let arg := args.getD (entry.numParams + i) bvar0
+        -- task #100 de-gating / task #175 W6 / `projCertAt`: see the
+        -- spec `reduceProjCore`
+        if ← projCertAtI r fe depth mode.verifiedChecks mode.betaGate k us args then
+          pure (some arg)
+        else pure none
+      else pure none
+    | _ => pure none
+  | none => pure none
+
 mutual
 
 /-- Bulk-beta argument loop (task #50): consume the whole application
@@ -924,13 +949,14 @@ end
 
 /-- One head-normalization step of `whnfCoreBody` (beta, iota,
 projection) with the loop's continuation `k` abstracted, in the
-open-recursion style of the whole module.  Only the spine head's
+open-recursion style of the whole module; `cheap` is the official
+`cheap_proj` flag (see `whnfCoreBody`).  Only the spine head's
 normalization stays a knot call (genuine nesting, bounded by the
 term's depth); every *reduction* step is iteration, so a chain no
 longer charges the shared recursion-depth budget one unit per step
 (task #106 — that is what made the `Nat.brecOn` grind of
 `Std.Time…toDays._proof_1` exhaust `checkFuel`). -/
-def whnfCoreStepI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
+def whnfCoreStepI (r : CoreFnsI) (fe : FEnv) (cheap : Bool) (depth : Nat)
     (k : Expr → CheckCM Expr) (e : Expr) : CheckCM Expr := do
     match e with
     | .sort _ | .fvar .. | .forallE ..
@@ -941,35 +967,15 @@ def whnfCoreStepI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
       -- lambda binders into one substitution.
       let h ← pure (Expr.getAppFn e)
       let args ← pure (Expr.getAppArgsC e)
-      let v ← r.whnfCore depth h
+      let v ← r.whnfCore cheap depth h
       whnfAppI mode r fe depth k v args
     | .proj sn i pe => do
-      -- stuck: the input itself, scrutinee as it was (see `whnfCoreBody`)
-      let e' ← r.whnf depth pe
-      let e' ← projLitToCtorI r fe depth e'
-      let snn ← pure sn
-      match fe.findProj? snn i with
-      | some entry =>
-        match Expr.getAppFn e' with
-        | .const c us => do
-          let args ← pure (Expr.getAppArgsC e')
-          if (← pure (c == entry.ctor)) ∧ i < entry.numFields ∧
-              args.length = entry.numParams + entry.numFields ∧
-              us.length = entry.levelParams.length ∧
-              entry.fireOk us = true then do
-            let bvar0 ← pure (Expr.mkBvar 0)
-            let arg := args.getD (entry.numParams + i) bvar0
-            -- task #100 de-gating: the certificate runs
-            -- unconditionally at the verified mode (the former
-            -- nonzero-sort gate is unsound-to-model under the
-            -- domain-relative collapse); task #175 W6: the spine
-            -- against the constructor's type (see `projCert`); the
-            -- trusted mode runs none (`projCertAt`).
-            if ← projCertAtI r fe depth mode.verifiedChecks mode.betaGate c us args then
-              k arg
-            else pure e
-          else pure e
-        | _ => pure e
+      -- the scrutinee by `whnf`, or by the cheap `whnfCore` in the
+      -- cheap mode; stuck: the input itself, scrutinee as it was (see
+      -- `whnfCoreBody`)
+      let c ← if cheap then r.whnfCore true depth pe else r.whnf depth pe
+      match ← reduceProjCoreI mode r fe depth sn i c with
+      | some m' => k m'
       | none => pure e
     | .letE _ _ _ =>
       -- unreachable by construction, as in the spec body (task #241):
@@ -981,16 +987,16 @@ def whnfCoreStepI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
 
 /-- Iterate `whnfCoreStepI` on its own step budget (pure mirror:
 `whnfCoreLoopM`, `ConLeche/Verify/BetaSpine.lean`). -/
-def whnfCoreLoopI (r : CoreFnsI) (fe : FEnv) (depth : Nat) :
+def whnfCoreLoopI (r : CoreFnsI) (fe : FEnv) (cheap : Bool) (depth : Nat) :
     Nat → Expr → CheckCM Expr
   | 0, _ => throw (.internal "fuel exhausted: whnfCore loop")
   | n + 1, e =>
-    whnfCoreStepI mode r fe depth (whnfCoreLoopI r fe depth n) e
+    whnfCoreStepI mode r fe cheap depth (whnfCoreLoopI r fe cheap depth n) e
 
 /-- Twin of `whnfCoreBody`: the head-normalization loop at its own step
 budget. -/
-def whnfCoreBodyI (r : CoreFnsI) (fe : FEnv) : Nat → Expr → CheckCM Expr :=
-  fun depth e => whnfCoreLoopI mode r fe depth whnfCoreLoopFuel e
+def whnfCoreBodyI (r : CoreFnsI) (fe : FEnv) : Bool → Nat → Expr → CheckCM Expr :=
+  fun cheap depth e => whnfCoreLoopI mode r fe cheap depth whnfCoreLoopFuel e
 
 /-- Application-inference spine loop (task #50): walk the raw
 Π-telescope against the arguments with deferred substitution — each
@@ -1077,7 +1083,7 @@ def inferSpineIOI (r : CoreFnsI) (fe : FEnv) (depth : Nat) :
 /-- Twin of `whnfStep`. -/
 def whnfStepI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
     (k : Expr → CheckCM Expr) (e : Expr) : CheckCM Expr := do
-  let e₁ ← r.whnfCore depth e
+  let e₁ ← r.whnfCore false depth e
   match ← reduceNatI r fe depth e₁ with
   | some e₂ => k e₂
   | none =>
@@ -1436,177 +1442,235 @@ def boolTrueShortcutI (r : CoreFnsI) (depth : Nat) (a : Expr) : CheckCM Bool := 
   let w ← r.whnf depth a
   pure (Expr.isBoolTrue w)
 
-/-- Twin of `defeqStep`. -/
-def defeqStepI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
-    (k : Bool → Expr → Expr → CheckCM Bool) (pi : Bool) (a b : Expr) :
-    CheckCM Bool := do
+/-- Twin of `quickDefEq`. -/
+def quickDefEqI (r : CoreFnsI) (depth : Nat) (a b : Expr) :
+    CheckCM (Option Bool) :=
+  if a == b then pure (some true) else
+  match a, b with
+  | .sort u, .sort v => do
+    let ok ← liftFueled "level comparison" (← isEquivLM u v)
+    pure (some ok)
+  | .lit l₁, .lit l₂ => pure (some (l₁ == l₂))
+  | .forallE ty₁ body₁ m₁, .forallE ty₂ body₂ m₂ => do
+    unless ← r.defeq depth ty₁ ty₂ do return some false
+    let fv ← pure (Expr.fvar depth ty₂)
+    let b₁ ← inst1M body₁ fv
+    let b₂ ← inst1M body₂ fv
+    unless ← r.defeq (depth + 1) b₁ b₂ do return some false
+    if mode.verifiedChecks && !(m₁.pw == m₂.pw) then
+      throw (.notImplemented "sort-annotation mismatch (defeq-forall)")
+    pure (some true)
+  | .lam ty₁ body₁ m₁, .lam ty₂ body₂ m₂ => do
+    unless ← r.defeq depth ty₁ ty₂ do return some false
+    let fv ← pure (Expr.fvar depth ty₂)
+    let b₁ ← inst1M body₁ fv
+    let b₂ ← inst1M body₂ fv
+    unless ← r.defeq (depth + 1) b₁ b₂ do return some false
+    if mode.verifiedChecks && !(m₁.pw == m₂.pw) then
+      throw (.notImplemented "sort-annotation mismatch (defeq-lam)")
+    pure (some true)
+  | _, _ => pure none
+
+/-- Twin of `defeqOffset`. -/
+def defeqOffsetI (r : CoreFnsI) (depth : Nat) (a b : Expr) :
+    CheckCM (Option Bool) :=
+  if a.isNatZero && b.isNatZero then pure (some true) else
+  if a.isLit && b.isLit then pure none else
+  match a.natPred?, b.natPred? with
+  | some x, some y => do
+    let ok ← r.defeq depth x y
+    pure (some ok)
+  | _, _ => pure none
+
+/-- Twin of `tryUnfoldProjApp`. -/
+def tryUnfoldProjAppI (r : CoreFnsI) (depth : Nat) (e : Expr) :
+    CheckCM (Option Expr) :=
+  if Expr.headIsProj e then do
+    let e' ← r.whnfCore false depth e
+    if e' == e then pure none else pure (some e')
+  else pure none
+
+/-- Twin of `deltaQuick`. -/
+def deltaQuickI (r : CoreFnsI) (depth : Nat) (a b : Expr) : CheckCM DeltaStep := do
+  match ← quickDefEqI mode r depth a b with
+  | some true => pure .eq
+  | some false => pure .diff
+  | none => pure (.cont a b)
+
+/-- Twin of `lazyDeltaStep`. -/
+def lazyDeltaStepI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (a b : Expr) :
+    CheckCM DeltaStep := do
+  match ← pure (unfoldableHeadC fe a), ← pure (unfoldableHeadC fe b) with
+  | false, false => pure .unknown
+  | true, false =>
+    match ← tryUnfoldProjAppI r depth b with
+    | some b₂ => deltaQuickI mode r depth a b₂
+    | none =>
+      match ← unfoldDefinitionI fe a with
+      | some a₂ => do
+        let a₃ ← r.whnfCore true depth a₂
+        deltaQuickI mode r depth a₃ b
+      | none => pure .unknown
+  | false, true =>
+    match ← tryUnfoldProjAppI r depth a with
+    | some a₂ => deltaQuickI mode r depth a₂ b
+    | none =>
+      match ← unfoldDefinitionI fe b with
+      | some b₂ => do
+        let b₃ ← r.whnfCore true depth b₂
+        deltaQuickI mode r depth a b₃
+      | none => pure .unknown
+  | true, true => do
+    let ha ← pure (headHintC fe a)
+    let hb ← pure (headHintC fe b)
+    if ReducibilityHint.lt hb ha then
+      match ← unfoldDefinitionI fe a with
+      | some a₂ => do
+        let a₃ ← r.whnfCore true depth a₂
+        deltaQuickI mode r depth a₃ b
+      | none => pure .unknown
+    else if ReducibilityHint.lt ha hb then
+      match ← unfoldDefinitionI fe b with
+      | some b₂ => do
+        let b₃ ← r.whnfCore true depth b₂
+        deltaQuickI mode r depth a b₃
+      | none => pure .unknown
+    else if ← (if ReducibilityHint.sameRegular ha hb &&
+        (← pure (sameConstHeadsC a b)) then
+        defeqSpineI r fe depth a b else pure false) then pure .eq
+    else
+      match ← unfoldDefinitionI fe a, ← unfoldDefinitionI fe b with
+      | some a₂, some b₂ => do
+        let a₃ ← r.whnfCore true depth a₂
+        let b₃ ← r.whnfCore true depth b₂
+        deltaQuickI mode r depth a₃ b₃
+      | _, _ => pure .unknown
+
+/-- Twin of `lazyDeltaReduction`. -/
+def lazyDeltaReductionI (r : CoreFnsI) (fe : FEnv) (depth : Nat) :
+    Nat → Expr → Expr → CheckCM LazyRes
+  | 0, _, _ => throw (.internal "fuel exhausted: defeq loop")
+  | n + 1, a, b => do
+    match ← defeqOffsetI r depth a b with
+    | some v => pure (.verdict v)
+    | none =>
+    let fold ← pure (!Expr.hasFvar a && !Expr.hasFvar b)
+    match ← (if fold then reduceNatI r fe depth a else pure none) with
+    | some a₂ => do
+      let v ← r.defeq depth a₂ b
+      pure (.verdict v)
+    | none =>
+    match ← (if fold then reduceNatI r fe depth b else pure none) with
+    | some b₂ => do
+      let v ← r.defeq depth a b₂
+      pure (.verdict v)
+    | none =>
+    match ← lazyDeltaStepI mode r fe depth a b with
+    | .cont a' b' => lazyDeltaReductionI r fe depth n a' b'
+    | .eq => pure (.verdict true)
+    | .diff => pure (.verdict false)
+    | .unknown => pure (.unknown a b)
+
+/-- Twin of `lazyDeltaProjReduction`. -/
+def lazyDeltaProjReductionI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
+    (sn : Name) (i : Nat) : Nat → Expr → Expr → CheckCM Bool
+  | 0, _, _ => throw (.internal "fuel exhausted: lazy delta projection loop")
+  | n + 1, a, b => do
+    match ← lazyDeltaStepI mode r fe depth a b with
+    | .cont a' b' => lazyDeltaProjReductionI r fe depth sn i n a' b'
+    | .eq => pure true
+    | .diff | .unknown =>
+      match ← reduceProjCoreI mode r fe depth sn i a with
+      | some x =>
+        match ← reduceProjCoreI mode r fe depth sn i b with
+        | some y => r.defeq depth x y
+        | none => r.defeq depth a b
+      | none => r.defeq depth a b
+
+/-- Twin of `defeqProjPair`. -/
+def defeqProjPairI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (a b : Expr) :
+    CheckCM Bool :=
+  match a, b with
+  | .proj s₁ i₁ e₁, .proj s₂ i₂ e₂ =>
+    if s₁ == s₂ && i₁ == i₂ then
+      lazyDeltaProjReductionI mode r fe depth s₁ i₁ defeqLoopFuel e₁ e₂
+    else pure false
+  | _, _ => pure false
+
+/-- Twin of `defeqStuck`. -/
+def defeqStuckI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (a b : Expr) :
+    CheckCM Bool :=
+  match a, b with
+  | .lit l, .app fO _x => do
+    match l, fO with
+    | .strVal s, .const cO usO =>
+      if (← pure (cO == stringOfListName)) ∧ usO = [] ∧ strLitSupportedF fe then do
+        let sc ← pure (strLitToConstructor s)
+        r.defeq depth sc b
+      else stuckIrrelI mode r fe depth a b
+    | _, _ => stuckIrrelI mode r fe depth a b
+  | .app fO _x, .lit l => do
+    match l, fO with
+    | .strVal s, .const cO usO =>
+      if (← pure (cO == stringOfListName)) ∧ usO = [] ∧ strLitSupportedF fe then do
+        let sc ← pure (strLitToConstructor s)
+        r.defeq depth a sc
+      else stuckIrrelI mode r fe depth a b
+    | _, _ => stuckIrrelI mode r fe depth a b
+  | .fvar i _, .fvar j _ =>
+    if i == j then pure true
+    else stuckIrrelI mode r fe depth a b
+  | .const n us, .const n' us' =>
+    if n = n' then do
+      if ← liftFueled "level comparison" (← isEquivListLM us us') then
+        pure true
+      else stuckIrrelI mode r fe depth a b
+    else stuckIrrelI mode r fe depth a b
+  | .app _f₁ _a₁, .app _f₂ _a₂ => do
+    -- spine-wise congruence, as in the spec (official `is_def_eq_app`)
+    let as₁ ← pure (Expr.getAppArgsC a)
+    let as₂ ← pure (Expr.getAppArgsC b)
+    if as₁.length = as₂.length then do
+      let h₁ ← pure (Expr.getAppFn a)
+      let h₂ ← pure (Expr.getAppFn b)
+      if ← r.defeq depth h₁ h₂ then do
+        if ← defEqListI r fe depth as₁ as₂ then pure true
+        else stuckIrrelI mode r fe depth a b
+      else stuckIrrelI mode r fe depth a b
+    else stuckIrrelI mode r fe depth a b
+  | .lam ty₁ body₁ m₁, _ => do
+    if ← etaCertI mode r fe depth ty₁ body₁ m₁ b then pure true
+    else stuckIrrelI mode r fe depth a b
+  | _, .lam ty₂ body₂ m₂ => do
+    if ← etaCertI mode r fe depth ty₂ body₂ m₂ a then pure true
+    else stuckIrrelI mode r fe depth a b
+  | _, _ => stuckIrrelI mode r fe depth a b
+
+/-- Twin of `defeqBody`. -/
+def defeqBodyI (r : CoreFnsI) (fe : FEnv) : Nat → Expr → Expr → CheckCM Bool :=
+  fun depth a b => do
     if a == b then pure true else
     -- the eq-true shortcut (E2), as in the spec
     let bt ← pure (Expr.isBoolTrue b)
     let af ← pure (Expr.hasFvar a)
-    if ← (if pi && bt && !af then boolTrueShortcutI r depth a
+    if ← (if bt && !af then boolTrueShortcutI r depth a
         else pure false) then pure true else
-    let a' ← r.whnfCore depth a
-    let b' ← r.whnfCore depth b
-    if a' == b' then pure true else
-    -- proof irrelevance hoisted before lazy delta, as in the spec
-    -- (and the official kernel); the `Prop` branch with the fast arms
-    -- (task #168, Option U) — once per entry (`pi`; the spec's D3 note)
-    let qp ← pure (Expr.quickPair a' b')
-    if ← (if pi && !qp then propIrrelI r fe depth a' b' else pure false) then
-      pure true else
-    -- Literal folding only when both sides are fvar-free, mirroring
-    -- the official kernel (`type_checker.cpp`, `lazy_delta_reduction`)
-    -- and lean4lean (`TypeChecker.lean:782`); see `defeqBody` for the
-    -- full rationale.  `Expr.hasFvar` is an `O(1)` read of the
-    -- fvar-range field (`@[csimp]` to `hasFvarFast`).
-    let fold ← pure (!Expr.hasFvar a' && !Expr.hasFvar b')
-    match ← (if fold then reduceNatI r fe depth a' else pure none) with
-    | some a₂ => k true a₂ b'
+    let a' ← r.whnfCore true depth a
+    let b' ← r.whnfCore true depth b
+    match ← quickDefEqI mode r depth a' b' with
+    | some v => pure v
     | none =>
-    match ← (if fold then reduceNatI r fe depth b' else pure none) with
-    | some b₂ => k true a' b₂
-    | none =>
-    -- lazy delta, decision before materialization; see `defeqBody`
-    match ← pure (unfoldableHeadC fe a'),
-        ← pure (unfoldableHeadC fe b') with
-    | true, false =>
-      match ← unfoldDefinitionI fe a' with
-      | some a₂ => k false a₂ b'
-      | none => pure false
-    | false, true =>
-      match ← unfoldDefinitionI fe b' with
-      | some b₂ => k false a' b₂
-      | none => pure false
-    | true, true => do
-      let ha ← pure (headHintC fe a')
-      let hb ← pure (headHintC fe b')
-      if ReducibilityHint.lt hb ha then
-        match ← unfoldDefinitionI fe a' with
-        | some a₂ => k false a₂ b'
-        | none => pure false
-      else if ReducibilityHint.lt ha hb then
-        match ← unfoldDefinitionI fe b' with
-        | some b₂ => k false a' b₂
-        | none => pure false
-      else if ReducibilityHint.sameRegular ha hb &&
-          (← pure (sameConstHeadsC a' b')) then do
-        if ← defeqSpineI r fe depth a' b' then pure true
-        else
-          match ← unfoldDefinitionI fe a', ← unfoldDefinitionI fe b' with
-          | some a₂, some b₂ => k false a₂ b₂
-          | _, _ => pure false
-      else
-        match ← unfoldDefinitionI fe a', ← unfoldDefinitionI fe b' with
-        | some a₂, some b₂ => k false a₂ b₂
-        | _, _ => pure false
-    | false, false =>
-    match a', b' with
-    | .sort u, .sort v => do
-      liftFueled "level comparison" (← isEquivLM u v)
-    | .lit l₁, .lit l₂ => pure (l₁ == l₂)
-    | .lit (.natVal n), .const c us =>
-      if (← pure (c == natZeroName)) ∧ us = [] then pure (n == 0)
-      else stuckIrrelI mode r fe depth a' b'
-    | .const c us, .lit (.natVal n) =>
-      if (← pure (c == natZeroName)) ∧ us = [] then pure (n == 0)
-      else stuckIrrelI mode r fe depth a' b'
-    | .lit (.natVal nn), .app f x => do
-      match nn, f with
-      | k + 1, .const c [] =>
-        if ← pure (c == natSuccName) then do
-          let kl ← pure (Expr.lit (.natVal k))
-          r.defeq depth kl x
-        else stuckIrrelI mode r fe depth a' b'
-      | _, _ => stuckIrrelI mode r fe depth a' b'
-    | .app f x, .lit (.natVal nn) => do
-      match nn, f with
-      | k + 1, .const c [] =>
-        if ← pure (c == natSuccName) then do
-          let kl ← pure (Expr.lit (.natVal k))
-          r.defeq depth x kl
-        else stuckIrrelI mode r fe depth a' b'
-      | _, _ => stuckIrrelI mode r fe depth a' b'
-    | .lit (.strVal s), .app fO _x => do
-      match fO with
-      | .const cO usO =>
-        if (← pure (cO == stringOfListName)) ∧ usO = [] ∧ strLitSupportedF fe then do
-          let sc ← pure (strLitToConstructor s)
-          r.defeq depth sc b'
-        else stuckIrrelI mode r fe depth a' b'
-      | _ => stuckIrrelI mode r fe depth a' b'
-    | .app fO _x, .lit (.strVal s) => do
-      match fO with
-      | .const cO usO =>
-        if (← pure (cO == stringOfListName)) ∧ usO = [] ∧ strLitSupportedF fe then do
-          let sc ← pure (strLitToConstructor s)
-          r.defeq depth a' sc
-        else stuckIrrelI mode r fe depth a' b'
-      | _ => stuckIrrelI mode r fe depth a' b'
-    | .fvar i _, .fvar j _ =>
-      if i == j then pure true
-      else stuckIrrelI mode r fe depth a' b'
-    | .const n us, .const n' us' =>
-      if n = n' then do
-        if ← liftFueled "level comparison" (← isEquivListLM us us') then
-          pure true
-        else stuckIrrelI mode r fe depth a' b'
-      else stuckIrrelI mode r fe depth a' b'
-    | .forallE ty₁ body₁ m₁, .forallE ty₂ body₂ m₂ => do
-      -- prop-ness agreement checked LAST (task #161); see `defeqBody`
-      unless ← r.defeq depth ty₁ ty₂ do return false
-      let fv ← pure (Expr.fvar depth ty₂)
-      let b₁ ← inst1M body₁ fv
-      let b₂ ← inst1M body₂ fv
-      unless ← r.defeq (depth + 1) b₁ b₂ do return false
-      if mode.verifiedChecks && !(m₁.pw == m₂.pw) then
-        throw (.notImplemented "sort-annotation mismatch (defeq-forall)")
-      pure true
-    | .lam ty₁ body₁ m₁, .lam ty₂ body₂ m₂ => do
-      unless ← r.defeq depth ty₁ ty₂ do return false
-      let fv ← pure (Expr.fvar depth ty₂)
-      let b₁ ← inst1M body₁ fv
-      let b₂ ← inst1M body₂ fv
-      unless ← r.defeq (depth + 1) b₁ b₂ do return false
-      if mode.verifiedChecks && !(m₁.pw == m₂.pw) then
-        throw (.notImplemented "sort-annotation mismatch (defeq-lam)")
-      pure true
-    | .app _f₁ _a₁, .app _f₂ _a₂ => do
-      -- spine-wise congruence, as in the spec body `defeqBody`
-      -- (official `is_def_eq_app`)
-      let as₁ ← pure (Expr.getAppArgsC a')
-      let as₂ ← pure (Expr.getAppArgsC b')
-      if as₁.length = as₂.length then do
-        let h₁ ← pure (Expr.getAppFn a')
-        let h₂ ← pure (Expr.getAppFn b')
-        if ← r.defeq depth h₁ h₂ then do
-          if ← defEqListI r fe depth as₁ as₂ then pure true
-          else stuckIrrelI mode r fe depth a' b'
-        else stuckIrrelI mode r fe depth a' b'
-      else stuckIrrelI mode r fe depth a' b'
-    | .proj s₁ i₁ e₁, .proj s₂ i₂ e₂ => do
-      if s₁ == s₂ && i₁ == i₂ then do
-        if ← r.defeq depth e₁ e₂ then pure true
-        else stuckIrrelI mode r fe depth a' b'
-      else stuckIrrelI mode r fe depth a' b'
-    | .lam ty₁ body₁ m₁, _ => do
-      if ← etaCertI mode r fe depth ty₁ body₁ m₁ b' then pure true
-      else stuckIrrelI mode r fe depth a' b'
-    | _, .lam ty₂ body₂ m₂ => do
-      if ← etaCertI mode r fe depth ty₂ body₂ m₂ a' then pure true
-      else stuckIrrelI mode r fe depth a' b'
-    | _, _ => stuckIrrelI mode r fe depth a' b'
-
-/-- Twin of `defeqLoop`. -/
-def defeqLoopI (r : CoreFnsI) (fe : FEnv) (depth : Nat) :
-    Nat → Bool → Expr → Expr → CheckCM Bool
-  | 0, _, _, _ => throw (.internal "fuel exhausted: defeq loop")
-  | fl + 1, pi, a, b =>
-    defeqStepI mode r fe depth (defeqLoopI r fe depth fl) pi a b
-
-/-- Twin of `defeqBody`. -/
-def defeqBodyI (r : CoreFnsI) (fe : FEnv) : Nat → Expr → Expr → CheckCM Bool :=
-  fun depth a b => defeqLoopI mode r fe depth defeqLoopFuel true a b
+    if ← propIrrelI r fe depth a' b' then pure true else
+    match ← lazyDeltaReductionI mode r fe depth defeqLoopFuel a' b' with
+    | .verdict v => pure v
+    | .unknown a₁ b₁ =>
+    if ← defeqProjPairI mode r fe depth a₁ b₁ then pure true else
+    if !(Expr.headIsProj a₁) && !(Expr.headIsProj b₁) then
+      defeqStuckI mode r fe depth a₁ b₁ else
+    let a₂ ← r.whnfCore false depth a₁
+    let b₂ ← r.whnfCore false depth b₁
+    if a₂ == a₁ && b₂ == b₁ then defeqStuckI mode r fe depth a₁ b₁
+    else r.defeq depth a₂ b₂
 
 /-! ### Annotation binder-telescope loops (task #72; see the
 `inferLamsI` block comment) -/
@@ -1890,7 +1954,7 @@ function at the other mode.  The mode-parametric simulation tower
 `hμ : mode.verifiedChecks = true`. -/
 def coreKnotI (fe : FEnv) : Nat → CoreFnsI
   | 0 =>
-    { whnfCore := fun _ _ => throw (.internal "fuel exhausted: whnfCore")
+    { whnfCore := fun _ _ _ => throw (.internal "fuel exhausted: whnfCore")
       whnf := fun _ _ => throw (.internal "fuel exhausted: whnf")
       infer := fun _ _ => throw (.internal "fuel exhausted: infer")
       defeq := fun _ _ _ => throw (.internal "fuel exhausted: defeq")
@@ -1923,9 +1987,15 @@ def coreKnotI (fe : FEnv) : Nat → CoreFnsI
     -- enum passed down once per *driver* — nothing is built per knot
     -- level or per call (at B2 a record allocation at every
     -- head-normalization entry cost +0.155 % on `init-prelude`).
-    { whnfCore := memoEI (·.whnfCoreC)
-        (fun st mp => { st with whnfCoreC := mp })
-        (fun d e => whnfCoreBodyI mode (prev ()) fe d e)
+    -- The two modes of `whnfCore` (official `cheap_proj`) under two
+    -- memos: their results differ on a stuck projection.
+    { whnfCore := fun c => if c then
+          memoEI (·.whnfCoreCheapC)
+            (fun st mp => { st with whnfCoreCheapC := mp })
+            (fun d e => whnfCoreBodyI mode (prev ()) fe true d e)
+        else memoEI (·.whnfCoreC)
+          (fun st mp => { st with whnfCoreC := mp })
+          (fun d e => whnfCoreBodyI mode (prev ()) fe false d e)
       whnf := memoEI (·.whnfC) (fun st mp => { st with whnfC := mp })
         (fun d e => whnfBodyI (prev ()) fe d e)
       infer := memoEI (·.inferC) (fun st mp => { st with inferC := mp })

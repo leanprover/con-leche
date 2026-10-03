@@ -595,7 +595,7 @@ included): the joint fuel induction over `whnfCore`, `whnf`,
 `inferTypeCore` and the io lane `inferTypeCoreIO`. -/
 theorem whnfPres_occDeep {env : Env} {names : List Name} (hN : WhnfNamesFree env names) :
     ∀ (fuel : Nat),
-      (∀ {d : Nat} {e e' : Expr}, whnfCore mode env fuel d e = .ok e' →
+      (∀ {c : Bool} {d : Nat} {e e' : Expr}, whnfCore mode env fuel d e c = .ok e' →
         e.occDeep names = false → e'.occDeep names = false) ∧
       (∀ {d : Nat} {e e' : Expr}, whnf mode env fuel d e = .ok e' →
         e.occDeep names = false → e'.occDeep names = false) ∧
@@ -603,7 +603,7 @@ theorem whnfPres_occDeep {env : Env} {names : List Name} (hN : WhnfNamesFree env
         e.occDeep names = false → t.occDeep names = false) ∧
       (∀ {d : Nat} {e t : Expr}, inferTypeCoreIO mode env fuel d e = .ok t →
         e.occDeep names = false → t.occDeep names = false)
-  | 0 => ⟨(fun {_ _ _} h _ => nomatch h), (fun {_ _ _} h _ => nomatch h),
+  | 0 => ⟨(fun {_ _ _ _} h _ => nomatch h), (fun {_ _ _} h _ => nomatch h),
       (fun {_ _ _} h _ => nomatch h), (fun {_ _ _} h _ => nomatch h)⟩
   | fuel + 1 => by
     obtain ⟨ihCore, ihLoop, ihInf, ihIO⟩ := whnfPres_occDeep hN fuel
@@ -612,7 +612,7 @@ theorem whnfPres_occDeep {env : Env} {names : List Name} (hN : WhnfNamesFree env
       fun h he => inferTypeIO_occDeep_of ihInf ihIO h he
     refine ⟨?_, ?_, ?_, ?_⟩
     · -- whnfCore
-      intro d e e' h he
+      intro c d e e' h he
       cases e with
       | sort u =>
         rw [whnfCore_succ] at h
@@ -678,15 +678,16 @@ theorem whnfPres_occDeep {env : Env} {names : List Name} (hN : WhnfNamesFree env
         · exact happ
       | proj sn i pe =>
         simp only [Expr.occDeep] at he
-        obtain ⟨e₂, e₃, hpe, hlit, hcase⟩ := whnf_proj_inv h
-        have h2 := ihLoop hpe he
-        have h3 : e₃.occDeep names = false := by
-          rcases projLitToCtorFueled_inv hlit with rfl | ⟨s, -, hs, hred⟩
-          · exact h2
-          · exact ihLoop hred (strLitToConstructor_occDeep hN hs s)
-        rcases hcase with rfl | ⟨us, entry, hfn, hf, hi, hlen, hus, -, hred, -⟩
+        obtain ⟨e₂, hst, hcase⟩ := whnf_proj_inv h
+        have h2 : e₂.occDeep names = false := by
+          rcases hst with ⟨-, hpe⟩ | ⟨-, hpe⟩
+          · exact ihCore hpe he
+          · exact ihLoop hpe he
+        rcases hcase with rfl | ⟨m, hr, hm⟩
         · simpa [Expr.occDeep] using he
-        · exact ihCore hred (Expr.occDeep_getAppArgs h3 _ (getD_mem (by omega)))
+        · exact ihCore hm (reduceProjCore_pres (fun x => x.occDeep names = false)
+            Expr.occDeep_getAppArgs ihLoop
+            (fun s hs => strLitToConstructor_occDeep hN hs s) hr h2)
     · -- whnf: the loop's own step budget
       have hloop : ∀ (n : Nat) {d : Nat} {e e' : Expr},
           whnfLoop (pureFns mode env fuel) env d n e = .ok e' →

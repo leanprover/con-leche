@@ -241,6 +241,18 @@ theorem iotaRec_bridge (hw : WhnfBridge env fuel)
       (iotaCerts_bridge hd hio hcerts) (iotaCerts_bridge hd hio hmcerts)
       (fun _ => hres) (fun _ => defEqList_bridge hd hdl)
 
+/-- A firing projection rule (`reduceProjCore`) is a `Red` chain: the
+string-literal expansion, then `Red.proj` under its certificate. -/
+theorem reduceProjCore_bridge (hw : WhnfBridge env fuel) (hd : DefEqBridge env fuel)
+    (hio : InferIOBridge env fuel) {d : Nat} {sn : Name} {i : Nat} {c m : Expr}
+    (h : reduceProjCoreFueled .verified env fuel d sn i c = .ok (some m)) :
+    Red env d (.proj sn i c) m := by
+  obtain ⟨e₃, us, entry, hlit, hfn, hfp, hi, hlen, hus, hfire, rfl, hcert⟩ :=
+    reduceProjCore_inv h
+  obtain ⟨cvC, nP, nF, hc, hcerts⟩ := projCertAt_bridge hd hio hcert
+  exact .trans (.projArg (projLitToCtor_bridge hw hlit))
+    (.proj hfp hfn hi hlen hus hfire hc hcerts)
+
 /-- **`whnfCore` at `fuel + 1`**: the eleven shapes (`whnf_app_inv`,
 `whnf_proj_inv`, the six leaves, `whnfCore_letE_inv`, the `.bvar`
 throw). -/
@@ -248,7 +260,7 @@ theorem whnfCore_bridge_succ (hwc : WhnfCoreBridge env fuel)
     (hw : WhnfBridge env fuel) (hd : DefEqBridge env fuel)
     (hio : InferIOBridge env fuel) :
     WhnfCoreBridge env (fuel + 1) := by
-  intro d e e' h
+  intro c d e e' h
   match e, h with
   | .sort _, h | .fvar _ _, h | .forallE _ _ _, h | .lam _ _ _, h
   | .const _ _, h | .lit _, h =>
@@ -268,13 +280,14 @@ theorem whnfCore_bridge_succ (hwc : WhnfCoreBridge env fuel)
     · exact .trans hRf (.trans (iotaRec_bridge hw hd hio hiota) (hwc hcont))
     · exact hRf
   | .proj sn i pe, h =>
-    obtain ⟨e₂, e₃, hwh, hlit, hcase⟩ := whnf_proj_inv h
-    have hR : Red env d (.proj sn i pe) (.proj sn i e₃) :=
-      .trans (.projArg (hw hwh)) (.projArg (projLitToCtor_bridge hw hlit))
-    rcases hcase with rfl | ⟨us, entry, hfn, hfp, hi, hlen, hus, hfire, hcont, hcert⟩
+    obtain ⟨e₂, hst, hcase⟩ := whnf_proj_inv h
+    have hR : Red env d (.proj sn i pe) (.proj sn i e₂) := by
+      rcases hst with ⟨-, h2⟩ | ⟨-, h2⟩
+      · exact .projArg (hwc h2)
+      · exact .projArg (hw h2)
+    rcases hcase with rfl | ⟨m, hr, hcont⟩
     · exact .refl
-    · obtain ⟨cvC, nP, nF, hc, hcerts⟩ := projCertAt_bridge hd hio hcert
-      exact .trans hR (.trans (.proj hfp hfn hi hlen hus hfire hc hcerts) (hwc hcont))
+    · exact .trans hR (.trans (reduceProjCore_bridge hw hd hio hr) (hwc hcont))
 
 /-- One `whnfStep` under a bridged continuation is a `Red` chain
 (`whnfStep_inv`: `whnfCore`, then acceleration or δ into `k`, or the

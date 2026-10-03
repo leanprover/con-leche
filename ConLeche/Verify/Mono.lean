@@ -49,9 +49,9 @@ variable {r₁ r₂ : CoreFns CheckM} {env : Env}
 
 /-! Per-body monotonicity, extracted from the pair instantiation. -/
 
-theorem whnfCoreBody_mono (h : FnsRefines r₁ r₂) (d : Nat) (e : Expr) :
-    MRefines (whnfCoreBody mode r₁ env d e) (whnfCoreBody mode r₂ env d e) := by
-  have := (whnfCoreBody mode (pairFns r₁ r₂ h) env d e).property
+theorem whnfCoreBody_mono (h : FnsRefines r₁ r₂) (c : Bool) (d : Nat) (e : Expr) :
+    MRefines (whnfCoreBody mode r₁ env c d e) (whnfCoreBody mode r₂ env c d e) := by
+  have := (whnfCoreBody mode (pairFns r₁ r₂ h) env c d e).property
   rwa [whnfCoreBody_fst_proj, whnfCoreBody_snd_proj] at this
 
 theorem whnfBody_mono (h : FnsRefines r₁ r₂) (d : Nat) (e : Expr) :
@@ -92,8 +92,8 @@ theorem pureFns_mono (env : Env) : ∀ {f f' : Nat}, f ≤ f' →
     FnsRefines (pureFns mode env f) (pureFns mode env f')
   | 0, f', _ => by
     refine ⟨?_, ?_, ?_, ?_, ?_, ?_⟩
-    · intro d e v hv
-      rw [show (pureFns mode env 0).whnfCore d e = whnfCore mode env 0 d e from rfl,
+    · intro c d e v hv
+      rw [show (pureFns mode env 0).whnfCore c d e = whnfCore mode env 0 d e c from rfl,
         whnfCore_zero] at hv
       simp [throw, throwThe, MonadExceptOf.throw] at hv
     · intro d e v hv
@@ -118,7 +118,7 @@ theorem pureFns_mono (env : Env) : ∀ {f f' : Nat}, f ≤ f' →
       simp [throw, throwThe, MonadExceptOf.throw] at hv
   | f + 1, f' + 1, hle => by
     have ih := pureFns_mono env (Nat.le_of_succ_le_succ hle)
-    refine ⟨fun d e => whnfCoreBody_mono ih d e,
+    refine ⟨fun c d e => whnfCoreBody_mono ih c d e,
       fun d e => whnfBody_mono ih d e,
       fun d e => inferBody_mono ih d e,
       fun d a b => defeqBody_mono ih d a b,
@@ -141,9 +141,9 @@ theorem pureFns_mono (env : Env) : ∀ {f f' : Nat}, f ≤ f' →
 /-! ## Fueled corollaries -/
 
 theorem whnfCore_mono {env : Env} {f f' : Nat} (hle : f ≤ f')
-    {d : Nat} {e r : Expr} (h : whnfCore mode env f d e = .ok r) :
-    whnfCore mode env f' d e = .ok r :=
-  (pureFns_mono env hle).1 d e r h
+    {d : Nat} {e r : Expr} {c : Bool} (h : whnfCore mode env f d e c = .ok r) :
+    whnfCore mode env f' d e c = .ok r :=
+  (pureFns_mono env hle).1 c d e r h
 
 theorem whnf_mono {env : Env} {f f' : Nat} (hle : f ≤ f')
     {d : Nat} {e r : Expr} (h : whnf mode env f d e = .ok r) :

@@ -95930,3 +95930,152 @@ one-constructor type), `e.ctor == And.intro`, `e.numParams == 2`,
 are propositions, `fieldSort = 0`). Stating that needs an environment
 invariant ("the stored `And` is the installer's image of `andPin`") the
 proofs do not carry today, so the gate stays as it is.
+
+## CHEAPPROJ — `cheap_proj` as a `whnfCore` mode; `is_def_eq_core` restructured after the official kernel (2026-10-03, `joachim/proj-cheap-struct`)
+
+**The bug** (fixtures `tests/e2e/proj_cheap_struct.ndjson` and
+`proj_lazy_struct.ndjson`, sources in `tests/e2e/src/`).
+`(S u).re =?= (S ()).re`, `S` Θ(2^17) to evaluate (distilled from the
+Palomar submission roos-j/lean-spherical): after `C.re` unfolds, the
+two sides are `.proj C 0 (S u)` / `.proj C 0 (S ())`, and `whnfCore`
+reduced a projection's scrutinee with full `whnf`, evaluating `S u`
+into the whnf loop's fuel (exit 3).  The official kernel runs
+`whnf_core(t, cheap_rec = false, cheap_proj = true)` in
+`is_def_eq_core` and after every lazy-delta unfolding, and compares two
+same-slot projections through `lazy_delta_proj_reduction`.  A first
+attempt (commit `48fce542`, kept as `joachim/proj-cheap-struct-v1`)
+made `whnfCore` always cheap, patched the full reduction into the
+`whnf` loop, and compared same-slot projections with a full `defeq` of
+the scrutinees; review found the last one wrong (`proj_lazy_struct`:
+`(P (slow 100000)).1 =?= (Q (slow 100001)).1` compares the second
+fields, exit 3, where official projects first and compares `0 =?= 0`)
+and asked for the official structure instead.  This record replaces
+that attempt.
+
+**`cheap_proj` is an argument of the `whnfCore` slot**
+(`CoreFns.whnfCore : Bool → Nat → Expr → m Expr`, and `CoreFnsI`'s
+twin).  Chosen over a second slot because official's `whnf_core` takes
+the flag the same way, because the body is one function of it
+(`whnfCoreBody … cheap`: the `.proj` clause reduces the scrutinee with
+`r.whnfCore true` when cheap and `r.whnf` otherwise, and every
+recursive head normalization passes `cheap` on), and because every
+knot claim generalizes by one implicit binder (`∀ {c : Bool}`) whose
+uses unify, instead of a seventh field in every claims record.  The
+fueled spelling `whnfCore mode env fuel d e (cheap := false)` keeps
+every existing statement about the full mode verbatim.  The projection
+rule itself is `reduceProjCore` (official `reduce_proj_core`: the
+string-literal expansion, the table-driven fire, the verified mode's
+`projCertAt`), shared by `whnfCoreBody` and `lazyDeltaProjReduction`.
+`whnf` (`whnfStep`) runs the full mode, as official's `whnf` runs the
+non-cheap `whnf_core`.  **Memoization:** the cached knot keeps the two
+modes in two maps (`CState.whnfCoreC` and the new `whnfCoreCheapC`,
+with its `CSOK` clause and insert lemma): the modes' results differ on
+a stuck projection, so one map cannot serve both.
+
+**The definitional-equality body, piece by piece** (`Kernel/Core.lean`
+and the twins in `Cached/CoreC.lean`):
+
+| con-leche | official (`type_checker.cpp`) |
+|---|---|
+| `quickDefEq` (`a == b`, two sorts, two literals, ∀/λ binder congruence with the task-#161 annotation check) | `quick_is_def_eq` |
+| `defeqOffset` (two zeros; two successor forms compare predecessors) | `is_def_eq_offset` |
+| `tryUnfoldProjApp` (full `whnfCore` of a projection-headed term; `some` whenever it changed) | `try_unfold_proj_app` |
+| `lazyDeltaStep` → `DeltaStep` (`cont`/`eq`/`diff`/`unknown`): hints, the one-sided `tryUnfoldProjApp`, the same-head regular-hint spine shortcut, unfold + cheap `whnfCore`, `quickDefEq` at the end (`deltaQuick`) | `lazy_delta_reduction_step` |
+| `lazyDeltaReduction` → `LazyRes` (offset, fvar-guarded `reduceNat` with a restart, one step per iteration, own budget `defeqLoopFuel`) | `lazy_delta_reduction` |
+| `lazyDeltaProjReduction` (steps on the scrutinees; on `diff`/`unknown` `reduceProjCore` on both and compare the fields, else the scrutinees) | `lazy_delta_proj_reduction` |
+| `defeqProjPair` | the proj/proj test in `is_def_eq_core` |
+| `defeqStuck` (string literal / `String.ofList`, fvars, consts, the spine, η on a one-sided λ, `stuckIrrel` for the rest) | the tail of `is_def_eq_core` |
+| `defeqBody`: `==`, `Bool.true` shortcut, cheap `whnfCore` ×2, `quickDefEq`, `propIrrel`, `lazyDeltaReduction`, `defeqProjPair`, full `whnfCore` ×2 and a restart if either changed, `defeqStuck` | `is_def_eq_core` |
+
+The continuation-passing `defeqStep`/`defeqLoop` and its `pi` flag are
+gone: the restarts (after a literal acceleration in the lazy loop and
+after the full `whnfCore`) are `defeq` calls, as official's are
+`is_def_eq_core` calls, so the prefix — proof irrelevance included —
+runs once per entry by construction (the audit's D3), and
+`Expr.quickPair` (the audit's D4 gate) is gone with it, `quickDefEq`
+deciding those pairs before proof irrelevance.  The long chains, the
+unfoldings, are iterations of the two lazy loops.  The stuck tree lost
+its sort/literal/binder arms (decided by `quickDefEq`), its
+literal-against-`Nat.zero`/`Nat.succ` arms (decided by `defeqOffset`)
+and its proj/proj arm (`defeqProjPair`); its string arms match the
+literal and the head in an inner `match`, so the outer patterns are
+shallow.
+
+**Remaining differences from official**, each cost-only unless noted:
+* Official's cheap `whnf_core` *reads* the full `whnf_core` cache (it
+  only skips inserting).  Mirroring that would make the cached cheap
+  slot return full-mode results the specification's cheap mode does not
+  compute, which the per-mode simulation cannot carry; the cheap mode
+  has its own memo instead.  (This is most of the cost below.)
+* The full `whnfCore` before the restart is skipped when neither stuck
+  side is projection-headed: the two modes differ only where the cheap
+  mode left a projection stuck, and `whnfCore` stops there, so it is
+  the spine head; elsewhere official's test finds both sides unchanged.
+* `quickDefEq` runs after the cheap `whnfCore`, not also before it:
+  `whnfCore` leaves sorts, literals and binders unchanged.
+* The same-head spine shortcut keeps con-leche's `sameConstHeads`
+  guard (official also requires `is_app` and consults `failed_before`;
+  con-leche's `defeq` memo plays the cache's role).
+* `defeqOffset` leaves two literals to `quickDefEq` (official reaches
+  the same verdict through `is_def_eq_core` on the predecessors).
+* Same constant / same fvar are decided in `defeqStuck`, after the
+  restart test instead of before it: both are inert under `whnfCore`.
+* `reduceProjCore` certifies the fire at the verified mode
+  (`projCertAt`; official certifies nothing), as `whnfCore` always did.
+* `cheap_rec` is not mirrored (official's `is_def_eq_core` never sets it).
+* Pre-existing and unchanged: the string-literal expansion compares
+  `strLitToConstructor s` without a `whnf`; unit-likeness and structure
+  η sit in `stuckIrrel`; no `m_eager_reduce`.
+
+**Proofs** (no new rule, no model change; every new step is a chain of
+`Red`/`DefEq` rules that existed):
+* the `whnfCore` claims gain `∀ {c}`: `whnf_app_inv`/`whnf_proj_inv`/
+  `whnfCore_letE_inv` (the proj inversion now goes through
+  `reduceProjCore_inv`), the `WScoped`/leaf/bvar/`occDeep`
+  preservations (a generic `reduceProjCore_pres`), `WhnfCoreBridge`
+  (`reduceProjCore_bridge`), `WhnfCoreShift` (`reduceProjCore_shift`)
+  and the depth-invariance lemmas, `whnfCore_mono`, `SSimC.whnfCore`;
+  the `BetaSpine` mirror (`whnfCoreStepM`/`LoopM` take `cheap`;
+  `KSound` names the mode) and `DiscC4` (`reduceProjCoreC_sim`);
+  `KnotC` gains the cheap memo's wrapper and `CSOK.insertWhnfCoreCheapC`.
+* definitional equality: `DefEqStepInv` holds `quickDefEq_inv`
+  (`QuickExit`), `defeqStuck_inv` (`DefeqStuckExit`, trimmed) and
+  `defeqBody_inv`; `DefEqBridge` bridges each piece (`StepSound` /
+  `LazySound` for the loops, by induction on their budgets);
+  `InferLemmas` has `lazyDeltaStep_pres`/`lazyDeltaReduction_pres`
+  (any predicate preserved by unfolding and `whnfCore` holds of the
+  pairs the loops hand on); `Deep` proves each piece shift-invariant;
+  `DiscC5` simulates each piece; `PairM`/`Fueled`/`KnotCongr` carry the
+  new helpers.
+* `lake build` warning-free from a clean `ConLeche` olean tree,
+  `lake test` passes with the axiom pins unchanged, no `sorry`.  The
+  shake gate needed two `FALLBACK` entries for `DefEqBridge`'s
+  re-exports (the census attributes their names to the private
+  `RedBridge` import; demoting each breaks the build, measured).
+
+**Verdicts.**  `proj_cheap_struct` exit 3 → 0 and `proj_lazy_struct`
+(first attempt exit 3, master 0) → 0, both in about 0.01 s; the
+Palomar theorem's export (`thm.ndjson`, 345 MB) accepts 48 690
+declarations in about 6 s (base: exit 3).  `tests/arena.sh`: arena
+90/92, e2e 456/456, annot 15/15, trusted / `--jobs=1` / `--jobs=4`
+sweeps as expected; the shake gate passes when run as
+`env -i PATH=$PATH HOME=$HOME bash tests/shake.sh` (in this sandbox's
+shell an exported variable makes every exec after `out=$(lake shake …)`
+fail with `E2BIG`).
+
+**Measured** (the Init export at 4.34, 347 MB, `--verified --jobs=8`,
+`perf stat -e instructions:u`; base `08d24b550` = `a31e8297` +
+fixture): base 455.85 G, this lane 477.91 G (**+4.8 %**), 58 135
+declarations both.  The first attempt measured +2.8 %; the difference
+is the separate cheap mode.  Variants measured on the way (executable
+only): no memo for the cheap mode 500.75 G; a cheap memo 483.03 G; the
+projection-head guard on the full `whnfCore` 477.86 G; the cheap slot
+reading the full memo first (unsound for the simulation, measurement
+only) 471.92 G; the lazy step's `whnfCore` in the full mode (fails
+`proj_cheap_struct`, measurement only) 461.00 G; restarts without the
+`defeq` prefix 476.18 G (not taken: official restarts
+`is_def_eq_core`).  Probe counts (`--jobs=1`): `defeq` bodies 3.55 M →
+4.31 M (765 k restarts after the full `whnfCore`), `whnfCore` bodies
+14.1 M → 17.8 M (9.5 M of them cheap) — most of the extra work is the
+cheap mode on freshly unfolded terms, whose nested projections no
+longer hit the `whnf` memo.
