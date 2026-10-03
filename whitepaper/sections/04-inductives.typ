@@ -73,8 +73,9 @@ parameters and some index expressions. Here and in every generated
 type below, a binder whose body is the family — a member of
 $Sort u$ — carries the datum
 #src("whitepaper/Fragment/Decl.lean", 145, 148)[$ann(PW) = zn(u)$],
-"a proposition exactly when $u$ is zero". The
-telescope may be empty: then the domain is $I thick arrow(x) thick arrow(e)$,
+"a proposition exactly when $u$ is zero".
+
+The telescope may be empty: then the domain is $I thick arrow(x) thick arrow(e)$,
 a member of the family itself, and the field is simply _recursive_ —
 the common case, and the name this document uses for it; one kind
 covers both, since the generated terms and the model treat them
