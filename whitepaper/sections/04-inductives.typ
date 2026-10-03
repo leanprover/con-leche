@@ -361,7 +361,7 @@ all for positive universes $cal(U)_n$, $n >= 1$:
 + _Tuples_ $tuple(x_1, dots, x_k)$: injective, and in $cal(U)_n$
   when every component is.
 + _Tags_ $tag(j, x)$, a set with a number $j$ attached: injective,
-  in $cal(U)_n$ when $x$ is, and never the point.
+  in $cal(U)_n$ when $x$ is, and $tag(j, x) != pt$.
 
 One further law, about size — _inductive closure_ — is stated below
 where it is needed. Notably absent is any law about least fixed

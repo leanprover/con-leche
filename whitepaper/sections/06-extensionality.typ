@@ -59,7 +59,7 @@ member of the family, like a constructor application, is the point].
 Tuples and tags are injective
 (#src("whitepaper/Fragment/IndLib.lean", 150)[tuples],
 #src("whitepaper/Fragment/IndLib.lean", 157)[tags]) and a tagged
-value is #src("whitepaper/Fragment/IndLib.lean", 161)[never the point].
+value is #src("whitepaper/Fragment/IndLib.lean", 161)[$!= pt$].
 
 == Proof irrelevance and propositional extensionality
 
