@@ -63,11 +63,7 @@ copies of the toolchain's declarations
 stream block that carries a pin's names and agrees with it up to
 renaming of universe parameters
 #src("ConLeche/Kernel/Basis.lean", 64, 67)[installs the pin], one that
-disagrees is rejected. `And` has no hand-written copy: a stream block
-that declares it #src("ConLeche/Kernel/Basis.lean", 90, 96)[must be
-the toolchain's `And`] and then installs like any other block, and a
-stream without it gets the prelude's (below) — the `And` rescue below
-has code for it. Everything else —
+disagrees is rejected. Everything else —
 `PUnit` and `Bool` among them — comes from the stream, or from a
 built-in copy of the toolchain's prelude where the stream does not
 declare it (the frontend, below). The pins are how the main theorem
@@ -85,8 +81,7 @@ accepted as pinned definitions of their own types.]
 
 #left-out[Theorems and opaques][The fragment has definitions only. The
 real checker never unfolds a theorem or an opaque — #src("ConLeche/Rules/Rel.lean", 130, 133)[only a definition
-unfolds] — which is what
-makes the `And` rescue below necessary.]
+unfolds].]
 
 #left-out[K-like reduction][A recursor of a proposition with one
 field-less constructor, such as `Eq.rec`, fires on a proof that is not

@@ -4708,15 +4708,6 @@
     66        k.decls.map (·.name) == block.map (·.name)).filter fun k =>
     67      canonEqList block k.decls
 
-== ConLeche/Kernel/Basis.lean#L90-L96
-    90  def andPinOk : Declaration → Bool
-    91    | .indDecl block nP =>
-    92      !(block.any fun c => andPinNames.contains c.name) ||
-    93        (nP == 2 && canonEqList block andPin)
-    94    | .axiomDecl cv | .defnDecl cv .. | .thmDecl cv .. | .opaqueDecl cv ..
-    95    | .quotDecl _ cv => !andPinNames.contains cv.name
-    96    | .basisDecl _ => true
-
 == ConLeche/Kernel/StdAxioms.lean#L10-L17
     10  # Recognized standard axioms and their prerequisite shapes
     11  
