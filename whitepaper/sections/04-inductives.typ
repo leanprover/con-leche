@@ -57,11 +57,6 @@ _specification_
   indices vary;
 - a result sort $Sort u$: the family has type
   $ forall arrow(x) : arrow(P) thin ann(never). thin forall arrow(y) : arrow(J) thin ann(never). thin Sort u; $
-  a binder whose body is the family — a member of $Sort u$ — carries
-  the datum
-  #src("whitepaper/Fragment/Decl.lean", 145, 148)[$ann(PW) = zn(u)$],
-  "a proposition exactly when $u$ is zero", and the generated types
-  below use it;
 - constructors $c_1, dots, c_n$, each with a list of _fields_ and,
   under the parameters and the fields, the index expressions
   $arrow(e)_j$ of its result $I thick arrow(x) thick arrow(e)_j$.
@@ -74,8 +69,11 @@ with domain
 $ forall arrow(z) : arrow(A) thin ann(PW). thin I thick arrow(x) thick arrow(e) $
 — a function, under a telescope of binders $arrow(z)$ whose domains
 do not mention $I$, into the family being defined at the block's own
-parameters and some index expressions (the binders carry $ann(PW)$,
-since the body is the family). The
+parameters and some index expressions. Here and in every generated
+type below, a binder whose body is the family — a member of
+$Sort u$ — carries the datum
+#src("whitepaper/Fragment/Decl.lean", 145, 148)[$ann(PW) = zn(u)$],
+"a proposition exactly when $u$ is zero". The
 telescope may be empty: then the domain is $I thick arrow(x) thick arrow(e)$,
 a member of the family itself, and the field is simply _recursive_ —
 the common case, and the name this document uses for it; one kind
