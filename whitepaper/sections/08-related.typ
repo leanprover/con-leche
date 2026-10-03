@@ -99,7 +99,9 @@ three claims, and the typing derivations of the calculus, in a
 presentation with judgemental equality, are shown to imply them; our claims are proved of the checker's verdicts instead.
 Barras observes that set-theoretic $beta$ holds only for arguments in
 the function's domain, so his semantic $beta$ rule has a typing
-premise; our certified $beta$ rule has that premise as a certificate
+premise; in our proof the same condition is checked by the checker
+itself, which before a $beta$ step whose function may be a proof
+infers the argument's type and compares it with the domain
 (@sec:red).
 
 *Dybjer, "Inductive families".* Dybjer @dybjer1994 gives a general
