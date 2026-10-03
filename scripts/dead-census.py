@@ -112,7 +112,7 @@ from collections import defaultdict
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 TEXT_EXT = (".lean", ".sh", ".py", ".md", ".toml", ".json", ".txt")
-SKIP_DIRS = {".lake", ".git", "_tmp", "perf-data", "pins", "bridge", "_probe"}
+SKIP_DIRS = {".lake", ".git", "_tmp", "perf-data", "pins", "bridge"}
 
 MODIFIERS = (r"(?:public\s+|private\s+|protected\s+|partial\s+|noncomputable\s+|meta\s+"
              r"|unsafe\s+|scoped\s+|local\s+|nonrec\s+)*")

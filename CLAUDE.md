@@ -114,7 +114,7 @@ current fact changed.
 
 * Every `.lean` file under `ConLeche/`, the roots and the test library
   carries the `module` header (a `module` cannot import a non-`module`).
-  `_probe/*`, `scripts/*.lean`, `bridge/*` and the fixture sources under
+  `scripts/*.lean`, `bridge/*` and the fixture sources under
   `tests/e2e/src/` are outside the build and stay classic.
 * Checker code is exposed, because it is the subject of the proofs:
   `Kernel/*`, `Cached/*`, `Frontend/*` and `Main.lean` open one

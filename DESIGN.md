@@ -96252,3 +96252,20 @@ generates nothing — the pre-GENREC story.
 Gates at the end: `lake build`/`lake test` warning-free, `tests/arena.sh`
 exit 0 (454 e2e fixtures), the whitepaper's build, link and fragment
 gates green.
+
+## TASK #325 — `_probe/` and `docs/` removed from the tree (2026-10-03)
+
+The maintainer's ruling: neither belongs in the repository.
+`_probe/` held six classic Lean files outside every build target — design
+probes and parked archives (`ProjSemantic`, `TotalizeD1`, `UnitLikePin`,
+`holeop/axioms`, `holeop/override`, `posproof/S3`); two no longer
+compiled (their imports were deleted), and the rest described designs
+since retired or replaced. `docs/` held one folder, `docs/study-306/`, the
+raw notes and tables of the fast-cores study (task #306) and of the
+sokonanoda attribution (task #312), dated 2026-09-19 and stale as
+measurements. The DESIGN records above that cite either directory keep
+their conclusions; the files themselves are in the history: the last
+commit containing them is `c1a2a3a8b` (`git show c1a2a3a8b:<path>`).
+`CLAUDE.md`'s module-system rule and the skip lists of
+`scripts/dead-census.py` and `scripts/pub-import-plan.py` no longer
+mention `_probe/`.
