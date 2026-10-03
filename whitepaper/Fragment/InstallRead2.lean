@@ -21,9 +21,9 @@ open SetLib IndLib
 
 universe u
 
-variable {V : Type u} [IndLibCompat V]
+variable {V : Type u} [IndLib V]
 
-omit [IndLibCompat V] in
+omit [IndLib V] in
 /-- Reading the first `n` pushed values. -/
 theorem readEnv_consList_take {vs : List V} {n : Nat} (h : n ≤ vs.length) (ρ : Nat → V) :
     readEnv n (consList vs ρ) = vs.take n := by
@@ -31,7 +31,7 @@ theorem readEnv_consList_take {vs : List V} {n : Nat} (h : n ≤ vs.length) (ρ 
     rw [← consList_append, List.take_append_drop]
   rw [this, readEnv_consList (by simp [h])]
 
-omit [IndLibCompat V] in
+omit [IndLib V] in
 /-- Reading `n` pushed values past the first `k`. -/
 theorem readEnv_shiftE_consList {vs : List V} {k n : Nat} (h : k + n ≤ vs.length) (ρ : Nat → V) :
     readEnv n (shiftE k 0 (consList vs ρ)) = (vs.drop k).take n := by
@@ -42,10 +42,11 @@ theorem readEnv_shiftE_consList {vs : List V} {k n : Nat} (h : k + n ≤ vs.leng
 namespace IndSpec
 
 variable {S : IndSpec} {M : Name → List Nat → V} {φ : Name → Nat} {env : Env}
+  {F : List Nat → List V → List V → V}
 
 /-- The block's result universe at a reader's valuation. -/
 theorem Reader.u₀_eq {M' : Name → List Nat → V} {φ' : Name → Nat}
-    (R : S.Reader (env := env) M φ M' φ') (hs : S.sort.paramsIn S.lparams = true) :
+    (R : S.Reader (env := env) M φ F M' φ') (hs : S.sort.paramsIn S.lparams = true) :
     S.u₀ (S.lparams.map φ) = Level.eval φ' S.sort := by
   unfold u₀
   exact Level.eval_congr (fun n hn => R.val_ψ n hn) hs
@@ -53,7 +54,7 @@ theorem Reader.u₀_eq {M' : Name → List Nat → V} {φ' : Name → Nat}
 /-- A context of the specification, read in one reader under two base
 environments, agrees. -/
 theorem Reader.agree_base {M' : Name → List Nat → V} {φ' : Name → Nat}
-    (_R : S.Reader (env := env) M φ M' φ') {Γ : List Expr} {k : Nat}
+    (_R : S.Reader (env := env) M φ F M' φ') {Γ : List Expr} {k : Nat}
     (hΓ : ∀ i A, Γ[i]? = some A → Expr.Scoped env S.lparams (k + (Γ.length - 1 - i)) A)
     {vs : List V} (hk : vs.length = k) (ρ ρ' : Nat → V) :
     CtxAgree M' M' φ' φ' (consList vs ρ) (consList vs ρ') Γ := by
@@ -66,8 +67,8 @@ theorem Reader.agree_base {M' : Name → List Nat → V} {φ' : Name → Nat}
 
 /-- **The former's set is in the former's type**, read anywhere. -/
 theorem Reader.famSet_mem (hS : S.Scoped env) {M' : Name → List Nat → V} {φ' : Name → Nat}
-    (R : S.Reader (env := env) M φ M' φ') (ρ : Nat → V) :
-    S.famSet M (S.lparams.map φ) ∈ˢ interp M' φ' ρ S.indType := by
+    (R : S.Reader (env := env) M φ F M' φ') (ρ : Nat → V) :
+    S.famSetF M (S.lparams.map φ) F ∈ˢ interp M' φ' ρ S.indType := by
   unfold indType
   rw [interp_mkPis, PropWhen.holds_never, R.famSet_eq hS]
   have hagree : CtxAgree M' M' φ' φ' base ρ (S.indices ++ S.params) := by
@@ -79,7 +80,7 @@ theorem Reader.famSet_mem (hS : S.Scoped env) {M' : Name → List Nat → V} {φ
       exact R.agree_base (Γ := S.indices) (k := S.nP)
         (fun t T hT => by have := hS.2.1 t T hT; simpa [nI] using this) (by simpa [nP] using hl) base ρ
   rw [lamCtx_congr₂ hagree (G := fun ρ' =>
-      S.Fam M (S.lparams.map φ) (readEnv S.nP (shiftE S.nI 0 ρ')) (readEnv S.nI ρ')) fun vs hvs => by
+      F (S.lparams.map φ) (readEnv S.nP (shiftE S.nI 0 ρ')) (readEnv S.nI ρ')) fun vs hvs => by
     have hl := FitsVals_length M' φ' hvs
     have e1 : S.nI = S.indices.length := rfl
     have e2 : S.nP = S.params.length := rfl
@@ -88,13 +89,13 @@ theorem Reader.famSet_mem (hS : S.Scoped env) {M' : Name → List Nat → V} {φ
       readEnv_consList_take (by omega), readEnv_consList_take (by omega)]]
   refine lamCtx_mem_piCtx M' φ' (fun vs _ => ?_) fun h => nomatch h
   rw [interp_sort, ← R.u₀_eq hS.2.2.1]
-  exact S.Fam_mem_univ M _ _ _
+  exact R.mem _ _ _
 
 /-- **The field context agrees between two readers** once its domains
 are well-denoted in one of them (the invariant supplies the index
 expressions' fits, and then every domain reads by β in both). -/
-theorem ReaderG.agree_fieldCtx (hS : S.Scoped env) {M₁ M₂ : Name → List Nat → V} {φ₁ φ₂ : Name → Nat}
-    (R₁ : S.ReaderG (env := env) M φ M₁ φ₁) (R₂ : S.ReaderG (env := env) M φ M₂ φ₂)
+theorem Reader.agree_fieldCtx (hS : S.Scoped env) {M₁ M₂ : Name → List Nat → V} {φ₁ φ₂ : Name → Nat}
+    (R₁ : S.Reader (env := env) M φ F M₁ φ₁) (R₂ : S.Reader (env := env) M φ F M₂ φ₂)
     {ps : List V} {ρ₁ ρ₂ : Nat → V} (hps : ps.length = S.nP)
     (hp : FitsVals M (S.ψ (S.lparams.map φ)) base S.params ps) :
     ∀ {fields : List Field},
@@ -120,13 +121,12 @@ theorem ReaderG.agree_fieldCtx (hS : S.Scoped env) {M₁ M₂ : Name → List Na
 
 /-- **Every field's index expressions fit**, from the constructor's
 type being well-denoted. -/
-theorem ReaderG.idxFit_of_wd (hS : S.Scoped env) {M' : Name → List Nat → V} {φ' : Name → Nat}
-    (R : S.ReaderG (env := env) M φ M' φ') {c : CtorSpec} (hc : c ∈ S.ctors) {ρ : Nat → V}
+theorem Reader.idxFit_of_wd (hS : S.Scoped env) {M' : Name → List Nat → V} {φ' : Name → Nat}
+    (R : S.Reader (env := env) M φ F M' φ') {c : CtorSpec} (hc : c ∈ S.ctors) {ρ : Nat → V}
     (hwd : WellDenoted M' φ' ρ (S.ctorType c)) {ps : List V} (hps : ps.length = S.nP)
     (hp : FitsVals M (S.ψ (S.lparams.map φ)) base S.params ps) :
     CtxWD M' φ' (consList ps ρ) (S.fieldCtx c.fields) ∧
-    ∀ fs, S.FitsFields M (S.lparams.map φ) (S.bound M (S.lparams.map φ))
-        (S.Mem M (S.lparams.map φ)) ps c.fields fs →
+    ∀ fs, S.FitsFields M (S.lparams.map φ) (F (S.lparams.map φ) ps) ps c.fields fs →
       (FitsVals M' φ' (consList ps ρ) (S.fieldCtx c.fields) fs) ∧
       (∀ k f, c.fields[c.fields.length - 1 - k]? = some f → k < c.fields.length →
         IdxFitAt S M φ ps (earlier fs k) f) ∧
@@ -157,13 +157,11 @@ theorem Reader₂.ctorSet_mem (hS : S.Scoped env) {M' : Name → List Nat → V}
     {j : Nat} {c : CtorSpec} (hc : S.ctors[j]? = some c) {ρ : Nat → V}
     (hwd : WellDenoted M' φ' ρ (S.ctorType c)) (hnr : S.NoRecDep)
     (hb : ∀ ps, FitsVals M (S.ψ (S.lparams.map φ)) base S.params ps →
-      S.DomsBounded M (S.lparams.map φ) ps)
-    (hcb : ∀ ps, FitsVals M (S.ψ (S.lparams.map φ)) base S.params ps →
-      S.ContInBound M (S.lparams.map φ) ps) :
+      S.DomsBounded M (S.lparams.map φ) ps) :
     S.ctorSet M (S.lparams.map φ) j c ∈ˢ interp M' φ' ρ (S.ctorType c) := by
   have R := R₂.R
   have hcm : c ∈ S.ctors := List.mem_of_getElem? hc
-  have R₁ := S.reader₁ (M := M) (φ := φ) hfresh R.good
+  have R₁ := S.reader₁ (M := M) (φ := φ) R.plain hfresh
   have hwd' := hwd
   unfold ctorType at hwd' ⊢
   rw [WellDenoted_mkPis] at hwd'
@@ -215,7 +213,7 @@ theorem Reader₂.ctorSet_mem (hS : S.Scoped env) {M' : Name → List Nat → V}
       (by rw [← hlf', shiftE_consList, readEnv_consList hpsl]) (hS.2.2.2.1 c hcm).2.2.1 hbody').2.2,
       R.idxVals_eq (hS.2.2.2.1 c hcm).2.2.2 (by simp [hlf', hpsl]; omega)]
   · rw [readEnv_consList hlf']
-    exact S.ctorVal_mem_Fam M _ hc hfit hnr (hb ps hp) (hcb ps hp)
+    exact S.ctorVal_mem_Fam M _ hnr (hb ps hp) hc hfit
   · have := S.Fam_mem_univ M (S.lparams.map φ) ps (S.idxVals M (S.lparams.map φ) (consList fs (envP ps)) c.idx)
     rwa [(S.z_iff _).mp hz] at this
 
@@ -223,11 +221,11 @@ theorem Reader₂.ctorSet_mem (hS : S.Scoped env) {M' : Name → List Nat → V}
 fitting indices and a member of the fibre into the elimination
 universe. -/
 theorem Reader.motiveOk_of_mem (hS : S.Scoped env) {M' : Name → List Nat → V} {φ' : Name → Nat}
-    (R : S.Reader (env := env) M φ M' φ') {ps : List V} {ρ : Nat → V} {m : V}
+    (R : S.Reader (env := env) M φ F M' φ') {ps : List V} {ρ : Nat → V} {m : V}
     (hps : ps.length = S.nP) (hp : FitsVals M (S.ψ (S.lparams.map φ)) base S.params ps)
     (hm : m ∈ˢ interp M' φ' (consList ps ρ) S.motiveTy) :
     ∀ is, FitsVals M (S.ψ (S.lparams.map φ)) (envP ps) S.indices is →
-      ∀ t, t ∈ˢ S.Fam M (S.lparams.map φ) ps is →
+      ∀ t, t ∈ˢ F (S.lparams.map φ) ps is →
         appList m (is.reverse ++ [t]) ∈ˢ (univ (Level.eval φ' S.ℓ) : V) := by
   intro is his t ht
   rw [R.read_motiveTy hS hps hp] at hm

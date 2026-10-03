@@ -2,7 +2,7 @@ module
 
 public import Fragment.Sound
 public import Fragment.GenScope
-public import Fragment.IndSem
+public import Fragment.IndCommon
 
 @[expose] public section
 

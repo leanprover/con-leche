@@ -14,7 +14,6 @@ public import Fragment.Univ
 public import Fragment.LfpSet
 public import Fragment.IndLib
 public import Fragment.Access
-public import Fragment.IndLibCompat
 public import Fragment.NstBound
 public import Fragment.NstPrelude
 public import Fragment.Tele
@@ -25,6 +24,7 @@ public import Fragment.Hygiene
 public import Fragment.Ctx
 public import Fragment.IndCommon
 public import Fragment.IndSem
+public import Fragment.IndRec
 public import Fragment.NstIndSem
 public import Fragment.NestSem
 public import Fragment.NestRec
@@ -50,6 +50,7 @@ public import Fragment.Install
 public import Fragment.NstInstallInd
 public import Fragment.NstInstallIota
 public import Fragment.NstInstall
+public import Fragment.NstSeam
 public import Fragment.NstBlockModel
 public import Fragment.InstallNest
 public import Fragment.NestIota

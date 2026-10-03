@@ -20,22 +20,20 @@ Small bridges the installation of a recursor needs, in three groups:
 * **Level instantiation**: the value walks through `instL`
   (`TeleFitV_instL`, `piBodyV_instL`) and the substituted valuation
   read back positionally (`map_substVal_eq`).
-* **Telescopes of sets**: fitting a telescope read from expressions
-  (`TeleS_fits_toTeleS`) and its boundedness (`toTeleS_bounded_of`).
 
 And one fact about the model of a block: **the motive is inhabited on
 the family** (`IndSpec.motive_inhabited`) — by induction over the
-family from the minors' typing, without uniqueness of witnesses, since
+family from the minors' typing, without uniqueness of decodings, since
 at a proposition the inductive hypotheses are inhabited truth values,
 whatever their value.
 -/
 
 namespace Fragment
-open SetLib IndLib
+open SetLib UnivLib IndLib
 
 universe u
 
-variable {V : Type u} [IndLibCompat V]
+variable {V : Type u} [IndLib V]
 
 /-! ## Contexts -/
 
@@ -62,7 +60,7 @@ theorem WellDenoted_mkLams_sem (M : Name → List Nat → V) (φ : Name → Nat)
     · rw [interp_lam]
       exact lamR_mem (fun x hx => (hb (x :: vs) ⟨hvs, hx⟩).2) fun hp x hx => hG hp (x :: vs) ⟨hvs, hx⟩
 
-omit [IndLibCompat V] in
+omit [IndLib V] in
 /-- The environment the one lifting shifts to (the environment
 computation of `interp_atCtx`, on its own). -/
 theorem shiftE_atCtx {nF k l o d : Nat} {ys ihs fs os ps : List V} (ρ : Nat → V)
@@ -96,8 +94,8 @@ theorem WellDenoted_atCtx (M : Name → List Nat → V) (φ : Name → Nat) {nF 
 the telescope at its own frame (the `lamCtx` twin of
 `Reader.piCtx_liftCtx_atCtx`). -/
 theorem IndSpec.Reader.lamCtx_liftCtx_atCtx {S : IndSpec} {M : Name → List Nat → V} {φ : Name → Nat}
-    {env : Env} {M' : Name → List Nat → V} {φ' : Name → Nat}
-    (R : S.Reader (env := env) M φ M' φ') {nF k l o : Nat} {ihsE fs os ps : List V} {ρ : Nat → V}
+    {env : Env} {F : List Nat → List V → List V → V} {M' : Name → List Nat → V} {φ' : Name → Nat}
+    (R : S.Reader (env := env) M φ F M' φ') {nF k l o : Nat} {ihsE fs os ps : List V} {ρ : Nat → V}
     (hi : ihsE.length = l) (hf : fs.length = nF) (ho : os.length = o) (hk : k ≤ nF)
     (hps : ps.length = S.nP) (p : Bool) :
     ∀ (tele : List Expr),
@@ -171,7 +169,7 @@ theorem TeleFitV_instL (M : Name → List Nat → V) (φ : Name → Nat) (ps : L
   | _, .app _ _, _ :: _ => Iff.rfl
   | _, .lam _ _ _, _ :: _ => Iff.rfl
 
-omit [IndLibCompat V] in
+omit [IndLib V] in
 /-- The body a level-instantiated telescope leaves is the body the
 telescope leaves, instantiated. -/
 theorem piBodyV_instL (ps : List Name) (ls : List Level) : ∀ {ρ : Nat → V} {T : Expr} {vs : List V},
@@ -208,65 +206,6 @@ theorem map_substVal_eq (φ : Name → Nat) :
         simpa using fun h : n = p => hp (h ▸ hn)
       simp [Level.substVal, Level.lookupLevel, List.lookup_cons, hnp]
 
-/-! ## Telescopes of sets -/
-
-/-- Fitting a telescope of sets built from expressions is fitting the
-expressions' context (values outermost first vs. innermost first). -/
-theorem TeleS_fits_toTeleS (M : Name → List Nat → V) (φ : Name → Nat) :
-    ∀ (L : List Expr) (ρ : Nat → V) (ys : List V),
-      (toTeleS M φ ρ L).Fits ys ↔ FitsVals M φ ρ L.reverse ys.reverse
-  | [], ρ, [] => Iff.rfl
-  | [], ρ, y :: ys => by
-    rw [List.reverse_cons, List.reverse_nil]
-    constructor
-    · exact fun h => h.elim
-    · intro h
-      have := FitsVals_length M φ h
-      simp at this
-  | T :: L, ρ, [] => by
-    rw [List.reverse_cons, List.reverse_nil]
-    constructor
-    · exact fun h => h.elim
-    · intro h
-      have := FitsVals_length M φ h
-      simp at this
-  | T :: L, ρ, y :: ys => by
-    rw [List.reverse_cons, List.reverse_cons]
-    show (y ∈ˢ interp M φ ρ T ∧ (toTeleS M φ (cons y ρ) L).Fits ys) ↔ _
-    rw [TeleS_fits_toTeleS M φ L (cons y ρ) ys]
-    by_cases hlen : ys.length = L.length
-    · rw [FitsVals_append M φ (by simp [hlen]), FitsVals_cons, consList_cons, consList_nil]
-      simp only [FitsVals_nil_nil, true_and]
-    · constructor
-      · rintro ⟨-, h⟩
-        exact absurd (by simpa using FitsVals_length M φ h) hlen
-      · intro h
-        exact absurd (by simpa using FitsVals_length M φ h) hlen
-
-/-- A telescope of sets is bounded when each expression's set is a
-member of the universe under every fitting prefix (entry `t` of the
-outermost-first `L` has the first `t` entries before it, which as an
-innermost-first context are `L.reverse.drop (L.length - t)`). -/
-theorem toTeleS_bounded_of (M : Name → List Nat → V) (φ : Name → Nat) (n : Nat) :
-    ∀ (L : List Expr) (ρ : Nat → V),
-      (∀ t T, L[t]? = some T → ∀ ys, FitsVals M φ ρ (L.reverse.drop (L.length - t)) ys →
-        interp M φ (consList ys ρ) T ∈ˢ (univ n : V)) →
-      TeleS.Bounded n (toTeleS M φ ρ L)
-  | [], _, _ => trivial
-  | T :: L, ρ, h => by
-    refine ⟨?_, fun y hy => ?_⟩
-    · have := h 0 T rfl [] (by rw [List.drop_eq_nil_iff.mpr (by simp)]; trivial)
-      simpa using this
-    · refine toTeleS_bounded_of M φ n L (cons y ρ) fun t T' hT' ys hys => ?_
-      have ht : t < L.length := (List.getElem?_eq_some_iff.mp hT').1
-      have hl := FitsVals_length M φ hys
-      have := h (t + 1) T' (by simpa using hT') (ys ++ [y]) ?_
-      · rwa [consList_append] at this
-      · rw [List.reverse_cons, List.length_cons, Nat.add_sub_add_right,
-          List.drop_append_of_le_length (by simp only [List.length_reverse]; omega),
-          FitsVals_append M φ (by rw [hl])]
-        exact ⟨⟨trivial, hy⟩, hys⟩
-
 /-! ## The motive is inhabited on the family -/
 
 /-- Pairwise witnesses along a list. -/
@@ -289,72 +228,43 @@ namespace IndSpec
 
 variable (S : IndSpec) (M : Name → List Nat → V) (ls : List Nat)
 
-/-- A member of a fibre has every property of the members it stands
-for: above a proposition it is itself a member; at a proposition it is
-the point, which is what every member stands for. -/
-theorem memb_of_fibre {ps is : List V} {v : V} {Q : V → Prop}
-    (hv : v ∈ˢ fibreR (S.z ls) (S.bound M ls ps is) fun x => S.Mem M ls ps is x ∧ Q (S.memb ls x)) :
-    Q v := by
-  unfold memb at hv
-  cases hz : S.z ls
-  · rw [hz] at hv
-    simpa using (mem_fibreR_false.mp hv).2.2
-  · rw [hz] at hv
-    obtain ⟨rfl, y, -, hQ⟩ := mem_fibreR_true.mp hv
-    simpa using hQ
-
 /-- The indices of a member of the family fit the index context, once
 every constructor's index expressions fit at fitting fields. -/
-theorem idx_fits_of_mem_Fam {ps : List V}
+theorem idx_fits_of_mem_Fam {ps : List V} (hnr : S.NoRecDep) (hb : S.DomsBounded M ls ps)
     (hidx : ∀ (j : Nat) (c : CtorSpec), S.ctors[j]? = some c → ∀ fs,
-      S.FitsFields M ls (S.bound M ls) (S.Mem M ls) ps c.fields fs →
+      S.FitsFields M ls (S.Fam M ls ps) ps c.fields fs →
       FitsVals M (S.ψ ls) (envP ps) S.indices (S.idxVals M ls (consList fs (envP ps)) c.idx))
     {is : List V} {t : V} (ht : t ∈ˢ S.Fam M ls ps is) :
     FitsVals M (S.ψ ls) (envP ps) S.indices is := by
-  refine S.memb_of_fibre M ls (Q := fun _ => FitsVals M (S.ψ ls) (envP ps) S.indices is)
-    (fibreR_mono (fun x hx => ⟨hx, ?_⟩) _ ht)
-  obtain ⟨j, c, fs, hc, hfit, his, -⟩ := Lfp.unfold (S.stepT_mono M ls (S.bound M ls) (S.boundOk_bound M ls)) hx
-  dsimp only at hfit his
+  obtain ⟨j, c, fs, hc, hfit, his, -⟩ := (S.mem_Fam M ls hnr hb).mp ht
   rw [his]
   exact hidx j c hc fs hfit
 
 /-- **The motive is inhabited on the family** (without uniqueness of
-witnesses): by induction over the family, from the minors' typing — at
+decodings): by induction over the family, from the minors' typing — at
 a proposition the inductive hypotheses are inhabited truth values, so
 their values need not be the recursor's. -/
-theorem motive_inhabited (hnc : S.NoCont) (q : Bool) {ps : List V} (m : V) (mins : List V)
+theorem motive_inhabited {ps : List V} (hnr : S.NoRecDep) (hb : S.DomsBounded M ls ps) (q : Bool)
+    (m : V) (mins : List V)
     (hmin : ∀ j c, S.ctors[j]? = some c → S.MinorOk M ls q ps m mins j c)
     (hmo : q = true → ∀ is t, t ∈ˢ S.Fam M ls ps is → appList m (is.reverse ++ [t]) ∈ˢ (univ 0 : V))
     {is : List V} {t : V} (ht : t ∈ˢ S.Fam M ls ps is) : ∃ v, v ∈ˢ appList m (is.reverse ++ [t]) := by
-  suffices key : ∀ ps' is x, S.Mem M ls ps' is x → ps' = ps →
-      ∃ v, v ∈ˢ appList m (is.reverse ++ [S.memb ls x]) by
-    refine S.memb_of_fibre M ls (ps := ps) (is := is)
-      (Q := fun t => ∃ v, v ∈ˢ appList m (is.reverse ++ [t])) ?_
-    exact fibreR_mono (fun x hx => ⟨hx, key ps is x hx rfl⟩) _ ht
-  intro ps' is x hm
-  refine S.Mem_ind M ls
-    (P := fun ps' is x => ps' = ps → ∃ v, v ∈ˢ appList m (is.reverse ++ [S.memb ls x])) ?_ hm
-  intro ps' is x hs hps
-  subst hps
-  obtain ⟨j, c, fs, hc, hfit, his, hx⟩ := hs
-  have hfitM := S.FitsFields_mono M ls (S.boundOk_bound M ls) (fun _ _ _ h => h.1) ps' hfit
-  subst his hx
-  have hmemb : S.memb ls (tag (S.tagOf j) (tuple fs.reverse)) = S.ctorVal ls j fs := rfl
-  rw [hmemb]
-  have hget' : ∀ {k : Nat} {f : Field}, c.fields[c.fields.length - 1 - k]? = some f →
-      k < c.fields.length → fieldVal fs k ∈ˢ S.fieldSet M ls (S.bound M ls)
-        (fun a is x => S.Mem M ls a is x ∧ (a = ps' →
-          ∃ v, v ∈ˢ appList m (is.reverse ++ [S.memb ls x]))) ps' (earlier fs k) f :=
-    fun hf hk => S.FitsFields_get M ls hfit hf hk
+  refine S.Fam_induction M ls hnr hb (fun is t => ∃ v, v ∈ˢ appList m (is.reverse ++ [t])) ?_ is t ht
+  intro is t hs
+  obtain ⟨j, c, fs, hc, hfit, his, rfl⟩ := hs
+  have hfitF := S.FitsFields_of_sep M ls _ hfit
+  subst his
   -- the inductive hypotheses: one inhabitant of each hypothesis' type
-  obtain ⟨ihs, hihs⟩ : ∃ ihs, ListRel (S.IhTyped M ls q ps' m pt fs) c.recFields ihs := by
+  obtain ⟨ihs, hihs⟩ : ∃ ihs, ListRel (S.IhTyped M ls q ps m fs) c.recFields ihs := by
     refine ListRel.exists fun kf hkf => ?_
     obtain ⟨hf, hk, hrec⟩ := mem_recFields hkf
-    have hget := hget' hf hk
+    have hget := S.FitsFields_get M ls hfit hf hk
     obtain ⟨k, f⟩ := kf
     cases f with
     | ordinary _ => simp [Field.isRec] at hrec
-    | container => exact (S.noCont_absurd hnc (List.mem_of_getElem? hc) hf).elim
+    | container =>
+      dsimp only [fieldSet] at hget
+      exact absurd hget (not_mem_empty _)
     | reflexive tele es =>
       dsimp only [fieldSet] at hget
       dsimp only [IhTyped]
@@ -365,13 +275,12 @@ theorem motive_inhabited (hnc : S.NoCont) (q : Bool) {ps : List V} (m : V) (mins
         have hmem := appList_mem_of_piCtx M (S.ψ ls) hget hys
         refine pickMem_mem ?_
         simp only [readEnv_consList hlen]
-        exact S.memb_of_fibre M ls (Q := fun t => ∃ v, v ∈ˢ appList m (_ ++ [t]))
-          (fibreR_mono (fun x hx => ⟨hx.1, hx.2 rfl⟩) _ hmem)
+        exact (mem_sep.mp hmem).2
       · have hlen := FitsVals_length M _ hys
         have hmem := appList_mem_of_piCtx M (S.ψ ls) hget hys
         simp only [readEnv_consList hlen]
-        exact hmo hq _ _ (fibreR_mono (fun x hx => hx.1) _ hmem)
-  exact ⟨_, hmin j c hc fs hfitM ihs hihs⟩
+        exact hmo hq _ _ (mem_sep.mp hmem).1
+  exact ⟨_, hmin j c hc fs hfitF ihs hihs⟩
 
 end IndSpec
 

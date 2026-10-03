@@ -1,23 +1,22 @@
 module
 
-public import Fragment.IndSem
+public import Fragment.IndRec
 
 @[expose] public section
 
 /-!
 # Uniqueness of witnesses under the subsingleton criterion
 
-At a proposition the recursor's value at the point is read off a
-*witness* of the fibre (`pick`, `IndSem.lean`), and the ι law needs
-that witness to be the only member of the family at those indices
-(`Uniq`).  This file states the criterion the checker applies to a
+At a proposition every instance decodes the point, and the
+recursor's graph is single-valued only if all its decodings agree
+(`Uniq`, `IndRec.lean`).  This file states the criterion the checker applies to a
 large eliminator on a proposition — the **subsingleton criterion**,
 semantically — and proves that it delivers `Uniq`.
 
 The criterion says: at most one constructor, and every field of a
 fitting instance is either the point (its domain is a proposition,
 so it carries no information) or is one of the constructor's index
-expressions (so its value is fixed by the indices).  Two members at
+expressions (so its value is fixed by the indices).  Two decodings at
 one index are then the same tagged tuple: the same tag (there is
 only one constructor), and the same fields — each field is either
 the point in both or is read off the shared index values.
@@ -32,7 +31,7 @@ open SetLib IndLib
 
 universe u
 
-variable {V : Type u} [IndLibCompat V]
+variable {V : Type u} [IndLib V]
 
 namespace IndSpec
 
@@ -46,7 +45,7 @@ them). -/
 def Subsingleton : Prop :=
   S.ctors.length ≤ 1 ∧
   ∀ c ∈ S.ctors, ∀ ps : List V, FitsVals M (S.ψ ls) base S.params ps → ∀ fs : List V,
-    S.FitsFields M ls (S.bound M ls) (S.Mem M ls) ps c.fields fs →
+    S.FitsFields M ls (S.Fam M ls ps) ps c.fields fs →
     ∀ k, k < c.fields.length →
       fieldVal fs k = pt ∨ Expr.bvar (c.fields.length - 1 - k) ∈ c.idx
 
@@ -58,14 +57,14 @@ theorem fieldVal_eq_getElem {fs : List V} {k p : Nat} (hp : p < fs.length)
   rw [hk]
   exact (List.getElem_eq_getD pt).symm
 
-/-- **Uniqueness from the subsingleton criterion**: two members of
-the family at one index are equal — each is the tagged tuple of
+/-- **Uniqueness from the subsingleton criterion**: two decodings
+at one index are equal — each is the tagged tuple of
 fields every one of which is the point or one of the (shared) index
 values. -/
 theorem uniq_of_subsingleton (hsub : S.Subsingleton M ls) : S.Uniq M ls := by
   intro _ ps hpf is x x' hx hx'
-  obtain ⟨j, c, fs, hc, hfit, his, rfl⟩ := S.Mem_elim M ls hx
-  obtain ⟨j', c', fs', hc', hfit', his', rfl⟩ := S.Mem_elim M ls hx'
+  obtain ⟨j, c, fs, hc, hfit, his, rfl⟩ := hx
+  obtain ⟨j', c', fs', hc', hfit', his', rfl⟩ := hx'
   -- at most one constructor: both tags are `0` and both constructors are `ctors[0]`
   obtain ⟨hj, -⟩ := List.getElem?_eq_some_iff.mp hc
   obtain ⟨hj', -⟩ := List.getElem?_eq_some_iff.mp hc'

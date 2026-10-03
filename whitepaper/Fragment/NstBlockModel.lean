@@ -1,6 +1,6 @@
 module
 
-public import Fragment.NstInstall
+public import Fragment.NstSeam
 public import Fragment.NestSem
 
 @[expose] public section
@@ -678,14 +678,16 @@ theorem install_def' {env : Env} {c : Name} {ci : ConstInfo} (hs : Env.Scoped en
         (m.blocks K ci' nP nI cs spec hfind hkind)) c ci hok.1
 
 /-- **Installing a plain inductive block preserves having a block
-model**, and the new block satisfies its law. -/
+model**, and the new block satisfies its law — the NEW model of
+`Install.lean`, whose family is the frozen lane's at fitting
+parameters (`NstSeam.lean`), so the old law holds of it. -/
 theorem install_ind' {env : Env} {S : IndSpec} (hpl : S.nest = none) (hs : Env.Scoped env)
     (m : BlockModel V env) (hok : S.Ok env) :
     ∃ m' : BlockModel V (S.install env), ∀ n, (env.find? n).isSome → ∀ ls, m'.M n ls = m.M n ls := by
-  have hagree : AgreeOn env m.M (S.M₃ m.M) := S.agree_M₃ hok m.M
+  have hagree : AgreeOn env m.M (Fragment.IndSpec.M₃ S m.M) := Fragment.IndSpec.agree_M₃ hok m.M
   have hS := hok.scoped
   have hK := S.contScoped_of_plain (env := env) hpl
-  have hA : ∀ ls, S.Agree env m.M (S.M₃ m.M) ls ls := fun ls => ⟨hS, hK, hagree, rfl⟩
+  have hA : ∀ ls, S.Agree env m.M (Fragment.IndSpec.M₃ S m.M) ls ls := fun ls => ⟨hS, hK, hagree, rfl⟩
   have hmono : ∀ n, (env.find? n).isSome → ((S.install env).find? n).isSome := by
     intro n hn
     obtain ⟨ci, hci⟩ := Option.isSome_iff_exists.mp hn
@@ -703,10 +705,29 @@ theorem install_ind' {env : Env} {S : IndSpec} (hpl : S.nest = none) (hs : Env.S
     rw [S.envCtors_find? env hok.nodup_ctors, hok.ctorOf?_rec, S.envInd_find?,
       if_neg hok.name_ne_rec.symm]
     exact hok.fresh _ (List.mem_cons_of_mem _ List.mem_cons_self)
-  refine ⟨{ toEnvModel := S.mInstall hpl hs m.toEnvModel hok, blocks := ?_ },
+  -- the two universe bounds at every level list and fitting parameters, in the old model
+  have hnr : S.NoRecDep := Fragment.IndSpec.noRecDep hok
+  have hnc : S.NoCont := S.noCont_of_plain hpl hS
+  have hbN : ∀ ls ps, FitsVals m.M (S.ψ ls) base S.params ps →
+      Fragment.IndSpec.DomsBounded S m.M ls ps := by
+    intro ls ps hp
+    have hps : ps.length = S.nP := FitsVals_length m.M (S.ψ ls) hp
+    have hp' : FitsVals m.M (S.ψ (S.lparams.map (S.ψ ls))) base S.params ps := by
+      show FitsVals m.M (valOf S.lparams (S.lparams.map (valOf S.lparams ls))) base S.params ps
+      rw [valOf_map_valOf]; exact hp
+    exact Fragment.IndSpec.DomsBounded_congr_ls S m.M _ (valOf_map_valOf S.lparams ls)
+      (Fragment.IndSpec.domsBounded_of hpl hs m.toEnvModel hok (S.ψ ls) base hps hp')
+  have hbO : ∀ ls ps, FitsVals m.M (S.ψ ls) base S.params ps → S.DomsBounded m.M ls ps := by
+    intro ls ps hp
+    have hB : S.Agree env m.M m.M ls (S.lparams.map (S.ψ ls)) :=
+      ⟨hS, hK, fun _ _ _ => rfl, (valOf_map_valOf S.lparams ls).symm⟩
+    have hps : ps.length = S.nP := FitsVals_length m.M (S.ψ ls) hp
+    exact hB.symm.domsBounded_imp ps
+      (IndSpec.domsBounded_of hpl hs m.toEnvModel hok (S.ψ ls) base hps ((hB.fitsParams_iff ps).mp hp))
+  refine ⟨{ toEnvModel := Fragment.IndSpec.mInstall hpl hs m.toEnvModel hok, blocks := ?_ },
     fun n hn ls => (hagree n hn ls).symm⟩
   intro K ci nP nI cs spec hfind hkind
-  show spec.BlockLaw (S.install env) (S.M₃ m.M)
+  show spec.BlockLaw (S.install env) (Fragment.IndSpec.M₃ S m.M)
   rw [S.install_find? hpl] at hfind
   split at hfind
   · -- the new recursor is not a block
@@ -726,23 +747,19 @@ theorem install_ind' {env : Env} {S : IndSpec} (hpl : S.nest = none) (hs : Env.S
         simp only [IndSpec.indInfo, ConstKind.induct.injEq] at hkind
         obtain ⟨-, -, -, rfl⟩ := hkind
         intro _
-        refine ⟨hS.mono hmono, S.noCont_of_plain hpl hS, ?_, fun j c hc => ?_, fun ls => ?_,
+        refine ⟨hS.mono hmono, hnc, ?_, fun j c hc => ?_, fun ls => ?_,
           fun j c hc ls => ?_, fun ls ps hp => ?_⟩
         · rw [S.install_find? hpl, if_neg hok.name_ne_rec, S.envCtors_find? env hok.nodup_ctors,
             hok.ctorOf?_name, S.envInd_find?, if_pos rfl]
         · rw [S.install_find? hpl, if_neg (hok.ctor_ne_rec hc),
             S.envCtors_find? env hok.nodup_ctors, S.ctorOf?_of_getElem? hok.nodup_ctors hc]
-        · rw [(S.reader₃ hpl hok m.M fun _ => 0).R.fam ls, (hA ls).famSet_eq]
-        · rw [(S.reader₃ hpl hok m.M fun _ => 0).ctor j c hc ls,
-            (hA ls).ctorSet_eq j (List.mem_of_getElem? hc)]
+        · rw [(Fragment.IndSpec.reader₃ hpl hok m.M fun _ => 0).R.fam ls]
+          show Fragment.IndSpec.famSet S m.M ls = _
+          rw [S.famSet_eq_old m.M ls hnr hnc (hbN ls) (hbO ls), (hA ls).famSet_eq]
+        · rw [(Fragment.IndSpec.reader₃ hpl hok m.M fun _ => 0).ctor j c hc ls,
+            S.ctorSet_eq_old m.M ls hnr hnc hbN hbO j c, (hA ls).ctorSet_eq j (List.mem_of_getElem? hc)]
         · -- the domains' bound: the checker's, at the block's own valuation
-          have hp' : FitsVals m.M (S.ψ ls) base S.params ps := ((hA ls).fitsParams_iff ps).mpr hp
-          have hB : S.Agree env m.M m.M ls (S.lparams.map (S.ψ ls)) :=
-            ⟨hS, hK, fun _ _ _ => rfl, (valOf_map_valOf S.lparams ls).symm⟩
-          have hps : ps.length = S.nP := FitsVals_length m.M (S.ψ ls) hp'
-          have hd := IndSpec.domsBounded_of hpl hs m.toEnvModel hok (S.ψ ls) base hps
-            ((hB.fitsParams_iff ps).mp hp')
-          exact (hA ls).domsBounded_imp ps (hB.symm.domsBounded_imp ps hd)
+          exact (hA ls).domsBounded_imp ps (hbO ls ps (((hA ls).fitsParams_iff ps).mpr hp))
       · -- an old block: its law, transported and grown
         have h₁ := spec.BlockLaw_transport hagree (m.blocks K ci nP nI cs spec hfind hkind)
         have h₂ := spec.BlockLaw_add h₁ S.name S.indInfo hok.freshI
