@@ -78,12 +78,12 @@ with `Vec α n` the vectors of length `n`.
 
 == The positivity check <sec:nest-checks>
 
-@sec:ind-checks sorts a field by the shape of its domain. The checker
-does this with
+@sec:ind-checks classifies each field by the shape of its domain as
+ordinary or reflexive. The checker does this with
 #src("ConLeche/Kernel/Inductives/Positivity.lean", 1453, 1496)[one walk over the constructors],
-the same for every block, which also looks through containers; on a
-block of §4's shape only the first three cases below accept, and they
-are §4's sorting.
+the same for every block, which also looks through containers. On a
+block of §4's shape only the first three cases below apply, and they
+give exactly §4's classification.
 
 *Holes and frames.* The walk works on variables in place of types.
 Before a constructor is examined, every application of the type being
