@@ -36,7 +36,7 @@ a binder — is verified in the paper's Lean fragment:
 
 A block of @sec:ind mentions the type being defined only directly: a
 recursive field's domain is the family itself, a reflexive field's a
-function type into it. The standard nested block is
+function type into it. The standard example of such a nested block is
 #src("tests/e2e/src/nested_rec.lean", 17, 18)[a tree whose children form a _list_ of trees]:
 one parameter, sort $Sort 1$, and one constructor
 $ node : forall (alpha : Sort 1) thin ann(never). thin forall (a : alpha) thin ann(never). thin forall (ts : List thick (Tree thick alpha)) thin ann(never). thin Tree thick alpha. $
