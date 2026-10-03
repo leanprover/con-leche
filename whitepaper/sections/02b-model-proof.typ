@@ -62,8 +62,8 @@ point, which it has exactly when $P$ holds, so $tv(P) = {pt}$ when
 $P$ is true and $tv(P) = emptyset$ when it is false. This is an
 abbreviation, not an axiom.
 
-*The universes.* A #src("whitepaper/Fragment/Lib.lean", 61, 67)[chain of sets] $cal(U)_0, cal(U)_1, cal(U)_2, dots$.
-$cal(U)_0 = {emptyset, {pt}}$, the two truth values. Each $cal(U)_n$ is a member of
+*The universes.* A #src("whitepaper/Fragment/Lib.lean", 61, 67)[chain of sets] $cal(U)_0, cal(U)_1, cal(U)_2, dots$,
+with $cal(U)_0 = {emptyset, {pt}}$, the two truth values. Each $cal(U)_n$ is a member of
 $cal(U)_(n+1)$, and the chain is cumulative: a member of $cal(U)_m$ is
 a member of every later $cal(U)_n$.
 
