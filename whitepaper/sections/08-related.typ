@@ -30,6 +30,11 @@ interpretation of @sec:interp is of this kind, and the set theory of
 @sec:lib is likewise given by axioms. The difference is what is shown
 true in the model: there, the derivable judgements of a calculus given
 by typing rules; here, the verdicts of the checker on annotated terms.
+Barras also develops ordinals and fixpoint theory over the axioms, and
+models an extension with the natural numbers whose recursion follows
+type-based termination; here fixed points are taken for every
+inductive block the checker accepts, and their existence follows from
+the positivity check through accessibility (@sec:ind-lfp).
 
 *Inductive types.* Dybjer @dybjer1994 gives a general scheme for
 inductive families with strictly positive constructors, in which the
