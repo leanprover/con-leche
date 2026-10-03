@@ -300,8 +300,8 @@ left in the model and what the block's own checks add
 For this the model of an environment remembers, for every plain
 block it holds, that the block's type former denotes the graph of its
 family and its constructors their tagged tuples
-(#src("whitepaper/Fragment/BlockModel.lean", 46, 57)[the block's law],
-#src("whitepaper/Fragment/BlockModel.lean", 61, 66)[a model that remembers its blocks]);
+(the block's law,
+a model that remembers its blocks);
 a nested block, never being a container in the fragment, stores no
 such law.
 
