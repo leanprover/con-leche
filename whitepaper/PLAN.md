@@ -258,3 +258,5 @@ laws; the ad-hoc "inductive closure" law goes.
   `ContClause.mono`, `Fam_psK_mono`), for plain and nested blocks and
   in both regimes; the paper says so in one sentence where
   accessibility is defined, and once for the container's clause.
+* (2026-10-03) Banned words: "load-bearing", "licenses" (and the other
+  rules above). Say "needed", "used", "justifies".

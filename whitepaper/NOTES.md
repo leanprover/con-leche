@@ -82,7 +82,7 @@ comment block at the top of `lib.typ`.
    the checker's opened bodies and the relation's de Bruijn reading.
    (Fragment lane, stages 1–3.)
 
-7. **The ι comparisons: the index comparison is load-bearing, the
+7. **The ι comparisons: the index comparison is needed, the
    level comparison is assumed, the parameter comparison is dead.**
    `Red.iota` (`Rules/Rel.lean`) compares the constructor's levels
    with the recursor's (`Level.isEquivList`), its parameters
@@ -384,7 +384,7 @@ comment block at the top of `lib.typ`.
     docstring would record it; a fragment that tested "provably zero"
     instead of "may be zero" would need exactly that lemma. (§4 lane.)
 
-25. **A nested rule's stored instantiation is never load-bearing.**
+25. **A nested rule's stored instantiation is never needed.**
     The real checker certifies an auxiliary recursor's rule against
     the constructor's expected levels and parameters (`.nested`
     certification, `tests/e2e/src/nested_rec.lean`); the fragment's

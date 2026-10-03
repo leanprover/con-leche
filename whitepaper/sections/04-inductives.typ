@@ -862,7 +862,7 @@ argument's, and #src("ConLeche/Model/Rules/IotaSound.lean", 69)[the law].
   parameters.
 ]
 
-*Why the index comparison is load-bearing.* Return to @ex:P and take
+*Why the index comparison is needed.* Return to @ex:P and take
 the spine $C, h, 7, mk thick 5$. Every $P thick n$ is inhabited, by
 $mk thick n$, so $lden P thick 7 rden = {pt}$, and the recursor's fit
 asks only that $lden mk thick 5 rden = pt$ lie in it — which it
