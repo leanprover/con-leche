@@ -778,17 +778,23 @@ So the #src("whitepaper/Fragment/EnvModel.lean", 102, 161)[$iota$ law] is stated
 
 #definition(name: [the $iota$ law of a rule])[
   Let $r$ be a stored recursor and $R_j$ the right-hand side of its
-  rule for the constructor $c_j$. For every valuation, all levels
-  $arrow(ell)$, $arrow(ell)'$ of the right lengths, all values
-  $arrow(A)$ for the arguments before the major and $arrow(F)'$ for
-  the constructor's parameters and fields: if $arrow(A)$ followed by
-  $lden c_j.\{arrow(ell)'\} rden dot.op arrow(F)'$ fit the recursor's
-  type at $arrow(ell)$, $arrow(F)'$ fit the constructor's type at
-  $arrow(ell)'$, the levels $arrow(ell)'$ evaluate as the last of
-  $arrow(ell)$, the parameters among $arrow(F)'$ _are_ those among
-  $arrow(A)$, and the constructor's index expressions read under
-  $arrow(F)'$ _are_ the index values among $arrow(A)$ — then
-  $ lden r.\{arrow(ell)\} rden dot.op arrow(A) dot.op (lden c_j.\{arrow(ell)'\} rden dot.op arrow(F)') = lden R_j [arrow(p) := arrow(ell)] rden dot.op (arrow(A) "before the indices") dot.op (arrow(F)' "after the parameters"), $
+  rule for the constructor $c_j$. Take a valuation, levels
+  $arrow(ell)$ and $arrow(ell)'$ of the right lengths, and values for
+  the recursor's arguments before the major — parameters $arrow(X)$,
+  motive $C$, minors $arrow(M)$, indices $arrow(Y)$ — and for the
+  constructor's arguments — parameters $arrow(X)'$ and fields
+  $arrow(F)$. Suppose
+  - $arrow(X), C, arrow(M), arrow(Y)$ followed by
+    $lden c_j.\{arrow(ell)'\} rden dot.op arrow(X)' dot.op arrow(F)$
+    fit the recursor's type at $arrow(ell)$, and
+    $arrow(X)', arrow(F)$ fit the constructor's type at $arrow(ell)'$;
+  - $arrow(ell)'$ evaluates as the last levels of $arrow(ell)$;
+  - $arrow(X)' = arrow(X)$; and
+  - $arrow(e)_j (arrow(X)', arrow(F)) = arrow(Y)$, the constructor's
+    index expressions read at its arguments.
+  Then
+  $ lden r.\{arrow(ell)\} rden dot.op arrow(X) dot.op C dot.op arrow(M) dot.op arrow(Y) dot.op (lden c_j.\{arrow(ell)'\} rden dot.op arrow(X)' dot.op arrow(F))
+    = lden R_j [arrow(p) := arrow(ell)] rden dot.op arrow(X) dot.op C dot.op arrow(M) dot.op arrow(F), $
   and the right-hand side $R_j$ is well-denoted with a well-formed
   application chain along those values.
 ] <def:iota-law>
@@ -809,17 +815,16 @@ argument's, and #src("ConLeche/Model/Rules/IotaSound.lean", 69)[the law].
 
 #proof[
   _The type-valued family_ ($ann(PW)$ does not hold). The recursor's fit
-  puts the major's value $lden c_j rden dot.op arrow(F)'$ in the family
-  at the _recursor's_ parameters and indices, the values among
-  $arrow(A)$. By the constructor's fit that value computes to
-  $tag(j, arrow(F))$, $arrow(F)$ the fields among $arrow(F)'$;
+  puts the major's value $lden c_j rden dot.op arrow(X)' dot.op arrow(F)$ in the family
+  at the _recursor's_ parameters $arrow(X)$ and indices $arrow(Y)$. By
+  the constructor's fit that value computes to $tag(j, arrow(F))$;
   and here is the point of
   the least fixed point: a member of the fibre is a constructor value
   of fitting fields (#src("whitepaper/Fragment/IndSem.lean", 1329, 1336)[the fixed-point equation, read forwards]), so it is
   $tag(j', arrow(F)'')$ for some constructor $j'$ and fields
   $arrow(F)''$ fitting $c_(j')$'s field telescope _at the recursor's
   parameters_, with the recursor's indices as the values of
-  $c_(j')$'s index expressions at $arrow(F)''$. Tags and tuples are
+  $c_(j')$'s index expressions at $arrow(F)''$. Tagged tuples are
   injective, so $j' = j$ and $arrow(F)'' = arrow(F)$. This
   _inversion_ is everything the right-hand side needs: it puts each
   field in its domain at the recursor's own parameters, which is
@@ -835,7 +840,7 @@ argument's, and #src("ConLeche/Model/Rules/IotaSound.lean", 69)[the law].
   constructor, no fields, no parameters and no indices. Inversion
   still applies — some constructor reaches those indices with some
   fields $arrow(F)''$ — but nothing connects $arrow(F)''$ to the
-  fields $arrow(F)'$ the right-hand side is applied to. This is
+  fields $arrow(F)$ the right-hand side is applied to. This is
   where the comparisons come in. When the elimination level is zero
   both sides of the equation are the point and there is nothing to
   prove. When it is not, the block passed the subsingleton
