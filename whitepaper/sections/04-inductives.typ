@@ -411,13 +411,17 @@ block's operator $Phi$ sends a family to a family: its fibre at
 $arrow(Y)$ is the set of _constructor values_ whose fields fit a
 constructor relative to $W$ and whose index expressions read as
 $arrow(Y)$,
-$ Phi(W)(arrow(Y)) = { tag(j, tuple(arrow(F))) mid(|) arrow(F) "fit the fields of" c_j "relative to" W, "and" arrow(Y) = arrow(e)_j (arrow(F)) }. $
-Values $arrow(F)$ _fit_ a constructor's fields relative to $W$ when
+$ Phi(W)(arrow(Y)) = { tag(j, tuple(arrow(F))) mid(|) arrow(F) "fit the fields of" c_j "relative to" W, "and" arrow(Y) = arrow(e)_j (arrow(F)) }, $
+where $arrow(e)_j$ are the index expressions of $c_j$'s result
+$I thick arrow(x) thick arrow(e)_j$ (@sec:ind-checks), and
+$arrow(e)_j (arrow(F))$ their denotations with the parameters at
+$arrow(X)$ and the fields at $arrow(F)$. Values $arrow(F)$ _fit_ a constructor's fields relative to $W$ when
 each is a member of its field's set at the earlier values: the set of
 an ordinary field is its domain's denotation, read without $W$; the
 set of a reflexive field
 $f : forall arrow(z) : arrow(A). thin I thick arrow(x) thick arrow(e)$
-is the product over its telescope into fibres of $W$,
+is the product over its telescope into fibres of $W$, at the field's
+own index expressions $arrow(e)$,
 $ Pi(arrow(z) in arrow(A), thick W(arrow(e)(arrow(z)))), $
 the fibre $W(arrow(e))$ itself when the telescope is empty
 (#src("whitepaper/Fragment/IndSem.lean", 274, 294)[a field's set],
