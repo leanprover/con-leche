@@ -5,7 +5,7 @@ public import Fragment.IndSem
 @[expose] public section
 
 /-!
-# The container's clause: monotone and accessible by positivity
+# The container's clause: accessible by positivity
 
 What the installation of a nested block proves about its container
 from the container's own model — the **one new idea** of nested
@@ -15,28 +15,23 @@ blocks, the content of the paper's nested section:
   (`classSet_eq_Fam`: the container's set in the model is the graph
   over its parameters of its fibre, applied by β to the class's
   arguments with the parameter set in the nested position);
-* **the class grows with the parameter set** (`Fam_psK_mono`), by
-  **positivity plus leastness**: the container is positive in the
-  nested position, so a constructor of the container fitting at a
-  smaller parameter set `X` fits at a larger `Y` relative to the same
-  approximant (`FitsFields_psK_repl`: a field is the parameter field,
-  whose value is in `X` hence in `Y`; a recursive field, read at the
-  approximant either way; or an ordinary field mentioning neither
-  the nested parameter nor an earlier parameter or recursive field, the
-  same set at `X` and at `Y`) — so the container's family at `Y`,
-  closed under the container's operator at `Y`, is closed under its
-  operator at `X`, and the family at `X`, the LEAST closed family of
-  that operator, lies below it;
 * **the class is accessible in the parameter set** (`Fam_psK_acc`), by
   **positivity plus the nested case of accessibility**: the
   container's operator is accessible jointly in the parameter set and
   its own family — a constructor value depends on its parameter fields
   (occurrences in the parameter set) and its recursive fields
   (occurrences in the family), one code per field position, and fits
-  at every pair holding them, again by `FitsFields_psK_repl` — so the
-  least family as a function of the parameter set is accessible with
-  the bound `accPaths` of the positions (`lfpP_acc`, `Access.lean`),
-  which is the class's bound (`classBound`);
+  at every pair holding them (`FitsFields_psK_repl`: a field is the
+  parameter field, whose value is in the new parameter set; a
+  recursive field, whose value is in the new family; or an ordinary
+  field mentioning neither the nested parameter nor an earlier
+  parameter or recursive field, the same set at both) — so the least
+  family as a function of the parameter set is accessible with the
+  bound `accPaths` of the positions (`lfpP_acc`, `Access.lean`), which
+  is the class's bound (`classBound`), in both regimes;
+* hence **the class grows with the parameter set** (`Fam_psK_mono`,
+  `ContClause.mono`): the support in the smaller set is in the larger
+  — no separate monotonicity proof;
 * the class at the one-fibre set is inhabited when the class is
   inhabited at all (`Fam_psK_inhab_one`): by induction over the
   container's family, every constructor instance has a counterpart
@@ -45,19 +40,19 @@ blocks, the content of the paper's nested section:
   fields kept (`FitsFields_psK_repl` once more).
 
 Together these are the container's clause (`ContClause`,
-`IndSem.lean`) the block's operator is monotone and accessible under
-(`contClause_of`).  The facts about the container they need
+`IndSem.lean`) the block's operator is accessible, hence monotone,
+under (`contClause_of`).  The facts about the container they need
 (`NestFacts`) are what the container's own installation left in the
 model (`BlockModel.lean`) and what the nested block's checks add
 (the class's arguments fit, the sorts agree, N3).
 
-Con-leche: the container case of `Model/Annot/BlockLfpMono.lean`
-through `SetModel/HoleClose.lean` (`lfpTuple_le_on`: leastness on the
-reached group, positivity at the instantiation from `HoleMono.lean`),
-`Model/Inductives/ContLeaf.lean` (`monoOn_of_famLe`) for
-monotonicity; `Model/Inductives/ContAcc.lean` and
-`ContAccFrame.lean` (`frameIterAcc`) with `SetModel/Access.lean`'s
-`lfpP_acc` for accessibility.
+Con-leche: `Model/Inductives/ContAcc.lean` and `ContAccFrame.lean`
+(`frameIterAcc`) with `SetModel/Access.lean`'s `lfpP_acc` for
+accessibility.  Con-leche proves monotonicity separately, by
+positivity plus leastness — the container case of
+`Model/Annot/BlockLfpMono.lean` through `SetModel/HoleClose.lean`
+(`lfpTuple_le_on`) and `Model/Inductives/ContLeaf.lean`
+(`monoOn_of_famLe`); the fragment derives it from accessibility.
 -/
 
 namespace Fragment open NestInfo (nPK nK memberVar isMember Positive memberLevel)
@@ -329,8 +324,8 @@ recursive fields, and no ordinary field reads either kind.  So a
 fitting list stays fitting when the parameter-field values are replaced by
 members of another parameter set, the recursive values by members of
 another family's fibre, and the ordinary values are kept
-(`FitsFields_psK_repl`) — the one lemma monotonicity, accessibility
-and the one-fibre counterpart below all rest on.  Con-leche: the
+(`FitsFields_psK_repl`) — the one lemma accessibility and the
+one-fibre counterpart below rest on.  Con-leche: the
 telescope lemma `spineFit_mono` of `HoleMono.lean` along the relation
 of the container's instantiation (`CtorPos`, `NestRec.lean`'s
 `trans`). -/
@@ -451,40 +446,6 @@ theorem FitsFields_psK_repl (hf : S.NestFacts M ls N) {X Y : V} {W W' : List V �
   | _ :: _, [], _, _, _, h, _ => h.elim
   | _ :: _, _ :: _, [], _, _, _, h => h.elim
 
-/-- A fitting list is a replacement of itself at a larger parameter set
-and the same family. -/
-theorem Repl_self_of_fit (hf : S.NestFacts M ls N) {X Y : V} (hXY : X ⊆ˢ Y) {W : List V → V}
-    {ps : List V} :
-    ∀ {fields : List Field} {fs : List V},
-      (∀ i f, fields[i]? = some f → N.FieldPos fields i f) →
-      N.KS.FitsFields M (S.lsK ls N) W (S.psK M ls N ps X) fields fs →
-      Repl N Y W fields fs fs
-  | [], [], _, _ => trivial
-  | f :: rest, v :: vs, hpos, hfit => by
-    have hlen : vs.length = rest.length := N.KS.FitsFields_length M _ hfit.1
-    refine ⟨Repl_self_of_fit hf hXY (N.FieldPos_tail hpos) hfit.1, ?_⟩
-    have hfv := hfit.2
-    have hFP := hpos 0 f rfl
-    cases f with
-    | ordinary A =>
-      simp only [NestInfo.FieldPos, List.length_cons, Nat.add_sub_cancel, Nat.sub_zero] at hFP
-      rcases hFP with hA | ⟨hA, -⟩
-      · subst hA
-        simp only [N.isMember_self, if_true]
-        simp only [fieldSet] at hfv
-        rw [S.interp_memberVar hf _ hlen] at hfv
-        exact hXY v hfv
-      · simp [N.isMember_eq_false_of_usesVar hA, Field.isRec]
-    | reflexive tele es =>
-      obtain ⟨rfl, rfl⟩ := hFP
-      have hnm : N.isMember rest.length (.reflexive [] []) = false := rfl
-      simp only [hnm, Field.isRec, Bool.false_eq_true, if_false, if_true]
-      simp only [fieldSet, piCtx_nil, idxVals, List.map_nil, List.reverse_nil] at hfv
-      exact hfv
-    | container => exact hFP.elim
-  | [], _ :: _, _, h => h.elim
-  | _ :: _, [], _, h => h.elim
-
 /-- The positivity clause and the no-dependency condition of a
 constructor's whole field list. -/
 theorem fieldPos_of (hf : S.NestFacts M ls N) {c : CtorSpec} (hc : c ∈ N.K.ctors) :
@@ -498,33 +459,6 @@ indices). -/
 theorem KS_idxVals (hf : S.NestFacts M ls N) {c : CtorSpec} (hc : c ∈ N.K.ctors) (ρ : Nat → V) :
     N.KS.idxVals M (S.lsK ls N) ρ c.idx = [] := by
   rw [(hf.positive.2.2.2.2 c hc).1]; rfl
-
-/-! ## The class grows with the parameter set: positivity plus leastness -/
-
-/-- **Every member of the container's family at a smaller parameter set
-is a member at a larger one**: the family at the larger set is closed
-under the container's operator at the smaller set (a constructor
-fitting at the smaller set fits at the larger, `FitsFields_psK_repl`,
-and the family at the larger set is closed under its own operator),
-and the family at the smaller set is the LEAST closed family of that
-operator (`lfpFamSet_least`).  Con-leche: `lfpTuple_le_on`
-(`SetModel/HoleClose.lean`) with `CtorPos` at the instantiation. -/
-theorem Fam_psK_mono (hf : S.NestFacts M ls N) {ps : List V}
-    (hp : FitsVals M (S.ψ ls) base S.params ps) {X Y : V} (hXY : X ⊆ˢ Y)
-    (hY : Y ∈ˢ (univ (S.u₀ ls) : V)) (is : List V) :
-    N.KS.Fam M (S.lsK ls N) (S.psK M ls N ps X) is ⊆ˢ N.KS.Fam M (S.lsK ls N) (S.psK M ls N ps Y) is := by
-  have hbY := hf.domsBoundedK hp hY
-  have hcoY := hf.contOkK (S.psK M ls N ps Y)
-  -- the family at `Y` is closed under the operator at `X`
-  refine lfpFamSet_least (X := N.KS.Fam M (S.lsK ls N) (S.psK M ls N ps Y))
-    ⟨N.KS.Fam_inUniv M _ _, fun is' x hx => ?_⟩ is
-  obtain ⟨j, c, fs, hc, hfit, his, rfl⟩ := (N.KS.mem_famOp M _).mp hx
-  have hcm := List.mem_of_getElem? hc
-  obtain ⟨hpos, hnr⟩ := S.fieldPos_of hf hcm
-  rw [← N.KS.famOp_Fam M _ hf.noRecDep hbY hcoY]
-  refine (N.KS.mem_famOp M _).mpr ⟨j, c, fs, hc, ?_, ?_, rfl⟩
-  · exact S.FitsFields_psK_repl hf hpos hnr hfit (S.Repl_self_of_fit hf hXY hpos hfit)
-  · rw [his, S.KS_idxVals hf hcm, S.KS_idxVals hf hcm]
 
 /-! ## The class is accessible in the parameter set: positivity plus the nested case -/
 
@@ -699,17 +633,18 @@ theorem jointOp_maps (hf : S.NestFacts M ls N) {ps : List V}
 
 /-- **The container's family is accessible in the parameter set**, with
 the class's bound: the nested case of accessibility (`lfpP_acc`)
-applied to the joint operator.  Con-leche: `accConcl_of_frameAccOut`
-(`ContAcc.lean`) over `frameIterAcc`. -/
+applied to the joint operator — in both regimes (at a proposition the
+container's family is closed in `{pt}`, `lfpP_acc`).  Con-leche:
+`accConcl_of_frameAccOut` (`ContAcc.lean`) over `frameIterAcc`, above
+a proposition. -/
 theorem Fam_psK_acc (hf : S.NestFacts M ls N) (hN : S.nest = some N) {ps : List V}
-    (hp : FitsVals M (S.ψ ls) base S.params ps) (hz : S.z ls = false) {X : V}
+    (hp : FitsVals M (S.ψ ls) base S.params ps) {X : V}
     (hX : X ∈ˢ (univ (S.u₀ ls) : V)) {v : V}
     (hv : v ∈ˢ N.KS.Fam M (S.lsK ls N) (S.psK M ls N ps X) []) :
     ∃ (B : V) (g : V → V), B ⊆ˢ S.classBound ∧ (∀ b, b ∈ˢ B → g b ∈ˢ X) ∧
       ∀ X', X' ∈ˢ (univ (S.u₀ ls) : V) → (∀ b, b ∈ˢ B → g b ∈ˢ X') →
         v ∈ˢ N.KS.Fam M (S.lsK ls N) (S.psK M ls N ps X') [] := by
-  have hn := S.u₀_ne_zero ls hz
-  have hacc := lfpP_acc hn (natsBelow_mem_univ hn N.maxFields) (S.jointOp_maps hf hp)
+  have hacc := lfpP_acc (fun hn => natsBelow_mem_univ hn N.maxFields) (S.jointOp_maps hf hp)
     (S.jointOp_acc hf ps)
   rw [← S.lfpP_jointOp hf ps X] at hv
   obtain ⟨B, g, hB, hg, hs⟩ := hacc (fun _ => X) (fun _ => hX) [] v hv
@@ -719,6 +654,19 @@ theorem Fam_psK_acc (hf : S.NestFacts M ls N) (hN : S.nest = some N) {ps : List 
     exact hB
   · rw [← S.lfpP_jointOp hf ps X']
     exact hs (fun _ => X') (fun _ => hX') fun b hb => h' b hb
+
+/-- **The class grows with the parameter set**, by accessibility: the
+support in `X` is in the larger `Y` (as `AccFam.mono`).  Con-leche
+proves it separately, by positivity plus leastness:
+`lfpTuple_le_on` (`SetModel/HoleClose.lean`) with `CtorPos` at the
+instantiation. -/
+theorem Fam_psK_mono (hf : S.NestFacts M ls N) (hN : S.nest = some N) {ps : List V}
+    (hp : FitsVals M (S.ψ ls) base S.params ps) {X Y : V} (hXY : X ⊆ˢ Y)
+    (hX : X ∈ˢ (univ (S.u₀ ls) : V)) (hY : Y ∈ˢ (univ (S.u₀ ls) : V)) :
+    N.KS.Fam M (S.lsK ls N) (S.psK M ls N ps X) [] ⊆ˢ N.KS.Fam M (S.lsK ls N) (S.psK M ls N ps Y) [] := by
+  intro v hv
+  obtain ⟨B, g, -, hg, hs⟩ := S.Fam_psK_acc hf hN hp hX hv
+  exact hs Y hY fun b hb => hXY _ (hg b hb)
 
 /-! ## The class at the one-fibre set -/
 
@@ -788,37 +736,22 @@ theorem Fam_psK_inhab_one (hf : S.NestFacts M ls N) {ps : List V}
 
 /-- **The container's clause, from positivity and leastness**
 (`ContClause`): the class is the container's family at the
-instantiation (`classSet_eq_Fam`), which grows with the parameter set
-(`Fam_psK_mono`), lies in the result universe (`Fam_mem_univ`, N3),
-is accessible with the class's bound (`Fam_psK_acc`; at a
-proposition from monotonicity alone: the parameter set, a subset of
-`{pt}`, is its own support), and is inhabited at the one-fibre set
-when inhabited at all (`Fam_psK_inhab_one`). -/
+instantiation (`classSet_eq_Fam`), which lies in the result universe
+(`Fam_mem_univ`, N3), is accessible with the class's bound
+(`Fam_psK_acc`, in both regimes), and is inhabited at the one-fibre
+set when inhabited at all (`Fam_psK_inhab_one`).  That it grows with
+the parameter set follows (`ContClause.mono`). -/
 theorem contClause_of (hf : S.NestFacts M ls N) (hN : S.nest = some N) {ps : List V}
     (hp : FitsVals M (S.ψ ls) base S.params ps) : S.ContClause M ls N ps where
-  mono := fun X Y hXY hX hY => by
-    rw [S.classSet_eq_Fam hf hp hX, S.classSet_eq_Fam hf hp hY]
-    exact S.Fam_psK_mono hf hp hXY hY []
   mem_univ := fun X hX => by
     rw [S.classSet_eq_Fam hf hp hX, ← hf.u₀_eq]
     exact N.KS.Fam_mem_univ M _ _ _
   acc := fun X hX v hv => by
-    cases hz : S.z ls with
-    | false =>
-      rw [S.classSet_eq_Fam hf hp hX] at hv
-      obtain ⟨B, g, hB, hg, hs⟩ := S.Fam_psK_acc hf hN hp hz hX hv
-      refine ⟨B, g, hB, hg, fun X' hX' h' => ?_⟩
-      rw [S.classSet_eq_Fam hf hp hX']
-      exact hs X' hX' h'
-    | true =>
-      -- at a proposition the parameter set is a subset of `{pt}`: its own support
-      have hX0 : X ∈ˢ (univ 0 : V) := by rwa [(S.z_iff ls).mp hz] at hX
-      refine ⟨X, id, fun b hb => ?_, fun b hb => hb, fun X' hX' h' => ?_⟩
-      · rw [eq_pt_of_mem_univ_zero hX0 hb]
-        exact S.pt_mem_classBound hN
-      · rw [S.classSet_eq_Fam hf hp hX] at hv
-        rw [S.classSet_eq_Fam hf hp hX']
-        exact S.Fam_psK_mono hf hp (fun b hb => h' b hb) hX' [] v hv
+    rw [S.classSet_eq_Fam hf hp hX] at hv
+    obtain ⟨B, g, hB, hg, hs⟩ := S.Fam_psK_acc hf hN hp hX hv
+    refine ⟨B, g, hB, hg, fun X' hX' h' => ?_⟩
+    rw [S.classSet_eq_Fam hf hp hX']
+    exact hs X' hX' h'
   inhab_one := fun X hX hex => by
     rw [S.classSet_eq_Fam hf hp hX] at hex
     rw [S.classSet_eq_Fam hf hp (one_mem_univ _)]

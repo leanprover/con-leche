@@ -251,3 +251,10 @@ laws; the ad-hoc "inductive closure" law goes.
   "(real proof)" labels; when a sentence cites both, attach each link
   to a different natural phrase (e.g. the name of the thing for one,
   the property claimed for the other).
+* (2026-10-03) No separate monotonicity story: accessibility is the
+  property; monotonicity, needed only for the fixed-point equation
+  (and induction), follows from it on families in the universe
+  (`AccFam.mono`). The fragment derives it (`famOp_mono`,
+  `ContClause.mono`, `Fam_psK_mono`), for plain and nested blocks and
+  in both regimes; the paper says so in one sentence where
+  accessibility is defined, and once for the container's clause.

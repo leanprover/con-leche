@@ -617,3 +617,28 @@ comment block at the top of `lib.typ`.
     which is exactly what a later nesting consumes (`NestFacts`), and
     pushes agreement through the operator (`Agree.famOp_eq`,
     `Agree.Fam_eq`).  (Lane 3, 2026-10-03.)
+
+37. **Monotonicity is a corollary of accessibility, in both regimes.**
+    The fixed-point equation and induction need a monotone operator
+    (`lfpFamSet_eq`, `lfpFamSet_induction`), and accessibility gives
+    it on families in the universe: the support in `W` is in the
+    larger `W'` (`AccFam.mono`, the real proof's
+    `AccTuple.monoTuple`).  The block's operator is accessible in
+    BOTH regimes — only the bound's membership of the universe needs
+    a type — so the fragment derives `famOp_mono` from `famOp_acc`
+    and has no separate monotonicity proof (`fieldSet_mono`,
+    `piCtx_sub`, `piR_mono`, `piSet_mono` are gone; `FitsFields_mono`,
+    which the recursor's induction uses, re-types through
+    `FitsFields_retype`).  For a container the same holds once the
+    nested case of accessibility is stated at a proposition too:
+    `lfpP_acc` needs the bound in the universe only above one, and
+    at a proposition the section's closed family is `{pt}`
+    (`closedFam_zero`) — so `Fam_psK_acc` holds in both regimes, the
+    container's clause drops its `mono` field (`ContClause.mono` is a
+    theorem), and `Fam_psK_mono` is derived; the leastness proof of
+    item 34 is gone.  The real proof proves monotonicity separately
+    (`HoleMono.lean`, `BlockPosRunCont.lean`, the container case of
+    `BlockLfpMono.lean` through `HoleClose.lean`'s `lfpTuple_le_on`)
+    and states `lfpP_acc` above a proposition only; deriving
+    `LfpClause.functor`'s monotone conjunct from `blockAcc_of_run`
+    (extended to `w = 0`) could retire those modules.  (2026-10-03.)

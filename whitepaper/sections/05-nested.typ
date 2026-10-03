@@ -233,9 +233,9 @@ Fix a nested block, a valuation $phi$ and parameter values
 $arrow(X)$. The block's operator $Phi$ is the operator of
 @sec:ind-model with one more case, the set a container field ranges
 over. The story of @sec:ind-model then repeats with that case added:
-$Phi$ is monotone and accessible, so it has a closed family
-(@thm:closed-of-acc) and its least fixed point is the family. What is
-new is why the clause is monotone and accessible. The reason is not a
+$Phi$ is accessible, so it has a closed family (@thm:closed-of-acc)
+and is monotone, and its least fixed point is the family. What is
+new is why the clause is accessible. The reason is not a
 fact recorded about the container when it was installed. It follows
 from two things the model already knows: the container is positive
 at the nested position, which the checker verified, and its family is
@@ -243,23 +243,22 @@ a _least_ fixed point.
 
 *A container field's set.* The container $K$ was installed before,
 so the model already assigns it a set: by the law recorded when $K$
-was installed — a fact about its set, not about monotonicity or
-accessibility — the graph over $K$'s parameters of $K$'s family. For a set $Y$
+was installed — a fact about its set, not about accessibility — the graph over $K$'s parameters of $K$'s family. For a set $Y$
 write $arrow(d)[Y]$ for the class's arguments read at $arrow(X)$, with
 $Y$ at the nested position $p$, and $Phi_K^(arrow(d)[Y])$ for $K$'s
 operator at those parameter values. The
-#src("whitepaper/Fragment/IndCommon.lean", 201, 204)[_class at $Y$_] is $K$'s set
+#src("whitepaper/Fragment/IndCommon.lean", 188, 191)[_class at $Y$_] is $K$'s set
 applied to $arrow(d)[Y]$. By
 $beta$ it is $K$'s family at those parameters, a single set because
 $K$ has no indices
-(#src("whitepaper/Fragment/NestSem.lean", 311, 315)[the class is the container's family]):
+(#src("whitepaper/Fragment/NestSem.lean", 306, 310)[the class is the container's family]):
 $ cal(C)(Y) = lden K rden dot.op arrow(d)[Y] = lfp(Phi_K^(arrow(d)[Y])). $
 Let $W$ be the family $Phi$ is applied to, the _approximant_. A
 container field ranges over the class at $W$'s fibre at the nested
 occurrence's index expressions $arrow(e)$:
 $ cal(C)(W(arrow(e))) $
-(#src("whitepaper/Fragment/IndSem.lean", 274, 294)[a field's set],
-#src("whitepaper/Fragment/IndSem.lean", 296, 299)[the container clause]).
+(#src("whitepaper/Fragment/IndSem.lean", 278, 298)[a field's set],
+#src("whitepaper/Fragment/IndSem.lean", 300, 303)[the container clause]).
 For @ex:tree, relative to the approximant $W$, the children of a node
 range over the lists whose entries all lie in $W$. Nothing new is
 constructed. The container's least fixed point is reused, at every
@@ -267,17 +266,19 @@ approximant.
 
 *What the operator asks of the class.* The proofs of @sec:ind-model
 go field kind by field kind, and at a container field they ask of
-$cal(C)$ what they ask of a reflexive field's product. It must grow
-with its argument. A member of $cal(C)(Y)$ must have a support in $Y$,
+$cal(C)$ what they ask of a reflexive field's product. A member of
+$cal(C)(Y)$ must have a support in $Y$,
 coded inside one bound fixed in advance. And $cal(C)(Y)$ must lie in
 the universe whenever $Y$ does. These facts are the
-#src("whitepaper/Fragment/IndSem.lean", 452, 471)[_container's clause_].
+#src("whitepaper/Fragment/IndSem.lean", 451, 469)[_container's clause_].
+That $cal(C)$ grows with its argument is not asked: as for the
+operator, accessibility implies it, since
+#src("whitepaper/Fragment/IndSem.lean", 471, 480)[a support in $Y$ lies in any larger $Y'$].
 Given the clause, the proofs of @sec:ind-model go through unchanged
-(#src("whitepaper/Fragment/IndSem.lean", 596, 609)[a field's set grows, the container case last],
-#src("whitepaper/Fragment/IndSem.lean", 1193, 1200)[the operator is accessible]),
+(#src("whitepaper/Fragment/IndSem.lean", 1155, 1162)[the operator is accessible]),
 and the bound gains, per container field, the class's bound $A_K$ of
 @lem:class-acc with each of its paths
-#src("whitepaper/Fragment/IndSem.lean", 973, 990)[prefixed by the field's position].
+#src("whitepaper/Fragment/IndSem.lean", 935, 952)[prefixed by the field's position].
 
 One observation about $K$ proves the clause. Recall from
 @sec:nest-checks that positivity sorts $K$'s fields into three kinds.
@@ -288,51 +289,34 @@ of an earlier parameter field; and by the second shape condition of
 @sec:ind-checks, which $K$ passed when it was installed, nothing reads
 the value of an earlier recursive field. So a list of
 fields that fits a constructor of $K$, at the parameter $Y$ and
-relative to a family $L$, #src("whitepaper/Fragment/NestSem.lean", 385, 399)[still fits in a changed setting]: at another
+relative to a family $L$, #src("whitepaper/Fragment/NestSem.lean", 380, 394)[still fits in a changed setting]: at another
 parameter $Y'$ and relative to another family $L'$, provided the
 parameter fields are replaced by members of $Y'$, the recursive
 fields by members of $L'$, and the ordinary fields are kept.
 This is where positivity is used: were the parameter to occur to the
 left of an arrow, say in a field of type $Y -> B$, a function on $Y$
-would not be a function on a larger $Y'$, and neither lemma below
-would hold.
-
-#lemma(name: "the class grows with the approximant")[
-  Let $Y subset.eq Y'$ be members of $cal(U)_(phi(u))$, the
-  universe of the block's sort. Then
-  #src("whitepaper/Fragment/NestSem.lean", 504, 515)[$cal(C)(Y) subset.eq cal(C)(Y')$].
-] <lem:class-mono>
-
-#proof[
-  Write $L_Y$ for $lfp(Phi_K^(arrow(d)[Y]))$. The family $L_(Y')$ is
-  closed under the operator at $Y$. Take a constructor value whose
-  fields fit at $Y$ relative to $L_(Y')$. Its parameter fields lie in
-  $Y subset.eq Y'$, its recursive fields in $L_(Y')$, and its
-  ordinary fields are unchanged. By the observation, the fields fit
-  at $Y'$ relative to $L_(Y')$, and $L_(Y')$ is a fixed point of the
-  operator at $Y'$. Now $L_Y$ is the _least_ closed family of the
-  operator at $Y$ (@sec:ind-model), so $L_Y subset.eq L_(Y')$.
-]
+would not be a function on a larger $Y'$, and the lemma below would
+fail.
 
 #lemma(name: "the class is accessible in the approximant")[
-  In the type-valued regime, every member $v$ of $cal(C)(Y)$, for $Y in cal(U)_(phi(u))$, #src("whitepaper/Fragment/NestSem.lean", 700, 710)[has a support in $Y$]. That is, there are a subset
+  Every member $v$ of $cal(C)(Y)$, for $Y in cal(U)_(phi(u))$, #src("whitepaper/Fragment/NestSem.lean", 634, 646)[has a support in $Y$]. That is, there are a subset
   $B$ of the _class's bound_ $A_K$ and an element $g(b) in Y$ for each
   $b in B$, such that $v in cal(C)(Y')$ for every $Y'$ in the universe
   holding every $g(b)$. The bound $A_K$, the finite paths over the
   numerals below the length of $K$'s longest field list, is computed
   from the specification alone and is a member of the universe
-  (#src("whitepaper/Fragment/IndSem.lean", 431, 439)[the bound]).
+  (#src("whitepaper/Fragment/IndSem.lean", 435, 443)[the bound]).
 ] <lem:class-acc>
 
 #proof[
-  Read $K$'s operator as a #src("whitepaper/Fragment/NestSem.lean", 532, 536)[function of two arguments], the parameter
+  Read $K$'s operator as a #src("whitepaper/Fragment/NestSem.lean", 466, 470)[function of two arguments], the parameter
   $Y$ and its own family $L$.
   As such it is accessible with one code per field position. A
   constructor value's support is its parameter fields, which are
   occurrences in $Y$, and its recursive fields, which are occurrences
-  in $L$. By the observation, #src("whitepaper/Fragment/NestSem.lean", 546, 554)[the value is produced] from every pair
+  in $L$. By the observation, #src("whitepaper/Fragment/NestSem.lean", 480, 488)[the value is produced] from every pair
   holding them.
-  The #src("whitepaper/Fragment/Access.lean", 411, 423)[_nested case of accessibility_] turns this into accessibility
+  The #src("whitepaper/Fragment/Access.lean", 414, 429)[_nested case of accessibility_] turns this into accessibility
   of $Y |-> L_Y$.
   The argument is an induction over $L_Y$. A member produced by the
   operator has a support of occurrences, each either in $Y$ or in
@@ -342,23 +326,22 @@ would hold.
   $Y'$ holds all of them then $L_(Y')$ holds every occurrence, and
   $L_(Y')$ produces the member: it is a fixed point, because $K$'s
   operator with the parameter held at $Y'$ is still accessible and so
-  has a closed family (@thm:closed-of-acc).
+  has a closed family (@thm:closed-of-acc; at a proposition, the
+  constant family ${pt}$).
 ]
 
-At a proposition the support is $Y$ itself: $Y subset.eq {pt}$, its
-one possible element is coded by the point, a member of $A_K$, and
-@lem:class-mono carries $v$ to every $Y'$ holding it. One more fact enters the clause, for the bound of
+One more fact enters the clause, for the bound of
 @sec:ind-model. That bound reads the telescopes at the one-fibre
 family, where a container field needs a stand-in value. So the class
 at ${pt}$ must be inhabited whenever the class at some $Y$ is. This is
-#src("whitepaper/Fragment/NestSem.lean", 725, 733)[an induction over $L_Y$] that replaces the parameter fields by the
+#src("whitepaper/Fragment/NestSem.lean", 673, 681)[an induction over $L_Y$] that replaces the parameter fields by the
 point, using the observation once more. The
-clause is assembled from these lemmas, from the class's membership in
+clause is assembled from @lem:class-acc, this induction, the class's membership in
 the universe — a fibre of $K$'s family lies in the universe $K$'s
-sort names, which the checker compared with the block's — and from
+sort names, which the checker compared with the block's — and
 what is known about the container
-(#src("whitepaper/Fragment/NestSem.lean", 789, 798)[the clause],
-#src("whitepaper/Fragment/NestSem.lean", 195, 223)[what is known]).
+(#src("whitepaper/Fragment/NestSem.lean", 737, 745)[the clause],
+#src("whitepaper/Fragment/NestSem.lean", 190, 218)[what is known]).
 That knowledge is the container's law, its shape condition of
 @sec:ind-checks, and the nested block's checks of @sec:nest-checks.
 So the model of an environment remembers, for every plain block it
@@ -372,12 +355,12 @@ such law.
 
 *The family and the constructors.* With the clause in hand, the rest
 of @sec:ind-model applies as stated: the theorems there take the
-clause as a premise and are the same theorems. The operator is
-monotone, maps the universe to itself and is accessible, so it has a
-closed family (@thm:closed-of-acc), and the block's family is its
+clause as a premise and are the same theorems. The operator maps the
+universe to itself and is accessible, so it has a closed family
+(@thm:closed-of-acc) and is monotone, and the block's family is its
 least fixed point
-(#src("whitepaper/Fragment/IndSem.lean", 1296, 1314)[the closed family and the family]).
-The #src("whitepaper/Fragment/IndSem.lean", 1324, 1359)[fixed-point equation], the constructors' values and law, and
+(#src("whitepaper/Fragment/IndSem.lean", 1294, 1312)[the closed family and the family]).
+The #src("whitepaper/Fragment/IndSem.lean", 1322, 1357)[fixed-point equation], the constructors' values and law, and
 induction over the family are as in @sec:ind-model.
 
 #real[
@@ -387,7 +370,7 @@ induction over the family are as in @sec:ind-model.
   parameter instantiations
   (#src("ConLeche/Semantics/Inductives/HoleMono.lean", 23)[the container row],
   #src("ConLeche/Model/Annot/BlockLfpMono.lean", 113, 125)[the container case]).
-  Its set-level half is leastness, exactly as in @lem:class-mono
+  Its set-level half is leastness
   (#src("ConLeche/SetModel/HoleClose.lean", 61, 70)[the least tuple lies below]).
   Accessibility in the holes has no container row
   (#src("ConLeche/Semantics/Inductives/HoleAcc.lean", 41, 45)[the cases]).
@@ -400,7 +383,8 @@ induction over the family are as in @sec:ind-model.
   No monotonicity or accessibility fact about the container is
   recorded when it is installed. The fragment replaces the walk of
   the container's constructors at the instantiation by the
-  observation about its fields.
+  observation about its fields, and derives the container's
+  monotonicity from its accessibility.
 ]
 
 *The two recursors.* Both recursors are read off one _graph_, the
@@ -429,13 +413,13 @@ values at its members, its parameter fields being in $Y$
 The inner induction is the container's own: the class's inversion,
 introduction and induction principles are $K$'s fixed-point laws at
 the instantiation, read in the block's terms
-(#src("whitepaper/Fragment/NestClass.lean", 359, 367)[the class's laws]).
+(#src("whitepaper/Fragment/NestClass.lean", 360, 368)[the class's laws]).
 Both recursion equations follow
 (#src("whitepaper/Fragment/NestRec.lean", 686, 694)[$TRec$],
 #src("whitepaper/Fragment/NestRec.lean", 702, 712)[$TRec1$]),
 and each recursor's set is a member of its type
-(#src("whitepaper/Fragment/NestIota.lean", 1451, 1455)[$TRec$],
-#src("whitepaper/Fragment/NestIota.lean", 1481, 1485)[$TRec1$]).
+(#src("whitepaper/Fragment/NestIota.lean", 1452, 1456)[$TRec$],
+#src("whitepaper/Fragment/NestIota.lean", 1482, 1486)[$TRec1$]).
 
 #real[
   The graph is the one of @sec:ind-model over the recursor's
@@ -454,8 +438,8 @@ and each recursor's set is a member of its type
   only comparison premise: the comparisons against the stored
   instantiation, which the rule checks, are not part of the law
   (#src("whitepaper/Fragment/EnvModel.lean", 163, 190)[the law]).
-  (#src("whitepaper/Fragment/NestIota.lean", 2281, 2288)[$TRec$],
-  #src("whitepaper/Fragment/NestIota.lean", 2924, 2929)[$TRec1$]\;
+  (#src("whitepaper/Fragment/NestIota.lean", 2282, 2289)[$TRec$],
+  #src("whitepaper/Fragment/NestIota.lean", 2925, 2930)[$TRec1$]\;
   real proof: #src("ConLeche/Model/Annot/Laws.lean", 294, 297)[the stored instantiation's clause of the law].)
 ] <thm:iota-nested>
 
@@ -470,7 +454,7 @@ and each recursor's set is a member of its type
   constructor at the instantiation, and injectivity of tags and
   tuples identifies constructor and fields with the rule's. Neither
   the index comparison nor the stored instantiation is used
-  (#src("whitepaper/Fragment/NestIota.lean", 2611, 2619)[the core]).
+  (#src("whitepaper/Fragment/NestIota.lean", 2612, 2620)[the core]).
 ]
 
 #theorem(name: "Installing a nested block")[

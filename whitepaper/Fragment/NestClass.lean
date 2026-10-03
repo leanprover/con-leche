@@ -361,7 +361,8 @@ theorem KS_tagOf (j : Nat) : N.KS.tagOf j = j := by
 introduction and induction are the container's `mem_Fam`,
 `ctorVal_mem_Fam` and `Fam_induction` at the instantiation, read in
 the block's terms through `ClassFits_iff`; size and monotonicity are
-the container's clause (`contClause_of`). -/
+the container's clause (`contClause_of`; monotonicity by its
+accessibility, `ContClause.mono`). -/
 theorem classLaws_of (hf : S.NestFacts M ls N) (hlen : N.args.length + 1 = N.nPK)
     (hlsK : N.lsK.length = N.K.lparams.length) (hKS : N.KS.Scoped env) (hN : S.nest = some N)
     (hz : S.z ls = false) {ps : List V} (hp : FitsVals M (S.ψ ls) base S.params ps) :
@@ -409,7 +410,7 @@ theorem classLaws_of (hf : S.NestFacts M ls N) (hlen : N.args.length + 1 = N.nPK
       (List.drop_zero (l := c.fields))]
     exact hfit
   mem_univ := fun X hX => (S.contClause_of hf hN hp).mem_univ X hX
-  mono := fun X Y hXY hX hY => (S.contClause_of hf hN hp).mono X Y hXY hX hY
+  mono := fun _ _ hXY hX hY => (S.contClause_of hf hN hp).mono hXY hX hY
 
 end Corr
 
