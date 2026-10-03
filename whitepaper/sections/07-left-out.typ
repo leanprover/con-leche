@@ -63,10 +63,7 @@ copies of the toolchain's declarations
 stream block that carries a pin's names and agrees with it up to
 renaming of universe parameters
 #src("ConLeche/Kernel/Basis.lean", 64, 67)[installs the pin], one that
-disagrees is rejected. Everything else —
-`PUnit` and `Bool` among them — comes from the stream, or from a
-built-in copy of the toolchain's prelude where the stream does not
-declare it (the frontend, below). The pins are how the main theorem
+disagrees is rejected. The pins are how the main theorem
 can name `False` and `Eq` and say what they denote.]
 
 #left-out[Axioms][The fragment has none. The real checker accepts
