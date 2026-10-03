@@ -9,14 +9,12 @@ environment — the _stream_: every definition, theorem and inductive
 type, in the official kernel's own terms — and accepts or rejects it,
 checking what the official kernel checks (on a few features it declines
 instead; @sec:left-out). It comes with a proof, written in Lean itself, of what an
-acceptance means: every environment the checker accepts has a model in
-set theory
-#src("ConLeche/MainTheorem.lean", 96, 99)[(the main theorem)].
-Each constant is assigned a set, each type denotes a set, and every stored
+acceptance means: every environment the checker accepts
+#src("ConLeche/MainTheorem.lean", 96, 99)[has a model in set theory].
+#src("ConLeche/Denotes.lean", 270, 290)[Each constant is assigned a set], each type denotes a set, and every stored
 constant is a member of the set its type denotes; the constant `False`
 denotes the empty set, and `Eq` denotes set equality, so every equation
-the checker accepts is an equality of sets
-#src("ConLeche/Denotes.lean", 270, 290)[(what a model is)].
+the checker accepts is an equality of sets.
 So no accepted environment holds a proof of `False`, and every accepted
 theorem is true in the model.
 
@@ -24,8 +22,8 @@ theorem is true in the model.
 
 The theorem is relative to a model of an
 abstract set theory — a structure with membership, extensionality, the
-usual set-forming operations and a chain of universes closed under them
-#src("ConLeche/SetTheory/Core.lean", 95, 100)[(the interface)].
+usual set-forming operations and
+#src("ConLeche/SetTheory/Core.lean", 95, 100)[a chain of universes closed under them].
 That such a structure exists cannot be proved within Lean — this is
 where Gödel's theorem is respected — but the assumption is a standard
 one: it follows from the existence of ω many inaccessible cardinals,
@@ -40,8 +38,7 @@ reduction preserves types (subject reduction), that reduction is
 confluent, that a function type determines its domain and codomain
 (injectivity of Π). Our proof needs none of it.
 
-con-leche's proof has no typing judgement and none of that metatheory.
-In its place is a description of what the checker _does_: three
+Nor does it have a typing judgement. In its place is a description of what the checker _does_: three
 inductively defined relations (six in the real proof, where premises
 about lists get relations of their own; @sec:left-out) — one for #src("ConLeche/Rules/Rel.lean", 96)[reduction], one for the verdicts of the
 #src("ConLeche/Rules/Rel.lean", 333)[definitional-equality test], one for
@@ -91,7 +88,8 @@ computes the sort of the body and compares it with the stored datum,
 and a mismatch is a rejection. (In the real checker a preliminary pass
 fills them in when a declaration enters; nothing trusts that pass.)
 The checker does read the datum in a few places to save work — a
-β-step at a #ann[never] binder, for instance, needs no certificate —
+β-step at a #ann[never] binder, for instance, need not check the
+argument's type —
 and each such use is one case of the soundness proof.
 
 == This document

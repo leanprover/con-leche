@@ -32,9 +32,8 @@ the same shape of argument as a definition (@sec:defs), and its
 reduction rule $iota$ reads the environment as $delta$ does; the two
 new pieces of work are showing that the constructed sets — the
 family, the constructors, the recursor — are members of their
-generated types (law 1), and the $iota$ law — a third law that
-joins the contract of @sec:defs here (law 3) — which this section
-states and proves. This
+generated types (law 1), and stating and proving the $iota$ law, a
+third law that joins the contract of @sec:defs here (law 3). This
 section says what the checker checks for
 a block and what it stores, how the model grows by a least fixed point
 so that the three laws keep holding, and then the consistency
@@ -209,7 +208,7 @@ indices and the major, and ends in $C thick arrow(y) thick t$.
 #src("whitepaper/Fragment/Decl.lean", 261, 270)[a minor premise],
 #src("whitepaper/Fragment/Decl.lean", 277, 282)[the recursor's type]
 and #src("whitepaper/Fragment/Decl.lean", 319, 326)[a rule's right-hand side];
-real checker: #src("ConLeche/Kernel/Inductives/GenRec.lean", 181, 188)[the type],
+in con-leche: #src("ConLeche/Kernel/Inductives/GenRec.lean", 181, 188)[the type],
 #src("ConLeche/Kernel/Inductives/GenRec.lean", 193, 212)[a rule].)
 
 === The elimination rule
@@ -461,8 +460,8 @@ fixed-point equation below also needs a monotone operator;
 accessibility implies it, on families in the universe:
 #src("whitepaper/Fragment/Access.lean", 80, 85)[the support in $W$ lies in any larger $W'$].
 
-The block's operator is accessible. Take as an example a tree type
-with a constructor $sans("node") : (Nat -> T) -> T$ and an element
+The block's operator is accessible. Take as an example the tree type
+with a constructor $sans("node") : (Nat -> sans("Tree")) -> sans("Tree")$ and an element
 $x = tag(j, f)$ of $Phi(W)$: the field $f$ is a function from the
 naturals into a fibre of $W$. Three things have to be shown.
 
@@ -711,9 +710,10 @@ and there is nothing to construct.
   the _graph route_ — and one construction serves every sort. Over
   the set of majors, the graph is
   #src("ConLeche/SetModel/GraphRec.lean", 101, 103)[the least relation]
-  closed under the rules, each read over the ways a major _decodes_ —
-  is the value of a constructor applied to some fields; a decoding is
-  that constructor and those fields; it has
+  closed under the rules, each read over the ways a major _decodes_
+  (a major decodes when it is the value of a constructor applied to
+  some fields, and a decoding is that constructor and those fields);
+  the graph has
   #src("ConLeche/SetModel/GraphRec.lean", 228, 230)[exactly one value at every major]
   by the family's own induction, and the equation at any decoding is
   #src("ConLeche/SetModel/GraphRec.lean", 266, 270)[the $iota$ law].

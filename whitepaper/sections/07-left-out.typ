@@ -83,7 +83,7 @@ follows from the extensionality of the model.]
 #left-out[Structure η and unit-likeness][#src("ConLeche/Rules/Rel.lean", 431, 434)[A constructor applied to the
 projections of `b` is definitionally equal to `b`], and #src("ConLeche/Rules/Rel.lean", 463, 468)[any two terms of a
 structure type with one field-less constructor are equal]. Whether a
-stored type has either rule is decided at its install from its shape
+stored type has either rule is decided from its shape when it is installed
 and #src("ConLeche/Kernel/Inductives/BlockInstall.lean", 67, 80)[recorded
 with it], the two laws are established there, and @sec:ext-eta and @sec:ext-unit derive
 them from extensionality.]

@@ -148,7 +148,7 @@ The function is exact:
   For every level $u$ and valuation $phi$, the datum $zn(u)$ holds at
   $phi$ #src("whitepaper/Fragment/PropWhen.lean", 279, 302)[if and only if] $u$
   evaluates to $0$ at $phi$.
-  (#src("ConLeche/Kernel/Level.lean", 191, 196)[Con-leche's $zn$] and its
+  (#src("ConLeche/Kernel/Level.lean", 191, 196)[con-leche's $zn$] and its
   #src("ConLeche/Verify/PropWhen.lean", 52, 53)[exactness proof].)
 ] <lem:zeroness>
 
@@ -226,7 +226,7 @@ the $lambda$ denotes a genuine function — a set of pairs — that fact
 is recoverable, because a function determines its domain.  Where the
 body is a proposition, the $lambda$ denotes a single point, the same
 point for every domain, and the domain cannot be read off it.  A
-syntactic proof would take the fact from subject reduction; this
+syntactic proof would take the fact from subject reduction; our
 proof has no typing judgement and takes it from the certificate.
 Reduction never rejects: where the certificate fails the term is
 simply not reduced, and an unreduced term can only make the checker
@@ -392,7 +392,7 @@ site where a syntactic soundness proof needs injectivity of $forall$
 — a property our proof never needs, and one that the
 model does not even validate: $forall x : A. thin sans("True")$ and
 $forall x : A'. thin sans("True")$ denote the same truth value whatever
-$A$ and $A'$ are.  The semantic proof never needs it.  The $forall$ the head's type reduces to denotes a
+$A$ and $A'$ are.  Our proof argues instead: the $forall$ the head's type reduces to denotes a
 function space; the head denotes a member of it, because reduction
 preserves denotations; the argument denotes a member of the domain,
 by the certificate; and applying a member of a function space to a

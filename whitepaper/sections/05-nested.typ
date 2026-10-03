@@ -142,7 +142,7 @@ the current frame:
   #src("ConLeche/Kernel/Inductives/Positivity.lean", 1415, 1440)[It is required]
   that
   - the indices mention no type in progress — they may mention earlier
-    fields, as the $n$ of $sans("Vec") thick (T thick alpha) thick n$
+    fields, as the $n$ of $sans("Vec") thick (sans("TV") thick alpha) thick n$
     does;
   - the parameters mention no variable but the block's parameters and
     the holes — no field, no variable bound by a $forall$ of the field
@@ -185,7 +185,7 @@ instantiation. It then
 #src("ConLeche/Kernel/Inductives/Positivity.lean", 1592, 1600)[The root frame]
 is the same loop over the block's own constructors.
 
-On $Tree$, the field $ts$ meets the container case at $List$ with the
+On $Tree$, the field of type $List thick (Tree thick alpha)$ meets the container case at $List$ with the
 parameter $X$. In $List$'s frame, $ListNil$ has no field, and $ListCons$ has
 the fields $h : X$, the root's hole — recursive — and $t : Y$, the
 frame's own hole — accepted. In $PMk : (Nat -> List thick P) -> P$ the
@@ -354,7 +354,7 @@ one support. Monotonicity follows from accessibility as in §4;
 con-leche proves it case by case too, the container's row
 #src("ConLeche/Semantics/Inductives/HoleMono.lean", 17, 23)[comparing its least fixed points at two instantiations]
 #src("ConLeche/SetModel/HoleClose.lean", 17, 22)[by leastness].
-Nothing about the container's parameter is recorded at its install:
+Nothing about the container's parameter is recorded when it is installed:
 the walk at the instantiation is what makes the argument go through.
 
 *The family.* The container lives in the block's sort (case 4), so its

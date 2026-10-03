@@ -6,6 +6,7 @@
 #let always = $sans("always")$
 #let Sort = $sans("Sort")$
 #let imax = $op("imax")$
+#let whenZero = $sans("zero")$
 #let zn = $sans("zeroness")$
 #let red = sym.arrow.r.squiggly
 #let pt = $sans("pt")$
@@ -24,7 +25,7 @@ beyond these laws is used. The theory is stated in Lean's own logic,
 so it is higher-order: separation takes any predicate of that logic,
 and graphs and function spaces are formed from any function of it.
 And it is deliberately not minimal: graphs, dependent function spaces
-and the universe chain, which a lean axiom system would construct,
+and the universe chain, which a minimal axiom system would construct,
 are assumed outright with their laws, because how they are built does
 not matter to the argument. The promise is literal: in the Lean
 fragment the structure is a class,
@@ -138,7 +139,7 @@ $
 Here $phi(u)$ is the value of the level $u$ at the valuation;
 "$ann(PW)$ holds at $phi$" is
 #src("whitepaper/Fragment/PropWhen.lean", 191, 194)[the readout] of @sec:annotation: $ann(never)$ never holds, and
-$ann(sans("whenZero") \{p_1\, ...\, p_k\})$ holds exactly when $phi$
+$ann(whenZero \{p_1\, ...\, p_k\})$ holds exactly when $phi$
 sends each $p_i$ to $0$. $Pi_0(A, B)$ is
 #src("whitepaper/Fragment/Lib.lean", 157, 163)[the _propositional product_],
 $tv(forall v in A. thin B(v) = {pt})$: when the fibres $B(v)$ are
@@ -166,7 +167,7 @@ lemmas about the interpretation are needed later, both proved by
 induction on the term: #src("whitepaper/Fragment/Interp.lean", 210, 212)[substituting a term for a variable] is extending
 the environment with the term's value,
 $lden b[x := a] rden_rho = lden b rden_(rho, x |-> lden a rden_rho)$\; and #src("whitepaper/Fragment/Interp.lean", 151, 153)[a term does not
-see a variable it does not mention]. (#src("ConLeche/Semantics/Interp.lean", 150, 156)[Con-leche's
+see a variable it does not mention]. (#src("ConLeche/Semantics/Interp.lean", 150, 156)[con-leche's
 interpretation].)
 
 == The semantic invariant <sec:inv>
@@ -236,13 +237,12 @@ reason the β step there needs a certificate (@lem:beta-graph,
 bounding the body's values, its _codomain_. In words: an application
 applies a function, or a proof of a propositional $forall$, to a
 member of its domain; a $lambda$'s values lie in a bounded codomain;
-the annotation decides the regime of a binder, and it may claim
-"proposition" only where the fibres really are truth values.
+and the annotation decides the regime of a binder.
 
 The rules lam-prop and pi-prop are where the annotation is held to
 account: the datum may claim "the body is a proposition" only if the
 body really denotes a truth value. For example, a $forall$ whose
-annotation is $ann(sans("whenZero") \{\})$ — "always a proposition" —
+annotation is $ann(whenZero \{\})$ — "always a proposition" —
 but whose body denotes a two-element set is not well-denoted.
 
 The semantic invariant is #src("whitepaper/Fragment/WellDenoted.lean", 425, 429)[transported by substitution]: $b[x := a]$ is
@@ -315,7 +315,7 @@ the checker infers the argument's type and compares it with the domain
 (rule beta-cert of @sec:rules), and the soundness of that comparison —
 the second and third claims below — supplies precisely the premise of
 @lem:beta-cert. The checker pays an inference and an equality test per
-possibly-propositional redex, and the proof pays nothing.
+possibly-propositional redex.
 
 == The three claims and their proof <sec:claims>
 
@@ -340,7 +340,7 @@ say nothing about others. Inference _establishes_ it: the third claim
 has no premise about $e$ at all. That is the division of labour. The
 checker's inference rules are the ones that check a term's shape, so
 their soundness is what proves the term put together honestly; the
-other two relations are handed well-denoted terms and pass the
+other two relations are handed well-denoted terms and pass the semantic
 invariant along.
 
 #corollary[
@@ -354,8 +354,7 @@ definitionally equal to its declared type, and the corollary, with the
 second claim, puts the value's set into the declared type's set.
 
 The three claims are proved together, by #src("whitepaper/Fragment/Sound.lean", 754, 807)[one structural induction] over
-the three mutually inductive relations (#src("ConLeche/Model/Rules/Sound.lean", 43, 44)[the real proof's
-master induction]).
+the three mutually inductive relations (#src("ConLeche/Model/Rules/Sound.lean", 43, 44)[as in con-leche]).
 Every rule is one case, and every case is a lemma about that rule
 alone, with the induction hypothesis for each premise as an assumption.
 Most cases are routine and are listed at the end; the ones below are
@@ -482,7 +481,8 @@ where the argument lives.
   $lden a rden_rho in lden T_a rden_rho$; $A$ is well-denoted by the $forall$
   rule, so the second claim gives $lden T_a rden_rho = lden A rden_rho$ and
   $lden a rden_rho in lden A rden_rho$. Now $f thick a$ is well-denoted by the
-  establishing lemma of @sec:inv; $B[x := a]$ is well-denoted by the
+  application rule of @sec:inv (app-fun or app-prop, as the $forall$'s
+  regime dictates); $B[x := a]$ is well-denoted by the
   substitution transport, since $B$ is well-denoted under
   $x |-> lden a rden_rho$; and the elimination law puts
   $lden f rden_rho dot.op lden a rden_rho$ into the fibre at $lden a rden_rho$, which
@@ -512,12 +512,12 @@ where the argument lives.
     for $forall$ and $lambda$ apply the hypothesis to the domains, then
     to the bodies at every value of the domain, and finish with
     the congruence laws; the congruence for applications
-    applies the hypothesis to both parts (real proof:
+    applies the hypothesis to both parts (in con-leche:
     #src("ConLeche/Model/Rules/DefEqSound.lean", 111, 117)[∀],
     #src("ConLeche/Model/Rules/DefEqSound.lean", 135, 141)[λ],
     #src("ConLeche/Model/Rules/DefEqSound.lean", 159, 161)[app]).
   - #src("whitepaper/Fragment/Sound.lean", 621, 631)[Inference]: a variable's type is read off the satisfied context; a
-    sort's type is the next universe, which contains it (real proof:
+    sort's type is the next universe, which contains it (in con-leche:
     #src("ConLeche/Model/Rules/InferSound.lean", 135, 136)[sort],
     #src("ConLeche/Model/Rules/InferSound.lean", 151, 152)[variable]).
 

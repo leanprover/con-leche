@@ -21,7 +21,7 @@ fragment does not have: reduction of a recursor on a proof that is
 not a constructor application (K-like reduction), η for structures,
 and unit-likeness. @sec:left-out lists them among the omissions; this section
 says what adding them would cost. The answer is one case of the
-master induction each, and no new idea. In the model, each rule is a
+induction of @sec:claims each, and no new idea. In the model, each rule is a
 consequence of what the values _are_: a proof is the point, a
 function is the graph of its applications, a constructor value is a
 tagged tuple of its fields, and a member of an inductive family is a
@@ -38,7 +38,7 @@ the real proof's case.
 Recall what @sec:ind sets up. A constructor application $c thick arrow(p)
 thick arrow(f)$ of a block whose family is type-valued denotes
 a #src("whitepaper/Fragment/IndLib.lean", 49, 63)[tagged tuple]
-$tag(i, chevron.l lden f_1 rden, ..., lden f_n rden chevron.r)$ — the
+$tag(i, lden f_1 rden, ..., lden f_n rden)$ — the
 #src("whitepaper/Fragment/IndCommon.lean", 212, 214)[constructor's number $i$], then its fields — and
 the family at parameters and indices denotes
 #src("whitepaper/Fragment/IndSem.lean", 1309, 1312)[the least set closed
@@ -55,10 +55,10 @@ $phi$ — the family denotes
 instead: the constructor step's tuple is not stored, only whether some
 such tuple exists, and #src("whitepaper/Fragment/IndSem.lean", 1390, 1394)[a
 member of the family, like a constructor application, is the point].
-Tuples and tags are injective
+Tagged tuples are injective
 (#src("whitepaper/Fragment/IndLib.lean", 52)[tuples],
 #src("whitepaper/Fragment/IndLib.lean", 59)[tags]) and a tagged
-value is #src("whitepaper/Fragment/IndLib.lean", 63)[$!= pt$].
+tuple is #src("whitepaper/Fragment/IndLib.lean", 63)[$!= pt$].
 
 == Proof irrelevance and propositional extensionality <sec:ext-irrel>
 
@@ -148,13 +148,13 @@ same either way.
 
 #proof[
   By the fixed-point equation, the member $lden s rden$ is a value one
-  constructor step produces: $lden s rden = tag(0, chevron.l x_1, ...,
-  x_n chevron.r)$ for some $x_1, ..., x_n$ in the field domains. There
-  is only one constructor, so the tag is $0$. Tuples and tags are
+  constructor step produces: $lden s rden = tag(0, x_1, ...,
+  x_n)$ for some $x_1, ..., x_n$ in the field domains. There
+  is only one constructor, so the tag is $0$. Tagged tuples are
   injective, so "the $i$-th component of $lden s rden$" is a function
   of $lden s rden$, and it is $x_i$; that is what $f_i$ denotes. The
-  constructor application denotes $tag(0, chevron.l lden f_1 rden, ...,
-  lden f_n rden chevron.r) = tag(0, chevron.l x_1, ..., x_n chevron.r)$, the
+  constructor application denotes $tag(0, lden f_1 rden, ...,
+  lden f_n rden) = tag(0, x_1, ..., x_n)$, the
   same set.
 ]
 
@@ -176,7 +176,7 @@ covers it.
   and uses the same certificate to rescue a recursor stuck on a
   non-constructor $s$
   (#src("ConLeche/Model/Rules/IotaSound.lean", 584, 585)[the η rescue]).
-  Whether a type has the rule at all is decided once, at its install,
+  Whether a type has the rule at all is decided once, when it is installed,
   from its shape — one constructor, no index, not a proposition, in a
   block where no constructor is recursive — and
   #src("ConLeche/Kernel/Inductives/BlockInstall.lean", 67, 80)[recorded with the type]\;
@@ -204,7 +204,7 @@ whose types reduce to it.
 
 #proof[
   When the family is type-valued, @lem:eta-struct with $n = 0$:
-  each member is $tag(0, chevron.l chevron.r)$, the one tagged empty
+  each member is $tag(0)$, the one tagged empty
   tuple. When it is proposition-valued, the family is a truth value
   and both members are the point.
 ]
@@ -217,7 +217,7 @@ takes in the model, and the lemma is the same sentence in each.
   #src("ConLeche/Rules/Rel.lean", 463, 468)[any stored unit-like family],
   with
   #src("ConLeche/Model/Rules/DefEqSound.lean", 698, 699)[its soundness case].
-  Unit-likeness is recorded at the install like η (one constructor,
+  Unit-likeness is recorded at installation, like η (one constructor,
   no index, no field, in a block where no constructor is recursive),
   and the law is established there from the fixed point
   (#src("ConLeche/Model/Inductives/FixKit.lean", 1754, 1755)[the fibre is the one tagged empty tuple]).
