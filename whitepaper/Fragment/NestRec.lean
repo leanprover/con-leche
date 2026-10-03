@@ -66,7 +66,7 @@ structure RecEx (V : Type u) where
   minsK : List V
 
 /-- The nested graph's shape: parameters, extras, target (the family
-at index values, or the class), witness, value. -/
+at index values, or the class), major, value. -/
 abbrev RecPN (V : Type u) := List V → RecEx V → JIdx V → V → V → Prop
 
 namespace IndSpec
