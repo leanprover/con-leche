@@ -583,7 +583,6 @@ member of $cal(U)_n$ and $Phi(L) subset.eq L$ fibrewise.
   (#src("whitepaper/Fragment/Access.lean", 183, 188)[the code],
   #src("whitepaper/Fragment/Access.lean", 221, 223)[the stage depends on the code only],
   #src("whitepaper/Fragment/Access.lean", 284, 290)[the limit is in the universe]).
-  No monotonicity, no ordinals, no cardinals.
 ]
 
 With a closed family $L_0$ in hand, the least fixed point is a set
