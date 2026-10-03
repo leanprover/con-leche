@@ -23,11 +23,11 @@ read here.
 
 The syntactic facts are about the substitution `instChainAt` of the
 class's arguments for the container's parameters: a term closed below
-the container's parameters and `k` binders, not using the member's
+the container's parameters and `k` binders, not using the nested
 parameter, becomes a term closed below the block's parameters and `k`
 binders, mentioning the stored constants of the container's field and
-of the class's arguments — the member's expression (which mentions the
-block's own former) is never inserted, because the member's parameter
+of the class's arguments — the nested occurrence's expression (which mentions the
+block's own former) is never inserted, because the nested parameter
 does not occur.
 -/
 
@@ -379,7 +379,7 @@ theorem length_classArgs (hlen : N.args.length + 1 = N.nPK) (hpK : N.p < N.nPK) 
   simp [classArgs, List.length_take, List.length_drop, Nat.min_eq_left hp]
   omega
 
-/-- An argument of the class other than the member is one of the
+/-- An argument of the class other than the nested occurrence is one of the
 container's other arguments, lifted. -/
 theorem classArgs_getElem?_ne (hlen : N.args.length + 1 = N.nPK) (hpK : N.p < N.nPK) (o : Nat)
     {i : Nat} (hi : i < N.nPK) (hip : i ≠ N.p) :
@@ -455,7 +455,7 @@ theorem classField_scoped (hS : S.Scoped env) (hN : S.nest = some N) (hKS : N.KS
               exact Expr.closedAt_mono (by rw [hnPK]; omega) hsc.1)
           (fun a ha => by simpa using S.classArgs_closedAt N hS hN 0 a ha)
         rwa [Nat.add_comm] at this
-      · -- constants: the member's expression is never inserted
+      · -- constants: the nested occurrence's expression is never inserted
         intro d hd
         rcases Expr.consts_instChainAt_skip (S.classArgs N 0) _ k N.p (by omega)
           (by rw [hargs, Expr.usesVar_instL]; exact hu) d hd with h | ⟨j, b, hj, hjp, h⟩
@@ -864,8 +864,8 @@ theorem fits_rec1Ctx_split (N : NestInfo) {ρ : Nat → V} {vs : List V}
 
 /-- **The class's arguments, read** under `k` values above the
 parameters: the container's other arguments read under the
-parameters, the family's fibre at the member's index values as the
-member (`classTy_fit` without the head). -/
+parameters, the family's fibre at the nested occurrence's index values as the
+nested parameter's value (`classTy_fit` without the head). -/
 theorem Reader.classArgs_read (hS : S.Scoped env) (R : S.Reader (env := env) M φ (S.Fam M) M' φ')
     (hN : S.nest = some N) {k : Nat} {vs ps : List V} {ρ : Nat → V}
     (hk : vs.length = k) (hps : ps.length = S.nP)
@@ -902,9 +902,9 @@ theorem Reader.classArgs_read (hS : S.Scoped env) (R : S.Reader (env := env) M �
   · exact List.map_congr_left fun e he => hread e (List.mem_of_mem_drop he)
 
 /-- **A translated field's set is the block's own field set** at the
-family and no restriction: the member field ranges over the family's
-fibre at the member's index values (its index expressions, lifted over
-the earlier fields, read as the member's), a container field over the
+family and no restriction: the parameter field ranges over the family's
+fibre at the nested occurrence's index values (its index expressions, lifted over
+the earlier fields, read as the nested occurrence's), a container field over the
 class at that fibre (the container clause of `fieldSet`), an ordinary
 field over its domain. -/
 theorem classFieldSet_classField (hN : S.nest = some N) (ls : List Nat) (ps : List V)
@@ -1103,7 +1103,7 @@ theorem Reader.classCtorApp_eq (hS : S.Scoped env) (R : S.Reader (env := env) M 
     split
     · rename_i h; subst h; exact (hf.fam ls').symm
     · rfl
-  -- the member set and the container's parameter values
+  -- the parameter set and the container's parameter values
   have hX : S.Fam M (S.lparams.map φ) ps (S.memberIdx M (S.lparams.map φ) N ps) ∈ˢ
       (univ (S.u₀ (S.lparams.map φ)) : V) := S.Fam_mem_univ M _ _ _
   have hpK := hf.argsFit ps hp (S.Fam M (S.lparams.map φ) ps (S.memberIdx M (S.lparams.map φ) N ps)) hX

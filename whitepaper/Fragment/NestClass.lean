@@ -9,9 +9,9 @@ public import Fragment.NestRec
 # The class, read in the block's terms
 
 The container's constructors are generated into the block's recursors
-in the block's own terms (`classCtor`, `Decl.lean`): the member field
+in the block's own terms (`classCtor`, `Decl.lean`): the parameter field
 becomes a recursive field (reflexive with an empty telescope) at the
-member's index expressions, the container's recursive fields become
+nested occurrence's index expressions, the container's recursive fields become
 container fields, and an ordinary
 field has the container's parameters replaced by the class's
 arguments (`instChainAt`).  This file shows that the fields of a
@@ -114,14 +114,14 @@ variable (S : IndSpec) (M : Name → List Nat → V) (ls : List Nat) (N : NestIn
 
 /-! ## The container's parameter environment at the instantiation -/
 
-/-- The class's arguments before the member, as values. -/
+/-- The class's arguments before the nested position, as values. -/
 def argsBefore (ps : List V) : List V := (N.args.take N.p).map (interp M (S.ψ ls) (envP ps))
 
-/-- The class's arguments after the member, as values. -/
+/-- The class's arguments after the nested position, as values. -/
 def argsAfter (ps : List V) : List V := (N.args.drop N.p).map (interp M (S.ψ ls) (envP ps))
 
 /-- The container's parameter environment at the instantiation: the
-arguments after the member (innermost), the member set, the arguments
+arguments after the nested position (innermost), the parameter set, the arguments
 before it. -/
 theorem envP_psK (ps : List V) (X : V) :
     envP (S.psK M ls N ps X) =
@@ -134,8 +134,8 @@ theorem length_argsAfter (hlen : N.args.length + 1 = N.nPK) (hp : N.p < N.nPK) (
   simp only [argsAfter, List.length_map, List.length_drop]
   omega
 
-/-- The member's variable, under `k` binders above the container's
-parameters, reads the member set. -/
+/-- The nested parameter's variable, under `k` binders above the container's
+parameters, reads the parameter set. -/
 theorem read_memberVar (hlen : N.args.length + 1 = N.nPK) (hp : N.p < N.nPK) {fs : List V} {k : Nat}
     (hk : fs.length = k) (ps : List V) (X : V) :
     consList fs (envP (S.psK M ls N ps X)) (N.memberVar k) = X := by
@@ -146,7 +146,7 @@ theorem read_memberVar (hlen : N.args.length + 1 = N.nPK) (hp : N.p < N.nPK) {fs
   rfl
 
 /-- A term closed below the container's parameters and `k` binders,
-not using the member's variable, reads alike at any two member sets. -/
+not using the nested parameter's variable, reads alike at any two parameter sets. -/
 theorem read_pfree (hlen : N.args.length + 1 = N.nPK) (hp : N.p < N.nPK) {fs : List V} {k : Nat}
     (hk : fs.length = k) (ps : List V) (X Y : V) {A : Expr} (φ' : Name → Nat)
     (hu : A.usesVar (N.memberVar k) = false) :
@@ -163,8 +163,8 @@ theorem read_pfree (hlen : N.args.length + 1 = N.nPK) (hp : N.p < N.nPK) {fs : L
   exact Bool.false_ne_true hi
 
 /-- The environment of the class's arguments read under the block's
-parameters is the container's parameter environment at the member
-expression's (arbitrary) reading, below the container's parameters. -/
+parameters is the container's parameter environment at the nested
+occurrence's (arbitrary) reading, below the container's parameters. -/
 theorem classArgs_read (ps : List V) :
     ((S.classArgs N 0).map (interp M (S.ψ ls) (envP ps))) =
       S.classArgsV M ls N ps (interp M (S.ψ ls) (envP ps) (S.famAt 0 (N.idx.map (Expr.liftN 0 ·)))) := by
@@ -216,7 +216,7 @@ theorem positive_field (hpos : N.Positive) {c : CtorSpec} (hc : c ∈ N.K.ctors)
   | reflexive _ _ => exact h
   | container => exact h
 
-/-- A domain not using the member's variable is not the member
+/-- A domain not using the nested parameter's variable is not the parameter field
 field. -/
 theorem isMember_false_of_usesVar {k : Nat} {A : Expr} (hu : A.usesVar (N.memberVar k) = false) :
     N.isMember k (.ordinary A) = false := by
@@ -227,7 +227,7 @@ theorem isMember_false_of_usesVar {k : Nat} {A : Expr} (hu : A.usesVar (N.member
   | _ => rfl
 
 /-- **An ordinary field of the container, read in the block's terms**
-(the member field included): its translated field's set at any member
+(the parameter field included): its translated field's set at any parameter
 set `X` is the container's own field set at the instantiation `psK X`
 — whatever the regime and the approximant (an ordinary field's set is
 its domain's reading). -/
@@ -241,11 +241,11 @@ theorem classFieldSet_eq_ordinary (hf : S.NestFacts M ls N) (hlen : N.args.lengt
   have hpf := positive_field N hf.positive hc hd hi
   have hpN : N.p < N.nPK := hf.positive.2.1
   rcases hpf with rfl | ⟨hu, -⟩
-  · -- the member field
+  · -- the parameter field
     simp only [classField, NestInfo.isMember, beq_self_eq_true, if_true, classFieldSet, fieldSet,
       interp_bvar]
     rw [S.read_memberVar M ls N hlen hpN hk]
-  · -- an ordinary field, not mentioning the member
+  · -- an ordinary field, not mentioning the nested parameter
     rw [classField, if_neg (by rw [isMember_false_of_usesVar N hu]; exact Bool.false_ne_true)]
     simp only [classFieldSet, fieldSet]
     rw [interp_instChainAt M (S.ψ ls) (envP ps) (S.classArgs N 0) _ fs hk, S.classArgs_read M ls N ps,
@@ -262,7 +262,7 @@ theorem classFieldSet_eq_ordinary (hf : S.NestFacts M ls N) (hlen : N.args.lengt
     -- the valuation: the container's parameters instantiated
     rw [interp_lparams (ps := N.K.lparams) hsc.2.2 (φ' := N.KS.ψ (S.lsK ls N))
       (fun m hm => (valOf_map_eval (S.ψ ls) (ps := N.K.lparams) hlsK hm).symm)]
-    -- the environment below the container's parameters, then the member's position
+    -- the environment below the container's parameters, then the nested position
     have hG : interp M (N.KS.ψ (S.lsK ls N))
         (consList fs (consList (S.classArgsV M ls N ps
           (interp M (S.ψ ls) (envP ps) (S.famAt 0 (N.idx.map (Expr.liftN 0 ·))))).reverse (envP ps))) A
@@ -284,7 +284,7 @@ theorem classFieldSet_eq_ordinary (hf : S.NestFacts M ls N) (hlen : N.args.lengt
     rw [hG, S.read_pfree M ls N hlen hpN hk ps _ X _ hu]
 
 /-- **A field of the container, read in the block's terms**: its
-translated field's set at a member set `X` and a restriction `Q` is
+translated field's set at a parameter set `X` and a restriction `Q` is
 the container's own field set at the instantiation `psK X`, relative
 to an approximant whose fibre is the container's family at `X`
 restricted by `Q`. -/

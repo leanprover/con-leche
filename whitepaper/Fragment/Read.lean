@@ -619,7 +619,7 @@ theorem Reader.lsK_eq (hS : S.Scoped env) (R : S.Reader (env := env) M φ F M' �
 /-- **The class, read by β**: the container's set in the model (the
 reader agrees with the old model on it, a stored constant) applied to
 the class's arguments read under the parameters, with the family's
-fibre at the nested occurrence's index values as the member — the
+fibre at the nested occurrence's index values as the nested parameter's value — the
 class at that fibre (`classSet`). -/
 theorem Reader.classTy_fit (hS : S.Scoped env) (R : S.Reader (env := env) M φ F M' φ')
     {N : NestInfo} (hN : S.nest = some N) {k : Nat} {vs ps : List V} {ρ : Nat → V}

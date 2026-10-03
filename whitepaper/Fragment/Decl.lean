@@ -24,7 +24,7 @@ parameters — the one scope condition beyond typing; that they are
 closed and mention only stored constants follows from their typing
 derivations being in the empty context (`ScopeOfInfer.lean`).
 
-**Inductive blocks** (`IndOk`; con-leche's uniform installer,
+**Inductive blocks** (`IndOk`; con-leche's uniform block check,
 `ConLeche/Kernel/Inductives/BlockTail.lean`, with its recogniser
 `BlockParts.lean` and the generators of `GenRec.lean`).  A block
 is given by a **specification** (`IndSpec`): a type former with level
@@ -169,13 +169,13 @@ def famVars (e : Nat) : Expr := S.famAt (e + S.nI) (varsAt 0 S.nI)
 /-! ### The class of a nested block -/
 
 /-- **The class's arguments** under `o` binders above the parameters:
-the container's other arguments with the member `I params idx` at
+the container's other arguments with the nested occurrence `I params idx` at
 position `p` (outermost first). -/
 def classArgs (N : NestInfo) (o : Nat) : List Expr :=
   (N.args.take N.p).map (liftN o ·) ++ [S.famAt o (N.idx.map (liftN o ·))] ++
     (N.args.drop N.p).map (liftN o ·)
 
-/-- **The class** `K.{lsK} args[member]` under `o` binders above the
+/-- **The class** `K.{lsK} args[nested]` under `o` binders above the
 parameters: the domain of a container field, the major of the
 auxiliary recursor. -/
 def classTy (N : NestInfo) (o : Nat) : Expr := mkAppN (.const N.K.name N.lsK) (S.classArgs N o)
@@ -340,8 +340,8 @@ premises for the container's constructors *at the instantiation* —
 differing in the major: the block's family at its indices for `T.rec`,
 the class for `T.rec_1` (con-leche's `classGenRecTy`, `GenRec.lean`).
 The container's constructors are read in the block's own terms
-(`classCtor`): the member field becomes a recursive field of the block
-(reflexive with an empty telescope) at the member's index expressions,
+(`classCtor`): the parameter field becomes a recursive field of the block
+(reflexive with an empty telescope) at the nested occurrence's index expressions,
 a recursive field of the container becomes a container field, an
 ordinary field has the container's parameters replaced by the class's
 arguments. -/
@@ -387,7 +387,7 @@ minor premises. -/
 def oN (N : NestInfo) : Nat := 2 + S.n + N.nK
 
 /-- **The class's motive's type**, under the parameters and the
-block's motive: `∀ (t : K args[member]), Sort ℓ`. -/
+block's motive: `∀ (t : K args[nested]), Sort ℓ`. -/
 def motiveTy1 (N : NestInfo) : Expr := mkPis .never [S.classTy N 1] (.sort S.ℓ)
 
 /-- **A minor premise of the block's constructor `j`** in a nested
@@ -403,9 +403,9 @@ def minorTyN (c : CtorSpec) (j : Nat) : Expr :=
 
 /-- **A minor premise of the container's constructor `j`** at the
 instantiation: under the two motives, the block's minors and the `j`
-earlier class minors, `∀ fields ihs, motive_1 (C.{lsK} args[member] fields)`
-— the fields the translated ones, a member field's hypothesis the
-block's motive at the member, a container field's the class's. -/
+earlier class minors, `∀ fields ihs, motive_1 (C.{lsK} args[nested] fields)`
+— the fields the translated ones, a parameter field's hypothesis the
+block's motive at the nested occurrence, a container field's the class's. -/
 def minorTyK (N : NestInfo) (c : CtorSpec) (j : Nat) : Expr :=
   let c' := S.classCtor N c
   let nF := c'.fields.length
@@ -481,7 +481,7 @@ def ruleBodyTyN (N : NestInfo) (c : CtorSpec) : Expr :=
 /-- A `T.rec` rule's type. -/
 def ruleTypeN (N : NestInfo) (c : CtorSpec) : Expr := mkPis S.q (S.ruleCtxN N c) (S.ruleBodyTyN N c)
 
-/-- A `T.rec_1` rule's type body: `motive_1 (C.{lsK} args[member] fields)`. -/
+/-- A `T.rec_1` rule's type body: `motive_1 (C.{lsK} args[nested] fields)`. -/
 def rule1BodyTy (N : NestInfo) (c : CtorSpec) : Expr :=
   let nF := (S.classCtor N c).fields.length
   mkAppN (.bvar (nF + S.oN N - 2))
@@ -651,10 +651,10 @@ def fieldNoRecDep (earlier : List Field) : Field → Prop
 
 /-- **The class is in scope**: when the block has one, the container
 is stored, with as many levels as it has parameters; the class's
-arguments and the member's index expressions are closed under the
+arguments and the nested occurrence's index expressions are closed under the
 block's parameters, mention stored constants and use the block's level
 parameters (so the class reads alike wherever the block's parameters
-do); the member fills the one missing parameter position; the container
+do); the nested occurrence fills the one missing parameter position; the container
 is positive in it (`NestInfo.Positive`) and is not the block itself;
 the container's constructors' fields are in the container's scope and
 its constructors are stored (both as checked when the container was
@@ -763,10 +763,10 @@ of every class, `Positivity.lean`, `GenRec.lean`): as `Ok` for the
 former and the constructors, and then
 
 * the container is stored with its specification, which is plain
-  (depth one) and positive in the member's position;
+  (depth one) and positive in the nested position;
 * the container's sort at the instantiation is the block's sort
-  (official's N3), and so is the member parameter's domain sort —
-  the member, a fibre of the block, is a member of that domain;
+  (official's N3), and so is the nested parameter's domain sort —
+  the nested occurrence, a fibre of the block, is a member of that domain;
 * the class, at the block's parameters, has a sort in the environment
   holding the former: its arguments fit the container's parameters;
 * **large elimination is refused unless the sort is never `Prop`**

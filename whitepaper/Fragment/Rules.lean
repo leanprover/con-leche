@@ -281,7 +281,7 @@ inductive DefEq (env : Env) : List Expr → Expr → Expr → Prop where
       DefEq env Γ (lam A₁ pw b₁) b
   /-- **Proof irrelevance** (`DefEq.proofIrrel`, `Rel.lean:417`): both
   sides' inferred types have sort `Prop`.  **The two types are never
-  compared**: the model licenses that, because every proof denotes the
+  compared**: the model justifies that, because every proof denotes the
   one point. -/
   | proofIrrel {Γ : List Expr} {a ta tta b tb ttb : Expr} {u v : Level} :
       Infer env Γ a ta → Infer env Γ ta tta → Red env Γ tta (sort u) →

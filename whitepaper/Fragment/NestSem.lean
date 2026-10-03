@@ -14,33 +14,33 @@ blocks, the content of the paper's nested section:
 * **the class is the container's family** at the instantiation
   (`classSet_eq_Fam`: the container's set in the model is the graph
   over its parameters of its fibre, applied by β to the class's
-  arguments with the member set in the member's position);
-* **the class grows with the member set** (`Fam_psK_mono`), by
+  arguments with the parameter set in the nested position);
+* **the class grows with the parameter set** (`Fam_psK_mono`), by
   **positivity plus leastness**: the container is positive in the
-  member's position, so a constructor of the container fitting at a
-  smaller member set `X` fits at a larger `Y` relative to the same
-  approximant (`FitsFields_psK_repl`: a field is the member field,
+  nested position, so a constructor of the container fitting at a
+  smaller parameter set `X` fits at a larger `Y` relative to the same
+  approximant (`FitsFields_psK_repl`: a field is the parameter field,
   whose value is in `X` hence in `Y`; a recursive field, read at the
   approximant either way; or an ordinary field mentioning neither
-  the member parameter nor an earlier member or recursive field, the
+  the nested parameter nor an earlier parameter or recursive field, the
   same set at `X` and at `Y`) — so the container's family at `Y`,
   closed under the container's operator at `Y`, is closed under its
   operator at `X`, and the family at `X`, the LEAST closed family of
   that operator, lies below it;
-* **the class is accessible in the member set** (`Fam_psK_acc`), by
+* **the class is accessible in the parameter set** (`Fam_psK_acc`), by
   **positivity plus the nested case of accessibility**: the
-  container's operator is accessible jointly in the member set and
-  its own family — a constructor value depends on its member fields
-  (occurrences in the member set) and its recursive fields
+  container's operator is accessible jointly in the parameter set and
+  its own family — a constructor value depends on its parameter fields
+  (occurrences in the parameter set) and its recursive fields
   (occurrences in the family), one code per field position, and fits
   at every pair holding them, again by `FitsFields_psK_repl` — so the
-  least family as a function of the member set is accessible with
+  least family as a function of the parameter set is accessible with
   the bound `accPaths` of the positions (`lfpP_acc`, `Access.lean`),
   which is the class's bound (`classBound`);
 * the class at the one-fibre set is inhabited when the class is
   inhabited at all (`Fam_psK_inhab_one`): by induction over the
   container's family, every constructor instance has a counterpart
-  at `{pt}` — the member fields replaced by the point, the recursive
+  at `{pt}` — the parameter fields replaced by the point, the recursive
   fields by the counterparts the induction supplies, the ordinary
   fields kept (`FitsFields_psK_repl` once more).
 
@@ -115,9 +115,9 @@ namespace NestInfo
 variable (N : NestInfo)
 
 /-- **Positivity's clause for one field** at position `i` (innermost
-first) of a field list: the member field, a recursive field (an empty
+first) of a field list: the parameter field, a recursive field (an empty
 telescope) with no index expressions, or an ordinary field mentioning
-neither the member parameter nor a later-listed (earlier) member
+neither the nested parameter nor a later-listed (earlier) parameter
 field — `Positive`'s match, with the constructor's field list
 abstracted so that it passes to the tails. -/
 def FieldPos (fields : List Field) (i : Nat) : Field → Prop
@@ -159,8 +159,8 @@ theorem FieldPos_tail {f : Field} {rest : List Field}
 theorem isMember_self (k : Nat) : N.isMember k (.ordinary (.bvar (N.memberVar k))) = true := by
   simp [isMember]
 
-/-- An ordinary field not mentioning the member parameter is not the
-member field. -/
+/-- An ordinary field not mentioning the nested parameter is not the
+parameter field. -/
 theorem isMember_eq_false_of_usesVar {k : Nat} {A : Expr} (h : A.usesVar (N.memberVar k) = false) :
     N.isMember k (.ordinary A) = false := by
   cases A with
@@ -194,16 +194,16 @@ variable (S : IndSpec) (M : Name → List Nat → V) (ls : List Nat) (N : NestIn
 
 /-- **What is known about the container** when a block nests through
 it: its set in the model is its family's graph (its installation's
-law), it is positive in the member's position, no field reads an
+law), it is positive in the nested position, no field reads an
 earlier recursive field, the universe bound on its fields holds at
 every fitting parameter list (its own checks), the class's arguments
-fit its parameters at every member set in the result universe (the
+fit its parameters at every parameter set in the result universe (the
 nested block's check), and its result universe at the instantiation
 is the block's (N3). -/
 structure NestFacts : Prop where
   /-- The container's set is its family's graph. -/
   fam : ∀ ls', M N.K.name ls' = N.KS.famSet M ls'
-  /-- The container is positive in the member's position. -/
+  /-- The container is positive in the nested position. -/
   positive : N.Positive
   /-- No field of the container reads an earlier recursive field. -/
   noRecDep : N.KS.NoRecDep
@@ -212,13 +212,13 @@ structure NestFacts : Prop where
   domsBounded : ∀ ps', FitsVals M (N.KS.ψ (S.lsK ls N)) base N.KS.params ps' →
     N.KS.DomsBounded M (S.lsK ls N) ps'
   /-- The class's arguments fit the container's parameters at every
-  member set in the result universe. -/
+  parameter set in the result universe. -/
   argsFit : ∀ ps, FitsVals M (S.ψ ls) base S.params ps → ∀ X, X ∈ˢ (univ (S.u₀ ls) : V) →
     FitsVals M (N.KS.ψ (S.lsK ls N)) base N.KS.params (S.psK M ls N ps X)
   /-- The container's result universe at the instantiation is the
   block's. -/
   u₀_eq : N.KS.u₀ (S.lsK ls N) = S.u₀ ls
-  /-- The class's arguments fill all but the member's position of the
+  /-- The class's arguments fill all but the nested position of the
   container's parameters (`NestScoped`). -/
   args_len : N.args.length + 1 = N.nPK
 
@@ -236,15 +236,15 @@ theorem NestFacts.contOkK (_hf : S.NestFacts M ls N) (ps' : List V) :
   N.KS.contOk_of_plain M _ N.KS_nest ps'
 
 /-- The universe bound on the container's fields at the instantiation
-with a member set of the universe. -/
+with a parameter set of the universe. -/
 theorem NestFacts.domsBoundedK (hf : S.NestFacts M ls N) {ps : List V}
     (hp : FitsVals M (S.ψ ls) base S.params ps) {X : V} (hX : X ∈ˢ (univ (S.u₀ ls) : V)) :
     N.KS.DomsBounded M (S.lsK ls N) (S.psK M ls N ps X) :=
   hf.domsBounded _ (hf.argsFit ps hp X hX)
 
-/-! ## The member's position among the container's parameter values -/
+/-! ## The nested position among the container's parameter values -/
 
-/-- The container's parameter values, split at the member. -/
+/-- The container's parameter values, split at the nested position. -/
 theorem psK_eq (ps : List V) (X : V) :
     S.psK M ls N ps X = ((N.args.drop N.p).map (interp M (S.ψ ls) (envP ps))).reverse ++
       X :: ((N.args.take N.p).map (interp M (S.ψ ls) (envP ps))).reverse := by
@@ -257,13 +257,13 @@ theorem length_dropK (hf : S.NestFacts M ls N) {ps : List V} :
   simp only [List.length_reverse, List.length_map, List.length_drop]
   omega
 
-/-- The member's parameter value is the member set. -/
+/-- The nested parameter's value is the parameter set. -/
 theorem envP_psK_member (hf : S.NestFacts M ls N) {ps : List V} {X : V} :
     envP (S.psK M ls N ps X) (N.nPK - 1 - N.p) = X := by
   rw [envP, psK_eq, ← S.length_dropK hf]
   exact consList_append_cons_self _ _ _ _
 
-/-- The other parameter values do not depend on the member set. -/
+/-- The other parameter values do not depend on the parameter set. -/
 theorem envP_psK_ne (hf : S.NestFacts M ls N) {ps : List V} {X Y : V} {i : Nat}
     (hi : i ≠ N.nPK - 1 - N.p) :
     envP (S.psK M ls N ps X) i = envP (S.psK M ls N ps Y) i := by
@@ -271,7 +271,7 @@ theorem envP_psK_ne (hf : S.NestFacts M ls N) {ps : List V} {X Y : V} {i : Nat}
   rw [S.psK_eq, S.psK_eq]
   exact consList_append_cons_ne (by rw [S.length_dropK hf]; exact hi)
 
-/-- The member variable under `k` field values reads the member set. -/
+/-- The nested parameter's variable under `k` field values reads the parameter set. -/
 theorem interp_memberVar (hf : S.NestFacts M ls N) (φ : Name → Nat) {ps : List V} {X : V}
     {vs : List V} {k : Nat} (hv : vs.length = k) :
     interp M φ (consList vs (envP (S.psK M ls N ps X))) (.bvar (N.memberVar k)) = X := by
@@ -280,10 +280,10 @@ theorem interp_memberVar (hf : S.NestFacts M ls N) (φ : Name → Nat) {ps : Lis
     show k + N.nPK - 1 - N.p = (N.nPK - 1 - N.p) + vs.length by omega, consList_ge]
   exact S.envP_psK_member hf
 
-/-- **Reading alike at two member sets**: an expression not mentioning
-the member variable reads alike under two field-value lists agreeing
+/-- **Reading alike at two parameter sets**: an expression not mentioning
+the nested parameter's variable reads alike under two field-value lists agreeing
 at the variables it uses, over the container's parameters at two
-member sets. -/
+parameter sets. -/
 theorem interp_psK_env_congr (hf : S.NestFacts M ls N) (φ : Name → Nat) {ps : List V} (X Y : V)
     (A : Expr) {vs ws : List V} {k : Nat} (hv : vs.length = k) (hw : ws.length = k)
     (hmem : A.usesVar (N.memberVar k) = false)
@@ -321,13 +321,13 @@ theorem classSet_eq_Fam (hf : S.NestFacts M ls N) {ps : List V}
     appList_lamCtx_false_fits M _ hfit]
   simp only [nI, hI, List.length_nil, shiftE_zero_zero, readEnv_consList hlen, readEnv_zero]
 
-/-! ## Fitting the container's fields, member and recursive values replaced
+/-! ## Fitting the container's fields, parameter-field and recursive values replaced
 
-By positivity, a constructor of the container reads the member set
-only through the member fields and its own family only through the
+By positivity, a constructor of the container reads the parameter set
+only through the parameter fields and its own family only through the
 recursive fields, and no ordinary field reads either kind.  So a
-fitting list stays fitting when the member values are replaced by
-members of another member set, the recursive values by members of
+fitting list stays fitting when the parameter-field values are replaced by
+members of another parameter set, the recursive values by members of
 another family's fibre, and the ordinary values are kept
 (`FitsFields_psK_repl`) — the one lemma monotonicity, accessibility
 and the one-fibre counterpart below all rest on.  Con-leche: the
@@ -335,7 +335,7 @@ telescope lemma `spineFit_mono` of `HoleMono.lean` along the relation
 of the container's instantiation (`CtorPos`, `NestRec.lean`'s
 `trans`). -/
 
-/-- **A replacement of a fitting list** (innermost first): at a member
+/-- **A replacement of a fitting list** (innermost first): at a parameter
 field a member of `Y`, at a recursive field a member of `W' []`, at
 an ordinary field the same value. -/
 def Repl (N : NestInfo) (Y : V) (W' : List V → V) : List Field → List V → List V → Prop
@@ -358,7 +358,7 @@ theorem Repl_length {Y : V} {W' : List V → V} :
   | _ :: _, _ :: _, [], h => h.elim
 
 /-- The values at the positions an ordinary field may read agree
-between a list and its replacement: positivity (no earlier member
+between a list and its replacement: positivity (no earlier parameter
 field) and no earlier recursive field. -/
 theorem Repl_consList_eq {Y : V} {W' : List V → V} :
     ∀ {fields : List Field} {fs fs' : List V}, Repl N Y W' fields fs fs' →
@@ -383,10 +383,10 @@ theorem Repl_consList_eq {Y : V} {W' : List V → V} :
   | _ :: _, _ :: _, [], h, _, _, _, _, _ => h.elim
 
 /-- **A fitting list of a positive container stays fitting under a
-replacement**, at the member set and family the replacement reads:
-a member field's value lands in the new member set, a recursive
+replacement**, at the parameter set and family the replacement reads:
+a parameter field's value lands in the new parameter set, a recursive
 field's in the new family's fibre, and an ordinary field — mentioning
-neither the member parameter nor an earlier member or recursive field
+neither the nested parameter nor an earlier parameter or recursive field
 — reads the same set at both.  (The fields are a suffix of a
 constructor's, so that positivity's clause and the no-dependency
 condition pass to the tails.) -/
@@ -408,13 +408,13 @@ theorem FitsFields_psK_repl (hf : S.NestFacts M ls N) {X Y : V} {W W' : List V �
     | ordinary A =>
       simp only [NestInfo.FieldPos, List.length_cons, Nat.add_sub_cancel, Nat.sub_zero] at hFP
       rcases hFP with hA | ⟨hA, hA'⟩
-      · -- the member field
+      · -- the parameter field
         subst hA
         simp only [N.isMember_self, if_true] at hv'
         simp only [fieldSet]
         rw [S.interp_memberVar hf _ hlen']
         exact hv'
-      · -- an ordinary field, not the member
+      · -- an ordinary field, not the parameter field
         have hnm := N.isMember_eq_false_of_usesVar hA
         simp only [hnm, Field.isRec, Bool.false_eq_true, if_false] at hv'
         subst hv'
@@ -451,7 +451,7 @@ theorem FitsFields_psK_repl (hf : S.NestFacts M ls N) {X Y : V} {W W' : List V �
   | _ :: _, [], _, _, _, h, _ => h.elim
   | _ :: _, _ :: _, [], _, _, _, h => h.elim
 
-/-- A fitting list is a replacement of itself at a larger member set
+/-- A fitting list is a replacement of itself at a larger parameter set
 and the same family. -/
 theorem Repl_self_of_fit (hf : S.NestFacts M ls N) {X Y : V} (hXY : X ⊆ˢ Y) {W : List V → V}
     {ps : List V} :
@@ -499,9 +499,9 @@ theorem KS_idxVals (hf : S.NestFacts M ls N) {c : CtorSpec} (hc : c ∈ N.K.ctor
     N.KS.idxVals M (S.lsK ls N) ρ c.idx = [] := by
   rw [(hf.positive.2.2.2.2 c hc).1]; rfl
 
-/-! ## The class grows with the member set: positivity plus leastness -/
+/-! ## The class grows with the parameter set: positivity plus leastness -/
 
-/-- **Every member of the container's family at a smaller member set
+/-- **Every member of the container's family at a smaller parameter set
 is a member at a larger one**: the family at the larger set is closed
 under the container's operator at the smaller set (a constructor
 fitting at the smaller set fits at the larger, `FitsFields_psK_repl`,
@@ -526,16 +526,16 @@ theorem Fam_psK_mono (hf : S.NestFacts M ls N) {ps : List V}
   · exact S.FitsFields_psK_repl hf hpos hnr hfit (S.Repl_self_of_fit hf hXY hpos hfit)
   · rw [his, S.KS_idxVals hf hcm, S.KS_idxVals hf hcm]
 
-/-! ## The class is accessible in the member set: positivity plus the nested case -/
+/-! ## The class is accessible in the parameter set: positivity plus the nested case -/
 
 variable (S M ls N) in
-/-- **The container's operator, jointly in the member set and its own
-family**: the member set at the left index, the family at the right.
+/-- **The container's operator, jointly in the parameter set and its own
+family**: the parameter set at the left index, the family at the right.
 Con-leche: the joint operator `Θ` of `lfpP_acc`. -/
 noncomputable def jointOp (ps : List V) (Z : Unit ⊕ List V → V) : List V → V :=
   N.KS.famOp M (S.lsK ls N) (S.psK M ls N ps (Z (Sum.inl ()))) fun is => Z (Sum.inr is)
 
-/-- The container's family at a member set is the least family of the
+/-- The container's family at a parameter set is the least family of the
 joint operator at that parameter. -/
 theorem lfpP_jointOp (hf : S.NestFacts M ls N) (ps : List V) (X : V) :
     lfpP (S.u₀ ls) (S.jointOp M ls N ps) (fun _ => X) = N.KS.Fam M (S.lsK ls N) (S.psK M ls N ps X) := by
@@ -543,11 +543,11 @@ theorem lfpP_jointOp (hf : S.NestFacts M ls N) (ps : List V) (X : V) :
   rw [hf.u₀_eq]
   rfl
 
-/-- **The container's operator is accessible jointly in the member set
+/-- **The container's operator is accessible jointly in the parameter set
 and its own family**, with one code per field position: a
-constructor value depends on its member fields (occurrences in the
-member set) and its recursive fields (occurrences in the family), and
-fits at every member set and family holding them
+constructor value depends on its parameter fields (occurrences in the
+parameter set) and its recursive fields (occurrences in the family), and
+fits at every parameter set and family holding them
 (`FitsFields_psK_repl`).  Con-leche: `frameCtor_acc`
 (`ContAccFrame.lean`). -/
 theorem jointOp_acc (hf : S.NestFacts M ls N) (ps : List V) :
@@ -558,7 +558,7 @@ theorem jointOp_acc (hf : S.NestFacts M ls N) (ps : List V) :
   obtain ⟨hpos, hnr⟩ := S.fieldPos_of hf hcm
   have hlen := N.KS.FitsFields_length M _ hfit
   classical
-  -- the support: the member and recursive positions, their values
+  -- the support: the parameter and recursive positions, their values
   refine ⟨sep (natsBelow c.fields.length) fun b =>
       ∃ f, c.fields[c.fields.length - 1 - idx b]? = some f ∧
         (N.isMember (idx b) f = true ∨ f.isRec = true),
@@ -697,7 +697,7 @@ theorem jointOp_maps (hf : S.NestFacts M ls N) {ps : List V}
   rw [hf.u₀_eq] at this
   exact this
 
-/-- **The container's family is accessible in the member set**, with
+/-- **The container's family is accessible in the parameter set**, with
 the class's bound: the nested case of accessibility (`lfpP_acc`)
 applied to the joint operator.  Con-leche: `accConcl_of_frameAccOut`
 (`ContAcc.lean`) over `frameIterAcc`. -/
@@ -723,9 +723,9 @@ theorem Fam_psK_acc (hf : S.NestFacts M ls N) (hN : S.nest = some N) {ps : List 
 /-! ## The class at the one-fibre set -/
 
 /-- **The container's family at the one-fibre set is inhabited when
-the family at any member set of the universe is**: by induction over
+the family at any parameter set of the universe is**: by induction over
 the family, every constructor instance has a counterpart at `{pt}`
-— the member fields replaced by the point, the recursive fields by
+— the parameter fields replaced by the point, the recursive fields by
 the counterparts the induction supplies, the ordinary fields kept. -/
 theorem Fam_psK_inhab_one (hf : S.NestFacts M ls N) {ps : List V}
     (hp : FitsVals M (S.ψ ls) base S.params ps) {X : V} (hX : X ∈ˢ (univ (S.u₀ ls) : V))
@@ -742,7 +742,7 @@ theorem Fam_psK_inhab_one (hf : S.NestFacts M ls N) {ps : List V}
   have hcm := List.mem_of_getElem? hc
   obtain ⟨hpos, hnr⟩ := S.fieldPos_of hf hcm
   classical
-  -- the counterpart's fields: the point at the member fields, a counterpart at the recursive ones
+  -- the counterpart's fields: the point at the parameter fields, a counterpart at the recursive ones
   let W₁ : List V → V := N.KS.Fam M (S.lsK ls N) (S.psK M ls N ps one)
   suffices key : ∀ (L : List Field) (vs : List V),
       (∀ i f, L[i]? = some f → N.FieldPos L i f) →
@@ -788,10 +788,10 @@ theorem Fam_psK_inhab_one (hf : S.NestFacts M ls N) {ps : List V}
 
 /-- **The container's clause, from positivity and leastness**
 (`ContClause`): the class is the container's family at the
-instantiation (`classSet_eq_Fam`), which grows with the member set
+instantiation (`classSet_eq_Fam`), which grows with the parameter set
 (`Fam_psK_mono`), lies in the result universe (`Fam_mem_univ`, N3),
 is accessible with the class's bound (`Fam_psK_acc`; at a
-proposition from monotonicity alone: the member set, a subset of
+proposition from monotonicity alone: the parameter set, a subset of
 `{pt}`, is its own support), and is inhabited at the one-fibre set
 when inhabited at all (`Fam_psK_inhab_one`). -/
 theorem contClause_of (hf : S.NestFacts M ls N) (hN : S.nest = some N) {ps : List V}
@@ -811,7 +811,7 @@ theorem contClause_of (hf : S.NestFacts M ls N) (hN : S.nest = some N) {ps : Lis
       rw [S.classSet_eq_Fam hf hp hX']
       exact hs X' hX' h'
     | true =>
-      -- at a proposition the member set is a subset of `{pt}`: its own support
+      -- at a proposition the parameter set is a subset of `{pt}`: its own support
       have hX0 : X ∈ˢ (univ 0 : V) := by rwa [(S.z_iff ls).mp hz] at hX
       refine ⟨X, id, fun b hb => ?_, fun b hb => hb, fun X' hX' h' => ?_⟩
       · rw [eq_pt_of_mem_univ_zero hX0 hb]

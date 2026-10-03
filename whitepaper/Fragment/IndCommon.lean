@@ -178,18 +178,18 @@ environment, as index values (innermost first). -/
 def idxVals (env : Nat → V) (es : List Expr) : List V := (es.map (interp M (S.ψ ls) env)).reverse
 /-! ## The class of a nested block, read in the model
 
-A container field's domain is the class `K.{lsK} args[member]`: the
+A container field's domain is the class `K.{lsK} args[nested]`: the
 container's set — **already in the model**, assigned to `K` when `K`
 was installed — applied to the class's arguments, with a set `X` at
-the member's position.  In the family's operator `X` is the fibre of
-the *approximant* at the member's index expressions (`IndSem.lean`,
+the nested position.  In the family's operator `X` is the fibre of
+the *approximant* at the nested occurrence's index expressions (`IndSem.lean`,
 `fieldSet`), and the operator is monotone and accessible because the
 class is, in `X` (`ContClause`, which the installation establishes
 from the container's positivity and the leastness of its fixed
 point, `NestSem.lean`). -/
 
 /-- The class's arguments as values (outermost first), with `X` at
-the member's position: the other arguments read under the parameters
+the nested position: the other arguments read under the parameters
 (they are closed under them). -/
 def classArgsV (N : NestInfo) (ps : List V) (X : V) : List V :=
   (N.args.take N.p).map (interp M (S.ψ ls) (envP ps)) ++ [X] ++
@@ -198,17 +198,17 @@ def classArgsV (N : NestInfo) (ps : List V) (X : V) : List V :=
 /-- The container's levels at the block's valuation. -/
 def lsK (N : NestInfo) : List Nat := N.lsK.map (Level.eval (S.ψ ls))
 
-/-- **The class at a member set**: the container's set in the model,
-applied to the class's arguments with `X` at the member's position. -/
+/-- **The class at a parameter set**: the container's set in the model,
+applied to the class's arguments with `X` at the nested position. -/
 def classSet (N : NestInfo) (ps : List V) (X : V) : V :=
   appList (M N.K.name (S.lsK ls N)) (S.classArgsV M ls N ps X)
 
-/-- The member's index values at the parameters (its index expressions
+/-- The nested occurrence's index values at the parameters (its index expressions
 are closed under them). -/
 def memberIdx (N : NestInfo) (ps : List V) : List V := S.idxVals M ls (envP ps) N.idx
 
-/-- **The container's parameter values at a member set** (innermost
-first): the class's arguments with `X` at the member's position —
+/-- **The container's parameter values at a parameter set** (innermost
+first): the class's arguments with `X` at the nested position —
 the parameters the container's own family is read at. -/
 def psK (N : NestInfo) (ps : List V) (X : V) : List V := (S.classArgsV M ls N ps X).reverse
 

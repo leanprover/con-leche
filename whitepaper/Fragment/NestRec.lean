@@ -17,14 +17,14 @@ tagged tuple of fields fitting a constructor of the container at the
 instantiation — read in the block's terms, `classCtor` — the value is
 that constructor's class minor at the fields and the hypotheses),
 where a hypothesis at a reflexive field is the graph's value at the
-member (`(false, is)`, under the field's telescope) and at a container
+family (`(false, is)`, under the field's telescope) and at a container
 field the graph's value at the class (`(true, [])`).  The graph is
 single-valued (tags and tuples are injective) and total on the family
 and the class together, **by induction over the family and over the
 class interleaved**: a container field's value is in the class at the
 approximant (the family's separation by "the graph has a value"), and
 the class's own induction (`ClassLaws`, from the container's fixed
-point, `NestClass.lean`) supplies the values at its members' member
+point, `NestClass.lean`) supplies the values at its members' parameter
 fields.  The ι laws of both recursors follow, and so does the typing
 of both.
 
@@ -73,11 +73,11 @@ namespace IndSpec
 
 variable (S : IndSpec) (M : Name → List Nat → V) (ls : List Nat) (N : NestInfo)
 
-/-! ## The class at a member set -/
+/-! ## The class at a parameter set -/
 
 /-- The field sets of a constructor of the container read in the
-block's terms, at a member set `X` and with the class's members
-restricted by `Q`: a (translated) reflexive field is the member field
+block's terms, at a parameter set `X` and with the class's members
+restricted by `Q`: a (translated) reflexive field is the parameter field
 (recursive: the telescope is empty), ranging over `X`; a container
 field is the container's recursive field, ranging over the class at
 `X` restricted by `Q`; an ordinary field is the container's, read as
@@ -88,30 +88,30 @@ noncomputable def classFieldSet (X : V) (Q : V → Prop) (ps fs : List V) : Fiel
   | f => S.fieldSet M ls (S.Fam M ls ps) ps fs f
 
 /-- Field values fitting a (translated) constructor of the container
-at a member set and a restriction (both innermost first). -/
+at a parameter set and a restriction (both innermost first). -/
 noncomputable def ClassFits (X : V) (Q : V → Prop) (ps : List V) : List Field → List V → Prop
   | [], [] => True
   | f :: fs, v :: vs => ClassFits X Q ps fs vs ∧ v ∈ˢ S.classFieldSet M ls N X Q ps vs f
   | _, _ => False
 
 /-- **The class** at the parameters: the class at the family's fibre
-at the member's index values — what a container field ranges over. -/
+at the nested occurrence's index values — what a container field ranges over. -/
 noncomputable def classAt (ps : List V) : V :=
   S.classSet M ls N ps (S.Fam M ls ps (S.memberIdx M ls N ps))
 
-/-- Inversion of the class at a member set: a member is a tagged tuple
+/-- Inversion of the class at a parameter set: a member is a tagged tuple
 of fields fitting a constructor of the container. -/
 def ClassInv (ps : List V) (X : V) : Prop :=
   ∀ x, x ∈ˢ S.classSet M ls N ps X → ∃ j c fs, N.K.ctors[j]? = some c ∧
     S.ClassFits M ls N X (fun _ => True) ps (S.classCtor N c).fields fs ∧ x = tag j (tuple fs.reverse)
 
-/-- Introduction into the class at a member set. -/
+/-- Introduction into the class at a parameter set. -/
 def ClassIntro (ps : List V) (X : V) : Prop :=
   ∀ j c fs, N.K.ctors[j]? = some c →
     S.ClassFits M ls N X (fun _ => True) ps (S.classCtor N c).fields fs →
     tag j (tuple fs.reverse) ∈ˢ S.classSet M ls N ps X
 
-/-- **Induction over the class** at a member set: a predicate closed
+/-- **Induction over the class** at a parameter set: a predicate closed
 under the container's constructors (with the class's members at the
 container fields satisfying it) holds on the class. -/
 def ClassInd (ps : List V) (X : V) : Prop :=
@@ -122,7 +122,7 @@ def ClassInd (ps : List V) (X : V) : Prop :=
       Q (tag j (tuple fs.reverse))) →
     ∀ x, x ∈ˢ S.classSet M ls N ps X → Q x
 
-/-- **The class's laws** at every member set in the result universe:
+/-- **The class's laws** at every parameter set in the result universe:
 inversion, introduction, induction — the container's fixed point, read
 in the block's terms (`NestClass.lean`). -/
 structure ClassLaws (ps : List V) : Prop where
@@ -132,9 +132,9 @@ structure ClassLaws (ps : List V) : Prop where
   intro : ∀ X, X ∈ˢ (univ (S.u₀ ls) : V) → S.ClassIntro M ls N ps X
   /-- Induction. -/
   ind : ∀ X, X ∈ˢ (univ (S.u₀ ls) : V) → S.ClassInd M ls N ps X
-  /-- The class at a member set is in the result universe. -/
+  /-- The class at a parameter set is in the result universe. -/
   mem_univ : ∀ X, X ∈ˢ (univ (S.u₀ ls) : V) → S.classSet M ls N ps X ∈ˢ (univ (S.u₀ ls) : V)
-  /-- The class grows with the member set. -/
+  /-- The class grows with the parameter set. -/
   mono : ∀ X Y, X ⊆ˢ Y → X ∈ˢ (univ (S.u₀ ls) : V) → Y ∈ˢ (univ (S.u₀ ls) : V) →
     S.classSet M ls N ps X ⊆ˢ S.classSet M ls N ps Y
 
@@ -300,10 +300,10 @@ theorem classCtor_fields_get (c : CtorSpec) {k : Nat} {f : Field}
       (by omega : c.fields.length - 1 - (c.fields.length - 1 - k) = k)
 
 /-- The only reflexive field of a translated constructor is the
-member field — recursive (an empty telescope), at the member's index
+parameter field — recursive (an empty telescope), at the nested occurrence's index
 expressions lifted over the earlier fields.  (A reflexive field with
 a telescope never arises: the container is positive, so its fields
-are the member, its own recursive fields and ordinary ones.  The
+are the parameter field, its own recursive fields and ordinary ones.  The
 interleaved inductions need that: such a field of the class would
 range over the *whole* family, which the outer induction's
 approximant does not reach.) -/
@@ -335,8 +335,8 @@ omit [IndLib V] in
 theorem length_earlier {fs : List V} {k : Nat} (hk : k ≤ fs.length) : (earlier fs k).length = k := by
   simp only [earlier, List.length_drop]; omega
 
-/-- The member field's index values, read under the earlier fields,
-are the member's index values. -/
+/-- The parameter field's index values, read under the earlier fields,
+are the nested occurrence's index values. -/
 theorem memberIdx_earlier (ps : List V) {fs : List V} {k : Nat} (hk : k ≤ fs.length) :
     S.idxVals M ls (consList (earlier fs k) (envP ps)) (N.idx.map (Expr.liftN k ·))
       = S.memberIdx M ls N ps :=
@@ -378,7 +378,7 @@ theorem ClassFits_get {X : V} {Q : V → Prop} {ps : List V} :
   | [], _ :: _, hf, _, _, _, _ => hf.elim
   | _ :: _, [], hf, _, _, _, _ => hf.elim
 
-/-- A translated field's set grows with the member set (the class by
+/-- A translated field's set grows with the parameter set (the class by
 the class's law), and the restriction can be dropped. -/
 theorem classFieldSet_mono {ps : List V} (hcl : S.ClassLaws M ls N ps) {X Y : V}
     (hX : X ∈ˢ (univ (S.u₀ ls) : V)) (hY : Y ∈ˢ (univ (S.u₀ ls) : V)) (hXY : X ⊆ˢ Y)
@@ -391,7 +391,7 @@ theorem classFieldSet_mono {ps : List V} (hcl : S.ClassLaws M ls N ps) {X Y : V}
     exact ⟨hcl.mono X Y hXY hX hY v hv.1, trivial⟩
   | .ordinary _ => Sub.refl _
 
-/-- Fields fitting a translated constructor at a member set fit it at
+/-- Fields fitting a translated constructor at a parameter set fit it at
 a larger one, unrestricted. -/
 theorem ClassFits_mono {ps : List V} (hcl : S.ClassLaws M ls N ps) {X Y : V}
     (hX : X ∈ˢ (univ (S.u₀ ls) : V)) (hY : Y ∈ˢ (univ (S.u₀ ls) : V)) (hXY : X ⊆ˢ Y)
@@ -517,7 +517,7 @@ theorem fieldSet_container_Fam (hN : S.nest = some N) (ps fs : List V) :
   S.fieldSet_container M ls hN _ ps fs
 
 /-- **The inner step**: at fields fitting a translated constructor at
-a member set `X` with a graph value at every member of `X` and at
+a parameter set `X` with a graph value at every member of `X` and at
 every `Q`-member of the class at `X`, the hypotheses' semantic values
 are what the graph demands. -/
 theorem IhOkN_ihSemN_class_of {ps : List V} (ex : RecEx V)
@@ -553,7 +553,7 @@ theorem IhOkN_ihSemN_class_of {ps : List V} (ex : RecEx V)
     exact S.RecGraphN_recFnN M ls N q (hQ _ hget.1 hget.2)
 
 /-- **The inner induction**: the graph is total on the class at a
-member set inside the fibre on which it is total. -/
+parameter set inside the fibre on which it is total. -/
 theorem class_total_of {ps : List V} (hcl : S.ClassLaws M ls N ps) (ex : RecEx V) {X : V}
     (hX : X ∈ˢ (univ (S.u₀ ls) : V)) (hXF : X ⊆ˢ S.Fam M ls ps (S.memberIdx M ls N ps))
     (hkey : ∀ x, x ∈ˢ X → ∃ v, S.RecGraphN M ls N q ps ex (false, S.memberIdx M ls N ps) x v) :
@@ -719,7 +719,7 @@ theorem rec1Sem_eq (hN : S.nest = some N) (hz : S.z ls = false) {ps : List V}
 /-! ## Typing -/
 
 /-- **The inner step of the typing**: at fields fitting a translated
-constructor at a member set on which `T.rec` is typed, with `T.rec_1`
+constructor at a parameter set on which `T.rec` is typed, with `T.rec_1`
 typed on the `Q`-members of the class at it, the hypotheses' semantic
 values are typed. -/
 theorem IhTypedN_ihSemN_class_of {ps : List V} (ex : RecEx V)
@@ -757,7 +757,7 @@ theorem IhTypedN_ihSemN_class_of {ps : List V} (ex : RecEx V)
     exact hQ _ hget.1 hget.2
 
 /-- **The inner induction of the typing**: `T.rec_1` is typed on the
-class at a member set inside the fibre on which `T.rec` is typed. -/
+class at a parameter set inside the fibre on which `T.rec` is typed. -/
 theorem class_mem_of (hN : S.nest = some N) (hz : S.z ls = false) {ps : List V}
     (hnr : S.NoRecDep) (hb : S.DomsBounded M ls ps) (hco : S.ContOk M ls ps)
     (hcl : S.ClassLaws M ls N ps) (ex : RecEx V)
@@ -891,7 +891,7 @@ theorem motive_inhabitedN (hN : S.nest = some N) {ps : List V}
     (hmo : q = true → ∀ is t, t ∈ˢ S.Fam M ls ps is → appList ex.m (is.reverse ++ [t]) ∈ˢ (univ 0 : V)) :
     (∀ is t, t ∈ˢ S.Fam M ls ps is → ∃ v, v ∈ˢ appList ex.m (is.reverse ++ [t])) ∧
     (∀ t, t ∈ˢ S.classAt M ls N ps → ∃ v, v ∈ˢ appList ex.m1 [t]) := by
-  -- the inner induction, at a member set inside the fibre on which the block's motive is inhabited
+  -- the inner induction, at a parameter set inside the fibre on which the block's motive is inhabited
   have inner : ∀ (X : V) (x : V), x ∈ˢ S.classSet M ls N ps X → X ∈ˢ (univ (S.u₀ ls) : V) →
       X ⊆ˢ S.Fam M ls ps (S.memberIdx M ls N ps) →
       (∀ x, x ∈ˢ X → ∃ v, v ∈ˢ appList ex.m ((S.memberIdx M ls N ps).reverse ++ [x])) →

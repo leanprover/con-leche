@@ -42,8 +42,8 @@ inductive Field where
   | reflexive (tele : List Expr) (es : List Expr)
   /-- **A container field** (nested blocks): the block's class — a
   previously installed block `K` applied to arguments one of which is
-  the member `I params idx` (`NestInfo`).  The domain is
-  `K.{lsK} args[member]` lifted over the earlier fields; the field
+  the nested occurrence `I params idx` (`NestInfo`).  The domain is
+  `K.{lsK} args[nested]` lifted over the earlier fields; the field
   carries an inductive hypothesis for the class's motive
   (con-leche's container instance, `Positivity.lean`, `contApp`). -/
   | container
@@ -106,10 +106,10 @@ structure IndBase where
 its container fields are read through — a previously installed block
 `K` (its data, as stored with its type former), at levels `lsK` over
 the block's level parameters, applied to arguments `args` (outermost
-first, under the block's parameters only; the member's position `p`
-omitted) with the member `I params idx` at position `p` of `K`'s
+first, under the block's parameters only; the nested position `p`
+omitted) with the nested occurrence `I params idx` at position `p` of `K`'s
 parameters.  `K` has parameters but no indices, and the nesting is at
-depth one: the member is `K`'s argument directly.
+depth one: the nested occurrence is `K`'s argument directly.
 
 Con-leche: the container instance `C.{us} Ds` of the positivity walk
 (`Positivity.lean`, `contApp`) and the outside class of the recursor
@@ -124,10 +124,10 @@ structure NestInfo where
   /-- The container's other arguments, outermost first, under the
   block's parameters (position `p` left out). -/
   args : List Expr
-  /-- The member's position among the container's parameters
+  /-- The nested position among the container's parameters
   (outermost first). -/
   p : Nat
-  /-- The member's index expressions, outermost first, under the
+  /-- The nested occurrence's index expressions, outermost first, under the
   block's parameters. -/
   idx : List Expr
   /-- The auxiliary recursor's name (`T.rec_1`): the recursor for the
@@ -167,31 +167,31 @@ def KS : IndSpec := N.K.spec
 /-- The number of the container's constructors. -/
 def nK : Nat := N.K.ctors.length
 
-/-- The member's variable, seen from under `d` binders below the
+/-- The nested parameter's variable, seen from under `d` binders below the
 container's parameters: the parameter at position `p` (outermost
 first) is `bvar (d + nPK - 1 - p)`. -/
 def memberVar (d : Nat) : Nat := d + N.nPK - 1 - N.p
 
 /-- Is this field of the container (with `k` earlier fields) the
-**member field** — the ordinary field whose domain is the member
+**parameter field** — the ordinary field whose domain is the nested
 parameter itself? -/
 def isMember (k : Nat) : Field → Bool
   | .ordinary (.bvar i) => i == N.memberVar k
   | _ => false
 
-/-- **Strict positivity of the container in the member's
+/-- **Strict positivity of the container in the nested
 position** (con-leche's `nestPos` walking the container's stored
 constructors at the instantiation, `Positivity.lean`): the container
-has no indices and no container field; the member parameter's domain
-is a sort; no later parameter's domain mentions the member parameter;
-every field of every constructor is the member field, a recursive
+has no indices and no container field; the nested parameter's domain
+is a sort; no later parameter's domain mentions the nested parameter;
+every field of every constructor is the parameter field, a recursive
 field (reflexive with an empty telescope, and no index expressions),
-or an ordinary field whose domain mentions neither the member
-parameter nor an earlier member field — the member never occurs to
+or an ordinary field whose domain mentions neither the nested
+parameter nor an earlier parameter field — the nested parameter never occurs to
 the left of an arrow, under a binder or inside another type, and
-nothing after a member field reads its value (the member is read at
-the family's bound when the container's constructors join the
-closure). -/
+nothing after a parameter field reads its value (the class is read at
+every approximant, so a parameter field's value must be free to
+move). -/
 def Positive : Prop :=
   N.K.indices = [] ∧
   N.p < N.nPK ∧
@@ -207,7 +207,7 @@ def Positive : Prop :=
     | Field.reflexive tele es => tele = [] ∧ es = []
     | Field.container => False)
 
-/-- The member parameter's domain level (`Sort ℓ`), when `Positive`;
+/-- The nested parameter's domain level (`Sort ℓ`), when `Positive`;
 `zero` otherwise. -/
 def memberLevel : Level :=
   match N.K.params[N.nPK - 1 - N.p]? with

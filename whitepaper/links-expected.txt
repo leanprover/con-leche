@@ -577,7 +577,7 @@
    281        DefEq env Γ (lam A₁ pw b₁) b
    282    /-- **Proof irrelevance** (`DefEq.proofIrrel`, `Rel.lean:417`): both
    283    sides' inferred types have sort `Prop`.  **The two types are never
-   284    compared**: the model licenses that, because every proof denotes the
+   284    compared**: the model justifies that, because every proof denotes the
    285    one point. -/
    286    | proofIrrel {Γ : List Expr} {a ta tta b tb ttb : Expr} {u v : Level} :
    287        Infer env Γ a ta → Infer env Γ ta tta → Red env Γ tta (sort u) →
@@ -808,7 +808,7 @@
    281        DefEq env Γ (lam A₁ pw b₁) b
    282    /-- **Proof irrelevance** (`DefEq.proofIrrel`, `Rel.lean:417`): both
    283    sides' inferred types have sort `Prop`.  **The two types are never
-   284    compared**: the model licenses that, because every proof denotes the
+   284    compared**: the model justifies that, because every proof denotes the
    285    one point. -/
    286    | proofIrrel {Γ : List Expr} {a ta tta b tb ttb : Expr} {u v : Level} :
    287        Infer env Γ a ta → Infer env Γ ta tta → Red env Γ tta (sort u) →
@@ -3001,7 +3001,7 @@
    279  itself when the telescope is empty; for a container field the class
    280  at the fibre of `W` at the nested occurrence's index expressions
    281  (`classSet`: the container's family, read at the class's arguments
-   282  with that fibre in the member's position; a plain block has no
+   282  with that fibre in the nested position; a plain block has no
    283  container field, and the clause is empty).  Con-leche: a field's
    284  reading with holes, `LfpDatum.fields`, read at the hole frame of the
    285  tuple (`HFits`, `BlockLfp.lean`); the container clause `contApp`
@@ -4240,8 +4240,8 @@
 == whitepaper/Fragment/Spec.lean#L43-L49
     43    /-- **A container field** (nested blocks): the block's class — a
     44    previously installed block `K` applied to arguments one of which is
-    45    the member `I params idx` (`NestInfo`).  The domain is
-    46    `K.{lsK} args[member]` lifted over the earlier fields; the field
+    45    the nested occurrence `I params idx` (`NestInfo`).  The domain is
+    46    `K.{lsK} args[nested]` lifted over the earlier fields; the field
     47    carries an inductive hypothesis for the class's motive
     48    (con-leche's container instance, `Positivity.lean`, `contApp`). -/
     49    | container
@@ -4251,10 +4251,10 @@
    106  its container fields are read through — a previously installed block
    107  `K` (its data, as stored with its type former), at levels `lsK` over
    108  the block's level parameters, applied to arguments `args` (outermost
-   109  first, under the block's parameters only; the member's position `p`
-   110  omitted) with the member `I params idx` at position `p` of `K`'s
+   109  first, under the block's parameters only; the nested position `p`
+   110  omitted) with the nested occurrence `I params idx` at position `p` of `K`'s
    111  parameters.  `K` has parameters but no indices, and the nesting is at
-   112  depth one: the member is `K`'s argument directly.
+   112  depth one: the nested occurrence is `K`'s argument directly.
    113  
    114  Con-leche: the container instance `C.{us} Ds` of the positivity walk
    115  (`Positivity.lean`, `contApp`) and the outside class of the recursor
@@ -4269,10 +4269,10 @@
    124    /-- The container's other arguments, outermost first, under the
    125    block's parameters (position `p` left out). -/
    126    args : List Expr
-   127    /-- The member's position among the container's parameters
+   127    /-- The nested position among the container's parameters
    128    (outermost first). -/
    129    p : Nat
-   130    /-- The member's index expressions, outermost first, under the
+   130    /-- The nested occurrence's index expressions, outermost first, under the
    131    block's parameters. -/
    132    idx : List Expr
    133    /-- The auxiliary recursor's name (`T.rec_1`): the recursor for the
@@ -4293,19 +4293,19 @@
   1415  def nestCont (ctx : NestCtx) (ops : CheckerOps m) (env : Env)
 
 == whitepaper/Fragment/Spec.lean#L182-L208
-   182  /-- **Strict positivity of the container in the member's
+   182  /-- **Strict positivity of the container in the nested
    183  position** (con-leche's `nestPos` walking the container's stored
    184  constructors at the instantiation, `Positivity.lean`): the container
-   185  has no indices and no container field; the member parameter's domain
-   186  is a sort; no later parameter's domain mentions the member parameter;
-   187  every field of every constructor is the member field, a recursive
+   185  has no indices and no container field; the nested parameter's domain
+   186  is a sort; no later parameter's domain mentions the nested parameter;
+   187  every field of every constructor is the parameter field, a recursive
    188  field (reflexive with an empty telescope, and no index expressions),
-   189  or an ordinary field whose domain mentions neither the member
-   190  parameter nor an earlier member field — the member never occurs to
+   189  or an ordinary field whose domain mentions neither the nested
+   190  parameter nor an earlier parameter field — the nested parameter never occurs to
    191  the left of an arrow, under a binder or inside another type, and
-   192  nothing after a member field reads its value (the member is read at
-   193  the family's bound when the container's constructors join the
-   194  closure). -/
+   192  nothing after a parameter field reads its value (the class is read at
+   193  every approximant, so a parameter field's value must be free to
+   194  move). -/
    195  def Positive : Prop :=
    196    N.K.indices = [] ∧
    197    N.p < N.nPK ∧
@@ -4364,10 +4364,10 @@
    763  former and the constructors, and then
    764  
    765  * the container is stored with its specification, which is plain
-   766    (depth one) and positive in the member's position;
+   766    (depth one) and positive in the nested position;
    767  * the container's sort at the instantiation is the block's sort
-   768    (official's N3), and so is the member parameter's domain sort —
-   769    the member, a fibre of the block, is a member of that domain;
+   768    (official's N3), and so is the nested parameter's domain sort —
+   769    the nested occurrence, a fibre of the block, is a member of that domain;
    770  * the class, at the block's parameters, has a sort in the environment
    771    holding the former: its arguments fit the container's parameters;
    772  * **large elimination is refused unless the sort is never `Prop`**
@@ -4428,15 +4428,15 @@
 
 == whitepaper/Fragment/Decl.lean#L389-L391
    389  /-- **The class's motive's type**, under the parameters and the
-   390  block's motive: `∀ (t : K args[member]), Sort ℓ`. -/
+   390  block's motive: `∀ (t : K args[nested]), Sort ℓ`. -/
    391  def motiveTy1 (N : NestInfo) : Expr := mkPis .never [S.classTy N 1] (.sort S.ℓ)
 
 == whitepaper/Fragment/Decl.lean#L404-L416
    404  /-- **A minor premise of the container's constructor `j`** at the
    405  instantiation: under the two motives, the block's minors and the `j`
-   406  earlier class minors, `∀ fields ihs, motive_1 (C.{lsK} args[member] fields)`
-   407  — the fields the translated ones, a member field's hypothesis the
-   408  block's motive at the member, a container field's the class's. -/
+   406  earlier class minors, `∀ fields ihs, motive_1 (C.{lsK} args[nested] fields)`
+   407  — the fields the translated ones, a parameter field's hypothesis the
+   408  block's motive at the nested occurrence, a container field's the class's. -/
    409  def minorTyK (N : NestInfo) (c : CtorSpec) (j : Nat) : Expr :=
    410    let c' := S.classCtor N c
    411    let nF := c'.fields.length
@@ -4578,8 +4578,8 @@
    597    | some _ => rules
 
 == whitepaper/Fragment/IndCommon.lean#L201-L204
-   201  /-- **The class at a member set**: the container's set in the model,
-   202  applied to the class's arguments with `X` at the member's position. -/
+   201  /-- **The class at a parameter set**: the container's set in the model,
+   202  applied to the class's arguments with `X` at the nested position. -/
    203  def classSet (N : NestInfo) (ps : List V) (X : V) : V :=
    204    appList (M N.K.name (S.lsK ls N)) (S.classArgsV M ls N ps X)
 
@@ -4599,7 +4599,7 @@
    279  itself when the telescope is empty; for a container field the class
    280  at the fibre of `W` at the nested occurrence's index expressions
    281  (`classSet`: the container's family, read at the class's arguments
-   282  with that fibre in the member's position; a plain block has no
+   282  with that fibre in the nested position; a plain block has no
    283  container field, and the clause is empty).  Con-leche: a field's
    284  reading with holes, `LfpDatum.fields`, read at the hole frame of the
    285  tuple (`HFits`, `BlockLfp.lean`); the container clause `contApp`
@@ -4622,22 +4622,22 @@
 == whitepaper/Fragment/IndSem.lean#L452-L471
    452  /-- **The container's clause, as the operator needs it** at the
    453  parameters `ps` (see the section heading): the class is monotone in
-   454  the member set, in the result universe, accessible with the class's
+   454  the parameter set, in the result universe, accessible with the class's
    455  bound, and inhabited at the one-fibre set when inhabited at all. -/
    456  structure ContClause (N : NestInfo) (ps : List V) : Prop where
-   457    /-- The class grows with the member set. -/
+   457    /-- The class grows with the parameter set. -/
    458    mono : ∀ X Y, X ⊆ˢ Y → X ∈ˢ (univ (S.u₀ ls) : V) → Y ∈ˢ (univ (S.u₀ ls) : V) →
    459      S.classSet M ls N ps X ⊆ˢ S.classSet M ls N ps Y
-   460    /-- The class at a member set of the universe is in the universe. -/
+   460    /-- The class at a parameter set of the universe is in the universe. -/
    461    mem_univ : ∀ X, X ∈ˢ (univ (S.u₀ ls) : V) → S.classSet M ls N ps X ∈ˢ (univ (S.u₀ ls) : V)
    462    /-- Every member of the class at `X` has a support in `X`, coded in
-   463    the class's bound, carrying it to the class at every member set
+   463    the class's bound, carrying it to the class at every parameter set
    464    holding the support. -/
    465    acc : ∀ X, X ∈ˢ (univ (S.u₀ ls) : V) → ∀ v, v ∈ˢ S.classSet M ls N ps X →
    466      ∃ (B : V) (g : V → V), B ⊆ˢ S.classBound ∧ (∀ b, b ∈ˢ B → g b ∈ˢ X) ∧
    467        ∀ X', X' ∈ˢ (univ (S.u₀ ls) : V) → (∀ b, b ∈ˢ B → g b ∈ˢ X') → v ∈ˢ S.classSet M ls N ps X'
    468    /-- The class at the one-fibre set is inhabited when the class at
-   469    some member set of the universe is. -/
+   469    some parameter set of the universe is. -/
    470    inhab_one : ∀ X, X ∈ˢ (univ (S.u₀ ls) : V) → (∃ v, v ∈ˢ S.classSet M ls N ps X) →
    471      ∃ v, v ∈ˢ S.classSet M ls N ps one
 
@@ -4689,10 +4689,10 @@
 
 == whitepaper/Fragment/NestSem.lean#L385-L399
    385  /-- **A fitting list of a positive container stays fitting under a
-   386  replacement**, at the member set and family the replacement reads:
-   387  a member field's value lands in the new member set, a recursive
+   386  replacement**, at the parameter set and family the replacement reads:
+   387  a parameter field's value lands in the new parameter set, a recursive
    388  field's in the new family's fibre, and an ordinary field — mentioning
-   389  neither the member parameter nor an earlier member or recursive field
+   389  neither the nested parameter nor an earlier parameter or recursive field
    390  — reads the same set at both.  (The fields are a suffix of a
    391  constructor's, so that positivity's clause and the no-dependency
    392  condition pass to the tails.) -/
@@ -4705,7 +4705,7 @@
    399        N.KS.FitsFields M (S.lsK ls N) W' (S.psK M ls N ps Y) fields fs'
 
 == whitepaper/Fragment/NestSem.lean#L504-L515
-   504  /-- **Every member of the container's family at a smaller member set
+   504  /-- **Every member of the container's family at a smaller parameter set
    505  is a member at a larger one**: the family at the larger set is closed
    506  under the container's operator at the smaller set (a constructor
    507  fitting at the smaller set fits at the larger, `FitsFields_psK_repl`,
@@ -4719,7 +4719,7 @@
    515      N.KS.Fam M (S.lsK ls N) (S.psK M ls N ps X) is ⊆ˢ N.KS.Fam M (S.lsK ls N) (S.psK M ls N ps Y) is := by
 
 == whitepaper/Fragment/NestSem.lean#L700-L710
-   700  /-- **The container's family is accessible in the member set**, with
+   700  /-- **The container's family is accessible in the parameter set**, with
    701  the class's bound: the nested case of accessibility (`lfpP_acc`)
    702  applied to the joint operator.  Con-leche: `accConcl_of_frameAccOut`
    703  (`ContAcc.lean`) over `frameIterAcc`. -/
@@ -4734,7 +4734,7 @@
 == whitepaper/Fragment/IndSem.lean#L431-L439
    431  /-- **The class's bound**: the finite paths over the container's field
    432  positions — the bound of the container's family's accessibility in
-   433  the member set (`lfpP_acc`, the paths over the container's joint
+   433  the parameter set (`lfpP_acc`, the paths over the container's joint
    434  bound, which is one code per field position).  Empty for a plain
    435  block. -/
    436  noncomputable def classBound : V :=
@@ -4743,18 +4743,18 @@
    439    | none => empty
 
 == whitepaper/Fragment/NestSem.lean#L532-L536
-   532  /-- **The container's operator, jointly in the member set and its own
-   533  family**: the member set at the left index, the family at the right.
+   532  /-- **The container's operator, jointly in the parameter set and its own
+   533  family**: the parameter set at the left index, the family at the right.
    534  Con-leche: the joint operator `Θ` of `lfpP_acc`. -/
    535  noncomputable def jointOp (ps : List V) (Z : Unit ⊕ List V → V) : List V → V :=
    536    N.KS.famOp M (S.lsK ls N) (S.psK M ls N ps (Z (Sum.inl ()))) fun is => Z (Sum.inr is)
 
 == whitepaper/Fragment/NestSem.lean#L546-L554
-   546  /-- **The container's operator is accessible jointly in the member set
+   546  /-- **The container's operator is accessible jointly in the parameter set
    547  and its own family**, with one code per field position: a
-   548  constructor value depends on its member fields (occurrences in the
-   549  member set) and its recursive fields (occurrences in the family), and
-   550  fits at every member set and family holding them
+   548  constructor value depends on its parameter fields (occurrences in the
+   549  parameter set) and its recursive fields (occurrences in the family), and
+   550  fits at every parameter set and family holding them
    551  (`FitsFields_psK_repl`).  Con-leche: `frameCtor_acc`
    552  (`ContAccFrame.lean`). -/
    553  theorem jointOp_acc (hf : S.NestFacts M ls N) (ps : List V) :
@@ -4777,9 +4777,9 @@
 
 == whitepaper/Fragment/NestSem.lean#L725-L733
    725  /-- **The container's family at the one-fibre set is inhabited when
-   726  the family at any member set of the universe is**: by induction over
+   726  the family at any parameter set of the universe is**: by induction over
    727  the family, every constructor instance has a counterpart at `{pt}`
-   728  — the member fields replaced by the point, the recursive fields by
+   728  — the parameter fields replaced by the point, the recursive fields by
    729  the counterparts the induction supplies, the ordinary fields kept. -/
    730  theorem Fam_psK_inhab_one (hf : S.NestFacts M ls N) {ps : List V}
    731      (hp : FitsVals M (S.ψ ls) base S.params ps) {X : V} (hX : X ∈ˢ (univ (S.u₀ ls) : V))
@@ -4789,10 +4789,10 @@
 == whitepaper/Fragment/NestSem.lean#L789-L798
    789  /-- **The container's clause, from positivity and leastness**
    790  (`ContClause`): the class is the container's family at the
-   791  instantiation (`classSet_eq_Fam`), which grows with the member set
+   791  instantiation (`classSet_eq_Fam`), which grows with the parameter set
    792  (`Fam_psK_mono`), lies in the result universe (`Fam_mem_univ`, N3),
    793  is accessible with the class's bound (`Fam_psK_acc`; at a
-   794  proposition from monotonicity alone: the member set, a subset of
+   794  proposition from monotonicity alone: the parameter set, a subset of
    795  `{pt}`, is its own support), and is inhabited at the one-fibre set
    796  when inhabited at all (`Fam_psK_inhab_one`). -/
    797  theorem contClause_of (hf : S.NestFacts M ls N) (hN : S.nest = some N) {ps : List V}
@@ -4801,16 +4801,16 @@
 == whitepaper/Fragment/NestSem.lean#L195-L223
    195  /-- **What is known about the container** when a block nests through
    196  it: its set in the model is its family's graph (its installation's
-   197  law), it is positive in the member's position, no field reads an
+   197  law), it is positive in the nested position, no field reads an
    198  earlier recursive field, the universe bound on its fields holds at
    199  every fitting parameter list (its own checks), the class's arguments
-   200  fit its parameters at every member set in the result universe (the
+   200  fit its parameters at every parameter set in the result universe (the
    201  nested block's check), and its result universe at the instantiation
    202  is the block's (N3). -/
    203  structure NestFacts : Prop where
    204    /-- The container's set is its family's graph. -/
    205    fam : ∀ ls', M N.K.name ls' = N.KS.famSet M ls'
-   206    /-- The container is positive in the member's position. -/
+   206    /-- The container is positive in the nested position. -/
    207    positive : N.Positive
    208    /-- No field of the container reads an earlier recursive field. -/
    209    noRecDep : N.KS.NoRecDep
@@ -4819,13 +4819,13 @@
    212    domsBounded : ∀ ps', FitsVals M (N.KS.ψ (S.lsK ls N)) base N.KS.params ps' →
    213      N.KS.DomsBounded M (S.lsK ls N) ps'
    214    /-- The class's arguments fit the container's parameters at every
-   215    member set in the result universe. -/
+   215    parameter set in the result universe. -/
    216    argsFit : ∀ ps, FitsVals M (S.ψ ls) base S.params ps → ∀ X, X ∈ˢ (univ (S.u₀ ls) : V) →
    217      FitsVals M (N.KS.ψ (S.lsK ls N)) base N.KS.params (S.psK M ls N ps X)
    218    /-- The container's result universe at the instantiation is the
    219    block's. -/
    220    u₀_eq : N.KS.u₀ (S.lsK ls N) = S.u₀ ls
-   221    /-- The class's arguments fill all but the member's position of the
+   221    /-- The class's arguments fill all but the nested position of the
    222    container's parameters (`NestScoped`). -/
    223    args_len : N.args.length + 1 = N.nPK
 
@@ -5020,7 +5020,7 @@
 
 == whitepaper/Fragment/NestRec.lean#L555-L560
    555  /-- **The inner induction**: the graph is total on the class at a
-   556  member set inside the fibre on which it is total. -/
+   556  parameter set inside the fibre on which it is total. -/
    557  theorem class_total_of {ps : List V} (hcl : S.ClassLaws M ls N ps) (ex : RecEx V) {X : V}
    558      (hX : X ∈ˢ (univ (S.u₀ ls) : V)) (hXF : X ⊆ˢ S.Fam M ls ps (S.memberIdx M ls N ps))
    559      (hkey : ∀ x, x ∈ˢ X → ∃ v, S.RecGraphN M ls N q ps ex (false, S.memberIdx M ls N ps) x v) :

@@ -18,7 +18,7 @@ model of the installed environment, and the block laws survive.
 The steps, in order:
 
 * **the container's facts** (`nestFacts`): the container's block law in
-  the model, the nested checks (N3, the member domain's sort, the
+  the model, the nested checks (N3, the nested parameter's domain sort, the
   class's arguments fit — read off the class having a sort in the
   environment holding the former, through a model of that environment
   which needs nothing of the class yet, `mIndN`) and the scope give
@@ -40,7 +40,7 @@ The steps, in order:
   `Red.iotaNested`), the major's membership in the class pinning its
   fields (`ClassLaws.inv`).
 
-Con-leche: `Model/Inductives/DeclNative.lean` with the class rows of
+Con-leche: `Model/Inductives/DeclBlockStep.lean` with the class rows of
 `GenClsSem.lean` and `ClassGenUniq.lean`.
 -/
 
@@ -308,8 +308,8 @@ theorem famSetK_eq (φ : Name → Nat) :
   rfl
 
 omit hs in
-/-- The member parameter's domain level is the block's universe (the
-check on the member domain's sort). -/
+/-- The nested parameter's domain level is the block's universe (the
+check on the nested parameter's domain sort). -/
 theorem memberLevel_eq (φ : Name → Nat) {ℓ : Level}
     (hℓp : N.K.params[N.nPK - 1 - N.p]? = some (.sort ℓ)) :
     Level.eval (N.KS.ψ (S.lsK (S.lparams.map φ) N)) ℓ = S.u₀ (S.lparams.map φ) := by
@@ -340,11 +340,11 @@ theorem FitsVals_split {M : Name → List Nat → V} {φ : Name → Nat} {ρ : N
   · rintro ⟨h1, h2, h3⟩; exact ⟨⟨h1, h2⟩, h3⟩
 
 omit hs in
-/-- **The member set may be any set of the universe**: the class's
-arguments fitting the container's parameters at one member set fit at
-any member set of the block's universe — the member's domain is a
+/-- **The parameter set may be any set of the universe**: the class's
+arguments fitting the container's parameters at one parameter set fit at
+any parameter set of the block's universe — the nested parameter's domain is a
 sort of that universe, and no later parameter's domain mentions the
-member (positivity). -/
+nested parameter (positivity). -/
 theorem FitsVals_psK_replace (φ : Name → Nat) {ps : List V} {G X : V}
     (hfit : FitsVals m.M (N.KS.ψ (S.lsK (S.lparams.map φ) N)) base N.KS.params
       (S.psK m.M (S.lparams.map φ) N ps G))
@@ -357,7 +357,7 @@ theorem FitsVals_psK_replace (φ : Name → Nat) {ps : List V} {G X : V}
   have hpK : N.p < N.nPK := hpos.2.1
   obtain ⟨ℓ, hℓp⟩ := hpos.2.2.1
   have hnP : N.KS.params.length = N.nPK := rfl
-  -- the container's parameters around the member's
+  -- the container's parameters around the nested position
   have hsplit : N.KS.params = N.KS.params.take (N.nPK - 1 - N.p) ++
       Expr.sort ℓ :: N.KS.params.drop (N.nPK - 1 - N.p + 1) := by
     have h1 := (List.take_append_drop (N.nPK - 1 - N.p) N.KS.params).symm
@@ -398,13 +398,13 @@ theorem FitsVals_psK_replace (φ : Name → Nat) {ps : List V} {G X : V}
     exact Bool.false_ne_true hj
 
 /-- **The class's arguments fit the container's parameters** at every
-member set in the result universe — from the class having a sort at
+parameter set in the result universe — from the class having a sort at
 the block's parameters (the check), read in the model of the
 environment with the former: the container's set is a graph tower, so
 the class application being well-denoted puts its arguments in the
-tower's domains (`appList_of_wd`); the member's domain is a sort of
-the block's universe (the check N3 on the member domain), and no later
-parameter's domain mentions the member (positivity), so the member
+tower's domains (`appList_of_wd`); the nested parameter's domain is a sort of
+the block's universe (the check N3 on the nested parameter's domain), and no later
+parameter's domain mentions the nested parameter (positivity), so the parameter
 set can be any set of the universe. -/
 theorem argsFit_of (φ : Name → Nat) {ps : List V}
     (hp : FitsVals m.M (S.ψ (S.lparams.map φ)) base S.params ps) {X : V}
@@ -448,7 +448,7 @@ theorem argsFit_of (φ : Name → Nat) {ps : List V}
     (G := fun _ => univ (N.KS.u₀ (S.lsK (S.lparams.map φ) N)))
     (fun _ _ => N.KS.Fam_mem_univ m.M _ _ _)
   rw [FitsVals_instL, FitsVals_congr₂ (agree_paramsK m hok φ base)] at hfit
-  -- the arguments' values: the class's arguments at the member's reading
+  -- the arguments' values: the class's arguments at the nested parameter's reading
   have hvals : (S.classArgs N 0).map (interp (S.M₃N m.M N) φ (consList ps base))
       = S.classArgsV m.M (S.lparams.map φ) N ps
           (interp (S.M₃N m.M N) φ (consList ps base) (S.famAt 0 (N.idx.map (Expr.liftN 0 ·)))) := by
@@ -465,7 +465,7 @@ theorem argsFit_of (φ : Name → Nat) {ps : List V}
       exact List.map_congr_left fun a ha => hread a (List.mem_of_mem_take ha)
     · exact List.map_congr_left fun a ha => hread a (List.mem_of_mem_drop ha)
   rw [hvals] at hfit
-  -- the member set may be any set of the universe
+  -- the parameter set may be any set of the universe
   exact FitsVals_psK_replace m hok φ hfit hX
 
 /-- **The container's facts** at every valuation: from its block law,

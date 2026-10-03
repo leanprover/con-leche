@@ -25,8 +25,8 @@ The two environment steps and their models:
   (`InstallIota.lean`).
 
 Con-leche's counterparts: `ConLeche/Model/Install.lean` (definitions)
-and `ConLeche/Model/Inductives/DeclNative.lean` (a block, by the
-native route).
+and `ConLeche/Model/Inductives/DeclBlockStep.lean` (a block,
+`declBlock`).
 -/
 
 namespace Fragment

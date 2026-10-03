@@ -29,7 +29,7 @@ field's index expressions — with an empty telescope (a *recursive*
 field), the fibre itself; a *container* field's set is the **class
 at the approximant**: the container's family — its set in the model,
 `classSet` — read at the class's arguments with the fibre of `W` at
-the nested occurrence's index expressions in the member's position.
+the nested occurrence's index expressions in the nested position.
 The fibre is built as a set with the universe's operations: the
 fitting lists of a constructor are a set of tuples (`fitsSet`, by
 replacement and union along the fields), and the fibre is the image
@@ -279,7 +279,7 @@ index expressions read under the telescope's values — the fibre
 itself when the telescope is empty; for a container field the class
 at the fibre of `W` at the nested occurrence's index expressions
 (`classSet`: the container's family, read at the class's arguments
-with that fibre in the member's position; a plain block has no
+with that fibre in the nested position; a plain block has no
 container field, and the clause is empty).  Con-leche: a field's
 reading with holes, `LfpDatum.fields`, read at the hole frame of the
 tuple (`HFits`, `BlockLfp.lean`); the container clause `contApp`
@@ -367,13 +367,13 @@ theorem FitsFields_earlier {W : List V → V} {ps : List V} :
 
 A container field reads the class at the approximant's fibre at the
 nested occurrence.  For the operator to be monotone and accessible,
-the class must be, in the member set: it grows with it, stays in the
+the class must be, in the parameter set: it grows with it, stays in the
 result universe, and every member of the class at `X` has a support
 in `X` — occurrences in `X`, coded inside one set fixed by the
 specification (`classBound`: the finite paths over the container's
 field positions, the bound of the container's own accessibility in
 the parameter, `Access.lean`'s `lfpP_acc`) — such that the member is
-in the class at every member set of the universe holding the
+in the class at every parameter set of the universe holding the
 support.  And for the block's bound to be one set the class at the
 one-fibre set must be inhabited when the class is inhabited at all
 (a container value's stand-in when the fields are read off the
@@ -430,7 +430,7 @@ theorem _root_.Fragment.NestInfo.length_le_maxFields (N : NestInfo) {c : CtorSpe
 
 /-- **The class's bound**: the finite paths over the container's field
 positions — the bound of the container's family's accessibility in
-the member set (`lfpP_acc`, the paths over the container's joint
+the parameter set (`lfpP_acc`, the paths over the container's joint
 bound, which is one code per field position).  Empty for a plain
 block. -/
 noncomputable def classBound : V :=
@@ -451,22 +451,22 @@ theorem pt_mem_classBound {N : NestInfo} (hN : S.nest = some N) : (pt : V) ∈ˢ
 
 /-- **The container's clause, as the operator needs it** at the
 parameters `ps` (see the section heading): the class is monotone in
-the member set, in the result universe, accessible with the class's
+the parameter set, in the result universe, accessible with the class's
 bound, and inhabited at the one-fibre set when inhabited at all. -/
 structure ContClause (N : NestInfo) (ps : List V) : Prop where
-  /-- The class grows with the member set. -/
+  /-- The class grows with the parameter set. -/
   mono : ∀ X Y, X ⊆ˢ Y → X ∈ˢ (univ (S.u₀ ls) : V) → Y ∈ˢ (univ (S.u₀ ls) : V) →
     S.classSet M ls N ps X ⊆ˢ S.classSet M ls N ps Y
-  /-- The class at a member set of the universe is in the universe. -/
+  /-- The class at a parameter set of the universe is in the universe. -/
   mem_univ : ∀ X, X ∈ˢ (univ (S.u₀ ls) : V) → S.classSet M ls N ps X ∈ˢ (univ (S.u₀ ls) : V)
   /-- Every member of the class at `X` has a support in `X`, coded in
-  the class's bound, carrying it to the class at every member set
+  the class's bound, carrying it to the class at every parameter set
   holding the support. -/
   acc : ∀ X, X ∈ˢ (univ (S.u₀ ls) : V) → ∀ v, v ∈ˢ S.classSet M ls N ps X →
     ∃ (B : V) (g : V → V), B ⊆ˢ S.classBound ∧ (∀ b, b ∈ˢ B → g b ∈ˢ X) ∧
       ∀ X', X' ∈ˢ (univ (S.u₀ ls) : V) → (∀ b, b ∈ˢ B → g b ∈ˢ X') → v ∈ˢ S.classSet M ls N ps X'
   /-- The class at the one-fibre set is inhabited when the class at
-  some member set of the universe is. -/
+  some parameter set of the universe is. -/
   inhab_one : ∀ X, X ∈ˢ (univ (S.u₀ ls) : V) → (∃ v, v ∈ˢ S.classSet M ls N ps X) →
     ∃ v, v ∈ˢ S.classSet M ls N ps one
 

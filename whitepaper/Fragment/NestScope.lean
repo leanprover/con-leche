@@ -151,8 +151,8 @@ section Generated
 variable {env : Env}
 
 /-- **A recursive position of a translated constructor is in the
-block's scope**: a member field became a recursive field (reflexive
-with an empty telescope) at the member's index expressions (lifted
+block's scope**: a parameter field became a recursive field (reflexive
+with an empty telescope) at the nested occurrence's index expressions (lifted
 over the earlier fields), a recursive field of the container a
 container field; an ordinary
 field carries no hypothesis.  Needs nothing of the container's own
@@ -191,7 +191,7 @@ theorem classCtor_recField_scoped (hS : S.Scoped env) {N : NestInfo} (hN : S.nes
 
 /-- **A translated field's domain uses the block's level
 parameters**: the container's field is in the container's scope
-(`NestScoped`), the class's levels, arguments and the member's index
+(`NestScoped`), the class's levels, arguments and the nested occurrence's index
 expressions in the block's. -/
 theorem lparamsIn_classField_dom (hS : S.Scoped env) {N : NestInfo} (hN : S.nest = some N)
     {c : CtorSpec} (hc : c ∈ N.K.ctors) {i : Nat} {f : Field} (hi : c.fields[i]? = some f)

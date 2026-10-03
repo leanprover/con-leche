@@ -804,9 +804,9 @@ with the class's minors read at the point. -/
 
 omit [LevelOracle] in
 /-- **The container's own fit gives the block-sense fit of the
-translated constructor**: the member field's value is in the member
+translated constructor**: the parameter field's value is in the parameter
 set (inside the fibre), a container field's in the class at the fibre
-(the container's family grows with the member set, `Fam_psK_mono`),
+(the container's family grows with the parameter set, `Fam_psK_mono`),
 an ordinary field's in its domain. -/
 theorem FitsFields_classFields_of_KS {M : Name → List Nat → V} {ls : List Nat}
     (hf : S.NestFacts M ls N) (hlen : N.args.length + 1 = N.nPK)
@@ -832,7 +832,7 @@ theorem FitsFields_classFields_of_KS {M : Name → List Nat → V} {ls : List Na
     cases f with
     | ordinary A =>
       rcases hpf with hA | ⟨hu, -⟩
-      · -- the member field
+      · -- the parameter field
         simp only [List.length_cons, Nat.add_sub_cancel, Nat.sub_zero] at hA
         subst hA
         simp only [classField, NestInfo.isMember, beq_self_eq_true, if_true, fieldSet, piCtx_nil]
@@ -883,7 +883,7 @@ theorem KS_FitsFields_of_classFields {M : Name → List Nat → V} {ls : List Na
     cases f with
     | ordinary A =>
       rcases hpf with hA | ⟨hu, -⟩
-      · -- the member field
+      · -- the parameter field
         simp only [List.length_cons, Nat.add_sub_cancel, Nat.sub_zero] at hA
         subst hA
         simp only [classField, NestInfo.isMember, beq_self_eq_true, if_true, fieldSet, piCtx_nil] at h2
@@ -1098,7 +1098,7 @@ theorem motives_inhabited_prop {M : Name → List Nat → V} {ls : List Nat}
     have := N.KS.Fam_mem_univ M (S.lsK ls N) (S.psK M ls N ps X) []
     rw [hf.u₀_eq, hu0] at this
     exact eq_pt_of_mem_univ_zero this hy
-  -- the inner induction, over the container's family at a member set inside the fibre
+  -- the inner induction, over the container's family at a parameter set inside the fibre
   have inner : ∀ (X : V), X ∈ˢ (univ (S.u₀ ls) : V) → X ⊆ˢ S.Fam M ls ps (S.memberIdx M ls N ps) →
       (∀ x, x ∈ˢ X → ∃ v, v ∈ˢ appList ex.m ((S.memberIdx M ls N ps).reverse ++ [x])) →
       ∀ y, y ∈ˢ N.KS.Fam M (S.lsK ls N) (S.psK M ls N ps X) [] → ∃ v, v ∈ˢ appList ex.m1 [pt] := by
@@ -1126,7 +1126,7 @@ theorem motives_inhabited_prop {M : Name → List Nat → V} {ls : List Nat}
       cases f₀ with
       | ordinary A =>
         rcases hpf with hA | ⟨hu, -⟩
-        · -- the member field
+        · -- the parameter field
           rw [hkk] at hA
           subst hA
           simp only [classField, NestInfo.isMember, beq_self_eq_true, if_true] at hfe
@@ -1203,10 +1203,10 @@ omit hs in
 theorem K_ctors_stored : ∀ (j : Nat) (c : CtorSpec), N.K.ctors[j]? = some c → (env.find? c.name).isSome :=
   fun j c hc => by rw [(K_law m hok).2.2.2.1 j c hc]; rfl
 
-/-- **The member's index values fit the index context** at every
+/-- **The nested occurrence's index values fit the index context** at every
 fitting parameter list: from the class having a sort at the block's
-parameters (the check), whose member argument — the family at the
-member's index expressions — is well-denoted (`famAt_wd`). -/
+parameters (the check), whose nested argument — the family at the
+nested occurrence's index expressions — is well-denoted (`famAt_wd`). -/
 theorem memberIdx_fits (φ : Name → Nat) {ps : List V}
     (hp : FitsVals m.M (S.ψ (S.lparams.map φ)) base S.params ps) :
     FitsVals m.M (S.ψ (S.lparams.map φ)) (envP ps) S.indices
