@@ -75,7 +75,7 @@ axiom `propext`, which therefore
 
 == K-like reduction <sec:ext-k>
 
-_The rule._ Take an inductive proposition with one constructor whose
+*The rule.* Take an inductive proposition with one constructor whose
 only arguments are the block's parameters — `Eq` is the example that
 matters: `Eq.refl a : Eq a a` has no field of its own. Its recursor
 normally fires only when the major premise reduces to a constructor
@@ -88,7 +88,7 @@ of the two endpoints, $a equiv b$ — and then reduces as if $h$ were
 $c thick arrow(p)$. For `Eq.rec` this is what makes a cast along a
 proof of $a = a$ compute even when the proof is a variable.
 
-_In the model._ The family is a proposition, so its fibre at
+*In the model.* The family is a proposition, so its fibre at
 $arrow(p)$ and any indices is a truth value, and the rule is best
 read as a reduction step $h red c thick arrow(p)$ on the major, after
 which the ordinary $iota$ rule fires on a constructor application.
@@ -125,7 +125,7 @@ proof.
 
 == η for structures <sec:ext-eta>
 
-_The rule._ A _structure_ is a block with one constructor `mk`, no
+*The rule.* A _structure_ is a block with one constructor `mk`, no
 indices, no recursive field, and a type-valued family.
 The official kernel equates any $s$ of the structure type with the
 constructor applied to $s$'s projections: $s equiv$ `mk` $arrow(p)
@@ -192,7 +192,7 @@ covers it.
 
 == Unit-likeness <sec:ext-unit>
 
-_The rule._ A block with one constructor, no indices and no fields —
+*The rule.* A block with one constructor, no indices and no fields —
 `PUnit`, or at `Prop` the proposition `True` — has, up to
 definitional equality, one element: the checker equates any two terms
 whose types reduce to it.

@@ -241,7 +241,9 @@ from two things the model already knows: the container is positive
 at the nested position, which the checker verified, and its family is
 a _least_ fixed point.
 
-*A container field's set.* The container $K$ was installed before,
+=== A container field's set
+
+The container $K$ was installed before,
 so the model already assigns it a set: by the law recorded when $K$
 was installed — a fact about its set, not about accessibility — the graph over $K$'s parameters of $K$'s family. For a set $Y$
 write $arrow(d)[Y]$ for the class's arguments read at $arrow(X)$, with
@@ -264,7 +266,9 @@ range over the lists whose entries all lie in $W$. Nothing new is
 constructed. The container's least fixed point is reused, at every
 approximant.
 
-*What the operator asks of the class.* The proofs of @sec:ind-model
+=== What the operator asks of the class
+
+The proofs of @sec:ind-model
 go field kind by field kind, and at a container field they ask of
 $cal(C)$ what they ask of a reflexive field's product. A member of
 $cal(C)(Y)$ must have a support in $Y$,
@@ -353,7 +357,9 @@ its fields holds at every fitting parameter list
 A nested block is never a container in the fragment, so it stores no
 such law.
 
-*The family and the constructors.* With the clause in hand, the rest
+=== The family and the constructors
+
+With the clause in hand, the rest
 of @sec:ind-model applies as stated: the theorems there take the
 clause as a premise and are the same theorems. The operator maps the
 universe to itself and is accessible, so it has a closed family
@@ -387,7 +393,9 @@ induction over the family are as in @sec:ind-model.
   monotonicity from its accessibility.
 ]
 
-*The two recursors.* Both recursors are read off one _graph_, the
+=== The two recursors
+
+Both recursors are read off one _graph_, the
 least relation closed under the rules of both. At a tagged tuple
 fitting a constructor of the block, the value at the family is the
 block's minor at the fields and the inductive hypotheses; at a
@@ -429,6 +437,8 @@ and each recursor's set is a member of its type
   (#src("ConLeche/SetModel/NestRec.lean", 9, 19)[the nested graph kit],
   #src("ConLeche/Model/Inductives/TargetNestKit.lean", 8, 19)[the classes as clauses]).
 ]
+
+=== The $iota$ laws
 
 #theorem(name: [the $iota$ laws of a nested block])[
   Every rule of $TRec$ satisfies the $iota$ law of
