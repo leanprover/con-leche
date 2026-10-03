@@ -112,7 +112,7 @@ some other way (@sec:ind-model).
 
 *The generated declarations.* From the specification the checker
 generates the types of the type former, the constructors and the
-recursor, and the recursor's rules. The former's type is the one
+recursor, and the recursor's rules. The type former's type is the one
 displayed above; a constructor's type is
 $ forall arrow(x) : arrow(P) thin ann(PW). thin forall arrow(f) : arrow(F) thin ann(PW). thin I thick arrow(x) thick arrow(e)_j $
 with $ann(PW)$ on every binder, since every body ends in the family
