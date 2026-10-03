@@ -1,6 +1,6 @@
 module
 
-public import Fragment.Install
+public import Fragment.NstInstall
 public import Fragment.NestSem
 
 @[expose] public section
@@ -32,12 +32,13 @@ Con-leche: the `lfpBlocks` of `EnvModelM`
 block kept with the model.
 -/
 
-namespace Fragment
-open SetLib IndLib IndLibCompat
+namespace Fragment.IndSpec.Nst
+open Fragment.NestInfo (nPK nK memberVar isMember Positive memberLevel)
+open SetLib IndLib
 
 universe u
 
-variable {V : Type u} [IndLibCompat V]
+variable {V : Type u} [IndLib V]
 
 namespace IndSpec
 
@@ -60,7 +61,7 @@ end IndSpec
 
 /-- **A model of an environment that remembers its blocks**: an
 `EnvModel` with the block law of every stored block. -/
-structure BlockModel (V : Type u) [IndLibCompat V] (env : Env) extends EnvModel V env where
+structure BlockModel (V : Type u) [IndLib V] (env : Env) extends EnvModel V env where
   /-- Every stored block's law. -/
   blocks : ∀ (K : Name) (ci : ConstInfo) (nP nI : Nat) (cs : List Name) (spec : IndSpec),
     env.find? K = some ci → ci.kind = .induct nP nI cs spec → spec.BlockLaw env M
@@ -111,11 +112,11 @@ structure Agree (env : Env) (M M' : Name → List Nat → V) (ls ls' : List Nat)
 
 variable {S}
 
-omit [IndLibCompat V] in
+omit [IndLib V] in
 theorem Agree.symm (h : S.Agree env M M' ls ls') : S.Agree env M' M ls' ls :=
   ⟨h.block, h.cont, fun c hc l => (h.agree c hc l).symm, h.ψ.symm⟩
 
-omit [IndLibCompat V] in
+omit [IndLib V] in
 /-- The same agreement at any other levels (the valuations identical). -/
 theorem Agree.same (h : S.Agree env M M' ls ls') (l : List Nat) : S.Agree env M M' l l :=
   ⟨h.block, h.cont, h.agree, rfl⟩
@@ -171,7 +172,7 @@ theorem NestScoped.mono {env env' : Env} (h : S.NestScoped env)
   intro N hN
   obtain ⟨h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11⟩ := h N hN
   exact ⟨hm _ h1, h2, h3, h4, h5, h6, fun e he => (h7 e he).mono hm,
-    fun e he => (h8 e he).mono hm, h9, fun c hc i f hf => (h10 c hc i f hf).mono hm,
+    fun e he => (h8 e he).mono hm, h9, fun c hc i f hf => fieldScoped.mono (h10 c hc i f hf) hm,
     fun c hc => hm _ (h11 c hc)⟩
 
 /-- A specification in scope stays in scope when the environment
@@ -180,9 +181,9 @@ theorem Scoped.mono {env env' : Env} (h : S.Scoped env)
     (hm : ∀ n, (env.find? n).isSome → (env'.find? n).isSome) : S.Scoped env' := by
   obtain ⟨h1, h2, h3, h4, h5, h6, h7⟩ := h
   exact ⟨fun i A hA => (h1 i A hA).mono hm, fun t T hT => (h2 t T hT).mono hm, h3,
-    fun c hc => ⟨fun i f hf => ((h4 c hc).1 i f hf).mono hm, (h4 c hc).2.1, (h4 c hc).2.2.1,
+    fun c hc => ⟨fun i f hf => fieldScoped.mono ((h4 c hc).1 i f hf) hm, (h4 c hc).2.1, (h4 c hc).2.2.1,
       fun e he => ((h4 c hc).2.2.2 e he).mono hm⟩,
-    h5, h6, h7.mono hm⟩
+    h5, h6, NestScoped.mono h7 hm⟩
 
 /-! ### Reading an expression -/
 
@@ -214,17 +215,17 @@ theorem Agree.fitsParams_iff (h : S.Agree env M M' ls ls') (ps : List V) :
 
 /-! ### The regime, the class -/
 
-omit [IndLibCompat V] in
+omit [IndLib V] in
 theorem Agree.z_eq (h : S.Agree env M M' ls ls') : S.z ls = S.z ls' := by
   unfold z
   rw [h.ψ]
 
-omit [IndLibCompat V] in
+omit [IndLib V] in
 theorem Agree.u₀_eq (h : S.Agree env M M' ls ls') : S.u₀ ls = S.u₀ ls' := by
   unfold u₀
   rw [h.ψ]
 
-omit [IndLibCompat V] in
+omit [IndLib V] in
 theorem Agree.lsK_eq (h : S.Agree env M M' ls ls') (N : NestInfo) : S.lsK ls N = S.lsK ls' N := by
   unfold lsK
   rw [h.ψ]
@@ -749,4 +750,4 @@ theorem install_ind' {env : Env} {S : IndSpec} (hpl : S.nest = none) (hs : Env.S
         rw [hinst]
         exact spec.BlockLaw_add h₃ S.recName S.recInfo hfreshR
 
-end Fragment
+end Fragment.IndSpec.Nst

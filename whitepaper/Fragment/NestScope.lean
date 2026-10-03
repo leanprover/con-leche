@@ -37,7 +37,8 @@ is in scope of it (`Env.Scoped`, `InstallDef.lean`).
   container, stored by `NestScoped`), or a constant stored before.
 -/
 
-namespace Fragment
+namespace Fragment.IndSpec.Nst
+open Fragment.NestInfo (nPK nK memberVar isMember Positive memberLevel)
 
 namespace IndSpec
 
@@ -177,7 +178,7 @@ theorem classCtor_recField_scoped (hS : S.Scoped env) {N : NestInfo} (hN : S.nes
   cases f₀ with
   | ordinary A =>
     rcases hpf with rfl | ⟨hu, -⟩
-    · simp only [classField, NestInfo.isMember, beq_self_eq_true, if_true, fieldScoped]
+    · simp only [classField, NestInfo.isMember, beq_self_eq_true, if_true, Fragment.IndSpec.fieldScoped]
       refine ⟨fun _ _ hT => by simp at hT, by simpa using hNS.2.2.2.2.2.1, fun e he => ?_⟩
       obtain ⟨b, hb, rfl⟩ := List.mem_map.mp he
       have hb' := hNS.2.2.2.2.2.2.2.1 b hb
@@ -186,7 +187,7 @@ theorem classCtor_recField_scoped (hS : S.Scoped env) {N : NestInfo} (hN : S.nes
     · rw [classField, if_neg (by rw [isMember_false_of_usesVar N hu]; exact Bool.false_ne_true)]
         at hrec
       simp [Field.isRec] at hrec
-  | reflexive _ _ => simp [classField, fieldScoped, hN]
+  | reflexive _ _ => simp [classField, Fragment.IndSpec.fieldScoped, hN]
   | container => exact hpf.elim
 
 /-- **A translated field's domain uses the block's level
@@ -736,4 +737,4 @@ theorem _root_.Fragment.Env.Scoped.installN [LevelOracle] {env : Env} {S : IndSp
 
 end IndSpec
 
-end Fragment
+end Fragment.IndSpec.Nst

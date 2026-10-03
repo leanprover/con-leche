@@ -120,7 +120,7 @@ theorem Env.Scoped.add {env : Env} {c : Name} {ci : ConstInfo} (hs : Env.Scoped 
 
 /-! ## The value walks read the model through the telescope -/
 
-variable {V : Type u} [IndLibCompat V]
+variable {V : Type u} [IndLib V]
 
 /-- The value walks read the model only through the telescope's
 constants. -/
@@ -137,7 +137,7 @@ theorem TeleFitV_congr_model {M M' : Name → List Nat → V} {φ : Name → Nat
         TeleFitV_congr_model fun c hc => h c (List.mem_append_right _ hc)]
     | _ => exact Iff.rfl
 
-omit [IndLibCompat V] in
+omit [IndLib V] in
 /-- The body a telescope leaves mentions only the telescope's
 constants. -/
 theorem piBodyV_consts : ∀ {ρ : Nat → V} {T : Expr} {vs : List V} {B : Expr} {ρ' : Nat → V},

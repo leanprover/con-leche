@@ -1,9 +1,9 @@
 module
 
-public import Fragment.BlockModel
+public import Fragment.NstBlockModel
 public import Fragment.NestRead
 public import Fragment.NestScope
-public import Fragment.InstallIota
+public import Fragment.NstInstallIota
 
 @[expose] public section
 
@@ -41,12 +41,13 @@ Con-leche: `Model/Inductives/DeclNative.lean` with the class rows of
 `GenClsSem.lean` and `ClassGenUniq.lean`.
 -/
 
-namespace Fragment
+namespace Fragment.IndSpec.Nst
+open Fragment.NestInfo (nPK nK memberVar isMember Positive memberLevel)
 open SetLib IndLib
 
 universe u
 
-variable {V : Type u} [IndLibCompat V] [LevelOracle]
+variable {V : Type u} [IndLib V] [LevelOracle]
 
 namespace IndSpec
 
@@ -652,7 +653,7 @@ theorem domsBounded_ofN (φ : Name → Nat) (ρ : Nat → V) {ps : List V} (hps 
         (by simp [hyl, hel, hps]; omega), consList_append] at hmem
     exact univ_mono (hbound hb) hmem
 
-omit [IndLibCompat V] hs m in
+omit [IndLib V] hs m in
 /-- No field reads an earlier recursive field. -/
 theorem noRecDepN : S.NoRecDep := fun c hc => (hok.scoped.2.2.2.1 c hc).2.1
 
@@ -772,4 +773,4 @@ theorem wd_rule1Type {c : CtorSpec} (hc : c ∈ N.K.ctors) (φ : Name → Nat) (
 
 end IndSpec
 
-end Fragment
+end Fragment.IndSpec.Nst

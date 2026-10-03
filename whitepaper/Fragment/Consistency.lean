@@ -31,7 +31,11 @@ open SetLib IndLib
 
 universe u
 
-variable (V : Type u) [IndLibCompat V] [LevelOracle]
+variable (V : Type u) [IndLib V] [LevelOracle]
+
+/-! The block model and the two installations that keep it live in the
+nested lane's frozen namespace for now (`NstPrelude.lean`). -/
+open IndSpec.Nst (BlockModel install_def' install_ind_any)
 
 /-- **The environments the checker accepts**: the empty environment,
 a definition the definition check passes, an inductive block the
@@ -46,7 +50,7 @@ inductive Accepted : Env → Prop
   /-- An inductive block, plain or nested (`IndOk`, `Decl.lean`). -/
   | ind {env : Env} (S : IndSpec) : Accepted env → IndOk env S → Accepted (S.install env)
 
-omit [IndLibCompat V] in
+omit [IndLib V] in
 /-- An accepted environment is closed: its stored terms mention only
 stored constants, at their own level parameters. -/
 theorem Accepted.scoped : ∀ {env : Env}, Accepted env → Env.Scoped env

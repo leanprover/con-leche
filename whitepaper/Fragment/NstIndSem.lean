@@ -1,6 +1,6 @@
 module
 
-public import Fragment.IndLibCompat
+public import Fragment.NstPrelude
 public import Fragment.IndCommon
 
 @[expose] public section
@@ -69,12 +69,13 @@ the single value of its graph (`GraphRecKit.exu`,
 one mechanism for every sort and regime.
 -/
 
-namespace Fragment
-open SetLib UnivLib IndLib IndLibCompat
+namespace Fragment.IndSpec.Nst
+open Fragment.NestInfo (nPK nK memberVar isMember Positive memberLevel)
+open SetLib UnivLib IndLib
 
 universe u
 
-variable {V : Type u} [IndLibCompat V]
+variable {V : Type u} [IndLib V]
 
 
 
@@ -467,7 +468,7 @@ theorem toTeleS_fits_length {ρ : Nat → V} :
   | [], _ :: _, h => h.elim
   | _ :: _, [], h => h.elim
 
-theorem _root_.Fragment.TeleS.pi_mono {F G : List V → V} :
+theorem _root_.Fragment.IndSpec.Nst.TeleS.pi_mono {F G : List V → V} :
     ∀ (T : TeleS V), (∀ ys, T.Fits ys → F ys ⊆ˢ G ys) → T.pi F ⊆ˢ T.pi G
   | .nil, h => h [] trivial
   | .cons A B, h => by
@@ -1068,4 +1069,4 @@ noncomputable def M₃ : Name → List Nat → V :=
 
 end IndSpec
 
-end Fragment
+end Fragment.IndSpec.Nst

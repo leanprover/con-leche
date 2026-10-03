@@ -18,7 +18,7 @@ accessible with a bound built along the telescopes, so it has a
 closed family in the universe.
 
 This file keeps the OLD telescopes of sets (`TeleS`, `TeleX`,
-`TeleX.FitsB`) under the namespace `Fragment.Nst`, for the NESTED lane
+`TeleX.FitsB`) under the namespace `Fragment.IndSpec.Nst`, for the NESTED lane
 of the fragment, which still consumes the old construction.  It is
 scaffolding: when the nested lane is ported onto the new operators it
 goes.
@@ -46,7 +46,7 @@ the re-typing lemma `mem_pi_of_appN`) — are accessibility
 (`op_acc`).
 -/
 
-namespace Fragment.Nst
+namespace Fragment.IndSpec.Nst
 open SetLib UnivLib IndLib
 
 universe u
@@ -684,4 +684,4 @@ theorem inductive_closure {V : Type u} [IndLib V] {ι : Type u} {n : Nat} (hn : 
   obtain ⟨L, hL, hcl⟩ := closed_of_acc hn (bndList_mem_univ hn cs) (op_maps hn cs) (op_acc cs)
   exact ⟨L, hL, fun j c fs hc hfs => hcl _ _ (mem_op.mpr ⟨j, c, fs, hc, hfs, rfl, rfl⟩)⟩
 
-end Fragment.Nst
+end Fragment.IndSpec.Nst

@@ -28,7 +28,8 @@ binders above `d` innermost ones reads as the environment with the
 arguments' values inserted there.
 -/
 
-namespace Fragment
+namespace Fragment.IndSpec.Nst
+open Fragment.NestInfo (nPK nK memberVar isMember Positive memberLevel)
 open SetLib IndLib
 
 universe u
@@ -107,7 +108,7 @@ end Envs
 
 namespace IndSpec
 
-variable {V : Type u} [IndLibCompat V]
+variable {V : Type u} [IndLib V]
 variable (S : IndSpec) (M : Name → List Nat → V) (ls : List Nat) (N : NestInfo)
 
 /-! ## The container's parameter environment at the instantiation -/
@@ -358,7 +359,7 @@ theorem ClassFits_iff (hf : S.NestFacts M ls N) (hlen : N.args.length + 1 = N.nP
 
 /-- The container's constructors are tagged from `0`. -/
 theorem KS_tagOf (j : Nat) : N.KS.tagOf j = j := by
-  simp [IndSpec.tagOf, IndSpec.nKS, NestInfo.KS, IndBase.spec]
+  simp [IndSpec.tagOf, IndSpec.nKS, NestInfo.KS, Fragment.NestInfo.KS, IndBase.spec]
 
 /-- Nothing is asked of the container's class bound: it has no
 container field. -/
@@ -459,4 +460,4 @@ end Corr
 
 end IndSpec
 
-end Fragment
+end Fragment.IndSpec.Nst

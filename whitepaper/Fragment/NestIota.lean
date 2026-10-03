@@ -56,12 +56,13 @@ the fields, and the law is not provable from its hypotheses —
 `rec_rule_law1` assumes `N.nPK ≤ S.nP`.
 -/
 
-namespace Fragment
+namespace Fragment.IndSpec.Nst
+open Fragment.NestInfo (nPK nK memberVar isMember Positive memberLevel)
 open SetLib IndLib
 
 universe u
 
-variable {V : Type u} [IndLibCompat V] [LevelOracle]
+variable {V : Type u} [IndLib V] [LevelOracle]
 
 omit [LevelOracle] in
 /-- A context lifted entry-wise by `liftN o` over `o` extras is
@@ -2608,7 +2609,7 @@ theorem ctor_appK (φ : Name → Nat) (ρ : Nat → V) {usj : List Level}
         show S.M₃N m.M N N.K.name ls' = N.KS.famSet m.M ls'
         rw [← agree_M₃N hok m.M _ hNS.1]; exact hK.2.2.2.2.1 ls'
       val := fun _ _ => rfl
-      good := fun _ h => by simp [NestInfo.KS, IndBase.spec] at h }
+      good := fun _ h => by simp [NestInfo.KS, Fragment.NestInfo.KS, IndBase.spec] at h }
   have hM₁ : N.KS.M₁ m.M = m.M := by
     funext n ls'
     simp only [M₁]
@@ -2620,7 +2621,7 @@ theorem ctor_appK (φ : Name → Nat) (ρ : Nat → V) {usj : List Level}
     { agree := by rw [hM₁]; exact fun _ _ _ => rfl
       fam := fun ls' => by simp [M₁]
       val := fun n hn => (ψ_map_agree N.KS _ n hn).symm
-      good := fun _ h => by simp [NestInfo.KS, IndBase.spec] at h }
+      good := fun _ h => by simp [NestInfo.KS, Fragment.NestInfo.KS, IndBase.spec] at h }
   have hps₂' : ps₂.length = N.KS.nP := hps₂
   unfold ctorType at hfit
   rw [← List.reverse_append, TeleFitV_mkPis _ _ _ (by
@@ -2974,4 +2975,4 @@ theorem rec_rule_law1N {j : Nat} {c : CtorSpec} (hc : N.K.ctors[j]? = some c) :
 
 end IndSpec
 
-end Fragment
+end Fragment.IndSpec.Nst

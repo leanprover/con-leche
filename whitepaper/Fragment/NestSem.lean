@@ -1,6 +1,6 @@
 module
 
-public import Fragment.IndSem
+public import Fragment.NstIndSem
 
 @[expose] public section
 
@@ -40,22 +40,23 @@ container instance grows along a relation as soon as the carrier
 does at the two key frames), `ContAcc.lean`.
 -/
 
-namespace Fragment
+namespace Fragment.IndSpec.Nst
+open Fragment.NestInfo (nPK nK memberVar isMember Positive memberLevel)
 open SetLib IndLib
 
 universe u
 
-variable {V : Type u} [IndLibCompat V]
+variable {V : Type u} [IndLib V]
 
 /-! ## Small list and environment facts -/
 
-omit [IndLibCompat V] in
+omit [IndLib V] in
 /-- The value at the seam of a pushed list `l₁ ++ x :: l₂` is `x`. -/
 theorem consList_append_cons_self (l₁ : List V) (x : V) (l₂ : List V) (ρ : Nat → V) :
     consList (l₁ ++ x :: l₂) ρ l₁.length = x := by
   rw [consList_append, ← Nat.zero_add l₁.length, consList_ge]; rfl
 
-omit [IndLibCompat V] in
+omit [IndLib V] in
 /-- Two pushed lists differing at one position read alike elsewhere. -/
 theorem consList_append_cons_ne {l₁ : List V} {x y : V} {l₂ : List V} {ρ : Nat → V} {i : Nat}
     (h : i ≠ l₁.length) : consList (l₁ ++ x :: l₂) ρ i = consList (l₁ ++ y :: l₂) ρ i := by
@@ -595,4 +596,4 @@ theorem contInBound_of (hf : S.NestFacts M ls N) (hN : S.nest = some N) {ps : Li
 
 end IndSpec
 
-end Fragment
+end Fragment.IndSpec.Nst

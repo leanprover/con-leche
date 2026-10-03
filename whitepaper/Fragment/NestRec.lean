@@ -1,6 +1,6 @@
 module
 
-public import Fragment.IndSem
+public import Fragment.NstIndSem
 
 @[expose] public section
 
@@ -36,12 +36,13 @@ Con-leche: the graph route of `Model/Inductives/BlockRecGraph.lean`,
 the class rows of `GenClsSem.lean`.
 -/
 
-namespace Fragment
+namespace Fragment.IndSpec.Nst
+open Fragment.NestInfo (nPK nK memberVar isMember Positive memberLevel)
 open SetLib IndLib
 
 universe u
 
-variable {V : Type u} [IndLibCompat V]
+variable {V : Type u} [IndLib V]
 
 /-- **The extras of the nested recursors' prefix**, as values: the
 block's motive, the class's motive, the block's minors and the class's
@@ -353,7 +354,7 @@ theorem idxVals_liftN (ps : List V) {fs : List V} {k : Nat} (hk : fs.length = k)
   simp only [Function.comp]
   rw [interp_liftN, shiftE_consList' hk]
 
-omit [IndLibCompat V] in
+omit [IndLib V] in
 theorem length_earlier {fs : List V} {k : Nat} (hk : k ≤ fs.length) : (earlier fs k).length = k := by
   simp only [earlier, List.length_drop]; omega
 
@@ -973,4 +974,4 @@ theorem motive_inhabitedN (hN : S.nest = some N) {ps : List V}
 
 end IndSpec
 
-end Fragment
+end Fragment.IndSpec.Nst

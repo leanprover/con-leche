@@ -1,6 +1,7 @@
 module
 
 public import Fragment.Consistency
+public import Fragment.Install
 public import Fragment.Access
 
 public section
@@ -67,59 +68,59 @@ info: 'Fragment.Red.iotaNested_sound' depends on axioms: [propext, Classical.cho
 #guard_msgs in #print axioms Fragment.Red.iotaNested_sound
 
 /--
-info: 'Fragment.IndSpec.contGood_of' depends on axioms: [propext, Classical.choice, Quot.sound]
+info: 'Fragment.IndSpec.Nst.IndSpec.contGood_of' depends on axioms: [propext, Classical.choice, Quot.sound]
 -/
-#guard_msgs in #print axioms Fragment.IndSpec.contGood_of
+#guard_msgs in #print axioms Fragment.IndSpec.Nst.IndSpec.contGood_of
 
 /--
-info: 'Fragment.IndSpec.contInBound_of' depends on axioms: [propext, Classical.choice, Quot.sound]
+info: 'Fragment.IndSpec.Nst.IndSpec.contInBound_of' depends on axioms: [propext, Classical.choice, Quot.sound]
 -/
-#guard_msgs in #print axioms Fragment.IndSpec.contInBound_of
+#guard_msgs in #print axioms Fragment.IndSpec.Nst.IndSpec.contInBound_of
 
 /--
-info: 'Fragment.IndSpec.classLaws_of' depends on axioms: [propext, Classical.choice, Quot.sound]
+info: 'Fragment.IndSpec.Nst.IndSpec.classLaws_of' depends on axioms: [propext, Classical.choice, Quot.sound]
 -/
-#guard_msgs in #print axioms Fragment.IndSpec.classLaws_of
+#guard_msgs in #print axioms Fragment.IndSpec.Nst.IndSpec.classLaws_of
 
 /--
-info: 'Fragment.IndSpec.RecGraphN_fun' depends on axioms: [propext, Classical.choice, Quot.sound]
+info: 'Fragment.IndSpec.Nst.IndSpec.RecGraphN_fun' depends on axioms: [propext, Classical.choice, Quot.sound]
 -/
-#guard_msgs in #print axioms Fragment.IndSpec.RecGraphN_fun
+#guard_msgs in #print axioms Fragment.IndSpec.Nst.IndSpec.RecGraphN_fun
 
 /--
-info: 'Fragment.IndSpec.RecGraphN_total' depends on axioms: [propext, Classical.choice, Quot.sound]
+info: 'Fragment.IndSpec.Nst.IndSpec.RecGraphN_total' depends on axioms: [propext, Classical.choice, Quot.sound]
 -/
-#guard_msgs in #print axioms Fragment.IndSpec.RecGraphN_total
+#guard_msgs in #print axioms Fragment.IndSpec.Nst.IndSpec.RecGraphN_total
 
 /--
-info: 'Fragment.IndSpec.recSemN_eq' depends on axioms: [propext, Classical.choice, Quot.sound]
+info: 'Fragment.IndSpec.Nst.IndSpec.recSemN_eq' depends on axioms: [propext, Classical.choice, Quot.sound]
 -/
-#guard_msgs in #print axioms Fragment.IndSpec.recSemN_eq
+#guard_msgs in #print axioms Fragment.IndSpec.Nst.IndSpec.recSemN_eq
 
 /--
-info: 'Fragment.IndSpec.rec1Sem_eq' depends on axioms: [propext, Classical.choice, Quot.sound]
+info: 'Fragment.IndSpec.Nst.IndSpec.rec1Sem_eq' depends on axioms: [propext, Classical.choice, Quot.sound]
 -/
-#guard_msgs in #print axioms Fragment.IndSpec.rec1Sem_eq
+#guard_msgs in #print axioms Fragment.IndSpec.Nst.IndSpec.rec1Sem_eq
 
 /--
-info: 'Fragment.IndSpec.rec_rule_lawN' depends on axioms: [propext, Classical.choice, Quot.sound]
+info: 'Fragment.IndSpec.Nst.IndSpec.rec_rule_lawN' depends on axioms: [propext, Classical.choice, Quot.sound]
 -/
-#guard_msgs in #print axioms Fragment.IndSpec.rec_rule_lawN
+#guard_msgs in #print axioms Fragment.IndSpec.Nst.IndSpec.rec_rule_lawN
 
 /--
-info: 'Fragment.IndSpec.rec_rule_law1N' depends on axioms: [propext, Classical.choice, Quot.sound]
+info: 'Fragment.IndSpec.Nst.IndSpec.rec_rule_law1N' depends on axioms: [propext, Classical.choice, Quot.sound]
 -/
-#guard_msgs in #print axioms Fragment.IndSpec.rec_rule_law1N
+#guard_msgs in #print axioms Fragment.IndSpec.Nst.IndSpec.rec_rule_law1N
 
 /--
-info: 'Fragment.install_nest' depends on axioms: [propext, Classical.choice, Quot.sound]
+info: 'Fragment.IndSpec.Nst.install_nest' depends on axioms: [propext, Classical.choice, Quot.sound]
 -/
-#guard_msgs in #print axioms Fragment.install_nest
+#guard_msgs in #print axioms Fragment.IndSpec.Nst.install_nest
 
 /--
-info: 'Fragment.install_ind_any' depends on axioms: [propext, Classical.choice, Quot.sound]
+info: 'Fragment.IndSpec.Nst.install_ind_any' depends on axioms: [propext, Classical.choice, Quot.sound]
 -/
-#guard_msgs in #print axioms Fragment.install_ind_any
+#guard_msgs in #print axioms Fragment.IndSpec.Nst.install_ind_any
 
 /--
 info: 'Fragment.AccIter.closed_of_acc' depends on axioms: [propext, Classical.choice, Quot.sound]

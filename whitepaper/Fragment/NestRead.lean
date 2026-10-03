@@ -1,7 +1,7 @@
 module
 
 public import Fragment.NestClass
-public import Fragment.InstallRead3
+public import Fragment.NstInstallRead3
 public import Fragment.InstallScope
 
 @[expose] public section
@@ -32,9 +32,10 @@ does not occur.
 -/
 
 namespace Fragment
-open SetLib IndLib
 
-universe u
+/-! The syntactic lemmas below are stated at the root, in the namespaces
+of their subjects (the frozen lane's namespace, `NstPrelude.lean`, does
+not sit under them). -/
 
 namespace Expr
 
@@ -363,6 +364,14 @@ theorem lparamsIn_instL {ps qs : List Name} {ls : List Level} (hl : ∀ l ∈ ls
 
 end Expr
 
+end Fragment
+
+namespace Fragment.IndSpec.Nst
+open Fragment.NestInfo (nPK nK memberVar isMember Positive memberLevel)
+open SetLib IndLib
+
+universe u
+
 /-! ## The translated constructors are in the block's scope -/
 
 namespace IndSpec
@@ -434,7 +443,7 @@ theorem classField_scoped (hS : S.Scoped env) (hN : S.nest = some N) (hKS : N.KS
   cases f with
   | ordinary A =>
     rcases hpf with rfl | ⟨hu, -⟩
-    · simp only [classField, NestInfo.isMember, beq_self_eq_true, if_true, fieldScoped]
+    · simp only [classField, NestInfo.isMember, beq_self_eq_true, if_true, Fragment.IndSpec.fieldScoped]
       refine ⟨fun _ _ hT => by simp at hT, by simpa using hNS.2.2.2.2.2.1, fun e he => ?_⟩
       obtain ⟨b, hb, rfl⟩ := List.mem_map.mp he
       have hb' := hNS.2.2.2.2.2.2.2.1 b hb
@@ -467,7 +476,7 @@ theorem classField_scoped (hS : S.Scoped env) (hN : S.nest = some N) (hKS : N.KS
       · -- level parameters
         refine Expr.lparamsIn_instChainAt _ _ _ ?_ (S.classArgs_lparamsIn' N hS hN 0)
         exact Expr.lparamsIn_instL hNS.2.2.2.1 hNS.2.2.1 hsc.2.2
-  | reflexive _ _ => simp [classField, fieldScoped, hN]
+  | reflexive _ _ => simp [classField, Fragment.IndSpec.fieldScoped, hN]
   | container => exact hpf.elim
 
 /-- **The translated constructor's fields are in the block's scope**,
@@ -487,7 +496,7 @@ theorem classCtor_fieldScoped (hS : S.Scoped env) (hN : S.nest = some N) (hKS : 
 
 section Sets
 
-variable {V : Type u} [IndLibCompat V] (M : Name → List Nat → V)
+variable {V : Type u} [IndLib V] (M : Name → List Nat → V)
 
 /-- **`T.rec`'s set** at its levels `lsr`: the abstraction over its
 context — the parameters, the two motives, both minor lists, the
@@ -533,7 +542,7 @@ read through the container's constructor's set. -/
 
 section Readings
 
-variable {V : Type u} [IndLibCompat V] {M : Name → List Nat → V} {φ : Name → Nat} {env : Env}
+variable {V : Type u} [IndLib V] {M : Name → List Nat → V} {φ : Name → Nat} {env : Env}
   {M' : Name → List Nat → V} {φ' : Name → Nat}
 
 /-! ### Small pieces -/
@@ -545,7 +554,7 @@ theorem getD_append_two {vs : List V} (a b : V) :
   · rw [List.getD_eq_getElem?_getD, List.getElem?_append_right (Nat.le_refl _), Nat.sub_self]; rfl
   · rw [List.getD_eq_getElem?_getD, List.getElem?_append_right (by omega), Nat.add_sub_cancel_left]; rfl
 
-omit [IndLibCompat V] in
+omit [IndLib V] in
 /-- A list splits at any length it has. -/
 theorem exists_split {l : List V} {a : Nat} (h : a ≤ l.length) :
     ∃ l₁ l₂, l = l₁ ++ l₂ ∧ l₁.length = a :=
@@ -1105,7 +1114,7 @@ theorem Reader.classCtorApp_eq (hS : S.Scoped env) (R : S.Reader (env := env) M 
     { agree := fun _ _ _ => rfl
       fam := fun ls' => hf.fam ls'
       val := fun _ _ => rfl
-      good := fun _ h => by simp [NestInfo.KS, IndBase.spec] at h }
+      good := fun _ h => by simp [NestInfo.KS, Fragment.NestInfo.KS, IndBase.spec] at h }
   have hscK : ∀ i f, c.fields[i]? = some f → N.KS.fieldScoped env (c.fields.length - 1 - i) f :=
     (hKS.2.2.2.1 c hcm).1
   have hidxK : ∀ k f, c.fields[c.fields.length - 1 - k]? = some f → k < c.fields.length →
@@ -1419,4 +1428,4 @@ end Readings
 
 end IndSpec
 
-end Fragment
+end Fragment.IndSpec.Nst
