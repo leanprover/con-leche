@@ -78,25 +78,6 @@ theorem mem_univ_of_mem_of_mem_univ {n k : Nat} {A x : V} (hn : n ≠ 0) (hk : k
     (hA : A ∈ˢ univ k) (hx : x ∈ˢ A) : x ∈ˢ (univ n : V) :=
   univ_trans hn (univ_mono hk hA) hx
 
-/-- The function space is monotone in its fibres. -/
-theorem piSet_mono {A : V} {B B' : V → V} (h : ∀ x, x ∈ˢ A → B x ⊆ˢ B' x) :
-    piSet A B ⊆ˢ piSet A B' := by
-  intro f hf
-  rw [← graph_app_eq hf]
-  exact graph_mem_piSet fun x hx => h x hx _ (app_mem_piSet hf hx)
-
-/-- The two-regime product is monotone in its fibres; at a proposition
-the larger fibres must be truth values. -/
-theorem piR_mono {p : Bool} {A : V} {B B' : V → V} (h : ∀ x, x ∈ˢ A → B x ⊆ˢ B' x)
-    (hB' : p = true → ∀ x, x ∈ˢ A → B' x ∈ˢ univ 0) :
-    piR p A B ⊆ˢ piR p A B' := by
-  cases p
-  · exact piSet_mono h
-  · intro f hf
-    obtain ⟨rfl, hi⟩ := mem_truthVal.mp hf
-    refine pt_mem_truthVal fun x hx => eq_one_of_mem_univ_zero (hB' rfl x hx) (h x hx pt ?_)
-    rw [hi x hx]; exact mem_one.mpr rfl
-
 end IndLib
 
 /-! ## Least fixed points of monotone operators on predicates

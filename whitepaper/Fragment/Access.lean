@@ -339,8 +339,11 @@ at most `A`-many occurrences, each either an occurrence in `X` (a
 leaf) or a member of the least fixed point whose support in `X` the
 induction hypothesis gives; the paths glue them (`pcons`).  The
 family's closedness at every parameter is `closed_of_acc` of the
-section.  Con-leche: `lfpP_acc`, `ConLeche/SetModel/Access.lean`
-("THE NESTED CASE: the least tuple is accessible in its parameter"),
+section — at a proposition the constant family `{pt}`
+(`closedFam_zero`), so the nested case holds in both regimes, and the
+bound need be a member of the universe only above a proposition.
+Con-leche (which states it above a proposition only): `lfpP_acc`,
+`ConLeche/SetModel/Access.lean` ("THE NESTED CASE: the least tuple is accessible in its parameter"),
 with the parameter and own components of a tuple here a sum type of
 indices. -/
 
@@ -416,14 +419,21 @@ the universe to families in the universe, then `X ↦ lfpP Θ X` is
 member's support is the paths through the operator's support — a leaf
 for an occurrence in `X`, the induction hypothesis' support below an
 occurrence in the least family — and every parameter holding it
-produces the member by the closedness of its least family.
-Con-leche: `lfpP_acc`. -/
-theorem lfpP_acc (hn : n ≠ 0) {Θ : (ι ⊕ κ → V) → κ → V} {A : V} (hA : A ∈ˢ (univ n : V))
+produces the member by the closedness of its least family.  The bound
+must be a member of the universe only above a proposition, where the
+section's closed family is `closed_of_acc`'s; at a proposition it is
+`{pt}` (`closedFam_zero`).  Con-leche: `lfpP_acc` (above a
+proposition). -/
+theorem lfpP_acc {Θ : (ι ⊕ κ → V) → κ → V} {A : V} (hA : n ≠ 0 → A ∈ˢ (univ n : V))
     (hmaps : ∀ X Y, InUniv n X → InUniv n Y → InUniv n (Θ (Sum.elim X Y)))
     (hacc : AccFam n Θ A) : AccFam n (lfpP n Θ) (accPaths A) := by
   -- the closed family and the monotonicity of every section
-  have hcl : ∀ X, InUniv n X → ∃ L, IsClosedFam n (fun Y => Θ (Sum.elim X Y)) L :=
-    fun X hX => closed_of_acc hn hA (fun Y hY => hmaps X Y hX hY) (hacc.section hX)
+  have hcl : ∀ X, InUniv n X → ∃ L, IsClosedFam n (fun Y => Θ (Sum.elim X Y)) L := by
+    intro X hX
+    by_cases hn : n = 0
+    · subst hn
+      exact closedFam_zero fun Y hY => hmaps X Y hX hY
+    · exact closed_of_acc hn (hA hn) (fun Y hY => hmaps X Y hX hY) (hacc.section hX)
   have hmono : ∀ X, InUniv n X → MonoFam n (fun Y => Θ (Sum.elim X Y)) :=
     fun X hX => (hacc.section hX).mono
   intro X hX

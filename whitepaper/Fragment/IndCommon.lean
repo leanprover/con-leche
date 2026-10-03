@@ -144,19 +144,6 @@ abbrev RecP (V : Type u) := List V → V → List V → List V → V → V → P
 
 /-- The environment of parameter values. -/
 def envP (ps : List V) : Nat → V := consList ps base
-/-- The product over a context is monotone in its body; at a
-proposition the larger body must be a truth value. -/
-theorem piCtx_sub (M : Name → List Nat → V) (φ : Name → Nat) {p : Bool} {ρ : Nat → V}
-    {Γ : List Expr} {F G : (Nat → V) → V}
-    (h : ∀ vs, FitsVals M φ ρ Γ vs → F (consList vs ρ) ⊆ˢ G (consList vs ρ))
-    (hG : p = true → ∀ vs, FitsVals M φ ρ Γ vs → G (consList vs ρ) ∈ˢ (univ 0 : V)) :
-    piCtx M φ p ρ Γ F ⊆ˢ piCtx M φ p ρ Γ G := by
-  induction Γ generalizing F G with
-  | nil => exact h [] trivial
-  | cons A Γ ih =>
-    simp only [piCtx_cons]
-    refine ih (fun vs hvs => piR_mono (fun x hx => h (x :: vs) ⟨hvs, hx⟩)
-      fun hp x hx => hG hp (x :: vs) ⟨hvs, hx⟩) fun hp _ _ => by subst hp; exact piR_true_mem_univ_zero
 
 namespace IndSpec
 
@@ -183,10 +170,10 @@ container's set — **already in the model**, assigned to `K` when `K`
 was installed — applied to the class's arguments, with a set `X` at
 the nested position.  In the family's operator `X` is the fibre of
 the *approximant* at the nested occurrence's index expressions (`IndSem.lean`,
-`fieldSet`), and the operator is monotone and accessible because the
-class is, in `X` (`ContClause`, which the installation establishes
-from the container's positivity and the leastness of its fixed
-point, `NestSem.lean`). -/
+`fieldSet`), and the operator is accessible (hence monotone) because
+the class is, in `X` (`ContClause`, which the installation establishes
+from the container's positivity and the nested case of accessibility,
+`NestSem.lean`). -/
 
 /-- The class's arguments as values (outermost first), with `X` at
 the nested position: the other arguments read under the parameters

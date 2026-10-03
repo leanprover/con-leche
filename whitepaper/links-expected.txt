@@ -2997,133 +2997,100 @@
     99  from the meta-logic (`Classical.choice`); see the module docstring. -/
    100  class SetTheory (V : Type u) where
 
-== whitepaper/Fragment/IndSem.lean#L274-L294
-   274  /-- **The set a field ranges over**, relative to a family `W` (index
-   275  values to sets), at parameters `ps` and the earlier field values `fs`
-   276  (innermost first): an ordinary field's domain; for a reflexive field
-   277  the product over its telescope into the fibres of `W` at the field's
-   278  index expressions read under the telescope's values — the fibre
-   279  itself when the telescope is empty; for a container field the class
-   280  at the fibre of `W` at the nested occurrence's index expressions
-   281  (`classSet`: the container's family, read at the class's arguments
-   282  with that fibre in the nested position; a plain block has no
-   283  container field, and the clause is empty).  Con-leche: a field's
-   284  reading with holes, `LfpDatum.fields`, read at the hole frame of the
-   285  tuple (`HFits`, `BlockLfp.lean`); the container clause `contApp`
-   286  through the container's lfp clause (`BlockLfpMono.lean`). -/
-   287  def fieldSet (W : List V → V) (ps fs : List V) : Field → V
-   288    | .ordinary A => interp M (S.ψ ls) (consList fs (envP ps)) A
-   289    | .reflexive tele es =>
-   290      piCtx M (S.ψ ls) (S.z ls) (consList fs (envP ps)) tele fun ρ' => W (S.idxVals M ls ρ' es)
-   291    | .container =>
-   292      match S.nest with
-   293      | some N => S.classSet M ls N ps (W (S.memberIdx M ls N ps))
-   294      | none => empty
+== whitepaper/Fragment/IndSem.lean#L278-L298
+   278  /-- **The set a field ranges over**, relative to a family `W` (index
+   279  values to sets), at parameters `ps` and the earlier field values `fs`
+   280  (innermost first): an ordinary field's domain; for a reflexive field
+   281  the product over its telescope into the fibres of `W` at the field's
+   282  index expressions read under the telescope's values — the fibre
+   283  itself when the telescope is empty; for a container field the class
+   284  at the fibre of `W` at the nested occurrence's index expressions
+   285  (`classSet`: the container's family, read at the class's arguments
+   286  with that fibre in the nested position; a plain block has no
+   287  container field, and the clause is empty).  Con-leche: a field's
+   288  reading with holes, `LfpDatum.fields`, read at the hole frame of the
+   289  tuple (`HFits`, `BlockLfp.lean`); the container clause `contApp`
+   290  through the container's lfp clause (`BlockLfpMono.lean`). -/
+   291  def fieldSet (W : List V → V) (ps fs : List V) : Field → V
+   292    | .ordinary A => interp M (S.ψ ls) (consList fs (envP ps)) A
+   293    | .reflexive tele es =>
+   294      piCtx M (S.ψ ls) (S.z ls) (consList fs (envP ps)) tele fun ρ' => W (S.idxVals M ls ρ' es)
+   295    | .container =>
+   296      match S.nest with
+   297      | some N => S.classSet M ls N ps (W (S.memberIdx M ls N ps))
+   298      | none => empty
 
-== whitepaper/Fragment/IndSem.lean#L306-L311
-   306  /-- **Field values fitting a constructor's fields** (both innermost
-   307  first) relative to a family: each value a member of its field's set
-   308  at the earlier values.  Con-leche: `SpineFit` at the hole frame. -/
-   309  def FitsFields (W : List V → V) (ps : List V) : List Field → List V → Prop
-   310    | [], [] => True
-   311    | f :: fs, v :: vs => FitsFields W ps fs vs ∧ v ∈ˢ S.fieldSet M ls W ps vs f
+== whitepaper/Fragment/IndSem.lean#L310-L315
+   310  /-- **Field values fitting a constructor's fields** (both innermost
+   311  first) relative to a family: each value a member of its field's set
+   312  at the earlier values.  Con-leche: `SpineFit` at the hole frame. -/
+   313  def FitsFields (W : List V → V) (ps : List V) : List Field → List V → Prop
+   314    | [], [] => True
+   315    | f :: fs, v :: vs => FitsFields W ps fs vs ∧ v ∈ˢ S.fieldSet M ls W ps vs f
 
-== whitepaper/Fragment/IndSem.lean#L484-L533
-   484  /-- **The fitting lists of a field list, as a set of tuples**:
-   485  replacement and union along the fields (innermost first).
-   486  Con-leche builds the fibre the same way, by replacement over the
-   487  spines (`BlockLfp.lean`, `fibre`). -/
-   488  noncomputable def fitsSet (W : List V → V) (ps : List V) : List Field → V
-   489    | [] => sing (tuple [])
-   490    | f :: fs => famUnion (fitsSet W ps fs) fun t =>
-   491        famUnion (S.fieldSet M ls W ps (untuple t) f) fun v => sing (tuple (v :: untuple t))
-   492  
-   493  theorem mem_fitsSet {W : List V → V} {ps : List V} :
-   494      ∀ {fields : List Field} {x : V},
-   495        x ∈ˢ S.fitsSet M ls W ps fields ↔ ∃ fs, S.FitsFields M ls W ps fields fs ∧ x = tuple fs
-   496    | [], x => by
-   497      simp only [fitsSet, mem_sing]
-   498      constructor
-   499      · rintro rfl; exact ⟨[], trivial, rfl⟩
-   500      · rintro ⟨fs, hfs, rfl⟩
-   501        cases fs with
-   502        | nil => rfl
-   503        | cons _ _ => exact hfs.elim
-   504    | f :: fields, x => by
-   505      simp only [fitsSet, mem_famUnion, mem_sing]
-   506      constructor
-   507      · rintro ⟨t, ht, v, hv, rfl⟩
-   508        obtain ⟨fs, hfs, rfl⟩ := mem_fitsSet.mp ht
-   509        rw [untuple_tuple] at hv ⊢
-   510        exact ⟨v :: fs, ⟨hfs, hv⟩, rfl⟩
-   511      · rintro ⟨fs, hfs, rfl⟩
-   512        cases fs with
-   513        | nil => exact hfs.elim
-   514        | cons v fs =>
-   515          refine ⟨tuple fs, mem_fitsSet.mpr ⟨fs, hfs.1, rfl⟩, v, ?_, ?_⟩
-   516          · rw [untuple_tuple]; exact hfs.2
-   517          · rw [untuple_tuple]
-   518  
-   519  /-- **The fibre of constructor `j`** at the family `W` and the index
-   520  values `is`: the constructor values of the fitting lists whose index
-   521  expressions read as `is`. -/
-   522  noncomputable def ctorFibre (W : List V → V) (ps is : List V) (j : Nat) (c : CtorSpec) : V :=
-   523    open Classical in
-   524    image (fun t => S.ctorVal ls j (untuple t))
-   525      (sep (S.fitsSet M ls W ps c.fields) fun t =>
-   526        is = S.idxVals M ls (consList (untuple t) (envP ps)) c.idx)
+== whitepaper/Fragment/IndSem.lean#L493-L542
+   493  /-- **The fitting lists of a field list, as a set of tuples**:
+   494  replacement and union along the fields (innermost first).
+   495  Con-leche builds the fibre the same way, by replacement over the
+   496  spines (`BlockLfp.lean`, `fibre`). -/
+   497  noncomputable def fitsSet (W : List V → V) (ps : List V) : List Field → V
+   498    | [] => sing (tuple [])
+   499    | f :: fs => famUnion (fitsSet W ps fs) fun t =>
+   500        famUnion (S.fieldSet M ls W ps (untuple t) f) fun v => sing (tuple (v :: untuple t))
+   501  
+   502  theorem mem_fitsSet {W : List V → V} {ps : List V} :
+   503      ∀ {fields : List Field} {x : V},
+   504        x ∈ˢ S.fitsSet M ls W ps fields ↔ ∃ fs, S.FitsFields M ls W ps fields fs ∧ x = tuple fs
+   505    | [], x => by
+   506      simp only [fitsSet, mem_sing]
+   507      constructor
+   508      · rintro rfl; exact ⟨[], trivial, rfl⟩
+   509      · rintro ⟨fs, hfs, rfl⟩
+   510        cases fs with
+   511        | nil => rfl
+   512        | cons _ _ => exact hfs.elim
+   513    | f :: fields, x => by
+   514      simp only [fitsSet, mem_famUnion, mem_sing]
+   515      constructor
+   516      · rintro ⟨t, ht, v, hv, rfl⟩
+   517        obtain ⟨fs, hfs, rfl⟩ := mem_fitsSet.mp ht
+   518        rw [untuple_tuple] at hv ⊢
+   519        exact ⟨v :: fs, ⟨hfs, hv⟩, rfl⟩
+   520      · rintro ⟨fs, hfs, rfl⟩
+   521        cases fs with
+   522        | nil => exact hfs.elim
+   523        | cons v fs =>
+   524          refine ⟨tuple fs, mem_fitsSet.mpr ⟨fs, hfs.1, rfl⟩, v, ?_, ?_⟩
+   525          · rw [untuple_tuple]; exact hfs.2
+   526          · rw [untuple_tuple]
    527  
-   528  /-- **The block's operator** on families: the fibre at `is` is the
-   529  union over the constructors of their fibres.  Con-leche: the hole
-   530  operator `holeOp` (`BlockDatum.lean`), the operator of
-   531  `LfpClause.functor`. -/
-   532  noncomputable def famOp (ps : List V) (W : List V → V) (is : List V) : V :=
-   533    listUnion ((List.range S.n).map fun j => S.ctorFibre M ls W ps is j (S.ctors.getD j ⟨"", [], []⟩))
+   528  /-- **The fibre of constructor `j`** at the family `W` and the index
+   529  values `is`: the constructor values of the fitting lists whose index
+   530  expressions read as `is`. -/
+   531  noncomputable def ctorFibre (W : List V → V) (ps is : List V) (j : Nat) (c : CtorSpec) : V :=
+   532    open Classical in
+   533    image (fun t => S.ctorVal ls j (untuple t))
+   534      (sep (S.fitsSet M ls W ps c.fields) fun t =>
+   535        is = S.idxVals M ls (consList (untuple t) (envP ps)) c.idx)
+   536  
+   537  /-- **The block's operator** on families: the fibre at `is` is the
+   538  union over the constructors of their fibres.  Con-leche: the hole
+   539  operator `holeOp` (`BlockDatum.lean`), the operator of
+   540  `LfpClause.functor`. -/
+   541  noncomputable def famOp (ps : List V) (W : List V → V) (is : List V) : V :=
+   542    listUnion ((List.range S.n).map fun j => S.ctorFibre M ls W ps is j (S.ctors.getD j ⟨"", [], []⟩))
 
-== whitepaper/Fragment/IndSem.lean#L544-L548
-   544  /-- **What the operator is**: the members of its fibre at `is` are the
-   545  constructor instances over the input family at `is`.  Con-leche:
-   546  `LfpClause.fibre`. -/
-   547  theorem mem_famOp {ps : List V} {W : List V → V} {is : List V} {x : V} :
-   548      x ∈ˢ S.famOp M ls ps W is ↔ S.Inst M ls W ps is x := by
+== whitepaper/Fragment/IndSem.lean#L553-L557
+   553  /-- **What the operator is**: the members of its fibre at `is` are the
+   554  constructor instances over the input family at `is`.  Con-leche:
+   555  `LfpClause.fibre`. -/
+   556  theorem mem_famOp {ps : List V} {W : List V → V} {is : List V} {x : V} :
+   557      x ∈ˢ S.famOp M ls ps W is ↔ S.Inst M ls W ps is x := by
 
-== whitepaper/Fragment/IndCommon.lean#L225-L227
-   225  /-- **A constructor's value** at its fields: the point at a
-   226  proposition, the tagged tuple above. -/
-   227  def ctorVal (j : Nat) (fs : List V) : V := if S.z ls then pt else tag (S.tagOf j) (tuple fs.reverse)
-
-== whitepaper/Fragment/IndLib.lean#L81-L86
-    81  /-- The function space is monotone in its fibres. -/
-    82  theorem piSet_mono {A : V} {B B' : V → V} (h : ∀ x, x ∈ˢ A → B x ⊆ˢ B' x) :
-    83      piSet A B ⊆ˢ piSet A B' := by
-    84    intro f hf
-    85    rw [← graph_app_eq hf]
-    86    exact graph_mem_piSet fun x hx => h x hx _ (app_mem_piSet hf hx)
-
-== whitepaper/Fragment/IndSem.lean#L596-L609
-   596  /-- **A field's set grows with the family.** -/
-   597  theorem fieldSet_mono {ps : List V} (hc : S.ContOk M ls ps) {W W' : List V → V}
-   598      (hW : InUniv (S.u₀ ls) W) (hW' : InUniv (S.u₀ ls) W') (hle : FamLe W W') (fs : List V) :
-   599      ∀ f : Field, S.fieldSet M ls W ps fs f ⊆ˢ S.fieldSet M ls W' ps fs f
-   600    | .ordinary _ => Sub.refl _
-   601    | .reflexive tele es => by
-   602      simp only [fieldSet]
-   603      exact piCtx_sub M _ (fun _ _ => hle _) fun hz _ _ => S.fibre_mem_univ_zero ls hW' hz _
-   604    | .container => by
-   605      cases hN : S.nest with
-   606      | none => rw [S.fieldSet_container_none M ls hN]; exact empty_sub _
-   607      | some N =>
-   608        rw [S.fieldSet_container M ls hN, S.fieldSet_container M ls hN]
-   609        exact (hc N hN).mono _ _ (hle _) (hW _) (hW' _)
-
-== whitepaper/Fragment/IndSem.lean#L622-L628
-   622  /-- **The operator is monotone**, on families in the result universe,
-   623  under the container's clause.  Con-leche: `LfpClause.functor`'s first
-   624  conjunct, from `fitsMono`. -/
-   625  theorem famOp_mono {ps : List V} (hc : S.ContOk M ls ps) : MonoFam (S.u₀ ls) (S.famOp M ls ps) := by
-   626    intro W W' hW hW' hle is x hx
-   627    obtain ⟨j, c, fs, hc', hfs, his, rfl⟩ := (S.mem_famOp M ls).mp hx
-   628    exact (S.mem_famOp M ls).mpr ⟨j, c, fs, hc', S.FitsFields_mono M ls hc hW hW' hle hfs, his, rfl⟩
+== whitepaper/Fragment/IndCommon.lean#L212-L214
+   212  /-- **A constructor's value** at its fields: the point at a
+   213  proposition, the tagged tuple above. -/
+   214  def ctorVal (j : Nat) (fs : List V) : V := if S.z ls then pt else tag (S.tagOf j) (tuple fs.reverse)
 
 == whitepaper/Fragment/Access.lean#L68-L78
     68  /-- **Accessibility with the bound `A`** of an operator from families
@@ -3146,146 +3113,154 @@
     84    obtain ⟨B, g, -, hg, hs⟩ := h W hW i x hx
     85    exact hs W' hW' fun a ha => hle _ _ (hg a ha)
 
-== whitepaper/Fragment/IndSem.lean#L1050-L1075
-  1050  /-- The codes of an instance's support, given the container values'
-  1051  own supports `Bk` (by position). -/
-  1052  noncomputable def instSupp (ps : List V) (c : CtorSpec) (fs : List V) (Bk : Nat → V) : V :=
-  1053    listUnion ((List.range c.fields.length).map fun k =>
-  1054      match c.fields[c.fields.length - 1 - k]? with
-  1055      | some (.reflexive tele _) =>
-  1056        image (pcons (nat k)) (ctxSet M (S.ψ ls) (consList (earlier fs k) (envP ps)) tele)
-  1057      | some .container => image (pcons (nat k)) (Bk k)
-  1058      | _ => empty)
-  1059  
-  1060  /-- The occurrence a code stands for: at a reflexive field, the field
-  1061  at the code's position applied to the code's argument tuple, at the
-  1062  field's index expressions there; at a container field, the container
-  1063  value's own occurrence `gk` at the code, at the nested occurrence's
-  1064  index expressions. -/
-  1065  noncomputable def instOcc (ps : List V) (c : CtorSpec) (fs : List V) (gk : Nat → V → V) (b : V) :
-  1066      List V × V :=
-  1067    match c.fields[c.fields.length - 1 - idx (pfst b)]? with
-  1068    | some (.reflexive _ es) =>
-  1069      (S.idxVals M ls (consList (untuple (psnd b)) (consList (earlier fs (idx (pfst b))) (envP ps))) es,
-  1070        appList (fieldVal fs (idx (pfst b))) (untuple (psnd b)).reverse)
-  1071    | some .container =>
-  1072      match S.nest with
-  1073      | some N => (S.memberIdx M ls N ps, gk (idx (pfst b)) (psnd b))
-  1074      | none => ([], pt)
-  1075    | _ => ([], pt)
+== whitepaper/Fragment/IndSem.lean#L1012-L1037
+  1012  /-- The codes of an instance's support, given the container values'
+  1013  own supports `Bk` (by position). -/
+  1014  noncomputable def instSupp (ps : List V) (c : CtorSpec) (fs : List V) (Bk : Nat → V) : V :=
+  1015    listUnion ((List.range c.fields.length).map fun k =>
+  1016      match c.fields[c.fields.length - 1 - k]? with
+  1017      | some (.reflexive tele _) =>
+  1018        image (pcons (nat k)) (ctxSet M (S.ψ ls) (consList (earlier fs k) (envP ps)) tele)
+  1019      | some .container => image (pcons (nat k)) (Bk k)
+  1020      | _ => empty)
+  1021  
+  1022  /-- The occurrence a code stands for: at a reflexive field, the field
+  1023  at the code's position applied to the code's argument tuple, at the
+  1024  field's index expressions there; at a container field, the container
+  1025  value's own occurrence `gk` at the code, at the nested occurrence's
+  1026  index expressions. -/
+  1027  noncomputable def instOcc (ps : List V) (c : CtorSpec) (fs : List V) (gk : Nat → V → V) (b : V) :
+  1028      List V × V :=
+  1029    match c.fields[c.fields.length - 1 - idx (pfst b)]? with
+  1030    | some (.reflexive _ es) =>
+  1031      (S.idxVals M ls (consList (untuple (psnd b)) (consList (earlier fs (idx (pfst b))) (envP ps))) es,
+  1032        appList (fieldVal fs (idx (pfst b))) (untuple (psnd b)).reverse)
+  1033    | some .container =>
+  1034      match S.nest with
+  1035      | some N => (S.memberIdx M ls N ps, gk (idx (pfst b)) (psnd b))
+  1036      | none => ([], pt)
+  1037    | _ => ([], pt)
 
-== whitepaper/Fragment/IndSem.lean#L1130-L1143
-  1130  /-- **A fitting list fits every family holding its support** — the
-  1131  re-typing of each reflexive field's value, and the container's clause
-  1132  at each container value. -/
-  1133  theorem FitsFields_retype {ps : List V} (hco : S.ContOk M ls ps) {W W' : List V → V}
-  1134      (hW' : InUniv (S.u₀ ls) W') :
-  1135      ∀ {fields : List Field} {fs : List V}, S.FitsFields M ls W ps fields fs →
-  1136        (∀ k tele es, fields[fields.length - 1 - k]? = some (.reflexive tele es) → k < fields.length →
-  1137          ∀ ys, FitsVals M (S.ψ ls) (consList (earlier fs k) (envP ps)) tele ys →
-  1138            appList (fieldVal fs k) ys.reverse ∈ˢ
-  1139              W' (S.idxVals M ls (consList ys (consList (earlier fs k) (envP ps))) es)) →
-  1140        (∀ k, fields[fields.length - 1 - k]? = some .container → k < fields.length →
-  1141          ∀ N, S.nest = some N →
-  1142            fieldVal fs k ∈ˢ S.classSet M ls N ps (W' (S.memberIdx M ls N ps))) →
-  1143        S.FitsFields M ls W' ps fields fs
+== whitepaper/Fragment/IndSem.lean#L1092-L1105
+  1092  /-- **A fitting list fits every family holding its support** — the
+  1093  re-typing of each reflexive field's value, and the container's clause
+  1094  at each container value. -/
+  1095  theorem FitsFields_retype {ps : List V} (hco : S.ContOk M ls ps) {W W' : List V → V}
+  1096      (hW' : InUniv (S.u₀ ls) W') :
+  1097      ∀ {fields : List Field} {fs : List V}, S.FitsFields M ls W ps fields fs →
+  1098        (∀ k tele es, fields[fields.length - 1 - k]? = some (.reflexive tele es) → k < fields.length →
+  1099          ∀ ys, FitsVals M (S.ψ ls) (consList (earlier fs k) (envP ps)) tele ys →
+  1100            appList (fieldVal fs k) ys.reverse ∈ˢ
+  1101              W' (S.idxVals M ls (consList ys (consList (earlier fs k) (envP ps))) es)) →
+  1102        (∀ k, fields[fields.length - 1 - k]? = some .container → k < fields.length →
+  1103          ∀ N, S.nest = some N →
+  1104            fieldVal fs k ∈ˢ S.classSet M ls N ps (W' (S.memberIdx M ls N ps))) →
+  1105        S.FitsFields M ls W' ps fields fs
 
-== whitepaper/Fragment/IndSem.lean#L973-L995
-   973  /-- **A constructor's support bound**: for each reflexive field, the
-   974  tuples of its telescope at every list fitting the fields before it
-   975  relative to the one-fibre family, each coded by the field's position
-   976  (a numeral in a path step, `pcons`); for each container field, the
-   977  class's bound, coded likewise.  An ordinary field contributes
-   978  nothing; a recursive field, whose telescope is empty, contributes the
-   979  one tuple `tuple []` per prefix.  Con-leche: `piBound` glued along the
-   980  telescope (`HoleAcc.lean`), made uniform along the fields
-   981  (`TeleAcc.lean`); the container's bound `accPaths` of
-   982  `ContAccFrame.lean`. -/
-   983  noncomputable def ctorBound (ps : List V) (c : CtorSpec) : V :=
-   984    listUnion ((List.range c.fields.length).map fun k =>
-   985      match c.fields[c.fields.length - 1 - k]? with
-   986      | some (.reflexive tele _) =>
-   987        famUnion (S.fitsSet M ls oneFam ps (c.fields.drop (c.fields.length - k))) fun t =>
-   988          image (pcons (nat k)) (ctxSet M (S.ψ ls) (consList (untuple t) (envP ps)) tele)
-   989      | some .container => image (pcons (nat k)) S.classBound
-   990      | _ => empty)
-   991  
-   992  /-- **The bound**: the union of the constructors' support bounds.
-   993  Con-leche: the block's accessibility bound of `blockAcc_of_run`. -/
-   994  noncomputable def bound (ps : List V) : V :=
-   995    listUnion ((List.range S.n).map fun j => S.ctorBound M ls ps (S.ctors.getD j ⟨"", [], []⟩))
+== whitepaper/Fragment/IndSem.lean#L935-L957
+   935  /-- **A constructor's support bound**: for each reflexive field, the
+   936  tuples of its telescope at every list fitting the fields before it
+   937  relative to the one-fibre family, each coded by the field's position
+   938  (a numeral in a path step, `pcons`); for each container field, the
+   939  class's bound, coded likewise.  An ordinary field contributes
+   940  nothing; a recursive field, whose telescope is empty, contributes the
+   941  one tuple `tuple []` per prefix.  Con-leche: `piBound` glued along the
+   942  telescope (`HoleAcc.lean`), made uniform along the fields
+   943  (`TeleAcc.lean`); the container's bound `accPaths` of
+   944  `ContAccFrame.lean`. -/
+   945  noncomputable def ctorBound (ps : List V) (c : CtorSpec) : V :=
+   946    listUnion ((List.range c.fields.length).map fun k =>
+   947      match c.fields[c.fields.length - 1 - k]? with
+   948      | some (.reflexive tele _) =>
+   949        famUnion (S.fitsSet M ls oneFam ps (c.fields.drop (c.fields.length - k))) fun t =>
+   950          image (pcons (nat k)) (ctxSet M (S.ψ ls) (consList (untuple t) (envP ps)) tele)
+   951      | some .container => image (pcons (nat k)) S.classBound
+   952      | _ => empty)
+   953  
+   954  /-- **The bound**: the union of the constructors' support bounds.
+   955  Con-leche: the block's accessibility bound of `blockAcc_of_run`. -/
+   956  noncomputable def bound (ps : List V) : V :=
+   957    listUnion ((List.range S.n).map fun j => S.ctorBound M ls ps (S.ctors.getD j ⟨"", [], []⟩))
 
-== whitepaper/Fragment/IndSem.lean#L845-L855
-   845  /-- An instance's values with every recursive value replaced by the
-   846  one-fibre family's canonical member of its field's set, and every
-   847  container value by its stand-in. -/
-   848  noncomputable def toOne (ps : List V) : List Field → List V → List V
-   849    | f :: fields, v :: vs =>
-   850      (match f with
-   851        | .reflexive tele _ =>
-   852          lamCtx M (S.ψ ls) (S.z ls) (consList (toOne ps fields vs) (envP ps)) tele fun _ => pt
-   853        | .container => S.contOne M ls ps
-   854        | _ => v) :: toOne ps fields vs
-   855    | _, vs => vs
+== whitepaper/Fragment/IndSem.lean#L807-L817
+   807  /-- An instance's values with every recursive value replaced by the
+   808  one-fibre family's canonical member of its field's set, and every
+   809  container value by its stand-in. -/
+   810  noncomputable def toOne (ps : List V) : List Field → List V → List V
+   811    | f :: fields, v :: vs =>
+   812      (match f with
+   813        | .reflexive tele _ =>
+   814          lamCtx M (S.ψ ls) (S.z ls) (consList (toOne ps fields vs) (envP ps)) tele fun _ => pt
+   815        | .container => S.contOne M ls ps
+   816        | _ => v) :: toOne ps fields vs
+   817    | _, vs => vs
 
-== whitepaper/Fragment/IndSem.lean#L959-L964
-   959  /-- A reflexive field's telescope has the same tuples at the values
-   960  and at the replaced values. -/
-   961  theorem ctxSet_toOne (ps : List V) {L : List Field} {tele es : List Expr} {fs : List V}
-   962      (hnr : fieldNoRecDep L (.reflexive tele es)) :
-   963      ctxSet M (S.ψ ls) (consList fs (envP ps)) tele
-   964        = ctxSet M (S.ψ ls) (consList (S.toOne M ls ps L fs) (envP ps)) tele := by
+== whitepaper/Fragment/IndSem.lean#L921-L926
+   921  /-- A reflexive field's telescope has the same tuples at the values
+   922  and at the replaced values. -/
+   923  theorem ctxSet_toOne (ps : List V) {L : List Field} {tele es : List Expr} {fs : List V}
+   924      (hnr : fieldNoRecDep L (.reflexive tele es)) :
+   925      ctxSet M (S.ψ ls) (consList fs (envP ps)) tele
+   926        = ctxSet M (S.ψ ls) (consList (S.toOne M ls ps L fs) (envP ps)) tele := by
 
-== whitepaper/Fragment/IndSem.lean#L1193-L1200
-  1193  /-- **The operator is accessible with the bound** — by positivity:
-  1194  every constructor value's support is coded inside the bound, lies in
-  1195  the input family, and carries the value to every family of the
-  1196  universe holding it; at a container field by the container's clause.
-  1197  Con-leche: `blockAcc_of_run`, the `AccTuple` `closed_of_acc`
-  1198  consumes. -/
-  1199  theorem famOp_acc {ps : List V} (hnr : S.NoRecDep) (hco : S.ContOk M ls ps) :
-  1200      AccFam (S.u₀ ls) (S.famOp M ls ps) (S.bound M ls ps) := by
+== whitepaper/Fragment/IndSem.lean#L1155-L1162
+  1155  /-- **The operator is accessible with the bound** — by positivity:
+  1156  every constructor value's support is coded inside the bound, lies in
+  1157  the input family, and carries the value to every family of the
+  1158  universe holding it; at a container field by the container's clause.
+  1159  Con-leche: `blockAcc_of_run`, the `AccTuple` `closed_of_acc`
+  1160  consumes. -/
+  1161  theorem famOp_acc {ps : List V} (hnr : S.NoRecDep) (hco : S.ContOk M ls ps) :
+  1162      AccFam (S.u₀ ls) (S.famOp M ls ps) (S.bound M ls ps) := by
 
-== whitepaper/Fragment/IndSem.lean#L632-L653
-   632  /-- **The universe bound on the fields, at every family in the
-   633  universe**: above a proposition, along any list fitting the fields
-   634  before a position relative to a family of members of the result
-   635  universe, an ordinary field's domain is a member of the result
-   636  universe, and so is every entry of a reflexive field's telescope at
-   637  every fitting prefix of the telescope.  Con-leche: the constructors'
-   638  fields are small at every hole frame of the tuple space
-   639  (`LfpClause.fieldsOk`, `ConLeche/Model/Annot/BlockLfp.lean`, the
-   640  install's `FieldsOkB`); the installation derives it from the checker's
-   641  field-sort check read in a model in which the former denotes an
-   642  arbitrary family of the universe (`domsBounded_of`,
-   643  `InstallInd.lean`). -/
-   644  def DomsBounded (ps : List V) : Prop :=
-   645    S.z ls = false → ∀ W, InUniv (S.u₀ ls) W → ∀ c ∈ S.ctors, ∀ k f,
-   646      c.fields[c.fields.length - 1 - k]? = some f → k < c.fields.length →
-   647      ∀ fs, S.FitsFields M ls W ps (c.fields.drop (c.fields.length - k)) fs →
-   648        match f with
-   649        | .ordinary A => interp M (S.ψ ls) (consList fs (envP ps)) A ∈ˢ (univ (S.u₀ ls) : V)
-   650        | .reflexive tele _ => ∀ t T, tele[t]? = some T → ∀ ys,
-   651            FitsVals M (S.ψ ls) (consList fs (envP ps)) (tele.drop (t + 1)) ys →
-   652            interp M (S.ψ ls) (consList ys (consList fs (envP ps))) T ∈ˢ (univ (S.u₀ ls) : V)
-   653        | .container => True
+== whitepaper/Fragment/IndSem.lean#L1268-L1273
+  1268  /-- **The operator is monotone** on families in the result universe:
+  1269  accessibility's support carries over (`AccFam.mono`).  Con-leche:
+  1270  `LfpClause.functor`'s first conjunct; `AccTuple.monoTuple`. -/
+  1271  theorem famOp_mono {ps : List V} (hnr : S.NoRecDep) (hco : S.ContOk M ls ps) :
+  1272      MonoFam (S.u₀ ls) (S.famOp M ls ps) :=
+  1273    (S.famOp_acc M ls hnr hco).mono
 
-== whitepaper/Fragment/IndSem.lean#L997-L1001
-   997  /-- **The bound is a member of the result universe** (above a
-   998  proposition), by the universe bound on the fields at the one-fibre
-   999  family. -/
-  1000  theorem bound_mem_univ {ps : List V} (hz : S.z ls = false) (hb : S.DomsBounded M ls ps)
-  1001      (hco : S.ContOk M ls ps) : S.bound M ls ps ∈ˢ (univ (S.u₀ ls) : V) := by
+== whitepaper/Fragment/IndSem.lean#L594-L615
+   594  /-- **The universe bound on the fields, at every family in the
+   595  universe**: above a proposition, along any list fitting the fields
+   596  before a position relative to a family of members of the result
+   597  universe, an ordinary field's domain is a member of the result
+   598  universe, and so is every entry of a reflexive field's telescope at
+   599  every fitting prefix of the telescope.  Con-leche: the constructors'
+   600  fields are small at every hole frame of the tuple space
+   601  (`LfpClause.fieldsOk`, `ConLeche/Model/Annot/BlockLfp.lean`, the
+   602  install's `FieldsOkB`); the installation derives it from the checker's
+   603  field-sort check read in a model in which the former denotes an
+   604  arbitrary family of the universe (`domsBounded_of`,
+   605  `InstallInd.lean`). -/
+   606  def DomsBounded (ps : List V) : Prop :=
+   607    S.z ls = false → ∀ W, InUniv (S.u₀ ls) W → ∀ c ∈ S.ctors, ∀ k f,
+   608      c.fields[c.fields.length - 1 - k]? = some f → k < c.fields.length →
+   609      ∀ fs, S.FitsFields M ls W ps (c.fields.drop (c.fields.length - k)) fs →
+   610        match f with
+   611        | .ordinary A => interp M (S.ψ ls) (consList fs (envP ps)) A ∈ˢ (univ (S.u₀ ls) : V)
+   612        | .reflexive tele _ => ∀ t T, tele[t]? = some T → ∀ ys,
+   613            FitsVals M (S.ψ ls) (consList fs (envP ps)) (tele.drop (t + 1)) ys →
+   614            interp M (S.ψ ls) (consList ys (consList fs (envP ps))) T ∈ˢ (univ (S.u₀ ls) : V)
+   615        | .container => True
 
-== whitepaper/Fragment/IndSem.lean#L788-L795
-   788  /-- **The operator maps families in the universe to families in the
-   789  universe**: at a proposition its fibres are truth values; above one
-   790  they are sets of tagged tuples of members, built by replacement and
-   791  union from sets of the universe (the class's membership in the
-   792  universe from the container's clause).  Con-leche: `LfpClause.functor`'s
-   793  second conjunct, from `fieldsOk`. -/
-   794  theorem famOp_maps {ps : List V} (hb : S.DomsBounded M ls ps) (hco : S.ContOk M ls ps) :
-   795      MapsFam (S.u₀ ls) (S.famOp M ls ps) := by
+== whitepaper/Fragment/IndSem.lean#L959-L963
+   959  /-- **The bound is a member of the result universe** (above a
+   960  proposition), by the universe bound on the fields at the one-fibre
+   961  family. -/
+   962  theorem bound_mem_univ {ps : List V} (hz : S.z ls = false) (hb : S.DomsBounded M ls ps)
+   963      (hco : S.ContOk M ls ps) : S.bound M ls ps ∈ˢ (univ (S.u₀ ls) : V) := by
+
+== whitepaper/Fragment/IndSem.lean#L750-L757
+   750  /-- **The operator maps families in the universe to families in the
+   751  universe**: at a proposition its fibres are truth values; above one
+   752  they are sets of tagged tuples of members, built by replacement and
+   753  union from sets of the universe (the class's membership in the
+   754  universe from the container's clause).  Con-leche: `LfpClause.functor`'s
+   755  second conjunct, from `fieldsOk`. -/
+   756  theorem famOp_maps {ps : List V} (hb : S.DomsBounded M ls ps) (hco : S.ContOk M ls ps) :
+   757      MapsFam (S.u₀ ls) (S.famOp M ls ps) := by
 
 == whitepaper/Fragment/InstallInd.lean#L270-L273
    270  /-- **The environment with the former has a model for every family of
@@ -3524,31 +3499,31 @@
    159      (hP : ∀ i x, x ∈ˢ Φ (sepFam n Φ P) i → P i x) :
    160      ∀ i x, x ∈ˢ lfpFamSet n Φ i → P i x := by
 
-== whitepaper/Fragment/IndSem.lean#L1296-L1301
-  1296  /-- **A closed family in the universe**: at a proposition the family
-  1297  of truth values `{pt}` (`closedFam_zero`); above one, from
-  1298  accessibility (`closed_of_acc`).  Con-leche: `LfpClause.functor`'s
-  1299  third conjunct, `closedTuple_zero` and `closed_of_acc`. -/
-  1300  theorem closedFam {ps : List V} (hnr : S.NoRecDep) (hb : S.DomsBounded M ls ps)
-  1301      (hco : S.ContOk M ls ps) : ∃ L, IsClosedFam (S.u₀ ls) (S.famOp M ls ps) L := by
+== whitepaper/Fragment/IndSem.lean#L1294-L1299
+  1294  /-- **A closed family in the universe**: at a proposition the family
+  1295  of truth values `{pt}` (`closedFam_zero`); above one, from
+  1296  accessibility (`closed_of_acc`).  Con-leche: `LfpClause.functor`'s
+  1297  third conjunct, `closedTuple_zero` and `closed_of_acc`. -/
+  1298  theorem closedFam {ps : List V} (hnr : S.NoRecDep) (hb : S.DomsBounded M ls ps)
+  1299      (hco : S.ContOk M ls ps) : ∃ L, IsClosedFam (S.u₀ ls) (S.famOp M ls ps) L := by
 
-== whitepaper/Fragment/IndSem.lean#L1311-L1314
-  1311  /-- **The family**: the fibre at the index values `is` is the least
-  1312  fixed point of the block's operator inside the set theory.
-  1313  Con-leche: `LfpDatum.carrier`, `lfpTuple` of the hole operator. -/
-  1314  noncomputable def Fam (ps is : List V) : V := lfpFamSet (S.u₀ ls) (S.famOp M ls ps) is
+== whitepaper/Fragment/IndSem.lean#L1309-L1312
+  1309  /-- **The family**: the fibre at the index values `is` is the least
+  1310  fixed point of the block's operator inside the set theory.
+  1311  Con-leche: `LfpDatum.carrier`, `lfpTuple` of the hole operator. -/
+  1312  noncomputable def Fam (ps is : List V) : V := lfpFamSet (S.u₀ ls) (S.famOp M ls ps) is
 
-== whitepaper/Fragment/IndSem.lean#L1431-L1433
-  1431  /-- **The type former's set** at `ls`: the graph over the index and
-  1432  parameter contexts whose value is the fibre. -/
-  1433  noncomputable def famSet : V := S.famSetF M ls (S.Fam M)
+== whitepaper/Fragment/IndSem.lean#L1429-L1431
+  1429  /-- **The type former's set** at `ls`: the graph over the index and
+  1430  parameter contexts whose value is the fibre. -/
+  1431  noncomputable def famSet : V := S.famSetF M ls (S.Fam M)
 
-== whitepaper/Fragment/IndSem.lean#L1316-L1320
-  1316  /-- **The fibre is a member of the result universe** — unconditionally,
-  1317  by the definition of the least fixed point inside the set theory.
-  1318  Con-leche: `lfpTuple_mem`. -/
-  1319  theorem Fam_mem_univ (ps is : List V) : S.Fam M ls ps is ∈ˢ (univ (S.u₀ ls) : V) :=
-  1320    lfpFamSet_mem _ _ is
+== whitepaper/Fragment/IndSem.lean#L1314-L1318
+  1314  /-- **The fibre is a member of the result universe** — unconditionally,
+  1315  by the definition of the least fixed point inside the set theory.
+  1316  Con-leche: `lfpTuple_mem`. -/
+  1317  theorem Fam_mem_univ (ps is : List V) : S.Fam M ls ps is ∈ˢ (univ (S.u₀ ls) : V) :=
+  1318    lfpFamSet_mem _ _ is
 
 == whitepaper/Fragment/InstallInd.lean#L160-L164
    160  theorem type_ok_ind (φ : Name → Nat) (ρ : Nat → V) {ls : List Level}
@@ -3557,42 +3532,42 @@
    163      S.M₃ m.M S.name (ls.map (Level.eval φ)) ∈ˢ
    164        interp (S.M₃ m.M) φ ρ (S.indInfo.type.instL S.indInfo.lparams ls) := by
 
-== whitepaper/Fragment/IndSem.lean#L1324-L1329
-  1324  /-- **The fixed-point equation**: the operator at the family is the
-  1325  family.  Con-leche: `LfpClause.carrier_eq`. -/
-  1326  theorem famOp_Fam {ps : List V} (hnr : S.NoRecDep) (hb : S.DomsBounded M ls ps)
-  1327      (hco : S.ContOk M ls ps) (is : List V) :
-  1328      S.famOp M ls ps (S.Fam M ls ps) is = S.Fam M ls ps is :=
-  1329    lfpFamSet_eq (S.closedFam M ls hnr hb hco) (S.famOp_mono M ls hco) (S.famOp_maps M ls hb hco) is
+== whitepaper/Fragment/IndSem.lean#L1322-L1327
+  1322  /-- **The fixed-point equation**: the operator at the family is the
+  1323  family.  Con-leche: `LfpClause.carrier_eq`. -/
+  1324  theorem famOp_Fam {ps : List V} (hnr : S.NoRecDep) (hb : S.DomsBounded M ls ps)
+  1325      (hco : S.ContOk M ls ps) (is : List V) :
+  1326      S.famOp M ls ps (S.Fam M ls ps) is = S.Fam M ls ps is :=
+  1327    lfpFamSet_eq (S.closedFam M ls hnr hb hco) (S.famOp_mono M ls hnr hco) (S.famOp_maps M ls hb hco) is
 
-== whitepaper/Fragment/IndSem.lean#L1331-L1338
-  1331  /-- **The family's case analysis**: a member of the fibre at `is` is
-  1332  a constructor instance over the family at `is`, and conversely.
-  1333  Con-leche: `LfpClause.carrier_case`. -/
-  1334  theorem mem_Fam {ps : List V} (hnr : S.NoRecDep) (hb : S.DomsBounded M ls ps)
-  1335      (hco : S.ContOk M ls ps) {is : List V} {t : V} :
-  1336      t ∈ˢ S.Fam M ls ps is ↔ S.Inst M ls (S.Fam M ls ps) ps is t := by
-  1337    rw [← S.famOp_Fam M ls hnr hb hco]
-  1338    exact S.mem_famOp M ls
+== whitepaper/Fragment/IndSem.lean#L1329-L1336
+  1329  /-- **The family's case analysis**: a member of the fibre at `is` is
+  1330  a constructor instance over the family at `is`, and conversely.
+  1331  Con-leche: `LfpClause.carrier_case`. -/
+  1332  theorem mem_Fam {ps : List V} (hnr : S.NoRecDep) (hb : S.DomsBounded M ls ps)
+  1333      (hco : S.ContOk M ls ps) {is : List V} {t : V} :
+  1334      t ∈ˢ S.Fam M ls ps is ↔ S.Inst M ls (S.Fam M ls ps) ps is t := by
+  1335    rw [← S.famOp_Fam M ls hnr hb hco]
+  1336    exact S.mem_famOp M ls
 
-== whitepaper/Fragment/IndSem.lean#L1446-L1451
-  1446  /-- **A constructor's set**: the abstraction over the parameters and
-  1447  fields (read in the model with the former) of the constructor's
-  1448  value. -/
-  1449  noncomputable def ctorSet (j : Nat) (c : CtorSpec) : V :=
-  1450    lamCtx (S.M₁ M) (S.ψ ls) (S.z ls) base (S.fieldCtx c.fields ++ S.params) fun ρ' =>
-  1451      S.ctorVal ls j (readEnv c.fields.length ρ')
+== whitepaper/Fragment/IndSem.lean#L1444-L1449
+  1444  /-- **A constructor's set**: the abstraction over the parameters and
+  1445  fields (read in the model with the former) of the constructor's
+  1446  value. -/
+  1447  noncomputable def ctorSet (j : Nat) (c : CtorSpec) : V :=
+  1448    lamCtx (S.M₁ M) (S.ψ ls) (S.z ls) base (S.fieldCtx c.fields ++ S.params) fun ρ' =>
+  1449      S.ctorVal ls j (readEnv c.fields.length ρ')
 
-== whitepaper/Fragment/IndSem.lean#L1340-L1348
-  1340  /-- **A constructor's value is in the fibre** at its index expressions
-  1341  when its fields fit the family.  Con-leche: `LfpClause.ctor` with the
-  1342  carrier's closure. -/
-  1343  theorem ctorVal_mem_Fam {ps : List V} (hnr : S.NoRecDep) (hb : S.DomsBounded M ls ps)
-  1344      (hco : S.ContOk M ls ps) {j : Nat}
-  1345      {c : CtorSpec} (hc : S.ctors[j]? = some c) {fs : List V}
-  1346      (hfit : S.FitsFields M ls (S.Fam M ls ps) ps c.fields fs) :
-  1347      S.ctorVal ls j fs ∈ˢ S.Fam M ls ps (S.idxVals M ls (consList fs (envP ps)) c.idx) :=
-  1348    (S.mem_Fam M ls hnr hb hco).mpr ⟨j, c, fs, hc, hfit, rfl, rfl⟩
+== whitepaper/Fragment/IndSem.lean#L1338-L1346
+  1338  /-- **A constructor's value is in the fibre** at its index expressions
+  1339  when its fields fit the family.  Con-leche: `LfpClause.ctor` with the
+  1340  carrier's closure. -/
+  1341  theorem ctorVal_mem_Fam {ps : List V} (hnr : S.NoRecDep) (hb : S.DomsBounded M ls ps)
+  1342      (hco : S.ContOk M ls ps) {j : Nat}
+  1343      {c : CtorSpec} (hc : S.ctors[j]? = some c) {fs : List V}
+  1344      (hfit : S.FitsFields M ls (S.Fam M ls ps) ps c.fields fs) :
+  1345      S.ctorVal ls j fs ∈ˢ S.Fam M ls ps (S.idxVals M ls (consList fs (envP ps)) c.idx) :=
+  1346    (S.mem_Fam M ls hnr hb hco).mpr ⟨j, c, fs, hc, hfit, rfl, rfl⟩
 
 == whitepaper/Fragment/InstallInd.lean#L656-L660
    656  theorem type_ok_ctor {j : Nat} {c : CtorSpec} (hc : S.ctors[j]? = some c) (φ : Name → Nat)
@@ -3601,52 +3576,24 @@
    659      S.M₃ m.M c.name (ls.map (Level.eval φ)) ∈ˢ
    660        interp (S.M₃ m.M) φ ρ ((S.ctorInfo c).type.instL (S.ctorInfo c).lparams ls) := by
 
-== whitepaper/Fragment/IndSem.lean#L1350-L1359
-  1350  /-- **Induction over the family**: a property that holds of every
-  1351  constructor instance over the family's separation by it holds on the
-  1352  family.  Con-leche: `lfpTuple_induction`, the block's induction the
-  1353  recursor's graph is built with. -/
-  1354  theorem Fam_induction {ps : List V} (hnr : S.NoRecDep) (hb : S.DomsBounded M ls ps)
-  1355      (hco : S.ContOk M ls ps) (P : List V → V → Prop)
-  1356      (h : ∀ is x, S.Inst M ls (fun is' => sep (S.Fam M ls ps is') (P is')) ps is x → P is x) :
-  1357      ∀ is x, x ∈ˢ S.Fam M ls ps is → P is x :=
-  1358    lfpFamSet_induction (S.closedFam M ls hnr hb hco) (S.famOp_mono M ls hco) P fun is x hx =>
-  1359      h is x ((S.mem_famOp M ls).mp hx)
+== whitepaper/Fragment/IndSem.lean#L1348-L1357
+  1348  /-- **Induction over the family**: a property that holds of every
+  1349  constructor instance over the family's separation by it holds on the
+  1350  family.  Con-leche: `lfpTuple_induction`, the block's induction the
+  1351  recursor's graph is built with. -/
+  1352  theorem Fam_induction {ps : List V} (hnr : S.NoRecDep) (hb : S.DomsBounded M ls ps)
+  1353      (hco : S.ContOk M ls ps) (P : List V → V → Prop)
+  1354      (h : ∀ is x, S.Inst M ls (fun is' => sep (S.Fam M ls ps is') (P is')) ps is x → P is x) :
+  1355      ∀ is x, x ∈ˢ S.Fam M ls ps is → P is x :=
+  1356    lfpFamSet_induction (S.closedFam M ls hnr hb hco) (S.famOp_mono M ls hnr hco) P fun is x hx =>
+  1357      h is x ((S.mem_famOp M ls).mp hx)
 
-== whitepaper/Fragment/IndSem.lean#L1392-L1396
-  1392  /-- At a proposition a member of the fibre is the point and some
-  1393  decoding exists. -/
-  1394  theorem mem_Fam_true {ps : List V} (hnr : S.NoRecDep) (hb : S.DomsBounded M ls ps)
-  1395      (hco : S.ContOk M ls ps) (hz : S.z ls = true) {is : List V} {t : V} :
-  1396      t ∈ˢ S.Fam M ls ps is ↔ t = pt ∧ ∃ x, S.Mem M ls ps is x := by
-
-== whitepaper/Fragment/Uniq.lean#L40-L50
-    40  /-- **The subsingleton criterion, semantically**: at a proposition,
-    41  at most one constructor, and every field of a fitting instance is
-    42  the point (its domain is a proposition) or is read off the
-    43  constructor's index expressions (the field's variable is one of
-    44  them). -/
-    45  def Subsingleton : Prop :=
-    46    S.ctors.length ≤ 1 ∧
-    47    ∀ c ∈ S.ctors, ∀ ps : List V, FitsVals M (S.ψ ls) base S.params ps → ∀ fs : List V,
-    48      S.FitsFields M ls (S.Fam M ls ps) ps c.fields fs →
-    49      ∀ k, k < c.fields.length →
-    50        fieldVal fs k = pt ∨ Expr.bvar (c.fields.length - 1 - k) ∈ c.idx
-
-== whitepaper/Fragment/Uniq.lean#L60-L64
-    60  /-- **Uniqueness from the subsingleton criterion**: two decodings
-    61  at one index are equal — each is the tagged tuple of
-    62  fields every one of which is the point or one of the (shared) index
-    63  values. -/
-    64  theorem uniq_of_subsingleton (hsub : S.Subsingleton M ls) : S.Uniq M ls := by
-
-== whitepaper/Fragment/InstallInd.lean#L610-L615
-   610  /-- **Uniqueness of decodings** under the subsingleton
-   611  criterion: at a proposition with a large eliminator the checker admits
-   612  at most one constructor, every field of which is a proposition or one
-   613  of the indices. -/
-   614  theorem uniq_of (φ : Name → Nat) (hz : S.z (S.lparams.map φ) = true) (hlarge : S.large = true) :
-   615      S.Uniq m.M (S.lparams.map φ) := by
+== whitepaper/Fragment/IndSem.lean#L1390-L1394
+  1390  /-- At a proposition a member of the fibre is the point and some
+  1391  decoding exists. -/
+  1392  theorem mem_Fam_true {ps : List V} (hnr : S.NoRecDep) (hb : S.DomsBounded M ls ps)
+  1393      (hco : S.ContOk M ls ps) (hz : S.z ls = true) {is : List V} {t : V} :
+  1394      t ∈ˢ S.Fam M ls ps is ↔ t = pt ∧ ∃ x, S.Mem M ls ps is x := by
 
 == ConLeche/SetTheory/Derive/LfpTuple.lean#L67-L75
     67  /-- **The least pre-fixed tuple of `Φ`** — componentwise, fibrewise the
@@ -3725,11 +3672,11 @@
     82      ListRel (S.IhOk M ls q R ps m mins fs) c.recFields ihs ∧
     83      v = appList (S.minorAt mins j) (fs.reverse ++ ihs)
 
-== whitepaper/Fragment/IndLib.lean#L115-L118
-   115  /-- **The least fixed point** of an operator on predicates: the
-   116  intersection of every predicate closed under it. -/
-   117  def Lfp {α : Sort _} (Φ : (α → Prop) → (α → Prop)) : α → Prop :=
-   118    fun a => ∀ P : α → Prop, (∀ b, Φ P b → P b) → P a
+== whitepaper/Fragment/IndLib.lean#L96-L99
+    96  /-- **The least fixed point** of an operator on predicates: the
+    97  intersection of every predicate closed under it. -/
+    98  def Lfp {α : Sort _} (Φ : (α → Prop) → (α → Prop)) : α → Prop :=
+    99    fun a => ∀ P : α → Prop, (∀ b, Φ P b → P b) → P a
 
 == whitepaper/Fragment/IndRec.lean#L157-L162
    157  /-- **Single-valuedness of the graph**: two values at one major come
@@ -3763,6 +3710,34 @@
    141      (his : is = S.idxVals M ls (consList fs (envP ps)) c.idx)
    142      (his' : is = S.idxVals M ls (consList fs' (envP ps)) c'.idx)
    143      (ht : S.ctorVal ls j fs = S.ctorVal ls j' fs') : j = j' ∧ fs = fs' := by
+
+== whitepaper/Fragment/InstallInd.lean#L610-L615
+   610  /-- **Uniqueness of decodings** under the subsingleton
+   611  criterion: at a proposition with a large eliminator the checker admits
+   612  at most one constructor, every field of which is a proposition or one
+   613  of the indices. -/
+   614  theorem uniq_of (φ : Name → Nat) (hz : S.z (S.lparams.map φ) = true) (hlarge : S.large = true) :
+   615      S.Uniq m.M (S.lparams.map φ) := by
+
+== whitepaper/Fragment/Uniq.lean#L40-L50
+    40  /-- **The subsingleton criterion, semantically**: at a proposition,
+    41  at most one constructor, and every field of a fitting instance is
+    42  the point (its domain is a proposition) or is read off the
+    43  constructor's index expressions (the field's variable is one of
+    44  them). -/
+    45  def Subsingleton : Prop :=
+    46    S.ctors.length ≤ 1 ∧
+    47    ∀ c ∈ S.ctors, ∀ ps : List V, FitsVals M (S.ψ ls) base S.params ps → ∀ fs : List V,
+    48      S.FitsFields M ls (S.Fam M ls ps) ps c.fields fs →
+    49      ∀ k, k < c.fields.length →
+    50        fieldVal fs k = pt ∨ Expr.bvar (c.fields.length - 1 - k) ∈ c.idx
+
+== whitepaper/Fragment/Uniq.lean#L60-L64
+    60  /-- **Uniqueness from the subsingleton criterion**: two decodings
+    61  at one index are equal — each is the tagged tuple of
+    62  fields every one of which is the point or one of the (shared) index
+    63  values. -/
+    64  theorem uniq_of_subsingleton (hsub : S.Subsingleton M ls) : S.Uniq M ls := by
 
 == whitepaper/Fragment/IndRec.lean#L396-L408
    396  /-- **The recursor's set** at its own levels `lsr` (the elimination
@@ -4132,15 +4107,15 @@
    455  own (`BlockRuleDataAt`'s `mk` conjunct) at a container constructor. -/
    456  theorem blockRecRuleLaw_gen {env : Env} {m₃ : EnvModel V env} {φ : Name → Nat}
 
-== whitepaper/Fragment/IndSem.lean#L1331-L1338
-  1331  /-- **The family's case analysis**: a member of the fibre at `is` is
-  1332  a constructor instance over the family at `is`, and conversely.
-  1333  Con-leche: `LfpClause.carrier_case`. -/
-  1334  theorem mem_Fam {ps : List V} (hnr : S.NoRecDep) (hb : S.DomsBounded M ls ps)
-  1335      (hco : S.ContOk M ls ps) {is : List V} {t : V} :
-  1336      t ∈ˢ S.Fam M ls ps is ↔ S.Inst M ls (S.Fam M ls ps) ps is t := by
-  1337    rw [← S.famOp_Fam M ls hnr hb hco]
-  1338    exact S.mem_famOp M ls
+== whitepaper/Fragment/IndSem.lean#L1329-L1336
+  1329  /-- **The family's case analysis**: a member of the fibre at `is` is
+  1330  a constructor instance over the family at `is`, and conversely.
+  1331  Con-leche: `LfpClause.carrier_case`. -/
+  1332  theorem mem_Fam {ps : List V} (hnr : S.NoRecDep) (hb : S.DomsBounded M ls ps)
+  1333      (hco : S.ContOk M ls ps) {is : List V} {t : V} :
+  1334      t ∈ˢ S.Fam M ls ps is ↔ S.Inst M ls (S.Fam M ls ps) ps is t := by
+  1335    rw [← S.famOp_Fam M ls hnr hb hco]
+  1336    exact S.mem_famOp M ls
 
 == whitepaper/Fragment/Consistency.lean#L36-L47
     36  /-- **The environments the checker accepts**: the empty environment,
@@ -4582,257 +4557,242 @@
    596    | none => rules.map fun rl => { rl with fire := auxRuleFireR resolves cv mI rP M.nPc }
    597    | some _ => rules
 
-== whitepaper/Fragment/IndCommon.lean#L201-L204
-   201  /-- **The class at a parameter set**: the container's set in the model,
-   202  applied to the class's arguments with `X` at the nested position. -/
-   203  def classSet (N : NestInfo) (ps : List V) (X : V) : V :=
-   204    appList (M N.K.name (S.lsK ls N)) (S.classArgsV M ls N ps X)
+== whitepaper/Fragment/IndCommon.lean#L188-L191
+   188  /-- **The class at a parameter set**: the container's set in the model,
+   189  applied to the class's arguments with `X` at the nested position. -/
+   190  def classSet (N : NestInfo) (ps : List V) (X : V) : V :=
+   191    appList (M N.K.name (S.lsK ls N)) (S.classArgsV M ls N ps X)
 
-== whitepaper/Fragment/NestSem.lean#L311-L315
-   311  /-- **The class is the container's family** at the instantiation
-   312  (the container's set applied by β to fitting parameter values). -/
-   313  theorem classSet_eq_Fam (hf : S.NestFacts M ls N) {ps : List V}
-   314      (hp : FitsVals M (S.ψ ls) base S.params ps) {X : V} (hX : X ∈ˢ (univ (S.u₀ ls) : V)) :
-   315      S.classSet M ls N ps X = N.KS.Fam M (S.lsK ls N) (S.psK M ls N ps X) [] := by
+== whitepaper/Fragment/NestSem.lean#L306-L310
+   306  /-- **The class is the container's family** at the instantiation
+   307  (the container's set applied by β to fitting parameter values). -/
+   308  theorem classSet_eq_Fam (hf : S.NestFacts M ls N) {ps : List V}
+   309      (hp : FitsVals M (S.ψ ls) base S.params ps) {X : V} (hX : X ∈ˢ (univ (S.u₀ ls) : V)) :
+   310      S.classSet M ls N ps X = N.KS.Fam M (S.lsK ls N) (S.psK M ls N ps X) [] := by
 
-== whitepaper/Fragment/IndSem.lean#L274-L294
-   274  /-- **The set a field ranges over**, relative to a family `W` (index
-   275  values to sets), at parameters `ps` and the earlier field values `fs`
-   276  (innermost first): an ordinary field's domain; for a reflexive field
-   277  the product over its telescope into the fibres of `W` at the field's
-   278  index expressions read under the telescope's values — the fibre
-   279  itself when the telescope is empty; for a container field the class
-   280  at the fibre of `W` at the nested occurrence's index expressions
-   281  (`classSet`: the container's family, read at the class's arguments
-   282  with that fibre in the nested position; a plain block has no
-   283  container field, and the clause is empty).  Con-leche: a field's
-   284  reading with holes, `LfpDatum.fields`, read at the hole frame of the
-   285  tuple (`HFits`, `BlockLfp.lean`); the container clause `contApp`
-   286  through the container's lfp clause (`BlockLfpMono.lean`). -/
-   287  def fieldSet (W : List V → V) (ps fs : List V) : Field → V
-   288    | .ordinary A => interp M (S.ψ ls) (consList fs (envP ps)) A
-   289    | .reflexive tele es =>
-   290      piCtx M (S.ψ ls) (S.z ls) (consList fs (envP ps)) tele fun ρ' => W (S.idxVals M ls ρ' es)
-   291    | .container =>
-   292      match S.nest with
-   293      | some N => S.classSet M ls N ps (W (S.memberIdx M ls N ps))
-   294      | none => empty
+== whitepaper/Fragment/IndSem.lean#L278-L298
+   278  /-- **The set a field ranges over**, relative to a family `W` (index
+   279  values to sets), at parameters `ps` and the earlier field values `fs`
+   280  (innermost first): an ordinary field's domain; for a reflexive field
+   281  the product over its telescope into the fibres of `W` at the field's
+   282  index expressions read under the telescope's values — the fibre
+   283  itself when the telescope is empty; for a container field the class
+   284  at the fibre of `W` at the nested occurrence's index expressions
+   285  (`classSet`: the container's family, read at the class's arguments
+   286  with that fibre in the nested position; a plain block has no
+   287  container field, and the clause is empty).  Con-leche: a field's
+   288  reading with holes, `LfpDatum.fields`, read at the hole frame of the
+   289  tuple (`HFits`, `BlockLfp.lean`); the container clause `contApp`
+   290  through the container's lfp clause (`BlockLfpMono.lean`). -/
+   291  def fieldSet (W : List V → V) (ps fs : List V) : Field → V
+   292    | .ordinary A => interp M (S.ψ ls) (consList fs (envP ps)) A
+   293    | .reflexive tele es =>
+   294      piCtx M (S.ψ ls) (S.z ls) (consList fs (envP ps)) tele fun ρ' => W (S.idxVals M ls ρ' es)
+   295    | .container =>
+   296      match S.nest with
+   297      | some N => S.classSet M ls N ps (W (S.memberIdx M ls N ps))
+   298      | none => empty
 
-== whitepaper/Fragment/IndSem.lean#L296-L299
-   296  /-- The container clause, when the block has a class. -/
-   297  theorem fieldSet_container {N : NestInfo} (hN : S.nest = some N) (W : List V → V) (ps fs : List V) :
-   298      S.fieldSet M ls W ps fs .container = S.classSet M ls N ps (W (S.memberIdx M ls N ps)) := by
-   299    simp [fieldSet, hN]
+== whitepaper/Fragment/IndSem.lean#L300-L303
+   300  /-- The container clause, when the block has a class. -/
+   301  theorem fieldSet_container {N : NestInfo} (hN : S.nest = some N) (W : List V → V) (ps fs : List V) :
+   302      S.fieldSet M ls W ps fs .container = S.classSet M ls N ps (W (S.memberIdx M ls N ps)) := by
+   303    simp [fieldSet, hN]
 
-== whitepaper/Fragment/IndSem.lean#L452-L471
-   452  /-- **The container's clause, as the operator needs it** at the
-   453  parameters `ps` (see the section heading): the class is monotone in
-   454  the parameter set, in the result universe, accessible with the class's
-   455  bound, and inhabited at the one-fibre set when inhabited at all. -/
-   456  structure ContClause (N : NestInfo) (ps : List V) : Prop where
-   457    /-- The class grows with the parameter set. -/
-   458    mono : ∀ X Y, X ⊆ˢ Y → X ∈ˢ (univ (S.u₀ ls) : V) → Y ∈ˢ (univ (S.u₀ ls) : V) →
-   459      S.classSet M ls N ps X ⊆ˢ S.classSet M ls N ps Y
-   460    /-- The class at a parameter set of the universe is in the universe. -/
-   461    mem_univ : ∀ X, X ∈ˢ (univ (S.u₀ ls) : V) → S.classSet M ls N ps X ∈ˢ (univ (S.u₀ ls) : V)
-   462    /-- Every member of the class at `X` has a support in `X`, coded in
-   463    the class's bound, carrying it to the class at every parameter set
-   464    holding the support. -/
-   465    acc : ∀ X, X ∈ˢ (univ (S.u₀ ls) : V) → ∀ v, v ∈ˢ S.classSet M ls N ps X →
-   466      ∃ (B : V) (g : V → V), B ⊆ˢ S.classBound ∧ (∀ b, b ∈ˢ B → g b ∈ˢ X) ∧
-   467        ∀ X', X' ∈ˢ (univ (S.u₀ ls) : V) → (∀ b, b ∈ˢ B → g b ∈ˢ X') → v ∈ˢ S.classSet M ls N ps X'
-   468    /-- The class at the one-fibre set is inhabited when the class at
-   469    some parameter set of the universe is. -/
-   470    inhab_one : ∀ X, X ∈ˢ (univ (S.u₀ ls) : V) → (∃ v, v ∈ˢ S.classSet M ls N ps X) →
-   471      ∃ v, v ∈ˢ S.classSet M ls N ps one
+== whitepaper/Fragment/IndSem.lean#L451-L469
+   451  /-- **The container's clause, as the operator needs it** at the
+   452  parameters `ps` (see the section heading): the class is in the result
+   453  universe, accessible with the class's bound, and inhabited at the
+   454  one-fibre set when inhabited at all.  That it grows with the parameter
+   455  set is not a field: it follows from accessibility
+   456  (`ContClause.mono`). -/
+   457  structure ContClause (N : NestInfo) (ps : List V) : Prop where
+   458    /-- The class at a parameter set of the universe is in the universe. -/
+   459    mem_univ : ∀ X, X ∈ˢ (univ (S.u₀ ls) : V) → S.classSet M ls N ps X ∈ˢ (univ (S.u₀ ls) : V)
+   460    /-- Every member of the class at `X` has a support in `X`, coded in
+   461    the class's bound, carrying it to the class at every parameter set
+   462    holding the support. -/
+   463    acc : ∀ X, X ∈ˢ (univ (S.u₀ ls) : V) → ∀ v, v ∈ˢ S.classSet M ls N ps X →
+   464      ∃ (B : V) (g : V → V), B ⊆ˢ S.classBound ∧ (∀ b, b ∈ˢ B → g b ∈ˢ X) ∧
+   465        ∀ X', X' ∈ˢ (univ (S.u₀ ls) : V) → (∀ b, b ∈ˢ B → g b ∈ˢ X') → v ∈ˢ S.classSet M ls N ps X'
+   466    /-- The class at the one-fibre set is inhabited when the class at
+   467    some parameter set of the universe is. -/
+   468    inhab_one : ∀ X, X ∈ˢ (univ (S.u₀ ls) : V) → (∃ v, v ∈ˢ S.classSet M ls N ps X) →
+   469      ∃ v, v ∈ˢ S.classSet M ls N ps one
 
-== whitepaper/Fragment/IndSem.lean#L596-L609
-   596  /-- **A field's set grows with the family.** -/
-   597  theorem fieldSet_mono {ps : List V} (hc : S.ContOk M ls ps) {W W' : List V → V}
-   598      (hW : InUniv (S.u₀ ls) W) (hW' : InUniv (S.u₀ ls) W') (hle : FamLe W W') (fs : List V) :
-   599      ∀ f : Field, S.fieldSet M ls W ps fs f ⊆ˢ S.fieldSet M ls W' ps fs f
-   600    | .ordinary _ => Sub.refl _
-   601    | .reflexive tele es => by
-   602      simp only [fieldSet]
-   603      exact piCtx_sub M _ (fun _ _ => hle _) fun hz _ _ => S.fibre_mem_univ_zero ls hW' hz _
-   604    | .container => by
-   605      cases hN : S.nest with
-   606      | none => rw [S.fieldSet_container_none M ls hN]; exact empty_sub _
-   607      | some N =>
-   608        rw [S.fieldSet_container M ls hN, S.fieldSet_container M ls hN]
-   609        exact (hc N hN).mono _ _ (hle _) (hW _) (hW' _)
+== whitepaper/Fragment/IndSem.lean#L471-L480
+   471  /-- **The class grows with the parameter set**, by accessibility: the
+   472  support in `X` is in the larger `Y`.  Con-leche: `AccTuple.monoTuple`
+   473  at the container instance. -/
+   474  theorem ContClause.mono {S : IndSpec} {M : Name → List Nat → V} {ls : List Nat} {N : NestInfo}
+   475      {ps : List V} (h : S.ContClause M ls N ps) {X Y : V}
+   476      (hXY : X ⊆ˢ Y) (hX : X ∈ˢ (univ (S.u₀ ls) : V)) (hY : Y ∈ˢ (univ (S.u₀ ls) : V)) :
+   477      S.classSet M ls N ps X ⊆ˢ S.classSet M ls N ps Y := by
+   478    intro v hv
+   479    obtain ⟨B, g, -, hg, hs⟩ := h.acc X hX v hv
+   480    exact hs Y hY fun b hb => hXY _ (hg b hb)
 
-== whitepaper/Fragment/IndSem.lean#L1193-L1200
-  1193  /-- **The operator is accessible with the bound** — by positivity:
-  1194  every constructor value's support is coded inside the bound, lies in
-  1195  the input family, and carries the value to every family of the
-  1196  universe holding it; at a container field by the container's clause.
-  1197  Con-leche: `blockAcc_of_run`, the `AccTuple` `closed_of_acc`
-  1198  consumes. -/
-  1199  theorem famOp_acc {ps : List V} (hnr : S.NoRecDep) (hco : S.ContOk M ls ps) :
-  1200      AccFam (S.u₀ ls) (S.famOp M ls ps) (S.bound M ls ps) := by
+== whitepaper/Fragment/IndSem.lean#L1155-L1162
+  1155  /-- **The operator is accessible with the bound** — by positivity:
+  1156  every constructor value's support is coded inside the bound, lies in
+  1157  the input family, and carries the value to every family of the
+  1158  universe holding it; at a container field by the container's clause.
+  1159  Con-leche: `blockAcc_of_run`, the `AccTuple` `closed_of_acc`
+  1160  consumes. -/
+  1161  theorem famOp_acc {ps : List V} (hnr : S.NoRecDep) (hco : S.ContOk M ls ps) :
+  1162      AccFam (S.u₀ ls) (S.famOp M ls ps) (S.bound M ls ps) := by
 
-== whitepaper/Fragment/IndSem.lean#L973-L990
-   973  /-- **A constructor's support bound**: for each reflexive field, the
-   974  tuples of its telescope at every list fitting the fields before it
-   975  relative to the one-fibre family, each coded by the field's position
-   976  (a numeral in a path step, `pcons`); for each container field, the
-   977  class's bound, coded likewise.  An ordinary field contributes
-   978  nothing; a recursive field, whose telescope is empty, contributes the
-   979  one tuple `tuple []` per prefix.  Con-leche: `piBound` glued along the
-   980  telescope (`HoleAcc.lean`), made uniform along the fields
-   981  (`TeleAcc.lean`); the container's bound `accPaths` of
-   982  `ContAccFrame.lean`. -/
-   983  noncomputable def ctorBound (ps : List V) (c : CtorSpec) : V :=
-   984    listUnion ((List.range c.fields.length).map fun k =>
-   985      match c.fields[c.fields.length - 1 - k]? with
-   986      | some (.reflexive tele _) =>
-   987        famUnion (S.fitsSet M ls oneFam ps (c.fields.drop (c.fields.length - k))) fun t =>
-   988          image (pcons (nat k)) (ctxSet M (S.ψ ls) (consList (untuple t) (envP ps)) tele)
-   989      | some .container => image (pcons (nat k)) S.classBound
-   990      | _ => empty)
+== whitepaper/Fragment/IndSem.lean#L935-L952
+   935  /-- **A constructor's support bound**: for each reflexive field, the
+   936  tuples of its telescope at every list fitting the fields before it
+   937  relative to the one-fibre family, each coded by the field's position
+   938  (a numeral in a path step, `pcons`); for each container field, the
+   939  class's bound, coded likewise.  An ordinary field contributes
+   940  nothing; a recursive field, whose telescope is empty, contributes the
+   941  one tuple `tuple []` per prefix.  Con-leche: `piBound` glued along the
+   942  telescope (`HoleAcc.lean`), made uniform along the fields
+   943  (`TeleAcc.lean`); the container's bound `accPaths` of
+   944  `ContAccFrame.lean`. -/
+   945  noncomputable def ctorBound (ps : List V) (c : CtorSpec) : V :=
+   946    listUnion ((List.range c.fields.length).map fun k =>
+   947      match c.fields[c.fields.length - 1 - k]? with
+   948      | some (.reflexive tele _) =>
+   949        famUnion (S.fitsSet M ls oneFam ps (c.fields.drop (c.fields.length - k))) fun t =>
+   950          image (pcons (nat k)) (ctxSet M (S.ψ ls) (consList (untuple t) (envP ps)) tele)
+   951      | some .container => image (pcons (nat k)) S.classBound
+   952      | _ => empty)
 
-== whitepaper/Fragment/NestSem.lean#L385-L399
-   385  /-- **A fitting list of a positive container stays fitting under a
-   386  replacement**, at the parameter set and family the replacement reads:
-   387  a parameter field's value lands in the new parameter set, a recursive
-   388  field's in the new family's fibre, and an ordinary field — mentioning
-   389  neither the nested parameter nor an earlier parameter or recursive field
-   390  — reads the same set at both.  (The fields are a suffix of a
-   391  constructor's, so that positivity's clause and the no-dependency
-   392  condition pass to the tails.) -/
-   393  theorem FitsFields_psK_repl (hf : S.NestFacts M ls N) {X Y : V} {W W' : List V → V} {ps : List V} :
-   394      ∀ {fields : List Field} {fs fs' : List V},
-   395        (∀ i f, fields[i]? = some f → N.FieldPos fields i f) →
-   396        ListNoRecDep fields →
-   397        N.KS.FitsFields M (S.lsK ls N) W (S.psK M ls N ps X) fields fs →
-   398        Repl N Y W' fields fs fs' →
-   399        N.KS.FitsFields M (S.lsK ls N) W' (S.psK M ls N ps Y) fields fs'
+== whitepaper/Fragment/NestSem.lean#L380-L394
+   380  /-- **A fitting list of a positive container stays fitting under a
+   381  replacement**, at the parameter set and family the replacement reads:
+   382  a parameter field's value lands in the new parameter set, a recursive
+   383  field's in the new family's fibre, and an ordinary field — mentioning
+   384  neither the nested parameter nor an earlier parameter or recursive field
+   385  — reads the same set at both.  (The fields are a suffix of a
+   386  constructor's, so that positivity's clause and the no-dependency
+   387  condition pass to the tails.) -/
+   388  theorem FitsFields_psK_repl (hf : S.NestFacts M ls N) {X Y : V} {W W' : List V → V} {ps : List V} :
+   389      ∀ {fields : List Field} {fs fs' : List V},
+   390        (∀ i f, fields[i]? = some f → N.FieldPos fields i f) →
+   391        ListNoRecDep fields →
+   392        N.KS.FitsFields M (S.lsK ls N) W (S.psK M ls N ps X) fields fs →
+   393        Repl N Y W' fields fs fs' →
+   394        N.KS.FitsFields M (S.lsK ls N) W' (S.psK M ls N ps Y) fields fs'
 
-== whitepaper/Fragment/NestSem.lean#L504-L515
-   504  /-- **Every member of the container's family at a smaller parameter set
-   505  is a member at a larger one**: the family at the larger set is closed
-   506  under the container's operator at the smaller set (a constructor
-   507  fitting at the smaller set fits at the larger, `FitsFields_psK_repl`,
-   508  and the family at the larger set is closed under its own operator),
-   509  and the family at the smaller set is the LEAST closed family of that
-   510  operator (`lfpFamSet_least`).  Con-leche: `lfpTuple_le_on`
-   511  (`SetModel/HoleClose.lean`) with `CtorPos` at the instantiation. -/
-   512  theorem Fam_psK_mono (hf : S.NestFacts M ls N) {ps : List V}
-   513      (hp : FitsVals M (S.ψ ls) base S.params ps) {X Y : V} (hXY : X ⊆ˢ Y)
-   514      (hY : Y ∈ˢ (univ (S.u₀ ls) : V)) (is : List V) :
-   515      N.KS.Fam M (S.lsK ls N) (S.psK M ls N ps X) is ⊆ˢ N.KS.Fam M (S.lsK ls N) (S.psK M ls N ps Y) is := by
+== whitepaper/Fragment/NestSem.lean#L634-L646
+   634  /-- **The container's family is accessible in the parameter set**, with
+   635  the class's bound: the nested case of accessibility (`lfpP_acc`)
+   636  applied to the joint operator — in both regimes (at a proposition the
+   637  container's family is closed in `{pt}`, `lfpP_acc`).  Con-leche:
+   638  `accConcl_of_frameAccOut` (`ContAcc.lean`) over `frameIterAcc`, above
+   639  a proposition. -/
+   640  theorem Fam_psK_acc (hf : S.NestFacts M ls N) (hN : S.nest = some N) {ps : List V}
+   641      (hp : FitsVals M (S.ψ ls) base S.params ps) {X : V}
+   642      (hX : X ∈ˢ (univ (S.u₀ ls) : V)) {v : V}
+   643      (hv : v ∈ˢ N.KS.Fam M (S.lsK ls N) (S.psK M ls N ps X) []) :
+   644      ∃ (B : V) (g : V → V), B ⊆ˢ S.classBound ∧ (∀ b, b ∈ˢ B → g b ∈ˢ X) ∧
+   645        ∀ X', X' ∈ˢ (univ (S.u₀ ls) : V) → (∀ b, b ∈ˢ B → g b ∈ˢ X') →
+   646          v ∈ˢ N.KS.Fam M (S.lsK ls N) (S.psK M ls N ps X') [] := by
 
-== whitepaper/Fragment/NestSem.lean#L700-L710
-   700  /-- **The container's family is accessible in the parameter set**, with
-   701  the class's bound: the nested case of accessibility (`lfpP_acc`)
-   702  applied to the joint operator.  Con-leche: `accConcl_of_frameAccOut`
-   703  (`ContAcc.lean`) over `frameIterAcc`. -/
-   704  theorem Fam_psK_acc (hf : S.NestFacts M ls N) (hN : S.nest = some N) {ps : List V}
-   705      (hp : FitsVals M (S.ψ ls) base S.params ps) (hz : S.z ls = false) {X : V}
-   706      (hX : X ∈ˢ (univ (S.u₀ ls) : V)) {v : V}
-   707      (hv : v ∈ˢ N.KS.Fam M (S.lsK ls N) (S.psK M ls N ps X) []) :
-   708      ∃ (B : V) (g : V → V), B ⊆ˢ S.classBound ∧ (∀ b, b ∈ˢ B → g b ∈ˢ X) ∧
-   709        ∀ X', X' ∈ˢ (univ (S.u₀ ls) : V) → (∀ b, b ∈ˢ B → g b ∈ˢ X') →
-   710          v ∈ˢ N.KS.Fam M (S.lsK ls N) (S.psK M ls N ps X') [] := by
+== whitepaper/Fragment/IndSem.lean#L435-L443
+   435  /-- **The class's bound**: the finite paths over the container's field
+   436  positions — the bound of the container's family's accessibility in
+   437  the parameter set (`lfpP_acc`, the paths over the container's joint
+   438  bound, which is one code per field position).  Empty for a plain
+   439  block. -/
+   440  noncomputable def classBound : V :=
+   441    match S.nest with
+   442    | some N => accPaths (natsBelow N.maxFields)
+   443    | none => empty
 
-== whitepaper/Fragment/IndSem.lean#L431-L439
-   431  /-- **The class's bound**: the finite paths over the container's field
-   432  positions — the bound of the container's family's accessibility in
-   433  the parameter set (`lfpP_acc`, the paths over the container's joint
-   434  bound, which is one code per field position).  Empty for a plain
-   435  block. -/
-   436  noncomputable def classBound : V :=
-   437    match S.nest with
-   438    | some N => accPaths (natsBelow N.maxFields)
-   439    | none => empty
+== whitepaper/Fragment/NestSem.lean#L466-L470
+   466  /-- **The container's operator, jointly in the parameter set and its own
+   467  family**: the parameter set at the left index, the family at the right.
+   468  Con-leche: the joint operator `Θ` of `lfpP_acc`. -/
+   469  noncomputable def jointOp (ps : List V) (Z : Unit ⊕ List V → V) : List V → V :=
+   470    N.KS.famOp M (S.lsK ls N) (S.psK M ls N ps (Z (Sum.inl ()))) fun is => Z (Sum.inr is)
 
-== whitepaper/Fragment/NestSem.lean#L532-L536
-   532  /-- **The container's operator, jointly in the parameter set and its own
-   533  family**: the parameter set at the left index, the family at the right.
-   534  Con-leche: the joint operator `Θ` of `lfpP_acc`. -/
-   535  noncomputable def jointOp (ps : List V) (Z : Unit ⊕ List V → V) : List V → V :=
-   536    N.KS.famOp M (S.lsK ls N) (S.psK M ls N ps (Z (Sum.inl ()))) fun is => Z (Sum.inr is)
+== whitepaper/Fragment/NestSem.lean#L480-L488
+   480  /-- **The container's operator is accessible jointly in the parameter set
+   481  and its own family**, with one code per field position: a
+   482  constructor value depends on its parameter fields (occurrences in the
+   483  parameter set) and its recursive fields (occurrences in the family), and
+   484  fits at every parameter set and family holding them
+   485  (`FitsFields_psK_repl`).  Con-leche: `frameCtor_acc`
+   486  (`ContAccFrame.lean`). -/
+   487  theorem jointOp_acc (hf : S.NestFacts M ls N) (ps : List V) :
+   488      AccFam (S.u₀ ls) (S.jointOp M ls N ps) (natsBelow N.maxFields) := by
 
-== whitepaper/Fragment/NestSem.lean#L546-L554
-   546  /-- **The container's operator is accessible jointly in the parameter set
-   547  and its own family**, with one code per field position: a
-   548  constructor value depends on its parameter fields (occurrences in the
-   549  parameter set) and its recursive fields (occurrences in the family), and
-   550  fits at every parameter set and family holding them
-   551  (`FitsFields_psK_repl`).  Con-leche: `frameCtor_acc`
-   552  (`ContAccFrame.lean`). -/
-   553  theorem jointOp_acc (hf : S.NestFacts M ls N) (ps : List V) :
-   554      AccFam (S.u₀ ls) (S.jointOp M ls N ps) (natsBelow N.maxFields) := by
+== whitepaper/Fragment/Access.lean#L414-L429
+   414  /-- **The nested case: the least family is accessible in its
+   415  parameter.**  If the joint operator (the parameter's indices on the
+   416  left, its own on the right) is `A`-accessible and maps families in
+   417  the universe to families in the universe, then `X ↦ lfpP Θ X` is
+   418  `accPaths A`-accessible: by induction over the least family at `X`, a
+   419  member's support is the paths through the operator's support — a leaf
+   420  for an occurrence in `X`, the induction hypothesis' support below an
+   421  occurrence in the least family — and every parameter holding it
+   422  produces the member by the closedness of its least family.  The bound
+   423  must be a member of the universe only above a proposition, where the
+   424  section's closed family is `closed_of_acc`'s; at a proposition it is
+   425  `{pt}` (`closedFam_zero`).  Con-leche: `lfpP_acc` (above a
+   426  proposition). -/
+   427  theorem lfpP_acc {Θ : (ι ⊕ κ → V) → κ → V} {A : V} (hA : n ≠ 0 → A ∈ˢ (univ n : V))
+   428      (hmaps : ∀ X Y, InUniv n X → InUniv n Y → InUniv n (Θ (Sum.elim X Y)))
+   429      (hacc : AccFam n Θ A) : AccFam n (lfpP n Θ) (accPaths A) := by
 
-== whitepaper/Fragment/Access.lean#L411-L423
-   411  /-- **The nested case: the least family is accessible in its
-   412  parameter.**  If the joint operator (the parameter's indices on the
-   413  left, its own on the right) is `A`-accessible and maps families in
-   414  the universe to families in the universe, then `X ↦ lfpP Θ X` is
-   415  `accPaths A`-accessible: by induction over the least family at `X`, a
-   416  member's support is the paths through the operator's support — a leaf
-   417  for an occurrence in `X`, the induction hypothesis' support below an
-   418  occurrence in the least family — and every parameter holding it
-   419  produces the member by the closedness of its least family.
-   420  Con-leche: `lfpP_acc`. -/
-   421  theorem lfpP_acc (hn : n ≠ 0) {Θ : (ι ⊕ κ → V) → κ → V} {A : V} (hA : A ∈ˢ (univ n : V))
-   422      (hmaps : ∀ X Y, InUniv n X → InUniv n Y → InUniv n (Θ (Sum.elim X Y)))
-   423      (hacc : AccFam n Θ A) : AccFam n (lfpP n Θ) (accPaths A) := by
+== whitepaper/Fragment/NestSem.lean#L673-L681
+   673  /-- **The container's family at the one-fibre set is inhabited when
+   674  the family at any parameter set of the universe is**: by induction over
+   675  the family, every constructor instance has a counterpart at `{pt}`
+   676  — the parameter fields replaced by the point, the recursive fields by
+   677  the counterparts the induction supplies, the ordinary fields kept. -/
+   678  theorem Fam_psK_inhab_one (hf : S.NestFacts M ls N) {ps : List V}
+   679      (hp : FitsVals M (S.ψ ls) base S.params ps) {X : V} (hX : X ∈ˢ (univ (S.u₀ ls) : V))
+   680      (hex : ∃ v, v ∈ˢ N.KS.Fam M (S.lsK ls N) (S.psK M ls N ps X) []) :
+   681      ∃ v, v ∈ˢ N.KS.Fam M (S.lsK ls N) (S.psK M ls N ps one) [] := by
 
-== whitepaper/Fragment/NestSem.lean#L725-L733
-   725  /-- **The container's family at the one-fibre set is inhabited when
-   726  the family at any parameter set of the universe is**: by induction over
-   727  the family, every constructor instance has a counterpart at `{pt}`
-   728  — the parameter fields replaced by the point, the recursive fields by
-   729  the counterparts the induction supplies, the ordinary fields kept. -/
-   730  theorem Fam_psK_inhab_one (hf : S.NestFacts M ls N) {ps : List V}
-   731      (hp : FitsVals M (S.ψ ls) base S.params ps) {X : V} (hX : X ∈ˢ (univ (S.u₀ ls) : V))
-   732      (hex : ∃ v, v ∈ˢ N.KS.Fam M (S.lsK ls N) (S.psK M ls N ps X) []) :
-   733      ∃ v, v ∈ˢ N.KS.Fam M (S.lsK ls N) (S.psK M ls N ps one) [] := by
+== whitepaper/Fragment/NestSem.lean#L737-L745
+   737  /-- **The container's clause, from positivity and leastness**
+   738  (`ContClause`): the class is the container's family at the
+   739  instantiation (`classSet_eq_Fam`), which lies in the result universe
+   740  (`Fam_mem_univ`, N3), is accessible with the class's bound
+   741  (`Fam_psK_acc`, in both regimes), and is inhabited at the one-fibre
+   742  set when inhabited at all (`Fam_psK_inhab_one`).  That it grows with
+   743  the parameter set follows (`ContClause.mono`). -/
+   744  theorem contClause_of (hf : S.NestFacts M ls N) (hN : S.nest = some N) {ps : List V}
+   745      (hp : FitsVals M (S.ψ ls) base S.params ps) : S.ContClause M ls N ps where
 
-== whitepaper/Fragment/NestSem.lean#L789-L798
-   789  /-- **The container's clause, from positivity and leastness**
-   790  (`ContClause`): the class is the container's family at the
-   791  instantiation (`classSet_eq_Fam`), which grows with the parameter set
-   792  (`Fam_psK_mono`), lies in the result universe (`Fam_mem_univ`, N3),
-   793  is accessible with the class's bound (`Fam_psK_acc`; at a
-   794  proposition from monotonicity alone: the parameter set, a subset of
-   795  `{pt}`, is its own support), and is inhabited at the one-fibre set
-   796  when inhabited at all (`Fam_psK_inhab_one`). -/
-   797  theorem contClause_of (hf : S.NestFacts M ls N) (hN : S.nest = some N) {ps : List V}
-   798      (hp : FitsVals M (S.ψ ls) base S.params ps) : S.ContClause M ls N ps where
-
-== whitepaper/Fragment/NestSem.lean#L195-L223
-   195  /-- **What is known about the container** when a block nests through
-   196  it: its set in the model is its family's graph (its installation's
-   197  law), it is positive in the nested position, no field reads an
-   198  earlier recursive field, the universe bound on its fields holds at
-   199  every fitting parameter list (its own checks), the class's arguments
-   200  fit its parameters at every parameter set in the result universe (the
-   201  nested block's check), and its result universe at the instantiation
-   202  is the block's (N3). -/
-   203  structure NestFacts : Prop where
-   204    /-- The container's set is its family's graph. -/
-   205    fam : ∀ ls', M N.K.name ls' = N.KS.famSet M ls'
-   206    /-- The container is positive in the nested position. -/
-   207    positive : N.Positive
-   208    /-- No field of the container reads an earlier recursive field. -/
-   209    noRecDep : N.KS.NoRecDep
-   210    /-- The universe bound on the container's fields, at fitting
-   211    parameters. -/
-   212    domsBounded : ∀ ps', FitsVals M (N.KS.ψ (S.lsK ls N)) base N.KS.params ps' →
-   213      N.KS.DomsBounded M (S.lsK ls N) ps'
-   214    /-- The class's arguments fit the container's parameters at every
-   215    parameter set in the result universe. -/
-   216    argsFit : ∀ ps, FitsVals M (S.ψ ls) base S.params ps → ∀ X, X ∈ˢ (univ (S.u₀ ls) : V) →
-   217      FitsVals M (N.KS.ψ (S.lsK ls N)) base N.KS.params (S.psK M ls N ps X)
-   218    /-- The container's result universe at the instantiation is the
-   219    block's. -/
-   220    u₀_eq : N.KS.u₀ (S.lsK ls N) = S.u₀ ls
-   221    /-- The class's arguments fill all but the nested position of the
-   222    container's parameters (`NestScoped`). -/
-   223    args_len : N.args.length + 1 = N.nPK
+== whitepaper/Fragment/NestSem.lean#L190-L218
+   190  /-- **What is known about the container** when a block nests through
+   191  it: its set in the model is its family's graph (its installation's
+   192  law), it is positive in the nested position, no field reads an
+   193  earlier recursive field, the universe bound on its fields holds at
+   194  every fitting parameter list (its own checks), the class's arguments
+   195  fit its parameters at every parameter set in the result universe (the
+   196  nested block's check), and its result universe at the instantiation
+   197  is the block's (N3). -/
+   198  structure NestFacts : Prop where
+   199    /-- The container's set is its family's graph. -/
+   200    fam : ∀ ls', M N.K.name ls' = N.KS.famSet M ls'
+   201    /-- The container is positive in the nested position. -/
+   202    positive : N.Positive
+   203    /-- No field of the container reads an earlier recursive field. -/
+   204    noRecDep : N.KS.NoRecDep
+   205    /-- The universe bound on the container's fields, at fitting
+   206    parameters. -/
+   207    domsBounded : ∀ ps', FitsVals M (N.KS.ψ (S.lsK ls N)) base N.KS.params ps' →
+   208      N.KS.DomsBounded M (S.lsK ls N) ps'
+   209    /-- The class's arguments fit the container's parameters at every
+   210    parameter set in the result universe. -/
+   211    argsFit : ∀ ps, FitsVals M (S.ψ ls) base S.params ps → ∀ X, X ∈ˢ (univ (S.u₀ ls) : V) →
+   212      FitsVals M (N.KS.ψ (S.lsK ls N)) base N.KS.params (S.psK M ls N ps X)
+   213    /-- The container's result universe at the instantiation is the
+   214    block's. -/
+   215    u₀_eq : N.KS.u₀ (S.lsK ls N) = S.u₀ ls
+   216    /-- The class's arguments fill all but the nested position of the
+   217    container's parameters (`NestScoped`). -/
+   218    args_len : N.args.length + 1 = N.nPK
 
 == whitepaper/Fragment/BlockModel.lean#L46-L57
     46  /-- **The block's law** in a model: for a plain block, its scope, its
@@ -4856,64 +4816,64 @@
     65    blocks : ∀ (K : Name) (ci : ConstInfo) (nP nI : Nat) (cs : List Name) (spec : IndSpec),
     66      env.find? K = some ci → ci.kind = .induct nP nI cs spec → spec.BlockLaw env M
 
-== whitepaper/Fragment/IndSem.lean#L1296-L1314
-  1296  /-- **A closed family in the universe**: at a proposition the family
-  1297  of truth values `{pt}` (`closedFam_zero`); above one, from
-  1298  accessibility (`closed_of_acc`).  Con-leche: `LfpClause.functor`'s
-  1299  third conjunct, `closedTuple_zero` and `closed_of_acc`. -/
-  1300  theorem closedFam {ps : List V} (hnr : S.NoRecDep) (hb : S.DomsBounded M ls ps)
-  1301      (hco : S.ContOk M ls ps) : ∃ L, IsClosedFam (S.u₀ ls) (S.famOp M ls ps) L := by
-  1302    cases hz : S.z ls with
-  1303    | true =>
-  1304      have hm := S.famOp_maps M ls hb hco
-  1305      rw [(S.z_iff ls).mp hz] at hm ⊢
-  1306      exact closedFam_zero hm
-  1307    | false =>
-  1308      exact closed_of_acc (S.u₀_ne_zero ls hz) (S.bound_mem_univ M ls hz hb hco)
-  1309        (S.famOp_maps M ls hb hco) (S.famOp_acc M ls hnr hco)
-  1310  
-  1311  /-- **The family**: the fibre at the index values `is` is the least
-  1312  fixed point of the block's operator inside the set theory.
-  1313  Con-leche: `LfpDatum.carrier`, `lfpTuple` of the hole operator. -/
-  1314  noncomputable def Fam (ps is : List V) : V := lfpFamSet (S.u₀ ls) (S.famOp M ls ps) is
+== whitepaper/Fragment/IndSem.lean#L1294-L1312
+  1294  /-- **A closed family in the universe**: at a proposition the family
+  1295  of truth values `{pt}` (`closedFam_zero`); above one, from
+  1296  accessibility (`closed_of_acc`).  Con-leche: `LfpClause.functor`'s
+  1297  third conjunct, `closedTuple_zero` and `closed_of_acc`. -/
+  1298  theorem closedFam {ps : List V} (hnr : S.NoRecDep) (hb : S.DomsBounded M ls ps)
+  1299      (hco : S.ContOk M ls ps) : ∃ L, IsClosedFam (S.u₀ ls) (S.famOp M ls ps) L := by
+  1300    cases hz : S.z ls with
+  1301    | true =>
+  1302      have hm := S.famOp_maps M ls hb hco
+  1303      rw [(S.z_iff ls).mp hz] at hm ⊢
+  1304      exact closedFam_zero hm
+  1305    | false =>
+  1306      exact closed_of_acc (S.u₀_ne_zero ls hz) (S.bound_mem_univ M ls hz hb hco)
+  1307        (S.famOp_maps M ls hb hco) (S.famOp_acc M ls hnr hco)
+  1308  
+  1309  /-- **The family**: the fibre at the index values `is` is the least
+  1310  fixed point of the block's operator inside the set theory.
+  1311  Con-leche: `LfpDatum.carrier`, `lfpTuple` of the hole operator. -/
+  1312  noncomputable def Fam (ps is : List V) : V := lfpFamSet (S.u₀ ls) (S.famOp M ls ps) is
 
-== whitepaper/Fragment/IndSem.lean#L1324-L1359
-  1324  /-- **The fixed-point equation**: the operator at the family is the
-  1325  family.  Con-leche: `LfpClause.carrier_eq`. -/
-  1326  theorem famOp_Fam {ps : List V} (hnr : S.NoRecDep) (hb : S.DomsBounded M ls ps)
-  1327      (hco : S.ContOk M ls ps) (is : List V) :
-  1328      S.famOp M ls ps (S.Fam M ls ps) is = S.Fam M ls ps is :=
-  1329    lfpFamSet_eq (S.closedFam M ls hnr hb hco) (S.famOp_mono M ls hco) (S.famOp_maps M ls hb hco) is
-  1330  
-  1331  /-- **The family's case analysis**: a member of the fibre at `is` is
-  1332  a constructor instance over the family at `is`, and conversely.
-  1333  Con-leche: `LfpClause.carrier_case`. -/
-  1334  theorem mem_Fam {ps : List V} (hnr : S.NoRecDep) (hb : S.DomsBounded M ls ps)
-  1335      (hco : S.ContOk M ls ps) {is : List V} {t : V} :
-  1336      t ∈ˢ S.Fam M ls ps is ↔ S.Inst M ls (S.Fam M ls ps) ps is t := by
-  1337    rw [← S.famOp_Fam M ls hnr hb hco]
-  1338    exact S.mem_famOp M ls
-  1339  
-  1340  /-- **A constructor's value is in the fibre** at its index expressions
-  1341  when its fields fit the family.  Con-leche: `LfpClause.ctor` with the
-  1342  carrier's closure. -/
-  1343  theorem ctorVal_mem_Fam {ps : List V} (hnr : S.NoRecDep) (hb : S.DomsBounded M ls ps)
-  1344      (hco : S.ContOk M ls ps) {j : Nat}
-  1345      {c : CtorSpec} (hc : S.ctors[j]? = some c) {fs : List V}
-  1346      (hfit : S.FitsFields M ls (S.Fam M ls ps) ps c.fields fs) :
-  1347      S.ctorVal ls j fs ∈ˢ S.Fam M ls ps (S.idxVals M ls (consList fs (envP ps)) c.idx) :=
-  1348    (S.mem_Fam M ls hnr hb hco).mpr ⟨j, c, fs, hc, hfit, rfl, rfl⟩
-  1349  
-  1350  /-- **Induction over the family**: a property that holds of every
-  1351  constructor instance over the family's separation by it holds on the
-  1352  family.  Con-leche: `lfpTuple_induction`, the block's induction the
-  1353  recursor's graph is built with. -/
-  1354  theorem Fam_induction {ps : List V} (hnr : S.NoRecDep) (hb : S.DomsBounded M ls ps)
-  1355      (hco : S.ContOk M ls ps) (P : List V → V → Prop)
-  1356      (h : ∀ is x, S.Inst M ls (fun is' => sep (S.Fam M ls ps is') (P is')) ps is x → P is x) :
-  1357      ∀ is x, x ∈ˢ S.Fam M ls ps is → P is x :=
-  1358    lfpFamSet_induction (S.closedFam M ls hnr hb hco) (S.famOp_mono M ls hco) P fun is x hx =>
-  1359      h is x ((S.mem_famOp M ls).mp hx)
+== whitepaper/Fragment/IndSem.lean#L1322-L1357
+  1322  /-- **The fixed-point equation**: the operator at the family is the
+  1323  family.  Con-leche: `LfpClause.carrier_eq`. -/
+  1324  theorem famOp_Fam {ps : List V} (hnr : S.NoRecDep) (hb : S.DomsBounded M ls ps)
+  1325      (hco : S.ContOk M ls ps) (is : List V) :
+  1326      S.famOp M ls ps (S.Fam M ls ps) is = S.Fam M ls ps is :=
+  1327    lfpFamSet_eq (S.closedFam M ls hnr hb hco) (S.famOp_mono M ls hnr hco) (S.famOp_maps M ls hb hco) is
+  1328  
+  1329  /-- **The family's case analysis**: a member of the fibre at `is` is
+  1330  a constructor instance over the family at `is`, and conversely.
+  1331  Con-leche: `LfpClause.carrier_case`. -/
+  1332  theorem mem_Fam {ps : List V} (hnr : S.NoRecDep) (hb : S.DomsBounded M ls ps)
+  1333      (hco : S.ContOk M ls ps) {is : List V} {t : V} :
+  1334      t ∈ˢ S.Fam M ls ps is ↔ S.Inst M ls (S.Fam M ls ps) ps is t := by
+  1335    rw [← S.famOp_Fam M ls hnr hb hco]
+  1336    exact S.mem_famOp M ls
+  1337  
+  1338  /-- **A constructor's value is in the fibre** at its index expressions
+  1339  when its fields fit the family.  Con-leche: `LfpClause.ctor` with the
+  1340  carrier's closure. -/
+  1341  theorem ctorVal_mem_Fam {ps : List V} (hnr : S.NoRecDep) (hb : S.DomsBounded M ls ps)
+  1342      (hco : S.ContOk M ls ps) {j : Nat}
+  1343      {c : CtorSpec} (hc : S.ctors[j]? = some c) {fs : List V}
+  1344      (hfit : S.FitsFields M ls (S.Fam M ls ps) ps c.fields fs) :
+  1345      S.ctorVal ls j fs ∈ˢ S.Fam M ls ps (S.idxVals M ls (consList fs (envP ps)) c.idx) :=
+  1346    (S.mem_Fam M ls hnr hb hco).mpr ⟨j, c, fs, hc, hfit, rfl, rfl⟩
+  1347  
+  1348  /-- **Induction over the family**: a property that holds of every
+  1349  constructor instance over the family's separation by it holds on the
+  1350  family.  Con-leche: `lfpTuple_induction`, the block's induction the
+  1351  recursor's graph is built with. -/
+  1352  theorem Fam_induction {ps : List V} (hnr : S.NoRecDep) (hb : S.DomsBounded M ls ps)
+  1353      (hco : S.ContOk M ls ps) (P : List V → V → Prop)
+  1354      (h : ∀ is x, S.Inst M ls (fun is' => sep (S.Fam M ls ps is') (P is')) ps is x → P is x) :
+  1355      ∀ is x, x ∈ˢ S.Fam M ls ps is → P is x :=
+  1356    lfpFamSet_induction (S.closedFam M ls hnr hb hco) (S.famOp_mono M ls hnr hco) P fun is x hx =>
+  1357      h is x ((S.mem_famOp M ls).mp hx)
 
 == ConLeche/Semantics/Inductives/HoleMono.lean#L23
     23  | `contApp`: a container instance | `Model/Annot/BlockLfpMono.lean`'s container case, through the container's lfp clause |
@@ -5031,16 +4991,16 @@
    559      (hkey : ∀ x, x ∈ˢ X → ∃ v, S.RecGraphN M ls N q ps ex (false, S.memberIdx M ls N ps) x v) :
    560      ∀ x, x ∈ˢ S.classSet M ls N ps X → ∃ v, S.RecGraphN M ls N q ps ex (true, []) x v := by
 
-== whitepaper/Fragment/NestClass.lean#L359-L367
-   359  
+== whitepaper/Fragment/NestClass.lean#L360-L368
    360  /-- **The class's laws** from the container's fixed point: inversion,
    361  introduction and induction are the container's `mem_Fam`,
    362  `ctorVal_mem_Fam` and `Fam_induction` at the instantiation, read in
    363  the block's terms through `ClassFits_iff`; size and monotonicity are
-   364  the container's clause (`contClause_of`). -/
-   365  theorem classLaws_of (hf : S.NestFacts M ls N) (hlen : N.args.length + 1 = N.nPK)
-   366      (hlsK : N.lsK.length = N.K.lparams.length) (hKS : N.KS.Scoped env) (hN : S.nest = some N)
-   367      (hz : S.z ls = false) {ps : List V} (hp : FitsVals M (S.ψ ls) base S.params ps) :
+   364  the container's clause (`contClause_of`; monotonicity by its
+   365  accessibility, `ContClause.mono`). -/
+   366  theorem classLaws_of (hf : S.NestFacts M ls N) (hlen : N.args.length + 1 = N.nPK)
+   367      (hlsK : N.lsK.length = N.K.lparams.length) (hKS : N.KS.Scoped env) (hN : S.nest = some N)
+   368      (hz : S.z ls = false) {ps : List V} (hp : FitsVals M (S.ψ ls) base S.params ps) :
 
 == whitepaper/Fragment/NestRec.lean#L686-L694
    686  /-- **The ι equation of `T.rec`**: at a constructor value whose fields
@@ -5066,19 +5026,19 @@
    711        (S.classCtor N c).fields fs) :
    712      S.rec1Sem M ls N q ps ex (tag j (tuple fs.reverse))
 
-== whitepaper/Fragment/NestIota.lean#L1451-L1455
-  1451  /-- **`T.rec`'s set is in `T.rec`'s type.** -/
-  1452  theorem recSetN_mem (φ : Name → Nat) (ρ : Nat → V) {lsr : List Level}
-  1453      (hlsr : lsr.length = S.recLparams.length) :
-  1454      S.recSetN m.M N (lsr.map (Level.eval φ)) ∈ˢ
-  1455        interp (S.M₃N m.M N) (Level.substVal φ S.recLparams lsr) ρ (S.recTypeN N) := by
+== whitepaper/Fragment/NestIota.lean#L1452-L1456
+  1452  /-- **`T.rec`'s set is in `T.rec`'s type.** -/
+  1453  theorem recSetN_mem (φ : Name → Nat) (ρ : Nat → V) {lsr : List Level}
+  1454      (hlsr : lsr.length = S.recLparams.length) :
+  1455      S.recSetN m.M N (lsr.map (Level.eval φ)) ∈ˢ
+  1456        interp (S.M₃N m.M N) (Level.substVal φ S.recLparams lsr) ρ (S.recTypeN N) := by
 
-== whitepaper/Fragment/NestIota.lean#L1481-L1485
-  1481  /-- **`T.rec_1`'s set is in `T.rec_1`'s type.** -/
-  1482  theorem rec1Set_mem (φ : Name → Nat) (ρ : Nat → V) {lsr : List Level}
-  1483      (hlsr : lsr.length = S.recLparams.length) :
-  1484      S.rec1Set m.M N (lsr.map (Level.eval φ)) ∈ˢ
-  1485        interp (S.M₃N m.M N) (Level.substVal φ S.recLparams lsr) ρ (S.rec1Type N) := by
+== whitepaper/Fragment/NestIota.lean#L1482-L1486
+  1482  /-- **`T.rec_1`'s set is in `T.rec_1`'s type.** -/
+  1483  theorem rec1Set_mem (φ : Name → Nat) (ρ : Nat → V) {lsr : List Level}
+  1484      (hlsr : lsr.length = S.recLparams.length) :
+  1485      S.rec1Set m.M N (lsr.map (Level.eval φ)) ∈ˢ
+  1486        interp (S.M₃N m.M N) (Level.substVal φ S.recLparams lsr) ρ (S.rec1Type N) := by
 
 == ConLeche/SetModel/NestRec.lean#L9-L19
      9  # The nested recursor's graph kit: majors over several CLASSES
@@ -5137,23 +5097,23 @@
    189      WellDenoted M φ ρ (rl.rhs.instL ci.lparams us) ∧
    190      SpineOk (interp M φ ρ (rl.rhs.instL ci.lparams us)) (xs.take numBefore ++ ys.drop nPc)
 
-== whitepaper/Fragment/NestIota.lean#L2281-L2288
-  2281  /-- **The ι law of a `T.rec` rule** (`RecRuleLaw`, `EnvModel.lean`) for
-  2282  the recursor's constant and the block's constructor's, at `nP`
-  2283  parameters, `nP + 2 + (n + nK)` arguments before the indices and the
-  2284  major at `nP + 2 + (n + nK) + nI`. -/
-  2285  theorem rec_rule_lawN {j : Nat} {c : CtorSpec} (hc : S.ctors[j]? = some c) :
-  2286      RecRuleLaw (S.M₃N m.M N) S.recName (S.recInfoN N) S.nP (S.nP + 2 + (S.n + N.nK))
-  2287        (S.nP + 2 + (S.n + N.nK) + S.nI) ⟨c.name, c.fields.length, S.ruleRhsN N c j, none⟩
-  2288        (S.ctorInfo c) := by
+== whitepaper/Fragment/NestIota.lean#L2282-L2289
+  2282  /-- **The ι law of a `T.rec` rule** (`RecRuleLaw`, `EnvModel.lean`) for
+  2283  the recursor's constant and the block's constructor's, at `nP`
+  2284  parameters, `nP + 2 + (n + nK)` arguments before the indices and the
+  2285  major at `nP + 2 + (n + nK) + nI`. -/
+  2286  theorem rec_rule_lawN {j : Nat} {c : CtorSpec} (hc : S.ctors[j]? = some c) :
+  2287      RecRuleLaw (S.M₃N m.M N) S.recName (S.recInfoN N) S.nP (S.nP + 2 + (S.n + N.nK))
+  2288        (S.nP + 2 + (S.n + N.nK) + S.nI) ⟨c.name, c.fields.length, S.ruleRhsN N c j, none⟩
+  2289        (S.ctorInfo c) := by
 
-== whitepaper/Fragment/NestIota.lean#L2924-L2929
-  2924  /-- **The nested ι law of a `T.rec_1` rule** (`RecRuleLawN`,
-  2925  `EnvModel.lean`): at the container's parameter count. -/
-  2926  theorem rec_rule_law1N {j : Nat} {c : CtorSpec} (hc : N.K.ctors[j]? = some c) :
-  2927      RecRuleLawN (S.M₃N m.M N) N.aux (S.rec1Info N) N.nPK (S.nP + 2 + (S.n + N.nK))
-  2928        (S.nP + 2 + (S.n + N.nK) + 0)
-  2929        ⟨c.name, c.fields.length, S.rule1Rhs N c j, some (N.lsK, S.classArgs N 0)⟩ (N.KS.ctorInfo c) := by
+== whitepaper/Fragment/NestIota.lean#L2925-L2930
+  2925  /-- **The nested ι law of a `T.rec_1` rule** (`RecRuleLawN`,
+  2926  `EnvModel.lean`): at the container's parameter count. -/
+  2927  theorem rec_rule_law1N {j : Nat} {c : CtorSpec} (hc : N.K.ctors[j]? = some c) :
+  2928      RecRuleLawN (S.M₃N m.M N) N.aux (S.rec1Info N) N.nPK (S.nP + 2 + (S.n + N.nK))
+  2929        (S.nP + 2 + (S.n + N.nK) + 0)
+  2930        ⟨c.name, c.fields.length, S.rule1Rhs N c j, some (N.lsK, S.classArgs N 0)⟩ (N.KS.ctorInfo c) := by
 
 == ConLeche/Model/Annot/Laws.lean#L294-L297
    294  * **The `.nested` pin clause quantifies the pin's own open reading**
@@ -5161,16 +5121,16 @@
    296    along the argument prefix — `AnnotTerm.instRevChain`.  The supplier
    297    converts the recorded comparand runs through the claims.
 
-== whitepaper/Fragment/NestIota.lean#L2611-L2619
-  2611  /-- **The core of the ι law of a `T.rec_1` rule**: from the two
-  2612  telescope fits alone — the recursor's spine, ending in the container's
-  2613  constructor applied, and the constructor's own spine — the equation,
-  2614  the right-hand side's invariant and its application chain.  Above a
-  2615  proposition the major sits in the class, which pins the fields
-  2616  (`ClassLaws.inv`); at a proposition both sides are the point, and the
-  2617  chain's values each lie in the domain they meet in their own
-  2618  telescope. -/
-  2619  theorem rule1_core (φ : Name → Nat) (ρ : Nat → V) {us usj : List Level} {xs ys : List V}
+== whitepaper/Fragment/NestIota.lean#L2612-L2620
+  2612  /-- **The core of the ι law of a `T.rec_1` rule**: from the two
+  2613  telescope fits alone — the recursor's spine, ending in the container's
+  2614  constructor applied, and the constructor's own spine — the equation,
+  2615  the right-hand side's invariant and its application chain.  Above a
+  2616  proposition the major sits in the class, which pins the fields
+  2617  (`ClassLaws.inv`); at a proposition both sides are the point, and the
+  2618  chain's values each lie in the domain they meet in their own
+  2619  telescope. -/
+  2620  theorem rule1_core (φ : Name → Nat) (ρ : Nat → V) {us usj : List Level} {xs ys : List V}
 
 == whitepaper/Fragment/NestInstall.lean#L194-L199
    194  /-- **Installing a nested block preserves having a block model.**
@@ -5257,26 +5217,26 @@
     62    /-- A tagged value is never the point. -/
     63    tag_ne_pt : ∀ {i : Nat} {x : V}, tag i x ≠ pt
 
-== whitepaper/Fragment/IndCommon.lean#L225-L227
-   225  /-- **A constructor's value** at its fields: the point at a
-   226  proposition, the tagged tuple above. -/
-   227  def ctorVal (j : Nat) (fs : List V) : V := if S.z ls then pt else tag (S.tagOf j) (tuple fs.reverse)
+== whitepaper/Fragment/IndCommon.lean#L212-L214
+   212  /-- **A constructor's value** at its fields: the point at a
+   213  proposition, the tagged tuple above. -/
+   214  def ctorVal (j : Nat) (fs : List V) : V := if S.z ls then pt else tag (S.tagOf j) (tuple fs.reverse)
 
-== whitepaper/Fragment/IndSem.lean#L1311-L1314
-  1311  /-- **The family**: the fibre at the index values `is` is the least
-  1312  fixed point of the block's operator inside the set theory.
-  1313  Con-leche: `LfpDatum.carrier`, `lfpTuple` of the hole operator. -/
-  1314  noncomputable def Fam (ps is : List V) : V := lfpFamSet (S.u₀ ls) (S.famOp M ls ps) is
+== whitepaper/Fragment/IndSem.lean#L1309-L1312
+  1309  /-- **The family**: the fibre at the index values `is` is the least
+  1310  fixed point of the block's operator inside the set theory.
+  1311  Con-leche: `LfpDatum.carrier`, `lfpTuple` of the hole operator. -/
+  1312  noncomputable def Fam (ps is : List V) : V := lfpFamSet (S.u₀ ls) (S.famOp M ls ps) is
 
-== whitepaper/Fragment/IndSem.lean#L1331-L1338
-  1331  /-- **The family's case analysis**: a member of the fibre at `is` is
-  1332  a constructor instance over the family at `is`, and conversely.
-  1333  Con-leche: `LfpClause.carrier_case`. -/
-  1334  theorem mem_Fam {ps : List V} (hnr : S.NoRecDep) (hb : S.DomsBounded M ls ps)
-  1335      (hco : S.ContOk M ls ps) {is : List V} {t : V} :
-  1336      t ∈ˢ S.Fam M ls ps is ↔ S.Inst M ls (S.Fam M ls ps) ps is t := by
-  1337    rw [← S.famOp_Fam M ls hnr hb hco]
-  1338    exact S.mem_famOp M ls
+== whitepaper/Fragment/IndSem.lean#L1329-L1336
+  1329  /-- **The family's case analysis**: a member of the fibre at `is` is
+  1330  a constructor instance over the family at `is`, and conversely.
+  1331  Con-leche: `LfpClause.carrier_case`. -/
+  1332  theorem mem_Fam {ps : List V} (hnr : S.NoRecDep) (hb : S.DomsBounded M ls ps)
+  1333      (hco : S.ContOk M ls ps) {is : List V} {t : V} :
+  1334      t ∈ˢ S.Fam M ls ps is ↔ S.Inst M ls (S.Fam M ls ps) ps is t := by
+  1335    rw [← S.famOp_Fam M ls hnr hb hco]
+  1336    exact S.mem_famOp M ls
 
 == whitepaper/Fragment/LfpSet.lean#L137-L141
    137  /-- **The fixed-point equation**, fibrewise.  Con-leche:
@@ -5285,18 +5245,18 @@
    140      (i : ι) : Φ (lfpFamSet n Φ) i = lfpFamSet n Φ i :=
    141    Sub.antisymm (lfpFamSet_closed h hmono i) (lfpFamSet_fixed h hmono hmaps i)
 
-== whitepaper/Fragment/IndSem.lean#L589-L592
-   589  /-- A fibre of a family in the universe at a proposition is a truth
-   590  value. -/
-   591  theorem fibre_mem_univ_zero {W : List V → V} (hW : InUniv (S.u₀ ls) W) (hz : S.z ls = true) (is : List V) :
-   592      W is ∈ˢ (univ 0 : V) := by
+== whitepaper/Fragment/IndSem.lean#L585-L588
+   585  /-- A fibre of a family in the universe at a proposition is a truth
+   586  value. -/
+   587  theorem fibre_mem_univ_zero {W : List V → V} (hW : InUniv (S.u₀ ls) W) (hz : S.z ls = true) (is : List V) :
+   588      W is ∈ˢ (univ 0 : V) := by
 
-== whitepaper/Fragment/IndSem.lean#L1392-L1396
-  1392  /-- At a proposition a member of the fibre is the point and some
-  1393  decoding exists. -/
-  1394  theorem mem_Fam_true {ps : List V} (hnr : S.NoRecDep) (hb : S.DomsBounded M ls ps)
-  1395      (hco : S.ContOk M ls ps) (hz : S.z ls = true) {is : List V} {t : V} :
-  1396      t ∈ˢ S.Fam M ls ps is ↔ t = pt ∧ ∃ x, S.Mem M ls ps is x := by
+== whitepaper/Fragment/IndSem.lean#L1390-L1394
+  1390  /-- At a proposition a member of the fibre is the point and some
+  1391  decoding exists. -/
+  1392  theorem mem_Fam_true {ps : List V} (hnr : S.NoRecDep) (hb : S.DomsBounded M ls ps)
+  1393      (hco : S.ContOk M ls ps) (hz : S.z ls = true) {is : List V} {t : V} :
+  1394      t ∈ˢ S.Fam M ls ps is ↔ t = pt ∧ ∃ x, S.Mem M ls ps is x := by
 
 == whitepaper/Fragment/IndLib.lean#L52
     52    tuple_inj : ∀ {xs ys : List V}, tuple xs = tuple ys → xs = ys

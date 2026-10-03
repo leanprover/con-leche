@@ -806,7 +806,8 @@ omit [LevelOracle] in
 /-- **The container's own fit gives the block-sense fit of the
 translated constructor**: the parameter field's value is in the parameter
 set (inside the fibre), a container field's in the class at the fibre
-(the container's family grows with the parameter set, `Fam_psK_mono`),
+(the container's family grows with the parameter set, `Fam_psK_mono`,
+by accessibility),
 an ordinary field's in its domain. -/
 theorem FitsFields_classFields_of_KS {M : Name → List Nat → V} {ls : List Nat}
     (hf : S.NestFacts M ls N) (hlen : N.args.length + 1 = N.nPK)
@@ -852,7 +853,7 @@ theorem FitsFields_classFields_of_KS {M : Name → List Nat → V} {ls : List Na
       simp only [classField]
       rw [S.fieldSet_container M ls hN, S.classSet_eq_Fam hf hp (S.Fam_mem_univ M ls _ _)]
       simp only [fieldSet, piCtx_nil, idxVals, List.map_nil, List.reverse_nil] at h2
-      exact S.Fam_psK_mono hf hp hXF (S.Fam_mem_univ M ls _ _) [] v (hW v h2)
+      exact S.Fam_psK_mono hf hN hp hXF hX (S.Fam_mem_univ M ls _ _) v (hW v h2)
     | container => exact hpf.elim
 
 omit [LevelOracle] in

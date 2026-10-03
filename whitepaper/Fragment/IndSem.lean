@@ -37,29 +37,31 @@ of those with the right index values.
 
 **The family** is the least fixed point of the operator inside the
 set theory (`lfpFamSet`, `LfpSet.lean`), which exists because the
-operator is **monotone** (`famOp_mono`) and has a **closed family in
-the universe** — at a proposition outright (`closedFam_zero`), above
-one by **accessibility** (`closed_of_acc`, `Access.lean`): every
-constructor value depends on a bounded subfamily of its input.
-Monotonicity and accessibility are *by positivity*, field kind by
-field kind — the two proofs the paper is about, `famOp_mono` and
-`famOp_acc`, with the bound `bound`:
+operator has a **closed family in the universe** — at a proposition
+outright (`closedFam_zero`), above one by **accessibility**
+(`closed_of_acc`, `Access.lean`): every constructor value depends on
+a bounded subfamily of its input — and is a fixed point because the
+operator is **monotone** on families in the universe, which
+accessibility implies (`AccFam.mono`: the support in `W` is in the
+larger `W'`; `famOp_mono`).  Accessibility is *by positivity*, field
+kind by field kind — the proof the paper is about, `famOp_acc`, with
+the bound `bound`, in both regimes (only its membership of the
+universe, `bound_mem_univ`, needs a type):
 
 * an **ordinary** field is read in `W`-free terms, so it contributes
-  nothing to the support and nothing to monotonicity;
+  nothing to the support;
 * a **recursive** field's value is a member of a fibre of `W`: its
-  support is that one occurrence, and the fibre grows with `W`;
+  support is that one occurrence;
 * a **reflexive** field's value is a function over its telescope into
   fibres of `W`: its support is one occurrence per fitting argument
   list — a set of tuples, a member of the universe when the
-  telescope is — and the product grows with its fibres;
+  telescope is;
 * a **container** field's value is a member of the class at the fibre
   of `W` at the nested occurrence: its support is the value's own
-  support in that fibre, coded inside the class's bound, and the
-  class grows with the fibre — the two facts the operator asks of
-  the container's clause (`ContClause`: monotone, in the universe,
-  accessible with the bound `classBound`, and inhabited at the
-  one-fibre set when inhabited at all), which the installation of a
+  support in that fibre, coded inside the class's bound — the fact
+  the operator asks of the container's clause (`ContClause`: in the
+  universe, accessible with the bound `classBound`, and inhabited at
+  the one-fibre set when inhabited at all), which the installation of a
   nested block proves from the container's positivity and the
   leastness of its fixed point (`NestSem.lean`); for a plain block
   there is no container and nothing is asked (`contOk_of_plain`).
@@ -81,6 +83,8 @@ Con-leche: the hole operator of `ConLeche/Model/Annot/BlockLfp.lean`
 (`LfpClause.fibre`: a fibre is the set of injections of the spines
 fitting a constructor; `fitsMono`: the fit grows with the tuple),
 monotonicity and accessibility by inversion of the positivity run
+— con-leche proves the two separately; the fragment derives the
+first from the second
 (`ConLeche/Semantics/Inductives/HoleMono.lean`, `HoleAcc.lean`:
 `MonoOn.pi`/`AccOn.pi` for a product over a hole-free domain,
 `MonoOn.holeApp`/`AccOn.holeApp` for a hole applied to hole-free
@@ -366,9 +370,9 @@ theorem FitsFields_earlier {W : List V → V} {ps : List V} :
 /-! ## What the operator asks of the container's clause
 
 A container field reads the class at the approximant's fibre at the
-nested occurrence.  For the operator to be monotone and accessible,
-the class must be, in the parameter set: it grows with it, stays in the
-result universe, and every member of the class at `X` has a support
+nested occurrence.  For the operator to be accessible, the class must
+be, in the parameter set: it stays in the result universe, and every
+member of the class at `X` has a support
 in `X` — occurrences in `X`, coded inside one set fixed by the
 specification (`classBound`: the finite paths over the container's
 field positions, the bound of the container's own accessibility in
@@ -444,19 +448,13 @@ theorem classBound_mem_univ {n : Nat} (hn : n ≠ 0) : S.classBound ∈ˢ (univ 
   · exact accPaths_mem_univ hn (natsBelow_mem_univ hn _)
   · exact empty_mem_univ n
 
-theorem pt_mem_classBound {N : NestInfo} (hN : S.nest = some N) : (pt : V) ∈ˢ S.classBound := by
-  unfold classBound
-  rw [hN]
-  exact pt_mem_accPaths _
-
 /-- **The container's clause, as the operator needs it** at the
-parameters `ps` (see the section heading): the class is monotone in
-the parameter set, in the result universe, accessible with the class's
-bound, and inhabited at the one-fibre set when inhabited at all. -/
+parameters `ps` (see the section heading): the class is in the result
+universe, accessible with the class's bound, and inhabited at the
+one-fibre set when inhabited at all.  That it grows with the parameter
+set is not a field: it follows from accessibility
+(`ContClause.mono`). -/
 structure ContClause (N : NestInfo) (ps : List V) : Prop where
-  /-- The class grows with the parameter set. -/
-  mono : ∀ X Y, X ⊆ˢ Y → X ∈ˢ (univ (S.u₀ ls) : V) → Y ∈ˢ (univ (S.u₀ ls) : V) →
-    S.classSet M ls N ps X ⊆ˢ S.classSet M ls N ps Y
   /-- The class at a parameter set of the universe is in the universe. -/
   mem_univ : ∀ X, X ∈ˢ (univ (S.u₀ ls) : V) → S.classSet M ls N ps X ∈ˢ (univ (S.u₀ ls) : V)
   /-- Every member of the class at `X` has a support in `X`, coded in
@@ -469,6 +467,17 @@ structure ContClause (N : NestInfo) (ps : List V) : Prop where
   some parameter set of the universe is. -/
   inhab_one : ∀ X, X ∈ˢ (univ (S.u₀ ls) : V) → (∃ v, v ∈ˢ S.classSet M ls N ps X) →
     ∃ v, v ∈ˢ S.classSet M ls N ps one
+
+/-- **The class grows with the parameter set**, by accessibility: the
+support in `X` is in the larger `Y`.  Con-leche: `AccTuple.monoTuple`
+at the container instance. -/
+theorem ContClause.mono {S : IndSpec} {M : Name → List Nat → V} {ls : List Nat} {N : NestInfo}
+    {ps : List V} (h : S.ContClause M ls N ps) {X Y : V}
+    (hXY : X ⊆ˢ Y) (hX : X ∈ˢ (univ (S.u₀ ls) : V)) (hY : Y ∈ˢ (univ (S.u₀ ls) : V)) :
+    S.classSet M ls N ps X ⊆ˢ S.classSet M ls N ps Y := by
+  intro v hv
+  obtain ⟨B, g, -, hg, hs⟩ := h.acc X hX v hv
+  exact hs Y hY fun b hb => hXY _ (hg b hb)
 
 /-- **The container's clause holds**, when the block has a class
 (vacuous for a plain block). -/
@@ -573,59 +582,12 @@ theorem mem_famOp {ps : List V} {W : List V → V} {is : List V} {x : V} :
     rw [mem_sep, untuple_tuple]
     exact ⟨(S.mem_fitsSet M ls).mpr ⟨fs, hfs, rfl⟩, his⟩
 
-/-! ## Monotonicity, by positivity
-
-The fit grows with the family, field kind by field kind: an ordinary
-field's set does not read the family; a reflexive field's set is a
-product into fibres of the family, monotone in them (`piCtx_sub`) —
-at a proposition the larger fibres must be truth values, which is
-where the universe of the larger family enters; a container field's
-set is the class at a fibre of the family, monotone in it by the
-container's clause (`ContClause.mono`), which is where the universe
-of both families enters.  Con-leche: `ConstOn.monoOn`, `MonoOn.pi`,
-`MonoOn.holeApp` (`HoleMono.lean`), the container case of
-`BlockLfpMono.lean`, and `LfpClause.fitsMono`. -/
-
 /-- A fibre of a family in the universe at a proposition is a truth
 value. -/
 theorem fibre_mem_univ_zero {W : List V → V} (hW : InUniv (S.u₀ ls) W) (hz : S.z ls = true) (is : List V) :
     W is ∈ˢ (univ 0 : V) := by
   have := hW is
   rwa [(S.z_iff ls).mp hz] at this
-
-/-- **A field's set grows with the family.** -/
-theorem fieldSet_mono {ps : List V} (hc : S.ContOk M ls ps) {W W' : List V → V}
-    (hW : InUniv (S.u₀ ls) W) (hW' : InUniv (S.u₀ ls) W') (hle : FamLe W W') (fs : List V) :
-    ∀ f : Field, S.fieldSet M ls W ps fs f ⊆ˢ S.fieldSet M ls W' ps fs f
-  | .ordinary _ => Sub.refl _
-  | .reflexive tele es => by
-    simp only [fieldSet]
-    exact piCtx_sub M _ (fun _ _ => hle _) fun hz _ _ => S.fibre_mem_univ_zero ls hW' hz _
-  | .container => by
-    cases hN : S.nest with
-    | none => rw [S.fieldSet_container_none M ls hN]; exact empty_sub _
-    | some N =>
-      rw [S.fieldSet_container M ls hN, S.fieldSet_container M ls hN]
-      exact (hc N hN).mono _ _ (hle _) (hW _) (hW' _)
-
-/-- **A fitting list fits at every larger family.** -/
-theorem FitsFields_mono {ps : List V} (hc : S.ContOk M ls ps) {W W' : List V → V}
-    (hW : InUniv (S.u₀ ls) W) (hW' : InUniv (S.u₀ ls) W') (hle : FamLe W W') :
-    ∀ {fields : List Field} {fs : List V},
-      S.FitsFields M ls W ps fields fs → S.FitsFields M ls W' ps fields fs
-  | [], [], _ => trivial
-  | _ :: _, _ :: fs, hf =>
-    ⟨FitsFields_mono hc hW hW' hle hf.1, S.fieldSet_mono M ls hc hW hW' hle fs _ _ hf.2⟩
-  | [], _ :: _, hf => hf.elim
-  | _ :: _, [], hf => hf.elim
-
-/-- **The operator is monotone**, on families in the result universe,
-under the container's clause.  Con-leche: `LfpClause.functor`'s first
-conjunct, from `fitsMono`. -/
-theorem famOp_mono {ps : List V} (hc : S.ContOk M ls ps) : MonoFam (S.u₀ ls) (S.famOp M ls ps) := by
-  intro W W' hW hW' hle is x hx
-  obtain ⟨j, c, fs, hc', hfs, his, rfl⟩ := (S.mem_famOp M ls).mp hx
-  exact (S.mem_famOp M ls).mpr ⟨j, c, fs, hc', S.FitsFields_mono M ls hc hW hW' hle hfs, his, rfl⟩
 
 /-! ## The universe bound on the fields -/
 
@@ -677,10 +639,10 @@ theorem ContOk_congr_ls {ls' : List Nat} (h : S.ψ ls = S.ψ ls') {ps : List V}
     (hc : S.ContOk M ls ps) : S.ContOk M ls' ps := by
   intro N hN
   have hu : S.u₀ ls = S.u₀ ls' := by unfold u₀; rw [h]
-  obtain ⟨h1, h2, h3, h4⟩ := hc N hN
-  rw [S.classSet_congr_ls M ls h N] at h1 h2 h3 h4
-  rw [hu] at h1 h2 h3 h4
-  exact ⟨h1, h2, h3, h4⟩
+  obtain ⟨h1, h2, h3⟩ := hc N hN
+  rw [S.classSet_congr_ls M ls h N] at h1 h2 h3
+  rw [hu] at h1 h2 h3
+  exact ⟨h1, h2, h3⟩
 
 theorem FitsFields_congr_ls {ls' : List Nat} (h : S.ψ ls = S.ψ ls') {W : List V → V} {ps : List V} :
     ∀ {fields : List Field} {fs : List V},
@@ -1291,6 +1253,42 @@ theorem famOp_acc {ps : List V} (hnr : S.NoRecDep) (hco : S.ContOk M ls ps) :
       unfold InFam at this
       rwa [S.instOcc_code_cont M ls hf hN] at this
 
+/-! ## Monotone, from accessibility
+
+The fixed-point equation needs a monotone operator (`lfpFamSet_eq`);
+accessibility implies it on families in the universe — the support in
+`W` is in the larger `W'` (`AccFam.mono`).  The universe restriction
+is the one accessibility already carries: at a proposition a
+reflexive field's set is a truth value, `{pt}` exactly when every
+fibre it reads is `{pt}`, and a fibre grown past `{pt}` would falsify
+it; in `univ 0` no fibre grows past `{pt}`.  Con-leche proves
+monotonicity separately, by positivity (`HoleMono.lean`,
+`BlockPosRunCont.lean`); the fragment derives it. -/
+
+/-- **The operator is monotone** on families in the result universe:
+accessibility's support carries over (`AccFam.mono`).  Con-leche:
+`LfpClause.functor`'s first conjunct; `AccTuple.monoTuple`. -/
+theorem famOp_mono {ps : List V} (hnr : S.NoRecDep) (hco : S.ContOk M ls ps) :
+    MonoFam (S.u₀ ls) (S.famOp M ls ps) :=
+  (S.famOp_acc M ls hnr hco).mono
+
+/-- **A fitting list fits at every larger family of the universe**: it
+holds its own support (`FitsFields_retype`) — each reflexive field's
+applications lie in the smaller family's fibres, each container value
+in the class at the smaller fibre, which grows (`ContClause.mono`). -/
+theorem FitsFields_mono {ps : List V} (hco : S.ContOk M ls ps) {W W' : List V → V}
+    (hW : InUniv (S.u₀ ls) W) (hW' : InUniv (S.u₀ ls) W') (hle : FamLe W W')
+    {fields : List Field} {fs : List V} (hfit : S.FitsFields M ls W ps fields fs) :
+    S.FitsFields M ls W' ps fields fs := by
+  refine S.FitsFields_retype M ls hco hW' hfit (fun k tele es hf hk ys hys => ?_)
+    (fun k hf hk N hN => ?_)
+  · have hget := S.FitsFields_get M ls hfit hf hk
+    simp only [fieldSet] at hget
+    exact hle _ _ (appList_mem_of_piCtx M _ hget hys)
+  · have hget := S.FitsFields_get M ls hfit hf hk
+    rw [S.fieldSet_container M ls hN] at hget
+    exact (hco N hN).mono (hle _) (hW _) (hW' _) _ hget
+
 /-! ## The family -/
 
 /-- **A closed family in the universe**: at a proposition the family
@@ -1326,7 +1324,7 @@ family.  Con-leche: `LfpClause.carrier_eq`. -/
 theorem famOp_Fam {ps : List V} (hnr : S.NoRecDep) (hb : S.DomsBounded M ls ps)
     (hco : S.ContOk M ls ps) (is : List V) :
     S.famOp M ls ps (S.Fam M ls ps) is = S.Fam M ls ps is :=
-  lfpFamSet_eq (S.closedFam M ls hnr hb hco) (S.famOp_mono M ls hco) (S.famOp_maps M ls hb hco) is
+  lfpFamSet_eq (S.closedFam M ls hnr hb hco) (S.famOp_mono M ls hnr hco) (S.famOp_maps M ls hb hco) is
 
 /-- **The family's case analysis**: a member of the fibre at `is` is
 a constructor instance over the family at `is`, and conversely.
@@ -1355,7 +1353,7 @@ theorem Fam_induction {ps : List V} (hnr : S.NoRecDep) (hb : S.DomsBounded M ls 
     (hco : S.ContOk M ls ps) (P : List V → V → Prop)
     (h : ∀ is x, S.Inst M ls (fun is' => sep (S.Fam M ls ps is') (P is')) ps is x → P is x) :
     ∀ is x, x ∈ˢ S.Fam M ls ps is → P is x :=
-  lfpFamSet_induction (S.closedFam M ls hnr hb hco) (S.famOp_mono M ls hco) P fun is x hx =>
+  lfpFamSet_induction (S.closedFam M ls hnr hb hco) (S.famOp_mono M ls hnr hco) P fun is x hx =>
     h is x ((S.mem_famOp M ls).mp hx)
 
 /-- The family's separation by a property is in the universe. -/
