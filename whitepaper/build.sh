@@ -5,7 +5,7 @@
 # renderings by the same typst, both with `--features html` so that
 # lib.typ's `target()` branches are reachable in either:
 #
-#   _build/whitepaper.pdf   paged, embedded fonts only (reproducible)
+#   _build/con-leche-proof-idea.pdf   paged, embedded fonts only (reproducible)
 #   _build/index.html       self-contained (inline CSS, MathML, SVG)
 #
 # then synced to <repo root>/_out/whitepaper/ (gitignored) so the
@@ -48,7 +48,7 @@ render() {  # render <format> <output>
   fi
 }
 
-render pdf  _build/whitepaper.pdf
+render pdf  _build/con-leche-proof-idea.pdf
 render html _build/index.html
 
 if [ $fail -ne 0 ]; then
@@ -58,5 +58,5 @@ fi
 
 outdir=$root/_out/whitepaper
 mkdir -p "$outdir"
-cp -f _build/whitepaper.pdf _build/index.html "$outdir/"
+cp -f _build/con-leche-proof-idea.pdf _build/index.html "$outdir/"
 echo "build.sh: synced to $outdir"

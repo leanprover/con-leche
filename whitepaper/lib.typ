@@ -367,6 +367,8 @@
       html.elem("header", attrs: (class: "title"),
         html.elem("h1", title)
         + html.elem("p", attrs: (class: "authors"), authors)
+        + html.elem("p", attrs: (class: "pdf-link"),
+            html.elem("a", attrs: (href: "con-leche-proof-idea.pdf"), "PDF version"))
         + if note != none { html.elem("p", attrs: (class: "note"), note) })
       + html.elem("aside", attrs: (class: "toc"),
           html.elem("details", attrs: (open: ""),

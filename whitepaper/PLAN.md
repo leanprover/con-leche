@@ -10,7 +10,7 @@ are recorded here so every lane works from the same spec. Task #324.
 ## Deliverables
 
 * `whitepaper/main.typ` (+ `sections/*.typ`): one Typst source, rendered to
-  `whitepaper.pdf` and to HTML by `whitepaper/build.sh`; HTML output is
+  `con-leche-proof-idea.pdf` and to HTML by `whitepaper/build.sh`; HTML output is
   synced to `_out/whitepaper/` (gitignored) after every merge so the
   maintainer can read it.
 * `whitepaper/Fragment/*.lean`: a self-contained Lean verification of the

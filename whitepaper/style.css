@@ -96,6 +96,8 @@ a:hover { text-decoration: underline; }
 
 header.title { margin-bottom: 2rem; }
 header.title .authors { margin-top: -0.4em; color: var(--muted); }
+header.title .pdf-link { margin-top: -0.6em; font-size: 0.9em; }
+header.title .pdf-link a { color: var(--link); }
 header.title .note {
   border-left: 3px solid var(--rule);
   padding: 0.4em 1em;
