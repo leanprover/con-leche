@@ -19,8 +19,6 @@
     version, hovering over such a phrase shows the cited lines.],
 )
 
-#outline(title: "Contents", depth: 2)
-
 #include "sections/01-introduction.typ"
 #include "sections/02-fragment.typ"
 #include "sections/03-definitions.typ"

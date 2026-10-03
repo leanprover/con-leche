@@ -7,7 +7,10 @@
 // target themselves: they use the macros.
 //
 // USAGE.  Every section file starts with `#import "../lib.typ": *`;
-// `main.typ` additionally applies `#show: template.with(...)`.
+// `main.typ` additionally applies `#show: template.with(...)`.  The
+// template emits the title block and the table of contents (depth 2)
+// itself: in the PDF after the note, in the HTML as a sticky sidebar
+// (`style.css` `.page`/`.toc`, `toc.js`); main.typ has no `#outline`.
 //
 //   #ann[...]          THE annotation colour (blue-violet `ann-color`,
 //                      #5b3fd6 — chosen to stay a legible dark grey on a
@@ -89,6 +92,10 @@
 //     elements did not stabilize").  `ann` unwraps it.
 //   * In markup, a `;` directly after a `#src(...)` call is swallowed
 //     as the call's terminator; write `\;`.
+//   * The inlined scripts (`src-tip.js`, `toc.js`) are emitted verbatim
+//     by Typst 0.15.1 — `<`, `>` and `&` inside a <script> are NOT
+//     escaped (checked 2026-10-03 with a one-line probe); an earlier
+//     note here said otherwise.
 
 #let ann-color = rgb("#5b3fd6")
 #let repo = "https://github.com/leanprover/con-leche/blob/master/"
@@ -335,17 +342,34 @@
     } else { it }
   }
 
+  // The table of contents lives here, not in main.typ: the paged output
+  // puts it after the title block, the HTML lifts it into a sidebar.
+  let contents(title) = outline(title: title, depth: 2)
+
   context if is-html() {
     html.elem("style", read("style.css"))
-    html.elem("header", attrs: (class: "title"),
-      html.elem("h1", title)
-      + html.elem("p", attrs: (class: "authors"), authors)
-      + if note != none { html.elem("p", attrs: (class: "note"), note) })
-    doc
+    // The page shell (style.css, `.page`): a grid of header, the ToC
+    // and the article.  Wide viewports put the ToC in a sticky left
+    // column, narrow ones stack it under the header as a collapsible
+    // <details>.  The <nav role="doc-toc"> inside is Typst's own
+    // rendering of the outline, so its numbers and titles are the
+    // document's; the <summary> is its heading (toc.js and `.toc`).
+    html.elem("div", attrs: (class: "page"),
+      html.elem("header", attrs: (class: "title"),
+        html.elem("h1", title)
+        + html.elem("p", attrs: (class: "authors"), authors)
+        + if note != none { html.elem("p", attrs: (class: "note"), note) })
+      + html.elem("aside", attrs: (class: "toc"),
+          html.elem("details", attrs: (open: ""),
+            html.elem("summary", "Contents")
+            + contents(none)))
+      + html.elem("main", doc))
     // Keep a source tip inside the viewport: CSS shows it, this nudges it
-    // left when it would overflow the right edge.  (No `<`, `>` or `&`
-    // in the script: the export escapes them.)
+    // left when it would overflow the right edge.
     html.elem("script", read("src-tip.js"))
+    // The sidebar: current section highlighted, <details> open/closed
+    // by viewport width.  Plain links without it.
+    html.elem("script", read("toc.js"))
   } else {
     set page(paper: "a4", margin: (x: 2.6cm, y: 2.4cm), numbering: "1")
     set text(font: "Libertinus Serif", size: 10.5pt)
@@ -364,6 +388,7 @@
       block(width: 100%, inset: (x: 1.5em, y: 0.6em), fill: luma(245),
         text(size: 9.5pt, note))
     }
+    contents("Contents")
     doc
   }
 }
