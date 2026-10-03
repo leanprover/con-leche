@@ -627,3 +627,87 @@ comment block at the top of `lib.typ`.
     port of `NestSem` onto the new family can start from that lemma
     and delete the scaffolding (`NstPrelude`, `NstBound`, `Nst*.lean`,
     `NstSeam`) as it goes.  (Lane 2, 2026-10-03.)
+
+37. **The container's clause is one more case of the operator, and
+    two facts about the container are all it needs.**  The nested
+    block's operator reads a container field as the class at the
+    approximant's fibre at the nested occurrence (`fieldSet`'s
+    container clause, `Fragment/IndSem.lean`, through `classSet`: the
+    container's set in the model at the class's arguments with that
+    fibre in the member's position).  Monotonicity and accessibility
+    of the operator then ask of that clause exactly what they ask of a
+    reflexive field's product: it grows with the fibre, and a value
+    in it has a support in the fibre coded inside one set
+    (`ContClause`: `mono`, `acc`; plus `mem_univ` for the operator to
+    stay in the universe, and `inhab_one`, item 39).  The installation
+    proves the four from the container's positivity and the leastness
+    of its fixed point (`Fragment/NestSem.lean`, `contClause_of`) —
+    the real proof's container case of `Model/Annot/BlockLfpMono.lean`
+    (monotone through the container's lfp clause,
+    `SetModel/HoleClose.lean`) and `Model/Inductives/ContAcc.lean`,
+    with the container's frames and the walk of its constructors
+    replaced by one lemma about its fields (item 38).  Nothing is asked
+    of a plain block (`contOk_of_plain`).  (Lane 3, 2026-10-03.)
+
+38. **One replacement lemma carries monotonicity, accessibility and
+    the one-fibre counterpart.**  Positivity of the container in the
+    member's position says a constructor reads the member set only
+    through its member fields and its own family only through its
+    recursive fields, and an ordinary field reads neither; so a
+    fitting list stays fitting when the member values are replaced by
+    members of another member set, the recursive values by members of
+    another family's fibre, and the ordinary values kept
+    (`FitsFields_psK_repl`, `Fragment/NestSem.lean`; the real proof's
+    `spineFit_mono` along the instantiation's relation, `CtorPos`).
+    From it: the family at a larger member set is closed under the
+    operator at a smaller one, so by leastness the family grows with
+    the member set (`Fam_psK_mono`); the operator is accessible
+    jointly in the member set and its own family with one code per
+    field position (`jointOp_acc`), so by the nested case of
+    accessibility (`lfpP_acc`, `Fragment/Access.lean`, a port of
+    `SetModel/Access.lean`'s `lfpP_acc` over Lean-level families with a
+    sum type of indices) the family is accessible in the member set
+    with the bound `accPaths` of the positions (`Fam_psK_acc`) — a set
+    computed from the specification alone (`classBound`, item 39).
+    (Lane 3, 2026-10-03.)
+
+39. **The one-fibre reading of the fields needs the class inhabited at
+    `{pt}`, and the class's bound is spec-computed.**  Lane 2's bound
+    is one set because the telescopes are read at the one-fibre
+    family with every recursive value replaced by the point
+    abstracted over the telescope (item 35).  A container value has
+    no such canonical stand-in: the class at `{pt}` may be empty while
+    the class at a larger fibre is not (`K α := wrap (a : α)`), and the
+    universe bound on the fields (`DomsBounded`) is only recorded at
+    fitting prefixes.  So the container's clause includes
+    `inhab_one`: the class at `{pt}` is inhabited whenever the class is
+    inhabited at any member set of the universe — by induction over
+    the container's family, every constructor instance has a
+    counterpart at `{pt}` (`Fam_psK_inhab_one`, the replacement lemma
+    once more) — and `toOne` replaces a container value by a chosen
+    member of the class at `{pt}` (`contOne`).  The class's bound is
+    `accPaths` of the numerals below the container's longest field
+    list (`classBound`), so the block's bound stays a definition and
+    `famOp_acc` keeps lane 2's shape; the real proof carries the
+    container's bound as a function of the frame (`ContAccFrame.lean`,
+    `frameAccOut_of`).  (Lane 3, 2026-10-03.)
+
+40. **One reader for plain and nested blocks.**  The frozen lane read
+    a container field's domain under a guard (`ReaderG.good`); the
+    rebuilt `Reader` (`Fragment/Read.lean`) has no plainness field and
+    reads the domain by β through the container's set, a stored
+    constant the reader agrees on (`classTy_fit`), as the fibre of the
+    reader's family at the nested occurrence; `IdxFitAt`'s container
+    clause is that the member's index values fit the indices, read off
+    the invariant (`fieldDom_wd`).  Only the lemmas about the PLAIN
+    recursor's hypotheses' context (`read_ihTy`, `fits_ihCtxAux`,
+    `Reader₂.minorOk`, and `IndRec`'s totality and typing) take
+    `S.nest = none` explicitly; `ctorSet_mem` takes the container's
+    clause at fitting parameters, which is how a nested block's
+    constructors get their type law without a "class in the bound"
+    condition (`InstallNest.lean`, `type_ok_ctorN`).  The frozen
+    copies `Nst*.lean`, `NstSeam.lean`, `NstBound.lean` (with the
+    closure theorem `inductive_closure`) and `NstPrelude.lean` are
+    gone; `BlockModel.lean` states the block law with the new family
+    and pushes agreement through the operator (`Agree.famOp_eq`,
+    `Agree.Fam_eq`).  (Lane 3, 2026-10-03.)

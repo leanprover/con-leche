@@ -15,8 +15,8 @@ the constructors (`InstallNest.lean`); the block laws survive
 accepted block (`install_ind_any`).
 -/
 
-namespace Fragment.IndSpec.Nst open Fragment.NestInfo (nPK nK memberVar isMember Positive memberLevel)
-open SetLib IndLib
+namespace Fragment open NestInfo (nPK nK memberVar isMember Positive memberLevel)
+open SetLib UnivLib IndLib
 
 universe u
 
@@ -217,4 +217,4 @@ theorem _root_.Fragment.Env.Scoped.install_any {env : Env} {S : IndSpec} (hs : E
   · exact hs.install S ‹_› hok
   · exact hs.installN hok
 
-end Fragment.IndSpec.Nst
+end Fragment

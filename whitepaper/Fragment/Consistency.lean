@@ -31,7 +31,7 @@ open SetLib IndLib
 
 universe u
 
-variable (V : Type u) [IndLib V] [LevelOracle] open IndSpec.Nst (BlockModel install_def' install_ind_any)
+variable (V : Type u) [IndLib V] [LevelOracle]
 
 /-- **The environments the checker accepts**: the empty environment,
 a definition the definition check passes, an inductive block the
@@ -55,7 +55,8 @@ theorem Accepted.scoped : ∀ {env : Env}, Accepted env → Env.Scoped env
   | _, .ind S h hok => h.scoped.install_any hok
 
 /-- **Every accepted environment has a model** (in any `IndLib`) — a
-block model, which remembers its blocks for the nestings to come. -/
+block model, which remembers its blocks for the nestings to come
+(`BlockModel.lean`). -/
 theorem accepted_model {env : Env} (h : Accepted env) : Nonempty (BlockModel V env) := by
   induction h with
   | empty => exact ⟨BlockModel.empty fun _ _ => pt⟩

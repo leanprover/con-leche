@@ -56,8 +56,8 @@ the fields, and the law is not provable from its hypotheses —
 `rec_rule_law1` assumes `N.nPK ≤ S.nP`.
 -/
 
-namespace Fragment.IndSpec.Nst open Fragment.NestInfo (nPK nK memberVar isMember Positive memberLevel)
-open SetLib IndLib
+namespace Fragment open NestInfo (nPK nK memberVar isMember Positive memberLevel)
+open SetLib UnivLib IndLib
 
 universe u
 
@@ -339,7 +339,7 @@ omit [LevelOracle] in
 fields, read in any reader**: the container's constructor's set in
 the model applied to the class's arguments and the fields — the
 reader does not enter (the constructor is a stored constant). -/
-theorem Reader.classCtorApp_read (hS : S.Scoped env) (R : S.Reader (env := env) M φ M' φ')
+theorem Reader.classCtorApp_read (hS : S.Scoped env) (R : S.Reader (env := env) M φ (S.Fam M) M' φ')
     (hN : S.nest = some N) {c : CtorSpec} (hcst : (env.find? c.name).isSome) {o nIh : Nat}
     {ihsE fs os ps : List V} {ρ : Nat → V} (hi : ihsE.length = nIh)
     (hfl : fs.length = (S.classCtor N c).fields.length) (ho : os.length = o) (hps : ps.length = S.nP)
@@ -366,8 +366,8 @@ theorem Reader.classCtorApp_read (hS : S.Scoped env) (R : S.Reader (env := env) 
 omit [LevelOracle] in
 /-- The lifted field context of any scoped constructor agrees between
 two readers, once well-denoted in the second. -/
-theorem ReaderG.agree_fieldCtxAt' (hS : S.Scoped env) {M₁ M₂ : Name → List Nat → V} {φ₁ φ₂ : Name → Nat}
-    (R₁ : S.ReaderG (env := env) M φ M₁ φ₁) (R₂ : S.ReaderG (env := env) M φ M₂ φ₂)
+theorem Reader.agree_fieldCtxAt' (hS : S.Scoped env) {M₁ M₂ : Name → List Nat → V} {φ₁ φ₂ : Name → Nat}
+    (R₁ : S.Reader (env := env) M φ (S.Fam M) M₁ φ₁) (R₂ : S.Reader (env := env) M φ (S.Fam M) M₂ φ₂)
     {c : CtorSpec} (hsc : ∀ i f, c.fields[i]? = some f → S.fieldScoped env (c.fields.length - 1 - i) f)
     {o : Nat} {os₁ os₂ ps : List V} {ρ₁ ρ₂ : Nat → V}
     (ho₁ : os₁.length = o) (ho₂ : os₂.length = o) (hps : ps.length = S.nP)
@@ -393,7 +393,7 @@ omit [LevelOracle] in
 /-- The inductive hypotheses' context of any scoped constructor agrees
 between two readers. -/
 theorem Reader.agree_ihCtxAux' {M₁ M₂ : Name → List Nat → V} {φ₁ φ₂ : Name → Nat}
-    (R₁ : S.Reader (env := env) M φ M₁ φ₁) (R₂ : S.Reader (env := env) M φ M₂ φ₂)
+    (R₁ : S.Reader (env := env) M φ (S.Fam M) M₁ φ₁) (R₂ : S.Reader (env := env) M φ (S.Fam M) M₂ φ₂)
     (hq : RecAgree φ₁ φ₂ S) {c : CtorSpec}
     (hsc : ∀ i f, c.fields[i]? = some f → S.fieldScoped env (c.fields.length - 1 - i) f)
     {o : Nat} {fs os ps : List V}
@@ -460,8 +460,7 @@ theorem Reader₂.agree_minorTyN (hS : S.Scoped env) {M₁ M₂ : Name → List 
   have hfits : ∀ fs, FitsVals M₁ φ₁ (consList (minsE ++ [m1, m]) (consList ps ρ₁))
       (S.fieldCtxAt c (2 + j)) fs →
       fs.length = c.fields.length ∧
-      S.FitsFields M (S.lparams.map φ) (S.bound M (S.lparams.map φ)) (S.Mem M (S.lparams.map φ))
-        ps c.fields fs ∧
+      S.FitsFields M (S.lparams.map φ) (S.Fam M (S.lparams.map φ) ps) ps c.fields fs ∧
       (∀ k f, c.fields[c.fields.length - 1 - k]? = some f → k < c.fields.length →
         IdxFitAt S M φ ps (earlier fs k) f) := by
     intro fs hfs
@@ -475,7 +474,7 @@ theorem Reader₂.agree_minorTyN (hS : S.Scoped env) {M₁ M₂ : Name → List 
   · refine CtxAgree_append hagF fun fs hfs => ?_
     obtain ⟨hf, -, -⟩ := hfits fs hfs
     rw [ihCtxAt_eq]
-    exact R₁.R.agree_ihCtxAux hS R₂.R.toReader hq hcm hf hos (by omega) (fun _ => by omega) hps
+    exact R₁.R.agree_ihCtxAux' R₂.R hq (hS.2.2.2.1 c hcm).1 hf hos (by omega) (fun _ => by omega) hps
       c.recFields (fun _ h => h) (ihsE := []) rfl
   · obtain ⟨ihsR, fs, rfl, hl₁⟩ : ∃ ihsR fs, vs = ihsR ++ fs ∧ ihsR.length = (S.ihCtxAt c (2 + j)).length := by
       have hl := FitsVals_length M₁ φ₁ hvs
@@ -529,7 +528,7 @@ theorem Reader₂.agree_minorTyK (hS : S.Scoped env) {M₁ M₂ : Name → List 
   · refine CtxAgree_append hagF fun fs hfs => ?_
     have hf := hfits fs hfs
     rw [ihCtxAt_eq]
-    exact R₁.R.agree_ihCtxAux' R₂.R.toReader hq hsc hf hos (by omega) (fun _ => by omega) hps
+    exact R₁.R.agree_ihCtxAux' R₂.R hq hsc hf hos (by omega) (fun _ => by omega) hps
       (S.classCtor N c).recFields (fun _ h => h) (ihsE := []) rfl
   · obtain ⟨ihsR, fs, rfl, hl₁⟩ : ∃ ihsR fs, vs = ihsR ++ fs ∧
         ihsR.length = (S.ihCtxAt (S.classCtor N c) (2 + S.n + j)).length := by
@@ -555,8 +554,8 @@ theorem Reader₂.agree_minorTyK (hS : S.Scoped env) {M₁ M₂ : Name → List 
       consList_append ihsR fs (consList (minsE ++ mins ++ [m1, m]) (consList ps ρ₂)),
       interp_mkAppN_appList, interp_mkAppN_appList, interp_bvar, interp_bvar, List.map_singleton,
       List.map_singleton, hbv, hbv,
-      Reader.classCtorApp_read hS R₁.R.toReader hN hcst (o := 2 + S.n + j) hi hf hos hps hp hidx,
-      Reader.classCtorApp_read hS R₂.R.toReader hN hcst (o := 2 + S.n + j) hi hf hos hps hp hidx]
+      Reader.classCtorApp_read hS R₁.R hN hcst (o := 2 + S.n + j) hi hf hos hps hp hidx,
+      Reader.classCtorApp_read hS R₂.R hN hcst (o := 2 + S.n + j) hi hf hos hps hp hidx]
 
 omit [LevelOracle] in
 /-- A class minor's well-denotedness gives the well-denotedness of the
@@ -606,8 +605,8 @@ theorem Reader₂.agree_extrasN (hS : S.Scoped env) {M₁ M₂ : Name → List N
           | nil => exact ⟨a, rfl⟩
           | cons _ _ => simp at hl
       simp only [consList_cons, consList_nil]
-      rw [Reader.read_motiveTy1 S N hS R₁.R.toReader hN hps hp hidx,
-        Reader.read_motiveTy1 S N hS R₂.R.toReader hN hps hp hidx, hq]
+      rw [Reader.read_motiveTy1 S N hS R₁.R hN hps hp hidx,
+        Reader.read_motiveTy1 S N hS R₂.R hN hps hp hidx, hq]
   refine CtxAgree_append hmot fun ms hms => ?_
   obtain ⟨m1, m, rfl⟩ : ∃ m1 m, ms = [m1, m] := by
     have hl := FitsVals_length M₁ φ₁ hms
@@ -683,7 +682,7 @@ theorem Reader₂.agree_recCtxN (hS : S.Scoped env) {M₁ M₂ : Name → List N
     (hwd : CtxWD M₂ φ₂ ρ₂ (S.recCtxN N)) :
     CtxAgree M₁ M₂ φ₁ φ₂ ρ₁ ρ₂ (S.recCtxN N) := by
   unfold recCtxN at hwd ⊢
-  have hagP := R₁.R.agree_params₂ hS R₂.R.toReader ρ₁ ρ₂
+  have hagP := R₁.R.agree_params₂ hS R₂.R ρ₁ ρ₂
   obtain ⟨-, hwd₁⟩ := CtxWD_append' hwd
   refine CtxAgree_append hagP fun ps hps₁ => ?_
   have hp := (R₁.R.fits_params hS).mp hps₁
@@ -707,7 +706,7 @@ theorem Reader₂.agree_recCtxN (hS : S.Scoped env) {M₁ M₂ : Name → List N
     have hvl : vs.length = S.indices.length - 1 - i := by
       rw [hl, List.length_drop, Expr.length_liftCtx]; omega
     rw [← hvl, interp_liftCtx_liftN_entry M₁ φ₁ ρ₁ _ hos, interp_liftCtx_liftN_entry M₂ φ₂ ρ₂ _ hos]
-    exact R₁.R.read₂ R₂.R.toReader (hS.2.1 i A₀ hA₀) (by simp only [hvl, hps, nI]; omega)
+    exact R₁.R.read₂ R₂.R (hS.2.1 i A₀ hA₀) (by simp only [hvl, hps, nI]; omega)
   · unfold indicesAt at his
     rw [FitsVals_liftCtx_liftN M₁ φ₁ _ _ _ hos, R₁.R.fits_indices hS hps] at his
     rw [R₁.R.read_famVars hS hos hps hp his, R₂.R.read_famVars hS hos hps hp his]
@@ -729,7 +728,7 @@ theorem Reader₂.agree_rec1Ctx (hS : S.Scoped env) {M₁ M₂ : Name → List N
     (hwd : CtxWD M₂ φ₂ ρ₂ (S.rec1Ctx N)) :
     CtxAgree M₁ M₂ φ₁ φ₂ ρ₁ ρ₂ (S.rec1Ctx N) := by
   unfold rec1Ctx at hwd ⊢
-  have hagP := R₁.R.agree_params₂ hS R₂.R.toReader ρ₁ ρ₂
+  have hagP := R₁.R.agree_params₂ hS R₂.R ρ₁ ρ₂
   obtain ⟨-, hwd₁⟩ := CtxWD_append' hwd
   refine CtxAgree_append hagP fun ps hps₁ => ?_
   have hp := (R₁.R.fits_params hS).mp hps₁
@@ -805,29 +804,28 @@ with the class's minors read at the point. -/
 
 omit [LevelOracle] in
 /-- **The container's own fit gives the block-sense fit of the
-translated constructor** at a proposition: the member field's value
-is in the member set (inside the fibre), a container field's in the
-class at the fibre (the container's family grows with the member set),
+translated constructor**: the member field's value is in the member
+set (inside the fibre), a container field's in the class at the fibre
+(the container's family grows with the member set, `Fam_psK_mono`),
 an ordinary field's in its domain. -/
 theorem FitsFields_classFields_of_KS {M : Name → List Nat → V} {ls : List Nat}
     (hf : S.NestFacts M ls N) (hlen : N.args.length + 1 = N.nPK)
     (hlsK : N.lsK.length = N.K.lparams.length) (hKS : N.KS.Scoped env) (hN : S.nest = some N)
-    (hz : S.z ls = true) {c : CtorSpec} (hcm : c ∈ N.K.ctors) {X : V} {ps : List V}
+    {c : CtorSpec} (hcm : c ∈ N.K.ctors) {X : V} {ps : List V}
     (hp : FitsVals M (S.ψ ls) base S.params ps) (hX : X ∈ˢ (univ (S.u₀ ls) : V))
-    (hXF : X ⊆ˢ S.Fam M ls ps (S.memberIdx M ls N ps)) {P : FamP V}
-    (hP : ∀ y, P (S.psK M ls N ps X) [] y → N.KS.Mem M (S.lsK ls N) (S.psK M ls N ps X) [] y) :
+    (hXF : X ⊆ˢ S.Fam M ls ps (S.memberIdx M ls N ps)) {W : List V → V}
+    (hW : ∀ y, y ∈ˢ W [] → y ∈ˢ N.KS.Fam M (S.lsK ls N) (S.psK M ls N ps X) []) :
     ∀ {fields : List Field} {n : Nat}, c.fields.drop n = fields → ∀ {fs : List V},
-      N.KS.FitsFields M (S.lsK ls N) (N.KS.bound M (S.lsK ls N)) P (S.psK M ls N ps X) fields fs →
-      S.FitsFields M ls (S.bound M ls) (S.Mem M ls) ps (S.classFields N fields) fs
+      N.KS.FitsFields M (S.lsK ls N) W (S.psK M ls N ps X) fields fs →
+      S.FitsFields M ls (S.Fam M ls ps) ps (S.classFields N fields) fs
   | [], _, _, [], _ => trivial
   | [], _, _, _ :: _, h => h.elim
   | _ :: _, _, _, [], h => h.elim
   | f :: rest, n, hd, v :: vs, ⟨h1, h2⟩ => by
     have hd' : c.fields.drop (n + 1) = rest := by rw [← List.drop_drop, hd]; rfl
-    have ih := FitsFields_classFields_of_KS hf hlen hlsK hKS hN hz hcm hp hX hXF hP hd' h1
+    have ih := FitsFields_classFields_of_KS hf hlen hlsK hKS hN hcm hp hX hXF hW hd' h1
     have hl : vs.length = rest.length := N.KS.FitsFields_length M _ h1
     have hpf := positive_field N hf.positive hcm hd (i := 0) rfl
-    have hzK : N.KS.z (S.lsK ls N) = true := by rw [hf.z_eq]; exact hz
     have hpN : N.p < N.nPK := hf.positive.2.1
     simp only [classFields_cons, FitsFields]
     refine ⟨ih, ?_⟩
@@ -841,12 +839,10 @@ theorem FitsFields_classFields_of_KS {M : Name → List Nat → V} {ls : List Na
         simp only [fieldSet, interp_bvar] at h2
         rw [S.read_memberVar M ls N hlen hpN hl] at h2
         rw [S.idxVals_liftN M ls ps hl]
-        have := hXF v h2
-        unfold Fam at this
-        exact this
+        exact hXF v h2
       · simp only [List.length_cons, Nat.add_sub_cancel, Nat.sub_zero] at hu
         have e := S.classFieldSet_eq_ordinary M ls N hf hlen hlsK hKS hcm hd (i := 0) rfl X (fun _ => True)
-          ps (N.KS.bound M (S.lsK ls N)) P (fs := vs) (by simpa using hl)
+          ps W (fs := vs) (by simpa using hl)
         simp only [List.length_cons, Nat.add_sub_cancel, Nat.sub_zero] at e
         rw [← e] at h2
         rw [classField, if_neg (by rw [isMember_false_of_usesVar N hu]; exact Bool.false_ne_true)] at h2 ⊢
@@ -854,27 +850,23 @@ theorem FitsFields_classFields_of_KS {M : Name → List Nat → V} {ls : List Na
     | reflexive tele es =>
       obtain ⟨rfl, rfl⟩ := hpf
       simp only [classField]
-      rw [S.mem_fieldSet_container M ls N hN]
-      refine ⟨?_, hp, S.contGood_of hf hN⟩
-      simp only [fieldSet, piCtx_nil, idxVals, List.map_nil, List.reverse_nil, hzK] at h2
-      rw [mem_fibreR_true] at h2
-      obtain ⟨rfl, y, hy⟩ := h2
-      show pt ∈ˢ S.classSet M ls N ps (S.Fam M ls ps (S.memberIdx M ls N ps))
-      rw [S.classSet_eq_Fam hf hp (S.Fam_mem_univ M ls _ _), N.KS.mem_Fam_true M _ hzK]
-      exact ⟨rfl, y, (S.Mem_psK_mono hf hp hXF (S.Fam_mem_univ M ls _ _) (hP y hy)).1⟩
+      rw [S.fieldSet_container M ls hN, S.classSet_eq_Fam hf hp (S.Fam_mem_univ M ls _ _)]
+      simp only [fieldSet, piCtx_nil, idxVals, List.map_nil, List.reverse_nil] at h2
+      exact S.Fam_psK_mono hf hp hXF (S.Fam_mem_univ M ls _ _) [] v (hW v h2)
     | container => exact hpf.elim
 
 omit [LevelOracle] in
 /-- **The block-sense fit of the translated constructor gives the
-container's own fit** at the fibre, at a proposition. -/
+container's own fit** at the fibre. -/
 theorem KS_FitsFields_of_classFields {M : Name → List Nat → V} {ls : List Nat}
     (hf : S.NestFacts M ls N) (hlen : N.args.length + 1 = N.nPK)
     (hlsK : N.lsK.length = N.K.lparams.length) (hKS : N.KS.Scoped env) (hN : S.nest = some N)
-    (hz : S.z ls = true) {c : CtorSpec} (hcm : c ∈ N.K.ctors) {ps : List V}
+    {c : CtorSpec} (hcm : c ∈ N.K.ctors) {ps : List V}
     (hp : FitsVals M (S.ψ ls) base S.params ps) :
     ∀ {fields : List Field} {n : Nat}, c.fields.drop n = fields → ∀ {fs : List V},
-      S.FitsFields M ls (S.bound M ls) (S.Mem M ls) ps (S.classFields N fields) fs →
-      N.KS.FitsFields M (S.lsK ls N) (N.KS.bound M (S.lsK ls N)) (N.KS.Mem M (S.lsK ls N))
+      S.FitsFields M ls (S.Fam M ls ps) ps (S.classFields N fields) fs →
+      N.KS.FitsFields M (S.lsK ls N)
+        (N.KS.Fam M (S.lsK ls N) (S.psK M ls N ps (S.Fam M ls ps (S.memberIdx M ls N ps))))
         (S.psK M ls N ps (S.Fam M ls ps (S.memberIdx M ls N ps))) fields fs
   | [], _, _, [], _ => trivial
   | [], _, _, _ :: _, h => h.elim
@@ -883,10 +875,9 @@ theorem KS_FitsFields_of_classFields {M : Name → List Nat → V} {ls : List Na
     simp only [classFields_cons, FitsFields] at h
     obtain ⟨h1, h2⟩ := h
     have hd' : c.fields.drop (n + 1) = rest := by rw [← List.drop_drop, hd]; rfl
-    have ih := KS_FitsFields_of_classFields hf hlen hlsK hKS hN hz hcm hp hd' h1
+    have ih := KS_FitsFields_of_classFields hf hlen hlsK hKS hN hcm hp hd' h1
     have hl : vs.length = rest.length := (S.FitsFields_length M ls h1).trans (S.length_classFields N rest)
     have hpf := positive_field N hf.positive hcm hd (i := 0) rfl
-    have hzK : N.KS.z (S.lsK ls N) = true := by rw [hf.z_eq]; exact hz
     have hpN : N.p < N.nPK := hf.positive.2.1
     refine ⟨ih, ?_⟩
     cases f with
@@ -902,8 +893,9 @@ theorem KS_FitsFields_of_classFields {M : Name → List Nat → V} {ls : List Na
         exact h2
       · simp only [List.length_cons, Nat.add_sub_cancel, Nat.sub_zero] at hu
         have e := S.classFieldSet_eq_ordinary M ls N hf hlen hlsK hKS hcm hd (i := 0) rfl
-          (S.Fam M ls ps (S.memberIdx M ls N ps)) (fun _ => True) ps (N.KS.bound M (S.lsK ls N))
-          (N.KS.Mem M (S.lsK ls N)) (fs := vs) (by simpa using hl)
+          (S.Fam M ls ps (S.memberIdx M ls N ps)) (fun _ => True) ps
+          (N.KS.Fam M (S.lsK ls N) (S.psK M ls N ps (S.Fam M ls ps (S.memberIdx M ls N ps))))
+          (fs := vs) (by simpa using hl)
         simp only [List.length_cons, Nat.add_sub_cancel, Nat.sub_zero] at e
         rw [← e]
         rw [classField, if_neg (by rw [isMember_false_of_usesVar N hu]; exact Bool.false_ne_true)] at h2 ⊢
@@ -911,13 +903,9 @@ theorem KS_FitsFields_of_classFields {M : Name → List Nat → V} {ls : List Na
     | reflexive tele es =>
       obtain ⟨rfl, rfl⟩ := hpf
       simp only [classField] at h2
-      rw [S.mem_fieldSet_container M ls N hN] at h2
-      have h2' : v ∈ˢ S.classSet M ls N ps (S.Fam M ls ps (S.memberIdx M ls N ps)) := h2.1
-      rw [S.classSet_eq_Fam hf hp (S.Fam_mem_univ M ls _ _)] at h2'
-      simp only [fieldSet, piCtx_nil, idxVals, List.map_nil, List.reverse_nil, hzK]
-      unfold Fam at h2'
-      rw [hzK] at h2'
-      exact h2'
+      rw [S.fieldSet_container M ls hN, S.classSet_eq_Fam hf hp (S.Fam_mem_univ M ls _ _)] at h2
+      simp only [fieldSet, piCtx_nil, idxVals, List.map_nil, List.reverse_nil]
+      exact h2
     | container => exact hpf.elim
 
 omit [LevelOracle] in
@@ -928,19 +916,20 @@ theorem pt_mem_classAt {M : Name → List Nat → V} {ls : List Nat}
     (hlsK : N.lsK.length = N.K.lparams.length) (hKS : N.KS.Scoped env) (hN : S.nest = some N)
     (hz : S.z ls = true) {j : Nat} {c : CtorSpec} (hc : N.K.ctors[j]? = some c) {ps : List V}
     (hp : FitsVals M (S.ψ ls) base S.params ps) {fs : List V}
-    (hfit : S.FitsFields M ls (S.bound M ls) (S.Mem M ls) ps (S.classCtor N c).fields fs) :
+    (hfit : S.FitsFields M ls (S.Fam M ls ps) ps (S.classCtor N c).fields fs) :
     pt ∈ˢ S.classAt M ls N ps := by
   have hcm := List.mem_of_getElem? hc
   have hzK : N.KS.z (S.lsK ls N) = true := by rw [hf.z_eq]; exact hz
-  have hfitK := KS_FitsFields_of_classFields hf hlen hlsK hKS hN hz hcm hp
+  have hfitK := KS_FitsFields_of_classFields hf hlen hlsK hKS hN hcm hp
     (List.drop_zero (l := c.fields)) (by simpa [classCtor] using hfit)
-  have hidx : c.idx = [] := (hf.positive.2.2.2.2 c hcm).1
-  have hmem : N.KS.Mem M (S.lsK ls N) (S.psK M ls N ps (S.Fam M ls ps (S.memberIdx M ls N ps))) []
-      (tag (N.KS.tagOf j) (tuple fs.reverse)) :=
-    N.KS.Mem_intro M (S.lsK ls N) ⟨j, c, fs, hc, hfitK, by simp [hidx, idxVals], rfl⟩
+  have hF := S.Fam_mem_univ M ls ps (S.memberIdx M ls N ps)
+  have hmem := N.KS.ctorVal_mem_Fam M (S.lsK ls N) hf.noRecDep (hf.domsBoundedK hp hF)
+    (hf.contOkK _) hc hfitK
+  rw [S.KS_idxVals hf hcm] at hmem
+  simp only [ctorVal, hzK, if_true] at hmem
   unfold classAt
-  rw [S.classSet_eq_Fam hf hp (S.Fam_mem_univ M ls _ _), N.KS.mem_Fam_true M _ hzK]
-  exact ⟨rfl, _, hmem⟩
+  rw [S.classSet_eq_Fam hf hp hF]
+  exact hmem
 
 omit [LevelOracle] in
 /-- A constructor's set at a proposition is the point. -/
@@ -972,8 +961,7 @@ theorem Reader₂.minorOkK_of_fits_prop (hS : S.Scoped env) (R₂ : S.Reader₂ 
         appList m1 [t] ∈ˢ (univ (Level.eval φ' S.ℓ) : V))
     (hmnK : FitsVals M' φ' (consList (mins ++ [m1, m]) (consList ps ρ)) (S.minorsCtxK N) minsK) :
     ∀ j c, N.K.ctors[j]? = some c →
-      ∀ fs, S.FitsFields M (S.lparams.map φ) (S.bound M (S.lparams.map φ))
-          (S.Mem M (S.lparams.map φ)) ps (S.classCtor N c).fields fs →
+      ∀ fs, S.FitsFields M (S.lparams.map φ) (S.Fam M (S.lparams.map φ) ps) ps (S.classCtor N c).fields fs →
         ∀ ihs, ListRel (S.IhTypedN M (S.lparams.map φ) (S.q.holds φ') ps ⟨m, m1, mins, minsK⟩ fs)
             (S.classCtor N c).recFields ihs →
           appList (minorKAt N minsK j) (fs.reverse ++ ihs) ∈ˢ appList m1 [pt] ∧
@@ -1007,8 +995,7 @@ theorem Reader₂.minorOkK_of_fits_prop (hS : S.Scoped env) (R₂ : S.Reader₂ 
   -- fitting the field context in the reader is fitting the translated constructor
   have hfieldsF : ∀ fs', FitsVals M' φ' (consList minsE (consList (mins ++ [m1, m]) (consList ps ρ)))
       (S.fieldCtxAt (S.classCtor N c) (2 + S.n + j)) fs' ↔
-      S.FitsFields M (S.lparams.map φ) (S.bound M (S.lparams.map φ))
-        (S.Mem M (S.lparams.map φ)) ps (S.classCtor N c).fields fs' := by
+      S.FitsFields M (S.lparams.map φ) (S.Fam M (S.lparams.map φ) ps) ps (S.classCtor N c).fields fs' := by
     intro fs'
     unfold fieldCtxAt
     rw [henv, FitsVals_liftCtx_liftN M' φ' _ _ _ hos]
@@ -1026,7 +1013,7 @@ theorem Reader₂.minorOkK_of_fits_prop (hS : S.Scoped env) (R₂ : S.Reader₂ 
         = appList m1 [pt] := by
     intro fs' ihsR hf' hi'
     rw [interp_mkAppN_appList, interp_bvar, List.map_singleton, henv,
-      Reader.classCtorApp_read hS R.toReader hN (hcst j c hc) (o := 2 + S.n + j) hi' hf' hos hps hp hidx,
+      Reader.classCtorApp_read hS R hN (hcst j c hc) (o := 2 + S.n + j) hi' hf' hos hps hp hidx,
       hctor j c hc, KS_ctorSet_eq_pt M _ hzK, appList_pt]
     rw [show (S.classCtor N c).recFields.length + (S.classCtor N c).fields.length + (2 + S.n + j) - 2
         = ((2 + S.n + j - 2) + (S.classCtor N c).fields.length) + (S.classCtor N c).recFields.length by
@@ -1038,19 +1025,14 @@ theorem Reader₂.minorOkK_of_fits_prop (hS : S.Scoped env) (R₂ : S.Reader₂ 
   have hlenI : ihs.reverse.length = (S.ihCtxAt (S.classCtor N c) (2 + S.n + j)).length := by
     rw [List.length_reverse, ihCtxAt_eq, length_ihCtxAux, ListRel.length' hihs]
   have hf := S.FitsFields_length M _ hfit
-  have hihs' : ListRel (S.IhTyped M (S.lparams.map φ) (S.q.holds φ') ps m m1 fs)
-      (S.classCtor N c).recFields ihs :=
-    (ListRel_iff fun _ _ => S.IhTypedN_iff).mp hihs
   have hfitAll : FitsVals M' φ' (consList minsE (consList (mins ++ [m1, m]) (consList ps ρ)))
       (S.ihCtxAt (S.classCtor N c) (2 + S.n + j) ++ S.fieldCtxAt (S.classCtor N c) (2 + S.n + j))
       (ihs.reverse ++ fs) := by
     refine (FitsVals_append M' φ' hlenI).mpr ⟨(hfieldsF fs).mpr hfit, ?_⟩
     rw [ihCtxAt_eq, henv]
-    have := (Reader.fits_ihCtxAux' S R.toReader hsc (os := minsE ++ mins ++ [m1, m]) (ρ := ρ) hf hos (by omega)
-      (fun _ => by omega) hps (S.classCtor N c).recFields (fun _ h => h) ihs (l := 0) (ihsE := [])
-      rfl).mpr
-    rw [hgetm, hgetm1] at this
-    exact this hihs'
+    exact (Reader.fits_ihCtxAux' S R hsc (os := minsE ++ mins ++ [m1, m]) (ρ := ρ) hf hos (by omega)
+      (fun _ => by omega) hps ⟨m, m1, mins, minsK⟩ hgetm.symm hgetm1.symm (S.classCtor N c).recFields
+      (fun _ h => h) ihs (l := 0) (ihsE := []) rfl).mpr hihs
   have hG : S.q.holds φ' = true →
       ∀ ws, FitsVals M' φ' (consList minsE (consList (mins ++ [m1, m]) (consList ps ρ)))
         (S.ihCtxAt (S.classCtor N c) (2 + S.n + j) ++ S.fieldCtxAt (S.classCtor N c) (2 + S.n + j)) ws →
@@ -1091,15 +1073,17 @@ omit [LevelOracle] in
 /-- **The motives are inhabited at a proposition**, on the family and
 on the class: by the interleaved induction from the minors' typing,
 the class's minors read at the point (`motive_inhabitedN` without the
-class's laws). -/
+class's laws: at a proposition every member of the family and of the
+class is the point). -/
 theorem motives_inhabited_prop {M : Name → List Nat → V} {ls : List Nat}
     (hf : S.NestFacts M ls N) (hlen : N.args.length + 1 = N.nPK)
     (hlsK : N.lsK.length = N.K.lparams.length) (hKS : N.KS.Scoped env) (hN : S.nest = some N)
     (hz : S.z ls = true) (q : Bool) {ps : List V} (hp : FitsVals M (S.ψ ls) base S.params ps)
+    (hnr : S.NoRecDep) (hb : S.DomsBounded M ls ps) (hco : S.ContOk M ls ps)
     (ex : RecEx V)
     (hmin : ∀ j c, S.ctors[j]? = some c → S.MinorOkN M ls q ps ex j c)
     (hminK : ∀ j c, N.K.ctors[j]? = some c →
-      ∀ fs, S.FitsFields M ls (S.bound M ls) (S.Mem M ls) ps (S.classCtor N c).fields fs →
+      ∀ fs, S.FitsFields M ls (S.Fam M ls ps) ps (S.classCtor N c).fields fs →
         ∀ ihs, ListRel (S.IhTypedN M ls q ps ex fs) (S.classCtor N c).recFields ihs →
           appList (minorKAt N ex.minsK j) (fs.reverse ++ ihs) ∈ˢ appList ex.m1 [pt])
     (hmo : q = true → ∀ is t, t ∈ˢ S.Fam M ls ps is → appList ex.m (is.reverse ++ [t]) ∈ˢ (univ 0 : V)) :
@@ -1107,21 +1091,27 @@ theorem motives_inhabited_prop {M : Name → List Nat → V} {ls : List Nat}
     (∀ t, t ∈ˢ S.classAt M ls N ps → ∃ v, v ∈ˢ appList ex.m1 [t]) := by
   have hzK : N.KS.z (S.lsK ls N) = true := by rw [hf.z_eq]; exact hz
   have hpN : N.p < N.nPK := hf.positive.2.1
+  have hu0 : S.u₀ ls = 0 := (S.z_iff ls).mp hz
+  -- a member of the container's family at a proposition is the point
+  have hptK : ∀ (X : V) (y : V), y ∈ˢ N.KS.Fam M (S.lsK ls N) (S.psK M ls N ps X) [] → y = pt := by
+    intro X y hy
+    have := N.KS.Fam_mem_univ M (S.lsK ls N) (S.psK M ls N ps X) []
+    rw [hf.u₀_eq, hu0] at this
+    exact eq_pt_of_mem_univ_zero this hy
   -- the inner induction, over the container's family at a member set inside the fibre
   have inner : ∀ (X : V), X ∈ˢ (univ (S.u₀ ls) : V) → X ⊆ˢ S.Fam M ls ps (S.memberIdx M ls N ps) →
       (∀ x, x ∈ˢ X → ∃ v, v ∈ˢ appList ex.m ((S.memberIdx M ls N ps).reverse ++ [x])) →
-      ∀ y, N.KS.Mem M (S.lsK ls N) (S.psK M ls N ps X) [] y → ∃ v, v ∈ˢ appList ex.m1 [pt] := by
+      ∀ y, y ∈ˢ N.KS.Fam M (S.lsK ls N) (S.psK M ls N ps X) [] → ∃ v, v ∈ˢ appList ex.m1 [pt] := by
     intro X hX hXF hkey y hy
-    refine N.KS.Mem_ind M (S.lsK ls N)
-      (P := fun ps' _ _ => ps' = S.psK M ls N ps X → ∃ v, v ∈ˢ appList ex.m1 [pt]) ?_ hy rfl
-    intro ps' is' x hs hps'
-    subst hps'
+    refine N.KS.Fam_induction M (S.lsK ls N) hf.noRecDep (hf.domsBoundedK hp hX) (hf.contOkK _)
+      (fun _ _ => ∃ v, v ∈ˢ appList ex.m1 [pt]) ?_ [] y hy
+    intro is' x hs
     obtain ⟨j, c, fs, hc, hfit, -, -⟩ := hs
     have hcm := List.mem_of_getElem? hc
-    have hfitB : S.FitsFields M ls (S.bound M ls) (S.Mem M ls) ps (S.classCtor N c).fields fs := by
+    have hfitB : S.FitsFields M ls (S.Fam M ls ps) ps (S.classCtor N c).fields fs := by
       simp only [classCtor]
-      exact FitsFields_classFields_of_KS hf hlen hlsK hKS hN hz hcm hp hX hXF (fun _ h => h.1)
-        (List.drop_zero (l := c.fields)) hfit
+      exact FitsFields_classFields_of_KS hf hlen hlsK hKS hN hcm hp hX hXF
+        (fun _ h => (mem_sep.mp h).1) (List.drop_zero (l := c.fields)) hfit
     obtain ⟨ihs, hihs⟩ : ∃ ihs, ListRel (S.IhTypedN M ls q ps ex fs) (S.classCtor N c).recFields ihs := by
       refine ListRel.exists_of_forall fun kf hkf => ?_
       obtain ⟨k, f⟩ := kf
@@ -1156,73 +1146,52 @@ theorem motives_inhabited_prop {M : Name → List Nat → V} {ls : List Nat}
         simp only [classField] at hfe
         subst hfe
         dsimp only [IhTypedN]
-        simp only [fieldSet, piCtx_nil, idxVals, List.map_nil, List.reverse_nil, hzK] at hget
-        rw [mem_fibreR_true] at hget
-        obtain ⟨hpt, y', -, hP⟩ := hget
-        rw [hpt]
-        exact hP (by trivial)
+        simp only [fieldSet, piCtx_nil, idxVals, List.map_nil, List.reverse_nil, mem_sep] at hget
+        rw [hptK X _ hget.1]
+        exact hget.2
       | container => exact hpf.elim
     exact ⟨_, hminK j c hc fs hfitB ihs hihs⟩
   -- the outer induction, over the family
-  have key : ∀ ps' is x, S.Mem M ls ps' is x → ps' = ps →
-      ∃ v, v ∈ˢ appList ex.m (is.reverse ++ [S.memb ls x]) := by
-    intro ps' is x hm
-    refine S.Mem_ind M ls
-      (P := fun ps' is x => ps' = ps → ∃ v, v ∈ˢ appList ex.m (is.reverse ++ [S.memb ls x])) ?_ hm
-    intro ps' is x hs hps
-    subst hps
-    obtain ⟨j, c, fs, hc, hfit, his, hx⟩ := hs
-    have hfitM := S.FitsFields_mono M ls (S.boundOk_bound M ls) (fun _ _ _ h => h.1) ps' hfit
-    subst his hx
-    have hmemb : S.memb ls (tag (S.tagOf j) (tuple fs.reverse)) = S.ctorVal ls j fs := rfl
-    rw [hmemb]
-    obtain ⟨ihs, hihs⟩ : ∃ ihs, ListRel (S.IhTypedN M ls q ps' ex fs) c.recFields ihs := by
+  have key : ∀ is x, x ∈ˢ S.Fam M ls ps is → ∃ v, v ∈ˢ appList ex.m (is.reverse ++ [x]) := by
+    refine S.Fam_induction M ls hnr hb hco
+      (fun is x => ∃ v, v ∈ˢ appList ex.m (is.reverse ++ [x])) ?_
+    intro is x hs
+    obtain ⟨j, c, fs, hc, hfit, his, rfl⟩ := hs
+    have hfitF := S.FitsFields_of_sep M ls hco _ hfit
+    subst his
+    obtain ⟨ihs, hihs⟩ : ∃ ihs, ListRel (S.IhTypedN M ls q ps ex fs) c.recFields ihs := by
       refine ListRel.exists_of_forall fun kf hkf => ?_
       obtain ⟨hf₁, hk, hrec⟩ := mem_recFields hkf
-      have hget := S.FitsFields_get M ls hfit hf₁ hk
+      have hsep := S.sep_fields M ls N hN _ hfit hf₁ hk
       obtain ⟨k, f⟩ := kf
       cases f with
       | ordinary _ => simp [Field.isRec] at hrec
       | reflexive tele es =>
-        dsimp only [fieldSet] at hget
         dsimp only [IhTypedN]
-        refine ⟨lamCtx M (S.ψ ls) q _ tele fun ρ' => pickMemN (appList ex.m ((S.idxVals M ls ρ' es).reverse ++
+        refine ⟨lamCtx M (S.ψ ls) q _ tele fun ρ' => pickMem (appList ex.m ((S.idxVals M ls ρ' es).reverse ++
           [appList (fieldVal fs k) (readEnv tele.length ρ').reverse])),
           lamCtx_mem_piCtx M _ (fun ys hys => ?_) fun hq ys hys => ?_⟩
         · have hlen := FitsVals_length M _ hys
-          have hmem := appList_mem_of_piCtx M (S.ψ ls) hget hys
-          refine pickMemN_mem ?_
+          refine pickMem_mem ?_
           simp only [readEnv_consList hlen]
-          exact S.memb_of_fibreN M ls (Q := fun t => ∃ v, v ∈ˢ appList ex.m (_ ++ [t]))
-            (fibreR_mono (fun x hx => ⟨hx.1, hx.2 rfl⟩) _ hmem)
+          exact (hsep ys hys).2
         · have hlen := FitsVals_length M _ hys
-          have hmem := appList_mem_of_piCtx M (S.ψ ls) hget hys
           simp only [readEnv_consList hlen]
-          exact hmo hq _ _ (fibreR_mono (fun x hx => hx.1) _ hmem)
+          exact hmo hq _ _ (hsep ys hys).1
       | container =>
-        have hget1 := ((S.mem_fieldSet_container M ls N hN).mp hget).1
         dsimp only [IhTypedN]
-        have hX := S.fibreR_mem_univ_of_boundOk ls (S.boundOk_bound M ls) ps' (S.memberIdx M ls N ps')
-          (fun x => S.Mem M ls ps' (S.memberIdx M ls N ps') x ∧
-            (ps' = ps' → ∃ v, v ∈ˢ appList ex.m ((S.memberIdx M ls N ps').reverse ++ [S.memb ls x])))
-        rw [S.classSet_eq_Fam hf hp hX, N.KS.mem_Fam_true M _ hzK] at hget1
-        obtain ⟨hpt, y, hy⟩ := hget1
-        rw [hpt]
-        refine inner _ hX (fibreR_mono fun x hx => hx.1) (fun x hx => ?_) y hy
-        rw [hz, mem_fibreR_true] at hx
-        obtain ⟨rfl, x', -, hP⟩ := hx
-        have := hP rfl
-        simpa [memb, hz] using this
-    exact ⟨_, hmin j c hc fs hfitM ihs hihs⟩
-  refine ⟨fun is t ht => ?_, fun t ht => ?_⟩
-  · exact S.memb_of_fibreN M ls (Q := fun t => ∃ v, v ∈ˢ appList ex.m (is.reverse ++ [t]))
-      (fibreR_mono (fun x hx => ⟨hx, key ps is x hx rfl⟩) _ ht)
-  · unfold classAt at ht
-    rw [S.classSet_eq_Fam hf hp (S.Fam_mem_univ M ls _ _), N.KS.mem_Fam_true M _ hzK] at ht
-    obtain ⟨rfl, y, hy⟩ := ht
-    exact inner _ (S.Fam_mem_univ M ls _ _) (Sub.refl _) (fun x hx =>
-      S.memb_of_fibreN M ls (Q := fun t => ∃ v, v ∈ˢ appList ex.m (_ ++ [t]))
-        (fibreR_mono (fun x hx => ⟨hx, key ps _ x hx rfl⟩) _ hx)) y hy
+        have hX : sep (S.Fam M ls ps (S.memberIdx M ls N ps))
+            (fun x => ∃ v, v ∈ˢ appList ex.m ((S.memberIdx M ls N ps).reverse ++ [x]))
+            ∈ˢ (univ (S.u₀ ls) : V) := sep_mem_univ (S.Fam_mem_univ M ls ps _)
+        rw [S.classSet_eq_Fam hf hp hX] at hsep
+        rw [hptK _ _ hsep]
+        exact inner _ hX sep_sub (fun x hx => (mem_sep.mp hx).2) _ hsep
+    exact ⟨_, hmin j c hc fs hfitF ihs hihs⟩
+  refine ⟨key, fun t ht => ?_⟩
+  unfold classAt at ht
+  rw [S.classSet_eq_Fam hf hp (S.Fam_mem_univ M ls _ _)] at ht
+  rw [hptK _ _ ht]
+  exact inner _ (S.Fam_mem_univ M ls _ _) (Sub.refl _) (fun x hx => key _ x hx) t ht
 
 /-! ## The recursors' sets in the final model -/
 
@@ -1282,7 +1251,7 @@ theorem wdFieldCtxN (φ : Name → Nat) (ρ : Nat → V) :
       FitsVals m.M (S.ψ (S.lparams.map φ)) base S.params ps →
       CtxWD (S.M₃N m.M N) φ (consList ps ρ) (S.fieldCtx c.fields) := by
   intro c hc ps hps hp
-  exact ((reader₃N hs m hok φ).R.idxFit_of_wd hok.scoped hc (wd_ctorTypeN hs m hok hc _ ρ) hps hp).1
+  exact ((reader₃N m hok φ).R.idxFit_of_wd hok.scoped hc (wd_ctorTypeN hs m hok hc _ ρ) hps hp).1
 
 /-- **`T.rec`'s set at concrete levels** is the abstraction over its
 context read in the final model at the instantiated valuation. -/
@@ -1303,8 +1272,8 @@ theorem recSetN_eq (φ : Name → Nat) (ρ : Nat → V) {us : List Level}
       = Level.substVal φ S.recLparams us n :=
     fun n hn => recVal_agree φ hus n (S.lparams_sub_recLparams hn)
   have hls := block_levels_eq (S := S) φ hus
-  have R₃ := reader₃N hs m hok (Level.substVal φ S.recLparams us)
-  have R₂ := reader₂N hs m hok (Level.substVal φ S.recLparams us) hval
+  have R₃ := reader₃N m hok (Level.substVal φ S.recLparams us)
+  have R₂ := reader₂N m hok (Level.substVal φ S.recLparams us) hval
   have hwd : CtxWD (S.M₃N m.M N) (Level.substVal φ S.recLparams us) ρ (S.recCtxN N) := by
     have := wd_recTypeN hs m hok (Level.substVal φ S.recLparams us) ρ
     rw [recTypeN_eq, WellDenoted_mkPis] at this
@@ -1347,8 +1316,8 @@ theorem rec1Set_eq (φ : Name → Nat) (ρ : Nat → V) {us : List Level}
       = Level.substVal φ S.recLparams us n :=
     fun n hn => recVal_agree φ hus n (S.lparams_sub_recLparams hn)
   have hls := block_levels_eq (S := S) φ hus
-  have R₃ := reader₃N hs m hok (Level.substVal φ S.recLparams us)
-  have R₂ := reader₂N hs m hok (Level.substVal φ S.recLparams us) hval
+  have R₃ := reader₃N m hok (Level.substVal φ S.recLparams us)
+  have R₂ := reader₂N m hok (Level.substVal φ S.recLparams us) hval
   have hwd : CtxWD (S.M₃N m.M N) (Level.substVal φ S.recLparams us) ρ (S.rec1Ctx N) := by
     have := wd_rec1Type hs m hok (Level.substVal φ S.recLparams us) ρ
     rw [rec1Type_eq, WellDenoted_mkPis] at this
@@ -1401,31 +1370,31 @@ theorem recs_typed (φr : Name → Nat) (ρ : Nat → V) {ps : List V} {m1 m' : 
   have hS := hok.scoped
   have hN := hok.nest
   have hK := K_law m hok
-  have R₃ := reader₃N hs m hok φr
+  have R₃ := reader₃N m hok φr
   have hidx := memberIdx_fits hs m hok φr hp
   have hwdC := wdFieldCtxN hs m hok φr ρ
   have hwdCK : ∀ c ∈ N.K.ctors, CtxWD (S.M₃N m.M N) φr (consList ps ρ) (S.fieldCtx (S.classCtor N c).fields) :=
     fun c hc => by
       obtain ⟨j, hj⟩ := List.mem_iff_getElem?.mp hc
       exact wdFieldCtxK hwdE hmins hminsK hm hm1 hmn hmnK j c hj
-  have hres : ∀ c ∈ S.ctors, ∀ fs, S.FitsFields m.M (S.lparams.map φr) (S.bound m.M (S.lparams.map φr))
-      (S.Mem m.M (S.lparams.map φr)) ps c.fields fs →
+  have hres : ∀ c ∈ S.ctors, ∀ fs, S.FitsFields m.M (S.lparams.map φr) (S.Fam m.M (S.lparams.map φr) ps) ps c.fields fs →
       FitsVals m.M (S.ψ (S.lparams.map φr)) (envP ps) S.indices
         (S.idxVals m.M (S.lparams.map φr) (consList fs (envP ps)) c.idx) :=
     fun c hc fs hfit =>
       ((R₃.R.idxFit_of_wd hS hc (wd_ctorTypeN hs m hok hc _ ρ) hps hp).2 fs hfit).2.2
   have hmot := R₃.R.motiveOk_of_mem hS hps hp hm
-  have hmot1 := Reader.motive1Ok_of_mem S N hS R₃.R.toReader hN hps hp hidx hm1
+  have hmot1 := Reader.motive1Ok_of_mem S N hS R₃.R hN hps hp hidx hm1
   have hmin : ∀ j c, S.ctors[j]? = some c →
       S.MinorOkN m.M (S.lparams.map φr) (S.q.holds φr) ps ⟨m', m1, mins, minsK⟩ j c :=
     fun j c hc fs hfit ihs hihs =>
       (Reader₂.minorOkN_of_fits S hS R₃ hok.freshI hps hp hmins (fun c hc => hwdC c hc ps hps hp)
         hres hmot (noRecDepN hok) (domsBounded_ofN hs m hok φr ρ hps hp)
-        (S.contInBound_of (nestFacts hs m hok φr) hN hp) hmn j c hc fs hfit ihs
-        ((ListRel_iff fun _ _ => S.IhTypedN_iff.trans S.IhTypedN_iff.symm).mp hihs)).1
+        (contOk hs m hok φr hp) hmn j c hc fs hfit ihs
+        ((ListRel_iff fun _ _ => Iff.rfl).mp hihs)).1
   have hFam : ∀ is t, t ∈ˢ S.Fam m.M (S.lparams.map φr) ps is →
       FitsVals m.M (S.ψ (S.lparams.map φr)) (envP ps) S.indices is := fun is t ht =>
-    S.idx_fits_of_mem_Fam m.M _ (fun j c hc fs hfit => hres c (List.mem_of_getElem? hc) fs hfit) ht
+    S.idx_fits_of_mem_Fam m.M _ (noRecDepN hok) (domsBounded_ofN hs m hok φr ρ hps hp)
+      (contOk hs m hok φr hp) (fun j c hc fs hfit => hres c (List.mem_of_getElem? hc) fs hfit) ht
   refine ⟨fun hq => ?_, fun hq => ?_⟩
   · have hz := z_false_of_q hok φr hq
     have hcl := classLaws hs m hok φr hz hp
@@ -1436,8 +1405,8 @@ theorem recs_typed (φr : Name → Nat) (ρ : Nat → V) {ps : List V} {m1 m' : 
           (K_ctors_stored m hok) hz hps hp hmins hminsK hwdCK hidx hmot1 hmnK j c hc fs hfit
           ihs hihs).1
     rw [hq] at hmin hminK
-    exact S.recSemN_mem m.M _ N false hN hz hcl ⟨m', m1, mins, minsK⟩ hmin hminK
-      (fun h => nomatch h)
+    exact S.recSemN_mem m.M _ N false hN hz (noRecDepN hok) (domsBounded_ofN hs m hok φr ρ hps hp)
+      (contOk hs m hok φr hp) hcl ⟨m', m1, mins, minsK⟩ hmin hminK (fun h => nomatch h)
   · have hℓ := S.q_holds φr
     rw [hq, Bool.true_eq, beq_iff_eq] at hℓ
     have hmo : ∀ is t, t ∈ˢ S.Fam m.M (S.lparams.map φr) ps is →
@@ -1462,11 +1431,11 @@ theorem recs_typed (φr : Name → Nat) (ρ : Nat → V) {ps : List V} {m1 m' : 
             (K_ctors_stored m hok) hz hps hp hmins hminsK hwdCK hidx hmot1 hmnK j c hc fs hfit
             ihs hihs).1
       rw [hq] at hmin hminK
-      exact S.motive_inhabitedN m.M _ N true hN hcl ⟨m', m1, mins, minsK⟩ hmin hminK (fun _ => hmo)
+      exact S.motive_inhabitedN m.M _ N true hN (noRecDepN hok) (domsBounded_ofN hs m hok φr ρ hps hp)
+        (contOk hs m hok φr hp) hcl ⟨m', m1, mins, minsK⟩ hmin hminK (fun _ => hmo)
     · have hNS := hok.nestScoped N hN
       have hminK' : ∀ j c, N.K.ctors[j]? = some c →
-          ∀ fs, S.FitsFields m.M (S.lparams.map φr) (S.bound m.M (S.lparams.map φr))
-              (S.Mem m.M (S.lparams.map φr)) ps (S.classCtor N c).fields fs →
+          ∀ fs, S.FitsFields m.M (S.lparams.map φr) (S.Fam m.M (S.lparams.map φr) ps) ps (S.classCtor N c).fields fs →
             ∀ ihs, ListRel (S.IhTypedN m.M (S.lparams.map φr) (S.q.holds φr) ps ⟨m', m1, mins, minsK⟩ fs)
                 (S.classCtor N c).recFields ihs →
               appList (minorKAt N minsK j) (fs.reverse ++ ihs) ∈ˢ appList m1 [pt] :=
@@ -1476,6 +1445,7 @@ theorem recs_typed (φr : Name → Nat) (ρ : Nat → V) {ps : List V} {m1 m' : 
             ihs hihs).1
       rw [hq] at hmin hminK'
       exact motives_inhabited_prop (nestFacts hs m hok φr) hNS.2.2.2.2.1 hNS.2.2.1 hK.1 hN hz true hp
+        (noRecDepN hok) (domsBounded_ofN hs m hok φr ρ hps hp) (contOk hs m hok φr hp)
         ⟨m', m1, mins, minsK⟩ hmin hminK' (fun _ => hmo)
 
 /-- **`T.rec`'s set is in `T.rec`'s type.** -/
@@ -1484,7 +1454,7 @@ theorem recSetN_mem (φ : Name → Nat) (ρ : Nat → V) {lsr : List Level}
     S.recSetN m.M N (lsr.map (Level.eval φ)) ∈ˢ
       interp (S.M₃N m.M N) (Level.substVal φ S.recLparams lsr) ρ (S.recTypeN N) := by
   have hS := hok.scoped
-  have R₃ := reader₃N hs m hok (Level.substVal φ S.recLparams lsr)
+  have R₃ := reader₃N m hok (Level.substVal φ S.recLparams lsr)
   have hwd : CtxWD (S.M₃N m.M N) (Level.substVal φ S.recLparams lsr) ρ (S.recCtxN N) := by
     have := wd_recTypeN hs m hok (Level.substVal φ S.recLparams lsr) ρ
     rw [recTypeN_eq, WellDenoted_mkPis] at this
@@ -1496,14 +1466,14 @@ theorem recSetN_mem (φ : Name → Nat) (ρ : Nat → V) {lsr : List Level}
   · intro hq vs hvs
     obtain ⟨t, is, minsK, mins, m1, m', ps, rfl, hi, hminsK, hmins, hps⟩ := fits_recCtxN_split S N hvs
     obtain ⟨hp, hm, hm1, hmn, hmnK, his, ht⟩ :=
-      (Reader.fits_recCtxN_iff S N hS R₃.R.toReader hi hminsK hmins hps).mp hvs
+      (Reader.fits_recCtxN_iff S N hS R₃.R hi hminsK hmins hps).mp hvs
     rw [recFN_read S m.M _ N _ hi hminsK hmins hps, read_recBodyN S _ _ N hi hminsK hmins, hq]
     have hwdE := wd_extrasN_of_recCtxN hwd ((R₃.R.fits_params hS).mpr hp)
     exact ((recs_typed hs m hok _ ρ hps hp hm hm1 hmins hminsK hmn hmnK hwdE).1 hq).1 is t ht
   · intro hq vs hvs
     obtain ⟨t, is, minsK, mins, m1, m', ps, rfl, hi, hminsK, hmins, hps⟩ := fits_recCtxN_split S N hvs
     obtain ⟨hp, hm, hm1, hmn, hmnK, his, ht⟩ :=
-      (Reader.fits_recCtxN_iff S N hS R₃.R.toReader hi hminsK hmins hps).mp hvs
+      (Reader.fits_recCtxN_iff S N hS R₃.R hi hminsK hmins hps).mp hvs
     rw [read_recBodyN S _ _ N hi hminsK hmins]
     have hwdE := wd_extrasN_of_recCtxN hwd ((R₃.R.fits_params hS).mpr hp)
     exact ((recs_typed hs m hok _ ρ hps hp hm hm1 hmins hminsK hmn hmnK hwdE).2 hq).1 is t ht
@@ -1514,7 +1484,7 @@ theorem rec1Set_mem (φ : Name → Nat) (ρ : Nat → V) {lsr : List Level}
     S.rec1Set m.M N (lsr.map (Level.eval φ)) ∈ˢ
       interp (S.M₃N m.M N) (Level.substVal φ S.recLparams lsr) ρ (S.rec1Type N) := by
   have hS := hok.scoped
-  have R₃ := reader₃N hs m hok (Level.substVal φ S.recLparams lsr)
+  have R₃ := reader₃N m hok (Level.substVal φ S.recLparams lsr)
   have hwd : CtxWD (S.M₃N m.M N) (Level.substVal φ S.recLparams lsr) ρ (S.rec1Ctx N) := by
     have := wd_rec1Type hs m hok (Level.substVal φ S.recLparams lsr) ρ
     rw [rec1Type_eq, WellDenoted_mkPis] at this
@@ -1527,14 +1497,14 @@ theorem rec1Set_mem (φ : Name → Nat) (ρ : Nat → V) {lsr : List Level}
   · intro hq vs hvs
     obtain ⟨t, minsK, mins, m1, m', ps, rfl, hminsK, hmins, hps⟩ := fits_rec1Ctx_split S N hvs
     obtain ⟨hp, hm, hm1, hmn, hmnK, ht⟩ :=
-      (Reader.fits_rec1Ctx_iff S N hS R₃.R.toReader hok.nest hminsK hmins hps hidx).mp hvs
+      (Reader.fits_rec1Ctx_iff S N hS R₃.R hok.nest hminsK hmins hps hidx).mp hvs
     rw [rec1F_read S m.M _ N _ hminsK hmins hps, read_rec1Body S _ _ N hminsK hmins, hq]
     have hwdE := wd_extrasN_of_rec1Ctx hwd ((R₃.R.fits_params hS).mpr hp)
     exact ((recs_typed hs m hok _ ρ hps hp hm hm1 hmins hminsK hmn hmnK hwdE).1 hq).2 t ht
   · intro hq vs hvs
     obtain ⟨t, minsK, mins, m1, m', ps, rfl, hminsK, hmins, hps⟩ := fits_rec1Ctx_split S N hvs
     obtain ⟨hp, hm, hm1, hmn, hmnK, ht⟩ :=
-      (Reader.fits_rec1Ctx_iff S N hS R₃.R.toReader hok.nest hminsK hmins hps hidx).mp hvs
+      (Reader.fits_rec1Ctx_iff S N hS R₃.R hok.nest hminsK hmins hps hidx).mp hvs
     rw [read_rec1Body S _ _ N hminsK hmins]
     have hwdE := wd_extrasN_of_rec1Ctx hwd ((R₃.R.fits_params hS).mpr hp)
     exact ((recs_typed hs m hok _ ρ hps hp hm hm1 hmins hminsK hmn hmnK hwdE).2 hq).2 t ht
@@ -1622,11 +1592,11 @@ theorem rec_app_memN (φ : Name → Nat) (ρ : Nat → V) {us : List Level}
         = S.recSemN m.M (S.lparams.map (Level.substVal φ S.recLparams us)) N false ps
             ⟨m', m1, mins, minsK⟩ is t) := by
   have hS := hok.scoped
-  have R₃ := reader₃N hs m hok (Level.substVal φ S.recLparams us)
+  have R₃ := reader₃N m hok (Level.substVal φ S.recLparams us)
   have hi : is.length = S.nI := by have := FitsVals_length m.M _ his; simpa [nI] using this
   have hfit : FitsVals (S.M₃N m.M N) (Level.substVal φ S.recLparams us) ρ (S.recCtxN N)
       (t :: is ++ minsK ++ mins ++ [m1, m'] ++ ps) :=
-    (Reader.fits_recCtxN_iff S N hS R₃.R.toReader hi hminsK hmins hps).mpr
+    (Reader.fits_recCtxN_iff S N hS R₃.R hi hminsK hmins hps).mpr
       ⟨hp, hm, hm1, hmn, hmnK, his, ht⟩
   have hrev : ps.reverse ++ [m', m1] ++ mins.reverse ++ minsK.reverse ++ is.reverse ++ [t]
       = (t :: is ++ minsK ++ mins ++ [m1, m'] ++ ps).reverse := by
@@ -1648,7 +1618,7 @@ theorem rec_app_memN (φ : Name → Nat) (ρ : Nat → V) {us : List Level}
     obtain ⟨t', is', minsK', mins', m1', m'', ps', rfl, hi', hminsK', hmins', hps'⟩ :=
       fits_recCtxN_split S N hws
     obtain ⟨hp', hm', hm1', hmn', hmnK', his', ht'⟩ :=
-      (Reader.fits_recCtxN_iff S N hS R₃.R.toReader hi' hminsK' hmins' hps').mp hws
+      (Reader.fits_recCtxN_iff S N hS R₃.R hi' hminsK' hmins' hps').mp hws
     rw [read_recBodyN S _ _ N hi' hminsK' hmins']
     have hwdE := wd_extrasN_of_recCtxN hwd ((R₃.R.fits_params hS).mpr hp')
     rw [((recs_typed hs m hok _ ρ hps' hp' hm' hm1' hmins' hminsK' hmn' hmnK' hwdE).2 hq).1 is' t' ht']
@@ -1691,11 +1661,11 @@ theorem rec1_app_mem (φ : Name → Nat) (ρ : Nat → V) {us : List Level}
         = S.rec1Sem m.M (S.lparams.map (Level.substVal φ S.recLparams us)) N false ps
             ⟨m', m1, mins, minsK⟩ t) := by
   have hS := hok.scoped
-  have R₃ := reader₃N hs m hok (Level.substVal φ S.recLparams us)
+  have R₃ := reader₃N m hok (Level.substVal φ S.recLparams us)
   have hidx := fun ps hp => memberIdx_fits hs m hok (Level.substVal φ S.recLparams us) (ps := ps) hp
   have hfit : FitsVals (S.M₃N m.M N) (Level.substVal φ S.recLparams us) ρ (S.rec1Ctx N)
       (t :: minsK ++ mins ++ [m1, m'] ++ ps) :=
-    (Reader.fits_rec1Ctx_iff S N hS R₃.R.toReader hok.nest hminsK hmins hps hidx).mpr
+    (Reader.fits_rec1Ctx_iff S N hS R₃.R hok.nest hminsK hmins hps hidx).mpr
       ⟨hp, hm, hm1, hmn, hmnK, ht⟩
   have hrev : ps.reverse ++ [m', m1] ++ mins.reverse ++ minsK.reverse ++ [t]
       = (t :: minsK ++ mins ++ [m1, m'] ++ ps).reverse := by
@@ -1716,7 +1686,7 @@ theorem rec1_app_mem (φ : Name → Nat) (ρ : Nat → V) {us : List Level}
     obtain ⟨t', minsK', mins', m1', m'', ps', rfl, hminsK', hmins', hps'⟩ :=
       fits_rec1Ctx_split S N hws
     obtain ⟨hp', hm', hm1', hmn', hmnK', ht'⟩ :=
-      (Reader.fits_rec1Ctx_iff S N hS R₃.R.toReader hok.nest hminsK' hmins' hps' hidx).mp hws
+      (Reader.fits_rec1Ctx_iff S N hS R₃.R hok.nest hminsK' hmins' hps' hidx).mp hws
     rw [read_rec1Body S _ _ N hminsK' hmins']
     have hwdE := wd_extrasN_of_rec1Ctx hwd ((R₃.R.fits_params hS).mpr hp')
     rw [((recs_typed hs m hok _ ρ hps' hp' hm' hm1' hmins' hminsK' hmn' hmnK' hwdE).2 hq).2 t' ht']
@@ -1741,14 +1711,12 @@ theorem ctor_appN (φ : Name → Nat) (ρ : Nat → V) {usj : List Level}
     (hfit : TeleFitV (S.M₃N m.M N) (Level.substVal φ S.lparams usj) ρ (S.ctorType c)
       (ps.reverse ++ fs.reverse)) :
     FitsVals m.M (S.ψ (S.lparams.map (Level.substVal φ S.lparams usj))) base S.params ps ∧
-    S.FitsFields m.M (S.lparams.map (Level.substVal φ S.lparams usj))
-      (S.bound m.M (S.lparams.map (Level.substVal φ S.lparams usj)))
-      (S.Mem m.M (S.lparams.map (Level.substVal φ S.lparams usj))) ps c.fields fs ∧
+    S.FitsFields m.M (S.lparams.map (Level.substVal φ S.lparams usj)) (S.Fam m.M (S.lparams.map (Level.substVal φ S.lparams usj)) ps) ps c.fields fs ∧
     appList (S.M₃N m.M N c.name (usj.map (Level.eval φ))) (ps.reverse ++ fs.reverse)
       = S.ctorVal (S.lparams.map (Level.substVal φ S.lparams usj)) j fs := by
   have hS := hok.scoped
   have hcm : c ∈ S.ctors := List.mem_of_getElem? hc
-  have R₃ := reader₃N hs m hok (Level.substVal φ S.lparams usj)
+  have R₃ := reader₃N m hok (Level.substVal φ S.lparams usj)
   unfold ctorType at hfit
   rw [← List.reverse_append, TeleFitV_mkPis _ _ _ (by simp [hf, hps, length_fieldCtx, nP, Nat.add_comm]),
     List.reverse_reverse, FitsVals_append _ _ (by rw [hf, length_fieldCtx])] at hfit
@@ -1759,7 +1727,7 @@ theorem ctor_appN (φ : Name → Nat) (ρ : Nat → V) {usj : List Level}
   refine ⟨hp, hff, ?_⟩
   rw [R₃.ctor j c hc, ← lparams_map_substValN hok φ husj]
   have R₁ := S.reader₁ (M := m.M) (φ := Level.substVal φ S.lparams usj) hok.freshI
-    (S.contGood_of (nestFacts hs m hok _) hok.nest)
+
   have hfit₁ : FitsVals (S.M₁ m.M) (S.ψ (S.lparams.map (Level.substVal φ S.lparams usj))) base
       (S.fieldCtx c.fields ++ S.params) (fs ++ ps) :=
     (FitsVals_append _ _ (by rw [hf, S.length_fieldCtx])).mpr
@@ -1795,6 +1763,7 @@ theorem fits_ruleCtxN_split (φr : Name → Nat) {ρ : Nat → V} {c : CtorSpec}
   refine ⟨fs, minsK, mins, m1, m', ps, by simp, hf, hminsK, hmins, ?_⟩
   simp at hl; omega
 
+omit hs in
 /-- **Values fitting a rule's context, for any scoped constructor whose
 field context is well-denoted at the parameters**: the parameters fit,
 the extras fit, and the fields fit the constructor's fields
@@ -1812,10 +1781,9 @@ theorem fits_ruleCtxN' (φr : Name → Nat) (ρ : Nat → V) {c : CtorSpec}
       m1 ∈ˢ interp (S.M₃N m.M N) φr (cons m' (consList ps ρ)) (S.motiveTy1 N) ∧
       FitsVals (S.M₃N m.M N) φr (consList [m1, m'] (consList ps ρ)) S.minorsCtxN mins ∧
       FitsVals (S.M₃N m.M N) φr (consList (mins ++ [m1, m']) (consList ps ρ)) (S.minorsCtxK N) minsK ∧
-      S.FitsFields m.M (S.lparams.map φr) (S.bound m.M (S.lparams.map φr))
-        (S.Mem m.M (S.lparams.map φr)) ps c.fields fs := by
+      S.FitsFields m.M (S.lparams.map φr) (S.Fam m.M (S.lparams.map φr) ps) ps c.fields fs := by
   have hS := hok.scoped
-  have R₃ := reader₃N hs m hok φr
+  have R₃ := reader₃N m hok φr
   have hosl : (minsK ++ mins ++ [m1, m']).length = S.oN N := by
     simp only [List.length_append, List.length_cons, List.length_nil, hminsK, hmins, oN]; omega
   have e1 : fs ++ minsK ++ mins ++ [m1, m'] ++ ps = fs ++ (minsK ++ mins ++ [m1, m']) ++ ps := by simp
@@ -1843,11 +1811,11 @@ theorem fits_ruleCtxN (φr : Name → Nat) (ρ : Nat → V) {c : CtorSpec} (hcm 
       m1 ∈ˢ interp (S.M₃N m.M N) φr (cons m' (consList ps ρ)) (S.motiveTy1 N) ∧
       FitsVals (S.M₃N m.M N) φr (consList [m1, m'] (consList ps ρ)) S.minorsCtxN mins ∧
       FitsVals (S.M₃N m.M N) φr (consList (mins ++ [m1, m']) (consList ps ρ)) (S.minorsCtxK N) minsK ∧
-      S.FitsFields m.M (S.lparams.map φr) (S.bound m.M (S.lparams.map φr))
-        (S.Mem m.M (S.lparams.map φr)) ps c.fields fs :=
-  fits_ruleCtxN' hs m hok φr ρ (hok.scoped.2.2.2.1 c hcm).1 hf hminsK hmins hps
+      S.FitsFields m.M (S.lparams.map φr) (S.Fam m.M (S.lparams.map φr) ps) ps c.fields fs :=
+  fits_ruleCtxN' m hok φr ρ (hok.scoped.2.2.2.1 c hcm).1 hf hminsK hmins hps
     fun hp => wdFieldCtxN hs m hok φr ρ c hcm ps hps hp
 
+omit hs in
 /-- The rule's context of a translated constructor: the field context
 is well-denoted once the extras fit (`wdFieldCtxK`). -/
 theorem fits_ruleCtxK (φr : Name → Nat) (ρ : Nat → V)
@@ -1863,10 +1831,9 @@ theorem fits_ruleCtxK (φr : Name → Nat) (ρ : Nat → V)
       m1 ∈ˢ interp (S.M₃N m.M N) φr (cons m' (consList ps ρ)) (S.motiveTy1 N) ∧
       FitsVals (S.M₃N m.M N) φr (consList [m1, m'] (consList ps ρ)) S.minorsCtxN mins ∧
       FitsVals (S.M₃N m.M N) φr (consList (mins ++ [m1, m']) (consList ps ρ)) (S.minorsCtxK N) minsK ∧
-      S.FitsFields m.M (S.lparams.map φr) (S.bound m.M (S.lparams.map φr))
-        (S.Mem m.M (S.lparams.map φr)) ps (S.classCtor N c).fields fs := by
+      S.FitsFields m.M (S.lparams.map φr) (S.Fam m.M (S.lparams.map φr) ps) ps (S.classCtor N c).fields fs := by
   have hS := hok.scoped
-  have R₃ := reader₃N hs m hok φr
+  have R₃ := reader₃N m hok φr
   have hsc := S.classCtor_fieldScoped N hS hok.nest (K_law m hok).1 (List.mem_of_getElem? hc)
   have hosl : (minsK ++ mins ++ [m1, m']).length = S.oN N := by
     simp only [List.length_append, List.length_cons, List.length_nil, hminsK, hmins, oN]; omega
@@ -1888,6 +1855,7 @@ theorem fits_ruleCtxK (φr : Name → Nat) (ρ : Nat → V)
 
 /-! ## The inductive hypotheses' terms -/
 
+omit hs in
 /-- A field's domain is well-denoted at fitting earlier fields, for any
 scoped constructor whose field context is well-denoted. -/
 theorem wd_fieldDomN (φr : Name → Nat) (ρ : Nat → V) {c : CtorSpec}
@@ -1895,13 +1863,12 @@ theorem wd_fieldDomN (φr : Name → Nat) (ρ : Nat → V) {c : CtorSpec}
     {ps fs : List V} (hps : ps.length = S.nP)
     (hp : FitsVals m.M (S.ψ (S.lparams.map φr)) base S.params ps)
     (hwdF : CtxWD (S.M₃N m.M N) φr (consList ps ρ) (S.fieldCtx c.fields))
-    (hfit : S.FitsFields m.M (S.lparams.map φr) (S.bound m.M (S.lparams.map φr))
-      (S.Mem m.M (S.lparams.map φr)) ps c.fields fs)
+    (hfit : S.FitsFields m.M (S.lparams.map φr) (S.Fam m.M (S.lparams.map φr) ps) ps c.fields fs)
     {k : Nat} {f : Field} (hkf : c.fields[c.fields.length - 1 - k]? = some f)
     (hk : k < c.fields.length) :
     WellDenoted (S.M₃N m.M N) φr (consList (earlier fs k) (consList ps ρ)) (S.fieldDom k f) := by
   have hS := hok.scoped
-  have R₃ := reader₃N hs m hok φr
+  have R₃ := reader₃N m hok φr
   have hf := S.FitsFields_length m.M _ hfit
   have hfF := (R₃.R.fits_fieldCtx hS hsc hps hp hwdF).1.mpr hfit
   have hA : (S.fieldCtx c.fields)[c.fields.length - 1 - k]? = some (S.fieldDom k f) := by
@@ -1980,7 +1947,7 @@ theorem recCall_okN (φ : Name → Nat) (ρ : Nat → V) {us : List Level}
             (S.idxVals m.M (S.lparams.map (Level.substVal φ S.recLparams us))
               (consList ys (consList (earlier fs k) (envP ps))) es) t) := by
   have hS := hok.scoped
-  have R₃ := reader₃N hs m hok (Level.substVal φ S.recLparams us)
+  have R₃ := reader₃N m hok (Level.substVal φ S.recLparams us)
   have hosl : (minsK ++ mins ++ [m1, m']).length = S.oN N := by
     simp only [List.length_append, List.length_cons, List.length_nil, hminsK, hmins, oN]; omega
   have hkd : fs.drop (c.fields.length - k) = earlier fs k := by simp [earlier, hf]
@@ -2161,9 +2128,7 @@ theorem ihValN_ok (φ : Name → Nat) (ρ : Nat → V) {us : List Level}
     (hmnK : FitsVals (S.M₃N m.M N) (Level.substVal φ S.recLparams us)
       (consList (mins ++ [m1, m']) (consList ps ρ)) (S.minorsCtxK N) minsK)
     (hwdF : CtxWD (S.M₃N m.M N) (Level.substVal φ S.recLparams us) (consList ps ρ) (S.fieldCtx c.fields))
-    (hfit : S.FitsFields m.M (S.lparams.map (Level.substVal φ S.recLparams us))
-      (S.bound m.M (S.lparams.map (Level.substVal φ S.recLparams us)))
-      (S.Mem m.M (S.lparams.map (Level.substVal φ S.recLparams us))) ps c.fields fs) :
+    (hfit : S.FitsFields m.M (S.lparams.map (Level.substVal φ S.recLparams us)) (S.Fam m.M (S.lparams.map (Level.substVal φ S.recLparams us)) ps) ps c.fields fs) :
     WellDenoted (S.M₃N m.M N) (Level.substVal φ S.recLparams us)
       (consList fs (consList (minsK ++ mins ++ [m1, m']) (consList ps ρ)))
       (S.ihValN N c.fields.length kf.1 kf.2) ∧
@@ -2179,7 +2144,7 @@ theorem ihValN_ok (φ : Name → Nat) (ρ : Nat → V) {us : List Level}
       = S.ihSemN m.M (S.lparams.map (Level.substVal φ S.recLparams us)) N false ps
           ⟨m', m1, mins, minsK⟩ fs kf) := by
   have hS := hok.scoped
-  have R₃ := reader₃N hs m hok (Level.substVal φ S.recLparams us)
+  have R₃ := reader₃N m hok (Level.substVal φ S.recLparams us)
   obtain ⟨k, f⟩ := kf
   obtain ⟨hkf', hk, hrec⟩ := mem_recFields hkf
   dsimp only at hkf' hk hrec ⊢
@@ -2189,7 +2154,7 @@ theorem ihValN_ok (φ : Name → Nat) (ρ : Nat → V) {us : List Level}
   have hsc' := hsc _ f hkf'
   rw [show c.fields.length - 1 - (c.fields.length - 1 - k) = k by omega] at hsc'
   have hget := S.FitsFields_get m.M _ hfit hkf' hk
-  have hwdD := wd_fieldDomN hs m hok _ ρ hsc hps hp hwdF hfit hkf' hk
+  have hwdD := wd_fieldDomN m hok _ ρ hsc hps hp hwdF hfit hkf' hk
   have hidx := (R₃.R.fits_fieldCtx hS hsc hps hp hwdF).2 hfit
   have hfv : consList fs (consList (minsK ++ mins ++ [m1, m']) (consList ps ρ)) (c.fields.length - 1 - k)
       = fieldVal fs k := by
@@ -2199,8 +2164,9 @@ theorem ihValN_ok (φ : Name → Nat) (ρ : Nat → V) {us : List Level}
   cases f with
   | ordinary _ => simp [Field.isRec] at hrec
   | container =>
-    have ht : fieldVal fs k ∈ˢ S.classAt m.M (S.lparams.map (Level.substVal φ S.recLparams us)) N ps :=
-      ((S.mem_fieldSet_container m.M _ N hok.nest).mp hget).1
+    have ht : fieldVal fs k ∈ˢ S.classAt m.M (S.lparams.map (Level.substVal φ S.recLparams us)) N ps := by
+      rw [S.fieldSet_container_Fam m.M _ N hok.nest] at hget
+      exact hget
     have h := rec1Call_ok hs m hok φ ρ hus hf hk hminsK hmins hps hp hm hm1 hmn hmnK ht
     exact ⟨h.1, h.2.1, h.2.2⟩
   | reflexive tele es =>
@@ -2228,8 +2194,8 @@ theorem ihValN_ok (φ : Name → Nat) (ρ : Nat → V) {us : List Level}
         have hys' : FitsVals (S.M₃N m.M N) (Level.substVal φ S.recLparams us)
             (consList (earlier fs k) (consList ps ρ)) tele ys := (FitsVals_congr₂ hagree).mpr hys
         have hmem := appList_mem_of_piCtx m.M _ hget hys
-        have hspine := spineOk_of_piCtx m.M _ hget hys fun hz _ _ => by
-          simp only [hz, fibreR, if_true]; exact truthVal_mem_univ_zero _
+        have hspine := spineOk_of_piCtx m.M _ hget hys fun hz _ _ =>
+          S.fibre_mem_univ_zero _ (S.Fam_inUniv m.M _ ps) hz _
         have hlastV : interp (S.M₃N m.M N) (Level.substVal φ S.recLparams us)
             (consList ys (consList fs (consList (minsK ++ mins ++ [m1, m']) (consList ps ρ))))
             (Expr.mkAppN (.bvar (tele.length + c.fields.length - 1 - k)) (Expr.varsAt 0 tele.length))
@@ -2327,7 +2293,7 @@ theorem rec_rule_lawN {j : Nat} {c : CtorSpec} (hc : S.ctors[j]? = some c) :
   have hj : j < S.n := (List.getElem?_eq_some_iff.mp hc).1
   simp only [recInfoN, ctorInfo] at hus husj hfitR hfitC hlv hidx ⊢
   rw [TeleFitV_instL] at hfitR hfitC
-  have R₃ := reader₃N hs m hok (Level.substVal φ S.recLparams us)
+  have R₃ := reader₃N m hok (Level.substVal φ S.recLparams us)
   have hLj : S.lparams.map (Level.substVal φ S.lparams usj)
       = S.lparams.map (Level.substVal φ S.recLparams us) :=
     block_valuation_eq hS φ hus husj hlv
@@ -2344,7 +2310,7 @@ theorem rec_rule_lawN {j : Nat} {c : CtorSpec} (hc : S.ctors[j]? = some c) :
     simp [List.reverse_append]
   subst hxs''
   obtain ⟨hp, hm, hm1, hmn, hmnK, his, ht⟩ :=
-    (Reader.fits_recCtxN_iff S N hS R₃.R.toReader hi hminsK hmins hps).mp hfitR'
+    (Reader.fits_recCtxN_iff S N hS R₃.R hi hminsK hmins hps).mp hfitR'
   -- the constructor's spine, split
   obtain ⟨ps₂, fs, hys₂, hps₂, hf⟩ : ∃ ps₂ fs, ys = ps₂.reverse ++ fs.reverse ∧
       ps₂.length = S.nP ∧ fs.length = c.fields.length :=
@@ -2385,7 +2351,7 @@ theorem rec_rule_lawN {j : Nat} {c : CtorSpec} (hc : S.ctors[j]? = some c) :
     have := List.map_eq_of_zip id hlen hB
     simp only [List.map_id, List.map_map, Function.comp_def, id_eq, interp_instL, consList_append] at this
     rw [← List.reverse_reverse is, ← this,
-      (reader₃N hs m hok (Level.substVal φ S.lparams usj)).R.idxVals_eq
+      (reader₃N m hok (Level.substVal φ S.lparams usj)).R.idxVals_eq
         (hS.2.2.2.1 c hcm).2.2.2 (by simp [hf, hps]; omega), hLj]
   subst hisv
   rw [hmajor] at ht ⊢
@@ -2435,9 +2401,7 @@ theorem rec_rule_lawN {j : Nat} {c : CtorSpec} (hc : S.ctors[j]? = some c) :
   have hty : ∀ (fs' minsK' mins' : List V) (m1' m'' : V) (ps' : List V),
       fs'.length = c.fields.length → minsK'.length = N.nK → mins'.length = S.n → ps'.length = S.nP →
       FitsVals m.M (S.ψ (S.lparams.map (Level.substVal φ S.recLparams us))) base S.params ps' →
-      S.FitsFields m.M (S.lparams.map (Level.substVal φ S.recLparams us))
-        (S.bound m.M (S.lparams.map (Level.substVal φ S.recLparams us)))
-        (S.Mem m.M (S.lparams.map (Level.substVal φ S.recLparams us))) ps' c.fields fs' →
+      S.FitsFields m.M (S.lparams.map (Level.substVal φ S.recLparams us)) (S.Fam m.M (S.lparams.map (Level.substVal φ S.recLparams us)) ps') ps' c.fields fs' →
       interp (S.M₃N m.M N) (Level.substVal φ S.recLparams us)
           (consList fs' (consList (minsK' ++ mins' ++ [m1', m'']) (consList ps' ρ))) (S.ruleBodyTyN N c)
         = appList m'' ((S.idxVals m.M (S.lparams.map (Level.substVal φ S.recLparams us))
@@ -2462,9 +2426,7 @@ theorem rec_rule_lawN {j : Nat} {c : CtorSpec} (hc : S.ctors[j]? = some c) :
   unfold ruleTypeN at hT
   have hres : ∀ ps', ps'.length = S.nP →
       FitsVals m.M (S.ψ (S.lparams.map (Level.substVal φ S.recLparams us))) base S.params ps' →
-      ∀ c' ∈ S.ctors, ∀ fs', S.FitsFields m.M (S.lparams.map (Level.substVal φ S.recLparams us))
-        (S.bound m.M (S.lparams.map (Level.substVal φ S.recLparams us)))
-        (S.Mem m.M (S.lparams.map (Level.substVal φ S.recLparams us))) ps' c'.fields fs' →
+      ∀ c' ∈ S.ctors, ∀ fs', S.FitsFields m.M (S.lparams.map (Level.substVal φ S.recLparams us)) (S.Fam m.M (S.lparams.map (Level.substVal φ S.recLparams us)) ps') ps' c'.fields fs' →
       FitsVals m.M (S.ψ (S.lparams.map (Level.substVal φ S.recLparams us))) (envP ps') S.indices
         (S.idxVals m.M (S.lparams.map (Level.substVal φ S.recLparams us)) (consList fs' (envP ps')) c'.idx) :=
     fun ps' hps' hp' c' hc' fs' hfit' =>
@@ -2486,7 +2448,7 @@ theorem rec_rule_lawN {j : Nat} {c : CtorSpec} (hc : S.ctors[j]? = some c) :
       have hmin := Reader₂.minorOkN_of_fits S hS R₃ hok.freshI hps' hp' hmins'
         (fun c' hc' => wdFieldCtxN hs m hok _ ρ c' hc' ps' hps' hp') (hres ps' hps' hp')
         (R₃.R.motiveOk_of_mem hS hps' hp' hm') (noRecDepN hok)
-        (domsBounded_ofN hs m hok _ ρ hps' hp') (S.contInBound_of (nestFacts hs m hok _) hN hp')
+        (domsBounded_ofN hs m hok _ ρ hps' hp') (contOk hs m hok _ hp')
         hmn' j c hc fs' hfitF'
         (c.recFields.map fun kf => interp (S.M₃N m.M N) (Level.substVal φ S.recLparams us)
           (consList fs' (consList (minsK' ++ mins' ++ [m1', m'']) (consList ps' ρ)))
@@ -2494,7 +2456,7 @@ theorem rec_rule_lawN {j : Nat} {c : CtorSpec} (hc : S.ctors[j]? = some c) :
         (ListRel.map (f := fun kf => interp (S.M₃N m.M N) (Level.substVal φ S.recLparams us)
             (consList fs' (consList (minsK' ++ mins' ++ [m1', m'']) (consList ps' ρ)))
             (S.ihValN N c.fields.length kf.1 kf.2))
-          fun kf hkf => S.IhTypedN_iff.mpr (S.IhTypedN_iff.mp (hih kf hkf).2.1))
+          fun kf hkf => (hih kf hkf).2.1)
       refine ⟨?_, ?_⟩
       · refine WellDenoted_mkAppN_of_spineOk _ _ _ (by simp) ?_ ?_
         · intro a ha
@@ -2514,7 +2476,8 @@ theorem rec_rule_lawN {j : Nat} {c : CtorSpec} (hc : S.ctors[j]? = some c) :
     cases hq : S.q.holds (Level.substVal φ S.recLparams us)
     · have hz := z_false_of_q hok (Level.substVal φ S.recLparams us) hq
       have hcl := classLaws hs m hok _ hz hp
-      rw [key.2.2.2 hq, S.recSemN_eq m.M _ N false hN hz hcl ⟨m', m1, mins, minsK⟩ hc hfitF]
+      rw [key.2.2.2 hq, S.recSemN_eq m.M _ N false hN hz (noRecDepN hok) (domsBounded_ofN hs m hok _ ρ hps hp)
+        (contOk hs m hok _ hp) hcl ⟨m', m1, mins, minsK⟩ hc hfitF]
       unfold ruleRhsN
       rw [interp_mkLams, hq, appList_lamCtx_false hfitRule, henv,
         hbody fs minsK mins m1 m' ps hf hminsK hmins]
@@ -2601,26 +2564,26 @@ theorem ctor_appK (φ : Name → Nat) (ρ : Nat → V) {usj : List Level}
     rw [m₃N_M, WellDenoted_instL] at this
     exact this
   -- the container's reader at the final assignment
-  have RK : N.KS.ReaderG (env := env) m.M (Level.substVal φ N.KS.lparams usj) (S.M₃N m.M N)
+  have RK : N.KS.Reader (env := env) m.M (Level.substVal φ N.KS.lparams usj) (N.KS.Fam m.M) (S.M₃N m.M N)
       (Level.substVal φ N.KS.lparams usj) :=
     { agree := agree_M₃N hok m.M
       fam := fun ls' => by
-        show S.M₃N m.M N N.K.name ls' = N.KS.famSet m.M ls'
+        show S.M₃N m.M N N.K.name ls' = N.KS.famSetF m.M ls' (N.KS.Fam m.M)
         rw [← agree_M₃N hok m.M _ hNS.1]; exact hK.2.2.2.2.1 ls'
       val := fun _ _ => rfl
-      good := fun _ h => by simp [NestInfo.KS, Fragment.NestInfo.KS, IndBase.spec] at h }
+      mem := fun ls' ps is => N.KS.Fam_mem_univ m.M ls' ps is }
   have hM₁ : N.KS.M₁ m.M = m.M := by
     funext n ls'
-    simp only [M₁]
+    simp only [M₁, M₁F]
     split
     · rename_i h; subst h; exact (hK.2.2.2.2.1 ls').symm
     · rfl
-  have RK₁ : N.KS.ReaderG (env := env) m.M (Level.substVal φ N.KS.lparams usj) (N.KS.M₁ m.M)
+  have RK₁ : N.KS.Reader (env := env) m.M (Level.substVal φ N.KS.lparams usj) (N.KS.Fam m.M) (N.KS.M₁ m.M)
       (N.KS.ψ (N.KS.lparams.map (Level.substVal φ N.KS.lparams usj))) :=
     { agree := by rw [hM₁]; exact fun _ _ _ => rfl
-      fam := fun ls' => by simp [M₁]
+      fam := fun ls' => by simp [M₁, M₁F]
       val := fun n hn => (ψ_map_agree N.KS _ n hn).symm
-      good := fun _ h => by simp [NestInfo.KS, Fragment.NestInfo.KS, IndBase.spec] at h }
+      mem := fun ls' ps is => N.KS.Fam_mem_univ m.M ls' ps is }
   have hps₂' : ps₂.length = N.KS.nP := hps₂
   unfold ctorType at hfit
   rw [← List.reverse_append, TeleFitV_mkPis _ _ _ (by
@@ -2679,7 +2642,7 @@ theorem rule1_core (φ : Name → Nat) (ρ : Nat → V) {us usj : List Level} {x
   have hj : j < N.nK := (List.getElem?_eq_some_iff.mp hc).1
   simp only [rec1Info, ctorInfo] at hus husj hfitR hfitC ⊢
   rw [TeleFitV_instL] at hfitR hfitC
-  have R₃ := reader₃N hs m hok (Level.substVal φ S.recLparams us)
+  have R₃ := reader₃N m hok (Level.substVal φ S.recLparams us)
   have hidxM := fun ps hp => memberIdx_fits hs m hok (Level.substVal φ S.recLparams us) (ps := ps) hp
   -- the recursor's spine, split
   have hfitR' := hfitR
@@ -2694,7 +2657,7 @@ theorem rule1_core (φ : Name → Nat) (ρ : Nat → V) {us usj : List Level} {x
     simp [List.reverse_append]
   subst hxs''
   obtain ⟨hp, hm, hm1, hmn, hmnK, hmaj⟩ :=
-    (Reader.fits_rec1Ctx_iff S N hS R₃.R.toReader hN hminsK hmins hps hidxM).mp hfitR'
+    (Reader.fits_rec1Ctx_iff S N hS R₃.R hN hminsK hmins hps hidxM).mp hfitR'
   -- the constructor's spine, split
   obtain ⟨ps₂, fs, hys₂, hps₂, hf⟩ : ∃ ps₂ fs, ys = ps₂.reverse ++ fs.reverse ∧
       ps₂.length = N.nPK ∧ fs.length = c.fields.length :=
@@ -2755,9 +2718,7 @@ theorem rule1_core (φ : Name → Nat) (ρ : Nat → V) {us usj : List Level} {x
       fs'.length = (S.classCtor N c).fields.length → minsK'.length = N.nK → mins'.length = S.n →
       ps'.length = S.nP →
       FitsVals m.M (S.ψ (S.lparams.map (Level.substVal φ S.recLparams us))) base S.params ps' →
-      S.FitsFields m.M (S.lparams.map (Level.substVal φ S.recLparams us))
-        (S.bound m.M (S.lparams.map (Level.substVal φ S.recLparams us)))
-        (S.Mem m.M (S.lparams.map (Level.substVal φ S.recLparams us))) ps' (S.classCtor N c).fields fs' →
+      S.FitsFields m.M (S.lparams.map (Level.substVal φ S.recLparams us)) (S.Fam m.M (S.lparams.map (Level.substVal φ S.recLparams us)) ps') ps' (S.classCtor N c).fields fs' →
       interp (S.M₃N m.M N) (Level.substVal φ S.recLparams us)
           (consList fs' (consList (minsK' ++ mins' ++ [m1', m'']) (consList ps' ρ)))
           (Expr.mkAppN (.const c.name N.lsK)
@@ -2770,8 +2731,8 @@ theorem rule1_core (φ : Name → Nat) (ρ : Nat → V) {us usj : List Level} {x
     cases hz : S.z (S.lparams.map (Level.substVal φ S.recLparams us))
     · have hzK : N.KS.z (S.lsK (S.lparams.map (Level.substVal φ S.recLparams us)) N) = false := by
         rw [(nestFacts hs m hok _).z_eq]; exact hz
-      have hfitCl := (S.ClassFits_iff_FitsFields N hN _ hp' R₃.R.good c.fields).mpr hfitF'
-      have h := Reader.classCtorApp_eq S N hS R₃.R.toReader hN (nestFacts hs m hok _) hKS
+      have hfitCl := (S.ClassFits_iff_FitsFields N hN _ ps' c.fields).mpr hfitF'
+      have h := Reader.classCtorApp_eq S N hS R₃.R hN (nestFacts hs m hok _) hKS
         hK.2.2.2.2.2.1 (K_ctors_stored m hok) hz hc (ihsE := []) (nIh := 0) (o := S.oN N)
         (os := minsK' ++ mins' ++ [m1', m'']) (ρ := ρ) rfl hf'' hos hps' hp' (hidxM ps' hp') hfitCl
       rw [consList_nil, Nat.zero_add] at h
@@ -2779,7 +2740,7 @@ theorem rule1_core (φ : Name → Nat) (ρ : Nat → V) {us usj : List Level} {x
       simp [ctorVal, hzK, KS_tagOf]
     · have hzK : N.KS.z (S.lsK (S.lparams.map (Level.substVal φ S.recLparams us)) N) = true := by
         rw [(nestFacts hs m hok _).z_eq]; exact hz
-      have h := Reader.classCtorApp_read hS R₃.R.toReader hN (K_ctors_stored m hok j c hc)
+      have h := Reader.classCtorApp_read hS R₃.R hN (K_ctors_stored m hok j c hc)
         (ihsE := []) (nIh := 0) (o := S.oN N) (os := minsK' ++ mins' ++ [m1', m'']) (ρ := ρ) rfl hf''
         hos hps' hp' (hidxM ps' hp')
       rw [consList_nil, Nat.zero_add] at h
@@ -2790,9 +2751,7 @@ theorem rule1_core (φ : Name → Nat) (ρ : Nat → V) {us usj : List Level} {x
       fs'.length = (S.classCtor N c).fields.length → minsK'.length = N.nK → mins'.length = S.n →
       ps'.length = S.nP →
       FitsVals m.M (S.ψ (S.lparams.map (Level.substVal φ S.recLparams us))) base S.params ps' →
-      S.FitsFields m.M (S.lparams.map (Level.substVal φ S.recLparams us))
-        (S.bound m.M (S.lparams.map (Level.substVal φ S.recLparams us)))
-        (S.Mem m.M (S.lparams.map (Level.substVal φ S.recLparams us))) ps' (S.classCtor N c).fields fs' →
+      S.FitsFields m.M (S.lparams.map (Level.substVal φ S.recLparams us)) (S.Fam m.M (S.lparams.map (Level.substVal φ S.recLparams us)) ps') ps' (S.classCtor N c).fields fs' →
       interp (S.M₃N m.M N) (Level.substVal φ S.recLparams us)
           (consList fs' (consList (minsK' ++ mins' ++ [m1', m'']) (consList ps' ρ))) (S.rule1BodyTy N c)
         = appList m1' [N.KS.ctorVal (S.lsK (S.lparams.map (Level.substVal φ S.recLparams us)) N) j fs'] := by
@@ -2821,9 +2780,7 @@ theorem rule1_core (φ : Name → Nat) (ρ : Nat → V) {us usj : List Level} {x
       m1' ∈ˢ interp (S.M₃N m.M N) (Level.substVal φ S.recLparams us) (cons m'' (consList ps' ρ)) (S.motiveTy1 N) →
       FitsVals (S.M₃N m.M N) (Level.substVal φ S.recLparams us) (consList [m1', m''] (consList ps' ρ)) S.minorsCtxN mins' →
       FitsVals (S.M₃N m.M N) (Level.substVal φ S.recLparams us) (consList (mins' ++ [m1', m'']) (consList ps' ρ)) (S.minorsCtxK N) minsK' →
-      S.FitsFields m.M (S.lparams.map (Level.substVal φ S.recLparams us))
-        (S.bound m.M (S.lparams.map (Level.substVal φ S.recLparams us)))
-        (S.Mem m.M (S.lparams.map (Level.substVal φ S.recLparams us))) ps' (S.classCtor N c).fields fs' →
+      S.FitsFields m.M (S.lparams.map (Level.substVal φ S.recLparams us)) (S.Fam m.M (S.lparams.map (Level.substVal φ S.recLparams us)) ps') ps' (S.classCtor N c).fields fs' →
       ∀ ihs, ListRel (S.IhTypedN m.M (S.lparams.map (Level.substVal φ S.recLparams us))
           (S.q.holds (Level.substVal φ S.recLparams us)) ps' ⟨m'', m1', mins', minsK'⟩ fs')
           (S.classCtor N c).recFields ihs →
@@ -2836,11 +2793,11 @@ theorem rule1_core (φ : Name → Nat) (ρ : Nat → V) {us usj : List Level} {x
       obtain ⟨j', hj'⟩ := List.mem_iff_getElem?.mp hc'
       exact wdFieldCtxK (wd_extrasN_of_rec1Ctx hwd1 ((R₃.R.fits_params hS).mpr hp')) hmins' hminsK'
         hm' hm1' hmn' hmnK' j' c' hj'
-    have hmot1 := Reader.motive1Ok_of_mem S N hS R₃.R.toReader hN hps' hp' (hidxM ps' hp') hm1'
+    have hmot1 := Reader.motive1Ok_of_mem S N hS R₃.R hN hps' hp' (hidxM ps' hp') hm1'
     cases hz : S.z (S.lparams.map (Level.substVal φ S.recLparams us))
     · have hzK : N.KS.z (S.lsK (S.lparams.map (Level.substVal φ S.recLparams us)) N) = false := by
         rw [(nestFacts hs m hok _).z_eq]; exact hz
-      have hfitCl := (S.ClassFits_iff_FitsFields N hN _ hp' R₃.R.good c.fields).mpr hfitF'
+      have hfitCl := (S.ClassFits_iff_FitsFields N hN _ ps' c.fields).mpr hfitF'
       have h := Reader₂.minorOkK_of_fits S N hS R₃ hN (nestFacts hs m hok _) hKS hK.2.2.2.2.2.1
         (K_ctors_stored m hok) hz hps' hp' hmins' hminsK' hwdCK (hidxM ps' hp') hmot1 hmnK' j c hc
         fs' hfitCl ihs hihs
@@ -2863,7 +2820,7 @@ theorem rule1_core (φ : Name → Nat) (ρ : Nat → V) {us usj : List Level} {x
       obtain ⟨fs', minsK', mins', m1', m'', ps', rfl, hf'', hminsK', hmins', hps'⟩ :=
         fits_ruleCtxN_split m _ hvs
       obtain ⟨hp', hm', hm1', hmn', hmnK', hfitF'⟩ :=
-        (fits_ruleCtxK hs m hok _ ρ hwdE' hc hf'' hminsK' hmins' hps').mp hvs
+        (fits_ruleCtxK m hok _ ρ hwdE' hc hf'' hminsK' hmins' hps').mp hvs
       rw [show consList (fs' ++ minsK' ++ mins' ++ [m1', m''] ++ ps') ρ
           = consList fs' (consList (minsK' ++ mins' ++ [m1', m'']) (consList ps' ρ)) by
           simp [consList_append]]
@@ -2907,9 +2864,11 @@ theorem rule1_core (φ : Name → Nat) (ρ : Nat → V) {us usj : List Level} {x
         rw [hmajor] at hmaj
         simp only [ctorVal, hzj, if_true] at hmaj
         unfold classAt at hmaj
-        rw [S.classSet_eq_Fam (nestFacts hs m hok _) hp (S.Fam_mem_univ m.M _ _ _),
-          N.KS.mem_Fam_false m.M _ hzK] at hmaj
-        obtain ⟨j', c', fs', -, -, -, h⟩ := N.KS.Mem_elim m.M _ hmaj.2
+        have hnf := nestFacts hs m hok (Level.substVal φ S.recLparams us)
+        rw [S.classSet_eq_Fam hnf hp (S.Fam_mem_univ m.M _ _ _),
+          N.KS.mem_Fam_false m.M _ hnf.noRecDep (hnf.domsBoundedK hp (S.Fam_mem_univ m.M _ _ _))
+            (hnf.contOkK _) hzK] at hmaj
+        obtain ⟨j', c', fs', -, -, -, h⟩ := hmaj
         exact tag_ne_pt h.symm
     rw [hmajor, hmaj'] at hmaj
     rw [hmajor, hmaj']
@@ -2919,16 +2878,15 @@ theorem rule1_core (φ : Name → Nat) (ρ : Nat → V) {us usj : List Level} {x
     obtain rfl := List.reverse_inj.mp (tuple_inj hfs)
     rw [hc] at hc'
     cases hc'
-    have hfitF : S.FitsFields m.M (S.lparams.map (Level.substVal φ S.recLparams us))
-        (S.bound m.M (S.lparams.map (Level.substVal φ S.recLparams us)))
-        (S.Mem m.M (S.lparams.map (Level.substVal φ S.recLparams us))) ps (S.classCtor N c).fields fs := by
+    have hfitF : S.FitsFields m.M (S.lparams.map (Level.substVal φ S.recLparams us)) (S.Fam m.M (S.lparams.map (Level.substVal φ S.recLparams us)) ps) ps (S.classCtor N c).fields fs := by
       simp only [classCtor] at hfitCl ⊢
-      exact (S.ClassFits_iff_FitsFields N hN _ hp R₃.R.good c.fields).mp hfitCl
-    have hfitRule := (fits_ruleCtxK hs m hok _ ρ hwdE' hc hf' hminsK hmins hps).mpr
+      exact (S.ClassFits_iff_FitsFields N hN _ ps c.fields).mp hfitCl
+    have hfitRule := (fits_ruleCtxK m hok _ ρ hwdE' hc hf' hminsK hmins hps).mpr
       ⟨hp, hm, hm1, hmn, hmnK, hfitF⟩
     have key := rec1_app_mem hs m hok φ ρ hus hps hp hm hm1 hmins hminsK hmn hmnK hmaj
     refine ⟨?_, ?_, ?_⟩
-    · rw [key.2.2.2 hq, S.rec1Sem_eq m.M _ N false hN hz hcl ⟨m', m1, mins, minsK⟩ hc hfitCl]
+    · rw [key.2.2.2 hq, S.rec1Sem_eq m.M _ N false hN hz (noRecDepN hok) (domsBounded_ofN hs m hok _ ρ hps hp)
+        (contOk hs m hok _ hp) hcl ⟨m', m1, mins, minsK⟩ hc hfitCl]
       unfold rule1Rhs
       rw [interp_mkLams, hq, appList_lamCtx_false hfitRule,
         show consList (fs ++ minsK ++ mins ++ [m1, m'] ++ ps) ρ
@@ -2974,4 +2932,4 @@ theorem rec_rule_law1N {j : Nat} {c : CtorSpec} (hc : N.K.ctors[j]? = some c) :
 
 end IndSpec
 
-end Fragment.IndSpec.Nst
+end Fragment
