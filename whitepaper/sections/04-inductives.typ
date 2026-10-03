@@ -446,9 +446,9 @@ because at a proposition the product into the larger fibres is a
 truth value only when those fibres are truth values, which
 membership in $cal(U)_0$ secures.
 
-_Accessible by positivity._ @thm:closed-of-acc below, which puts
-the family's fibres in the universe, needs more than monotonicity. Call $Phi$ _accessible with the
-bound_ $A$, a set, when every element $x$ of a fibre
+_Accessible by positivity._ @thm:closed-of-acc below, which supplies
+the closed family the least fixed point needs, asks for more than
+monotonicity. Call $Phi$ _accessible with the bound_ $A$, a set, when every element $x$ of a fibre
 $Phi(W)(arrow(Y))$, for $W$ in the universe, has a _support_ in $W$
 — a subset $B subset.eq A$ and, for each $a in B$, an occurrence
 $g(a)$ in $W$, a pair of index values and a member of the fibre there
@@ -491,7 +491,7 @@ values replaced by the point abstracted over the telescope
 #src("whitepaper/Fragment/IndSem.lean", 959, 964)[the telescope reads alike]).
 Hence #src("whitepaper/Fragment/IndSem.lean", 1193, 1200)[the operator is accessible with this bound].
 
-Above a proposition, that the bound is a member of
+In the type-valued regime, that the bound is a member of
 $cal(U)_(phi(u))$, and that $Phi$ maps families in $cal(U)_(phi(u))$
 to families in $cal(U)_(phi(u))$, follows from the semantic form of
 the checker's universe bound, the _universe bound on the fields_:
@@ -504,7 +504,7 @@ field's telescope is a member of $cal(U)_(phi(u))$
 It comes from the checker's field-sort check, $v <= u$, read in a
 model in which the type former denotes an arbitrary family of the
 universe: the type former's type
-$forall arrow(x) : arrow(P). thin forall arrow(y) : arrow(J). thin Sort u$
+$ forall arrow(x) : arrow(P). thin forall arrow(y) : arrow(J). thin Sort u $
 is inhabited by the graph of any such family, so the environment
 holding the type former has
 #src("whitepaper/Fragment/InstallInd.lean", 270, 273)[a model for each one],
@@ -646,7 +646,7 @@ reach these indices, all the same tagged tuple
   block is one clause: the operator is monotone, maps the universe to
   itself and has a closed family
   (#src("ConLeche/Model/Annot/BlockLfp.lean", 261, 265)[the operator]\;
-  #src("ConLeche/Model/Inductives/BlockDatum.lean", 925, 935)[the constant family at a proposition, and from accessibility above one]),
+  #src("ConLeche/Model/Inductives/BlockDatum.lean", 925, 935)[the constant family at a proposition, and from accessibility in the type-valued regime]),
   its fibres are the tagged tuples of fitting fields
   (#src("ConLeche/Model/Annot/BlockLfp.lean", 266, 271)[the fibres]),
   and the type former denotes
@@ -703,9 +703,10 @@ proposition, the recursor and every minor premise denote the point,
 and there is nothing to construct.
 
 #real[
-  The recursor is built the same way — the proof calls this the
-  _graph route_ — and one construction serves every sort. Over the
-  set of majors, the graph is
+  The recursor is built the same way, except that its graph, too, is
+  a least fixed point inside the set theory — the proof calls this
+  the _graph route_ — and one construction serves every sort. Over
+  the set of majors, the graph is
   #src("ConLeche/SetModel/GraphRec.lean", 101, 103)[the least relation]
   closed under the rules, each read over the ways a major _decodes_ —
   is the value of a constructor applied to some fields; a decoding is

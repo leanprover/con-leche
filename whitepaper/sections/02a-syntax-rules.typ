@@ -307,7 +307,7 @@ $Sort u$ with $u$ oracle-equal to $0$
 )
 
 *Proof irrelevance.*  The rule compares the two _sorts_ of the two
-types and never the two types.  Lean's own kernel demands more: it
+types and never the two types.  The official kernel demands more: it
 also compares $T_a$ with $T_b$, so that $a$ and $b$ are proofs of the
 same proposition.  This checker never compares them, and so accepts
 strictly more than Lean at this one site — the one place where a

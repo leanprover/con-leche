@@ -180,9 +180,8 @@ run at any fuel into a derivation — one induction on fuel, each checker
 site landing on one rule. #src("ConLeche/Model/Rules/Sound.lean", 43, 44)[The soundness] is the paper's
 induction: one structural induction over the six relations, each case a
 lemma about one rule, never mentioning the implementation. #src("ConLeche/Model/Rules/Recompose.lean", 49, 54)[The
-recomposition] is
-a few lines per claim: bridge the run, apply the soundness, and hand
-the result to the declaration fold.
+recomposition] puts them together, claim by claim: bridge the run,
+apply the soundness, and hand the result to the declaration fold.
 
 *The statement over `Denotes`.* The main theorem is not stated over the
 erased layer and `interp` but over #src("ConLeche/Denotes.lean", 132, 135)[`Denotes`], a relation on the checker's

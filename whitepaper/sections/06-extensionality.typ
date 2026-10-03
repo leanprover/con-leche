@@ -27,8 +27,8 @@ function is the graph of its applications, a constructor value is a
 tagged tuple of its fields, and a member of an inductive family is a
 value one constructor step produces. Every one of these is a
 statement of the form "a set is determined by its parts", and each is
-either an extensionality law of the assumed set theory or follows from one in a
-line or two. (η for functions, which the fragment already has, is the
+either an extensionality law of the assumed set theory or follows
+directly from one. (η for functions, which the fragment already has, is the
 same law at graphs: a member of a function space is
 #src("whitepaper/Fragment/Lib.lean", 92)[the graph of its
 applications], and §2 proved its case.) Below, each rule is stated in
@@ -71,8 +71,8 @@ set — the proof-irrel case of @thm:sound, which never compared the
 two propositions (#src("ConLeche/Model/Rules/DefEqSound.lean", 309, 316)[real proof]). And two
 propositions that imply each other have
 #src("whitepaper/Fragment/Lib.lean", 146, 147)[the same truth value], by extensionality of sets: that is Lean's
-axiom `propext`, which the real checker accepts and
-#src("ConLeche/Model/AxiomMem.lean", 414, 422)[the real model verifies] the same way.
+axiom `propext`, which therefore holds in the model
+(#src("ConLeche/Model/AxiomMem.lean", 414, 422)[real proof]).
 
 == K-like reduction <sec:ext-k>
 
@@ -138,8 +138,8 @@ $s$. The fragment has no projection terms (@sec:left-out); read $s.i$ below as
 the projection defined through the recursor, `S.rec` $(lambda
 arrow(f). thin f_i) thick s$, whose value is the $i$-th component of
 the tuple by the ι law — or as a primitive projection, whose
-interpretation reads the component directly, as the real proof's
-does. The argument is the same either way.
+interpretation reads the component directly. The argument is the
+same either way.
 
 #lemma(name: "structure η")[
   Let $s$ denote a member of the structure's family at $arrow(p)$,

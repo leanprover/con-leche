@@ -538,7 +538,7 @@ the induction would have to apply the hypothesis to $a equiv b$, and
 for that it needs $b$ well-denoted — but $b$ is neither a subterm of
 $a$ or $c$ nor produced by a premise, so nothing supplies its semantic
 invariant. #src("whitepaper/Fragment/Rules.lean", 222, 236)[Every other rule] keeps the discipline of @sec:rules, and the
-corresponding claim delivers the invariant of every produced term. The
+corresponding claim delivers the semantic invariant of every produced term. The
 one way to chain is therefore "reduce, then continue", and that is how
 the checker's equality test is structured: it head-normalises a side
 and compares again.

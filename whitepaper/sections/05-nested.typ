@@ -135,8 +135,8 @@ block unless its sort is never zero_
 (#src("whitepaper/Fragment/Decl.lean", 800)[fragment],
 #src("ConLeche/Kernel/Inductives/BlockRec.lean", 82, 84)[the real checker's guard]),
 as in the official kernel. The subsingleton criterion is therefore
-never asked of a nested block, and the model never needs the witness
-device of @thm:iota's proof for a nested block: wherever the
+never asked of a nested block, and the model never needs the
+agreement of decodings that @thm:iota's proof draws from it: wherever the
 recursion equation has content, the family is type-valued and
 every major carries its fields.
 
@@ -322,7 +322,7 @@ would hold.
 ]
 
 #lemma(name: "the class is accessible in the approximant")[
-  Above a proposition, every member $v$ of $cal(C)(Y)$, for $Y in cal(U)_(phi(u))$, has a support in $Y$. That is, there are a subset
+  In the type-valued regime, every member $v$ of $cal(C)(Y)$, for $Y in cal(U)_(phi(u))$, has a support in $Y$. That is, there are a subset
   $B$ of the _class's bound_ $A_K$ and an element $g(b) in Y$ for each
   $b in B$, such that $v in cal(C)(Y')$ for every $Y'$ in the universe
   holding every $g(b)$. The bound $A_K$, the finite paths over the
