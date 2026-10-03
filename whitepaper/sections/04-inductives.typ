@@ -111,7 +111,7 @@ times, as $Nat$'s is, and a model must obtain the least fixed point
 some other way (@sec:ind-model).
 
 *The generated declarations.* From the specification the checker
-generates the types of the former, the constructors and the
+generates the types of the type former, the constructors and the
 recursor, and the recursor's rules. The former's type is the one
 displayed above; a constructor's type is
 $ forall arrow(x) : arrow(P) thin ann(PW). thin forall arrow(f) : arrow(F) thin ann(PW). thin I thick arrow(x) thick arrow(e)_j $
@@ -126,9 +126,9 @@ of $Sort ell$, so its binders carry
 "a proposition exactly when $ell$ is zero".
 
 #real[
-  The input is a stream of raw declarations: the former, the
+  The input is a stream of raw declarations: the type former, the
   constructors and the recursor as the exporting toolchain stated
-  them. The checker recovers the specification from the former's and
+  them. The checker recovers the specification from the type former's and
   the constructors' types, and checks and stores those two as the
   stream declares them
   (#src("ConLeche/Kernel/Inductives/SumInstall.lean", 102, 103)[a constructor]).
@@ -292,14 +292,14 @@ the checker answers each with the level oracle:
 
 - its names are distinct and fresh;
 - the specification is in scope, positivity included;
-- the generated former's type has a type in the current environment;
+- the generated type former's type has a type in the current environment;
 - each generated constructor's type has a type in the environment
-  holding the former, and every field's domain has a sort $v$ that
+  holding the type former, and every field's domain has a sort $v$ that
   respects the universe bound and, where a large eliminator asks it,
   the subsingleton criterion (the binders of a reflexive field's own
   telescope respect the universe bound too);
 - the constructor count respects the elimination rule;
-- in the environment holding the former and the constructors, the
+- in the environment holding the type former and the constructors, the
   generated recursor's type has a type, and so has
   #src("whitepaper/Fragment/Decl.lean", 312, 317)[each rule's type] — the
   recursor's binder prefix with the constructor's fields in place of
@@ -318,7 +318,7 @@ the body.
   (#src("ConLeche/Kernel/Inductives/GenRec.lean", 427, 448)[a generated rule]).
 ]
 
-*What is stored* is the former, the constructors
+*What is stored* is the type former, the constructors
 and the recursor, with its rules
 (#src("whitepaper/Fragment/Decl.lean", 525, 566)[fragment]) — the
 three kinds of constant that @sec:defs left to this section. An
@@ -367,7 +367,7 @@ supports induction are #src("whitepaper/Fragment/IndLib.lean", 240, 259)[ten lin
 definition quantifies over all predicates, which the ambient logic's
 impredicative $Prop$ permits. Separation then turns a fibre of the
 predicate into a set. One thing this does _not_ give for free: the
-fibre must be a _member_ of $cal(U)_(phi(u))$, since the former's
+fibre must be a _member_ of $cal(U)_(phi(u))$, since the type former's
 type ends in $Sort u$, and a separated part of $cal(U)_(phi(u))$
 itself is a member of the next universe, not of this one. To land in
 $cal(U)_(phi(u))$ the fibre has to be separated from some member of
@@ -441,7 +441,7 @@ the regime where $ann(PW)$ holds — the family is proposition-valued
 denotes the point.
 (Fragment: #src("whitepaper/Fragment/IndSem.lean", 84, 88)[the fibre in each regime],
 #src("whitepaper/Fragment/IndSem.lean", 480, 482)[a constructor's value],
-#src("whitepaper/Fragment/IndSem.lean", 1352, 1356)[the former's set],
+#src("whitepaper/Fragment/IndSem.lean", 1352, 1356)[the type former's set],
 #src("whitepaper/Fragment/IndSem.lean", 1362, 1367)[a constructor's set].)
 
 #real[
@@ -457,9 +457,9 @@ denotes the point.
   (#src("ConLeche/Model/Annot/BlockLfp.lean", 261, 265)[the operator]),
   its fibres are the tagged tuples of fitting fields
   (#src("ConLeche/Model/Annot/BlockLfp.lean", 266, 271)[the fibres]),
-  and the former at parameters and indices denotes the least fixed
+  and the type former at parameters and indices denotes the least fixed
   point's fibre there
-  (#src("ConLeche/Model/Annot/BlockLfp.lean", 279, 284)[the former]).
+  (#src("ConLeche/Model/Annot/BlockLfp.lean", 279, 284)[the type former]).
   Its constructors are
   #src("ConLeche/SetModel/TaggedSum.lean", 65)[tagged pairs] of
   #src("ConLeche/SetModel/TupleTower.lean", 87)[nested pairs], the

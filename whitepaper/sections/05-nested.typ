@@ -115,7 +115,7 @@ depends on it
 ]
 
 *The other checks.* A nested block passes the checks of
-@sec:ind-checks for its former and its constructors — a container
+@sec:ind-checks for its type former and its constructors — a container
 field's domain, the class, is type-checked like any other domain —
 and then four more
 (#src("whitepaper/Fragment/Decl.lean", 760, 803)[fragment]). The
@@ -126,7 +126,7 @@ domain, so that a fibre of the family can be the parameter's value.
 The class has a type at the block's parameters, which is what puts
 the class's arguments in the container's parameter domains. And the
 two recursors' types and every rule's type have types in the
-environment holding the former and the constructors. One rule of
+environment holding the type former and the constructors. One rule of
 @sec:ind-checks tightens: _large elimination is refused for a nested
 block unless its sort is never zero_
 (#src("whitepaper/Fragment/Decl.lean", 800)[fragment],
@@ -295,7 +295,7 @@ the lemma itself is proved from what the container's installation
 left in the model and what the block's own checks add
 (#src("whitepaper/Fragment/NestSem.lean", 196, 225)[what is known about the container]).
 For this the model of an environment remembers, for every plain
-block it holds, that the block's former denotes the graph of its
+block it holds, that the block's type former denotes the graph of its
 family and its constructors their tagged tuples
 (#src("whitepaper/Fragment/BlockModel.lean", 46, 57)[the block's law],
 #src("whitepaper/Fragment/BlockModel.lean", 61, 66)[a model that remembers its blocks]);

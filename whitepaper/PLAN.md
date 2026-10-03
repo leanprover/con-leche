@@ -214,3 +214,5 @@ in HTML the phrase shows the cited lines on hover.
 * (2026-10-02) Use display style liberally: a formula longer than a few
   symbols (a telescope, a generated type, a rule's right-hand side) is
   set on its own line, not inline.
+* (2026-10-03) Always "the type former", never a bare "the former"
+  (confusable with "the former/the latter").
