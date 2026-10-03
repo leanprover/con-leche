@@ -241,7 +241,7 @@ abstract closure laws for tuples, tags and function spaces stay as
 laws; the ad-hoc "inductive closure" law goes.
 * (2026-10-03) Never "the member" for the type being defined: that is
   con-leche's word for a member of a mutual block, which this paper
-  skips. Say "the type being defined" (its occurrence inside a
+  skips, and "member" already means set membership here. Say "the type being defined" (its occurrence inside a
   container: "the nested occurrence"), "the parameter field" for the
   container's field whose domain is the parameter, and "the
   approximant" for the family the operator is applied to.
