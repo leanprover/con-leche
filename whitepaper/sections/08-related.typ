@@ -12,8 +12,9 @@ comprehensive.
 presents Lean's type theory in full by a typing judgement, studies its
 metatheory, and builds a set-theoretic model, from which Lean's
 consistency follows relative to ZFC together with, for each $n$, the
-existence of $n$ inaccessible cardinals. Its interpretation is close
-to ours: a proof is one point, a proposition $forall x : alpha. thin
+existence of $n$ inaccessible cardinals. It is the starting point of
+our model, whose interpretation follows the thesis's: a proof is one
+point, a proposition $forall x : alpha. thin
 beta$ is the intersection of its fibres with the singleton of that
 point — our propositional product $Pi_0$ (@sec:interp) — and a $forall$
 into a higher universe is the full dependent function space. To decide
