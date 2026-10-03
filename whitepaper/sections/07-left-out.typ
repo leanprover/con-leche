@@ -2,7 +2,7 @@
 
 = What we left out <sec:left-out>
 
-The fragment of §2–§6 is the real checker with everything removed that
+The fragment of §2–§4 is the real checker with everything removed that
 does not change the shape of the argument. This section lists what was
 removed, with one sentence on what the real proof does about it and a
 link to where it lives; then it describes where the real proof's

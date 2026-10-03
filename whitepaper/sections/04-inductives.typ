@@ -513,7 +513,8 @@ is inhabited by the graph of any such family, so the environment
 holding the type former has
 #src("whitepaper/Fragment/InstallInd.lean", 270, 273)[a model for each one],
 and @thm:sound read there puts every field's domain in
-$cal(U)_(phi(v))$, a member of $cal(U)_(phi(u))$ by cumulativity
+$cal(U)_(phi(v))$, and so, since $v <= u$ and the universes are
+cumulative, in $cal(U)_(phi(u))$
 (#src("whitepaper/Fragment/InstallInd.lean", 431, 440)[the universe bound, at every family]).
 
 In the proposition-valued regime none of this is needed. Every

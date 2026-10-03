@@ -88,8 +88,7 @@ interpreted by one clause: with Aczel's encoding of a function as the
 set of pairs $(x, y)$ with $y$ in its value at $x$, a function into
 propositions collapses to a proposition, so the interpretation, like
 ours, consults no typing information and, unlike ours, needs no
-annotation — Carneiro credits this
-device with making unique typing unnecessary for soundness. In our set
+annotation. In our set
 theory a graph is never the point (@sec:lib), so that a graph
 determines its domain; the two readings of a $forall$ or a $lambda$
 are then different sets, and the annotation chooses between them.
