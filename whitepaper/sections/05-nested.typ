@@ -66,8 +66,13 @@ occurrence, and the name of the companion recursor $TRec1$
 introduced in @sec:nest-rec.
 
 #real[
-  The container is found by reducing the field's domain to an
-  application of a stored inductive type, and the instantiation —
+  The container is found by reducing the field's domain and walking
+  down its $forall$s — whose domains must not mention the type being
+  defined — to an application of a stored inductive type
+  (#src("ConLeche/Kernel/Inductives/Positivity.lean", 1464, 1471)[the binder case]);
+  so con-leche also accepts a container under a binder, as in
+  $(sans("Nat") -> sans("List") thick T) -> T$, which the fragment does not
+  (@sec:nest-beyond). The instantiation —
   the levels and the arguments with the type being defined in place
   — is recorded
   (#src("ConLeche/Kernel/Inductives/Positivity.lean", 1406, 1415)[the container case]).

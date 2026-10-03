@@ -4260,6 +4260,16 @@
    135    aux : Name
    136    deriving DecidableEq
 
+== ConLeche/Kernel/Inductives/Positivity.lean#L1464-L1471
+  1464      | .forallE a b bm =>
+  1465        -- `pi`: the domain hole-free, the codomain positive
+  1466        if a.nestOcc ctx.names ctx.nP hi then
+  1467          throw (.invalid "nested positivity: non positive occurrence of the datatypes \
+  1468            being declared")
+  1469        let (k, nb, st) ←
+  1470          nestPos ops env ctx fuel prog (dep + 1) (kb + 1) (b.instantiate1 (.fvar dep a)) st
+  1471        pure (k, .forallE a (nb.abstract1 dep) bm, st)
+
 == ConLeche/Kernel/Inductives/Positivity.lean#L1406-L1415
   1406  /-- **The container case** of `nestPos`: the reduct `w` is the stored
   1407  inductive `n.{us}` applied to `args` (`contApp`), `rec` the walk
