@@ -28,11 +28,17 @@ command -v typst >/dev/null || { echo "build.sh: typst not found (run inside \`n
 mkdir -p _build
 fail=0
 
+# The git revision the document is built from, shown under the author
+# line (`-dirty` when the working tree has uncommitted changes).
+rev=$(git -C "$root" describe --always --dirty --abbrev=10 2>/dev/null || echo unknown)
+revdate=$(git -C "$root" log -1 --format=%cs 2>/dev/null || echo "")
+
 render() {  # render <format> <output>
   local fmt=$1 out=$2 log=_build/typst-$1.log
   # --root: lib.typ's `src` reads the cited file as read("/" + path).
   typst compile --features html --format "$fmt" --ignore-system-fonts \
-    --root "$root" main.typ "$out" 2> "$log"
+    --root "$root" --input rev="$rev" --input revdate="$revdate" \
+    main.typ "$out" 2> "$log"
   local rc=$?
   # Drop the export banner: the `warning:` line and its ` = hint:` lines.
   local rest
@@ -51,7 +57,7 @@ render() {  # render <format> <output>
 
 render pdf  _build/con-leche-proof-idea.pdf
 render html _build/con-leche-proof-idea.html
-cp -f site/index.html _build/index.html
+sed "s|@REV@|$rev${revdate:+, $revdate}|" site/index.html > _build/index.html
 
 if [ $fail -ne 0 ]; then
   echo "build.sh: FAIL" >&2
