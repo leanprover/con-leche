@@ -378,7 +378,8 @@ that there are tuples and tags
   component is.
 + #src("whitepaper/Fragment/IndLib.lean", 56, 63)[_Tags_]
   $tag(j, x)$, a set with a number $j$ attached: injective, in
-  $cal(U)_n$ when $x$ is, and $tag(j, x) != pt$.
+  $cal(U)_n$ when $x$ is, and $tag(j, x) != pt$. We write
+  $tag(j, arrow(F))$ for the _tagged tuple_ $tag(j, arrow(F))$.
 
 Nothing else is assumed: no law about least fixed points, and none
 about the size of an inductive family — both are theorems below.
@@ -411,7 +412,7 @@ block's operator $Phi$ sends a family to a family: its fibre at
 $arrow(Y)$ is the set of _constructor values_ whose fields fit a
 constructor relative to $W$ and whose index expressions read as
 $arrow(Y)$,
-$ Phi(W)(arrow(Y)) = { tag(j, tuple(arrow(F))) mid(|) arrow(F) "fit the fields of" c_j "relative to" W, "and" arrow(Y) = arrow(e)_j (arrow(F)) }, $
+$ Phi(W)(arrow(Y)) = { tag(j, arrow(F)) mid(|) arrow(F) "fit the fields of" c_j "relative to" W, "and" arrow(Y) = arrow(e)_j (arrow(F)) }, $
 where $arrow(e)_j$ are the index expressions of $c_j$'s result
 $I thick arrow(x) thick arrow(e)_j$ (@sec:ind-checks), and
 $arrow(e)_j (arrow(F))$ their denotations with the parameters at
@@ -472,7 +473,7 @@ operator is monotone, since the support in $W$ is in the larger $W'$
 (#src("whitepaper/Fragment/Access.lean", 80, 85)[fragment]).
 
 The block's operator is accessible, again field kind by field kind.
-The support of a constructor value $tag(j, tuple(arrow(F)))$: an
+The support of a constructor value $tag(j, arrow(F))$: an
 ordinary field contributes nothing; a reflexive field $f$ with
 telescope $arrow(z)$ contributes the occurrences
 $(arrow(e)(arrow(z)), f dot.op arrow(z))$ for every $arrow(z)$ fitting
@@ -626,7 +627,7 @@ and conversely
 (#src("whitepaper/Fragment/IndSem.lean", 1331, 1338)[fragment]).
 The converse is law 1 for the constructors: $c_j$ denotes the
 function that takes the parameters and the fields and returns
-$tag(j, tuple(arrow(F)))$
+$tag(j, arrow(F))$
 (#src("whitepaper/Fragment/IndSem.lean", 1446, 1451)[a constructor's set]),
 a value in the fibre at its index expressions whenever its fields fit
 (#src("whitepaper/Fragment/IndSem.lean", 1340, 1348)[fragment],
@@ -675,7 +676,7 @@ the point and carries nothing. The difference will matter in a moment.
 
 *The recursor.* Fix values $C$ for the motive and $arrow(S)$ for the
 minor premises. The recursor's value on a member of the family is
-determined by the rules: on $tag(j, tuple(arrow(F)))$ it must be
+determined by the rules: on $tag(j, arrow(F))$ it must be
 $S_j$ applied to $arrow(F)$ and to the inductive hypotheses — at
 each reflexive field $f$ the function sending $arrow(z)$ to the
 recursor's own value at $f dot.op arrow(z)$, which at the empty
@@ -819,11 +820,11 @@ argument's, and the law
   puts the major's value $lden c_j rden dot.op arrow(F)'$ in the family
   at the _recursor's_ parameters and indices, the values among
   $arrow(A)$. By the constructor's fit that value computes to
-  $tag(j, tuple(arrow(F)))$, $arrow(F)$ the fields among $arrow(F)'$;
+  $tag(j, arrow(F))$, $arrow(F)$ the fields among $arrow(F)'$;
   and here is the point of
   the least fixed point: a member of the fibre is a constructor value
   of fitting fields (#src("whitepaper/Fragment/IndSem.lean", 1331, 1338)[the fixed-point equation, read forwards]), so it is
-  $tag(j', tuple(arrow(F)''))$ for some constructor $j'$ and fields
+  $tag(j', arrow(F)'')$ for some constructor $j'$ and fields
   $arrow(F)''$ fitting $c_(j')$'s field telescope _at the recursor's
   parameters_, with the recursor's indices as the values of
   $c_(j')$'s index expressions at $arrow(F)''$. Tags and tuples are
@@ -832,7 +833,7 @@ argument's, and the law
   field in its domain at the recursor's own parameters, which is
   what the $beta$ steps inside $R_j$ require (@lem:beta-cert, with
   the membership supplied), and the recursion theorem's equation at
-  $tag(j, tuple(arrow(F)))$ is the rule's equation. None of the three
+  $tag(j, arrow(F))$ is the rule's equation. None of the three
   comparisons is needed: the fields, their parameters and their
   indices are all read off the tuple.
 
