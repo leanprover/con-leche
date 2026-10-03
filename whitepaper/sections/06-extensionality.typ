@@ -226,15 +226,3 @@ takes in the model, and the lemma is the same sentence in each.
   Neither `PUnit` nor `True` is special to the checker: both are
   installed like any other block.
 ]
-
-== What is not free
-
-The rules above are sound because of what the values are; the
-checker's certificates enter only to put the terms into the sets the
-lemmas speak about. Two things in §2 are of a different kind: the
-β-step at a binder that may be a proposition, where the point
-remembers no domain and the certificate is the only source of the
-membership (@lem:beta-cert); and the chaining of two equalities
-through a middle term, whose semantic invariant nothing supplies
-(@sec:claims). Extensionality says what a set is once its parts are
-known; it does not say where the parts come from.
