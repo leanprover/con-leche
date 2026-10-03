@@ -73,7 +73,7 @@ model] — `propext` by the extensionality of truth values, `choice` by
 choice in the meta-logic — and `Quot.sound` as
 part of the pinned `Quot` block above. Any other axiom record declines
 the stream, with two tolerated exceptions: a declared but unused
-`sorryAx` installs nothing, and Lean's compiler-trust axioms are
+`sorryAx` installs nothing, and Lean's deprecated compiler-trust axioms are
 accepted as pinned definitions of their own types.]
 
 #left-out[Theorems and opaques][The fragment has definitions only. The
