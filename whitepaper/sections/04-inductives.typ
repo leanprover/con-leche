@@ -375,7 +375,7 @@ operator $Phi$ on predicates is
 #src("whitepaper/Fragment/IndLib.lean", 231, 234)[a definition]:
 $lfp(Phi)(a)$ holds when every predicate closed under $Phi$ holds at
 $a$. That it is closed, that it is a fixed point and that it supports
-induction are #src("whitepaper/Fragment/IndLib.lean", 240, 259)[ten lines of proof] — the
+induction #src("whitepaper/Fragment/IndLib.lean", 240, 259)[follow directly] — the
 definition quantifies over all predicates, which the ambient logic's
 impredicative $Prop$ permits. Separation then turns the predicate,
 restricted to any set, into a set.
