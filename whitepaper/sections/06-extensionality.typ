@@ -109,7 +109,7 @@ which the ordinary $iota$ rule fires on a constructor application.
 
 The checker's type comparison is not idle. It puts the fabrication
 into the recursor's _own_ fibre — for `Eq`, it is the comparison
-$a equiv b$ — which is what the $iota$ rule's telescope certificate on
+$a equiv b$ — which is what the $iota$ rule's spine check on
 the reduct needs; and the inference of the fabrication's type is what
 makes it well-denoted. Both are premises of @lem:k, not steps of its
 proof.

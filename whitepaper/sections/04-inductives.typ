@@ -720,15 +720,16 @@ a rule with right-hand side $R_j$; the reduct is
 $R_j[arrow(p) := arrow(ell)]$ applied to the parameters, motive and
 minors from $arrow(a)$ and to the fields $arrow(f)$
 (#src("ConLeche/Rules/Rel.lean", 178, 217)[as in con-leche]). Its
-premises, besides the lookups, are two _telescope certificates_ and
-three _comparisons_:
+premises, besides finding $r$, $c_j$ and the rule in the environment,
+are two _spine checks_ and three _comparisons_:
 
-- the recursor's spine, with the reduced major in the major's place,
-  is checked against the recursor's stored type: each argument's type
-  is inferred and compared with the domain it meets, the domains
-  instantiated along the spine; the constructor's spine is checked
-  against the constructor's stored type the same way;
-- the constructor's levels $arrow(ell)'$ are oracle-equal to the last
+- _Spine checks._ The recursor's arguments, with the reduced major in
+  the major's place, are type-checked against the recursor's stored
+  type: each argument's type is inferred and compared with the domain
+  it meets, the domains instantiated along the arguments. The
+  constructor's arguments are checked against the constructor's
+  stored type the same way.
+- _Comparisons._ The constructor's levels $arrow(ell)'$ are oracle-equal to the last
   levels of $arrow(ell)$ (a large eliminator carries one extra level
   in front); the constructor's parameters $arrow(a)'$ are definitionally
   equal to the recursor's; and the index expressions of the
@@ -741,13 +742,13 @@ three _comparisons_:
   reads it; a block's rules are installed
   #src("ConLeche/Kernel/Env.lean", 265, 273)[without it], because
   their law holds at any pair of fitting parameter spines (the
-  fragment keeps the comparison and uses it). The two certificates
+  fragment keeps the comparison and uses it). The two spine checks
   are walks of their own, relations over lists (@sec:left-out); the
   fragment folds them into the rule.
 ]
 
 By @thm:sound each
-certificate becomes a #src("whitepaper/Fragment/Sound.lean", 77, 84)[_fit_ of values] to the stored telescope, and each
+spine check becomes a #src("whitepaper/Fragment/Sound.lean", 77, 84)[_fit_ of values] to the stored telescope, and each
 comparison an equality of sets
 (#src("whitepaper/Fragment/Sound.lean", 201, 206)[the $iota$ case]).
 So the #src("whitepaper/Fragment/EnvModel.lean", 102, 161)[$iota$ law] is stated on values, with
@@ -773,7 +774,7 @@ So the #src("whitepaper/Fragment/EnvModel.lean", 102, 161)[$iota$ law] is stated
 The second conjunct is what makes the reduct well-denoted, as the
 first claim of @thm:sound demands; the first is the equation. The
 $iota$ case of @thm:sound is then
-#src("whitepaper/Fragment/Sound.lean", 207, 245)[a translation]: certificates to
+#src("whitepaper/Fragment/Sound.lean", 207, 245)[a translation]: spine checks to
 fits, comparisons to equalities, the reduced major's value for the
 argument's, and #src("ConLeche/Model/Rules/IotaSound.lean", 69)[the law].
 
@@ -843,7 +844,7 @@ comparison the $iota$ law would therefore have to give both
 $ lden PRec rden dot.op C dot.op h dot.op 7 dot.op pt = h dot.op 5 quad "and" quad lden PRec rden dot.op C dot.op h dot.op 7 dot.op pt = h dot.op 7, $
 so $h dot.op 5 = h dot.op 7$ for every $h$: false. The recursor's set is a
 function of its arguments and has one value at index $7$. The
-checker's certificate did compare the inferred type $P thick 5$ with
+checker's spine check did compare the inferred type $P thick 5$ with
 the domain $P thick 7$ and would have refused; but on values that
 comparison is ${pt} = {pt}$ and says nothing about $5$ and $7$. The
 index comparison, $5 equiv 7$, is what the model can use. In the
