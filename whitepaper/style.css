@@ -70,6 +70,15 @@ body {
   .page > aside.toc summary { pointer-events: none; list-style: none; }
   .page > aside.toc summary::-webkit-details-marker { display: none; }
 }
+/* Wide enough for a ToC-sized gutter on both sides: a third, empty
+   column the ToC's width, so the article column is centred on the page
+   and the ToC sits in the left gutter. */
+@media (min-width: 92rem) {
+  .page {
+    grid-template-columns: 17rem minmax(0, 88ch) 17rem;
+    grid-template-areas: "toc header ." "toc main .";
+  }
+}
 @media print { .page > aside.toc { display: none; } }
 h1, h2, h3, h4 {
   font-family: "Libertinus Sans", "Source Sans 3", "Helvetica Neue", Arial, sans-serif;
