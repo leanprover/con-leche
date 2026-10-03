@@ -14,6 +14,7 @@ public import Fragment.Univ
 public import Fragment.LfpSet
 public import Fragment.IndLib
 public import Fragment.Access
+public import Fragment.NstBound
 public import Fragment.IndLibCompat
 public import Fragment.Tele
 public import Fragment.Scope
