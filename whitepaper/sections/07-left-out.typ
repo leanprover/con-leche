@@ -18,7 +18,7 @@ projection table] — the fields' types, read off the constructor. The
 real checker #src("ConLeche/Rules/Rel.lean", 166, 175)[reduces a projection of a
 constructor application to that field] and #src("ConLeche/Rules/Rel.lean", 553, 563)[infers its type from
 the table]\; in the model a structure value is the tagged tuple of
-@sec:ext and a projection reads a component, which
+@sec:ext-eta and a projection reads a component, which
 #src("ConLeche/Model/Inductives/BlockStageTables.lean", 10, 12)[the
 install of the table] establishes
 (#src("ConLeche/Model/Inductives/FixKit.lean", 798, 803)[its typing
@@ -84,7 +84,7 @@ unfolds].]
 field-less constructor, such as `Eq.rec`, fires on a proof that is not
 a constructor application: the checker #src("ConLeche/Rules/Rel.lean", 225, 244)[fabricates the constructor
 application] from the proof's type and equates the two by proof
-irrelevance. @sec:ext shows this
+irrelevance. @sec:ext-k shows this
 follows from the extensionality of the model.]
 
 #left-out[Structure η and unit-likeness][#src("ConLeche/Rules/Rel.lean", 431, 434)[A constructor applied to the
@@ -92,8 +92,8 @@ projections of `b` is definitionally equal to `b`], and #src("ConLeche/Rules/Rel
 structure type with one field-less constructor are equal]. Whether a
 stored type has either rule is decided at its install from its shape
 and #src("ConLeche/Kernel/Inductives/BlockInstall.lean", 67, 80)[recorded
-with it], the two laws are established there, and @sec:ext derives
-both from extensionality.]
+with it], the two laws are established there, and @sec:ext-eta and @sec:ext-unit derive
+them from extensionality.]
 
 #left-out[The `And` rescue][A concession to the fact that this checker
 never unfolds a theorem, unlike the official kernel, which still does: at a
