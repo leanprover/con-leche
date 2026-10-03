@@ -262,3 +262,15 @@ laws; the ad-hoc "inductive closure" law goes.
   rules above). Say "needed", "used", "justifies".
 * (2026-10-03) "Our proof" (or "the present proof"), never "this proof"
   — ambiguous after a sentence about another proof.
+
+## Ruling of 2026-10-03 (later): §5 changes tack
+
+§5 (nested inductive types) no longer presents the restricted nested
+fragment in detail. It explains con-leche's FULL positivity check
+(mutual blocks aside) and the generated recursors, and gives only the
+INTUITION of how §4's construction and proofs extend — no proof of its
+own, no claim that rests on the fragment. It opens by saying that it
+changes tack. Its citations go to con-leche. The nested fragment stays
+in the repository (built and gated) and is mentioned once as a
+verified restricted case. This is the one exception to "no
+pen-and-paper claim without the fragment behind it".
