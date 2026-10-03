@@ -301,17 +301,22 @@ allow.
 *The checks.* A block is accepted when
 (#src("whitepaper/Fragment/Decl.lean", 713, 758)[fragment],
 #src("ConLeche/Kernel/Inductives/BlockTail.lean", 143, 148)[real checker]):
-its names are distinct and fresh; the specification is in scope
-(positivity included); the generated former's type has a type in the
-current environment; each generated constructor's type has a type in
-the environment holding the former, and every field's domain has a
-sort $v$ that respects the universe bound and, where a large
-eliminator asks it, the subsingleton criterion (the binders of a
-reflexive field's own telescope respect the universe bound too); the constructor count respects
-the elimination rule; and, in the environment holding the former and
-the constructors, the generated recursor's type has a type, and so
-has #src("whitepaper/Fragment/Decl.lean", 312, 317)[each rule's type] — the recursor's binder prefix
-with the constructor's fields in place of the indices and the major.
+
+- its names are distinct and fresh;
+- the specification is in scope, positivity included;
+- the generated former's type has a type in the current environment;
+- each generated constructor's type has a type in the environment
+  holding the former, and every field's domain has a sort $v$ that
+  respects the universe bound and, where a large eliminator asks it,
+  the subsingleton criterion (the binders of a reflexive field's own
+  telescope respect the universe bound too);
+- the constructor count respects the elimination rule;
+- in the environment holding the former and the constructors, the
+  generated recursor's type has a type, and so has
+  #src("whitepaper/Fragment/Decl.lean", 312, 317)[each rule's type] — the
+  recursor's binder prefix with the constructor's fields in place of
+  the indices and the major.
+
 Each "has a type" is an inference $tack T => S$ of §2, in the empty
 context ($S$ is a sort for a generated type, but nothing checks that:
 the model needs only the inference) — so the generated types are
