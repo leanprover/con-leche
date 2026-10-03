@@ -262,14 +262,6 @@ the checker answers each with the level oracle:
   #src("whitepaper/Fragment/Decl.lean", 693, 698)[there is no bound]
   (Lean's impredicativity of $Prop$).
 
-In §2 the same question was answered for each binder by its
-annotation; here it is asked of the oracle, because the result sort
-is in hand. The two meet in the generated declarations: the
-constructor types carry $ann(PW) = zn(u)$ at the binders whose body
-is the family, the recursor's carry $ann(q) = zn(ell)$, so the model
-of @sec:ind-model must handle the recursor at every regime these data
-allow.
-
 #example(name: [an indexed proposition with large elimination])[
   Let
   $ P : forall (n : Nat) thin ann(never). thin Prop $
