@@ -75,13 +75,8 @@ A field is one of two kinds
   the family itself, and the field is simply _recursive_.
 
 Two conditions of shape come with the kinds. No field's domain
-mentions $I$ anywhere else — this is strict positivity, and the only
-shape the fragment admits (there it holds by construction: the
-domains $arrow(P)$, $arrow(J)$ and $arrow(A)$, an ordinary field's
-domain and the index expressions are scope-checked in the environment
-_before_ $I$ is added, and a reflexive field's $I$ is given by its
-kind, not written in a term —
-#src("whitepaper/Fragment/Decl.lean", 622, 636)[the scope of a field]).
+mentions $I$ anywhere else — this is
+#src("whitepaper/Fragment/Decl.lean", 622, 636)[strict positivity].
 And nothing after a reflexive field may depend on its value
 (#src("whitepaper/Fragment/Decl.lean", 639, 644)[fragment],
 #src("ConLeche/Kernel/Inductives/Positivity.lean", 1246, 1249)[real checker], as in the
