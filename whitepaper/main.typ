@@ -28,3 +28,6 @@
 #include "sections/05-nested.typ"
 #include "sections/06-extensionality.typ"
 #include "sections/07-left-out.typ"
+#include "sections/08-related.typ"
+
+#bibliography("references.bib", title: "References")

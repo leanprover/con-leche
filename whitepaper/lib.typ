@@ -61,6 +61,13 @@
 //
 //   #lean[PropWhen]    a Lean code name, inline code (also `#lean("…")`).
 //
+//   @carneiro2019      a citation: a key of `references.bib` (BibTeX;
+//                      every entry checked against its source).  main.typ
+//                      prints the list once, `#bibliography(...)` at the
+//                      end.  Typst 0.15.1 renders citations and the list
+//                      natively in BOTH targets (HTML: linked numbers, a
+//                      <section role="doc-bibliography">), so no macro.
+//
 //   #left-out[Projections][one sentence]
 //                      an item of the "what we left out" list.
 //

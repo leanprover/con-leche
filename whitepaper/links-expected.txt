@@ -5925,6 +5925,13 @@
    160  theorem preparePrelude_perm (pre : PreludeIx) (ds : Array Declaration) :
    161      ∃ extra : List Declaration, (∀ d ∈ extra, d ∈ pre.decls.toList) ∧
 
+>>> whitepaper/sections/08-related.typ
+
+== bridge/lean4lean-model/ConLecheBridge/Carneiro.lean#L200-L202
+   200  theorem carneiro_implies_conleche :
+   201      OmegaInaccessibles.{u} → Nonempty (Σ V : Type (u + 1), ConLeche.SetTheory V) :=
+   202    fun h => ⟨⟨ZFSet.{u}, setTheoryOfCarneiro h⟩⟩
+
 >>> whitepaper/README.md
 
 

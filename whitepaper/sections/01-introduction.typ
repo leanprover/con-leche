@@ -113,7 +113,7 @@ parametric in the same kind of abstract set theory. The underlined
 source links are for the reader
 who wants to see the real thing; everyone else can ignore them.
 
-The rest is in six parts. §2 presents the fragment without an
+The rest is in seven parts. §2 presents the fragment without an
 environment: terms and their annotations, universe levels, the three
 relations, the abstract set theory, the interpretation, the semantic invariant,
 the three claims and their proof — "by induction" where nothing happens,
@@ -132,4 +132,4 @@ definitional equality which the fragment drops — reduction of proofs at
 `Eq`-like types, η for structures, and unit-likeness — follow from the
 extensionality of the model, at the cost of one proof case each. §7 lists what was left
 out, and how the real proof differs from the fragment where they share
-a feature.
+a feature. @sec:related relates the argument to earlier work.
