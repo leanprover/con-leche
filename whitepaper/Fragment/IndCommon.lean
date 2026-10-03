@@ -213,10 +213,11 @@ A container field's domain is the class `K.{lsK} args[member]`: the
 container's set — **already in the model**, assigned to `K` when `K`
 was installed — applied to the class's arguments, with a set `X` at
 the member's position.  In the family's operator `X` is the fibre of
-the *approximant* at the member's index expressions, and the operator
-is monotone because the class grows with `X` (`ContGood`, which the
-installation establishes from the container's positivity and the
-leastness of its fixed point, `NestSem.lean`). -/
+the *approximant* at the member's index expressions (`IndSem.lean`,
+`fieldSet`), and the operator is monotone and accessible because the
+class is, in `X` (`ContClause`, which the installation establishes
+from the container's positivity and the leastness of its fixed
+point, `NestSem.lean`). -/
 
 /-- The class's arguments as values (outermost first), with `X` at
 the member's position: the other arguments read under the parameters
@@ -237,19 +238,11 @@ def classSet (N : NestInfo) (ps : List V) (X : V) : V :=
 are closed under them). -/
 def memberIdx (N : NestInfo) (ps : List V) : List V := S.idxVals M ls (envP ps) N.idx
 
-/-- **The class is well-behaved at the member**: at parameter values
-fitting the parameter context, the class grows with the member set
-(for member sets in the result universe) and stays in the result
-universe.  Vacuous for a plain block.  The container field's clause of
-the operator is read under this guard, so the operator is monotone
-outright; the installation of a nested block proves the guard from the
-container's positivity and the leastness of its fixed point
-(`NestSem.lean`, `contGood_of`). -/
-def ContGood : Prop :=
-  ∀ N, S.nest = some N → ∀ ps, FitsVals M (S.ψ ls) base S.params ps →
-    (∀ X Y, X ⊆ˢ Y → X ∈ˢ (univ (S.u₀ ls) : V) → Y ∈ˢ (univ (S.u₀ ls) : V) →
-      S.classSet M ls N ps X ⊆ˢ S.classSet M ls N ps Y) ∧
-    (∀ X, X ∈ˢ (univ (S.u₀ ls) : V) → S.classSet M ls N ps X ∈ˢ (univ (S.u₀ ls) : V))
+/-- **The container's parameter values at a member set** (innermost
+first): the class's arguments with `X` at the member's position —
+the parameters the container's own family is read at. -/
+def psK (N : NestInfo) (ps : List V) (X : V) : List V := (S.classArgsV M ls N ps X).reverse
+
 /-- The number of the container's constructors (`0` for a plain
 block): the block's constructors are tagged after them, so that the
 block and its class can share one closure (`ctorsX`). -/

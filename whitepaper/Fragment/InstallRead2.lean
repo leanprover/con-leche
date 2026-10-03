@@ -157,11 +157,13 @@ theorem Reader₂.ctorSet_mem (hS : S.Scoped env) {M' : Name → List Nat → V}
     {j : Nat} {c : CtorSpec} (hc : S.ctors[j]? = some c) {ρ : Nat → V}
     (hwd : WellDenoted M' φ' ρ (S.ctorType c)) (hnr : S.NoRecDep)
     (hb : ∀ ps, FitsVals M (S.ψ (S.lparams.map φ)) base S.params ps →
-      S.DomsBounded M (S.lparams.map φ) ps) :
+      S.DomsBounded M (S.lparams.map φ) ps)
+    (hco : ∀ ps, FitsVals M (S.ψ (S.lparams.map φ)) base S.params ps →
+      S.ContOk M (S.lparams.map φ) ps) :
     S.ctorSet M (S.lparams.map φ) j c ∈ˢ interp M' φ' ρ (S.ctorType c) := by
   have R := R₂.R
   have hcm : c ∈ S.ctors := List.mem_of_getElem? hc
-  have R₁ := S.reader₁ (M := M) (φ := φ) R.plain hfresh
+  have R₁ := S.reader₁ (M := M) (φ := φ) hfresh
   have hwd' := hwd
   unfold ctorType at hwd' ⊢
   rw [WellDenoted_mkPis] at hwd'
@@ -213,7 +215,7 @@ theorem Reader₂.ctorSet_mem (hS : S.Scoped env) {M' : Name → List Nat → V}
       (by rw [← hlf', shiftE_consList, readEnv_consList hpsl]) (hS.2.2.2.1 c hcm).2.2.1 hbody').2.2,
       R.idxVals_eq (hS.2.2.2.1 c hcm).2.2.2 (by simp [hlf', hpsl]; omega)]
   · rw [readEnv_consList hlf']
-    exact S.ctorVal_mem_Fam M _ hnr (hb ps hp) hc hfit
+    exact S.ctorVal_mem_Fam M _ hnr (hb ps hp) (hco ps hp) hc hfit
   · have := S.Fam_mem_univ M (S.lparams.map φ) ps (S.idxVals M (S.lparams.map φ) (consList fs (envP ps)) c.idx)
     rwa [(S.z_iff _).mp hz] at this
 

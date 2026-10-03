@@ -340,11 +340,11 @@ stored constants, assigning the type former the graph of a family `F`
 of members of the result universe (the block's own family, or any
 other: that is how the universe bound on the fields is read at every
 family, `InstallInd.lean`), and agreeing with `φ` on the block's
-level parameters.  The block is plain. -/
+level parameters.  A container field's domain is read through the
+container's set, a stored constant the reader agrees on
+(`classTy_fit`). -/
 structure Reader (F : List Nat → List V → List V → V) (M' : Name → List Nat → V) (φ' : Name → Nat) :
     Prop where
-  /-- The block is plain. -/
-  plain : S.nest = none
   /-- Agreement with the old model on the stored constants. -/
   agree : AgreeOn env M M'
   /-- The type former's set: the graph of the family `F`. -/
@@ -571,7 +571,11 @@ def IdxFitAt (S : IndSpec) (M : Name → List Nat → V) (φ : Name → Nat) (ps
     ∀ ys, FitsVals M (S.ψ (S.lparams.map φ)) (consList vs (envP ps)) tele ys →
       FitsVals M (S.ψ (S.lparams.map φ)) (envP ps) S.indices
         (S.idxVals M (S.lparams.map φ) (consList ys (consList vs (envP ps))) es)
-  | .container => True
+  | .container =>
+    match S.nest with
+    | some N => FitsVals M (S.ψ (S.lparams.map φ)) (envP ps) S.indices
+        (S.memberIdx M (S.lparams.map φ) N ps)
+    | none => True
 
 /-- Index expressions of the specification read as index values. -/
 theorem Reader.idxVals_eq (R : S.Reader (env := env) M φ F M' φ') {k : Nat} {es : List Expr}
@@ -602,6 +606,58 @@ theorem Reader.agree_tele (R : S.Reader (env := env) M φ F M' φ') {k : Nat} {t
 theorem sep_true {A : V} {P : Prop} (hP : P) : sep A (fun _ => P) = A :=
   ext fun z => by rw [mem_sep]; exact ⟨fun h => h.1, fun h => ⟨h, hP⟩⟩
 
+/-- The container's levels at the instantiation read alike in a
+reader and at the block's valuation. -/
+theorem Reader.lsK_eq (hS : S.Scoped env) (R : S.Reader (env := env) M φ F M' φ') {N : NestInfo}
+    (hN : S.nest = some N) :
+    N.lsK.map (Level.eval φ') = S.lsK (S.lparams.map φ) N := by
+  unfold IndSpec.lsK
+  apply List.map_congr_left
+  intro l hl
+  exact Level.eval_congr (fun n hn => (R.val_ψ n hn).symm) ((hS.2.2.2.2.2.2 N hN).2.2.2.1 l hl)
+
+/-- **The class, read by β**: the container's set in the model (the
+reader agrees with the old model on it, a stored constant) applied to
+the class's arguments read under the parameters, with the family's
+fibre at the nested occurrence's index values as the member — the
+class at that fibre (`classSet`). -/
+theorem Reader.classTy_fit (hS : S.Scoped env) (R : S.Reader (env := env) M φ F M' φ')
+    {N : NestInfo} (hN : S.nest = some N) {k : Nat} {vs ps : List V} {ρ : Nat → V}
+    (hk : vs.length = k) (hps : ps.length = S.nP)
+    (hp : FitsVals M (S.ψ (S.lparams.map φ)) base S.params ps)
+    (hidx : FitsVals M (S.ψ (S.lparams.map φ)) (envP ps) S.indices
+      (S.memberIdx M (S.lparams.map φ) N ps)) :
+    interp M' φ' (consList vs (consList ps ρ)) (S.classTy N k)
+      = S.classSet M (S.lparams.map φ) N ps
+          (F (S.lparams.map φ) ps (S.memberIdx M (S.lparams.map φ) N ps)) := by
+  have hNS := hS.2.2.2.2.2.2 N hN
+  have hsh : shiftE k 0 (consList vs (consList ps ρ)) = consList ps ρ := shiftE_consList' hk _
+  have hread : ∀ e ∈ N.args, interp M' φ' (consList vs (consList ps ρ)) (e.liftN k)
+      = interp M (S.ψ (S.lparams.map φ)) (envP ps) e := by
+    intro e he
+    rw [interp_liftN, hsh]
+    have := R.read (hNS.2.2.2.2.2.2.1 e he) (vs := []) (ps := ps) (ρ := ρ) (by simp [hps])
+    simpa using this
+  unfold classTy classSet classArgs classArgsV
+  rw [interp_mkAppN_appList, interp_const, R.agree _ hNS.1, R.lsK_eq hS hN]
+  congr 1
+  simp only [List.map_append, List.map_map, List.map_singleton]
+  congr 1
+  · congr 1
+    · exact List.map_congr_left fun e he => hread e (List.mem_of_mem_take he)
+    · congr 1
+      refine R.famAt_fit hS (o := k) (es := N.idx.map (Expr.liftN k ·)) (ρ'' := consList vs (consList ps ρ))
+        (ps := ps) (by rw [← hk, shiftE_consList, readEnv_consList hps]) ?_ hp hidx
+      unfold memberIdx idxVals
+      congr 1
+      rw [List.map_map]
+      refine List.map_congr_left fun e he => ?_
+      simp only [Function.comp]
+      rw [interp_liftN, hsh]
+      have := R.read (hNS.2.2.2.2.2.2.2.1 e he) (vs := []) (ps := ps) (ρ := ρ) (by simp [hps])
+      simpa using this
+  · exact List.map_congr_left fun e he => hread e (List.mem_of_mem_drop he)
+
 /-- **A field's domain, read by β** at fitting index expressions: the
 field's set. -/
 theorem Reader.fieldDom_fit (hS : S.Scoped env) (R : S.Reader (env := env) M φ F M' φ')
@@ -628,7 +684,11 @@ theorem Reader.fieldDom_fit (hS : S.Scoped env) (R : S.Reader (env := env) M φ 
       (by rw [← consList_append ys vs (consList ps ρ),
         R.idxVals_eq hsc.2.2 (by simp [hl, hk, hps]; omega), consList_append])
       hp (hidx ys hys')]
-  | container => simp [fieldScoped, R.plain] at hsc
+  | container =>
+    obtain ⟨N, hN⟩ := Option.isSome_iff_exists.mp hsc
+    rw [S.fieldSet_container M _ hN]
+    simp only [fieldDom, IdxFitAt, hN] at hidx ⊢
+    exact R.classTy_fit hS hN hk hps hp hidx
 
 /-- **A field's domain, read from the invariant**: the field's set,
 and its index expressions fit. -/
@@ -657,7 +717,28 @@ theorem Reader.fieldDom_wd (hS : S.Scoped env) (R : S.Reader (env := env) M φ F
         hsc.2.1 hwb).2.1
       rwa [← consList_append ys vs (consList ps ρ),
         R.idxVals_eq hsc.2.2 (by simp [hl, hk, hps]; omega), consList_append] at this
-    | container => simp [fieldScoped, R.plain] at hsc
+    | container =>
+      obtain ⟨N, hN⟩ := Option.isSome_iff_exists.mp hsc
+      have hNS := hS.2.2.2.2.2.2 N hN
+      simp only [fieldDom, hN] at hw
+      simp only [IdxFitAt, hN]
+      unfold classTy classArgs at hw
+      obtain ⟨-, hargs⟩ := WellDenoted_mkAppN' M' φ' hw
+      have hwm := hargs _ (List.mem_append_left _ (List.mem_append_right _ (List.mem_singleton_self _)))
+      have hsh : shiftE k 0 (consList vs (consList ps ρ)) = consList ps ρ := shiftE_consList' hk _
+      have := (R.famAt_wd hS (o := k) (ρ'' := consList vs (consList ps ρ)) (ps := ps)
+        (by rw [← hk, shiftE_consList, readEnv_consList hps]) (by simp [hNS.2.2.2.2.2.1]) hwm).2.1
+      have heq : (List.map (interp M' φ' (consList vs (consList ps ρ))) (N.idx.map (Expr.liftN k ·))).reverse
+          = S.memberIdx M (S.lparams.map φ) N ps := by
+        unfold memberIdx idxVals
+        congr 1
+        rw [List.map_map]
+        refine List.map_congr_left fun e he => ?_
+        simp only [Function.comp]
+        rw [interp_liftN, hsh]
+        have := R.read (hNS.2.2.2.2.2.2.2.1 e he) (vs := []) (ps := ps) (ρ := ρ) (by simp [hps])
+        simpa using this
+      rwa [heq] at this
   exact ⟨hidx, R.fieldDom_fit hS hsc hk hps hp hidx⟩
 
 /-- The domains of an appended context are well-denoted: the right
@@ -890,10 +971,9 @@ structure Reader₂ (S : IndSpec) (M : Name → List Nat → V) (φ : Name → N
 /-- The model with the former assigned the graph of any family of the
 universe is a reader at the block's own valuation. -/
 theorem reader₁F (F : List Nat → List V → List V → V)
-    (hF : ∀ ls' ps is, F ls' ps is ∈ˢ (univ (S.u₀ ls') : V)) (hpl : S.nest = none)
+    (hF : ∀ ls' ps is, F ls' ps is ∈ˢ (univ (S.u₀ ls') : V))
     (hfresh : env.find? S.name = none) :
     S.Reader (env := env) M φ F (S.M₁F M F) (S.ψ (S.lparams.map φ)) where
-  plain := hpl
   agree := fun c hc ls => by
     have hne : c ≠ S.name := fun h => by subst h; simp [hfresh] at hc
     simp [M₁F, hne]
@@ -903,9 +983,9 @@ theorem reader₁F (F : List Nat → List V → List V → V)
 
 /-- The model with the former added is a reader at the block's own
 valuation. -/
-theorem reader₁ (hpl : S.nest = none) (hfresh : env.find? S.name = none) :
+theorem reader₁ (hfresh : env.find? S.name = none) :
     S.Reader (env := env) M φ (S.Fam M) (S.M₁ M) (S.ψ (S.lparams.map φ)) :=
-  S.reader₁F (S.Fam M) (fun ls' ps is => S.Fam_mem_univ M ls' ps is) hpl hfresh
+  S.reader₁F (S.Fam M) (fun ls' ps is => S.Fam_mem_univ M ls' ps is) hfresh
 
 omit [IndLib V] in
 /-- The environment of the recursor's contexts, regrouped. -/
@@ -1013,6 +1093,7 @@ theorem Reader.piCtx_liftCtx_atCtx (R : S.Reader (env := env) M φ F M' φ')
 /-- **An inductive hypothesis' type, read**: the set its value must
 lie in. -/
 theorem Reader.read_ihTy (hS : S.Scoped env) (R : S.Reader (env := env) M φ F M' φ')
+    (hpl : S.nest = none)
     {c : CtorSpec} (hc : c ∈ S.ctors) {kf : Nat × Field} (hkf : kf ∈ c.recFields)
     {l o : Nat} {ihsE fs os ps : List V} {ρ : Nat → V}
     (hi : ihsE.length = l) (hf : fs.length = c.fields.length) (ho : os.length = o) (hpos : 0 < o)
@@ -1036,7 +1117,7 @@ theorem Reader.read_ihTy (hS : S.Scoped env) (R : S.Reader (env := env) M φ F M
     rw [← hi, consList_ge, consList_getD (by omega), fieldVal, hf]
   cases f with
   | ordinary _ => simp [Field.isRec] at hrec
-  | container => simp [fieldScoped, R.plain] at hsc
+  | container => simp [fieldScoped, hpl] at hsc
   | reflexive tele es =>
     simp only [ihTy, ihSet]
     rw [interp_mkPis, R.piCtx_liftCtx_atCtx hi hf ho (by omega) hps _ tele hsc.1, hkd]
@@ -1079,6 +1160,7 @@ theorem getD_append_length {vs : List V} (v : V) : (vs ++ [v]).getD vs.length pt
 /-- **The inductive hypotheses' context, read**: values fit it exactly
 when each lies in the set its field's hypothesis names. -/
 theorem Reader.fits_ihCtxAux (hS : S.Scoped env) (R : S.Reader (env := env) M φ F M' φ')
+    (hpl : S.nest = none)
     {c : CtorSpec} (hc : c ∈ S.ctors) {o : Nat} {fs os ps : List V} {ρ : Nat → V}
     (hf : fs.length = c.fields.length) (ho : os.length = o) (hpos : 0 < o)
     (hps : ps.length = S.nP) :
@@ -1101,8 +1183,8 @@ theorem Reader.fits_ihCtxAux (hS : S.Scoped env) (R : S.Reader (env := env) M φ
     have hrest : ∀ kf' ∈ rest, kf' ∈ c.recFields := fun kf' h => hL kf' (List.mem_cons_of_mem kf h)
     have hrec := (mem_recFields hkf).2.2
     simp only [ihCtxAux, List.reverse_cons, ListRel]
-    have hread := R.read_ihTy hS hc hkf (ρ := ρ) hi hf ho hpos hps
-    have ih := R.fits_ihCtxAux hS hc (ρ := ρ) hf ho hpos hps rest hrest ihs' (l := l + 1)
+    have hread := R.read_ihTy hS hpl hc hkf (ρ := ρ) hi hf ho hpos hps
+    have ih := R.fits_ihCtxAux hS hpl hc (ρ := ρ) hf ho hpos hps rest hrest ihs' (l := l + 1)
       (ihsE := ih :: ihsE) (by simp [hi])
     constructor
     · intro h
@@ -1162,7 +1244,7 @@ theorem Reader₂.read_concl (hS : S.Scoped env) (R₂ : S.Reader₂ (env := env
     rw [show nIh + c.fields.length + o = (ihsE ++ fs ++ os).length by simp [hi, hf, ho]; omega,
       consList_three, shiftE_consList, readEnv_consList hps, ← consList_three, ← hi,
       shiftE_consList, readEnv_consList hf, ← List.reverse_append]
-    have R₁ := S.reader₁ (M := M) (φ := φ) R.plain hfresh
+    have R₁ := S.reader₁ (M := M) (φ := φ) hfresh
     have hfit₁ : FitsVals (S.M₁ M) (S.ψ (S.lparams.map φ)) base (S.fieldCtx c.fields ++ S.params)
         (fs ++ ps) :=
       (FitsVals_append _ _ (by rw [hf, S.length_fieldCtx])).mpr
@@ -1202,6 +1284,7 @@ theorem Reader₂.read_concl_minor (hS : S.Scoped env) (R₂ : S.Reader₂ (env 
 and typed inductive hypotheses, the minor's value lies in the motive
 at the constructor's index expressions and its value. -/
 theorem Reader₂.minorOk (hS : S.Scoped env) (R₂ : S.Reader₂ (env := env) M φ M' φ')
+    (hpl : S.nest = none)
     (hfresh : env.find? S.name = none) {j : Nat} {c : CtorSpec} (hc : S.ctors[j]? = some c)
     {minsE : List V} {m : V} {ps : List V} {ρ : Nat → V}
     (hminsE : minsE.length = j) (hps : ps.length = S.nP)
@@ -1264,7 +1347,7 @@ theorem Reader₂.minorOk (hS : S.Scoped env) (R₂ : S.Reader₂ (env := env) M
       (S.ihCtx c j ++ S.fieldCtxAt c (j + 1)) (ihs.reverse ++ fs) := by
     refine (FitsVals_append M' φ' hlenI).mpr ⟨(hfieldsF fs).mpr hfit, ?_⟩
     rw [ihCtx_eq, henv]
-    have := (R.fits_ihCtxAux hS hcm (os := minsE ++ [m]) (ρ := ρ) hf hos (by omega) hps c.recFields
+    have := (R.fits_ihCtxAux hS hpl hcm (os := minsE ++ [m]) (ρ := ρ) hf hos (by omega) hps c.recFields
       (fun _ h => h) ihs (l := 0) (ihsE := []) rfl).mpr
     rw [hgetm] at this
     exact this hihs
@@ -1292,7 +1375,7 @@ theorem Reader₂.minorOk (hS : S.Scoped env) (R₂ : S.Reader₂ (env := env) M
       rw [hq, Bool.true_eq, beq_iff_eq] at hz
       rw [← hz]
       exact hmot _ (hres fs' hfit') _
-        (S.ctorVal_mem_Fam M _ hnr hb hc hfit')
+        (S.ctorVal_mem_Fam M _ hnr hb (S.contOk_of_plain M _ hpl ps) hc hfit')
   have key := appList_mem_of_piCtx M' φ' hmem hfitAll
   have key₂ := spineOk_of_piCtx M' φ' hmem hfitAll hG
   rw [List.reverse_append, List.reverse_reverse, consList_append,

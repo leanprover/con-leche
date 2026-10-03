@@ -230,13 +230,14 @@ variable (S : IndSpec) (M : Name → List Nat → V) (ls : List Nat)
 
 /-- The indices of a member of the family fit the index context, once
 every constructor's index expressions fit at fitting fields. -/
-theorem idx_fits_of_mem_Fam {ps : List V} (hnr : S.NoRecDep) (hb : S.DomsBounded M ls ps)
+theorem idx_fits_of_mem_Fam {ps : List V} (hpl : S.nest = none) (hnr : S.NoRecDep)
+    (hb : S.DomsBounded M ls ps)
     (hidx : ∀ (j : Nat) (c : CtorSpec), S.ctors[j]? = some c → ∀ fs,
       S.FitsFields M ls (S.Fam M ls ps) ps c.fields fs →
       FitsVals M (S.ψ ls) (envP ps) S.indices (S.idxVals M ls (consList fs (envP ps)) c.idx))
     {is : List V} {t : V} (ht : t ∈ˢ S.Fam M ls ps is) :
     FitsVals M (S.ψ ls) (envP ps) S.indices is := by
-  obtain ⟨j, c, fs, hc, hfit, his, -⟩ := (S.mem_Fam M ls hnr hb).mp ht
+  obtain ⟨j, c, fs, hc, hfit, his, -⟩ := (S.mem_Fam M ls hnr hb (S.contOk_of_plain M ls hpl ps)).mp ht
   rw [his]
   exact hidx j c hc fs hfit
 
@@ -244,15 +245,17 @@ theorem idx_fits_of_mem_Fam {ps : List V} (hnr : S.NoRecDep) (hb : S.DomsBounded
 decodings): by induction over the family, from the minors' typing — at
 a proposition the inductive hypotheses are inhabited truth values, so
 their values need not be the recursor's. -/
-theorem motive_inhabited {ps : List V} (hnr : S.NoRecDep) (hb : S.DomsBounded M ls ps) (q : Bool)
+theorem motive_inhabited {ps : List V} (hpl : S.nest = none) (hnr : S.NoRecDep)
+    (hb : S.DomsBounded M ls ps) (q : Bool)
     (m : V) (mins : List V)
     (hmin : ∀ j c, S.ctors[j]? = some c → S.MinorOk M ls q ps m mins j c)
     (hmo : q = true → ∀ is t, t ∈ˢ S.Fam M ls ps is → appList m (is.reverse ++ [t]) ∈ˢ (univ 0 : V))
     {is : List V} {t : V} (ht : t ∈ˢ S.Fam M ls ps is) : ∃ v, v ∈ˢ appList m (is.reverse ++ [t]) := by
-  refine S.Fam_induction M ls hnr hb (fun is t => ∃ v, v ∈ˢ appList m (is.reverse ++ [t])) ?_ is t ht
+  have hco := S.contOk_of_plain M ls hpl ps
+  refine S.Fam_induction M ls hnr hb hco (fun is t => ∃ v, v ∈ˢ appList m (is.reverse ++ [t])) ?_ is t ht
   intro is t hs
   obtain ⟨j, c, fs, hc, hfit, his, rfl⟩ := hs
-  have hfitF := S.FitsFields_of_sep M ls _ hfit
+  have hfitF := S.FitsFields_of_sep M ls hco _ hfit
   subst his
   -- the inductive hypotheses: one inhabitant of each hypothesis' type
   obtain ⟨ihs, hihs⟩ : ∃ ihs, ListRel (S.IhTyped M ls q ps m fs) c.recFields ihs := by
@@ -263,7 +266,7 @@ theorem motive_inhabited {ps : List V} (hnr : S.NoRecDep) (hb : S.DomsBounded M 
     cases f with
     | ordinary _ => simp [Field.isRec] at hrec
     | container =>
-      dsimp only [fieldSet] at hget
+      rw [S.fieldSet_container_none M ls hpl] at hget
       exact absurd hget (not_mem_empty _)
     | reflexive tele es =>
       dsimp only [fieldSet] at hget

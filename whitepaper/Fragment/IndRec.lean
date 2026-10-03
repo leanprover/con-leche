@@ -218,15 +218,17 @@ constructor instance over the family's separation by "the graph has a
 value", every application of a reflexive field has one, and the
 inductive hypotheses' semantic values build the instance's.
 Con-leche: the existence half of `GraphRecKit.exu`, by `ind`. -/
-theorem RecGraph_total {ps : List V} (hnr : S.NoRecDep) (hb : S.DomsBounded M ls ps)
+theorem RecGraph_total {ps : List V} (hpl : S.nest = none) (hnr : S.NoRecDep)
+    (hb : S.DomsBounded M ls ps)
     {is : List V} {t : V} (ht : t ∈ˢ S.Fam M ls ps is) (m : V) (mins : List V) :
     ∃ v, S.RecGraph M ls q ps m mins is t v := by
+  have hco := S.contOk_of_plain M ls hpl ps
   revert m mins
-  refine S.Fam_induction M ls hnr hb
+  refine S.Fam_induction M ls hnr hb hco
     (fun is t => ∀ m mins, ∃ v, S.RecGraph M ls q ps m mins is t v) ?_ is t ht
   intro is t hs m mins
   obtain ⟨j, c, fs, hc, hfit, his, rfl⟩ := hs
-  have hfitF := S.FitsFields_of_sep M ls _ hfit
+  have hfitF := S.FitsFields_of_sep M ls hco _ hfit
   suffices hihs : ListRel (S.IhOk M ls q (S.RecGraph M ls q) ps m mins fs) c.recFields
       (c.recFields.map (S.ihSem M ls q ps m mins fs)) from
     ⟨_, S.RecGraph_intro M ls q ⟨j, c, fs, _, hc, hfitF, his, rfl, hihs, rfl⟩⟩
@@ -238,7 +240,7 @@ theorem RecGraph_total {ps : List V} (hnr : S.NoRecDep) (hb : S.DomsBounded M ls
   cases f with
   | ordinary _ => simp [Field.isRec] at hrec
   | container =>
-    dsimp only [fieldSet] at hget
+    rw [S.fieldSet_container_none M ls hpl] at hget
     exact absurd hget (not_mem_empty _)
   | reflexive tele es =>
     dsimp only [fieldSet] at hget
@@ -252,7 +254,7 @@ theorem RecGraph_total {ps : List V} (hnr : S.NoRecDep) (hb : S.DomsBounded M ls
 
 /-- The inductive hypotheses' semantic values are what the graph
 demands. -/
-theorem IhOk_ihSem {ps : List V} (hnr : S.NoRecDep) (hb : S.DomsBounded M ls ps)
+theorem IhOk_ihSem {ps : List V} (hpl : S.nest = none) (hnr : S.NoRecDep) (hb : S.DomsBounded M ls ps)
     {c : CtorSpec} {fs : List V} (hfit : S.FitsFields M ls (S.Fam M ls ps) ps c.fields fs)
     (m : V) (mins : List V) :
     ListRel (S.IhOk M ls q (S.RecGraph M ls q) ps m mins fs) c.recFields
@@ -265,7 +267,7 @@ theorem IhOk_ihSem {ps : List V} (hnr : S.NoRecDep) (hb : S.DomsBounded M ls ps)
   cases f with
   | ordinary _ => simp [Field.isRec] at hrec
   | container =>
-    dsimp only [fieldSet] at hget
+    rw [S.fieldSet_container_none M ls hpl] at hget
     exact absurd hget (not_mem_empty _)
   | reflexive tele es =>
     dsimp only [fieldSet] at hget
@@ -275,12 +277,13 @@ theorem IhOk_ihSem {ps : List V} (hnr : S.NoRecDep) (hb : S.DomsBounded M ls ps)
     have hlen := FitsVals_length M _ hys
     have hmem := appList_mem_of_piCtx M (S.ψ ls) hget hys
     simp only [readEnv_consList hlen]
-    exact S.RecGraph_recSem M ls q (S.RecGraph_total M ls q hnr hb hmem m mins)
+    exact S.RecGraph_recSem M ls q (S.RecGraph_total M ls q hpl hnr hb hmem m mins)
 
 /-- **The ι equation**: at a constructor value whose fields fit the
 family, the recursor is the minor at the fields and the inductive
 hypotheses' values.  Con-leche: `GraphRecKit.rec_eq`. -/
-theorem recSem_eq {ps : List V} (hnr : S.NoRecDep) (hb : S.DomsBounded M ls ps) (hu : S.Uniq M ls)
+theorem recSem_eq {ps : List V} (hpl : S.nest = none) (hnr : S.NoRecDep) (hb : S.DomsBounded M ls ps)
+    (hu : S.Uniq M ls)
     (hp : FitsVals M (S.ψ ls) base S.params ps) {j : Nat} {c : CtorSpec} {fs : List V}
     (hc : S.ctors[j]? = some c) (hfit : S.FitsFields M ls (S.Fam M ls ps) ps c.fields fs)
     (m : V) (mins : List V) :
@@ -288,7 +291,7 @@ theorem recSem_eq {ps : List V} (hnr : S.NoRecDep) (hb : S.DomsBounded M ls ps) 
       = appList (S.minorAt mins j)
           (fs.reverse ++ c.recFields.map (S.ihSem M ls q ps m mins fs)) :=
   S.recSem_eq_of M ls q hu hp (S.RecGraph_intro M ls q
-    ⟨j, c, fs, _, hc, hfit, rfl, rfl, S.IhOk_ihSem M ls q hnr hb hfit m mins, rfl⟩)
+    ⟨j, c, fs, _, hc, hfit, rfl, rfl, S.IhOk_ihSem M ls q hpl hnr hb hfit m mins, rfl⟩)
 
 /-! ### The recursor's typing -/
 
@@ -315,19 +318,21 @@ noncomputable def MinorOk (ps : List V) (m : V) (mins : List V) (j : Nat) (c : C
 /-- **The recursor's typing**: at a member of the fibre, the
 recursor's value lies in the motive at the indices and the member —
 by induction over the family, from the minors' typing. -/
-theorem recSem_mem {ps : List V} (hnr : S.NoRecDep) (hb : S.DomsBounded M ls ps) (hu : S.Uniq M ls)
+theorem recSem_mem {ps : List V} (hpl : S.nest = none) (hnr : S.NoRecDep) (hb : S.DomsBounded M ls ps)
+    (hu : S.Uniq M ls)
     (hp : FitsVals M (S.ψ ls) base S.params ps) (m : V) (mins : List V)
     (hmin : ∀ j c, S.ctors[j]? = some c → S.MinorOk M ls q ps m mins j c)
     (hmo : q = true → ∀ is t, t ∈ˢ S.Fam M ls ps is → appList m (is.reverse ++ [t]) ∈ˢ (univ 0 : V))
     {is : List V} {t : V} (ht : t ∈ˢ S.Fam M ls ps is) :
     S.recSem M ls q ps m mins is t ∈ˢ appList m (is.reverse ++ [t]) := by
-  refine S.Fam_induction M ls hnr hb
+  have hco := S.contOk_of_plain M ls hpl ps
+  refine S.Fam_induction M ls hnr hb hco
     (fun is t => S.recSem M ls q ps m mins is t ∈ˢ appList m (is.reverse ++ [t])) ?_ is t ht
   intro is t hs
   obtain ⟨j, c, fs, hc, hfit, his, rfl⟩ := hs
-  have hfitF := S.FitsFields_of_sep M ls _ hfit
+  have hfitF := S.FitsFields_of_sep M ls hco _ hfit
   rw [S.recSem_eq_of M ls q hu hp (S.RecGraph_intro M ls q
-    ⟨j, c, fs, _, hc, hfitF, his, rfl, S.IhOk_ihSem M ls q hnr hb hfitF m mins, rfl⟩)]
+    ⟨j, c, fs, _, hc, hfitF, his, rfl, S.IhOk_ihSem M ls q hpl hnr hb hfitF m mins, rfl⟩)]
   subst his
   refine hmin j c hc fs hfitF _ (ListRel.map ?_)
   intro kf hkf
@@ -337,7 +342,7 @@ theorem recSem_mem {ps : List V} (hnr : S.NoRecDep) (hb : S.DomsBounded M ls ps)
   cases f with
   | ordinary _ => simp [Field.isRec] at hrec
   | container =>
-    dsimp only [fieldSet] at hget
+    rw [S.fieldSet_container_none M ls hpl] at hget
     exact absurd hget (not_mem_empty _)
   | reflexive tele es =>
     dsimp only [fieldSet] at hget
@@ -356,7 +361,8 @@ theorem recSem_mem {ps : List V} (hnr : S.NoRecDep) (hb : S.DomsBounded M ls ps)
 fields, each `ihSem` lies in the motive at the field (through its
 telescope at a reflexive field) — `recSem_mem` at every recursive
 position. -/
-theorem IhTyped_ihSem {ps : List V} (hnr : S.NoRecDep) (hb : S.DomsBounded M ls ps) (hu : S.Uniq M ls)
+theorem IhTyped_ihSem {ps : List V} (hpl : S.nest = none) (hnr : S.NoRecDep) (hb : S.DomsBounded M ls ps)
+    (hu : S.Uniq M ls)
     (hp : FitsVals M (S.ψ ls) base S.params ps) (m : V) (mins : List V)
     (hmin : ∀ j c, S.ctors[j]? = some c → S.MinorOk M ls q ps m mins j c)
     (hmo : q = true → ∀ is t, t ∈ˢ S.Fam M ls ps is → appList m (is.reverse ++ [t]) ∈ˢ (univ 0 : V))
@@ -370,7 +376,7 @@ theorem IhTyped_ihSem {ps : List V} (hnr : S.NoRecDep) (hb : S.DomsBounded M ls 
   cases f with
   | ordinary _ => simp [Field.isRec] at hrec
   | container =>
-    dsimp only [fieldSet] at hget
+    rw [S.fieldSet_container_none M ls hpl] at hget
     exact absurd hget (not_mem_empty _)
   | reflexive tele es =>
     dsimp only [fieldSet] at hget
@@ -379,7 +385,7 @@ theorem IhTyped_ihSem {ps : List V} (hnr : S.NoRecDep) (hb : S.DomsBounded M ls 
     · have hlen := FitsVals_length M _ hys
       have hmem := appList_mem_of_piCtx M (S.ψ ls) hget hys
       simp only [readEnv_consList hlen]
-      exact S.recSem_mem M ls q hnr hb hu hp m mins hmin hmo hmem
+      exact S.recSem_mem M ls q hpl hnr hb hu hp m mins hmin hmo hmem
     · have hlen := FitsVals_length M _ hys
       have hmem := appList_mem_of_piCtx M (S.ψ ls) hget hys
       simp only [readEnv_consList hlen]

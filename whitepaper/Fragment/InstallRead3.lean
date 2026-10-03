@@ -92,7 +92,7 @@ theorem Reader.agree_fieldCtxAt (hS : S.Scoped env) {M₁ M₂ : Name → List N
 
 /-- The inductive hypotheses' context agrees between two readers
 (their types read as the sets `IhTyped` names). -/
-theorem Reader.agree_ihCtxAux (hS : S.Scoped env) {M₁ M₂ : Name → List Nat → V} {φ₁ φ₂ : Name → Nat}
+theorem Reader.agree_ihCtxAux (hS : S.Scoped env) (hpl : S.nest = none) {M₁ M₂ : Name → List Nat → V} {φ₁ φ₂ : Name → Nat}
     (R₁ : S.Reader (env := env) M φ F M₁ φ₁) (R₂ : S.Reader (env := env) M φ F M₂ φ₂)
     (hq : RecAgree φ₁ φ₂ S) {c : CtorSpec} (hc : c ∈ S.ctors) {o : Nat} {fs os ps : List V}
     {ρ₁ ρ₂ : Nat → V} (hf : fs.length = c.fields.length) (ho : os.length = o) (hpos : 0 < o)
@@ -113,8 +113,8 @@ theorem Reader.agree_ihCtxAux (hS : S.Scoped env) {M₁ M₂ : Name → List Nat
         cases vs with
         | nil =>
           simp only [consList_nil]
-          rw [R₁.read_ihTy hS hc (hL kf List.mem_cons_self) hi hf ho hpos hps,
-            R₂.read_ihTy hS hc (hL kf List.mem_cons_self) hi hf ho hpos hps, hq.q_holds]
+          rw [R₁.read_ihTy hS hpl hc (hL kf List.mem_cons_self) hi hf ho hpos hps,
+            R₂.read_ihTy hS hpl hc (hL kf List.mem_cons_self) hi hf ho hpos hps, hq.q_holds]
         | cons _ _ => exact absurd (FitsVals_length M₁ φ₁ hvs) (by simp)
       | succ i => simp at hA
     · obtain ⟨ih, rfl⟩ : ∃ ih, ws = [ih] := by
@@ -124,7 +124,7 @@ theorem Reader.agree_ihCtxAux (hS : S.Scoped env) {M₁ M₂ : Name → List Nat
         | cons a t => cases t with
           | nil => exact ⟨a, rfl⟩
           | cons _ _ => simp at hl
-      have := R₁.agree_ihCtxAux hS R₂ hq hc (ρ₁ := ρ₁) (ρ₂ := ρ₂) hf ho hpos hps rest
+      have := R₁.agree_ihCtxAux hS hpl R₂ hq hc (ρ₁ := ρ₁) (ρ₂ := ρ₂) hf ho hpos hps rest
         (fun kf' h => hL kf' (List.mem_cons_of_mem kf h)) (l := l + 1) (ihsE := ih :: ihsE)
         (by simp [hi])
       simpa using this
@@ -135,7 +135,7 @@ well-denoted in the second. -/
 theorem Reader₂.agree_minorTy (hS : S.Scoped env) {M₁ M₂ : Name → List Nat → V}
     {φ₁ φ₂ : Name → Nat}
     (R₁ : S.Reader₂ (env := env) M φ M₁ φ₁) (R₂ : S.Reader₂ (env := env) M φ M₂ φ₂)
-    (hq : RecAgree φ₁ φ₂ S) (hfresh : env.find? S.name = none)
+    (hq : RecAgree φ₁ φ₂ S) (hpl : S.nest = none) (hfresh : env.find? S.name = none)
     {j : Nat} {c : CtorSpec} (hc : S.ctors[j]? = some c) {minsE : List V} {m : V} {ps : List V}
     {ρ₁ ρ₂ : Nat → V} (hminsE : minsE.length = j) (hps : ps.length = S.nP)
     (hp : FitsVals M (S.ψ (S.lparams.map φ)) base S.params ps)
@@ -166,7 +166,7 @@ theorem Reader₂.agree_minorTy (hS : S.Scoped env) {M₁ M₂ : Name → List N
   · refine CtxAgree_append hagF fun fs hfs => ?_
     obtain ⟨hf, -, -⟩ := hfits fs hfs
     rw [ihCtx_eq]
-    exact R₁.R.agree_ihCtxAux hS R₂.R hq hcm hf hos (by omega) hps c.recFields (fun _ h => h)
+    exact R₁.R.agree_ihCtxAux hS hpl R₂.R hq hcm hf hos (by omega) hps c.recFields (fun _ h => h)
       (ihsE := []) rfl
   · obtain ⟨ihsR, fs, rfl, hl₁⟩ : ∃ ihsR fs, vs = ihsR ++ fs ∧ ihsR.length = (S.ihCtx c j).length := by
       have hl := FitsVals_length M₁ φ₁ hvs
@@ -185,7 +185,7 @@ theorem Reader₂.agree_minorTy (hS : S.Scoped env) {M₁ M₂ : Name → List N
 theorem Reader₂.agree_minorsFrom (hS : S.Scoped env) {M₁ M₂ : Name → List Nat → V}
     {φ₁ φ₂ : Name → Nat}
     (R₁ : S.Reader₂ (env := env) M φ M₁ φ₁) (R₂ : S.Reader₂ (env := env) M φ M₂ φ₂)
-    (hq : RecAgree φ₁ φ₂ S) (hfresh : env.find? S.name = none) {m : V} {ps : List V}
+    (hq : RecAgree φ₁ φ₂ S) (hpl : S.nest = none) (hfresh : env.find? S.name = none) {m : V} {ps : List V}
     {ρ₁ ρ₂ : Nat → V} (hps : ps.length = S.nP)
     (hp : FitsVals M (S.ψ (S.lparams.map φ)) base S.params ps)
     (hwd : ∀ c ∈ S.ctors, CtxWD M₂ φ₂ (consList ps ρ₂) (S.fieldCtx c.fields)) :
@@ -206,7 +206,7 @@ theorem Reader₂.agree_minorsFrom (hS : S.Scoped env) {M₁ M₂ : Name → Lis
         cases vs with
         | nil =>
           simp only [consList_nil]
-          exact R₁.agree_minorTy hS R₂ hq hfresh hc hminsE hps hp (hwd c (List.mem_of_getElem? hc))
+          exact R₁.agree_minorTy hS R₂ hq hpl hfresh hc hminsE hps hp (hwd c (List.mem_of_getElem? hc))
         | cons _ _ => exact absurd (FitsVals_length M₁ φ₁ hvs) (by simp)
       | succ i => simp at hA
     · obtain ⟨v, rfl⟩ : ∃ v, ws = [v] := by
@@ -216,7 +216,7 @@ theorem Reader₂.agree_minorsFrom (hS : S.Scoped env) {M₁ M₂ : Name → Lis
         | cons a t => cases t with
           | nil => exact ⟨a, rfl⟩
           | cons _ _ => simp at hl
-      have := R₁.agree_minorsFrom hS R₂ hq hfresh (m := m) (ρ₁ := ρ₁) (ρ₂ := ρ₂) hps hp hwd cs (j + 1)
+      have := R₁.agree_minorsFrom hS R₂ hq hpl hfresh (m := m) (ρ₁ := ρ₁) (ρ₂ := ρ₂) hps hp hwd cs (j + 1)
         (fun i c' hc' => by have := hcs (i + 1) c' (by simpa using hc'); simpa [Nat.add_assoc, Nat.add_comm 1 i] using this)
         (minsE := v :: minsE) (by simp [hminsE])
       simpa using this
@@ -226,7 +226,7 @@ of its five parts read alike. -/
 theorem Reader₂.agree_recCtx (hS : S.Scoped env) {M₁ M₂ : Name → List Nat → V}
     {φ₁ φ₂ : Name → Nat}
     (R₁ : S.Reader₂ (env := env) M φ M₁ φ₁) (R₂ : S.Reader₂ (env := env) M φ M₂ φ₂)
-    (hq : RecAgree φ₁ φ₂ S) (hfresh : env.find? S.name = none) (ρ₁ ρ₂ : Nat → V)
+    (hq : RecAgree φ₁ φ₂ S) (hpl : S.nest = none) (hfresh : env.find? S.name = none) (ρ₁ ρ₂ : Nat → V)
     (hwd : ∀ c ∈ S.ctors, ∀ ps, ps.length = S.nP →
       FitsVals M (S.ψ (S.lparams.map φ)) base S.params ps →
       CtxWD M₂ φ₂ (consList ps ρ₂) (S.fieldCtx c.fields)) :
@@ -257,7 +257,7 @@ theorem Reader₂.agree_recCtx (hS : S.Scoped env) {M₁ M₂ : Name → List Na
   simp only [consList_cons, consList_nil]
   refine CtxAgree_append ?_ fun mins hmins => ?_
   · rw [minorsCtx_eq]
-    exact R₁.agree_minorsFrom hS R₂ hq hfresh hps hp (fun c hc => hwd c hc ps hps hp) S.ctors 0
+    exact R₁.agree_minorsFrom hS R₂ hq hpl hfresh hps hp (fun c hc => hwd c hc ps hps hp) S.ctors 0
       (fun i c hc => by simpa using hc) (minsE := []) rfl
   have hmn : mins.length = S.n := by have := FitsVals_length _ _ hmins; simpa [length_minorsCtx] using this
   have hos : (mins ++ [m]).length = S.n + 1 := by simp [hmn]
