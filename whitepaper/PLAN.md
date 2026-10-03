@@ -218,3 +218,24 @@ in HTML the phrase shows the cited lines on hover.
   (confusable with "the former/the latter").
 * (2026-10-03) No boasting, no line counts ("ten lines", "two lines",
   "costs nothing"): say what follows from what.
+
+## Ruling of 2026-10-03: the fragment follows con-leche's proof
+
+The point of the paper is to expose con-leche's proof. The fragment
+may SIMPLIFY it, never replace it by a different proof. For inductive
+types this means (con-leche's names in brackets): the universes are
+Grothendieck universes (the axiom); an operator on families is
+ACCESSIBLE when each element it produces depends on a bounded
+subfamily of its input, for one bound fixed in the universe, and an
+accessible operator has a closed family in the universe — a THEOREM
+proved along well-founded trees [`closed_of_acc`, `SetModel/Access`];
+the family is the least fixed point INSIDE the set theory, the
+intersection of the closed subfamilies of that closed family
+[`lfpFamSet`/`lfpTuple`]; the block's operator is monotone and
+accessible BY POSITIVITY [`HoleMono`, `HoleAcc`, `blockAcc_of_run`],
+for nested blocks through the container's clause; the recursor by the
+graph route [`GraphRecKit`]. The fragment keeps its spec-based operator
+(field kinds given by the specification) instead of the hole-and-frame
+machinery: what is mirrored is what is proved and from what. The
+abstract closure laws for tuples, tags and function spaces stay as
+laws; the ad-hoc "inductive closure" law goes.
