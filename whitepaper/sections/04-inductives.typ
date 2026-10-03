@@ -354,7 +354,7 @@ against an extension of §2's axioms.
 assumes that the positive universes $cal(U)_n$, $n >= 1$,
 are _Grothendieck universes_
 (#src("whitepaper/Fragment/Univ.lean", 43, 88)[fragment]), and
-that there are tuples and tags
+that there are tagged tuples
 (#src("whitepaper/Fragment/IndLib.lean", 46, 63)[fragment]):
 
 + #src("whitepaper/Fragment/Univ.lean", 49, 64)[_Pairing, union, power set, replacement_],
@@ -373,13 +373,11 @@ that there are tuples and tags
   $ {a, b}, thick union.big x, thick cal(P)(x) & in cal(U)_n quad & "for" a, b, x in cal(U)_n, \
     F[A] & in cal(U)_n quad & "for" A in cal(U)_n "with" F(a) in cal(U)_n "for every" a in A, $
   and contains $omega$.
-+ #src("whitepaper/Fragment/IndLib.lean", 49, 55)[_Tuples_]
-  $tuple(x_1, dots, x_k)$: injective, and in $cal(U)_n$ when every
-  component is.
-+ #src("whitepaper/Fragment/IndLib.lean", 56, 63)[_Tags_]
-  $tag(j, x)$, a set with a number $j$ attached: injective, in
-  $cal(U)_n$ when $x$ is, and $tag(j, x) != pt$. We write
-  $tag(j, arrow(F))$ for the _tagged tuple_ $tag(j, arrow(F))$.
++ #src("whitepaper/Fragment/IndLib.lean", 49, 63)[_Tagged tuples_]
+  $tag(j, x_1, dots, x_k)$, a list of sets with a number $j$
+  attached: injective — equal tagged tuples have equal numbers and
+  equal components — in $cal(U)_n$ when every component is, and never
+  $pt$.
 
 Nothing else is assumed: no law about least fixed points, and none
 about the size of an inductive family — both are theorems below.
@@ -691,7 +689,7 @@ a least fixed point on predicates this time, which the ambient
 logic's impredicative $Prop$ provides outright
 (#src("whitepaper/Fragment/IndLib.lean", 115, 118)[fragment]); it is
 #src("whitepaper/Fragment/IndRec.lean", 157, 162)[single-valued] by
-induction over the graph, using that tags and tuples are injective,
+induction over the graph, using that tagged tuples are injective,
 and #src("whitepaper/Fragment/IndRec.lean", 215, 224)[total] by induction over the
 family. When the family is proposition-valued and the motive is
 not, the major is the point and carries no fields: the equation has
@@ -729,7 +727,7 @@ and there is nothing to construct.
   (#src("ConLeche/Model/Inductives/ClassGenUniq.lean", 13, 19)[the three cases],
   #src("ConLeche/Model/Inductives/ClassGenUniq.lean", 57)[the theorem]):
   at $ell = 0$ the motive's values are truth values; at a type-valued
-  family, tags and tuples are injective; at a proposition-valued
+  family, tagged tuples are injective; at a proposition-valued
   family with a large eliminator, the subsingleton criterion makes
   the decoding a function of the index — the fragment's uniqueness
   of decodings, as one premise.

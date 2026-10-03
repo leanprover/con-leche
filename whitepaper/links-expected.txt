@@ -2908,7 +2908,7 @@
     87    /-- A positive universe contains `ω`. -/
     88    omega_mem_univ : ∀ {n : Nat}, n ≠ 0 → Mem omega (univ n)
 
-== whitepaper/Fragment/IndLib.lean#L49-L55
+== whitepaper/Fragment/IndLib.lean#L49-L63
     49    /-- The n-ary tuple of a list of sets. -/
     50    tuple : List V → V
     51    /-- Tuples are injective. -/
@@ -2916,8 +2916,6 @@
     53    /-- A tuple of members of a positive universe is a member of it. -/
     54    tuple_mem_univ : ∀ {n : Nat} {xs : List V}, n ≠ 0 →
     55      (∀ x ∈ xs, Mem x (univ n)) → Mem (tuple xs) (univ n)
-
-== whitepaper/Fragment/IndLib.lean#L56-L63
     56    /-- A value tagged with a number. -/
     57    tag : Nat → V → V
     58    /-- Tags are injective. -/
