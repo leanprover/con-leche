@@ -53,31 +53,32 @@ Such a field is a _container field_, the fourth kind of field after
 the three of @sec:ind-checks
 (#src("whitepaper/Fragment/Spec.lean", 43, 49)[fragment]). Its
 domain is a previously installed block $K$ — the _container_ — at
-some levels, applied to arguments one of which is the _member_
-$I thick arrow(x) thick arrow(e)$: the family at the block's own
-parameters and some index expressions. That domain is the block's
-_class_, a type the recursion has to pass through; here it is
-$List thick (Tree thick alpha)$. The fragment's specification of a
+some levels, applied to arguments one of which is the _nested
+occurrence_ $I thick arrow(x) thick arrow(e)$: the type being
+defined at the block's own parameters and some index expressions.
+That domain is the block's _class_, a type the recursion has to
+pass through; here it is $List thick (Tree thick alpha)$. The fragment's specification of a
 block gains this one datum
 (#src("whitepaper/Fragment/Spec.lean", 105, 136)[the class]): the
-container's stored data, its levels and other arguments, the position
-$p$ of the member among its parameters, the member's index
-expressions, and the name of the companion recursor $TRec1$
+container's stored data, its levels and other arguments, the _nested
+position_ $p$ — the position of the type being defined among the
+container's parameters — the index expressions of the nested
+occurrence, and the name of the companion recursor $TRec1$
 introduced in @sec:nest-rec.
 
 #real[
   The container is found by reducing the field's domain to an
   application of a stored inductive type, and the instantiation —
-  the levels and the arguments with the member in place — is
-  recorded
+  the levels and the arguments with the type being defined in place
+  — is recorded
   (#src("ConLeche/Kernel/Inductives/Positivity.lean", 1406, 1415)[the container case]).
 ]
 
-What the fragment admits is nesting at depth one — the member is an
-argument of the container directly, not of a container inside a
-container — through one container instance per block, where the
-container has parameters and no indices and the member fills one
-parameter position; the container's own fields are ordinary or
+What the fragment admits is nesting at depth one — the type being
+defined is an argument of the container directly, not of a container
+inside a container — through one container instance per block, where
+the container has parameters and no indices and the type being
+defined fills one parameter position; the container's own fields are ordinary or
 recursive — reflexive only with the empty telescope — and never
 themselves container fields. What
 the real checker accepts beyond this is @sec:nest-beyond.
@@ -88,21 +89,22 @@ the real checker accepts beyond this is @sec:nest-beyond.
 because the family occurs as the whole domain; a container field
 puts the family _inside_ $K$, and whether that is positive depends
 on how $K$ uses its parameter. The checker answers by reading $K$'s
-own stored constructors with the member in the parameter's place.
-For @ex:tree it fetches $List$'s constructors, $nil$ and
+own stored constructors with the type being defined in the
+parameter's place. For @ex:tree it fetches $List$'s constructors,
+$nil$ and
 $cons : forall (h : alpha) thin ann(never). thin forall (t : List thick alpha) thin ann(never). thin List thick alpha$,
 and reads them at $alpha := Tree thick alpha$. The condition is that
 every field of every constructor of the container is one of three
-things: the _member field_ — the parameter itself, as $h$ is; a
-_recursive field_ of the container, as $t$ is; or an ordinary field
-whose domain mentions neither the member parameter nor an earlier
-member field. So the member never occurs to the left of an arrow,
-under a binder or inside yet another type, and nothing after a
-member field reads its value. The fragment also asks that the
-container's constructors have no index expressions, that the
-member's parameter domain is a sort and that no later parameter
-depends on it
-(#src("whitepaper/Fragment/Spec.lean", 182, 208)[strict positivity in the member's position]).
+things: the _parameter field_ — the parameter at the nested position
+itself, as $h$ is; a _recursive field_ of the container, as $t$ is;
+or an ordinary field whose domain mentions neither that parameter
+nor an earlier parameter field. So the parameter never occurs to the
+left of an arrow, under a binder or inside yet another type, and
+nothing after a parameter field reads its value. The fragment also
+asks that the container's constructors have no index expressions,
+that the domain of the parameter at the nested position is a sort
+and that no later parameter depends on it
+(#src("whitepaper/Fragment/Spec.lean", 182, 208)[strict positivity at the nested position]).
 
 #real[
   This happens inside the one positivity walk of @sec:ind-checks: at
@@ -120,9 +122,10 @@ field's domain, the class, is type-checked like any other domain —
 and then four more
 (#src("whitepaper/Fragment/Decl.lean", 760, 803)[fragment]). The
 container is stored, with no container field of its own, and is
-positive in the member's position. Its sort at the instantiation is
-the block's sort, and so is the sort of the member parameter's
-domain, so that a fibre of the family can be the parameter's value.
+positive at the nested position. Its sort at the instantiation is
+the block's sort, and so is the sort of the parameter's domain at
+the nested position, so that a fibre of the family can be the
+parameter's value.
 The class has a type at the block's parameters, which is what puts
 the class's arguments in the container's parameter domains. And the
 two recursors' types and every rule's type have types in the
@@ -168,9 +171,10 @@ $TRec1$, whose major is a member of the class.
   parameter arguments are left implicit). The minor for $node$ has
   one inductive hypothesis, the _class's_ motive at the container
   field; the minor for $cons$ has two, the block's motive at the
-  member field $t$ and the class's at the recursive field $ts$ — so
-  the container's constructors are read as if they were constructors
-  of the block: the member field becomes a recursive field, the
+  parameter field $t$ and the class's at the recursive field $ts$ —
+  so the container's constructors are read as if they were
+  constructors of the block: the parameter field becomes a recursive
+  field, the
   container's recursive field a container field
   (#src("whitepaper/Fragment/Decl.lean", 349, 356)[the translation],
   #src("whitepaper/Fragment/Decl.lean", 381, 383)[a translated constructor]).
@@ -239,30 +243,29 @@ from.
 
 *A container field's set.* The container $K$ was installed before,
 so the model already assigns it a set — the graph, over $K$'s
-parameters, of $K$'s own fibres. The class at a member set $Y$ is
-that set applied to the class's arguments with $Y$ at the member's
-position
+parameters, of $K$'s own fibres. The class at a set $Y$ is that set
+applied to the class's arguments with $Y$ at the nested position
 (#src("whitepaper/Fragment/IndSem.lean", 291, 294)[fragment]), and by
 $beta$ it is $K$'s family at those parameters
 (#src("whitepaper/Fragment/NestSem.lean", 300, 304)[the class is the container's family]).
 A container field ranges over the class at the fibre of the
 _approximant_ $Z$ — the stage of the fixed point reached so far —
-at the member's index expressions
+at the nested occurrence's index expressions
 (#src("whitepaper/Fragment/IndSem.lean", 321, 333)[the field's set]):
 for $Tree$, the children of a node at stage $Z$ are the lists of
 trees already in $Z$. Nothing is constructed: the container's least
 fixed point is reused at every stage of the block's.
 
 For $Phi$ to have a least fixed point it must be monotone, so the
-class must grow with its member set. This is the one fact about the
+class must grow with the approximant. This is the one fact about the
 container the model needs, and it is not a fact about $K$ "in its
 parameter" — nothing was recorded about that when $K$ was installed
 — but a consequence of two things the model does know: that $K$ is
-positive in the member's position, which the checker verified, and
+positive at the nested position, which the checker verified, and
 that $K$'s family is the _least_ fixed point of its operator.
 
-#lemma(name: "the class grows with the member set")[
-  Let $Y subset.eq Y'$ be two member sets in $cal(U)_(phi(u))$, the
+#lemma(name: "the class grows with the approximant")[
+  Let $Y subset.eq Y'$ be two approximants in $cal(U)_(phi(u))$, the
   universe the block's sort names (its _result universe_). Then every
   member of the class at $Y$ is a member of the class at $Y'$, and
   the class at $Y$ is in the result universe
@@ -276,7 +279,7 @@ that $K$'s family is the _least_ fixed point of its operator.
   every member is in $K$'s family at $Y'$
   (#src("whitepaper/Fragment/NestSem.lean", 364, 374)[fragment]).
   A member is a tagged tuple fitting a constructor of $K$ at the
-  parameters with $Y$. By positivity each field is the member field,
+  parameters with $Y$. By positivity each field is the parameter field,
   whose value is in $Y$ and hence in $Y'$; a recursive field, whose
   value is in the family at $Y$ and in the family at $Y'$ by the
   induction hypothesis; or an ordinary field, whose domain mentions
@@ -306,7 +309,7 @@ such law.
 universe closed under the constructors. The fragment applies the
 inductive closure law of @sec:ind-model once to the block's
 constructors _and_ the container's at the instantiation, over a
-joint index — the family's fibres and the class — with the member
+joint index — the family's fibres and the class — with the parameter
 field read as a recursive field at the family's bound
 (#src("whitepaper/Fragment/IndSem.lean", 366, 370)[the joint index],
 #src("whitepaper/Fragment/IndSem.lean", 392, 408)[the container's constructors at the instantiation]);
@@ -349,7 +352,7 @@ is total on the family and on the class by an induction over the
 family with an inner induction over the class, the two
 _interleaved_: at a container field — whose value is in the class at
 the approximant — the inner induction over the class at that
-approximant supplies the values at its members, the member fields
+approximant supplies the values at its members, the parameter fields
 being in the approximant
 (#src("whitepaper/Fragment/NestRec.lean", 584, 591)[totality],
 #src("whitepaper/Fragment/NestRec.lean", 571, 576)[the inner induction]).
@@ -425,7 +428,7 @@ container inside a container
 #src("tests/e2e/src/nested_p03.lean", 5, 6)[a block nested at depth two]),
 containers with indices
 (#src("tests/e2e/src/nested_p25.lean", 7, 8)[a block nested through an indexed container]),
-containers from a mutual block, whose members are walked together
+containers from a mutual block, whose types are walked together
 (#src("ConLeche/Kernel/Inductives/Positivity.lean", 1285, 1291)[a frame's group-mates]),
 and nesting through a reflexive field
 (#src("tests/e2e/src/ind_nest_via_refl.lean", 9, 14)[a field of type `W1 ViaRefl`]).

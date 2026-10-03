@@ -12,8 +12,8 @@ share.
 == Dropped features
 
 #left-out[Projections][Lean's primitive projection `e.i`, the `i`-th
-field of a structure value. For every member with one constructor and
-no index the checker stores #src("ConLeche/Kernel/Inductives/BlockTail.lean", 108, 111)[a
+field of a structure value. For every inductive type with one
+constructor and no index the checker stores #src("ConLeche/Kernel/Inductives/BlockTail.lean", 108, 111)[a
 projection table] — the fields' types, read off the constructor. The
 real checker #src("ConLeche/Rules/Rel.lean", 166, 175)[reduces a projection of a
 constructor application to that field] and #src("ConLeche/Rules/Rel.lean", 553, 563)[infers its type from
@@ -27,8 +27,8 @@ and ι laws]).]
 #left-out[Mutual inductive types][Several types declared together,
 each constructor free to mention any of them. The real checker
 checks such a block the same way as a single type, with
-a tuple of operators, one per member, and each member's family is a
-component of their #src("ConLeche/SetTheory/Derive/LfpTuple.lean", 8, 12)[simultaneous
+a tuple of operators, one per type of the block, and each type's
+family is a component of their #src("ConLeche/SetTheory/Derive/LfpTuple.lean", 8, 12)[simultaneous
 least fixed point]. Nothing in it is new — only the presentation gets
 heavier — so this document skips it.]
 
