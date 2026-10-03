@@ -17,10 +17,12 @@ field has the container's parameters replaced by the class's
 arguments (`instChainAt`).  This file shows that the fields of a
 translated constructor fit (`ClassFits`, `NestRec.lean`) exactly when
 the container's own fields fit at the instantiation
-(`classFits_iff`), and derives from the container's fixed point the
+(`ClassFits_iff`), and derives from the container's fixed point the
 **laws of the class** the recursors' model works from (`ClassLaws`:
-inversion, introduction, induction, and the class's size and
-monotonicity from `NestSem.lean`).
+inversion, introduction and induction are the container's `mem_Fam`,
+`ctorVal_mem_Fam` and `Fam_induction` at the instantiation, read in
+the block's terms; the class's size and monotonicity are the
+container's clause, `NestSem.lean`).
 
 The one syntactic fact underneath is the reading of the substitution
 `instChainAt` (`interp_instChainAt`): substituting arguments for the
@@ -28,8 +30,8 @@ binders above `d` innermost ones reads as the environment with the
 arguments' values inserted there.
 -/
 
-namespace Fragment.IndSpec.Nst open Fragment.NestInfo (nPK nK memberVar isMember Positive memberLevel)
-open SetLib IndLib
+namespace Fragment open NestInfo (nPK nK memberVar isMember Positive memberLevel)
+open SetLib UnivLib IndLib
 
 universe u
 
@@ -227,16 +229,15 @@ theorem isMember_false_of_usesVar {k : Nat} {A : Expr} (hu : A.usesVar (N.member
 /-- **An ordinary field of the container, read in the block's terms**
 (the member field included): its translated field's set at any member
 set `X` is the container's own field set at the instantiation `psK X`
-— whatever the regime, the bound and the family predicate (an
-ordinary field's set is its domain's reading). -/
+— whatever the regime and the approximant (an ordinary field's set is
+its domain's reading). -/
 theorem classFieldSet_eq_ordinary (hf : S.NestFacts M ls N) (hlen : N.args.length + 1 = N.nPK)
     (hlsK : N.lsK.length = N.K.lparams.length) (hKS : N.KS.Scoped env)
     {c : CtorSpec} (hc : c ∈ N.K.ctors) {fields : List Field} {n : Nat} (hd : c.fields.drop n = fields)
     {i : Nat} {A : Expr} (hi : fields[i]? = some (.ordinary A)) (X : V) (Q : V → Prop) (ps : List V)
-    (B : List V → List V → V) (P : FamP V)
-    {fs : List V} (hk : fs.length = fields.length - 1 - i) :
+    (W : List V → V) {fs : List V} (hk : fs.length = fields.length - 1 - i) :
     S.classFieldSet M ls N X Q ps fs (S.classField N (fields.length - 1 - i) (.ordinary A))
-      = N.KS.fieldSet M (S.lsK ls N) B P (S.psK M ls N ps X) fs (.ordinary A) := by
+      = N.KS.fieldSet M (S.lsK ls N) W (S.psK M ls N ps X) fs (.ordinary A) := by
   have hpf := positive_field N hf.positive hc hd hi
   have hpN : N.p < N.nPK := hf.positive.2.1
   rcases hpf with rfl | ⟨hu, -⟩
@@ -285,33 +286,29 @@ theorem classFieldSet_eq_ordinary (hf : S.NestFacts M ls N) (hlen : N.args.lengt
 /-- **A field of the container, read in the block's terms**: its
 translated field's set at a member set `X` and a restriction `Q` is
 the container's own field set at the instantiation `psK X`, relative
-to the container's family restricted by `Q`. -/
+to an approximant whose fibre is the container's family at `X`
+restricted by `Q`. -/
 theorem classFieldSet_eq (hf : S.NestFacts M ls N) (hlen : N.args.length + 1 = N.nPK)
     (hlsK : N.lsK.length = N.K.lparams.length) (hKS : N.KS.Scoped env)
     {c : CtorSpec} (hc : c ∈ N.K.ctors) {fields : List Field} {n : Nat} (hd : c.fields.drop n = fields)
     {i : Nat} {f : Field} (hi : fields[i]? = some f) (X : V) (Q : V → Prop) {ps : List V}
     (hp : FitsVals M (S.ψ ls) base S.params ps) (hX : X ∈ˢ (univ (S.u₀ ls) : V))
-    (hz : S.z ls = false) {P : FamP V}
-    (hP : ∀ y, P (S.psK M ls N ps X) [] y ↔ (N.KS.Mem M (S.lsK ls N) (S.psK M ls N ps X) [] y ∧ Q y))
+    {W : List V → V}
+    (hW : ∀ y, y ∈ˢ W [] ↔ (y ∈ˢ N.KS.Fam M (S.lsK ls N) (S.psK M ls N ps X) [] ∧ Q y))
     {fs : List V} (hk : fs.length = fields.length - 1 - i) :
     S.classFieldSet M ls N X Q ps fs (S.classField N (fields.length - 1 - i) f)
-      = N.KS.fieldSet M (S.lsK ls N) (N.KS.bound M (S.lsK ls N)) P (S.psK M ls N ps X) fs f := by
+      = N.KS.fieldSet M (S.lsK ls N) W (S.psK M ls N ps X) fs f := by
   have hpf := positive_field N hf.positive hc hd hi
-  have hpN : N.p < N.nPK := hf.positive.2.1
-  have hzK : N.KS.z (S.lsK ls N) = false := by rw [hf.z_eq]; exact hz
   cases f with
-  | ordinary A => exact S.classFieldSet_eq_ordinary M ls N hf hlen hlsK hKS hc hd hi X Q ps _ _ hk
+  | ordinary A => exact S.classFieldSet_eq_ordinary M ls N hf hlen hlsK hKS hc hd hi X Q ps W hk
   | reflexive tele es =>
     obtain ⟨rfl, rfl⟩ := hpf
     simp only [classField, classFieldSet, fieldSet, piCtx_nil, idxVals, List.map_nil,
-      List.reverse_nil, hzK]
+      List.reverse_nil]
     rw [S.classSet_eq_Fam hf hp hX]
-    unfold Fam
-    rw [hzK]
     apply ext
     intro y
-    simp only [mem_fibreR_false, mem_sep, hP]
-    exact ⟨fun ⟨⟨h1, h2⟩, h3⟩ => ⟨h1, h2, h3⟩, fun ⟨h1, h2, h3⟩ => ⟨⟨h1, h2⟩, h3⟩⟩
+    rw [mem_sep, hW]
   | container => exact hpf.elim
 
 theorem ClassFits_length' {X : V} {Q : V → Prop} {ps : List V} :
@@ -327,136 +324,95 @@ theorem ClassFits_iff (hf : S.NestFacts M ls N) (hlen : N.args.length + 1 = N.nP
     (hlsK : N.lsK.length = N.K.lparams.length) (hKS : N.KS.Scoped env)
     {c : CtorSpec} (hc : c ∈ N.K.ctors) (X : V) (Q : V → Prop) {ps : List V}
     (hp : FitsVals M (S.ψ ls) base S.params ps) (hX : X ∈ˢ (univ (S.u₀ ls) : V))
-    (hz : S.z ls = false) {P : FamP V}
-    (hP : ∀ y, P (S.psK M ls N ps X) [] y ↔ (N.KS.Mem M (S.lsK ls N) (S.psK M ls N ps X) [] y ∧ Q y)) :
+    {W : List V → V}
+    (hW : ∀ y, y ∈ˢ W [] ↔ (y ∈ˢ N.KS.Fam M (S.lsK ls N) (S.psK M ls N ps X) [] ∧ Q y)) :
     ∀ {fields : List Field} {n : Nat}, c.fields.drop n = fields → ∀ {fs : List V},
       S.ClassFits M ls N X Q ps (S.classFields N fields) fs ↔
-        N.KS.FitsFields M (S.lsK ls N) (N.KS.bound M (S.lsK ls N)) P (S.psK M ls N ps X) fields fs
+        N.KS.FitsFields M (S.lsK ls N) W (S.psK M ls N ps X) fields fs
   | [], _, _, [] => by simp [ClassFits, FitsFields]
   | [], _, _, _ :: _ => by simp [ClassFits, FitsFields]
   | _ :: _, _, _, [] => by simp [ClassFits, FitsFields]
   | f :: rest, n, hd, v :: vs => by
     have hd' : c.fields.drop (n + 1) = rest := by rw [← List.drop_drop, hd]; rfl
-    have ih := ClassFits_iff hf hlen hlsK hKS hc X Q hp hX hz hP hd' (fs := vs)
+    have ih := ClassFits_iff hf hlen hlsK hKS hc X Q hp hX hW hd' (fs := vs)
     simp only [classFields_cons, ClassFits, FitsFields]
     rw [ih]
     constructor
     · rintro ⟨h1, h2⟩
       have hl : vs.length = rest.length := N.KS.FitsFields_length M _ h1
       refine ⟨h1, ?_⟩
-      have := S.classFieldSet_eq M ls N hf hlen hlsK hKS hc hd (i := 0) rfl X Q hp hX hz hP
+      have := S.classFieldSet_eq M ls N hf hlen hlsK hKS hc hd (i := 0) rfl X Q hp hX hW
         (fs := vs) (by simpa using hl)
       simp only [List.length_cons, Nat.add_sub_cancel, Nat.sub_zero] at this
       rwa [this] at h2
     · rintro ⟨h1, h2⟩
       have hl : vs.length = rest.length := N.KS.FitsFields_length M _ h1
       refine ⟨h1, ?_⟩
-      have := S.classFieldSet_eq M ls N hf hlen hlsK hKS hc hd (i := 0) rfl X Q hp hX hz hP
+      have := S.classFieldSet_eq M ls N hf hlen hlsK hKS hc hd (i := 0) rfl X Q hp hX hW
         (fs := vs) (by simpa using hl)
       simp only [List.length_cons, Nat.add_sub_cancel, Nat.sub_zero] at this
       rwa [this]
 
 /-- The container's constructors are tagged from `0`. -/
 theorem KS_tagOf (j : Nat) : N.KS.tagOf j = j := by
-  simp [IndSpec.tagOf, IndSpec.nKS, NestInfo.KS, Fragment.NestInfo.KS, IndBase.spec]
-
-/-- Nothing is asked of the container's class bound: it has no
-container field. -/
-theorem KS_contInBound (hf : S.NestFacts M ls N) (ps' : List V) :
-    N.KS.ContInBound M (S.lsK ls N) ps' :=
-  fun _ _c hc _ _ _k hk _ => (N.KS.noCont_absurd hf.noCont hc hk).elim
-
-/-- A fit of the container's fields relative to its family and a
-restriction on the recursive values also restricts them to the family's
-fibre (they are in the bound), as the class's induction wants. -/
-theorem KS_FitsFields_class (hf : S.NestFacts M ls N) (hz : S.z ls = false) {X : V}
-    {ps : List V} (hp : FitsVals M (S.ψ ls) base S.params ps) (hX : X ∈ˢ (univ (S.u₀ ls) : V))
-    {c : CtorSpec} (hc : c ∈ N.K.ctors) (Q : V → Prop) {P : FamP V}
-    (hP : ∀ y, P (S.psK M ls N ps X) [] y → N.KS.Mem M (S.lsK ls N) (S.psK M ls N ps X) [] y ∧ Q y) :
-    ∀ {fields : List Field} {n : Nat}, c.fields.drop n = fields → ∀ {fs : List V},
-      N.KS.FitsFields M (S.lsK ls N) (N.KS.bound M (S.lsK ls N)) P (S.psK M ls N ps X) fields fs →
-      N.KS.FitsFields M (S.lsK ls N) (N.KS.bound M (S.lsK ls N))
-        (fun ps' is y => N.KS.Mem M (S.lsK ls N) ps' is y ∧
-          (y ∈ˢ S.classSet M ls N ps X ∧ Q y))
-        (S.psK M ls N ps X) fields fs
-  | [], _, _, [], h => h
-  | [], _, _, _ :: _, h => h.elim
-  | _ :: _, _, _, [], h => h.elim
-  | f :: rest, n, hd, v :: vs, ⟨h1, h2⟩ => by
-    have hd' : c.fields.drop (n + 1) = rest := by rw [← List.drop_drop, hd]; rfl
-    refine ⟨KS_FitsFields_class hf hz hp hX hc Q hP hd' h1, ?_⟩
-    have hpf := positive_field N hf.positive hc hd (i := 0) rfl
-    have hzK : N.KS.z (S.lsK ls N) = false := by rw [hf.z_eq]; exact hz
-    cases f with
-    | ordinary _ => exact h2
-    | reflexive tele es =>
-      obtain ⟨rfl, rfl⟩ := hpf
-      simp only [fieldSet, piCtx_nil, hzK, idxVals, List.map_nil, List.reverse_nil] at h2 ⊢
-      rw [mem_fibreR_false] at h2 ⊢
-      have hb := h2.1
-      have hm := (hP v h2.2).1
-      have hq := (hP v h2.2).2
-      refine ⟨hb, hm, ?_, hq⟩
-      rw [S.classSet_eq_Fam hf hp hX]
-      unfold Fam
-      rw [hzK, mem_fibreR_false]
-      exact ⟨hb, hm⟩
-    | container => exact hpf.elim
+  simp [IndSpec.tagOf, IndSpec.nKS, NestInfo.KS, IndBase.spec]
 
 /-- **The class's laws** from the container's fixed point: inversion,
-introduction and induction are the container's `Mem_elim`, `Mem_intro`
-(through `ctorVal_mem_Fam`) and `Mem_ind` at the instantiation, read
-in the block's terms through `ClassFits_iff`; size and monotonicity
-are `contGood_of`. -/
+introduction and induction are the container's `mem_Fam`,
+`ctorVal_mem_Fam` and `Fam_induction` at the instantiation, read in
+the block's terms through `ClassFits_iff`; size and monotonicity are
+the container's clause (`contClause_of`). -/
 theorem classLaws_of (hf : S.NestFacts M ls N) (hlen : N.args.length + 1 = N.nPK)
     (hlsK : N.lsK.length = N.K.lparams.length) (hKS : N.KS.Scoped env) (hN : S.nest = some N)
     (hz : S.z ls = false) {ps : List V} (hp : FitsVals M (S.ψ ls) base S.params ps) :
     S.ClassLaws M ls N ps where
   inv := fun X hX x hx => by
     have hzK : N.KS.z (S.lsK ls N) = false := by rw [hf.z_eq]; exact hz
-    rw [S.classSet_eq_Fam hf hp hX, N.KS.mem_Fam_false M _ hzK] at hx
-    obtain ⟨j, c, fs, hc, hfit, -, hx'⟩ := N.KS.Mem_elim M _ hx.2
+    have hbX := hf.domsBoundedK hp hX
+    rw [S.classSet_eq_Fam hf hp hX, N.KS.mem_Fam_false M _ hf.noRecDep hbX (hf.contOkK _) hzK] at hx
+    obtain ⟨j, c, fs, hc, hfit, -, hx'⟩ := hx
     refine ⟨j, c, fs, hc, ?_, by rw [hx', KS_tagOf]⟩
     simp only [classCtor]
-    rw [S.ClassFits_iff M ls N hf hlen hlsK hKS (List.mem_of_getElem? hc) X (fun _ => True) hp hX hz
-      (P := N.KS.Mem M (S.lsK ls N)) (fun _ => ⟨fun h => ⟨h, trivial⟩, fun h => h.1⟩)
+    rw [S.ClassFits_iff M ls N hf hlen hlsK hKS (List.mem_of_getElem? hc) X (fun _ => True) hp hX
+      (W := N.KS.Fam M (S.lsK ls N) (S.psK M ls N ps X)) (fun _ => ⟨fun h => ⟨h, trivial⟩, fun h => h.1⟩)
       (List.drop_zero (l := c.fields))]
     exact hfit
   intro := fun X hX j c fs hc hfit => by
     have hzK : N.KS.z (S.lsK ls N) = false := by rw [hf.z_eq]; exact hz
+    have hbX := hf.domsBoundedK hp hX
     have hcm := List.mem_of_getElem? hc
     simp only [classCtor] at hfit
-    rw [S.ClassFits_iff M ls N hf hlen hlsK hKS hcm X (fun _ => True) hp hX hz
-      (P := N.KS.Mem M (S.lsK ls N)) (fun _ => ⟨fun h => ⟨h, trivial⟩, fun h => h.1⟩)
+    rw [S.ClassFits_iff M ls N hf hlen hlsK hKS hcm X (fun _ => True) hp hX
+      (W := N.KS.Fam M (S.lsK ls N) (S.psK M ls N ps X)) (fun _ => ⟨fun h => ⟨h, trivial⟩, fun h => h.1⟩)
       (List.drop_zero (l := c.fields))] at hfit
-    have := N.KS.ctorVal_mem_Fam M (S.lsK ls N) hc hfit hf.noRecDep
-      (hf.domsBounded _ (hf.argsFit ps hp X hX)) (S.KS_contInBound M ls N hf _)
-    rw [(hf.positive.2.2.2.2 c hcm).1] at this
-    simp only [idxVals, List.map_nil, List.reverse_nil, ctorVal, hzK, Bool.false_eq_true, if_false,
-      KS_tagOf] at this
+    have := N.KS.ctorVal_mem_Fam M (S.lsK ls N) hf.noRecDep hbX (hf.contOkK _) hc hfit
+    rw [S.KS_idxVals hf hcm] at this
+    simp only [ctorVal, hzK, Bool.false_eq_true, if_false, KS_tagOf] at this
     rw [S.classSet_eq_Fam hf hp hX]
     exact this
   ind := fun X hX Q hQ x hx => by
     have hzK : N.KS.z (S.lsK ls N) = false := by rw [hf.z_eq]; exact hz
-    rw [S.classSet_eq_Fam hf hp hX, N.KS.mem_Fam_false M _ hzK] at hx
-    refine N.KS.Mem_ind M _ (P := fun ps' _ y => ps' = S.psK M ls N ps X → Q y) ?_ hx.2 rfl
-    intro ps' is y hs hps'
-    subst hps'
+    have hbX := hf.domsBoundedK hp hX
+    rw [S.classSet_eq_Fam hf hp hX] at hx
+    refine N.KS.Fam_induction M _ hf.noRecDep hbX (hf.contOkK _) (fun _ y => Q y) ?_ [] x hx
+    intro is y hs
     obtain ⟨j, c, fs, hc, hfit, -, rfl⟩ := hs
     have hcm := List.mem_of_getElem? hc
-    rw [KS_tagOf]
+    simp only [ctorVal, hzK, Bool.false_eq_true, if_false, KS_tagOf]
     refine hQ j c fs hc ?_
     simp only [classCtor]
-    rw [S.ClassFits_iff M ls N hf hlen hlsK hKS hcm X _ hp hX hz
-      (P := fun ps' is y => N.KS.Mem M (S.lsK ls N) ps' is y ∧ (y ∈ˢ S.classSet M ls N ps X ∧ Q y))
-      (fun _ => Iff.rfl) (List.drop_zero (l := c.fields))]
-    exact S.KS_FitsFields_class M ls N hf hz hp hX hcm Q (fun _ h => ⟨h.1, h.2 rfl⟩)
-      (List.drop_zero (l := c.fields)) hfit
-  mem_univ := fun X hX => (S.contGood_of hf hN N hN ps hp).2 X hX
-  mono := fun X Y hXY hX hY => (S.contGood_of hf hN N hN ps hp).1 X Y hXY hX hY
+    rw [S.ClassFits_iff M ls N hf hlen hlsK hKS hcm X _ hp hX
+      (W := fun is' => sep (N.KS.Fam M (S.lsK ls N) (S.psK M ls N ps X) is') fun y => Q y)
+      (fun y => by
+        rw [mem_sep, S.classSet_eq_Fam hf hp hX]
+        exact ⟨fun h => ⟨h.1, h.1, h.2⟩, fun h => ⟨h.1, h.2.2⟩⟩)
+      (List.drop_zero (l := c.fields))]
+    exact hfit
+  mem_univ := fun X hX => (S.contClause_of hf hN hp).mem_univ X hX
+  mono := fun X Y hXY hX hY => (S.contClause_of hf hN hp).mono X Y hXY hX hY
 
 end Corr
 
 end IndSpec
 
-end Fragment.IndSpec.Nst
+end Fragment
