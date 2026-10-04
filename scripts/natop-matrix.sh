@@ -64,12 +64,12 @@
 #      exporter must link against the toolchain whose environment it
 #      dumps.
 #
-# THE CONSTANTS.  `ConLeche/Kernel/Core.lean` is the authority:
+# THE CONSTANTS.  `ConLeche/Kernel/CoreDefs.lean` is the authority:
 # `natOpNames` (pred add sub mul pow beq ble) and `natDivModNames`
 # (div mod gcd land lor xor shiftLeft shiftRight), plus the two
 # `TrustPins` opaque values `Lean.reduceBool` / `Lean.reduceNat`.
 # `Nat.succ` needs no entry — it is a constructor of `Nat` and rides in
-# on every cone.  The list below is checked against `Core.lean` on
+# on every cone.  The list below is checked against `CoreDefs.lean` on
 # every run (`--no-verify-names` turns that off for a tree where the
 # sources are not present).
 #
@@ -91,7 +91,7 @@
 #     --jobs N             checker worker threads (default 4)
 #     --timeout SECS       checker timeout (default 900)
 #     --no-verify-names    skip the cross-check of the constant list
-#                          against ConLeche/Kernel/Core.lean
+#                          against ConLeche/Kernel/CoreDefs.lean
 #
 # The export and the checker's log are left under <work>/exports —
 # a failing run is diagnosed from them.
@@ -183,7 +183,7 @@ NAT_WF_OPS=(Nat.div Nat.mod Nat.gcd Nat.land Nat.lor Nat.xor
 TRUST_PINS=(Lean.reduceBool Lean.reduceNat)
 CONSTANTS=("${NAT_OPS[@]}" "${NAT_WF_OPS[@]}" "${TRUST_PINS[@]}")
 
-CORE="$ROOT/ConLeche/Kernel/Core.lean"
+CORE="$ROOT/ConLeche/Kernel/CoreDefs.lean"
 if [ "$VERIFY_NAMES" = 1 ] && [ -f "$CORE" ]; then
   # `natOpNames` / `natDivModNames` are lists of `natXxxName`
   # abbreviations, each `def natXxxName : Name := natName.str "xxx"`.
@@ -197,18 +197,18 @@ if [ "$VERIFY_NAMES" = 1 ] && [ -f "$CORE" ]; then
   declared=()
   for sym in $(extract_list natOpNames) $(extract_list natDivModNames); do
     r="$(resolve "$sym")"
-    [ -n "$r" ] || die names "cannot resolve $sym in ConLeche/Kernel/Core.lean"
+    [ -n "$r" ] || die names "cannot resolve $sym in ConLeche/Kernel/CoreDefs.lean"
     declared+=("$r")
   done
   want="$(printf '%s\n' "${NAT_OPS[@]}" "${NAT_WF_OPS[@]}" | sort)"
   have="$(printf '%s\n' "${declared[@]}" | sort)"
   if [ "$want" != "$have" ]; then
     echo "natop-matrix: the Nat-operation list in this script disagrees with" >&2
-    echo "natop-matrix: ConLeche/Kernel/Core.lean (natOpNames + natDivModNames):" >&2
+    echo "natop-matrix: ConLeche/Kernel/CoreDefs.lean (natOpNames + natDivModNames):" >&2
     diff <(printf '%s\n' "$want") <(printf '%s\n' "$have") >&2
     die names "constant list is stale — update scripts/natop-matrix.sh"
   fi
-  echo "natop-matrix: constant list matches ConLeche/Kernel/Core.lean \
+  echo "natop-matrix: constant list matches ConLeche/Kernel/CoreDefs.lean \
 (${#declared[@]} Nat operations + ${#TRUST_PINS[@]} trust pins)" >&2
 fi
 
