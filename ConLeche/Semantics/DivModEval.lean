@@ -71,7 +71,7 @@ theorem natOpTyPinned_binaryE {env : Env} {n : Name} {ty : Expr}
       (.forallE (.const natName []) cod mb2) mb ∧
       natOpCod env n cod = true := by
   unfold natOpTyPinned at h
-  rw [if_neg hn] at h
+  rw [ite_eq_right hn] at h
   revert h
   match ty with
   | .forallE dom (.forallE dom2 cod mb2) mb =>
@@ -94,7 +94,7 @@ theorem natOpCod_ble {env : Env} {cod : Expr}
       ci.toConstantVal.levelParams = [] ∧
       ci.toConstantVal.type = .sort (.succ .zero) := by
   unfold natOpCod at h
-  rw [if_pos (show (decide (natBleName = natBeqName) ||
+  rw [ite_eq_left (show (decide (natBleName = natBeqName) ||
     decide (natBleName = natBleName)) = true from by decide)] at h
   simp only [Bool.and_eq_true, beq_iff_eq] at h
   obtain ⟨rfl, h2⟩ := h
@@ -336,7 +336,7 @@ theorem divModClausesV_divmod {V : Type w} [SetTheory V] {val : Name → V} {c :
      app (app (val c) x) y =
        (if c = natDivName then val natZeroName else x)) := by
   rcases hc with rfl | rfl <;>
-    simpa +decide only [DivModClausesV, if_false, if_true,
+    simpa +decide only [DivModClausesV, ite_false, ite_true,
       reduceCtorEq, decide_true, decide_false] using h
 
 end ConLeche.Semantics

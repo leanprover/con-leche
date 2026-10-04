@@ -96,8 +96,8 @@ noncomputable def mInstallN : EnvModel V (S.install env) where
         obtain ⟨rfl, rfl, rfl, rfl, rfl⟩ := hkind
         obtain ⟨j, c', hc', rfl⟩ := S.mem_rulesN N hrl
         have hcij' : (S.install env).find? c'.name = some (S.ctorInfo c') := by
-          rw [install_eq_installN hok, S.installN_find?, if_neg (hok.ctor_ne_aux hc'),
-            if_neg (hok.ctor_ne_rec hc'), S.envCtors_find? env hok.nodup_ctors,
+          rw [install_eq_installN hok, S.installN_find?, ite_eq_right (hok.ctor_ne_aux hc'),
+            ite_eq_right (hok.ctor_ne_rec hc'), S.envCtors_find? env hok.nodup_ctors,
             S.ctorOf?_of_getElem? hok.nodup_ctors hc']
         rw [hcij'] at hcij
         cases hcij
@@ -105,7 +105,7 @@ noncomputable def mInstallN : EnvModel V (S.install env) where
       · have hstored := stored_ctor_of_envCtors hs hok hfind hkind hrl
         have hne : rl.ctor ≠ S.recName := Env.ne_of_isSome_find? hstored (hok.fresh _ (by simp))
         have hne' : rl.ctor ≠ N.aux := Env.ne_of_isSome_find? hstored (hok.fresh _ (by simp))
-        rw [install_eq_installN hok, S.installN_find?, if_neg hne', if_neg hne] at hcij
+        rw [install_eq_installN hok, S.installN_find?, ite_eq_right hne', ite_eq_right hne] at hcij
         exact (mCtorsN hs m hok).rec_rules c ci nP nM nMin nI rules hfind hkind rl hrl hinst cij hcij
   rec_rules_nested := fun c ci nP nM nMin nI rules hfind hkind rl hrl lvs pinst hinst cij I nPc nf
       hcij hcijk => by
@@ -137,7 +137,7 @@ noncomputable def mInstallN : EnvModel V (S.install env) where
       · have hstored := stored_ctor_of_envCtors hs hok hfind hkind hrl
         have hne : rl.ctor ≠ S.recName := Env.ne_of_isSome_find? hstored (hok.fresh _ (by simp))
         have hne' : rl.ctor ≠ N.aux := Env.ne_of_isSome_find? hstored (hok.fresh _ (by simp))
-        rw [install_eq_installN hok, S.installN_find?, if_neg hne', if_neg hne] at hcij
+        rw [install_eq_installN hok, S.installN_find?, ite_eq_right hne', ite_eq_right hne] at hcij
         exact (mCtorsN hs m hok).rec_rules_nested c ci nP nM nMin nI rules hfind hkind rl hrl lvs
           pinst hinst cij I nPc nf hcij hcijk
 
@@ -153,17 +153,17 @@ theorem blocksN : ∀ (K : Name) (ci : ConstInfo) (nP nI : Nat) (cs : List Name)
   have hagree : AgreeOn env m.M (S.M₃N m.M N) := agree_M₃N hok m.M
   have hfreshC : ∀ c ∈ S.ctors, (S.envInd env).find? c.name = none := by
     intro c hc
-    rw [S.envInd_find?, if_neg (fun h => (List.nodup_cons.mp hok.nodup).1
+    rw [S.envInd_find?, ite_eq_right (fun h => (List.nodup_cons.mp hok.nodup).1
       (by rw [← h]; exact List.mem_cons_of_mem _ (List.mem_cons_of_mem _ (List.mem_map_of_mem hc))))]
     exact hok.fresh _ (List.mem_cons_of_mem _ (List.mem_cons_of_mem _ (List.mem_cons_of_mem _
       (List.mem_map_of_mem hc))))
   have hfreshR : (S.envCtors env).find? S.recName = none := by
     rw [S.envCtors_find? env hok.nodup_ctors, hok.ctorOf?_rec, S.envInd_find?,
-      if_neg hok.name_ne_rec.symm]
+      ite_eq_right hok.name_ne_rec.symm]
     exact hok.fresh _ (by simp)
   have hfreshA : ((S.envCtors env).add S.recName (S.recInfoN N)).find? N.aux = none := by
     rw [Env.find?_add_of_ne _ _ hok.rec_ne_aux.symm, S.envCtors_find? env hok.nodup_ctors,
-      hok.ctorOf?_aux, S.envInd_find?, if_neg hok.name_ne_aux.symm]
+      hok.ctorOf?_aux, S.envInd_find?, ite_eq_right hok.name_ne_aux.symm]
     exact hok.fresh _ (by simp)
   rw [install_eq_installN hok] at hfind ⊢
   rw [S.installN_find?] at hfind

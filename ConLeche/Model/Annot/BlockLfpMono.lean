@@ -61,12 +61,12 @@ theorem carrier_le_on_group' (h : LfpClause acval D) {ψ : Name → Nat} {ρp ρ
   have hB : InTupleSpace (D.w ψ) D.N (D.idx ψ ρp) B := by
     intro m hm
     by_cases hGm : G m
-    · simp only [B, if_pos hGm, hidx m hm hGm]; exact lfpTuple_mem _ _ _ _ m hm
-    · simp only [B, if_neg hGm]; exact lfpTuple_mem _ _ _ _ m hm
+    · simp only [B, ite_eq_left hGm, hidx m hm hGm]; exact lfpTuple_mem _ _ _ _ m hm
+    · simp only [B, ite_eq_right hGm]; exact lfpTuple_mem _ _ _ _ m hm
   have hle := lfpTuple_le_on hcl hmono G hB fun g hg hG t ht x hx => ?_
   · intro g hg hG
     have := hle g hg hG
-    simp only [B, if_pos hG] at this
+    simp only [B, ite_eq_left hG] at this
     exact this
   · change x ∈ˢ app (D.Φ ψ ρp (fun x => if G x then B x else D.carrier ψ ρp x) g) t at hx
     have hZeq : (fun x => if G x then B x else D.carrier ψ ρp x)
@@ -77,7 +77,7 @@ theorem carrier_le_on_group' (h : LfpClause acval D) {ψ : Name → Nat} {ρp ρ
         (fun x => if G x then D.carrier ψ ρp' x else D.carrier ψ ρp x) := hB
     obtain ⟨j, fs, hf, rfl⟩ := (h.fibre_holes hs hZ hg ht x).mp hx
     have hf' := hwalk g hg hG t ht j fs hf
-    simp only [B, if_pos hG]
+    simp only [B, ite_eq_left hG]
     rw [← h.carrier_eq hs' hg]
     exact (h.fibre_holes hs' (lfpTuple_mem _ _ _ _) hg (by rw [← hidx g hg hG]; exact ht) _).mpr
       ⟨j, fs, hf', rfl⟩

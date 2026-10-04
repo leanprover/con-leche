@@ -528,7 +528,7 @@ theorem ctxOk_pinnedLift {m : EnvModel V env} {ψ : Name → Nat}
   congr 1
   funext j
   simp only [shiftE]
-  rw [if_neg (by omega)]
+  rw [ite_eq_right (by omega)]
   congr 1
   omega
 
@@ -559,7 +559,7 @@ theorem denoteMeta_eqSpine {acval : Name → (Name → Nat) → AnnotTerm}
     rw [show Expr.substConst0 c value' (.const eqName [.succ .zero])
         = .const eqName [.succ .zero] from by
       simp only [Expr.substConst0]
-      rw [if_neg (by rintro ⟨-, hh⟩; exact nomatch hh)]]
+      rw [ite_eq_right (by rintro ⟨-, hh⟩; exact nomatch hh)]]
     exact denoteMeta_const hEq rfl
   show denoteMeta acval env ψ d
       (.app (.app (.app (Expr.substConst0 c value'
@@ -769,12 +769,12 @@ theorem read (fr : DmFrame mp c A value' ψ) {n : Name}
       = some (dmLeaf mp.base2 c A ψ n) := by
   rcases fr.stored n hn with rfl | ⟨hne, ci, hf, hlp⟩
   · rw [show Expr.substConst0 n value' (.const n []) = value' from by
-      rw [Expr.substConst0, if_pos ⟨rfl, rfl⟩]]
+      rw [Expr.substConst0, ite_eq_left ⟨rfl, rfl⟩]]
     rw [fr.selfRead d, dmLeaf,
       show acvalWith mp.base2.acval n A n = A from acvalWith_self]
   · rw [show Expr.substConst0 c value' (.const n []) = .const n []
       from by
-      rw [Expr.substConst0, if_neg (fun hh => hne hh.1)]]
+      rw [Expr.substConst0, ite_eq_right (fun hh => hne hh.1)]]
     rw [denoteMeta_levelless_const hf hlp, dmLeaf,
       show acvalWith mp.base2.acval c A n = mp.base2.acval n
         from acvalWith_ne hne]
@@ -1729,7 +1729,7 @@ theorem dmFrame_of {mp : EnvModelM V μ env} {c : Name}
       (⟨.defnInfo ⟨c, lps, type'⟩ value' hint :: env.consts⟩
         : Env).find? n = some ci → env.find? n = some ci := by
     intro n ci hnn hf
-    rwa [ConLeche.Env.find?_cons, if_neg (fun hh => hnn hh.symm)] at hf
+    rwa [ConLeche.Env.find?_cons, ite_eq_right (fun hh => hnn hh.symm)] at hf
   -- the numeral heads, at the prefix
   obtain ⟨cvN, capsN, cv0, i0, j0, cv1, i1, j1, hfN2, hfZ2, hfS2,
     hlpN, hlpZ, hlpS, htyN, htyZ, mbS, htyS⟩ :=
@@ -1797,7 +1797,7 @@ theorem dmFrame_of {mp : EnvModelM V μ env} {c : Name}
     ConLeche.natOpStoredOk_tyPinned (hdepAll _ hselfDep)
   have htyS2 : cvS2.type = type' := by
     rw [ConLeche.Env.find?_cons] at hfS2'
-    rw [if_pos (show (ConstantInfo.defnInfo ⟨c, lps, type'⟩ value'
+    rw [ite_eq_left (show (ConstantInfo.defnInfo ⟨c, lps, type'⟩ value'
       hint).name = c from rfl)] at hfS2'
     obtain ⟨h1, -, -⟩ :=
       ConLeche.ConstantInfo.defnInfo.inj (Option.some.inj hfS2')
@@ -1943,7 +1943,7 @@ theorem dmFrame_of {mp : EnvModelM V μ env} {c : Name}
         natOpTyPinned_binaryE hnu (htyS2 ▸ hpinS2)
       have hcodN : codT = Expr.const ConLeche.natName [] := by
         unfold ConLeche.natOpCod at hcodT
-        rw [if_neg (show ¬((decide (n = ConLeche.natBeqName)
+        rw [ite_eq_right (show ¬((decide (n = ConLeche.natBeqName)
           || decide (n = ConLeche.natBleName)) = true) from by
           simp [hnb])] at hcodT
         simpa using hcodT
@@ -1964,7 +1964,7 @@ theorem dmFrame_of {mp : EnvModelM V μ env} {c : Name}
         natOpTyPinned_binaryE hnu hpinn
       have hcodN : codn = Expr.const ConLeche.natName [] := by
         unfold ConLeche.natOpCod at hcodn
-        rw [if_neg (show ¬((decide (n = ConLeche.natBeqName)
+        rw [ite_eq_right (show ¬((decide (n = ConLeche.natBeqName)
           || decide (n = ConLeche.natBleName)) = true) from by
           simp [hnb])] at hcodn
         simpa using hcodn
@@ -2078,7 +2078,7 @@ theorem divMod_install {F : Nat} (mp : EnvModelM V μ env)
   rcases hcmem with rfl|rfl|rfl|rfl|rfl|rfl|rfl|rfl
   all_goals (
     simp only [ConLeche.divModCertStmts, reduceIte] at hruns
-    simp +decide only [DivModClausesV, if_false, if_true])
+    simp +decide only [DivModClausesV, ite_false, ite_true])
   · -- `Nat.div`
     cases hruns with | cons f1 r1 => cases r1 with | cons f2 r2 =>
       cases r2 with | cons f3 r3 =>

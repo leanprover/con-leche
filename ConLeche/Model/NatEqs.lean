@@ -712,27 +712,27 @@ theorem denoteMeta_substConst0 {acval : Name → (Name → Nat) → AnnotTerm}
       by_cases hus : us = []
       · subst hus
         rw [show Expr.substConst0 n v (.const n []) = v from by
-          rw [Expr.substConst0, if_pos ⟨rfl, rfl⟩]]
+          rw [Expr.substConst0, ite_eq_left ⟨rfl, rfl⟩]]
         have hfc : (⟨c₀ :: env.consts⟩ : Env).find? n = some c₀ := by
-          rw [ConLeche.Env.find?_cons, if_pos hname]
+          rw [ConLeche.Env.find?_cons, ite_eq_left hname]
         have h1 : denoteMeta (acvalWith acval n A) ⟨c₀ :: env.consts⟩ ψ d
             (.const n []) = some (acvalWith acval n A n ψ) :=
           denoteMeta_levelless_const hfc hlp
         rw [h1, show acvalWith acval n A n = A from acvalWith_self]
         exact (denoteMeta_depth_of_closed hacl hvf hAcl hv d).symm
       · rw [show Expr.substConst0 n v (.const n us) = .const n us from
-          by rw [Expr.substConst0, if_neg (fun h => hus h.2)]]
+          by rw [Expr.substConst0, ite_eq_right (fun h => hus h.2)]]
         rw [denoteMeta, denoteMeta]
         rw [show (⟨c₀ :: env.consts⟩ : Env).find? n = some c₀ from by
-          rw [ConLeche.Env.find?_cons, if_pos hname], hfresh]
+          rw [ConLeche.Env.find?_cons, ite_eq_left hname], hfresh]
         dsimp only
-        rw [if_neg (by rw [hlp]; simpa using hus)]
+        rw [ite_eq_right (by rw [hlp]; simpa using hus)]
     · rw [show Expr.substConst0 c v (.const n us) = .const n us from by
-        rw [Expr.substConst0, if_neg (fun h => hn h.1)]]
+        rw [Expr.substConst0, ite_eq_right (fun h => hn h.1)]]
       rw [denoteMeta, denoteMeta]
       rw [show (⟨c₀ :: env.consts⟩ : Env).find? n = env.find? n from by
         rw [ConLeche.Env.find?_cons,
-          if_neg (fun hh => hn (hh.symm.trans hname))]]
+          ite_eq_right (fun hh => hn (hh.symm.trans hname))]]
       cases hf : env.find? n with
       | none => rfl
       | some ci =>
@@ -1058,7 +1058,7 @@ theorem natSelfHead_install (mp : EnvModelM V μ env) {φ : Name → Nat}
         (fun ρ => hAok φ ρ)
         (fun ρ => heq ▸ hmemA φ ρ) (fun ρ => heq ▸ hTok φ ρ)
       rwa [show natOpCodN c = ConLeche.boolName from by
-        unfold natOpCodN; rw [if_pos hccmp]]
+        unfold natOpCodN; rw [ite_eq_left hccmp]]
     · -- `Nat` codomain
       obtain rfl := hncmp hccmp
       have hTshape := denoteMeta_pinnedBinTy (codN := ConLeche.natName)
@@ -1071,7 +1071,7 @@ theorem natSelfHead_install (mp : EnvModelM V μ env) {φ : Name → Nat}
         (fun ρ => hAok φ ρ)
         (fun ρ => heq ▸ hmemA φ ρ) (fun ρ => heq ▸ hTok φ ρ)
       rwa [show natOpCodN c = ConLeche.natName from by
-        unfold natOpCodN; rw [if_neg hccmp]]
+        unfold natOpCodN; rw [ite_eq_right hccmp]]
   · -- the unary head (`pred`)
     intro hcp
     obtain ⟨mb₁, hty⟩ :=
@@ -1298,7 +1298,7 @@ theorem natOps_install (mp : EnvModelM V μ env) {φ : Name → Nat}
         (fun ρ => interp V ρ (mp.base2.acval ConLeche.natName φ)) := by
       have h := hSelfBin (by decide)
       simpa only [show natOpCodN ConLeche.natAddName = ConLeche.natName
-        from by unfold natOpCodN; rw [if_neg (by decide)]] using h
+        from by unfold natOpCodN; rw [ite_eq_right (by decide)]] using h
     have hvx := natArg_var0 mp.base2 φ
     have hvy := natArg_var1 mp.base2 φ
     have hz := natArg_zero mp.base2 hnh hvalV hs
@@ -1325,7 +1325,7 @@ theorem natOps_install (mp : EnvModelM V μ env) {φ : Name → Nat}
         (fun ρ => interp V ρ (mp.base2.acval ConLeche.natName φ)) := by
       have h := hSelfBin (by decide)
       simpa only [show natOpCodN ConLeche.natSubName = ConLeche.natName
-        from by unfold natOpCodN; rw [if_neg (by decide)]] using h
+        from by unfold natOpCodN; rw [ite_eq_right (by decide)]] using h
     have hpred := hdepUn ConLeche.natPredName (by decide) (by decide) rfl
     have hvx := natArg_var0 mp.base2 φ
     have hvy := natArg_var1 mp.base2 φ
@@ -1353,7 +1353,7 @@ theorem natOps_install (mp : EnvModelM V μ env) {φ : Name → Nat}
         (fun ρ => interp V ρ (mp.base2.acval ConLeche.natName φ)) := by
       have h := hSelfBin (by decide)
       simpa only [show natOpCodN ConLeche.natMulName = ConLeche.natName
-        from by unfold natOpCodN; rw [if_neg (by decide)]] using h
+        from by unfold natOpCodN; rw [ite_eq_right (by decide)]] using h
     have hadd := hdepBin ConLeche.natAddName (by decide) (by decide)
       (by decide) (by decide)
     have hvx := natArg_var0 mp.base2 φ
@@ -1382,7 +1382,7 @@ theorem natOps_install (mp : EnvModelM V μ env) {φ : Name → Nat}
         (fun ρ => interp V ρ (mp.base2.acval ConLeche.natName φ)) := by
       have h := hSelfBin (by decide)
       simpa only [show natOpCodN ConLeche.natPowName = ConLeche.natName
-        from by unfold natOpCodN; rw [if_neg (by decide)]] using h
+        from by unfold natOpCodN; rw [ite_eq_right (by decide)]] using h
     have hmul := hdepBin ConLeche.natMulName (by decide) (by decide)
       (by decide) (by decide)
     have hvx := natArg_var0 mp.base2 φ

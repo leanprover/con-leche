@@ -134,8 +134,8 @@ theorem checkSumCtorS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) 
   obtain ⟨cbs, cbody⟩ := q
   dsimp only
   by_cases h1 : structCtorResidOk T lps nP nF nIdx cbody = true
-  case neg => simp only [if_neg h1]; exact SimC.throw_bind
-  simp only [if_pos h1]
+  case neg => simp only [ite_eq_right h1]; exact SimC.throw_bind
+  simp only [ite_eq_left h1]
   refine SimC.bind (SimC.unwrapOr' hs₂) (fun s₃ cq cq' hs₃ hR => ?_)
   obtain ⟨rfl, hop⟩ := hR
   obtain ⟨fvsP, crest⟩ := cq
@@ -177,14 +177,14 @@ theorem checkSumCtorS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) 
     exact hw.2
   by_cases h2 : (cresid.getAppFn == Expr.const T (lps.map .param) &&
       cresid.getAppArgs.take nP == fvsP && cresid.getAppArgs.length == nP + nIdx) = true
-  case neg => simp only [if_neg h2]; exact SimC.throw_bind
-  simp only [if_pos h2]
+  case neg => simp only [ite_eq_right h2]; exact SimC.throw_bind
+  simp only [ite_eq_left h2]
   by_cases h3 : (xFvs.all fun x => Expr.constsResolve env₀ x.fvarTypeD) = true
-  case neg => simp only [if_neg h3]; exact SimC.throw_bind
-  simp only [if_pos h3]
+  case neg => simp only [ite_eq_right h3]; exact SimC.throw_bind
+  simp only [ite_eq_left h3]
   by_cases h4 : ((cresid.getAppArgs.drop nP).all fun e => Expr.constsResolve env₀ e) = true
-  case neg => simp only [if_neg h4]; exact SimC.throw_bind
-  simp only [if_pos h4]
+  case neg => simp only [ite_eq_right h4]; exact SimC.throw_bind
+  simp only [ite_eq_left h4]
   refine SimC.bind (checkStructFieldSortsIS_sim hμ henv hxPos hs₆)
     (fun s₇ sorts sorts' hs₇ hS => ?_)
   obtain rfl : sorts = sorts' := hS

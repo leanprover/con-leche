@@ -95,10 +95,15 @@ theorem Yields.bind' {α β : Type} {m : CheckCM α} {f : α → CheckCM β}
     exact h v.1 (hm s v.1 v.2 hm') v.2 b s' hr
 
 /-- Do-notation elaborates its guards through *join points*
-(`have __do_jp := …`), so the clause walker needs the `letFun` rule to
-step past them. -/
+(`have __do_jp := …`).  Until Lean v4.35 a `have` was the `letFun`
+application and the clause walker needed this rule to step past it.
+Since v4.35 (task #328) a `have` is a non-dependent `let`, which the
+walker's other rules see through by zeta at reducible transparency —
+and this rule, stated over that `let`, now unifies vacuously (its
+conclusion zeta-reduces to `?f ?v`), so the walker no longer tries it;
+it is kept for the explicit top-level steps that name it. -/
 theorem Yields.letFun {α β : Type} {v : β} {f : β → CheckCM α}
-    {P : α → Prop} (h : Yields (f v) P) : Yields (letFun v f) P := h
+    {P : α → Prop} (h : Yields (f v) P) : Yields (have x := v; f x) P := h
 
 /-- A guard's failure branch, closed without descending into the join
 point it calls (which is what keeps the walk linear). -/
@@ -109,16 +114,16 @@ theorem Yields.ofThrowBind {α β : Type} {e : CheckError} {f : α → CheckCM �
 theorem Yields.ofDecCases {α : Type} {c : Prop} {d : Decidable c}
     {a : ¬c → CheckCM α} {b : c → CheckCM α} {P : α → Prop}
     (ha : ∀ h, Yields (a h) P) (hb : ∀ h, Yields (b h) P) :
-    Yields (Decidable.casesOn (motive := fun _ => CheckCM α) d a b) P := by
-  cases d with
-  | isFalse h => exact ha h
-  | isTrue h => exact hb h
+    Yields (@dite _ c d b a) P := by
+  by_cases h : c
+  · rw [dite_eq_left h]; exact hb h
+  · rw [dite_eq_right h]; exact ha h
 
 /-- The clause walker: step past join points and guards to the `pure`
 leaves of a driver clause.
 
 **Every `apply` runs `with_reducible`.**  At default transparency the
-rules unify *vacuously* — `Bind.bind ?m ?f`, `letFun ?v ?f` and
+rules unify *vacuously* — `Bind.bind ?m ?f` and
 `pure ?a` all unfold far enough to match an arbitrary action, which
 makes the walk loop instead of descending.  At reducible transparency
 each rule matches exactly its own head, so the walk is deterministic
@@ -129,7 +134,6 @@ macro_rules
       first
         | with_reducible exact Yields.ofThrowBind
         | ((with_reducible apply Yields.bind); intro)
-        | with_reducible apply Yields.letFun
         | with_reducible exact Yields.ofThrow
         | ((with_reducible apply Yields.ofDecCases) <;> intro)
         | split)
@@ -789,18 +793,18 @@ theorem genRecCheck_names (so : ShadowOps CheckCM) (fe : FEnv)
   · unfold targetRecPins
     dsimp only
     by_cases h1 : blockRecLpsOk p = true
-    case neg => rw [if_neg h1]; exact Yields.ofThrow
-    rw [if_pos h1]
+    case neg => rw [ite_eq_right h1]; exact Yields.ofThrow
+    rw [ite_eq_left h1]
     by_cases h2 : blockRecNamesUnreserved p = true
-    case neg => rw [if_neg h2]; exact Yields.ofThrow
-    rw [if_pos h2]
+    case neg => rw [ite_eq_right h2]; exact Yields.ofThrow
+    rw [ite_eq_left h2]
     split
     case isFalse => exact Yields.ofThrow
     split
     case isFalse => exact Yields.ofThrow
     by_cases h5 : (p.recs.map (·.cvR.name)).Nodup
-    case neg => rw [if_neg h5]; exact Yields.ofThrow
-    rw [if_pos h5]
+    case neg => rw [ite_eq_right h5]; exact Yields.ofThrow
+    rw [ite_eq_left h5]
     split
     · split
       · exact Yields.pure h5
@@ -808,11 +812,11 @@ theorem genRecCheck_names (so : ShadowOps CheckCM) (fe : FEnv)
     · exact Yields.ofThrow
   refine Yields.bind fun cvRis => ?_
   by_cases h2 : 0 < p.k
-  case neg => simp only [h2, if_false]; exact Yields.ofThrowBind
-  simp only [h2, if_true]
+  case neg => simp only [h2, ite_false]; exact Yields.ofThrowBind
+  simp only [h2, ite_true]
   by_cases h3 : (p.large && !blockLargeElimAllowed p (nestedBit || Ms₀.any fun x =>
       x.member.isNone)) = true
-  case pos => simp only [h3, if_true]; exact Yields.ofThrowBind
+  case pos => simp only [h3, ite_true]; exact Yields.ofThrowBind
   simp only [h3]
   refine Yields.bind fun Ms => ?_
   refine Yields.bind fun ctors => ?_
@@ -898,9 +902,9 @@ theorem checkBlockTablesF_skels {w : StructWalkers} (p : BlockShape) :
         have h1 : (ms.ctors.length == 1) = true := by simp [← hc1]
         simp only [h1, Bool.true_and]
         by_cases hi : (ms.nIdx == 0) = true
-        · rw [if_pos hi, if_pos hi]
+        · rw [ite_eq_left hi, ite_eq_left hi]
           exact checkStructProjTableF_skels h _ _ _ _ _ _ _ _ _
-        · rw [if_neg hi, if_neg hi]
+        · rw [ite_eq_right hi, ite_eq_right hi]
           exact Yields.pure h
       | [], _, hc1, _ =>
         have h1 : (ms.ctors.length == 1) = false := by simp [← hc1]
@@ -1052,7 +1056,7 @@ drivers. -/
 theorem tolerated_not_std (fe : FEnv) (cvA : ConstantVal)
     (ht : cvA.name = sorryAxName) :
     stdAxiomOkF fe cvA = false := by
-  rw [stdAxiomOkF, if_neg, if_neg] <;> rw [ht] <;> decide
+  rw [stdAxiomOkF, ite_eq_right, ite_eq_right] <;> rw [ht] <;> decide
 
 theorem tolerated_ne_trust {n : Name}
     (ht : n = sorryAxName) : n ≠ trustCompilerName := by
@@ -1132,26 +1136,26 @@ theorem checkDeclC_skels (mode : CheckMode) {fe : FEnv}
     -- task #293: `Quot.sound` is compared with the pin and installs
     -- nothing of its own
     by_cases hqs : cv.name = quotSoundName
-    · rw [if_pos hqs, if_pos (Or.inr hqs)]
+    · rw [ite_eq_left hqs, ite_eq_left (Or.inr hqs)]
       split
       · exact Yields.pure h
       · exact Yields.ofThrow
-    · rw [if_neg hqs]
+    · rw [ite_eq_right hqs]
       refine Yields.bind' (checkConstantValC_name mode fe cv) fun p hp => ?_
       obtain ⟨cvA, jty⟩ := p
       simp only []
       rw [← hp]
       by_cases ht : cvA.name = sorryAxName
-      · rw [if_pos (Or.inl ht),
-          if_neg (by rw [tolerated_not_std fe cvA ht]; exact Bool.false_ne_true),
-          if_neg (tolerated_ne_trust ht), if_neg (tolerated_ne_ofReduce ht),
-          if_neg (tolerated_ne_std ht), if_pos ht]
+      · rw [ite_eq_left (Or.inl ht),
+          ite_eq_right (by rw [tolerated_not_std fe cvA ht]; exact Bool.false_ne_true),
+          ite_eq_right (tolerated_ne_trust ht), ite_eq_right (tolerated_ne_ofReduce ht),
+          ite_eq_right (tolerated_ne_std ht), ite_eq_left ht]
         exact Yields.pure h
       · have hne : ¬(cvA.name = sorryAxName ∨ cvA.name = quotSoundName) := by
           rintro (h' | h')
           · exact ht h'
           · exact hqs (hp ▸ h')
-        rw [if_neg hne]
+        rw [ite_eq_right hne]
         yields
         all_goals first
           | (apply Yields.pure; exact h.push _)

@@ -71,7 +71,7 @@ theorem trans_of_frameConcl (hcl : LfpClause acval D) (hwid : D.N = D.k)
   have hck : c < D.k := hwid ▸ hc
   refine hconcl c (hall c hck) t j fs ((LfpDatum.hfits_congr_members fun m hm => ?_).mp h1)
   unfold grpTuple
-  rw [if_pos (hall m hm)]
+  rw [ite_eq_left (hall m hm)]
 
 end Trans
 

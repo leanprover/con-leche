@@ -395,7 +395,7 @@ theorem GradedFrame.extend (hμ : μ.verifiedChecks = true) {envC : Env}
           obtain ⟨ty', hty'⟩ := hsh pos _ hpos
           have h1 : l.1 = D + pos := by injection hty'
           have hpt : (zs.take k)[pos]? = some (Expr.fvar l.1 l.2) := by
-            rw [List.getElem?_take, if_pos (by omega)]; exact hpos
+            rw [List.getElem?_take, ite_eq_left (by omega)]; exact hpos
           exact List.mem_of_getElem? hpt
       obtain ⟨tk, htk⟩ := hinfZ k y hy
       obtain ⟨w, hw, hgw⟩ := Gk.graded hμ htk (hwsZt k y hy) (hbZ y (List.mem_of_getElem? hy))
@@ -611,7 +611,7 @@ theorem genMinorOpen (hμ : μ.verifiedChecks = true)
     intro i y hi hy
     obtain ⟨pd, hpd, -, hrd⟩ := hdomsR i y hy
     rw [hrd, blockRulePdomsAV, List.getD_eq_getElem?_getD, List.getElem?_map, List.getElem?_take,
-      if_pos (by rw [hrP]; exact hi), hpd]
+      ite_eq_left (by rw [hrP]; exact hi), hpd]
     rfl
   -- the minor's entry: erasure-equal to the generator's, inferred at its slot
   obtain ⟨y, hy⟩ : ∃ y, fvs1[R.g.nP + s]? = some y :=
@@ -725,7 +725,7 @@ theorem genMinorOpen (hμ : μ.verifiedChecks = true)
     have h1 : l.1 = pos := by injection hty'
     have hlt : l.1 < R.g.nP + s := Expr.fvarLeaves_lt_of_wscoped hwsY l hl
     have hpt : (fvs1.take R.g.pre.length)[pos]? = some (Expr.fvar l.1 l.2) := by
-      rw [List.getElem?_take, if_pos (by omega)]; exact hpos
+      rw [List.getElem?_take, ite_eq_left (by omega)]; exact hpos
     exact List.mem_of_getElem? hpt
   have hleafs : ∀ l, (l ∈ rest.fvarLeaves ∨ ∃ z ∈ xs', l ∈ z.fvarLeaves) →
       Expr.fvar l.1 l.2 ∈ fvs1.take R.g.pre.length ++ xs' := by
@@ -766,7 +766,7 @@ theorem mem_take_of_fvar_lt {L : List Expr} {b n : Nat}
   obtain ⟨ty, hty⟩ := hsh pos _ hpos
   have h1 : l.1 = b + pos := by injection hty
   have hpt : (L.take n)[pos]? = some (Expr.fvar l.1 l.2) := by
-    rw [List.getElem?_take, if_pos (by omega)]; exact hpos
+    rw [List.getElem?_take, ite_eq_left (by omega)]; exact hpos
   exact List.mem_of_getElem? hpt
 
 set_option maxHeartbeats 8000000 in
@@ -831,7 +831,7 @@ theorem genFieldFrame (hμ : μ.verifiedChecks = true)
     simp only [fr] at hz
     rcases Nat.lt_or_ge i R.g.pre.length with hi | hi
     · rw [List.getElem?_append_left (by simp [hlenF]; omega), List.getElem?_take,
-        if_pos hi] at hz
+        ite_eq_left hi] at hz
       exact Or.inl ⟨hi, hz⟩
     · rw [List.getElem?_append_right (by simp [hlenF]; omega),
         show (fvs1.take R.g.pre.length).length = R.g.pre.length by simp [hlenF]; omega,
@@ -1249,7 +1249,7 @@ theorem genIhFrame (hμ : μ.verifiedChecks = true)
     have hl1 : (fvs1.take R.g.pre.length).length = R.g.pre.length := by
       simp [hlenF]; omega
     rw [List.append_assoc, List.getElem?_append_left (by rw [hl1]; omega), List.getElem?_take,
-      if_pos (by omega)] at hpos2
+      ite_eq_left (by omega)] at hpos2
     exact hpos2
   obtain ⟨hcount, key, hkey⟩ := motiveSlot_count hst
   obtain ⟨Tm, hTm, hpreT⟩ := ConLeche.ClassGen.prefixBinders_motive hg hkey

@@ -566,9 +566,9 @@ theorem inferLamsOut_atF (d : Nat) :
     unfold inferLamsOut
     dsimp only
     by_cases hg : (mode.verifiedChecks && !(mb.pw == prevPw)) = true
-    · simp only [if_pos hg]
+    · simp only [ite_eq_left hg]
       rfl
-    · simp only [if_neg hg]
+    · simp only [ite_eq_right hg]
       exact inferLamsOut_atF d rest (j - 1) _ _ F
 
 theorem inferLamsLeaf_atF (d : Nat) (t : Expr) (k : Nat)
@@ -585,9 +585,9 @@ theorem inferLamsLeaf_atF (d : Nat) (t : Expr) (k : Nat)
     dsimp only
     by_cases hv : mode.verifiedChecks = true
     case neg =>
-      simp only [if_neg hv]
+      simp only [ite_eq_right hv]
       exact inferLamsOut_atF d stk (k - 1) _ _ F
-    simp only [if_pos hv]
+    simp only [ite_eq_left hv]
     rw [FueledM.atF_bind]
     congr 1
     funext btt
@@ -603,9 +603,9 @@ theorem inferLamsLeaf_atF (d : Nat) (t : Expr) (k : Nat)
         obtain ⟨ty0, mb0⟩ := e
         dsimp only
         by_cases hz : (Level.zeronessOf vb == mb0.pw) = true
-        · simp only [if_pos hz]
+        · simp only [ite_eq_left hz]
           exact inferLamsOut_atF d _ (k - 1) _ _ F
-        · simp only [if_neg hz]
+        · simp only [ite_eq_right hz]
           rfl
     all_goals rfl
 
@@ -643,9 +643,9 @@ theorem inferPisOut_atF :
     dsimp only
     by_cases hg : (mode.verifiedChecks && !(Level.zeronessOf v == pw))
         = true
-    · simp only [if_pos hg]
+    · simp only [ite_eq_left hg]
       rfl
-    · simp only [if_neg hg]
+    · simp only [ite_eq_right hg]
       exact inferPisOut_atF rest (.imax u v) F
 
 theorem inferPisLeaf_atF (d : Nat) (t : Expr) (k : Nat)
@@ -797,9 +797,9 @@ theorem inferLamsOut_wrap {d : Nat} :
     unfold inferLamsOut inferLamsWrap
     dsimp only
     by_cases hg : (mode.verifiedChecks && !(mb.pw == prevPw)) = true
-    · simp only [if_pos hg]
+    · simp only [ite_eq_left hg]
       rfl
-    simp only [if_neg hg]
+    simp only [ite_eq_right hg]
     show inferLamsOut (m := CheckM) mode d rest (j - 1)
         (Expr.forallE (tyo.abstractRange d j)
           (bt.abstractRange d (j + 1)) mb) mb.pw
@@ -879,9 +879,9 @@ theorem inferLamsLeaf_sound {d : Nat} {t : Expr}
     simp only [Expr.isLam, Bool.not_false, Bool.and_true]
     by_cases hv : mode.verifiedChecks = true
     case neg =>
-      rw [if_neg hv] at hrun ⊢
+      rw [ite_eq_right hv] at hrun ⊢
       exact hout hrun
-    rw [if_pos hv] at hrun ⊢
+    rw [ite_eq_left hv] at hrun ⊢
     rw [inferTypeIO_def] at hrun ⊢
     obtain ⟨btt, hbtt, hrun⟩ := bind_okB hrun
     rw [hbtt, okB_bind]
@@ -903,9 +903,9 @@ theorem inferLamsLeaf_sound {d : Nat} {t : Expr}
         dsimp only at hrun ⊢
         try rw [pure_bind]
         by_cases hz : (Level.zeronessOf v == mb0.pw) = true
-        · simp only [if_pos hz] at hrun ⊢
+        · simp only [ite_eq_left hz] at hrun ⊢
           exact hout hrun
-        · simp only [if_neg hz] at hrun
+        · simp only [ite_eq_right hz] at hrun
           exact nomatch hrun
     | bvar _ | fvar _ _ | const _ _ | app _ _ | lam _ _ _
     | forallE _ _ _ | letE _ _ _ | lit _ | proj _ _ _ =>
@@ -1002,19 +1002,19 @@ theorem inferLams_sound {d : Nat} :
           Bool.false_eq_true, ↓reduceIte] at htail
         unfold inferLamsWrap at htail
         by_cases hg : (mode.verifiedChecks && !(mb.pw == pwI)) = true
-        · rw [if_pos hg] at htail
+        · rw [ite_eq_left hg] at htail
           exact nomatch htail
-        rw [if_neg hg] at htail
+        rw [ite_eq_right hg] at htail
         dsimp only
         by_cases hv : mode.verifiedChecks = true
-        · rw [if_pos hv]
+        · rw [ite_eq_left hv]
           have hpw : (mb.pw == pwI) = true := by
             by_cases hc : (mb.pw == pwI) = true
             · exact hc
             · exact absurd (by simp [hv, hc]) hg
-          rw [if_pos hpw, pure_bind]
+          rw [ite_eq_left hpw, pure_bind]
           exact htail
-        · rw [if_neg hv, pure_bind]
+        · rw [ite_eq_right hv, pure_bind]
           exact htail
       | none =>
         intro htail
@@ -1026,12 +1026,12 @@ theorem inferLams_sound {d : Nat} :
         dsimp only
         by_cases hv : mode.verifiedChecks = true
         case neg =>
-          rw [if_neg hv] at htail ⊢
+          rw [ite_eq_right hv] at htail ⊢
           rw [pure_bind]
           unfold inferLamsWrap at htail
-          rw [if_neg (by simp [hv])] at htail
+          rw [ite_eq_right (by simp [hv])] at htail
           exact htail
-        rw [if_pos hv] at htail ⊢
+        rw [ite_eq_left hv] at htail ⊢
         rw [inferTypeIO_def] at htail
         obtain ⟨btt, hbtt, htail⟩ := bind_okB htail
         rw [inferTypeIO_mono (Nat.le_max_right F F') hbtt, okB_bind]
@@ -1041,12 +1041,12 @@ theorem inferLams_sound {d : Nat} :
         try dsimp only at htail ⊢
         by_cases hz : (Level.zeronessOf v == mb.pw) = true
         case neg =>
-          rw [if_neg hz] at htail
+          rw [ite_eq_right hz] at htail
           exact nomatch htail
-        rw [if_pos hz] at htail ⊢
+        rw [ite_eq_left hz] at htail ⊢
         rw [pure_bind]
         unfold inferLamsWrap at htail
-        rw [if_neg (by simp)] at htail
+        rw [ite_eq_right (by simp)] at htail
         exact htail
     · have ht : ∀ ty body mb, t ≠ Expr.lam ty body mb :=
         fun ty b mb hh => hlam ⟨ty, b, mb, hh⟩
@@ -1072,13 +1072,13 @@ theorem inferPisWrap_mono {d : Nat} :
     dsimp only at h ⊢
     by_cases hver : mode.verifiedChecks = true
     case neg =>
-      rw [if_neg hver] at h ⊢
+      rw [ite_eq_right hver] at h ⊢
       exact ih hle h
-    rw [if_pos hver] at h ⊢
+    rw [ite_eq_left hver] at h ⊢
     by_cases hz : (Level.zeronessOf v == pw) = true
-    · rw [if_pos hz] at h ⊢
+    · rw [ite_eq_left hz] at h ⊢
       exact ih hle h
-    · rw [if_neg hz] at h
+    · rw [ite_eq_right hz] at h
       exact nomatch h
 
 /-- The `imax`-fold wrap on an explicit sort is the fold mirror's own
@@ -1119,17 +1119,17 @@ theorem inferPisWrap_sort {d : Nat} :
       have hz : ¬ ((Level.zeronessOf v == pw) = true) := by
         rcases Bool.and_eq_true .. |>.mp hg with ⟨-, h2⟩
         simpa using h2
-      rw [if_pos hg, if_pos hver, if_neg hz]
+      rw [ite_eq_left hg, ite_eq_left hver, ite_eq_right hz]
       rfl
-    · rw [if_neg hg]
+    · rw [ite_eq_right hg]
       by_cases hver : mode.verifiedChecks = true
       · have hz : (Level.zeronessOf v == pw) = true := by
           by_cases hc : (Level.zeronessOf v == pw) = true
           · exact hc
           · exact absurd (by simp [hver, hc]) hg
-        rw [if_pos hver, if_pos hz]
+        rw [ite_eq_left hver, ite_eq_left hz]
         exact ih (j - 1) (.imax u v) hF
-      · rw [if_neg hver]
+      · rw [ite_eq_right hver]
         exact ih (j - 1) (.imax u v) hF
 
 /-- Leaf-phase soundness for the ∀-loop. -/
@@ -1185,9 +1185,9 @@ theorem inferPisLeaf_sound {d : Nat} {t : Expr}
     dsimp only at hout
     by_cases hg : (mode.verifiedChecks && !(Level.zeronessOf v == pw))
         = true
-    · rw [if_pos hg] at hout
+    · rw [ite_eq_left hg] at hout
       exact nomatch hout
-    rw [if_neg hg] at hout
+    rw [ite_eq_right hg] at hout
     have hrest : inferPisWrap mode (pureFns mode env (max F 2)) env d
         rest ((k - 1) - 1) (.sort (.imax u v))
         = .ok res := by
@@ -1200,9 +1200,9 @@ theorem inferPisLeaf_sound {d : Nat} {t : Expr}
         by_cases hc : (Level.zeronessOf v == pw) = true
         · exact hc
         · exact absurd (by simp [hver, hc]) hg
-      rw [if_pos hver, if_pos hz]
+      rw [ite_eq_left hver, ite_eq_left hz]
       exact hrest
-    · rw [if_neg hver]
+    · rw [ite_eq_right hver]
       exact hrest
 
 /-- A successful ∀-peel run is reproduced by the chained inference of
@@ -1273,16 +1273,16 @@ theorem inferPis_sound {d : Nat} :
       dsimp only at hwrap ⊢
       by_cases hver : mode.verifiedChecks = true
       case neg =>
-        rw [if_neg hver] at hwrap ⊢
+        rw [ite_eq_right hver] at hwrap ⊢
         rw [pure_bind]
         exact inferPisWrap_mono (Nat.le_trans (Nat.le_max_right F F')
           (Nat.le_succ _)) hwrap
-      rw [if_pos hver] at hwrap ⊢
+      rw [ite_eq_left hver] at hwrap ⊢
       by_cases hz : (Level.zeronessOf v == mb.pw) = true
       case neg =>
-        rw [if_neg hz] at hwrap
+        rw [ite_eq_right hz] at hwrap
         exact nomatch hwrap
-      rw [if_pos hz] at hwrap ⊢
+      rw [ite_eq_left hz] at hwrap ⊢
       rw [pure_bind]
       exact inferPisWrap_mono (Nat.le_trans (Nat.le_max_right F F')
         (Nat.le_succ _)) hwrap
@@ -1361,7 +1361,7 @@ theorem annotateBindersOut_wrap
         by_cases hw : pwWritten mb.pw
         · exact ⟨mb.pw, by simp [hw], by simp [hw]⟩
         · refine ⟨pw, ?_, by simp [hw]⟩
-          simp only [hw, Bool.not_false, if_true, ↓reduceIte, hpw, okB_bind]
+          simp only [hw, Bool.not_false, ite_true, ↓reduceIte, hpw, okB_bind]
     obtain ⟨q, hqf, hqm⟩ := hq
     rw [hqf]
     show annotateBindersOut (m := CheckM) mk d

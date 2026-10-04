@@ -440,13 +440,11 @@ theorem wscopedB_shiftFrom {p : Nat} :
   induction e <;> intro d hpd <;> simp_all [shiftFrom, wscopedB]
   case fvar idx ty ih =>
     by_cases hp : p ≤ idx
-    · rw [if_pos hp]
+    · rw [ite_eq_left hp]
       simp only [wscopedB]
       rw [ih hp]
       congr 1
-      simp only [decide_eq_decide]
-      omega
-    · rw [if_neg hp]
+    · rw [ite_eq_right hp]
       simp only [wscopedB]
       congr 1
       simp only [decide_eq_decide]
@@ -482,13 +480,13 @@ theorem unshiftFrom_shiftFrom {p : Nat} :
   induction e <;> simp_all [shiftFrom, unshiftFrom]
   case fvar idx ty ih =>
     by_cases hp : p ≤ idx
-    · rw [if_pos hp]
+    · rw [ite_eq_left hp]
       simp only [unshiftFrom]
-      rw [if_pos (by omega)]
+      rw [ite_eq_left (by omega)]
       simp [ih]
-    · rw [if_neg hp]
+    · rw [ite_eq_right hp]
       simp only [unshiftFrom]
-      rw [if_neg (by omega)]
+      rw [ite_eq_right (by omega)]
 
 /-- Shifting is injective. -/
 theorem shiftFrom_injective {p : Nat} {a b : Expr}
@@ -573,7 +571,7 @@ theorem map_shiftLeaf_eq_self {p : Nat} :
     refine ⟨?_, ih fun l' hl' => h l' (List.mem_cons_of_mem _ hl')⟩
     have hlt := h l (List.mem_cons_self ..)
     simp only [shiftLeaf]
-    rw [if_neg (by omega)]
+    rw [ite_eq_right (by omega)]
 
 /-- Shifting maps recorded leaves through `shiftLeaf` (well-scopedness
 keeps below-the-point annotations untouched hereditarily). -/
@@ -586,9 +584,9 @@ theorem fvarLeaves_shiftFrom {p : Nat} :
     intro d hpd hw
     simp only [WScoped] at hw
     by_cases hp : p ≤ idx
-    · simp only [shiftFrom, if_pos hp, fvarLeaves, List.map, shiftLeaf]
+    · simp only [shiftFrom, ite_eq_left hp, fvarLeaves, List.map, shiftLeaf]
       exact congrArg _ (ih hp hw.2)
-    · simp only [shiftFrom, if_neg hp, fvarLeaves, List.map, shiftLeaf]
+    · simp only [shiftFrom, ite_eq_right hp, fvarLeaves, List.map, shiftLeaf]
       rw [map_shiftLeaf_eq_self (fun l hl =>
         Nat.lt_of_lt_of_le (fvarLeaves_lt_of_wscoped hw.2 l hl) (by omega))]
   | app f a ihf iha =>

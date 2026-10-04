@@ -206,10 +206,10 @@ theorem ctorOf?_of_getElem? {j : Nat} {c : CtorSpec} (hnodup : (S.ctors.map (·.
               | none => none) = none := by
             split
             · rename_i c' hc'
-              rw [if_neg]
+              rw [ite_eq_right]
               intro hn
               apply hjj
-              rw [← List.getElem?_inj (l := S.ctors.map (·.name)) (i := j') (j := j)
+              rw [← List.Nodup.getElem?_inj (xs := S.ctors.map (·.name)) (i := j') (j := j)
                 (by rw [List.length_map]; exact (List.getElem?_eq_some_iff.mp hc').1) hnodup]
               rw [List.getElem?_map, List.getElem?_map, hc', h, Option.map_some, Option.map_some,
                 hn]
@@ -224,7 +224,7 @@ theorem ctorOf?_none {n : Name} (h : ∀ c ∈ S.ctors, c.name ≠ n) : S.ctorOf
   intro j _
   split
   · rename_i c hc
-    rw [if_neg (h c (List.mem_of_getElem? hc))]
+    rw [ite_eq_right (h c (List.mem_of_getElem? hc))]
   · rfl
 
 /-- `ctorOf?` finds nothing exactly when no constructor has the name. -/
@@ -271,7 +271,7 @@ theorem installN_find? (N : NestInfo) (env : Env) (n : Name) :
 names are fresh. -/
 theorem find?_mono_envInd (env : Env) (hfresh : ∀ m ∈ S.name :: S.recName :: S.ctors.map (·.name), env.find? m = none)
     {n : Name} {ci : ConstInfo} (h : env.find? n = some ci) : (S.envInd env).find? n = some ci := by
-  rw [envInd_find?, if_neg, h]
+  rw [envInd_find?, ite_eq_right, h]
   rintro rfl
   rw [hfresh S.name List.mem_cons_self] at h
   cases h
@@ -295,7 +295,7 @@ theorem find?_mono_install (hpl : S.nest = none) (env : Env)
     (hfresh : ∀ m ∈ S.name :: S.recName :: S.ctors.map (·.name), env.find? m = none)
     {n : Name} {ci : ConstInfo} (h : env.find? n = some ci) :
     (S.install env).find? n = some ci := by
-  rw [install_find? S hpl, if_neg, S.find?_mono_envCtors env hfresh h]
+  rw [install_find? S hpl, ite_eq_right, S.find?_mono_envCtors env hfresh h]
   rintro rfl
   rw [hfresh S.recName (List.mem_cons_of_mem _ List.mem_cons_self)] at h
   cases h
@@ -697,7 +697,7 @@ theorem consts_ihVal (hpl : S.nest = none)
     intro d hd
     rw [Expr.consts_const, List.mem_singleton] at hd
     subst hd
-    rw [install_find? S hpl, if_pos rfl]
+    rw [install_find? S hpl, ite_eq_left rfl]
     rfl
   have hspec : ∀ {e : Expr} {k'' : Nat}, Expr.Scoped env S.lparams k'' e →
       ∀ d ∈ e.consts, ((S.install env).find? d).isSome := by
@@ -815,7 +815,7 @@ theorem _root_.Fragment.Env.Scoped.install [LevelOracle] {env : Env} (hpl : S.ne
   have h₂ : Env.Scoped (S.envCtors env) := by
     refine Env.Scoped.foldl_ctors S h₁ hcnodup ?_ ?_
     · intro c hc
-      rw [envInd_find?, if_neg, hfresh c.name
+      rw [envInd_find?, ite_eq_right, hfresh c.name
         (List.mem_cons_of_mem _ (List.mem_cons_of_mem _ (List.mem_map_of_mem hc)))]
       intro h
       exact hname (by rw [← h]; exact List.mem_cons_of_mem _ (List.mem_map_of_mem hc))
@@ -827,7 +827,7 @@ theorem _root_.Fragment.Env.Scoped.install [LevelOracle] {env : Env} (hpl : S.ne
     ⟨Infer.closedAt hrec, Infer.consts hrec, S.lparamsIn_recType hS⟩ ?_ ?_
   · rw [envCtors_find? S env hcnodup,
       ctorOf?_none S (fun c hc h => hrecName (by rw [← h]; exact List.mem_map_of_mem hc)),
-      envInd_find?, if_neg (fun h => hname (by rw [← h]; exact List.mem_cons_self))]
+      envInd_find?, ite_eq_right (fun h => hname (by rw [← h]; exact List.mem_cons_self))]
     exact hfresh S.recName (List.mem_cons_of_mem _ List.mem_cons_self)
   · intro v hv
     simp [ConstInfo.value?, recInfo, ConstKind.value?] at hv
@@ -840,7 +840,7 @@ theorem _root_.Fragment.Env.Scoped.install [LevelOracle] {env : Env} (hpl : S.ne
       simp only [IndSpec.install, hpl]
     refine ⟨⟨S.closedAt_ruleRhs hS hj (hctors c hcj).2.2.2,
       hinst ▸ S.consts_ruleRhs hpl hS hfresh hj (hctors c hcj).2.2.2, S.lparamsIn_ruleRhs hS hj⟩, ?_⟩
-    rw [Env.find?_add, if_neg (fun h => hrecName (by rw [← h]; exact List.mem_map_of_mem hcj)),
+    rw [Env.find?_add, ite_eq_right (fun h => hrecName (by rw [← h]; exact List.mem_map_of_mem hcj)),
       envCtors_find? S env hcnodup, S.ctorOf?_of_getElem? hcnodup hj]
     rfl
 

@@ -71,7 +71,7 @@ theorem find?_mono_installN (N : NestInfo) (env : Env)
     rintro rfl
     rw [hfresh S.recName (by simp)] at h
     cases h
-  rw [installN_find?, if_neg haux, if_neg hrec]
+  rw [installN_find?, ite_eq_right haux, ite_eq_right hrec]
   exact S.find?_mono_envCtors env (S.fresh_of_freshN hfresh) h
 
 /-- A name stored with the former and the constructors stays stored in
@@ -177,13 +177,13 @@ theorem classCtor_recField_scoped (hS : S.Scoped env) {N : NestInfo} (hN : S.nes
   cases f₀ with
   | ordinary A =>
     rcases hpf with rfl | ⟨hu, -⟩
-    · simp only [classField, NestInfo.isMember, beq_self_eq_true, if_true, Fragment.IndSpec.fieldScoped]
+    · simp only [classField, NestInfo.isMember, beq_self_eq_true, ite_true, Fragment.IndSpec.fieldScoped]
       refine ⟨fun _ _ hT => by simp at hT, by simpa using hNS.2.2.2.2.2.1, fun e he => ?_⟩
       obtain ⟨b, hb, rfl⟩ := List.mem_map.mp he
       have hb' := hNS.2.2.2.2.2.2.2.1 b hb
       exact ⟨Expr.closedAt_liftN (n := k) (k := 0) hb'.1, by rw [Expr.consts_liftN]; exact hb'.2.1,
         by rw [Expr.lparamsIn_liftN]; exact hb'.2.2⟩
-    · rw [classField, if_neg (by rw [isMember_false_of_usesVar N hu]; exact Bool.false_ne_true)]
+    · rw [classField, ite_eq_right (by rw [isMember_false_of_usesVar N hu]; exact Bool.false_ne_true)]
         at hrec
       simp [Field.isRec] at hrec
   | reflexive _ _ => simp [classField, Fragment.IndSpec.fieldScoped, hN]
@@ -206,12 +206,12 @@ theorem lparamsIn_classField_dom (hS : S.Scoped env) {N : NestInfo} (hN : S.nest
   cases f with
   | ordinary A =>
     rcases hpf with rfl | ⟨hu, -⟩
-    · simp only [classField, NestInfo.isMember, beq_self_eq_true, if_true, fieldDom]
+    · simp only [classField, NestInfo.isMember, beq_self_eq_true, ite_true, fieldDom]
       refine S.lparamsIn_famAt _ fun e he => ?_
       obtain ⟨b, hb, rfl⟩ := List.mem_map.mp he
       rw [Expr.lparamsIn_liftN]
       exact (hNS.2.2.2.2.2.2.2.1 b hb).2.2
-    · rw [classField, if_neg (by rw [isMember_false_of_usesVar N hu]; exact Bool.false_ne_true)]
+    · rw [classField, ite_eq_right (by rw [isMember_false_of_usesVar N hu]; exact Bool.false_ne_true)]
       have hsc : Expr.Scoped env N.KS.lparams (N.KS.nP + k) A := hsc0
       simp only [fieldDom]
       refine Expr.lparamsIn_instChainAt _ _ _ ?_ (S.classArgs_lparamsIn' N hS hN 0)
@@ -541,13 +541,13 @@ theorem consts_ihValN (N : NestInfo) (env : Env)
     rw [installN_find?]
     split
     · rfl
-    · rw [if_pos rfl]
+    · rw [ite_eq_left rfl]
       rfl
   have haux : ∀ d ∈ (Expr.const N.aux S.recLvls).consts, ((S.installN N env).find? d).isSome := by
     intro d hd
     rw [Expr.consts_const, List.mem_singleton] at hd
     subst hd
-    rw [installN_find?, if_pos rfl]
+    rw [installN_find?, ite_eq_left rfl]
     rfl
   have hspec : ∀ {e : Expr} {k'' : Nat}, Expr.Scoped env S.lparams k'' e →
       ∀ d ∈ e.consts, ((S.installN N env).find? d).isSome := by
@@ -667,7 +667,7 @@ theorem _root_.Fragment.Env.Scoped.installN [LevelOracle] {env : Env} {S : IndSp
   have h₂ : Env.Scoped (S.envCtors env) := by
     refine Env.Scoped.foldl_ctors S h₁ hcnodup ?_ ?_
     · intro c hc
-      rw [envInd_find?, if_neg, hfresh c.name (List.mem_cons_of_mem _ (List.mem_cons_of_mem _
+      rw [envInd_find?, ite_eq_right, hfresh c.name (List.mem_cons_of_mem _ (List.mem_cons_of_mem _
         (List.mem_cons_of_mem _ (List.mem_map_of_mem hc))))]
       intro h
       exact hname (by
@@ -721,8 +721,8 @@ theorem _root_.Fragment.Env.Scoped.installN [LevelOracle] {env : Env} {S : IndSp
         refine ⟨⟨S.closedAt_ruleRhsN hS N hcj j (S.ctxClosedAt_ruleCtxN (by rw [ruleTypeN] at hT; exact hT)),
           S.consts_ruleRhsN hS N hfresh hcj j hT, S.lparamsIn_ruleRhsN hS hN hcj j⟩, ?_⟩
         rw [installN_find?,
-          if_neg (fun h => haux (by rw [← h]; exact List.mem_map_of_mem hcj)),
-          if_neg (fun h => hrecName (by
+          ite_eq_right (fun h => haux (by rw [← h]; exact List.mem_map_of_mem hcj)),
+          ite_eq_right (fun h => hrecName (by
             rw [← h]; exact List.mem_cons_of_mem _ (List.mem_map_of_mem hcj))),
           envCtors_find? S env hcnodup, S.ctorOf?_of_getElem? hcnodup hj]
         rfl

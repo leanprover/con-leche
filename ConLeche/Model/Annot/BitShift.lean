@@ -95,11 +95,11 @@ theorem denoteMeta_shiftFrom
     split
     · next hge =>
       rw [denoteMeta, denoteMeta, Option.map_some, AnnotTerm.liftN_bvar,
-        if_pos (show d - 1 - idx < d - p by omega),
+        ite_eq_left (show d - 1 - idx < d - p by omega),
         show d + 1 - 1 - (idx + 1) = d - 1 - idx from by omega]
     · next hge =>
       rw [denoteMeta, denoteMeta, Option.map_some, AnnotTerm.liftN_bvar,
-        if_neg (show ¬ d - 1 - idx < d - p by omega),
+        ite_eq_right (show ¬ d - 1 - idx < d - p by omega),
         show d + 1 - 1 - idx = d - 1 - idx + 1 from by omega]
   | .app fe a, d, hpd, hw => by
     rw [ConLeche.Expr.WScoped] at hw

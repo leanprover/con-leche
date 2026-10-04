@@ -695,9 +695,9 @@ theorem tgtClsIs_prefix {ψ : Name → Nat} {ρ : Nat → V} {xs : List V} {c : 
   by_cases hg : tgtClsG d mpC.base2.acval envC pp.toBlockShape out ψ ρ xs c
   · unfold tgtClsG at hg
     by_cases hm : (tgtMajor out c).member.isSome = true
-    · rw [if_pos hm] at hg; exact hg.2
-    · rw [if_neg hm] at hg; exact hg
-  · rw [if_neg hg] at hi; exact absurd hi (not_mem_empty _)
+    · rw [ite_eq_left hm] at hg; exact hg.2
+    · rw [ite_eq_right hm] at hg; exact hg
+  · rw [ite_eq_right hg] at hi; exact absurd hi (not_mem_empty _)
 
 /-- An index tuple's spine has the class's index count. -/
 theorem isOfW_length (u n : Nat) (t : V) : (isOfW u n t).length = n := by

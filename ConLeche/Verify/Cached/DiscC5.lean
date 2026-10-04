@@ -185,9 +185,9 @@ theorem quickDefEqC_sim (_hμ : mode.verifiedChecks = true) (ih : SSimC mode env
   obtain rfl := hdenb
   unfold quickDefEqI quickDefEq
   by_cases hab : (i == j) = true
-  · rw [if_pos hab, if_pos hab]
+  · rw [ite_eq_left hab, ite_eq_left hab]
     exact SimC.pure hs rfl
-  rw [if_neg hab, if_neg hab]
+  rw [ite_eq_right hab, ite_eq_right hab]
   cases i <;> cases j <;> (try exact SimC.pure hs rfl)
   case sort.sort u₁ u₂ =>
     refine SimC.bind_left (isEquivLM_eff hs u₁ u₂)
@@ -216,13 +216,13 @@ theorem defeqOffsetC_sim (ih : SSimC mode env f)
   obtain rfl := hdenb
   unfold defeqOffsetI defeqOffset
   by_cases hz : (i.isNatZero && j.isNatZero) = true
-  · rw [if_pos hz, if_pos hz]
+  · rw [ite_eq_left hz, ite_eq_left hz]
     exact SimC.pure hs rfl
-  rw [if_neg hz, if_neg hz]
+  rw [ite_eq_right hz, ite_eq_right hz]
   by_cases hl : (i.isLit && j.isLit) = true
-  · rw [if_pos hl, if_pos hl]
+  · rw [ite_eq_left hl, ite_eq_left hl]
     exact SimC.pure hs rfl
-  rw [if_neg hl, if_neg hl]
+  rw [ite_eq_right hl, ite_eq_right hl]
   cases hx : i.natPred? <;> cases hy : j.natPred? <;> (try exact SimC.pure hs rfl)
   rename_i x y
   dsimp only
@@ -241,15 +241,15 @@ theorem tryUnfoldProjAppC_sim (ih : SSimC mode env f)
   obtain rfl := hden
   unfold tryUnfoldProjAppI tryUnfoldProjApp
   by_cases hp : i.headIsProj = true
-  · rw [if_pos hp, if_pos hp]
+  · rw [ite_eq_left hp, ite_eq_left hp]
     refine SimC.bind (ih.whnfCore hs rfl hw) (fun s₁ e' e'x hs₁ hP => ?_)
     obtain ⟨rfl, hwe'⟩ := hP
     by_cases he : (e' == i) = true
-    · rw [if_pos he, if_pos he]
+    · rw [ite_eq_left he, ite_eq_left he]
       exact SimC.pure hs₁ trivial
-    · rw [if_neg he, if_neg he]
+    · rw [ite_eq_right he, ite_eq_right he]
       exact SimC.pure hs₁ (show RelEC d e' e' from ⟨rfl, hwe'⟩)
-  · rw [if_neg hp, if_neg hp]
+  · rw [ite_eq_right hp, ite_eq_right hp]
     exact SimC.pure hs trivial
 
 /-- The end of a step simulates its specification. -/
@@ -389,13 +389,13 @@ theorem lazyDeltaStepC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode e
     refine SimC.pureB ?_
     rw [headHintC_spec' rfl, headHintC_spec' rfl]
     by_cases hlt₁ : ReducibilityHint.lt (headHint env j) (headHint env i) = true
-    · rw [if_pos hlt₁, if_pos hlt₁]
+    · rw [ite_eq_left hlt₁, ite_eq_left hlt₁]
       exact unfoldQuickLC hμ ih henv hs hwa hwb
-    rw [if_neg hlt₁, if_neg hlt₁]
+    rw [ite_eq_right hlt₁, ite_eq_right hlt₁]
     by_cases hlt₂ : ReducibilityHint.lt (headHint env i) (headHint env j) = true
-    · rw [if_pos hlt₂, if_pos hlt₂]
+    · rw [ite_eq_left hlt₂, ite_eq_left hlt₂]
       exact unfoldQuickRC hμ ih henv hs hwa hwb
-    rw [if_neg hlt₂, if_neg hlt₂]
+    rw [ite_eq_right hlt₂, ite_eq_right hlt₂]
     refine SimC.pureB ?_
     rw [sameConstHeadsC_spec' rfl rfl]
     have hboth : ∀ {s₀ : CState}, CSOK mode env s₀ → SimC mode env s₀ (RelDSC d)
@@ -448,7 +448,7 @@ theorem lazyDeltaStepC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode e
               exact deltaQuickC_sim hμ ih hs₄ hPa.1 hPb.1 hPa.2 hPb.2
     by_cases hsr : (ReducibilityHint.sameRegular (headHint env i) (headHint env j) &&
         sameConstHeads i j) = true
-    · rw [if_pos hsr, if_pos hsr]
+    · rw [ite_eq_left hsr, ite_eq_left hsr]
       refine SimC.bind (defeqSpineC_sim ih hs rfl rfl hwa hwb)
         (fun s₇ sp sp' hs₇ hPsp => ?_)
       obtain rfl : sp = sp' := hPsp
@@ -459,7 +459,7 @@ theorem lazyDeltaStepC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode e
       | false =>
         simp only [Bool.false_eq_true, ↓reduceIte]
         exact hboth hs₇
-    · rw [if_neg hsr, if_neg hsr]
+    · rw [ite_eq_right hsr, ite_eq_right hsr]
       refine SimC.pureB ?_
       refine SimC.bind_pure_right ?_
       simp only [Bool.false_eq_true, ↓reduceIte]
@@ -604,10 +604,10 @@ theorem defeqProjPairC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode e
   case proj.proj s₁ i₁ e₁ s₂ i₂ e₂ =>
     dsimp only
     by_cases hii : (s₁ == s₂ && i₁ == i₂) = true
-    · rw [if_pos hii, if_pos hii]
+    · rw [ite_eq_left hii, ite_eq_left hii]
       exact lazyDeltaProjReductionC_sim hμ ih henv _ hs rfl rfl
         (by simpa only [Expr.WScoped] using hwa) (by simpa only [Expr.WScoped] using hwb)
-    · rw [if_neg hii, if_neg hii]
+    · rw [ite_eq_right hii, ite_eq_right hii]
       exact SimC.pure hs rfl
 
 set_option maxHeartbeats 3200000 in
@@ -643,11 +643,11 @@ theorem defeqStuckC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode env 
     subst bq
     simp only [beq_iff_eq]
     by_cases hsc : cf = stringOfListName ∧ usf = [] ∧ strLitSupported env = true
-    · rw [if_pos hsc, if_pos hsc]
+    · rw [ite_eq_left hsc, ite_eq_left hsc]
       refine SimC.bind_left (pureC_eff hs₆b (strLitToConstructor str))
         (fun s₇ sc hs₇ hQs => ?_)
       exact ih.defeq hs₇ hQs hbS (strLitToConstructor_WScoped str d) hwb
-    · rw [if_neg hsc, if_neg hsc]
+    · rw [ite_eq_right hsc, ite_eq_right hsc]
       exact stuckIrrelC_sim hμ ih henv hs₆b haS hbS hwa hwb
   case app.lit f x l =>
     cases l <;> cases f <;> dsimp only <;>
@@ -661,21 +661,21 @@ theorem defeqStuckC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode env 
     subst bq
     simp only [beq_iff_eq]
     by_cases hsc : cf = stringOfListName ∧ usf = [] ∧ strLitSupported env = true
-    · rw [if_pos hsc, if_pos hsc]
+    · rw [ite_eq_left hsc, ite_eq_left hsc]
       refine SimC.bind_left (pureC_eff hs₆b (strLitToConstructor str))
         (fun s₇ sc hs₇ hQs => ?_)
       exact ih.defeq hs₇ haS hQs hwa (strLitToConstructor_WScoped str d)
-    · rw [if_neg hsc, if_neg hsc]
+    · rw [ite_eq_right hsc, ite_eq_right hsc]
       exact stuckIrrelC_sim hμ ih henv hs₆b haS hbS hwa hwb
   case fvar.fvar i₁ t₁ i₂ t₂ =>
     by_cases hij : (i₁ == i₂) = true
-    · rw [if_pos hij, if_pos hij]
+    · rw [ite_eq_left hij, ite_eq_left hij]
       exact SimC.pure hs rfl
-    · rw [if_neg hij, if_neg hij]
+    · rw [ite_eq_right hij, ite_eq_right hij]
       exact stuckIrrelC_sim hμ ih henv hs haS hbS hwa hwb
   case const.const c₁ us₁ c₂ us₂ =>
     by_cases hcc : c₁ = c₂
-    · rw [if_pos hcc, if_pos hcc]
+    · rw [ite_eq_left hcc, ite_eq_left hcc]
       refine SimC.bind_left (isEquivListLM_eff hs)
         (fun sE o hsE ho => ?_)
       subst ho
@@ -689,7 +689,7 @@ theorem defeqStuckC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode env 
       | false =>
         simp only [Bool.false_eq_true, ↓reduceIte]
         exact stuckIrrelC_sim hμ ih henv hs₇ haS hbS hwa hwb
-    · rw [if_neg hcc, if_neg hcc]
+    · rw [ite_eq_right hcc, ite_eq_right hcc]
       exact stuckIrrelC_sim hμ ih henv hs haS hbS hwa hwb
   case app.app f₁ x₁ f₂ x₂ =>
     refine SimC.pureB ?_
@@ -704,7 +704,7 @@ theorem defeqStuckC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode env 
         = (Expr.app f₂ x₂).getAppArgs.length := RelCL.length hBB
     simp only [hlena, hlenb]
     by_cases hlen : (Expr.app f₁ x₁).getAppArgs.length = (Expr.app f₂ x₂).getAppArgs.length
-    · rw [if_pos hlen, if_pos hlen]
+    · rw [ite_eq_left hlen, ite_eq_left hlen]
       refine SimC.pureB ?_
       refine SimC.pureB ?_
       refine SimC.bind (ih.defeq hs rfl rfl hwa.getAppFn hwb.getAppFn)
@@ -726,7 +726,7 @@ theorem defeqStuckC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode env 
       | false =>
         simp only [Bool.false_eq_true, ↓reduceIte]
         exact stuckIrrelC_sim hμ ih henv hs₇ haS hbS hwa hwb
-    · rw [if_neg hlen, if_neg hlen]
+    · rw [ite_eq_right hlen, ite_eq_right hlen]
       exact stuckIrrelC_sim hμ ih henv hs haS hbS hwa hwb
 
 theorem defeqBodyC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode env f) (henv : EnvWF env)
@@ -740,9 +740,9 @@ theorem defeqBodyC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode env f
   obtain rfl := hdenb
   unfold defeqBodyI defeqBody
   by_cases hab : (i == j) = true
-  · simp only [if_pos hab]
+  · simp only [ite_eq_left hab]
     exact SimC.pure hs rfl
-  simp only [if_neg hab]
+  simp only [ite_eq_right hab]
   refine SimC.pureB ?_
   rw [isBoolTrue_spec' rfl]
   refine SimC.pureB ?_
@@ -796,9 +796,9 @@ theorem defeqBodyC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode env f
   | false =>
   simp only [Bool.false_eq_true, ↓reduceIte]
   by_cases hhp : (!a₁.headIsProj && !b₁.headIsProj) = true
-  · rw [if_pos hhp, if_pos hhp]
+  · rw [ite_eq_left hhp, ite_eq_left hhp]
     exact defeqStuckC_sim hμ ih henv hs₆ rfl rfl hwa₁ hwb₁
-  rw [if_neg hhp, if_neg hhp]
+  rw [ite_eq_right hhp, ite_eq_right hhp]
   refine SimC.bind (ih.whnfCore hs₆ rfl hwa₁)
     (fun s₇ a₂ a₂x hs₇ hPa₂ => ?_)
   obtain ⟨rfl, hwa₂⟩ := hPa₂
@@ -806,9 +806,9 @@ theorem defeqBodyC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode env f
     (fun s₈ b₂ b₂x hs₈ hPb₂ => ?_)
   obtain ⟨rfl, hwb₂⟩ := hPb₂
   by_cases hun : (a₂ == a₁ && b₂ == b₁) = true
-  · rw [if_pos hun, if_pos hun]
+  · rw [ite_eq_left hun, ite_eq_left hun]
     exact defeqStuckC_sim hμ ih henv hs₈ rfl rfl hwa₁ hwb₁
-  · rw [if_neg hun, if_neg hun]
+  · rw [ite_eq_right hun, ite_eq_right hun]
     exact ih.defeq hs₈ rfl rfl hwa₂ hwb₂
 
 end Walks

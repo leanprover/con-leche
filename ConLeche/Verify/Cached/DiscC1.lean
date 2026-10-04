@@ -186,9 +186,9 @@ theorem iotaCertsCAux_sim (ih : SSimC mode env f) {d : Nat} {lic : Bool} :
         rw [Expr.instantiateList_cons]
         exact Expr.WScoped.instantiate1_gen hwx 0 hwtb.2
       by_cases hg : (lic && m.pw.isNever) = true
-      · rw [if_pos hg, if_pos hg]
+      · rw [ite_eq_left hg, ite_eq_left hg]
         exact htail
-      rw [if_neg hg, if_neg hg]
+      rw [ite_eq_right hg, ite_eq_right hg]
       refine SimC.bind_left (instListM_eff (d := 0) hs rfl hacc)
         (fun s₁ dom' hs₁ hQdom => ?_)
       refine SimC.bind (ih.inferIO hs₁ hax hwx) (fun s₂ ta tax hs₂ hP => ?_)
@@ -352,9 +352,9 @@ theorem litToCtorIfNatC_eff {s₀ : CState} (hs : CSOK mode env s₀)
         (if natLitSupported env then natLitToConstructor k
          else .lit (.natVal k)) from rfl]
       by_cases hg : natLitSupported env
-      · rw [if_pos hg, if_pos hg]
+      · rw [ite_eq_left hg, ite_eq_left hg]
         exact pureC_eff hs _
-      · rw [if_neg hg, if_neg hg]
+      · rw [ite_eq_right hg, ite_eq_right hg]
         exact CEff.pure hs hden
     | strVal str => exact CEff.pure hs hden
   | bvar k =>
@@ -427,14 +427,14 @@ theorem unfoldDefinitionC_eff {s₀ : CState} (hs : CSOK mode env s₀)
       | defnInfo cv value hint =>
         dsimp only
         by_cases hlen : us.length = cv.levelParams.length
-        · rw [if_pos hlen, if_pos hlen]
+        · rw [ite_eq_left hlen, ite_eq_left hlen]
           refine CEff.bind (constValAtM_eff hs hfc) ?_
           intro s₁ v hs₁ hQv
           refine CEff.pureB ?_
           refine CEff.bind (mkAppNM_eff hs₁ hQv (Expr.getAppArgsC_spec _)) ?_
           intro s₂ r hs₂ hQr
           exact CEff.pure hs₂ hQr
-        · rw [if_neg hlen, if_neg hlen]
+        · rw [ite_eq_right hlen, ite_eq_right hlen]
           exact CEff.pure hs trivial
       | axiomInfo cv => exact CEff.pure hs trivial
       | thmInfo cv value => exact CEff.pure hs trivial
@@ -520,11 +520,11 @@ theorem litMajorToCtorC_sim (ih : SSimC mode env f) {d : Nat} {i : Expr}
          else pure (.lit (.strVal str))) from rfl]
       rw [strLitSupportedF_eq]
       by_cases hg : strLitSupported env
-      · rw [if_pos hg, if_pos hg]
+      · rw [ite_eq_left hg, ite_eq_left hg]
         refine SimC.bind_left (pureC_eff hs (strLitToConstructor str))
           (fun s₁ x hs₁ hQ => ?_)
         exact ih.whnf hs₁ hQ (strLitToConstructor_WScoped str d)
-      · rw [if_neg hg, if_neg hg]
+      · rw [ite_eq_right hg, ite_eq_right hg]
         exact SimC.pure hs ⟨hden, hw⟩
     | natVal k =>
       refine SimC.of_eff (litToCtorIfNatC_eff hs hden) _ ?_
@@ -580,11 +580,11 @@ theorem projLitToCtorC_sim (ih : SSimC mode env f) {d : Nat} {i : Expr}
          else pure (.lit (.strVal str))) from rfl]
       rw [strLitSupportedF_eq]
       by_cases hg : strLitSupported env
-      · rw [if_pos hg, if_pos hg]
+      · rw [ite_eq_left hg, ite_eq_left hg]
         refine SimC.bind_left (pureC_eff hs (strLitToConstructor str))
           (fun s₁ x hs₁ hQ => ?_)
         exact ih.whnf hs₁ hQ (strLitToConstructor_WScoped str d)
-      · rw [if_neg hg, if_neg hg]
+      · rw [ite_eq_right hg, ite_eq_right hg]
         exact SimC.pure hs ⟨hden, hw⟩
     | natVal k => exact SimC.pure hs ⟨hden, hw⟩
   | bvar k => exact SimC.pure hs ⟨hden, hw⟩
@@ -664,7 +664,7 @@ theorem defeqSpineC_sim (ih : SSimC mode env f) {d : Nat} {i j : Expr}
       simp only [hlena, hlenb]
       by_cases hcnd : nm = nm' ∧
           (Expr.getAppArgs i).length = (Expr.getAppArgs j).length
-      · rw [if_pos hcnd, if_pos hcnd]
+      · rw [ite_eq_left hcnd, ite_eq_left hcnd]
         refine SimC.bind_left (isEquivListLM_eff hs) ?_
         intro s₁ ob hs₁ hob
         subst hob
@@ -676,7 +676,7 @@ theorem defeqSpineC_sim (ih : SSimC mode env f) {d : Nat} {i j : Expr}
               hwa.getAppArgs hwb.getAppArgs
           | false => exact SimC.pure hs₁ rfl
         | none => exact SimC.pure hs₁ rfl
-      · rw [if_neg hcnd, if_neg hcnd]
+      · rw [ite_eq_right hcnd, ite_eq_right hcnd]
         exact SimC.pure hs rfl
     | bvar k =>
       exact SimC.pure hs rfl
@@ -776,7 +776,7 @@ theorem reduceNatC_sim (ih : SSimC mode env f) {d : Nat} {i : Expr}
           else pure none) from rfl]
         rw [natLitSupportedF_eq]
         by_cases hg1 : cv = natSuccName ∧ natLitSupported env
-        · rw [if_pos hg1, if_pos hg1]
+        · rw [ite_eq_left hg1, ite_eq_left hg1]
           refine SimC.bind (ih.whnf hs rfl hwfb.2)
             (fun s₁ w wx hs₁ hP => ?_)
           obtain ⟨hwden, hww⟩ := hP
@@ -788,7 +788,7 @@ theorem reduceNatC_sim (ih : SSimC mode env f) {d : Nat} {i : Expr}
               (fun s₂ r hs₂ hQ => ?_)
             exact SimC.pure hs₂ (relOC_some_lit hQ)
           | none => exact SimC.pure hs₁ trivial
-        · rw [if_neg hg1, if_neg hg1]
+        · rw [ite_eq_right hg1, ite_eq_right hg1]
           exact SimC.pure hs trivial
     | app f₂ a =>
       rw [show (Expr.app f₂ a)
@@ -839,7 +839,7 @@ theorem reduceNatC_sim (ih : SSimC mode env f) {d : Nat} {i : Expr}
               cv = natGcdName ∨ cv = natLandName ∨ cv = natLorName ∨
               cv = natXorName ∨ cv = natShiftLeftName ∨
               cv = natShiftRightName) ∧ natOpStored env cv = true
-          · rw [if_pos hg1, if_pos hg1]
+          · rw [ite_eq_left hg1, ite_eq_left hg1]
             -- first argument first; the second only behind a literal (D15)
             refine SimC.bind (ih.whnf hs rfl hwf₂a.2)
               (fun s₁ w₁ wx₁ hs₁ hP₁ => ?_)
@@ -867,9 +867,9 @@ theorem reduceNatC_sim (ih : SSimC mode env f) {d : Nat} {i : Expr}
                 | none => exact SimC.pure hs₂ trivial
               | none => exact SimC.pure hs₂ trivial
             | none => exact SimC.pure hs₁ trivial
-          · rw [if_neg hg1, if_neg hg1]
+          · rw [ite_eq_right hg1, ite_eq_right hg1]
             by_cases hg2 : natOpWfNames.contains cv ∧ natLitSupported env
-            · rw [if_pos hg2, if_pos hg2]
+            · rw [ite_eq_left hg2, ite_eq_left hg2]
               refine SimC.bind (ih.whnf hs rfl hwf₂a.2)
                 (fun s₁ w₁ wx₁ hs₁ hP₁ => ?_)
               obtain ⟨hw1den, hww1⟩ := hP₁
@@ -886,7 +886,7 @@ theorem reduceNatC_sim (ih : SSimC mode env f) {d : Nat} {i : Expr}
                 | some n₂ => exact SimC.throw
                 | none => exact SimC.pure hs₂ trivial
               | none => exact SimC.pure hs₁ trivial
-            · rw [if_neg hg2, if_neg hg2]
+            · rw [ite_eq_right hg2, ite_eq_right hg2]
               exact SimC.pure hs trivial
       | bvar k => exact SimC.pure hs trivial
       | sort u => exact SimC.pure hs trivial

@@ -66,14 +66,14 @@ theorem propIrrelC_sim (ih : SSimC mode env f) {d : Nat} {i j : Expr}
   unfold propIrrel
   by_cases hc :
       (notProofFast env.find? a || notProofFast env.find? b) = true
-  · rw [if_pos hc, if_pos hc]
+  · rw [ite_eq_left hc, ite_eq_left hc]
     exact SimC.pure hs rfl
-  · rw [if_neg hc, if_neg hc]
+  · rw [ite_eq_right hc, ite_eq_right hc]
     by_cases hy :
         (isProofFast env.find? a && isProofFast env.find? b) = true
-    · rw [if_pos hy, if_pos hy]
+    · rw [ite_eq_left hy, ite_eq_left hy]
       exact SimC.pure hs rfl
-    rw [if_neg hy, if_neg hy]
+    rw [ite_eq_right hy, ite_eq_right hy]
     refine SimC.bind (ih.inferIO hs rfl hwa) (fun s₁ ta tax hs₁ hP => ?_)
     obtain ⟨htad, hwta⟩ := hP
     refine SimC.bind (ih.inferIO hs₁ htad hwta) (fun s₃ tta ttax hs₃ hP₃ => ?_)
@@ -1120,9 +1120,9 @@ theorem structEtaCertC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode e
   rw [etaCtorShapeC_spec' hdena]
   by_cases hsh : etaCtorShape env a = true
   case neg =>
-    rw [if_neg hsh, if_neg hsh]
+    rw [ite_eq_right hsh, ite_eq_right hsh]
     exact SimC.pure hs rfl
-  rw [if_pos hsh, if_pos hsh]
+  rw [ite_eq_left hsh, ite_eq_left hsh]
   refine SimC.bind (ih.inferIO hs hdenb hwb) (fun s₁ tb tbx hs₁ hP => ?_)
   obtain ⟨htbd, hwtb⟩ := hP
   refine SimC.bind (ih.whnf hs₁ htbd hwtb) (fun s₂ wtb wtbx hs₂ hP₂ => ?_)

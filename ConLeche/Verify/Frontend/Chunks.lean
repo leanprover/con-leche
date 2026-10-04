@@ -248,7 +248,7 @@ theorem parseChunks_go :
     -- the guard passes: the count stays below the word
     have hguard : ¬ (total + c.size ≥ USize.size) := by
       simp only [ByteArray.size_append, concatBytes] at hsz; omega
-    rw [if_neg hguard]
+    rw [ite_eq_right hguard]
     -- the buffer is `carry ++ c` either way
     have hbuf : (if carry.isEmpty = true then c else carry ++ c) = carry ++ c := by
       split

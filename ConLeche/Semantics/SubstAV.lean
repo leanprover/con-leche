@@ -114,8 +114,8 @@ theorem cons_substE (τ : Nat → AnnotTerm) (k : Nat) (x : V) (ρ : Nat → V) 
     show substE V τ k ρ j = substE V τ (k + 1) (cons x ρ) (j + 1)
     simp only [substE]
     by_cases h : j < k
-    · rw [if_pos h, if_pos (show j + 1 < k + 1 by omega)]; rfl
-    · rw [if_neg h, if_neg (show ¬ (j + 1 < k + 1) by omega), shiftE_succ_cons,
+    · rw [ite_eq_left h, ite_eq_left (show j + 1 < k + 1 by omega)]; rfl
+    · rw [ite_eq_right h, ite_eq_right (show ¬ (j + 1 < k + 1) by omega), shiftE_succ_cons,
         show j + 1 - (k + 1) = j - k by omega]
 
 /-- **The substitution lemma** for parallel substitution. -/
@@ -130,7 +130,7 @@ theorem interp_substAV (τ : Nat → AnnotTerm) :
     · rw [AnnotTerm.substAV_bvar_lt τ h, interp_bvar, interp_bvar]
       simp [substE, h]
     · rw [AnnotTerm.substAV_bvar_ge τ (by omega), interp_liftN, interp_bvar]
-      simp only [substE, if_neg h]
+      simp only [substE, ite_eq_right h]
   | sort u => intro k ρ; rfl
   | const c us => intro k ρ; rfl
   | prf => intro k ρ; rfl

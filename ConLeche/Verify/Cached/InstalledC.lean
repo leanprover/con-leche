@@ -57,24 +57,24 @@ theorem annotConstantValC_run (hμ : μ.verifiedChecks = true) {env : Env} (henv
   unfold annotConstantValC at h
   simp only [mkFEnv_find?] at h
   by_cases h1 : (env.find? cv.name).isSome = true
-  · rw [if_pos h1] at h; exact absurd h throwC_bind_ok
-  rw [if_neg h1] at h
+  · rw [ite_eq_left h1] at h; exact absurd h throwC_bind_ok
+  rw [ite_eq_right h1] at h
   by_cases h2 : reservedBasisNames.contains cv.name = true
-  · rw [if_pos h2] at h; exact absurd h throwC_bind_ok
-  rw [if_neg h2] at h
+  · rw [ite_eq_left h2] at h; exact absurd h throwC_bind_ok
+  rw [ite_eq_right h2] at h
   by_cases h3 : cv.name.isProjFnShape = true
-  · rw [if_pos h3] at h; exact absurd h throwC_bind_ok
-  rw [if_neg h3] at h
+  · rw [ite_eq_left h3] at h; exact absurd h throwC_bind_ok
+  rw [ite_eq_right h3] at h
   by_cases h4 : Name.nodup cv.levelParams = true
-  case neg => rw [if_neg h4] at h; exact absurd h throwC_bind_ok
-  rw [if_pos h4] at h
+  case neg => rw [ite_eq_right h4] at h; exact absurd h throwC_bind_ok
+  rw [ite_eq_left h4] at h
   by_cases h5 : Expr.looseBVarsBounded 0 cv.type = true
-  case neg => rw [if_neg h5] at h; exact absurd h throwC_bind_ok
-  rw [if_pos h5] at h
+  case neg => rw [ite_eq_right h5] at h; exact absurd h throwC_bind_ok
+  rw [ite_eq_left h5] at h
   rw [hasFvar_spec' rfl] at h
   by_cases h6 : Expr.hasFvar cv.type = true
-  · rw [if_pos h6] at h; exact absurd h throwC_bind_ok
-  rw [if_neg h6] at h
+  · rw [ite_eq_left h6] at h; exact absurd h throwC_bind_ok
+  rw [ite_eq_right h6] at h
   obtain ⟨jA, s₁, hann, h⟩ := bindC_ok h
   obtain ⟨hs₁, w, ⟨hjA, hwty⟩, F, hF⟩ :=
     (ssimC hμ env henv checkFuel).annotate hs rfl
@@ -82,12 +82,12 @@ theorem annotConstantValC_run (hμ : μ.verifiedChecks = true) {env : Env} (henv
   obtain rfl := hjA
   rw [Expr.allLevelParamsDefinedC_spec] at h
   by_cases h7 : Expr.allLevelParamsDefined cv.levelParams jA = true
-  case neg => rw [if_neg h7] at h; exact absurd h throwC_bind_ok
-  rw [if_pos h7] at h
+  case neg => rw [ite_eq_right h7] at h; exact absurd h throwC_bind_ok
+  rw [ite_eq_left h7] at h
   rw [constsResolveFC_spec, constsResolveF_eq] at h
   by_cases h8 : Expr.constsResolve env jA = true
-  case neg => rw [if_neg h8] at h; exact absurd h throwC_bind_ok
-  rw [if_pos h8] at h
+  case neg => rw [ite_eq_right h8] at h; exact absurd h throwC_bind_ok
+  rw [ite_eq_left h8] at h
   obtain ⟨hv, rfl⟩ := pureC_ok h
   obtain ⟨rfl, rfl⟩ := Prod.mk.injEq .. ▸ hv
   refine ⟨hs₁, rfl, hwty, F, ?_⟩
@@ -103,12 +103,12 @@ theorem annotValC_run (hμ : μ.verifiedChecks = true) {env : Env} (henv : EnvWF
     ∃ F, installValue (fueledOps μ F) env cvA value = .ok jv := by
   unfold annotValC at h
   by_cases h1 : Expr.looseBVarsBounded 0 value = true
-  case neg => rw [if_neg h1] at h; exact absurd h throwC_bind_ok
-  rw [if_pos h1] at h
+  case neg => rw [ite_eq_right h1] at h; exact absurd h throwC_bind_ok
+  rw [ite_eq_left h1] at h
   rw [hasFvar_spec' rfl] at h
   by_cases h2 : Expr.hasFvar value = true
-  · rw [if_pos h2] at h; exact absurd h throwC_bind_ok
-  rw [if_neg h2] at h
+  · rw [ite_eq_left h2] at h; exact absurd h throwC_bind_ok
+  rw [ite_eq_right h2] at h
   obtain ⟨jA, s₁, hann, h⟩ := bindC_ok h
   obtain ⟨hs₁, w, ⟨hjA, hwv⟩, F, hF⟩ :=
     (ssimC hμ env henv checkFuel).annotate hs rfl
@@ -116,12 +116,12 @@ theorem annotValC_run (hμ : μ.verifiedChecks = true) {env : Env} (henv : EnvWF
   obtain rfl := hjA
   rw [Expr.allLevelParamsDefinedC_spec] at h
   by_cases h3 : Expr.allLevelParamsDefined cvA.levelParams jA = true
-  case neg => rw [if_neg h3] at h; exact absurd h throwC_bind_ok
-  rw [if_pos h3] at h
+  case neg => rw [ite_eq_right h3] at h; exact absurd h throwC_bind_ok
+  rw [ite_eq_left h3] at h
   rw [constsResolveFC_spec, constsResolveF_eq] at h
   by_cases h4 : Expr.constsResolve env jA = true
-  case neg => rw [if_neg h4] at h; exact absurd h throwC_bind_ok
-  rw [if_pos h4] at h
+  case neg => rw [ite_eq_right h4] at h; exact absurd h throwC_bind_ok
+  rw [ite_eq_left h4] at h
   obtain ⟨u, s₂, hrec, h⟩ := bindC_ok h
   obtain ⟨hs₂, -⟩ := recordCConst_eff hs₁ (hjty ▸ rfl)
     (fun vE vi hv => by
@@ -199,7 +199,7 @@ theorem checkPending_run (hμ : μ.verifiedChecks = true) {env : Env} (henv : En
       exact ⟨hs₆.residue, max F₃ F₄, jvt, inferTypeCore_mono (Nat.le_max_left _ _) hF₃,
         isDefEqCore_mono (Nat.le_max_right _ _) hF₄⟩
   by_cases hk : pc.vg.kind = .thm
-  · rw [if_pos hk] at h
+  · rw [ite_eq_left hk] at h
     obtain ⟨b, s₄, hlift, h⟩ := bindC_ok h
     obtain ⟨hs₄, b', rfl, F₀, hF₀⟩ := SimC.liftFueled _ _ hs₃ b s₄ hlift
     rw [liftFueled_atF] at hF₀
@@ -226,7 +226,7 @@ theorem checkPending_run (hμ : μ.verifiedChecks = true) {env : Env} (henv : En
       (fun hk' => absurd hk hk')
       (inferTypeCore_mono (by omega) hvt)
       (isDefEqCore_mono (by omega) hde)
-  · rw [if_neg hk] at h
+  · rw [ite_eq_right hk] at h
     obtain ⟨hres', F₅, jvt, hvt, hde⟩ := tail _ hs₃ (hwv hk) h
     refine ⟨hres', max (max F₁ F₂) F₅, ?_⟩
     exact checkValueGroup_of_facts (jv := pc.vg.jv)

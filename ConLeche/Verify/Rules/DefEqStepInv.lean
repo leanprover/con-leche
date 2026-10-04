@@ -107,7 +107,7 @@ theorem quickDefEq_inv {d : Nat} {a b : Expr}
   by_cases hab : (a == b) = true
   · obtain rfl : a = b := eq_of_beq hab
     exact .refl
-  rw [if_neg hab] at h
+  rw [ite_eq_right hab] at h
   split at h
   · rename_i u v
     simp only [Bind.bind, Except.bind] at h
@@ -290,7 +290,7 @@ theorem defeqBody_inv {d : Nat} {a b : Expr}
     lazyDeltaReduction_fold, defeqProjPair_fold, defeqStuck_fold, defeq_def] at h
   by_cases hab : (a == b) = true
   · exact Or.inl (eq_of_beq hab)
-  rw [if_neg hab] at h
+  rw [ite_eq_right hab] at h
   cases hbt : (if b.isBoolTrue && !a.hasFvar then
       boolTrueShortcutFueled .verified env fuel d a else pure false) with
   | error err => rw [hbt] at h; exact nomatch h

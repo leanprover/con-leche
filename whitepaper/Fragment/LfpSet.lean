@@ -94,13 +94,13 @@ variable {n : Nat} {Φ : (ι → V) → ι → V}
 
 theorem lfpFamSet_of_not (h : ¬ ∃ L, IsClosedFam n Φ L) :
     lfpFamSet n Φ = fun _ => (empty : V) := by
-  unfold lfpFamSet; exact dif_neg h
+  unfold lfpFamSet; exact dite_eq_right h
 
 /-- The members of the least fixed point: the members of every closed
 family.  Con-leche: `mem_app_lfpTuple`. -/
 theorem mem_lfpFamSet (h : ∃ L, IsClosedFam n Φ L) {i : ι} {x : V} :
     x ∈ˢ lfpFamSet n Φ i ↔ ∀ X, IsClosedFam n Φ X → x ∈ˢ X i := by
-  simp only [lfpFamSet, dif_pos h, mem_sep]
+  simp only [lfpFamSet, dite_eq_left h, mem_sep]
   exact ⟨fun hx => hx.2, fun hx => ⟨hx _ (Classical.choose_spec h), hx⟩⟩
 
 /-- **Leastness**: the least fixed point lies below every closed
@@ -113,7 +113,7 @@ are members of the universe.  Con-leche: `lfpTuple_mem`. -/
 theorem lfpFamSet_mem (n : Nat) (Φ : (ι → V) → ι → V) : InUniv n (lfpFamSet n Φ) := by
   intro i
   by_cases h : ∃ L, IsClosedFam n Φ L
-  · simp only [lfpFamSet, dif_pos h]
+  · simp only [lfpFamSet, dite_eq_left h]
     exact sep_mem_univ ((Classical.choose_spec h).1 i)
   · rw [lfpFamSet_of_not h]
     exact empty_mem_univ n

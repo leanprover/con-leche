@@ -67,14 +67,14 @@ theorem checkConstantVal_inv {env : Env} {cv cv' : ConstantVal}
   simp only [hfind] at h
   by_cases hres : reservedBasisNames.contains cv.name = true
   case pos =>
-    rw [if_pos hres] at h
+    rw [ite_eq_left hres] at h
     exact nomatch h
   simp only [hres] at h
   by_cases hpshape : cv.name.isProjFnShape = true
   case pos =>
-    rw [if_pos hpshape] at h
+    rw [ite_eq_left hpshape] at h
     exact nomatch h
-  rw [if_neg hpshape] at h
+  rw [ite_eq_right hpshape] at h
   have hpshapeF : cv.name.isProjFnShape = false := by
     revert hpshape; cases cv.name.isProjFnShape <;> simp
   by_cases hnd : Name.nodup cv.levelParams = true
@@ -128,12 +128,12 @@ theorem installBasisDecl_inv {env env₁ : Env} {ci : ConstantInfo}
   cases hf : env.find? ci.name with
   | none =>
     intro h
-    simp only [Option.isNone_none, if_true, pure, Except.pure,
+    simp only [Option.isNone_none, ite_true, pure, Except.pure,
       Except.ok.injEq] at h
     exact ⟨rfl, h.symm⟩
   | some ci' =>
     intro h
-    simp only [Option.isNone_some, Bool.false_eq_true, if_false,
+    simp only [Option.isNone_some, Bool.false_eq_true, ite_false,
       throw, throwThe, MonadExceptOf.throw, Bind.bind, Except.bind] at h
     exact nomatch h
 end ConLeche

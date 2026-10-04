@@ -230,23 +230,23 @@ theorem checkConstantVal_typeWF {env : Env} {cv cvA : ConstantVal}
     cvA.type.looseBVarsBounded 0 = true := by
   unfold checkConstantVal at h
   by_cases h1 : (env.find? cv.name).isSome = true
-  · rw [if_pos h1] at h; throwM_elim h
-  rw [if_neg h1] at h
+  · rw [ite_eq_left h1] at h; throwM_elim h
+  rw [ite_eq_right h1] at h
   by_cases h2 : reservedBasisNames.contains cv.name = true
-  · rw [if_pos h2] at h; throwM_elim h
-  rw [if_neg h2] at h
+  · rw [ite_eq_left h2] at h; throwM_elim h
+  rw [ite_eq_right h2] at h
   by_cases h3 : cv.name.isProjFnShape = true
-  · rw [if_pos h3] at h; throwM_elim h
-  rw [if_neg h3] at h
+  · rw [ite_eq_left h3] at h; throwM_elim h
+  rw [ite_eq_right h3] at h
   by_cases h4 : Name.nodup cv.levelParams = true
-  case neg => rw [if_neg h4] at h; throwM_elim h
-  rw [if_pos h4] at h
+  case neg => rw [ite_eq_right h4] at h; throwM_elim h
+  rw [ite_eq_left h4] at h
   by_cases h5 : Expr.looseBVarsBounded 0 cv.type = true
-  case neg => rw [if_neg h5] at h; throwM_elim h
-  rw [if_pos h5] at h
+  case neg => rw [ite_eq_right h5] at h; throwM_elim h
+  rw [ite_eq_left h5] at h
   by_cases h6 : cv.type.hasFvar = true
-  · rw [if_pos h6] at h; throwM_elim h
-  rw [if_neg h6] at h
+  · rw [ite_eq_left h6] at h; throwM_elim h
+  rw [ite_eq_right h6] at h
   revert h
   match hann : (fueledOps mode F).annotate env 0 cv.type with
   | .error e => intro h; exact nomatch h
@@ -255,11 +255,11 @@ theorem checkConstantVal_typeWF {env : Env} {cv cvA : ConstantVal}
   simp only [Bind.bind, Except.bind] at h
   have hann' : annotateCore mode env F 0 cv.type = .ok type := hann
   by_cases h7 : Expr.allLevelParamsDefined cv.levelParams type = true
-  case neg => rw [if_neg h7] at h; exact nomatch h
-  rw [if_pos h7] at h
+  case neg => rw [ite_eq_right h7] at h; exact nomatch h
+  rw [ite_eq_left h7] at h
   by_cases h8 : Expr.constsResolve env type = true
-  case neg => rw [if_neg h8] at h; exact nomatch h
-  rw [if_pos h8] at h
+  case neg => rw [ite_eq_right h8] at h; exact nomatch h
+  rw [ite_eq_left h8] at h
   revert h
   match hity : (fueledOps mode F).inferType env 0 type with
   | .error e => intro h; exact nomatch h

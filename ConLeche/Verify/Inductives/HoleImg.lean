@@ -22,14 +22,14 @@ variable {ctx : NestCtx}
 
 theorem nestHoleImg_root_lt_nP {v : Nat} (hv : v < ctx.nP) : nestHoleImg ctx [] v = none := by
   simp only [nestHoleImg]
-  rw [if_neg (by omega)]
+  rw [ite_eq_right (by omega)]
 
 theorem nestHoleImg_lt_nP : ∀ {prog : List NestHole} {v : Nat}, v < ctx.nP →
     nestHoleImg ctx prog v = none
   | [], v, hv => nestHoleImg_root_lt_nP hv
   | h :: prog, v, hv => by
     simp only [nestHoleImg]
-    rw [if_neg (by simp [NestCtx.hiAt]; omega)]
+    rw [ite_eq_right (by simp [NestCtx.hiAt]; omega)]
     exact nestHoleImg_lt_nP hv
 
 theorem nestHoleImg_ge : ∀ {prog : List NestHole} {v : Nat}, ctx.hiAt prog.length ≤ v →
@@ -37,10 +37,10 @@ theorem nestHoleImg_ge : ∀ {prog : List NestHole} {v : Nat}, ctx.hiAt prog.len
   | [], v, hv => by
     simp only [nestHoleImg]
     simp only [NestCtx.hiAt] at hv
-    rw [if_neg (by simp only [NestCtx.hiAt]; omega)]
+    rw [ite_eq_right (by simp only [NestCtx.hiAt]; omega)]
   | h :: prog, v, hv => by
     simp only [nestHoleImg]
-    rw [if_neg (by simp [NestCtx.hiAt] at hv ⊢; omega)]
+    rw [ite_eq_right (by simp [NestCtx.hiAt] at hv ⊢; omega)]
     exact nestHoleImg_ge (by simp [NestCtx.hiAt] at hv ⊢; omega)
 
 /-- **A longer stack reads the holes of a shorter one alike.** -/
@@ -50,7 +50,7 @@ theorem nestHoleImg_suffix (X anc : List NestHole) {v : Nat} (hv : v < ctx.hiAt 
   | nil => rfl
   | cons h X ih =>
     simp only [List.cons_append, nestHoleImg]
-    rw [if_neg (by simp [NestCtx.hiAt, List.length_append] at hv ⊢; omega)]
+    rw [ite_eq_right (by simp [NestCtx.hiAt, List.length_append] at hv ⊢; omega)]
     exact ih
 
 /-- **A frame hole's read-back**: the hole of the `j`-th frame from the
@@ -66,7 +66,7 @@ theorem nestHoleImg_frame {ctx : NestCtx} :
     rw [List.reverse_cons] at hh
     by_cases hj : j < prog.length
     · rw [List.getElem?_append_left (by simpa using hj)] at hh
-      rw [if_neg (by simp only [NestCtx.hiAt]; omega), nestHoleImg_frame hh,
+      rw [ite_eq_right (by simp only [NestCtx.hiAt]; omega), nestHoleImg_frame hh,
         List.length_cons, show prog.length + 1 - j = (prog.length - j) + 1 by omega,
         List.drop_succ_cons]
     · have hj' : j = prog.length := by
@@ -78,7 +78,7 @@ theorem nestHoleImg_frame {ctx : NestCtx} :
       rw [List.getElem?_append_right (by simp), List.length_reverse, Nat.sub_self] at hh
       simp only [List.getElem?_cons_zero, Option.some.injEq] at hh
       subst hh
-      rw [if_pos rfl, List.length_cons, show prog.length + 1 - prog.length = 1 by omega]
+      rw [ite_eq_left rfl, List.length_cons, show prog.length + 1 - prog.length = 1 by omega]
       rfl
 
 /-- Every hole reads back. -/
@@ -86,7 +86,7 @@ theorem nestHoleImg_hole : ∀ {prog : List NestHole} {v : Nat}, ctx.nP ≤ v �
     v < ctx.hiAt prog.length → ∃ e, nestHoleImg ctx prog v = some e
   | [], v, h1, h2 => by
     simp only [nestHoleImg]
-    rw [if_pos ⟨h1, by simpa using h2⟩]
+    rw [ite_eq_left ⟨h1, by simpa using h2⟩]
     exact ⟨_, rfl⟩
   | h :: prog, v, h1, h2 => by
     simp only [nestHoleImg]

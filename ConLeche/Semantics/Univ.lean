@@ -60,12 +60,12 @@ theorem piR_mem_univ {u v : Nat} {A : V} {B : V → V}
     (hA : A ∈ˢ (univ u : V)) (hB : ∀ x, x ∈ˢ A → B x ∈ˢ (univ v : V)) :
     piR v A B ∈ˢ (univ (if v = 0 then 0 else Nat.max u v) : V) := by
   rcases Nat.eq_zero_or_pos v with rfl | hv
-  · rw [if_pos rfl, univ_zero]
+  · rw [ite_eq_left rfl, univ_zero]
     exact piR_zero_mem_univZero
   · have hv' : v ≠ 0 := Nat.pos_iff_ne_zero.mp hv
     have hw : (Nat.max u v : Nat) ≠ 0 :=
       fun h => hv' (Nat.le_zero.mp (h ▸ Nat.le_max_right u v))
-    rw [if_neg hv', piR_pos hv']
+    rw [ite_eq_right hv', piR_pos hv']
     exact (univ_isTGUniverse hw).piSet_mem
       (univ_mono (Nat.le_max_left u v) A hA)
       (fun x hx => univ_mono (Nat.le_max_right u v) _ (hB x hx))
@@ -83,7 +83,7 @@ theorem piR_pos_not_mem_univZero {v : Nat} (hv : v ≠ 0) {A : V} {B : V → V}
     ⟨fun x => if hx : x ∈ˢ A then Classical.choose (hinh x hx) else empty,
      fun x hx => by
        show (if h : x ∈ˢ A then Classical.choose (hinh x h) else empty) ∈ˢ B x
-       rw [dif_pos hx]
+       rw [dite_eq_left hx]
        exact Classical.choose_spec (hinh x hx)⟩
   obtain ⟨F, hF⟩ := hchoice
   have hg : graph F A ∈ˢ piR v A B := by

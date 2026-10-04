@@ -541,14 +541,14 @@ theorem inferLamTail_atF {env : Env} (d : Nat)
   congr 1
   funext bt
   by_cases hv : mode.verifiedChecks = true
-  case neg => rw [if_neg hv, if_neg hv]; rfl
-  rw [if_pos hv, if_pos hv]
+  case neg => rw [ite_eq_right hv, ite_eq_right hv]; rfl
+  rw [ite_eq_left hv, ite_eq_left hv]
   cases hbp : bodyx.lamPw with
   | some pwI =>
     dsimp only
     by_cases hc : (mbx.pw == pwI) = true
-    · rw [if_pos hc, if_pos hc]; rfl
-    · rw [if_neg hc, if_neg hc]; rfl
+    · rw [ite_eq_left hc, ite_eq_left hc]; rfl
+    · rw [ite_eq_right hc, ite_eq_right hc]; rfl
   | none =>
     dsimp only
     rw [FueledM.atF_bind]
@@ -558,8 +558,8 @@ theorem inferLamTail_atF {env : Env} (d : Nat)
     congr 1
     funext vb
     by_cases hc : (Level.zeronessOf vb == mbx.pw) = true
-    · rw [if_pos hc, if_pos hc]; rfl
-    · rw [if_neg hc, if_neg hc]; rfl
+    · rw [ite_eq_left hc, ite_eq_left hc]; rfl
+    · rw [ite_eq_right hc, ite_eq_right hc]; rfl
 
 /-- The λ-inference loop against `inferBody`'s own λ-tail (task #100
 stage 6: the tail is a pure rebuild — the λ-annotation re-check died
@@ -635,18 +635,18 @@ theorem inferLamsC_tail_sim (ih : SSimC mode env f) (henv : EnvWF env)
       dsimp only
       by_cases hg : (mode.verifiedChecks
           && !((⟨mbpw⟩ : BinderMeta).pw == pwI)) = true
-      · rw [if_pos hg] at htail
+      · rw [ite_eq_left hg] at htail
         exact nomatch htail
-      rw [if_neg hg] at htail
+      rw [ite_eq_right hg] at htail
       by_cases hv : mode.verifiedChecks = true
-      · rw [if_pos hv]
+      · rw [ite_eq_left hv]
         have hpw : ((⟨mbpw⟩ : BinderMeta).pw == pwI) = true := by
           by_cases hc : ((⟨mbpw⟩ : BinderMeta).pw == pwI) = true
           · exact hc
           · exact absurd (by simp [hv, hc]) hg
-        rw [if_pos hpw]
+        rw [ite_eq_left hpw]
         exact htail
-      · rw [if_neg hv]
+      · rw [ite_eq_right hv]
         exact htail
     | none =>
       intro htail
@@ -656,11 +656,11 @@ theorem inferLamsC_tail_sim (ih : SSimC mode env f) (henv : EnvWF env)
       dsimp only
       by_cases hv : mode.verifiedChecks = true
       case neg =>
-        rw [if_neg hv] at htail ⊢
+        rw [ite_eq_right hv] at htail ⊢
         unfold inferLamsWrap at htail
-        rw [if_neg (by simp [hv])] at htail
+        rw [ite_eq_right (by simp [hv])] at htail
         exact htail
-      rw [if_pos hv] at htail ⊢
+      rw [ite_eq_left hv] at htail ⊢
       rw [inferTypeIO_def] at htail
       obtain ⟨btt, hbtt, htail⟩ := bind_okB htail
       rw [hbtt, okB_bind]
@@ -670,12 +670,12 @@ theorem inferLamsC_tail_sim (ih : SSimC mode env f) (henv : EnvWF env)
       try dsimp only at htail ⊢
       by_cases hz : (Level.zeronessOf v == (⟨mbpw⟩ : BinderMeta).pw) = true
       case neg =>
-        rw [if_neg hz] at htail
+        rw [ite_eq_right hz] at htail
         exact nomatch htail
-      rw [if_pos hz] at htail
-      rw [if_pos hz]
+      rw [ite_eq_left hz] at htail
+      rw [ite_eq_left hz]
       unfold inferLamsWrap at htail
-      rw [if_neg (by simp)] at htail
+      rw [ite_eq_right (by simp)] at htail
       exact htail
   case hsc =>
     intro v' vv hden hrun
@@ -690,20 +690,20 @@ theorem inferLamsC_tail_sim (ih : SSimC mode env f) (henv : EnvWF env)
       revert hF
       by_cases hv : mode.verifiedChecks = true
       case neg =>
-        rw [if_neg hv]
+        rw [ite_eq_right hv]
         intro hF
         injection hF with hres
         exact hres.symm
-      rw [if_pos hv]
+      rw [ite_eq_left hv]
       cases bodyx.lamPw with
       | some pwI =>
         dsimp only
         by_cases hc : ((⟨mbpw⟩ : BinderMeta).pw == pwI) = true
-        · rw [if_pos hc]
+        · rw [ite_eq_left hc]
           intro hF
           injection hF with hres
           exact hres.symm
-        · rw [if_neg hc]
+        · rw [ite_eq_right hc]
           intro hF
           exact nomatch hF
       | none =>
@@ -713,11 +713,11 @@ theorem inferLamsC_tail_sim (ih : SSimC mode env f) (henv : EnvWF env)
         obtain ⟨v, -, hF⟩ := bind_okB hF
         revert hF
         by_cases hc : (Level.zeronessOf v == (⟨mbpw⟩ : BinderMeta).pw) = true
-        · rw [if_pos hc]
+        · rw [ite_eq_left hc]
           intro hF
           injection hF with hres
           exact hres.symm
-        · rw [if_neg hc]
+        · rw [ite_eq_right hc]
           intro hF
           exact nomatch hF
     subst hres
@@ -751,11 +751,11 @@ private theorem inferPiTail_atF {env : Env} (d : Nat)
   congr 1
   funext v
   by_cases hv : mode.verifiedChecks = true
-  case neg => rw [if_neg hv, if_neg hv]; rfl
-  rw [if_pos hv, if_pos hv]
+  case neg => rw [ite_eq_right hv, ite_eq_right hv]; rfl
+  rw [ite_eq_left hv, ite_eq_left hv]
   by_cases hz : (Level.zeronessOf v == pw) = true
-  · rw [if_pos hz, if_pos hz]; rfl
-  · rw [if_neg hz, if_neg hz]; rfl
+  · rw [ite_eq_left hz, ite_eq_left hz]; rfl
+  · rw [ite_eq_right hz, ite_eq_right hz]; rfl
 
 /-- The ∀-inference loop against `inferBody`'s own ∀-tail (task #100
 stage 6: the codomain sort is inferred, not read off an annotation). -/
@@ -813,15 +813,15 @@ theorem inferPisC_tail_sim (ih : SSimC mode env f)
     dsimp only at hwrap ⊢
     by_cases hver : mode.verifiedChecks = true
     case neg =>
-      rw [if_neg hver] at hwrap ⊢
+      rw [ite_eq_right hver] at hwrap ⊢
       unfold inferPisWrap at hwrap
       exact hwrap
-    rw [if_pos hver] at hwrap ⊢
+    rw [ite_eq_left hver] at hwrap ⊢
     by_cases hz : (Level.zeronessOf v == pw) = true
     case neg =>
-      rw [if_neg hz] at hwrap
+      rw [ite_eq_right hz] at hwrap
       exact nomatch hwrap
-    rw [if_pos hz] at hwrap ⊢
+    rw [ite_eq_left hz] at hwrap ⊢
     unfold inferPisWrap at hwrap
     exact hwrap
   case hsc =>
@@ -834,19 +834,19 @@ theorem inferPisC_tail_sim (ih : SSimC mode env f)
     revert hF
     by_cases hver : mode.verifiedChecks = true
     case neg =>
-      rw [if_neg hver]
+      rw [ite_eq_right hver]
       intro hF
       injection hF with hres
       subst hres
       simp [Expr.WScoped]
-    rw [if_pos hver]
+    rw [ite_eq_left hver]
     by_cases hz : (Level.zeronessOf v == pw) = true
-    · rw [if_pos hz]
+    · rw [ite_eq_left hz]
       intro hF
       injection hF with hres
       subst hres
       simp [Expr.WScoped]
-    · rw [if_neg hz]
+    · rw [ite_eq_right hz]
       intro hF
       exact nomatch hF
 

@@ -114,7 +114,7 @@ theorem nestHoleAt_root {ctx : NestCtx} {prog : List NestHole} {i : Nat} {h : Ne
     h = ⟨⟨ctx.names.getD (i - ctx.nP) .anonymous, ctx.lps.map .param, ctx.params⟩, ctx.nP⟩ := by
   obtain ⟨h1, -⟩ := nestHoleAt_some hh
   unfold nestHoleAt at hh
-  rw [if_pos h1, List.getElem?_append_left (by simp [NestCtx.rootHoles, NestCtx.hiAt] at hlt ⊢; omega)]
+  rw [ite_eq_left h1, List.getElem?_append_left (by simp [NestCtx.rootHoles, NestCtx.hiAt] at hlt ⊢; omega)]
     at hh
   simp only [NestCtx.rootHoles, List.getElem?_map] at hh
   have hl : i - ctx.nP < ctx.names.length := by simp [NestCtx.hiAt] at hlt; omega
@@ -128,7 +128,7 @@ theorem nestHoleAt_frame {ctx : NestCtx} {prog : List NestHole} {i : Nat} {h : N
     prog.reverse[i - ctx.hiAt 0]? = some h := by
   obtain ⟨h1, -⟩ := nestHoleAt_some hh
   unfold nestHoleAt at hh
-  rw [if_pos h1, List.getElem?_append_right (by simp [NestCtx.rootHoles, NestCtx.hiAt] at hge ⊢; omega)]
+  rw [ite_eq_left h1, List.getElem?_append_right (by simp [NestCtx.rootHoles, NestCtx.hiAt] at hge ⊢; omega)]
     at hh
   simp only [NestCtx.rootHoles, List.length_map] at hh
   rwa [show i - ctx.nP - ctx.names.length = i - ctx.hiAt 0 by simp [NestCtx.hiAt]; omega] at hh
@@ -139,7 +139,7 @@ theorem nestHoleAt_of_root {ctx : NestCtx} (prog : List NestHole) {i : Nat} (h1 
       = some ⟨⟨ctx.names.getD (i - ctx.nP) .anonymous, ctx.lps.map .param, ctx.params⟩, ctx.nP⟩ := by
   have hl : i - ctx.nP < ctx.names.length := by simp [NestCtx.hiAt] at hlt; omega
   unfold nestHoleAt
-  rw [if_pos h1, List.getElem?_append_left (by simpa [NestCtx.rootHoles] using hl)]
+  rw [ite_eq_left h1, List.getElem?_append_left (by simpa [NestCtx.rootHoles] using hl)]
   simp only [NestCtx.rootHoles, List.getElem?_map, List.getElem?_eq_getElem hl, Option.map_some,
     List.getD_eq_getElem?_getD, Option.getD_some]
 
@@ -148,7 +148,7 @@ theorem nestHoleAt_of_frame {ctx : NestCtx} {prog : List NestHole} {i : Nat} {h 
     nestHoleAt ctx prog i = some h := by
   have h1 : ctx.nP ≤ i := by simp [NestCtx.hiAt] at hge; omega
   unfold nestHoleAt
-  rw [if_pos h1, List.getElem?_append_right (by simp [NestCtx.rootHoles, NestCtx.hiAt] at hge ⊢; omega)]
+  rw [ite_eq_left h1, List.getElem?_append_right (by simp [NestCtx.rootHoles, NestCtx.hiAt] at hge ⊢; omega)]
   simp only [NestCtx.rootHoles, List.length_map]
   rwa [show i - ctx.nP - ctx.names.length = i - ctx.hiAt 0 by simp [NestCtx.hiAt]; omega]
 

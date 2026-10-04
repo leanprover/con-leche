@@ -57,7 +57,7 @@ theorem noProjEnv_of_fresh (hwf : ConLeche.EnvWF env) {T : Name}
     obtain ⟨hsize, hb⟩ := htbl tbl rfl
     have hlt : j < tbl.bodies.size := by rw [hsize]; exact hj
     have := hb j (tbl.bodies[j]'hlt) (Array.getElem?_eq_getElem hlt)
-    rw [Array.getD, dif_pos hlt]
+    rw [Array.getD, dite_eq_left hlt]
     exact ConLeche.Expr.noProjAt_of_constsResolve hT _ this.2.2.1
 
 /-- The head's pieces, for a cons step of `NoProjEnv`. -/

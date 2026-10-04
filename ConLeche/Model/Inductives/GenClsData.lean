@@ -394,7 +394,7 @@ theorem genOutPinVal (hμ : μ.verifiedChecks = true)
     rw [hargsE, hxdef]; exact List.getElem_mem hqd
   have hpinq : (pins.getD q default) = x.abstractRange 0 rP := by
     rw [← hpinsE, List.getD_eq_getElem?_getD, List.getElem?_map, List.getElem?_take,
-      if_pos (show q < (ConLeche.tgtMajorsOf out c).nPc from hq), hargsE,
+      ite_eq_left (show q < (ConLeche.tgtMajorsOf out c).nPc from hq), hargsE,
       List.getElem?_eq_getElem hqd, hxdef]
     rfl
   have hpinMem : pins.getD q default ∈ pins := by
@@ -460,7 +460,7 @@ theorem genOutPinVal (hμ : μ.verifiedChecks = true)
       obtain ⟨ty', hty'⟩ := ConLeche.openPisAtFvars_index _ _ _ hopen pos _ hpos
       have h1 : l.1 = pos := by injection hty' with a b; omega
       have hpt : (TE.fvs.take rP)[pos]? = some (Expr.fvar l.1 l.2) := by
-        rw [List.getElem?_take, if_pos (show pos < rP by have := hxlt l hl; omega)]
+        rw [List.getElem?_take, ite_eq_left (show pos < rP by have := hxlt l hl; omega)]
         exact hpos
       exact List.mem_of_getElem? hpt
   have hround : Expr.instSpine (TE.fvs.take rP) (rP - 1) (pins.getD q default) = x := by
@@ -881,7 +881,7 @@ theorem genRows3_out (hμ : μ.verifiedChecks = true)
       = (tgtClsD d Dc out j).idx (tgtClsψ cvc out ψ j)
           (tgtClsFr d mpC.base2.acval envC pp.toBlockShape out ψ ρ xsV j)
           (tgtClsM mc pp.toBlockShape out j) := by
-    unfold tgtClsIs; rw [if_pos hG]
+    unfold tgtClsIs; rw [ite_eq_left hG]
   have hsatK := Rd.hsat ψ ρ xsV hpref
   have hlv' : ∀ p ∈ cA.1.levelParams, Level.substFn φ cA.1.levelParams usj p
       = tgtClsψ cvc out ψ j p := by

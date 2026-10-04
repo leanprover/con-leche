@@ -70,9 +70,9 @@ theorem lfpTuple_congr_Is {w k : Nat} {Is Is' : Nat → V} {Φ : (Nat → V) →
   rw [h m hm]
   by_cases hc : ∃ L, IsClosedTuple w k Is Φ L
   · have hc' : ∃ L, IsClosedTuple w k Is' Φ L := hP ▸ hc
-    rw [dif_pos hc, dif_pos hc', hch hP hc hc', hP]
+    rw [dite_eq_left hc, dite_eq_left hc', hch hP hc hc', hP]
   · have hc' : ¬ ∃ L, IsClosedTuple w k Is' Φ L := hP ▸ hc
-    rw [dif_neg hc, dif_neg hc']
+    rw [dite_eq_right hc, dite_eq_right hc']
 
 /-- **A carrier at an admissible frame is the clause's** there, the index
 sets agreeing below the width. -/
@@ -107,7 +107,7 @@ theorem trueVal_param (hxs : ctx.nP ≤ xs.length) (prog : List NestHole) {v : N
     rw [hl2]; simp only [ConLeche.NestCtx.hiAt]; omega
   rw [e, consList_apply_add, consList_getD_of_lt _ _ _ (by rw [List.length_take]; omega),
     List.length_take, show min ctx.nP xs.length - 1 - (ctx.nP - 1 - v) = v by omega,
-    List.getD_eq_getElem?_getD, List.getElem?_take, if_pos hv, ← List.getD_eq_getElem?_getD]
+    List.getD_eq_getElem?_getD, List.getElem?_take, ite_eq_left hv, ← List.getD_eq_getElem?_getD]
 
 /-- The true valuation's tail is the context's. -/
 theorem trueVal_tail (hxs : ctx.nP ≤ xs.length) (prog : List NestHole) (q : Nat) :
@@ -145,7 +145,7 @@ theorem tgtClsG_of_mem {d : BlockData V} {Dc : Nat → LfpDatum V} {mc : Nat →
   by_cases hg : tgtClsG d acval envC p out ψ ρ xs c
   · exact hg
   · unfold tgtClsIs at ht
-    rw [if_neg hg] at ht
+    rw [ite_eq_right hg] at ht
     exact absurd ht (not_mem_empty t)
 
 /-- **An argument spine opening with variables, read** (`argsA_split` at
@@ -192,8 +192,8 @@ theorem substFvars_congr_s {b D : Nat} {s s' : Nat → Expr} (hs : ∀ v, v < b 
   | fvar i ty ih =>
     simp only [Expr.substFvars]
     by_cases h : i < b
-    · rw [if_pos h, if_pos h, hs i h]
-    · rw [if_neg h, if_neg h, ih]
+    · rw [ite_eq_left h, ite_eq_left h, hs i h]
+    · rw [ite_eq_right h, ite_eq_right h, ih]
   | sort _ => rfl
   | const _ _ => rfl
   | app f a ihf iha => simp only [Expr.substFvars, ihf, iha]
@@ -209,8 +209,8 @@ theorem callSubst_suffix {ctx : NestCtx} (X anc : List NestHole) (fvsF : List Ex
     callSubst ctx (X ++ anc) fvsF v = callSubst ctx anc fvsF v := by
   unfold callSubst
   by_cases h1 : v < ctx.nP
-  · rw [if_pos h1, if_pos h1]
-  · rw [if_neg h1, if_neg h1, if_pos (by simp [ConLeche.NestCtx.hiAt] at hv ⊢; omega), if_pos hv,
+  · rw [ite_eq_left h1, ite_eq_left h1]
+  · rw [ite_eq_right h1, ite_eq_right h1, ite_eq_left (by simp [ConLeche.NestCtx.hiAt] at hv ⊢; omega), ite_eq_left hv,
       ConLeche.nestHoleImg_suffix X anc hv]
 
 /-- **A key's parameters read back** (`nodeRb` at its occurrence) are, up
@@ -286,7 +286,7 @@ theorem nodeMajor_of_call {ops : ConLeche.CheckerOps CheckM} {env : Env} {ctx : 
     have hq : q < o.key.ds.length := (List.getElem?_eq_some_iff.mp hx).1
     have hax : args[q]? = some x := by
       have := congrArg (·[q]?) htake
-      simp only [List.getElem?_take, if_pos hq] at this
+      simp only [List.getElem?_take, ite_eq_left hq] at this
       rw [this, hx]
     have h1 := hargs q a' x ha hax
     have hxb := (hds x (List.mem_of_getElem? hx)).1.fvarsBelow

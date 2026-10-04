@@ -44,7 +44,7 @@ theorem substFvars_congr_below {D : Nat} {s : Nat → Expr} {b₀ b : Nat} (hb :
   | fvar i ty _ =>
     intro h
     simp only [Expr.fvarsBelow] at h
-    simp only [Expr.substFvars, if_pos h, if_pos (Nat.lt_of_lt_of_le h hb)]
+    simp only [Expr.substFvars, ite_eq_left h, ite_eq_left (Nat.lt_of_lt_of_le h hb)]
   | sort u => intro _; rfl
   | const n us => intro _; rfl
   | lit l => intro _; rfl
@@ -65,10 +65,10 @@ theorem readback_erasedEq_substFvars {ctx : NestCtx} {prog : List NestHole} {fvs
   refine Expr.replaceFVars_erasedEq_substFvars (fun v hv ty => ?_) x hx
   by_cases h1 : v < ctx.nP
   · rw [nestHoleImg_none_of_lt h1]
-    simp only [callSubst, if_pos h1, Option.getD_none]
+    simp only [callSubst, ite_eq_left h1, Option.getD_none]
     simp [Expr.ErasedEq]
   · obtain ⟨e, he⟩ := ConLeche.nestHoleImg_isSome (Nat.le_of_not_lt h1) prog hv
-    simp only [callSubst, if_neg h1, if_pos hv, he, Option.getD_some]
+    simp only [callSubst, ite_eq_right h1, ite_eq_left hv, he, Option.getD_some]
     exact Expr.ErasedEq.rfl _
 
 end ConLeche.Model

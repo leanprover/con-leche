@@ -95,7 +95,7 @@ theorem denoteMeta_natLit {acval : Name → (Name → Nat) → AnnotTerm}
     denoteMeta acval env φ d (.lit (.natVal n))
       = some (natLitAV (acval natZeroName (Level.substFn φ [] []))
           (acval natSuccName (Level.substFn φ [] [])) n) := by
-  rw [denoteMeta, if_pos hg]
+  rw [denoteMeta, ite_eq_left hg]
 
 /-! ## Inversions -/
 

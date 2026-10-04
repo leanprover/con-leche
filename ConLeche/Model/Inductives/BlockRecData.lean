@@ -272,12 +272,12 @@ theorem bvarsBelow_inst {m : Nat} {a : Term} (ha : Term.bvarsBelow m a) :
     show Term.bvarsBelow (m + k)
       (if i < k then .bvar i else if i = k then Term.liftN k a else .bvar (i - 1))
     by_cases hik : i < k
-    · rw [if_pos hik]; exact show i < m + k by omega
-    · rw [if_neg hik]
+    · rw [ite_eq_left hik]; exact show i < m + k by omega
+    · rw [ite_eq_right hik]
       by_cases hik2 : i = k
-      · rw [if_pos hik2]
+      · rw [ite_eq_left hik2]
         exact VExprAux.bvarsBelow_liftN k a m 0 ha
-      · rw [if_neg hik2]
+      · rw [ite_eq_right hik2]
         have : i < m + k + 1 := h
         exact show i - 1 < m + k by omega
   | sort u => intro _ _; trivial
@@ -555,9 +555,9 @@ theorem recStage_lps {envC : Env} {p : ConLeche.BlockParts}
   have hlps' := List.all_eq_true.mp hpins.1 rc' hrcm'
   rw [hlv, hlv']
   by_cases hb : p.toBlockShape.large = true
-  · rw [if_pos hb] at hlps hlps'
+  · rw [ite_eq_left hb] at hlps hlps'
     rw [eq_of_beq hlps, eq_of_beq hlps']
-  · rw [if_neg hb] at hlps hlps'
+  · rw [ite_eq_right hb] at hlps hlps'
     rw [eq_of_beq hlps, eq_of_beq hlps']
 
 /-- **The recursor types' readings are φ-congruent at ANY recursor's

@@ -65,14 +65,14 @@ theorem erasedEq_abstract1_instantiate1 {d : Nat} {ty : Expr} :
     intro k hb
     simp only [Expr.looseBVarsBounded, decide_eq_true_eq] at hb
     simp only [Expr.abstract1, Expr.instantiate1]
-    rw [if_neg (by omega), if_neg (by omega)]
+    rw [ite_eq_right (by omega), ite_eq_right (by omega)]
     exact Expr.ErasedEq.rfl _
   | fvar idx ty' _ =>
     intro k _
     simp only [Expr.abstract1]
     split
     · rename_i h
-      simp only [Expr.instantiate1, if_true]
+      simp only [Expr.instantiate1, ite_true]
       exact h.symm
     · exact Expr.ErasedEq.rfl _
   | sort u => intro k _; exact Expr.ErasedEq.rfl _

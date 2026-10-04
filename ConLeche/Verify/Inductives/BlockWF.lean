@@ -218,30 +218,30 @@ theorem checkConstantVal_lps {env : Env} {cv cvA : ConstantVal} {F : Nat}
     cvA.name = cv.name ∧ cvA.levelParams = cv.levelParams := by
   unfold checkConstantVal at h
   by_cases h1 : (env.find? cv.name).isSome = true
-  · rw [if_pos h1] at h; close_throw h
-  rw [if_neg h1] at h
+  · rw [ite_eq_left h1] at h; close_throw h
+  rw [ite_eq_right h1] at h
   by_cases h2 : reservedBasisNames.contains cv.name = true
-  · rw [if_pos h2] at h; close_throw h
-  rw [if_neg h2] at h
+  · rw [ite_eq_left h2] at h; close_throw h
+  rw [ite_eq_right h2] at h
   by_cases h3 : cv.name.isProjFnShape = true
-  · rw [if_pos h3] at h; close_throw h
-  rw [if_neg h3] at h
+  · rw [ite_eq_left h3] at h; close_throw h
+  rw [ite_eq_right h3] at h
   by_cases h4 : Name.nodup cv.levelParams = true
-  case neg => rw [if_neg h4] at h; close_throw h
-  rw [if_pos h4] at h
+  case neg => rw [ite_eq_right h4] at h; close_throw h
+  rw [ite_eq_left h4] at h
   by_cases h5 : Expr.looseBVarsBounded 0 cv.type = true
-  case neg => rw [if_neg h5] at h; close_throw h
-  rw [if_pos h5] at h
+  case neg => rw [ite_eq_right h5] at h; close_throw h
+  rw [ite_eq_left h5] at h
   by_cases h6 : cv.type.hasFvar = true
-  · rw [if_pos h6] at h; close_throw h
-  rw [if_neg h6] at h
+  · rw [ite_eq_left h6] at h; close_throw h
+  rw [ite_eq_right h6] at h
   obtain ⟨type, _, h⟩ := exceptBind_ok h
   by_cases h7 : Expr.allLevelParamsDefined cv.levelParams type = true
-  case neg => rw [if_neg h7] at h; close_throw h
-  rw [if_pos h7] at h
+  case neg => rw [ite_eq_right h7] at h; close_throw h
+  rw [ite_eq_left h7] at h
   by_cases h8 : Expr.constsResolve env type = true
-  case neg => rw [if_neg h8] at h; close_throw h
-  rw [if_pos h8] at h
+  case neg => rw [ite_eq_right h8] at h; close_throw h
+  rw [ite_eq_left h8] at h
   obtain ⟨_, _, h⟩ := exceptBind_ok h
   obtain ⟨_, _, h⟩ := exceptBind_ok h
   simp only [pure, Except.pure, Except.ok.injEq] at h
@@ -283,8 +283,8 @@ theorem find?_cons_mono {c c' : ConstantInfo} {envA envB : Env} (hn : c.name = c
   rw [Env.find?_cons] at h
   rw [Env.find?_cons, ← hn]
   split at h
-  · next hh => rw [if_pos hh]; simp
-  · next hh => rw [if_neg hh]; exact hf n h
+  · next hh => rw [ite_eq_left hh]; simp
+  · next hh => rw [ite_eq_right hh]; exact hf n h
 
 /-! ### The recursors' cons, generic in the STORED RULES
 
@@ -522,7 +522,7 @@ theorem find?_consBlockRecsR_of_ne
   | m, r0 :: rest, env, hne => by
     rw [consBlockRecsR,
       find?_consBlockRecsR_of_ne (fun r hr => hne r (List.mem_cons_of_mem _ hr)),
-      Env.find?_cons, if_neg (fun h => hne r0 List.mem_cons_self h.symm)]
+      Env.find?_cons, ite_eq_right (fun h => hne r0 List.mem_cons_self h.symm)]
 
 /-- A name a literal guard looks up is no recursor of a CHECKED
 block. -/

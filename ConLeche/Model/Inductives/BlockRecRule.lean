@@ -117,10 +117,10 @@ theorem shiftE_consList_ih {d nR : Nat} {locals ihvals : List V} {ρ' : Nat → 
   funext i
   rw [shiftE]
   rcases Nat.lt_or_ge i d with hi | hi
-  · rw [if_pos hi, consList_getD_of_lt _ _ _ (by omega),
+  · rw [ite_eq_left hi, consList_getD_of_lt _ _ _ (by omega),
       consList_getD_of_lt _ _ _ (by omega)]
   · obtain ⟨i', rfl⟩ : ∃ i', i = i' + d := ⟨i - d, by omega⟩
-    rw [if_neg (by omega),
+    rw [ite_eq_right (by omega),
       show i' + d + nR = (i' + nR) + locals.length from by omega,
       consList_apply_add, ← hloc, consList_apply_add,
       show i' + nR = i' + ihvals.length from by omega, consList_apply_add]

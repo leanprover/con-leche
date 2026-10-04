@@ -60,7 +60,7 @@ theorem checkDeclRun_ofEnvFactsK
       -- the declared parameter count (task #228): a run that reached
       -- the dispatch passed the guard
       by_cases hok : indParamsOk nP block = true
-      · rw [if_pos hok] at hh
+      · rw [ite_eq_left hok] at hh
         revert hh
         cases hdf : blockParts? nP block with
         | some p =>
@@ -69,7 +69,7 @@ theorem checkDeclRun_ofEnvFactsK
         | none =>
           intro hh
           exact checkShapeless_ne_ok hh
-      · rw [if_neg hok] at hh
+      · rw [ite_eq_right hok] at hh
         exact nomatch hh) h
 
 /-- **The `.indDecl` run dispatch keeps the η-families closed**, by the

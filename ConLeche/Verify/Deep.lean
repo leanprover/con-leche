@@ -133,7 +133,7 @@ private theorem shiftIdx_beq (p i j : Nat) :
   rw [beq_iff_eq, beq_iff_eq]
   simp only [shiftIdx]
   by_cases hi : p ≤ i <;> by_cases hj : p ≤ j <;>
-    simp only [hi, hj, if_true, if_false] <;> omega
+    simp only [hi, hj, ite_true, ite_false] <;> omega
 
 /-- Shifting a freshly opened `fvar` at depth `d ≥ p`. -/
 private theorem shiftFrom_fvar_ge {p d : Nat} (h : p ≤ d)
@@ -550,9 +550,9 @@ private theorem iotaCerts_shift (henv : EnvWF env)
       have hrest := ihrest (WScoped.instantiate1_gen hwarg 0 hwty'.2) hwrest
       rw [shiftFrom_instantiate1_gen] at hrest
       by_cases hg : (lic && mb.pw.isNever) = true
-      · rw [if_pos hg, if_pos hg]
+      · rw [ite_eq_left hg, ite_eq_left hg]
         exact hrest
-      · rw [if_neg hg, if_neg hg]
+      · rw [ite_eq_right hg, ite_eq_right hg]
         refine bind_congr _ (ih.inferIO hpd hwarg) ?_
         intro ta hta
         refine bind_congr_eq
@@ -1419,8 +1419,8 @@ private theorem iotaIndexOk_shift (henv : EnvWF env)
         (margs.map (shiftFrom p)) (idx.map (shiftFrom p)) =
       iotaIndexOk (pureFns mode env fuel) env d mI rP cnP tyCtor margs idx := by
   by_cases hmr : mI = rP
-  · simp only [iotaIndexOk, if_pos hmr]
-  · simp only [iotaIndexOk, if_neg hmr]
+  · simp only [iotaIndexOk, ite_eq_left hmr]
+  · simp only [iotaIndexOk, ite_eq_right hmr]
     have hres := piResidual_shiftFrom (p := p) margs tyCtor
     rw [shiftFrom_eq_self_of_not_hasFvar htel] at hres
     rw [hres]
@@ -1447,7 +1447,7 @@ private theorem prepareMajor_shift (henv : EnvWF env)
         (shiftFrom p) := by
   simp only [prepareMajor]
   by_cases hk : recRuleK rules = true
-  · rw [if_pos hk, if_pos hk]
+  · rw [ite_eq_left hk, ite_eq_left hk]
     refine bind_rel _ _ (majorToCtor_shift henv ih hpd recName rules hwmaj) ?_
     intro m₁ hm₁
     have hw₁ : WScoped d m₁ := by
@@ -1457,7 +1457,7 @@ private theorem prepareMajor_shift (henv : EnvWF env)
     refine bind_rel _ _ (ih.whnf hpd hw₁) ?_
     intro m₂ hm₂
     exact litMajorToCtor_shift henv ih hpd (whnf_WScoped henv fuel hm₂ hw₁)
-  · rw [if_neg hk, if_neg hk]
+  · rw [ite_eq_right hk, ite_eq_right hk]
     refine bind_rel _ _ (ih.whnf hpd hwmaj) ?_
     intro m₀ hm₀
     have hw₀ : WScoped d m₀ := whnf_WScoped henv fuel hm₀ hwmaj
@@ -1542,8 +1542,8 @@ private theorem iotaRec_shift (henv : EnvWF env)
           List.map_take] at h1
         refine bind_rel_eq _ ?_ ?_
         · by_cases hcp : rl.compareParams = true
-          · rw [if_pos hcp, if_pos hcp]; exact h1
-          · rw [if_neg hcp, if_neg hcp]
+          · rw [ite_eq_left hcp, ite_eq_left hcp]; exact h1
+          · rw [ite_eq_right hcp, ite_eq_right hcp]
         intro b₁ _
         refine ite_rel _ (fun _ => ?_) (fun _ => rfl)
         have htel₁ : (cv.type.instantiateLevelParams cv.levelParams
@@ -1664,13 +1664,13 @@ private theorem whnfCore_step (henv : EnvWF env)
       -- reduct step with no certificate and the other arm is the
       -- pre-gate proof, verbatim.
       by_cases hgate : betaGateFires mode m₁.pw = true
-      · rw [if_pos hgate, if_pos hgate]
+      · rw [ite_eq_left hgate, ite_eq_left hgate]
         have h := ih.whnfCore (c := c) hpd
           (WScoped.instantiate1_gen hw.2 0 hwf'.2)
         rw [shiftFrom_instantiate1_gen] at h
         simp only [whnfCore_def]
         exact h
-      · rw [if_neg hgate, if_neg hgate]
+      · rw [ite_eq_right hgate, ite_eq_right hgate]
         -- task #172 B4: the certificate's inference is the io slot
         refine bind_rel _ _ (ih.inferIO hpd hw.2) ?_
         intro ta hta
@@ -1794,12 +1794,12 @@ private theorem infer_step (henv : EnvWF env)
     simp only [WScoped] at hw
     rw [shiftFrom_fvar]
     simp only [inferBody]
-    rw [if_pos (show shiftIdx p idx < d + 1 by
+    rw [ite_eq_left (show shiftIdx p idx < d + 1 by
           simp only [shiftIdx]; split <;> omega),
-        if_pos hw.1]
+        ite_eq_left hw.1]
     by_cases hp : p ≤ idx
     · simp [shiftTy, hp, pure, Except.pure]
-    · simp only [shiftTy, if_neg hp, pure, Except.pure, map_ok]
+    · simp only [shiftTy, ite_eq_right hp, pure, Except.pure, map_ok]
       rw [shiftFrom_eq_self (fvarsBelow_mono (by omega) hw.2.fvarsBelow)]
   | .const n us =>
     show inferBody mode (pureFns mode env fuel) env (d + 1) (.const n us) =
@@ -1951,14 +1951,14 @@ private theorem infer_step (henv : EnvWF env)
       -- the Prop guard (task #175 W4c) is shift-independent: split it
       -- on both sides, then the residual
       by_cases hs : (entry.structSort.isEquiv Level.zero == some true) = true
-      · rw [if_pos hs, if_pos hs]
+      · rw [ite_eq_left hs, ite_eq_left hs]
         by_cases hfs : ((Level.subst entry.levelParams us₂
             entry.fieldSort).isEquiv Level.zero == some true) = true
-        · rw [if_pos hfs, if_pos hfs, ← hsh]
+        · rw [ite_eq_left hfs, ite_eq_left hfs, ← hsh]
           rfl
-        · rw [if_neg hfs, if_neg hfs]
+        · rw [ite_eq_right hfs, ite_eq_right hfs]
           rfl
-      · rw [if_neg hs, if_neg hs, ← hsh]
+      · rw [ite_eq_right hs, ite_eq_right hs, ← hsh]
         rfl
 
 
@@ -1998,12 +1998,12 @@ private theorem inferIOCore_step (henv : EnvWF env)
     simp only [WScoped] at hw
     rw [shiftFrom_fvar]
     simp only [inferBodyIO]
-    rw [if_pos (show shiftIdx p idx < d + 1 by
+    rw [ite_eq_left (show shiftIdx p idx < d + 1 by
           simp only [shiftIdx]; split <;> omega),
-        if_pos hw.1]
+        ite_eq_left hw.1]
     by_cases hp : p ≤ idx
     · simp [shiftTy, hp, pure, Except.pure]
-    · simp only [shiftTy, if_neg hp, pure, Except.pure, map_ok]
+    · simp only [shiftTy, ite_eq_right hp, pure, Except.pure, map_ok]
       rw [shiftFrom_eq_self (fvarsBelow_mono (by omega) hw.2.fvarsBelow)]
   | .const n us =>
     show inferBodyIO mode (pureFnsIO mode env fuel) env (d + 1) (.const n us) =
@@ -2116,10 +2116,10 @@ private theorem inferIOCore_step (henv : EnvWF env)
     -- **the io gate**: the datum is the whnf'd type's own binder meta,
     -- which the shift copies verbatim, so both sides take one branch
     by_cases hg2 : m'.pw.isNever = true
-    · simp only [hg2, if_true]
+    · simp only [hg2, ite_true]
       simp only [pure, Except.pure, map_ok]
       rw [← shiftFrom_instantiate1_gen]
-    · simp only [hg2, Bool.false_eq_true, if_false]
+    · simp only [hg2, Bool.false_eq_true, ite_false]
       refine bind_rel (shiftFrom p) _ (ihio hpd hw.2) ?_
       intro ta hta
       refine bind_rel_eq _
@@ -2161,14 +2161,14 @@ private theorem inferIOCore_step (henv : EnvWF env)
       -- the Prop guard (task #175 W4c) is shift-independent: split it
       -- on both sides, then the residual
       by_cases hs : (entry.structSort.isEquiv Level.zero == some true) = true
-      · rw [if_pos hs, if_pos hs]
+      · rw [ite_eq_left hs, ite_eq_left hs]
         by_cases hfs : ((Level.subst entry.levelParams us₂
             entry.fieldSort).isEquiv Level.zero == some true) = true
-        · rw [if_pos hfs, if_pos hfs, ← hsh]
+        · rw [ite_eq_left hfs, ite_eq_left hfs, ← hsh]
           rfl
-        · rw [if_neg hfs, if_neg hfs]
+        · rw [ite_eq_right hfs, ite_eq_right hfs]
           rfl
-      · rw [if_neg hs, if_neg hs, ← hsh]
+      · rw [ite_eq_right hs, ite_eq_right hs, ← hsh]
         rfl
 
 
@@ -2967,9 +2967,9 @@ private theorem annotate_step (henv : EnvWF env)
       simpa only [WScoped] using hw
     rw [shiftFrom_fvar]
     simp only [annotateBody]
-    rw [if_pos (show shiftIdx p idx < d + 1 by
+    rw [ite_eq_left (show shiftIdx p idx < d + 1 by
           simp only [shiftIdx]; split <;> omega),
-        if_pos hw'.1]
+        ite_eq_left hw'.1]
     simp only [pure, Except.pure, map_ok, shiftFrom_fvar]
   | .app f a =>
     simp only [WScoped] at hw

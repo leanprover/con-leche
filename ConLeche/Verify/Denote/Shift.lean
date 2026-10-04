@@ -94,12 +94,12 @@ theorem denote_bvarsBelow (hcl : ∀ n ψ, Term.Closed (cval n ψ)) :
     exact Nat.lt_of_lt_of_le (by omega) (Nat.le_refl d)
   | case3 d n us ci h1 h2 =>
     intro _ _ v h
-    simp only [denote_const, h1, if_pos h2] at h
+    simp only [denote_const, h1, ite_eq_left h2] at h
     obtain rfl : v = cval n (Level.substFn φ ci.toConstantVal.levelParams us) :=
       (Option.some.inj h).symm
     exact Term.bvarsBelow.mono (Nat.zero_le d) (hcl _ _)
   | case4 d n us ci h1 h2 =>
-    intro _ _ v h; simp only [denote_const, h1, if_neg h2] at h; exact nomatch h
+    intro _ _ v h; simp only [denote_const, h1, ite_eq_right h2] at h; exact nomatch h
   | case5 d n us h1 =>
     intro _ _ v h; rw [denote_const, h1] at h; exact nomatch h
   | case6 d ty body mb h1 ihty =>
@@ -165,19 +165,19 @@ theorem denote_bvarsBelow (hcl : ∀ n ψ, Term.Closed (cval n ψ)) :
     · exact nomatch h
   | case18 d n hg =>
     intro _ _ v h
-    rw [denote_natLit, if_pos hg] at h
+    rw [denote_natLit, ite_eq_left hg] at h
     obtain rfl := (Option.some.inj h).symm
     exact Term.bvarsBelow.mono (Nat.zero_le d)
       (natLitT_closed (hcl _ _) (hcl _ _) n)
   | case19 d n hg =>
-    intro _ _ v h; rw [denote_natLit, if_neg hg] at h; exact nomatch h
+    intro _ _ v h; rw [denote_natLit, ite_eq_right hg] at h; exact nomatch h
   | case20 d t hg =>
     intro _ _ v h
-    rw [denote_strLit, if_pos hg] at h
+    rw [denote_strLit, ite_eq_left hg] at h
     obtain rfl := (Option.some.inj h).symm
     exact Term.bvarsBelow.mono (Nat.zero_le d) (strLitT_closed hcl t)
   | case21 d t hg =>
-    intro _ _ v h; rw [denote_strLit, if_neg hg] at h; exact nomatch h
+    intro _ _ v h; rw [denote_strLit, ite_eq_right hg] at h; exact nomatch h
   | case22 d x k1 k2 k3 k4 k5 k6 k7 k8 k9 k10 =>
     intro _ _ v h
     match x with

@@ -47,7 +47,7 @@ theorem pickSpec_eq (n : Name) : ∀ l : List Declaration,
     simp only [pickSpec, List.findIdx_cons]
     by_cases h : declares n d
     · simp [h]
-    · simp only [h, if_false, Bool.false_eq_true]
+    · simp only [h, ite_false, Bool.false_eq_true]
       rw [pickSpec_eq n ds]
       simp
 
@@ -68,7 +68,7 @@ theorem pickSpec_perm (n : Name) : ∀ l : List Declaration,
     simp only [pickSpec]
     by_cases h : declares n d
     · simp [h]
-    · simp only [h, if_false, Bool.false_eq_true]
+    · simp only [h, ite_false, Bool.false_eq_true]
       exact (List.perm_middle (a := d)
         (l₁ := (pickSpec n ds).1.toList) (l₂ := (pickSpec n ds).2)).trans
         ((pickSpec_perm n ds).cons d)

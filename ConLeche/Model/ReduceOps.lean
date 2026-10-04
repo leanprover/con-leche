@@ -230,7 +230,7 @@ theorem reduceOps_install (hμ : μ.verifiedChecks = true)
     have h := acval_interp_closed m₂ cv.name ψ ρ₁ ρ₂
     rwa [hmoveC] at h
   -- the stored entry is the pinned type, and the pin fixes its shape
-  rw [ConLeche.Env.find?_cons, if_pos (show (ConstantInfo.axiomInfo
+  rw [ConLeche.Env.find?_cons, ite_eq_left (show (ConstantInfo.axiomInfo
     ⟨cv.name, cv.levelParams, type'⟩).name = cv.name from rfl)] at hf₂
   obtain rfl : cvR = ⟨cv.name, cv.levelParams, type'⟩ :=
     (ConstantInfo.axiomInfo.inj (Option.some.inj hf₂)).symm
@@ -334,7 +334,7 @@ theorem reduceOps_install (hμ : μ.verifiedChecks = true)
   have hclaims := fun ψ =>
     checkSoundAt (V := V) hμ (Rules.RulesInputs.ofSem mp ψ) F
   refine ⟨?_, fun ψ ρ x hx => ?_⟩
-  · rw [ConLeche.Env.find?_cons, if_neg (fun h => hneE h.symm), hfE]; rfl
+  · rw [ConLeche.Env.find?_cons, ite_eq_right (fun h => hneE h.symm), hfE]; rfl
   obtain ⟨-, -, ihd, -⟩ := hclaims ψ
   rw [hmoveE] at hx
   rw [hmoveC]

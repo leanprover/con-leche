@@ -743,7 +743,7 @@ theorem blockTablesStage_of (hμ : μ.verifiedChecks = true) {F : Nat} {env envI
       dZ.nfFF c j = (posKs.2.1.getD c []).getD j default := by
     intro c j cA hj
     show (pk₀ c).nf j = _
-    rw [hnf₀, if_pos (show j < (ctorsAs.getD c []).length from (List.getElem?_eq_some_iff.mp hj).1)]
+    rw [hnf₀, ite_eq_left (show j < (ctorsAs.getD c []).length from (List.getElem?_eq_some_iff.mp hj).1)]
   have hFZ : ∀ (c : Nat) (cvTb : ConstantVal), cvTas[c]? = some cvTb →
       envI.find? cvTb.name = some (.indInfo cvTb (ConLeche.blockCapsAt q c isRec)) ∧
       FormerData mpD.base2 cvTb (dZ.nP + dZ.nIdxAt c) dZ.resSort (dZ.ppsM c) :=
@@ -873,7 +873,7 @@ theorem blockTablesStage_of (hμ : μ.verifiedChecks = true) {F : Nat} {env envI
     intro c j
     by_cases hj : j < (ctorsAs.getD c []).length
     · exact (hnfFacts c j _ (List.getElem?_eq_getElem hj)).2
-    · rw [hnf₀, if_neg hj]; rfl
+    · rw [hnf₀, ite_eq_right hj]; rfl
   have hparamsH : ∀ ψ₁ ψ₂ : Name → Nat, (∀ n ∈ q.lps, ψ₁ n = ψ₂ n) →
       dZ.toLfp.holeChains ψ₁ = dZ.toLfp.holeChains ψ₂ := by
     intro ψ₁ ψ₂ hφ

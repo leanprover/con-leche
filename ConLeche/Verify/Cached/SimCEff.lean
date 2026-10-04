@@ -102,10 +102,10 @@ theorem lsimpInv_insert {m : Std.HashMap Level Level}
   intro u v h
   rw [Std.HashMap.getElem?_insert] at h
   by_cases hk : k == u
-  · rw [if_pos hk] at h
+  · rw [ite_eq_left hk] at h
     cases h
     rw [eq_of_beq hk]
-  · rw [if_neg (by simpa using hk)] at h
+  · rw [ite_eq_right (by simpa using hk)] at h
     exact hm u v h
 
 /-- Inserting a certified verdict keeps the `eqvC` clause. -/
@@ -117,13 +117,13 @@ theorem eqvInv_insert {m : Std.HashMap (Level × Level) Bool}
   intro l' r' b' h
   rw [Std.HashMap.getElem?_insert] at h
   by_cases hk : ((l, r) : Level × Level) == (l', r')
-  · rw [if_pos hk] at h
+  · rw [ite_eq_left hk] at h
     obtain ⟨rfl, rfl⟩ : l = l' ∧ r = r' := by
       have := eq_of_beq hk
       exact ⟨congrArg Prod.fst this, congrArg Prod.snd this⟩
     cases h
     exact hb
-  · rw [if_neg (by simpa using hk)] at h
+  · rw [ite_eq_right (by simpa using hk)] at h
     exact hm l' r' b' h
 
 /-! ## The pure syntactic wrappers -/
@@ -269,7 +269,7 @@ private theorem simplifyMemo_spec {mp : Std.HashMap Level Level}
 without touching the state or the cache. -/
 private theorem isEquivLM_run_ptr {l r : Level} (h : (l == r) = true)
     (s : CState) : isEquivLM l r s = .ok (some true, s) := by
-  unfold isEquivLM; rw [if_pos h]; rfl
+  unfold isEquivLM; rw [ite_eq_left h]; rfl
 
 private theorem isEquivLM_run {l r : Level} (h : ¬ (l == r) = true)
     (s : CState) :
@@ -294,7 +294,7 @@ private theorem isEquivLM_run {l r : Level} (h : ¬ (l == r) = true)
                  { s with lsimpC := mp, eqvC := s.eqvC.insert (l, r) b })
              | none => (none, { s with lsimpC := mp })
            | none => (none, { s with lsimpC := mp })) := by
-  unfold isEquivLM; rw [if_neg h]; rfl
+  unfold isEquivLM; rw [ite_eq_right h]; rfl
 
 /-- `Level.isEquiv` in the shape the cascade decides it: the
 simplified-form test, then the two `leqCore` runs. -/
@@ -310,7 +310,7 @@ private theorem isEquiv_cascade (l r : Level)
             (Level.simplify l) 0 with
         | none => none
         | some b2 => some b2 := by
-  rw [Level.isEquiv_eq_withoutPtr, if_neg hne]
+  rw [Level.isEquiv_eq_withoutPtr, ite_eq_right hne]
   simp only [Level.leq, Bind.bind, Option.bind]
   cases Level.leqCore Level.defaultFuel (Level.simplify l) (Level.simplify r) 0
     with
@@ -364,7 +364,7 @@ theorem isEquivLM_eff (hs : CSOK mode env s₀) (l r : Level) :
       have hss : Level.simplify l = Level.simplify r := by
         rw [← hls, ← hrs, eq_of_beq hbeq]
       have hob : (some true : Option Bool) = Level.isEquiv l r := by
-        rw [Level.isEquiv_eq_withoutPtr, if_pos hss]; rfl
+        rw [Level.isEquiv_eq_withoutPtr, ite_eq_left hss]; rfl
       exact ⟨hs.withLsimpEqv hmp2 (eqvInv_insert hs.eqv hob.symm), hob⟩
     | false =>
       rw [hbeq] at hrun
@@ -475,11 +475,11 @@ theorem CSOK.insertInstC {s : CState} (hs : CSOK mode env s)
   simp only at hl
   rw [Std.HashMap.getElem?_insert] at hl
   by_cases hk : ((e, vs, d) : Expr × List Expr × Nat) == (i', vs', d')
-  · rw [if_pos hk] at hl
+  · rw [ite_eq_left hk] at hl
     cases hl
     obtain ⟨h1, h2, rfl⟩ := instKey_inv hk
     rw [hE, h1, h2]
-  · rw [if_neg hk] at hl
+  · rw [ite_eq_right hk] at hl
     exact hmp i' vs' d' r' hl
 
 private theorem instListM_run (e : Expr) (vs : List Expr) (d : Nat)
@@ -506,13 +506,13 @@ theorem instListM_eff (hs : CSOK mode env s₀) {e : Expr} {vs : List Expr}
   rw [instListM_run] at hr
   injection hr with h1
   by_cases hble : e.bvarB ≤ d
-  · rw [if_pos hble] at h1
+  · rw [ite_eq_left hble] at h1
     obtain ⟨rfl, rfl⟩ := Prod.mk.injEq .. ▸ h1.symm
     refine ⟨hs, ?_⟩
     have hb : Expr.looseBVarsBounded d a = true := he.erase ▸ bvarB_le hble
     show _ = _
     rw [he.erase, Expr.instantiateList_eq_self hb]
-  · rw [if_neg hble] at h1
+  · rw [ite_eq_right hble] at h1
     cases hhit : s₀.instC[(e, vs, d)]? with
     | some j =>
       rw [hhit] at h1
@@ -552,10 +552,10 @@ theorem CSOK.insertIEnv {s : CState} (hs : CSOK mode env s) {n : Name}
   simp only at hl
   rw [Std.HashMap.getElem?_insert] at hl
   by_cases hk : n == nm
-  · rw [if_pos hk] at hl
+  · rw [ite_eq_left hk] at hl
     cases hl
     exact ⟨hty, hval⟩
-  · rw [if_neg hk] at hl
+  · rw [ite_eq_right hk] at hl
     exact hs.ienv nm ent' hl
 
 /-- Inserting a backed entry into `constTyAt` preserves the
@@ -572,13 +572,13 @@ theorem CSOK.insertConstTy {s : CState} (hs : CSOK mode env s)
   simp only at hl
   rw [Std.HashMap.getElem?_insert] at hl
   by_cases hk : ((n, us) : Name × List Level) == (n', us')
-  · rw [if_pos hk] at hl
+  · rw [ite_eq_left hk] at hl
     obtain ⟨rfl, rfl⟩ : n = n' ∧ us = us' := by
       have h := eq_of_beq hk
       exact ⟨congrArg Prod.fst h, congrArg Prod.snd h⟩
     cases hl
     exact ⟨ci, hfind, hrel⟩
-  · rw [if_neg hk] at hl
+  · rw [ite_eq_right hk] at hl
     exact hs.constTy n' us' i' hl
 
 /-- Inserting a backed entry into `constValAt` preserves the
@@ -595,13 +595,13 @@ theorem CSOK.insertConstVal {s : CState} (hs : CSOK mode env s)
   simp only at hl
   rw [Std.HashMap.getElem?_insert] at hl
   by_cases hk : ((n, us) : Name × List Level) == (n', us')
-  · rw [if_pos hk] at hl
+  · rw [ite_eq_left hk] at hl
     obtain ⟨rfl, rfl⟩ : n = n' ∧ us = us' := by
       have h := eq_of_beq hk
       exact ⟨congrArg Prod.fst h, congrArg Prod.snd h⟩
     cases hl
     exact ⟨cv, v, hint, hfind, hrel⟩
-  · rw [if_neg hk] at hl
+  · rw [ite_eq_right hk] at hl
     exact hs.constVal n' us' i' hl
 
 /-- Inserting a backed entry into `ruleRhsAt` preserves the
@@ -620,13 +620,13 @@ theorem CSOK.insertRuleRhs {s : CState} (hs : CSOK mode env s)
   simp only at hl
   rw [Std.HashMap.getElem?_insert] at hl
   by_cases hk : ((c, j, us) : Name × Name × List Level) == (c', j', us')
-  · rw [if_pos hk] at hl
+  · rw [ite_eq_left hk] at hl
     obtain ⟨rfl, rfl, rfl⟩ : c = c' ∧ j = j' ∧ us = us' := by
       have h := eq_of_beq hk
       exact ⟨congrArg Prod.fst h, congrArg (·.2.1) h, congrArg (·.2.2) h⟩
     cases hl
     exact ⟨cv, mI, rP, rules, rl, hfind, hrl, hrel⟩
-  · rw [if_neg hk] at hl
+  · rw [ite_eq_right hk] at hl
     exact hs.ruleRhs c' j' us' i' hl
 
 /-- `storedTyIdxM` yields a term related to the given type — the
@@ -650,14 +650,14 @@ theorem storedTyIdxM_eff (hs : CSOK mode env s₀) {n : Name} (x : Expr) :
     rw [hl] at hr
     dsimp only at hr
     by_cases hgate : Expr.exprPtrBEq ent.tyE x
-    · rw [if_pos hgate] at hr
+    · rw [ite_eq_left hgate] at hr
       have hEq : ent.tyE = x := by
         have : (ent.tyE == x) = true := hgate
         simpa using this
       simp only [pure, StateT.pure, Except.pure, Except.ok.injEq] at hr
       obtain ⟨rfl, rfl⟩ := Prod.mk.injEq .. ▸ hr
       exact ⟨hs, hEq ▸ (hs.ienv n ent hl).1⟩
-    · rw [if_neg hgate] at hr
+    · rw [ite_eq_right hgate] at hr
       exact pureC_eff hs x v' s' hr
   | none =>
     rw [hl] at hr
@@ -687,14 +687,14 @@ theorem storedValIdxM_eff (hs : CSOK mode env s₀) {n : Name} (x : Expr) :
       subst hval
       dsimp only at hr
       by_cases hgate : Expr.exprPtrBEq vE x
-      · rw [if_pos hgate] at hr
+      · rw [ite_eq_left hgate] at hr
         have hEq : vE = x := by
           have : (vE == x) = true := hgate
           simpa using this
         simp only [pure, StateT.pure, Except.pure, Except.ok.injEq] at hr
         obtain ⟨rfl, rfl⟩ := Prod.mk.injEq .. ▸ hr
         exact ⟨hs, hEq ▸ (hs.ienv n ⟨tyE, ty, some (vE, vi)⟩ hl).2 vE vi rfl⟩
-      · rw [if_neg hgate] at hr
+      · rw [ite_eq_right hgate] at hr
         exact pureC_eff hs x v' s' hr
     | none =>
       subst hval

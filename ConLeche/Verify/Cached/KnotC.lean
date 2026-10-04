@@ -51,11 +51,11 @@ theorem CSOK.insertWhnfCoreC {s : CState} (hs : CSOK mode env s)
   simp only at hl
   rw [Std.HashMap.getElem?_insert] at hl
   by_cases hk : i == k
-  · rw [if_pos hk] at hl
+  · rw [ite_eq_left hk] at hl
     cases hl
     rw [← beq_sound hk]
     exact hrun
-  · rw [if_neg hk] at hl
+  · rw [ite_eq_right hk] at hl
     exact hs.whnfCoreC k v hl
 
 theorem CSOK.insertWhnfCoreCheapC {s : CState} (hs : CSOK mode env s)
@@ -69,11 +69,11 @@ theorem CSOK.insertWhnfCoreCheapC {s : CState} (hs : CSOK mode env s)
   simp only at hl
   rw [Std.HashMap.getElem?_insert] at hl
   by_cases hk : i == k
-  · rw [if_pos hk] at hl
+  · rw [ite_eq_left hk] at hl
     cases hl
     rw [← beq_sound hk]
     exact hrun
-  · rw [if_neg hk] at hl
+  · rw [ite_eq_right hk] at hl
     exact hs.whnfCoreCheapC k v hl
 
 theorem CSOK.insertWhnfC {s : CState} (hs : CSOK mode env s)
@@ -87,11 +87,11 @@ theorem CSOK.insertWhnfC {s : CState} (hs : CSOK mode env s)
   simp only at hl
   rw [Std.HashMap.getElem?_insert] at hl
   by_cases hk : i == k
-  · rw [if_pos hk] at hl
+  · rw [ite_eq_left hk] at hl
     cases hl
     rw [← beq_sound hk]
     exact hrun
-  · rw [if_neg hk] at hl
+  · rw [ite_eq_right hk] at hl
     exact hs.whnfC k v hl
 
 theorem CSOK.insertInferC {s : CState} (hs : CSOK mode env s)
@@ -106,11 +106,11 @@ theorem CSOK.insertInferC {s : CState} (hs : CSOK mode env s)
   simp only at hl
   rw [Std.HashMap.getElem?_insert] at hl
   by_cases hk : i == k
-  · rw [if_pos hk] at hl
+  · rw [ite_eq_left hk] at hl
     cases hl
     rw [← beq_sound hk]
     exact hrun
-  · rw [if_neg hk] at hl
+  · rw [ite_eq_right hk] at hl
     exact hs.inferC k v hl
 
 /-- Insert into the io memo (task #172 B4): the entry is backed by an
@@ -127,11 +127,11 @@ theorem CSOK.insertInferIOC {s : CState} (hs : CSOK mode env s)
   simp only at hl
   rw [Std.HashMap.getElem?_insert] at hl
   by_cases hk : i == k
-  · rw [if_pos hk] at hl
+  · rw [ite_eq_left hk] at hl
     cases hl
     rw [← beq_sound hk]
     exact hrun
-  · rw [if_neg hk] at hl
+  · rw [ite_eq_right hk] at hl
     exact hs.inferIOC k v hl
 
 theorem CSOK.insertAnnotC {s : CState} (hs : CSOK mode env s)
@@ -146,11 +146,11 @@ theorem CSOK.insertAnnotC {s : CState} (hs : CSOK mode env s)
   simp only at hl
   rw [Std.HashMap.getElem?_insert] at hl
   by_cases hk : i == k
-  · rw [if_pos hk] at hl
+  · rw [ite_eq_left hk] at hl
     cases hl
     rw [← beq_sound hk]
     exact hrun
-  · rw [if_neg hk] at hl
+  · rw [ite_eq_right hk] at hl
     exact hs.annotC k v hl
 
 theorem CSOK.insertDefeqC {s : CState} (hs : CSOK mode env s)
@@ -165,13 +165,13 @@ theorem CSOK.insertDefeqC {s : CState} (hs : CSOK mode env s)
   simp only at hl
   rw [Std.HashMap.getElem?_insert] at hl
   by_cases hk : ((i, j) : Expr × Expr) == (a, b)
-  · rw [if_pos hk] at hl
+  · rw [ite_eq_left hk] at hl
     obtain ⟨hia, hjb⟩ := pairKey_inv hk
     have hjb' : j = b := beq_sound hjb
     cases hl
     rw [← hia, ← hjb']
     exact hrun
-  · rw [if_neg hk] at hl
+  · rw [ite_eq_right hk] at hl
     exact hs.defeqC a b r' hl
 
 end Inserts

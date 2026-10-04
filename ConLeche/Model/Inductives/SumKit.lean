@@ -474,8 +474,8 @@ theorem firstIdx_of_mem : ∀ {l : List Expr} {x : Expr}, x ∈ l → ∃ i, fir
   | a :: as, x, h => by
     simp only [firstIdx]
     by_cases hax : a = x
-    · exact ⟨0, by rw [if_pos hax]⟩
-    · rw [if_neg hax]
+    · exact ⟨0, by rw [ite_eq_left hax]⟩
+    · rw [ite_eq_right hax]
       obtain ⟨i, hi⟩ := firstIdx_of_mem (l := as) (x := x)
         (by rcases List.mem_cons.mp h with rfl | h'; exact absurd rfl hax; exact h')
       exact ⟨i + 1, by rw [hi]; rfl⟩
@@ -1469,7 +1469,7 @@ theorem stageCtorGen {T : Name}
     · intro cvT caps' hf _
       have hfT' : (⟨.ctorInfo cvCa nP nF :: env.consts⟩ : Env).find? T
           = some (.indInfo cvTa caps) := by
-        rw [ConLeche.Env.find?_cons, if_neg (fun h => hTC h.symm)]
+        rw [ConLeche.Env.find?_cons, ite_eq_right (fun h => hTC h.symm)]
         exact hfT
       obtain ⟨rfl, rfl⟩ := ConstantInfo.indInfo.inj (Option.some.inj (hfT'.symm.trans hf))
       refine hTlaws m₂ (fun n hn => ?_) (fun ψ => ?_)

@@ -209,7 +209,7 @@ theorem envModelM_consBlockRecsBare {q : BlockShape}
     refine envModelM_consBlockRecsBare mp₁ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_
     · exact hnd.2
     · intro r hr
-      rw [ConLeche.Env.find?_cons, if_neg (fun hh => hnrr r hr hh.symm)]
+      rw [ConLeche.Env.find?_cons, ite_eq_right (fun hh => hnrr r hr hh.symm)]
       exact hfr r (List.mem_cons_of_mem _ hr)
     · exact fun r hr => hnres r (List.mem_cons_of_mem _ hr)
     · exact fun r hr => hpsh r (List.mem_cons_of_mem _ hr)
@@ -339,7 +339,7 @@ theorem find?_consBlockRecsBare_of_ne {q : BlockShape} {n : Name} :
     rw [consBlockRecsBare,
       find?_consBlockRecsBare_of_ne (fun r hr => hne r (List.mem_cons_of_mem _ hr)),
       ConLeche.Env.find?_cons,
-      if_neg (fun h => hne r0 List.mem_cons_self h.symm)]
+      ite_eq_right (fun h => hne r0 List.mem_cons_self h.symm)]
 
 /-! (A name that is none of the `k` recursors' is found as it was:
 `find?_consBlockRecsR_of_ne`, `Verify/Inductives/BlockWF.lean`, where

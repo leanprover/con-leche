@@ -150,7 +150,7 @@ theorem blockRecAcvOf_at {base : Name → (Name → Nat) → AnnotTerm} {names :
     refine List.findIdx?_eq_some_iff_getElem.mpr ⟨hlt, by simp, fun j hji hp => ?_⟩
     have hjl : j < names.length := by omega
     have : names[j] = names[i] := by simpa using hp
-    exact absurd ((List.getElem_inj hnd).mp this) (by omega)
+    exact absurd ((List.Nodup.getElem_inj hnd).mp this) (by omega)
   funext ψ
   simp [blockRecAcvOf, h]
 

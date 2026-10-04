@@ -211,7 +211,7 @@ noncomputable def idx (z : V) : Nat := if h : ∃ k, nat k = z then Classical.ch
 theorem idx_nat (k : Nat) : idx (nat k : V) = k := by
   unfold idx
   have h : ∃ l, (nat l : V) = nat k := ⟨k, rfl⟩
-  rw [dif_pos h]
+  rw [dite_eq_left h]
   exact nat_inj (Classical.choose_spec h)
 
 /-- **The countable union** `F 0 ∪ F 1 ∪ …`: the union over `ω`, each

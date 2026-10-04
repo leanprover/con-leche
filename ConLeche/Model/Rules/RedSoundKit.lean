@@ -197,7 +197,7 @@ theorem denoteMeta_strLitToConstructor
   obtain ⟨ciO, mb, hfO, hlpO, -⟩ := stringOfList_shape hg
   rw [ConLeche.strLitToConstructor_eq, denoteMeta,
     denoteMetaConstNolevels hfO hlpO d, denoteMetaStrLitList hg d,
-    denoteMeta, if_pos hg]
+    denoteMeta, ite_eq_left hg]
   rfl
 
 
@@ -643,7 +643,7 @@ private theorem deltaCore (m : EnvModel V env)
   intro fa hfa
   rw [hfn, denoteMeta, hfind] at hfa
   simp only [hcvt] at hfa
-  rw [if_pos hlen] at hfa
+  rw [ite_eq_left hlen] at hfa
   obtain rfl : fa = m.acval ci.name
       (Level.substFn φ cv.levelParams us) := (Option.some.inj hfa).symm
   exact denoteMeta_depth_of_closed m.acval_closed

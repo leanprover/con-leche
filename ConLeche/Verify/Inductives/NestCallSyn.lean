@@ -51,13 +51,13 @@ theorem replaceFVars_abstract1_instantiate1 {f : Nat → Option Expr} {v : Nat}
     intro k hb
     simp only [looseBVarsBounded, decide_eq_true_eq] at hb
     simp only [abstract1, replaceFVars, instantiate1]
-    rw [if_neg (by omega), if_neg (by omega)]
+    rw [ite_eq_right (by omega), ite_eq_right (by omega)]
   | fvar i ty _ =>
     intro k _
     by_cases hiv : i = v
     · subst hiv
       simp [abstract1, replaceFVars]
-    · simp only [abstract1, if_neg hiv, replaceFVars]
+    · simp only [abstract1, ite_eq_right hiv, replaceFVars]
       cases hfi : f i with
       | none => simp
       | some y =>
@@ -161,11 +161,11 @@ theorem targetPiDomsWith_close :
         rw [targetPiDomsWith_length xs _ r hr] at this; exact this
       obtain ⟨nd', hnd', rfl⟩ := targetPiDomsWith_close rest (hi + 1) cur
         (fun i => if i = hi then some x else f i) xs r
-        (fun i hi' => by rw [if_neg (by omega)]; exact hf i (by omega))
+        (fun i hi' => by rw [ite_eq_right (by omega)]; exact hf i (by omega))
         (fun i y hy => by
           by_cases hih : i = hi
-          · rw [if_pos hih] at hy; cases hy; exact hx _ List.mem_cons_self
-          · rw [if_neg hih] at hy; exact hfc i y hy)
+          · rw [ite_eq_left hih] at hy; cases hy; exact hx _ List.mem_cons_self
+          · rw [ite_eq_right hih] at hy; exact hfc i y hy)
         (fun y hy => hx y (List.mem_cons_of_mem _ hy))
         (fun y hy => hn y (List.mem_cons_of_mem _ hy)) hc (by simpa using hlen) hr l d hd
       refine ⟨nd', by simpa using hnd', ?_⟩
@@ -179,11 +179,11 @@ theorem targetPiDomsWith_close :
         have e2 : ¬ (i + 1 ≤ i ∧ i < i + 1 + l) := by omega
         simp [e1, e2]
       · by_cases h2 : hi + 1 ≤ i ∧ i < hi + 1 + l
-        · rw [if_pos h2, if_pos (by omega)]
+        · rw [ite_eq_left h2, ite_eq_left (by omega)]
           obtain ⟨k, rfl⟩ : ∃ k, i = hi + 1 + k := ⟨i - (hi + 1), by omega⟩
           rw [show hi + 1 + k - (hi + 1) = k by omega, show hi + 1 + k - hi = k + 1 by omega]
           rfl
-        · rw [if_neg h2, if_neg h1, if_neg (by omega)]
+        · rw [ite_eq_right h2, ite_eq_right h1, ite_eq_right (by omega)]
 
 
 /-! ## One substitution for the read-back and the renaming -/
@@ -202,7 +202,7 @@ theorem replaceFVars_erasedEq_substFvars {g : Nat → Option Expr} {b D : Nat} {
   | fvar i ty _ =>
     intro h
     simp only [fvarsBelow] at h
-    simp only [replaceFVars, substFvars, if_pos h]
+    simp only [replaceFVars, substFvars, ite_eq_left h]
     exact hs i h ty
   | sort u => intro _; exact ErasedEq.rfl _
   | const n us => intro _; exact ErasedEq.rfl _
@@ -229,8 +229,8 @@ theorem ErasedEq.substFvars {b D : Nat} {s : Nat → Expr} :
     cases y <;> simp only [ErasedEq] at h
     subst h
     by_cases hi : i < b
-    · simp only [Expr.substFvars, if_pos hi]; exact ErasedEq.rfl _
-    · simp only [Expr.substFvars, if_neg hi]; simp [ErasedEq]
+    · simp only [Expr.substFvars, ite_eq_left hi]; exact ErasedEq.rfl _
+    · simp only [Expr.substFvars, ite_eq_right hi]; simp [ErasedEq]
   | sort u => intro y h; cases y <;> simp_all [ErasedEq, Expr.substFvars]
   | const n us => intro y h; cases y <;> simp_all [ErasedEq, Expr.substFvars]
   | lit l => intro y h; cases y <;> simp_all [ErasedEq, Expr.substFvars]

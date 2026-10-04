@@ -188,7 +188,7 @@ theorem WScoped.replaceFVars_lower {g : Nat → Option Expr} {D n : Nat}
 theorem nestHoleImg_isSome {ctx : NestCtx} {i : Nat} (hlo : ctx.nP ≤ i) :
     ∀ prog : List NestHole, i < ctx.hiAt prog.length → ∃ r, nestHoleImg ctx prog i = some r
   | [], hhi => by
-    simp only [nestHoleImg]; rw [if_pos ⟨hlo, hhi⟩]; exact ⟨_, rfl⟩
+    simp only [nestHoleImg]; rw [ite_eq_left ⟨hlo, hhi⟩]; exact ⟨_, rfl⟩
   | h :: prog, hhi => by
     simp only [nestHoleImg]
     split
@@ -353,7 +353,7 @@ theorem nestCtors_nfScoped
       rcases hb : Name.nodup cv.levelParams
       · simp [hb, throw, throwThe, MonadExceptOf.throw] at h
       · rfl
-    rw [if_pos hnd] at h
+    rw [ite_eq_left hnd] at h
     split at h
     · simp at h
     rename_i crest hcrest
@@ -532,18 +532,18 @@ theorem nestPos_nfScoped (hc : NestCtxOk ctx) (hb : NestCtxB ctx)
       simp only [hw, bind, Except.bind] at hrun
       have hwsw : ScB dep w := ⟨hwW dep e w hw hws.1, hwB dep e w hw hws.2⟩
       by_cases hocc : w.nestOcc ctx.names ctx.nP (ctx.hiAt prog.length) = false
-      · rw [if_pos (by simpa using hocc)] at hrun
+      · rw [ite_eq_left (by simpa using hocc)] at hrun
         simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at hrun
         obtain ⟨rfl, rfl, rfl⟩ := hrun
         exact ⟨hst, by split <;> assumption⟩
-      rw [if_neg (by simpa using hocc)] at hrun
+      rw [ite_eq_right (by simpa using hocc)] at hrun
       split at hrun
       · -- `pi`
         rename_i a b bm
         by_cases ha : a.nestOcc ctx.names ctx.nP (ctx.hiAt prog.length) = true
-        · rw [if_pos ha] at hrun
+        · rw [ite_eq_left ha] at hrun
           simp [throw, throwThe, MonadExceptOf.throw] at hrun
-        rw [if_neg ha] at hrun
+        rw [ite_eq_right ha] at hrun
         split at hrun
         · simp at hrun
         rename_i v hv

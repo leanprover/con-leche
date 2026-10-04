@@ -201,13 +201,13 @@ theorem accRel_rich (hkN : D.k ≤ D.N) {ψ : Name → Nat} {ρp : Nat → V} (h
     intro m hm
     by_cases hmt : m = t
     · subst hmt
-      simp only [X', if_pos rfl]
+      simp only [X', ite_eq_left rfl]
       refine graph_mem_famSpace fun i hi => ?_
       split
       · exact hU.binUnion_mem (empty_mem_univ _) (famSpace_app (hX m hm) hi)
           (hU.sing_mem (empty_mem_univ _) (empty_mem_univ _))
       · exact famSpace_app (hX m hm) hi
-    · simp only [X', if_neg hmt]
+    · simp only [X', ite_eq_right hmt]
       exact hX m hm
   -- the fibres grow
   have hgrow : ∀ m i y, InTup D.N (D.idx ψ ρp) X (m, i, y) → InTup D.N (D.idx ψ ρp) X' (m, i, y) := by
@@ -216,11 +216,11 @@ theorem accRel_rich (hkN : D.k ≤ D.N) {ψ : Name → Nat} {ρp : Nat → V} (h
     simp only at hm hi hy ⊢
     by_cases hmt : m = t
     · subst hmt
-      simp only [X', if_pos rfl, app_graph hi]
+      simp only [X', ite_eq_left rfl, app_graph hi]
       split
       · exact mem_binUnion.mpr (Or.inl hy)
       · exact hy
-    · simp only [X', if_neg hmt]
+    · simp only [X', ite_eq_right hmt]
       exact hy
   refine ⟨D.frame ψ ρp X', ⟨X, X', hX, hX', rfl, rfl⟩, fun o ho hH => ?_, empty, ?_,
     pt_ne_empty.symm⟩
@@ -241,7 +241,7 @@ theorem accRel_rich (hkN : D.k ≤ D.N) {ψ : Name → Nat} {ρp : Nat → V} (h
     rw [frame_hole ht]
     unfold holeVal
     rw [holeFam_app _ hfit]
-    simp only [X', app_graph hidx, ← htt, if_pos rfl]
+    simp only [X', app_graph hidx, ← htt, ite_eq_left rfl]
     exact mem_binUnion.mpr (Or.inr (mem_sing.mpr rfl))
 
 /-! ## The assembly -/

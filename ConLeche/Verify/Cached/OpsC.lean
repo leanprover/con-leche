@@ -302,8 +302,8 @@ theorem instantiateListP_spec {vs : Array Expr} :
                     ((vs.toList).take k) d)
                   = (Expr.instantiateList vs[i - d]
                       ((vs.toList).take (i - d)) d) := by
-                rw [Expr.instantiateList, if_neg hid,
-                  dif_pos (by rw [hlen]; exact hidk), hget, htk]
+                rw [Expr.instantiateList, ite_eq_right hid,
+                  dite_eq_left (by rw [hlen]; exact hidk), hget, htk]
               split
               · rename_i hfast
                 rw [hRHS]
@@ -323,7 +323,7 @@ theorem instantiateListP_spec {vs : Array Expr} :
               exact absurd (by omega : i - d < vs.size) hidv
           · rename_i hidk
             rw [Expr.mkBvar_eq, Expr.instantiateList,
-              if_neg hid, dif_neg (by rw [hlen]; exact hidk), hlen]
+              ite_eq_right hid, dite_eq_right (by rw [hlen]; exact hidk), hlen]
   | fvar idx ty _ =>
     intro d hk
     rw [Expr.instantiateListP.eq_def]
@@ -497,26 +497,26 @@ theorem instantiateRevP_eq {vs : Array Expr} :
     intro d
     rw [Expr.instantiateRevP.eq_def, Expr.instantiateListP.eq_def]
     by_cases hk0 : k = 0
-    · simp only [if_pos hk0]
-    rw [if_neg hk0, if_neg hk0]
+    · simp only [ite_eq_left hk0]
+    rw [ite_eq_right hk0, ite_eq_right hk0]
     by_cases hcut : (Expr.bvar i).bvarB ≤ d
-    · rw [if_pos hcut, if_pos hcut]
-    rw [if_neg hcut, if_neg hcut]
+    · rw [ite_eq_left hcut, ite_eq_left hcut]
+    rw [ite_eq_right hcut, ite_eq_right hcut]
     dsimp only
     by_cases hid : i < d
-    · rw [if_pos hid, if_pos hid]
-    rw [if_neg hid, if_neg hid]
+    · rw [ite_eq_left hid, ite_eq_left hid]
+    rw [ite_eq_right hid, ite_eq_right hid]
     by_cases hidk : i - d < k
-    · rw [dif_pos hidk, dif_pos hidk]
+    · rw [dite_eq_left hidk, dite_eq_left hidk]
       have hsz : vs.reverse.size = vs.size := by simp
       by_cases hidv : i - d < vs.size
-      · rw [dif_pos hidv, dif_pos (hsz ▸ hidv)]
+      · rw [dite_eq_left hidv, dite_eq_left (hsz ▸ hidv)]
         have hget : vs.reverse[i - d]'(hsz ▸ hidv)
             = vs[vs.size - 1 - (i - d)]'(by omega) := by
           simp [Array.getElem_reverse]
         rw [ihk (i - d) hidk, hget]
-      · rw [dif_neg hidv, dif_neg (fun h => hidv (hsz ▸ h))]
-    · rw [dif_neg hidk, dif_neg hidk]
+      · rw [dite_eq_right hidv, dite_eq_right (fun h => hidv (hsz ▸ h))]
+    · rw [dite_eq_right hidk, dite_eq_right hidk]
   | fvar idx ty _ =>
     intro d
     rw [Expr.instantiateRevP.eq_def, Expr.instantiateListP.eq_def]
@@ -533,55 +533,55 @@ theorem instantiateRevP_eq {vs : Array Expr} :
     intro d
     rw [Expr.instantiateRevP.eq_def, Expr.instantiateListP.eq_def]
     by_cases hk0 : k = 0
-    · simp only [if_pos hk0]
-    rw [if_neg hk0, if_neg hk0]
+    · simp only [ite_eq_left hk0]
+    rw [ite_eq_right hk0, ite_eq_right hk0]
     by_cases hcut : (Expr.app f a).bvarB ≤ d
-    · rw [if_pos hcut, if_pos hcut]
-    rw [if_neg hcut, if_neg hcut]
+    · rw [ite_eq_left hcut, ite_eq_left hcut]
+    rw [ite_eq_right hcut, ite_eq_right hcut]
     dsimp only
     rw [ihf d, iha d]
   | lam ty bd m iht ihb =>
     intro d
     rw [Expr.instantiateRevP.eq_def, Expr.instantiateListP.eq_def]
     by_cases hk0 : k = 0
-    · simp only [if_pos hk0]
-    rw [if_neg hk0, if_neg hk0]
+    · simp only [ite_eq_left hk0]
+    rw [ite_eq_right hk0, ite_eq_right hk0]
     by_cases hcut : (Expr.lam ty bd m).bvarB ≤ d
-    · rw [if_pos hcut, if_pos hcut]
-    rw [if_neg hcut, if_neg hcut]
+    · rw [ite_eq_left hcut, ite_eq_left hcut]
+    rw [ite_eq_right hcut, ite_eq_right hcut]
     dsimp only
     rw [iht d, ihb (d + 1)]
   | forallE ty bd m iht ihb =>
     intro d
     rw [Expr.instantiateRevP.eq_def, Expr.instantiateListP.eq_def]
     by_cases hk0 : k = 0
-    · simp only [if_pos hk0]
-    rw [if_neg hk0, if_neg hk0]
+    · simp only [ite_eq_left hk0]
+    rw [ite_eq_right hk0, ite_eq_right hk0]
     by_cases hcut : (Expr.forallE ty bd m).bvarB ≤ d
-    · rw [if_pos hcut, if_pos hcut]
-    rw [if_neg hcut, if_neg hcut]
+    · rw [ite_eq_left hcut, ite_eq_left hcut]
+    rw [ite_eq_right hcut, ite_eq_right hcut]
     dsimp only
     rw [iht d, ihb (d + 1)]
   | letE ty val bd iht ihv ihb =>
     intro d
     rw [Expr.instantiateRevP.eq_def, Expr.instantiateListP.eq_def]
     by_cases hk0 : k = 0
-    · simp only [if_pos hk0]
-    rw [if_neg hk0, if_neg hk0]
+    · simp only [ite_eq_left hk0]
+    rw [ite_eq_right hk0, ite_eq_right hk0]
     by_cases hcut : (Expr.letE ty val bd).bvarB ≤ d
-    · rw [if_pos hcut, if_pos hcut]
-    rw [if_neg hcut, if_neg hcut]
+    · rw [ite_eq_left hcut, ite_eq_left hcut]
+    rw [ite_eq_right hcut, ite_eq_right hcut]
     dsimp only
     rw [iht d, ihv d, ihb (d + 1)]
   | proj sn i sub ih =>
     intro d
     rw [Expr.instantiateRevP.eq_def, Expr.instantiateListP.eq_def]
     by_cases hk0 : k = 0
-    · simp only [if_pos hk0]
-    rw [if_neg hk0, if_neg hk0]
+    · simp only [ite_eq_left hk0]
+    rw [ite_eq_right hk0, ite_eq_right hk0]
     by_cases hcut : (Expr.proj sn i sub).bvarB ≤ d
-    · rw [if_pos hcut, if_pos hcut]
-    rw [if_neg hcut, if_neg hcut]
+    · rw [ite_eq_left hcut, ite_eq_left hcut]
+    rw [ite_eq_right hcut, ite_eq_right hcut]
     dsimp only
     rw [ih d]
 
@@ -632,7 +632,7 @@ private theorem abstract1_eq_self : ∀ {e : Expr} {d k : Nat},
   intro e
   induction e <;> intro d k hb <;>
     simp_all only [Expr.fvarsBelow, Expr.abstract1]
-  rw [if_neg (by omega)]
+  rw [ite_eq_right (by omega)]
 
 /-- **The plain descent computes `Expr.abstract1`**: the reference of
 `abstract1XP`. -/

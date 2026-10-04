@@ -144,30 +144,30 @@ theorem tgtClsIs_mem (hm : (tgtMajor out c).member.isSome = true) (xs : List V) 
     tgtClsIs d Dc mc cvc acval envC p out ψ ρ xs c
       = blockRecIs d ψ ρ (blockRulePdomsAV acval envC p (tgtRs out) ψ) p.recTgtAt xs c := by
   classical
-  simp only [tgtClsIs, tgtClsG, tgtClsD, tgtClsψ, tgtClsFr, tgtClsM, hm, if_true, blockRecIs]
+  simp only [tgtClsIs, tgtClsG, tgtClsD, tgtClsψ, tgtClsFr, tgtClsM, hm, ite_true, blockRecIs]
   rfl
 
 theorem tgtClsCr_mem (hm : (tgtMajor out c).member.isSome = true) (xs : List V) :
     tgtClsCr d Dc mc cvc acval envC p out ψ ρ xs c = blockRecCr d ψ ρ p.recTgtAt xs c := by
-  simp only [tgtClsCr, tgtClsD, tgtClsψ, tgtClsFr, tgtClsM, hm, if_true]
+  simp only [tgtClsCr, tgtClsD, tgtClsψ, tgtClsFr, tgtClsM, hm, ite_true]
   rfl
 
 omit [SetTheory V] in
 theorem tgtClsInj_mem (hm : (tgtMajor out c).member.isSome = true) :
     tgtClsInj d Dc mc cvc p out ψ c = d.inj ψ (p.recTgtAt c) := by
-  simp only [tgtClsInj, tgtClsD, tgtClsψ, tgtClsM, hm, if_true]
+  simp only [tgtClsInj, tgtClsD, tgtClsψ, tgtClsM, hm, ite_true]
   rfl
 
 omit [SetTheory V] in
 theorem tgtClsU_mem (hm : (tgtMajor out c).member.isSome = true) :
     tgtClsU d Dc mc cvc p out ψ c = d.uM (p.recTgtAt c) ψ := by
-  simp only [tgtClsU, tgtClsD, tgtClsψ, tgtClsM, hm, if_true]
+  simp only [tgtClsU, tgtClsD, tgtClsψ, tgtClsM, hm, ite_true]
   rfl
 
 omit [SetTheory V] in
 theorem tgtClsNIdx_mem (hm : (tgtMajor out c).member.isSome = true) :
     tgtClsNIdx d p out c = d.nIdxAt (p.recTgtAt c) := by
-  simp only [tgtClsNIdx, hm, if_true]
+  simp only [tgtClsNIdx, hm, ite_true]
 
 theorem tgtClsTup_mem (hm : (tgtMajor out c).member.isSome = true) (is : List V) :
     tgtClsTup d Dc mc cvc p out ψ c is = d.tup ψ (p.recTgtAt c) is := by
@@ -177,7 +177,7 @@ theorem tgtClsFit_mem (hm : (tgtMajor out c).member.isSome = true) (xs : List V)
     (j : Nat) (fs : List V) :
     tgtClsFit d Dc mc cvc acval envC p out ψ ρ xs c i j fs
       ↔ blockHoleFitRel d ψ ρ p.recTgtAt xs c i j fs := by
-  simp only [tgtClsFit, tgtClsD, tgtClsψ, tgtClsFr, tgtClsM, hm, if_true]
+  simp only [tgtClsFit, tgtClsD, tgtClsψ, tgtClsFr, tgtClsM, hm, ite_true]
   rfl
 
 omit [SetTheory V] in

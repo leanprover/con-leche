@@ -264,11 +264,11 @@ theorem Expr.hasLooseBVarBGo_spec :
     rw [hasLooseBVarBGo]
     split
     · rename_i hcut
-      exact ⟨by rw [Expr.hasLooseBVarB, if_pos hcut], hm⟩
+      exact ⟨by rw [Expr.hasLooseBVarB, ite_eq_left hcut], hm⟩
     · rename_i hcut
       have hspec : Expr.hasLooseBVarB i (.app f a)
           = (Expr.hasLooseBVarB i f || Expr.hasLooseBVarB i a) := by
-        rw [Expr.hasLooseBVarB, if_neg hcut]
+        rw [Expr.hasLooseBVarB, ite_eq_right hcut]
       split
       · rename_i r hhit
         exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
@@ -287,11 +287,11 @@ theorem Expr.hasLooseBVarBGo_spec :
     rw [hasLooseBVarBGo]
     split
     · rename_i hcut
-      exact ⟨by rw [Expr.hasLooseBVarB, if_pos hcut], hm⟩
+      exact ⟨by rw [Expr.hasLooseBVarB, ite_eq_left hcut], hm⟩
     · rename_i hcut
       have hspec : Expr.hasLooseBVarB i (.lam ty b m)
           = (Expr.hasLooseBVarB i ty || Expr.hasLooseBVarB (i + 1) b) := by
-        rw [Expr.hasLooseBVarB, if_neg hcut]
+        rw [Expr.hasLooseBVarB, ite_eq_right hcut]
       split
       · rename_i r hhit
         exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
@@ -310,11 +310,11 @@ theorem Expr.hasLooseBVarBGo_spec :
     rw [hasLooseBVarBGo]
     split
     · rename_i hcut
-      exact ⟨by rw [Expr.hasLooseBVarB, if_pos hcut], hm⟩
+      exact ⟨by rw [Expr.hasLooseBVarB, ite_eq_left hcut], hm⟩
     · rename_i hcut
       have hspec : Expr.hasLooseBVarB i (.forallE ty b m)
           = (Expr.hasLooseBVarB i ty || Expr.hasLooseBVarB (i + 1) b) := by
-        rw [Expr.hasLooseBVarB, if_neg hcut]
+        rw [Expr.hasLooseBVarB, ite_eq_right hcut]
       split
       · rename_i r hhit
         exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
@@ -333,12 +333,12 @@ theorem Expr.hasLooseBVarBGo_spec :
     rw [hasLooseBVarBGo]
     split
     · rename_i hcut
-      exact ⟨by rw [Expr.hasLooseBVarB, if_pos hcut], hm⟩
+      exact ⟨by rw [Expr.hasLooseBVarB, ite_eq_left hcut], hm⟩
     · rename_i hcut
       have hspec : Expr.hasLooseBVarB i (.letE t v b)
           = (Expr.hasLooseBVarB i t || Expr.hasLooseBVarB i v
               || Expr.hasLooseBVarB (i + 1) b) := by
-        rw [Expr.hasLooseBVarB, if_neg hcut]
+        rw [Expr.hasLooseBVarB, ite_eq_right hcut]
       split
       · rename_i r hhit
         exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
@@ -365,10 +365,10 @@ theorem Expr.hasLooseBVarBGo_spec :
     rw [hasLooseBVarBGo]
     split
     · rename_i hcut
-      exact ⟨by rw [Expr.hasLooseBVarB, if_pos hcut], hm⟩
+      exact ⟨by rw [Expr.hasLooseBVarB, ite_eq_left hcut], hm⟩
     · rename_i hcut
       have hspec : Expr.hasLooseBVarB i (.proj s j sub) = Expr.hasLooseBVarB i sub := by
-        rw [Expr.hasLooseBVarB, if_neg hcut]
+        rw [Expr.hasLooseBVarB, ite_eq_right hcut]
       split
       · rename_i r hhit
         exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩

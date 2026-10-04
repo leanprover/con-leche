@@ -443,7 +443,7 @@ theorem phApp?_instantiate1_fvar {b N : Nat} {i : Nat} {ty : Expr} (hi : ¬ (b �
         simp only [instantiate1]
         split
         · simp only [phApp?]
-          rw [if_neg (by omega)]
+          rw [ite_eq_right (by omega)]
         · split <;> simp [phApp?]
       | _ => simp [instantiate1, phApp?]
     | bvar j =>
@@ -473,7 +473,7 @@ theorem replaceApps_instantiate1_fvar {f : Name → List Level → Option Expr} 
     intro k
     by_cases hjk : j = k
     · subst hjk; simp [instantiate1, replaceApps]
-    · simp only [instantiate1, hjk, if_false, replaceApps]
+    · simp only [instantiate1, hjk, ite_false, replaceApps]
       split <;> simp [replaceApps, *]
   | fvar j t _ => intro k; rfl
   | sort u => intro k; rfl

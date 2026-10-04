@@ -308,7 +308,7 @@ theorem classKeyOfS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) {n
     exact ConLeche.replaceFVars_WScoped_of_below
       (fun i r hr => hp r (List.mem_of_getElem? hr))
       (fun i hi => by simp [hpl, hi]) y (Expr.fvarB_le hx'.2)
-  simp only [if_true]
+  simp only [ite_true]
   refine SimC.bind (annotateLoopS_sim hμ henv _ [] hs hw (fun _ h => nomatch h))
     (fun s₁ ds ds' hs₁ hD => ?_)
   obtain ⟨rfl, hwd⟩ := hD
@@ -422,8 +422,8 @@ theorem classFieldsAgreeS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF e
     rcases x with ⟨teleB, leaf⟩
     dsimp only
     by_cases hl : classLeafAt (Ms.getD t default) leaf = true
-    case neg => simp only [hl, Bool.false_eq_true, if_false]; exact SimC.throw_bind
-    simp only [hl, if_true]
+    case neg => simp only [hl, Bool.false_eq_true, ite_false]; exact SimC.throw_bind
+    simp only [hl, ite_true]
     refine SimC.bind (classNodesAgreeS_sim hμ henv hformer (TargetMajScoped.getD hMs t) E hs₁)
       (fun s₂ u u' hs₂ hU => ?_)
     obtain rfl : u = u' := hU
@@ -500,30 +500,30 @@ theorem classConstOkS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) 
   simp only [mkFEnv_find?, constsResolveF_eq, mkFEnv_env]
   dsimp only [sharedOpsC]
   by_cases h1 : (env.find? cv.name).isSome = true
-  · simp only [if_pos h1]; exact SimC.throw_bind
-  simp only [if_neg h1]
+  · simp only [ite_eq_left h1]; exact SimC.throw_bind
+  simp only [ite_eq_right h1]
   by_cases h2 : reservedBasisNames.contains cv.name = true
-  · simp only [if_pos h2]; exact SimC.throw_bind
-  simp only [if_neg h2]
+  · simp only [ite_eq_left h2]; exact SimC.throw_bind
+  simp only [ite_eq_right h2]
   by_cases h3 : cv.name.isProjFnShape = true
-  · simp only [if_pos h3]; exact SimC.throw_bind
-  simp only [if_neg h3]
+  · simp only [ite_eq_left h3]; exact SimC.throw_bind
+  simp only [ite_eq_right h3]
   by_cases h4 : Name.nodup cv.levelParams = true
-  case neg => simp only [if_neg h4]; exact SimC.throw_bind
-  simp only [if_pos h4]
+  case neg => simp only [ite_eq_right h4]; exact SimC.throw_bind
+  simp only [ite_eq_left h4]
   by_cases h5 : Expr.looseBVarsBounded 0 cv.type = true
-  case neg => simp only [if_neg h5]; exact SimC.throw_bind
-  simp only [if_pos h5]
+  case neg => simp only [ite_eq_right h5]; exact SimC.throw_bind
+  simp only [ite_eq_left h5]
   by_cases h6 : cv.type.hasFvar = true
-  · simp only [if_pos h6]; exact SimC.throw_bind
-  simp only [if_neg h6]
+  · simp only [ite_eq_left h6]; exact SimC.throw_bind
+  simp only [ite_eq_right h6]
   have hwty : WScoped 0 cv.type := WScoped.of_not_hasFvar (Bool.not_eq_true _ ▸ h6)
   by_cases h7 : Expr.allLevelParamsDefined cv.levelParams cv.type = true
-  case neg => simp only [if_neg h7]; exact SimC.throw_bind
-  simp only [if_pos h7]
+  case neg => simp only [ite_eq_right h7]; exact SimC.throw_bind
+  simp only [ite_eq_left h7]
   by_cases h8 : Expr.constsResolve env cv.type = true
-  case neg => simp only [if_neg h8]; exact SimC.throw_bind
-  simp only [if_pos h8]
+  case neg => simp only [ite_eq_right h8]; exact SimC.throw_bind
+  simp only [ite_eq_left h8]
   refine SimC.bind (opE_infer_sim hμ henv hs hwty) (fun s₂ sty sty' hs₂ hP₂ => ?_)
   obtain ⟨rfl, hwsty⟩ := hP₂
   refine SimC.bind (opS_sim hμ henv hs₂ hwsty) (fun s₃ u u' hs₃ hP₃ => ?_)
@@ -616,15 +616,15 @@ theorem classRuleOkS_simG (hμ : mode.verifiedChecks = true) {envR : Env} (henvR
   simp only [mkFEnv_env]
   by_cases h1 : (gen.looseBVarsBounded 0 && !gen.hasFvar) = true
   case neg => simp only [h1]; exact SimG.throw_bind
-  simp only [h1, if_true]
+  simp only [h1, ite_true]
   have hw : WScoped 0 gen := WScoped.of_not_hasFvar (by
     simp only [Bool.and_eq_true, Bool.not_eq_true'] at h1; exact h1.2)
   by_cases h3 : allLevelParamsDefined cvR.levelParams gen = true
   case neg => simp only [h3]; exact SimG.throw_bind
-  simp only [h3, if_true]
+  simp only [h3, ite_true]
   by_cases h4 : StructWalkers.plain.resolve (mkFEnv envR) gen = true
   case neg => simp only [h4]; exact SimG.throw_bind
-  simp only [h4, if_true]
+  simp only [h4, ite_true]
   refine SimG.bind (ruleR_infer_simG_all hμ henvR hw) (fun _ _ _ => ?_)
   refine SimG.bind (SimG.unwrapOr (fun _ h => h)) (fun x x' hX => ?_)
   obtain ⟨rfl, -⟩ := hX
@@ -632,10 +632,10 @@ theorem classRuleOkS_simG (hμ : mode.verifiedChecks = true) {envR : Env} (henvR
   dsimp only
   by_cases h5 : (rbs.all fun b => StructWalkers.plain.resolve (mkFEnv envT) b.1) = true
   case neg => simp only [h5]; exact SimG.throw_bind
-  simp only [h5, if_true]
+  simp only [h5, ite_true]
   by_cases h6 : (rbs.all fun b => b.2.pw == pw) = true
   case neg => simp only [h6]; exact SimG.throw_bind
-  simp only [h6, if_true]
+  simp only [h6, ite_true]
   exact SimG.pure (fun _ h => h) rfl
 
 theorem classRulesOkS_simG (hμ : mode.verifiedChecks = true) {envR envT : Env}
@@ -724,11 +724,11 @@ theorem genRecCheckS_simG (hμ : mode.verifiedChecks = true) {env₂ : Env}
     fun cvRis cvRis' hC => ?_
   obtain ⟨rfl, hwRis⟩ := hC
   by_cases h2 : 0 < p.k
-  case neg => simp only [h2, if_false]; exact SimG.throw_bind
-  simp only [h2, if_true]
+  case neg => simp only [h2, ite_false]; exact SimG.throw_bind
+  simp only [h2, ite_true]
   by_cases h3 : (p.large && !blockLargeElimAllowed p (nestedBit || Ms₀.any fun x =>
       x.member.isNone)) = true
-  case pos => simp only [h3, if_true]; exact SimG.throw_bind
+  case pos => simp only [h3, ite_true]; exact SimG.throw_bind
   simp only [h3]
   -- every class's table entries; the generator's constructors
   refine SimG.bind (SimG.ofC fun s hs => classesNfsS_sim hμ henv₂ hformer Ms₀ hs
@@ -740,7 +740,7 @@ theorem genRecCheckS_simG (hμ : mode.verifiedChecks = true) {env₂ : Env}
   by_cases h4 : ((List.filter ClassSlot.isMinor rd.slots).length ==
       (List.map List.length ctors).sum) = true
   case neg => simp only [h4]; exact SimG.throw_bind
-  simp only [h4, if_true]
+  simp only [h4, ite_true]
   -- generation
   refine SimG.bind (SimG.ofC fun s hs => classFormerTysS_sim Ms hs) fun fT fT' hF => ?_
   obtain rfl : fT = fT' := hF
@@ -1052,8 +1052,8 @@ theorem checkBlockKS_run (hμ : mode.verifiedChecks = true)
     ∃ F, checkBlock (fueledOps mode F) env block p₀ = .ok feOut.env := by
   unfold checkBlockKS at h
   by_cases hnd : (p₀.allCtors.map (·.1.name)).Nodup ∧ p₀.memberNames.Nodup
-  case neg => rw [if_neg hnd] at h; exact absurd h throwC_bind_ok
-  rw [if_pos hnd] at h
+  case neg => rw [ite_eq_right hnd] at h; exact absurd h throwC_bind_ok
+  rw [ite_eq_left hnd] at h
   obtain ⟨u0, sA, hfl0, h⟩ := bindC_ok h
   rw [flushC_run] at hfl0
   injection hfl0 with hfl0
@@ -1074,7 +1074,7 @@ theorem checkBlockKS_run (hμ : mode.verifiedChecks = true)
       = .ok feOut.env := by
     rw [← checkBlockTail_datF]; exact FueledM.up (Nat.le_max_right _ _) hF₂
   unfold checkBlock
-  rw [if_pos hnd]
+  rw [ite_eq_left hnd]
   simp only [Bind.bind, Except.bind, pure, Except.pure]
   rw [g₁]
   simp only [Except.bind]
@@ -1111,7 +1111,7 @@ theorem checkModeledOrNativeSF_run (hμ : mode.verifiedChecks = true) {env : Env
         else throw (CheckError.invalid "number of parameters mismatch")) = .ok feOut.env
   -- task #293: this block is not one of the five pinned ones (the
   -- recognition happened before the dispatch, on both sides)
-  simp only [hpin, if_pos hok]
+  simp only [hpin, ite_eq_left hok]
   cases hfp : blockParts? nP block with
   | some p =>
     rw [hfp] at h

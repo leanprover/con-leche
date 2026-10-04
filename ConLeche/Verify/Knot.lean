@@ -169,7 +169,7 @@ theorem inferTypeIO_on (hg : mode.betaGate = true) (env : Env) :
       inferTypeIO mode env f d e = inferTypeCoreIO mode env f d e
   | 0, _, _ => rfl
   | f + 1, d, e => by
-    rw [inferTypeIO_succ, hg, if_pos rfl, inferTypeCoreIO_succ]
+    rw [inferTypeIO_succ, hg, ite_eq_left rfl, inferTypeCoreIO_succ]
     exact inferBodyIO_congr (mode := mode)
       (r₁ := (pureFns mode env f).ioView) (r₂ := pureFnsIO mode env f)
       (funext fun d' => funext fun e' => (pureFnsIO_whnf env f d' e').symm)

@@ -175,7 +175,7 @@ theorem denoteMeta_instLevels (hp : AcvalParamsAt env acval)
   | case4 d n ws ci h1 h2 =>
     rw [Expr.instantiateLevelParams, denoteMeta, denoteMeta, h1]
     simp only []
-    rw [if_neg h2, if_neg (by simpa using h2)]
+    rw [ite_eq_right h2, ite_eq_right (by simpa using h2)]
   | case5 d n ws h1 =>
     rw [Expr.instantiateLevelParams, denoteMeta, denoteMeta, h1]
   | case6 d ty body mb ihty ihbody =>
@@ -193,17 +193,17 @@ theorem denoteMeta_instLevels (hp : AcvalParamsAt env acval)
   | case10 d sn i e ihe =>
     rw [Expr.instantiateLevelParams, denoteMeta_proj, denoteMeta_proj, ihe]
   | case11 d k hsup =>
-    rw [Expr.instantiateLevelParams, denoteMeta, denoteMeta, if_pos hsup,
-      if_pos hsup]
+    rw [Expr.instantiateLevelParams, denoteMeta, denoteMeta, ite_eq_left hsup,
+      ite_eq_left hsup]
     obtain ⟨ez, es⟩ := acvalAt_natPair hp hsup
       (Level.substFn φ [] []) (Level.substFn (Level.substFn φ ks us) [] [])
     rw [ez, es]
   | case12 d k hsup =>
-    rw [Expr.instantiateLevelParams, denoteMeta, denoteMeta, if_neg hsup,
-      if_neg hsup]
+    rw [Expr.instantiateLevelParams, denoteMeta, denoteMeta, ite_eq_right hsup,
+      ite_eq_right hsup]
   | case13 d s hsup =>
-    rw [Expr.instantiateLevelParams, denoteMeta, denoteMeta, if_pos hsup,
-      if_pos hsup]
+    rw [Expr.instantiateLevelParams, denoteMeta, denoteMeta, ite_eq_left hsup,
+      ite_eq_left hsup]
     have hg := hsup
     simp only [ConLeche.strLitSupported, Bool.and_eq_true] at hg
     obtain ⟨⟨⟨⟨⟨⟨⟨h0, -⟩, h2⟩, -⟩, h4⟩, h5⟩, h6⟩, h7⟩ := hg
@@ -244,8 +244,8 @@ theorem denoteMeta_instLevels (hp : AcvalParamsAt env acval)
       φ (Level.substFn φ ks us)
     rw [ez, es, esol, echar, eofn, enil, econs]
   | case14 d s hsup =>
-    rw [Expr.instantiateLevelParams, denoteMeta, denoteMeta, if_neg hsup,
-      if_neg hsup]
+    rw [Expr.instantiateLevelParams, denoteMeta, denoteMeta, ite_eq_right hsup,
+      ite_eq_right hsup]
   | case15 d x hxs hfv hc hpi hlam happ hlet hproj hnat hstr =>
     cases x with
     | bvar i =>

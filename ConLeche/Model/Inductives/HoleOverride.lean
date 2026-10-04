@@ -43,16 +43,16 @@ theorem substAV_holeBack_liftN {nP k : Nat} {x : Nat → AnnotTerm}
     intro c h
     have h' : ¬ (c ≤ i ∧ i < c + k) := h
     by_cases hic : i < c
-    · rw [AnnotTerm.substAV_bvar_lt _ hic, AnnotTerm.liftN_bvar, if_pos hic]
+    · rw [AnnotTerm.substAV_bvar_lt _ hic, AnnotTerm.liftN_bvar, ite_eq_left hic]
     · rw [AnnotTerm.substAV_bvar_ge _ (by omega)]
       have hik : c + k ≤ i := by omega
       unfold substTau
       by_cases hb : i - c < nP + k
-      · rw [if_pos hb, show nP + k - 1 - (i - c) = nP - 1 - (i - c - k) by omega,
+      · rw [ite_eq_left hb, show nP + k - 1 - (i - c) = nP - 1 - (i - c - k) by omega,
           hx _ (by omega)]
         simp only [AnnotTerm.liftN_bvar]
         split <;> split <;> first | omega | (congr 1; omega)
-      · rw [if_neg hb]
+      · rw [ite_eq_right hb]
         simp only [AnnotTerm.liftN_bvar]
         split <;> split <;> first | omega | (congr 1; omega)
   | sort u => intro c _; rfl
@@ -97,8 +97,8 @@ theorem substE_holeBack {nP k : Nat} {x : Nat → AnnotTerm}
   congr 1
   funext q
   by_cases hq : q < nP
-  · rw [if_pos hq, hx _ (by omega), interp_bvar, show nP - 1 - (nP - 1 - q) = q by omega]
-  · rw [if_neg hq, show q - nP + nP = q by omega]
+  · rw [ite_eq_left hq, hx _ (by omega), interp_bvar, show nP - 1 - (nP - 1 - q) = q by omega]
+  · rw [ite_eq_right hq, show q - nP + nP = q by omega]
 
 end Frame
 

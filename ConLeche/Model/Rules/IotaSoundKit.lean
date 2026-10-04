@@ -196,7 +196,7 @@ theorem map_interp_getD_eqK {ρ : Nat → V} {as bs : List AnnotTerm}
 theorem getD_takeAK {as : List AnnotTerm} {k i : Nat} (hi : i < k) :
     (as.take k).getD i default = as.getD i default := by
   rw [List.getD_eq_getElem?_getD, List.getD_eq_getElem?_getD,
-    List.getElem?_take, if_pos hi]
+    List.getElem?_take, ite_eq_left hi]
 
 /-- `getD` through `drop`. -/
 theorem getD_dropAK (as : List AnnotTerm) (k i : Nat) :

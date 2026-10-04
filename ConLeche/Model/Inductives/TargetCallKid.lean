@@ -49,9 +49,9 @@ theorem holeOwner_kid {ns : List PosTree} {par : Nat → Nat} {b b' : Nat} (hpar
       holeOwnerF ns par b' (par b') i else par b') = _
   rw [hpar, hub]
   by_cases hi : i < u.anc.length
-  · rw [if_pos ⟨hi, hlt⟩, if_pos hi]
+  · rw [ite_eq_left ⟨hi, hlt⟩, ite_eq_left hi]
     exact holeOwnerF_fuel _ _ _ _ hlt (by omega)
-  · rw [if_neg (fun h => hi h.1), if_neg hi]
+  · rw [ite_eq_right (fun h => hi h.1), ite_eq_right hi]
 
 section Kid
 
@@ -93,9 +93,9 @@ theorem admVal_kid (H : DynCtx F mk mpC ctx d ns) {ψ : Name → Nat} {ρ : Nat 
   have hdsa := dyn_dsaI H hu ψ
   have hps : ConLeche.ProgScoped ctx u.anc := hok.2.2.2.1
   have hnlDb : nlDb mpC d ns b = lfpSel mpC d.toLfp u.key.cname := by
-    unfold nlDb; rw [if_neg hb00, hub]
+    unfold nlDb; rw [ite_eq_right hb00, hub]
   have hnlψ : nlψ envC ns ψ b = nodeψ envC ψ u := by
-    unfold nlψ; rw [if_neg hb00, hub]
+    unfold nlψ; rw [ite_eq_right hb00, hub]
   have hnlFr : nlFr mpC ctx d ns ψ ρ xs b
       = keyFrame (nodeDsaI mk ctx ψ u) (ctx.hiAt u.anc.length) (trueVal mpC ctx ψ ρ xs u.anc) := by
     rw [dyn_nlFr H hb00 (hub ▸ getD_mem_of_lt hb0 hbl) ψ ρ xs, hub]
@@ -155,7 +155,7 @@ theorem admVal_kid (H : DynCtx F mk mpC ctx d ns) {ψ : Name → Nat} {ρ : Nat 
     rw [hown i]
     by_cases hin : i < u.anc.length
     · -- below the parent's group: the parent's owner
-      rw [if_pos hin]
+      rw [ite_eq_left hin]
       rw [List.getElem?_append_left (by simpa using hin)] at hi
       obtain ⟨h0, hl, hm, ⟨Ys, hYs⟩, hkf, hland⟩ := hσ.frame i hk hi
       have hGl' : (ConLeche.grpNews u.key.lvls u.key.ds (ctx.hiAt u.anc.length)
@@ -187,7 +187,7 @@ theorem admVal_kid (H : DynCtx F mk mpC ctx d ns) {ψ : Name → Nat} {ρ : Nat 
         rw [hidx, htvq]
         exact g2 nf
     · -- on the parent's group: the parent
-      rw [if_neg hin]
+      rw [ite_eq_right hin]
       have hge : u.anc.length ≤ i := Nat.le_of_not_lt hin
       have hilt : i ≤ u'.anc.length := by
         have := (List.getElem?_eq_some_iff.mp hi).1

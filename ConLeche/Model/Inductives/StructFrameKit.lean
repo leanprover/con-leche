@@ -410,7 +410,7 @@ theorem capsOk_cons_native (mp : EnvModelM V μ env)
   have hdown : ∀ n : Name, n ≠ c₀.name →
       (⟨c₀ :: env.consts⟩ : Env).find? n = env.find? n := by
     intro n hn
-    rw [ConLeche.Env.find?_cons, if_neg (fun hh => hn hh.symm)]
+    rw [ConLeche.Env.find?_cons, ite_eq_right (fun hh => hn hh.symm)]
   have hneT : ∀ (T' : Name) (cvT' : ConstantVal) (caps' : IndCaps),
       (⟨c₀ :: env.consts⟩ : Env).find? T' = some (.indInfo cvT' caps') →
       T' ≠ T → T' ≠ c₀.name := by
@@ -563,12 +563,12 @@ theorem denoteMeta_agree_of_readsAt
     intro hcr
     rw [denoteMeta, denoteMeta, hf]
     dsimp only
-    rw [if_pos hlen, if_pos hlen, hag n hcr]
+    rw [ite_eq_left hlen, ite_eq_left hlen, hag n hcr]
   | case4 d n us ci hf hlen =>
     intro _
     rw [denoteMeta, denoteMeta, hf]
     dsimp only
-    rw [if_neg hlen, if_neg hlen]
+    rw [ite_eq_right hlen, ite_eq_right hlen]
   | case5 d n us hf => intro _; rw [denoteMeta, denoteMeta, hf]
   | case6 d ty body m ihty ihbody =>
     intro hcr
@@ -590,20 +590,20 @@ theorem denoteMeta_agree_of_readsAt
   | case11 d n hsup =>
     intro hcr
     obtain ⟨hZ, hS⟩ := hcr hsup
-    rw [denoteMeta, denoteMeta, if_pos hsup, if_pos hsup, hag natZeroName hZ,
+    rw [denoteMeta, denoteMeta, ite_eq_left hsup, ite_eq_left hsup, hag natZeroName hZ,
       hag natSuccName hS]
   | case12 d n hsup =>
     intro _
-    rw [denoteMeta, denoteMeta, if_neg hsup, if_neg hsup]
+    rw [denoteMeta, denoteMeta, ite_eq_right hsup, ite_eq_right hsup]
   | case13 d s hsup =>
     intro hcr
     obtain ⟨hO, hN, hC, hH, hF, hZ, hS⟩ := hcr hsup
-    rw [denoteMeta, denoteMeta, if_pos hsup, if_pos hsup,
+    rw [denoteMeta, denoteMeta, ite_eq_left hsup, ite_eq_left hsup,
       hag stringOfListName hO, hag listNilName hN, hag listConsName hC,
       hag charName hH, hag charOfNatName hF, hag natZeroName hZ, hag natSuccName hS]
   | case14 d s hsup =>
     intro _
-    rw [denoteMeta, denoteMeta, if_neg hsup, if_neg hsup]
+    rw [denoteMeta, denoteMeta, ite_eq_right hsup, ite_eq_right hsup]
   | case15 d x hs hfv hc hpi hlam happ hlet hproj hnat hstr =>
     intro _
     cases x with

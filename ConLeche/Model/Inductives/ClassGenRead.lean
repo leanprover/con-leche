@@ -128,7 +128,7 @@ theorem filter_range_getElem_count {p : Nat → Bool} {n c s : Nat}
     congr 1
     rw [show n - s = (n - s - 1) + 1 by omega, List.range_succ_eq_map, List.map_cons,
       List.map_map, List.filter_cons]
-    simp only [Nat.add_zero, hps, if_true]
+    simp only [Nat.add_zero, hps, ite_true]
     rfl
   have hnd : ((List.range n).filter p).Nodup := List.nodup_range.filter _
   rw [hfilt] at h hnd
@@ -137,7 +137,7 @@ theorem filter_range_getElem_count {p : Nat → Bool} {n c s : Nat}
     rw [List.getElem?_append_right (Nat.le_refl _), Nat.sub_self]; rfl
   have hlt : c < ((List.range s).filter p ++ s :: ((List.range (n - s - 1)).map
       (fun x => s + (x + 1))).filter p).length := (List.getElem?_eq_some_iff.mp h).1
-  exact ((List.getElem?_inj hlt hnd).mp (by rw [h, h2])).symm
+  exact ((List.Nodup.getElem?_inj hlt hnd).mp (by rw [h, h2])).symm
 
 /-- The motive slots before a class's motive are the classes before it. -/
 theorem motiveSlot_count {slots : List ConLeche.ClassSlot} {c s : Nat}

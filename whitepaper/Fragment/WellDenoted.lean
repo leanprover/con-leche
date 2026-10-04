@@ -346,11 +346,11 @@ private theorem WellDenoted_inst_mpr (a : Expr) :
     intro k ρ _ hwa
     rw [Expr.inst_bvar]
     by_cases h : i < k
-    · rw [if_pos h]; exact .bvar
-    · rw [if_neg h]
+    · rw [ite_eq_left h]; exact .bvar
+    · rw [ite_eq_right h]
       by_cases h2 : i = k
-      · rw [if_pos h2]; exact (WellDenoted_liftN M φ k a 0 ρ).mpr hwa
-      · rw [if_neg h2]; exact .bvar
+      · rw [ite_eq_left h2]; exact (WellDenoted_liftN M φ k a 0 ρ).mpr hwa
+      · rw [ite_eq_right h2]; exact .bvar
   | sort => intro k ρ _ _; exact .sort
   | const => intro k ρ _ _; exact .const
   | appFun hf ha hslot hmem ihf iha =>

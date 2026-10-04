@@ -76,7 +76,7 @@ theorem instSeq_abstractRange_open {pre : List Expr}
     injection hty' with hik hty''
     subst hik
     simp only [Expr.abstractRange]
-    rw [if_pos (by omega)]
+    rw [ite_eq_left (by omega)]
     have hget := Expr.instSeq_bvar pre (c + (n + 1) - 1) (c + (0 + (n + 1) - 1 - idx)) hcl
       (by omega) (by omega)
     rw [show c + (n + 1) - 1 - (c + (0 + (n + 1) - 1 - idx)) = idx by omega,

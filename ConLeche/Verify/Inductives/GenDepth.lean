@@ -61,7 +61,7 @@ theorem openPisAtFvars_shiftFrom {p : Nat} :
       rw [shiftFrom_instantiate1 hpd] at ih
       simp only [shiftFrom, openPisAtFvars]
       rw [ih]
-      simp only [List.map_cons, shiftFrom, if_pos hpd]
+      simp only [List.map_cons, shiftFrom, ite_eq_left hpd]
     · exact nomatch h
   | _ + 1, .bvar _, _, _, _, _, h | _ + 1, .fvar _ _, _, _, _, _, h
   | _ + 1, .sort _, _, _, _, _, h | _ + 1, .const _ _, _, _, _, _, h

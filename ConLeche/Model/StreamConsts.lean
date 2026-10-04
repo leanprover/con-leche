@@ -353,13 +353,13 @@ theorem instantiate1_abstract1_self {d : Nat} {T : Expr} :
     simp only [instantiate1]
     by_cases h1 : i = k
     · simp [h1, abstract1]
-    · rw [if_neg h1, if_neg (by omega)]
+    · rw [ite_eq_right h1, ite_eq_right (by omega)]
       simp [abstract1]
   | fvar idx ty ih =>
     intro k hf hb
     simp only [fvarsBelow] at hf
     simp only [instantiate1, abstract1]
-    rw [if_neg (by omega)]
+    rw [ite_eq_right (by omega)]
   | app f a ihf iha =>
     intro k hf hb
     simp only [fvarsBelow] at hf

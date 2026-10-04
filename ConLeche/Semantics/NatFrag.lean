@@ -72,7 +72,7 @@ theorem natFrag_subst_syntax {c : Name} {v : Expr}
     rw [show Expr.substConst0 c v (Expr.const n us)
       = (if n = c ∧ us = [] then v else Expr.const n us) from rfl]
     by_cases hn : n = c ∧ us.isEmpty = true
-    · rw [if_pos (show n = c ∧ us = [] from
+    · rw [ite_eq_left (show n = c ∧ us = [] from
         ⟨hn.1, List.isEmpty_iff.mp hn.2⟩)]
       refine ⟨Expr.WScoped.mono (Nat.zero_le 2)
           (Expr.WScoped.of_not_hasFvar hvf), hvb,
@@ -80,7 +80,7 @@ theorem natFrag_subst_syntax {c : Name} {v : Expr}
       intro l hl
       rw [Expr.fvarLeaves_eq_nil_of_not_hasFvar hvf] at hl
       exact nomatch hl
-    · rw [if_neg (fun hh => hn ⟨hh.1, by rw [hh.2]; rfl⟩)]
+    · rw [ite_eq_right (fun hh => hn ⟨hh.1, by rw [hh.2]; rfl⟩)]
       refine ⟨by rw [Expr.WScoped]; trivial, rfl, ?_, ?_⟩
       · intro l hl; simp [Expr.fvarLeaves] at hl
       · intro l hl; simp [Expr.fvarLeaves] at hl

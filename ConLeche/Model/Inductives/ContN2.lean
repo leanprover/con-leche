@@ -232,7 +232,7 @@ theorem consList_map_apply (vs : List V) (τ : Nat → V) (q : Nat) :
     consList vs τ q = if q < vs.length then vs.getD (vs.length - 1 - q) pt
       else τ (q - vs.length) := by
   by_cases hq : q < vs.length
-  · rw [if_pos hq]
+  · rw [ite_eq_left hq]
     induction vs generalizing τ q with
     | nil => exact absurd hq (Nat.not_lt_zero _)
     | cons a as ih =>
@@ -246,7 +246,7 @@ theorem consList_map_apply (vs : List V) (τ : Nat → V) (q : Nat) :
         rw [Nat.zero_add] at this
         rw [this]
         simp [cons]
-  · rw [if_neg hq]
+  · rw [ite_eq_right hq]
     obtain ⟨j, rfl⟩ : ∃ j, q = j + vs.length := ⟨q - vs.length, by omega⟩
     rw [consList_apply_add, Nat.add_sub_cancel]
 

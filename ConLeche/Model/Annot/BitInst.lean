@@ -79,8 +79,8 @@ theorem liftN_liftN : ∀ (e : AnnotTerm) (n m k : Nat),
     intro n m k
     simp only [liftN_bvar]
     by_cases h : i < k
-    · rw [if_pos h, if_pos h, if_pos h]
-    · rw [if_neg h, if_neg h, if_neg (show ¬ i + m < k from by omega)]
+    · rw [ite_eq_left h, ite_eq_left h, ite_eq_left h]
+    · rw [ite_eq_right h, ite_eq_right h, ite_eq_right (show ¬ i + m < k from by omega)]
       congr 1
       omega
   | sort u => intro _ _ _; rfl
@@ -230,7 +230,7 @@ theorem denoteMeta_substFvarAt
               simp [ConLeche.Expr.substFvarAt, h1, h2],
           denoteMeta, denoteMeta]
         simp only [Option.map_some, AnnotTerm.inst_bvar,
-          if_pos (show D + 1 - 1 - idx < D - p from by omega)]
+          ite_eq_left (show D + 1 - 1 - idx < D - p from by omega)]
         congr 2
         omega
       · rw [show ConLeche.Expr.substFvarAt p a (Expr.fvar idx ty)
@@ -238,8 +238,8 @@ theorem denoteMeta_substFvarAt
               simp [ConLeche.Expr.substFvarAt, h1, h2],
           denoteMeta, denoteMeta]
         simp only [Option.map_some, AnnotTerm.inst_bvar,
-          if_neg (show ¬ D + 1 - 1 - idx < D - p from by omega),
-          if_neg (show ¬ D + 1 - 1 - idx = D - p from by omega)]
+          ite_eq_right (show ¬ D + 1 - 1 - idx < D - p from by omega),
+          ite_eq_right (show ¬ D + 1 - 1 - idx = D - p from by omega)]
         congr 2
         omega
   | .app fe b, D, hpD, hfb => by

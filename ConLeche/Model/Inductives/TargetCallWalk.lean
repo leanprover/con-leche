@@ -474,12 +474,12 @@ theorem callWalkSyn {ops : ConLeche.CheckerOps CheckM} {envW : Env}
           ctx.params := by
       rw [hfn, Expr.substFvars_fvar_lt hvb]
       unfold callSubst
-      rw [if_neg (by omega), if_pos (by omega)]
+      rw [ite_eq_right (by omega), ite_eq_left (by omega)]
       have hsuf := ConLeche.nestHoleImg_suffix (ctx := ctx) prog [] (v := v) (by simpa using hhi0)
       rw [List.append_nil] at hsuf
       rw [hsuf]
       simp only [ConLeche.nestHoleImg]
-      rw [if_pos ⟨hlo, hhi0⟩, Option.getD_some]
+      rw [ite_eq_left ⟨hlo, hhi0⟩, Option.getD_some]
     obtain ⟨htl, htel, hI, hus, hlen, hpre, hargs⟩ := common _ _ _ hS hwNP
     exact ⟨teleW, leafC, w, ctx.params, hshape, htl, htel,
       fun q hq => ⟨hteleH q hq, hteleF q hq⟩, hopen, hwF, hlen, hpre, hargs,
@@ -495,7 +495,7 @@ theorem callWalkSyn {ops : ConLeche.CheckerOps CheckM} {envW : Env}
             (nestHoleImg ctx (prog.drop (prog.length - (v - ctx.hiAt 0)))))) := by
       rw [hfn, Expr.substFvars_fvar_lt hvb]
       unfold callSubst
-      rw [if_neg (by simp [ConLeche.NestCtx.hiAt] at hlo ⊢; omega), if_pos hhi']
+      rw [ite_eq_right (by simp [ConLeche.NestCtx.hiAt] at hlo ⊢; omega), ite_eq_left hhi']
       have hfr := nestHoleImg_frame (ctx := ctx) hk
       rw [show ctx.hiAt (v - ctx.hiAt 0) = v by simp [ConLeche.NestCtx.hiAt] at hlo ⊢; omega]
         at hfr

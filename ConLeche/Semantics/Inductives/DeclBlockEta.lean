@@ -72,7 +72,7 @@ theorem consSumCtors_find?_of_not_mem {nP : Nat} {n : Name} :
   | c :: cs, env, hn => by
     simp only [consSumCtors]
     simp only [List.map_cons, List.mem_cons, not_or] at hn
-    rw [consSumCtors_find?_of_not_mem hn.2, ConLeche.Env.find?_cons, if_neg (fun h => hn.1 h.symm)]
+    rw [consSumCtors_find?_of_not_mem hn.2, ConLeche.Env.find?_cons, ite_eq_right (fun h => hn.1 h.symm)]
 
 
 /-!
@@ -116,7 +116,7 @@ theorem consBlockInds_find?_of_ne {p₁ : BlockShape} {isRec : Bool} {n : Name} 
     simp only [consBlockInds]
     rw [consBlockInds_find?_of_ne (fun c hc => hne c (List.mem_cons_of_mem _ hc)),
       ConLeche.Env.find?_cons]
-    exact if_neg (hne cv List.mem_cons_self)
+    exact ite_eq_right (hne cv List.mem_cons_self)
 
 /-- A name none of the consed constructors carries reads through the
 constructors' conses unchanged. -/
@@ -291,7 +291,7 @@ theorem extEta_snoc {env env' : Env} {c₀ : ConstantInfo} (hx : ExtEta env env'
     ExtEta env ⟨c₀ :: env'.consts⟩ := by
   refine ⟨fun n ci hf hnr => ?_, fun T cvT caps hf => ?_⟩
   · have hne : c₀.name ≠ n := fun hh => by rw [hh, hf] at hfresh; exact nomatch hfresh
-    rw [ConLeche.Env.find?_cons, if_neg hne]
+    rw [ConLeche.Env.find?_cons, ite_eq_right hne]
     exact hx.1 n ci hf hnr
   · rw [ConLeche.Env.find?_cons] at hf
     split at hf

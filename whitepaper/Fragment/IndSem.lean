@@ -113,7 +113,7 @@ noncomputable def untuple (t : V) : List V :=
 theorem untuple_tuple (vs : List V) : untuple (tuple vs : V) = vs := by
   unfold untuple
   have h : ∃ ws, (tuple ws : V) = tuple vs := ⟨vs, rfl⟩
-  rw [dif_pos h]
+  rw [dite_eq_left h]
   exact tuple_inj (Classical.choose_spec h)
 
 /-- The union of a list of sets. -/
@@ -409,7 +409,7 @@ noncomputable def pickMem (A : V) : V :=
   open Classical in if h : ∃ v, v ∈ˢ A then Classical.choose h else pt
 
 theorem pickMem_mem {A : V} (h : ∃ v, v ∈ˢ A) : pickMem A ∈ˢ A := by
-  unfold pickMem; rw [dif_pos h]; exact Classical.choose_spec h
+  unfold pickMem; rw [dite_eq_left h]; exact Classical.choose_spec h
 
 /-- The length of the longest field list of the container's
 constructors: the field positions its support codes range over. -/
@@ -773,7 +773,7 @@ theorem famOp_maps {ps : List V} (hb : S.DomsBounded M ls ps) (hco : S.ContOk M 
     refine image_mem_univ hn (sep_mem_univ hset) fun t ht => ?_
     obtain ⟨fs, hfs, rfl⟩ := (S.mem_fitsSet M ls).mp (mem_sep.mp ht).1
     rw [untuple_tuple]
-    simp only [ctorVal, hz, Bool.false_eq_true, if_false]
+    simp only [ctorVal, hz, Bool.false_eq_true, ite_false]
     exact tag_mem_univ hn (tuple_mem_univ hn fun v hv => hval fs hfs v (List.mem_reverse.mp hv))
 
 /-! ## The one-fibre family: reading the fields off the family
@@ -1393,7 +1393,7 @@ theorem mem_Fam_true {ps : List V} (hnr : S.NoRecDep) (hb : S.DomsBounded M ls p
     t ∈ˢ S.Fam M ls ps is ↔ t = pt ∧ ∃ x, S.Mem M ls ps is x := by
   rw [S.mem_Fam M ls hnr hb hco]
   unfold Inst Mem ctorVal
-  simp only [hz, if_true]
+  simp only [hz, ite_true]
   constructor
   · rintro ⟨j, c, fs, hc, hfit, his, rfl⟩
     exact ⟨rfl, _, j, c, fs, hc, hfit, his, rfl⟩
@@ -1406,7 +1406,7 @@ theorem mem_Fam_false {ps : List V} (hnr : S.NoRecDep) (hb : S.DomsBounded M ls 
     t ∈ˢ S.Fam M ls ps is ↔ S.Mem M ls ps is t := by
   rw [S.mem_Fam M ls hnr hb hco]
   unfold Inst Mem ctorVal
-  simp only [hz, Bool.false_eq_true, if_false]
+  simp only [hz, Bool.false_eq_true, ite_false]
 
 /-! ## The sets of the former and the constructors
 

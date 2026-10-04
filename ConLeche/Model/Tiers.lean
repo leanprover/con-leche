@@ -204,7 +204,7 @@ theorem inferTypeCore_natLit_inv {fuel d k : Nat} {t : Expr}
     simp only [ConLeche.inferBody, pure, Except.pure] at h
     by_cases hg : ConLeche.natLitSupported env = true
     · exact hg
-    · rw [if_neg hg] at h
+    · rw [ite_eq_right hg] at h
       simp [throw, throwThe, MonadExceptOf.throw] at h
 
 /-- **The string-literal clause's guard, recorded.** -/
@@ -218,7 +218,7 @@ theorem inferTypeCore_strLit_inv {fuel d : Nat} {s : String} {t : Expr}
     simp only [ConLeche.inferBody, pure, Except.pure] at h
     by_cases hg : ConLeche.strLitSupported env = true
     · exact hg
-    · rw [if_neg hg] at h
+    · rw [ite_eq_right hg] at h
       simp [throw, throwThe, MonadExceptOf.throw] at h
 
 /-! ## The walk -/
@@ -253,7 +253,7 @@ private theorem acceptedReads_aux (m : EnvModel V env) (φ : Name → Nat) :
       -- the reading is the (long) pinned character spine; name it by
       -- case analysis rather than transcribing it
       rcases hd : denoteMeta m.acval env φ d (.lit (.strVal s)) with _ | ea
-      · rw [denoteMeta, if_pos (inferTypeCore_strLit_inv h)] at hd
+      · rw [denoteMeta, ite_eq_left (inferTypeCore_strLit_inv h)] at hd
         exact nomatch hd
       · exact ⟨ea, rfl⟩
     | .app f a =>

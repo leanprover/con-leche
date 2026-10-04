@@ -294,13 +294,13 @@ theorem memberImg_val (hpar : ctx.params.length = ctx.nP ∧ ∀ (i : Nat) (x : 
   have himg : nodeImg ctx prog (ctx.nP + t)
       = Expr.mkAppN (.const (ctx.names[t]'ht) (ctx.lps.map Level.param)) ctx.params := by
     unfold nodeImg
-    rw [if_neg (by omega)]
+    rw [ite_eq_right (by omega)]
     have := ConLeche.nestHoleImg_suffix (ctx := ctx) prog [] (v := ctx.nP + t)
       (by simp only [NestCtx.hiAt, List.length_nil]; omega)
     rw [List.append_nil] at this
     rw [this]
     simp only [ConLeche.nestHoleImg]
-    rw [if_pos ⟨by omega, by simp only [NestCtx.hiAt]; omega⟩,
+    rw [ite_eq_left ⟨by omega, by simp only [NestCtx.hiAt]; omega⟩,
       show ctx.nP + t - ctx.nP = t by omega, List.getD_eq_getElem?_getD,
       List.getElem?_eq_getElem ht, Option.getD_some]
     rfl
@@ -391,7 +391,7 @@ theorem dyn_nlFr (H : DynCtx F mk mpC ctx d ns) {b : Nat} (hb : b ≠ 0)
           (ctx.hiAt (ns.getD (b - 1) default).anc.length)
           (trueVal mpC ctx ψ ρ xs (ns.getD (b - 1) default).anc) := by
   unfold nlFr
-  rw [if_neg hb]
+  rw [ite_eq_right hb]
   generalize ns.getD (b - 1) default = t at ht ⊢
   obtain ⟨dsa, hdsa⟩ := (H.hsem t ht ψ).1
   have hI : nodeDsaI mk ctx ψ t = dsa := by rw [nodeDsaI, DenoteMetaSpine.getD_eq hdsa]
@@ -437,22 +437,22 @@ theorem dyn_hAdm (H : DynCtx F mk mpC ctx d ns) (ψ : Name → Nat) (ρ : Nat �
   by_cases hb0 : b = 0
   · subst hb0
     unfold nodeAdm at hadm
-    rw [if_pos rfl] at hadm
+    rw [ite_eq_left rfl] at hadm
     subst hadm
     refine ⟨?_, fun _ _ => rfl⟩
-    simp only [nlDb, nlψ, nlFr, if_true]
+    simp only [nlDb, nlψ, nlFr, ite_true]
     have := sat_of_spineFit (Δ₀ := []) (Sat_nil V ρ) hparams
     rw [List.append_nil] at this
     exact this
   · have ht := getD_mem_of_lt (ns := ns) (b := b) (by omega) (by omega)
     unfold nodeAdm at hadm
-    rw [if_neg hb0] at hadm
+    rw [ite_eq_right hb0] at hadm
     obtain ⟨σ, hσ, rfl⟩ := hadm
     rw [dyn_nlFr H hb0 ht ψ ρ xs,
       show nlDb mpC d ns b = lfpSel mpC d.toLfp (ns.getD (b - 1) default).key.cname by
-        unfold nlDb; rw [if_neg hb0],
+        unfold nlDb; rw [ite_eq_right hb0],
       show nlψ envC ns ψ b = nodeψ envC ψ (ns.getD (b - 1) default) by
-        unfold nlψ; rw [if_neg hb0]]
+        unfold nlψ; rw [ite_eq_right hb0]]
     generalize ns.getD (b - 1) default = t at ht hσ ⊢
     obtain ⟨hD, hwid, hnN, hkN, hall, mm, hmm, hmmH, cv, caps, hfc, hlps, hlpsOf, hndl, hul, hlenP,
       -, hg⟩ := dyn_nodeBlock H ht
@@ -510,7 +510,7 @@ theorem trueVal_frameVal (H : DynCtx F mk mpC ctx d ns) (ψ : Name → Nat) (ρ 
   have himg : nodeImg ctx prog (ctx.nP + (ctx.names.length + i))
       = Expr.mkAppN (.const (D.member mm') o.key.lvls) (o.key.ds.map (nodeRb ctx o.anc)) := by
     unfold nodeImg
-    rw [if_neg (by omega)]
+    rw [ite_eq_right (by omega)]
     have hfi := ConLeche.nestHoleImg_frame (ctx := ctx) hi
     rw [show ctx.hiAt i = ctx.nP + (ctx.names.length + i) by simp only [NestCtx.hiAt]; omega]
       at hfi
@@ -828,9 +828,9 @@ theorem dyn_ownerLeaf (H : DynCtx F mk mpC ctx d ns) (ψ : Name → Nat) (ρ : N
   have hfrU := dyn_nlFr H ho hu ψ ρ xs
   unfold nlComp at hfit ⊢
   rw [show nlDb mpC d ns o = lfpSel mpC d.toLfp (ns.getD (o - 1) default).key.cname by
-      unfold nlDb; rw [if_neg ho],
+      unfold nlDb; rw [ite_eq_right ho],
     show nlψ envC ns ψ o = nodeψ envC ψ (ns.getD (o - 1) default) by
-      unfold nlψ; rw [if_neg ho]] at hfit ⊢
+      unfold nlψ; rw [ite_eq_right ho]] at hfit ⊢
   rw [hfrU] at hfit ⊢
   generalize ns.getD (o - 1) default = u at hu hk_mem hfit hfrU hsuf ⊢
   have hsat := dyn_trueVal_sat H ψ ρ xs hparams hxs _ u hu (Nat.le_refl _)
@@ -907,7 +907,7 @@ theorem dyn_holeOwner (H : DynCtx F mk mpC ctx d ns) {par : Nat → Nat} (hPP : 
     simp only [holeOwnerF]
     rw [hpb]
     by_cases hin : i < p.anc.length
-    · rw [if_pos ⟨hin, hqb⟩]
+    · rw [ite_eq_left ⟨hin, hqb⟩]
       rw [List.getElem?_append_left (by simpa using hin)] at hi
       obtain ⟨h1, h2, h3, h4, h5, X, hX⟩ := dyn_holeOwner H hPP f (par b) (by omega) hq0 (by omega) i
         hk (by rw [hpb]; exact hi)
@@ -916,7 +916,7 @@ theorem dyn_holeOwner (H : DynCtx F mk mpC ctx d ns) {par : Nat → Nat} (hPP : 
         (ConLeche.grpNews p.key.lvls p.key.ds (ctx.hiAt p.anc.length) p.grp).reverse ++ X, ?_⟩
       rw [hta, hX]
       simp only [List.append_assoc]
-    · rw [if_neg (fun h => hin h.1), hpb]
+    · rw [ite_eq_right (fun h => hin h.1), hpb]
       rw [List.getElem?_append_right (by simpa using hin)] at hi
       exact ⟨hq0, by omega, List.mem_of_getElem? hi, hlt, by omega, [],
         by rw [hta, List.nil_append]⟩
@@ -938,12 +938,12 @@ theorem dyn_top (H : DynCtx F mk mpC ctx d ns) (ψ : Name → Nat) (ρ : Nat →
   intro b hb G hG
   unfold nodeAdm
   by_cases hb0 : b = 0
-  · rw [if_pos hb0]; subst hb0; rfl
-  rw [if_neg hb0]
+  · rw [ite_eq_left hb0]; subst hb0; rfl
+  rw [ite_eq_right hb0]
   have ht := getD_mem_of_lt (ns := ns) (b := b) (by omega) (by omega)
   refine ⟨_, ?_, dyn_nlFr H hb0 ht ψ ρ xs⟩
   have hdpb : nlDp ns b = nlDd ns - (ns.getD (b - 1) default).height := by
-    unfold nlDp; rw [if_neg hb0]
+    unfold nlDp; rw [ite_eq_right hb0]
   have hdd := height_le_nlDd ht
   have hown := dyn_holeOwner H hPP (b + 1) b (by omega) (by omega) (by omega)
   unfold holeOwner
@@ -954,15 +954,15 @@ theorem dyn_top (H : DynCtx F mk mpC ctx d ns) (ψ : Name → Nat) (ρ : Nat →
     rw [dyn_memberLeaf H ψ ρ xs hparams hxs t.anc ht' hfit] at hy
     have hkN := lfp_namesLen mpC H.hd0
     have htk : t' < d.toLfp.k := by rw [← hkN, ← H.hnames]; exact ht'
-    have h0 : nlDp ns 0 = 0 := by unfold nlDp; rw [if_pos rfl]
+    have h0 : nlDp ns 0 = 0 := by unfold nlDp; rw [ite_eq_left rfl]
     refine hG 0 t' _ y (by omega) (by rw [h0, hdpb]; have := PosTree.height_pos t; omega)
       ?_ ?_ ?_
     · show t' < d.toLfp.N
       exact Nat.lt_of_lt_of_le htk (mpC.lfpClause_of_mem H.hd0).kN
-    · simp only [nlDb, nlψ, nlFr, if_pos]
+    · simp only [nlDb, nlψ, nlFr, ite_eq_left]
       rw [← H.hnP]
       exact tupW_mem hfit
-    · simp only [nlDb, nlψ, nlFr, if_pos]
+    · simp only [nlDb, nlψ, nlFr, ite_eq_left]
       exact hy
   · -- a frame hole: its owner's true carrier
     obtain ⟨ho0, hol, hmem, hlt, hle, X, hX⟩ := hown i hk hi
@@ -980,7 +980,7 @@ theorem dyn_top (H : DynCtx F mk mpC ctx d ns) (ψ : Name → Nat) (ρ : Nat →
     refine hG _ _ _ y (by omega) ?_ hmo (tupW_mem hfit) hy
     rw [hdpb]
     unfold nlDp
-    rw [if_neg ho]
+    rw [ite_eq_right ho]
     omega
 
 /-- **An admissible valuation is below the true one** along a hole
@@ -1011,7 +1011,7 @@ theorem dyn_holeRel (H : DynCtx F mk mpC ctx d ns) (ψ : Name → Nat) (ρ : Nat
     obtain ⟨g1, g2⟩ := hA.member t' ht' is his y hy
     by_cases hc : SpineFit (consList (xs.take ctx.nP) ρ) (d.toLfp.ids t' ψ) is
     · have hy' := hG _ _ _ _ (g1 hc)
-      simp only [nlDb, nlψ, nlFr, if_pos] at hy'
+      simp only [nlDb, nlψ, nlFr, ite_eq_left] at hy'
       rw [dyn_memberLeaf H ψ ρ xs hparams hxs t.anc ht' hc]
       exact hy'
     · exact g2 hc
@@ -1058,21 +1058,21 @@ theorem dyn_trans (H : DynCtx F mk mpC ctx d ns) (ψ : Name → Nat) (ρ : Nat �
   have hsat := dyn_hAdm H ψ ρ xs hparams par b hb G ρ' hadm
   unfold nodeAdm at hadm
   by_cases hb0 : b = 0
-  · rw [if_pos hb0] at hadm
+  · rw [ite_eq_left hb0] at hadm
     subst hb0
     subst hadm
     have hcl : LfpClause mpC.base2.acval (nlDb mpC d ns 0) := by
-      simp only [nlDb, if_pos]; exact mpC.lfpClause_of_mem H.hd0
+      simp only [nlDb, ite_eq_left]; exact mpC.lfpClause_of_mem H.hd0
     exact lfp_trans_self hcl hsat.1 hY hle hc hf
-  rw [if_neg hb0] at hadm
+  rw [ite_eq_right hb0] at hadm
   obtain ⟨σ, hσ, rfl⟩ := hadm
   have ht := getD_mem_of_lt (ns := ns) (b := b) (by omega) (by omega)
   have hsat' := hsat
   rw [dyn_nlFr H hb0 ht ψ ρ xs] at hY hle hsat' ⊢
   have e1 : nlDb mpC d ns b = lfpSel mpC d.toLfp (ns.getD (b - 1) default).key.cname := by
-    unfold nlDb; rw [if_neg hb0]
+    unfold nlDb; rw [ite_eq_right hb0]
   have e2 : nlψ envC ns ψ b = nodeψ envC ψ (ns.getD (b - 1) default) := by
-    unfold nlψ; rw [if_neg hb0]
+    unfold nlψ; rw [ite_eq_right hb0]
   rw [e1, e2] at hY hle hf hsat' ⊢
   rw [e1] at hc
   generalize ns.getD (b - 1) default = u at ht hσ hY hle hc hf hsat' ⊢

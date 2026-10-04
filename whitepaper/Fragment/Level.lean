@@ -74,7 +74,7 @@ theorem imaxNat_eq_zero_iff (a b : Nat) : imaxNat a b = 0 ↔ b = 0 := by
   split <;> omega
 
 theorem imaxNat_of_ne_zero {a b : Nat} (hb : b ≠ 0) : imaxNat a b = Max.max a b :=
-  if_neg hb
+  ite_eq_right hb
 
 /-! ## Level substitution
 

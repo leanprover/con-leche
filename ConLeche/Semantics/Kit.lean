@@ -106,11 +106,11 @@ theorem interp_inst :
          else if i = k then AnnotTerm.liftN k a else .bvar (i - 1)) =
       instE k (interp V (shiftE k 0 ρ) a) ρ i
     by_cases h : i < k
-    · simp only [if_pos h, instE]; rfl
+    · simp only [ite_eq_left h, instE]; rfl
     · by_cases h2 : i = k
-      · simp only [if_neg h, if_pos h2, instE]
+      · simp only [ite_eq_right h, ite_eq_left h2, instE]
         exact interp_liftN V k a 0 ρ
-      · simp only [if_neg h, if_neg h2, instE]; rfl
+      · simp only [ite_eq_right h, ite_eq_right h2, instE]; rfl
   | sort u => intro a k ρ; rfl
   | const c us => intro a k ρ; rfl
   | app f b ihf ihb =>

@@ -114,7 +114,7 @@ theorem no_constant_of_emptyPin (mp : EnvModelM V μ env) {n : Name} {u : Nat}
       exact not_mem_empty _ hmem
     · rw [denoteMeta, hf] at hta
       dsimp only at hta
-      rw [if_neg hlen] at hta
+      rw [ite_eq_right hlen] at hta
       exact nomatch hta
 
 /-- **The capstone's business end**: an environment carrying the P

@@ -96,19 +96,19 @@ theorem chain_cons_eq_instE (ρ : Nat → V) (w : AnnotTerm)
   funext i
   unfold instE
   by_cases h1 : i < ws.length
-  · rw [if_pos h1, chain_lt h1,
+  · rw [ite_eq_left h1, chain_lt h1,
       chain_lt (ws := w :: ws) (by simp only [List.length_cons]; omega),
       show (w :: ws).length - 1 - i = (ws.length - 1 - i) + 1 from by
         simp only [List.length_cons]; omega,
       List.getD_cons_succ]
-  · rw [if_neg h1]
+  · rw [ite_eq_right h1]
     by_cases h2 : i = ws.length
-    · rw [if_pos h2, h2, chain_lt (ws := w :: ws)
+    · rw [ite_eq_left h2, h2, chain_lt (ws := w :: ws)
         (by simp only [List.length_cons]; omega),
         show (w :: ws).length - 1 - ws.length = 0 from by
           simp only [List.length_cons]; omega,
         List.getD_cons_zero]
-    · rw [if_neg h2, chain_ge (ws := ws) (by omega),
+    · rw [ite_eq_right h2, chain_ge (ws := ws) (by omega),
         chain_ge (ws := w :: ws)
           (by simp only [List.length_cons]; omega)]
       congr 1
@@ -396,7 +396,7 @@ theorem ctxOk_of_openers {env : Env} {m : EnvModel V env}
     congr 1
     funext j
     show (if j < 0 then ρ j else ρ (j + (k - l.1))) = ρ (j + (k - 1 - l.1) + 1)
-    rw [if_neg (Nat.not_lt_zero j)]
+    rw [ite_eq_right (Nat.not_lt_zero j)]
     congr 1
     omega
   · -- the grading: the entry's, transported across the same lift
@@ -406,7 +406,7 @@ theorem ctxOk_of_openers {env : Env} {m : EnvModel V env}
     have henv : shiftE (k - l.1) 0 ρ = fun j => ρ (j + (k - 1 - l.1) + 1) := by
       funext j
       show (if j < 0 then ρ j else ρ (j + (k - l.1))) = _
-      rw [if_neg (Nat.not_lt_zero j)]
+      rw [ite_eq_right (Nat.not_lt_zero j)]
       congr 1
       omega
     rw [henv]

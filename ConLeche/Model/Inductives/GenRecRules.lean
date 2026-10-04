@@ -1283,7 +1283,7 @@ theorem genHcallee
       (ConLeche.consBlockRecsR Rr pp.toBlockShape 0 (tgtRs out) envC) ψ 0
       (.const R.cvGs[r0].name (r.1.levelParams.map .param))
       = some (blockRecLeafAV mpC.base2.acval envC (tgtRs out) s eqs ψ r0) := by
-    simp only [denoteMeta, hfind, ConstantInfo.toConstantVal, List.length_map, hlps, if_true,
+    simp only [denoteMeta, hfind, ConstantInfo.toConstantVal, List.length_map, hlps, ite_true,
       Level.substFn_param_self, blockRecAcv]
     rw [blockRecAcvOf_at hnd (by rw [List.getElem?_map, hr']; rfl)]
   refine ⟨_, hread, fun ρ' => ?_⟩

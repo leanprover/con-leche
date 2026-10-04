@@ -50,8 +50,8 @@ theorem mkFEnvGo_snd (n : Name) : ∀ l : List ConstantInfo,
     show ((mkFEnvGo cs).2.insert ci.name ((mkFEnvGo cs).1, ci))[n]? = _
     rw [Std.HashMap.getElem?_insert, idxSpec]
     by_cases hn : ci.name == n
-    · rw [if_pos hn, if_pos hn, mkFEnvGo_fst]
-    · rw [if_neg hn, if_neg hn, mkFEnvGo_snd n cs]
+    · rw [ite_eq_left hn, ite_eq_left hn, mkFEnvGo_fst]
+    · rw [ite_eq_right hn, ite_eq_right hn, mkFEnvGo_snd n cs]
 
 /-- The index of `mkFEnv`, as the specification. -/
 theorem mkFEnv_idx (env : Env) (n : Name) :
@@ -71,12 +71,12 @@ theorem idxSpec_lt {n : Name} : ∀ {l : List ConstantInfo} {c : Nat}
   | cj :: cs, c, ci, h => by
     rw [idxSpec] at h
     by_cases hn : cj.name == n
-    · rw [if_pos hn] at h
+    · rw [ite_eq_left hn] at h
       injection h with h
       injection h with h1 _
       subst h1
       simp
-    · rw [if_neg hn] at h
+    · rw [ite_eq_right hn] at h
       have := idxSpec_lt h
       simp only [List.length_cons]
       omega
@@ -88,9 +88,9 @@ theorem idxSpec_snd (n : Name) : ∀ l : List ConstantInfo,
   | ci :: cs => by
     rw [idxSpec]
     by_cases hn : ci.name == n
-    · rw [if_pos hn]
+    · rw [ite_eq_left hn]
       simp [hn]
-    · rw [if_neg hn, idxSpec_snd n cs]
+    · rw [ite_eq_right hn, idxSpec_snd n cs]
       simp [Bool.of_not_eq_true hn]
 
 /-- The per-entry-call name index computes `Env.find?` (nothing is
@@ -104,7 +104,7 @@ theorem mkFEnv_find? (env : Env) (n : Name) :
   | some p =>
     obtain ⟨c, ci⟩ := p
     show (if c < env.consts.length then some ci else none) = some ci
-    rw [if_pos (idxSpec_lt h)]
+    rw [ite_eq_left (idxSpec_lt h)]
 
 /-! ## The prefix view -/
 
@@ -137,12 +137,12 @@ private def idxBelow (l : List ConstantInfo) (k : Nat) (n : Name) :
 private theorem idxBelow_cons_pos {k : Nat} {n : Name} {cj : ConstantInfo}
     {cs : List ConstantInfo} (hn : cj.name == n) :
     idxBelow (cj :: cs) k n = if cs.length < k then some cj else none := by
-  rw [idxBelow, idxSpec, if_pos hn]
+  rw [idxBelow, idxSpec, ite_eq_left hn]
 
 private theorem idxBelow_cons_neg {k : Nat} {n : Name} {cj : ConstantInfo}
     {cs : List ConstantInfo} (hn : ¬ (cj.name == n)) :
     idxBelow (cj :: cs) k n = idxBelow cs k n := by
-  rw [idxBelow, idxSpec, if_neg hn, idxBelow]
+  rw [idxBelow, idxSpec, ite_eq_right hn, idxBelow]
 
 /-- **The bound is the prefix**: under name uniqueness the bounded
 lookup is exactly the lookup in the truncated list.  (Without it the
@@ -161,7 +161,7 @@ private theorem idxBelow_eq {k : Nat} {n : Name} :
         List.find?_cons]
       rw [Nat.sub_eq_zero_of_le (Nat.le_of_lt hk), List.drop_zero] at ih
       by_cases hn : cj.name == n
-      · rw [idxBelow_cons_pos hn, if_pos hk]
+      · rw [idxBelow_cons_pos hn, ite_eq_left hk]
         simp only [hn]
       · rw [idxBelow_cons_neg hn, ih]
         simp only [Bool.of_not_eq_true hn]
@@ -169,7 +169,7 @@ private theorem idxBelow_eq {k : Nat} {n : Name} :
         show cs.length + 1 - k = (cs.length - k) + 1 by omega,
         List.drop_succ_cons]
       by_cases hn : cj.name == n
-      · rw [idxBelow_cons_pos hn, if_neg hk]
+      · rw [idxBelow_cons_pos hn, ite_eq_right hk]
         refine Eq.symm ((List.find?_eq_none).2 (fun x hx => ?_))
         have hx' : x ∈ cs := List.mem_of_mem_drop hx
         have hne : x.name ≠ cj.name := fun he =>

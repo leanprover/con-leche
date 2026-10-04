@@ -297,10 +297,10 @@ theorem stageBlockTables {F : Nat} {d : BlockData V} {lps : List Name}
     rw [ConLeche.checkBlockTables] at h
     by_cases hidx : (ms.nIdx == 0) = true
     case neg =>
-      rw [if_neg hidx] at h
+      rw [ite_eq_right hidx] at h
       exact stageBlockTables hN hS hqlps hqnP hqres rest (i + 1) env env₂ mp hl' h hcoreW
     case pos =>
-    rw [if_pos hidx] at h
+    rw [ite_eq_left hidx] at h
     -- the member is structure-like
     have hnIdx0 : d.nIdxAt i = 0 := by rw [← hnIdx]; exact beq_iff_eq.mp hidx
     have hctorsEq : d.ctorsM i = [cA] := hctors.symm

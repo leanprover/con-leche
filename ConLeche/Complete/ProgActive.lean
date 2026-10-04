@@ -385,7 +385,7 @@ theorem nestContKeyP_eq (hrec : RecEq rec₁ rec₂) (hpres : RecPres rec₂) {p
   rw [hc]
   split
   · unfold nestContKey
-    rw [if_pos ‹_›]
+    rw [ite_eq_left ‹_›]
   · rfl
 
 theorem nestContP_eq (hrec : RecEq rec₁ rec₂) (hpres : RecPres rec₂) {prog : List NestHole}

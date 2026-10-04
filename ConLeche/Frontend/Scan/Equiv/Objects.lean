@@ -730,11 +730,11 @@ theorem objWrap {σ α : Type} {fields : Key → Option (Slot σ)} {required : U
     have h2 : b.uget i (usizeInBounds b i hlt) = 123 := by
       rw [← hb, byteAt_eq, h1]; rfl
     have hT : tailAt b i = 123 :: tailAt b (i + 1) := by rw [h1, h2]
-    rw [if_pos (by simp [hb]), hloop, hT, naiveObject_cons_123]
+    rw [ite_eq_left (by simp [hb]), hloop, hT, naiveObject_cons_123]
     exact (liftRes_step _ hlt (by
       rw [NRes.rest_map]; exact naiveObjLoop_rest_suffix _ _ hf _ _ _ _)).symm
   · have hhd : ¬ (tailAt b i).headD 0 = 123 := by rw [← byteAt_eq]; exact hb
-    rw [if_neg (by simpa using hb), naiveObject_of_ne _ _ _ _ hhd, liftRes_err_self]
+    rw [ite_eq_right (by simpa using hb), naiveObject_of_ne _ _ _ _ hhd, liftRes_err_self]
 
 theorem listWrap {α : Type} {start : UInt8 → Bool} {item : List UInt8 → NRes α}
     (hitem : ∀ l, (item l).rest <:+ l)
@@ -748,10 +748,10 @@ theorem listWrap {α : Type} {start : UInt8 → Bool} {item : List UInt8 → NRe
     have h2 : b.uget i (usizeInBounds b i hlt) = 91 := by
       rw [← hb, byteAt_eq, h1]; rfl
     have hT : tailAt b i = 91 :: tailAt b (i + 1) := by rw [h1, h2]
-    rw [if_pos (by simp [hb]), hloop, hT, naiveList_cons_91]
+    rw [ite_eq_left (by simp [hb]), hloop, hT, naiveList_cons_91]
     exact (liftRes_step _ hlt (naiveListLoop_rest_suffix _ _ hitem _ _ _)).symm
   · have hhd : ¬ (tailAt b i).headD 0 = 91 := by rw [← byteAt_eq]; exact hb
-    rw [if_neg (by simpa using hb), naiveList_of_ne _ _ hhd, liftRes_err_self]
+    rw [ite_eq_right (by simpa using hb), naiveList_of_ne _ _ hhd, liftRes_err_self]
 
 /-! ## The generic list loop, with an object as item -/
 

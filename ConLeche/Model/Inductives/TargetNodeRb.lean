@@ -56,10 +56,10 @@ replaced by the whole application it stands for (the kernel's
 /-- No hole's read-back below the parameters' range. -/
 theorem nestHoleImg_none_of_lt {ctx : NestCtx} {i : Nat} (hi : i < ctx.nP) :
     ∀ prog : List NestHole, ConLeche.nestHoleImg ctx prog i = none
-  | [] => by simp only [ConLeche.nestHoleImg]; rw [if_neg (by omega)]
+  | [] => by simp only [ConLeche.nestHoleImg]; rw [ite_eq_right (by omega)]
   | h :: prog => by
     simp only [ConLeche.nestHoleImg]
-    rw [if_neg (by simp [NestCtx.hiAt]; omega)]
+    rw [ite_eq_right (by simp [NestCtx.hiAt]; omega)]
     exact nestHoleImg_none_of_lt hi prog
 
 /-- A hole's read-back does not see the frames above it. -/
@@ -70,7 +70,7 @@ theorem nestHoleImg_append {ctx : NestCtx} (X anc : List NestHole) {v : Nat}
   | nil => rfl
   | cons h X ih =>
     simp only [List.cons_append, ConLeche.nestHoleImg]
-    rw [if_neg (by simp [NestCtx.hiAt, List.length_append] at hv ⊢; omega)]
+    rw [ite_eq_right (by simp [NestCtx.hiAt, List.length_append] at hv ⊢; omega)]
     exact ih
 
 /-- **The read-back's images**, as one substitution: a parameter variable
@@ -86,10 +86,10 @@ theorem nodeRb_erasedEq_substFvars {ctx : NestCtx} {occ : List NestHole} {D : Na
   refine Expr.replaceFVars_erasedEq_substFvars (fun v hv ty => ?_) x hx
   by_cases h1 : v < ctx.nP
   · rw [nestHoleImg_none_of_lt h1]
-    simp only [nodeImg, if_pos h1, Option.getD_none]
+    simp only [nodeImg, ite_eq_left h1, Option.getD_none]
     simp [Expr.ErasedEq]
   · obtain ⟨e, he⟩ := ConLeche.nestHoleImg_isSome (Nat.le_of_not_lt h1) occ hv
-    simp only [nodeImg, if_neg h1, he, Option.getD_some]
+    simp only [nodeImg, ite_eq_right h1, he, Option.getD_some]
     exact Expr.ErasedEq.rfl _
 
 /-- **A class matches an instantiation** (`targetClassMatch` passed, at the

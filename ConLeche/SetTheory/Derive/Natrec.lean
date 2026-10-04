@@ -36,7 +36,7 @@ noncomputable def natrec (z s n : V) : V :=
 theorem natrec_vnat (z s : V) (k : Nat) :
     natrec z s (vnat k) = natIter z s k := by
   unfold natrec
-  rw [dif_pos ⟨k, rfl⟩]
+  rw [dite_eq_left ⟨k, rfl⟩]
   congr 1
   exact (vnat_inj (Classical.choose_spec (⟨k, rfl⟩ : ∃ k', (vnat k : V) = vnat k'))).symm
 

@@ -69,7 +69,7 @@ theorem zeronessOf_sound (φ : Name → Nat) :
       have h1 : (Level.eval φ b == 0) = false := by simpa using hb
       have h2 : (Max.max (Level.eval φ a) (Level.eval φ b) == 0) = false :=
         by simpa using hm
-      rw [h1, if_neg hb, h2]
+      rw [h1, ite_eq_right hb, h2]
 
 end ConLeche.PropWhen
 
@@ -141,7 +141,7 @@ theorem subst_go_map (σ : Level → Level) :
         | head => exact absurd rfl h
         | tail _ h' => exact h'
       have hl' : vs.length = ps.length := by simpa using hl
-      simp only [h, if_false]
+      simp only [h, ite_false]
       rw [subst_go_map σ ps vs n hn' hl']
       show _ = σ (if p = n then v else subst.go ps vs n)
       simp [h]

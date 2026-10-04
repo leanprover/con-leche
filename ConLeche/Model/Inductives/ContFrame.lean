@@ -320,7 +320,7 @@ theorem HoleRel.extendEmpty {ctx : NestCtx} {Δ0 : List AnnotTerm} {R00 : FrameR
       intro σ
       rw [consList_getD_of_lt _ _ _ (by simp only [List.length_replicate, NestCtx.hiAt]; omega)]
       simp only [List.getD_eq_getElem?_getD, List.getElem?_replicate, List.length_replicate]
-      rw [if_pos (by omega)]
+      rw [ite_eq_left (by omega)]
       rfl
     rw [hpos ρ, hpos ρ', foldlApp_empty]
     exact Subset.refl _

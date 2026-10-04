@@ -836,7 +836,7 @@ theorem FitsFields_classFields_of_KS {M : Name → List Nat → V} {ls : List Na
       · -- the parameter field
         simp only [List.length_cons, Nat.add_sub_cancel, Nat.sub_zero] at hA
         subst hA
-        simp only [classField, NestInfo.isMember, beq_self_eq_true, if_true, fieldSet, piCtx_nil]
+        simp only [classField, NestInfo.isMember, beq_self_eq_true, ite_true, fieldSet, piCtx_nil]
         simp only [fieldSet, interp_bvar] at h2
         rw [S.read_memberVar M ls N hlen hpN hl] at h2
         rw [S.idxVals_liftN M ls ps hl]
@@ -846,7 +846,7 @@ theorem FitsFields_classFields_of_KS {M : Name → List Nat → V} {ls : List Na
           ps W (fs := vs) (by simpa using hl)
         simp only [List.length_cons, Nat.add_sub_cancel, Nat.sub_zero] at e
         rw [← e] at h2
-        rw [classField, if_neg (by rw [isMember_false_of_usesVar N hu]; exact Bool.false_ne_true)] at h2 ⊢
+        rw [classField, ite_eq_right (by rw [isMember_false_of_usesVar N hu]; exact Bool.false_ne_true)] at h2 ⊢
         exact h2
     | reflexive tele es =>
       obtain ⟨rfl, rfl⟩ := hpf
@@ -887,7 +887,7 @@ theorem KS_FitsFields_of_classFields {M : Name → List Nat → V} {ls : List Na
       · -- the parameter field
         simp only [List.length_cons, Nat.add_sub_cancel, Nat.sub_zero] at hA
         subst hA
-        simp only [classField, NestInfo.isMember, beq_self_eq_true, if_true, fieldSet, piCtx_nil] at h2
+        simp only [classField, NestInfo.isMember, beq_self_eq_true, ite_true, fieldSet, piCtx_nil] at h2
         rw [S.idxVals_liftN M ls ps hl] at h2
         simp only [fieldSet, interp_bvar]
         rw [S.read_memberVar M ls N hlen hpN hl]
@@ -899,7 +899,7 @@ theorem KS_FitsFields_of_classFields {M : Name → List Nat → V} {ls : List Na
           (fs := vs) (by simpa using hl)
         simp only [List.length_cons, Nat.add_sub_cancel, Nat.sub_zero] at e
         rw [← e]
-        rw [classField, if_neg (by rw [isMember_false_of_usesVar N hu]; exact Bool.false_ne_true)] at h2 ⊢
+        rw [classField, ite_eq_right (by rw [isMember_false_of_usesVar N hu]; exact Bool.false_ne_true)] at h2 ⊢
         exact h2
     | reflexive tele es =>
       obtain ⟨rfl, rfl⟩ := hpf
@@ -927,7 +927,7 @@ theorem pt_mem_classAt {M : Name → List Nat → V} {ls : List Nat}
   have hmem := N.KS.ctorVal_mem_Fam M (S.lsK ls N) hf.noRecDep (hf.domsBoundedK hp hF)
     (hf.contOkK _) hc hfitK
   rw [S.KS_idxVals hf hcm] at hmem
-  simp only [ctorVal, hzK, if_true] at hmem
+  simp only [ctorVal, hzK, ite_true] at hmem
   unfold classAt
   rw [S.classSet_eq_Fam hf hp hF]
   exact hmem
@@ -1130,7 +1130,7 @@ theorem motives_inhabited_prop {M : Name → List Nat → V} {ls : List Nat}
         · -- the parameter field
           rw [hkk] at hA
           subst hA
-          simp only [classField, NestInfo.isMember, beq_self_eq_true, if_true] at hfe
+          simp only [classField, NestInfo.isMember, beq_self_eq_true, ite_true] at hfe
           subst hfe
           dsimp only [IhTypedN, piCtx_nil, List.length_nil, readEnv_zero, List.reverse_nil, appList_nil]
           rw [S.memberIdx_earlier M ls N ps (by omega)]
@@ -1139,7 +1139,7 @@ theorem motives_inhabited_prop {M : Name → List Nat → V} {ls : List Nat}
           exact hkey _ hget
         · exfalso
           rw [hkk] at hu
-          rw [classField, if_neg (by rw [isMember_false_of_usesVar N hu]; exact Bool.false_ne_true)] at hfe
+          rw [classField, ite_eq_right (by rw [isMember_false_of_usesVar N hu]; exact Bool.false_ne_true)] at hfe
           subst hfe
           simp [Field.isRec] at hrec
       | reflexive tele es =>
@@ -2802,14 +2802,14 @@ theorem rule1_core (φ : Name → Nat) (ρ : Nat → V) {us usj : List Level} {x
       have h := Reader₂.minorOkK_of_fits S N hS R₃ hN (nestFacts hs m hok _) hKS hK.2.2.2.2.2.1
         (K_ctors_stored m hok) hz hps' hp' hmins' hminsK' hwdCK (hidxM ps' hp') hmot1 hmnK' j c hc
         fs' hfitCl ihs hihs
-      simp only [ctorVal, hzK, Bool.false_eq_true, if_false, KS_tagOf]
+      simp only [ctorVal, hzK, Bool.false_eq_true, ite_false, KS_tagOf]
       exact h
     · have hzK : N.KS.z (S.lsK (S.lparams.map (Level.substVal φ S.recLparams us)) N) = true := by
         rw [(nestFacts hs m hok _).z_eq]; exact hz
       have h := Reader₂.minorOkK_of_fits_prop hS R₃ hN (nestFacts hs m hok _) hKS hK.2.2.2.2.2.1
         (K_ctors_stored m hok) hz hps' hp' hmins' hminsK' hwdCK (hidxM ps' hp') hmot1 hmnK' j c hc
         fs' hfitF' ihs hihs
-      simp only [ctorVal, hzK, if_true]
+      simp only [ctorVal, hzK, ite_true]
       exact h
   -- the right-hand side is well-denoted and in the rule's type
   have hT := wd_rule1Type hs m hok hcm (Level.substVal φ S.recLparams us) ρ
@@ -2863,7 +2863,7 @@ theorem rule1_core (φ : Name → Nat) (ρ : Nat → V) {us usj : List Level} {x
       · simp [ctorVal, hzj, KS_tagOf]
       · exfalso
         rw [hmajor] at hmaj
-        simp only [ctorVal, hzj, if_true] at hmaj
+        simp only [ctorVal, hzj, ite_true] at hmaj
         unfold classAt at hmaj
         have hnf := nestFacts hs m hok (Level.substVal φ S.recLparams us)
         rw [S.classSet_eq_Fam hnf hp (S.Fam_mem_univ m.M _ _ _),

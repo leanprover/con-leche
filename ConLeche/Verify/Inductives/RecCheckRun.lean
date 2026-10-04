@@ -125,8 +125,8 @@ theorem targetMajorOf_run {fe : FEnv} {p : BlockShape}
       obtain ⟨ms, hms, h⟩ := exceptBind_ok h
       obtain ⟨ctorsA, hctorsA, h⟩ := exceptBind_ok h
       by_cases hc : (us == p.lps.map .param && mty.getAppArgs.take p.nP == fvs.take p.nP) = true
-      case neg => rw [if_neg hc] at h; close_throw h
-      rw [if_pos hc] at h
+      case neg => rw [ite_eq_right hc] at h; close_throw h
+      rw [ite_eq_left hc] at h
       simp only [pure, Except.pure, Except.ok.injEq] at h
       subst h
       simp only [Bool.and_eq_true, beq_iff_eq] at hc

@@ -250,7 +250,7 @@ theorem Denotes_of_denoteMeta {acval : Name → (Name → Nat) → AnnotTerm}
     intro ta h
     rw [denoteMeta, hf] at h
     dsimp only at h
-    rw [if_neg hlen] at h
+    rw [ite_eq_right hlen] at h
     exact nomatch h
   | case5 d n us hf =>
     intro ta h
@@ -339,21 +339,21 @@ theorem Denotes_of_denoteMeta {acval : Name → (Name → Nat) → AnnotTerm}
       | _ + 2, hdec => exact nomatch hdec
   | case11 d k hsup =>
     intro ta h _ _ ρ _
-    rw [denoteMeta, if_pos hsup] at h
+    rw [denoteMeta, ite_eq_left hsup] at h
     obtain rfl := Option.some.inj h
     exact Denotes.natLit (Denotes_natLitToConstructor hcl hsup ρ k)
   | case12 d k hsup =>
     intro ta h
-    rw [denoteMeta, if_neg hsup] at h
+    rw [denoteMeta, ite_eq_right hsup] at h
     exact nomatch h
   | case13 d s hsup =>
     intro ta h _ _ ρ _
-    rw [denoteMeta, if_pos hsup] at h
+    rw [denoteMeta, ite_eq_left hsup] at h
     obtain rfl := Option.some.inj h
     exact Denotes.strLit (Denotes_strLitToConstructor hcl hsup ρ s)
   | case14 d s hsup =>
     intro ta h
-    rw [denoteMeta, if_neg hsup] at h
+    rw [denoteMeta, ite_eq_right hsup] at h
     exact nomatch h
   | case15 d x hxs hfv hc hpi hlam happ hlet hproj hnat hstr =>
     intro ta h

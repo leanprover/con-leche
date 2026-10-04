@@ -469,7 +469,7 @@ theorem famComp_mem_univ {k : Nat} {us : List Nat} {Is : V}
     rwa [Nat.zero_add] at this
   have h := piR_mem_univ (u := lv us m) (v := lv us k + 1) hproj
     (fun _ _ => univ_mem_univ (lv us k))
-  rw [if_neg (Nat.succ_ne_zero _)] at h
+  rw [ite_eq_right (Nat.succ_ne_zero _)] at h
   refine univ_mono ?_ _ h
   refine Nat.max_le_of_le_of_le ?_ ?_
   · exact Nat.le_trans (ConLeche.Term.lv_le_levMax us m) (Nat.le_max_left _ _)

@@ -53,7 +53,7 @@ theorem nestCtors_typed {ops : CheckerOps CheckM} {env : Env} {ctx : NestCtx}
       rcases hb : Name.nodup cv.levelParams
       · simp [hb, throw, throwThe, MonadExceptOf.throw] at h
       · rfl
-    rw [if_pos hnd] at h
+    rw [ite_eq_left hnd] at h
     split at h
     · simp at h
     rename_i crest hcrest

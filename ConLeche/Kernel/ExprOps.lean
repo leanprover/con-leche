@@ -413,9 +413,9 @@ theorem instantiateList_cons :
           have hin2 : d + 1 + i - (d + 1) < vs.length := by omega
           have hr : (Expr.bvar (d + 1 + i)).instantiateList vs (d + 1)
               = vs[i].instantiateList (vs.take i) (d + 1) := by
-            rw [instantiateList, if_neg hd1, dif_pos hin2]
+            rw [instantiateList, ite_eq_right hd1, dite_eq_left hin2]
             simp only [hsub2]
-          rw [instantiateList, if_neg hjd, dif_pos hin', hr]
+          rw [instantiateList, ite_eq_right hjd, dite_eq_left hin', hr]
           simp only [hsub, List.getElem_cons_succ, List.take_succ_cons]
           exact instantiateList_cons (vs.take i) vs[i] v d
         · -- above the range: lowered
@@ -423,8 +423,8 @@ theorem instantiateList_cons :
           have hnin2 : ¬ d + 1 + i - (d + 1) < vs.length := by omega
           have hr : (Expr.bvar (d + 1 + i)).instantiateList vs (d + 1)
               = .bvar (d + 1 + i - vs.length) := by
-            rw [instantiateList, if_neg hd1, dif_neg hnin2]
-          rw [instantiateList, if_neg hjd, dif_neg hnin, hr]
+            rw [instantiateList, ite_eq_right hd1, dite_eq_right hnin2]
+          rw [instantiateList, ite_eq_right hjd, dite_eq_right hnin, hr]
           have hgt2 : d + 1 + i - vs.length > d := by omega
           simp [instantiate1, show ¬ d + 1 + i - vs.length = d by omega,
             hgt2]
@@ -1746,7 +1746,7 @@ theorem bvarBRaw_exact : ∀ e : Expr, e.bvarBRaw < satRange →
       intro hb'; rw [hb'] at h; simp at h; omega
     have hb2 : b.bvarBRaw < satRange := by
       have := bvarBRaw_lt b; simp [satRange] at *; omega
-    rw [if_neg hb, iht (by omega), ihb hb2, bvarBound]
+    rw [ite_eq_right hb, iht (by omega), ihb hb2, bvarBound]
   | forallE ty b m iht ihb =>
     intro h
     rw [bvarBRaw_forallE] at h ⊢
@@ -1754,7 +1754,7 @@ theorem bvarBRaw_exact : ∀ e : Expr, e.bvarBRaw < satRange →
       intro hb'; rw [hb'] at h; simp at h; omega
     have hb2 : b.bvarBRaw < satRange := by
       have := bvarBRaw_lt b; simp [satRange] at *; omega
-    rw [if_neg hb, iht (by omega), ihb hb2, bvarBound]
+    rw [ite_eq_right hb, iht (by omega), ihb hb2, bvarBound]
   | letE ty v b iht ihv ihb =>
     intro h
     rw [bvarBRaw_letE] at h ⊢
@@ -1762,7 +1762,7 @@ theorem bvarBRaw_exact : ∀ e : Expr, e.bvarBRaw < satRange →
       intro hb'; rw [hb'] at h; simp at h; omega
     have hb2 : b.bvarBRaw < satRange := by
       have := bvarBRaw_lt b; simp [satRange] at *; omega
-    rw [if_neg hb, iht (by omega), ihv (by omega), ihb hb2, bvarBound]
+    rw [ite_eq_right hb, iht (by omega), ihv (by omega), ihb hb2, bvarBound]
   | proj s i sub ih =>
     intro h
     rw [bvarBRaw_proj] at h ⊢
@@ -2236,7 +2236,7 @@ theorem lowerBVars_of_bvarBound_le :
   | bvar i =>
     intro amount c h
     rw [Expr.bvarBound] at h
-    rw [lowerBVars, if_neg (by omega)]
+    rw [lowerBVars, ite_eq_right (by omega)]
   | fvar i ty _ => intro amount c _; rfl
   | sort u => intro amount c _; rfl
   | const n us => intro amount c _; rfl
@@ -2444,7 +2444,7 @@ theorem instantiate1Lift_of_bvarBound_le :
   | bvar i =>
     intro v d h
     rw [Expr.bvarBound] at h
-    rw [instantiate1Lift, if_neg (by omega), if_neg (by omega)]
+    rw [instantiate1Lift, ite_eq_right (by omega), ite_eq_right (by omega)]
   | fvar i ty _ => intro v d _; rfl
   | sort u => intro v d _; rfl
   | const n us => intro v d _; rfl

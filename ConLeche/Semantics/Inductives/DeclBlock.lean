@@ -97,9 +97,9 @@ theorem declBlockRun_of {μ : CheckMode} {F : Nat} {env env₂ : Env}
   simp only [bind, Except.bind] at h
   by_cases hnd : (p₀.allCtors.map (·.1.name)).Nodup ∧ p₀.memberNames.Nodup
   case neg =>
-    rw [if_neg hnd] at h
+    rw [ite_eq_right hnd] at h
     exact absurd h (by simp [throw, throwThe, MonadExceptOf.throw])
-  rw [if_pos hnd] at h
+  rw [ite_eq_left hnd] at h
   try simp only [bind, Except.bind] at h
   cases hP : checkBlockPass (m := ConLeche.CheckM) (fueledOps μ F) env p₀ (blockRawRec p₀) with
   | error e => rw [hP] at h; exact nomatch h

@@ -38,6 +38,16 @@ loads it by name into its full-view environment.
 
 namespace ConLeche.PinGen
 
+/- THE DEPRECATED `if_pos`/`if_neg`/`dif_pos`/`dif_neg` (task #328).
+Lean v4.34.0-rc2 renamed them `ite_eq_left`/`ite_eq_right`/
+`dite_eq_left`/`dite_eq_right` and kept the old names as deprecated
+aliases.  This file keeps the OLD spellings on purpose: it is shared by
+every pinner (`pinners/*/`), the new names do not exist on v4.33.0, and
+the certificate blobs cite these constants by name — respelling them
+would change every committed dump.  So the linter is silenced here, and
+only here. -/
+set_option linter.deprecated false
+
 /-! ## Support lemmas for `Nat.div`/`Nat.mod` -/
 
 /-- One-step unfolding of the fuel-recursive worker (the auto-generated

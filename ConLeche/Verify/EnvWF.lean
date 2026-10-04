@@ -42,7 +42,7 @@ theorem Env.findProj?_of_table {env : Env} {T : Name} {tbl : ProjTable}
     (hi : i < tbl.numFields) : env.findProj? T i = some (tbl.entry i) := by
   unfold Env.findProj?
   rw [h]
-  exact if_pos hi
+  exact ite_eq_left hi
 
 /-- No table stored, no entry. -/
 theorem Env.findProj?_none_of_fresh {env : Env} {T : Name}
@@ -210,7 +210,7 @@ theorem Env.find?_cons {c : ConstantInfo} {env : Env} {n : Name} :
 /-- A cons finds its own head. -/
 theorem Env.find?_cons_self (c : ConstantInfo) (env : Env) :
     Env.find? ⟨c :: env.consts⟩ c.name = some c := by
-  rw [Env.find?_cons, if_pos rfl]
+  rw [Env.find?_cons, ite_eq_left rfl]
 
 /-- A cons of a *fresh* head does not find anything new. -/
 theorem Env.find?_cons_of_fresh {c : ConstantInfo} {env : Env}
@@ -237,7 +237,7 @@ theorem Env.findProj?_cons_ne {env : Env} {c₀ : ConstantInfo} {T : Name}
     (hn : c₀.name ≠ projTableName T) (i : Nat) :
     Env.findProj? ⟨c₀ :: env.consts⟩ T i = env.findProj? T i := by
   unfold Env.findProj?
-  rw [Env.find?_cons, if_neg hn]
+  rw [Env.find?_cons, ite_eq_right hn]
 
 /-- Resolution depends on the environment only through which names it
 finds: every name found in `env` being found in `env'` carries

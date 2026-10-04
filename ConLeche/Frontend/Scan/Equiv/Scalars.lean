@@ -333,7 +333,7 @@ theorem numEnd_of_some {b : ByteArray} {i : USize} {n : Nat} {r : List UInt8}
   · exact absurd h (by simp)
   · rename_i hC
     simp only [Option.some.injEq, Prod.mk.injEq] at h
-    have hnum : numEnd b i = skipDigits b i := by rw [numEnd_eq, if_neg hC]
+    have hnum : numEnd b i = skipDigits b i := by rw [numEnd_eq, ite_eq_right hC]
     refine ⟨?_, ?_⟩
     · rw [hnum, skipDigits_eq, ← h.2]
     · rw [hnum, readNatAt_eq, h.1]
@@ -452,7 +452,7 @@ theorem lt_usize_of_byteAt_ne_zero {b : ByteArray} {p : USize} (h : byteAt b p �
 theorem uget_eq_byteAt {b : ByteArray} {p : USize} (h : p < b.usize) :
     b.uget p (usizeInBounds b p h) = byteAt b p := by
   unfold byteAt
-  rw [dif_pos h]
+  rw [dite_eq_left h]
 
 /-- A `USize` step that does not wrap. -/
 theorem usize_step_of_lt {p : USize} (h : p.toNat + 1 < USize.size) :

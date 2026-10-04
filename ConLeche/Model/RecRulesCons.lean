@@ -154,7 +154,7 @@ theorem recRuleLaw_cons_prefix (mp : EnvModelM V μ env)
       exact nomatch hst
     have hfcjE : env.find? (RecRule.ctor rl)
         = some (.ctorInfo cvj cnP cnF) := by
-      rw [ConLeche.Env.find?_cons, if_neg (fun hh => hnC hh.symm)] at hfcj
+      rw [ConLeche.Env.find?_cons, ite_eq_right (fun hh => hnC hh.symm)] at hfcj
       exact hfcj
     -- the two stored types: produced at the prefix, moved forward,
     -- identified with the given extension readings by determinism
@@ -234,7 +234,7 @@ theorem recRules_cons_fresh (mp : EnvModelM V μ env)
     rw [hrl] at hmem
     exact nomatch hmem
   exact recRuleLaw_cons_prefix mp hfresh hntc m₂ hac φ hnN
-    (by rw [ConLeche.Env.find?_cons, if_neg (fun hh => hnN hh.symm)] at hf
+    (by rw [ConLeche.Env.find?_cons, ite_eq_right (fun hh => hnN hh.symm)] at hf
         exact hf) hmem hfire
 
 /-- **The fired iota contract at a *recursor* cons.**  The
@@ -267,7 +267,7 @@ theorem recRules_cons_rec (mp : EnvModelM V μ env)
   · exact recRuleLaw_cons_prefix mp hfresh
       (fun _ heq => by rw [hkind] at heq; exact nomatch heq)
       m₂ hac φ hnN
-      (by rw [ConLeche.Env.find?_cons, if_neg (fun hh => hnN hh.symm)] at hf
+      (by rw [ConLeche.Env.find?_cons, ite_eq_right (fun hh => hnN hh.symm)] at hf
           exact hf) hmem hfire
 
 /-! ## The tower projection law across a fresh cons (task #175 wiring, W5)

@@ -213,7 +213,7 @@ theorem ndMkTowerAV_facts {r : Nat} (hr : r ≠ 0) {Gty G : Nat → AnnotTerm} {
     rw [hcl.2, hmk]
     show SetTheory.app (SetTheory.app (SetTheory.app (SetTheory.app (psigmaMkV V r r)
       (interp V ρ (Gty s))) _) _) _ = _
-    rw [psigmaMkV_app V hAu hBmem hamem hbmem, if_neg (by rw [show Nat.max r r = r from Nat.max_self r]; exact hr)]
+    rw [psigmaMkV_app V hAu hBmem hamem hbmem, ite_eq_right (by rw [show Nat.max r r = r from Nat.max_self r]; exact hr)]
     show spair (interp V ρ (G s)) (interp V ρ (ndMkTowerAV r Gty G (s + 1) n)) = _
     rw [hav, hbv]
     rfl
@@ -398,7 +398,7 @@ theorem univ_uf_mem_blockS {m : Nat} (hm : m < k) :
 theorem famSpace_mem_blockR {m : Nat} (hm : m < k) {I : V} (hI : I ∈ˢ (univ (uf m) : V)) :
     lfpFamSpace V w I ∈ˢ (univ (blockR k w uf) : V) := by
   have h := piR_mem_univ (u := uf m) (v := w + 1) hI (fun _ _ => univ_mem_univ w)
-  rw [if_neg (Nat.succ_ne_zero _)] at h
+  rw [ite_eq_right (Nat.succ_ne_zero _)] at h
   refine univ_mono ?_ _ h
   refine Nat.max_le_of_le_of_le (Nat.le_trans (uf_le_levMax hm) (Nat.le_max_left _ _)) ?_
   have : w + 1 = lv (blockUs k w uf) k + 1 := by rw [blockUs_top]
@@ -1047,13 +1047,13 @@ theorem substE_holeTau {k : Nat} {H : Nat → AnnotTerm} {ρp : Nat → V} {t Y 
   funext j
   have hlen : ((List.range k).map hv).length = k := by simp
   unfold substE
-  rw [if_neg (Nat.not_lt_zero _), shiftE_zero_zero, Nat.sub_zero]
+  rw [ite_eq_right (Nat.not_lt_zero _), shiftE_zero_zero, Nat.sub_zero]
   unfold holeTau
   by_cases hj : j < k
-  · rw [if_pos hj, hH _ (by omega), consList_getD_of_lt _ _ _ (by rw [hlen]; exact hj), hlen,
+  · rw [ite_eq_left hj, hH _ (by omega), consList_getD_of_lt _ _ _ (by rw [hlen]; exact hj), hlen,
       List.getD_eq_getElem?_getD, List.getElem?_map, List.getElem?_range (by omega)]
     rfl
-  · rw [if_neg hj, interp_bvar]
+  · rw [ite_eq_right hj, interp_bvar]
     obtain ⟨i, rfl⟩ : ∃ i, j = i + k := ⟨j - k, by omega⟩
     rw [show i + k - k + 2 = i + 2 by omega]
     have := consList_apply_add ((List.range k).map hv) ρp i
@@ -1144,22 +1144,22 @@ theorem sumSet_termChs_mem_iff {w : Nat} {σ : Nat → V}
       unfold sumFibre at ha
       rw [hget] at ha
       by_cases hj : j < Ents.length
-      · rw [if_pos hj] at ha
+      · rw [ite_eq_left hj] at ha
         obtain ⟨-, as, hfit⟩ := towerSet_zero_elim _ ha
         obtain ⟨fs, -, hsp, hall⟩ := spineFit_append_idxEq.mp (fitsS_teleOfFields.mp hfit)
-        exact ⟨j, fs, hj, hsp, hall, by rw [if_pos rfl]⟩
-      · rw [if_neg hj] at ha
+        exact ⟨j, fs, hj, hsp, hall, by rw [ite_eq_left rfl]⟩
+      · rw [ite_eq_right hj] at ha
         exact absurd ha (not_mem_empty _)
     · obtain ⟨j, a, ha, rfl⟩ := sumSet_elim hw hx
       unfold sumFibre at ha
       rw [hget] at ha
       by_cases hj : j < Ents.length
-      · rw [if_pos hj] at ha
+      · rw [ite_eq_left hj] at ha
         obtain ⟨hfit, heta⟩ := towerSet_elim_teleOfFields hw ha
         obtain ⟨fs, hfs, hsp, hall⟩ := spineFit_append_idxEq.mp hfit
         refine ⟨j, fs, hj, hsp, hall, ?_⟩
-        rw [if_neg hw, heta, hfs]
-      · rw [if_neg hj] at ha
+        rw [ite_eq_right hw, heta, hfs]
+      · rw [ite_eq_right hj] at ha
         exact absurd ha (not_mem_empty _)
   · rintro ⟨j, fs, hj, hsp, hall, rfl⟩
     have hspE : SpineFit σ (Ents.getD j [] ++ [idxEqAV (Eqs.getD j [])])
@@ -1167,14 +1167,14 @@ theorem sumSet_termChs_mem_iff {w : Nat} {σ : Nat → V}
     have hfib : sumFibre w σ ((List.range Ents.length).map fun j =>
           Ents.getD j [] ++ [idxEqAV (Eqs.getD j [])]) j
         = towerSet w (teleOfFields σ (Ents.getD j [] ++ [idxEqAV (Eqs.getD j [])])) :=
-      sumFibre_of_getElem? (by rw [hget, if_pos hj])
+      sumFibre_of_getElem? (by rw [hget, ite_eq_left hj])
     by_cases hw : w = 0
     · subst hw
-      rw [if_pos rfl]
+      rw [ite_eq_left rfl]
       refine pt_mem_sumSet_zero (i := j) (a := pt) ?_
       rw [hfib]
       exact pt_mem_tower_teleOfFields hspE
-    · rw [if_neg hw]
+    · rw [ite_eq_right hw]
       refine inj_mem hw ?_
       rw [hfib]
       exact mkTower_mem_teleOfFields hw hspE

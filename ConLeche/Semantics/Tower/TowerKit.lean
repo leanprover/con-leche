@@ -316,10 +316,10 @@ def towerBodyAV (w : Nat) (Fs : List AnnotTerm) : AnnotTerm :=
   if w = 0 then sqBodyAV Fs else towerBodyAVPos w Fs
 
 theorem towerBodyAV_zero (Fs : List AnnotTerm) :
-    towerBodyAV 0 Fs = sqBodyAV Fs := if_pos rfl
+    towerBodyAV 0 Fs = sqBodyAV Fs := ite_eq_left rfl
 
 theorem towerBodyAV_pos {w : Nat} (hw : w ≠ 0) (Fs : List AnnotTerm) :
-    towerBodyAV w Fs = towerBodyAVPos w Fs := if_neg hw
+    towerBodyAV w Fs = towerBodyAVPos w Fs := ite_eq_right hw
 
 /-- `FieldsOkB w ρ Fs`: the hereditary grading the body's `WellDenoted`
 consumes — each domain is itself graded and, in the graph regime, its
@@ -746,10 +746,10 @@ def mkTowerGo (w : Nat) (Fs : List AnnotTerm) : AnnotTerm :=
   if w = 0 then .const .punitUnit [] else mkTowerGoPos w Fs
 
 theorem mkTowerGo_zero (Fs : List AnnotTerm) :
-    mkTowerGo 0 Fs = .const .punitUnit [] := if_pos rfl
+    mkTowerGo 0 Fs = .const .punitUnit [] := ite_eq_left rfl
 
 theorem mkTowerGo_pos {w : Nat} (hw : w ≠ 0) (Fs : List AnnotTerm) :
-    mkTowerGo w Fs = mkTowerGoPos w Fs := if_neg hw
+    mkTowerGo w Fs = mkTowerGoPos w Fs := ite_eq_right hw
 
 /-- **The tupler reads back as the tier's tupler**, two regimes in one
 statement: at a fitting spine, `mkTower bs` in the graph regime and
@@ -837,7 +837,7 @@ theorem mkTowerGo_interp {w : Nat} {Fs : List AnnotTerm} {ρp : Nat → V}
     interp V (consList bs ρp) (mkTowerGo w Fs)
       = if w = 0 then pt else mkTower bs := by
   by_cases hw : w = 0
-  · subst hw; rw [mkTowerGo_zero, if_pos rfl]; rfl
+  · subst hw; rw [mkTowerGo_zero, ite_eq_left rfl]; rfl
   · rw [mkTowerGo_pos hw]; exact mkTowerGoPos_interp hw (hb hw) hsp
 
 /-! ## The tupler's grading -/

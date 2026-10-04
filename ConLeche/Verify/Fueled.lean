@@ -113,9 +113,9 @@ theorem iotaCerts_atF (d : Nat) (lic : Bool) (F : Nat) :
           iotaCerts (pureFns mode env F) env d lic (body.instantiate1 arg) rest
         else pure false)
     by_cases hg : (lic && mb.pw.isNever) = true
-    · rw [if_pos hg, if_pos hg]
+    · rw [ite_eq_left hg, ite_eq_left hg]
       exact iotaCerts_atF d lic F (body.instantiate1 arg) rest
-    · rw [if_neg hg, if_neg hg]
+    · rw [ite_eq_right hg, ite_eq_right hg]
       rw [FueledM.atF_bind]
       congr 1
       funext ta
@@ -203,8 +203,8 @@ theorem iotaIndexOk_atF (d : Nat) (F : Nat) (mI rP cnP : Nat) (tyCtor : Expr)
     (iotaIndexOk (fueledFns mode env) env d mI rP cnP tyCtor margs idx).val F =
       iotaIndexOk (pureFns mode env F) env d mI rP cnP tyCtor margs idx := by
   by_cases hmr : mI = rP
-  · simp only [iotaIndexOk, if_pos hmr]; rfl
-  · simp only [iotaIndexOk, if_neg hmr]
+  · simp only [iotaIndexOk, ite_eq_left hmr]; rfl
+  · simp only [iotaIndexOk, ite_eq_right hmr]
     cases piResidual tyCtor margs with
     | none => rfl
     | some residual => exact defEqList_atF d F _ _
@@ -349,8 +349,8 @@ theorem majorToCtor_atF (d : Nat) (c : Name) (rules : List RecRule) (e : Expr) (
       majorToCtor mi (pureFns mode env F) env d c rules e := by
   unfold majorToCtor
   by_cases hca : isCtorApp env e = true
-  · rw [if_pos hca, if_pos hca]; rfl
-  rw [if_neg hca, if_neg hca]
+  · rw [ite_eq_left hca, ite_eq_left hca]; rfl
+  rw [ite_eq_right hca, ite_eq_right hca]
   match rules with
   | [] => rfl
   | _ :: _ :: _ => rfl
@@ -370,17 +370,17 @@ theorem majorToCtor_atF (d : Nat) (c : Name) (rules : List RecRule) (e : Expr) (
     case indInfo cvT caps =>
     dsimp only
     by_cases hK : rl.k = true
-    · rw [if_pos hK, if_pos hK]
+    · rw [ite_eq_left hK, ite_eq_left hK]
       atF_tac2
-    rw [if_neg hK, if_neg hK]
+    rw [ite_eq_right hK, ite_eq_right hK]
     by_cases hE : rl.eta = true
-    · rw [if_pos hE, if_pos hE]
+    · rw [ite_eq_left hE, ite_eq_left hE]
       atF_tac2
-    rw [if_neg hE, if_neg hE]
+    rw [ite_eq_right hE, ite_eq_right hE]
     by_cases hA : T = andName
-    · rw [if_pos hA, if_pos hA]
+    · rw [ite_eq_left hA, ite_eq_left hA]
       atF_tac2
-    rw [if_neg hA, if_neg hA]
+    rw [ite_eq_right hA, ite_eq_right hA]
     rfl
 
 theorem litMajorToCtor_atF (d : Nat) (e : Expr) (F : Nat) :

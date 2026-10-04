@@ -242,16 +242,16 @@ theorem denoteMeta_erase {acval : Name → (Name → Nat) → AnnotTerm}
     intro ea h
     rw [denoteMeta, hf] at h
     dsimp only at h
-    rw [if_pos hlen] at h
+    rw [ite_eq_left hlen] at h
     obtain rfl := Option.some.inj h
     rw [denote_const, hf]
     dsimp only
-    rw [if_pos hlen, hlink]
+    rw [ite_eq_left hlen, hlink]
   | case4 d n us ci hf hlen =>
     intro ea h
     rw [denoteMeta, hf] at h
     dsimp only at h
-    rw [if_neg hlen] at h
+    rw [ite_eq_right hlen] at h
     exact nomatch h
   | case5 d n us hf =>
     intro ea h
@@ -330,19 +330,19 @@ theorem denoteMeta_erase {acval : Name → (Name → Nat) → AnnotTerm}
       | _ + 2 => exact nomatch h
   | case11 d k hsup =>
     intro ea h
-    rw [denoteMeta, if_pos hsup] at h
+    rw [denoteMeta, ite_eq_left hsup] at h
     obtain rfl := Option.some.inj h
-    rw [denote_natLit, if_pos hsup,
+    rw [denote_natLit, ite_eq_left hsup,
       natLitAV_erase (hlink _ _) (hlink _ _)]
   | case12 d k hsup =>
     intro ea h
-    rw [denoteMeta, if_neg hsup] at h
+    rw [denoteMeta, ite_eq_right hsup] at h
     exact nomatch h
   | case13 d s hsup =>
     intro ea h
-    rw [denoteMeta, if_pos hsup] at h
+    rw [denoteMeta, ite_eq_left hsup] at h
     obtain rfl := Option.some.inj h
-    rw [denote_strLit, if_pos hsup]
+    rw [denote_strLit, ite_eq_left hsup]
     refine congrArg some ?_ |>.symm
     show Term.app _ _ = _
     rw [ConLeche.Verify.strLitT]
@@ -356,7 +356,7 @@ theorem denoteMeta_erase {acval : Name → (Name → Nat) → AnnotTerm}
         rw [hlink, hlink]
   | case14 d s hsup =>
     intro ea h
-    rw [denoteMeta, if_neg hsup] at h
+    rw [denoteMeta, ite_eq_right hsup] at h
     exact nomatch h
   | case15 d x hxs hfv hc hpi hlam happ hlet hproj hnat hstr =>
     intro ea h

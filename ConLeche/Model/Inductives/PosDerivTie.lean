@@ -203,10 +203,10 @@ theorem seed_readback {ctx : NestCtx} {holes : List Expr} (hh : nestHoles ctx = 
         obtain ⟨cv, caps, ty, -, -, hget⟩ := nestHoles_getElem? hh hm
         refine ⟨m, _, ty, Expr.mkAppN (.const (ctx.names.getD (ctx.nP + m - ctx.nP) .anonymous)
           (ctx.lps.map .param)) ctx.params, rfl, hm, ?_, ?_, ?_⟩
-        · simp only [nestKeyMap, hlen, show ¬ ctx.nP + m < ctx.nP by omega, if_false,
+        · simp only [nestKeyMap, hlen, show ¬ ctx.nP + m < ctx.nP by omega, ite_false,
             show ctx.nP + m - ctx.nP = m by omega, hget]
         · simp only [nestHoleImg]
-          rw [if_pos ⟨by omega, by simp only [NestCtx.hiAt]; omega⟩]
+          rw [ite_eq_left ⟨by omega, by simp only [NestCtx.hiAt]; omega⟩]
         · have hc : ctx.names.getD (ctx.nP + m - ctx.nP) .anonymous = c := by
             rw [show ctx.nP + m - ctx.nP = m by omega, List.getD_eq_getElem?_getD, hmc,
               Option.getD_some]
@@ -220,7 +220,7 @@ theorem seed_readback {ctx : NestCtx} {holes : List Expr} (hh : nestHoles ctx = 
           simp [ConLeche.Expr.ErasedEq])
     (fun i hi => by
       obtain ⟨ty, hty⟩ := hpar i hi
-      exact ⟨ty, by simp only [nestKeyMap, hlen, if_pos hi, hty]⟩)
+      exact ⟨ty, by simp only [nestKeyMap, hlen, ite_eq_left hi, hty]⟩)
     (fun i hi => nestHoleImg_none_of_lt hi [])
   simp only [nestSeedOf, List.map_map]
   refine erasedEqs_map ds fun x hx => ?_

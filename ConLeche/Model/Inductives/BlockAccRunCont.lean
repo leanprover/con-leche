@@ -144,11 +144,11 @@ theorem blockCtorAcc_of_walk {env : Env} {μ : ConLeche.CheckMode} (mp : EnvMode
     rw [← hab]
     refine TeleAccP.congr _ 0 _ _ (fun l' _ hl' => ?_) htele
     have : l' < cA.2 := by simpa [hlabN] using hl'
-    simp only [if_pos this]
+    simp only [ite_eq_left this]
   · -- the fields' bounds read the agreeing positions
     intro l τ τ' hag
     by_cases hl : l < cA.2
-    · simp only [if_pos hl]
+    · simp only [ite_eq_left hl]
       obtain ⟨x, hx⟩ : ∃ x, xs[l]? = some x := ⟨_, List.getElem?_eq_getElem (by omega)⟩
       obtain ⟨k, nd, hkk, hnd, hE, -, -⟩ := hxs l x hx
       have hnd' : (nds.map (·.1))[l]? = some nd := by
@@ -178,7 +178,7 @@ theorem blockCtorAcc_of_walk {env : Env} {μ : ConLeche.CheckMode} (mp : EnvMode
         refine Nat.le_of_not_lt fun hlk => hnh ?_
         simp only [holeP, List.length_nil, hhi]
         omega
-    · simp only [if_neg hl]
+    · simp only [ite_eq_right hl]
   · -- the ordinary fields read the agreeing positions
     intro i G hGi hoi τ τ' hag
     rw [← hab] at hGi

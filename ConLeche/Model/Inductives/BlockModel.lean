@@ -163,8 +163,8 @@ theorem blockModelAt_of_stages {env : Env} (mo : EnvModel V env) {names : List N
     have hsat : Sat V (d.params ψ).reverse (consList as ρ) := d.satOfSpine hsa
     rw [hctorLeaf c hc j cA hj ψ, hinj]
     by_cases hw : d.w ψ = 0
-    · rw [if_pos hw, hw, sumMkAV_zero, foldl_app_pt']
-    · rw [if_neg hw]
+    · rw [ite_eq_left hw, hw, sumMkAV_zero, foldl_app_pt']
+    · rw [ite_eq_right hw]
       have h2 : SpineFit (consList as ρ) (((d.dsF c j ψ).drop d.nP).map (·.2.2)) fs := by
         rw [← hFssD ψ c j hjl]; exact hsf
       have hjF : j < (d.Fss c ψ).length := by rw [hlenC]; exact hjl
@@ -183,10 +183,10 @@ theorem blockModelAt_of_stages {env : Env} (mo : EnvModel V env) {names : List N
       exact h4
   · -- mkZero
     intro ψ hw c j fs
-    rw [hinj, if_pos hw]
+    rw [hinj, ite_eq_left hw]
   · -- mkInj
     intro ψ hw c hc j fs j' fs' hj hj' hlen hlen' heq
-    rw [hinj, hinj, if_neg hw, if_neg hw] at heq
+    rw [hinj, hinj, ite_eq_right hw, ite_eq_right hw] at heq
     obtain ⟨rfl, hT⟩ := inj_inj heq
     refine ⟨rfl, ?_⟩
     have hll : (fs ++ [pt]).length = (fs' ++ [pt]).length := by

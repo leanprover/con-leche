@@ -59,7 +59,7 @@ theorem toDigitsCore_spec (fuel : Nat) : ∀ (n : Nat) (acc : List Char), n < fu
     intro n acc hn
     rw [Nat.toDigitsCore.eq_2]
     by_cases h10 : n / 10 = 0
-    · rw [if_pos h10]
+    · rw [ite_eq_left h10]
       have hlt : n < 10 := Nat.div_eq_zero_iff_lt (by omega) |>.mp h10
       refine ⟨[Nat.digitChar (n % 10)], rfl, by simp, ?_, ?_, ?_⟩
       · intro c hc
@@ -73,7 +73,7 @@ theorem toDigitsCore_spec (fuel : Nat) : ∀ (n : Nat) (acc : List Char), n < fu
         simp only [Nat.zero_mul, Nat.zero_add, UInt8.toNat_ofNat']
         rw [Nat.mod_eq_of_lt (by omega)]
         omega
-    · rw [if_neg h10]
+    · rw [ite_eq_right h10]
       have hge : 10 ≤ n := by omega
       obtain ⟨ds, hds, hne, hdig, hz, hval⟩ :=
         ih (n / 10) (Nat.digitChar (n % 10) :: acc) (by omega)

@@ -513,7 +513,7 @@ theorem checkStructFieldSortsIS_sim (hμ : mode.verifiedChecks = true) (henv : E
       (fun s₃ u u' hs₃ hP₃ => ?_)
     obtain rfl : u = u' := hP₃
     by_cases hnp : (!isProp) = true
-    · simp only [if_pos hnp]
+    · simp only [ite_eq_left hnp]
       refine SimC.bind (SimC.liftFueled _ _ hs₃)
         (fun s₃ c c' hs₃ hC => ?_)
       obtain rfl : c = c' := hC
@@ -527,18 +527,18 @@ theorem checkStructFieldSortsIS_sim (hμ : mode.verifiedChecks = true) (henv : E
           (fun s₄ rest rest' hs₄ hR => ?_)
         obtain rfl : rest = rest' := hR
         exact SimC.pure hs₄ rfl
-    · simp only [if_neg hnp]
+    · simp only [ite_eq_right hnp]
       by_cases hl : large = true
-      · simp only [if_pos hl]
+      · simp only [ite_eq_left hl]
         by_cases hz : (Level.isEquiv u .zero == some true || idxArgs.contains fv) = true
-        · simp only [if_pos hz]
+        · simp only [ite_eq_left hz]
           refine SimC.bind (checkStructFieldSortsIS_sim hμ henv hfvs hs₃)
             (fun s₄ rest rest' hs₄ hR => ?_)
           obtain rfl : rest = rest' := hR
           exact SimC.pure hs₄ rfl
-        · simp only [if_neg hz]
+        · simp only [ite_eq_right hz]
           exact SimC.throw_bind
-      · simp only [if_neg hl]
+      · simp only [ite_eq_right hl]
         refine SimC.bind (checkStructFieldSortsIS_sim hμ henv hfvs hs₃)
           (fun s₄ rest rest' hs₄ hR => ?_)
         obtain rfl : rest = rest' := hR

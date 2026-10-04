@@ -693,7 +693,7 @@ theorem quotIndLaw {m : EnvModel V env}
   -- the fired constructor is `Quot.mk`, stored in the prefix
   have hM' : (⟨quotIndA :: env.consts⟩ : Env).find? quotMkName
       = some quotMkA := by
-    rw [ConLeche.Env.find?_cons, if_neg (by decide)]; exact hM
+    rw [ConLeche.Env.find?_cons, ite_eq_right (by decide)]; exact hM
   rw [show RecRule.ctor quotIndRule = quotMkName from rfl, hM'] at hfj
   obtain ⟨rfl, rfl, rfl⟩ :
       cvj = quotMkA.toConstantVal ∧ cnP = 2 ∧ cnF = 1 := by
@@ -830,7 +830,7 @@ theorem denoteMeta_eqLeaf {c₀ : ConstantInfo} (ψ : Name → Nat) (l : Level)
         (.const eqName [l])
       = some (m.acval eqName (Level.substFn ψ [uN] [l])) := by
   have hf' : (⟨c₀ :: env.consts⟩ : Env).find? eqName = some eqA := by
-    rw [ConLeche.Env.find?_cons, if_neg hne]; exact hE
+    rw [ConLeche.Env.find?_cons, ite_eq_right hne]; exact hE
   rw [denoteMeta_const hf' (by rfl), acvalWith_ne (fun h => hne h.symm)]
   rfl
 
@@ -2043,7 +2043,7 @@ theorem quotLiftLaw {m : EnvModel V env}
     hlev _ hnested hpin hTVa hTVja hfitR hfitC
   have hM' : (⟨quotLiftA :: env.consts⟩ : Env).find? quotMkName
       = some quotMkA := by
-    rw [ConLeche.Env.find?_cons, if_neg (by decide)]; exact hM
+    rw [ConLeche.Env.find?_cons, ite_eq_right (by decide)]; exact hM
   rw [show RecRule.ctor quotLiftRule = quotMkName from rfl, hM'] at hfj
   obtain ⟨rfl, rfl, rfl⟩ :
       cvj = quotMkA.toConstantVal ∧ cnP = 2 ∧ cnF = 1 := by
@@ -2295,9 +2295,9 @@ theorem declBasisPB_quotK {env₁ : Env} (mp : EnvModelM V μ env)
   refine (extendQuot mp hf1  hwf1).trans fun mp1 => ?_
   have hQ1 : (⟨quotA :: env.consts⟩ : Env).find? quotName
       = some quotA := by
-    rw [ConLeche.Env.find?_cons]; exact if_pos rfl
+    rw [ConLeche.Env.find?_cons]; exact ite_eq_left rfl
   have hE1 : (⟨quotA :: env.consts⟩ : Env).find? eqName = some eqA := by
-    rw [ConLeche.Env.find?_cons, if_neg (by decide)]; exact hEq
+    rw [ConLeche.Env.find?_cons, ite_eq_right (by decide)]; exact hEq
   have hf2 : (⟨quotA :: env.consts⟩ : Env).find? quotMkA.name = none :=
     Option.isNone_iff_eq_none.mp h2
   have hwf2 : EnvWF ⟨quotMkA :: quotA :: env.consts⟩ := by
@@ -2311,7 +2311,7 @@ theorem declBasisPB_quotK {env₁ : Env} (mp : EnvModelM V μ env)
     show Expr.constsResolve _ quotMkA.toConstantVal.type = true
     have hf : (⟨quotMkA :: quotA :: env.consts⟩ : Env).find? quotName
         = some quotA := by
-      rw [ConLeche.Env.find?_cons, if_neg (by decide)]; exact hQ1
+      rw [ConLeche.Env.find?_cons, ite_eq_right (by decide)]; exact hQ1
     rw [show quotMkA.toConstantVal.type
       = Expr.forallE (.sort (.param uN))
           (Expr.forallE
@@ -2328,22 +2328,22 @@ theorem declBasisPB_quotK {env₁ : Env} (mp : EnvModelM V μ env)
   refine (extendQuotMk mp1 hQ1 hf2  hwf2).trans fun mp2 => ?_
   have hQ2 : (⟨quotMkA :: quotA :: env.consts⟩ : Env).find? quotName
       = some quotA := by
-    rw [ConLeche.Env.find?_cons, if_neg (by decide)]; exact hQ1
+    rw [ConLeche.Env.find?_cons, ite_eq_right (by decide)]; exact hQ1
   have hM2 : (⟨quotMkA :: quotA :: env.consts⟩ : Env).find? quotMkName
       = some quotMkA := by
-    rw [ConLeche.Env.find?_cons]; exact if_pos rfl
+    rw [ConLeche.Env.find?_cons]; exact ite_eq_left rfl
   have hE2 : (⟨quotMkA :: quotA :: env.consts⟩ : Env).find? eqName
       = some eqA := by
-    rw [ConLeche.Env.find?_cons, if_neg (by decide)]; exact hE1
+    rw [ConLeche.Env.find?_cons, ite_eq_right (by decide)]; exact hE1
   have hf3 : (⟨quotMkA :: quotA :: env.consts⟩ : Env).find?
       quotLiftA.name = none := Option.isNone_iff_eq_none.mp h3
   have hwf3 : EnvWF ⟨quotLiftA :: quotMkA :: quotA :: env.consts⟩ := by
     have hfQ : (⟨quotLiftA :: quotMkA :: quotA :: env.consts⟩
         : Env).find? quotName = some quotA := by
-      rw [ConLeche.Env.find?_cons, if_neg (by decide)]; exact hQ2
+      rw [ConLeche.Env.find?_cons, ite_eq_right (by decide)]; exact hQ2
     have hfE : (⟨quotLiftA :: quotMkA :: quotA :: env.consts⟩
         : Env).find? eqName = some eqA := by
-      rw [ConLeche.Env.find?_cons, if_neg (by decide)]; exact hE2
+      rw [ConLeche.Env.find?_cons, ite_eq_right (by decide)]; exact hE2
     refine EnvWF.cons hwf2 ⟨rfl, rfl, ?_, rfl,
       (fun _ _ _ heq => nomatch heq), ?_,
       (fun _ heq => nomatch heq),
@@ -2401,13 +2401,13 @@ theorem declBasisPB_quotK {env₁ : Env} (mp : EnvModelM V μ env)
   refine (extendQuotLift mp2 hQ2 hM2 hE2 hf3  hwf3).trans fun mp3 => ?_
   have hQ3 : (⟨quotLiftA :: quotMkA :: quotA :: env.consts⟩
       : Env).find? quotName = some quotA := by
-    rw [ConLeche.Env.find?_cons, if_neg (by decide)]; exact hQ2
+    rw [ConLeche.Env.find?_cons, ite_eq_right (by decide)]; exact hQ2
   have hM3 : (⟨quotLiftA :: quotMkA :: quotA :: env.consts⟩
       : Env).find? quotMkName = some quotMkA := by
-    rw [ConLeche.Env.find?_cons, if_neg (by decide)]; exact hM2
+    rw [ConLeche.Env.find?_cons, ite_eq_right (by decide)]; exact hM2
   have hE3 : (⟨quotLiftA :: quotMkA :: quotA :: env.consts⟩
       : Env).find? eqName = some eqA := by
-    rw [ConLeche.Env.find?_cons, if_neg (by decide)]; exact hE2
+    rw [ConLeche.Env.find?_cons, ite_eq_right (by decide)]; exact hE2
   have hf4 : (⟨quotLiftA :: quotMkA :: quotA :: env.consts⟩
       : Env).find? quotIndA.name = none :=
     Option.isNone_iff_eq_none.mp h4
@@ -2415,10 +2415,10 @@ theorem declBasisPB_quotK {env₁ : Env} (mp : EnvModelM V μ env)
       :: env.consts⟩ := by
     have hfQ : (⟨quotIndA :: quotLiftA :: quotMkA :: quotA
         :: env.consts⟩ : Env).find? quotName = some quotA := by
-      rw [ConLeche.Env.find?_cons, if_neg (by decide)]; exact hQ3
+      rw [ConLeche.Env.find?_cons, ite_eq_right (by decide)]; exact hQ3
     have hfM : (⟨quotIndA :: quotLiftA :: quotMkA :: quotA
         :: env.consts⟩ : Env).find? quotMkName = some quotMkA := by
-      rw [ConLeche.Env.find?_cons, if_neg (by decide)]; exact hM3
+      rw [ConLeche.Env.find?_cons, ite_eq_right (by decide)]; exact hM3
     refine EnvWF.cons hwf3 ⟨rfl, rfl, ?_, rfl,
       (fun _ _ _ heq => nomatch heq), ?_,
       (fun _ heq => nomatch heq),
@@ -2469,13 +2469,13 @@ theorem declBasisPB_quotK {env₁ : Env} (mp : EnvModelM V μ env)
   refine (extendQuotInd mp3 hQ3 hM3 hf4  hwf4).trans fun mp4 => ?_
   have hQ4 : (⟨quotIndA :: quotLiftA :: quotMkA :: quotA
       :: env.consts⟩ : Env).find? quotName = some quotA := by
-    rw [ConLeche.Env.find?_cons, if_neg (by decide)]; exact hQ3
+    rw [ConLeche.Env.find?_cons, ite_eq_right (by decide)]; exact hQ3
   have hM4 : (⟨quotIndA :: quotLiftA :: quotMkA :: quotA
       :: env.consts⟩ : Env).find? quotMkName = some quotMkA := by
-    rw [ConLeche.Env.find?_cons, if_neg (by decide)]; exact hM3
+    rw [ConLeche.Env.find?_cons, ite_eq_right (by decide)]; exact hM3
   have hE4 : (⟨quotIndA :: quotLiftA :: quotMkA :: quotA
       :: env.consts⟩ : Env).find? eqName = some eqA := by
-    rw [ConLeche.Env.find?_cons, if_neg (by decide)]; exact hE3
+    rw [ConLeche.Env.find?_cons, ite_eq_right (by decide)]; exact hE3
   have hf5 : (⟨quotIndA :: quotLiftA :: quotMkA :: quotA
       :: env.consts⟩ : Env).find? quotSoundA.name = none :=
     Option.isNone_iff_eq_none.mp h5
@@ -2484,14 +2484,14 @@ theorem declBasisPB_quotK {env₁ : Env} (mp : EnvModelM V μ env)
     have hfQ : (⟨quotSoundA :: quotIndA :: quotLiftA :: quotMkA
         :: quotA :: env.consts⟩ : Env).find? quotName
         = some quotA := by
-      rw [ConLeche.Env.find?_cons, if_neg (by decide)]; exact hQ4
+      rw [ConLeche.Env.find?_cons, ite_eq_right (by decide)]; exact hQ4
     have hfM : (⟨quotSoundA :: quotIndA :: quotLiftA :: quotMkA
         :: quotA :: env.consts⟩ : Env).find? quotMkName
         = some quotMkA := by
-      rw [ConLeche.Env.find?_cons, if_neg (by decide)]; exact hM4
+      rw [ConLeche.Env.find?_cons, ite_eq_right (by decide)]; exact hM4
     have hfE : (⟨quotSoundA :: quotIndA :: quotLiftA :: quotMkA
         :: quotA :: env.consts⟩ : Env).find? eqName = some eqA := by
-      rw [ConLeche.Env.find?_cons, if_neg (by decide)]; exact hE4
+      rw [ConLeche.Env.find?_cons, ite_eq_right (by decide)]; exact hE4
     refine EnvWF.cons hwf4 ⟨rfl, rfl, ?_, rfl,
       (fun _ _ _ heq => nomatch heq), (fun _ _ _ _ heq => nomatch heq),
       (fun _ heq => nomatch heq),

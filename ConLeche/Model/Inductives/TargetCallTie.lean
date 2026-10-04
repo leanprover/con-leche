@@ -45,15 +45,15 @@ theorem dom_erasedEq_callSubst {ctx : NestCtx} {prog : List NestHole} {fvsF : Li
   refine Expr.replaceFVars_erasedEq_substFvars (fun v hv ty => ?_) nd hnd
   simp only [extendF, callSubst, List.length_take, Nat.min_eq_left hi]
   by_cases h1 : v < ctx.nP
-  · rw [if_neg (by simp [NestCtx.hiAt] at *; omega), ConLeche.nestHoleImg_lt_nP h1, if_pos h1]
+  · rw [ite_eq_right (by simp [NestCtx.hiAt] at *; omega), ConLeche.nestHoleImg_lt_nP h1, ite_eq_left h1]
     simp [Expr.ErasedEq]
-  · rw [if_neg h1]
+  · rw [ite_eq_right h1]
     by_cases h2 : v < ctx.hiAt prog.length
-    · rw [if_neg (by omega), if_pos h2]
+    · rw [ite_eq_right (by omega), ite_eq_left h2]
       obtain ⟨e, hc⟩ := ConLeche.nestHoleImg_hole (prog := prog) (by omega) h2
       rw [hc]
       exact Expr.ErasedEq.rfl _
-    · rw [if_pos ⟨by omega, hv⟩, if_neg h2, List.getElem?_take_of_lt (by omega)]
+    · rw [ite_eq_left ⟨by omega, hv⟩, ite_eq_right h2, List.getElem?_take_of_lt (by omega)]
       have hl : v - ctx.hiAt prog.length < fvsF.length := by omega
       rw [List.getElem?_eq_getElem hl]
       exact Expr.ErasedEq.rfl _

@@ -101,9 +101,9 @@ theorem bvarsBelow_liftN (n : Nat) :
     intro m k h
     show Term.bvarsBelow (m + n) (.bvar (if i < k then i else i + n))
     by_cases hik : i < k
-    · rw [if_pos hik]
+    · rw [ite_eq_left hik]
       exact Nat.lt_of_lt_of_le (show i < m from h) (Nat.le_add_right m n)
-    · rw [if_neg hik]
+    · rw [ite_eq_right hik]
       exact Nat.add_lt_add_right (show i < m from h) n
   | sort u => intro _ _ _; trivial
   | const c us => intro _ _ _; trivial
@@ -703,10 +703,10 @@ def sqSumBodyAV (Fss : List (List AnnotTerm)) : AnnotTerm :=
 def sumBodyAV (w : Nat) (Fss : List (List AnnotTerm)) : AnnotTerm :=
   if w = 0 then sqSumBodyAV Fss else sumBodyAVPos w Fss
 
-theorem sumBodyAV_zero (Fss : List (List AnnotTerm)) : sumBodyAV 0 Fss = sqSumBodyAV Fss := if_pos rfl
+theorem sumBodyAV_zero (Fss : List (List AnnotTerm)) : sumBodyAV 0 Fss = sqSumBodyAV Fss := ite_eq_left rfl
 
 theorem sumBodyAV_pos {w : Nat} (hw : w ≠ 0) (Fss : List (List AnnotTerm)) :
-    sumBodyAV w Fss = sumBodyAVPos w Fss := if_neg hw
+    sumBodyAV w Fss = sumBodyAVPos w Fss := ite_eq_right hw
 
 /-- `ω` sits in every positive universe. -/
 theorem omega_mem_univ_pos {w : Nat} (hw : w ≠ 0) : (omega : V) ∈ˢ univ w := by
@@ -1309,8 +1309,8 @@ def sumInjAtAV (w : Nat) (Fss : List (List AnnotTerm)) (d : Nat) (tag payload : 
 /-- The semantic injection, both regimes: the point at squash. -/
 noncomputable def injW (w i : Nat) (a : V) : V := if w = 0 then pt else inj i a
 
-theorem injW_zero (i : Nat) (a : V) : injW 0 i a = pt := if_pos rfl
-theorem injW_pos {w : Nat} (hw : w ≠ 0) (i : Nat) (a : V) : injW w i a = inj i a := if_neg hw
+theorem injW_zero (i : Nat) (a : V) : injW 0 i a = pt := ite_eq_left rfl
+theorem injW_pos {w : Nat} (hw : w ≠ 0) (i : Nat) (a : V) : injW w i a = inj i a := ite_eq_right hw
 
 /-- The injection's value lands in the carrier. -/
 theorem injW_mem {w : Nat} {f : Nat → V} {i : Nat} {a : V} (ha : a ∈ˢ f i) :
@@ -1359,7 +1359,7 @@ theorem sumInjAtAV_interp {w : Nat} {ρp σ : Nat → V} {d : Nat} (hsh : shiftE
       exact hpay hw
     show SetTheory.app (SetTheory.app (SetTheory.app (SetTheory.app (psigmaMkV V w w) _) _) _) _ = _
     rw [psigmaMkV_app V (omega_mem_univ_pos hw) hBm (vnat_mem_omega i) hpay',
-      show Nat.max w w = w from Nat.max_self w, if_neg hw, injW_pos hw]
+      show Nat.max w w = w from Nat.max_self w, ite_eq_right hw, injW_pos hw]
     rfl
 
 /-- **The injection is graded**: in the graph regime the four slots
@@ -1460,10 +1460,10 @@ def mkTowerGoU (w : Nat) (Fs : List AnnotTerm) (E : AnnotTerm) : AnnotTerm :=
   if w = 0 then .const .punitUnit [] else mkTowerGoUPos w E Fs
 
 theorem mkTowerGoU_zero (Fs : List AnnotTerm) (E : AnnotTerm) :
-    mkTowerGoU 0 Fs E = .const .punitUnit [] := if_pos rfl
+    mkTowerGoU 0 Fs E = .const .punitUnit [] := ite_eq_left rfl
 
 theorem mkTowerGoU_pos {w : Nat} (hw : w ≠ 0) (Fs : List AnnotTerm) (E : AnnotTerm) :
-    mkTowerGoU w Fs E = mkTowerGoUPos w E Fs := if_neg hw
+    mkTowerGoU w Fs E = mkTowerGoUPos w E Fs := ite_eq_right hw
 
 /-- The tupler at a fitting spine with the proof-field inhabited by the
 point reads to the point-terminated tuple. -/
@@ -1485,7 +1485,7 @@ theorem mkTowerGoUPos_interp {w : Nat} (hw : w ≠ 0) {E : AnnotTerm} :
         (interp V ρp E)) (lamR (w + 1) (interp V ρp E) fun _ => (unitSet : V))) pt) pt
       = mkTower [pt]
     have hbv : bval V .psigmaMk [w, w] = psigmaMkV V w w := rfl
-    rw [hbv, psigmaMkV_app V hA hB hpt' hb', show Nat.max w w = w from Nat.max_self w, if_neg hw]
+    rw [hbv, psigmaMkV_app V hA hB hpt' hb', show Nat.max w w = w from Nat.max_self w, ite_eq_right hw]
     rfl
   | [], _, _ :: _, _, hsp, _ => hsp.elim
   | _ :: _, _, [], _, hsp, _ => hsp.elim
@@ -1547,7 +1547,7 @@ theorem mkTowerGoUPos_interp {w : Nat} (hw : w ≠ 0) {E : AnnotTerm} :
         = fun x => interp V (cons x ρp) (towerBodyAV w (Fs ++ [E])) :=
       funext hBfun
     rw [hBeq, hbv, psigmaMkV_app V hAm hBm hsp.1 hbm,
-      show Nat.max w w = w from Nat.max_self w, if_neg hw]
+      show Nat.max w w = w from Nat.max_self w, ite_eq_right hw]
     rfl
 where
   spineFit_append_split_mpr {ρ : Nat → V} {Fs Gs : List AnnotTerm} {as bs : List V}
@@ -1561,8 +1561,8 @@ theorem mkTowerGoU_interp {w : Nat} {E : AnnotTerm} {Fs : List AnnotTerm} {ρp :
     interp V (consList bs ρp) (mkTowerGoU w Fs E)
       = if w = 0 then pt else mkTower (bs ++ [pt]) := by
   by_cases hw : w = 0
-  · subst hw; rw [mkTowerGoU_zero, if_pos rfl]; rfl
-  · rw [mkTowerGoU_pos hw, if_neg hw]; exact mkTowerGoUPos_interp hw (hb hw) hsp hpt
+  · subst hw; rw [mkTowerGoU_zero, ite_eq_left rfl]; rfl
+  · rw [mkTowerGoU_pos hw, ite_eq_right hw]; exact mkTowerGoUPos_interp hw (hb hw) hsp hpt
 
 /-- The tupler is graded (graph regime). -/
 theorem mkTowerGoUPos_wellDenoted {w : Nat} (hw : w ≠ 0) {E : AnnotTerm} :
@@ -1851,7 +1851,7 @@ theorem sumInj_at_fields {w j : Nat} {ρp : Nat → V} {Fs : List AnnotTerm}
   have hpay : w ≠ 0 → interp V (consList bs ρp) (mkTowerGoU w Fs (idxEqAV []))
       ∈ˢ sumFibre w ρp Fss j := by
     intro hw
-    rw [hmk, if_neg hw, sumFibre_of_getElem? hj]
+    rw [hmk, ite_eq_right hw, sumFibre_of_getElem? hj]
     exact mkTower_mem_teleOfFields hw (hsp.append ⟨hpt, trivial⟩)
   have hv := sumInjAtAV_interp hsh hok (interp_numeralAV j _) hpay
   rw [hmk] at hv
@@ -1947,7 +1947,7 @@ theorem sumMkAV_fold {w j : Nat} (hw : w ≠ 0)
     mkLamsAV_fold (fun d hd => by
       obtain ⟨d', -, rfl⟩ := List.mem_map.mp hd
       exact hw) hsp,
-    consList_append, (sumInj_at_fields hok hj hsp₂).1, if_neg hw, injW_pos hw]
+    consList_append, (sumInj_at_fields hok hj hsp₂).1, ite_eq_right hw, injW_pos hw]
 
 /-- **The constructor leaf at a squash instantiation is the point.** -/
 theorem sumMkAV_zero {j : Nat} {ds : List (Nat × Nat × AnnotTerm)} {Fs : List AnnotTerm}

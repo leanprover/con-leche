@@ -60,10 +60,10 @@ theorem inferTypeCore_fvar_inv {d idx : Nat} {ty t : Expr}
   rw [inferTypeCore_succ] at h
   simp only [inferBody, pure, Except.pure] at h
   by_cases hlt : idx < d
-  · rw [if_pos hlt] at h
+  · rw [ite_eq_left hlt] at h
     simp only [Except.ok.injEq] at h
     exact ⟨hlt, h.symm⟩
-  · rw [if_neg hlt] at h
+  · rw [ite_eq_right hlt] at h
     simp [throw, throwThe, MonadExceptOf.throw] at h
 
 /-- The `.bvar` clause throws. -/
@@ -93,10 +93,10 @@ theorem inferTypeCore_const_inv_full {d : Nat} {n : Name} {us : List Level}
     by_cases hte : ci.isTowerEntry = false
     · simp only [hte, Bool.not_false, ite_true] at h
       by_cases hlen : us.length = ci.toConstantVal.levelParams.length
-      · rw [if_pos hlen] at h
+      · rw [ite_eq_left hlen] at h
         simp only [Except.ok.injEq] at h
         exact ⟨ci, rfl, hte, hlen, h.symm⟩
-      · rw [if_neg hlen] at h
+      · rw [ite_eq_right hlen] at h
         simp [throw, throwThe, MonadExceptOf.throw] at h
     · simp only [Bool.not_eq_false] at hte
       simp [hte, throw, throwThe, MonadExceptOf.throw] at h
@@ -108,10 +108,10 @@ theorem inferTypeCore_natLit_inv' {d k : Nat} {t : Expr}
   rw [inferTypeCore_succ] at h
   simp only [inferBody, pure, Except.pure] at h
   by_cases hg : natLitSupported env = true
-  · rw [if_pos hg] at h
+  · rw [ite_eq_left hg] at h
     simp only [Except.ok.injEq] at h
     exact ⟨hg, h.symm⟩
-  · rw [if_neg hg] at h
+  · rw [ite_eq_right hg] at h
     simp [throw, throwThe, MonadExceptOf.throw] at h
 
 /-- The string-literal clause: the support guard and `String`. -/
@@ -121,10 +121,10 @@ theorem inferTypeCore_strLit_inv' {d : Nat} {s : String} {t : Expr}
   rw [inferTypeCore_succ] at h
   simp only [inferBody, pure, Except.pure] at h
   by_cases hg : strLitSupported env = true
-  · rw [if_pos hg] at h
+  · rw [ite_eq_left hg] at h
     simp only [Except.ok.injEq] at h
     exact ⟨hg, h.symm⟩
-  · rw [if_neg hg] at h
+  · rw [ite_eq_right hg] at h
     simp [throw, throwThe, MonadExceptOf.throw] at h
 
 /-- The io lane's `.bvar` clause throws too. -/

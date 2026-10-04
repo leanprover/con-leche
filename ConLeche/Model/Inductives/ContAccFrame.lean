@@ -167,11 +167,11 @@ theorem walkTele_acc {w : Nat} {ctx : NestCtx} {prog : List NestHole} {b : Nat}
   refine ⟨fun l => if l < nF then Af l else fun _ => empty, N, hE, ?_, ?_, ?_, hQf⟩
   · refine TeleAccP.congr _ 0 _ _ (fun l' _ hl' => ?_) htele
     have : l' < nF := by simp at hl'; omega
-    simp only [if_pos this]
+    simp only [ite_eq_left this]
   · -- the bounds read the ordinary slots and the parameters
     intro l τ τ' hag
     by_cases hl : l < nF
-    · simp only [if_pos hl]
+    · simp only [ite_eq_left hl]
       obtain ⟨x, hx⟩ : ∃ x, xs[l]? = some x :=
         ⟨_, List.getElem?_eq_getElem (by rw [ConLeche.Verify.openPisAtFvars_length nF hop]; exact hl)⟩
       obtain ⟨nd, hnd, hEx⟩ := hxs l x hx
@@ -195,7 +195,7 @@ theorem walkTele_acc {w : Nat} {ctx : NestCtx} {prog : List NestHole} {b : Nat}
         rcases hi with ⟨hlt, -, hnh⟩ | ⟨hlt, hpar⟩
         · refine ⟨by omega, Nat.lt_of_not_le fun hge => hnh ⟨hlt, ?_, ?_⟩⟩ <;> omega
         · exact ⟨by omega, by omega⟩
-    · simp only [if_neg hl]
+    · simp only [ite_eq_right hl]
   · -- the ordinary readings read the ordinary slots and the parameters
     intro i G hGi hoi τ τ' hag
     have hi : i < nF := by
@@ -470,7 +470,7 @@ theorem frame_mixT_grp (ψ : Name → Nat) (ρp C Y : Nat → V) :
   refine List.map_congr_left fun c hc => ?_
   have hc' : c < D.k := List.mem_range.mp hc
   have hm : mixT (InGrp D grp) C Y c = Y c := by
-    unfold mixT; rw [if_pos (inGrp_of_lt hg.2.1 hkN hc')]
+    unfold mixT; rw [ite_eq_left (inGrp_of_lt hg.2.1 hkN hc')]
   unfold LfpDatum.holeVal
   simp only [hm]
 
@@ -556,12 +556,12 @@ theorem frameCtor_acc {w : Nat} (hwD : D.w (Level.substFn φ lps us) = w)
       (grpX mp.base2 φ D hi grp ds (hi + grp.length))) (D.k - 1 - g)).liftN nF 0
         = .bvar p := by
     have hgk := hG.1
-    simp only [substTau, if_pos (show D.k - 1 - g < ds.length + D.k by omega)]
+    simp only [substTau, ite_eq_left (show D.k - 1 - g < ds.length + D.k by omega)]
     rw [show ds.length + D.k - 1 - (D.k - 1 - g) = ds.length + g by omega]
     have hr' := (grpS_read mp hD hnN hkN hfind hlps hnd hul hds hdsa hlenP hg (ds.length + g)
       (by omega)).2.2
     unfold grpS at hr'
-    rw [if_neg (by omega), show ds.length + g - ds.length = g by omega] at hr'
+    rw [ite_eq_right (by omega), show ds.length + g - ds.length = g by omega] at hr'
     obtain ⟨i, hi', -, hidx', hget⟩ := grpHoles_member (hi := hi) hg.2.1 hkN hgk
     rw [hidx', hget, denoteMeta_fvar] at hr'
     rw [← Option.some.inj hr']
@@ -757,14 +757,14 @@ theorem frameAccOut_of {w : Nat}
                 t g j fs := by
     intro g j hG hj
     have e : TBt g j = Classical.choose (hper g j hG hj) := by
-      simp only [TBt, dif_pos (show InGrp D grp g ∧ j < D.nctors g from ⟨hG, hj⟩)]
+      simp only [TBt, dite_eq_left (show InGrp D grp g ∧ j < D.nctors g from ⟨hG, hj⟩)]
     rw [e]
     exact Classical.choose_spec (hper g j hG hj)
   have hTBsz : ∀ g j σ, w ≠ 0 → TBt g j σ ∈ˢ (univ w : V) := by
     intro g j σ hw
     by_cases hgj : InGrp D grp g ∧ j < D.nctors g
     · exact (hTB g j hgj.1 hgj.2).1 σ hw
-    · simp only [TBt, dif_neg hgj]; exact empty_mem_univ w
+    · simp only [TBt, dite_eq_right hgj]; exact empty_mem_univ w
   -- the frame valuations of two frames agreeing at the parameters agree at the parameters
   have hpar : ∀ (ρ ρ' Y Y' : Nat → V), (∀ q, ParamPos hi ctx.nP q → ρ q = ρ' q) →
       ∀ q, ParamPos (hi + grp.length) ctx.nP q →
@@ -781,7 +781,7 @@ theorem frameAccOut_of {w : Nat}
     intro g j ρ ρ' Y Y' hag
     by_cases hgj : InGrp D grp g ∧ j < D.nctors g
     · exact (hTB g j hgj.1 hgj.2).2.1 _ _ (hpar ρ ρ' Y Y' hag)
-    · simp only [TBt, dif_neg hgj]
+    · simp only [TBt, dite_eq_right hgj]
   -- the bound
   let A0 : (Nat → V) → V := fun ρ =>
     LfpDatum.finUnion (fun c => LfpDatum.finUnion (fun j => TBt c j (frameVal D (Level.substFn φ lps us) grp dsa hi ρ
@@ -828,8 +828,8 @@ theorem frameAccOut_of {w : Nat}
     · obtain ⟨hQ, hH⟩ := hgi b hb
       rcases frame_item_fwd mp hD hnN hkN hfind hlps hnd hul hds hdsa hlenP hg hhi hY hQ hH with
         ⟨hlt, hGc, hin, -⟩ | ⟨hge, hQo, hHo⟩
-      · simp only [item, if_pos hlt]; exact ⟨hGc, hin⟩
-      · simp only [item, if_neg (show ¬ (gi b).1 < grp.length by omega)]; exact ⟨hQo, hHo⟩
+      · simp only [item, ite_eq_left hlt]; exact ⟨hGc, hin⟩
+      · simp only [item, ite_eq_right (show ¬ (gi b).1 < grp.length by omega)]; exact ⟨hQo, hHo⟩
     · rintro p' Y' hR' ⟨p₀', hp'⟩ hY' hitems
       have hs' := (hfit p' p₀' hp').1
       have hf' := htr p' Y' hR' hY' fun b hb => by
@@ -837,9 +837,9 @@ theorem frameAccOut_of {w : Nat}
         have hib := hitems b hb
         rcases frame_item_fwd mp hD hnN hkN hfind hlps hnd hul hds hdsa hlenP hg hhi hY hQ hH with
           ⟨hlt, -, -, hfit0⟩ | ⟨hge, -, -⟩
-        · simp only [item, if_pos hlt] at hib
+        · simp only [item, ite_eq_left hlt] at hib
           exact frame_item_bwd hlt (hfit0 p' (hagree p p' hR')) hib.2
-        · simp only [item, if_neg (show ¬ (gi b).1 < grp.length by omega)] at hib
+        · simp only [item, ite_eq_right (show ¬ (gi b).1 < grp.length by omega)] at hib
           exact (holds_frameVal_ge hge).mpr hib.2
       have hmixS' := mixT_mem (G := InGrp D grp)
         (C := D.carrier (Level.substFn φ lps us) (keyFrame dsa hi p')) (lfpTuple_mem _ _ _ _) hY'

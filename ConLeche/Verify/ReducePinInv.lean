@@ -42,11 +42,11 @@ theorem checkReducePin_inv {env env2 : Env} {c : Name} {value : Expr}
   simp only [checkReducePin, fueledOps_annotate, fueledOps_isDefEq,
     Bind.bind, Except.bind] at h
   by_cases hg : (reduceStoredOk env2 c && reduceElemOk env c) = true
-  case neg => rw [if_neg hg] at h; exact nomatch h
-  rw [if_pos hg] at h
+  case neg => rw [ite_eq_right hg] at h; exact nomatch h
+  rw [ite_eq_left hg] at h
   by_cases hpg : reducePinGuard env c = true
-  case neg => rw [if_neg hpg] at h; exact nomatch h
-  rw [if_pos hpg] at h
+  case neg => rw [ite_eq_right hpg] at h; exact nomatch h
+  rw [ite_eq_left hpg] at h
   obtain ⟨hstored, helem⟩ := by simpa only [Bool.and_eq_true] using hg
   refine ⟨hstored, helem, hpg, ?_⟩
   cases hva : annotateCore mode env F 0 value with
@@ -66,7 +66,7 @@ theorem checkReducePin_inv {env env2 : Env} {c : Name} {value : Expr}
   cases b1 with
   | false => simp [throw, throwThe, MonadExceptOf.throw] at h
   | true =>
-  simp only [if_true] at h
+  simp only [ite_true] at h
   cases hp2 : isDefEqCore mode env F 1 (.app valA (reduceCertVar c))
       (reduceCertVar c) with
   | error e => rw [hp2] at h; exact nomatch h

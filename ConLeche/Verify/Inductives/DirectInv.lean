@@ -172,7 +172,7 @@ theorem checkStructDomsAt_inv {env : Env} {F off : Nat} {fvs doms : List Expr} :
       simp only [Bool.false_eq_true, ↓reduceIte] at h
       close_throw
     | true =>
-    rw [if_pos rfl] at h
+    rw [ite_eq_left rfl] at h
     try simp only at h
     rcases Nat.lt_or_ge i j with hij | hij
     · exact checkStructDomsAt_inv h i hij
@@ -302,7 +302,7 @@ theorem checkStructFieldSortsI_inv {env : Env} {isProp large : Bool}
           rw [List.getElem?_append_right (by omega), hlen, Nat.sub_self]; rfl,
           hty, hu, hleq, hz⟩
     by_cases hnp : (!isProp) = true
-    · rw [if_pos hnp] at h
+    · rw [ite_eq_left hnp] at h
       obtain ⟨b, hb, h⟩ := exceptBind_ok h
       have hb' : Level.leq u s = some b := by
         cases hl : Level.leq u s with
@@ -318,18 +318,18 @@ theorem checkStructFieldSortsI_inv {env : Env} {isProp large : Bool}
         simp only [Bool.false_eq_true, ↓reduceIte] at h
         close_throw
       | true =>
-      rw [if_pos rfl] at h
+      rw [ite_eq_left rfl] at h
       simp only [pure, Except.pure, bind, Except.bind] at h
       obtain ⟨rest, hrest, h⟩ := exceptBind_ok h
       simp only [Except.ok.injEq] at h
       refine ⟨rest, hrest, h.symm, fun _ => hb', fun hp => ?_⟩
       simp [hp] at hnp
-    · rw [if_neg hnp] at h
+    · rw [ite_eq_right hnp] at h
       have hp : isProp = true := by simpa using hnp
       by_cases hl : large = true
-      · rw [if_pos hl] at h
+      · rw [ite_eq_left hl] at h
         by_cases hz : (Level.isEquiv u .zero == some true || idxArgs.contains fv) = true
-        · rw [if_pos hz] at h
+        · rw [ite_eq_left hz] at h
           simp only [pure, Except.pure, bind, Except.bind] at h
           obtain ⟨rest, hrest, h⟩ := exceptBind_ok h
           simp only [Except.ok.injEq] at h
@@ -337,9 +337,9 @@ theorem checkStructFieldSortsI_inv {env : Env} {isProp large : Bool}
           · rw [hp] at h0
             exact nomatch h0
           · exact Bool.or_eq_true_iff.mp hz
-        · rw [if_neg hz] at h
+        · rw [ite_eq_right hz] at h
           close_throw
-      · rw [if_neg hl] at h
+      · rw [ite_eq_right hl] at h
         simp only [pure, Except.pure, bind, Except.bind] at h
         obtain ⟨rest, hrest, h⟩ := exceptBind_ok h
         simp only [Except.ok.injEq] at h
@@ -378,8 +378,8 @@ theorem checkSumCtor_shape {env₀ env : Env} {T : Name} {lps : List Name}
   have hq' := unwrapOr_ok hq
   try simp only at h
   by_cases hc : structCtorResidOk T lps nP nF nIdx cbody = true
-  case neg => rw [if_neg hc] at h; close_throw
-  rw [if_pos hc] at h
+  case neg => rw [ite_eq_right hc] at h; close_throw
+  rw [ite_eq_left hc] at h
   obtain ⟨cq, hcq, h⟩ := exceptBind_ok h
   have hcq' := unwrapOr_ok hcq
   obtain ⟨fvsP, crest⟩ := cq
@@ -394,14 +394,14 @@ theorem checkSumCtor_shape {env₀ env : Env} {T : Name} {lps : List Name}
   try simp only at h
   by_cases h2 : (xrest.getAppFn == Expr.const T (lps.map .param) &&
       xrest.getAppArgs.take nP == fvsP && xrest.getAppArgs.length == nP + nIdx) = true
-  case neg => rw [if_neg h2] at h; close_throw
-  rw [if_pos h2] at h
+  case neg => rw [ite_eq_right h2] at h; close_throw
+  rw [ite_eq_left h2] at h
   by_cases h3 : (xFvs.all fun x => Expr.constsResolve env₀ x.fvarTypeD) = true
-  case neg => rw [if_neg h3] at h; close_throw
-  rw [if_pos h3] at h
+  case neg => rw [ite_eq_right h3] at h; close_throw
+  rw [ite_eq_left h3] at h
   by_cases h4 : ((xrest.getAppArgs.drop nP).all fun e => Expr.constsResolve env₀ e) = true
-  case neg => rw [if_neg h4] at h; close_throw
-  rw [if_pos h4] at h
+  case neg => rw [ite_eq_right h4] at h; close_throw
+  rw [ite_eq_left h4] at h
   obtain ⟨sorts', hsorts, h⟩ := exceptBind_ok h
   simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
   obtain ⟨rfl, rfl⟩ := h

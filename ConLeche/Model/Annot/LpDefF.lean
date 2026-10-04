@@ -116,7 +116,7 @@ theorem denoteMeta_params_extF (m : EnvModel V env)
     intro hd
     rw [denoteMeta, denoteMeta, h1]
     dsimp only
-    rw [if_pos h2, if_pos h2]
+    rw [ite_eq_left h2, ite_eq_left h2]
     refine congrArg _ (m.acval_params n ci h1 _ _ fun p hpm => ?_)
     refine Level.substFn_ext hφ ?_ h2 p hpm
     intro u hu
@@ -126,7 +126,7 @@ theorem denoteMeta_params_extF (m : EnvModel V env)
     intro _
     rw [denoteMeta, denoteMeta, h1]
     dsimp only
-    rw [if_neg h2, if_neg h2]
+    rw [ite_eq_right h2, ite_eq_right h2]
   | case5 d n us h1 => intro _; rw [denoteMeta, denoteMeta, h1]
   | case6 d ty body mb ihty ihbody =>
     intro hd
@@ -158,16 +158,16 @@ theorem denoteMeta_params_extF (m : EnvModel V env)
     rw [denoteMeta, denoteMeta, ← ihe (by simpa [lpDefF] using hd)]
   | case11 d k hsup =>
     intro _
-    rw [denoteMeta, denoteMeta, if_pos hsup, if_pos hsup]
+    rw [denoteMeta, denoteMeta, ite_eq_left hsup, ite_eq_left hsup]
     obtain ⟨ez, es⟩ := acval_natPair m hsup
       (Level.substFn φ₁ [] []) (Level.substFn φ₂ [] [])
     rw [ez, es]
   | case12 d k hsup =>
     intro _
-    rw [denoteMeta, denoteMeta, if_neg hsup, if_neg hsup]
+    rw [denoteMeta, denoteMeta, ite_eq_right hsup, ite_eq_right hsup]
   | case13 d s hsup =>
     intro _
-    rw [denoteMeta, denoteMeta, if_pos hsup, if_pos hsup]
+    rw [denoteMeta, denoteMeta, ite_eq_left hsup, ite_eq_left hsup]
     have hg := hsup
     simp only [ConLeche.strLitSupported, Bool.and_eq_true] at hg
     obtain ⟨⟨⟨⟨⟨⟨⟨h0, -⟩, h2⟩, -⟩, h4⟩, h5⟩, h6⟩, h7⟩ := hg
@@ -205,7 +205,7 @@ theorem denoteMeta_params_extF (m : EnvModel V env)
     rw [ez, es, esol, echar, eofn, enil, econs]
   | case14 d s hsup =>
     intro _
-    rw [denoteMeta, denoteMeta, if_neg hsup, if_neg hsup]
+    rw [denoteMeta, denoteMeta, ite_eq_right hsup, ite_eq_right hsup]
   | case15 d x hxs hfv hc hpi hlam happ hlet hproj hnat hstr =>
     intro _
     cases x with

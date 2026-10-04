@@ -179,7 +179,7 @@ theorem Infer.const_sound (hin : RulesInputs V m φ) {g : Grade} {d : Nat}
   intro _ Δa ea hC hea
   rw [denoteMeta, hf] at hea
   dsimp only at hea
-  rw [if_pos hus] at hea
+  rw [ite_eq_left hus] at hea
   obtain rfl : ea = m.acval n
       (Level.substFn φ ci.toConstantVal.levelParams us) :=
     (Option.some.inj hea).symm
@@ -202,7 +202,7 @@ theorem Infer.natLit_sound (hin : RulesInputs V m φ) {g : Grade} {d n : Nat}
     InferSem m φ g d (.lit (.natVal n)) (.const natName []) := by
   refine InferSemFull.toSem ?_
   intro _ Δa ea _ hea
-  rw [denoteMeta, if_pos h] at hea
+  rw [denoteMeta, ite_eq_left h] at hea
   obtain rfl : ea = natLitAV
       (m.acval natZeroName (Level.substFn φ [] []))
       (m.acval natSuccName (Level.substFn φ [] [])) n :=
@@ -220,7 +220,7 @@ theorem Infer.natLit_sound (hin : RulesInputs V m φ) {g : Grade} {d n : Nat}
         = some (m.acval natName (Level.substFn φ [] [])) := by
       rw [denoteMeta, hf]
       dsimp only
-      rw [if_pos (by simp [hlp]), hlp]
+      rw [ite_eq_left (by simp [hlp]), hlp]
     have hrow : ∀ ρ : Nat → V,
         WellDenoted V ρ (natLitAV
             (m.acval natZeroName (Level.substFn φ [] []))

@@ -283,14 +283,14 @@ theorem nlRel_tie (hcov : LfpCover mpC [])
     tgtClsD d Dc out c = nlDb mpC d ns b ∧ tgtClsψ cvc out ψ c = nlψ envC ns ψ b ∧
       tgtClsFr d mpC.base2.acval envC p out ψ ρ xs c = nlFr mpC ctx d ns ψ ρ xs b := by
   obtain ⟨hg, ⟨hm, rfl⟩ | ⟨h0, hbl, hNM⟩⟩ := hR
-  · refine ⟨?_, ?_, ?_⟩ <;> simp only [tgtClsD, tgtClsψ, tgtClsFr, hm, if_true, nlDb, nlψ, nlFr]
+  · refine ⟨?_, ?_, ?_⟩ <;> simp only [tgtClsD, tgtClsψ, tgtClsFr, hm, ite_true, nlDb, nlψ, nlFr]
   · have hb0 : b ≠ 0 := by omega
-    simp only [nlDb, nlψ, nlFr, hb0, if_false]
+    simp only [nlDb, nlψ, nlFr, hb0, ite_false]
     have ht := getD_mem_of_lt h0 hbl
     have hMo : (tgtMajor out c).member = none := hNM.1
     have hg' : SpineFit ρ (blockRulePdomsAV mpC.base2.acval envC p (tgtRs out) ψ c) xs := by
       have hg' := hg
-      simp only [tgtClsG, hMo, Option.isSome_none, Bool.false_eq_true, if_false] at hg'
+      simp only [tgtClsG, hMo, Option.isSome_none, Bool.false_eq_true, ite_false] at hg'
       exact hg'
     have hxs : xs.length = tgtRP p c := by
       rw [SpineFit.length_eq hg', hpd c hc]
@@ -355,12 +355,12 @@ theorem tgtNodePres_of_list (hcov : LfpCover mpC []) (hd0 : d.toLfp ∈ mpC.lfpB
       have hD := (htie c b hc hR).1
       rw [← hD]
       obtain ⟨-, ⟨hm, rfl⟩ | ⟨-, -, hNM⟩⟩ := hR
-      · simp only [tgtClsD, tgtClsM, hm, if_true]
+      · simp only [tgtClsD, tgtClsM, hm, ite_true]
         exact hmemk c hc hm
       · have hMo := hNM.1
         have hMo' : (tgtMajor out c).member.isSome = false := by rw [hMo]; rfl
         have hcl := hcls c hc hMo
-        simp only [tgtClsD, tgtClsM, hMo', Bool.false_eq_true, if_false]
+        simp only [tgtClsD, tgtClsM, hMo', Bool.false_eq_true, ite_false]
         exact Nat.lt_of_lt_of_le hcl.hmm (mpC.lfpClause_of_mem hcl.hD).kN
     hDb := fun c b hc hR => (htie c b hc hR).1
     hψb := fun c b hc hR => (htie c b hc hR).2.1

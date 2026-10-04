@@ -53,9 +53,9 @@ theorem range_filter_getElem?_length {α : Type} (q : Option α → Bool) :
       rw [List.filter_map]; rfl
     rw [List.filter_cons]
     by_cases ha : q (some a) = true
-    · simp only [List.getElem?_cons_zero, ha, if_true, List.length_cons, hmap,
+    · simp only [List.getElem?_cons_zero, ha, ite_true, List.length_cons, hmap,
         List.length_map, ih]
-    · simp only [List.getElem?_cons_zero, ha, Bool.false_eq_true, if_false, hmap,
+    · simp only [List.getElem?_cons_zero, ha, Bool.false_eq_true, ite_false, hmap,
         List.length_map, ih]
 
 /-- The motives' positions are as many as the classes. -/

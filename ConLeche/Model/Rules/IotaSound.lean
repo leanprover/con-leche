@@ -703,13 +703,13 @@ theorem Red.rescueEta_sound (hin : RulesInputs V m φ) {d : Nat}
         (tsa ++ (List.range caps.etaFields).map fun j =>
           projAV (j + env.projOff T) ea) := by
       unfold ConLeche.etaFabArgsE ConLeche.etaProjs
-      rw [if_pos htow]
+      rw [ite_eq_left htow]
       exact hspt.append (DenoteMetaSpine.map_list _ hpfacts)
     have hfrF : ∀ x ∈ ConLeche.etaFabArgsE env T ust tmaj.getAppArgs major
         caps.etaFields, Frame d x ∧ CtxOk m φ d Δa x := by
       intro x hx
       unfold ConLeche.etaFabArgsE ConLeche.etaProjs at hx
-      rw [if_pos htow] at hx
+      rw [ite_eq_left htow] at hx
       rcases List.mem_append.mp hx with hx' | hx'
       · exact hfrT x hx'
       · obtain ⟨j, -, rfl⟩ := List.mem_map.mp hx'
@@ -819,13 +819,13 @@ theorem Red.rescueEta_sound (hin : RulesInputs V m φ) {d : Nat}
           AnnotTerm.mkAppN (m.acval (projFnName T j)
             (Level.substFn φ cvT.levelParams ust)) (tsa ++ [ea])) := by
       unfold ConLeche.etaFabArgsE ConLeche.etaProjs
-      rw [if_neg htow]
+      rw [ite_eq_right htow]
       exact hspt.append (DenoteMetaSpine.map_list _ hprojden)
     have hfrF : ∀ x ∈ ConLeche.etaFabArgsE env T ust tmaj.getAppArgs major
         caps.etaFields, Frame d x ∧ CtxOk m φ d Δa x := by
       intro x hx
       unfold ConLeche.etaFabArgsE ConLeche.etaProjs at hx
-      rw [if_neg htow] at hx
+      rw [ite_eq_right htow] at hx
       rcases List.mem_append.mp hx with hx' | hx'
       · exact hfrT x hx'
       · obtain ⟨j, -, rfl⟩ := List.mem_map.mp hx'

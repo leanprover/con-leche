@@ -437,7 +437,7 @@ theorem interp_varsAt (o n : Nat) (ρ : Nat → V) :
   · intro i h1 h2
     have hi : i < n := by simpa [Expr.varsAt] using h1
     simp only [Expr.varsAt, readEnv, List.getElem_map, List.getElem_range, List.getElem_reverse,
-      List.length_map, List.length_range, interp_bvar, shiftE, Nat.not_lt_zero, if_false]
+      List.length_map, List.length_range, interp_bvar, shiftE, Nat.not_lt_zero, ite_false]
     congr 1
     omega
 

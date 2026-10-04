@@ -84,7 +84,7 @@ theorem denoteMeta_env_ext {acval : Name → (Name → Nat) → AnnotTerm}
       simp only [Option.map_some, Option.some.injEq] at h
       rw [denoteMeta, hf, denoteMeta, hf₂]
       dsimp only
-      rw [if_pos hlen, if_pos (h ▸ hlen), h]
+      rw [ite_eq_left hlen, ite_eq_left (h ▸ hlen), h]
   | case4 d n us ci hf hlen =>
     have h := henvLev n
     rw [hf] at h
@@ -95,7 +95,7 @@ theorem denoteMeta_env_ext {acval : Name → (Name → Nat) → AnnotTerm}
       simp only [Option.map_some, Option.some.injEq] at h
       rw [denoteMeta, hf, denoteMeta, hf₂]
       dsimp only
-      rw [if_neg hlen, if_neg (fun hh => hlen (h ▸ hh))]
+      rw [ite_eq_right hlen, ite_eq_right (fun hh => hlen (h ▸ hh))]
   | case5 d n us hf =>
     have h := henvLev n
     rw [hf] at h
@@ -112,17 +112,17 @@ theorem denoteMeta_env_ext {acval : Name → (Name → Nat) → AnnotTerm}
   | case10 d sn i e ihe =>
     rw [denoteMeta, denoteMeta, ihe, hproj sn i]
   | case11 d n hsup =>
-    rw [denoteMeta, if_pos hsup, denoteMeta, if_pos (hnat ▸ hsup)]
+    rw [denoteMeta, ite_eq_left hsup, denoteMeta, ite_eq_left (hnat ▸ hsup)]
   | case12 d n hsup =>
-    rw [denoteMeta, if_neg hsup, denoteMeta,
-      if_neg (fun h => hsup (hnat.trans h))]
+    rw [denoteMeta, ite_eq_right hsup, denoteMeta,
+      ite_eq_right (fun h => hsup (hnat.trans h))]
   | case13 d s hsup =>
-    rw [denoteMeta, if_pos hsup, denoteMeta, if_pos (hstr ▸ hsup),
+    rw [denoteMeta, ite_eq_left hsup, denoteMeta, ite_eq_left (hstr ▸ hsup),
       levelParamsAt_ext (henvLev ConLeche.listNilName),
       levelParamsAt_ext (henvLev ConLeche.listConsName)]
   | case14 d s hsup =>
-    rw [denoteMeta, if_neg hsup, denoteMeta,
-      if_neg (fun h => hsup (hstr.trans h))]
+    rw [denoteMeta, ite_eq_right hsup, denoteMeta,
+      ite_eq_right (fun h => hsup (hstr.trans h))]
   | case15 d x hs hfv hc hpi hlam happ hlet hproj hnat' hstr' =>
     cases x with
     | bvar i => rw [denoteMeta.eq_def, denoteMeta.eq_def]

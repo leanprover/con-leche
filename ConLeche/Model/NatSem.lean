@@ -905,20 +905,20 @@ theorem natOpV_beq (m : EnvModel V env) (hops : NatOps m φ)
     | 0 => rw [natLit_zero]; exact h00
     | b + 1 =>
       rw [natLit_zero, natLit_succ, interp_app,
-        h0S _ (natLit_mem m hnh hval hs ρ b), if_neg (by omega)]
+        h0S _ (natLit_mem m hnh hval hs ρ b), ite_eq_right (by omega)]
   | succ a ih =>
     intro b
     match b with
     | 0 =>
       rw [natLit_zero, natLit_succ, interp_app,
-        hS0 _ (natLit_mem m hnh hval hs ρ a), if_neg (by omega)]
+        hS0 _ (natLit_mem m hnh hval hs ρ a), ite_eq_right (by omega)]
     | b + 1 =>
       rw [natLit_succ, natLit_succ, interp_app, interp_app,
         hSS _ _ (natLit_mem m hnh hval hs ρ a)
           (natLit_mem m hnh hval hs ρ b), ih b]
       by_cases hab : a = b
-      · rw [if_pos hab, if_pos (by omega)]
-      · rw [if_neg hab, if_neg (by omega)]
+      · rw [ite_eq_left hab, ite_eq_left (by omega)]
+      · rw [ite_eq_right hab, ite_eq_right (by omega)]
 
 /-- `Nat.ble` on literal values. -/
 theorem natOpV_ble (m : EnvModel V env) (hops : NatOps m φ)
@@ -1068,19 +1068,19 @@ theorem natOpV_ble (m : EnvModel V env) (hops : NatOps m φ)
   | zero =>
     intro b
     rw [natLit_zero, h0y _ (natLit_mem m hnh hval hs ρ b),
-      if_pos (Nat.zero_le b)]
+      ite_eq_left (Nat.zero_le b)]
   | succ a ih =>
     intro b
     match b with
     | 0 =>
       rw [natLit_zero, natLit_succ, interp_app,
-        hS0 _ (natLit_mem m hnh hval hs ρ a), if_neg (by omega)]
+        hS0 _ (natLit_mem m hnh hval hs ρ a), ite_eq_right (by omega)]
     | b + 1 =>
       rw [natLit_succ, natLit_succ, interp_app, interp_app,
         hSS _ _ (natLit_mem m hnh hval hs ρ a)
           (natLit_mem m hnh hval hs ρ b), ih b]
       by_cases hab : a ≤ b
-      · rw [if_pos hab, if_pos (by omega)]
-      · rw [if_neg hab, if_neg (by omega)]
+      · rw [ite_eq_left hab, ite_eq_left (by omega)]
+      · rw [ite_eq_right hab, ite_eq_right (by omega)]
 
 end ConLeche.Model

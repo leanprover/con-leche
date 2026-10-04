@@ -118,13 +118,13 @@ noncomputable def psnd (b : V) : V :=
 theorem pfst_pcons (a q : V) : pfst (pcons a q) = a := by
   unfold pfst
   have h : ∃ a' q' : V, pcons a' q' = pcons a q := ⟨a, q, rfl⟩
-  rw [dif_pos h]
+  rw [dite_eq_left h]
   exact (pcons_inj (Classical.choose_spec (Classical.choose_spec h))).1
 
 theorem psnd_pcons (a q : V) : psnd (pcons a q) = q := by
   unfold psnd
   have h : ∃ a' q' : V, pcons a' q' = pcons a q := ⟨a, q, rfl⟩
-  rw [dif_pos h]
+  rw [dite_eq_left h]
   exact (pcons_inj (Classical.choose_spec (Classical.choose_spec h))).2
 
 /-- Paths of length `k` over `A`: the empty path is the point, a
@@ -277,7 +277,7 @@ theorem mem_limFam {i : ι} {y : V} : y ∈ˢ limFam Φ A i ↔ ∃ T : BT V, y 
   · rintro ⟨T, hT⟩
     refine ⟨code A T, mem_power.mpr (code_sub T), ?_⟩
     have hex : ∃ T', code A T' = code A T := ⟨T, rfl⟩
-    have : pick A (code A T) = Classical.choose hex := by unfold pick; exact dif_pos hex
+    have : pick A (code A T) = Classical.choose hex := by unfold pick; exact dite_eq_left hex
     rw [this, stage_eq_of_code _ _ (Classical.choose_spec hex)]
     exact hT
 
@@ -314,7 +314,7 @@ theorem closed_of_acc (hn : n ≠ 0) (hA : A ∈ˢ (univ n : V)) (hmaps : MapsFa
     refine hsupp _ (fun i' => famUnion_mem_univ hn hA fun a _ => stage_mem hn hA hmaps (f a) i') ?_
     intro a ha
     refine mem_unionFam.mpr ⟨a, hBA a ha, ?_⟩
-    have : f a = Classical.choose (hT a ha) := dif_pos ha
+    have : f a = Classical.choose (hT a ha) := dite_eq_left ha
     rw [this]
     exact Classical.choose_spec (hT a ha)
   exact mem_limFam.mpr ⟨_, hstage⟩
@@ -408,7 +408,7 @@ theorem skolem_supp {S : V} {Q : V → V → (V → ι × V) → Prop}
   refine ⟨fun a => if h' : a ∈ˢ S then Classical.choose (h a h') else empty,
     fun a => if h' : a ∈ˢ S then Classical.choose (Classical.choose_spec (h a h'))
       else fun _ => (Classical.ofNonempty, pt), fun a ha => ?_⟩
-  simp only [dif_pos ha]
+  simp only [dite_eq_left ha]
   exact Classical.choose_spec (Classical.choose_spec (h a ha))
 
 /-- **The nested case: the least family is accessible in its

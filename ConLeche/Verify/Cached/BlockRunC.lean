@@ -172,7 +172,7 @@ theorem checkBlockTeleS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env
   dsimp only
   by_cases h1 : (tbody == Expr.sort sx) = true
   case neg => simp only [h1]; exact SimC.throw_bind
-  simp only [h1, if_true]
+  simp only [h1, ite_true]
   exact SimC.pure hs₃ ⟨rfl, hw'⟩
 
 theorem checkBlockTelesS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) {nP : Nat} :
@@ -237,7 +237,7 @@ theorem checkBlockAgreeS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF en
     have hw : WScoped 0 cvTa.type := hcvs _ List.mem_cons_self
     by_cases hl : (tq.1.length == tq0.1.length) = true
     case neg => simp only [hl]; exact SimC.throw_bind
-    simp only [hl, if_true]
+    simp only [hl, ite_true]
     refine SimC.bind (checkBlockDomsAtS_sim hμ henv ?_ ?_ hs₂) (fun s₄ _ _ hs₄ _ => ?_)
     · intro i x hx
       exact openers_typeD_WScoped htq hw i x hx
@@ -466,21 +466,21 @@ theorem checkBlockTablesS_run (p : BlockShape) :
     | [cA], [sorts] =>
       simp only [checkBlockTablesF] at h
       by_cases hi : (ms.nIdx == 0) = true
-      · rw [if_pos hi] at h
+      · rw [ite_eq_left hi] at h
         obtain ⟨fe₁, s₁, h1, h⟩ := bindC_ok h
         obtain ⟨hwf₁, hfe₁, henv₁, F₁, hF₁⟩ := checkStructProjTableS_run env henv hwf h1
         rw [hfe₁] at h
         obtain ⟨hwf', hfe', henv', hrest⟩ := checkBlockTablesS_run p rest fe₁.env henv₁ hwf₁ h
         refine ⟨hwf', hfe', henv', ?_⟩
         rw [checkStructProjTable_datF] at hF₁
-        simp only [checkBlockTables, if_pos hi, Bind.bind, Except.bind]
+        simp only [checkBlockTables, ite_eq_left hi, Bind.bind, Except.bind]
         rw [hF₁]
         exact hrest
-      · rw [if_neg hi] at h
+      · rw [ite_eq_right hi] at h
         simp only [pure_bind] at h
         obtain ⟨hwf', hfe', henv', hrest⟩ := checkBlockTablesS_run p rest env henv hwf h
         refine ⟨hwf', hfe', henv', ?_⟩
-        simp only [checkBlockTables, if_neg hi, pure_bind]
+        simp only [checkBlockTables, ite_eq_right hi, pure_bind]
         exact hrest
     | [], _ =>
       simp only [checkBlockTablesF, pure_bind] at h

@@ -116,10 +116,10 @@ theorem lparams_map_substVal_rec (hS : S.Scoped env) (φ : Name → Nat) {us : L
       = (us.drop (us.length - S.lparams.length)).map (Level.eval φ) := by
   unfold recLparams at hus ⊢
   cases hl : S.large
-  · simp only [hl, Bool.false_eq_true, if_false] at hus ⊢
+  · simp only [hl, Bool.false_eq_true, ite_false] at hus ⊢
     rw [hus, Nat.sub_self, List.drop_zero]
     exact map_substVal_eq φ hS.2.2.2.2.2.1 hus
-  · simp only [hl, if_true] at hus ⊢
+  · simp only [hl, ite_true] at hus ⊢
     cases us with
     | nil => simp at hus
     | cons u us' =>

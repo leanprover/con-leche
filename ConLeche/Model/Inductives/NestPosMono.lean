@@ -124,14 +124,14 @@ theorem denoteMeta_noBVar_of_nestOcc' {names : List Name} {lo hi : Nat} :
     intro ea _ _ _ h
     rw [denoteMeta, hf] at h
     dsimp only at h
-    rw [if_pos hlen] at h
+    rw [ite_eq_left hlen] at h
     cases h
     exact noBVar_of_closed (m.cval_closedL _ _) _
   | case4 d n us ci hf hlen =>
     intro ea _ _ _ h
     rw [denoteMeta, hf] at h
     dsimp only at h
-    rw [if_neg hlen] at h
+    rw [ite_eq_right hlen] at h
     exact nomatch h
   | case5 d n us hf =>
     intro ea _ _ _ h
@@ -209,22 +209,22 @@ theorem denoteMeta_noBVar_of_nestOcc' {names : List Name} {lo hi : Nat} :
   | case11 d k hsup =>
     intro ea _ _ _ h
     have h0 : denoteMeta m.acval env φ 0 (.lit (.natVal k)) = some ea := by
-      rw [denoteMeta, if_pos hsup] at h ⊢; exact h
+      rw [denoteMeta, ite_eq_left hsup] at h ⊢; exact h
     exact noBVar_of_closed (denote_bvarsBelow m.cval_closedL 0 _ (by simp [Expr.WScoped]) rfl
       (denoteMeta_erase m.acval_erase 0 _ h0)) _
   | case12 d k hsup =>
     intro ea _ _ _ h
-    rw [denoteMeta, if_neg hsup] at h
+    rw [denoteMeta, ite_eq_right hsup] at h
     exact nomatch h
   | case13 d s hsup =>
     intro ea _ _ _ h
     have h0 : denoteMeta m.acval env φ 0 (.lit (.strVal s)) = some ea := by
-      rw [denoteMeta, if_pos hsup] at h ⊢; exact h
+      rw [denoteMeta, ite_eq_left hsup] at h ⊢; exact h
     exact noBVar_of_closed (denote_bvarsBelow m.cval_closedL 0 _ (by simp [Expr.WScoped]) rfl
       (denoteMeta_erase m.acval_erase 0 _ h0)) _
   | case14 d s hsup =>
     intro ea _ _ _ h
-    rw [denoteMeta, if_neg hsup] at h
+    rw [denoteMeta, ite_eq_right hsup] at h
     exact nomatch h
   | case15 d x hxs hfv hc hpi hlam happ hlet hproj hnat hstr =>
     intro ea _ _ _ h

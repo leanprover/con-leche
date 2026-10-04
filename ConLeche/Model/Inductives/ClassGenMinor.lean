@@ -113,7 +113,7 @@ theorem shiftE_zero_consList {n : Nat} {ys : List V} {σ : Nat → V} (hn : ys.l
     shiftE n 0 (consList ys σ) = σ := by
   funext i
   subst hn
-  simp only [shiftE, Nat.not_lt_zero, if_false]
+  simp only [shiftE, Nat.not_lt_zero, ite_false]
   exact consList_apply_add ys σ i
 
 omit [SetTheory V] in

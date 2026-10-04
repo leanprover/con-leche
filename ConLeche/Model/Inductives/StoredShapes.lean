@@ -788,10 +788,10 @@ theorem storedFieldShapes_of_walk {V : Type w} [SetTheory V] {env : Env} (m : En
       (Expr.substFvars (ctx.nP + ctx.names.length) ctx.nP s (holeAbs ctx crestc)) crestc := by
     rw [hsh]
     refine Expr.substFvars_replaceApps_erasedEq (Nat.le_refl _)
-      (fun i hi => ⟨.sort .zero, by dsimp only [s]; rw [if_pos hi]⟩)
+      (fun i hi => ⟨.sort .zero, by dsimp only [s]; rw [ite_eq_left hi]⟩)
       (fun mm hmm args hlen hvar => ?_) crestc hwc.fvarsBelow
     dsimp only [s]
-    rw [if_neg (show ¬ ctx.nP + mm < ctx.nP by omega), show ctx.nP + mm - ctx.nP = mm by omega]
+    rw [ite_eq_right (show ¬ ctx.nP + mm < ctx.nP by omega), show ctx.nP + mm - ctx.nP = mm by omega]
     exact erasedEq_mkAppN_congr (Expr.ErasedEq.rfl _) (erasedEqL_of_fvarIdx fvsP args 0 hfvsP
       (fun p y hy => by obtain ⟨ty, h⟩ := hvar p y hy; exact ⟨ty, by rw [h, Nat.zero_add]⟩)
       (by rw [hD.pLen, hlen]))
@@ -807,12 +807,12 @@ theorem storedFieldShapes_of_walk {V : Type w} [SetTheory V] {env : Env} (m : En
     intro i hi
     by_cases hin : i < ctx.nP
     · dsimp only [s, x]
-      rw [if_pos hin, if_pos hin]
+      rw [ite_eq_left hin, ite_eq_left hin]
       refine ⟨?_, rfl, by rw [denoteMeta_fvar]⟩
       simp only [Expr.WScoped]
       exact ⟨hin, by simp⟩
     · dsimp only [s, x]
-      rw [if_neg hin, if_neg hin]
+      rw [ite_eq_right hin, ite_eq_right hin]
       have hsp := denoteMetaSpine_params (acval := m.acval) (env := env) (φ := ψ) ctx.nP hD.pLen
         hD.pIdx
       refine ⟨?_, ?_, denoteMeta_mkAppN hsp (hleafRead _ (by omega) _)⟩
@@ -905,9 +905,9 @@ theorem storedFieldShapes_of_walk {V : Type w} [SetTheory V] {env : Env} (m : En
     rw [AnnotTerm.substAV_bvar_ge _ (by omega),
       show nF + (ctx.names.length - 1 - c) - nF = ctx.names.length - 1 - c by omega]
     unfold substTau
-    rw [if_pos (by omega)]
+    rw [ite_eq_left (by omega)]
     dsimp only [x]
-    rw [if_neg (by omega),
+    rw [ite_eq_right (by omega),
       show ctx.nP + ctx.names.length - 1 - (ctx.names.length - 1 - c) - ctx.nP = c by omega,
       hliftApp, liftN_closed (m.acval_closed _ _) nF 0]
     congr 1
@@ -915,7 +915,7 @@ theorem storedFieldShapes_of_walk {V : Type w} [SetTheory V] {env : Env} (m : En
     rw [List.map_map]
     refine List.map_congr_left fun p hp => ?_
     have := List.mem_range.mp hp
-    simp only [Function.comp_apply, AnnotTerm.liftN_bvar, if_false, Nat.not_lt_zero]
+    simp only [Function.comp_apply, AnnotTerm.liftN_bvar, ite_false, Nat.not_lt_zero]
     congr 1; omega
   have hmap : E.map (AnnotTerm.substAV (substTau (ctx.nP + ctx.names.length) ctx.nP x) · nF)
       = Es ψ := by
@@ -925,7 +925,7 @@ theorem storedFieldShapes_of_walk {V : Type w} [SetTheory V] {env : Env} (m : En
     obtain ⟨-, h3⟩ := AnnotTerm.mkAppN_inj h2 (by simp [hEl])
     exact List.append_cancel_left h3
   have hxP : ∀ i, i < ctx.nP → x i = .bvar (ctx.nP - 1 - i) := fun i hi => by
-    dsimp only [x]; rw [if_pos hi]
+    dsimp only [x]; rw [ite_eq_left hi]
   have hE : E = (Es ψ).map (·.liftN ctx.names.length nF) := by
     rw [← hmap, List.map_map]
     refine (List.map_id E).symm.trans (List.map_congr_left fun e he => ?_)
@@ -982,7 +982,7 @@ theorem storedFieldShapes_of_walk {V : Type w} [SetTheory V] {env : Env} (m : En
     rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem h₁, Option.getD_some] at this
     rw [this]
     dsimp only [x]
-    rw [if_neg (by omega), show ctx.nP + t - ctx.nP = t by omega, interp_mkAppN_foldl]
+    rw [ite_eq_right (by omega), show ctx.nP + t - ctx.nP = t by omega, interp_mkAppN_foldl]
     congr 1
     unfold paramBvarsAt frameIdx
     rw [List.map_map]

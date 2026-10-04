@@ -77,19 +77,19 @@ theorem divModClausesV_congr {val val' : Name → V} {c : Name} {x y : V}
     rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl
   · have hc' := h ConLeche.natDivName (by decide)
     have hSub := h ConLeche.natSubName (by decide)
-    simp +decide only [DivModClausesV, if_false, if_true, hT, hF, hZ, hS, hB, hc', hSub]
+    simp +decide only [DivModClausesV, ite_false, ite_true, hT, hF, hZ, hS, hB, hc', hSub]
   · have hc' := h ConLeche.natModName (by decide)
     have hSub := h ConLeche.natSubName (by decide)
-    simp +decide only [DivModClausesV, if_false, if_true, hT, hF, hZ, hS, hB, hc', hSub]
+    simp +decide only [DivModClausesV, ite_false, ite_true, hT, hF, hZ, hS, hB, hc', hSub]
   · have hc' := h ConLeche.natGcdName (by decide)
     have hMod := h ConLeche.natModName (by decide)
-    simp +decide only [DivModClausesV, if_false, if_true, hT, hF, hZ, hS, hB, hc', hMod]
+    simp +decide only [DivModClausesV, ite_false, ite_true, hT, hF, hZ, hS, hB, hc', hMod]
   · have hc' := h ConLeche.natLandName (by decide)
     have hAdd := h ConLeche.natAddName (by decide)
     have hMul := h ConLeche.natMulName (by decide)
     have hDiv := h ConLeche.natDivName (by decide)
     have hMod := h ConLeche.natModName (by decide)
-    simp +decide only [DivModClausesV, if_false, if_true, hT, hF, hZ, hS, hB, hc', hAdd,
+    simp +decide only [DivModClausesV, ite_false, ite_true, hT, hF, hZ, hS, hB, hc', hAdd,
       hMul, hDiv, hMod]
   · have hc' := h ConLeche.natLorName (by decide)
     have hAdd := h ConLeche.natAddName (by decide)
@@ -97,24 +97,24 @@ theorem divModClausesV_congr {val val' : Name → V} {c : Name} {x y : V}
     have hMul := h ConLeche.natMulName (by decide)
     have hDiv := h ConLeche.natDivName (by decide)
     have hMod := h ConLeche.natModName (by decide)
-    simp +decide only [DivModClausesV, if_false, if_true, hT, hF, hZ, hS, hB, hc', hAdd,
+    simp +decide only [DivModClausesV, ite_false, ite_true, hT, hF, hZ, hS, hB, hc', hAdd,
       hSub, hMul, hDiv, hMod]
   · have hc' := h ConLeche.natXorName (by decide)
     have hAdd := h ConLeche.natAddName (by decide)
     have hMul := h ConLeche.natMulName (by decide)
     have hDiv := h ConLeche.natDivName (by decide)
     have hMod := h ConLeche.natModName (by decide)
-    simp +decide only [DivModClausesV, if_false, if_true, hT, hF, hZ, hS, hB, hc', hAdd,
+    simp +decide only [DivModClausesV, ite_false, ite_true, hT, hF, hZ, hS, hB, hc', hAdd,
       hMul, hDiv, hMod]
   · have hc' := h ConLeche.natShiftLeftName (by decide)
     have hSub := h ConLeche.natSubName (by decide)
     have hMul := h ConLeche.natMulName (by decide)
-    simp +decide only [DivModClausesV, if_false, if_true, hT, hF, hZ, hS, hB, hc', hSub,
+    simp +decide only [DivModClausesV, ite_false, ite_true, hT, hF, hZ, hS, hB, hc', hSub,
       hMul]
   · have hc' := h ConLeche.natShiftRightName (by decide)
     have hSub := h ConLeche.natSubName (by decide)
     have hDiv := h ConLeche.natDivName (by decide)
-    simp +decide only [DivModClausesV, if_false, if_true, hT, hF, hZ, hS, hB, hc', hSub,
+    simp +decide only [DivModClausesV, ite_false, ite_true, hT, hF, hZ, hS, hB, hc', hSub,
       hDiv]
 
 /-! ## Every mentioned head is stored -/
@@ -262,7 +262,7 @@ theorem eqLaw_cons_valueKind {m : EnvModel V env}
   by_cases hn : eqName = c₀.name
   · intro hfind ψ
     exfalso
-    rw [ConLeche.Env.find?_cons, if_pos hn.symm] at hfind
+    rw [ConLeche.Env.find?_cons, ite_eq_left hn.symm] at hfind
     exact hnotind _ _ (Option.some.inj hfind)
   · exact eqLaw_cons_fresh hprev hn m₂ hac
 
@@ -299,7 +299,7 @@ theorem reduceOps_entry_cons {m : EnvModel V env}
         x ∈ˢ interp V ρ (m₂.acval (ConLeche.reduceElemName c) ψ) →
         SetTheory.app (interp V ρ (m₂.acval c ψ)) x = x := by
   have hf : env.find? c = some (.axiomInfo cv) := by
-    rw [ConLeche.Env.find?_cons, if_neg (fun h => hne h.symm)] at hf₂
+    rw [ConLeche.Env.find?_cons, ite_eq_right (fun h => hne h.symm)] at hf₂
     exact hf₂
   obtain ⟨helem, hid⟩ := hprev c hcN cv hf hpin
   -- the element type is stored in the prefix, hence is not the fresh
@@ -317,7 +317,7 @@ theorem reduceOps_entry_cons {m : EnvModel V env}
   · cases hfe : env.find? (ConLeche.reduceElemName c) with
     | none => rw [hfe] at helem; exact nomatch helem
     | some ci =>
-      rw [ConLeche.Env.find?_cons, if_neg (fun h => hneE h.symm), hfe]
+      rw [ConLeche.Env.find?_cons, ite_eq_right (fun h => hneE h.symm), hfe]
       rfl
   · rw [hmoveC]
     rw [hmoveE] at hx

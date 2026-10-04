@@ -93,9 +93,9 @@ theorem annotateBodyC_sim (ih : SSimC mode env f) (_henv : EnvWF env)
     unfold annotateBody
     try dsimp only
     by_cases hidx : idx < d
-    · rw [if_pos hidx, if_pos hidx]
+    · rw [ite_eq_left hidx, ite_eq_left hidx]
       exact SimC.pure hs ⟨hden, hw⟩
-    · rw [if_neg hidx, if_neg hidx]
+    · rw [ite_eq_right hidx, ite_eq_right hidx]
       exact SimC.throw
   | lit l =>
     cases l with
@@ -105,9 +105,9 @@ theorem annotateBodyC_sim (ih : SSimC mode env f) (_henv : EnvWF env)
       try dsimp only
       rw [natLitSupportedF_eq]
       by_cases hg : natLitSupported env
-      · rw [if_pos hg, if_pos hg]
+      · rw [ite_eq_left hg, ite_eq_left hg]
         exact SimC.pure hs ⟨hden, hw⟩
-      · rw [if_neg hg, if_neg hg]
+      · rw [ite_eq_right hg, ite_eq_right hg]
         exact SimC.throw
     | strVal str =>
       dsimp only
@@ -115,9 +115,9 @@ theorem annotateBodyC_sim (ih : SSimC mode env f) (_henv : EnvWF env)
       try dsimp only
       rw [strLitSupportedF_eq]
       by_cases hg : strLitSupported env
-      · rw [if_pos hg, if_pos hg]
+      · rw [ite_eq_left hg, ite_eq_left hg]
         exact SimC.pure hs ⟨hden, hw⟩
-      · rw [if_neg hg, if_neg hg]
+      · rw [ite_eq_right hg, ite_eq_right hg]
         exact SimC.throw
   | app g' a =>
     dsimp only
@@ -173,7 +173,7 @@ theorem annotateBodyC_sim (ih : SSimC mode env f) (_henv : EnvWF env)
     refine SimC.bind_left (bvarBoundM_eff hs)
       (fun sb bnd hsb hQb => ?_)
     by_cases hb0 : bnd = 0
-    · rw [if_pos hb0]
+    · rw [ite_eq_left hb0]
       subst hb0
       refine SimC.bind (ih.annotate hsb rfl hwtb.1)
         (fun s₁ ty' ty'x hs₁ hP => ?_)
@@ -187,7 +187,7 @@ theorem annotateBodyC_sim (ih : SSimC mode env f) (_henv : EnvWF env)
         (fun s₃ fuel hs₃ _hQfuel => ?_)
       exact annotateLamsC_tail_sim ih hs₃ rfl rfl rfl
         hQfv' hwty' hwtb.2
-    · rw [if_neg hb0]
+    · rw [ite_eq_right hb0]
       refine SimC.bind (ih.annotate hsb rfl hwtb.1)
         (fun s₁ ty' ty'x hs₁ hP => ?_)
       obtain ⟨hty'd, hwty'⟩ := hP
@@ -271,10 +271,10 @@ theorem annotateBodyC_sim (ih : SSimC mode env f) (_henv : EnvWF env)
         simp only [RelCL.length htargs]
         -- the node's own structure name (task #271), then the parameter count
         by_cases hsn : Tw = snN
-        case neg => rw [if_neg hsn, if_neg hsn]; exact SimC.throw
-        rw [if_pos hsn, if_pos hsn]
+        case neg => rw [ite_eq_right hsn, ite_eq_right hsn]; exact SimC.throw
+        rw [ite_eq_left hsn, ite_eq_left hsn]
         by_cases hlen : (Expr.getAppArgs te).length = entry.numParams
-        · rw [if_pos hlen, if_pos hlen]
+        · rw [ite_eq_left hlen, ite_eq_left hlen]
           exact SimC.of_eff
             (pureC_eff hs₃T (x := Expr.proj Tw ipN e')) _
             (fun r hQ => ⟨by
@@ -283,7 +283,7 @@ theorem annotateBodyC_sim (ih : SSimC mode env f) (_henv : EnvWF env)
                 rw [h2, he'd], by
               simp only [Expr.WScoped]
               exact hwe'⟩)
-        · rw [if_neg hlen, if_neg hlen]
+        · rw [ite_eq_right hlen, ite_eq_right hlen]
           exact SimC.throw
     | bvar k =>
       exact SimC.throw

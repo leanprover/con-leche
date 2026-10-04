@@ -121,11 +121,11 @@ theorem naiveLit_local (s : String) (hs : 10 ∉ lit s) (l : List UInt8) (_hl : 
   · right
     refine ⟨l.drop (lit s).length, List.drop_suffix _ _, fun x => ?_⟩
     unfold naiveLit
-    rw [if_pos (List.isPrefixOf_iff_prefix.mpr (hp.trans (List.prefix_append _ _))),
+    rw [ite_eq_left (List.isPrefixOf_iff_prefix.mpr (hp.trans (List.prefix_append _ _))),
       List.drop_append_of_le_length hp.length_le]
   · left; intro x
     unfold naiveLit
-    rw [if_neg]
+    rw [ite_eq_right]
     intro hpx
     have hpx := List.isPrefixOf_iff_prefix.mp hpx
     apply hp
@@ -420,16 +420,16 @@ theorem naiveSkipBraced_local : ∀ (n : Nat) (l : List UInt8) (d : Nat), l.leng
             · left; intro x
               rw [List.cons_append, naiveSkipBraced.eq_def]
               simp only [BEq.rfl, ↓reduceIte, h x, dite_eq_ite]
-              rw [← List.cons_append, if_pos ((length_lt_nl _ _ _).mpr hlt), h2 x]
+              rw [← List.cons_append, ite_eq_left ((length_lt_nl _ _ _).mpr hlt), h2 x]
             · right
               refine ⟨r, hr.trans (hr₁.trans (List.suffix_cons _ _)), fun x => ?_⟩
               rw [List.cons_append, naiveSkipBraced.eq_def]
               simp only [BEq.rfl, ↓reduceIte, h x, dite_eq_ite]
-              rw [← List.cons_append, if_pos ((length_lt_nl _ _ _).mpr hlt), h2 x]
+              rw [← List.cons_append, ite_eq_left ((length_lt_nl _ _ _).mpr hlt), h2 x]
           · left; intro x
             rw [List.cons_append, naiveSkipBraced.eq_def]
             simp only [BEq.rfl, ↓reduceIte, h x, dite_eq_ite]
-            rw [← List.cons_append, if_neg (fun hx => hlt ((length_lt_nl _ _ _).mp hx))]
+            rw [← List.cons_append, ite_eq_right (fun hx => hlt ((length_lt_nl _ _ _).mp hx))]
       have h34' : (c == 34) = false := by simpa using h34
       by_cases hbr : (c == 123 || c == 91) = true
       · rcases ih l' (d + 1) hn' hl' with h | ⟨r, hr, h⟩
@@ -536,17 +536,17 @@ theorem naiveListLoop_local (start : UInt8 → Bool) (hs : start 10 = false)
                   show naiveListLoop _ _ (_ :: (_ ++ 10 :: x)) _ _ = _; rw [naiveListLoop.eq_def]
                   simp only [hws', h93', h44', hst, Bool.false_eq_true, ↓reduceIte,
                     Bool.not_true, ← List.cons_append, hv x, dite_eq_ite]
-                  rw [if_pos ((length_lt_nl _ _ _).mpr hlt)]; exact hv' x⟩
+                  rw [ite_eq_left ((length_lt_nl _ _ _).mpr hlt)]; exact hv' x⟩
               · exact .inr ⟨t', fun x => by
                   show naiveListLoop _ _ (_ :: (_ ++ 10 :: x)) _ _ = _; rw [naiveListLoop.eq_def]
                   simp only [hws', h93', h44', hst, Bool.false_eq_true, ↓reduceIte,
                     Bool.not_true, ← List.cons_append, hv x, dite_eq_ite]
-                  rw [if_pos ((length_lt_nl _ _ _).mpr hlt)]; exact ht' x⟩
+                  rw [ite_eq_left ((length_lt_nl _ _ _).mpr hlt)]; exact ht' x⟩
             · exact ⟨c :: l', List.suffix_rfl, .inr ⟨.noProgress, fun x => by
                 show naiveListLoop _ _ (_ :: (_ ++ 10 :: x)) _ _ = _; rw [naiveListLoop.eq_def]
                 simp only [hws', h93', h44', hst, Bool.false_eq_true, ↓reduceIte,
                   Bool.not_true, ← List.cons_append, hv x, dite_eq_ite]
-                rw [if_neg (fun hx => hlt ((length_lt_nl _ _ _).mp hx))]⟩⟩
+                rw [ite_eq_right (fun hx => hlt ((length_lt_nl _ _ _).mp hx))]⟩⟩
           · exact ⟨r₁, hr₁, .inr ⟨t, fun x => by
               show naiveListLoop _ _ (_ :: (_ ++ 10 :: x)) _ _ = _; rw [naiveListLoop.eq_def]
               simp only [hws', h93', h44', hst, Bool.false_eq_true, ↓reduceIte,
@@ -815,17 +815,17 @@ theorem naiveObjLoop_local (fields : Key → Option (Slot σ)) (required : UInt3
                     show naiveObjLoop _ _ (_ :: (_ ++ 10 :: x)) _ _ _ = _; rw [naiveObjLoop.eq_def]
                     simp only [hws', BEq.rfl, ↓reduceIte, h125', h44', Bool.false_eq_true,
                       Bool.not_true, h1 x, h2 x, hfk, hdup, h3 x, dite_eq_ite]
-                    rw [← List.cons_append, if_pos ((length_lt_nl _ _ _).mpr hlt)]; exact hv x⟩
+                    rw [← List.cons_append, ite_eq_left ((length_lt_nl _ _ _).mpr hlt)]; exact hv x⟩
                 · exact .inr ⟨t', fun x => by
                     show naiveObjLoop _ _ (_ :: (_ ++ 10 :: x)) _ _ _ = _; rw [naiveObjLoop.eq_def]
                     simp only [hws', BEq.rfl, ↓reduceIte, h125', h44', Bool.false_eq_true,
                       Bool.not_true, h1 x, h2 x, hfk, hdup, h3 x, dite_eq_ite]
-                    rw [← List.cons_append, if_pos ((length_lt_nl _ _ _).mpr hlt)]; exact ht' x⟩
+                    rw [← List.cons_append, ite_eq_left ((length_lt_nl _ _ _).mpr hlt)]; exact ht' x⟩
               · exact ⟨34 :: l', List.suffix_rfl, .inr ⟨.noProgress, fun x => by
                   show naiveObjLoop _ _ (_ :: (_ ++ 10 :: x)) _ _ _ = _; rw [naiveObjLoop.eq_def]
                   simp only [hws', BEq.rfl, ↓reduceIte, h125', h44', Bool.false_eq_true,
                     Bool.not_true, h1 x, h2 x, hfk, hdup, h3 x, dite_eq_ite]
-                  rw [← List.cons_append, if_neg (fun hx => hlt ((length_lt_nl _ _ _).mp hx))]⟩⟩
+                  rw [← List.cons_append, ite_eq_right (fun hx => hlt ((length_lt_nl _ _ _).mp hx))]⟩⟩
             · exact ⟨r₃, hr₃l, .inr ⟨t, fun x => by
                 show naiveObjLoop _ _ (_ :: (_ ++ 10 :: x)) _ _ _ = _; rw [naiveObjLoop.eq_def]
                 simp only [hws', BEq.rfl, ↓reduceIte, h125', h44', Bool.false_eq_true,
@@ -1051,11 +1051,11 @@ theorem lineLoop_cont {n : Nat}
     refine ⟨r, hr.trans hr₁, ?_⟩
     rcases h with ⟨v, hv⟩ | ⟨t, ht⟩
     · exact .inl ⟨v, fun x => by
-        rw [← List.cons_append, if_pos ((length_lt_nl _ _ _).mpr hlt)]; exact hv x⟩
+        rw [← List.cons_append, ite_eq_left ((length_lt_nl _ _ _).mpr hlt)]; exact hv x⟩
     · exact .inr ⟨t, fun x => by
-        rw [← List.cons_append, if_pos ((length_lt_nl _ _ _).mpr hlt)]; exact ht x⟩
+        rw [← List.cons_append, ite_eq_left ((length_lt_nl _ _ _).mpr hlt)]; exact ht x⟩
   · exact ⟨c :: l', List.suffix_rfl, .inr ⟨.noProgress, fun x => by
-      rw [← List.cons_append, if_neg (fun hx => hlt ((length_lt_nl _ _ _).mp hx))]⟩⟩
+      rw [← List.cons_append, ite_eq_right (fun hx => hlt ((length_lt_nl _ _ _).mp hx))]⟩⟩
 
 section LineLoop
 

@@ -48,14 +48,14 @@ theorem installConstantVal_inv {cv cvA : ConstantVal}
   simp only [hfind] at h
   by_cases hres : reservedBasisNames.contains cv.name = true
   case pos =>
-    rw [if_pos hres] at h
+    rw [ite_eq_left hres] at h
     exact nomatch h
   simp only [hres] at h
   by_cases hpshape : cv.name.isProjFnShape = true
   case pos =>
-    rw [if_pos hpshape] at h
+    rw [ite_eq_left hpshape] at h
     exact nomatch h
-  rw [if_neg hpshape] at h
+  rw [ite_eq_right hpshape] at h
   have hpshapeF : cv.name.isProjFnShape = false := by
     revert hpshape; cases cv.name.isProjFnShape <;> simp
   by_cases hnd : Name.nodup cv.levelParams = true
@@ -169,7 +169,7 @@ theorem checkValueGroup_inv {vg : ValueGroup}
   -- the theorem test and the theorem's value install, then the value's
   -- typing
   by_cases hk : vg.kind = .thm
-  · rw [if_pos hk] at h
+  · rw [ite_eq_left hk] at h
     cases heqv : Level.isEquiv u .zero with
     | none => rw [heqv] at h; simp [liftFueled] at h
     | some b =>
@@ -197,7 +197,7 @@ theorem checkValueGroup_inv {vg : ValueGroup}
     | false => simp at h
     | true => exact ⟨stype, u, rfl, hsort, fun _ => heqv, jv, fun _ => rfl,
         fun hk' => absurd hk hk', vtype, hvt, hde⟩
-  · rw [if_neg hk] at h
+  · rw [ite_eq_right hk] at h
     cases hvt : inferTypeCore μ env F 0 vg.jv with
     | error e => rw [hvt] at h; exact nomatch h
     | ok vtype =>
@@ -224,10 +224,10 @@ theorem checkValueGroup_of_facts {vg : ValueGroup} {jv stype vtype : Expr} {u : 
   simp only [checkValueGroup, fueledOps_inferType, fueledOps_ensureSort,
     fueledOps_isDefEq, Bind.bind, Except.bind, Pure.pure, Except.pure, hst, hsort]
   by_cases hk : vg.kind = .thm
-  · simp only [if_pos hk, liftFueled, hthm hk, Pure.pure, Except.pure, ↓reduceIte, hjv hk,
+  · simp only [ite_eq_left hk, liftFueled, hthm hk, Pure.pure, Except.pure, ↓reduceIte, hjv hk,
       hvt, hde]
   · obtain rfl := hjv' hk
-    simp only [if_neg hk, hvt, hde, ↓reduceIte]
+    simp only [ite_eq_right hk, hvt, hde, ↓reduceIte]
 
 /-! ## Fuel -/
 

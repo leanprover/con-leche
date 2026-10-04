@@ -477,10 +477,10 @@ theorem blockTablesFamFree {q : BlockShape} :
       rw [ConLeche.checkBlockTables] at h
       by_cases hidx0 : (ms.nIdx == 0) = true
       case neg =>
-        rw [if_neg hidx0] at h
+        rw [ite_eq_right hidx0] at h
         exact ⟨env, h, fun _ hh => hh, fun _ _ _ _ hii _ =>
           absurd (by rw [hii]; rfl) hidx0⟩
-      rw [if_pos hidx0] at h
+      rw [ite_eq_left hidx0] at h
       cases hT : ConLeche.checkStructProjTable (m := ConLeche.CheckM) ms.cvT.name cA0.1.name
           q.lps q.nP cA0.2 q.resSort (ConLeche.structProjGuards cA0.1.type q.nP cA0.2 s0)
           1 cA0.1 env with
@@ -562,9 +562,9 @@ theorem blockTablesTblFree {q : BlockShape} :
       rw [ConLeche.checkBlockTables] at h
       by_cases hidx0 : (ms.nIdx == 0) = true
       case neg =>
-        rw [if_neg hidx0] at h
+        rw [ite_eq_right hidx0] at h
         exact ⟨env, h, fun _ hh => hh, fun _ _ _ _ hii => absurd (by rw [hii]; rfl) hidx0⟩
-      rw [if_pos hidx0] at h
+      rw [ite_eq_left hidx0] at h
       cases hT : ConLeche.checkStructProjTable (m := ConLeche.CheckM) ms.cvT.name cA0.1.name
           q.lps q.nP cA0.2 q.resSort (ConLeche.structProjGuards cA0.1.type q.nP cA0.2 s0)
           1 cA0.1 env with
@@ -687,7 +687,7 @@ theorem blockDummyPass (mp : EnvModelM V μ env) {F : Nat} {p₀ : BlockParts} {
   · exfalso
     obtain ⟨-, ⟨cvC, cnP, cnF, hfC⟩, -⟩ := hfam
     rw [ConLeche.Env.find?_cons,
-      if_neg (fun hh => hetaNe j j cvTa cvTa hj hj he (by
+      ite_eq_right (fun hh => hetaNe j j cvTa cvTa hj hj he (by
         show cvTa.name = (ConLeche.blockCapsAt q j isRec).etaCtor
         exact hh)),
       hfreshC j cvTa hj he] at hfC
@@ -978,7 +978,7 @@ theorem blockRealPass (mp : EnvModelM V μ env) {F : Nat} {p₀ : BlockParts} {i
     · exfalso
       obtain ⟨-, ⟨cvC, cnP, cnF, hfC⟩, -⟩ := hfam
       rw [ConLeche.Env.find?_cons,
-        if_neg (fun hh => hetaNe j j cvTa cvTa hj hj he (by
+        ite_eq_right (fun hh => hetaNe j j cvTa cvTa hj hj he (by
           show cvTa.name = (ConLeche.blockCapsAt q j isRec).etaCtor
           exact hh)),
         hfreshC j cvTa hj he] at hfC

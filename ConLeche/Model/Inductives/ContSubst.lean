@@ -118,17 +118,17 @@ theorem substE_substTau {nP k D' : Nat} (x : Nat → AnnotTerm) (σ : Nat → V)
           (fun q => if q < nP then interp V σ (x (nP - 1 - q)) else σ (q - nP + D')) := by
   funext i
   have hlen : ((List.range k).map fun mm => interp V σ (x (nP + mm))).length = k := by simp
-  simp only [substE, Nat.not_lt_zero, if_false, shiftE_zero_zero, Nat.sub_zero, substTau]
+  simp only [substE, Nat.not_lt_zero, ite_false, shiftE_zero_zero, Nat.sub_zero, substTau]
   rcases Nat.lt_or_ge i k with hik | hik
-  · rw [consList_getD_of_lt _ _ _ (by rw [hlen]; exact hik), if_pos (by omega), hlen,
+  · rw [consList_getD_of_lt _ _ _ (by rw [hlen]; exact hik), ite_eq_left (by omega), hlen,
       List.getD_eq_getElem?_getD, List.getElem?_map, List.getElem?_range (by omega),
       Option.map_some, Option.getD_some, show nP + k - 1 - i = nP + (k - 1 - i) by omega]
   · obtain ⟨q, rfl⟩ : ∃ q, i = q + k := ⟨i - k, by omega⟩
     rw [show q + k = q + ((List.range k).map fun mm => interp V σ (x (nP + mm))).length by
       rw [hlen], consList_apply_add, hlen]
     by_cases hq : q < nP
-    · rw [if_pos (by omega), if_pos hq, show nP + k - 1 - (q + k) = nP - 1 - q by omega]
-    · rw [if_neg (by omega), if_neg hq, interp_bvar,
+    · rw [ite_eq_left (by omega), ite_eq_left hq, show nP + k - 1 - (q + k) = nP - 1 - q by omega]
+    · rw [ite_eq_right (by omega), ite_eq_right hq, interp_bvar,
         show q + k - (nP + k) + D' = q - nP + D' by omega]
 
 end ConLeche.Model

@@ -155,7 +155,7 @@ theorem lfpNamesOf_of_mem {ex : List Name} (hcov : LfpCover mp ex) {D : LfpDatum
   classical
   have hex : ∃ D ∈ mp.lfpBlocks, n ∈ D.names := ⟨D, hD, hnD⟩
   unfold lfpNamesOf
-  rw [dif_pos hex]
+  rw [dite_eq_left hex]
   obtain ⟨hD', hn'⟩ := Classical.choose_spec hex
   exact lfp_names_all hcov hD' hn' hf
 
@@ -182,7 +182,7 @@ theorem lfpSel_spec {ex : List Name} (hcov : LfpCover mp ex) (D0 : LfpDatum V) {
   have hex : ∃ D ∈ mp.lfpBlocks, D.names = lfpNamesOf mp n :=
     ⟨D, hD, by rw [lfpNamesOf_of_mem hcov hD hnD hf, hDn]⟩
   unfold lfpSel
-  rw [dif_pos hex]
+  rw [dite_eq_left hex]
   obtain ⟨hD', hnm⟩ := Classical.choose_spec hex
   have hnm : (Classical.choose hex).names = caps.all := hnm.trans (lfpNamesOf_of_mem hcov hD hnD hf)
   exact ⟨hD', hnm, by rw [hnm, ← hDn]; exact hnD⟩

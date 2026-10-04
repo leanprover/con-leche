@@ -96,7 +96,7 @@ theorem FreshNames.step {env : Env} {c : ConstantInfo} {ns : List Name}
   obtain ⟨hnd, hfr⟩ := h
   rw [List.nodup_cons] at hnd
   refine ⟨hnd.2, fun n hn => ?_⟩
-  rw [Env.find?_cons, if_neg (fun he => hnd.1 (by rw [he]; exact hn))]
+  rw [Env.find?_cons, ite_eq_right (fun he => hnd.1 (by rw [he]; exact hn))]
   exact hfr n (List.mem_cons_of_mem _ hn)
 
 /-! ## The generic stage helpers keep the name and record the guard -/
@@ -493,11 +493,11 @@ theorem checkDeclC_push (mode : CheckMode) {env : Env} {fe : FEnv}
     simp only []
     have hfrA : fe.find? cvA.name = none := by rw [hp]; exact hfr
     by_cases ht : cvA.name = sorryAxName
-    · rw [if_neg (by rw [tolerated_not_std fe cvA ht]; exact Bool.false_ne_true),
-        if_neg (tolerated_ne_trust ht), if_neg (tolerated_ne_ofReduce ht),
-        if_neg (tolerated_ne_std ht), if_pos ht]
+    · rw [ite_eq_right (by rw [tolerated_not_std fe cvA ht]; exact Bool.false_ne_true),
+        ite_eq_right (tolerated_ne_trust ht), ite_eq_right (tolerated_ne_ofReduce ht),
+        ite_eq_right (tolerated_ne_std ht), ite_eq_left ht]
       exact Yields.pure h
-    · rw [if_neg ht]
+    · rw [ite_eq_right ht]
       yields
       all_goals first
         | (apply Yields.pure; exact h.push hfrA)

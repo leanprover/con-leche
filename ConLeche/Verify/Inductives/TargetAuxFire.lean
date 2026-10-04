@@ -129,7 +129,7 @@ theorem abstractRange_instSeq_open {pre : List Expr}
       rw [List.getElem?_eq_getElem (by omega), hty] at hget
       rw [← Option.some.inj hget]
       simp only [Expr.abstractRange]
-      rw [if_pos (by omega)]
+      rw [ite_eq_left (by omega)]
       congr 1
       omega
   | fvar _ _ _ => intro c h; simp [Expr.hasFvar] at h

@@ -76,7 +76,7 @@ theorem tgtClsIs_pref {acval : Name → (Name → Nat) → AnnotTerm} {p : Block
     split at hG
     · exact hG.2
     · exact hG
-  · rw [if_neg hG] at hi; exact absurd hi (not_mem_empty _)
+  · rw [ite_eq_right hG] at hi; exact absurd hi (not_mem_empty _)
 
 end Rows
 

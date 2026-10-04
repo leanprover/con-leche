@@ -689,7 +689,7 @@ theorem Level.isNeverZero_sound (φ : Name → Nat) :
   | .imax l r, h => by
     simp only [Level.isNeverZero] at h
     have := Level.isNeverZero_sound φ r h
-    simp only [Level.eval, if_neg this]
+    simp only [Level.eval, ite_eq_right this]
     omega
 
 /-! ## The stored rules, positionally -/
@@ -738,20 +738,20 @@ theorem Expr.shiftFromN_fvar (p : Nat) :
   | 0, idx, ty => ⟨ty, by
       show Expr.fvar idx ty = _
       by_cases h : idx < p
-      · rw [if_pos h]
-      · rw [if_neg h, Nat.add_zero]⟩
+      · rw [ite_eq_left h]
+      · rw [ite_eq_right h, Nat.add_zero]⟩
   | n + 1, idx, ty => by
     obtain ⟨ty', hn⟩ := Expr.shiftFromN_fvar p n idx ty
     by_cases h : idx < p
     · refine ⟨ty', ?_⟩
       show Expr.shiftFrom p (Expr.shiftFromN p n (Expr.fvar idx ty)) = _
-      rw [hn, if_pos h, if_pos h]
-      simp only [Expr.shiftFrom, if_neg (show ¬ idx ≥ p from by omega)]
+      rw [hn, ite_eq_left h, ite_eq_left h]
+      simp only [Expr.shiftFrom, ite_eq_right (show ¬ idx ≥ p from by omega)]
     · refine ⟨Expr.shiftFrom p ty', ?_⟩
       show Expr.shiftFrom p (Expr.shiftFromN p n (Expr.fvar idx ty)) = _
-      rw [hn, if_neg h, if_neg h,
+      rw [hn, ite_eq_right h, ite_eq_right h,
         show idx + (n + 1) = idx + n + 1 from by omega]
-      simp only [Expr.shiftFrom, if_pos (show idx + n ≥ p from by omega)]
+      simp only [Expr.shiftFrom, ite_eq_left (show idx + n ≥ p from by omega)]
 
 
 end ConLeche

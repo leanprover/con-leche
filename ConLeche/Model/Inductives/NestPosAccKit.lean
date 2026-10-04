@@ -137,7 +137,7 @@ theorem consList_replicate_lt (n : Nat) (a : V) (σ : Nat → V) {i : Nat} (hi :
     consList (List.replicate n a) σ i = a := by
   rw [consList_getD_of_lt _ _ _ (by simpa using hi)]
   simp only [List.getD_eq_getElem?_getD, List.getElem?_replicate, List.length_replicate]
-  rw [if_pos (by omega)]
+  rw [ite_eq_left (by omega)]
   rfl
 
 /-- **Empty enclosing frames**: a frameless relation at the block's own

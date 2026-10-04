@@ -94,7 +94,7 @@ theorem shiftE_chain (ρ : Nat → V) (ws : List AnnotTerm) :
     shiftE ws.length 0 (chain V ρ ws) = ρ := by
   funext i
   show (if i < 0 then _ else chain V ρ ws (i + ws.length)) = ρ i
-  rw [if_neg (Nat.not_lt_zero i), chain_ge (by omega)]
+  rw [ite_eq_right (Nat.not_lt_zero i), chain_ge (by omega)]
   congr 1
   omega
 

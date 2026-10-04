@@ -277,10 +277,10 @@ theorem targetRecPinsS_sim {p : BlockShape} {block : List ConstantInfo} {s₀ : 
   dsimp only
   by_cases h1 : blockRecLpsOk p = true
   case neg => simp only [h1]; exact SimC.throw_bind
-  simp only [h1, if_true]
+  simp only [h1, ite_true]
   by_cases h2 : blockRecNamesUnreserved p = true
   case neg => simp only [h2]; exact SimC.throw_bind
-  simp only [h2, if_true]
+  simp only [h2, ite_true]
   split
   case isFalse => exact SimC.throw_bind
   split

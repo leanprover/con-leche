@@ -205,7 +205,7 @@ fuel** (the defeq loop's syntactic fast path). -/
 theorem isDefEqCore_self {envK : Env} {F d : Nat} (a : Expr) :
     ConLeche.isDefEqCore μ envK (F + 1) d a a = .ok true := by
   rw [ConLeche.isDefEqCore_succ]
-  simp only [ConLeche.defeqBody, beq_self_eq_true, if_true]
+  simp only [ConLeche.defeqBody, beq_self_eq_true, ite_true]
   rfl
 
 /-! ## The stage record from the run -/

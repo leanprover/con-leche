@@ -73,8 +73,8 @@ theorem lfpTuple_le_on (h : ∃ L, IsClosedTuple w k Is Φ L) (hmono : MonoTuple
   have hZmem : InTupleSpace w k Is (fun x => if G x then B x else lfpTuple w k Is Φ x) := by
     intro m hm
     by_cases hg : G m
-    · simp only [if_pos hg]; exact hB m hm
-    · simp only [if_neg hg]; exact lfpTuple_mem w k Is Φ m hm
+    · simp only [ite_eq_left hg]; exact hB m hm
+    · simp only [ite_eq_right hg]; exact lfpTuple_mem w k Is Φ m hm
   have hSZ : TupleLe k Is (sepTuple w k Is Φ P)
       (fun x => if G x then B x else lfpTuple w k Is Φ x) := by
     intro m hm i hi y hy
@@ -82,8 +82,8 @@ theorem lfpTuple_le_on (h : ∃ L, IsClosedTuple w k Is Φ L) (hmono : MonoTuple
     unfold sepTuple at hy'
     rw [app_graph hi, mem_sep] at hy'
     by_cases hg : G m
-    · simp only [if_pos hg]; exact hy'.2 hg
-    · simp only [if_neg hg]; exact hy'.1
+    · simp only [ite_eq_left hg]; exact hy'.2 hg
+    · simp only [ite_eq_right hg]; exact hy'.1
   have hind := lfpTuple_induction h hmono P fun m hm i hi x hx hg => by
     have hx' := hmono _ _ (sepTuple_mem w k Is Φ P) hZmem hSZ m hm i hi x hx
     exact hZ m hm hg i hi x hx'

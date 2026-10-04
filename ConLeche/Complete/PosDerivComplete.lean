@@ -247,7 +247,7 @@ theorem nestGroupCtors_ok {nPc : Nat} :
         obtain ⟨rest, hr, rfl⟩ := Option.map_eq_some_iff.mp h
         have h₁ := nestGroupCtors_ok cs rest hr
         simp only [nestGroupCtors, bind, Except.bind, hq, unwrapOr, pure, Except.pure]
-        rw [if_pos (by simpa using hok)]
+        rw [ite_eq_left (by simpa using hok)]
         simp only [h₁]
       · exact nomatch h
     · exact nomatch h
@@ -348,7 +348,7 @@ theorem nestContKey_ok {prog : List NestHole} {kb : Nat} {c : Name} {us : List L
   unfold nestContKey
   have hactc : st.active.contains ⟨c, us, ds⟩ = false := by
     rw [show st.active = act from hI]; simpa using hact
-  rw [if_neg (by rw [hactc]; simp)]
+  rw [ite_eq_right (by rw [hactc]; simp)]
   split
   · exact ⟨_, _, rfl, rfl, hI⟩
   · exact nestContNew_ok' hI hnPc hnI hnew
@@ -369,18 +369,18 @@ theorem nestCont_ok {prog : List NestHole} {kb : Nat} {c : Name} {us : List Leve
       k = .nested (kb != 0) ∧ RInv ctx st' act := by
   unfold nestCont
   simp only [bind, Except.bind, hC, unwrapOr, pure, Except.pure]
-  rw [if_neg (by
+  rw [ite_eq_right (by
     simp only [Bool.or_eq_true, decide_eq_true_eq, List.all_eq_false,
       not_or, not_exists, not_and, Bool.not_eq_eq_eq_not, Bool.not_true]
     exact ⟨by omega, fun x hx => by simpa using hidx x hx⟩)]
-  rw [if_neg (by simpa using hquot)]
-  rw [if_pos (by
+  rw [ite_eq_right (by simpa using hquot)]
+  rw [ite_eq_left (by
     rw [List.all_eq_true]
     intro x hx
     simp only [Bool.and_eq_true, beq_iff_eq, decide_eq_true_eq]
     exact hds x hx)]
   simp only [hnI]
-  rw [if_pos (by simp [hlen])]
+  rw [ite_eq_left (by simp [hlen])]
   exact nestContKey_ok hI (by simp; omega) hnI hact hnew
 
 /-- **The claim of (B) at a judgment**: the corresponding run, at every
@@ -441,7 +441,7 @@ theorem posDR_run (hroot : NestRootOk ctx) {n : Nat} {J : PosJR} (h : PosDR ops 
     refine ⟨.ordinary, st, ?_, rfl, hI⟩
     rw [nestPos]
     simp only [hw, bind, Except.bind]
-    rw [if_pos (by simpa using hocc)]
+    rw [ite_eq_left (by simpa using hocc)]
     rfl
   | pi hw hocc ha hm hb ih =>
     intro fuel hf st hI
@@ -450,8 +450,8 @@ theorem posDR_run (hroot : NestRootOk ctx) {n : Nat} {J : PosJR} (h : PosDR ops 
     refine ⟨k', st', ?_, hk, hI'⟩
     rw [nestPos]
     simp only [hw, bind, Except.bind]
-    rw [if_neg (by simpa using hocc)]
-    simp only [ha, Bool.false_eq_true, if_false, hr]
+    rw [ite_eq_right (by simpa using hocc)]
+    simp only [ha, Bool.false_eq_true, ite_false, hr]
     rfl
   | @hole n act prog dep kb e w i ty hw hocc hfn hlo hhi hlen hfree =>
     intro fuel hf st hI
@@ -461,7 +461,7 @@ theorem posDR_run (hroot : NestRootOk ctx) {n : Nat} {J : PosJR} (h : PosDR ops 
       have ht : i - ctx.nP < ctx.names.length := by simp only [NestCtx.hiAt] at hhi; omega
       rw [nestPos]
       simp only [hw, bind, Except.bind]
-      rw [if_neg (by simpa using hocc)]
+      rw [ite_eq_right (by simpa using hocc)]
       simp only [hfn]
       split
       · simp [Expr.getAppFn] at hfn
@@ -476,7 +476,7 @@ theorem posDR_run (hroot : NestRootOk ctx) {n : Nat} {J : PosJR} (h : PosDR ops 
           simp only [Bool.and_eq_true, beq_iff_eq, List.all_eq_true,
             Bool.not_eq_eq_eq_not, Bool.not_true]
           exact ⟨hfree, by omega⟩
-        rw [if_pos hc, if_pos hhi]
+        rw [ite_eq_left hc, ite_eq_left hhi]
         rfl
     · by_cases hkb : kb = 0 <;> simp [hkb]
   | @frameHole n act prog dep kb e w i ty h hw hocc hfn hlo hhi hk hfree har =>
@@ -485,7 +485,7 @@ theorem posDR_run (hroot : NestRootOk ctx) {n : Nat} {J : PosJR} (h : PosDR ops 
     refine ⟨.inProgress, st, ?_, rfl, hI⟩
     rw [nestPos]
     simp only [hw, bind, Except.bind]
-    rw [if_neg (by simpa using hocc)]
+    rw [ite_eq_right (by simpa using hocc)]
     simp only [hfn]
     split
     · simp [Expr.getAppFn] at hfn
@@ -497,7 +497,7 @@ theorem posDR_run (hroot : NestRootOk ctx) {n : Nat} {J : PosJR} (h : PosDR ops 
         simp only [Bool.and_eq_true, beq_iff_eq, List.all_eq_true,
           Bool.not_eq_eq_eq_not, Bool.not_true]
         exact ⟨hfree, har⟩
-      rw [if_pos hc, if_neg (by omega)]
+      rw [ite_eq_left hc, ite_eq_right (by omega)]
       rfl
   | @cont n m act prog dep kb e w c us L nPc nI cty grp hw hocc hfn hnm hC hlen hquot hidx hds
       hdsw hsc hnI hact hhead hm hfr ih =>
@@ -509,9 +509,9 @@ theorem posDR_run (hroot : NestRootOk ctx) {n : Nat} {J : PosJR} (h : PosDR ops 
     refine ⟨k', st', ?_, hk, hI'⟩
     rw [nestPos]
     simp only [hw, bind, Except.bind]
-    rw [if_neg (by simpa using hocc)]
+    rw [ite_eq_right (by simpa using hocc)]
     simp only [hfn]
-    rw [if_neg (by simpa using hnm)]
+    rw [ite_eq_right (by simpa using hnm)]
     rw [hr]
     split
     · simp [Expr.getAppFn] at hfn
@@ -539,15 +539,15 @@ theorem posDR_run (hroot : NestRootOk ctx) {n : Nat} {J : PosJR} (h : PosDR ops 
       hm₁ htele hu4 hres hidx hm₂ hrest iht ihr =>
     intro fuelOf hf st hI
     simp only [nestCtors, bind, Except.bind]
-    rw [if_pos hnd]
+    rw [ite_eq_left hnd]
     simp only [hcrest, unwrapOr, pure, Except.pure, hty, hsort]
     obtain ⟨ks', st₁, h₁, hks, hI₁⟩ :=
       iht (fuelOf crest) (by have := hf _ List.mem_cons_self crest hcrest; omega) st hI
     simp only [h₁]
     subst hks
-    rw [if_neg (by
+    rw [ite_eq_right (by
       rw [hu4]; simp)]
-    rw [if_pos (by simp [hres, hidx])]
+    rw [ite_eq_left (by simp [hres, hidx])]
     obtain ⟨os, st', h₂, hI', hos⟩ := ihr fuelOf
       (fun x hx c' hc' => by have := hf x (List.mem_cons_of_mem _ hx) c' hc'; omega)
       { st₁ with ctorNfs := st₁.ctorNfs.push (nestCtorNf ctx prog hi us ds cv nds cur) } hI₁
@@ -669,11 +669,11 @@ theorem walkStack_split {prog : List NestHole} {c : Name} {us : List Level} {ds 
   split
   · rename_i hfree
     have hfree' : ∀ x ∈ ds, x.fvarB ≤ ctx.hiAt 0 := by simpa using hfree
-    rw [if_pos hfree] at hd
+    rw [ite_eq_left hfree] at hd
     refine Or.inr ⟨rfl, hfree', fun x hx => WScoped.of_fvarsBelow (hdsw x hx)
       (Expr.fvarB_le (hfree' x hx)), List.mem_cons_self, hd⟩
   · rename_i hfree
-    rw [if_neg hfree] at hinst hd
+    rw [ite_eq_right hfree] at hinst hd
     obtain ⟨nI, h⟩ := hinst p List.mem_cons_self
     exact Or.inl ⟨rfl, nI, h, rfl, hd⟩
 

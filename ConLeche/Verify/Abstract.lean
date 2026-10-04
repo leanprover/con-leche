@@ -64,7 +64,7 @@ theorem WScoped.abstract1 {d : Nat} :
   case fvar idx ty' ih =>
     by_cases hidx : idx = d
     · simp [hidx, WScoped]
-    · simp only [hidx, if_false, WScoped]
+    · simp only [hidx, ite_false, WScoped]
       exact ⟨by omega, hw.2⟩
 
 /-- Opening lowers the loose-bvar bound by one. -/
@@ -226,10 +226,10 @@ theorem annotateCore_letE_inv {env : Env} {fuel d : Nat}
   rw [hde] at h; dsimp only at h
   cases bl with
   | false =>
-    simp only [Bool.false_eq_true, if_false] at h
+    simp only [Bool.false_eq_true, ite_false] at h
     exact nomatch h
   | true =>
-  simp only [if_true] at h
+  simp only [ite_true] at h
   exact ⟨ty', v', rfl, rfl, h, tty, u, tv, hit, hes, hiv, hde⟩
 
 /-! ### The binder clauses' inversion (task #161 P5)

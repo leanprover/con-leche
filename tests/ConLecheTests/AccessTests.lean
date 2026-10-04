@@ -83,8 +83,8 @@ theorem prodA_mem (hw : w ≠ 0) {A1 A2 : V} (h1 : A1 ∈ˢ (univ w : V)) (h2 : 
   refine hU.sigmaPairs_mem (hU.upair_mem (empty_mem_univ w) (empty_mem_univ w) (pt_mem_univ hw))
     fun t _ => ?_
   by_cases h : t = empty
-  · simp only [h, if_true]; exact h1
-  · simp only [h, if_false]; exact h2
+  · simp only [h, ite_true]; exact h1
+  · simp only [h, ite_false]; exact h2
 
 /-! ### `List α` (flat): `nil | cons : α → List α → List α` -/
 

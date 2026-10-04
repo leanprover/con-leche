@@ -181,14 +181,14 @@ theorem declAxiomRun_of {env env₂ : Env} {μ : CheckMode} {F : Nat}
   -- **`Quot.sound`** (task #293): compared with the pin before the
   -- common checks, installing nothing.
   by_cases hqs : cv.name = quotSoundName
-  · rw [if_pos hqs] at h
+  · rw [ite_eq_left hqs] at h
     by_cases hpin : ConstantInfo.canonEq (.axiomInfo cv)
         (quotBasis.getD 4 (.axiomInfo default)) = true
-    · rw [if_pos hpin] at h
+    · rw [ite_eq_left hpin] at h
       simp only [pure, Except.pure, Except.ok.injEq] at h
       exact Or.inl ⟨hqs, h.symm⟩
-    · rw [if_neg hpin] at h; exact nomatch h
-  rw [if_neg hqs] at h
+    · rw [ite_eq_right hpin] at h; exact nomatch h
+  rw [ite_eq_right hqs] at h
   refine Or.inr ?_
   cases hccv : checkConstantVal (fueledOps μ F) env cv with
   | error e => rw [hccv] at h; exact nomatch h
@@ -198,36 +198,36 @@ theorem declAxiomRun_of {env env₂ : Env} {μ : CheckMode} {F : Nat}
   obtain ⟨type, rfl, -, -, hcv⟩ := constantValRun_of hccv
   refine ⟨type, hcv, ?_⟩
   by_cases hstd : stdAxiomOk env { cv with type := type } = true
-  · rw [if_pos hstd] at h
+  · rw [ite_eq_left hstd] at h
     simp only [pure, Except.pure, Except.ok.injEq] at h
     exact Or.inl ⟨hstd, h.symm⟩
-  rw [if_neg hstd] at h
+  rw [ite_eq_right hstd] at h
   have hstdF : stdAxiomOk env { cv with type := type } = false := by
     revert hstd; cases stdAxiomOk env { cv with type := type } <;> simp
   by_cases htc : cv.name = trustCompilerName
-  · rw [if_pos htc] at h
+  · rw [ite_eq_left htc] at h
     by_cases htco : trustCompilerOk env { cv with type := type } = true
-    · rw [if_pos htco] at h
+    · rw [ite_eq_left htco] at h
       simp only [pure, Except.pure, Except.ok.injEq] at h
       exact Or.inr (Or.inl ⟨htc, htco, h.symm⟩)
-    · rw [if_neg htco] at h
+    · rw [ite_eq_right htco] at h
       simp [throw, throwThe, MonadExceptOf.throw] at h
-  rw [if_neg htc] at h
+  rw [ite_eq_right htc] at h
   by_cases hofr : cv.name = ofReduceNatName ∨ cv.name = ofReduceBoolName
-  · rw [if_pos hofr] at h
+  · rw [ite_eq_left hofr] at h
     by_cases hofro : ofReduceAxOk env { cv with type := type } = true
-    · rw [if_pos hofro] at h
+    · rw [ite_eq_left hofro] at h
       simp only [pure, Except.pure, Except.ok.injEq] at h
       exact Or.inr (Or.inr (Or.inl ⟨hofr, hofro, h.symm⟩))
-    · rw [if_neg hofro] at h
+    · rw [ite_eq_right hofro] at h
       simp [throw, throwThe, MonadExceptOf.throw] at h
-  rw [if_neg hofr] at h
+  rw [ite_eq_right hofr] at h
   by_cases hpc : cv.name = propextName ∨ cv.name = choiceName
-  · rw [if_pos hpc] at h
+  · rw [ite_eq_left hpc] at h
     simp [throw, throwThe, MonadExceptOf.throw] at h
-  rw [if_neg hpc] at h
+  rw [ite_eq_right hpc] at h
   by_cases htol : cv.name = sorryAxName
-  · rw [if_pos htol] at h
+  · rw [ite_eq_left htol] at h
     simp only [pure, Except.pure, Except.ok.injEq] at h
     refine Or.inr (Or.inr (Or.inr ⟨hstdF, htc, ?_, ?_, ?_, ?_, htol,
       h.symm⟩))
@@ -235,7 +235,7 @@ theorem declAxiomRun_of {env env₂ : Env} {μ : CheckMode} {F : Nat}
     · exact fun hh => hofr (Or.inr hh)
     · exact fun hh => hpc (Or.inl hh)
     · exact fun hh => hpc (Or.inr hh)
-  · rw [if_neg htol] at h
+  · rw [ite_eq_right htol] at h
     simp [throw, throwThe, MonadExceptOf.throw] at h
 
 /-- **`opaqueDecl`, run half**, with the compiler-trust pin's run
@@ -289,7 +289,7 @@ theorem declOpaqueRun_of {env env₂ : Env} {μ : CheckMode} {F : Nat}
   refine ⟨type, value', hcv,
     valueFrontRun_of hlbv hivf' hannv hvp hvr hvt hde, ?_, ?_⟩
   · by_cases hro : reduceOpNames.contains cv.name = true
-    · rw [if_pos hro] at h
+    · rw [ite_eq_left hro] at h
       cases hrpin : checkReducePin (m := CheckM) (fueledOps μ F) env
           ⟨.axiomInfo { cv with type := type } :: env.consts⟩ cv.name
           value with
@@ -298,11 +298,11 @@ theorem declOpaqueRun_of {env env₂ : Env} {μ : CheckMode} {F : Nat}
         rw [hrpin] at h
         simp only [Except.ok.injEq] at h
         exact h.symm
-    · rw [if_neg hro] at h
+    · rw [ite_eq_right hro] at h
       simp only [Except.ok.injEq] at h
       exact h.symm
   · intro hro
-    rw [if_pos hro] at h
+    rw [ite_eq_left hro] at h
     cases hrpin : checkReducePin (m := CheckM) (fueledOps μ F) env
         ⟨.axiomInfo { cv with type := type } :: env.consts⟩ cv.name
         value with
@@ -367,7 +367,7 @@ theorem declDefnRun_of {env env₂ : Env} {μ : CheckMode} {F : Nat}
   have hfind2 : (⟨ConstantInfo.defnInfo { cv with type := type } value'
         hint :: env.consts⟩ : Env).find? cv.name
       = some (.defnInfo { cv with type := type } value' hint) := by
-    rw [Env.find?_cons]; exact if_pos rfl
+    rw [Env.find?_cons]; exact ite_eq_left rfl
   -- **the dispatch, once**: the stored environment and the two packs
   have key : env₂ = ⟨ConstantInfo.defnInfo { cv with type := type }
         value' hint :: env.consts⟩ ∧
@@ -386,13 +386,13 @@ theorem declDefnRun_of {env env₂ : Env} {μ : CheckMode} {F : Nat}
           ⟨ConstantInfo.defnInfo { cv with type := type } value' hint ::
             env.consts⟩ cv.name = .ok ()) := by
     by_cases hno : natOpNames.contains cv.name = true
-    · rw [if_pos hno] at h
+    · rw [ite_eq_left hno] at h
       by_cases hg : (natOpGuard ⟨ConstantInfo.defnInfo
             { cv with type := type } value' hint :: env.consts⟩ cv.name
           && (natOpDeps cv.name).all (natOpStoredOk
             ⟨ConstantInfo.defnInfo { cv with type := type } value'
               hint :: env.consts⟩)) = true
-      · rw [if_pos hg] at h
+      · rw [ite_eq_left hg] at h
         rw [hfind2] at h
         dsimp only at h
         cases hcert : certifyNatEqs (m := CheckM) (fueledOps μ F) env
@@ -411,7 +411,7 @@ theorem declDefnRun_of {env env₂ : Env} {μ : CheckMode} {F : Nat}
         simp only [↓reduceIte] at h
         obtain ⟨hg1, hg2⟩ := Bool.and_eq_true _ _ |>.mp hg
         by_cases hdn : natDivModNames.contains cv.name = true
-        · rw [if_pos hdn] at h
+        · rw [ite_eq_left hdn] at h
           cases hpin : checkDivModPin (m := CheckM) (fueledOps μ F) pins env
               ⟨ConstantInfo.defnInfo { cv with type := type } value'
                 hint :: env.consts⟩ cv.name with
@@ -421,16 +421,16 @@ theorem declDefnRun_of {env env₂ : Env} {μ : CheckMode} {F : Nat}
             simp only [Except.ok.injEq] at h
             subst h
             exact ⟨rfl, fun _ => ⟨hg1, hg2, rfl⟩, fun _ => rfl⟩
-        · rw [if_neg hdn] at h
+        · rw [ite_eq_right hdn] at h
           simp only [Except.ok.injEq] at h
           subst h
           exact ⟨rfl, fun _ => ⟨hg1, hg2, rfl⟩, fun hc => absurd hc hdn⟩
-      · rw [if_neg hg] at h
+      · rw [ite_eq_right hg] at h
         simp only [throw, throwThe, MonadExceptOf.throw] at h
         exact nomatch h
-    · rw [if_neg hno] at h
+    · rw [ite_eq_right hno] at h
       by_cases hdn : natDivModNames.contains cv.name = true
-      · rw [if_pos hdn] at h
+      · rw [ite_eq_left hdn] at h
         cases hpin : checkDivModPin (m := CheckM) (fueledOps μ F) pins env
             ⟨ConstantInfo.defnInfo { cv with type := type } value'
               hint :: env.consts⟩ cv.name with
@@ -440,7 +440,7 @@ theorem declDefnRun_of {env env₂ : Env} {μ : CheckMode} {F : Nat}
           simp only [Except.ok.injEq] at h
           subst h
           exact ⟨rfl, fun hc => absurd hc hno, fun _ => rfl⟩
-      · rw [if_neg hdn] at h
+      · rw [ite_eq_right hdn] at h
         simp only [Except.ok.injEq] at h
         subst h
         exact ⟨rfl, fun hc => absurd hc hno, fun hc => absurd hc hdn⟩
@@ -451,7 +451,7 @@ theorem declDefnRun_of {env env₂ : Env} {μ : CheckMode} {F : Nat}
     fun hc => ⟨(hnatK hc).1, (hnatK hc).2.1,
       natEqsRun_of_certs _ (hnatK hc).2.2⟩,
     fun hc => divModPinRun_of
-      (by rw [Env.find?_cons]; exact if_pos rfl) (hdmK hc)⟩
+      (by rw [Env.find?_cons]; exact ite_eq_left rfl) (hdmK hc)⟩
 
 /-! ## The assembly -/
 

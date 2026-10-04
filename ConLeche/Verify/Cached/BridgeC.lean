@@ -84,32 +84,32 @@ theorem checkConstantValC_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF e
   unfold checkConstantValC checkConstantVal
   simp only [mkFEnv_find?]
   by_cases h1 : (env.find? cvp.name).isSome = true
-  · simp only [if_pos h1]
+  · simp only [ite_eq_left h1]
     exact SimC.throw_bind
-  simp only [if_neg h1]
+  simp only [ite_eq_right h1]
   by_cases h2 : reservedBasisNames.contains cvp.name = true
-  · simp only [if_pos h2]
+  · simp only [ite_eq_left h2]
     exact SimC.throw_bind
-  simp only [if_neg h2]
+  simp only [ite_eq_right h2]
   by_cases h3 : cvp.name.isProjFnShape = true
-  · simp only [if_pos h3]
+  · simp only [ite_eq_left h3]
     exact SimC.throw_bind
-  simp only [if_neg h3]
+  simp only [ite_eq_right h3]
   by_cases h4 : Name.nodup cvp.levelParams = true
   case neg =>
-    simp only [if_neg h4]
+    simp only [ite_eq_right h4]
     exact SimC.throw_bind
-  simp only [if_pos h4]
+  simp only [ite_eq_left h4]
   by_cases h5 : Expr.looseBVarsBounded 0 cvp.type = true
   case neg =>
-    simp only [if_neg h5]
+    simp only [ite_eq_right h5]
     exact SimC.throw_bind
-  simp only [if_pos h5]
+  simp only [ite_eq_left h5]
   rw [hasFvar_spec' rfl]
   by_cases h6 : Expr.hasFvar cvp.type = true
-  · simp only [if_pos h6]
+  · simp only [ite_eq_left h6]
     exact SimC.throw_bind
-  simp only [if_neg h6]
+  simp only [ite_eq_right h6]
   refine SimC.bind ((ssimC hμ env henv checkFuel).annotate hs
       rfl
       (Expr.WScoped.of_not_hasFvar (Bool.not_eq_true _ ▸ h6)))
@@ -119,15 +119,15 @@ theorem checkConstantValC_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF e
   rw [Expr.allLevelParamsDefinedC_spec]
   by_cases h7 : Expr.allLevelParamsDefined cvp.levelParams jA = true
   case neg =>
-    simp only [if_neg h7]
+    simp only [ite_eq_right h7]
     exact SimC.throw_bind
-  simp only [if_pos h7]
+  simp only [ite_eq_left h7]
   rw [constsResolveFC_spec, constsResolveF_eq]
   by_cases h8 : Expr.constsResolve env jA = true
   case neg =>
-    simp only [if_neg h8]
+    simp only [ite_eq_right h8]
     exact SimC.throw_bind
-  simp only [if_pos h8]
+  simp only [ite_eq_left h8]
   refine SimC.bind ((ssimC hμ env henv checkFuel).infer hs₁ rfl hwty)
     (fun s₂ jsty wsty hs₂ hP₂ => ?_)
   obtain ⟨hjsty, hwsty⟩ := hP₂
@@ -151,14 +151,14 @@ theorem checkDefnValC_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) 
   unfold checkDefnValC checkDefnVal
   by_cases h1 : Expr.looseBVarsBounded 0 value = true
   case neg =>
-    simp only [if_neg h1]
+    simp only [ite_eq_right h1]
     exact SimC.throw_bind
-  simp only [if_pos h1]
+  simp only [ite_eq_left h1]
   rw [hasFvar_spec' rfl]
   by_cases h2 : Expr.hasFvar value = true
-  · simp only [if_pos h2]
+  · simp only [ite_eq_left h2]
     exact SimC.throw_bind
-  simp only [if_neg h2]
+  simp only [ite_eq_right h2]
   refine SimC.bind ((ssimC hμ env henv checkFuel).annotate hs rfl
       (Expr.WScoped.of_not_hasFvar (Bool.not_eq_true _ ▸ h2)))
     (fun s₁ jv w hs₁ hP => ?_)
@@ -167,15 +167,15 @@ theorem checkDefnValC_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) 
   rw [Expr.allLevelParamsDefinedC_spec]
   by_cases h3 : Expr.allLevelParamsDefined cvA.levelParams jv = true
   case neg =>
-    simp only [if_neg h3]
+    simp only [ite_eq_right h3]
     exact SimC.throw_bind
-  simp only [if_pos h3]
+  simp only [ite_eq_left h3]
   rw [constsResolveFC_spec, constsResolveF_eq]
   by_cases h4 : Expr.constsResolve env jv = true
   case neg =>
-    simp only [if_neg h4]
+    simp only [ite_eq_right h4]
     exact SimC.throw_bind
-  simp only [if_pos h4]
+  simp only [ite_eq_left h4]
   refine SimC.bind_left (recordCConst_eff hs₁ hjty
       (fun vE' vi h => by
         cases h
@@ -197,7 +197,7 @@ theorem checkDefnValC_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) 
     intro cv' v' h' hf
     rw [show ((mkFEnv env).push (.defnInfo cvA jv hint)).env =
       ⟨.defnInfo cvA jv hint :: env.consts⟩ from rfl] at hf
-    rw [Env.find?_cons, if_pos (show (ConstantInfo.defnInfo cvA jv
+    rw [Env.find?_cons, ite_eq_left (show (ConstantInfo.defnInfo cvA jv
       hint).name = cvA.name from rfl)] at hf
     simp only [Option.some.injEq, ConstantInfo.defnInfo.injEq] at hf
     obtain ⟨-, rfl, -⟩ := hf
@@ -230,14 +230,14 @@ theorem checkThmValC_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) {
   obtain rfl := hdenv
   by_cases h1 : Expr.looseBVarsBounded 0 value = true
   case neg =>
-    simp only [if_neg h1]
+    simp only [ite_eq_right h1]
     exact SimC.throw_bind
-  simp only [if_pos h1]
+  simp only [ite_eq_left h1]
   rw [hasFvar_spec' rfl]
   by_cases h2 : Expr.hasFvar value = true
-  · simp only [if_pos h2]
+  · simp only [ite_eq_left h2]
     exact SimC.throw_bind
-  simp only [if_neg h2]
+  simp only [ite_eq_right h2]
   refine SimC.bind ((ssimC hμ env henv checkFuel).annotate hs₃ rfl
       (Expr.WScoped.of_not_hasFvar (Bool.not_eq_true _ ▸ h2)))
     (fun s₄ jv w hs₄ hP₄ => ?_)
@@ -246,15 +246,15 @@ theorem checkThmValC_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) {
   rw [Expr.allLevelParamsDefinedC_spec]
   by_cases h3 : Expr.allLevelParamsDefined cvA.levelParams jv = true
   case neg =>
-    simp only [if_neg h3]
+    simp only [ite_eq_right h3]
     exact SimC.throw_bind
-  simp only [if_pos h3]
+  simp only [ite_eq_left h3]
   rw [constsResolveFC_spec, constsResolveF_eq]
   by_cases h4 : Expr.constsResolve env jv = true
   case neg =>
-    simp only [if_neg h4]
+    simp only [ite_eq_right h4]
     exact SimC.throw_bind
-  simp only [if_pos h4]
+  simp only [ite_eq_left h4]
   refine SimC.bind_left (recordCConst_eff hs₄ hjty
       (fun vE' vi h => nomatch h))
     (fun s₅' u₀ hs₅' hQ' => ?_)
@@ -285,14 +285,14 @@ theorem checkOpaqueValC_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env
   unfold checkOpaqueValC checkOpaqueVal
   by_cases h1 : Expr.looseBVarsBounded 0 value = true
   case neg =>
-    simp only [if_neg h1]
+    simp only [ite_eq_right h1]
     exact SimC.throw_bind
-  simp only [if_pos h1]
+  simp only [ite_eq_left h1]
   rw [hasFvar_spec' rfl]
   by_cases h2 : Expr.hasFvar value = true
-  · simp only [if_pos h2]
+  · simp only [ite_eq_left h2]
     exact SimC.throw_bind
-  simp only [if_neg h2]
+  simp only [ite_eq_right h2]
   refine SimC.bind ((ssimC hμ env henv checkFuel).annotate hs rfl
       (Expr.WScoped.of_not_hasFvar (Bool.not_eq_true _ ▸ h2)))
     (fun s₁ jv w hs₁ hP => ?_)
@@ -301,15 +301,15 @@ theorem checkOpaqueValC_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env
   rw [Expr.allLevelParamsDefinedC_spec]
   by_cases h3 : Expr.allLevelParamsDefined cvA.levelParams jv = true
   case neg =>
-    simp only [if_neg h3]
+    simp only [ite_eq_right h3]
     exact SimC.throw_bind
-  simp only [if_pos h3]
+  simp only [ite_eq_left h3]
   rw [constsResolveFC_spec, constsResolveF_eq]
   by_cases h4 : Expr.constsResolve env jv = true
   case neg =>
-    simp only [if_neg h4]
+    simp only [ite_eq_right h4]
     exact SimC.throw_bind
-  simp only [if_pos h4]
+  simp only [ite_eq_left h4]
   refine SimC.bind_left (recordCConst_eff hs₁ hjty
       (fun vE' vi h => nomatch h))
     (fun s₁' u hs₁' hQ' => ?_)
@@ -348,18 +348,18 @@ theorem checkBasisDeclC_sim (hs : CSOK mode env s₀) (kind : BasisKind) :
   rw [installBasisFoldF_pushC]
   simp only [mkFEnv_find?]
   by_cases hq : kind = .quotK
-  · simp only [if_pos hq]
+  · simp only [ite_eq_left hq]
     by_cases he : env.find? eqName = some eqA
-    · simp only [if_pos he]
+    · simp only [ite_eq_left he]
       rw [← fueledM_bind_pure'
         (kind.declsA.foldlM installBasisDecl env : FueledM Env)]
       refine SimC.bind (installBasisFoldS_sim _ env hs)
         (fun s₁ e e' hs₁ hP => ?_)
       obtain rfl : e = e' := hP
       exact SimC.pure hs₁ ⟨rfl, rfl⟩
-    · simp only [if_neg he]
+    · simp only [ite_eq_right he]
       exact SimC.throw_bind
-  · simp only [if_neg hq]
+  · simp only [ite_eq_right hq]
     rw [← fueledM_bind_pure'
       (kind.declsA.foldlM installBasisDecl env : FueledM Env)]
     refine SimC.bind (installBasisFoldS_sim _ env hs)
@@ -386,22 +386,22 @@ theorem checkDeclC_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) (hs
     unfold checkDeclC checkDecl
     dsimp only
     by_cases hp : quotPinHit k cv = true
-    · simp only [if_pos hp]
+    · simp only [ite_eq_left hp]
       cases k
       · exact checkBasisDeclC_sim hs .quotK
       all_goals exact SimC.pure hs ⟨rfl, rfl⟩
-    · simp only [if_neg hp]
+    · simp only [ite_eq_right hp]
       exact SimC.throw
   | axiomDecl cv =>
     unfold checkDeclC checkDecl
     dsimp only
     -- task #293: `Quot.sound` is compared with the pin on both sides
     by_cases hqs : cv.name = quotSoundName
-    · simp only [if_pos hqs]
+    · simp only [ite_eq_left hqs]
       split
       · exact SimC.pure hs ⟨rfl, rfl⟩
       · exact SimC.throw
-    simp only [if_neg hqs]
+    simp only [ite_eq_right hqs]
     refine SimC.bind (checkConstantValC_sim hμ henv hs rfl)
       (fun s₁ pr cvA hs₁ hP => ?_)
     obtain ⟨cvR, jty⟩ := pr
@@ -409,43 +409,43 @@ theorem checkDeclC_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) (hs
     dsimp only at hjty ⊢
     simp only [stdAxiomOkF_eq, trustCompilerOkF_eq, ofReduceAxOkF_eq]
     by_cases h1 : stdAxiomOk env cvR = true
-    · simp only [if_pos h1]
+    · simp only [ite_eq_left h1]
       refine SimC.bind_left (recordCConst_eff hs₁ hjty
           (fun vE vi h => nomatch h))
         (fun s₂ u hs₂ hQ => ?_)
       exact SimC.pure hs₂ ⟨rfl, push_mkFEnv env _⟩
-    · simp only [if_neg h1]
+    · simp only [ite_eq_right h1]
       by_cases htc : cvR.name = trustCompilerName
-      · simp only [if_pos htc]
+      · simp only [ite_eq_left htc]
         by_cases htok : trustCompilerOk env cvR = true
-        · simp only [if_pos htok]
+        · simp only [ite_eq_left htok]
           refine SimC.bind_left (recordCConst_eff hs₁ hjty
               (fun vE vi h => nomatch h))
             (fun s₂ u hs₂ hQ => ?_)
           exact SimC.pure hs₂ ⟨rfl, push_mkFEnv env _⟩
-        · simp only [if_neg htok]
+        · simp only [ite_eq_right htok]
           exact SimC.throw
-      · simp only [if_neg htc]
+      · simp only [ite_eq_right htc]
         by_cases hor : cvR.name = ofReduceNatName ∨
             cvR.name = ofReduceBoolName
-        · simp only [if_pos hor]
+        · simp only [ite_eq_left hor]
           by_cases hoo : ofReduceAxOk env cvR = true
-          · simp only [if_pos hoo]
+          · simp only [ite_eq_left hoo]
             refine SimC.bind_left (recordCConst_eff hs₁ hjty
                 (fun vE vi h => nomatch h))
               (fun s₂ u hs₂ hQ => ?_)
             exact SimC.pure hs₂ ⟨rfl, push_mkFEnv env _⟩
-          · simp only [if_neg hoo]
+          · simp only [ite_eq_right hoo]
             exact SimC.throw
-        · simp only [if_neg hor]
+        · simp only [ite_eq_right hor]
           by_cases h2 : cvR.name = propextName ∨ cvR.name = choiceName
-          · simp only [if_pos h2]
+          · simp only [ite_eq_left h2]
             exact SimC.throw
-          · simp only [if_neg h2]
+          · simp only [ite_eq_right h2]
             by_cases h3 : cvR.name = sorryAxName
-            · simp only [if_pos h3]
+            · simp only [ite_eq_left h3]
               exact SimC.pure hs₁ ⟨rfl, rfl⟩
-            · simp only [if_neg h3]
+            · simp only [ite_eq_right h3]
               exact SimC.throw
   | thmDecl cv value =>
     unfold checkDeclC checkDecl
@@ -469,7 +469,7 @@ theorem checkDeclC_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) (hs
     -- after it: the case split comes first on both sides
     by_cases hred : reduceOpNames.contains cvR.name = true
     case neg =>
-      simp only [if_neg hred]
+      simp only [ite_eq_right hred]
       rw [← bind_pure (checkOpaqueValC mode (mkFEnv env) _ jty _)]
       refine SimC.bind (checkOpaqueValC_sim hμ henv hwty hjty rfl hs₁)
         (fun s₂ fe2 env2 hs₂ hP₂ => ?_)
@@ -478,7 +478,7 @@ theorem checkDeclC_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) (hs
       rw [hmk]
       simp only [mkFEnv_env]
       exact SimC.pure hs₂ ⟨rfl, hmk ▸ hmk⟩
-    simp only [if_pos hred]
+    simp only [ite_eq_left hred]
     refine SimC.bind (checkOpaqueValC_sim hμ henv hwty hjty rfl hs₁)
       (fun s₂ fe2 env2 hs₂ hP₂ => ?_)
     obtain ⟨⟨henvEq, hmk⟩, hvf⟩ := hP₂
@@ -503,14 +503,14 @@ theorem checkDeclC_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) (hs
       obtain ⟨h1, h4⟩ : ¬(natOpNames.contains cvR.name = true) ∧
           ¬(natDivModNames.contains cvR.name = true) := by
         simpa [not_or] using hb
-      simp only [if_neg hb, if_neg h1, if_neg h4]
+      simp only [ite_eq_right hb, ite_eq_right h1, ite_eq_right h4]
       rw [← bind_pure (checkDefnValC mode (mkFEnv env) _ jty _ _)]
       refine SimC.bind (checkDefnValC_sim hμ henv hwty hjty rfl hs₁)
         (fun s₂ fe2 env2 hs₂ hP₂ => ?_)
       obtain ⟨henvEq, hmk, -⟩ := hP₂
       subst henvEq
       exact SimC.pure hs₂ ⟨rfl, hmk⟩
-    simp only [if_pos hb]
+    simp only [ite_eq_left hb]
     refine SimC.bind (checkDefnValC_sim hμ henv hwty hjty rfl hs₁)
       (fun s₂ fe2 env2 hs₂ hP₂ => ?_)
     obtain ⟨henvEq, hmk, hv'fD⟩ := hP₂
@@ -520,20 +520,20 @@ theorem checkDeclC_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) (hs
       checkDivModPinF_eq, mkFEnv_env]
     by_cases h1 : natOpNames.contains cvR.name = true
     case neg =>
-      simp only [if_neg h1]
+      simp only [ite_eq_right h1]
       by_cases h4 : natDivModNames.contains cvR.name = true
       case neg =>
-        simp only [if_neg h4]
+        simp only [ite_eq_right h4]
         exact SimC.pure hs₂ ⟨rfl, hmk ▸ hmk⟩
-      simp only [if_pos h4]
+      simp only [ite_eq_left h4]
       refine SimC.bind (checkDivModPinS_sim hμ henv
           (List.contains_iff_mem.mp h4) hv'fD hs₂)
         (fun s₃ u u' hs₃ hP₃ => ?_)
       exact SimC.pure hs₃ ⟨rfl, hmk ▸ hmk⟩
-    simp only [if_pos h1]
+    simp only [ite_eq_left h1]
     by_cases h2 : (natOpGuard fe2.env cvR.name &&
         (natOpDeps cvR.name).all (natOpStoredOk fe2.env)) = true
-    case neg => simp only [if_neg h2]; exact SimC.throw_bind
+    case neg => simp only [ite_eq_right h2]; exact SimC.throw_bind
     simp only [h2, ↓reduceIte]
     cases hfind : fe2.env.find? cvR.name with
     | none => exact SimC.throw_bind
@@ -563,9 +563,9 @@ theorem checkDeclC_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) (hs
           simp only [↓reduceIte]
           by_cases h4 : natDivModNames.contains cvR.name = true
           case neg =>
-            simp only [if_neg h4]
+            simp only [ite_eq_right h4]
             exact SimC.pure hs₃ ⟨rfl, hmk ▸ hmk⟩
-          simp only [if_pos h4]
+          simp only [ite_eq_left h4]
           refine SimC.bind (checkDivModPinS_sim hμ henv
               (List.contains_iff_mem.mp h4) hv'fD hs₃)
             (fun s₄ u u' hs₄ hP₄ => ?_)
@@ -630,11 +630,11 @@ theorem checkDeclStepC_run (hμ : mode.verifiedChecks = true) {env : Env} (henv 
     | none =>
       rw [hpin] at hd
       by_cases hok : indParamsOk nP block = true
-      · rw [if_pos hok] at hd
+      · rw [ite_eq_left hok] at hd
         obtain ⟨hres', hfe, F, hF⟩ :=
           checkModeledOrNativeSF_run hμ henv hpin hok hres.flushed hd
         exact ⟨hres', hfe, F, hF⟩
-      · rw [if_neg hok] at hd
+      · rw [ite_eq_right hok] at hd
         exact nomatch hd
   | defnDecl cv value hint => exact main (fun _ _ h => Declaration.noConfusion h)
   | thmDecl cv value => exact main (fun _ _ h => Declaration.noConfusion h)

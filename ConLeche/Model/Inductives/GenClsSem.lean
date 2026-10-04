@@ -521,7 +521,7 @@ theorem genCls_Is_eq {c : Nat} {cvI : ConstantVal} (Rd : GenClsRd mpC d Dc mc cv
           (keyFrame (tgtOutDsa mpC.base2.acval envC pp.toBlockShape out ψ c)
             (tgtRP pp.toBlockShape c) (consList xs ρ)) (tgtClsM mc pp.toBlockShape out c) := by
   classical
-  rw [tgtClsIs, if_pos ((Rd.hG ψ ρ xs).mpr hxfit), Rd.hfr ψ ρ xs hxl]
+  rw [tgtClsIs, ite_eq_left ((Rd.hG ψ ρ xs).mpr hxfit), Rd.hfr ψ ρ xs hxl]
 
 /-- The class's carrier at a fitting prefix is its datum's at the key frame. -/
 theorem genCls_Cr_eq {c : Nat} {cvI : ConstantVal} (Rd : GenClsRd mpC d Dc mc cvc pp out c cvI)
@@ -542,7 +542,7 @@ theorem genCls_Is_fits {c : Nat} {cvI : ConstantVal} (Rd : GenClsRd mpC d Dc mc 
   unfold tgtClsIs at hi
   by_cases hg : tgtClsG d mpC.base2.acval envC pp.toBlockShape out ψ ρ xs c
   · exact (Rd.hG ψ ρ xs).mp hg
-  · rw [if_neg hg] at hi; exact absurd hi (not_mem_empty _)
+  · rw [ite_eq_right hg] at hi; exact absurd hi (not_mem_empty _)
 
 set_option maxHeartbeats 2000000 in
 /-- **`GenClsSplit` at one class.** -/
@@ -738,7 +738,7 @@ theorem genCls_open (hμ : μ.verifiedChecks = true)
     have hmmk := Rd.hmm
     have hr := (instS_read mpC (D := tgtClsD d Dc out c) hlpsR Rd.hul hds' (Rd.hdsa ψ)
       ((tgtMajor out c).ds.length + tgtClsM mc pp.toBlockShape out c) (by omega)).2.2
-    rw [if_neg (by omega), show (tgtMajor out c).ds.length + tgtClsM mc pp.toBlockShape out c
+    rw [ite_eq_right (by omega), show (tgtMajor out c).ds.length + tgtClsM mc pp.toBlockShape out c
       - (tgtMajor out c).ds.length = tgtClsM mc pp.toBlockShape out c by omega, Rd.hmem] at hr
     have hhead : AnnotTerm.substAV (instTau mpC ψ (tgtClsD d Dc out c) (tgtMajor out c).lvls
           (tgtRP pp.toBlockShape c) (tgtMajor out c).ds)
@@ -749,7 +749,7 @@ theorem genCls_open (hμ : μ.verifiedChecks = true)
       rw [AnnotTerm.substAV_bvar_ge _ (by omega),
         show cA.2 + ((tgtClsD d Dc out c).k - 1 - tgtClsM mc pp.toBlockShape out c) - cA.2
           = (tgtClsD d Dc out c).k - 1 - tgtClsM mc pp.toBlockShape out c by omega,
-        instTau, substTau, if_pos (by omega),
+        instTau, substTau, ite_eq_left (by omega),
         show (tgtMajor out c).ds.length + (tgtClsD d Dc out c).k - 1
             - ((tgtClsD d Dc out c).k - 1 - tgtClsM mc pp.toBlockShape out c)
           = (tgtMajor out c).ds.length + tgtClsM mc pp.toBlockShape out c by omega,
@@ -1317,10 +1317,10 @@ theorem genClsRd_mem (hμ : μ.verifiedChecks = true)
     hnIdx := genRun_nIdx R hd.symm c hc
     hdsa := hdsa
     hG := fun ψ ρ xs => by
-      simp only [tgtClsG, hmsm, if_true]
+      simp only [tgtClsG, hmsm, ite_true]
       exact ⟨fun h' => h'.2, fun h' => ⟨hpfit ψ ρ xs h', h'⟩⟩
     hfr := fun ψ ρ xs hxl => by
-      simp only [tgtClsFr, hmsm, if_true]
+      simp only [tgtClsFr, hmsm, ite_true]
       exact (hfrE ψ ρ xs hxl).symm
     hsat := fun ψ ρ xs hfit => by
       rw [hDe, hψe]

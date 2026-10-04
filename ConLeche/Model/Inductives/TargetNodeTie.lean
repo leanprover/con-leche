@@ -151,7 +151,7 @@ theorem substE_trueVal {n rP nP : Nat} (x : Nat → AnnotTerm) {xs : List V} (ρ
       = consList (xs.take nP ++ ((List.range (n - nP)).map fun i => x (nP + i)).map
           (interp V (consList xs ρ))) ρ := by
   have h := substE_substTau (V := V) (nP := 0) (k := n) (D' := rP) x (consList xs ρ)
-  simp only [Nat.zero_add, Nat.not_lt_zero, if_false, Nat.sub_zero] at h
+  simp only [Nat.zero_add, Nat.not_lt_zero, ite_false, Nat.sub_zero] at h
   rw [h]
   have htl : (fun q => consList xs ρ (q + rP)) = ρ := by
     funext q; rw [← hxs, consList_apply_add]
@@ -177,7 +177,7 @@ theorem substE_nodeImgX_trueVal {envC : Env} (m : EnvModel V envC) (ψ : Name �
         (consList xs ρ)
       = nodeTrueVal ctx.nP (nodeHv m.acval envC ctx ψ occ xs.length) xs ρ := by
   rw [substE_trueVal _ ρ rfl (by simp only [NestCtx.hiAt]; omega) hnP (fun v hv => by
-    simp only [nodeImgX, nodeImg, if_pos hv, denoteMeta_fvar, Option.getD_some])]
+    simp only [nodeImgX, nodeImg, ite_eq_left hv, denoteMeta_fvar, Option.getD_some])]
   rfl
 
 theorem erasedEqL_refl : ∀ (l : List Expr), Expr.ErasedEqL l l
@@ -218,17 +218,17 @@ theorem tgtNodeTie {envC : Env} {mpC : EnvModelM V μ envC} {ex : List Name}
   have hMo' : (tgtMajor out c).member.isSome = false := by rw [hMo]; rfl
   refine ⟨?_, ?_, ?_⟩
   · obtain ⟨D, hD, h1, h2⟩ := hblk
-    simp only [tgtClsD, hMo', Bool.false_eq_true, if_false, hsel]
+    simp only [tgtClsD, hMo', Bool.false_eq_true, ite_false, hsel]
     exact lfpSel_eq_of_mem hcov D0 hD h1 h2
   · obtain ⟨caps, hf⟩ := hcls.hfind
     have hl : (cvc c).levelParams = lpsOf envC (tgtMajor out c).ind := by
       simp only [lpsOf, hf]; rfl
-    simp only [tgtClsψ, hMo', Bool.false_eq_true, if_false, nodeψ, hl, hlps]
+    simp only [tgtClsψ, hMo', Bool.false_eq_true, ite_false, nodeψ, hl, hlps]
     exact ConLeche.Level.substFn_congr (ConLeche.Level.isEquivList_sound hlv ψ)
   · have hdsa : dsa = t.key.ds.map fun x =>
         (denoteMeta mpC.base2.acval envC ψ (ctx.hiAt t.occ.length) x).getD default :=
       denoteMetaSpine_eq_map hsp
-    simp only [tgtClsFr, hMo', Bool.false_eq_true, if_false, tgtOutDsa, nodeFr]
+    simp only [tgtClsFr, hMo', Bool.false_eq_true, ite_false, tgtOutDsa, nodeFr]
     rw [← hdsa]
     rw [keyFrame_eq_of_params (dsa₂ := (t.key.ds.map (nodeRb ctx t.occ)).map fun x =>
       (denoteMeta mpC.base2.acval envC ψ (tgtRP p c) x).getD default) (by

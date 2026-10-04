@@ -81,7 +81,7 @@ function; the hole values). -/
 omit [SetTheory V] in
 theorem shiftE_one_succ (n : Nat) (ρ : Nat → V) :
     shiftE n 0 (fun j => ρ (j + 1)) = shiftE (n + 1) 0 ρ := by
-  funext i; simp only [shiftE, Nat.not_lt_zero, if_false]; rw [Nat.add_assoc]
+  funext i; simp only [shiftE, Nat.not_lt_zero, ite_false]; rw [Nat.add_assoc]
 
 omit [SetTheory V] in
 theorem frameIdx_concat (n : Nat) (ρ : Nat → V) :

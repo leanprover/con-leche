@@ -135,11 +135,11 @@ theorem agree_M₃N (hok : S.OkN N env) (M : Name → List Nat → V) : AgreeOn 
     rw [hok.fresh n hx] at hn
     simp at hn
   simp only [M₃N, M₂, M₁, M₁F]
-  rw [if_neg (hne _ (by simp)), if_neg (hne _ (by simp))]
+  rw [ite_eq_right (hne _ (by simp)), ite_eq_right (hne _ (by simp))]
   rw [S.ctorOf?_none fun c hc h => hne c.name
     (List.mem_cons_of_mem _ (List.mem_cons_of_mem _ (List.mem_cons_of_mem _
       (List.mem_map.mpr ⟨c, hc, rfl⟩)))) h.symm]
-  rw [if_neg (hne _ (by simp))]
+  rw [ite_eq_right (hne _ (by simp))]
 
 /-- The final assignment reads the former and the constructors. -/
 theorem reader₃₀ (hok : S.OkN N env) (M : Name → List Nat → V) (φ : Name → Nat) :
@@ -514,7 +514,7 @@ theorem reader₂N (φ : Name → Nat) {φ' : Name → Nat} (hφ : ∀ n ∈ S.l
           subst h; rw [hok.fresh _ (by simp)] at hn; simp at hn
         have hne' : n ≠ N.aux := fun h => by
           subst h; rw [hok.fresh _ (by simp)] at hn; simp at hn
-        rwa [if_neg hne', if_neg hne] at h₃
+        rwa [ite_eq_right hne', ite_eq_right hne] at h₃
       fam := fun ls' => by
         simp [M₂, M₁, M₁F, hok.ctorOf?_name]
       val := hφ

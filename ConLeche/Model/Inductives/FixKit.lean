@@ -1437,11 +1437,11 @@ theorem stageFixTable (mp : EnvModelM V μ env)
   -- the lookups at the extension
   have hfT₂ : (⟨.projInfo tbl :: env.consts⟩ : Env).find? T
       = some (.indInfo cvTa caps) := by
-    rw [ConLeche.Env.find?_cons, if_neg (fun h => hneT h.symm)]
+    rw [ConLeche.Env.find?_cons, ite_eq_right (fun h => hneT h.symm)]
     exact hfT
   have hfC₂ : (⟨.projInfo tbl :: env.consts⟩ : Env).find? cvCa.name
       = some (.ctorInfo cvCa nP nF) := by
-    rw [ConLeche.Env.find?_cons, if_neg (fun h => hneC h.symm)]
+    rw [ConLeche.Env.find?_cons, ite_eq_right (fun h => hneC h.symm)]
     exact hfC
   have hfTbl₂ : (⟨.projInfo tbl :: env.consts⟩ : Env).find? (projTableName T)
       = some (.projInfo tbl) := ConLeche.Env.find?_cons_self _ _

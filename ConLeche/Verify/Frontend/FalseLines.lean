@@ -159,7 +159,7 @@ theorem naiveNatList_single {d : List UInt8} {k : Nat} (hd : IsDec d k) (r : Lis
   rw [naiveListLoop.eq_def]
   simp only [hws, Bool.false_eq_true, ↓reduceIte, h93, h44, hdig, Bool.not_true,
     ← List.cons_append, hnat, dite_eq_ite]
-  rw [if_pos (by simp only [List.length_cons, List.length_append]; omega), naiveListLoop.eq_def]
+  rw [ite_eq_left (by simp only [List.length_cons, List.length_append]; omega), naiveListLoop.eq_def]
   simp [isWs_lit 93 (by decide)]
 
 /-! ## The name entry `{"in":i,"str":{"pre":0,"str":"False"}}` -/
@@ -199,13 +199,13 @@ macro "eval_leaves" : tactic => `(tactic| simp +decide [isWs_lit 34 (by decide),
 macro "obj_step" : tactic => `(tactic| (
   rw [naiveObjLoop.eq_def]
   eval_leaves
-  try (rw [if_pos (by (try simp only [List.length_cons, List.length_append]); omega)])))
+  try (rw [ite_eq_left (by (try simp only [List.length_cons, List.length_append]); omega)])))
 
 /-- One step of the line loop. -/
 macro "line_step" : tactic => `(tactic| (
   rw [naiveLineLoop.eq_def]
   eval_leaves
-  try (rw [if_pos (by (try simp only [List.length_cons, List.length_append]); omega)])))
+  try (rw [ite_eq_left (by (try simp only [List.length_cons, List.length_append]); omega)])))
 
 set_option linter.unusedSimpArgs false
 

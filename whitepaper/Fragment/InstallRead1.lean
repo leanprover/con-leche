@@ -222,7 +222,7 @@ noncomputable def pickMem (A : V) : V :=
   open Classical in if h : ∃ v, v ∈ˢ A then Classical.choose h else pt
 
 theorem pickMem_mem {A : V} (h : ∃ v, v ∈ˢ A) : pickMem A ∈ˢ A := by
-  unfold pickMem; rw [dif_pos h]; exact Classical.choose_spec h
+  unfold pickMem; rw [dite_eq_left h]; exact Classical.choose_spec h
 
 namespace IndSpec
 

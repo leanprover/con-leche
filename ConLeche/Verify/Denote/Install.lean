@@ -35,7 +35,7 @@ theorem findProj?_cons_of_base_none {env : Env} {c₀ : ConstantInfo}
   intro sn i h0
   by_cases hn : c₀.name = projTableName sn
   · have hf : (⟨c₀ :: env.consts⟩ : Env).find? (projTableName sn) = some c₀ := by
-      rw [Env.find?_cons, if_pos hn]
+      rw [Env.find?_cons, ite_eq_left hn]
     unfold Env.findProj?
     rw [hf]
     cases c₀ <;> first | rfl | exact absurd rfl (hntc _)
@@ -113,7 +113,7 @@ theorem natOpGuard_cons {env : Env} {c₀ : ConstantInfo} {c : Name}
     exact hn'
   · split at hbool
     · next hc =>
-      rw [if_pos hc]
+      rw [ite_eq_left hc]
       simp only [Bool.and_eq_true] at hbool ⊢
       obtain ⟨hT, hF⟩ := hbool
       have iT : (env.find? boolTrueName).isSome = true := by
@@ -123,7 +123,7 @@ theorem natOpGuard_cons {env : Env} {c₀ : ConstantInfo} {c : Name}
       rw [Env.find?_cons_of_isSome hfresh iT,
         Env.find?_cons_of_isSome hfresh iF]
       exact ⟨hT, hF⟩
-    · next hc => rw [if_neg hc]
+    · next hc => rw [ite_eq_right hc]
 
 
 /-! ## The projection-table transport
@@ -147,9 +147,9 @@ theorem ProjOkT.cons {env : Env} {c₀ : ConstantInfo} (h : ProjOkT env)
   intro n tbl hf i hi
   by_cases hn : c₀.name = n
   · subst hn
-    rw [Env.find?_cons, if_pos rfl] at hf
+    rw [Env.find?_cons, ite_eq_left rfl] at hf
     exact hheadTower tbl (Option.some.inj hf) i hi
-  · rw [Env.find?_cons, if_neg hn] at hf
+  · rw [Env.find?_cons, ite_eq_right hn] at hf
     exact TowerHead.mono hkeep (h n tbl hf i hi)
 
 end ConLeche.Verify

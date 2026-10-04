@@ -110,8 +110,8 @@ theorem cons_shiftE (x : V) (n k : Nat) (ρ : Nat → V) :
     show shiftE n k ρ j = shiftE n (k + 1) (cons x ρ) (j + 1)
     simp only [shiftE]
     by_cases h : j < k
-    · rw [if_pos h, if_pos (show j + 1 < k + 1 by omega)]; rfl
-    · rw [if_neg h, if_neg (show ¬ (j + 1 < k + 1) by omega)]
+    · rw [ite_eq_left h, ite_eq_left (show j + 1 < k + 1 by omega)]; rfl
+    · rw [ite_eq_right h, ite_eq_right (show ¬ (j + 1 < k + 1) by omega)]
       show ρ (j + n) = cons x ρ (j + 1 + n)
       rw [show j + 1 + n = (j + n) + 1 by omega]; rfl
 
@@ -124,11 +124,11 @@ theorem cons_instE (x : V) (k : Nat) (y : V) (ρ : Nat → V) :
     show instE k y ρ j = instE (k + 1) y (cons x ρ) (j + 1)
     simp only [instE]
     by_cases h : j < k
-    · rw [if_pos h, if_pos (show j + 1 < k + 1 by omega)]; rfl
-    · rw [if_neg h, if_neg (show ¬ (j + 1 < k + 1) by omega)]
+    · rw [ite_eq_left h, ite_eq_left (show j + 1 < k + 1 by omega)]; rfl
+    · rw [ite_eq_right h, ite_eq_right (show ¬ (j + 1 < k + 1) by omega)]
       by_cases h2 : j = k
-      · rw [if_pos h2, if_pos (show j + 1 = k + 1 by omega)]
-      · rw [if_neg h2, if_neg (show ¬ (j + 1 = k + 1) by omega)]
+      · rw [ite_eq_left h2, ite_eq_left (show j + 1 = k + 1 by omega)]
+      · rw [ite_eq_right h2, ite_eq_right (show ¬ (j + 1 = k + 1) by omega)]
         show ρ (j - 1) = cons x ρ (j + 1 - 1)
         rw [show j + 1 - 1 = (j - 1) + 1 by omega]; rfl
 

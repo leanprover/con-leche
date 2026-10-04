@@ -265,7 +265,7 @@ theorem strLitFacts {m : EnvModel V env} (hct : ConstType m φ)
   obtain ⟨cvNat, capsNat, cv0, i0, j0, cv1, i1, j1, hfNat, hfZ, hfSc,
     hlpNat, hlpZ, hlpSc, hTNat, hTZ, hTSc⟩ :=
     ConLeche.natLitSupported_inv hs
-  rw [denoteMeta, if_pos hg] at hea
+  rw [denoteMeta, ite_eq_left hg] at hea
   obtain rfl := (Option.some.inj hea).symm
   -- the two `List` level-parameter lists, at the reading's spelling
   have hlpAtN : levelParamsAt env ConLeche.listNilName

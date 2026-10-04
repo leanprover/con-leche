@@ -69,7 +69,7 @@ private theorem iotaRecI_of_arityOk_false {mi : CheckMode} {r : CoreFnsI}
       cases ci with
       | recInfo cv mI rP rules =>
         dsimp only at h ⊢
-        rw [if_neg]
+        rw [ite_eq_right]
         rintro ⟨hlen, hlvl⟩
         rw [iotaNumArgs_zero, hlen, hlvl] at h
         simp at h
@@ -82,8 +82,8 @@ private theorem iotaArityOk_guard {mi : CheckMode} {r : CoreFnsI}
     (if iotaArityOk fe e then iotaRecI mi r fe d e else pure none)
       = iotaRecI mi r fe d e := by
   by_cases h : iotaArityOk fe e = true
-  · rw [if_pos h]
-  · rw [if_neg h, iotaRecI_of_arityOk_false (Bool.not_eq_true _ |>.mp h)]
+  · rw [ite_eq_left h]
+  · rw [ite_eq_right h, iotaRecI_of_arityOk_false (Bool.not_eq_true _ |>.mp h)]
 
 private theorem whnfCoreStepM_unfold (env : Env) (cheap : Bool) (d : Nat)
     (kM : Expr → FueledM Expr) (e : Expr) :
@@ -1826,10 +1826,10 @@ theorem inferBodyC_sim (ih : SSimC mode env f) (henv : EnvWF env)
       have hw' : Expr.WScoped d (Expr.fvar idx t) := hw
       simpa only [Expr.WScoped] using hw'
     by_cases hidx : idx < d
-    · rw [if_pos hidx, if_pos hidx]
+    · rw [ite_eq_left hidx, ite_eq_left hidx]
       exact SimC.pure hs
         ⟨rfl, Expr.WScoped.mono (Nat.le_of_lt h'.1) h'.2⟩
-    · rw [if_neg hidx, if_neg hidx]
+    · rw [ite_eq_right hidx, ite_eq_right hidx]
       exact SimC.throw
   | lit l =>
     dsimp only
@@ -1841,26 +1841,26 @@ theorem inferBodyC_sim (ih : SSimC mode env f) (henv : EnvWF env)
     | natVal k =>
       rw [natLitSupportedF_eq]
       by_cases hg : natLitSupported env
-      · rw [if_pos hg, if_pos hg]
+      · rw [ite_eq_left hg, ite_eq_left hg]
         refine SimC.bind_left (pureEq_eff hs natName)
           (fun s₁ ni hs₁ hQni => ?_)
         subst ni
         exact SimC.of_eff
           (pureC_eff hs₁ (x := Expr.const natName [])) _
           (fun r hQ => ⟨hQ, by simp [Expr.WScoped]⟩)
-      · rw [if_neg hg, if_neg hg]
+      · rw [ite_eq_right hg, ite_eq_right hg]
         exact SimC.throw
     | strVal str =>
       rw [strLitSupportedF_eq]
       by_cases hg : strLitSupported env
-      · rw [if_pos hg, if_pos hg]
+      · rw [ite_eq_left hg, ite_eq_left hg]
         refine SimC.bind_left (pureEq_eff hs stringName)
           (fun s₁ ni hs₁ hQni => ?_)
         subst ni
         exact SimC.of_eff
           (pureC_eff hs₁ (x := Expr.const stringName [])) _
           (fun r hQ => ⟨hQ, by simp [Expr.WScoped]⟩)
-      · rw [if_neg hg, if_neg hg]
+      · rw [ite_eq_right hg, ite_eq_right hg]
         exact SimC.throw
   | const nm us =>
     dsimp only
@@ -1877,16 +1877,16 @@ theorem inferBodyC_sim (ih : SSimC mode env f) (henv : EnvWF env)
     | some ci =>
       dsimp only
       by_cases htw : (!ci.isTowerEntry) = true
-      · rw [if_pos htw, if_pos htw]
+      · rw [ite_eq_left htw, ite_eq_left htw]
         by_cases hlen : us.length = ci.toConstantVal.levelParams.length
-        · rw [if_pos hlen, if_pos hlen]
+        · rw [ite_eq_left hlen, ite_eq_left hlen]
           refine SimC.of_eff (constTyAtM_eff hs hfn) _ (fun r hQ => ?_)
           refine ⟨hQ, ?_⟩
           obtain ⟨htf, -⟩ := henv _ (find?_mem hfn)
           exact wscoped_instLevels_of_not_hasFvar htf _ _
-        · rw [if_neg hlen, if_neg hlen]
+        · rw [ite_eq_right hlen, ite_eq_right hlen]
           exact SimC.throw_bind
-      · rw [if_neg htw, if_neg htw]
+      · rw [ite_eq_right htw, ite_eq_right htw]
         exact SimC.throw_bind
   | forallE t b m =>
     dsimp only
@@ -2084,10 +2084,10 @@ theorem inferBodyIOC_sim (hμ : mode.verifiedChecks = true) (hgb : mode.betaGate
       have hw' : Expr.WScoped d (Expr.fvar idx t) := hw
       simpa only [Expr.WScoped] using hw'
     by_cases hidx : idx < d
-    · rw [if_pos hidx, if_pos hidx]
+    · rw [ite_eq_left hidx, ite_eq_left hidx]
       exact SimC.pure hs
         ⟨rfl, Expr.WScoped.mono (Nat.le_of_lt h'.1) h'.2⟩
-    · rw [if_neg hidx, if_neg hidx]
+    · rw [ite_eq_right hidx, ite_eq_right hidx]
       exact SimC.throw
   | lit l =>
     dsimp only
@@ -2099,26 +2099,26 @@ theorem inferBodyIOC_sim (hμ : mode.verifiedChecks = true) (hgb : mode.betaGate
     | natVal k =>
       rw [natLitSupportedF_eq]
       by_cases hg : natLitSupported env
-      · rw [if_pos hg, if_pos hg]
+      · rw [ite_eq_left hg, ite_eq_left hg]
         refine SimC.bind_left (pureEq_eff hs natName)
           (fun s₁ ni hs₁ hQni => ?_)
         subst ni
         exact SimC.of_eff
           (pureC_eff hs₁ (x := Expr.const natName [])) _
           (fun r hQ => ⟨hQ, by simp [Expr.WScoped]⟩)
-      · rw [if_neg hg, if_neg hg]
+      · rw [ite_eq_right hg, ite_eq_right hg]
         exact SimC.throw
     | strVal str =>
       rw [strLitSupportedF_eq]
       by_cases hg : strLitSupported env
-      · rw [if_pos hg, if_pos hg]
+      · rw [ite_eq_left hg, ite_eq_left hg]
         refine SimC.bind_left (pureEq_eff hs stringName)
           (fun s₁ ni hs₁ hQni => ?_)
         subst ni
         exact SimC.of_eff
           (pureC_eff hs₁ (x := Expr.const stringName [])) _
           (fun r hQ => ⟨hQ, by simp [Expr.WScoped]⟩)
-      · rw [if_neg hg, if_neg hg]
+      · rw [ite_eq_right hg, ite_eq_right hg]
         exact SimC.throw
   | const nm us =>
     dsimp only
@@ -2135,16 +2135,16 @@ theorem inferBodyIOC_sim (hμ : mode.verifiedChecks = true) (hgb : mode.betaGate
     | some ci =>
       dsimp only
       by_cases htw : (!ci.isTowerEntry) = true
-      · rw [if_pos htw, if_pos htw]
+      · rw [ite_eq_left htw, ite_eq_left htw]
         by_cases hlen : us.length = ci.toConstantVal.levelParams.length
-        · rw [if_pos hlen, if_pos hlen]
+        · rw [ite_eq_left hlen, ite_eq_left hlen]
           refine SimC.of_eff (constTyAtM_eff hs hfn) _ (fun r hQ => ?_)
           refine ⟨hQ, ?_⟩
           obtain ⟨htf, -⟩ := henv _ (find?_mem hfn)
           exact wscoped_instLevels_of_not_hasFvar htf _ _
-        · rw [if_neg hlen, if_neg hlen]
+        · rw [ite_eq_right hlen, ite_eq_right hlen]
           exact SimC.throw_bind
-      · rw [if_neg htw, if_neg htw]
+      · rw [ite_eq_right htw, ite_eq_right htw]
         exact SimC.throw_bind
   | forallE t b m =>
     dsimp only

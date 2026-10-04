@@ -61,12 +61,12 @@ theorem reduceElem_sort {env : Env} {c : Name}
       ci.toConstantVal.levelParams = [] ∧
       ci.toConstantVal.type = .sort (.succ .zero) := by
   by_cases hc : c = reduceNatName
-  · rw [reduceElemOk, if_pos hc] at h
+  · rw [reduceElemOk, ite_eq_left hc] at h
     refine ⟨natA, ?_, rfl, rfl⟩
-    rw [reduceElemName, if_pos hc]
+    rw [reduceElemName, ite_eq_left hc]
     simpa using h
-  · rw [reduceElemOk, if_neg hc] at h
-    rw [reduceElemName, if_neg hc]
+  · rw [reduceElemOk, ite_eq_right hc] at h
+    rw [reduceElemName, ite_eq_right hc]
     cases hf : env.find? boolName with
     | none => rw [hf] at h; exact nomatch h
     | some ci =>

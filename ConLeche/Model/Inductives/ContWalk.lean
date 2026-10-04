@@ -374,7 +374,7 @@ theorem grpS_readT (q : Nat) (hq : q < ds.length + D.k) :
     unfold grpX; rw [hv]; rfl
   unfold grpS
   by_cases hqd : q < ds.length
-  · rw [if_pos hqd]
+  · rw [ite_eq_left hqd]
     have hmem : ds.getD q default ∈ ds := by
       rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hqd]; exact List.getElem_mem _
     obtain ⟨hw, hb⟩ := hds _ hmem
@@ -382,7 +382,7 @@ theorem grpS_readT (q : Nat) (hq : q < ds.length + D.k) :
     rw [denoteMeta_lift mp.base2.acval_closed hw _ (by omega),
       DenoteMetaSpine.getD hdsa default q hqd]
     exact ⟨_, rfl⟩
-  · rw [if_neg hqd]
+  · rw [ite_eq_right hqd]
     obtain ⟨i, hi', -, hidx, hget⟩ := grpHoles_member (hi := hi) hgT.2.1 hkN
       (show q - ds.length < D.k by omega)
     rw [hidx, hget]
@@ -410,7 +410,7 @@ theorem substE_grpT (Y ρ : Nat → V) :
     have hr := (grpS_readT mp hD hkN hlps hnd hul hds hdsa hlenP hgT (ds.length + mm)
       (by omega)).2.2
     unfold grpS at hr
-    rw [if_neg (by omega), show ds.length + mm - ds.length = mm by omega] at hr
+    rw [ite_eq_right (by omega), show ds.length + mm - ds.length = mm by omega] at hr
     obtain ⟨i, hi', hgi, hidx, hget⟩ := grpHoles_member (hi := hi) hgT.2.1 hkN hmm'
     rw [hidx, hget, denoteMeta_fvar] at hr
     rw [← Option.some.inj hr, interp_bvar,
@@ -425,11 +425,11 @@ theorem substE_grpT (Y ρ : Nat → V) :
     rw [show consList (List.map (interp V ρ) dsa) (fun j => ρ (j + hi)) q = _ from
       consList_map_apply _ _ q, List.length_map, ← DenoteMetaSpine.length_eq hdsa]
     by_cases hq : q < ds.length
-    · rw [if_pos hq, if_pos hq]
+    · rw [ite_eq_left hq, ite_eq_left hq]
       have hr := (grpS_readT mp hD hkN hlps hnd hul hds hdsa hlenP hgT (ds.length - 1 - q)
         (by omega)).2.2
       unfold grpS at hr
-      rw [if_pos (by omega)] at hr
+      rw [ite_eq_left (by omega)] at hr
       have hmem : ds.getD (ds.length - 1 - q) default ∈ ds := by
         rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem (by omega)]
         exact List.getElem_mem _
@@ -441,7 +441,7 @@ theorem substE_grpT (Y ρ : Nat → V) :
         rw [← DenoteMetaSpine.length_eq hdsa]; omega
       rw [List.getD_eq_getElem?_getD, List.getD_eq_getElem?_getD, List.getElem?_map,
         List.getElem?_eq_getElem hlt, Option.getD_some, Option.map_some, Option.getD_some]
-    · rw [if_neg hq, if_neg hq]
+    · rw [ite_eq_right hq, ite_eq_right hq]
       rw [show q - ds.length + (hi + grp.length) = (q - ds.length + hi) + vs.length by
         rw [hvl]; omega, consList_apply_add]
 
@@ -493,11 +493,11 @@ theorem crest_readT {c j : Nat} (hc : c < D.k) (hj : j < D.nctors c) {cv : Const
     (by rw [hlp]; exact hnd) (by rw [hlp]; exact hul) rfl hgT.2.1
     (fun i hi' => by
       show grpS D hi grp ds i = _
-      unfold grpS; rw [if_pos hi'])
+      unfold grpS; rw [ite_eq_left hi'])
     (fun mm hmm => by
       show grpS D hi grp ds (ds.length + mm) = _
       unfold grpS
-      rw [if_neg (by omega), show ds.length + mm - ds.length = mm by omega]
+      rw [ite_eq_right (by omega), show ds.length + mm - ds.length = mm by omega]
       rfl)
     (by simp [grpHoles])
     (fun i hi' => grpS_readT mp hD hkN hlps hnd hul hds hdsa hlenP hgT i (by omega))
@@ -694,9 +694,9 @@ theorem grpTuple_mem {ρ ρ' : Nat → V} (hag : AgreeOff (holeP hi ctx.nP hi) �
   intro c hc
   unfold grpTuple
   by_cases hG : InGrp D grp c
-  · rw [if_pos hG, grp_idx_eq mp hD hnN hkN hfind hlps hnd hul hds hdsa hlenP hg hG hag]
+  · rw [ite_eq_left hG, grp_idx_eq mp hD hnN hkN hfind hlps hnd hul hds hdsa hlenP hg hG hag]
     exact lfpTuple_mem _ _ _ _ c hc
-  · rw [if_neg hG]
+  · rw [ite_eq_right hG]
     exact lfpTuple_mem _ _ _ _ c hc
 
 /-- `GrpWf` gives the group's hole types. -/
@@ -789,7 +789,7 @@ theorem frameRel_holeRel {prog : List NestHole} (hhi : ctx.hiAt prog.length = hi
     have hY : grpTuple D (Level.substFn φ lps us) grp (keyFrame dsa (ctx.hiAt prog.length) ρ)
         (keyFrame dsa (ctx.hiAt prog.length) ρ') mm
         = D.carrier (Level.substFn φ lps us) (keyFrame dsa (ctx.hiAt prog.length) ρ') mm := by
-      unfold grpTuple; rw [if_pos hG]
+      unfold grpTuple; rw [ite_eq_left hG]
     unfold LfpDatum.holeVal
     rw [hY, (hte ρ ρ' (hR₀.agree ρ ρ' hr)).holeFam]
     exact Subset.refl _
@@ -949,12 +949,12 @@ theorem frameIter (hin : RulesInputs V mp.base2 φ) {F : Nat}
         (grpX mp.base2 φ D hi grp ds (hi + grp.length))) (D.k - 1 - g)).liftN x.2 0
           = .bvar p := by
       have hgk := hG.1
-      simp only [substTau, if_pos (show D.k - 1 - g < ds.length + D.k by omega)]
+      simp only [substTau, ite_eq_left (show D.k - 1 - g < ds.length + D.k by omega)]
       rw [show ds.length + D.k - 1 - (D.k - 1 - g) = ds.length + g by omega]
       have hr := (grpS_read mp hD hnN hkN hfind hlps hnd hul hds hdsa hlenP hg (ds.length + g)
         (by omega)).2.2
       unfold grpS at hr
-      rw [if_neg (by omega), show ds.length + g - ds.length = g by omega] at hr
+      rw [ite_eq_right (by omega), show ds.length + g - ds.length = g by omega] at hr
       obtain ⟨i, hi', -, hidx', hget⟩ := grpHoles_member (hi := hi) hg.2.1 hkN hgk
       rw [hidx', hget, denoteMeta_fvar] at hr
       rw [← Option.some.inj hr]

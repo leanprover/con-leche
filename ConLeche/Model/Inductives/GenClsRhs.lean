@@ -125,7 +125,7 @@ theorem genMinorFit (hμ : μ.verifiedChecks = true)
   have hPdget : (blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c).getD
       (R.g.nP + s) default = pd.2.2 := by
     rw [blockRulePdomsAV, List.getD_eq_getElem?_getD, List.getElem?_map, List.getElem?_take,
-      if_pos (by omega), hpd]; rfl
+      ite_eq_left (by omega), hpd]; rfl
   have hmem := FixKI.spineFit_getD_mem' hxs (l := R.g.nP + s) (by rw [hlenPd]; omega)
   rw [hPdget] at hmem
   have hv := (hwdTy ρ).2

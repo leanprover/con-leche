@@ -61,14 +61,14 @@ theorem LocList.bvar_lt {B d j : Nat} {xs : List Expr} (h : LocList B d xs) (hj 
   obtain ⟨ty, hty⟩ := h.2 j hj
   obtain ⟨hlt, hget⟩ := List.getElem?_eq_some_iff.mp hty
   refine ⟨ty, ?_⟩
-  rw [Expr.instantiateList, if_neg (by omega), dif_pos (by omega)]
+  rw [Expr.instantiateList, ite_eq_right (by omega), dite_eq_left (by omega)]
   simp only [Nat.sub_zero]
   rw [show xs[j] = Expr.fvar (B + d - 1 - j) ty from hget, Expr.instantiateList]
 
 /-- Opening a loose variable above the locals: lowered, unread. -/
 theorem LocList.bvar_ge {B d j : Nat} {xs : List Expr} (h : LocList B d xs) (hj : d ≤ j) :
     (Expr.bvar j).instantiateList xs 0 = .bvar (j - d) := by
-  rw [Expr.instantiateList, if_neg (by omega), dif_neg (by rw [h.1]; omega), h.1]
+  rw [Expr.instantiateList, ite_eq_right (by omega), dite_eq_right (by rw [h.1]; omega), h.1]
 
 /-! ## The non-call step: the same node, read `n` binders deeper -/
 
@@ -95,12 +95,12 @@ theorem denoteMeta_open_deepen
       rw [he1, he2, denoteMeta_fvar, denoteMeta_fvar, Option.map_some,
         show B + n + d - 1 - (B + n + d - 1 - j) = j from by omega,
         show B + d - 1 - (B + d - 1 - j) = j from by omega,
-        AnnotTerm.liftN, if_pos hjd]
+        AnnotTerm.liftN, ite_eq_left hjd]
     · rw [h1.bvar_ge hjd, h2.bvar_ge hjd, denoteMeta_bvar, denoteMeta_bvar, Option.map_none]
   | .fvar i ty, d, as1, as2, hl, _, _ => by
     have hi : i < B := hl (i, ty) (by simp [Expr.fvarLeaves])
     simp only [Expr.instantiateList]
-    rw [denoteMeta_fvar, denoteMeta_fvar, Option.map_some, AnnotTerm.liftN, if_neg (by omega),
+    rw [denoteMeta_fvar, denoteMeta_fvar, Option.map_some, AnnotTerm.liftN, ite_eq_right (by omega),
       show B + d - 1 - i + n = B + n + d - 1 - i from by omega]
   | .sort u, d, as1, as2, _, _, _ => by
     simp only [Expr.instantiateList, denoteMeta, Option.map_some]

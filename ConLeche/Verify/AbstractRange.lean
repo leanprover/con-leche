@@ -44,8 +44,8 @@ theorem abstractRange_succ :
       simp [this, Expr.abstractRange]
     · by_cases hin : d ≤ idx ∧ idx < d + k
       · have hin1 : d ≤ idx ∧ idx < d + (k + 1) := by omega
-        simp only [Expr.abstractRange, Expr.abstract1, if_neg htop,
-          if_pos hin, if_pos hin1]
+        simp only [Expr.abstractRange, Expr.abstract1, ite_eq_right htop,
+          ite_eq_left hin, ite_eq_left hin1]
         congr 1
         omega
       · have hout : ¬ (d ≤ idx ∧ idx < d + (k + 1)) := by omega
@@ -63,6 +63,6 @@ theorem abstractRange_eq_self : ∀ {e : Expr} {d k c : Nat},
   intro e
   induction e <;> intro d k c hb <;>
     simp_all only [Expr.fvarsBelow, Expr.abstractRange]
-  rw [if_neg (by omega)]
+  rw [ite_eq_right (by omega)]
 
 end ConLeche

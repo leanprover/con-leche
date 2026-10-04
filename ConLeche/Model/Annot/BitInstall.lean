@@ -51,11 +51,11 @@ theorem denoteMeta_acval_congr
   | case3 d n us ci hf hlen =>
     rw [denoteMeta, denoteMeta, hf]
     dsimp only
-    rw [if_pos hlen, if_pos hlen, hag n (by rw [hf]; rfl)]
+    rw [ite_eq_left hlen, ite_eq_left hlen, hag n (by rw [hf]; rfl)]
   | case4 d n us ci hf hlen =>
     rw [denoteMeta, denoteMeta, hf]
     dsimp only
-    rw [if_neg hlen, if_neg hlen]
+    rw [ite_eq_right hlen, ite_eq_right hlen]
   | case5 d n us hf => rw [denoteMeta, denoteMeta, hf]
   | case6 d ty body m ihty ihbody =>
     rw [denoteMeta, denoteMeta, ihty, ihbody]
@@ -68,18 +68,18 @@ theorem denoteMeta_acval_congr
   | case11 d n hsup =>
     obtain ⟨cvN, caps, cv0, i0, j0, cv1, i1, j1, hN, hZ, hS, -⟩ :=
       natLitSupported_inv hsup
-    rw [denoteMeta, denoteMeta, if_pos hsup, if_pos hsup,
+    rw [denoteMeta, denoteMeta, ite_eq_left hsup, ite_eq_left hsup,
       hag natZeroName (by rw [hZ]; rfl),
       hag natSuccName (by rw [hS]; rfl)]
   | case12 d n hsup =>
-    rw [denoteMeta, denoteMeta, if_neg hsup, if_neg hsup]
+    rw [denoteMeta, denoteMeta, ite_eq_right hsup, ite_eq_right hsup]
   | case13 d s hsup =>
     obtain ⟨hnat, ciS, ciO, ciL, ciN, ciC, ciH, ciF, pL, pN, pC,
       hfS, hfO, hfL, hfN, hfC, hfH, hfF, -⟩ :=
       strLitSupported_inv hsup
     obtain ⟨cvN, caps, cv0, i0, j0, cv1, i1, j1, hN, hZ, hSu, -⟩ :=
       natLitSupported_inv hnat
-    rw [denoteMeta, denoteMeta, if_pos hsup, if_pos hsup,
+    rw [denoteMeta, denoteMeta, ite_eq_left hsup, ite_eq_left hsup,
       hag stringOfListName (by rw [hfO]; rfl),
       hag listNilName (by rw [hfN]; rfl),
       hag listConsName (by rw [hfC]; rfl),
@@ -88,7 +88,7 @@ theorem denoteMeta_acval_congr
       hag natZeroName (by rw [hZ]; rfl),
       hag natSuccName (by rw [hSu]; rfl)]
   | case14 d s hsup =>
-    rw [denoteMeta, denoteMeta, if_neg hsup, if_neg hsup]
+    rw [denoteMeta, denoteMeta, ite_eq_right hsup, ite_eq_right hsup]
   | case15 d x hs hfv hc hpi hlam happ hlet hproj hnat hstr =>
     cases x with
     | bvar i => rw [denoteMeta.eq_def, denoteMeta.eq_def]

@@ -390,7 +390,7 @@ theorem nestCtors_deriv
       rcases hb : Name.nodup cv.levelParams
       · simp [hb, throw, throwThe, MonadExceptOf.throw] at h
       · rfl
-    rw [if_pos hnd] at h
+    rw [ite_eq_left hnd] at h
     split at h
     · simp at h
     rename_i crest hcrest
@@ -487,7 +487,7 @@ theorem nestGroupCtors_deriv {nPc : Nat} :
       subst h
       have hg := nestGroupCtors_deriv cs rest hr
       simp only [groupCtors, hq']
-      rw [if_pos (by simpa using hok), hg]
+      rw [ite_eq_left (by simpa using hok), hg]
       rfl
     · simp [throw, throwThe, MonadExceptOf.throw] at h
 
@@ -616,7 +616,7 @@ theorem nestContNew_deriv (hctx : NestCtxOk ctx) (hrec : RunDeriv ops env ctx re
   have hroot : (∀ x ∈ ds, x.fvarB ≤ ctx.hiAt 0) → nestWalkStack ctx prog ds = [] := by
     intro hfree
     unfold nestWalkStack
-    rw [if_pos (List.all_eq_true.mpr fun x hx => by simpa using hfree x hx)]
+    rw [ite_eq_left (List.all_eq_true.mpr fun x hx => by simpa using hfree x hx)]
   -- the type former's checks, at the walk's (smaller) hole range
   have hni : nestInstType (m := CheckM) ctx (ctx.hiAt (nestWalkStack ctx prog ds).length)
       ⟨n, us, ds⟩ = .ok (nI, cty) := by
@@ -682,7 +682,7 @@ theorem contNew_split {prog : List NestHole} {n : Name} {us : List Level} {ds : 
   unfold nestWalkStack at hnI hfr hn
   split at hnI
   · rename_i hfree
-    rw [if_pos hfree] at hfr hn
+    rw [ite_eq_left hfree] at hfr hn
     refine Or.inr ⟨fun x hx => by simpa using List.all_eq_true.mp hfree x hx, grp, ts, hfr, ?_, hn⟩
     cases grp with
     | nil => simp at hhead
@@ -691,7 +691,7 @@ theorem contNew_split {prog : List NestHole} {n : Name} {us : List Level} {ds : 
       subst hhead
       exact List.mem_cons_self
   · rename_i hfree
-    rw [if_neg hfree] at hfr hn
+    rw [ite_eq_right hfree] at hfr hn
     exact Or.inl ⟨nI, cty, grp, hnI, hhead, ts, hfr, hn⟩
 
 /-- **The instantiation met, derived**: in progress it rejects;
@@ -759,19 +759,19 @@ theorem nestPos_deriv (hctx : NestCtxOk ctx) (hroot : NestRootOk ctx)
       simp only [hw, bind, Except.bind] at hrun
       have hwsw := hwsc dep e w hw hws
       by_cases hocc : w.nestOcc ctx.names ctx.nP (ctx.hiAt prog.length) = false
-      · rw [if_pos (by simpa using hocc)] at hrun
+      · rw [ite_eq_left (by simpa using hocc)] at hrun
         simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at hrun
         obtain ⟨rfl, rfl, rfl⟩ := hrun
         exact ⟨hI, _, .const hw hocc, NodesIn.nil rfl⟩
       have hocc' : w.nestOcc ctx.names ctx.nP (ctx.hiAt prog.length) = true := by simpa using hocc
-      rw [if_neg (by simpa using hocc)] at hrun
+      rw [ite_eq_right (by simpa using hocc)] at hrun
       split at hrun
       · -- `pi`
         rename_i a b bm
         by_cases ha : a.nestOcc ctx.names ctx.nP (ctx.hiAt prog.length) = true
-        · rw [if_pos ha] at hrun
+        · rw [ite_eq_left ha] at hrun
           simp [throw, throwThe, MonadExceptOf.throw] at hrun
-        rw [if_neg ha] at hrun
+        rw [ite_eq_right ha] at hrun
         split at hrun
         · simp at hrun
         rename_i v hv
@@ -792,7 +792,7 @@ theorem nestPos_deriv (hctx : NestCtxOk ctx) (hroot : NestRootOk ctx)
             by_cases hc : ((w.getAppArgs.all fun x =>
                   !Expr.nestOcc ctx.names ctx.nP (ctx.hiAt prog.length) x) &&
                 (w.getAppArgs.length + hk.key.ds.length == nestArity ctx hk.key.cname)) = true
-            · rw [if_pos hc] at hrun
+            · rw [ite_eq_left hc] at hrun
               simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at hrun
               obtain ⟨rfl, rfl, rfl⟩ := hrun
               simp only [Bool.and_eq_true, beq_iff_eq, List.all_eq_true,
@@ -801,7 +801,7 @@ theorem nestPos_deriv (hctx : NestCtxOk ctx) (hroot : NestRootOk ctx)
               refine ⟨hI, [], ?_, NodesIn.nil rfl⟩
               by_cases hlt : i < ctx.hiAt 0
               · -- a member hole: the root frame's entry
-                rw [if_pos hlt]
+                rw [ite_eq_left hlt]
                 obtain rfl := nestHoleAt_root hhk hlt
                 obtain ⟨hPl, -, hAr⟩ := hroot
                 dsimp only at har
@@ -812,21 +812,21 @@ theorem nestPos_deriv (hctx : NestCtxOk ctx) (hroot : NestRootOk ctx)
                 by_cases hkb : kb = 0
                 · subst hkb; exact hd
                 · have : (kb == 0) = false := by simpa using hkb
-                  simp only [this, hkb, if_false, Bool.false_eq_true] at hd ⊢
+                  simp only [this, hkb, ite_false, Bool.false_eq_true] at hd ⊢
                   exact hd
               · -- a frame hole: its frame's entry
-                rw [if_neg hlt]
+                rw [ite_eq_right hlt]
                 have hge : ctx.hiAt 0 ≤ i := by omega
                 exact .frameHole hw hocc' hfn hge hhi' (nestHoleAt_frame hhk hge) hfree har
-            · rw [if_neg hc] at hrun
+            · rw [ite_eq_right hc] at hrun
               simp [throw, throwThe, MonadExceptOf.throw] at hrun
           · simp [throw, throwThe, MonadExceptOf.throw] at hrun
         · -- `contApp`
           rename_i n us hfn
           by_cases hnm : ctx.names.contains n = true
-          · rw [if_pos hnm] at hrun
+          · rw [ite_eq_left hnm] at hrun
             simp [throw, throwThe, MonadExceptOf.throw] at hrun
-          rw [if_neg hnm] at hrun
+          rw [ite_eq_right hnm] at hrun
           split at hrun
           · simp at hrun
           rename_i v hv

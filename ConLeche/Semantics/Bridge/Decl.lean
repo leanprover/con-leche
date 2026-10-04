@@ -49,11 +49,11 @@ theorem natEqsRun_of_certs {μ : CheckMode} {F : Nat} {env : Env} :
       cases b with
       | false =>
         rw [hx] at h
-        simp only [Bool.false_eq_true, if_false, pure, Except.pure,
+        simp only [Bool.false_eq_true, ite_false, pure, Except.pure,
           Except.ok.injEq] at h
       | true =>
         rw [hx] at h
-        simp only [if_true] at h
+        simp only [ite_true] at h
         rcases List.mem_cons.mp heq with rfl | heq'
         · exact hx
         · exact ih h eq heq'
@@ -96,10 +96,10 @@ theorem declBasisRunOf {env env₂ : Env} {kind : BasisKind}
   by_cases hk : kind = .quotK
   · subst hk
     by_cases hEq : env.find? eqName = some eqA
-    · simp only [hEq, if_true] at h
+    · simp only [hEq, ite_true] at h
       exact ⟨fun _ => hEq, foldlM_installBasisDecl_invR _ h⟩
     · simp [hEq] at h
-  · simp only [if_neg hk] at h
+  · simp only [ite_eq_right hk] at h
     exact ⟨fun hh => absurd hh hk, foldlM_installBasisDecl_invR _ h⟩
 
 /-- **`basisDecl`, bridged.** -/

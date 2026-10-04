@@ -140,7 +140,7 @@ theorem shiftIter_fvar {d : Nat} (k : Nat) (ty : Expr) :
   | m + 1 => by
     show Expr.shiftFrom (d + m) (shiftIter d m (.fvar (d + k) ty)) = _
     rw [shiftIter_fvar k ty m]
-    simp only [Expr.shiftFrom, show d + m + k ≥ d + m by omega, if_true]
+    simp only [Expr.shiftFrom, show d + m + k ≥ d + m by omega, ite_true]
     rw [show d + m + k + 1 = d + (m + 1) + k by omega]
     rfl
 
@@ -195,7 +195,7 @@ theorem genMotRds (hμ : μ.verifiedChecks = true)
   have hPdget : (blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c).getD d
       default = pd.2.2 := by
     rw [blockRulePdomsAV, List.getD_eq_getElem?_getD, List.getElem?_map, List.getElem?_take,
-      if_pos (by omega), hpd]; rfl
+      ite_eq_left (by omega), hpd]; rfl
   rw [← hTm] at hyE
   have hcl : ∀ p ∈ ifsD.map ConLeche.classBinder, p.1.looseBVarsBounded 0 = true := by
     intro p hp
@@ -340,7 +340,7 @@ theorem genPdoms_read (hμ : μ.verifiedChecks = true)
   have hyE := hE i y b.1 hy (by rw [List.append_assoc, List.getElem?_append_left hi, hb]; rfl)
   obtain ⟨pd, hpd, -, hrd⟩ := hdomsR1 i y hy
   rw [← denoteMeta_erasedEq hyE, hrd, blockRulePdomsAV, List.getD_eq_getElem?_getD,
-    List.getElem?_map, List.getElem?_take, if_pos (by omega), hpd]
+    List.getElem?_map, List.getElem?_take, ite_eq_left (by omega), hpd]
   rfl
 
 theorem genPdoms_eq (hμ : μ.verifiedChecks = true)

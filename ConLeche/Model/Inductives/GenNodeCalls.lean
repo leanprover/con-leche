@@ -122,13 +122,13 @@ theorem genNCt {μ : CheckMode} {F : Nat} {envI envC : Env} {pp : BlockParts} {n
     have hm : (tgtMajor out c).member.isSome = true := by rw [hmb]; rfl
     obtain ⟨-, -, -, hmem⟩ := genRec_at R hg hc
     obtain ⟨hrt, hct, -⟩ := hmem m hmb
-    simp only [tgtClsD, tgtClsM, hm, if_true, hrt]
+    simp only [tgtClsD, tgtClsM, hm, ite_true, hrt]
     obtain ⟨pk, uOfD, ppsOf, rfl⟩ := hdR
     show (ctorsAsR.getD m []).length = _
     rw [List.getD_eq_getElem?_getD, hct, Option.getD_some]
   | none =>
     have hm : (tgtMajor out c).member.isSome = false := by rw [hmb]; rfl
-    simp only [tgtClsD, tgtClsM, hm, Bool.false_eq_true, if_false]
+    simp only [tgtClsD, tgtClsM, hm, Bool.false_eq_true, ite_false]
     exact (hcls c hc hmb).hlen.symm
 
 
@@ -340,7 +340,7 @@ theorem genNodeCalls {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : Nat}
   obtain ⟨hDeq, hψeq, hFreq⟩ := nlRel_tie (Dc := Dc) (mc := mc) (cvc := cvc) hcov hF hcls hsel
     hnPc hpd hfrT hc hR
   have hti : t ∈ˢ tgtClsIs dR Dc mc cvc mpC.base2.acval envC pp.toBlockShape out ψ ρ xs c := by
-    unfold tgtClsIs; rw [if_pos hR.1, hDeq, hψeq, hFreq]; exact ht
+    unfold tgtClsIs; rw [ite_eq_left hR.1, hDeq, hψeq, hFreq]; exact ht
   have hxl : xs.length = R.pre.length := by
     rw [(tgtClsIs_pref hti).length_eq, blockRulePdomsAV_length hμ mpC h (hrs c hc) ψ]
     exact (genRec_at R hg hc).2.1
@@ -404,7 +404,7 @@ theorem genNodeCalls {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : Nat}
     have hcomp : nlComp mpC dR ns o (tgtMajor out r).ind = mc r := by
       unfold nlComp
       rw [← hD']
-      simp only [tgtClsD, hMo', Option.isSome_none, Bool.false_eq_true, if_false]
+      simp only [tgtClsD, hMo', Option.isSome_none, Bool.false_eq_true, ite_false]
       rw [← hTO'.hmem]
       exact idxOf_member hTO'.hnN hTO'.hkN hTO'.hmm
     have hM' : tgtClsM mc pp.toBlockShape out r = mc r := by
@@ -530,10 +530,10 @@ theorem genNodeCalls {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : Nat}
         have := blockMembers_IdsM_length hmr htk ψ
         rw [BlockData.nIdxAt, ← hnIdxsD] at this
         exact this
-      have hnl0 : nlDb mpC dR ns 0 = dR.toLfp := by unfold nlDb; rw [if_pos rfl]
-      have hnψ0 : nlψ envC ns ψ 0 = ψ := by unfold nlψ; rw [if_pos rfl]
+      have hnl0 : nlDb mpC dR ns 0 = dR.toLfp := by unfold nlDb; rw [ite_eq_left rfl]
+      have hnψ0 : nlψ envC ns ψ 0 = ψ := by unfold nlψ; rw [ite_eq_left rfl]
       have hnF0 : nlFr mpC (pp.nestCtx fvsP envI.find?) dR ns ψ ρ xs 0
-          = consList (xs.take dR.nP) ρ := by unfold nlFr; rw [if_pos rfl]
+          = consList (xs.take dR.nP) ρ := by unfold nlFr; rw [ite_eq_left rfl]
       have hsP : Sat V (dR.params ψ).reverse (consList (xs.take dR.nP) ρ) := by
         have := sat_of_spineFit (Sat_nil (V := V) ρ) hparams
         rwa [List.append_nil] at this
@@ -557,7 +557,7 @@ theorem genNodeCalls {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : Nat}
         intro G ρ' hA Y hY hH
         have hA' := hA
         unfold nodeAdm at hA'
-        rw [if_pos rfl] at hA'
+        rw [ite_eq_left rfl] at hA'
         subst hA'
         rw [hnl0, hnψ0, hnF0, hmM] at hH
         have hY' := hY
@@ -594,7 +594,7 @@ theorem genNodeCalls {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : Nat}
         obtain ⟨b'', hb''0, hb''l, hb''u⟩ := exists_pos hu''ns
         refine ⟨hu''ns, b'', Nat.pos_of_ne_zero hb''0, hb''l, hb''u, ?_, fun h1 h2 => absurd h1 h2⟩
         unfold nlDp
-        rw [if_pos rfl, if_neg hb''0, hb''u]
+        rw [ite_eq_left rfl, ite_eq_right hb''0, hb''u]
         have h2 := height_le_nlDd hu''ns
         omega
     · /- ### A derived node -/
@@ -607,8 +607,8 @@ theorem genNodeCalls {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : Nat}
       have hMo : (tgtMajor out c).member = none := hNM.1
       have hTO := hcls c hc hMo
       have hnlDb : nlDb mpC dR ns b = lfpSel mpC dR.toLfp u.key.cname := by
-        unfold nlDb; rw [if_neg hb0, hub]
-      have hnlψ : nlψ envC ns ψ b = nodeψ envC ψ u := by unfold nlψ; rw [if_neg hb0, hub]
+        unfold nlDb; rw [ite_eq_right hb0, hub]
+      have hnlψ : nlψ envC ns ψ b = nodeψ envC ψ u := by unfold nlψ; rw [ite_eq_right hb0, hub]
       have hDc : Dc c = lfpSel mpC dR.toLfp u.key.cname := by
         have := hDeq; rw [hnlDb] at this; simpa [tgtClsD, hMo] using this
       have hmc : tgtClsM mc pp.toBlockShape out c = mc c := by simp [tgtClsM, hMo]
@@ -681,7 +681,7 @@ theorem genNodeCalls {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : Nat}
         intro G ρ' hA Y hY hH
         have hA' := hA
         unfold nodeAdm at hA'
-        rw [if_neg hb0, hub] at hA'
+        rw [ite_eq_right hb0, hub] at hA'
         obtain ⟨σ, hσ, rfl⟩ := hA'
         have hidxEq := (dyn_hAdm H ψ ρ xs hparams par b (by omega) G _ hA).2
         rw [hnlDb, hnlψ, hmc] at hH
@@ -736,7 +736,7 @@ theorem genNodeCalls {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : Nat}
         rw [hparb''] at hlt'; exact hlt'
       refine ⟨hu''ns, b'', hb''0, hb''l, hb''u, ?_, fun _ _ => funext (holeOwner_kid hparb'' hbb hub)⟩
       unfold nlDp
-      rw [if_neg hb0, if_neg (by omega), hub, hb''u]
+      rw [ite_eq_right hb0, ite_eq_right (by omega), hub, hb''u]
       have h1 := PosTree.height_kid hkid
       have h2 := height_le_nlDd hu
       omega
@@ -1011,7 +1011,7 @@ theorem genNodeCalls {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : Nat}
             rw [hI]
             show _ = pp.toBlockShape.memberNames.getD tm .anonymous
             rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem htl', Option.getD_some]
-          exact (List.getElem_inj hndM).mp (e1.trans e2.symm)
+          exact (List.Nodup.getElem_inj hndM).mp (e1.trans e2.symm)
       | none =>
         exfalso
         obtain ⟨-, hnone, -⟩ := hOutR hmb
@@ -1194,7 +1194,7 @@ theorem genNodeCalls {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : Nat}
         (keyFrame (nodeDsaI mk (pp.nestCtx fvsP envI.find?) ψ u'')
           ((pp.nestCtx fvsP envI.find?).hiAt u''.anc.length) σK) := by
       unfold nodeAdm
-      rw [if_neg (by omega), hb''u]
+      rw [ite_eq_right (by omega), hb''u]
       exact ⟨σK, hσK, rfl⟩
     obtain ⟨hsat'', hidx''⟩ := dyn_hAdm H ψ ρ xs hparams par b'' (by omega) _ _ hAdm''
     refine Or.inr (Or.inr ⟨hdp, by omega, _, hAdm'', ?_⟩)
@@ -1254,7 +1254,7 @@ theorem genNodeCalls {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : Nat}
         rw [interp_liftN]
         congr 1
         funext q
-        simp only [shiftE, Nat.not_lt_zero, if_false, ConLeche.NestCtx.hiAt, List.length_nil]
+        simp only [shiftE, Nat.not_lt_zero, ite_false, ConLeche.NestCtx.hiAt, List.length_nil]
         congr 1
         omega
     rw [hmapK] at hyA

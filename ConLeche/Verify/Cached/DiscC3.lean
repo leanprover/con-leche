@@ -278,9 +278,9 @@ theorem majorToCtorC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode env
   have hden : RelC i i := rfl
   rw [isCtorAppC_spec' rfl]
   by_cases hctor : isCtorApp env i
-  · rw [if_pos hctor, if_pos hctor]
+  · rw [ite_eq_left hctor, ite_eq_left hctor]
     exact SimC.pure hs ⟨hden, hmaj⟩
-  · rw [if_neg hctor, if_neg hctor]
+  · rw [ite_eq_right hctor, ite_eq_right hctor]
     match rules with
     | [] => exact SimC.pure hs ⟨hden, hmaj⟩
     | _ :: _ :: _ => exact SimC.pure hs ⟨hden, hmaj⟩
@@ -306,7 +306,7 @@ theorem majorToCtorC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode env
               | indInfo cvT caps =>
                 dsimp only
                 by_cases hK : rl.k = true
-                · rw [if_pos hK, if_pos hK]
+                · rw [ite_eq_left hK, ite_eq_left hK]
                   refine SimC.bind (ih.inferIO hs hden hmaj)
                     (fun s₁ tm tmx hs₁ hP => ?_)
                   obtain ⟨htmd, hwtm⟩ := hP
@@ -419,9 +419,9 @@ theorem majorToCtorC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode env
                     exact SimC.pure hs₂ ⟨hden, hmaj⟩
                   | proj sn jx e' =>
                     exact SimC.pure hs₂ ⟨hden, hmaj⟩
-                · rw [if_neg hK, if_neg hK]
+                · rw [ite_eq_right hK, ite_eq_right hK]
                   by_cases hEta : rl.eta = true
-                  · rw [if_pos hEta, if_pos hEta]
+                  · rw [ite_eq_left hEta, ite_eq_left hEta]
                     refine SimC.bind (ih.inferIO hs hden hmaj)
                       (fun s₁ tm tmx hs₁ hP => ?_)
                     obtain ⟨htmd, hwtm⟩ := hP
@@ -541,9 +541,9 @@ theorem majorToCtorC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode env
                       exact SimC.pure hs₂ ⟨hden, hmaj⟩
                     | proj sn jx e' =>
                       exact SimC.pure hs₂ ⟨hden, hmaj⟩
-                  · rw [if_neg hEta, if_neg hEta]
+                  · rw [ite_eq_right hEta, ite_eq_right hEta]
                     by_cases hAnd : T = andName
-                    · rw [if_pos hAnd, if_pos hAnd]
+                    · rw [ite_eq_left hAnd, ite_eq_left hAnd]
                       refine SimC.bind (ih.inferIO hs hden hmaj)
                         (fun s₁ tm tmx hs₁ hP => ?_)
                       obtain ⟨htmd, hwtm⟩ := hP
@@ -666,7 +666,7 @@ theorem majorToCtorC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode env
                         exact SimC.pure hs₂ ⟨hden, hmaj⟩
                       | proj sn jx e' =>
                         exact SimC.pure hs₂ ⟨hden, hmaj⟩
-                    · rw [if_neg hAnd, if_neg hAnd]
+                    · rw [ite_eq_right hAnd, ite_eq_right hAnd]
                       exact SimC.pure hs ⟨hden, hmaj⟩
               | axiomInfo cv => exact SimC.pure hs ⟨hden, hmaj⟩
               | defnInfo cv v h => exact SimC.pure hs ⟨hden, hmaj⟩
@@ -737,9 +737,9 @@ theorem iotaIndexOkC_sim (ih : SSimC mode env f) {d : Nat} {mI rP cnP : Nat}
         tyCtor margs idx)
       (iotaIndexOk (fueledFns mode env) env d mI rP cnP tyx ys is) := by
   by_cases hmr : mI = rP
-  · simp only [iotaIndexOkI, iotaIndexOk, if_pos hmr]
+  · simp only [iotaIndexOkI, iotaIndexOk, ite_eq_left hmr]
     exact SimC.pure hs rfl
-  · simp only [iotaIndexOkI, iotaIndexOk, if_neg hmr]
+  · simp only [iotaIndexOkI, iotaIndexOk, ite_eq_right hmr]
     refine SimC.bind_left (piResidualM_eff hs hty hmargs)
       (fun s₁ ores hs₁ hQres => ?_)
     cases hresx : piResidual tyx ys with
@@ -800,14 +800,14 @@ private theorem certBlock_reshape {α β γ : Type}
   cases r₂ with
   | false => simp
   | true =>
-    simp only [if_true, bind_assoc]
+    simp only [ite_true, bind_assoc]
     congr 1
     funext b
     congr 1
     funext r₃
     cases r₃ with
     | false => simp
-    | true => simp only [if_true]
+    | true => simp only [ite_true]
 
 /-- The shared certificate tail of the
 iota step (after the firing-mode comparands) — the two licensed
@@ -947,14 +947,14 @@ theorem prepareMajorC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode en
       (prepareMajor mode (fueledFns mode env) env d recName rules major) := by
   unfold prepareMajorI prepareMajor
   by_cases hk : recRuleK rules = true
-  · rw [if_pos hk, if_pos hk]
+  · rw [ite_eq_left hk, ite_eq_left hk]
     refine SimC.bind (majorToCtorC_sim hμ ih henv hs hden hmaj)
       (fun s₁ m₁ m₁x hs₁ hP₁ => ?_)
     obtain ⟨hd₁, hw₁⟩ := hP₁
     refine SimC.bind (ih.whnf hs₁ hd₁ hw₁) (fun s₂ m₂ m₂x hs₂ hP₂ => ?_)
     obtain ⟨hd₂, hw₂⟩ := hP₂
     exact litMajorToCtorC_sim ih hs₂ hd₂ hw₂
-  · rw [if_neg hk, if_neg hk]
+  · rw [ite_eq_right hk, ite_eq_right hk]
     refine SimC.bind (ih.whnf hs hden hmaj) (fun s₁ m₁ m₁x hs₁ hP₁ => ?_)
     obtain ⟨hd₁, hw₁⟩ := hP₁
     refine SimC.bind (litMajorToCtorC_sim ih hs₁ hd₁ hw₁)
@@ -1073,7 +1073,7 @@ theorem iotaRecC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode env f) 
         simp only [hargs.length]
         by_cases hlen : (Expr.getAppArgs i).length = mI + 1 ∧
             us.length = cv.levelParams.length
-        · rw [if_pos hlen, if_pos hlen]
+        · rw [ite_eq_left hlen, ite_eq_left hlen]
           refine SimC.bind_left
             (pureBvar_eff hs 0)
             (fun s₁ bvar0 hs₁ hQ0 => ?_)
@@ -1107,11 +1107,11 @@ theorem iotaRecC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode env f) 
                   simp only [hmargs.length]
                   by_cases hmlen : (Expr.getAppArgs major).length =
                       rl.ctorParams + rl.nfields
-                  · rw [if_pos hmlen, if_pos hmlen]
+                  · rw [ite_eq_left hmlen, ite_eq_left hmlen]
                     by_cases hin : rl.fire = RecRuleFire.inert
-                    · rw [if_pos hin, if_pos hin]
+                    · rw [ite_eq_left hin, ite_eq_left hin]
                       exact SimC.throw
-                    · rw [if_neg hin, if_neg hin]
+                    · rw [ite_eq_right hin, ite_eq_right hin]
                       -- both isSome pins hold; walk the certificates
                       have hargsW : ∀ a ∈ (Expr.getAppArgs i),
                           Expr.WScoped d a := hw.getAppArgs
@@ -1155,7 +1155,7 @@ theorem iotaRecC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode env f) 
                           · -- the parameter comparison, absent from both
                             -- sides at a `paramsBlind` rule
                             by_cases hcp : rl.compareParams = true
-                            · rw [if_pos hcp, if_pos hcp]
+                            · rw [ite_eq_left hcp, ite_eq_left hcp]
                               exact defEqListC_sim ih hs₆
                                 (hmargs.take rl.ctorParams)
                                 (hargs.take rl.ctorParams)
@@ -1163,7 +1163,7 @@ theorem iotaRecC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode env f) 
                                   (List.mem_of_mem_take hx))
                                 (fun x hx => hargsW x
                                   (List.mem_of_mem_take hx))
-                            · rw [if_neg hcp, if_neg hcp]
+                            · rw [ite_eq_right hcp, ite_eq_right hcp]
                               exact SimC.pure hs₆ rfl
                           obtain rfl : r₁ = r₁' := hPr₁
                           cases r₁ with
@@ -1197,8 +1197,8 @@ theorem iotaRecC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode env f) 
                           exact SimC.pure hs₆ trivial
                         | true =>
                           simp only [↓reduceIte]
-                          rw [if_pos (RecRule.compareParams_nested hfire),
-                            if_pos (RecRule.compareParams_nested hfire)]
+                          rw [ite_eq_left (RecRule.compareParams_nested hfire),
+                            ite_eq_left (RecRule.compareParams_nested hfire)]
                           refine SimC.bind (defEqListC_sim ih hs₆
                             (hmargs.take rl.ctorParams) hQc
                             (fun x hx => hmaj.getAppArgs x
@@ -1215,7 +1215,7 @@ theorem iotaRecC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode env f) 
                             exact iotaRec_certs_tail ih henv hs₇ hden hw
                               hfc hfj hrule rfl hmaj hargs
                               hmargs
-                  · rw [if_neg hmlen, if_neg hmlen]
+                  · rw [ite_eq_right hmlen, ite_eq_right hmlen]
                     exact SimC.pure hs₄ trivial
               | axiomInfo cv' => exact SimC.pure hs₄ trivial
               | defnInfo cv' v h => exact SimC.pure hs₄ trivial
@@ -1241,7 +1241,7 @@ theorem iotaRecC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode env f) 
             exact SimC.pure hs₄ trivial
           | proj sn jx e' =>
             exact SimC.pure hs₄ trivial
-        · rw [if_neg hlen, if_neg hlen]
+        · rw [ite_eq_right hlen, ite_eq_right hlen]
           exact SimC.pure hs trivial
       | axiomInfo cv => exact SimC.pure hs trivial
       | defnInfo cv v h => exact SimC.pure hs trivial

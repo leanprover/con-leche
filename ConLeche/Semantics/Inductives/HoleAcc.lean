@@ -213,7 +213,7 @@ theorem skolem_occ {S : V} {Q : V → V → (V → Occ V) → Prop}
   refine ⟨fun a => if h' : a ∈ˢ S then Classical.choose (h a h') else empty,
     fun a => if h' : a ∈ˢ S then Classical.choose (Classical.choose_spec (h a h'))
       else fun _ => (0, [], empty), fun a ha => ?_⟩
-  simp only [dif_pos ha]
+  simp only [dite_eq_left ha]
   exact Classical.choose_spec (Classical.choose_spec (h a ha))
 
 /-- An item one binder down, seen above it. -/
@@ -279,7 +279,7 @@ theorem AccOn.pi {w : Nat} {Q : Nat → Nat → Prop} {R : FrameRel V} {D B : An
   · intro p hp
     obtain ⟨d, hd, b, hb, rfl⟩ := mem_sigmaPairs.mp hp
     unfold piBound
-    rw [if_pos hDw]
+    rw [ite_eq_left hDw]
     exact mem_sigmaPairs.mpr ⟨d, hd, b, (hsk d hd).1 b hb, rfl⟩
   · intro p hp
     obtain ⟨d, hd, b, hb, rfl⟩ := mem_sigmaPairs.mp hp
@@ -330,7 +330,7 @@ theorem AccOn.pi0 {Q : Nat → Nat → Prop} {R : FrameRel V} {D B : AnnotTerm} 
   have hwit : ∀ d, d ∈ˢ interp V ρ D → wit d ∈ˢ interp V (cons d ρ) B := by
     intro d hd
     have h := hall d hd
-    simp only [wit, dif_pos h]
+    simp only [wit, dite_eq_left h]
     exact Classical.choose_spec h
   obtain ⟨Bf, gf, hsk⟩ := skolem_occ (S := interp V ρ D)
     (Q := fun d B' g => B' ⊆ˢ Bb (cons d ρ) ∧
@@ -349,7 +349,7 @@ theorem AccOn.pi0 {Q : Nat → Nat → Prop} {R : FrameRel V} {D B : AnnotTerm} 
   · intro p hp
     obtain ⟨d, hd, b, hb, rfl⟩ := mem_sigmaPairs.mp hp
     unfold piBound
-    rw [if_pos (SmallAt.zero _)]
+    rw [ite_eq_left (SmallAt.zero _)]
     exact mem_sigmaPairs.mpr ⟨d, hd, b, (hsk d hd).1 b hb, rfl⟩
   · intro p hp
     obtain ⟨d, hd, b, hb, rfl⟩ := mem_sigmaPairs.mp hp

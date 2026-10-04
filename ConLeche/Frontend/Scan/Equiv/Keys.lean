@@ -286,7 +286,7 @@ theorem keyOf_97 (k' : List UInt8) : keyOf (97 :: k') =
     simp only [beq_eq_false_iff_ne, ne_eq]
     exact Ne.symm h3
   simp only [b0, b1, b2, b3]
-  rw [if_neg h0, if_neg h1, if_neg h2, if_neg h3]
+  rw [ite_eq_right h0, ite_eq_right h1, ite_eq_right h2, ite_eq_right h3]
 
 theorem keyOf_98 (k' : List UInt8) : keyOf (98 :: k') =
     if k' = [105, 110, 100, 101, 114, 73, 110, 102, 111] then Key.kBinderInfo
@@ -320,7 +320,7 @@ theorem keyOf_98 (k' : List UInt8) : keyOf (98 :: k') =
     simp only [beq_eq_false_iff_ne, ne_eq]
     exact Ne.symm h2
   simp only [b0, b1, b2]
-  rw [if_neg h0, if_neg h1, if_neg h2]
+  rw [ite_eq_right h0, ite_eq_right h1, ite_eq_right h2]
 
 theorem keyOf_99 (k' : List UInt8) : keyOf (99 :: k') =
     if k' = [105, 100, 120] then Key.kCidx
@@ -360,7 +360,7 @@ theorem keyOf_99 (k' : List UInt8) : keyOf (99 :: k') =
     simp only [beq_eq_false_iff_ne, ne_eq]
     exact Ne.symm h3
   simp only [b0, b1, b2, b3]
-  rw [if_neg h0, if_neg h1, if_neg h2, if_neg h3]
+  rw [ite_eq_right h0, ite_eq_right h1, ite_eq_right h2, ite_eq_right h3]
 
 theorem keyOf_100 (k' : List UInt8) : keyOf (100 :: k') =
     if k' = [101, 102] then Key.kDef
@@ -382,7 +382,7 @@ theorem keyOf_100 (k' : List UInt8) : keyOf (100 :: k') =
     simp only [beq_eq_false_iff_ne, ne_eq]
     exact Ne.symm h0
   simp only [b0]
-  rw [if_neg h0]
+  rw [ite_eq_right h0]
 
 theorem keyOf_102 (k' : List UInt8) : keyOf (102 :: k') =
     if k' = [110] then Key.kFn
@@ -410,7 +410,7 @@ theorem keyOf_102 (k' : List UInt8) : keyOf (102 :: k') =
     simp only [beq_eq_false_iff_ne, ne_eq]
     exact Ne.symm h1
   simp only [b0, b1]
-  rw [if_neg h0, if_neg h1]
+  rw [ite_eq_right h0, ite_eq_right h1]
 
 theorem keyOf_104 (k' : List UInt8) : keyOf (104 :: k') =
     if k' = [105, 110, 116, 115] then Key.kHints
@@ -432,7 +432,7 @@ theorem keyOf_104 (k' : List UInt8) : keyOf (104 :: k') =
     simp only [beq_eq_false_iff_ne, ne_eq]
     exact Ne.symm h0
   simp only [b0]
-  rw [if_neg h0]
+  rw [ite_eq_right h0]
 
 theorem keyOf_105 (k' : List UInt8) : keyOf (105 :: k') =
     if k' = [] then Key.kI
@@ -515,8 +515,8 @@ theorem keyOf_105 (k' : List UInt8) : keyOf (105 :: k') =
     simp only [beq_eq_false_iff_ne, ne_eq]
     exact Ne.symm h10
   simp only [b0, b1, b2, b3, b4, b5, b6, b7, b8, b9, b10]
-  rw [if_neg h0, if_neg h1, if_neg h2, if_neg h3, if_neg h4, if_neg h5, if_neg h6, if_neg h7,
-    if_neg h8, if_neg h9, if_neg h10]
+  rw [ite_eq_right h0, ite_eq_right h1, ite_eq_right h2, ite_eq_right h3, ite_eq_right h4, ite_eq_right h5, ite_eq_right h6, ite_eq_right h7,
+    ite_eq_right h8, ite_eq_right h9, ite_eq_right h10]
 
 theorem keyOf_107 (k' : List UInt8) : keyOf (107 :: k') =
     if k' = [] then Key.kK
@@ -545,7 +545,7 @@ theorem keyOf_107 (k' : List UInt8) : keyOf (107 :: k') =
     simp only [beq_eq_false_iff_ne, ne_eq]
     exact Ne.symm h1
   simp only [b0, b1]
-  rw [if_neg h0, if_neg h1]
+  rw [ite_eq_right h0, ite_eq_right h1]
 
 theorem keyOf_108 (k' : List UInt8) : keyOf (108 :: k') =
     if k' = [97, 109] then Key.kLam
@@ -579,7 +579,7 @@ theorem keyOf_108 (k' : List UInt8) : keyOf (108 :: k') =
     simp only [beq_eq_false_iff_ne, ne_eq]
     exact Ne.symm h2
   simp only [b0, b1, b2]
-  rw [if_neg h0, if_neg h1, if_neg h2]
+  rw [ite_eq_right h0, ite_eq_right h1, ite_eq_right h2]
 
 theorem keyOf_109 (k' : List UInt8) : keyOf (109 :: k') =
     if k' = [97, 120] then Key.kMax
@@ -607,7 +607,7 @@ theorem keyOf_109 (k' : List UInt8) : keyOf (109 :: k') =
     simp only [beq_eq_false_iff_ne, ne_eq]
     exact Ne.symm h1
   simp only [b0, b1]
-  rw [if_neg h0, if_neg h1]
+  rw [ite_eq_right h0, ite_eq_right h1]
 
 theorem keyOf_110 (k' : List UInt8) : keyOf (110 :: k') =
     if k' = [97, 109, 101] then Key.kName
@@ -689,8 +689,8 @@ theorem keyOf_110 (k' : List UInt8) : keyOf (110 :: k') =
     simp only [beq_eq_false_iff_ne, ne_eq]
     exact Ne.symm h10
   simp only [b0, b1, b2, b3, b4, b5, b6, b7, b8, b9, b10]
-  rw [if_neg h0, if_neg h1, if_neg h2, if_neg h3, if_neg h4, if_neg h5, if_neg h6, if_neg h7,
-    if_neg h8, if_neg h9, if_neg h10]
+  rw [ite_eq_right h0, ite_eq_right h1, ite_eq_right h2, ite_eq_right h3, ite_eq_right h4, ite_eq_right h5, ite_eq_right h6, ite_eq_right h7,
+    ite_eq_right h8, ite_eq_right h9, ite_eq_right h10]
 
 theorem keyOf_111 (k' : List UInt8) : keyOf (111 :: k') =
     if k' = [112, 97, 113, 117, 101] then Key.kOpaque
@@ -712,7 +712,7 @@ theorem keyOf_111 (k' : List UInt8) : keyOf (111 :: k') =
     simp only [beq_eq_false_iff_ne, ne_eq]
     exact Ne.symm h0
   simp only [b0]
-  rw [if_neg h0]
+  rw [ite_eq_right h0]
 
 theorem keyOf_112 (k' : List UInt8) : keyOf (112 :: k') =
     if k' = [97, 114, 97, 109] then Key.kParam
@@ -752,7 +752,7 @@ theorem keyOf_112 (k' : List UInt8) : keyOf (112 :: k') =
     simp only [beq_eq_false_iff_ne, ne_eq]
     exact Ne.symm h3
   simp only [b0, b1, b2, b3]
-  rw [if_neg h0, if_neg h1, if_neg h2, if_neg h3]
+  rw [ite_eq_right h0, ite_eq_right h1, ite_eq_right h2, ite_eq_right h3]
 
 theorem keyOf_113 (k' : List UInt8) : keyOf (113 :: k') =
     if k' = [117, 111, 116] then Key.kQuot
@@ -774,7 +774,7 @@ theorem keyOf_113 (k' : List UInt8) : keyOf (113 :: k') =
     simp only [beq_eq_false_iff_ne, ne_eq]
     exact Ne.symm h0
   simp only [b0]
-  rw [if_neg h0]
+  rw [ite_eq_right h0]
 
 theorem keyOf_114 (k' : List UInt8) : keyOf (114 :: k') =
     if k' = [101, 99, 115] then Key.kRecs
@@ -814,7 +814,7 @@ theorem keyOf_114 (k' : List UInt8) : keyOf (114 :: k') =
     simp only [beq_eq_false_iff_ne, ne_eq]
     exact Ne.symm h3
   simp only [b0, b1, b2, b3]
-  rw [if_neg h0, if_neg h1, if_neg h2, if_neg h3]
+  rw [ite_eq_right h0, ite_eq_right h1, ite_eq_right h2, ite_eq_right h3]
 
 theorem keyOf_115 (k' : List UInt8) : keyOf (115 :: k') =
     if k' = [97, 102, 101, 116, 121] then Key.kSafety
@@ -866,7 +866,7 @@ theorem keyOf_115 (k' : List UInt8) : keyOf (115 :: k') =
     simp only [beq_eq_false_iff_ne, ne_eq]
     exact Ne.symm h5
   simp only [b0, b1, b2, b3, b4, b5]
-  rw [if_neg h0, if_neg h1, if_neg h2, if_neg h3, if_neg h4, if_neg h5]
+  rw [ite_eq_right h0, ite_eq_right h1, ite_eq_right h2, ite_eq_right h3, ite_eq_right h4, ite_eq_right h5]
 
 theorem keyOf_116 (k' : List UInt8) : keyOf (116 :: k') =
     if k' = [104, 109] then Key.kThm
@@ -906,7 +906,7 @@ theorem keyOf_116 (k' : List UInt8) : keyOf (116 :: k') =
     simp only [beq_eq_false_iff_ne, ne_eq]
     exact Ne.symm h3
   simp only [b0, b1, b2, b3]
-  rw [if_neg h0, if_neg h1, if_neg h2, if_neg h3]
+  rw [ite_eq_right h0, ite_eq_right h1, ite_eq_right h2, ite_eq_right h3]
 
 theorem keyOf_117 (k' : List UInt8) : keyOf (117 :: k') =
     if k' = [115] then Key.kUs
@@ -928,7 +928,7 @@ theorem keyOf_117 (k' : List UInt8) : keyOf (117 :: k') =
     simp only [beq_eq_false_iff_ne, ne_eq]
     exact Ne.symm h0
   simp only [b0]
-  rw [if_neg h0]
+  rw [ite_eq_right h0]
 
 theorem keyOf_118 (k' : List UInt8) : keyOf (118 :: k') =
     if k' = [97, 108, 117, 101] then Key.kValue
@@ -950,7 +950,7 @@ theorem keyOf_118 (k' : List UInt8) : keyOf (118 :: k') =
     simp only [beq_eq_false_iff_ne, ne_eq]
     exact Ne.symm h0
   simp only [b0]
-  rw [if_neg h0]
+  rw [ite_eq_right h0]
 
 
 /-! ### The classifier's arithmetic -/
@@ -1205,7 +1205,7 @@ theorem keyAt_eq {b : ByteArray} {i : USize} {k r : List UInt8} (h : i < b.usize
       rw [keyOf_97]
       by_cases hL0 : k'.length = 2
       case pos =>
-        rw [if_pos (kl_beq (by rw [hkl, hL0, usz3]))]
+        rw [ite_eq_left (kl_beq (by rw [hkl, hL0, usz3]))]
         simp only [lit2_key b (i + 1 + 1) 112 112 k' r hT2 (by simp [hL0]),
           lit2_key b (i + 1 + 1) 114 103 k' r hT2 (by simp [hL0]),
           lit2_key b (i + 1 + 1) 108 108 k' r hT2 (by simp [hL0])]
@@ -1219,11 +1219,11 @@ theorem keyAt_eq {b : ByteArray} {i : USize} {k r : List UInt8} (h : i < b.usize
           intro hx
           rw [hx] at hL0
           simp at hL0
-        simp only [if_neg e2, if_neg e0, if_neg e1, if_neg n3]
-      rw [if_neg (kl_beq_ne (by rw [hkl, usz3]; omega))]
+        simp only [ite_eq_right e2, ite_eq_right e0, ite_eq_right e1, ite_eq_right n3]
+      rw [ite_eq_right (kl_beq_ne (by rw [hkl, usz3]; omega))]
       by_cases hL1 : k'.length = 4
       case pos =>
-        rw [if_pos (kl_beq (by rw [hkl, hL1, usz5]))]
+        rw [ite_eq_left (kl_beq (by rw [hkl, hL1, usz5]))]
         simp only [lit4_key b (i + 1 + 1) 120 105 111 109 k' r hT2 (by simp [hL1])]
         by_cases e0 : k' = [120, 105, 111, 109]
         case pos => subst e0; simp
@@ -1239,8 +1239,8 @@ theorem keyAt_eq {b : ByteArray} {i : USize} {k r : List UInt8} (h : i < b.usize
           intro hx
           rw [hx] at hL1
           simp at hL1
-        simp only [if_neg n0, if_neg n1, if_neg n2, if_neg e0]
-      rw [if_neg (kl_beq_ne (by rw [hkl, usz5]; omega))]
+        simp only [ite_eq_right n0, ite_eq_right n1, ite_eq_right n2, ite_eq_right e0]
+      rw [ite_eq_right (kl_beq_ne (by rw [hkl, usz5]; omega))]
       have m0 : ¬ k' = [108, 108] := by
         intro hx
         exact hL0 (by simp [hx])
@@ -1253,12 +1253,12 @@ theorem keyAt_eq {b : ByteArray} {i : USize} {k r : List UInt8} (h : i < b.usize
       have m3 : ¬ k' = [120, 105, 111, 109] := by
         intro hx
         exact hL1 (by simp [hx])
-      simp only [if_neg m0, if_neg m1, if_neg m2, if_neg m3]
+      simp only [ite_eq_right m0, ite_eq_right m1, ite_eq_right m2, ite_eq_right m3]
     · -- 'b'
       rw [keyOf_98]
       by_cases hL0 : k'.length = 3
       case pos =>
-        rw [if_pos (kl_beq (by rw [hkl, hL0, usz4]))]
+        rw [ite_eq_left (kl_beq (by rw [hkl, hL0, usz4]))]
         simp only [lit3_key b (i + 1 + 1) 111 100 121 k' r hT2 (by simp [hL0]),
           lit3_key b (i + 1 + 1) 118 97 114 k' r hT2 (by simp [hL0])]
         by_cases e0 : k' = [111, 100, 121]
@@ -1269,11 +1269,11 @@ theorem keyAt_eq {b : ByteArray} {i : USize} {k r : List UInt8} (h : i < b.usize
           intro hx
           rw [hx] at hL0
           simp at hL0
-        simp only [if_neg n0, if_neg e0, if_neg e1]
-      rw [if_neg (kl_beq_ne (by rw [hkl, usz4]; omega))]
+        simp only [ite_eq_right n0, ite_eq_right e0, ite_eq_right e1]
+      rw [ite_eq_right (kl_beq_ne (by rw [hkl, usz4]; omega))]
       by_cases hL1 : k'.length = 9
       case pos =>
-        rw [if_pos (kl_beq (by rw [hkl, hL1, usz10]))]
+        rw [ite_eq_left (kl_beq (by rw [hkl, hL1, usz10]))]
         simp only [lit9_key b (i + 1 + 1) 105 110 100 101 114 73 110 102 111 k' r hT2 (by simp [hL1])]
         by_cases e0 : k' = [105, 110, 100, 101, 114, 73, 110, 102, 111]
         case pos => subst e0; simp
@@ -1285,8 +1285,8 @@ theorem keyAt_eq {b : ByteArray} {i : USize} {k r : List UInt8} (h : i < b.usize
           intro hx
           rw [hx] at hL1
           simp at hL1
-        simp only [if_neg e0, if_neg n1, if_neg n2]
-      rw [if_neg (kl_beq_ne (by rw [hkl, usz10]; omega))]
+        simp only [ite_eq_right e0, ite_eq_right n1, ite_eq_right n2]
+      rw [ite_eq_right (kl_beq_ne (by rw [hkl, usz10]; omega))]
       have m0 : ¬ k' = [105, 110, 100, 101, 114, 73, 110, 102, 111] := by
         intro hx
         exact hL1 (by simp [hx])
@@ -1296,12 +1296,12 @@ theorem keyAt_eq {b : ByteArray} {i : USize} {k r : List UInt8} (h : i < b.usize
       have m2 : ¬ k' = [118, 97, 114] := by
         intro hx
         exact hL0 (by simp [hx])
-      simp only [if_neg m0, if_neg m1, if_neg m2]
+      simp only [ite_eq_right m0, ite_eq_right m1, ite_eq_right m2]
     · -- 'c'
       rw [keyOf_99]
       by_cases hL0 : k'.length = 4
       case pos =>
-        rw [if_pos (kl_beq (by rw [hkl, hL0, usz5]))]
+        rw [ite_eq_left (kl_beq (by rw [hkl, hL0, usz5]))]
         simp only [lit4_key b (i + 1 + 1) 111 110 115 116 k' r hT2 (by simp [hL0]),
           lit4_key b (i + 1 + 1) 116 111 114 115 k' r hT2 (by simp [hL0])]
         by_cases e0 : k' = [111, 110, 115, 116]
@@ -1316,11 +1316,11 @@ theorem keyAt_eq {b : ByteArray} {i : USize} {k r : List UInt8} (h : i < b.usize
           intro hx
           rw [hx] at hL0
           simp at hL0
-        simp only [if_neg n0, if_neg e0, if_neg n2, if_neg e1]
-      rw [if_neg (kl_beq_ne (by rw [hkl, usz5]; omega))]
+        simp only [ite_eq_right n0, ite_eq_right e0, ite_eq_right n2, ite_eq_right e1]
+      rw [ite_eq_right (kl_beq_ne (by rw [hkl, usz5]; omega))]
       by_cases hL1 : k'.length = 3
       case pos =>
-        rw [if_pos (kl_beq (by rw [hkl, hL1, usz4]))]
+        rw [ite_eq_left (kl_beq (by rw [hkl, hL1, usz4]))]
         simp only [lit3_key b (i + 1 + 1) 116 111 114 k' r hT2 (by simp [hL1]),
           lit3_key b (i + 1 + 1) 105 100 120 k' r hT2 (by simp [hL1])]
         by_cases e0 : k' = [116, 111, 114]
@@ -1335,8 +1335,8 @@ theorem keyAt_eq {b : ByteArray} {i : USize} {k r : List UInt8} (h : i < b.usize
           intro hx
           rw [hx] at hL1
           simp at hL1
-        simp only [if_neg e1, if_neg n1, if_neg e0, if_neg n3]
-      rw [if_neg (kl_beq_ne (by rw [hkl, usz4]; omega))]
+        simp only [ite_eq_right e1, ite_eq_right n1, ite_eq_right e0, ite_eq_right n3]
+      rw [ite_eq_right (kl_beq_ne (by rw [hkl, usz4]; omega))]
       have m0 : ¬ k' = [105, 100, 120] := by
         intro hx
         exact hL1 (by simp [hx])
@@ -1349,23 +1349,23 @@ theorem keyAt_eq {b : ByteArray} {i : USize} {k r : List UInt8} (h : i < b.usize
       have m3 : ¬ k' = [116, 111, 114, 115] := by
         intro hx
         exact hL0 (by simp [hx])
-      simp only [if_neg m0, if_neg m1, if_neg m2, if_neg m3]
+      simp only [ite_eq_right m0, ite_eq_right m1, ite_eq_right m2, ite_eq_right m3]
     · -- 'd'
       rw [keyOf_100]
       by_cases hL0 : k'.length = 2
       case pos =>
-        rw [if_pos (kl_beq (by rw [hkl, hL0, usz3]))]
+        rw [ite_eq_left (kl_beq (by rw [hkl, hL0, usz3]))]
         simp only [lit2_key b (i + 1 + 1) 101 102 k' r hT2 (by simp [hL0])]
-      rw [if_neg (kl_beq_ne (by rw [hkl, usz3]; omega))]
+      rw [ite_eq_right (kl_beq_ne (by rw [hkl, usz3]; omega))]
       have m0 : ¬ k' = [101, 102] := by
         intro hx
         exact hL0 (by simp [hx])
-      simp only [if_neg m0]
+      simp only [ite_eq_right m0]
     · -- 'f'
       rw [keyOf_102]
       by_cases hL0 : k'.length = 1
       case pos =>
-        rw [if_pos (kl_beq (by rw [hkl, hL0, usz2]))]
+        rw [ite_eq_left (kl_beq (by rw [hkl, hL0, usz2]))]
         simp only [lit1_key b (i + 1 + 1) 110 k' r hT2 (by simp [hL0])]
         by_cases e0 : k' = [110]
         case pos => subst e0; simp
@@ -1373,11 +1373,11 @@ theorem keyAt_eq {b : ByteArray} {i : USize} {k r : List UInt8} (h : i < b.usize
           intro hx
           rw [hx] at hL0
           simp at hL0
-        simp only [if_neg e0, if_neg n1]
-      rw [if_neg (kl_beq_ne (by rw [hkl, usz2]; omega))]
+        simp only [ite_eq_right e0, ite_eq_right n1]
+      rw [ite_eq_right (kl_beq_ne (by rw [hkl, usz2]; omega))]
       by_cases hL1 : k'.length = 6
       case pos =>
-        rw [if_pos (kl_beq (by rw [hkl, hL1, usz7]))]
+        rw [ite_eq_left (kl_beq (by rw [hkl, hL1, usz7]))]
         simp only [lit6_key b (i + 1 + 1) 111 114 97 108 108 69 k' r hT2 (by simp [hL1])]
         by_cases e0 : k' = [111, 114, 97, 108, 108, 69]
         case pos => subst e0; simp
@@ -1385,31 +1385,31 @@ theorem keyAt_eq {b : ByteArray} {i : USize} {k r : List UInt8} (h : i < b.usize
           intro hx
           rw [hx] at hL1
           simp at hL1
-        simp only [if_neg n0, if_neg e0]
-      rw [if_neg (kl_beq_ne (by rw [hkl, usz7]; omega))]
+        simp only [ite_eq_right n0, ite_eq_right e0]
+      rw [ite_eq_right (kl_beq_ne (by rw [hkl, usz7]; omega))]
       have m0 : ¬ k' = [110] := by
         intro hx
         exact hL0 (by simp [hx])
       have m1 : ¬ k' = [111, 114, 97, 108, 108, 69] := by
         intro hx
         exact hL1 (by simp [hx])
-      simp only [if_neg m0, if_neg m1]
+      simp only [ite_eq_right m0, ite_eq_right m1]
     · -- 'h'
       rw [keyOf_104]
       by_cases hL0 : k'.length = 4
       case pos =>
-        rw [if_pos (kl_beq (by rw [hkl, hL0, usz5]))]
+        rw [ite_eq_left (kl_beq (by rw [hkl, hL0, usz5]))]
         simp only [lit4_key b (i + 1 + 1) 105 110 116 115 k' r hT2 (by simp [hL0])]
-      rw [if_neg (kl_beq_ne (by rw [hkl, usz5]; omega))]
+      rw [ite_eq_right (kl_beq_ne (by rw [hkl, usz5]; omega))]
       have m0 : ¬ k' = [105, 110, 116, 115] := by
         intro hx
         exact hL0 (by simp [hx])
-      simp only [if_neg m0]
+      simp only [ite_eq_right m0]
     · -- 'i'
       rw [keyOf_105]
       by_cases hL0 : k'.length = 1
       case pos =>
-        rw [if_pos (kl_beq (by rw [hkl, hL0, usz2]))]
+        rw [ite_eq_left (kl_beq (by rw [hkl, hL0, usz2]))]
         simp only [lit1_key b (i + 1 + 1) 101 k' r hT2 (by simp [hL0]),
           lit1_key b (i + 1 + 1) 110 k' r hT2 (by simp [hL0]),
           lit1_key b (i + 1 + 1) 108 k' r hT2 (by simp [hL0])]
@@ -1451,19 +1451,19 @@ theorem keyAt_eq {b : ByteArray} {i : USize} {k r : List UInt8} (h : i < b.usize
           intro hx
           rw [hx] at hL0
           simp at hL0
-        simp only [if_neg n0, if_neg n1, if_neg e0, if_neg e2, if_neg n4, if_neg e1, if_neg n6,
-          if_neg n7, if_neg n8, if_neg n9, if_neg n10]
-      rw [if_neg (kl_beq_ne (by rw [hkl, usz2]; omega))]
+        simp only [ite_eq_right n0, ite_eq_right n1, ite_eq_right e0, ite_eq_right e2, ite_eq_right n4, ite_eq_right e1, ite_eq_right n6,
+          ite_eq_right n7, ite_eq_right n8, ite_eq_right n9, ite_eq_right n10]
+      rw [ite_eq_right (kl_beq_ne (by rw [hkl, usz2]; omega))]
       by_cases hL1 : k'.length = 0
       case pos =>
-        rw [if_pos (kl_beq (by rw [hkl, hL1, usz1]))]
+        rw [ite_eq_left (kl_beq (by rw [hkl, hL1, usz1]))]
         have hnil : k' = [] := List.eq_nil_of_length_eq_zero hL1
         subst hnil
         simp
-      rw [if_neg (kl_beq_ne (by rw [hkl, usz1]; omega))]
+      rw [ite_eq_right (kl_beq_ne (by rw [hkl, usz1]; omega))]
       by_cases hL2 : k'.length = 2
       case pos =>
-        rw [if_pos (kl_beq (by rw [hkl, hL2, usz3]))]
+        rw [ite_eq_left (kl_beq (by rw [hkl, hL2, usz3]))]
         simp only [lit2_key b (i + 1 + 1) 100 120 k' r hT2 (by simp [hL2])]
         by_cases e0 : k' = [100, 120]
         case pos => subst e0; simp
@@ -1507,12 +1507,12 @@ theorem keyAt_eq {b : ByteArray} {i : USize} {k r : List UInt8} (h : i < b.usize
           intro hx
           rw [hx] at hL2
           simp at hL2
-        simp only [if_neg n0, if_neg e0, if_neg n2, if_neg n3, if_neg n4, if_neg n5, if_neg n6,
-          if_neg n7, if_neg n8, if_neg n9, if_neg n10]
-      rw [if_neg (kl_beq_ne (by rw [hkl, usz3]; omega))]
+        simp only [ite_eq_right n0, ite_eq_right e0, ite_eq_right n2, ite_eq_right n3, ite_eq_right n4, ite_eq_right n5, ite_eq_right n6,
+          ite_eq_right n7, ite_eq_right n8, ite_eq_right n9, ite_eq_right n10]
+      rw [ite_eq_right (kl_beq_ne (by rw [hkl, usz3]; omega))]
       by_cases hL3 : k'.length = 3
       case pos =>
-        rw [if_pos (kl_beq (by rw [hkl, hL3, usz4]))]
+        rw [ite_eq_left (kl_beq (by rw [hkl, hL3, usz4]))]
         simp only [lit3_key b (i + 1 + 1) 109 97 120 k' r hT2 (by simp [hL3])]
         by_cases e0 : k' = [109, 97, 120]
         case pos => subst e0; simp
@@ -1556,12 +1556,12 @@ theorem keyAt_eq {b : ByteArray} {i : USize} {k r : List UInt8} (h : i < b.usize
           intro hx
           rw [hx] at hL3
           simp at hL3
-        simp only [if_neg n0, if_neg n1, if_neg n2, if_neg n3, if_neg e0, if_neg n5, if_neg n6,
-          if_neg n7, if_neg n8, if_neg n9, if_neg n10]
-      rw [if_neg (kl_beq_ne (by rw [hkl, usz4]; omega))]
+        simp only [ite_eq_right n0, ite_eq_right n1, ite_eq_right n2, ite_eq_right n3, ite_eq_right e0, ite_eq_right n5, ite_eq_right n6,
+          ite_eq_right n7, ite_eq_right n8, ite_eq_right n9, ite_eq_right n10]
+      rw [ite_eq_right (kl_beq_ne (by rw [hkl, usz4]; omega))]
       by_cases hL4 : k'.length = 8
       case pos =>
-        rw [if_pos (kl_beq (by rw [hkl, hL4, usz9]))]
+        rw [ite_eq_left (kl_beq (by rw [hkl, hL4, usz9]))]
         simp only [lit8_key b (i + 1 + 1) 110 100 117 99 116 105 118 101 k' r hT2 (by simp [hL4])]
         by_cases e0 : k' = [110, 100, 117, 99, 116, 105, 118, 101]
         case pos => subst e0; simp
@@ -1605,12 +1605,12 @@ theorem keyAt_eq {b : ByteArray} {i : USize} {k r : List UInt8} (h : i < b.usize
           intro hx
           rw [hx] at hL4
           simp at hL4
-        simp only [if_neg n0, if_neg n1, if_neg n2, if_neg n3, if_neg n4, if_neg n5, if_neg n6,
-          if_neg e0, if_neg n8, if_neg n9, if_neg n10]
-      rw [if_neg (kl_beq_ne (by rw [hkl, usz9]; omega))]
+        simp only [ite_eq_right n0, ite_eq_right n1, ite_eq_right n2, ite_eq_right n3, ite_eq_right n4, ite_eq_right n5, ite_eq_right n6,
+          ite_eq_right e0, ite_eq_right n8, ite_eq_right n9, ite_eq_right n10]
+      rw [ite_eq_right (kl_beq_ne (by rw [hkl, usz9]; omega))]
       by_cases hL5 : k'.length = 4
       case pos =>
-        rw [if_pos (kl_beq (by rw [hkl, hL5, usz5]))]
+        rw [ite_eq_left (kl_beq (by rw [hkl, hL5, usz5]))]
         simp only [lit4_key b (i + 1 + 1) 115 82 101 99 k' r hT2 (by simp [hL5])]
         by_cases e0 : k' = [115, 82, 101, 99]
         case pos => subst e0; simp
@@ -1654,12 +1654,12 @@ theorem keyAt_eq {b : ByteArray} {i : USize} {k r : List UInt8} (h : i < b.usize
           intro hx
           rw [hx] at hL5
           simp at hL5
-        simp only [if_neg n0, if_neg n1, if_neg n2, if_neg n3, if_neg n4, if_neg n5, if_neg n6,
-          if_neg n7, if_neg e0, if_neg n9, if_neg n10]
-      rw [if_neg (kl_beq_ne (by rw [hkl, usz5]; omega))]
+        simp only [ite_eq_right n0, ite_eq_right n1, ite_eq_right n2, ite_eq_right n3, ite_eq_right n4, ite_eq_right n5, ite_eq_right n6,
+          ite_eq_right n7, ite_eq_right e0, ite_eq_right n9, ite_eq_right n10]
+      rw [ite_eq_right (kl_beq_ne (by rw [hkl, usz5]; omega))]
       by_cases hL6 : k'.length = 10
       case pos =>
-        rw [if_pos (kl_beq (by rw [hkl, hL6, usz11]))]
+        rw [ite_eq_left (kl_beq (by rw [hkl, hL6, usz11]))]
         simp only [lit10_key b (i + 1 + 1) 115 82 101 102 108 101 120 105 118 101 k' r hT2 (by simp [hL6])]
         by_cases e0 : k' = [115, 82, 101, 102, 108, 101, 120, 105, 118, 101]
         case pos => subst e0; simp
@@ -1703,12 +1703,12 @@ theorem keyAt_eq {b : ByteArray} {i : USize} {k r : List UInt8} (h : i < b.usize
           intro hx
           rw [hx] at hL6
           simp at hL6
-        simp only [if_neg n0, if_neg n1, if_neg n2, if_neg n3, if_neg n4, if_neg n5, if_neg n6,
-          if_neg n7, if_neg n8, if_neg e0, if_neg n10]
-      rw [if_neg (kl_beq_ne (by rw [hkl, usz11]; omega))]
+        simp only [ite_eq_right n0, ite_eq_right n1, ite_eq_right n2, ite_eq_right n3, ite_eq_right n4, ite_eq_right n5, ite_eq_right n6,
+          ite_eq_right n7, ite_eq_right n8, ite_eq_right e0, ite_eq_right n10]
+      rw [ite_eq_right (kl_beq_ne (by rw [hkl, usz11]; omega))]
       by_cases hL7 : k'.length = 7
       case pos =>
-        rw [if_pos (kl_beq (by rw [hkl, hL7, usz8]))]
+        rw [ite_eq_left (kl_beq (by rw [hkl, hL7, usz8]))]
         simp only [lit7_key b (i + 1 + 1) 115 85 110 115 97 102 101 k' r hT2 (by simp [hL7])]
         by_cases e0 : k' = [115, 85, 110, 115, 97, 102, 101]
         case pos => subst e0; simp
@@ -1752,12 +1752,12 @@ theorem keyAt_eq {b : ByteArray} {i : USize} {k r : List UInt8} (h : i < b.usize
           intro hx
           rw [hx] at hL7
           simp at hL7
-        simp only [if_neg n0, if_neg n1, if_neg n2, if_neg n3, if_neg n4, if_neg n5, if_neg n6,
-          if_neg n7, if_neg n8, if_neg n9, if_neg e0]
-      rw [if_neg (kl_beq_ne (by rw [hkl, usz8]; omega))]
+        simp only [ite_eq_right n0, ite_eq_right n1, ite_eq_right n2, ite_eq_right n3, ite_eq_right n4, ite_eq_right n5, ite_eq_right n6,
+          ite_eq_right n7, ite_eq_right n8, ite_eq_right n9, ite_eq_right e0]
+      rw [ite_eq_right (kl_beq_ne (by rw [hkl, usz8]; omega))]
       by_cases hL8 : k'.length = 5
       case pos =>
-        rw [if_pos (kl_beq (by rw [hkl, hL8, usz6]))]
+        rw [ite_eq_left (kl_beq (by rw [hkl, hL8, usz6]))]
         simp only [lit5_key b (i + 1 + 1) 110 100 117 99 116 k' r hT2 (by simp [hL8])]
         by_cases e0 : k' = [110, 100, 117, 99, 116]
         case pos => subst e0; simp
@@ -1801,9 +1801,9 @@ theorem keyAt_eq {b : ByteArray} {i : USize} {k r : List UInt8} (h : i < b.usize
           intro hx
           rw [hx] at hL8
           simp at hL8
-        simp only [if_neg n0, if_neg n1, if_neg n2, if_neg n3, if_neg n4, if_neg n5, if_neg e0,
-          if_neg n7, if_neg n8, if_neg n9, if_neg n10]
-      rw [if_neg (kl_beq_ne (by rw [hkl, usz6]; omega))]
+        simp only [ite_eq_right n0, ite_eq_right n1, ite_eq_right n2, ite_eq_right n3, ite_eq_right n4, ite_eq_right n5, ite_eq_right e0,
+          ite_eq_right n7, ite_eq_right n8, ite_eq_right n9, ite_eq_right n10]
+      rw [ite_eq_right (kl_beq_ne (by rw [hkl, usz6]; omega))]
       have m0 : ¬ k' = [] := by
         intro hx
         exact hL1 (by simp [hx])
@@ -1837,13 +1837,13 @@ theorem keyAt_eq {b : ByteArray} {i : USize} {k r : List UInt8} (h : i < b.usize
       have m10 : ¬ k' = [115, 85, 110, 115, 97, 102, 101] := by
         intro hx
         exact hL7 (by simp [hx])
-      simp only [if_neg m0, if_neg m1, if_neg m2, if_neg m3, if_neg m4, if_neg m5, if_neg m6,
-        if_neg m7, if_neg m8, if_neg m9, if_neg m10]
+      simp only [ite_eq_right m0, ite_eq_right m1, ite_eq_right m2, ite_eq_right m3, ite_eq_right m4, ite_eq_right m5, ite_eq_right m6,
+        ite_eq_right m7, ite_eq_right m8, ite_eq_right m9, ite_eq_right m10]
     · -- 'k'
       rw [keyOf_107]
       by_cases hL0 : k'.length = 3
       case pos =>
-        rw [if_pos (kl_beq (by rw [hkl, hL0, usz4]))]
+        rw [ite_eq_left (kl_beq (by rw [hkl, hL0, usz4]))]
         simp only [lit3_key b (i + 1 + 1) 105 110 100 k' r hT2 (by simp [hL0])]
         by_cases e0 : k' = [105, 110, 100]
         case pos => subst e0; simp
@@ -1851,27 +1851,27 @@ theorem keyAt_eq {b : ByteArray} {i : USize} {k r : List UInt8} (h : i < b.usize
           intro hx
           rw [hx] at hL0
           simp at hL0
-        simp only [if_neg n0, if_neg e0]
-      rw [if_neg (kl_beq_ne (by rw [hkl, usz4]; omega))]
+        simp only [ite_eq_right n0, ite_eq_right e0]
+      rw [ite_eq_right (kl_beq_ne (by rw [hkl, usz4]; omega))]
       by_cases hL1 : k'.length = 0
       case pos =>
-        rw [if_pos (kl_beq (by rw [hkl, hL1, usz1]))]
+        rw [ite_eq_left (kl_beq (by rw [hkl, hL1, usz1]))]
         have hnil : k' = [] := List.eq_nil_of_length_eq_zero hL1
         subst hnil
         simp
-      rw [if_neg (kl_beq_ne (by rw [hkl, usz1]; omega))]
+      rw [ite_eq_right (kl_beq_ne (by rw [hkl, usz1]; omega))]
       have m0 : ¬ k' = [] := by
         intro hx
         exact hL1 (by simp [hx])
       have m1 : ¬ k' = [105, 110, 100] := by
         intro hx
         exact hL0 (by simp [hx])
-      simp only [if_neg m0, if_neg m1]
+      simp only [ite_eq_right m0, ite_eq_right m1]
     · -- 'l'
       rw [keyOf_108]
       by_cases hL0 : k'.length = 2
       case pos =>
-        rw [if_pos (kl_beq (by rw [hkl, hL0, usz3]))]
+        rw [ite_eq_left (kl_beq (by rw [hkl, hL0, usz3]))]
         simp only [lit2_key b (i + 1 + 1) 97 109 k' r hT2 (by simp [hL0])]
         by_cases e0 : k' = [97, 109]
         case pos => subst e0; simp
@@ -1883,11 +1883,11 @@ theorem keyAt_eq {b : ByteArray} {i : USize} {k r : List UInt8} (h : i < b.usize
           intro hx
           rw [hx] at hL0
           simp at hL0
-        simp only [if_neg e0, if_neg n1, if_neg n2]
-      rw [if_neg (kl_beq_ne (by rw [hkl, usz3]; omega))]
+        simp only [ite_eq_right e0, ite_eq_right n1, ite_eq_right n2]
+      rw [ite_eq_right (kl_beq_ne (by rw [hkl, usz3]; omega))]
       by_cases hL1 : k'.length = 3
       case pos =>
-        rw [if_pos (kl_beq (by rw [hkl, hL1, usz4]))]
+        rw [ite_eq_left (kl_beq (by rw [hkl, hL1, usz4]))]
         simp only [lit3_key b (i + 1 + 1) 101 116 69 k' r hT2 (by simp [hL1])]
         by_cases e0 : k' = [101, 116, 69]
         case pos => subst e0; simp
@@ -1899,11 +1899,11 @@ theorem keyAt_eq {b : ByteArray} {i : USize} {k r : List UInt8} (h : i < b.usize
           intro hx
           rw [hx] at hL1
           simp at hL1
-        simp only [if_neg n0, if_neg e0, if_neg n2]
-      rw [if_neg (kl_beq_ne (by rw [hkl, usz4]; omega))]
+        simp only [ite_eq_right n0, ite_eq_right e0, ite_eq_right n2]
+      rw [ite_eq_right (kl_beq_ne (by rw [hkl, usz4]; omega))]
       by_cases hL2 : k'.length = 10
       case pos =>
-        rw [if_pos (kl_beq (by rw [hkl, hL2, usz11]))]
+        rw [ite_eq_left (kl_beq (by rw [hkl, hL2, usz11]))]
         simp only [lit10_key b (i + 1 + 1) 101 118 101 108 80 97 114 97 109 115 k' r hT2 (by simp [hL2])]
         by_cases e0 : k' = [101, 118, 101, 108, 80, 97, 114, 97, 109, 115]
         case pos => subst e0; simp
@@ -1915,8 +1915,8 @@ theorem keyAt_eq {b : ByteArray} {i : USize} {k r : List UInt8} (h : i < b.usize
           intro hx
           rw [hx] at hL2
           simp at hL2
-        simp only [if_neg n0, if_neg n1, if_neg e0]
-      rw [if_neg (kl_beq_ne (by rw [hkl, usz11]; omega))]
+        simp only [ite_eq_right n0, ite_eq_right n1, ite_eq_right e0]
+      rw [ite_eq_right (kl_beq_ne (by rw [hkl, usz11]; omega))]
       have m0 : ¬ k' = [97, 109] := by
         intro hx
         exact hL0 (by simp [hx])
@@ -1926,12 +1926,12 @@ theorem keyAt_eq {b : ByteArray} {i : USize} {k r : List UInt8} (h : i < b.usize
       have m2 : ¬ k' = [101, 118, 101, 108, 80, 97, 114, 97, 109, 115] := by
         intro hx
         exact hL2 (by simp [hx])
-      simp only [if_neg m0, if_neg m1, if_neg m2]
+      simp only [ite_eq_right m0, ite_eq_right m1, ite_eq_right m2]
     · -- 'm'
       rw [keyOf_109]
       by_cases hL0 : k'.length = 2
       case pos =>
-        rw [if_pos (kl_beq (by rw [hkl, hL0, usz3]))]
+        rw [ite_eq_left (kl_beq (by rw [hkl, hL0, usz3]))]
         simp only [lit2_key b (i + 1 + 1) 97 120 k' r hT2 (by simp [hL0])]
         by_cases e0 : k' = [97, 120]
         case pos => subst e0; simp
@@ -1939,11 +1939,11 @@ theorem keyAt_eq {b : ByteArray} {i : USize} {k r : List UInt8} (h : i < b.usize
           intro hx
           rw [hx] at hL0
           simp at hL0
-        simp only [if_neg e0, if_neg n1]
-      rw [if_neg (kl_beq_ne (by rw [hkl, usz3]; omega))]
+        simp only [ite_eq_right e0, ite_eq_right n1]
+      rw [ite_eq_right (kl_beq_ne (by rw [hkl, usz3]; omega))]
       by_cases hL1 : k'.length = 3
       case pos =>
-        rw [if_pos (kl_beq (by rw [hkl, hL1, usz4]))]
+        rw [ite_eq_left (kl_beq (by rw [hkl, hL1, usz4]))]
         simp only [lit3_key b (i + 1 + 1) 101 116 97 k' r hT2 (by simp [hL1])]
         by_cases e0 : k' = [101, 116, 97]
         case pos => subst e0; simp
@@ -1951,20 +1951,20 @@ theorem keyAt_eq {b : ByteArray} {i : USize} {k r : List UInt8} (h : i < b.usize
           intro hx
           rw [hx] at hL1
           simp at hL1
-        simp only [if_neg n0, if_neg e0]
-      rw [if_neg (kl_beq_ne (by rw [hkl, usz4]; omega))]
+        simp only [ite_eq_right n0, ite_eq_right e0]
+      rw [ite_eq_right (kl_beq_ne (by rw [hkl, usz4]; omega))]
       have m0 : ¬ k' = [97, 120] := by
         intro hx
         exact hL0 (by simp [hx])
       have m1 : ¬ k' = [101, 116, 97] := by
         intro hx
         exact hL1 (by simp [hx])
-      simp only [if_neg m0, if_neg m1]
+      simp only [ite_eq_right m0, ite_eq_right m1]
     · -- 'n'
       rw [keyOf_110]
       by_cases hL0 : k'.length = 3
       case pos =>
-        rw [if_pos (kl_beq (by rw [hkl, hL0, usz4]))]
+        rw [ite_eq_left (kl_beq (by rw [hkl, hL0, usz4]))]
         simp only [lit3_key b (i + 1 + 1) 97 109 101 k' r hT2 (by simp [hL0])]
         by_cases e0 : k' = [97, 109, 101]
         case pos => subst e0; simp
@@ -2008,12 +2008,12 @@ theorem keyAt_eq {b : ByteArray} {i : USize} {k r : List UInt8} (h : i < b.usize
           intro hx
           rw [hx] at hL0
           simp at hL0
-        simp only [if_neg e0, if_neg n1, if_neg n2, if_neg n3, if_neg n4, if_neg n5, if_neg n6,
-          if_neg n7, if_neg n8, if_neg n9, if_neg n10]
-      rw [if_neg (kl_beq_ne (by rw [hkl, usz4]; omega))]
+        simp only [ite_eq_right e0, ite_eq_right n1, ite_eq_right n2, ite_eq_right n3, ite_eq_right n4, ite_eq_right n5, ite_eq_right n6,
+          ite_eq_right n7, ite_eq_right n8, ite_eq_right n9, ite_eq_right n10]
+      rw [ite_eq_right (kl_beq_ne (by rw [hkl, usz4]; omega))]
       by_cases hL1 : k'.length = 2
       case pos =>
-        rw [if_pos (kl_beq (by rw [hkl, hL1, usz3]))]
+        rw [ite_eq_left (kl_beq (by rw [hkl, hL1, usz3]))]
         simp only [lit2_key b (i + 1 + 1) 117 109 k' r hT2 (by simp [hL1])]
         by_cases e0 : k' = [117, 109]
         case pos => subst e0; simp
@@ -2057,12 +2057,12 @@ theorem keyAt_eq {b : ByteArray} {i : USize} {k r : List UInt8} (h : i < b.usize
           intro hx
           rw [hx] at hL1
           simp at hL1
-        simp only [if_neg n0, if_neg n1, if_neg n2, if_neg n3, if_neg e0, if_neg n5, if_neg n6,
-          if_neg n7, if_neg n8, if_neg n9, if_neg n10]
-      rw [if_neg (kl_beq_ne (by rw [hkl, usz3]; omega))]
+        simp only [ite_eq_right n0, ite_eq_right n1, ite_eq_right n2, ite_eq_right n3, ite_eq_right e0, ite_eq_right n5, ite_eq_right n6,
+          ite_eq_right n7, ite_eq_right n8, ite_eq_right n9, ite_eq_right n10]
+      rw [ite_eq_right (kl_beq_ne (by rw [hkl, usz3]; omega))]
       by_cases hL2 : k'.length = 5
       case pos =>
-        rw [if_pos (kl_beq (by rw [hkl, hL2, usz6]))]
+        rw [ite_eq_left (kl_beq (by rw [hkl, hL2, usz6]))]
         simp only [lit5_key b (i + 1 + 1) 97 116 86 97 108 k' r hT2 (by simp [hL2]),
           lit5_key b (i + 1 + 1) 111 110 100 101 112 k' r hT2 (by simp [hL2])]
         by_cases e0 : k' = [97, 116, 86, 97, 108]
@@ -2105,12 +2105,12 @@ theorem keyAt_eq {b : ByteArray} {i : USize} {k r : List UInt8} (h : i < b.usize
           intro hx
           rw [hx] at hL2
           simp at hL2
-        simp only [if_neg n0, if_neg e0, if_neg n2, if_neg e1, if_neg n4, if_neg n5, if_neg n6,
-          if_neg n7, if_neg n8, if_neg n9, if_neg n10]
-      rw [if_neg (kl_beq_ne (by rw [hkl, usz6]; omega))]
+        simp only [ite_eq_right n0, ite_eq_right e0, ite_eq_right n2, ite_eq_right e1, ite_eq_right n4, ite_eq_right n5, ite_eq_right n6,
+          ite_eq_right n7, ite_eq_right n8, ite_eq_right n9, ite_eq_right n10]
+      rw [ite_eq_right (kl_beq_ne (by rw [hkl, usz6]; omega))]
       by_cases hL3 : k'.length = 6
       case pos =>
-        rw [if_pos (kl_beq (by rw [hkl, hL3, usz7]))]
+        rw [ite_eq_left (kl_beq (by rw [hkl, hL3, usz7]))]
         simp only [lit6_key b (i + 1 + 1) 102 105 101 108 100 115 k' r hT2 (by simp [hL3])]
         by_cases e0 : k' = [102, 105, 101, 108, 100, 115]
         case pos => subst e0; simp
@@ -2154,12 +2154,12 @@ theorem keyAt_eq {b : ByteArray} {i : USize} {k r : List UInt8} (h : i < b.usize
           intro hx
           rw [hx] at hL3
           simp at hL3
-        simp only [if_neg n0, if_neg n1, if_neg e0, if_neg n3, if_neg n4, if_neg n5, if_neg n6,
-          if_neg n7, if_neg n8, if_neg n9, if_neg n10]
-      rw [if_neg (kl_beq_ne (by rw [hkl, usz7]; omega))]
+        simp only [ite_eq_right n0, ite_eq_right n1, ite_eq_right e0, ite_eq_right n3, ite_eq_right n4, ite_eq_right n5, ite_eq_right n6,
+          ite_eq_right n7, ite_eq_right n8, ite_eq_right n9, ite_eq_right n10]
+      rw [ite_eq_right (kl_beq_ne (by rw [hkl, usz7]; omega))]
       by_cases hL4 : k'.length = 8
       case pos =>
-        rw [if_pos (kl_beq (by rw [hkl, hL4, usz9]))]
+        rw [ite_eq_left (kl_beq (by rw [hkl, hL4, usz9]))]
         simp only [lit8_key b (i + 1 + 1) 117 109 80 97 114 97 109 115 k' r hT2 (by simp [hL4]),
           lit8_key b (i + 1 + 1) 117 109 70 105 101 108 100 115 k' r hT2 (by simp [hL4]),
           lit8_key b (i + 1 + 1) 117 109 77 105 110 111 114 115 k' r hT2 (by simp [hL4]),
@@ -2200,12 +2200,12 @@ theorem keyAt_eq {b : ByteArray} {i : USize} {k r : List UInt8} (h : i < b.usize
           intro hx
           rw [hx] at hL4
           simp at hL4
-        simp only [if_neg n0, if_neg n1, if_neg n2, if_neg n3, if_neg n4, if_neg e1, if_neg n6,
-          if_neg e2, if_neg n8, if_neg e3, if_neg e0]
-      rw [if_neg (kl_beq_ne (by rw [hkl, usz9]; omega))]
+        simp only [ite_eq_right n0, ite_eq_right n1, ite_eq_right n2, ite_eq_right n3, ite_eq_right n4, ite_eq_right e1, ite_eq_right n6,
+          ite_eq_right e2, ite_eq_right n8, ite_eq_right e3, ite_eq_right e0]
+      rw [ite_eq_right (kl_beq_ne (by rw [hkl, usz9]; omega))]
       by_cases hL5 : k'.length = 9
       case pos =>
-        rw [if_pos (kl_beq (by rw [hkl, hL5, usz10]))]
+        rw [ite_eq_left (kl_beq (by rw [hkl, hL5, usz10]))]
         simp only [lit9_key b (i + 1 + 1) 117 109 73 110 100 105 99 101 115 k' r hT2 (by simp [hL5]),
           lit9_key b (i + 1 + 1) 117 109 77 111 116 105 118 101 115 k' r hT2 (by simp [hL5])]
         by_cases e0 : k' = [117, 109, 73, 110, 100, 105, 99, 101, 115]
@@ -2248,9 +2248,9 @@ theorem keyAt_eq {b : ByteArray} {i : USize} {k r : List UInt8} (h : i < b.usize
           intro hx
           rw [hx] at hL5
           simp at hL5
-        simp only [if_neg n0, if_neg n1, if_neg n2, if_neg n3, if_neg n4, if_neg n5, if_neg e0,
-          if_neg n7, if_neg e1, if_neg n9, if_neg n10]
-      rw [if_neg (kl_beq_ne (by rw [hkl, usz10]; omega))]
+        simp only [ite_eq_right n0, ite_eq_right n1, ite_eq_right n2, ite_eq_right n3, ite_eq_right n4, ite_eq_right n5, ite_eq_right e0,
+          ite_eq_right n7, ite_eq_right e1, ite_eq_right n9, ite_eq_right n10]
+      rw [ite_eq_right (kl_beq_ne (by rw [hkl, usz10]; omega))]
       have m0 : ¬ k' = [97, 109, 101] := by
         intro hx
         exact hL0 (by simp [hx])
@@ -2284,24 +2284,24 @@ theorem keyAt_eq {b : ByteArray} {i : USize} {k r : List UInt8} (h : i < b.usize
       have m10 : ¬ k' = [117, 109, 80, 97, 114, 97, 109, 115] := by
         intro hx
         exact hL4 (by simp [hx])
-      simp only [if_neg m0, if_neg m1, if_neg m2, if_neg m3, if_neg m4, if_neg m5, if_neg m6,
-        if_neg m7, if_neg m8, if_neg m9, if_neg m10]
+      simp only [ite_eq_right m0, ite_eq_right m1, ite_eq_right m2, ite_eq_right m3, ite_eq_right m4, ite_eq_right m5, ite_eq_right m6,
+        ite_eq_right m7, ite_eq_right m8, ite_eq_right m9, ite_eq_right m10]
     · -- 'o'
       rw [keyOf_111]
       by_cases hL0 : k'.length = 5
       case pos =>
-        rw [if_pos (kl_beq (by rw [hkl, hL0, usz6]))]
+        rw [ite_eq_left (kl_beq (by rw [hkl, hL0, usz6]))]
         simp only [lit5_key b (i + 1 + 1) 112 97 113 117 101 k' r hT2 (by simp [hL0])]
-      rw [if_neg (kl_beq_ne (by rw [hkl, usz6]; omega))]
+      rw [ite_eq_right (kl_beq_ne (by rw [hkl, usz6]; omega))]
       have m0 : ¬ k' = [112, 97, 113, 117, 101] := by
         intro hx
         exact hL0 (by simp [hx])
-      simp only [if_neg m0]
+      simp only [ite_eq_right m0]
     · -- 'p'
       rw [keyOf_112]
       by_cases hL0 : k'.length = 2
       case pos =>
-        rw [if_pos (kl_beq (by rw [hkl, hL0, usz3]))]
+        rw [ite_eq_left (kl_beq (by rw [hkl, hL0, usz3]))]
         simp only [lit2_key b (i + 1 + 1) 114 101 k' r hT2 (by simp [hL0])]
         by_cases e0 : k' = [114, 101]
         case pos => subst e0; simp
@@ -2317,11 +2317,11 @@ theorem keyAt_eq {b : ByteArray} {i : USize} {k r : List UInt8} (h : i < b.usize
           intro hx
           rw [hx] at hL0
           simp at hL0
-        simp only [if_neg n0, if_neg e0, if_neg n2, if_neg n3]
-      rw [if_neg (kl_beq_ne (by rw [hkl, usz3]; omega))]
+        simp only [ite_eq_right n0, ite_eq_right e0, ite_eq_right n2, ite_eq_right n3]
+      rw [ite_eq_right (kl_beq_ne (by rw [hkl, usz3]; omega))]
       by_cases hL1 : k'.length = 4
       case pos =>
-        rw [if_pos (kl_beq (by rw [hkl, hL1, usz5]))]
+        rw [ite_eq_left (kl_beq (by rw [hkl, hL1, usz5]))]
         simp only [lit4_key b (i + 1 + 1) 97 114 97 109 k' r hT2 (by simp [hL1])]
         by_cases e0 : k' = [97, 114, 97, 109]
         case pos => subst e0; simp
@@ -2337,11 +2337,11 @@ theorem keyAt_eq {b : ByteArray} {i : USize} {k r : List UInt8} (h : i < b.usize
           intro hx
           rw [hx] at hL1
           simp at hL1
-        simp only [if_neg e0, if_neg n1, if_neg n2, if_neg n3]
-      rw [if_neg (kl_beq_ne (by rw [hkl, usz5]; omega))]
+        simp only [ite_eq_right e0, ite_eq_right n1, ite_eq_right n2, ite_eq_right n3]
+      rw [ite_eq_right (kl_beq_ne (by rw [hkl, usz5]; omega))]
       by_cases hL2 : k'.length = 3
       case pos =>
-        rw [if_pos (kl_beq (by rw [hkl, hL2, usz4]))]
+        rw [ite_eq_left (kl_beq (by rw [hkl, hL2, usz4]))]
         simp only [lit3_key b (i + 1 + 1) 114 111 106 k' r hT2 (by simp [hL2])]
         by_cases e0 : k' = [114, 111, 106]
         case pos => subst e0; simp
@@ -2357,11 +2357,11 @@ theorem keyAt_eq {b : ByteArray} {i : USize} {k r : List UInt8} (h : i < b.usize
           intro hx
           rw [hx] at hL2
           simp at hL2
-        simp only [if_neg n0, if_neg n1, if_neg e0, if_neg n3]
-      rw [if_neg (kl_beq_ne (by rw [hkl, usz4]; omega))]
+        simp only [ite_eq_right n0, ite_eq_right n1, ite_eq_right e0, ite_eq_right n3]
+      rw [ite_eq_right (kl_beq_ne (by rw [hkl, usz4]; omega))]
       by_cases hL3 : k'.length = 1
       case pos =>
-        rw [if_pos (kl_beq (by rw [hkl, hL3, usz2]))]
+        rw [ite_eq_left (kl_beq (by rw [hkl, hL3, usz2]))]
         simp only [lit1_key b (i + 1 + 1) 119 k' r hT2 (by simp [hL3])]
         by_cases e0 : k' = [119]
         case pos => subst e0; simp
@@ -2377,8 +2377,8 @@ theorem keyAt_eq {b : ByteArray} {i : USize} {k r : List UInt8} (h : i < b.usize
           intro hx
           rw [hx] at hL3
           simp at hL3
-        simp only [if_neg n0, if_neg n1, if_neg n2, if_neg e0]
-      rw [if_neg (kl_beq_ne (by rw [hkl, usz2]; omega))]
+        simp only [ite_eq_right n0, ite_eq_right n1, ite_eq_right n2, ite_eq_right e0]
+      rw [ite_eq_right (kl_beq_ne (by rw [hkl, usz2]; omega))]
       have m0 : ¬ k' = [97, 114, 97, 109] := by
         intro hx
         exact hL1 (by simp [hx])
@@ -2391,23 +2391,23 @@ theorem keyAt_eq {b : ByteArray} {i : USize} {k r : List UInt8} (h : i < b.usize
       have m3 : ¬ k' = [119] := by
         intro hx
         exact hL3 (by simp [hx])
-      simp only [if_neg m0, if_neg m1, if_neg m2, if_neg m3]
+      simp only [ite_eq_right m0, ite_eq_right m1, ite_eq_right m2, ite_eq_right m3]
     · -- 'q'
       rw [keyOf_113]
       by_cases hL0 : k'.length = 3
       case pos =>
-        rw [if_pos (kl_beq (by rw [hkl, hL0, usz4]))]
+        rw [ite_eq_left (kl_beq (by rw [hkl, hL0, usz4]))]
         simp only [lit3_key b (i + 1 + 1) 117 111 116 k' r hT2 (by simp [hL0])]
-      rw [if_neg (kl_beq_ne (by rw [hkl, usz4]; omega))]
+      rw [ite_eq_right (kl_beq_ne (by rw [hkl, usz4]; omega))]
       have m0 : ¬ k' = [117, 111, 116] := by
         intro hx
         exact hL0 (by simp [hx])
-      simp only [if_neg m0]
+      simp only [ite_eq_right m0]
     · -- 'r'
       rw [keyOf_114]
       by_cases hL0 : k'.length = 3
       case pos =>
-        rw [if_pos (kl_beq (by rw [hkl, hL0, usz4]))]
+        rw [ite_eq_left (kl_beq (by rw [hkl, hL0, usz4]))]
         simp only [lit3_key b (i + 1 + 1) 101 99 115 k' r hT2 (by simp [hL0])]
         by_cases e0 : k' = [101, 99, 115]
         case pos => subst e0; simp
@@ -2423,11 +2423,11 @@ theorem keyAt_eq {b : ByteArray} {i : USize} {k r : List UInt8} (h : i < b.usize
           intro hx
           rw [hx] at hL0
           simp at hL0
-        simp only [if_neg e0, if_neg n1, if_neg n2, if_neg n3]
-      rw [if_neg (kl_beq_ne (by rw [hkl, usz4]; omega))]
+        simp only [ite_eq_right e0, ite_eq_right n1, ite_eq_right n2, ite_eq_right n3]
+      rw [ite_eq_right (kl_beq_ne (by rw [hkl, usz4]; omega))]
       by_cases hL1 : k'.length = 4
       case pos =>
-        rw [if_pos (kl_beq (by rw [hkl, hL1, usz5]))]
+        rw [ite_eq_left (kl_beq (by rw [hkl, hL1, usz5]))]
         simp only [lit4_key b (i + 1 + 1) 117 108 101 115 k' r hT2 (by simp [hL1])]
         by_cases e0 : k' = [117, 108, 101, 115]
         case pos => subst e0; simp
@@ -2443,11 +2443,11 @@ theorem keyAt_eq {b : ByteArray} {i : USize} {k r : List UInt8} (h : i < b.usize
           intro hx
           rw [hx] at hL1
           simp at hL1
-        simp only [if_neg n0, if_neg n1, if_neg n2, if_neg e0]
-      rw [if_neg (kl_beq_ne (by rw [hkl, usz5]; omega))]
+        simp only [ite_eq_right n0, ite_eq_right n1, ite_eq_right n2, ite_eq_right e0]
+      rw [ite_eq_right (kl_beq_ne (by rw [hkl, usz5]; omega))]
       by_cases hL2 : k'.length = 2
       case pos =>
-        rw [if_pos (kl_beq (by rw [hkl, hL2, usz3]))]
+        rw [ite_eq_left (kl_beq (by rw [hkl, hL2, usz3]))]
         simp only [lit2_key b (i + 1 + 1) 104 115 k' r hT2 (by simp [hL2])]
         by_cases e0 : k' = [104, 115]
         case pos => subst e0; simp
@@ -2463,11 +2463,11 @@ theorem keyAt_eq {b : ByteArray} {i : USize} {k r : List UInt8} (h : i < b.usize
           intro hx
           rw [hx] at hL2
           simp at hL2
-        simp only [if_neg n0, if_neg n1, if_neg e0, if_neg n3]
-      rw [if_neg (kl_beq_ne (by rw [hkl, usz3]; omega))]
+        simp only [ite_eq_right n0, ite_eq_right n1, ite_eq_right e0, ite_eq_right n3]
+      rw [ite_eq_right (kl_beq_ne (by rw [hkl, usz3]; omega))]
       by_cases hL3 : k'.length = 6
       case pos =>
-        rw [if_pos (kl_beq (by rw [hkl, hL3, usz7]))]
+        rw [ite_eq_left (kl_beq (by rw [hkl, hL3, usz7]))]
         simp only [lit6_key b (i + 1 + 1) 101 103 117 108 97 114 k' r hT2 (by simp [hL3])]
         by_cases e0 : k' = [101, 103, 117, 108, 97, 114]
         case pos => subst e0; simp
@@ -2483,8 +2483,8 @@ theorem keyAt_eq {b : ByteArray} {i : USize} {k r : List UInt8} (h : i < b.usize
           intro hx
           rw [hx] at hL3
           simp at hL3
-        simp only [if_neg n0, if_neg e0, if_neg n2, if_neg n3]
-      rw [if_neg (kl_beq_ne (by rw [hkl, usz7]; omega))]
+        simp only [ite_eq_right n0, ite_eq_right e0, ite_eq_right n2, ite_eq_right n3]
+      rw [ite_eq_right (kl_beq_ne (by rw [hkl, usz7]; omega))]
       have m0 : ¬ k' = [101, 99, 115] := by
         intro hx
         exact hL0 (by simp [hx])
@@ -2497,12 +2497,12 @@ theorem keyAt_eq {b : ByteArray} {i : USize} {k r : List UInt8} (h : i < b.usize
       have m3 : ¬ k' = [117, 108, 101, 115] := by
         intro hx
         exact hL1 (by simp [hx])
-      simp only [if_neg m0, if_neg m1, if_neg m2, if_neg m3]
+      simp only [ite_eq_right m0, ite_eq_right m1, ite_eq_right m2, ite_eq_right m3]
     · -- 's'
       rw [keyOf_115]
       by_cases hL0 : k'.length = 2
       case pos =>
-        rw [if_pos (kl_beq (by rw [hkl, hL0, usz3]))]
+        rw [ite_eq_left (kl_beq (by rw [hkl, hL0, usz3]))]
         simp only [lit2_key b (i + 1 + 1) 116 114 k' r hT2 (by simp [hL0])]
         by_cases e0 : k' = [116, 114]
         case pos => subst e0; simp
@@ -2526,11 +2526,11 @@ theorem keyAt_eq {b : ByteArray} {i : USize} {k r : List UInt8} (h : i < b.usize
           intro hx
           rw [hx] at hL0
           simp at hL0
-        simp only [if_neg n0, if_neg n1, if_neg e0, if_neg n3, if_neg n4, if_neg n5]
-      rw [if_neg (kl_beq_ne (by rw [hkl, usz3]; omega))]
+        simp only [ite_eq_right n0, ite_eq_right n1, ite_eq_right e0, ite_eq_right n3, ite_eq_right n4, ite_eq_right n5]
+      rw [ite_eq_right (kl_beq_ne (by rw [hkl, usz3]; omega))]
       by_cases hL1 : k'.length = 3
       case pos =>
-        rw [if_pos (kl_beq (by rw [hkl, hL1, usz4]))]
+        rw [ite_eq_left (kl_beq (by rw [hkl, hL1, usz4]))]
         simp only [lit3_key b (i + 1 + 1) 111 114 116 k' r hT2 (by simp [hL1]),
           lit3_key b (i + 1 + 1) 117 99 99 k' r hT2 (by simp [hL1])]
         by_cases e0 : k' = [111, 114, 116]
@@ -2553,11 +2553,11 @@ theorem keyAt_eq {b : ByteArray} {i : USize} {k r : List UInt8} (h : i < b.usize
           intro hx
           rw [hx] at hL1
           simp at hL1
-        simp only [if_neg n0, if_neg e0, if_neg n2, if_neg n3, if_neg n4, if_neg e1]
-      rw [if_neg (kl_beq_ne (by rw [hkl, usz4]; omega))]
+        simp only [ite_eq_right n0, ite_eq_right e0, ite_eq_right n2, ite_eq_right n3, ite_eq_right n4, ite_eq_right e1]
+      rw [ite_eq_right (kl_beq_ne (by rw [hkl, usz4]; omega))]
       by_cases hL2 : k'.length = 5
       case pos =>
-        rw [if_pos (kl_beq (by rw [hkl, hL2, usz6]))]
+        rw [ite_eq_left (kl_beq (by rw [hkl, hL2, usz6]))]
         simp only [lit5_key b (i + 1 + 1) 116 114 117 99 116 k' r hT2 (by simp [hL2]),
           lit5_key b (i + 1 + 1) 116 114 86 97 108 k' r hT2 (by simp [hL2]),
           lit5_key b (i + 1 + 1) 97 102 101 116 121 k' r hT2 (by simp [hL2])]
@@ -2579,8 +2579,8 @@ theorem keyAt_eq {b : ByteArray} {i : USize} {k r : List UInt8} (h : i < b.usize
           intro hx
           rw [hx] at hL2
           simp at hL2
-        simp only [if_neg e2, if_neg n1, if_neg n2, if_neg e1, if_neg e0, if_neg n5]
-      rw [if_neg (kl_beq_ne (by rw [hkl, usz6]; omega))]
+        simp only [ite_eq_right e2, ite_eq_right n1, ite_eq_right n2, ite_eq_right e1, ite_eq_right e0, ite_eq_right n5]
+      rw [ite_eq_right (kl_beq_ne (by rw [hkl, usz6]; omega))]
       have m0 : ¬ k' = [97, 102, 101, 116, 121] := by
         intro hx
         exact hL2 (by simp [hx])
@@ -2599,12 +2599,12 @@ theorem keyAt_eq {b : ByteArray} {i : USize} {k r : List UInt8} (h : i < b.usize
       have m5 : ¬ k' = [117, 99, 99] := by
         intro hx
         exact hL1 (by simp [hx])
-      simp only [if_neg m0, if_neg m1, if_neg m2, if_neg m3, if_neg m4, if_neg m5]
+      simp only [ite_eq_right m0, ite_eq_right m1, ite_eq_right m2, ite_eq_right m3, ite_eq_right m4, ite_eq_right m5]
     · -- 't'
       rw [keyOf_116]
       by_cases hL0 : k'.length = 3
       case pos =>
-        rw [if_pos (kl_beq (by rw [hkl, hL0, usz4]))]
+        rw [ite_eq_left (kl_beq (by rw [hkl, hL0, usz4]))]
         simp only [lit3_key b (i + 1 + 1) 121 112 101 k' r hT2 (by simp [hL0])]
         by_cases e0 : k' = [121, 112, 101]
         case pos => subst e0; simp
@@ -2620,11 +2620,11 @@ theorem keyAt_eq {b : ByteArray} {i : USize} {k r : List UInt8} (h : i < b.usize
           intro hx
           rw [hx] at hL0
           simp at hL0
-        simp only [if_neg n0, if_neg e0, if_neg n2, if_neg n3]
-      rw [if_neg (kl_beq_ne (by rw [hkl, usz4]; omega))]
+        simp only [ite_eq_right n0, ite_eq_right e0, ite_eq_right n2, ite_eq_right n3]
+      rw [ite_eq_right (kl_beq_ne (by rw [hkl, usz4]; omega))]
       by_cases hL1 : k'.length = 7
       case pos =>
-        rw [if_pos (kl_beq (by rw [hkl, hL1, usz8]))]
+        rw [ite_eq_left (kl_beq (by rw [hkl, hL1, usz8]))]
         simp only [lit7_key b (i + 1 + 1) 121 112 101 78 97 109 101 k' r hT2 (by simp [hL1])]
         by_cases e0 : k' = [121, 112, 101, 78, 97, 109, 101]
         case pos => subst e0; simp
@@ -2640,11 +2640,11 @@ theorem keyAt_eq {b : ByteArray} {i : USize} {k r : List UInt8} (h : i < b.usize
           intro hx
           rw [hx] at hL1
           simp at hL1
-        simp only [if_neg n0, if_neg n1, if_neg e0, if_neg n3]
-      rw [if_neg (kl_beq_ne (by rw [hkl, usz8]; omega))]
+        simp only [ite_eq_right n0, ite_eq_right n1, ite_eq_right e0, ite_eq_right n3]
+      rw [ite_eq_right (kl_beq_ne (by rw [hkl, usz8]; omega))]
       by_cases hL2 : k'.length = 2
       case pos =>
-        rw [if_pos (kl_beq (by rw [hkl, hL2, usz3]))]
+        rw [ite_eq_left (kl_beq (by rw [hkl, hL2, usz3]))]
         simp only [lit2_key b (i + 1 + 1) 104 109 k' r hT2 (by simp [hL2])]
         by_cases e0 : k' = [104, 109]
         case pos => subst e0; simp
@@ -2660,11 +2660,11 @@ theorem keyAt_eq {b : ByteArray} {i : USize} {k r : List UInt8} (h : i < b.usize
           intro hx
           rw [hx] at hL2
           simp at hL2
-        simp only [if_neg e0, if_neg n1, if_neg n2, if_neg n3]
-      rw [if_neg (kl_beq_ne (by rw [hkl, usz3]; omega))]
+        simp only [ite_eq_right e0, ite_eq_right n1, ite_eq_right n2, ite_eq_right n3]
+      rw [ite_eq_right (kl_beq_ne (by rw [hkl, usz3]; omega))]
       by_cases hL3 : k'.length = 4
       case pos =>
-        rw [if_pos (kl_beq (by rw [hkl, hL3, usz5]))]
+        rw [ite_eq_left (kl_beq (by rw [hkl, hL3, usz5]))]
         simp only [lit4_key b (i + 1 + 1) 121 112 101 115 k' r hT2 (by simp [hL3])]
         by_cases e0 : k' = [121, 112, 101, 115]
         case pos => subst e0; simp
@@ -2680,8 +2680,8 @@ theorem keyAt_eq {b : ByteArray} {i : USize} {k r : List UInt8} (h : i < b.usize
           intro hx
           rw [hx] at hL3
           simp at hL3
-        simp only [if_neg n0, if_neg n1, if_neg n2, if_neg e0]
-      rw [if_neg (kl_beq_ne (by rw [hkl, usz5]; omega))]
+        simp only [ite_eq_right n0, ite_eq_right n1, ite_eq_right n2, ite_eq_right e0]
+      rw [ite_eq_right (kl_beq_ne (by rw [hkl, usz5]; omega))]
       have m0 : ¬ k' = [104, 109] := by
         intro hx
         exact hL2 (by simp [hx])
@@ -2694,29 +2694,29 @@ theorem keyAt_eq {b : ByteArray} {i : USize} {k r : List UInt8} (h : i < b.usize
       have m3 : ¬ k' = [121, 112, 101, 115] := by
         intro hx
         exact hL3 (by simp [hx])
-      simp only [if_neg m0, if_neg m1, if_neg m2, if_neg m3]
+      simp only [ite_eq_right m0, ite_eq_right m1, ite_eq_right m2, ite_eq_right m3]
     · -- 'u'
       rw [keyOf_117]
       by_cases hL0 : k'.length = 1
       case pos =>
-        rw [if_pos (kl_beq (by rw [hkl, hL0, usz2]))]
+        rw [ite_eq_left (kl_beq (by rw [hkl, hL0, usz2]))]
         simp only [lit1_key b (i + 1 + 1) 115 k' r hT2 (by simp [hL0])]
-      rw [if_neg (kl_beq_ne (by rw [hkl, usz2]; omega))]
+      rw [ite_eq_right (kl_beq_ne (by rw [hkl, usz2]; omega))]
       have m0 : ¬ k' = [115] := by
         intro hx
         exact hL0 (by simp [hx])
-      simp only [if_neg m0]
+      simp only [ite_eq_right m0]
     · -- 'v'
       rw [keyOf_118]
       by_cases hL0 : k'.length = 4
       case pos =>
-        rw [if_pos (kl_beq (by rw [hkl, hL0, usz5]))]
+        rw [ite_eq_left (kl_beq (by rw [hkl, hL0, usz5]))]
         simp only [lit4_key b (i + 1 + 1) 97 108 117 101 k' r hT2 (by simp [hL0])]
-      rw [if_neg (kl_beq_ne (by rw [hkl, usz5]; omega))]
+      rw [ite_eq_right (kl_beq_ne (by rw [hkl, usz5]; omega))]
       have m0 : ¬ k' = [97, 108, 117, 101] := by
         intro hx
         exact hL0 (by simp [hx])
-      simp only [if_neg m0]
+      simp only [ite_eq_right m0]
     · rename_i _ e97 e98 e99 e100 e102 e104 e105 e107 e108 e109 e110 e111 e112 e113 e114 e115
          e116 e117 e118
       have f97 : ((97 : UInt8) == c) = false := by
@@ -2864,7 +2864,7 @@ theorem valueAt_eq {b : ByteArray} {i : USize} {k r1 : List UInt8} (h : i < b.us
     have hnv : naiveValue r1 = none := by rw [naiveValue_eq, hws]
     rw [hnv]
     simp only [List.headD_nil, beq_iff_eq]
-    rw [if_neg (by decide)]
+    rw [ite_eq_right (by decide)]
   | cons c r' =>
     by_cases hc : c = 58
     · subst hc
@@ -2968,7 +2968,7 @@ theorem naiveListLoop_rest_suffix (start : UInt8 → Bool) (item : List UInt8 �
     exact this
   | case9 c l' acc w hws h93 h44 hst hw x rest hi hlt ih =>
     rw [naiveListLoop.eq_2]
-    simp only [hws, h93, h44, hst, hw, hi, hlt, ↓reduceIte, Bool.false_eq_true, dif_pos]
+    simp only [hws, h93, h44, hst, hw, hi, hlt, ↓reduceIte, Bool.false_eq_true, dite_eq_left]
     have hr := hitem (c :: l')
     rw [hi] at hr
     exact ih.trans hr
@@ -3054,11 +3054,11 @@ theorem naiveSkipBraced_rest_suffix {l r : List UInt8} {d : Nat}
     simp only [hc, ↓reduceIte, hsb, reduceCtorEq] at h
   | case3 c l' d hc body rest hsb hlt ih =>
     rw [naiveSkipBraced.eq_def] at h
-    simp only [hc, ↓reduceIte, hsb, hlt, dif_pos] at h
+    simp only [hc, ↓reduceIte, hsb, hlt, dite_eq_left] at h
     exact (ih h).trans ((naiveStrBody_rest_suffix hsb).trans (List.suffix_cons _ _))
   | case4 c l' d hc body rest hsb hlt =>
     rw [naiveSkipBraced.eq_def] at h
-    simp only [hc, ↓reduceIte, hsb, dif_neg hlt, reduceCtorEq] at h
+    simp only [hc, ↓reduceIte, hsb, dite_eq_right hlt, reduceCtorEq] at h
   | case5 c l' d hc hnl =>
     rw [naiveSkipBraced.eq_def] at h
     simp only [hc, hnl, ↓reduceIte, Bool.false_eq_true, reduceCtorEq] at h
@@ -3143,7 +3143,7 @@ theorem naiveObjLoop_rest_suffix (fields : Key → Option (Slot σ)) (required :
   | case14 c l' w seen st hws h125 h44 h34 hw key r1 hkb lv hv slot hfk hdup x rest hread hlt ih =>
     rw [naiveObjLoop.eq_2]
     simp only [hws, h125, h44, h34, hw, hkb, hv, hfk, hdup, hread, hlt, ↓reduceIte,
-      Bool.false_eq_true, dif_pos]
+      Bool.false_eq_true, dite_eq_left]
     have hlv : lv <:+ c :: l' :=
       (naiveValue_rest_suffix hv).trans
         ((naiveKeyBody_rest_suffix hkb).trans (List.suffix_cons _ _))
@@ -3152,7 +3152,7 @@ theorem naiveObjLoop_rest_suffix (fields : Key → Option (Slot σ)) (required :
     exact ih.trans (hr.trans hlv)
   | case15 c l' w seen st hws h125 h44 h34 hw key r1 hkb lv hv slot hfk hdup x rest hread hlt =>
     rw [naiveObjLoop.eq_2]
-    simp only [hws, h125, h44, h34, hw, hkb, hv, hfk, hdup, hread, dif_neg hlt, ↓reduceIte,
+    simp only [hws, h125, h44, h34, hw, hkb, hv, hfk, hdup, hread, dite_eq_right hlt, ↓reduceIte,
       Bool.false_eq_true]
     exact List.suffix_rfl
   | case16 c l' w seen st hws h125 h44 h34 =>
@@ -3458,7 +3458,7 @@ theorem scanPw_eq (b : ByteArray) (i : USize) :
         rw [hT34, naivePw_cons_34, ← hT34,
           matchLit_lit b (i + 1) "never\"" (size_toUTF8_lt "never\"" 6 rfl (by decide))]
         unfold naiveLit
-        rw [if_neg (by simpa using h91), if_pos (by simpa using h34)]
+        rw [ite_eq_right (by simpa using h91), ite_eq_left (by simpa using h34)]
         by_cases hpre : (lit "never\"").isPrefixOf (tailAt b (i + 1)) = true
         · have hlen6 : 6 ≤ (tailAt b (i + 1)).length := by
             have hp := (List.isPrefixOf_iff_prefix.mp hpre).length_le
@@ -3532,7 +3532,7 @@ theorem scanHints_eq (b : ByteArray) (i : USize) :
     rw [hhead]
     by_cases h34 : b.uget i (usizeInBounds b i hlt) = 34
     · have hT34 : tailAt b i = 34 :: tailAt b (i + 1) := by rw [hT, h34]
-      rw [hT34, naiveHints_cons_34, ← hT34, if_pos (by simpa using h34),
+      rw [hT34, naiveHints_cons_34, ← hT34, ite_eq_left (by simpa using h34),
         matchLit_lit b (i + 1) "abbrev\"" (size_toUTF8_lt "abbrev\"" 7 rfl (by decide)),
         matchLit_lit b (i + 1) "opaque\"" (size_toUTF8_lt "opaque\"" 7 rfl (by decide))]
       unfold naiveLit
@@ -3575,7 +3575,7 @@ theorem scanHints_eq (b : ByteArray) (i : USize) :
           rw [hPN, posAt_tailAt hi1b hsufW]; omega
         have hiP : i.toNat ≤ (skipWs b (i + 1)).toNat := by
           rw [hPN]; simp only [posAt]; omega
-        rw [if_neg (by simpa using h34), if_pos (by simpa using h123)]
+        rw [ite_eq_right (by simpa using h34), ite_eq_left (by simpa using h123)]
         by_cases hq : byteAt b (skipWs b (i + 1)) = 34
         · have hPlt : skipWs b (i + 1) < b.usize :=
             lt_usize_of_byteAt_ne_zero (by rw [hq]; decide)
@@ -3584,7 +3584,7 @@ theorem scanHints_eq (b : ByteArray) (i : USize) :
             rw [tailAt_of_lt hPlt, uget_eq_byteAt hPlt, hq]
           have hdw : (tailAt b (i + 1)).dropWhile isWs
               = 34 :: tailAt b (skipWs b (i + 1) + 1) := by rw [← hPT]; exact hP1T
-          rw [hT123, naiveHints_cons_123 hdw, if_neg (by simp [hq])]
+          rw [hT123, naiveHints_cons_123 hdw, ite_eq_right (by simp [hq])]
           cases hkb : naiveKeyBody (tailAt b (skipWs b (i + 1) + 1)) with
           | none =>
             rw [(keyEnd_eq_zero_iff hPlt).mpr hkb]
@@ -3598,7 +3598,7 @@ theorem scanHints_eq (b : ByteArray) (i : USize) :
                 = liftRes b i (.err ErrTag.badHints
                     (34 :: tailAt b (skipWs b (i + 1) + 1)) : NRes HintsRec) := by
               rw [← hP1T, liftRes_err_at hiP hPle]
-            rw [if_neg (by simpa using hne0), keyAt_eq hPlt hkb]
+            rw [ite_eq_right (by simpa using hne0), keyAt_eq hPlt hkb]
             cases hko : keyOf key <;> simp only [hko] <;> try exact hErr
             -- the `kRegular` slot
             rw [valueAt_eq hPlt hkb]
@@ -3625,7 +3625,7 @@ theorem scanHints_eq (b : ByteArray) (i : USize) :
                 rw [hVn, posAt_tailAt hPle hlvsuf]; omega
               have hiV : i.toNat ≤ (posAt (skipWs b (i + 1)).toNat
                   (tailAt b (skipWs b (i + 1))) lv).toUSize.toNat := by omega
-              rw [if_neg (by
+              rw [ite_eq_right (by
                 simp only [beq_iff_eq]
                 intro hx
                 rw [hx] at hVgt
@@ -3677,7 +3677,7 @@ theorem scanHints_eq (b : ByteArray) (i : USize) :
                 have hiE : i.toNat ≤ (numEnd b (posAt (skipWs b (i + 1)).toNat
                     (tailAt b (skipWs b (i + 1))) lv).toUSize).toNat := by
                   rw [hEN]; exact Nat.le_trans hiV (le_posAt _ _ _)
-                rw [if_neg (by simpa using hEne), hEval]
+                rw [ite_eq_right (by simpa using hEne), hEval]
                 have hQsuf : (tailAt b (numEnd b (posAt (skipWs b (i + 1)).toNat
                     (tailAt b (skipWs b (i + 1))) lv).toUSize)).dropWhile isWs
                     <:+ tailAt b (numEnd b (posAt (skipWs b (i + 1)).toNat
@@ -3712,7 +3712,7 @@ theorem scanHints_eq (b : ByteArray) (i : USize) :
                     (tailAt b (skipWs b (i + 1))) lv).toUSize)) with
                 | nil =>
                   simp only [List.headD_nil, beq_iff_eq]
-                  rw [if_neg (by decide), ← hQc, liftRes_err_at hiQ hQb]
+                  rw [ite_eq_right (by decide), ← hQc, liftRes_err_at hiQ hQb]
                 | cons c t =>
                   by_cases hc : c = 125
                   · subst hc
@@ -3737,7 +3737,7 @@ theorem scanHints_eq (b : ByteArray) (i : USize) :
         · have hnv : naiveHints (tailAt b i) = .err .badHints (tailAt b i) := by
             conv => lhs; rw [hT123]
             rw [naiveHints_cons_123_bad (by rw [← hPT, ← byteAt_eq]; exact hq), ← hT123]
-          rw [hnv, liftRes_err_self, if_pos (bne_iff_ne.mpr hq)]
+          rw [hnv, liftRes_err_self, ite_eq_left (bne_iff_ne.mpr hq)]
       · have hh1 : ¬ (tailAt b i).headD 0 = 34 := by rw [hhead]; exact h34
         have hh2 : ¬ (tailAt b i).headD 0 = 123 := by rw [hhead]; exact h123
         rw [naiveHints_of_ne hh1 hh2, liftRes_err_self]
@@ -3848,7 +3848,7 @@ theorem skipBraced_eq (b : ByteArray) (i : USize) (d : Nat) :
         = naiveSkipBraced (tailAt b (strClose b (i + 1) + 1)) depth := by
       conv => lhs; rw [tailAt_of_lt h]
       rw [naiveSkipBraced.eq_def]
-      simp only [h34', hsb, dif_pos hguard, ↓reduceIte]
+      simp only [h34', hsb, dite_eq_left hguard, ↓reduceIte]
       rw [hT2]
     have hb1 : i.toNat ≤ (strClose b (i + 1) + 1).toNat := by omega
     have hb2 : (strClose b (i + 1) + 1).toNat ≤ b.usize.toNat := by omega

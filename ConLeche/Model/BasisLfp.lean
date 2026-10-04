@@ -343,7 +343,7 @@ theorem natLfp_clause {acval : Name → (Name → Nat) → AnnotTerm} {nm zn sn 
       · rintro ⟨hj, hsp⟩
         rcases (show j = 0 ∨ j = 1 by omega) with rfl | rfl
         · exact Or.inl ⟨rfl, spineFit_nil_iff.mp hsp⟩
-        · simp only [if_neg (show (1 : Nat) ≠ 0 by decide)] at hsp
+        · simp only [ite_eq_right (show (1 : Nat) ≠ 0 by decide)] at hsp
           match fs, hsp with
           | [m], hsp => exact Or.inr ⟨rfl, m, rfl, by simpa using hsp.1⟩)
     (fun _ h => absurd h (by decide))
@@ -352,14 +352,14 @@ theorem natLfp_clause {acval : Name → (Name → Nat) → AnnotTerm} {nm zn sn 
       unfold natInj at h
       rcases (show j = 0 ∨ j = 1 by omega) with rfl | rfl <;>
         rcases (show j' = 0 ∨ j' = 1 by omega) with rfl | rfl
-      · simp only [if_pos] at hl hl'
+      · simp only [ite_eq_left] at hl hl'
         rw [List.eq_nil_of_length_eq_zero hl, List.eq_nil_of_length_eq_zero hl']
         exact ⟨rfl, rfl⟩
-      · simp only [if_pos, if_neg (show (1 : Nat) ≠ 0 by decide)] at h
+      · simp only [ite_eq_left, ite_eq_right (show (1 : Nat) ≠ 0 by decide)] at h
         exact absurd h.symm (vsucc_ne_empty _)
-      · simp only [if_pos, if_neg (show (1 : Nat) ≠ 0 by decide)] at h
+      · simp only [ite_eq_left, ite_eq_right (show (1 : Nat) ≠ 0 by decide)] at h
         exact absurd h (vsucc_ne_empty _)
-      · simp only [if_neg (show (1 : Nat) ≠ 0 by decide)] at hl hl' h
+      · simp only [ite_eq_right (show (1 : Nat) ≠ 0 by decide)] at hl hl' h
         match fs, fs', hl, hl' with
         | [m], [m'], _, _ =>
           have h' : vsucc m = vsucc m' := by simpa using h
@@ -369,13 +369,13 @@ theorem natLfp_clause {acval : Name → (Name → Nat) → AnnotTerm} {nm zn sn 
       · have := spineFit_nil_iff.mp (by simpa [natFlds] using hsp)
         subst this
         show interp V ρ (acval (if (0 : Nat) = 0 then zn else sn) ψ) = natInj 0 []
-        rw [if_pos rfl, hzero]; rfl
-      · simp only [natFlds, if_neg (show (1 : Nat) ≠ 0 by decide)] at hsp
+        rw [ite_eq_left rfl, hzero]; rfl
+      · simp only [natFlds, ite_eq_right (show (1 : Nat) ≠ 0 by decide)] at hsp
         match fs, hsp with
         | [m], hsp =>
           have hm : m ∈ˢ (omega : V) := by simpa using hsp.1
           show app (interp V ρ (acval (if (1 : Nat) = 0 then zn else sn) ψ)) m = natInj 1 [m]
-          rw [if_neg (by decide), hsucc, natSuccV_app (V := V) hm]
+          rw [ite_eq_right (by decide), hsucc, natSuccV_app (V := V) hm]
           simp [natInj, natsucc])
     (fun _ _ S _ hS j _ => by
       unfold natFlds
@@ -652,7 +652,7 @@ theorem lfp0_stored {env : ConLeche.Env} {cv : ConLeche.ConstantVal} {caps : Con
   obtain rfl : mm = 0 := Nat.lt_one_iff.mp hmm
   exact ⟨cv, caps, by
     show (⟨.indInfo cv caps :: env.consts⟩ : ConLeche.Env).find? cv.name = _
-    rw [ConLeche.Env.find?_cons]; exact if_pos rfl⟩
+    rw [ConLeche.Env.find?_cons]; exact ite_eq_left rfl⟩
 
 /-- A one-member block is stored at an environment holding its former and
 its constructors. -/

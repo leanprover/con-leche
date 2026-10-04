@@ -133,7 +133,7 @@ theorem genMinorTower (hμ : μ.verifiedChecks = true)
   have hPdget : (blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c).getD
       (R.g.nP + s) default = pd.2.2 := by
     rw [blockRulePdomsAV, List.getD_eq_getElem?_getD, List.getElem?_map, List.getElem?_take,
-      if_pos (by omega), hpd]; rfl
+      ite_eq_left (by omega), hpd]; rfl
   -- read at the rule prefix
   have hlift := denoteMeta_lift (env := envC) (φ := ψ) mpC.base2.acval_closed hTs.1 R.g.pre.length
     (by omega)
@@ -276,7 +276,7 @@ theorem genCls_frameV (hμ : μ.verifiedChecks = true)
       rw [← hbF, List.take_take, Nat.min_eq_left (by omega)]
     have hgd : (bs.map (·.2.2)).getD k default = fdoms.getD k default := by
       rw [← hbF, List.getD_eq_getElem?_getD, List.getD_eq_getElem?_getD, List.getElem?_take,
-        if_pos hk]
+        ite_eq_left hk]
     have := wellDenotedV_piDom_at hw k hkb zs (by rw [htk]; exact hzs)
     rw [hgd] at this
     rw [List.getD_eq_getElem?_getD, List.getElem?_append_right (by omega), Nat.add_sub_cancel_left,

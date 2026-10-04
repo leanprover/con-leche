@@ -66,13 +66,13 @@ theorem extendFalse (mp : EnvModelM V μ env)
   -- the pinned block's lfp clause is recorded at its former
   refine coverTo_addLfp (D := emptyLfp falseName 0)
     (hL := emptyLfp_clause 0 (fun _ _ => by unfold acvalWith; split; rfl; exact absurd rfl ‹_›)) (hst := lfp0_stored)
-    (hrd := lfp0_reads (by rw [ConLeche.Env.find?_cons]; exact if_pos rfl)
+    (hrd := lfp0_reads (by rw [ConLeche.Env.find?_cons]; exact ite_eq_left rfl)
       (fun ψ => by show denoteMeta _ _ _ 0 (.sort _) = _; rw [denoteMeta_sort]; rfl))
-    (hrdC := lfp0_ctorReads (by rw [ConLeche.Env.find?_cons]; exact if_pos rfl)
+    (hrdC := lfp0_ctorReads (by rw [ConLeche.Env.find?_cons]; exact ite_eq_left rfl)
       (fun ψ => ⟨_, by show denoteMeta _ _ _ 0 (.sort _) = _; rw [denoteMeta_sort]⟩) fun j hj => absurd hj (Nat.not_lt_zero j))
     (hnd := nodup_one _) (hlen := rfl)
     (hall := lfpAll_one (n := falseName) (c := falseA) rfl rfl
-      (by rw [ConLeche.Env.find?_cons]; exact if_pos rfl)
+      (by rw [ConLeche.Env.find?_cons]; exact ite_eq_left rfl)
       (fun _ _ h => by injection h with _ h; subst h; rfl))
     (hown := lfpOwn_former0 (c₀ := falseA) rfl rfl rfl rfl rfl (by decide) fun _ => rfl)
     (hex := filter_not_mem_self _)
@@ -135,7 +135,7 @@ theorem denoteMeta_falseRecA_type {m : EnvModel V env}
     intro d
     have hf : (⟨falseRecA :: env.consts⟩ : Env).find? falseName
         = some falseA := by
-      rw [ConLeche.Env.find?_cons, if_neg (by decide)]; exact hE
+      rw [ConLeche.Env.find?_cons, ite_eq_right (by decide)]; exact hE
     rw [denoteMeta_levelless_const hf (by rfl), hleaf]
   rw [show falseRecA.toConstantVal.type
       = Expr.forallE
@@ -234,7 +234,7 @@ theorem declBasisPB_falseK {env₂ : Env} (mp : EnvModelM V μ env)
   refine (extendFalse mp hf1 hwf1).trans fun mp1 => ?_
   have hE : (⟨falseA :: env.consts⟩ : Env).find? falseName
       = some falseA := by
-    rw [ConLeche.Env.find?_cons]; exact if_pos rfl
+    rw [ConLeche.Env.find?_cons]; exact ite_eq_left rfl
   have hf2 : (⟨falseA :: env.consts⟩ : Env).find? falseRecA.name
       = none := Option.isNone_iff_eq_none.mp h2
   have hwf2 : EnvWF ⟨falseRecA :: falseA :: env.consts⟩ := by
@@ -261,7 +261,7 @@ theorem declBasisPB_falseK {env₂ : Env} (mp : EnvModelM V μ env)
       Expr.constsResolve, Bool.and_eq_true, Option.isSome_iff_exists]
     have hf : (⟨falseRecA :: falseA :: env.consts⟩ : Env).find?
         falseName = some falseA := by
-      rw [ConLeche.Env.find?_cons, if_neg (by decide)]
+      rw [ConLeche.Env.find?_cons, ite_eq_right (by decide)]
       exact hE
     rw [hf]
     simp

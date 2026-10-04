@@ -132,10 +132,10 @@ theorem basisPinnedTT_consFresh {cval cval' : TConstVal}
   intro n ci hf hres
   by_cases hn : c₀.name = n
   · subst hn
-    rw [ConLeche.Env.find?_cons, if_pos rfl] at hf
+    rw [ConLeche.Env.find?_cons, ite_eq_left rfl] at hf
     obtain rfl : ci = c₀ := (Option.some.inj hf).symm
     exact ⟨(hhead hres).1, fun t ψ hp => (hhead hres).2 ψ t hp⟩
-  · rw [ConLeche.Env.find?_cons, if_neg hn] at hf
+  · rw [ConLeche.Env.find?_cons, ite_eq_right hn] at hf
     refine ⟨(h n ci hf hres).1, fun t ψ hp => ?_⟩
     rw [← hag n (fun hh => hn hh.symm)]
     exact (h n ci hf hres).2 t ψ hp

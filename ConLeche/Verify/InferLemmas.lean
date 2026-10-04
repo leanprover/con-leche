@@ -85,9 +85,9 @@ theorem whnf_app_inv {env : Env} {fuel d : Nat} {f a e' : Expr} {c : Bool}
   case _ =>
     dsimp only at h
     by_cases hg : betaGateFires mode m.pw = true
-    · rw [if_pos hg] at h
+    · rw [ite_eq_left hg] at h
       exact Or.inl ⟨ty, body, m, rfl, h, Or.inl hg⟩
-    · rw [if_neg hg] at h
+    · rw [ite_eq_right hg] at h
       try simp only [Bind.bind, Except.bind] at h
       try dsimp only at h
       cases hta : inferTypeIO mode env fuel d a with
@@ -101,10 +101,10 @@ theorem whnf_app_inv {env : Env} {fuel d : Nat} {f a e' : Expr} {c : Bool}
       rw [hde] at h
       cases bb with
       | true =>
-        simp only [if_true] at h
+        simp only [ite_true] at h
         exact Or.inl ⟨ty, body, m, rfl, h, Or.inr ⟨ta, rfl, hde⟩⟩
       | false =>
-        simp only [Bool.false_eq_true, if_false, pure, Except.pure,
+        simp only [Bool.false_eq_true, ite_false, pure, Except.pure,
           Except.ok.injEq] at h
         exact Or.inr (Or.inr h.symm)
   all_goals
@@ -216,19 +216,19 @@ theorem inferTypeCore_lam_inv {env : Env} {fuel d : Nat}
   -- the annotation-validation block (tasks #152/#161), verified modes
   by_cases hv : mode.verifiedChecks = true
   case neg =>
-    rw [if_neg hv] at h
+    rw [ite_eq_right hv] at h
     simp only [pure, Except.pure, Except.ok.injEq] at h
     exact ⟨tty, u, bt, rfl, hwtty, rfl,
       fun hv' _ => absurd hv' hv,
       fun hv' _ _ => absurd hv' hv, h.symm⟩
-  rw [if_pos hv] at h
+  rw [ite_eq_left hv] at h
   revert h
   match body with
   | .lam tyI bI mbI =>
     intro h
     simp only [Expr.lamPw] at h
     by_cases hpw : (m.pw == mbI.pw) = true
-    · rw [if_pos hpw] at h
+    · rw [ite_eq_left hpw] at h
       simp only [pure, Except.pure, Except.ok.injEq] at h
       refine ⟨tty, u, bt, rfl, hwtty, rfl, ?_, ?_, h.symm⟩
       · intro _ hlam; simp [Expr.isLam] at hlam
@@ -238,7 +238,7 @@ theorem inferTypeCore_lam_inv {env : Env} {fuel d : Nat}
           | (cases heq; exact eq_of_beq hpw)
           | (rw [← heq]; exact eq_of_beq hpw)
           | (injection heq with heq; rw [← heq]; exact eq_of_beq hpw)
-    · rw [if_neg hpw] at h
+    · rw [ite_eq_right hpw] at h
       simp [throw, throwThe, MonadExceptOf.throw] at h
   | .bvar _ | .fvar _ _ | .sort _ | .const _ _ | .app _ _
   | .forallE _ _ _ | .letE _ _ _ | .lit _ | .proj _ _ _ =>
@@ -259,7 +259,7 @@ theorem inferTypeCore_lam_inv {env : Env} {fuel d : Nat}
       intro h
       dsimp only [pure, Except.pure] at h
       by_cases hz : (Level.zeronessOf v == m.pw) = true
-      · rw [if_pos hz] at h
+      · rw [ite_eq_left hz] at h
         simp only [pure, Except.pure, Except.ok.injEq] at h
         refine ⟨tty, u, bt, rfl, hwtty, rfl,
           fun _ _ => ⟨btt, v, hbtt, hwbtt, eq_of_beq hz⟩, ?_, h.symm⟩
@@ -267,7 +267,7 @@ theorem inferTypeCore_lam_inv {env : Env} {fuel d : Nat}
         first
           | exact nomatch heq
           | simp [Expr.lamPw] at heq
-      · rw [if_neg hz] at h
+      · rw [ite_eq_right hz] at h
         simp [throw, throwThe, MonadExceptOf.throw] at h
     | .bvar _ | .fvar _ _ | .const _ _ | .app _ _ | .lam _ _ _
     | .forallE _ _ _ | .letE _ _ _ | .lit _ | .proj _ _ _ =>
@@ -321,7 +321,7 @@ theorem inferTypeCore_app_inv {env : Env} {fuel d : Nat} {f a t : Expr}
   cases r with
   | false => simp [throw, throwThe, MonadExceptOf.throw] at h
   | true =>
-    simp only [if_true, pure, Except.pure, Except.ok.injEq] at h
+    simp only [ite_true, pure, Except.pure, Except.ok.injEq] at h
     exact ⟨tf, ty', body', m', rfl, hw, h.symm, ta, rfl, hde⟩
 
 /-- Inversion for the ∀-rule of `inferTypeCore` (task #100 stage 6:
@@ -372,16 +372,16 @@ theorem inferTypeCore_forall_inv {env : Env} {fuel d : Nat}
   dsimp only at h
   by_cases hv : mode.verifiedChecks = true
   case neg =>
-    rw [if_neg hv] at h
+    rw [ite_eq_right hv] at h
     simp only [pure, Except.pure, Except.ok.injEq] at h
     exact ⟨tty, u, bt, v, rfl, hwt, rfl, hes,
       fun hv' => absurd hv' hv, h.symm⟩
-  rw [if_pos hv] at h
+  rw [ite_eq_left hv] at h
   by_cases hz : (Level.zeronessOf v == m.pw) = true
-  · rw [if_pos hz] at h
+  · rw [ite_eq_left hz] at h
     simp only [pure, Except.pure, Except.ok.injEq] at h
     exact ⟨tty, u, bt, v, rfl, hwt, rfl, hes, fun _ => eq_of_beq hz, h.symm⟩
-  · rw [if_neg hz] at h
+  · rw [ite_eq_right hz] at h
     simp [throw, throwThe, MonadExceptOf.throw] at h
 
 /-- Inversion for `ensureSortCore`: the subject whnfs to the sort. -/
@@ -644,7 +644,7 @@ theorem reduceProjCore_inv {env : Env} {fuel d : Nat} {sn : Name} {i : Nat}
       rw [hcert] at h
       cases b with
       | true =>
-        simp only [if_true, pure, Except.pure, Except.ok.injEq, Option.some.injEq] at h
+        simp only [ite_true, pure, Except.pure, Except.ok.injEq, Option.some.injEq] at h
         exact ⟨e₃, us, entry, rfl, hfn, rfl, hi, hlen, hus, hfire, h.symm, hcert⟩
       | false => simp [pure, Except.pure] at h
     next => simp [pure, Except.pure] at h
@@ -748,7 +748,7 @@ theorem prepareMajorFueled_ind {env : Env} {fuel d : Nat} {recName : Name}
   simp only [prepareMajor, Bind.bind, Except.bind, whnf_def, majorToCtor_fold,
     litMajorToCtor_fold] at h
   by_cases hk : recRuleK rules = true
-  · rw [if_pos hk] at h
+  · rw [ite_eq_left hk] at h
     cases h₁ : majorToCtorFueled mode env fuel d recName rules a with
     | error err => rw [h₁] at h; exact nomatch h
     | ok m₁ =>
@@ -760,7 +760,7 @@ theorem prepareMajorFueled_ind {env : Env} {fuel d : Nat} {recName : Name}
         rw [h₂] at h
         dsimp only at h
         exact hlit h (hwhnf h₂ (hmaj h₁ ha))
-  · rw [if_neg hk] at h
+  · rw [ite_eq_right hk] at h
     cases h₁ : whnf mode env fuel d a with
     | error err => rw [h₁] at h; exact nomatch h
     | ok m₁ =>
@@ -839,8 +839,8 @@ theorem iotaRec_inv {env : Env} {fuel d : Nat} {e eout : Expr}
   dsimp only at h
   by_cases hlen : e.getAppArgs.length = mI + 1 ∧
       us.length = cv.levelParams.length
-  case neg => rw [if_neg hlen] at h; exact nomatch h
-  rw [if_pos hlen] at h
+  case neg => rw [ite_eq_right hlen] at h; exact nomatch h
+  rw [ite_eq_left hlen] at h
   try simp only [Bind.bind, Except.bind] at h
   cases hprep : prepareMajorFueled mode env fuel d c rules
       (e.getAppArgs.getD mI (.bvar 0)) with
@@ -881,12 +881,12 @@ theorem iotaRec_inv {env : Env} {fuel d : Nat} {e eout : Expr}
   intro h
   dsimp only at h
   by_cases hml : major.getAppArgs.length = r.ctorParams + r.nfields
-  case neg => rw [if_neg hml] at h; exact nomatch h
-  rw [if_pos hml] at h
+  case neg => rw [ite_eq_right hml] at h; exact nomatch h
+  rw [ite_eq_left hml] at h
   try simp only [Bind.bind, Except.bind] at h
   by_cases hplain0 : r.fire = .inert
-  case pos => rw [if_pos hplain0] at h; exact nomatch h
-  rw [if_neg hplain0] at h
+  case pos => rw [ite_eq_left hplain0] at h; exact nomatch h
+  rw [ite_eq_right hplain0] at h
   try simp only [Bind.bind, Except.bind] at h
   cases hlev : Level.isEquivList usj
       (recFireComparands r cv.levelParams us cvj.levelParams
@@ -953,7 +953,7 @@ theorem iotaRec_inv {env : Env} {fuel d : Nat} {e eout : Expr}
     Option.some.injEq] at h
   exact ⟨c, us, cv, mI, rP, rules, major, cj, usj, cvj, cnP,
     cnF, r, rfl, hfc, hlen.1, hlen.2, hprep, hmfn, hfj, hrule,
-    hml, hplain0, hlev, (fun hc => (if_pos hc).symm.trans hpeq), hcerts,
+    hml, hplain0, hlev, (fun hc => (ite_eq_left hc).symm.trans hpeq), hcerts,
     hmcerts, hidx, h.symm⟩
 
 /-- Inversion of the canonical-index comparison where the recursor has
@@ -967,7 +967,7 @@ theorem iotaIndexOk_inv {env : Env} {fuel d mI rP cnP : Nat} {tyCtor : Expr}
       defEqListFueled mode env fuel d (residual.getAppArgs.drop cnP) idx =
         .ok true := by
   dsimp only [iotaIndexOkFueled] at h
-  simp only [iotaIndexOk, if_neg hne, defEqList_fold] at h
+  simp only [iotaIndexOk, ite_eq_right hne, defEqList_fold] at h
   cases hres : piResidual tyCtor margs with
   | none => rw [hres] at h; simp [pure, Except.pure] at h
   | some residual => rw [hres] at h; exact ⟨residual, rfl, h⟩
@@ -1091,7 +1091,7 @@ theorem majorToCtor_inv {env : Env} {fuel d : Nat} {recName : Name}
   intro h
   dsimp only at h
   by_cases hK : rl.k = true
-  · rw [if_pos hK] at h
+  · rw [ite_eq_left hK] at h
     try simp only [Bind.bind, Except.bind] at h
     cases hti : inferTypeIO mode env fuel d major with
     | error err => rw [hti] at h; exact nomatch h
@@ -1146,17 +1146,17 @@ theorem majorToCtor_inv {env : Env} {fuel d : Nat} {recName : Name}
     dsimp only at h
     by_cases hTl : T' = T ∧ cvj.levelParams.length = ust.length
     case neg =>
-      rw [if_neg hTl] at h
+      rw [ite_eq_right hTl] at h
       simp only [pure, Except.pure, Except.ok.injEq] at h
       exact Or.inl h.symm
     obtain ⟨rfl, hlvl⟩ := hTl
-    rw [if_pos ⟨rfl, hlvl⟩] at h
+    rw [ite_eq_left ⟨rfl, hlvl⟩] at h
     by_cases harK1 : cnP ≤ tmaj.getAppArgs.length
     case neg =>
-      rw [if_neg harK1] at h
+      rw [ite_eq_right harK1] at h
       simp only [pure, Except.pure, Except.ok.injEq] at h
       exact Or.inl h.symm
-    rw [if_pos harK1] at h
+    rw [ite_eq_left harK1] at h
     cases hguard : (Expr.mkAppN (.const rl.ctor ust)
           (tmaj.getAppArgs.take cnP)).wscopedB d &&
         (Expr.mkAppN (.const rl.ctor ust)
@@ -1229,16 +1229,16 @@ theorem majorToCtor_inv {env : Env} {fuel d : Nat} {recName : Name}
       rfl, hfj, hpr, hfT, rfl, htw, hth,
       Or.inl ⟨hK, hlvl, harK1, rfl, hcertK,
         ⟨tfab, htf, hdeq⟩, hpi⟩⟩
-  · rw [if_neg hK] at h
+  · rw [ite_eq_right hK] at h
     by_cases hE : rl.eta = true
     case neg =>
-      rw [if_neg hE] at h
+      rw [ite_eq_right hE] at h
       by_cases hA : T = andName
       case neg =>
-        rw [if_neg hA] at h
+        rw [ite_eq_right hA] at h
         simp only [pure, Except.pure, Except.ok.injEq] at h
         exact Or.inl h.symm
-      rw [if_pos hA] at h
+      rw [ite_eq_left hA] at h
       try simp only [Bind.bind, Except.bind] at h
       cases hti : inferTypeIO mode env fuel d major with
       | error err => rw [hti] at h; exact nomatch h
@@ -1295,11 +1295,11 @@ theorem majorToCtor_inv {env : Env} {fuel d : Nat} {recName : Name}
           cvj.levelParams.length = ust.length ∧
           andRescueSlots env rl.ctor cnP ust = true
       case neg =>
-        rw [if_neg hTl] at h
+        rw [ite_eq_right hTl] at h
         simp only [pure, Except.pure, Except.ok.injEq] at h
         exact Or.inl h.symm
       obtain ⟨rfl, hplen, hlvl, hslots⟩ := hTl
-      rw [if_pos ⟨rfl, hplen, hlvl, hslots⟩] at h
+      rw [ite_eq_left ⟨rfl, hplen, hlvl, hslots⟩] at h
       cases hguard : (Expr.mkAppN (.const rl.ctor ust)
             (tmaj.getAppArgs ++ [.proj T' 0 major, .proj T' 1 major])).wscopedB d &&
           (Expr.mkAppN (.const rl.ctor ust)
@@ -1370,7 +1370,7 @@ theorem majorToCtor_inv {env : Env} {fuel d : Nat} {recName : Name}
         rfl, hfj, hpr, hfT, rfl, htw, hth,
         Or.inr (Or.inr ⟨hA, hplen, hlvl, hslots, rfl, hcertA,
           ⟨tfab, htf, hdeq⟩, hpi⟩)⟩
-    rw [if_pos hE] at h
+    rw [ite_eq_left hE] at h
     try simp only [Bind.bind, Except.bind] at h
     cases hti : inferTypeIO mode env fuel d major with
     | error err => rw [hti] at h; exact nomatch h
@@ -1427,11 +1427,11 @@ theorem majorToCtor_inv {env : Env} {fuel d : Nat} {recName : Name}
         ust.length = cvT.levelParams.length ∧
         capsNeverZero cvT.levelParams ust caps = true
     case neg =>
-      rw [if_neg hTl] at h
+      rw [ite_eq_right hTl] at h
       simp only [pure, Except.pure, Except.ok.injEq] at h
       exact Or.inl h.symm
     obtain ⟨rfl, hplen, hlvl, hnz⟩ := hTl
-    rw [if_pos ⟨rfl, hplen, hlvl, hnz⟩] at h
+    rw [ite_eq_left ⟨rfl, hplen, hlvl, hnz⟩] at h
     cases hguard : (Expr.mkAppN (.const caps.etaCtor ust)
           (etaFabArgsE env T' ust tmaj.getAppArgs major
             caps.etaFields)).wscopedB d &&
@@ -1565,9 +1565,9 @@ theorem iotaCerts_step_inv_gate {env : Env} {fuel d : Nat} {lic : Bool}
   simp only [iotaCerts, Bind.bind, Except.bind] at h
   simp only [inferTypeIO_def, defeq_def, iotaCerts_fold] at h
   by_cases hg : (lic && m.pw.isNever) = true
-  · rw [if_pos hg] at h
+  · rw [ite_eq_left hg] at h
     exact Or.inl ⟨hg, h⟩
-  rw [if_neg hg] at h
+  rw [ite_eq_right hg] at h
   refine Or.inr ?_
   cases hta : inferTypeIO mode env fuel d arg with
   | error err => rw [hta] at h; exact nomatch h
@@ -1845,8 +1845,8 @@ theorem structEtaProjCerts_inv {env : Env} {fuel d : Nat} {T : Name}
       dsimp only at h
       by_cases hlps : cvp.levelParams = lpsT ∧
           (cvp.type.stripPis (targs.length + 1)).isSome = true
-      case neg => rw [if_neg hlps] at h; exact nomatch h
-      rw [if_pos hlps] at h
+      case neg => rw [ite_eq_right hlps] at h; exact nomatch h
+      rw [ite_eq_left hlps] at h
       obtain ⟨hlps, hstrp⟩ := hlps
       simp only [Bind.bind, Except.bind] at h
       cases hic : iotaCertsFueled mode env fuel d false
@@ -1934,8 +1934,8 @@ theorem structEtaCertWith_inv {env : Env} {fuel d : Nat} {a b wtb : Expr}
   intro h
   dsimp only at h
   by_cases hal : a.getAppArgs.length = cnP + cnF
-  case neg => rw [if_neg hal] at h; exact nomatch h
-  rw [if_pos hal] at h
+  case neg => rw [ite_eq_right hal] at h; exact nomatch h
+  rw [ite_eq_left hal] at h
   revert h
   match hwfn : wtb.getAppFn with
   | .bvar _ => intro h; exact nomatch h
@@ -1970,8 +1970,8 @@ theorem structEtaCertWith_inv {env : Env} {fuel d : Nat} {a b wtb : Expr}
       cvc.levelParams = cvT.levelParams ∧
       (towerSlotsAll env T caps.etaFields ||
         recSlotsAll env T caps.etaFields) = true
-  case neg => rw [if_neg hcond] at h; exact nomatch h
-  rw [if_pos hcond] at h
+  case neg => rw [ite_eq_right hcond] at h; exact nomatch h
+  rw [ite_eq_left hcond] at h
   obtain ⟨he1, he2, he5, he5b, he6, he7, he8, he10⟩ := hcond
   try simp only [Bind.bind, Except.bind] at h
   cases hlev : Level.isEquivList us us' with
@@ -2005,7 +2005,7 @@ theorem structEtaCertWith_inv {env : Env} {fuel d : Nat} {a b wtb : Expr}
       structEtaProjCertsFueled mode env fuel d T us' wtb.getAppArgs b
         cvT.levelParams (List.range caps.etaFields) = .ok true := by
     intro r₂ hr hr2 htow
-    rw [if_neg (by simp [htow])] at hr
+    rw [ite_eq_right (by simp [htow])] at hr
     rw [← hr2]; exact hr
   cases hpc0 : (if towerSlotsAll env T caps.etaFields = true then
         (Except.ok true : Except CheckError Bool)
@@ -2035,8 +2035,8 @@ theorem structEtaCertWith_inv {env : Env} {fuel d : Nat} {a b wtb : Expr}
   cases htt : mode.ttChecks with
   | false =>
     rw [htt] at h
-    simp only [Bool.false_eq_true, if_false, pure, Except.pure,
-      Bind.bind, Except.bind, if_true] at h
+    simp only [Bool.false_eq_true, ite_false, pure, Except.pure,
+      Bind.bind, Except.bind, ite_true] at h
     try dsimp only at h
     exact ⟨c, us, cvc, cnP, cnF, T, us', cvT, caps,
       rfl, hfc, hal, rfl, hfT, he1, he2, he5,
@@ -2149,8 +2149,8 @@ theorem structUnitCert_inv {env : Env} {fuel d : Nat} {a b : Expr}
       reservedBasisNames.contains T = false ∧
       wta.getAppArgs.length = caps.unitParams ∧
       us'.length = cvT.levelParams.length
-  case neg => rw [if_neg hcond] at h; exact nomatch h
-  rw [if_pos hcond] at h
+  case neg => rw [ite_eq_right hcond] at h; exact nomatch h
+  rw [ite_eq_left hcond] at h
   obtain ⟨he1, he2, he3, he4⟩ := hcond
   try simp only [Bind.bind, Except.bind] at h
   cases htb : inferTypeIO mode env fuel d b with
@@ -2230,9 +2230,9 @@ theorem etaCert_inv {env : Env} {fuel d : Nat} {ty₁ body₁ b : Expr}
   | true =>
   simp only [↓reduceIte] at h
   by_cases hpw : (mode.verifiedChecks && !(m₁.pw == m₂.pw)) = true
-  · rw [if_pos hpw] at h
+  · rw [ite_eq_left hpw] at h
     simp [throw, throwThe, MonadExceptOf.throw] at h
-  · rw [if_neg hpw] at h
+  · rw [ite_eq_right hpw] at h
     refine ⟨tb, ty₂, fb, m₂, rfl, hwtb, hd1, rfl, ?_⟩
     intro hv
     by_cases he : (m₁.pw == m₂.pw) = true
@@ -2307,19 +2307,19 @@ theorem inferTypeCore_proj_inv {env : Env} {fuel d : Nat} {sn : Name} {i : Nat}
         (Level.isEquiv (Level.subst entry.levelParams us entry.fieldSort) .zero
           == some true) = true := by
       intro hp
-      rw [if_pos hp] at h
+      rw [ite_eq_left hp] at h
       by_cases hf : (Level.isEquiv
           (Level.subst entry.levelParams us entry.fieldSort) .zero
           == some true) = true
       · exact hf
-      · rw [if_neg hf] at h
+      · rw [ite_eq_right hf] at h
         exact absurd h (by
           simp [throw, throwThe, MonadExceptOf.throw, bind, Except.bind])
     have h' : (pure (entry.typeAt us te.getAppArgs e) : Except CheckError Expr) = .ok t := by
       by_cases hp : (Level.isEquiv entry.structSort .zero == some true) = true
-      · rw [if_pos hp, if_pos (hg hp)] at h
+      · rw [ite_eq_left hp, ite_eq_left (hg hp)] at h
         exact h
-      · rw [if_neg hp] at h
+      · rw [ite_eq_right hp] at h
         exact h
     simp only [pure, Except.pure, Except.ok.injEq] at h'
     exact ⟨tpe, te, T, us, entry, rfl, hw, hfn, hfp, hlen, hus,
@@ -2357,7 +2357,7 @@ theorem projEntry_body_wf {env : Env} (henv : EnvWF env) {T : Name}
   have hlt : i < tbl.bodies.size := by rw [hsize]; exact hi
   have := hb i (tbl.bodies[i]'hlt) (Array.getElem?_eq_getElem hlt)
   simp only [ProjTable.entry_body, ProjTable.entry_levelParams, ProjTable.entry_numParams]
-  rw [Array.getD, dif_pos hlt]
+  rw [Array.getD, dite_eq_left hlt]
   exact this
 
 /-- The level-instantiated body has no fvars. -/
@@ -2578,67 +2578,67 @@ theorem natOpResult_shape {c : Name} {a b : Nat} {e₂ : Expr}
     (∃ n, e₂ = .lit (.natVal n)) ∨ (∃ bn, e₂ = .const bn []) := by
   unfold natOpResult at h
   by_cases h1 : c = natPredName
-  · rw [if_pos h1] at h
+  · rw [ite_eq_left h1] at h
     exact Or.inl ⟨_, (Option.some.inj h).symm⟩
-  rw [if_neg h1] at h
+  rw [ite_eq_right h1] at h
   by_cases h2 : c = natAddName
-  · rw [if_pos h2] at h
+  · rw [ite_eq_left h2] at h
     exact Or.inl ⟨_, (Option.some.inj h).symm⟩
-  rw [if_neg h2] at h
+  rw [ite_eq_right h2] at h
   by_cases h3 : c = natSubName
-  · rw [if_pos h3] at h
+  · rw [ite_eq_left h3] at h
     exact Or.inl ⟨_, (Option.some.inj h).symm⟩
-  rw [if_neg h3] at h
+  rw [ite_eq_right h3] at h
   by_cases h4 : c = natMulName
-  · rw [if_pos h4] at h
+  · rw [ite_eq_left h4] at h
     exact Or.inl ⟨_, (Option.some.inj h).symm⟩
-  rw [if_neg h4] at h
+  rw [ite_eq_right h4] at h
   by_cases h5 : c = natPowName
-  · rw [if_pos h5] at h
+  · rw [ite_eq_left h5] at h
     split at h
     · exact nomatch h
     · exact Or.inl ⟨_, (Option.some.inj h).symm⟩
-  rw [if_neg h5] at h
+  rw [ite_eq_right h5] at h
   by_cases h6 : c = natDivName
-  · rw [if_pos h6] at h
+  · rw [ite_eq_left h6] at h
     exact Or.inl ⟨_, (Option.some.inj h).symm⟩
-  rw [if_neg h6] at h
+  rw [ite_eq_right h6] at h
   by_cases h7 : c = natModName
-  · rw [if_pos h7] at h
+  · rw [ite_eq_left h7] at h
     exact Or.inl ⟨_, (Option.some.inj h).symm⟩
-  rw [if_neg h7] at h
+  rw [ite_eq_right h7] at h
   by_cases h8 : c = natGcdName
-  · rw [if_pos h8] at h
+  · rw [ite_eq_left h8] at h
     exact Or.inl ⟨_, (Option.some.inj h).symm⟩
-  rw [if_neg h8] at h
+  rw [ite_eq_right h8] at h
   by_cases h9 : c = natLandName
-  · rw [if_pos h9] at h
+  · rw [ite_eq_left h9] at h
     exact Or.inl ⟨_, (Option.some.inj h).symm⟩
-  rw [if_neg h9] at h
+  rw [ite_eq_right h9] at h
   by_cases h10 : c = natLorName
-  · rw [if_pos h10] at h
+  · rw [ite_eq_left h10] at h
     exact Or.inl ⟨_, (Option.some.inj h).symm⟩
-  rw [if_neg h10] at h
+  rw [ite_eq_right h10] at h
   by_cases h11 : c = natXorName
-  · rw [if_pos h11] at h
+  · rw [ite_eq_left h11] at h
     exact Or.inl ⟨_, (Option.some.inj h).symm⟩
-  rw [if_neg h11] at h
+  rw [ite_eq_right h11] at h
   by_cases h12 : c = natShiftLeftName
-  · rw [if_pos h12] at h
+  · rw [ite_eq_left h12] at h
     exact Or.inl ⟨_, (Option.some.inj h).symm⟩
-  rw [if_neg h12] at h
+  rw [ite_eq_right h12] at h
   by_cases h13 : c = natShiftRightName
-  · rw [if_pos h13] at h
+  · rw [ite_eq_left h13] at h
     exact Or.inl ⟨_, (Option.some.inj h).symm⟩
-  rw [if_neg h13] at h
+  rw [ite_eq_right h13] at h
   by_cases h15 : c = natBeqName
-  · rw [if_pos h15] at h
+  · rw [ite_eq_left h15] at h
     exact Or.inr ⟨_, (Option.some.inj h).symm⟩
-  rw [if_neg h15] at h
+  rw [ite_eq_right h15] at h
   by_cases h16 : c = natBleName
-  · rw [if_pos h16] at h
+  · rw [ite_eq_left h16] at h
     exact Or.inr ⟨_, (Option.some.inj h).symm⟩
-  rw [if_neg h16] at h
+  rw [ite_eq_right h16] at h
   exact nomatch h
 
 /-- Literal acceleration produces closed atoms: a literal or a

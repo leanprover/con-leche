@@ -57,18 +57,18 @@ theorem callSubst_reads {env : Env} (m : EnvModel V env) (ψ : Name → Nat) {ct
           default) := by
   intro v hv
   by_cases h1 : v < ctx.nP
-  · simp only [callSubst, if_pos h1]
+  · simp only [callSubst, ite_eq_left h1]
     refine ⟨by simp [Expr.WScoped]; omega, rfl, ?_⟩
     rw [denoteMeta_fvar]; rfl
   by_cases h2 : v < ctx.hiAt prog.length
   · have he : callSubst ctx prog fvsF v = nodeImg ctx prog v := by
-      simp only [callSubst, nodeImg, if_neg h1, if_pos h2]
+      simp only [callSubst, nodeImg, ite_eq_right h1, ite_eq_left h2]
     obtain ⟨hw, hb, hd⟩ := hread.hs ψ (d := rP + fvsF.length) (by omega) v h2
     rw [he]
     exact ⟨hw, hb, by rw [hd]; rfl⟩
   · have hl : v - ctx.hiAt prog.length < fvsF.length := by omega
     obtain ⟨ty, hty⟩ := hfvF _ hl
-    simp only [callSubst, if_neg h1, if_neg h2, hty, Option.getD_some]
+    simp only [callSubst, ite_eq_right h1, ite_eq_right h2, hty, Option.getD_some]
     refine ⟨hfvW _ (List.mem_of_getElem? hty), rfl, ?_⟩
     rw [denoteMeta_fvar]; rfl
 
@@ -126,13 +126,13 @@ theorem fieldCall_core {env : Env} (m : EnvModel V env) (ψ : Name → Nat)
       default)
     (xs := xs) (fs := fs) (by rw [hfl]) hxl hnP (by omega) hnh
     (fun v hv => by
-      simp only [callSubst, if_pos hv]
+      simp only [callSubst, ite_eq_left hv]
       rw [denoteMeta_fvar]; rfl)
     (fun l hl => by
       have h1 : ¬ ctx.hiAt prog.length + l < ctx.nP := by omega
       have h2 : ¬ ctx.hiAt prog.length + l < ctx.hiAt prog.length := by omega
       obtain ⟨ty, hty⟩ := hfvF l (by omega)
-      simp only [callSubst, if_neg h1, if_neg h2, Nat.add_sub_cancel_left, hty, Option.getD_some]
+      simp only [callSubst, ite_eq_right h1, ite_eq_right h2, Nat.add_sub_cancel_left, hty, Option.getD_some]
       rw [denoteMeta_fvar]; rfl)
     (ρ := ρ) (σW := σN) hpar htail
   exact callWalkSem m ψ htl htel hteleHF hopen hwF hargs hs hnda hf hval hag hbs

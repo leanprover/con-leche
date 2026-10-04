@@ -82,7 +82,7 @@ theorem divModClauses_gcd {x y : V}
       SetTheory.app (SetTheory.app
         (interp V ρ (m.acval ConLeche.natGcdName φ)) x) y = y) := by
   rw [natLit_one]
-  simpa +decide only [DivModClausesV, if_false, if_true] using h
+  simpa +decide only [DivModClausesV, ite_false, ite_true] using h
 
 /-- `Nat.shiftLeft`'s two clauses. -/
 theorem divModClauses_shiftLeft {x y : V}
@@ -109,7 +109,7 @@ theorem divModClauses_shiftLeft {x y : V}
       SetTheory.app (SetTheory.app
         (interp V ρ (m.acval ConLeche.natShiftLeftName φ)) x) y = x) := by
   rw [natLit_one, natLit_two]
-  simpa +decide only [DivModClausesV, if_false, if_true] using h
+  simpa +decide only [DivModClausesV, ite_false, ite_true] using h
 
 /-- `Nat.shiftRight`'s two clauses. -/
 theorem divModClauses_shiftRight {x y : V}
@@ -137,7 +137,7 @@ theorem divModClauses_shiftRight {x y : V}
         (interp V ρ (m.acval ConLeche.natShiftRightName φ)) x) y
         = x) := by
   rw [natLit_one, natLit_two]
-  simpa +decide only [DivModClausesV, if_false, if_true] using h
+  simpa +decide only [DivModClausesV, ite_false, ite_true] using h
 
 /-- `Nat.land`'s two clauses. -/
 theorem divModClauses_land {x y : V}
@@ -178,7 +178,7 @@ theorem divModClauses_land {x y : V}
         (interp V ρ (m.acval ConLeche.natLandName φ)) x) y
         = interp V ρ (m.acval ConLeche.natZeroName φ)) := by
   rw [natLit_one, natLit_two]
-  simpa +decide only [DivModClausesV, if_false, if_true] using h
+  simpa +decide only [DivModClausesV, ite_false, ite_true] using h
 
 /-- `Nat.lor`'s two clauses. -/
 theorem divModClauses_lor {x y : V}
@@ -228,7 +228,7 @@ theorem divModClauses_lor {x y : V}
       SetTheory.app (SetTheory.app
         (interp V ρ (m.acval ConLeche.natLorName φ)) x) y = y) := by
   rw [natLit_one, natLit_two]
-  simpa +decide only [DivModClausesV, if_false, if_true] using h
+  simpa +decide only [DivModClausesV, ite_false, ite_true] using h
 
 /-- `Nat.xor`'s two clauses. -/
 theorem divModClauses_xor {x y : V}
@@ -271,7 +271,7 @@ theorem divModClauses_xor {x y : V}
       SetTheory.app (SetTheory.app
         (interp V ρ (m.acval ConLeche.natXorName φ)) x) y = y) := by
   rw [natLit_one, natLit_two]
-  simpa +decide only [DivModClausesV, if_false, if_true] using h
+  simpa +decide only [DivModClausesV, ite_false, ite_true] using h
 
 end Unpack
 
@@ -319,19 +319,19 @@ theorem natOpV_divmod (hops : NatOps m φ) (hnh : NatHeads m φ)
           = interp V ρ (m.acval ConLeche.boolFalseName φ) := by
         have h := natOpV_ble m hops hnh hval hfbl ρ 1 0
         rw [natLit_one] at h
-        rw [h, if_neg (by omega)]
+        rw [h, ite_eq_right (by omega)]
       rw [hzero h1]
       rcases hc with rfl | rfl
-      · rw [if_pos rfl, if_pos rfl, Nat.div_zero]
+      · rw [ite_eq_left rfl, ite_eq_left rfl, Nat.div_zero]
         rfl
-      · rw [if_neg (by decide), if_neg (by decide), Nat.mod_zero]
+      · rw [ite_eq_right (by decide), ite_eq_right (by decide), Nat.mod_zero]
     · by_cases hba : b ≤ a
       · have h1 : SetTheory.app (SetTheory.app
             (interp V ρ (m.acval ConLeche.natBleName φ))
             (interp V ρ (natLit m φ b)))
             (interp V ρ (natLit m φ a))
             = interp V ρ (m.acval ConLeche.boolTrueName φ) := by
-          rw [natOpV_ble m hops hnh hval hfbl ρ b a, if_pos hba]
+          rw [natOpV_ble m hops hnh hval hfbl ρ b a, ite_eq_left hba]
         have h2 : SetTheory.app (SetTheory.app
             (interp V ρ (m.acval ConLeche.natBleName φ))
             (SetTheory.app (interp V ρ (m.acval ConLeche.natSuccName φ))
@@ -340,7 +340,7 @@ theorem natOpV_divmod (hops : NatOps m φ) (hnh : NatHeads m φ)
             = interp V ρ (m.acval ConLeche.boolTrueName φ) := by
           have h := natOpV_ble m hops hnh hval hfbl ρ 1 b
           rw [natLit_one] at h
-          rw [h, if_pos (by omega)]
+          rw [h, ite_eq_left (by omega)]
         have hsub : SetTheory.app (SetTheory.app
             (interp V ρ (m.acval ConLeche.natSubName φ))
             (interp V ρ (natLit m φ a)))
@@ -352,12 +352,12 @@ theorem natOpV_divmod (hops : NatOps m φ) (hnh : NatHeads m φ)
         rw [hrec h1 h2, hsub, hih]
         by_cases hcd : c = ConLeche.natDivName
         · subst hcd
-          rw [if_pos rfl, if_pos rfl, if_pos rfl]
+          rw [ite_eq_left rfl, ite_eq_left rfl, ite_eq_left rfl]
           have hd : a / b = (a - b) / b + 1 := by
-            rw [Nat.div_eq a b, if_pos ⟨by omega, hba⟩]
+            rw [Nat.div_eq_ite a b, ite_eq_left ⟨by omega, hba⟩]
           rw [hd]
           rfl
-        · rw [if_neg hcd, if_neg hcd, if_neg hcd]
+        · rw [ite_eq_right hcd, ite_eq_right hcd, ite_eq_right hcd]
           have hmo : a % b = (a - b) % b := Nat.mod_eq_sub_mod hba
           rw [hmo]
       · have h1 : SetTheory.app (SetTheory.app
@@ -365,14 +365,14 @@ theorem natOpV_divmod (hops : NatOps m φ) (hnh : NatHeads m φ)
             (interp V ρ (natLit m φ b)))
             (interp V ρ (natLit m φ a))
             = interp V ρ (m.acval ConLeche.boolFalseName φ) := by
-          rw [natOpV_ble m hops hnh hval hfbl ρ b a, if_neg hba]
+          rw [natOpV_ble m hops hnh hval hfbl ρ b a, ite_eq_right hba]
         rw [hgt h1]
         have hab : a < b := by omega
         by_cases hcd : c = ConLeche.natDivName
         · subst hcd
-          rw [if_pos rfl, if_pos rfl, Nat.div_eq_of_lt hab]
+          rw [ite_eq_left rfl, ite_eq_left rfl, Nat.div_eq_of_lt hab]
           rfl
-        · rw [if_neg hcd, if_neg hcd, Nat.mod_eq_of_lt hab]
+        · rw [ite_eq_right hcd, ite_eq_right hcd, Nat.mod_eq_of_lt hab]
 
 /-- `Nat.div` on literal values. -/
 theorem natOpV_div (hops : NatOps m φ) (hnh : NatHeads m φ)
@@ -388,7 +388,7 @@ theorem natOpV_div (hops : NatOps m φ) (hnh : NatHeads m φ)
       = interp V ρ (natLit m φ (a / b)) := by
   intro a b
   have h := natOpV_divmod hops hnh hval hdm (Or.inl rfl) hf ρ a b
-  rwa [if_pos rfl] at h
+  rwa [ite_eq_left rfl] at h
 
 /-- `Nat.mod` on literal values. -/
 theorem natOpV_mod (hops : NatOps m φ) (hnh : NatHeads m φ)
@@ -404,7 +404,7 @@ theorem natOpV_mod (hops : NatOps m φ) (hnh : NatHeads m φ)
       = interp V ρ (natLit m φ (a % b)) := by
   intro a b
   have h := natOpV_divmod hops hnh hval hdm (Or.inr rfl) hf ρ a b
-  rwa [if_neg (by decide)] at h
+  rwa [ite_eq_right (by decide)] at h
 
 /-- `Nat.gcd` on literal values. -/
 theorem natOpV_gcd (hops : NatOps m φ) (hnh : NatHeads m φ)
@@ -431,10 +431,10 @@ theorem natOpV_gcd (hops : NatOps m φ) (hnh : NatHeads m φ)
     by_cases ha0 : a = 0
     · subst ha0
       have h1 := natOpV_ble m hops hnh hval hfbl ρ 1 0
-      rw [if_neg (by omega)] at h1
+      rw [ite_eq_right (by omega)] at h1
       rw [hbase h1, Nat.gcd_zero_left]
     · have h1 := natOpV_ble m hops hnh hval hfbl ρ 1 a
-      rw [hrec (by rw [h1, if_pos (by omega)]),
+      rw [hrec (by rw [h1, ite_eq_left (by omega)]),
         natOpV_mod hops hnh hval hdm hfmo ρ b a,
         ih (b % a) (Nat.mod_lt _ (by omega)) a, Nat.gcd_rec a b]
 
@@ -466,11 +466,11 @@ theorem natOpV_shiftLeft (hops : NatOps m φ) (hnh : NatHeads m φ)
     by_cases hb0 : b = 0
     · subst hb0
       have h1 := natOpV_ble m hops hnh hval hfbl ρ 1 0
-      rw [if_neg (by omega)] at h1
+      rw [ite_eq_right (by omega)] at h1
       rw [hbase h1]
       exact rfl
     · have h1 := natOpV_ble m hops hnh hval hfbl ρ 1 b
-      rw [if_pos (by omega)] at h1
+      rw [ite_eq_left (by omega)] at h1
       rw [hrec h1, natOpV_mul m hops hnh hval hfmu ρ 2 a,
         natOpV_sub m hops hnh hval hfsu ρ b 1,
         ih (b - 1) (by omega) (2 * a)]
@@ -506,11 +506,11 @@ theorem natOpV_shiftRight (hops : NatOps m φ) (hnh : NatHeads m φ)
     by_cases hb0 : b = 0
     · subst hb0
       have h1 := natOpV_ble m hops hnh hval hfbl ρ 1 0
-      rw [if_neg (by omega)] at h1
+      rw [ite_eq_right (by omega)] at h1
       rw [hbase h1]
       exact rfl
     · have h1 := natOpV_ble m hops hnh hval hfbl ρ 1 b
-      rw [if_pos (by omega)] at h1
+      rw [ite_eq_left (by omega)] at h1
       rw [hrec h1, natOpV_sub m hops hnh hval hfsu ρ b 1,
         ih (b - 1) (by omega) a,
         natOpV_div hops hnh hval hdm hfdi ρ (Nat.shiftRight a (b - 1)) 2]
@@ -547,11 +547,11 @@ theorem natOpV_land (hops : NatOps m φ) (hnh : NatHeads m φ)
     by_cases ha0 : a = 0
     · subst ha0
       have h1 := natOpV_ble m hops hnh hval hfbl ρ 1 0
-      rw [if_neg (by omega)] at h1
+      rw [ite_eq_right (by omega)] at h1
       rw [hbase h1, show Nat.land 0 b = 0 from PinGen.landBaseCert 0 b rfl]
       exact rfl
     · have h1 := natOpV_ble m hops hnh hval hfbl ρ 1 a
-      rw [if_pos (by omega)] at h1
+      rw [ite_eq_left (by omega)] at h1
       rw [hrec h1, natOpV_div hops hnh hval hdm hfdi ρ a 2,
         natOpV_div hops hnh hval hdm hfdi ρ b 2,
         ih (a / 2) (Nat.div_lt_self (by omega) (by omega)) (b / 2),
@@ -596,10 +596,10 @@ theorem natOpV_lor (hops : NatOps m φ) (hnh : NatHeads m φ)
     by_cases ha0 : a = 0
     · subst ha0
       have h1 := natOpV_ble m hops hnh hval hfbl ρ 1 0
-      rw [if_neg (by omega)] at h1
+      rw [ite_eq_right (by omega)] at h1
       rw [hbase h1, show Nat.lor 0 b = b from PinGen.lorBaseCert 0 b rfl]
     · have h1 := natOpV_ble m hops hnh hval hfbl ρ 1 a
-      rw [if_pos (by omega)] at h1
+      rw [ite_eq_left (by omega)] at h1
       rw [hrec h1, natOpV_div hops hnh hval hdm hfdi ρ a 2,
         natOpV_div hops hnh hval hdm hfdi ρ b 2,
         ih (a / 2) (Nat.div_lt_self (by omega) (by omega)) (b / 2),
@@ -646,10 +646,10 @@ theorem natOpV_xor (hops : NatOps m φ) (hnh : NatHeads m φ)
     by_cases ha0 : a = 0
     · subst ha0
       have h1 := natOpV_ble m hops hnh hval hfbl ρ 1 0
-      rw [if_neg (by omega)] at h1
+      rw [ite_eq_right (by omega)] at h1
       rw [hbase h1, show Nat.xor 0 b = b from PinGen.xorBaseCert 0 b rfl]
     · have h1 := natOpV_ble m hops hnh hval hfbl ρ 1 a
-      rw [if_pos (by omega)] at h1
+      rw [ite_eq_left (by omega)] at h1
       rw [hrec h1, natOpV_div hops hnh hval hdm hfdi ρ a 2,
         natOpV_div hops hnh hval hdm hfdi ρ b 2,
         ih (a / 2) (Nat.div_lt_self (by omega) (by omega)) (b / 2),

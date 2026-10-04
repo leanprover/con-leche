@@ -269,7 +269,7 @@ theorem ctorEntry_isSome_found {env : Env} {ci : ConstantInfo} {C : Name}
         by_cases hn : n = C
         · subst hn
           exact constsBound_getAppFn (constsBound_stripPis hb hs) hg
-        · rw [if_neg (by simpa using hn)] at h; exact nomatch h
+        · rw [ite_eq_right (by simpa using hn)] at h; exact nomatch h
       | _ => rw [hg] at h; exact nomatch h
   | _ => exact nomatch h
 
@@ -279,7 +279,7 @@ theorem ctorEntry_self {c₀ : ConstantInfo} {cv : ConstantVal} {nPc nF : Nat}
     (hc : c₀ = .ctorInfo cv nPc nF) (hs : cv.type.stripPis (nPc + nF) = some (bs, body))
     (hg : body.getAppFn = .const T us) : ctorEntry T c₀ = some (cv, nPc, nF) := by
   subst hc
-  simp only [ctorEntry, hs, hg, beq_self_eq_true, if_true]
+  simp only [ctorEntry, hs, hg, beq_self_eq_true, ite_true]
 
 /-- A constructor has an entry only at its own head. -/
 theorem ctorEntry_head {c₀ : ConstantInfo} {cv : ConstantVal} {nPc nF : Nat}
@@ -291,7 +291,7 @@ theorem ctorEntry_head {c₀ : ConstantInfo} {cv : ConstantVal} {nPc nF : Nat}
   simp only [ctorEntry, hs, hg] at h
   by_cases hne : T = C
   · exact hne.symm
-  · rw [if_neg (by simpa using hne)] at h
+  · rw [ite_eq_right (by simpa using hne)] at h
     exact nomatch h
 
 /-- The cons premise `hhead` at a constructor whose head is `T`. -/

@@ -215,7 +215,7 @@ theorem mem_limTup {m : Nat} {i y : V} (hi : i ∈ˢ Is m) :
   · rintro ⟨T, hT⟩
     refine ⟨_, mem_image.mpr ⟨code A T, mem_power.mpr (code_sub T), rfl⟩, ?_⟩
     have hex : ∃ T', code A T' = code A T := ⟨T, rfl⟩
-    have : pick A (code A T) = Classical.choose hex := by unfold pick; exact dif_pos hex
+    have : pick A (code A T) = Classical.choose hex := by unfold pick; exact dite_eq_left hex
     rw [this, stage_eq_of_code _ _ (Classical.choose_spec hex)]
     exact hT
 
@@ -260,7 +260,7 @@ theorem closed_of_acc (hw : w ≠ 0) (hA : A ∈ˢ (univ w : V)) (hmaps : MapsTu
         famSpace_app (stage_mem hw hA hmaps (f a) m' hm') hi'
     · intro a ha
       refine ⟨(hgL a ha).1, (hgL a ha).2.1, (mem_unionTup (hgL a ha).2.1).mpr ⟨a, hBA a ha, ?_⟩⟩
-      have : f a = Classical.choose (hT a ha) := dif_pos ha
+      have : f a = Classical.choose (hT a ha) := dite_eq_left ha
       rw [this]
       exact Classical.choose_spec (hT a ha)
   exact (mem_limTup hi).mpr ⟨_, hstage⟩
@@ -334,7 +334,7 @@ theorem skolem_supp {S : V} {Q : V → V → (V → Nat × V × V) → Prop}
   refine ⟨fun a => if h' : a ∈ˢ S then Classical.choose (h a h') else empty,
     fun a => if h' : a ∈ˢ S then Classical.choose (Classical.choose_spec (h a h'))
       else fun _ => (0, empty, empty), fun a ha => ?_⟩
-  simp only [dif_pos ha]
+  simp only [dite_eq_left ha]
   exact Classical.choose_spec (Classical.choose_spec (h a ha))
 
 /-- The glued support: `B := Σ a ∈ B0, Bf a`, `g ⟨a, q⟩ := gf a q`. -/
@@ -420,20 +420,20 @@ theorem accRead_prod {A1 A2 : V} {G H : (Nat → V) → V} (hG : AccRead w kI Is
     obtain ⟨t, ht, q, hq, rfl⟩ := mem_sigmaPairs.mp hp
     refine mem_sigmaPairs.mpr ⟨t, ht, q, ?_, rfl⟩
     by_cases h : t = empty
-    · simp only [h, if_true] at hq ⊢; exact hB1 q hq
-    · simp only [h, if_false] at hq ⊢; exact hB2 q hq
+    · simp only [h, ite_true] at hq ⊢; exact hB1 q hq
+    · simp only [h, ite_false] at hq ⊢; exact hB2 q hq
   · intro p hp
     obtain ⟨t, ht, q, hq, rfl⟩ := mem_sigmaPairs.mp hp
     simp only [sfst_kpair, ssnd_kpair]
     by_cases h : t = empty
-    · simp only [h, if_true] at hq ⊢; exact hg1 q hq
-    · simp only [h, if_false] at hq ⊢; exact hg2 q hq
+    · simp only [h, ite_true] at hq ⊢; exact hg1 q hq
+    · simp only [h, ite_false] at hq ⊢; exact hg2 q hq
   · intro X' hX' h'
     refine mem_sigmaPairs.mpr ⟨y, hs1 X' hX' fun q hq => ?_, z, hs2 X' hX' fun q hq => ?_, rfl⟩
     · have := h' (kpair empty q) (mem_sigmaPairs.mpr ⟨empty, mem_upair_left _ _, q, by simpa using hq, rfl⟩)
-      simpa only [sfst_kpair, ssnd_kpair, if_true] using this
+      simpa only [sfst_kpair, ssnd_kpair, ite_true] using this
     · have := h' (kpair pt q) (mem_sigmaPairs.mpr ⟨pt, mem_upair.mpr (Or.inr rfl), q, by simpa [hne] using hq, rfl⟩)
-      simpa only [sfst_kpair, ssnd_kpair, hne, if_false] using this
+      simpa only [sfst_kpair, ssnd_kpair, hne, ite_false] using this
 
 /-- **Composition**: a reading of an accessible operator's output is
 accessible in the operator's input (supports glued, `Σ A2, A1`). -/
@@ -480,8 +480,8 @@ theorem catT_mem {X Y : Nat → V} (hX : InTupleSpace w kX IsX X) (hY : InTupleS
   intro m hm
   unfold catT
   by_cases h : m < kX
-  · simp only [h, if_true]; exact hX m h
-  · simp only [h, if_false]; exact hY (m - kX) (by omega)
+  · simp only [h, ite_true]; exact hX m h
+  · simp only [h, ite_false]; exact hY (m - kX) (by omega)
 
 theorem inTup_catT {X Y : Nat → V} {t : Nat × V × V} :
     InTup (kX + kY) (catT kX IsX IsY) (catT kX X Y) t ↔
@@ -489,13 +489,13 @@ theorem inTup_catT {X Y : Nat → V} {t : Nat × V × V} :
   obtain ⟨c, i, y⟩ := t
   unfold InTup catT
   by_cases h : c < kX
-  · rw [if_pos h, if_pos h]
+  · rw [ite_eq_left h, ite_eq_left h]
     constructor
     · rintro ⟨-, h2, h3⟩; exact Or.inl ⟨h, h, h2, h3⟩
     · rintro (⟨-, -, h2, h3⟩ | ⟨h1, -⟩)
       · exact ⟨by omega, h2, h3⟩
       · omega
-  · rw [if_neg h, if_neg h]
+  · rw [ite_eq_right h, ite_eq_right h]
     constructor
     · rintro ⟨h1, h2, h3⟩; exact Or.inr ⟨by omega, by omega, h2, h3⟩
     · rintro (⟨h1, -⟩ | ⟨-, h1, h2, h3⟩)
@@ -620,7 +620,7 @@ theorem skolem_suppG {β : Type _} [Nonempty β] {S : V} {Q : V → V → (V →
   refine ⟨fun a => if h' : a ∈ˢ S then Classical.choose (h a h') else empty,
     fun a => if h' : a ∈ˢ S then Classical.choose (Classical.choose_spec (h a h'))
       else fun _ => Classical.ofNonempty, fun a ha => ?_⟩
-  simp only [dif_pos ha]
+  simp only [dite_eq_left ha]
   exact Classical.choose_spec (Classical.choose_spec (h a ha))
 
 /-- **The container case at a frame's group**: the parameter is the
@@ -742,15 +742,15 @@ theorem accTuple_mixT {A : V} (h : AccTuple w k Is k Is Φ A) {C : Nat → V}
   · obtain ⟨haB, hG⟩ := mem_sep.mp ha
     have := hg a haB
     unfold InTup mixT at this
-    rw [if_pos hG] at this
+    rw [ite_eq_left hG] at this
     exact this
   · have hga := hg a ha
     unfold InTup mixT at hga ⊢
     by_cases hG : G (g a).1
-    · rw [if_pos hG]
+    · rw [ite_eq_left hG]
       have := h' a (mem_sep.mpr ⟨ha, hG⟩)
       exact this
-    · rw [if_neg hG] at hga ⊢
+    · rw [ite_eq_right hG] at hga ⊢
       exact hga
 
 /-- **The least tuple is closed for the group operator.** -/
@@ -780,9 +780,9 @@ theorem lfpTuple_mixT (h : ∃ L, IsClosedTuple w k Is Φ L) (hmono : MonoTuple 
   have hmix : IsClosedTuple w k Is Φ (mixT G C L) := by
     refine ⟨mixT_mem hCmem hLmem, fun c hc => ?_⟩
     by_cases hGc : G c
-    · have e : mixT G C L c = L c := by unfold mixT; rw [if_pos hGc]
+    · have e : mixT G C L c = L c := by unfold mixT; rw [ite_eq_left hGc]
       rw [e]; exact hLcl c hc
-    · have e : mixT G C L c = C c := by unfold mixT; rw [if_neg hGc]
+    · have e : mixT G C L c = C c := by unfold mixT; rw [ite_eq_right hGc]
       rw [e]
       have hle : TupleLe k Is (mixT G C L) C := by
         intro c' hc'; unfold mixT; split
@@ -793,7 +793,7 @@ theorem lfpTuple_mixT (h : ∃ L, IsClosedTuple w k Is Φ L) (hmono : MonoTuple 
     have := lfpTuple_le hmix
     rw [hCe] at this
     exact this
-  have e : mixT G C L m = L m := by unfold mixT; rw [if_pos hG]
+  have e : mixT G C L m = L m := by unfold mixT; rw [ite_eq_left hG]
   refine famSpace_ext (hLmem m hm) (hCmem m hm) fun i hi => Subset.antisymm (hLC m hm i hi) ?_
   have := hCL m hm i hi
   rw [e] at this

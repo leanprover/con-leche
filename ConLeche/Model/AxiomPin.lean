@@ -229,7 +229,7 @@ theorem axiomStd (hμ : μ.verifiedChecks = true)
       unfold ConLeche.stdAxiomOk at hok
       rw [show (⟨cv.name, cv.levelParams, type'⟩ : ConstantVal).name
         = cv.name from rfl] at hok
-      rw [if_neg hn, if_neg hn2] at hok
+      rw [ite_eq_right hn, ite_eq_right hn2] at hok
       exact nomatch hok
 
 end ConLeche.Model

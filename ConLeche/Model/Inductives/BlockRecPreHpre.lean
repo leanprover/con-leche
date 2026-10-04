@@ -159,16 +159,16 @@ theorem blockRecLevel_run (hμ : μ.verifiedChecks = true)
       funext q
       by_cases hqm : q ∈ lps
       · show (if q ∈ lps then ψ₁ q else 0) = (if q ∈ lps then ψ₂ q else 0)
-        rw [if_pos hqm, if_pos hqm]
+        rw [ite_eq_left hqm, ite_eq_left hqm]
         exact hq q (hl ▸ hqm)
       · show (if q ∈ lps then ψ₁ q else 0) = (if q ∈ lps then ψ₂ q else 0)
-        rw [if_neg hqm, if_neg hqm]
+        rw [ite_eq_right hqm, ite_eq_right hqm]
     show maxLevelEval us (res ψ₁) = maxLevelEval us (res ψ₂)
     rw [hres]
   · have hr0 : rs[0]? = some (rs.getD 0 default) := by
       rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem (by omega)]; rfl
     have hext := blockRecTyAV_params_ext (V := V) hμ mpC h hr0 (ψ₁ := ψ) (ψ₂ := res ψ)
-      (fun q hqm => by show ψ q = if q ∈ lps then ψ q else 0; rw [if_pos hqm]) hc
+      (fun q hqm => by show ψ q = if q ∈ lps then ψ q else 0; rw [ite_eq_left hqm]) hc
     refine ⟨?_, (hus ψ c hc ρ).2⟩
     rw [hext]
     exact (hus (res ψ) c hc ρ).1

@@ -172,7 +172,7 @@ theorem etaFamilyStored_descend_reserved {c₀ : ConstantInfo} {T : Name}
   have hdown : ∀ n : Name, n ≠ c₀.name →
       (⟨c₀ :: env.consts⟩ : Env).find? n = env.find? n := by
     intro n hn
-    rw [ConLeche.Env.find?_cons, if_neg (fun hh => hn hh.symm)]
+    rw [ConLeche.Env.find?_cons, ite_eq_right (fun hh => hn hh.symm)]
   refine ⟨by rwa [hdown _ hnT] at hf, ⟨hCres, ⟨cvC, ?_⟩, ?_⟩,
     hnT, hnC, hnP⟩
   · rwa [hdown _ hnC] at hfC
@@ -231,7 +231,7 @@ theorem capsOk_cons_basis (mp : EnvModelM V μ env)
     have hnT : T ≠ c₀.name := fun hh => by
       rw [hh, hres₀] at hres; exact nomatch hres
     have hfE : env.find? T = some (.indInfo cvT caps) := by
-      rw [ConLeche.Env.find?_cons, if_neg (fun hh => hnT hh.symm)] at hf
+      rw [ConLeche.Env.find?_cons, ite_eq_right (fun hh => hnT hh.symm)] at hf
       exact hf
     obtain ⟨TVa, hTVa, hokTVa, hlaw⟩ :=
       hprev.2 T cvT caps hfE hcapu hres φ' us hlen

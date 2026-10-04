@@ -80,13 +80,13 @@ variable {w k : Nat} {Is : Nat → V} {Φ : (Nat → V) → Nat → V}
 
 theorem lfpTuple_of_not (h : ¬ ∃ L, IsClosedTuple w k Is Φ L) (m : Nat) :
     lfpTuple w k Is Φ m = graph (fun _ => empty) (Is m) := by
-  unfold lfpTuple; exact dif_neg h
+  unfold lfpTuple; exact dite_eq_right h
 
 theorem mem_app_lfpTuple (h : ∃ L, IsClosedTuple w k Is Φ L) {m : Nat} {i x : V}
     (hi : i ∈ˢ Is m) :
     x ∈ˢ app (lfpTuple w k Is Φ m) i ↔ ∀ X, IsClosedTuple w k Is Φ X → x ∈ˢ app (X m) i := by
   unfold lfpTuple
-  rw [dif_pos h, app_graph hi, mem_sep]
+  rw [dite_eq_left h, app_graph hi, mem_sep]
   exact ⟨fun hx => hx.2, fun hx => ⟨hx _ (Classical.choose_spec h), hx⟩⟩
 
 /-- **Leastness**: the least pre-fixed tuple lies below every closed
@@ -102,7 +102,7 @@ theorem lfpTuple_mem (w k : Nat) (Is : Nat → V) (Φ : (Nat → V) → Nat → 
   intro m hm
   by_cases h : ∃ L, IsClosedTuple w k Is Φ L
   · unfold lfpTuple
-    rw [dif_pos h]
+    rw [dite_eq_left h]
     exact graph_mem_famSpace fun _ hi =>
       univ_sep_mem (famSpace_app ((Classical.choose_spec h).1 m hm) hi)
   · rw [lfpTuple_of_not h]

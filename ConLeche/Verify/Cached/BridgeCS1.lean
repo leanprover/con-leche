@@ -40,45 +40,45 @@ theorem checkConstantValS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF e
   unfold checkConstantVal
   dsimp only [sharedOpsC]
   by_cases h1 : (env.find? cv.name).isSome = true
-  · simp only [if_pos h1]
+  · simp only [ite_eq_left h1]
     exact SimC.throw_bind
-  simp only [if_neg h1]
+  simp only [ite_eq_right h1]
   by_cases h2 : reservedBasisNames.contains cv.name = true
-  · simp only [if_pos h2]
+  · simp only [ite_eq_left h2]
     exact SimC.throw_bind
-  simp only [if_neg h2]
+  simp only [ite_eq_right h2]
   by_cases h3 : cv.name.isProjFnShape = true
-  · simp only [if_pos h3]
+  · simp only [ite_eq_left h3]
     exact SimC.throw_bind
-  simp only [if_neg h3]
+  simp only [ite_eq_right h3]
   by_cases h4 : Name.nodup cv.levelParams = true
   case neg =>
-    simp only [if_neg h4]
+    simp only [ite_eq_right h4]
     exact SimC.throw_bind
-  simp only [if_pos h4]
+  simp only [ite_eq_left h4]
   by_cases h5 : Expr.looseBVarsBounded 0 cv.type = true
   case neg =>
-    simp only [if_neg h5]
+    simp only [ite_eq_right h5]
     exact SimC.throw_bind
-  simp only [if_pos h5]
+  simp only [ite_eq_left h5]
   by_cases h6 : cv.type.hasFvar = true
-  · simp only [if_pos h6]
+  · simp only [ite_eq_left h6]
     exact SimC.throw_bind
-  simp only [if_neg h6]
+  simp only [ite_eq_right h6]
   refine SimC.bind (opE_annotate_sim hμ henv hs
       (Expr.WScoped.of_not_hasFvar (Bool.not_eq_true _ ▸ h6)))
     (fun s₁ ty ty' hs₁ hP => ?_)
   obtain ⟨rfl, hwty⟩ := hP
   by_cases h7 : Expr.allLevelParamsDefined cv.levelParams ty = true
   case neg =>
-    simp only [if_neg h7]
+    simp only [ite_eq_right h7]
     exact SimC.throw_bind
-  simp only [if_pos h7]
+  simp only [ite_eq_left h7]
   by_cases h8 : Expr.constsResolve env ty = true
   case neg =>
-    simp only [if_neg h8]
+    simp only [ite_eq_right h8]
     exact SimC.throw_bind
-  simp only [if_pos h8]
+  simp only [ite_eq_left h8]
   refine SimC.bind (opE_infer_sim hμ henv hs₁ hwty)
     (fun s₂ sty sty' hs₂ hP₂ => ?_)
   obtain ⟨rfl, hwsty⟩ := hP₂
@@ -96,11 +96,11 @@ theorem checkReducePinS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env
   unfold checkReducePin
   dsimp only [sharedOpsC]
   by_cases h1 : (reduceStoredOk env2 c && reduceElemOk env c) = true
-  case neg => simp only [if_neg h1]; exact SimC.throw
-  simp only [if_pos h1]
+  case neg => simp only [ite_eq_right h1]; exact SimC.throw
+  simp only [ite_eq_left h1]
   by_cases h2 : reducePinGuard env c = true
-  case neg => simp only [if_neg h2]; exact SimC.throw
-  simp only [if_pos h2]
+  case neg => simp only [ite_eq_right h2]; exact SimC.throw
+  simp only [ite_eq_left h2]
   refine SimC.bind (opE_annotate_sim hμ henv hs
       (Expr.WScoped.of_not_hasFvar hvf))
     (fun s₁ valA valA' hs₁ hP => ?_)
@@ -196,9 +196,9 @@ theorem checkDivModCertsS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF e
       wscopedB_substConst0 hvf _ heqw
     by_cases hguards : divModCertGuard env c annVal hyps eqE proof = true
     case neg =>
-      simp only [if_neg hguards]
+      simp only [ite_eq_right hguards]
       exact SimC.pure hs rfl
-    simp only [if_pos hguards]
+    simp only [ite_eq_left hguards]
     have hguards' := hguards
     unfold divModCertGuard at hguards'
     simp only [Bool.and_eq_true] at hguards'
@@ -330,9 +330,9 @@ theorem checkDivModPinLoopS_sim (hμ : mode.verifiedChecks = true)
     by_cases hping : (divModPinGuard ps env c &&
         divModCertsGuard ps env c value') = true
     case neg =>
-      simp only [if_neg hping]
+      simp only [ite_eq_right hping]
       exact checkDivModPinLoopS_sim hμ henv hc hvf rest _ _ hs
-    simp only [if_pos hping]
+    simp only [ite_eq_left hping]
     exact SimC.orElse hs (checkDivModPinAtS_sim hμ henv hc hvf hping hs)
       (fun r s₁ hs₁ => checkDivModPinLoopS_sim hμ henv hc hvf rest _ _ hs₁)
 
@@ -347,8 +347,8 @@ theorem checkDivModPinS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env
       (checkDivModPin (fueledOpsM mode) pins env env2 c) := by
   unfold checkDivModPin
   by_cases h1 : divModEnvGuard env2 c = true
-  case neg => simp only [if_neg h1]; exact SimC.throw
-  simp only [if_pos h1]
+  case neg => simp only [ite_eq_right h1]; exact SimC.throw
+  simp only [ite_eq_left h1]
   cases hfind : env2.find? c with
   | none => exact SimC.throw
   | some ci =>
@@ -369,9 +369,9 @@ theorem installBasisDeclS_sim {env' : Env} {ci : ConstantInfo}
       (installBasisDecl env' ci : FueledM Env) := by
   unfold installBasisDecl
   by_cases h1 : (env'.find? ci.name).isNone = true
-  · simp only [if_pos h1]
+  · simp only [ite_eq_left h1]
     exact SimC.pure hs rfl
-  · simp only [if_neg h1]
+  · simp only [ite_eq_right h1]
     exact SimC.throw_bind
 
 /-- The basis-install fold as a `SimC`. -/

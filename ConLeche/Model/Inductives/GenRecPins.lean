@@ -102,7 +102,7 @@ theorem WScoped.of_abstractRange_noFvar {n : Nat} :
     simp only [Expr.abstractRange] at hf
     by_cases hi : 0 ≤ idx ∧ idx < 0 + n
     · exact ⟨by omega, hw.2⟩
-    · rw [if_neg hi] at hf; simp [Expr.hasFvar] at hf
+    · rw [ite_eq_right hi] at hf; simp [Expr.hasFvar] at hf
   | sort u => intro D c _ _; simp [Expr.WScoped]
   | const n us => intro D c _ _; simp [Expr.WScoped]
   | lit l => intro D c _ _; simp [Expr.WScoped]
@@ -272,7 +272,7 @@ theorem storedMajorSub_graded (hμ : μ.verifiedChecks = true) (mpC : EnvModelM 
     obtain ⟨ty', hty'⟩ := ConLeche.openPisAtFvars_index _ _ _ hop pos _ hpos
     have h1 : l.1 = pos := by injection hty' with a b; omega
     have hpt : (fvs.take rP)[pos]? = some (Expr.fvar l.1 l.2) := by
-      rw [List.getElem?_take, if_pos (show pos < rP by have := hlt l hl; omega)]; exact hpos
+      rw [List.getElem?_take, ite_eq_left (show pos < rP by have := hlt l hl; omega)]; exact hpos
     exact List.mem_of_getElem? hpt
   have hLX : Expr.LeavesBounded x :=
     leavesBounded_of_openers (fun y hy => hbFvs y (List.mem_of_mem_take hy)) hleafP
@@ -293,7 +293,7 @@ theorem storedMajorSub_graded (hμ : μ.verifiedChecks = true) (mpC : EnvModelM 
     intro i hi y hy
     obtain ⟨pd, hpd, -, hrd⟩ := hdomsR i y hy
     rw [hrd, hPdE, List.getD_eq_getElem?_getD, List.getElem?_map, List.getElem?_take,
-      if_pos hi, hpd]
+      ite_eq_left hi, hpd]
     rfl
   have hokTower : ∀ l, l < rP → ∀ (σ : Nat → V) (ys : List V),
       SpineFit σ ((pdoms ++ [] ++ []).take l) ys →
@@ -330,7 +330,7 @@ theorem storedMajorSub_graded (hμ : μ.verifiedChecks = true) (mpC : EnvModelM 
         have hi : i < rP := by
           have := (List.getElem?_eq_some_iff.mp hy).1
           rw [List.length_take] at this; omega
-        rw [List.getElem?_take, if_pos hi] at hy
+        rw [List.getElem?_take, ite_eq_left hi] at hy
         exact hAa i hi y hy)
       hleafP hlt hent
       (fun i hi ρ hρ => by
@@ -525,7 +525,7 @@ theorem recStagePinsOk (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V μ en
       obtain ⟨ty', hty'⟩ := ConLeche.openPisAtFvars_index _ _ _ hopen pos _ hpos
       have h1 : l.1 = pos := by injection hty' with a b; omega
       have hpt : (TE.fvs.take rP)[pos]? = some (Expr.fvar l.1 l.2) := by
-        rw [List.getElem?_take, if_pos (show pos < rP by have := hxlt l hl; omega)]
+        rw [List.getElem?_take, ite_eq_left (show pos < rP by have := hxlt l hl; omega)]
         exact hpos
       exact List.mem_of_getElem? hpt
   -- the round trip: the pin opened at the prefix openers IS the parameter

@@ -81,9 +81,9 @@ theorem wStar_agree {nP hiP i rP B : Nat} {x : Nat → AnnotTerm} {xs fs : List 
   intro p hp
   have hlen : (xs ++ fs).length = B := by rw [List.length_append, hxl, hB]
   have hti : (fs.take i).length = i := by rw [List.length_take]; omega
-  simp only [substE, Nat.not_lt_zero, if_false, shiftE_zero_zero, Nat.sub_zero, substTau]
+  simp only [substE, Nat.not_lt_zero, ite_false, shiftE_zero_zero, Nat.sub_zero, substTau]
   by_cases hpb : p < hiP + i
-  · rw [if_pos hpb]
+  · rw [ite_eq_left hpb]
     by_cases hv : hiP + i - 1 - p < nP
     · -- a parameter
       obtain ⟨a, ha⟩ : ∃ a, xs[hiP + i - 1 - p]? = some a :=
@@ -105,7 +105,7 @@ theorem wStar_agree {nP hiP i rP B : Nat} {x : Nat → AnnotTerm} {xs fs : List 
         Option.getD_some, consList_apply_lt _ _ _ (by omega), hti,
         List.getElem?_take_of_lt (by omega),
         show i - 1 - p = hiP + i - 1 - p - hiP by omega, ha, Option.getD_some]
-  · rw [if_neg hpb, interp_bvar, show p - (hiP + i) + B = (p - (hiP + i)) + (xs ++ fs).length by
+  · rw [ite_eq_right hpb, interp_bvar, show p - (hiP + i) + B = (p - (hiP + i)) + (xs ++ fs).length by
       omega, consList_apply_add]
     rw [show p = (p - (hiP + i) + hiP) + (fs.take i).length by omega, consList_apply_add, htail]
     congr 1

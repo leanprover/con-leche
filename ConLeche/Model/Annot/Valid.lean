@@ -231,11 +231,11 @@ theorem AnnotValid_inst :
         (if i < k then .bvar i
          else if i = k then AnnotTerm.liftN k a else .bvar (i - 1)) ↔ _
     by_cases h : i < k
-    · simp [if_pos h]
+    · simp [ite_eq_left h]
     · by_cases h2 : i = k
-      · simp only [if_neg h, if_pos h2, AnnotValid_bvar, iff_true]
+      · simp only [ite_eq_right h, ite_eq_left h2, AnnotValid_bvar, iff_true]
         exact (AnnotValid_liftN V k a 0 ρ).mpr ha
-      · simp [if_neg h, if_neg h2]
+      · simp [ite_eq_right h, ite_eq_right h2]
   | sort u => intro a k ρ _; simp [AnnotTerm.inst]
   | const c us => intro a k ρ _; simp [AnnotTerm.inst]
   | app f b ihf ihb =>

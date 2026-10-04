@@ -87,23 +87,23 @@ theorem etaFamilyStored_descend {c₀ : ConstantInfo} {T : Name}
   -- the former is not the cons: the cons is not an `indInfo`
   have hnT : T ≠ c₀.name := by
     rintro rfl
-    rw [ConLeche.Env.find?_cons, if_pos rfl] at hf
+    rw [ConLeche.Env.find?_cons, ite_eq_left rfl] at hf
     exact hnotind cvT caps (Option.some.inj hf)
   -- the capability constructor is not the cons: it is a `ctorInfo`
   have hnC : caps.etaCtor ≠ c₀.name := by
     intro heq
-    rw [heq, ConLeche.Env.find?_cons, if_pos rfl] at hfC
+    rw [heq, ConLeche.Env.find?_cons, ite_eq_left rfl] at hfC
     exact hnotctor cvC cnP cnF (Option.some.inj hfC)
   -- no projection function is the cons: they are `recInfo`s
   have hnP : ∀ j, j < caps.etaFields → projFnName T j ≠ c₀.name := by
     intro j hj heq
     obtain ⟨cv2, mI2, rP2, rules2, hf2⟩ := hfP j hj
-    rw [heq, ConLeche.Env.find?_cons, if_pos rfl] at hf2
+    rw [heq, ConLeche.Env.find?_cons, ite_eq_left rfl] at hf2
     exact hnotrec cv2 mI2 rP2 rules2 (Option.some.inj hf2)
   have hdown : ∀ n : Name, n ≠ c₀.name →
       (⟨c₀ :: env.consts⟩ : Env).find? n = env.find? n := by
     intro n hn
-    rw [ConLeche.Env.find?_cons, if_neg (fun hh => hn hh.symm)]
+    rw [ConLeche.Env.find?_cons, ite_eq_right (fun hh => hn hh.symm)]
   refine ⟨by rwa [hdown _ hnT] at hf, ⟨hCres, ⟨cvC, cnP, cnF, ?_⟩, ?_⟩,
     hnT, hnC, hnP⟩
   · rwa [hdown _ hnC] at hfC
@@ -227,7 +227,7 @@ theorem capsOk_cons_fresh (mp : EnvModelM V μ env)
       have h0 := (ConLeche.Env.find?_cons_self c₀ env).symm.trans hf
       exact hnotind cvT caps (Option.some.inj h0)
     have hfE : env.find? T = some (.indInfo cvT caps) := by
-      rw [ConLeche.Env.find?_cons, if_neg (fun hh => hnT hh.symm)] at hf
+      rw [ConLeche.Env.find?_cons, ite_eq_right (fun hh => hnT hh.symm)] at hf
       exact hf
     obtain ⟨TVa, hTVa, hokTVa, hlaw⟩ :=
       hprev.2 T cvT caps hfE hcapu hres φ' us hlen

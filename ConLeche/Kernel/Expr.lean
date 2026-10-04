@@ -449,7 +449,7 @@ private theorem toNat_satPred {x : UInt64} (_hx : x.toNat < 32768) :
     · have : x = 0 := by rw [← UInt64.toNat_inj]; simpa using hz
       simp [satPred, this, satRange]
     · have hz' : x ≠ 0 := by rw [Ne, ← UInt64.toNat_inj]; simpa using hz
-      simp only [satPred, beq_iff_eq, hne, hz', if_false, if_neg hs,
+      simp only [satPred, beq_iff_eq, hne, hz', ↓reduceIte, hs,
         toNat_sub_one hz]
 
 @[simp] theorem bvarBRaw_bvar (i : Nat) :

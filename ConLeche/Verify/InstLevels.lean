@@ -163,7 +163,7 @@ theorem Level.subst_param_self (ks : List Name) :
       intro n
       by_cases h : k = n
       · subst h; simp [Level.subst.go]
-      · simp only [List.map_cons, Level.subst.go, if_neg h]
+      · simp only [List.map_cons, Level.subst.go, ite_eq_right h]
         exact ih n
   intro l
   induction l with

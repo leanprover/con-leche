@@ -173,11 +173,11 @@ theorem instS_read (q : Nat) (hq : q < ds.length + D.k) :
             dsa) := by
   unfold instS
   by_cases hqd : q < ds.length
-  · rw [if_pos hqd, if_pos hqd]
+  · rw [ite_eq_left hqd, ite_eq_left hqd]
     have hmem : ds.getD q default ∈ ds := by
       rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hqd]; exact List.getElem_mem _
     exact ⟨(hds _ hmem).1, (hds _ hmem).2, DenoteMetaSpine.getD hdsa default q hqd⟩
-  · rw [if_neg hqd, if_neg hqd]
+  · rw [ite_eq_right hqd, ite_eq_right hqd]
     obtain ⟨cv, caps, hf, hlp⟩ := hlps (q - ds.length) (by omega)
     have hsc := ConLeche.ScB.mkAppN (d := hi) (f := .const (D.member (q - ds.length)) us)
       (xs := ds) ⟨by simp [Expr.WScoped], rfl⟩ fun x hx => hds x hx
@@ -269,7 +269,7 @@ theorem instCtor_read {c j : Nat} (hc : c < D.k) (hj : j < D.nctors c) {cv : Con
     simp only [ConLeche.nestPhs, List.getElem_map, List.getElem_range] at h1 ⊢
     rw [Expr.substFvars_fvar_lt (by omega)]
     unfold instS
-    rw [if_pos (by omega), List.getD_eq_getElem?_getD, List.getElem?_eq_getElem h2,
+    rw [ite_eq_left (by omega), List.getD_eq_getElem?_getD, List.getElem?_eq_getElem h2,
       Option.getD_some]
   have hcl' : (cv.type.instantiateLevelParams cv.levelParams us).hasFvar = false := by
     rw [Expr.hasFvar_instantiateLevelParams]; exact hcl
@@ -285,9 +285,9 @@ theorem instCtor_read {c j : Nat} (hc : c < D.k) (hj : j < D.nctors c) {cv : Con
     refine (Expr.replaceApps_canon_fill (names := D.names) hdl (fun i hi' => ?_)
       (fun m hm => ?_) _ htb).symm
     · unfold instS
-      rw [if_pos (by omega), if_pos (by omega)]
+      rw [ite_eq_left (by omega), ite_eq_left (by omega)]
     · unfold instS
-      rw [if_pos (by omega), if_neg (by omega), show n + m - ds.length = m by omega]
+      rw [ite_eq_left (by omega), ite_eq_right (by omega), show n + m - ds.length = m by omega]
       rfl
   rw [hfill] at hsub
   refine ⟨_, ab, hsub, ⟨Tys, hlT, hTys, hEqF⟩, hlab, ?_⟩
@@ -323,7 +323,7 @@ theorem instTau_frame (ρ : Nat → V)
     refine List.map_congr_left fun mm hmm => ?_
     have hmm' : mm < D.k := List.mem_range.mp hmm
     have hr := (hsR (ds.length + mm) (by omega)).2.2
-    rw [if_neg (by omega), show ds.length + mm - ds.length = mm by omega] at hr
+    rw [ite_eq_right (by omega), show ds.length + mm - ds.length = mm by omega] at hr
     rw [hr, Option.getD_some, interp_mkAppN_foldl]
     have hfi : dsa.map (interp V ρ) = frameIdx (D.params (Level.substFn φ lps us)).length
         (keyFrame dsa hi ρ) := by
@@ -336,14 +336,14 @@ theorem instTau_frame (ρ : Nat → V)
     rw [show consList (List.map (interp V ρ) dsa) (fun j => ρ (j + hi)) q = _ from
       consList_map_apply _ _ q, List.length_map, hdl]
     by_cases hq : q < ds.length
-    · rw [if_pos hq, if_pos hq]
+    · rw [ite_eq_left hq, ite_eq_left hq]
       have hr := (hsR (ds.length - 1 - q) (by omega)).2.2
-      rw [if_pos (by omega)] at hr
+      rw [ite_eq_left (by omega)] at hr
       rw [hr, Option.getD_some]
       have hlt : ds.length - 1 - q < dsa.length := by omega
       rw [List.getD_eq_getElem?_getD, List.getD_eq_getElem?_getD, List.getElem?_map,
         List.getElem?_eq_getElem hlt, Option.getD_some, Option.map_some, Option.getD_some]
-    · rw [if_neg hq, if_neg hq]
+    · rw [ite_eq_right hq, ite_eq_right hq]
 
 omit hnN hkN hnd in
 /-- **The fields of an instantiated container constructor, at the

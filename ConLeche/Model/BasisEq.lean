@@ -663,7 +663,7 @@ theorem denoteMeta_eqRecA_type (ψ : Name → Nat)
     intro d
     have hf' : (⟨eqRecA :: env.consts⟩ : Env).find? eqReflName
         = some eqReflA := by
-      rw [ConLeche.Env.find?_cons, if_neg (by decide)]; exact hR
+      rw [ConLeche.Env.find?_cons, ite_eq_right (by decide)]; exact hR
     rw [denoteMeta_const hf' (by rfl), acvalWith_ne (by decide),
       show Level.substFn ψ eqReflA.toConstantVal.levelParams
         [Level.param uN] = Level.substFn ψ [uN]
@@ -725,7 +725,7 @@ theorem denoteMeta_eqRec_rhs (ψ : Name → Nat)
     intro d
     have hf' : (⟨eqRecA :: env.consts⟩ : Env).find? eqReflName
         = some eqReflA := by
-      rw [ConLeche.Env.find?_cons, if_neg (by decide)]; exact hR
+      rw [ConLeche.Env.find?_cons, ite_eq_right (by decide)]; exact hR
     rw [denoteMeta_const hf' (by rfl), acvalWith_ne (by decide),
       show Level.substFn ψ eqReflA.toConstantVal.levelParams
         [Level.param uN] = Level.substFn ψ [uN]
@@ -939,7 +939,7 @@ theorem eqRecLaw {m : EnvModel V env}
     hlev _ hnested hpin hTVa hTVja hfitR hfitC
   have hR' : (⟨eqRecA :: env.consts⟩ : Env).find? eqReflName
       = some eqReflA := by
-    rw [ConLeche.Env.find?_cons, if_neg (by decide)]; exact hR
+    rw [ConLeche.Env.find?_cons, ite_eq_right (by decide)]; exact hR
   rw [show RecRule.ctor eqRecRule = eqReflName from rfl, hR'] at hfj
   obtain ⟨rfl, rfl, rfl⟩ :
       cvj = eqReflA.toConstantVal ∧ cnP = 2 ∧ cnF = 0 := by
@@ -1252,7 +1252,7 @@ theorem declBasisPB_eqK {env₁ : Env} (mp : EnvModelM V μ env)
     intro ψ
     rw [hac1, show eqName = eqA.name from rfl, acvalWith_self]
   have hE1 : (⟨eqA :: env.consts⟩ : Env).find? eqName = some eqA := by
-    rw [ConLeche.Env.find?_cons]; exact if_pos rfl
+    rw [ConLeche.Env.find?_cons]; exact ite_eq_left rfl
   have hf2 : (⟨eqA :: env.consts⟩ : Env).find? eqReflA.name = none :=
     Option.isNone_iff_eq_none.mp h2
   have hwf2 : EnvWF ⟨eqReflA :: eqA :: env.consts⟩ := by
@@ -1266,7 +1266,7 @@ theorem declBasisPB_eqK {env₁ : Env} (mp : EnvModelM V μ env)
     show Expr.constsResolve _ eqReflA.toConstantVal.type = true
     have hf : (⟨eqReflA :: eqA :: env.consts⟩ : Env).find? eqName
         = some eqA := by
-      rw [ConLeche.Env.find?_cons, if_neg (by decide)]; exact hE1
+      rw [ConLeche.Env.find?_cons, ite_eq_right (by decide)]; exact hE1
     rw [show eqReflA.toConstantVal.type
         = Expr.forallE (.sort (.param uN))
             (Expr.forallE (.bvar 0)
@@ -1278,10 +1278,10 @@ theorem declBasisPB_eqK {env₁ : Env} (mp : EnvModelM V μ env)
   obtain ⟨mp2, hac2, hc2⟩ := extendEqRefl mp1 hE1 hEv1 hf2 hwf2
   have hE2 : (⟨eqReflA :: eqA :: env.consts⟩ : Env).find? eqName
       = some eqA := by
-    rw [ConLeche.Env.find?_cons, if_neg (by decide)]; exact hE1
+    rw [ConLeche.Env.find?_cons, ite_eq_right (by decide)]; exact hE1
   have hR2 : (⟨eqReflA :: eqA :: env.consts⟩ : Env).find? eqReflName
       = some eqReflA := by
-    rw [ConLeche.Env.find?_cons]; exact if_pos rfl
+    rw [ConLeche.Env.find?_cons]; exact ite_eq_left rfl
   have hEv2 : ∀ ψ : Name → Nat, mp2.base2.acval eqName ψ
       = eqValAV ψ := by
     intro ψ
@@ -1325,7 +1325,7 @@ theorem declBasisPB_eqK {env₁ : Env} (mp : EnvModelM V μ env)
             rw [← h1] at he'
             injection he' with _ _ h2 _
             rw [denoteMeta_sort] at hta
-            simp only [ConLeche.Expr.instantiate1, if_true] at htb
+            simp only [ConLeche.Expr.instantiate1, ite_true] at htb
             rw [denoteMeta_fvar] at htb
             obtain rfl := Option.some.inj hta
             obtain rfl := Option.some.inj htb
@@ -1349,10 +1349,10 @@ theorem declBasisPB_eqK {env₁ : Env} (mp : EnvModelM V μ env)
   have hwf3 : EnvWF ⟨eqRecA :: eqReflA :: eqA :: env.consts⟩ := by
     have hfE : (⟨eqRecA :: eqReflA :: eqA :: env.consts⟩ : Env).find?
         eqName = some eqA := by
-      rw [ConLeche.Env.find?_cons, if_neg (by decide)]; exact hE2
+      rw [ConLeche.Env.find?_cons, ite_eq_right (by decide)]; exact hE2
     have hfR : (⟨eqRecA :: eqReflA :: eqA :: env.consts⟩ : Env).find?
         eqReflName = some eqReflA := by
-      rw [ConLeche.Env.find?_cons, if_neg (by decide)]; exact hR2
+      rw [ConLeche.Env.find?_cons, ite_eq_right (by decide)]; exact hR2
     refine EnvWF.cons hwf2 ⟨rfl, rfl, ?_, rfl,
       (fun _ _ _ heq => nomatch heq), ?_,
       (fun _ heq => nomatch heq),

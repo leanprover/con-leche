@@ -167,7 +167,7 @@ theorem feedChunk_spec (st : StateD) (b : ByteArray) (i : USize) (lineNo : Nat) 
     · rw [hs] at hj; injection hj with hj1 hj2; subst hj2; simp at hj0
     · rw [hs] at hj; injection hj with hj1 hj2; subst hj1; subst hj2
       conv => rhs; rw [parseLines, hnv]
-      simp only [happ, dif_pos hlt]
+      simp only [happ, dite_eq_left hlt]
       rw [ih, htail]
   | case7 st i lineNo h r j hj hj0 st' happ hij =>
     -- the scanner made no progress: impossible, a `some` position is ahead of the start
@@ -197,7 +197,7 @@ theorem parseBytes_eq_parseLines (b : ByteArray)
   rw [tailAt_zero_of_size_lt hsz, ← bytes_eq_of_size_lt hsz] at key
   rw [← key]
   unfold parseBytes
-  rw [if_neg (Nat.not_le.mpr hsz)]
+  rw [ite_eq_right (Nat.not_le.mpr hsz)]
   simp only [bind, Except.bind, pure, Except.pure]
   cases feedChunk .init b 0 0 with
   | error e => rfl
@@ -241,7 +241,7 @@ theorem parseLines_line {st : StateD} {l x : List UInt8} {r : LineRec} {n : Nat}
   | error msg => rfl
   | ok v => cases v with
     | inr v => rfl
-    | inl st => simp only [dif_pos this]
+    | inl st => simp only [dite_eq_left this]
 
 /-- A newline-free line, then the rest: one successful step, or the
 parse fails. -/

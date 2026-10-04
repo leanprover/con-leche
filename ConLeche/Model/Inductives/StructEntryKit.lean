@@ -588,7 +588,7 @@ theorem fvarLeaves_instantiate1_of_not_hasLooseBVar :
     intro v k hk l hl
     simp only [Expr.hasLooseBVar, beq_eq_false_iff_ne, ne_eq] at hk
     simp only [Expr.instantiate1] at hl
-    rw [if_neg (Ne.symm hk)] at hl
+    rw [ite_eq_right (Ne.symm hk)] at hl
     split at hl <;> simp [Expr.fvarLeaves] at hl
   | fvar _ _ => intro v k _ l hl; exact hl
   | sort _ => intro v k _ l hl; exact hl
@@ -751,23 +751,23 @@ theorem denoteMeta_liftN_of_leaf_free {env : Env} (m : EnvModel V env) {φ : Nam
     have hne : idx ≠ q := hl (idx, ty) (by simp [Expr.fvarLeaves])
     rcases Nat.lt_or_gt_of_ne hne with hlt | hgt
     · refine ⟨.bvar (d - 2 - idx), ?_⟩
-      rw [AnnotTerm.liftN_bvar, if_neg (by omega)]
+      rw [AnnotTerm.liftN_bvar, ite_eq_right (by omega)]
       congr 1
       omega
     · refine ⟨.bvar (d - 1 - idx), ?_⟩
-      rw [AnnotTerm.liftN_bvar, if_pos (by omega)]
+      rw [AnnotTerm.liftN_bvar, ite_eq_left (by omega)]
   | case3 d n us ci hf hlen =>
     intro _ q _ _ ea h
     rw [denoteMeta, hf] at h
     dsimp only at h
-    rw [if_pos hlen] at h
+    rw [ite_eq_left hlen] at h
     obtain rfl := Option.some.inj h
     exact ⟨_, (m.acval_closed _ _ _).symm⟩
   | case4 d n us ci hf hlen =>
     intro _ q _ _ ea h
     rw [denoteMeta, hf] at h
     dsimp only at h
-    rw [if_neg hlen] at h
+    rw [ite_eq_right hlen] at h
     exact nomatch h
   | case5 d n us hf =>
     intro _ q _ _ ea h
@@ -830,24 +830,24 @@ theorem denoteMeta_liftN_of_leaf_free {env : Env} (m : EnvModel V env) {φ : Nam
       · exact ⟨.snd Xe, by rw [AnnotTerm.liftN_snd]⟩
   | case11 d n hsup =>
     intro _ q _ _ ea h
-    rw [denoteMeta, if_pos hsup] at h
+    rw [denoteMeta, ite_eq_left hsup] at h
     obtain rfl := Option.some.inj h
     exact ⟨_, (natLitAV_liftN (m.acval_closed _ _ _) (m.acval_closed _ _ _) n).symm⟩
   | case12 d n hsup =>
     intro _ q _ _ ea h
-    rw [denoteMeta, if_neg hsup] at h
+    rw [denoteMeta, ite_eq_right hsup] at h
     exact nomatch h
   | case13 d s hsup =>
     intro _ q _ _ ea h
     -- the string literal's reading is closed: its own reading at depth `0`
     have h0 : denoteMeta m.acval env φ 0 (.lit (.strVal s)) = some ea := by
-      rw [denoteMeta, if_pos hsup] at h ⊢; exact h
+      rw [denoteMeta, ite_eq_left hsup] at h ⊢; exact h
     have hcl := bvarsBelow_of_reading (m := m) (d := 0) (e := .lit (.strVal s))
       (Expr.WScoped.of_not_hasFvar rfl) rfl h0
     exact ⟨ea, (AnnotTerm.liftN_eq_self ea (Term.bvarsBelow.mono (Nat.zero_le _) hcl) 1).symm⟩
   | case14 d s hsup =>
     intro _ q _ _ ea h
-    rw [denoteMeta, if_neg hsup] at h
+    rw [denoteMeta, ite_eq_right hsup] at h
     exact nomatch h
   | case15 d x hs hfv hc hpi hlam happ hlet hproj hnat hstr =>
     intro _ q _ _ ea h
@@ -917,14 +917,14 @@ theorem interp_congr_lifts :
       · obtain ⟨X, hX⟩ := hfree N (Nat.lt_succ_self N) hN
         exact interp_congr_lift hX fun i hi => by
           show ρ i = (if i = N then ρ' N else ρ i)
-          rw [if_neg hi]
+          rw [ite_eq_right hi]
     rw [h1]
     refine ih ?_ ?_
     · intro i hi hne
       have hiN : i ≠ N := by omega
       refine hfree i (by omega) ?_
       show ρ i ≠ ρ' i
-      have : ρ'' i = ρ i := by show (if i = N then ρ' N else ρ i) = ρ i; rw [if_neg hiN]
+      have : ρ'' i = ρ i := by show (if i = N then ρ' N else ρ i) = ρ i; rw [ite_eq_right hiN]
       rw [this] at hne
       exact hne
     · intro i hi
@@ -932,9 +932,9 @@ theorem interp_congr_lifts :
       · have : i = N := by omega
         subst this
         show (if i = i then ρ' i else ρ i) = ρ' i
-        rw [if_pos rfl]
+        rw [ite_eq_left rfl]
       · have : ρ'' i = ρ i := by
-          show (if i = N then ρ' N else ρ i) = ρ i; rw [if_neg (by omega)]
+          show (if i = N then ρ' N else ρ i) = ρ i; rw [ite_eq_right (by omega)]
         rw [this]
         exact hag i hge
 
@@ -964,14 +964,14 @@ theorem wellDenotedV_congr_lifts :
       · obtain ⟨X, hX⟩ := hfree N (Nat.lt_succ_self N) hN
         exact wellDenotedV_congr_lift hX fun i hi => by
           show ρ i = (if i = N then ρ' N else ρ i)
-          rw [if_neg hi]
+          rw [ite_eq_right hi]
     rw [h1]
     refine ih ?_ ?_
     · intro i hi hne
       have hiN : i ≠ N := by omega
       refine hfree i (by omega) ?_
       show ρ i ≠ ρ' i
-      have : ρ'' i = ρ i := by show (if i = N then ρ' N else ρ i) = ρ i; rw [if_neg hiN]
+      have : ρ'' i = ρ i := by show (if i = N then ρ' N else ρ i) = ρ i; rw [ite_eq_right hiN]
       rw [this] at hne
       exact hne
     · intro i hi
@@ -979,9 +979,9 @@ theorem wellDenotedV_congr_lifts :
       · have : i = N := by omega
         subst this
         show (if i = i then ρ' i else ρ i) = ρ' i
-        rw [if_pos rfl]
+        rw [ite_eq_left rfl]
       · have : ρ'' i = ρ i := by
-          show (if i = N then ρ' N else ρ i) = ρ i; rw [if_neg (by omega)]
+          show (if i = N then ρ' N else ρ i) = ρ i; rw [ite_eq_right (by omega)]
         rw [this]
         exact hag i hge
 
@@ -998,7 +998,7 @@ theorem consList_prefix_agree {i : Nat} {as : List V} (hlen : as.length = i) (ρ
   · intro k hk hne
     rw [consList_apply_lt _ _ _ (by rw [List.length_replicate]; exact hk),
       consList_apply_lt _ _ _ (by rw [hlen]; exact hk), List.length_replicate, hlen] at hne
-    rw [List.getElem?_replicate, if_pos (by omega), List.getElem?_eq_getElem (by omega)] at hne
+    rw [List.getElem?_replicate, ite_eq_left (by omega), List.getElem?_eq_getElem (by omega)] at hne
     simp only [Option.getD_some] at hne
     rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem (by omega)]
     simp only [Option.getD_some]

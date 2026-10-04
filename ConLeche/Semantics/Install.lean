@@ -98,12 +98,12 @@ theorem acvalWith_params {acval : Name → (Name → Nat) → AnnotTerm}
   intro m ci hf ψ₁ ψ₂ hp
   rw [Env.find?_cons] at hf
   by_cases hm : c₀.name = m
-  · rw [if_pos hm] at hf
+  · rw [ite_eq_left hm] at hf
     obtain rfl := Option.some.inj hf
     subst hm
     rw [acvalWith_self]
     exact hA ψ₁ ψ₂ hp
-  · rw [if_neg hm] at hf
+  · rw [ite_eq_right hm] at hf
     rw [acvalWith_ne (fun hh => hm hh.symm)]
     exact h m ci hf ψ₁ ψ₂ hp
 

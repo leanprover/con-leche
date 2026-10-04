@@ -46,9 +46,9 @@ theorem liftN_liftN_absorb : ∀ (e : AnnotTerm) {j k m : Nat}, k ≤ j →
   | bvar i =>
     intro j k m hkj hjk n
     by_cases h1 : i < k
-    · simp only [liftN_bvar, if_pos h1, if_pos (show i < j by omega)]
-    · simp only [liftN_bvar, if_neg h1,
-        if_neg (show ¬ i + m < j by omega)]
+    · simp only [liftN_bvar, ite_eq_left h1, ite_eq_left (show i < j by omega)]
+    · simp only [liftN_bvar, ite_eq_right h1,
+        ite_eq_right (show ¬ i + m < j by omega)]
       congr 1
       omega
   | sort u => intro _ _ _ _ _ _; rfl
@@ -84,11 +84,11 @@ theorem inst_liftN_absorb : ∀ (e : AnnotTerm) {j k m : Nat}, j ≤ k →
   | bvar i =>
     intro j k m hjk hkj a
     by_cases h1 : i < j
-    · simp only [liftN_bvar, inst_bvar, if_pos h1,
-        if_pos (show i < k by omega)]
-    · simp only [liftN_bvar, inst_bvar, if_neg h1,
-        if_neg (show ¬ i + (m + 1) < k by omega),
-        if_neg (show ¬ i + (m + 1) = k by omega)]
+    · simp only [liftN_bvar, inst_bvar, ite_eq_left h1,
+        ite_eq_left (show i < k by omega)]
+    · simp only [liftN_bvar, inst_bvar, ite_eq_right h1,
+        ite_eq_right (show ¬ i + (m + 1) < k by omega),
+        ite_eq_right (show ¬ i + (m + 1) = k by omega)]
       congr 1
   | sort u => intro _ _ _ _ _ _; rfl
   | const c us => intro _ _ _ _ _ _; rfl
@@ -124,22 +124,22 @@ theorem inst_liftN_comm : ∀ (e : AnnotTerm) {j k m : Nat}, j + m ≤ k →
   | bvar i =>
     intro j k m hjk a
     by_cases h1 : i < j
-    · simp only [liftN_bvar, inst_bvar, if_pos h1,
-        if_pos (show i < k by omega), if_pos (show i < k - m by omega)]
+    · simp only [liftN_bvar, inst_bvar, ite_eq_left h1,
+        ite_eq_left (show i < k by omega), ite_eq_left (show i < k - m by omega)]
     · by_cases h2 : i < k - m
-      · simp only [liftN_bvar, inst_bvar, if_neg h1, if_pos h2,
-          if_pos (show i + m < k by omega)]
+      · simp only [liftN_bvar, inst_bvar, ite_eq_right h1, ite_eq_left h2,
+          ite_eq_left (show i + m < k by omega)]
       · by_cases h3 : i = k - m
-        · simp only [liftN_bvar, inst_bvar, if_neg h1, if_neg h2,
-            if_pos h3, if_neg (show ¬ i + m < k by omega),
-            if_pos (show i + m = k by omega)]
+        · simp only [liftN_bvar, inst_bvar, ite_eq_right h1, ite_eq_right h2,
+            ite_eq_left h3, ite_eq_right (show ¬ i + m < k by omega),
+            ite_eq_left (show i + m = k by omega)]
           rw [liftN_liftN_absorb a (Nat.zero_le j)
               (show j ≤ 0 + (k - m) by omega) m,
             show k - m + m = k by omega]
-        · simp only [liftN_bvar, inst_bvar, if_neg h1, if_neg h2,
-            if_neg h3, if_neg (show ¬ i + m < k by omega),
-            if_neg (show ¬ i + m = k by omega),
-            if_neg (show ¬ i - 1 < j by omega)]
+        · simp only [liftN_bvar, inst_bvar, ite_eq_right h1, ite_eq_right h2,
+            ite_eq_right h3, ite_eq_right (show ¬ i + m < k by omega),
+            ite_eq_right (show ¬ i + m = k by omega),
+            ite_eq_right (show ¬ i - 1 < j by omega)]
           congr 1
           omega
   | sort u => intro _ _ _ _ _; rfl
@@ -178,26 +178,26 @@ theorem inst_inst_comm : ∀ (e : AnnotTerm) {j k : Nat}, j ≤ k →
   | bvar i =>
     intro j k hjk a b
     by_cases h1 : i < j
-    · simp only [inst_bvar, if_pos h1, if_pos (show i < k by omega),
-        if_pos (show i < k + 1 by omega)]
+    · simp only [inst_bvar, ite_eq_left h1, ite_eq_left (show i < k by omega),
+        ite_eq_left (show i < k + 1 by omega)]
     · by_cases h2 : i = j
-      · simp only [inst_bvar, if_neg h1, if_pos h2,
-          if_pos (show i < k + 1 by omega)]
+      · simp only [inst_bvar, ite_eq_right h1, ite_eq_left h2,
+          ite_eq_left (show i < k + 1 by omega)]
         rw [inst_liftN_comm b (show 0 + j ≤ k by omega) a]
       · by_cases h3 : i < k + 1
-        · simp only [inst_bvar, if_neg h1, if_neg h2, if_pos h3,
-            if_pos (show i - 1 < k by omega)]
+        · simp only [inst_bvar, ite_eq_right h1, ite_eq_right h2, ite_eq_left h3,
+            ite_eq_left (show i - 1 < k by omega)]
         · by_cases h4 : i = k + 1
-          · simp only [inst_bvar, if_neg h1, if_neg h2, if_neg h3,
-              if_pos h4, if_neg (show ¬ i - 1 < k by omega),
-              if_pos (show i - 1 = k by omega)]
+          · simp only [inst_bvar, ite_eq_right h1, ite_eq_right h2, ite_eq_right h3,
+              ite_eq_left h4, ite_eq_right (show ¬ i - 1 < k by omega),
+              ite_eq_left (show i - 1 = k by omega)]
             rw [inst_liftN_absorb a (Nat.zero_le j)
               (show j ≤ 0 + k by omega)]
-          · simp only [inst_bvar, if_neg h1, if_neg h2, if_neg h3,
-              if_neg h4, if_neg (show ¬ i - 1 < k by omega),
-              if_neg (show ¬ i - 1 = k by omega),
-              if_neg (show ¬ i - 1 < j by omega),
-              if_neg (show ¬ i - 1 = j by omega)]
+          · simp only [inst_bvar, ite_eq_right h1, ite_eq_right h2, ite_eq_right h3,
+              ite_eq_right h4, ite_eq_right (show ¬ i - 1 < k by omega),
+              ite_eq_right (show ¬ i - 1 = k by omega),
+              ite_eq_right (show ¬ i - 1 < j by omega),
+              ite_eq_right (show ¬ i - 1 = j by omega)]
   | sort u => intro _ _ _ _ _; rfl
   | const c us => intro _ _ _ _ _; rfl
   | prf => intro _ _ _ _ _; rfl
@@ -287,7 +287,7 @@ theorem instSeqAV_bvar_hit : ∀ (as : List AnnotTerm) (c i : Nat) (x : AnnotTer
         List.getElem?_cons_zero, Option.some.injEq] at hx
       subst hx
       rw [List.length_cons, hlen, AnnotTerm.instSeq_cons, inst_bvar,
-        if_neg (by omega), if_pos rfl]
+        ite_eq_right (by omega), ite_eq_left rfl]
       rcases Nat.eq_zero_or_pos (c + as.length) with h0 | h0
       · have hc : c = 0 := by omega
         have hl : as.length = 0 := by omega
@@ -301,7 +301,7 @@ theorem instSeqAV_bvar_hit : ∀ (as : List AnnotTerm) (c i : Nat) (x : AnnotTer
         omega
     · have hilt : i < as.length := by omega
       rw [List.length_cons, hlen, AnnotTerm.instSeq_cons, inst_bvar,
-        if_pos (by omega)]
+        ite_eq_left (by omega)]
       refine ih c i x ?_ hilt
       simp only [List.length_cons] at hx
       rw [show as.length + 1 - 1 - i = (as.length - 1 - i) + 1 from by

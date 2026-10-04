@@ -191,12 +191,12 @@ theorem isEquiv_eq_withoutPtr (l r : Level) :
          else do if ← leq l r then leq r l else pure false) := by
   rw [isEquiv]
   by_cases h : (l == r) = true
-  · rw [if_pos h, if_pos (congrArg simplify (eq_of_beq h))]
-  · rw [if_neg h]
+  · rw [ite_eq_left h, ite_eq_left (congrArg simplify (eq_of_beq h))]
+  · rw [ite_eq_right h]
 
 /-- The disjunct, read off: syntactically equal levels are equivalent. -/
 theorem isEquiv_of_beq {l r : Level} (h : (l == r) = true) :
-    isEquiv l r = some true := by rw [isEquiv, if_pos h]; rfl
+    isEquiv l r = some true := by rw [isEquiv, ite_eq_left h]; rfl
 
 theorem isEquiv_sound {l r : Level} (h : isEquiv l r = some true) :
     ∀ φ, eval φ l = eval φ r := by
@@ -204,7 +204,7 @@ theorem isEquiv_sound {l r : Level} (h : isEquiv l r = some true) :
   by_cases hss : simplify l = simplify r
   · have := congrArg (eval φ) hss
     rwa [eval_simplify, eval_simplify] at this
-  · rw [isEquiv_eq_withoutPtr, if_neg hss] at h
+  · rw [isEquiv_eq_withoutPtr, ite_eq_right hss] at h
     obtain ⟨h1, h2⟩ := bind_and_some_true h
     exact Nat.le_antisymm (leq_sound h1 φ) (leq_sound h2 φ)
 
@@ -372,7 +372,7 @@ theorem substFn_param_self (φ : Name → Nat) :
     funext n
     by_cases h : k = n
     · subst h; simp [Level.substFn, Level.eval]
-    · simp only [List.map_cons, Level.substFn, if_neg h]
+    · simp only [List.map_cons, Level.substFn, ite_eq_right h]
       exact congrFun ih n
 
 end ConLeche.Level

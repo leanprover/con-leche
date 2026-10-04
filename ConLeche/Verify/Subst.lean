@@ -184,7 +184,7 @@ theorem liftLooseBVars_eq_self {k : Nat} :
     intro c hb
     simp only [looseBVarsBounded, decide_eq_true_eq] at hb
     simp only [liftLooseBVars]
-    rw [if_neg (by omega)]
+    rw [ite_eq_right (by omega)]
   | _ =>
     intro c hb
     simp_all [looseBVarsBounded, liftLooseBVars]
@@ -204,24 +204,24 @@ theorem liftLooseBVars_instantiate1 {v : Expr}
     · next h =>
       simp only [instantiate1]
       by_cases h1 : i = j
-      · rw [if_pos (by omega : i + k = j + k), if_pos h1,
+      · rw [ite_eq_left (by omega : i + k = j + k), ite_eq_left h1,
           liftLooseBVars_eq_self (looseBVarsBounded_mono (Nat.zero_le _) hbv)]
-      · rw [if_neg (by omega : ¬ i + k = j + k), if_neg h1]
+      · rw [ite_eq_right (by omega : ¬ i + k = j + k), ite_eq_right h1]
         by_cases h2 : i > j
-        · rw [if_pos (by omega), if_pos h2]
+        · rw [ite_eq_left (by omega), ite_eq_left h2]
           simp only [liftLooseBVars]
-          rw [if_pos (by omega)]
+          rw [ite_eq_left (by omega)]
           congr 1
           omega
-        · rw [if_neg (by omega), if_neg h2]
+        · rw [ite_eq_right (by omega), ite_eq_right h2]
           simp only [liftLooseBVars]
-          rw [if_pos h]
+          rw [ite_eq_left h]
     · next h =>
       simp only [instantiate1]
-      rw [if_neg (by omega), if_neg (by omega), if_neg (by omega),
-        if_neg (by omega)]
+      rw [ite_eq_right (by omega), ite_eq_right (by omega), ite_eq_right (by omega),
+        ite_eq_right (by omega)]
       simp only [liftLooseBVars]
-      rw [if_neg h]
+      rw [ite_eq_right h]
   | fvar idx ty => intro k c j hjc; rfl
   | sort u => intro k c j hjc; rfl
   | const n us => intro k c j hjc; rfl
@@ -580,7 +580,7 @@ theorem instSeq_bvar :
       show (a :: as)[t - j]? = some (instSeq as (t - 1)
         ((Expr.bvar j).instantiate1 a t))
       simp only [Expr.instantiate1]
-      rw [if_neg hjt, if_neg (by omega)]
+      rw [ite_eq_right hjt, ite_eq_right (by omega)]
       rw [show t - j = (t - 1 - j) + 1 from by omega]
       rw [List.getElem?_cons_succ]
       exact ih (t - 1) j (fun x hx => hb x (List.mem_cons_of_mem _ hx))
@@ -606,7 +606,7 @@ theorem instantiate1Lift_eq_self {v : Expr} :
     intro k hb
     simp only [looseBVarsBounded, decide_eq_true_eq] at hb
     simp only [instantiate1Lift]
-    rw [if_neg (by omega), if_neg (by omega)]
+    rw [ite_eq_right (by omega), ite_eq_right (by omega)]
   | _ => intro k hb; simp_all [instantiate1Lift, looseBVarsBounded]
 
 /-- At a bvar-closed argument the capture-avoiding substitution is the
@@ -620,9 +620,9 @@ theorem instantiate1Lift_eq_instantiate1 {v : Expr}
     intro k
     simp only [instantiate1Lift, instantiate1]
     by_cases h : i = k
-    · rw [if_pos h, if_pos h,
+    · rw [ite_eq_left h, ite_eq_left h,
         liftLooseBVars_eq_self (looseBVarsBounded_mono (Nat.zero_le _) hbv)]
-    · rw [if_neg h, if_neg h]
+    · rw [ite_eq_right h, ite_eq_right h]
   | _ => intro k; simp_all [instantiate1Lift, instantiate1]
 
 /-- **The substitution lemma for `instantiate1Lift`.**  Instantiating
@@ -645,7 +645,7 @@ theorem instantiate1Lift_instantiate1 {a s : Expr}
             Expr.liftLooseBVars i 0 a from by
           simp [instantiate1Lift],
         show (Expr.bvar i).instantiate1 s (i + 1 + u) = Expr.bvar i from by
-          simp only [instantiate1]; rw [if_neg (by omega), if_neg (by omega)],
+          simp only [instantiate1]; rw [ite_eq_right (by omega), ite_eq_right (by omega)],
         show (Expr.bvar i).instantiate1Lift (a.instantiate1 s u) i =
             Expr.liftLooseBVars i 0 (a.instantiate1 s u) from by
           simp [instantiate1Lift],
@@ -653,44 +653,44 @@ theorem instantiate1Lift_instantiate1 {a s : Expr}
       exact liftLooseBVars_instantiate1 hs (Nat.zero_le u)
     · by_cases hgt : i > k
       · rw [show (Expr.bvar i).instantiate1Lift a k = Expr.bvar (i - 1) from by
-            simp only [instantiate1Lift]; rw [if_neg hik, if_pos hgt]]
+            simp only [instantiate1Lift]; rw [ite_eq_right hik, ite_eq_left hgt]]
         by_cases h1 : i = k + 1 + u
         · rw [show (Expr.bvar (i - 1)).instantiate1 s (k + u) = s from by
-              simp only [instantiate1]; rw [if_pos (by omega)],
+              simp only [instantiate1]; rw [ite_eq_left (by omega)],
             show (Expr.bvar i).instantiate1 s (k + 1 + u) = s from by
-              simp only [instantiate1]; rw [if_pos h1]]
+              simp only [instantiate1]; rw [ite_eq_left h1]]
           exact (instantiate1Lift_eq_self
             (looseBVarsBounded_mono (Nat.zero_le k) hs)).symm
         · by_cases h2 : i > k + 1 + u
           · rw [show (Expr.bvar (i - 1)).instantiate1 s (k + u) =
                   Expr.bvar (i - 2) from by
                 simp only [instantiate1]
-                rw [if_neg (by omega), if_pos (by omega)]
+                rw [ite_eq_right (by omega), ite_eq_left (by omega)]
                 exact congrArg _ (by omega),
               show (Expr.bvar i).instantiate1 s (k + 1 + u) =
                   Expr.bvar (i - 1) from by
-                simp only [instantiate1]; rw [if_neg h1, if_pos h2]]
+                simp only [instantiate1]; rw [ite_eq_right h1, ite_eq_left h2]]
             simp only [instantiate1Lift]
-            rw [if_neg (by omega), if_pos (by omega)]
+            rw [ite_eq_right (by omega), ite_eq_left (by omega)]
             exact (congrArg _ (by omega)).symm
           · rw [show (Expr.bvar (i - 1)).instantiate1 s (k + u) =
                   Expr.bvar (i - 1) from by
                 simp only [instantiate1]
-                rw [if_neg (by omega), if_neg (by omega)],
+                rw [ite_eq_right (by omega), ite_eq_right (by omega)],
               show (Expr.bvar i).instantiate1 s (k + 1 + u) = Expr.bvar i from by
-                simp only [instantiate1]; rw [if_neg h1, if_neg h2]]
+                simp only [instantiate1]; rw [ite_eq_right h1, ite_eq_right h2]]
             simp only [instantiate1Lift]
-            rw [if_neg hik, if_pos hgt]
+            rw [ite_eq_right hik, ite_eq_left hgt]
       · rw [show (Expr.bvar i).instantiate1Lift a k = Expr.bvar i from by
-              simp only [instantiate1Lift]; rw [if_neg hik, if_neg hgt],
+              simp only [instantiate1Lift]; rw [ite_eq_right hik, ite_eq_right hgt],
           show (Expr.bvar i).instantiate1 s (k + u) = Expr.bvar i from by
               simp only [instantiate1]
-              rw [if_neg (by omega), if_neg (by omega)],
+              rw [ite_eq_right (by omega), ite_eq_right (by omega)],
           show (Expr.bvar i).instantiate1 s (k + 1 + u) = Expr.bvar i from by
               simp only [instantiate1]
-              rw [if_neg (by omega), if_neg (by omega)]]
+              rw [ite_eq_right (by omega), ite_eq_right (by omega)]]
         simp only [instantiate1Lift]
-        rw [if_neg hik, if_neg hgt]
+        rw [ite_eq_right hik, ite_eq_right hgt]
   | fvar idx ty => intro k u; rfl
   | sort v => intro k u; rfl
   | const n us => intro k u; rfl
@@ -1057,7 +1057,7 @@ theorem substFvarAt_instantiate1 {p d : Nat} (hpd : p ≤ d) {ty a : Expr}
     intro k
     simp only [instantiate1, substFvarAt]
     by_cases h1 : idx = p
-    · simp only [h1, if_true]
+    · simp only [h1, ite_true]
       exact (instantiate1_eq_self (looseBVarsBounded_mono (Nat.zero_le k) hba)).symm
     · by_cases h2 : idx > p
       · simp [h1, h2, instantiate1]

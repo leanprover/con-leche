@@ -390,7 +390,7 @@ theorem IdTable.get?_insert (t : IdTable α) (i : Nat) (x : α) (j : Nat) :
   · subst hi
     simp only [BEq.rfl, ↓reduceIte, IdTable.get?, Array.size_push]
     by_cases hj : j < t.dense.size + 1
-    · rw [dif_pos hj, Array.getElem_push]
+    · rw [dite_eq_left hj, Array.getElem_push]
       by_cases hj' : j < t.dense.size
       · simp [hj', Nat.ne_of_lt hj']
       · have : j = t.dense.size := by omega
@@ -413,7 +413,7 @@ theorem IdTable.get?_insert (t : IdTable α) (i : Nat) (x : α) (j : Nat) :
       by_cases hj : j < t.dense.size
       · have : j ≠ i := by omega
         simp [hj, this]
-      · rw [dif_neg hj, dif_neg hj, Std.HashMap.getElem?_insert]
+      · rw [dite_eq_right hj, dite_eq_right hj, Std.HashMap.getElem?_insert]
         by_cases hji : j = i
         · subst hji; simp
         · simp [hji, Ne.symm hji]

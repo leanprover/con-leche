@@ -213,7 +213,7 @@ theorem Expr.shiftFromN_fvar_ge' {p i : Nat} (hi : p ≤ i) :
   | n + 1, ty => by
     show Expr.shiftFrom p (Expr.shiftFromN p n (.fvar i ty)) = _
     rw [Expr.shiftFromN_fvar_ge' hi n ty]
-    simp only [Expr.shiftFrom, show i + n ≥ p by omega, if_true]
+    simp only [Expr.shiftFrom, show i + n ≥ p by omega, ite_true]
     rfl
 
 /-- `shiftFrom`, iterated, commutes with opening at an `fvar` above the cut. -/
@@ -272,7 +272,7 @@ theorem holeAbs_fvar_ge (ctx : NestCtx) {i : Nat} (hi : ctx.nP ≤ i) (ty : Expr
 theorem holeAbs_fvar_lt (ctx : NestCtx) {i : Nat} (hi : i < ctx.nP) (ty : Expr) :
     ∃ ty', holeAbs ctx (.fvar i ty) = .fvar i ty' := by
   obtain ⟨ty', h⟩ := Expr.shiftFromN_fvar ctx.nP ctx.names.length i ty
-  rw [if_pos hi] at h
+  rw [ite_eq_left hi] at h
   unfold holeAbs
   rw [h]
   exact ⟨_, rfl⟩
@@ -348,7 +348,7 @@ theorem phApp?_mkAppN_params {b : Nat} {c : Name} {v : List Level} :
       simp only [List.length_append, List.length_singleton, Nat.add_right_cancel_iff] at hl
       obtain ⟨ty, rfl⟩ := hx pre.length y (by simp)
       rw [Expr.mkAppN_append_one]
-      simp only [Expr.phApp?, hl, if_true]
+      simp only [Expr.phApp?, hl, ite_true]
       exact phApp?_mkAppN_params n pre hl fun p x hp =>
         hx p x (by rw [List.getElem?_append_left (List.getElem?_eq_some_iff.mp hp).1]; exact hp)
 
@@ -364,7 +364,7 @@ theorem holeAbs_memberApp {ctx : NestCtx} (hnd : ctx.names.Nodup) {t : Nat}
   rw [Expr.shiftFromN_mkAppN, Expr.shiftFromN_const, List.map_append]
   have hnm : nestCanonSub ctx.names (ctx.lps.map .param) ctx.nP (ctx.names.getD t .anonymous)
       (ctx.lps.map .param) = some (.fvar (ctx.nP + t) (.sort .zero)) := by
-    simp only [ConLeche.nestCanonSub, beq_self_eq_true, if_true, findIdx?_beq_of_nodup hnd ht,
+    simp only [ConLeche.nestCanonSub, beq_self_eq_true, ite_true, findIdx?_beq_of_nodup hnd ht,
       Option.map_some]
   rw [Expr.replaceApps_mkAppN_hit hnm (phApp?_mkAppN_params ctx.nP _ (by simp [hlen])
     (fun p x hx => ?_)), List.map_map]
@@ -374,7 +374,7 @@ theorem holeAbs_memberApp {ctx : NestCtx} (hnd : ctx.names.Nodup) {t : Nat}
     obtain ⟨ty, rfl⟩ := hvar p y hy
     have hp : p < ctx.nP := by rw [← hlen]; exact (List.getElem?_eq_some_iff.mp hy).1
     obtain ⟨ty', h⟩ := Expr.shiftFromN_fvar ctx.nP ctx.names.length p ty
-    rw [if_pos hp] at h
+    rw [ite_eq_left hp] at h
     exact ⟨ty', by rw [h, Nat.zero_add]⟩
 
 /-! ## Peeling a read Π-telescope along its opening -/

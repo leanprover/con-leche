@@ -177,18 +177,18 @@ theorem nestCont_inv {ctx : NestCtx} {ops : CheckerOps CheckM} {env : Env}
   by_cases h2 : (decide (args.length < nPc) ||
       !(List.drop nPc args).all fun x => !Expr.nestOcc ctx.names ctx.nP (ctx.hiAt prog.length) x)
         = true
-  · rw [if_pos h2] at h; simp [throw, throwThe, MonadExceptOf.throw] at h
-  rw [if_neg h2] at h
+  · rw [ite_eq_left h2] at h; simp [throw, throwThe, MonadExceptOf.throw] at h
+  rw [ite_eq_right h2] at h
   by_cases h3 : (n == quotName) = true
-  · rw [if_pos h3] at h; simp [throw, throwThe, MonadExceptOf.throw] at h
-  rw [if_neg h3] at h
+  · rw [ite_eq_left h3] at h; simp [throw, throwThe, MonadExceptOf.throw] at h
+  rw [ite_eq_right h3] at h
   have h4 : ((List.take nPc args).all fun x => x.bvarB == 0 &&
       decide (x.fvarB ≤ ctx.hiAt prog.length)) = true := by
     cases hc : ((List.take nPc args).all fun x => x.bvarB == 0 &&
       decide (x.fvarB ≤ ctx.hiAt prog.length))
     · rw [hc] at h; simp [throw, throwThe, MonadExceptOf.throw] at h
     · rfl
-  rw [if_pos h4] at h
+  rw [ite_eq_left h4] at h
   split at h
   · simp at h
   rename_i ni hni
@@ -198,7 +198,7 @@ theorem nestCont_inv {ctx : NestCtx} {ops : CheckerOps CheckM} {env : Env}
     cases hc : (args.length == nPc + nI)
     · rw [hc] at h; simp [throw, throwThe, MonadExceptOf.throw] at h
     · rfl
-  rw [if_pos h5] at h
+  rw [ite_eq_left h5] at h
   simp only [Bool.or_eq_true, decide_eq_true_eq, Bool.not_eq_true', not_or] at h2
   refine ⟨nPc, L, hq', by omega, by simpa using h2.2, by simpa using h3, h4,
     nI, cty, hni, by simpa using h5, h⟩

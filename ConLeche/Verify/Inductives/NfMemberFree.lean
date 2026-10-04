@@ -271,56 +271,56 @@ theorem natOpResult_const {c : Name} {a b : Nat} {bn : Name}
     (c = natBeqName ∨ c = natBleName) ∧ (bn = boolTrueName ∨ bn = boolFalseName) := by
   unfold natOpResult at h
   by_cases h0 : c = natPredName
-  · rw [if_pos h0] at h; simp at h
-  rw [if_neg h0] at h
+  · rw [ite_eq_left h0] at h; simp at h
+  rw [ite_eq_right h0] at h
   by_cases h1 : c = natAddName
-  · rw [if_pos h1] at h; simp at h
-  rw [if_neg h1] at h
+  · rw [ite_eq_left h1] at h; simp at h
+  rw [ite_eq_right h1] at h
   by_cases h2 : c = natSubName
-  · rw [if_pos h2] at h; simp at h
-  rw [if_neg h2] at h
+  · rw [ite_eq_left h2] at h; simp at h
+  rw [ite_eq_right h2] at h
   by_cases h3 : c = natMulName
-  · rw [if_pos h3] at h; simp at h
-  rw [if_neg h3] at h
+  · rw [ite_eq_left h3] at h; simp at h
+  rw [ite_eq_right h3] at h
   by_cases h4 : c = natPowName
-  · rw [if_pos h4] at h; split at h <;> simp at h
-  rw [if_neg h4] at h
+  · rw [ite_eq_left h4] at h; split at h <;> simp at h
+  rw [ite_eq_right h4] at h
   by_cases h5 : c = natDivName
-  · rw [if_pos h5] at h; simp at h
-  rw [if_neg h5] at h
+  · rw [ite_eq_left h5] at h; simp at h
+  rw [ite_eq_right h5] at h
   by_cases h6 : c = natModName
-  · rw [if_pos h6] at h; simp at h
-  rw [if_neg h6] at h
+  · rw [ite_eq_left h6] at h; simp at h
+  rw [ite_eq_right h6] at h
   by_cases h7 : c = natGcdName
-  · rw [if_pos h7] at h; simp at h
-  rw [if_neg h7] at h
+  · rw [ite_eq_left h7] at h; simp at h
+  rw [ite_eq_right h7] at h
   by_cases h8 : c = natLandName
-  · rw [if_pos h8] at h; simp at h
-  rw [if_neg h8] at h
+  · rw [ite_eq_left h8] at h; simp at h
+  rw [ite_eq_right h8] at h
   by_cases h9 : c = natLorName
-  · rw [if_pos h9] at h; simp at h
-  rw [if_neg h9] at h
+  · rw [ite_eq_left h9] at h; simp at h
+  rw [ite_eq_right h9] at h
   by_cases h10 : c = natXorName
-  · rw [if_pos h10] at h; simp at h
-  rw [if_neg h10] at h
+  · rw [ite_eq_left h10] at h; simp at h
+  rw [ite_eq_right h10] at h
   by_cases h11 : c = natShiftLeftName
-  · rw [if_pos h11] at h; simp at h
-  rw [if_neg h11] at h
+  · rw [ite_eq_left h11] at h; simp at h
+  rw [ite_eq_right h11] at h
   by_cases h12 : c = natShiftRightName
-  · rw [if_pos h12] at h; simp at h
-  rw [if_neg h12] at h
+  · rw [ite_eq_left h12] at h; simp at h
+  rw [ite_eq_right h12] at h
   by_cases hb : c = natBeqName
-  · rw [if_pos hb] at h
+  · rw [ite_eq_left hb] at h
     simp only [Option.some.injEq, Expr.const.injEq] at h
     refine ⟨Or.inl hb, ?_⟩
     split at h <;> simp_all
-  rw [if_neg hb] at h
+  rw [ite_eq_right hb] at h
   by_cases hl : c = natBleName
-  · rw [if_pos hl] at h
+  · rw [ite_eq_left hl] at h
     simp only [Option.some.injEq, Expr.const.injEq] at h
     refine ⟨Or.inr hl, ?_⟩
     split at h <;> simp_all
-  rw [if_neg hl] at h
+  rw [ite_eq_right hl] at h
   exact nomatch h
 
 

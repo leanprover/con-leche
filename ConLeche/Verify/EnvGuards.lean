@@ -402,7 +402,7 @@ theorem natOpGuard_inv {c : Name} (h : natOpGuard env c = true) :
       · simp
       · simp
       · rw [List.contains_iff_mem.mpr hm, Bool.or_true]
-    rw [if_pos hcb] at hbool
+    rw [ite_eq_left hcb] at hbool
     simp only [Bool.and_eq_true] at hbool
     obtain ⟨hT, hF⟩ := hbool
     constructor

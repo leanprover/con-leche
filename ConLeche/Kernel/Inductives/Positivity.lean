@@ -414,11 +414,11 @@ theorem Expr.nestOccGo_spec {names : List Name} {lo hi : Nat} :
       obtain ⟨h3, h4⟩ := ihb h2
       dsimp only
       by_cases hb : (a.nestOccGo names lo hi memo).1 = true
-      · rw [if_pos hb]
+      · rw [ite_eq_left hb]
         have : Expr.nestOcc names lo hi (.app a b) = true := by
           simp [Expr.nestOcc, ← h1, hb]
         exact ⟨this.symm, h2.insert this.symm⟩
-      · rw [if_neg hb]
+      · rw [ite_eq_right hb]
         have ha : a.nestOcc names lo hi = false := by rw [← h1]; simpa using hb
         have : Expr.nestOcc names lo hi (.app a b) = (b.nestOccGo names lo hi (a.nestOccGo names lo hi memo).2).1 := by
           simp [Expr.nestOcc, ha, h3]
@@ -433,11 +433,11 @@ theorem Expr.nestOccGo_spec {names : List Name} {lo hi : Nat} :
       obtain ⟨h3, h4⟩ := ihb h2
       dsimp only
       by_cases hb : (ty.nestOccGo names lo hi memo).1 = true
-      · rw [if_pos hb]
+      · rw [ite_eq_left hb]
         have : Expr.nestOcc names lo hi (.lam ty body mm) = true := by
           simp [Expr.nestOcc, ← h1, hb]
         exact ⟨this.symm, h2.insert this.symm⟩
-      · rw [if_neg hb]
+      · rw [ite_eq_right hb]
         have ha : ty.nestOcc names lo hi = false := by rw [← h1]; simpa using hb
         have : Expr.nestOcc names lo hi (.lam ty body mm) = (body.nestOccGo names lo hi (ty.nestOccGo names lo hi memo).2).1 := by
           simp [Expr.nestOcc, ha, h3]
@@ -452,11 +452,11 @@ theorem Expr.nestOccGo_spec {names : List Name} {lo hi : Nat} :
       obtain ⟨h3, h4⟩ := ihb h2
       dsimp only
       by_cases hb : (ty.nestOccGo names lo hi memo).1 = true
-      · rw [if_pos hb]
+      · rw [ite_eq_left hb]
         have : Expr.nestOcc names lo hi (.forallE ty body mm) = true := by
           simp [Expr.nestOcc, ← h1, hb]
         exact ⟨this.symm, h2.insert this.symm⟩
-      · rw [if_neg hb]
+      · rw [ite_eq_right hb]
         have ha : ty.nestOcc names lo hi = false := by rw [← h1]; simpa using hb
         have : Expr.nestOcc names lo hi (.forallE ty body mm)
             = (body.nestOccGo names lo hi (ty.nestOccGo names lo hi memo).2).1 := by
@@ -471,19 +471,19 @@ theorem Expr.nestOccGo_spec {names : List Name} {lo hi : Nat} :
     · obtain ⟨h1, h2⟩ := iht hm
       dsimp only
       by_cases hb : (ty.nestOccGo names lo hi memo).1 = true
-      · rw [if_pos hb]
+      · rw [ite_eq_left hb]
         have : Expr.nestOcc names lo hi (.letE ty v body) = true := by
           simp [Expr.nestOcc, ← h1, hb]
         exact ⟨this.symm, h2.insert this.symm⟩
-      · rw [if_neg hb]
+      · rw [ite_eq_right hb]
         have ha : ty.nestOcc names lo hi = false := by rw [← h1]; simpa using hb
         obtain ⟨h3, h4⟩ := ihv h2
         by_cases hb2 : (v.nestOccGo names lo hi (ty.nestOccGo names lo hi memo).2).1 = true
-        · rw [if_pos hb2]
+        · rw [ite_eq_left hb2]
           have : Expr.nestOcc names lo hi (.letE ty v body) = true := by
             simp [Expr.nestOcc, ha, ← h3, hb2]
           exact ⟨this.symm, h4.insert this.symm⟩
-        · rw [if_neg hb2]
+        · rw [ite_eq_right hb2]
           have hv : v.nestOcc names lo hi = false := by rw [← h3]; simpa using hb2
           obtain ⟨h5, h6⟩ := ihb h4
           have : Expr.nestOcc names lo hi (.letE ty v body)

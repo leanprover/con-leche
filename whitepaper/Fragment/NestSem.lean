@@ -364,7 +364,7 @@ theorem Repl_consList_eq {Y : V} {W' : List V → V} :
     simp only [List.getElem?_cons_zero, Option.some.injEq] at hf
     subst hf
     simp only [List.length_cons, Nat.add_sub_cancel, Nat.sub_zero] at hm
-    simp only [hm, hr, Bool.false_eq_true, if_false] at h2
+    simp only [hm, hr, Bool.false_eq_true, ite_false] at h2
     simp [consList_cons, cons_zero, h2]
   | f :: fields, v :: vs, v' :: vs', ⟨h1, _⟩, i + 1, f', hf, hm, hr => by
     simp only [List.getElem?_cons_succ] at hf
@@ -405,13 +405,13 @@ theorem FitsFields_psK_repl (hf : S.NestFacts M ls N) {X Y : V} {W W' : List V �
       rcases hFP with hA | ⟨hA, hA'⟩
       · -- the parameter field
         subst hA
-        simp only [N.isMember_self, if_true] at hv'
+        simp only [N.isMember_self, ite_true] at hv'
         simp only [fieldSet]
         rw [S.interp_memberVar hf _ hlen']
         exact hv'
       · -- an ordinary field, not the parameter field
         have hnm := N.isMember_eq_false_of_usesVar hA
-        simp only [hnm, Field.isRec, Bool.false_eq_true, if_false] at hv'
+        simp only [hnm, Field.isRec, Bool.false_eq_true, ite_false] at hv'
         subst hv'
         simp only [fieldSet] at hfv ⊢
         rw [S.interp_psK_env_congr hf _ X Y A hlen hlen' hA] at hfv
@@ -437,7 +437,7 @@ theorem FitsFields_psK_repl (hf : S.NestFacts M ls N) {X Y : V} {W W' : List V �
     | reflexive tele es =>
       obtain ⟨rfl, rfl⟩ := hFP
       have hnm : N.isMember rest.length (.reflexive [] []) = false := rfl
-      simp only [hnm, Field.isRec, Bool.false_eq_true, if_false, if_true] at hv'
+      simp only [hnm, Field.isRec, Bool.false_eq_true, ite_false, ite_true] at hv'
       simp only [fieldSet, piCtx_nil, idxVals, List.map_nil, List.reverse_nil]
       exact hv'
     | container => exact hFP.elim
@@ -519,7 +519,7 @@ theorem jointOp_acc (hf : S.NestFacts M ls N) (ps : List V) :
       rw [show c.fields.length - 1 - (c.fields.length - 1 - k) = k by omega] at hFP
       rcases hFP with hA | ⟨hA, -⟩
       · subst hA
-        simp only [N.isMember_self, if_true]
+        simp only [N.isMember_self, ite_true]
         simp only [fieldSet] at hget
         rwa [S.interp_memberVar hf _ (by simp [earlier, hlen]; omega)] at hget
       · exfalso
@@ -528,7 +528,7 @@ theorem jointOp_acc (hf : S.NestFacts M ls N) (ps : List V) :
         · simp [Field.isRec] at hr
     | reflexive tele es =>
       obtain ⟨rfl, rfl⟩ := hFP
-      simp only [NestInfo.isMember, Bool.false_eq_true, if_false]
+      simp only [NestInfo.isMember, Bool.false_eq_true, ite_false]
       simp only [fieldSet, piCtx_nil, idxVals, List.map_nil, List.reverse_nil] at hget
       exact hget
     | container => exact hFP.elim
@@ -598,7 +598,7 @@ theorem jointOp_acc (hf : S.NestFacts M ls N) (ps : List V) :
             rw [show c.fields.length - 1 - (c.fields.length - 1 - L.length) = L.length by omega] at hFP
             rcases hFP with hA | ⟨hA, -⟩
             · subst hA
-              simp only [N.isMember_self, if_true]
+              simp only [N.isMember_self, ite_true]
               have := hsupp (nat L.length) (mem_sep.mpr ⟨mem_natsBelow.mpr ⟨_, hkl, rfl⟩,
                 _, by rw [idx_nat]; exact hfpos, Or.inl (by rw [idx_nat]; exact N.isMember_self _)⟩)
               unfold InFam at this
@@ -609,13 +609,13 @@ theorem jointOp_acc (hf : S.NestFacts M ls N) (ps : List V) :
           | reflexive tele es =>
             obtain ⟨rfl, rfl⟩ := hFP
             have hnm : N.isMember L.length (.reflexive [] []) = false := rfl
-            simp only [hnm, Field.isRec, Bool.false_eq_true, if_false, if_true]
+            simp only [hnm, Field.isRec, Bool.false_eq_true, ite_false, ite_true]
             have := hsupp (nat L.length) (mem_sep.mpr ⟨mem_natsBelow.mpr ⟨_, hkl, rfl⟩,
               _, by rw [idx_nat]; exact hfpos, Or.inr rfl⟩)
             unfold InFam at this
             dsimp only at this
             rw [idx_nat, hgetD] at this
-            simp only [NestInfo.isMember, Bool.false_eq_true, if_false] at this
+            simp only [NestInfo.isMember, Bool.false_eq_true, ite_false] at this
             rwa [hfv] at this
           | container => exact hFP.elim
     · rw [his, S.KS_idxVals hf hcm, S.KS_idxVals hf hcm]

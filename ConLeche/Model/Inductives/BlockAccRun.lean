@@ -154,7 +154,7 @@ theorem teleAccP_of_piAccThen {w : Nat} {ctx : NestCtx} {prog : List NestHole}
           exact hok0.1
         · rw [← hUE]
           exact TeleAccP.congr _ (l + 1) (shiftQ Q) _
-            (fun l' hl' _ => by simp only [if_neg (show l' ≠ l by omega)]) htele'
+            (fun l' hl' _ => by simp only [ite_eq_right (show l' ≠ l by omega)]) htele'
       · intro i nd' hi hnd
         cases i with
         | zero =>
@@ -164,7 +164,7 @@ theorem teleAccP_of_piAccThen {w : Nat} {ctx : NestCtx} {prog : List NestHole}
           exact hinv0
         | succ i =>
           simp only [List.getElem?_cons_succ] at hnd
-          simp only [if_neg (show l + (i + 1) ≠ l by omega)]
+          simp only [ite_eq_right (show l + (i + 1) ≠ l by omega)]
           have := hinv' i nd' (by simpa using hi) hnd
           rwa [show d + 1 + i = d + (i + 1) by omega, show l + 1 + i = l + (i + 1) by omega]
             at this

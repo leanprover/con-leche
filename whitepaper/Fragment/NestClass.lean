@@ -242,11 +242,11 @@ theorem classFieldSet_eq_ordinary (hf : S.NestFacts M ls N) (hlen : N.args.lengt
   have hpN : N.p < N.nPK := hf.positive.2.1
   rcases hpf with rfl | ⟨hu, -⟩
   · -- the parameter field
-    simp only [classField, NestInfo.isMember, beq_self_eq_true, if_true, classFieldSet, fieldSet,
+    simp only [classField, NestInfo.isMember, beq_self_eq_true, ite_true, classFieldSet, fieldSet,
       interp_bvar]
     rw [S.read_memberVar M ls N hlen hpN hk]
   · -- an ordinary field, not mentioning the nested parameter
-    rw [classField, if_neg (by rw [isMember_false_of_usesVar N hu]; exact Bool.false_ne_true)]
+    rw [classField, ite_eq_right (by rw [isMember_false_of_usesVar N hu]; exact Bool.false_ne_true)]
     simp only [classFieldSet, fieldSet]
     rw [interp_instChainAt M (S.ψ ls) (envP ps) (S.classArgs N 0) _ fs hk, S.classArgs_read M ls N ps,
       interp_instL]
@@ -388,7 +388,7 @@ theorem classLaws_of (hf : S.NestFacts M ls N) (hlen : N.args.length + 1 = N.nPK
       (List.drop_zero (l := c.fields))] at hfit
     have := N.KS.ctorVal_mem_Fam M (S.lsK ls N) hf.noRecDep hbX (hf.contOkK _) hc hfit
     rw [S.KS_idxVals hf hcm] at this
-    simp only [ctorVal, hzK, Bool.false_eq_true, if_false, KS_tagOf] at this
+    simp only [ctorVal, hzK, Bool.false_eq_true, ite_false, KS_tagOf] at this
     rw [S.classSet_eq_Fam hf hp hX]
     exact this
   ind := fun X hX Q hQ x hx => by
@@ -399,7 +399,7 @@ theorem classLaws_of (hf : S.NestFacts M ls N) (hlen : N.args.length + 1 = N.nPK
     intro is y hs
     obtain ⟨j, c, fs, hc, hfit, -, rfl⟩ := hs
     have hcm := List.mem_of_getElem? hc
-    simp only [ctorVal, hzK, Bool.false_eq_true, if_false, KS_tagOf]
+    simp only [ctorVal, hzK, Bool.false_eq_true, ite_false, KS_tagOf]
     refine hQ j c fs hc ?_
     simp only [classCtor]
     rw [S.ClassFits_iff M ls N hf hlen hlsK hKS hcm X _ hp hX

@@ -168,9 +168,9 @@ theorem psigmaMkV_app {u v : Nat} {A B a b : V} (hA : A ∈ˢ (univ u : V))
     app (app (app (app (psigmaMkV V u v) A) B) a) b =
       if Nat.max u v = 0 then pt else spair a b := by
   by_cases hw : Nat.max u v = 0
-  · rw [psigmaMkV, hw, lamR_zero, app_pt, app_pt, app_pt, app_pt, if_pos rfl]
+  · rw [psigmaMkV, hw, lamR_zero, app_pt, app_pt, app_pt, app_pt, ite_eq_left rfl]
   · rw [psigmaMkV, app_lamR_pos hw hA, app_lamR_pos hw hB, app_lamR_pos hw ha,
-      app_lamR_pos hw hb, if_neg hw]
+      app_lamR_pos hw hb, ite_eq_right hw]
 
 /-! ## `Quot` -/
 

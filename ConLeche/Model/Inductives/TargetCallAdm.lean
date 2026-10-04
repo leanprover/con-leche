@@ -121,9 +121,9 @@ theorem admVal_frameLand (H : DynCtx F mk mpC ctx d ns) {ψ : Name → Nat} {ρ 
     have hfrU := dyn_nlFr H ho hu ψ ρ xs
     unfold nlComp at hfit
     rw [show nlDb mpC d ns (own i) = lfpSel mpC d.toLfp (ns.getD (own i - 1) default).key.cname by
-        unfold nlDb; rw [if_neg ho],
+        unfold nlDb; rw [ite_eq_right ho],
       show nlψ envC ns ψ (own i) = nodeψ envC ψ (ns.getD (own i - 1) default) by
-        unfold nlψ; rw [if_neg ho], hfrU] at hfit
+        unfold nlψ; rw [ite_eq_right ho], hfrU] at hfit
     generalize ns.getD (own i - 1) default = u at hu hkm hfit hfrU hsuf
     have hsat := dyn_trueVal_sat H ψ ρ xs hparams hxs _ u hu (Nat.le_refl _)
     rw [trueVal_frameVal H ψ ρ xs hxs' hu hsat hi hsuf hkm] at hy'

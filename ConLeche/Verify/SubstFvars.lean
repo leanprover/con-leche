@@ -160,7 +160,7 @@ theorem phApp?_short {b : Nat} :
     obtain ⟨m, rfl⟩ : ∃ m', m = m' + 1 := ⟨m - 1, by omega⟩
     obtain ⟨f, ty, rfl, -⟩ := phApp?_succ h
     simp only [phApp?]
-    rw [if_neg (by omega)]
+    rw [ite_eq_right (by omega)]
 
 /-- **An unreplaced placeholder spine keeps its head**: a spine whose head
 is a member constant, left unreplaced at the top, leaves that constant in
@@ -221,12 +221,12 @@ theorem nestCanonSub_eq {names : List Name} {us : List Level} {n : Nat} {c : Nam
   unfold ConLeche.nestCanonSub
   by_cases hv : v = us
   · subst hv
-    simp only [beq_self_eq_true, if_true, true_and]
+    simp only [beq_self_eq_true, ite_true, true_and]
     by_cases hc : c ∈ names
-    · rw [if_pos hc, List.findIdx?_eq_some_iff_findIdx_eq.mpr
+    · rw [ite_eq_left hc, List.findIdx?_eq_some_iff_findIdx_eq.mpr
         ⟨List.idxOf_lt_length_of_mem hc, rfl⟩]
       rfl
-    · rw [if_neg hc, List.findIdx?_eq_none_iff.mpr (fun x hx => by
+    · rw [ite_eq_right hc, List.findIdx?_eq_none_iff.mpr (fun x hx => by
         cases hxc : x == c
         · rfl
         · exact absurd (eq_of_beq hxc ▸ hx) hc)]
@@ -270,7 +270,7 @@ theorem replaceApps_canon_instantiateLevelParams {names lps : List Name} {us : L
       by_cases hc : c ∈ names
       · by_cases hv : v = lps.map .param
         · subst hv
-          simp only [hlv, hc, and_self, if_true, Option.some.injEq]
+          simp only [hlv, hc, and_self, ite_true, Option.some.injEq]
           refine ⟨fun h hh => ⟨hh ▸ rfl, by subst hh; rfl⟩, fun h => nomatch h⟩
         · -- a member at other levels is left: impossible
           exfalso
@@ -495,20 +495,20 @@ theorem frameCrest_eq {names gnames lps : List Name} {n : Nat} {us : List Level}
     split at hh₁
     · rename_i hcg
       have hc : c ∈ names := (hmemG c).mp hcg.2
-      rw [if_pos ⟨hcg.1, hc⟩] at hh₂
+      rw [ite_eq_left ⟨hcg.1, hc⟩] at hh₂
       cases hh₁; cases hh₂
       have hig := List.idxOf_lt_length_of_mem hcg.2
       have hin := List.idxOf_lt_length_of_mem hc
       simp only [replaceFVars, ConLeche.nestKeyMap, hdlen, show ¬ n + gnames.idxOf c < n by omega,
-        if_false, show n + gnames.idxOf c - n = gnames.idxOf c by omega,
-        show n + names.idxOf c < b by omega, if_true, Option.getD_some]
+        ite_false, show n + gnames.idxOf c - n = gnames.idxOf c by omega,
+        show n + names.idxOf c < b by omega, ite_true, Option.getD_some]
       have hc' : names.getD (names.idxOf c) .anonymous = c := by
         rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hin, Option.getD_some,
           List.getElem_idxOf]
       rw [List.getElem?_eq_getElem (by omega), Option.getD_some, hhole _ hin, hc',
         List.getD_eq_getElem?_getD, List.getElem?_eq_getElem (by omega), Option.getD_some]
     · exact nomatch hh₁
-  · simp only [ConLeche.nestKeyMap, hdlen, hi, if_true, show i < b by omega, hpar i hi,
+  · simp only [ConLeche.nestKeyMap, hdlen, hi, ite_true, show i < b by omega, hpar i hi,
       List.getD_eq_getElem?_getD, List.getElem?_eq_getElem (show i < ds.length by omega),
       Option.getD_some]
 

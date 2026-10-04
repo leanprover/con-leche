@@ -299,7 +299,7 @@ theorem blockLfpClause_of_records {envC envI : Env} {mo : EnvModel V envC} {d : 
   hM.toLfp (lps := lps) (blockHoleFacts_of_stage hN hS hcore hk0)
     (blockResIdxFit_of_records hN hS hcore hinst hk0 hPhi hM)
     (fun ψ hw c j fs h => by
-      rw [hinj, if_neg hw] at h
+      rw [hinj, ite_eq_right hw] at h
       exact pt_ne_kpair _ _ (h.symm.trans (spair_eq_kpair _ _)))
     hfok
 

@@ -207,7 +207,7 @@ theorem storedNoLevels_of_cons {env : Env} {ci : ConstantInfo} {c n : Name}
     (hname : ci.name = c) (hne : n ≠ c)
     (h : storedNoLevels ⟨ci :: env.consts⟩ n) : storedNoLevels env n := by
   unfold storedNoLevels at h ⊢
-  rwa [Env.find?_cons, if_neg (by rw [hname]; exact Ne.symm hne)] at h
+  rwa [Env.find?_cons, ite_eq_right (by rw [hname]; exact Ne.symm hne)] at h
 
 /-- A name that occurs in no `natOpNames` entry differs from the
 operation being installed. -/
@@ -261,7 +261,7 @@ theorem natOpGuard_stored {env : Env} {c : Name}
     · next _ _ _ hfd => rw [hfd]; exact hd
     · exact nomatch hd
   · intro hc
-    rw [if_pos hc] at hbool
+    rw [ite_eq_left hc] at hbool
     simp only [Bool.and_eq_true] at hbool
     exact ⟨hbool.1, hbool.2⟩
 

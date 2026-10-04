@@ -48,12 +48,12 @@ namespace Env
 /-- The constant just stored is found. -/
 theorem find?_add_self (env : Env) (c : Name) (ci : ConstInfo) :
     (env.add c ci).find? c = some ci := by
-  rw [find?_add, if_pos rfl]
+  rw [find?_add, ite_eq_left rfl]
 
 /-- Any other name is found as before. -/
 theorem find?_add_of_ne (env : Env) {n c : Name} (ci : ConstInfo) (h : n ≠ c) :
     (env.add c ci).find? n = env.find? n := by
-  rw [find?_add, if_neg h]
+  rw [find?_add, ite_eq_right h]
 
 /-- A stored name stays stored. -/
 theorem isSome_find?_add {env : Env} {n : Name} (h : (env.find? n).isSome) (c : Name)

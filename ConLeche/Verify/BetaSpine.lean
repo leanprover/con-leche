@@ -302,9 +302,9 @@ theorem whnfApp_atF (d : Nat) (k : Expr → FueledM Expr)
       -- its condition is the *same* on both sides (`mb` is copied),
       -- so one `by_cases` and the ungated arm is verbatim
       by_cases hgate : betaGateFires mode mb.pw = true
-      · rw [if_pos hgate, if_pos hgate]
+      · rw [ite_eq_left hgate, ite_eq_left hgate]
         exact betaPeel_atF d k kF F hk rest body [a]
-      rw [if_neg hgate, if_neg hgate]
+      rw [ite_eq_right hgate, ite_eq_right hgate]
       rw [FueledM.atF_bind]
       congr 1
       funext ta
@@ -349,9 +349,9 @@ theorem betaPeel_atF (d : Nat) (k : Expr → FueledM Expr)
       rw [betaPeel_lam, betaPeel_lam]
       unfold betaPeelLam
       by_cases hgate : betaGateFires mode mb.pw = true
-      · rw [if_pos hgate, if_pos hgate]
+      · rw [ite_eq_left hgate, ite_eq_left hgate]
         exact betaPeel_atF d k kF F hk rest body (a :: acc)
-      rw [if_neg hgate, if_neg hgate]
+      rw [ite_eq_right hgate, ite_eq_right hgate]
       rw [FueledM.atF_bind]
       congr 1
       funext ta
@@ -457,10 +457,10 @@ theorem projCertAt_mono {d : Nat} {v lic : Bool} {c : Name} {us : List Level}
   unfold projCertAt at h ⊢
   split
   · rename_i hv
-    rw [if_pos hv] at h
+    rw [ite_eq_left hv] at h
     exact projCert_mono hle h
   · rename_i hv
-    rw [if_neg hv] at h
+    rw [ite_eq_right hv] at h
     exact h
 
 theorem reduceProjCore_mono {d : Nat} {sn : Name} {i : Nat} {e : Expr} {F F' : Nat}
@@ -574,20 +574,20 @@ theorem whnfApp_snoc {d : Nat} :
       -- in `appStep`; on the fired arm both are the peel/reduct with
       -- no certificate, and the ungated arm is the pre-gate proof
       by_cases hgate : betaGateFires mode mb.pw = true
-      · rw [if_pos hgate] at H
+      · rw [ite_eq_left hgate] at H
         refine ⟨F, _, by rw [whnfApp_nil]; rfl, ?_⟩
         unfold appStep
         dsimp only
-        rw [if_pos hgate]
+        rw [ite_eq_left hgate]
         rw [betaPeel_nil, instList_single] at H
         exact H
-      rw [if_neg hgate] at H
+      rw [ite_eq_right hgate] at H
       obtain ⟨ta, hta, H⟩ := bind_ok H
       obtain ⟨b, hb, H⟩ := bind_ok H
       refine ⟨F, _, by rw [whnfApp_nil]; rfl, ?_⟩
       unfold appStep
       dsimp only
-      rw [if_neg hgate, hta, ok_bind, hb, ok_bind]
+      rw [ite_eq_right hgate, hta, ok_bind, hb, ok_bind]
       cases b with
       | true =>
         simp only [↓reduceIte] at H ⊢
@@ -632,17 +632,17 @@ theorem whnfApp_snoc {d : Nat} :
       -- task #161: the fired β gate takes the peel arm with no
       -- certificate; the ungated arm below is the pre-gate proof
       by_cases hgate : betaGateFires mode mb.pw = true
-      · rw [if_pos hgate] at H
+      · rw [ite_eq_left hgate] at H
         obtain ⟨F₁, w, hw, hstep⟩ := betaPeel_snoc xs' body [x] a F vres H
         refine ⟨max F F₁, w, ?_,
           appStep_mono ((fueledFns mode env).whnfCore c d) _ _ (fun _ => rfl)
             (fun _ => rfl) (Nat.le_max_right F F₁) hstep⟩
         rw [whnfApp_lam]
         unfold whnfAppLam
-        rw [if_pos hgate]
+        rw [ite_eq_left hgate]
         exact betaPeel_mono ((fueledFns mode env).whnfCore c d) _ _ (fun _ => rfl)
           (fun _ => rfl) (Nat.le_max_right F F₁) hw
-      rw [if_neg hgate] at H
+      rw [ite_eq_right hgate] at H
       obtain ⟨ta, hta, H⟩ := bind_ok H
       obtain ⟨b, hb, H⟩ := bind_ok H
       cases b with
@@ -654,7 +654,7 @@ theorem whnfApp_snoc {d : Nat} :
             (fun _ => rfl) (Nat.le_max_right F F₁) hstep⟩
         rw [whnfApp_lam]
         unfold whnfAppLam
-        rw [if_neg hgate, inferTypeIO_def,
+        rw [ite_eq_right hgate, inferTypeIO_def,
           inferTypeIO_mono (Nat.le_max_left F F₁) hta, ok_bind,
           defeq_def, isDefEqCore_mono (Nat.le_max_left F F₁) hb, ok_bind]
         simp only [↓reduceIte]
@@ -668,7 +668,7 @@ theorem whnfApp_snoc {d : Nat} :
           (.app (.lam ty body mb) x) xs', ?_, ?_⟩
         · rw [whnfApp_lam]
           unfold whnfAppLam
-          rw [if_neg hgate, hta, ok_bind, hb, ok_bind]
+          rw [ite_eq_right hgate, hta, ok_bind, hb, ok_bind]
           simp only [Bool.false_eq_true, ↓reduceIte]
           rfl
         · rw [Expr.mkAppN_append_one]
@@ -735,21 +735,21 @@ theorem betaPeel_snoc {d : Nat} :
         rw [betaPeel_nil, instList_lam]
         exact whnfCore_lam F d _ _ _
       by_cases hgate : betaGateFires mode mb.pw = true
-      · rw [if_pos hgate] at H
+      · rw [ite_eq_left hgate] at H
         refine ⟨F + 1, _, hid, ?_⟩
         unfold appStep
         dsimp only
-        rw [if_pos hgate]
+        rw [ite_eq_left hgate]
         rw [betaPeel_nil] at H
         rw [← instList_cons0]
         exact whnfCore_mono (Nat.le_succ F) H
-      rw [if_neg hgate] at H
+      rw [ite_eq_right hgate] at H
       obtain ⟨ta, hta, H⟩ := bind_ok H
       obtain ⟨b, hb, H⟩ := bind_ok H
       refine ⟨F + 1, _, hid, ?_⟩
       unfold appStep
       dsimp only
-      rw [if_neg hgate, inferTypeIO_def, inferTypeIO_mono (Nat.le_succ F) hta,
+      rw [ite_eq_right hgate, inferTypeIO_def, inferTypeIO_mono (Nat.le_succ F) hta,
         ok_bind, defeq_def, isDefEqCore_mono (Nat.le_succ F) hb, ok_bind]
       cases b with
       | true =>
@@ -784,7 +784,7 @@ theorem betaPeel_snoc {d : Nat} :
       rw [betaPeel_lam] at H
       unfold betaPeelLam at H
       by_cases hgate : betaGateFires mode mb.pw = true
-      · rw [if_pos hgate] at H
+      · rw [ite_eq_left hgate] at H
         obtain ⟨F₁, w, hw, hstep⟩ :=
           betaPeel_snoc xs' body (x :: acc) a F vres H
         refine ⟨max F F₁, w, ?_,
@@ -792,10 +792,10 @@ theorem betaPeel_snoc {d : Nat} :
             (fun _ => rfl) (Nat.le_max_right F F₁) hstep⟩
         rw [betaPeel_lam]
         unfold betaPeelLam
-        rw [if_pos hgate]
+        rw [ite_eq_left hgate]
         exact betaPeel_mono ((fueledFns mode env).whnfCore c d) _ _ (fun _ => rfl)
           (fun _ => rfl) (Nat.le_max_right F F₁) hw
-      rw [if_neg hgate] at H
+      rw [ite_eq_right hgate] at H
       obtain ⟨ta, hta, H⟩ := bind_ok H
       obtain ⟨b, hb, H⟩ := bind_ok H
       cases b with
@@ -808,7 +808,7 @@ theorem betaPeel_snoc {d : Nat} :
             (fun _ => rfl) (Nat.le_max_right F F₁) hstep⟩
         rw [betaPeel_lam]
         unfold betaPeelLam
-        rw [if_neg hgate, inferTypeIO_def,
+        rw [ite_eq_right hgate, inferTypeIO_def,
           inferTypeIO_mono (Nat.le_max_left F F₁) hta, ok_bind,
           defeq_def, isDefEqCore_mono (Nat.le_max_left F F₁) hb, ok_bind]
         simp only [↓reduceIte]
@@ -823,7 +823,7 @@ theorem betaPeel_snoc {d : Nat} :
             x) xs', ?_, ?_⟩
         · rw [betaPeel_lam]
           unfold betaPeelLam
-          rw [if_neg hgate, hta, ok_bind, hb, ok_bind]
+          rw [ite_eq_right hgate, hta, ok_bind, hb, ok_bind]
           simp only [Bool.false_eq_true, ↓reduceIte]
           rfl
         · rw [Expr.mkAppN_append_one]
@@ -938,15 +938,15 @@ theorem whnfApp_ksound {d : Nat} (k : Expr → FueledM Expr)
       rw [whnfApp_lam] at H
       unfold whnfAppLam at H
       by_cases hgate : betaGateFires mode mb.pw = true
-      · rw [if_pos hgate] at H
+      · rw [ite_eq_left hgate] at H
         obtain ⟨F₁, hP⟩ := betaPeel_ksound k hks rest body [a] res F H
         refine ⟨max F F₁, ?_⟩
         rw [whnfApp_lam]
         unfold whnfAppLam
-        rw [if_pos hgate]
+        rw [ite_eq_left hgate]
         exact betaPeel_mono ((fueledFns mode env).whnfCore c d) _ _
           (fun _ => rfl) (fun _ => rfl) (Nat.le_max_right F F₁) hP
-      rw [if_neg hgate] at H
+      rw [ite_eq_right hgate] at H
       obtain ⟨ta, hta, H⟩ := bind_ok H
       obtain ⟨b, hb, H⟩ := bind_ok H
       cases b with
@@ -956,7 +956,7 @@ theorem whnfApp_ksound {d : Nat} (k : Expr → FueledM Expr)
         refine ⟨max F F₁, ?_⟩
         rw [whnfApp_lam]
         unfold whnfAppLam
-        rw [if_neg hgate, inferTypeIO_def,
+        rw [ite_eq_right hgate, inferTypeIO_def,
           inferTypeIO_mono (Nat.le_max_left F F₁) hta,
           ok_bind, defeq_def,
           isDefEqCore_mono (Nat.le_max_left F F₁) hb, ok_bind]
@@ -970,7 +970,7 @@ theorem whnfApp_ksound {d : Nat} (k : Expr → FueledM Expr)
         refine ⟨F, ?_⟩
         rw [whnfApp_lam]
         unfold whnfAppLam
-        rw [if_neg hgate, hta, ok_bind, hb, ok_bind]
+        rw [ite_eq_right hgate, hta, ok_bind, hb, ok_bind]
         simp only [Bool.false_eq_true, ↓reduceIte]
         rfl
     · have hv : ∀ ty body mb, v ≠ Expr.lam ty body mb :=
@@ -1028,16 +1028,16 @@ theorem betaPeel_ksound {d : Nat} (k : Expr → FueledM Expr)
       rw [betaPeel_lam] at H
       unfold betaPeelLam at H
       by_cases hgate : betaGateFires mode mb.pw = true
-      · rw [if_pos hgate] at H
+      · rw [ite_eq_left hgate] at H
         obtain ⟨F₁, hP⟩ :=
           betaPeel_ksound k hks rest body (a :: acc) res F H
         refine ⟨max F F₁, ?_⟩
         rw [betaPeel_lam]
         unfold betaPeelLam
-        rw [if_pos hgate]
+        rw [ite_eq_left hgate]
         exact betaPeel_mono ((fueledFns mode env).whnfCore c d) _ _
           (fun _ => rfl) (fun _ => rfl) (Nat.le_max_right F F₁) hP
-      rw [if_neg hgate] at H
+      rw [ite_eq_right hgate] at H
       obtain ⟨ta, hta, H⟩ := bind_ok H
       obtain ⟨b, hb, H⟩ := bind_ok H
       cases b with
@@ -1048,7 +1048,7 @@ theorem betaPeel_ksound {d : Nat} (k : Expr → FueledM Expr)
         refine ⟨max F F₁, ?_⟩
         rw [betaPeel_lam]
         unfold betaPeelLam
-        rw [if_neg hgate, inferTypeIO_def,
+        rw [ite_eq_right hgate, inferTypeIO_def,
           inferTypeIO_mono (Nat.le_max_left F F₁) hta,
           ok_bind, defeq_def,
           isDefEqCore_mono (Nat.le_max_left F F₁) hb, ok_bind]
@@ -1062,7 +1062,7 @@ theorem betaPeel_ksound {d : Nat} (k : Expr → FueledM Expr)
         refine ⟨F, ?_⟩
         rw [betaPeel_lam]
         unfold betaPeelLam
-        rw [if_neg hgate, hta, ok_bind, hb, ok_bind]
+        rw [ite_eq_right hgate, hta, ok_bind, hb, ok_bind]
         simp only [Bool.false_eq_true, ↓reduceIte]
         rfl
     · have ht : ∀ ty body mb, t ≠ Expr.lam ty body mb :=
@@ -2001,7 +2001,7 @@ private theorem inferSpineIO_sound_rev (hgb : mode.betaGate = true)
     obtain ⟨F₂, hP⟩ := inferSpineIO_sound_rev hgb rrs h th w F₀ F₁ hh hw
     refine ⟨max F₂ F₁ + 1, ?_⟩
     rw [List.reverse_cons, Expr.mkAppN_append_one, inferTypeIO_succ,
-      hgb, if_pos rfl, inferBodyIO_app_pure]
+      hgb, ite_eq_left rfl, inferBodyIO_app_pure]
     rw [show (pureFns mode env (max F₂ F₁)).inferIO d
         (Expr.mkAppN h rrs.reverse)
       = inferTypeIO mode env (max F₂ F₁) d (Expr.mkAppN h rrs.reverse)
@@ -2047,7 +2047,7 @@ theorem inferSpineIO_sound_body (hgb : mode.betaGate = true) (d : Nat)
   | succ G =>
     refine ⟨G, ?_⟩
     rw [inferBodyIO_atF]
-    rw [inferTypeIO_succ, hgb, if_pos rfl] at hP
+    rw [inferTypeIO_succ, hgb, ite_eq_left rfl] at hP
     exact hP
 
 end InferIOSnoc

@@ -107,7 +107,7 @@ theorem LocList.take {B d m : Nat} {xs : List Expr} (h : LocList B d xs) (hm : m
   refine ⟨by rw [List.length_take, h.1]; omega, fun j hj => ?_⟩
   obtain ⟨ty, hty⟩ := h.2 j (by omega)
   refine ⟨ty, ?_⟩
-  rw [List.getElem?_take, if_pos hj, hty]
+  rw [List.getElem?_take, ite_eq_left hj, hty]
   congr 2
   omega
 

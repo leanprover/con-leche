@@ -155,14 +155,14 @@ theorem blockRecIs_pos {d : BlockData V} {ψ : Name → Nat} {ρ : Nat → V}
     (h : SpineFit ρ (d.params ψ) (xs.take d.nP)) (hp : SpineFit ρ (pdoms c) xs) :
     blockRecIs d ψ ρ pdoms mem xs c = d.idx ψ (consList (xs.take d.nP) ρ) (mem c) := by
   classical
-  rw [blockRecIs, if_pos ⟨h, hp⟩]
+  rw [blockRecIs, ite_eq_left ⟨h, hp⟩]
 
 theorem blockRecIs_neg {d : BlockData V} {ψ : Name → Nat} {ρ : Nat → V}
     {pdoms : Nat → List AnnotTerm} {mem : Nat → Nat} {xs : List V} {c : Nat}
     (h : ¬ (SpineFit ρ (d.params ψ) (xs.take d.nP) ∧ SpineFit ρ (pdoms c) xs)) :
     blockRecIs d ψ ρ pdoms mem xs c = (empty : V) := by
   classical
-  rw [blockRecIs, if_neg h]
+  rw [blockRecIs, ite_eq_right h]
 
 /-- **The guard, read back off a membership**: an inhabited class
 index set is the honest one, so the two fits come back out of any
@@ -255,7 +255,7 @@ theorem tagDec_tagged {K c : Nat} (hc : c < K) (i x : V) :
   classical
   have hex : ∃ p : Nat × V × V, p.1 < K ∧ (tagged c i x : V) = tagged p.1 p.2.1 p.2.2 :=
     ⟨(c, i, x), hc, rfl⟩
-  rw [tagDec, dif_pos hex]
+  rw [tagDec, dite_eq_left hex]
   obtain ⟨-, heq⟩ := hex.choose_spec
   obtain ⟨h1, h2, h3⟩ := tagged_inj heq
   exact Prod.ext h1.symm (Prod.ext h2.symm h3.symm)
@@ -799,7 +799,7 @@ omit [SetTheory V] in
 theorem getD_take_of_lt {L : List AnnotTerm} {j i : Nat} (h : j < i) :
     (L.take i).getD j default = L.getD j default := by
   rw [List.getD_eq_getElem?_getD, List.getD_eq_getElem?_getD]
-  rw [List.getElem?_take, if_pos h]
+  rw [List.getElem?_take, ite_eq_left h]
 
 omit [SetTheory V] in
 theorem getElem?_reverse_entry {L : List AnnotTerm} {n i : Nat}
@@ -927,7 +927,7 @@ theorem blockRulePdomsAV_reads (hμ : μ.verifiedChecks = true) (mpC : EnvModelM
   rw [hread]
   congr 1
   rw [blockRulePdomsAV, List.getD_eq_getElem?_getD, List.getElem?_map,
-    List.getElem?_take, if_pos hl, hpd]
+    List.getElem?_take, ite_eq_left hl, hpd]
   rfl
 
 /-- **A `.pi` tower's PREFIX domains are graded along their own fitting
@@ -947,7 +947,7 @@ theorem prefixDoms_graded_of_tower {rds : List (Nat × Nat × AnnotTerm)} {cc : 
   have hentΓ : ((rds.map (·.2.2)).reverse).getD (rds.length - 1 - l) default = pd.2.2 :=
     getD_reverse_of_peel rfl hlk hpd
   have hpdoms : ((rds.take rP).map (·.2.2)).getD l default = pd.2.2 := by
-    rw [List.getD_eq_getElem?_getD, List.getElem?_map, List.getElem?_take, if_pos hl, hpd]
+    rw [List.getD_eq_getElem?_getD, List.getElem?_map, List.getElem?_take, ite_eq_left hl, hpd]
     rfl
   have htk : ((rds.take rP).map (·.2.2)).take l = (rds.take l).map (·.2.2) := by
     rw [← List.map_take, List.take_take, show min l rP = l from by omega]
@@ -1003,7 +1003,7 @@ theorem blockRulePdomsAV_bounded (hμ : μ.verifiedChecks = true) (mpC : EnvMode
   have heq : (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ i).getD l default
       = pd.2.2 := by
     rw [blockRulePdomsAV, List.getD_eq_getElem?_getD, List.getElem?_map,
-      List.getElem?_take, if_pos (by omega), hpd]
+      List.getElem?_take, ite_eq_left (by omega), hpd]
     rfl
   have hq := hbnd l hlk
   rw [List.getD_eq_getElem?_getD, hpd, Option.getD_some] at hq
@@ -1102,7 +1102,7 @@ theorem inferTypeCore_forallE_peel (hμ : μ.verifiedChecks = true) {envK : Env}
     | sort udom =>
       obtain ⟨bt₁, hbt₁, h⟩ := ConLeche.exceptBind_ok h
       obtain ⟨v, hv, h⟩ := ConLeche.exceptBind_ok h
-      simp only [hμ, if_true, bind, Except.bind] at h
+      simp only [hμ, ite_true, bind, Except.bind] at h
       by_cases hz : (Level.zeronessOf v == mb.pw) = true
       · rw [hz] at h
         refine ⟨F₀, udom, v, bt₁, rfl, inferTypeCore_pos hbt₁, hbt₁, hv,

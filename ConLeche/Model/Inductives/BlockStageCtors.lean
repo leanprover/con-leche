@@ -128,7 +128,7 @@ theorem BlockCtorsCore.cons {env : Env} {m' : EnvModel V env} {d : BlockData V}
       have := projFnName_isProjFnShape cvTb.name 0
       rw [← hh', hpshape] at this
       exact nomatch this
-    rw [ConLeche.Env.find?_cons, if_neg hnp]
+    rw [ConLeche.Env.find?_cons, ite_eq_right hnp]
     exact hfr c cvTb hc hU he
   · obtain ⟨hres, hresI, hD, hR⟩ := hdata c j cB hj
     refine ⟨Expr.constsResolve_mono hres, fun e he => Expr.constsResolve_mono (hresI e he), ?_,

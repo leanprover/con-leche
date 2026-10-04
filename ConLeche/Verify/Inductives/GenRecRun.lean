@@ -197,8 +197,8 @@ theorem classKeyOf_run {env : Env} {nP : Nat} {params : List Expr} {k k' : Class
   unfold classKeyOf at h
   simp only at h
   by_cases hg : ((classKeyCanon params k).ds.all fun x => x.bvarB == 0 && x.fvarB ≤ nP) = true
-  case neg => rw [if_neg hg] at h; close_throw h
-  rw [if_pos hg] at h
+  case neg => rw [ite_eq_right hg] at h; close_throw h
+  rw [ite_eq_left hg] at h
   try simp only [bind, Except.bind] at h
   obtain ⟨ds, hds, h⟩ := exceptBind_ok h
   simp only [pure, Except.pure, Except.ok.injEq] at h
@@ -232,8 +232,8 @@ theorem checkBlockClasses_run {fe₁ : FEnv} {env₁ : Env} {p : BlockShape} {pa
   obtain ⟨Ms', hMs, h⟩ := exceptBind_ok h
   by_cases hone : ((List.range p.k).all fun t =>
       (Ms'.filter (·.member == some t)).length == 1) = true
-  case neg => rw [if_neg hone] at h; close_throw h
-  rw [if_pos hone] at h
+  case neg => rw [ite_eq_right hone] at h; close_throw h
+  rw [ite_eq_left hone] at h
   simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
   obtain ⟨rfl, rfl⟩ := h
   simp only [List.all_eq_true, List.mem_range, beq_iff_eq] at hone
@@ -420,29 +420,29 @@ theorem classConstOk_inv {env : Env} {cv cv' : ConstantVal} {F : Nat}
   unfold classConstOk at h
   simp only [mkFEnv_find?, constsResolveF_eq, mkFEnv_env] at h
   by_cases hfind : (env.find? cv.name).isSome = true
-  case pos => rw [if_pos hfind] at h; close_throw h
-  rw [if_neg hfind] at h
+  case pos => rw [ite_eq_left hfind] at h; close_throw h
+  rw [ite_eq_right hfind] at h
   by_cases hres : reservedBasisNames.contains cv.name = true
-  case pos => rw [if_pos hres] at h; close_throw h
-  rw [if_neg hres] at h
+  case pos => rw [ite_eq_left hres] at h; close_throw h
+  rw [ite_eq_right hres] at h
   by_cases hpsh : cv.name.isProjFnShape = true
-  case pos => rw [if_pos hpsh] at h; close_throw h
-  rw [if_neg hpsh] at h
+  case pos => rw [ite_eq_left hpsh] at h; close_throw h
+  rw [ite_eq_right hpsh] at h
   by_cases hnd : Name.nodup cv.levelParams = true
-  case neg => rw [if_neg (by simpa using hnd)] at h; close_throw h
-  rw [if_pos (by simpa using hnd)] at h
+  case neg => rw [ite_eq_right (by simpa using hnd)] at h; close_throw h
+  rw [ite_eq_left (by simpa using hnd)] at h
   by_cases hlb : cv.type.looseBVarsBounded 0 = true
-  case neg => rw [if_neg (by simpa using hlb)] at h; close_throw h
-  rw [if_pos (by simpa using hlb)] at h
+  case neg => rw [ite_eq_right (by simpa using hlb)] at h; close_throw h
+  rw [ite_eq_left (by simpa using hlb)] at h
   by_cases hfv : cv.type.hasFvar = true
-  case pos => rw [if_pos hfv] at h; close_throw h
-  rw [if_neg hfv] at h
+  case pos => rw [ite_eq_left hfv] at h; close_throw h
+  rw [ite_eq_right hfv] at h
   by_cases hlp : cv.type.allLevelParamsDefined cv.levelParams = true
-  case neg => rw [if_neg (by simpa using hlp)] at h; close_throw h
-  rw [if_pos (by simpa using hlp)] at h
+  case neg => rw [ite_eq_right (by simpa using hlp)] at h; close_throw h
+  rw [ite_eq_left (by simpa using hlp)] at h
   by_cases hcr : cv.type.constsResolve env = true
-  case neg => rw [if_neg (by simpa using hcr)] at h; close_throw h
-  rw [if_pos (by simpa using hcr)] at h
+  case neg => rw [ite_eq_right (by simpa using hcr)] at h; close_throw h
+  rw [ite_eq_left (by simpa using hcr)] at h
   obtain ⟨stype, hst, h⟩ := exceptBind_ok h
   obtain ⟨u, hu, h⟩ := exceptBind_ok h
   simp only [pure, Except.pure, Except.ok.injEq] at h
@@ -500,18 +500,18 @@ theorem classRecTyOk_run {fe : FEnv} {g : ClassGen} {k : Nat} {rc : RecShape}
   unfold classRecTyOk at h
   simp only at h
   by_cases h1 : (rc.tgt == (g.cls.getD c default).member.getD k) = true
-  case neg => rw [if_neg h1] at h; close_throw h
-  rw [if_pos h1] at h
+  case neg => rw [ite_eq_right h1] at h; close_throw h
+  rw [ite_eq_left h1] at h
   by_cases h2 : (rc.rP == g.nP + g.slots.length && rc.mI == rc.rP + (g.cls.getD c default).nIdx)
     = true
-  case neg => rw [if_neg h2] at h; close_throw h
-  rw [if_pos h2] at h
+  case neg => rw [ite_eq_right h2] at h; close_throw h
+  rw [ite_eq_left h2] at h
   obtain ⟨gty, hgty, h⟩ := exceptBind_ok h
   obtain ⟨cv, hcv, h⟩ := exceptBind_ok h
   obtain ⟨b, -, h⟩ := exceptBind_ok h
   by_cases hb : b = true
-  case neg => rw [if_neg hb] at h; close_throw h
-  rw [if_pos hb] at h
+  case neg => rw [ite_eq_right hb] at h; close_throw h
+  rw [ite_eq_left hb] at h
   simp only [pure, Except.pure, Except.ok.injEq] at h
   subst h
   simp only [beq_iff_eq, Bool.and_eq_true] at h1 h2
@@ -580,24 +580,24 @@ theorem classRuleOk_run {w : StructWalkers} {feT feR : FEnv} {cvR : ConstantVal}
     Nonempty (ClassRuleRun mode F w feT feR cvR pw n gen out) := by
   unfold classRuleOk at h
   by_cases hcl : (gen.looseBVarsBounded 0 && !gen.hasFvar) = true
-  case neg => rw [if_neg hcl] at h; close_throw h
-  rw [if_pos hcl] at h
+  case neg => rw [ite_eq_right hcl] at h; close_throw h
+  rw [ite_eq_left hcl] at h
   simp only at h
   by_cases hlp : gen.allLevelParamsDefined cvR.levelParams = true
-  case neg => rw [if_neg hlp] at h; close_throw h
-  rw [if_pos hlp] at h
+  case neg => rw [ite_eq_right hlp] at h; close_throw h
+  rw [ite_eq_left hlp] at h
   by_cases hres : w.resolve feR gen = true
-  case neg => rw [if_neg hres] at h; close_throw h
-  rw [if_pos hres] at h
+  case neg => rw [ite_eq_right hres] at h; close_throw h
+  rw [ite_eq_left hres] at h
   obtain ⟨tyR, htyR, h⟩ := exceptBind_ok h
   obtain ⟨⟨rbs, body⟩, hstrip, h⟩ := exceptBind_ok h
   simp only at h
   by_cases hdoms : (rbs.all fun b => w.resolve feT b.1) = true
-  case neg => rw [if_neg hdoms] at h; close_throw h
-  rw [if_pos hdoms] at h
+  case neg => rw [ite_eq_right hdoms] at h; close_throw h
+  rw [ite_eq_left hdoms] at h
   by_cases hpw : (rbs.all fun b => b.2.pw == pw) = true
-  case neg => rw [if_neg hpw] at h; close_throw h
-  rw [if_pos hpw] at h
+  case neg => rw [ite_eq_right hpw] at h; close_throw h
+  rw [ite_eq_left hpw] at h
   simp only [pure, Except.pure, Except.ok.injEq] at h
   subst h
   simp only [Bool.and_eq_true, Bool.not_eq_true'] at hcl
@@ -743,18 +743,18 @@ theorem genRecCheck_run {fe : FEnv} {p : BlockShape} {nestedBit : Bool} {params 
   obtain ⟨u0, hpins, h⟩ := exceptBind_ok h
   obtain ⟨cvRis, hcvRis, h⟩ := exceptBind_ok h
   by_cases hk : 0 < p.k
-  case neg => rw [if_neg hk] at h; close_throw h
-  rw [if_pos hk] at h
+  case neg => rw [ite_eq_right hk] at h; close_throw h
+  rw [ite_eq_left hk] at h
   by_cases helim : (p.large && !blockLargeElimAllowed p (nestedBit || Ms₀.any (·.member.isNone)))
     = true
-  case pos => rw [if_pos helim] at h; close_throw h
-  rw [if_neg helim] at h
+  case pos => rw [ite_eq_left helim] at h; close_throw h
+  rw [ite_eq_right helim] at h
   obtain ⟨Ms, hMs, h⟩ := exceptBind_ok h
   obtain ⟨ctors, hctors, h⟩ := exceptBind_ok h
   by_cases hminors : ((rd.slots.filter ClassSlot.isMinor).length ==
       (ctors.map List.length).sum) = true
-  case neg => rw [if_neg hminors] at h; close_throw h
-  rw [if_pos hminors] at h
+  case neg => rw [ite_eq_right hminors] at h; close_throw h
+  rw [ite_eq_left hminors] at h
   obtain ⟨formerTysC, hformer, h⟩ := exceptBind_ok h
   obtain ⟨pre, hpre, h⟩ := exceptBind_ok h
   obtain ⟨cvGs, hcvGs, h⟩ := exceptBind_ok h

@@ -200,7 +200,7 @@ theorem wfOpsM_whnf {env : Env} (henv : EnvWF env) {d : Nat} {e : Expr}
     (hg : e.wscopedB d = true) :
     (wfOpsM mode).whnf env d e = (fueledOpsM mode).whnf env d e := by
   dsimp only [wfOpsM, fueledOpsM]
-  exact if_pos ⟨henv, hg⟩
+  exact ite_eq_left ⟨henv, hg⟩
 
 /-! ## The `atF` battery: fueled-family runs are fueled-ops runs -/
 
@@ -1185,17 +1185,17 @@ theorem checkBasisDecl_datF (env : Env) (kind : BasisKind) (F : Nat) :
   unfold checkBasisDecl
   dsimp only
   by_cases hq : kind = .quotK
-  · rw [if_pos hq, if_pos hq]
+  · rw [ite_eq_left hq, ite_eq_left hq]
     by_cases he : env.find? eqName = some eqA
-    · rw [if_pos he, if_pos he, foldlM_atF]
+    · rw [ite_eq_left he, ite_eq_left he, foldlM_atF]
       simp only [installBasisDecl_datF]
-    · rw [if_neg he, if_neg he, FueledM.atF_bind]
+    · rw [ite_eq_right he, ite_eq_right he, FueledM.atF_bind]
       simp only [FueledM.atF_throw]
       congr 1
       funext x
       rw [foldlM_atF]
       simp only [installBasisDecl_datF]
-  · rw [if_neg hq, if_neg hq, foldlM_atF]
+  · rw [ite_eq_right hq, ite_eq_right hq, foldlM_atF]
     simp only [installBasisDecl_datF]
 
 theorem checkDecl_datF (env : Env) (d : Declaration) (F : Nat) :
@@ -1243,9 +1243,9 @@ theorem checkDecl_datF (env : Env) (d : Declaration) (F : Nat) :
     dsimp only
     -- the `Quot.sound` comparison (task #293) is a pure guard
     by_cases hqs : cv.name = quotSoundName
-    · rw [if_pos hqs, if_pos hqs]
+    · rw [ite_eq_left hqs, ite_eq_left hqs]
       simp only [FueledM.atF_ite, FueledM.atF_pure, FueledM.atF_throw]
-    · rw [if_neg hqs, if_neg hqs]
+    · rw [ite_eq_right hqs, ite_eq_right hqs]
       rw [FueledM.atF_bind, checkConstantVal_datF]
       congr 1
       funext cvA
@@ -1255,11 +1255,11 @@ theorem checkDecl_datF (env : Env) (d : Declaration) (F : Nat) :
     dsimp only
     -- the pin comparison (task #293) is a pure guard
     by_cases hp : quotPinHit k cv = true
-    · rw [if_pos hp, if_pos hp]
+    · rw [ite_eq_left hp, ite_eq_left hp]
       cases k
       · exact checkBasisDecl_datF env .quotK F
       all_goals simp only [FueledM.atF_pure]
-    · rw [if_neg hp, if_neg hp]
+    · rw [ite_eq_right hp, ite_eq_right hp]
       simp only [FueledM.atF_throw]
   | indDecl block nP =>
     dsimp only

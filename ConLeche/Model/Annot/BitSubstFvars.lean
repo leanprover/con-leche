@@ -82,7 +82,7 @@ theorem denoteMeta_substFvars (m : EnvModel V env) {b D : Nat} {s : Nat → Expr
         denoteMeta]
       simp only [Option.map_some, Nat.add_sub_cancel_left]
       rw [AnnotTerm.substAV_bvar_ge _ (by omega)]
-      simp only [substTau, show b + t - 1 - i - t < b by omega, if_true,
+      simp only [substTau, show b + t - 1 - i - t < b by omega, ite_true,
         show b - 1 - (b + t - 1 - i - t) = i by omega]
     · rw [Expr.substFvars_fvar_ge (by omega), denoteMeta, denoteMeta]
       simp only [Option.map_some]

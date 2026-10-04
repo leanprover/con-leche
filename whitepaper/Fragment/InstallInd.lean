@@ -84,10 +84,10 @@ theorem agree_M₃ (hok : S.Ok env) (M : Name → List Nat → V) : AgreeOn env 
     rw [hok.fresh n hx] at hn
     simp at hn
   simp only [M₃, M₂, M₁, M₁F]
-  rw [if_neg (hne _ (by simp))]
+  rw [ite_eq_right (hne _ (by simp))]
   rw [S.ctorOf?_none fun c hc h => hne c.name
     (List.mem_cons_of_mem _ (List.mem_cons_of_mem _ (List.mem_map.mpr ⟨c, hc, rfl⟩))) h.symm]
-  rw [if_neg (hne _ (by simp))]
+  rw [ite_eq_right (hne _ (by simp))]
 
 omit [LevelOracle] in
 /-- A plain block has no container field (a container field asks for
@@ -128,7 +128,7 @@ theorem reader₂ (hok : S.Ok env) (M : Name → List Nat → V) (φ : Name → 
         simp only [M₃] at h₃
         have hne : n ≠ S.recName := fun h => by
           subst h; rw [hok.fresh _ (by simp)] at hn; simp at hn
-        rwa [if_neg hne] at h₃
+        rwa [ite_eq_right hne] at h₃
       fam := fun ls' => by
         simp [M₂, M₁, M₁F, hok.ctorOf?_name]
       val := hφ

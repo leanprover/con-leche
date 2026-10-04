@@ -80,10 +80,10 @@ theorem admVal_frame0 (H : DynCtx F mk mpC ctx d ns) (ψ : Name → Nat) (ρ : N
   have hkc : ctx.names.length = d.k := by rw [H.hnames]; exact hkN
   have hhi0 : ctx.hiAt 0 = d.nP + d.k := by
     simp only [ConLeche.NestCtx.hiAt]; rw [H.hnP, hkc]; omega
-  have hnl0 : nlDb mpC d ns 0 = d.toLfp := by unfold nlDb; rw [if_pos rfl]
-  have hnψ0 : nlψ envC ns ψ 0 = ψ := by unfold nlψ; rw [if_pos rfl]
+  have hnl0 : nlDb mpC d ns 0 = d.toLfp := by unfold nlDb; rw [ite_eq_left rfl]
+  have hnψ0 : nlψ envC ns ψ 0 = ψ := by unfold nlψ; rw [ite_eq_left rfl]
   have hnF0 : nlFr mpC ctx d ns ψ ρ xs 0 = consList (xs.take d.nP) ρ := by
-    unfold nlFr; rw [if_pos rfl]
+    unfold nlFr; rw [ite_eq_left rfl]
   rw [hnl0, hnψ0, hnF0]
   have hsP : Sat V (d.params ψ).reverse (consList (xs.take d.nP) ρ) := by
     have := sat_of_spineFit (Sat_nil (V := V) ρ) hparams

@@ -98,7 +98,7 @@ theorem constsBound_of_read {acval : Name → (Name → Nat) → AnnotTerm} {env
     intro _ h _
     rw [denoteMeta, hf] at h
     dsimp only at h
-    rw [if_neg hlen] at h
+    rw [ite_eq_right hlen] at h
     exact nomatch h
   | case5 d n us hf => intro _ h _; rw [denoteMeta, hf] at h; exact nomatch h
   | case6 d ty body m ihty ihbody =>

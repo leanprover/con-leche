@@ -350,9 +350,9 @@ theorem Agree.M₁_agree (h : S.Agree env M M' ls ls') (c : Name)
     (hc : c = S.name ∨ (env.find? c).isSome) (l : List Nat) : S.M₁ M c l = S.M₁ M' c l := by
   simp only [M₁, M₁F]
   by_cases hc' : c = S.name
-  · rw [if_pos hc', if_pos hc']
+  · rw [ite_eq_left hc', ite_eq_left hc']
     exact (h.same l).famSet_eq
-  · rw [if_neg hc', if_neg hc']
+  · rw [ite_eq_right hc', ite_eq_right hc']
     exact h.agree c (hc.resolve_left hc') l
 
 theorem Agree.M₁_read (h : S.Agree env M M' ls ls') {e : Expr}
@@ -580,12 +580,12 @@ theorem install_ind' {env : Env} {S : IndSpec} (hpl : S.nest = none) (hs : Env.S
   -- the block's names are fresh along the way
   have hfreshC : ∀ c ∈ S.ctors, (S.envInd env).find? c.name = none := by
     intro c hc
-    rw [S.envInd_find?, if_neg fun h => hok.name_not_mem (by
+    rw [S.envInd_find?, ite_eq_right fun h => hok.name_not_mem (by
       rw [← h]; exact List.mem_cons_of_mem _ (List.mem_map_of_mem hc))]
     exact hok.fresh _ (List.mem_cons_of_mem _ (List.mem_cons_of_mem _ (List.mem_map_of_mem hc)))
   have hfreshR : (S.envCtors env).find? S.recName = none := by
     rw [S.envCtors_find? env hok.nodup_ctors, hok.ctorOf?_rec, S.envInd_find?,
-      if_neg hok.name_ne_rec.symm]
+      ite_eq_right hok.name_ne_rec.symm]
     exact hok.fresh _ (List.mem_cons_of_mem _ List.mem_cons_self)
   -- the universe bound on the fields at every level list and fitting parameters, in the old model
   have hnc : S.NoCont := S.noCont_of_plain hpl hS
@@ -621,9 +621,9 @@ theorem install_ind' {env : Env} {S : IndSpec} (hpl : S.nest = none) (hs : Env.S
         intro _
         refine ⟨hS.mono hmono, hnc, ?_, fun j c hc => ?_, fun ls => ?_,
           fun j c hc ls => ?_, fun ls ps hp => ?_⟩
-        · rw [S.install_find? hpl, if_neg hok.name_ne_rec, S.envCtors_find? env hok.nodup_ctors,
-            hok.ctorOf?_name, S.envInd_find?, if_pos rfl]
-        · rw [S.install_find? hpl, if_neg (hok.ctor_ne_rec hc),
+        · rw [S.install_find? hpl, ite_eq_right hok.name_ne_rec, S.envCtors_find? env hok.nodup_ctors,
+            hok.ctorOf?_name, S.envInd_find?, ite_eq_left rfl]
+        · rw [S.install_find? hpl, ite_eq_right (hok.ctor_ne_rec hc),
             S.envCtors_find? env hok.nodup_ctors, S.ctorOf?_of_getElem? hok.nodup_ctors hc]
         · rw [(IndSpec.reader₃ hok m.M fun _ => 0).R.fam ls, ← S.famSet_eq_famSetF, (hA ls).famSet_eq]
         · rw [(IndSpec.reader₃ hok m.M fun _ => 0).ctor j c hc ls,

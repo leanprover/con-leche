@@ -41,7 +41,7 @@ theorem iff_shapes {env : Env} {cvA : ConstantVal}
       cvIr.levelParams = iffRecA.toConstantVal.levelParams ∧
       cvIr.type.erasePw = iffRecA.toConstantVal.type.erasePw) ∧
     ConstantVal.matchesPin cvA propextA = true := by
-  rw [stdAxiomOk, if_pos hp] at h
+  rw [stdAxiomOk, ite_eq_left hp] at h
   simp only [Bool.and_eq_true, decide_eq_true_eq] at h
   obtain ⟨⟨⟨⟨hEq, hI⟩, hIi⟩, hIr⟩, hA⟩ := h
   refine ⟨hEq, ?_, ?_, ?_, hA⟩
@@ -98,7 +98,7 @@ theorem nonempty_shapes {env : Env} {cvA : ConstantVal}
       cvNr.levelParams = nonemptyRecA.toConstantVal.levelParams ∧
       cvNr.type.erasePw = nonemptyRecA.toConstantVal.type.erasePw) ∧
     ConstantVal.matchesPin cvA choiceA = true := by
-  rw [stdAxiomOk, if_neg (by rw [hc]; decide), if_pos hc] at h
+  rw [stdAxiomOk, ite_eq_right (by rw [hc]; decide), ite_eq_left hc] at h
   simp only [Bool.and_eq_true] at h
   obtain ⟨⟨⟨hN, hNi⟩, hNr⟩, hA⟩ := h
   refine ⟨?_, ?_, ?_, hA⟩

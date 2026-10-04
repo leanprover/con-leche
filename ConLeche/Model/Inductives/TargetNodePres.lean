@@ -183,7 +183,7 @@ theorem cls_eq {c b : Nat} (hc : c < (tgtRs out).length) (hR : P.Rel c b) :
   have hm := P.hmc c b hc hR
   have hg := P.hG c b hc hR
   refine ⟨?_, ?_, ?_, fun t j fs => ?_⟩
-  · simp only [tgtClsIs, if_pos hg, hD, hψ, hf, hm]
+  · simp only [tgtClsIs, ite_eq_left hg, hD, hψ, hf, hm]
   · simp only [tgtClsCr, hD, hψ, hf, hm]
   · simp only [tgtClsInj, hD, hψ, hm]
   · simp only [tgtClsFit, hD, hψ, hf, hm]
@@ -258,7 +258,7 @@ spine at which no class is guarded). -/
 theorem tgtClsIs_unguarded {c : Nat} (hg : ¬ tgtClsG d acval envC p out ψ ρ xs c) :
     tgtClsIs d Dc mc cvc acval envC p out ψ ρ xs c = empty := by
   classical
-  simp only [tgtClsIs, if_neg hg]
+  simp only [tgtClsIs, ite_eq_right hg]
 
 /-- **`TgtClassInd` from node presentations** whose relation covers every
 GUARDED class at its prefix spine. -/

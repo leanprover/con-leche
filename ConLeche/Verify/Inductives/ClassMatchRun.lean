@@ -256,20 +256,20 @@ theorem targetMajorNfs_mem {p : BlockShape} {formerTys pfvs : List Expr} {us : L
     obtain ⟨rest, hrest, h⟩ := exceptBind_ok h
     have ih := targetMajorNfs_mem hrest
     rcases List.mem_cons.mp he with rfl | he
-    · rw [if_pos hc] at h
+    · rw [ite_eq_left hc] at h
       obtain ⟨b, hb, h⟩ := exceptBind_ok h
       rw [hm] at hb
       cases hb
-      simp only [if_true, pure, Except.pure, Except.ok.injEq] at h
+      simp only [ite_true, pure, Except.pure, Except.ok.injEq] at h
       subst h
       exact List.mem_cons_self
     · have hin := ih e he hc hm
       split at h
       · obtain ⟨b, -, h⟩ := exceptBind_ok h
         cases b
-        · simp only [Bool.false_eq_true, if_false, pure, Except.pure, Except.ok.injEq] at h
+        · simp only [Bool.false_eq_true, ite_false, pure, Except.pure, Except.ok.injEq] at h
           subst h; exact hin
-        · simp only [if_true, pure, Except.pure, Except.ok.injEq] at h
+        · simp only [ite_true, pure, Except.pure, Except.ok.injEq] at h
           subst h; exact List.mem_cons_of_mem _ hin
       · simp only [pure, Except.pure, Except.ok.injEq] at h
         subst h; exact hin
@@ -294,7 +294,7 @@ theorem targetParamsDefEq_self {ops : CheckerOps CheckM} {env : Env} {d : Nat}
   | a :: as, h => by
     obtain ⟨h0, hf⟩ := h a List.mem_cons_self
     unfold targetParamsDefEq
-    rw [if_pos (by simp [h0, hf]), if_pos (by simp)]
+    rw [ite_eq_left (by simp [h0, hf]), ite_eq_left (by simp)]
     exact targetParamsDefEq_self as fun x hx => h x (List.mem_cons_of_mem _ hx)
 
 theorem ErasedEqs.symm : ∀ {as bs : List Expr}, ErasedEqs as bs → ErasedEqs bs as
@@ -310,7 +310,7 @@ theorem targetClassMatch_self {ops : CheckerOps CheckM} {env : Env} {p : BlockSh
     targetClassMatch ops env p formerTys pfvs us ds us eds = .ok true := by
   rw [targetClassMatch_congr (eds := eds) (eds' := ds) (ErasedEqs.symm he)]
   unfold targetClassMatch
-  rw [if_pos (by simp [isEquivList_self])]
+  rw [ite_eq_left (by simp [isEquivList_self])]
   exact targetParamsDefEq_self ds hds
 
 end ConLeche

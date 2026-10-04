@@ -313,9 +313,9 @@ theorem classField_reflexive {k : Nat} {f₀ : Field} {tele es : List Expr}
   | ordinary A =>
     simp only [classField] at h
     by_cases hm : N.isMember k (.ordinary A) = true
-    · rw [if_pos hm] at h
+    · rw [ite_eq_left hm] at h
       exact ⟨(Field.reflexive.inj h).1.symm, (Field.reflexive.inj h).2.symm⟩
-    · rw [if_neg hm] at h
+    · rw [ite_eq_right hm] at h
       exact Field.noConfusion h
   | reflexive _ _ => simp [classField] at h
   | container => simp [classField] at h
@@ -499,7 +499,7 @@ theorem RecGraphN_fun {ps : List V} {ex : RecEx V} {tgt : JIdx V} {x v v' : V}
 theorem recFnN_eq {ps : List V} {ex : RecEx V} {tgt : JIdx V} {x v : V}
     (h : S.RecGraphN M ls N q ps ex tgt x v) : S.recFnN M ls N q ps ex tgt x = v := by
   unfold recFnN
-  rw [dif_pos ⟨v, h⟩]
+  rw [dite_eq_left ⟨v, h⟩]
   exact S.RecGraphN_fun M ls N q (Classical.choose_spec ⟨v, h⟩) h
 
 theorem RecGraphN_recFnN {ps : List V} {ex : RecEx V} {tgt : JIdx V} {x : V}

@@ -159,7 +159,7 @@ theorem nodeHolesRead_nil {envC : Env} {mpC : EnvModelM V μ envC} {ctx : NestCt
     have ht : i - ctx.nP < ctx.names.length := by
       simp only [ConLeche.NestCtx.hiAt, List.length_nil] at hi; omega
     simp only [ConLeche.nestHoleImg]
-    rw [if_pos ⟨by omega, by simpa using hi⟩, Option.getD_some]
+    rw [ite_eq_left ⟨by omega, by simpa using hi⟩, Option.getD_some]
     have hn : ctx.names.getD (i - ctx.nP) .anonymous ∈ ctx.names := by
       rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem ht, Option.getD_some]
       exact List.getElem_mem _
@@ -240,7 +240,7 @@ theorem nodeHolesRead_grp' {envI envC : Env} {mpC : EnvModelM V μ envC} {ctx : 
   have himg : nodeImg ctx (G.reverse ++ u.anc) (ctx.hiAt (u.anc.length + j))
       = Expr.mkAppN (.const p.1 u.key.lvls) (u.key.ds.map (nodeRb ctx u.anc)) := by
     unfold nodeImg
-    rw [if_neg (by simp only [ConLeche.NestCtx.hiAt]; omega), hfi, Option.getD_some, hdsE, hlvE,
+    rw [ite_eq_right (by simp only [ConLeche.NestCtx.hiAt]; omega), hfi, Option.getD_some, hdsE, hlvE,
       hcn]
     congr 1
     have hdrop : (G.reverse ++ u.anc).drop ((G.reverse ++ u.anc).length - (u.anc.length + j))

@@ -30,8 +30,8 @@ variable {V : Type w} [SetTheory V]
 tower above. -/
 noncomputable def tupW (u : Nat) (is : List V) : V := if u = 0 then pt else mkTower is
 
-theorem tupW_zero (is : List V) : tupW 0 is = (pt : V) := if_pos rfl
-theorem tupW_pos {u : Nat} (hu : u ≠ 0) (is : List V) : tupW u is = mkTower is := if_neg hu
+theorem tupW_zero (is : List V) : tupW 0 is = (pt : V) := ite_eq_left rfl
+theorem tupW_pos {u : Nat} (hu : u ≠ 0) (is : List V) : tupW u is = mkTower is := ite_eq_right hu
 
 /-- The index-tuple set at a parameter frame. -/
 noncomputable def idxSet (u : Nat) (ρp : Nat → V) (Ids : List AnnotTerm) : V :=
@@ -83,7 +83,7 @@ theorem famTyAV_facts {u w : Nat} {ρp : Nat → V} {Ids : List AnnotTerm} (h : 
     rfl
   · unfold lfpFamSpace
     have := piR_mem_univ (u := u) (v := w + 1) hu (fun _ _ => univ_mem_univ w)
-    rwa [if_neg (Nat.succ_ne_zero w)] at this
+    rwa [ite_eq_right (Nat.succ_ne_zero w)] at this
   · unfold famTyAV
     rw [WellDenoted_pi]
     exact ⟨hok, fun _ _ => trivial⟩
@@ -423,10 +423,10 @@ theorem spineFit_zero_replicate :
 theorem isOfW_tupW {u : Nat} {ρp : Nat → V} {Ids : List AnnotTerm} (hI : IdxOk u ρp Ids)
     {is : List V} (hsp : SpineFit ρp Ids is) : isOfW u Ids.length (tupW u is) = is := by
   by_cases hu : u = 0
-  · rw [isOfW, if_pos hu]
+  · rw [isOfW, ite_eq_left hu]
     subst hu
     exact (spineFit_zero_replicate hI.2 hsp).symm
-  · rw [isOfW, tupW, if_neg hu, if_neg hu]
+  · rw [isOfW, tupW, ite_eq_right hu, ite_eq_right hu]
     exact projList_mkTower _ _ hsp.length_eq
 
 section Body

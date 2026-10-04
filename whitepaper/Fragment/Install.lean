@@ -73,7 +73,7 @@ noncomputable def mInstall : EnvModel V (S.install env) where
       obtain ⟨rfl, rfl, rfl, rfl, rfl⟩ := hkind
       obtain ⟨j, c', hc', rfl⟩ := S.mem_rules hrl
       have hcij' : (S.install env).find? c'.name = some (S.ctorInfo c') := by
-        rw [S.install_find? hpl, if_neg (hok.ctor_ne_rec hc'), S.envCtors_find? env hok.nodup_ctors,
+        rw [S.install_find? hpl, ite_eq_right (hok.ctor_ne_rec hc'), S.envCtors_find? env hok.nodup_ctors,
           S.ctorOf?_of_getElem? hok.nodup_ctors hc']
       rw [hcij'] at hcij
       cases hcij
@@ -89,7 +89,7 @@ noncomputable def mInstall : EnvModel V (S.install env) where
           · exact ((hs c ci hfind).2.2 nP nM nMin nI rules hkind rl hrl).2
       have hne : rl.ctor ≠ S.recName :=
         Env.ne_of_isSome_find? hstored (hok.fresh _ (by simp))
-      rw [S.install_find? hpl, if_neg hne] at hcij
+      rw [S.install_find? hpl, ite_eq_right hne] at hcij
       exact (mCtors hpl hs m hok).rec_rules c ci nP nM nMin nI rules hfind hkind rl hrl hinst cij hcij
   rec_rules_nested := fun c ci nP nM nMin nI rules hfind hkind rl hrl lvs pinst hinst cij I nPc nf
       hcij hcijk => by
@@ -113,7 +113,7 @@ noncomputable def mInstall : EnvModel V (S.install env) where
           · exact ((hs c ci hfind).2.2 nP nM nMin nI rules hkind rl hrl).2
       have hne : rl.ctor ≠ S.recName :=
         Env.ne_of_isSome_find? hstored (hok.fresh _ (by simp))
-      rw [S.install_find? hpl, if_neg hne] at hcij
+      rw [S.install_find? hpl, ite_eq_right hne] at hcij
       exact (mCtors hpl hs m hok).rec_rules_nested c ci nP nM nMin nI rules hfind hkind rl hrl lvs pinst
         hinst cij I nPc nf hcij hcijk
 

@@ -191,14 +191,14 @@ theorem recSem_eq_of (hu : S.Uniq M ls) {ps : List V} (hp : FitsVals M (S.ψ ls)
     {m : V} {mins is : List V} {t v : V} (h : S.RecGraph M ls q ps m mins is t v) :
     S.recSem M ls q ps m mins is t = v := by
   unfold recSem
-  rw [dif_pos ⟨v, h⟩]
+  rw [dite_eq_left ⟨v, h⟩]
   exact S.RecGraph_fun M ls q hu hp (Classical.choose_spec ⟨v, h⟩) h
 
 theorem RecGraph_recSem {ps : List V} {m : V} {mins is : List V} {t : V}
     (h : ∃ v, S.RecGraph M ls q ps m mins is t v) :
     S.RecGraph M ls q ps m mins is t (S.recSem M ls q ps m mins is t) := by
   unfold recSem
-  rw [dif_pos h]
+  rw [dite_eq_left h]
   exact Classical.choose_spec h
 
 /-- **The inductive hypotheses' semantic values**, one per reflexive

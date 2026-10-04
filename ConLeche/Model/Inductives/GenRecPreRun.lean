@@ -286,13 +286,13 @@ theorem genRun_mN (mpC : EnvModelM V μ envC)
   cases hmb : (tgtMajor out c).member with
   | none =>
     have hm : (tgtMajor out c).member.isSome = false := by rw [hmb]; rfl
-    simp only [tgtClsM, tgtClsD, hm, Bool.false_eq_true, if_false]
+    simp only [tgtClsM, tgtClsD, hm, Bool.false_eq_true, ite_false]
     have hcl := hcls c hc hmb
     obtain ⟨hC, -⟩ := mpC.lfp_ok _ hcl.hD
     exact Nat.lt_of_lt_of_le hcl.hmm hC.kN
   | some t =>
     have hm : (tgtMajor out c).member.isSome = true := by rw [hmb]; rfl
-    simp only [tgtClsM, tgtClsD, hm, if_true]
+    simp only [tgtClsM, tgtClsD, hm, ite_true]
     rw [genRun_recTgt R hc hmb]
     obtain ⟨-, cls, -, -, -, -, -, -, -, hM, -⟩ := genRun_at R hc
     rw [hM] at hmb
@@ -309,8 +309,8 @@ theorem genRun_din (mpC : EnvModelM V μ envC) (hlfp : d.toLfp ∈ mpC.lfpBlocks
   intro c hc
   unfold tgtClsD
   cases hmb : (tgtMajor out c).member with
-  | none => simp only [Option.isSome_none, Bool.false_eq_true, if_false]; exact (hcls c hc hmb).hD
-  | some t => simp only [Option.isSome_some, if_true]; exact hlfp
+  | none => simp only [Option.isSome_none, Bool.false_eq_true, ite_false]; exact (hcls c hc hmb).hD
+  | some t => simp only [Option.isSome_some, ite_true]; exact hlfp
 
 /-- The rule count is the class's constructor count. -/
 theorem genRun_nCt {c : Nat} (hc : c < (tgtRs out).length) :
@@ -613,7 +613,7 @@ theorem motiveSlot_lt_classesR : ∀ (slots : List ConLeche.ClassSlot) (rc : Lis
       List.getElem?_cons_zero] at h
     cases a with
     | motive k =>
-      simp only [List.filterMap_cons, List.length_cons, if_true] at h ⊢
+      simp only [List.filterMap_cons, List.length_cons, ite_true] at h ⊢
       cases c with
       | zero => omega
       | succ c =>
@@ -626,7 +626,7 @@ theorem motiveSlot_lt_classesR : ∀ (slots : List ConLeche.ClassSlot) (rc : Lis
         simpa using this
     | minor c' C ihs =>
       simp only [List.filterMap_cons] at h ⊢
-      simp only [Bool.false_eq_true, if_false, List.getElem?_map, Option.map_eq_some_iff] at h
+      simp only [Bool.false_eq_true, ite_false, List.getElem?_map, Option.map_eq_some_iff] at h
       obtain ⟨s', hs', -⟩ := h
       have := motiveSlot_lt_classesR l rc c s' (by
         unfold ConLeche.ClassRead.motiveSlot
@@ -742,14 +742,14 @@ theorem genRun_lic (mpC : EnvModelM V μ envC)
     have hcl := hcls c hc hmb
     obtain ⟨hwE, hany⟩ := genRun_outW mpC R hc hmb hcl ψ
     have hm : (tgtMajor out c).member.isSome = false := by rw [hmb]; rfl
-    simp only [tgtClsD, tgtClsψ, hm, Bool.false_eq_true, if_false] at hw
+    simp only [tgtClsD, tgtClsψ, hm, Bool.false_eq_true, ite_false] at hw
     rw [hwE] at hw
     obtain ⟨-, -, hnest, -⟩ := blockLargeElim_counting hallow hw
     rw [hany] at hnest
     simp at hnest
   | some tm =>
     have hm : (tgtMajor out c).member.isSome = true := by rw [hmb]; rfl
-    simp only [tgtClsD, tgtClsψ, hm, if_true] at hw
+    simp only [tgtClsD, tgtClsψ, hm, ite_true] at hw
     have hw' : Level.eval ψ p.toBlockShape.resSort = 0 := hw
     obtain ⟨hlarge, hk1, -, hnc⟩ := blockLargeElim_counting hallow hw'
     have htm : p.toBlockShape.recTgtAt c = tm := genRun_recTgt R hc hmb

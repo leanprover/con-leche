@@ -63,8 +63,8 @@ theorem natLitSupported_cons_back {env : Env} {c₀ : ConstantInfo}
     intro p
     show List.find? _ (c₀ :: env.consts) = _
     by_cases hp : c₀.name = p
-    · rw [List.find?_cons_of_pos (by simpa using hp), if_pos hp]
-    · rw [List.find?_cons_of_neg (by simpa using hp), if_neg hp]
+    · rw [List.find?_cons_of_pos (by simpa using hp), ite_eq_left hp]
+    · rw [List.find?_cons_of_neg (by simpa using hp), ite_eq_right hp]
       rfl
   simp only [ConLeche.natLitSupported, Bool.and_eq_true] at hg ⊢
   obtain ⟨⟨h1, h2⟩, h3⟩ := hg
@@ -411,7 +411,7 @@ theorem harvestDefn (hμ : μ.verifiedChecks = true)
             value' hint :: env.consts⟩ : Env).find? cv.name
           = some (.defnInfo ⟨cv.name, cv.levelParams, type'⟩ value'
             hint) from by
-        rw [ConLeche.Env.find?_cons]; exact if_pos rfl] at hd
+        rw [ConLeche.Env.find?_cons]; exact ite_eq_left rfl] at hd
       simp only [Bool.and_eq_true] at hd
       have hlpcv : cv.levelParams = [] := by
         simpa [List.isEmpty_iff] using hd.1

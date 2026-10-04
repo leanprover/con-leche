@@ -52,7 +52,7 @@ theorem guardU_mem {w : Nat} (hw : w ≠ 0) (S : V) : guardU w S ∈ˢ (univ w :
 
 theorem guardU_eq {w : Nat} {S : V} (h : SmallAt w S) : guardU w S = S := by
   unfold guardU
-  rw [if_pos h]
+  rw [ite_eq_left h]
 
 /-- The tagged union: `X` under the tag `∅`, `Y` under `{pt}`. -/
 noncomputable def tagU (X Y : V) : V :=
@@ -309,10 +309,10 @@ theorem teleBound_support {w k : Nat} {ord : Nat → Bool}
       intro p hp
       rcases mem_binUnion.mp hp with hp | hp
       · obtain ⟨b, hb, rfl⟩ := mem_image.mp hp
-        simp only [sfst_kpair, ssnd_kpair, if_true]
+        simp only [sfst_kpair, ssnd_kpair, ite_true]
         exact hg0 b hb
       · obtain ⟨b, hb, rfl⟩ := mem_image.mp hp
-        simp only [sfst_kpair, ssnd_kpair, if_neg (unitSet_ne_empty (V := V))]
+        simp only [sfst_kpair, ssnd_kpair, ite_eq_right (unitSet_ne_empty (V := V))]
         obtain ⟨hQ, hH⟩ := hg1 b hb
         refine ⟨?_, (holds_cons_down (hne b hb)).mp hH⟩
         have h0 := hne b hb
@@ -326,10 +326,10 @@ theorem teleBound_support {w k : Nat} {ord : Nat → Bool}
       intro τ' hR' hheld
       have ha' : a ∈ˢ interp V τ' F := hs0 τ' hR' fun b hb => by
         have := hheld (kpair empty b) (kpair_empty_mem_tagU hb)
-        simpa only [sfst_kpair, ssnd_kpair, if_true] using this
+        simpa only [sfst_kpair, ssnd_kpair, ite_true] using this
       refine ⟨ha', hs1 (cons a τ') ⟨a, τ, τ', rfl, rfl, hR', ha, ha'⟩ fun b hb => ?_⟩
       have := hheld (kpair unitSet b) (kpair_unit_mem_tagU hb)
-      simp only [sfst_kpair, ssnd_kpair, if_neg (unitSet_ne_empty (V := V))] at this
+      simp only [sfst_kpair, ssnd_kpair, ite_eq_right (unitSet_ne_empty (V := V))] at this
       exact (holds_cons_down (hne b hb)).mpr this
 
 /-! ## The relation under a telescope -/

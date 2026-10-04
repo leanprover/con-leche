@@ -60,7 +60,7 @@ theorem denoteMeta_envExtend_mono_at {env₀ env : Env}
     intro _ _ ea h
     rw [denoteMeta, hf] at h
     dsimp only at h
-    rw [if_neg hlen] at h
+    rw [ite_eq_right hlen] at h
     exact nomatch h
   | case5 d n us hf =>
     intro hc _ ea h
@@ -121,23 +121,23 @@ theorem denoteMeta_envExtend_mono_at {env₀ env : Env}
         exact absurd (hproj sn j entry hnt0 hfp) hsnT
   | case11 d n hsup =>
     intro _ _ ea h
-    rw [denoteMeta, if_pos hsup] at h
-    rw [denoteMeta, if_pos (hG.1 hsup)]
+    rw [denoteMeta, ite_eq_left hsup] at h
+    rw [denoteMeta, ite_eq_left (hG.1 hsup)]
     exact h
   | case12 d n hsup =>
     intro _ _ ea h
-    rw [denoteMeta, if_neg hsup] at h
+    rw [denoteMeta, ite_eq_right hsup] at h
     exact nomatch h
   | case13 d s hsup =>
     intro _ _ ea h
     obtain ⟨hnil, hcons⟩ := strLitSupported_listNames hsup
-    rw [denoteMeta, if_pos hsup] at h
-    rw [denoteMeta, if_pos (hG.2 hsup),
+    rw [denoteMeta, ite_eq_left hsup] at h
+    rw [denoteMeta, ite_eq_left (hG.2 hsup),
       ← levelParamsAt_congr hF hnil, ← levelParamsAt_congr hF hcons]
     exact h
   | case14 d s hsup =>
     intro _ _ ea h
-    rw [denoteMeta, if_neg hsup] at h
+    rw [denoteMeta, ite_eq_right hsup] at h
     exact nomatch h
   | case15 d x hs hfv hc hpi hlam happ hlet hproj hnat hstr =>
     intro _ _ ea h

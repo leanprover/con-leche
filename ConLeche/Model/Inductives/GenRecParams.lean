@@ -358,12 +358,12 @@ theorem genMemberRec_paramDefeq (hμ : μ.verifiedChecks = true) (hwf : ConLeche
     apply List.ext_getElem?
     intro j
     by_cases hj : j < l
-    · rw [List.getElem?_take, List.getElem?_take, if_pos hj, if_pos hj, hargEq j (by omega)]
-    · rw [List.getElem?_take, List.getElem?_take, if_neg hj, if_neg hj]
+    · rw [List.getElem?_take, List.getElem?_take, ite_eq_left hj, ite_eq_left hj, hargEq j (by omega)]
+    · rw [List.getElem?_take, List.getElem?_take, ite_eq_right hj, ite_eq_right hj]
   rw [htake] at hinst
   refine ⟨D, b, mb, by rw [List.take_take, Nat.min_eq_left (by omega)]; exact hinst, ?_⟩
   have hgetA : ((xs.take p.nP).map Expr.fvarTypeD).getD l default = Al := by
-    rw [List.getD_eq_getElem?_getD, List.getElem?_map, List.getElem?_take, if_pos hl, hxl]
+    rw [List.getD_eq_getElem?_getD, List.getElem?_map, List.getElem?_take, ite_eq_left hl, hxl]
     rfl
   rw [hgetA]
   -- the scopes, and the move to the prefix's depth
@@ -375,7 +375,7 @@ theorem genMemberRec_paramDefeq (hμ : μ.verifiedChecks = true) (hwf : ConLeche
     obtain ⟨j, hj, rfl⟩ := List.getElem_of_mem ha
     have hjl : j < l := by rw [List.length_take] at hj; omega
     have hxj : xs[j]? = some (xs.take l)[j] := by
-      rw [← List.getElem?_eq_getElem hj, List.getElem?_take, if_pos hjl]
+      rw [← List.getElem?_eq_getElem hj, List.getElem?_take, ite_eq_left hjl]
     obtain ⟨Aj, hAj⟩ := hidx j _ hxj
     rw [hAj, Nat.zero_add]
     have := openPisAtFvars_typeWScoped (N₁ + 1 + 1) hop hwty j _ hxj
@@ -459,7 +459,7 @@ theorem instDom_facts {tyA cvT : Expr} {n l : Nat} {xs tfvs : List Expr} {oA oT 
     obtain ⟨j, hj, rfl⟩ := List.getElem_of_mem ha
     have hjl : j < l := by rw [List.length_take] at hj; omega
     have hxj : xs[j]? = some (xs.take l)[j] := by
-      rw [← List.getElem?_eq_getElem hj, List.getElem?_take, if_pos hjl]
+      rw [← List.getElem?_eq_getElem hj, List.getElem?_take, ite_eq_left hjl]
     obtain ⟨Aj, hAj⟩ := hidx j _ hxj
     exact ⟨j, Aj, hjl, hxj, by rw [hAj, Nat.zero_add]⟩
   have hwArgs : ∀ a ∈ xs.take l, Expr.WScoped l a := by
@@ -499,7 +499,7 @@ theorem instDom_facts {tyA cvT : Expr} {n l : Nat} {xs tfvs : List Expr} {oA oT 
     obtain ⟨rfl, -⟩ := hB1
     have htl : tfvs[l]? = some (.fvar l dom') := by
       have h1 : (tfvs.take (l + 1))[l]? = tfvs[l]? := by
-        rw [List.getElem?_take, if_pos (by omega)]
+        rw [List.getElem?_take, ite_eq_left (by omega)]
       rw [← h1, hsplit, List.getElem?_append_right (by simp; omega), List.length_take,
         Nat.min_eq_left (by omega), Nat.sub_self]
       simp
@@ -509,11 +509,11 @@ theorem instDom_facts {tyA cvT : Expr} {n l : Nat} {xs tfvs : List Expr} {oA oT 
         (by simp [hlx, hlt])
       · have hj : j < l := by
           have := (List.getElem?_eq_some_iff.mp hx).1; simp at this; omega
-        rw [List.getElem?_take, if_pos hj] at hx
+        rw [List.getElem?_take, ite_eq_left hj] at hx
         exact ConLeche.openPisAtFvars_index _ _ _ hopT j x hx
       · have hj : j < l := by
           have := (List.getElem?_eq_some_iff.mp hx).1; simp at this; omega
-        rw [List.getElem?_take, if_pos hj] at hx
+        rw [List.getElem?_take, ite_eq_left hj] at hx
         exact hidx j x hx
     obtain ⟨r', hr', hEr⟩ := instPisWith_erasedEq hE (Expr.ErasedEq.rfl cvT) hinstT
     rw [hinst, Option.some.injEq] at hr'
@@ -748,10 +748,10 @@ theorem genParams_fit_run (hμ : μ.verifiedChecks = true) {F : Nat} {envI envC 
       have := (List.getElem?_eq_some_iff.mp hx).1
       rw [← hxs, List.length_take] at this; omega
     have hx' : fvsL[i]? = some x := by
-      rw [← hxs, List.getElem?_take, if_pos hi] at hx; exact hx
+      rw [← hxs, List.getElem?_take, ite_eq_left hi] at hx; exact hx
     obtain ⟨pd, hpd, -, hreadD⟩ := hbind i x hx'
     rw [hreadD, getD_take_of_lt hi, ← hPd, blockRulePdomsAV, List.getD_eq_getElem?_getD,
-      List.getElem?_map, List.getElem?_take, if_pos (by omega), hpd]
+      List.getElem?_map, List.getElem?_take, ite_eq_left (by omega), hpd]
     rfl
   have hgrA := blockRulePdomsAV_graded hμ mpC h hr ψ
   rw [hPd] at hgrA

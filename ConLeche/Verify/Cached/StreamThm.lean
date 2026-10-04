@@ -91,34 +91,34 @@ theorem annotConstantValC_const {mode : CheckMode} {fe : FEnv}
     cvA = ⟨cv.name, cv.levelParams, .const n ls⟩ := by
   unfold annotConstantValC at h
   by_cases h1 : (fe.find? cv.name).isSome = true
-  · rw [if_pos h1] at h; exact absurd h throwC_bind_ok
-  rw [if_neg h1] at h
+  · rw [ite_eq_left h1] at h; exact absurd h throwC_bind_ok
+  rw [ite_eq_right h1] at h
   by_cases h2 : reservedBasisNames.contains cv.name = true
-  · rw [if_pos h2] at h; exact absurd h throwC_bind_ok
-  rw [if_neg h2] at h
+  · rw [ite_eq_left h2] at h; exact absurd h throwC_bind_ok
+  rw [ite_eq_right h2] at h
   by_cases h3 : cv.name.isProjFnShape = true
-  · rw [if_pos h3] at h; exact absurd h throwC_bind_ok
-  rw [if_neg h3] at h
+  · rw [ite_eq_left h3] at h; exact absurd h throwC_bind_ok
+  rw [ite_eq_right h3] at h
   by_cases h4 : Name.nodup cv.levelParams = true
-  case neg => rw [if_neg h4] at h; exact absurd h throwC_bind_ok
-  rw [if_pos h4] at h
+  case neg => rw [ite_eq_right h4] at h; exact absurd h throwC_bind_ok
+  rw [ite_eq_left h4] at h
   by_cases h5 : Expr.looseBVarsBounded 0 cv.type = true
-  case neg => rw [if_neg h5] at h; exact absurd h throwC_bind_ok
-  rw [if_pos h5] at h
+  case neg => rw [ite_eq_right h5] at h; exact absurd h throwC_bind_ok
+  rw [ite_eq_left h5] at h
   by_cases h6 : Expr.hasFvar cv.type = true
-  · rw [if_pos h6] at h; exact absurd h throwC_bind_ok
-  rw [if_neg h6] at h
+  · rw [ite_eq_left h6] at h; exact absurd h throwC_bind_ok
+  rw [ite_eq_right h6] at h
   obtain ⟨jA, s₁, hann, h⟩ := bindC_ok h
   rw [hty] at hann
   obtain rfl : jA = .const n ls :=
     annotate_const_of_miss (f := checkFuel - 1) (flushed_annotC_none s₀ _)
       (by rw [show checkFuel - 1 + 1 = checkFuel from rfl]; exact hann)
   by_cases h7 : Expr.allLevelParamsDefinedC cv.levelParams (Expr.const n ls) = true
-  case neg => rw [if_neg h7] at h; exact absurd h throwC_bind_ok
-  rw [if_pos h7] at h
+  case neg => rw [ite_eq_right h7] at h; exact absurd h throwC_bind_ok
+  rw [ite_eq_left h7] at h
   by_cases h8 : constsResolveFC fe (Expr.const n ls) = true
-  case neg => rw [if_neg h8] at h; exact absurd h throwC_bind_ok
-  rw [if_pos h8] at h
+  case neg => rw [ite_eq_right h8] at h; exact absurd h throwC_bind_ok
+  rw [ite_eq_left h8] at h
   obtain ⟨hv, _⟩ := pureC_ok h
   obtain ⟨rfl, _⟩ := Prod.mk.injEq .. ▸ hv
   rfl

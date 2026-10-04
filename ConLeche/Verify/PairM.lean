@@ -146,9 +146,9 @@ theorem iotaCerts_fst (d : Nat) (lic : Bool) :
           iotaCerts r₁ env d lic (body.instantiate1 arg) rest
         else pure false)
     by_cases hg : (lic && mb.pw.isNever) = true
-    · rw [if_pos hg, if_pos hg]
+    · rw [ite_eq_left hg, ite_eq_left hg]
       exact iotaCerts_fst d lic (body.instantiate1 arg) rest
-    · rw [if_neg hg, if_neg hg]
+    · rw [ite_eq_right hg, ite_eq_right hg]
       rw [PairM.fst_bind]
       congr 1
       funext ta
@@ -184,9 +184,9 @@ theorem iotaCerts_snd (d : Nat) (lic : Bool) :
           iotaCerts r₂ env d lic (body.instantiate1 arg) rest
         else pure false)
     by_cases hg : (lic && mb.pw.isNever) = true
-    · rw [if_pos hg, if_pos hg]
+    · rw [ite_eq_left hg, ite_eq_left hg]
       exact iotaCerts_snd d lic (body.instantiate1 arg) rest
-    · rw [if_neg hg, if_neg hg]
+    · rw [ite_eq_right hg, ite_eq_right hg]
       rw [PairM.snd_bind]
       congr 1
       funext ta
@@ -255,8 +255,8 @@ theorem iotaIndexOk_fst (d : Nat) (mI rP cnP : Nat) (tyCtor : Expr)
     (iotaIndexOk (pairFns r₁ r₂ h) env d mI rP cnP tyCtor margs idx).val.1 =
       iotaIndexOk r₁ env d mI rP cnP tyCtor margs idx := by
   by_cases hmr : mI = rP
-  · simp only [iotaIndexOk, if_pos hmr]; rfl
-  · simp only [iotaIndexOk, if_neg hmr]
+  · simp only [iotaIndexOk, ite_eq_left hmr]; rfl
+  · simp only [iotaIndexOk, ite_eq_right hmr]
     cases piResidual tyCtor margs with
     | none => rfl
     | some residual => exact defEqList_fst d _ _
@@ -266,8 +266,8 @@ theorem iotaIndexOk_snd (d : Nat) (mI rP cnP : Nat) (tyCtor : Expr)
     (iotaIndexOk (pairFns r₁ r₂ h) env d mI rP cnP tyCtor margs idx).val.2 =
       iotaIndexOk r₂ env d mI rP cnP tyCtor margs idx := by
   by_cases hmr : mI = rP
-  · simp only [iotaIndexOk, if_pos hmr]; rfl
-  · simp only [iotaIndexOk, if_neg hmr]
+  · simp only [iotaIndexOk, ite_eq_left hmr]; rfl
+  · simp only [iotaIndexOk, ite_eq_right hmr]
     cases piResidual tyCtor margs with
     | none => rfl
     | some residual => exact defEqList_snd d _ _
@@ -658,8 +658,8 @@ theorem majorToCtor_fst_proj (d : Nat) (c : Name) (rules : List RecRule) (e : Ex
       majorToCtor mode r₁ env d c rules e := by
   unfold majorToCtor
   by_cases hca : isCtorApp env e = true
-  · rw [if_pos hca, if_pos hca]; rfl
-  rw [if_neg hca, if_neg hca]
+  · rw [ite_eq_left hca, ite_eq_left hca]; rfl
+  rw [ite_eq_right hca, ite_eq_right hca]
   match rules with
   | [] => rfl
   | _ :: _ :: _ => rfl
@@ -679,17 +679,17 @@ theorem majorToCtor_fst_proj (d : Nat) (c : Name) (rules : List RecRule) (e : Ex
     case indInfo cvT caps =>
     dsimp only
     by_cases hK : rl.k = true
-    · rw [if_pos hK, if_pos hK]
+    · rw [ite_eq_left hK, ite_eq_left hK]
       fst_tac2
-    rw [if_neg hK, if_neg hK]
+    rw [ite_eq_right hK, ite_eq_right hK]
     by_cases hE : rl.eta = true
-    · rw [if_pos hE, if_pos hE]
+    · rw [ite_eq_left hE, ite_eq_left hE]
       fst_tac2
-    rw [if_neg hE, if_neg hE]
+    rw [ite_eq_right hE, ite_eq_right hE]
     by_cases hA : T = andName
-    · rw [if_pos hA, if_pos hA]
+    · rw [ite_eq_left hA, ite_eq_left hA]
       fst_tac2
-    rw [if_neg hA, if_neg hA]
+    rw [ite_eq_right hA, ite_eq_right hA]
     rfl
 
 set_option maxHeartbeats 800000 in
@@ -698,8 +698,8 @@ theorem majorToCtor_snd_proj (d : Nat) (c : Name) (rules : List RecRule) (e : Ex
       majorToCtor mode r₂ env d c rules e := by
   unfold majorToCtor
   by_cases hca : isCtorApp env e = true
-  · rw [if_pos hca, if_pos hca]; rfl
-  rw [if_neg hca, if_neg hca]
+  · rw [ite_eq_left hca, ite_eq_left hca]; rfl
+  rw [ite_eq_right hca, ite_eq_right hca]
   match rules with
   | [] => rfl
   | _ :: _ :: _ => rfl
@@ -719,17 +719,17 @@ theorem majorToCtor_snd_proj (d : Nat) (c : Name) (rules : List RecRule) (e : Ex
     case indInfo cvT caps =>
     dsimp only
     by_cases hK : rl.k = true
-    · rw [if_pos hK, if_pos hK]
+    · rw [ite_eq_left hK, ite_eq_left hK]
       snd_tac2
-    rw [if_neg hK, if_neg hK]
+    rw [ite_eq_right hK, ite_eq_right hK]
     by_cases hE : rl.eta = true
-    · rw [if_pos hE, if_pos hE]
+    · rw [ite_eq_left hE, ite_eq_left hE]
       snd_tac2
-    rw [if_neg hE, if_neg hE]
+    rw [ite_eq_right hE, ite_eq_right hE]
     by_cases hA : T = andName
-    · rw [if_pos hA, if_pos hA]
+    · rw [ite_eq_left hA, ite_eq_left hA]
       snd_tac2
-    rw [if_neg hA, if_neg hA]
+    rw [ite_eq_right hA, ite_eq_right hA]
     rfl
 
 theorem litMajorToCtor_fst_proj (d : Nat) (e : Expr) :

@@ -133,9 +133,9 @@ theorem pureFns_mono (env : Env) : ∀ {f f' : Nat}, f ≤ f' →
         inferBodyIO mode (CoreFns.ioView (pureFns mode env f')) env d e
        else inferBody mode (pureFns mode env f') env d e)
     cases hg : mode.betaGate
-    · simp only [Bool.false_eq_true, if_false]
+    · simp only [Bool.false_eq_true, ite_false]
       exact inferBody_mono ih d e
-    · simp only [if_true]
+    · simp only [ite_true]
       exact inferBodyIO_mono ih.ioView d e
 
 /-! ## Fueled corollaries -/

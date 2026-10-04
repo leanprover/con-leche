@@ -69,7 +69,7 @@ theorem checkBlockTele_shape {env : Env} {nP : Nat} {ms : MemberShape}
   have hr' := unwrapOr_ok hr
   try simp only at h
   by_cases hc : (tbody == Expr.sort s') = true
-  · rw [if_pos hc] at h
+  · rw [ite_eq_left hc] at h
     simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
     obtain ⟨rfl, rfl⟩ := h
     have hstrip : cvTa'.type.stripPis (nP + ms.nIdx) = some (bs, Expr.sort s') := by
@@ -77,7 +77,7 @@ theorem checkBlockTele_shape {env : Env} {nP : Nat} {ms : MemberShape}
     rcases checkSumTele_shape htele with ⟨rfl, -⟩ | ⟨ty, hccv⟩
     · exact ⟨ms.cvT, rfl, rfl, hccv₀, bs, hstrip⟩
     · exact ⟨{ ms.cvT with type := ty }, rfl, rfl, hccv, bs, hstrip⟩
-  · rw [if_neg hc] at h
+  · rw [ite_eq_right hc] at h
     close_throw
 
 /-- The members' formers, positionally. -/
@@ -131,7 +131,7 @@ theorem checkBlockDomsAt_inv {env : Env} {off : Nat} {fvs doms : List Expr} {F :
       simp only [Bool.false_eq_true, ↓reduceIte] at h
       close_throw
     | true =>
-    rw [if_pos rfl] at h
+    rw [ite_eq_left rfl] at h
     try simp only at h
     intro i hi
     rcases Nat.lt_or_ge i j with hij | hij
@@ -166,8 +166,8 @@ theorem checkBlockAgree_inv {env : Env} {nP : Nat} {cvTa0 : ConstantVal} {s0 : L
     obtain ⟨tfvs, trest⟩ := q1
     try simp only at h
     by_cases hl : (tfvs.length == tfvs0.length) = true
-    case neg => rw [if_neg hl] at h; close_throw
-    rw [if_pos hl] at h
+    case neg => rw [ite_eq_right hl] at h; close_throw
+    rw [ite_eq_left hl] at h
     try simp only at h
     obtain ⟨u, hdoms, h⟩ := exceptBind_ok h
     try simp only at h
@@ -181,7 +181,7 @@ theorem checkBlockAgree_inv {env : Env} {nP : Nat} {cvTa0 : ConstantVal} {s0 : L
     | false => close_throw
     | true =>
     have hs : (Level.isEquiv s s0 == some true) = true := by simp [ho]
-    try simp only [if_true] at h
+    try simp only [ite_true] at h
     intro q hq
     simp only [List.mem_cons] at hq
     rcases hq with rfl | hq

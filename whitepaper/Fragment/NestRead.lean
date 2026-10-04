@@ -44,7 +44,7 @@ theorem inst_not_uses : ∀ (e a : Expr) (k : Nat), e.usesVar k = false →
   | bvar i, a, k, hu, c, hc => by
     simp only [usesVar_bvar, decide_eq_false_iff_not] at hu
     rw [inst_bvar] at hc
-    simp only [hu, if_false] at hc
+    simp only [hu, ite_false] at hc
     split at hc <;> simp at hc
   | sort _, _, _, _, _, hc => by simp at hc
   | const _ _, _, _, _, c, hc => by rw [inst_const] at hc; exact hc
@@ -92,13 +92,13 @@ theorem usesVar_inst_lt : ∀ (e a : Expr) (i k : Nat), i < k →
   | bvar j, a, i, k, hik => by
     rw [inst_bvar]
     by_cases h1 : j < k
-    · rw [if_pos h1]
-    · rw [if_neg h1]
+    · rw [ite_eq_left h1]
+    · rw [ite_eq_right h1]
       by_cases h2 : j = k
-      · rw [if_pos h2, usesVar_liftN_gap a k 0 i (Nat.zero_le _) (by omega)]
+      · rw [ite_eq_left h2, usesVar_liftN_gap a k 0 i (Nat.zero_le _) (by omega)]
         simp only [usesVar_bvar]
         rw [show (decide (j = i)) = false by simp; omega]
-      · rw [if_neg h2]
+      · rw [ite_eq_right h2]
         simp only [usesVar_bvar]
         congr 1
         apply propext
@@ -123,13 +123,13 @@ theorem closedAt_inst : ∀ (e a : Expr) (k j : Nat), k ≤ j → e.closedAt (j 
     simp only [closedAt_bvar, decide_eq_true_eq] at he
     rw [inst_bvar]
     by_cases h1 : i < k
-    · rw [if_pos h1]; simp only [closedAt_bvar, decide_eq_true_eq]; omega
-    · rw [if_neg h1]
+    · rw [ite_eq_left h1]; simp only [closedAt_bvar, decide_eq_true_eq]; omega
+    · rw [ite_eq_right h1]
       by_cases h2 : i = k
-      · rw [if_pos h2]
+      · rw [ite_eq_left h2]
         have := closedAt_liftN (n := k) (k := 0) ha
         rwa [Nat.sub_add_cancel hkj] at this
-      · rw [if_neg h2]; simp only [closedAt_bvar, decide_eq_true_eq]; omega
+      · rw [ite_eq_right h2]; simp only [closedAt_bvar, decide_eq_true_eq]; omega
   | sort _, _, _, _, _, _, _ => rfl
   | const _ _, _, _, _, _, _, _ => rfl
   | app f b, a, k, j, hkj, he, ha => by
@@ -438,13 +438,13 @@ theorem classField_scoped (hS : S.Scoped env) (hN : S.nest = some N) (hKS : N.KS
   cases f with
   | ordinary A =>
     rcases hpf with rfl | ⟨hu, -⟩
-    · simp only [classField, NestInfo.isMember, beq_self_eq_true, if_true, fieldScoped]
+    · simp only [classField, NestInfo.isMember, beq_self_eq_true, ite_true, fieldScoped]
       refine ⟨fun _ _ hT => by simp at hT, by simpa using hNS.2.2.2.2.2.1, fun e he => ?_⟩
       obtain ⟨b, hb, rfl⟩ := List.mem_map.mp he
       have hb' := hNS.2.2.2.2.2.2.2.1 b hb
       exact ⟨Expr.closedAt_liftN (n := k) (k := 0) hb'.1, by rw [Expr.consts_liftN]; exact hb'.2.1,
         by rw [Expr.lparamsIn_liftN]; exact hb'.2.2⟩
-    · rw [classField, if_neg (by rw [isMember_false_of_usesVar N hu]; exact Bool.false_ne_true)]
+    · rw [classField, ite_eq_right (by rw [isMember_false_of_usesVar N hu]; exact Bool.false_ne_true)]
       have hsc : Expr.Scoped env N.KS.lparams (N.KS.nP + k) A := hsc0
       have hnPK : N.KS.nP = N.nPK := rfl
       have hargs : (S.classArgs N 0).length = N.nPK := S.length_classArgs N hlen hpK 0

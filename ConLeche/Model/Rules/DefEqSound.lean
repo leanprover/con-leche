@@ -553,7 +553,7 @@ theorem DefEq.structEta_sound (hin : RulesInputs V m φ) {d : Nat}
           by simpa [Expr.looseBVarsBounded] using hfb.2.1,
           fun l hl => hfb.2.2 l (by simpa [Expr.fvarLeaves] using hl)⟩,
         ⟨hCb.1, fun l hl => hCb.2 l (by simpa [Expr.fvarLeaves] using hl)⟩⟩
-    rw [etaProjs_eq, if_pos htow] at hfields
+    rw [etaProjs_eq, ite_eq_left htow] at hfields
     have hdrop : (asa.drop caps.etaParams).map (interp V ρ)
         = ((List.range caps.etaFields).map fun j =>
             projAV (j + e0.off) ba).map (interp V ρ) :=

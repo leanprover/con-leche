@@ -440,7 +440,7 @@ theorem stageBlockFormers {p₁ : BlockShape} {isRec : Bool} {names : List Name}
           cvTb.name = none := by
       intro j cvTb hij hj
       rw [ConLeche.Env.find?_cons,
-        if_neg (fun hh => hne j cvTb hj (by omega) hh.symm)]
+        ite_eq_right (fun hh => hne j cvTb hj (by omega) hh.symm)]
       exact hfreshOf j cvTb (by omega) hj
     have hFD' : ∀ (j : Nat) (cvTb : ConstantVal), cvTasAll[j]? = some cvTb →
         FormerData mpI.base2 cvTb (nPOf j) resSort (ppsOf j) := by
@@ -476,7 +476,7 @@ theorem stageBlockFormers {p₁ : BlockShape} {isRec : Bool} {names : List Name}
           (ConLeche.blockCapsAt p₁ j isRec).etaCtor = none := by
       intro j cvTb hj he
       rw [ConLeche.Env.find?_cons,
-        if_neg (fun hh => hetaNe j i cvTb cvTa hj hi he (by
+        ite_eq_right (fun hh => hetaNe j i cvTb cvTa hj hi he (by
           show cvTa.name = (ConLeche.blockCapsAt p₁ j isRec).etaCtor
           exact hh))]
       exact hfreshC j cvTb hj he

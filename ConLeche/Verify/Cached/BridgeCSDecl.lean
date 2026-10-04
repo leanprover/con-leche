@@ -122,13 +122,13 @@ theorem checkStructProjTableS_run {T C : Name} {lps : List Name} {nP nF : Nat}
       simp only [unwrapOr, pure_bind] at hstep ⊢
       split at hstep
       · next hg =>
-        rw [if_pos hg]
+        rw [ite_eq_left hg]
         split at hstep
         · next hfam =>
-          rw [if_pos hfam]
+          rw [ite_eq_left hfam]
           split at hstep
           · next hn =>
-            rw [if_pos hn]
+            rw [ite_eq_left hn]
             obtain ⟨hfe, rfl⟩ := pureC_ok hstep
             subst hfe
             exact ⟨rfl, rfl⟩

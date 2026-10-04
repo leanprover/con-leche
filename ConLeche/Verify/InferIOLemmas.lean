@@ -83,16 +83,16 @@ theorem inferTypeCoreIO_forall_inv {env : Env} {fuel d : Nat}
   dsimp only at h
   by_cases hv : mode.verifiedChecks = true
   case neg =>
-    rw [if_neg hv] at h
+    rw [ite_eq_right hv] at h
     simp only [pure, Except.pure, Except.ok.injEq] at h
     exact ⟨tty, u, bt, v, rfl, hwt, rfl, hes,
       fun hv' => absurd hv' hv, h.symm⟩
-  rw [if_pos hv] at h
+  rw [ite_eq_left hv] at h
   by_cases hz : (Level.zeronessOf v == m.pw) = true
-  · rw [if_pos hz] at h
+  · rw [ite_eq_left hz] at h
     simp only [pure, Except.pure, Except.ok.injEq] at h
     exact ⟨tty, u, bt, v, rfl, hwt, rfl, hes, fun _ => eq_of_beq hz, h.symm⟩
-  · rw [if_neg hz] at h
+  · rw [ite_eq_right hz] at h
     simp [throw, throwThe, MonadExceptOf.throw] at h
 
 /-- Inversion for the λ-rule of the io lane — `inferTypeCore_lam_inv`
@@ -127,19 +127,19 @@ theorem inferTypeCoreIO_lam_inv {env : Env} {fuel d : Nat}
   dsimp only at h
   by_cases hv : mode.verifiedChecks = true
   case neg =>
-    rw [if_neg hv] at h
+    rw [ite_eq_right hv] at h
     simp only [pure, Except.pure, Except.ok.injEq] at h
     exact ⟨bt, rfl,
       fun hv' _ => absurd hv' hv,
       fun hv' _ _ => absurd hv' hv, h.symm⟩
-  rw [if_pos hv] at h
+  rw [ite_eq_left hv] at h
   revert h
   match body with
   | .lam tyI bI mbI =>
     intro h
     simp only [Expr.lamPw] at h
     by_cases hpw : (m.pw == mbI.pw) = true
-    · rw [if_pos hpw] at h
+    · rw [ite_eq_left hpw] at h
       simp only [pure, Except.pure, Except.ok.injEq] at h
       refine ⟨bt, rfl, ?_, ?_, h.symm⟩
       · intro _ hlam; simp [Expr.isLam] at hlam
@@ -149,7 +149,7 @@ theorem inferTypeCoreIO_lam_inv {env : Env} {fuel d : Nat}
           | (cases heq; exact eq_of_beq hpw)
           | (rw [← heq]; exact eq_of_beq hpw)
           | (injection heq with heq; rw [← heq]; exact eq_of_beq hpw)
-    · rw [if_neg hpw] at h
+    · rw [ite_eq_right hpw] at h
       simp [throw, throwThe, MonadExceptOf.throw] at h
   | .bvar _ | .fvar _ _ | .sort _ | .const _ _ | .app _ _
   | .forallE _ _ _ | .letE _ _ _ | .lit _ | .proj _ _ _ =>
@@ -166,7 +166,7 @@ theorem inferTypeCoreIO_lam_inv {env : Env} {fuel d : Nat}
     intro h
     dsimp only at h
     by_cases hz : (Level.zeronessOf v == m.pw) = true
-    · rw [if_pos hz] at h
+    · rw [ite_eq_left hz] at h
       simp only [pure, Except.pure, Except.ok.injEq] at h
       refine ⟨bt, rfl,
         fun _ _ => ⟨btt, v, hbtt, hes, eq_of_beq hz⟩, ?_, h.symm⟩
@@ -174,7 +174,7 @@ theorem inferTypeCoreIO_lam_inv {env : Env} {fuel d : Nat}
       first
         | exact nomatch heq
         | simp [Expr.lamPw] at heq
-    · rw [if_neg hz] at h
+    · rw [ite_eq_right hz] at h
       simp [throw, throwThe, MonadExceptOf.throw] at h
 
 /-- **Inversion for the application rule of the io lane** — the frozen
@@ -224,10 +224,10 @@ theorem inferTypeCoreIO_app_inv {env : Env} {fuel d : Nat} {f a t : Expr}
   | .proj s2 i2 e2, h => exact nomatch h
   dsimp only at h
   by_cases hg : m'.pw.isNever = true
-  · rw [if_pos hg] at h
+  · rw [ite_eq_left hg] at h
     simp only [pure, Except.pure, Except.ok.injEq] at h
     exact ⟨tf, ty', body', m', rfl, hw, h.symm, Or.inl hg⟩
-  · rw [if_neg hg] at h
+  · rw [ite_eq_right hg] at h
     try simp only [Bind.bind, Except.bind] at h
     try dsimp only at h
     cases hta : inferTypeCoreIO mode env fuel d a with
@@ -242,7 +242,7 @@ theorem inferTypeCoreIO_app_inv {env : Env} {fuel d : Nat} {f a t : Expr}
     cases r with
     | false => simp [throw, throwThe, MonadExceptOf.throw] at h
     | true =>
-      simp only [if_true, pure, Except.pure, Except.ok.injEq] at h
+      simp only [ite_true, pure, Except.pure, Except.ok.injEq] at h
       exact ⟨tf, ty', body', m', rfl, hw, h.symm,
         Or.inr ⟨ta, rfl, hde⟩⟩
 
@@ -321,19 +321,19 @@ theorem inferTypeCoreIO_proj_inv {env : Env} {fuel d : Nat} {sn : Name}
         (Level.isEquiv (Level.subst entry.levelParams us entry.fieldSort) .zero
           == some true) = true := by
       intro hp
-      rw [if_pos hp] at h
+      rw [ite_eq_left hp] at h
       by_cases hf : (Level.isEquiv
           (Level.subst entry.levelParams us entry.fieldSort) .zero
           == some true) = true
       · exact hf
-      · rw [if_neg hf] at h
+      · rw [ite_eq_right hf] at h
         exact absurd h (by
           simp [throw, throwThe, MonadExceptOf.throw, bind, Except.bind])
     have h' : (pure (entry.typeAt us te.getAppArgs e) : Except CheckError Expr) = .ok t := by
       by_cases hp : (Level.isEquiv entry.structSort .zero == some true) = true
-      · rw [if_pos hp, if_pos (hg hp)] at h
+      · rw [ite_eq_left hp, ite_eq_left (hg hp)] at h
         exact h
-      · rw [if_neg hp] at h
+      · rw [ite_eq_right hp] at h
         exact h
     simp only [pure, Except.pure, Except.ok.injEq] at h'
     exact ⟨tpe, te, T, us, entry, rfl, hw, hfn, hfp, hlen, hus,

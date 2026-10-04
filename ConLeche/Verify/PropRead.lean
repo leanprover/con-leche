@@ -149,7 +149,7 @@ theorem Expr.peelNeverPis_instantiate1 : ∀ (k : Nat) {T : Expr} {u : Level}
   | succ k ih =>
     intro T u v off h
     obtain ⟨ty, b, m, rfl, hnev, hb⟩ := Expr.peelNeverPis_succ_inv h
-    simp only [instantiate1, peelNeverPis, hnev, if_true]
+    simp only [instantiate1, peelNeverPis, hnev, ite_true]
     exact ih v (off + 1) hb
 
 /-- A successful peel is a successful `stripPis` with the same
