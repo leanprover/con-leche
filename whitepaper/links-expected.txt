@@ -3436,7 +3436,7 @@
    314      refine hsupp _ (fun i' => famUnion_mem_univ hn hA fun a _ => stage_mem hn hA hmaps (f a) i') ?_
    315      intro a ha
    316      refine mem_unionFam.mpr ⟨a, hBA a ha, ?_⟩
-   317      have : f a = Classical.choose (hT a ha) := dif_pos ha
+   317      have : f a = Classical.choose (hT a ha) := dite_eq_left ha
    318      rw [this]
    319      exact Classical.choose_spec (hT a ha)
    320    exact mem_limFam.mpr ⟨_, hstage⟩

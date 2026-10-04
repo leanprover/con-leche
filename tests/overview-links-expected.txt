@@ -359,10 +359,10 @@
    101    pw : PropWhen
    102    deriving DecidableEq, Repr, Hashable
 
-== ConLeche/Verify/Cached/AgreeFloor.lean#L1280-L1282
-  1280  theorem checkDecls_skels {mode : CheckMode} {ds : Array Declaration}
-  1281      {env : Env} (h : checkDecls mode pins ds = .ok env) :
-  1282      envSkels env = streamSkels ds.toList := by
+== ConLeche/Verify/Cached/AgreeFloor.lean#L1284-L1286
+  1284  theorem checkDecls_skels {mode : CheckMode} {ds : Array Declaration}
+  1285      {env : Env} (h : checkDecls mode pins ds = .ok env) :
+  1286      envSkels env = streamSkels ds.toList := by
 
 == ConLeche/Kernel/Exclusive.lean#L6-L42
      6  # `withExclusive`: the reference-count read behind the walk memo
@@ -570,11 +570,11 @@
    189          (if i < k then .bvar i
    190           else if i = k then AnnotTerm.liftN k a else .bvar (i - 1)) ↔ _
    191      by_cases h : i < k
-   192      · simp [if_pos h]
+   192      · simp [ite_eq_left h]
    193      · by_cases h2 : i = k
-   194        · simp only [if_neg h, if_pos h2, WellDenoted_bvar, iff_true]
+   194        · simp only [ite_eq_right h, ite_eq_left h2, WellDenoted_bvar, iff_true]
    195          exact (WellDenoted_liftN V k a 0 ρ).mpr ha
-   196        · simp [if_neg h, if_neg h2]
+   196        · simp [ite_eq_right h, ite_eq_right h2]
    197    | sort u => intro a k ρ _; simp [AnnotTerm.inst]
    198    | const c us => intro a k ρ _; simp [AnnotTerm.inst]
    199    | app f b ihf ihb =>
