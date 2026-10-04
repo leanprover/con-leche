@@ -96387,3 +96387,128 @@ docstrings.
 - `tests/arena.sh`: exit 0. Its counts (arena tutorial 90/92, e2e
   456/456, sweeps as expected) are the same as before; the change is
   proof-only and leaves the kernel untouched.
+
+## TASK #327 — accessibility at level 0: spike (2026-10-04, `agent/acc-level0`)
+
+The maintainer's question: the whitepaper fragment derives the block
+operator's monotonicity from accessibility at a `Prop`-valued block too
+(`AccFam`, `famOp_acc`, `AccFam.mono`, `lfpP_acc` with
+`hA : n ≠ 0 → A ∈ univ n`, `closedFam_zero`). Are task #326's three
+level-0 obstacles essential, or artefacts of how con-leche states its
+accessibility? A spike, built on #326's branch: measure and report.
+
+**The verdict: all three are artefacts.** Con-leche's `AccTuple` never
+asked for a bound in the universe or for small elements. Both came from
+the walk's `AccOn`: an element guard `x ∈ univ w` and `SizeOn`, which
+together hand `closed_of_acc` a bound of the level. Only `closed_of_acc`
+needs that bound, and only at `w ≠ 0`. At `w = 0`, (W) is
+`closedTuple_zero`, and monotonicity needs no bound at all.
+- (a) `teleBound_support` needed small field values only to get past
+  the guard. The guard is now `SmallAt w x := w ≠ 0 → x ∈ univ w`,
+  which is vacuous at `w = 0`. `SizeOn`, `guardU`, `TeleAccP`'s domain
+  conjunct and `TeleSmall` read `SmallAt` too, and `FieldsOkB` was
+  already guarded. The fragment does the same: its bound collects
+  argument tuples as a set, and `DomsBounded` is asked only above a
+  proposition.
+- (b) The type regime (`TypeReg`, `accRel_rich`) only made a Π at a
+  `Prop` codomain hole-free, so that its bound could be `∅`, a small
+  set. At `w = 0` nothing is sized, so such a Π glues one witness's
+  support per domain value, over a domain of any size (`AccOn.pi0`).
+  That is the fragment's reflexive field at a proposition: one
+  occurrence per argument tuple. Richness and the type regime are now
+  asked only at `w ≠ 0` (`HoleRelA` gains `w`, `rich : w ≠ 0 → …`, and
+  `AccConcl`'s first conjunct is `w ≠ 0 → TypeReg`). At `w ≠ 0` they
+  stay needed, for the bound's size, not for accessibility.
+- (c) The container frames' `w ≠ 0` had four sources. The bounds in
+  `univ w` are now guarded. The frame relation's richness is guarded.
+  The container instance's type regime (`injNePt`) is guarded. The
+  fourth was the stored container's `acc`, which said nothing at
+  `w = 0`. `AccW` now has content there:
+  `∃ A, (w ≠ 0 → A ∈ univ w) ∧ AccTuple …`. `lfpP_acc_group` was
+  already level-free, and `lfpP_acc` takes `hA : w ≠ 0 → …`, its
+  closure by `AccW.closed`, as in the fragment.
+
+**One real level-0 difference, and the design it forces.** At `w = 0`
+every injection is `pt`, so the operator's accessibility does not
+determine the fit's growth, which the recursor's targets read
+(`TargetNode*`, `NestRec`, through `fitsMono`). So the clause records
+the FIT's accessibility in place of `acc` and `fitsMono`: `fitAcc`,
+`LfpDatum.FitAcc`. A spine fitting at a tuple has a support, and fits
+at every tuple holding it. `BlockModelAt` has the same shape.
+Everything else is derived, at every level:
+- `LfpClause.acc`, through `fibre` (`FitAcc.accTuple`), and from it
+  `closed` and `mono`;
+- `LfpClause.fitsMono` (`FitAcc.mono`), as a theorem with the old
+  field's signature, so the consumers did not change.
+
+The install proves it as `fitAcc_holeOp`, which was `accTuple_holeOp`
+minus its fibre step. The basis proves it for `Empty`/`False` (bound
+`∅`), `Nat` (bound `{pt}`, the predecessor) and `Eq` (constant, `∅`).
+
+**Proved.** `posD_acc`, `frame_accD`, `contNew_accD`, `contHit_acc`,
+`frameIterAcc`, `frameAccOut_of`, `accConcl_of_frameAccOut`,
+`blockAcc_of_run` and `lfpP_acc` now hold at every level, and the
+constructors' stage records `AccW ∧ FitAcc`. `blockHoleFold` takes
+`AccW` (monotonicity by `AccW.mono`). The real pick's fit is
+transported from the dummy pick's by `FitAcc.congr`.
+
+**Deleted (the positivity path to the operator's monotonicity).**
+- Theorems: `blockCtorPos_of_walk`, `blockCtorPos_of_run`,
+  `monoTuple_of_holes`, `monoTuple_of_tupRel`, `blockFitsMono_of_pos`,
+  `CtorPos`, `hfits_mono`, `tupRel`, `tupRel_agreeOff`,
+  `holeOn_tupRel`, `holeFam_fold_mono`, `memberCtorD_mono`,
+  `PiPosThen.mono`, `FieldsEqOn.teleMonoOn`.
+- Module: `BlockPosRunCont.lean` (its `nestCtx_sort_eval` moved to
+  `BlockAccRunCont`).
+- Premises: `hfitsMono`/`hpos` in `blockModelAt_of_records`,
+  `blockLfpClause_of_records` and `lfp0_clause`; `hlfp` in
+  `blockModelAt_seam`/`genRun_lic`; `hIdx`/`hH` in `blockAcc_of_run`.
+
+After that, the census (`scripts/dead-census.py`) finds no further
+dead constant in the area.
+
+**What stays, by the #326 rulings.** The recursor's frame
+monotonicity is untouched: `posD_mono`, `HoleMono`, `PosDerivMono`,
+`ContWalk.frameIter`, `ContCtor`, and `carrier_le_on_group'` with
+`lfpTuple_le_on`, which now read the derived `LfpClause.mono`. The
+type regime stays at `w ≠ 0`.
+
+**A trap met, recorded.** Comparing two different data's `toLfp`
+under a projection, by `rfl` or by a cast (`dZ.toLfp.frame` against
+`dR.toLfp.frame`), elaborates fine. The kernel then compares the two
+whole `LfpDatum` literals, `Φ` included, and `blockTablesStage_of`
+hit a deterministic timeout even at twice the heartbeats. The fix was
+to state each reading at the `BlockData` level
+(`show dZ.w ψ = dR.w ψ from rfl`) and to transport through the generic
+`FitAcc.congr`.
+
+**Line counts** (`git diff --stat`, `ConLeche/` only):
+- against `agent/mono-acc`: +557 −872 in 35 files (net −315);
+- against `origin/master` (#326 and #327 together): +688 −915 in 38
+  files, net −227. That is a saving, where #326 alone was +88.
+
+**Documents.**
+- OVERVIEW: one anchor moved (`declBlock`).
+- Whitepaper: 16 citations repointed. §4's real-proof paragraph now
+  says the fit is accessible in both regimes and monotonicity follows,
+  as in the fragment. §5's sentence on case-by-case comparison now
+  names the recursor's frames. The fragment's two con-leche notes in
+  `IndSem.lean` were updated. `whitepaper/NOTES.md` still names
+  `BlockPosRunCont.lean` (historical notes, not gated).
+- The shake allowlist line for `BlockDatum`'s re-export was repointed
+  from `BlockPosRunCont` to `BlockPosRun`.
+
+**Gates.**
+- `lake build` and `lake test`: warning-free.
+- `tests/shake.sh`: OK.
+- `tests/layering.sh`: OK.
+- `tests/arena.sh`: exit 0, with the same counts as before (arena
+  tutorial 90/92, e2e 456/456, sweeps as expected).
+
+The change is proof-only.
+
+**Recommendation: land #326 and #327 together, or drop both.** #326
+alone added a recorded accessibility and kept the positivity path, so
+it grew the tree. With #327 the clause records ONE fact, the fit's
+accessibility, and the positivity-based operator monotonicity is gone
+at every level, with a net saving against master.
