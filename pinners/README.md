@@ -12,6 +12,7 @@ the dump's toolchain.
 
     pinners/leanprover-lean4-v4.33.0/                    lean-toolchain, lakefile.toml
     pinners/leanprover-lean4-v4.34.0-rc2/                lean-toolchain, lakefile.toml
+    pinners/leanprover-lean4-v4.35.0-rc3/                lean-toolchain, lakefile.toml
     pinners/leanprover-lean4-nightly-nightly-2026-09-10/ lean-toolchain, lakefile.toml
 
 The directory name is the dump's basename without `.json` — the
@@ -76,7 +77,10 @@ task #275).  A fork is therefore a narrowing:
 
 No fork exists today — v4.34.0-rc2 and the nightly build the shared
 sources with deprecation warnings only, and produce byte-identical
-dumps.
+dumps.  (Since task #328 `ConLeche/PinGen/Certs.lean` silences the
+deprecation linter — it keeps the `if_pos`/`dif_pos` spellings every
+toolchain has and the blobs cite — so the repository toolchain,
+v4.35.0-rc3, builds the cone warning-free.)
 
 ## Adding or dropping a toolchain
 

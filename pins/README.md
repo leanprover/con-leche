@@ -3,10 +3,11 @@
 Committed **generated data**: one pin dump per supported Lean
 toolchain, and the built-in prelude of the repository's own toolchain:
 
-    pins/leanprover-lean4-v4.33.0.json                        the repository toolchain's dump
-    pins/leanprover-lean4-v4.34.0-rc2.json                    further toolchains' dumps ("pin variants")
+    pins/leanprover-lean4-v4.35.0-rc3.json                    the repository toolchain's dump
+    pins/leanprover-lean4-v4.33.0.json                        further toolchains' dumps ("pin variants")
+    pins/leanprover-lean4-v4.34.0-rc2.json
     pins/leanprover-lean4-nightly-nightly-2026-09-10.json
-    pins/leanprover-lean4-v4.33.0.prelude.ndjson              the built-in prelude
+    pins/leanprover-lean4-v4.35.0-rc3.prelude.ndjson          the built-in prelude
 
 ## The pin dump (`<toolchain>.json`)
 
@@ -95,12 +96,15 @@ toolchains in between whose definitions did not drift: the v4.33.0
 variant accepts v4.29.0 … v4.33.1 exports; v4.34.0-rc2 renamed the
 `if_pos`/`dif_pos`/`Nat.div_eq` family the certificate blobs cite and
 needs its own; the nightly variant covers lean4 master since the
-`Decidable` rewrite).
+`Decidable` rewrite, and the v4.35.0-rc3 variant — the repository
+toolchain's since task #328 — is that same dump body under its own
+toolchain label).
 
 **The prelude is one file**, the repository toolchain's.  It holds
 only the pinned basis blocks and the `Bool`/`And` blocks, which have
-not changed across the supported toolchains (the nightly's generated
-prelude is byte-identical to v4.33.0's below its meta line).  A
+not changed across the supported toolchains (the nightly's and
+v4.33.0's generated preludes are byte-identical to v4.35.0-rc3's below
+the meta line).  A
 stream's own record is used wherever it has one — the prelude's copy
 only fills in what the stream lacks; `And` is pinned by the fold, so a
 stream's `And` that is not the toolchain's is rejected — and
@@ -159,7 +163,7 @@ project it is run in: the generator searches upward from the working
 directory for `lean-toolchain` exactly as elan does when it picks the
 Lean that is running, and refuses to run if that name disagrees with
 `Lean.versionString`.  The two commands above are the same sources
-built by two projects — `pinners/leanprover-lean4-v4.33.0/` is the
+built by two projects — `pinners/leanprover-lean4-v4.35.0-rc3/` is the
 repository toolchain's pinner and produces the identical file.
 
 The generator lives in the certificate library's world (`PinDump.lean`;

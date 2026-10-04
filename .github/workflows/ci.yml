@@ -86,7 +86,7 @@
 # NOTES ON THE ENVIRONMENT
 #
 #   * Toolchain: installed by `elan` from the repo's `lean-toolchain`
-#     (leanprover/lean4:v4.33.0 at the time of writing).  Never pin the
+#     (leanprover/lean4:v4.35.0-rc3 at the time of writing).  Never pin the
 #     version here — `lean-toolchain` is the single source, and
 #     `tests/pindump.sh` independently refuses a repository dump that is
 #     not the running toolchain's.  It reproduces the OTHER committed

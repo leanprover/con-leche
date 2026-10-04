@@ -57,7 +57,7 @@ namespace ConLeche.Frontend
 regenerates it and re-points this path (the pin dump's `preludeFile`
 names the same basename; `tests/pindump.sh` checks both). -/
 def builtinPreludeText : String :=
-  include_str "../../pins/leanprover-lean4-v4.33.0.prelude.ndjson"
+  include_str "../../pins/leanprover-lean4-v4.35.0-rc3.prelude.ndjson"
 
 /-- The parsed, indexed prelude: `Except` because a committed file can
 in principle be corrupted, and a prelude that does not parse must be a

@@ -60,6 +60,7 @@ set_option maxRecDepth 1000000
 set_option maxHeartbeats 1000000
 
 #load_natop_pins
+  include_str "../../pins/leanprover-lean4-v4.35.0-rc3.json",
   include_str "../../pins/leanprover-lean4-v4.33.0.json",
   include_str "../../pins/leanprover-lean4-v4.34.0-rc2.json",
   include_str "../../pins/leanprover-lean4-nightly-nightly-2026-09-10.json"
