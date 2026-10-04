@@ -96512,3 +96512,130 @@ alone added a recorded accessibility and kept the positivity path, so
 it grew the tree. With #327 the clause records ONE fact, the fit's
 accessibility, and the positivity-based operator monotonicity is gone
 at every level, with a net saving against master.
+
+## TASK #328 — toolchain v4.33.0 → v4.35.0-rc3 (2026-10-04, agent/lean-4.35)
+
+The bump to the newest release candidate (`v4.35.0-rc3`; no newer
+v4.35 rc existed). Mostly mechanical. The tree has no `mvcgen`, so
+the "keep `mvcgen`, `vcgen` later" ruling had nothing to act on.
+
+**What broke, by kind.**
+- **Deprecated names, about 3,000 sites in 274 files** (warnings, so
+  build-gate failures). v4.34.0-rc2 renamed `if_pos`/`if_neg`/
+  `dif_pos`/`dif_neg`/`if_true`/`if_false` to `ite_eq_left`/
+  `ite_eq_right`/`dite_eq_left`/`dite_eq_right`/`ite_true`/
+  `ite_false`, with the same statements. Each was renamed at the
+  position the build reported. That includes the two `line_step`
+  macros in `Verify/Frontend/FalseLines.lean`, whose warnings point at
+  the call sites. Also renamed: `Nat.div_eq` → `Nat.div_eq_ite`
+  (`Model/NatWf.lean`), and `List.getElem_inj`/`List.getElem?_inj` →
+  `List.Nodup.…` (three sites, plus one in the whitepaper fragment,
+  whose named argument `l` is now `xs`).
+- **The pinner cone is the exception.** The pinner cone is the eight
+  modules every `pinners/*/` project compiles: the generator,
+  `PinGen/Certs`, and `Kernel/{Name,PropWhen,Expr}`. It must still
+  build on v4.33.0, which lacks the new names. Also, the certificate
+  blobs cite the lemmas by name, so a rename would change every dump.
+  `PinGen/Certs.lean` therefore keeps the old spellings and sets
+  `linter.deprecated false`. `Kernel/Expr.lean`'s one site
+  (`toNat_satPred`) now closes with `↓reduceIte` and the hypothesis,
+  which works on every toolchain. Afterwards, all four pinners
+  reproduce their dumps byte-for-byte.
+- **`have` is no longer `letFun`** (non-mechanical). Since v4.35 a
+  `have` elaborates to a non-dependent `let`. The do-notation join
+  points (`have __do_jp := …`) are such `let`s, and
+  `Verify/Cached/AgreeFloor.lean`'s clause walker had a rule for the
+  old `letFun`. The rule is restated over `have`, and the walker no
+  longer tries it. Stated over a `let`, its conclusion zeta-reduces
+  to `?f ?v` and unifies with anything, so the walk ran into the
+  recursion limit (14 errors). The walker's other rules already see
+  through the `let` by zeta at reducible transparency. The two
+  explicit top-level `try apply Yields.letFun` steps still work.
+- **`Decidable` is a structure** (non-mechanical). It is now `intro
+  (decide : Bool) (reflects_decide : decide.Reflects p)`, and `dite`
+  is `Bool.casesOn` over `decide c`. `Yields.ofDecCases` was stated
+  over `Decidable.casesOn … isFalse isTrue`. It is now stated over
+  `@dite _ c d b a` and proved by `by_cases` with
+  `dite_eq_left`/`dite_eq_right`.
+- **One proof got shorter** (`Verify/Shift.lean`,
+  `wscopedB_shiftFrom`). In one branch `congr 1` now closes the
+  `decide` goal by itself, so the `simp only`/`omega` tail that
+  followed is dropped ("no goals").
+
+`lake build`, `lake test`, `lake build WhitepaperFragment` and
+`whitepaper/fragment-gate.sh` are warning-free.
+
+**Per-toolchain artefacts.**
+- `pinners/leanprover-lean4-v4.35.0-rc3/` and
+  `pins/leanprover-lean4-v4.35.0-rc3.json`. Below its header, the dump
+  is byte-identical to the nightly-2026-09-10 dump's body: both
+  toolchains come after the `Decidable` rewrite.
+- `#load_natop_pins` lists the new dump first, then v4.33.0,
+  v4.34.0-rc2 and the nightly.
+- The built-in prelude is now
+  `pins/leanprover-lean4-v4.35.0-rc3.prelude.ndjson`. It is identical
+  to the v4.33.0 prelude below the meta line, and the v4.33.0 one is
+  removed, since only the repository toolchain's prelude is committed.
+- The e2e fixtures are not regenerated; they are pinned to their own
+  exporter.
+- Fixed on the way: `scripts/natop-matrix.sh` still read the Nat-op
+  list from `Kernel/Core.lean`. Task #305 moved it to `CoreDefs.lean`,
+  so every row died at the `names` step. Repointed. With the fix, the
+  new binary accepts the pinned cone as exported by v4.35.0-rc3
+  (bundled `leanexport`), v4.34.1, v4.33.0 and v4.29.0.
+- The self-check (`scripts/selfcheck.sh`, lean4export at its
+  v4.35.0-rc3 commit) accepts the v4.35 export of the tree in verified
+  mode: 13.2M lines, **45,079 declarations, exit 0**.
+
+**The bridge** (`bridge/lean4lean-model`) moves to v4.35.0-rc3 and
+Mathlib's `v4.35.0-rc3` tag. `lake update` also drops the stale
+inherited `lean_inductive_models` entry. It builds warning-free with no
+source change.
+
+**Gates.** `tests/arena.sh` passes. Its layering, pindump (four of four
+reproduced), trust-surface, shake, challenge, quote, fragment and
+whitepaper-link gates pass, as do arena 90/92, e2e 456/456 and the
+`--trusted`/`--jobs` sweeps. One OVERVIEW.md anchor
+(`checkDecls_skels`) moved by four lines and is repointed. The
+re-recorded link expectations otherwise differ only by the renames
+inside cited proof lines.
+
+**Performance**, measured, not landed (PERF.md and `perf-data/` are
+untouched). The protocol is `scripts/perf-tables.sh`:
+`instructions:u`, one run per cell, `--jobs=1`, the `trusted` and
+`verified` columns, and the full default stream set including
+`mathlib-full`. All runs use the same raw v4.33.0 export streams:
+`init-full` and the Mathlib stream at `_tmp/ref/`. Before is
+origin/master `7efab414` on v4.33.0; after is this branch on
+v4.35.0-rc3. Every cell exits 0 with the same declaration count.
+
+| stream | trusted before | after | Δ | verified before | after | Δ |
+|---|---|---|---|---|---|---|
+| `let-ladder` | 2.714 G | 2.728 G | +0.54 % | 2.714 G | 2.729 G | +0.54 % |
+| `beta-ladder` | 13.92 G | 14.15 G | +1.64 % | 13.93 G | 14.16 G | +1.64 % |
+| `init-prelude` | 2.370 G | 2.535 G | **+6.97 %** | 2.487 G | 2.655 G | **+6.74 %** |
+| `grind-ring-5` | 16.73 G | 17.66 G | **+5.58 %** | 17.81 G | 18.77 G | **+5.41 %** |
+| `app-lam` | 70.66 G | 70.86 G | +0.28 % | 70.66 G | 70.87 G | +0.29 % |
+| `init-full` | 461.3 G | 469.2 G | +1.71 % | 477.1 G | 485.4 G | +1.74 % |
+| `mathlib-full` | 7.621 T | 7.730 T | +1.42 % | 8.245 T | 8.368 T | +1.49 % |
+
+As data: Mathlib's peak RSS fell from 8.29 GiB to 6.33 GiB (−24 %),
+both modes.
+
+**Where the >2 % rows come from: the runtime's allocator, not the
+checker.** The profiles are `perf record -e instructions:u`, verified,
+`--jobs=1`. On v4.33.0 the allocation path is `mi_malloc_small`/
+`mi_free`. On v4.35 it is `lean_alloc_small_object_core`/
+`lean_free_object` over mimalloc, and `lean_dec_ref_cold` grows from
+10.6 % to 18.1 % of the profile. Summing the allocation and
+reference-counting symbols (`mi_*`, `lean_alloc*`, `lean_free*`,
+`lean_dec_ref*`, `lean_del*`):
+- `grind-ring-5`: 7.20 G → 8.92 G (+24 %), while everything else
+  fell from 10.64 G to 9.84 G (−7.5 %);
+- `init-prelude`: 0.98 G → 1.17 G (+20 %), everything else
+  1.51 G → 1.49 G.
+
+The streams that allocate the most pay the most, and the same change
+plausibly explains the lower Mathlib RSS. A cost of trying the new pin
+variant first on these v4.33.0 streams would show as checker
+instructions, which did not grow. No perf fix is attempted here.
