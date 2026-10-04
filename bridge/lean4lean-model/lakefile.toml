@@ -7,11 +7,11 @@ defaultTargets = ["ConLecheBridge"]
 
 # Mathlib first on purpose (lean4lean-model's own lakefile does the same):
 # Lake resolves a shared transitive dependency to the first pin it meets.
-# The tag matches `lean-toolchain` (v4.33.0), which is a copy of ConLeche's.
+# The tag matches `lean-toolchain` (v4.35.0-rc3), which is a copy of ConLeche's.
 [[require]]
 name = "mathlib"
 git = "https://github.com/leanprover-community/mathlib4"
-rev = "v4.33.0"
+rev = "v4.35.0-rc3"
 
 # ConLeche itself, by path: the bridge imports `ConLeche.SetTheory.Core` only.
 [[require]]

@@ -19,7 +19,7 @@ lake build          # `lake update` was already run; the manifest is committed.
 The first build fetches Mathlib's oleans automatically (Mathlib's
 post-update hook runs `cache get`; if it did not, run `lake exe cache
 get` first).  `lean-toolchain` is a copy of the repository's; Mathlib is
-pinned to the matching tag (`v4.33.0`).  `ConLeche.SetTheory.Core` is built
+pinned to the matching tag (`v4.35.0-rc3`).  `ConLeche.SetTheory.Core` is built
 from `../..` by the path `require`.  Everything lands in this
 directory's `.lake` (gitignored).
 
