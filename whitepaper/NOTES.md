@@ -208,14 +208,12 @@ comment block at the top of `lib.typ`.
     (`Fragment/Univ.lean`), `closed_of_acc` proved along well-founded
     trees (`Fragment/Access.lean`), the least fixed point as a separation
     inside the set theory (`lfpFamSet`, `Fragment/LfpSet.lean`) — and the
-    law is gone. What remains of the item is one suggestion for the real
-    proof: the positivity run is read twice, by `blockCtorPos_of_run`
-    (`Model/Inductives/BlockPosRunCont.lean`) for monotonicity and by
-    `blockAcc_of_run` (`BlockAccRunCont.lean`) for accessibility, while
-    `AccTuple.monoTuple` (`SetModel/Access.lean`) says an accessible
-    operator is monotone. One reading of the run would give
-    `LfpClause.functor`'s three conjuncts, with the proposition-valued
-    case (`closedTuple_zero`, no bound needed) as its degenerate case.
+    law is gone. The item's remaining suggestion for the real proof —
+    read the positivity run once, for accessibility, and derive
+    monotonicity from it — is done: tasks #326/#327 (2026-10-04) record
+    the fields' accessibility in the clause, derive the operator's
+    accessibility, the closed family and monotonicity from it at every
+    level, and delete the positivity path to operator monotonicity.
     (Fragment lane, part 2; §3 lane; §4 lane, 2026-10-01; revised
     2026-10-03.)
 
@@ -636,9 +634,10 @@ comment block at the top of `lib.typ`.
     (`closedFam_zero`) — so `Fam_psK_acc` holds in both regimes, the
     container's clause drops its `mono` field (`ContClause.mono` is a
     theorem), and `Fam_psK_mono` is derived; the leastness proof of
-    item 34 is gone.  The real proof proves monotonicity separately
-    (`HoleMono.lean`, `BlockPosRunCont.lean`, the container case of
-    `BlockLfpMono.lean` through `HoleClose.lean`'s `lfpTuple_le_on`)
-    and states `lfpP_acc` above a proposition only; deriving
-    `LfpClause.functor`'s monotone conjunct from `blockAcc_of_run`
-    (extended to `w = 0`) could retire those modules.  (2026-10-03.)
+    item 34 is gone.  Done in the real proof too (tasks #326/#327,
+    2026-10-04): accessibility is stated with a bound that need be in
+    the universe only above a proposition, holds at every level, and
+    the operator's monotonicity is derived from it; the recursor's
+    frame monotonicity (`HoleMono.lean`, `posD_mono`, `frameIter`)
+    remains, as it serves the recursor.  (2026-10-03, updated
+    2026-10-04.)
