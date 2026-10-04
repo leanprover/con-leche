@@ -35,21 +35,18 @@ parameter frame `ρp` satisfying the parameter telescope (exactly the
 quantification `BlockModelAt` has, which is what the install proves):
 
 * `maps` — `Φ` maps the tuple space into itself;
-* `acc` — at a `Type`-valued block `Φ` is ACCESSIBLE with a bound of the
-  level (`AccW`, `SetModel/Access.lean`): (W) follows at every level
-  (`LfpClause.closed`, `AccW.closed`);
+* `fitAcc` — the hole fit is ACCESSIBLE (`LfpDatum.FitAcc`), with a
+  bound of the level at a `Type`-valued block;
 * `fibre` — component `c`'s fibre at `(X, t)` is the set of injections
   of the spines fitting one of `c`'s constructors at `(X, t)`;
-* `fitsMono` — the hole fit grows with the tuple (positivity's);
 * `leaf` — a member's former, at fitting parameters and its own
   indices, is the least pre-fixed tuple's component at the index
   tuple.
 
-**Monotonicity is derived, not recorded** (task #326):
-`LfpClause.mono` reads it off `fibre` and `fitsMono` at every level.
-At a `Type`-valued block it follows from `acc` as well
-(`AccTuple.monoTuple`); at a `Prop`-valued one there is no recorded
-accessibility, and `fitsMono` is its only source.
+**Derived, not recorded** (tasks #326, #327), at every level: the
+operator's accessibility (`LfpClause.acc`, through `fibre`), hence (W)
+(`LfpClause.closed`, `AccW.closed`) and monotonicity (`LfpClause.mono`);
+the fit's growth (`LfpClause.fitsMono`, `FitAcc.mono`).
 
 **Universe instantiation.**  `leaf` holds at EVERY level assignment
 `ψ`.  A use `.const I us` under `φ` reads the leaf at
@@ -206,6 +203,77 @@ index tuple `t`. -/
     ∀ l, l < (D.ids c ψ).length → ∃ e, (D.resIdx ψ c j)[l]? = some e ∧
       interp V (consList fs (D.frame ψ ρp X)) e = projS l t
 
+/-- **The hole fit is accessible with the bound `A`** (task #327): a
+spine fitting a constructor at the hole frame of a tuple of the space has
+a SUPPORT — occurrences of the tuple, indexed by a subset of `A` — and
+fits at the hole frame of every tuple of the space holding it. -/
+@[expose] def FitAcc (ψ : Name → Nat) (ρp : Nat → V) (A : V) : Prop :=
+  ∀ X, InTupleSpace (D.w ψ) D.N (D.idx ψ ρp) X → ∀ c, c < D.N → ∀ (t : V) (j : Nat) (fs : List V),
+    D.HFits ψ ρp X t c j fs → ∃ (B : V) (g : V → Nat × V × V), B ⊆ˢ A ∧
+      (∀ b, b ∈ˢ B → InTup D.N (D.idx ψ ρp) X (g b)) ∧
+      ∀ X', InTupleSpace (D.w ψ) D.N (D.idx ψ ρp) X' →
+        (∀ b, b ∈ˢ B → InTup D.N (D.idx ψ ρp) X' (g b)) → D.HFits ψ ρp X' t c j fs
+
+variable {D}
+
+/-- **An accessible fit grows with the tuple**: its support is held by
+every larger tuple. -/
+theorem FitAcc.mono {ψ : Name → Nat} {ρp : Nat → V} {A : V} (h : D.FitAcc ψ ρp A)
+    {X Y : Nat → V} (hX : InTupleSpace (D.w ψ) D.N (D.idx ψ ρp) X)
+    (hY : InTupleSpace (D.w ψ) D.N (D.idx ψ ρp) Y) (hXY : TupleLe D.N (D.idx ψ ρp) X Y)
+    {c : Nat} (hc : c < D.N) {t : V} {j : Nat} {fs : List V} (hf : D.HFits ψ ρp X t c j fs) :
+    D.HFits ψ ρp Y t c j fs := by
+  obtain ⟨B, g, -, hg, hs⟩ := h X hX c hc t j fs hf
+  exact hs Y hY fun b hb =>
+    ⟨(hg b hb).1, (hg b hb).2.1, hXY _ (hg b hb).1 _ (hg b hb).2.1 _ (hg b hb).2.2⟩
+
+/-- **An operator whose fibres are the injections of an accessible fit is
+accessible**, with the fit's bound. -/
+theorem FitAcc.accTuple {ψ : Name → Nat} {ρp : Nat → V} {A : V} (h : D.FitAcc ψ ρp A)
+    (hfib : ∀ X, InTupleSpace (D.w ψ) D.N (D.idx ψ ρp) X → ∀ c, c < D.N →
+      ∀ t, t ∈ˢ D.idx ψ ρp c → ∀ x,
+        x ∈ˢ app (D.Φ ψ ρp X c) t ↔ ∃ j fs, D.HFits ψ ρp X t c j fs ∧ x = D.inj ψ c j fs) :
+    AccTuple (D.w ψ) D.N (D.idx ψ ρp) D.N (D.idx ψ ρp) (D.Φ ψ ρp) A := by
+  intro X hX c hc t ht x hx
+  obtain ⟨j, fs, hf, rfl⟩ := (hfib X hX c hc t ht x).mp hx
+  obtain ⟨B, g, hB, hg, hs⟩ := h X hX c hc t j fs hf
+  exact ⟨B, g, hB, hg, fun X' hX' h' => (hfib X' hX' c hc t ht _).mpr ⟨j, fs, hs X' hX' h', rfl⟩⟩
+
+/-- **The fit's accessibility is congruent** in the readings the fit
+reads. -/
+theorem FitAcc.congr {D' : LfpDatum V} {ψ : Name → Nat} {ρp : Nat → V} {A : V}
+    (hw : D.w ψ = D'.w ψ) (hN : D.N = D'.N) (hk : D.k = D'.k)
+    (hu : ∀ m, D.u m ψ = D'.u m ψ) (hi : ∀ c, D.ids c ψ = D'.ids c ψ)
+    (hn : ∀ c, D.nctors c = D'.nctors c)
+    (hf : ∀ c j, j < D.nctors c → D.fields ψ c j = D'.fields ψ c j)
+    (he : ∀ c j, j < D.nctors c → D.resIdx ψ c j = D'.resIdx ψ c j)
+    (h : D.FitAcc ψ ρp A) : D'.FitAcc ψ ρp A := by
+  have hfr : ∀ X, D.frame ψ ρp X = D'.frame ψ ρp X := by
+    intro X
+    unfold frame holeVal
+    simp only [hk, hu, hi]
+  have hH : ∀ X t c j fs, D.HFits ψ ρp X t c j fs ↔ D'.HFits ψ ρp X t c j fs := by
+    intro X t c j fs
+    unfold HFits
+    constructor
+    · rintro ⟨hj, hsp, hr⟩
+      rw [hf c j hj, hfr X] at hsp
+      rw [he c j hj, hfr X, hi c] at hr
+      exact ⟨hn c ▸ hj, hsp, hr⟩
+    · rintro ⟨hj, hsp, hr⟩
+      have hj0 : j < D.nctors c := (hn c) ▸ hj
+      rw [← hf c j hj0, ← hfr X] at hsp
+      rw [← he c j hj0, ← hfr X, ← hi c] at hr
+      exact ⟨hj0, hsp, hr⟩
+  have hidx : D.idx ψ ρp = D'.idx ψ ρp := by
+    unfold idx
+    simp only [hu, hi]
+  unfold FitAcc at h ⊢
+  rw [← hw, ← hN, ← hidx]
+  intro X hX c hc t j fs hfit
+  obtain ⟨B, g, hB, hg, hs⟩ := h X hX c hc t j fs ((hH X t c j fs).mpr hfit)
+  exact ⟨B, g, hB, hg, fun X' hX' h' => (hH X' t c j fs).mp (hs X' hX' h')⟩
+
 end LfpDatum
 
 /-! ## The hole values -/
@@ -270,23 +338,17 @@ structure LfpClause (acval : Name → (Name → Nat) → AnnotTerm) (D : LfpDatu
   /-- **`Φ` maps the tuple space into itself** -/
   maps : ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (D.params ψ).reverse ρp →
     MapsTuple (D.w ψ) D.N (D.idx ψ ρp) (D.Φ ψ ρp)
-  /-- **`Φ` is accessible at a `Type`-valued block**, with a bound of the
-  level ((W) by accessibility; monotonicity at that level) -/
-  acc : ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (D.params ψ).reverse ρp →
-    AccW (D.w ψ) D.N (D.idx ψ ρp) (D.Φ ψ ρp)
+  /-- **the hole fit is accessible**, with a bound of the level at a
+  `Type`-valued block (task #327): the operator's accessibility, (W) and
+  monotonicity, and the fit's growth follow at every level -/
+  fitAcc : ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (D.params ψ).reverse ρp →
+    ∃ A, (D.w ψ ≠ 0 → A ∈ˢ (univ (D.w ψ) : V)) ∧ D.FitAcc ψ ρp A
   /-- **what `Φ` is**: component `c`'s fibre at `(X, t)` is the set of
   injections of the spines fitting one of `c`'s constructors -/
   fibre : ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (D.params ψ).reverse ρp →
     ∀ X, InTupleSpace (D.w ψ) D.N (D.idx ψ ρp) X → ∀ c, c < D.N →
     ∀ t, t ∈ˢ D.idx ψ ρp c → ∀ x,
       x ∈ˢ app (D.Φ ψ ρp X c) t ↔ ∃ j fs, D.HFits ψ ρp X t c j fs ∧ x = D.inj ψ c j fs
-  /-- **the hole fit grows with the tuple** (positivity's, at the fit):
-  a spine fitting a constructor at the hole frame of a tuple fits it at
-  the hole frame of every larger tuple -/
-  fitsMono : ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (D.params ψ).reverse ρp →
-    ∀ X Y, InTupleSpace (D.w ψ) D.N (D.idx ψ ρp) X → InTupleSpace (D.w ψ) D.N (D.idx ψ ρp) Y →
-    TupleLe D.N (D.idx ψ ρp) X Y → ∀ c, c < D.N → ∀ (t : V) (j : Nat) (fs : List V),
-      D.HFits ψ ρp X t c j fs → D.HFits ψ ρp Y t c j fs
   /-- **the leaf**: a member's former at fitting parameters and its own
   indices is the carrier's component at the index tuple -/
   leaf : ∀ mm, mm < D.k → ∀ (ψ : Name → Nat) (ρ : Nat → V) (as is : List V),
@@ -351,9 +413,8 @@ theorem congr (h : LfpClause acval D) {acval' : Name → (Name → Nat) → Anno
   kN := h.kN
   idxOk := h.idxOk
   maps := h.maps
-  acc := h.acc
+  fitAcc := h.fitAcc
   fibre := h.fibre
-  fitsMono := h.fitsMono
   leaf := fun mm hmm ψ ρ as is hsa hsi => by
     rw [hag mm hmm]; exact h.leaf mm hmm ψ ρ as is hsa hsi
   mkZero := h.mkZero
@@ -368,6 +429,22 @@ theorem congr (h : LfpClause acval D) {acval' : Name → (Name → Nat) → Anno
   fieldsOk := h.fieldsOk
 
 
+/-- **The operator is accessible** (`AccW`), its fibres the injections of
+the accessible fit. -/
+theorem acc (h : LfpClause acval D) (ψ : Name → Nat) (ρp : Nat → V)
+    (hsat : Sat V (D.params ψ).reverse ρp) : AccW (D.w ψ) D.N (D.idx ψ ρp) (D.Φ ψ ρp) :=
+  (h.fitAcc ψ ρp hsat).elim fun A hA => ⟨A, hA.1, hA.2.accTuple (h.fibre ψ ρp hsat)⟩
+
+/-- **The hole fit grows with the tuple**: a spine fitting a constructor
+at the hole frame of a tuple fits it at the hole frame of every larger
+tuple (`FitAcc.mono`). -/
+theorem fitsMono (h : LfpClause acval D) (ψ : Name → Nat) (ρp : Nat → V)
+    (hsat : Sat V (D.params ψ).reverse ρp) (X Y : Nat → V)
+    (hX : InTupleSpace (D.w ψ) D.N (D.idx ψ ρp) X) (hY : InTupleSpace (D.w ψ) D.N (D.idx ψ ρp) Y)
+    (hXY : TupleLe D.N (D.idx ψ ρp) X Y) (c : Nat) (hc : c < D.N) (t : V) (j : Nat)
+    (fs : List V) (hf : D.HFits ψ ρp X t c j fs) : D.HFits ψ ρp Y t c j fs :=
+  (h.fitAcc ψ ρp hsat).elim fun _ hA => hA.2.mono hX hY hXY hc hf
+
 /-- **(W)**: the operator has a closed tuple, from its accessibility
 (`AccW.closed`). -/
 theorem closed (h : LfpClause acval D) {ψ : Name → Nat} {ρp : Nat → V}
@@ -375,15 +452,11 @@ theorem closed (h : LfpClause acval D) {ψ : Name → Nat} {ρp : Nat → V}
     ∃ L, IsClosedTuple (D.w ψ) D.N (D.idx ψ ρp) (D.Φ ψ ρp) L :=
   (h.acc ψ ρp hsat).closed (h.maps ψ ρp hsat)
 
-/-- **The operator is monotone**, from the fibre law and the hole fit's
-growth (task #326: derived, not recorded). -/
+/-- **The operator is monotone**, from its accessibility (`AccW.mono`). -/
 theorem mono (h : LfpClause acval D) {ψ : Name → Nat} {ρp : Nat → V}
     (hsat : Sat V (D.params ψ).reverse ρp) :
-    MonoTuple (D.w ψ) D.N (D.idx ψ ρp) (D.Φ ψ ρp) := by
-  intro X Y hX hY hXY c hc t ht x hx
-  obtain ⟨j, fs, hf, rfl⟩ := (h.fibre ψ ρp hsat X hX c hc t ht x).mp hx
-  exact (h.fibre ψ ρp hsat Y hY c hc t ht _).mpr
-    ⟨j, fs, h.fitsMono ψ ρp hsat X Y hX hY hXY c hc t j fs hf, rfl⟩
+    MonoTuple (D.w ψ) D.N (D.idx ψ ρp) (D.Φ ψ ρp) :=
+  (h.acc ψ ρp hsat).mono
 
 /-- **The carrier is a fixed point**, componentwise. -/
 theorem carrier_eq (h : LfpClause acval D) {ψ : Name → Nat} {ρp : Nat → V}

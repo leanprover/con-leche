@@ -268,14 +268,15 @@ theorem AccOn.congrQ {w : Nat} {Q Q' : Nat → Nat → Prop} (hQ : ∀ i n, Q i 
 positions; the relation is symmetric and its holes are rich (`RichOn`) at
 their full arity (a hole stands for a whole application: it takes no
 parameters). -/
-structure HoleRelA (m : EnvModel V env) (φ : Name → Nat) (ctx : NestCtx) (prog : List NestHole)
+structure HoleRelA (m : EnvModel V env) (φ : Name → Nat) (w : Nat) (ctx : NestCtx)
+    (prog : List NestHole)
     (d : Nat) (Δa : List AnnotTerm) (R : FrameRel V) : Prop where
   dom : ∀ ρ ρ', R ρ ρ' → Sat V Δa ρ ∧ Sat V Δa ρ'
   agree : R.AgreesOff (holeP d ctx.nP (ctx.hiAt prog.length))
   dsScoped : ∀ (i : Nat) (hk : NestHole), prog.reverse[i]? = some hk → ∀ x ∈ hk.key.ds,
     Expr.WScoped (ctx.hiAt prog.length) x
   symm : R.Symm
-  rich : RichOn (HoleQ ctx prog d) R
+  rich : w ≠ 0 → RichOn (HoleQ ctx prog d) R
   /-- left-reflexive: a frame hole's richness
   enlarges the tuple at the SAME enclosing frame -/
   lrefl : ∀ ρ ρ₀, R ρ ρ₀ → R ρ ρ
@@ -284,12 +285,12 @@ structure HoleRelA (m : EnvModel V env) (φ : Name → Nat) (ctx : NestCtx) (pro
 related frame (a hole-free domain, or an earlier field — accessible, its
 values small): the relation one level deeper, the bound value in the
 domain at both frames. -/
-theorem HoleRelA.underBoth {ctx : NestCtx} {prog : List NestHole} {d : Nat} {Δa : List AnnotTerm}
-    {R : FrameRel V} (h : HoleRelA m φ ctx prog d Δa R) (hd : ctx.hiAt prog.length ≤ d)
+theorem HoleRelA.underBoth {w : Nat} {ctx : NestCtx} {prog : List NestHole} {d : Nat} {Δa : List AnnotTerm}
+    {R : FrameRel V} (h : HoleRelA m φ w ctx prog d Δa R) (hd : ctx.hiAt prog.length ≤ d)
     (ta : AnnotTerm)
     (htr : ∀ ρ ρ₀ ρ'', R ρ ρ₀ → R ρ ρ'' → HoldsLe (HoleQ ctx prog d) ρ ρ'' →
       ∀ x, x ∈ˢ interp V ρ ta → x ∈ˢ interp V ρ₀ ta → x ∈ˢ interp V ρ'' ta) :
-    HoleRelA m φ ctx prog (d + 1) (ta :: Δa) (R.underBoth ta) where
+    HoleRelA m φ w ctx prog (d + 1) (ta :: Δa) (R.underBoth ta) where
   dom := by
     rintro _ _ ⟨x, ρ, ρ', rfl, rfl, hR, hx, hx'⟩
     obtain ⟨h1, h2⟩ := h.dom ρ ρ' hR
@@ -299,7 +300,7 @@ theorem HoleRelA.underBoth {ctx : NestCtx} {prog : List NestHole} {d : Nat} {Δa
     exact (h.agree.underBoth ta) σ σ' hr i fun hs => hi (holeP_succ i hs)
   dsScoped := h.dsScoped
   symm := h.symm.underBoth ta
-  rich := RichOn.congrQ (shiftQ_holeQ hd) (h.rich.underBoth htr)
+  rich hw := RichOn.congrQ (shiftQ_holeQ hd) ((h.rich hw).underBoth htr)
   lrefl := by
     rintro _ _ ⟨x, ρ, ρ', rfl, rfl, hR, hx, -⟩
     exact ⟨x, ρ, ρ, rfl, rfl, h.lrefl ρ ρ' hR, hx, hx⟩
@@ -314,7 +315,7 @@ theorem transfer_of_constOn {R : FrameRel V} {Q : Nat → Nat → Prop} {ta : An
 /-- An accessible domain carries its small values. -/
 theorem transfer_of_accOn {w : Nat} {R : FrameRel V} {Q : Nat → Nat → Prop} {ta : AnnotTerm}
     {Af : (Nat → V) → V} (hA : AccOn w Q R Af ta)
-    (hsm : ∀ ρ ρ₀, R ρ ρ₀ → ∀ x, x ∈ˢ interp V ρ ta → x ∈ˢ (univ w : V)) :
+    (hsm : ∀ ρ ρ₀, R ρ ρ₀ → ∀ x, x ∈ˢ interp V ρ ta → SmallAt w x) :
     ∀ ρ ρ₀ ρ'', R ρ ρ₀ → R ρ ρ'' → HoldsLe Q ρ ρ'' →
       ∀ x, x ∈ˢ interp V ρ ta → x ∈ˢ interp V ρ₀ ta → x ∈ˢ interp V ρ'' ta :=
   fun ρ ρ₀ _ hR₀ hR'' hle x hx _ => hA.transfer hR₀ hR'' hle (hsm ρ ρ₀ hR₀ x hx) hx
@@ -326,7 +327,7 @@ relation: the type regime, and accessibility with a bound of the level
 reading only the non-hole positions the output mentions. -/
 @[expose] def AccConcl (w : Nat) (ctx : NestCtx) (prog : List NestHole) (dep : Nat) (e nf : Expr)
     (R : FrameRel V) (ea : AnnotTerm) : Prop :=
-  TypeReg R ea ∧ (∃ A, AccOn w (HoleQ ctx prog dep) R A ea ∧ SizeOn w R A ∧
+  (w ≠ 0 → TypeReg R ea) ∧ (∃ A, AccOn w (HoleQ ctx prog dep) R A ea ∧ SizeOn w R A ∧
     InvOn (MentP ctx.nP (ctx.hiAt prog.length) dep nf) A) ∧ OutMent dep e nf
 
 /-- **What a field proves of its OUTPUT**:
@@ -393,7 +394,7 @@ relation, each under the earlier ones. -/
 @[expose] def TeleSmall (w : Nat) : Nat → FrameRel V → AnnotTerm → Prop
   | 0, _, _ => True
   | n + 1, R, .pi _ _ A B =>
-    (∀ ρ ρ₀, R ρ ρ₀ → ∀ x, x ∈ˢ interp V ρ A → x ∈ˢ (univ w : V)) ∧
+    (∀ ρ ρ₀, R ρ ρ₀ → ∀ x, x ∈ˢ interp V ρ A → SmallAt w x) ∧
       TeleSmall w n (R.underBoth A) B
   | _ + 1, _, _ => True
 

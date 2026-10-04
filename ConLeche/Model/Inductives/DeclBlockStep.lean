@@ -6,11 +6,8 @@ import ConLeche.Verify.EnvBound
 import ConLeche.Model.Inductives.PosDerivTie
 import ConLeche.Verify.Cached.BlockRunC
 import ConLeche.Model.Inductives.BlockPosRun
-import ConLeche.Model.Inductives.BlockPosRunCont
 import ConLeche.Model.Inductives.BlockModelRecords
 import ConLeche.Model.Inductives.BlockHoleGrade
-import ConLeche.Model.Annot.BlockLfpMono
-import ConLeche.Model.Annot.BlockLfpTup
 import ConLeche.Model.Inductives.BlockCtorReads
 import ConLeche.Model.Inductives.BlockCover
 import ConLeche.Model.Inductives.BlockStageRec
@@ -34,8 +31,8 @@ carrier at the installed environment.  It is the fold's block step
 (`declStep_preserves`, `Model/Fold.lean`).  One straight path, each stage
 read off its own run:
 
-* the formers' and the constructors' stage (`blockTablesStage_of`), the
-  operator's monotonicity from positivity (`blockCtorPos_of_run`) and
+* the formers' and the constructors' stage (`blockTablesStage_of`, the
+  hole fit's accessibility at every level, `blockAcc_of_run`) and
   the fields' grading (`blockHoleGrade_of_run`), under coverage at the
   formers' carrier (`lfpCover_formers`);
 * the constructors consed (`stageBlockCtors`), the block's lfp clause
@@ -218,12 +215,6 @@ theorem declBlock (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
       Sat V ((((blockDataOf V p₁ ctorsAs pk uOf ppsOf).ppsM t ψ).take
         (blockDataOf V p₁ ctorsAs pk uOf ppsOf).nP).map (·.2.2)).reverse ρ :=
     fun t ht ψ ρ h => hS.toBlockCtorsStage.paramsOf 0 (by omega) ψ ρ h t ht
-  -- the operator's MONOTONICITY is positivity's: every constructor positive
-  -- along the tuple order at the hole frame (at the formers' carrier)
-  have hposI := fun hclosed => blockCtorPos_of_run hμ mpI hN (hcore.holeCtx hlpsA hparsT) hPos rfl rfl
-    rfl rfl
-    hkD rfl hlenCtorsAs hctorsAt hclosed hnfs
-    (hformers.imp fun _ h => ⟨h.1, h.2.2⟩)
   -- ## the constructors, consed
   have hctorsAs : ∀ c, c < ctorsAs.length →
       ctorsAs[c]? = some ((blockDataOf V p₁ ctorsAs pk uOf ppsOf).ctorsM c) := by
@@ -343,10 +334,6 @@ theorem declBlock (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
   -- below — and every later environment — carries it
   have hk0 : 0 < (blockDataOf V p₁ ctorsAs pk uOf ppsOf).k := by
     rw [← hN.2.2, hcvTas]; exact Nat.succ_pos _
-  -- the hole fit's GROWTH is positivity's (the operator's monotonicity
-  -- follows, `BlockModelAt.mono`): every constructor positive along the
-  -- tuple order at the hole frame, from the positivity stage's run at the
-  -- formers' environment (conjunct 3)
   -- the constructors' types are closed (stored in a well-formed environment)
   have hclosedC : ∀ (c j : Nat) (cA : ConstantVal × Nat),
       ((blockDataOf V p₁ ctorsAs pk uOf ppsOf).ctorsM c)[j]? = some cA →
@@ -357,17 +344,10 @@ theorem declBlock (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
     have hf := (hcoreC.2.2.2 c hck j cA hj).1
     have hw := mpC₀.base2.wf _ (List.mem_of_find?_eq_some hf)
     exact ⟨hw.1, hw.2.2.2.1⟩
-  have hposC := hposI
-    (fun c j cA hj => by
-      have hck : c < (blockDataOf V p₁ ctorsAs pk uOf ppsOf).k := by
-        rw [← hN.2.2]; exact hN.2.1 c j cA hj
-      have hf := (hcoreC.2.2.2 c hck j cA hj).1
-      have hw := mpC₀.base2.wf _ (List.mem_of_find?_eq_some hf)
-      exact ⟨hw.1, hw.2.2.2.1⟩)
   have hMC := blockModelAt_of_records hN hS.toBlockCtorsStage hcoreC rfl hk0
-    (fun _ _ => rfl) (fun _ _ _ _ => rfl) (blockFitsMono_of_pos hposC)
+    (fun _ _ => rfl) (fun _ _ _ _ => rfl)
   have hLC := blockLfpClause_of_records hN hS.toBlockCtorsStage hcoreC rfl hk0
-    (fun _ _ => rfl) (fun _ _ _ _ => rfl) hposC
+    (fun _ _ => rfl) (fun _ _ _ _ => rfl)
     -- the fields with holes are small at a `Type`-valued block (the grading)
     (fun ψ ρp hs _ X hX c hc j hj =>
       ((blockHoleGrade_of_run hμ mpI hN (hcore.holeCtx hlpsA hparsT) hPos rfl rfl rfl rfl rfl hkD rfl hctorsAt

@@ -6,7 +6,7 @@ import ConLeche.Model.Annot.LfpHoleOp
 import ConLeche.Model.Inductives.BlockCaps
 import ConLeche.Model.Inductives.BlockHoleGrade
 import ConLeche.Verify.Inductives.NfMemberFree
-public import ConLeche.Model.Inductives.BlockPosRunCont
+public import ConLeche.Model.Inductives.BlockPosRun
 import ConLeche.Model.Inductives.BlockCover
 import ConLeche.Model.Inductives.BlockAccRunCont
 import ConLeche.Model.Inductives.BlockHoleFold
@@ -887,17 +887,13 @@ theorem blockTablesStage_of (hμ : μ.verifiedChecks = true) {F : Nat} {env envI
       rw [habs₀, habs₀]
       exact nfFieldsRead_params mpD.base2 (hlpN c j) hφ
     · exact BlockData.absE_congr rfl (by rw [hes c]) (by rw [congrFun hfz c])
-  -- ## the hole operator's fixed-point premises: monotone by
-  -- positivity, accessible at a `Type`-valued block ((W) by `AccW.closed`)
-  have hposZ := blockCtorPos_of_run hμ mpD hNZ hctxZ hPos hpN hpL hpP hpI hlenN.symm
-    rfl hlenCtorsAs (fun c hc => hCA c hc) hclosedZ hnfZ hcovD
+  -- ## the hole operator's fixed-point premises: accessible at every level, so
+  -- monotone (`AccW.mono`) and with (W) (`AccW.closed`)
   have hfunZ : ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (dZ.params ψ).reverse ρp →
-      MonoTuple (dZ.w ψ) dZ.k (blockIdx (fun c => dZ.uM c ψ) ρp (fun c => dZ.IdsM c ψ))
-        (blockPhiG dZ.k (dZ.w ψ) ρp (fun c => dZ.uM c ψ) (fun c => dZ.IdsM c ψ)
-          (dZ.toLfp.holeChains ψ)) ∧
       AccW (dZ.w ψ) dZ.k (blockIdx (fun c => dZ.uM c ψ) ρp (fun c => dZ.IdsM c ψ))
         (blockPhiG dZ.k (dZ.w ψ) ρp (fun c => dZ.uM c ψ) (fun c => dZ.IdsM c ψ)
-          (dZ.toLfp.holeChains ψ)) := by
+          (dZ.toLfp.holeChains ψ)) ∧
+      ∃ A, (dZ.w ψ ≠ 0 → A ∈ˢ (univ (dZ.w ψ) : V)) ∧ dZ.toLfp.FitAcc ψ ρp A := by
     intro ψ ρp hs
     have hIdxZ : ∀ c, c < dZ.N → IdxOk (dZ.uM c ψ) ρp (dZ.IdsM c ψ) := fun c hc => by
       have hck : c < q.k := by have : c < q.k + 0 := hc; omega
@@ -917,14 +913,14 @@ theorem blockTablesStage_of (hμ : μ.verifiedChecks = true) {F : Nat} {env envI
         simp only [BlockData.absE, List.length_map]
         exact hHZ.lenE ψ c hc j hj
       exact LfpDatum.holeOp_fibre hok hkN X hres ht x
-    refine ⟨monoTuple_of_tupRel (D := dZ.toLfp) hfib (hposZ ψ ρp hs), fun hw => ?_⟩
-    -- accessibility, at every `Type`-valued block
+    -- the fit's accessibility, at every level; the operator's from it
     have hGw : ∀ c, c < dZ.N → ∀ j, j < (dZ.ctorsM c).length →
         ∀ X, InTupleSpace (dZ.toLfp.w ψ) dZ.toLfp.N (dZ.toLfp.idx ψ ρp) X →
         FieldsOkB (dZ.w ψ) (dZ.toLfp.frame ψ ρp X) (dZ.absF ψ c j) :=
       fun c hc j hj X hX => (((hGZ ψ c hc j hj).2 ρp hs X hX)).1
-    exact blockAcc_of_run hμ mpD hNZ hctxZ hHZ hPos hpN hpL hpP hpI hpR hlenN.symm
-      rfl hlenCtorsAs (fun c hc => hCA c hc) hclosedZ hnfZ hcovD ψ ρp hs hw hIdxZ hGw
+    obtain ⟨A, hA, hfa⟩ := blockAcc_of_run hμ mpD hNZ hctxZ hPos hpN hpL hpP hpI hpR hlenN.symm
+      rfl hlenCtorsAs (fun c hc => hCA c hc) hclosedZ hnfZ hcovD ψ ρp hs hGw
+    exact ⟨⟨A, hA, hfa.accTuple hfib⟩, A, hA, hfa⟩
   -- a unit-like member's hole leaf folds to the one tagged empty tuple
   have hfoldZH : ∀ (j : Nat) (cvTa : ConstantVal), cvTas[j]? = some cvTa →
       (ConLeche.blockCapsAt q j isRec).unitlike = true →
@@ -988,7 +984,7 @@ theorem blockTablesStage_of (hμ : μ.verifiedChecks = true) {F : Nat} {env envI
       hjk hIds0
       (fun ρp hs => fun c hc => (hIdxOf c (hcvOf c hc).choose (hcvOf c hc).choose_spec ψ ρp
         (hρpOf ψ ρp 0 hk0 hs c hc)).1)
-      (fun ρp hs => (hchZ ψ).1 ρp hs) (hfunZ ψ)
+      (fun ρp hs => (hchZ ψ).1 ρp hs) (fun ρp hs => (hfunZ ψ ρp hs).1)
       (fun ρp _ j' hj' i hi => by
         rw [hFss0] at hi
         have : j' = 0 := by
@@ -1330,8 +1326,25 @@ theorem blockTablesStage_of (hμ : μ.verifiedChecks = true) {F : Nat} {env envI
           rw [hholeEq ψ]
           exact (hchZ ψ).1 ρp hs
         holeFun := fun ψ ρp hs => by
-          rw [hholeEq ψ]
-          exact hfunZ ψ ρp hs
+          obtain ⟨hacc, A, hA, hfa⟩ := hfunZ ψ ρp hs
+          -- the fit reads the data through the fields and result indices: shared
+          -- (each reading compared at the `BlockData` level: the two `toLfp`s differ)
+          have hF : ∀ c j, dZ.absF ψ c j = (blockDataOf V q ctorsAs pk uOf ppsOf).absF ψ c j :=
+            fun c j => by
+              show (pk₀ c).absF j ψ = (pk c).absF j ψ
+              rw [(habsR c).1]
+          refine ⟨by rw [hholeEq ψ]; exact hacc, A, hA, LfpDatum.FitAcc.congr (D := dZ.toLfp)
+            (D' := (blockDataOf V q ctorsAs pk uOf ppsOf).toLfp)
+            (show dZ.w ψ = (blockDataOf V q ctorsAs pk uOf ppsOf).w ψ from rfl)
+            (show dZ.N = (blockDataOf V q ctorsAs pk uOf ppsOf).N from rfl)
+            (show dZ.k = (blockDataOf V q ctorsAs pk uOf ppsOf).k from rfl)
+            (fun m => show dZ.uM m ψ = (blockDataOf V q ctorsAs pk uOf ppsOf).uM m ψ from rfl)
+            (fun c => show dZ.IdsM c ψ = (blockDataOf V q ctorsAs pk uOf ppsOf).IdsM c ψ from rfl)
+            (fun c => show (dZ.ctorsM c).length
+              = ((blockDataOf V q ctorsAs pk uOf ppsOf).ctorsM c).length from rfl)
+            (fun c j _ => show dZ.absF ψ c j = _ from hF c j)
+            (fun c j hj => show dZ.absE ψ c j = _ from
+              (hAbsE c j _ (List.getElem?_eq_getElem hj) ψ).symm) hfa⟩
         inst := rfl
         shapes := fun ψ c hc j hj =>
           (hShR ψ c (Nat.lt_of_lt_of_le hc (Nat.le_add_right _ _)) j hj).congr_leaf
@@ -1572,7 +1585,7 @@ theorem blockTablesStage_of (hμ : μ.verifiedChecks = true) {F : Nat} {env envI
       hHR rfl (ψ := ψ) (fun _ _ => rfl) (fun c hc => hSC.lenPps c ψ hc) hm hIds0
       (fun ρp hs => fun c hc => (hIdxOf c (hcvOf c hc).choose (hcvOf c hc).choose_spec ψ ρp
         (hρpOf ψ ρp 0 hk0 hs c hc)).1)
-      (fun ρp hs => hSC.holeOk ψ ρp hs) (hSC.holeFun ψ)
+      (fun ρp hs => hSC.holeOk ψ ρp hs) (fun ρp hs => (hSC.holeFun ψ ρp hs).1)
       (fun ρp hsρ j' hj' => blockOverride hHR (fun t ht => hacvR t ht ψ) ρp hsρ
         (Nat.lt_of_lt_of_le hm (Nat.le_add_right _ _)) hj')
       hsp

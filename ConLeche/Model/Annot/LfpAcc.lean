@@ -1,6 +1,6 @@
 module
 
-public import ConLeche.Model.Annot.LfpHoleOp
+public import ConLeche.Model.Annot.BlockLfp
 import ConLeche.Model.Annot.BlockLfpTup
 public import ConLeche.Semantics.Inductives.TeleAcc
 import ConLeche.SetModel.Access
@@ -8,28 +8,29 @@ import ConLeche.SetModel.Access
 public section
 
 /-!
-# The hole operator is ACCESSIBLE, from its constructors' telescopes
+# The hole fit is ACCESSIBLE, from its constructors' telescopes
 
-(W) by ACCESSIBILITY, the consumer side: the hole operator of an lfp datum (`LfpDatum.holeOp`) is
-`A`-accessible (`AccTuple`, `SetModel/Access.lean`) for ONE set `A` of
-the level as soon as every constructor's field telescope is accessible
-along the ACCESSIBILITY RELATION at the hole frame (`accRel`: the hole
-frames of any two tuples of the space), with a telescope bound
-(`teleBound`) that reads no hole — then `closed_of_acc` gives (W).
+The consumer side of accessibility: the hole fit of an lfp datum is
+accessible (`LfpDatum.FitAcc`) with ONE set `A` — a set of the level at a
+`Type`-valued block — as soon as every constructor's field telescope is
+accessible along the ACCESSIBILITY RELATION at the hole frame (`accRel`:
+the hole frames of any two tuples of the space), with a telescope bound
+(`teleBound`) that reads no hole.  The operator's accessibility follows
+through its fibre law (`FitAcc.accTuple`), hence (W) (`closed_of_acc`,
+at `w = 0` `closedTuple_zero`) and monotonicity (task #327).
 
 * **The relation** relates the hole frames of any two tuples; it is
   symmetric, reflexive on the space, agrees off the holes, and its holes
-  are RICH at their full arity (`accRel_rich`: a fibre holding `pt` is
-  enlarged by one non-`pt` element, the other items kept) — the fact the
-  type regime of the run inversion needs.
+  are RICH at their full arity at a `Type`-valued block (`accRel_rich`:
+  a fibre holding `pt` is enlarged by one non-`pt` element, the other
+  items kept) — the fact the type regime of the run inversion needs.
 * **Items are occurrences**: a held member-hole item at its full arity is
   an occurrence of the tuple (`occOf`, `inTup_occOf`), and an occurrence
   held by another tuple holds the item at its frame (`holds_of_inTup`).
-* **The assembly** (`accTuple_holeOp`): an element of the operator's fibre
-  is a constructor at a fitting spine (`holeOp_fibre`); its support is
-  the spine's (`teleBound_support`), its bound the constructor's
-  telescope bound, the same at every tuple (`teleBound_agr`); the bound
-  of the operator is the finite union over the constructors.
+* **The assembly** (`fitAcc_holeOp`): a fitting spine's support is the
+  spine's (`teleBound_support`), its bound the constructor's telescope
+  bound, the same at every tuple (`teleBound_agr`); the bound of the fit
+  is the finite union over the constructors.
 -/
 
 namespace ConLeche.Model
@@ -265,17 +266,14 @@ theorem finUnion_mem {w' : Nat} (hw : w' ≠ 0) {f : Nat → V} :
   | n + 1, h => (univ_isTGUniverse hw).binUnion_mem (empty_mem_univ w')
       (finUnion_mem hw fun i hi => h i (by omega)) (h n (by omega))
 
-/-- **The hole operator is accessible with ONE bound of the level**: when
-every constructor's field telescope is accessible along the
-accessibility relation at the member holes (`TeleAccP`), each field's
-bound reads only the positions agreeing across the tuples' hole frames
-and the ordinary slots (`hAf`), every ordinary field's reading likewise
-(`hF`), and the result indices read alike at any two hole frames under a
-spine fitting both (`hresC`). -/
-theorem accTuple_holeOp {ψ : Name → Nat} {ρp : Nat → V} (hw : D.w ψ ≠ 0)
-    (hok : D.HoleTmOk ψ ρp) (hkN : D.k ≤ D.N)
-    (hres : ∀ c, c < D.N → ∀ j, j < D.nctors c →
-      (D.resIdx ψ c j).length = (D.ids c ψ).length)
+/-- **The hole fit is accessible with ONE bound**, a set of the level at
+a `Type`-valued block: when every constructor's field telescope is
+accessible along the accessibility relation at the member holes
+(`TeleAccP`), each field's bound reads only the positions agreeing across
+the tuples' hole frames and the ordinary slots (`hAf`), every ordinary
+field's reading likewise (`hF`), and the result indices read alike at any
+two hole frames under a spine fitting both (`hresC`). -/
+theorem fitAcc_holeOp {ψ : Name → Nat} {ρp : Nat → V} (hkN : D.k ≤ D.N)
     (ord : Nat → Nat → Nat → Bool) (Af : Nat → Nat → Nat → (Nat → V) → V)
     (hAf : ∀ c, c < D.N → ∀ j, j < D.nctors c →
       ∀ l τ τ', TAgr D.k (ord c j) l τ τ' → Af c j l τ = Af c j l τ')
@@ -290,24 +288,21 @@ theorem accTuple_holeOp {ψ : Name → Nat} {ρp : Nat → V} (hw : D.w ψ ≠ 0
         SpineFit (D.frame ψ ρp X') (D.fields ψ c j) fs →
         ∀ e ∈ D.resIdx ψ c j,
           interp V (consList fs (D.frame ψ ρp X)) e = interp V (consList fs (D.frame ψ ρp X')) e) :
-    ∃ A, A ∈ˢ (univ (D.w ψ) : V) ∧
-      AccTuple (D.w ψ) D.N (D.idx ψ ρp) D.N (D.idx ψ ρp) (D.holeOp ψ ρp) A := by
+    ∃ A, SmallAt (D.w ψ) A ∧ D.FitAcc ψ ρp A := by
   let X₀ : Nat → V := AccIter.emptyTup (D.idx ψ ρp)
   have hX₀ : InTupleSpace (D.w ψ) D.N (D.idx ψ ρp) X₀ := AccIter.emptyTup_mem
   let TB : Nat → Nat → V := fun c j =>
     teleBound (D.w ψ) (ord c j) (Af c j) 0 (D.fields ψ c j) (D.frame ψ ρp X₀)
   refine ⟨finUnion (fun c => finUnion (TB c) (D.nctors c)) D.N,
-    finUnion_mem hw fun c _ => finUnion_mem hw fun j _ => teleBound_mem hw _ _ _ _ _, ?_⟩
-  intro X hX m hm i hi x hx
-  rw [holeOp_fibre hok hkN X (hres m hm) hi] at hx
-  obtain ⟨j, fs, ⟨hj, hsp, hidx⟩, rfl⟩ := hx
+    fun hw => finUnion_mem hw fun c _ => finUnion_mem hw fun j _ => teleBound_mem hw _ _ _ _ _, ?_⟩
+  rintro X hX m hm i j fs ⟨hj, hsp, hidx⟩
   have hF0 : ∀ (i : Nat) (F : AnnotTerm), (D.fields ψ m j)[i]? = some F →
       ord m j (0 + i) = true → ∀ τ τ', TAgr D.k (ord m j) (0 + i) τ τ' →
         interp V τ F = interp V τ' F := by
     intro i F h1 h2 τ τ' h3
     rw [Nat.zero_add] at h2 h3
     exact hF m hm j hj i F h1 h2 τ τ' h3
-  obtain ⟨B, g, hB, hg, hs⟩ := teleBound_support hw (hAf m hm j hj) (D.fields ψ m j) 0 (D.MemberQ ψ)
+  obtain ⟨B, g, hB, hg, hs⟩ := teleBound_support (hAf m hm j hj) (D.fields ψ m j) 0 (D.MemberQ ψ)
     (D.accRel ψ ρp) hF0 (htele m hm j hj) (D.frame ψ ρp X) (accRel_refl hX) fs hsp
   -- the telescope's bound is the same at every tuple's hole frame
   have hagr : TAgr D.k (ord m j) 0 (D.frame ψ ρp X) (D.frame ψ ρp X₀) := by
@@ -326,8 +321,7 @@ theorem accTuple_holeOp {ψ : Name → Nat} {ρp : Nat → V} (hw : D.w ψ ≠ 0
   · have hsp' : SpineFit (D.frame ψ ρp X') (D.fields ψ m j) fs :=
       hs (D.frame ψ ρp X') ⟨X, X', hX, hX', rfl, rfl⟩ fun b hb =>
         holds_of_inTup (hg b hb).1 (hg b hb).2 (hheld b hb)
-    rw [holeOp_fibre hok hkN X' (hres m hm) hi]
-    refine ⟨j, fs, ⟨hj, hsp', fun l hl => ?_⟩, rfl⟩
+    refine ⟨hj, hsp', fun l hl => ?_⟩
     obtain ⟨e, he, hev⟩ := hidx l hl
     refine ⟨e, he, ?_⟩
     rw [← hresC m hm j hj X X' hX hX' fs hsp hsp' e (List.mem_of_getElem? he)]

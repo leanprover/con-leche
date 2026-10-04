@@ -36,7 +36,7 @@ open ConLeche (Env Expr Name Level NestCtx NestKey NestHole)
 
 universe w
 
-variable {V : Type w} [SetTheory V] {env : Env} {m : EnvModel V env} {φ : Name → Nat}
+variable {V : Type w} [SetTheory V] {env : Env} {m : EnvModel V env} {φ : Name → Nat} {w : Nat}
 
 /-! ## The admissible items, moved -/
 
@@ -63,9 +63,9 @@ theorem holds_drop {ρ : Nat → V} {n : Nat} {o : Occ V} :
 /-- **The accessibility hole relation, truncated** at a depth `h` at or
 above every hole: the frame's walk sees the context below `h`. -/
 theorem HoleRelA.drop {ctx : NestCtx} {prog : List NestHole} {d : Nat} {Δa : List AnnotTerm}
-    {R : FrameRel V} (hR : HoleRelA m φ ctx prog d Δa R) {h : Nat}
+    {R : FrameRel V} (hR : HoleRelA m φ w ctx prog d Δa R) {h : Nat}
     (_hhi : ctx.hiAt prog.length ≤ h) (hle : h ≤ d) :
-    HoleRelA m φ ctx prog h (Δa.drop (d - h)) (R.drop (d - h)) where
+    HoleRelA m φ w ctx prog h (Δa.drop (d - h)) (R.drop (d - h)) where
   dom := by
     rintro _ _ ⟨ρ, ρ', hr, rfl, rfl⟩
     obtain ⟨h1, h2⟩ := hR.dom ρ ρ' hr
@@ -79,12 +79,12 @@ theorem HoleRelA.drop {ctx : NestCtx} {prog : List NestHole} {d : Nat} {Δa : Li
   symm := by
     rintro _ _ ⟨ρ, ρ', hr, rfl, rfl⟩
     exact ⟨ρ', ρ, hR.symm ρ ρ' hr, rfl, rfl⟩
-  rich := by
+  rich hw := by
     rintro _ _ ⟨ρ, ρ₀, hr, rfl, rfl⟩ i vs hQ hpt
     have hQ' : HoleQ ctx prog d (i + (d - h)) vs.length := by
       have := holeQ_shift (k := d - h) hQ
       rwa [show h + (d - h) = d by omega] at this
-    obtain ⟨ρ'', hr'', hle'', z, hz, hzp⟩ := hR.rich ρ ρ₀ hr (i + (d - h)) vs hQ' hpt
+    obtain ⟨ρ'', hr'', hle'', z, hz, hzp⟩ := hR.rich hw ρ ρ₀ hr (i + (d - h)) vs hQ' hpt
     refine ⟨fun j => ρ'' (j + (d - h)), ⟨ρ, ρ'', hr'', rfl, rfl⟩, fun o ho hH => ?_, z, hz, hzp⟩
     have hQo : HoleQ ctx prog d (o.1 + (d - h)) o.2.1.length := by
       have := holeQ_shift (k := d - h) ho
@@ -97,8 +97,8 @@ theorem HoleRelA.drop {ctx : NestCtx} {prog : List NestHole} {d : Nat} {Δa : Li
 /-- **The accessibility hole relation seen at the block's own depth**, the
 frames forgotten. -/
 theorem HoleRelA.dropBase {ctx : NestCtx} {prog : List NestHole} {d : Nat} {Δa : List AnnotTerm}
-    {R : FrameRel V} (hR : HoleRelA m φ ctx prog d Δa R) (hle : ctx.hiAt prog.length ≤ d) :
-    HoleRelA m φ ctx [] (ctx.hiAt 0) (Δa.drop (d - ctx.hiAt 0)) (R.drop (d - ctx.hiAt 0)) where
+    {R : FrameRel V} (hR : HoleRelA m φ w ctx prog d Δa R) (hle : ctx.hiAt prog.length ≤ d) :
+    HoleRelA m φ w ctx [] (ctx.hiAt 0) (Δa.drop (d - ctx.hiAt 0)) (R.drop (d - ctx.hiAt 0)) where
   dom := by
     rintro _ _ ⟨ρ, ρ', hr, rfl, rfl⟩
     obtain ⟨h1, h2⟩ := hR.dom ρ ρ' hr
@@ -114,13 +114,13 @@ theorem HoleRelA.dropBase {ctx : NestCtx} {prog : List NestHole} {d : Nat} {Δa 
   symm := by
     rintro _ _ ⟨ρ, ρ', hr, rfl, rfl⟩
     exact ⟨ρ', ρ, hR.symm ρ ρ' hr, rfl, rfl⟩
-  rich := by
+  rich hw := by
     have hle0 : ctx.hiAt 0 ≤ d := by simp only [NestCtx.hiAt] at hle ⊢; omega
     rintro _ _ ⟨ρ, ρ₀, hr, rfl, rfl⟩ i vs hQ hpt
     have hQ' : HoleQ ctx prog d (i + (d - ctx.hiAt 0)) vs.length := by
       have := holeQ_nil (prog := prog) (holeQ_shift (k := d - ctx.hiAt 0) hQ)
       rwa [show ctx.hiAt 0 + (d - ctx.hiAt 0) = d by omega] at this
-    obtain ⟨ρ'', hr'', hle'', z, hz, hzp⟩ := hR.rich ρ ρ₀ hr _ vs hQ' hpt
+    obtain ⟨ρ'', hr'', hle'', z, hz, hzp⟩ := hR.rich hw ρ ρ₀ hr _ vs hQ' hpt
     refine ⟨fun j => ρ'' (j + (d - ctx.hiAt 0)), ⟨ρ, ρ'', hr'', rfl, rfl⟩, fun o ho hH => ?_,
       z, hz, hzp⟩
     have hQo : HoleQ ctx prog d (o.1 + (d - ctx.hiAt 0)) o.2.1.length := by
@@ -144,10 +144,10 @@ theorem consList_replicate_lt (n : Nat) (a : V) (σ : Nat → V) {i : Nat} (hi :
 depth, extended by the enclosing frames of `prog` holding `∅` on both
 sides (a `Sort 0` entry each). -/
 theorem HoleRelA.extendEmpty {ctx : NestCtx} {Δ0 : List AnnotTerm} {R00 : FrameRel V}
-    (hR : HoleRelA m φ ctx [] (ctx.hiAt 0) Δ0 R00) (prog : List NestHole)
+    (hR : HoleRelA m φ w ctx [] (ctx.hiAt 0) Δ0 R00) (prog : List NestHole)
     (hsc : ∀ (i : Nat) (hk : NestHole), prog.reverse[i]? = some hk → ∀ x ∈ hk.key.ds,
       Expr.WScoped (ctx.hiAt prog.length) x) :
-    HoleRelA m φ ctx prog (ctx.hiAt prog.length)
+    HoleRelA m φ w ctx prog (ctx.hiAt prog.length)
       (List.replicate prog.length (.sort 0) ++ Δ0)
       (fun σ σ' => ∃ ρ ρ', R00 ρ ρ' ∧ σ = consList (List.replicate prog.length empty) ρ ∧
         σ' = consList (List.replicate prog.length empty) ρ') where
@@ -157,7 +157,7 @@ theorem HoleRelA.extendEmpty {ctx : NestCtx} {Δ0 : List AnnotTerm} {R00 : Frame
   symm := by
     rintro _ _ ⟨ρ, ρ', hr, rfl, rfl⟩
     exact ⟨ρ', ρ, hR.symm ρ ρ' hr, rfl, rfl⟩
-  rich := by
+  rich hw := by
     rintro _ _ ⟨ρ, ρ₀, hr, rfl, rfl⟩ i vs hQ hpt
     -- an item at an enclosing frame's hole never holds anything
     have hfr : ∀ (σ : Nat → V) (j : Nat) (us : List V), j < prog.length →
@@ -185,7 +185,7 @@ theorem HoleRelA.extendEmpty {ctx : NestCtx} {Δ0 : List AnnotTerm} {R00 : Frame
       have := consList_apply_add (List.replicate prog.length (empty : V)) σ k
       rwa [List.length_replicate] at this
     rw [ea] at hpt
-    obtain ⟨ρ'', hr'', hle'', z, hz, hzp⟩ := hR.rich ρ ρ₀ hr j vs hQ0 hpt
+    obtain ⟨ρ'', hr'', hle'', z, hz, hzp⟩ := hR.rich hw ρ ρ₀ hr j vs hQ0 hpt
     refine ⟨consList (List.replicate prog.length empty) ρ'', ⟨ρ, ρ'', hr'', rfl, rfl⟩,
       fun o ho hH => ?_, z, by rw [ea]; exact hz, hzp⟩
     obtain ⟨oi, us, y⟩ := o

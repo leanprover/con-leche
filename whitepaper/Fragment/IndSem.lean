@@ -81,10 +81,9 @@ the former denotes an arbitrary family (`InstallInd.lean`).
 
 Con-leche: the hole operator of `ConLeche/Model/Annot/BlockLfp.lean`
 (`LfpClause.fibre`: a fibre is the set of injections of the spines
-fitting a constructor; `fitsMono`: the fit grows with the tuple),
-monotonicity and accessibility by inversion of the positivity run
-— con-leche proves the two separately; the fragment derives the
-first from the second
+fitting a constructor; `fitAcc`: the fit is accessible),
+accessibility by inversion of the positivity run, monotonicity derived
+from it as here
 (`ConLeche/Semantics/Inductives/HoleMono.lean`, `HoleAcc.lean`:
 `MonoOn.pi`/`AccOn.pi` for a product over a hole-free domain,
 `MonoOn.holeApp`/`AccOn.holeApp` for a hole applied to hole-free
@@ -1261,9 +1260,9 @@ accessibility implies it on families in the universe — the support in
 is the one accessibility already carries: at a proposition a
 reflexive field's set is a truth value, `{pt}` exactly when every
 fibre it reads is `{pt}`, and a fibre grown past `{pt}` would falsify
-it; in `univ 0` no fibre grows past `{pt}`.  Con-leche proves
-monotonicity separately, by positivity (`HoleMono.lean`,
-`BlockPosRunCont.lean`); the fragment derives it. -/
+it; in `univ 0` no fibre grows past `{pt}`.  Con-leche derives it the
+same way (`LfpClause.mono`, from the recorded fit's accessibility,
+`LfpClause.fitAcc`). -/
 
 /-- **The operator is monotone** on families in the result universe:
 accessibility's support carries over (`AccFam.mono`).  Con-leche:

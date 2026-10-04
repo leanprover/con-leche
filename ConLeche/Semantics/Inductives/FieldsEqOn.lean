@@ -26,7 +26,6 @@ universe w
 
 variable {V : Type w} [SetTheory V]
 
-
 /-- **Two field lists read alike along every satisfying prefix**: the
 first fields at every frame satisfying `Δ`, the rest under the first
 field (either one: they read alike there). -/
@@ -78,7 +77,6 @@ theorem FieldsEqOn.spineFit_iff :
       exact ⟨hx', (FieldsEqOn.spineFit_iff h.2 (Sat_cons V hρ hx') fs).mpr hfs⟩
   | _, [], _ :: _, h, _, _, _ => h.elim
   | _, _ :: _, [], h, _, _, _ => h.elim
-
 
 /-- Spines fit two field lists alike when the fields read alike at every
 prefix. -/
@@ -173,27 +171,5 @@ theorem under_eq_of_eqOn {Δ : List AnnotTerm} {A B : AnnotTerm} {R : FrameRel V
     exact ⟨x, ρ, ρ', rfl, rfl, hR, by rwa [← h ρ (hdom ρ ρ' hR).1]⟩
   · rintro ⟨x, ρ, ρ', rfl, rfl, hR, hx⟩
     exact ⟨x, ρ, ρ', rfl, rfl, hR, by rwa [h ρ (hdom ρ ρ' hR).1]⟩
-
-/-- Field-wise positivity moves along field lists that read alike, and
-so does the relation under all the fields. -/
-theorem FieldsEqOn.teleMonoOn :
-    ∀ {Δ As Bs : List AnnotTerm} {R : FrameRel V}, FieldsEqOn V Δ As Bs →
-      (∀ ρ ρ', R ρ ρ' → Sat V Δ ρ ∧ Sat V Δ ρ') → TeleMonoOn R As →
-      TeleMonoOn R Bs ∧ R.underTele As = R.underTele Bs
-  | _, [], [], _, _, _, _ => ⟨trivial, rfl⟩
-  | Δ, A :: As, B :: Bs, R, h, hdom, hm => by
-    obtain ⟨hA, hAs⟩ := hm
-    have hdom' : ∀ σ σ', R.under A σ σ' → Sat V (A :: Δ) σ ∧ Sat V (A :: Δ) σ' := by
-      rintro _ _ ⟨x, ρ, ρ', rfl, rfl, hR, hx⟩
-      exact ⟨Sat_cons V (hdom ρ ρ' hR).1 hx, Sat_cons V (hdom ρ ρ' hR).2 (hA ρ ρ' hR x hx)⟩
-    obtain ⟨hBs, hU⟩ := FieldsEqOn.teleMonoOn h.2 hdom' hAs
-    have hUE := under_eq_of_eqOn h.1 hdom
-    refine ⟨⟨MonoOn.of_eqOn (Q := Sat V Δ) hdom (fun ρ hρ => (h.1 ρ hρ).symm) hA, ?_⟩, ?_⟩
-    · rw [← hUE]; exact hBs
-    · show (R.under A).underTele As = (R.under B).underTele Bs
-      rw [hU, hUE]
-  | _, [], _ :: _, _, h, _, _ => h.elim
-  | _, _ :: _, [], _, h, _, _ => h.elim
-
 
 end ConLeche.Semantics

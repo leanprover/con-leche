@@ -141,7 +141,6 @@ theorem lfp0_clause {acval : Name → (Name → Nat) → AnnotTerm} {C : (Name �
     (hleaf : ∀ (ψ : Name → Nat) (ρ : Nat → V), interp V ρ (acval nm ψ) = C ψ)
     -- the hole reading: the fit IS the fields' fit at the hole
     (hholes : ∀ (ρp : Nat → V) S j fs, fits S j fs ↔ j < n ∧ SpineFit (cons S ρp) (flds j) fs)
-    (hfitsMono : ∀ S S' j fs, S ⊆ˢ S' → fits S j fs → fits S' j fs)
     (hzero : ∀ ψ, w ψ = 0 → ∀ j fs, inj j fs = pt)
     (hinjI : ∀ ψ, w ψ ≠ 0 → ∀ j fs j' fs', j < n → j' < n →
       fs.length = (flds j).length → fs'.length = (flds j').length →
@@ -150,10 +149,10 @@ theorem lfp0_clause {acval : Name → (Name → Nat) → AnnotTerm} {C : (Name �
       SpineFit (cons (C ψ) ρ) (flds j) fs → fs.foldl app (interp V ρ (acval (cn j) ψ)) = inj j fs)
     (hfok : ∀ (ψ : Name → Nat) (ρp : Nat → V) (S : V), w ψ ≠ 0 → S ∈ˢ (univ (w ψ) : V) →
       ∀ j, j < n → FieldsOkB (w ψ) (cons S ρp) (flds j))
-    -- the fibre function is accessible with a bound of the level (at `Type`)
-    (hFacc : ∀ ψ, w ψ ≠ 0 → ∃ A, A ∈ˢ (univ (w ψ) : V) ∧ ∀ S x, x ∈ˢ F S →
+    -- the fit is accessible, with a bound of the level at `Type`
+    (hFacc : ∀ ψ, ∃ A, (w ψ ≠ 0 → A ∈ˢ (univ (w ψ) : V)) ∧ ∀ S j fs, fits S j fs →
       ∃ (B : V) (g : V → V), B ⊆ˢ A ∧ (∀ b, b ∈ˢ B → g b ∈ˢ S) ∧
-        ∀ S', (∀ b, b ∈ˢ B → g b ∈ˢ S') → x ∈ˢ F S') :
+        ∀ S', (∀ b, b ∈ˢ B → g b ∈ˢ S') → fits S' j fs) :
     LfpClause acval (lfp0 nm w F inj n cn flds) where
   kN := Nat.le_refl 1
   idxOk := fun _ _ _ _ _ => ⟨trivial, trivial⟩
@@ -164,19 +163,20 @@ theorem lfp0_clause {acval : Name → (Name → Nat) → AnnotTerm} {C : (Name �
     intro X hX m _
     exact graph_mem_famSpace fun _ _ =>
       hmaps ψ _ (famSpace_app (hX 0 Nat.one_pos) pt_mem_unitSet)
-  acc := fun ψ ρp _ hw => by
-    obtain ⟨A, hA, hF⟩ := hFacc ψ hw
-    have hpt : ∀ c, (pt : V) ∈ˢ (lfp0 nm w F inj n cn flds).idx ψ ρp c := fun c => by
+  fitAcc := fun ψ ρp _ => by
+    obtain ⟨A, hA, hF⟩ := hFacc ψ
+    have hpt : (pt : V) ∈ˢ (lfp0 nm w F inj n cn flds).idx ψ ρp 0 := by
       rw [lfp0_idx]; exact pt_mem_unitSet
-    refine ⟨A, hA, fun X _ m _ i hi x hx => ?_⟩
-    rw [lfp0_idx] at hi
-    obtain rfl := mem_unitSet_iff.mp hi
-    rw [app_lfp0_Φ] at hx
-    obtain ⟨B, g, hB, hg, hs⟩ := hF _ x hx
-    refine ⟨B, fun b => (0, pt, g b), hB, fun b hb => ⟨Nat.one_pos, hpt 0, hg b hb⟩,
+    refine ⟨A, hA, fun X _ c _ t j fs hf => ?_⟩
+    obtain ⟨hj, hsp, -⟩ := hf
+    rw [lfp0_frame] at hsp
+    obtain ⟨B, g, hB, hg, hs⟩ := hF _ j fs ((hholes ρp (app (X 0) pt) j fs).mpr ⟨hj, hsp⟩)
+    refine ⟨B, fun b => (0, pt, g b), hB, fun b hb => ⟨Nat.one_pos, hpt, hg b hb⟩,
       fun X' _ h' => ?_⟩
-    rw [app_lfp0_Φ]
-    exact hs _ fun b hb => (h' b hb).2.2
+    obtain ⟨hj', hsp'⟩ := (hholes ρp (app (X' 0) pt) j fs).mp (hs _ fun b hb => (h' b hb).2.2)
+    refine ⟨hj', ?_, fun l hl => absurd hl (Nat.not_lt_zero l)⟩
+    rw [lfp0_frame]
+    exact hsp'
   fibre := fun ψ ρp _ X _ c _ t ht x => by
     rw [lfp0_idx] at ht
     obtain rfl := mem_unitSet_iff.mp ht
@@ -187,16 +187,6 @@ theorem lfp0_clause {acval : Name → (Name → Nat) → AnnotTerm} {C : (Name �
     rw [lfp0_frame, hholes ρp]
     exact ⟨fun ⟨h1, h2⟩ => ⟨h1, h2, fun l hl => absurd hl (Nat.not_lt_zero l)⟩,
       fun ⟨h1, h2, _⟩ => ⟨h1, h2⟩⟩
-  fitsMono := fun ψ ρp _ X Y _ _ hXY c _ t j fs hf => by
-    obtain ⟨hj, hsp, -⟩ := hf
-    rw [lfp0_frame] at hsp
-    have hsub : app (X 0) pt ⊆ˢ app (Y 0) pt :=
-      hXY 0 Nat.one_pos pt (by rw [lfp0_idx]; exact pt_mem_unitSet)
-    obtain ⟨hj', hsp'⟩ := (hholes ρp (app (Y 0) pt) j fs).mp
-      (hfitsMono _ _ j fs hsub ((hholes ρp (app (X 0) pt) j fs).mpr ⟨hj, hsp⟩))
-    refine ⟨hj', ?_, fun l hl => absurd hl (Nat.not_lt_zero l)⟩
-    rw [lfp0_frame]
-    exact hsp'
   leaf := fun mm hmm ψ ρ as is hsa hsi => by
     obtain rfl : mm = 0 := Nat.lt_one_iff.mp hmm
     obtain rfl : as = [] := List.eq_nil_of_length_eq_zero hsa.length_eq
@@ -245,12 +235,11 @@ theorem emptyLfp_clause {acval : Name → (Name → Nat) → AnnotTerm} {nm : Na
     (fun _ => empty_mem_univ w) (fun _ => Subset.refl _)
     (fun _ _ _ _ x hx => absurd hx (not_mem_empty x)) hleaf
     (fun _ _ j _ => ⟨False.elim, fun h => absurd h.1 (Nat.not_lt_zero j)⟩)
-    (fun _ _ _ _ _ h => h)
     (fun _ _ _ _ => rfl)
     (fun _ _ j _ _ _ hj => absurd hj (Nat.not_lt_zero j))
     (fun j hj => absurd hj (Nat.not_lt_zero j))
     (fun _ _ _ _ _ j hj => absurd hj (Nat.not_lt_zero j))
-    (fun _ _ => ⟨empty, empty_mem_univ w, fun _ x hx => absurd hx (not_mem_empty x)⟩)
+    (fun _ => ⟨empty, fun _ => empty_mem_univ w, fun _ _ _ h => h.elim⟩)
 
 theorem spineFit_nil_iff {ρ : Nat → V} {fs : List V} : SpineFit ρ [] fs ↔ fs = [] := by
   cases fs <;> simp [SpineFit]
@@ -357,10 +346,6 @@ theorem natLfp_clause {acval : Name → (Name → Nat) → AnnotTerm} {nm zn sn 
         · simp only [if_neg (show (1 : Nat) ≠ 0 by decide)] at hsp
           match fs, hsp with
           | [m], hsp => exact Or.inr ⟨rfl, m, rfl, by simpa using hsp.1⟩)
-    (fun S S' j fs hSS' h => by
-      rcases h with h | ⟨hj, m, hfs, hm⟩
-      · exact Or.inl h
-      · exact Or.inr ⟨hj, m, hfs, hSS' m hm⟩)
     (fun _ h => absurd h (by decide))
     (fun _ _ j fs j' fs' hj hj' hl hl' h => by
       unfold natFlds at hl hl'
@@ -398,13 +383,13 @@ theorem natLfp_clause {acval : Name → (Name → Nat) → AnnotTerm} {nm zn sn 
       · trivial
       · exact ⟨by simp, fun _ => by simpa using hS, fun _ _ => trivial⟩)
     -- the successor's support is its predecessor
-    (fun _ _ => by
-      refine ⟨unitSet, unitSet_mem_univ 1, fun S x hx => ?_⟩
-      rcases mem_natF.mp hx with rfl | ⟨m, hm, rfl⟩
+    (fun _ => by
+      refine ⟨unitSet, fun _ => unitSet_mem_univ 1, fun S j fs h => ?_⟩
+      rcases h with h | ⟨hj, m, hfs, hm⟩
       · exact ⟨empty, fun _ => empty, empty_subset _, fun b hb => absurd hb (not_mem_empty b),
-          fun _ _ => mem_natF.mpr (Or.inl rfl)⟩
+          fun _ _ => Or.inl h⟩
       · exact ⟨unitSet, fun _ => m, Subset.refl _, fun _ _ => hm,
-          fun _ h => mem_natF.mpr (Or.inr ⟨m, h pt pt_mem_unitSet, rfl⟩)⟩)
+          fun _ h' => Or.inr ⟨hj, m, hfs, h' pt pt_mem_unitSet⟩⟩)
 
 /-! ## `Eq`: two parameters, one index, one field-less constructor
 
@@ -495,7 +480,24 @@ theorem eqLfp_clause {acval : Name → (Name → Nat) → AnnotTerm}
   maps := fun ψ ρp _ X _ _ _ =>
     graph_mem_famSpace fun _ _ => by
       show _ ∈ˢ (univ 0 : V); rw [univ_zero]; exact truthVal_mem_univZero _
-  acc := fun _ _ _ hw => absurd rfl hw
+  fitAcc := fun ψ ρp _ => ⟨empty, fun hw => absurd rfl hw, fun X _ c _ t j fs hf =>
+    ⟨empty, fun _ => (0, pt, pt), empty_subset _, fun b hb => absurd hb (not_mem_empty b),
+      fun Y _ _ => by
+    have hfr : ∀ Z, (eqLfp (V := V) nm cn lv).frame ψ ρp Z 1 = ρp 0 := by
+      intro Z
+      show consList [_] ρp 1 = ρp 0
+      rw [consList_cons, consList_nil]; rfl
+    obtain ⟨hj, hsp, hidx⟩ := hf
+    have hfs : fs = [] := spineFit_nil_iff.mp hsp
+    subst hfs
+    refine ⟨hj, trivial, fun l hl => ?_⟩
+    obtain ⟨e, he, hv⟩ := hidx l hl
+    refine ⟨e, he, ?_⟩
+    have hl0 : l = 0 := Nat.lt_one_iff.mp hl
+    subst hl0
+    obtain rfl := Option.some.inj he.symm
+    rw [consList_nil, interp_bvar, hfr] at hv ⊢
+    exact hv⟩⟩
   fibre := fun ψ ρp _ X _ c _ t ht x => by
     have hfr : (eqLfp (V := V) nm cn lv).frame ψ ρp X 1 = ρp 0 := by
       show consList [_] ρp 1 = ρp 0
@@ -524,22 +526,6 @@ theorem eqLfp_clause {acval : Name → (Name → Nat) → AnnotTerm}
     rw [mem_truthVal]
     exact ⟨fun ⟨h, hx⟩ => ⟨0, [], (hfits 0 []).mp ⟨rfl, rfl, h⟩, hx⟩,
       fun ⟨j, fs, hf, hx⟩ => ⟨((hfits j fs).mpr hf).2.2, hx⟩⟩
-  fitsMono := fun ψ ρp _ X Y _ _ _ c _ t j fs hf => by
-    have hfr : ∀ Z, (eqLfp (V := V) nm cn lv).frame ψ ρp Z 1 = ρp 0 := by
-      intro Z
-      show consList [_] ρp 1 = ρp 0
-      rw [consList_cons, consList_nil]; rfl
-    obtain ⟨hj, hsp, hidx⟩ := hf
-    have hfs : fs = [] := spineFit_nil_iff.mp hsp
-    subst hfs
-    refine ⟨hj, trivial, fun l hl => ?_⟩
-    obtain ⟨e, he, hv⟩ := hidx l hl
-    refine ⟨e, he, ?_⟩
-    have hl0 : l = 0 := Nat.lt_one_iff.mp hl
-    subst hl0
-    obtain rfl := Option.some.inj he.symm
-    rw [consList_nil, interp_bvar, hfr] at hv ⊢
-    exact hv
   leaf := fun mm hmm ψ ρ as is hsa hsi => by
     obtain rfl : mm = 0 := Nat.lt_one_iff.mp hmm
     match as, is, hsa, hsi with

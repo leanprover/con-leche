@@ -40,17 +40,17 @@ variable {V : Type uv} [SetTheory V]
 
 /-! ## Guards and tags -/
 
-/-- A set of the level, else `∅`. -/
+/-- A set of the level, else `∅` (at `w = 0`, the set). -/
 noncomputable def guardU (w : Nat) (S : V) : V :=
-  open Classical in if S ∈ˢ (univ w : V) then S else empty
+  open Classical in if SmallAt w S then S else empty
 
-theorem guardU_mem (w : Nat) (S : V) : guardU w S ∈ˢ (univ w : V) := by
+theorem guardU_mem {w : Nat} (hw : w ≠ 0) (S : V) : guardU w S ∈ˢ (univ w : V) := by
   unfold guardU
   split
-  · assumption
+  · rename_i h; exact h hw
   · exact empty_mem_univ w
 
-theorem guardU_eq {w : Nat} {S : V} (h : S ∈ˢ (univ w : V)) : guardU w S = S := by
+theorem guardU_eq {w : Nat} {S : V} (h : SmallAt w S) : guardU w S = S := by
   unfold guardU
   rw [if_pos h]
 
@@ -90,9 +90,9 @@ theorem teleBound_mem {w : Nat} (hw : w ≠ 0) (ord : Nat → Bool) (Af : Nat �
   | [], _, _ => empty_mem_univ w
   | F :: Fs, l, τ => by
     unfold teleBound
-    refine tagU_mem hw (guardU_mem w _) ?_
+    refine tagU_mem hw (guardU_mem hw _) ?_
     split
-    · exact (univ_isTGUniverse hw).famUnion_mem (guardU_mem w _) fun a _ =>
+    · exact (univ_isTGUniverse hw).famUnion_mem (guardU_mem hw _) fun a _ =>
         teleBound_mem hw ord Af Fs (l + 1) (cons a τ)
     · exact teleBound_mem hw ord Af Fs (l + 1) (cons empty τ)
 
@@ -233,14 +233,14 @@ def TeleAccP (w : Nat) (Af : Nat → (Nat → V) → V) :
     Nat → (Nat → Nat → Prop) → FrameRel V → List AnnotTerm → Prop
   | _, _, _, [] => True
   | l, Q, R, F :: Fs => AccOn w Q R (Af l) F ∧ SizeOn w R (Af l) ∧
-      (∀ ρ ρ₀, R ρ ρ₀ → interp V ρ F ∈ˢ (univ w : V)) ∧
+      (∀ ρ ρ₀, R ρ ρ₀ → SmallAt w (interp V ρ F)) ∧
       TeleAccP w Af (l + 1) (shiftQ Q) (R.underBoth F) Fs
 
 /-- **A fitting spine's support** (see the module docstring): its index
 set lies in the telescope's bound, its items are admissible and held,
 and it carries the spine to every related frame.  The frame must be
 related to itself (the top relation relates any two hole frames). -/
-theorem teleBound_support {w k : Nat} (hw : w ≠ 0) {ord : Nat → Bool}
+theorem teleBound_support {w k : Nat} {ord : Nat → Bool}
     {Af : Nat → (Nat → V) → V}
     (hAf : ∀ l τ τ', TAgr k ord l τ τ' → Af l τ = Af l τ') :
     ∀ (Fs : List AnnotTerm) (l : Nat) (Q : Nat → Nat → Prop) (R : FrameRel V),
@@ -262,7 +262,7 @@ theorem teleBound_support {w k : Nat} (hw : w ≠ 0) {ord : Nat → Bool}
     | nil => exact hfit.elim
     | cons a fs =>
     obtain ⟨ha, hfit'⟩ := hfit
-    have haw : a ∈ˢ (univ w : V) := (univ_isTGUniverse hw).transitive (hdom τ τ hRτ) ha
+    have haw : SmallAt w a := fun hw => (univ_isTGUniverse hw).transitive (hdom τ τ hRτ hw) ha
     -- the field's own support
     obtain ⟨B0, g0, hB0, hg0, hs0⟩ := hacc τ τ hRτ a haw ha
     -- the later fields' support, under the field
@@ -274,7 +274,7 @@ theorem teleBound_support {w k : Nat} (hw : w ≠ 0) {ord : Nat → Bool}
       exact this ho σ σ' hs
     have hRa : R.underBoth F (cons a τ) (cons a τ) := ⟨a, τ, τ, rfl, rfl, hRτ, ha, ha⟩
     obtain ⟨B1, g1, hB1, hg1, hs1⟩ :=
-      teleBound_support hw hAf Fs (l + 1) (shiftQ Q) (R.underBoth F) hF' hrest (cons a τ) hRa
+      teleBound_support hAf Fs (l + 1) (shiftQ Q) (R.underBoth F) hF' hrest (cons a τ) hRa
         fs hfit'
     -- an item of the later fields is never the field's own variable
     have hne : ∀ b, b ∈ˢ B1 → (g1 b).1 ≠ 0 := by

@@ -284,13 +284,13 @@ theorem closedTuple_zero {k : Nat} {Is : Nat → V} {Φ : (Nat → V) → Nat �
   rw [univ_zero] at this
   exact mem_univZero.mp this x hx
 
-/-- **Accessibility at a `Type`-valued level**: at `w ≠ 0` the operator
-is `A`-accessible for one `A` of the level.  At `w = 0` nothing is asked
-(the top tuple is closed, `closedTuple_zero`; the fields of a
-`Prop`-valued block need not be small, so the walk's accessibility does
-not reach it — task #326). -/
+/-- **Accessibility, with a bound of the level at a `Type`-valued
+level**: the operator is `A`-accessible, and at `w ≠ 0` the bound `A` is a
+member of `univ w`.  At `w = 0` the bound is any set: (W) does not need it
+there (the top tuple is closed, `closedTuple_zero`), monotonicity never
+does (task #327). -/
 def AccW (w k : Nat) (Is : Nat → V) (Φ : (Nat → V) → Nat → V) : Prop :=
-  w ≠ 0 → ∃ A, A ∈ˢ (univ w : V) ∧ AccTuple w k Is k Is Φ A
+  ∃ A, (w ≠ 0 → A ∈ˢ (univ w : V)) ∧ AccTuple w k Is k Is Φ A
 
 /-- **(W) from `AccW`**, at every level: `closed_of_acc` at `w ≠ 0`,
 `closedTuple_zero` at `w = 0`. -/
@@ -298,8 +298,8 @@ theorem AccW.closed {w k : Nat} {Is : Nat → V} {Φ : (Nat → V) → Nat → V
     (h : AccW w k Is Φ) (hmaps : MapsTuple w k Is Φ) : ∃ L, IsClosedTuple w k Is Φ L := by
   by_cases hw : w = 0
   · subst hw; exact closedTuple_zero hmaps
-  · obtain ⟨A, hA, hacc⟩ := h hw
-    exact closed_of_acc hw hA hmaps hacc
+  · obtain ⟨A, hA, hacc⟩ := h
+    exact closed_of_acc hw (hA hw) hmaps hacc
 
 /-! ## Accessibility implies monotonicity -/
 
@@ -308,6 +308,11 @@ theorem AccTuple.monoTuple {w k : Nat} {Is : Nat → V} {Φ : (Nat → V) → Na
   intro X Y hX hY hXY m hm i hi x hx
   obtain ⟨B, g, -, hg, hs⟩ := h X hX m hm i hi x hx
   exact hs Y hY fun a ha => ⟨(hg a ha).1, (hg a ha).2.1, hXY _ (hg a ha).1 _ (hg a ha).2.1 _ (hg a ha).2.2⟩
+
+/-- **Monotonicity from `AccW`**, at every level. -/
+theorem AccW.mono {w k : Nat} {Is : Nat → V} {Φ : (Nat → V) → Nat → V} (h : AccW w k Is Φ) :
+    MonoTuple w k Is Φ :=
+  h.elim fun _ h => h.2.monoTuple
 
 /-! ## Readings: accessibility of one fibre -/
 
@@ -527,14 +532,14 @@ If the joint operator `Θ` (parameter components first, then its own) is
 is `accPaths A`-accessible — no key, no wide operator, no container
 presentation.  (W) of each section and its monotonicity come from
 `closed_of_acc` / `AccTuple.monoTuple`. -/
-theorem lfpP_acc (hw : w ≠ 0) {Θ : (Nat → V) → Nat → V} {A : V} (hA : A ∈ˢ (univ w : V))
+theorem lfpP_acc {Θ : (Nat → V) → Nat → V} {A : V} (hA : w ≠ 0 → A ∈ˢ (univ w : V))
     (hmaps : ∀ X Y, InTupleSpace w kX IsX X → InTupleSpace w kY IsY Y →
       InTupleSpace w kY IsY (Θ (catT kX X Y)))
     (hacc : AccTuple w (kX + kY) (catT kX IsX IsY) kY IsY Θ A) :
     AccTuple w kX IsX kY IsY (lfpP w kX kY IsY Θ) (accPaths A) := by
   -- (W) and monotonicity of every section
   have hcl : ∀ X, InTupleSpace w kX IsX X → ∃ L, IsClosedTuple w kY IsY (fun Y => Θ (catT kX X Y)) L :=
-    fun X hX => closed_of_acc hw hA (fun Y hY => hmaps X Y hX hY) (hacc.section hX)
+    fun X hX => AccW.closed ⟨A, hA, hacc.section hX⟩ fun Y hY => hmaps X Y hX hY
   have hmono : ∀ X, InTupleSpace w kX IsX X → MonoTuple w kY IsY (fun Y => Θ (catT kX X Y)) :=
     fun X hX => (hacc.section hX).monoTuple
   intro X hX

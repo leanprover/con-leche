@@ -201,7 +201,6 @@ theorem contBlock_facts {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) {ctx
       exact hlm
     exact ⟨L[0].1.levelParams, hlpsC, fun ψ => (hread0 ψ).1, hcvl, Or.inl ⟨L, hq, hLne⟩⟩
 
-
 /-- The frame judgment's premises, read back. -/
 theorem posD_frame_inv {ops : ConLeche.CheckerOps CheckM} {ctx : NestCtx} :
     ∀ {j : PosJ} {ts : List ConLeche.PosTree}, PosD ops env ctx j ts → match j with
@@ -840,7 +839,6 @@ theorem posD_mono {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env)
     exact ⟨hA, hrest⟩
   | seed => trivial
 
-
 /-! ## The member constructor -/
 
 /-- **The result's reading, its indices constant** along the relation: a
@@ -867,25 +865,5 @@ theorem resultIdxConst_of_resultAt {m : EnvModel V env} {ctx : NestCtx} {D : Nat
   simp only [List.all_eq_true, Bool.not_eq_eq_eq_not, Bool.not_true] at hok
   have hwsargs := (wScoped_mkAppN _ hws).2
   exact constOn_spine hag hD hsp (fun a ha => ⟨hwsargs a ha, hok a ha⟩)
-
-/-- **A derived member constructor is positive** (the consumer's
-premise; `CtorPos` of `Model/Annot/BlockLfpMono.lean` in the
-constructor type's own Π-form): every field's reading monotone under the
-earlier ones along the hole relation, the result's indices hole-free —
-coverage needed only when some field's kind is not flat. -/
-theorem memberCtorD_mono {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env)
-    (hin : RulesInputs V mp.base2 φ) {ctx : NestCtx} {F nF : Nat} {crest : Expr}
-    {ks : List NestFieldKind} {tyN : Expr} {ts : List ConLeche.PosTree}
-    (hd : ConLeche.MemberCtorD (fueledOps .verified F) env ctx nF crest ks tyN ts)
-    (hcov : (∃ k ∈ ks, k.flat = false) → ContCover mp ctx)
-    (hfr : Frame (ctx.hiAt 0) crest)
-    {Δa : List AnnotTerm} {ca : AnnotTerm} {R : FrameRel V}
-    (hC : CtxOkP mp.base2 φ (ctx.hiAt 0) Δa crest)
-    (hca : denoteMeta mp.base2.acval env φ (ctx.hiAt 0) crest = some ca) (hgr : Graded V Δa ca)
-    (hR : HoleRel mp.base2 φ ctx [] (ctx.hiAt 0) Δa R) :
-    PiPosThen ResultIdxConst nF R ca := by
-  obtain ⟨nds, res, htele, -, -, hhead, hok⟩ := hd
-  exact PiPosThen.mono (fun _ _ h => resultIdxConst_of_resultAt (by simp) hhead hok h) nF R ca
-    (posD_mono mp hin htele hcov (by simp) hfr hC hca hgr hR)
 
 end ConLeche.Model

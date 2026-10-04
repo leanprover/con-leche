@@ -534,20 +534,19 @@ which holds in both regimes, is used there only for monotonicity.
   #src("ConLeche/Semantics/Inductives/HoleMono.lean", 70, 72)[constant]
   (the ordinary field); a product over a hole-free domain is
   #src("ConLeche/Semantics/Inductives/HoleMono.lean", 139, 141)[positive when its body is]
-  and #src("ConLeche/Semantics/Inductives/HoleAcc.lean", 235, 241)[accessible with its body's bound glued over the domain]
+  and #src("ConLeche/Semantics/Inductives/HoleAcc.lean", 251, 257)[accessible with its body's bound glued over the domain]
   (the reflexive field); a hole applied to hole-free arguments is
   #src("ConLeche/Semantics/Inductives/HoleMono.lean", 159, 162)[positive]
-  and #src("ConLeche/Semantics/Inductives/HoleAcc.lean", 299, 302)[accessible with the bound ${pt}$]
+  and #src("ConLeche/Semantics/Inductives/HoleAcc.lean", 375, 378)[accessible with the bound ${pt}$]
   (the recursive field). Assembled along the fields, that is
-  #src("ConLeche/Model/Inductives/BlockPosRunCont.lean", 40, 44)[the operator's monotonicity]
-  and #src("ConLeche/Model/Inductives/BlockAccRunCont.lean", 315, 320)[its accessibility with a bound in the universe]
-  (#src("ConLeche/SetModel/Access.lean", 56, 63)[the notion above]).
-  The fragment's simplifications are to take the field kinds from the
-  specification instead of the run, and to derive monotonicity from
-  accessibility instead of proving it separately. The universe bound on the fields the real proof records
+  #src("ConLeche/Model/Inductives/BlockAccRunCont.lean", 316, 321)[the fit's accessibility, in both regimes, with a bound in the universe in the type-valued one]
+  (#src("ConLeche/SetModel/Access.lean", 56, 63)[the notion above]), and
+  #src("ConLeche/Model/Annot/BlockLfp.lean", 455, 459)[the operator's monotonicity] follows from it, as in the fragment.
+  The fragment's simplification is to take the field kinds from the
+  specification instead of the run. The universe bound on the fields the real proof records
   from a check made for the proof alone, the constructor type-checked
   with the holes in context
-  (#src("ConLeche/Model/Annot/BlockLfp.lean", 333, 339)[the recorded bound]);
+  (#src("ConLeche/Model/Annot/BlockLfp.lean", 395, 401)[the recorded bound]);
   the fragment reads it off the constructor's ordinary typing.
 ]
 
@@ -641,18 +640,18 @@ every constructor denotes the point.
   #src("ConLeche/SetTheory/Derive/LfpTuple.lean", 67, 75)[the same construction]
   over a tuple of families, one per type former of the block, each a
   graph over an index set. What the model records of an installed
-  block is one clause: the operator maps the universe to itself and,
-  in the type-valued regime, is accessible
-  (#src("ConLeche/Model/Annot/BlockLfp.lean", 270, 276)[the operator]),
+  block is one clause: the operator maps the universe to itself and
+  its fit is accessible, in both regimes
+  (#src("ConLeche/Model/Annot/BlockLfp.lean", 338, 345)[the operator]),
   so it has a closed family
-  (#src("ConLeche/SetModel/Access.lean", 297, 302)[the constant family at a proposition, and from accessibility in the type-valued regime]),
-  and a fit grows with the family, so it is
-  #src("ConLeche/Model/Annot/BlockLfp.lean", 378, 382)[monotone];
+  (#src("ConLeche/SetModel/Access.lean", 297, 302)[the constant family at a proposition, and from accessibility in the type-valued regime])
+  and is
+  #src("ConLeche/Model/Annot/BlockLfp.lean", 455, 459)[monotone];
   its fibres are the tagged tuples of fitting fields
-  (#src("ConLeche/Model/Annot/BlockLfp.lean", 277, 282)[the fibres]),
+  (#src("ConLeche/Model/Annot/BlockLfp.lean", 346, 351)[the fibres]),
   and the type former denotes
-  #src("ConLeche/Model/Annot/BlockLfp.lean", 182, 184)[the least fixed point]
-  (#src("ConLeche/Model/Annot/BlockLfp.lean", 388, 391)[the fixed-point equation]).
+  #src("ConLeche/Model/Annot/BlockLfp.lean", 179, 181)[the least fixed point]
+  (#src("ConLeche/Model/Annot/BlockLfp.lean", 461, 464)[the fixed-point equation]).
   Its constructors are
   #src("ConLeche/SetModel/TaggedSum.lean", 65)[tagged pairs] of
   #src("ConLeche/SetModel/TupleTower.lean", 87)[nested pairs], the
@@ -912,7 +911,7 @@ assumed of the environment they extend.
 
 #real[
   The block step is one theorem,
-  #src("ConLeche/Model/Inductives/DeclBlockStep.lean", 72, 77)[the install of a block],
+  #src("ConLeche/Model/Inductives/DeclBlockStep.lean", 69, 74)[the install of a block],
   read off the checker's run stage by stage.
 ]
 

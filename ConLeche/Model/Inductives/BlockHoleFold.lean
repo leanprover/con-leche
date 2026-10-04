@@ -339,10 +339,8 @@ theorem blockHoleFold (hH : BlockHoleFacts mo d lps) (hinst : d.nInst = 0)
     (hI : BlockIdxOk (V := V) d.k (fun c => d.uM c ψ) ρp (fun c => d.IdsM c ψ))
     (hok : BlockChainsOkG d.k (d.w ψ) ρp (fun c => d.uM c ψ) (fun c => d.IdsM c ψ)
       (d.toLfp.holeChains ψ))
-    (hmono : MonoTuple (d.w ψ) d.k (blockIdx (fun c => d.uM c ψ) ρp (fun c => d.IdsM c ψ))
+    (hacc : AccW (d.w ψ) d.k (blockIdx (fun c => d.uM c ψ) ρp (fun c => d.IdsM c ψ))
       (blockPhiG d.k (d.w ψ) ρp (fun c => d.uM c ψ) (fun c => d.IdsM c ψ) (d.toLfp.holeChains ψ)))
-    (hclosed : ∃ L, IsClosedTuple (d.w ψ) d.k (blockIdx (fun c => d.uM c ψ) ρp (fun c => d.IdsM c ψ))
-      (blockPhiG d.k (d.w ψ) ρp (fun c => d.uM c ψ) (fun c => d.IdsM c ψ) (d.toLfp.holeChains ψ)) L)
     {m : Nat} (hm : m < d.k)
     (hover : ∀ j, j < (d.ctorsM m).length → ∀ i, i < ((d.Fss m ψ).getD j []).length →
       ∀ as : List V, as.length = i → SpineFit ρp (((d.Fss m ψ).getD j []).take i) as →
@@ -380,7 +378,7 @@ theorem blockHoleFold (hH : BlockHoleFacts mo d lps) (hinst : d.nInst = 0)
           (fun c => d.IdsM c ψ) (d.toLfp.holeChains ψ)) m) (tupW (d.uM m ψ) is)
       = app (blockFamG d.k (d.w ψ) ρp (fun c => d.uM c ψ) (fun c => d.IdsM c ψ)
           (d.toLfp.holeChains ψ) m) (tupW (d.uM m ψ) is) :=
-    app_lfpTuple_eq hclosed hmono (blockPhi_maps_of hok) hm ht
+    app_lfpTuple_eq (hacc.closed (blockPhi_maps_of hok)) hacc.mono (blockPhi_maps_of hok) hm ht
   have hop : ∀ X, blockPhiG d.k (d.w ψ) ρp (fun c => d.uM c ψ) (fun c => d.IdsM c ψ)
       (d.toLfp.holeChains ψ) X = d.toLfp.holeOp ψ ρp X := by
     intro X
@@ -515,9 +513,6 @@ theorem blockHoleFold_params (hH : BlockHoleFacts mo d lps) (hinst : d.nInst = 0
       BlockChainsOkG d.k (d.w ψ) ρp (fun c => d.uM c ψ) (fun c => d.IdsM c ψ)
         (d.toLfp.holeChains ψ))
     (hfun : ∀ ρp : Nat → V, Sat V (d.params ψ).reverse ρp →
-      MonoTuple (d.w ψ) d.k (blockIdx (fun c => d.uM c ψ) ρp (fun c => d.IdsM c ψ))
-        (blockPhiG d.k (d.w ψ) ρp (fun c => d.uM c ψ) (fun c => d.IdsM c ψ)
-          (d.toLfp.holeChains ψ)) ∧
       AccW (d.w ψ) d.k (blockIdx (fun c => d.uM c ψ) ρp (fun c => d.IdsM c ψ))
         (blockPhiG d.k (d.w ψ) ρp (fun c => d.uM c ψ) (fun c => d.IdsM c ψ)
           (d.toLfp.holeChains ψ)))
@@ -540,9 +535,7 @@ theorem blockHoleFold_params (hH : BlockHoleFacts mo d lps) (hinst : d.nInst = 0
   have hsP : Sat V (d.toLfp.pars m ψ).reverse (consList ts ρ) := by
     rw [hpars]; simpa using sat_of_spineFit (Sat_nil V ρ) hsp
   have hs : Sat V (d.params ψ).reverse (consList ts ρ) := hH.parsSatInv ψ m hm _ hsP
-  have hfl := blockHoleFold hH hinst hA hs hlenPps (hI _ hs) (hok _ hs) (hfun _ hs).1
-    ((hfun _ hs).2.closed (blockPhi_maps_of (hok _ hs)))
-    hm (hover _ hs) (is := []) (by rw [hIds0]; trivial)
+  have hfl := blockHoleFold hH hinst hA hs hlenPps (hI _ hs) (hok _ hs) (hfun _ hs) hm (hover _ hs) (is := []) (by rw [hIds0]; trivial)
   have hts : frameIdx d.nP (consList ts ρ) = ts := by rw [← hlenT]; exact frameIdx_consList' ts ρ
   have hsh : shiftE d.nP 0 (consList ts ρ) = ρ := by rw [← hlenT]; exact shiftE_consList ts ρ
   rw [List.append_nil, hts, hsh, consList_nil, hIds0] at hfl

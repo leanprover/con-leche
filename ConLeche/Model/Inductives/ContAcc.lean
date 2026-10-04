@@ -145,9 +145,9 @@ theorem accConcl_of_frameAccOut {μ : ConLeche.CheckMode} (mp : EnvModelM V μ e
     (hdsw : ∀ x ∈ ds, Expr.WScoped b x) {dsa : List AnnotTerm}
     (hdsa : DenoteMetaSpine mp.base2.acval env φ b ds dsa)
     {w : Nat} {ctx : NestCtx} {prog : List NestHole} {Δa : List AnnotTerm} {R : FrameRel V}
-    (hR : HoleRelA mp.base2 φ ctx prog dep Δa R) (hgr : Graded V Δa wa)
+    (hR : HoleRelA mp.base2 φ w ctx prog dep Δa R) (hgr : Graded V Δa wa)
     (hisC : ∀ isa, DenoteMetaSpine mp.base2.acval env φ dep is isa → ∀ v ∈ isa, ConstOn R v)
-    (hw : w ≠ 0) (hwD : D.w (Level.substFn φ cv.levelParams us) = w) {G : Nat → Prop}
+    (hwD : D.w (Level.substFn φ cv.levelParams us) = w) {G : Nat → Prop}
     (hacc : FrameAccOut w ctx prog b (FrameRel.drop R (dep - b)) D (Level.substFn φ cv.levelParams us)
       dsa G) (hG : G mm) :
     AccConcl w ctx prog dep (Expr.mkAppN (.const (D.member mm) us) (ds ++ is))
@@ -159,8 +159,8 @@ theorem accConcl_of_frameAccOut {μ : ConLeche.CheckMode} (mp : EnvModelM V μ e
     List.map_congr_left fun v hv => hisC isa hisa v hv ρ ρ' hr
   obtain ⟨A, hA, hinv, hacc⟩ := hacc
   refine ⟨?_, ⟨fun ρ => A (dropV (dep - b) ρ), ?_, fun ρ _ _ => hA _, ?_⟩, outMent_self _ _⟩
-  · -- the type regime
-    intro htv ρ ρ' hr
+  · -- the type regime (at a `Type`-valued level)
+    intro hw htv ρ ρ' hr
     obtain ⟨h1, h2⟩ := hR.dom ρ ρ' hr
     obtain ⟨hs1, hf1, he1⟩ := hk ρ (hgr ρ h1)
     obtain ⟨hs2, hf2, he2⟩ := hk ρ' (hgr ρ' h2)
@@ -241,7 +241,7 @@ container's carrier is accessible (`FrameAccOut`, at its own member). -/
       cv.levelParams.Nodup ∧
       (D.params (Level.substFn φ cv.levelParams key.lvls)).length = key.ds.length ∧
       ∀ (Δ0 : List AnnotTerm) (R00 : FrameRel V),
-        HoleRelA mp.base2 φ ctx [] (ctx.hiAt 0) Δ0 R00 →
+        HoleRelA mp.base2 φ w ctx [] (ctx.hiAt 0) Δ0 R00 →
         Δ0.length = ctx.hiAt 0 → (∀ x ∈ key.ds, CtxOkP mp.base2 φ (ctx.hiAt 0) Δ0 x) →
         ∀ dsa, DenoteMetaSpine mp.base2.acval env φ (ctx.hiAt 0) key.ds dsa →
         D.w (Level.substFn φ cv.levelParams key.lvls) = w ∧
@@ -251,14 +251,14 @@ container's carrier is accessible (`FrameAccOut`, at its own member). -/
 /-- **A cache hit** (a cached instantiation whose parameters lie below
 every frame hole): the cached accessibility, at the enclosing relation
 seen at the block's own depth, makes the instance accessible. -/
-theorem contHit_acc {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) {w : Nat} (hw : w ≠ 0)
+theorem contHit_acc {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) {w : Nat}
     {ctx : NestCtx} (hfind : ∀ n, ctx.find? n = env.find? n) {prog : List NestHole} {dep : Nat}
     (hhid : ctx.hiAt prog.length ≤ dep) {n : Name} {us : List Level} {ds is : List Expr}
     {wa : AnnotTerm}
     (hwa : denoteMeta mp.base2.acval env φ dep (Expr.mkAppN (.const n us) (ds ++ is)) = some wa)
     {Δa : List AnnotTerm} {R : FrameRel V}
     (hC : CtxOkP mp.base2 φ dep Δa (Expr.mkAppN (.const n us) (ds ++ is)))
-    (hgr : Graded V Δa wa) (hR : HoleRelA mp.base2 φ ctx prog dep Δa R)
+    (hgr : Graded V Δa wa) (hR : HoleRelA mp.base2 φ w ctx prog dep Δa R)
     (hisC : ∀ isa, DenoteMetaSpine mp.base2.acval env φ dep is isa → ∀ v ∈ isa, ConstOn R v)
     (hdsw : ∀ x ∈ ds, Expr.WScoped (ctx.hiAt prog.length) x ∧ x.looseBVarsBounded 0 = true)
     (hfree : ∀ x ∈ ds, x.fvarB ≤ ctx.hiAt 0) {nI : Nat} {cty : Expr}
@@ -293,6 +293,6 @@ theorem contHit_acc {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) {w : Nat
         ConLeche.Expr.fvarLeaves_lt_of_wscoped (hds0 x hx) l hl⟩
   obtain ⟨hwD, hacc⟩ := hacc0 _ _ hR00 (by rw [List.length_drop, hC.1]; omega) hC0 dsa0 hdsa0
   exact accConcl_of_frameAccOut mp hD hmm hf hle0d hwa hlenP.symm (by rw [hids, hisl]) hds0 hdsa0
-    hR hgr hisC hw hwD hacc.progNil rfl
+    hR hgr hisC hwD hacc.progNil rfl
 
 end ConLeche.Model

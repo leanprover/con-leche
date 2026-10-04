@@ -37,9 +37,9 @@ a member has a stored former whose leaf the environment model reads.
 
 * at every parameter frame each component's index telescope is graded
   (`idxOk`) and `Φ` is a space-preserving tuple functor (`maps`),
-  accessible at a `Type`-valued block (`acc` — (W) at tuples by
-  `AccW.closed`, `SetModel/Access.lean`; its monotonicity is
-  `BlockModelAt.mono`, from `fibre` and `fitsMono`), whose component `c`'s fibre at
+  whose hole fit is accessible (`fitAcc`; the operator's accessibility,
+  (W) and monotonicity are derived: `BlockModelAt.acc`, `.closed`,
+  `.mono`), whose component `c`'s fibre at
   `(X, t)` consists exactly of the injections `inj c j fs` of the
   spines fitting component `c`'s constructor `j` at `(X, t)`
   (`fibre`), the fit being the constructor's fields WITH HOLES at the
@@ -287,10 +287,10 @@ structure BlockModelAt (m : EnvModel V env) (names : List Name) (d : BlockData V
   into itself -/
   maps : ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (d.params ψ).reverse ρp →
     MapsTuple (d.w ψ) d.N (d.idx ψ ρp) (d.Φ ψ ρp)
-  /-- **`Φ` is accessible at a `Type`-valued block** ((W) at tuples, by
-  `AccW.closed`) -/
-  acc : ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (d.params ψ).reverse ρp →
-    AccW (d.w ψ) d.N (d.idx ψ ρp) (d.Φ ψ ρp)
+  /-- **the hole fit is accessible**, with a bound of the level at a
+  `Type`-valued block (task #327) -/
+  fitAcc : ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (d.params ψ).reverse ρp →
+    ∃ A, (d.w ψ ≠ 0 → A ∈ˢ (univ (d.w ψ) : V)) ∧ d.toLfp.FitAcc ψ ρp A
   /-- **the container functor**: component `c`'s fibre at `(X, t)` is
   the set of injections of the spines fitting one of component `c`'s
   constructors' fields WITH HOLES at the hole frame of `X` (charter
@@ -299,11 +299,6 @@ structure BlockModelAt (m : EnvModel V env) (names : List Name) (d : BlockData V
     ∀ X, InTupleSpace (d.w ψ) d.N (d.idx ψ ρp) X → ∀ c, c < d.N →
     ∀ t, t ∈ˢ d.idx ψ ρp c → ∀ x,
       x ∈ˢ app (d.Φ ψ ρp X c) t ↔ ∃ j fs, d.toLfp.HFits ψ ρp X t c j fs ∧ x = d.inj ψ c j fs
-  /-- **the hole fit grows with the tuple** (positivity's, at the fit) -/
-  fitsMono : ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (d.params ψ).reverse ρp →
-    ∀ X Y, InTupleSpace (d.w ψ) d.N (d.idx ψ ρp) X → InTupleSpace (d.w ψ) d.N (d.idx ψ ρp) Y →
-    TupleLe d.N (d.idx ψ ρp) X Y → ∀ c, c < d.N → ∀ (t : V) (j : Nat) (fs : List V),
-      d.toLfp.HFits ψ ρp X t c j fs → d.toLfp.HFits ψ ρp Y t c j fs
   /-- **the leaf**: a MEMBER's former at fitting parameters and its own
   indices is the least pre-fixed TUPLE's component at the index tuple -/
   leaf : ∀ mm, mm < d.k → ∀ (ψ : Name → Nat) (ρ : Nat → V) (as is : List V),
@@ -348,6 +343,13 @@ structure BlockModelAt (m : EnvModel V env) (names : List Name) (d : BlockData V
 
 /-! ## Derived laws -/
 
+/-- **The representation's operator is accessible**, its fibres the
+injections of the accessible fit. -/
+theorem BlockModelAt.acc {m : EnvModel V env} {names : List Name} {d : BlockData V}
+    (hM : BlockModelAt m names d) (ψ : Name → Nat) (ρp : Nat → V)
+    (hsat : Sat V (d.params ψ).reverse ρp) : AccW (d.w ψ) d.N (d.idx ψ ρp) (d.Φ ψ ρp) :=
+  (hM.fitAcc ψ ρp hsat).elim fun A hA => ⟨A, hA.1, hA.2.accTuple (hM.fibre ψ ρp hsat)⟩
+
 /-- **(W)** of the representation's operator, from its accessibility. -/
 theorem BlockModelAt.closed {m : EnvModel V env} {names : List Name} {d : BlockData V}
     (hM : BlockModelAt m names d) {ψ : Name → Nat} {ρp : Nat → V}
@@ -355,16 +357,12 @@ theorem BlockModelAt.closed {m : EnvModel V env} {names : List Name} {d : BlockD
     ∃ L, IsClosedTuple (d.w ψ) d.N (d.idx ψ ρp) (d.Φ ψ ρp) L :=
   (hM.acc ψ ρp hsat).closed (hM.maps ψ ρp hsat)
 
-/-- **The representation's operator is monotone**, from the fibre law and
-the hole fit's growth (task #326). -/
+/-- **The representation's operator is monotone**, from its accessibility. -/
 theorem BlockModelAt.mono {m : EnvModel V env} {names : List Name} {d : BlockData V}
     (hM : BlockModelAt m names d) {ψ : Name → Nat} {ρp : Nat → V}
     (hsat : Sat V (d.params ψ).reverse ρp) :
-    MonoTuple (d.w ψ) d.N (d.idx ψ ρp) (d.Φ ψ ρp) := by
-  intro X Y hX hY hXY c hc t ht x hx
-  obtain ⟨j, fs, hf, rfl⟩ := (hM.fibre ψ ρp hsat X hX c hc t ht x).mp hx
-  exact (hM.fibre ψ ρp hsat Y hY c hc t ht _).mpr
-    ⟨j, fs, hM.fitsMono ψ ρp hsat X Y hX hY hXY c hc t j fs hf, rfl⟩
+    MonoTuple (d.w ψ) d.N (d.idx ψ ρp) (d.Φ ψ ρp) :=
+  (hM.acc ψ ρp hsat).mono
 
 /-- A fitting parameter spine satisfies the parameter telescope. -/
 theorem BlockData.satOfSpine (d : BlockData V) {ψ : Name → Nat} {ρ : Nat → V} {as : List V}

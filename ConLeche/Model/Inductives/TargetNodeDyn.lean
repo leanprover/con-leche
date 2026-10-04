@@ -1,7 +1,6 @@
 module
 
 public import ConLeche.Model.Inductives.ContWalk
-import ConLeche.Model.Annot.BlockLfpTup
 import ConLeche.Model.Inductives.StructFrameKit
 import ConLeche.Model.Inductives.SumKit
 import ConLeche.Model.Inductives.TargetNodeList

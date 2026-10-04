@@ -226,12 +226,12 @@ theorem grp_inGrp {p : Name × Expr} (hp : p ∈ grp) : InGrp D grp (D.names.idx
 /-- **The frame relation is an accessibility hole relation** of the
 frame's walk (see the module docstring). -/
 theorem frameRelA_holeRelA {prog : List NestHole} (hhi : ctx.hiAt prog.length = hi)
-    {Δh : List AnnotTerm} {R₀ : FrameRel V} (hR₀ : HoleRelA mp.base2 φ ctx prog hi Δh R₀)
-    (hw' : D.w (Level.substFn φ lps us) ≠ 0)
+    {Δh : List AnnotTerm} {R₀ : FrameRel V} (hR₀ : HoleRelA mp.base2 φ w ctx prog hi Δh R₀)
+    (hwD : D.w (Level.substFn φ lps us) = w)
     (harity : ∀ p ∈ grp, ConLeche.nestArity ctx p.1
       = (D.pars (D.names.idxOf p.1) (Level.substFn φ lps us)).length
         + (D.ids (D.names.idxOf p.1) (Level.substFn φ lps us)).length) :
-    HoleRelA mp.base2 φ ctx ((grpNews us ds hi grp).reverse ++ prog) (hi + grp.length)
+    HoleRelA mp.base2 φ w ctx ((grpNews us ds hi grp).reverse ++ prog) (hi + grp.length)
       ((grpTys mp.base2 φ hi grp).reverse ++ Δh)
       (frameRelA R₀ D (Level.substFn φ lps us) grp dsa hi) := by
   subst hhi
@@ -318,6 +318,8 @@ theorem frameRelA_holeRelA {prog : List NestHole} (hhi : ctx.hiAt prog.length = 
     rintro _ _ ⟨ρ, ρ', Y, Y', hr, hY, hY', rfl, rfl⟩
     exact ⟨ρ', ρ, Y', Y, hR₀.symm ρ ρ' hr, hY', hY, rfl, rfl⟩
   · -- rich
+    intro hw
+    have hw' : D.w (Level.substFn φ lps us) ≠ 0 := by rw [hwD]; exact hw
     rintro _ _ ⟨ρ, ρ₀, Y, Y₀, hr, hY, hY₀, rfl, rfl⟩ i vs hQ hpt
     rcases (hQiff i vs.length).mp hQ with ⟨j, hk, hjk, rfl, hn⟩ | ⟨hle, hQ'⟩
     · -- a new hole: enlarge the tuple at the same enclosing frame
@@ -364,7 +366,7 @@ theorem frameRelA_holeRelA {prog : List NestHole} (hhi : ctx.hiAt prog.length = 
         exact absurd hpt (not_mem_empty _)
     · -- an enclosing hole: the enclosing relation's richness
       rw [hposE _ _ _ _ hle] at hpt
-      obtain ⟨ρ'', hr'', hle'', z, hz, hzp⟩ := hR₀.rich ρ ρ₀ hr (i - grp.length) vs hQ' hpt
+      obtain ⟨ρ'', hr'', hle'', z, hz, hzp⟩ := hR₀.rich hw ρ ρ₀ hr (i - grp.length) vs hQ' hpt
       let Y'' : Nat → V := mixT (InGrp D grp)
         (D.carrier (Level.substFn φ lps us) (keyFrame dsa (ctx.hiAt prog.length) ρ'')) Y
       have hY'' : InTupleSpace (D.w (Level.substFn φ lps us)) D.N

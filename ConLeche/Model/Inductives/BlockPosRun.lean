@@ -1,6 +1,6 @@
 module
 
-public import ConLeche.Model.Annot.BlockLfpTup
+import ConLeche.Model.Annot.BlockLfpTup
 public import ConLeche.Model.Inductives.BlockStageCtors
 import ConLeche.Model.Rules.Inputs
 public import ConLeche.Verify.Inductives.PositivityInv
@@ -23,33 +23,24 @@ import ConLeche.Model.NatEqs
 public section
 
 /-!
-# Positivity from the install's run
+# The install's run: the walk's context
 
-The consumer's premise, proved: at a uniform block's install every
-member constructor is POSITIVE along the tuple order at the hole frame
-(`LfpDatum.CtorPos (tupRel ψ ρp)`), from the positivity stage's run
-(`checkBlockPositivity`, `DeclBlockRun` conjunct 3).  Per constructor
-(`blockCtorPos_of_walk`):
+The facts the accessibility walk (`BlockAccRun*.lean`) and the fields'
+grading (`BlockHoleGrade.lean`) read off the positivity stage's run
+(`checkBlockPositivity`, `DeclBlockRun` conjunct 3), per constructor:
 
 * the walk's term — the stored constructor type, members abstracted to
   their holes, parameters at the head former's opened variables — READS
   as the Π-tower over the clause's fields with holes ending in the
   component's hole at the parameters and the result indices (the
   datum's reading fact `BlockAbsRead`: the walk's term is the canonical
-  crest up to erasure, `canonCrest_of_walk`);
+  crest up to erasure, `canonCrest_of_walk`; `blockCtorHoleCtx`);
 * its context is the parameters' telescope (member 0's former) then one
   hole per member, typed by the member's stored type (`CtxOk`, through
   `ctxOk_of_openers`); the reading is graded there because U2 INFERRED
   the term at that context (`infer_sound`);
-* the tuple order at the hole frame is a hole relation for that context
-  (`HoleRel`): the frames satisfy it (a hole value inhabits its member's
-  type, `LfpDatum.holeVal_mem`), agree off the holes and grow at every
-  member hole (`LfpDatum.holeOn_tupRel`);
-* so the walk's derivation (`MemberCtorD`, monotone by
-  `memberCtorD_mono`, under `ContCover` when a kind is a container)
-  makes every field positive under the earlier ones and the result
-  indices hole-free — `CtorPos`, read off the Π-tower
-  (`piPosThen_mkPisAV`).
+* the run inverts to a derivation of every stored constructor
+  (`checkBlockPositivity_derivM`).
 -/
 
 namespace ConLeche.Model
@@ -749,96 +740,6 @@ theorem blockCtorHoleCtx {env : Env} {m : EnvModel V env} {ψ : Name → Nat}
   rw [hNr] at hNE
   obtain ⟨rfl, -⟩ := mkPisAV_inj (hlabN.trans hlN.symm) (Option.some.inj hNE)
   exact ⟨ab, abN, hhi, hca, hNr, hab, hlab, hlabN, hfr, hCP, hgr, hfrN, hCPN, hgN, hEq, hsatFrame⟩
-
-/-- **A member constructor is positive along the tuple order at the
-hole frame**, from its walk's derivation (`MemberCtorD`) and its U2
-typing (`inferTypeCore` at the holes' context), both at the formers'
-environment. -/
-theorem blockCtorPos_of_walk {env : Env} {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env)
-    {ψ : Name → Nat} (hin : Rules.RulesInputs V mp.base2 ψ) {F : Nat}
-    {d : BlockData V} {lps : List Name} {cvTas : List ConstantVal} {p₁ : BlockShape}
-    {isRec : Bool}
-    (hN : BlockNamesOk (V := V) d cvTas) (hcore : BlockHoleCtxFacts mp.base2 d lps cvTas p₁ isRec)
-    {p : BlockParts} (hnames : p.memberNames = d.memberNames) (hlps : p.lps = lps)
-    (hnP : p.nP = d.nP) (hnIdxs : p.nIdxs = d.nIdxs) (hk : d.k = d.memberNames.length)
-    {cvTa0 : ConstantVal} {fvsP : List Expr} {rest : Expr} {holes : List Expr}
-    (hcv0 : cvTas.head? = some cvTa0)
-    (hop0 : openPisAtFvars p.nP cvTa0.type 0 = some (fvsP, rest))
-    (hholes : nestHoles (p.nestCtx fvsP env.find?) = some holes)
-    {c j : Nat} {cA : ConstantVal × Nat} (hcj : (d.ctorsM c)[j]? = some cA)
-    (hCf : cA.1.type.hasFvar = false) (hCb : cA.1.type.looseBVarsBounded 0 = true)
-    {crest : Expr}
-    (hcrest : ConLeche.nestCrest (p.nestCtx fvsP env.find?).names (p.lps.map .param) fvsP holes
-      cA.1.type = some crest)
-    {tyN : Expr}
-    {ksD : List ConLeche.NestFieldKind} {ts : List ConLeche.PosTree}
-    (hd : ConLeche.MemberCtorD (fueledOps .verified F) env (p.nestCtx fvsP env.find?)
-      cA.2 crest ksD tyN ts)
-    (hcovk : (∃ k ∈ ksD, k.flat = false) → ContCover mp (p.nestCtx fvsP env.find?))
-    {ty : Expr} (hinf : ConLeche.inferTypeCore .verified env F
-      ((p.nestCtx fvsP env.find?).hiAt 0) crest = .ok ty)
-    (hnf : d.nfFF c j = tyN)
-    {ρp : Nat → V} (hs : Sat V (d.params ψ).reverse ρp) :
-    d.toLfp.CtorPos (d.toLfp.tupRel ψ ρp) ψ c j := by
-  obtain ⟨ab, abN, hhi, hca, -, hab, habLen, -, hfr, hCP, hgr, -, -, -, hEq, hsatFrame⟩ :=
-    blockCtorHoleCtx hin hN hcore hnames hlps hnP hk hcv0 hop0 hholes hcj
-      hCf hCb hcrest hinf hd hnf
-  generalize hL : d.holeCtx ψ = L at hCP hgr hEq hsatFrame
-  have hcN : (p.nestCtx fvsP env.find?).names = d.memberNames := hnames
-  have hcP : (p.nestCtx fvsP env.find?).nP = d.nP := hnP
-  have hcI : (p.nestCtx fvsP env.find?).nIdxs = d.nIdxs := hnIdxs
-  rw [← hhi] at hca hfr hCP
-  generalize hctx : p.nestCtx fvsP env.find? = ctx at *
-  -- ## the tuple order at the hole frame is a hole relation of that context
-  have hkN : d.toLfp.k ≤ d.toLfp.N := Nat.le_add_right _ _
-  have hFDof : ∀ t, t < d.k → ∃ cvTb,
-      FormerData mp.base2 cvTb (d.nP + d.nIdxAt t) d.resSort (d.ppsM t) := by
-    intro t ht
-    obtain ⟨cvTb, hcvb⟩ : ∃ cvTb, cvTas[t]? = some cvTb :=
-      ⟨_, List.getElem?_eq_getElem (by rw [hN.2.2]; exact ht)⟩
-    exact ⟨cvTb, (hcore.1 t cvTb hcvb).2⟩
-  have hR : HoleRel mp.base2 ψ ctx [] (ctx.hiAt 0) L.reverse (d.toLfp.tupRel ψ ρp) := by
-    refine ⟨?_, ?_, ?_, ?_, ?_⟩
-    · -- dom
-      rintro _ _ ⟨X, Y, hX, hY, -, rfl, rfl⟩
-      exact ⟨hsatFrame ρp hs X hX, hsatFrame ρp hs Y hY⟩
-    · -- agree
-      intro σ σ' hr i hi
-      refine LfpDatum.tupRel_agreeOff hr i ?_
-      show d.k ≤ i
-      refine Nat.le_of_not_lt fun hlt => hi ?_
-      simp only [holeP, List.length_nil, hhi, hcP]
-      omega
-    · -- member
-      intro t ht
-      have ht' : t < d.k := by rw [hcN, ← hk] at ht; exact ht
-      have hmo := LfpDatum.holeOn_tupRel hkN (ψ := ψ) (ρp := ρp) (show t < d.toLfp.k from ht')
-      obtain ⟨cvTb, hFDt⟩ := hFDof t ht'
-      have har : (d.toLfp.ids t ψ).length = ctx.nIdxs.getD t 0 := by
-        show (((d.ppsM t ψ).drop d.nP).map (·.2.2)).length = _
-        simp only [List.length_map, List.length_drop, hFDt.len ψ, hcI]
-        show _ = d.nIdxAt t
-        omega
-      rw [har, show d.toLfp.k - 1 - t = ctx.hiAt 0 - 1 - (ctx.nP + t) by
-        rw [hhi, hcP]; show d.k - 1 - t = _; omega] at hmo
-      exact hmo
-    · -- frame
-      intro i hk' h
-      simp at h
-    · -- scoped
-      intro i hk' h
-      simp at h
-  -- ## the walk is positive, read off the Π-tower
-  have hpos := memberCtorD_mono mp hin hd hcovk hfr hCP hca hgr hR
-  rw [← habLen] at hpos
-  obtain ⟨htele, i', vs, heq, hvs⟩ := piPosThen_mkPisAV ab _ _ hpos
-  -- through the link, onto the normal form's fields (the datum's)
-  obtain ⟨hteleN, hU⟩ := FieldsEqOn.teleMonoOn hEq (fun ρ ρ' hr => hR.dom ρ ρ' hr) htele
-  rw [hab] at hteleN hU
-  rw [hU] at hvs
-  refine ⟨hteleN, fun e he => hvs e ?_⟩
-  obtain ⟨-, rfl⟩ := mkAppN_bvar_inj heq.symm
-  exact he
 
 /-! ## The block -/
 

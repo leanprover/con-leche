@@ -992,7 +992,7 @@ theorem genRows3_mem (hμ : μ.verifiedChecks = true)
   have hmN : t < d.N := Nat.lt_of_lt_of_le htd (Nat.le_add_right _ _)
   have hjl : i < (d.ctorsM t).length := (List.getElem?_eq_some_iff.mp hcj).1
   have hM : BlockModelAt mpC.base2 d.memberNames d := by
-    subst hdR; exact blockModelAt_seam h hN hSt hcore hlfp
+    subst hdR; exact blockModelAt_seam h hN hSt hcore
   obtain ⟨hfindC, hlpsC, -⟩ := hcore.2.2.2 _ htd i cA hcj
   obtain ⟨-, -, hcd, -⟩ := hcore.2.2.1 _ i cA hcj
   have hcf : BlockCtorFacts mpC.base2 d pp.lps t i cA := ⟨hfindC, hlpsC, hcd⟩

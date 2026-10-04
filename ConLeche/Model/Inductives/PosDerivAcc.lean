@@ -88,7 +88,7 @@ the level, and the group's carriers accessible in the enclosing frame
     (D.params (Level.substFn φ lps us)).length = ds.length →
     ((∃ nP' L, ConLeche.nestContainer ctx (D.member mm) = some (nP', L) ∧ L ≠ []) ∨ lps.Nodup) →
     ∀ {Δh : List AnnotTerm} {R₀ : FrameRel V},
-    HoleRelA mp.base2 φ ctx prog (ctx.hiAt prog.length) Δh R₀ →
+    HoleRelA mp.base2 φ w ctx prog (ctx.hiAt prog.length) Δh R₀ →
     Δh.length = ctx.hiAt prog.length →
     (∀ x ∈ ds, CtxOkP mp.base2 φ (ctx.hiAt prog.length) Δh x) →
     (∀ x ∈ ds, Expr.LeavesBounded x) →
@@ -103,7 +103,7 @@ module docstring). -/
     (k.flat = false → ContOk mp φ w ctx) → ctx.hiAt prog.length ≤ dep → Frame dep e →
     ∀ {Δa : List AnnotTerm} {ea : AnnotTerm} {R : FrameRel V},
       CtxOkP mp.base2 φ dep Δa e → denoteMeta mp.base2.acval env φ dep e = some ea →
-      Graded V Δa ea → HoleRelA mp.base2 φ ctx prog dep Δa R →
+      Graded V Δa ea → HoleRelA mp.base2 φ w ctx prog dep Δa R →
       AccConcl w ctx prog dep e nf R ea ∧ OutOk mp.base2 φ ctx prog dep Δa k nf ea
   | .tele prog base nF j cur ks nds res =>
     ((∃ k ∈ ks, k.flat = false) → ContOk mp φ w ctx) → ctx.hiAt prog.length ≤ base + j →
@@ -111,13 +111,13 @@ module docstring). -/
     ∀ {Δa : List AnnotTerm} {ca : AnnotTerm} {R : FrameRel V},
       CtxOkP mp.base2 φ (base + j) Δa cur →
       denoteMeta mp.base2.acval env φ (base + j) cur = some ca → Graded V Δa ca →
-      HoleRelA mp.base2 φ ctx prog (base + j) Δa R → TeleSmall w nF R ca →
+      HoleRelA mp.base2 φ w ctx prog (base + j) Δa R → TeleSmall w nF R ca →
       PiAccThen w ctx prog (ResultAt mp.base2 φ ctx.nP (ctx.hiAt prog.length) (base + j + nF) res)
         nF (base + j) (nds.map (·.1)) R ca ∧
       OutTele mp.base2 φ ctx prog ks (nds.map (·.1)) (base + j) Δa ca
   | .ctors prog hi us ds names holes cs =>
     ContOk mp φ w ctx → ctx.hiAt prog.length = hi →
-    ∀ {Δ : List AnnotTerm} {R : FrameRel V}, HoleRelA mp.base2 φ ctx prog hi Δ R →
+    ∀ {Δ : List AnnotTerm} {R : FrameRel V}, HoleRelA mp.base2 φ w ctx prog hi Δ R →
     ∀ (Q : ConstantVal × Nat → Prop),
     (∀ (x : ConstantVal × Nat) (crest : Expr), Q x →
       ConLeche.nestCrest names us ds holes (x.1.type.instantiateLevelParams x.1.levelParams us)
@@ -157,7 +157,7 @@ theorem acc_of_whnf {μ : ConLeche.CheckMode} {mp : EnvModelM V μ env}
     red_sound hin (ConLeche.Rules.whnf_bridge hw') hfr hC.toCtxOk hea hgr
   obtain ⟨⟨hTR, ⟨A, hA, hsz, hinv⟩, hout⟩, hok⟩ := kont hfrw (hC.of_subset hsub)
     (ConLeche.whnf_fvarLeaves mp.base2.wf F hw') wa hwa hgw heq
-  exact ⟨⟨TypeReg.of_eqOn (P := Sat V Δa) hdom (fun ρ hρ => heq ρ hρ) hTR,
+  exact ⟨⟨fun hw => TypeReg.of_eqOn (P := Sat V Δa) hdom (fun ρ hρ => heq ρ hρ) (hTR hw),
     ⟨A, AccOn.of_eqOn (P := Sat V Δa) hdom (fun ρ hρ => heq ρ hρ) hA, hsz, hinv⟩, hout⟩,
     hok.congr_read fun ρ hρ => (heq ρ hρ).symm⟩
 
@@ -168,7 +168,7 @@ the level parameters distinct (`frame_lps_nodup`), the block at the walk
 context's level (`n2_sort` at the head), and `frameIterAcc` along the
 walked constructors. -/
 theorem frame_accD {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env)
-    (hin : RulesInputs V mp.base2 φ) {w : Nat} (hw : w ≠ 0) {ctx : NestCtx} {F : Nat}
+    (hin : RulesInputs V mp.base2 φ) {w : Nat} {ctx : NestCtx} {F : Nat}
     {prog : List NestHole} {us : List Level} {ds : List Expr} {grp : List (Name × Expr)}
     {ctors : List (ConstantVal × Nat)} (hne : grp ≠ []) (hnd : (grp.map (·.1)).Nodup)
     (hinst : ∀ p ∈ grp, ∃ nI, ConLeche.nestInstType (m := CheckM) ctx (ctx.hiAt prog.length)
@@ -209,7 +209,7 @@ theorem frame_accD {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env)
     hdsa (by rw [hlp₀]; exact hlenP) (by rw [hhead]; exact hkty)
   rw [hlp₀] at hkey
   exact ⟨hndl, hg, hwD, frameIterAcc mp hD hblkD.nodup hkN hcov.find hlps hndl hul hds hdsa hlenP
-    hg.2 hin hw hwD hblkD.ctors rfl hR₀ hΔ hCds hLds hkey hctors
+    hg.2 hin hwD hblkD.ctors rfl hR₀ hΔ hCds hLds hkey hctors
     (fun hR Q hprem hQ => ih hok (by simp [grpNews, ConLeche.NestCtx.hiAt]; omega) hR Q hprem hQ)⟩
 
 /-! ## The container instance -/
@@ -217,7 +217,7 @@ theorem frame_accD {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env)
 /-- **A container instance whose frame is derived HERE** (`contNew`): the
 frame's conclusion at the enclosing relation seen at the key's depth makes
 the instance accessible (the leaf, `accConcl_of_frameAccOut`). -/
-theorem contNew_accD {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) {w : Nat} (hw : w ≠ 0)
+theorem contNew_accD {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) {w : Nat}
     {ctx : NestCtx} (hok : ContOk mp φ w ctx) {prog : List NestHole} {dep : Nat}
     (hhid : ctx.hiAt prog.length ≤ dep) {D : LfpDatum V} (hD : D ∈ mp.lfpBlocks) {mm : Nat}
     (hmm : mm < D.k) {lps : List Name}
@@ -234,7 +234,7 @@ theorem contNew_accD {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) {w : Na
       (Expr.mkAppN (.const (D.member mm) us) (ds ++ is)) = some wa)
     {Δa : List AnnotTerm} {R : FrameRel V}
     (hC : CtxOkP mp.base2 φ dep Δa (Expr.mkAppN (.const (D.member mm) us) (ds ++ is)))
-    (hgr : Graded V Δa wa) (hR : HoleRelA mp.base2 φ ctx prog dep Δa R)
+    (hgr : Graded V Δa wa) (hR : HoleRelA mp.base2 φ w ctx prog dep Δa R)
     (hisC : ∀ isa, DenoteMetaSpine mp.base2.acval env φ dep is isa → ∀ v ∈ isa, ConstOn R v)
     {nI : Nat} {cty : Expr}
     (hnI : ConLeche.nestInstType (m := CheckM) ctx (ctx.hiAt prog.length) ⟨D.member mm, us, ds⟩
@@ -269,7 +269,7 @@ theorem contNew_accD {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) {w : Na
     (by rw [hcvl]; exact hul) (by rw [hcvl, hlenP]) hdsw hdsa
   rw [← hcvl] at hacc hwD
   exact accConcl_of_frameAccOut mp hD hmm hf hhid hwa (by rw [hlenP]) (by rw [hids, hisl])
-    (fun x hx => (hdsw x hx).1) hdsa hR hgr hisC hw hwD hacc
+    (fun x hx => (hdsw x hx).1) hdsa hR hgr hisC hwD hacc
     ⟨hmm, by rw [List.contains_iff_mem, List.mem_map]; exact ⟨_, hheadmem, rfl⟩⟩
 
 /-- **A key whose frame is derived is accessible at the block's own
@@ -315,10 +315,10 @@ theorem keyAcc_of_frameD {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) {w 
 
 set_option maxHeartbeats 800000 in
 /-- **THE DERIVATION IS ACCESSIBLE** (charter items 2–4): every judgment of a positivity derivation reads
-accessibly in the holes, at a positive level, by induction on the
+accessibly in the holes, at every level (task #327), by induction on the
 derivation (see the module docstring). -/
 theorem posD_acc {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env)
-    (hin : RulesInputs V mp.base2 φ) {w : Nat} (hw : w ≠ 0) {ctx : NestCtx} {F : Nat} :
+    (hin : RulesInputs V mp.base2 φ) {w : Nat} {ctx : NestCtx} {F : Nat} :
     ∀ {j : PosJ} {ts : List PosTree}, PosD (fueledOps .verified F) env ctx j ts →
       AccJ mp φ w ctx F j := by
   intro j ts h
@@ -328,7 +328,7 @@ theorem posD_acc {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env)
     refine acc_of_whnf hin hw' hfr hC hea hgr hR.dom fun hfrw _ hlw wa hwa _ heq => ?_
     have hco : ConstOn R wa := ConstOn.of_noBVar hR.agree
       (denoteMeta_noBVar_of_nestOcc dep wt hfrw.1 hhi hocc hwa)
-    refine ⟨⟨hco.typeReg, ⟨_, hco.accOn, SizeOn.const (empty_mem_univ w), InvOn.const _ _⟩, ?_⟩, ?_⟩
+    refine ⟨⟨fun _ => hco.typeReg, ⟨_, hco.accOn, SizeOn.const (empty_mem_univ w), InvOn.const _ _⟩, ?_⟩, ?_⟩
     · split
       · exact (outMent_self dep wt).trans hlw
       · exact outMent_self dep e
@@ -396,17 +396,24 @@ theorem posD_acc {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env)
         rw [denoteMeta_erasedEq (erasedEq_abstract1_instantiate1 nb 0 hnbB) (dep + 1), hnba]
         rfl
       · exact interp_pi_congr_body fun x hx => hnbr (cons x ρ) (Sat_cons V hρ hx)
-    refine ⟨⟨TypeReg.pi 0 _ hA hTRb hB0, ?_, hout⟩, hokP⟩
+    refine ⟨⟨fun hw => TypeReg.pi 0 _ hA (hTRb hw) hB0, ?_, hout⟩, hokP⟩
+    have hinvP : InvOn (MentP ctx.nP (ctx.hiAt prog.length) dep
+        (.forallE a (nb.abstract1 dep 0) bm)) (piBound w ta Ab) := InvOn.pi (NoBVar.mono (fun i hi hn => hi (Or.inl hn))
+        (noBVar_not_mentNH hws.1 hbb.1 hholes (fun s _ hs => by
+          simp only [ConLeche.Expr.nestOcc, Bool.or_eq_false_iff] at hs
+          exact hs.1) hta)) (InvOn.mono hinvb fun i hi => mentP_body i hi)
+    have hAb' := AccOn.congrQ (fun i n => (shiftQ_holeQ hhi i n).symm) hAb
     by_cases hv0 : pwBit φ bm.pw = 0
-    · -- hole-free: the body is
-      have hco : ConstOn R (.pi 0 (pwBit φ bm.pw) ta ba) := ConstOn.pi 0 _ hA (hTRb (hB0 hv0))
-      exact ⟨_, hco.accOn, SizeOn.const (empty_mem_univ w), InvOn.const _ _⟩
-    · refine ⟨_, AccOn.pi hw 0 hv0 hA (AccOn.congrQ (fun i n => (shiftQ_holeQ hhi i n).symm) hAb),
-        SizeOn.pi hw hA hszb, InvOn.pi ?_ (InvOn.mono hinvb fun i hi => mentP_body i hi)⟩
-      refine NoBVar.mono (fun i hi hn => hi (Or.inl hn))
-        (noBVar_not_mentNH hws.1 hbb.1 hholes (fun s _ hs => ?_) hta)
-      simp only [ConLeche.Expr.nestOcc, Bool.or_eq_false_iff] at hs
-      exact hs.1
+    · by_cases hw : w = 0
+      · -- at `w = 0`: the truth-valued product glues one witness's support per domain value
+        subst hw
+        rw [hv0]
+        exact ⟨_, AccOn.pi0 0 hA hAb', fun _ _ _ => SmallAt.zero _, hinvP⟩
+      · -- hole-free: the body is (the type regime)
+        have hco : ConstOn R (.pi 0 (pwBit φ bm.pw) ta ba) :=
+          ConstOn.pi 0 _ hA (hTRb hw (hB0 hv0))
+        exact ⟨_, hco.accOn, SizeOn.const (empty_mem_univ w), InvOn.const _ _⟩
+    · exact ⟨_, AccOn.pi 0 hv0 hA hAb', SizeOn.pi hA hszb, hinvP⟩
   | @hole prog dep kb e wt i ty hw' hocc hfn hlo hhi' hlen hfree =>
     intro _ hhi hfr Δa ea R hC hea hgr hR
     refine acc_of_whnf hin hw' hfr hC hea hgr hR.dom fun hfrw _ hlw wa hwa _ _ => ?_
@@ -426,7 +433,7 @@ theorem posD_acc {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env)
       refine Or.inl ⟨i - ctx.nP, ?_, ?_, by omega, by rw [← hlenv, hlen]⟩
       · simp only [NestCtx.hiAt] at hhi'; omega
       · simp only [NestCtx.hiAt] at hhi' hhi; omega
-    refine ⟨⟨TypeReg.holeApp hR.rich hR.symm hQ hvs, ⟨_, AccOn.holeApp hQ hvs,
+    refine ⟨⟨fun hw => TypeReg.holeApp (hR.rich hw) hR.symm hQ hvs, ⟨_, AccOn.holeApp hQ hvs,
       SizeOn.const (unitSet_mem_univ w), InvOn.const _ _⟩, (outMent_self dep wt).trans hlw⟩,
       hfrw.2.1, hfrw.1, fun hk => ?_, _, by rw [hspine] at hwa; exact hwa, fun _ _ => rfl⟩
     split at hk <;> cases hk
@@ -448,7 +455,7 @@ theorem posD_acc {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env)
     have hQ : HoleQ ctx prog dep (dep - 1 - i) vs.length := by
       refine Or.inr ⟨i - ctx.hiAt 0, h, hk, by omega, by omega, ?_⟩
       rw [← hlenv, har]
-    exact ⟨⟨TypeReg.holeApp hR.rich hR.symm hQ hvs, ⟨_, AccOn.holeApp hQ hvs,
+    exact ⟨⟨fun hw => TypeReg.holeApp (hR.rich hw) hR.symm hQ hvs, ⟨_, AccOn.holeApp hQ hvs,
       SizeOn.const (unitSet_mem_univ w), InvOn.const _ _⟩, (outMent_self dep wt).trans hlw⟩,
       hfrw.2.1, hfrw.1, nofun, _, by rw [hspine] at hwa; exact hwa, fun _ _ => rfl⟩
   | @contNew prog dep kb e wt n us L nPc nI cty grp ts hw' hocc hfn hnm hq hlen hquot hidx hds _
@@ -490,7 +497,7 @@ theorem posD_acc {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env)
       | cons p ps =>
         simp only [List.head?_cons, Option.some.injEq] at hhead
         rw [List.headD_cons, hhead]
-    have hc := contNew_accD mp hw hok hhid hD hmm hlps hul hdsw hLds
+    have hc := contNew_accD mp hok hhid hD hmm hlps hul hdsw hLds
       (fun ψ => by rw [hdl]; exact hlenP0 ψ) (by rw [hdl]; exact hnL0) hwa hCw hgw hR hisC hnI
       hisl hhead' ihf
     rw [List.take_append_drop] at hc
@@ -526,12 +533,12 @@ theorem posD_acc {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env)
     have hkp := keyAcc_of_frameD mp hok (key := ⟨n, us, args.take nPc⟩) (ConLeche.ProgScoped.nil (ctx := ctx)) hmem
       hfrD ihf hds0
       hLds
-    have hc := contHit_acc mp hw hok.1.find hhid hwa hCw hgw hR hisC hdsw (fun x hx => (hds x hx).2)
+    have hc := contHit_acc mp hok.1.find hhid hwa hCw hgw hR hisC hdsw (fun x hx => (hds x hx).2)
       hnI hisl hkp
     rw [List.take_append_drop] at hc
     exact ⟨⟨hc.1, hc.2.1, hc.2.2.trans hlw⟩, hfrw.2.1, hfrw.1, nofun, wa, hwa0, fun _ _ => rfl⟩
   | @frame prog us ds grp ctors ts hne hhd hhdC hnd hinst hblk hgrp hctors hkty hwalk ih =>
-    exact frame_accD mp hin hw hne hnd hinst hgrp hctors hkty hwalk ih
+    exact frame_accD mp hin hne hnd hinst hgrp hctors hkty hwalk ih
   | ctorsNil =>
     intro _ _ Δ R _ Q _ _ x hx
     exact nomatch hx
@@ -591,7 +598,7 @@ small), each bound reading only its field's output's non-hole positions,
 the result's indices hole-free — coverage needed only when some field's
 kind is not flat. -/
 theorem memberCtorD_acc {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env)
-    (hin : RulesInputs V mp.base2 φ) {w : Nat} (hw : w ≠ 0) {ctx : NestCtx} {F nF : Nat}
+    (hin : RulesInputs V mp.base2 φ) {w : Nat} {ctx : NestCtx} {F nF : Nat}
     {crest cur : Expr} {ks : List NestFieldKind} {nds : List (Expr × ConLeche.BinderMeta)}
     {ts : List PosTree}
     (htele : PosD (fueledOps .verified F) env ctx (.tele [] (ctx.hiAt 0) nF 0 crest ks nds cur) ts)
@@ -601,9 +608,9 @@ theorem memberCtorD_acc {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env)
     {Δa : List AnnotTerm} {ca : AnnotTerm} {R : FrameRel V}
     (hC : CtxOkP mp.base2 φ (ctx.hiAt 0) Δa crest)
     (hca : denoteMeta mp.base2.acval env φ (ctx.hiAt 0) crest = some ca) (hgr : Graded V Δa ca)
-    (hR : HoleRelA mp.base2 φ ctx [] (ctx.hiAt 0) Δa R) (hsm : TeleSmall w nF R ca) :
+    (hR : HoleRelA mp.base2 φ w ctx [] (ctx.hiAt 0) Δa R) (hsm : TeleSmall w nF R ca) :
     PiAccThen w ctx [] ResultIdxConst nF (ctx.hiAt 0) (nds.map (·.1)) R ca :=
   PiAccThen.mono (fun _ _ h => resultIdxConst_of_resultAt (by simp) hhead hok h) nF _ _ R ca
-    (posD_acc mp hin hw htele hcov (by simp) hfr hC hca hgr hR hsm).1
+    (posD_acc mp hin htele hcov (by simp) hfr hC hca hgr hR hsm).1
 
 end ConLeche.Model

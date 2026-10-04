@@ -36,12 +36,19 @@ the relation: a frame holding `pt` at the hole has a related, larger
 frame holding a non-`pt` element there), so it is never truth-valued at
 every related frame.  The Π is then hole-free, its bound `∅`.
 
+**At `w = 0`** (a `Prop`-valued block, task #327) nothing is sized: the
+guard `SmallAt 0` is vacuous, every element has a support, and a Π at a
+`Prop` codomain glues one witness's support per domain value over a
+domain of any size (`AccOn.pi0`).  Holes are not rich there (every fibre
+is a subset of `{pt}`), and the type regime is asked only at `w ≠ 0`.
+
 | case | accessibility | bound | type regime |
 |---|---|---|---|
 | a hole-free reading | `ConstOn.accOn` | `∅` | `ConstOn.typeReg` |
 | the `whnf` step | `AccOn.of_eqOn` | the reduct's | `TypeReg.of_eqOn` |
 | Π, hole-free domain, `v ≠ 0` | `AccOn.pi` | `piBound` | `TypeReg.pi` |
-| Π, hole-free domain, `v = 0` | `ConstOn.pi` (via the body's `TypeReg`) | `∅` | `TypeReg.pi` |
+| Π, hole-free domain, `v = 0`, `w ≠ 0` | `ConstOn.pi` (via the body's `TypeReg`) | `∅` | `TypeReg.pi` |
+| Π, hole-free domain, `v = 0`, `w = 0` | `AccOn.pi0` | `piBound` | — |
 | a hole at hole-free arguments | `AccOn.holeApp` | `{pt}` | `TypeReg.holeApp` |
 
 The bound is a FUNCTION of the frame: a Π's domain may read earlier
@@ -73,17 +80,26 @@ def Holds (ρ : Nat → V) (o : Occ V) : Prop := o.2.2 ∈ˢ o.2.1.foldl app (ρ
 /-- The admissible items: at the positions and spine lengths `Q`. -/
 def Adm (Q : Nat → Nat → Prop) (o : Occ V) : Prop := Q o.1 o.2.1.length
 
+/-- **Small at the level**: a member of `univ w` at a `Type`-valued
+level; at `w = 0` nothing is asked (a `Prop`-valued block's fields range
+over any universe, and no bound is sized there — task #327). -/
+def SmallAt (w : Nat) (x : V) : Prop := w ≠ 0 → x ∈ˢ (univ w : V)
+
+theorem SmallAt.of_mem {w : Nat} {x : V} (h : x ∈ˢ (univ w : V)) : SmallAt w x := fun _ => h
+
+theorem SmallAt.zero (x : V) : SmallAt 0 x := fun h => absurd rfl h
+
 /-- **Accessible along `R` with bound `A`, admissible items `Q`, at the
 level `w`** (see the module docstring). -/
 def AccOn (w : Nat) (Q : Nat → Nat → Prop) (R : FrameRel V) (A : (Nat → V) → V)
     (a : AnnotTerm) : Prop :=
-  ∀ ρ ρ₀, R ρ ρ₀ → ∀ x, x ∈ˢ (univ w : V) → x ∈ˢ interp V ρ a →
+  ∀ ρ ρ₀, R ρ ρ₀ → ∀ x, SmallAt w x → x ∈ˢ interp V ρ a →
     ∃ (B : V) (g : V → Occ V), B ⊆ˢ A ρ ∧ (∀ b, b ∈ˢ B → Adm Q (g b) ∧ Holds ρ (g b)) ∧
       ∀ ρ', R ρ ρ' → (∀ b, b ∈ˢ B → Holds ρ' (g b)) → x ∈ˢ interp V ρ' a
 
 /-- **The bound is a set of the level** at every frame of the relation. -/
 def SizeOn (w : Nat) (R : FrameRel V) (A : (Nat → V) → V) : Prop :=
-  ∀ ρ ρ₀, R ρ ρ₀ → A ρ ∈ˢ (univ w : V)
+  ∀ ρ ρ₀, R ρ ρ₀ → SmallAt w (A ρ)
 
 /-- **The bound reads only the positions `M`.** -/
 def InvOn (M : Nat → Prop) (A : (Nat → V) → V) : Prop :=
@@ -142,7 +158,7 @@ frame stays in it at every related frame holding the frame's admissible
 items. -/
 theorem AccOn.transfer {w : Nat} {Q : Nat → Nat → Prop} {R : FrameRel V} {A : (Nat → V) → V}
     {a : AnnotTerm} (h : AccOn w Q R A a) {ρ ρ₀ ρ'' : Nat → V} (hR₀ : R ρ ρ₀) (hR'' : R ρ ρ'')
-    (hle : HoldsLe Q ρ ρ'') {x : V} (hxw : x ∈ˢ (univ w : V)) (hx : x ∈ˢ interp V ρ a) :
+    (hle : HoldsLe Q ρ ρ'') {x : V} (hxw : SmallAt w x) (hx : x ∈ˢ interp V ρ a) :
     x ∈ˢ interp V ρ'' a := by
   obtain ⟨B, g, -, hg, hs⟩ := h ρ ρ₀ hR₀ x hxw hx
   exact hs ρ'' hR'' fun b hb => hle _ (hg b hb).1 (hg b hb).2
@@ -169,7 +185,7 @@ theorem RichOn.underBoth {Q : Nat → Nat → Prop} {R : FrameRel V} (h : RichOn
 /-! ## The cases: accessibility -/
 
 theorem SizeOn.const {w : Nat} {R : FrameRel V} {c : V} (hc : c ∈ˢ (univ w : V)) :
-    SizeOn w R (fun _ => c) := fun _ _ _ => hc
+    SizeOn w R (fun _ => c) := fun _ _ _ _ => hc
 
 /-- **A hole-free reading** is accessible with the empty bound. -/
 theorem ConstOn.accOn {w : Nat} {Q : Nat → Nat → Prop} {R : FrameRel V} {a : AnnotTerm}
@@ -230,19 +246,21 @@ theorem small_of_mem_piSet {w : Nat} (hw : w ≠ 0) {D f : V} {F : V → V} (hf 
 where the domain is small. -/
 noncomputable def piBound (w : Nat) (D : AnnotTerm) (Bb : (Nat → V) → V) (ρ : Nat → V) : V :=
   open Classical in
-  if interp V ρ D ∈ˢ (univ w : V) then sigmaPairs (interp V ρ D) fun d => Bb (cons d ρ) else empty
+  if SmallAt w (interp V ρ D) then sigmaPairs (interp V ρ D) fun d => Bb (cons d ρ) else empty
 
 /-- **Π over a hole-free domain at a positive codomain sort**: the
 support of a small function is the glued supports of its values, the
 body's items one binder down (the bound variable is no admissible
 position). -/
-theorem AccOn.pi {w : Nat} (hw : w ≠ 0) {Q : Nat → Nat → Prop} {R : FrameRel V} {D B : AnnotTerm}
+theorem AccOn.pi {w : Nat} {Q : Nat → Nat → Prop} {R : FrameRel V} {D B : AnnotTerm}
     (u : Nat) {v : Nat} (hv : v ≠ 0) (hD : ConstOn R D)
     {Bb : (Nat → V) → V} (hB : AccOn w (shiftQ Q) (R.underBoth D) Bb B) :
     AccOn w Q R (piBound w D Bb) (.pi u v D B) := by
   intro ρ ρ₀ hR f hfw hf
   rw [interp_pi, piR_pos hv] at hf
-  obtain ⟨hDw, happw⟩ := small_of_mem_piSet hw hf hfw
+  have hDw : SmallAt w (interp V ρ D) := fun hw => (small_of_mem_piSet hw hf (hfw hw)).1
+  have happw : ∀ d, d ∈ˢ interp V ρ D → SmallAt w (app f d) := fun d hd hw =>
+    (small_of_mem_piSet hw hf (hfw hw)).2 d hd
   obtain ⟨Bf, gf, hsk⟩ := skolem_occ (S := interp V ρ D)
     (Q := fun d B' g => B' ⊆ˢ Bb (cons d ρ) ∧
       (∀ b, b ∈ˢ B' → Adm (shiftQ Q) (g b) ∧ Holds (cons d ρ) (g b)) ∧
@@ -286,15 +304,73 @@ theorem AccOn.pi {w : Nat} (hw : w ≠ 0) {Q : Nat → Nat → Prop} {R : FrameR
     exact (holds_cons_down (hne d hd b hb)).mpr this
 
 /-- The Π bound is a set of the level. -/
-theorem SizeOn.pi {w : Nat} (hw : w ≠ 0) {R : FrameRel V} {D : AnnotTerm} (hD : ConstOn R D)
+theorem SizeOn.pi {w : Nat} {R : FrameRel V} {D : AnnotTerm} (hD : ConstOn R D)
     {Bb : (Nat → V) → V} (hB : SizeOn w (R.underBoth D) Bb) : SizeOn w R (piBound w D Bb) := by
-  intro ρ ρ₀ hR
+  intro ρ ρ₀ hR hw
   unfold piBound
   split
   · rename_i hDw
-    exact (univ_isTGUniverse hw).sigmaPairs_mem hDw fun d hd =>
-      hB (cons d ρ) (cons d ρ₀) ⟨d, ρ, ρ₀, rfl, rfl, hR, hd, hD ρ ρ₀ hR ▸ hd⟩
+    exact (univ_isTGUniverse hw).sigmaPairs_mem (hDw hw) fun d hd =>
+      hB (cons d ρ) (cons d ρ₀) ⟨d, ρ, ρ₀, rfl, rfl, hR, hd, hD ρ ρ₀ hR ▸ hd⟩ hw
   · exact empty_mem_univ w
+
+/-- **Π over a hole-free domain at a `Prop` codomain, at `w = 0`** (task
+#327): the product is a truth value, and its support glues the supports of
+one witness per domain value.  The domain need not be small: at `w = 0` no
+bound is sized.  (At `w ≠ 0` the type regime makes such a Π hole-free.) -/
+theorem AccOn.pi0 {Q : Nat → Nat → Prop} {R : FrameRel V} {D B : AnnotTerm} (u : Nat)
+    (hD : ConstOn R D) {Bb : (Nat → V) → V} (hB : AccOn 0 (shiftQ Q) (R.underBoth D) Bb B) :
+    AccOn 0 Q R (piBound 0 D Bb) (.pi u 0 D B) := by
+  intro ρ ρ₀ hR x _ hx
+  rw [interp_pi, piR_zero] at hx
+  have hall := of_mem_truthVal hx
+  classical
+  let wit : V → V := fun d => if h : ∃ y, y ∈ˢ interp V (cons d ρ) B then Classical.choose h
+    else empty
+  have hwit : ∀ d, d ∈ˢ interp V ρ D → wit d ∈ˢ interp V (cons d ρ) B := by
+    intro d hd
+    have h := hall d hd
+    simp only [wit, dif_pos h]
+    exact Classical.choose_spec h
+  obtain ⟨Bf, gf, hsk⟩ := skolem_occ (S := interp V ρ D)
+    (Q := fun d B' g => B' ⊆ˢ Bb (cons d ρ) ∧
+      (∀ b, b ∈ˢ B' → Adm (shiftQ Q) (g b) ∧ Holds (cons d ρ) (g b)) ∧
+      ∀ σ', R.underBoth D (cons d ρ) σ' → (∀ b, b ∈ˢ B' → Holds σ' (g b)) →
+        wit d ∈ˢ interp V σ' B)
+    fun d hd => hB (cons d ρ) (cons d ρ₀) ⟨d, ρ, ρ₀, rfl, rfl, hR, hd, hD ρ ρ₀ hR ▸ hd⟩ _
+      (SmallAt.zero _) (hwit d hd)
+  have hne : ∀ d, d ∈ˢ interp V ρ D → ∀ b, b ∈ˢ Bf d → (gf d b).1 ≠ 0 := by
+    intro d hd b hb h0
+    have := ((hsk d hd).2.1 b hb).1
+    unfold Adm at this
+    rw [h0] at this
+    exact this
+  refine ⟨sigmaPairs (interp V ρ D) Bf, fun p => (gf (sfst p) (ssnd p)).down, ?_, ?_, ?_⟩
+  · intro p hp
+    obtain ⟨d, hd, b, hb, rfl⟩ := mem_sigmaPairs.mp hp
+    unfold piBound
+    rw [if_pos (SmallAt.zero _)]
+    exact mem_sigmaPairs.mpr ⟨d, hd, b, (hsk d hd).1 b hb, rfl⟩
+  · intro p hp
+    obtain ⟨d, hd, b, hb, rfl⟩ := mem_sigmaPairs.mp hp
+    simp only [sfst_kpair, ssnd_kpair]
+    obtain ⟨hQ, hH⟩ := (hsk d hd).2.1 b hb
+    refine ⟨?_, (holds_cons_down (hne d hd b hb)).mp hH⟩
+    have h0 := hne d hd b hb
+    unfold Adm at hQ ⊢
+    generalize gf d b = o at hQ h0
+    obtain ⟨i, vs, y⟩ := o
+    cases i with
+    | zero => exact absurd rfl h0
+    | succ i => exact hQ
+  · intro ρ' hR' h'
+    rw [interp_pi, ← hD ρ ρ' hR', piR_zero, eq_pt_of_mem_truthVal hx]
+    refine pt_mem_truthVal fun d hd => ⟨wit d, ?_⟩
+    refine (hsk d hd).2.2 (cons d ρ') ⟨d, ρ, ρ', rfl, rfl, hR', hd, hD ρ ρ' hR' ▸ hd⟩
+      fun b hb => ?_
+    have := h' (kpair d b) (mem_sigmaPairs.mpr ⟨d, hd, b, hb, rfl⟩)
+    simp only [sfst_kpair, ssnd_kpair] at this
+    exact (holds_cons_down (hne d hd b hb)).mpr this
 
 /-- **A member hole at its full arity, at hole-free arguments.** -/
 theorem AccOn.holeApp {w : Nat} {Q : Nat → Nat → Prop} {R : FrameRel V} {h : Nat}

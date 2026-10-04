@@ -376,15 +376,6 @@ relation still agrees off the hole positions, and the result reads. -/
     (R : FrameRel V) (r : AnnotTerm) : Prop :=
   R.AgreesOff (holeP D lo hi) ∧ denoteMeta m.acval env φ D res = some r ∧ Expr.WScoped D res
 
-theorem PiPosThen.mono {P Q : FrameRel V → AnnotTerm → Prop}
-    (hPQ : ∀ R r, P R r → Q R r) :
-    ∀ (n : Nat) (R : FrameRel V) (r : AnnotTerm), PiPosThen P n R r → PiPosThen Q n R r
-  | 0, R, r, h => hPQ R r h
-  | n + 1, R, .pi _ _ A B, h => ⟨h.1, PiPosThen.mono hPQ n (R.under A) B h.2⟩
-  | _ + 1, _, .bvar _, h | _ + 1, _, .sort _, h | _ + 1, _, .const _ _, h
-  | _ + 1, _, .app _ _, h | _ + 1, _, .lam _ _ _, h | _ + 1, _, .eqE _ _, h
-  | _ + 1, _, .fst _, h | _ + 1, _, .snd _, h | _ + 1, _, .prf, h => h.elim
-
 /-- A Π-tower positive along a relation is positive field by field, and
 its body satisfies the predicate under the fields. -/
 theorem piPosThen_mkPisAV {P : FrameRel V → AnnotTerm → Prop} :

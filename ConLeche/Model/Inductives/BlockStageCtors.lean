@@ -165,14 +165,13 @@ structure BlockCtorsStage (μ : CheckMode) (F : Nat) (d : BlockData V) (lps : Li
   /-- the hole chains are graded at every parameter frame -/
   holeOk : ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (d.params ψ).reverse ρp →
     BlockChainsOkG d.k (d.w ψ) ρp (fun c => d.uM c ψ) (fun c => d.IdsM c ψ) (d.toLfp.holeChains ψ)
-  /-- the hole operator is monotone (positivity's) and accessible at a
-  `Type`-valued block at every parameter frame (its fixed-point
-  equation's premises: (W) is `AccW.closed`) -/
+  /-- the hole operator is accessible at every parameter frame (its
+  fixed-point equation's premises: `AccW.mono`, `AccW.closed`), its fit
+  with a bound of the level at a `Type`-valued block (task #327) -/
   holeFun : ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (d.params ψ).reverse ρp →
-    MonoTuple (d.w ψ) d.k (blockIdx (fun c => d.uM c ψ) ρp (fun c => d.IdsM c ψ))
-      (blockPhiG d.k (d.w ψ) ρp (fun c => d.uM c ψ) (fun c => d.IdsM c ψ) (d.toLfp.holeChains ψ)) ∧
     AccW (d.w ψ) d.k (blockIdx (fun c => d.uM c ψ) ρp (fun c => d.IdsM c ψ))
-      (blockPhiG d.k (d.w ψ) ρp (fun c => d.uM c ψ) (fun c => d.IdsM c ψ) (d.toLfp.holeChains ψ))
+      (blockPhiG d.k (d.w ψ) ρp (fun c => d.uM c ψ) (fun c => d.IdsM c ψ) (d.toLfp.holeChains ψ)) ∧
+    ∃ A, (d.w ψ ≠ 0 → A ∈ˢ (univ (d.w ψ) : V)) ∧ d.toLfp.FitAcc ψ ρp A
   /-- the block has no instance component -/
   inst : d.nInst = 0
   /-- the stored field shape facts, the members' leaves the formers' -/
@@ -331,8 +330,7 @@ theorem stageBlockCtorsAt (hμ : μ.verifiedChecks = true) {F : Nat}
       ((hframes j cA hj).2 ψ ρ (((hframes j cA hj).1 ψ ρ).mp hρ)).2.2 bs hsp
     have hfl := blockHoleFold hH hS.inst (fun c _ => hS.leaf c ψ) hs0
       (fun c hc => hS.lenPps c ψ hc) (hS.idxOk m hm ψ ρ hρ) (hS.holeOk ψ ρ hs0)
-      (hS.holeFun ψ ρ hs0).1
-      ((hS.holeFun ψ ρ hs0).2.closed (blockPhi_maps_of (hS.holeOk ψ ρ hs0))) hm
+      (hS.holeFun ψ ρ hs0).1 hm
       (fun j' hj' => blockOverride hH (fun t ht => hacv t ht ψ) ρ hs0
         (show m < d.N by simp [BlockData.N, hS.inst]; exact hm) hj') hspE
     rw [ConLeche.Semantics.interp_mkAppN_foldl, List.map_append, paramBvars_eq_paramBvarsAt,

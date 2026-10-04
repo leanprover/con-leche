@@ -168,7 +168,7 @@ theorem rose_closed : ∃ L : Nat → V, IsClosedTuple w 1 is1 (roseΦ w) L := b
   have hLA : (listA : V) ∈ˢ (univ w : V) := prodA_mem hw (unitSet_mem_univ w) (unitSet_mem_univ w)
   -- List is accessible in its parameter (the nested case)
   have hP : AccTuple w 1 is1 1 is1 (lfpP w 1 1 is1 (listJ : (Nat → V) → Nat → V)) (accPaths listA) :=
-    lfpP_acc hw hLA (listJ_maps hw) listJ_acc
+    lfpP_acc (fun _ => hLA) (listJ_maps hw) listJ_acc
   have hPm : ∀ X : Nat → V, InTupleSpace w 1 is1 X →
       InTupleSpace w 1 is1 (lfpP w 1 1 is1 (listJ : (Nat → V) → Nat → V) X) :=
     fun X _ => lfpTuple_mem _ _ _ _

@@ -707,7 +707,6 @@ theorem genRun_lic (mpC : EnvModelM V μ envC)
       p.lps cvTas p.toBlockShape isRec A envI p.ctorNamesAt)
     (hcore : BlockCtorsCore mpC.base2 (blockDataOf V p.toBlockShape ctorsAs pk uOfD ppsOf)
       p.lps cvTas p.toBlockShape isRec A (blockDataOf V p.toBlockShape ctorsAs pk uOfD ppsOf).k)
-    (hlfp : (blockDataOf V p.toBlockShape ctorsAs pk uOfD ppsOf).toLfp ∈ mpC.lfpBlocks)
     (hnames : ctorsAs.map (·.map (fun cA => (cA.1.name, cA.2)))
       = p.members.map (fun ms => ms.ctors.map (fun c => (c.1.name, c.2))))
     (hcls : ∀ c, c < (tgtRs out).length → (tgtMajor out c).member = none →
@@ -765,7 +764,7 @@ theorem genRun_lic (mpC : EnvModelM V μ envC)
     obtain ⟨hpar, hpref⟩ := blockRecIs_fits ht
     have htD := ht
     rw [blockRecIs_pos hpar hpref] at htD
-    have hModel := blockModelAt_seam h hN hS hcore hlfp
+    have hModel := blockModelAt_seam h hN hS hcore
     have hmr := blockMembersRun_seam hN hS hcore
     have hk0 : 0 < (blockDataOf V p.toBlockShape ctorsAs pk uOfD ppsOf).k := by
       show 0 < p.toBlockShape.k; omega
@@ -912,7 +911,7 @@ theorem genPreHyps_of_run (hμ : μ.verifiedChecks = true)
   mN := genRun_mN mpC R hd hcls
   lic := by
     subst hd
-    exact genRun_lic mpC R h hN hS hcore hlfp hnames hcls ψ ρ
+    exact genRun_lic mpC R h hN hS hcore hnames hcls ψ ρ
   gpre := genRun_gpre hμ R hg h mpC ψ
   nF := genRun_nF hμ R hg mpC.base2.acval ψ
   mot := genRun_mot hμ R hg h mpC
