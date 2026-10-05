@@ -1,12 +1,12 @@
 # `pins/` — the Nat-operation pin certificates and the built-in prelude
 
-Committed **generated data**: one pin dump per supported Lean
-toolchain, and the built-in prelude of the repository's own toolchain:
+Committed **generated data**: one pin dump per DISTINCT set of
+pinned definitions (named after the toolchain that first needed it),
+and the built-in prelude of the repository's own toolchain:
 
-    pins/leanprover-lean4-v4.35.0-rc3.json                    the repository toolchain's dump
-    pins/leanprover-lean4-v4.33.0.json                        further toolchains' dumps ("pin variants")
+    pins/leanprover-lean4-nightly-nightly-2026-09-10.json     the dump matching the repository toolchain (v4.35.0-rc3)
+    pins/leanprover-lean4-v4.33.0.json                        further dumps ("pin variants")
     pins/leanprover-lean4-v4.34.0-rc2.json
-    pins/leanprover-lean4-nightly-nightly-2026-09-10.json
     pins/leanprover-lean4-v4.35.0-rc3.prelude.ndjson          the built-in prelude
 
 ## The pin dump (`<toolchain>.json`)
@@ -70,7 +70,7 @@ and the guards need that the operation's own closure does not reach,
 and the prelude is the part of that which is not a stream-certified
 operation (see `ConLeche/PinGen/Prelude.lean` and DESIGN.md, task #191).
 
-## One dump per toolchain — the pin variants
+## One dump per pinned-definition set — the pin variants
 
 The names are the `lean-toolchain` string with everything outside
 `[A-Za-z0-9._-]` turned into `-`.  A pin computed from one toolchain
@@ -85,10 +85,22 @@ dump, in the order the install gate tries them: each dump becomes a
 the checker takes the FIRST variant whose ground constants the stream
 declares, whose pin is definitionally equal to the stream's stored
 value and whose certificates check; only when no variant matches does
-the stream decline, naming what each variant failed on.  The
-repository's own toolchain (`lean-toolchain`) is listed first, so on
-its streams the first attempt matches and the loop costs nothing; the
-others follow in the order they were added.
+the stream decline, naming what each variant failed on.  The dump
+that matches the repository's own toolchain (`lean-toolchain`) is
+listed first, so on its streams the first attempt matches and the loop
+costs nothing; the others follow in the order they were added.
+
+**A new dump is added only when no committed one matches** (task
+#328; the maintainer's ruling: *"if the previous works with the new
+Init we should not add one"*).  "Matches" is the install gate's own
+criterion — the toolchain's stored values definitionally equal to a
+variant's pins and that variant's certificates checking — so it is
+decided by running the checker, not by comparing files:
+`tests/pindump.sh` exports the pinned operations' cone out of the
+repository toolchain's `Init` (`scripts/natop-matrix.sh`) and fails
+unless the binary accepts it.  A toolchain bump therefore usually
+touches nothing here but the order of `#load_natop_pins` (the matching
+dump moves to the front) and the prelude's name.
 
 So one binary — built on the repository toolchain — accepts the
 exports of every toolchain it carries a variant for (and of the
@@ -96,11 +108,14 @@ toolchains in between whose definitions did not drift: the v4.33.0
 variant accepts v4.29.0 … v4.33.1 exports; v4.34.0-rc2 renamed the
 `if_pos`/`dif_pos`/`Nat.div_eq` family the certificate blobs cite and
 needs its own; the nightly variant covers lean4 master since the
-`Decidable` rewrite, and the v4.35.0-rc3 variant — the repository
-toolchain's since task #328 — is that same dump body under its own
-toolchain label).
+`Decidable` rewrite, and also v4.35.0-rc3, the repository toolchain
+since task #328, which therefore has no dump of its own).
 
-**The prelude is one file**, the repository toolchain's.  It holds
+**The prelude is one file**, the repository toolchain's — unlike the
+dumps it IS renamed and regenerated at a toolchain bump: the root
+generator (`lake exe natop-pins-export`) must reproduce it
+byte-for-byte, meta line (the generating Lean's version and githash)
+included.  It holds
 only the pinned basis blocks and the `Bool`/`And` blocks, which have
 not changed across the supported toolchains (the nightly's and
 v4.33.0's generated preludes are byte-identical to v4.35.0-rc3's below
@@ -120,10 +135,11 @@ committed dump has a **pinner** beside it — a self-contained Lake
 project carrying that toolchain (`pinners/<toolchain>/`, see
 `pinners/README.md`).  Adding a variant means adding a pinner.
 
-What tells you a new one is needed is the cross-toolchain matrix lane
-(`scripts/natop-matrix.sh`, run in CI over every supported toolchain):
-its export declines at a pin-certified operation with "no pin variant
-matched".  Then:
+What tells you a new one is needed is the checker declining that
+toolchain's `Init` export at a pin-certified operation with "no pin
+variant matched" — `tests/pindump.sh` for the repository toolchain,
+the cross-toolchain matrix lane (`scripts/natop-matrix.sh`, run in CI
+over every supported toolchain) for the others.  Only then:
 
 1. `cp -r pinners/leanprover-lean4-v4.33.0 pinners/<sanitised new
    toolchain>` and put the new toolchain in its `lean-toolchain`.  The
@@ -144,7 +160,8 @@ matched".  Then:
    does not, stop: that is a prelude drift, see above.  Delete the
    regenerated prelude — only the repository toolchain's is committed.
 4. add the new dump to `#load_natop_pins` in
-   `ConLeche/Kernel/NatOpPins.lean` AFTER the existing entries;
+   `ConLeche/Kernel/NatOpPins.lean` — FIRST if it is the repository
+   toolchain's, otherwise after the existing entries;
 5. `tests/pindump.sh` (it now reproduces the new dump too), then the
    matrix lane: the new toolchain's export must accept, and every older
    one still.
@@ -158,13 +175,14 @@ reverse: delete its dump, its pinner and its `#load_natop_pins` line.
     cd pinners/<toolchain> && lake exe natop-pins-export ../../pins   # any variant's
 
 writes `pins/<toolchain>.json` and `pins/<toolchain>.prelude.ndjson`
-and prints both paths.  Which toolchain it writes for is the Lake
+and prints both paths (from the root, commit only the prelude unless
+the gate below found no matching dump).  Which toolchain it writes for is the Lake
 project it is run in: the generator searches upward from the working
 directory for `lean-toolchain` exactly as elan does when it picks the
 Lean that is running, and refuses to run if that name disagrees with
 `Lean.versionString`.  The two commands above are the same sources
-built by two projects — `pinners/leanprover-lean4-v4.35.0-rc3/` is the
-repository toolchain's pinner and produces the identical file.
+built by two projects; the repository toolchain has no pinner unless
+it needed a dump of its own.
 
 The generator lives in the certificate library's world (`PinDump.lean`;
 its root imports `ConLeche.PinGen.Certs`, so the proof bodies are
@@ -179,21 +197,27 @@ builds it, regenerates into a scratch directory and `diff -q`s the
 result against the committed dump.  A difference fails the battery, and
 the only fix is to regenerate and commit.  A pinner whose toolchain is
 not installed is a labelled SKIP; `PINDUMP_INSTALL=1` makes elan
-install it first, which is how CI reproduces EVERY dump.  The
-repository's own toolchain is always installed, so its pinner always
-runs.
+install it first, which is how CI reproduces EVERY dump.
 
-The gate also checks that a dump and a prelude exist for the toolchain
-in `lean-toolchain`, that `ConLeche/Kernel/NatOpPins.lean` and
-`ConLeche/Frontend/Prelude.lean` embed those basenames, that the dump
-names the prelude, that every committed dump is embedded and every
-embedded dump committed, and that every committed dump has a pinner
-named after its own toolchain.  A foreign pinner's regenerated prelude
-is checked against the committed one below its meta line — a difference
-there is reported as PRELUDE DRIFT.
+For the repository toolchain the gate asks the checker instead: it
+runs `scripts/natop-matrix.sh` on `lean-toolchain` (the pinned
+operations' cone out of `Init`, through the freshly built binary) and
+fails unless that accepts — a decline means no committed pin set
+matches and a new dump is needed (above).  It also regenerates the
+prelude with the root generator and requires it byte-for-byte.
+
+The gate also checks that the prelude exists for the toolchain in
+`lean-toolchain` and is the one `ConLeche/Frontend/Prelude.lean`
+embeds, that every committed dump is embedded and every embedded dump
+committed, and that every committed dump has a pinner named after its
+own toolchain.  A pinner's regenerated prelude is checked against the
+committed one below its meta line — a difference there is reported as
+PRELUDE DRIFT.  (A dump's own `preludeFile` field names its
+generating toolchain's prelude, which is committed only for the
+repository toolchain; nothing reads it at run time.)
 
 The loader accepts dumps from any Lean version (that is the point of
-the variants), so a forgotten regeneration after a toolchain bump is
+the variants), so a toolchain bump whose `Init` no pin matches is
 caught by this gate in the standard battery, not at build time.
 
 ## Trust does not rest on these files

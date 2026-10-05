@@ -50,9 +50,11 @@
 #   regenerate REPRODUCES EVERY COMMITTED DUMP (task #275).  The three
 #              jobs above ask whether the pins still describe upstream;
 #              this one asks whether the committed pins are what the
-#              repository's own generator produces — for all of them, not
-#              just the repository toolchain's, which is all `ci.yml`'s
-#              `tests/pindump.sh` can reach with the toolchains it has.
+#              repository's own generator produces — for all of them,
+#              which `ci.yml`'s `tests/pindump.sh` cannot reach with the
+#              toolchains it has (it does check, by running the checker,
+#              that some committed pin set matches the repository
+#              toolchain's `Init` — task #328).
 #              `PINDUMP_INSTALL=1` lets that same gate install each
 #              pinner's toolchain with elan and diff the regenerated dump
 #              against the committed file.  It is a HARD failure: a dump
@@ -315,9 +317,9 @@ jobs:
   # -------------------------------------------------------------------
   # 4. Every committed dump, reproduced from its pinner.
   #
-  # Independent of the three jobs above (no `needs`): it builds no
-  # con-leche binary and exports nothing — it runs the generator, once
-  # per `pinners/*/`, on that pinner's own toolchain.
+  # It runs the generator, once per `pinners/*/`, on that pinner's own
+  # toolchain — and (task #328) the checker over the repository
+  # toolchain's `Init` export, which needs the `build` job's binary.
   #
   # THE COST is one toolchain download per pinner (elan, ~150 MB each)
   # plus a ~10 s cold build of the generator's nine modules; the check
@@ -325,6 +327,7 @@ jobs:
   # pinners are few, the gate is the same script a developer runs, and
   # a matrix would hide which dump is stale behind a job name.
   regenerate:
+    needs: [build]
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
@@ -349,13 +352,20 @@ jobs:
             lake-${{ runner.os }}-${{ hashFiles('lean-toolchain', 'lakefile.toml', 'lake-manifest.json') }}-
             lake-${{ runner.os }}-
 
+      - name: Download the binary
+        uses: actions/download-artifact@v4
+        with:
+          name: con-leche-binary
+          path: bin
+
       # PINDUMP_INSTALL=1 is what makes this job differ from the one
       # `tests/arena.sh` runs in ci.yml: a pinner whose toolchain is
       # missing is installed and reproduced instead of skipped.
       - name: PINDUMP_INSTALL=1 tests/pindump.sh
         run: |
           set -euo pipefail
-          PINDUMP_INSTALL=1 bash tests/pindump.sh 2>&1 | tee pindump.log
+          chmod +x bin/con-leche
+          PINDUMP_INSTALL=1 PINDUMP_BINARY=bin/con-leche bash tests/pindump.sh 2>&1 | tee pindump.log
 
       - name: Summary
         if: always()

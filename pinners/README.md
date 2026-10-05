@@ -12,7 +12,6 @@ the dump's toolchain.
 
     pinners/leanprover-lean4-v4.33.0/                    lean-toolchain, lakefile.toml
     pinners/leanprover-lean4-v4.34.0-rc2/                lean-toolchain, lakefile.toml
-    pinners/leanprover-lean4-v4.35.0-rc3/                lean-toolchain, lakefile.toml
     pinners/leanprover-lean4-nightly-nightly-2026-09-10/ lean-toolchain, lakefile.toml
 
 The directory name is the dump's basename without `.json` — the
@@ -31,6 +30,11 @@ runs the Lean the dump is a dump of; the generator reads the same file
 and name its output, and refuses to run if that name disagrees with
 `Lean.versionString`.  It writes `<toolchain>.json` and
 `<toolchain>.prelude.ndjson` and prints both paths.
+
+There is no pinner for a toolchain whose `Init` a committed pin set
+already matches — the repository toolchain, v4.35.0-rc3, is one
+(task #328; `pins/README.md`).  Its prelude comes from the root
+project's own `lake exe natop-pins-export`.
 
 Only the repository toolchain's `.prelude.ndjson` is committed: the
 prelude holds the pinned basis blocks and `Bool`/`And`, which have not
@@ -80,7 +84,7 @@ sources with deprecation warnings only, and produce byte-identical
 dumps.  (Since task #328 `ConLeche/PinGen/Certs.lean` silences the
 deprecation linter — it keeps the `if_pos`/`dif_pos` spellings every
 toolchain has and the blobs cite — so the repository toolchain,
-v4.35.0-rc3, builds the cone warning-free.)
+v4.35.0-rc3, builds the cone warning-free in the root project.)
 
 ## Adding or dropping a toolchain
 

@@ -39,11 +39,24 @@ rewrote `Decidable` into a structure the v4.33.0 pins stopped
 describing its `Nat.mod`, and a con-leche bundled with a Lean release
 must accept that release's own exports — so the binary now embeds the
 dumps of every supported toolchain and tries them in order.  The
-repository's own toolchain (`lean-toolchain`) comes FIRST: on its
-streams the first attempt matches and the loop costs nothing extra.
-Adding a toolchain = adding its dump here (recipe in `pins/README.md`);
-the loader accepts dumps from any Lean version, and `tests/pindump.sh`
-is what insists that the current toolchain's dump exists and is fresh.
+dump MATCHING the repository's own toolchain (`lean-toolchain`) comes
+FIRST: on its streams the first attempt matches and the loop costs
+nothing extra.
+
+A dump is named after the toolchain that FIRST needed it, not after
+the repository toolchain: a toolchain bump whose Init a committed pin set
+still matches adds nothing (maintainer's ruling, task #328:
+*"if the previous works with the new Init we should not add one"*) —
+it only moves that dump to the front.  Today the repository toolchain
+is v4.35.0-rc3 and its dump is the nightly-2026-09-10 one.  "Matches"
+is the install gate's own criterion — the stored values definitionally
+equal to a variant's pins, its certificates checking — so it is
+decided by the checker: `tests/pindump.sh` exports the pinned
+operations' cone out of the repository toolchain's `Init`
+(`scripts/natop-matrix.sh`) and fails unless the binary accepts it.  A
+new dump is added (recipe in `pins/README.md`) only when it declines
+("no pin variant matched").  The loader accepts dumps from any Lean
+version.
 
 ## Where the trust still comes from
 
@@ -60,7 +73,6 @@ set_option maxRecDepth 1000000
 set_option maxHeartbeats 1000000
 
 #load_natop_pins
-  include_str "../../pins/leanprover-lean4-v4.35.0-rc3.json",
+  include_str "../../pins/leanprover-lean4-nightly-nightly-2026-09-10.json",
   include_str "../../pins/leanprover-lean4-v4.33.0.json",
-  include_str "../../pins/leanprover-lean4-v4.34.0-rc2.json",
-  include_str "../../pins/leanprover-lean4-nightly-nightly-2026-09-10.json"
+  include_str "../../pins/leanprover-lean4-v4.34.0-rc2.json"

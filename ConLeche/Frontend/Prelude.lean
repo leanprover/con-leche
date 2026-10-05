@@ -54,8 +54,9 @@ namespace ConLeche.Frontend
 
 /-- The committed prelude for the pinned toolchain
 (`lean-toolchain`), embedded at build time.  A toolchain bump
-regenerates it and re-points this path (the pin dump's `preludeFile`
-names the same basename; `tests/pindump.sh` checks both). -/
+regenerates it and re-points this path (`tests/pindump.sh` checks
+both) — even when it adds no pin dump: the prelude is the repository
+toolchain's, the dumps are not (task #328). -/
 def builtinPreludeText : String :=
   include_str "../../pins/leanprover-lean4-v4.35.0-rc3.prelude.ndjson"
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# tests/pindump.sh — THE PIN-DUMP FRESHNESS GATE (tasks #176, #273, #275).
+# tests/pindump.sh — THE PIN-DUMP FRESHNESS GATE (tasks #176, #273, #275, #328).
 #
 # WHY THIS EXISTS.  The pinned `Nat`-operation declarations and their
 # certificate proof blobs used to be computed while
@@ -32,24 +32,43 @@
 # toolchain is NOT installed is reported as a labelled SKIP — unless
 # `PINDUMP_INSTALL=1`, when elan installs it first (that is how CI runs
 # it, so every dump is reproduced there).  The repository's own
-# toolchain is always installed, so at least its pinner always runs.
+# toolchain need not have a pinner (below); its generator is the root
+# project, which always runs, for the prelude.
+#
+# THE REPOSITORY TOOLCHAIN NEED NOT HAVE A DUMP OF ITS OWN (task #328).
+# A dump is named after the toolchain that first needed it.  When a
+# toolchain bump leaves the pinned definitions alone, a committed pin
+# set still matches the new Init, and the maintainer's ruling is that
+# no new dump is added then: *"if the previous works with the new Init
+# we should not add one"*.  Matching is what the install gate decides —
+# the stream's stored value DEFINITIONALLY EQUAL to a variant's pin,
+# and that variant's certificates checking — so this gate asks the
+# checker: it runs `scripts/natop-matrix.sh` on the repository
+# toolchain (export the pinned operations' cone out of its `Init`, run
+# the freshly built binary over it) and fails unless that ACCEPTS.  A
+# decline there ("no pin variant matched") means the pinned definitions
+# drifted and a new dump (and pinner) is needed: `pins/README.md`,
+# "Adding a toolchain's variant".
 #
 # It also checks the embed/commit correspondence: every committed dump
 # is embedded by `ConLeche/Kernel/NatOpPins.lean` and has a pinner,
-# every embedded dump is committed, and the repository toolchain's dump
-# and prelude exist and are the ones `ConLeche/Frontend/Prelude.lean`
+# every embedded dump is committed, and the repository toolchain's
+# prelude exists and is the one `ConLeche/Frontend/Prelude.lean`
 # embeds.
 #
 # THE PRELUDE IS ONE FILE, the repository toolchain's — the pinned
 # basis blocks and `Bool`/`And`, which have not drifted across the
-# supported toolchains.  A foreign pinner's regenerated prelude is
-# therefore diffed against the committed one BELOW ITS META LINE (which
-# carries the generating Lean's version and githash); a difference
-# there is prelude drift and needs the prelude generalised the way the
-# pins were.
+# supported toolchains.  It is named after `lean-toolchain` and the root
+# generator's regeneration must reproduce it byte-for-byte (its meta
+# line carries the generating Lean's version and githash).  A pinner's
+# regenerated prelude is diffed against it BELOW ITS META LINE; a
+# difference there is prelude drift and needs the prelude generalised
+# the way the pins were.
 #
 # Usage: tests/pindump.sh            [PINDUMP_INSTALL=1 to install
-#                                     missing toolchains with elan]
+#                                     missing toolchains with elan;
+#                                     PINDUMP_BINARY=<path> to use a
+#                                     prebuilt con-leche binary]
 set -u
 cd "$(dirname "$0")/.."
 
@@ -59,7 +78,6 @@ sanitise () { printf '%s' "$1" | sed 's/[^A-Za-z0-9._-]/-/g'; }
 
 TC=$(tr -d ' \t\n\r' < lean-toolchain)
 BASE=$(sanitise "$TC").json
-COMMITTED=pins/$BASE
 # the built-in prelude (task #191): the sidecar the same generator
 # writes, embedded by ConLeche/Frontend/Prelude.lean
 PBASE=${BASE%.json}.prelude.ndjson
@@ -68,16 +86,12 @@ SCRATCH=_tmp/pindump-gate
 
 fail () { echo "PINDUMP FAIL — $*"; exit 1; }
 
+# the embedded dumps, in `#load_natop_pins` order
+EMBEDDED=$(grep -o 'include_str "../../pins/[^"]*\.json"' ConLeche/Kernel/NatOpPins.lean |
+             sed 's#.*/pins/##; s/"$//')
+
 # ---------------------------------------------------------------- the
 # committed set: dumps, preludes, embeds and pinners agree.
-
-[ -f "$COMMITTED" ] || fail "no committed dump for toolchain $TC:
-    expected $COMMITTED
-    regenerate with: cd pinners/$(sanitise "$TC") && lake exe natop-pins-export ../../pins"
-
-grep -q "include_str \"../../pins/$BASE\"" ConLeche/Kernel/NatOpPins.lean ||
-  fail "ConLeche/Kernel/NatOpPins.lean does not embed $BASE;
-    a toolchain bump must list the new dump in its #load_natop_pins."
 
 for f in pins/*.json; do
   b=$(basename "$f")
@@ -87,8 +101,7 @@ for f in pins/*.json; do
     fail "committed dump $f has no pinner:
     expected pinners/${b%.json}/ — see pinners/README.md"
 done
-for b in $(grep -o 'include_str "../../pins/[^"]*\.json"' ConLeche/Kernel/NatOpPins.lean |
-             sed 's#.*/pins/##; s/"$//'); do
+for b in $EMBEDDED; do
   [ -f "pins/$b" ] ||
     fail "ConLeche/Kernel/NatOpPins.lean embeds pins/$b, which is not committed"
 done
@@ -100,8 +113,6 @@ grep -q "include_str \"../../pins/$PBASE\"" ConLeche/Frontend/Prelude.lean ||
   fail "ConLeche/Frontend/Prelude.lean does not embed $PBASE;
     a toolchain bump must re-point the include_str at the new prelude."
 
-grep -q "\"preludeFile\":\"$PBASE\"" "$COMMITTED" ||
-  fail "$COMMITTED does not name $PBASE as its prelude"
 
 # ---------------------------------------------------------------- the
 # repository's own generator target.  `lake build` does not reach it
@@ -115,11 +126,60 @@ if printf '%s\n' "$BUILDLOG" | grep -q 'warning:'; then
 $(printf '%s\n' "$BUILDLOG" | grep -A3 'warning:' | sed 's/^/    /')"
 fi
 
-# ---------------------------------------------------------------- the
-# pinners: one per committed dump, each on its own toolchain.
 rm -rf "$SCRATCH"
 mkdir -p "$SCRATCH"
 ROOT=$PWD
+
+# ---------------------------------------------------------------- the
+# repository toolchain: some committed pin set must match its Init.
+# The checker decides, exactly as on any stream: `natop-matrix.sh`
+# exports the pinned operations' cone out of `Init` (the toolchain's
+# bundled `leanexport`) and runs the binary in verified mode; an accept
+# means every pin-certified operation found a variant whose pin is
+# definitionally equal to the stored value and whose certificates check.
+# `PINDUMP_BINARY=<path>` uses a prebuilt binary instead (CI's
+# `regenerate` job downloads the one its `build` job made).
+if [ -n "${PINDUMP_BINARY:-}" ]; then
+  BINARY=$(cd "$(dirname "$PINDUMP_BINARY")" && pwd)/$(basename "$PINDUMP_BINARY")
+else
+  lake build con-leche >/dev/null 2>&1 ||
+    fail "the con-leche binary did not build:
+$(lake build con-leche 2>&1 | tail -20 | sed 's/^/    /')"
+  BINARY=$ROOT/.lake/build/bin/con-leche
+fi
+MATRIX_LOG=$ROOT/$SCRATCH/natop-matrix.log
+mline=$(bash scripts/natop-matrix.sh --binary "$BINARY" --work "$ROOT/$SCRATCH/matrix" "$TC" 2> "$MATRIX_LOG")
+mrc=$?
+[ "$mrc" = 0 ] || fail "NO COMMITTED PIN SET MATCHES the repository toolchain $TC:
+    natop-matrix.sh on its Init: $mline
+$(grep -i 'pin variant\|declin\|error' "$MATRIX_LOG" | head -10 | sed 's/^/    /')
+    If the checker declined with \"no pin variant matched\", the pinned
+    definitions drifted and a new dump is needed: add
+    pinners/$(sanitise "$TC")/ and its dump as pins/README.md (\"Adding a
+    toolchain's variant\") describes, and list it FIRST in
+    #load_natop_pins.  (Full log: $MATRIX_LOG)"
+echo "pindump: a committed pin set matches $TC's Init ($mline)"
+
+# ... and the built-in prelude is the repository toolchain's own,
+# reproduced byte-for-byte by the root generator (the dump it writes
+# beside it is not committed unless the check above needed a new one).
+out=$ROOT/$SCRATCH/repository
+mkdir -p "$out"
+runout=$(timeout 3600 lake env ./.lake/build/bin/natop-pins-export "$out") ||
+  fail "the repository's generator did not run on $TC:
+$(lake env ./.lake/build/bin/natop-pins-export "$out" 2>&1 | tail -20)"
+pfresh=$(printf '%s\n' "$runout" | sed -n 2p)
+[ "$pfresh" = "$out/$PBASE" ] ||
+  fail "the repository's generator wrote $pfresh, expected $out/$PBASE"
+diff -q "$PCOMMITTED" "$pfresh" >/dev/null ||
+  fail "the committed built-in prelude $PCOMMITTED is STALE:
+$(diff "$PCOMMITTED" "$pfresh" | head -20 | sed 's/^/    /')
+    regenerate it with \`lake exe natop-pins-export _tmp/x\` and copy
+    $(basename "$pfresh") into pins/"
+echo "pindump: the root generator reproduces $PCOMMITTED byte-for-byte"
+
+# ---------------------------------------------------------------- the
+# pinners: one per committed dump, each on its own toolchain.
 ran=0
 skipped=0
 
@@ -186,31 +246,18 @@ $( cd "$p" && lake env ./.lake/build/bin/natop-pins-export "$out" 2>&1 | tail -2
 $(diff "pins/$pbase" "$fresh" | head -20 | sed 's/^/    /')
     regenerate and commit:  cd $p && lake exe natop-pins-export ../../pins"
 
-  if [ "$ptc" = "$TC" ]; then
-    diff -q "$PCOMMITTED" "$pfresh" >/dev/null ||
-      fail "the committed built-in prelude $PCOMMITTED is STALE:
-$(diff "$PCOMMITTED" "$pfresh" | head -20 | sed 's/^/    /')
-    regenerate and commit:  cd $p && lake exe natop-pins-export ../../pins"
-    echo "pindump: $p reproduces pins/$pbase and $PCOMMITTED byte-for-byte"
-  else
-    # only the repository toolchain's prelude is committed; a foreign
-    # pinner's must agree with it below the meta line (the generating
-    # Lean's version and githash live there).
-    diff <(tail -n +2 "$PCOMMITTED") <(tail -n +2 "$pfresh") >/dev/null ||
-      fail "PRELUDE DRIFT — $ptc's built-in prelude differs from $PCOMMITTED
+  # only the repository toolchain's prelude is committed; a pinner's
+  # must agree with it below the meta line (the generating Lean's
+  # version and githash live there).
+  diff <(tail -n +2 "$PCOMMITTED") <(tail -n +2 "$pfresh") >/dev/null ||
+    fail "PRELUDE DRIFT — $ptc's built-in prelude differs from $PCOMMITTED
     below its meta line.  The prelude is one file for all supported
     toolchains (pins/README.md); a drifting one needs it generalised
     the way the pins were.
 $(diff <(tail -n +2 "$PCOMMITTED") <(tail -n +2 "$pfresh") | head -20 | sed 's/^/    /')"
-    echo "pindump: $p reproduces pins/$pbase byte-for-byte (prelude matches below its meta line)"
-  fi
+  echo "pindump: $p reproduces pins/$pbase byte-for-byte (prelude matches below its meta line)"
   ran=$((ran + 1))
 done
-
-[ "$ran" -gt 0 ] ||
-  fail "no pinner ran — the repository's own toolchain ($TC) must always have one"
-
-echo "pindump: $COMMITTED fresh ($(wc -l < "$COMMITTED") lines, toolchain $TC)"
 echo "pindump: $(ls pins/*.json | wc -l) dump(s) embedded: $(ls pins/*.json | xargs -n1 basename | tr '\n' ' ')"
 echo "pindump: $PCOMMITTED fresh ($(wc -l < "$PCOMMITTED") lines, $(grep -c '"inductive"\|"quot"\|"axiom"\|"def"\|"thm"\|"opaque"' "$PCOMMITTED") declaration records)"
 echo "pindump: $ran pinner(s) reproduced, $skipped skipped"

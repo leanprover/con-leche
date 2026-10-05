@@ -96539,7 +96539,7 @@ the "keep `mvcgen`, `vcgen` later" ruling had nothing to act on.
   `PinGen/Certs.lean` therefore keeps the old spellings and sets
   `linter.deprecated false`. `Kernel/Expr.lean`'s one site
   (`toNat_satPred`) now closes with `↓reduceIte` and the hypothesis,
-  which works on every toolchain. Afterwards, all four pinners
+  which works on every toolchain. Afterwards, all three pinners
   reproduce their dumps byte-for-byte.
 - **`have` is no longer `letFun`** (non-mechanical). Since v4.35 a
   `have` elaborates to a non-dependent `let`. The do-notation join
@@ -96566,16 +96566,37 @@ the "keep `mvcgen`, `vcgen` later" ruling had nothing to act on.
 `whitepaper/fragment-gate.sh` are warning-free.
 
 **Per-toolchain artefacts.**
-- `pinners/leanprover-lean4-v4.35.0-rc3/` and
-  `pins/leanprover-lean4-v4.35.0-rc3.json`. Below its header, the dump
-  is byte-identical to the nightly-2026-09-10 dump's body: both
-  toolchains come after the `Decidable` rewrite.
-- `#load_natop_pins` lists the new dump first, then v4.33.0,
-  v4.34.0-rc2 and the nightly.
-- The built-in prelude is now
-  `pins/leanprover-lean4-v4.35.0-rc3.prelude.ndjson`. It is identical
-  to the v4.33.0 prelude below the meta line, and the v4.33.0 one is
-  removed, since only the repository toolchain's prelude is committed.
+- **No new pin dump.** The committed nightly-2026-09-10 pin set
+  matches v4.35.0-rc3's `Init`: both toolchains come after the
+  `Decidable` rewrite. A first cut added a v4.35.0-rc3 dump and
+  pinner; the maintainer's ruling removed them: *"if the previous
+  works with the new Init we should not add one"*. `#load_natop_pins`
+  now lists the nightly dump first, because it is the one matching the
+  repository toolchain, then v4.33.0 and v4.34.0-rc2. So a dump is
+  named after the toolchain that first needed it, and the repository
+  toolchain need not have a dump or a pinner of its own.
+- **The rule is enforced by the checker, not by comparing files.** A
+  pin matches when the stream's stored value is definitionally equal
+  to it and its certificates check, so `tests/pindump.sh` no longer
+  requires a dump named after `lean-toolchain`. It builds the binary,
+  runs `scripts/natop-matrix.sh` on the repository toolchain (the
+  pinned operations' cone exported from `Init` by the bundled
+  `leanexport`, checked in verified mode), and fails unless that
+  accepts. A decline ("no pin variant matched") is the signal that a
+  new dump is needed. It still reproduces every pinner's dump
+  byte-for-byte. CI's `regenerate` job now needs the `build` job's
+  binary (`PINDUMP_BINARY`). `NatOpPins.lean`'s header,
+  `pins/README.md` and `pinners/README.md` state the rule.
+- The built-in prelude stays a per-toolchain artefact, unlike the
+  dumps. `ConLeche/Frontend/Prelude.lean` names it with a fixed
+  `include_str`, not through any dump's `preludeFile` field, which is
+  generator metadata that nothing reads at run time. The root
+  generator must reproduce it byte-for-byte, meta line (Lean version
+  and githash) included. So it is
+  `pins/leanprover-lean4-v4.35.0-rc3.prelude.ndjson`, regenerated on
+  v4.35.0-rc3. It is identical to the v4.33.0 prelude below the meta
+  line, and the v4.33.0 one is removed, since only the repository
+  toolchain's prelude is committed.
 - The e2e fixtures are not regenerated; they are pinned to their own
   exporter.
 - Fixed on the way: `scripts/natop-matrix.sh` still read the Nat-op
@@ -96592,7 +96613,8 @@ Mathlib's `v4.35.0-rc3` tag. `lake update` also drops the stale
 inherited `lean_inductive_models` entry. It builds warning-free with no
 source change.
 
-**Gates.** `tests/arena.sh` passes. Its layering, pindump (four of four
+**Gates.** `tests/arena.sh` passes. Its layering, pindump (a committed
+pin set matches v4.35.0-rc3's `Init`; three of three pinners
 reproduced), trust-surface, shake, challenge, quote, fragment and
 whitepaper-link gates pass, as do arena 90/92, e2e 456/456 and the
 `--trusted`/`--jobs` sweeps. One OVERVIEW.md anchor

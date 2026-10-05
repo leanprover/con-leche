@@ -88,11 +88,12 @@
 #   * Toolchain: installed by `elan` from the repo's `lean-toolchain`
 #     (leanprover/lean4:v4.35.0-rc3 at the time of writing).  Never pin the
 #     version here — `lean-toolchain` is the single source, and
-#     `tests/pindump.sh` independently refuses a repository dump that is
-#     not the running toolchain's.  It reproduces the OTHER committed
-#     dumps too, one per `pinners/*/`, but only for toolchains elan
-#     already has — which here is none of them, so those are labelled
-#     SKIPs.  `natop-matrix.yml`'s `regenerate` job runs the same gate
+#     `tests/pindump.sh` independently runs the checker over the
+#     running toolchain's `Init` export and fails unless a committed
+#     pin set matches it (task #328: a bump adds no dump when one
+#     does).  It reproduces the committed dumps too, one per
+#     `pinners/*/`, but only for toolchains elan already has — which
+#     here is none of them, so those are labelled SKIPs.  `natop-matrix.yml`'s `regenerate` job runs the same gate
 #     with `PINDUMP_INSTALL=1` and reproduces every one.
 #   * Network: needed once, for elan.  The package has NO dependencies
 #     since task #207 (`lake-manifest.json`'s `packages` array is
