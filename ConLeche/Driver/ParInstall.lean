@@ -1082,7 +1082,9 @@ def parInstall (mode : CheckMode) (err : IO.FS.Stream) (stride total t0 jobs : N
     for t in tasks do
       if let .ok st ← IO.wait t then stats := stats.push st
     stats := stats.push (← selfStats.get)
-    return some { name := "install pool", workers := jobs, tStart, tEnd, stats }
+    let r : PoolRep := { name := "install pool", workers := jobs,
+                         helper := some "the commit thread", tStart, tEnd, stats }
+    return some r
   -- (after a rejection the records past it may never be installed, and
   -- a worker may be waiting on one of their slots)
   ParInstall.stopWorkers sh (res matches .error _)

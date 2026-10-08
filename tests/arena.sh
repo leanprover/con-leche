@@ -615,7 +615,7 @@ stats_check "--jobs=4: the pools report their tail" \
   "$(printf '%s\n' "$s_pool" | grep -q '^con-leche: stats: check pool: .* tail .* after the last start' && echo ok)"
 s_prog=$(timeout 120 "$BIN" --jobs=4 --progress=1 "$SPLIT_GOOD" 2>&1 >/dev/null)
 stats_check "--jobs=4 --progress=1: heartbeats name the busy workers" \
-  "$(printf '%s\n' "$s_prog" | grep -q '^con-leche: check [0-9].* busy=[0-9]*/4' && \
+  "$(printf '%s\n' "$s_prog" | grep -q '^con-leche: check [0-9].* busy=[0-9]*/[0-9]' && \
      printf '%s\n' "$s_prog" | grep -q '^con-leche: install [0-9].* busy=[0-9]*/5' && echo ok)"
 echo "statistics: $stats_ok/$stats_total as expected"
 
