@@ -41,13 +41,20 @@ rounds, pages and checks of the current window first, the scans of the
 chunks read ahead when nothing else is waiting.  The main thread reads,
 assembles, and folds the checks.
 
-**Memory.**  A table entry is shared by every worker that reads it, so
-every worker marks what it built persistent before it returns it
-(`Runtime.markPersistent`, the install driver's escape,
-`ConLeche/Driver/ParInstall.lean`): the round-0 arrays and each later
-round's array, the pages, the records; a persistent object is never
-reference-counted.  What crosses threads for a short while is flat (a
-chunk's scan, its pending lines) or a few small containers.
+**Memory.**  An object every worker reads must not have its reference
+count touched by them, or the count is an atomic word all of them
+fight over: what is read through a borrowed reference (the tables, the
+window, the chunks' scans) is never counted on the way, and the table
+entries themselves — every name, level and expression the parse
+builds, and every record — are marked persistent by the worker that
+built them, before it hands them out (`markEach`, the install driver's
+escape `Runtime.markPersistent`; they live to the end of the run).
+Nothing else is marked: the arrays that hold the entries (a window's
+round arrays, the pages of the finished tables) and the bookkeeping
+(pending lines, positions, keys) are dropped and freed when the window,
+or the parse, is done with them; what crosses threads among them is
+either flat (a chunk's scan, its pending lines) or a container the
+runtime marks itself, without walking into the persistent entries.
 -/
 
 @[expose] public section
@@ -147,12 +154,15 @@ def await {α : Type} [Nonempty α] (p : IO.Promise α) : IO α := do
   | some a => pure a
   | none => throw (IO.userError "rounds parse: a job was dropped")
 
-/-- Mark a value persistent (unless `--no-mark-persistent`).  The
-escape is the install driver's (`Runtime.markPersistent`, the identity
-on the value; the object graph is marked in place and never freed). -/
-@[inline] def markP {α : Type} (noMark : Bool) (a : α) : IO Unit := do
+/-- Mark the ELEMENTS of an array persistent, not the array (which is
+dropped later), unless `--no-mark-persistent`.  The escape is the
+install driver's (`Runtime.markPersistent`, the identity on the value;
+the object graph is marked in place and never freed).  An element's
+walk stops at children already persistent: the entries it was built
+from. -/
+def markEach {α : Type} (noMark : Bool) (a : Array α) : IO Unit := do
   if !noMark then
-    let _ ← unsafe Runtime.markPersistent a
+    a.forM fun (x : α) => do let _ ← unsafe Runtime.markPersistent x
 
 /-! ## Reading and scanning -/
 
@@ -252,7 +262,7 @@ structure Cfg where
 
 /-- The pages a window over `[lo, hi)` (re)writes, on the workers, in
 groups of `grp`. -/
-def pagesIO {α : Type} [Sent α] (pl : Pool) (noMark : Bool) (P : Pages α) (s : Seg α)
+def pagesIO {α : Type} [Sent α] (pl : Pool) (P : Pages α) (s : Seg α)
     (lo hi : Nat) : IO (Array (Array α)) := do
   let p0 := pagesFrom lo
   let cnt := pagesCount lo hi
@@ -266,7 +276,6 @@ def pagesIO {α : Type} [Sent α] (pl : Pool) (noMark : Bool) (P : Pages α) (s 
       let pg ← IO.lazyPure fun _ =>
         (List.range (b - a)).foldl (fun acc k => acc.push (pageOf P s lo hi (p0 + a + k)))
           (Array.mkEmpty (b - a))
-      markP noMark pg
       return pg))
     i := b
   let mut out : Array (Array α) := Array.mkEmpty cnt
@@ -324,11 +333,10 @@ partial def roundsIO (pl : Pool) (noMark : Bool) (P : Prior) (W : Win) (pends : 
       let pend := pends.getD c .empty
       ps := ps.push (some (← pl.run .hi (do
         let o ← IO.lazyPure fun _ => roundR P W c pend np
-        let o := { o with own := ⟨o.own.n.shrinkLast, o.own.l.shrinkLast, o.own.e.shrinkLast⟩ }
-        if let some d := o.own.n.late.back? then markP noMark d
-        if let some d := o.own.l.late.back? then markP noMark d
-        if let some d := o.own.e.late.back? then markP noMark d
-        -- the entries this round bound: its late arrays
+        -- the entries this round bound (in its late arrays)
+        if let some d := o.own.n.late.back? then markEach noMark d
+        if let some d := o.own.l.late.back? then markEach noMark d
+        if let some d := o.own.e.late.back? then markEach noMark d
         return o)))
   let mut owns : Array Own := Array.mkEmpty W.data.size
   let mut pends' : Array ByteArray := Array.mkEmpty W.data.size
@@ -364,9 +372,8 @@ def computeW (pl : Pool) (cfg : Cfg) (P : Prior) (c0 : Ctr) (total : Nat) (xs : 
     let fc := (xs.getD i default).val.2
     ps := ps.push (← pl.run .hi (do
       let o ← IO.lazyPure fun _ => round0 P c0 i fc
-      let o := { o with dn := o.dn.extract 0 o.dn.size, dl := o.dl.extract 0 o.dl.size,
-                        de := o.de.extract 0 o.de.size }
-      markP cfg.noMark (o.dn, o.dl, o.de, o.kn.ids, o.kl.ids, o.ke.ids)
+      -- the entries round 0 bound (in its round-0 arrays)
+      markEach cfg.noMark o.dn; markEach cfg.noMark o.dl; markEach cfg.noMark o.de
       return o))
   let os ← ps.mapM await
   let W := Win.ofRound0 c0 (xs.map (·.val.2.data)) os
@@ -376,9 +383,9 @@ def computeW (pl : Pool) (cfg : Cfg) (P : Prior) (c0 : Ctr) (total : Nat) (xs : 
     | return none
   -- the finished tables after the window
   let cE := W.cEnd
-  let nn ← pagesIO pl cfg.noMark P.n W.n c0.n cE.n
-  let nl ← pagesIO pl cfg.noMark P.l W.l c0.l cE.l
-  let ne ← pagesIO pl cfg.noMark P.e W.e c0.e cE.e
+  let nn ← pagesIO pl P.n W.n c0.n cE.n
+  let nl ← pagesIO pl P.l W.l c0.l cE.l
+  let ne ← pagesIO pl P.e W.e c0.e cE.e
   return some (W, nn, nl, ne)
 
 /-- A window whose tables have joined the finished ones and whose
@@ -403,7 +410,7 @@ def startChecks (pl : Pool) (cfg : Cfg) (P : Prior) (W : Win) (xs : Array Scanne
     cps := cps.push (← pl.run .mid (do
       let r ← IO.lazyPure fun _ =>
         (⟨checkFlat P x.val.2 s, rfl⟩ : { r // r = checkFlat P x.val.2 s })
-      if let some (_, ds) := r.val then markP cfg.noMark ds
+      if let some (_, ds) := r.val then markEach cfg.noMark ds
       return ⟨x, s, r.val, r.property⟩))
   return cps
 
@@ -457,7 +464,6 @@ partial def streamLoop (pl : Pool) (h : IO.FS.Handle) (cfg : Cfg) (d : Done)
     | some (W, nn, nl, ne) =>
       if hk : g.P.keeps g.c nn nl ne then
         let P' := g.P.setFrom g.c nn nl ne
-        markP cfg.noMark P'
         let g1 : GSt := { g with P := P' }
         let cps ← startChecks pl cfg P' W xs
         let tEnd := xs.foldl (fun t x => t + x.val.1.size) g.total

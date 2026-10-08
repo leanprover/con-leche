@@ -180,18 +180,18 @@
 #       measured on the shipped binary (task #329's DESIGN record).
 #   ConLeche/Driver/ParParse.lean      unsafe
 #       THE ROUNDS PARSE'S MARKS (task #329).  One term-level
-#       `unsafe Runtime.markPersistent` call (`markP`), the same escape
-#       as above, taken by every worker on what it built before handing
-#       it out: a window's round-0 arrays and keys, each later round's
-#       array, the pages of the finished tables, the records a check
-#       built; and by the main thread on the finished tables after a
-#       window.  Every marked object is read-only from the mark on (the
-#       tables are only read; a page, array or record is never written
-#       again), the call is the identity on the value, and nothing the
-#       parse returns can turn on it: what the driver keeps of a window
-#       is CHECKED against the finished tables (`checkFlat`), and that
-#       check, not the rounds, is what the proof of the result rests
-#       on.  `--no-mark-persistent` turns it off.
+#       `unsafe Runtime.markPersistent` call (`markEach`), the same
+#       escape as above, taken by every worker on the table entries it
+#       built (a window's names, levels and expressions, in round 0 and
+#       in each later round) and on the records a check built, before
+#       it hands them out; never on an array or any other container,
+#       which the parse drops later.  Every marked object lives to the
+#       end of the run and is read-only from the mark on, the call is
+#       the identity on the value, and nothing the parse returns can
+#       turn on it: what the driver keeps of a window is CHECKED
+#       against the finished tables (`checkFlat`), and that check, not
+#       the rounds, is what the proof of the result rests on.
+#       `--no-mark-persistent` turns it off.
 #
 #       Run.lean and ParInstall.lean took these two escape classes over from `Main.lean`
 #       when the proof-carrying driver split out of it into

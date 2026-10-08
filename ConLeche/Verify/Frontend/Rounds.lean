@@ -56,6 +56,15 @@ theorem levelCheck_sound {nm : Nat → Except String Name} {lv : Nat → Except 
     | (simp [levelOfF, h, bind, Except.bind, pure, Except.pure])
     | (obtain ⟨h1, h2⟩ := h; simp [levelOfF, h1, h2, bind, Except.bind, pure, Except.pure])
 
+theorem levelsCheck_sound {lv : Nat → Except String Level} :
+    ∀ {us : List Nat} {ls : List Level}, levelsCheck lv us ls = true → us.mapM lv = .ok ls
+  | [], [], _ => rfl
+  | u :: us, l :: ls, h => by
+    simp only [levelsCheck, Bool.and_eq_true, okIs_iff] at h
+    simp [List.mapM_cons, h.1, levelsCheck_sound h.2, bind, Except.bind, pure, Except.pure]
+  | [], _ :: _, h => by simp [levelsCheck] at h
+  | _ :: _, [], h => by simp [levelsCheck] at h
+
 theorem exprCheck_sound {nm : Nat → Except String Name} {lv : Nat → Except String Level}
     {ex : Nat → Except String Expr} {r : ExprRec} {v : Expr}
     (h : exprCheck nm lv ex r v = true) : exprOfF nm lv ex r = .ok v := by
@@ -75,7 +84,11 @@ theorem exprCheck_sound {nm : Nat → Except String Name} {lv : Nat → Except S
     | (obtain ⟨⟨h1, h2⟩, h3⟩ := h
        simp [exprOfF, h1, h2, h3, bind, Except.bind, pure, Except.pure, Expr.mkLetE])
     | (obtain ⟨h1, h2⟩ := h
-       simp [exprOfF, h1, h2, bind, Except.bind, pure, Except.pure, Expr.mkApp])
+       simp [exprOfF, h1, h2, bind, Except.bind, pure, Except.pure, Expr.mkApp]; done)
+    | (obtain ⟨h1, h2⟩ := h
+       have h3 := levelsCheck_sound h2
+       simp only [exprOfF, h1, bind, Except.bind, pure, Except.pure, Expr.mkConst]
+       rw [h3])
 
 theorem Pages.noneIn_sound [Sent α] {P : Pages α} {lo hi : Nat} (h : P.noneIn lo hi = true) :
     ∀ j, lo ≤ j → j < hi → P.get j = none := by
@@ -152,7 +165,7 @@ theorem checkLine_sound {P : Prior} {c c' : Ctr} {r : LineRec} {o : Option Decla
     · rename_i x hx
       simp only [Option.some.injEq, Prod.mk.injEq] at h
       obtain ⟨rfl, rfl⟩ := h
-      exact ⟨⟨x, hx⟩, rfl, by simp [lineDecl, declOf, hx]⟩
+      exact ⟨⟨x, hx⟩, rfl, by simp only [lineDecl, declOf, cutLk_tabs]; rw [hx]⟩
     · simp at h
   | header =>
     simp only [checkLine, Option.some.injEq, Prod.mk.injEq] at h

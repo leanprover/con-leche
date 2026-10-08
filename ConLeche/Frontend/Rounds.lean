@@ -208,10 +208,38 @@ def Prior.keeps (P : Prior) (c : Ctr) (nn : Array (Array Name)) (nl : Array (Arr
 
 /-! ## The check -/
 
+/-- The check's lookups: the finished tables cut at a counter, read
+through the borrowed tables (no closure over them: a closure would
+take a reference, an atomic count on an object every worker reads).
+They are `cutLk P.tabs c`'s (`cutLk_tabs`). -/
+@[inline] def lkN (P : @& Prior) (b j : Nat) : Except String Name :=
+  match (if j < b then P.n.get j else none) with
+  | some n => pure n
+  | none => throw s!"undefined name index {j}"
+
+@[inline] def lkL (P : @& Prior) (b j : Nat) : Except String Level :=
+  match (if j < b then P.l.get j else none) with
+  | some l => pure l
+  | none => throw s!"undefined level index {j}"
+
+@[inline] def lkE (P : @& Prior) (b j : Nat) : Except String Expr :=
+  match (if j < b then P.e.get j else none) with
+  | some e => pure e
+  | none => throw s!"undefined expr index {j}"
+
+theorem cutLk_tabs (P : Prior) (c : Ctr) : cutLk P.tabs c = ⟨lkN P c.n, lkL P c.l, lkE P c.e⟩ :=
+  rfl
+
 /-- An answer matches an entry. -/
 @[inline] def okIs [BEq α] : Except String α → α → Bool
   | .ok w, v => w == v
   | .error _, _ => false
+
+/-- A constant's levels against its line's level indices. -/
+@[specialize] def levelsCheck (lv : Nat → Except String Level) : List Nat → List Level → Bool
+  | [], [] => true
+  | u :: us, l :: ls => okIs (lv u) l && levelsCheck lv us ls
+  | _, _ => false
 
 /-- A name entry against its line, without building it. -/
 @[inline] def nameCheck (nm : Nat → Except String Name) (r : @& NameRec) (v : Name) : Bool :=
@@ -244,6 +272,7 @@ built and compared. -/
       okIs ((pwOfF nm lv ex pw).map BinderMeta.mk) m
   | .letE ty vl bd, .letE t' v' b' => okIs (ex ty) t' && okIs (ex vl) v' && okIs (ex bd) b'
   | .proj tn ix st, .proj n' ix' s' => okIs (nm tn) n' && ix == ix' && okIs (ex st) s'
+  | .const n us, .const n' ls => okIs (nm n) n' && levelsCheck lv us ls
   | r, v => okIs (exprOfF nm lv ex r) v
 
 /-- No entry of a finished table in `[lo, hi)`: the gap a line skips. -/
@@ -259,14 +288,14 @@ termination_by hi - lo
   | .name i x =>
     if c.n ≤ i && P.n.noneIn c.n i then
       match P.n.get i with
-      | some v => if nameCheck (cutLk P.tabs c).name x v then some ({ c with n := i + 1 }, none)
+      | some v => if nameCheck (lkN P c.n) x v then some ({ c with n := i + 1 }, none)
           else none
       | none => none
     else none
   | .level i x =>
     if c.l ≤ i && P.l.noneIn c.l i then
       match P.l.get i with
-      | some v => if levelCheck (cutLk P.tabs c).name (cutLk P.tabs c).level x v then
+      | some v => if levelCheck (lkN P c.n) (lkL P c.l) x v then
             some ({ c with l := i + 1 }, none)
           else none
       | none => none
@@ -274,13 +303,13 @@ termination_by hi - lo
   | .expr i x =>
     if c.e ≤ i && P.e.noneIn c.e i then
       match P.e.get i with
-      | some v => if exprCheck (cutLk P.tabs c).name (cutLk P.tabs c).level (cutLk P.tabs c).expr
+      | some v => if exprCheck (lkN P c.n) (lkL P c.l) (lkE P c.e)
             x v then some ({ c with e := i + 1 }, none)
           else none
       | none => none
     else none
   | .decl d =>
-    match declOfF (cutLk P.tabs c).name (cutLk P.tabs c).level (cutLk P.tabs c).expr d with
+    match declOfF (lkN P c.n) (lkL P c.l) (lkE P c.e) d with
     | .ok (.inl x) => some (c, some x)
     | _ => none
   | .header => some (c, none)

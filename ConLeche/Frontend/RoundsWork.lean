@@ -174,14 +174,6 @@ and the position fits the word. -/
       ⟨d0', wr32 pos k (i * 256 + r + 1), ds.modify r (·.push x)⟩
     else ⟨d0', pos, ds⟩
 
-/-- The open round's array copied to its exact size (what is kept of
-it is never pushed to again). -/
-def Tab.shrinkLast (t : Tab α) : Tab α :=
-  match t with
-  | ⟨d0, lp, late⟩ =>
-    if late.size == 0 then ⟨d0, lp, late⟩
-    else ⟨d0, lp, late.modify (late.size - 1) fun a => a.extract 0 a.size⟩
-
 /-- How many entries the table has. -/
 @[inline] def Tab.size (t : @& Tab α) : Nat := t.d0.size
 
