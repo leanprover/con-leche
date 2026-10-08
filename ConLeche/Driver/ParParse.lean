@@ -371,7 +371,7 @@ def computeW (pl : Pool) (cfg : Cfg) (P : Prior) (c0 : Ctr) (total : Nat) (xs : 
   for i in [0:xs.size] do
     let fc := (xs.getD i default).val.2
     ps := ps.push (← pl.run .hi (do
-      let o ← IO.lazyPure fun _ => round0 P c0 i fc
+      let o ← IO.lazyPure fun _ => round0 P .empty c0 i fc
       -- the entries round 0 bound (in its round-0 arrays)
       markEach cfg.noMark o.dn; markEach cfg.noMark o.dl; markEach cfg.noMark o.de
       return o))

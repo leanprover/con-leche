@@ -128,8 +128,20 @@ instance : Sent Name := ⟨pendName, fun
 instance : Sent Level := ⟨pendLevel, fun
   | .param (.num .anonymous k) => k == sentP
   | _ => false⟩
+/-- The lazy parse (`ConLeche/Frontend/Lazy.lean`) binds an expression
+line no install reads to this placeholder: bound, not built.  It is not
+a pending entry (`Pages.get` answers it), and every lookup that would
+build a node from it fails instead (`isLazyE`). -/
+def sentL : Nat := 4000000003
+@[noinline] def lazyExpr : Expr := .fvar sentL (.bvar 0)
+
+/-- Is an entry the lazy placeholder? -/
+@[inline] def isLazyE : Expr → Bool
+  | .fvar k _ => k == sentL
+  | _ => false
+
 instance : Sent Expr := ⟨pendExpr, fun
-  | .fvar .. => true
+  | .fvar k _ => k != sentL
   | _ => false⟩
 
 /-- A finished table, in pages. -/

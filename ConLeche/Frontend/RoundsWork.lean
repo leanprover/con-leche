@@ -445,12 +445,13 @@ is read inline; everything else is the raw lookup's. -/
         match own.lateGet k with
         | some x => .ok x
         | none => .error (.defer (waitWord G.c k 2))
+      else if isLazyE v then .error .fail
       else .ok v
     else .error .fail
   else match rExprRaw P W G.c G.le G.ke own d0 b j with
     | .fvar k t =>
       if k == sentD then .error (.defer (winWait W.e W.data.size j 2))
-      else if k == sentF then .error .fail else .ok (.fvar k t)
+      else if k == sentF || k == sentL then .error .fail else .ok (.fvar k t)
     | x => .ok x
 
 /-- What one table line does in a round. -/
@@ -578,6 +579,21 @@ chunk's start not known yet). -/
     else .error (.defer 0)
   else .error .fail
 
+/-- Round 0's expression lookup: `r0Look`, a lazy entry (bound, not
+built) failing — a built line never reads one. -/
+@[inline] def r0LookE (pg : @& Pages Expr) (c0x c first b : Nat) (ids : @& Array Nat)
+    (d0 : @& Array Expr) (j : Nat) : Except Miss Expr :=
+  match r0Look pg c0x c 2 first b ids d0 j with
+  | .ok v => if isLazyE v then .error .fail else .ok v
+  | e => e
+
+/-- Is expression index `j` marked (to be built)?  An empty bitmap marks
+every index (the eager parse). -/
+@[inline] def isMarked (mk : @& ByteArray) (j : Nat) : Bool :=
+  mk.size == 0 ||
+    (let b := j / 8
+     if h : b < mk.size then (mk[b] >>> (j % 8).toUInt8) &&& 1 == 1 else false)
+
 /-- One more index on a table's keys, as round 0 pushes it: `first` and
 `ids` after a line binding `id` (the line count before it is `n`, the
 last index `b - 1`). -/
@@ -634,7 +650,8 @@ structure R0 where
 the flat scan `d` from position `p`, in order.  For each table the
 counter `b`, the first index `f`, the index list (empty while dense)
 and the round-0 array. -/
-def round0Go (P : @& Prior) (c0 : Ctr) (c : Nat) (d : @& ByteArray) (p : USize) (k : Nat)
+def round0Go (P : @& Prior) (mk : @& ByteArray) (c0 : Ctr) (c : Nat) (d : @& ByteArray) (p : USize)
+    (k : Nat)
     (bn fn : Nat) (idn : Array Nat) (dn : Array Name)
     (bl fl : Nat) (idl : Array Nat) (dl : Array Level)
     (be fe : Nat) (ide : Array Nat) (de : Array Expr)
@@ -651,10 +668,10 @@ def round0Go (P : @& Prior) (c0 : Ctr) (c : Nat) (d : @& ByteArray) (p : USize) 
       else
         let (fn', idn') := keyPush dn.size fn bn idn id
         match nameOfF (r0Look P.n c0.n c 0 fn bn idn dn) (r0Look P.l c0.l c 1 fl bl idl dl)
-            (r0Look P.e c0.e c 2 fe be ide de) x with
-        | .ok v => round0Go P c0 c d q k (id + 1) fn' idn' (dn.push v) bl fl idl dl
+            (r0LookE P.e c0.e c fe be ide de) x with
+        | .ok v => round0Go P mk c0 c d q k (id + 1) fn' idn' (dn.push v) bl fl idl dl
             be fe ide de pend np (prog + 1)
-        | .error (.defer blk) => round0Go P c0 c d q k (id + 1) fn' idn' (dn.push Sent.pend)
+        | .error (.defer blk) => round0Go P mk c0 c d q k (id + 1) fn' idn' (dn.push Sent.pend)
             bl fl idl dl be fe ide de
             (pendPush pend np p.toNat (ctrWord (dn.size != 0) bn) (ctrWord (dl.size != 0) bl)
               (ctrWord (de.size != 0) be) blk) (np + 1) prog
@@ -666,10 +683,10 @@ def round0Go (P : @& Prior) (c0 : Ctr) (c : Nat) (d : @& ByteArray) (p : USize) 
       else
         let (fl', idl') := keyPush dl.size fl bl idl id
         match levelOfF (r0Look P.n c0.n c 0 fn bn idn dn) (r0Look P.l c0.l c 1 fl bl idl dl)
-            (r0Look P.e c0.e c 2 fe be ide de) x with
-        | .ok v => round0Go P c0 c d q k bn fn idn dn (id + 1) fl' idl' (dl.push v)
+            (r0LookE P.e c0.e c fe be ide de) x with
+        | .ok v => round0Go P mk c0 c d q k bn fn idn dn (id + 1) fl' idl' (dl.push v)
             be fe ide de pend np (prog + 1)
-        | .error (.defer blk) => round0Go P c0 c d q k bn fn idn dn (id + 1) fl' idl'
+        | .error (.defer blk) => round0Go P mk c0 c d q k bn fn idn dn (id + 1) fl' idl'
             (dl.push Sent.pend) be fe ide de
             (pendPush pend np p.toNat (ctrWord (dn.size != 0) bn) (ctrWord (dl.size != 0) bl)
               (ctrWord (de.size != 0) be) blk) (np + 1) prog
@@ -680,23 +697,28 @@ def round0Go (P : @& Prior) (c0 : Ctr) (c : Nat) (d : @& ByteArray) (p : USize) 
         ⟨fe, de.size, ide⟩, pend, np, prog, true⟩
       else
         let (fe', ide') := keyPush de.size fe be ide id
+        if !isMarked mk id then
+          -- a line no install reads: bound, not built
+          round0Go P mk c0 c d q k bn fn idn dn bl fl idl dl (id + 1) fe' ide'
+            (de.push lazyExpr) pend np (prog + 1)
+        else
         match exprOfF (r0Look P.n c0.n c 0 fn bn idn dn) (r0Look P.l c0.l c 1 fl bl idl dl)
-            (r0Look P.e c0.e c 2 fe be ide de) x with
-        | .ok v => round0Go P c0 c d q k bn fn idn dn bl fl idl dl (id + 1) fe' ide'
+            (r0LookE P.e c0.e c fe be ide de) x with
+        | .ok v => round0Go P mk c0 c d q k bn fn idn dn bl fl idl dl (id + 1) fe' ide'
             (de.push v) pend np (prog + 1)
-        | .error (.defer blk) => round0Go P c0 c d q k bn fn idn dn bl fl idl dl (id + 1)
+        | .error (.defer blk) => round0Go P mk c0 c d q k bn fn idn dn bl fl idl dl (id + 1)
             fe' ide' (de.push Sent.pend)
             (pendPush pend np p.toNat (ctrWord (dn.size != 0) bn) (ctrWord (dl.size != 0) bl)
               (ctrWord (de.size != 0) be) blk) (np + 1) prog
         | .error .fail => ⟨dn, dl, de, ⟨fn, dn.size, idn⟩, ⟨fl, dl.size, idl⟩,
             ⟨fe, de.size, ide⟩, pend, np, prog, true⟩
-    | _ => round0Go P c0 c d q k bn fn idn dn bl fl idl dl be fe ide de pend np prog
+    | _ => round0Go P mk c0 c d q k bn fn idn dn bl fl idl dl be fe ide de pend np prog
 
 /-- Round 0 of chunk `c` (its flat scan `fc`) of a window starting at
 `c0`. -/
-def round0 (P : @& Prior) (c0 : Ctr) (c : Nat) (fc : @& FlatChunk) : R0 :=
+def round0 (P : @& Prior) (mk : @& ByteArray) (c0 : Ctr) (c : Nat) (fc : @& FlatChunk) : R0 :=
   if fc.data.size < USize.size then
-    round0Go P c0 c fc.data 0 fc.count 0 0 #[] #[] 0 0 #[] #[] 0 0 #[] (Array.mkEmpty (fc.count + 1))
+    round0Go P mk c0 c fc.data 0 fc.count 0 0 #[] #[] 0 0 #[] #[] 0 0 #[] (Array.mkEmpty (fc.count + 1))
       .empty 0 0
   else ⟨#[], #[], #[], default, default, default, .empty, 0, 0, true⟩
 

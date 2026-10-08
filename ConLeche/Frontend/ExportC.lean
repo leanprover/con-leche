@@ -2,6 +2,7 @@ module
 
 public import ConLeche.Frontend.Export
 public import ConLeche.Cached.ExprNodes
+public import Std.Data.HashSet.Basic
 /- The line reader the driver calls is the SPECIFICATION, `scanLineSpec`
 (the naive recogniser); the compiler substitutes `scanLineFwd` on the
 strength of `scanLineSpec_eq_scanLineFwd` (`@[csimp]`).  `Scan.Fast`
@@ -422,6 +423,24 @@ state need not look here at all. -/
   -- check, exactly as before.
   return .indDecl block nPd
 
+/-- The expression indices an inductive record reads: its members'
+types and its recursor rules' right-hand sides. -/
+def indExprIds (tys : List IndTypeRec) (cts : List IndCtorRec) (rcs : List IndRecRec) :
+    List Nat :=
+  tys.map (·.cv.type) ++ cts.map (·.cv.type) ++
+    rcs.flatMap (fun r => r.cv.type :: r.rules.map (·.rhs))
+
+/-- An expression lookup restricted to a set of indices (task #329):
+outside it, the lookup's own "undefined" message.  An inductive record
+is read through its own indices' restriction, which it never leaves
+(`indExprIds` lists every index it reads), so the restriction changes
+nothing it computes; what it buys is that the record's value depends on
+the lookup at those indices alone, BY DEFINITION — the lazy parse
+(`ConLeche/Frontend/Lazy.lean`) builds a record through a lookup that
+agrees with the serial parse's only there. -/
+@[inline] def restrictEx (s : Std.HashSet Nat) (ex : Nat → M Expr) (j : Nat) : M Expr :=
+  if s.contains j then ex j else throw s!"undefined expr index {j}"
+
 /-- The record's own semantics: the declaration kinds, producing
 `Declaration` records (the state is `processLineCoreD`'s, below).
 Every branch, guard and error string is the one the `Lean.Json` reader this replaced had (task #256); only the reads
@@ -475,6 +494,7 @@ changed, from key lookups in a DOM to fields of a syntax record. -/
       | k => throw s!"unknown quotient kind '{k}'"
     return .inl (.quotDecl qk cv)
   | .ind tys cts rcs =>
+    let ex := restrictEx (Std.HashSet.ofList (indExprIds tys cts rcs)) ex
     match ← validateIndF nm lv ex tys cts rcs with
     | .inl v => pure (.inr v)
     | .inr (cts, nPd) => return .inl (← indBlockOfF nm lv ex tys cts rcs nPd)
