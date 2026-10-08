@@ -59,7 +59,7 @@ The program's actual [`main`](https://github.com/leanprover/con-leche/blob/maste
 
 ### The Main Theorem
 
-The theorem [`no_False_declaration`](https://github.com/leanprover/con-leche/blob/master/ConLeche/MainTheorem.lean#L111-L118) is mostly a corollary of a stronger statement, namely that every accepted environment has a model in a suitable set theory. This theorem is also found in [`ConLeche/MainTheorem.lean`](./ConLeche/MainTheorem.lean):
+The theorem [`no_False_declaration`](https://github.com/leanprover/con-leche/blob/master/ConLeche/MainTheorem.lean#L110-L117) is mostly a corollary of a stronger statement, namely that every accepted environment has a model in a suitable set theory. This theorem is also found in [`ConLeche/MainTheorem.lean`](./ConLeche/MainTheorem.lean):
 
 ```lean
 theorem model_exists (V : Type w) [SetTheory V]

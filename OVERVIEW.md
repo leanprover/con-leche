@@ -92,7 +92,7 @@ The statement is two theorems: one about the declaration fold
 `checkDecls`, the function whose result the `con-leche` binary's
 driver returns for a parsed export stream, and one about the chunks
 the binary reads. The main theorem,
-[`model_exists` in `ConLeche/MainTheorem.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/MainTheorem.lean#L97-L100):
+[`model_exists` in `ConLeche/MainTheorem.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/MainTheorem.lean#L96-L99):
 
 > For every model `V` of the `SetTheory` interface, every
 > `Nat.div`/`Nat.mod` pin list `pins` and every list of declarations
@@ -133,7 +133,7 @@ and a truth value with a member is `{pt}`. So the two sides of every
 accepted equation denote the same set.
 
 The main corollary,
-[`no_False_declaration` in the same file](https://github.com/leanprover/con-leche/blob/master/ConLeche/MainTheorem.lean#L111-L118):
+[`no_False_declaration` in the same file](https://github.com/leanprover/con-leche/blob/master/ConLeche/MainTheorem.lean#L110-L117):
 
 > … if the chunks are a `jsonWithTheoremFalse` file — a name entry for
 > `False`, an expression entry for the constant `False`, a name entry

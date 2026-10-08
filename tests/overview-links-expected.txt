@@ -13,11 +13,11 @@
 == Main.lean#L43
     43  def ConLeche.CheckError.exitCode : CheckError → UInt32
 
-== ConLeche/MainTheorem.lean#L97-L100
-    97  theorem model_exists (V : Type w) [SetTheory V]
-    98      (pins : List NatOpPinSet) (ds : Array Declaration) (env : Env)
-    99      (accepted : checkDecls .verified pins ds = .ok env) :
-   100      Nonempty (Model V env) := by
+== ConLeche/MainTheorem.lean#L96-L99
+    96  theorem model_exists (V : Type w) [SetTheory V]
+    97      (pins : List NatOpPinSet) (ds : Array Declaration) (env : Env)
+    98      (accepted : checkDecls .verified pins ds = .ok env) :
+    99      Nonempty (Model V env) := by
 
 == ConLeche/Denotes.lean#L134-L135
    134  inductive Denotes (cval : Name → (LevelParam → Nat) → V) (env : Env) (φ : LevelParam → Nat) :
@@ -46,15 +46,15 @@
    289      A ∈ˢ univ (Level.eval φ u) → a ∈ˢ A → b ∈ˢ A →
    290      app (app (app E A) a) b = eqv a b
 
-== ConLeche/MainTheorem.lean#L111-L118
-   111  theorem no_False_declaration (V : Type w) [SetTheory V]
-   112      (pins : List NatOpPinSet) (chunks : List ByteArray)
-   113      (h : jsonWithTheoremFalse chunks) :
-   114      ∃ e, (do
-   115        let pre ← builtinPreludeE
-   116        let r ← parseChunks chunks
-   117        let ds := preparePrelude pre r.decls
-   118        checkDecls .verified pins ds) = .error e := by
+== ConLeche/MainTheorem.lean#L110-L117
+   110  theorem no_False_declaration (V : Type w) [SetTheory V]
+   111      (pins : List NatOpPinSet) (chunks : List ByteArray)
+   112      (h : jsonWithTheoremFalse chunks) :
+   113      ∃ e, (do
+   114        let pre ← builtinPreludeE
+   115        let r ← parseChunks chunks
+   116        let ds := preparePrelude pre r.decls
+   117        checkDecls .verified pins ds) = .error e := by
 
 == ConLeche/Accepts.lean#L62-L72
     62  def jsonWithTheoremFalse (chunks : List ByteArray) : Prop :=
@@ -1274,15 +1274,15 @@
 == Main.lean#L905
    905  def main (args : List String) : IO UInt32 := do
 
-== ConLeche/MainTheorem.lean#L111-L118
-   111  theorem no_False_declaration (V : Type w) [SetTheory V]
-   112      (pins : List NatOpPinSet) (chunks : List ByteArray)
-   113      (h : jsonWithTheoremFalse chunks) :
-   114      ∃ e, (do
-   115        let pre ← builtinPreludeE
-   116        let r ← parseChunks chunks
-   117        let ds := preparePrelude pre r.decls
-   118        checkDecls .verified pins ds) = .error e := by
+== ConLeche/MainTheorem.lean#L110-L117
+   110  theorem no_False_declaration (V : Type w) [SetTheory V]
+   111      (pins : List NatOpPinSet) (chunks : List ByteArray)
+   112      (h : jsonWithTheoremFalse chunks) :
+   113      ∃ e, (do
+   114        let pre ← builtinPreludeE
+   115        let r ← parseChunks chunks
+   116        let ds := preparePrelude pre r.decls
+   117        checkDecls .verified pins ds) = .error e := by
 
 == ConLeche/Denotes.lean#L270-L290
    270  structure Model (V : Type w) [SetTheory V] (env : Env) where
