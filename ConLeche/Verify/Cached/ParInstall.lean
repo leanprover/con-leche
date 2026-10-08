@@ -463,28 +463,23 @@ theorem buildShard_slotsOf (slots : Array (Name × Nat × Nat)) (offs : Array Na
   | nil => intro m hm; exact hm
   | cons t l ih => intro m hm; exact ih _ (hm.shardInsert _ _)
 
-/-- The shard builds, one task each. -/
-def buildBaseTasks (slots : Array (Name × Nat × Nat)) (offs : Array Nat)
-    (buckets : Array (Array (Array Nat))) (nShards : Nat) :
-    Array (Task (Std.HashMap Name (Nat × Nat × Nat))) :=
-  (Array.range nShards).map fun s =>
-    Task.spawn (prio := .dedicated) fun _ => buildShard slots offs buckets s
+/-- A built shard, with the evidence that it is `buildShard` of some
+shard number: what a shard task returns (it is built and marked
+multi-threaded on its own thread, so that the runtime's resolution of
+the task — which marks a task's result under its global lock — finds
+nothing left to mark). -/
+abbrev BuiltShard (slots : Array (Name × Nat × Nat)) (offs : Array Nat)
+    (buckets : Array (Array (Array Nat))) : Type :=
+  { m : Std.HashMap Name (Nat × Nat × Nat) // ∃ s, m = buildShard slots offs buckets s }
 
-/-- **The base index of the predicted slots**: `nShards` shards, each
-`buildShard`, built on parallel tasks (all spawned before the first is
-waited for; `(Task.spawn f).get` is `f ()`). -/
-def buildBase (slots : Array (Name × Nat × Nat)) (offs : Array Nat)
-    (buckets : Array (Array (Array Nat))) (nShards : Nat) : BaseIdx :=
-  (buildBaseTasks slots offs buckets nShards).map Task.get
-
-/-- **The builder's base is counter-injective.** -/
-theorem buildBase_inj (slots : Array (Name × Nat × Nat)) (offs : Array Nat)
-    (buckets : Array (Array (Array Nat))) (nShards : Nat) :
-    BaseInj (buildBase slots offs buckets nShards) := by
+/-- **A base of built shards is counter-injective.** -/
+theorem buildBase_inj {slots : Array (Name × Nat × Nat)} {offs : Array Nat}
+    {buckets : Array (Array (Array Nat))} (shards : Array (BuiltShard slots offs buckets)) :
+    BaseInj (shards.map (·.1)) := by
   apply baseInj_of_slotsOf (slots := slots)
   intro m hm
-  simp only [buildBase, buildBaseTasks, Array.map_map, Array.mem_map] at hm
-  obtain ⟨s, -, rfl⟩ := hm
+  simp only [Array.mem_map] at hm
+  obtain ⟨⟨m', s, rfl⟩, -, rfl⟩ := hm
   exact buildShard_slotsOf slots offs buckets s
 
 /-! ## What a worker installs, and the commit step -/

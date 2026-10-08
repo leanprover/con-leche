@@ -351,7 +351,7 @@ def depsChunk {α : Type} (B : BaseIdx) (ds : Array Declaration) (noMark : Bool)
   -- whichever task drops them last
   if !noMark then
     let _ ← unsafe Runtime.markPersistent edges
-  return (counts, state, edges)
+  Runtime.markMultiThreaded (counts, state, edges)
 
 /-- One thread of the dependency step: claim fine chunks off `next` and
 run `depsChunk` on each, returning the results with their chunk
@@ -380,7 +380,7 @@ def dependentsChunk (edges : Array (Array (Array (Nat × Array Nat))))
       if let some e := es[r]? then
         for (d, ks) in e do
           acc := acc.modify (d - lo) (· ++ ks)
-  return acc
+  Runtime.markMultiThreaded acc
 
 /-- The slots of records `lo .. hi - 1`, on a task of its own: one
 promise each, and the thunk over it a view reads.  (Not marked
@@ -394,7 +394,7 @@ def slotChunk (lo hi : Nat) :
     let p ← IO.Promise.new
     ps := ps.push p
     ss := ss.push (Thunk.mk fun _ => (p.result?.get).getD #[])
-  return (ps, ss)
+  Runtime.markMultiThreaded (ps, ss)
 
 /-- The prediction of records `lo .. hi - 1`, on a task of its own: each
 record's slot count, the chunk's slots `(name, record, position)` in
@@ -684,7 +684,10 @@ partial def builderLoop (S : Slots) (bd : Builder) (k : Nat) (fe : FEnv)
     match ← bd.final.get with
     | some e =>
       if k < e then builderLoop S bd k fe h
-      else return ⟨k, fe, ⟨h⟩⟩
+      else
+        -- marked here, not under the runtime's lock when the task resolves
+        let _ ← Runtime.markMultiThreaded fe
+        return ⟨k, fe, ⟨h⟩⟩
     | none =>
       bd.lock.lock
       bd.waiting.set true
@@ -846,9 +849,19 @@ def parInstall (mode : CheckMode) (err : IO.FS.Stream) (stride total t0 jobs : N
     let _ ← unsafe Runtime.markPersistent ds
   let tA0 ← IO.monoMsNow
   -- the prediction, chunk per task; then the counters (prefix sums)
-  let predTasks := chunks.map fun (lo, hi) =>
-    Task.spawn (prio := .dedicated) fun _ => ParInstall.predictChunk ds parts lo hi
-  let preds := predTasks.map Task.get
+  -- (every task below marks its result multi-threaded itself before it
+  -- returns: the runtime marks a task's result while it holds its one
+  -- global lock, and a result already marked costs it nothing)
+  let mut predTasks := #[]
+  for (lo, hi) in chunks do
+    -- (`IO.lazyPure`: a pure argument would be evaluated where the
+    -- action is built, on this thread)
+    predTasks := predTasks.push (← IO.asTask (prio := .dedicated) do
+      let r ← IO.lazyPure fun _ => ParInstall.predictChunk ds parts lo hi
+      Runtime.markMultiThreaded r)
+  let mut preds := Array.mkEmpty parts
+  for t in predTasks do
+    preds := preds.push (← IO.ofExcept (← IO.wait t))
   let mut vis : Array Nat := Array.mkEmpty n
   let mut offs : Array Nat := Array.mkEmpty parts
   let mut slots : Array (Name × Nat × Nat) := #[]
@@ -861,7 +874,16 @@ def parInstall (mode : CheckMode) (err : IO.FS.Stream) (stride total t0 jobs : N
     slots := slots ++ cs
   let buckets := preds.map (·.2.2)
   -- the base, shard per task
-  let B := Cached.buildBase slots offs buckets parts
+  let mut shardTasks := #[]
+  for s in [0:parts] do
+    shardTasks := shardTasks.push (← IO.asTask (prio := .dedicated) do
+      let r ← IO.lazyPure fun _ =>
+        (⟨Cached.buildShard slots offs buckets s, s, rfl⟩ : Cached.BuiltShard slots offs buckets)
+      Runtime.markMultiThreaded r)
+  let mut shards : Array (Cached.BuiltShard slots offs buckets) := Array.mkEmpty parts
+  for t in shardTasks do
+    shards := shards.push (← IO.ofExcept (← IO.wait t))
+  let B : Cached.BaseIdx := shards.map (·.1)
   -- (`B.size` forces the prediction and the base before the clock is read)
   let tA' ← if B.size + vis.size == 0 then IO.monoMsNow else IO.monoMsNow
   if !noMark then
@@ -942,7 +964,7 @@ def parInstall (mode : CheckMode) (err : IO.FS.Stream) (stride total t0 jobs : N
   let bt ← IO.asTask (prio := .dedicated)
     (ParInstall.builderLoop S bd 0 (mkFEnv Env.empty) rfl)
   let res ← ParInstall.commitLoop err stride total t0 fallbackAt
-    (Cached.buildBase_inj slots offs buckets parts) sh cst bd bt (0, mkFEnv Env.empty, #[])
+    (Cached.buildBase_inj shards) sh cst bd bt (0, mkFEnv Env.empty, #[])
     0 0 0 #[] rfl (.nil _) Cached.IdxBelow.mkFEnv_empty (Cached.ViewAgrees.empty B S)
   let tE ← IO.monoMsNow
   -- (after a rejection the records past it may never be installed, and
