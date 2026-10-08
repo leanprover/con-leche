@@ -549,7 +549,7 @@ theorem checkDeclC_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) (hs
             (fun s₄ u u' hs₄ hP₄ => ?_)
           exact SimC.pure hs₄ ⟨rfl, hmk ▸ hmk⟩
       | axiomInfo cv' => exact SimC.throw_bind
-      | thmInfo cv' v' => exact SimC.throw_bind
+      | thmInfo cv' => exact SimC.throw_bind
       | indInfo cv' caps => exact SimC.throw_bind
       | ctorInfo cv' nP nF => exact SimC.throw_bind
       | recInfo cv' mI rP rules => exact SimC.throw_bind

@@ -354,7 +354,7 @@ theorem checkDivModPinS_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env
   | some ci =>
     cases ci with
     | axiomInfo cv' => exact SimC.throw
-    | thmInfo cv' v' => exact SimC.throw
+    | thmInfo cv' => exact SimC.throw
     | indInfo cv' caps => exact SimC.throw
     | ctorInfo cv' nP nF => exact SimC.throw
     | recInfo cv' mI rP rules => exact SimC.throw

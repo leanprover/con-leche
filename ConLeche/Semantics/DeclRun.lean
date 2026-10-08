@@ -155,7 +155,7 @@ def DeclThmRun (μ : CheckMode) (F : Nat) (env : Env)
     ValueFrontRun μ F env cv value type' value' ∧
     -- stored by statement: the constant carries the record's own
     -- (raw) value, which nothing reads
-    env₂ = ⟨.thmInfo ⟨cv.name, cv.levelParams, type'⟩ value ::
+    env₂ = ⟨.thmInfo ⟨cv.name, cv.levelParams, type'⟩ ::
       env.consts⟩
 
 /-- An `opaqueDecl`'s guards and runs. -/

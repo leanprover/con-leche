@@ -133,7 +133,7 @@ theorem annotStepC_thm_consts {mode : CheckMode} {i : Nat} {fe : FEnv}
     {fe' : FEnv} {pend' : Array PendingCheck} (hty : cv.type = .const n ls)
     (h : annotStepC mode pins i fe pend (.thmDecl cv value) s₀ = .ok ((fe', pend'), s')) :
     fe'.env.consts =
-      ConstantInfo.thmInfo ⟨cv.name, cv.levelParams, .const n ls⟩ value ::
+      ConstantInfo.thmInfo ⟨cv.name, cv.levelParams, .const n ls⟩ ::
         fe.env.consts := by
   unfold annotStepC at h
   simp only [] at h
@@ -171,7 +171,7 @@ theorem installRun_thmDecl_const {mode : CheckMode} {ds : List Declaration}
       have hconsts := annotStepC_thm_consts hty hstepC
       obtain ⟨⟨_, ⟨new, hnew⟩, _⟩, _⟩ :=
         installRun_trace mode rest (PushChain.self hchain.canon)
-      refine ⟨ConstantInfo.thmInfo ⟨cv.name, cv.levelParams, .const n ls⟩ value, ?_, rfl⟩
+      refine ⟨ConstantInfo.thmInfo ⟨cv.name, cv.levelParams, .const n ls⟩, ?_, rfl⟩
       rw [hnew]
       exact List.mem_append_right _ (hconsts ▸ List.mem_cons_self)
     · exact ih hmem' hchain.canon

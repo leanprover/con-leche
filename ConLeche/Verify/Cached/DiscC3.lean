@@ -670,7 +670,7 @@ theorem majorToCtorC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode env
                       exact SimC.pure hs ⟨hden, hmaj⟩
               | axiomInfo cv => exact SimC.pure hs ⟨hden, hmaj⟩
               | defnInfo cv v h => exact SimC.pure hs ⟨hden, hmaj⟩
-              | thmInfo cv v => exact SimC.pure hs ⟨hden, hmaj⟩
+              | thmInfo cv => exact SimC.pure hs ⟨hden, hmaj⟩
               | ctorInfo cv nP' nF' => exact SimC.pure hs ⟨hden, hmaj⟩
               | recInfo cv mI rP rules' => exact SimC.pure hs ⟨hden, hmaj⟩
               | projInfo entry => exact SimC.pure hs ⟨hden, hmaj⟩
@@ -685,7 +685,7 @@ theorem majorToCtorC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode env
           | proj s'ᵢ j' e' => exact SimC.pure hs ⟨hden, hmaj⟩
         | axiomInfo cv => exact SimC.pure hs ⟨hden, hmaj⟩
         | defnInfo cv v h => exact SimC.pure hs ⟨hden, hmaj⟩
-        | thmInfo cv v => exact SimC.pure hs ⟨hden, hmaj⟩
+        | thmInfo cv => exact SimC.pure hs ⟨hden, hmaj⟩
         | indInfo cv caps => exact SimC.pure hs ⟨hden, hmaj⟩
         | recInfo cv mI rP rules' => exact SimC.pure hs ⟨hden, hmaj⟩
         | projInfo entry => exact SimC.pure hs ⟨hden, hmaj⟩
@@ -1219,7 +1219,7 @@ theorem iotaRecC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode env f) 
                     exact SimC.pure hs₄ trivial
               | axiomInfo cv' => exact SimC.pure hs₄ trivial
               | defnInfo cv' v h => exact SimC.pure hs₄ trivial
-              | thmInfo cv' v => exact SimC.pure hs₄ trivial
+              | thmInfo cv' => exact SimC.pure hs₄ trivial
               | indInfo cv' caps => exact SimC.pure hs₄ trivial
               | recInfo cv' mI' rP' rules' => exact SimC.pure hs₄ trivial
               | projInfo entry => exact SimC.pure hs₄ trivial
@@ -1245,7 +1245,7 @@ theorem iotaRecC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode env f) 
           exact SimC.pure hs trivial
       | axiomInfo cv => exact SimC.pure hs trivial
       | defnInfo cv v h => exact SimC.pure hs trivial
-      | thmInfo cv v => exact SimC.pure hs trivial
+      | thmInfo cv => exact SimC.pure hs trivial
       | indInfo cv caps => exact SimC.pure hs trivial
       | ctorInfo cv nP nF => exact SimC.pure hs trivial
       | projInfo entry => exact SimC.pure hs trivial

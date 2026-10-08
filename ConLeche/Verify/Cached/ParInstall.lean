@@ -498,7 +498,7 @@ def valueStep (mode : CheckMode) (W : FEnv) : Declaration →
       | .error e => .error e)
   | .thmDecl cv value =>
     some (match annotConstantValC mode W cv ({} : CState).flushed with
-      | .ok (r, _) => .ok (.thmInfo r.1 value, ⟨.thm, r.1, value⟩)
+      | .ok (r, _) => .ok (.thmInfo r.1, ⟨.thm, r.1, value⟩)
       | .error e => .error e)
   | .opaqueDecl cv value =>
     if reduceOpNames.contains cv.name then none

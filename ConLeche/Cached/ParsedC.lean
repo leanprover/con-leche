@@ -121,8 +121,8 @@ def checkThmValC (fe : FEnv) (cvA : ConstantVal) (jty : Expr)
   let jvt ← (coreKnotI mode fe checkFuel).infer 0 jv
   unless ← (coreKnotI mode fe checkFuel).defeq 0 jvt jty do
     throw (.invalid s!"type mismatch in theorem {cvA.name}")
-  -- stored by statement: the record's own value, unread (opaque)
-  pure (fe.push (.thmInfo cvA value))
+  -- stored by statement only: a stored theorem carries no value
+  pure (fe.push (.thmInfo cvA))
 
 /-- Check an opaque's value against `jty`; installed as an axiom. -/
 def checkOpaqueValC (fe : FEnv) (cvA : ConstantVal) (jty : Expr)

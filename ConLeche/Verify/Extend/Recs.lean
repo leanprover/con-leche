@@ -175,7 +175,7 @@ theorem SwapCongr.projEq {env₀ env₃ : Env} (hcg : SwapCongr env₀ env₃) :
           exact nomatch this
         | axiomInfo cv₃ => rfl
         | defnInfo cv₃ v₃ h₃ => rfl
-        | thmInfo cv₃ v₃ => rfl
+        | thmInfo cv₃₃ => rfl
         | indInfo cv₃ caps₃ => rfl
         | ctorInfo cv₃ np₃ nf₃ => rfl
         | recInfo cv₃ mI₃ rP₃ rules₃ => rfl
@@ -183,7 +183,7 @@ theorem SwapCongr.projEq {env₀ env₃ : Env} (hcg : SwapCongr env₀ env₃) :
       rw [hcg.findUp _ _ h0 (fun _ _ _ _ h => nomatch h)]
     | defnInfo cv v hint =>
       rw [hcg.findUp _ _ h0 (fun _ _ _ _ h => nomatch h)]
-    | thmInfo cv v =>
+    | thmInfo cv =>
       rw [hcg.findUp _ _ h0 (fun _ _ _ _ h => nomatch h)]
     | indInfo cv caps =>
       rw [hcg.findUp _ _ h0 (fun _ _ _ _ h => nomatch h)]

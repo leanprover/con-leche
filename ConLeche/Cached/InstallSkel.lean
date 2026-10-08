@@ -57,7 +57,7 @@ def skelName : InstallSkel → Name
 def ciSkel : ConstantInfo → InstallSkel
   | .axiomInfo cv => .ax cv.name
   | .defnInfo cv _ _ => .defn cv.name
-  | .thmInfo cv _ => .thm cv.name
+  | .thmInfo cv => .thm cv.name
   | .indInfo cv _ => .ind cv.name
   | .ctorInfo cv nP nF => .ctor cv.name nP nF
   | .recInfo cv mI rP _ => .recr cv.name mI rP

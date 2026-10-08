@@ -1107,7 +1107,7 @@ theorem annotStepC_skels (mode : CheckMode) (i : Nat) {fe : FEnv}
     refine Yields.bind' (annotConstantValC_fresh mode fe cv) fun p hr => ?_
     obtain ⟨cvA, jty⟩ := p
     apply Yields.pure
-    show SkelIs (fe.push (.thmInfo cvA value)) (.thm cv.name :: sk)
+    show SkelIs (fe.push (.thmInfo cvA)) (.thm cv.name :: sk)
     rw [← hr.1]; exact h.push _
   | opaqueDecl cv value =>
     simp only []

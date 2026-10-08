@@ -22,9 +22,9 @@ declaration from CHECKING it:
   inference — the syntactic guards and the annotation of its type and
   value run, the constant is pushed — and a `thm` record is installed
   BY STATEMENT: its header alone is annotated and the constant pushed
-  with the record's own (raw) value, which nothing ever reads (a
-  theorem is opaque to reduction), so phase A never enters a theorem's
-  body; either way a `PendingCheck` records the datum the check needs
+  with its statement only (a stored theorem carries no value: it is
+  opaque to reduction), so phase A never enters a theorem's body;
+  either way a `PendingCheck` records the datum the check needs
   (`ValueGroup`, `ConLeche/Kernel/CheckerSplit.lean` — the annotated
   value of a definition or opaque, the raw value of a theorem) together
   with the environment counter the declaration was installed at
@@ -167,7 +167,7 @@ def annotStepC (pins : List NatOpPinSet) (i : Nat) (fe : FEnv)
     flushC
     let r ← annotConstantValC mode fe cv
     let vis := fe.visibleBelow
-    pure (fe.push (.thmInfo r.1 value),
+    pure (fe.push (.thmInfo r.1),
       pend.push ⟨⟨.thm, r.1, value⟩, i, vis⟩)
   | .opaqueDecl cv value =>
     if reduceOpNames.contains cv.name then do

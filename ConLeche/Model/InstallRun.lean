@@ -165,7 +165,7 @@ theorem annotStepC_model (hμ : μ.verifiedChecks = true)
       obtain ⟨hv, rfl⟩ := pureC_ok h
       simp only [Prod.mk.injEq] at hv
       obtain ⟨rfl, rfl⟩ := hv
-      refine value .thm (fun cvA v => .thmInfo cvA v) (.thmDecl cv val) cvA val
+      refine value .thm (fun cvA _ => .thmInfo cvA) (.thmDecl cv val) cvA val
         rfl
         hs₂.residue rfl rfl (by rw [hcvA]; exact hwty) (fun h => absurd rfl h) ?_
       intro F hC
