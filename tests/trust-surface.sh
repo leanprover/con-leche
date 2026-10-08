@@ -178,7 +178,22 @@
 #       dependents, or a published result.  `--no-mark-persistent`
 #       turns all of them off at once, which is how the A/B is
 #       measured on the shipped binary (task #329's DESIGN record).
-#       Both files took these two escape classes over from `Main.lean`
+#   ConLeche/Driver/ParParse.lean      unsafe
+#       THE ROUNDS PARSE'S MARKS (task #329).  One term-level
+#       `unsafe Runtime.markPersistent` call (`markP`), the same escape
+#       as above, taken by every worker on what it built before handing
+#       it out: a window's round-0 arrays and keys, each later round's
+#       array, the pages of the finished tables, the records a check
+#       built; and by the main thread on the finished tables after a
+#       window.  Every marked object is read-only from the mark on (the
+#       tables are only read; a page, array or record is never written
+#       again), the call is the identity on the value, and nothing the
+#       parse returns can turn on it: what the driver keeps of a window
+#       is CHECKED against the finished tables (`checkFlat`), and that
+#       check, not the rounds, is what the proof of the result rests
+#       on.  `--no-mark-persistent` turns it off.
+#
+#       Run.lean and ParInstall.lean took these two escape classes over from `Main.lean`
 #       when the proof-carrying driver split out of it into
 #       `ConLeche/Driver/*`; `Main.lean` itself is CLI only (argument
 #       parsing, I/O, exit codes) and tolerates no escape.
@@ -225,6 +240,7 @@ TOKENS = {
 ALLOW = {
     'ConLeche/Driver/Run.lean':       {'unsafe'},
     'ConLeche/Driver/ParInstall.lean': {'unsafe'},
+    'ConLeche/Driver/ParParse.lean':  {'unsafe'},
     'ConLeche/Challenge.lean':       {'sorry'},
     'ConLeche/Kernel/Expr.lean':     {'computed_field'},
     'ConLeche/Kernel/Name.lean':     {'computed_field'},

@@ -30,11 +30,11 @@ theorem processLineCoreD_thmFalse {st st' : StateD} {k j v : Nat}
     (hj : st.exprs.get? j = some (Expr.mkConst falseName [])) :
     ∃ cv vl, cv.type = .const falseName [] ∧ Declaration.thmDecl cv vl ∈ st'.decls := by
   obtain ⟨x, hx, rfl⟩ := processLineCoreD_ok h
-  simp only [declOf] at hx
+  simp only [declOf, declOfF] at hx
   obtain ⟨cvp, hcv, hx⟩ := exceptBind_ok hx
   -- the header: some name, no level parameters, the type `False`
   have hcvp : cvp.type = .const falseName [] := by
-    unfold cvOf at hcv
+    unfold cvOfF at hcv
     obtain ⟨nm, _, hcv⟩ := exceptBind_ok hcv
     obtain ⟨ty, hty, hcv⟩ := exceptBind_ok hcv
     obtain ⟨lps, _, hcv⟩ := exceptBind_ok hcv
