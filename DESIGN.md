@@ -96661,3 +96661,74 @@ The streams that allocate the most pay the most, and the same change
 plausibly explains the lower Mathlib RSS. A cost of trying the new pin
 variant first on these v4.33.0 streams would show as checker
 instructions, which did not grow. No perf fix is attempted here.
+
+## TASK #329 — BLOCKCOPY: inductive-block install without index copies (2026-10-08, agent/329-blockcopy)
+
+**Diagnosis.** A gdb breakpoint on `lean_copy_expand_array` (arrays over
+50 000 slots) on init-full counted 125 large copies on master: 114 were the
+`FEnv` bucket array, two per inductive block — `FEnv.push` in
+`consBlockRecsBareF` (via `classFeR`, inside `genRecCheck`) and in
+`consBlockRecsTF` (in `checkBlockTailS`). Two references kept the
+constructors' index `fe₂` shared:
+1. the rule stage needs the constructors' environment and the rule-less
+   recursors' environment `feR` at once (`classRecsRulesOk … fe feR`), and
+   the caller still held `fe₂` for the tail, so `classFeR`'s pushes copied;
+2. `consBlockRecsTF`'s `fe₂.find?` / `constsResolveF fe₂` closures, threaded
+   through the recursion, held `fe₂` across every push (the
+   `consBlockRecsFFast` pattern, not yet applied here).
+The `BlockPass` record (`q.env₁`) did not cause a copy. The remaining
+copies are parser `IdTable` growth and the single `reduceOpNames` opaque
+(by design, one per stream).
+
+**Fix.**
+* `FEnv` gains `ovl : List ConstantInfo`, an overlay of constants consed onto
+  `env` without entering the index. It is empty on every environment the
+  install threads (`mkFEnv`, `push`). `find?` reads it first, then the index
+  with the bound advanced past it, which is exactly what pushing those
+  constants would answer (`find?_overlay_pushAll`). `find?` takes its `FEnv`
+  borrowed (`@&`): without that, the new branch made the compiler infer it
+  owned, which cost +2.8 G instructions on init-full in reference-count traffic.
+* `classFeROvl` / `genRecCheckOvl` (`Kernel/Inductives/GenRec.lean`): the
+  same stage with the rule-less recursors as an overlay sharing `fe`'s index.
+* `blockRecInfosTF` / `consBlockRecsTFFast` (`@[csimp]`): every stored
+  recursor record is built before the first push.
+* `checkBlockTailS` (`Cached/CheckerC.lean`) takes the pass record apart up
+  front, runs `genRecCheckOvl`, builds the records, then `FEnv.pushAll`s onto
+  a unique index. An `fe₂` that already carries an overlay (never on the
+  install path) runs the reference code. The old body is kept as
+  `checkBlockTailSRef`.
+* Proofs: `ConLeche/Verify/Cached/BlockOverlay.lean` proves
+  `checkBlockTailS_eq_ref` (unconditional) from the overlay lemma, the
+  `find?` congruence of the cached knot (`coreKnotI_congr`,
+  `constsResolveFC_congr`, new `sharedOpsRuleR_congr`) and the fact that the
+  rule stage reads `feR` only through `resolve` and `env`
+  (`classRecsRulesOk_congrR`). The three proofs that unfolded
+  `checkBlockTailS` (`checkBlockTailS_push`, `_skels`, `_run`) now rewrite
+  to the reference first. No statement changed, and MainTheorem and the
+  corollary are untouched.
+
+**Other install paths.** Per-declaration timings (the survey's
+instrumentation patch) show definitions, theorems and axioms flat across
+mathlib-full, and the gdb count shows no copies from them or from
+`recordCConst`. Opaques grow from 0.014 ms to 0.054 ms per declaration
+(0.1 s in total), which was not pursued.
+
+**Measurements** (one run each, `--jobs=32` on the big streams and `--jobs=8`
+on the init-exports; the big runs were taken under the flock, back to back):
+
+| stream | install before → after | instructions:u before → after |
+|---|---|---|
+| mathlib-full | 87.6 s → 53.1 s | 8387.3 G → 8325.7 G (−0.7 %) |
+| cslib | 30.3 s → 22.2 s | 2863.2 G → 2845.5 G |
+| NS | 17.1 s → 14.8 s | 3164.5 G → 3166.0 G |
+| mathlib-prefix | 7.9 s → 6.5 s | 689.78 G → 687.60 G |
+| init-full | 2.7 s → 2.5 s | 486.60 G → 487.27 G (+0.14 %) |
+
+All runs accept, and mathlib-full accepts 691 203 records. With the
+instrumentation, mathlib-full's block install time fell from 48.1 s to
+9.0 s. The mean cost per block, bucketed by stream position (100k
+declarations each), is now flat at 0.7–1.5 ms. On master it grew with
+the environment: 2.4, 5.8, 10.6, 13.7, 25.9, 35.7, 32.6 ms. The large
+copies on init-full fell from 125 to 11, and none of the 11 come from
+blocks. The small init-full increase is what `find?` costs for its
+overlay test.
