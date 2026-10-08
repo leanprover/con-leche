@@ -97869,3 +97869,120 @@ lane's own measurement, 8–96 there against 8–57 here):
   `perf --time` slice computed from it after the fact; not done here.
 
 Logs and scripts are in `_tmp/amdahl/mtclean-logs/`.
+
+## TASK #329 — FLATSCAN: the scan crosses threads as bytes (2026-10-08, agent/329-flatscan)
+
+**What.** The pipelined parse handed each chunk's scan from its worker
+task to the applying thread as `ScannedChunk` (`recs : Array LineRec`):
+a boxed record per line plus its nested records, ~10^8 objects on
+mathlib-full. The runtime marks a task's value multi-threaded object
+by object (`resolve_core` → `lean_mark_mt`, under the task manager's
+one mutex), and the applying thread and the next scan then paid
+atomic reference counts and multi-threaded frees on them. Now the
+worker writes the scanned records into ONE `ByteArray`
+(`FlatChunk := {data, count, stop}`; the task value is the chunk and
+its `FlatChunk`, five objects whatever the chunk holds), and the
+applying thread reads each record's fields back out of the bytes where
+it applies them. `ScannedChunk` stays as the specification.
+
+**The format** (`ConLeche/Frontend/Flat.lean`, implementation tier,
+self-contained). A line is a tag byte (ordered by frequency on
+Mathlib: `app` first, four lines in five) and its fields in
+declaration order; a `Nat` is four little-endian bytes below
+`2^32 - 1`, else the marker `FF FF FF FF` and its base-128 digits
+(`natVal` literals); a string is its byte length and UTF-8 bytes; a
+list its length and members. Three layers, each proved:
+- `enc*` (the bytes, `List UInt8`), `w*` (the writer, `push`es;
+  `w*_spec`: appends exactly `enc*`), `r*` (the reader, `Nat`
+  positions; `RD r x bs`: reads `x` from any buffer whose bytes there
+  begin with `bs`; `rdLine` and friends for every record type,
+  composed field by field with an `rd_field` tactic macro);
+- the fast readers the applying thread runs: `USize` positions, one
+  bounds test per four-byte field (`r4U`), `rNatU`, `rPwU` (the
+  one-byte `never` read in place), `viaNat` for strings, lists and
+  declarations; `withLineU d p k` reads a line and hands it to the
+  continuation `k`, so that with `k` inlined the record is never
+  built. `RDU`/`withLineU_spec`: on a buffer of machine-word size they
+  read what the specification readers read;
+- `lineEndU` (where a line ends; `lineEndU_spec`), so a reader that
+  wants line `k` of a chunk can index the chunk's line starts on its
+  own task — the random access the rounds parse needs.
+
+**What is proved, and how the driver carries it** (`Pipeline.lean`).
+`FlatChunk.Encodes fc sc`: `fc`'s bytes are `sc`'s records written
+one after the other, same count, same stop.
+`scanFlat_encodes : (scanFlat cap b).Encodes (scanChunk b)` (the flat
+scan is `scanChunkGo` line for line with `wLine` for `push`,
+`fun_induction` over the record scan); `applyFlat_eq : fc.Encodes sc →
+applyFlat st fc n = applyScanned st sc n` (`applyFlat` tests once per
+chunk that the buffer's size is a machine word and runs
+`applyFlatGoU`, else the `Nat`-position `applyFlatGo`; both proved
+against `applyList` by induction over the encoded list);
+`chunkStepF_of_encodes` then gives `chunkStep` through the unchanged
+`chunkStepS_scanChunk`. The scan task's subtype is now
+`t.get.2.Encodes (scanChunk t.get.1)` (`scanFlat_encodes` at the
+spawn). `applyScanned_scanChunk`, `chunkStepS_scanChunk`,
+`ParseOutcome`, `MainTheorem` and the main corollary are unchanged.
+Tests: `PipelineTests` runs the driver on four more fixtures (escaped
+`natVal`s, string literals, non-ASCII names, an inductive block) and
+round-trips every line kind through both readers (`flatRoundTrip`).
+
+**A kernel trap.** The first `r4` combined the bytes as
+`b0 + b1 * 256 + b2 * 65536 + b3 * 16777216` over `UInt32`. Every
+equation lemma of a reader that matches on `let (n, p) := rNat d p`
+then failed with "(kernel) deep recursion": checking the lemma, the
+kernel reduces the matcher's discriminant, unfolds `rNat` into the
+`UInt32` comparison and `Nat.mul` along its literal second argument,
+sixteen million steps deep. Shifts (`<<< 24`) recurse along the shift
+count; that is what `r4`/`le4` use now.
+
+**Measured** (parse-only runs: an uncommitted patch exits after the
+parse and times the applying loop around `chunkStepF`, the waits for
+the scan excluded; patches and scripts in
+`_tmp/amdahl/flatscan-logs/`; base = more-parallel `35d07f294`, runs
+interleaved; wall times indicative, load 15–40):
+
+| stream, jobs | parse base → flat | apply ns/line base → flat | instructions:u base → flat | cycles:u base → flat | peak RSS base → flat |
+|---|---|---|---|---|---|
+| init-full, j1 (3 runs) | 0.7 → 0.6 s | 45–47 → 42–44 | 17.17 G → 18.94 G (+10 %) | 5.76–6.11 G → 5.33–5.57 G (−8 %) | 385–407 → 381–403 MB |
+| NS, j8 (3 runs) | 2.2/1.6/1.7 → 1.5/1.6/1.6 s | 52/42/46 → 41/43/43 | 76.3–82.3 G → 82.3 G | 24.1–30.2 G → 23.9 G | 1.37–1.39 → 1.34–1.37 GB |
+| NS, j32 (3 runs) | 1.7/1.7/1.6 → 1.6/1.4/1.6 s | 46/45/42 → 44/39/44 | 76.6–77.2 G → 82.3 G | 24.5–25.0 G → 23.2–23.9 G | 1.39–1.40 → 1.35–1.37 GB |
+| mathlib-full, j8 (2 runs) | 8.9/16.3* → 10.8/8.1 s | 59/112* → 75/58 | 304–305 G → 326–328 G (+7 %) | 104/179* G → 112/88 G | 4.77–4.81 → 4.87–4.88 GB |
+| mathlib-full, j32 (2 runs) | 8.9/8.2 → 8.6/8.4 s | 63/57 → 60/56 | 307–308 G → 326–328 G | 107–109 G → 90–92 G | 4.79–4.80 → 4.85–4.89 GB |
+
+(*: a load spike; the in-flight count is clamped to 8, so j32 runs the
+parse as j8 does.) Where the time went, NS at j8 (`perf record -g`,
+cycles, inclusive): `lean_mark_mt` 5.0 % → 0, `lean_dec_ref_cold`
+6.6 % → 0.65 %, `mi_free_block_mt` 2.0 % → 0.02 % (`resolve_core` is
+inlined into `run_task`; the marking is `lean_mark_mt`). Full run,
+mathlib-full at `--jobs=32`: accepted 691 203, parse 8.6 s, install
+6.6 s, check 35.7 s, 8.462 T instructions:u, peak RSS 7.9 GB.
+
+So the parse's cycles fall (8–15 %) and the cross-thread value is
+flat; the applying thread gains a little on init-full and NS and
+nothing measurable on mathlib-full, where its ~58 ns per line are the
+tables (lookups into arrays of 10^8 entries, the smart constructors'
+hashing, the inserts), not the reads. The instruction count rises
+7–10 %: the writer, on the workers. Single-threaded scan of init-full
+(a scan-only hook, 6.49 M lines): records into an array 13.66 G
+instructions / 3.04 G cycles; records dropped 13.41 G / 2.85 G; flat
+15.61 G / 3.36 G — the writer is ~340 instructions a line, ~150 of
+them the `push` calls (13 bytes on an `app` line) and the rest the
+encoding and the dispatch on the record.
+
+**Tried and dropped: a cursor writer.** Keep the buffer longer than
+what is written and store small lines in place, first with
+`ByteArray.set!` at a `Nat` cursor, then with `uset` at a `USize`
+cursor behind one room test per line (proved: `wLineAt_spec`, the
+stores as `putList`, a `slowLine` through `copySlice` for the rest).
+Instructions −0.3 G on the init-full scan, cycles unchanged
+(3.36 G → 3.38–3.49 G). Not worth the 250 lines; the code is in
+`_tmp/amdahl/flatscan-logs/Flat-cursorU.lean.txt`.
+
+**What is left.** The worker still builds a `LineRec` per line and
+frees it after writing it: a scanner that writes the bytes itself
+would save the allocation, the free and the dispatch (most of the
+writer's cost and some of the scan's), at the price of proving that
+scanner against `scanLineSpec` composed with `wLine`. For the rounds
+parse: a chunk's `FlatChunk` is what a round reads; its line starts
+come from `lineEndU`, computed on the chunk's own task.
