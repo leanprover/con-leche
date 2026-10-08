@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.Frontend.Rounds
-import ConLeche.Verify.ExceptBind
+public import ConLeche.Frontend.Pipeline
 
 public section
 

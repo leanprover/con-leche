@@ -1,6 +1,6 @@
 module
 
-public import ConLeche.Frontend.Pipeline
+public import ConLeche.Frontend.ExportC
 
 @[expose] public section
 
