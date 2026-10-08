@@ -96801,3 +96801,18 @@ the environment: 2.4, 5.8, 10.6, 13.7, 25.9, 35.7, 32.6 ms. The large
 copies on init-full fell from 125 to 11, and none of the 11 come from
 blocks. The small init-full increase is what `find?` costs for its
 overlay test.
+
+**After merging with the PINSTALL lane** (`more-parallel` at b6578fb5e,
+whose `FEnv.base` layer now sits beside the overlay: `find?` reads the
+overlay, then the index, then the base on a miss). Tip vs merged, one run
+each:
+
+| stream | install tip → merged | instructions:u tip → merged |
+|---|---|---|
+| mathlib-full | 77.7 s → 48.5 s | 8388.1 G → 8325.4 G |
+| cslib | 29.8 s → 22.2 s | 2863.0 G → 2845.7 G |
+| NS | 15.2 s → 13.4 s | 3165.2 G → 3166.8 G |
+| mathlib-prefix | 7.0 s → 5.7 s | 689.81 G → 687.44 G |
+| init-full | 2.5 s → 2.2 s | 486.80 G → 487.29 G |
+
+All accept, and mathlib-full still accepts 691 203 records.
