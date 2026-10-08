@@ -97,8 +97,10 @@ theorem idxSpec_snd (n : Name) : ∀ l : List ConstantInfo,
 hidden: `mkFEnv`'s bound is the constant count). -/
 theorem mkFEnv_find? (env : Env) (n : Name) :
     (mkFEnv env).find? n = env.find? n := by
-  rw [FEnv.find?, mkFEnv_idx, mkFEnv_visibleBelow, Env.find?,
-    ← idxSpec_snd n env.consts]
+  show (match (mkFEnv env).idx[n]? with
+        | some (c, ci) => if c < (mkFEnv env).visibleBelow then some ci else none
+        | none => none) = _
+  rw [mkFEnv_idx, mkFEnv_visibleBelow, Env.find?, ← idxSpec_snd n env.consts]
   cases h : idxSpec env.consts n with
   | none => rfl
   | some p =>

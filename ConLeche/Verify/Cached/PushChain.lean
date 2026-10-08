@@ -4,6 +4,7 @@ public import ConLeche.Verify.Cached.AgreeFloor
 public import ConLeche.Verify.EnvBound
 import ConLeche.Verify.EnvWF
 import ConLeche.Verify.CheckerF
+import ConLeche.Verify.Cached.BlockOverlay
 
 public section
 
@@ -374,7 +375,8 @@ theorem checkBlockTailS_push (mode : CheckMode) {env : Env}
     (hndC : (q.ctorsAs.flatten.map (·.1.name)).Nodup)
     (hfrs : ∀ c ∈ q.ctorsAs.flatten, q.env₁.find? c.1.name = none) :
     Yields (checkBlockTailS mode block q) (fun fe' => PushChain env fe') := by
-  unfold checkBlockTailS
+  rw [checkBlockTailS_eq_ref]
+  unfold checkBlockTailSRef
   dsimp only
   refine Yields.bind fun _ => ?_
   refine Yields.bind fun _ => ?_

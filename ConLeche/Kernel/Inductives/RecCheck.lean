@@ -616,4 +616,35 @@ def consBlockRecsTF (find? : Name → Option ConstantInfo) (resolves : Expr → 
       (fe.push (.recInfo cv (p.majorIdxAt m) (p.rulePrefixAt m)
         (tgtStoredRules find? resolves cv (p.majorIdxAt m) (p.rulePrefixAt m) M rhss)))
 
+/-- The records `consBlockRecsTF` pushes, in push order. -/
+def blockRecInfosTF (find? : Name → Option ConstantInfo) (resolves : Expr → Bool)
+    (p : BlockShape) : Nat → List (ConstantVal × TargetMajor × List Expr) → List ConstantInfo
+  | _, [] => []
+  | m, (cv, M, rhss) :: rest =>
+    .recInfo cv (p.majorIdxAt m) (p.rulePrefixAt m)
+        (tgtStoredRules find? resolves cv (p.majorIdxAt m) (p.rulePrefixAt m) M rhss)
+      :: blockRecInfosTF find? resolves p (m + 1) rest
+
+/-- **`consBlockRecsTF`, every record built before the first push**
+(task #329; `consBlockRecsFFast`'s pattern).  The cached driver hands
+it `find?`/`resolves` closures over the very `FEnv` it pushes onto
+(`checkBlockTailS`); threaded through the recursion they hold the index
+at RC 2 across every push, so the first one copied the whole bucket
+array — once per inductive block.  Here the records are read first,
+the closures die, and the pushes run on a unique index.  Same value
+(`consBlockRecsTF_eq_fast`, `@[csimp]`). -/
+def consBlockRecsTFFast (find? : Name → Option ConstantInfo) (resolves : Expr → Bool)
+    (p : BlockShape) (m : Nat) (rs : List (ConstantVal × TargetMajor × List Expr))
+    (fe : FEnv) : FEnv :=
+  FEnv.pushAll (blockRecInfosTF find? resolves p m rs) fe
+
+@[csimp] theorem consBlockRecsTF_eq_fast : @consBlockRecsTF = @consBlockRecsTFFast := by
+  funext find? resolves p m rs fe
+  induction rs generalizing m fe with
+  | nil => rfl
+  | cons r rest ih =>
+    obtain ⟨cv, M, rhss⟩ := r
+    simp only [consBlockRecsTF, consBlockRecsTFFast, blockRecInfosTF, FEnv.pushAll]
+    exact ih (m + 1) _
+
 end ConLeche

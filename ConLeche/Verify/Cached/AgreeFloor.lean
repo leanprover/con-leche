@@ -2,6 +2,7 @@ module
 
 public import ConLeche.Cached.Installed
 import ConLeche.Verify.EnvBound
+import ConLeche.Verify.Cached.BlockOverlay
 
 public section
 
@@ -938,7 +939,8 @@ theorem checkBlockTailS_skels (mode : CheckMode) {block : List ConstantInfo}
       = q.p.members.map (fun ms => ms.ctors.map fun c => (c.1.name, c.2)))
     (hlenS : q.sortsss.map List.length = q.p.members.map (·.ctors.length)) :
     Yields (checkBlockTailS mode block q) (fun fe' => SkelIs fe' (blockSkels q.p sk)) := by
-  unfold checkBlockTailS
+  rw [checkBlockTailS_eq_ref]
+  unfold checkBlockTailSRef
   dsimp only
   refine Yields.bind fun _ => ?_
   refine Yields.bind fun _ => ?_

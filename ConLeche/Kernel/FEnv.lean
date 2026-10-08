@@ -44,6 +44,14 @@ structure FEnv where
   /-- Entries with counter `< visibleBelow` are visible; also the next
   counter `push` hands out. -/
   visibleBelow : Nat
+  /-- The **overlay** (task #329): constants consed onto `env` WITHOUT
+  entering the index, newest first (`overlay`).  Empty on every
+  environment the install threads (`mkFEnv`, `push`); non-empty only on
+  the inductive block's rule-less-recursor environment, a read-only view
+  that shares the constructors' index instead of copying it.  `find?`
+  reads it before the index, as if its constants had been pushed
+  (`find?_overlay`, `ConLeche/Verify/Cached/BlockOverlay.lean`). -/
+  ovl : List ConstantInfo
 
 /-- The index build, from the back: the newest (front) constant is
 inserted last and wins, exactly as `List.find?` takes the first match —
@@ -60,16 +68,27 @@ def mkFEnvGo : List ConstantInfo → Nat × Std.HashMap Name (Nat × ConstantInf
 constant count). -/
 def mkFEnv (env : Env) : FEnv :=
   let p := mkFEnvGo env.consts
-  ⟨env, p.2, p.1⟩
+  ⟨env, p.2, p.1, []⟩
 
 namespace FEnv
 
 /-- Indexed lookup, bounded by the visibility counter (`= Env.find?` for
-`mkFEnv`, which hides nothing). -/
+`mkFEnv`, which hides nothing).  With an overlay, the overlay first and
+the bound advanced past it — exactly what pushing the overlay's
+constants would answer. -/
 def find? (fe : FEnv) (n : Name) : Option ConstantInfo :=
-  match fe.idx[n]? with
-  | some (c, ci) => if c < fe.visibleBelow then some ci else none
-  | none => none
+  match fe.ovl with
+  | [] =>
+    match fe.idx[n]? with
+    | some (c, ci) => if c < fe.visibleBelow then some ci else none
+    | none => none
+  | ovl@(_ :: _) =>
+    match ovl.find? (·.name == n) with
+    | some ci => some ci
+    | none =>
+      match fe.idx[n]? with
+      | some (c, ci) => if c < fe.visibleBelow + ovl.length then some ci else none
+      | none => none
 
 /-- Restrict the view to the first `k` installed constants (task #108).
 `O(1)`: a field update on the single linearly-threaded index. -/
@@ -83,7 +102,15 @@ bound advances with it — so a push is visible to everything checked
 after it and to nothing checked before (task #108). -/
 def push (fe : FEnv) (ci : ConstantInfo) : FEnv :=
   ⟨⟨ci :: fe.env.consts⟩, fe.idx.insert ci.name (fe.visibleBelow, ci),
-   fe.visibleBelow + 1⟩
+   fe.visibleBelow + 1, fe.ovl⟩
+
+/-- **Cons `new` (newest first) as an overlay** (task #329): the
+environment `new` pushed onto `fe` would be (`find?_overlay`, for an
+`fe` without an overlay), with the index SHARED, not mutated — two live
+environments, one bucket array.  Read-only: the install never pushes
+onto it. -/
+def overlay (fe : FEnv) (new : List ConstantInfo) : FEnv :=
+  ⟨⟨new ++ fe.env.consts⟩, fe.idx, fe.visibleBelow, new ++ fe.ovl⟩
 
 /-- Indexed projection-table lookup (`= Env.findProj?` for `mkFEnv`). -/
 def findProj? (fe : FEnv) (T : Name) (i : Nat) : Option ProjEntry :=

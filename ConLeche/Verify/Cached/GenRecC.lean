@@ -12,6 +12,7 @@ import ConLeche.Verify.Cached.NestPosC
 public import ConLeche.Verify.Inductives.NestScope
 import ConLeche.Verify.Cached.AgreeFloor
 import ConLeche.Verify.Denote.IndFrame
+import ConLeche.Verify.Cached.BlockOverlay
 
 public section
 
@@ -882,7 +883,8 @@ theorem checkBlockTailS_run (hμ : mode.verifiedChecks = true)
     ∃ F, (checkBlockTail (fueledOpsM mode) block
       ⟨env₁, cvTas, p, ctorsAs, sortsss, kinds, nfs, params, rd, Ms₀, tbl⟩).val F
         = .ok feOut.env := by
-  unfold checkBlockTailS at h
+  rw [checkBlockTailS_eq_ref] at h
+  unfold checkBlockTailSRef at h
   dsimp only at h
   rw [checkBlockIdxSortsF_eqC] at h
   obtain ⟨isorts, sS, hsorts, h⟩ := bindC_ok h
