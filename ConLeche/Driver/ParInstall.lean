@@ -201,7 +201,7 @@ def goodB (ds : Array Declaration) (B : BaseIdx) (S : Slots) (vis : Array Nat) (
   match ds[k]?, vis[k]? with
   | some pd, some v =>
     andPinOk pd && (match r with
-      | .ok (L, _) => slotsOk B S v L
+      | .ok (L, _) => slotsOk B S v L && selfOk S k L
       | .error _ => true)
   | _, _ => false
 
@@ -209,7 +209,8 @@ def goodB (ds : Array Declaration) (B : BaseIdx) (S : Slots) (vis : Array Nat) (
 def GoodAt (ds : Array Declaration) (B : BaseIdx) (S : Slots) (vis : Array Nat) (k : Nat)
     (r : Except CheckError (List ConstantInfo × Option ValueGroup)) : Prop :=
   ∀ pd v, ds[k]? = some pd → vis[k]? = some v →
-    andPinOk pd = true ∧ ∀ L vg?, r = .ok (L, vg?) → slotsOk B S v L = true
+    andPinOk pd = true ∧
+      ∀ L vg?, r = .ok (L, vg?) → slotsOk B S v L = true ∧ slotList S k = L
 
 theorem goodB_spec {ds : Array Declaration} {B : BaseIdx} {S : Slots} {vis : Array Nat} {k : Nat}
     {r : Except CheckError (List ConstantInfo × Option ValueGroup)}
@@ -219,7 +220,8 @@ theorem goodB_spec {ds : Array Declaration} {B : BaseIdx} {S : Slots} {vis : Arr
   refine ⟨h.1, fun L vg? hr => ?_⟩
   have h2 := h.2
   rw [hr] at h2
-  exact h2
+  simp only [Bool.and_eq_true] at h2
+  exact ⟨h2.1, selfOk_spec h2.2⟩
 
 /-- An install result for a record, with its evidence: it is `workerRes`
 of that record, and when `good` the commit's checks hold (`GoodAt`) —
@@ -643,6 +645,63 @@ partial def waitDone (sh : Shared mode ds B S vis) (cst : IO.Ref (Array Nat)) (k
     cst.modify fun a => (a.modify 0 (· + 1)).modify 1 (· + (t1 - t0))
     return some q
 
+/-- **The builder** of the serial index, beside the commit loop: it
+pushes the slots of the records the commit loop has committed
+(`committed`, published in batches), in order, and stops at `final`.
+What it returns is `prefixFe S k` — the index the commit loop's run is
+about — with the proof. -/
+structure Builder where
+  committed : IO.Ref Nat
+  final : IO.Ref (Option Nat)
+  waiting : IO.Ref Bool
+  lock : Std.BaseMutex
+  cv : Std.Condvar
+
+/-- Tell the builder it may push the first `k` records' slots. -/
+def Builder.publish (bd : Builder) (k : Nat) : IO Unit := do
+  bd.committed.set k
+  if ← bd.waiting.get then
+    bd.lock.lock
+    bd.lock.unlock
+    bd.cv.notifyOne
+
+/-- Tell the builder to stop after the first `k` records. -/
+def Builder.finish (bd : Builder) (k : Nat) : IO Unit := do
+  bd.committed.set k
+  bd.final.set (some k)
+  bd.lock.lock
+  bd.lock.unlock
+  bd.cv.notifyOne
+
+/-- The builder's loop: push record `k`'s slot once it is committed;
+sleep (on its own condition variable) when it has caught up. -/
+partial def builderLoop (S : Slots) (bd : Builder) (k : Nat) (fe : FEnv)
+    (h : fe = prefixFe S k) : IO (Σ' (k : Nat) (fe : FEnv), PLift (fe = prefixFe S k)) := do
+  if k < (← bd.committed.get) then
+    builderLoop S bd (k + 1) (prefixStep S k fe) (by rw [h]; exact prefixStep_eq S k)
+  else
+    match ← bd.final.get with
+    | some e =>
+      if k < e then builderLoop S bd k fe h
+      else return ⟨k, fe, ⟨h⟩⟩
+    | none =>
+      bd.lock.lock
+      bd.waiting.set true
+      if !(k < (← bd.committed.get)) && (← bd.final.get).isNone then
+        bd.cv.wait bd.lock
+      bd.waiting.set false
+      bd.lock.unlock
+      builderLoop S bd k fe h
+
+/-- Stop the builder at record `k` and take its index. -/
+def joinBuilder (bd : Builder) (t : Task (Except IO.Error (Σ' (k : Nat) (fe : FEnv),
+      PLift (fe = prefixFe S k)))) (k : Nat) : IO (Option {fe : FEnv // fe = prefixFe S k}) := do
+  bd.finish k
+  match ← IO.wait t with
+  | .ok ⟨k', fe, ⟨h⟩⟩ =>
+    if hk : k' = k then return some ⟨fe, hk ▸ h⟩ else return none
+  | .error _ => return none
+
 /-- **The fallback**: stop the workers and continue serially from the
 run the commit thread holds. -/
 def fallbackFrom (err : IO.FS.Stream) (stride total t0 : Nat)
@@ -659,21 +718,40 @@ def fallbackFrom (err : IO.FS.Stream) (stride total t0 : Nat)
     err.flush
   installLoop mode err stride total t0 ds p₀ k p hrun
 
+/-- The fallback from the commit loop at record `k`: the builder's index
+there, then `fallbackFrom`. -/
+def commitFallback (err : IO.FS.Stream) (stride total t0 : Nat)
+    (sh : Shared mode ds B S vis) (bd : Builder)
+    (bt : Task (Except IO.Error (Σ' (k : Nat) (fe : FEnv), PLift (fe = prefixFe S k))))
+    (p₀ : Nat × FEnv × Array PendingCheck) (k i : Nat) (pend : Array PendingCheck)
+    (hrun : InstallRun mode natOpPinSets (ds.toList.take k) p₀ (i, prefixFe S k, pend)) :
+    IO (Except (CheckError × Nat)
+      (Σ' (p' : Nat × FEnv × Array PendingCheck),
+        PLift (InstallRun mode natOpPinSets ds.toList p₀ p'))) := do
+  match ← joinBuilder bd bt k with
+  | some ⟨fe, hfe⟩ => fallbackFrom err stride total t0 sh p₀ k (i, fe, pend) (hfe ▸ hrun)
+  | none => return .error (.internal "parallel install: the index builder failed", i)
+
 /-- **The commit loop.**  `installLoop`'s run, one record per step, each
-record's step added from its install at its view.  `cst` counts the
-commit thread's sleeps waiting for an installer and its own installs, with their
-times. -/
+record's step added from its install at its view.  The run is over
+`prefixFe S k`, the index the builder computes (the commit thread
+pushes nothing); `c` is that index's counter.  At the end (or at a
+fallback) it takes the builder's index.  `cst` counts the commit
+thread's sleeps waiting for an installer and its own installs, with
+their times. -/
 def commitLoop (err : IO.FS.Stream) (stride total t0 : Nat) (fallbackAt : Option Nat)
     (hB : BaseInj B) (sh : Shared mode ds B S vis) (cst : IO.Ref (Array Nat))
+    (bd : Builder) (bt : Task (Except IO.Error (Σ' (k : Nat) (fe : FEnv),
+      PLift (fe = prefixFe S k))))
     (p₀ : Nat × FEnv × Array PendingCheck) :
-    (k : Nat) →
-    (p : Nat × FEnv × Array PendingCheck) →
-    InstallRun mode natOpPinSets (ds.toList.take k) p₀ p →
-    IdxBelow p.2.1 → ViewAgrees B S p.2.1 →
+    (k i c : Nat) → (pend : Array PendingCheck) →
+    (prefixFe S k).visibleBelow = c →
+    InstallRun mode natOpPinSets (ds.toList.take k) p₀ (i, prefixFe S k, pend) →
+    IdxBelow (prefixFe S k) → ViewAgrees B S (prefixFe S k) →
       IO (Except (CheckError × Nat)
         (Σ' (p' : Nat × FEnv × Array PendingCheck),
           PLift (InstallRun mode natOpPinSets ds.toList p₀ p')))
-  | k, (i, fe, pend), hrun, hidx, hag => do
+  | k, i, c, pend, hc, hrun, hidx, hag => do
     if hk : k < ds.size then
       let pd := ds[k]
       have hlist : ds.toList.take (k + 1) = ds.toList.take k ++ [pd] := by
@@ -685,9 +763,9 @@ def commitLoop (err : IO.FS.Stream) (stride total t0 : Nat) (fallbackAt : Option
           {ConLeche.Cached.declCLabel pd} \
           t={ConLeche.Cached.msSecs (now - t0)}s\n"
         err.flush
-      if fallbackAt == some k then
-        fallbackFrom err stride total t0 sh p₀ k (i, fe, pend) hrun
-      else if hv : vis[k]? = some fe.visibleBelow then
+      if k % 64 == 0 then bd.publish k
+      if fallbackAt == some k then commitFallback err stride total t0 sh bd bt p₀ k i pend hrun
+      else if hv : vis[k]? = some c then
         -- the record's install: here if nobody took it, else the
         -- installer's, slept for (never spun) if it is still running
         let mine ← tryTake sh k
@@ -701,35 +779,48 @@ def commitLoop (err : IO.FS.Stream) (stride total t0 : Nat) (fallbackAt : Option
             pure (some q)
           else waitDone sh cst k
         match q? with
-        | none => fallbackFrom err stride total t0 sh p₀ k (i, fe, pend) hrun
+        | none => commitFallback err stride total t0 sh bd bt p₀ k i pend hrun
         | some ⟨(k', r, good), hr, hg⟩ =>
           if hk' : k' = k then
             if hgood : good = true then
               have hG : GoodAt ds B S vis k r := hk' ▸ hg hgood
-              have hG' := hG pd fe.visibleBelow (Array.getElem?_eq_getElem hk) hv
-              have hval : r = installStep mode natOpPinSets (workerView B S fe.visibleBelow) pd := by
+              have hG' := hG pd c (Array.getElem?_eq_getElem hk) hv
+              have hval : r = installStep mode natOpPinSets
+                  (workerView B S (prefixFe S k).visibleBelow) pd := by
                 have hr' : r = workerRes mode ds B S vis k := hk' ▸ hr
-                rw [hr']
+                rw [hr', hc]
                 simp only [workerRes, Array.getElem?_eq_getElem hk, hv, pd]
               match hres : r with
               | .ok (L, vg?) =>
-                let v := fe.visibleBelow
                 have hok := hG'.2 L vg? hres
-                have hstep := installStep_commit (pins := natOpPinSets) (i := i) (pend := pend)
+                have hnext : FEnv.pushAll L (prefixFe S k) = prefixFe S (k + 1) := by
+                  show _ = FEnv.pushAll (slotList S k) (prefixFe S k)
+                  rw [hok.2]
+                have hstep0 := installStep_commit (pins := natOpPinSets) (i := i) (pend := pend)
                   hag hidx hG'.1 (hval.symm.trans hres)
-                commitLoop err stride total t0 fallbackAt hB sh cst p₀ (k + 1)
-                  (i + 1, FEnv.pushAll L fe, pushPending pend i v vg?)
+                have hstep : annotDeclStep mode natOpPinSets (i, prefixFe S k, pend) pd =
+                    .ok (i + 1, prefixFe S (k + 1), pushPending pend i c vg?) := by
+                  rw [← hnext, ← hc]; exact hstep0
+                commitLoop err stride total t0 fallbackAt hB sh cst bd bt p₀ (k + 1)
+                  (i + 1) (c + L.length) (pushPending pend i c vg?)
+                  (by rw [← hnext, pushAll_visibleBelow, hc])
                   (by rw [hlist]; exact InstallRun.snoc mode hrun hstep)
-                  (hidx.pushAll L)
-                  (ViewAgrees.pushAll hB L hidx hag hok)
-              | .error e => return .error (e, i)
-            else fallbackFrom err stride total t0 sh p₀ k (i, fe, pend) hrun
-          else fallbackFrom err stride total t0 sh p₀ k (i, fe, pend) hrun
-      else fallbackFrom err stride total t0 sh p₀ k (i, fe, pend) hrun
+                  (hnext ▸ hidx.pushAll L)
+                  (hnext ▸ ViewAgrees.pushAll hB L hidx hag (hc ▸ hok.1))
+              | .error e =>
+                bd.finish k
+                return .error (e, i)
+            else commitFallback err stride total t0 sh bd bt p₀ k i pend hrun
+          else commitFallback err stride total t0 sh bd bt p₀ k i pend hrun
+      else commitFallback err stride total t0 sh bd bt p₀ k i pend hrun
     else
-      return .ok ⟨(i, fe, pend), ⟨by
-        rw [List.take_of_length_le (by simp; omega)] at hrun
-        exact hrun⟩⟩
+      match ← joinBuilder bd bt k with
+      | some ⟨fe, hfe⟩ =>
+        return .ok ⟨(i, fe, pend), ⟨by
+          rw [hfe]
+          rw [List.take_of_length_le (by simp; omega)] at hrun
+          exact hrun⟩⟩
+      | none => return .error (.internal "parallel install: the index builder failed", i)
   termination_by k => ds.size - k
 
 end ParInstall
@@ -843,9 +934,15 @@ def parInstall (mode : CheckMode) (err : IO.FS.Stream) (stride total t0 jobs : N
   for _ in [0:jobs] do
     tasks := tasks.push (← IO.asTask (prio := .dedicated) (ParInstall.workerLoop sh 0 none none))
   let cst ← IO.mkRef (Array.replicate 4 0)
-  let res ← ParInstall.commitLoop err stride total t0 fallbackAt (Cached.buildBase_inj slots offs buckets parts)
-    sh cst (0, mkFEnv Env.empty, #[]) 0 (0, mkFEnv Env.empty, #[]) (.nil _)
-    Cached.IdxBelow.mkFEnv_empty (Cached.ViewAgrees.empty B S)
+  -- the index builder, on a thread of its own beside the commit thread
+  let bd : ParInstall.Builder :=
+    { committed := ← IO.mkRef 0, final := ← IO.mkRef none, waiting := ← IO.mkRef false,
+      lock := ← Std.BaseMutex.new, cv := ← Std.Condvar.new }
+  let bt ← IO.asTask (prio := .dedicated)
+    (ParInstall.builderLoop S bd 0 (mkFEnv Env.empty) rfl)
+  let res ← ParInstall.commitLoop err stride total t0 fallbackAt
+    (Cached.buildBase_inj slots offs buckets parts) sh cst bd bt (0, mkFEnv Env.empty, #[])
+    0 0 0 #[] rfl (.nil _) Cached.IdxBelow.mkFEnv_empty (Cached.ViewAgrees.empty B S)
   let tE ← IO.monoMsNow
   -- (after a rejection the records past it may never be installed, and
   -- a worker may be waiting on one of their slots)

@@ -287,6 +287,92 @@ theorem ViewAgrees.pushAll {B : BaseIdx} {S : Slots} (hB : BaseInj B) :
     simp only [slotsOk, Bool.and_eq_true] at hok
     exact ViewAgrees.pushAll hB L (hidx.push ci) (ViewAgrees.push hB hidx h hok.1) hok.2
 
+/-! ## The serial index as a function of the slots
+
+The commit thread does not push: the serial index after the first `k`
+records is `prefixFe S k`, the empty index with the records' slots
+pushed in order, which a builder thread computes beside the commit loop
+(`ConLeche/Driver/ParInstall.lean`).  The commit loop carries its run
+over `prefixFe S k`, a term only its proofs mention; what it needs per
+record is that the record's slot IS the list its install pushed
+(`selfOk`, checked by the installer). -/
+
+/-- Record `k`'s slot, as a list. -/
+def slotList (S : Slots) (k : Nat) : List ConstantInfo :=
+  match S[k]? with
+  | some t => t.get.toList
+  | none => []
+
+/-- **The serial index after the first `k` records' slots.** -/
+def prefixFe (S : Slots) : Nat → FEnv
+  | 0 => mkFEnv Env.empty
+  | k + 1 => FEnv.pushAll (slotList S k) (prefixFe S k)
+
+/-- A push of an array, one constant at a time, is `pushAll` of its list. -/
+theorem foldl_push_eq_pushAll (a : Array ConstantInfo) (fe : FEnv) :
+    a.foldl (fun fe ci => fe.push ci) fe = FEnv.pushAll a.toList fe := by
+  rw [← Array.foldl_toList]
+  generalize a.toList = l
+  induction l generalizing fe with
+  | nil => rfl
+  | cons ci l ih => exact ih (fe.push ci)
+
+/-- The builder's step: record `k`'s slot pushed. -/
+def prefixStep (S : Slots) (k : Nat) (fe : FEnv) : FEnv :=
+  match S[k]? with
+  | some t => t.get.foldl (fun fe ci => fe.push ci) fe
+  | none => fe
+
+theorem prefixStep_eq (S : Slots) (k : Nat) :
+    prefixStep S k (prefixFe S k) = prefixFe S (k + 1) := by
+  unfold prefixStep
+  show _ = FEnv.pushAll (slotList S k) (prefixFe S k)
+  unfold slotList
+  split
+  · exact foldl_push_eq_pushAll _ _
+  · rfl
+
+theorem pushAll_visibleBelow : ∀ (L : List ConstantInfo) (fe : FEnv),
+    (FEnv.pushAll L fe).visibleBelow = fe.visibleBelow + L.length
+  | [], _ => rfl
+  | ci :: L, fe => by
+    show (FEnv.pushAll L (fe.push ci)).visibleBelow = _
+    rw [pushAll_visibleBelow L (fe.push ci)]
+    simp only [FEnv.push, List.length_cons]
+    omega
+
+/-- Two constants are the same: a pointer comparison at run time, the
+structural one only when the pointers differ. -/
+def ciSame (a b : ConstantInfo) : Bool :=
+  withPtrEq a b (fun _ => decide (a = b)) (fun h => by simp [h])
+
+theorem ciSame_spec {a b : ConstantInfo} (h : ciSame a b = true) : a = b := by
+  have h' : decide (a = b) = true := h
+  exact of_decide_eq_true h'
+
+/-- Two lists of constants are the same (`ciSame` elementwise). -/
+def listSame : List ConstantInfo → List ConstantInfo → Bool
+  | [], [] => true
+  | a :: as, b :: bs => ciSame a b && listSame as bs
+  | _, _ => false
+
+theorem listSame_spec : ∀ {as bs : List ConstantInfo}, listSame as bs = true → as = bs
+  | [], [], _ => rfl
+  | a :: as, b :: bs, h => by
+    simp only [listSame, Bool.and_eq_true] at h
+    rw [ciSame_spec h.1, listSame_spec h.2]
+  | [], _ :: _, h => by simp [listSame] at h
+  | _ :: _, [], h => by simp [listSame] at h
+
+/-- **Record `k`'s slot is the list `L`** (the installer's check, after
+publishing its slot). -/
+def selfOk (S : Slots) (k : Nat) (L : List ConstantInfo) : Bool :=
+  listSame (slotList S k) L
+
+theorem selfOk_spec {S : Slots} {k : Nat} {L : List ConstantInfo}
+    (h : selfOk S k L = true) : slotList S k = L :=
+  listSame_spec h
+
 /-! ## The base builder
 
 The base is built one shard per task, each from the predicted slots
