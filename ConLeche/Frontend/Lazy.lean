@@ -133,8 +133,11 @@ def LAcc.init : LAcc := ⟨#[], .empty, #[], #[], spStride, true, noHint⟩
   match a with
   | ⟨ds, cd, si, so, nl, fresh, rg⟩ =>
     if fresh || spStride ≤ nl then
-      ⟨ds, Flat.wLine cd (.expr i x), si.push i, so.push cd.size, 1, false,
-        if fresh then so.size else rg⟩
+      -- RC linearity: the sizes are read BEFORE the buffers are pushed
+      -- to (read after, `cd` is shared at the push and copied whole)
+      let off := cd.size
+      let rg := if fresh then so.size else rg
+      ⟨ds, Flat.wLine cd (.expr i x), si.push i, so.push off, 1, false, rg⟩
     else ⟨ds, Flat.wLine cd (.expr i x), si, so, nl + 1, false, rg⟩
 
 /-- A record, pushed (the next lazy line starts a region). -/
@@ -313,18 +316,14 @@ where
 @[noinline] def sweepSlow (d : @& ByteArray) (p : USize) (m : SwMarks) : SwMarks :=
   Flat.withLineU d p fun r _ => sweepLine m r
 
-/-- A child index read in place, marked or noted (`0xFFFFFFFF`: not in
-place; the caller takes the slow path). -/
-@[inline] def sweepKid (mk : Bool) (m : SwMarks) (x : UInt32) : SwMarks :=
-  if mk then m.mark x.toNat else m.need x.toNat
-
-/-- **The sweep of one chunk, backward**: lines `k - 1` down to `0`.
-The expression lines with children (`app`, `lam`, `forallE`, `letE`,
-`proj`) are read in place, their fields at fixed offsets; a
-declaration line, or a field too large for four bytes, is decoded. -/
-def sweepChunk (d : @& ByteArray) (st : @& ByteArray) (k : Nat) (m : SwMarks) : SwMarks :=
+/-- **The sweep of one chunk, backward**: lines `k - 1` down to `0`,
+the two bitmaps threaded apart (no record per line).  The expression
+lines with children (`app`, `lam`, `forallE`, `letE`, `proj`) are read
+in place, their fields at fixed offsets; a declaration line, or a field
+too large for four bytes, is decoded. -/
+def sweepGo (d : @& ByteArray) (st : @& ByteArray) (k : Nat) (mk nd : ByteArray) : SwMarks :=
   match k with
-  | 0 => m
+  | 0 => ⟨mk, nd⟩
   | k + 1 =>
     let p := (get32 st (4 * k)).toUSize
     let t := Flat.byteU d p
@@ -334,16 +333,28 @@ def sweepChunk (d : @& ByteArray) (st : @& ByteArray) (k : Nat) (m : SwMarks) : 
       let b := Flat.r4U d (p + 9)
       let c := if t == 6 || t == 9 then Flat.r4U d (p + 13) else 0
       if i == 0xFFFFFFFF || a == 0xFFFFFFFF || b == 0xFFFFFFFF || c == 0xFFFFFFFF then
-        sweepChunk d st k (sweepSlow d p m)
+        match sweepSlow d p ⟨mk, nd⟩ with
+        | ⟨mk, nd⟩ => sweepGo d st k mk nd
+      else if bitGet mk i.toNat then
+        if t == 9 then sweepGo d st k (bitSet mk c.toNat) nd
+        else
+          let mk := bitSet (bitSet mk a.toNat) b.toNat
+          sweepGo d st k (if t == 6 then bitSet mk c.toNat else mk) nd
       else
-        let mk := bitGet m.mkd i.toNat
-        let m := if t == 9 then sweepKid mk m c
-          else
-            let m := sweepKid mk (sweepKid mk m a) b
-            if t == 6 then sweepKid mk m c else m
-        sweepChunk d st k m
-    else if t == 16 then sweepChunk d st k (sweepSlow d p m)
-    else sweepChunk d st k m
+        if t == 9 then sweepGo d st k mk (bitSet nd c.toNat)
+        else
+          let nd := bitSet (bitSet nd a.toNat) b.toNat
+          sweepGo d st k mk (if t == 6 then bitSet nd c.toNat else nd)
+    else if t == 16 then
+      match sweepSlow d p ⟨mk, nd⟩ with
+      | ⟨mk, nd⟩ => sweepGo d st k mk nd
+    else sweepGo d st k mk nd
+
+/-- The sweep of one chunk. -/
+@[inline] def sweepChunk (d : @& ByteArray) (st : @& ByteArray) (k : Nat) (m : SwMarks) :
+    SwMarks :=
+  match m with
+  | ⟨mk, nd⟩ => sweepGo d st k mk nd
 
 /-! ## The store and the builds
 

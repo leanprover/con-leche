@@ -120,8 +120,7 @@ def nameIdx (sh : Array (List Name × Option Name)) : Std.HashMap Name Nat := Id
 operation's ground name is declared by a LATER record.  Without it the
 hoist is the identity, and nothing reads a record's types or values to
 know it. -/
-def groundLateS (sh : Array (List Name × Option Name)) : Bool := Id.run do
-  let idx := nameIdx sh
+def lateI (idx : Std.HashMap Name Nat) (sh : Array (List Name × Option Name)) : Bool := Id.run do
   let mut late := false
   for i in [0:sh.size] do
     let some c := sh[i]!.2 | continue
@@ -129,6 +128,9 @@ def groundLateS (sh : Array (List Name × Option Name)) : Bool := Id.run do
       let some j := idx[g]? | continue
       if j > i then late := true
   return late
+
+/-- The gate on the records' shapes. -/
+def groundLateS (sh : Array (List Name × Option Name)) : Bool := lateI (nameIdx sh) sh
 
 /-- The gate on a record array. -/
 def groundLate (ds : Array Declaration) : Bool := groundLateS (ds.map declShape)
@@ -206,20 +208,19 @@ termination_by sh.size - i
 
 /-- **Which records must move, and how far**, over a lookup of the
 records' constants: the map from a record's index to the earliest
-pinned-operation index it must precede. -/
-def hoistTargetsU (sh : Array (List Name × Option Name)) (uc : Nat → Option (Array Name)) :
+pinned-operation index it must precede — empty, without reading `uc`,
+when the names-only gate is closed. -/
+def hoistPlan (sh : Array (List Name × Option Name)) (uc : Nat → Option (Array Name)) :
     Option (Std.HashMap Nat Nat) :=
-  hoistOps sh (nameIdx sh) uc 0 {}
+  let idx := nameIdx sh
+  if lateI idx sh then hoistOps sh idx uc 0 {} else some {}
 
 /-- **Which records must move, and how far**: the map from a record's
 index to the earliest pinned-operation index it must precede.  Empty —
 and then the hoist is the identity — on every stream whose ground
-precedes its operations, which the names-only gate (`groundLate`)
-decides first. -/
+precedes its operations, which the names-only gate decides first. -/
 def hoistTargets (ds : Array Declaration) : Std.HashMap Nat Nat :=
-  if groundLate ds then
-    (hoistTargetsU (ds.map declShape) (fun k => some ds[k]!.usedConsts)).getD {}
-  else {}
+  (hoistPlan (ds.map declShape) (fun k => some ds[k]!.usedConsts)).getD {}
 
 /-- **The reorder**: a moved record sorts at its target, just ahead of
 the operation record there (key `(t, 0, k)` against the operation's

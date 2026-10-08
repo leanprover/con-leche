@@ -422,28 +422,10 @@ def checkMain (file : String) (mode : CheckMode) (stride jobs : Nat)
     -- neither a wholesale text buffer nor a scratch file exists in
     -- this process.
     let out ← parseInput file jobs noMark (stride > 0)
-    -- THE LAZY PARSE'S GATES.  Its records carry placeholders for
-    -- theorem values, and the preparation must not read a value: the
-    -- hoist's names-only gate closed (`groundLate`) and no theorem in
-    -- the built-in prelude.  Otherwise every value is built now
-    -- (`toEager`), which is the serial parse's outcome.
-    let out ← match out with
-      | .eager o => pure (LazyParse.ParseOut.eager o)
-      | .lazy r h =>
-        if (prelude.decls.all fun d => !Frontend.isThmDecl d) &&
-            (Frontend.prepareLazy prelude r.ds).isSome then
-          pure (.lazy r h)
-        else
-          if stride > 0 then
-            IO.eprintln s!"con-leche: lazy parse: the preparation reads a theorem's value \
-              (a prelude theorem: {!(prelude.decls.all fun d => !Frontend.isThmDecl d)}); \
-              every value built now"
-          match ← LazyParse.toEager jobs r h with
-          | some o => pure (.eager o)
-          | none => pure (.eager (← Frontend.parseExportStreamP file 2))
     let err ← IO.getStderr
-    match out with
-    | .eager o =>
+    -- The serial parse's outcome (`--jobs=1`, a fallback, or a lazy
+    -- parse whose values had to be built first), to the verdict.
+    let runEager (o : Frontend.ParseOutcome) : IO UInt32 := do
       match h : o.val with
       | .error (.notImplemented what, _) =>
         IO.eprintln s!"con-leche: declined: {what} ({modeTag})"
@@ -481,33 +463,41 @@ def checkMain (file : String) (mode : CheckMode) (stride jobs : Nat)
               obtain ⟨cs, hcs⟩ := o.property
               exact ⟨cs, gres, hcs.trans h, henv⟩⟩ : { env // VerdictOK mode prelude env })
           | .error e => return .error e
+    match out with
+    | .eager o => runEager o
     | .lazy r h =>
       -- The lazy parse cannot fail: a stream it cannot parse fell back to
       -- the serial parse.  Its records are prepared by `prepareLazy` —
       -- `preparePrelude` reading no theorem value, related to the serial
       -- preparation (`prepareLazy_rel`) — and each theorem's value is
-      -- built in its check.
-      match hpr : Frontend.prepareLazy prelude r.ds with
-      | none =>
-        IO.eprintln s!"con-leche: internal: the lazy preparation failed ({modeTag})"
-        return 3
-      | some pr =>
+      -- built in its check.  When the preparation would read a theorem's
+      -- value (the hoist's walk meets one) or the built-in prelude holds
+      -- a theorem, every value is built first (`toEager`): the serial
+      -- parse's outcome.
+      let noPreThm := prelude.decls.all fun d => !Frontend.isThmDecl d
+      match hpr : Frontend.prepareLazy prelude r.ds, hgate : noPreThm with
+      | some pr, true =>
         let decls := pr.decls
         foldAndReport modeTag stride t0 r.ds.size pr.synthesised decls pr.hoisted fun tParse => do
-          if hgate : (prelude.decls.all fun d => !Frontend.isThmDecl d) = true then
-            match ← checkDeclsIOL mode err stride decls.size t0 tParse jobs noMark fallbackAt r.S
-                decls with
-            | .ok ⟨env, henv⟩ =>
-              return .ok (⟨env, by
-                obtain ⟨cs, stF, hcs, hh, hs, hd⟩ := h
-                refine ⟨cs, ⟨stF.decls⟩, hcs, henv stF _ hh hs ?_⟩
-                refine Frontend.prepareLazy_rel (fun _ _ h => DRel.shape h)
-                  (fun _ _ h hn => DRel.eq_of_not_thm h hn) (fun p hp => ?_) hd hpr
-                have := List.all_eq_true.mp (Array.all_toList ▸ hgate) p hp
-                exact DRel.refl_of_not_thm stF (by simpa using this)⟩ :
-                { env // VerdictOK mode prelude env })
-            | .error e => return .error e
-          else
-            return .error (.internal "lazy parse: a prelude theorem", 0)
+          match ← checkDeclsIOL mode err stride decls.size t0 tParse jobs noMark fallbackAt r.S
+              decls with
+          | .ok ⟨env, henv⟩ =>
+            return .ok (⟨env, by
+              obtain ⟨cs, stF, hcs, hh, hs, hd⟩ := h
+              refine ⟨cs, ⟨stF.decls⟩, hcs, henv stF _ hh hs ?_⟩
+              refine Frontend.prepareLazy_rel (fun _ _ h => DRel.shape h)
+                (fun _ _ h hn => DRel.eq_of_not_thm h hn) (fun p hp => ?_) hd hpr
+              have hg : (prelude.decls.all fun d => !Frontend.isThmDecl d) = true := hgate
+              have := List.all_eq_true.mp (Array.all_toList ▸ hg) p hp
+              exact DRel.refl_of_not_thm stF (by simpa using this)⟩ :
+              { env // VerdictOK mode prelude env })
+          | .error e => return .error e
+      | _, _ =>
+        if stride > 0 then
+          IO.eprintln s!"con-leche: lazy parse: the preparation reads a theorem's value \
+            (a prelude theorem: {!noPreThm}); every value built now"
+        match ← LazyParse.toEager jobs r h with
+        | some o => runEager o
+        | none => runEager (← Frontend.parseExportStreamP file 2)
 
 end ConLeche.Driver

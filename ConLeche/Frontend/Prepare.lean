@@ -155,15 +155,12 @@ structure Prepared where
   /-- the records moved ahead of a pinned `Nat` operation they ground
   (names, for the driver's receipt) -/
   hoisted : Array Name := #[]
-  /-- whether the hoist's names-only gate (`groundLate`) let it run -/
-  late : Bool := false
 
 /-- **`preparePrelude`, with its receipts.** -/
 def prepareD (pre : PreludeIx) (ds : Array Declaration) : Prepared :=
   let (front, rest) := frontOf #[] pre.decls.toList ds
-  let all := front ++ rest
-  let (decls, hoisted) := hoistNatOpGround all
-  ⟨decls, decls.size - ds.size, hoisted, groundLate all⟩
+  let (decls, hoisted) := hoistNatOpGround (front ++ rest)
+  ⟨decls, decls.size - ds.size, hoisted⟩
 
 /-- **`preparePrelude`**: the parsed stream, prepared for the fold —
 the prelude's declarations first (the stream's own copies where it has
@@ -175,22 +172,19 @@ def preparePrelude (pre : PreludeIx) (ds : Array Declaration) : Array Declaratio
   (prepareD pre ds).decls
 
 /-- **The lazy driver's preparation** (task #329): `prepareD` on records
-whose theorem values are not built.  The hoist's gate closed, it is
-`prepareD`'s; open, the hoist runs over the records' constants with a
-theorem's unknown, and `none` if its walk meets one
+whose theorem values are not built: the hoist runs over the records'
+constants with a theorem's unknown, and `none` if its walk meets one
 (`ConLeche/Verify/Frontend/LazyPrepare.lean` relates the result to the
 serial preparation). -/
 def prepareLazy (pre : PreludeIx) (ds : Array Declaration) : Option Prepared :=
   let (front, rest) := frontOf #[] pre.decls.toList ds
   let all := front ++ rest
-  if groundLate all then
-    match hoistTargetsU (all.map declShape) (fun k => match all[k]! with
-        | .thmDecl .. => none
-        | d => some d.usedConsts) with
-    | some t =>
-      let (decls, hoisted) := if t.isEmpty then (all, #[]) else applyHoist all t
-      some ⟨decls, decls.size - ds.size, hoisted, true⟩
-    | none => none
-  else some ⟨all, all.size - ds.size, #[], false⟩
+  match hoistPlan (all.map declShape) (fun k => match all[k]! with
+      | .thmDecl .. => none
+      | d => some d.usedConsts) with
+  | some t =>
+    let (decls, hoisted) := if t.isEmpty then (all, #[]) else applyHoist all t
+    some ⟨decls, decls.size - ds.size, hoisted⟩
+  | none => none
 
 end ConLeche.Frontend
