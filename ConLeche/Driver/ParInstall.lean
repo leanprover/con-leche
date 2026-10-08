@@ -879,16 +879,16 @@ def parInstall (mode : CheckMode) (err : IO.FS.Stream) (stride total t0 jobs : N
     shardTasks := shardTasks.push (← IO.asTask (prio := .dedicated) do
       let r ← IO.lazyPure fun _ =>
         (⟨Cached.buildShard slots offs buckets s, s, rfl⟩ : Cached.BuiltShard slots offs buckets)
-      Runtime.markMultiThreaded r)
+      -- persistent here, on the shard's own thread: the base is read by
+      -- every lookup of every worker (multi-threaded under `noMark`)
+      if noMark then Runtime.markMultiThreaded r
+      else unsafe Runtime.markPersistent r)
   let mut shards : Array (Cached.BuiltShard slots offs buckets) := Array.mkEmpty parts
   for t in shardTasks do
     shards := shards.push (← IO.ofExcept (← IO.wait t))
   let B : Cached.BaseIdx := shards.map (·.1)
   -- (`B.size` forces the prediction and the base before the clock is read)
   let tA' ← if B.size + vis.size == 0 then IO.monoMsNow else IO.monoMsNow
-  if !noMark then
-    -- one mark for both (the pair's components are what it reaches)
-    let _ ← unsafe Runtime.markPersistent (B, vis)
   let tB ← IO.monoMsNow
   let gate := ParInstall.basisGate B
   -- the slots, chunk per task: record `k`'s constants, as whoever
@@ -978,7 +978,6 @@ def parInstall (mode : CheckMode) (err : IO.FS.Stream) (stride total t0 jobs : N
   if stride > 0 then
     let c ← cst.get
     err.putStr s!"con-leche: parallel install: records marked persistent {tA0 - tA} ms, prediction+base {tA' - tA0} ms, \
-      base marked persistent {tB - tA'} ms, \
       slots {tC0 - tB} ms, dependencies {tC - tC0} ms, dependents {tD - tC} ms, commit {tE - tD} ms, stop {tF - tE} ms (t={tF - t0} ms); \
       commit thread: {c[0]!} sleeps on a worker \
       ({c[1]! / 1000000} ms), {c[2]!} records installed itself ({c[3]! / 1000000} ms)\n"
