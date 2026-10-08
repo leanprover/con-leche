@@ -86,22 +86,84 @@ def pushDecl (st : StateD) (d : Declaration) : StateD :=
   | some e => pure e
   | none => throw s!"undefined expr index {i}"
 
-/-- Declaration-level expression lookup: the table read.
+/-! ## The lookup interface (task #329)
 
-The frontend tree-size budget that used to sit here was **retired at
-task #215**: every consumer it bounded is now either name-selected (the
-basis-pin match) or a memoized DAG walk (`Expr.renameConsts`,
-`Expr.instantiate1`; `@[csimp]` in `ConLeche/Kernel/ExprOps.lean`), and
-the adversarial DAG-tower fixtures in `tests/e2e` are the standing
-gate in its place — a limit told a user "no", a fixture tells *us*
-which walker regressed. -/
-def getDeclD (st : StateD) (i : Nat) : M Expr :=
-  st.expr i
+Every builder below reads the tables through three lookups and
+nothing else: the entry builders `nameOf`/`levelOf`/`exprOf` and the
+declaration builder `declOf`.  The serial parse hands them its own
+tables (`StateD.lk`); the rounds parse (`ConLeche/Frontend/Rounds.lean`)
+hands them a window's partly built tables, where a lookup may also
+answer "not yet" — which is why the error type is a parameter.  A
+builder's result depends on its lookups' answers alone, and that is
+what the proofs of the rounds parse use
+(`ConLeche/Verify/Frontend/Dense.lean`).
 
-/-- The `pw` datum over the direct name table. -/
-def parsePwD (st : StateD) : PwRec → M PropWhen
+The frontend tree-size budget that used to sit on the declaration-level
+expression lookup was **retired at task #215**: every consumer it
+bounded is now either name-selected (the basis-pin match) or a
+memoized DAG walk (`Expr.renameConsts`, `Expr.instantiate1`;
+`@[csimp]` in `ConLeche/Kernel/ExprOps.lean`), and the adversarial
+DAG-tower fixtures in `tests/e2e` are the standing gate in its place —
+a limit told a user "no", a fixture tells *us* which walker
+regressed. -/
+
+/-- The three table lookups a builder reads through. -/
+structure Lk (ε : Type) where
+  name : Nat → Except ε Name
+  level : Nat → Except ε Level
+  expr : Nat → Except ε Expr
+
+/-- The serial parse's lookups: the state's own tables. -/
+@[inline] def StateD.lk (st : StateD) : Lk String := ⟨st.name, st.level, st.expr⟩
+
+/-- The `pw` datum, over the name lookup. -/
+@[inline] def pwOf (L : Lk ε) : PwRec → Except ε PropWhen
   | .never => pure .never
-  | .ifAllZero ns => do pure (.ifAllZero (← ns.mapM st.name))
+  | .ifAllZero ns => do pure (.ifAllZero (← ns.mapM L.name))
+
+/-- A name-table entry's value. -/
+@[inline] def nameOf (L : Lk ε) (r : NameRec) : Except ε Name :=
+  match r with
+  | .str pre s => do pure (Name.str (← L.name pre) s)
+  | .num pre n => do pure (Name.num (← L.name pre) n)
+
+/-- A level-table entry's value. -/
+@[inline] def levelOf (L : Lk ε) (r : LevelRec) : Except ε Level :=
+  match r with
+  | .succ u => do pure (Level.succ (← L.level u))
+  | .max a b => do pure (Level.max (← L.level a) (← L.level b))
+  | .imax a b => do pure (Level.imax (← L.level a) (← L.level b))
+  | .param n => do pure (Level.param (← L.name n))
+
+/-- An expression-table entry's value: the `Expr` node built from the
+children's values (the derived fields are the compiler's, task #172
+B3a).
+
+Binder names are display data the official kernel's equality and hash
+ignore; ours are `.anonymous` on every parsed binder (task #203,
+beside the `.default` annotation of task #142), so `==` is
+α-equivalence downstream.  The `name` field is still required to be
+present and well-formed (the recogniser reads it), it is just not
+resolved. -/
+@[inline] def exprOf (L : Lk ε) (r : ExprRec) : Except ε Expr :=
+  match r with
+  | .bvar k => pure (Expr.mkBvar k)
+  | .sort u => do pure (Expr.mkSort (← L.level u))
+  | .const n us => do
+    let nm ← L.name n
+    let ls ← us.mapM L.level
+    pure (Expr.mkConst nm ls)
+  | .app f a => do pure (Expr.mkApp (← L.expr f) (← L.expr a))
+  | .lam ty bd pw => do
+    pure (Expr.mkLam (← L.expr ty) (← L.expr bd) ⟨← pwOf L pw⟩)
+  | .forallE ty bd pw => do
+    pure (Expr.mkForallE (← L.expr ty) (← L.expr bd) ⟨← pwOf L pw⟩)
+  | .letE ty vl bd => do
+    pure (Expr.mkLetE (← L.expr ty) (← L.expr vl) (← L.expr bd))
+  | .proj tn ix s => do
+    pure (Expr.mkProj (← L.name tn) ix (← L.expr s))
+  | .natVal n => pure (Expr.mkLit (.natVal n))
+  | .strVal s => pure (Expr.mkLit (.strVal s))
 
 /-! ## The rebinding test (task #290)
 
@@ -136,67 +198,31 @@ that consumes it, exactly as before. -/
 /-! ## Table entries -/
 
 /-- A name-table entry: the name value is built directly. -/
-@[inline] def parseNameEntryD (st : StateD) (i : Nat) (r : @& NameRec) : M StateD :=
-  match r with
-  | .str pre s => do
-    let p ← st.name pre
-    st.freshName i
-    pure { st with names := st.names.insert i (Name.str p s) }
-  | .num pre n => do
-    let p ← st.name pre
-    st.freshName i
-    pure { st with names := st.names.insert i (Name.num p n) }
+@[inline] def parseNameEntryD (st : StateD) (i : Nat) (r : @& NameRec) : M StateD := do
+  let n ← nameOf st.lk r
+  st.freshName i
+  pure { st with names := st.names.insert i n }
 
 /-- A level-table entry. -/
 @[inline] def parseLevelEntryD (st : StateD) (i : Nat) (r : @& LevelRec) : M StateD := do
   st.freshLevel i
-  let l ← match r with
-    | .succ u => do pure (Level.succ (← st.level u))
-    | .max a b => do pure (Level.max (← st.level a) (← st.level b))
-    | .imax a b => do pure (Level.imax (← st.level a) (← st.level b))
-    | .param n => do pure (Level.param (← st.name n))
+  let l ← levelOf st.lk r
   pure { st with levels := st.levels.insert i l }
 
-/-- An expression-table entry: build the `Expr` node from the
-children's table values (the derived fields are the compiler's, task
-#172 B3a).
-
-Binder names are display data the official kernel's equality and hash
-ignore; ours are `.anonymous` on every parsed binder (task #203,
-beside the `.default` annotation of task #142), so `==` is
-α-equivalence downstream.  The `name` field is still required to be
-present and well-formed (the recogniser reads it), it is just not
-resolved. -/
+/-- An expression-table entry (`exprOf`). -/
 @[inline] def parseExprEntryD (st : StateD) (i : Nat) (r : @& ExprRec) : M StateD := do
   st.freshExpr i
-  let e ← match r with
-    | .bvar k => pure (Expr.mkBvar k)
-    | .sort u => do pure (Expr.mkSort (← st.level u))
-    | .const n us => do
-      let nm ← st.name n
-      let ls ← us.mapM st.level
-      pure (Expr.mkConst nm ls)
-    | .app f a => do pure (Expr.mkApp (← st.expr f) (← st.expr a))
-    | .lam ty bd pw => do
-      pure (Expr.mkLam (← st.expr ty) (← st.expr bd) ⟨← parsePwD st pw⟩)
-    | .forallE ty bd pw => do
-      pure (Expr.mkForallE (← st.expr ty) (← st.expr bd) ⟨← parsePwD st pw⟩)
-    | .letE ty vl bd => do
-      pure (Expr.mkLetE (← st.expr ty) (← st.expr vl) (← st.expr bd))
-    | .proj tn ix s => do
-      pure (Expr.mkProj (← st.name tn) ix (← st.expr s))
-    | .natVal n => pure (Expr.mkLit (.natVal n))
-    | .strVal s => pure (Expr.mkLit (.strVal s))
+  let e ← exprOf st.lk r
   pure { st with exprs := st.exprs.insert i e }
 
 /-! ## Declaration records -/
 
 /-- A declaration's common data; the type stays `Expr`. -/
-def parseCVD (st : StateD) (cv : CVRec) : M ConstantVal := do
-  let name ← st.name cv.name
-  let ty ← getDeclD st cv.type
+def cvOf (L : Lk String) (cv : CVRec) : M ConstantVal := do
+  let name ← L.name cv.name
+  let ty ← L.expr cv.type
   pure { name := name
-         levelParams := ← cv.levelParams.mapM st.name
+         levelParams := ← cv.levelParams.mapM L.name
          type := ty }
 
 /-- **The syntactic Π-telescope length of a declared type** (task
@@ -208,17 +234,17 @@ def indPiTeleLen : Expr → Nat
   | _ => 0
 
 /-- One recursor rule of an inductive record, resolved. -/
-def parseRuleD (st : StateD) (ru : RuleRec) : M RecRule := do
-  pure (RecRule.mk (← st.name ru.ctor) ru.nfields 0 .inert
-    (← getDeclD st ru.rhs) false false false)
+def ruleOf (L : Lk String) (ru : RuleRec) : M RecRule := do
+  pure (RecRule.mk (← L.name ru.ctor) ru.nfields 0 .inert
+    (← L.expr ru.rhs) false false false)
 
 /-- **An inductive record, validated** (tasks #217, #228, #271): the
 half of the record's processing that reads the state and changes
 nothing — the verdict, or the block's constructors in the block's own
-order with the declared parameter count.  Split from `installIndD`
+order with the declared parameter count.  Split from `indBlockOf`
 below at task #290 so that a proof about what the parse does to its
 state need not look here at all. -/
-def validateIndD (st : @& StateD) (tys : List IndTypeRec) (cts : List IndCtorRec)
+def validateInd (L : Lk String) (tys : List IndTypeRec) (cts : List IndCtorRec)
     (rcs : List IndRecRec) : M (RecordVerdict ⊕ (List IndCtorRec × Nat)) := do
   -- TASK #217 (audit follow-up 6): an `unsafe inductive` is DECLINED,
   -- not an error.  The official kernel admits unsafe blocks (it skips
@@ -261,10 +287,10 @@ def validateIndD (st : @& StateD) (tys : List IndTypeRec) (cts : List IndCtorRec
   -- These are consistency checks between the stream's own fields, so
   -- they live here, in the parse, and their verdict is `.invalid`:
   -- the fold never sees such a block.
-  let tyNames ← tys.mapM fun t => st.name t.cv.name
-  let tyTypes ← tys.mapM fun t => getDeclD st t.cv.type
-  let listed ← tys.mapM fun t => t.ctors.mapM st.name
-  let ctorNames ← cts.mapM fun c => st.name c.cv.name
+  let tyNames ← tys.mapM fun t => L.name t.cv.name
+  let tyTypes ← tys.mapM fun t => L.expr t.cv.type
+  let listed ← tys.mapM fun t => t.ctors.mapM L.name
+  let ctorNames ← cts.mapM fun c => L.name c.cv.name
   let flat := listed.flatten
   unless flat.Nodup do
     return .inl (.invalid "duplicate constructor name in an inductive type's ctors")
@@ -290,7 +316,7 @@ def validateIndD (st : @& StateD) (tys : List IndTypeRec) (cts : List IndCtorRec
           return .inl (.invalid s!"constructor {n} declares cidx {ci}; it is \
             constructor {j} of {T}")
       if let some iw := c.induct then
-        let iwn ← st.name iw
+        let iwn ← L.name iw
         unless iwn == T do
           return .inl (.invalid s!"constructor {n} declares induct {iwn}; it is \
             a constructor of {T}")
@@ -301,7 +327,7 @@ def validateIndD (st : @& StateD) (tys : List IndTypeRec) (cts : List IndCtorRec
       -- Before this, a count too LARGE declined at the field
       -- telescope (arena `ctor-num-fields`) and a count too small was
       -- caught later, by the constructor's result type, if at all.
-      let cty ← getDeclD st c.cv.type
+      let cty ← L.expr c.cv.type
       unless nPd + c.numFields == indPiTeleLen cty do
         return .inl (.invalid s!"constructor {n} declares {c.numFields} fields at \
           {nPd} parameters; its type has {indPiTeleLen cty} binders")
@@ -340,7 +366,7 @@ def validateIndD (st : @& StateD) (tys : List IndTypeRec) (cts : List IndCtorRec
       | _ => none
     | _, _, _ => some false
   for r in (if nested then [] else rcs) do
-    let rn ← st.name r.cv.name
+    let rn ← L.name r.cv.name
     unless r.numParams == nPd do
       return .inl (.invalid s!"recursor {rn} declares {r.numParams} parameters; \
         the block declares {nPd}")
@@ -366,18 +392,17 @@ def validateIndD (st : @& StateD) (tys : List IndTypeRec) (cts : List IndCtorRec
                 {T} has {n - nPd} at {nPd} parameters")
   return .inr (cts, nPd)
 
-/-- **An inductive record, installed**: the block's constants, pushed
-as one `indDecl`.  Every change to the state a validated inductive
-record makes is here. -/
-def installIndD (st : StateD) (tys : List IndTypeRec) (cts : List IndCtorRec)
-    (rcs : List IndRecRec) (nPd : Nat) : M StateD := do
+/-- **An inductive record, assembled**: the block's constants, as one
+`indDecl`. -/
+def indBlockOf (L : Lk String) (tys : List IndTypeRec) (cts : List IndCtorRec)
+    (rcs : List IndRecRec) (nPd : Nat) : M Declaration := do
   let types ← tys.mapM fun t => do
-    pure (ConstantInfo.indInfo (← parseCVD st t.cv) {})
+    pure (ConstantInfo.indInfo (← cvOf L t.cv) {})
   let ctors ← cts.mapM fun c => do
-    pure (ConstantInfo.ctorInfo (← parseCVD st c.cv) c.numParams c.numFields)
+    pure (ConstantInfo.ctorInfo (← cvOf L c.cv) c.numParams c.numFields)
   let recs ← rcs.mapM fun r => do
-    let rules ← r.rules.mapM (parseRuleD st)
-    pure (ConstantInfo.recInfo (← parseCVD st r.cv)
+    let rules ← r.rules.mapM (ruleOf L)
+    pure (ConstantInfo.recInfo (← cvOf L r.cv)
       (r.numParams + r.numMotives + r.numMinors + r.numIndices)
       (r.numParams + r.numMotives + r.numMinors) rules)
   let block := types ++ ctors ++ recs
@@ -389,44 +414,44 @@ def installIndD (st : StateD) (tys : List IndTypeRec) (cts : List IndCtorRec)
   -- sees it.  A block under a pinned name that does NOT match keeps
   -- its `indDecl` form and is rejected by the fold's reserved-name
   -- check, exactly as before.
-  return pushDecl st (.indDecl block nPd)
+  return .indDecl block nPd
 
 /-- The record's own semantics: the declaration kinds, producing
-`Declaration` records.  Every branch, guard and error string is the one the
-`Lean.Json` reader this replaced had (task #256); only the reads
+`Declaration` records (the state is `processLineCoreD`'s, below).
+Every branch, guard and error string is the one the `Lean.Json` reader this replaced had (task #256); only the reads
 changed, from key lookups in a DOM to fields of a syntax record. -/
-def processLineCoreD (st : StateD) (d : @& DeclRec) : M (StateD ⊕ RecordVerdict) := do
+def declOf (L : Lk String) (d : @& DeclRec) : M (Declaration ⊕ RecordVerdict) := do
   match d with
   | .ax cvr isUnsafe =>
-    let cvp ← parseCVD st cvr
+    let cvp ← cvOf L cvr
     if isUnsafe then
       return .inr (.declined "unsafe axiom")
     -- **`Quot.sound` is the FOLD's** (task #293): the axiom record is
     -- forwarded like any other, and the fold compares it with the
     -- pinned soundness axiom (`checkDecl`'s `.axiomDecl` arm) — the
     -- decline on a mismatch was the parser's and is not any more.
-    return .inl (pushDecl st (.axiomDecl cvp))
+    return .inl (.axiomDecl cvp)
   | .defn cvr value hints safety =>
-    let cvp ← parseCVD st cvr
+    let cvp ← cvOf L cvr
     match safety with
     | "safe" =>
-      let vl ← getDeclD st value
+      let vl ← L.expr value
       let h : ReducibilityHint := match hints with
         | .«abbrev» => .«abbrev»
         | .«opaque» => .«opaque»
         | .regular n => .regular n
-      return .inl (pushDecl st (.defnDecl cvp vl h))
+      return .inl (.defnDecl cvp vl h)
     | s => return .inr (.declined s!"definition with safety '{s}'")
   | .thm cvr value =>
-    let cvp ← parseCVD st cvr
-    let vl ← getDeclD st value
-    return .inl (pushDecl st (.thmDecl cvp vl))
+    let cvp ← cvOf L cvr
+    let vl ← L.expr value
+    return .inl (.thmDecl cvp vl)
   | .opaq cvr value isUnsafe =>
-    let cvp ← parseCVD st cvr
+    let cvp ← cvOf L cvr
     if isUnsafe then
       return .inr (.declined "unsafe opaque declaration")
-    let vl ← getDeclD st value
-    return .inl (pushDecl st (.opaqueDecl cvp vl))
+    let vl ← L.expr value
+    return .inl (.opaqueDecl cvp vl)
   | .quot cvr kind =>
     -- **ONE RECORD PER `#QUOT` LINE** (task #293): the file declares
     -- the quotient package as four records, and the decoder emits four
@@ -435,18 +460,25 @@ def processLineCoreD (st : StateD) (d : @& DeclRec) : M (StateD ⊕ RecordVerdic
     -- (`preparePrelude`, which retags a matching record to
     -- `basisDecl .quotK`) and the decline on a mismatch (the fold's
     -- `.quotDecl` arm) are not the parser's any more.
-    let cv ← parseCVD st cvr
+    let cv ← cvOf L cvr
     let qk ← match kind with
       | "type" => pure QuotKind.type
       | "ctor" => pure QuotKind.ctor
       | "lift" => pure QuotKind.lift
       | "ind" => pure QuotKind.ind
       | k => throw s!"unknown quotient kind '{k}'"
-    return .inl (pushDecl st (.quotDecl qk cv))
+    return .inl (.quotDecl qk cv)
   | .ind tys cts rcs =>
-    match ← validateIndD st tys cts rcs with
+    match ← validateInd L tys cts rcs with
     | .inl v => pure (.inr v)
-    | .inr (cts, nPd) => return .inl (← installIndD st tys cts rcs nPd)
+    | .inr (cts, nPd) => return .inl (← indBlockOf L tys cts rcs nPd)
+
+/-- A declaration record applied to the state: its record pushed, or its
+verdict. -/
+def processLineCoreD (st : StateD) (d : @& DeclRec) : M (StateD ⊕ RecordVerdict) := do
+  match ← declOf st.lk d with
+  | .inl x => pure (.inl (pushDecl st x))
+  | .inr v => pure (.inr v)
 
 /-- A declaration record.  **`sorryAx` is the FOLD's** (user ruling):
 the parse forwards every declaration record, the `sorryAx` axiom record
