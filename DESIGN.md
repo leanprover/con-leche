@@ -98122,6 +98122,152 @@ could be avoided by keeping them on their worker.
 Logs and scripts: `_tmp/amdahl/rounds2-logs/` (`campaign2.txt`,
 `run1.sh`, `measure.patch` with the development knobs).
 
+## TASK #329 — CHECKSCALE: end-of-run statistics, and how the check pool scales (2026-10-08, agent/329-checkscale)
+
+**Why.** A 104.7 GB export (22.1 M declarations, 150 workers, master
+`67f04630d`) ran parse 855 s, install 1 085 s, check 18 403 s, peak RSS
+954 GiB; its last 0.7 M checks (3 %) took 12 800 s, 63 % of the run.
+The `--progress` log could not say whether that was a few huge
+declarations with idle workers or a heavy region with all of them busy.
+
+**1. The statistics (landed; `ConLeche/Driver/Stats.lean`).** Every run,
+flag or not, ends its stderr with `con-leche: stats:` lines, printed
+after the verdict is known. Example (mathlib-full, `--jobs=32`, after
+the merge with ROUNDS2):
+
+```
+con-leche: stats: phases: parse 4.0s, install 5.1s, check 33.2s
+con-leche: stats: install pool: 4.318s wall, 32 workers + the commit thread, 691203 records, busy 126.905s (89.0%); tail 0.114s after the last start, 1 busy then, 0.000s worker-time in it (0.0%)
+con-leche: stats: slowest installs: 0.425s def Nat.xor (#10963); 0.339s inductive CategoryTheory.FreeBicategory.Rel.below (#252109); 0.300s def Nat.lor (#9648); …
+con-leche: stats: check pool: 32.925s wall, 32 workers, 684456 records, busy 1050.406s (99.6%); tail 0.085s after the last start, 32 busy then, 0.169s worker-time in it (6.1%)
+con-leche: stats: slowest checks: 0.902s theorem alternatingGroup.normalClosure_swap_mul_swap_five (#617728); …
+con-leche: stats: peak RSS 7.45 GiB
+```
+
+- *Per record*, two `IO.monoNanosNow` reads around the install or the
+  check, folded into the worker's own `WStats` (count, busy time, its
+  five slowest, its latest record with start and end). The check
+  workers and the install workers thread it through their loops and
+  return it; `checkLoop` returns it beside its result; the serial
+  `installLoop` and the commit thread's own installs use a ref only
+  that thread touches. The pool merges at the end; nothing is shared
+  per record. The install workers are still not joined at the commit:
+  the summary waits for them at the end of the run, when they have
+  long returned.
+- *Utilisation* is busy ÷ (threads × wall). The install's threads are
+  the workers plus the commit thread, and an install's time includes
+  any wait on a dependency's slot, so it is an upper bound there.
+- *The tail* is the window from the last record's start (the latest
+  start over all workers, right after the last claim) to the end of
+  the phase: how many workers were still busy at its start and their
+  busy time inside it (each worker is on at most one record then).
+- *Peak RSS* is `VmHWM` from `/proc/self/status`, omitted if unreadable.
+- *At `--jobs=1`*: the same lines without the tail.
+- *Heartbeat.* On `--progress` at more than one worker, each `install`
+  and `check` line ends with `busy=<b>/<n>, oldest <decl> (#<pos>)
+  <age>s`. Each worker publishes the record it starts and when, in two
+  scalar refs only it writes, and only on that lane.
+- *Verdict untouched.* stdout and the exit code are unchanged. The
+  arena battery's cross-`--jobs` comparisons of stderr drop the
+  `stats:` lines (`nostats`), and a new `statistics` lane checks the
+  lines' presence on accept and reject at 1 and 4 workers, the tail at
+  4, and the heartbeat's suffix.
+- *Cost* (A/B against `more-parallel` `6eaff83aa`): `--jobs=1`
+  init-full, two runs each, 486.70–486.73 G → 486.77–486.78 G
+  instructions (+0.01 %). `--jobs=8` NS, three runs each: 3.200–3.207 T
+  → 3.206–3.212 T instructions, within the pool's own run-to-run spread;
+  check 41.0 (40.3–41.2) s → 39.9 (39.6–40.2) s, load 4–8.
+
+**2. The check pool's scaling (measured; nothing landed).** One run
+per point under the flock, load 4–18. A temporary patch
+(`_tmp/amdahl/checkscale-logs/dump.patch`, not landed) dumped every check's worker,
+start and duration; `perf stat -p` was attached 0.3 s after the
+`persistent mark` line, once the check workers existed, so the counters
+cover the check phase only.
+
+| corpus | jobs | check | busy (thread-s) | util | tail | instr (T) | cycles (T) | GHz | CPI | peak RSS |
+|---|---|---|---|---|---|---|---|---|---|---|
+| NS | 8 | 40.9 s | 327 | 99.9 % | 0.010 s | 2.918 | 1.430 | 4.40 | 0.49 | 1.90 GiB |
+| NS | 32 | 14.0 s | 448 | 99.7 % | 0.020 s | 2.856 | 1.809 | 4.13 | 0.63 | 2.09 GiB |
+| NS | 64 | 9.2 s | 583 | 99.2 % | 0.026 s | 2.835 | 2.179 | 3.87 | 0.77 | 2.30 GiB |
+| cslib | 8 | 36.1 s | 288 | 99.7 % | 0.059 s | 2.481 | 1.259 | 4.40 | 0.51 | 3.11 GiB |
+| cslib | 32 | 11.5 s | 367 | 99.2 % | 0.074 s | 2.438 | 1.459 | 4.10 | 0.60 | 3.29 GiB |
+| cslib | 64 | 7.6 s | 476 | 98.2 % | 0.122 s | 2.406 | 1.731 | 3.79 | 0.72 | 3.55 GiB |
+| mathlib-full | 8 | 105.5 s | 843 | 99.8 % | 0.055 s | 7.452 | 3.698 | 4.39 | 0.50 | 7.28 GiB |
+| mathlib-full | 32 | 33.3 s | 1062 | 99.6 % | 0.075 s | 7.435 | 4.273 | 4.06 | 0.57 | 7.53 GiB |
+| mathlib-full | 64 | 22.2 s | 1412 | 99.4 % | 0.085 s | 7.426 | 5.189 | 3.73 | 0.70 | 7.75 GiB |
+
+- *No tail on these corpora.* At every point the pool is ≥ 98 % busy,
+  and the window after the last claim is under 0.13 s. The per-2 %
+  timeline is flat at 100 % to the last slice. The single largest
+  check is 0.4–1.1 s at 8 workers, against 36–105 s of phase.
+- *Distribution* (ms, at 8 workers):
+
+| corpus | p50 | p90 | p99 | p99.9 | p99.99 | max | top 100 share | > 10 ms share |
+|---|---|---|---|---|---|---|---|---|
+| NS | 0.54 | 7.2 | 26.8 | 66.7 | 139 | 1074 | 3.6 % | 48 % |
+| cslib | 0.22 | 1.6 | 9.0 | 28.6 | 68 | 387 | 3.0 % | 21 % |
+| mathlib-full | 0.32 | 2.7 | 14.1 | 44.3 | 130 | 758 | 2.5 % | 30 % |
+
+  The top 100 lists are in `_tmp/amdahl/checkscale-logs/p2/top100-*.txt`.
+  NS's heaviest are `NavierStokes.*.quadraticBilin._proof_*` (0.3–1.1 s).
+  Mathlib's heaviest are `alternatingGroup.normalClosure_swap_mul_swap_five`,
+  `WeierstrassCurve.addSubMapCoeff_condition._proof_1_3` and
+  `SzemerediRegularity.edgeDensity_star_not_uniform._proof_1_10`.
+- *Where the efficiency goes as workers grow.* Instructions stay flat
+  (they even fall about 1 %), so no work is added. Busy thread-time
+  grows 1.67–1.78× from 8 to 64 workers, so the speedup is 4.5–4.8×
+  for 8× the workers. Every percentile inflates by about the same
+  factor (NS p50 0.54 → 0.91 ms, p99 26.8 → 50.5 ms), so the cost is
+  per instruction, not a few records. Two parts:
+  - *Clock.* The cycle rate falls from 4.40 to 3.73–3.87 GHz (all-core
+    boost): about 12–15 %.
+  - *Cycles per instruction* rise from 0.49–0.51 to 0.70–0.77.
+    `perf stat` with cache events (cslib, check phase only; this second
+    run was quieter, so it scaled better): from 8 to 64 workers cycles
+    rose 25 % while cache misses rose 19 % (6.57 G → 7.80 G) and
+    L1-dcache misses 6 %. That is consistent with shared L3 and memory
+    bandwidth, and with SMT siblings sharing a core beyond 48 threads;
+    software contention does not explain it.
+  - *No software hotspot.* The cycle profiles (`perf record -e cycles:u
+    -c 20000000`, cslib) at 8 and 64 workers have the same shape:
+    `lean_dec_ref_cold` 17.6 % → 18.9 %, `lean_alloc_small_object_core`
+    7.9 % → 7.6 %, `mi_free` 6.0 % → 6.1 %, `lean_free_object`
+    5.5 % → 5.2 %. Below that come the instantiation and memo-table
+    functions. No lock, atomic or allocator symbol gains share, so
+    neither atomic reference counting (the environment is persistent)
+    nor the allocator is where the scaling goes. The claim counter does
+    not appear.
+- *Memory per worker.* Peak RSS grows 6–8.4 MB per added worker
+  (NS 1.90 → 2.30 GiB, cslib 3.11 → 3.55, mathlib-full 7.28 → 7.75
+  from 8 to 64). The per-record memo state is small next to the
+  installed environment. On these corpora, 150 workers would add
+  ~1.2 GB.
+
+**What this says about the 104.7 GB run** (from its log alone; a run
+with this lane's statistics would settle it). The heartbeat counts
+COMPLETED checks:
+- Until 21.4 M they came at ~8 000 per second. Between 21.4 M and
+  22.0 M, about 55 per second, steadily, with names from new families
+  (`CKLaneC.RSC2.*`, `CKLaneM1.ML.*`). The last 106 k then took 750 s.
+- That steady trickle fits a HEAVY REGION, with the pool busy on
+  records of about 2.7 s each (150 ÷ 55). A few huge records with idle
+  workers would instead show as a stall and then a jump.
+- The 954 GiB peak is about 9× the export's size, against 1.2× for
+  mathlib-full. Per-worker memo state, measured here at under 10 MB,
+  does not explain it. Heavy records' own memo tables might, and the
+  new slowest-checks line with the peak RSS would show it.
+
+**Not done, by ruling.** The claim-order experiment (largest estimated
+cost first, size as the proxy) was dropped by the maintainer's ruling
+(2026-10-08): size does not indicate cost, a correlation is not good
+enough, and there will be no scheduling heuristics. The measurements
+above show nothing it could have fixed on these corpora: the tail is
+under 0.13 s.
+
+Logs, scripts (`chk2.sh`, `chk3.sh`, `prof2.sh`, `analyze.py`) and the
+dumps: `_tmp/amdahl/checkscale-logs/`.
+
 ## TASK #329 — LAZY: P0, theorem bodies built in their check task — the measurements, and a ruling needed (2026-10-08, agent/329-lazy)
 
 **The direction** (maintainer, 2026-10-08): scan every chunk flat, mark
@@ -98278,3 +98424,10 @@ path would fall back to the eager parse on the streams where it is not.
   rounds, would remove most of it if needed.
 
 Logs: `_tmp/amdahl/lazy-logs/` (`p0-*.txt`, the prototype).
+
+**Decision (maintainer, 2026-10-08): parked.** A 12–25 % peak-memory gain
+(0.9–2.0 GB on mathlib-full) and a win only at low worker counts do not
+justify either route yet; revisit if the memory saving can be made
+substantially larger.  Separately, storing a theorem's (and an opaque's)
+value in the environment at all is to be removed if the proofs allow it
+(the cleaner specification, independent of lazy parsing).

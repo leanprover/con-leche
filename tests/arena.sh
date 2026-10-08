@@ -547,18 +547,21 @@ jobs_check() { # <description> <condition-result>
     echo "JOBS FAIL: $1"; fail=1
   fi
 }
-jobs_ref_good=$(timeout 120 "$BIN" --jobs=1 "$SPLIT_GOOD" 2>&1); jobs_code_good=$?
-jobs_ref_bad=$(timeout 120 "$BIN" --jobs=1 "$SPLIT_BAD" 2>&1); jobs_code_bad=$?
+# (the end-of-run `stats:` lines are timings and worker counts, so they
+# are dropped before comparing; the stats lane below checks them)
+nostats() { grep -v '^con-leche: stats: '; }
+jobs_ref_good=$(timeout 120 "$BIN" --jobs=1 "$SPLIT_GOOD" 2>&1 | nostats; exit "${PIPESTATUS[0]}"); jobs_code_good=$?
+jobs_ref_bad=$(timeout 120 "$BIN" --jobs=1 "$SPLIT_BAD" 2>&1 | nostats; exit "${PIPESTATUS[0]}"); jobs_code_bad=$?
 jobs_ref_bad=$(printf '%s' "$jobs_ref_bad" | sed 's/ t=[0-9.]*s$//')
-jobs_ref_bad2=$(timeout 120 "$BIN" --jobs=1 "$SPLIT_BAD2" 2>&1 | sed 's/ t=[0-9.]*s$//')
+jobs_ref_bad2=$(timeout 120 "$BIN" --jobs=1 "$SPLIT_BAD2" 2>&1 | nostats | sed 's/ t=[0-9.]*s$//')
 jobs_check "--jobs=1 accepts the good fixture" "$([ "$jobs_code_good" = 0 ] && echo ok)"
 jobs_check "--jobs=1 names badFirst on the two-failure fixture" \
   "$(printf '%s' "$jobs_ref_bad2" | grep -q 'badFirst \[at def badFirst' && echo ok)"
 for jn in 2 4 16; do
-  j_good=$(timeout 120 "$BIN" --jobs=$jn "$SPLIT_GOOD" 2>&1); j_cg=$?
-  j_bad=$(timeout 120 "$BIN" --jobs=$jn "$SPLIT_BAD" 2>&1); j_cb=$?
+  j_good=$(timeout 120 "$BIN" --jobs=$jn "$SPLIT_GOOD" 2>&1 | nostats; exit "${PIPESTATUS[0]}"); j_cg=$?
+  j_bad=$(timeout 120 "$BIN" --jobs=$jn "$SPLIT_BAD" 2>&1 | nostats; exit "${PIPESTATUS[0]}"); j_cb=$?
   j_bad=$(printf '%s' "$j_bad" | sed 's/ t=[0-9.]*s$//')
-  j_bad2=$(timeout 120 "$BIN" --jobs=$jn "$SPLIT_BAD2" 2>&1 | sed 's/ t=[0-9.]*s$//')
+  j_bad2=$(timeout 120 "$BIN" --jobs=$jn "$SPLIT_BAD2" 2>&1 | nostats | sed 's/ t=[0-9.]*s$//')
   jobs_check "--jobs=$jn: the accepting verdict is --jobs=1's" \
     "$([ "$j_good" = "$jobs_ref_good" ] && [ "$j_cg" = "$jobs_code_good" ] && echo ok)"
   jobs_check "--jobs=$jn: the rejection is --jobs=1's, naming the declaration" \
@@ -566,7 +569,7 @@ for jn in 2 4 16; do
   jobs_check "--jobs=$jn: the two-failure fixture names the FIRST failing record" \
     "$([ "$j_bad2" = "$jobs_ref_bad2" ] && echo ok)"
 done
-j_def=$(timeout 120 "$BIN" "$SPLIT_BAD2" 2>&1 | sed 's/ t=[0-9.]*s$//')
+j_def=$(timeout 120 "$BIN" "$SPLIT_BAD2" 2>&1 | nostats | sed 's/ t=[0-9.]*s$//')
 jobs_check "without the flag (one worker per hardware thread) the same" \
   "$([ "$j_def" = "$jobs_ref_bad2" ] && echo ok)"
 timeout 120 "$BIN" --jobs=0 "$SPLIT_GOOD" >/dev/null 2>&1; j_c0=$?
@@ -576,6 +579,45 @@ jobs_check "--jobs=0 is a usage error (exit 3)" "$([ "$j_c0" = 3 ] && echo ok)"
 jobs_check "--jobs=x is a usage error (exit 3)" "$([ "$j_cx" = 3 ] && echo ok)"
 jobs_check "bare --jobs is a usage error (exit 3)" "$([ "$j_cbare" = 3 ] && echo ok)"
 echo "worker pool: $jobs_ok/$jobs_total as expected"
+
+# The end-of-run statistics (task #329, `checkscale`): every run, flag
+# or not, closes its stderr with `con-leche: stats:` lines — the phase
+# times, the install's and the check's utilisation (with the tail at
+# more than one worker), the slowest installs and checks — after the
+# verdict is known.  They are performance-only: stdout and the exit
+# code are the same with them, which the worker-pool lane above already
+# checks with the lines dropped.  Checked here: present on an accept
+# and on a rejection, in one thread and on the pool.
+stats_ok=0
+stats_total=0
+stats_check() { # <description> <condition-result>
+  stats_total=$((stats_total+1))
+  if [ "$2" = ok ]; then
+    stats_ok=$((stats_ok+1))
+  else
+    echo "STATS FAIL: $1"; fail=1
+  fi
+}
+for jn in 1 4; do
+  s_good=$(timeout 120 "$BIN" --jobs=$jn "$SPLIT_GOOD" 2>&1 >/dev/null)
+  s_bad=$(timeout 120 "$BIN" --jobs=$jn "$SPLIT_BAD" 2>&1 >/dev/null)
+  stats_check "--jobs=$jn: an accept prints the phases, both reports and the slowest records" \
+    "$(printf '%s\n' "$s_good" | grep -q '^con-leche: stats: phases: parse .*, install .*, check [0-9]' && \
+       printf '%s\n' "$s_good" | grep -q '^con-leche: stats: install.* wall, .* busy ' && \
+       printf '%s\n' "$s_good" | grep -q '^con-leche: stats: check.* wall, .* busy ' && \
+       printf '%s\n' "$s_good" | grep -q '^con-leche: stats: slowest installs: [0-9]' && \
+       printf '%s\n' "$s_good" | grep -q '^con-leche: stats: slowest checks: [0-9]' && echo ok)"
+  stats_check "--jobs=$jn: a rejection prints them too" \
+    "$(printf '%s\n' "$s_bad" | grep -q '^con-leche: stats: slowest checks: ' && echo ok)"
+done
+s_pool=$(timeout 120 "$BIN" --jobs=4 "$SPLIT_GOOD" 2>&1 >/dev/null)
+stats_check "--jobs=4: the pools report their tail" \
+  "$(printf '%s\n' "$s_pool" | grep -q '^con-leche: stats: check pool: .* tail .* after the last start' && echo ok)"
+s_prog=$(timeout 120 "$BIN" --jobs=4 --progress=1 "$SPLIT_GOOD" 2>&1 >/dev/null)
+stats_check "--jobs=4 --progress=1: heartbeats name the busy workers" \
+  "$(printf '%s\n' "$s_prog" | grep -q '^con-leche: check [0-9].* busy=[0-9]*/[0-9]' && \
+     printf '%s\n' "$s_prog" | grep -q '^con-leche: install [0-9].* busy=[0-9]*/5' && echo ok)"
+echo "statistics: $stats_ok/$stats_total as expected"
 
 # The install pool (task #329).  At --jobs=<n> > 1 the definitions,
 # theorems and opaques are installed on <n> workers, each against a view
@@ -601,7 +643,7 @@ pinst_check() { # <description> <condition-result>
 }
 pinst_run() { # <args...>: stdout+stderr, timings stripped, exit code appended
   local out code
-  out=$(timeout 120 "$BIN" "$@" 2>&1); code=$?
+  out=$(timeout 120 "$BIN" "$@" 2>&1 | nostats; exit "${PIPESTATUS[0]}"); code=$?
   printf '%s\nexit %s\n' "$(printf '%s' "$out" | sed 's/ t=[0-9.]*s$//')" "$code"
 }
 for f in pinstall_ok pinstall_reject_mid pinstall_dup; do
