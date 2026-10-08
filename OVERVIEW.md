@@ -270,7 +270,7 @@ Everything below explains how those theorems are reached.
 Read from the outside in:
 
 1. **The driver** (`Main.lean`). The run parses the stream
-   ([function `parseExportStreamP` in `ConLeche/Frontend/Pipeline.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Frontend/Pipeline.lean#L369))
+   ([function `parseExportStreamP` in `ConLeche/Frontend/Pipeline.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Frontend/Pipeline.lean#L596))
    and runs the fold's two phases as two loops. The byte recogniser that reads each line of the
    stream is proved equal to a naive reference over `List UInt8`
    ([theorem `scanLineSpec_eq_scanLineFwd` in `ConLeche/Frontend/Scan/Equiv.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Frontend/Scan/Equiv.lean#L1002)):
@@ -286,7 +286,7 @@ Read from the outside in:
    each chunk
    ([function `chunkStep` in `ConLeche/Frontend/ExportC.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Frontend/ExportC.lean#L612)),
    returns it: a chunk's flat scan, applied, is that step
-   ([theorem `chunkStepF_of_encodes` in `ConLeche/Frontend/Pipeline.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Frontend/Pipeline.lean#L242-L245)).
+   ([theorem `chunkStepF_of_encodes` in `ConLeche/Frontend/Pipeline.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Frontend/Pipeline.lean#L472-L474)).
    What the parser makes of a record
    — index resolution, the smart constructors — is the
    semantic layer the main corollary's line lemmas are about. The install loop

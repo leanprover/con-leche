@@ -34,6 +34,15 @@ byte length and its UTF-8 bytes; a list its length and its members; a
 record a tag byte and its fields in declaration order.  Nothing here
 is trusted: the round trip (`rdLine`) is a theorem, and the parse's
 statements are carried through it (`Pipeline.lean`).
+
+The readers above are the specification; the applying thread runs
+their machine-word twins (`rNatU`, `withLineU`: `USize` positions, one
+bounds test per field), which read the same values on any buffer whose
+size is a machine word (`RDU`, `withLineU_spec`).  `withLineU` hands
+the record to a continuation, so that with the continuation inlined
+the record is never built.  The lines are self-delimiting, and
+`lineEndU` finds where one ends: what a reader that wants line `k` of
+a chunk indexes the chunk with.
 -/
 
 namespace ConLeche.Frontend.Flat

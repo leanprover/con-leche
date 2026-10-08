@@ -121,8 +121,8 @@
     94  #guard_msgs in
     95  #print axioms ConLeche.model_exists
 
-== ConLeche/Frontend/Pipeline.lean#L369
-   369  def parseExportStreamP (path : System.FilePath) (inflight : Nat)
+== ConLeche/Frontend/Pipeline.lean#L596
+   596  def parseExportStreamP (path : System.FilePath) (inflight : Nat)
 
 == ConLeche/Frontend/Scan/Equiv.lean#L1002
   1002  @[csimp] theorem scanLineSpec_eq_scanLineFwd : @scanLineSpec = @scanLineFwd := by
@@ -130,11 +130,10 @@
 == ConLeche/Frontend/ExportC.lean#L612
    612  def chunkStep (st : StateD) (carry : ByteArray) (lineNo total : Nat) (buf0 : ByteArray) :
 
-== ConLeche/Frontend/Pipeline.lean#L242-L245
-   242  theorem chunkStepS_scanChunk (st : StateD) (carry : ByteArray) (lineNo total : Nat)
-   243      (buf0 : ByteArray) :
-   244      chunkStepS st carry lineNo total buf0 (scanChunk buf0) =
-   245        chunkStep st carry lineNo total buf0 := by
+== ConLeche/Frontend/Pipeline.lean#L472-L474
+   472  theorem chunkStepF_of_encodes (st : StateD) (carry : ByteArray) (lineNo total : Nat)
+   473      (buf0 : ByteArray) (fc : FlatChunk) (h : fc.Encodes (scanChunk buf0)) :
+   474      chunkStepF st carry lineNo total buf0 fc = chunkStep st carry lineNo total buf0 := by
 
 == ConLeche/Driver/ParInstall.lean#L154
    154  def installLoop (mode : ConLeche.CheckMode) (err : IO.FS.Stream)
