@@ -40,18 +40,27 @@ type — phase A of the fold — whatever the schedule.
   record will install are read off the records (`predictSlots`, the
   install skeleton), and with them every constant's counter.  The
   frozen base index maps each predicted name to its counter, its record
-  and its position (`buildBase`).  Record `k`'s constants are its SLOT:
-  a thunk over a promise that whoever installs the record resolves.  A
-  worker view sees the base below its record's predicted counter, so a
-  lookup waits only on an earlier record.
+  and its position (`buildBase`, sharded by name hash).  Record `k`'s
+  constants are its SLOT: a thunk over a promise that whoever installs
+  the record resolves — the one task-manager object per record, there
+  because a lookup is pure code and can wait on nothing else.  A worker
+  view sees the base below its record's predicted counter, so a lookup
+  waits only on an earlier record.  The prediction, the base, the
+  slots, the dependencies and the dependents are each computed on
+  per-chunk (per-shard) tasks.
 * **The install** of record `k` is `installStep` at the view of its
   predicted counter (`ConLeche/Verify/Cached/ViewCongr.lean`): the constants it
   pushes and, for a definition, theorem or opaque, its pending check.
-  Its result travels to the commit thread with its evidence (`WRes`).
-* **The commit.**  The commit thread takes record `k`'s install result,
-  checks that the predicted counter is the serial one and that every
-  slot the constants fill holds that very constant (`slotsOk`: pointer
-  comparisons), and adds the step by `installStep_commit` — the view
+  After publishing its slot the installer makes the commit's checks
+  (`goodB`: the `And` pin, and every slot the constants fill holds that
+  very constant — `slotsOk`, base probes and pointer comparisons), and
+  the result travels to the commit thread with its evidence (`WRes`) in
+  the record's state (`RState`, an `IO.Ref`).
+* **The commit.**  The commit thread takes record `k`'s install result
+  (sleeping on its own condition variable if the installer is not done:
+  never spinning, never waiting on the task manager), checks that the
+  predicted counter is the serial one and the installer's verdict, and
+  adds the step by `installStep_commit` — the view
   answers every lookup as the serial index does (`ViewAgrees`), and an
   install at two such indices pushes the same constants
   (`checkDeclStepC_twin`), so the install at the view IS the serial step.
@@ -78,7 +87,10 @@ stream order off a shared cursor and install each one that is READY —
 whose dependencies, the records installing the names its expressions
 mention, have all been installed; a record that is not is installed
 when its last dependency is, by the worker that installed that one.
-The common case takes no lock (`Sched`).
+No record past the basis gate (`basisGate`) is handed out before the
+records up to it are installed, so the basis records every record
+looks up carry no dependency edges.  The common case takes no lock
+(`Sched`).
 -/
 
 @[expose] public section
@@ -649,7 +661,7 @@ def fallbackFrom (err : IO.FS.Stream) (stride total t0 : Nat)
 
 /-- **The commit loop.**  `installLoop`'s run, one record per step, each
 record's step added from its install at its view.  `cst` counts the
-commit thread's waits on a worker and its own installs, with their
+commit thread's sleeps waiting for an installer and its own installs, with their
 times. -/
 def commitLoop (err : IO.FS.Stream) (stride total t0 : Nat) (fallbackAt : Option Nat)
     (hB : BaseInj B) (sh : Shared mode ds B S vis) (cst : IO.Ref (Array Nat))
