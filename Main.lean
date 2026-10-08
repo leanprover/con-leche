@@ -342,7 +342,7 @@ type — phase A of the fold — whatever the schedule.
   install skeleton), and with them every constant's counter.  The
   frozen base index maps each predicted name to its counter, its record
   and its position (`buildBase`).  Record `k`'s constants are its SLOT:
-  a promise that whoever installs the record resolves.  A
+  a thunk over a promise that whoever installs the record resolves.  A
   worker view sees the base below its record's predicted counter, so a
   lookup waits only on an earlier record.
 * **The install** of record `k` is `installStep` at the view of its
@@ -503,7 +503,8 @@ def release (sc : Sched) (k : Nat) : IO Unit := do
       sc.lock.lock
       sc.ready.modify fun t => newly.foldl (fun t d => t.insert d) t
       sc.lock.unlock
-      sc.cv.notifyAll
+      for _ in newly do
+        sc.cv.notifyOne
 
 /-- The next ready record for a worker (under the lock), or `none` once
 stopped. -/
@@ -641,7 +642,10 @@ def commitLoop (err : IO.FS.Stream) (stride total t0 : Nat) (fallbackAt : Option
       else if hw : andPinOk pd = true ∧ vis[k]? = some fe.visibleBelow then
         -- the record's install: here if nobody took it, else the worker's
         let tf0 ← IO.monoNanosNow
-        let mine ← claim sh.sched k
+        let done ← match sh.resP[k]? with
+          | some p => IO.hasFinished p.result?
+          | none => pure false
+        let mine ← if done then pure false else claim sh.sched k
         let q? : Option (WRes mode ds B S vis) ← do
           if mine then
             pure (some (← installAndPublish sh k))
@@ -726,7 +730,10 @@ def parInstall (mode : CheckMode) (err : IO.FS.Stream) (stride total t0 jobs : N
       stop := ← IO.mkRef false, lock := ← Std.BaseMutex.new, cv := ← Std.Condvar.new }
   -- the slots: record `k`'s constants, as whoever installs it resolves them
   let slotP ← (Array.range n).mapM fun _ => IO.Promise.new
-  let S : Cached.Slots := slotP.map (·.result?)
+  -- a slot is a thunk over its promise: the first lookup waits for the
+  -- publisher, every later one reads the thunk's (persistent) value
+  -- with no reference count on any shared object
+  let S : Cached.Slots := slotP.map fun p => Thunk.mk fun _ => (p.result?.get).getD #[]
   have : Nonempty (ParInstall.WRes mode ds B S vis) :=
     ⟨⟨(0, ParInstall.workerRes mode ds B S vis 0), rfl⟩⟩
   let resP ← (Array.range n).mapM fun _ => IO.Promise.new

@@ -24,7 +24,7 @@ returns is the serial fold's whatever the schedule.
   index and the frozen base layer `B` (`FBase`,
   `ConLeche/Kernel/FEnv.lean`) visible below the counter `v`: the
   predicted name of every slot of the stream, each answering from the
-  task of the record that installs it.  It is built once, before the
+  slot of the record that installs it.  It is built once, before the
   workers start, from the names the records will install.
 * **The invariant** (`ViewAgrees B S fe`): the view at the serial index's
   counter answers every lookup as the serial index does.  It holds at
@@ -141,9 +141,8 @@ counter, the record that installs it, and its position among that
 record's installed constants. -/
 abbrev BaseIdx := Std.HashMap Name (Nat × Nat × Nat)
 
-/-- The records' tasks: record `k`'s installed constants, `none` if the
-task was dropped unresolved. -/
-abbrev Slots := Array (Task (Option (Array ConstantInfo)))
+/-- The records' slots: record `k`'s installed constants, deferred. -/
+abbrev Slots := Array (Thunk (Array ConstantInfo))
 
 /-- **The worker view at counter `v`**: no constants of its own, the
 base visible below `v`.  A worker installs record `r` at
@@ -179,14 +178,10 @@ theorem ViewAgrees.empty (B : BaseIdx) (S : Slots) : ViewAgrees B S (mkFEnv Env.
 
 /-- The slot's constant: position `j` of record `k`'s task. -/
 def slotGet (S : Slots) (k j : Nat) : Option ConstantInfo :=
-  if h : k < S.size then
-    match (S[k]).get with
-    | some cs => cs[j]?
-    | none => none
-  else none
+  if h : k < S.size then (S[k]).get[j]? else none
 
-/-- **The slot check**: position `j` of record `k`'s task is `ci`.  At
-run time a pointer comparison — the task delivers the very object the
+/-- **The slot check**: position `j` of record `k`'s slot is `ci`.  At
+run time a pointer comparison — the slot delivers the very object the
 record's install reports — and only on a mismatch the
 structural comparison, which is what it means logically
 (`slotIs_spec`). -/

@@ -23,38 +23,35 @@ agreement (`ConLeche/Verify/EnvBound.lean`) is stated about it.  The
 namespace ConLeche
 /-! ## The frozen base layer -/
 
-/-- **A frozen, task-valued lookup layer** (task #329): the name index
-of a parallel install's predicted slots, built once before the workers
-start and never written again.  An entry `n ↦ (c, k, j)` says that the
-constant named `n` gets the installation counter `c` and is the `j`-th
-constant record `k` installs; `slots[k]` is the task that delivers
-record `k`'s installed constants (`none` if it was dropped
-unresolved).  An entry is visible to lookups below the bound `below`
-only, and a lookup of a visible entry waits for its record's task —
-that record is below the looker in the stream, so the wait is on an
-earlier record, never on the looker itself.
+/-- **A frozen lookup layer of deferred slots** (task #329): the name
+index of a parallel install's predicted slots, built once before the
+workers start and never written again.  An entry `n ↦ (c, k, j)` says
+that the constant named `n` gets the installation counter `c` and is
+the `j`-th constant record `k` installs; `slots[k]` is a thunk that
+delivers record `k`'s installed constants (forcing it waits for the
+record's installer to publish them).  An entry is visible to lookups
+below the bound `below` only, so a lookup waits only on an earlier
+record, never on the looker itself.
 
-The index holds no task (only numbers and names), so it can be marked
-persistent before the workers start; the tasks sit in their own array.
-Logically `Task.get` is a projection, so `find?` is an ordinary function
-of the layer's contents; the empty layer answers `none` everywhere
-(`FBase.find?_empty`), which is every `FEnv` but a worker's view. -/
+The index holds no thunk (only numbers and names), so it can be marked
+persistent before the workers start; the thunks sit in their own array
+and are read borrowed, so a lookup counts no reference on them.
+Logically `Thunk.get` is a projection, so `find?` is an ordinary
+function of the layer's contents; the empty layer answers `none`
+everywhere (`FBase.find?_empty`), which is every `FEnv` but a worker's
+view. -/
 structure FBase where
   idx : Std.HashMap Name (Nat × Nat × Nat) := {}
-  slots : Array (Task (Option (Array ConstantInfo))) := #[]
+  slots : Array (Thunk (Array ConstantInfo)) := #[]
   below : Nat := 0
 
 /-- The base layer's lookup: a visible entry's constant, from its
-record's task. -/
+record's slot. -/
 def FBase.find? (b : FBase) (n : Name) : Option ConstantInfo :=
   match b.idx[n]? with
   | some (c, k, j) =>
     if c < b.below then
-      if h : k < b.slots.size then
-        match (b.slots[k]).get with
-        | some cs => cs[j]?
-        | none => none
-      else none
+      if h : k < b.slots.size then (b.slots[k]).get[j]? else none
     else none
   | none => none
 
