@@ -75,7 +75,11 @@ worker count the installed environment is marked persistent once at
 the phase boundary, which removes the atomic reference counting the
 workers would otherwise pay on it and is worth 18–32 % of wall time on
 the pool, growing with the worker count, and 3.5 % at one worker;
-`--no-mark-persistent` turns it off. The
+`--no-mark-persistent` turns it off. On more than one worker most of
+that marking happens earlier: the records are marked before the
+install pool starts (a serial walk, about 2.5 s on Mathlib) and each
+install result by the worker that computed it, so the mark at the
+phase boundary finds little left to do (about 0.1 s on Mathlib). The
 verdict, and the declaration a rejection names, are the same at every
 `n`: the results are walked in record order, so the first failing
 record in fold order is the one reported. The flag
@@ -83,7 +87,9 @@ record in fold order is the one reported. The flag
 shape per phase — `install <i>/<N> <decl>` before every `stride`-th
 declaration is installed, `check <done>/<M> <decl>` after every
 `stride`-th completed check — bracketed by `parse done`, `install
-done`, `check done` and a `done:` summary with the three phase
+done` (on more than one worker preceded by a `parallel install` line
+with the install's own phases), `persistent mark`, `check done` and a
+`done:` summary with the three phase
 durations and the worker count (bare, the stride is 1). The heartbeat
 is printed between the steps of the one driver, which returns its
 environment together with the proof that `checkDecls` — the function
@@ -280,7 +286,7 @@ Read from the outside in:
    What the parser makes of a record
    — index resolution, the smart constructors — is the
    semantic layer the main corollary's line lemmas are about. The install loop
-   ([function `installLoop` in `ConLeche/Driver/ParInstall.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/ParInstall.lean#L126))
+   ([function `installLoop` in `ConLeche/Driver/ParInstall.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/ParInstall.lean#L129))
    takes every record, each from a fresh memo state, through the install step
    ([function `annotStepC` in `ConLeche/Cached/Installed.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Cached/Installed.lean#L148-L151)):
    a definition or opaque is annotated and pushed with its check
@@ -295,7 +301,7 @@ Read from the outside in:
    steps, a proposition, and what it returns is an installed
    environment. On more than one worker the same run is built by a
    commit loop
-   ([function `ParInstall.commitLoop` in `ConLeche/Driver/ParInstall.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/ParInstall.lean#L398-L407))
+   ([function `ParInstall.commitLoop` in `ConLeche/Driver/ParInstall.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/ParInstall.lean#L461-L470))
    that adds one step per record in stream order while worker threads
    install the records ahead of it, each at a *worker view*: an empty index over a frozen base layer that maps
    every name the stream will install, predicted from the records, to
