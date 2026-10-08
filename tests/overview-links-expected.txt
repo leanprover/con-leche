@@ -145,19 +145,19 @@
    150      Declaration → CheckCM (FEnv × Array PendingCheck)
    151    | .defnDecl cv value hint =>
 
-== ConLeche/Driver/ParInstall.lean#L743-L754
-   743  def commitLoop (err : IO.FS.Stream) (stride total t0 : Nat) (fallbackAt : Option Nat)
-   744      (hB : BaseInj B) (sh : Shared mode ds B S vis) (cst : IO.Ref (Array Nat))
-   745      (bd : Builder) (bt : Task (Except IO.Error (Σ' (k : Nat) (fe : FEnv),
-   746        PLift (fe = prefixFe S k))))
-   747      (p₀ : Nat × FEnv × Array PendingCheck) :
-   748      (k i c : Nat) → (pend : Array PendingCheck) →
-   749      (prefixFe S k).visibleBelow = c →
-   750      InstallRun mode natOpPinSets (ds.toList.take k) p₀ (i, prefixFe S k, pend) →
-   751      IdxBelow (prefixFe S k) → ViewAgrees B S (prefixFe S k) →
-   752        IO (Except (CheckError × Nat)
-   753          (Σ' (p' : Nat × FEnv × Array PendingCheck),
-   754            PLift (InstallRun mode natOpPinSets ds.toList p₀ p')))
+== ConLeche/Driver/ParInstall.lean#L746-L757
+   746  def commitLoop (err : IO.FS.Stream) (stride total t0 : Nat) (fallbackAt : Option Nat)
+   747      (hB : BaseInj B) (sh : Shared mode ds B S vis) (cst : IO.Ref (Array Nat))
+   748      (bd : Builder) (bt : Task (Except IO.Error (Σ' (k : Nat) (fe : FEnv),
+   749        PLift (fe = prefixFe S k))))
+   750      (p₀ : Nat × FEnv × Array PendingCheck) :
+   751      (k i c : Nat) → (pend : Array PendingCheck) →
+   752      (prefixFe S k).visibleBelow = c →
+   753      InstallRun mode natOpPinSets (ds.toList.take k) p₀ (i, prefixFe S k, pend) →
+   754      IdxBelow (prefixFe S k) → ViewAgrees B S (prefixFe S k) →
+   755        IO (Except (CheckError × Nat)
+   756          (Σ' (p' : Nat × FEnv × Array PendingCheck),
+   757            PLift (InstallRun mode natOpPinSets ds.toList p₀ p')))
 
 == ConLeche/Verify/Cached/ViewCongr.lean#L1351-L1357
   1351  theorem installStep_commit {pins : List NatOpPinSet} {B : BaseIdx} {S : Slots} {i : Nat}

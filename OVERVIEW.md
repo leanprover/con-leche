@@ -301,7 +301,7 @@ Read from the outside in:
    steps, a proposition, and what it returns is an installed
    environment. On more than one worker the same run is built by a
    commit loop
-   ([function `ParInstall.commitLoop` in `ConLeche/Driver/ParInstall.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/ParInstall.lean#L743-L754))
+   ([function `ParInstall.commitLoop` in `ConLeche/Driver/ParInstall.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/ParInstall.lean#L746-L757))
    that adds one step per record in stream order — a builder thread
    beside it pushes the committed records' constants into the index the
    run is about — while worker threads
