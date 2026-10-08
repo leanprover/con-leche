@@ -71,17 +71,17 @@ now (`ConLeche/Frontend/Prepare.lean`). -/
 def pushDecl (st : StateD) (d : Declaration) : StateD :=
   { st with decls := st.decls.push d }
 
-def StateD.name (st : StateD) (i : Nat) : M Name :=
+@[inline] def StateD.name (st : StateD) (i : Nat) : M Name :=
   match st.names.get? i with
   | some n => pure n
   | none => throw s!"undefined name index {i}"
 
-def StateD.level (st : StateD) (i : Nat) : M Level :=
+@[inline] def StateD.level (st : StateD) (i : Nat) : M Level :=
   match st.levels.get? i with
   | some l => pure l
   | none => throw s!"undefined level index {i}"
 
-def StateD.expr (st : StateD) (i : Nat) : M Expr :=
+@[inline] def StateD.expr (st : StateD) (i : Nat) : M Expr :=
   match st.exprs.get? i with
   | some e => pure e
   | none => throw s!"undefined expr index {i}"
@@ -136,7 +136,8 @@ that consumes it, exactly as before. -/
 /-! ## Table entries -/
 
 /-- A name-table entry: the name value is built directly. -/
-def parseNameEntryD (st : StateD) (i : Nat) : NameRec → M StateD
+@[inline] def parseNameEntryD (st : StateD) (i : Nat) (r : @& NameRec) : M StateD :=
+  match r with
   | .str pre s => do
     let p ← st.name pre
     st.freshName i
@@ -147,7 +148,7 @@ def parseNameEntryD (st : StateD) (i : Nat) : NameRec → M StateD
     pure { st with names := st.names.insert i (Name.num p n) }
 
 /-- A level-table entry. -/
-def parseLevelEntryD (st : StateD) (i : Nat) (r : LevelRec) : M StateD := do
+@[inline] def parseLevelEntryD (st : StateD) (i : Nat) (r : @& LevelRec) : M StateD := do
   st.freshLevel i
   let l ← match r with
     | .succ u => do pure (Level.succ (← st.level u))
@@ -166,7 +167,7 @@ beside the `.default` annotation of task #142), so `==` is
 α-equivalence downstream.  The `name` field is still required to be
 present and well-formed (the recogniser reads it), it is just not
 resolved. -/
-def parseExprEntryD (st : StateD) (i : Nat) (r : ExprRec) : M StateD := do
+@[inline] def parseExprEntryD (st : StateD) (i : Nat) (r : @& ExprRec) : M StateD := do
   st.freshExpr i
   let e ← match r with
     | .bvar k => pure (Expr.mkBvar k)
@@ -394,7 +395,7 @@ def installIndD (st : StateD) (tys : List IndTypeRec) (cts : List IndCtorRec)
 `Declaration` records.  Every branch, guard and error string is the one the
 `Lean.Json` reader this replaced had (task #256); only the reads
 changed, from key lookups in a DOM to fields of a syntax record. -/
-def processLineCoreD (st : StateD) (d : DeclRec) : M (StateD ⊕ RecordVerdict) := do
+def processLineCoreD (st : StateD) (d : @& DeclRec) : M (StateD ⊕ RecordVerdict) := do
   match d with
   | .ax cvr isUnsafe =>
     let cvp ← parseCVD st cvr
@@ -453,13 +454,13 @@ included — the fold checks its type, installs nothing for it, and
 declines at the first record that USES the name
 (`ConLeche/Kernel/Checker.lean`'s `.axiomDecl` arm, `unknownConstError`
 and `unresolvedConstsError`); the parser owns no semantic decision. -/
-def applyDeclD (st : StateD) (d : DeclRec) : M (StateD ⊕ RecordVerdict) :=
+def applyDeclD (st : StateD) (d : @& DeclRec) : M (StateD ⊕ RecordVerdict) :=
   processLineCoreD st d
 
 /-- **The semantic layer**: one scanned line applied to the parse
 state, reading the fields of the syntax record the byte recogniser
 produced (`ConLeche/Frontend/Scan/Fast.lean`, task #256). -/
-def applyLine (st : StateD) (r : LineRec) : M (StateD ⊕ RecordVerdict) :=
+@[inline] def applyLine (st : StateD) (r : @& LineRec) : M (StateD ⊕ RecordVerdict) :=
   match r with
   | .expr i e => do pure (.inl (← parseExprEntryD st i e))
   | .name i n => do pure (.inl (← parseNameEntryD st i n))

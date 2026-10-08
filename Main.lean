@@ -1,6 +1,7 @@
 module
 
 public import ConLeche.Frontend.Prelude
+public import ConLeche.Frontend.Pipeline
 public import ConLeche.Cached.Installed
 public import Std.Sync.Mutex
 
@@ -47,9 +48,10 @@ def ConLeche.CheckError.exitCode : CheckError → UInt32
 /-- The whole input side of a run: the parsed declarations, read
 straight from the file.  There is nothing else — no preprocessor
 detection, no spawn, no pipe. -/
-def parseInput (file : String) :
-    IO (Except (ConLeche.CheckError × Nat) Frontend.ParseResultD) :=
-  Frontend.parseExportStreamD file
+def parseInput (file : String) (inflight : Nat) : IO Frontend.ParseOutcome := do
+  let infl := (← IO.getEnv "CL_INFLIGHT").bind (·.toNat?) |>.getD inflight
+  let ch := (← IO.getEnv "CL_CHUNK").bind (·.toNat?) |>.getD Frontend.chunkSize.toNat
+  Frontend.parseExportStreamP file infl ch.toUSize
 
 /-- A declaration's display name, for the direct-parse `Declaration` records.  The
 formatting itself lives beside the checker (`ConLeche.Cached.declCLabel`)
@@ -530,7 +532,7 @@ def checkMain (file : String) (mode : CheckMode) (stride jobs : Nat)
     -- Streaming frontend: the parse reads the file line by line, so
     -- neither a wholesale text buffer nor a scratch file exists in
     -- this process.
-    match ← parseInput file with
+    match (← parseInput file (max 2 (min jobs 16))).val with
     | .error (.notImplemented what, _) =>
       IO.eprintln s!"con-leche: declined: {what} ({modeTag})"
       return 2
