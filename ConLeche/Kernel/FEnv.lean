@@ -21,6 +21,33 @@ agreement (`ConLeche/Verify/EnvBound.lean`) is stated about it.  The
 -/
 
 namespace ConLeche
+/-! ## The frozen base layer -/
+
+/-- **A frozen, task-valued lookup layer** (task #329): the name index of
+a parallel install's predicted slots, built once before the workers
+start and never written again.  An entry `n ↦ (c, j, t)` says that the
+constant named `n` is the `j`-th constant installed by some record,
+whose installed constants the task `t` delivers, and that it gets the
+installation counter `c`; it is visible to lookups below the bound
+`below` only.  A lookup of a visible entry waits for `t` — the record
+that installs it is below the looker in the stream, so the wait is on
+an earlier record, never on the looker itself.
+
+Logically `Task.get` is a projection, so `find?` is an ordinary
+function of the layer's contents; the empty layer answers `none`
+everywhere (`FBase.find?_empty`), which is every `FEnv` but a worker's
+view. -/
+structure FBase where
+  idx : Std.HashMap Name (Nat × Nat × Task (Array ConstantInfo)) := {}
+  below : Nat := 0
+
+/-- The base layer's lookup: a visible entry's constant, from its
+record's task. -/
+def FBase.find? (b : FBase) (n : Name) : Option ConstantInfo :=
+  match b.idx[n]? with
+  | some (c, j, t) => if c < b.below then t.get[j]? else none
+  | none => none
+
 /-! ## The indexed environment -/
 
 /-- The spec environment together with a name index whose lookup function
@@ -44,6 +71,10 @@ structure FEnv where
   /-- Entries with counter `< visibleBelow` are visible; also the next
   counter `push` hands out. -/
   visibleBelow : Nat
+  /-- The frozen lookup layer under the index (`FBase`): consulted on an
+  index miss.  Empty everywhere except in a parallel install's worker
+  views; `mkFEnv`, `push` and `restrictTo` leave it as it is. -/
+  base : FBase
 
 /-- The index build, from the back: the newest (front) constant is
 inserted last and wins, exactly as `List.find?` takes the first match —
@@ -60,16 +91,17 @@ def mkFEnvGo : List ConstantInfo → Nat × Std.HashMap Name (Nat × ConstantInf
 constant count). -/
 def mkFEnv (env : Env) : FEnv :=
   let p := mkFEnvGo env.consts
-  ⟨env, p.2, p.1⟩
+  ⟨env, p.2, p.1, {}⟩
 
 namespace FEnv
 
 /-- Indexed lookup, bounded by the visibility counter (`= Env.find?` for
-`mkFEnv`, which hides nothing). -/
+`mkFEnv`, which hides nothing); an index miss falls through to the base
+layer (empty but in a worker's view). -/
 def find? (fe : FEnv) (n : Name) : Option ConstantInfo :=
   match fe.idx[n]? with
   | some (c, ci) => if c < fe.visibleBelow then some ci else none
-  | none => none
+  | none => fe.base.find? n
 
 /-- Restrict the view to the first `k` installed constants (task #108).
 `O(1)`: a field update on the single linearly-threaded index. -/
@@ -83,7 +115,7 @@ bound advances with it — so a push is visible to everything checked
 after it and to nothing checked before (task #108). -/
 def push (fe : FEnv) (ci : ConstantInfo) : FEnv :=
   ⟨⟨ci :: fe.env.consts⟩, fe.idx.insert ci.name (fe.visibleBelow, ci),
-   fe.visibleBelow + 1⟩
+   fe.visibleBelow + 1, fe.base⟩
 
 /-- Indexed projection-table lookup (`= Env.findProj?` for `mkFEnv`). -/
 def findProj? (fe : FEnv) (T : Name) (i : Nat) : Option ProjEntry :=

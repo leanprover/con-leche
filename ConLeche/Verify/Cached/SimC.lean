@@ -268,35 +268,24 @@ structure CSOK (mode : CheckMode) (env : Env) (s : CState) : Prop where
   lsimp : ∀ u v, s.lsimpC[u]? = some v → v = Level.simplify u
   lnz : ∀ u b, s.lnzC[u]? = some b → b = Level.isNonZero u
   eqv : ∀ l r b, s.eqvC[(l, r)]? = some b → Level.isEquiv l r = some b
-  /-- The converted-constant cache is self-certifying: each entry's
-  cached term is `RelC`-related to the very `Expr` object it is tagged
-  with.  The clause never mentions `env`, so it survives every flush
-  and every environment transition. -/
-  ienv : ∀ (nm : Name) (ent : CConstE), s.ienv[nm]? = some ent →
-    RelC ent.ty ent.tyE ∧
-    ∀ vE vi, ent.val = some (vE, vi) → RelC vi vE
   instC : ∀ (k : Expr) (vs : List Expr) (d : Nat) (r : Expr),
     s.instC[(k, vs, d)]? = some r →
       r = (Expr.instantiateList k vs d)
 
 /-- The environment-free residue: exactly the clauses `flushC`
-preserves — the level-operation memos and the self-certifying
-converted-constant cache. -/
+preserves — the level-operation memos. -/
 structure CSOKF (s : CState) : Prop where
   lsimp : ∀ u v, s.lsimpC[u]? = some v → v = Level.simplify u
   lnz : ∀ u b, s.lnzC[u]? = some b → b = Level.isNonZero u
   eqv : ∀ l r b, s.eqvC[(l, r)]? = some b → Level.isEquiv l r = some b
-  ienv : ∀ (nm : Name) (ent : CConstE), s.ienv[nm]? = some ent →
-    RelC ent.ty ent.tyE ∧
-    ∀ vE vi, ent.val = some (vE, vi) → RelC vi vE
 
 /-- Every invariant state carries the residue. -/
 theorem CSOK.residue {env : Env} {s : CState} (h : CSOK mode env s) :
-    CSOKF s := ⟨h.lsimp, h.lnz, h.eqv, h.ienv⟩
+    CSOKF s := ⟨h.lsimp, h.lnz, h.eqv⟩
 
 /-- The empty state carries the residue. -/
 theorem CSOKF.empty : CSOKF ({} : CState) := by
-  refine ⟨?_, ?_, ?_, ?_⟩ <;> (intros; simp_all)
+  refine ⟨?_, ?_, ?_⟩ <;> (intros; simp_all)
 
 /-! ## Flush
 
@@ -312,12 +301,12 @@ are vacuous. -/
 theorem flushC_csok {env' : Env} {s : CState} (hs : CSOKF s) :
     CSOK mode env' s.flushed := by
   refine ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, hs.lsimp, hs.lnz, hs.eqv,
-    hs.ienv, ?_⟩ <;> (intros; simp_all [CState.flushed])
+    ?_⟩ <;> (intros; simp_all [CState.flushed])
 
 /-- Flushing preserves the residue (it touches none of its
 components). -/
 theorem CSOKF.flushed {s : CState} (hs : CSOKF s) : CSOKF s.flushed :=
-  ⟨hs.lsimp, hs.lnz, hs.eqv, hs.ienv⟩
+  ⟨hs.lsimp, hs.lnz, hs.eqv⟩
 
 /-! ## The simulation and effect relations -/
 

@@ -31,7 +31,10 @@ declaration from CHECKING it:
   (`fe.visibleBelow`, task #108).  Every other kind — axioms,
   inductive and basis blocks, and the pinned `Nat`-operation and
   `reduce*` branches, whose checks are not separable from their
-  installs — takes the ordinary step `checkDeclStepC`.  An accepting
+  installs — takes the ordinary step `checkDeclStepC`.  Every step
+  runs from a FRESH memo state: nothing but the index crosses from one
+  record to the next, so a record's install is a function of the
+  index it sees and the record alone.  An accepting
   phase A over `ds` IS an `InstalledEnv mode ds`: the index, the
   records, and the chain of accepting steps (`InstallRun`) that produced
   them.
@@ -112,11 +115,9 @@ def annotConstantValC (fe : FEnv) (cv : ConstantVal) :
   pure (⟨cv.name, cv.levelParams, jty⟩, jty)
 
 /-- The value half of `checkDefnValC`/`checkThmValC`/`checkOpaqueValC`
-minus its inference: the guards, the annotation, and the
-converted-constant record (`record` is `false` for an opaque, whose
-value is a discarded witness) — `installValue`'s cached twin. -/
-def annotValC (fe : FEnv) (cvA : ConstantVal) (jty : Expr)
-    (value : Expr) (record : Bool) : CheckCM Expr := do
+minus its inference: the guards and the annotation —
+`installValue`'s cached twin. -/
+def annotValC (fe : FEnv) (cvA : ConstantVal) (value : Expr) : CheckCM Expr := do
   unless Expr.looseBVarsBounded 0 value do
     throw (.invalid s!"loose bound variable in value of {cvA.name}")
   if value.hasFvar then
@@ -126,18 +127,17 @@ def annotValC (fe : FEnv) (cvA : ConstantVal) (jty : Expr)
     throw (.invalid s!"undeclared universe parameter in value of {cvA.name}")
   unless constsResolveFC fe jv do
     throw (unresolvedConstsError s!"value of {cvA.name}" jv)
-  recordCConst cvA.name cvA.type jty (if record then some (jv, jv) else none)
   pure jv
 
 /-- Phase A's install of a separable value declaration: the
 per-declaration flush, then the header's and the value's install halves;
 returns the header with its annotated type, that type, and the
 annotated value. -/
-def annotValueC (fe : FEnv) (cv : ConstantVal) (value : Expr) (record : Bool) :
+def annotValueC (fe : FEnv) (cv : ConstantVal) (value : Expr) :
     CheckCM (ConstantVal × Expr × Expr) := do
   flushC
   let (cvA, jty) ← annotConstantValC mode fe cv
-  let jv ← annotValC mode fe cvA jty value record
+  let jv ← annotValC mode fe cvA value
   pure (cvA, jty, jv)
 
 /-- Phase A's step body: annotate-and-install for the three value
@@ -152,7 +152,7 @@ def annotStepC (pins : List NatOpPinSet) (i : Nat) (fe : FEnv)
     if natOpNames.contains cv.name || natDivModNames.contains cv.name then do
       pure (← checkDeclStepC mode pins fe (.defnDecl cv value hint), pend)
     else do
-      let r ← annotValueC mode fe cv value true
+      let r ← annotValueC mode fe cv value
       -- RC linearity: the counter is read BEFORE the push, so that
       -- `fe` reaches `push` unshared (read after it, the push copies
       -- the whole index at every install)
@@ -166,7 +166,6 @@ def annotStepC (pins : List NatOpPinSet) (i : Nat) (fe : FEnv)
     -- theorem's body
     flushC
     let r ← annotConstantValC mode fe cv
-    recordCConst r.1.name r.1.type r.2 none
     let vis := fe.visibleBelow
     pure (fe.push (.thmInfo r.1 value),
       pend.push ⟨⟨.thm, r.1, value⟩, i, vis⟩)
@@ -174,7 +173,7 @@ def annotStepC (pins : List NatOpPinSet) (i : Nat) (fe : FEnv)
     if reduceOpNames.contains cv.name then do
       pure (← checkDeclStepC mode pins fe (.opaqueDecl cv value), pend)
     else do
-      let r ← annotValueC mode fe cv value false
+      let r ← annotValueC mode fe cv value
       let vis := fe.visibleBelow
       pure (fe.push (.axiomInfo r.1),
         pend.push ⟨⟨.opaque, r.1, r.2.2⟩, i, vis⟩)
@@ -197,67 +196,66 @@ over every kind of record; the soundness proofs never read it (the
 rescue is sound for any `And`), so `checkDecl` does not repeat it. -/
 def annotDeclStep (pins : List NatOpPinSet)
     (p : Nat × FEnv × Array PendingCheck) (pd : Declaration) :
-    StateT CState (Except (CheckError × Nat)) (Nat × FEnv × Array PendingCheck) :=
-  fun s =>
-    if andPinOk pd then
-      match annotStepC mode pins p.1 p.2.1 p.2.2 pd s with
-      | .ok ((fe', pend'), s') => .ok ((p.1 + 1, fe', pend'), s')
-      | .error e => .error (e, p.1)
-    else .error (.invalid "`And` must be the standard `And`", p.1)
+    Except (CheckError × Nat) (Nat × FEnv × Array PendingCheck) :=
+  if andPinOk pd then
+    match annotStepC mode pins p.1 p.2.1 p.2.2 pd {} with
+    | .ok ((fe', pend'), _) => .ok (p.1 + 1, fe', pend')
+    | .error e => .error (e, p.1)
+  else .error (.invalid "`And` must be the standard `And`", p.1)
 
 /-- **Phase A's accepting run**: a chain of accepting `annotDeclStep`s
-over the records, from an accumulator and memo state to the final
-ones.  A loop builds it step by step, whatever else it does between
-the steps. -/
+over the records, from an accumulator to the final one.  A loop builds
+it step by step, whatever else it does between the steps.  (No memo
+state crosses a step: every record is installed from a fresh one.) -/
 inductive InstallRun (pins : List NatOpPinSet) :
-    List Declaration → (Nat × FEnv × Array PendingCheck) → CState →
-    (Nat × FEnv × Array PendingCheck) → CState → Prop where
-  | nil (p : Nat × FEnv × Array PendingCheck) (s : CState) :
-      InstallRun pins [] p s p s
+    List Declaration → (Nat × FEnv × Array PendingCheck) →
+    (Nat × FEnv × Array PendingCheck) → Prop where
+  | nil (p : Nat × FEnv × Array PendingCheck) :
+      InstallRun pins [] p p
   | cons {pd : Declaration} {ds : List Declaration} {p p₁ p' : Nat × FEnv × Array PendingCheck}
-      {s s₁ s' : CState} (h : annotDeclStep mode pins p pd s = .ok (p₁, s₁))
-      (rest : InstallRun pins ds p₁ s₁ p' s') :
-      InstallRun pins (pd :: ds) p s p' s'
+      (h : annotDeclStep mode pins p pd = .ok p₁)
+      (rest : InstallRun pins ds p₁ p') :
+      InstallRun pins (pd :: ds) p p'
 
-/-- The tagged step's accept is the body's accept at the next position. -/
+/-- The tagged step's accept is the body's accept at the next position,
+from a fresh memo state. -/
 theorem annotDeclStep_ok {mode : CheckMode} {pins : List NatOpPinSet}
     {p : Nat × FEnv × Array PendingCheck}
-    {pd : Declaration} {s : CState} {q : Nat × FEnv × Array PendingCheck} {s' : CState}
-    (h : annotDeclStep mode pins p pd s = .ok (q, s')) :
-    ∃ fe' pend', q = (p.1 + 1, fe', pend') ∧
-      annotStepC mode pins p.1 p.2.1 p.2.2 pd s = .ok ((fe', pend'), s') := by
+    {pd : Declaration} {q : Nat × FEnv × Array PendingCheck}
+    (h : annotDeclStep mode pins p pd = .ok q) :
+    ∃ fe' pend' s', q = (p.1 + 1, fe', pend') ∧
+      annotStepC mode pins p.1 p.2.1 p.2.2 pd {} = .ok ((fe', pend'), s') := by
   unfold annotDeclStep at h
   split at h
   case isFalse => exact nomatch h
-  cases hs : annotStepC mode pins p.1 p.2.1 p.2.2 pd s with
+  cases hs : annotStepC mode pins p.1 p.2.1 p.2.2 pd {} with
   | error e => rw [hs] at h; exact nomatch h
   | ok r =>
     obtain ⟨⟨fe', pend'⟩, s₁⟩ := r
     rw [hs] at h
-    simp only [Except.ok.injEq, Prod.mk.injEq] at h
-    obtain ⟨rfl, rfl⟩ := h
-    exact ⟨fe', pend', rfl, rfl⟩
+    simp only [Except.ok.injEq] at h
+    exact ⟨fe', pend', s₁, h.symm, rfl⟩
 
 /-- A run extends at its end by one accepting step: what a loop that
 carries the run of the records it has consumed uses at each step. -/
 theorem InstallRun.snoc {pins : List NatOpPinSet} {ds : List Declaration}
     {p p' : Nat × FEnv × Array PendingCheck}
-    {s s' : CState} (h : InstallRun mode pins ds p s p' s') {pd : Declaration}
-    {p₁ : Nat × FEnv × Array PendingCheck} {s₁ : CState}
-    (hstep : annotDeclStep mode pins p' pd s' = .ok (p₁, s₁)) :
-    InstallRun mode pins (ds ++ [pd]) p s p₁ s₁ := by
+    (h : InstallRun mode pins ds p p') {pd : Declaration}
+    {p₁ : Nat × FEnv × Array PendingCheck}
+    (hstep : annotDeclStep mode pins p' pd = .ok p₁) :
+    InstallRun mode pins (ds ++ [pd]) p p₁ := by
   induction h with
-  | nil p s => exact .cons hstep (.nil _ _)
+  | nil p => exact .cons hstep (.nil _)
   | cons h₀ _ ih => exact .cons h₀ (ih hstep)
 
 /-- **An environment properly installed from `ds`**: the index and the
 records phase A produced, with the accepting run that produced them
-from the empty environment and the fresh memo state. -/
+from the empty environment. -/
 structure InstalledEnv (pins : List NatOpPinSet) (ds : List Declaration) where
   fe : FEnv
   pend : Array PendingCheck
-  run : ∃ (n : Nat) (s : CState),
-    InstallRun mode pins ds (0, mkFEnv Env.empty, #[]) {} (n, fe, pend) s
+  run : ∃ (n : Nat),
+    InstallRun mode pins ds (0, mkFEnv Env.empty, #[]) (n, fe, pend)
 
 /-! ## Phase B: check -/
 
@@ -276,7 +274,7 @@ def checkPending (fe : FEnv) (pc : PendingCheck) : CheckCM Unit := do
         throw (.invalid s!"type of theorem {pc.vg.cvA.name} is not a proposition")
       -- a theorem's value arrives raw: its guards and annotation run
       -- here, at the view (`annotValC` — `installValue`'s twin)
-      annotValC mode fe pc.vg.cvA pc.vg.cvA.type pc.vg.jv false
+      annotValC mode fe pc.vg.cvA pc.vg.jv
     else pure pc.vg.jv
   let jvt ← (coreKnotI mode fe checkFuel).infer 0 jv
   unless ← (coreKnotI mode fe checkFuel).defeq 0 jvt pc.vg.cvA.type do
@@ -454,42 +452,40 @@ the input's LINE number (`ConLeche/Frontend/Export.lean`). -/
 def checkDecls (mode : CheckMode) (pins : List NatOpPinSet)
     (ds : Array Declaration) :
     Except (CheckError × Nat) Env := do
-  let (p, _) ← (ds.foldlM (annotDeclStep mode pins) (0, mkFEnv Env.empty, #[])) {}
+  let p ← ds.foldlM (annotDeclStep mode pins) (0, mkFEnv Env.empty, #[])
   checkPendingList mode p.2.1 p.2.2.toList
   pure p.2.1.env
 
 /-- An accepting run is an accepting `foldlM`. -/
 theorem InstallRun.foldlM {pins : List NatOpPinSet} {ds : List Declaration}
     {p p' : Nat × FEnv × Array PendingCheck}
-    {s s' : CState} (h : InstallRun mode pins ds p s p' s') :
-    (ds.foldlM (annotDeclStep mode pins) p) s = .ok (p', s') := by
+    (h : InstallRun mode pins ds p p') :
+    ds.foldlM (annotDeclStep mode pins) p = .ok p' := by
   induction h with
-  | nil p s => rfl
+  | nil p => rfl
   | cons hstep _ ih =>
     rw [List.foldlM_cons]
-    simp only [Bind.bind, StateT.bind, hstep, Except.bind]
+    simp only [Bind.bind, hstep, Except.bind]
     exact ih
 
 /-- An accepting `foldlM` is an accepting run. -/
 theorem InstallRun.of_foldlM {pins : List NatOpPinSet} :
-    ∀ (ds : List Declaration) (p : Nat × FEnv × Array PendingCheck) (s : CState)
-      {p' : Nat × FEnv × Array PendingCheck} {s' : CState},
-      (ds.foldlM (annotDeclStep mode pins) p) s = .ok (p', s') →
-      InstallRun mode pins ds p s p' s'
-  | [], p, s, p', s', h => by
-    simp only [List.foldlM_nil, pure, StateT.pure, Except.pure, Except.ok.injEq,
-      Prod.mk.injEq] at h
-    obtain ⟨rfl, rfl⟩ := h
-    exact .nil p s
-  | pd :: ds, p, s, p', s', h => by
+    ∀ (ds : List Declaration) (p : Nat × FEnv × Array PendingCheck)
+      {p' : Nat × FEnv × Array PendingCheck},
+      ds.foldlM (annotDeclStep mode pins) p = .ok p' →
+      InstallRun mode pins ds p p'
+  | [], p, p', h => by
+    simp only [List.foldlM_nil, pure, Except.pure, Except.ok.injEq] at h
+    subst h
+    exact .nil p
+  | pd :: ds, p, p', h => by
     rw [List.foldlM_cons] at h
-    simp only [Bind.bind, StateT.bind] at h
-    cases hstep : annotDeclStep mode pins p pd s with
+    simp only [Bind.bind] at h
+    cases hstep : annotDeclStep mode pins p pd with
     | error e => simp only [hstep, Except.bind] at h; exact nomatch h
-    | ok r =>
-      obtain ⟨p₁, s₁⟩ := r
+    | ok p₁ =>
       simp only [hstep, Except.bind] at h
-      exact .cons hstep (InstallRun.of_foldlM ds p₁ s₁ h)
+      exact .cons hstep (InstallRun.of_foldlM ds p₁ h)
 
 /-- Every record checked is the walk's accept. -/
 theorem checkPendingList_ok (fe : FEnv) :
@@ -538,7 +534,7 @@ driver returns beside its environment. -/
 theorem fullyChecked_checkDecls {pins : List NatOpPinSet} {ds : Array Declaration}
     (fc : FullyChecked mode pins ds.toList) :
     checkDecls mode pins ds = .ok fc.env := by
-  obtain ⟨n, s, r⟩ := fc.1.run
+  obtain ⟨n, r⟩ := fc.1.run
   unfold checkDecls
   rw [← Array.foldlM_toList, r.foldlM]
   show (checkPendingList mode fc.1.fe fc.1.pend.toList >>= fun _ => pure fc.1.fe.env) = _
@@ -551,10 +547,10 @@ theorem checkDecls_fullyChecked {pins : List NatOpPinSet} {ds : Array Declaratio
     ∃ fc : FullyChecked mode pins ds.toList, fc.env = env := by
   unfold checkDecls at h
   rw [← Array.foldlM_toList] at h
-  cases hrun : (ds.toList.foldlM (annotDeclStep mode pins) (0, mkFEnv Env.empty, #[])) {} with
+  cases hrun : ds.toList.foldlM (annotDeclStep mode pins) (0, mkFEnv Env.empty, #[]) with
   | error e => rw [hrun] at h; exact nomatch h
   | ok r =>
-    obtain ⟨⟨n, fe, pend⟩, s⟩ := r
+    obtain ⟨n, fe, pend⟩ := r
     rw [hrun] at h
     change (checkPendingList mode fe pend.toList >>= fun _ => pure fe.env) = _ at h
     cases hchk : checkPendingList mode fe pend.toList with
@@ -563,7 +559,7 @@ theorem checkDecls_fullyChecked {pins : List NatOpPinSet} {ds : Array Declaratio
       rw [hchk] at h
       obtain rfl : fe.env = env := Except.ok.inj h
       let e : InstalledEnv mode pins ds.toList :=
-        ⟨fe, pend, n, s, InstallRun.of_foldlM mode ds.toList _ _ hrun⟩
+        ⟨fe, pend, n, InstallRun.of_foldlM mode ds.toList _ hrun⟩
       refine ⟨⟨e, fun i => ?_⟩, rfl⟩
       unfold GroupChecked
       cases hi : pend[i]? with

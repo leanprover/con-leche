@@ -549,7 +549,7 @@ theorem annotStepC_push (mode : CheckMode) (i : Nat) {env : Env} {fe : FEnv}
     simp only []
     split
     · exact hord _
-    · refine Yields.bind' (annotValueC_fresh mode fe cv value true) fun r hr => ?_
+    · refine Yields.bind' (annotValueC_fresh mode fe cv value) fun r hr => ?_
       obtain ⟨cvA, jty, jv⟩ := r
       obtain ⟨hp, hfr⟩ := hr
       exact Yields.pure ⟨h.push (by show fe.find? cvA.name = none; rw [hp]; exact hfr), _,
@@ -560,14 +560,13 @@ theorem annotStepC_push (mode : CheckMode) (i : Nat) {env : Env} {fe : FEnv}
     refine Yields.bind' (annotConstantValC_fresh mode fe cv) fun p hr => ?_
     obtain ⟨cvA, jty⟩ := p
     obtain ⟨hp, hfr⟩ := hr
-    ybind
     exact Yields.pure ⟨h.push (by show fe.find? cvA.name = none; rw [hp]; exact hfr), _,
       Array.toList_push⟩
   | opaqueDecl cv value =>
     simp only []
     split
     · exact hord _
-    · refine Yields.bind' (annotValueC_fresh mode fe cv value false) fun r hr => ?_
+    · refine Yields.bind' (annotValueC_fresh mode fe cv value) fun r hr => ?_
       obtain ⟨cvA, jty, jv⟩ := r
       obtain ⟨hp, hfr⟩ := hr
       exact Yields.pure ⟨h.push (by show fe.find? cvA.name = none; rw [hp]; exact hfr), _,
@@ -581,16 +580,16 @@ theorem annotStepC_push (mode : CheckMode) (i : Nat) {env : Env} {fe : FEnv}
 run returns a canonical index whose constants extend the start by
 fresh names, and the pending records extend the start's. -/
 theorem installRun_trace (mode : CheckMode) {ds : List Declaration} {env : Env}
-    {p : Nat × FEnv × Array PendingCheck} {s : CState}
-    {q : Nat × FEnv × Array PendingCheck} {s' : CState}
-    (h : InstallRun mode pins ds p s q s') (hp : PushChain env p.2.1) :
+    {p : Nat × FEnv × Array PendingCheck}
+    {q : Nat × FEnv × Array PendingCheck}
+    (h : InstallRun mode pins ds p q) (hp : PushChain env p.2.1) :
     PushChain env q.2.1 ∧ ∃ new, q.2.2.toList = p.2.2.toList ++ new := by
   induction h with
-  | nil p s => exact ⟨hp, [], by simp⟩
-  | @cons pd ds p p₁ q s s₁ s' hstep rest ih =>
-    obtain ⟨fe₁, pend₁, rfl, hstepC⟩ := annotDeclStep_ok hstep
+  | nil p => exact ⟨hp, [], by simp⟩
+  | @cons pd ds p p₁ q hstep rest ih =>
+    obtain ⟨fe₁, pend₁, s₁, rfl, hstepC⟩ := annotDeclStep_ok hstep
     obtain ⟨h₁, new₁, hpend₁⟩ :=
-      annotStepC_push mode p.1 hp p.2.2 _ s (fe₁, pend₁) _ hstepC
+      annotStepC_push mode p.1 hp p.2.2 _ {} (fe₁, pend₁) _ hstepC
     obtain ⟨h₂, new₂, hpend₂⟩ := ih h₁
     exact ⟨h₂, new₁ ++ new₂, by rw [hpend₂, hpend₁, List.append_assoc]⟩
 

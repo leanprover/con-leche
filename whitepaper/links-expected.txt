@@ -5431,27 +5431,27 @@
     14  cached and pure sides are *the same terms*, so the value relation is
     15  equality.
 
-== ConLeche/Cached/Installed.lean#L454-L459
-   454  def checkDecls (mode : CheckMode) (pins : List NatOpPinSet)
-   455      (ds : Array Declaration) :
-   456      Except (CheckError × Nat) Env := do
-   457    let (p, _) ← (ds.foldlM (annotDeclStep mode pins) (0, mkFEnv Env.empty, #[])) {}
-   458    checkPendingList mode p.2.1 p.2.2.toList
-   459    pure p.2.1.env
+== ConLeche/Cached/Installed.lean#L452-L457
+   452  def checkDecls (mode : CheckMode) (pins : List NatOpPinSet)
+   453      (ds : Array Declaration) :
+   454      Except (CheckError × Nat) Env := do
+   455    let p ← ds.foldlM (annotDeclStep mode pins) (0, mkFEnv Env.empty, #[])
+   456    checkPendingList mode p.2.1 p.2.2.toList
+   457    pure p.2.1.env
 
-== ConLeche/Cached/Installed.lean#L354-L365
-   354  The driver's check phase — the in-thread loop or a pool of workers —
-   355  runs `checkRecord` on every record.  Its result is the record's own
-   356  evidence: on an accept the `GroupChecked` fact of that record, on a
-   357  failure the error tagged with the record's fold position, the tag
-   358  `checkPendingList` gives.  A worker hands back exactly this (a `Nat`
-   359  and an erased proof, or the error), so the thread that computed a
-   360  check is irrelevant to what it proves, and the results of any number
-   361  of workers, in whatever order they finished, are assembled into
-   362  `∀ i, GroupChecked mode e i` by `collectChecks` — a walk over the
-   363  results in record order, which is also what makes the verdict of a
-   364  pool the verdict of the walk `checkPendingList`: the first failing
-   365  record in fold order.  Nothing here is `IO`. -/
+== ConLeche/Cached/Installed.lean#L352-L363
+   352  The driver's check phase — the in-thread loop or a pool of workers —
+   353  runs `checkRecord` on every record.  Its result is the record's own
+   354  evidence: on an accept the `GroupChecked` fact of that record, on a
+   355  failure the error tagged with the record's fold position, the tag
+   356  `checkPendingList` gives.  A worker hands back exactly this (a `Nat`
+   357  and an erased proof, or the error), so the thread that computed a
+   358  check is irrelevant to what it proves, and the results of any number
+   359  of workers, in whatever order they finished, are assembled into
+   360  `∀ i, GroupChecked mode e i` by `collectChecks` — a walk over the
+   361  results in record order, which is also what makes the verdict of a
+   362  pool the verdict of the walk `checkPendingList`: the first failing
+   363  record in fold order.  Nothing here is `IO`. -/
 
 == ConLeche/Verify/Cached/MainC.lean#L37-L40
     37  theorem checkDecls_sound (hμ : μ.verifiedChecks = true)
