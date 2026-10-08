@@ -97255,3 +97255,171 @@ nothing unfolds its definitions) was the lower-risk choice — nothing
 imports `Main.lean` either way, so it costs nothing, but a future lane
 could tighten it if the convention should track "nothing proof-facing
 lives here any more" exactly.
+
+## TASK #329 — SCALE: why the install pool flattened, and the lock-free schedule (2026-10-08, agent/329-scale)
+
+**Question.** On `more-parallel` (`a1a06fb46`) the parallel install took
+16.9 s at `--jobs=8` and 16.0 s at 32 on mathlib-full, against ~57 s of
+total work and a ~1.6 s dependency critical path; cslib was slower at 32
+(8.1 s) than at 8 (6.4 s). The check phase also seemed to flatten.
+
+**Diagnosis (install): the scheduler's lock.** Measured on cslib at 32
+jobs (load 5–12 on 96 hardware threads, so no competition for cores):
+- `perf record -F 999 -g` over the commit window: each of the 32 workers
+  had ~2700 samples in a 7.4 s window, i.e. it was on a CPU **~37 % of
+  the time**; on-CPU it ran the install itself (`lean_dec_ref_cold`
+  12 %, the tree `erase` 1.2 %).
+- `perf record -e context-switches -c 1 -g` (every switch, with its
+  user stack): ~13 500 switches per worker, **99 % of them in
+  `std::mutex::lock` → `__lll_lock_wait`**: in `workerLoop`'s
+  `sched.lock.lock` (≈ 75 %) and in `release` (≈ 25 %). Waits on the
+  condition variable (no ready record): 0.1 %. Waits on a slot or on
+  the task manager: ~0.
+- So the ready queue was never empty; the workers were queueing for the
+  one `BaseMutex` that guarded it — every record went through it twice
+  (pop, and the push of its dependents), and the critical section
+  touched a multi-threaded `Std.TreeSet` (atomic reference counts on
+  every path node). The commit thread spent 6.2 of its 7.4 s waiting
+  for the record at the frontier: it was starved, not the bottleneck.
+  Pool throughput was ~4.6× the serial install at 8 AND at 32 workers —
+  the signature of a serialised section.
+
+**Fix (`ConLeche/Driver/ParInstall.lean`, performance only; nothing in a
+type changes).** `Sched` keeps a shared `cursor`: workers walk the
+records in stream order, one `modifyGet` per record, no lock. A record's
+dependency count starts at its number of dependencies plus one token for
+the cursor's pass; whoever brings it to zero — the pass, when every
+dependency is already installed (the common case), or the release of the
+last dependency — has it ready. A releaser installs the lowest record it
+made ready next itself (no hand-off); only further ones go to a
+`deferred` tree under the lock (`deferredN`, read without the lock, says
+whether to look). A per-record `taken` flag (test-and-set) settles the
+race with the commit thread's own installs. Workers sleep on the
+condition variable only at the end of the stream. After the fix the
+commit thread's frontier waits on mathlib-full at 32 fall from 11.6 s to
+~1.6 s.
+
+The `--progress` line now reports the records' persistent mark
+separately from the prediction, and a `persistent mark` heartbeat line
+times the phase-boundary mark.
+
+**Measured.** Medians over 5 runs, (min–max), wall seconds; one-minute
+load at the start of each run; instructions are one run (the minimum).
+`master` = `67f04630d` (serial install); `tip` = `more-parallel`
+`a1a06fb46`; `scale` = this lane. All three binaries carry the
+`persistent mark` timer; "check" is the check phase without the
+phase-boundary mark (on master the 3–8 s mark sat inside "check").
+Every run accepts (mathlib-full 691 203 records).
+
+| corpus | jobs | binary | parse | install | phase mark | check | total | load | instr (T) |
+|---|---|---|---|---|---|---|---|---|---|
+| mathlib-full | 8 | master | 22.2 (20.4–32.7) | 83.2 (79.0–92.0) | 8.1 (7.8–8.4) | 101.6 (99.1–106.6) | 216.3 (210.7–239.7) | 14–28 | 8.387 |
+| mathlib-full | 8 | tip | 8.3 (8.1–10.8) | 15.5 (14.0–19.4) | 0.1 | 107.5 (105.7–135.4) | 131.6 (129.1–165.8) | 8–21 | 8.455 |
+| mathlib-full | 8 | scale | 8.5 (8.4–29.0) | 13.6 (12.7–19.8) | 0.1 | 107.9 (105.7–123.2) | 129.2 (127.2–172.3) | 9–83 | 8.446 |
+| mathlib-full | 32 | master | 20.8 (20.2–34.4) | 80.2 (78.2–120.0) | 7.6 (7.4–8.1) | 35.5 (32.0–36.8) | 143.0 (140.4–184.9) | 9–75 | 8.388 |
+| mathlib-full | 32 | tip | 8.6 (8.0–9.8) | 18.2 (17.9–18.7) | 0.1 | 34.6 (32.6–37.3) | 62.9 (59.9–64.4) | 14–40 | 8.445 |
+| mathlib-full | 32 | scale | 8.4 (8.1–12.3) | **7.2 (7.1–7.8)** | 0.1 | 35.1 (33.0–43.1) | **53.7 (48.6–60.1)** | 22–40 | 8.438 |
+| cslib | 8 | master | 8.6 (8.4–10.8) | 30.5 (30.0–41.4) | 3.0 (2.9–4.4) | 34.8 (34.7–47.8) | 77.2 (76.1–102.4) | 20–33 | 2.863 |
+| cslib | 8 | tip | 3.5 (3.3–4.4) | 6.8 (6.5–7.8) | 0.0 | 36.7 (35.7–37.5) | 46.8 (45.7–49.9) | 10–67 | 2.905 |
+| cslib | 8 | scale | 3.4 (3.3–4.1) | 6.1 (5.9–7.0) | 0.0 | 36.6 (35.7–37.1) | 46.7 (45.2–47.8) | 9–37 | 2.900 |
+| cslib | 32 | master | 8.6 (8.3–10.2) | 30.8 (30.4–33.8) | 3.0 (3.0–3.1) | 12.4 (12.0–13.2) | 55.2 (54.1–58.8) | 8–25 | 2.863 |
+| cslib | 32 | tip | 3.7 (3.4–4.9) | 9.5 (9.4–10.0) | 0.0 | 11.8 (11.1–12.3) | 25.5 (24.3–26.7) | 9–23 | 2.902 |
+| cslib | 32 | scale | 4.4 (3.3–6.6) | **4.2 (3.2–4.4)** | 0.0 | 11.8 (11.7–12.2) | **20.5 (18.5–22.8)** | 11–25 | 2.896 |
+| NS | 8 | master | 4.8 (4.7–5.9) | 15.4 (15.2–16.6) | 1.6 (1.6–1.8) | 40.5 (39.2–41.1) | 62.1 (61.3–65.5) | 11–30 | 3.165 |
+| NS | 8 | tip | 1.6 (1.5–2.7) | 3.8 (3.7–4.1) | 0.0 | 40.7 (40.0–41.2) | 46.1 (45.5–47.8) | 9–16 | 3.196 |
+| NS | 8 | scale | 1.6 (1.5–2.2) | 3.7 (3.6–4.0) | 0.0 | 40.8 (40.2–42.6) | 46.4 (45.6–47.9) | 9–12 | 3.195 |
+| NS | 32 | master | 4.8 (4.8–5.3) | 15.9 (15.3–16.7) | 1.7 (1.6–1.7) | 14.8 (13.6–16.2) | 37.8 (35.4–39.2) | 9–22 | 3.164 |
+| NS | 32 | tip | 1.6 (1.6–2.1) | 2.9 (2.7–3.0) | 0.0 | 13.6 (12.8–14.0) | 18.3 (17.4–18.7) | 12–24 | 3.191 |
+| NS | 32 | scale | 1.6 (1.5–2.0) | **2.3 (2.1–2.3)** | 0.0 | 12.9 (12.8–15.3) | 17.1 (16.7–19.2) | 17–27 | 3.189 |
+
+init-full at `--jobs=8` (5 runs each, load 18–37): install 0.8 → 0.7 s,
+total 7.6 (7.4–7.7) → 7.4 (7.3–7.5) s, instructions 491.3–491.6 G
+both. `--jobs=1` runs `installLoop` and does not touch the schedule;
+instructions (one run each, tip → scale): init-full 484.83 → 484.82 G,
+NS 3.1577 → 3.1578 T, cslib 2.8290 → 2.8280 T. After the merge with
+LAYER (`ConLeche/Driver/*`), the landed binary on mathlib-full, one run
+each under load 44–81: `--jobs=8` install 14.2 s, total 178.8 s;
+`--jobs=32` install 10.2 s, total 75.5 s (both accept 691 203).
+
+**The phase-boundary mark is gone.** On master it was 7.6–8.1 s on
+mathlib-full (3.0 s cslib, 1.7 s NS). With PINSTALL's workers marking
+their own results it takes 0.1 s; what remains is the mark of the
+RECORDS before the pool starts (mathlib-full 2.5 s, cslib 1.0 s, NS
+0.5 s), which is now the largest item of the install's serial prelude
+(the prediction and base: 0.36 s; the dependencies: 0.46 s, parallel;
+the slots, counts and dependents: 0.45 s).
+
+**The check phase scales as the hardware does.** Over the check phase
+alone (`perf stat -p`, attached at the `persistent mark` line; cslib,
+load 5–12): at 8 workers 305.9 s task-clock in 38.4 s wall (7.96 CPUs
+busy), IPC 1.91, 4.27 GHz user-cycle rate; at 32 workers 354.7 s in
+11.34 s (31.3 CPUs busy), IPC 1.73, 4.06 GHz. The same instructions
+take 10 % more cycles at 32 and the clock is 5 % lower, which accounts
+for 3.39× from 4× more workers (3.45× expected from those two). The
+progress timeline (`--progress=4000`) has no tail: the last 4000 of
+380 k checks finish in 0.3 s. No lock is on the check pool's path (one
+atomic claim per record). Pinning experiments (NS, `taskset` onto node
+0's physical cores vs the same count spread over the four nodes, at 4,
+8, 12 jobs, 3 runs each) were inconclusive: the machine's load was
+19–117 during them, and a pinned run competes with whatever else runs
+on those CPUs (user cycles for the same 3.19 T instructions ranged
+1.52–2.13 T). Earlier, quieter single runs on cslib: 8 jobs on node 0
+(cores 0-7 with their SMT siblings) 40.2 s check, on 16 CPUs spread over
+the 4 nodes 40.5 s, on 9 distinct physical cores 34.8 s — no NUMA
+effect; the gap is SMT sharing with other users' work.
+
+**Speedup curve, NS** (`scale`, 3 runs each, medians; load 36–78 for
+these runs, so the numbers are worse than the table above):
+
+| jobs | install | check |
+|---|---|---|
+| 8 | 3.9 | 54.0 |
+| 16 | 2.7 | 25.3 |
+| 32 | 2.3 | 14.9 |
+| 64 | 2.2 | 10.4 |
+
+The install is at its floor from 32 on: records' mark 0.53 s +
+dependencies 0.2 s + slots 0.1 s + commit 1.35 s, of which ~1.0 s is the
+commit thread waiting on a worker — the dependency critical path
+(PINSTALL measured ~1.3 s, the pinned `Nat` operations), a constant of
+the stream's prelude, not of its size. The check keeps scaling to 64
+(on 48 physical cores shared with other users, so beyond ~32 on SMT
+siblings). `--jobs=1` on NS (one run each): 390–453 s, check
+366–429 s.
+
+**Rates, and what they predict for a 10× corpus on 200 threads.**
+Mathlib-full, `scale`, 32 jobs: 691 k records, ~108 M lines.
+
+| item | thread | now | rate | 10× corpus |
+|---|---|---|---|---|
+| parse apply | 1 | 8.4 s | 78 ns/line | ~86 s |
+| records' persistent mark | 1 | 2.5 s | 3.6 µs/record | ~25 s |
+| commit thread's own work | 1 | ~1.4 s | ~2 µs/record | ≥ ~14 s |
+| slots, counts, dependents | 1 | 0.45 s | 0.65 µs/record | ~4.5 s |
+| prediction + base | 1 | 0.36 s | 0.52 µs/record | ~3.6 s |
+| dependencies (chunked) | n | 0.46 s | — | < 1 s |
+| phase-boundary mark | 1 | 0.1 s | — | ~1 s |
+| install pool work | n | ~53 thread-s | 77 µs/record | ~530 thread-s → ~3 s, below the commit thread |
+| check pool work | n | ~1100 thread-s at 32 | — | ~11 000 thread-s → ~55 s at 200 ideal, more on SMT |
+
+Ranking on the target machine: parse apply (~86 s), check pool
+(~55–90 s, hardware-bound), the records' mark (~25 s), the commit
+thread (~14 s), the slot setup and the prediction (~8 s together).
+**What could get worse at 200 threads:** every install resolves two
+promises (slot and result), each under the runtime task manager's
+ONE global mutex with a `notify_all` on its condition variable
+(`task_manager::resolve_core`) — 14 M acquisitions of one lock at the
+target, and every resolve wakes a commit thread blocked in `IO.wait`.
+At 64 jobs it does not show; at 200 it may. The cursor and the check
+pool's claim counter are single `IO.Ref`s (`modifyGet`: a take/spin
+on one cache line), ~7 M claims each at the target; fine at 64,
+unmeasured beyond.
+
+**Not done.** The records' mark could run on several threads, but a
+task's closure that captures the records makes the runtime walk them
+for multi-threaded marking first (the same serial walk), so splitting
+it needs a runtime-level entry point, not a driver change. The commit
+thread's ~2 µs per record is mostly the serial index's push (hash
+insert into a 1 M-bucket table, with doubling) and `slotsOk`; presizing
+the index would change `mkFEnv Env.empty` in the run's statement.
+Logs: `_tmp/amdahl/scale-logs/`.
