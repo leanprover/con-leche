@@ -7,8 +7,8 @@
 
 >>> OVERVIEW.md
 
-== Main.lean#L1095
-  1095  def usage : String := String.intercalate "\n" [
+== Main.lean#L1102
+  1102  def usage : String := String.intercalate "\n" [
 
 == Main.lean#L45
     45  def ConLeche.CheckError.exitCode : CheckError → UInt32
@@ -145,17 +145,17 @@
    150      Declaration → CheckCM (FEnv × Array PendingCheck)
    151    | .defnDecl cv value hint =>
 
-== Main.lean#L617-L626
-   617  def commitLoop (err : IO.FS.Stream) (stride total t0 : Nat) (fallbackAt : Option Nat)
-   618      (hB : BaseInj B) (sh : Shared mode ds B S vis) (cst : IO.Ref (Array Nat))
-   619      (p₀ : Nat × FEnv × Array PendingCheck) :
-   620      (k : Nat) →
-   621      (p : Nat × FEnv × Array PendingCheck) →
-   622      InstallRun mode natOpPinSets (ds.toList.take k) p₀ p →
-   623      IdxBelow p.2.1 → ViewAgrees B S p.2.1 →
-   624        IO (Except (CheckError × Nat)
-   625          (Σ' (p' : Nat × FEnv × Array PendingCheck),
-   626            PLift (InstallRun mode natOpPinSets ds.toList p₀ p')))
+== Main.lean#L618-L627
+   618  def commitLoop (err : IO.FS.Stream) (stride total t0 : Nat) (fallbackAt : Option Nat)
+   619      (hB : BaseInj B) (sh : Shared mode ds B S vis) (cst : IO.Ref (Array Nat))
+   620      (p₀ : Nat × FEnv × Array PendingCheck) :
+   621      (k : Nat) →
+   622      (p : Nat × FEnv × Array PendingCheck) →
+   623      InstallRun mode natOpPinSets (ds.toList.take k) p₀ p →
+   624      IdxBelow p.2.1 → ViewAgrees B S p.2.1 →
+   625        IO (Except (CheckError × Nat)
+   626          (Σ' (p' : Nat × FEnv × Array PendingCheck),
+   627            PLift (InstallRun mode natOpPinSets ds.toList p₀ p')))
 
 == ConLeche/Cached/ViewCongr.lean#L1342-L1348
   1342  theorem installStep_commit {pins : List NatOpPinSet} {B : BaseIdx} {S : Slots} {i : Nat}
@@ -184,11 +184,11 @@
    404      (j : Nat) → (∀ i, i < j → GroupChecked mode e i) →
    405        Except (CheckError × Nat) (PLift (∀ i, GroupChecked mode e i))
 
-== Main.lean#L773-L776
-   773  def checkDeclsIO (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride total t0 tParse jobs : Nat)
-   774      (noMark : Bool) (fallbackAt : Option Nat) (ds : Array ConLeche.Declaration) :
-   775      IO (Except (ConLeche.CheckError × Nat)
-   776        { env : ConLeche.Env // ConLeche.Cached.checkDecls mode ConLeche.natOpPinSets ds = .ok env }) := do
+== Main.lean#L780-L783
+   780  def checkDeclsIO (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride total t0 tParse jobs : Nat)
+   781      (noMark : Bool) (fallbackAt : Option Nat) (ds : Array ConLeche.Declaration) :
+   782      IO (Except (ConLeche.CheckError × Nat)
+   783        { env : ConLeche.Env // ConLeche.Cached.checkDecls mode ConLeche.natOpPinSets ds = .ok env }) := do
 
 == ConLeche/Cached/Installed.lean#L534-L536
    534  theorem fullyChecked_checkDecls {pins : List NatOpPinSet} {ds : Array Declaration}
@@ -1285,15 +1285,15 @@
    225        else if cvA.name = sorryAxName then
    226          pure fe
 
-== Main.lean#L1128
-  1128    "  --jobs=<n>        the number of worker threads (default: the",
+== Main.lean#L1135
+  1135    "  --jobs=<n>        the number of worker threads (default: the",
 
 == ConLeche/Kernel/Basis/False.lean#L51-L52
     51  /-- The pinned `False` basis block, in install order. -/
     52  def falseBasis : List ConstantInfo := [falseRaw, falseRecRaw]
 
-== Main.lean#L1361
-  1361  def main (args : List String) : IO UInt32 := do
+== Main.lean#L1368
+  1368  def main (args : List String) : IO UInt32 := do
 
 == ConLeche/MainTheorem.lean#L110-L117
    110  theorem no_False_declaration (V : Type w) [SetTheory V]
@@ -1417,6 +1417,6 @@
    408    private ofRepr ::
    409    private repr : PropWhenRepr
 
-== Main.lean#L1111
-  1111    "  --trusted         the unverified mode: the SAME checker bodies as",
+== Main.lean#L1118
+  1118    "  --trusted         the unverified mode: the SAME checker bodies as",
 

@@ -97045,3 +97045,89 @@ commit thread is the critical path: the blocks it installs itself
 `lean_copy_expand_array` under the commit loop (perf, mathlib-prefix,
 32 jobs: 0.01 % of the main thread's samples, all in the prepare step
 and in array growth).  Next: P4, the blocks in the pool.
+
+### Stage P4: every record in the pool; no `unsafeBaseIO`
+
+**What changed.**  The commit thread no longer installs any record at
+the serial index.  Every record — value records, blocks, axioms, basis
+blocks, the pinned `Nat` operations — is installed by `installStep`
+(`Cached/ViewCongr.lean`) at the worker view of its predicted counter,
+by a worker or, when the commit thread reaches it unclaimed, by the
+commit thread itself (at a view that waits on nothing, since every
+earlier record is committed).  The commit is uniform: check the
+predicted counter, check every filled slot holds the very constant
+(`slotsOk`), extend the run by `installStep_commit`, push the list.
+
+**The proof: install steps read their index through `find?` alone.**
+`checkDeclStepC_twin`: from two indices that answer alike, share the
+counter and hold nothing above it (`Twin`), the step fails alike or
+pushes the same constants onto both.  Proved bottom-up through the
+install code: congruence for the stages that only read (the cached
+operations ignore the `Env` every call carries — `EnvFree` — so every
+call is normalised to `Env.empty`), and a relational walker (`RelRun`,
+the `relrun` tactic: binds, `ite`/`dite`, throws, `split`) for the
+stages that push, down to the block passes (`PassRel`), the overlay
+tail `checkBlockTailS` (through BLOCKCOPY's `checkBlockTailS_eq_ref`)
+and the recursor stage.  `installStep_commit` then needs only
+`ViewAgrees` and `IdxBelow` at the commit — no canonicity.  So the
+P3 deviation is undone: `EnvBound` and AgreeFloor's install-shape
+lemmas are back in `Verify/` (`InstallShape` merged back into
+AgreeFloor); `ParInstall`'s canonical-frontier lemmas, `splitNew` and
+`annotDeclStep_canon` are gone.  `KnotCongr`, `BlockOverlay`,
+`InstallSkel`, `ParInstall` and `ViewCongr` stay in `Cached/` under
+the self-contained exception (they import only the cached checker and
+each other).  The statements of `checkDecls`, `checkDeclsIO` and
+MainTheorem are unchanged.
+
+**No `unsafeBaseIO`** (the maintainer's P3 review).
+
+1. Slots are plain terms: `FBase.slots : Array (Thunk (Array
+   ConstantInfo))`, each `Thunk.mk fun _ => (p.result?.get).getD #[]`
+   over its record's promise.  A view validates what it reads only by
+   the commit's `slotsOk` (`withPtrEq`: a pointer comparison at run
+   time, `decide` logically), so a dropped promise (`#[]`, after a
+   fallback) is a misprediction, not unsoundness.
+2. The install is `installAndPublish`, plain IO: compute `workerRes`,
+   `Runtime.markPersistent` the result and its constants (the
+   phase-boundary shape), resolve the slot, resolve the result promise
+   with `WRes` (the subtype carrying `q.2 = workerRes … q.1`), release
+   dependents.  The commit checks the record number `k' = k`.
+3. The wait/help instrumentation and the per-record state refs are
+   gone; the commit thread's timing (plain IO) stays.
+4. **Trust surface**: `Main.lean` has 8 term-level `unsafe` uses, all
+   `Runtime.markPersistent` (2 before the lane, at the phase
+   boundary; 6 new: records, base index, predicted counters,
+   dependents, an install's result and its constants); 21 escapes in
+   6 allowlisted files (15 before the lane, 26 at P3).
+
+**Schedule tweaks.**  `release` wakes one worker per newly ready record
+(`notifyOne`) instead of all; the commit thread does not `claim` a
+record whose result is already published.  Thunk slots instead of
+task slots: a later lookup reads the thunk's cached value without
+touching the task.  mathlib-prefix install at 8 / 16 / 32 jobs:
+2.1 / 2.0 / 2.9 s before these, 1.7 / 2.1 / 2.7 s after.
+
+**Measured** (one run each, under the flock; wall times indicative on a
+shared machine; "serial" is the same binary with
+`--install-fallback-at=0`, so it includes the ~3 s prediction):
+
+| corpus | serial install | `--jobs=8` | `--jobs=32` | P3 at 8 / 32 |
+|---|---|---|---|---|
+| mathlib-full | 56.6 s | 16.9 s | 16.0 s | 21.5 / 23.1 s |
+| cslib | 23.9 s | 6.4 s | 8.1 s | 10.2 / 11.0 s |
+| NS | 14.8 s | 4.7 s | 2.8 s | 8.7 / 8.7 s |
+
+Instructions (whole run, serial / 8 / 32): mathlib-full 8.428 / 8.467 /
+8.450 T, cslib 2.889 / 2.900 / 2.902 T, NS 3.191 / 3.197 / 3.192 T —
+within +0.5 % of serial.  All accept (mathlib-full 691 203 records).
+Instrumentation before its removal (P3 driver plus the first P4 cut):
+zero helps, zero waits on a record another thread was installing, peak
+0 blocked workers, on all three corpora at 8 and 32 jobs.
+
+**Open: 32 jobs is not faster than 8 on mathlib-full and cslib.**  The
+same instructions take more task-clock at 32 (lower IPC); a profile at
+32 shows about ten threads carrying nearly all samples, no lock or
+copy hot spot (frees, `lean_dec_ref_cold`, `markPersistent` 4.5 %).  On
+mathlib-prefix the critical path (the pinned `Nat.xor` declaration,
+~1.3 s) bounds the install.  The prediction (~3 s on mathlib-full) is
+serial and could fold into PARSE's apply step; not done in this lane.
