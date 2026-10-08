@@ -1930,7 +1930,7 @@
    468  inductive ConstantInfo where
    469    | axiomInfo (val : ConstantVal)
    470    | defnInfo (val : ConstantVal) (value : Expr) (hint : ReducibilityHint)
-   471    | thmInfo (val : ConstantVal) (value : Expr)
+   471    | thmInfo (val : ConstantVal)
    472    /-- An inductive type former (whnf-stuck) with its capabilities. -/
    473    | indInfo (val : ConstantVal) (caps : IndCaps)
    474    /-- A basis constructor (whnf-stuck; the iota target). -/

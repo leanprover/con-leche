@@ -52,10 +52,12 @@ def checkDefnVal (ops : CheckerOps m) (env : Env) (cv : ConstantVal)
 stored by its statement only**: `thmInfo` carries no value — a theorem
 is opaque to reduction (`unfoldDefinition` has no `thmInfo` arm), and
 the annotated value is a *realizability witness*, checked against the
-statement and then discarded, exactly as an opaque's is.  This is what
-lets the driver install a theorem before its value is looked at at all
-(phase A pushes the statement; phase B annotates and checks the value
-from the pending record, `ConLeche/Cached/Installed.lean`). -/
+statement and then discarded, exactly as an opaque's is: the result
+environment does not mention `value`, so nothing downstream can read a
+proof term.  This is what lets the driver install a theorem before its
+value is looked at at all (phase A pushes the statement; phase B
+annotates and checks the value from the pending record,
+`ConLeche/Cached/Installed.lean`). -/
 def checkThmVal (ops : CheckerOps m) (env : Env) (cv : ConstantVal)
     (value : Expr) : m Env := do
   -- the type of a theorem must be a proposition
