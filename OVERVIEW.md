@@ -90,7 +90,19 @@ declaration is installed, `check <done>/<M> <decl>` after every
 done` (on more than one worker preceded by a `parallel install` line
 with the install's own phases), `persistent mark`, `check done` and a
 `done:` summary with the three phase
-durations and the worker count (bare, the stride is 1). The heartbeat
+durations and the worker count (bare, the stride is 1); on more than
+one worker, each `install` and `check` line ends with the number of
+busy workers and the oldest record one of them is on, with its age.
+With or without the flag, every run closes its stderr with a few
+`stats:` lines: the phase times; per phase (the install pool or the
+one-thread install, the check pool or its one worker) the wall time,
+the worker count, the workers' busy time and utilisation (busy ÷
+(workers × wall)) and, on more than one worker, the tail (from the
+last record's start to the end of the phase, how many workers were
+still busy then and their busy time inside it); the five slowest
+installs and checks with their fold positions; and the peak resident
+set. They cost two clock reads per record, kept per worker and merged
+when the pool ends, and change neither stdout nor the exit code. The heartbeat
 is printed between the steps of the one driver, which returns its
 environment together with the proof that `checkDecls` — the function
 the theorem is about — returns it (see §2), so a run with the flag is

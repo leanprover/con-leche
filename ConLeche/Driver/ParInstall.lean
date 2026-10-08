@@ -3,6 +3,7 @@ module
 public import ConLeche.Verify.Cached.ViewCongr
 public import ConLeche.Cached.InstallSkel
 public import Std.Sync.Mutex
+public import ConLeche.Driver.Stats
 import Std.Data.TreeSet.Basic
 import Std.Data.HashSet.Basic
 
@@ -150,9 +151,12 @@ so a run that dies — an OOM, a timeout, a `SIGKILL` — names on its last
 line the declaration it died in.  The index is the FOLD position, not
 the stream's record index: the prepare step prepends the built-in
 prelude and drops the stream's identical copies of its records, so the
-two drift apart by a stream-dependent amount.  Calibrate by NAME. -/
+two drift apart by a stream-dependent amount.  Calibrate by NAME.
+
+Each step is timed into `st` (`WStats`, performance-only: a ref only
+this thread touches). -/
 def installLoop (mode : ConLeche.CheckMode) (err : IO.FS.Stream)
-    (stride total t0 : Nat)
+    (stride total t0 : Nat) (st : IO.Ref WStats)
     (ds : Array ConLeche.Declaration)
     (p₀ : Nat × ConLeche.FEnv × Array ConLeche.Cached.PendingCheck) :
     (i : Nat) →
@@ -171,15 +175,21 @@ def installLoop (mode : ConLeche.CheckMode) (err : IO.FS.Stream)
           {ConLeche.Cached.declCLabel pd} \
           t={ConLeche.Cached.msSecs (now - t0)}s\n"
         err.flush
+      let ts ← IO.monoNanosNow
       match h : ConLeche.Cached.annotDeclStep mode ConLeche.natOpPinSets p pd with
       | .ok p₁ =>
-        installLoop mode err stride total t0 ds p₀ (i + 1) p₁ (by
+        let te ← IO.monoNanosNow
+        st.modify (·.add i ts te)
+        installLoop mode err stride total t0 st ds p₀ (i + 1) p₁ (by
           have hlist : ds.toList.take (i + 1) = ds.toList.take i ++ [pd] := by
             rw [List.take_add_one]
             simp [pd, Array.getElem?_eq_getElem hi]
           rw [hlist]
           exact ConLeche.Cached.InstallRun.snoc mode hrun h)
-      | .error e => return .error e
+      | .error e =>
+        let te ← IO.monoNanosNow
+        st.modify (·.add i ts te)
+        return .error e
     else
       return .ok ⟨p, ⟨by
         rw [List.take_of_length_le (by simp; omega)] at hrun
@@ -592,6 +602,11 @@ structure Shared (mode : CheckMode) (ds : Array Declaration) (B : BaseIdx) (S : 
   commitWait : IO.Ref Nat
   commitLock : Std.BaseMutex
   commitCv : Std.Condvar
+  /-- the commit thread's own installs, timed (performance-only) -/
+  selfStats : IO.Ref WStats
+  /-- on the heartbeat lane, the record each worker is on (worker `w`
+  at `w`, the commit thread last); empty otherwise -/
+  live : Live
 
 /-- Claim record `k` for installing: `true` for exactly one caller. -/
 @[inline] def tryTake (sh : Shared mode ds B S vis) (k : Nat) : IO Bool := do
@@ -644,23 +659,37 @@ def deferRecord (sc : Sched) (k : Nat) : IO Unit := do
   sc.lock.unlock
   sc.cv.notifyOne
 
-/-- One worker: install the record its last install made ready, else the
-next ready one, repeat until stopped; returns how many it installed.
-`lo hi` is the worker's own claimed-but-not-yet-tried block, threaded
-through `nextReady` (see there). -/
-partial def workerLoop (sh : Shared mode ds B S vis) (cnt : Nat) (cont held : Option Nat)
-    (lo hi : Nat) : IO Nat := do
+/-- Install and publish record `k` as worker `w`, timed into `st`
+(performance-only; on the heartbeat lane the worker also publishes the
+record it is on). -/
+@[inline] def installTimed (sh : Shared mode ds B S vis) (w k : Nat) (st : WStats) :
+    IO (WRes mode ds B S vis × Option Nat × WStats) := do
+  let ts ← IO.monoNanosNow
+  let lv := sh.live.cur.size > 0
+  if lv then sh.live.begin w k ts
+  let (q, next) ← installAndPublish sh k
+  let te ← IO.monoNanosNow
+  if lv then sh.live.idle w
+  return (q, next, st.add k ts te)
+
+/-- One worker (number `w`): install the record its last install made
+ready, else the next ready one, repeat until stopped; returns how many
+it installed, and its timing.  `lo hi` is the worker's own
+claimed-but-not-yet-tried block, threaded through `nextReady` (see
+there). -/
+partial def workerLoop (sh : Shared mode ds B S vis) (w : Nat) (st : WStats)
+    (cont held : Option Nat) (lo hi : Nat) : IO WStats := do
   let (k?, held, lo, hi) ← match cont with
     | some k => pure (some k, held, lo, hi)
     | none => nextReady sh.sched ds.size held lo hi
   match k? with
-  | none => return cnt
+  | none => return st
   | some k =>
     if ← tryTake sh k then
-      let (_, next) ← installAndPublish sh k
-      workerLoop sh (cnt + 1) next held lo hi
+      let (_, next, st) ← installTimed sh w k st
+      workerLoop sh w st next held lo hi
     else
-      workerLoop sh cnt none held lo hi
+      workerLoop sh w st none held lo hi
 
 /-- Stop the workers: no new records, and — when the run was abandoned
 (`resolveAll`) — every slot not resolved yet resolved empty, so that
@@ -778,7 +807,7 @@ def fallbackFrom (err : IO.FS.Stream) (stride total t0 : Nat)
     err.putStr s!"con-leche: parallel install abandoned at fold position {k} \
       (a predicted slot did not match, or --install-fallback-at), continuing serially\n"
     err.flush
-  installLoop mode err stride total t0 ds p₀ k p hrun
+  installLoop mode err stride total t0 sh.selfStats ds p₀ k p hrun
 
 /-- The fallback from the commit loop at record `k`: the builder's index
 there, then `fallbackFrom`. -/
@@ -821,9 +850,13 @@ def commitLoop (err : IO.FS.Stream) (stride total t0 : Nat) (fallbackAt : Option
         simp [pd, Array.getElem?_eq_getElem hk]
       if stride > 0 && i % stride == 0 then
         let now ← IO.monoMsNow
+        let extra ← sh.live.report fun j =>
+          match ds[j]? with
+          | some d => s!"{ConLeche.Cached.declCLabel d} (#{j})"
+          | none => s!"record {j}"
         err.putStr s!"con-leche: install {i}/{total} \
           {ConLeche.Cached.declCLabel pd} \
-          t={ConLeche.Cached.msSecs (now - t0)}s\n"
+          t={ConLeche.Cached.msSecs (now - t0)}s{extra}\n"
         err.flush
       if k % 64 == 0 then bd.publish k
       if fallbackAt == some k then commitFallback err stride total t0 sh bd bt p₀ k i pend hrun
@@ -834,7 +867,8 @@ def commitLoop (err : IO.FS.Stream) (stride total t0 : Nat) (fallbackAt : Option
         let q? : Option (WRes mode ds B S vis) ← do
           if mine then
             let tf0 ← IO.monoNanosNow
-            let (q, next) ← installAndPublish sh k
+            let (q, next, st) ← installTimed sh (sh.live.cur.size - 1) k (← sh.selfStats.get)
+            sh.selfStats.set st
             if let some d := next then deferRecord sh.sched d
             let tf1 ← IO.monoNanosNow
             cst.modify fun a => (a.modify 2 (· + 1)).modify 3 (· + (tf1 - tf0))
@@ -890,9 +924,13 @@ end ParInstall
 /-- **Phase A on `jobs` worker threads** (the section above): the
 prediction, the base index, the slots, the dependencies and the
 workers, the commit loop; at the end the workers are stopped and
-joined.  Its result is `installLoop`'s. -/
+joined.  Its result is `installLoop`'s.  Its timing report
+(performance-only) is left in `rep`: an action that collects the
+workers' statistics, run at the end of the run, when they have long
+stopped. -/
 def parInstall (mode : CheckMode) (err : IO.FS.Stream) (stride total t0 jobs : Nat)
-    (noMark : Bool) (fallbackAt : Option Nat) (ds : Array Declaration) :
+    (noMark : Bool) (fallbackAt : Option Nat) (rep : IO.Ref (IO (Option PoolRep)))
+    (ds : Array Declaration) :
     IO (Except (CheckError × Nat)
       (Σ' (p' : Nat × FEnv × Array Cached.PendingCheck),
         PLift (Cached.InstallRun mode natOpPinSets ds.toList
@@ -1014,14 +1052,17 @@ def parInstall (mode : CheckMode) (err : IO.FS.Stream) (stride total t0 jobs : N
       deferred := ← IO.mkRef ∅, deferredN := ← IO.mkRef 0,
       stop := ← IO.mkRef false, lock := ← Std.BaseMutex.new, cv := ← Std.Condvar.new,
       gate, earlyLeft := ← IO.mkRef (min n (gate + 1)), blockSize := ParInstall.cursorBlockSize }
+  let selfStats ← IO.mkRef ({} : WStats)
   let sh : ParInstall.Shared mode ds B S vis :=
     { slotP, state, sched, noMark, commitWait := ← IO.mkRef 0,
-      commitLock := ← Std.BaseMutex.new, commitCv := ← Std.Condvar.new }
+      commitLock := ← Std.BaseMutex.new, commitCv := ← Std.Condvar.new,
+      selfStats, live := ← Live.new (if stride > 0 then jobs + 1 else 0) }
   let tD ← IO.monoMsNow
+  let tStart ← IO.monoNanosNow
   let mut tasks := #[]
-  for _ in [0:jobs] do
+  for w in [0:jobs] do
     tasks := tasks.push
-      (← IO.asTask (prio := .dedicated) (ParInstall.workerLoop sh 0 none none 0 0))
+      (← IO.asTask (prio := .dedicated) (ParInstall.workerLoop sh w {} none none 0 0))
   let cst ← IO.mkRef (Array.replicate 4 0)
   -- the index builder, on a thread of its own beside the commit thread
   let bd : ParInstall.Builder :=
@@ -1032,14 +1073,23 @@ def parInstall (mode : CheckMode) (err : IO.FS.Stream) (stride total t0 jobs : N
   let res ← ParInstall.commitLoop err stride total t0 fallbackAt
     (Cached.buildBase_inj shards) sh cst bd bt (0, mkFEnv Env.empty, #[])
     0 0 0 #[] rfl (.nil _) Cached.IdxBelow.mkFEnv_empty (Cached.ViewAgrees.empty B S)
+  let tEnd ← IO.monoNanosNow
   let tE ← IO.monoMsNow
+  -- the timing report, collected when the summary is printed: by then
+  -- the stopped workers have returned, so the waits cost nothing here
+  rep.set do
+    let mut stats := #[]
+    for t in tasks do
+      if let .ok st ← IO.wait t then stats := stats.push st
+    stats := stats.push (← selfStats.get)
+    return some { name := "install pool", workers := jobs, tStart, tEnd, stats }
   -- (after a rejection the records past it may never be installed, and
   -- a worker may be waiting on one of their slots)
   ParInstall.stopWorkers sh (res matches .error _)
-  -- the workers are not joined: once stopped they only exit, and a
-  -- thread's exit (its allocator's teardown) took ~0.25 s on cslib —
-  -- nothing after the commit needs them
-  let _ := tasks
+  -- the workers are not joined here: once stopped they only exit, and
+  -- a thread's exit (its allocator's teardown) took ~0.25 s on cslib —
+  -- nothing after the commit needs them; only the statistics (`rep`,
+  -- above) wait for them, at the end of the run
   let tF ← IO.monoMsNow
   if stride > 0 then
     let c ← cst.get
