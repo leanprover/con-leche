@@ -898,8 +898,8 @@
 == ConLeche/Kernel/Inductives/BlockInstall.lean#L284
    284  def checkBlockPositivity (ops : CheckerOps m) (env₁ : Env) (find? : Name → Option ConstantInfo)
 
-== ConLeche/Kernel/Inductives/GenRec.lean#L578
-   578  def genRecCheck (so : ShadowOps m) (fe : FEnv) (p : BlockShape) (nestedBit : Bool)
+== ConLeche/Kernel/Inductives/GenRec.lean#L560
+   560  def genRecCheck (so : ShadowOps m) (fe : FEnv) (p : BlockShape) (nestedBit : Bool)
 
 == ConLeche/Kernel/Inductives/RecCheck.lean#L592-L593
    592  def tgtStoredRules (find? : Name → Option ConstantInfo) (resolves : Expr → Bool)

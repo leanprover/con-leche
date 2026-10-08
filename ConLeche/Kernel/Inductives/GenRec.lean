@@ -548,24 +548,6 @@ def classFeR (p : BlockShape) (Ms : List TargetMajor) (cvGs : List ConstantVal)
     (recCls : List Nat) (fe : FEnv) : FEnv :=
   consBlockRecsBareF p 0 ((cvGs.zip recCls).map fun (cv, c) => (cv, (Ms.getD c default).nIdx)) fe
 
-/-- The records `consBlockRecsBareF` pushes, in push order. -/
-def blockRecInfosBare (p : BlockShape) : Nat → List (ConstantVal × Nat) → List ConstantInfo
-  | _, [] => []
-  | m, (cvRa, _nIdx) :: rest =>
-    .recInfo cvRa (p.majorIdxAt m) (p.rulePrefixAt m) [] :: blockRecInfosBare p (m + 1) rest
-
-/-- **`classFeR` as an overlay** (task #329): the rule-less generated
-recursors consed onto `fe` WITHOUT entering its index (`FEnv.overlay`,
-newest first).  The rule stage needs `fe` and `classFeR … fe` at once,
-so `classFeR`'s pushes ran on a shared index and copied its whole bucket
-array, once per inductive block; the overlay shares it.  Same `find?`
-and `env` as `classFeR` on an `fe` without an overlay
-(`classFeROvl_find?`, `ConLeche/Verify/Cached/BlockOverlay.lean`). -/
-def classFeROvl (p : BlockShape) (Ms : List TargetMajor) (cvGs : List ConstantVal)
-    (recCls : List Nat) (fe : FEnv) : FEnv :=
-  fe.overlay (blockRecInfosBare p 0
-    ((cvGs.zip recCls).map fun (cv, c) => (cv, (Ms.getD c default).nIdx))).reverse
-
 /-- **The generated recursor stage** (charter item 5, see the module
 header), at the constructors' environment `fe`, on the CLASSES (the
 pre-pass's reading `rd` and the checked classes `Ms`, `checkBlockClasses`)
@@ -609,6 +591,24 @@ def genRecCheck (so : ShadowOps m) (fe : FEnv) (p : BlockShape) (nestedBit : Boo
     (classRecOf rd.recCls cvGs) (Level.zeronessOf elim) cvGs rd.recCls
   so.flush
   pure out
+
+/-- The records `consBlockRecsBareF` pushes, in push order. -/
+def blockRecInfosBare (p : BlockShape) : Nat → List (ConstantVal × Nat) → List ConstantInfo
+  | _, [] => []
+  | m, (cvRa, _nIdx) :: rest =>
+    .recInfo cvRa (p.majorIdxAt m) (p.rulePrefixAt m) [] :: blockRecInfosBare p (m + 1) rest
+
+/-- **`classFeR` as an overlay** (task #329): the rule-less generated
+recursors consed onto `fe` WITHOUT entering its index (`FEnv.overlay`,
+newest first).  The rule stage needs `fe` and `classFeR … fe` at once,
+so `classFeR`'s pushes ran on a shared index and copied its whole bucket
+array, once per inductive block; the overlay shares it.  Same `find?`
+and `env` as `classFeR` on an `fe` without an overlay
+(`classFeROvl_find?`, `ConLeche/Verify/Cached/BlockOverlay.lean`). -/
+def classFeROvl (p : BlockShape) (Ms : List TargetMajor) (cvGs : List ConstantVal)
+    (recCls : List Nat) (fe : FEnv) : FEnv :=
+  fe.overlay (blockRecInfosBare p 0
+    ((cvGs.zip recCls).map fun (cv, c) => (cv, (Ms.getD c default).nIdx))).reverse
 
 /-- **`genRecCheck` with the rule-less recursors as an overlay**
 (task #329): the same stage, clause for clause, except that the

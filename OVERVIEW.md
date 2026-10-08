@@ -671,7 +671,7 @@ declared fields, each inductive hypothesis over its field's normal
 form. Each generated type must be definitionally equal to the stream's
 recursor type; the stream's rules are never read, and the generated
 recursors are the ones installed
-([function `genRecCheck` in `ConLeche/Kernel/Inductives/GenRec.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/GenRec.lean#L578)).
+([function `genRecCheck` in `ConLeche/Kernel/Inductives/GenRec.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/GenRec.lean#L560)).
 The rules of a recursor for an outside class fire at the instantiation
 read off its type
 ([function `tgtStoredRules` in `ConLeche/Kernel/Inductives/RecCheck.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/RecCheck.lean#L592-L593)).
