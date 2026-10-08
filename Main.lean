@@ -374,9 +374,12 @@ nothing a worker reads is counted atomically but the promises.  The
 serial index is the commit thread's alone: nothing else holds it, so
 every push updates it in place.
 
-**The schedule** (performance only): workers take the lowest READY
-record — one whose dependencies, the records installing the names its
-expressions mention, have all been installed. -/
+**The schedule** (performance only): workers walk the records in
+stream order off a shared cursor and install each one that is READY —
+whose dependencies, the records installing the names its expressions
+mention, have all been installed; a record that is not is installed
+when its last dependency is, by the worker that installed that one.
+The common case takes no lock (`Sched`). -/
 
 namespace ParInstall
 
@@ -475,57 +478,103 @@ def dependentsGo (deps : Array (Array Nat)) :
     else acc
   termination_by k => deps.size - k
 
-/-- The scheduler: per-record counts of uninstalled dependencies, the
-ready set (a persistent tree, so that an update under the lock copies a
-path, not an array), the stop flag. -/
+/-- The scheduler.  Workers walk the records in order off a shared
+`cursor` (one atomic claim per record, no lock); record `k`'s count
+starts at its number of dependencies PLUS ONE, the extra token being
+the cursor's pass.  Whoever brings a count to zero — the cursor's pass
+if every dependency is already installed, else the release of the last
+one — has the record ready.  A record that becomes ready by a release
+(it was passed while blocked) goes to the `deferred` set (a persistent
+tree under `lock`, lowest first; `deferredN` is its size, read without
+the lock), which a worker drains before advancing the cursor.  `taken`
+is a per-record test-and-set: the commit thread may install a record
+itself, and whoever loses the race skips it.  The lock and the
+condition variable are touched only for deferred records and by
+workers idle at the end of the stream.  (A first scheduler kept EVERY
+ready record in the tree under the lock: at 32 workers the workers
+spent ~60 % of the install blocked in `mutex::lock`.) -/
 structure Sched where
   counts : Array (IO.Ref Nat)
+  taken : Array (IO.Ref Bool)
   dependents : Array (Array Nat)
-  ready : IO.Ref (Std.TreeSet Nat compare)
+  cursor : IO.Ref Nat
+  deferred : IO.Ref (Std.TreeSet Nat compare)
+  deferredN : IO.Ref Nat
   stop : IO.Ref Bool
   lock : Std.BaseMutex
   cv : Std.Condvar
 
-/-- Record `k` installed: its dependents' counts drop, and those that
-reach zero become ready. -/
-def release (sc : Sched) (k : Nat) : IO Unit := do
+/-- Drop record `d`'s count by one; `true` if it reached zero. -/
+@[inline] def decCount (sc : Sched) (d : Nat) : IO Bool := do
+  match sc.counts[d]? with
+  | some r =>
+    let c ← r.modifyGet fun c => (c - 1, c - 1)
+    return c == 0
+  | none => return false
+
+/-- Claim record `k` for installing: `true` for exactly one caller. -/
+@[inline] def tryTake (sc : Sched) (k : Nat) : IO Bool := do
+  match sc.taken[k]? with
+  | some r => return !(← r.modifyGet fun b => (b, true))
+  | none => return false
+
+/-- Record `k` installed: its dependents' counts drop.  Those that reach
+zero were passed by the cursor while blocked: the lowest is returned
+for the caller to install next, the others are deferred. -/
+def release (sc : Sched) (k : Nat) : IO (Option Nat) := do
   match sc.dependents[k]? with
-  | none => pure ()
+  | none => return none
   | some deps =>
     let mut newly : Array Nat := #[]
     for d in deps do
-      match sc.counts[d]? with
-      | some r =>
-        let c ← r.modifyGet fun c => (c - 1, c - 1)
-        if c == 0 then newly := newly.push d
-      | none => pure ()
-    if !newly.isEmpty then
-      sc.lock.lock
-      sc.ready.modify fun t => newly.foldl (fun t d => t.insert d) t
-      sc.lock.unlock
-      for _ in newly do
-        sc.cv.notifyOne
+      if ← decCount sc d then newly := newly.push d
+    match newly[0]? with
+    | none => return none
+    | some first =>
+      if newly.size > 1 then
+        let rest := newly.extract 1 newly.size
+        sc.lock.lock
+        sc.deferred.modify fun t => rest.foldl (fun t d => t.insert d) t
+        sc.deferredN.modify (· + rest.size)
+        sc.lock.unlock
+        for _ in rest do
+          sc.cv.notifyOne
+      return some first
 
-/-- The next ready record for a worker (under the lock), or `none` once
-stopped. -/
-partial def nextReady (sc : Sched) : IO (Option Nat) := do
-  if ← sc.stop.get then return none
-  let k? ← sc.ready.modifyGet fun t => match t.min? with
+/-- The lowest deferred record, if any (takes the lock only when the
+set looks non-empty). -/
+def popDeferred (sc : Sched) : IO (Option Nat) := do
+  if (← sc.deferredN.get) == 0 then return none
+  sc.lock.lock
+  let k? ← sc.deferred.modifyGet fun t => match t.min? with
     | some k => (some k, t.erase k)
     | none => (none, t)
-  match k? with
-  | some k => return some k
-  | none =>
-    sc.cv.wait sc.lock
-    nextReady sc
-
-/-- The commit thread claims record `k`: `true` if it was still ready
-(nobody took it), and then it is no longer. -/
-def claim (sc : Sched) (k : Nat) : IO Bool := do
-  sc.lock.lock
-  let r ← sc.ready.modifyGet fun t => if t.contains k then (true, t.erase k) else (false, t)
+  if k?.isSome then sc.deferredN.modify (· - 1)
   sc.lock.unlock
-  return r
+  return k?
+
+/-- The next ready record for a worker, or `none` once stopped: a
+deferred one, else the cursor's next record if it is ready (a record
+that is not stays with its dependencies' releases); at the end of the
+stream, wait for a deferred record or the stop. -/
+partial def nextReady (sc : Sched) (n : Nat) : IO (Option Nat) := do
+  if ← sc.stop.get then return none
+  if let some k ← popDeferred sc then return some k
+  let k ← sc.cursor.modifyGet fun k => (k, k + 1)
+  if k < n then
+    if ← decCount sc k then return some k
+    nextReady sc n
+  else
+    sc.lock.lock
+    if !(← sc.stop.get) && (← sc.deferredN.get) == 0 then
+      sc.cv.wait sc.lock
+    sc.lock.unlock
+    nextReady sc n
+
+/-- The commit thread claims record `k` (every dependency of it is
+installed): `true` if nobody has taken it. -/
+def claim (sc : Sched) (k : Nat) : IO Bool :=
+  tryTake sc k
 
 variable {mode : CheckMode} {ds : Array Declaration} {B : BaseIdx} {S : Slots}
   {vis : Array Nat}
@@ -543,9 +592,10 @@ structure Shared (mode : CheckMode) (ds : Array Declaration) (B : BaseIdx) (S : 
 /-- Install record `k` at its view and publish the result: marked
 persistent first (unless `--no-mark-persistent`), then the slot (workers
 may wait on it), the result for the commit thread, and the dependents
-released. -/
+released (the lowest newly ready dependent is returned, for the
+caller to install next). -/
 def installAndPublish (sh : Shared mode ds B S vis) (k : Nat) :
-    IO (WRes mode ds B S vis) := do
+    IO (WRes mode ds B S vis × Option Nat) := do
   let r := workerRes mode ds B S vis k
   let cs := slotOfRes r
   if !sh.noMark then
@@ -558,20 +608,33 @@ def installAndPublish (sh : Shared mode ds B S vis) (k : Nat) :
   match sh.resP[k]? with
   | some p => p.resolve q
   | none => pure ()
-  release sh.sched k
-  pure q
+  let next ← release sh.sched k
+  pure (q, next)
 
-/-- One worker: install the lowest ready record, repeat until stopped;
-returns how many it installed. -/
-partial def workerLoop (sh : Shared mode ds B S vis) (cnt : Nat) : IO Nat := do
-  sh.sched.lock.lock
-  let k? ← nextReady sh.sched
-  sh.sched.lock.unlock
+/-- Hand a ready record to the workers (the commit thread does not
+install the records its own installs make ready). -/
+def deferRecord (sc : Sched) (k : Nat) : IO Unit := do
+  sc.lock.lock
+  sc.deferred.modify (·.insert k)
+  sc.deferredN.modify (· + 1)
+  sc.lock.unlock
+  sc.cv.notifyOne
+
+/-- One worker: install the record its last install made ready, else the
+next ready one, repeat until stopped; returns how many it installed. -/
+partial def workerLoop (sh : Shared mode ds B S vis) (cnt : Nat) (cont : Option Nat) :
+    IO Nat := do
+  let k? ← match cont with
+    | some k => pure (some k)
+    | none => nextReady sh.sched ds.size
   match k? with
   | none => return cnt
   | some k =>
-    let _ ← installAndPublish sh k
-    workerLoop sh (cnt + 1)
+    if ← tryTake sh.sched k then
+      let (_, next) ← installAndPublish sh k
+      workerLoop sh (cnt + 1) next
+    else
+      workerLoop sh cnt none
 
 /-- Stop the workers: no new records, and every slot not resolved yet
 resolved empty, so that nobody stays waiting on it. -/
@@ -648,7 +711,9 @@ def commitLoop (err : IO.FS.Stream) (stride total t0 : Nat) (fallbackAt : Option
         let mine ← if done then pure false else claim sh.sched k
         let q? : Option (WRes mode ds B S vis) ← do
           if mine then
-            pure (some (← installAndPublish sh k))
+            let (q, next) ← installAndPublish sh k
+            if let some d := next then deferRecord sh.sched d
+            pure (some q)
           else match sh.resP[k]? with
             | some p => IO.wait p.result?
             | none => pure none
@@ -702,6 +767,8 @@ def parInstall (mode : CheckMode) (err : IO.FS.Stream) (stride total t0 jobs : N
   let n := ds.size
   let (vis, slots) := ParInstall.predictGo ds 0 0 (Array.mkEmpty n) #[]
   let B := Cached.buildBase slots
+  -- (`B.size` forces the prediction and the base before the clock is read)
+  let tA' ← if B.size + vis.size == 0 then IO.monoMsNow else IO.monoMsNow
   if !noMark then
     let _ ← unsafe Runtime.markPersistent ds
     let _ ← unsafe Runtime.markPersistent B
@@ -722,11 +789,12 @@ def parInstall (mode : CheckMode) (err : IO.FS.Stream) (stride total t0 jobs : N
   let dependents := ParInstall.dependentsGo deps 0 (Array.replicate n #[])
   if !noMark then
     let _ ← unsafe Runtime.markPersistent dependents
-  let counts ← deps.mapM fun d => IO.mkRef d.size
-  let ready := (Array.range n).foldl (init := (∅ : Std.TreeSet Nat compare)) fun t k =>
-    if deps[k]!.isEmpty then t.insert k else t
+  -- one extra token per record: the cursor's pass
+  let counts ← deps.mapM fun d => IO.mkRef (d.size + 1)
+  let taken ← (Array.range n).mapM fun _ => IO.mkRef false
   let sched : ParInstall.Sched :=
-    { counts, dependents, ready := ← IO.mkRef ready,
+    { counts, taken, dependents, cursor := ← IO.mkRef 0,
+      deferred := ← IO.mkRef ∅, deferredN := ← IO.mkRef 0,
       stop := ← IO.mkRef false, lock := ← Std.BaseMutex.new, cv := ← Std.Condvar.new }
   -- the slots: record `k`'s constants, as whoever installs it resolves them
   let slotP ← (Array.range n).mapM fun _ => IO.Promise.new
@@ -741,7 +809,7 @@ def parInstall (mode : CheckMode) (err : IO.FS.Stream) (stride total t0 jobs : N
   let tD ← IO.monoMsNow
   let mut tasks := #[]
   for _ in [0:jobs] do
-    tasks := tasks.push (← IO.asTask (prio := .dedicated) (ParInstall.workerLoop sh 0))
+    tasks := tasks.push (← IO.asTask (prio := .dedicated) (ParInstall.workerLoop sh 0 none))
   let cst ← IO.mkRef (Array.replicate 4 0)
   let res ← ParInstall.commitLoop err stride total t0 fallbackAt (Cached.buildBase_inj slots)
     sh cst (0, mkFEnv Env.empty, #[]) 0 (0, mkFEnv Env.empty, #[]) (.nil _)
@@ -755,7 +823,7 @@ def parInstall (mode : CheckMode) (err : IO.FS.Stream) (stride total t0 jobs : N
     | .error _ => pure ()
   if stride > 0 then
     let c ← cst.get
-    err.putStr s!"con-leche: parallel install: prediction+base {tB - tA} ms, \
+    err.putStr s!"con-leche: parallel install: prediction+base {tA' - tA} ms, records marked persistent {tB - tA'} ms, \
       dependencies {tC - tB} ms, slots {tD - tC} ms, commit {tE - tD} ms; \
       {installs} records installed by workers; commit thread: {c[0]!} waits on a worker \
       ({c[1]! / 1000000} ms), {c[2]!} records installed itself ({c[3]! / 1000000} ms)\n"
@@ -840,6 +908,8 @@ def checkDeclsIO (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride total 
     if !noMark then
       let _ ← unsafe Runtime.markPersistent fe
       let _ ← unsafe Runtime.markPersistent pend
+    let tMark ← IO.monoMsNow
+    heartbeat s!"persistent mark {secs (tMark - tCheck)}s"
     let workers := max 1 (min jobs pend.size)
     let res ← if jobs ≤ 1 then
         -- ONE worker, and no pool: no shared claim counter, no result
