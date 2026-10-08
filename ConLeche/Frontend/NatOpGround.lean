@@ -103,11 +103,33 @@ def isNatOpRecord : Declaration → Option Name
     else none
   | _ => none
 
-/-- **Which records must move, and how far**: the map from a record's
-index to the earliest pinned-operation index it must precede.  Empty —
-and then the hoist is the identity — on every stream whose ground
-precedes its operations. -/
-def hoistTargets (ds : Array Declaration) : Std.HashMap Nat Nat := Id.run do
+/-- What the hoist's gate reads of a record: the names it declares and
+whether it is a pinned operation's. -/
+def declShape (d : Declaration) : List Name × Option Name := (d.names, isNatOpRecord d)
+
+/-- **The hoist's gate, from names alone** (task #329): some pinned
+operation's ground name is declared by a LATER record.  Without it the
+hoist is the identity, and nothing reads a record's types or values to
+know it — the lazy parse (`ConLeche/Driver/LazyParse.lean`) hands the
+preparation records whose theorem values are not built. -/
+def groundLateS (sh : Array (List Name × Option Name)) : Bool := Id.run do
+  let mut idx : Std.HashMap Name Nat := {}
+  for i in [0:sh.size] do
+    for n in sh[i]!.1 do
+      if !idx.contains n then idx := idx.insert n i
+  let mut late := false
+  for i in [0:sh.size] do
+    let some c := sh[i]!.2 | continue
+    for g in natOpDeps c do
+      let some j := idx[g]? | continue
+      if j > i then late := true
+  return late
+
+/-- The gate on a record array. -/
+def groundLate (ds : Array Declaration) : Bool := groundLateS (ds.map declShape)
+
+/-- The targets, computed (after the gate). -/
+def hoistTargetsGo (ds : Array Declaration) : Std.HashMap Nat Nat := Id.run do
   -- name ↦ the index of the record declaring it (the first, on a
   -- duplicate — the fold rejects the second anyway)
   let mut idx : Std.HashMap Name Nat := {}
@@ -134,6 +156,14 @@ def hoistTargets (ds : Array Declaration) : Std.HashMap Nat Nat := Id.run do
           if let some m := idx[n]? then
             if m > i && m != k then stack := stack.push m
   return target
+
+/-- **Which records must move, and how far**: the map from a record's
+index to the earliest pinned-operation index it must precede.  Empty —
+and then the hoist is the identity — on every stream whose ground
+precedes its operations, which the names-only gate (`groundLate`)
+decides first. -/
+def hoistTargets (ds : Array Declaration) : Std.HashMap Nat Nat :=
+  if groundLate ds then hoistTargetsGo ds else {}
 
 /-- **The reorder**: a moved record sorts at its target, just ahead of
 the operation record there (key `(t, 0, k)` against the operation's

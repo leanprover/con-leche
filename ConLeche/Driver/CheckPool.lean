@@ -145,6 +145,11 @@ def checkLoop (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride t0 : Nat)
 
 /-! ### The pool: phase B on `--jobs=<n>` threads -/
 
+/-- A worker's result for one record: the record with its evidence
+`Q`, or the error tagged with its fold position. -/
+abbrev RecResultQ (Q : Nat → Prop) : Type :=
+  Except (ConLeche.CheckError × Nat) { k : Nat // Q k }
+
 /-- One claimed record of one worker: below the shared `limit` it is
 checked and its result appended; a failure lowers the limit to its
 index; on the heartbeat lane the completed-count is bumped and its
@@ -156,14 +161,15 @@ on (`live`). -/
 def checkOne (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride t0 : Nat)
     {ds : List ConLeche.Declaration}
     (e : ConLeche.Cached.InstalledEnv mode ConLeche.natOpPinSets ds)
+    {Q : Nat → Prop} (chk : (k : Nat) → k < e.pend.size → RecResultQ Q)
     (limit : IO.Ref Nat) (done : Std.Mutex Nat) (live : Live) (w : Nat)
     (k : Nat) (hk : k < e.pend.size)
-    (acc : Array (Nat × ConLeche.Cached.RecordResult mode e)) (st : WStats) :
-    IO (Array (Nat × ConLeche.Cached.RecordResult mode e) × WStats) := do
+    (acc : Array (Nat × RecResultQ Q)) (st : WStats) :
+    IO (Array (Nat × RecResultQ Q) × WStats) := do
   if k < (← limit.get) then
     let ts ← IO.monoNanosNow
     if stride > 0 then live.begin w k ts
-    let r := ConLeche.Cached.checkRecordResult mode e k hk
+    let r := chk k hk
     let bad := r matches .error _
     -- (read in a branch on `bad`, so the check is forced before the clock)
     let te ← if bad then IO.monoNanosNow else IO.monoNanosNow
@@ -185,37 +191,60 @@ claims see it past the end whatever the other workers do. -/
 def checkWorker (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride t0 : Nat)
     {ds : List ConLeche.Declaration}
     (e : ConLeche.Cached.InstalledEnv mode ConLeche.natOpPinSets ds)
+    {Q : Nat → Prop} (chk : (k : Nat) → k < e.pend.size → RecResultQ Q)
     (next limit : IO.Ref Nat) (done : Std.Mutex Nat) (live : Live) (w : Nat) :
-    (fuel : Nat) → Array (Nat × ConLeche.Cached.RecordResult mode e) → WStats →
-      IO (Array (Nat × ConLeche.Cached.RecordResult mode e) × WStats)
+    (fuel : Nat) → Array (Nat × RecResultQ Q) → WStats →
+      IO (Array (Nat × RecResultQ Q) × WStats)
   | 0, acc, st => pure (acc, st)
   | fuel + 1, acc, st => do
     let k ← next.modifyGet fun a => (a, a + 1)
     if hk : k < e.pend.size then
-      let (acc, st) ← checkOne mode err stride t0 e limit done live w k hk acc st
-      checkWorker mode err stride t0 e next limit done live w fuel acc st
+      let (acc, st) ← checkOne mode err stride t0 e chk limit done live w k hk acc st
+      checkWorker mode err stride t0 e chk next limit done live w fuel acc st
     else pure (acc, st)
 
 /-- The workers' arrays merged by record index into one table. -/
-def mergeResults {mode : ConLeche.CheckMode} {ds : List ConLeche.Declaration}
-    {e : ConLeche.Cached.InstalledEnv mode ConLeche.natOpPinSets ds}
-    (tab : Array (Option (ConLeche.Cached.RecordResult mode e))) :
-    List (Array (Nat × ConLeche.Cached.RecordResult mode e)) →
-      Array (Option (ConLeche.Cached.RecordResult mode e))
+def mergeResults {Q : Nat → Prop}
+    (tab : Array (Option (RecResultQ Q))) :
+    List (Array (Nat × RecResultQ Q)) → Array (Option (RecResultQ Q))
   | [] => tab
   | rs :: rest => mergeResults (rs.foldl (fun tab (k, r) => tab.set! k (some r)) tab) rest
 
-/-- **Phase B on a pool of `jobs` worker threads.**  Spawns
-`min jobs pend.size` workers, waits for all of them, merges their
-results and walks the table in record order.  A worker that failed as
-an `IO` action (not a check failing — the pool's own machinery) is an
-internal error, exit 3, never a verdict on the input.  Beside the
-result, the pool's timing report (`PoolRep`, performance-only). -/
-def checkPool (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride t0 jobs : Nat)
+/-- **The results, assembled in record order** (any property `Q` of the
+records, each record's own evidence): the walk stops at the first
+failure in record order, so the verdict is the sequential walk's
+whatever order the results were produced in.  A slot that is empty or
+holds another record's result is an internal error. -/
+def collectQ {Q : Nat → Prop} (n : Nat) (pos : Nat → Nat) (tab : Array (Option (RecResultQ Q))) :
+    (j : Nat) → (∀ i, i < j → Q i) → Except (ConLeche.CheckError × Nat) (PLift (∀ i, i < n → Q i))
+  | j, acc =>
+    if hj : j < n then
+      match tab[j]? with
+      | some (some (.ok ⟨k, hk⟩)) =>
+        if h : k = j then
+          collectQ n pos tab (j + 1) (fun i hi => by
+            by_cases hij : i < j
+            · exact acc i hij
+            · have : i = j := by omega
+              subst this; exact h ▸ hk)
+        else .error (.internal s!"check phase: slot {j} holds record {k}", pos j)
+      | some (some (.error err)) => .error err
+      | _ => .error (.internal s!"check phase: record {j} was never checked", pos j)
+    else .ok ⟨fun i hi => acc i (Nat.lt_of_lt_of_le hi (Nat.le_of_not_lt hj))⟩
+  termination_by j => n - j
+
+/-- **Phase B on a pool of `jobs` worker threads**, for any per-record
+check `chk` with its evidence `Q`.  Spawns `min jobs pend.size`
+workers, waits for all of them, merges their results and walks the
+table in record order.  A worker that failed as an `IO` action (not a
+check failing — the pool's own machinery) is an internal error, exit
+3, never a verdict on the input.  Beside the result, the pool's timing
+report (`PoolRep`, performance-only). -/
+def checkPoolQ (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride t0 jobs : Nat)
     {ds : List ConLeche.Declaration}
-    (e : ConLeche.Cached.InstalledEnv mode ConLeche.natOpPinSets ds) :
-    IO (PoolRep × Except (ConLeche.CheckError × Nat)
-      (PLift (∀ i, ConLeche.Cached.GroupChecked mode e i))) := do
+    (e : ConLeche.Cached.InstalledEnv mode ConLeche.natOpPinSets ds)
+    {Q : Nat → Prop} (chk : (k : Nat) → k < e.pend.size → RecResultQ Q) :
+    IO (PoolRep × Except (ConLeche.CheckError × Nat) (PLift (∀ i, i < e.pend.size → Q i))) := do
   let m := e.pend.size
   let workers := max 1 (min jobs m)
   let next ← IO.mkRef 0
@@ -223,12 +252,11 @@ def checkPool (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride t0 jobs :
   let done ← Std.Mutex.new 0
   let live ← Live.new (if stride > 0 then workers else 0)
   let tStart ← IO.monoNanosNow
-  let mut tasks : Array (Task (Except IO.Error
-      (Array (Nat × ConLeche.Cached.RecordResult mode e) × WStats))) := #[]
+  let mut tasks : Array (Task (Except IO.Error (Array (Nat × RecResultQ Q) × WStats))) := #[]
   for w in [0:workers] do
     tasks := tasks.push (← IO.asTask (prio := .dedicated)
-      (checkWorker mode err stride t0 e next limit done live w (m + 1) #[] {}))
-  let mut results : List (Array (Nat × ConLeche.Cached.RecordResult mode e)) := []
+      (checkWorker mode err stride t0 e chk next limit done live w (m + 1) #[] {}))
+  let mut results : List (Array (Nat × RecResultQ Q)) := []
   let mut stats : Array WStats := #[]
   let mut failure : Option IO.Error := none
   for t in tasks do
@@ -242,7 +270,22 @@ def checkPool (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride t0 jobs :
   if let some ioe := failure then
     return (rep, .error (.internal s!"check phase: a worker failed: {ioe}", 0))
   let tab := mergeResults (Array.replicate m none) results
-  return (rep, ConLeche.Cached.collectChecks mode e tab 0
+  return (rep, collectQ m (fun j => if h : j < m then e.pend[j].pos else 0) tab 0
     (fun j hj => absurd hj (Nat.not_lt_zero j)))
+
+/-- **Phase B on a pool**: every record's check (`checkRecord`), its
+`GroupChecked` facts assembled. -/
+def checkPool (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride t0 jobs : Nat)
+    {ds : List ConLeche.Declaration}
+    (e : ConLeche.Cached.InstalledEnv mode ConLeche.natOpPinSets ds) :
+    IO (PoolRep × Except (ConLeche.CheckError × Nat)
+      (PLift (∀ i, ConLeche.Cached.GroupChecked mode e i))) := do
+  let (rep, r) ← checkPoolQ mode err stride t0 jobs e (Q := ConLeche.Cached.GroupChecked mode e)
+    fun k hk => match ConLeche.Cached.checkRecord mode e k hk with
+      | .ok ⟨h⟩ => .ok ⟨k, h⟩
+      | .error err => .error err
+  match r with
+  | .ok ⟨h⟩ => return (rep, .ok ⟨ConLeche.Cached.groupChecked_all mode h⟩)
+  | .error err => return (rep, .error err)
 
 end ConLeche.Driver

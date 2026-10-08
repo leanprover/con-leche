@@ -155,12 +155,15 @@ structure Prepared where
   /-- the records moved ahead of a pinned `Nat` operation they ground
   (names, for the driver's receipt) -/
   hoisted : Array Name := #[]
+  /-- whether the hoist's names-only gate (`groundLate`) let it run -/
+  late : Bool := false
 
 /-- **`preparePrelude`, with its receipts.** -/
 def prepareD (pre : PreludeIx) (ds : Array Declaration) : Prepared :=
   let (front, rest) := frontOf #[] pre.decls.toList ds
-  let (decls, hoisted) := hoistNatOpGround (front ++ rest)
-  ⟨decls, decls.size - ds.size, hoisted⟩
+  let all := front ++ rest
+  let (decls, hoisted) := hoistNatOpGround all
+  ⟨decls, decls.size - ds.size, hoisted, groundLate all⟩
 
 /-- **`preparePrelude`**: the parsed stream, prepared for the fold —
 the prelude's declarations first (the stream's own copies where it has

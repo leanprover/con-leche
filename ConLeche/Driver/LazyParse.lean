@@ -311,13 +311,50 @@ left anything lazy. -/
 structure LInfo where
   fallbacks : Nat
   lazyLines : Nat
-  /-- phase times (ms): read and scan, line starts, sweep, windows, values -/
+  /-- phase times (ms): read and scan, line starts, sweep, windows -/
   times : Array Nat := #[]
+
+/-- The lazy parse's result: the run-time records (a theorem's value is
+the placeholder `ph`) and the store its values are built from. -/
+structure LazyRes where
+  ds : Array Declaration
+  S : LStore
+
+/-- **What the lazy parse promises**: the serial parse of some chunks
+succeeds, its final state is related to the store's tables and lines,
+and its records to the run-time ones. -/
+def LazyGhost (r : LazyRes) : Prop :=
+  ∃ cs stF, parseChunks cs = .ok ⟨stF.decls⟩ ∧ LHolds stF r.S.P r.S.c ∧
+    StoreOK stF r.S.chunks ∧ Pw (DRel stF) r.ds.toList stF.decls.toList
+
+/-- A parse's outcome: the serial parse's (a fallback, or `--jobs=1`),
+or the lazy parse's records with their store. -/
+inductive ParseOut where
+  | eager (o : ParseOutcome)
+  | lazy (r : LazyRes) (h : LazyGhost r)
+
+/-- The lazy parse's records with every theorem value built (on `jobs`
+workers): the serial parse's outcome. `none` if a value does not
+build. -/
+def toEager (jobs : Nat) (r : LazyRes) (h : LazyGhost r) : IO (Option ParseOutcome) := do
+  let pl ← Pool.start jobs
+  let res ← fillAll pl jobs r.S r.ds
+  pl.shutdown
+  match res with
+  | none => return none
+  | some ⟨e, hsz, hinv⟩ =>
+    return some ⟨.ok ⟨e⟩, by
+      obtain ⟨cs, stF, hcs, hh, hs, hd⟩ := h
+      refine ⟨cs, ?_⟩
+      rw [hcs]
+      have := fill_eq hh hs hd hsz hinv
+      congr 2
+      exact Array.toList_inj.mp this.symm⟩
 
 /-- **The lazy parse of a file** on `jobs` workers, windows of `m`
 chunks of about `csz` bytes. -/
 def parseExportLazyInfo (path : System.FilePath) (jobs m : Nat) (csz : USize) (inflight : Nat)
-    (noMark : Bool) : IO (ParseOutcome × LInfo) := do
+    (noMark : Bool) : IO (ParseOut × LInfo) := do
   let h ← IO.FS.Handle.mk path .read
   let fb ← IO.mkRef 0
   let pl ← Pool.start jobs
@@ -342,38 +379,28 @@ def parseExportLazyInfo (path : System.FilePath) (jobs m : Nat) (csz : USize) (i
     else ⟨.empty, .empty⟩
   let t3 ← IO.monoMsNow
   -- 3. the windows
-  let fallback : IO (ParseOutcome × LInfo) := do
+  match ← winLoop pl cfg marks.mkd xs 0 (.ready LGSt.init LGOK.init) with
+  | none =>
     pl.shutdown
     let r ← serialL path inflight .init .empty 0 0 Reached.init xs.toList
-    return (r, ⟨1, 0, #[]⟩)
-  match ← winLoop pl cfg marks.mkd xs 0 (.ready LGSt.init LGOK.init) with
-  | none => fallback
+    return (.eager r, ⟨1, 0, #[]⟩)
   | some ⟨g, hg⟩ =>
+    pl.shutdown
     let t4 ← IO.monoMsNow
-    -- 4. the theorem values
     let S := LStore.ofChunks g.S g.P g.c
     let nLazy := S.chunks.foldl (fun a C => a + C.spId.size) 0
-    match ← fillAll pl jobs S g.ds with
-    | none => fallback
-    | some ⟨e, hsz, hinv⟩ =>
-      pl.shutdown
-      let t5 ← IO.monoMsNow
-      return (⟨.ok ⟨e⟩, by
+    return (.lazy ⟨g.ds, S⟩ (by
         obtain ⟨cs, stF, hcs, hh, hd, hs⟩ := LGOK.finish hg
-        refine ⟨cs, ?_⟩
-        rw [hcs]
-        have := fill_eq (S := S) hh (hs.ofChunks g.P g.c) hd hsz hinv
-        congr 2
-        exact Array.toList_inj.mp this.symm⟩,
-        ⟨0, nLazy, #[t1 - t0, t2 - t1, t3 - t2, t4 - t3, t5 - t4]⟩)
+        exact ⟨cs, stF, hcs, hh, hs.ofChunks g.P g.c, hd⟩),
+      ⟨0, nLazy, #[t1 - t0, t2 - t1, t3 - t2, t4 - t3]⟩)
 
 /-- **The lazy parse of a file**; with `verbose`, its phase times on
 stderr. -/
 def parseExportLazy (path : System.FilePath) (jobs m : Nat) (csz : USize) (inflight : Nat)
-    (noMark verbose : Bool) : IO ParseOutcome := do
+    (noMark verbose : Bool) : IO ParseOut := do
   let (r, info) ← parseExportLazyInfo path jobs m csz inflight noMark
   if verbose then
-    IO.eprintln s!"con-leche: lazy parse: {info.lazyLines} lazy lines, {info.fallbacks} \
+    IO.eprintln s!"con-leche: lazy parse: {info.lazyLines} sparse entries, {info.fallbacks} \
       fallbacks, phases {info.times} ms"
   return r
 
