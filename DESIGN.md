@@ -98121,3 +98121,160 @@ could be avoided by keeping them on their worker.
 
 Logs and scripts: `_tmp/amdahl/rounds2-logs/` (`campaign2.txt`,
 `run1.sh`, `measure.patch` with the development knobs).
+
+## TASK #329 — LAZY: P0, theorem bodies built in their check task — the measurements, and a ruling needed (2026-10-08, agent/329-lazy)
+
+**The direction** (maintainer, 2026-10-08): scan every chunk flat, mark
+by one backward sweep the expression lines install needs, build only
+those into the persistent tables, and build each theorem's value inside
+its own check task from the flat lines, dropping it after the check.
+This record is phase P0 (measure first). Nothing of the checker
+changed; the measurements come from a stand-alone prototype
+(`_tmp/amdahl/lazy-logs/LazyP0.lean.txt`, run as an extra `lean_exe`
+of the worktree, never committed): the scan is `scanFlat`, the sweep
+reads the flat lines backward (a line-start index per chunk), the eager
+build is a serial `exprOfF` fold over the marked lines, and a theorem's
+value is built from the lines between the previous declaration line and
+its own (its region, applied forward into a dense array), with the
+lines outside the region found through a sparse per-chunk index (every
+32nd expression line) and memoised in a hash map. The builds hash the
+values; the hash is the same at every task count.
+
+### Numbers
+
+Flat bytes, theorem-only lines (marked by nothing install reads), and
+the serial backward sweep (`--jobs` does not matter; the sweep is the
+tail-recursive machine-word version, 6.6–10 ns a line):
+
+| corpus | JSON | flat | flat/JSON | theorem-only expr lines | their flat bytes | sweep |
+|---|---|---|---|---|---|---|
+| init-full | 347.7 MB | 87.6 MB | 25.2 % | 5.03 M (82.0 %) | 66.0 MB | 62 ms |
+| NS | 1.560 GB | 381 MB | 24.4 % | 22.66 M (81.7 %) | 297 MB | 170 ms |
+| cslib | 2.423 GB | 583 MB | 24.1 % | 27.87 M (69.6 %) | 368 MB | 310 ms |
+| mathlib-full | 6.069 GB | 1.462 GB | 24.1 % | 73.38 M (71.3 %) | 968 MB | 713 ms |
+
+The theorem-only counts are the C study's (`_tmp/amdahl/lazythm/`)
+exactly. A closure check after the sweep (every marked line's children
+marked, every root marked) passes on all four. The sweep also needs a
+line-start index (four bytes a line, 430 MB on mathlib-full, built in
+parallel in 73 ms, dropped after the sweep).
+
+**What the theorem-only lines cost as objects.** Built eagerly, the
+73.4 M theorem-only expressions of mathlib-full take 2.35 GB (peak RSS
+of the prototype's eager build, all lines against the marked ones:
+8.87 GB against 6.52 GB; 32 bytes a line); on init-full 115 MB (23
+bytes a line). Their flat bytes are 968 MB (66 MB), their slots in the
+id-indexed pages another 8 bytes a line (590 MB). So the saving at the
+peak is about 2.35 GB minus what stays resident for the check tasks:
+with the flat chunks resident as scanned (1.46 GB) and the pages
+unchanged, about 0.9 GB of mathlib-full's 7.8 GB; with the chunks
+compacted to their theorem-only lines (0.97 GB) and the pages
+compacted to the marked ids, about 2.0 GB. The maintainer's estimate
+of 4.6 GB assumed about twice the measured size of a node.
+
+**Building in the check task.** Lines built per theorem against
+theorem-only lines: 1.350 (init-full), 1.239 (mathlib-full), as the C
+study said; 30 % (25 %) of them lie outside the theorem's region and go
+through the sparse index. With the marked tables persistent (as the
+rounds parse leaves them): 169–172 ns a line on one task (init-full),
+233 ns a line·task at 8 tasks and 314 at 32 on mathlib-full (load 10–12).
+That is about 21 s of CPU added to mathlib-full's check pool: +0.7 s
+wall at 32 workers, +2.7 s at 8, +5 s at 4. The prototype's builder
+(hash-map memo, a list of children per node) is not tuned; the serial
+apply's 45–60 ns a line is the floor.
+
+**Re-reading from the file instead of keeping the chunks.** Lean's
+`IO.FS.Handle` has no seek or positioned read (`pread`): a check task
+cannot read its byte range of the file. Parallel reads at offsets would
+need new FFI code (trusted C), which the lane's rules exclude, so the
+re-read variant is not implementable as asked; the chunks are read
+sequentially by one thread (1.3–1.8 s for mathlib-full from the page
+cache) and scanned in parallel. Its CPU cost, measured with the JSON
+kept in memory (no I/O): re-scanning the theorems' regions on init-full
+takes 657 ms on one task against the build's 1151 ms, +57 %, and covers
+only the lines inside the regions.
+
+**Expected effect** (mathlib-full): peak RSS −0.9 to −2.0 GB; the parse
+builds 29 % of the expressions and adds a 0.7 s serial sweep; the check
+pool gains about 21 s of CPU. At `--jobs=4` the parse saving (the
+rounds parse costs about twice the serial apply's CPU, ROUNDS2) should
+exceed the check pool's +5 s; at 32 the two are about even.
+
+### The obstacle: the environment stores theorem values
+
+Phase A installs a theorem by its statement but pushes
+`.thmInfo cvA value` with the record's raw value
+(`annotStepC`, `ConLeche/Cached/Installed.lean`; the specification
+checker's `checkThmVal`, `ConLeche/Kernel/Checker.lean`, does the same),
+and the driver marks that environment persistent. So today every
+theorem value is alive to the end of the run, and in the lazy design
+the run-time environment cannot be the fold's: it holds a placeholder
+where the fold's holds the value. `MainTheorem` is about the fold's
+environment, so the driver must prove that the fold over the parsed
+records (the ghost, values included) accepts whenever the run over the
+placeholder records does. Two routes:
+
+* **(A) No statement change: congruence up to theorem values.** Prove
+  that the install steps and `checkPending` give the same results at
+  two indices whose `find?` agree except in the values of theorem
+  constants. The cached core never reads a theorem's value (every
+  `find?` match names other constructors; the docs say so), but the
+  existing congruence (`KnotCongr.lean`, `ViewCongr.lean`, the twin
+  indices of the parallel install) is stated for EQUAL `find?`. Every
+  leaf lemma (about 40 functions that match on `find?`) needs a case
+  analysis instead of `simp [hfe]`, and the kernel functions that take
+  `find?` as an argument (`checkBlockPositivity`, `blockNestCtx`,
+  `consBlockRecsTF`, `blockRecInfosTF`, `typeSortPW`, `proofPW`,
+  `isProofFast`, `projMissError`) need invariance proofs by their own
+  structure. Estimated 2500–3500 lines of proof on top of the lane's
+  own (the parse-side check of unbuilt lines, the provenance of the
+  lines a check task reads, the ghost records), about 1500.
+* **(B) A ruling: store a theorem by its statement only.** Both
+  checkers push the theorem constant with a fixed value (for example
+  `Expr.sort .zero`) instead of the record's. The run-time environment
+  and the fold's are then identical, and the lane's proof of the
+  install is one step lemma (a theorem record's value reaches only its
+  `PendingCheck`). `MainTheorem`'s statement text does not change, but
+  the environment it is about no longer carries proof terms; the 66
+  mentions of `thmInfo` in `Model/`, `Semantics/` and `Verify/` must
+  not read the value (the
+  docstring of `checkThmVal` says nothing does). That is a change to
+  `checkDecls` and the specification checker, hence a ruling.
+
+Either way `preparePrelude` needs one change: the ground hoist reads
+the constants of a theorem's VALUE when the theorem is in a pinned
+operation's ground closure (`Declaration.usedConsts`). A names-only
+pre-test (no pinned operation has a ground name declared after it) would
+make the hoist the identity without reading any value, and the lazy
+path would fall back to the eager parse on the streams where it is not.
+
+### Design notes for P1/P2 (for whoever continues)
+
+* **Validation in the parallel check, not the serial sweep.** The
+  sweep only marks; it validates nothing. The check pass that follows
+  the build (the lazy twin of `checkFlat`) checks an unmarked line's
+  references (bound, below the counters) and its binding (at or above
+  its counter, nothing bound in the gap) without building it, and a
+  marked line as today. Any failure falls back.
+* **The fallback restarts the serial parse at the stream's start**, over
+  the resident flat chunks (`chunkStepF`): tables without the unmarked
+  entries are not a state the serial parse can continue from
+  (`Prior.toState` would miss them). The verdict and the line are then
+  the serial parse's, as the maintainer asked.
+* **The finished tables hold three kinds of slot**: a built entry, a
+  "bound, not built" placeholder (the gappy-id check needs to know an
+  unmarked id is bound), and the unbound placeholder. The invariant
+  between chunks is the rounds parse's `Holds` weakened to the marked
+  ids, with the bound set agreeing; the theorem record carries a
+  placeholder naming its value's id and its region.
+* **Proving a check task's value**: the task reads lines at positions
+  it got from a checked walk (line starts with `lineEndU_spec`), so each
+  line it reads is a line of the stream; the serial fold's success
+  gives each such line's entry (`allOK_of_applyList`), and the build
+  with a task-local memo equals the ghost table's entry by induction on
+  the index.
+* **The sweep is serial**: 0.7 s on mathlib-full. Parallel local sweeps
+  per chunk, with the marks that cross into earlier chunks fed back in
+  rounds, would remove most of it if needed.
+
+Logs: `_tmp/amdahl/lazy-logs/` (`p0-*.txt`, the prototype).
