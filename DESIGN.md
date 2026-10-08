@@ -97714,3 +97714,158 @@ the runs; the load is the one-minute average across the runs.
 - The serial slot concatenation in the prediction.
 
 Logs and scripts are in `_tmp/amdahl/commit-logs/`.
+
+## TASK #329 — MTCLEAN: fewer multi-threaded marks, block claims off the cursor (2026-10-08, agent/329-mtclean)
+
+**Aim.** The COMMIT lane marked every prelude task's result
+multi-threaded (`Runtime.markMultiThreaded`) on principle, without
+separating the results that live for the whole install from the ones a
+single thread consumes and drops; the shared cursor still claimed one
+record per atomic take. The maintainer's ruling (2026-10-08): mark
+persistent what is long-lived and read by all workers, don't mark what
+is short-lived and single-thread-consumed, and never mark anything new
+multi-threaded. `checkDecls`, `checkDeclsIO` and `MainTheorem` are
+unchanged; `ParInstall`'s performance-only schedule section is the only
+code that moved.
+
+**1. Why a task's result needs marking at all** (read from
+`lean4`'s runtime at this toolchain, `v4.35.0-rc3`,
+`src/runtime/object.cpp`/`io.cpp`): `alloc_task` calls `lean_mark_mt` on
+a task's CLOSURE at spawn time (so whatever it captures gets walked and
+marked before the task can even run — this is why `ds` and the base
+shards are marked persistent *before* the chunk tasks that capture
+them are spawned: a persistent object's walk is `O(1)`, an unmarked
+one is a full graph walk, serially, on the spawning thread), and
+`resolve_core` calls `mark_mt` on a task's RESULT while holding the
+task manager's one global mutex when the task finishes. Pre-marking a
+result inside its own task (on the worker's own time, unlocked) makes
+that locked call a no-op (`lean_mark_mt`/`lean_mark_persistent` both
+skip an object whose header is already in a terminal state) instead of
+a full walk under the contended lock — a real saving when several
+tasks resolve together, not merely "free" bookkeeping. `lean_mark_mt`
+skips anything already persistent OR already multi-threaded;
+`lean_mark_persistent` (`lean_has_rc`, checked on `m_rc != 0`) does
+NOT skip a multi-threaded object — it re-walks and downgrades it to
+persistent, at full cost. Marking something multi-threaded and then
+persistent shortly after is therefore not "layering two cheap marks",
+it is two full walks of the same graph, and `.set` on a *persistent*
+`IO.Ref`/promise still goes through the atomic path
+(`lean_st_ref_put`'s `ref_maybe_mt`, true for persistent refs too) but
+only walks the fresh wrapper constructors on the way in, because the
+install result stored in them was already marked persistent earlier
+(`installAndPublish`) — the walk never reaches the (large) payload
+again.
+
+**2. The audit of every `Runtime.markMultiThreaded` call the COMMIT
+lane added**, against "read by all workers for the whole install →
+persistent" vs "consumed once and dropped → flat, or kept multi-threaded
+only because it still crosses threads and must not leak":
+
+| site | before | after | why |
+|---|---|---|---|
+| `depsChunk`'s `(counts, state, edges)` | always MT | persistent (MT under `--no-mark-persistent`) | `counts` and `state` are read — `state` also written — by every worker for the whole install; freeing either normally is one serial walk at the end, same argument the lane already had for `edges`. An installer's `.set (.done q)` on the now-persistent `state` ref only walks the `.done`/tuple wrappers; the install result inside is already persistent. |
+| `dependentsChunk`'s per-chunk result | always MT | **kept**, unconditional MT | `chunks.size` of these resolve together; pre-marking keeps `resolve_core`'s locked walk a no-op. It is genuinely short-lived (the combined `dependents` below is marked persistent once, separately), so persistent here would be wrong — a short-lived, non-scalar, genuinely-concurrently-read result is exactly the one case multi-threaded is for. |
+| `slotChunk`'s `(ps, ss)` | always MT | **kept** (unchanged, re-justified) | still can't be persistent: `lean_mark_persistent` walks into an unresolved `IO.Promise`'s task and hangs. |
+| `predictChunk`'s per-chunk result | always MT | **kept**, unconditional MT | its `cs` (the `buckets`, and the `slots` it feeds) is handed to every shard-building task afterwards — real concurrent reads, not a join — then dropped; persistent would leak the names and the arrays for the rest of the run. |
+| base shard (`buildShard`) | persistent unless `noMark` | unchanged | already correct: read by every lookup for the whole install. |
+| **builder's final `fe`** (`builderLoop`) | marked MT before return | **removed** | the builder is the only task resolving at that point (no sibling task contending the lock for it), and the commit thread is `fe`'s only reader until `Run.lean` marks the installed environment persistent a few lines later — the MT mark bought nothing and cost a full walk of the whole index, done twice. |
+
+Escape count: still 21 (`tests/arena.sh`'s trust-surface line); no new
+`unsafe` call site, only an existing one's argument widened
+(`depsChunk`'s single `markPersistent` now covers three values instead
+of marking them separately).
+
+**3. Other cross-thread `IO.Ref`s checked** (item 3 of the job): every
+`IO.Ref` in `Driver/*` was read off by name. `CheckPool.lean`'s `next`,
+`limit` (`IO.Ref Nat`) and `done` (`Std.Mutex Nat`) hold scalars only —
+nothing to mark, as already noted in its own module doc. In
+`ParInstall.lean`, every `Sched`/`Shared`/`Builder` ref is a scalar
+(`Nat`, `Bool`, `Option Nat`) except `Sched.deferred`
+(`IO.Ref (Std.TreeSet Nat compare)`, mutated by `release`/`popDeferred`
+from any worker) and `Shared.state`/`Sched.counts` (now persistent,
+above). `deferred` is NOT a candidate for persistent: it is genuinely
+mutated throughout the whole install (`.insert`/`.erase`), and a
+persistent tree would leak every superseded path-copied node instead of
+freeing it. It gets marked multi-threaded automatically, for free, the
+moment the first worker task is spawned (`alloc_task`'s closure walk,
+§1) — while it is still the empty tree, so that walk is `O(1)` — and
+every later `.modify` is then an `O(log(deferred size))` walk under
+`lean_st_ref_put`'s `mark_mt`, following only the path-copied nodes a
+balanced tree insert/erase touches; `deferredN` stays tiny in practice
+(a handful of records at a time, past the basis gate). No change
+needed.
+
+**4. The cursor claims in blocks of `ParInstall.cursorBlockSize`
+(64).** `Sched.cursor` and `nextReady` now hand out `blockSize` records
+per atomic claim instead of one; a worker drains its own block (plain
+function arguments threaded through `nextReady`/`workerLoop`, not a
+second `IO.Ref` — the block is worker-local, nothing else ever reads
+it) before claiming the next, and a deferred record (from a release)
+still pre-empts both. Stream-order preference is unaffected: the
+deferred set is always drained first, and within a worker the block is
+still consumed low-to-high. Nothing above the scheduler's performance-only
+section changed; `commitLoop`'s proof-carrying code is untouched aside
+from being pushed down 6 lines by added documentation. 64 is picked
+from the suggested 32–256 range on the strength of the design argument
+in `ParInstall.lean`'s doc comment, not a sharp measured knee (see
+below) — one claim per record is a named, understood contention point,
+and claiming in blocks removes it at no real cost.
+
+**Measured.** `--jobs=8`/`32` on NS and cslib, 3 runs each, median
+(min–max) wall seconds, against `more-parallel` `46e3e14da` (the
+COMMIT lane's landed state) as "before"; load is this host's one-minute
+average across the runs (several other lanes' builds/checkers were
+running throughout — this host was far more loaded than the COMMIT
+lane's own measurement, 8–96 there against 8–57 here):
+
+| corpus | jobs | ver | install | check | load |
+|---|---|---|---|---|---|
+| NS | 8 | before | 3.20 (3.10–3.20) | 41.50 (41.30–44.80) | 12–33 |
+| NS | 8 | after | 3.40 (3.20–4.60) | 51.90 (48.30–57.40) | 20–48 |
+| NS | 32 | before | 1.90 (1.80–2.00) | 14.00 (14.00–14.20) | 18–38 |
+| NS | 32 | after | 1.90 (1.80–1.90) | 13.50 (13.40–13.70) | 19–33 |
+| cslib | 8 | before | 5.40 (5.30–5.40) | 36.80 (36.20–36.80) | 8–19 |
+| cslib | 8 | after | 5.20 (5.10–5.20) | 35.70 (35.30–36.10) | 8–19 |
+| cslib | 32 | before | 2.80 (2.80–2.80) | 11.50 (11.50–11.90) | 15–27 |
+| cslib | 32 | after | 2.70 (2.70–2.80) | 11.30 (11.30–11.40) | 19–27 |
+
+- The check phase's code is untouched (same observation the COMMIT
+  lane made): its column moves with the load, not the binary — NS at
+  `--jobs=8` (load spiked to 48 mid-sweep from a concurrent lane's
+  build) is the clearest case, and is noise, not a regression.
+- `--jobs=1` bypasses `parInstall` entirely (`checkDeclsIO` calls the
+  serial `installLoop` directly when `jobs ≤ 1`), so none of this
+  lane's code runs at `--jobs=1`; init-full instructions confirm
+  exactly that: 484.944 G → 484.992 G (+0.01 %, run-to-run noise).
+- `perf record -g`, cslib at `--jobs=32`, stopped at the "persistent
+  mark" line (parse + install combined, since no stdout line marks the
+  install phase's own start without `--progress=1`): `lean_st_ref_take`
+  self time 0.12 % → 0.05 % of samples; isolating install only (started
+  at "parse done") gave 0.13–0.21 % → 0.10–0.11 %; a same-binary,
+  claim-size-only A/B inside this lane (`cursorBlockSize` 1 vs 64, same
+  persistent marks, same gate) gave 0.13 % → 0.10 %. All of these are a
+  few hundred samples out of ~150–200 K and did not reproduce the
+  maintainer's quoted ~10 %-of-the-pool figure under today's shared-host
+  load and the wider (parse- and prelude-inclusive) window this lane's
+  stdout markers can isolate; `lean_dec_ref_cold`'s share (10–12 %
+  throughout) did not move outside that same noise either way. The
+  design argument for claiming in blocks (§4) stands on its own; the
+  measurement neither confirms nor contradicts a specific percentage
+  today.
+- mathlib-full (`--verified`, under the flock, one run each): accepted
+  691203 both times. `--jobs=32`: install 6.8 s, check 35.0 s, total
+  57.0 s. `--jobs=8`: install 11.9 s, check 108.4 s, total 131.5 s.
+- Gates: `lake build` and `lake test` warning-free; `tests/arena.sh`
+  green (e2e 461/461, arena tutorial 90/92 as expected, trust-surface
+  21/21 allowlisted, escape count unchanged).
+
+**Not done.**
+- A sharp measured knee for `cursorBlockSize`: today's shared, loaded
+  host didn't resolve one between 1/16/64/256; 64 is the design choice,
+  not a measured optimum (§4).
+- Isolating the commit loop's own CPU share from the rest of the
+  install phase needs a stdout marker at the commit loop's start (there
+  is none today, only the end-of-install summary line), or a
+  `perf --time` slice computed from it after the fact; not done here.
+
+Logs and scripts are in `_tmp/amdahl/mtclean-logs/`.

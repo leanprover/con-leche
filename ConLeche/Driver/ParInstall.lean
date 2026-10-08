@@ -80,18 +80,30 @@ type — phase A of the fold — whatever the schedule.
 are marked persistent before the first worker starts, and every install
 result is marked persistent by its installer before it is published, so
 nothing a worker reads is counted atomically but the promises.  The
-serial index is the builder thread's alone: nothing else holds it, so
-every push updates it in place.
+dependency counts and the per-record state (`Sched.counts`,
+`Shared.state`) are marked persistent too (task #329's `mtclean` lane):
+every worker reads them throughout the whole install, and an installer's
+`.set` of a persistent ref only walks the two small wrapper constructors
+on the way in — the install result underneath is already persistent
+(installed first, see `installAndPublish`) and the walk stops there.
+The serial index is the builder thread's alone: nothing else holds it,
+so every push updates it in place, and it is handed over unmarked — the
+commit thread is its only reader until `Driver/Run.lean` marks the
+installed environment persistent, so marking it here first would only
+add a second, wasted walk of the whole index.
 
 **The schedule** (performance only): workers walk the records in
-stream order off a shared cursor and install each one that is READY —
-whose dependencies, the records installing the names its expressions
-mention, have all been installed; a record that is not is installed
-when its last dependency is, by the worker that installed that one.
-No record past the basis gate (`basisGate`) is handed out before the
-records up to it are installed, so the basis records every record
-looks up carry no dependency edges.  The common case takes no lock
-(`Sched`).
+stream order off a shared cursor, claiming a BLOCK of `Sched.blockSize`
+records per claim (not one at a time: the shared cursor's
+`lean_st_ref_take` spun for about 10 % of the pool's samples at 32 jobs
+on cslib) and working through its own block in stream order before
+claiming the next, and install each record that is READY — whose
+dependencies, the records installing the names its expressions mention,
+have all been installed; a record that is not is installed when its
+last dependency is, by the worker that installed that one.  No record
+past the basis gate (`basisGate`) is handed out before the records up
+to it are installed, so the basis records every record looks up carry
+no dependency edges.  The common case takes no lock (`Sched`).
 -/
 
 @[expose] public section
@@ -346,12 +358,15 @@ def depsChunk {α : Type} (B : BaseIdx) (ds : Array Declaration) (noMark : Bool)
   let mut edges : Array (Array (Nat × Array Nat)) := Array.replicate parts #[]
   for g in grps do
     edges := edges.modify (chunkOf n parts g.1) (·.push g)
-  -- persistent (unless `noMark`): the edges are read by every chunk's
-  -- dependents task, and freeing them is otherwise one serial walk by
-  -- whichever task drops them last
-  if !noMark then
-    let _ ← unsafe Runtime.markPersistent edges
-  Runtime.markMultiThreaded (counts, state, edges)
+  -- persistent (unless `noMark`): `counts` and `state` are read — and
+  -- `state` written — by every worker through the whole install, and
+  -- `edges` is read by every chunk's dependents task; freeing any of the
+  -- three normally is otherwise one serial walk by whichever task drops
+  -- it last.  `noMark` keeps the old multi-threaded mark (the A/B).
+  if noMark then
+    Runtime.markMultiThreaded (counts, state, edges)
+  else
+    unsafe Runtime.markPersistent (counts, state, edges)
 
 /-- One thread of the dependency step: claim fine chunks off `next` and
 run `depsChunk` on each, returning the results with their chunk
@@ -371,7 +386,13 @@ partial def depsWorker {α : Type} (B : BaseIdx) (ds : Array Declaration) (noMar
 
 /-- The dependents of records `lo .. hi - 1` (chunk `r`), on a task of
 its own: the groups into the chunk from every source chunk, in chunk
-order, so each record's dependents are ascending. -/
+order, so each record's dependents are ascending.  Marked multi-threaded
+unconditionally (not persistent, and not `noMark`-gated): `chunks.size`
+of these tasks resolve together, each one a non-scalar array, so marking
+it here — on its own task, off the lock — keeps the runtime's automatic
+mark at resolution (`resolve_core`, under its one global mutex) a no-op
+instead of a contended walk; it stays multi-threaded only until the
+combined `dependents` below is marked persistent in one further walk. -/
 def dependentsChunk (edges : Array (Array (Array (Nat × Array Nat))))
     (r lo hi : Nat) : IO (Array (Array Nat)) := do
   let mut acc : Array (Array Nat) := Array.replicate (hi - lo) #[]
@@ -416,21 +437,40 @@ def predictChunk (ds : Array Declaration) (nShards lo hi : Nat) :
       slots := slots.push (nm, k, j)
   return (sizes, slots, buckets)
 
+/-- Records per cursor claim (task #329's `mtclean` lane): 64, the
+middle of the suggested 32–256 range, from measurement on cslib at
+`--jobs=32` against block 1 — a clean claim-size-only A/B (same binary,
+same persistent marks, same gate; see `DESIGN.md`).  On this shared,
+loaded host the install phase's wall time and its `perf`-sampled
+`lean_st_ref_take` self-time share were both already small at block 1
+(0.1–0.2 % of install-phase samples) and did not resolve a sharp knee
+across 1/16/64/256; 64 is chosen on the strength of the design
+argument — one cursor claim per record is a known, named contention
+point, and claiming in blocks removes it at essentially no cost (stream
+order is still preferred; see `nextReady`) — not a measured cliff. -/
+def cursorBlockSize : Nat := 64
+
 /-- The scheduler.  Workers walk the records in order off a shared
-`cursor` (one atomic claim per record, no lock); record `k`'s count
-starts at its number of dependencies PLUS ONE, the extra token being
-the cursor's pass.  Whoever brings a count to zero — the cursor's pass
-if every dependency is already installed, else the release of the last
-one — has the record ready.  A record that becomes ready by a release
-(it was passed while blocked) goes to the `deferred` set (a persistent
-tree under `lock`, lowest first; `deferredN` is its size, read without
-the lock), which a worker drains before advancing the cursor.  `taken`
-is a per-record test-and-set: the commit thread may install a record
-itself, and whoever loses the race skips it.  The lock and the
-condition variable are touched only for deferred records and by
-workers idle at the end of the stream.  (A first scheduler kept EVERY
-ready record in the tree under the lock: at 32 workers the workers
-spent ~60 % of the install blocked in `mutex::lock`.) -/
+`cursor`, claiming a BLOCK of `blockSize` records per atomic claim (no
+lock) and working through their own block in stream order before
+claiming the next — one record per claim made the cursor's
+`lean_st_ref_take` spin for about 10 % of the pool's samples at 32 jobs
+on cslib (task #329's `mtclean` lane).  Record `k`'s count starts at its
+number of dependencies PLUS ONE, the extra token being the cursor's
+pass.  Whoever brings a count to zero — the cursor's pass if every
+dependency is already installed, else the release of the last one — has
+the record ready.  A record that becomes ready by a release (it was
+passed while blocked) goes to the `deferred` set (a persistent tree
+under `lock`, lowest first; `deferredN` is its size, read without the
+lock), which a worker drains before advancing its own block (and so,
+stream order is still preferred: a deferred record is always older than
+anything left in any worker's still-unclaimed block). `taken` is a
+per-record test-and-set: the commit thread may install a record itself,
+and whoever loses the race skips it.  The lock and the condition
+variable are touched only for deferred records and by workers idle at
+the end of the stream.  (A first scheduler kept EVERY ready record in
+the tree under the lock: at 32 workers the workers spent ~60 % of the
+install blocked in `mutex::lock`.) -/
 structure Sched where
   counts : Array (IO.Ref Nat)
   dependents : Array (Array Nat)
@@ -445,6 +485,9 @@ structure Sched where
   installed, is positive -/
   gate : Nat
   earlyLeft : IO.Ref Nat
+  /-- records per cursor claim (task #329's `mtclean` lane; tuned by
+  measurement, see `DESIGN.md`) -/
+  blockSize : Nat
 
 /-- Drop record `d`'s count by one; `true` if it reached zero. -/
 @[inline] def decCount (sc : Sched) (d : Nat) : IO Bool := do
@@ -491,18 +534,27 @@ def popDeferred (sc : Sched) : IO (Option Nat) := do
   return k?
 
 /-- The next ready record for a worker, or `none` once stopped: a
-deferred one, else the cursor's next record if it is ready (a record
-that is not stays with its dependencies' releases); at the end of the
-stream, wait for a deferred record or the stop. -/
-partial def nextReady (sc : Sched) (n : Nat) (held : Option Nat) :
-    IO (Option Nat × Option Nat) := do
-  if ← sc.stop.get then return (none, none)
-  if let some d ← popDeferred sc then return (some d, held)
+deferred one, else the next record of the worker's own BLOCK if it has
+one left, claiming a fresh block off the cursor otherwise, if it is
+ready (a record that is not stays with its dependencies' releases); at
+the end of the stream, wait for a deferred record or the stop.  `lo hi`
+is the worker's own claimed-but-not-yet-tried block (`lo = hi` when
+empty): worker-local, so untouched by any other thread, and threaded
+back to the caller to keep across calls — the cursor itself is touched
+only once per block, not once per record. -/
+partial def nextReady (sc : Sched) (n : Nat) (held : Option Nat) (lo hi : Nat) :
+    IO (Option Nat × Option Nat × Nat × Nat) := do
+  if ← sc.stop.get then return (none, none, lo, hi)
+  if let some d ← popDeferred sc then return (some d, held, lo, hi)
   -- the worker's held record (a cursor record past the closed gate), else
-  -- the cursor's next one
-  let k ← match held with
-    | some k => pure k
-    | none => sc.cursor.modifyGet fun k => (k, k + 1)
+  -- the next record of its own block, else a fresh block off the cursor
+  let (k, lo, hi) ← match held with
+    | some k => pure (k, lo, hi)
+    | none =>
+      if lo < hi then pure (lo, lo + 1, hi)
+      else
+        let lo' ← sc.cursor.modifyGet fun c => (c, min n (c + sc.blockSize))
+        pure (lo', lo' + 1, min n (lo' + sc.blockSize))
   if k < n then
     if k > sc.gate && (← sc.earlyLeft.get) > 0 then
       -- past the closed gate: hold the record and sleep until the gate
@@ -511,15 +563,15 @@ partial def nextReady (sc : Sched) (n : Nat) (held : Option Nat) :
       if !(← sc.stop.get) && (← sc.earlyLeft.get) > 0 && (← sc.deferredN.get) == 0 then
         sc.cv.wait sc.lock
       sc.lock.unlock
-      nextReady sc n (some k)
-    else if ← decCount sc k then return (some k, none)
-    else nextReady sc n none
+      nextReady sc n (some k) lo hi
+    else if ← decCount sc k then return (some k, none, lo, hi)
+    else nextReady sc n none lo hi
   else
     sc.lock.lock
     if !(← sc.stop.get) && (← sc.deferredN.get) == 0 then
       sc.cv.wait sc.lock
     sc.lock.unlock
-    nextReady sc n none
+    nextReady sc n none lo hi
 
 
 variable {mode : CheckMode} {ds : Array Declaration} {B : BaseIdx} {S : Slots}
@@ -593,20 +645,22 @@ def deferRecord (sc : Sched) (k : Nat) : IO Unit := do
   sc.cv.notifyOne
 
 /-- One worker: install the record its last install made ready, else the
-next ready one, repeat until stopped; returns how many it installed. -/
-partial def workerLoop (sh : Shared mode ds B S vis) (cnt : Nat) (cont held : Option Nat) :
-    IO Nat := do
-  let (k?, held) ← match cont with
-    | some k => pure (some k, held)
-    | none => nextReady sh.sched ds.size held
+next ready one, repeat until stopped; returns how many it installed.
+`lo hi` is the worker's own claimed-but-not-yet-tried block, threaded
+through `nextReady` (see there). -/
+partial def workerLoop (sh : Shared mode ds B S vis) (cnt : Nat) (cont held : Option Nat)
+    (lo hi : Nat) : IO Nat := do
+  let (k?, held, lo, hi) ← match cont with
+    | some k => pure (some k, held, lo, hi)
+    | none => nextReady sh.sched ds.size held lo hi
   match k? with
   | none => return cnt
   | some k =>
     if ← tryTake sh k then
       let (_, next) ← installAndPublish sh k
-      workerLoop sh (cnt + 1) next held
+      workerLoop sh (cnt + 1) next held lo hi
     else
-      workerLoop sh cnt none held
+      workerLoop sh cnt none held lo hi
 
 /-- Stop the workers: no new records, and — when the run was abandoned
 (`resolveAll`) — every slot not resolved yet resolved empty, so that
@@ -685,8 +739,12 @@ partial def builderLoop (S : Slots) (bd : Builder) (k : Nat) (fe : FEnv)
     | some e =>
       if k < e then builderLoop S bd k fe h
       else
-        -- marked here, not under the runtime's lock when the task resolves
-        let _ ← Runtime.markMultiThreaded fe
+        -- not marked here (task #329's `mtclean` lane): the builder is
+        -- the only task resolving at this point, with no sibling task
+        -- contending the runtime's lock for it, and the commit thread is
+        -- `fe`'s only reader afterwards until `Driver/Run.lean` marks the
+        -- installed environment persistent — marking it multi-threaded
+        -- here first would only add a second walk of the whole index.
         return ⟨k, fe, ⟨h⟩⟩
     | none =>
       bd.lock.lock
@@ -848,10 +906,17 @@ def parInstall (mode : CheckMode) (err : IO.FS.Stream) (stride total t0 jobs : N
   if !noMark then
     let _ ← unsafe Runtime.markPersistent ds
   let tA0 ← IO.monoMsNow
-  -- the prediction, chunk per task; then the counters (prefix sums)
-  -- (every task below marks its result multi-threaded itself before it
-  -- returns: the runtime marks a task's result while it holds its one
-  -- global lock, and a result already marked costs it nothing)
+  -- the prediction, chunk per task; then the counters (prefix sums).
+  -- Marked multi-threaded (task #329's `mtclean` audit: kept, not
+  -- persistent) because its `cs` component (`buckets`, and the `slots`
+  -- it is concatenated with below) is handed to EVERY shard-building
+  -- task afterwards — real concurrent reads, not a single join — and is
+  -- then dropped once the shards are built; persistent would leak the
+  -- names and the arrays for the rest of the run instead of freeing
+  -- them.  (Every task below marks its own result itself before it
+  -- returns: the runtime marks a task's result anyway while it holds its
+  -- one global lock when the task resolves, and a result already marked
+  -- costs that walk nothing.)
   let mut predTasks := #[]
   for (lo, hi) in chunks do
     -- (`IO.lazyPure`: a pure argument would be evaluated where the
@@ -948,14 +1013,15 @@ def parInstall (mode : CheckMode) (err : IO.FS.Stream) (stride total t0 jobs : N
     { counts, dependents, cursor := ← IO.mkRef 0,
       deferred := ← IO.mkRef ∅, deferredN := ← IO.mkRef 0,
       stop := ← IO.mkRef false, lock := ← Std.BaseMutex.new, cv := ← Std.Condvar.new,
-      gate, earlyLeft := ← IO.mkRef (min n (gate + 1)) }
+      gate, earlyLeft := ← IO.mkRef (min n (gate + 1)), blockSize := ParInstall.cursorBlockSize }
   let sh : ParInstall.Shared mode ds B S vis :=
     { slotP, state, sched, noMark, commitWait := ← IO.mkRef 0,
       commitLock := ← Std.BaseMutex.new, commitCv := ← Std.Condvar.new }
   let tD ← IO.monoMsNow
   let mut tasks := #[]
   for _ in [0:jobs] do
-    tasks := tasks.push (← IO.asTask (prio := .dedicated) (ParInstall.workerLoop sh 0 none none))
+    tasks := tasks.push
+      (← IO.asTask (prio := .dedicated) (ParInstall.workerLoop sh 0 none none 0 0))
   let cst ← IO.mkRef (Array.replicate 4 0)
   -- the index builder, on a thread of its own beside the commit thread
   let bd : ParInstall.Builder :=
