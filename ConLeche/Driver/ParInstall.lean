@@ -31,27 +31,37 @@ install is a function of the index it sees and the record alone
 function on `n` dedicated worker threads, each record at a **worker
 view** (`ConLeche.Cached.workerView`) instead of the serial index, and
 keeps THIS thread as the **commit thread**: it walks the records in
-order, pushes each record's constants into the serial index, and
-extends the serial fold's accepting run by one step per record, exactly
-as `installLoop` does.  What it returns is therefore `installLoop`'s
+order and extends the serial fold's accepting run by one step per
+record, exactly as `installLoop` does, while a **builder thread** pushes
+the committed records' constants into the serial index (`prefixFe`,
+the index the run is about, `builderLoop`).  What it returns is therefore `installLoop`'s
 type — phase A of the fold — whatever the schedule.
 
 * **The prediction.**  Before any record is installed, the names every
   record will install are read off the records (`predictSlots`, the
   install skeleton), and with them every constant's counter.  The
   frozen base index maps each predicted name to its counter, its record
-  and its position (`buildBase`).  Record `k`'s constants are its SLOT:
-  a thunk over a promise that whoever installs the record resolves.  A
-  worker view sees the base below its record's predicted counter, so a
-  lookup waits only on an earlier record.
+  and its position (`buildBase`, sharded by name hash).  Record `k`'s
+  constants are its SLOT: a thunk over a promise that whoever installs
+  the record resolves — the one task-manager object per record, there
+  because a lookup is pure code and can wait on nothing else.  A worker
+  view sees the base below its record's predicted counter, so a lookup
+  waits only on an earlier record.  The prediction, the base, the
+  slots, the dependencies and the dependents are each computed on
+  per-chunk (per-shard) tasks.
 * **The install** of record `k` is `installStep` at the view of its
   predicted counter (`ConLeche/Verify/Cached/ViewCongr.lean`): the constants it
   pushes and, for a definition, theorem or opaque, its pending check.
-  Its result travels to the commit thread with its evidence (`WRes`).
-* **The commit.**  The commit thread takes record `k`'s install result,
-  checks that the predicted counter is the serial one and that every
-  slot the constants fill holds that very constant (`slotsOk`: pointer
-  comparisons), and adds the step by `installStep_commit` — the view
+  After publishing its slot the installer makes the commit's checks
+  (`goodB`: the `And` pin, and every slot the constants fill holds that
+  very constant — `slotsOk`, base probes and pointer comparisons), and
+  the result travels to the commit thread with its evidence (`WRes`) in
+  the record's state (`RState`, an `IO.Ref`).
+* **The commit.**  The commit thread takes record `k`'s install result
+  (sleeping on its own condition variable if the installer is not done:
+  never spinning, never waiting on the task manager), checks that the
+  predicted counter is the serial one and the installer's verdict, and
+  adds the step by `installStep_commit` — the view
   answers every lookup as the serial index does (`ViewAgrees`), and an
   install at two such indices pushes the same constants
   (`checkDeclStepC_twin`), so the install at the view IS the serial step.
@@ -70,15 +80,30 @@ type — phase A of the fold — whatever the schedule.
 are marked persistent before the first worker starts, and every install
 result is marked persistent by its installer before it is published, so
 nothing a worker reads is counted atomically but the promises.  The
-serial index is the commit thread's alone: nothing else holds it, so
-every push updates it in place.
+dependency counts and the per-record state (`Sched.counts`,
+`Shared.state`) are marked persistent too (task #329's `mtclean` lane):
+every worker reads them throughout the whole install, and an installer's
+`.set` of a persistent ref only walks the two small wrapper constructors
+on the way in — the install result underneath is already persistent
+(installed first, see `installAndPublish`) and the walk stops there.
+The serial index is the builder thread's alone: nothing else holds it,
+so every push updates it in place, and it is handed over unmarked — the
+commit thread is its only reader until `Driver/Run.lean` marks the
+installed environment persistent, so marking it here first would only
+add a second, wasted walk of the whole index.
 
 **The schedule** (performance only): workers walk the records in
-stream order off a shared cursor and install each one that is READY —
-whose dependencies, the records installing the names its expressions
-mention, have all been installed; a record that is not is installed
-when its last dependency is, by the worker that installed that one.
-The common case takes no lock (`Sched`).
+stream order off a shared cursor, claiming a BLOCK of `Sched.blockSize`
+records per claim (not one at a time: the shared cursor's
+`lean_st_ref_take` spun for about 10 % of the pool's samples at 32 jobs
+on cslib) and working through its own block in stream order before
+claiming the next, and install each record that is READY — whose
+dependencies, the records installing the names its expressions mention,
+have all been installed; a record that is not is installed when its
+last dependency is, by the worker that installed that one.  No record
+past the basis gate (`basisGate`) is handed out before the records up
+to it are installed, so the basis records every record looks up carry
+no dependency edges.  The common case takes no lock (`Sched`).
 -/
 
 @[expose] public section
@@ -173,17 +198,59 @@ def workerRes (mode : CheckMode) (ds : Array Declaration) (B : BaseIdx) (S : Slo
   | some pd, some v => installStep mode natOpPinSets (workerView B S v) pd
   | _, _ => .error (.internal "parallel install: no such record")
 
-/-- An install result for a record, with its evidence: it is `workerRes`
-of that record (an erased proof at run time). -/
-def WRes (mode : CheckMode) (ds : Array Declaration) (B : BaseIdx) (S : Slots)
-    (vis : Array Nat) : Type :=
-  { q : Nat × Except CheckError (List ConstantInfo × Option ValueGroup) //
-      q.2 = workerRes mode ds B S vis q.1 }
-
 /-- The constants an install result publishes. -/
 def slotOfRes : Except CheckError (List ConstantInfo × Option ValueGroup) → Array ConstantInfo
   | .ok (L, _) => L.toArray
   | .error _ => #[]
+
+/-- **The checks the commit needs, made by the installer**: record `k`
+passes the `And` pin and, if it was installed, every constant it pushes
+fills the slot the base predicted for it, at the record's predicted
+counter.  The installer evaluates it right after publishing the slot
+(so the slot check reads its own, just resolved slot), and the commit
+thread reads the verdict instead of probing the base itself. -/
+def goodB (ds : Array Declaration) (B : BaseIdx) (S : Slots) (vis : Array Nat) (k : Nat)
+    (r : Except CheckError (List ConstantInfo × Option ValueGroup)) : Bool :=
+  match ds[k]?, vis[k]? with
+  | some pd, some v =>
+    andPinOk pd && (match r with
+      | .ok (L, _) => slotsOk B S v L && selfOk S k L
+      | .error _ => true)
+  | _, _ => false
+
+/-- What `goodB` establishes. -/
+def GoodAt (ds : Array Declaration) (B : BaseIdx) (S : Slots) (vis : Array Nat) (k : Nat)
+    (r : Except CheckError (List ConstantInfo × Option ValueGroup)) : Prop :=
+  ∀ pd v, ds[k]? = some pd → vis[k]? = some v →
+    andPinOk pd = true ∧
+      ∀ L vg?, r = .ok (L, vg?) → slotsOk B S v L = true ∧ slotList S k = L
+
+theorem goodB_spec {ds : Array Declaration} {B : BaseIdx} {S : Slots} {vis : Array Nat} {k : Nat}
+    {r : Except CheckError (List ConstantInfo × Option ValueGroup)}
+    (h : goodB ds B S vis k r = true) : GoodAt ds B S vis k r := by
+  intro pd v hpd hv
+  simp only [goodB, hpd, hv, Bool.and_eq_true] at h
+  refine ⟨h.1, fun L vg? hr => ?_⟩
+  have h2 := h.2
+  rw [hr] at h2
+  simp only [Bool.and_eq_true] at h2
+  exact ⟨h2.1, selfOk_spec h2.2⟩
+
+/-- An install result for a record, with its evidence: it is `workerRes`
+of that record, and when `good` the commit's checks hold (`GoodAt`) —
+erased proofs at run time. -/
+def WRes (mode : CheckMode) (ds : Array Declaration) (B : BaseIdx) (S : Slots)
+    (vis : Array Nat) : Type :=
+  { q : Nat × Except CheckError (List ConstantInfo × Option ValueGroup) × Bool //
+      q.2.1 = workerRes mode ds B S vis q.1 ∧
+        (q.2.2 = true → GoodAt ds B S vis q.1 q.2.1) }
+
+/-- A record's state, for the workers and the commit thread: not yet
+taken, taken by an installer, or installed with its result. -/
+inductive RState (α : Type) where
+  | free
+  | taken
+  | done (q : α)
 
 /-! #### The schedule
 
@@ -230,52 +297,182 @@ def declExprs : Declaration → List Expr × List Name
   | .indDecl block _ => (block.map (·.toConstantVal.type), block.map (·.name))
 
 /-- Record `k`'s dependencies: the earlier records installing the names
-it looks up, ascending, without repeats. -/
-def recDeps (B : BaseIdx) (k : Nat) (pd : Declaration) : Array Nat :=
+it looks up, ascending, without repeats — leaving out, for a record past
+the GATE (the last record installing a basis name, `basisGate`), every
+record at or below it: the scheduler hands out no record past the gate
+before those are installed (`Sched.earlyLeft`), and without that rule
+every record would be a dependent of the dozen basis records, a hub
+whose dependents' lists the assembly would build serially. -/
+def recDeps (B : BaseIdx) (gate k : Nat) (pd : Declaration) : Array Nat :=
   let (es, own) := declExprs pd
   let names := (es.foldl (fun acc e => depNames e acc)
     ({}, basisDepNames ++ own.toArray)).2
-  let ks := names.filterMap fun n => match B[n]? with
-    | some (_, k', _) => if k' < k then some k' else none
+  let ks := names.filterMap fun n => match baseGet? B n with
+    | some (_, k', _) => if k' < k && (k ≤ gate || gate < k') then some k' else none
     | none => none
   let ks := ks.qsort (· < ·)
   ks.foldl (fun acc x => if acc.back? == some x then acc else acc.push x) #[]
 
-/-- The dependencies of records `lo .. hi - 1`. -/
-def depsChunk (B : BaseIdx) (ds : Array Declaration) (lo hi : Nat) : Array (Array Nat) :=
-  (Array.range (hi - lo)).map fun i =>
-    match ds[lo + i]? with
-    | some pd => recDeps B (lo + i) pd
-    | none => #[]
+/-- The gate: the last record installing a basis name. -/
+def basisGate (B : BaseIdx) : Nat :=
+  basisDepNames.foldl (fun g n => match baseGet? B n with
+    | some (_, k, _) => max g k
+    | none => g) 0
 
-/-- The dependents of every record, from the dependencies. -/
-def dependentsGo (deps : Array (Array Nat)) :
-    (k : Nat) → Array (Array Nat) → Array (Array Nat)
-  | k, acc =>
-    if h : k < deps.size then
-      let acc := deps[k].foldl (fun acc d => acc.modify d (·.push k)) acc
-      dependentsGo deps (k + 1) acc
-    else acc
-  termination_by k => deps.size - k
+/-- The chunks a parallel prelude step splits the records into:
+`(lo, hi)` for each of `parts` contiguous ranges. -/
+def chunkBounds (n parts : Nat) : Array (Nat × Nat) :=
+  let chunk := (n + parts - 1) / parts
+  (Array.range parts).map fun t => (min n (t * chunk), min n (t * chunk + chunk))
+
+/-- The chunk containing record `d`, for `chunkBounds n parts`. -/
+@[inline] def chunkOf (n parts d : Nat) : Nat := d / ((n + parts - 1) / parts)
+
+/-- Records `lo .. hi - 1`'s part of the schedule, on a task of its own:
+each record's dependency count (one IO reference each, starting at its
+number of dependencies plus the cursor's token), its state (`RState`), and
+its dependency edges grouped by dependency — `(d, the records of this
+chunk depending on d, ascending)` — and bucketed by the chunk `d` lies
+in (`chunkOf`), marked persistent.  Grouping here is what keeps the dependents' assembly
+balanced: a hub every record depends on (the basis) arrives as one
+group per chunk, appended in one copy, not as one push per record. -/
+def depsChunk {α : Type} (B : BaseIdx) (ds : Array Declaration) (noMark : Bool)
+    (gate n parts lo hi : Nat) :
+    IO (Array (IO.Ref Nat) × Array (IO.Ref (RState α)) × Array (Array (Nat × Array Nat))) := do
+  let mut counts := Array.mkEmpty (hi - lo)
+  let mut state := Array.mkEmpty (hi - lo)
+  let mut pos : Std.HashMap Nat Nat := {}
+  let mut grps : Array (Nat × Array Nat) := #[]
+  for k in [lo:hi] do
+    let dk := match ds[k]? with
+      | some pd => recDeps B gate k pd
+      | none => #[]
+    counts := counts.push (← IO.mkRef (dk.size + 1))
+    state := state.push (← IO.mkRef RState.free)
+    for d in dk do
+      match pos[d]? with
+      | some i => grps := grps.modify i fun (d', ks) => (d', ks.push k)
+      | none =>
+        pos := pos.insert d grps.size
+        grps := grps.push (d, #[k])
+  let mut edges : Array (Array (Nat × Array Nat)) := Array.replicate parts #[]
+  for g in grps do
+    edges := edges.modify (chunkOf n parts g.1) (·.push g)
+  -- persistent (unless `noMark`): `counts` and `state` are read — and
+  -- `state` written — by every worker through the whole install, and
+  -- `edges` is read by every chunk's dependents task; freeing any of the
+  -- three normally is otherwise one serial walk by whichever task drops
+  -- it last.  `noMark` keeps the old multi-threaded mark (the A/B).
+  if noMark then
+    Runtime.markMultiThreaded (counts, state, edges)
+  else
+    unsafe Runtime.markPersistent (counts, state, edges)
+
+/-- One thread of the dependency step: claim fine chunks off `next` and
+run `depsChunk` on each, returning the results with their chunk
+numbers. -/
+partial def depsWorker {α : Type} (B : BaseIdx) (ds : Array Declaration) (noMark : Bool)
+    (gate n parts : Nat) (fine : Array (Nat × Nat)) (next : IO.Ref Nat)
+    (acc : Array (Nat × (Array (IO.Ref Nat) × Array (IO.Ref (RState α)) ×
+      Array (Array (Nat × Array Nat))))) :
+    IO (Array (Nat × (Array (IO.Ref Nat) × Array (IO.Ref (RState α)) ×
+      Array (Array (Nat × Array Nat))))) := do
+  let c ← next.modifyGet fun c => (c, c + 1)
+  match fine[c]? with
+  | some (lo, hi) =>
+    let r ← depsChunk B ds noMark gate n parts lo hi
+    depsWorker B ds noMark gate n parts fine next (acc.push (c, r))
+  | none => return acc
+
+/-- The dependents of records `lo .. hi - 1` (chunk `r`), on a task of
+its own: the groups into the chunk from every source chunk, in chunk
+order, so each record's dependents are ascending.  Marked multi-threaded
+unconditionally (not persistent, and not `noMark`-gated): `chunks.size`
+of these tasks resolve together, each one a non-scalar array, so marking
+it here — on its own task, off the lock — keeps the runtime's automatic
+mark at resolution (`resolve_core`, under its one global mutex) a no-op
+instead of a contended walk; it stays multi-threaded only until the
+combined `dependents` below is marked persistent in one further walk. -/
+def dependentsChunk (edges : Array (Array (Array (Nat × Array Nat))))
+    (r lo hi : Nat) : IO (Array (Array Nat)) := do
+  let mut acc : Array (Array Nat) := Array.replicate (hi - lo) #[]
+  for t in [0:edges.size] do
+    if let some es := edges[t]? then
+      if let some e := es[r]? then
+        for (d, ks) in e do
+          acc := acc.modify (d - lo) (· ++ ks)
+  Runtime.markMultiThreaded acc
+
+/-- The slots of records `lo .. hi - 1`, on a task of its own: one
+promise each, and the thunk over it a view reads.  (Not marked
+persistent: marking waits for every task it reaches, and a promise's
+task is unresolved here.) -/
+def slotChunk (lo hi : Nat) :
+    IO (Array (IO.Promise (Array ConstantInfo)) × Slots) := do
+  let mut ps := Array.mkEmpty (hi - lo)
+  let mut ss : Slots := Array.mkEmpty (hi - lo)
+  for _ in [lo:hi] do
+    let p ← IO.Promise.new
+    ps := ps.push p
+    ss := ss.push (Thunk.mk fun _ => (p.result?.get).getD #[])
+  Runtime.markMultiThreaded (ps, ss)
+
+/-- The prediction of records `lo .. hi - 1`, on a task of its own: each
+record's slot count, the chunk's slots `(name, record, position)` in
+counter order, and the chunk-relative counters of its slots bucketed by
+base shard (`baseShard`). -/
+def predictChunk (ds : Array Declaration) (nShards lo hi : Nat) :
+    Array Nat × Array (Name × Nat × Nat) × Array (Array Nat) := Id.run do
+  let mut sizes := Array.mkEmpty (hi - lo)
+  let mut slots := #[]
+  let mut buckets : Array (Array Nat) := Array.replicate nShards #[]
+  for k in [lo:hi] do
+    let names := match ds[k]? with
+      | some pd => predictSlots pd
+      | none => #[]
+    sizes := sizes.push names.size
+    for h : j in [0:names.size] do
+      let nm := names[j]
+      buckets := buckets.modify (baseShard nm nShards) (·.push slots.size)
+      slots := slots.push (nm, k, j)
+  return (sizes, slots, buckets)
+
+/-- Records per cursor claim (task #329's `mtclean` lane): 64, the
+middle of the suggested 32–256 range, from measurement on cslib at
+`--jobs=32` against block 1 — a clean claim-size-only A/B (same binary,
+same persistent marks, same gate; see `DESIGN.md`).  On this shared,
+loaded host the install phase's wall time and its `perf`-sampled
+`lean_st_ref_take` self-time share were both already small at block 1
+(0.1–0.2 % of install-phase samples) and did not resolve a sharp knee
+across 1/16/64/256; 64 is chosen on the strength of the design
+argument — one cursor claim per record is a known, named contention
+point, and claiming in blocks removes it at essentially no cost (stream
+order is still preferred; see `nextReady`) — not a measured cliff. -/
+def cursorBlockSize : Nat := 64
 
 /-- The scheduler.  Workers walk the records in order off a shared
-`cursor` (one atomic claim per record, no lock); record `k`'s count
-starts at its number of dependencies PLUS ONE, the extra token being
-the cursor's pass.  Whoever brings a count to zero — the cursor's pass
-if every dependency is already installed, else the release of the last
-one — has the record ready.  A record that becomes ready by a release
-(it was passed while blocked) goes to the `deferred` set (a persistent
-tree under `lock`, lowest first; `deferredN` is its size, read without
-the lock), which a worker drains before advancing the cursor.  `taken`
-is a per-record test-and-set: the commit thread may install a record
-itself, and whoever loses the race skips it.  The lock and the
-condition variable are touched only for deferred records and by
-workers idle at the end of the stream.  (A first scheduler kept EVERY
-ready record in the tree under the lock: at 32 workers the workers
-spent ~60 % of the install blocked in `mutex::lock`.) -/
+`cursor`, claiming a BLOCK of `blockSize` records per atomic claim (no
+lock) and working through their own block in stream order before
+claiming the next — one record per claim made the cursor's
+`lean_st_ref_take` spin for about 10 % of the pool's samples at 32 jobs
+on cslib (task #329's `mtclean` lane).  Record `k`'s count starts at its
+number of dependencies PLUS ONE, the extra token being the cursor's
+pass.  Whoever brings a count to zero — the cursor's pass if every
+dependency is already installed, else the release of the last one — has
+the record ready.  A record that becomes ready by a release (it was
+passed while blocked) goes to the `deferred` set (a persistent tree
+under `lock`, lowest first; `deferredN` is its size, read without the
+lock), which a worker drains before advancing its own block (and so,
+stream order is still preferred: a deferred record is always older than
+anything left in any worker's still-unclaimed block). `taken` is a
+per-record test-and-set: the commit thread may install a record itself,
+and whoever loses the race skips it.  The lock and the condition
+variable are touched only for deferred records and by workers idle at
+the end of the stream.  (A first scheduler kept EVERY ready record in
+the tree under the lock: at 32 workers the workers spent ~60 % of the
+install blocked in `mutex::lock`.) -/
 structure Sched where
   counts : Array (IO.Ref Nat)
-  taken : Array (IO.Ref Bool)
   dependents : Array (Array Nat)
   cursor : IO.Ref Nat
   deferred : IO.Ref (Std.TreeSet Nat compare)
@@ -283,6 +480,14 @@ structure Sched where
   stop : IO.Ref Bool
   lock : Std.BaseMutex
   cv : Std.Condvar
+  /-- the gate (`recDeps`): no record past it is handed out while
+  `earlyLeft`, the number of records at or below it not yet
+  installed, is positive -/
+  gate : Nat
+  earlyLeft : IO.Ref Nat
+  /-- records per cursor claim (task #329's `mtclean` lane; tuned by
+  measurement, see `DESIGN.md`) -/
+  blockSize : Nat
 
 /-- Drop record `d`'s count by one; `true` if it reached zero. -/
 @[inline] def decCount (sc : Sched) (d : Nat) : IO Bool := do
@@ -292,11 +497,6 @@ structure Sched where
     return c == 0
   | none => return false
 
-/-- Claim record `k` for installing: `true` for exactly one caller. -/
-@[inline] def tryTake (sc : Sched) (k : Nat) : IO Bool := do
-  match sc.taken[k]? with
-  | some r => return !(← r.modifyGet fun b => (b, true))
-  | none => return false
 
 /-- Record `k` installed: its dependents' counts drop.  Those that reach
 zero were passed by the cursor while blocked: the lowest is returned
@@ -334,27 +534,45 @@ def popDeferred (sc : Sched) : IO (Option Nat) := do
   return k?
 
 /-- The next ready record for a worker, or `none` once stopped: a
-deferred one, else the cursor's next record if it is ready (a record
-that is not stays with its dependencies' releases); at the end of the
-stream, wait for a deferred record or the stop. -/
-partial def nextReady (sc : Sched) (n : Nat) : IO (Option Nat) := do
-  if ← sc.stop.get then return none
-  if let some k ← popDeferred sc then return some k
-  let k ← sc.cursor.modifyGet fun k => (k, k + 1)
+deferred one, else the next record of the worker's own BLOCK if it has
+one left, claiming a fresh block off the cursor otherwise, if it is
+ready (a record that is not stays with its dependencies' releases); at
+the end of the stream, wait for a deferred record or the stop.  `lo hi`
+is the worker's own claimed-but-not-yet-tried block (`lo = hi` when
+empty): worker-local, so untouched by any other thread, and threaded
+back to the caller to keep across calls — the cursor itself is touched
+only once per block, not once per record. -/
+partial def nextReady (sc : Sched) (n : Nat) (held : Option Nat) (lo hi : Nat) :
+    IO (Option Nat × Option Nat × Nat × Nat) := do
+  if ← sc.stop.get then return (none, none, lo, hi)
+  if let some d ← popDeferred sc then return (some d, held, lo, hi)
+  -- the worker's held record (a cursor record past the closed gate), else
+  -- the next record of its own block, else a fresh block off the cursor
+  let (k, lo, hi) ← match held with
+    | some k => pure (k, lo, hi)
+    | none =>
+      if lo < hi then pure (lo, lo + 1, hi)
+      else
+        let lo' ← sc.cursor.modifyGet fun c => (c, min n (c + sc.blockSize))
+        pure (lo', lo' + 1, min n (lo' + sc.blockSize))
   if k < n then
-    if ← decCount sc k then return some k
-    nextReady sc n
+    if k > sc.gate && (← sc.earlyLeft.get) > 0 then
+      -- past the closed gate: hold the record and sleep until the gate
+      -- opens or a deferred record turns up
+      sc.lock.lock
+      if !(← sc.stop.get) && (← sc.earlyLeft.get) > 0 && (← sc.deferredN.get) == 0 then
+        sc.cv.wait sc.lock
+      sc.lock.unlock
+      nextReady sc n (some k) lo hi
+    else if ← decCount sc k then return (some k, none, lo, hi)
+    else nextReady sc n none lo hi
   else
     sc.lock.lock
     if !(← sc.stop.get) && (← sc.deferredN.get) == 0 then
       sc.cv.wait sc.lock
     sc.lock.unlock
-    nextReady sc n
+    nextReady sc n none lo hi
 
-/-- The commit thread claims record `k` (every dependency of it is
-installed): `true` if nobody has taken it. -/
-def claim (sc : Sched) (k : Nat) : IO Bool :=
-  tryTake sc k
 
 variable {mode : CheckMode} {ds : Array Declaration} {B : BaseIdx} {S : Slots}
   {vis : Array Nat}
@@ -362,16 +580,31 @@ variable {mode : CheckMode} {ds : Array Declaration} {B : BaseIdx} {S : Slots}
 /-- The state the commit thread and the workers share. -/
 structure Shared (mode : CheckMode) (ds : Array Declaration) (B : BaseIdx) (S : Slots)
     (vis : Array Nat) where
-  /-- record `k`'s published constants (`S` reads them) -/
+  /-- record `k`'s published constants (`S` reads them): the one
+  promise per record, so that a lookup (pure code) can wait on it -/
   slotP : Array (IO.Promise (Array ConstantInfo))
-  /-- record `k`'s install result -/
-  resP : Array (IO.Promise (WRes mode ds B S vis))
+  /-- record `k`'s state, with its install result once done -/
+  state : Array (IO.Ref (RState (WRes mode ds B S vis)))
   sched : Sched
   noMark : Bool
+  /-- `k + 1` while the commit thread sleeps waiting for record `k`,
+  else `0` -/
+  commitWait : IO.Ref Nat
+  commitLock : Std.BaseMutex
+  commitCv : Std.Condvar
+
+/-- Claim record `k` for installing: `true` for exactly one caller. -/
+@[inline] def tryTake (sh : Shared mode ds B S vis) (k : Nat) : IO Bool := do
+  match sh.state[k]? with
+  | some r => r.modifyGet fun
+    | .free => (true, .taken)
+    | s => (false, s)
+  | none => return false
 
 /-- Install record `k` at its view and publish the result: marked
 persistent first (unless `--no-mark-persistent`), then the slot (workers
-may wait on it), the result for the commit thread, and the dependents
+may wait on it), the commit's checks (`goodB`), the result in the
+record's state (waking the commit thread if it waits for it), and the dependents
 released (the lowest newly ready dependent is returned, for the
 caller to install next). -/
 def installAndPublish (sh : Shared mode ds B S vis) (k : Nat) :
@@ -384,10 +617,21 @@ def installAndPublish (sh : Shared mode ds B S vis) (k : Nat) :
   match sh.slotP[k]? with
   | some p => p.resolve cs
   | none => pure ()
-  let q : WRes mode ds B S vis := ⟨(k, r), rfl⟩
-  match sh.resP[k]? with
-  | some p => p.resolve q
+  -- the commit's checks, here: the slot is resolved, its thunk reads it
+  let good := goodB ds B S vis k r
+  let q : WRes mode ds B S vis := ⟨(k, r, good), rfl, goodB_spec⟩
+  match sh.state[k]? with
+  | some st => st.set (.done q)
   | none => pure ()
+  if (← sh.commitWait.get) == k + 1 then
+    sh.commitLock.lock
+    sh.commitLock.unlock
+    sh.commitCv.notifyOne
+  if k ≤ sh.sched.gate then
+    if (← sh.sched.earlyLeft.modifyGet fun c => (c - 1, c - 1)) == 0 then
+      sh.sched.lock.lock
+      sh.sched.lock.unlock
+      sh.sched.cv.notifyAll
   let next ← release sh.sched k
   pure (q, next)
 
@@ -401,42 +645,124 @@ def deferRecord (sc : Sched) (k : Nat) : IO Unit := do
   sc.cv.notifyOne
 
 /-- One worker: install the record its last install made ready, else the
-next ready one, repeat until stopped; returns how many it installed. -/
-partial def workerLoop (sh : Shared mode ds B S vis) (cnt : Nat) (cont : Option Nat) :
-    IO Nat := do
-  let k? ← match cont with
-    | some k => pure (some k)
-    | none => nextReady sh.sched ds.size
+next ready one, repeat until stopped; returns how many it installed.
+`lo hi` is the worker's own claimed-but-not-yet-tried block, threaded
+through `nextReady` (see there). -/
+partial def workerLoop (sh : Shared mode ds B S vis) (cnt : Nat) (cont held : Option Nat)
+    (lo hi : Nat) : IO Nat := do
+  let (k?, held, lo, hi) ← match cont with
+    | some k => pure (some k, held, lo, hi)
+    | none => nextReady sh.sched ds.size held lo hi
   match k? with
   | none => return cnt
   | some k =>
-    if ← tryTake sh.sched k then
+    if ← tryTake sh k then
       let (_, next) ← installAndPublish sh k
-      workerLoop sh (cnt + 1) next
+      workerLoop sh (cnt + 1) next held lo hi
     else
-      workerLoop sh cnt none
+      workerLoop sh cnt none held lo hi
 
-/-- Stop the workers: no new records, and every slot not resolved yet
-resolved empty, so that nobody stays waiting on it. -/
-def stopWorkers (sh : Shared mode ds B S vis) : IO Unit := do
+/-- Stop the workers: no new records, and — when the run was abandoned
+(`resolveAll`) — every slot not resolved yet resolved empty, so that
+nobody stays waiting on it.  After a complete commit every slot is
+resolved already, and the walk over a million cold promises is skipped. -/
+def stopWorkers (sh : Shared mode ds B S vis) (resolveAll : Bool) : IO Unit := do
   sh.sched.stop.set true
   sh.sched.lock.lock
   sh.sched.lock.unlock
   sh.sched.cv.notifyAll
-  for p in sh.slotP do
-    p.resolve #[]
+  if resolveAll then
+    for p in sh.slotP do
+      p.resolve #[]
 
-/-- The prediction: record `k`'s slots `(name, k, j)` and its counter. -/
-def predictGo (ds : Array Declaration) :
-    (k c : Nat) → Array Nat → Array (Name × Nat × Nat) →
-      Array Nat × Array (Name × Nat × Nat)
-  | k, c, vis, slots =>
-    if h : k < ds.size then
-      let names := predictSlots ds[k]
-      let slots := (names.zipIdx).foldl (fun acc (n, j) => acc.push (n, k, j)) slots
-      predictGo ds (k + 1) (c + names.size) (vis.push c) slots
-    else (vis, slots)
-  termination_by k => ds.size - k
+/-- The commit thread's wait for record `k`, taken by an installer: the
+result once the record is done.  If it is not done yet, the thread
+SLEEPS on its own condition variable (`Shared.commitWait` tells the
+installer to signal it) — never spins, and never waits on the runtime's
+task manager.  `cst[0]`/`cst[1]` count the sleeps and their time. -/
+partial def waitDone (sh : Shared mode ds B S vis) (cst : IO.Ref (Array Nat)) (k : Nat) :
+    IO (Option (WRes mode ds B S vis)) := do
+  match sh.state[k]? with
+  | none => return none
+  | some st =>
+    if let .done q ← st.get then return some q
+    let t0 ← IO.monoNanosNow
+    sh.commitWait.set (k + 1)
+    sh.commitLock.lock
+    let rec sleep : IO (WRes mode ds B S vis) := do
+      if let .done q ← st.get then return q
+      sh.commitCv.wait sh.commitLock
+      sleep
+    let q ← sleep
+    sh.commitLock.unlock
+    sh.commitWait.set 0
+    let t1 ← IO.monoNanosNow
+    cst.modify fun a => (a.modify 0 (· + 1)).modify 1 (· + (t1 - t0))
+    return some q
+
+/-- **The builder** of the serial index, beside the commit loop: it
+pushes the slots of the records the commit loop has committed
+(`committed`, published in batches), in order, and stops at `final`.
+What it returns is `prefixFe S k` — the index the commit loop's run is
+about — with the proof. -/
+structure Builder where
+  committed : IO.Ref Nat
+  final : IO.Ref (Option Nat)
+  waiting : IO.Ref Bool
+  lock : Std.BaseMutex
+  cv : Std.Condvar
+
+/-- Tell the builder it may push the first `k` records' slots. -/
+def Builder.publish (bd : Builder) (k : Nat) : IO Unit := do
+  bd.committed.set k
+  if ← bd.waiting.get then
+    bd.lock.lock
+    bd.lock.unlock
+    bd.cv.notifyOne
+
+/-- Tell the builder to stop after the first `k` records. -/
+def Builder.finish (bd : Builder) (k : Nat) : IO Unit := do
+  bd.committed.set k
+  bd.final.set (some k)
+  bd.lock.lock
+  bd.lock.unlock
+  bd.cv.notifyOne
+
+/-- The builder's loop: push record `k`'s slot once it is committed;
+sleep (on its own condition variable) when it has caught up. -/
+partial def builderLoop (S : Slots) (bd : Builder) (k : Nat) (fe : FEnv)
+    (h : fe = prefixFe S k) : IO (Σ' (k : Nat) (fe : FEnv), PLift (fe = prefixFe S k)) := do
+  if k < (← bd.committed.get) then
+    builderLoop S bd (k + 1) (prefixStep S k fe) (by rw [h]; exact prefixStep_eq S k)
+  else
+    match ← bd.final.get with
+    | some e =>
+      if k < e then builderLoop S bd k fe h
+      else
+        -- not marked here (task #329's `mtclean` lane): the builder is
+        -- the only task resolving at this point, with no sibling task
+        -- contending the runtime's lock for it, and the commit thread is
+        -- `fe`'s only reader afterwards until `Driver/Run.lean` marks the
+        -- installed environment persistent — marking it multi-threaded
+        -- here first would only add a second walk of the whole index.
+        return ⟨k, fe, ⟨h⟩⟩
+    | none =>
+      bd.lock.lock
+      bd.waiting.set true
+      if !(k < (← bd.committed.get)) && (← bd.final.get).isNone then
+        bd.cv.wait bd.lock
+      bd.waiting.set false
+      bd.lock.unlock
+      builderLoop S bd k fe h
+
+/-- Stop the builder at record `k` and take its index. -/
+def joinBuilder (bd : Builder) (t : Task (Except IO.Error (Σ' (k : Nat) (fe : FEnv),
+      PLift (fe = prefixFe S k)))) (k : Nat) : IO (Option {fe : FEnv // fe = prefixFe S k}) := do
+  bd.finish k
+  match ← IO.wait t with
+  | .ok ⟨k', fe, ⟨h⟩⟩ =>
+    if hk : k' = k then return some ⟨fe, hk ▸ h⟩ else return none
+  | .error _ => return none
 
 /-- **The fallback**: stop the workers and continue serially from the
 run the commit thread holds. -/
@@ -447,28 +773,47 @@ def fallbackFrom (err : IO.FS.Stream) (stride total t0 : Nat)
     IO (Except (CheckError × Nat)
       (Σ' (p' : Nat × FEnv × Array PendingCheck),
         PLift (InstallRun mode natOpPinSets ds.toList p₀ p'))) := do
-  stopWorkers sh
+  stopWorkers sh true
   if stride > 0 then
     err.putStr s!"con-leche: parallel install abandoned at fold position {k} \
       (a predicted slot did not match, or --install-fallback-at), continuing serially\n"
     err.flush
   installLoop mode err stride total t0 ds p₀ k p hrun
 
+/-- The fallback from the commit loop at record `k`: the builder's index
+there, then `fallbackFrom`. -/
+def commitFallback (err : IO.FS.Stream) (stride total t0 : Nat)
+    (sh : Shared mode ds B S vis) (bd : Builder)
+    (bt : Task (Except IO.Error (Σ' (k : Nat) (fe : FEnv), PLift (fe = prefixFe S k))))
+    (p₀ : Nat × FEnv × Array PendingCheck) (k i : Nat) (pend : Array PendingCheck)
+    (hrun : InstallRun mode natOpPinSets (ds.toList.take k) p₀ (i, prefixFe S k, pend)) :
+    IO (Except (CheckError × Nat)
+      (Σ' (p' : Nat × FEnv × Array PendingCheck),
+        PLift (InstallRun mode natOpPinSets ds.toList p₀ p'))) := do
+  match ← joinBuilder bd bt k with
+  | some ⟨fe, hfe⟩ => fallbackFrom err stride total t0 sh p₀ k (i, fe, pend) (hfe ▸ hrun)
+  | none => return .error (.internal "parallel install: the index builder failed", i)
+
 /-- **The commit loop.**  `installLoop`'s run, one record per step, each
-record's step added from its install at its view.  `cst` counts the
-commit thread's waits on a worker and its own installs, with their
-times. -/
+record's step added from its install at its view.  The run is over
+`prefixFe S k`, the index the builder computes (the commit thread
+pushes nothing); `c` is that index's counter.  At the end (or at a
+fallback) it takes the builder's index.  `cst` counts the commit
+thread's sleeps waiting for an installer and its own installs, with
+their times. -/
 def commitLoop (err : IO.FS.Stream) (stride total t0 : Nat) (fallbackAt : Option Nat)
     (hB : BaseInj B) (sh : Shared mode ds B S vis) (cst : IO.Ref (Array Nat))
+    (bd : Builder) (bt : Task (Except IO.Error (Σ' (k : Nat) (fe : FEnv),
+      PLift (fe = prefixFe S k))))
     (p₀ : Nat × FEnv × Array PendingCheck) :
-    (k : Nat) →
-    (p : Nat × FEnv × Array PendingCheck) →
-    InstallRun mode natOpPinSets (ds.toList.take k) p₀ p →
-    IdxBelow p.2.1 → ViewAgrees B S p.2.1 →
+    (k i c : Nat) → (pend : Array PendingCheck) →
+    (prefixFe S k).visibleBelow = c →
+    InstallRun mode natOpPinSets (ds.toList.take k) p₀ (i, prefixFe S k, pend) →
+    IdxBelow (prefixFe S k) → ViewAgrees B S (prefixFe S k) →
       IO (Except (CheckError × Nat)
         (Σ' (p' : Nat × FEnv × Array PendingCheck),
           PLift (InstallRun mode natOpPinSets ds.toList p₀ p')))
-  | k, (i, fe, pend), hrun, hidx, hag => do
+  | k, i, c, pend, hc, hrun, hidx, hag => do
     if hk : k < ds.size then
       let pd := ds[k]
       have hlist : ds.toList.take (k + 1) = ds.toList.take k ++ [pd] := by
@@ -480,55 +825,64 @@ def commitLoop (err : IO.FS.Stream) (stride total t0 : Nat) (fallbackAt : Option
           {ConLeche.Cached.declCLabel pd} \
           t={ConLeche.Cached.msSecs (now - t0)}s\n"
         err.flush
-      if fallbackAt == some k then
-        fallbackFrom err stride total t0 sh p₀ k (i, fe, pend) hrun
-      else if hw : andPinOk pd = true ∧ vis[k]? = some fe.visibleBelow then
-        -- the record's install: here if nobody took it, else the worker's
-        let tf0 ← IO.monoNanosNow
-        let done ← match sh.resP[k]? with
-          | some p => IO.hasFinished p.result?
-          | none => pure false
-        let mine ← if done then pure false else claim sh.sched k
+      if k % 64 == 0 then bd.publish k
+      if fallbackAt == some k then commitFallback err stride total t0 sh bd bt p₀ k i pend hrun
+      else if hv : vis[k]? = some c then
+        -- the record's install: here if nobody took it, else the
+        -- installer's, slept for (never spun) if it is still running
+        let mine ← tryTake sh k
         let q? : Option (WRes mode ds B S vis) ← do
           if mine then
+            let tf0 ← IO.monoNanosNow
             let (q, next) ← installAndPublish sh k
             if let some d := next then deferRecord sh.sched d
+            let tf1 ← IO.monoNanosNow
+            cst.modify fun a => (a.modify 2 (· + 1)).modify 3 (· + (tf1 - tf0))
             pure (some q)
-          else match sh.resP[k]? with
-            | some p => IO.wait p.result?
-            | none => pure none
-        let tf1 ← IO.monoNanosNow
-        -- [0] waits on a worker, [1] their ns, [2] installs here, [3] their ns
-        cst.modify fun a =>
-          if mine then (a.modify 2 (· + 1)).modify 3 (· + (tf1 - tf0))
-          else (a.modify 0 (· + 1)).modify 1 (· + (tf1 - tf0))
+          else waitDone sh cst k
         match q? with
-        | none => fallbackFrom err stride total t0 sh p₀ k (i, fe, pend) hrun
-        | some ⟨(k', r), hr⟩ =>
+        | none => commitFallback err stride total t0 sh bd bt p₀ k i pend hrun
+        | some ⟨(k', r, good), hr, hg⟩ =>
           if hk' : k' = k then
-            have hval : r = installStep mode natOpPinSets (workerView B S fe.visibleBelow) pd := by
-              have hr' : r = workerRes mode ds B S vis k := hk' ▸ hr
-              rw [hr']
-              simp only [workerRes, Array.getElem?_eq_getElem hk, hw.2, pd]
-            match hres : r with
-            | .ok (L, vg?) =>
-              if hok : slotsOk B S fe.visibleBelow L = true then
-                let v := fe.visibleBelow
-                have hstep := installStep_commit (pins := natOpPinSets) (i := i) (pend := pend)
-                  hag hidx hw.1 (hval.symm.trans hres)
-                commitLoop err stride total t0 fallbackAt hB sh cst p₀ (k + 1)
-                  (i + 1, FEnv.pushAll L fe, pushPending pend i v vg?)
+            if hgood : good = true then
+              have hG : GoodAt ds B S vis k r := hk' ▸ hg hgood
+              have hG' := hG pd c (Array.getElem?_eq_getElem hk) hv
+              have hval : r = installStep mode natOpPinSets
+                  (workerView B S (prefixFe S k).visibleBelow) pd := by
+                have hr' : r = workerRes mode ds B S vis k := hk' ▸ hr
+                rw [hr', hc]
+                simp only [workerRes, Array.getElem?_eq_getElem hk, hv, pd]
+              match hres : r with
+              | .ok (L, vg?) =>
+                have hok := hG'.2 L vg? hres
+                have hnext : FEnv.pushAll L (prefixFe S k) = prefixFe S (k + 1) := by
+                  show _ = FEnv.pushAll (slotList S k) (prefixFe S k)
+                  rw [hok.2]
+                have hstep0 := installStep_commit (pins := natOpPinSets) (i := i) (pend := pend)
+                  hag hidx hG'.1 (hval.symm.trans hres)
+                have hstep : annotDeclStep mode natOpPinSets (i, prefixFe S k, pend) pd =
+                    .ok (i + 1, prefixFe S (k + 1), pushPending pend i c vg?) := by
+                  rw [← hnext, ← hc]; exact hstep0
+                commitLoop err stride total t0 fallbackAt hB sh cst bd bt p₀ (k + 1)
+                  (i + 1) (c + L.length) (pushPending pend i c vg?)
+                  (by rw [← hnext, pushAll_visibleBelow, hc])
                   (by rw [hlist]; exact InstallRun.snoc mode hrun hstep)
-                  (hidx.pushAll L)
-                  (ViewAgrees.pushAll hB L hidx hag hok)
-              else fallbackFrom err stride total t0 sh p₀ k (i, fe, pend) hrun
-            | .error e => return .error (e, i)
-          else fallbackFrom err stride total t0 sh p₀ k (i, fe, pend) hrun
-      else fallbackFrom err stride total t0 sh p₀ k (i, fe, pend) hrun
+                  (hnext ▸ hidx.pushAll L)
+                  (hnext ▸ ViewAgrees.pushAll hB L hidx hag (hc ▸ hok.1))
+              | .error e =>
+                bd.finish k
+                return .error (e, i)
+            else commitFallback err stride total t0 sh bd bt p₀ k i pend hrun
+          else commitFallback err stride total t0 sh bd bt p₀ k i pend hrun
+      else commitFallback err stride total t0 sh bd bt p₀ k i pend hrun
     else
-      return .ok ⟨(i, fe, pend), ⟨by
-        rw [List.take_of_length_le (by simp; omega)] at hrun
-        exact hrun⟩⟩
+      match ← joinBuilder bd bt k with
+      | some ⟨fe, hfe⟩ =>
+        return .ok ⟨(i, fe, pend), ⟨by
+          rw [hfe]
+          rw [List.take_of_length_le (by simp; omega)] at hrun
+          exact hrun⟩⟩
+      | none => return .error (.internal "parallel install: the index builder failed", i)
   termination_by k => ds.size - k
 
 end ParInstall
@@ -545,67 +899,153 @@ def parInstall (mode : CheckMode) (err : IO.FS.Stream) (stride total t0 jobs : N
           (0, mkFEnv Env.empty, #[]) p'))) := do
   let tA ← IO.monoMsNow
   let n := ds.size
-  let (vis, slots) := ParInstall.predictGo ds 0 0 (Array.mkEmpty n) #[]
-  let B := Cached.buildBase slots
-  -- (`B.size` forces the prediction and the base before the clock is read)
-  let tA' ← if B.size + vis.size == 0 then IO.monoMsNow else IO.monoMsNow
+  let parts := max 1 jobs
+  let chunks := ParInstall.chunkBounds n parts
+  -- the records are read by every task below: persistent first, so that
+  -- no task spawn walks them for multi-threaded marking
   if !noMark then
     let _ ← unsafe Runtime.markPersistent ds
-    let _ ← unsafe Runtime.markPersistent B
-    let _ ← unsafe Runtime.markPersistent vis
+  let tA0 ← IO.monoMsNow
+  -- the prediction, chunk per task; then the counters (prefix sums).
+  -- Marked multi-threaded (task #329's `mtclean` audit: kept, not
+  -- persistent) because its `cs` component (`buckets`, and the `slots`
+  -- it is concatenated with below) is handed to EVERY shard-building
+  -- task afterwards — real concurrent reads, not a single join — and is
+  -- then dropped once the shards are built; persistent would leak the
+  -- names and the arrays for the rest of the run instead of freeing
+  -- them.  (Every task below marks its own result itself before it
+  -- returns: the runtime marks a task's result anyway while it holds its
+  -- one global lock when the task resolves, and a result already marked
+  -- costs that walk nothing.)
+  let mut predTasks := #[]
+  for (lo, hi) in chunks do
+    -- (`IO.lazyPure`: a pure argument would be evaluated where the
+    -- action is built, on this thread)
+    predTasks := predTasks.push (← IO.asTask (prio := .dedicated) do
+      let r ← IO.lazyPure fun _ => ParInstall.predictChunk ds parts lo hi
+      Runtime.markMultiThreaded r)
+  let mut preds := Array.mkEmpty parts
+  for t in predTasks do
+    preds := preds.push (← IO.ofExcept (← IO.wait t))
+  let mut vis : Array Nat := Array.mkEmpty n
+  let mut offs : Array Nat := Array.mkEmpty parts
+  let mut slots : Array (Name × Nat × Nat) := #[]
+  for (sizes, cs, _) in preds do
+    offs := offs.push slots.size
+    let mut c := slots.size
+    for sz in sizes do
+      vis := vis.push c
+      c := c + sz
+    slots := slots ++ cs
+  let buckets := preds.map (·.2.2)
+  -- the base, shard per task
+  let mut shardTasks := #[]
+  for s in [0:parts] do
+    shardTasks := shardTasks.push (← IO.asTask (prio := .dedicated) do
+      let r ← IO.lazyPure fun _ =>
+        (⟨Cached.buildShard slots offs buckets s, s, rfl⟩ : Cached.BuiltShard slots offs buckets)
+      -- persistent here, on the shard's own thread: the base is read by
+      -- every lookup of every worker (multi-threaded under `noMark`)
+      if noMark then Runtime.markMultiThreaded r
+      else unsafe Runtime.markPersistent r)
+  let mut shards : Array (Cached.BuiltShard slots offs buckets) := Array.mkEmpty parts
+  for t in shardTasks do
+    shards := shards.push (← IO.ofExcept (← IO.wait t))
+  let B : Cached.BaseIdx := shards.map (·.1)
+  -- (`B.size` forces the prediction and the base before the clock is read)
+  let tA' ← if B.size + vis.size == 0 then IO.monoMsNow else IO.monoMsNow
   let tB ← IO.monoMsNow
-  -- the dependencies, computed in parallel: `jobs` contiguous chunks
-  let chunk := (n + jobs - 1) / jobs
+  let gate := ParInstall.basisGate B
+  -- the slots, chunk per task: record `k`'s constants, as whoever
+  -- installs it resolves them.  A slot is a thunk over its promise: the
+  -- first lookup waits for the publisher, every later one reads the
+  -- thunk's (persistent) value with no reference count on any shared
+  -- object.
+  let mut slotTasks := #[]
+  for (lo, hi) in chunks do
+    slotTasks := slotTasks.push (← IO.asTask (prio := .dedicated) (ParInstall.slotChunk lo hi))
+  let mut slotP : Array (IO.Promise (Array ConstantInfo)) := Array.mkEmpty n
+  let mut S : Cached.Slots := Array.mkEmpty n
+  for t in slotTasks do
+    let (ps, ss) ← IO.ofExcept (← IO.wait t)
+    slotP := slotP ++ ps
+    S := S ++ ss
+  let tC0 ← IO.monoMsNow
+  -- the dependencies, counts and states, chunk per task; then the
+  -- dependents, chunk per task
+  -- (the dependency walk's cost is uneven along the stream, so the
+  -- records are cut finer than the threads, and `parts` threads claim
+  -- the fine chunks off a counter)
+  let fine := ParInstall.chunkBounds n (8 * parts)
+  let nextFine ← IO.mkRef 0
   let mut depTasks := #[]
-  for t in [0:jobs] do
-    let lo := min n (t * chunk)
-    let hi := min n (lo + chunk)
-    depTasks := depTasks.push
-      (Task.spawn (prio := .dedicated) fun _ => ParInstall.depsChunk B ds lo hi)
-  let mut deps : Array (Array Nat) := Array.mkEmpty n
+  for _ in [0:parts] do
+    depTasks := depTasks.push (← IO.asTask (prio := .dedicated)
+      (ParInstall.depsWorker (α := ParInstall.WRes mode ds B S vis) B ds noMark gate n parts
+        fine nextFine #[]))
+  let mut fineRes : Array (Option (Array (IO.Ref Nat) ×
+      Array (IO.Ref (ParInstall.RState (ParInstall.WRes mode ds B S vis))) ×
+      Array (Array (Nat × Array Nat)))) := Array.replicate fine.size none
   for t in depTasks do
-    deps := deps ++ (← IO.wait t)
+    for (c, r) in ← IO.ofExcept (← IO.wait t) do
+      fineRes := fineRes.set! c (some r)
+  let mut counts : Array (IO.Ref Nat) := Array.mkEmpty n
+  let mut state : Array (IO.Ref (ParInstall.RState (ParInstall.WRes mode ds B S vis))) :=
+    Array.mkEmpty n
+  let mut edges : Array (Array (Array (Nat × Array Nat))) := Array.mkEmpty fine.size
+  for r? in fineRes do
+    if let some (c, st, e) := r? then
+      counts := counts ++ c
+      state := state ++ st
+      edges := edges.push e
   let tC ← IO.monoMsNow
-  let dependents := ParInstall.dependentsGo deps 0 (Array.replicate n #[])
+  let mut depdTasks := #[]
+  for h : r in [0:chunks.size] do
+    let (lo, hi) := chunks[r]
+    depdTasks := depdTasks.push
+      (← IO.asTask (prio := .dedicated) (ParInstall.dependentsChunk edges r lo hi))
+  let mut dependents : Array (Array Nat) := Array.mkEmpty n
+  for t in depdTasks do
+    dependents := dependents ++ (← IO.ofExcept (← IO.wait t))
   if !noMark then
     let _ ← unsafe Runtime.markPersistent dependents
-  -- one extra token per record: the cursor's pass
-  let counts ← deps.mapM fun d => IO.mkRef (d.size + 1)
-  let taken ← (Array.range n).mapM fun _ => IO.mkRef false
   let sched : ParInstall.Sched :=
-    { counts, taken, dependents, cursor := ← IO.mkRef 0,
+    { counts, dependents, cursor := ← IO.mkRef 0,
       deferred := ← IO.mkRef ∅, deferredN := ← IO.mkRef 0,
-      stop := ← IO.mkRef false, lock := ← Std.BaseMutex.new, cv := ← Std.Condvar.new }
-  -- the slots: record `k`'s constants, as whoever installs it resolves them
-  let slotP ← (Array.range n).mapM fun _ => IO.Promise.new
-  -- a slot is a thunk over its promise: the first lookup waits for the
-  -- publisher, every later one reads the thunk's (persistent) value
-  -- with no reference count on any shared object
-  let S : Cached.Slots := slotP.map fun p => Thunk.mk fun _ => (p.result?.get).getD #[]
-  have : Nonempty (ParInstall.WRes mode ds B S vis) :=
-    ⟨⟨(0, ParInstall.workerRes mode ds B S vis 0), rfl⟩⟩
-  let resP ← (Array.range n).mapM fun _ => IO.Promise.new
-  let sh : ParInstall.Shared mode ds B S vis := { slotP, resP, sched, noMark }
+      stop := ← IO.mkRef false, lock := ← Std.BaseMutex.new, cv := ← Std.Condvar.new,
+      gate, earlyLeft := ← IO.mkRef (min n (gate + 1)), blockSize := ParInstall.cursorBlockSize }
+  let sh : ParInstall.Shared mode ds B S vis :=
+    { slotP, state, sched, noMark, commitWait := ← IO.mkRef 0,
+      commitLock := ← Std.BaseMutex.new, commitCv := ← Std.Condvar.new }
   let tD ← IO.monoMsNow
   let mut tasks := #[]
   for _ in [0:jobs] do
-    tasks := tasks.push (← IO.asTask (prio := .dedicated) (ParInstall.workerLoop sh 0 none))
+    tasks := tasks.push
+      (← IO.asTask (prio := .dedicated) (ParInstall.workerLoop sh 0 none none 0 0))
   let cst ← IO.mkRef (Array.replicate 4 0)
-  let res ← ParInstall.commitLoop err stride total t0 fallbackAt (Cached.buildBase_inj slots)
-    sh cst (0, mkFEnv Env.empty, #[]) 0 (0, mkFEnv Env.empty, #[]) (.nil _)
-    Cached.IdxBelow.mkFEnv_empty (Cached.ViewAgrees.empty B S)
+  -- the index builder, on a thread of its own beside the commit thread
+  let bd : ParInstall.Builder :=
+    { committed := ← IO.mkRef 0, final := ← IO.mkRef none, waiting := ← IO.mkRef false,
+      lock := ← Std.BaseMutex.new, cv := ← Std.Condvar.new }
+  let bt ← IO.asTask (prio := .dedicated)
+    (ParInstall.builderLoop S bd 0 (mkFEnv Env.empty) rfl)
+  let res ← ParInstall.commitLoop err stride total t0 fallbackAt
+    (Cached.buildBase_inj shards) sh cst bd bt (0, mkFEnv Env.empty, #[])
+    0 0 0 #[] rfl (.nil _) Cached.IdxBelow.mkFEnv_empty (Cached.ViewAgrees.empty B S)
   let tE ← IO.monoMsNow
-  ParInstall.stopWorkers sh
-  let mut installs := 0
-  for t in tasks do
-    match ← IO.wait t with
-    | .ok c => installs := installs + c
-    | .error _ => pure ()
+  -- (after a rejection the records past it may never be installed, and
+  -- a worker may be waiting on one of their slots)
+  ParInstall.stopWorkers sh (res matches .error _)
+  -- the workers are not joined: once stopped they only exit, and a
+  -- thread's exit (its allocator's teardown) took ~0.25 s on cslib —
+  -- nothing after the commit needs them
+  let _ := tasks
+  let tF ← IO.monoMsNow
   if stride > 0 then
     let c ← cst.get
-    err.putStr s!"con-leche: parallel install: prediction+base {tA' - tA} ms, records marked persistent {tB - tA'} ms, \
-      dependencies {tC - tB} ms, slots {tD - tC} ms, commit {tE - tD} ms; \
-      {installs} records installed by workers; commit thread: {c[0]!} waits on a worker \
+    err.putStr s!"con-leche: parallel install: records marked persistent {tA0 - tA} ms, prediction+base {tA' - tA0} ms, \
+      slots {tC0 - tB} ms, dependencies {tC - tC0} ms, dependents {tD - tC} ms, commit {tE - tD} ms, stop {tF - tE} ms (t={tF - t0} ms); \
+      commit thread: {c[0]!} sleeps on a worker \
       ({c[1]! / 1000000} ms), {c[2]!} records installed itself ({c[3]! / 1000000} ms)\n"
     err.flush
   return res

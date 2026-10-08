@@ -144,8 +144,9 @@ theorem IdxBelow.find?_push {fe : FEnv} (h : IdxBelow fe) (ci : ConstantInfo) (n
 
 /-- The base index of a parallel install: each predicted name with its
 counter, the record that installs it, and its position among that
-record's installed constants. -/
-abbrev BaseIdx := Std.HashMap Name (Nat × Nat × Nat)
+record's installed constants — sharded by name hash (`baseGet?`,
+`ConLeche/Kernel/FEnv.lean`), one map per shard. -/
+abbrev BaseIdx := Array (Std.HashMap Name (Nat × Nat × Nat))
 
 /-- The records' slots: record `k`'s installed constants, deferred. -/
 abbrev Slots := Array (Thunk (Array ConstantInfo))
@@ -166,7 +167,7 @@ guarantees (`buildBase_inj`), and what lets a commit fill exactly one
 slot. -/
 def BaseInj (B : BaseIdx) : Prop :=
   ∀ (n₁ n₂ : Name) (c : Nat) (x₁ x₂ : Nat × Nat),
-    B[n₁]? = some (c, x₁) → B[n₂]? = some (c, x₂) → n₁ = n₂
+    baseGet? B n₁ = some (c, x₁) → baseGet? B n₂ = some (c, x₂) → n₁ = n₂
 
 /-- **The invariant of the commit thread**: the worker view at the
 serial index's counter answers every lookup as the serial index does. -/
@@ -180,7 +181,7 @@ theorem ViewAgrees.empty (B : BaseIdx) (S : Slots) : ViewAgrees B S (mkFEnv Env.
   rw [workerView_find?]
   simp only [FBase.find?, mkFEnv, mkFEnvGo, Env.empty, FEnv.find?,
     Std.HashMap.getElem?_empty]
-  split <;> simp
+  split <;> simp [baseGet?]
 
 /-- The slot's constant: position `j` of record `k`'s task. -/
 def slotGet (S : Slots) (k j : Nat) : Option ConstantInfo :=
@@ -208,13 +209,13 @@ theorem slotIs_spec {S : Slots} {k j : Nat} {ci : ConstantInfo}
 /-- **A commit's slot check**: the base predicted `ci`'s name at the
 counter `v`, and that slot's task delivers `ci`. -/
 def slotOk (B : BaseIdx) (S : Slots) (v : Nat) (ci : ConstantInfo) : Bool :=
-  match B[ci.name]? with
+  match baseGet? B ci.name with
   | some (c, k, j) => c == v && slotIs S k j ci
   | none => false
 
 theorem slotOk_spec {B : BaseIdx} {S : Slots} {v : Nat} {ci : ConstantInfo}
     (h : slotOk B S v ci = true) :
-    ∃ k j, B[ci.name]? = some (v, k, j) ∧ slotGet S k j = some ci := by
+    ∃ k j, baseGet? B ci.name = some (v, k, j) ∧ slotGet S k j = some ci := by
   unfold slotOk at h
   split at h
   · rename_i c k j hB
@@ -225,11 +226,11 @@ theorem slotOk_spec {B : BaseIdx} {S : Slots} {v : Nat} {ci : ConstantInfo}
 
 theorem FBase.find?_eq (B : BaseIdx) (S : Slots) (v : Nat) (n : Name) :
     FBase.find? ⟨B, S, v⟩ n =
-      match B[n]? with
+      match baseGet? B n with
       | some (c, k, j) => if c < v then slotGet S k j else none
       | none => none := by
   simp only [FBase.find?]
-  cases B[n]? with
+  cases baseGet? B n with
   | none => rfl
   | some p => obtain ⟨c, k, j⟩ := p; rfl
 
@@ -250,7 +251,7 @@ theorem ViewAgrees.push {B : BaseIdx} {S : Slots} {fe : FEnv} (hB : BaseInj B)
     simp [hslot, hget]
   · simp only [hn, ↓reduceIte]
     rw [← h n, workerView_find?, FBase.find?_eq]
-    cases hl : B[n]? with
+    cases hl : baseGet? B n with
     | none => rfl
     | some p =>
       obtain ⟨c, k', j'⟩ := p
@@ -286,57 +287,200 @@ theorem ViewAgrees.pushAll {B : BaseIdx} {S : Slots} (hB : BaseInj B) :
     simp only [slotsOk, Bool.and_eq_true] at hok
     exact ViewAgrees.pushAll hB L (hidx.push ci) (ViewAgrees.push hB hidx h hok.1) hok.2
 
-/-! ## The base builder -/
+/-! ## The serial index as a function of the slots
 
-/-- Insert the slots from `i` on, each name at its counter unless an
-earlier slot already holds it (a duplicate name keeps its first slot;
-the serial step rejects the duplicate, and the commit's slot check
-fails before that).  A slot is `(name, record, position)`. -/
-def buildBaseGo (slots : Array (Name × Nat × Nat)) : (i : Nat) → BaseIdx → BaseIdx
-  | i, m =>
-    if h : i < slots.size then
-      let s := slots[i]
-      buildBaseGo slots (i + 1) (m.insertIfNew s.1 (i, s.2))
-    else m
-  termination_by i => slots.size - i
+The commit thread does not push: the serial index after the first `k`
+records is `prefixFe S k`, the empty index with the records' slots
+pushed in order, which a builder thread computes beside the commit loop
+(`ConLeche/Driver/ParInstall.lean`).  The commit loop carries its run
+over `prefixFe S k`, a term only its proofs mention; what it needs per
+record is that the record's slot IS the list its install pushed
+(`selfOk`, checked by the installer). -/
 
-/-- **The base index of the predicted slots**, in counter order. -/
-def buildBase (slots : Array (Name × Nat × Nat)) : BaseIdx :=
-  buildBaseGo slots 0 {}
+/-- Record `k`'s slot, as a list. -/
+def slotList (S : Slots) (k : Nat) : List ConstantInfo :=
+  match S[k]? with
+  | some t => t.get.toList
+  | none => []
+
+/-- **The serial index after the first `k` records' slots.** -/
+def prefixFe (S : Slots) : Nat → FEnv
+  | 0 => mkFEnv Env.empty
+  | k + 1 => FEnv.pushAll (slotList S k) (prefixFe S k)
+
+/-- A push of an array, one constant at a time, is `pushAll` of its list. -/
+theorem foldl_push_eq_pushAll (a : Array ConstantInfo) (fe : FEnv) :
+    a.foldl (fun fe ci => fe.push ci) fe = FEnv.pushAll a.toList fe := by
+  rw [← Array.foldl_toList]
+  generalize a.toList = l
+  induction l generalizing fe with
+  | nil => rfl
+  | cons ci l ih => exact ih (fe.push ci)
+
+/-- The builder's step: record `k`'s slot pushed. -/
+def prefixStep (S : Slots) (k : Nat) (fe : FEnv) : FEnv :=
+  match S[k]? with
+  | some t => t.get.foldl (fun fe ci => fe.push ci) fe
+  | none => fe
+
+theorem prefixStep_eq (S : Slots) (k : Nat) :
+    prefixStep S k (prefixFe S k) = prefixFe S (k + 1) := by
+  unfold prefixStep
+  show _ = FEnv.pushAll (slotList S k) (prefixFe S k)
+  unfold slotList
+  split
+  · exact foldl_push_eq_pushAll _ _
+  · rfl
+
+theorem pushAll_visibleBelow : ∀ (L : List ConstantInfo) (fe : FEnv),
+    (FEnv.pushAll L fe).visibleBelow = fe.visibleBelow + L.length
+  | [], _ => rfl
+  | ci :: L, fe => by
+    show (FEnv.pushAll L (fe.push ci)).visibleBelow = _
+    rw [pushAll_visibleBelow L (fe.push ci)]
+    simp only [FEnv.push, List.length_cons]
+    omega
+
+/-- Two constants are the same: a pointer comparison at run time, the
+structural one only when the pointers differ. -/
+def ciSame (a b : ConstantInfo) : Bool :=
+  withPtrEq a b (fun _ => decide (a = b)) (fun h => by simp [h])
+
+theorem ciSame_spec {a b : ConstantInfo} (h : ciSame a b = true) : a = b := by
+  have h' : decide (a = b) = true := h
+  exact of_decide_eq_true h'
+
+/-- Two lists of constants are the same (`ciSame` elementwise). -/
+def listSame : List ConstantInfo → List ConstantInfo → Bool
+  | [], [] => true
+  | a :: as, b :: bs => ciSame a b && listSame as bs
+  | _, _ => false
+
+theorem listSame_spec : ∀ {as bs : List ConstantInfo}, listSame as bs = true → as = bs
+  | [], [], _ => rfl
+  | a :: as, b :: bs, h => by
+    simp only [listSame, Bool.and_eq_true] at h
+    rw [ciSame_spec h.1, listSame_spec h.2]
+  | [], _ :: _, h => by simp [listSame] at h
+  | _ :: _, [], h => by simp [listSame] at h
+
+/-- **Record `k`'s slot is the list `L`** (the installer's check, after
+publishing its slot). -/
+def selfOk (S : Slots) (k : Nat) (L : List ConstantInfo) : Bool :=
+  listSame (slotList S k) L
+
+theorem selfOk_spec {S : Slots} {k : Nat} {L : List ConstantInfo}
+    (h : selfOk S k L = true) : slotList S k = L :=
+  listSame_spec h
+
+/-! ## The base builder
+
+The base is built one shard per task, each from the predicted slots
+that fall in it, in counter order (a duplicate name keeps its first
+slot; the serial step rejects the duplicate, and the commit's slot check
+fails before that).  Nothing below depends on the sharding or on the
+order: every entry the builder inserts names its own slot
+(`SlotsOf`), and that alone makes the base counter-injective
+(`buildBase_inj`).  A slot is `(name, record, position)`. -/
 
 /-- What the builder keeps: every entry names its own slot. -/
-private def SlotsOf (slots : Array (Name × Nat × Nat)) (m : BaseIdx) : Prop :=
+def SlotsOf (slots : Array (Name × Nat × Nat)) (m : Std.HashMap Name (Nat × Nat × Nat)) :
+    Prop :=
   ∀ (n : Name) (c : Nat) (x : Nat × Nat),
     m[n]? = some (c, x) → ∃ h : c < slots.size, slots[c].1 = n
 
-private theorem buildBaseGo_slots (slots : Array (Name × Nat × Nat)) :
-    ∀ (i : Nat) (m : BaseIdx), SlotsOf slots m → SlotsOf slots (buildBaseGo slots i m)
-  | i, m, hm => by
-    unfold buildBaseGo
+/-- Insert the slots at the counters `cs` (offset by `off`), in order,
+each name at its counter unless the shard already holds it. -/
+def shardInsert (slots : Array (Name × Nat × Nat)) (off : Nat) (cs : Array Nat)
+    (m : Std.HashMap Name (Nat × Nat × Nat)) : Std.HashMap Name (Nat × Nat × Nat) :=
+  cs.foldl (fun m i =>
+    match slots[off + i]? with
+    | some s => m.insertIfNew s.1 (off + i, s.2)
+    | none => m) m
+
+theorem SlotsOf.empty (slots : Array (Name × Nat × Nat)) : SlotsOf slots {} := by
+  intro n c x hl; simp at hl
+
+theorem SlotsOf.shardInsert {slots : Array (Name × Nat × Nat)} {m : Std.HashMap Name (Nat × Nat × Nat)}
+    (hm : SlotsOf slots m) (off : Nat) (cs : Array Nat) :
+    SlotsOf slots (ConLeche.Cached.shardInsert slots off cs m) := by
+  unfold ConLeche.Cached.shardInsert
+  rw [← Array.foldl_toList]
+  generalize cs.toList = l
+  induction l generalizing m with
+  | nil => exact hm
+  | cons i l ih =>
+    simp only [List.foldl_cons]
+    apply ih
     split
-    · rename_i hi
-      refine buildBaseGo_slots slots (i + 1) _ ?_
-      unfold SlotsOf at hm ⊢
+    · rename_i s hs
       intro n c x hl
       rw [Std.HashMap.getElem?_insertIfNew] at hl
       split at hl
       · rename_i hk
         cases hl
         obtain ⟨hk, -⟩ := hk
-        exact ⟨hi, by simpa using hk⟩
+        rw [Array.getElem?_eq_some_iff] at hs
+        obtain ⟨hlt, hs⟩ := hs
+        exact ⟨hlt, by rw [hs]; simpa using hk⟩
       · exact hm n c x hl
     · exact hm
-  termination_by i => slots.size - i
 
-/-- **The builder's base is counter-injective.** -/
-theorem buildBase_inj (slots : Array (Name × Nat × Nat)) : BaseInj (buildBase slots) := by
-  have h := buildBaseGo_slots slots 0 {} (by unfold SlotsOf; intro n c x hl; simp at hl)
-  unfold SlotsOf at h
+/-- **A base whose shards all keep `SlotsOf` is counter-injective.** -/
+theorem baseInj_of_slotsOf {slots : Array (Name × Nat × Nat)} {B : BaseIdx}
+    (h : ∀ m ∈ B, SlotsOf slots m) : BaseInj B := by
+  have hget : ∀ n c x, baseGet? B n = some (c, x) → ∃ h : c < slots.size, slots[c].1 = n := by
+    intro n c x hl
+    unfold baseGet? at hl
+    split at hl
+    · rename_i m hm
+      exact h m (Array.mem_of_getElem? hm) n c x hl
+    · exact absurd hl (by simp)
   unfold BaseInj
   intro n₁ n₂ c x₁ x₂ h₁ h₂
-  obtain ⟨hc, rfl⟩ := h n₁ c x₁ h₁
-  obtain ⟨-, rfl⟩ := h n₂ c x₂ h₂
+  obtain ⟨hc, rfl⟩ := hget n₁ c x₁ h₁
+  obtain ⟨-, rfl⟩ := hget n₂ c x₂ h₂
   rfl
+
+/-- One shard of the base: the slots the chunks put in shard `s`, chunk
+by chunk (`offs[t]` is chunk `t`'s first counter, `buckets[t][s]` the
+chunk-relative counters of its slots in shard `s`). -/
+def buildShard (slots : Array (Name × Nat × Nat)) (offs : Array Nat)
+    (buckets : Array (Array (Array Nat))) (s : Nat) : Std.HashMap Name (Nat × Nat × Nat) :=
+  (Array.range buckets.size).foldl (fun m t =>
+    shardInsert slots (offs[t]?.getD 0) ((buckets[t]?.bind (·[s]?)).getD #[]) m) {}
+
+theorem buildShard_slotsOf (slots : Array (Name × Nat × Nat)) (offs : Array Nat)
+    (buckets : Array (Array (Array Nat))) (s : Nat) :
+    SlotsOf slots (buildShard slots offs buckets s) := by
+  unfold buildShard
+  rw [← Array.foldl_toList]
+  generalize (Array.range buckets.size).toList = l
+  suffices ∀ m, SlotsOf slots m → SlotsOf slots (l.foldl (fun m t =>
+      shardInsert slots (offs[t]?.getD 0) ((buckets[t]?.bind (·[s]?)).getD #[]) m) m) from
+    this _ (SlotsOf.empty slots)
+  induction l with
+  | nil => intro m hm; exact hm
+  | cons t l ih => intro m hm; exact ih _ (hm.shardInsert _ _)
+
+/-- A built shard, with the evidence that it is `buildShard` of some
+shard number: what a shard task returns (it is built and marked
+multi-threaded on its own thread, so that the runtime's resolution of
+the task — which marks a task's result under its global lock — finds
+nothing left to mark). -/
+abbrev BuiltShard (slots : Array (Name × Nat × Nat)) (offs : Array Nat)
+    (buckets : Array (Array (Array Nat))) : Type :=
+  { m : Std.HashMap Name (Nat × Nat × Nat) // ∃ s, m = buildShard slots offs buckets s }
+
+/-- **A base of built shards is counter-injective.** -/
+theorem buildBase_inj {slots : Array (Name × Nat × Nat)} {offs : Array Nat}
+    {buckets : Array (Array (Array Nat))} (shards : Array (BuiltShard slots offs buckets)) :
+    BaseInj (shards.map (·.1)) := by
+  apply baseInj_of_slotsOf (slots := slots)
+  intro m hm
+  simp only [Array.mem_map] at hm
+  obtain ⟨⟨m', s, rfl⟩, -, rfl⟩ := hm
+  exact buildShard_slotsOf slots offs buckets s
 
 /-! ## What a worker installs, and the commit step -/
 
