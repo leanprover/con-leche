@@ -7,11 +7,11 @@
 
 >>> OVERVIEW.md
 
-== Main.lean#L649
-   649  def usage : String := String.intercalate "\n" [
+== Main.lean#L658
+   658  def usage : String := String.intercalate "\n" [
 
-== Main.lean#L42
-    42  def ConLeche.CheckError.exitCode : CheckError → UInt32
+== Main.lean#L43
+    43  def ConLeche.CheckError.exitCode : CheckError → UInt32
 
 == ConLeche/MainTheorem.lean#L96-L99
     96  theorem model_exists (V : Type w) [SetTheory V]
@@ -75,8 +75,8 @@
    208      (hmem : Declaration.thmDecl cv v ∈ ds) (hty : cv.type = .const falseName []) :
    209      ∀ env, Cached.checkDecls .verified pins ds ≠ .ok env := by
 
-== ConLeche/Verify/Frontend/Chunks.lean#L352
-   352  theorem parseChunks_ok_parseBytes {cs : List ByteArray}
+== ConLeche/Verify/Frontend/Chunks.lean#L353
+   353  theorem parseChunks_ok_parseBytes {cs : List ByteArray}
 
 == ConLeche/Verify/Frontend/FileFalse.lean#L173
    173  theorem parseChunks_jsonWithTheoremFalse {chunks : List ByteArray}
@@ -121,17 +121,23 @@
     94  #guard_msgs in
     95  #print axioms ConLeche.model_exists
 
-== ConLeche/Frontend/ExportC.lean#L652
-   652  def parseExportStreamD (path : System.FilePath) (chunk : USize := chunkSize) :
+== ConLeche/Frontend/Pipeline.lean#L369
+   369  def parseExportStreamP (path : System.FilePath) (inflight : Nat)
 
 == ConLeche/Frontend/Scan/Equiv.lean#L1002
   1002  @[csimp] theorem scanLineSpec_eq_scanLineFwd : @scanLineSpec = @scanLineFwd := by
 
-== ConLeche/Frontend/ExportC.lean#L577
-   577  def chunkStep (st : StateD) (carry : ByteArray) (lineNo total : Nat) (buf0 : ByteArray) :
+== ConLeche/Frontend/ExportC.lean#L580
+   580  def chunkStep (st : StateD) (carry : ByteArray) (lineNo total : Nat) (buf0 : ByteArray) :
 
-== Main.lean#L99
-    99  def installLoop (mode : ConLeche.CheckMode) (err : IO.FS.Stream)
+== ConLeche/Frontend/Pipeline.lean#L242-L245
+   242  theorem chunkStepS_scanChunk (st : StateD) (carry : ByteArray) (lineNo total : Nat)
+   243      (buf0 : ByteArray) :
+   244      chunkStepS st carry lineNo total buf0 (scanChunk buf0) =
+   245        chunkStep st carry lineNo total buf0 := by
+
+== Main.lean#L107
+   107  def installLoop (mode : ConLeche.CheckMode) (err : IO.FS.Stream)
 
 == ConLeche/Cached/Installed.lean#L148-L151
    148  def annotStepC (pins : List NatOpPinSet) (i : Nat) (fe : FEnv)
@@ -144,11 +150,11 @@
    368      (e : InstalledEnv mode pins ds) (k : Nat)
    369      (hk : k < e.pend.size) : Except (CheckError × Nat) (PLift (GroupChecked mode e k)) :=
 
-== Main.lean#L167
-   167  def checkLoop (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride t0 : Nat)
+== Main.lean#L175
+   175  def checkLoop (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride t0 : Nat)
 
-== Main.lean#L293
-   293  def checkPool (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride t0 jobs : Nat)
+== Main.lean#L301
+   301  def checkPool (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride t0 jobs : Nat)
 
 == ConLeche/Cached/Installed.lean#L401-L405
    401  def collectChecks {pins : List NatOpPinSet} {ds : List Declaration}
@@ -157,11 +163,11 @@
    404      (j : Nat) → (∀ i, i < j → GroupChecked mode e i) →
    405        Except (CheckError × Nat) (PLift (∀ i, GroupChecked mode e i))
 
-== Main.lean#L332-L335
-   332  def checkDeclsIO (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride total t0 tParse jobs : Nat)
-   333      (noMark : Bool) (ds : Array ConLeche.Declaration) :
-   334      IO (Except (ConLeche.CheckError × Nat)
-   335        { env : ConLeche.Env // ConLeche.Cached.checkDecls mode ConLeche.natOpPinSets ds = .ok env }) := do
+== Main.lean#L340-L343
+   340  def checkDeclsIO (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride total t0 tParse jobs : Nat)
+   341      (noMark : Bool) (ds : Array ConLeche.Declaration) :
+   342      IO (Except (ConLeche.CheckError × Nat)
+   343        { env : ConLeche.Env // ConLeche.Cached.checkDecls mode ConLeche.natOpPinSets ds = .ok env }) := do
 
 == ConLeche/Cached/Installed.lean#L534-L536
    534  theorem fullyChecked_checkDecls {pins : List NatOpPinSet} {ds : Array Declaration}
@@ -1258,15 +1264,15 @@
    225        else if cvA.name = sorryAxName then
    226          pure fe
 
-== Main.lean#L682
-   682    "  --jobs=<n>        the number of worker threads for the check phase",
+== Main.lean#L691
+   691    "  --jobs=<n>        the number of worker threads for the check phase",
 
 == ConLeche/Kernel/Basis/False.lean#L51-L52
     51  /-- The pinned `False` basis block, in install order. -/
     52  def falseBasis : List ConstantInfo := [falseRaw, falseRecRaw]
 
-== Main.lean#L894
-   894  def main (args : List String) : IO UInt32 := do
+== Main.lean#L903
+   903  def main (args : List String) : IO UInt32 := do
 
 == ConLeche/MainTheorem.lean#L110-L117
    110  theorem no_False_declaration (V : Type w) [SetTheory V]
@@ -1390,6 +1396,6 @@
    408    private ofRepr ::
    409    private repr : PropWhenRepr
 
-== Main.lean#L665
-   665    "  --trusted         the unverified mode: the SAME checker bodies as",
+== Main.lean#L674
+   674    "  --trusted         the unverified mode: the SAME checker bodies as",
 

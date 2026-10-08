@@ -71,17 +71,17 @@ now (`ConLeche/Frontend/Prepare.lean`). -/
 def pushDecl (st : StateD) (d : Declaration) : StateD :=
   { st with decls := st.decls.push d }
 
-def StateD.name (st : StateD) (i : Nat) : M Name :=
+@[inline] def StateD.name (st : StateD) (i : Nat) : M Name :=
   match st.names.get? i with
   | some n => pure n
   | none => throw s!"undefined name index {i}"
 
-def StateD.level (st : StateD) (i : Nat) : M Level :=
+@[inline] def StateD.level (st : StateD) (i : Nat) : M Level :=
   match st.levels.get? i with
   | some l => pure l
   | none => throw s!"undefined level index {i}"
 
-def StateD.expr (st : StateD) (i : Nat) : M Expr :=
+@[inline] def StateD.expr (st : StateD) (i : Nat) : M Expr :=
   match st.exprs.get? i with
   | some e => pure e
   | none => throw s!"undefined expr index {i}"
@@ -136,7 +136,8 @@ that consumes it, exactly as before. -/
 /-! ## Table entries -/
 
 /-- A name-table entry: the name value is built directly. -/
-def parseNameEntryD (st : StateD) (i : Nat) : NameRec → M StateD
+@[inline] def parseNameEntryD (st : StateD) (i : Nat) (r : @& NameRec) : M StateD :=
+  match r with
   | .str pre s => do
     let p ← st.name pre
     st.freshName i
@@ -147,7 +148,7 @@ def parseNameEntryD (st : StateD) (i : Nat) : NameRec → M StateD
     pure { st with names := st.names.insert i (Name.num p n) }
 
 /-- A level-table entry. -/
-def parseLevelEntryD (st : StateD) (i : Nat) (r : LevelRec) : M StateD := do
+@[inline] def parseLevelEntryD (st : StateD) (i : Nat) (r : @& LevelRec) : M StateD := do
   st.freshLevel i
   let l ← match r with
     | .succ u => do pure (Level.succ (← st.level u))
@@ -166,7 +167,7 @@ beside the `.default` annotation of task #142), so `==` is
 α-equivalence downstream.  The `name` field is still required to be
 present and well-formed (the recogniser reads it), it is just not
 resolved. -/
-def parseExprEntryD (st : StateD) (i : Nat) (r : ExprRec) : M StateD := do
+@[inline] def parseExprEntryD (st : StateD) (i : Nat) (r : @& ExprRec) : M StateD := do
   st.freshExpr i
   let e ← match r with
     | .bvar k => pure (Expr.mkBvar k)
@@ -394,7 +395,7 @@ def installIndD (st : StateD) (tys : List IndTypeRec) (cts : List IndCtorRec)
 `Declaration` records.  Every branch, guard and error string is the one the
 `Lean.Json` reader this replaced had (task #256); only the reads
 changed, from key lookups in a DOM to fields of a syntax record. -/
-def processLineCoreD (st : StateD) (d : DeclRec) : M (StateD ⊕ RecordVerdict) := do
+def processLineCoreD (st : StateD) (d : @& DeclRec) : M (StateD ⊕ RecordVerdict) := do
   match d with
   | .ax cvr isUnsafe =>
     let cvp ← parseCVD st cvr
@@ -453,13 +454,13 @@ included — the fold checks its type, installs nothing for it, and
 declines at the first record that USES the name
 (`ConLeche/Kernel/Checker.lean`'s `.axiomDecl` arm, `unknownConstError`
 and `unresolvedConstsError`); the parser owns no semantic decision. -/
-def applyDeclD (st : StateD) (d : DeclRec) : M (StateD ⊕ RecordVerdict) :=
+def applyDeclD (st : StateD) (d : @& DeclRec) : M (StateD ⊕ RecordVerdict) :=
   processLineCoreD st d
 
 /-- **The semantic layer**: one scanned line applied to the parse
 state, reading the fields of the syntax record the byte recogniser
 produced (`ConLeche/Frontend/Scan/Fast.lean`, task #256). -/
-def applyLine (st : StateD) (r : LineRec) : M (StateD ⊕ RecordVerdict) :=
+@[inline] def applyLine (st : StateD) (r : @& LineRec) : M (StateD ⊕ RecordVerdict) :=
   match r with
   | .expr i e => do pure (.inl (← parseExprEntryD st i e))
   | .name i n => do pure (.inl (← parseNameEntryD st i n))
@@ -570,8 +571,10 @@ incomplete tail is put in front of the new bytes, every complete line
 of the buffer is fed, and the new incomplete tail is cut off for the
 next chunk; `total` counts the bytes read before this chunk, for the
 size guard.  This is the step the streaming reader takes
-(`parseExportHandleD`), pure, so that `parseChunks` below — the same
-step folded over a list of chunks — is exactly what the binary
+(`parseExportHandleP`, `ConLeche/Frontend/Pipeline.lean`, as
+`chunkStepS` with the chunk's scan handed in), pure, so that
+`parseChunks` below — the same step folded over a list of chunks — is
+exactly what the binary
 computes and can be compared with the wholesale parse
 (`parseChunks_eq_parseBytes`, `ConLeche/Verify/Frontend/Chunks.lean`). -/
 def chunkStep (st : StateD) (carry : ByteArray) (lineNo total : Nat) (buf0 : ByteArray) :
@@ -601,7 +604,7 @@ def concatBytes : List ByteArray → ByteArray
 
 /-- **The streaming parse, purely** (task #290): `chunkStep` folded
 over a list of chunks, `chunkFinish` at its end — what
-`parseExportHandleD` does with the chunks its handle hands out, minus
+`parseExportHandleP` does with the chunks it cuts from its reads, minus
 the reads.  The list is folded whole (task #294): an empty chunk
 contributes nothing and the fold goes on, so the parse of a list of
 chunks is the parse of their concatenation, however it was cut
@@ -619,38 +622,5 @@ where
       match chunkStep st carry lineNo total c with
       | .error e => .error e
       | .ok (st, carry, lineNo, total) => go st carry lineNo total cs
-
-/-- Streaming direct parse off an open handle.
-
-The handle is read strictly forward, 4 MiB at a time, and is never
-seeked, re-opened or asked for its size — so the source may be a
-*pipe* just as well as a file (task #180: no scratch file at all,
-anywhere; `Main.lean`).  It is a property to preserve: a seek or a
-re-open here would silently re-introduce a temp file.
-
-The unconsumed tail of a chunk — at most one incomplete line — is
-carried into the next one, and `st` is threaded as a plain argument so
-that the parse tables stay uniquely referenced across steps (task #78:
-a handler that closes over the state holds it at RC 2 and every insert
-inside copies it).  Each step is `chunkStep`, the end `chunkFinish`:
-the loop is `parseChunks.go` with the reads interleaved (task #290),
-stopping at the first empty read — the handle's end of file. -/
-partial def parseExportHandleD (h : IO.FS.Handle) (chunk : USize := chunkSize) :
-    IO (Except (CheckError × Nat) ParseResultD) := do
-  let rec loop (st : StateD) (carry : ByteArray) (lineNo total : Nat) :
-      IO (Except (CheckError × Nat) ParseResultD) := do
-    let buf0 ← h.read chunk
-    if buf0.isEmpty then
-      return chunkFinish st carry lineNo
-    else
-      match chunkStep st carry lineNo total buf0 with
-      | .error e => return .error e
-      | .ok (st, carry, lineNo, total) => loop st carry lineNo total
-  loop .init ByteArray.empty 0 0
-
-/-- Streaming direct parse of a file. -/
-def parseExportStreamD (path : System.FilePath) (chunk : USize := chunkSize) :
-    IO (Except (CheckError × Nat) ParseResultD) := do
-  parseExportHandleD (← IO.FS.Handle.mk path .read) chunk
 
 end ConLeche.Frontend

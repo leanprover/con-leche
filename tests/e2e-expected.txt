@@ -303,6 +303,17 @@
 # lines — malformed input is a hard error (exit 3) with the line
 # number, identically under the streaming frontend (task #57).
 3 malformed_midstream.ndjson
+# final_line_no_newline.ndjson (task #329): basis_binderinfo.ndjson
+# without its final newline.  The pipelined parse cuts each read at its
+# last newline; the bytes after the last one are the stream's last
+# chunk, and its line is the final line (`chunkFinish`).  Target verdict
+# = today's.
+0 final_line_no_newline.ndjson
+# long_line_5mib.ndjson (task #329, committed gzipped): a name entry
+# whose string is 5 MiB, longer than one 4 MiB read, so a read holds no
+# newline at all and the pipelined parse carries it whole into the next
+# read before cutting a chunk.  Target verdict = today's.
+0 long_line_5mib.ndjson
 # reducenat_guard.ndjson (task #94): defeq-side Nat-literal folding is
 # guarded on both sides being fvar-free (official kernel
 # lazy_delta_reduction; lean4lean TypeChecker.lean:782).  Unguarded,

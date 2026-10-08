@@ -1,6 +1,7 @@
 module
 
 public import ConLeche.Frontend.Prelude
+public import ConLeche.Frontend.Pipeline
 public import ConLeche.Cached.Installed
 public import Std.Sync.Mutex
 
@@ -26,7 +27,7 @@ Exit codes follow the lean kernel arena convention:
 
 **NO TEMPORARY FILES.**  The checker writes
 nothing outside its own stdout/stderr, and reads its input strictly
-forward, one `getLine` at a time (`Frontend.parseExportHandleD`), so a
+forward, a chunk at a time (`Frontend.parseExportHandleP`), so a
 Mathlib-scale export never materialises anywhere — not on disk, and in
 particular not in `/tmp`, which is commonly a RAM-backed tmpfs where a
 multi-gigabyte scratch file would be charged to memory.  There is
@@ -45,11 +46,18 @@ def ConLeche.CheckError.exitCode : CheckError → UInt32
   | .internal _ => 3
 
 /-- The whole input side of a run: the parsed declarations, read
-straight from the file.  There is nothing else — no preprocessor
-detection, no spawn, no pipe. -/
-def parseInput (file : String) :
-    IO (Except (ConLeche.CheckError × Nat) Frontend.ParseResultD) :=
-  Frontend.parseExportStreamD file
+straight from the file, with the evidence that the streaming parse
+`Frontend.parseChunks` returns them (`Frontend.ParseOutcome`).  There
+is nothing else — no preprocessor detection, no spawn, no pipe.
+
+The parse scans its chunks on worker tasks, `inflight` of them ahead of
+the applying thread (`Frontend.parseExportHandleP`): the worker count
+clamped to `[2, 8]`.  Eight keep the applying thread busy (measured on
+`mathlib-prefix`: 4.0 s at one, 1.5 s at two, 0.8 s at four, 0.7 s at
+six and eight, no gain past); two is the floor because at one the scan
+and the apply take turns instead of overlapping. -/
+def parseInput (file : String) (jobs : Nat) : IO Frontend.ParseOutcome :=
+  Frontend.parseExportStreamP file (max 2 (min jobs 8))
 
 /-- A declaration's display name, for the direct-parse `Declaration` records.  The
 formatting itself lives beside the checker (`ConLeche.Cached.declCLabel`)
@@ -462,7 +470,7 @@ checking mode, validated once by the caller and consumed here as
 configuration.
 
 **One core at two modes, one parse.**  The stream is parsed directly
-to `Expr` (`Frontend.parseExportStreamD`) and checked by the one
+to `Expr` (`Frontend.parseExportStreamP`) and checked by the one
 driver — `checkDeclsIO` above — at `.verified` under `--verified` (the
 default), at `.trusted` under `--trusted`.  The driver returns the
 environment with the proof that the fold `checkDecls` returns it, the
@@ -474,11 +482,12 @@ unverified by design.
 (`ConLeche.no_False_declaration`, `ConLeche/MainTheorem.lean`: the
 built-in prelude parses, the chunks parse, `checkDecls .verified`
 accepts the parsed records prepared with the prelude).  The prelude
-step is the same function, `Frontend.builtinPreludeE`.  The parse loop
-(`Frontend.parseExportStreamD`) is `Frontend.parseChunks` of the
-chunks the handle hands out, with the reads interleaved — every step
-is the shared `chunkStep`, and the chunk boundaries are proved
-invisible.  `Frontend.prepareD` is `Frontend.preparePrelude` plus the
+step is the same function, `Frontend.builtinPreludeE`.  The parse
+(`Frontend.parseExportStreamP`) returns its result with the evidence
+that `Frontend.parseChunks` returns it on the chunks the parse cut from
+its reads: the chunks are scanned on worker tasks and applied in order,
+every step is `chunkStep` (`Frontend.chunkStepS_scanChunk`), and the
+chunk boundaries are proved invisible.  `Frontend.prepareD` is `Frontend.preparePrelude` plus the
 receipts printed below.  `checkDeclsIO` returns its environment with
 the evidence `checkDecls mode natOpPinSets ds = .ok env`.  What the driver adds is
 IO — the heartbeat, the parallel check pool, the diagnostics that say
@@ -528,7 +537,7 @@ def checkMain (file : String) (mode : CheckMode) (stride jobs : Nat)
     -- Streaming frontend: the parse reads the file line by line, so
     -- neither a wholesale text buffer nor a scratch file exists in
     -- this process.
-    match ← parseInput file with
+    match (← parseInput file jobs).val with
     | .error (.notImplemented what, _) =>
       IO.eprintln s!"con-leche: declined: {what} ({modeTag})"
       return 2

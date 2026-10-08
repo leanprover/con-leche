@@ -343,7 +343,7 @@ structure IdTable (α : Type) where
   sparse : Std.HashMap Nat α := {}
 
 /-- The value at a stream index, dense array first. -/
-def IdTable.get? (t : @& IdTable α) (i : Nat) : Option α :=
+@[inline] def IdTable.get? (t : @& IdTable α) (i : Nat) : Option α :=
   if h : i < t.dense.size then some t.dense[i] else t.sparse[i]?
 
 /-- Bind a stream index.  The dense case is a push; a rebinding below

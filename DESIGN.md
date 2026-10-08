@@ -96731,6 +96731,113 @@ itself.
 Measured: init-full 485.81 G (P0: 485.85 G), mathlib-prefix 688.24 G
 (688.21 G), mathlib-full 8.385 T (8.386 T; install 86.7 s, accepts all
 691 203 records). The miss path's empty-map probe does not show.
+
+## TASK #329 — PARSE: the pipelined parse (2026-10-08, agent/329-parse)
+
+**What.** The parse used to read a line and apply it, then the next,
+on the main thread (`parseExportHandleD`, `feedChunk`). The READ (the
+byte recogniser, `scanLineSpec` run as `scanLineFwd`) depends on the
+line's bytes alone; the APPLY (`applyLine`) reads and extends the
+tables every earlier line built and must stay in order. The new driver
+(`parseExportHandleP`, `ConLeche/Frontend/Pipeline.lean`) reads the
+stream 4 MiB at a time, cuts each read at its last newline, hands the
+chunk of whole lines (the previous leftover in front) to a worker task
+that copies and scans it into an `Array LineRec` with a stop marker
+(`scanChunk`), and applies the chunks' scans in order on its own thread
+(`applyScanned` inside `chunkStepS`). At most `inflight` chunks are in
+flight: `--jobs` clamped to `[2, 8]` (`parseInput`, `Main.lean`);
+`mathlib-prefix` parse at 1/2/3/4/6/8/12/16 in flight: 4.0/1.5/1.0/0.8/
+0.7/0.7/0.8/0.8 s (at one, the scan and the apply take turns; two is the
+floor). The serial driver `parseExportHandleD`/`parseExportStreamD` is
+deleted.
+
+**What is proved, and how the driver carries it.** Pure, in
+`Pipeline.lean` (implementation tier, the `checkDeclsIO` precedent):
+- `applyScanned_scanChunk`: `applyScanned st (scanChunk b) n =
+  feedChunk st b 0 n` — map then fold is the fused fold, by
+  `fun_induction` over the scan with an accumulator
+  (`applyScanned_scanChunkGo`, via `applyRecs_eq` and
+  `applyList_append`);
+- `chunkStepS_scanChunk`: handed the chunk's own scan, `chunkStepS` is
+  `chunkStep` (a carried tail, which the newline cut never leaves,
+  falls back to `chunkStep` itself);
+- `Reached st carry lineNo total`: some chunk list leads `parseChunks`
+  there; `Reached.step/error/finish`.
+The worker task's value is `(chunk, scan)`, queued as
+`{t : Task _ // t.get.2 = scanChunk t.get.1}` (`rfl` at the spawn:
+`Task.spawn f`'s `get` is `f ()`), so every applied step is
+`chunkStep` of the chunk it applied, and the driver returns
+`ParseOutcome := {r // ∃ cs, parseChunks cs = r}`. Which chunks those
+are is the cut's business; `parseChunks_ok_parseBytes` already says
+the cut does not matter. `MainTheorem`, `Challenge` and the main
+corollary are unchanged (one docstring sentence of `MainTheorem`
+re-worded at the same line count). Tests:
+`tests/ConLecheTests/PipelineTests.lean` runs the driver at chunk sizes
+1, 2, 7, 64, 1000, 4096 and 1-3 in flight on three fixtures and
+compares with `parseBytes` of the whole file (verdict, line, records);
+e2e fixtures `final_line_no_newline` (last line without a newline: the
+leftover is the last chunk) and `long_line_5mib` (a 5 MiB line, so a
+read holds no newline and is carried whole), both exit 0.
+
+**The apply thread.** With the scan off it, the apply thread's profile
+(init-full, frame-pointer stacks) was half `lean_free_object` /
+`lean_dec_ref_cold`: per line, `applyLine` wrapped its result in an
+`Except` and a `Sum` and the entry builders in another `Except`, each
+lookup allocated an `Option` and an `Except`, and the records, now
+multi-threaded objects from the task's value, were `inc`/`dec`'d
+atomically on the way into `applyLine`. Fixed without touching any
+statement: `@[inline]` on `IdTable.get?`, `StateD.name/level/expr`,
+`applyLine` and the three entry builders, and the records passed
+BORROWED (`@&` on `applyLine`, the entry builders, `applyDeclD`,
+`processLineCoreD`; `parseNameEntryD` takes its record as a named
+argument). Apply-thread samples on init-full 2319 → 1285 at the same
+rate. The records are freed by the worker of the NEXT scan (the spent
+task rides in its closure and gives the next array its capacity), so
+the apply thread frees them only for the last `inflight` chunks of a
+stream.
+
+**Measured** (`--progress`, default worker count, flock; wall times
+indicative, one run each; before = more-parallel `67f04630d`):
+
+| stream | parse before | parse after | instructions before | after |
+|---|---|---|---|---|
+| `init-full` (`--jobs=8`) | 1.1 s | 0.4 s | 486.13 G | 485.25 G |
+| `mathlib-prefix` (`--jobs=8`) | 2.1 s | 0.7 s | | |
+| `mathlib-full` | 21.2 s / 20.3 s | 9.3 s / 8.3 s | 8.386 T | 8.376 T |
+| cslib | 8.4 s (warm) | 3.4 s | 2.862 T | 2.857 T |
+| NS | 4.7 s (warm) | 1.6 s | 3.164 T | 3.160 T |
+
+(mathlib-full: two runs each, the first pair with the knob-tuned
+pre-cleanup binary at 16 in flight; cslib/NS: the first base runs read
+the file cold, 9.2 s / 10.0 s, so the warm re-runs are the ones in the
+table.) Total instructions fall slightly: the inlining saves more than
+the pipeline's task and copy overhead costs. Peak RSS on NS 2.31 →
+2.35 GiB (the bounded in-flight chunks). All runs accept with the same
+counts (691 203 on mathlib-full; after the merge with the parallel
+install lane: parse 8.2 s, install 79.5 s, 8.379 T, accepted).
+
+**What is left serial.** The apply thread, ~75-85 ns per line on
+Mathlib (table reads into arrays of 10^8 entries, the smart
+constructors' hashing); mathlib-full's 108 M lines put the floor near
+8 s, which is what the parse takes now. The reads (`h.read` into a
+fresh buffer) and the newline search are on the same thread and small.
+
+**Streaming into the install: not done, what it would need.** The
+install takes the whole `Array Declaration` after `Frontend.prepareD`
+(prelude prepended, a stream copy of a prelude record dropped, the
+Nat-operation ground hoist, which moves later records ahead of a
+pinned operation), and `installLoop`'s accepting run is stated over
+`ds.toList.take i`. Overlapping the two phases would need (1) an
+incremental `preparePrelude` proved equal to the batch one — the
+prepend and the dedupe are per-record, the hoist is not: it needs a
+bound on how far ahead it looks, or the install must wait at a pinned
+operation until its ground has been parsed; (2) the install loop over
+a list that grows at its end (`InstallRun.snoc` already has that
+shape) and a final step tying the run to the assembled array. The gain
+is at most the remaining parse time (~8 s of ~120 s on mathlib-full)
+while install is ~80 s, with both phases' memory live at once. Not
+worth the proof cost now; worth revisiting if the install lanes bring
+the install near the parse.
 ## TASK #329 — BLOCKCOPY: inductive-block install without index copies (2026-10-08, agent/329-blockcopy)
 
 **Diagnosis.** A gdb breakpoint on `lean_copy_expand_array` (arrays over
