@@ -136,8 +136,8 @@
    244      chunkStepS st carry lineNo total buf0 (scanChunk buf0) =
    245        chunkStep st carry lineNo total buf0 := by
 
-== ConLeche/Driver/ParInstall.lean#L141
-   141  def installLoop (mode : ConLeche.CheckMode) (err : IO.FS.Stream)
+== ConLeche/Driver/ParInstall.lean#L142
+   142  def installLoop (mode : ConLeche.CheckMode) (err : IO.FS.Stream)
 
 == ConLeche/Cached/Installed.lean#L148-L151
    148  def annotStepC (pins : List NatOpPinSet) (i : Nat) (fe : FEnv)
@@ -145,17 +145,19 @@
    150      Declaration → CheckCM (FEnv × Array PendingCheck)
    151    | .defnDecl cv value hint =>
 
-== ConLeche/Driver/ParInstall.lean#L666-L675
-   666  def commitLoop (err : IO.FS.Stream) (stride total t0 : Nat) (fallbackAt : Option Nat)
-   667      (hB : BaseInj B) (sh : Shared mode ds B S vis) (cst : IO.Ref (Array Nat))
-   668      (p₀ : Nat × FEnv × Array PendingCheck) :
-   669      (k : Nat) →
-   670      (p : Nat × FEnv × Array PendingCheck) →
-   671      InstallRun mode natOpPinSets (ds.toList.take k) p₀ p →
-   672      IdxBelow p.2.1 → ViewAgrees B S p.2.1 →
-   673        IO (Except (CheckError × Nat)
-   674          (Σ' (p' : Nat × FEnv × Array PendingCheck),
-   675            PLift (InstallRun mode natOpPinSets ds.toList p₀ p')))
+== ConLeche/Driver/ParInstall.lean#L743-L754
+   743  def commitLoop (err : IO.FS.Stream) (stride total t0 : Nat) (fallbackAt : Option Nat)
+   744      (hB : BaseInj B) (sh : Shared mode ds B S vis) (cst : IO.Ref (Array Nat))
+   745      (bd : Builder) (bt : Task (Except IO.Error (Σ' (k : Nat) (fe : FEnv),
+   746        PLift (fe = prefixFe S k))))
+   747      (p₀ : Nat × FEnv × Array PendingCheck) :
+   748      (k i c : Nat) → (pend : Array PendingCheck) →
+   749      (prefixFe S k).visibleBelow = c →
+   750      InstallRun mode natOpPinSets (ds.toList.take k) p₀ (i, prefixFe S k, pend) →
+   751      IdxBelow (prefixFe S k) → ViewAgrees B S (prefixFe S k) →
+   752        IO (Except (CheckError × Nat)
+   753          (Σ' (p' : Nat × FEnv × Array PendingCheck),
+   754            PLift (InstallRun mode natOpPinSets ds.toList p₀ p')))
 
 == ConLeche/Verify/Cached/ViewCongr.lean#L1351-L1357
   1351  theorem installStep_commit {pins : List NatOpPinSet} {B : BaseIdx} {S : Slots} {i : Nat}

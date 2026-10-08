@@ -31,9 +31,10 @@ install is a function of the index it sees and the record alone
 function on `n` dedicated worker threads, each record at a **worker
 view** (`ConLeche.Cached.workerView`) instead of the serial index, and
 keeps THIS thread as the **commit thread**: it walks the records in
-order, pushes each record's constants into the serial index, and
-extends the serial fold's accepting run by one step per record, exactly
-as `installLoop` does.  What it returns is therefore `installLoop`'s
+order and extends the serial fold's accepting run by one step per
+record, exactly as `installLoop` does, while a **builder thread** pushes
+the committed records' constants into the serial index (`prefixFe`,
+the index the run is about, `builderLoop`).  What it returns is therefore `installLoop`'s
 type — phase A of the fold — whatever the schedule.
 
 * **The prediction.**  Before any record is installed, the names every
@@ -79,7 +80,7 @@ type — phase A of the fold — whatever the schedule.
 are marked persistent before the first worker starts, and every install
 result is marked persistent by its installer before it is published, so
 nothing a worker reads is counted atomically but the promises.  The
-serial index is the commit thread's alone: nothing else holds it, so
+serial index is the builder thread's alone: nothing else holds it, so
 every push updates it in place.
 
 **The schedule** (performance only): workers walk the records in
