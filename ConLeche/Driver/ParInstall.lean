@@ -1,6 +1,6 @@
 module
 
-public import ConLeche.Cached.ViewCongr
+public import ConLeche.Verify.Cached.ViewCongr
 public import ConLeche.Cached.InstallSkel
 public import Std.Sync.Mutex
 import Std.Data.TreeSet.Basic
@@ -45,7 +45,7 @@ type — phase A of the fold — whatever the schedule.
   worker view sees the base below its record's predicted counter, so a
   lookup waits only on an earlier record.
 * **The install** of record `k` is `installStep` at the view of its
-  predicted counter (`ConLeche/Cached/ViewCongr.lean`): the constants it
+  predicted counter (`ConLeche/Verify/Cached/ViewCongr.lean`): the constants it
   pushes and, for a definition, theorem or opaque, its pending check.
   Its result travels to the commit thread with its evidence (`WRes`).
 * **The commit.**  The commit thread takes record `k`'s install result,

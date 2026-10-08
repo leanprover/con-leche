@@ -15,7 +15,7 @@ of the declaration — no environment, no core.
 Two consumers.  The trusted/verified agreement floor
 (`ConLeche/Verify/Cached/AgreeFloor.lean`) proves that every accepting
 step installs exactly these skeletons.  The parallel install
-(`ConLeche/Cached/ParInstall.lean`, `Main.lean`) predicts from them,
+(`ConLeche/Driver/ParInstall.lean`) predicts from them,
 before any record is installed, the name and the counter of every
 constant the stream will install: the slots of its frozen base index.
 A misprediction costs only the parallelism (the driver's slot check

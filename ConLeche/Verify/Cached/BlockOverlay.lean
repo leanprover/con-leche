@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.Cached.CheckerC
-import ConLeche.Cached.KnotCongr
+import ConLeche.Verify.Cached.KnotCongr
 
 public section
 
@@ -19,14 +19,18 @@ reference `checkBlockTailSRef`, which every other proof reads
 * `find?_overlay_pushAll` — an overlay answers `find?` as pushing its
   constants would, on an environment without an overlay;
 * `genRecCheckOvl_eq` — at the cached operations, which read the index
-  only through `find?` (`ConLeche/Cached/KnotCongr.lean`), the
+  only through `find?` (`ConLeche/Verify/Cached/KnotCongr.lean`), the
   overlay stage is `genRecCheck`.
 
-It sits in the implementation tier because the parallel install's
-driver carries the install's congruence in the index
-(`ConLeche/Cached/ViewCongr.lean`), which reads the block tail through
-this equality; it imports the cached checker and `KnotCongr` only (the
-self-contained exception of CLAUDE.md).
+The parallel install's driver (`ConLeche/Driver/ParInstall.lean`)
+carries the install's congruence in the index
+(`ConLeche/Verify/Cached/ViewCongr.lean`), which reads the block tail
+through this equality.  During task #329 this file sat in the `Cached`
+tier (the self-contained exception of CLAUDE.md), because the
+then-implementation driver (`Main.lean`) could not import `Verify/*`;
+the maintainer's 2026-10-08 ruling lets the driver import `Verify/*`,
+so it moved back here.  It imports the cached checker and `KnotCongr`
+only.
 -/
 
 namespace ConLeche.Cached

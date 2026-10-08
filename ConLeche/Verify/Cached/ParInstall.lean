@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.Cached.Installed
-import ConLeche.Cached.KnotCongr
+import ConLeche.Verify.Cached.KnotCongr
 /- `withPtrEq` is `public` but not `@[expose]`; the slot check below is
 *defined* through it and `slotIs_spec` needs its body (`k ()`), which
 `import all` makes visible in this module only (the `Init.Util`
@@ -35,25 +35,31 @@ returns is the serial fold's whatever the schedule.
 * **The commit step of a value record** (`valueStep_commit`): a
   definition's, theorem's or opaque's install at the view, by the
   congruence of the cached core in `find?` (`coreKnotI_congr`,
-  `ConLeche/Cached/KnotCongr.lean`), IS the serial step's: same
+  `ConLeche/Verify/Cached/KnotCongr.lean`), IS the serial step's: same
   constant, same pending check.  A failing record fails with the serial
   step's error (`valueStep_commit_error`).  Every other record — a
   block, an axiom, a basis block, a pinned declaration — pushes a list
   of constants, each checked against its slot (`ViewAgrees.pushAll`);
   that its install at the view is the serial step is
-  `installStep_commit` (`ConLeche/Cached/ViewCongr.lean`).
+  `installStep_commit` (`ConLeche/Verify/Cached/ViewCongr.lean`).
 
 Nothing here mentions a schedule, a thread or a promise: the lemmas
 are about values, and what a task delivers is a value (`Task.get` is
-logically a projection).  The driver is `Main.lean`'s.
+logically a projection).  The driver is `ConLeche/Driver/ParInstall.lean`'s.
 
-**Why proofs sit in the implementation tier.**  The driver carries the
+**Why this is `Verify/Cached`, not `Cached`.**  The driver carries the
 serial fold's accepting run and needs these lemmas to extend it; the
 file is self-contained (the cached checker and `KnotCongr`, nothing
-from the theory) — the exception CLAUDE.md makes for a self-contained
-verification living with the implementation.  It opens one
-`@[expose] public section` like the rest of the tier: the driver runs
-its definitions.
+from the theory).  During task #329 this file sat in the `Cached` tier
+under CLAUDE.md's self-contained-verification exception, because the
+then-implementation driver (`Main.lean`) could not import `Verify/*`;
+the maintainer's 2026-10-08 ruling lets the driver import `Verify/*`,
+so it moved back here.  It keeps its `@[expose] public section` (not
+the Verify tier's usual plain `public section`): `workerView` and
+`valueStep` are `unfold`ed and `simp`-rewritten by
+`ConLeche/Verify/Cached/ViewCongr.lean`'s own proofs
+(`installStep_commit`'s case split), which needs their bodies exposed,
+not just their statements visible.
 -/
 
 @[expose] public section

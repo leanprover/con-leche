@@ -263,8 +263,9 @@ def checkDeclC (pins : List NatOpPinSet) (fe : FEnv) (pd : Declaration) :
 arithmetic — no `Float` formatting on a message path. -/
 def msSecs (ms : Nat) : String := s!"{ms / 1000}.{(ms % 1000) / 100}"
 
-/-- A parsed declaration's display label (`Main.declCName`, shared with
-the driver's progress callback so the two can never drift). -/
+/-- A parsed declaration's display label (`ConLeche.Driver.declCName`,
+shared with the driver's progress callback so the two can never
+drift). -/
 def declCLabel : Declaration → String
   | .defnDecl cv _ _ => s!"def {cv.name}"
   | .thmDecl cv _ => s!"theorem {cv.name}"

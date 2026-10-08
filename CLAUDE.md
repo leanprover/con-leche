@@ -87,8 +87,17 @@ current fact changed.
 ## Layering (enforced by `tests/layering.sh`)
 
 * Implementation — `ConLeche/Kernel/*`, `ConLeche/Cached/*`,
-  `ConLeche/Frontend/*`, `Main.lean` — never imports
+  `ConLeche/Frontend/*` — never imports
   `ConLeche/{Term,SetTheory,SetModel,Semantics,Model,Verify,Complete}/*`.
+* The proof-carrying IO driver — `ConLeche/Driver/*`, `Main.lean` — may
+  import `ConLeche/Verify/*` (the theorems about kernel functions that
+  need no model, task #329's maintainer ruling), and nothing else of
+  the theory: still never `Model/*`, `SetTheory/*`, `SetModel/*`,
+  `Semantics/*`, `Term/*`, `Complete/*`. `Main.lean` is the CLI
+  (argument parsing, I/O, exit codes); `ConLeche/Driver/*` is the
+  driver proper (the install and check loops, the parallel install,
+  the phase sequencing) and is checker code like `Kernel/*` (a
+  `module` header, one `@[expose] public section`).
 * `ConLeche/Model/*` (the graded model) is imported only by itself, the
   capstone assembly (`Verify/Cached/MainC`, the `ConLeche.Verify.Cached`
   umbrella, `MainTheorem`) and `Complete/*`.

@@ -156,7 +156,7 @@ def checkBlockPassS (fe : FEnv) (p₀ : BlockParts) (isRec : Bool) :
 /-- **`checkBlockTail` through the index**: one flush
 entering the recursors' environment.  The reference form, which the
 proofs read; the driver runs `checkBlockTailS`, equal to it
-(`checkBlockTailS_eq_ref`, `ConLeche/Cached/BlockOverlay.lean`). -/
+(`checkBlockTailS_eq_ref`, `ConLeche/Verify/Cached/BlockOverlay.lean`). -/
 def checkBlockTailSRef (block : List ConstantInfo) (q : BlockPass FEnv) :
     CheckCM FEnv := do
   let p := q.p

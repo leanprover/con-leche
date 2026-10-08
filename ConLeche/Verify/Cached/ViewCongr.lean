@@ -1,15 +1,15 @@
 module
 
-public import ConLeche.Cached.ParInstall
-import ConLeche.Cached.KnotCongr
-import ConLeche.Cached.BlockOverlay
+public import ConLeche.Verify.Cached.ParInstall
+import ConLeche.Verify.Cached.KnotCongr
+import ConLeche.Verify.Cached.BlockOverlay
 
 /-!
 # Every install step reads its index only through `find?` (task #329)
 
 The parallel install's workers install every record — blocks, axioms,
 basis blocks and the pinned declarations too — at a WORKER VIEW
-(`workerView`, `ConLeche/Cached/ParInstall.lean`): an index with no
+(`workerView`, `ConLeche/Verify/Cached/ParInstall.lean`): an index with no
 constants of its own, answering from the frozen base layer, whose
 lookups are the serial index's (`ViewAgrees`).  For the commit thread
 to add the serial fold's step, the install at the view must BE the
@@ -30,9 +30,18 @@ Two kinds of lemma, bottom-up through the install code:
 
 Nothing here is about the model; it is the install code's own
 discipline — reads through `find?`, writes by `push` — made a theorem,
-and self-contained (the cached checker, `KnotCongr`, `BlockOverlay`),
-which is the exception CLAUDE.md makes for a self-contained
-verification living with the implementation (the driver carries it).
+and self-contained: it imports the cached checker, `KnotCongr` and
+`BlockOverlay`, and nothing from the theory.  During task #329 this
+file sat in the `Cached` tier, because the then-implementation driver
+(`Main.lean`) could not import `Verify/*` (CLAUDE.md's exception for a
+self-contained verification living with the implementation); the
+maintainer's 2026-10-08 ruling lets the driver (`ConLeche/Driver/*`,
+`Main.lean`) import `Verify/*`, so the file moved back to where a
+proof about kernel functions that needs no model belongs.  `installStep`
+(the install of one record at a view) and `pushPending` stay defined
+here too, next to the theorems they are about — the driver (now
+`ConLeche/Driver/ParInstall.lean`) runs them, which the ruling makes as
+straightforward as running anything else this file exports.
 -/
 
 public section

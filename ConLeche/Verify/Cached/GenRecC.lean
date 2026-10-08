@@ -12,7 +12,7 @@ import ConLeche.Verify.Cached.NestPosC
 public import ConLeche.Verify.Inductives.NestScope
 import ConLeche.Verify.Cached.AgreeFloor
 import ConLeche.Verify.Denote.IndFrame
-import ConLeche.Cached.BlockOverlay
+import ConLeche.Verify.Cached.BlockOverlay
 
 public section
 

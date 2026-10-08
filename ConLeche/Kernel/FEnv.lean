@@ -88,7 +88,7 @@ structure FEnv where
   the inductive block's rule-less-recursor environment, a read-only view
   that shares the constructors' index instead of copying it.  `find?`
   reads it before the index, as if its constants had been pushed
-  (`find?_overlay_pushAll`, `ConLeche/Cached/BlockOverlay.lean`). -/
+  (`find?_overlay_pushAll`, `ConLeche/Verify/Cached/BlockOverlay.lean`). -/
   ovl : List ConstantInfo
 
 /-- The index build, from the back: the newest (front) constant is
