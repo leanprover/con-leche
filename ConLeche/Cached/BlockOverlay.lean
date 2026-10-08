@@ -22,11 +22,11 @@ reference `checkBlockTailSRef`, which every other proof reads
   only through `find?` (`ConLeche/Cached/KnotCongr.lean`), the
   overlay stage is `genRecCheck`.
 
-It sits in the implementation tier because the install-shape invariant
-the parallel install's driver carries (`ConLeche/Cached/InstallShape.lean`)
-reads the block tail through this equality; it imports the cached
-checker and `KnotCongr` only (the self-contained exception of
-CLAUDE.md).
+It sits in the implementation tier because the parallel install's
+driver carries the install's congruence in the index
+(`ConLeche/Cached/ViewCongr.lean`), which reads the block tail through
+this equality; it imports the cached checker and `KnotCongr` only (the
+self-contained exception of CLAUDE.md).
 -/
 
 namespace ConLeche.Cached
