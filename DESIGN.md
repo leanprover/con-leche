@@ -96923,3 +96923,125 @@ each:
 | init-full | 2.5 s → 2.2 s | 486.80 G → 487.29 G |
 
 All accept, and mathlib-full still accepts 691 203 records.
+
+### Stages P2 + P3: the commit step and the parallel install driver
+
+**What runs.**  At `--jobs=<n>` > 1 phase A runs on `n` dedicated
+worker threads plus the main thread as the commit thread (`parInstall`,
+`Main.lean`); `--jobs=1` is `installLoop`, unchanged.
+
+1. *Prediction* (serial): the names every record installs, in push
+   order, are read off the record — `predictSlots`, the install skeleton
+   `declCSkels` (`Cached/InstallSkel.lean`, moved out of AgreeFloor); its
+   prefix sums are every record's counter.  The base index
+   `buildBase : name ↦ (counter, record, position)` keeps a duplicate
+   name's first slot and is counter-injective (`buildBase_inj`).  It
+   holds no task, so it is marked persistent with the records before any
+   worker starts.
+2. *Slots and installs are thunks.*  Record `k`'s INSTALL is a thunk:
+   `valueStep` (`Cached/ParInstall.lean`) at `workerView B S vis_k`, with
+   its evidence — the result IS `workerRes … k`, in a subtype that is a
+   subsingleton, which is what lets the install mark its result
+   persistent inside an `unsafe` step without losing the equation (the
+   opaque value is pinned by its type).  Record `k`'s SLOT is a thunk
+   too: for a value record it forces the install; for every other record
+   it waits on a promise the commit thread resolves.  `FBase.slots`
+   (`Kernel/FEnv.lean`) is the array of slots; a view reads the base
+   below its own record's counter only, so a lookup can wait only on an
+   earlier record.  The views' slot array is reached through a promise
+   of itself (`pS`), which ties the knot without a cyclic type.
+3. *Help instead of wait* (the maintainer's request) comes from the
+   thunk semantics: a thread forcing a slot nobody started installs the
+   record on the spot; one forcing a slot another thread is installing
+   waits for it (`lean_thunk_get_core`'s yield loop).  Nothing in the
+   proof depends on who forced what.
+4. *Schedule* (performance only): a value record's dependencies are the
+   records installing the names its type mentions (and its value's, for
+   a definition or an opaque; a theorem's value is not read at install),
+   every projection's structure and table, literal support, and a fixed
+   basis list; computed in parallel, chunk per worker.  Workers take the
+   lowest ready record from a `Std.TreeSet` under one `BaseMutex`
+   (sleeping on a `Condvar`); dependency counts are one `IO.Ref Nat` per
+   record.  (A first version kept the counts and the heap as arrays in a
+   shared `IO.Ref`: an MT ref marks its value MT, so every `set!`
+   copied the 700k-entry arrays — 44 s on mathlib-prefix.  Per-record
+   refs and a persistent tree fixed it.)
+5. *Commit* (the main thread): records in order; `InstallRun` extended
+   per record.  A value record: force its install, check the predicted
+   counter equals the serial one and the slot holds the very constant
+   (`slotOk`, `withPtrEq` — a pointer comparison at run time), extend by
+   `valueStep_commit`, push.  Any other record (blocks, axioms, basis
+   blocks, the pinned `Nat` operations): the ordinary step at the serial
+   index, its new constants read off the environment (`splitNew`, a
+   pointer comparison of the old tail), published to its slot, checked
+   slot by slot, and the views kept agreeing by `ViewAgrees.frontier`
+   from the index's canonicity (`annotDeclStep_canon`).  A mismatch —
+   which no stream reaches: the skeletons are exact on every accepting
+   step — stops the pool and continues with `installLoop`; the test
+   switch `--install-fallback-at=<k>` takes that path on purpose.
+
+**The proof side** (`Cached/ParInstall.lean`, self-contained): the
+install halves' congruence in `find?` (from `coreKnotI_congr`); the
+worker view and `ViewAgrees` (the view at the serial counter answers
+as the serial index), maintained by a checked push (`ViewAgrees.push`,
+needing `IdxBelow` — every index entry below the counter, no overlay)
+and by a checked list of pushes from a canonical index
+(`ViewAgrees.frontier`); `valueStep_commit` /
+`valueStep_commit_error`.  MainTheorem, the main corollary,
+`checkDecls` and `checkDeclsIO`'s return type are unchanged.
+
+**A deviation from the plan, and why.**  The commit thread installs the
+non-value records itself at the serial index; to keep the views
+agreeing afterwards it must know the index is still canonical, which is
+AgreeFloor's `annotStepC_skels` (a Verify module).  The design had not
+accounted for this.  The conservative choice kept the layering rule and
+moved the self-contained verifications into the Cached tier under
+CLAUDE.md's exception: `KnotCongr`, `EnvBound`, `BlockOverlay`, and
+AgreeFloor's kit + stage lemmas as `Cached/InstallShape.lean` (the
+floor theorems stay in `Verify/Cached/AgreeFloor.lean`).  No file
+changes beyond imports, a paragraph on why it sits where it does, and
+`@[expose]` on three predicates.  **For the maintainer**: the
+alternative is P4's relational factorization (a step at any view whose
+lookups agree is the serial step), after which nothing runs at the
+serial index and canonicity is no longer needed; the moved files could
+then go back.
+
+**Trust surface.**  `Main.lean` gains term-level `unsafe` uses
+(`installImpl`, the slot closures' instrumentation, `frontierSlot`):
+26 escapes in the allowlisted files, was 15.  Each is either
+`Runtime.markPersistent` (as before) or an `unsafeBaseIO` whose opaque
+value is pinned by its type (the subsingleton install) or validated
+before use (a slot's contents, by `slotOk`).
+
+**Instrumentation** (the maintainer's question; `--progress` prints a
+summary line).  On mathlib-full, cslib and NS at 8 and 32 jobs: **zero
+helps, zero waits on a record another thread was installing, zero
+waits on a commit-thread slot, peak 0 waiting** — the dependency walk
+covers every lookup the installs made.  (A wait is counted by the first
+thread forcing a slot; others forcing the same slot meanwhile are not,
+so "peak" is a lower bound — but with zero first-forcer waits there is
+nothing to undercount.)  So abort-and-requeue would buy nothing on
+these corpora; it is not described further.  The commit thread's own
+waits on a worker still installing the record at the frontier:
+mathlib-full 7978 (1.26 s) at 8, 8254 (1.76 s) at 32.
+
+**Measured** (`perf stat -e instructions:u`, one run each, wall times
+indicative on a shared, loaded machine; "serial" is the same binary
+with `--install-fallback-at=0`, i.e. `installLoop` after the
+prediction, so its install time includes the prediction):
+
+| corpus | serial install | `--jobs=8` | `--jobs=32` | prediction + base | commit thread's own records |
+|---|---|---|---|---|---|
+| mathlib-full | 58.5 s | 21.5 s | 23.1 s | 2.9 s | 6747 records, 12.5 s |
+| cslib | 23.8 s | 10.2 s | 11.0 s | 1.3 s | 4050 records, 6.2 s |
+| NS | 14.6 s | 8.7 s | 8.7 s | 0.55 s | 1634 records, 6.6 s |
+
+Instructions (whole run): mathlib-full 8.447 / 8.485 / 8.461 T
+(serial / 8 / 32), cslib 2.897 / 2.905 / 2.903 T, NS 3.196 / 3.202 /
+3.201 T: +0.2–0.5 %.  All accept (mathlib-full 691 203 records).  The
+commit thread is the critical path: the blocks it installs itself
+(≈ 55–75 % of its time), then ~5 µs per record of commit work
+(slot check, push, the run's step), then the serial prediction.  No
+`lean_copy_expand_array` under the commit loop (perf, mathlib-prefix,
+32 jobs: 0.01 % of the main thread's samples, all in the prepare step
+and in array growth).  Next: P4, the blocks in the pool.

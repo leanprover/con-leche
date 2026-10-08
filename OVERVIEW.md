@@ -28,13 +28,13 @@ mark of the installed environment (below), which changes no verdict and
 is there to measure what the mark is worth;
 `--progress[=<stride>]` turns on a heartbeat on stderr
 (below); `--help` prints the usage text and exits 0
-([the driver's usage text in `Main.lean`](https://github.com/leanprover/con-leche/blob/master/Main.lean#L658)).
+([the driver's usage text in `Main.lean`](https://github.com/leanprover/con-leche/blob/master/Main.lean#L1232)).
 Any other option is a usage error: the run reports it, prints the
 usage text and exits 3 without reading its input, so a verdict's
 provenance can be read off the invocation.
 
 The exit code follows the lean kernel arena convention
-([the exit-code mapping in `Main.lean`](https://github.com/leanprover/con-leche/blob/master/Main.lean#L43)):
+([the exit-code mapping in `Main.lean`](https://github.com/leanprover/con-leche/blob/master/Main.lean#L45)):
 
 | exit | verdict | meaning |
 |---|---|---|
@@ -52,12 +52,17 @@ Lean runtime's own panic — `INTERNAL PANIC: out of memory` on stderr,
 then `exit(1)` — which no code of ours can catch, so the stderr message
 is what tells it apart from a reject.
 
-A run has two phases: the install phase reads the records in order
-in one thread, and the check phase checks every recorded declaration
+A run has two phases: the install phase installs the records in
+stream order, and the check phase checks every recorded declaration
 against the prefix of the installed environment it was installed at
-(see §2). The flag `--jobs=<n>` runs the check phase on `n` worker
-threads; without it there is one worker per hardware thread, and
-`--jobs=1` runs one worker with no shared counter and no result table.
+(see §2). The flag `--jobs=<n>` runs both phases on `n` worker
+threads; without it there is one worker per hardware thread. In the
+install phase the workers install the definitions, theorems and
+opaques, each against a view of the records before it, while the main
+thread commits them in stream order and installs every other record
+itself; at `--jobs=1` the main thread installs everything, and the
+check phase runs one worker with no shared counter and no result
+table.
 The check phase always runs on worker threads, never on the main
 thread: its per-record memo state is allocated out of the running
 thread's heap, and the main thread's heap is the one the parse and the
@@ -276,7 +281,7 @@ Read from the outside in:
    What the parser makes of a record
    — index resolution, the smart constructors — is the
    semantic layer the main corollary's line lemmas are about. The install loop
-   ([function `installLoop` in `Main.lean`](https://github.com/leanprover/con-leche/blob/master/Main.lean#L107))
+   ([function `installLoop` in `Main.lean`](https://github.com/leanprover/con-leche/blob/master/Main.lean#L109))
    takes every record, each from a fresh memo state, through the install step
    ([function `annotStepC` in `ConLeche/Cached/Installed.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Cached/Installed.lean#L148-L151)):
    a definition or opaque is annotated and pushed with its check
@@ -289,7 +294,25 @@ Read from the outside in:
    declarations are checked in full as they are installed, by the
    fold's ordinary step. The loop carries the chain of its accepting
    steps, a proposition, and what it returns is an installed
-   environment. The check phase then checks every recorded declaration
+   environment. On more than one worker the same run is built by a
+   commit loop
+   ([function `ParInstall.commitLoop` in `Main.lean`](https://github.com/leanprover/con-leche/blob/master/Main.lean#L706-L716))
+   that adds one step per record in stream order while worker threads
+   install the definitions, theorems and opaques ahead of it, each at a
+   *worker view*: an empty index over a frozen base layer that maps
+   every name the stream will install, predicted from the records, to
+   the record that installs it, visible below the record's own
+   position, and answering from that record's install once it is done.
+   The commit loop keeps the view's lookups equal to the serial index's
+   (checking, per constant it pushes, that the predicted slot holds that
+   very constant), so a worker's install is the serial step
+   ([theorem `valueStep_commit` in `ConLeche/Cached/ParInstall.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Cached/ParInstall.lean#L457-L462)):
+   the cached core reads its environment through the lookup alone.
+   Every other record the main thread installs itself at the serial
+   index, which stays canonical
+   ([theorem `annotStepC_skels` in `ConLeche/Cached/InstallShape.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Cached/InstallShape.lean#L1085-L1087)).
+   What it returns is therefore the same installed environment, whatever
+   the schedule. The check phase then checks every recorded declaration
    against the *prefix* of the installed index it was installed at — an
    `O(1)` view whose lookup hides everything installed later — from a
    fresh memo state. A record's check is its own evidence
@@ -299,10 +322,10 @@ Read from the outside in:
    boundary on — is marked persistent once, so that no check pays
    reference counting on it, and the checks are then run on worker
    threads: at `--jobs=1` the check loop
-   ([function `checkLoop` in `Main.lean`](https://github.com/leanprover/con-leche/blob/master/Main.lean#L175))
+   ([function `checkLoop` in `Main.lean`](https://github.com/leanprover/con-leche/blob/master/Main.lean#L177))
    runs it on every record on one such thread and carries every fact;
    otherwise a pool of them
-   ([function `checkPool` in `Main.lean`](https://github.com/leanprover/con-leche/blob/master/Main.lean#L301))
+   ([function `checkPool` in `Main.lean`](https://github.com/leanprover/con-leche/blob/master/Main.lean#L303))
    claims records one at a time off a shared counter, and the results,
    merged by record index, are walked in record order
    ([definition `collectChecks` in `ConLeche/Cached/Installed.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Cached/Installed.lean#L401-L405))
@@ -314,7 +337,7 @@ Read from the outside in:
    it is the identity on the value, its result is discarded, and the
    environment the driver goes on to use is the one it already had. The heartbeat is
    printed between the steps and touches neither type. The driver
-   ([function `checkDeclsIO` in `Main.lean`](https://github.com/leanprover/con-leche/blob/master/Main.lean#L340-L343))
+   ([function `checkDeclsIO` in `Main.lean`](https://github.com/leanprover/con-leche/blob/master/Main.lean#L910-L913))
    turns the fully checked environment into its environment with the
    proof that `checkDecls` returns it
    ([theorem `fullyChecked_checkDecls` in `ConLeche/Cached/Installed.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Cached/Installed.lean#L534-L536)).
@@ -345,7 +368,7 @@ Read from the outside in:
    simulation stated at the truncated environment because the view and
    the truncated environment have the same lookup, and the cached core
    reads its environment through that lookup alone
-   ([theorem `coreKnotI_congr` in `ConLeche/Verify/Cached/KnotCongr.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Cached/KnotCongr.lean#L532-L533)).
+   ([theorem `coreKnotI_congr` in `ConLeche/Cached/KnotCongr.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Cached/KnotCongr.lean#L544-L545)).
    Carried along the install run and then through every record's
    check, the model reaches the final environment
    ([theorem `fullyChecked_sound` in `ConLeche/Model/InstallRun.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/InstallRun.lean#L239-L241)),
@@ -435,7 +458,7 @@ presentation and matter for the proof:
 * **Fuel and memos.** The pure checker is fueled; the cached checker is
   not, but its memos are proved to agree with the pure functions at
   every fuel large enough to succeed
-  ([theorem `checkDecls_skels` in `ConLeche/Verify/Cached/AgreeFloor.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Cached/AgreeFloor.lean#L1285-L1287)).
+  ([theorem `checkDecls_skels` in `ConLeche/Verify/Cached/AgreeFloor.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Cached/AgreeFloor.lean#L59-L61)).
   Binder names and binder infos are not stored at all; `Expr` carries a
   packed hash and loose-variable bounds as computed fields, which is
   what makes traversals of shared terms (DAGs) cheap. The
@@ -1131,7 +1154,7 @@ ConLeche.Kernel.PropWhen`, and every such line carries its reason.
 |---|---|
 | `Main.lean` | The driver: argument parsing, the stream parse, the install and check loops, verdict and exit codes. |
 | `ConLeche/Kernel/` | The pure checker: `Expr`/`Level`/`Name`, `PropWhen`, the mutually recursive core of reduction, inference and conversion (`Core.lean`), declaration checking (`Checker.lean`, `DeclCheck.lean`), the basis pins (`Basis/`), the inductive installer (`Inductives/`: the recogniser `BlockParts.lean`, the positivity check `Positivity.lean`, the entry `checkBlock` with its constructor stages (`Sum*`) and projection tables (`Struct*`), the recursor generator and check `GenRec.lean`, and `ClassRead.lean`, which reads the classes off the stream's recursor types without checking them), the Nat-op pins. Imports no theory module. |
-| `ConLeche/Cached/` | The shipped cached checker: hashed expressions, memo state, the cached core and declaration step, the parsed-record step (`ParsedC.lean`), the declaration fold `checkDecls` with its install and check phases and the fully checked environment the driver assembles (`Installed.lean`). |
+| `ConLeche/Cached/` | The shipped cached checker: hashed expressions, memo state, the cached core and declaration step, the parsed-record step (`ParsedC.lean`), the declaration fold `checkDecls` with its install and check phases and the fully checked environment the driver assembles (`Installed.lean`); the parallel install's commit step (`ParInstall.lean`) and the self-contained verifications it rests on — the core's congruence in the lookup (`KnotCongr.lean`), the index's invariants (`EnvBound.lean`, `BlockOverlay.lean`) and every install step's shape (`InstallShape.lean`, over the install skeletons of `InstallSkel.lean`). |
 | `ConLeche/Frontend/` | The export parser: the dialect's byte recogniser and syntax records (`Scan/`) and the semantic layer over them (`ExportC.lean`), which decodes the file's records and nothing else; the pipelined driver that scans chunks on worker tasks and applies them in order (`Pipeline.lean`); the preparation of the fold's input (`Prepare.lean`, with the built-in prelude of `Prelude.lean` and the reordering of `NatOpGround.lean`, which moves what a pinned Nat operation's certificates mention ahead of it). |
 | `ConLeche/PinGen/` | Elaboration-time generation of the Nat-op pins and certificate proofs; the committed dump lives in `pins/`. |
 | `ConLeche/Term/` | The erased term language, its substitution algebra and the basis constants. |
