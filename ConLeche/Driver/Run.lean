@@ -3,7 +3,7 @@ module
 public import ConLeche.Frontend.Prelude
 public import ConLeche.Driver.ParInstall
 public import ConLeche.Driver.CheckPool
-public import ConLeche.Driver.ParParse
+public import ConLeche.Driver.LazyParse
 
 /-!
 # The driver: `checkDeclsIO` and the phase sequencing (task #329)
@@ -59,14 +59,14 @@ ahead of the applying thread.  Above one worker it is the rounds parse
 scanned ahead.  A chunk is about an eighth of a window's share of the
 file, between 64 KiB and 1 MiB (1 MiB when the size is unknown), so
 that a small file is one window and a large one has many. -/
-def parseInput (file : String) (jobs : Nat) (noMark : Bool) : IO Frontend.ParseOutcome := do
+def parseInput (file : String) (jobs : Nat) (noMark verbose : Bool) : IO Frontend.ParseOutcome := do
   if jobs ≤ 1 then
     Frontend.parseExportStreamP file 2
   else
     let size ← try pure (← System.FilePath.metadata file).byteSize.toNat catch _ => pure 0
     let m := min 256 (4 * jobs)
     let csz := if size == 0 then 1048576 else max 65536 (min 1048576 (size / (8 * m)))
-    ParParse.parseExportStreamR file jobs m csz.toUSize jobs 2 noMark
+    LazyParse.parseExportLazy file jobs m csz.toUSize 2 noMark verbose
 
 /-- The end-of-run statistics (performance-only): the phase times, the
 install's and the check's reports (`PoolRep.line`, the slowest five of
@@ -302,7 +302,7 @@ def checkMain (file : String) (mode : CheckMode) (stride jobs : Nat)
     -- Streaming frontend: the parse reads the file line by line, so
     -- neither a wholesale text buffer nor a scratch file exists in
     -- this process.
-    match (← parseInput file jobs noMark).val with
+    match (← parseInput file jobs noMark (stride > 0)).val with
     | .error (.notImplemented what, _) =>
       IO.eprintln s!"con-leche: declined: {what} ({modeTag})"
       return 2

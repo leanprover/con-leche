@@ -161,15 +161,15 @@ theorem's value is the placeholder `ph vid`, `vid` bound to the serial
 value. -/
 @[expose] def DRel (G : StateD) (d' d : Declaration) : Prop :=
   match d with
-  | .thmDecl cv w => ∃ vid, d' = .thmDecl cv (ph vid) ∧ G.exprs.get? vid = some w
+  | .thmDecl cv w => ∃ vid hint, d' = .thmDecl cv (ph vid hint) ∧ G.exprs.get? vid = some w
   | _ => d' = d
 
 theorem DRel.ext {a b : StateD} (h : Ext a b) {d' d : Declaration} (hd : DRel a d' d) :
     DRel b d' d := by
   cases d with
   | thmDecl cv w =>
-    obtain ⟨vid, h1, h2⟩ := hd
-    exact ⟨vid, h1, h.e vid w h2⟩
+    obtain ⟨vid, hint, h1, h2⟩ := hd
+    exact ⟨vid, hint, h1, h.e vid w h2⟩
   | _ => exact hd
 
 /-- Two lists related member by member. -/
@@ -251,14 +251,14 @@ theorem AccOK.ext {a b : StateD} (h : Ext a b) {acc : LAcc} {gds : List Declarat
 theorem AccOK.push {G : StateD} {acc : LAcc} {gds : List Declaration}
     {L : List (Nat × ExprRec)} (ha : AccOK G acc gds L) {d' d : Declaration}
     (hd : DRel G d' d) : AccOK G (acc.push d') (gds ++ [d]) L := by
-  obtain ⟨ds, cd, si, so, nl⟩ := acc
+  obtain ⟨ds, cd, si, so, nl, fr, rg⟩ := acc
   exact ⟨by simpa [LAcc.push] using Pw.append ha.ds (show Pw (DRel G) [d'] [d] from ⟨hd, trivial⟩),
     ha.cd, ha.sp, ha.lz⟩
 
 theorem AccOK.lazy {G : StateD} {acc : LAcc} {gds : List Declaration}
     {L : List (Nat × ExprRec)} (ha : AccOK G acc gds L) {i : Nat} {x : ExprRec}
     (hf : LazyFact G i x) : AccOK G (acc.lazy i x) gds (L ++ [(i, x)]) := by
-  obtain ⟨ds, cd, si, so, nl⟩ := acc
+  obtain ⟨ds, cd, si, so, nl, fr, rg⟩ := acc
   have hcd : (Flat.wLine cd (.expr i x)).data.toList = encLz (L ++ [(i, x)]) := by
     rw [Flat.wLine_spec, encLz_append, ← ha.cd]
   have hsp : ∀ (so' : Array Nat), SpOK so' L → SpOK so' (L ++ [(i, x)]) := by
@@ -539,7 +539,7 @@ theorem checkLineL_sim {P : Prior} {c c' : Ctr} {r : LineRec} {a a' : LAcc}
             simp only [Option.some.injEq, Prod.mk.injEq] at h
             obtain ⟨rfl, rfl⟩ := h
             obtain ⟨w, hw⟩ := hst.bound hb
-            refine ⟨_, .thmDecl cv w, rfl, rfl, ?_, vid, rfl, hw⟩
+            refine ⟨_, .thmDecl cv w, rfl, rfl, ?_, vid, _, rfl, hw⟩
             have hcv' := cvOfF_mono (lv' := st.level) hmn hst.monoE hcv
             simp [declOf, declOfF, StateD.lk, hcv', StateD.expr_of_get hw, bind, Except.bind,
               pure, Except.pure]
@@ -801,18 +801,21 @@ theorem walkTo_sound {L : List (Nat × ExprRec)} {d : ByteArray} (hd : d.size < 
           Flat.encLine (.expr (L[m]).1 (L[m]).2) ++ encLz (L.drop (m + 1)) := by
         rw [hcd, encLz_take_drop L m, hp, List.drop_left, List.drop_eq_getElem_cons hmL]
         simp only [encLz, List.map_cons, Flat.encElems]
-      obtain ⟨q, h, hq⟩ := withLineU_cases _ d hd p _ hdrop h
-      simp only at h
       split at h
-      · rename_i hij
-        simp only [Option.some.injEq] at h
-        subst h
-        have : (j, (L[m]).2) = L[m] := by
-          simp only [beq_iff_eq] at hij; rw [← hij]
-        rw [this]; exact List.getElem_mem hmL
+      · obtain ⟨q, h, hq⟩ := withLineU_cases _ d hd p _ hdrop h
+        simp only at h
+        split at h
+        · rename_i hij
+          simp only [Option.some.injEq] at h
+          subst h
+          have : (j, (L[m]).2) = L[m] := by
+            simp only [beq_iff_eq] at hij; rw [← hij]
+          rw [this]; exact List.getElem_mem hmL
+        · simp at h
       · split at h
-        · refine ih q (m + 1) (by omega) ?_ h
-          rw [hq, hp, List.take_succ, List.getElem?_eq_getElem hmL]
+        · refine ih _ (m + 1) (by omega) ?_ h
+          rw [Flat.lineEndU_spec _ d hd p _ hdrop, hp, List.take_add_one,
+            List.getElem?_eq_getElem hmL]
           simp only [Option.toList, encLz, List.map_append, encElems_append, List.map_cons,
             List.map_nil, Flat.encElems, List.length_append, List.append_nil]
         · simp at h
@@ -822,9 +825,9 @@ theorem lastLE_lt (a : Array Nat) (j : Nat) :
     ∀ lo hi, lo < hi → lastLE a j lo hi < hi := by
   intro lo hi h
   induction lo, hi using lastLE.induct a j with
-  | case1 lo hi hlt mid hle ih => rw [lastLE, if_pos hlt, if_pos hle]; exact ih (by omega)
-  | case2 lo hi hlt mid hle ih => rw [lastLE, if_pos hlt, if_neg hle]; exact Nat.lt_trans (ih (by omega)) (by omega)
-  | case3 lo hi hlt => rw [lastLE, if_neg hlt]; exact h
+  | case1 lo hi hlt mid hle ih => rw [lastLE, ite_eq_left hlt, ite_eq_left hle]; exact ih (by omega)
+  | case2 lo hi hlt mid hle ih => rw [lastLE, ite_eq_left hlt, ite_eq_right hle]; exact Nat.lt_trans (ih (by omega)) (by omega)
+  | case3 lo hi hlt => rw [lastLE, ite_eq_right hlt]; exact h
 
 theorem LChunk.find_sound {C : LChunk} {L : List (Nat × ExprRec)} (hv : CValid C L) {j : Nat}
     {x : ExprRec} (h : C.find j = some x) : (j, x) ∈ L := by
@@ -855,8 +858,8 @@ theorem LStore.find_sound {S : LStore} {j : Nat} {x : ExprRec} (h : S.find j = s
   simp only [LStore.find] at h
   split at h
   · split at h
-    · rename_i C hC
-      exact ⟨C, Array.mem_toList_iff.mpr (Array.mem_of_getElem? hC), h⟩
+    · rename_i hk
+      exact ⟨_, Array.mem_toList_iff.mpr (Array.getElem_mem hk), h⟩
     · simp at h
   · simp at h
 
@@ -864,75 +867,178 @@ theorem LStore.find_sound {S : LStore} {j : Nat} {x : ExprRec} (h : S.find j = s
 @[expose] def MemoOK (G : StateD) (memo : Memo) : Prop :=
   ∀ k v, memo.get? k = some v → G.exprs.get? k = some v
 
+/-- One line built over the memo: its value is the serial entry. -/
+theorem memo_insert_ok {S : LStore} {G : StateD} (hh : LHolds G S.P S.c) {memo : Memo}
+    (hm : MemoOK G memo) {j : Nat} {x : ExprRec} (hf : LazyFact G j x) {v : Expr}
+    (hv : exprOfF (lkN S.P S.c.n) (lkL S.P S.c.l) (memoLk S memo j) x = .ok v) :
+    MemoOK G (memo.insert j v) := by
+  obtain ⟨v₀, hv1, hv2⟩ := hf
+  have hmono : exprOfF G.name G.level (exprBelow G j) x = .ok v := by
+    refine exprOfF_mono (by rw [hh.name]; exact Mono.refl _)
+      (by rw [hh.level]; exact Mono.refl _) ?_ hv
+    intro k u hk
+    simp only [memoLk] at hk
+    simp only [exprBelow]
+    split at hk
+    · rename_i hkj
+      rw [ite_eq_left hkj]
+      split at hk
+      · rename_i u' hu'
+        simp only [pure, Except.pure, Except.ok.injEq] at hk
+        subst hk
+        exact StateD.expr_of_get (hm k u' hu')
+      · exact hh.monoE k u hk
+    · simp [throw, throwThe, MonadExceptOf.throw] at hk
+  rw [hv2] at hmono
+  cases hmono
+  intro k u hk
+  rw [Std.HashMap.get?_insert] at hk
+  split at hk
+  · rename_i hkj
+    simp only [beq_iff_eq] at hkj
+    subst hkj
+    simp only [Option.some.injEq] at hk; subst hk; exact hv1
+  · exact hm k u hk
+
 theorem buildGo_sound {S : LStore} {G : StateD} (hh : LHolds G S.P S.c)
     (hs : StoreOK G S.chunks) :
-    ∀ (fuel : Nat) (stack : List Nat) (memo memo' : Memo), MemoOK G memo →
-      buildGo S fuel stack memo = some memo' → MemoOK G memo' := by
+    ∀ (fuel : Nat) (stack : List Nat) (memo : Memo), MemoOK G memo →
+      MemoOK G (buildGo S fuel stack memo) := by
   intro fuel
   induction fuel with
-  | zero => intro stack memo memo' _ h; simp [buildGo] at h
+  | zero => intro stack memo hm; simpa [buildGo] using hm
   | succ fuel ih =>
-    intro stack memo memo' hm h
+    intro stack memo hm
     cases stack with
-    | nil => simp only [buildGo, Option.some.injEq] at h; subst h; exact hm
+    | nil => simpa [buildGo] using hm
     | cons j rest =>
-      simp only [buildGo] at h
-      split at h
-      · exact ih _ _ _ hm h
-      · split at h
-        · simp at h
+      simp only [buildGo]
+      split
+      · exact ih _ _ hm
+      · split
+        · exact hm
         · rename_i x hx
           obtain ⟨C, hC, hf⟩ := LStore.find_sound hx
           obtain ⟨L, hv, hl⟩ := hs C hC
-          obtain ⟨v, hv1, hv2⟩ := hl _ (LChunk.find_sound hv hf)
-          split at h
-          · split at h
+          have hfact := hl _ (LChunk.find_sound hv hf)
+          split
+          · split
             · rename_i v' hv'
-              refine ih _ _ _ ?_ h
-              have hmono : exprOfF G.name G.level (exprBelow G j) x = .ok v' := by
-                refine exprOfF_mono (by rw [hh.name]; exact Mono.refl _)
-                  (by rw [hh.level]; exact Mono.refl _) ?_ hv'
-                intro k u hk
-                simp only [memoLk] at hk
-                simp only [exprBelow]
-                split at hk
-                · rename_i hkj
-                  rw [ite_eq_left hkj]
-                  split at hk
-                  · rename_i u' hu'
-                    simp only [pure, Except.pure, Except.ok.injEq] at hk
-                    subst hk
-                    exact StateD.expr_of_get (hm k u' hu')
-                  · exact hh.monoE k u hk
-                · simp [throw, throwThe, MonadExceptOf.throw] at hk
-              rw [hv2] at hmono
-              cases hmono
-              intro k u hk
-              rw [Std.HashMap.get?_insert] at hk
-              split at hk
-              · rename_i hkj
-                simp only [beq_iff_eq] at hkj
-                subst hkj
-                simp only [Option.some.injEq] at hk; subst hk; exact hv1
-              · exact hm k u hk
-            · simp at h
-          · split at h
-            · exact ih _ _ _ hm h
-            · simp at h
+              exact ih _ _ (memo_insert_ok hh hm hfact hv')
+            · exact hm
+          · split
+            · exact ih _ _ hm
+            · exact hm
+
+theorem regionGo_sound {S : LStore} {G : StateD} (hh : LHolds G S.P S.c)
+    (hs : StoreOK G S.chunks) {L : List (Nat × ExprRec)} (hlz : ∀ p ∈ L, LazyFact G p.1 p.2) {d : ByteArray}
+    (hd : d.size < USize.size) (hcd : d.data.toList = encLz L) (vid : Nat) :
+    ∀ (fuel : Nat) (p : USize) (m : Nat) (memo : Memo), m ≤ L.length →
+      p.toNat = (encLz (L.take m)).length → MemoOK G memo →
+      MemoOK G (regionGo S d vid p fuel memo) := by
+  intro fuel
+  induction fuel with
+  | zero => intro p m memo _ _ hm; exact hm
+  | succ fuel ih =>
+    intro p m memo hmL hp hm
+    simp only [regionGo]
+    split
+    · rename_i hpl
+      have hpl' : p.toNat < d.size := by
+        have := USize.lt_iff_toNat_lt.mp hpl
+        rwa [Flat.usize_eq_size hd] at this
+      have hmL' : m < L.length := by
+        by_cases hh' : m < L.length
+        · exact hh'
+        · have : m = L.length := by omega
+          subst this
+          rw [List.take_length] at hp
+          have := congrArg List.length hcd
+          simp only [Array.length_toList, ByteArray.size] at this hpl'
+          omega
+      have hdrop : d.data.toList.drop p.toNat =
+          Flat.encLine (.expr (L[m]).1 (L[m]).2) ++ encLz (L.drop (m + 1)) := by
+        rw [hcd, encLz_take_drop L m, hp, List.drop_left, List.drop_eq_getElem_cons hmL']
+        simp only [encLz, List.map_cons, Flat.encElems]
+      generalize hy : Flat.withLineU d p _ = y
+      obtain ⟨q, hk, hq⟩ := withLineU_cases _ d hd p _ hdrop hy
+      rw [← hk]
+      simp only
+      split
+      · exact hm
+      · have hfact := hlz _ (List.getElem_mem hmL')
+        have hm' : MemoOK G (if memo.contains (L[m]).1 then memo else
+            let memo := match missingKids S memo (exprKids (L[m]).2) with
+              | [] => memo
+              | ms => buildGo S buildFuel ms memo
+            match exprOfF (lkN S.P S.c.n) (lkL S.P S.c.l) (memoLk S memo (L[m]).1) (L[m]).2 with
+            | .ok v => memo.insert (L[m]).1 v
+            | .error _ => memo) := by
+          split
+          · exact hm
+          · have hm1 : MemoOK G (match missingKids S memo (exprKids (L[m]).2) with
+                | [] => memo
+                | ms => buildGo S buildFuel ms memo) := by
+              have hg : ∀ ms, MemoOK G (buildGo S buildFuel ms memo) :=
+                fun ms => buildGo_sound hh hs _ _ _ hm
+              split
+              · exact hm
+              · exact hg _
+            simp only
+            split
+            · rename_i v hv; exact memo_insert_ok hh hm1 hfact hv
+            · exact hm1
+        split
+        · exact hm'
+        · refine ih q (m + 1) _ (by omega) ?_ hm'
+          rw [hq, hp, List.take_add_one, List.getElem?_eq_getElem hmL']
+          simp only [Option.toList, encLz, List.map_append, encElems_append, List.map_cons,
+            List.map_nil, Flat.encElems, List.length_append, List.append_nil]
+    · exact hm
+
+theorem regionIn_sound {S : LStore} {G : StateD} (hh : LHolds G S.P S.c)
+    (hs : StoreOK G S.chunks) {C : LChunk} {L : List (Nat × ExprRec)} (hv : CValid C L)
+    (hl : ∀ p ∈ L, LazyFact G p.1 p.2) (vid hint : Nat) : MemoOK G (regionIn S C vid hint) := by
+  have hempty : MemoOK G {} := fun k v h => by simp at h
+  simp only [regionIn]
+  split
+  · rename_i hcond
+    obtain ⟨m, hm, e⟩ := hv.2 hint hcond.2
+    refine regionGo_sound hh hs hl hcond.1 hv.1 vid _ _ m {} hm ?_ hempty
+    simp only [Nat.toUSize, USize.toNat_ofNat']
+    rw [e]
+    apply Nat.mod_eq_of_lt
+    have h1 : C.cd.data.size = (encLz L).length := by rw [← hv.1]; simp
+    have h2 : C.cd.size = C.cd.data.size := rfl
+    have hle : (encLz (L.take m)).length ≤ (encLz L).length := by
+      rw [encLz_take_drop L m]; simp
+    calc (encLz (L.take m)).length ≤ (encLz L).length := hle
+      _ = C.cd.size := by rw [h2, h1]
+      _ < USize.size := hcond.1
+  · exact hempty
+
+theorem regionOf_sound {S : LStore} {G : StateD} (hh : LHolds G S.P S.c)
+    (hs : StoreOK G S.chunks) (vid hint : Nat) : MemoOK G (regionOf S vid hint) := by
+  have hempty : MemoOK G {} := fun k v h => by simp at h
+  simp only [regionOf]
+  split
+  · split
+    · rename_i hk
+      obtain ⟨L, hv, hl⟩ := hs _ (Array.mem_toList_iff.mpr (Array.getElem_mem hk))
+      exact regionIn_sound hh hs hv hl vid hint
+    · exact hempty
+  · exact hempty
 
 /-- **A value built from the store is the serial table's entry.** -/
 theorem buildVal_sound {S : LStore} {G : StateD} (hh : LHolds G S.P S.c)
-    (hs : StoreOK G S.chunks) {vid : Nat} {v : Expr} (h : buildVal S vid = some v) :
+    (hs : StoreOK G S.chunks) {vid hint : Nat} {v : Expr} (h : buildVal S vid hint = some v) :
     G.exprs.get? vid = some v := by
   simp only [buildVal] at h
   split at h
   · rename_i u hu
     simp only [Option.some.injEq] at h; subst h
     exact StateD.get_of_expr (hh.monoE vid u hu)
-  · split at h
-    · rename_i memo hmemo
-      exact buildGo_sound hh hs _ _ _ _ (fun k v h => by simp at h) hmemo vid v h
-    · simp at h
+  · exact buildGo_sound hh hs _ _ _ (regionOf_sound hh hs vid hint) vid v h
 
 /-! ## The store, the records, the chunks without their bytes -/
 
@@ -947,7 +1053,7 @@ theorem fillDecl_sound {S : LStore} {G : StateD} (hh : LHolds G S.P S.c)
     (he : fillDecl S d' = some e) : e = d := by
   cases d with
   | thmDecl cv w =>
-    obtain ⟨vid, rfl, hw⟩ := hd
+    obtain ⟨vid, hint, rfl, hw⟩ := hd
     simp only [fillDecl, phId?, ph, Option.map_eq_some_iff] at he
     obtain ⟨v, hv, rfl⟩ := he
     rw [buildVal_sound hh hs hv] at hw

@@ -45,12 +45,17 @@ open ConLeche
 /-! ## The theorem placeholder -/
 
 /-- A theorem record's value in the lazy parse: the index of the
-expression line its value is (`phId?` reads it back). -/
-@[inline] def ph (vid : Nat) : Expr := .bvar vid
+expression line its value is (`phId?` reads it back), and a hint where
+its build starts (`phHint`; only a hint). -/
+@[inline] def ph (vid hint : Nat) : Expr := .app (.bvar vid) (.bvar hint)
 
 @[inline] def phId? : Expr → Option Nat
-  | .bvar i => some i
+  | .app (.bvar i) _ => some i
   | _ => none
+
+@[inline] def phHint : Expr → Nat
+  | .app _ (.bvar h) => h
+  | _ => 4294967295
 
 /-! ## The check's lookups -/
 
@@ -96,35 +101,50 @@ def declBuilt (P : @& Prior) (b : Nat) : DeclRec → Bool
 /-! ## The chunk's store
 
 The lazy lines of a chunk, re-encoded one after the other (`cd`), and
-a sparse index: the index and byte offset of every 16th of them. -/
+a sparse index: the index and byte offset of the line that starts each
+REGION — the first lazy line after a declaration line, where the lines
+of the next declaration's value begin — and of every 16th line after
+it.  A theorem's placeholder names its region's entry (`hint`): its
+value is built forward from there (`regionGo`). -/
 
-/-- The check's accumulator: the chunk's records, its lazy lines and
-the sparse index. -/
+/-- The check's accumulator: the chunk's records, its lazy lines, the
+sparse index, the lines since its last entry, whether no lazy line
+followed the last declaration line, and the current region's entry. -/
 structure LAcc where
   ds : Array Declaration
   cd : ByteArray
   spId : Array Nat
   spOff : Array Nat
   nl : Nat
-
-/-- An empty accumulator. -/
-def LAcc.init : LAcc := ⟨#[], .empty, #[], #[], 0⟩
+  fresh : Bool
+  rg : Nat
 
 /-- The sparse index's stride. -/
 def spStride : Nat := 16
 
+/-- No region (a hint past any sparse index). -/
+def noHint : Nat := 4294967295
+
+/-- An empty accumulator. -/
+def LAcc.init : LAcc := ⟨#[], .empty, #[], #[], spStride, true, noHint⟩
+
 /-- A lazy line, kept. -/
 @[inline] def LAcc.lazy (a : LAcc) (i : Nat) (x : ExprRec) : LAcc :=
   match a with
-  | ⟨ds, cd, si, so, nl⟩ =>
-    if nl % spStride == 0 then
-      ⟨ds, Flat.wLine cd (.expr i x), si.push i, so.push cd.size, nl + 1⟩
-    else ⟨ds, Flat.wLine cd (.expr i x), si, so, nl + 1⟩
+  | ⟨ds, cd, si, so, nl, fresh, rg⟩ =>
+    if fresh || spStride ≤ nl then
+      ⟨ds, Flat.wLine cd (.expr i x), si.push i, so.push cd.size, 1, false,
+        if fresh then so.size else rg⟩
+    else ⟨ds, Flat.wLine cd (.expr i x), si, so, nl + 1, false, rg⟩
 
-/-- A record, pushed. -/
+/-- A record, pushed (the next lazy line starts a region). -/
 @[inline] def LAcc.push (a : LAcc) (d : Declaration) : LAcc :=
   match a with
-  | ⟨ds, cd, si, so, nl⟩ => ⟨ds.push d, cd, si, so, nl⟩
+  | ⟨ds, cd, si, so, nl, _, rg⟩ => ⟨ds.push d, cd, si, so, nl, true, rg⟩
+
+/-- The current region's sparse entry, if a lazy line followed the last
+declaration line. -/
+@[inline] def LAcc.hint (a : LAcc) : Nat := if a.fresh then noHint else a.rg
 
 /-! ## The check -/
 
@@ -153,7 +173,7 @@ accumulator, or `none`. -/
     else none
   | .decl (.thm cvr vid) =>
     match cvOfF (lkN P c.n) (lkL P c.l) (lkEB P c.e) cvr with
-    | .ok cv => if boundE P c.e vid then some (c, a.push (.thmDecl cv (ph vid))) else none
+    | .ok cv => if boundE P c.e vid then some (c, a.push (.thmDecl cv (ph vid a.hint))) else none
     | .error _ => none
   | .decl d =>
     if declBuilt P c.e d then
@@ -323,10 +343,15 @@ def walkTo (d : @& ByteArray) (j : Nat) (p : USize) : Nat → Option ExprRec
   | 0 => none
   | fuel + 1 =>
     if p < d.usize then
-      Flat.withLineU d p fun r q =>
-        match r with
-        | .expr i x => if i == j then some x else if i < j then walkTo d j q fuel else none
-        | _ => none
+      -- the index is read first, the line built only when it is `j`
+      let i := (Flat.rNatU d (p + 1)).1
+      if i == j then
+        Flat.withLineU d p fun r _ =>
+          match r with
+          | .expr i x => if i == j then some x else none
+          | _ => none
+      else if i < j then walkTo d j (Flat.lineEndU d p) fuel
+      else none
     else none
 
 /-- The lazy line binding `j`, in chunk `C`. -/
@@ -340,9 +365,9 @@ def walkTo (d : @& ByteArray) (j : Nat) (p : USize) : Nat → Option ExprRec
 @[inline] def LStore.find (S : @& LStore) (j : Nat) : Option ExprRec :=
   if 0 < S.firsts.size && S.firsts.size == S.chunks.size then
     let k := lastLE S.firsts j 0 S.firsts.size
-    match S.chunks[k]? with
-    | some C => C.find j
-    | none => none
+    -- read BORROWED: `S.chunks[k]?` would hand out a reference, an
+    -- atomic count on a chunk every worker reads
+    if h : k < S.chunks.size then S.chunks[k].find j else none
   else none
 
 /-- The builds' memo. -/
@@ -365,34 +390,73 @@ memo. -/
 /-- **The build**, with an explicit stack (no native recursion: a
 value's DAG can be deep): the top index is built once its lazy
 children are in the memo, else they are pushed above it. -/
-def buildGo (S : @& LStore) : Nat → List Nat → Memo → Option Memo
-  | 0, _, _ => none
-  | _ + 1, [], memo => some memo
+def buildGo (S : @& LStore) : Nat → List Nat → Memo → Memo
+  | 0, _, memo => memo
+  | _ + 1, [], memo => memo
   | fuel + 1, j :: rest, memo =>
     if memo.contains j || isOk (lkEB S.P S.c.e j) then buildGo S fuel rest memo
     else
       match S.find j with
-      | none => none
+      | none => memo
       | some x =>
         match missingKids S memo (exprKids x) with
         | [] =>
           match exprOfF (lkN S.P S.c.n) (lkL S.P S.c.l) (memoLk S memo j) x with
           | .ok v => buildGo S fuel rest (memo.insert j v)
-          | .error _ => none
+          | .error _ => memo
         | ms =>
-          if ms.all (· < j) then buildGo S fuel (ms ++ j :: rest) memo else none
+          if ms.all (· < j) then buildGo S fuel (ms ++ j :: rest) memo else memo
 
 /-- The build's step budget: far beyond any value. -/
 def buildFuel : Nat := 1 <<< 62
 
-/-- **A theorem value, built** from its index. -/
-def buildVal (S : @& LStore) (vid : Nat) : Option Expr :=
+/-- **A value's region, built forward**: from byte `p` of a chunk's
+lines, every line up to index `vid` whose children are done is built
+(the others are left to `buildGo`). -/
+def regionGo (S : @& LStore) (d : @& ByteArray) (vid : Nat) (p : USize) : Nat → Memo → Memo
+  | 0, memo => memo
+  | fuel + 1, memo =>
+    if p < d.usize then
+      Flat.withLineU d p fun r q =>
+        match r with
+        | .expr j x =>
+          if vid < j then memo
+          else
+            let memo := if memo.contains j then memo else
+              -- children outside the region (an earlier value's lines)
+              -- first, on demand
+              let memo := match missingKids S memo (exprKids x) with
+                | [] => memo
+                | ms => buildGo S buildFuel ms memo
+              match exprOfF (lkN S.P S.c.n) (lkL S.P S.c.l) (memoLk S memo j) x with
+              | .ok v => memo.insert j v
+              | .error _ => memo
+            if j == vid then memo else regionGo S d vid q fuel memo
+        | _ => memo
+    else memo
+
+/-- The region pass's line budget. -/
+def regionFuel : Nat := 1 <<< 24
+
+/-- The region pass of a value in chunk `C`, from its hint. -/
+@[inline] def regionIn (S : @& LStore) (C : @& LChunk) (vid hint : Nat) : Memo :=
+  if h : C.cd.size < USize.size ∧ hint < C.spOff.size then
+    regionGo S C.cd vid (C.spOff[hint]'h.2).toUSize regionFuel {}
+  else {}
+
+/-- The region pass of a value, from its hint. -/
+def regionOf (S : @& LStore) (vid hint : Nat) : Memo :=
+  if 0 < S.firsts.size && S.firsts.size == S.chunks.size then
+    let k := lastLE S.firsts vid 0 S.firsts.size
+    if h : k < S.chunks.size then regionIn S S.chunks[k] vid hint else {}
+  else {}
+
+/-- **A theorem value, built** from its index (and its region hint). -/
+def buildVal (S : @& LStore) (vid hint : Nat) : Option Expr :=
   match lkEB S.P S.c.e vid with
   | .ok v => some v
   | .error _ =>
-    match buildGo S buildFuel [vid] {} with
-    | some memo => memo.get? vid
-    | none => none
+    (buildGo S buildFuel [vid] (regionOf S vid hint)).get? vid
 
 /-! ## Assembling the store, and filling the records -/
 
@@ -407,7 +471,7 @@ failed, or a theorem's value is not a placeholder). -/
 def fillDecl (S : @& LStore) : Declaration → Option Declaration
   | .thmDecl cv w =>
     match phId? w with
-    | some vid => (buildVal S vid).map (.thmDecl cv ·)
+    | some vid => (buildVal S vid (phHint w)).map (.thmDecl cv ·)
     | none => none
   | d => some d
 
