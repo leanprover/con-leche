@@ -623,7 +623,7 @@ crosses to the next round's worker as one object. -/
   let off := 24 * n
   let a := if off + 24 ≤ a.size then a else a ++ zeros (a.size + 24 * 64)
   put32 (put32 (put32 (put32 (put32 (put32 a off p) (off + 4) wn) (off + 8) wl) (off + 12) we)
-    (off + 16) (blk % 4294967296)) (off + 20) (blk / 4294967296)
+    (off + 16) (blk &&& 4294967295)) (off + 20) (blk >>> 32)
 
 /-- Round 0's result for one chunk. -/
 structure R0 where
@@ -754,7 +754,7 @@ def roundRGo (P : @& Prior) (W : @& Win) (G : @& Geo) (d : @& ByteArray)
     let wn := get32 pend (q + 4)
     let wl := get32 pend (q + 8)
     let we := get32 pend (q + 12)
-    let blk := get32 pend (q + 16) + get32 pend (q + 20) * 4294967296
+    let blk := get32 pend (q + 16) + get32 pend (q + 20) * 65536 * 65536
     if stillBlocked W G tn tl te blk then
       roundRGo P W G d pend (q + 24) n tn tl te (pendPush pend' np pos wn wl we blk) (np + 1) prog
     else if pos < d.size && d.size < USize.size then
