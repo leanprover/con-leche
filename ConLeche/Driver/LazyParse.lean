@@ -151,10 +151,10 @@ the sweep's marks (`round0`'s bitmap): an unmarked expression line is
 bound, not built. -/
 def computeWL (pl : Pool) (cfg : Cfg) (mk : ByteArray) (P : Prior) (c0 : Ctr) (total : Nat)
     (xs : Array LScanned) :
-    IO (Option (Win × Array (Array Name) × Array (Array Level) × Array (Array Expr))) := do
+    IO (Except String (Win × Array (Array Name) × Array (Array Level) × Array (Array Expr))) := do
   let (fits, _) := xs.foldl (fun (ok, t) x => (ok && chunkFitsN x.val.2.1 x.val.1 t,
     t + x.val.2.1)) (true, total)
-  if !fits then return none
+  if !fits then return .error "a chunk does not qualify"
   let mut ps : Array (IO.Promise R0) := #[]
   for i in [0:xs.size] do
     let fc := (xs.getD i default).val.1
@@ -164,14 +164,15 @@ def computeWL (pl : Pool) (cfg : Cfg) (mk : ByteArray) (P : Prior) (c0 : Ctr) (t
       return o))
   let os ← ps.mapM await
   let W := Win.ofRound0 c0 (xs.map (·.val.1.data)) os
-  if !after0 W os then return none
+  if !after0 W os then
+    return .error s!"round 0: {(os.toList.findIdx? (·.bad)).map fun c => s!"anomaly in chunk {c}"}"
   let some W ← roundsIO pl cfg.noMark P W (os.map (·.pend)) (os.map (·.npend)) 0
-    | return none
+    | return .error "the later rounds"
   let cE := W.cEnd
   let nn ← pagesIO pl P.n W.n c0.n cE.n
   let nl ← pagesIO pl P.l W.l c0.l cE.l
   let ne ← pagesIO pl P.e W.e c0.e cE.e
-  return some (W, nn, nl, ne)
+  return .ok (W, nn, nl, ne)
 
 /-- A chunk's lazy check, with the evidence that it is `checkFlatL` of
 the chunk at the given counters. -/
@@ -200,8 +201,8 @@ def startChecksL (pl : Pool) (cfg : Cfg) (P : Prior) (W : Win) (xs : Array LScan
 counters the chunks before reached and passed is one more serial step
 (`LGOK.chunk`); `none` at the first that is not. -/
 def foldChecksL (P : Prior) : List (CheckResL P) → (g : LGSt) → LGOK g → g.P = P →
-    Option { g : LGSt // LGOK g }
-  | [], g, hg, _ => some ⟨g, hg⟩
+    Except String { g : LGSt // LGOK g }
+  | [], g, hg, _ => .ok ⟨g, hg⟩
   | r :: rest, g, hg, hP =>
     if hs : r.s.beq g.c then
       match hr : r.r with
@@ -215,9 +216,9 @@ def foldChecksL (P : Prior) : List (CheckResL P) → (g : LGSt) → LGOK g → g
               rw [← hsz] at hf ⊢
               exact LGOK.chunk hg he hf (by rw [hP, ← Ctr.beq_iff.mp hs, ← r.h, hr]))
             hP
-        else none
-      | none => none
-    else none
+        else .error s!"a chunk does not fit, at line {g.lineNo}"
+      | none => .error s!"a chunk fails its check, at line {g.lineNo}"
+    else .error s!"a chunk's counters, at line {g.lineNo}"
 
 /-- A window whose tables have joined the finished ones and whose
 checks are running. -/
@@ -234,7 +235,7 @@ inductive DoneL where
   | pend (p : PendL)
 
 /-- A window's checks, waited for and folded. -/
-def foldPendL (p : PendL) : IO (Option { g : LGSt // LGOK g }) := do
+def foldPendL (p : PendL) : IO (Except String { g : LGSt // LGOK g }) := do
   have : Nonempty (CheckResL p.g.P) := ⟨⟨default, default, _, rfl⟩⟩
   let cs ← p.cps.mapM await
   return foldChecksL p.g.P cs.toList p.g p.hg rfl
@@ -242,29 +243,29 @@ def foldPendL (p : PendL) : IO (Option { g : LGSt // LGOK g }) := do
 /-- **The windows**, from chunk `i`: a window's tables are computed
 while the window before it is being checked.  `none`: fall back. -/
 partial def winLoop (pl : Pool) (cfg : Cfg) (mk : ByteArray) (xs : Array LScanned) (i : Nat)
-    (d : DoneL) : IO (Option { g : LGSt // LGOK g }) := do
+    (d : DoneL) : IO (Except String { g : LGSt // LGOK g }) := do
   let win := xs.extract i (i + cfg.m)
-  let comp ← if win.isEmpty then pure none else
+  let comp ← if win.isEmpty then pure (.error "") else
     match d with
     | .ready g _ => computeWL pl cfg mk g.P g.c g.total win
     | .pend p => computeWL pl cfg mk p.g.P p.cEnd p.tEnd win
   let r ← match d with
-    | .ready g hg => pure (some ⟨g, hg⟩)
+    | .ready g hg => pure (.ok ⟨g, hg⟩)
     | .pend p => foldPendL p
   match r with
-  | none => return none
-  | some ⟨g, hg⟩ =>
-    if win.isEmpty then return some ⟨g, hg⟩
+  | .error e => return .error e
+  | .ok ⟨g, hg⟩ =>
+    if win.isEmpty then return .ok ⟨g, hg⟩
     match comp with
-    | none => return none
-    | some (W, nn, nl, ne) =>
+    | .error e => return .error s!"window at chunk {i}: {e}"
+    | .ok (W, nn, nl, ne) =>
       if hk : g.P.keeps g.c nn nl ne then
         let P' := g.P.setFrom g.c nn nl ne
         let g1 : LGSt := { g with P := P' }
         let cps ← startChecksL pl cfg P' W win
         let tEnd := win.foldl (fun t x => t + x.val.2.1) g.total
         winLoop pl cfg mk xs (i + cfg.m) (.pend ⟨g1, LGOK.keep hg hk, cps, W.cEnd, tEnd⟩)
-      else return none
+      else return .error s!"window at chunk {i}: the tables do not keep"
 
 /-! ## The theorem values -/
 
@@ -310,6 +311,7 @@ def fillAll (pl : Pool) (jobs : Nat) (S : LStore) (ds : Array Declaration) :
 left anything lazy. -/
 structure LInfo where
   fallbacks : Nat
+  why : String := ""
   lazyLines : Nat
   /-- phase times (ms): read and scan, line starts, sweep, windows -/
   times : Array Nat := #[]
@@ -372,7 +374,7 @@ def parseExportLazyInfo (path : System.FilePath) (jobs m : Nat) (csz : USize) (i
   let nLines := xs.foldl (fun a x => a + x.val.1.count) 0
   let marks ← IO.lazyPure fun _ =>
     if maxId < 16 * nLines + 67108864 then
-      let z := zeros (maxId / 8 + 1)
+      let z := zeroBytes (maxId / 8 + 1)
       (List.range xs.size).foldr (fun c (m : SwMarks) =>
         let x := xs.getD c default
         sweepChunk x.val.1.data (ls.getD c default).1 x.val.1.count m) ⟨z, z⟩
@@ -380,11 +382,11 @@ def parseExportLazyInfo (path : System.FilePath) (jobs m : Nat) (csz : USize) (i
   let t3 ← IO.monoMsNow
   -- 3. the windows
   match ← winLoop pl cfg marks.mkd xs 0 (.ready LGSt.init LGOK.init) with
-  | none =>
+  | .error why =>
     pl.shutdown
     let r ← serialL path inflight .init .empty 0 0 Reached.init xs.toList
-    return (.eager r, ⟨1, 0, #[]⟩)
-  | some ⟨g, hg⟩ =>
+    return (.eager r, ⟨1, why, 0, #[]⟩)
+  | .ok ⟨g, hg⟩ =>
     pl.shutdown
     let t4 ← IO.monoMsNow
     let S := LStore.ofChunks g.S g.P g.c
@@ -392,7 +394,7 @@ def parseExportLazyInfo (path : System.FilePath) (jobs m : Nat) (csz : USize) (i
     return (.lazy ⟨g.ds, S⟩ (by
         obtain ⟨cs, stF, hcs, hh, hd, hs⟩ := LGOK.finish hg
         exact ⟨cs, stF, hcs, hh, hs.ofChunks g.P g.c, hd⟩),
-      ⟨0, nLazy, #[t1 - t0, t2 - t1, t3 - t2, t4 - t3]⟩)
+      ⟨0, "", nLazy, #[t1 - t0, t2 - t1, t3 - t2, t4 - t3]⟩)
 
 /-- **The lazy parse of a file**; with `verbose`, its phase times on
 stderr. -/
@@ -401,7 +403,7 @@ def parseExportLazy (path : System.FilePath) (jobs m : Nat) (csz : USize) (infli
   let (r, info) ← parseExportLazyInfo path jobs m csz inflight noMark
   if verbose then
     IO.eprintln s!"con-leche: lazy parse: {info.lazyLines} sparse entries, {info.fallbacks} \
-      fallbacks, phases {info.times} ms"
+      fallbacks {info.why}, phases {info.times} ms"
   return r
 
 end ConLeche.Driver.LazyParse

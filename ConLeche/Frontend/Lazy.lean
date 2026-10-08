@@ -237,6 +237,14 @@ unmarked line's children, and every theorem value, are noted in `nd`
 (needed by the lazy builds).  The sweep validates nothing: what it
 marks only decides what the rounds build. -/
 
+/-- A bitmap of `n` zero bytes (doubling copies; `zeros` stops at 4 MiB). -/
+def zeroBytes (n : Nat) : ByteArray :=
+  go (zeros 64) 64
+where
+  go (b : ByteArray) : Nat → ByteArray
+    | 0 => b.extract 0 n
+    | fuel + 1 => if b.size ≥ n then b.extract 0 n else go (b ++ b) fuel
+
 /-- Bit `i` of a bitmap. -/
 @[inline] def bitGet (bm : @& ByteArray) (i : Nat) : Bool :=
   let b := i / 8
@@ -301,13 +309,41 @@ where
         | .expr i _ => go d q k acc (max mx i)
         | _ => go d q k acc mx
 
-/-- The sweep of one chunk, backward: lines `k - 1` down to `0`. -/
+/-- One line of the sweep at byte `p`, decoded. -/
+@[noinline] def sweepSlow (d : @& ByteArray) (p : USize) (m : SwMarks) : SwMarks :=
+  Flat.withLineU d p fun r _ => sweepLine m r
+
+/-- A child index read in place, marked or noted (`0xFFFFFFFF`: not in
+place; the caller takes the slow path). -/
+@[inline] def sweepKid (mk : Bool) (m : SwMarks) (x : UInt32) : SwMarks :=
+  if mk then m.mark x.toNat else m.need x.toNat
+
+/-- **The sweep of one chunk, backward**: lines `k - 1` down to `0`.
+The expression lines with children (`app`, `lam`, `forallE`, `letE`,
+`proj`) are read in place, their fields at fixed offsets; a
+declaration line, or a field too large for four bytes, is decoded. -/
 def sweepChunk (d : @& ByteArray) (st : @& ByteArray) (k : Nat) (m : SwMarks) : SwMarks :=
   match k with
   | 0 => m
   | k + 1 =>
     let p := (get32 st (4 * k)).toUSize
-    sweepChunk d st k (Flat.withLineU d p fun r _ => sweepLine m r)
+    let t := Flat.byteU d p
+    if t == 0 || t == 1 || t == 2 || t == 6 || t == 9 then
+      let i := Flat.r4U d (p + 1)
+      let a := Flat.r4U d (p + 5)
+      let b := Flat.r4U d (p + 9)
+      let c := if t == 6 || t == 9 then Flat.r4U d (p + 13) else 0
+      if i == 0xFFFFFFFF || a == 0xFFFFFFFF || b == 0xFFFFFFFF || c == 0xFFFFFFFF then
+        sweepChunk d st k (sweepSlow d p m)
+      else
+        let mk := bitGet m.mkd i.toNat
+        let m := if t == 9 then sweepKid mk m c
+          else
+            let m := sweepKid mk (sweepKid mk m a) b
+            if t == 6 then sweepKid mk m c else m
+        sweepChunk d st k m
+    else if t == 16 then sweepChunk d st k (sweepSlow d p m)
+    else sweepChunk d st k m
 
 /-! ## The store and the builds
 

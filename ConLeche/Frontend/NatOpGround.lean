@@ -107,16 +107,21 @@ def isNatOpRecord : Declaration → Option Name
 whether it is a pinned operation's. -/
 def declShape (d : Declaration) : List Name × Option Name := (d.names, isNatOpRecord d)
 
-/-- **The hoist's gate, from names alone** (task #329): some pinned
-operation's ground name is declared by a LATER record.  Without it the
-hoist is the identity, and nothing reads a record's types or values to
-know it — the lazy parse (`ConLeche/Driver/LazyParse.lean`) hands the
-preparation records whose theorem values are not built. -/
-def groundLateS (sh : Array (List Name × Option Name)) : Bool := Id.run do
+/-- Name ↦ the index of the first record declaring it (the first, on a
+duplicate — the fold rejects the second anyway). -/
+def nameIdx (sh : Array (List Name × Option Name)) : Std.HashMap Name Nat := Id.run do
   let mut idx : Std.HashMap Name Nat := {}
   for i in [0:sh.size] do
     for n in sh[i]!.1 do
       if !idx.contains n then idx := idx.insert n i
+  return idx
+
+/-- **The hoist's gate, from names alone** (task #329): some pinned
+operation's ground name is declared by a LATER record.  Without it the
+hoist is the identity, and nothing reads a record's types or values to
+know it. -/
+def groundLateS (sh : Array (List Name × Option Name)) : Bool := Id.run do
+  let idx := nameIdx sh
   let mut late := false
   for i in [0:sh.size] do
     let some c := sh[i]!.2 | continue
@@ -128,34 +133,83 @@ def groundLateS (sh : Array (List Name × Option Name)) : Bool := Id.run do
 /-- The gate on a record array. -/
 def groundLate (ds : Array Declaration) : Bool := groundLateS (ds.map declShape)
 
-/-- The targets, computed (after the gate). -/
-def hoistTargetsGo (ds : Array Declaration) : Std.HashMap Nat Nat := Id.run do
-  -- name ↦ the index of the record declaring it (the first, on a
-  -- duplicate — the fold rejects the second anyway)
-  let mut idx : Std.HashMap Name Nat := {}
-  for i in [0:ds.size] do
-    for n in ds[i]!.names do
-      if !idx.contains n then idx := idx.insert n i
-  -- moved record ↦ the earliest operation index it must precede
-  let mut target : Std.HashMap Nat Nat := {}
-  for i in [0:ds.size] do
-    let some c := isNatOpRecord ds[i]! | continue
-    for g in natOpDeps c do
-      let some j := idx[g]? | continue
-      unless j > i do continue
-      -- the closure of `j` within the records after `i`
-      let mut stack : Array Nat := #[j]
-      while h : stack.size > 0 do
-        let k := stack[stack.size - 1]
-        stack := stack.pop
-        match target[k]? with
-        | some t => if t ≤ i then continue
-        | none => pure ()
-        target := target.insert k i
-        for n in ds[k]!.usedConsts do
-          if let some m := idx[n]? then
-            if m > i && m != k then stack := stack.push m
-  return target
+/-! ### The targets, over a lookup of the records' constants
+
+The walk reads the constants of the records it moves through `uc`
+(record index ↦ its constants, `none` when they are not known), and
+nothing else of a record: the serial preparation hands it every
+record's `usedConsts`; the lazy driver's records leave a theorem's
+unknown (its value is not built), and a walk that meets one does not
+finish (`none`).  A walk that finishes reads only records whose
+constants are known, so it is the serial walk (`hoistTargetsU_mono`,
+`ConLeche/Verify/Frontend/LazyPrepare.lean`). -/
+
+/-- The records record `k`'s constants bring into the walk (those
+declared after the operation at `i`), pushed onto the stack. -/
+def hoistPushes (idx : Std.HashMap Name Nat) (i k : Nat) (us : Array Name) (st : List Nat) :
+    List Nat :=
+  us.foldl (fun st n => match idx[n]? with
+    | some m => if m > i && m != k then m :: st else st
+    | none => st) st
+
+/-- Record `k` already moves at least as far as the operation at `i`. -/
+@[inline] def movedBy (t : Std.HashMap Nat Nat) (k i : Nat) : Bool :=
+  match t[k]? with
+  | some tk => decide (tk ≤ i)
+  | none => false
+
+/-- The closure of the operation at `i`, within the records after it:
+each record popped is moved to `i` unless it already moves at least as
+far, and its constants' records are pushed. -/
+def hoistWalk (idx : Std.HashMap Name Nat) (uc : Nat → Option (Array Name)) (i : Nat) :
+    Nat → List Nat → Std.HashMap Nat Nat → Option (Std.HashMap Nat Nat)
+  | 0, _, _ => none
+  | _ + 1, [], t => some t
+  | fuel + 1, k :: st, t =>
+    if movedBy t k i then hoistWalk idx uc i fuel st t
+    else
+      match uc k with
+      | some us => hoistWalk idx uc i fuel (hoistPushes idx i k us st) (t.insert k i)
+      | none => none
+
+/-- The walk's step budget: far beyond any stream. -/
+def hoistFuel : Nat := 1 <<< 62
+
+/-- The ground names of the operation at `i`, each declared after it,
+walked. -/
+def hoistDeps (idx : Std.HashMap Name Nat) (uc : Nat → Option (Array Name)) (i : Nat) :
+    List Name → Std.HashMap Nat Nat → Option (Std.HashMap Nat Nat)
+  | [], t => some t
+  | g :: gs, t =>
+    match idx[g]? with
+    | some j =>
+      if j > i then
+        match hoistWalk idx uc i hoistFuel [j] t with
+        | some t => hoistDeps idx uc i gs t
+        | none => none
+      else hoistDeps idx uc i gs t
+    | none => hoistDeps idx uc i gs t
+
+/-- Every pinned operation from record `i` on. -/
+def hoistOps (sh : Array (List Name × Option Name)) (idx : Std.HashMap Name Nat)
+    (uc : Nat → Option (Array Name)) (i : Nat) (t : Std.HashMap Nat Nat) :
+    Option (Std.HashMap Nat Nat) :=
+  if i < sh.size then
+    match sh[i]!.2 with
+    | some c =>
+      match hoistDeps idx uc i (natOpDeps c) t with
+      | some t => hoistOps sh idx uc (i + 1) t
+      | none => none
+    | none => hoistOps sh idx uc (i + 1) t
+  else some t
+termination_by sh.size - i
+
+/-- **Which records must move, and how far**, over a lookup of the
+records' constants: the map from a record's index to the earliest
+pinned-operation index it must precede. -/
+def hoistTargetsU (sh : Array (List Name × Option Name)) (uc : Nat → Option (Array Name)) :
+    Option (Std.HashMap Nat Nat) :=
+  hoistOps sh (nameIdx sh) uc 0 {}
 
 /-- **Which records must move, and how far**: the map from a record's
 index to the earliest pinned-operation index it must precede.  Empty —
@@ -163,7 +217,9 @@ and then the hoist is the identity — on every stream whose ground
 precedes its operations, which the names-only gate (`groundLate`)
 decides first. -/
 def hoistTargets (ds : Array Declaration) : Std.HashMap Nat Nat :=
-  if groundLate ds then hoistTargetsGo ds else {}
+  if groundLate ds then
+    (hoistTargetsU (ds.map declShape) (fun k => some ds[k]!.usedConsts)).getD {}
+  else {}
 
 /-- **The reorder**: a moved record sorts at its target, just ahead of
 the operation record there (key `(t, 0, k)` against the operation's
