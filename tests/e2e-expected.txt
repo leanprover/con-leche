@@ -2783,3 +2783,16 @@
 # and runs out of the lazy-delta fuel (exit 3; the first CHEAPPROJ
 # attempt, commit 48fce542, did that).  Official accepts.
 0 proj_lazy_struct.ndjson
+# The parallel install (task #329; scripts/mk_pinstall_fixtures.py):
+# 3000 definitions whose dependencies form a tree of depth log N, so the
+# install pool installs many at once.  `pinstall_ok` accepts; the
+# battery's install-pool section also runs it with
+# `--install-fallback-at`, the path a slot mismatch takes.
+# `pinstall_reject_mid` rejects `c1500` (an undeclared constant in its
+# type) and `pinstall_dup` rejects the second `c7`, two thousand records
+# after the first: the same verdict and the same named declaration at
+# every worker count, although the pool may have installed records past
+# the rejection.
+0 pinstall_ok.ndjson
+1 pinstall_reject_mid.ndjson
+1 pinstall_dup.ndjson

@@ -577,6 +577,46 @@ jobs_check "--jobs=x is a usage error (exit 3)" "$([ "$j_cx" = 3 ] && echo ok)"
 jobs_check "bare --jobs is a usage error (exit 3)" "$([ "$j_cbare" = 3 ] && echo ok)"
 echo "worker pool: $jobs_ok/$jobs_total as expected"
 
+# The install pool (task #329).  At --jobs=<n> > 1 the definitions,
+# theorems and opaques are installed on <n> workers, each against a view
+# of the records before it, and committed in stream order by the main
+# thread, so the installed environment — and a rejection, with the
+# declaration it names — is the one-thread install's.  Checked here on
+# the parallel-install fixtures (scripts/mk_pinstall_fixtures.py): the
+# output at --jobs=8 and --jobs=32 equals --jobs=1's on a rejection in
+# the middle of the stream and on a duplicate declaration far from its
+# first occurrence, and the fallback path (`--install-fallback-at=<k>`,
+# what a slot mismatch does — no stream reaches it) gives the same
+# verdict wherever it is taken: at the first record, mid-stream, after
+# the rejection, and at the last record.
+pinst_ok=0
+pinst_total=0
+pinst_check() { # <description> <condition-result>
+  pinst_total=$((pinst_total+1))
+  if [ "$2" = ok ]; then
+    pinst_ok=$((pinst_ok+1))
+  else
+    echo "INSTALL POOL FAIL: $1"; fail=1
+  fi
+}
+pinst_run() { # <args...>: stdout+stderr, timings stripped, exit code appended
+  local out code
+  out=$(timeout 120 "$BIN" "$@" 2>&1); code=$?
+  printf '%s\nexit %s\n' "$(printf '%s' "$out" | sed 's/ t=[0-9.]*s$//')" "$code"
+}
+for f in pinstall_ok pinstall_reject_mid pinstall_dup; do
+  ref=$(pinst_run --jobs=1 "tests/e2e/$f.ndjson")
+  for jn in 8 32; do
+    got=$(pinst_run --jobs=$jn "tests/e2e/$f.ndjson")
+    pinst_check "$f at --jobs=$jn is --jobs=1's" "$([ "$got" = "$ref" ] && echo ok)"
+  done
+  for k in 0 1000 2000 2999; do
+    got=$(pinst_run --jobs=8 --install-fallback-at=$k "tests/e2e/$f.ndjson")
+    pinst_check "$f with the fallback at $k is --jobs=1's" "$([ "$got" = "$ref" ] && echo ok)"
+  done
+done
+echo "install pool: $pinst_ok/$pinst_total as expected"
+
 # THE DAG-TOWER GATE (tasks #215, #226).  The frontend tree-size budget
 # is gone; what stands in its place is a fixture, not a limit.
 # `tests/e2e/tower_*.ndjson` (scripts/mk_tower_fixtures.py) put a shared
