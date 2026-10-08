@@ -722,10 +722,10 @@ carries the model, every record's declared constant is stored — with its
 name, its level parameters and the annotation of its type — and is still
 there at the end.  The hypotheses are `installRun_model`'s. -/
 theorem installRun_declares (hμ : μ.verifiedChecks = true) {ds : List Declaration}
-    {p : Nat × FEnv × Array PendingCheck} {s : CState}
-    {q : Nat × FEnv × Array PendingCheck} {s' : CState}
-    (hrun : InstallRun μ pins ds p s q s') :
-    p.2.1 = mkFEnv p.2.1.env → EnvModelOk V μ p.2.1.env → CSOKF s →
+    {p : Nat × FEnv × Array PendingCheck}
+    {q : Nat × FEnv × Array PendingCheck}
+    (hrun : InstallRun μ pins ds p q) :
+    p.2.1 = mkFEnv p.2.1.env → EnvModelOk V μ p.2.1.env →
     NodupNames q.2.1.env →
     (∀ pc ∈ q.2.2.toList, ∃ s'', checkPending μ q.2.1 pc {} = .ok ((), s'')) →
     ∀ pd ∈ ds, ∀ cv : ConstantVal, Declaration.Declares pd cv →
@@ -733,23 +733,23 @@ theorem installRun_declares (hμ : μ.verifiedChecks = true) {ds : List Declarat
         c.toConstantVal.levelParams = cv.levelParams ∧
         AnnotOf cv.type c.toConstantVal.type := by
   induction hrun with
-  | nil p s => exact fun _ _ _ _ _ pd hmem => absurd hmem List.not_mem_nil
-  | @cons pd ds p p₁ q s s₁ s' hstep rest ih =>
-    intro hfe hm hresA hnd hB pd' hmem cv hcv
+  | nil p => exact fun _ _ _ _ pd hmem => absurd hmem List.not_mem_nil
+  | @cons pd ds p p₁ q hstep rest ih =>
+    intro hfe hm hnd hB pd' hmem cv hcv
     obtain ⟨i, fe, pend⟩ := p
-    obtain ⟨fe₁, pend₁, rfl, hstepC⟩ := annotDeclStep_ok hstep
+    obtain ⟨fe₁, pend₁, s₁, rfl, hstepC⟩ := annotDeclStep_ok hstep
     simp only at hfe hstepC
     obtain ⟨hpush₁, -⟩ :=
-      annotStepC_push μ i (PushChain.self hfe) pend pd s (fe₁, pend₁) s₁ hstepC
+      annotStepC_push μ i (PushChain.self hfe) pend pd {} (fe₁, pend₁) s₁ hstepC
     have hfe₁ : fe₁ = mkFEnv fe₁.env := hpush₁.canon
     obtain ⟨hchainF, new₁, hpend₁⟩ := installRun_trace μ rest (PushChain.self hfe₁)
-    obtain ⟨hm₁, hres₁, F, hF⟩ :=
-      annotStepC_model (V := V) hμ hfe hfe₁ hm hresA hstepC hchainF hpend₁ hnd hB
+    obtain ⟨hm₁, -, F, hF⟩ :=
+      annotStepC_model (V := V) hμ hfe hfe₁ hm CSOKF.empty hstepC hchainF hpend₁ hnd hB
     rcases List.mem_cons.mp hmem with rfl | hmem'
     · obtain ⟨c, hc, h1, h2, h3⟩ := checkDecl_declares hF hcv
       obtain ⟨new, hnew⟩ := hchainF.2.1
       exact ⟨c, by rw [hnew]; exact List.mem_append_right _ hc, h1, h2, h3⟩
-    · exact ih hfe₁ hm₁ hres₁ hnd hB pd' hmem' cv hcv
+    · exact ih hfe₁ hm₁ hnd hB pd' hmem' cv hcv
 
 /-! ## The theorem -/
 
@@ -768,12 +768,12 @@ theorem checkDecls_consts (V : Type w) [SetTheory V]
       c.toConstantVal.levelParams = cv.levelParams ∧
       AnnotOf cv.type c.toConstantVal.type := by
   obtain ⟨fc, rfl⟩ := checkDecls_fullyChecked _ accepted
-  obtain ⟨n, st, run⟩ := fc.1.run
+  obtain ⟨n, run⟩ := fc.1.run
   have hchain := installRun_trace _ run (PushChain.refl Env.empty)
   have hnd : NodupNames fc.1.fe.env := hchain.1.2.2 List.nodup_nil
   obtain ⟨c, hc, h1, h2, h3⟩ :=
     installRun_declares (V := V) rfl run rfl
-      EnvModelOk.empty CSOKF.empty
+      EnvModelOk.empty
       hnd fc.records pd (Array.mem_toList_iff.mpr hmem) cv hcv
   exact ⟨c, h1 ▸ find?_of_mem_nodup hnd hc, h2, h3⟩
 

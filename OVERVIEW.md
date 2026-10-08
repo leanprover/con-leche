@@ -272,7 +272,7 @@ Read from the outside in:
    — index resolution, the smart constructors — is the
    semantic layer the main corollary's line lemmas are about. The install loop
    ([function `installLoop` in `Main.lean`](https://github.com/leanprover/con-leche/blob/master/Main.lean#L99))
-   takes every record through the install step
+   takes every record, each from a fresh memo state, through the install step
    ([function `annotStepC` in `ConLeche/Cached/Installed.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Cached/Installed.lean#L148-L151)):
    a definition or opaque is annotated and pushed with its check
    *recorded* — the annotated header and value and the number of

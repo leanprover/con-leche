@@ -75,13 +75,13 @@ Whatever it prints between steps is irrelevant to that type, which is
 why ONE loop serves the plain run and the `--progress` heartbeat
 alike.
 
-**Written tail-recursively, threading `p` and `s` LINEARLY**: a
+**Written tail-recursively, threading `p` LINEARLY**: a
 `for … in ds` loop with `let mut` accumulators desugars to code that
-`lean_inc`s both the `FEnv` and the `CState` before each step, so
+`lean_inc`s the `FEnv` before each step, so
 `lean_is_exclusive` is false at the index inserts and every hashmap
 copies its bucket array per declaration — quadratic at Mathlib
-scale.  Here the previous `p`/`s` are dead at the
-recursive call, so the C carries no `lean_inc` of either before the
+scale.  Here the previous `p` is dead at the
+recursive call, so the C carries no `lean_inc` of it before the
 step, and the cost per declaration is flat.  The run is carried in the
 SNOC direction (`InstallRun.snoc`) precisely so that the call stays a
 tail call: a cons-direction proof would wrap the result on the way
@@ -99,17 +99,15 @@ two drift apart by a stream-dependent amount.  Calibrate by NAME. -/
 def installLoop (mode : ConLeche.CheckMode) (err : IO.FS.Stream)
     (stride total t0 : Nat)
     (ds : Array ConLeche.Declaration)
-    (p₀ : Nat × ConLeche.FEnv × Array ConLeche.Cached.PendingCheck) (s₀ : ConLeche.Cached.CState) :
+    (p₀ : Nat × ConLeche.FEnv × Array ConLeche.Cached.PendingCheck) :
     (i : Nat) →
     (p : Nat × ConLeche.FEnv × Array ConLeche.Cached.PendingCheck) →
-    (s : ConLeche.Cached.CState) →
-    ConLeche.Cached.InstallRun mode ConLeche.natOpPinSets (ds.toList.take i) p₀ s₀ p s →
+    ConLeche.Cached.InstallRun mode ConLeche.natOpPinSets (ds.toList.take i) p₀ p →
       IO (Except (ConLeche.CheckError × Nat)
-        (Σ' (p' : Nat × ConLeche.FEnv × Array ConLeche.Cached.PendingCheck)
-          (s' : ConLeche.Cached.CState),
+        (Σ' (p' : Nat × ConLeche.FEnv × Array ConLeche.Cached.PendingCheck),
           PLift (ConLeche.Cached.InstallRun mode ConLeche.natOpPinSets
-            ds.toList p₀ s₀ p' s')))
-  | i, p, s, hrun => do
+            ds.toList p₀ p')))
+  | i, p, hrun => do
     if hi : i < ds.size then
       let pd := ds[i]
       if stride > 0 && p.1 % stride == 0 then
@@ -118,9 +116,9 @@ def installLoop (mode : ConLeche.CheckMode) (err : IO.FS.Stream)
           {ConLeche.Cached.declCLabel pd} \
           t={ConLeche.Cached.msSecs (now - t0)}s\n"
         err.flush
-      match h : ConLeche.Cached.annotDeclStep mode ConLeche.natOpPinSets p pd s with
-      | .ok (p₁, s₁) =>
-        installLoop mode err stride total t0 ds p₀ s₀ (i + 1) p₁ s₁ (by
+      match h : ConLeche.Cached.annotDeclStep mode ConLeche.natOpPinSets p pd with
+      | .ok p₁ =>
+        installLoop mode err stride total t0 ds p₀ (i + 1) p₁ (by
           have hlist : ds.toList.take (i + 1) = ds.toList.take i ++ [pd] := by
             rw [List.take_add_one]
             simp [pd, Array.getElem?_eq_getElem hi]
@@ -128,7 +126,7 @@ def installLoop (mode : ConLeche.CheckMode) (err : IO.FS.Stream)
           exact ConLeche.Cached.InstallRun.snoc mode hrun h)
       | .error e => return .error e
     else
-      return .ok ⟨p, s, ⟨by
+      return .ok ⟨p, ⟨by
         rw [List.take_of_length_le (by simp; omega)] at hrun
         exact hrun⟩⟩
   termination_by i => ds.size - i
@@ -341,8 +339,8 @@ def checkDeclsIO (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride total 
       err.flush
   let secs (ms : Nat) : String := ConLeche.Cached.msSecs ms
   match ← installLoop mode err stride total t0 ds
-      (0, ConLeche.mkFEnv ConLeche.Env.empty, #[]) {} 0
-      (0, ConLeche.mkFEnv ConLeche.Env.empty, #[]) {} (.nil _ _) with
+      (0, ConLeche.mkFEnv ConLeche.Env.empty, #[]) 0
+      (0, ConLeche.mkFEnv ConLeche.Env.empty, #[]) (.nil _) with
   | .error e =>
     let now ← IO.monoMsNow
     heartbeat s!"install failed at {e.2}/{total} t={secs (now - t0)}s \
@@ -350,9 +348,9 @@ def checkDeclsIO (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride total 
     heartbeat s!"done: parse {secs (tParse - t0)}s, install {secs (now - tParse)}s, \
       check not reached t={secs (now - t0)}s"
     return .error e
-  | .ok ⟨(n, fe, pend), s, ⟨r⟩⟩ =>
+  | .ok ⟨(n, fe, pend), ⟨r⟩⟩ =>
     let e : ConLeche.Cached.InstalledEnv mode ConLeche.natOpPinSets ds.toList :=
-      ⟨fe, pend, ⟨n, s, r⟩⟩
+      ⟨fe, pend, ⟨n, r⟩⟩
     let tCheck ← IO.monoMsNow
     heartbeat s!"install done: {total}/{total} declarations installed, \
       {pend.size} checks pending t={secs (tCheck - t0)}s \

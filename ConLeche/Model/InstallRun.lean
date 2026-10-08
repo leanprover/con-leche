@@ -212,27 +212,27 @@ produced them.)  A theorem's record holds its RAW value: phase A
 installed the header alone, and phase B's check — which annotates the
 value — is what the theorem's model step consumes. -/
 theorem installRun_model (hμ : μ.verifiedChecks = true) {ds : List Declaration}
-    {p : Nat × FEnv × Array PendingCheck} {s : CState}
-    {q : Nat × FEnv × Array PendingCheck} {s' : CState}
-    (hrun : InstallRun μ pins ds p s q s') :
-    p.2.1 = mkFEnv p.2.1.env → EnvModelOk V μ p.2.1.env → CSOKF s →
+    {p : Nat × FEnv × Array PendingCheck}
+    {q : Nat × FEnv × Array PendingCheck}
+    (hrun : InstallRun μ pins ds p q) :
+    p.2.1 = mkFEnv p.2.1.env → EnvModelOk V μ p.2.1.env →
     NodupNames q.2.1.env →
     (∀ pc ∈ q.2.2.toList, ∃ s'', checkPending μ q.2.1 pc {} = .ok ((), s'')) →
     EnvModelOk V μ q.2.1.env := by
   induction hrun with
-  | nil p s => exact fun _ hm _ _ _ => hm
-  | @cons pd ds p p₁ q s s₁ s' hstep rest ih =>
-    intro hfe hm hresA hnd hB
+  | nil p => exact fun _ hm _ _ => hm
+  | @cons pd ds p p₁ q hstep rest ih =>
+    intro hfe hm hnd hB
     obtain ⟨i, fe, pend⟩ := p
-    obtain ⟨fe₁, pend₁, rfl, hstepC⟩ := annotDeclStep_ok hstep
+    obtain ⟨fe₁, pend₁, s₁, rfl, hstepC⟩ := annotDeclStep_ok hstep
     simp only at hfe hstepC
     obtain ⟨hpush₁, -⟩ :=
-      annotStepC_push μ i (PushChain.self hfe) pend pd s (fe₁, pend₁) s₁ hstepC
+      annotStepC_push μ i (PushChain.self hfe) pend pd {} (fe₁, pend₁) s₁ hstepC
     have hfe₁ : fe₁ = mkFEnv fe₁.env := hpush₁.canon
     obtain ⟨hchainF, new₁, hpend₁⟩ := installRun_trace μ rest (PushChain.self hfe₁)
-    obtain ⟨hm₁, hres₁, -⟩ :=
-      annotStepC_model hμ hfe hfe₁ hm hresA hstepC hchainF hpend₁ hnd hB
-    exact ih hfe₁ hm₁ hres₁ hnd hB
+    obtain ⟨hm₁, -⟩ :=
+      annotStepC_model hμ hfe hfe₁ hm CSOKF.empty hstepC hchainF hpend₁ hnd hB
+    exact ih hfe₁ hm₁ hnd hB
 
 /-! ## The letters on the fully checked environment -/
 
@@ -242,9 +242,9 @@ well-formedness it needs; the conclusion is the model itself. -/
 theorem fullyChecked_sound (V : Type w) [SetTheory V] (hμ : μ.verifiedChecks = true)
     {ds : List Declaration} (fc : FullyChecked μ pins ds) :
     Nonempty (EnvModelM V μ fc.env) := by
-  obtain ⟨n, s, r⟩ := fc.1.run
+  obtain ⟨n, r⟩ := fc.1.run
   have hchain := installRun_trace μ r (PushChain.refl Env.empty)
-  exact (installRun_model (V := V) hμ r rfl EnvModelOk.empty CSOKF.empty
+  exact (installRun_model (V := V) hμ r rfl EnvModelOk.empty
     (hchain.1.2.2 List.nodup_nil) fc.records).nonempty
 
 /-- **Coverage on the fully checked environment**: every
@@ -252,9 +252,9 @@ stored inductive but `Quot` is a member of a recorded lfp block. -/
 theorem fullyChecked_cover (V : Type w) [SetTheory V] (hμ : μ.verifiedChecks = true)
     {ds : List Declaration} (fc : FullyChecked μ pins ds) :
     ∃ mp : EnvModelM V μ fc.env, LfpCover mp [] := by
-  obtain ⟨n, s, r⟩ := fc.1.run
+  obtain ⟨n, r⟩ := fc.1.run
   have hchain := installRun_trace μ r (PushChain.refl Env.empty)
-  exact (installRun_model (V := V) hμ r rfl EnvModelOk.empty CSOKF.empty
+  exact (installRun_model (V := V) hμ r rfl EnvModelOk.empty
     (hchain.1.2.2 List.nodup_nil) fc.records).1
 
 /-- **The letter on the fully checked environment**: such an environment, in

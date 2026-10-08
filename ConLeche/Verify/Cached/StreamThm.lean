@@ -157,15 +157,15 @@ constant, the environment it returns holds a constant of that type. -/
 theorem installRun_thmDecl_const {mode : CheckMode} {ds : List Declaration}
     {cv : ConstantVal} {value : Expr} {n : Name} {ls : List Level}
     (hty : cv.type = .const n ls) (hmem : Declaration.thmDecl cv value ∈ ds)
-    {p q : Nat × FEnv × Array PendingCheck} {s s' : CState}
-    (h : InstallRun mode pins ds p s q s') (hcanon : p.2.1 = mkFEnv p.2.1.env) :
+    {p q : Nat × FEnv × Array PendingCheck}
+    (h : InstallRun mode pins ds p q) (hcanon : p.2.1 = mkFEnv p.2.1.env) :
     ∃ c ∈ q.2.1.env.consts, c.toConstantVal.type = .const n ls := by
   induction h with
-  | nil p s => exact absurd hmem (List.not_mem_nil)
-  | @cons pd ds p p₁ q s s₁ s' hstep rest ih =>
-    obtain ⟨fe₁, pend₁, rfl, hstepC⟩ := annotDeclStep_ok hstep
+  | nil p => exact absurd hmem (List.not_mem_nil)
+  | @cons pd ds p p₁ q hstep rest ih =>
+    obtain ⟨fe₁, pend₁, s₁, rfl, hstepC⟩ := annotDeclStep_ok hstep
     have hchain : PushChain p.2.1.env fe₁ :=
-      (annotStepC_push mode p.1 (PushChain.self hcanon) p.2.2 pd s (fe₁, pend₁) s₁
+      (annotStepC_push mode p.1 (PushChain.self hcanon) p.2.2 pd {} (fe₁, pend₁) s₁
         hstepC).1
     rcases List.mem_cons.mp hmem with rfl | hmem'
     · -- the record is this step's: its constant is pushed here
@@ -186,7 +186,7 @@ theorem checkDecls_thmDecl_const {mode : CheckMode} {ds : Array Declaration} {en
     (h : checkDecls mode pins ds = .ok env) :
     ∃ c ∈ env.consts, c.toConstantVal.type = .const n ls := by
   obtain ⟨fc, rfl⟩ := checkDecls_fullyChecked mode h
-  obtain ⟨_, _, run⟩ := fc.1.run
+  obtain ⟨_, run⟩ := fc.1.run
   exact installRun_thmDecl_const hty (Array.mem_toList_iff.mpr hmem) run rfl
 
 end ConLeche.Cached
