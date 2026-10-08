@@ -14,11 +14,23 @@ file proves it, one congruence lemma per `fe`-taking function of
 `ConLeche/Kernel/FEnv.lean` and `ConLeche/Cached/*` reachable from the
 knot's bodies, bottom-up, landing on `coreKnotI_congr`.
 
-The consumer is the re-check at a task-#108 prefix view:
+The consumers are the re-check at a task-#108 prefix view —
 `feFinal.restrictTo k` and `mkFEnv env` for the environment `env` of
 the first `k` constants have the same `find?`, so `coreKnotI_congr`
-says they run the *same* core — and the simulation stated at
-`mkFEnv env` therefore covers a run at the prefix view.
+says they run the *same* core, and the simulation stated at
+`mkFEnv env` therefore covers a run at the prefix view — and the
+parallel install (task #329, `ConLeche/Cached/ParInstall.lean`): a
+worker installs a record at a view whose `find?` is the serial
+index's, so its result is the serial step's.
+
+**Why a proof file sits in the implementation tier.**  The parallel
+install's driver (`Main.lean`) carries the serial fold's accepting run,
+and the step it adds for a record a worker installed is this
+congruence; the implementation may not import `Verify/*`.  The file is
+self-contained — it imports the cached checker and nothing from the
+theory — which is the exception CLAUDE.md makes for a self-contained
+verification living with the implementation.  It opens a plain
+`public section` (it defines nothing for anyone to unfold).
 -/
 
 namespace ConLeche.Cached

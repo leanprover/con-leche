@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.Cached.CheckerC
-import ConLeche.Verify.Cached.KnotCongr
+import ConLeche.Cached.KnotCongr
 
 public section
 
@@ -19,8 +19,14 @@ reference `checkBlockTailSRef`, which every other proof reads
 * `find?_overlay_pushAll` — an overlay answers `find?` as pushing its
   constants would, on an environment without an overlay;
 * `genRecCheckOvl_eq` — at the cached operations, which read the index
-  only through `find?` (`ConLeche/Verify/Cached/KnotCongr.lean`), the
+  only through `find?` (`ConLeche/Cached/KnotCongr.lean`), the
   overlay stage is `genRecCheck`.
+
+It sits in the implementation tier because the install-shape invariant
+the parallel install's driver carries (`ConLeche/Cached/InstallShape.lean`)
+reads the block tail through this equality; it imports the cached
+checker and `KnotCongr` only (the self-contained exception of
+CLAUDE.md).
 -/
 
 namespace ConLeche.Cached

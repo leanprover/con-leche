@@ -6,7 +6,7 @@ import ConLeche.Model.Inductives.StructRecKit
 import ConLeche.Model.Inductives.SumKit
 import ConLeche.Semantics.Tower.TowerKit
 import ConLeche.Model.Inductives.TargetOutIdx
-import ConLeche.Verify.EnvBound
+import ConLeche.Cached.EnvBound
 import ConLeche.Model.Inductives.BlockRecMem
 import ConLeche.Model.Inductives.ContLeaf
 import ConLeche.Semantics.Tower.FixTower

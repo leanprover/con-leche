@@ -30,7 +30,7 @@ import ConLeche.Model.Inductives.TargetCallWalk
 import ConLeche.Model.Inductives.TargetCallTie
 import ConLeche.Model.Inductives.TargetNodeDynOf
 import ConLeche.Model.Inductives.TargetNodeCalls
-import ConLeche.Verify.EnvBound
+import ConLeche.Cached.EnvBound
 import ConLeche.Model.Annot.BitRename
 import ConLeche.Semantics.Inductives.DeclBlockEta
 public import ConLeche.Model.Inductives.GenCallData

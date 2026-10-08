@@ -2,7 +2,7 @@ module
 
 import ConLeche.Model.Inductives.GenRecFinal
 import ConLeche.Verify.Inductives.GenRecRun
-import ConLeche.Verify.EnvBound
+import ConLeche.Cached.EnvBound
 import ConLeche.Model.Inductives.PosDerivTie
 import ConLeche.Verify.Cached.BlockRunC
 import ConLeche.Model.Inductives.BlockPosRun

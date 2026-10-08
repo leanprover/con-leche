@@ -540,7 +540,7 @@ FALLBACK = {
     # task #253: `PushChain` is an exposed `def … : Prop` whose BODY names
     # `NodupNames` (EnvBound); the model reads statements, not exposed
     # bodies, and the compiler wants the re-export.
-    ('ConLeche.Verify.Cached.PushChain','ConLeche.Verify.EnvBound'),
+    ('ConLeche.Verify.Cached.PushChain','ConLeche.Cached.EnvBound'),
     # task #285: `BasisGen` declares the `#annotate_basis` COMMAND, and
     # `TrustAxioms` invokes it through `BasisA`'s re-export.  A command
     # elaborator is registered, not named, so no census row attributes it —

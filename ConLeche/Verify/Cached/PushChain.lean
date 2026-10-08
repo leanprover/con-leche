@@ -1,10 +1,10 @@
 module
 
-public import ConLeche.Verify.Cached.AgreeFloor
-public import ConLeche.Verify.EnvBound
+public import ConLeche.Cached.InstallShape
+public import ConLeche.Cached.EnvBound
 import ConLeche.Verify.EnvWF
 import ConLeche.Verify.CheckerF
-import ConLeche.Verify.Cached.BlockOverlay
+import ConLeche.Cached.BlockOverlay
 
 public section
 
@@ -15,13 +15,13 @@ The two-phase driver (`checkDecls`, `ConLeche/Cached/Installed.lean`)
 checks each recorded value against a PREFIX VIEW of the final
 environment, `feFinal.restrictTo vis`, and the prefix view's `find?` is
 the truncated environment's only under name uniqueness
-(`mkFEnv_find?_visibleBelow`, `ConLeche/Verify/EnvBound.lean`).  Name
+(`mkFEnv_find?_visibleBelow`, `ConLeche/Cached/EnvBound.lean`).  Name
 uniqueness is an install-time invariant: every push a driver step
 performs is guarded by a lookup — `checkConstantValC`'s duplicate
 guard, `installBasisDeclF`'s, the projection
 name-family guards — so this file proves, once and OPERATIONALLY (no
 environment well-formedness, no simulation: the final-value discipline
-of `ConLeche/Verify/Cached/AgreeFloor.lean`), that an accepted step
+of `ConLeche/Cached/InstallShape.lean`), that an accepted step
 returns `PushChain env fe'`: a canonical index whose constants extend
 `env` by fresh names.  Chained from the empty environment, that is
 `NodupNames` of every environment a driver ever holds, and the
