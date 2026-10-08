@@ -96712,3 +96712,22 @@ count; wall times indicative):
 The spike measured the fresh state alone at +0.02–0.19 % of install
 instructions; deleting `ienv` (a hash probe per `constTyAt`/`constValAt`
 miss) pays for it.
+
+### Stage P1: the base layer of `FEnv`
+
+`FEnv` gains a fourth field, `base : FBase`: a frozen name index
+`n ↦ (counter, position, Task (Array ConstantInfo))` with a visibility
+bound of its own. `FEnv.find?` falls through to it on an index miss; a
+visible entry answers the `position`-th constant its record's task
+delivers (`Task.get` is logically a projection, so `find?` stays an
+ordinary function). The layer is empty everywhere but in a parallel
+install's worker views: `mkFEnv` builds it empty, `push` and `restrictTo`
+keep it, and the empty layer answers `none` (`FBase.find?_empty`), so
+`mkFEnv_find?` and the prefix-view lemmas keep their statements. The
+bound is separate from `visibleBelow` so that a worker's own pushes
+(a block's read-back, P4) never make its own predicted slots visible to
+itself.
+
+Measured: init-full 485.81 G (P0: 485.85 G), mathlib-prefix 688.24 G
+(688.21 G), mathlib-full 8.385 T (8.386 T; install 86.7 s, accepts all
+691 203 records). The miss path's empty-map probe does not show.
