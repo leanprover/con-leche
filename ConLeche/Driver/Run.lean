@@ -192,7 +192,7 @@ step is the same function, `Frontend.builtinPreludeE`.  The parse
 (`Frontend.parseExportStreamP`) returns its result with the evidence
 that `Frontend.parseChunks` returns it on the chunks the parse cut from
 its reads: the chunks are scanned on worker tasks and applied in order,
-every step is `chunkStep` (`Frontend.chunkStepS_scanChunk`), and the
+every step is `chunkStep` (`Frontend.chunkStepF_of_encodes`), and the
 chunk boundaries are proved invisible.  `Frontend.prepareD` is `Frontend.preparePrelude` plus the
 receipts printed below.  `checkDeclsIO` returns its environment with
 the evidence `checkDecls mode natOpPinSets ds = .ok env`.  What the driver adds is

@@ -1000,25 +1000,318 @@ theorem rdLine (r : LineRec) : RD rLine r (encLine r) := by
       true_and]
     try omega
 
-/-! ## A run of lines -/
+/-! ## The fast readers: machine-word positions
 
-/-- `k` lines read from position `p`, one after the other. -/
-def decodeN (d : ByteArray) : Nat → Nat → List LineRec
-  | _, 0 => []
-  | p, k + 1 => (rLine d p).1 :: decodeN d (rLine d p).2 k
+The readers above are the specification: `Nat` positions, a bounds
+test per byte.  What the applying thread runs reads with `USize`
+positions and one bounds test per field.  On a buffer whose size is a
+machine word (`d.size < USize.size`, which the applying loop tests
+once per chunk) they read the same values from the same bytes: `RDU`
+is `RD` for them. -/
 
-/-- **The round trip**: lines written one after the other read back as
-themselves. -/
-theorem decodeN_encElems (rs : List LineRec) :
-    ∀ (d : ByteArray) (p : Nat) (rest : List UInt8),
-    d.data.toList.drop p = encElems encLine rs ++ rest → decodeN d p rs.length = rs := by
-  induction rs with
-  | nil => intro d p rest _; rfl
-  | cons r rs ih =>
-    intro d p rest h
-    simp only [encElems, List.append_assoc] at h
-    obtain ⟨e, h⟩ := (rdLine r).run h
-    simp only [List.length_cons, decodeN, e]
-    rw [ih d _ rest h]
+/-- `RD` for a reader with `USize` positions, on a buffer whose size is
+a machine word. -/
+def RDU {α : Type} (r : ByteArray → USize → α × USize) (x : α) (bs : List UInt8) : Prop :=
+  ∀ (d : ByteArray), d.size < USize.size → ∀ (p : USize) (rest : List UInt8),
+    d.data.toList.drop p.toNat = bs ++ rest →
+    ∃ q, r d p = (x, q) ∧ q.toNat = p.toNat + bs.length
+
+theorem RDU.run {α : Type} {r : ByteArray → USize → α × USize} {x : α} {bs : List UInt8}
+    (hr : RDU r x bs) {d : ByteArray} (hd : d.size < USize.size) {p : USize}
+    {rest : List UInt8} (h : d.data.toList.drop p.toNat = bs ++ rest) :
+    ∃ q, r d p = (x, q) ∧ d.data.toList.drop q.toNat = rest ∧ q.toNat = p.toNat + bs.length := by
+  obtain ⟨q, e, hq⟩ := hr d hd p rest h
+  exact ⟨q, e, by rw [hq]; exact drop_after h, hq⟩
+
+/-- A position plus a count that stays inside a machine-word-sized
+buffer does not wrap. -/
+theorem usizeSize_eq : USize.size = 2 ^ System.Platform.numBits := rfl
+
+theorem usize_add_toNat {d : ByteArray} (hd : d.size < USize.size) (p : USize) (k : Nat)
+    (hk : p.toNat + k ≤ d.size) : (p + k.toUSize).toNat = p.toNat + k := by
+  have := usizeSize_eq
+  rw [USize.toNat_add, Nat.toUSize, USize.toNat_ofNat']
+  rw [Nat.mod_eq_of_lt (by omega : k < USize.size), Nat.mod_eq_of_lt (by omega)]
+
+/-- A `Nat` reader with its position converted: `RD` gives `RDU`. -/
+@[inline] def viaNat {α : Type} (r : ByteArray → Nat → α × Nat) (d : ByteArray) (p : USize) :
+    α × USize :=
+  let (x, q) := r d p.toNat
+  (x, q.toUSize)
+
+theorem rdu_viaNat {α : Type} {r : ByteArray → Nat → α × Nat} {x : α} {bs : List UInt8}
+    (hr : RD r x bs) : RDU (viaNat r) x bs := by
+  intro d hd p rest h
+  have hl : p.toNat + bs.length < USize.size := by
+    have := congrArg List.length h
+    simp only [List.length_drop, List.length_append, Array.length_toList] at this
+    have e : d.size = d.data.size := rfl
+    have := p.toNat_lt_size
+    omega
+  have := usizeSize_eq
+  refine ⟨(p.toNat + bs.length).toUSize, ?_, ?_⟩
+  · simp only [viaNat, hr d p.toNat rest h]
+  · rw [Nat.toUSize, USize.toNat_ofNat', Nat.mod_eq_of_lt (by omega)]
+
+theorem usize_add_lit (p : USize) (k : Nat) (h : p.toNat + k < USize.size) :
+    (p + (OfNat.ofNat k : USize)).toNat = p.toNat + k := by
+  have e : USize.size = 2 ^ System.Platform.numBits := rfl
+  have := USize.le_size
+  rw [USize.toNat_add, USize.toNat_ofNat, Nat.mod_eq_of_lt (a := k) (by omega)]
+  exact Nat.mod_eq_of_lt h
+
+theorem usize_le_size (d : ByteArray) : d.usize.toNat ≤ d.size := by
+  simp only [ByteArray.usize, Nat.toUSize, USize.toNat_ofNat']; exact Nat.mod_le _ _
+
+theorem usize_eq_size {d : ByteArray} (hd : d.size < USize.size) : d.usize.toNat = d.size := by
+  simp only [ByteArray.usize, Nat.toUSize, USize.toNat_ofNat']; exact Nat.mod_eq_of_lt hd
+
+theorem r4U_bound {d : ByteArray} {p : USize} (h1 : p < d.usize) (h2 : 3 < d.usize - p) :
+    p.toNat + 3 < d.usize.toNat := by
+  have a := USize.lt_iff_toNat_lt.mp h1
+  have b := USize.lt_iff_toNat_lt.mp h2
+  rw [USize.toNat_sub_of_le _ _ (USize.le_of_lt h1)] at b
+  have : (3 : USize).toNat = 3 := by
+    have h3 : 3 < 2 ^ System.Platform.numBits := by
+      have := USize.le_size; have e : USize.size = 2 ^ System.Platform.numBits := rfl; omega
+    rw [USize.toNat_ofNat, Nat.mod_eq_of_lt h3]
+  omega
+
+theorem getElem_usize_idx (a : Array UInt8) (i : USize) (n : Nat) (e : i.toNat = n)
+    {hi : i.toNat < a.size} : a[i]'hi = a[n]'(e ▸ hi) := by
+  subst e; rfl
+
+/-- The byte at a machine-word position, `0` past the end. -/
+@[inline] def byteU (d : @& ByteArray) (p : USize) : UInt8 :=
+  if h : p < d.usize then
+    d.uget p (Nat.lt_of_lt_of_le (USize.lt_iff_toNat_lt.mp h) (usize_le_size d))
+  else 0
+
+theorem byteU_of_drop {d : ByteArray} (hd : d.size < USize.size) {p : USize} {b : UInt8}
+    {rest : List UInt8} (h : d.data.toList.drop p.toNat = b :: rest) : byteU d p = b := by
+  have hp := lt_size_of_drop h
+  have h1 : p < d.usize := USize.lt_iff_toNat_lt.mpr (by rw [usize_eq_size hd]; exact hp)
+  simp only [byteU, h1, ↓reduceDIte]
+  rw [← get!_of_drop h, get!_eq_getElem d _ hp]
+  rfl
+
+/-- Four little-endian bytes at a machine-word position: one bounds
+test for the four. -/
+@[inline] def r4U (d : @& ByteArray) (p : USize) : UInt32 :=
+  if h1 : p < d.usize then
+    if h2 : 3 < d.usize - p then
+      have hb := r4U_bound h1 h2
+      have hs := usize_le_size d
+      have hu : d.usize.toNat < USize.size := d.usize.toFin.isLt
+      (d.uget p (by omega)).toUInt32 +
+        ((d.uget (p + 1) (by rw [usize_add_lit p 1 (by omega)]; omega)).toUInt32 <<< 8) +
+        ((d.uget (p + 2) (by rw [usize_add_lit p 2 (by omega)]; omega)).toUInt32 <<< 16) +
+        ((d.uget (p + 3) (by rw [usize_add_lit p 3 (by omega)]; omega)).toUInt32 <<< 24)
+    else 0
+  else 0
+
+theorem r4U_of_drop {d : ByteArray} (hd : d.size < USize.size) {p : USize} {x : UInt32}
+    {rest : List UInt8} (h : d.data.toList.drop p.toNat = le4 x ++ rest) : r4U d p = x := by
+  have hn := r4_of_drop h
+  have h3 : p.toNat + 3 < d.size := by
+    simp only [le4, List.cons_append, List.nil_append] at h
+    have h1 := drop_cons h; have h2 := drop_cons h1; have h3 := drop_cons h2
+    exact lt_size_of_drop h3
+  have hus := usize_eq_size hd
+  have h1 : p < d.usize := USize.lt_iff_toNat_lt.mpr (by omega)
+  have h2 : 3 < d.usize - p := by
+    apply USize.lt_iff_toNat_lt.mpr
+    rw [USize.toNat_sub_of_le _ _ (USize.le_of_lt h1)]
+    have : (3 : USize).toNat = 3 := by
+      have h3 : 3 < 2 ^ System.Platform.numBits := by
+        have := USize.le_size; have e : USize.size = 2 ^ System.Platform.numBits := rfl; omega
+      rw [USize.toNat_ofNat, Nat.mod_eq_of_lt h3]
+    omega
+  rw [← hn]
+  simp only [r4U, h1, h2, ↓reduceDIte, r4, show p.toNat + 3 < d.size from h3]
+  simp only [ByteArray.uget, ByteArray.getElem_eq_getElem_data]
+  rw [getElem_usize_idx d.data p p.toNat rfl, getElem_usize_idx d.data (p + 1) (p.toNat + 1)
+    (usize_add_lit p 1 (by omega)), getElem_usize_idx d.data (p + 2) (p.toNat + 2)
+    (usize_add_lit p 2 (by omega)), getElem_usize_idx d.data (p + 3) (p.toNat + 3)
+    (usize_add_lit p 3 (by omega))]
+
+@[noinline] def rNatBigU (d : @& ByteArray) (p : USize) : Nat × USize := viaNat rNat d p
+
+/-- A natural number at a machine-word position. -/
+@[inline] def rNatU (d : @& ByteArray) (p : USize) : Nat × USize :=
+  let v := r4U d p
+  if v == 0xFFFFFFFF then rNatBigU d p else (v.toNat, p + 4)
+
+theorem len_of_drop {d : ByteArray} {p : Nat} {bs rest : List UInt8}
+    (h : d.data.toList.drop p = bs ++ rest) (hb : bs ≠ []) : p + bs.length ≤ d.size := by
+  have := congrArg List.length h
+  simp only [List.length_drop, List.length_append, Array.length_toList] at this
+  have e : d.size = d.data.size := rfl
+  have : bs.length ≠ 0 := by simpa using hb
+  omega
+
+theorem rduNat (n : Nat) : RDU rNatU n (encNat n) := by
+  intro d hd p rest h
+  by_cases hn : n < natEsc
+  · have h' := h
+    simp only [encNat, hn, ↓reduceIte] at h'
+    have hv := r4U_of_drop hd h'
+    have hl := len_of_drop h' (by simp [le4])
+    simp only [le4, List.length_cons, List.length_nil] at hl
+    have : n.toUInt32.toNat = n := by
+      simp only [Nat.toUInt32, UInt32.toNat_ofNat']; unfold natEsc at hn; omega
+    have hne : (n.toUInt32 == 0xFFFFFFFF) = false := by
+      apply beq_false_of_ne; intro he; rw [he] at this; unfold natEsc at hn; simp at this; omega
+    refine ⟨p + 4, ?_, ?_⟩
+    · simp only [rNatU, hv, hne, Bool.false_eq_true, ↓reduceIte, this]
+    · rw [usize_add_lit p 4 (by omega)]; simp [encNat, hn, le4]
+  · have h' := h
+    simp only [encNat, hn, ↓reduceIte, List.append_assoc] at h'
+    have hv := r4U_of_drop hd h'
+    obtain ⟨q, e, hq⟩ := rdu_viaNat (rdNat n) d hd p rest h
+    refine ⟨q, ?_, hq⟩
+    simp only [rNatU, hv, BEq.rfl, ↓reduceIte, rNatBigU, e]
+
+/-- The `pw` datum at a machine-word position: `never` (one byte, the
+common case) read here. -/
+@[inline] def rPwU (d : @& ByteArray) (p : USize) : PwRec × USize :=
+  if byteU d p == 0 then (.never, p + 1) else viaNat rPw d p
+
+theorem rduPw (x : PwRec) : RDU rPwU x (encPw x) := by
+  intro d hd p rest h
+  cases x with
+  | never =>
+    simp only [encPw, List.cons_append, List.nil_append] at h
+    have hl := lt_size_of_drop h
+    refine ⟨p + 1, ?_, ?_⟩
+    · simp [rPwU, byteU_of_drop hd h]
+    · rw [usize_add_lit p 1 (by omega)]; simp [encPw]
+  | ifAllZero ns =>
+    obtain ⟨q, e, hq⟩ := rdu_viaNat (rdPw (.ifAllZero ns)) d hd p rest h
+    simp only [encPw, List.cons_append] at h
+    refine ⟨q, ?_, hq⟩
+    simp only [rPwU, byteU_of_drop hd h, e]
+    rfl
+
+/-- **A line at a machine-word position, handed to `k`**: `withLine`
+with the fast readers.  What the applying loop runs. -/
+@[inline] def withLineU {β : Type} (d : @& ByteArray) (p : USize) (k : LineRec → USize → β) : β :=
+  if byteU d p == 0 then
+    let (i, p) := rNatU d (p + 1)
+    let (f, p) := rNatU d p
+    let (a, p) := rNatU d p
+    k (.expr i (.app f a)) p
+  else if byteU d p == 1 then
+    let (i, p) := rNatU d (p + 1)
+    let (ty, p) := rNatU d p
+    let (bd, p) := rNatU d p
+    let (pw, p) := rPwU d p
+    k (.expr i (.lam ty bd pw)) p
+  else if byteU d p == 2 then
+    let (i, p) := rNatU d (p + 1)
+    let (ty, p) := rNatU d p
+    let (bd, p) := rNatU d p
+    let (pw, p) := rPwU d p
+    k (.expr i (.forallE ty bd pw)) p
+  else if byteU d p == 3 then
+    let (i, p) := rNatU d (p + 1)
+    let (pre, p) := rNatU d p
+    let (s, p) := viaNat rStr d p
+    k (.name i (.str pre s)) p
+  else if byteU d p == 4 then
+    let (i, p) := rNatU d (p + 1)
+    let (pre, p) := rNatU d p
+    let (n, p) := rNatU d p
+    k (.name i (.num pre n)) p
+  else if byteU d p == 5 then
+    let (i, p) := rNatU d (p + 1)
+    let (n, p) := rNatU d p
+    let (us, p) := viaNat (rList rNat) d p
+    k (.expr i (.const n us)) p
+  else if byteU d p == 6 then
+    let (i, p) := rNatU d (p + 1)
+    let (ty, p) := rNatU d p
+    let (v, p) := rNatU d p
+    let (bd, p) := rNatU d p
+    k (.expr i (.letE ty v bd)) p
+  else if byteU d p == 7 then
+    let (i, p) := rNatU d (p + 1)
+    let (n, p) := rNatU d p
+    k (.expr i (.bvar n)) p
+  else if byteU d p == 8 then
+    let (i, p) := rNatU d (p + 1)
+    let (u, p) := rNatU d p
+    k (.expr i (.sort u)) p
+  else if byteU d p == 9 then
+    let (i, p) := rNatU d (p + 1)
+    let (tn, p) := rNatU d p
+    let (ix, p) := rNatU d p
+    let (st, p) := rNatU d p
+    k (.expr i (.proj tn ix st)) p
+  else if byteU d p == 10 then
+    let (i, p) := rNatU d (p + 1)
+    let (n, p) := rNatU d p
+    k (.expr i (.natVal n)) p
+  else if byteU d p == 11 then
+    let (i, p) := rNatU d (p + 1)
+    let (s, p) := viaNat rStr d p
+    k (.expr i (.strVal s)) p
+  else if byteU d p == 12 then
+    let (i, p) := rNatU d (p + 1)
+    let (u, p) := rNatU d p
+    k (.level i (.succ u)) p
+  else if byteU d p == 13 then
+    let (i, p) := rNatU d (p + 1)
+    let (u, p) := rNatU d p
+    let (v, p) := rNatU d p
+    k (.level i (.max u v)) p
+  else if byteU d p == 14 then
+    let (i, p) := rNatU d (p + 1)
+    let (u, p) := rNatU d p
+    let (v, p) := rNatU d p
+    k (.level i (.imax u v)) p
+  else if byteU d p == 15 then
+    let (i, p) := rNatU d (p + 1)
+    let (n, p) := rNatU d p
+    k (.level i (.param n)) p
+  else if byteU d p == 16 then
+    let (dr, p) := viaNat rDecl d (p + 1)
+    k (.decl dr) p
+  else if byteU d p == 17 then k .header (p + 1)
+  else k .blank (p + 1)
+
+set_option hygiene false in
+/-- Read one field with the given `RDU` lemma: rewrite the reader call
+and advance `h`. -/
+macro "rdu_field " t:term : tactic =>
+  `(tactic| (obtain ⟨q, e, h, hq⟩ := ($t).run hd h; simp only [e]))
+
+/-- **The fast line reader reads the line**: on a buffer of
+machine-word size whose bytes at `p` begin with a line's bytes, the
+continuation gets the line and the position after it. -/
+theorem withLineU_spec {β : Type} (r : LineRec) (d : ByteArray) (hd : d.size < USize.size)
+    (p : USize) (rest : List UInt8) (h : d.data.toList.drop p.toNat = encLine r ++ rest)
+    (k : LineRec → USize → β) :
+    ∃ q, withLineU d p k = k r q ∧ q.toNat = p.toNat + (encLine r).length := by
+  unfold withLineU
+  rcases r with ⟨i, r⟩ | ⟨i, r⟩ | ⟨i, r⟩ | dr | _ | _
+  all_goals first | cases r | skip
+  all_goals
+    simp only [encLine, List.cons_append, List.append_assoc] at h
+    have ht := byteU_of_drop hd h
+    have hl := lt_size_of_drop h
+    have hp1 := usize_add_lit p 1 (by omega)
+    have h := drop_cons h
+    rw [← hp1] at h
+    simp (config := { decide := true }) only [ht, ↓reduceIte]
+    repeat (first
+      | rdu_field rduNat _
+      | rdu_field rdu_viaNat (rdStr _)
+      | rdu_field rduPw _
+      | rdu_field rdu_viaNat (rdList _ (fun x _ => rdNat x))
+      | rdu_field rdu_viaNat (rdDecl _))
+    refine ⟨_, rfl, ?_⟩
+    simp only [encLine, List.length_cons, List.length_append, List.length_nil]
+    omega
 
 end ConLeche.Frontend.Flat

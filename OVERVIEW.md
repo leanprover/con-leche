@@ -277,12 +277,16 @@ Read from the outside in:
    the driver calls the reference, and the compiler runs the fast
    recogniser on the strength of that equality. The parse cuts its
    reads into chunks of whole lines, scans each chunk on a worker task
-   and applies the scanned lines in order on one thread; it returns its
+   into one flat byte buffer (`ConLeche/Frontend/Flat.lean`: a tag byte
+   and fixed-width fields per line, so that what crosses between the
+   threads is a few objects, not one per line) and applies the scanned
+   lines in order on one thread, reading each line's fields where it
+   applies them; it returns its
    result with the proof that the pure streaming parse, a step over
    each chunk
    ([function `chunkStep` in `ConLeche/Frontend/ExportC.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Frontend/ExportC.lean#L612)),
-   returns it: a chunk's scan, applied, is that step
-   ([theorem `chunkStepS_scanChunk` in `ConLeche/Frontend/Pipeline.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Frontend/Pipeline.lean#L242-L245)).
+   returns it: a chunk's flat scan, applied, is that step
+   ([theorem `chunkStepF_of_encodes` in `ConLeche/Frontend/Pipeline.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Frontend/Pipeline.lean#L242-L245)).
    What the parser makes of a record
    — index resolution, the smart constructors — is the
    semantic layer the main corollary's line lemmas are about. The install loop
@@ -1158,7 +1162,7 @@ ConLeche.Kernel.PropWhen`, and every such line carries its reason.
 | `ConLeche/Driver/` | The proof-carrying IO driver: the install and check loops, the parallel install (the prediction, the schedule, the commit loop; `ParInstall.lean`), phase B's worker pool (`CheckPool.lean`), the phase sequencing and `checkDeclsIO` (`Run.lean`). Checker code, like `Kernel/*`; the one tier besides `Main.lean` that may import `ConLeche/Verify/*`. |
 | `ConLeche/Kernel/` | The pure checker: `Expr`/`Level`/`Name`, `PropWhen`, the mutually recursive core of reduction, inference and conversion (`Core.lean`), declaration checking (`Checker.lean`, `DeclCheck.lean`), the basis pins (`Basis/`), the inductive installer (`Inductives/`: the recogniser `BlockParts.lean`, the positivity check `Positivity.lean`, the entry `checkBlock` with its constructor stages (`Sum*`) and projection tables (`Struct*`), the recursor generator and check `GenRec.lean`, and `ClassRead.lean`, which reads the classes off the stream's recursor types without checking them), the Nat-op pins. Imports no theory module. |
 | `ConLeche/Cached/` | The shipped cached checker: hashed expressions, memo state, the cached core and declaration step, the parsed-record step (`ParsedC.lean`), the declaration fold `checkDecls` with its install and check phases and the fully checked environment the driver assembles (`Installed.lean`); the install skeleton (`InstallSkel.lean`, which the parallel install predicts from and the trusted/verified agreement floor is stated over). |
-| `ConLeche/Frontend/` | The export parser: the dialect's byte recogniser and syntax records (`Scan/`) and the semantic layer over them (`ExportC.lean`), which decodes the file's records and nothing else; the pipelined driver that scans chunks on worker tasks and applies them in order (`Pipeline.lean`); the preparation of the fold's input (`Prepare.lean`, with the built-in prelude of `Prelude.lean` and the reordering of `NatOpGround.lean`, which moves what a pinned Nat operation's certificates mention ahead of it). |
+| `ConLeche/Frontend/` | The export parser: the dialect's byte recogniser and syntax records (`Scan/`) and the semantic layer over them (`ExportC.lean`), which decodes the file's records and nothing else; the pipelined driver that scans chunks on worker tasks and applies them in order (`Pipeline.lean`), with the flat byte format the scanned lines cross between the threads in (`Flat.lean`); the preparation of the fold's input (`Prepare.lean`, with the built-in prelude of `Prelude.lean` and the reordering of `NatOpGround.lean`, which moves what a pinned Nat operation's certificates mention ahead of it). |
 | `ConLeche/PinGen/` | Elaboration-time generation of the Nat-op pins and certificate proofs; the committed dump lives in `pins/`. |
 | `ConLeche/Term/` | The erased term language, its substitution algebra and the basis constants. |
 | `ConLeche/SetTheory/` | The `SetTheory` class and the derived set operations. |
