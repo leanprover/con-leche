@@ -54,6 +54,12 @@ DIR   = os.environ.get('PUBPLAN_DIR', '_tmp/m3')
 # a tree whose `rfl`s stop closing, so they stay public and the gate must not
 # ask for them again.
 FALLBACK = {
+    # task #329 (pinstall): the skeleton definitions moved to
+    # `Cached/InstallSkel`; AgreeFloor's statements name them
+    # (`InstallSkel`, `ciSkel`), which the census attributes elsewhere.
+    # Measured: demoting it breaks the file (unknown identifier
+    # `InstallSkel`, `AgreeFloor.lean:192`).
+    ('ConLeche.Verify.Cached.AgreeFloor', 'ConLeche.Cached.InstallSkel'),
     # lane CHEAPPROJ: `DefEqBridge`'s public statements name `DefEqBridge`/
     # `DefEq` (through `Defs`) and `QuickExit`/`quickDefEqFueled` (through
     # `DefEqStepInv`); the census attributes them to its private `RedBridge`
@@ -540,7 +546,7 @@ FALLBACK = {
     # task #253: `PushChain` is an exposed `def … : Prop` whose BODY names
     # `NodupNames` (EnvBound); the model reads statements, not exposed
     # bodies, and the compiler wants the re-export.
-    ('ConLeche.Verify.Cached.PushChain','ConLeche.Cached.EnvBound'),
+    ('ConLeche.Verify.Cached.PushChain','ConLeche.Verify.EnvBound'),
     # task #285: `BasisGen` declares the `#annotate_basis` COMMAND, and
     # `TrustAxioms` invokes it through `BasisA`'s re-export.  A command
     # elaborator is registered, not named, so no census row attributes it —

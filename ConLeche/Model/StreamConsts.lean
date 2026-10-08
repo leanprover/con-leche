@@ -5,7 +5,7 @@ import ConLeche.Verify.Subst
 public import ConLeche.Cached.Installed
 public import ConLeche.Model.Fold
 public import ConLeche.Verify.Cached.BridgeC
-import ConLeche.Cached.EnvBound
+import ConLeche.Verify.EnvBound
 import ConLeche.Model.InstallRun
 
 public section

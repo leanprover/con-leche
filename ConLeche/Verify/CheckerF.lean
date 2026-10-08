@@ -1,7 +1,7 @@
 module
 
 import ConLeche.Verify.FastOps
-public import ConLeche.Cached.EnvBound
+public import ConLeche.Verify.EnvBound
 public import ConLeche.Kernel.Inductives.SumInstallF
 import ConLeche.Kernel.DeclCheck
 

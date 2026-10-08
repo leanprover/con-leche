@@ -5,7 +5,7 @@ import ConLeche.Verify.Inductives.RecCheckRun
 public import ConLeche.Model.Inductives.TargetOutIdx
 import ConLeche.Model.Inductives.TargetOutRows
 import ConLeche.Verify.Inductives.NestContInv
-import ConLeche.Cached.EnvBound
+import ConLeche.Verify.EnvBound
 
 public section
 

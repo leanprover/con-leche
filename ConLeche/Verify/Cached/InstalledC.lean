@@ -3,7 +3,7 @@ module
 import ConLeche.Verify.Cached.BridgeC
 public import ConLeche.Cached.Installed
 public import ConLeche.Verify.Cached.SimC
-public import ConLeche.Cached.EnvBound
+public import ConLeche.Verify.EnvBound
 import ConLeche.Cached.ParInstall
 import ConLeche.Cached.KnotCongr
 import ConLeche.Verify.CheckerSplit

@@ -11,7 +11,7 @@ import ConLeche.Verify.BridgeWfImp
 import ConLeche.Verify.InferLemmas
 import ConLeche.Verify.Inductives.RecCheckRun
 import ConLeche.Model.Inductives.TargetClass
-import ConLeche.Cached.EnvBound
+import ConLeche.Verify.EnvBound
 import ConLeche.Verify.Cached.Erase
 import ConLeche.Verify.Inductives.HoleBack
 import ConLeche.Verify.Inductives.ReplaceApps

@@ -10,7 +10,7 @@ import ConLeche.Verify.BridgeWfImp
 import ConLeche.Verify.Cached.WalkersC
 import ConLeche.Verify.Cached.NestPosC
 public import ConLeche.Verify.Inductives.NestScope
-import ConLeche.Cached.InstallShape
+import ConLeche.Verify.Cached.AgreeFloor
 import ConLeche.Verify.Denote.IndFrame
 import ConLeche.Cached.BlockOverlay
 

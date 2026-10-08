@@ -45,7 +45,7 @@ public import ConLeche.Model.Rules.RedSoundKit
 import ConLeche.Verify.Inductives.TargetAuxFire
 import ConLeche.Verify.Inductives.DirectGen
 import ConLeche.Semantics.Tower.TowerKit
-import ConLeche.Cached.EnvBound
+import ConLeche.Verify.EnvBound
 
 public section
 

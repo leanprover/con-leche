@@ -27,7 +27,7 @@ import ConLeche.Model.Rules.IotaSoundKit
 import ConLeche.Model.Annot.BitLemmas
 import ConLeche.Verify.Inductives.GenRecScoped
 import ConLeche.Verify.CheckerF
-import ConLeche.Cached.EnvBound
+import ConLeche.Verify.EnvBound
 import ConLeche.Model.Inductives.GenOutFacts
 import ConLeche.Model.Inductives.GenRecParams
 import ConLeche.Model.Inductives.BlockDeclRun

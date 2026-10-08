@@ -2,7 +2,7 @@ module
 
 public import ConLeche.Cached.ParsedC
 public import ConLeche.Verify.Cached.OpsC
-public import ConLeche.Cached.EnvBound
+public import ConLeche.Verify.EnvBound
 
 public section
 

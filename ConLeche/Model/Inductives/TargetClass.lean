@@ -2,7 +2,7 @@ module
 
 public import ConLeche.Model.Cover
 public import ConLeche.Verify.Inductives.RecCheckRun
-import ConLeche.Cached.EnvBound
+import ConLeche.Verify.EnvBound
 
 public section
 

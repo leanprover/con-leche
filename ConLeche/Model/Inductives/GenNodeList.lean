@@ -4,7 +4,7 @@ public import ConLeche.Model.Inductives.GenRecAssembly
 public import ConLeche.Model.Inductives.GenRecStage
 public import ConLeche.Model.Inductives.TargetNodeSem
 import ConLeche.Model.Inductives.PosDerivTie
-import ConLeche.Cached.EnvBound
+import ConLeche.Verify.EnvBound
 public import ConLeche.Model.Inductives.PosDerivNodes
 import ConLeche.Model.Annot.BitRename
 import ConLeche.Model.Inductives.ContFrame

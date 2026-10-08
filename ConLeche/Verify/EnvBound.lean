@@ -23,13 +23,6 @@ proves what that bound means:
   stream, and its absence is the safe direction anyway).
 
 Spec-side only: nothing here is called by the checker.
-
-**Why it sits in the implementation tier.**  It is the index's own
-verification — the `Std.HashMap` pattern CLAUDE.md allows to live with
-the implementation — and the parallel install's driver needs the
-install-shape invariant built on it (`ConLeche/Cached/InstallShape.lean`).
-It imports the kernel only.  A plain `public section` (proof code);
-the two definitions other files unfold are `@[expose]`.
 -/
 
 namespace ConLeche
@@ -217,7 +210,7 @@ theorem mkFEnv_find?_visibleBelow (env : Env) (k : Nat) (n : Name)
 /-! ## The `FEnv` index agrees with `Env.find?`
 
 (`mkFEnv_find?` itself, and the bounded-lookup theory it now sits in,
-are in `ConLeche/Cached/EnvBound.lean`.) -/
+are in `ConLeche/Verify/EnvBound.lean`.) -/
 
 /-- The indexed projection lookup computes `Env.findProj?`. -/
 theorem mkFEnv_findProj? (env : Env) (T : Name) (i : Nat) :
