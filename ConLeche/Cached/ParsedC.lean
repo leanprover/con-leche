@@ -97,12 +97,10 @@ def checkDefnValC (fe : FEnv) (cvA : ConstantVal) (jty : Expr)
     throw (.invalid s!"undeclared universe parameter in value of {cvA.name}")
   unless constsResolveFC fe jv do
     throw (unresolvedConstsError s!"value of {cvA.name}" jv)
-  let vE := jv
-  recordCConst cvA.name cvA.type jty (some (vE, jv))
   let jvt ← (coreKnotI mode fe checkFuel).infer 0 jv
   unless ← (coreKnotI mode fe checkFuel).defeq 0 jvt jty do
     throw (.invalid s!"type mismatch in definition {cvA.name}")
-  pure (fe.push (.defnInfo cvA vE hint))
+  pure (fe.push (.defnInfo cvA jv hint))
 
 /-- Check a theorem's value against its `Prop` statement `jty`; stored opaque. -/
 def checkThmValC (fe : FEnv) (cvA : ConstantVal) (jty : Expr)
@@ -120,7 +118,6 @@ def checkThmValC (fe : FEnv) (cvA : ConstantVal) (jty : Expr)
     throw (.invalid s!"undeclared universe parameter in value of {cvA.name}")
   unless constsResolveFC fe jv do
     throw (unresolvedConstsError s!"value of {cvA.name}" jv)
-  recordCConst cvA.name cvA.type jty none
   let jvt ← (coreKnotI mode fe checkFuel).infer 0 jv
   unless ← (coreKnotI mode fe checkFuel).defeq 0 jvt jty do
     throw (.invalid s!"type mismatch in theorem {cvA.name}")
@@ -139,7 +136,6 @@ def checkOpaqueValC (fe : FEnv) (cvA : ConstantVal) (jty : Expr)
     throw (.invalid s!"undeclared universe parameter in value of {cvA.name}")
   unless constsResolveFC fe jv do
     throw (unresolvedConstsError s!"value of {cvA.name}" jv)
-  recordCConst cvA.name cvA.type jty none
   let jvt ← (coreKnotI mode fe checkFuel).infer 0 jv
   unless ← (coreKnotI mode fe checkFuel).defeq 0 jvt jty do
     throw (.invalid s!"type mismatch in opaque {cvA.name}")
@@ -211,19 +207,16 @@ def checkDeclC (pins : List NatOpPinSet) (fe : FEnv) (pd : Declaration) :
       else
         throw (.notImplemented "quotient soundness axiom mismatch"))
     else do
-      let (cvA, jty) ← checkConstantValC mode fe cv
-      if stdAxiomOkF fe cvA then do
-        recordCConst cvA.name cvA.type jty none
+      let (cvA, _) ← checkConstantValC mode fe cv
+      if stdAxiomOkF fe cvA then
         pure (fe.push (.axiomInfo cvA))
       else if cvA.name = trustCompilerName then
-        if trustCompilerOkF fe cvA then do
-          recordCConst cvA.name cvA.type jty none
+        if trustCompilerOkF fe cvA then
           pure (fe.push (.axiomInfo cvA))
         else throw (.notImplemented
           s!"unsupported Lean.trustCompiler shape ({cv.name})")
       else if cvA.name = ofReduceNatName ∨ cvA.name = ofReduceBoolName then
-        if ofReduceAxOkF fe cvA then do
-          recordCConst cvA.name cvA.type jty none
+        if ofReduceAxOkF fe cvA then
           pure (fe.push (.axiomInfo cvA))
         else throw (.notImplemented
           s!"unsupported compiler-trust axiom environment ({cv.name})")

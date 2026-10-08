@@ -96662,6 +96662,75 @@ plausibly explains the lower Mathlib RSS. A cost of trying the new pin
 variant first on these v4.33.0 streams would show as checker
 instructions, which did not grow. No perf fix is attempted here.
 
+## TASK #329 — PINSTALL: the parallel install (2026-10-08, agent/329-pinstall2)
+
+The lane makes phase A (the install) run on a pool of workers, behind an
+in-order commit thread that carries the serial fold's `InstallRun`. The
+design and the feasibility spike (branch `agent/329-pinstall`,
+`f9e1dd584`, not landed) are summarised where each phase lands. The
+coordinator's rulings (provisional, for the maintainer's review): the
+design's proposals 1–8 are accepted. Phase A runs every record from a
+fresh memo state; `ienv` is deleted; the find?-congruence lemmas move
+into the Cached tier under the self-contained exception; `FEnv` gets a
+frozen, task-valued base layer with slot validation by `withPtrEq`;
+workers mark their own results persistent; dedicated `--jobs` threads
+plus the commit thread; no type/value split; MainTheorem's statement
+does not change.
+
+### Stage P0 + P0′: no memo state crosses a record; `ienv` deleted
+
+* **P0.** `annotDeclStep` is now a plain `Except` step that runs
+  `annotStepC` from `{}` at every record, so `InstallRun` and
+  `InstalledEnv` lose their `CState` indices and the walks
+  (`installRun_model`, `installRun_declares`, `installRun_trace`,
+  `installRun_skels`, `installRun_thmDecl_const`) start each step from
+  `CSOKF.empty`. `checkDecls` changes its definition (its `foldlM` is in
+  `Except`, not `StateT CState`); its statement, MainTheorem and the
+  main corollary are unchanged. A record's install is now a function of
+  the index it sees and the record alone, which is what a worker that
+  installs it elsewhere needs.
+* **P0′.** `ienv` (the converted-constant cache) was a no-op: every
+  `recordCConst` call tagged an object with itself (`tyE := cvA.type`
+  with `cvA.type = jty`; the value entry `(jv, jv)`), so the
+  pointer-validated hit of `storedTyIdxM`/`storedValIdxM` returned the
+  object it was given. Deleted: `CConstE`, the field,
+  `storedTyIdxM`/`storedValIdxM`, `recordCConst`, the `CSOK`/`CSOKF`
+  clauses and their lemmas (−229 lines net); `annotValC` loses its unused
+  `jty`/`record` arguments. The level memos (`lsimpC`, `lnzC`, `eqvC`)
+  are the only components a flush keeps, and after P0 they too start
+  empty at every record.
+
+Measured (`perf stat -e instructions:u`, one run each, default worker
+count; wall times indicative):
+
+| stream | before | after | Δ |
+|---|---|---|---|
+| init-full | 485.81 G | 485.85 G | +0.01 % |
+| mathlib-prefix | 688.26 G | 688.21 G | −0.01 % |
+| mathlib-full | — | 8.386 T | (install 92.7 s, check 26.8 s, parse 21.4 s; accepts all 691 203 records) |
+
+The spike measured the fresh state alone at +0.02–0.19 % of install
+instructions; deleting `ienv` (a hash probe per `constTyAt`/`constValAt`
+miss) pays for it.
+
+### Stage P1: the base layer of `FEnv`
+
+`FEnv` gains a fourth field, `base : FBase`: a frozen name index
+`n ↦ (counter, position, Task (Array ConstantInfo))` with a visibility
+bound of its own. `FEnv.find?` falls through to it on an index miss; a
+visible entry answers the `position`-th constant its record's task
+delivers (`Task.get` is logically a projection, so `find?` stays an
+ordinary function). The layer is empty everywhere but in a parallel
+install's worker views: `mkFEnv` builds it empty, `push` and `restrictTo`
+keep it, and the empty layer answers `none` (`FBase.find?_empty`), so
+`mkFEnv_find?` and the prefix-view lemmas keep their statements. The
+bound is separate from `visibleBelow` so that a worker's own pushes
+(a block's read-back, P4) never make its own predicted slots visible to
+itself.
+
+Measured: init-full 485.81 G (P0: 485.85 G), mathlib-prefix 688.24 G
+(688.21 G), mathlib-full 8.385 T (8.386 T; install 86.7 s, accepts all
+691 203 records). The miss path's empty-map probe does not show.
 ## TASK #329 — BLOCKCOPY: inductive-block install without index copies (2026-10-08, agent/329-blockcopy)
 
 **Diagnosis.** A gdb breakpoint on `lean_copy_expand_array` (arrays over

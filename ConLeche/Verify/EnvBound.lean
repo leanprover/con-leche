@@ -93,16 +93,23 @@ theorem idxSpec_snd (n : Name) : ∀ l : List ConstantInfo,
     · rw [ite_eq_right hn, idxSpec_snd n cs]
       simp [Bool.of_not_eq_true hn]
 
+/-- The empty base layer answers nothing. -/
+@[simp] theorem FBase.find?_empty (n : Name) : ({} : FBase).find? n = none := by
+  simp [FBase.find?]
+
+/-- `mkFEnv` has the empty base layer. -/
+@[simp] theorem mkFEnv_base (env : Env) : (mkFEnv env).base = {} := rfl
+
 /-- The per-entry-call name index computes `Env.find?` (nothing is
 hidden: `mkFEnv`'s bound is the constant count). -/
 theorem mkFEnv_find? (env : Env) (n : Name) :
     (mkFEnv env).find? n = env.find? n := by
   show (match (mkFEnv env).idx[n]? with
         | some (c, ci) => if c < (mkFEnv env).visibleBelow then some ci else none
-        | none => none) = _
+        | none => (mkFEnv env).base.find? n) = _
   rw [mkFEnv_idx, mkFEnv_visibleBelow, Env.find?, ← idxSpec_snd n env.consts]
   cases h : idxSpec env.consts n with
-  | none => rfl
+  | none => rw [mkFEnv_base, FBase.find?_empty]; rfl
   | some p =>
     obtain ⟨c, ci⟩ := p
     show (if c < env.consts.length then some ci else none) = some ci
@@ -186,8 +193,8 @@ private theorem restrictTo_find?_eq (env : Env) (k : Nat) (n : Name) :
     ((mkFEnv env).restrictTo k).find? n = idxBelow env.consts k n := by
   show (match (mkFEnv env).idx[n]? with
         | some (c, ci) => if c < k then some ci else none
-        | none => none) = _
-  rw [mkFEnv_idx, idxBelow]
+        | none => ({} : FBase).find? n) = _
+  rw [mkFEnv_idx, idxBelow, FBase.find?_empty]
 
 /-- **The bounded index is the prefix environment** (the load-bearing
 equivalence for the split driver): looking a name up in the full index
