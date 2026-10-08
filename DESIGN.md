@@ -97308,3 +97308,44 @@ The code (`ConLeche/Frontend/{Scan/Types,ExportC,Pipeline}.lean`,
 plus the `OVERVIEW.md` link-anchor re-sync the line shift required) is
 kept as `_tmp/amdahl/presize-logs/presize.patch` if a future lane wants
 to revisit it against a cheaper or less noisy measurement.
+
+## TASK #329 — ROUNDS: the lookup interface and the dense characterisation (2026-10-08, agent/329-rounds)
+
+First milestone of the rounds parse (the PARSE3 study,
+`_tmp/amdahl/parse3-study.md`: a parallel apply in rounds over windows
+of chunks). Steps 1–3 of its proof plan, landed on their own.
+
+**The builders over a lookup interface** (`ConLeche/Frontend/ExportC.lean`).
+`Lk ε` is three lookups `Nat → Except ε _` (names, levels, exprs);
+`nameOf`/`levelOf`/`exprOf` (generic in `ε`, `@[inline]`) build an
+entry's value through them and nothing else, `declOf` (with `cvOf`,
+`ruleOf`, `validateInd`, `indBlockOf`, renamed from `parseCVD`,
+`parseRuleD`, `validateIndD`, `installIndD`) a declaration record. The
+serial builders are those at `StateD.lk`: `parseExprEntryD st i r` is
+`freshExpr; exprOf st.lk r; insert` by definition, `processLineCoreD`
+is `declOf st.lk d` then one `pushDecl`. The error type is a parameter
+so that the rounds can hand the builders lookups that answer "not yet".
+The proofs that unfolded the old builders (`ApplyLine.lean`,
+`ThmLine.lean`) became shorter (`processLineCoreD_ok`). The compiled
+hot path is not byte-identical (`pwOf` is now inlined where `parsePwD`
+was a call); init-full at `--jobs=8`: 491.83 G → 491.89 G
+instructions:u (+0.01 %), parse 0.4 s both.
+
+**Dense streams never rebind** (`ConLeche/Verify/Frontend/Dense.lean`,
+counters `Ctr`/`Ctr.fits` in the new `ConLeche/Frontend/Rounds.lean`).
+On a state whose tables are dense arrays (`StateD.ofDense`), a line
+binding the next index of its table passes the rebinding test and its
+entry is pushed (`applyLine_{name,level,expr,decl}_dense`).
+
+**The characterisation.** Over a list of lines each binding the next
+index of its table (`DenseAll`), the serial fold from the state cut at
+counters `c` succeeds with final tables `na`/`la`/`ea` exactly when
+every line's builder, at those tables cut at the counts before the
+line (`cutLk`), yields the line's own entry, and every declaration
+line's builder a record (`AllOK`): `applyList_of_allOK` (the final
+state is the tables cut at the final counters, the records
+`declsAlong`) and `allOK_of_applyList`. The condition is per line, so
+the rounds can establish it in any order.
+
+Gates green (arena battery, `lake test`); mathlib-full at `--jobs=32`
+accepts 691 203 (8.486 T instructions, parse 10.3 s, load ~35).
