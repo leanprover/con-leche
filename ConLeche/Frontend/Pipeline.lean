@@ -538,6 +538,44 @@ def spawnScan (spent : Option ScanTask) (pending buf0 : ByteArray) (k : Nat) : S
     let blk := if pending.isEmpty then buf0.extract 0 k else pending ++ buf0.extract 0 k
     (blk, scanFlat cap blk), scanFlat_encodes _ _⟩
 
+/-- Fill the queue: read until `inflight` chunks are in flight or the
+stream has ended; returns the queue, its length, the spent scan, the
+leftover bytes and whether the stream ended. -/
+partial def fillQ (h : IO.FS.Handle) (inflight : Nat) (chunk : USize)
+    (q : Std.Queue ScanTask) (n : Nat) (spent : Option ScanTask) (pending : ByteArray)
+    (eof : Bool) : IO (Std.Queue ScanTask × Nat × Option ScanTask × ByteArray × Bool) := do
+  if eof || n ≥ inflight then return (q, n, spent, pending, eof)
+  let buf0 ← h.read chunk
+  if buf0.isEmpty then
+    -- the end: the leftover bytes, if any, are the last chunk
+    if pending.isEmpty then return (q, n, spent, pending, true)
+    else return (q.enqueue (spawnScan spent pending .empty 0), n + 1, none, .empty, true)
+  else
+    match lastNewlineBelow buf0 buf0.size with
+    | none => fillQ h inflight chunk q n spent (pending ++ buf0) false
+    | some k =>
+      let t := spawnScan spent pending buf0 (k + 1)
+      fillQ h inflight chunk (q.enqueue t) (n + 1) none (buf0.extract (k + 1) buf0.size) false
+
+/-- The applying loop of the pipelined parse, from a reached state (the
+rounds parse falls back to it, `ConLeche/Driver/ParParse.lean`). -/
+partial def loopP (h : IO.FS.Handle) (inflight : Nat) (chunk : USize) (st : StateD)
+    (carry : ByteArray) (lineNo total : Nat) (hr : Reached st carry lineNo total)
+    (q : Std.Queue ScanTask) (n : Nat) (spent : Option ScanTask) (pending : ByteArray)
+    (eof : Bool) : IO ParseOutcome := do
+  let (q, n, spent, pending, eof) ← fillQ h inflight chunk q n spent pending eof
+  match q.dequeue? with
+  | none => return ⟨chunkFinish st carry lineNo, hr.finish⟩
+  | some (t, q) =>
+    match hs : chunkStepF st carry lineNo total t.val.get.1 t.val.get.2 with
+    | .error e =>
+      return ⟨.error e, hr.error (c := t.val.get.1) (by
+        rw [← chunkStepF_of_encodes _ _ _ _ _ _ t.property]; exact hs)⟩
+    | .ok (st', carry', lineNo', total') =>
+      loopP h inflight chunk st' carry' lineNo' total' (hr.step (c := t.val.get.1) (by
+        rw [← chunkStepF_of_encodes _ _ _ _ _ _ t.property]; exact hs))
+        q (n - 1) (some t) pending eof
+
 /-- **The pipelined streaming parse.**  The handle is read strictly
 forward, `chunk` bytes at a time, never seeked or re-opened (the
 source may be a pipe; `Main.lean`).  Each read is cut at its last
@@ -555,42 +593,9 @@ what it returns is what `parseChunks` returns on the chunks it applied
 (`ParseOutcome`).  Which chunks those are is the cut's business, and
 `parseChunks_ok_parseBytes` (`ConLeche/Verify/Frontend/Chunks.lean`)
 says it does not matter. -/
-partial def parseExportHandleP (h : IO.FS.Handle) (inflight : Nat)
-    (chunk : USize := chunkSize) : IO ParseOutcome := do
-  -- fill the queue: read until `inflight` chunks are in flight or the
-  -- stream has ended; returns the queue, the leftover bytes and
-  -- whether the stream ended
-  let rec fill (q : Std.Queue ScanTask) (n : Nat) (spent : Option ScanTask)
-      (pending : ByteArray) (eof : Bool) :
-      IO (Std.Queue ScanTask × Nat × Option ScanTask × ByteArray × Bool) := do
-    if eof || n ≥ inflight then return (q, n, spent, pending, eof)
-    let buf0 ← h.read chunk
-    if buf0.isEmpty then
-      -- the end: the leftover bytes, if any, are the last chunk
-      if pending.isEmpty then return (q, n, spent, pending, true)
-      else return (q.enqueue (spawnScan spent pending .empty 0), n + 1, none, .empty, true)
-    else
-      match lastNewlineBelow buf0 buf0.size with
-      | none => fill q n spent (pending ++ buf0) false
-      | some k =>
-        let t := spawnScan spent pending buf0 (k + 1)
-        fill (q.enqueue t) (n + 1) none (buf0.extract (k + 1) buf0.size) false
-  let rec loop (st : StateD) (carry : ByteArray) (lineNo total : Nat)
-      (hr : Reached st carry lineNo total) (q : Std.Queue ScanTask) (n : Nat)
-      (spent : Option ScanTask) (pending : ByteArray) (eof : Bool) : IO ParseOutcome := do
-    let (q, n, spent, pending, eof) ← fill q n spent pending eof
-    match q.dequeue? with
-    | none => return ⟨chunkFinish st carry lineNo, hr.finish⟩
-    | some (t, q) =>
-      match hs : chunkStepF st carry lineNo total t.val.get.1 t.val.get.2 with
-      | .error e =>
-        return ⟨.error e, hr.error (c := t.val.get.1) (by
-          rw [← chunkStepF_of_encodes _ _ _ _ _ _ t.property]; exact hs)⟩
-      | .ok (st', carry', lineNo', total') =>
-        loop st' carry' lineNo' total' (hr.step (c := t.val.get.1) (by
-          rw [← chunkStepF_of_encodes _ _ _ _ _ _ t.property]; exact hs))
-          q (n - 1) (some t) pending eof
-  loop .init .empty 0 0 .init ∅ 0 none .empty false
+def parseExportHandleP (h : IO.FS.Handle) (inflight : Nat)
+    (chunk : USize := chunkSize) : IO ParseOutcome :=
+  loopP h inflight chunk .init .empty 0 0 .init ∅ 0 none .empty false
 
 /-- The pipelined streaming parse of a file. -/
 def parseExportStreamP (path : System.FilePath) (inflight : Nat)

@@ -1,9 +1,9 @@
 module
 
 public import ConLeche.Frontend.Prelude
-public import ConLeche.Frontend.Pipeline
 public import ConLeche.Driver.ParInstall
 public import ConLeche.Driver.CheckPool
+public import ConLeche.Driver.ParParse
 
 /-!
 # The driver: `checkDeclsIO` and the phase sequencing (task #329)
@@ -51,14 +51,22 @@ straight from the file, with the evidence that the streaming parse
 `Frontend.parseChunks` returns them (`Frontend.ParseOutcome`).  There
 is nothing else — no preprocessor detection, no spawn, no pipe.
 
-The parse scans its chunks on worker tasks, `inflight` of them ahead of
-the applying thread (`Frontend.parseExportHandleP`): the worker count
-clamped to `[2, 8]`.  Eight keep the applying thread busy (measured on
-`mathlib-prefix`: 4.0 s at one, 1.5 s at two, 0.8 s at four, 0.7 s at
-six and eight, no gain past); two is the floor because at one the scan
-and the apply take turns instead of overlapping. -/
-def parseInput (file : String) (jobs : Nat) : IO Frontend.ParseOutcome :=
-  Frontend.parseExportStreamP file (max 2 (min jobs 8))
+At `--jobs=1` the parse is the pipelined one
+(`Frontend.parseExportHandleP`): the chunks are scanned on two tasks
+ahead of the applying thread.  Above one worker it is the rounds parse
+(`ParParse.parseExportStreamR`): windows of `4 * jobs` chunks (at most
+256), applied in rounds on `jobs` workers, `jobs` chunks read and
+scanned ahead.  A chunk is about an eighth of a window's share of the
+file, between 64 KiB and 1 MiB (1 MiB when the size is unknown), so
+that a small file is one window and a large one has many. -/
+def parseInput (file : String) (jobs : Nat) (noMark : Bool) : IO Frontend.ParseOutcome := do
+  if jobs ≤ 1 then
+    Frontend.parseExportStreamP file 2
+  else
+    let size ← try pure (← System.FilePath.metadata file).byteSize.toNat catch _ => pure 0
+    let m := min 256 (4 * jobs)
+    let csz := if size == 0 then 1048576 else max 65536 (min 1048576 (size / (8 * m)))
+    ParParse.parseExportStreamR file jobs m csz.toUSize jobs 2 noMark
 
 /-- The end-of-run statistics (performance-only): the phase times, the
 install's and the check's reports (`PoolRep.line`, the slowest five of
@@ -294,7 +302,7 @@ def checkMain (file : String) (mode : CheckMode) (stride jobs : Nat)
     -- Streaming frontend: the parse reads the file line by line, so
     -- neither a wholesale text buffer nor a scratch file exists in
     -- this process.
-    match (← parseInput file jobs).val with
+    match (← parseInput file jobs noMark).val with
     | .error (.notImplemented what, _) =>
       IO.eprintln s!"con-leche: declined: {what} ({modeTag})"
       return 2

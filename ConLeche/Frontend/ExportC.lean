@@ -117,23 +117,23 @@ structure Lk (ε : Type) where
 @[inline] def StateD.lk (st : StateD) : Lk String := ⟨st.name, st.level, st.expr⟩
 
 /-- The `pw` datum, over the name lookup. -/
-@[inline] def pwOf (L : Lk ε) : PwRec → Except ε PropWhen
+@[inline] def pwOfF (nm : Nat → Except ε Name) (_lv : Nat → Except ε Level) (_ex : Nat → Except ε Expr) : PwRec → Except ε PropWhen
   | .never => pure .never
-  | .ifAllZero ns => do pure (.ifAllZero (← ns.mapM L.name))
+  | .ifAllZero ns => do pure (.ifAllZero (← ns.mapM nm))
 
 /-- A name-table entry's value. -/
-@[inline] def nameOf (L : Lk ε) (r : NameRec) : Except ε Name :=
+@[inline] def nameOfF (nm : Nat → Except ε Name) (_lv : Nat → Except ε Level) (_ex : Nat → Except ε Expr) (r : NameRec) : Except ε Name :=
   match r with
-  | .str pre s => do pure (Name.str (← L.name pre) s)
-  | .num pre n => do pure (Name.num (← L.name pre) n)
+  | .str pre s => do pure (Name.str (← nm pre) s)
+  | .num pre n => do pure (Name.num (← nm pre) n)
 
 /-- A level-table entry's value. -/
-@[inline] def levelOf (L : Lk ε) (r : LevelRec) : Except ε Level :=
+@[inline] def levelOfF (nm : Nat → Except ε Name) (lv : Nat → Except ε Level) (_ex : Nat → Except ε Expr) (r : LevelRec) : Except ε Level :=
   match r with
-  | .succ u => do pure (Level.succ (← L.level u))
-  | .max a b => do pure (Level.max (← L.level a) (← L.level b))
-  | .imax a b => do pure (Level.imax (← L.level a) (← L.level b))
-  | .param n => do pure (Level.param (← L.name n))
+  | .succ u => do pure (Level.succ (← lv u))
+  | .max a b => do pure (Level.max (← lv a) (← lv b))
+  | .imax a b => do pure (Level.imax (← lv a) (← lv b))
+  | .param n => do pure (Level.param (← nm n))
 
 /-- An expression-table entry's value: the `Expr` node built from the
 children's values (the derived fields are the compiler's, task #172
@@ -145,25 +145,31 @@ beside the `.default` annotation of task #142), so `==` is
 α-equivalence downstream.  The `name` field is still required to be
 present and well-formed (the recogniser reads it), it is just not
 resolved. -/
-@[inline] def exprOf (L : Lk ε) (r : ExprRec) : Except ε Expr :=
+@[inline] def exprOfF (nm : Nat → Except ε Name) (lv : Nat → Except ε Level) (ex : Nat → Except ε Expr) (r : ExprRec) : Except ε Expr :=
   match r with
   | .bvar k => pure (Expr.mkBvar k)
-  | .sort u => do pure (Expr.mkSort (← L.level u))
+  | .sort u => do pure (Expr.mkSort (← lv u))
   | .const n us => do
-    let nm ← L.name n
-    let ls ← us.mapM L.level
+    let nm ← nm n
+    let ls ← us.mapM lv
     pure (Expr.mkConst nm ls)
-  | .app f a => do pure (Expr.mkApp (← L.expr f) (← L.expr a))
+  | .app f a => do pure (Expr.mkApp (← ex f) (← ex a))
   | .lam ty bd pw => do
-    pure (Expr.mkLam (← L.expr ty) (← L.expr bd) ⟨← pwOf L pw⟩)
+    pure (Expr.mkLam (← ex ty) (← ex bd) ⟨← pwOfF nm lv ex pw⟩)
   | .forallE ty bd pw => do
-    pure (Expr.mkForallE (← L.expr ty) (← L.expr bd) ⟨← pwOf L pw⟩)
+    pure (Expr.mkForallE (← ex ty) (← ex bd) ⟨← pwOfF nm lv ex pw⟩)
   | .letE ty vl bd => do
-    pure (Expr.mkLetE (← L.expr ty) (← L.expr vl) (← L.expr bd))
+    pure (Expr.mkLetE (← ex ty) (← ex vl) (← ex bd))
   | .proj tn ix s => do
-    pure (Expr.mkProj (← L.name tn) ix (← L.expr s))
+    pure (Expr.mkProj (← nm tn) ix (← ex s))
   | .natVal n => pure (Expr.mkLit (.natVal n))
   | .strVal s => pure (Expr.mkLit (.strVal s))
+
+/-- The builders over an `Lk` record. -/
+@[inline] def pwOf (L : Lk ε) (r : PwRec) : Except ε PropWhen := pwOfF L.name L.level L.expr r
+@[inline] def nameOf (L : Lk ε) (r : NameRec) : Except ε Name := nameOfF L.name L.level L.expr r
+@[inline] def levelOf (L : Lk ε) (r : LevelRec) : Except ε Level := levelOfF L.name L.level L.expr r
+@[inline] def exprOf (L : Lk ε) (r : ExprRec) : Except ε Expr := exprOfF L.name L.level L.expr r
 
 /-! ## The rebinding test (task #290)
 
@@ -218,11 +224,11 @@ that consumes it, exactly as before. -/
 /-! ## Declaration records -/
 
 /-- A declaration's common data; the type stays `Expr`. -/
-def cvOf (L : Lk String) (cv : CVRec) : M ConstantVal := do
-  let name ← L.name cv.name
-  let ty ← L.expr cv.type
+@[specialize] def cvOfF (nm : Nat → M Name) (_lv : Nat → M Level) (ex : Nat → M Expr) (cv : CVRec) : M ConstantVal := do
+  let name ← nm cv.name
+  let ty ← ex cv.type
   pure { name := name
-         levelParams := ← cv.levelParams.mapM L.name
+         levelParams := ← cv.levelParams.mapM nm
          type := ty }
 
 /-- **The syntactic Π-telescope length of a declared type** (task
@@ -234,9 +240,9 @@ def indPiTeleLen : Expr → Nat
   | _ => 0
 
 /-- One recursor rule of an inductive record, resolved. -/
-def ruleOf (L : Lk String) (ru : RuleRec) : M RecRule := do
-  pure (RecRule.mk (← L.name ru.ctor) ru.nfields 0 .inert
-    (← L.expr ru.rhs) false false false)
+@[specialize] def ruleOfF (nm : Nat → M Name) (_lv : Nat → M Level) (ex : Nat → M Expr) (ru : RuleRec) : M RecRule := do
+  pure (RecRule.mk (← nm ru.ctor) ru.nfields 0 .inert
+    (← ex ru.rhs) false false false)
 
 /-- **An inductive record, validated** (tasks #217, #228, #271): the
 half of the record's processing that reads the state and changes
@@ -244,7 +250,7 @@ nothing — the verdict, or the block's constructors in the block's own
 order with the declared parameter count.  Split from `indBlockOf`
 below at task #290 so that a proof about what the parse does to its
 state need not look here at all. -/
-def validateInd (L : Lk String) (tys : List IndTypeRec) (cts : List IndCtorRec)
+@[specialize] def validateIndF (nm : Nat → M Name) (_lv : Nat → M Level) (ex : Nat → M Expr) (tys : List IndTypeRec) (cts : List IndCtorRec)
     (rcs : List IndRecRec) : M (RecordVerdict ⊕ (List IndCtorRec × Nat)) := do
   -- TASK #217 (audit follow-up 6): an `unsafe inductive` is DECLINED,
   -- not an error.  The official kernel admits unsafe blocks (it skips
@@ -287,10 +293,10 @@ def validateInd (L : Lk String) (tys : List IndTypeRec) (cts : List IndCtorRec)
   -- These are consistency checks between the stream's own fields, so
   -- they live here, in the parse, and their verdict is `.invalid`:
   -- the fold never sees such a block.
-  let tyNames ← tys.mapM fun t => L.name t.cv.name
-  let tyTypes ← tys.mapM fun t => L.expr t.cv.type
-  let listed ← tys.mapM fun t => t.ctors.mapM L.name
-  let ctorNames ← cts.mapM fun c => L.name c.cv.name
+  let tyNames ← tys.mapM fun t => nm t.cv.name
+  let tyTypes ← tys.mapM fun t => ex t.cv.type
+  let listed ← tys.mapM fun t => t.ctors.mapM nm
+  let ctorNames ← cts.mapM fun c => nm c.cv.name
   let flat := listed.flatten
   unless flat.Nodup do
     return .inl (.invalid "duplicate constructor name in an inductive type's ctors")
@@ -316,7 +322,7 @@ def validateInd (L : Lk String) (tys : List IndTypeRec) (cts : List IndCtorRec)
           return .inl (.invalid s!"constructor {n} declares cidx {ci}; it is \
             constructor {j} of {T}")
       if let some iw := c.induct then
-        let iwn ← L.name iw
+        let iwn ← nm iw
         unless iwn == T do
           return .inl (.invalid s!"constructor {n} declares induct {iwn}; it is \
             a constructor of {T}")
@@ -327,7 +333,7 @@ def validateInd (L : Lk String) (tys : List IndTypeRec) (cts : List IndCtorRec)
       -- Before this, a count too LARGE declined at the field
       -- telescope (arena `ctor-num-fields`) and a count too small was
       -- caught later, by the constructor's result type, if at all.
-      let cty ← L.expr c.cv.type
+      let cty ← ex c.cv.type
       unless nPd + c.numFields == indPiTeleLen cty do
         return .inl (.invalid s!"constructor {n} declares {c.numFields} fields at \
           {nPd} parameters; its type has {indPiTeleLen cty} binders")
@@ -366,7 +372,7 @@ def validateInd (L : Lk String) (tys : List IndTypeRec) (cts : List IndCtorRec)
       | _ => none
     | _, _, _ => some false
   for r in (if nested then [] else rcs) do
-    let rn ← L.name r.cv.name
+    let rn ← nm r.cv.name
     unless r.numParams == nPd do
       return .inl (.invalid s!"recursor {rn} declares {r.numParams} parameters; \
         the block declares {nPd}")
@@ -394,15 +400,15 @@ def validateInd (L : Lk String) (tys : List IndTypeRec) (cts : List IndCtorRec)
 
 /-- **An inductive record, assembled**: the block's constants, as one
 `indDecl`. -/
-def indBlockOf (L : Lk String) (tys : List IndTypeRec) (cts : List IndCtorRec)
+@[specialize] def indBlockOfF (nm : Nat → M Name) (lv : Nat → M Level) (ex : Nat → M Expr) (tys : List IndTypeRec) (cts : List IndCtorRec)
     (rcs : List IndRecRec) (nPd : Nat) : M Declaration := do
   let types ← tys.mapM fun t => do
-    pure (ConstantInfo.indInfo (← cvOf L t.cv) {})
+    pure (ConstantInfo.indInfo (← cvOfF nm lv ex t.cv) {})
   let ctors ← cts.mapM fun c => do
-    pure (ConstantInfo.ctorInfo (← cvOf L c.cv) c.numParams c.numFields)
+    pure (ConstantInfo.ctorInfo (← cvOfF nm lv ex c.cv) c.numParams c.numFields)
   let recs ← rcs.mapM fun r => do
-    let rules ← r.rules.mapM (ruleOf L)
-    pure (ConstantInfo.recInfo (← cvOf L r.cv)
+    let rules ← r.rules.mapM (ruleOfF nm lv ex)
+    pure (ConstantInfo.recInfo (← cvOfF nm lv ex r.cv)
       (r.numParams + r.numMotives + r.numMinors + r.numIndices)
       (r.numParams + r.numMotives + r.numMinors) rules)
   let block := types ++ ctors ++ recs
@@ -420,10 +426,10 @@ def indBlockOf (L : Lk String) (tys : List IndTypeRec) (cts : List IndCtorRec)
 `Declaration` records (the state is `processLineCoreD`'s, below).
 Every branch, guard and error string is the one the `Lean.Json` reader this replaced had (task #256); only the reads
 changed, from key lookups in a DOM to fields of a syntax record. -/
-def declOf (L : Lk String) (d : @& DeclRec) : M (Declaration ⊕ RecordVerdict) := do
+@[specialize] def declOfF (nm : Nat → M Name) (lv : Nat → M Level) (ex : Nat → M Expr) (d : @& DeclRec) : M (Declaration ⊕ RecordVerdict) := do
   match d with
   | .ax cvr isUnsafe =>
-    let cvp ← cvOf L cvr
+    let cvp ← cvOfF nm lv ex cvr
     if isUnsafe then
       return .inr (.declined "unsafe axiom")
     -- **`Quot.sound` is the FOLD's** (task #293): the axiom record is
@@ -432,10 +438,10 @@ def declOf (L : Lk String) (d : @& DeclRec) : M (Declaration ⊕ RecordVerdict) 
     -- decline on a mismatch was the parser's and is not any more.
     return .inl (.axiomDecl cvp)
   | .defn cvr value hints safety =>
-    let cvp ← cvOf L cvr
+    let cvp ← cvOfF nm lv ex cvr
     match safety with
     | "safe" =>
-      let vl ← L.expr value
+      let vl ← ex value
       let h : ReducibilityHint := match hints with
         | .«abbrev» => .«abbrev»
         | .«opaque» => .«opaque»
@@ -443,14 +449,14 @@ def declOf (L : Lk String) (d : @& DeclRec) : M (Declaration ⊕ RecordVerdict) 
       return .inl (.defnDecl cvp vl h)
     | s => return .inr (.declined s!"definition with safety '{s}'")
   | .thm cvr value =>
-    let cvp ← cvOf L cvr
-    let vl ← L.expr value
+    let cvp ← cvOfF nm lv ex cvr
+    let vl ← ex value
     return .inl (.thmDecl cvp vl)
   | .opaq cvr value isUnsafe =>
-    let cvp ← cvOf L cvr
+    let cvp ← cvOfF nm lv ex cvr
     if isUnsafe then
       return .inr (.declined "unsafe opaque declaration")
-    let vl ← L.expr value
+    let vl ← ex value
     return .inl (.opaqueDecl cvp vl)
   | .quot cvr kind =>
     -- **ONE RECORD PER `#QUOT` LINE** (task #293): the file declares
@@ -460,7 +466,7 @@ def declOf (L : Lk String) (d : @& DeclRec) : M (Declaration ⊕ RecordVerdict) 
     -- (`preparePrelude`, which retags a matching record to
     -- `basisDecl .quotK`) and the decline on a mismatch (the fold's
     -- `.quotDecl` arm) are not the parser's any more.
-    let cv ← cvOf L cvr
+    let cv ← cvOfF nm lv ex cvr
     let qk ← match kind with
       | "type" => pure QuotKind.type
       | "ctor" => pure QuotKind.ctor
@@ -469,9 +475,13 @@ def declOf (L : Lk String) (d : @& DeclRec) : M (Declaration ⊕ RecordVerdict) 
       | k => throw s!"unknown quotient kind '{k}'"
     return .inl (.quotDecl qk cv)
   | .ind tys cts rcs =>
-    match ← validateInd L tys cts rcs with
+    match ← validateIndF nm lv ex tys cts rcs with
     | .inl v => pure (.inr v)
-    | .inr (cts, nPd) => return .inl (← indBlockOf L tys cts rcs nPd)
+    | .inr (cts, nPd) => return .inl (← indBlockOfF nm lv ex tys cts rcs nPd)
+
+/-- The declaration builder over an `Lk` record. -/
+@[inline] def declOf (L : Lk String) (d : DeclRec) : M (Declaration ⊕ RecordVerdict) :=
+  declOfF L.name L.level L.expr d
 
 /-- A declaration record applied to the state: its record pushed, or its
 verdict. -/

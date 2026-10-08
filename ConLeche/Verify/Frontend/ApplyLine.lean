@@ -204,7 +204,7 @@ theorem applyLine_nameFalse {st st' : StateD} {i : Nat}
   obtain ⟨_, _, hn⟩ := exceptBind_ok hn
   simp only [pure, Except.pure, Except.ok.injEq] at hn; subst hn
   have hp' : p = falseName := by
-    simp only [nameOf, StateD.lk, StateD.name, h0, bind, Except.bind, pure, Except.pure,
+    simp only [nameOf, nameOfF, StateD.lk, StateD.name, h0, bind, Except.bind, pure, Except.pure,
       Except.ok.injEq] at hp
     exact hp.symm
   subst hp'
@@ -223,7 +223,7 @@ theorem applyLine_constFalse {st st' : StateD} {i j : Nat}
   obtain ⟨_, _, he⟩ := exceptBind_ok he
   -- the entry is `mkConst False []`: the name, the (empty) levels, the node
   obtain ⟨e, hex, he⟩ := exceptBind_ok he
-  simp only [exprOf, StateD.lk, StateD.name, hi, List.mapM_nil, bind, Except.bind, pure,
+  simp only [exprOf, exprOfF, StateD.lk, StateD.name, hi, List.mapM_nil, bind, Except.bind, pure,
     Except.pure, Except.ok.injEq] at hex
   subst hex
   simp only [pure, Except.pure, Except.ok.injEq] at he; subst he

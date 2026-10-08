@@ -97986,3 +97986,138 @@ writer's cost and some of the scan's), at the price of proving that
 scanner against `scanLineSpec` composed with `wLine`. For the rounds
 parse: a chunk's `FlatChunk` is what a round reads; its line starts
 come from `lineEndU`, computed on the chunk's own task.
+
+## TASK #329 — ROUNDS2: the rounds parse at every `--jobs` above one, checked line by line (2026-10-08, agent/329-rounds2)
+
+**What.** At `--jobs` above one the parse is the rounds parse
+(`ConLeche/Driver/ParParse.lean`); `--jobs=1` keeps the pipelined
+parse. The stream is read forward in chunks of whole lines (about an
+eighth of a window's share of the file, 64 KiB to 1 MiB), each chunk
+scanned flat on a worker; a window of `4 * jobs` chunks (at most 256)
+is applied in rounds (`ConLeche/Frontend/RoundsWork.lean`): round 0
+per chunk against the finished tables and the chunk's own entries,
+deferring a line that reads another chunk of the window; later rounds
+retry a deferred line once the entry it waits for is done; then the
+window's tables join the finished tables, in pages of 4096 indices.
+One pool of `jobs` dedicated workers takes jobs from three queues:
+the current window's rounds and pages, the previous window's checks,
+the scans read ahead (`jobs` chunks beyond the window).
+
+**What is trusted: the check, not the rounds** (the maintainer's
+simplification). Nothing the rounds compute is believed. The tables
+after a window are tested to agree with the tables before below the
+window's start (`Prior.keeps`: the kept pages are the old ones by
+construction, the first new page is compared slot by slot), and every
+chunk is checked line by line against the finished tables at the
+counters the serial parse has there (`checkFlat`,
+`ConLeche/Frontend/Rounds.lean`): a table line binds an index at or
+above its counter with nothing bound in the gap, and its builder,
+reading the finished tables cut at the counters, yields exactly the
+entry they hold (compared node by node, pointer first, without
+building it); a declaration line yields its record. The checks of a
+window run while the next window's rounds run, and are folded before
+that window's tables join. Proofs (`ConLeche/Verify/Frontend/Rounds.lean`):
+`checkLine_sound`/`checkList_sound` (a passing list is `AllOK` at
+the finished tables), `checkFlat_sound` (the flat check is the check
+of the lines the chunk holds), `GOK.chunk` (a passing chunk is one
+more `chunkStep`), `GOK.keep`, `GOK.finish`, `GOK.reached` (the
+fallback's starting state, `Prior.toState`). The driver returns
+`ParseOutcome` as before; `MainTheorem` and the main corollary are
+unchanged.
+
+**Gappy ids.** The landed step-2/3 theorems are restated for streams
+that bind each table in increasing order with gaps
+(`ConLeche/Verify/Frontend/Dense.lean`): `applyLine_of_lineOK`, the
+characterisation `applyList_of_allOK` and its converse
+`allOK_of_applyList` over tables as partial maps (`Tabs`, `Holds`);
+`StateEquiv.lean`: the parse sees its tables only as partial maps
+(`Reached.equiv`). The builders take three lookup functions
+(`nameOfF`/`exprOfF`/`declOfF`; `nameOf L` is `nameOfF L.name ...`).
+
+**Fallback.** A window whose chunks do not qualify (a carried tail, a
+malformed line), whose rounds meet an index below its table's counter
+(a decreasing stream), a line the serial parse fails at, a round
+without progress, gaps wider than `8 * entries + 2^23` in a table, or
+a chunk failing its check, goes to the serial parse from the state the
+chunks before it reached: the remaining chunks by `chunkStepF`, the
+rest of the stream by the pipelined parse (`loopP`). That is the
+serial verdict at the serial line. Tests: `RoundsTests` (chunks of 64
+bytes to 64 KiB, windows of one to five chunks, two and three workers,
+ten fixtures, each compared with `parseBytes` and with its fallback
+expectation); e2e fixtures `rounds_gappy_ids` (accepted on the rounds
+path), `rounds_decreasing_id` (fallback, accepted),
+`rounds_forward_ref` and `rounds_error_late` (fallback, the serial
+error at its line). The arena and e2e sweeps at `--jobs=4` and the
+default worker count now run every fixture through the rounds parse.
+
+**Memory: what is marked persistent** (the maintainer's rule: only
+what lives to the end of the run). Workers mark, element by element
+(`markEach`), the names, levels and expressions they built (round 0's
+arrays, each later round's array) and the records a check built; never
+an array or other container. Pages, round arrays, keys, positions and
+pending lines are freed when the window or the parse is done. Three
+findings on the way:
+- A placeholder written as a constructor in an instance
+  (`Sent.pend := .fvar sentP (.bvar 0)`) was rebuilt by the compiler at
+  every use: a fresh object per deferred line, persistent with its
+  array. Now one `@[noinline]` constant each (`pendExpr` etc.).
+- Persistent containers (round arrays, pages, the window's keys)
+  leaked: peak RSS cslib `--jobs=8` 4.24 GB and mathlib-full 9.88–10.1
+  GB before the fix, 3.24 and 7.66 GB after (the pipelined parse:
+  3.26 and 7.61).
+- A closure over the finished tables (`cutLk P.tabs c` in the check)
+  took a reference per line on a container every worker reads; with the
+  container not persistent that was an atomic hot spot (init-full parse
+  0.33 s → 1.3–1.7 s). The check now reads through borrowed lookups
+  (`lkN`/`lkL`/`lkE`, `levelsCheck` for a constant's levels): 0.35 s.
+- Marking cost (mathlib-full `--jobs=8`, parse-only, `perf`):
+  `lean_mark_persistent` 2.4 % of the parse's cycles (each element's
+  walk stops at its persistent children), `lean_mark_mt` 1.1 % (the
+  runtime marking the round arrays and pages as they cross; it does not
+  enter the persistent entries).
+
+**Measured** (`more-parallel` `6eaff83aa` = mp against this lane;
+`--progress` phase times, wall seconds, median (min–max) of 2 runs;
+instructions:u the minimum; load the one-minute average; all runs
+accept the expected counts, mathlib-full 691 203):
+
+| corpus | jobs | binary | parse | install | check | total | peak RSS GB | instr G (min) | load |
+|---|---|---|---|---|---|---|---|---|---|
+| cslib | 8 | mp | 3.4 (3.4–3.4) | 5.5 (5.3–5.8) | 38.7 (37.8–39.6) | 47.7 (46.5–48.9) | 3.25–3.25 | 2901.1 | 8–13 |
+| cslib | 8 | rounds | 2.7 (2.6–2.8) | 4.2 (4.0–4.4) | 36.6 (36.3–37.0) | 43.6 (43.0–44.3) | 3.24–3.27 | 2957.5 | 10–16 |
+| cslib | 32 | mp | 3.4 (3.4–3.4) | 3.1 (3.0–3.3) | 12.1 (12.0–12.1) | 18.7 (18.5–18.9) | 3.43–3.43 | 2904.2 | 12–16 |
+| cslib | 32 | rounds | 1.6 (1.6–1.6) | 2.0 (1.8–2.1) | 11.2 (11.2–11.3) | 14.8 (14.6–15.1) | 3.41–3.44 | 2978.6 | 14–17 |
+| cslib | 64 | mp | 3.5 (3.4–3.5) | 3.2 (3.2–3.2) | 7.8 (7.7–7.8) | 14.5 (14.5–14.5) | 3.57–3.60 | 2903.0 | 21–32 |
+| cslib | 64 | rounds | 1.7 (1.7–1.7) | 1.9 (1.8–2.0) | 7.8 (7.7–7.8) | 11.4 (11.4–11.5) | 4.55–4.62 | 2994.9 | 26–35 |
+| init | 1 | mp | 0.6 | 2.4 | 42.3 | 45.4 | 0.42–0.42 | 487.2 | 37–37 |
+| init | 1 | rounds | 0.6 | 2.3 | 42.4 | 45.5 | 0.42–0.42 | 487.1 | 18–18 |
+| init | 8 | mp | 0.3 (0.3–0.4) | 0.8 (0.8–0.8) | 6.3 (6.1–6.5) | 7.6 (7.4–7.7) | 0.57–0.60 | 491.8 | 5–6 |
+| init | 8 | rounds | 0.3 (0.3–0.3) | 0.7 (0.7–0.7) | 6.3 (6.3–6.3) | 7.4 (7.4–7.4) | 0.69–0.74 | 504.4 | 6–7 |
+| mlfull | 8 | mp | 8.3 (8.1–8.6) | 14.4 (14.3–14.4) | 108.0 (107.0–108.9) | 130.7 (129.6–131.8) | 7.60–7.62 | 8458.4 | 16–40 |
+| mlfull | 8 | rounds | 7.1 (6.8–7.4) | 10.7 (10.5–10.9) | 106.9 (105.6–108.2) | 124.8 (123.4–126.2) | 7.62–7.64 | 8616.4 | 13–14 |
+| mlfull | 32 | mp | 8.2 (8.1–8.4) | 8.1 (8.1–8.1) | 33.5 (33.5–33.5) | 50.0 (49.8–50.2) | 7.83–7.84 | 8458.6 | 9–25 |
+| mlfull | 32 | rounds | 3.8 (3.8–3.9) | 3.8 (3.6–4.0) | 33.0 (32.7–33.3) | 40.7 (40.6–40.8) | 7.79–7.81 | 8641.5 | 20–27 |
+| mlfull | 64 | master | 21.1 | 54.0 | 30.8 | 105.9 | 7.15–7.15 | 8329.7 | 57–57 |
+| mlfull | 64 | mp | 8.2 (8.1–8.4) | 7.9 (7.8–8.0) | 22.8 (22.5–23.1) | 39.1 (39.0–39.2) | 8.02–8.02 | 8452.1 | 28–46 |
+| mlfull | 64 | rounds | 4.6 (4.4–4.7) | 3.0 (2.9–3.0) | 23.5 (21.6–25.4) | 31.1 (29.0–33.3) | 8.01–8.04 | 8667.1 | 37–48 |
+| ns | 8 | mp | 1.5 (1.5–1.5) | 3.2 (3.1–3.2) | 41.0 (41.0–41.1) | 45.8 (45.7–45.9) | 1.97–1.98 | 3205.3 | 7–8 |
+| ns | 8 | rounds | 1.5 (1.5–1.5) | 2.5 (2.5–2.6) | 40.5 (40.2–40.9) | 44.7 (44.4–45.0) | 1.98–2.00 | 3265.5 | 8–8 |
+
+- `--jobs=1` init-full: 487.17 G → 487.07 G instructions (the same
+  pipelined parse), parse 0.6 s both.
+- `--jobs=2`/`4` on NS: parse 2.5 → 4.3 s and 1.5 → 2.6 s, totals
+  equal (154.1/153.7 s, 83.8/83.5 s): the rounds cost about twice the
+  serial apply's CPU (deferred lines: 42 % of NS's lines are deferred
+  in round 0, 18 % of mathlib-full's), which few workers do not hide;
+  the install gains back the records' mark (0.6 s on NS).
+- master-bc at mathlib-full `--jobs=64`: parse 21.1 s, total 105.9 s.
+- The parse's instructions grow 1.5–2.5 % of a run (the check is a
+  second pass over every line, the deferred lines a second apply).
+
+**Not done.** Smaller deferral (a window's chunks see only the
+finished tables in round 0); a cheaper later round (lookups into other
+chunks search the chunk starts); `lean_mark_mt` of the round arrays
+could be avoided by keeping them on their worker.
+
+Logs and scripts: `_tmp/amdahl/rounds2-logs/` (`campaign2.txt`,
+`run1.sh`, `measure.patch` with the development knobs).
