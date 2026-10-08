@@ -215,7 +215,7 @@ def encNat (n : Nat) : List UInt8 :=
 
 /-- A natural number, appended. -/
 @[inline] def wNat (d : ByteArray) (n : Nat) : ByteArray :=
-  if n < natEsc then w4 d n.toUInt32 else wLeb (w4 d 0xFFFFFFFF) n
+  if n < natEsc then w4 d n.toUInt32 else wLeb ((((d.push 255).push 255).push 255).push 255) n
 
 @[noinline] def rNatBig (d : @& ByteArray) (p : Nat) : Nat × Nat := rLeb d (p + 4)
 
@@ -224,12 +224,14 @@ def encNat (n : Nat) : List UInt8 :=
   let v := r4 d p
   if v == 0xFFFFFFFF then rNatBig d p else (v.toNat, p + 4)
 
+theorem le4_esc : le4 0xFFFFFFFF = [255, 255, 255, 255] := by decide
+
 theorem wNat_spec (d : ByteArray) (n : Nat) :
     (wNat d n).data.toList = d.data.toList ++ encNat n := by
   unfold wNat encNat
   split
   · exact w4_spec d _
-  · rw [wLeb_spec, w4_spec, List.append_assoc]
+  · rw [wLeb_spec, le4_esc]; simp [ByteArray.push]
 
 theorem rdNat (n : Nat) : RD rNat n (encNat n) := by
   intro d p rest h
@@ -1313,5 +1315,16 @@ theorem withLineU_spec {β : Type} (r : LineRec) (d : ByteArray) (hd : d.size < 
     refine ⟨_, rfl, ?_⟩
     simp only [encLine, List.length_cons, List.length_append, List.length_nil]
     omega
+
+/-- **Where the line at `p` ends**: the lines are self-delimiting, so a
+reader that wants line `k` of a chunk (the rounds parse) can index a
+chunk's line starts with this, on its own thread. -/
+@[inline] def lineEndU (d : @& ByteArray) (p : USize) : USize := withLineU d p fun _ q => q
+
+theorem lineEndU_spec (r : LineRec) (d : ByteArray) (hd : d.size < USize.size) (p : USize)
+    (rest : List UInt8) (h : d.data.toList.drop p.toNat = encLine r ++ rest) :
+    (lineEndU d p).toNat = p.toNat + (encLine r).length := by
+  obtain ⟨q, e, hq⟩ := withLineU_spec r d hd p rest h (fun _ q => q)
+  simp only [lineEndU, e, hq]
 
 end ConLeche.Frontend.Flat
