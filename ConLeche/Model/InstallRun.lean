@@ -150,7 +150,7 @@ theorem annotStepC_model (hμ : μ.verifiedChecks = true)
           (checkValueGroup_mono (Nat.le_max_right _ _) hC)⟩
     | thmDecl cv val =>
       -- phase A installed the header alone: the flush, the header's
-      -- install half, the type record, the push of the RAW value
+      -- install half, the push of the RAW value
       unfold annotStepC at hstepC
       simp only [] at hstepC
       obtain ⟨u₀, s₁', hflush, h⟩ := bindC_ok hstepC
@@ -162,15 +162,12 @@ theorem annotStepC_model (hμ : μ.verifiedChecks = true)
       rw [hfe] at hcv
       obtain ⟨hs₂, hcvA, hwty, F₁, hI⟩ :=
         annotConstantValC_run hμ henv (flushC_csok hresA) hcv
-      obtain ⟨u₁, s₃, hrec, h⟩ := bindC_ok h
-      obtain ⟨hs₃, -⟩ := recordCConst_eff (val := none) hs₂ (by rw [hcvA]; rfl)
-        (fun _ _ hv => nomatch hv) u₁ s₃ hrec
       obtain ⟨hv, rfl⟩ := pureC_ok h
       simp only [Prod.mk.injEq] at hv
       obtain ⟨rfl, rfl⟩ := hv
       refine value .thm (fun cvA v => .thmInfo cvA v) (.thmDecl cv val) cvA val
         rfl
-        hs₃.residue rfl rfl (by rw [hcvA]; exact hwty) (fun h => absurd rfl h) ?_
+        hs₂.residue rfl rfl (by rw [hcvA]; exact hwty) (fun h => absurd rfl h) ?_
       intro F hC
       exact ⟨max F₁ F, checkDecl_of_split_thm rfl
         (installConstantVal_mono (Nat.le_max_left _ _) hI) rfl

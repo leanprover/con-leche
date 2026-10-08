@@ -115,11 +115,9 @@ def annotConstantValC (fe : FEnv) (cv : ConstantVal) :
   pure (⟨cv.name, cv.levelParams, jty⟩, jty)
 
 /-- The value half of `checkDefnValC`/`checkThmValC`/`checkOpaqueValC`
-minus its inference: the guards, the annotation, and the
-converted-constant record (`record` is `false` for an opaque, whose
-value is a discarded witness) — `installValue`'s cached twin. -/
-def annotValC (fe : FEnv) (cvA : ConstantVal) (jty : Expr)
-    (value : Expr) (record : Bool) : CheckCM Expr := do
+minus its inference: the guards and the annotation —
+`installValue`'s cached twin. -/
+def annotValC (fe : FEnv) (cvA : ConstantVal) (value : Expr) : CheckCM Expr := do
   unless Expr.looseBVarsBounded 0 value do
     throw (.invalid s!"loose bound variable in value of {cvA.name}")
   if value.hasFvar then
@@ -129,18 +127,17 @@ def annotValC (fe : FEnv) (cvA : ConstantVal) (jty : Expr)
     throw (.invalid s!"undeclared universe parameter in value of {cvA.name}")
   unless constsResolveFC fe jv do
     throw (unresolvedConstsError s!"value of {cvA.name}" jv)
-  recordCConst cvA.name cvA.type jty (if record then some (jv, jv) else none)
   pure jv
 
 /-- Phase A's install of a separable value declaration: the
 per-declaration flush, then the header's and the value's install halves;
 returns the header with its annotated type, that type, and the
 annotated value. -/
-def annotValueC (fe : FEnv) (cv : ConstantVal) (value : Expr) (record : Bool) :
+def annotValueC (fe : FEnv) (cv : ConstantVal) (value : Expr) :
     CheckCM (ConstantVal × Expr × Expr) := do
   flushC
   let (cvA, jty) ← annotConstantValC mode fe cv
-  let jv ← annotValC mode fe cvA jty value record
+  let jv ← annotValC mode fe cvA value
   pure (cvA, jty, jv)
 
 /-- Phase A's step body: annotate-and-install for the three value
@@ -155,7 +152,7 @@ def annotStepC (pins : List NatOpPinSet) (i : Nat) (fe : FEnv)
     if natOpNames.contains cv.name || natDivModNames.contains cv.name then do
       pure (← checkDeclStepC mode pins fe (.defnDecl cv value hint), pend)
     else do
-      let r ← annotValueC mode fe cv value true
+      let r ← annotValueC mode fe cv value
       -- RC linearity: the counter is read BEFORE the push, so that
       -- `fe` reaches `push` unshared (read after it, the push copies
       -- the whole index at every install)
@@ -169,7 +166,6 @@ def annotStepC (pins : List NatOpPinSet) (i : Nat) (fe : FEnv)
     -- theorem's body
     flushC
     let r ← annotConstantValC mode fe cv
-    recordCConst r.1.name r.1.type r.2 none
     let vis := fe.visibleBelow
     pure (fe.push (.thmInfo r.1 value),
       pend.push ⟨⟨.thm, r.1, value⟩, i, vis⟩)
@@ -177,7 +173,7 @@ def annotStepC (pins : List NatOpPinSet) (i : Nat) (fe : FEnv)
     if reduceOpNames.contains cv.name then do
       pure (← checkDeclStepC mode pins fe (.opaqueDecl cv value), pend)
     else do
-      let r ← annotValueC mode fe cv value false
+      let r ← annotValueC mode fe cv value
       let vis := fe.visibleBelow
       pure (fe.push (.axiomInfo r.1),
         pend.push ⟨⟨.opaque, r.1, r.2.2⟩, i, vis⟩)
@@ -278,7 +274,7 @@ def checkPending (fe : FEnv) (pc : PendingCheck) : CheckCM Unit := do
         throw (.invalid s!"type of theorem {pc.vg.cvA.name} is not a proposition")
       -- a theorem's value arrives raw: its guards and annotation run
       -- here, at the view (`annotValC` — `installValue`'s twin)
-      annotValC mode fe pc.vg.cvA pc.vg.cvA.type pc.vg.jv false
+      annotValC mode fe pc.vg.cvA pc.vg.jv
     else pure pc.vg.jv
   let jvt ← (coreKnotI mode fe checkFuel).infer 0 jv
   unless ← (coreKnotI mode fe checkFuel).defeq 0 jvt pc.vg.cvA.type do

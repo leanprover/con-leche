@@ -382,8 +382,8 @@ theorem annotConstantValC_fresh (mode : CheckMode) (fe : FEnv)
   all_goals exact Yields.pure ⟨rfl, Option.not_isSome_iff_eq_none.mp (by assumption)⟩
 
 theorem annotValueC_fresh (mode : CheckMode) (fe : FEnv) (cv : ConstantVal)
-    (value : Expr) (record : Bool) :
-    Yields (annotValueC mode fe cv value record)
+    (value : Expr) :
+    Yields (annotValueC mode fe cv value)
       (fun r => r.1.name = cv.name ∧ fe.find? cv.name = none) := by
   unfold annotValueC
   ybind
@@ -1238,7 +1238,7 @@ theorem annotStepC_skels (mode : CheckMode) (i : Nat) {fe : FEnv}
     simp only []
     split
     · exact hord _
-    · refine Yields.bind' (annotValueC_fresh mode fe cv value true) fun r hr => ?_
+    · refine Yields.bind' (annotValueC_fresh mode fe cv value) fun r hr => ?_
       obtain ⟨cvA, jty, jv⟩ := r
       apply Yields.pure
       show SkelIs (fe.push (.defnInfo cvA jv hint)) (.defn cv.name :: sk)
@@ -1248,7 +1248,6 @@ theorem annotStepC_skels (mode : CheckMode) (i : Nat) {fe : FEnv}
     ybind
     refine Yields.bind' (annotConstantValC_fresh mode fe cv) fun p hr => ?_
     obtain ⟨cvA, jty⟩ := p
-    ybind
     apply Yields.pure
     show SkelIs (fe.push (.thmInfo cvA value)) (.thm cv.name :: sk)
     rw [← hr.1]; exact h.push _
@@ -1256,7 +1255,7 @@ theorem annotStepC_skels (mode : CheckMode) (i : Nat) {fe : FEnv}
     simp only []
     split
     · exact hord _
-    · refine Yields.bind' (annotValueC_fresh mode fe cv value false) fun r hr => ?_
+    · refine Yields.bind' (annotValueC_fresh mode fe cv value) fun r hr => ?_
       obtain ⟨cvA, jty, jv⟩ := r
       apply Yields.pure
       show SkelIs (fe.push (.axiomInfo cvA)) (.ax cv.name :: sk)

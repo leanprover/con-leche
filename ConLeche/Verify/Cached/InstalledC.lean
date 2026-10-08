@@ -96,9 +96,9 @@ theorem annotConstantValC_run (hμ : μ.verifiedChecks = true) {env : Env} (henv
 
 /-- Phase A's value install simulates the pure install half. -/
 theorem annotValC_run (hμ : μ.verifiedChecks = true) {env : Env} (henv : EnvWF env)
-    {cvA : ConstantVal} {jty value jv : Expr} {record : Bool} {s₀ s' : CState}
-    (hjty : jty = cvA.type) (hs : CSOK μ env s₀)
-    (h : annotValC μ (mkFEnv env) cvA jty value record s₀ = .ok (jv, s')) :
+    {cvA : ConstantVal} {value jv : Expr} {s₀ s' : CState}
+    (hs : CSOK μ env s₀)
+    (h : annotValC μ (mkFEnv env) cvA value s₀ = .ok (jv, s')) :
     CSOK μ env s' ∧ Expr.WScoped 0 jv ∧
     ∃ F, installValue (fueledOps μ F) env cvA value = .ok jv := by
   unfold annotValC at h
@@ -122,14 +122,8 @@ theorem annotValC_run (hμ : μ.verifiedChecks = true) {env : Env} (henv : EnvWF
   by_cases h4 : Expr.constsResolve env jA = true
   case neg => rw [ite_eq_right h4] at h; exact absurd h throwC_bind_ok
   rw [ite_eq_left h4] at h
-  obtain ⟨u, s₂, hrec, h⟩ := bindC_ok h
-  obtain ⟨hs₂, -⟩ := recordCConst_eff hs₁ (hjty ▸ rfl)
-    (fun vE vi hv => by
-      cases record <;> simp only [Bool.false_eq_true, ↓reduceIte] at hv
-      · exact nomatch hv
-      · cases hv; rfl) u s₂ hrec
   obtain ⟨rfl, rfl⟩ := pureC_ok h
-  exact ⟨hs₂, hwv, F, installValue_of_facts h1 (by simpa using h2) hF h3 h4⟩
+  exact ⟨hs₁, hwv, F, installValue_of_facts h1 (by simpa using h2) hF h3 h4⟩
 
 /-! ## The two-phase driver: phase B's check at the prefix view -/
 
@@ -139,7 +133,7 @@ annotation of a theorem's value at the prefix view is the annotation
 at the environment the view names. -/
 theorem annotValC_congr {fe₁ fe₂ : FEnv} (hfe : fe₁.find? = fe₂.find?) :
     annotValC μ fe₁ = annotValC μ fe₂ := by
-  funext cvA jty value record
+  funext cvA value
   unfold annotValC
   simp only [coreKnotI_congr hfe, constsResolveFC_congr hfe]
 
@@ -216,7 +210,7 @@ theorem checkPending_run (hμ : μ.verifiedChecks = true) {env : Env} (henv : En
     | true =>
     simp only [↓reduceIte] at h
     obtain ⟨jv, s₅, hval, h⟩ := bindC_ok h
-    obtain ⟨hs₅, hwjv, F₃, hV⟩ := annotValC_run hμ henv rfl hs₄ hval
+    obtain ⟨hs₅, hwjv, F₃, hV⟩ := annotValC_run hμ henv hs₄ hval
     obtain ⟨hres', F₅, jvt, hvt, hde⟩ := tail jv hs₅ hwjv h
     refine ⟨hres', max (max (max F₁ F₂) F₃) F₅, ?_⟩
     exact checkValueGroup_of_facts (jv := jv)
@@ -239,9 +233,9 @@ theorem checkPending_run (hμ : μ.verifiedChecks = true) {env : Env} (henv : En
 /-- Phase A's value install, run: the two halves at a common fuel, the
 annotated terms well scoped, the residue kept. -/
 theorem annotValueC_run (hμ : μ.verifiedChecks = true) {env : Env} (henv : EnvWF env)
-    {cv cvA : ConstantVal} {value jty jv : Expr} {record : Bool} {s₀ s' : CState}
+    {cv cvA : ConstantVal} {value jty jv : Expr} {s₀ s' : CState}
     (hres : CSOKF s₀)
-    (h : annotValueC μ (mkFEnv env) cv value record s₀ = .ok ((cvA, jty, jv), s')) :
+    (h : annotValueC μ (mkFEnv env) cv value s₀ = .ok ((cvA, jty, jv), s')) :
     CSOKF s' ∧ cvA = { cv with type := jty } ∧ Expr.WScoped 0 jty ∧ Expr.WScoped 0 jv ∧
     ∃ F, installConstantVal (fueledOps μ F) env cv = .ok cvA ∧
       installValue (fueledOps μ F) env cvA value = .ok jv := by
@@ -254,7 +248,7 @@ theorem annotValueC_run (hμ : μ.verifiedChecks = true) {env : Env} (henv : Env
   obtain ⟨cvA', jty'⟩ := pr
   obtain ⟨hs₂, hcvA, hwty, F₁, hI⟩ := annotConstantValC_run hμ henv (flushC_csok hres) hcv
   obtain ⟨jv', s₃, hv, h⟩ := bindC_ok h
-  obtain ⟨hs₃, hwv, F₂, hV⟩ := annotValC_run hμ henv (by rw [hcvA]) hs₂ hv
+  obtain ⟨hs₃, hwv, F₂, hV⟩ := annotValC_run hμ henv hs₂ hv
   obtain ⟨hv, rfl⟩ := pureC_ok h
   simp only [Prod.mk.injEq] at hv
   obtain ⟨rfl, rfl, rfl⟩ := hv

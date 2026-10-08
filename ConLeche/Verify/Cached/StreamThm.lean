@@ -144,7 +144,6 @@ theorem annotStepC_thm_consts {mode : CheckMode} {i : Nat} {fe : FEnv}
   obtain ⟨p, s₂, hcv, h⟩ := bindC_ok h
   obtain ⟨cvA, jty⟩ := p
   obtain rfl := annotConstantValC_const hty hcv
-  obtain ⟨_, s₃, _, h⟩ := bindC_ok h
   obtain ⟨hv, _⟩ := pureC_ok h
   obtain ⟨rfl, _⟩ := Prod.mk.injEq .. ▸ hv
   rfl

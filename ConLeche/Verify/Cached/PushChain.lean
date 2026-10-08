@@ -549,7 +549,7 @@ theorem annotStepC_push (mode : CheckMode) (i : Nat) {env : Env} {fe : FEnv}
     simp only []
     split
     · exact hord _
-    · refine Yields.bind' (annotValueC_fresh mode fe cv value true) fun r hr => ?_
+    · refine Yields.bind' (annotValueC_fresh mode fe cv value) fun r hr => ?_
       obtain ⟨cvA, jty, jv⟩ := r
       obtain ⟨hp, hfr⟩ := hr
       exact Yields.pure ⟨h.push (by show fe.find? cvA.name = none; rw [hp]; exact hfr), _,
@@ -560,14 +560,13 @@ theorem annotStepC_push (mode : CheckMode) (i : Nat) {env : Env} {fe : FEnv}
     refine Yields.bind' (annotConstantValC_fresh mode fe cv) fun p hr => ?_
     obtain ⟨cvA, jty⟩ := p
     obtain ⟨hp, hfr⟩ := hr
-    ybind
     exact Yields.pure ⟨h.push (by show fe.find? cvA.name = none; rw [hp]; exact hfr), _,
       Array.toList_push⟩
   | opaqueDecl cv value =>
     simp only []
     split
     · exact hord _
-    · refine Yields.bind' (annotValueC_fresh mode fe cv value false) fun r hr => ?_
+    · refine Yields.bind' (annotValueC_fresh mode fe cv value) fun r hr => ?_
       obtain ⟨cvA, jty, jv⟩ := r
       obtain ⟨hp, hfr⟩ := hr
       exact Yields.pure ⟨h.push (by show fe.find? cvA.name = none; rw [hp]; exact hfr), _,
