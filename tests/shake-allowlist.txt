@@ -704,3 +704,4 @@ ConLeche/Verify/Inductives/PosDerivInv.lean	public import ConLeche.Verify.Induct
 ConLeche/Verify/Inductives/NfMemberFree.lean	public import ConLeche.Verify.InferIOLeaves	# build-verified (HOLEAPP): removing it breaks the build
 ConLeche/Model/Inductives/ContInst.lean	public import ConLeche.Model.Inductives.ContWalk	# build-verified (HOLEAPP): removing it breaks the build
 ConLeche/Model/Inductives/TargetNodeCalls.lean	public import ConLeche.Model.Inductives.TargetNodeDynOf	# build-verified (HOLEAPP): removing it breaks the build
+ConLeche/Driver/ParInstall.lean	import Std.Data.HashSet.Basic	# compensated: the --only run asks for both Std.Data.TreeSet.Basic and Std.Data.HashSet.Basic as `public import` in exchange (task #329, LAYER: the driver split out of Main.lean, which got Std.HashSet.insert's non-meta view transitively) — the edge moves, it does not go away

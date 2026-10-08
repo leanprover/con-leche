@@ -712,6 +712,14 @@ FALLBACK = {
     ('ConLeche.Model.Inductives.BlockHoleGrade', 'ConLeche.Verify.Inductives.NfMemberFree'),
     ('ConLeche.Model.Inductives.BlockHoleRead', 'ConLeche.Verify.Inductives.ReplaceApps'),
     ('ConLeche.Verify.Inductives.PosDerivInv', 'ConLeche.Verify.Inductives.HoleImg'),
+    # task #329 (LAYER): the driver split out of `Main.lean` into
+    # `ConLeche/Driver/*`, which changed the census's attribution of
+    # `ViewCongr`'s re-export.  `ViewCongr`'s own public statements name
+    # Kernel types (`FEnv`, `ConstantVal`, …) that reach it ONLY through
+    # `ParInstall`'s own public-import chain (down to `Cached.Installed`
+    # and the Kernel); MEASURED by demoting it alone (unknown identifier
+    # `FEnv`, `ViewCongr.lean:158`; `ConstantVal`, `:159`).
+    ('ConLeche.Cached.ViewCongr', 'ConLeche.Cached.ParInstall'),
 }
 
 # `whitepaper/` (task #324) is its own lake library — the paper's Lean

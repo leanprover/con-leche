@@ -51,7 +51,7 @@ namespace ConLeche
 error type the whole accept path reports (task #295): the kernel's
 steps, the fold, and the frontend's parse and prelude alike.  The
 three cases are the three verdicts the driver exits with
-(`CheckError.exitCode`, `Main.lean`): 2 declined, 1 rejected, 3 an
+(`CheckError.exitCode`, `ConLeche/Driver/Run.lean`): 2 declined, 1 rejected, 3 an
 error of unclear cause or a malformed input.
 
 Where a failure has a POSITION the type is `CheckError × Nat`, and the

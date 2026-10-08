@@ -604,7 +604,7 @@ newest first).  The rule stage needs `fe` and `classFeR … fe` at once,
 so `classFeR`'s pushes ran on a shared index and copied its whole bucket
 array, once per inductive block; the overlay shares it.  Same `find?`
 and `env` as `classFeR` on an `fe` without an overlay
-(`classFeROvl_find?`, `ConLeche/Cached/BlockOverlay.lean`). -/
+(`classFeROvl_find?`, `ConLeche/Verify/Cached/BlockOverlay.lean`). -/
 def classFeROvl (p : BlockShape) (Ms : List TargetMajor) (cvGs : List ConstantVal)
     (recCls : List Nat) (fe : FEnv) : FEnv :=
   fe.overlay (blockRecInfosBare p 0
@@ -616,7 +616,7 @@ rule-less recursors' environment is `classFeROvl` (sharing `fe`'s
 index) instead of `classFeR` (a push onto a shared index, i.e. a copy).
 The cached driver runs it (`checkBlockTailS`); at its operations it is
 `genRecCheck` (`genRecCheckOvl_eq`,
-`ConLeche/Cached/BlockOverlay.lean`). -/
+`ConLeche/Verify/Cached/BlockOverlay.lean`). -/
 def genRecCheckOvl (so : ShadowOps m) (fe : FEnv) (p : BlockShape) (nestedBit : Bool)
     (params : List Expr) (tbl : List NestCtorNf) (rd : ClassRead) (Ms : List TargetMajor)
     (cvTas : List ConstantVal) (block : List ConstantInfo) :

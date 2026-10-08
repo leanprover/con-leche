@@ -4,8 +4,8 @@ import ConLeche.Verify.Cached.BridgeC
 public import ConLeche.Cached.Installed
 public import ConLeche.Verify.Cached.SimC
 public import ConLeche.Verify.EnvBound
-import ConLeche.Cached.ParInstall
-import ConLeche.Cached.KnotCongr
+import ConLeche.Verify.Cached.ParInstall
+import ConLeche.Verify.Cached.KnotCongr
 import ConLeche.Verify.CheckerSplit
 
 public section

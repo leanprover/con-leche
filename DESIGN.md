@@ -97131,3 +97131,127 @@ copy hot spot (frees, `lean_dec_ref_cold`, `markPersistent` 4.5 %).  On
 mathlib-prefix the critical path (the pinned `Nat.xor` declaration,
 ~1.3 s) bounds the install.  The prediction (~3 s on mathlib-full) is
 serial and could fold into PARSE's apply step; not done in this lane.
+
+## TASK #329 — LAYER: the driver moves out of the implementation tier (2026-10-08, agent/329-layer)
+
+**Maintainer ruling (2026-10-08).** `Main.lean`, the proof-carrying IO
+driver, may import `ConLeche/Verify/*` — the theorems about kernel
+functions that need no model. It still may not import `Model/*`,
+`Complete/*`, `SetTheory/*`, `SetModel/*`, `Semantics/*` or `Term/*`.
+`Kernel/*`, `Cached/*` and `Frontend/*` keep their full fence. During
+PINSTALL's stage P3 (above) five self-contained verifications —
+`KnotCongr`, `BlockOverlay`, `ViewCongr`, `ParInstall`, and
+`InstallSkel`'s neighbour `AgreeFloor`'s kit — moved into `Cached/`
+under CLAUDE.md's exception only so the then-implementation driver in
+`Main.lean` could use them without crossing the old fence. P4 undid
+part of that (`EnvBound`/`InstallShape` back into `Verify/`); this
+lane undoes the rest, and splits `Main.lean` itself.
+
+**Mid-campaign scope addition.** `Main.lean` had grown to 1395 lines
+mixing the CLI with the driver proper. New `ConLeche/Driver/`:
+`CheckPool.lean` (206 lines, phase B's worker pool), `ParInstall.lean`
+(545 lines, the serial install loop and the parallel install:
+prediction, schedule, slots, commit loop), `Run.lean` (361 lines,
+`checkDeclsIO`, `checkMain`, the phase sequencing). `Main.lean` is now
+381 lines: usage, `Args`, `parseArgs`, `main`. A pure move (landed in
+its own commit, `8dec504a0`): every definition, proof and docstring
+moved verbatim, only the module header, the `@[expose] public section`
+and a namespace wrapper (`ConLeche.Driver`) added.
+`ConLeche.CheckError.exitCode` stays declared into the `ConLeche`
+namespace (not nested under `Driver`, since a dotted `def` name resolves
+relative to the enclosing `namespace` command). The eight term-level
+`unsafe Runtime.markPersistent` escapes move with their code (six to
+`Driver/ParInstall.lean`, two to `Driver/Run.lean`); the tree-wide
+trust-surface count stays 21.
+
+**The Cached→Verify moves** (second commit, `44df4749e`). Decided per
+file, per the job's criterion (proof → `Verify/Cached/`, driver-run
+implementation → stays):
+
+* `KnotCongr.lean`, `BlockOverlay.lean` — pure proof (congruence
+  lemmas; `BlockOverlay`'s one `private def bnd` is a proof-internal
+  helper). Move unchanged but for imports and the "why it sits here"
+  paragraph. Both already used a plain `public section`, matching the
+  `Verify` convention, even while they sat in `Cached/` — no visibility
+  change needed.
+* `ViewCongr.lean`, `ParInstall.lean` — mostly proof (the congruence
+  chain, `installStep_commit`, `valueStep_commit`, the `IdxBelow`/
+  `ViewAgrees`/`BaseInj` invariants and their lemmas), but each also
+  defines a few driver-run functions right next to the theorems they
+  are about: `installStep`, `pushPending` (`ViewCongr`), `workerView`,
+  `buildBase`, `valueStep`, the slot checks (`ParInstall`). Not split:
+  the maintainer's ruling means the driver can import `Verify/*` for
+  these exactly as it imports anything else there, and splitting would
+  only separate a function from the one proof it exists to carry —
+  these data definitions have no other consumer (confirmed: nothing
+  outside `ViewCongr`/`ParInstall`/the driver names them). `ParInstall`
+  keeps its `@[expose] public section` (not the `Verify` tier's usual
+  plain one): `ViewCongr`'s own proofs `unfold` and `simp`-rewrite
+  `workerView`/`valueStep`, which needs their bodies exposed, not just
+  their statements visible — MEASURED (a plain section breaks
+  `ViewCongr`'s build: `unfold` fails to unfold `valueStep`, `simp only
+  [workerView]` reports "Expected a definition with an exposed body").
+* `InstallSkel.lean` — does **not** move. It is implementation
+  (`predictSlots`, `declCSkels`, no theorem but one trivial
+  `@[simp]` lemma next to its own definition, the `Pipeline.lean`
+  pattern CLAUDE.md allows), and it has two consumers: the driver's
+  prediction (`Driver/ParInstall.lean`) and `Verify/Cached/AgreeFloor`'s
+  trusted/verified agreement floor, which states its skeleton spec
+  over it. Moving it to `Driver/` would make a pure `Verify` proof file
+  import the driver, backwards from the standing layering direction;
+  staying in `Cached/` keeps both sides importing implementation, as
+  before.
+
+Five consumers repointed their imports (`InstalledC`, `PushChain`,
+`AgreeFloor`, `GenRecC`, `TargetRecC`, all already in `Verify/Cached/`).
+One new `scripts/pub-import-plan.py` `FALLBACK` pin: `ViewCongr`'s
+`public import` of `ParInstall` is not about `ParInstall`'s own
+declarations (nothing outside `ViewCongr`/the driver names them) but
+about the Kernel-level types (`FEnv`, `ConstantVal`, `ofReduceAxOkF`, …)
+that reach `ViewCongr`'s own public statements only through
+`ParInstall`'s chain down to `Cached.Installed` and the Kernel; demoting
+it breaks the build (measured: "Unknown identifier `FEnv`",
+`ViewCongr.lean:158`). The gate's census attributed this differently
+before the `Driver` split moved the use site out of `Main.lean`.
+
+**Gates.** `tests/layering.sh`: the full fence (`implv`, unchanged) now
+checks only `Kernel/*`/`Cached/*`/`Frontend/*`; a new `driverv` clause
+checks `Driver/*` and `Main.lean` against the theory prefixes other
+than `Verify.*`. `tests/trust-surface.sh`'s allowlist: `Main.lean`'s
+entry replaced by `Driver/Run.lean` and `Driver/ParInstall.lean` (still
+21 escapes tree-wide). `tests/shake.sh`: one allowlist line (the
+`Driver/ParInstall.lean` `Std.Data.HashSet.Basic` import, needed
+directly once the use site left `Main.lean`'s `meta`-visible chain) and
+the one `pub-import-plan.py` fallback above; otherwise clean (no
+individually demotable `public import`). `CLAUDE.md`'s Layering and
+module-system sections and `OVERVIEW.md`'s module map (§11) and gates
+(§12) updated to state the new rule; the module map's `Main.lean` and
+`Cached/` rows re-worded, a `Driver/` row added, the `Verify/` row
+names the four files it now holds. Line-anchored links into the four
+moved files, and into the functions the driver split relocated within
+`Main.lean`/the new `Driver/*` files, re-pointed
+(`tests/overview-links.sh --update`, after re-reading each citing
+paragraph); three README.md links (`--jobs`, `--trusted`, `main`)
+repointed to their new line numbers in the (shorter) `Main.lean`, per
+CLAUDE.md's allowance to repoint a rotted link. `tests/quote-gate.sh`
+unaffected (its two quotes are both `MainTheorem.lean`).
+
+`lake build` and `lake test` warning-free; `tests/arena.sh` green in
+full (layering, trust-surface, shake/pub-imports, overview-links,
+quote-gate, pindump, challenge, axioms pinned, arena tutorial 90/92,
+e2e 461/461, annot 15/15, mode flags 8/8, prelude counts 3/3, progress/
+worker-pool/install-pool/DAG-tower suites, the trusted sweep and the
+`--jobs=1`/`--jobs=4` sweeps — all as expected). The binary's
+behaviour is unchanged (a pure reorganisation, no logic touched): one
+mathlib-prefix sanity run (`--jobs=8`) still accepts all 131 902
+records, same phase shape (parse 0.9 s, install 1.9 s, check 9.1 s). No
+mathlib-full run taken for this lane (none needed: nothing in the
+fold, the schedule or the commit step changed). `MainTheorem` and the
+main corollary are untouched.
+
+**For the maintainer.** `Main.lean` keeping `@[expose] public section`
+(rather than switching to a plain one, now that it is CLI-only and
+nothing unfolds its definitions) was the lower-risk choice — nothing
+imports `Main.lean` either way, so it costs nothing, but a future lane
+could tighten it if the convention should track "nothing proof-facing
+lives here any more" exactly.

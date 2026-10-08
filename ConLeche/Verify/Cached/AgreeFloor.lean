@@ -2,7 +2,7 @@ module
 
 public import ConLeche.Cached.Installed
 public import ConLeche.Cached.InstallSkel
-import ConLeche.Cached.BlockOverlay
+import ConLeche.Verify.Cached.BlockOverlay
 
 public section
 

@@ -19,17 +19,20 @@ The consumers are the re-check at a task-#108 prefix view —
 the first `k` constants have the same `find?`, so `coreKnotI_congr`
 says they run the *same* core, and the simulation stated at
 `mkFEnv env` therefore covers a run at the prefix view — and the
-parallel install (task #329, `ConLeche/Cached/ParInstall.lean`): a
+parallel install (task #329, `ConLeche/Verify/Cached/ParInstall.lean`): a
 worker installs a record at a view whose `find?` is the serial
 index's, so its result is the serial step's.
 
-**Why a proof file sits in the implementation tier.**  The parallel
-install's driver (`Main.lean`) carries the serial fold's accepting run,
-and the step it adds for a record a worker installed is this
-congruence; the implementation may not import `Verify/*`.  The file is
-self-contained — it imports the cached checker and nothing from the
-theory — which is the exception CLAUDE.md makes for a self-contained
-verification living with the implementation.  It opens a plain
+**Why this is `Verify/Cached`, not `Cached`.**  The parallel install's
+driver (`ConLeche/Driver/ParInstall.lean`) carries the serial fold's
+accepting run, and the step it adds for a record a worker installed is
+this congruence.  During task #329 this file sat in the `Cached` tier
+under CLAUDE.md's self-contained-verification exception, because the
+then-implementation driver (`Main.lean`) could not import `Verify/*`.
+The maintainer's 2026-10-08 ruling lets the driver (`ConLeche/Driver/*`,
+`Main.lean`) import `Verify/*`, so the file moved back to where a proof
+about kernel functions that needs no model belongs.  It still imports
+only the cached checker — nothing from the theory — and opens a plain
 `public section` (it defines nothing for anyone to unfold).
 -/
 

@@ -5,7 +5,7 @@ import ConLeche.Verify.Inductives.BlockWF
 import ConLeche.Verify.Inductives.RecCheckScope
 import ConLeche.Verify.Inductives.NestedRuleSyn
 import ConLeche.Verify.Inductives.DirectInv
-import ConLeche.Cached.KnotCongr
+import ConLeche.Verify.Cached.KnotCongr
 
 public section
 
