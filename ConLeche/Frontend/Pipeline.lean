@@ -1,6 +1,7 @@
 module
 
 public import ConLeche.Frontend.ExportC
+public import ConLeche.Frontend.Flat
 
 @[expose] public section
 
@@ -250,6 +251,186 @@ theorem chunkStepS_scanChunk (st : StateD) (carry : ByteArray) (lineNo total : N
     rfl
   · rfl
 
+/-! ## The flat scan (task #329, FLATSCAN)
+
+What a scan task hands to the applying thread is `FlatChunk`: the
+chunk's records written one after the other into ONE `ByteArray`
+(`ConLeche/Frontend/Flat.lean`), their count, and the stop.  A task's
+value is marked multi-threaded by the runtime, object by object, under
+its one global lock, and every object of it then pays atomic reference
+counts on the applying thread; a `ScannedChunk` is an object per line
+and more, a `FlatChunk` four objects.  The applying thread reads each
+record's fields back out of the bytes as it applies them, and builds
+no record (`applyFlatGo`, through `Flat.withLine`).
+
+`ScannedChunk` stays the specification: `FlatChunk.toScanned` decodes
+a flat chunk into it, and the two halves are proved against it —
+`scanFlat_toScanned` (the flat scan decodes to `scanChunk`) and
+`applyFlat_eq` (applying a flat chunk is applying its decoding). -/
+
+/-- A chunk's scanned lines as bytes: `count` records written one after
+the other into `data` (`Flat.wLine`), and where the scan stopped. -/
+structure FlatChunk where
+  data : ByteArray
+  count : Nat
+  stop : ScanStop
+
+/-- The records a flat chunk holds, as the scan record they encode. -/
+def FlatChunk.toScanned (fc : FlatChunk) : ScannedChunk :=
+  ⟨(Flat.decodeN fc.data 0 fc.count).toArray, fc.stop⟩
+
+/-- **The flat read half**: `scanChunkGo`, line for line, with each
+record written into `d` instead of pushed onto an array. -/
+def scanFlatGo (b : @& ByteArray) (i : USize) (d : ByteArray) (n : Nat) : FlatChunk :=
+  if _h : i < b.usize then
+    match scanLineSpec b i with
+    | .err e =>
+      if newlineFrom b i then ⟨d, n, .err (ScanErr.render ⟨e.offset - i.toNat, e.what⟩)⟩
+      else ⟨d, n, .tail i⟩
+    | .ok r j =>
+      if j == 0 then ⟨d, n, .tail i⟩
+      else if _hj : i < j then scanFlatGo b j (Flat.wLine d r) (n + 1)
+      else ⟨Flat.wLine d r, n + 1, .noProgress⟩
+  else ⟨d, n, .tail i⟩
+termination_by b.size - i.toNat
+decreasing_by
+  exact Nat.sub_lt_sub_left (usizeInBounds b i _h) (USize.lt_iff_toNat_lt.mp _hj)
+
+/-- A chunk, scanned flat from its start, into a buffer of the given
+capacity (a hint: the capacity is not observable). -/
+def scanFlat (cap : Nat) (b : @& ByteArray) : FlatChunk :=
+  scanFlatGo b 0 (ByteArray.emptyWithCapacity cap) 0
+
+/-- Bytes that encode an array of records decode to it. -/
+theorem decode_of_enc {d : ByteArray} {acc : Array LineRec}
+    (hd : d.data.toList = Flat.encElems Flat.encLine acc.toList) :
+    (Flat.decodeN d 0 acc.size).toArray = acc := by
+  have := Flat.decodeN_encElems acc.toList d 0 [] (by simp [hd])
+  rw [Array.length_toList] at this
+  rw [this]
+
+theorem encElems_push (acc : Array LineRec) (r : LineRec) :
+    Flat.encElems Flat.encLine (acc.push r).toList =
+      Flat.encElems Flat.encLine acc.toList ++ Flat.encLine r := by
+  rw [Array.toList_push]
+  generalize acc.toList = l
+  induction l with
+  | nil => simp [Flat.encElems]
+  | cons x l ih => simp [Flat.encElems, ih, List.append_assoc]
+
+/-- The flat scan from a buffer that encodes `acc` decodes to the
+record scan from `acc`. -/
+theorem scanFlatGo_toScanned (b : ByteArray) (i : USize) (acc : Array LineRec) :
+    ∀ (d : ByteArray), d.data.toList = Flat.encElems Flat.encLine acc.toList →
+    (scanFlatGo b i d acc.size).toScanned = scanChunkGo b i acc := by
+  fun_induction scanChunkGo b i acc with
+  | case1 i acc h e he hnl =>
+    intro d hd
+    rw [scanFlatGo, dite_eq_left_of_eq_true (eq_true h)]
+    simp only [he, hnl, ↓reduceIte, FlatChunk.toScanned, decode_of_enc hd]
+  | case2 i acc h e he hnl =>
+    intro d hd
+    rw [scanFlatGo, dite_eq_left_of_eq_true (eq_true h)]
+    simp only [he, hnl, Bool.false_eq_true, ↓reduceIte, FlatChunk.toScanned, decode_of_enc hd]
+  | case3 i acc h r j hj hj0 =>
+    intro d hd
+    rw [scanFlatGo, dite_eq_left_of_eq_true (eq_true h)]
+    simp only [hj, hj0, ↓reduceIte, FlatChunk.toScanned, decode_of_enc hd]
+  | case4 i acc h r j hj hj0 hij ih =>
+    intro d hd
+    rw [scanFlatGo, dite_eq_left_of_eq_true (eq_true h)]
+    simp only [hj, hj0, Bool.false_eq_true, ↓reduceIte, hij, ↓reduceDIte]
+    have := ih (Flat.wLine d r) (by rw [Flat.wLine_spec, hd, encElems_push])
+    rw [Array.size_push] at this
+    exact this
+  | case5 i acc h r j hj hj0 hij =>
+    intro d hd
+    rw [scanFlatGo, dite_eq_left_of_eq_true (eq_true h)]
+    simp only [hj, hj0, Bool.false_eq_true, ↓reduceIte, hij, ↓reduceDIte, FlatChunk.toScanned]
+    have := decode_of_enc (d := Flat.wLine d r) (acc := acc.push r)
+      (by rw [Flat.wLine_spec, hd, encElems_push])
+    rw [Array.size_push] at this
+    rw [this]
+  | case6 i acc h =>
+    intro d hd
+    rw [scanFlatGo, dite_eq_right_of_eq_false (eq_false h)]
+    simp only [FlatChunk.toScanned, decode_of_enc hd]
+
+/-- **The flat scan decodes to the record scan.** -/
+theorem scanFlat_toScanned (cap : Nat) (b : ByteArray) :
+    (scanFlat cap b).toScanned = scanChunk b :=
+  scanFlatGo_toScanned b 0 #[] _ (by simp [ByteArray.emptyWithCapacity, Flat.encElems]; rfl)
+
+/-- **The flat apply half**: `k` records from position `p` of `d`,
+applied in order, each read where it is applied (`Flat.withLine`: with
+the continuation inlined the record is never built). -/
+def applyFlatGo (st : StateD) (d : @& ByteArray) (p : Nat) (k : Nat) (lineNo : Nat) :
+    Except (CheckError × Nat) (StateD × Nat) :=
+  match k with
+  | 0 => .ok (st, lineNo)
+  | k + 1 =>
+    Flat.withLine d p fun r q =>
+      match applyLine st r with
+      | .error msg => .error (.internal msg, lineNo + 1)
+      | .ok (.inr v) => .error (v.toError, lineNo + 1)
+      | .ok (.inl st) => applyFlatGo st d q k (lineNo + 1)
+
+theorem applyFlatGo_eq (st : StateD) (d : ByteArray) (p k n : Nat) :
+    applyFlatGo st d p k n = applyList st (Flat.decodeN d p k) n := by
+  induction k generalizing st p n with
+  | zero => rfl
+  | succ k ih =>
+    rw [applyFlatGo, Flat.withLine_eq, Flat.decodeN, applyList]
+    cases applyLine st (Flat.rLine d p).1 with
+    | error msg => rfl
+    | ok v => cases v with
+      | inr v => rfl
+      | inl st' => exact ih st' _ _
+
+/-- A flat chunk, applied: the records, then the stop, as
+`applyScanned` reports them. -/
+def applyFlat (st : StateD) (fc : @& FlatChunk) (lineNo : Nat) :
+    Except (CheckError × Nat) (StateD × Nat × USize) :=
+  match applyFlatGo st fc.data 0 fc.count lineNo with
+  | .error e => .error e
+  | .ok (st, n) =>
+    match fc.stop with
+    | .tail i => .ok (st, n, i)
+    | .err msg => .error (.internal msg, n + 1)
+    | .noProgress => .error (.internal "the line scanner made no progress", n)
+
+/-- **Applying a flat chunk is applying its decoding.** -/
+theorem applyFlat_eq (st : StateD) (fc : FlatChunk) (n : Nat) :
+    applyFlat st fc n = applyScanned st fc.toScanned n := by
+  simp only [applyFlat, applyScanned, FlatChunk.toScanned, applyRecs_eq, List.drop_zero,
+    applyFlatGo_eq]
+
+/-- `chunkStepS` with a flat scan handed in. -/
+def chunkStepF (st : StateD) (carry : ByteArray) (lineNo total : Nat) (buf0 : ByteArray)
+    (fc : @& FlatChunk) : Except (CheckError × Nat) (StateD × ByteArray × Nat × Nat) :=
+  if carry.isEmpty then
+    if total + buf0.size ≥ USize.size then .error sizeError
+    else
+      match applyFlat st fc lineNo with
+      | .error e => .error e
+      | .ok (st, lineNo, tail) =>
+        .ok (st, buf0.extract tail.toNat buf0.size, lineNo, total + buf0.size)
+  else chunkStep st carry lineNo total buf0
+
+/-- The flat step is the step with the decoded scan handed in. -/
+theorem chunkStepF_eq (st : StateD) (carry : ByteArray) (lineNo total : Nat)
+    (buf0 : ByteArray) (fc : FlatChunk) :
+    chunkStepF st carry lineNo total buf0 fc = chunkStepS st carry lineNo total buf0 fc.toScanned := by
+  unfold chunkStepF chunkStepS
+  simp only [applyFlat_eq]
+
+/-- Handed a flat scan that decodes to the chunk's own scan, the step
+is `chunkStep`. -/
+theorem chunkStepF_of_toScanned (st : StateD) (carry : ByteArray) (lineNo total : Nat)
+    (buf0 : ByteArray) (fc : FlatChunk) (h : fc.toScanned = scanChunk buf0) :
+    chunkStepF st carry lineNo total buf0 fc = chunkStep st carry lineNo total buf0 := by
+  rw [chunkStepF_eq, h, chunkStepS_scanChunk]
+
 /-! ## The streaming invariant -/
 
 /-- The state the streaming parse has reached: some list of chunks
@@ -286,8 +467,9 @@ theorem Reached.finish {st carry lineNo total} (h : Reached st carry lineNo tota
 /-! ## The driver -/
 
 /-- A chunk handed to a worker: the task's value is the chunk and its
-own scan. -/
-abbrev ScanTask := { t : Task (ByteArray × ScannedChunk) // t.get.2 = scanChunk t.get.1 }
+own scan, flat. -/
+abbrev ScanTask :=
+  { t : Task (ByteArray × FlatChunk) // t.get.2.toScanned = scanChunk t.get.1 }
 
 /-- The parse result with the evidence that `parseChunks` returns it. -/
 abbrev ParseOutcome := { r : Except (CheckError × Nat) ParseResultD // ∃ cs, parseChunks cs = r }
@@ -300,16 +482,16 @@ def lastNewlineBelow (b : @& ByteArray) : Nat → Option Nat
   | i + 1 => if b.get! i == 10 then some i else lastNewlineBelow b i
 
 /-- The chunk `pending ++ buf0[0, k)`, built on the worker, and its
-scan.  `spent`, the scan the applying thread last finished with, is
-dropped HERE, on the worker: the records the apply only read are freed
-off the applying thread (their size is the next array's capacity). -/
+flat scan.  `spent`, the scan the applying thread last finished with,
+is dropped HERE, on the worker (its buffer's size is the next one's
+capacity). -/
 def spawnScan (spent : Option ScanTask) (pending buf0 : ByteArray) (k : Nat) : ScanTask :=
   ⟨Task.spawn fun _ =>
     let cap := match spent with
-      | some t => t.val.get.2.recs.size
+      | some t => t.val.get.2.data.size
       | none => 0
     let blk := if pending.isEmpty then buf0.extract 0 k else pending ++ buf0.extract 0 k
-    (blk, scanChunkCap cap blk), rfl⟩
+    (blk, scanFlat cap blk), scanFlat_toScanned _ _⟩
 
 /-- **The pipelined streaming parse.**  The handle is read strictly
 forward, `chunk` bytes at a time, never seeked or re-opened (the
@@ -355,13 +537,13 @@ partial def parseExportHandleP (h : IO.FS.Handle) (inflight : Nat)
     match q.dequeue? with
     | none => return ⟨chunkFinish st carry lineNo, hr.finish⟩
     | some (t, q) =>
-      match hs : chunkStepS st carry lineNo total t.val.get.1 t.val.get.2 with
+      match hs : chunkStepF st carry lineNo total t.val.get.1 t.val.get.2 with
       | .error e =>
         return ⟨.error e, hr.error (c := t.val.get.1) (by
-          rw [← chunkStepS_scanChunk, ← t.property]; exact hs)⟩
+          rw [← chunkStepF_of_toScanned _ _ _ _ _ _ t.property]; exact hs)⟩
       | .ok (st', carry', lineNo', total') =>
         loop st' carry' lineNo' total' (hr.step (c := t.val.get.1) (by
-          rw [← chunkStepS_scanChunk, ← t.property]; exact hs))
+          rw [← chunkStepF_of_toScanned _ _ _ _ _ _ t.property]; exact hs))
           q (n - 1) (some t) pending eof
   loop .init .empty 0 0 .init ∅ 0 none .empty false
 
