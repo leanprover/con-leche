@@ -97255,3 +97255,56 @@ nothing unfolds its definitions) was the lower-risk choice — nothing
 imports `Main.lean` either way, so it costs nothing, but a future lane
 could tighten it if the convention should track "nothing proof-facing
 lives here any more" exactly.
+
+## TASK #329 — PRESIZE: pre-sized IdTables, no measurable gain (2026-10-08, agent/329-presize)
+
+**What.** The PARSE2 study (`_tmp/amdahl/parse2-study.md`) attributed a
+secondary, cache-miss-only tail to the apply thread's three `IdTable`s
+(names, levels, exprs) doubling their dense array as they grow — at
+Mathlib-full scale (~10^8 expr entries) the doubling copies sum to
+~1.6 GB of `memmove`. Tried the same trick as `scanChunkCap`: pre-size
+the dense arrays from a capacity hint derived from the input's byte
+length (a regular file's size; a pipe or unreadable path gives `0`,
+i.e. no hint). `IdTable.emptyCap`/`singletonCap`
+(`ConLeche/Frontend/Scan/Types.lean`) and `StateD.initCap`
+(`ConLeche/Frontend/ExportC.lean`) take the three capacities as plain
+`Nat`s with no case split, so `*_eq` is `rfl` for any value — the
+capacity is not part of an `Array`'s logical value, exactly as
+`Array.emptyWithCapacity`'s own field ignores its argument. The hint
+formulas (`exprCapOfBytes`/`nameCapOfBytes`/`levelCapOfBytes`,
+`ConLeche/Frontend/Pipeline.lean`) are one division each, kept UNDER
+the `ie`/`in`/`il` record density measured on mathlib-prefix (0.0166/
+0.0012/3.2e-6 per byte), cslib (0.0165/0.0009/5.1e-6) and
+navier-stokes-euler (0.0178/0.0004/2.5e-6), with a hard ceiling so a
+file whose byte length badly mismatches its record count is not
+over-allocated. `parseExportStreamP` reads the hint via
+`System.FilePath.metadata` (`inputByteHint`) before opening the
+handle; `parseExportHandleP` gains three optional `Nat` parameters,
+default `0` (no hint, `StateD.init`'s own behaviour). No proof besides
+the two `rfl`s was touched; `MainTheorem` and the main corollary are
+unchanged.
+
+**Measured** (`--progress`, default worker count, flock, one run each;
+before = `more-parallel` at the pipelined-parse tip `1681c4308`, after
+= this patch on the same tip; `_tmp/amdahl/presize-logs/driver.log`):
+
+| stream | parse before → after | instructions:u before → after | peak RSS before → after |
+|---|---|---|---|
+| mathlib-full | 8.2 s → 8.3 s | 8314.624 G → 8313.674 G (−0.011 %) | 7 255 212 → 7 242 664 KB (−0.17 %) |
+| cslib | 3.5 s → 3.5 s | 2840.239 G → 2839.992 G (−0.009 %) | 3 201 736 → 3 169 696 KB (−1.0 %) |
+| NS | 1.5 s → 1.5 s | 3161.612 G → 3161.840 G (+0.007 %) | 2 494 936 → 2 439 164 KB (−2.2 %) |
+
+All three runs accept, same counts as before (mathlib-full: 691 203).
+No RSS regression anywhere — peak RSS is slightly LOWER on all three
+streams after pre-sizing (consistent with avoiding the moment a
+doubling copy holds both the old and the new backing array live at
+once), but the parse-phase wall time and instruction count move by
+less than run-to-run noise on a shared machine. **Not landed on
+`more-parallel`**: the PARSE2 study's own estimate ("a few hundred ms
+on mathlib-full, less on cslib/NS") does not clear the noise floor at
+one run each, and there is nothing else pre-sizing was expected to
+move — this is a negative result, recorded rather than chased further.
+The code (`ConLeche/Frontend/{Scan/Types,ExportC,Pipeline}.lean`,
+plus the `OVERVIEW.md` link-anchor re-sync the line shift required) is
+kept as `_tmp/amdahl/presize-logs/presize.patch` if a future lane wants
+to revisit it against a cheaper or less noisy measurement.
