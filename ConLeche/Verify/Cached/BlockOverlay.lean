@@ -1,6 +1,7 @@
 module
 
-public import ConLeche.Verify.Cached.KnotCongr
+public import ConLeche.Cached.CheckerC
+import ConLeche.Verify.Cached.KnotCongr
 
 public section
 

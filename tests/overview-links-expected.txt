@@ -359,10 +359,10 @@
    101    pw : PropWhen
    102    deriving DecidableEq, Repr, Hashable
 
-== ConLeche/Verify/Cached/AgreeFloor.lean#L1284-L1286
-  1284  theorem checkDecls_skels {mode : CheckMode} {ds : Array Declaration}
-  1285      {env : Env} (h : checkDecls mode pins ds = .ok env) :
-  1286      envSkels env = streamSkels ds.toList := by
+== ConLeche/Verify/Cached/AgreeFloor.lean#L1286-L1288
+  1286  theorem checkDecls_skels {mode : CheckMode} {ds : Array Declaration}
+  1287      {env : Env} (h : checkDecls mode pins ds = .ok env) :
+  1288      envSkels env = streamSkels ds.toList := by
 
 == ConLeche/Kernel/Exclusive.lean#L6-L42
      6  # `withExclusive`: the reference-count read behind the walk memo
@@ -898,8 +898,8 @@
 == ConLeche/Kernel/Inductives/BlockInstall.lean#L284
    284  def checkBlockPositivity (ops : CheckerOps m) (env₁ : Env) (find? : Name → Option ConstantInfo)
 
-== ConLeche/Kernel/Inductives/GenRec.lean#L560
-   560  def genRecCheck (so : ShadowOps m) (fe : FEnv) (p : BlockShape) (nestedBit : Bool)
+== ConLeche/Kernel/Inductives/GenRec.lean#L578
+   578  def genRecCheck (so : ShadowOps m) (fe : FEnv) (p : BlockShape) (nestedBit : Bool)
 
 == ConLeche/Kernel/Inductives/RecCheck.lean#L592-L593
    592  def tgtStoredRules (find? : Name → Option ConstantInfo) (resolves : Expr → Bool)
