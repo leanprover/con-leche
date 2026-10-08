@@ -126,8 +126,8 @@ current fact changed.
   `scripts/*.lean`, `bridge/*` and the fixture sources under
   `tests/e2e/src/` are outside the build and stay classic.
 * Checker code is exposed, because it is the subject of the proofs:
-  `Kernel/*`, `Cached/*`, `Frontend/*` and `Main.lean` open one
-  `@[expose] public section`, as do `Term/*`, `SetTheory/*`,
+  `Kernel/*`, `Cached/*`, `Frontend/*`, `Driver/*` and `Main.lean` open
+  one `@[expose] public section`, as do `Term/*`, `SetTheory/*`,
   `SetModel/*`, `Semantics/*` and `Rules/*` (the tiers above unfold
   them). A `private` helper there must be public if any *definition*
   mentions it (a `theorem` proof may still use it). The few deliberate
