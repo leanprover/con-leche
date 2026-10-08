@@ -16,36 +16,41 @@ agrees with `Env.find?`, built once per top-level entry call, plus the
 representation: `FEnv` indexes `ConstantInfo`s by `Name`, and the four
 guards ask only about the constants an environment holds.  Both
 executable cores read the environment through it, and the F-mirror
-agreement (`ConLeche/Verify/EnvBound.lean`) is stated about it.  The
+agreement (`ConLeche/Cached/EnvBound.lean`) is stated about it.  The
 `F` suffix on the guards reads "through the index".
 -/
 
 namespace ConLeche
 /-! ## The frozen base layer -/
 
-/-- **A frozen, task-valued lookup layer** (task #329): the name index of
-a parallel install's predicted slots, built once before the workers
-start and never written again.  An entry `n ↦ (c, j, t)` says that the
-constant named `n` is the `j`-th constant installed by some record,
-whose installed constants the task `t` delivers, and that it gets the
-installation counter `c`; it is visible to lookups below the bound
-`below` only.  A lookup of a visible entry waits for `t` — the record
-that installs it is below the looker in the stream, so the wait is on
-an earlier record, never on the looker itself.
+/-- **A frozen lookup layer of deferred slots** (task #329): the name
+index of a parallel install's predicted slots, built once before the
+workers start and never written again.  An entry `n ↦ (c, k, j)` says
+that the constant named `n` gets the installation counter `c` and is
+the `j`-th constant record `k` installs; `slots[k]` is a thunk that
+delivers record `k`'s installed constants.  An entry is visible to
+lookups below the bound `below` only.  Forcing a visible entry's thunk
+either installs that record on the spot (nobody started it yet), or
+waits for the thread that is installing it — a record below the looker
+in the stream, so never the looker itself.
 
-Logically `Task.get` is a projection, so `find?` is an ordinary
+Logically `Thunk.get` is a projection, so `find?` is an ordinary
 function of the layer's contents; the empty layer answers `none`
 everywhere (`FBase.find?_empty`), which is every `FEnv` but a worker's
 view. -/
 structure FBase where
-  idx : Std.HashMap Name (Nat × Nat × Task (Array ConstantInfo)) := {}
+  idx : Std.HashMap Name (Nat × Nat × Nat) := {}
+  slots : Array (Thunk (Array ConstantInfo)) := #[]
   below : Nat := 0
 
 /-- The base layer's lookup: a visible entry's constant, from its
-record's task. -/
+record's slot. -/
 def FBase.find? (b : FBase) (n : Name) : Option ConstantInfo :=
   match b.idx[n]? with
-  | some (c, j, t) => if c < b.below then t.get[j]? else none
+  | some (c, k, j) =>
+    if c < b.below then
+      if h : k < b.slots.size then (b.slots[k]).get[j]? else none
+    else none
   | none => none
 
 /-! ## The indexed environment -/
@@ -64,7 +69,7 @@ doubles as the next counter to hand out, so on the ordinary
 install-and-check path it is exactly `env.consts.length` and nothing is
 ever hidden (`mkFEnv_find?`); lowering it to `k` is the prefix view of
 the first `k` installed constants (`mkFEnv_find?_visibleBelow`,
-`ConLeche/Verify/EnvBound.lean`). -/
+`ConLeche/Cached/EnvBound.lean`). -/
 structure FEnv where
   env : Env
   idx : Std.HashMap Name (Nat × ConstantInfo)
@@ -81,7 +86,7 @@ structure FEnv where
   the inductive block's rule-less-recursor environment, a read-only view
   that shares the constructors' index instead of copying it.  `find?`
   reads it before the index, as if its constants had been pushed
-  (`find?_overlay_pushAll`, `ConLeche/Verify/Cached/BlockOverlay.lean`). -/
+  (`find?_overlay_pushAll`, `ConLeche/Cached/BlockOverlay.lean`). -/
   ovl : List ConstantInfo
 
 /-- The index build, from the back: the newest (front) constant is

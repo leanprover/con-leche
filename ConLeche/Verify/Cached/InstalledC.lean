@@ -3,8 +3,9 @@ module
 import ConLeche.Verify.Cached.BridgeC
 public import ConLeche.Cached.Installed
 public import ConLeche.Verify.Cached.SimC
-public import ConLeche.Verify.EnvBound
-import ConLeche.Verify.Cached.KnotCongr
+public import ConLeche.Cached.EnvBound
+import ConLeche.Cached.ParInstall
+import ConLeche.Cached.KnotCongr
 import ConLeche.Verify.CheckerSplit
 
 public section
@@ -126,16 +127,6 @@ theorem annotValC_run (hμ : μ.verifiedChecks = true) {env : Env} (henv : EnvWF
   exact ⟨hs₁, hwv, F, installValue_of_facts h1 (by simpa using h2) hF h3 h4⟩
 
 /-! ## The two-phase driver: phase B's check at the prefix view -/
-
-/-- `annotValC` reads its index through `find?` alone (the knot and
-`constsResolveFC`), so it is congruent in the index: phase B's
-annotation of a theorem's value at the prefix view is the annotation
-at the environment the view names. -/
-theorem annotValC_congr {fe₁ fe₂ : FEnv} (hfe : fe₁.find? = fe₂.find?) :
-    annotValC μ fe₁ = annotValC μ fe₂ := by
-  funext cvA value
-  unfold annotValC
-  simp only [coreKnotI_congr hfe, constsResolveFC_congr hfe]
 
 /-- Phase B's check at the prefix view simulates the pure check half at
 the environment the view names: the view and `mkFEnv env` have the same
