@@ -280,7 +280,7 @@ Read from the outside in:
    and applies the scanned lines in order on one thread; it returns its
    result with the proof that the pure streaming parse, a step over
    each chunk
-   ([function `chunkStep` in `ConLeche/Frontend/ExportC.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Frontend/ExportC.lean#L580)),
+   ([function `chunkStep` in `ConLeche/Frontend/ExportC.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Frontend/ExportC.lean#L612)),
    returns it: a chunk's scan, applied, is that step
    ([theorem `chunkStepS_scanChunk` in `ConLeche/Frontend/Pipeline.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Frontend/Pipeline.lean#L242-L245)).
    What the parser makes of a record

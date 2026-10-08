@@ -97256,6 +97256,100 @@ imports `Main.lean` either way, so it costs nothing, but a future lane
 could tighten it if the convention should track "nothing proof-facing
 lives here any more" exactly.
 
+## TASK #329 — PRESIZE: pre-sized IdTables, no measurable gain (2026-10-08, agent/329-presize)
+
+**What.** The PARSE2 study (`_tmp/amdahl/parse2-study.md`) attributed a
+secondary, cache-miss-only tail to the apply thread's three `IdTable`s
+(names, levels, exprs) doubling their dense array as they grow — at
+Mathlib-full scale (~10^8 expr entries) the doubling copies sum to
+~1.6 GB of `memmove`. Tried the same trick as `scanChunkCap`: pre-size
+the dense arrays from a capacity hint derived from the input's byte
+length (a regular file's size; a pipe or unreadable path gives `0`,
+i.e. no hint). `IdTable.emptyCap`/`singletonCap`
+(`ConLeche/Frontend/Scan/Types.lean`) and `StateD.initCap`
+(`ConLeche/Frontend/ExportC.lean`) take the three capacities as plain
+`Nat`s with no case split, so `*_eq` is `rfl` for any value — the
+capacity is not part of an `Array`'s logical value, exactly as
+`Array.emptyWithCapacity`'s own field ignores its argument. The hint
+formulas (`exprCapOfBytes`/`nameCapOfBytes`/`levelCapOfBytes`,
+`ConLeche/Frontend/Pipeline.lean`) are one division each, kept UNDER
+the `ie`/`in`/`il` record density measured on mathlib-prefix (0.0166/
+0.0012/3.2e-6 per byte), cslib (0.0165/0.0009/5.1e-6) and
+navier-stokes-euler (0.0178/0.0004/2.5e-6), with a hard ceiling so a
+file whose byte length badly mismatches its record count is not
+over-allocated. `parseExportStreamP` reads the hint via
+`System.FilePath.metadata` (`inputByteHint`) before opening the
+handle; `parseExportHandleP` gains three optional `Nat` parameters,
+default `0` (no hint, `StateD.init`'s own behaviour). No proof besides
+the two `rfl`s was touched; `MainTheorem` and the main corollary are
+unchanged.
+
+**Measured** (`--progress`, default worker count, flock, one run each;
+before = `more-parallel` at the pipelined-parse tip `1681c4308`, after
+= this patch on the same tip; `_tmp/amdahl/presize-logs/driver.log`):
+
+| stream | parse before → after | instructions:u before → after | peak RSS before → after |
+|---|---|---|---|
+| mathlib-full | 8.2 s → 8.3 s | 8314.624 G → 8313.674 G (−0.011 %) | 7 255 212 → 7 242 664 KB (−0.17 %) |
+| cslib | 3.5 s → 3.5 s | 2840.239 G → 2839.992 G (−0.009 %) | 3 201 736 → 3 169 696 KB (−1.0 %) |
+| NS | 1.5 s → 1.5 s | 3161.612 G → 3161.840 G (+0.007 %) | 2 494 936 → 2 439 164 KB (−2.2 %) |
+
+All three runs accept, same counts as before (mathlib-full: 691 203).
+No RSS regression anywhere — peak RSS is slightly LOWER on all three
+streams after pre-sizing (consistent with avoiding the moment a
+doubling copy holds both the old and the new backing array live at
+once), but the parse-phase wall time and instruction count move by
+less than run-to-run noise on a shared machine. **Not landed on
+`more-parallel`**: the PARSE2 study's own estimate ("a few hundred ms
+on mathlib-full, less on cslib/NS") does not clear the noise floor at
+one run each, and there is nothing else pre-sizing was expected to
+move — this is a negative result, recorded rather than chased further.
+The code (`ConLeche/Frontend/{Scan/Types,ExportC,Pipeline}.lean`,
+plus the `OVERVIEW.md` link-anchor re-sync the line shift required) is
+kept as `_tmp/amdahl/presize-logs/presize.patch` if a future lane wants
+to revisit it against a cheaper or less noisy measurement.
+
+## TASK #329 — ROUNDS: the lookup interface and the dense characterisation (2026-10-08, agent/329-rounds)
+
+First milestone of the rounds parse (the PARSE3 study,
+`_tmp/amdahl/parse3-study.md`: a parallel apply in rounds over windows
+of chunks). Steps 1–3 of its proof plan, landed on their own.
+
+**The builders over a lookup interface** (`ConLeche/Frontend/ExportC.lean`).
+`Lk ε` is three lookups `Nat → Except ε _` (names, levels, exprs);
+`nameOf`/`levelOf`/`exprOf` (generic in `ε`, `@[inline]`) build an
+entry's value through them and nothing else, `declOf` (with `cvOf`,
+`ruleOf`, `validateInd`, `indBlockOf`, renamed from `parseCVD`,
+`parseRuleD`, `validateIndD`, `installIndD`) a declaration record. The
+serial builders are those at `StateD.lk`: `parseExprEntryD st i r` is
+`freshExpr; exprOf st.lk r; insert` by definition, `processLineCoreD`
+is `declOf st.lk d` then one `pushDecl`. The error type is a parameter
+so that the rounds can hand the builders lookups that answer "not yet".
+The proofs that unfolded the old builders (`ApplyLine.lean`,
+`ThmLine.lean`) became shorter (`processLineCoreD_ok`). The compiled
+hot path is not byte-identical (`pwOf` is now inlined where `parsePwD`
+was a call); init-full at `--jobs=8`: 491.83 G → 491.89 G
+instructions:u (+0.01 %), parse 0.4 s both.
+
+**Dense streams never rebind** (`ConLeche/Verify/Frontend/Dense.lean`,
+counters `Ctr`/`Ctr.fits` in the new `ConLeche/Frontend/Rounds.lean`).
+On a state whose tables are dense arrays (`StateD.ofDense`), a line
+binding the next index of its table passes the rebinding test and its
+entry is pushed (`applyLine_{name,level,expr,decl}_dense`).
+
+**The characterisation.** Over a list of lines each binding the next
+index of its table (`DenseAll`), the serial fold from the state cut at
+counters `c` succeeds with final tables `na`/`la`/`ea` exactly when
+every line's builder, at those tables cut at the counts before the
+line (`cutLk`), yields the line's own entry, and every declaration
+line's builder a record (`AllOK`): `applyList_of_allOK` (the final
+state is the tables cut at the final counters, the records
+`declsAlong`) and `allOK_of_applyList`. The condition is per line, so
+the rounds can establish it in any order.
+
+Gates green (arena battery, `lake test`); mathlib-full at `--jobs=32`
+accepts 691 203 (8.486 T instructions, parse 10.3 s, load ~35).
+
 ## TASK #329 — SCALE: why the install pool flattened, and the lock-free schedule (2026-10-08, agent/329-scale)
 
 **Question.** On `more-parallel` (`a1a06fb46`) the parallel install took

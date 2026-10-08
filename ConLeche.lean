@@ -29,5 +29,6 @@ public import ConLeche.Verify.Rules.Bridge
 public import ConLeche.Verify.Inductives.ClassGenMinorSyn
 public import ConLeche.Verify.Inductives.GenRecRun
 public import ConLeche.Verify.Inductives.GenRecScoped
+public import ConLeche.Verify.Frontend.Dense
 
 @[expose] public section

@@ -29,23 +29,21 @@ theorem processLineCoreD_thmFalse {st st' : StateD} {k j v : Nat}
     (h : processLineCoreD st (.thm ⟨k, [], j⟩ v) = .ok (.inl st'))
     (hj : st.exprs.get? j = some (Expr.mkConst falseName [])) :
     ∃ cv vl, cv.type = .const falseName [] ∧ Declaration.thmDecl cv vl ∈ st'.decls := by
-  unfold processLineCoreD at h
-  obtain ⟨cvp, hcv, h⟩ := exceptBind_ok h
+  obtain ⟨x, hx, rfl⟩ := processLineCoreD_ok h
+  simp only [declOf] at hx
+  obtain ⟨cvp, hcv, hx⟩ := exceptBind_ok hx
   -- the header: some name, no level parameters, the type `False`
   have hcvp : cvp.type = .const falseName [] := by
-    unfold parseCVD at hcv
+    unfold cvOf at hcv
     obtain ⟨nm, _, hcv⟩ := exceptBind_ok hcv
     obtain ⟨ty, hty, hcv⟩ := exceptBind_ok hcv
     obtain ⟨lps, _, hcv⟩ := exceptBind_ok hcv
     simp only [pure, Except.pure, Except.ok.injEq] at hcv
     subst hcv
-    unfold getDeclD at hty
-    unfold StateD.expr at hty
-    rw [hj] at hty
-    simp only [pure, Except.pure, Except.ok.injEq] at hty
+    simp only [StateD.lk, StateD.expr, hj, pure, Except.pure, Except.ok.injEq] at hty
     exact hty.symm
-  obtain ⟨vl, _, h⟩ := exceptBind_ok h
-  simp only [pure, Except.pure, Except.ok.injEq, Sum.inl.injEq] at h; subst h
+  obtain ⟨vl, _, hx⟩ := exceptBind_ok hx
+  simp only [pure, Except.pure, Except.ok.injEq, Sum.inl.injEq] at hx; subst hx
   exact ⟨cvp, vl, hcvp, pushDecl_mem _ _⟩
 
 /-- **The theorem line.**  At a state whose expression `j` is `False`,
