@@ -29,7 +29,7 @@ not try to evaluate them.  Proofs that need to peel one iteration use
 these positivity witnesses instead. -/
 
 theorem whnfLoopFuel_succ : ∃ n, whnfLoopFuel = n + 1 :=
-  ⟨99999, by unfold whnfLoopFuel; rfl⟩
+  ⟨4611686018427387903, by unfold whnfLoopFuel; rfl⟩
 
 
 @[simp] theorem pureFns_whnfCore (env : Env) (f d : Nat) (e : Expr) (c : Bool) :

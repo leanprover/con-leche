@@ -1095,8 +1095,18 @@ to the shared recursion-depth budget (and to the native stack).  The
 `Expr`-level specification below stays chained — the refinement bridge
 reproduces a loop run by the chained recursion *at some knot fuel*
 (`ConLeche/Verify/BetaSpine.lean`), so the specification and everything
-above it are unchanged. -/
-@[irreducible] def whnfCoreLoopFuel : Nat := 1000000
+above it are unchanged.
+
+Task #330: a real 104.7 GB export (a `decide +kernel` proof,
+`CKLaneD.Structural.structural_paths._proof_1_1`) exhausted this budget
+on master, an internal error (exit 3) on a legitimate input, never an
+accept — raising it can't weaken the check, so the budget is now
+effectively unbounded: `2^62`, the largest literal that still keeps the
+decrementing counter an unboxed scalar (`2^63` is a bignum on a 64-bit
+`Nat`/`LEAN_MAX_SMALL_NAT`).  A runaway input is left to an external
+timeout.  See
+<https://github.com/dpwoodru/general-courtade-kumar-lean/tree/main/verification/con-leche/results/2026-10-08>. -/
+@[irreducible] def whnfCoreLoopFuel : Nat := 4611686018427387904  -- 2^62
 
 /-- Step budget of the `whnf` reduction loop (lean4lean's
 `FuelConfig.whnf`, same value).  Literal-acceleration and delta steps
@@ -1104,8 +1114,12 @@ are *iteration*, not recursion: the official kernel's loop is a
 `while (true)` and lean4lean's is a fixed-fuel local loop.  Task #106:
 routing them through the knot instead charged every unfolding step to
 the shared *recursion depth* budget (and to the native stack), so a
-long-but-perfectly-ordinary unfolding chain exhausted `checkFuel`. -/
-@[irreducible] def whnfLoopFuel : Nat := 100000
+long-but-perfectly-ordinary unfolding chain exhausted `checkFuel`.
+
+Task #330: effectively unbounded for the same reason as
+`whnfCoreLoopFuel` above (the same real export exhausted this budget on
+master before the fuel patch). -/
+@[irreducible] def whnfLoopFuel : Nat := 4611686018427387904  -- 2^62
 
 /-- One iteration of the reduction loop (the official kernel's `whnf`
 body, lean4lean's `whnf'` loop body): head-normalize, try literal
@@ -1650,8 +1664,11 @@ inductive LazyRes where
 
 /-- Step budget of the two lazy-delta loops (lean4lean's
 `FuelConfig.lazyDelta`, generously sized).  Exhaustion is an internal
-error, never a verdict. -/
-@[irreducible] def defeqLoopFuel : Nat := 100000
+error, never a verdict.
+
+Task #330: effectively unbounded for the same reason as
+`whnfCoreLoopFuel`/`whnfLoopFuel` above. -/
+@[irreducible] def defeqLoopFuel : Nat := 4611686018427387904  -- 2^62
 
 /-- **The lazy-delta loop** (the official kernel's
 `lazy_delta_reduction`): per iteration the offset check, the literal

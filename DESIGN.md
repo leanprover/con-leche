@@ -98528,3 +98528,70 @@ the obstacle that the environment kept them.)
 Gates: `lake build`, `lake test` warning-free; `tests/arena.sh` green
 (e2e 465/465, the sweeps, whitepaper links and fragment gates).
 Logs and the two binaries: `_tmp/amdahl/thmval-logs/`.
+
+## TASK #330 — fuel budgets effectively unbounded (2026-10-08)
+
+Maintainer decision: a real 104.7 GB export (a `decide +kernel` proof,
+`CKLaneD.Structural.structural_paths._proof_1_1`) exhausted
+`whnfLoopFuel` on master, and the author had to patch `whnfLoopFuel`,
+`whnfCoreLoopFuel` and `defeqLoopFuel` (`ConLeche/Kernel/Core.lean`)
+1000× by hand to get it through
+(<https://github.com/dpwoodru/general-courtade-kumar-lean/tree/main/verification/con-leche/results/2026-10-08>,
+`con-leche-fuel.patch`). Exhaustion of these budgets is an internal
+error (exit 3), never an accept, so raising them cannot weaken the
+check — it only decides how big a legitimate, ordinary-shaped input
+(one long unfolding/reduction/lazy-delta chain, not a different kind of
+input) the checker will carry through to completion instead of erroring
+out partway. Runaway or adversarial inputs are left to an external
+wall-clock timeout, same as a legitimate input that is merely slow.
+
+All three budgets are `Nat` (not `UInt64`/`USize`), so the question is
+only what literal to pick. Raised all three to `2^62 =
+4611686018427387904`: the largest value that keeps the decrementing
+fuel counter an unboxed scalar end to end (`LEAN_MAX_SMALL_NAT` is
+`2^63`; `2^63` itself would make the counter a bignum and the
+decrement bignum arithmetic). Each literal carries a `-- 2^62` comment
+so it reads as obviously that value rather than an arbitrary digit
+string; no `^` expression is written in the source, so elaboration
+never evaluates one. `whnfLoopFuel_succ` (`ConLeche/Verify/Knot.lean`)
+is the only positivity witness over these budgets; its witness `n`
+became `4611686018427387903` to match. `whnfCoreLoopFuel` and
+`defeqLoopFuel` have no such witness. Docstrings on all three updated
+to say why they are now effectively unbounded.
+
+Before landing, searched `tests/e2e-expected.txt`, `tests/e2e/src/*`,
+`tests/ConLecheTests/*` and `tests/arena.sh` for any fixture whose
+*pinned current verdict* is exhaustion of one of these three budgets
+(exit 3): none exists. Several fixtures and comments (`reducenat_guard`,
+`k_major_raw`, `natop_arg_order`, `binder_shared_local`,
+`proj_cheap_struct`, `proj_lazy_struct`) narrate a *historical* exit-3
+verdict from before some earlier fix (D15, CHEAPPROJ, task #201, …),
+with today's pinned verdict already 0 (accept) — raising the budget
+does not touch them. The only live pinned exit-3 case
+(`malformed_midstream.ndjson`) is a truncated-JSON parse error,
+unrelated to these loop budgets. The `level_fuel_*` fixtures exercise a
+different, unrelated resource limit (`Level.leq`'s `Level.defaultFuel`,
+`ConLeche/Kernel/Level.lean`), which this task does not touch.
+
+Docstring growth in `ConLeche/Kernel/Core.lean` shifted later line
+numbers in that file by +10 (after `whnfCoreLoopFuel`'s def), +14
+(after `whnfLoopFuel`'s def) and +17 (after `defeqLoopFuel`'s def,
+applying from there to the end of the file). Three `OVERVIEW.md`
+line-anchored links and one `whitepaper/sections/07-left-out.typ`
+`#src` citation into that file landed in the shifted range; repointed
+all four to the lines carrying the same (unmoved-in-content) text, then
+regenerated both pinned snapshots (`tests/overview-links.sh --update`,
+`whitepaper/links-gate.sh --update`). No cited prose needed a rewrite —
+only the anchors moved, nothing the anchors point at changed.
+
+**Verification.** `lake build` and `lake test` warning-free;
+`tests/arena.sh` (arena tutorial 90/92, e2e 456/456, annot 15/15,
+trusted sweep and the `--jobs=1`/`--jobs=4` sweeps all unchanged from
+before this change); quote-gate, overview-links and whitepaper-links
+all green; a `--jobs=8` run over `_tmp/ref/init-exports/init-full.ndjson`
+still accepts (57977 declarations). MainTheorem and the corollary are
+untouched; no `sorry`, no new axioms.
+
+Landed directly on `master` (not a campaign branch) from
+`agent/fuel-unbounded`, then merged forward into `more-parallel`
+(task #329's integration branch) to keep it from diverging.
