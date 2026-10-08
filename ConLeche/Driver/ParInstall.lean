@@ -338,13 +338,29 @@ def depsChunk {α : Type} (B : BaseIdx) (ds : Array Declaration) (noMark : Bool)
     let _ ← unsafe Runtime.markPersistent edges
   return (counts, state, edges)
 
+/-- One thread of the dependency step: claim fine chunks off `next` and
+run `depsChunk` on each, returning the results with their chunk
+numbers. -/
+partial def depsWorker {α : Type} (B : BaseIdx) (ds : Array Declaration) (noMark : Bool)
+    (gate n parts : Nat) (fine : Array (Nat × Nat)) (next : IO.Ref Nat)
+    (acc : Array (Nat × (Array (IO.Ref Nat) × Array (IO.Ref (RState α)) ×
+      Array (Array (Nat × Array Nat))))) :
+    IO (Array (Nat × (Array (IO.Ref Nat) × Array (IO.Ref (RState α)) ×
+      Array (Array (Nat × Array Nat))))) := do
+  let c ← next.modifyGet fun c => (c, c + 1)
+  match fine[c]? with
+  | some (lo, hi) =>
+    let r ← depsChunk B ds noMark gate n parts lo hi
+    depsWorker B ds noMark gate n parts fine next (acc.push (c, r))
+  | none => return acc
+
 /-- The dependents of records `lo .. hi - 1` (chunk `r`), on a task of
-its own: the groups into the chunk from every chunk at or after it, in
-chunk order, so each record's dependents are ascending. -/
+its own: the groups into the chunk from every source chunk, in chunk
+order, so each record's dependents are ascending. -/
 def dependentsChunk (edges : Array (Array (Array (Nat × Array Nat))))
     (r lo hi : Nat) : IO (Array (Array Nat)) := do
   let mut acc : Array (Array Nat) := Array.replicate (hi - lo) #[]
-  for t in [r:edges.size] do
+  for t in [0:edges.size] do
     if let some es := edges[t]? then
       if let some e := es[r]? then
         for (d, ks) in e do
@@ -352,8 +368,11 @@ def dependentsChunk (edges : Array (Array (Array (Nat × Array Nat))))
   return acc
 
 /-- The slots of records `lo .. hi - 1`, on a task of its own: one
-promise each, and the thunk over it a view reads. -/
-def slotChunk (lo hi : Nat) : IO (Array (IO.Promise (Array ConstantInfo)) × Slots) := do
+promise each, and the thunk over it a view reads.  (Not marked
+persistent: marking waits for every task it reaches, and a promise's
+task is unresolved here.) -/
+def slotChunk (lo hi : Nat) :
+    IO (Array (IO.Promise (Array ConstantInfo)) × Slots) := do
   let mut ps := Array.mkEmpty (hi - lo)
   let mut ss : Slots := Array.mkEmpty (hi - lo)
   for _ in [lo:hi] do
@@ -574,15 +593,18 @@ partial def workerLoop (sh : Shared mode ds B S vis) (cnt : Nat) (cont held : Op
     else
       workerLoop sh cnt none held
 
-/-- Stop the workers: no new records, and every slot not resolved yet
-resolved empty, so that nobody stays waiting on it. -/
-def stopWorkers (sh : Shared mode ds B S vis) : IO Unit := do
+/-- Stop the workers: no new records, and — when the run was abandoned
+(`resolveAll`) — every slot not resolved yet resolved empty, so that
+nobody stays waiting on it.  After a complete commit every slot is
+resolved already, and the walk over a million cold promises is skipped. -/
+def stopWorkers (sh : Shared mode ds B S vis) (resolveAll : Bool) : IO Unit := do
   sh.sched.stop.set true
   sh.sched.lock.lock
   sh.sched.lock.unlock
   sh.sched.cv.notifyAll
-  for p in sh.slotP do
-    p.resolve #[]
+  if resolveAll then
+    for p in sh.slotP do
+      p.resolve #[]
 
 /-- The commit thread's wait for record `k`, taken by an installer: the
 result once the record is done.  If it is not done yet, the thread
@@ -618,7 +640,7 @@ def fallbackFrom (err : IO.FS.Stream) (stride total t0 : Nat)
     IO (Except (CheckError × Nat)
       (Σ' (p' : Nat × FEnv × Array PendingCheck),
         PLift (InstallRun mode natOpPinSets ds.toList p₀ p'))) := do
-  stopWorkers sh
+  stopWorkers sh true
   if stride > 0 then
     err.putStr s!"con-leche: parallel install abandoned at fold position {k} \
       (a predicted slot did not match, or --install-fallback-at), continuing serially\n"
@@ -760,19 +782,31 @@ def parInstall (mode : CheckMode) (err : IO.FS.Stream) (stride total t0 jobs : N
   let tC0 ← IO.monoMsNow
   -- the dependencies, counts and states, chunk per task; then the
   -- dependents, chunk per task
+  -- (the dependency walk's cost is uneven along the stream, so the
+  -- records are cut finer than the threads, and `parts` threads claim
+  -- the fine chunks off a counter)
+  let fine := ParInstall.chunkBounds n (8 * parts)
+  let nextFine ← IO.mkRef 0
   let mut depTasks := #[]
-  for (lo, hi) in chunks do
+  for _ in [0:parts] do
     depTasks := depTasks.push (← IO.asTask (prio := .dedicated)
-      (ParInstall.depsChunk (α := ParInstall.WRes mode ds B S vis) B ds noMark gate n parts lo hi))
+      (ParInstall.depsWorker (α := ParInstall.WRes mode ds B S vis) B ds noMark gate n parts
+        fine nextFine #[]))
+  let mut fineRes : Array (Option (Array (IO.Ref Nat) ×
+      Array (IO.Ref (ParInstall.RState (ParInstall.WRes mode ds B S vis))) ×
+      Array (Array (Nat × Array Nat)))) := Array.replicate fine.size none
+  for t in depTasks do
+    for (c, r) in ← IO.ofExcept (← IO.wait t) do
+      fineRes := fineRes.set! c (some r)
   let mut counts : Array (IO.Ref Nat) := Array.mkEmpty n
   let mut state : Array (IO.Ref (ParInstall.RState (ParInstall.WRes mode ds B S vis))) :=
     Array.mkEmpty n
-  let mut edges : Array (Array (Array (Nat × Array Nat))) := Array.mkEmpty parts
-  for t in depTasks do
-    let (c, st, e) ← IO.ofExcept (← IO.wait t)
-    counts := counts ++ c
-    state := state ++ st
-    edges := edges.push e
+  let mut edges : Array (Array (Array (Nat × Array Nat))) := Array.mkEmpty fine.size
+  for r? in fineRes do
+    if let some (c, st, e) := r? then
+      counts := counts ++ c
+      state := state ++ st
+      edges := edges.push e
   let tC ← IO.monoMsNow
   let mut depdTasks := #[]
   for h : r in [0:chunks.size] do
@@ -801,18 +835,20 @@ def parInstall (mode : CheckMode) (err : IO.FS.Stream) (stride total t0 jobs : N
     sh cst (0, mkFEnv Env.empty, #[]) 0 (0, mkFEnv Env.empty, #[]) (.nil _)
     Cached.IdxBelow.mkFEnv_empty (Cached.ViewAgrees.empty B S)
   let tE ← IO.monoMsNow
-  ParInstall.stopWorkers sh
-  let mut installs := 0
-  for t in tasks do
-    match ← IO.wait t with
-    | .ok c => installs := installs + c
-    | .error _ => pure ()
+  -- (after a rejection the records past it may never be installed, and
+  -- a worker may be waiting on one of their slots)
+  ParInstall.stopWorkers sh (res matches .error _)
+  -- the workers are not joined: once stopped they only exit, and a
+  -- thread's exit (its allocator's teardown) took ~0.25 s on cslib —
+  -- nothing after the commit needs them
+  let _ := tasks
+  let tF ← IO.monoMsNow
   if stride > 0 then
     let c ← cst.get
     err.putStr s!"con-leche: parallel install: records marked persistent {tA0 - tA} ms, prediction+base {tA' - tA0} ms, \
       base marked persistent {tB - tA'} ms, \
-      slots {tC0 - tB} ms, dependencies {tC - tC0} ms, dependents {tD - tC} ms, commit {tE - tD} ms; \
-      {installs} records installed by workers; commit thread: {c[0]!} sleeps on a worker \
+      slots {tC0 - tB} ms, dependencies {tC - tC0} ms, dependents {tD - tC} ms, commit {tE - tD} ms, stop {tF - tE} ms (t={tF - t0} ms); \
+      commit thread: {c[0]!} sleeps on a worker \
       ({c[1]! / 1000000} ms), {c[2]!} records installed itself ({c[3]! / 1000000} ms)\n"
     err.flush
   return res
