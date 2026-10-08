@@ -1,7 +1,6 @@
 module
 
 public import ConLeche.Frontend.Prelude
-public import ConLeche.Frontend.Pipeline
 public import ConLeche.Driver.ParInstall
 public import ConLeche.Driver.CheckPool
 public import ConLeche.Driver.ParParse

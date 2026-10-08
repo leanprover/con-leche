@@ -1,6 +1,5 @@
 module
 
-public import ConLeche.Frontend.Rounds
 public import ConLeche.Verify.Frontend.Dense
 
 public section
