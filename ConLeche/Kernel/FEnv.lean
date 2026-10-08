@@ -41,14 +41,30 @@ function of the layer's contents; the empty layer answers `none`
 everywhere (`FBase.find?_empty`), which is every `FEnv` but a worker's
 view. -/
 structure FBase where
-  idx : Std.HashMap Name (Nat × Nat × Nat) := {}
+  idx : Array (Std.HashMap Name (Nat × Nat × Nat)) := #[]
   slots : Array (Thunk (Array ConstantInfo)) := #[]
   below : Nat := 0
+
+/-- The shard a name's base entry lives in, among `m` shards: the high
+half of its hash, modulo `m` (the low bits choose the bucket inside a
+shard's map). -/
+@[inline] def baseShard (n : Name) (m : Nat) : Nat := (n.hashData >>> 32).toNat % m
+
+/-- **The sharded base index's lookup**: the entry for `n` in its
+shard.  The base is built one shard per task (task #329, COMMIT); no
+lemma depends on which shard an entry sits in, only on what the
+entries say (`buildBase_inj`), so a misplaced entry would be a miss,
+never a wrong answer. -/
+def baseGet? (idx : Array (Std.HashMap Name (Nat × Nat × Nat))) (n : Name) :
+    Option (Nat × Nat × Nat) :=
+  match idx[baseShard n idx.size]? with
+  | some m => m[n]?
+  | none => none
 
 /-- The base layer's lookup: a visible entry's constant, from its
 record's slot. -/
 def FBase.find? (b : FBase) (n : Name) : Option ConstantInfo :=
-  match b.idx[n]? with
+  match baseGet? b.idx n with
   | some (c, k, j) =>
     if c < b.below then
       if h : k < b.slots.size then (b.slots[k]).get[j]? else none

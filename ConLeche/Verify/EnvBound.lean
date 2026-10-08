@@ -95,7 +95,7 @@ theorem idxSpec_snd (n : Name) : ∀ l : List ConstantInfo,
 
 /-- The empty base layer answers nothing. -/
 @[simp] theorem FBase.find?_empty (n : Name) : ({} : FBase).find? n = none := by
-  simp [FBase.find?]
+  simp [FBase.find?, baseGet?]
 
 /-- `mkFEnv` has the empty base layer. -/
 @[simp] theorem mkFEnv_base (env : Env) : (mkFEnv env).base = {} := rfl
