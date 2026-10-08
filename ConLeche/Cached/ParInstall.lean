@@ -1,7 +1,6 @@
 module
 
 public import ConLeche.Cached.Installed
-import ConLeche.Cached.InstallShape
 import ConLeche.Cached.KnotCongr
 /- `withPtrEq` is `public` but not `@[expose]`; the slot check below is
 *defined* through it and `slotIs_spec` needs its body (`k ()`), which
@@ -21,23 +20,28 @@ results into the serial index while it extends the serial fold's
 accepting run (`InstallRun`) one record at a time — the run the driver
 returns is the serial fold's whatever the schedule.
 
-* **The worker view** (`workerView B v`) is an `FEnv` with an empty
+* **The worker view** (`workerView B S v`) is an `FEnv` with an empty
   index and the frozen base layer `B` (`FBase`,
   `ConLeche/Kernel/FEnv.lean`) visible below the counter `v`: the
   predicted name of every slot of the stream, each answering from the
   task of the record that installs it.  It is built once, before the
   workers start, from the names the records will install.
-* **The invariant** (`ViewAgrees B fe`): the view at the serial index's
+* **The invariant** (`ViewAgrees B S fe`): the view at the serial index's
   counter answers every lookup as the serial index does.  It holds at
   the empty index (`ViewAgrees.empty`), and a commit keeps it when the
   slot it fills is the one `B` predicted for that counter and the
   slot's task delivers the very constant pushed (`ViewAgrees.push`,
   checked by `slotIs`, a pointer comparison at run time).
-* **The commit step** (`valueStep_commit`): a value record's install
-  at the view, by the congruence of the cached core in `find?`
-  (`coreKnotI_congr`, `ConLeche/Cached/KnotCongr.lean`), IS the serial
-  step's: same constant, same pending check.  A failing record fails
-  with the serial step's error (`valueStep_commit_error`).
+* **The commit step of a value record** (`valueStep_commit`): a
+  definition's, theorem's or opaque's install at the view, by the
+  congruence of the cached core in `find?` (`coreKnotI_congr`,
+  `ConLeche/Cached/KnotCongr.lean`), IS the serial step's: same
+  constant, same pending check.  A failing record fails with the serial
+  step's error (`valueStep_commit_error`).  Every other record — a
+  block, an axiom, a basis block, a pinned declaration — pushes a list
+  of constants, each checked against its slot (`ViewAgrees.pushAll`);
+  that its install at the view is the serial step is
+  `installStep_commit` (`ConLeche/Cached/ViewCongr.lean`).
 
 Nothing here mentions a schedule, a thread or a promise: the lemmas
 are about values, and what a task delivers is a value (`Task.get` is
@@ -137,8 +141,9 @@ counter, the record that installs it, and its position among that
 record's installed constants. -/
 abbrev BaseIdx := Std.HashMap Name (Nat × Nat × Nat)
 
-/-- The records' slots: record `k`'s installed constants, deferred. -/
-abbrev Slots := Array (Thunk (Array ConstantInfo))
+/-- The records' tasks: record `k`'s installed constants, `none` if the
+task was dropped unresolved. -/
+abbrev Slots := Array (Task (Option (Array ConstantInfo)))
 
 /-- **The worker view at counter `v`**: no constants of its own, the
 base visible below `v`.  A worker installs record `r` at
@@ -174,10 +179,14 @@ theorem ViewAgrees.empty (B : BaseIdx) (S : Slots) : ViewAgrees B S (mkFEnv Env.
 
 /-- The slot's constant: position `j` of record `k`'s task. -/
 def slotGet (S : Slots) (k j : Nat) : Option ConstantInfo :=
-  if h : k < S.size then (S[k]).get[j]? else none
+  if h : k < S.size then
+    match (S[k]).get with
+    | some cs => cs[j]?
+    | none => none
+  else none
 
-/-- **The slot check**: position `j` of record `k`'s slot is `ci`.  At
-run time a pointer comparison — the slot delivers the very object the
+/-- **The slot check**: position `j` of record `k`'s task is `ci`.  At
+run time a pointer comparison — the task delivers the very object the
 record's install reports — and only on a mismatch the
 structural comparison, which is what it means logically
 (`slotIs_spec`). -/
@@ -254,83 +263,27 @@ theorem ViewAgrees.push {B : BaseIdx} {S : Slots} {fe : FEnv} (hB : BaseInj B)
 
 /-! ## A commit of several constants
 
-A record the commit thread installs itself (a block, an axiom, a pinned
-declaration: every kind `valueStep` leaves to it) pushes a list of
-constants at the serial index.  The serial index is canonical — `mkFEnv`
-of its environment — before and after, the new constants sit on top of
-the old environment (a pointer comparison at run time, `splitNew`), and
-each fills its predicted slot. -/
-
-theorem pushAll_mkFEnv (env : Env) :
-    ∀ L : List ConstantInfo, FEnv.pushAll L (mkFEnv env) = mkFEnv ⟨L.reverse ++ env.consts⟩
-  | [] => rfl
-  | ci :: L => by
-    show FEnv.pushAll L (mkFEnv ⟨ci :: env.consts⟩) = _
-    rw [pushAll_mkFEnv ⟨ci :: env.consts⟩ L]
-    simp
-
-/-- A canonical index has every entry below its counter. -/
-theorem IdxBelow.mkFEnv (env : Env) : IdxBelow (ConLeche.mkFEnv env) := by
-  suffices h : ∀ (l : List ConstantInfo) (n : Name) (c : Nat) (ci : ConstantInfo),
-      (mkFEnvGo l).2[n]? = some (c, ci) → c < (mkFEnvGo l).1 from
-    ⟨rfl, fun n c ci hl => h env.consts n c ci hl⟩
-  intro l
-  induction l with
-  | nil => intro n c ci hl; simp [mkFEnvGo] at hl
-  | cons cj cs ih =>
-    intro n c ci hl
-    simp only [mkFEnvGo, Std.HashMap.getElem?_insert] at hl ⊢
-    split at hl
-    · cases hl; omega
-    · exact Nat.lt_succ_of_lt (ih n c ci hl)
+A block, an axiom, a basis block or a pinned declaration pushes a list
+of constants; each fills its predicted slot. -/
 
 /-- The slot checks of a list of constants pushed from counter `v` on. -/
 def slotsOk (B : BaseIdx) (S : Slots) : Nat → List ConstantInfo → Bool
   | _, [] => true
   | v, ci :: L => slotOk B S v ci && slotsOk B S (v + 1) L
 
+theorem IdxBelow.pushAll {fe : FEnv} (h : IdxBelow fe) :
+    ∀ L : List ConstantInfo, IdxBelow (FEnv.pushAll L fe)
+  | [] => h
+  | ci :: L => IdxBelow.pushAll (h.push ci) L
+
 /-- **Checked commits of several constants keep the invariant.** -/
-theorem ViewAgrees.pushList {B : BaseIdx} {S : Slots} (hB : BaseInj B) :
-    ∀ (L : List ConstantInfo) (env : Env), ViewAgrees B S (mkFEnv env) →
-      slotsOk B S (mkFEnv env).visibleBelow L = true →
-      ViewAgrees B S (FEnv.pushAll L (mkFEnv env))
-  | [], _, h, _ => h
-  | ci :: L, env, h, hok => by
+theorem ViewAgrees.pushAll {B : BaseIdx} {S : Slots} (hB : BaseInj B) :
+    ∀ (L : List ConstantInfo) {fe : FEnv}, IdxBelow fe → ViewAgrees B S fe →
+      slotsOk B S fe.visibleBelow L = true → ViewAgrees B S (FEnv.pushAll L fe)
+  | [], _, _, h, _ => h
+  | ci :: L, fe, hidx, h, hok => by
     simp only [slotsOk, Bool.and_eq_true] at hok
-    have h₁ := ViewAgrees.push hB (IdxBelow.mkFEnv env) h hok.1
-    exact ViewAgrees.pushList hB L ⟨ci :: env.consts⟩ h₁ hok.2
-
-/-- The new constants on top of the old environment, newest first in
-`cur`: `some L` (oldest first) when `cur` is `old` with `d` constants
-consed on top.  At run time the tail comparison is a pointer comparison
-(the install only ever conses onto the environment it was given). -/
-def splitNew (cur old : List ConstantInfo) (d : Nat) : Option (List ConstantInfo) :=
-  if withPtrEq (cur.drop d) old (fun _ => decide (cur.drop d = old)) (fun h => by simp [h])
-  then some (cur.take d).reverse else none
-
-theorem splitNew_spec {cur old : List ConstantInfo} {d : Nat} {L : List ConstantInfo}
-    (h : splitNew cur old d = some L) : cur = L.reverse ++ old := by
-  unfold splitNew at h
-  split at h
-  · rename_i hp
-    have hp' : decide (cur.drop d = old) = true := hp
-    cases h
-    rw [List.reverse_reverse, ← of_decide_eq_true hp', List.take_append_drop]
-  · exact nomatch h
-
-/-- **A commit thread's own install keeps the invariant**: from a
-canonical index, a canonical result whose environment is the old one
-with `L` pushed on top, each of `L`'s constants in its predicted slot. -/
-theorem ViewAgrees.frontier {B : BaseIdx} {S : Slots} (hB : BaseInj B) {fe fe' : FEnv}
-    (hc : fe = mkFEnv fe.env) (hc' : fe' = mkFEnv fe'.env) (hag : ViewAgrees B S fe)
-    {L : List ConstantInfo} (hL : fe'.env.consts = L.reverse ++ fe.env.consts)
-    (hok : slotsOk B S fe.visibleBelow L = true) : ViewAgrees B S fe' := by
-  have hfe' : fe' = FEnv.pushAll L (mkFEnv fe.env) := by
-    rw [pushAll_mkFEnv, ← hL]
-    exact hc'
-  rw [hfe']
-  rw [hc] at hag hok
-  exact ViewAgrees.pushList hB L fe.env hag hok
+    exact ViewAgrees.pushAll hB L (hidx.push ci) (ViewAgrees.push hB hidx h hok.1) hok.2
 
 /-! ## The base builder -/
 
@@ -487,49 +440,5 @@ theorem valueStep_commit_error {pins : List NatOpPinSet} {B : BaseIdx} {S : Slot
   cases annotStepC mode pins i fe pend pd {} with
   | error e' => intro hs; cases hs; rfl
   | ok p => intro hs; simp [Except.map] at hs
-
-end ConLeche.Cached
-
-namespace ConLeche.Cached
-
-/-- **The commit thread's own step keeps the index canonical**: from a
-canonical index, the fold's step returns a canonical index
-(`annotStepC_skels`, `ConLeche/Cached/InstallShape.lean`). -/
-theorem annotDeclStep_canon {mode : CheckMode} {pins : List NatOpPinSet}
-    {p p' : Nat × FEnv × Array PendingCheck} {pd : Declaration}
-    (h : annotDeclStep mode pins p pd = .ok p') (hc : p.2.1 = mkFEnv p.2.1.env) :
-    p'.2.1 = mkFEnv p'.2.1.env := by
-  obtain ⟨fe', pend', s', rfl, hstep⟩ := annotDeclStep_ok h
-  have hsk : SkelIs p.2.1 (envSkels p.2.1.env) := ⟨⟨_, hc⟩, rfl⟩
-  obtain ⟨⟨env, henv⟩, -⟩ :=
-    annotStepC_skels mode p.1 hsk p.2.2 pd {} (fe', pend') s' hstep
-  show fe' = mkFEnv fe'.env
-  have henv' : fe' = mkFEnv env := henv
-  subst henv'
-  rfl
-
-end ConLeche.Cached
-
-namespace ConLeche.Cached
-
-/-- The records a worker installs: those `valueStep` has a verdict for
-(and that pass the fold's `And` test, which the commit applies first). -/
-def isWorkerRecord (pd : Declaration) : Bool :=
-  andPinOk pd && match pd with
-    | .defnDecl cv _ _ => !(natOpNames.contains cv.name || natDivModNames.contains cv.name)
-    | .thmDecl .. => true
-    | .opaqueDecl cv _ => !reduceOpNames.contains cv.name
-    | _ => false
-
-/-- A push onto a canonical index is canonical. -/
-theorem mkFEnv_push_canon {fe : FEnv} (hc : fe = ConLeche.mkFEnv fe.env) (ci : ConstantInfo) :
-    fe.push ci = ConLeche.mkFEnv (fe.push ci).env := by
-  have : fe.push ci = (ConLeche.mkFEnv fe.env).push ci := congrArg (·.push ci) hc
-  rw [this]
-  rfl
-
-/-- A canonical index has every entry below its counter. -/
-theorem IdxBelow.of_canon {fe : FEnv} (hc : fe = ConLeche.mkFEnv fe.env) : IdxBelow fe := by
-  rw [hc]; exact IdxBelow.mkFEnv fe.env
 
 end ConLeche.Cached
