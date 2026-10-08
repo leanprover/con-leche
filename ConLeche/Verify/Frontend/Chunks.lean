@@ -8,9 +8,10 @@ public section
 /-!
 # The chunk boundary is invisible (task #290)
 
-The binary reads its input in chunks (`parseExportHandleD`, 4 MiB at a
-time) and feeds each through `chunkStep` — every complete line of the
-buffer, the incomplete tail carried into the next chunk.  `parseChunks`
+The binary reads its input in chunks (`parseExportHandleP`, 4 MiB at a
+time, cut at the last newline of each read) and feeds each through
+`chunkStep` — every complete line of the buffer, the incomplete tail
+carried into the next chunk.  `parseChunks`
 is that loop over a list of chunks, purely, and this module proves
 that it computes the wholesale parse of the concatenation:
 

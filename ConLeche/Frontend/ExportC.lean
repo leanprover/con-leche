@@ -571,8 +571,10 @@ incomplete tail is put in front of the new bytes, every complete line
 of the buffer is fed, and the new incomplete tail is cut off for the
 next chunk; `total` counts the bytes read before this chunk, for the
 size guard.  This is the step the streaming reader takes
-(`parseExportHandleD`), pure, so that `parseChunks` below — the same
-step folded over a list of chunks — is exactly what the binary
+(`parseExportHandleP`, `ConLeche/Frontend/Pipeline.lean`, as
+`chunkStepS` with the chunk's scan handed in), pure, so that
+`parseChunks` below — the same step folded over a list of chunks — is
+exactly what the binary
 computes and can be compared with the wholesale parse
 (`parseChunks_eq_parseBytes`, `ConLeche/Verify/Frontend/Chunks.lean`). -/
 def chunkStep (st : StateD) (carry : ByteArray) (lineNo total : Nat) (buf0 : ByteArray) :
@@ -602,7 +604,7 @@ def concatBytes : List ByteArray → ByteArray
 
 /-- **The streaming parse, purely** (task #290): `chunkStep` folded
 over a list of chunks, `chunkFinish` at its end — what
-`parseExportHandleD` does with the chunks its handle hands out, minus
+`parseExportHandleP` does with the chunks it cuts from its reads, minus
 the reads.  The list is folded whole (task #294): an empty chunk
 contributes nothing and the fold goes on, so the parse of a list of
 chunks is the parse of their concatenation, however it was cut
@@ -620,38 +622,5 @@ where
       match chunkStep st carry lineNo total c with
       | .error e => .error e
       | .ok (st, carry, lineNo, total) => go st carry lineNo total cs
-
-/-- Streaming direct parse off an open handle.
-
-The handle is read strictly forward, 4 MiB at a time, and is never
-seeked, re-opened or asked for its size — so the source may be a
-*pipe* just as well as a file (task #180: no scratch file at all,
-anywhere; `Main.lean`).  It is a property to preserve: a seek or a
-re-open here would silently re-introduce a temp file.
-
-The unconsumed tail of a chunk — at most one incomplete line — is
-carried into the next one, and `st` is threaded as a plain argument so
-that the parse tables stay uniquely referenced across steps (task #78:
-a handler that closes over the state holds it at RC 2 and every insert
-inside copies it).  Each step is `chunkStep`, the end `chunkFinish`:
-the loop is `parseChunks.go` with the reads interleaved (task #290),
-stopping at the first empty read — the handle's end of file. -/
-partial def parseExportHandleD (h : IO.FS.Handle) (chunk : USize := chunkSize) :
-    IO (Except (CheckError × Nat) ParseResultD) := do
-  let rec loop (st : StateD) (carry : ByteArray) (lineNo total : Nat) :
-      IO (Except (CheckError × Nat) ParseResultD) := do
-    let buf0 ← h.read chunk
-    if buf0.isEmpty then
-      return chunkFinish st carry lineNo
-    else
-      match chunkStep st carry lineNo total buf0 with
-      | .error e => return .error e
-      | .ok (st, carry, lineNo, total) => loop st carry lineNo total
-  loop .init ByteArray.empty 0 0
-
-/-- Streaming direct parse of a file. -/
-def parseExportStreamD (path : System.FilePath) (chunk : USize := chunkSize) :
-    IO (Except (CheckError × Nat) ParseResultD) := do
-  parseExportHandleD (← IO.FS.Handle.mk path .read) chunk
 
 end ConLeche.Frontend

@@ -46,8 +46,9 @@ term has at most one denotation — in `ConLeche/Denotes.lean`.
   (`Cached.fullyChecked_checkDecls`), so the success line is printed
   from an accept of `checkDecls` and from nothing else.
 * `Frontend.builtinPreludeE` is the parsed built-in prelude,
-  `Frontend.parseChunks` the streaming parse of the chunks the file
-  handle hands out (the driver's read loop, minus the reads), and
+  `Frontend.parseChunks` the streaming parse of a list of chunks of
+  the file (the driver's parse returns its result with the proof that
+  `parseChunks` returns it on the chunks it cut from its reads), and
   `Frontend.preparePrelude` the preparation of the parsed records for
   the fold.  The three fail in ONE error type — the checker's own
   `CheckError` with the position of the failure (the input's line
