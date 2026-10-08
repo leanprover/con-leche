@@ -98431,3 +98431,100 @@ justify either route yet; revisit if the memory saving can be made
 substantially larger.  Separately, storing a theorem's (and an opaque's)
 value in the environment at all is to be removed if the proofs allow it
 (the cleaner specification, independent of lazy parsing).
+
+## TASK #329 — THMVAL: a stored theorem carries no value (2026-10-08, agent/329-thmval)
+
+**The decision** (maintainer, 2026-10-08, following the LAZY record's
+option (B)): the environment does not store theorem values. Opaques
+were already stored as `.axiomInfo cvA`; theorems now store only their
+statement. Independent of any lazy-parsing work.
+
+**The choice: the constructor loses its field.**
+`ConstantInfo.thmInfo (val : ConstantVal)` (`ConLeche/Kernel/Env.lean`)
+instead of pushing a fixed dummy value. With the field gone, nothing
+can read a theorem's proof term from an environment *by construction*;
+a dummy value would leave every proof that names the constructor
+carrying an argument it must not use, and the claim "nothing reads it"
+would stay a convention. It was also the cheaper repair: every proof
+site was a pattern or a constructor term, and dropping one argument is
+mechanical, where a dummy value would have changed `DeclThmRun`'s and
+`checkThmVal`'s equations to mention an arbitrary constant.
+
+**Survey** (every mention of a theorem constant's value):
+85 mentions of `thmInfo` in `.lean` files; 4 are in
+`scripts/dead-census.lean` and 1 in `PinGen/Prelude.lean`, all about
+Lean's own `Lean.ConstantInfo`, unaffected. The rest:
+* kernel: the constructor and `toConstantVal` (`Env.lean`),
+  `checkThmVal` (`Checker.lean`), the basis quotation and annotation
+  (`BasisGen.lean`; no basis constant is a theorem), the canonical form
+  and its fast equality (`Canon.lean`: a theorem now compares by
+  statement; `canonEq` is only ever applied to `axiomInfo` pins);
+* cached: `checkThmValC` (`ParsedC.lean`), phase A's `annotStepC`
+  (`Installed.lean`), the parallel install's `valueStep`
+  (`Verify/Cached/ParInstall.lean`), `ciSkel` (`InstallSkel.lean`);
+* proofs: `Semantics/DeclRun.lean` (`DeclThmRun`'s result environment),
+  `Model/{Harvest,StreamConsts,InstallRun}.lean`, and 17 `Verify/`
+  files (`case`/`match` arms and the `CheckerSplit` equations).
+None of them read the value: every one either matched it with `_` or a
+name it never used, or rebuilt the constructor with it.
+* `preparePrelude`'s Nat-op ground hoist reads
+  `Declaration.usedConsts` (`Frontend/NatOpGround.lean`): the parsed
+  record, which keeps its value; not affected.
+* bridge (`bridge/lean4lean-model`): only about `SetTheory`; not
+  affected. The whitepaper fragment has no theorem kind; its link gate
+  cites `Env.lean`'s `ConstantInfo` lines (re-generated; the citing
+  paragraph, "a definition carries a value; the other kinds …", stays
+  true).
+
+**Size of the repair**: 29 files, 81 insertions, 86 deletions over
+`ConLeche/`; of these 62 lines in `Semantics/`, `Model/` and `Verify/`,
+every one a dropped argument (no proof changed shape, no new lemma).
+Internal statements that changed text:
+`checkThmVal_of_facts` and the value-group step in
+`Verify/CheckerSplit.lean`, `annotStepC_thm_consts`
+(`Verify/Cached/StreamThm.lean`), `DeclThmRun`. `MainTheorem`'s
+statements are textually identical (the challenge gate checks
+`model_exists` and `no_False_declaration`), and the main corollary is
+untouched; `Axioms.lean`'s pins are unchanged.
+
+**Why the main theorem is unaffected — where a theorem constant's
+interpretation comes from.** `harvestThm` (`Model/Harvest.lean`)
+extends the model at a theorem by the leaf `A`, the `denoteMeta`
+reading of `value'`, the ANNOTATED value that `DeclThmRun`'s
+`ValueFrontRun` checked against the statement (`inferTypeCore` to a
+type defeq to `type'`); `hmemA` (the value's denotation is a member of
+the statement's) is what makes the constant an inhabitant of its type.
+That is the realizability witness of the check, exactly as for an
+opaque; the stored constant never supplied it (the stored value was the
+RAW record value, which the model never read: `hvalReads` was already
+vacuous for theorems). So the model construction is the same proof
+with one argument fewer, and the denotation of an environment does not
+depend on proof terms. Reduction was already blind to theorem values
+(`unfoldDefinition` has no `thmInfo` arm).
+
+**Trust surface and shape.** No new `unsafe`/axiom/sorry. Our
+`ConstantInfo` now differs further from lean4lean's and the official
+kernel's (`TheoremVal` has `value` and `all`); it never had their shape
+(opaques are `axiomInfo`, no `all`, own `indInfo`/`IndCaps`), and no
+bridge converts between them.
+
+**Measurements** (before: `more-parallel` 3b5d22933; after: this lane):
+
+| run | before | after |
+|---|---|---|
+| init-full `--jobs=1`, instructions:u | 487 314 644 418 | 487 288 458 756 (−0.005 %) |
+| init-full `--jobs=1`, peak RSS | 420 372 kB | 421 088 kB |
+| init-full `--jobs=1`, parse / install / check | 0.6 / 2.6 / 45.8 s | 0.6 / 2.5 / 46.0 s |
+| mathlib-full (96 workers), records | 691 203 accepted | 691 203 accepted |
+| mathlib-full, peak RSS | 8 064 876 kB | 8 074 196 kB |
+| mathlib-full, parse / install / check | 6.6 / 4.0 / 21.5 s | 6.8 / 4.1 / 21.8 s |
+
+No change, as expected: the raw value objects stay alive through the
+parsed records and the pending checks anyway, so dropping the
+environment's pointer frees nothing at the peak. (The LAZY lane's
+memory saving needs the values not to be BUILT; this lane only removes
+the obstacle that the environment kept them.)
+
+Gates: `lake build`, `lake test` warning-free; `tests/arena.sh` green
+(e2e 465/465, the sweeps, whitepaper links and fragment gates).
+Logs and the two binaries: `_tmp/amdahl/thmval-logs/`.
