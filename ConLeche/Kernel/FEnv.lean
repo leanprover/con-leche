@@ -76,7 +76,7 @@ namespace FEnv
 `mkFEnv`, which hides nothing).  With an overlay, the overlay first and
 the bound advanced past it — exactly what pushing the overlay's
 constants would answer. -/
-def find? (fe : FEnv) (n : Name) : Option ConstantInfo :=
+def find? (fe : @& FEnv) (n : Name) : Option ConstantInfo :=
   match fe.ovl with
   | [] =>
     match fe.idx[n]? with
