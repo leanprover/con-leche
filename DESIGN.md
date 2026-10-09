@@ -96831,3 +96831,90 @@ and `lake test` warning-free; `tests/arena.sh` green (arena 90/92, e2e
 456/456, annot 15/15, trusted/`--jobs=1`/`--jobs=4` sweeps unchanged).
 No line-count change in `Core.lean` (the attribute list grew in place,
 on the same lines), so no link-anchor repointing was needed.
+
+## TASK #331 — linear marks: copies of the install environment and the parse tables fail loudly (2026-10-09, agent/331-linear)
+
+Maintainer decision (2026-10-09): use the runtime's linearity marks
+(`Array.markLinear` / `Std.HashMap.markLinear`, lean4 #15052) on the
+structures that must be updated in place, and have the binary itself set
+`LEAN_ABORT_ON_NONLINEAR` and `LEAN_ABORT_ON_PANIC`, so every run,
+production included, aborts instead of silently copying a marked array.
+The investigation (`_tmp/amdahl/linear-logs/`) showed the marks would have
+caught the BLOCKCOPY bug and cost nothing when nothing is copied.
+
+**The 17 deliberate copies removed.** The pinned `Nat`-operation arm
+(15 definitions) and the `reduce*` arm (2 opaques) of `checkDeclC`
+certified against the pushed environment `fe2` while still holding the
+unpushed `fe` (`sharedOpsC mode fe`, `fe.env`), so `FEnv.push` copied the
+whole bucket array 17 times per stream. Now, BLOCKCOPY's idiom: the value
+check returns the record unpushed (`checkDefnValCI`, `checkOpaqueValCI`,
+`ConLeche/Cached/ParsedC.lean`), the "after" view is the overlay
+`fe.overlay [ci]` sharing `fe`'s index, and `fe.push ci` comes last onto an
+index nothing else holds. On an `fe` that already carries an overlay
+(never on the install path) the reference runs. The old body is kept as
+`checkDeclCRef`; `ConLeche/Verify/Cached/PinOverlay.lean` proves
+`checkDeclC_eq_ref` unconditionally (the guards read the pushed view only
+through `find?`, `find?_overlay_pushAll` for one constant), and the three
+proofs that unfolded `checkDeclC` (`checkDeclC_sim`, `checkDeclC_push`,
+`checkDeclC_skels`) rewrite to the reference first. No statement changed;
+MainTheorem and the corollary are untouched. The specification-side
+`checkDecl` is not on the binary's path and is unchanged.
+
+**The marks.** `FEnv.markLinear` (`ConLeche/Kernel/FEnv.lean`),
+`IdTable.markLinear` (dense array and sparse map) and `StateD.markLinear`
+(`ConLeche/Frontend/Scan/Types.lean`, `ConLeche/Frontend/ExportC.lean`): identities (`markLinear_eq`, `rfl`), each
+`@[never_extract, noinline]`. They are applied at the use sites, not on
+closed terms: `installLoop`'s threaded environment in `checkDeclsIO`
+(`(mkFEnv Env.empty).markLinear`; the proof index `p₀` stays unmarked and
+the run's start is `markLinear_eq _ ▸ .nil _ _`) and the streaming parse's
+initial state (`StateD.init.markLinear` in `parseExportHandleD`). In the
+generated C both are calls at run time on the lazily built persistent
+closed term (`lean_obj_once`), which `markLinear` copies to a unique array
+before marking, so the persistent closed term itself is never marked (the
+investigation's first try marked it and panicked on the first push, a
+false alarm). The campaign's parallel install builder and the owner tables
+(`more-parallel`) get their marks later.
+
+**Setting the variables.** The runtime reads both with `getenv` at the
+moment of use (disassembly of `libleanrt.a`: `lean_copy_expand_array_nonlinear`
+tests the mark bit, then `getenv("LEAN_ABORT_ON_NONLINEAR")`, then
+`lean_internal_panic`, which calls `abort()` if `LEAN_ABORT_ON_PANIC` is set
+and `exit(1)` otherwise; `lean_panic_impl` reads `LEAN_ABORT_ON_PANIC` the
+same way). So `main` sets them first, with `Std.Async.System.setEnvVar`
+(safe Lean API over libuv's `uv_os_setenv`; no new FFI, no `unsafe`). At
+that point the only other threads are the runtime's main thread (joining)
+and the libuv event-loop thread (in `epoll_pwait`); neither calls
+`getenv`, so `setenv`'s thread-unsafety does not apply. A failure to set
+is exit 3. The import costs +0.15 M instructions at start-up (`--help`:
+16.38 M → 16.54 M). A self re-exec with the variables set was not needed
+(it would cost a second process start, about the same 16 M instructions
+plus `execve`).
+
+**What `LEAN_ABORT_ON_PANIC` changes.** Every panic is now an `abort()`
+(SIGABRT, 134 in a shell): a nonlinear copy, a Lean-level `panic!` or
+out-of-bounds `get!`/`[i]!`, and the runtime's out of memory, which
+previously exited 1 and read like a reject. The grep over the checker's
+paths (`Kernel`, `Cached`, `Frontend`, `Main.lean`) finds no `panic!` or
+`unreachable!`; the `[i]!` sites in `Frontend/NatOpGround.lean` and the
+`set!` in `Main.mergeResults` are in bounds by construction (`PinGen/*` is
+elaboration-time). The whole battery passes with the variables set in
+every invocation. OVERVIEW's and `Main.lean`'s exit-code descriptions say
+that a panic aborts.
+
+**Negative control.** A throwaway build with the fast arms disabled
+(`if false && fe.ovl.isEmpty`, the old copying path) aborts on init-full
+with `INTERNAL PANIC: array marked by Array.markLinear was used
+non-linearly`, exit 134.
+
+**Verification.** `lake build` and `lake test` warning-free;
+`tests/arena.sh` green (arena 90/92, e2e 456/456, annot 15/15, the
+trusted, `--jobs=1` and `--jobs=4` sweeps as expected; quote, overview and
+whitepaper link gates OK; 13 line anchors into `Main.lean`, `ExportC.lean`,
+`ParsedC.lean` and `AgreeFloor.lean` repointed, text unchanged).
+mathlib-full (`--jobs=32`, marks on) accepts 691 203 records: parse 21.5 s,
+install 54.7 s, check 48.3 s, 8 326.3 G instructions.
+
+| init-full, `--jobs=1` | instructions:u |
+|---|---|
+| master `c9089932b` | 486 076 463 102 |
+| this task | 486 051 956 640 (−0.005 %) |

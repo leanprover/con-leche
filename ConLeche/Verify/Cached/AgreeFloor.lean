@@ -1,6 +1,7 @@
 module
 
 public import ConLeche.Cached.Installed
+import ConLeche.Verify.Cached.PinOverlay
 import ConLeche.Verify.EnvBound
 import ConLeche.Verify.Cached.BlockOverlay
 
@@ -1099,7 +1100,7 @@ theorem checkDeclC_skels (mode : CheckMode) {fe : FEnv}
     {sk : List InstallSkel} (h : SkelIs fe sk) (pd : Declaration) :
     Yields (checkDeclC mode pins fe pd)
       (fun fe' => SkelIs fe' (declCSkels pd sk)) := by
-  unfold checkDeclC declCSkels
+  rw [checkDeclC_eq_ref]; unfold checkDeclCRef declCSkels
   cases pd with
   | defnDecl cv value hint =>
     simp only []

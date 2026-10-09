@@ -3,6 +3,7 @@ module
 public import ConLeche.Frontend.Prelude
 public import ConLeche.Cached.Installed
 public import Std.Sync.Mutex
+public import Std.Async.System
 
 @[expose] public section
 
@@ -15,14 +16,17 @@ input.
 
 Exit codes follow the lean kernel arena convention:
 * 0 — all declarations accepted
-* 1 — a declaration was rejected as invalid.  An out-of-memory
-  condition also exits 1: it is the Lean runtime's own panic
-  (`lean_internal_panic_out_of_memory` prints "INTERNAL PANIC: out of
-  memory" on stderr and calls `exit(1)`), uncatchable in process, so
-  the message on stderr is what tells the two apart.
+* 1 — a declaration was rejected as invalid.
 * 2 — the checker declined: it positively detected a feature it does not
   support (yet).  Never used for "something unexpectedly went wrong".
 * 3 — bad usage, malformed input, or an internal failure of unclear cause
+
+A panic is none of these: `main` sets `LEAN_ABORT_ON_PANIC` (and
+`LEAN_ABORT_ON_NONLINEAR`) before anything runs, so the runtime's out of
+memory, a Lean-level `panic!`, and a copy of an array marked linear all
+print their message on stderr and `abort()` — the process dies of
+`SIGABRT` (status 134 in a shell), never with a code that reads as a
+verdict.
 
 **NO TEMPORARY FILES.**  The checker writes
 nothing outside its own stdout/stderr, and reads its input strictly
@@ -342,7 +346,13 @@ def checkDeclsIO (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride total 
   let secs (ms : Nat) : String := ConLeche.Cached.msSecs ms
   match ← installLoop mode err stride total t0 ds
       (0, ConLeche.mkFEnv ConLeche.Env.empty, #[]) {} 0
-      (0, ConLeche.mkFEnv ConLeche.Env.empty, #[]) {} (.nil _ _) with
+      -- the install environment's index marked linear (task #331): a
+      -- copy of it panics instead of silently copying (`main` sets
+      -- `LEAN_ABORT_ON_NONLINEAR`).  Marked HERE, on the value the loop
+      -- threads, not on the closed term `mkFEnv Env.empty`, which is
+      -- persistent and copied by its first insert anyway.
+      (0, (ConLeche.mkFEnv ConLeche.Env.empty).markLinear, #[]) {}
+      (ConLeche.FEnv.markLinear_eq _ ▸ .nil _ _) with
   | .error e =>
     let now ← IO.monoMsNow
     heartbeat s!"install failed at {e.2}/{total} t={secs (now - t0)}s \
@@ -894,6 +904,23 @@ def parseArgs : List String → Args → Args
     else parseArgs rest { a with files := a.files.push s }
 
 def main (args : List String) : IO UInt32 := do
+  -- **Linearity is enforced, in every run** (task #331).  The install
+  -- environment's index and the parse tables are marked linear
+  -- (`FEnv.markLinear`, `StateD.markLinear`); with
+  -- `LEAN_ABORT_ON_NONLINEAR` set, a copy of a marked array is a runtime
+  -- panic instead of a silent copy of a million-slot array, and with
+  -- `LEAN_ABORT_ON_PANIC` set every panic — that one, a Lean-level
+  -- `panic!`, an out-of-bounds `get!`, the runtime's out-of-memory —
+  -- is an `abort()` (exit 134, SIGABRT), never an exit code that reads
+  -- as a verdict.  The runtime reads both variables with `getenv` at the
+  -- moment it needs them, so setting them here, before any thread is
+  -- started, covers the whole run.
+  try
+    Std.Async.System.setEnvVar "LEAN_ABORT_ON_NONLINEAR" "1"
+    Std.Async.System.setEnvVar "LEAN_ABORT_ON_PANIC" "1"
+  catch e =>
+    IO.eprintln s!"con-leche: cannot set the runtime's abort variables: {e}"
+    return 3
   if args.contains "--help" then
     IO.println usage
     return 0
@@ -908,10 +935,9 @@ def main (args : List String) : IO UInt32 := do
   match a.files.toList with
   | [file] =>
     -- The checker runs IN THIS PROCESS: it spawns no copy of itself,
-    -- and an out-of-memory condition exits 1 with the Lean runtime's
-    -- own panic message on stderr ("INTERNAL PANIC: out of memory",
-    -- uncatchable in process), which is what distinguishes it from a
-    -- reject.
+    -- and an out-of-memory condition is the Lean runtime's own panic
+    -- ("INTERNAL PANIC: out of memory", uncatchable in process), an
+    -- `abort()` under the `LEAN_ABORT_ON_PANIC` set above.
     -- `--jobs=<n>`: the check phase's worker count; without the flag,
     -- one worker per hardware thread (1 if the runtime cannot tell).
     let jobs := a.jobs.getD

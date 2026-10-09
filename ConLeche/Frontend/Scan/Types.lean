@@ -370,6 +370,18 @@ def IdTable.bound (t : @& IdTable α) (i : Nat) : Bool :=
   else if t.sparse.isEmpty then false
   else t.sparse.contains i
 
+/-- **Mark the table linear** (task #331): the identity
+(`IdTable.markLinear_eq`), which at run time sets the runtime's
+linearity bit on both arrays, so that a copy of either — a push while a
+second reference to the table is alive — panics instead of silently
+copying (`FEnv.markLinear`, `ConLeche/Kernel/FEnv.lean`).  Applied to
+the parse's initial state at the parse driver, not on a closed term. -/
+@[never_extract, noinline]
+def IdTable.markLinear (t : IdTable α) : IdTable α :=
+  { dense := t.dense.markLinear, sparse := t.sparse.markLinear }
+
+theorem IdTable.markLinear_eq (t : IdTable α) : t.markLinear = t := rfl
+
 /-! ### The table is its naive map
 
 `get?` is the abstraction of the dense-plus-sparse table to the partial
