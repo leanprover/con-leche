@@ -675,7 +675,7 @@ theorem checkDecl_declares {μ : CheckMode} {env env₂ : Env} {F : Nat}
     simp only [ConLeche.Semantics.DeclRun, ConLeche.Semantics.DeclThmRun] at hrun
     obtain ⟨type', value', hcvr, -, -, henv₂⟩ := hrun
     obtain ⟨-, -, -, -, hb, hfv, hann, -, -, -⟩ := hcvr
-    refine ⟨.thmInfo ⟨cv.name, cv.levelParams, type'⟩ value, ?_, rfl, rfl, ?_⟩
+    refine ⟨.thmInfo ⟨cv.name, cv.levelParams, type'⟩, ?_, rfl, rfl, ?_⟩
     · rw [henv₂]; exact List.mem_cons_self
     · exact annotateCore_annotOf F hann hb
         ((Expr.WScoped.of_not_hasFvar hfv).fvarsBelow)

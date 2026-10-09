@@ -181,8 +181,8 @@ private def qConstantInfo : ConLeche.ConstantInfo → CoreM Lean.Expr
   | .defnInfo cv v h =>
     pure (mkApp3 (mkConst ``ConLeche.ConstantInfo.defnInfo) (qConstantVal cv)
       (qExpr v) (qReducibilityHint h))
-  | .thmInfo cv v =>
-    pure (mkApp2 (mkConst ``ConLeche.ConstantInfo.thmInfo) (qConstantVal cv) (qExpr v))
+  | .thmInfo cv =>
+    pure (mkApp (mkConst ``ConLeche.ConstantInfo.thmInfo) (qConstantVal cv))
   | .indInfo cv caps =>
     pure (mkApp2 (mkConst ``ConLeche.ConstantInfo.indInfo) (qConstantVal cv) (qIndCaps caps))
   | .ctorInfo cv nP nF =>
@@ -212,7 +212,7 @@ def annotateInfo (env : ConLeche.Env) (ci : ConLeche.ConstantInfo) :
   | .ctorInfo _ nP nF => return .ctorInfo cv' nP nF
   | .axiomInfo _ => return .axiomInfo cv'
   | .defnInfo _ v h => return .defnInfo cv' v h
-  | .thmInfo _ v => return .thmInfo cv' v
+  | .thmInfo _ => return .thmInfo cv'
   | .projInfo tbl => return .projInfo tbl
   | .recInfo _ mI rP rules =>
     let rules := rules.map fun r =>

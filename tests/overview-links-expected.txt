@@ -1228,7 +1228,7 @@
     14  declined:
     15  
     16  * `Lean.trustCompiler : True` is trivially realizable — it is
-    17    installed as an *opaque* (stored `thmInfo`, exactly like a checked
+    17    installed as an *opaque* (stored `axiomInfo`, exactly like a checked
     18    `opaque` declaration) with value `True.intro`, over a pinned `True`
     19    family.  No new meta-axiom: the model is `True.intro`'s own
     20    interpretation.

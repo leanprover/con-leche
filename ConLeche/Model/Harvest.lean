@@ -500,7 +500,7 @@ theorem harvestDefn (hμ : μ.verifiedChecks = true)
 (`ConstantValRun`, `ValueFrontRun`), the same leaf (the value's
 `denoteMeta` reading), the same claims, the same crossing.  The deltas:
 
-* the stored kind is `.thmInfo cvA value'` — no `hint`, and no div/mod
+* the stored kind is `.thmInfo cvA` — no `hint`, and no div/mod
   pin clause;
 * there is no erasure link to read: a theorem is opaque to reduction
   (`unfoldDefinition` has no `thmInfo` arm — anticipating
@@ -653,17 +653,17 @@ theorem harvestThm (hμ : μ.verifiedChecks = true)
   have hcomp : ∀ (ψ : Name → Nat) (e : Expr), ConstsBound env e →
       ∀ {ea : AnnotTerm}, denoteMeta mp.base2.acval env ψ 0 e = some ea →
       denoteMeta (acvalWith mp.base2.acval cv.name A)
-          ⟨.thmInfo ⟨cv.name, cv.levelParams, type'⟩ value ::
+          ⟨.thmInfo ⟨cv.name, cv.levelParams, type'⟩ ::
             env.consts⟩ ψ 0 e = some ea :=
     fun ψ e hcb {ea} h =>
       denoteMeta_cons_fresh_mono
         (acval := mp.base2.acval)
-        (c₀ := .thmInfo ⟨cv.name, cv.levelParams, type'⟩ value)
+        (c₀ := .thmInfo ⟨cv.name, cv.levelParams, type'⟩)
         (A := A) hfresh (fun _ h => ConstantInfo.noConfusion h)
         ψ 0 e hcb h
   -- assemble
   refine coverTo_cons hfresh (fun _ _ h => nomatch h) (declStep_preserves_of_cons mp
-    (c₀ := .thmInfo ⟨cv.name, cv.levelParams, type'⟩ value)
+    (c₀ := .thmInfo ⟨cv.name, cv.levelParams, type'⟩)
     (A := A) hfresh
     (ConsHead.ofFresh
       (EnvWF.cons mp.base2.wf ⟨htf', htp,
@@ -680,13 +680,13 @@ theorem harvestThm (hμ : μ.verifiedChecks = true)
   · -- `htyReads`
     intro ψ
     show ∃ ta, denoteMeta (acvalWith mp.base2.acval cv.name A)
-      ⟨.thmInfo ⟨cv.name, cv.levelParams, type'⟩ value ::
+      ⟨.thmInfo ⟨cv.name, cv.levelParams, type'⟩ ::
         env.consts⟩ ψ 0 type' = some ta
     exact ⟨Ta ψ, hcomp ψ type' hcbT (hTa ψ)⟩
   · -- `htyOk`
     intro ψ ta hta ρ
     replace hta : denoteMeta (acvalWith mp.base2.acval cv.name A)
-        ⟨.thmInfo ⟨cv.name, cv.levelParams, type'⟩ value ::
+        ⟨.thmInfo ⟨cv.name, cv.levelParams, type'⟩ ::
           env.consts⟩ ψ 0 type' = some ta := hta
     obtain rfl : ta = Ta ψ :=
       (Option.some.inj
@@ -696,7 +696,7 @@ theorem harvestThm (hμ : μ.verifiedChecks = true)
   · -- `hmemNew`
     intro ψ ta hta ρ
     replace hta : denoteMeta (acvalWith mp.base2.acval cv.name A)
-        ⟨.thmInfo ⟨cv.name, cv.levelParams, type'⟩ value ::
+        ⟨.thmInfo ⟨cv.name, cv.levelParams, type'⟩ ::
           env.consts⟩ ψ 0 type' = some ta := hta
     obtain rfl : ta = Ta ψ :=
       (Option.some.inj
@@ -709,29 +709,29 @@ theorem harvestThm (hμ : μ.verifiedChecks = true)
     exact nomatch hdt
   · -- `nat_heads` at the extension, from the guard agreement
     exact fun φ => natHeads_cons_fresh mp
-      (c₀ := .thmInfo ⟨cv.name, cv.levelParams, type'⟩ value) (A := A)
+      (c₀ := .thmInfo ⟨cv.name, cv.levelParams, type'⟩) (A := A)
       hfresh ⟨(fun _ _ h => ConstantInfo.noConfusion h),
           (fun _ _ _ h => ConstantInfo.noConfusion h)⟩
       _ rfl φ
   · -- `nat_ops` at the extension: a theorem is not a definition
     exact fun φ => natOps_cons_fresh mp (mp.nat_ops φ)
-      (c₀ := .thmInfo ⟨cv.name, cv.levelParams, type'⟩ value) (A := A)
+      (c₀ := .thmInfo ⟨cv.name, cv.levelParams, type'⟩) (A := A)
       hfresh (hntc := fun _ h => ConstantInfo.noConfusion h)
       (Or.inl (fun _ _ _ h => ConstantInfo.noConfusion h)) _ rfl
   · -- `div_mod`/`eq_law` at the extension: a theorem is neither a
     -- definition nor an inductive
     exact fun φ => divMod_cons_fresh (mp.div_mod φ)
-      (c₀ := .thmInfo ⟨cv.name, cv.levelParams, type'⟩ value)
+      (c₀ := .thmInfo ⟨cv.name, cv.levelParams, type'⟩)
       (A := A) hfresh
       (Or.inl (fun _ _ _ h => ConstantInfo.noConfusion h)) _ rfl
   · exact eqLaw_cons_valueKind mp.eq_law
-      (c₀ := .thmInfo ⟨cv.name, cv.levelParams, type'⟩ value)
+      (c₀ := .thmInfo ⟨cv.name, cv.levelParams, type'⟩)
       (A := A) (fun _ _ h => ConstantInfo.noConfusion h) _ rfl
   · -- `caps_ok` at the extension: a value-kind cons is neither a
     -- former, nor a capability constructor, nor a projection function,
     -- so no stored family can be completed here
     exact capsOk_cons_fresh mp mp.caps_ok
-      (c₀ := .thmInfo ⟨cv.name, cv.levelParams, type'⟩ value)
+      (c₀ := .thmInfo ⟨cv.name, cv.levelParams, type'⟩)
       (A := A) hfresh (fun _ h => ConstantInfo.noConfusion h)
       (fun _ _ h => ConstantInfo.noConfusion h)
       (fun _ _ _ h => ConstantInfo.noConfusion h)
@@ -739,18 +739,18 @@ theorem harvestThm (hμ : μ.verifiedChecks = true)
   · -- `rec_rules` at the extension: a value-kind cons is neither a
     -- recursor nor a constructor, so no stored rule moves
     exact fun φ => recRules_cons_fresh mp
-      (c₀ := .thmInfo ⟨cv.name, cv.levelParams, type'⟩ value)
+      (c₀ := .thmInfo ⟨cv.name, cv.levelParams, type'⟩)
       (A := A) hfresh (fun _ h => ConstantInfo.noConfusion h)
       (fun _ _ _ _ h => ConstantInfo.noConfusion h) _ rfl φ
   · -- `reduce_ops` at the extension: a theorem is not an `axiomInfo`
     exact reduceOps_cons_fresh mp.reduce_ops
-      (c₀ := .thmInfo ⟨cv.name, cv.levelParams, type'⟩ value)
+      (c₀ := .thmInfo ⟨cv.name, cv.levelParams, type'⟩)
       (A := A) hfresh
       (Or.inl (fun _ h => ConstantInfo.noConfusion h)) _ rfl
   · -- `tower_ok` (task #175 wiring W5): a value-kind cons is never a
     -- tower entry
     exact fun φ => towerOk_cons_fresh mp
-      (c₀ := .thmInfo ⟨cv.name, cv.levelParams, type'⟩ value)
+      (c₀ := .thmInfo ⟨cv.name, cv.levelParams, type'⟩)
       (A := A) hfresh (fun _ h => ConstantInfo.noConfusion h)
       (fun _ h => ConstantInfo.noConfusion h) _ rfl φ
 

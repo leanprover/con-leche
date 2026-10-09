@@ -153,9 +153,9 @@ def DeclThmRun (μ : CheckMode) (F : Nat) (env : Env)
       ensureSortCore μ env F 0 stype = .ok u ∧
       Level.isEquiv u .zero = some true) ∧
     ValueFrontRun μ F env cv value type' value' ∧
-    -- stored by statement: the constant carries the record's own
-    -- (raw) value, which nothing reads
-    env₂ = ⟨.thmInfo ⟨cv.name, cv.levelParams, type'⟩ value ::
+    -- stored by statement only: the constant carries no value (the
+    -- checked `value'` is the realizability witness, not stored)
+    env₂ = ⟨.thmInfo ⟨cv.name, cv.levelParams, type'⟩ ::
       env.consts⟩
 
 /-- An `opaqueDecl`'s guards and runs. -/

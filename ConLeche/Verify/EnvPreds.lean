@@ -65,7 +65,7 @@ theorem recRuleKOf_inv {f : Name → Option ConstantInfo} {ctor : Name}
   unfold recRuleKOf
   match hfc : f ctor with
   | none => intro h; exact nomatch h
-  | some (.axiomInfo _) | some (.defnInfo _ _ _) | some (.thmInfo _ _)
+  | some (.axiomInfo _) | some (.defnInfo _ _ _) | some (.thmInfo _)
   | some (.indInfo _ _) | some (.recInfo _ _ _ _) | some (.projInfo _) =>
     intro h; exact nomatch h
   | some (.ctorInfo cvj cnP cnF) =>
@@ -78,7 +78,7 @@ theorem recRuleKOf_inv {f : Name → Option ConstantInfo} {ctor : Name}
       dsimp only
       match hfT : f T with
       | none => intro h; exact nomatch h
-      | some (.axiomInfo _) | some (.defnInfo _ _ _) | some (.thmInfo _ _)
+      | some (.axiomInfo _) | some (.defnInfo _ _ _) | some (.thmInfo _)
       | some (.ctorInfo _ _ _) | some (.recInfo _ _ _ _)
       | some (.projInfo _) => intro h; exact nomatch h
       | some (.indInfo cvT caps) =>
@@ -116,7 +116,7 @@ theorem recRuleEtaOf_inv {f : Name → Option ConstantInfo}
   unfold recRuleEtaOf
   match hfc : f ctor with
   | none => intro h; exact nomatch h
-  | some (.axiomInfo _) | some (.defnInfo _ _ _) | some (.thmInfo _ _)
+  | some (.axiomInfo _) | some (.defnInfo _ _ _) | some (.thmInfo _)
   | some (.indInfo _ _) | some (.recInfo _ _ _ _) | some (.projInfo _) =>
     intro h; exact nomatch h
   | some (.ctorInfo cvj cnP cnF) =>
@@ -129,7 +129,7 @@ theorem recRuleEtaOf_inv {f : Name → Option ConstantInfo}
       dsimp only
       match hfT : f T with
       | none => intro h; exact nomatch h
-      | some (.axiomInfo _) | some (.defnInfo _ _ _) | some (.thmInfo _ _)
+      | some (.axiomInfo _) | some (.defnInfo _ _ _) | some (.thmInfo _)
       | some (.ctorInfo _ _ _) | some (.recInfo _ _ _ _)
       | some (.projInfo _) => intro h; exact nomatch h
       | some (.indInfo cvT caps) =>

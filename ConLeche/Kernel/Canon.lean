@@ -87,7 +87,7 @@ def ConstantInfo.canon (ci : ConstantInfo) : ConstantInfo :=
   match ci with
   | .axiomInfo _ => .axiomInfo cv
   | .defnInfo _ v hint => .defnInfo cv (canonExpr m v) hint
-  | .thmInfo _ v => .thmInfo cv (canonExpr m v)
+  | .thmInfo _ => .thmInfo cv
   | .indInfo _ _ => .indInfo cv {}
   | .ctorInfo _ nP nF => .ctorInfo cv nP nF
   | .recInfo _ mI rP rules => .recInfo cv mI rP
@@ -246,10 +246,7 @@ def ConstantInfo.canonEqFast : ConstantInfo → ConstantInfo → Bool
       ConstantVal.canonEqFast cv cv' &&
         canonExprEqFast (canonNameMap cv.levelParams)
           (canonNameMap cv'.levelParams) v v' && h == h'
-  | .thmInfo cv v, .thmInfo cv' v' =>
-      ConstantVal.canonEqFast cv cv' &&
-        canonExprEqFast (canonNameMap cv.levelParams)
-          (canonNameMap cv'.levelParams) v v'
+  | .thmInfo cv, .thmInfo cv' => ConstantVal.canonEqFast cv cv'
   | .indInfo cv _, .indInfo cv' _ => ConstantVal.canonEqFast cv cv'
   | .ctorInfo cv nP nF, .ctorInfo cv' nP' nF' =>
       ConstantVal.canonEqFast cv cv' && nP == nP' && nF == nF'

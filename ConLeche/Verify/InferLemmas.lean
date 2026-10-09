@@ -831,7 +831,7 @@ theorem iotaRec_inv {env : Env} {fuel d : Nat} {e eout : Expr}
   | some (.axiomInfo _) => intro h; exact nomatch h
   | some (.projInfo _) => intro h; exact nomatch h
   | some (.defnInfo _ _ _) => intro h; exact nomatch h
-  | some (.thmInfo _ _) => intro h; exact nomatch h
+  | some (.thmInfo _) => intro h; exact nomatch h
   | some (.indInfo _ _) => intro h; exact nomatch h
   | some (.ctorInfo _ _ _) => intro h; exact nomatch h
   | some (.recInfo cv mI rP rules) => ?_
@@ -868,7 +868,7 @@ theorem iotaRec_inv {env : Env} {fuel d : Nat} {e eout : Expr}
   | some (.axiomInfo _) => intro h; exact nomatch h
   | some (.projInfo _) => intro h; exact nomatch h
   | some (.defnInfo _ _ _) => intro h; exact nomatch h
-  | some (.thmInfo _ _) => intro h; exact nomatch h
+  | some (.thmInfo _) => intro h; exact nomatch h
   | some (.indInfo _ _) => intro h; exact nomatch h
   | some (.recInfo _ _ _ _) => intro h; exact nomatch h
   | some (.ctorInfo cvj cnP cnF) => ?_
@@ -1056,7 +1056,7 @@ theorem majorToCtor_inv {env : Env} {fuel d : Nat} {recName : Name}
     intro h; dsimp only at h
     simp only [pure, Except.pure, Except.ok.injEq] at h
     exact Or.inl h.symm
-  | some (.axiomInfo _) | some (.defnInfo _ _ _) | some (.thmInfo _ _)
+  | some (.axiomInfo _) | some (.defnInfo _ _ _) | some (.thmInfo _)
   | some (.indInfo _ _) | some (.recInfo _ _ _ _)
   | some (.projInfo _) =>
     intro h; dsimp only at h
@@ -1081,7 +1081,7 @@ theorem majorToCtor_inv {env : Env} {fuel d : Nat} {recName : Name}
     intro h; dsimp only at h
     simp only [pure, Except.pure, Except.ok.injEq] at h
     exact Or.inl h.symm
-  | some (.axiomInfo _) | some (.defnInfo _ _ _) | some (.thmInfo _ _)
+  | some (.axiomInfo _) | some (.defnInfo _ _ _) | some (.thmInfo _)
   | some (.ctorInfo _ _ _) | some (.recInfo _ _ _ _)
   | some (.projInfo _) =>
     intro h; dsimp only at h
@@ -1836,7 +1836,7 @@ theorem structEtaProjCerts_inv {env : Env} {fuel d : Nat} {T : Name}
     | none => intro h; exact nomatch h
     | some (.axiomInfo _) => intro h; exact nomatch h
     | some (.defnInfo _ _ _) => intro h; exact nomatch h
-    | some (.thmInfo _ _) => intro h; exact nomatch h
+    | some (.thmInfo _) => intro h; exact nomatch h
     | some (.indInfo _ _) => intro h; exact nomatch h
     | some (.ctorInfo _ _ _) => intro h; exact nomatch h
     | some (.projInfo _) => intro h; exact nomatch h
@@ -1927,7 +1927,7 @@ theorem structEtaCertWith_inv {env : Env} {fuel d : Nat} {a b wtb : Expr}
   | some (.axiomInfo _) => intro h; exact nomatch h
   | some (.projInfo _) => intro h; exact nomatch h
   | some (.defnInfo _ _ _) => intro h; exact nomatch h
-  | some (.thmInfo _ _) => intro h; exact nomatch h
+  | some (.thmInfo _) => intro h; exact nomatch h
   | some (.indInfo _ _) => intro h; exact nomatch h
   | some (.recInfo _ _ _ _) => intro h; exact nomatch h
   | some (.ctorInfo cvc cnP cnF) => ?_
@@ -1956,7 +1956,7 @@ theorem structEtaCertWith_inv {env : Env} {fuel d : Nat} {a b wtb : Expr}
   | some (.axiomInfo _) => intro h; exact nomatch h
   | some (.projInfo _) => intro h; exact nomatch h
   | some (.defnInfo _ _ _) => intro h; exact nomatch h
-  | some (.thmInfo _ _) => intro h; exact nomatch h
+  | some (.thmInfo _) => intro h; exact nomatch h
   | some (.ctorInfo _ _ _) => intro h; exact nomatch h
   | some (.recInfo _ _ _ _) => intro h; exact nomatch h
   | some (.indInfo cvT caps) => ?_
@@ -2139,7 +2139,7 @@ theorem structUnitCert_inv {env : Env} {fuel d : Nat} {a b : Expr}
   | some (.axiomInfo _) => intro h; exact nomatch h
   | some (.projInfo _) => intro h; exact nomatch h
   | some (.defnInfo _ _ _) => intro h; exact nomatch h
-  | some (.thmInfo _ _) => intro h; exact nomatch h
+  | some (.thmInfo _) => intro h; exact nomatch h
   | some (.ctorInfo _ _ _) => intro h; exact nomatch h
   | some (.recInfo _ _ _ _) => intro h; exact nomatch h
   | some (.indInfo cvT caps) => ?_
@@ -2771,7 +2771,7 @@ theorem unfoldDefinition_WScoped {env : Env} (henv : EnvWF env)
   | none => intro h; exact nomatch h
   | some (.axiomInfo _) => intro h; exact nomatch h
   | some (.projInfo _) => intro h; exact nomatch h
-  | some (.thmInfo _ _) => intro h; exact nomatch h
+  | some (.thmInfo _) => intro h; exact nomatch h
   | some (.indInfo _ _) => intro h; exact nomatch h
   | some (.ctorInfo _ _ _) => intro h; exact nomatch h
   | some (.recInfo _ _ _ _) => intro h; exact nomatch h

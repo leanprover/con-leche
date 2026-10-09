@@ -345,7 +345,7 @@ theorem structEtaProjCerts_fst (d : Nat) (T : Name) (us' : List Level)
       | axiomInfo cv => rfl
       | projInfo entry => rfl
       | defnInfo cv value => rfl
-      | thmInfo cv value => rfl
+      | thmInfo cv => rfl
       | indInfo cv caps => rfl
       | ctorInfo cv nP nF => rfl
 
@@ -400,7 +400,7 @@ theorem structEtaProjCerts_snd (d : Nat) (T : Name) (us' : List Level)
       | axiomInfo cv => rfl
       | projInfo entry => rfl
       | defnInfo cv value => rfl
-      | thmInfo cv value => rfl
+      | thmInfo cv => rfl
       | indInfo cv caps => rfl
       | ctorInfo cv nP nF => rfl
 
