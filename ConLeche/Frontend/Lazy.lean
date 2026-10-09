@@ -270,6 +270,23 @@ where
   let b := i / 8
   if h : b < bm.size then bm.set b (bm[b] ||| ((1 : UInt8) <<< (i % 8).toUInt8)) h else bm
 
+/-- Bit `i` of a bitmap, at a machine-word index. -/
+@[inline] def bitGetU (bm : @& ByteArray) (i : USize) : Bool :=
+  let b := i >>> 3
+  if h : b < bm.usize then
+    ((bm.uget b (Nat.lt_of_lt_of_le (USize.lt_iff_toNat_lt.mp h) (Flat.usize_le_size bm))) >>>
+      (i &&& 7).toUInt8) &&& 1 == 1
+  else false
+
+/-- Set bit `i`, at a machine-word index (no effect past the end). -/
+@[inline] def bitSetU (bm : ByteArray) (i : USize) : ByteArray :=
+  let b := i >>> 3
+  if h : b < bm.usize then
+    have hb : b.toNat < bm.size :=
+      Nat.lt_of_lt_of_le (USize.lt_iff_toNat_lt.mp h) (Flat.usize_le_size bm)
+    bm.uset b (bm.uget b hb ||| ((1 : UInt8) <<< (i &&& 7).toUInt8)) hb
+  else bm
+
 /-- The sweep's bitmaps. -/
 structure SwMarks where
   mkd : ByteArray
@@ -337,26 +354,29 @@ def sweepGo (d : @& ByteArray) (st : @& ByteArray) (k : Nat) (mk nd : ByteArray)
   match k with
   | 0 => ⟨mk, nd⟩
   | k + 1 =>
-    let p := (get32 st (4 * k)).toUSize
+    let p := (Flat.r4U st (4 * k).toUSize).toUSize
     let t := Flat.byteU d p
-    if t == 0 || t == 1 || t == 2 || t == 6 || t == 9 then
+    -- (no `||` here: the compiler made a closure of its right side)
+    let kids : Bool := if t ≤ 2 then true else if t == 6 then true else t == 9
+    if kids then
       let i := Flat.r4U d (p + 1)
       let a := Flat.r4U d (p + 5)
       let b := Flat.r4U d (p + 9)
-      let c := if t == 6 || t == 9 then Flat.r4U d (p + 13) else 0
-      if i == 0xFFFFFFFF || a == 0xFFFFFFFF || b == 0xFFFFFFFF || c == 0xFFFFFFFF then
+      let c := if t ≤ 2 then 0 else Flat.r4U d (p + 13)
+      -- a field out of place is the escape, the largest word
+      if max (max i a) (max b c) == 0xFFFFFFFF then
         match sweepSlow d p ⟨mk, nd⟩ with
         | ⟨mk, nd⟩ => sweepGo d st k mk nd
-      else if bitGet mk i.toNat then
-        if t == 9 then sweepGo d st k (bitSet mk c.toNat) nd
+      else if bitGetU mk i.toUSize then
+        if t == 9 then sweepGo d st k (bitSetU mk c.toUSize) nd
         else
-          let mk := bitSet (bitSet mk a.toNat) b.toNat
-          sweepGo d st k (if t == 6 then bitSet mk c.toNat else mk) nd
+          let mk := bitSetU (bitSetU mk a.toUSize) b.toUSize
+          sweepGo d st k (if t == 6 then bitSetU mk c.toUSize else mk) nd
       else
-        if t == 9 then sweepGo d st k mk (bitSet nd c.toNat)
+        if t == 9 then sweepGo d st k mk (bitSetU nd c.toUSize)
         else
-          let nd := bitSet (bitSet nd a.toNat) b.toNat
-          sweepGo d st k mk (if t == 6 then bitSet nd c.toNat else nd)
+          let nd := bitSetU (bitSetU nd a.toUSize) b.toUSize
+          sweepGo d st k mk (if t == 6 then bitSetU nd c.toUSize else nd)
     else if t == 16 then
       match sweepSlow d p ⟨mk, nd⟩ with
       | ⟨mk, nd⟩ => sweepGo d st k mk nd
@@ -456,14 +476,18 @@ def rtValid (R : @& RTab) (P : @& Prior) (ce : Nat) : Bool :=
 where
   go (j : Nat) : Bool :=
     if j < R.bits.size * 8 then
-      (match R.get j with
-       | some v =>
-         match (if j < ce then P.e.get j else none) with
-         | some w => !isLazyE w && v == w
-         | none => false
-       | none => true) && go (j + 1)
+      -- a byte of the bitmap with no bit set is passed whole
+      if R.bits.get! (j / 8) == 0 then go (j / 8 * 8 + 8)
+      else
+        (match R.get j with
+         | some v =>
+           match (if j < ce then P.e.get j else none) with
+           | some w => !isLazyE w && v == w
+           | none => false
+         | none => true) && go (j + 1)
     else true
   termination_by R.bits.size * 8 - j
+  decreasing_by all_goals omega
 
 /-- The store. -/
 structure LStore where

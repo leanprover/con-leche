@@ -1166,8 +1166,16 @@ theorem bitGet_out {bm : ByteArray} {j : Nat} (h : bm.size * 8 ≤ j) : bitGet b
   simp only [bitGet]
   rw [dite_eq_right (by omega)]
 
+theorem bitGet_zero {bm : ByteArray} {j : Nat} (h : bm.get! (j / 8) = 0) : bitGet bm j = false := by
+  simp only [bitGet]
+  split
+  · rename_i hb
+    rw [Flat.get!_eq_getElem bm _ hb] at h
+    rw [h]; simp
+  · rfl
+
 theorem rtValid_go_sound {R : RTab} {P : Prior} {ce : Nat} :
-    ∀ (n j : Nat), R.bits.size * 8 - j = n → rtValid.go R P ce j = true →
+    ∀ (n j : Nat), R.bits.size * 8 - j ≤ n → rtValid.go R P ce j = true →
     ∀ k v, j ≤ k → R.get k = some v → k < ce ∧ P.e.get k = some v ∧ isLazyE v = false := by
   intro n
   induction n with
@@ -1177,28 +1185,40 @@ theorem rtValid_go_sound {R : RTab} {P : Prior} {ce : Nat} :
     cases hg
   | succ n ih =>
     intro j hn h k v hk hg
-    rw [rtValid.go, ite_eq_left (by omega)] at h
-    simp only [Bool.and_eq_true] at h
-    by_cases hkj : k = j
-    · subst hkj
-      have h1 := h.1
-      rw [hg] at h1
-      simp only at h1
-      split at h1
-      · rename_i w hw
-        simp only [Bool.and_eq_true, Bool.not_eq_true', beq_iff_eq] at h1
-        obtain ⟨hl, rfl⟩ := h1
-        split at hw
-        · rename_i hkc; exact ⟨hkc, hw, hl⟩
-        · cases hw
-      · cases h1
-    · exact ih (j + 1) (by omega) h.2 k v (by omega) hg
+    by_cases hj : j < R.bits.size * 8
+    · rw [rtValid.go, ite_eq_left hj] at h
+      split at h
+      · rename_i hz
+        by_cases hk8 : k < j / 8 * 8 + 8
+        · have : k / 8 = j / 8 := by omega
+          simp only [beq_iff_eq] at hz
+          simp only [RTab.get, bitGet_zero (show R.bits.get! (k / 8) = 0 by rw [this]; exact hz)]
+            at hg
+          cases hg
+        · exact ih (j / 8 * 8 + 8) (by omega) h k v (by omega) hg
+      · simp only [Bool.and_eq_true] at h
+        by_cases hkj : k = j
+        · subst hkj
+          have h1 := h.1
+          rw [hg] at h1
+          simp only at h1
+          split at h1
+          · rename_i w hw
+            simp only [Bool.and_eq_true, Bool.not_eq_true', beq_iff_eq] at h1
+            obtain ⟨hl, rfl⟩ := h1
+            split at hw
+            · rename_i hkc; exact ⟨hkc, hw, hl⟩
+            · cases hw
+          · cases h1
+        · exact ih (j + 1) (by omega) h.2 k v (by omega) hg
+    · simp only [RTab.get, bitGet_out (show R.bits.size * 8 ≤ k by omega)] at hg
+      cases hg
 
 /-- **A validated retained table answers built entries of the finished
 tables.** -/
 theorem rtValid_sound {R : RTab} {P : Prior} {ce : Nat} (h : rtValid R P ce = true) {k : Nat}
     {v : Expr} (hg : R.get k = some v) : k < ce ∧ P.e.get k = some v ∧ isLazyE v = false :=
-  rtValid_go_sound _ 0 rfl h k v (Nat.zero_le _) hg
+  rtValid_go_sound _ 0 (Nat.le_refl _) h k v (Nat.zero_le _) hg
 
 /-- The store of a finished parse and the serial state the finished
 tables are related to. -/

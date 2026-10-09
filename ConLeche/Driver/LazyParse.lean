@@ -385,6 +385,17 @@ def toEager (jobs : Nat) (r : LazyRes) (h : LazyGhost r) : IO (Option ParseOutco
       congr 2
       exact Array.toList_inj.mp this.symm⟩
 
+/-- Every value of a finished lazy parse built now: the serial parse's
+outcome, from the materialized state (`none`: a value did not build).
+A function of its own, so that nothing builds the state unless asked. -/
+@[noinline] def eagerOf (g : LGSt) (hg : LGOK g) : IO (Option ParseOutcome) := do
+  let S := LStore.ofChunks g.S g.P g.c ⟨.empty, .empty, #[]⟩
+  match hm : materialize g.P S g.c g.ds with
+  | some st =>
+    have hr := materialize_reached hg _ hm
+    return some ⟨chunkFinish st .empty g.lineNo, hr.finish⟩
+  | none => return none
+
 /-- **The lazy parse of a file** on `jobs` workers, windows of `m`
 chunks of about `csz` bytes. -/
 def parseExportLazyInfo (path : System.FilePath) (jobs m : Nat) (csz : USize) (inflight : Nat)
@@ -429,19 +440,10 @@ def parseExportLazyInfo (path : System.FilePath) (jobs m : Nat) (csz : USize) (i
   | .ok g hg =>
     pl.shutdown
     let t4 ← IO.monoMsNow
-    -- every value built now, the serial parse's outcome, from the
-    -- materialized state (`none`: a value did not build)
-    let eager : IO (Option ParseOutcome) := do
-      let S := LStore.ofChunks g.S g.P g.c ⟨.empty, .empty, #[]⟩
-      match hm : materialize g.P S g.c g.ds with
-      | some st =>
-        have hr := materialize_reached hg _ hm
-        return some ⟨chunkFinish st .empty g.lineNo, hr.finish⟩
-      | none => return none
     -- without the sweep's marks (a stream with huge gaps) nothing is
     -- lazy and nothing is retained
     if marks.mkd.size == 0 then
-      match ← eager with
+      match ← eagerOf g hg with
       | some o => return (.eager o, ⟨0, "no marks", 0, #[]⟩)
       | none =>
         return (.eager (← Frontend.parseExportStreamP path inflight), ⟨1, "reread", 0, #[]⟩)
@@ -458,7 +460,7 @@ def parseExportLazyInfo (path : System.FilePath) (jobs m : Nat) (csz : USize) (i
       let t5 ← IO.monoMsNow
       return (.lazy r hr, ⟨0, "", nLazy, #[t1 - t0, t2 - t1, t3 - t2, t4 - t3, t5 - t4]⟩)
     else
-      match ← eager with
+      match ← eagerOf g hg with
       | some o => return (.eager o, ⟨1, "the retained table", 0, #[]⟩)
       | none =>
         return (.eager (← Frontend.parseExportStreamP path inflight), ⟨1, "reread", 0, #[]⟩)
