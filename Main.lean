@@ -3,6 +3,7 @@ module
 public import ConLeche.Frontend.Prelude
 public import ConLeche.Cached.Installed
 public import Std.Sync.Mutex
+public import Std.Async.System
 
 @[expose] public section
 
@@ -342,7 +343,13 @@ def checkDeclsIO (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride total 
   let secs (ms : Nat) : String := ConLeche.Cached.msSecs ms
   match ← installLoop mode err stride total t0 ds
       (0, ConLeche.mkFEnv ConLeche.Env.empty, #[]) {} 0
-      (0, ConLeche.mkFEnv ConLeche.Env.empty, #[]) {} (.nil _ _) with
+      -- the install environment's index marked linear (task #331): a
+      -- copy of it panics instead of silently copying (`main` sets
+      -- `LEAN_ABORT_ON_NONLINEAR`).  Marked HERE, on the value the loop
+      -- threads, not on the closed term `mkFEnv Env.empty`, which is
+      -- persistent and copied by its first insert anyway.
+      (0, (ConLeche.mkFEnv ConLeche.Env.empty).markLinear, #[]) {}
+      (ConLeche.FEnv.markLinear_eq _ ▸ .nil _ _) with
   | .error e =>
     let now ← IO.monoMsNow
     heartbeat s!"install failed at {e.2}/{total} t={secs (now - t0)}s \
@@ -894,6 +901,23 @@ def parseArgs : List String → Args → Args
     else parseArgs rest { a with files := a.files.push s }
 
 def main (args : List String) : IO UInt32 := do
+  -- **Linearity is enforced, in every run** (task #331).  The install
+  -- environment's index and the parse tables are marked linear
+  -- (`FEnv.markLinear`, `StateD.markLinear`); with
+  -- `LEAN_ABORT_ON_NONLINEAR` set, a copy of a marked array is a runtime
+  -- panic instead of a silent copy of a million-slot array, and with
+  -- `LEAN_ABORT_ON_PANIC` set every panic — that one, a Lean-level
+  -- `panic!`, an out-of-bounds `get!`, the runtime's out-of-memory —
+  -- is an `abort()` (exit 134, SIGABRT), never an exit code that reads
+  -- as a verdict.  The runtime reads both variables with `getenv` at the
+  -- moment it needs them, so setting them here, before any thread is
+  -- started, covers the whole run.
+  try
+    Std.Async.System.setEnvVar "LEAN_ABORT_ON_NONLINEAR" "1"
+    Std.Async.System.setEnvVar "LEAN_ABORT_ON_PANIC" "1"
+  catch e =>
+    IO.eprintln s!"con-leche: cannot set the runtime's abort variables: {e}"
+    return 3
   if args.contains "--help" then
     IO.println usage
     return 0

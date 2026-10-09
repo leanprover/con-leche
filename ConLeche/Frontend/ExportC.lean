@@ -480,6 +480,19 @@ structure ParseResultD where
 more — the parse starts from the file's first record). -/
 def StateD.init : StateD := {}
 
+/-- The parse state with its three stream-index tables marked linear
+(task #331, `IdTable.markLinear`): the identity
+(`StateD.markLinear_eq`).  The streaming driver starts from
+`StateD.init.markLinear`; `@[never_extract]` keeps that application
+from becoming a persistent closed term, whose marked arrays the first
+push would copy. -/
+@[never_extract, noinline]
+def StateD.markLinear (st : StateD) : StateD :=
+  { st with names := st.names.markLinear, levels := st.levels.markLinear,
+            exprs := st.exprs.markLinear }
+
+theorem StateD.markLinear_eq (st : StateD) : st.markLinear = st := rfl
+
 /-- The result: the file's records, in the file's order. -/
 def ParseResultD.ofState (st : StateD) : ParseResultD :=
   ⟨st.decls⟩
@@ -646,7 +659,7 @@ partial def parseExportHandleD (h : IO.FS.Handle) (chunk : USize := chunkSize) :
       match chunkStep st carry lineNo total buf0 with
       | .error e => return .error e
       | .ok (st, carry, lineNo, total) => loop st carry lineNo total
-  loop .init ByteArray.empty 0 0
+  loop StateD.init.markLinear ByteArray.empty 0 0
 
 /-- Streaming direct parse of a file. -/
 def parseExportStreamD (path : System.FilePath) (chunk : USize := chunkSize) :

@@ -112,6 +112,23 @@ onto it. -/
 def overlay (fe : FEnv) (new : List ConstantInfo) : FEnv :=
   ⟨⟨new ++ fe.env.consts⟩, fe.idx, fe.visibleBelow, new ++ fe.ovl⟩
 
+/-- **Mark the index linear** (task #331): the identity
+(`markLinear_eq`), which at run time also sets the runtime's linearity
+bit on the index's bucket array (`Std.HashMap.markLinear`).  From then
+on a copy of that array — an insert while a second reference to the
+index is alive — panics (the binary sets `LEAN_ABORT_ON_NONLINEAR`,
+`Main.lean`) instead of silently copying a million-slot array.  Applied
+at the install driver's start, never inside `mkFEnv`: `mkFEnv
+Env.empty` is a closed term, persistent, and a persistent array is
+copied on its first insert by design.  `@[never_extract]` keeps an
+application to a closed argument from being hoisted into a persistent
+closed term itself. -/
+@[never_extract, noinline]
+def markLinear (fe : FEnv) : FEnv :=
+  { fe with idx := fe.idx.markLinear }
+
+theorem markLinear_eq (fe : FEnv) : fe.markLinear = fe := rfl
+
 /-- Indexed projection-table lookup (`= Env.findProj?` for `mkFEnv`). -/
 def findProj? (fe : FEnv) (T : Name) (i : Nat) : Option ProjEntry :=
   match fe.find? (projTableName T) with

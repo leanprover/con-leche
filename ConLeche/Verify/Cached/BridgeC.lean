@@ -1,5 +1,6 @@
 module
 
+import ConLeche.Verify.Cached.PinOverlay
 import ConLeche.Cached.ParsedC
 public import ConLeche.Verify.Cached.GenRecC
 
@@ -383,7 +384,7 @@ theorem checkDeclC_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) (hs
   | quotDecl k cv =>
     -- task #293: the `type` record installs the pinned block, the other
     -- members install nothing, and a mismatch throws on both sides
-    unfold checkDeclC checkDecl
+    rw [checkDeclC_eq_ref]; unfold checkDeclCRef checkDecl
     dsimp only
     by_cases hp : quotPinHit k cv = true
     · simp only [ite_eq_left hp]
@@ -393,7 +394,7 @@ theorem checkDeclC_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) (hs
     · simp only [ite_eq_right hp]
       exact SimC.throw
   | axiomDecl cv =>
-    unfold checkDeclC checkDecl
+    rw [checkDeclC_eq_ref]; unfold checkDeclCRef checkDecl
     dsimp only
     -- task #293: `Quot.sound` is compared with the pin on both sides
     by_cases hqs : cv.name = quotSoundName
@@ -448,7 +449,7 @@ theorem checkDeclC_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) (hs
             · simp only [ite_eq_right h3]
               exact SimC.throw
   | thmDecl cv value =>
-    unfold checkDeclC checkDecl
+    rw [checkDeclC_eq_ref]; unfold checkDeclCRef checkDecl
     dsimp only
     refine SimC.bind (checkConstantValC_sim hμ henv hs rfl)
       (fun s₁ pr cvA hs₁ hP => ?_)
@@ -458,7 +459,7 @@ theorem checkDeclC_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) (hs
     exact SimC.mono (fun v w h => h)
       (checkThmValC_sim hμ henv hwty hjty rfl hs₁)
   | opaqueDecl cv value =>
-    unfold checkDeclC checkDecl
+    rw [checkDeclC_eq_ref]; unfold checkDeclCRef checkDecl
     dsimp only
     refine SimC.bind (checkConstantValC_sim hμ henv hs rfl)
       (fun s₁ pr cvA hs₁ hP => ?_)
@@ -490,7 +491,7 @@ theorem checkDeclC_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) (hs
       (fun s₄ u u' hs₄ hP₄ => ?_)
     exact SimC.pure hs₄ ⟨rfl, hmk ▸ hmk⟩
   | defnDecl cv value hint =>
-    unfold checkDeclC checkDecl
+    rw [checkDeclC_eq_ref]; unfold checkDeclCRef checkDecl
     dsimp only
     refine SimC.bind (checkConstantValC_sim hμ henv hs rfl)
       (fun s₁ pr cvA hs₁ hP => ?_)
