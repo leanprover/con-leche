@@ -28,13 +28,13 @@ mark of the installed environment (below), which changes no verdict and
 is there to measure what the mark is worth;
 `--progress[=<stride>]` turns on a heartbeat on stderr
 (below); `--help` prints the usage text and exits 0
-([the driver's usage text in `Main.lean`](https://github.com/leanprover/con-leche/blob/master/Main.lean#L651)).
+([the driver's usage text in `Main.lean`](https://github.com/leanprover/con-leche/blob/master/Main.lean#L661)).
 Any other option is a usage error: the run reports it, prints the
 usage text and exits 3 without reading its input, so a verdict's
 provenance can be read off the invocation.
 
 The exit code follows the lean kernel arena convention
-([the exit-code mapping in `Main.lean`](https://github.com/leanprover/con-leche/blob/master/Main.lean#L42)):
+([the exit-code mapping in `Main.lean`](https://github.com/leanprover/con-leche/blob/master/Main.lean#L46)):
 
 | exit | verdict | meaning |
 |---|---|---|
@@ -47,10 +47,15 @@ The distinction between 1 and 2 is deliberate: a reject is a verdict
 about the input, a decline is a statement about the checker. A decline
 is never used for "something unexpectedly went wrong"; that is exit 3,
 which verification is meant to make rare. Only exit 0 carries the
-theorem's guarantee. An out-of-memory condition also exits 1: it is the
-Lean runtime's own panic — `INTERNAL PANIC: out of memory` on stderr,
-then `exit(1)` — which no code of ours can catch, so the stderr message
-is what tells it apart from a reject.
+theorem's guarantee. An internal panic is not a verdict either, and
+does not end with one of these codes: the binary sets
+`LEAN_ABORT_ON_PANIC` and `LEAN_ABORT_ON_NONLINEAR` for itself at
+start-up, so every panic — the runtime's `INTERNAL PANIC: out of
+memory`, a Lean-level `panic!` or out-of-bounds `get!`, and a copy of
+one of the arrays the checker marks linear (the install environment's
+index and the parse's tables, which must be updated in place) — prints
+its message on stderr and calls `abort()`: the process dies of
+`SIGABRT`, which a shell reports as exit status 134.
 
 A run has two phases: the install phase reads the records in order
 in one thread, and the check phase checks every recorded declaration
@@ -260,18 +265,18 @@ Everything below explains how those theorems are reached.
 Read from the outside in:
 
 1. **The driver** (`Main.lean`). The run parses the stream
-   ([function `parseExportStreamD` in `ConLeche/Frontend/ExportC.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Frontend/ExportC.lean#L652))
+   ([function `parseExportStreamD` in `ConLeche/Frontend/ExportC.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Frontend/ExportC.lean#L665))
    and runs the fold's two phases as two loops. The byte recogniser that reads each line of the
    stream is proved equal to a naive reference over `List UInt8`
    ([theorem `scanLineSpec_eq_scanLineFwd` in `ConLeche/Frontend/Scan/Equiv.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Frontend/Scan/Equiv.lean#L1002)):
    the driver calls the reference, and the compiler runs the fast
    recogniser on the strength of that equality. The streaming loop is
    a pure step over each chunk
-   ([function `chunkStep` in `ConLeche/Frontend/ExportC.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Frontend/ExportC.lean#L577))
+   ([function `chunkStep` in `ConLeche/Frontend/ExportC.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Frontend/ExportC.lean#L590))
    with the reads interleaved, and what the parser makes of a record
    — index resolution, the smart constructors — is the
    semantic layer the main corollary's line lemmas are about. The install loop
-   ([function `installLoop` in `Main.lean`](https://github.com/leanprover/con-leche/blob/master/Main.lean#L99))
+   ([function `installLoop` in `Main.lean`](https://github.com/leanprover/con-leche/blob/master/Main.lean#L103))
    takes every record through the install step
    ([function `annotStepC` in `ConLeche/Cached/Installed.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Cached/Installed.lean#L148-L151)):
    a definition or opaque is annotated and pushed with its check
@@ -294,10 +299,10 @@ Read from the outside in:
    boundary on — is marked persistent once, so that no check pays
    reference counting on it, and the checks are then run on worker
    threads: at `--jobs=1` the check loop
-   ([function `checkLoop` in `Main.lean`](https://github.com/leanprover/con-leche/blob/master/Main.lean#L169))
+   ([function `checkLoop` in `Main.lean`](https://github.com/leanprover/con-leche/blob/master/Main.lean#L173))
    runs it on every record on one such thread and carries every fact;
    otherwise a pool of them
-   ([function `checkPool` in `Main.lean`](https://github.com/leanprover/con-leche/blob/master/Main.lean#L295))
+   ([function `checkPool` in `Main.lean`](https://github.com/leanprover/con-leche/blob/master/Main.lean#L299))
    claims records one at a time off a shared counter, and the results,
    merged by record index, are walked in record order
    ([definition `collectChecks` in `ConLeche/Cached/Installed.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Cached/Installed.lean#L403-L407))
@@ -309,7 +314,7 @@ Read from the outside in:
    it is the identity on the value, its result is discarded, and the
    environment the driver goes on to use is the one it already had. The heartbeat is
    printed between the steps and touches neither type. The driver
-   ([function `checkDeclsIO` in `Main.lean`](https://github.com/leanprover/con-leche/blob/master/Main.lean#L334-L337))
+   ([function `checkDeclsIO` in `Main.lean`](https://github.com/leanprover/con-leche/blob/master/Main.lean#L338-L341))
    turns the fully checked environment into its environment with the
    proof that `checkDecls` returns it
    ([theorem `fullyChecked_checkDecls` in `ConLeche/Cached/Installed.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Cached/Installed.lean#L538-L540)).
@@ -430,7 +435,7 @@ presentation and matter for the proof:
 * **Fuel and memos.** The pure checker is fueled; the cached checker is
   not, but its memos are proved to agree with the pure functions at
   every fuel large enough to succeed
-  ([theorem `checkDecls_skels` in `ConLeche/Verify/Cached/AgreeFloor.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Cached/AgreeFloor.lean#L1286-L1288)).
+  ([theorem `checkDecls_skels` in `ConLeche/Verify/Cached/AgreeFloor.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Cached/AgreeFloor.lean#L1287-L1289)).
   Binder names and binder infos are not stored at all; `Expr` carries a
   packed hash and loose-variable bounds as computed fields, which is
   what makes traversals of shared terms (DAGs) cheap. The

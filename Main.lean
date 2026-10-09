@@ -16,14 +16,17 @@ input.
 
 Exit codes follow the lean kernel arena convention:
 * 0 — all declarations accepted
-* 1 — a declaration was rejected as invalid.  An out-of-memory
-  condition also exits 1: it is the Lean runtime's own panic
-  (`lean_internal_panic_out_of_memory` prints "INTERNAL PANIC: out of
-  memory" on stderr and calls `exit(1)`), uncatchable in process, so
-  the message on stderr is what tells the two apart.
+* 1 — a declaration was rejected as invalid.
 * 2 — the checker declined: it positively detected a feature it does not
   support (yet).  Never used for "something unexpectedly went wrong".
 * 3 — bad usage, malformed input, or an internal failure of unclear cause
+
+A panic is none of these: `main` sets `LEAN_ABORT_ON_PANIC` (and
+`LEAN_ABORT_ON_NONLINEAR`) before anything runs, so the runtime's out of
+memory, a Lean-level `panic!`, and a copy of an array marked linear all
+print their message on stderr and `abort()` — the process dies of
+`SIGABRT` (status 134 in a shell), never with a code that reads as a
+verdict.
 
 **NO TEMPORARY FILES.**  The checker writes
 nothing outside its own stdout/stderr, and reads its input strictly
@@ -932,10 +935,9 @@ def main (args : List String) : IO UInt32 := do
   match a.files.toList with
   | [file] =>
     -- The checker runs IN THIS PROCESS: it spawns no copy of itself,
-    -- and an out-of-memory condition exits 1 with the Lean runtime's
-    -- own panic message on stderr ("INTERNAL PANIC: out of memory",
-    -- uncatchable in process), which is what distinguishes it from a
-    -- reject.
+    -- and an out-of-memory condition is the Lean runtime's own panic
+    -- ("INTERNAL PANIC: out of memory", uncatchable in process), an
+    -- `abort()` under the `LEAN_ABORT_ON_PANIC` set above.
     -- `--jobs=<n>`: the check phase's worker count; without the flag,
     -- one worker per hardware thread (1 if the runtime cannot tell).
     let jobs := a.jobs.getD
