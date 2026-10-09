@@ -5,15 +5,13 @@ public import ConLeche.Frontend.Pipeline
 @[expose] public section
 
 /-!
-# The rounds parse: counters, finished tables, the check (task #329)
+# The rounds parse: counters, finished tables, the line check (task #329)
 
-The pipelined parse (`ConLeche/Frontend/Pipeline.lean`) scans its
-chunks in parallel and applies their records on one thread, in order:
-the apply is the parse's serial floor.  The rounds parse applies the
-chunks of a WINDOW in parallel, in rounds (`ConLeche/Frontend/RoundsWork.lean`
-computes them; `ConLeche/Driver/ParParse.lean` drives them).  This
-module holds what the rounds parse's correctness rests on, and nothing
-of how the rounds compute:
+The parse at `--jobs` above one (`ConLeche/Driver/LazyParse.lean`)
+builds a WINDOW of chunks in parallel, in rounds
+(`ConLeche/Frontend/RoundsWork.lean`), and then checks every line.  This
+module holds what that check rests on, and nothing of how the rounds
+compute:
 
 * **Increasing streams.**  An exporter binds each table's indices in
   increasing order (lean4export: each the next one; another exporter
@@ -22,17 +20,14 @@ of how the rounds compute:
   table bound (`Ctr`) — and nothing is ever bound twice.
 * **The finished tables** (`Pages`, `Prior`): the tables of every
   window before, in pages of 4096 indices, a lookup being two reads.
-* **The check** (`checkLine`, `checkList`, `checkFlat`).  How the
-  rounds found a window's entries does not matter: once the window's
-  tables have joined the finished ones, every line of every chunk is
-  gone through once more, in order, at the counters the serial parse
-  has there — a table line must bind an index at or above its counter
-  with nothing bound in the gap, and its builder, reading the finished
-  tables cut at the counters, must yield exactly the entry the
-  finished tables hold; a declaration line's builder must yield its
-  record.  `ConLeche/Verify/Frontend/Rounds.lean` proves that a chunk
-  passing the check is the serial parse of its lines
-  (`chunk_step`), whatever the rounds did.
+  An expression line the lazy parse does not build is bound to the
+  placeholder `lazyExpr`.
+* **The line check** (`checkLine`, `exprCheck`): a table line must bind
+  an index at or above its counter with nothing bound in the gap, and
+  its builder, reading the finished tables cut at the counters, must
+  yield exactly the entry the finished tables hold, compared node by
+  node without building it.  The lazy check (`checkLineL`,
+  `ConLeche/Frontend/Lazy.lean`) is built on it.
 -/
 
 namespace ConLeche.Frontend
@@ -327,38 +322,6 @@ termination_by hi - lo
   | .header => some (c, none)
   | .blank => some (c, none)
 
-/-- A record, if any, pushed. -/
-@[inline] def pushOpt (acc : Array Declaration) : Option Declaration → Array Declaration
-  | some x => acc.push x
-  | none => acc
-
-/-- **The check of a list of lines** (the specification): the counters
-after them and their records pushed, or `none`. -/
-def checkList (P : Prior) (c : Ctr) : List LineRec → Array Declaration →
-    Option (Ctr × Array Declaration)
-  | [], acc => some (c, acc)
-  | r :: rs, acc =>
-    match checkLine P c r with
-    | some (c', o) => checkList P c' rs (pushOpt acc o)
-    | none => none
-
-/-- **The check of a flat chunk**: `k` records from machine-word
-position `p`, each read where it is checked (`Flat.withLineU`). -/
-def checkFlatGoU (P : @& Prior) (d : @& ByteArray) (p : USize) (k : Nat) (c : Ctr)
-    (acc : Array Declaration) : Option (Ctr × Array Declaration) :=
-  match k with
-  | 0 => some (c, acc)
-  | k + 1 =>
-    Flat.withLineU d p fun r q =>
-      match checkLine P c r with
-      | some (c', o) => checkFlatGoU P d q k c' (pushOpt acc o)
-      | none => none
-
-/-- A flat chunk's lines, checked from counters `c` (a buffer too large
-for a machine word is not checked: the window falls back). -/
-def checkFlat (P : @& Prior) (fc : @& FlatChunk) (c : Ctr) : Option (Ctr × Array Declaration) :=
-  if fc.data.size < USize.size then checkFlatGoU P fc.data 0 fc.count c #[] else none
-
 /-- A chunk qualifies for the rounds: its scan ended at its end (the
 newline cut leaves no tail and no error), and the byte count stays
 under the size guard. -/
@@ -366,19 +329,5 @@ under the size guard. -/
   match fc.stop with
   | .tail i => i.toNat == b.size && total + b.size < USize.size
   | _ => false
-
-/-! ## The stream between windows -/
-
-/-- The rounds parse between windows: the finished tables and their
-counters, the records so far, the line and byte counts. -/
-structure GSt where
-  P : Prior
-  c : Ctr
-  ds : Array Declaration
-  lineNo : Nat
-  total : Nat
-
-/-- The parse's start. -/
-def GSt.init : GSt := ⟨Prior.init, ⟨1, 1, 0⟩, #[], 0, 0⟩
 
 end ConLeche.Frontend

@@ -50,17 +50,21 @@ def declCName : ConLeche.Declaration → String := ConLeche.Cached.declCLabel
 
 /-- The whole input side of a run: the parsed declarations, read
 straight from the file, with the evidence that the streaming parse
-`Frontend.parseChunks` returns them (`Frontend.ParseOutcome`).  There
-is nothing else — no preprocessor detection, no spawn, no pipe.
+`Frontend.parseChunks` returns them (`Frontend.ParseOutcome`), or the
+lazy parse's records with the evidence that they stand for the
+records `parseChunks` returns (`LazyParse.LazyGhost`).  There is
+nothing else — no preprocessor detection, no spawn, no pipe.
 
 At `--jobs=1` the parse is the pipelined one
 (`Frontend.parseExportHandleP`): the chunks are scanned on two tasks
-ahead of the applying thread.  Above one worker it is the rounds parse
-(`ParParse.parseExportStreamR`): windows of `4 * jobs` chunks (at most
-256), applied in rounds on `jobs` workers, `jobs` chunks read and
-scanned ahead.  A chunk is about an eighth of a window's share of the
-file, between 64 KiB and 1 MiB (1 MiB when the size is unknown), so
-that a small file is one window and a large one has many. -/
+ahead of the applying thread.  Above one worker it is the lazy parse
+(`LazyParse.parseExportLazy`): every chunk read and scanned, the sweep,
+then windows of `4 * jobs` chunks (at most 256) built in rounds on
+`jobs` workers, a theorem-only line not built.  A chunk is about an
+eighth of a window's share of the file, between 64 KiB and 1 MiB
+(1 MiB when the size is unknown), so that a small file is one window
+and a large one has many.  With `verbose` (`--progress`), the lazy
+parse's phase times on stderr. -/
 def parseInput (file : String) (jobs : Nat) (noMark verbose : Bool) : IO LazyParse.ParseOut := do
   if jobs ≤ 1 then
     return .eager (← Frontend.parseExportStreamP file 2)

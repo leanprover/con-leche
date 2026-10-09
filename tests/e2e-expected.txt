@@ -337,6 +337,24 @@
 # parse's error at its line (exit 3) whichever path reads it.  Target
 # verdict = today's.
 3 rounds_error_late.ndjson
+# lazy_bad_ref.ndjson (task #329): prop_proj.ndjson with one line of a
+# theorem's value (read by no install: the lazy parse binds it without
+# building it) reading expression 999, which nothing binds.  The serial
+# parse's error at that line (exit 3); the lazy parse's check of the
+# line's references fails and it falls back.  Target verdict = today's.
+3 lazy_bad_ref.ndjson
+# lazy_forward_ref.ndjson (task #329): prop_proj.ndjson with one line of
+# a theorem's value reading expression 60, which a later line binds: a
+# forward reference in a line the lazy parse does not build.  The serial
+# parse's error at that line (exit 3).  Target verdict = today's.
+3 lazy_forward_ref.ndjson
+# lazy_error_late.ndjson (task #329): prop_proj.ndjson with a line of
+# the last theorem's value cut short: a malformed line late in the
+# stream, after theorem values the lazy parse did not build.  Its
+# fallback rebuilds the serial state the chunks before reached
+# (`materialize`) and the serial parse gives the error at its line
+# (exit 3).  Target verdict = today's.
+3 lazy_error_late.ndjson
 # reducenat_guard.ndjson (task #94): defeq-side Nat-literal folding is
 # guarded on both sides being fvar-free (official kernel
 # lazy_delta_reduction; lean4lean TypeChecker.lean:782).  Unguarded,

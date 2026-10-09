@@ -655,4 +655,60 @@ def chunkStepNB (st : StateD) (lineNo total sz : Nat) (fc : @& FlatChunk) :
   | .tail i => i.toNat == sz && total + sz < USize.size
   | _ => false
 
+/-! ## The serial state, materialized
+
+A window that fails falls back to the serial parse from the state the
+chunks before it reached, but those chunks' scans are gone (each is
+dropped once checked) and their lazy entries were never built.  The
+state is rebuilt from the finished tables and the store: every
+expression index in order, a built entry as the tables hold it, a lazy
+one built from its line in the store over the entries before it
+(`matExprs`); the records with their theorem values read off that
+table (`matDecls`). -/
+
+/-- An expression lookup into a table under construction, below index
+`j` (`exprBelow`'s messages). -/
+@[inline] def tBelow (t : @& IdTable Expr) (j k : Nat) : Except String Expr :=
+  if k < j then
+    match t.get? k with
+    | some e => pure e
+    | none => throw s!"undefined expr index {k}"
+  else throw s!"forward expr index {k}"
+
+/-- The expression table from index `j` on, onto `t`. -/
+def matExprs (P : @& Prior) (S : @& LStore) (c : Ctr) (j : Nat) (t : IdTable Expr) :
+    Option (IdTable Expr) :=
+  if j < c.e then
+    match P.e.get j with
+    | some v =>
+      if isLazyE v then
+        match S.find j with
+        | some x =>
+          match exprOfF (lkN P c.n) (lkL P c.l) (tBelow t j) x with
+          | .ok w => matExprs P S c (j + 1) (t.insert j w)
+          | .error _ => none
+        | none => none
+      else matExprs P S c (j + 1) (t.insert j v)
+    | none => matExprs P S c (j + 1) t
+  else some t
+termination_by c.e - j
+
+/-- A run-time record with its theorem value read off the table. -/
+@[inline] def matDecl (t : @& IdTable Expr) : Declaration → Option Declaration
+  | .thmDecl cv w =>
+    match phId? w with
+    | some vid => (t.get? vid).map (.thmDecl cv ·)
+    | none => none
+  | d => some d
+
+/-- The serial state, materialized: the finished tables' names and
+levels, the expression table, the records. -/
+def materialize (P : Prior) (S : LStore) (c : Ctr) (ds : Array Declaration) : Option StateD :=
+  match matExprs P S c 0 {} with
+  | some t =>
+    match ds.mapM (matDecl t) with
+    | some ds' => some ⟨P.n.toTable c.n, P.l.toTable c.l, t, ds'⟩
+    | none => none
+  | none => none
+
 end ConLeche.Frontend

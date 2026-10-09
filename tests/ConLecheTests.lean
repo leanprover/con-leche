@@ -11,7 +11,7 @@ import ConLecheTests.NestedTests
 import ConLecheTests.RecCheckTests
 import ConLecheTests.AccessTests
 import ConLecheTests.PipelineTests
-import ConLecheTests.RoundsTests
+import ConLecheTests.LazyTests
 /- The suite's `#guard`s are EVALUATED, so every constant they name must be
 reachable from meta code too; a module needed at both levels is imported
 twice (`public import` for the `example`s' statements, `meta import` for

@@ -197,14 +197,21 @@ def startChecksL (pl : Pool) (cfg : Cfg) (P : Prior) (nd : ByteArray) (W : Win)
       return ⟨x, s, r.val, r.property⟩))
   return cps
 
+/-- What folding a window's checks reached: the state after the chunks
+that passed (how many), and why the fold stopped, if it did. -/
+structure Folded where
+  g : LGSt
+  hg : LGOK g
+  n : Nat
+  why : Option String
+
 /-- **The checked chunks, folded**: each chunk whose check ran at the
 counters the chunks before reached and passed is one more serial step
-(`LGOK.chunk`); `none` at the first that is not. -/
+(`LGOK.chunk`); the fold stops at the first that is not. -/
 def foldChecksL (P : Prior) (nd : ByteArray) : List (CheckResL P nd) → (g : LGSt) → LGOK g →
-    g.P = P →
-    Except String { g : LGSt // LGOK g }
-  | [], g, hg, _ => .ok ⟨g, hg⟩
-  | r :: rest, g, hg, hP =>
+    g.P = P → Nat → Folded
+  | [], g, hg, _, n => ⟨g, hg, n, none⟩
+  | r :: rest, g, hg, hP, n =>
     if hs : r.s.beq g.c then
       match hr : r.r with
       | some (c', a) =>
@@ -216,13 +223,13 @@ def foldChecksL (P : Prior) (nd : ByteArray) : List (CheckResL P nd) → (g : LG
               obtain ⟨b, hsz, he, -⟩ := r.x.property
               rw [← hsz] at hf ⊢
               exact LGOK.chunk hg he hf (by rw [hP, ← Ctr.beq_iff.mp hs, ← r.h, hr]))
-            hP
-        else .error s!"a chunk does not fit, at line {g.lineNo}"
-      | none => .error s!"a chunk fails its check, at line {g.lineNo}"
-    else .error s!"a chunk's counters, at line {g.lineNo}"
+            hP (n + 1)
+        else ⟨g, hg, n, some s!"a chunk does not fit, at line {g.lineNo}"⟩
+      | none => ⟨g, hg, n, some s!"a chunk fails its check, at line {g.lineNo}"⟩
+    else ⟨g, hg, n, some s!"a chunk's counters, at line {g.lineNo}"⟩
 
 /-- A window whose tables have joined the finished ones and whose
-checks are running. -/
+checks are running: its first chunk is `i0`, it has `len`. -/
 structure PendL where
   g : LGSt
   hg : LGOK g
@@ -230,6 +237,8 @@ structure PendL where
   cps : Array (IO.Promise (CheckResL g.P nd))
   cEnd : Ctr
   tEnd : Nat
+  i0 : Nat
+  len : Nat
 
 /-- Where the parse is between windows. -/
 inductive DoneL where
@@ -237,37 +246,58 @@ inductive DoneL where
   | pend (p : PendL)
 
 /-- A window's checks, waited for and folded. -/
-def foldPendL (p : PendL) : IO (Except String { g : LGSt // LGOK g }) := do
+def foldPendL (p : PendL) : IO Folded := do
   have : Nonempty (CheckResL p.g.P p.nd) := ⟨⟨default, default, _, rfl⟩⟩
   let cs ← p.cps.mapM await
-  return foldChecksL p.g.P p.nd cs.toList p.g p.hg rfl
+  return foldChecksL p.g.P p.nd cs.toList p.g p.hg rfl 0
+
+/-- The windows' outcome: every chunk checked, or a fall back from the
+state the chunks before chunk `k` reached (with the chunks from `k` on
+still held). -/
+inductive WinOut where
+  | ok (g : LGSt) (hg : LGOK g)
+  | fail (g : LGSt) (hg : LGOK g) (k : Nat) (why : String) (xs : Array LScanned)
+
+/-- The scans of chunks `[a, b)` dropped: checked, they are needed no
+more (their lazy lines are in the store). -/
+def dropScans (xs : Array LScanned) (a b : Nat) : Array LScanned :=
+  if a < b then dropScans (xs.set! a default) (a + 1) b else xs
+termination_by b - a
 
 /-- **The windows**, from chunk `i`: a window's tables are computed
-while the window before it is being checked.  `none`: fall back. -/
+while the window before it is being checked; a window's scans are
+dropped once its checks are folded. -/
 partial def winLoop (pl : Pool) (cfg : Cfg) (mk nd : ByteArray) (xs : Array LScanned) (i : Nat)
-    (d : DoneL) : IO (Except String { g : LGSt // LGOK g }) := do
+    (d : DoneL) : IO WinOut := do
   let win := xs.extract i (i + cfg.m)
   let comp ← if win.isEmpty then pure (.error "") else
     match d with
     | .ready g _ => computeWL pl cfg mk g.P g.c g.total win
     | .pend p => computeWL pl cfg mk p.g.P p.cEnd p.tEnd win
-  let r ← match d with
-    | .ready g hg => pure (.ok ⟨g, hg⟩)
-    | .pend p => foldPendL p
-  match r with
-  | .error e => return .error e
-  | .ok ⟨g, hg⟩ =>
-    if win.isEmpty then return .ok ⟨g, hg⟩
+  let (f, xs) ← match d with
+    | .ready g hg => pure ((⟨g, hg, 0, none⟩ : Folded), xs)
+    | .pend p =>
+      let f ← foldPendL p
+      match f.why with
+      | some _ => pure (f, xs)
+      | none => pure (f, dropScans xs p.i0 (p.i0 + p.len))
+  match f.why, d with
+  | some why, .pend p => return .fail f.g f.hg (p.i0 + f.n) why xs
+  | _, _ =>
+    let g := f.g
+    let hg := f.hg
+    if win.isEmpty then return .ok g hg
     match comp with
-    | .error e => return .error s!"window at chunk {i}: {e}"
+    | .error e => return .fail g hg i s!"window at chunk {i}: {e}" xs
     | .ok (W, nn, nl, ne) =>
       if hk : g.P.keeps g.c nn nl ne then
         let P' := g.P.setFrom g.c nn nl ne
         let g1 : LGSt := { g with P := P' }
         let cps ← startChecksL pl cfg P' nd W win
         let tEnd := win.foldl (fun t x => t + x.val.2.1) g.total
-        winLoop pl cfg mk nd xs (i + cfg.m) (.pend ⟨g1, LGOK.keep hg hk, nd, cps, W.cEnd, tEnd⟩)
-      else return .error s!"window at chunk {i}: the tables do not keep"
+        winLoop pl cfg mk nd xs (i + cfg.m)
+          (.pend ⟨g1, LGOK.keep hg hk, nd, cps, W.cEnd, tEnd, i, win.size⟩)
+      else return .fail g hg i s!"window at chunk {i}: the tables do not keep" xs
 
 /-! ## The theorem values -/
 
@@ -384,13 +414,37 @@ def parseExportLazyInfo (path : System.FilePath) (jobs m : Nat) (csz : USize) (i
   let t3 ← IO.monoMsNow
   -- 3. the windows
   match ← winLoop pl cfg marks.mkd marks.nd xs 0 (.ready LGSt.init LGOK.init) with
-  | .error why =>
+  | .fail g hg k why xs =>
     pl.shutdown
-    let r ← serialL path inflight .init .empty 0 0 Reached.init xs.toList
-    return (.eager r, ⟨1, why, 0, #[]⟩)
-  | .ok ⟨g, hg⟩ =>
+    -- the serial parse from the state the chunks before `k` reached,
+    -- materialized, over the chunks from `k` on
+    let S := LStore.ofChunks g.S g.P g.c ⟨.empty, .empty, #[]⟩
+    match hm : materialize g.P S g.c g.ds with
+    | some st =>
+      let r ← serialL path inflight st .empty g.lineNo g.total (materialize_reached hg _ hm)
+        (xs.extract k xs.size).toList
+      return (.eager r, ⟨1, why, 0, #[]⟩)
+    | none =>
+      return (.eager (← Frontend.parseExportStreamP path inflight), ⟨1, why ++ "; reread", 0, #[]⟩)
+  | .ok g hg =>
     pl.shutdown
     let t4 ← IO.monoMsNow
+    -- every value built now, the serial parse's outcome, from the
+    -- materialized state (`none`: a value did not build)
+    let eager : IO (Option ParseOutcome) := do
+      let S := LStore.ofChunks g.S g.P g.c ⟨.empty, .empty, #[]⟩
+      match hm : materialize g.P S g.c g.ds with
+      | some st =>
+        have hr := materialize_reached hg _ hm
+        return some ⟨chunkFinish st .empty g.lineNo, hr.finish⟩
+      | none => return none
+    -- without the sweep's marks (a stream with huge gaps) nothing is
+    -- lazy and nothing is retained
+    if marks.mkd.size == 0 then
+      match ← eager with
+      | some o => return (.eager o, ⟨0, "no marks", 0, #[]⟩)
+      | none =>
+        return (.eager (← Frontend.parseExportStreamP path inflight), ⟨1, "reread", 0, #[]⟩)
     -- the retained table, validated; the finished expression pages
     -- are dropped with `g.P`
     let rt := RTab.build marks.mkd marks.nd g.P g.c.e
@@ -402,18 +456,12 @@ def parseExportLazyInfo (path : System.FilePath) (jobs m : Nat) (csz : USize) (i
         obtain ⟨cs, stF, hcs, hh, hd, hs⟩ := LGOK.finish hg
         exact ⟨cs, stF, hcs, SHolds.ofChunks hh g.S hrt, hs.ofChunks g.P g.c rt, hd⟩
       let t5 ← IO.monoMsNow
-      -- without the sweep's marks (a stream with huge gaps) nothing is
-      -- retained: every value is built now
-      if marks.mkd.size == 0 then
-        match ← toEager jobs r hr with
-        | some o => return (.eager o, ⟨0, "no marks", nLazy, #[t1 - t0, t2 - t1, t3 - t2, t4 - t3, t5 - t4]⟩)
-        | none =>
-          let o ← serialL path inflight .init .empty 0 0 Reached.init xs.toList
-          return (.eager o, ⟨1, "a value did not build", 0, #[]⟩)
       return (.lazy r hr, ⟨0, "", nLazy, #[t1 - t0, t2 - t1, t3 - t2, t4 - t3, t5 - t4]⟩)
     else
-      let o ← serialL path inflight .init .empty 0 0 Reached.init xs.toList
-      return (.eager o, ⟨1, "the retained table", 0, #[]⟩)
+      match ← eager with
+      | some o => return (.eager o, ⟨1, "the retained table", 0, #[]⟩)
+      | none =>
+        return (.eager (← Frontend.parseExportStreamP path inflight), ⟨1, "reread", 0, #[]⟩)
 
 /-- **The lazy parse of a file**; with `verbose`, its phase times on
 stderr. -/

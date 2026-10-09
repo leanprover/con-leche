@@ -557,8 +557,7 @@ partial def fillQ (h : IO.FS.Handle) (inflight : Nat) (chunk : USize)
       let t := spawnScan spent pending buf0 (k + 1)
       fillQ h inflight chunk (q.enqueue t) (n + 1) none (buf0.extract (k + 1) buf0.size) false
 
-/-- The applying loop of the pipelined parse, from a reached state (the
-rounds parse falls back to it, `ConLeche/Driver/ParParse.lean`). -/
+/-- The applying loop of the pipelined parse, from a reached state. -/
 partial def loopP (h : IO.FS.Handle) (inflight : Nat) (chunk : USize) (st : StateD)
     (carry : ByteArray) (lineNo total : Nat) (hr : Reached st carry lineNo total)
     (q : Std.Queue ScanTask) (n : Nat) (spent : Option ScanTask) (pending : ByteArray)

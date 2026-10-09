@@ -7,12 +7,15 @@ public import ConLeche.Frontend.Rounds
 /-!
 # The rounds parse: the rounds (task #329)
 
-How the rounds parse computes a window's tables.  Nothing here is
-trusted: what the driver keeps of a window is checked line by line
-against the finished tables (`checkFlat`, `ConLeche/Frontend/Rounds.lean`),
-and a window whose rounds go wrong in any way — a line that does not
-fit the counters, a line the serial parse would fail at, a window that
-does not finish — is handed to the serial parse.
+How the parse at `--jobs` above one (`ConLeche/Driver/LazyParse.lean`)
+computes a window's tables.  Nothing here is trusted: what the driver
+keeps of a window is checked line by line against the finished tables
+(`checkFlatL`, `ConLeche/Frontend/Lazy.lean`), and a window whose
+rounds go wrong in any way — a line that does not fit the counters, a
+line the serial parse would fail at, a window that does not finish —
+is handed to the serial parse.  An expression line the sweep did not
+mark (`round0`'s bitmap) is bound to `lazyExpr`, not built; a built line
+that reads one fails.
 
 **Windows and rounds.**  The chunks are taken a window at a time.  In
 round 0 every chunk of the window applies its lines in order, on its

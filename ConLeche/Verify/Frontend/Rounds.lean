@@ -5,26 +5,16 @@ public import ConLeche.Verify.Frontend.Dense
 public section
 
 /-!
-# The rounds parse is the serial parse (task #329)
+# The check of a built line (task #329)
 
-What the driver of the rounds parse (`ConLeche/Driver/ParParse.lean`)
-carries between windows is `GOK g`: some state the serial parse
-reaches after the lines before (`Reached`) holds the finished tables
-`g.P` cut at the counters `g.c`, with the records `g.ds`.
-
-* `checkLine_sound`/`checkList_sound`: a list of lines passing the
-  check at the finished tables is right at them line by line
-  (`AllOK`), so the characterisation (`applyList_of_allOK`,
-  `ConLeche/Verify/Frontend/Dense.lean`) applies; `checkFlat_sound`
-  carries this to the flat chunk the check reads.
-* `GOK.keep`: the tables after a window agree with the tables before
-  below the window's start (`Prior.keeps`, tested by the driver).
-* `GOK.chunk`: a chunk that passes the check is one more serial step
-  (`chunkStep`), the counters and records the check returns being the
-  serial parse's.
-* `GOK.finish` and `GOK.reached`: the end of the stream, and the state
-  a window that falls back continues the serial parse from
-  (`Prior.toState`).
+What the lazy check (`ConLeche/Frontend/Lazy.lean`,
+`ConLeche/Verify/Frontend/Lazy.lean`) uses of the rounds' check: a
+built entry checked against its line without building it is the
+line's builder's value (`exprCheck_sound` and its siblings), a name or
+level line passing `checkLine` is right at the finished tables
+(`checkLine_sound`), and the finished tables after a window keep the
+tables before below the window's start when the driver's test says so
+(`Pages.keeps_sound`).
 -/
 
 namespace ConLeche.Frontend
@@ -175,86 +165,6 @@ theorem checkLine_sound {P : Prior} {c c' : Ctr} {r : LineRec} {o : Option Decla
     obtain ⟨rfl, rfl⟩ := h
     exact ⟨trivial, rfl, rfl⟩
 
-theorem pushOpt_eq (acc : Array Declaration) (o : Option Declaration) :
-    pushOpt acc o = (match o with | some x => acc.push x | none => acc) := by
-  cases o <;> rfl
-
-/-- **A list passing the check is right** at the finished tables, line
-by line; the check's counters and records are the serial ones. -/
-theorem checkList_sound {P : Prior} :
-    ∀ {c : Ctr} {rs : List LineRec} {acc : Array Declaration} {c' : Ctr}
-      {acc' : Array Declaration},
-    checkList P c rs acc = some (c', acc') →
-    AllOK P.tabs c rs ∧ c.stepAll rs = c' ∧ declsAlong P.tabs c rs acc = acc' := by
-  intro c rs
-  induction rs generalizing c with
-  | nil =>
-    intro acc c' acc' h
-    simp only [checkList, Option.some.injEq, Prod.mk.injEq] at h
-    obtain ⟨rfl, rfl⟩ := h
-    exact ⟨trivial, rfl, rfl⟩
-  | cons r rs ih =>
-    intro acc c' acc' h
-    simp only [checkList] at h
-    split at h
-    · rename_i c1 o h1
-      obtain ⟨hl, rfl, rfl⟩ := checkLine_sound h1
-      obtain ⟨ha, hc, hd⟩ := ih h
-      refine ⟨⟨hl, ha⟩, hc, ?_⟩
-      rw [← hd]; simp only [declsAlong]; cases lineDecl P.tabs c r <;> rfl
-    · simp at h
-
-theorem declsAlong_acc (T : Tabs) :
-    ∀ (c : Ctr) (rs : List LineRec) (acc : Array Declaration),
-    declsAlong T c rs acc = acc ++ declsAlong T c rs #[] := by
-  intro c rs
-  induction rs generalizing c with
-  | nil => intro acc; simp [declsAlong]
-  | cons r rs ih =>
-    intro acc
-    simp only [declsAlong]
-    cases lineDecl T c r with
-    | none => exact ih _ acc
-    | some x => rw [ih _ (acc.push x), ih _ (#[].push x)]; simp
-
-/-! ## The flat check is the check -/
-
-theorem checkFlatGoU_eq (P : Prior) (d : ByteArray) (hd : d.size < USize.size)
-    (L : List LineRec) :
-    ∀ (c : Ctr) (acc : Array Declaration) (p : USize) (rest : List UInt8),
-    d.data.toList.drop p.toNat = Flat.encElems Flat.encLine L ++ rest →
-    checkFlatGoU P d p L.length c acc = checkList P c L acc := by
-  induction L with
-  | nil => intro c acc p rest _; rfl
-  | cons r L ih =>
-    intro c acc p rest h
-    simp only [Flat.encElems, List.append_assoc] at h
-    obtain ⟨q, e, hq⟩ := Flat.withLineU_spec r d hd p _ h
-      (fun r q => match checkLine P c r with
-        | some (c', o) => checkFlatGoU P d q L.length c' (pushOpt acc o)
-        | none => none)
-    have h' := Flat.drop_after h
-    rw [← hq] at h'
-    rw [List.length_cons, checkFlatGoU]
-    refine e.trans ?_
-    simp only [checkList]
-    cases checkLine P c r with
-    | none => rfl
-    | some p => obtain ⟨c', o⟩ := p; exact ih _ _ q rest h'
-
-/-- **The flat check is the check of the lines the chunk holds.** -/
-theorem checkFlat_sound {P : Prior} {fc : FlatChunk} {sc : ScannedChunk} (h : fc.Encodes sc)
-    {c : Ctr} {r : Ctr × Array Declaration} (hc : checkFlat P fc c = some r) :
-    checkList P c sc.recs.toList #[] = some r := by
-  obtain ⟨hd, hcount, _⟩ := h
-  simp only [checkFlat] at hc
-  split at hc
-  · rename_i hs
-    rw [hcount, ← Array.length_toList,
-      checkFlatGoU_eq P fc.data hs _ c #[] 0 [] (by simp [hd])] at hc
-    exact hc
-  · simp at hc
-
 /-! ## The finished tables -/
 
 theorem Pages.get_eq [Sent α] (P : Pages α) (j : Nat) :
@@ -348,92 +258,7 @@ theorem Prior.toState_holds (P : Prior) (c : Ctr) (ds : Array Declaration) :
   ⟨fun j => Pages.toTable_get? P.n c.n j, fun j => Pages.toTable_get? P.l c.l j,
    fun j => Pages.toTable_get? P.e c.e j⟩
 
-/-! ## The invariant between windows -/
-
-/-- **The rounds parse's invariant**: some state the serial parse
-reaches after the lines so far, with nothing carried, holds the
-finished tables cut at the counters, with the records so far. -/
-def GOK (g : GSt) : Prop :=
-  ∃ st, Reached st .empty g.lineNo g.total ∧ Holds st g.P.tabs g.c ∧ st.decls = g.ds
-
-theorem GOK.init : GOK GSt.init := by
-  refine ⟨.init, Reached.init, ⟨fun j => ?_, fun j => ?_, fun j => ?_⟩, rfl⟩
-  · simp only [StateD.init, IdTable.get?_singleton, GSt.init, Prior.init, Prior.tabs,
-      Pages.get_eq]
-    rcases j with _ | j
-    · simp [Sent.isPend]
-    · simp
-  · simp only [StateD.init, IdTable.get?_singleton, GSt.init, Prior.init, Prior.tabs,
-      Pages.get_eq]
-    rcases j with _ | j
-    · simp [Sent.isPend]
-    · simp
-  · simp [StateD.init, IdTable.get?_empty, GSt.init]
-
-/-- The state a window that falls back continues the serial parse
-from. -/
-theorem GOK.reached {g : GSt} (h : GOK g) :
-    Reached (g.P.toState g.c g.ds) .empty g.lineNo g.total := by
-  obtain ⟨st, hr, hh, hd⟩ := h
-  exact hr.equiv (Holds.equiv hh (Prior.toState_holds g.P g.c g.ds) (by rw [hd]; rfl))
-
-/-- The end of the stream: the records so far are the parse's. -/
-theorem GOK.finish {g : GSt} (h : GOK g) : ∃ cs, parseChunks cs = .ok ⟨g.ds⟩ := by
-  obtain ⟨st, hr, _, hd⟩ := h
-  obtain ⟨cs, hcs⟩ := hr.finish
-  refine ⟨cs, ?_⟩
-  rw [hcs, chunkFinish, ite_eq_left (show ByteArray.empty.isEmpty = true by rfl)]
-  simp [ParseResultD.ofState, hd]
-
-/-- **The tables after a window**, when they keep the tables before. -/
-theorem GOK.keep {g : GSt} (h : GOK g) {nn nl ne}
-    (hk : g.P.keeps g.c nn nl ne = true) : GOK { g with P := g.P.setFrom g.c nn nl ne } := by
-  obtain ⟨st, hr, hh, hd⟩ := h
-  simp only [Prior.keeps, Bool.and_eq_true] at hk
-  obtain ⟨⟨hn, hl⟩, he⟩ := hk
-  refine ⟨st, hr, ⟨fun j => ?_, fun j => ?_, fun j => ?_⟩, hd⟩
-  · rw [hh.n j]; split
-    · exact (Pages.keeps_sound hn j (by assumption)).symm
-    · rfl
-  · rw [hh.l j]; split
-    · exact (Pages.keeps_sound hl j (by assumption)).symm
-    · rfl
-  · rw [hh.e j]; split
-    · exact (Pages.keeps_sound he j (by assumption)).symm
-    · rfl
-
 theorem ByteArray.extract_size_self (b : ByteArray) : b.extract b.size b.size = .empty := by
   ext1; simp [ByteArray.empty, ByteArray.emptyWithCapacity]
-
-/-- **A chunk that passes the check is one more serial step.** -/
-theorem GOK.chunk {g : GSt} (h : GOK g) {b : ByteArray} {fc : FlatChunk}
-    (henc : fc.Encodes (scanChunk b)) (hfit : chunkFits b fc g.total = true)
-    {c' : Ctr} {ds' : Array Declaration} (hc : checkFlat g.P fc g.c = some (c', ds')) :
-    GOK { g with c := c', ds := g.ds ++ ds', lineNo := g.lineNo + fc.count,
-                 total := g.total + b.size } := by
-  obtain ⟨st, hr, hh, hd⟩ := h
-  have hl := checkFlat_sound henc hc
-  obtain ⟨hok, hstep, hdecl⟩ := checkList_sound hl
-  obtain ⟨st', happ, hh', hd'⟩ :=
-    applyList_of_allOK g.P.tabs g.c (scanChunk b).recs.toList st g.lineNo hok hh
-  simp only [chunkFits] at hfit
-  split at hfit
-  · rename_i i hstop
-    simp only [Bool.and_eq_true, beq_iff_eq, decide_eq_true_eq] at hfit
-    obtain ⟨hi, hsz⟩ := hfit
-    have hs : chunkStep st .empty g.lineNo g.total b =
-        .ok (st', .empty, g.lineNo + fc.count, g.total + b.size) := by
-      rw [← chunkStepF_of_encodes _ _ _ _ _ _ henc]
-      have hcount : fc.count = (scanChunk b).recs.toList.length := by
-        rw [henc.2.1]; simp
-      rw [chunkStepF, ite_eq_left (show ByteArray.empty.isEmpty = true by rfl),
-        ite_eq_right (show ¬ (g.total + b.size ≥ USize.size) by omega)]
-      rw [applyFlat_eq _ _ _ henc, applyScanned, applyRecs_eq, List.drop_zero, happ]
-      rw [← henc.2.2, hstop]
-      simp only [hcount, hi, ByteArray.extract_size_self]
-    refine ⟨st', hr.step hs, ?_, ?_⟩
-    · rw [← hstep]; exact hh'
-    · rw [hd', hd, declsAlong_acc, hdecl]
-  · simp at hfit
 
 end ConLeche.Frontend

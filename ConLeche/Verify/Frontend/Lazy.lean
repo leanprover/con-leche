@@ -1215,4 +1215,139 @@ theorem SHolds.ofChunks {st : StateD} {P : Prior} {c : Ctr} (hh : LHolds st P c)
     exact StateD.expr_of_get (hh.eb k u hkc hP hl)
   · simp [throw, throwThe, MonadExceptOf.throw] at hk
 
+/-! ## The serial state, materialized -/
+
+theorem matExprs_spec {P : Prior} {S : LStore} {c : Ctr} {st : StateD} (hh : LHolds st P c)
+    (hs : StoreOK st S.chunks) :
+    ∀ (n j : Nat) (t t' : IdTable Expr), c.e - j = n →
+    (∀ k, t.get? k = if k < j then st.exprs.get? k else none) →
+    matExprs P S c j t = some t' → ∀ k, t'.get? k = st.exprs.get? k := by
+  intro n
+  induction n with
+  | zero =>
+    intro j t t' hn ht h k
+    rw [matExprs, ite_eq_right (by omega)] at h
+    cases h
+    rw [ht k]
+    split
+    · rfl
+    · exact (hh.above (by omega)).symm
+  | succ n ih =>
+    intro j t t' hn ht h
+    rw [matExprs, ite_eq_left (by omega)] at h
+    have hstep : ∀ (w : Expr), st.exprs.get? j = some w →
+        ∀ k, (t.insert j w).get? k = if k < j + 1 then st.exprs.get? k else none := by
+      intro w hw k
+      rw [IdTable.get?_insert, ht k]
+      by_cases hkj : k = j
+      · subst hkj; simp [hw]
+      · simp only [hkj, ↓reduceIte]
+        by_cases hk : k < j
+        · simp [hk, show k < j + 1 by omega]
+        · simp [hk, show ¬ k < j + 1 by omega]
+    split at h
+    · rename_i v hv
+      split at h
+      · rename_i hlz
+        split at h
+        · rename_i x hx
+          obtain ⟨C, hC, hf⟩ := LStore.find_sound hx
+          obtain ⟨L, hvC, hl⟩ := hs C hC
+          obtain ⟨u, hu1, hu2⟩ := hl _ (LChunk.find_sound hvC hf)
+          split at h
+          · rename_i w hw
+            have hb : tBelow t j = exprBelow st j := by
+              funext k
+              simp only [tBelow, exprBelow, StateD.expr]
+              split
+              · rename_i hk; rw [ht k, ite_eq_left hk]; rfl
+              · rfl
+            rw [hb, ← hh.name, ← hh.level, hu2] at hw
+            cases hw
+            exact ih (j + 1) _ _ (by omega) (hstep u hu1) h
+          · simp at h
+        · simp at h
+      · rename_i hlz
+        exact ih (j + 1) _ _ (by omega)
+          (hstep v (hh.eb j v (by omega) hv (by simpa using hlz))) h
+    · rename_i hv
+      refine ih (j + 1) _ _ (by omega) (fun k => ?_) h
+      rw [ht k]
+      by_cases hkj : k = j
+      · subst hkj
+        have := hh.e k
+        simp only [show k < c.e by omega, decide_true, hv, Option.isSome_none,
+          Bool.and_false] at this
+        have hn : st.exprs.get? k = none := by
+          cases hk : st.exprs.get? k with
+          | none => rfl
+          | some _ => rw [hk] at this; simp at this
+        simp [hn]
+      · by_cases hk : k < j
+        · simp [hk, show k < j + 1 by omega]
+        · simp [hk, show ¬ k < j + 1 by omega]
+
+theorem matDecl_spec {t : IdTable Expr} {st : StateD}
+    (ht : ∀ k, t.get? k = st.exprs.get? k) {d' d e : Declaration} (hd : DRel st d' d)
+    (he : matDecl t d' = some e) : e = d := by
+  cases d with
+  | thmDecl cv w =>
+    obtain ⟨vid, hint, rfl, hw⟩ := hd
+    simp only [matDecl, phId?, ph, Option.map_eq_some_iff, ht vid, hw] at he
+    obtain ⟨v, hv, rfl⟩ := he
+    cases hv; rfl
+  | _ =>
+    subst hd
+    simp only [matDecl, Option.some.injEq] at he
+    exact he.symm
+
+theorem matDecls_spec {t : IdTable Expr} {st : StateD}
+    (ht : ∀ k, t.get? k = st.exprs.get? k) :
+    ∀ {ds' : List Declaration} {ds : List Declaration} {r : List Declaration},
+    Pw (DRel st) ds' ds → ds'.mapM (matDecl t) = some r → r = ds
+  | [], [], r, _, h => by
+    simp only [List.mapM_nil, Option.pure_def, Option.some.injEq] at h; exact h.symm
+  | d' :: ds', d :: ds, r, hp, h => by
+    rw [List.mapM_cons] at h
+    obtain ⟨e, he, h⟩ := Option.bind_eq_some_iff.mp h
+    obtain ⟨r', hr', h⟩ := Option.bind_eq_some_iff.mp h
+    simp only [Option.pure_def, Option.some.injEq] at h
+    subst h
+    rw [matDecl_spec ht hp.1 he, matDecls_spec ht hp.2 hr']
+  | [], _ :: _, _, hp, _ => hp.elim
+  | _ :: _, [], _, hp, _ => hp.elim
+
+/-- **The materialized state is the serial state**: it is reached by
+the serial parse of the stream so far. -/
+theorem materialize_reached {g : LGSt} (hg : LGOK g) (rt : RTab) {st' : StateD}
+    (h : materialize g.P (LStore.ofChunks g.S g.P g.c rt) g.c g.ds = some st') :
+    Reached st' .empty g.lineNo g.total := by
+  obtain ⟨st, hr, hh, hd, hs⟩ := hg
+  simp only [materialize] at h
+  split at h
+  · rename_i t ht
+    split at h
+    · rename_i ds' hds
+      simp only [Option.some.injEq] at h
+      subst h
+      have hte := matExprs_spec hh (hs.ofChunks g.P g.c rt) _ 0 {} t rfl
+        (fun k => by simp [IdTable.get?_empty]) ht
+      have hdl : ds'.toList = st.decls.toList := by
+        have := congrArg (Option.map Array.toList) hds
+        rw [Array.mapM_eq_mapM_toList] at this
+        simp only [Option.map_some] at this
+        cases hm : g.ds.toList.mapM (matDecl t) with
+        | none => rw [hm] at this; simp at this
+        | some r =>
+          rw [hm] at this
+          simp at this
+          rw [← this]
+          exact matDecls_spec hte hd hm
+      refine hr.equiv (StateD.Equiv.symm ⟨fun j => ?_, fun j => ?_, fun j => hte j, ?_⟩)
+      · rw [Pages.toTable_get?, hh.n j]
+      · rw [Pages.toTable_get?, hh.l j]
+      · exact Array.toList_inj.mp hdl
+    · simp at h
+  · simp at h
+
 end ConLeche.Frontend
