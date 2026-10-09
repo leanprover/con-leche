@@ -11,7 +11,7 @@ public import ConLeche.Kernel.CheckerSplit
 `checkDecls mode pins ds` is the verified implementation: the pure fold the
 main theorem and the main corollary are stated about
 (`ConLeche/MainTheorem.lean`), and the algorithm the binary's driver
-(`Main.lean`) runs — the driver's loops are this fold's two phases with
+(`ConLeche/Driver/*`) runs — the driver's loops are this fold's two phases with
 a heartbeat between the steps, and the driver returns its environment
 together with the proof that `checkDecls` returns it
 (`fullyChecked_checkDecls`).  The fold separates INSTALLING a
@@ -62,7 +62,7 @@ the main theorem and the main corollary (`ConLeche/MainTheorem.lean`)
 are stated for EVERY list, because nothing the model tier consumes
 reads which list the matched variant came from.
 
-Nothing here is `IO`: the driver's loops in `Main.lean` run these
+Nothing here is `IO`: the driver's loops in `ConLeche/Driver/*` run these
 steps and carry their accepting runs as the proofs the subtypes ask
 for.  A rejection carries the FOLD POSITION of the declaration it
 names (`annotDeclStep` tags its error with the position, a phase-B

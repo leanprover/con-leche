@@ -97131,3 +97131,79 @@ Gates: `lake build`, `lake test` warning-free; `tests/arena.sh` green
 trust surface, shake, both link gates, the fragment and challenge
 gates); `tests/quote-gate.sh` clean. Logs and the binary:
 `_tmp/amdahl/thmval-master-logs/`.
+
+## TASK #329 — LAYER: the driver moves to ConLeche/Driver/ and may import Verify (2026-10-09, agent/layer-master)
+
+Extracted from task #329 (the `more-parallel` campaign, record "TASK
+#329 — LAYER", lane `agent/329-layer`) and rebuilt on master from the
+campaign's final layout.
+
+**Maintainer ruling (2026-10-08).** The proof-carrying IO driver —
+`ConLeche/Driver/*` and `Main.lean` — may import `ConLeche/Verify/*`,
+the theorems about kernel functions that need no model. It still may
+not import `Model/*`, `Complete/*`, `SetTheory/*`, `SetModel/*`,
+`Semantics/*` or `Term/*`. `Kernel/*`, `Cached/*` and `Frontend/*` keep
+their full fence.
+
+**The split** (its own commit, a pure move). `Main.lean` (949 lines)
+mixed the CLI with the driver proper. New `ConLeche/Driver/`:
+`CheckPool.lean` (phase B: the heartbeat, `checkLoop` and the worker
+pool) and `Run.lean` (`CheckError.exitCode`, `declCName`, `parseInput`,
+`installLoop`, `checkDeclsIO`, `checkMain`). `Main.lean` keeps
+`progressStride`, `jobsCount`, `usage`, `Args`, `parseArgs` and `main`.
+Every definition, proof and docstring moved verbatim; added are the
+module headers and docs, the `@[expose] public section` and a
+`ConLeche.Driver` namespace wrapper (`ConLeche.CheckError.exitCode`
+stays in its own namespace). The file names and the namespace are the
+campaign's, so the later merge into `more-parallel` stays easy; the one
+difference is that the campaign keeps the serial `installLoop` in
+`Driver/ParInstall.lean`, beside the parallel install master does not
+have, and here it sits in `Run.lean`.
+
+**Nothing moves back to `Verify/`.** In the campaign four files
+(`KnotCongr`, `BlockOverlay`, `ViewCongr`, `ParInstall`) had moved into
+`Cached/` only so the then-implementation driver could use them, and
+moved back with this ruling. On master `KnotCongr` and `BlockOverlay`
+are already in `Verify/Cached/`, and `ViewCongr`/`ParInstall` do not
+exist. The theorems master's `Cached/` does hold are about its own
+definitions and serve the fold and the proofs (`Installed.lean`'s
+`annotDeclStep_ok`, the `groupChecked_*` that `collectChecks` uses,
+`fullyChecked_checkDecls`, the `_cut` lemmas of `ExprOpsC`, the
+`@[simp]` equations of `ExprNodes`/`CoreC`). The one the driver alone
+uses is `InstallRun.snoc`, an eight-line lemma about `Installed.lean`'s
+own `InstallRun`; the campaign keeps it there too.
+
+**Gates and documents.** `tests/layering.sh`: the full fence (`implv`)
+now covers `Kernel/*`/`Cached/*`/`Frontend/*` only, and a new `driverv`
+clause checks `Driver/*` and `Main.lean` against the theory prefixes
+other than `Verify.*` (the campaign's script, unchanged).
+`tests/trust-surface.sh`: `Main.lean`'s `unsafe` entry (the two
+`markPersistent` escapes in `checkDeclsIO`) moves with its code to
+`Driver/Run.lean`; the count stays 15 escapes in 6 allowlisted files.
+`tests/shake.sh` and `scripts/pub-import-plan.py` are clean with no new
+allowlist line and no new `FALLBACK` pin (the campaign's two were for
+`Driver/ParInstall.lean` and `ViewCongr`, which master does not have).
+CLAUDE.md's Layering and module-system sections, OVERVIEW's module map
+(§11), module-system paragraph and gates (§12) state the new rule; the
+links into the moved functions are repointed (OVERVIEW, and README's
+three links into the shorter `Main.lean`). Comments in
+`Cached/Installed.lean`, `Cached/ParsedC.lean` and `Kernel/Core.lean`
+that named `Main.lean` (or `Main.declCName`) as the driver's home now
+name `ConLeche/Driver/*`.
+
+**Measurements** (before: master `8833b4994`; after: this branch):
+
+| run | before | after |
+|---|---|---|
+| init-full `--jobs=1`, instructions:u | 486 056 134 503 | 486 066 110 406 (+0.002 %) |
+| mathlib-full (96 workers), records | 691 203 accepted | 691 203 accepted |
+| mathlib-full, parse / install / check | 27.4 / 56.2 / 30.3 s | 25.0 / 54.8 / 31.8 s |
+| mathlib-full, peak RSS | 7 304 332 kB | 7 296 604 kB |
+
+A module boundary changes nothing at run time, as expected.
+
+Gates: `lake build`, `lake test` warning-free; `tests/arena.sh` green
+(layering with `0 driver->non-Verify theory`, trust surface, shake, both
+link gates, the fragment and challenge gates, e2e 456/456, the trusted,
+`--jobs=1` and `--jobs=4` sweeps); `tests/quote-gate.sh` clean. Logs and
+the binary: `_tmp/amdahl/layer-master-logs/`.

@@ -28,13 +28,13 @@ mark of the installed environment (below), which changes no verdict and
 is there to measure what the mark is worth;
 `--progress[=<stride>]` turns on a heartbeat on stderr
 (below); `--help` prints the usage text and exits 0
-([the driver's usage text in `Main.lean`](https://github.com/leanprover/con-leche/blob/master/Main.lean#L661)).
+([the driver's usage text in `Main.lean`](https://github.com/leanprover/con-leche/blob/master/Main.lean#L90)).
 Any other option is a usage error: the run reports it, prints the
 usage text and exits 3 without reading its input, so a verdict's
 provenance can be read off the invocation.
 
 The exit code follows the lean kernel arena convention
-([the exit-code mapping in `Main.lean`](https://github.com/leanprover/con-leche/blob/master/Main.lean#L46)):
+([the exit-code mapping in `ConLeche/Driver/Run.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/Run.lean#L31)):
 
 | exit | verdict | meaning |
 |---|---|---|
@@ -280,7 +280,7 @@ Read from the outside in:
    with the reads interleaved, and what the parser makes of a record
    — index resolution, the smart constructors — is the
    semantic layer the main corollary's line lemmas are about. The install loop
-   ([function `installLoop` in `Main.lean`](https://github.com/leanprover/con-leche/blob/master/Main.lean#L103))
+   ([function `installLoop` in `ConLeche/Driver/Run.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/Run.lean#L90))
    takes every record through the install step
    ([function `annotStepC` in `ConLeche/Cached/Installed.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Cached/Installed.lean#L148-L151)):
    a definition or opaque is annotated and pushed with its check
@@ -304,10 +304,10 @@ Read from the outside in:
    boundary on — is marked persistent once, so that no check pays
    reference counting on it, and the checks are then run on worker
    threads: at `--jobs=1` the check loop
-   ([function `checkLoop` in `Main.lean`](https://github.com/leanprover/con-leche/blob/master/Main.lean#L173))
+   ([function `checkLoop` in `ConLeche/Driver/CheckPool.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/CheckPool.lean#L105))
    runs it on every record on one such thread and carries every fact;
    otherwise a pool of them
-   ([function `checkPool` in `Main.lean`](https://github.com/leanprover/con-leche/blob/master/Main.lean#L299))
+   ([function `checkPool` in `ConLeche/Driver/CheckPool.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/CheckPool.lean#L180))
    claims records one at a time off a shared counter, and the results,
    merged by record index, are walked in record order
    ([definition `collectChecks` in `ConLeche/Cached/Installed.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Cached/Installed.lean#L403-L407))
@@ -319,7 +319,7 @@ Read from the outside in:
    it is the identity on the value, its result is discarded, and the
    environment the driver goes on to use is the one it already had. The heartbeat is
    printed between the steps and touches neither type. The driver
-   ([function `checkDeclsIO` in `Main.lean`](https://github.com/leanprover/con-leche/blob/master/Main.lean#L338-L341))
+   ([function `checkDeclsIO` in `ConLeche/Driver/Run.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/Run.lean#L142-L145))
    turns the fully checked environment into its environment with the
    proof that `checkDecls` returns it
    ([theorem `fullyChecked_checkDecls` in `ConLeche/Cached/Installed.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Cached/Installed.lean#L538-L540)).
@@ -1117,8 +1117,8 @@ record-parameterised helper applied to the pure functions at a fuel
 **The module system.** Every file in the build carries the
 `module` header, so a declaration and an import are private unless said
 otherwise. The rule that decides which: *checker code is exposed, because
-it is the subject of the proofs* — `Kernel/*`, `Cached/*`, `Frontend/*`
-and `Main.lean` each open one `@[expose] public section`, since the
+it is the subject of the proofs* — `Kernel/*`, `Cached/*`, `Frontend/*`,
+`Driver/*` and `Main.lean` each open one `@[expose] public section`, since the
 Verify and Model tiers unfold their bodies — while *proof code is private
 by default*: `Model/*` and `Verify/*` open a plain `public section`, so a
 proof file's bodies and proof terms are both private and only its statements
@@ -1134,7 +1134,8 @@ ConLeche.Kernel.PropWhen`, and every such line carries its reason.
 
 | Directory | Contents |
 |---|---|
-| `Main.lean` | The driver: argument parsing, the stream parse, the install and check loops, verdict and exit codes. |
+| `Main.lean` | The CLI: argument parsing, usage, exit codes; calls `ConLeche.Driver.checkMain`. |
+| `ConLeche/Driver/` | The proof-carrying IO driver: the install loop, the phase sequencing and `checkDeclsIO` (`Run.lean`), phase B's sequential loop and worker pool (`CheckPool.lean`). Checker code, like `Kernel/*`; the one tier besides `Main.lean` that may import `ConLeche/Verify/*`. |
 | `ConLeche/Kernel/` | The pure checker: `Expr`/`Level`/`Name`, `PropWhen`, the mutually recursive core of reduction, inference and conversion (`Core.lean`), declaration checking (`Checker.lean`, `DeclCheck.lean`), the basis pins (`Basis/`), the inductive installer (`Inductives/`: the recogniser `BlockParts.lean`, the positivity check `Positivity.lean`, the entry `checkBlock` with its constructor stages (`Sum*`) and projection tables (`Struct*`), the recursor generator and check `GenRec.lean`, and `ClassRead.lean`, which reads the classes off the stream's recursor types without checking them), the Nat-op pins. Imports no theory module. |
 | `ConLeche/Cached/` | The shipped cached checker: hashed expressions, memo state, the cached core and declaration step, the parsed-record step (`ParsedC.lean`), the declaration fold `checkDecls` with its install and check phases and the fully checked environment the driver assembles (`Installed.lean`). |
 | `ConLeche/Frontend/` | The export parser: the dialect's byte recogniser and syntax records (`Scan/`) and the semantic layer over them (`ExportC.lean`), which decodes the file's records and nothing else; the preparation of the fold's input (`Prepare.lean`, with the built-in prelude of `Prelude.lean` and the reordering of `NatOpGround.lean`, which moves what a pinned Nat operation's certificates mention ahead of it). |
@@ -1158,7 +1159,9 @@ ConLeche.Kernel.PropWhen`, and every such line carries its reason.
 
 `tests/arena.sh` is the standard battery: the layering fence
 (`tests/layering.sh`: no base module imports the model tier, no
-implementation module imports the theory, and no module of the
+implementation module (`Kernel/*`, `Cached/*`, `Frontend/*`) imports the
+theory, the proof-carrying driver (`Driver/*`, `Main.lean`) imports
+`Verify/*` and nothing else of the theory, and no module of the
 rules tier of §4 has the pure implementation in the environment it
 elaborates in — its direct imports plus, transitively, their
 `public import`s, computed from source; the implementation modules

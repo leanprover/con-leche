@@ -144,7 +144,7 @@
 #       here is in the binary; the spliced literals are ordinary data
 #       the proofs consume.
 #
-#   Main.lean                          unsafe
+#   ConLeche/Driver/Run.lean           unsafe
 #       THE PERSISTENT MARK AT THE PHASE BOUNDARY.  Two term-level
 #       `unsafe Runtime.markPersistent` calls in `checkDeclsIO`, taken
 #       once at the phase boundary at every worker count, on the
@@ -162,6 +162,11 @@
 #       happened.  `--no-mark-persistent` turns it off, and the output
 #       is identical either way.  No `implemented_by` and no
 #       `computed_field` is tolerated in this file.
+#
+#       Run.lean took this escape over from `Main.lean` when the
+#       proof-carrying driver split out of it into `ConLeche/Driver/*`;
+#       `Main.lean` itself is CLI only (argument parsing, I/O, exit
+#       codes) and tolerates no escape.
 #
 # WHAT IS DELIBERATELY *NOT* ALLOWLISTED, and used to be:
 # `ConLeche/SetTheory/Derive/*`.  Twenty `@[implemented_by …] … unsafeCast
@@ -203,7 +208,7 @@ TOKENS = {
 }
 
 ALLOW = {
-    'Main.lean':                     {'unsafe'},
+    'ConLeche/Driver/Run.lean':       {'unsafe'},
     'ConLeche/Challenge.lean':       {'sorry'},
     'ConLeche/Kernel/Expr.lean':     {'computed_field'},
     'ConLeche/Kernel/Name.lean':     {'computed_field'},
