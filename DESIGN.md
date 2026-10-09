@@ -424,6 +424,11 @@ three stay declined by design under the axiom ceiling.
   structures whose soundness is feasible to verify, and the certifying
   operations are memoized alongside so proofs are not re-derived. Cache
   lifetime equals that of the corresponding unverified caches.
+  One deliberate exception to the order (task #333): definitional
+  equality tries proof irrelevance on the unreduced pair, before any
+  head normalization, so a proof is never reduced to be compared (the
+  official kernel reduces first and loops on a proof with no normal
+  form; see the TASK #333 record).
 * **No union-find defeq cache**: known unsound with a non-transitive defeq
   implementation.
 * Reference material: https://github.com/nomeata/nanodatg (a certifying, not
@@ -95986,6 +95991,7 @@ and the twins in `Cached/CoreC.lean`):
 | `defeqProjPair` | the proj/proj test in `is_def_eq_core` |
 | `defeqStuck` (string literal / `String.ofList`, fvars, consts, the spine, η on a one-sided λ, `stuckIrrel` for the rest) | the tail of `is_def_eq_core` |
 | `defeqBody`: `==`, `Bool.true` shortcut, cheap `whnfCore` ×2, `quickDefEq`, `propIrrel`, `lazyDeltaReduction`, `defeqProjPair`, full `whnfCore` ×2 and a restart if either changed, `defeqStuck` | `is_def_eq_core` |
+| *(since task #333, a deliberate deviation)* `defeqBody`: `==`, `Bool.true` shortcut, `quickDefEq` and `propIrrel` on the **unreduced** pair, cheap `whnfCore` ×2, `quickDefEq` again, then as above | official runs proof irrelevance after the cheap `whnf_core`, and so head-normalizes proofs to compare them; a proof with no normal form makes it loop (`tests/e2e/omega_demo2.ndjson`). Proof irrelevance reads only the types, so the verdict is unchanged wherever official's reduction terminates. See the TASK #333 record. |
 
 The continuation-passing `defeqStep`/`defeqLoop` and its `pi` flag are
 gone: the restarts (after a literal acceleration in the lazy loop and
@@ -96012,7 +96018,9 @@ shallow.
   mode left a projection stuck, and `whnfCore` stops there, so it is
   the spine head; elsewhere official's test finds both sides unchanged.
 * `quickDefEq` runs after the cheap `whnfCore`, not also before it:
-  `whnfCore` leaves sorts, literals and binders unchanged.
+  `whnfCore` leaves sorts, literals and binders unchanged.  (Superseded
+  by task #333: it now runs on the unreduced pair too, ahead of the
+  hoisted proof irrelevance, so that binder pairs keep their verdict.)
 * The same-head spine shortcut keeps con-leche's `sameConstHeads`
   guard (official also requires `is_app` and consults `failed_before`;
   con-leche's `defeq` memo plays the cache's role).
