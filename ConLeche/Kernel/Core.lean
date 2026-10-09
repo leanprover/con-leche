@@ -779,26 +779,39 @@ def projLitToCtor (r : CoreFns m) (env : Env) (depth : Nat) :
     else pure (.lit (.strVal s))
   | e => pure e
 
-/-- The major premise's preparation before a rule fires, in the
-official kernel's order (`inductive_reduce_rec`,
+/-- The major premise's preparation before a rule fires.  Elsewhere
+(the non-K case), the official order (`inductive_reduce_rec`,
 `src/kernel/inductive.cpp`; lean4lean `Inductive/Reduce.lean:66-72`):
+the major is head-normalized first, its literal converted, and the
+structure-eta rescue (`to_ctor_when_structure`) tried on the reduct.
 
-* at a K-flagged recursor the K rescue (`to_ctor_when_K`) runs on the
-  **raw** major — it reads only the major's *type* and fabricates the
-  constructor from it — and only then is the major head-normalized
-  (and its literal converted; a no-op on a proof, kept for the
-  site-by-site mirror);
-* elsewhere the major is head-normalized first, its literal
-  converted, and the structure-eta rescue (`to_ctor_when_structure`)
-  tried on the reduct.
+At a K-flagged recursor the K rescue (`to_ctor_when_K`) runs on the
+**raw** major — it reads only the major's *type* and fabricates the
+constructor from it.  **Task #334 (maintainer ruling, 2026-10-09,
+proposal P1 of the task #333 audit): if the rescue fails, the major is
+left exactly as it is — no head normalization, no literal conversion.**
+This deviates from the official kernel, which head-normalizes the
+major unconditionally even after a failed K rescue
+(`inductive_reduce_rec`'s `major = whnf(major)` runs regardless of
+`to_cnstr_when_K`'s outcome).  The rescue reads only the major's
+*type*: if `whnf` of a failed-rescue major ever produced `Eq.refl x`,
+its type `x = x` would be definitionally equal to the recursor's
+expected `a = b` by type preservation, so `a ≡ b` and the rescue would
+already have succeeded.  The only loss is in incompleteness corners of
+the checker's own defeq (a true `a ≡ b` that only a more complete
+decision procedure — such as one that first normalizes the major —
+would find); on mathlib-full the `whnf` after a failed K rescue ran
+15 651 times (all `Eq.rec`) and reached a constructor 0 times (see the
+TASK #333 record's audit). A K-like recursor application whose rescue
+fails is now simply stuck, sound either way.
 
-The two rescues live in one function (`majorToCtor`); the K branch is
-reachable exactly at `recRuleK`, the eta branch never is there (an
-inductive proposition fails its provably-nonzero guard), so the split
-below dispatches each to its official site and neither is attempted
-twice.
+The two rescues (K and structure-eta) live in one function
+(`majorToCtor`); the K branch is reachable exactly at `recRuleK`, the
+eta branch never is there (an inductive proposition fails its
+provably-nonzero guard), so the split below dispatches each to its
+official site and neither is attempted twice.
 
-Why the order matters (2026-09-06, the Mathlib `decide`-over-`Rat`
+Why the non-K order matters (2026-09-06, the Mathlib `decide`-over-`Rat`
 frontier): with the whnf *first*, an `Eq.rec` whose major is a
 theorem application — `Eq.ndrec … (Int.decEq._proof_1 a b h)` with
 `h := Nat.eq_of_beq_eq_true …`, the shape `instDecidableEqRat`'s
@@ -811,8 +824,10 @@ def prepareMajor (r : CoreFns m) (env : Env) (depth : Nat)
     (recName : Name) (rules : List RecRule) (major : Expr) : m Expr := do
   if recRuleK rules then
     let majorK ← majorToCtor mode r env depth recName rules major
-    let major₀ ← r.whnf depth majorK
-    litMajorToCtor r env depth major₀
+    if isCtorApp env majorK then
+      litMajorToCtor r env depth majorK
+    else
+      pure majorK
   else
     let major₀ ← r.whnf depth major
     let major₁ ← litMajorToCtor r env depth major₀

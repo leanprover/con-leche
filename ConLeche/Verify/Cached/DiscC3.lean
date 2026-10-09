@@ -951,9 +951,12 @@ theorem prepareMajorC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode en
     refine SimC.bind (majorToCtorC_sim hμ ih henv hs hden hmaj)
       (fun s₁ m₁ m₁x hs₁ hP₁ => ?_)
     obtain ⟨hd₁, hw₁⟩ := hP₁
-    refine SimC.bind (ih.whnf hs₁ hd₁ hw₁) (fun s₂ m₂ m₂x hs₂ hP₂ => ?_)
-    obtain ⟨hd₂, hw₂⟩ := hP₂
-    exact litMajorToCtorC_sim ih hs₂ hd₂ hw₂
+    rw [isCtorAppC_spec' hd₁]
+    by_cases hca : isCtorApp env m₁x
+    · rw [ite_eq_left hca, ite_eq_left hca]
+      exact litMajorToCtorC_sim ih hs₁ hd₁ hw₁
+    · rw [ite_eq_right hca, ite_eq_right hca]
+      exact SimC.pure hs₁ ⟨hd₁, hw₁⟩
   · rw [ite_eq_right hk, ite_eq_right hk]
     refine SimC.bind (ih.whnf hs hden hmaj) (fun s₁ m₁ m₁x hs₁ hP₁ => ?_)
     obtain ⟨hd₁, hw₁⟩ := hP₁

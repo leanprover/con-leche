@@ -399,6 +399,7 @@ theorem prepareMajor_atF (d : Nat) (c : Name) (rules : List RecRule) (e : Expr)
     | (rw [majorToCtor_atF])
     | (rw [litMajorToCtor_atF])
     | ((rw [FueledM.atF_bind]; congr 1 <;> try rfl) <;> try funext _)
+    | (split <;> (first | rfl | rw [litMajorToCtor_atF]))
     | (dsimp only [])))
 
 theorem projLitToCtor_atF (d : Nat) (e : Expr) (F : Nat) :

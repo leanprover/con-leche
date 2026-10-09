@@ -753,6 +753,7 @@ theorem prepareMajor_fst_proj (d : Nat) (c : Name) (rules : List RecRule) (e : E
     | (rw [majorToCtor_fst_proj])
     | (rw [litMajorToCtor_fst_proj])
     | ((rw [PairM.fst_bind]; congr 1 <;> try rfl) <;> try funext _)
+    | (split <;> (first | rfl | rw [litMajorToCtor_fst_proj]))
     | (dsimp only [])))
 
 theorem prepareMajor_snd_proj (d : Nat) (c : Name) (rules : List RecRule) (e : Expr) :
@@ -764,6 +765,7 @@ theorem prepareMajor_snd_proj (d : Nat) (c : Name) (rules : List RecRule) (e : E
     | (rw [majorToCtor_snd_proj])
     | (rw [litMajorToCtor_snd_proj])
     | ((rw [PairM.snd_bind]; congr 1 <;> try rfl) <;> try funext _)
+    | (split <;> (first | rfl | rw [litMajorToCtor_snd_proj]))
     | (dsimp only [])))
 
 theorem projLitToCtor_fst_proj (d : Nat) (e : Expr) :

@@ -728,12 +728,15 @@ theorem projCert_inv {env : Env} {fuel d : Nat} {lic : Bool} {c : Name}
   · exact absurd h (by simp [pure, Except.pure])
 
 /-- **The major chain's induction principle.**  `prepareMajor` runs
-its three steps — `whnf`, the literal conversion, the rescue — in one
-of two orders (the K-flagged one puts the rescue first); a property
-each step preserves is carried from the raw major to the prepared one
-whichever order ran.  Every consumer of the chain (scoping, bound
-variables, leaves, the P tier's readings and gradings) is an instance,
-so none of them names the order. -/
+`whnf`, the literal conversion and the rescue in one of two orders
+(the K-flagged one puts the rescue first); a property each step
+preserves is carried from the raw major to the prepared one whichever
+order ran.  Task #334: at a K-flagged recursor `whnf` runs only when
+the rescue did NOT already produce a constructor (`hca` below) — the
+`hwhnf` hypothesis is simply unused on that branch, since `hlit`/`hmaj`
+alone connect `a` to `m` there.  Every consumer of the chain (scoping,
+bound variables, leaves, the P tier's readings and gradings) is an
+instance, so none of them names the order. -/
 theorem prepareMajorFueled_ind {env : Env} {fuel d : Nat} {recName : Name}
     {rules : List RecRule} {a m : Expr}
     (h : prepareMajorFueled mode env fuel d recName rules a = .ok m)
@@ -754,12 +757,12 @@ theorem prepareMajorFueled_ind {env : Env} {fuel d : Nat} {recName : Name}
     | ok m₁ =>
       rw [h₁] at h
       dsimp only at h
-      cases h₂ : whnf mode env fuel d m₁ with
-      | error err => rw [h₂] at h; exact nomatch h
-      | ok m₂ =>
-        rw [h₂] at h
-        dsimp only at h
-        exact hlit h (hwhnf h₂ (hmaj h₁ ha))
+      by_cases hca : isCtorApp env m₁ = true
+      · rw [ite_eq_left hca] at h
+        exact hlit h (hmaj h₁ ha)
+      · rw [ite_eq_right hca] at h
+        simp only [pure, Except.pure, Except.ok.injEq] at h
+        exact h ▸ hmaj h₁ ha
   · rw [ite_eq_right hk] at h
     cases h₁ : whnf mode env fuel d a with
     | error err => rw [h₁] at h; exact nomatch h

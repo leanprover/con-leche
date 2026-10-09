@@ -289,11 +289,15 @@ arena_half() {
 # omega_kloop, omega_demo2: BELOW the default, likewise — both check in
 # milliseconds, and a regression (proof irrelevance moved back behind
 # the head normalization) does not terminate.
+# k_rescue_stuck: BELOW the default too — checks in milliseconds, and a
+# regression (task #334: whnf of the major restored after a failed K
+# rescue) does not terminate.
 declare -A E2E_TIMEOUT=(
   [complete_c05b_nest30_pi1000.ndjson]=600
   [proj_stuck_struct.ndjson]=10
   [omega_kloop.ndjson]=10
   [omega_demo2.ndjson]=10
+  [k_rescue_stuck.ndjson]=10
 )
 
 e2e_half() {

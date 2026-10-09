@@ -1454,9 +1454,8 @@ private theorem prepareMajor_shift (henv : EnvWF env)
       rcases majorToCtor_inv hm₁ with rfl | ⟨hwsc, -, -, -⟩
       · exact hwmaj
       · exact WScoped.of_wscopedB hwsc
-    refine bind_rel _ _ (ih.whnf hpd hw₁) ?_
-    intro m₂ hm₂
-    exact litMajorToCtor_shift henv ih hpd (whnf_WScoped henv fuel hm₂ hw₁)
+    rw [isCtorApp_shiftFrom]
+    exact ite_rel _ (fun _ => litMajorToCtor_shift henv ih hpd hw₁) (fun _ => rfl)
   · rw [ite_eq_right hk, ite_eq_right hk]
     refine bind_rel _ _ (ih.whnf hpd hwmaj) ?_
     intro m₀ hm₀
