@@ -20,7 +20,7 @@ a definition, theorem or opaque too.  The declaration fold itself,
 first (a separable value declaration by the install half of this
 step, annotated and pushed with its check recorded; everything else by
 this step) and checks the recorded declarations afterwards; the
-binary's driver (`Main.lean`) runs that fold with a heartbeat between
+binary's driver (`ConLeche/Driver/*`) runs that fold with a heartbeat between
 the steps and returns its environment together with the proof that
 `checkDecls` returns it.  The fold runs at `.verified` and at
 `.trusted` alike (the trusted mode is the same fold at the other
@@ -293,7 +293,7 @@ def checkDeclC (pins : List NatOpPinSet) (fe : FEnv) (pd : Declaration) :
 arithmetic — no `Float` formatting on a message path. -/
 def msSecs (ms : Nat) : String := s!"{ms / 1000}.{(ms % 1000) / 100}"
 
-/-- A parsed declaration's display label (`Main.declCName`, shared with
+/-- A parsed declaration's display label (`Driver.declCName`, shared with
 the driver's progress callback so the two can never drift). -/
 def declCLabel : Declaration → String
   | .defnDecl cv _ _ => s!"def {cv.name}"

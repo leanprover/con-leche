@@ -89,10 +89,22 @@ for name, rel in mods.items():
 # (The old `neutral` class — a module under `ConLeche/SetR/` that no R
 # capstone reached — retired with that directory.)
 IMPL_DIRS   = ('ConLeche/Kernel/', 'ConLeche/Cached/', 'ConLeche/Frontend/')
-IMPL_ROOTS  = ('Main',)
 THEORY_PFX  = ('ConLeche.Verify.', 'ConLeche.SetTheory.',
                'ConLeche.Model.', 'ConLeche.SetModel.', 'ConLeche.Semantics.',
                'ConLeche.Term.', 'ConLeche.Complete.')
+# THE DRIVER DOOR (task #329, maintainer ruling 2026-10-08): the
+# proof-carrying IO driver (`ConLeche/Driver/*`, `Main.lean`) carries
+# the serial fold's accepting run and needs the theorems about kernel
+# functions that need no model to extend it, so it alone may import
+# `ConLeche.Verify.*` — the one door in THEORY_PFX this tier does not
+# fence.  It still may not import the model lane or the other theory
+# prefixes (DRIVER_FORBIDDEN_PFX below); `Kernel/*`, `Cached/*` and
+# `Frontend/*` keep the full fence (`implv` below, unchanged).
+DRIVER_DIRS = ('ConLeche/Driver/',)
+DRIVER_ROOTS = ('Main',)
+DRIVER_FORBIDDEN_PFX = ('ConLeche.SetTheory.', 'ConLeche.Model.',
+                        'ConLeche.SetModel.', 'ConLeche.Semantics.',
+                        'ConLeche.Term.', 'ConLeche.Complete.')
 CAPS        = {'ConLeche.Verify.Cached.MainC', 'ConLeche.Verify.Cached',
                'ConLeche.MainTheorem'}
 UMBRELLAS   = {'ConLeche'}                  # `ConLeche.Model` is gated as the model lane
@@ -118,7 +130,7 @@ NAMED_MODS = (CAPS | UMBRELLAS |
                'ConLeche.Kernel.DeclCheck', 'ConLeche.Kernel.Checker',
                'ConLeche.Kernel.CheckerBase', 'ConLeche.Kernel.CoreDefs',
                'Main'})
-NAMED_DIRS = IMPL_DIRS + ('ConLeche/Rules/', 'ConLeche/Model/Rules/',
+NAMED_DIRS = IMPL_DIRS + DRIVER_DIRS + ('ConLeche/Rules/', 'ConLeche/Model/Rules/',
                           'ConLeche/Model/', 'ConLeche/Complete/')
 _stale = ([f'lane {l!r} assigned to no module' for l in LANE_NAMES
            if l not in LANE.values()] +
@@ -142,8 +154,13 @@ if _stale:
 basev = sorted((a, b) for a in mods for b in edges[a]
                if LANE[a] == 'base' and LANE[b] == 'model')
 implv = sorted((a, b) for a in mods for b in edges[a]
-               if (mods[a].startswith(IMPL_DIRS) or a in IMPL_ROOTS)
+               if mods[a].startswith(IMPL_DIRS)
                and b.startswith(THEORY_PFX))
+# THE DRIVER DOOR, the other half of it: the driver may import
+# `ConLeche.Verify.*` but nothing else of the theory.
+driverv = sorted((a, b) for a in mods for b in edges[a]
+               if (mods[a].startswith(DRIVER_DIRS) or a in DRIVER_ROOTS)
+               and b.startswith(DRIVER_FORBIDDEN_PFX))
 # THE PARKED FENCE (lane PARKFIX).  `ConLeche/Complete{,/*}` (lib
 # `ConLecheComplete`) holds the parked completeness work: results that
 # nothing consumes.  It may import anything; nothing outside it may
@@ -265,8 +282,12 @@ report('base module importing the model lane', basev,
        'ConLeche/{Kernel,Verify,SetTheory,Term,SetModel,Semantics}/* stand BELOW the '
        'lane; nothing there may import ConLeche/Model/*.')
 report('implementation importing theory', implv,
-       'CLAUDE.md: ConLeche/Kernel/*, Main.lean must never import '
+       'CLAUDE.md: ConLeche/{Kernel,Cached,Frontend}/* must never import '
        'ConLeche/{SetTheory,SetModel,Semantics,Model,Verify}/*.')
+report('driver importing the model lane or another theory prefix', driverv,
+       'CLAUDE.md: ConLeche/Driver/* and Main.lean may import ConLeche/Verify/* '
+       '(the theorems about kernel functions that need no model) and nothing '
+       'else of ConLeche/{SetTheory,SetModel,Semantics,Model,Term,Complete}/*.')
 report('module importing the parked completeness work', parkv,
        'lane PARKFIX: nothing outside ConLeche/Complete/* may import it; '
        'a result that gains a consumer moves out of the directory.')
@@ -290,6 +311,7 @@ if not fail:
     print(f'layering: base {n["base"]} / model {n["model"]} / caps {n["caps"]} / '
           f'umbrella {n["umbrella"]} / parked {n["parked"]} modules; '
           f'{len(basev)} base->lane edges, {len(implv)} impl->theory, '
+          f'{len(driverv)} driver->non-Verify theory, '
           f'{len(rulesv)} rules->impl; rules closure: {len(rules_mods)} modules, '
           f'{len(doors_seen)} doors as listed')
 sys.exit(fail)
