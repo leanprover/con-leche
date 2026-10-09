@@ -674,17 +674,19 @@ def projLitToCtorI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (e : Expr) :
     else pure e
   | _ => pure e
 
-/-- Twin of `prepareMajor`: the major's preparation in the official
-order (K rescue on the raw major, then whnf and the literal
-conversion; elsewhere whnf, literal, eta).  The K flag is the single
-rule's stored bit, as in the spec (`recRuleK`). -/
+/-- Twin of `prepareMajor`: the major's preparation (K rescue on the
+raw major; task #334 — no `whnf` either way after it: if it produced a
+constructor, only the literal conversion follows; if it failed, the
+major is left exactly as it is; elsewhere whnf, literal, eta).  The K
+flag is the single rule's stored bit, as in the spec (`recRuleK`). -/
 def prepareMajorI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
     (recName : Name) (rules : List RecRule) (major : Expr) :
     CheckCM Expr := do
   if recRuleK rules then do
     let majorK ← majorToCtorI mode r fe depth recName rules major
-    let major₀ ← r.whnf depth majorK
-    litMajorToCtorI r fe depth major₀
+    if isCtorAppC fe majorK then
+      litMajorToCtorI r fe depth majorK
+    else pure majorK
   else do
     let major₀ ← r.whnf depth major
     let major₁ ← litMajorToCtorI r fe depth major₀

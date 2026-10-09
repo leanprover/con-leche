@@ -5366,37 +5366,37 @@
    305        Infer env .io d fab tf → DefEq env d tmaj tf →
    306        DefEq env d fab major →
 
-== ConLeche/Kernel/Core.lean#L1988-L2017
-  1988      | .letE ty v b => do
-  1989        -- The body is annotated *with the value transparent* — nanoda's
-  1990        -- `infer_let` instantiates the body with the value and recurses
-  1991        -- (the official kernel gets the same transparency from valued
-  1992        -- let-fvars in its local context).  ConLeche fvars carry no value,
-  1993        -- so the body is annotated as its zeta reduct; an opened opaque
-  1994        -- variable was tried and rejects real streams (elaborated `let`
-  1995        -- bodies rely on the value definitionally — see DESIGN.md).
-  1996        --
-  1997        -- Task #217 (audit follow-up #206-S1): the official `infer_let`
-  1998        -- triple — `ensure_sort_core(infer(type))`, `infer(val)`,
-  1999        -- `is_def_eq(val_type, type)` — runs HERE, on the annotated
-  2000        -- annotation and the annotated value, before the reduct is taken.
-  2001        --
-  2002        -- Task #161 item C2 dropped it as redundant with `inferBody`'s
-  2003        -- own `.letE` clause.  That was wrong: this clause returns the ζ
-  2004        -- reduct, so the stored term is let-free and `inferBody`'s
-  2005        -- `.letE` arm never sees a `letE` node the driver produced —
-  2006        -- `def x : Nat := let y : Nat := Bool.true; Nat.zero` was
-  2007        -- accepted where the official kernel rejects ("(kernel)
-  2008        -- let-declaration type mismatch").  The annotation pass is the
-  2009        -- only pass that meets a `letE`, so it is where the triple must
-  2010        -- run.
-  2011        let ty' ← r.annotate depth ty
-  2012        let _ ← ensureSort r env depth (← r.infer depth ty')
-  2013        let v' ← r.annotate depth v
-  2014        let tv ← r.infer depth v'
-  2015        unless ← r.defeq depth tv ty' do
-  2016          throw (.invalid "let value type mismatch")
-  2017        r.annotate depth (b.instantiate1 v)
+== ConLeche/Kernel/Core.lean#L2003-L2032
+  2003      | .letE ty v b => do
+  2004        -- The body is annotated *with the value transparent* — nanoda's
+  2005        -- `infer_let` instantiates the body with the value and recurses
+  2006        -- (the official kernel gets the same transparency from valued
+  2007        -- let-fvars in its local context).  ConLeche fvars carry no value,
+  2008        -- so the body is annotated as its zeta reduct; an opened opaque
+  2009        -- variable was tried and rejects real streams (elaborated `let`
+  2010        -- bodies rely on the value definitionally — see DESIGN.md).
+  2011        --
+  2012        -- Task #217 (audit follow-up #206-S1): the official `infer_let`
+  2013        -- triple — `ensure_sort_core(infer(type))`, `infer(val)`,
+  2014        -- `is_def_eq(val_type, type)` — runs HERE, on the annotated
+  2015        -- annotation and the annotated value, before the reduct is taken.
+  2016        --
+  2017        -- Task #161 item C2 dropped it as redundant with `inferBody`'s
+  2018        -- own `.letE` clause.  That was wrong: this clause returns the ζ
+  2019        -- reduct, so the stored term is let-free and `inferBody`'s
+  2020        -- `.letE` arm never sees a `letE` node the driver produced —
+  2021        -- `def x : Nat := let y : Nat := Bool.true; Nat.zero` was
+  2022        -- accepted where the official kernel rejects ("(kernel)
+  2023        -- let-declaration type mismatch").  The annotation pass is the
+  2024        -- only pass that meets a `letE`, so it is where the triple must
+  2025        -- run.
+  2026        let ty' ← r.annotate depth ty
+  2027        let _ ← ensureSort r env depth (← r.infer depth ty')
+  2028        let v' ← r.annotate depth v
+  2029        let tv ← r.infer depth v'
+  2030        unless ← r.defeq depth tv ty' do
+  2031          throw (.invalid "let value type mismatch")
+  2032        r.annotate depth (b.instantiate1 v)
 
 == ConLeche/Rules/Rel.lean#L77-L82
     77  /-- The inference grade: `full` is the declaration front door

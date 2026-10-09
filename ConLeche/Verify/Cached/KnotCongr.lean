@@ -272,7 +272,7 @@ theorem projLitToCtorI_congr (hfe : fe₁.find? = fe₂.find?) (r : CoreFnsI) :
 theorem prepareMajorI_congr (hfe : fe₁.find? = fe₂.find?) (r : CoreFnsI) :
     prepareMajorI mode r fe₁ = prepareMajorI mode r fe₂ := by
   funext depth recName rules major; unfold prepareMajorI
-  simp only [majorToCtorI_congr hfe, litMajorToCtorI_congr hfe]
+  simp only [majorToCtorI_congr hfe, litMajorToCtorI_congr hfe, isCtorAppC_congr hfe]
 
 /-- `iotaArityOk` reads `fe` only through `find?`. -/
 theorem iotaArityOk_congr (hfe : fe₁.find? = fe₂.find?) :

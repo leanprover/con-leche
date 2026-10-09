@@ -97377,7 +97377,9 @@ under `whnf`. On init-full the rescue failed and `whnf` stayed stuck
 594 times; on mathlib-prefix, 972 times.
 
 **Proposals (not implemented, they need a ruling):**
-* **P1: no `whnf` after a failed K rescue.** At a K recursor whose
+* **P1: no `whnf` after a failed K rescue.** *Implemented by task #334
+  (the maintainer ruling below), see its record at the end of this
+  file.* At a K recursor whose
   rescue fails, leave the major as it is and stay stuck. Then a K-like
   recursor never reduces a proof. On mathlib-full the `whnf` there
   never helped: 15 651 calls, 0 constructors. If `whnf` turned the
@@ -97405,3 +97407,124 @@ under `whnf`. On init-full the rescue failed and `whnf` stayed stuck
   needs it rarely (one constructor reached on mathlib-full). Since
   `Acc.rec` is deprecated, a ruling could still choose that loss. The
   fixture's comment names accept as today's target.
+
+## TASK #334 — a K-like recursor never reduces its major premise (2026-10-09, agent/334-kstuck)
+
+**The ruling (maintainer, 2026-10-09, proposal P1 of the TASK #333
+audit above).** At a K-flagged recursor whose K rescue fails, do not
+head-normalize the major premise. The recursor application is then
+simply stuck. The reasoning, restated from the audit: the rescue reads
+only the major's *type*; if `whnf` of a failed-rescue major ever
+produced `Eq.refl x`, its type `x = x` would be definitionally equal
+to the recursor's expected `a = b` by type preservation (so `a ≡ b`
+and the rescue would already have succeeded). The only conceivable
+gain is in incompleteness corners of the checker's own conversion
+(non-transitive), which never happened on mathlib-full: the path ran
+15 651 times, reached a constructor 0 times.
+
+**The change.** `prepareMajor` (`ConLeche/Kernel/Core.lean`) and
+`prepareMajorI` (`ConLeche/Cached/CoreC.lean`): in the K-flagged
+branch, `r.whnf` on the rescue's output is replaced by `isCtorApp` (a
+cheap syntactic check — did `majorToCtor` actually produce a
+constructor application?): if so, only the literal conversion
+follows (as before, a no-op on a non-literal, kept for the
+site-by-site mirror); if not, the major is returned exactly as
+`majorToCtor` left it — no `whnf`, no literal conversion. The non-K
+branch (`whnf` first, then the literal conversion, then the
+structure-eta/`And` rescue) is unchanged. This deviates from the
+official kernel on purpose: `inductive_reduce_rec` head-normalizes the
+major unconditionally, whether or not `to_ctor_when_K` succeeded.
+`OVERVIEW.md` and the `prepareMajor`/`prepareMajorI` docstrings now
+say so.
+
+**Proofs.** No statement changed (no new rule, no sorry, no new axiom,
+no new `unsafe`); every repair is to a proof *about* `prepareMajor`'s
+new shape:
+* `prepareMajorFueled_ind` (`Verify/InferLemmas.lean`), the induction
+  principle every consumer of the major chain (scoping, bound
+  variables, leaves, the P tier) goes through: the K branch now
+  `by_cases` on `isCtorApp env m₁` after the rescue, instead of
+  unconditionally stepping through `whnf`; the "stuck" sub-case
+  discharges `hlit`/`hmaj` directly (`hwhnf` is simply unused there).
+* `prepareMajor_shift` (`Verify/Deep.lean`): the K branch's second
+  `bind_rel` (over `whnf`, then `litMajorToCtor_shift`) is replaced by
+  `ite_rel` over the pre-existing `isCtorApp_shiftFrom` fact, closing
+  the "stuck" arm with `rfl` (the `pure`/`map` shift commutes for
+  free) and the "ctor" arm with the existing `litMajorToCtor_shift`.
+* `prepareMajorC_sim` (`Verify/Cached/DiscC3.lean`), the cached/spec
+  simulation: the second `SimC.bind` (over `ih.whnf`, then
+  `litMajorToCtorC_sim`) is replaced by `isCtorAppC_spec'` (the
+  existing cached/spec agreement lemma for `isCtorApp`/`isCtorAppC`)
+  plus a `by_cases`; the "stuck" arm is `SimC.pure` on the unchanged
+  pair, the "ctor" arm is the pre-existing `litMajorToCtorC_sim`.
+* `prepareMajorI_congr` (`Verify/Cached/KnotCongr.lean`): one more
+  `simp` lemma (`isCtorAppC_congr`), already proved for `majorToCtorI`'s
+  own leading check.
+* `prepareMajor_atF`/`prepareMajor_fst_proj`/`prepareMajor_snd_proj`
+  (`Verify/Fueled.lean`, `Verify/PairM.lean`): the macro-driven proofs
+  (`atF_core3`-style `repeat (first | …)` combinators) gained one more
+  alternative, `split <;> (first | rfl | rw […])`, for the new inner
+  `if`; no other branch of the macro changed.
+
+**Fixture.** `tests/e2e/src/k_rescue_stuck.lean` /
+`tests/e2e/k_rescue_stuck.ndjson` (`agent/334-kstuck`). Reuses
+`omega_kloop.lean`'s `Ω : P` (`P := ∀ A : Prop, A → A`, no weak-head
+normal form) and the fact that `Ω` applied to further arguments
+inherits the loop (whnf of an application needs whnf of the head
+first). `Q := (P → P) = True` and `w : Q` (via `propext`, since
+`P → P` is inhabited); `h := Ω Q w : Q` is then a non-terminating
+proof of an equation between two propositions that are *not*
+definitionally equal (a Π-type vs. an inductive application —
+structurally obvious, no reduction needed to see the mismatch, so the
+K rescue reads `h`'s type and correctly, quickly fails).
+`demoStuck := @Eq.rec Prop (P → P) (fun _ _ => Nat) 0 True h`. Before
+task #334 the (confirmed, on a scratch pre-#334 build) checker
+head-normalized `h` anyway and never returned; after, the recursor
+application is simply left stuck, and `demoStuck_eq : demoStuck = 0`
+is rejected quickly (`invalid: type mismatch`, exit 1, t≈0 s, both
+`--verified` and `--trusted`) once the comparison forces `whnf
+demoStuck` and meets the stuck term. The committed stream is
+hand-patched the way `nat_ops_nonstandard.ndjson`/
+`str_lit_declined.ndjson`/`sorry_unused.ndjson` are: the real Lean
+4.29.1 elaborator's own `isDefEq` also times out on a literal `:=
+rfl` for `demoStuck_eq` (it shares the kernel's unconditional
+whnf-after-failed-K-rescue order), so the source is exported with
+`sorry` (instant — `sorryAx`'s stored type is taken as-is) and the
+committed `.ndjson` replaces that `sorryAx` application node with
+`@Eq.refl.{1} Nat demoStuck` — well-typed regardless of whether
+`demoStuck` ever reduces (its own type is `demoStuck = demoStuck`),
+smuggling in no unverified fact; con-leche independently re-derives
+and checks everything from the raw stream, and it is precisely the
+mismatch between that self-evident type and the declared `demoStuck =
+0` that forces the `whnf demoStuck` the fixture is testing. The
+official kernel, asked the same question, would also loop (its
+whnf-after-rescue is unconditional) — con-leche's termination here is
+strictly more complete, never less sound. `tests/arena.sh`'s
+`E2E_TIMEOUT` gives it the same 10 s cap as `omega_kloop`/
+`omega_demo2`, for the same reason (a regression does not terminate).
+
+**Measurements** (`--jobs=1`, `perf stat -e instructions:u`, one run
+each; wall times are indicative only; "before" is master `8072fef2b`,
+the task #333 state this task branches from):
+
+| stream | before | after | Δ |
+|---|---|---|---|
+| init-full | 485.75 G (check 45.4s) | 485.73 G (check 46.2s) | −0.005% |
+| mathlib-prefix | 684.52 G (check 64.6s) | 684.49 G (check 64.3s) | −0.004% |
+
+Both streams accept the same declaration counts before and after
+(57977 / 131902). The change is in the noise, as expected: the K-rescue
+-fails-then-`whnf` path is rare (594 times on init-full, 972 on
+mathlib-prefix per the TASK #333 audit) and the `whnf` call it skips
+is on an already-not-a-constructor term, typically cheap on real
+inputs — the loss is the cost of attempting it at all, not of a
+reduction that was doing useful work. mathlib-full (8 workers) accepts
+all 691 203 records: parse 21.1 s, install 52.7 s, check 115.3 s.
+
+**Landing note.** `more-parallel` was not fast-forwarded with this
+task: both `agent/329-ifix` and `agent/329-pfix` were mid-landing at
+the time (a `mathlib-full` run in flight under the shared `flock`, and
+both lanes' last commits were the "link anchors repointed" step that
+immediately precedes a landing merge) — see `_tmp/amdahl/COMMON.md`'s
+landing protocol. They will merge `more-parallel` themselves once this
+lands on `master`.

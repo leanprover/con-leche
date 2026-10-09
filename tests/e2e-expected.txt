@@ -2789,6 +2789,16 @@
 # deliberate accept-superset (task #333's ruling: proofs are compared by
 # proof irrelevance before any reduction).
 0 omega_demo2.ndjson
+# k_rescue_stuck.ndjson (task #334, proposal P1 of the task #333
+# audit): a K-flagged recursor whose K rescue fails on its major's
+# type (`P → P` vs `True`, not definitionally equal) must not reduce
+# the major itself.  The major is `Ω`-like (loops under whnf); before
+# task #334 the checker head-normalized it anyway and never returned
+# (confirmed on the pre-#334 binary); now the recursor application is
+# simply stuck, and the claim that it equals the literal `0` is
+# correctly, and quickly, rejected.  The official kernel would loop
+# here too (its whnf-after-rescue is unconditional); see DESIGN.md.
+1 k_rescue_stuck.ndjson
 # acc_major_reduce (task #333 audit): the one place a proof is still
 # head-normalized — the major premise of a large eliminator over a
 # non-K inductive proposition (`Acc'.rec` into `Nat` on a `def`-proved
