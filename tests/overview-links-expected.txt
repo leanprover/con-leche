@@ -10,8 +10,8 @@
 == Main.lean#L47
     47  def usage : String := String.intercalate "\n" [
 
-== ConLeche/Driver/Run.lean#L36
-    36  def ConLeche.CheckError.exitCode : CheckError → UInt32
+== ConLeche/Driver/Run.lean#L37
+    37  def ConLeche.CheckError.exitCode : CheckError → UInt32
 
 == ConLeche/MainTheorem.lean#L96-L99
     96  theorem model_exists (V : Type w) [SetTheory V]
@@ -121,25 +121,25 @@
     94  #guard_msgs in
     95  #print axioms ConLeche.model_exists
 
-== ConLeche/Driver/Run.lean#L62
-    62  def parseInput (file : String) (jobs : Nat) (noMark : Bool) : IO Frontend.ParseOutcome := do
+== ConLeche/Driver/Run.lean#L67
+    67  def parseInput (file : String) (jobs : Nat) (noMark verbose : Bool) : IO LazyParse.ParseOut := do
 
 == ConLeche/Frontend/Scan/Equiv.lean#L1002
   1002  @[csimp] theorem scanLineSpec_eq_scanLineFwd : @scanLineSpec = @scanLineFwd := by
 
-== ConLeche/Frontend/ExportC.lean#L622
-   622  def chunkStep (st : StateD) (carry : ByteArray) (lineNo total : Nat) (buf0 : ByteArray) :
+== ConLeche/Frontend/ExportC.lean#L642
+   642  def chunkStep (st : StateD) (carry : ByteArray) (lineNo total : Nat) (buf0 : ByteArray) :
 
 == ConLeche/Frontend/Pipeline.lean#L472-L474
    472  theorem chunkStepF_of_encodes (st : StateD) (carry : ByteArray) (lineNo total : Nat)
    473      (buf0 : ByteArray) (fc : FlatChunk) (h : fc.Encodes (scanChunk buf0)) :
    474      chunkStepF st carry lineNo total buf0 fc = chunkStep st carry lineNo total buf0 := by
 
-== ConLeche/Driver/ParParse.lean#L488
-   488  def parseExportStreamR (path : System.FilePath) (jobs m : Nat) (csz : USize)
+== ConLeche/Driver/LazyParse.lean#L548
+   548  def parseExportLazy (path : System.FilePath) (jobs m : Nat) (csz : USize) (inflight : Nat)
 
-== ConLeche/Verify/Frontend/Rounds.lean#L409
-   409  theorem GOK.chunk {g : GSt} (h : GOK g) {b : ByteArray} {fc : FlatChunk}
+== ConLeche/Verify/Frontend/Lazy.lean#L724
+   724  theorem LGOK.chunk {g : LGSt} (h : LGOK g) {b : ByteArray} {fc : FlatChunk}
 
 == ConLeche/Driver/ParInstall.lean#L158
    158  def installLoop (mode : ConLeche.CheckMode) (err : IO.FS.Stream)
@@ -181,21 +181,26 @@
 == ConLeche/Driver/CheckPool.lean#L123
    123  def checkLoop (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride t0 : Nat)
 
-== ConLeche/Driver/CheckPool.lean#L214
-   214  def checkPool (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride t0 jobs : Nat)
+== ConLeche/Driver/CheckPool.lean#L278
+   278  def checkPool (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride t0 jobs : Nat)
 
-== ConLeche/Cached/Installed.lean#L401-L405
-   401  def collectChecks {pins : List NatOpPinSet} {ds : List Declaration}
-   402      (e : InstalledEnv mode pins ds)
-   403      (tab : Array (Option (RecordResult mode e))) :
-   404      (j : Nat) → (∀ i, i < j → GroupChecked mode e i) →
-   405        Except (CheckError × Nat) (PLift (∀ i, GroupChecked mode e i))
+== ConLeche/Driver/CheckPool.lean#L218
+   218  def collectQ {Q : Nat → Prop} (n : Nat) (pos : Nat → Nat) (tab : Array (Option (RecResultQ Q))) :
 
-== ConLeche/Driver/Run.lean#L111-L114
-   111  def checkDeclsIO (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride total t0 tParse jobs : Nat)
-   112      (noMark : Bool) (fallbackAt : Option Nat) (ds : Array ConLeche.Declaration) :
-   113      IO (Except (ConLeche.CheckError × Nat)
-   114        { env : ConLeche.Env // ConLeche.Cached.checkDecls mode ConLeche.natOpPinSets ds = .ok env }) := do
+== ConLeche/Driver/LazyCheck.lean#L60
+    60  def lazyCheckRecord {mode : CheckMode} {ds : List Declaration} (S : LStore)
+
+== ConLeche/Verify/Frontend/Lazy.lean#L1161
+  1161  theorem buildVal_sound {S : LStore} {G : StateD} (hh : SHolds G S)
+
+== ConLeche/Verify/Cached/LazyInstall.lean#L261
+   261  theorem lazy_checkDecls {R : Expr → Expr → Prop} {pins : List NatOpPinSet}
+
+== ConLeche/Driver/Run.lean#L247-L250
+   247  def checkDeclsIO (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride total t0 tParse jobs : Nat)
+   248      (noMark : Bool) (fallbackAt : Option Nat) (ds : Array ConLeche.Declaration) :
+   249      IO (Except (ConLeche.CheckError × Nat)
+   250        { env : ConLeche.Env // ConLeche.Cached.checkDecls mode ConLeche.natOpPinSets ds = .ok env }) :=
 
 == ConLeche/Cached/Installed.lean#L534-L536
    534  theorem fullyChecked_checkDecls {pins : List NatOpPinSet} {ds : Array Declaration}
