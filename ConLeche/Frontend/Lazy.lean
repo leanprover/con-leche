@@ -129,20 +129,26 @@ followed the last declaration line, and the current region's entry. -/
 structure LAcc where
   ds : Array Declaration
   cd : ByteArray
-  spId : Array Nat
+  spId : ByteArray
   spOff : Array Nat
   nl : Nat
   fresh : Bool
   rg : Nat
 
 /-- The sparse index's stride. -/
-def spStride : Nat := 16
+def spStride : Nat := 8
 
 /-- No region (a hint past any sparse index). -/
 def noHint : Nat := 4294967295
 
 /-- An empty accumulator. -/
-def LAcc.init : LAcc := ⟨#[], .empty, #[], #[], spStride, true, noHint⟩
+def LAcc.init : LAcc := ⟨#[], .empty, .empty, #[], spStride, true, noHint⟩
+
+/-- Four bytes (little-endian) pushed: the sparse index's keys (an index
+past `2^32 - 2` is pushed as `2^32 - 1`; the keys only guide a search). -/
+@[inline] def push32 (a : ByteArray) (x : Nat) : ByteArray :=
+  let v : UInt32 := if x < 4294967295 then x.toUInt32 else 4294967295
+  (((a.push v.toUInt8).push (v >>> 8).toUInt8).push (v >>> 16).toUInt8).push (v >>> 24).toUInt8
 
 /-- A lazy line, kept. -/
 @[inline] def LAcc.lazy (a : LAcc) (i : Nat) (x : ExprRec) : LAcc :=
@@ -153,7 +159,7 @@ def LAcc.init : LAcc := ⟨#[], .empty, #[], #[], spStride, true, noHint⟩
       -- to (read after, `cd` is shared at the push and copied whole)
       let off := cd.size
       let rg := if fresh then so.size else rg
-      ⟨ds, Flat.wLine cd (.expr i x), si.push i, so.push off, 1, false, rg⟩
+      ⟨ds, Flat.wLine cd (.expr i x), push32 si i, so.push off, 1, false, rg⟩
     else ⟨ds, Flat.wLine cd (.expr i x), si, so, nl + 1, false, rg⟩
 
 /-- A record, pushed (the next lazy line starts a region). -/
@@ -233,7 +239,7 @@ def checkFlatL (P : @& Prior) (nd : @& ByteArray) (fc : @& FlatChunk) (c : Ctr) 
 /-- One chunk's lazy lines. -/
 structure LChunk where
   cd : ByteArray
-  spId : Array Nat
+  spId : ByteArray
   spOff : Array Nat
 
 /-- The lazy parse between windows: the finished tables and their
@@ -531,10 +537,19 @@ def walkTo (d : @& ByteArray) (j : Nat) (p : USize) : Nat → Option ExprRec
       else none
     else none
 
+/-- The last entry in `[lo, hi)` of four-byte keys at most `j` (`lo` if
+none is). -/
+def lastLE32 (a : @& ByteArray) (j lo hi : Nat) : Nat :=
+  if lo + 1 < hi then
+    let mid := (lo + hi) / 2
+    if (Flat.r4U a (4 * mid).toUSize).toNat ≤ j then lastLE32 a j mid hi else lastLE32 a j lo mid
+  else lo
+termination_by hi - lo
+
 /-- The lazy line binding `j`, in chunk `C`. -/
 @[inline] def LChunk.find (C : @& LChunk) (j : Nat) : Option ExprRec :=
-  if C.cd.size < USize.size && C.spId.size == C.spOff.size && 0 < C.spId.size then
-    let s := lastLE C.spId j 0 C.spId.size
+  if C.cd.size < USize.size && C.spId.size == 4 * C.spOff.size && 0 < C.spOff.size then
+    let s := lastLE32 C.spId j 0 C.spOff.size
     walkTo C.cd j (C.spOff.getD s 0).toUSize (spStride + 1)
   else none
 
@@ -547,8 +562,52 @@ def walkTo (d : @& ByteArray) (j : Nat) (p : USize) : Nat → Option ExprRec
     if h : k < S.chunks.size then S.chunks[k].find j else none
   else none
 
-/-- The builds' memo. -/
-abbrev Memo := Std.HashMap Nat Expr
+/-- The lazy line binding `j`, in the store, chunk `kc` tried first
+(the region's: most of a value's lines outside its region are in the
+same chunk). -/
+@[inline] def LStore.findH (S : @& LStore) (kc j : Nat) : Option ExprRec :=
+  if h : kc < S.chunks.size then
+    if S.firsts.getD kc 0 ≤ j && (kc + 1 == S.firsts.size || j < S.firsts.getD (kc + 1) 0) then
+      S.chunks[kc].find j
+    else S.find j
+  else S.find j
+
+/-- **The builds' memo**: the region's indices in a dense array
+(`pendExpr` where not built yet), any other index in a hash map. -/
+structure Memo where
+  base : Nat
+  arr : Array Expr
+  map : Std.HashMap Nat Expr
+
+/-- An empty memo. -/
+def Memo.empty : Memo := ⟨0, #[], {}⟩
+
+/-- Is an entry the dense array's placeholder? -/
+@[inline] def isPendE : Expr → Bool
+  | .fvar .. => true
+  | _ => false
+
+/-- Index `k`'s value, if built. -/
+@[inline] def Memo.get? (m : @& Memo) (k : Nat) : Option Expr :=
+  if m.base ≤ k then
+    if h : k - m.base < m.arr.size then
+      let v := m.arr[k - m.base]
+      if isPendE v then none else some v
+    else m.map.get? k
+  else m.map.get? k
+
+/-- Is index `k` built? -/
+@[inline] def Memo.has (m : @& Memo) (k : Nat) : Bool := (m.get? k).isSome
+
+/-- Index `k` built to `v` (a placeholder is not stored). -/
+@[inline] def Memo.insert (m : Memo) (k : Nat) (v : Expr) : Memo :=
+  match m with
+  | ⟨b, arr, map⟩ =>
+    if b ≤ k then
+      if k - b < arr.size then
+        if isPendE v then ⟨b, arr, map⟩ else ⟨b, arr.set! (k - b) v, map⟩
+      else ⟨b, arr, map.insert k v⟩
+    else ⟨b, arr, map.insert k v⟩
 
 /-- A child's value during a build of index `j`: from the memo, or a
 built entry of the tables. -/
@@ -562,35 +621,57 @@ built entry of the tables. -/
 /-- The children of a line still to be built: lazy ones not in the
 memo. -/
 @[inline] def missingKids (S : @& LStore) (memo : @& Memo) (ks : List Nat) : List Nat :=
-  ks.filter fun k => !memo.contains k && !isOk (rtLk S k)
+  ks.filter fun k => !memo.has k && !isOk (rtLk S k)
 
 /-- **The build**, with an explicit stack (no native recursion: a
-value's DAG can be deep): the top index is built once its lazy
-children are in the memo, else they are pushed above it. -/
-def buildGo (S : @& LStore) : Nat → List Nat → Memo → Memo
+value's DAG can be deep): the top index is built when its children are
+done, else its children still to be built are pushed above it. -/
+def buildGo (S : @& LStore) (kc : Nat) :
+    Nat → List (Nat × Option ExprRec) → Memo → Memo
   | 0, _, memo => memo
   | _ + 1, [], memo => memo
-  | fuel + 1, j :: rest, memo =>
-    if memo.contains j || isOk (rtLk S j) then buildGo S fuel rest memo
+  | fuel + 1, (j, ox) :: rest, memo =>
+    if memo.has j || isOk (rtLk S j) then buildGo S kc fuel rest memo
     else
-      match S.find j with
+      -- a line found before, its children pushed above it, is not found
+      -- again
+      match (match ox with | some x => some x | none => S.findH kc j) with
       | none => memo
       | some x =>
-        match missingKids S memo (exprKids x) with
-        | [] =>
-          match exprOfF (lkN S.P S.c.n) (lkL S.P S.c.l) (memoLk S memo j) x with
-          | .ok v => buildGo S fuel rest (memo.insert j v)
-          | .error _ => memo
-        | ms =>
-          if ms.all (· < j) then buildGo S fuel (ms ++ j :: rest) memo else memo
+        match exprOfF (lkN S.P S.c.n) (lkL S.P S.c.l) (memoLk S memo j) x with
+        | .ok v => buildGo S kc fuel rest (memo.insert j v)
+        | .error _ =>
+          match missingKids S memo (exprKids x) with
+          | [] => memo
+          | ms =>
+            if ms.all (· < j) then
+              buildGo S kc fuel (ms.map (·, none) ++ (j, some x) :: rest) memo
+            else memo
 
 /-- The build's step budget: far beyond any value. -/
 def buildFuel : Nat := 1 <<< 62
 
+/-- A region line whose children are not all done: the line read again
+at `p`, its children outside the region built (`buildGo`), the line
+built. -/
+@[noinline] def regionSlow (S : @& LStore) (kc : Nat) (d : @& ByteArray) (p : USize) (j : Nat)
+    (memo : Memo) : Memo :=
+  Flat.withLineU d p fun r _ =>
+    match r with
+    | .expr i x =>
+      if i == j then
+        let memo := buildGo S kc buildFuel ((missingKids S memo (exprKids x)).map (·, none)) memo
+        match exprOfF (lkN S.P S.c.n) (lkL S.P S.c.l) (memoLk S memo j) x with
+        | .ok v => memo.insert j v
+        | .error _ => memo
+      else memo
+    | _ => memo
+
 /-- **A value's region, built forward**: from byte `p` of a chunk's
-lines, every line up to index `vid` whose children are done is built
-(the others are left to `buildGo`). -/
-def regionGo (S : @& LStore) (d : @& ByteArray) (vid : Nat) (p : USize) : Nat → Memo → Memo
+lines, every line up to index `vid`, in order; a line whose children
+are not all done takes the slow path (`regionSlow`). -/
+def regionGo (S : @& LStore) (kc : Nat) (d : @& ByteArray) (vid : Nat) (p : USize) :
+    Nat → Memo → Memo
   | 0, memo => memo
   | fuel + 1, memo =>
     if p < d.usize then
@@ -599,49 +680,54 @@ def regionGo (S : @& LStore) (d : @& ByteArray) (vid : Nat) (p : USize) : Nat �
         | .expr j x =>
           if vid < j then memo
           else
-            let memo := if memo.contains j then memo else
-              -- children outside the region (an earlier value's lines)
-              -- first, on demand
-              let memo := match missingKids S memo (exprKids x) with
-                | [] => memo
-                | ms => buildGo S buildFuel ms memo
-              match exprOfF (lkN S.P S.c.n) (lkL S.P S.c.l) (memoLk S memo j) x with
-              | .ok v => memo.insert j v
-              | .error _ => memo
-            if j == vid then memo else regionGo S d vid q fuel memo
+            let memo :=
+              if memo.has j then memo
+              else
+                match exprOfF (lkN S.P S.c.n) (lkL S.P S.c.l) (memoLk S memo j) x with
+                | .ok v => memo.insert j v
+                | .error _ => regionSlow S kc d p j memo
+            if j == vid then memo else regionGo S kc d vid q fuel memo
         | _ => memo
     else memo
 
 /-- The region pass's line budget. -/
 def regionFuel : Nat := 1 <<< 24
 
+/-- A region's memo: a dense array from the region's first index to the
+value's (when it is not too long). -/
+@[inline] def regionMemo (base vid : Nat) : Memo :=
+  if base ≤ vid && vid - base < 1048576 then
+    ⟨base, Array.replicate (vid - base + 1) pendExpr, {}⟩
+  else Memo.empty
+
 /-- The region pass of a value in chunk `C`, from its hint. -/
-@[inline] def regionIn (S : @& LStore) (C : @& LChunk) (vid hint : Nat) : Memo :=
+@[inline] def regionIn (S : @& LStore) (kc : Nat) (C : @& LChunk) (vid hint : Nat) : Memo :=
   if h : C.cd.size < USize.size ∧ hint < C.spOff.size then
-    regionGo S C.cd vid (C.spOff[hint]'h.2).toUSize regionFuel {}
-  else {}
+    regionGo S kc C.cd vid (C.spOff[hint]'h.2).toUSize regionFuel
+      (regionMemo (get32 C.spId (4 * hint)) vid)
+  else Memo.empty
 
 /-- The region pass of a value, from its hint. -/
 def regionOf (S : @& LStore) (vid hint : Nat) : Memo :=
   if 0 < S.firsts.size && S.firsts.size == S.chunks.size then
     let k := lastLE S.firsts vid 0 S.firsts.size
-    if h : k < S.chunks.size then regionIn S S.chunks[k] vid hint else {}
-  else {}
+    if h : k < S.chunks.size then regionIn S k S.chunks[k] vid hint else Memo.empty
+  else Memo.empty
 
 /-- **A theorem value, built** from its index (and its region hint). -/
 def buildVal (S : @& LStore) (vid hint : Nat) : Option Expr :=
   match rtLk S vid with
   | .ok v => some v
   | .error _ =>
-    (buildGo S buildFuel [vid] (regionOf S vid hint)).get? vid
+    (buildGo S 0 buildFuel [(vid, none)] (regionOf S vid hint)).get? vid
 
 /-! ## Assembling the store, and filling the records -/
 
 /-- The store of a finished parse: the chunks with lazy lines, their
 first indices, the tables and counters. -/
 def LStore.ofChunks (S : Array LChunk) (P : Prior) (c : Ctr) (rt : RTab) : LStore :=
-  let cs := S.filter fun C => 0 < C.spId.size
-  ⟨cs, cs.map fun C => C.spId.getD 0 0, ⟨P.n, P.l, ⟨#[]⟩⟩, c, rt⟩
+  let cs := S.filter fun C => 0 < C.spOff.size
+  ⟨cs, cs.map fun C => get32 C.spId 0, ⟨P.n, P.l, ⟨#[]⟩⟩, c, rt⟩
 
 /-- A run-time record with its theorem value built (`none`: the build
 failed, or a theorem's value is not a placeholder). -/

@@ -452,7 +452,7 @@ def parseExportLazyInfo (path : System.FilePath) (jobs m : Nat) (csz : USize) (i
     let rt := RTab.build marks.mkd marks.nd g.P g.c.e
     if hrt : rtValid rt g.P g.c.e then
       let S := LStore.ofChunks g.S g.P g.c rt
-      let nLazy := S.chunks.foldl (fun a C => a + C.spId.size) 0
+      let nLazy := S.chunks.foldl (fun a C => a + C.spOff.size) 0
       let r : LazyRes := ⟨g.ds, S⟩
       let hr : LazyGhost r := by
         obtain ⟨cs, stF, hcs, hh, hd, hs⟩ := LGOK.finish hg
