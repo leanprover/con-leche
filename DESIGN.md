@@ -98595,3 +98595,120 @@ untouched; no `sorry`, no new axioms.
 Landed directly on `master` (not a campaign branch) from
 `agent/fuel-unbounded`, then merged forward into `more-parallel`
 (task #329's integration branch) to keep it from diverging.
+
+## TASK #329 — LAZY2: theorem values built in their check task (2026-10-09, agent/329-lazy2)
+
+**The direction** (maintainer, following LAZY's P0 and THMVAL): scan
+every chunk flat, mark by a backward sweep the lines the install needs,
+build only those, and build each theorem's value in its own check task
+from the flat lines, dropping it after the check. The three phases
+(sweep and eager-only build; lazy bodies in check; compaction, fixtures
+and small-chunk tests) are on the branch together, in the commits from
+a54d17169 to c5ebc9717.
+
+**The design as built.**
+* Parse (`ConLeche/Driver/LazyParse.lean`): read and scan every chunk
+  flat on the pool; a chunk's JSON bytes are dropped unless its scan
+  stopped short of its end (or it is the last chunk). A serial backward
+  sweep (`sweepChunk`, `ConLeche/Frontend/Lazy.lean`) marks the
+  expression lines the install reads (statements, definition and
+  opaque values, inductive blocks) and, additionally, every unmarked
+  line read from another declaration's region (the lines between two
+  declaration lines; regions come from each declaration's next
+  expression index). A theorem's value then reads only lazy lines of
+  its own region, so its build touches each of them once.
+* The marked lines are built by the rounds machinery (`round0` takes the
+  mark bitmap; an unmarked line is bound to `lazyExpr`, an `fvar` at
+  the sentinel `sentL`). Each chunk is then checked line by line
+  (`checkFlatL`): a built line by the entry it must yield, a lazy line by
+  its references (bound, below the counters, a built child only if the
+  sweep kept it), after which it is re-encoded into the chunk's compact
+  store (theorem-only lines only, a sparse four-byte index every 8th
+  line). A theorem record carries `ph vid hint` in place of its value.
+  The proof invariant is `LGOK` (`ConLeche/Verify/Frontend/Lazy.lean`):
+  a serial state the pure parse reaches, the finished tables agreeing
+  with it on every built entry, the records related to the serial ones
+  (`DRel`: a placeholder names an index the serial state binds), and
+  every stored line rebuilding to the serial entry (`StoreOK`).
+* The store keeps only the retained entries of the expression tables
+  (`RTab`: a bitmap of the marked-and-needed ids with block ranks, so the
+  tables are shrunk to the needed ids), built and validated in parts on
+  the workers. The finished expression pages are dropped after the parse.
+* Check (`ConLeche/Driver/LazyCheck.lean`): the check task of a theorem
+  builds its value (`buildVal`: the region's lines forward into a dense
+  memo, anything else by an explicit-stack build with a hash-map memo;
+  `buildVal_sound`), checks it and drops it. No `Thunk`, no persistence
+  mark on a built value. The install is related to the serial one
+  (`lazy_checkDecls`, `ConLeche/Verify/Cached/LazyInstall.lean`); the
+  driver returns `VerdictOK` against the serial specification, the
+  serially parsed list kept as a ghost (`LazyGhost`).
+* Errors: anything unusual in a window (a failed line check, a round
+  that does not converge, a failed preparation) falls back to the
+  serial parse from the state the chunks before reached, rebuilt from
+  the finished tables and the store (`materialize`,
+  `materialize_reached`), over the resident scans; this gives the serial
+  verdict at the serial line. Fixtures: `lazy_bad_ref`,
+  `lazy_forward_ref`, `lazy_error_late` (exit 3, the serial verdict);
+  `tests/ConLecheTests/LazyTests.lean` compares lazy and serial parses
+  at chunk sizes 64, 1000 and 65536 bytes, windows 1, 2 and 5.
+* Prelude hoist: a names-only test is not enough (on mathlib-full the
+  hoist moves `Nat.mul._f` and `Nat.mul`), so the hoist runs over the
+  placeholder records with no use set for a theorem (`hoistPlan sh
+  none`), related to the serial hoist by `prepareLazy_rel`; if
+  `prepareLazy` fails, all values are built (`toEager`) and the eager
+  path runs.
+* `--jobs=1` stays the serial pipelined parse (unchanged instruction
+  count, below). Every `--jobs` above one uses the lazy design, no
+  thresholds.
+* Statements: `MainTheorem` and the main corollary unchanged; the only
+  definition change outside the new files is `declOfF`'s inductive case
+  reading through `restrictEx` (a frame restriction, equal by funext).
+
+**Measurements** (one run each, reduced protocol under the flock;
+`mp-tip` is `more-parallel` 5ba208cb8, `master-bc` the baseline binary;
+wall s / peak RSS GiB / instructions:u):
+
+| corpus, jobs | mp-tip | lazy2 | master-bc |
+|---|---|---|---|
+| init-full j4 | 14.6 / 0.54 / 518 G | 15.0 / 0.57 / 523 G | 17.5 / – / 487 G |
+| init-full j8 | 8.0 / 0.64 / 521 G | 8.2 / 0.71 / 523 G | 12.1 / – / 487 G |
+| init-full j32 | 3.4 / 0.96 / 524 G | 3.5 / 0.77 / 525 G | 7.0 / – / 487 G |
+| NS j4 | 91.9 / 1.85 / 3.37 T | 93.3 / 1.68 / 3.38 T | 104.7 / – / 3.17 T |
+| NS j8 | 49.4 / 1.86 / 3.39 T | 50.8 / 1.73 / 3.40 T | 65.6 / – / 3.17 T |
+| NS j32 | 17.3 / 2.57 / 3.41 T | 18.4 / 2.18 / 3.40 T | 37.3 / – / 3.17 T |
+| cslib j4 | 85.7 / 3.06 / 3.04 T | 91.2 / 2.81 / 3.07 T | 108.6 / – / 2.85 T |
+| cslib j8 | 48.6 / 3.10 / 3.04 T | 50.7 / 2.88 / 3.07 T | 74.2 / – / 2.85 T |
+| cslib j32 | 16.8 / 3.22 / 3.06 T | 18.0 / 3.29 / 3.09 T | 50.9 / – / 2.85 T |
+| mathlib-full j4 | 260.0 / 7.15 / 8.84 T | 257.9 / 6.43 / 8.91 T | 293.0 / – / 8.33 T |
+| mathlib-full j8 | 136.6 / 7.27 / 8.84 T | 137.2 / 6.53 / 8.92 T | 193.2 / – / 8.33 T |
+| mathlib-full j32 | 45.6 / 7.46 / 8.86 T | 47.0 / 7.01 / 8.94 T | 118.5 / – / 8.33 T |
+| init-full j1 | 50.7 / 0.40 / 503.5 G | 50.1 / 0.40 / 503.5 G | 48.5 / – / 486.0 G |
+
+Repeats at j8 (lazy2 first, then mp-tip): cslib 48.8 vs 47.1 and 49.0
+vs 47.2 s (parse +0.5 s, check +1.2 s); NS 49.8 vs 47.0 and 49.7 vs
+49.3 s. mathlib-full accepts 691 203 records at every job count. The
+lazy parse's phases (read+scan, sweep, rounds, line check, retained
+table) on mathlib-full at j8: 1.8 / 0.16 / 1.3 / 4.1 / 0.5 s.
+
+So: peak RSS falls by 0.1–0.7 GiB (up to 10 % on mathlib-full; cslib
+j32 is the exception, +0.07 GiB), but wall time at `--jobs=8` is 0.4–4 %
+worse, and `--jobs=4` wins only on mathlib-full. The instructions are
++0.3–1 %; the check phase's extra wall time is larger than its extra
+instructions (the built values are ordinary reference-counted objects,
+where the eager values are persistent, and they are freed in the
+check). The parse is 0.3–1 s slower (the line check and the store's
+re-encoding run inside it).
+
+**Task #330's literals.** `2^62` written as a literal compiles to
+`lean_cstr_to_nat("4611686018427387904")` at each use in the core's
+loops (`CoreC.c`, `whnfCoreBodyI` and others), a GMP decimal parse per
+call: init-full j4 501 G → 518 G instructions between 79b85d3cf and
+5ba208cb8 (+3 %), NS +3 %. The fix is the one this lane applies to its
+own fuels (c5ebc9717): the constant behind a `@[noinline]` top-level
+`def`, parsed once at initialisation.
+
+**Not landed: a ruling needed.** The rule was "must not regress
+`--jobs=8` wall time on init-full, NS, cslib or mathlib-full, and should
+win at `--jobs=4`"; this lane regresses j8 slightly on all four and wins
+j4 only on mathlib-full, in exchange for the lower peak. Logs, the
+binaries and the measurement scripts: `_tmp/amdahl/lazy2-logs/`.
