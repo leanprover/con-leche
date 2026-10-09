@@ -98595,3 +98595,35 @@ untouched; no `sorry`, no new axioms.
 Landed directly on `master` (not a campaign branch) from
 `agent/fuel-unbounded`, then merged forward into `more-parallel`
 (task #329's integration branch) to keep it from diverging.
+
+**Follow-up (2026-10-09): the three budgets as initialised constants.**
+Lane LAZY2 (task #329) found the regression this raise introduced: a
+`Nat` literal at or above `2^32` is not a machine constant to the
+backend — every *use* of `whnfCoreLoopFuel`/`whnfLoopFuel`/
+`defeqLoopFuel` compiled to a `lean_cstr_to_nat("4611686018427387904")`
+decimal parse, at 18 call sites across `Kernel/Core.c`,
+`Kernel/TypeChecker.c`, `Kernel/CoreIO.c` and `Cached/CoreC.c` (one site
+per occurrence of the three names, not one per def). Measured at
+`--jobs=1` on `_tmp/ref/init-exports/init-full.ndjson`
+(`instructions:u`, one run): `b0a170c96` (this task, unfixed) 502,820,183,932,
+against 486,047,639,720 at `116413d4e` (master before this task) — a
+3.3 % regression, consistent with the +3 % LAZY2 measured on
+init-full at `--jobs=4` (501 G → 518 G).
+
+Fix: `@[noinline]` alongside the existing `@[irreducible]` on all three
+defs, the same idiom LAZY2 used for its own fuels
+(`agent/329-lazy2` `c5ebc9717`, `buildFuel`/`hoistFuel`). `@[noinline]`
+is a codegen attribute only — it does not touch unfold/defeq, so
+`whnfLoopFuel_succ`'s `unfold whnfLoopFuel; rfl` still closes
+unchanged. Checked the generated C: each def now gets one
+`static lean_object* _init_lp_..._<name>(void)` that calls
+`lean_cstr_to_nat` once, assigns the module-level global, and
+`lean_mark_persistent`s it at module init; all 18 former call sites
+across the four `.c` files now just read the extern global — no
+`lean_cstr_to_nat` remains at a use site in any of them. Measured the
+fix the same way: 486,086,465,916 instructions — 0.008 % above
+`116413d4e`'s 486,047,639,720, inside the ~0.1 % target. `lake build`
+and `lake test` warning-free; `tests/arena.sh` green (arena 90/92, e2e
+456/456, annot 15/15, trusted/`--jobs=1`/`--jobs=4` sweeps unchanged).
+No line-count change in `Core.lean` (the attribute list grew in place,
+on the same lines), so no link-anchor repointing was needed.

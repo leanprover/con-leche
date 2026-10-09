@@ -1106,7 +1106,7 @@ decrementing counter an unboxed scalar (`2^63` is a bignum on a 64-bit
 `Nat`/`LEAN_MAX_SMALL_NAT`).  A runaway input is left to an external
 timeout.  See
 <https://github.com/dpwoodru/general-courtade-kumar-lean/tree/main/verification/con-leche/results/2026-10-08>. -/
-@[irreducible] def whnfCoreLoopFuel : Nat := 4611686018427387904  -- 2^62
+@[irreducible, noinline] def whnfCoreLoopFuel : Nat := 4611686018427387904  -- 2^62
 
 /-- Step budget of the `whnf` reduction loop (lean4lean's
 `FuelConfig.whnf`, same value).  Literal-acceleration and delta steps
@@ -1119,7 +1119,7 @@ long-but-perfectly-ordinary unfolding chain exhausted `checkFuel`.
 Task #330: effectively unbounded for the same reason as
 `whnfCoreLoopFuel` above (the same real export exhausted this budget on
 master before the fuel patch). -/
-@[irreducible] def whnfLoopFuel : Nat := 4611686018427387904  -- 2^62
+@[irreducible, noinline] def whnfLoopFuel : Nat := 4611686018427387904  -- 2^62
 
 /-- One iteration of the reduction loop (the official kernel's `whnf`
 body, lean4lean's `whnf'` loop body): head-normalize, try literal
@@ -1668,7 +1668,7 @@ error, never a verdict.
 
 Task #330: effectively unbounded for the same reason as
 `whnfCoreLoopFuel`/`whnfLoopFuel` above. -/
-@[irreducible] def defeqLoopFuel : Nat := 4611686018427387904  -- 2^62
+@[irreducible, noinline] def defeqLoopFuel : Nat := 4611686018427387904  -- 2^62
 
 /-- **The lazy-delta loop** (the official kernel's
 `lazy_delta_reduction`): per iteration the offset check, the literal
