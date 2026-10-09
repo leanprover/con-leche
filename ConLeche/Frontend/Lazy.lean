@@ -171,6 +171,17 @@ past `2^32 - 2` is pushed as `2^32 - 1`; the keys only guide a search). -/
 declaration line. -/
 @[inline] def LAcc.hint (a : LAcc) : Nat := if a.fresh then noHint else a.rg
 
+/-- The accumulator's buffers copied to their sizes (a buffer grown by
+pushes holds up to twice its size): the same accumulator
+(`LAcc.shrink_eq`), in less memory — what the store keeps to the end of
+the run. -/
+def LAcc.shrink (a : LAcc) : LAcc :=
+  { a with cd := a.cd.extract 0 a.cd.size, spId := a.spId.extract 0 a.spId.size,
+           spOff := a.spOff.extract 0 a.spOff.size }
+
+theorem LAcc.shrink_eq (a : LAcc) : a.shrink = a := by
+  simp [LAcc.shrink, ByteArray.extract_zero_size, Array.extract_size]
+
 /-! ## The check -/
 
 /-- A theorem record (a record of another kind never builds one; the
@@ -293,16 +304,15 @@ where
     bm.uset b (bm.uget b hb ||| ((1 : UInt8) <<< (i &&& 7).toUInt8)) hb
   else bm
 
-/-- The sweep's bitmaps. -/
+/-- The sweep's state: the marked and the needed bitmaps, each lazy
+line's referencing region (four bytes an index: `0` none yet, `r + 1`
+region `r`, `0xFFFFFFFF` more than one), and the current region (one
+more at every declaration line, read backward). -/
 structure SwMarks where
   mkd : ByteArray
   nd : ByteArray
-
-@[inline] def SwMarks.mark (m : SwMarks) (i : Nat) : SwMarks :=
-  match m with | ⟨a, b⟩ => ⟨bitSet a i, b⟩
-
-@[inline] def SwMarks.need (m : SwMarks) (i : Nat) : SwMarks :=
-  match m with | ⟨a, b⟩ => ⟨a, bitSet b i⟩
+  rr : ByteArray
+  cur : Nat
 
 /-- The children of an expression line. -/
 @[inline] def exprKids : ExprRec → List Nat
@@ -313,8 +323,38 @@ structure SwMarks where
   | .proj _ _ s => [s]
   | _ => []
 
-/-- A declaration line's marks. -/
-def markDecl (m : SwMarks) : DeclRec → SwMarks
+/-- Four bytes at a machine-word offset written (no effect past the end). -/
+@[inline] def put32U (a : ByteArray) (o : USize) (v : UInt32) : ByteArray :=
+  if o.toNat + 3 < a.size then
+    ((((a.set! o.toNat v.toUInt8).set! (o.toNat + 1) (v >>> 8).toUInt8).set! (o.toNat + 2)
+      (v >>> 16).toUInt8).set! (o.toNat + 3) (v >>> 24).toUInt8)
+  else a
+
+/-- Index `k` referenced from region `r`. -/
+@[inline] def noteRef (rr : ByteArray) (k : USize) (r : UInt32) : ByteArray :=
+  let w := Flat.r4U rr (4 * k)
+  if w == 0 then put32U rr (4 * k) (r + 1)
+  else if w == r + 1 || w == 0xFFFFFFFF then rr
+  else put32U rr (4 * k) 0xFFFFFFFF
+
+/-- Is index `k`, a line of region `r`, referenced from another region?
+Then it is built at the parse (it is marked), so that a theorem's value
+reads lazy lines of its own region only. -/
+@[inline] def sharedRef (rr : @& ByteArray) (k : USize) (r : UInt32) : Bool :=
+  let w := Flat.r4U rr (4 * k)
+  w != 0 && w != r + 1
+
+@[inline] def SwMarks.mark (m : SwMarks) (i : Nat) : SwMarks :=
+  match m with | ⟨a, b, rr, cur⟩ => ⟨bitSet a i, b, rr, cur⟩
+
+@[inline] def SwMarks.need (m : SwMarks) (i : Nat) : SwMarks :=
+  match m with
+  | ⟨a, b, rr, cur⟩ => ⟨a, bitSet b i, noteRef rr i.toUSize cur.toUInt32, cur⟩
+
+/-- A declaration line's marks (the lines before it are the next region). -/
+def markDecl (m : SwMarks) (d : DeclRec) : SwMarks :=
+  let m := match m with | ⟨a, b, rr, cur⟩ => ⟨a, b, rr, cur + 1⟩
+  match d with
   | .ax cv _ => m.mark cv.type
   | .defn cv v _ _ => (m.mark cv.type).mark v
   | .thm cv v => (m.mark cv.type).need v
@@ -326,6 +366,8 @@ def markDecl (m : SwMarks) : DeclRec → SwMarks
 @[inline] def sweepLine (m : SwMarks) : LineRec → SwMarks
   | .expr i x =>
     if bitGet m.mkd i then (exprKids x).foldl SwMarks.mark m
+    else if sharedRef m.rr i.toUSize m.cur.toUInt32 then
+      (exprKids x).foldl SwMarks.mark (m.mark i)
     else (exprKids x).foldl SwMarks.need m
   | .decl d => markDecl m d
   | _ => m
@@ -351,14 +393,16 @@ where
 @[noinline] def sweepSlow (d : @& ByteArray) (p : USize) (m : SwMarks) : SwMarks :=
   Flat.withLineU d p fun r _ => sweepLine m r
 
-/-- **The sweep of one chunk, backward**: lines `k - 1` down to `0`,
-the two bitmaps threaded apart (no record per line).  The expression
-lines with children (`app`, `lam`, `forallE`, `letE`, `proj`) are read
-in place, their fields at fixed offsets; a declaration line, or a field
-too large for four bytes, is decoded. -/
-def sweepGo (d : @& ByteArray) (st : @& ByteArray) (k : Nat) (mk nd : ByteArray) : SwMarks :=
+/-- **The sweep of one chunk, backward**: lines `k - 1` down to `0`, the
+state threaded apart (no record per line).  The expression lines with
+children (`app`, `lam`, `forallE`, `letE`, `proj`) are read in place,
+their fields at fixed offsets; a declaration line, or a field too large
+for four bytes, is decoded.  A line no install reads is lazy unless a
+line of another region reads it: then it is marked too. -/
+def sweepGo (d : @& ByteArray) (st : @& ByteArray) (k : Nat) (mk nd rr : ByteArray)
+    (cur : Nat) : SwMarks :=
   match k with
-  | 0 => ⟨mk, nd⟩
+  | 0 => ⟨mk, nd, rr, cur⟩
   | k + 1 =>
     let p := (Flat.r4U st (4 * k).toUSize).toUSize
     let t := Flat.byteU d p
@@ -371,28 +415,36 @@ def sweepGo (d : @& ByteArray) (st : @& ByteArray) (k : Nat) (mk nd : ByteArray)
       let c := if t ≤ 2 then 0 else Flat.r4U d (p + 13)
       -- a field out of place is the escape, the largest word
       if max (max i a) (max b c) == 0xFFFFFFFF then
-        match sweepSlow d p ⟨mk, nd⟩ with
-        | ⟨mk, nd⟩ => sweepGo d st k mk nd
-      else if bitGetU mk i.toUSize then
-        if t == 9 then sweepGo d st k (bitSetU mk c.toUSize) nd
-        else
-          let mk := bitSetU (bitSetU mk a.toUSize) b.toUSize
-          sweepGo d st k (if t == 6 then bitSetU mk c.toUSize else mk) nd
+        match sweepSlow d p ⟨mk, nd, rr, cur⟩ with
+        | ⟨mk, nd, rr, cur⟩ => sweepGo d st k mk nd rr cur
       else
-        if t == 9 then sweepGo d st k mk (bitSetU nd c.toUSize)
+        let mki := bitGetU mk i.toUSize
+        let shared := if mki then false else sharedRef rr i.toUSize cur.toUInt32
+        if mki || shared then
+          let mk := if shared then bitSetU mk i.toUSize else mk
+          if t == 9 then sweepGo d st k (bitSetU mk c.toUSize) nd rr cur
+          else
+            let mk := bitSetU (bitSetU mk a.toUSize) b.toUSize
+            sweepGo d st k (if t == 6 then bitSetU mk c.toUSize else mk) nd rr cur
         else
-          let nd := bitSetU (bitSetU nd a.toUSize) b.toUSize
-          sweepGo d st k mk (if t == 6 then bitSetU nd c.toUSize else nd)
+          let r := cur.toUInt32
+          if t == 9 then sweepGo d st k mk (bitSetU nd c.toUSize) (noteRef rr c.toUSize r) cur
+          else
+            let nd := bitSetU (bitSetU nd a.toUSize) b.toUSize
+            let rr := noteRef (noteRef rr a.toUSize r) b.toUSize r
+            if t == 6 then
+              sweepGo d st k mk (bitSetU nd c.toUSize) (noteRef rr c.toUSize r) cur
+            else sweepGo d st k mk nd rr cur
     else if t == 16 then
-      match sweepSlow d p ⟨mk, nd⟩ with
-      | ⟨mk, nd⟩ => sweepGo d st k mk nd
-    else sweepGo d st k mk nd
+      match sweepSlow d p ⟨mk, nd, rr, cur⟩ with
+      | ⟨mk, nd, rr, cur⟩ => sweepGo d st k mk nd rr cur
+    else sweepGo d st k mk nd rr cur
 
 /-- The sweep of one chunk. -/
 @[inline] def sweepChunk (d : @& ByteArray) (st : @& ByteArray) (k : Nat) (m : SwMarks) :
     SwMarks :=
   match m with
-  | ⟨mk, nd⟩ => sweepGo d st k mk nd
+  | ⟨mk, nd, rr, cur⟩ => sweepGo d st k mk nd rr cur
 
 /-! ## The store and the builds
 
@@ -696,7 +748,7 @@ def regionFuel : Nat := 1 <<< 24
 /-- A region's memo: a dense array from the region's first index to the
 value's (when it is not too long). -/
 @[inline] def regionMemo (base vid : Nat) : Memo :=
-  if base ≤ vid && vid - base < 1048576 then
+  if base ≤ vid && vid - base < 65536 then
     ⟨base, Array.replicate (vid - base + 1) pendExpr, {}⟩
   else Memo.empty
 

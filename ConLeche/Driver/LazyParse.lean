@@ -191,8 +191,11 @@ def startChecksL (pl : Pool) (cfg : Cfg) (P : Prior) (nd : ByteArray) (W : Win)
     let s := W.start i
     have : Nonempty (CheckResL P nd) := ⟨⟨x, s, _, rfl⟩⟩
     cps := cps.push (← pl.run .mid (do
+      -- the store's buffers copied to their sizes on the worker
       let r ← IO.lazyPure fun _ =>
-        (⟨checkFlatL P nd x.val.1 s, rfl⟩ : { r // r = checkFlatL P nd x.val.1 s })
+        (⟨(checkFlatL P nd x.val.1 s).map (fun (c, a) => (c, a.shrink)), by
+            cases checkFlatL P nd x.val.1 s <;> simp [LAcc.shrink_eq]⟩ :
+          { r // r = checkFlatL P nd x.val.1 s })
       if let some (_, a) := r.val then markEach cfg.noMark a.ds
       return ⟨x, s, r.val, r.property⟩))
   return cps
@@ -420,11 +423,14 @@ def parseExportLazyInfo (path : System.FilePath) (jobs m : Nat) (csz : USize) (i
       let z := zeroBytes (maxId / 8 + 1)
       (List.range xs.size).foldr (fun c (m : SwMarks) =>
         let x := xs.getD c default
-        sweepChunk x.val.1.data (ls.getD c default).1 x.val.1.count m) ⟨z, z⟩
-    else ⟨.empty, .empty⟩
+        sweepChunk x.val.1.data (ls.getD c default).1 x.val.1.count m)
+        ⟨z, z, zeroBytes (4 * (maxId + 1)), 0⟩
+    else ⟨.empty, .empty, .empty, 0⟩
   let t3 ← IO.monoMsNow
   -- 3. the windows
-  match ← winLoop pl cfg marks.mkd marks.nd xs 0 (.ready LGSt.init LGOK.init) with
+  -- the referencing regions are dropped here, the bitmaps kept
+  let (mkB, ndB) := match marks with | ⟨a, b, _, _⟩ => (a, b)
+  match ← winLoop pl cfg mkB ndB xs 0 (.ready LGSt.init LGOK.init) with
   | .fail g hg k why xs =>
     pl.shutdown
     -- the serial parse from the state the chunks before `k` reached,
@@ -442,14 +448,14 @@ def parseExportLazyInfo (path : System.FilePath) (jobs m : Nat) (csz : USize) (i
     let t4 ← IO.monoMsNow
     -- without the sweep's marks (a stream with huge gaps) nothing is
     -- lazy and nothing is retained
-    if marks.mkd.size == 0 then
+    if mkB.size == 0 then
       match ← eagerOf g hg with
       | some o => return (.eager o, ⟨0, "no marks", 0, #[]⟩)
       | none =>
         return (.eager (← Frontend.parseExportStreamP path inflight), ⟨1, "reread", 0, #[]⟩)
     -- the retained table, validated; the finished expression pages
     -- are dropped with `g.P`
-    let rt := RTab.build marks.mkd marks.nd g.P g.c.e
+    let rt := RTab.build mkB ndB g.P g.c.e
     if hrt : rtValid rt g.P g.c.e then
       let S := LStore.ofChunks g.S g.P g.c rt
       let nLazy := S.chunks.foldl (fun a C => a + C.spOff.size) 0
