@@ -6,21 +6,24 @@ import ConLeche.Verify.Cached.KnotCongr
 public section
 
 /-!
-# The block tail's in-place pushes are the reference's (task #329)
+# The overlay answers as the pushes would (task #329)
 
-The cached driver runs `checkBlockTailS` (`ConLeche/Cached/CheckerC.lean`),
-which keeps the constructors' index unique at every push: the rule-less
-recursors are an overlay sharing the index (`classFeROvl`,
-`genRecCheckOvl`) and the stored recursors' records are built before the
-first push (`blockRecInfosTF`).  This file proves it equal to the
-reference `checkBlockTailSRef`, which every other proof reads
-(`checkBlockTailS_eq_ref`).
+The cached driver's block tail (`checkBlockTailS`,
+`ConLeche/Cached/CheckerC.lean`) keeps the constructors' index unique at
+every push: the rule-less recursors are an overlay sharing the index
+(`classFeROvl`, the `ruleEnv` of `shadowOpsC`) and the stored
+recursors' records are built before the first push (`blockRecInfosTF`,
+pushed by `FEnv.pushAll`).  The facts the proofs about that code need:
 
-* `find?_overlay_pushAll` — an overlay answers `find?` as pushing its
-  constants would, on an environment without an overlay;
-* `genRecCheckOvl_eq` — at the cached operations, which read the index
-  only through `find?` (`ConLeche/Verify/Cached/KnotCongr.lean`), the
-  overlay stage is `genRecCheck`.
+* `find?_overlay_pushAll`, `env_overlay_pushAll` — an overlay answers
+  `find?` and `env` as pushing its constants would, on an environment
+  without an overlay;
+* `classRecsRulesOk_classFeROvl` — the rule stage at the cached
+  operations, which read the rule environment only through `find?` and
+  `env` (`ConLeche/Verify/Cached/KnotCongr.lean`), answers at the overlay
+  as at the pushed `classFeR`;
+* `pushAll_mkFEnv` — pushing a list onto a canonical index is the
+  canonical index of the extended environment.
 -/
 
 namespace ConLeche.Cached
@@ -176,40 +179,30 @@ theorem sharedOpsRuleR_congr {fe₁ fe₂ : FEnv} (hfe : fe₁.find? = fe₂.fin
   unfold sharedOpsRuleR sharedOpsC opE opB opS
   rw [coreKnotI_congr hfe]
 
-/-- **The overlay stage is `genRecCheck`** at the cached operations, on
-an environment without an overlay. -/
-theorem genRecCheckOvl_eq {fe : FEnv} (h : fe.ovl = []) (p : BlockShape) (nestedBit : Bool)
-    (params : List Expr) (tbl : List NestCtorNf) (rd : ClassRead) (Ms : List TargetMajor)
-    (cvTas : List ConstantVal) (block : List ConstantInfo) :
-    genRecCheckOvl (shadowOpsC mode) fe p nestedBit params tbl rd Ms cvTas block
-      = genRecCheck (shadowOpsC mode) fe p nestedBit params tbl rd Ms cvTas block := by
-  have key : ∀ (Ms' : List TargetMajor) (cvGs : List ConstantVal) (recCls : List Nat)
-      (g : ClassGen) (recOf : Nat → Option Name) (pw : PropWhen),
-      classRecsRulesOk ((shadowOpsC mode).opsRuleR (classFeROvl p Ms' cvGs recCls fe))
-          (shadowOpsC mode).walkers fe (classFeROvl p Ms' cvGs recCls fe) g recOf pw
-          cvGs recCls
-        = classRecsRulesOk ((shadowOpsC mode).opsRuleR (classFeR p Ms' cvGs recCls fe))
-          (shadowOpsC mode).walkers fe (classFeR p Ms' cvGs recCls fe) g recOf pw
-          cvGs recCls := by
-    intro Ms' cvGs recCls g recOf pw
-    have hfind := classFeROvl_find? h p Ms' cvGs recCls
-    show classRecsRulesOk (sharedOpsRuleR mode _) structWalkersC fe _ g recOf pw cvGs recCls
-      = classRecsRulesOk (sharedOpsRuleR mode _) structWalkersC fe _ g recOf pw cvGs recCls
-    rw [sharedOpsRuleR_congr mode hfind]
-    exact classRecsRulesOk_congrR (constsResolveFC_congr hfind)
-      (classFeROvl_env h p Ms' cvGs recCls) g recOf pw cvGs recCls
-  unfold genRecCheckOvl genRecCheck
-  simp only [key]
+/-- **The rule stage at the overlay is the rule stage at the pushes**,
+at the cached operations, on an environment without an overlay. -/
+theorem classRecsRulesOk_classFeROvl {fe : FEnv} (h : fe.ovl = []) (p : BlockShape)
+    (Ms : List TargetMajor) (cvGs : List ConstantVal) (recCls : List Nat)
+    (g : ClassGen) (recOf : Nat → Option Name) (pw : PropWhen) :
+    classRecsRulesOk (sharedOpsRuleR mode (classFeROvl p Ms cvGs recCls fe))
+        structWalkersC fe (classFeROvl p Ms cvGs recCls fe) g recOf pw cvGs recCls
+      = classRecsRulesOk (sharedOpsRuleR mode (classFeR p Ms cvGs recCls fe))
+        structWalkersC fe (classFeR p Ms cvGs recCls fe) g recOf pw cvGs recCls := by
+  have hfind := classFeROvl_find? h p Ms cvGs recCls
+  rw [sharedOpsRuleR_congr mode hfind]
+  exact classRecsRulesOk_congrR (constsResolveFC_congr hfind)
+    (classFeROvl_env h p Ms cvGs recCls) g recOf pw cvGs recCls
 
-/-- **The driver's block tail is the reference's.** -/
-theorem checkBlockTailS_eq_ref (block : List ConstantInfo) (q : BlockPass FEnv) :
-    checkBlockTailS mode block q = checkBlockTailSRef mode block q := by
-  obtain ⟨env₁, cvTas, p, ctorsAs, sortsss, kinds, nfs, params, rd, cls, tbl⟩ := q
-  unfold checkBlockTailS checkBlockTailSRef
-  by_cases hE : (consBlockCtorsF p.nP ctorsAs env₁).ovl.isEmpty
-  · have h : (consBlockCtorsF p.nP ctorsAs env₁).ovl = [] := List.isEmpty_iff.mp hE
-    simp only [hE, ↓reduceIte, genRecCheckOvl_eq mode h, consBlockRecsTF_eq_fast,
-      consBlockRecsTFFast]
-  · simp only [hE, Bool.false_eq_true, ↓reduceIte]
+/-! ## The stored recursors' pushes -/
+
+/-- Pushing a list onto a canonical index is the canonical index of the
+environment with the list consed on, newest (last pushed) first. -/
+theorem pushAll_mkFEnv : ∀ (cis : List ConstantInfo) (env : Env),
+    FEnv.pushAll cis (mkFEnv env) = mkFEnv ⟨cis.reverse ++ env.consts⟩
+  | [], env => rfl
+  | ci :: rest, env => by
+    show FEnv.pushAll rest (mkFEnv ⟨ci :: env.consts⟩) = _
+    rw [pushAll_mkFEnv rest]
+    simp
 
 end ConLeche.Cached

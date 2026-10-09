@@ -96918,3 +96918,107 @@ install 54.7 s, check 48.3 s, 8 326.3 G instructions.
 |---|---|
 | master `c9089932b` | 486 076 463 102 |
 | this task | 486 051 956 640 (−0.005 %) |
+
+## TASK #332 — no reference copies (2026-10-09, agent/332-noref)
+
+**Ruling (maintainer, 2026-10-09).** Don't accumulate code copies. When
+code is restructured, the proofs are repaired against the new code; the
+old body is not kept as a reference copy proved equal to the new one. A
+second implementation is right only with a big, clear separation of
+concerns (the pure specification checker and the cached one), never to
+keep old proofs going. Recorded as a process rule in CLAUDE.md.
+
+**Removed.**
+
+* `checkDeclCRef` (`Cached/ParsedC.lean`) and `checkDeclC_eq_ref`
+  (`Verify/Cached/PinOverlay.lean`), from task #331. `checkDeclC` is one
+  `match`; its pinned `Nat`-operation and `reduce*` arms are the overlay
+  arms that ran. The `if fe.ovl.isEmpty` guard in front, whose `else`
+  ran the reference, is gone: every environment the install threads has
+  an empty overlay (`mkFEnv`, `push`; on more-parallel the worker views
+  too), so the branch was never taken.
+* `checkBlockTailSRef` (`Cached/CheckerC.lean`) and
+  `checkBlockTailS_eq_ref` (`Verify/Cached/BlockOverlay.lean`), from
+  task #329 BLOCKCOPY, with the same never-taken overlay fallback.
+* `genRecCheckOvl` (`Kernel/Inductives/GenRec.lean`) and
+  `genRecCheckOvl_eq`: a 35-line copy of `genRecCheck` differing in one
+  line, the rule-less recursors' environment. `genRecCheck` is written
+  once over `ShadowOps` so that the pure install and the cached driver
+  run the same code; the difference is now a `ShadowOps` field,
+  `ruleEnv` (`classFeR` in `ShadowOps.ofOps`, `classFeROvl` in
+  `shadowOpsC`). `classFeR` moved to `RecCheck.lean`, ahead of
+  `ShadowOps`.
+* `consBlockRecsTF` and its `@[csimp]` twin `consBlockRecsTFFast`
+  (`Kernel/Inductives/RecCheck.lean`): the driver pushes the records
+  `blockRecInfosTF` builds (`FEnv.pushAll`), and the proofs read that.
+* `consBlockRecsF`, `blockRecInfosF`, `consBlockRecsFFast` and their
+  `@[csimp]` (`Kernel/Inductives/BlockInstallF.lean`): dead, nothing
+  called them.
+* The duplicated bodies of `checkDefnValC` and `checkOpaqueValC`
+  (`Cached/ParsedC.lean`): task #331 added the unpushed halves
+  `checkDefnValCI`/`checkOpaqueValCI` as copies of them and proved
+  `checkDefnValC = checkDefnValCI >>= push`. That equation is now the
+  definition.
+
+**What the proofs needed, and where it is now.** The downstream proofs
+unfolded the reference bodies for four properties, each now a lemma
+about the code that runs:
+
+* the value check's record: `checkDefnValCI_shape`,
+  `checkOpaqueValCI_shape` (`Verify/Cached/AgreeFloor.lean`): the record
+  returned is the definition (axiom) at the checked constant; the push
+  chain and the skeleton floor read the pinned arms' final push off it;
+* the pure simulation of the halves: `checkDefnValCI_sim`,
+  `checkOpaqueValCI_sim` (`Verify/Cached/BridgeC.lean`): the pushed
+  record is `mkFEnv` of the fueled environment; `checkDefnValC_sim` and
+  `checkOpaqueValC_sim` follow by one bind;
+* the overlay answers as the push: `find?_overlay_push` with the
+  `_congr` lemmas (PinOverlay) in `checkDeclC_sim`'s pinned arms, and
+  `classRecsRulesOk_classFeROvl` (BlockOverlay: the rule stage at the
+  cached operations reads its environment only through `find?` and
+  `env`) in `genRecCheckS_simG`, the one place the cached run is related
+  to the pure one;
+* the stored recursors' pushes: `pushAll_blockRecInfosTF_mkFEnv`
+  (TargetRecC), `pushAll_blockRecInfosTF_push` (PushChain),
+  `pushAll_blockRecInfosTF_skelsT` (AgreeFloor), the old `consBlockRecsTF`
+  lemmas restated on the pushes.
+
+**The search, and what stays.** Every `def …Ref/Old/Spec/Fast/Slow/Ovl/CI`
+and every `_eq_…` theorem between two definitions:
+
+* the `@[csimp]` pairs in `Kernel/*` (`instantiate1`/`…Fast`,
+  `constsResolveF`, `mentionsConst`, `nestOcc`, `targetAbs`,
+  `structProjGuards`, `canonEq`, `matchesPin`, `instantiateLevelParams`,
+  `Name.beq`/`Level.beq`/`Expr.beq` and the rest): kept. Each is a
+  structural recursion over the expression TREE, which the proofs and
+  the pure specification checker use, against a memoised walk of the
+  DAG, a lockstep comparison or a pointer-equality test — a different
+  algorithm, not a copy, and the separation (tree semantics against DAG
+  sharing) is what makes either side provable;
+* `scanLineSpec` (`Frontend/Scan/Equiv.lean`) and `Frontend/Scan/Naive`:
+  kept, the specification of the byte scan the parse theorem is about;
+* `idxSpec` (`Verify/EnvBound.lean`), `pickSpec`/`frontSpec`
+  (`Frontend/Prepare.lean`): not copies (a proof-side description of
+  the index; the record-reordering functions);
+* the cached checker against the pure one (`checkBlockPassS` against
+  `checkBlockPass` and so on): the sanctioned separation.
+
+**Also.** `tests/arena.sh` and `scripts/perf-tables.sh` set `ulimit -c 0`
+(maintainer's agreement): an abort (exit 134, task #331) would write a
+core dump of gigabytes at Mathlib scale. OVERVIEW says so where it
+describes the abort.
+
+**Verification.** `lake build` and `lake test` warning-free;
+`tests/arena.sh` green (arena 90/92, e2e 456/456, annot 15/15, the
+trusted, `--jobs=1` and `--jobs=4` sweeps as expected; shake,
+pub-imports, layering, trust surface, quote gate; overview and
+whitepaper link gates after repointing the moved lines, text unchanged).
+No statement in `MainTheorem` or the main corollary changed.
+mathlib-full (default worker count, 96) accepts 691 203 records: parse
+24.4 s, install 64.4 s, check 33.0 s (a shared machine; wall times
+indicative only).
+
+| init-full, `--jobs=1` | instructions:u |
+|---|---|
+| master `c8f5415f9` | 486 076 992 635 (a second run: 486 065 107 988) |
+| this task | 486 096 356 685 (+0.004 %, within the run-to-run spread) |

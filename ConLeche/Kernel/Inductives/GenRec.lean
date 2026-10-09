@@ -542,12 +542,6 @@ def classRecOf (recCls : List Nat) (cvGs : List ConstantVal) (t : Nat) : Option 
   ((List.range cvGs.length).find? fun r => recCls.getD r 0 == t).map fun r =>
     (cvGs.getD r default).name
 
-/-- The rule-less generated recursors consed onto the constructors'
-environment `fe`. -/
-def classFeR (p : BlockShape) (Ms : List TargetMajor) (cvGs : List ConstantVal)
-    (recCls : List Nat) (fe : FEnv) : FEnv :=
-  consBlockRecsBareF p 0 ((cvGs.zip recCls).map fun (cv, c) => (cv, (Ms.getD c default).nIdx)) fe
-
 /-- **The generated recursor stage** (charter item 5, see the module
 header), at the constructors' environment `fe`, on the CLASSES (the
 pre-pass's reading `rd` and the checked classes `Ms`, `checkBlockClasses`)
@@ -585,7 +579,7 @@ def genRecCheck (so : ShadowOps m) (fe : FEnv) (p : BlockShape) (nestedBit : Boo
   let pre ← unwrapOr g0.prefixBinders (.internal "generated recursor: recursor prefix")
   let g := { g0 with pre := pre }
   let cvGs ← classRecTysOk ops fe g p.k p.recs cvRis rd.recCls
-  let feR := classFeR p Ms cvGs rd.recCls fe
+  let feR := so.ruleEnv p Ms cvGs rd.recCls fe
   so.flush
   let out ← classRecsRulesOk (so.opsRuleR feR) so.walkers fe feR g
     (classRecOf rd.recCls cvGs) (Level.zeronessOf elim) cvGs rd.recCls
@@ -609,47 +603,5 @@ def classFeROvl (p : BlockShape) (Ms : List TargetMajor) (cvGs : List ConstantVa
     (recCls : List Nat) (fe : FEnv) : FEnv :=
   fe.overlay (blockRecInfosBare p 0
     ((cvGs.zip recCls).map fun (cv, c) => (cv, (Ms.getD c default).nIdx))).reverse
-
-/-- **`genRecCheck` with the rule-less recursors as an overlay**
-(task #329): the same stage, clause for clause, except that the
-rule-less recursors' environment is `classFeROvl` (sharing `fe`'s
-index) instead of `classFeR` (a push onto a shared index, i.e. a copy).
-The cached driver runs it (`checkBlockTailS`); at its operations it is
-`genRecCheck` (`genRecCheckOvl_eq`,
-`ConLeche/Verify/Cached/BlockOverlay.lean`). -/
-def genRecCheckOvl (so : ShadowOps m) (fe : FEnv) (p : BlockShape) (nestedBit : Bool)
-    (params : List Expr) (tbl : List NestCtorNf) (rd : ClassRead) (Ms : List TargetMajor)
-    (cvTas : List ConstantVal) (block : List ConstantInfo) :
-    m (List (ConstantVal × TargetMajor × List Expr)) := do
-  targetRecPins p block
-  let ops := so.opsAt fe
-  -- the stream's recursor types, checked: the generated types are compared with them
-  let cvRis ← classStreamRecs ops fe p.recs
-  -- the elimination guard
-  unless 0 < p.k do
-    throw (.invalid "generated recursor: the block declares no family")
-  if p.large && !blockLargeElimAllowed p (nestedBit || Ms.any (·.member.isNone)) then
-    throw (.invalid "generated recursor: large eliminator on a block whose sort may be Prop \
-      (official: elim_only_at_universe_zero)")
-  let formerTys := cvTas.map (·.type)
-  let Ms ← classesNfs ops fe.env p formerTys tbl Ms
-  -- per class and constructor: the datum, the inductive hypotheses, node agreement
-  let ctors ← classesCtors ops fe.env p formerTys rd Ms 0 Ms
-  unless (rd.slots.filter ClassSlot.isMinor).length == (ctors.map List.length).sum do
-    throw (.invalid "generated recursor: the recursors' prefix has a minor premise for no \
-      constructor of a class (official: invalid recursor)")
-  -- generation
-  let formerTysC ← Ms.mapM (classFormerTy fe cvTas)
-  let elim := structElimLevel p.elim p.large
-  let g0 : ClassGen := ⟨p.nP, params, Ms, formerTysC, rd.slots, ctors, elim, []⟩
-  let pre ← unwrapOr g0.prefixBinders (.internal "generated recursor: recursor prefix")
-  let g := { g0 with pre := pre }
-  let cvGs ← classRecTysOk ops fe g p.k p.recs cvRis rd.recCls
-  let feR := classFeROvl p Ms cvGs rd.recCls fe
-  so.flush
-  let out ← classRecsRulesOk (so.opsRuleR feR) so.walkers fe feR g
-    (classRecOf rd.recCls cvGs) (Level.zeronessOf elim) cvGs rd.recCls
-  so.flush
-  pure out
 
 end ConLeche

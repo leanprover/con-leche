@@ -53,6 +53,11 @@ current fact changed.
   regression tests. Commit often.
 * No `sorry` on a landed branch; no new axioms. Consistency proofs stay
   parametric in the `SetTheory` interface.
+* When restructuring code (for performance or otherwise), repair the
+  proofs against the new code; don't keep the old body as a reference
+  copy proved equal to it. A second implementation is right only with a
+  big, clear separation of concerns (the pure specification checker
+  and the cached one), never just to keep old proofs going.
 * Git: your working directory resets between tool calls, so use
   `git -C <worktree>` always; stage by explicit path, never `git add -A`
   or `git add .`; check the branch before committing.

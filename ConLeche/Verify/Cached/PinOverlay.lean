@@ -1,22 +1,22 @@
 module
 
-public import ConLeche.Cached.ParsedC
+public import ConLeche.Kernel.DeclCheck
 import ConLeche.Verify.Cached.BlockOverlay
 import ConLeche.Verify.Cached.KnotCongr
 
 public section
 
 /-!
-# The pinned arms push onto an unshared index (task #331)
+# The pinned arms read the pushed environment through `find?` (task #331)
 
-The cached driver runs `checkDeclC` (`ConLeche/Cached/ParsedC.lean`),
-whose pinned `Nat`-operation and `reduce*` arms certify against an
+The cached driver's pinned `Nat`-operation and `reduce*` arms
+(`checkDeclC`, `ConLeche/Cached/ParsedC.lean`) certify against an
 overlay sharing the index (`FEnv.overlay`) and push only afterwards.
-This file proves it equal to the reference `checkDeclCRef`, which every
-other proof reads (`checkDeclC_eq_ref`): the certificates read the
-pushed environment only through `find?`, and on an environment without
-an overlay the overlay answers `find?` as the push does
-(`find?_overlay_pushAll`, `ConLeche/Verify/Cached/BlockOverlay.lean`).
+The facts the proofs about those arms need: the guards and pin checks
+read the "after" environment only through `find?` (the `_congr`
+lemmas), and on an environment without an overlay a one-constant
+overlay answers `find?` as the push does (`find?_overlay_push`, from
+`find?_overlay_pushAll`, `ConLeche/Verify/Cached/BlockOverlay.lean`).
 -/
 
 namespace ConLeche.Cached
@@ -73,65 +73,5 @@ environment without an overlay. -/
 theorem find?_overlay_push {fe : FEnv} (h : fe.ovl = []) (ci : ConstantInfo) :
     (fe.overlay [ci]).find? = (fe.push ci).find? :=
   find?_overlay_pushAll h [ci]
-
-/-! ## The value checks are their unpushed halves, pushed -/
-
-private theorem ite_bindCM {α β : Type} (c : Prop) [Decidable c] (a b : CheckCM α)
-    (f : α → CheckCM β) :
-    (if c then a else b) >>= f = if c then a >>= f else b >>= f := by
-  split <;> rfl
-
-private theorem throw_bindCM {α β : Type} (e : CheckError) (f : α → CheckCM β) :
-    (throw e : CheckCM α) >>= f = throw e := rfl
-
-variable (mode : CheckMode)
-
-theorem checkDefnValC_eq (fe : FEnv) (cvA : ConstantVal) (jty value : Expr)
-    (hint : ReducibilityHint) :
-    checkDefnValC mode fe cvA jty value hint =
-      checkDefnValCI mode fe cvA jty value hint >>= fun ci => pure (fe.push ci) := by
-  unfold checkDefnValC checkDefnValCI
-  simp only [bind_assoc, pure_bind, ite_bindCM, throw_bindCM]
-
-theorem checkOpaqueValC_eq (fe : FEnv) (cvA : ConstantVal) (jty value : Expr) :
-    checkOpaqueValC mode fe cvA jty value =
-      checkOpaqueValCI mode fe cvA jty value >>= fun ci => pure (fe.push ci) := by
-  unfold checkOpaqueValC checkOpaqueValCI
-  simp only [bind_assoc, pure_bind, ite_bindCM, throw_bindCM]
-
-/-! ## The driver is the reference -/
-
-/-- **`checkDeclC` is `checkDeclCRef`**, unconditionally. -/
-theorem checkDeclC_eq_ref (pins : List NatOpPinSet) (fe : FEnv) (pd : Declaration) :
-    checkDeclC mode pins fe pd = checkDeclCRef mode pins fe pd := by
-  unfold checkDeclC
-  by_cases hE : fe.ovl.isEmpty
-  · have h : fe.ovl = [] := List.isEmpty_iff.mp hE
-    simp only [hE, ↓reduceIte]
-    cases pd with
-    | defnDecl cv value hint =>
-      unfold checkDeclCRef
-      refine bind_congr fun p => ?_
-      obtain ⟨cvA, jty⟩ := p
-      dsimp only
-      split
-      · rw [checkDefnValC_eq, bind_assoc]
-        refine bind_congr fun ci => ?_
-        have hf := find?_overlay_push h ci
-        simp only [pure_bind, hf, natOpGuardF_congr hf, natOpStoredOkF_congr hf,
-          checkDivModPinF_congr2 _ _ _ hf]
-      · rfl
-    | opaqueDecl cv value =>
-      unfold checkDeclCRef
-      refine bind_congr fun p => ?_
-      obtain ⟨cvA, jty⟩ := p
-      dsimp only
-      split
-      · rw [checkOpaqueValC_eq, bind_assoc]
-        refine bind_congr fun ci => ?_
-        simp only [pure_bind, checkReducePinF_congr2 _ _ (find?_overlay_push h ci)]
-      · rfl
-    | _ => rfl
-  · simp only [hE, Bool.false_eq_true, ↓reduceIte]
 
 end ConLeche.Cached

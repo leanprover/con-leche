@@ -85,28 +85,9 @@ def checkShapelessS (fe : FEnv) (block : List ConstantInfo) : CheckCM FEnv := do
   throw (.notImplemented s!"inductive block \
     {(block.head?.map (·.name)).getD .anonymous}: shape not recognised")
 
-/-- Check and install a definition's value against its annotated type `jty`. -/
-def checkDefnValC (fe : FEnv) (cvA : ConstantVal) (jty : Expr)
-    (value : Expr) (hint : ReducibilityHint) : CheckCM FEnv := do
-  unless Expr.looseBVarsBounded 0 value do
-    throw (.invalid s!"loose bound variable in value of {cvA.name}")
-  if value.hasFvar then
-    throw (.invalid s!"unexpected free variable in value of {cvA.name}")
-  let jv ← (coreKnotI mode fe checkFuel).annotate 0 value
-  unless Expr.allLevelParamsDefinedC cvA.levelParams jv do
-    throw (.invalid s!"undeclared universe parameter in value of {cvA.name}")
-  unless constsResolveFC fe jv do
-    throw (unresolvedConstsError s!"value of {cvA.name}" jv)
-  let vE := jv
-  recordCConst cvA.name cvA.type jty (some (vE, jv))
-  let jvt ← (coreKnotI mode fe checkFuel).infer 0 jv
-  unless ← (coreKnotI mode fe checkFuel).defeq 0 jvt jty do
-    throw (.invalid s!"type mismatch in definition {cvA.name}")
-  pure (fe.push (.defnInfo cvA vE hint))
-
-/-- `checkDefnValC` without its push: the same checks, returning the
-record it would push (task #331: the pinned `Nat`-operation arm certifies
-against an overlay and pushes afterwards, `checkDeclC`). -/
+/-- Check a definition's value against its annotated type `jty`,
+returning the record to install, unpushed: the pinned `Nat`-operation
+arm of `checkDeclC` certifies against an overlay before it pushes. -/
 def checkDefnValCI (fe : FEnv) (cvA : ConstantVal) (jty : Expr)
     (value : Expr) (hint : ReducibilityHint) : CheckCM ConstantInfo := do
   unless Expr.looseBVarsBounded 0 value do
@@ -124,6 +105,12 @@ def checkDefnValCI (fe : FEnv) (cvA : ConstantVal) (jty : Expr)
   unless ← (coreKnotI mode fe checkFuel).defeq 0 jvt jty do
     throw (.invalid s!"type mismatch in definition {cvA.name}")
   pure (.defnInfo cvA vE hint)
+
+/-- Check and install a definition's value against its annotated type `jty`. -/
+def checkDefnValC (fe : FEnv) (cvA : ConstantVal) (jty : Expr)
+    (value : Expr) (hint : ReducibilityHint) : CheckCM FEnv := do
+  let ci ← checkDefnValCI mode fe cvA jty value hint
+  pure (fe.push ci)
 
 /-- Check a theorem's value against its `Prop` statement `jty`; stored opaque. -/
 def checkThmValC (fe : FEnv) (cvA : ConstantVal) (jty : Expr)
@@ -148,26 +135,8 @@ def checkThmValC (fe : FEnv) (cvA : ConstantVal) (jty : Expr)
   -- stored by statement: the record's own value, unread (opaque)
   pure (fe.push (.thmInfo cvA value))
 
-/-- Check an opaque's value against `jty`; installed as an axiom. -/
-def checkOpaqueValC (fe : FEnv) (cvA : ConstantVal) (jty : Expr)
-    (value : Expr) : CheckCM FEnv := do
-  unless Expr.looseBVarsBounded 0 value do
-    throw (.invalid s!"loose bound variable in value of {cvA.name}")
-  if value.hasFvar then
-    throw (.invalid s!"unexpected free variable in value of {cvA.name}")
-  let jv ← (coreKnotI mode fe checkFuel).annotate 0 value
-  unless Expr.allLevelParamsDefinedC cvA.levelParams jv do
-    throw (.invalid s!"undeclared universe parameter in value of {cvA.name}")
-  unless constsResolveFC fe jv do
-    throw (unresolvedConstsError s!"value of {cvA.name}" jv)
-  recordCConst cvA.name cvA.type jty none
-  let jvt ← (coreKnotI mode fe checkFuel).infer 0 jv
-  unless ← (coreKnotI mode fe checkFuel).defeq 0 jvt jty do
-    throw (.invalid s!"type mismatch in opaque {cvA.name}")
-  pure (fe.push (.axiomInfo cvA))
-
-/-- `checkOpaqueValC` without its push (task #331, as
-`checkDefnValCI`). -/
+/-- Check an opaque's value against `jty`, returning the axiom record
+to install, unpushed (as `checkDefnValCI`). -/
 def checkOpaqueValCI (fe : FEnv) (cvA : ConstantVal) (jty : Expr)
     (value : Expr) : CheckCM ConstantInfo := do
   unless Expr.looseBVarsBounded 0 value do
@@ -185,6 +154,12 @@ def checkOpaqueValCI (fe : FEnv) (cvA : ConstantVal) (jty : Expr)
     throw (.invalid s!"type mismatch in opaque {cvA.name}")
   pure (.axiomInfo cvA)
 
+/-- Check an opaque's value against `jty`; installed as an axiom. -/
+def checkOpaqueValC (fe : FEnv) (cvA : ConstantVal) (jty : Expr)
+    (value : Expr) : CheckCM FEnv := do
+  let ci ← checkOpaqueValCI mode fe cvA jty value
+  pure (fe.push ci)
+
 /-- `checkBasisDecl`'s cached twin: the body the three records that
 install a pinned basis block share (task #293). -/
 def checkBasisDeclC (fe : FEnv) (kind : BasisKind) : CheckCM FEnv := do
@@ -193,18 +168,28 @@ def checkBasisDeclC (fe : FEnv) (kind : BasisKind) : CheckCM FEnv := do
       throw (.notImplemented "quotient basis requires the pinned Eq basis")
   kind.declsA.foldlM installBasisDeclF fe
 
-/-- One converted declaration, the REFERENCE body every proof reads
-(`checkDeclC_eq_ref`, `ConLeche/Verify/Cached/PinOverlay.lean`): the
-pinned `Nat`-operation and `reduce*` arms certify against the pushed
-environment while still holding the unpushed one, so the push copies
-the index.  What runs is `checkDeclC`. -/
-def checkDeclCRef (pins : List NatOpPinSet) (fe : FEnv) (pd : Declaration) :
+/-- One converted declaration (inductive and basis blocks reuse the
+`Expr`-level drivers).
+`pins` is the `Nat.div`/`Nat.mod` pin-variant list the install gate
+tries (task #304), threaded from the fold.
+
+**The pinned arms push last.**  A pinned `Nat`-operation definition and
+a `reduce*` opaque are certified against the environment before the
+push (`fe`) AND after it.  Holding both alive across a push would copy
+the whole index, so the value check returns the record unpushed
+(`checkDefnValCI`, `checkOpaqueValCI`), the "after" environment is an
+overlay sharing `fe`'s index (`FEnv.overlay`, read-only; on the
+install's environments it answers `find?` as the push would,
+`find?_overlay_push`), and the push comes last, onto an index nothing
+else holds. -/
+def checkDeclC (pins : List NatOpPinSet) (fe : FEnv) (pd : Declaration) :
     CheckCM FEnv :=
   match pd with
   | .defnDecl cv value hint => do
     let (cvA, jty) ← checkConstantValC mode fe cv
     if natOpNames.contains cvA.name || natDivModNames.contains cvA.name then
-      let fe2 ← checkDefnValC mode fe cvA jty value hint
+      let ci ← checkDefnValCI mode fe cvA jty value hint
+      let fe2 := fe.overlay [ci]
       if natOpNames.contains cvA.name then
         unless natOpGuardF fe2 cvA.name &&
             (natOpDeps cvA.name).all (natOpStoredOkF fe2) do
@@ -223,7 +208,7 @@ def checkDeclCRef (pins : List NatOpPinSet) (fe : FEnv) (pd : Declaration) :
             s!"structural Nat operation not stored ({cvA.name})")
       if natDivModNames.contains cvA.name then
         checkDivModPinF (sharedOpsC mode fe) pins fe fe2 cvA.name
-      pure fe2
+      pure (fe.push ci)
     else
       checkDefnValC mode fe cvA jty value hint
   | .thmDecl cv value => do
@@ -231,15 +216,12 @@ def checkDeclCRef (pins : List NatOpPinSet) (fe : FEnv) (pd : Declaration) :
     checkThmValC mode fe cvA jty value
   | .opaqueDecl cv value => do
     let (cvA, jty) ← checkConstantValC mode fe cv
-    -- RC linearity (cf. the parser-state rule): with `fe` still live
-    -- after the push — the `reduceOpNames` branch reads it —
-    -- `checkOpaqueValC`'s `fe.push` copied the whole index on EVERY
-    -- opaque install.  Branch first, so the common arm hands `fe` to
-    -- the push unshared.
+    -- RC linearity: branch before the value check, so the common arm
+    -- hands `fe` to its push unshared.
     if reduceOpNames.contains cvA.name then do
-      let fe2 ← checkOpaqueValC mode fe cvA jty value
-      checkReducePinF (sharedOpsC mode fe) fe fe2 cvA.name value
-      pure fe2
+      let ci ← checkOpaqueValCI mode fe cvA jty value
+      checkReducePinF (sharedOpsC mode fe) fe (fe.overlay [ci]) cvA.name value
+      pure (fe.push ci)
     else
       checkOpaqueValC mode fe cvA jty value
   | .axiomDecl cv =>
@@ -304,62 +286,6 @@ def checkDeclCRef (pins : List NatOpPinSet) (fe : FEnv) (pd : Declaration) :
     else throw (.notImplemented (match k with
       | .sound => "quotient soundness axiom mismatch"
       | _ => "quotient declaration mismatch"))
-
-/-- One converted declaration (inductive and basis blocks reuse the
-`Expr`-level drivers).
-`pins` is the `Nat.div`/`Nat.mod` pin-variant list the install gate
-tries (task #304), threaded from the fold.
-
-**The pinned arms without an index copy** (task #331).  A pinned
-`Nat`-operation definition and a `reduce*` opaque are certified against
-the environment before the push (`fe`) AND after it; the reference
-(`checkDeclCRef`) pushes first and certifies with both alive, so the
-push copied the whole index — 17 copies per stream, each of the full
-bucket array.  Here the value check returns the record unpushed
-(`checkDefnValCI`, `checkOpaqueValCI`), the "after" environment is an
-overlay sharing `fe`'s index (`FEnv.overlay`, read-only), and the push
-comes last, onto an index nothing else holds.  On an `fe` that already
-carries an overlay (never on the install path) the reference runs.  -/
-def checkDeclC (pins : List NatOpPinSet) (fe : FEnv) (pd : Declaration) :
-    CheckCM FEnv :=
-  if fe.ovl.isEmpty then
-    match pd with
-    | .defnDecl cv value hint => do
-      let (cvA, jty) ← checkConstantValC mode fe cv
-      if natOpNames.contains cvA.name || natDivModNames.contains cvA.name then
-        let ci ← checkDefnValCI mode fe cvA jty value hint
-        let fe2 := fe.overlay [ci]
-        if natOpNames.contains cvA.name then
-          unless natOpGuardF fe2 cvA.name &&
-              (natOpDeps cvA.name).all (natOpStoredOkF fe2) do
-            throw (.notImplemented
-              s!"nonstandard structural Nat operation environment ({cvA.name})")
-          match fe2.find? cvA.name with
-          | some (.defnInfo _ value' _) =>
-            let ok ← certifyNatEqs (sharedOpsC mode fe) fe.env
-              ((natOpEquations 0 cvA.name).map fun eq =>
-                (Expr.substConst0 cvA.name value' eq.1,
-                 Expr.substConst0 cvA.name value' eq.2))
-            unless ok do
-              throw (.notImplemented
-                s!"nonstandard structural Nat operation ({cvA.name})")
-          | _ => throw (.internal
-              s!"structural Nat operation not stored ({cvA.name})")
-        if natDivModNames.contains cvA.name then
-          checkDivModPinF (sharedOpsC mode fe) pins fe fe2 cvA.name
-        pure (fe.push ci)
-      else
-        checkDefnValC mode fe cvA jty value hint
-    | .opaqueDecl cv value => do
-      let (cvA, jty) ← checkConstantValC mode fe cv
-      if reduceOpNames.contains cvA.name then do
-        let ci ← checkOpaqueValCI mode fe cvA jty value
-        checkReducePinF (sharedOpsC mode fe) fe (fe.overlay [ci]) cvA.name value
-        pure (fe.push ci)
-      else
-        checkOpaqueValC mode fe cvA jty value
-    | pd => checkDeclCRef mode pins fe pd
-  else checkDeclCRef mode pins fe pd
 
 /-! ## Names and durations for the driver's messages -/
 

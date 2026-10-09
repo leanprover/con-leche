@@ -136,20 +136,20 @@ theorem checkConstantValC_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF e
     (fun s₃ u u' hs₃ hP₃ => ?_)
   exact SimC.pure hs₃ ⟨rfl, rfl, hwty, rfl⟩
 
-/-- `checkDefnValC` simulates the generic `checkDefnVal`: the pushed
-index is `mkFEnv` of the fueled environment, whose head stores the
-annotated (fvar-free) value. -/
-theorem checkDefnValC_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) {cvA : ConstantVal}
+/-- `checkDefnValCI` simulates the generic `checkDefnVal`: the record
+pushed onto the index is `mkFEnv` of the fueled environment, whose head
+stores the annotated (fvar-free) value. -/
+theorem checkDefnValCI_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) {cvA : ConstantVal}
     {jty : Expr} {value : Expr} {ve : Expr} {hint : ReducibilityHint}
     (htf : Expr.WScoped 0 cvA.type) (hjty : RelC jty cvA.type)
     (hdenv : RelC value ve) (hs : CSOK mode env s₀) :
-    SimC mode env s₀ (fun v w => v.env = w ∧ v = mkFEnv v.env ∧
-        ∀ cv' v' h', v.env.find? cvA.name = some (.defnInfo cv' v' h') →
+    SimC mode env s₀ (fun ci w => (mkFEnv env).push ci = mkFEnv w ∧
+        ∀ cv' v' h', w.find? cvA.name = some (.defnInfo cv' v' h') →
           v'.hasFvar = false)
-      (checkDefnValC mode (mkFEnv env) cvA jty value hint)
+      (checkDefnValCI mode (mkFEnv env) cvA jty value hint)
       (checkDefnVal (fueledOpsM mode) env cvA ve hint) := by
   obtain rfl := hdenv
-  unfold checkDefnValC checkDefnVal
+  unfold checkDefnValCI checkDefnVal
   by_cases h1 : Expr.looseBVarsBounded 0 value = true
   case neg =>
     simp only [ite_eq_right h1]
@@ -194,15 +194,33 @@ theorem checkDefnValC_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) 
     exact SimC.throw_bind
   | true =>
     simp only [↓reduceIte]
-    refine SimC.pure hs₃ ⟨rfl, push_mkFEnv env _, ?_⟩
+    refine SimC.pure hs₃ ⟨push_mkFEnv env _, ?_⟩
     intro cv' v' h' hf
-    rw [show ((mkFEnv env).push (.defnInfo cvA jv hint)).env =
-      ⟨.defnInfo cvA jv hint :: env.consts⟩ from rfl] at hf
     rw [Env.find?_cons, ite_eq_left (show (ConstantInfo.defnInfo cvA jv
       hint).name = cvA.name from rfl)] at hf
     simp only [Option.some.injEq, ConstantInfo.defnInfo.injEq] at hf
     obtain ⟨-, rfl, -⟩ := hf
     exact Expr.not_hasFvar_of_fvarsBelow_zero hwv.fvarsBelow
+
+/-- `checkDefnValC` simulates the generic `checkDefnVal`: the pushed
+index is `mkFEnv` of the fueled environment, whose head stores the
+annotated (fvar-free) value. -/
+theorem checkDefnValC_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) {cvA : ConstantVal}
+    {jty : Expr} {value : Expr} {ve : Expr} {hint : ReducibilityHint}
+    (htf : Expr.WScoped 0 cvA.type) (hjty : RelC jty cvA.type)
+    (hdenv : RelC value ve) (hs : CSOK mode env s₀) :
+    SimC mode env s₀ (fun v w => v.env = w ∧ v = mkFEnv v.env ∧
+        ∀ cv' v' h', v.env.find? cvA.name = some (.defnInfo cv' v' h') →
+          v'.hasFvar = false)
+      (checkDefnValC mode (mkFEnv env) cvA jty value hint)
+      (checkDefnVal (fueledOpsM mode) env cvA ve hint) := by
+  unfold checkDefnValC
+  rw [← fueledM_bind_pure' (checkDefnVal (fueledOpsM mode) env cvA ve hint : FueledM Env)]
+  refine SimC.bind (checkDefnValCI_sim hμ henv htf hjty hdenv hs)
+    (fun s₁ ci w hs₁ hP => ?_)
+  obtain ⟨hmk, hvf⟩ := hP
+  rw [hmk]
+  exact SimC.pure hs₁ ⟨rfl, rfl, hvf⟩
 
 /-- `checkThmValC` simulates the generic `checkThmVal`. -/
 theorem checkThmValC_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) {cvA : ConstantVal}
@@ -273,17 +291,17 @@ theorem checkThmValC_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) {
     simp only [↓reduceIte]
     exact SimC.pure hs₆ ⟨rfl, push_mkFEnv env _⟩
 
-/-- `checkOpaqueValC` simulates the generic `checkOpaqueVal`. -/
-theorem checkOpaqueValC_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) {cvA : ConstantVal}
+/-- `checkOpaqueValCI` simulates the generic `checkOpaqueVal`: the
+record pushed onto the index is `mkFEnv` of the fueled environment. -/
+theorem checkOpaqueValCI_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) {cvA : ConstantVal}
     {jty : Expr} {value : Expr} {ve : Expr}
     (htf : Expr.WScoped 0 cvA.type) (hjty : RelC jty cvA.type)
     (hdenv : RelC value ve) (hs : CSOK mode env s₀) :
-    SimC mode env s₀ (fun v w => (v.env = w ∧ v = mkFEnv v.env) ∧
-        ve.hasFvar = false)
-      (checkOpaqueValC mode (mkFEnv env) cvA jty value)
+    SimC mode env s₀ (fun ci w => (mkFEnv env).push ci = mkFEnv w ∧ ve.hasFvar = false)
+      (checkOpaqueValCI mode (mkFEnv env) cvA jty value)
       (checkOpaqueVal (fueledOpsM mode) env cvA ve) := by
   obtain rfl := hdenv
-  unfold checkOpaqueValC checkOpaqueVal
+  unfold checkOpaqueValCI checkOpaqueVal
   by_cases h1 : Expr.looseBVarsBounded 0 value = true
   case neg =>
     simp only [ite_eq_right h1]
@@ -326,8 +344,24 @@ theorem checkOpaqueValC_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env
     exact SimC.throw_bind
   | true =>
     simp only [↓reduceIte]
-    exact SimC.pure hs₃ ⟨⟨rfl, push_mkFEnv env _⟩,
-      Bool.not_eq_true _ ▸ h2⟩
+    exact SimC.pure hs₃ ⟨push_mkFEnv env _, Bool.not_eq_true _ ▸ h2⟩
+
+/-- `checkOpaqueValC` simulates the generic `checkOpaqueVal`. -/
+theorem checkOpaqueValC_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) {cvA : ConstantVal}
+    {jty : Expr} {value : Expr} {ve : Expr}
+    (htf : Expr.WScoped 0 cvA.type) (hjty : RelC jty cvA.type)
+    (hdenv : RelC value ve) (hs : CSOK mode env s₀) :
+    SimC mode env s₀ (fun v w => (v.env = w ∧ v = mkFEnv v.env) ∧
+        ve.hasFvar = false)
+      (checkOpaqueValC mode (mkFEnv env) cvA jty value)
+      (checkOpaqueVal (fueledOpsM mode) env cvA ve) := by
+  unfold checkOpaqueValC
+  rw [← fueledM_bind_pure' (checkOpaqueVal (fueledOpsM mode) env cvA ve : FueledM Env)]
+  refine SimC.bind (checkOpaqueValCI_sim hμ henv htf hjty hdenv hs)
+    (fun s₁ ci w hs₁ hP => ?_)
+  obtain ⟨hmk, hvf⟩ := hP
+  rw [hmk]
+  exact SimC.pure hs₁ ⟨⟨rfl, rfl⟩, hvf⟩
 
 /-! ## The converted declaration -/
 
@@ -384,7 +418,7 @@ theorem checkDeclC_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) (hs
   | quotDecl k cv =>
     -- task #293: the `type` record installs the pinned block, the other
     -- members install nothing, and a mismatch throws on both sides
-    rw [checkDeclC_eq_ref]; unfold checkDeclCRef checkDecl
+    unfold checkDeclC checkDecl
     dsimp only
     by_cases hp : quotPinHit k cv = true
     · simp only [ite_eq_left hp]
@@ -394,7 +428,7 @@ theorem checkDeclC_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) (hs
     · simp only [ite_eq_right hp]
       exact SimC.throw
   | axiomDecl cv =>
-    rw [checkDeclC_eq_ref]; unfold checkDeclCRef checkDecl
+    unfold checkDeclC checkDecl
     dsimp only
     -- task #293: `Quot.sound` is compared with the pin on both sides
     by_cases hqs : cv.name = quotSoundName
@@ -449,7 +483,7 @@ theorem checkDeclC_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) (hs
             · simp only [ite_eq_right h3]
               exact SimC.throw
   | thmDecl cv value =>
-    rw [checkDeclC_eq_ref]; unfold checkDeclCRef checkDecl
+    unfold checkDeclC checkDecl
     dsimp only
     refine SimC.bind (checkConstantValC_sim hμ henv hs rfl)
       (fun s₁ pr cvA hs₁ hP => ?_)
@@ -459,7 +493,7 @@ theorem checkDeclC_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) (hs
     exact SimC.mono (fun v w h => h)
       (checkThmValC_sim hμ henv hwty hjty rfl hs₁)
   | opaqueDecl cv value =>
-    rw [checkDeclC_eq_ref]; unfold checkDeclCRef checkDecl
+    unfold checkDeclC checkDecl
     dsimp only
     refine SimC.bind (checkConstantValC_sim hμ henv hs rfl)
       (fun s₁ pr cvA hs₁ hP => ?_)
@@ -480,18 +514,18 @@ theorem checkDeclC_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) (hs
       simp only [mkFEnv_env]
       exact SimC.pure hs₂ ⟨rfl, hmk ▸ hmk⟩
     simp only [ite_eq_left hred]
-    refine SimC.bind (checkOpaqueValC_sim hμ henv hwty hjty rfl hs₁)
-      (fun s₂ fe2 env2 hs₂ hP₂ => ?_)
-    obtain ⟨⟨henvEq, hmk⟩, hvf⟩ := hP₂
-    subst henvEq
-    rw [hmk]
-    simp only [mkFEnv_env]
-    rw [checkReducePinF_eq]
+    -- the cached arm certifies against the overlay, which answers
+    -- `find?` as the push, and pushes last
+    refine SimC.bind (checkOpaqueValCI_sim hμ henv hwty hjty rfl hs₁)
+      (fun s₂ ci env2 hs₂ hP₂ => ?_)
+    obtain ⟨hmk, hvf⟩ := hP₂
+    rw [checkReducePinF_congr2 _ _ (find?_overlay_push (fe := mkFEnv env) rfl ci), hmk,
+      checkReducePinF_eq]
     refine SimC.bind (checkReducePinS_sim hμ henv hvf hs₂)
       (fun s₄ u u' hs₄ hP₄ => ?_)
-    exact SimC.pure hs₄ ⟨rfl, hmk ▸ hmk⟩
+    exact SimC.pure hs₄ ⟨rfl, rfl⟩
   | defnDecl cv value hint =>
-    rw [checkDeclC_eq_ref]; unfold checkDeclCRef checkDecl
+    unfold checkDeclC checkDecl
     dsimp only
     refine SimC.bind (checkConstantValC_sim hμ henv hs rfl)
       (fun s₁ pr cvA hs₁ hP => ?_)
@@ -512,11 +546,15 @@ theorem checkDeclC_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) (hs
       subst henvEq
       exact SimC.pure hs₂ ⟨rfl, hmk⟩
     simp only [ite_eq_left hb]
-    refine SimC.bind (checkDefnValC_sim hμ henv hwty hjty rfl hs₁)
-      (fun s₂ fe2 env2 hs₂ hP₂ => ?_)
-    obtain ⟨henvEq, hmk, hv'fD⟩ := hP₂
-    subst henvEq
-    rw [hmk]
+    -- the cached arm certifies against the overlay, which answers
+    -- `find?` as the push, and pushes last
+    refine SimC.bind (checkDefnValCI_sim hμ henv hwty hjty rfl hs₁)
+      (fun s₂ ci env2 hs₂ hP₂ => ?_)
+    obtain ⟨hmk, hv'fD⟩ := hP₂
+    have hf : ((mkFEnv env).overlay [ci]).find? = (mkFEnv env2).find? := by
+      rw [find?_overlay_push (fe := mkFEnv env) rfl ci, hmk]
+    simp only [natOpGuardF_congr hf, natOpStoredOkF_congr hf, checkDivModPinF_congr2 _ _ _ hf,
+      hf, hmk]
     simp only [natOpGuardF_eq, natOpStoredOkF_eq_fun, mkFEnv_find?,
       checkDivModPinF_eq, mkFEnv_env]
     by_cases h1 : natOpNames.contains cvR.name = true
@@ -525,18 +563,18 @@ theorem checkDeclC_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) (hs
       by_cases h4 : natDivModNames.contains cvR.name = true
       case neg =>
         simp only [ite_eq_right h4]
-        exact SimC.pure hs₂ ⟨rfl, hmk ▸ hmk⟩
+        exact SimC.pure hs₂ ⟨rfl, rfl⟩
       simp only [ite_eq_left h4]
       refine SimC.bind (checkDivModPinS_sim hμ henv
           (List.contains_iff_mem.mp h4) hv'fD hs₂)
         (fun s₃ u u' hs₃ hP₃ => ?_)
-      exact SimC.pure hs₃ ⟨rfl, hmk ▸ hmk⟩
+      exact SimC.pure hs₃ ⟨rfl, rfl⟩
     simp only [ite_eq_left h1]
-    by_cases h2 : (natOpGuard fe2.env cvR.name &&
-        (natOpDeps cvR.name).all (natOpStoredOk fe2.env)) = true
+    by_cases h2 : (natOpGuard env2 cvR.name &&
+        (natOpDeps cvR.name).all (natOpStoredOk env2)) = true
     case neg => simp only [ite_eq_right h2]; exact SimC.throw_bind
     simp only [h2, ↓reduceIte]
-    cases hfind : fe2.env.find? cvR.name with
+    cases hfind : env2.find? cvR.name with
     | none => exact SimC.throw_bind
     | some ci =>
       cases ci with
@@ -565,12 +603,12 @@ theorem checkDeclC_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) (hs
           by_cases h4 : natDivModNames.contains cvR.name = true
           case neg =>
             simp only [ite_eq_right h4]
-            exact SimC.pure hs₃ ⟨rfl, hmk ▸ hmk⟩
+            exact SimC.pure hs₃ ⟨rfl, rfl⟩
           simp only [ite_eq_left h4]
           refine SimC.bind (checkDivModPinS_sim hμ henv
               (List.contains_iff_mem.mp h4) hv'fD hs₃)
             (fun s₄ u u' hs₄ hP₄ => ?_)
-          exact SimC.pure hs₄ ⟨rfl, hmk ▸ hmk⟩
+          exact SimC.pure hs₄ ⟨rfl, rfl⟩
       | axiomInfo cv' => exact SimC.throw_bind
       | thmInfo cv' v' => exact SimC.throw_bind
       | indInfo cv' caps => exact SimC.throw_bind

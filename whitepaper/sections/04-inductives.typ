@@ -144,7 +144,7 @@ of $Sort ell$, so its binders carry
   (#src("ConLeche/Kernel/Inductives/ClassRead.lean", 24, 32)[the pre-pass]).
   The record's rules are never read; the generated recursor and its
   rules are what is stored
-  (#src("ConLeche/Kernel/Inductives/GenRec.lean", 560, 563)[the recursor stage]).
+  (#src("ConLeche/Kernel/Inductives/GenRec.lean", 554, 557)[the recursor stage]).
 ]
 
 The recursor is best shown on an example.
@@ -240,7 +240,7 @@ eliminator on a family whose sort _may_ be zero
   when the sort is never zero, and otherwise only on a block with one
   type former, not nested, with at most one constructor
   (#src("ConLeche/Kernel/Inductives/BlockRec.lean", 82, 84)[the guard],
-  #src("ConLeche/Kernel/Inductives/GenRec.lean", 571, 573)[applied]) —
+  #src("ConLeche/Kernel/Inductives/GenRec.lean", 565, 567)[applied]) —
   and the condition per field
   (#src("ConLeche/Kernel/Inductives/SumInstall.lean", 85, 99)[per field]),
   asked only of a family whose sort is _provably_ zero. So a family
