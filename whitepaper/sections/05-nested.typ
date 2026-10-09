@@ -289,11 +289,11 @@ application whose levels and parameters equal
 (#src("ConLeche/Rules/Rel.lean", 197, 204)[the levels by the level oracle, the parameters definitionally]);
 the constructor's fields are what follows its own parameters, and the
 index comparison is as before
-(#src("ConLeche/Kernel/Inductives/RecCheck.lean", 592, 597)[the stored rules at a container class]).
+(#src("ConLeche/Kernel/Inductives/RecCheck.lean", 602, 607)[the stored rules at a container class]).
 
 *Large elimination.* A nested block may eliminate into every sort only
 if #src("ConLeche/Kernel/Inductives/BlockRec.lean", 82, 84)[its sort is never zero]
-(#src("ConLeche/Kernel/Inductives/GenRec.lean", 569, 573)[where the checker enforces it]),
+(#src("ConLeche/Kernel/Inductives/GenRec.lean", 563, 567)[where the checker enforces it]),
 as in the official kernel. A nested proposition eliminates only into
 $sans("Prop")$, and the subsingleton criterion is never asked of a
 nested block.
@@ -304,7 +304,7 @@ nested block.
   #src("ConLeche/Kernel/Inductives/ClassRead.lean", 15, 32)[an unverified pre-pass],
   and each class is then checked: the type being defined at the
   block's levels and parameters, or
-  #src("ConLeche/Kernel/Inductives/RecCheck.lean", 400, 437)[a stored inductive type, not the quotient, whose parameters mention the type being defined and nothing but the block's parameters, in the block's sort].
+  #src("ConLeche/Kernel/Inductives/RecCheck.lean", 410, 447)[a stored inductive type, not the quotient, whose parameters mention the type being defined and nothing but the block's parameters, in the block's sort].
   #src("ConLeche/Kernel/Inductives/Positivity.lean", 1646, 1654)[Every class other than the type being defined is walked]
   as a container met at the root, so every class is an instantiation
   the walk visited; a field landing at a class the stream gives
