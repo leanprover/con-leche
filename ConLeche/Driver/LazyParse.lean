@@ -176,23 +176,23 @@ def computeWL (pl : Pool) (cfg : Cfg) (mk : ByteArray) (P : Prior) (c0 : Ctr) (t
 
 /-- A chunk's lazy check, with the evidence that it is `checkFlatL` of
 the chunk at the given counters. -/
-structure CheckResL (P : Prior) where
+structure CheckResL (P : Prior) (nd : ByteArray) where
   x : LScanned
   s : Ctr
   r : Option (Ctr × LAcc)
-  h : r = checkFlatL P x.val.1 s
+  h : r = checkFlatL P nd x.val.1 s
 
 /-- The lazy checks of a window, on the workers. -/
-def startChecksL (pl : Pool) (cfg : Cfg) (P : Prior) (W : Win) (xs : Array LScanned) :
-    IO (Array (IO.Promise (CheckResL P))) := do
-  let mut cps : Array (IO.Promise (CheckResL P)) := #[]
+def startChecksL (pl : Pool) (cfg : Cfg) (P : Prior) (nd : ByteArray) (W : Win)
+    (xs : Array LScanned) : IO (Array (IO.Promise (CheckResL P nd))) := do
+  let mut cps : Array (IO.Promise (CheckResL P nd)) := #[]
   for i in [0:xs.size] do
     let x := xs.getD i default
     let s := W.start i
-    have : Nonempty (CheckResL P) := ⟨⟨x, s, _, rfl⟩⟩
+    have : Nonempty (CheckResL P nd) := ⟨⟨x, s, _, rfl⟩⟩
     cps := cps.push (← pl.run .mid (do
       let r ← IO.lazyPure fun _ =>
-        (⟨checkFlatL P x.val.1 s, rfl⟩ : { r // r = checkFlatL P x.val.1 s })
+        (⟨checkFlatL P nd x.val.1 s, rfl⟩ : { r // r = checkFlatL P nd x.val.1 s })
       if let some (_, a) := r.val then markEach cfg.noMark a.ds
       return ⟨x, s, r.val, r.property⟩))
   return cps
@@ -200,7 +200,8 @@ def startChecksL (pl : Pool) (cfg : Cfg) (P : Prior) (W : Win) (xs : Array LScan
 /-- **The checked chunks, folded**: each chunk whose check ran at the
 counters the chunks before reached and passed is one more serial step
 (`LGOK.chunk`); `none` at the first that is not. -/
-def foldChecksL (P : Prior) : List (CheckResL P) → (g : LGSt) → LGOK g → g.P = P →
+def foldChecksL (P : Prior) (nd : ByteArray) : List (CheckResL P nd) → (g : LGSt) → LGOK g →
+    g.P = P →
     Except String { g : LGSt // LGOK g }
   | [], g, hg, _ => .ok ⟨g, hg⟩
   | r :: rest, g, hg, hP =>
@@ -208,7 +209,7 @@ def foldChecksL (P : Prior) : List (CheckResL P) → (g : LGSt) → LGOK g → g
       match hr : r.r with
       | some (c', a) =>
         if hf : chunkFitsN r.x.val.2.1 r.x.val.1 g.total then
-          foldChecksL P rest
+          foldChecksL P nd rest
             { g with c := c', ds := g.ds ++ a.ds, lineNo := g.lineNo + r.x.val.1.count,
                      total := g.total + r.x.val.2.1, S := g.S.push ⟨a.cd, a.spId, a.spOff⟩ }
             (by
@@ -225,7 +226,8 @@ checks are running. -/
 structure PendL where
   g : LGSt
   hg : LGOK g
-  cps : Array (IO.Promise (CheckResL g.P))
+  nd : ByteArray
+  cps : Array (IO.Promise (CheckResL g.P nd))
   cEnd : Ctr
   tEnd : Nat
 
@@ -236,13 +238,13 @@ inductive DoneL where
 
 /-- A window's checks, waited for and folded. -/
 def foldPendL (p : PendL) : IO (Except String { g : LGSt // LGOK g }) := do
-  have : Nonempty (CheckResL p.g.P) := ⟨⟨default, default, _, rfl⟩⟩
+  have : Nonempty (CheckResL p.g.P p.nd) := ⟨⟨default, default, _, rfl⟩⟩
   let cs ← p.cps.mapM await
-  return foldChecksL p.g.P cs.toList p.g p.hg rfl
+  return foldChecksL p.g.P p.nd cs.toList p.g p.hg rfl
 
 /-- **The windows**, from chunk `i`: a window's tables are computed
 while the window before it is being checked.  `none`: fall back. -/
-partial def winLoop (pl : Pool) (cfg : Cfg) (mk : ByteArray) (xs : Array LScanned) (i : Nat)
+partial def winLoop (pl : Pool) (cfg : Cfg) (mk nd : ByteArray) (xs : Array LScanned) (i : Nat)
     (d : DoneL) : IO (Except String { g : LGSt // LGOK g }) := do
   let win := xs.extract i (i + cfg.m)
   let comp ← if win.isEmpty then pure (.error "") else
@@ -262,9 +264,9 @@ partial def winLoop (pl : Pool) (cfg : Cfg) (mk : ByteArray) (xs : Array LScanne
       if hk : g.P.keeps g.c nn nl ne then
         let P' := g.P.setFrom g.c nn nl ne
         let g1 : LGSt := { g with P := P' }
-        let cps ← startChecksL pl cfg P' W win
+        let cps ← startChecksL pl cfg P' nd W win
         let tEnd := win.foldl (fun t x => t + x.val.2.1) g.total
-        winLoop pl cfg mk xs (i + cfg.m) (.pend ⟨g1, LGOK.keep hg hk, cps, W.cEnd, tEnd⟩)
+        winLoop pl cfg mk nd xs (i + cfg.m) (.pend ⟨g1, LGOK.keep hg hk, nd, cps, W.cEnd, tEnd⟩)
       else return .error s!"window at chunk {i}: the tables do not keep"
 
 /-! ## The theorem values -/
@@ -326,7 +328,7 @@ structure LazyRes where
 succeeds, its final state is related to the store's tables and lines,
 and its records to the run-time ones. -/
 def LazyGhost (r : LazyRes) : Prop :=
-  ∃ cs stF, parseChunks cs = .ok ⟨stF.decls⟩ ∧ LHolds stF r.S.P r.S.c ∧
+  ∃ cs stF, parseChunks cs = .ok ⟨stF.decls⟩ ∧ SHolds stF r.S ∧
     StoreOK stF r.S.chunks ∧ Pw (DRel stF) r.ds.toList stF.decls.toList
 
 /-- A parse's outcome: the serial parse's (a fallback, or `--jobs=1`),
@@ -381,7 +383,7 @@ def parseExportLazyInfo (path : System.FilePath) (jobs m : Nat) (csz : USize) (i
     else ⟨.empty, .empty⟩
   let t3 ← IO.monoMsNow
   -- 3. the windows
-  match ← winLoop pl cfg marks.mkd xs 0 (.ready LGSt.init LGOK.init) with
+  match ← winLoop pl cfg marks.mkd marks.nd xs 0 (.ready LGSt.init LGOK.init) with
   | .error why =>
     pl.shutdown
     let r ← serialL path inflight .init .empty 0 0 Reached.init xs.toList
@@ -389,12 +391,29 @@ def parseExportLazyInfo (path : System.FilePath) (jobs m : Nat) (csz : USize) (i
   | .ok ⟨g, hg⟩ =>
     pl.shutdown
     let t4 ← IO.monoMsNow
-    let S := LStore.ofChunks g.S g.P g.c
-    let nLazy := S.chunks.foldl (fun a C => a + C.spId.size) 0
-    return (.lazy ⟨g.ds, S⟩ (by
+    -- the retained table, validated; the finished expression pages
+    -- are dropped with `g.P`
+    let rt := RTab.build marks.mkd marks.nd g.P g.c.e
+    if hrt : rtValid rt g.P g.c.e then
+      let S := LStore.ofChunks g.S g.P g.c rt
+      let nLazy := S.chunks.foldl (fun a C => a + C.spId.size) 0
+      let r : LazyRes := ⟨g.ds, S⟩
+      let hr : LazyGhost r := by
         obtain ⟨cs, stF, hcs, hh, hd, hs⟩ := LGOK.finish hg
-        exact ⟨cs, stF, hcs, hh, hs.ofChunks g.P g.c, hd⟩),
-      ⟨0, "", nLazy, #[t1 - t0, t2 - t1, t3 - t2, t4 - t3]⟩)
+        exact ⟨cs, stF, hcs, SHolds.ofChunks hh g.S hrt, hs.ofChunks g.P g.c rt, hd⟩
+      let t5 ← IO.monoMsNow
+      -- without the sweep's marks (a stream with huge gaps) nothing is
+      -- retained: every value is built now
+      if marks.mkd.size == 0 then
+        match ← toEager jobs r hr with
+        | some o => return (.eager o, ⟨0, "no marks", nLazy, #[t1 - t0, t2 - t1, t3 - t2, t4 - t3, t5 - t4]⟩)
+        | none =>
+          let o ← serialL path inflight .init .empty 0 0 Reached.init xs.toList
+          return (.eager o, ⟨1, "a value did not build", 0, #[]⟩)
+      return (.lazy r hr, ⟨0, "", nLazy, #[t1 - t0, t2 - t1, t3 - t2, t4 - t3, t5 - t4]⟩)
+    else
+      let o ← serialL path inflight .init .empty 0 0 Reached.init xs.toList
+      return (.eager o, ⟨1, "the retained table", 0, #[]⟩)
 
 /-- **The lazy parse of a file**; with `verbose`, its phase times on
 stderr. -/

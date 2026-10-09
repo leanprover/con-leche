@@ -48,7 +48,7 @@ store is the parse of, the record is checked at every serial check
 related to it. -/
 def LazyChecked {mode : CheckMode} {ds : List Declaration} (S : LStore)
     (e : InstalledEnv mode natOpPinSets ds) (k : Nat) : Prop :=
-  ∀ G, LHolds G S.P S.c → StoreOK G S.chunks → LChecked mode (PhRel G) e k
+  ∀ G, SHolds G S → StoreOK G S.chunks → LChecked mode (PhRel G) e k
 
 /-- A pending check with another value. -/
 @[inline] def _root_.ConLeche.Cached.PendingCheck.withJv (pc : PendingCheck) (v : Expr) :

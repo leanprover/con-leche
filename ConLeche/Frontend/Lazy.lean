@@ -70,6 +70,22 @@ fails, like an unbound one. -/
 @[inline] def boundE (P : @& Prior) (b j : Nat) : Bool :=
   j < b && (P.e.get j).isSome
 
+/-- Bit `i` of a bitmap. -/
+@[inline] def bitGet (bm : @& ByteArray) (i : Nat) : Bool :=
+  let b := i / 8
+  if h : b < bm.size then (bm[b] >>> (i % 8).toUInt8) &&& 1 == 1 else false
+
+/-- Is index `j` noted as needed by the lazy builds?  (An empty bitmap
+notes every index.) -/
+@[inline] def neededE (nd : @& ByteArray) (j : Nat) : Bool := nd.size == 0 || bitGet nd j
+
+/-- Is expression index `j` bound below the counter, and, when built,
+noted as needed (the store keeps exactly those, `RTab`)? -/
+@[inline] def boundN (P : @& Prior) (nd : @& ByteArray) (b j : Nat) : Bool :=
+  boundE P b j && (match P.e.get j with
+    | some v => isLazyE v || neededE nd j
+    | none => false)
+
 /-- An answer is an `ok`. -/
 @[inline] def isOk : Except ε α → Bool
   | .ok _ => true
@@ -77,18 +93,18 @@ fails, like an unbound one. -/
 
 /-- **A lazy line's references**: every name and level it reads bound
 below the counters, every expression bound (built or lazy). -/
-@[inline] def refsOK (P : @& Prior) (c : Ctr) (x : @& ExprRec) : Bool :=
+@[inline] def refsOK (P : @& Prior) (nd : @& ByteArray) (c : Ctr) (x : @& ExprRec) : Bool :=
   match x with
   | .bvar _ => true
   | .sort u => isOk (lkL P c.l u)
   | .const n us => isOk (lkN P c.n n) && us.all fun u => isOk (lkL P c.l u)
-  | .app f a => boundE P c.e f && boundE P c.e a
-  | .lam ty bd pw => boundE P c.e ty && boundE P c.e bd &&
+  | .app f a => boundN P nd c.e f && boundN P nd c.e a
+  | .lam ty bd pw => boundN P nd c.e ty && boundN P nd c.e bd &&
       isOk (pwOfF (lkN P c.n) (lkL P c.l) (lkEB P c.e) pw)
-  | .forallE ty bd pw => boundE P c.e ty && boundE P c.e bd &&
+  | .forallE ty bd pw => boundN P nd c.e ty && boundN P nd c.e bd &&
       isOk (pwOfF (lkN P c.n) (lkL P c.l) (lkEB P c.e) pw)
-  | .letE ty vl bd => boundE P c.e ty && boundE P c.e vl && boundE P c.e bd
-  | .proj tn _ s => isOk (lkN P c.n tn) && boundE P c.e s
+  | .letE ty vl bd => boundN P nd c.e ty && boundN P nd c.e vl && boundN P nd c.e bd
+  | .proj tn _ s => isOk (lkN P c.n tn) && boundN P nd c.e s
   | .natVal _ => true
   | .strVal _ => true
 
@@ -160,7 +176,7 @@ check tests it all the same, so that the proofs need not). -/
 /-- **One line, checked** at counters `c` against the finished tables
 `P` (built and lazy entries): the counters after it and the
 accumulator, or `none`. -/
-@[inline] def checkLineL (P : @& Prior) (c : Ctr) (r : @& LineRec) (a : LAcc) :
+@[inline] def checkLineL (P : @& Prior) (nd : @& ByteArray) (c : Ctr) (r : @& LineRec) (a : LAcc) :
     Option (Ctr × LAcc) :=
   match r with
   | .expr i x =>
@@ -168,7 +184,7 @@ accumulator, or `none`. -/
       match P.e.get i with
       | some v =>
         if isLazyE v then
-          if refsOK P c x then some ({ c with e := i + 1 }, a.lazy i x) else none
+          if refsOK P nd c x then some ({ c with e := i + 1 }, a.lazy i x) else none
         else if exprCheck (lkN P c.n) (lkL P c.l) (lkEB P c.e) x v then
           some ({ c with e := i + 1 }, a)
         else none
@@ -176,7 +192,7 @@ accumulator, or `none`. -/
     else none
   | .decl (.thm cvr vid) =>
     match cvOfF (lkN P c.n) (lkL P c.l) (lkEB P c.e) cvr with
-    | .ok cv => if boundE P c.e vid then some (c, a.push (.thmDecl cv (ph vid a.hint))) else none
+    | .ok cv => if boundN P nd c.e vid then some (c, a.push (.thmDecl cv (ph vid a.hint))) else none
     | .error _ => none
   | .decl d =>
     if declBuilt P c.e d then
@@ -190,28 +206,29 @@ accumulator, or `none`. -/
     | none => none
 
 /-- **The check of a list of lines** (the specification). -/
-def checkListL (P : Prior) (c : Ctr) : List LineRec → LAcc → Option (Ctr × LAcc)
+def checkListL (P : Prior) (nd : ByteArray) (c : Ctr) : List LineRec → LAcc → Option (Ctr × LAcc)
   | [], a => some (c, a)
   | r :: rs, a =>
-    match checkLineL P c r a with
-    | some (c', a') => checkListL P c' rs a'
+    match checkLineL P nd c r a with
+    | some (c', a') => checkListL P nd c' rs a'
     | none => none
 
 /-- The check of a flat chunk: `k` records from machine-word position
 `p`, each read where it is checked. -/
-def checkFlatGoL (P : @& Prior) (d : @& ByteArray) (p : USize) (k : Nat) (c : Ctr)
-    (a : LAcc) : Option (Ctr × LAcc) :=
+def checkFlatGoL (P : @& Prior) (nd : @& ByteArray) (d : @& ByteArray) (p : USize) (k : Nat)
+    (c : Ctr) (a : LAcc) : Option (Ctr × LAcc) :=
   match k with
   | 0 => some (c, a)
   | k + 1 =>
     Flat.withLineU d p fun r q =>
-      match checkLineL P c r a with
-      | some (c', a') => checkFlatGoL P d q k c' a'
+      match checkLineL P nd c r a with
+      | some (c', a') => checkFlatGoL P nd d q k c' a'
       | none => none
 
 /-- A flat chunk's lines, checked from counters `c`. -/
-def checkFlatL (P : @& Prior) (fc : @& FlatChunk) (c : Ctr) : Option (Ctr × LAcc) :=
-  if fc.data.size < USize.size then checkFlatGoL P fc.data 0 fc.count c LAcc.init else none
+def checkFlatL (P : @& Prior) (nd : @& ByteArray) (fc : @& FlatChunk) (c : Ctr) :
+    Option (Ctr × LAcc) :=
+  if fc.data.size < USize.size then checkFlatGoL P nd fc.data 0 fc.count c LAcc.init else none
 
 /-- One chunk's lazy lines. -/
 structure LChunk where
@@ -247,11 +264,6 @@ where
   go (b : ByteArray) : Nat → ByteArray
     | 0 => b.extract 0 n
     | fuel + 1 => if b.size ≥ n then b.extract 0 n else go (b ++ b) fuel
-
-/-- Bit `i` of a bitmap. -/
-@[inline] def bitGet (bm : @& ByteArray) (i : Nat) : Bool :=
-  let b := i / 8
-  if h : b < bm.size then (bm[b] >>> (i % 8).toUInt8) &&& 1 == 1 else false
 
 /-- Set bit `i` (no effect past the end). -/
 @[inline] def bitSet (bm : ByteArray) (i : Nat) : ByteArray :=
@@ -367,13 +379,107 @@ sparse index and a short walk), its children built first, a built
 entry read from the tables.  The memo is the build's own, dropped with
 it. -/
 
+/-- **The retained table**: the built expressions the lazy builds read
+(a lazy line's built children, a theorem's built value), and nothing
+else of the finished expression table — its pages are dropped after
+the parse.  Index `j` is retained when its bit is set; its value is
+the `rank`-th, the count of retained indices below it being the
+block count of its 64-bit block (`cnt`, four bytes a block) plus the
+bits set before it in the block.  Nothing here is trusted: the table
+is validated against the finished tables once it is built
+(`rtValid`). -/
+structure RTab where
+  bits : ByteArray
+  cnt : ByteArray
+  vals : Array Expr
+
+/-- The set bits of a byte. -/
+@[inline] def popc8 (x : UInt8) : Nat :=
+  let x : UInt8 := x - ((x >>> 1) &&& (0x55 : UInt8))
+  let x : UInt8 := (x &&& (0x33 : UInt8)) + ((x >>> 2) &&& (0x33 : UInt8))
+  ((x + (x >>> 4)) &&& (0x0F : UInt8)).toNat
+
+/-- The set bits of the bytes `[b, e)`. -/
+def popcRange (bits : @& ByteArray) (b e : Nat) (acc : Nat) : Nat :=
+  if b < e then popcRange bits (b + 1) e (acc + popc8 (bits.get! b)) else acc
+termination_by e - b
+
+/-- The retained indices below `j`. -/
+@[inline] def RTab.rank (R : @& RTab) (j : Nat) : Nat :=
+  let w := j / 64
+  let full := popcRange R.bits (w * 8) (j / 8) (get32 R.cnt (4 * w))
+  full + popc8 (R.bits.get! (j / 8) &&& (((1 : UInt8) <<< (j % 8).toUInt8) - 1))
+
+/-- Index `j`'s retained value. -/
+@[inline] def RTab.get (R : @& RTab) (j : Nat) : Option Expr :=
+  if bitGet R.bits j then R.vals[R.rank j]? else none
+
+/-- The retained table from the sweep's bitmaps (marked and needed) and
+the finished tables: byte by byte, every set bit whose index is built
+below the counter, its value pushed; a block count every eight bytes. -/
+def RTab.build (mk nd : @& ByteArray) (P : @& Prior) (ce : Nat) : RTab :=
+  go 0 (ByteArray.emptyWithCapacity (min mk.size nd.size)) .empty #[] 0
+where
+  go (b : Nat) (bits cnt : ByteArray) (vals : Array Expr) (n : Nat) : RTab :=
+    if b < min mk.size nd.size then
+      let cnt := if b % 8 == 0 then
+          (((cnt.push n.toUInt32.toUInt8).push (n.toUInt32 >>> 8).toUInt8).push
+            (n.toUInt32 >>> 16).toUInt8).push (n.toUInt32 >>> 24).toUInt8
+        else cnt
+      let x := mk.get! b &&& nd.get! b
+      if x == 0 then go (b + 1) (bits.push 0) cnt vals n
+      else
+        let (y, vals, n) := bitsGo b x 0 0 vals n
+        go (b + 1) (bits.push y) cnt vals n
+    else ⟨bits, cnt, vals⟩
+  termination_by min mk.size nd.size - b
+  /-- The bits `t..7` of byte `b` (`x`), kept when built. -/
+  bitsGo (b : Nat) (x : UInt8) (t : Nat) (y : UInt8) (vals : Array Expr) (n : Nat) :
+      UInt8 × Array Expr × Nat :=
+    if t < 8 then
+      if (x >>> t.toUInt8) &&& 1 == 1 then
+        let j := 8 * b + t
+        match (if j < ce then P.e.get j else none) with
+        | some v =>
+          if isLazyE v then bitsGo b x (t + 1) y vals n
+          else bitsGo b x (t + 1) (y ||| ((1 : UInt8) <<< t.toUInt8)) (vals.push v) (n + 1)
+        | none => bitsGo b x (t + 1) y vals n
+      else bitsGo b x (t + 1) y vals n
+    else (y, vals, n)
+  termination_by 8 - t
+
+/-- **The retained table, validated**: every index it answers is built
+in the finished tables below the counter, with that value (`==`, the
+pointer comparison first). -/
+def rtValid (R : @& RTab) (P : @& Prior) (ce : Nat) : Bool :=
+  go 0
+where
+  go (j : Nat) : Bool :=
+    if j < R.bits.size * 8 then
+      (match R.get j with
+       | some v =>
+         match (if j < ce then P.e.get j else none) with
+         | some w => !isLazyE w && v == w
+         | none => false
+       | none => true) && go (j + 1)
+    else true
+  termination_by R.bits.size * 8 - j
+
 /-- The store. -/
 structure LStore where
   chunks : Array LChunk
   /-- each chunk's first lazy index (chunks without lazy lines are left out) -/
   firsts : Array Nat
+  /-- the finished tables' names and levels (no expressions) -/
   P : Prior
   c : Ctr
+  rt : RTab
+
+/-- A built expression of the store: the retained table's. -/
+@[inline] def rtLk (S : @& LStore) (k : Nat) : Except String Expr :=
+  match S.rt.get k with
+  | some v => pure v
+  | none => throw s!"expr index {k} not retained"
 
 /-- The last position in `[lo, hi)` of a sorted array whose entry is
 at most `j` (`lo` if none is). -/
@@ -426,13 +532,13 @@ built entry of the tables. -/
   if k < j then
     match memo.get? k with
     | some v => pure v
-    | none => lkEB S.P S.c.e k
+    | none => rtLk S k
   else throw s!"forward expr index {k}"
 
 /-- The children of a line still to be built: lazy ones not in the
 memo. -/
 @[inline] def missingKids (S : @& LStore) (memo : @& Memo) (ks : List Nat) : List Nat :=
-  ks.filter fun k => !memo.contains k && !isOk (lkEB S.P S.c.e k)
+  ks.filter fun k => !memo.contains k && !isOk (rtLk S k)
 
 /-- **The build**, with an explicit stack (no native recursion: a
 value's DAG can be deep): the top index is built once its lazy
@@ -441,7 +547,7 @@ def buildGo (S : @& LStore) : Nat → List Nat → Memo → Memo
   | 0, _, memo => memo
   | _ + 1, [], memo => memo
   | fuel + 1, j :: rest, memo =>
-    if memo.contains j || isOk (lkEB S.P S.c.e j) then buildGo S fuel rest memo
+    if memo.contains j || isOk (rtLk S j) then buildGo S fuel rest memo
     else
       match S.find j with
       | none => memo
@@ -500,7 +606,7 @@ def regionOf (S : @& LStore) (vid hint : Nat) : Memo :=
 
 /-- **A theorem value, built** from its index (and its region hint). -/
 def buildVal (S : @& LStore) (vid hint : Nat) : Option Expr :=
-  match lkEB S.P S.c.e vid with
+  match rtLk S vid with
   | .ok v => some v
   | .error _ =>
     (buildGo S buildFuel [vid] (regionOf S vid hint)).get? vid
@@ -509,9 +615,9 @@ def buildVal (S : @& LStore) (vid hint : Nat) : Option Expr :=
 
 /-- The store of a finished parse: the chunks with lazy lines, their
 first indices, the tables and counters. -/
-def LStore.ofChunks (S : Array LChunk) (P : Prior) (c : Ctr) : LStore :=
+def LStore.ofChunks (S : Array LChunk) (P : Prior) (c : Ctr) (rt : RTab) : LStore :=
   let cs := S.filter fun C => 0 < C.spId.size
-  ⟨cs, cs.map fun C => C.spId.getD 0 0, P, c⟩
+  ⟨cs, cs.map fun C => C.spId.getD 0 0, ⟨P.n, P.l, ⟨#[]⟩⟩, c, rt⟩
 
 /-- A run-time record with its theorem value built (`none`: the build
 failed, or a theorem's value is not a placeholder). -/

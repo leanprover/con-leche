@@ -79,6 +79,12 @@ theorem LHolds.bound {st : StateD} {P : Prior} {c : Ctr} (h : LHolds st P c) {j 
   simp only [hb.1, decide_true, hb.2, Bool.and_self] at this
   exact Option.isSome_iff_exists.mp this
 
+theorem LHolds.boundN' {st : StateD} {P : Prior} {c : Ctr} (h : LHolds st P c) {nd : ByteArray}
+    {j : Nat} (hb : boundN P nd c.e j = true) : ∃ w, st.exprs.get? j = some w := by
+  unfold boundN at hb
+  rw [Bool.and_eq_true] at hb
+  exact h.bound hb.1
+
 theorem StateD.expr_of_get {st : StateD} {j : Nat} {w : Expr}
     (h : st.exprs.get? j = some w) : st.expr j = .ok w := by
   simp [StateD.expr, h]; rfl
@@ -302,10 +308,11 @@ theorem mapM_ok_of_all {ε α : Type} {f : Nat → Except ε α} :
     exact ⟨a :: r, by simp [List.mapM_cons, ha, hr, bind, Except.bind, pure, Except.pure]⟩
 
 /-- **A lazy line's references bound make its serial build succeed.** -/
-theorem refsOK_ok {st : StateD} {P : Prior} {c : Ctr} (hst : LHolds st P c) {x : ExprRec}
-    (h : refsOK P c x = true) : ∃ v, exprOfF st.name st.level st.expr x = .ok v := by
-  have hb : ∀ j, boundE P c.e j = true → ∃ w, st.expr j = .ok w := fun j hj => by
-    obtain ⟨w, hw⟩ := hst.bound hj; exact ⟨w, StateD.expr_of_get hw⟩
+theorem refsOK_ok {st : StateD} {P : Prior} {nd : ByteArray} {c : Ctr} (hst : LHolds st P c)
+    {x : ExprRec} (h : refsOK P nd c x = true) :
+    ∃ v, exprOfF st.name st.level st.expr x = .ok v := by
+  have hb : ∀ j, boundN P nd c.e j = true → ∃ w, st.expr j = .ok w := fun j hj => by
+    obtain ⟨w, hw⟩ := hst.boundN' hj; exact ⟨w, StateD.expr_of_get hw⟩
   have hn : ∀ j, isOk (lkN P c.n j) = true → ∃ a, st.name j = .ok a := fun j hj => by
     rw [hst.name]; exact isOk_iff.mp hj
   have hl : ∀ j, isOk (lkL P c.l j) = true → ∃ a, st.level j = .ok a := fun j hj => by
@@ -394,8 +401,8 @@ theorem levelOfF_args (nm : Nat → Except ε Name) (lv : Nat → Except ε Leve
 
 /-- **One line passing the lazy check is one serial step**, keeping the
 relation, with the records and kept lines the accumulator's. -/
-theorem checkLineL_sim {P : Prior} {c c' : Ctr} {r : LineRec} {a a' : LAcc}
-    (h : checkLineL P c r a = some (c', a')) {st : StateD} {gds : List Declaration}
+theorem checkLineL_sim {P : Prior} {nd : ByteArray} {c c' : Ctr} {r : LineRec} {a a' : LAcc}
+    (h : checkLineL P nd c r a = some (c', a')) {st : StateD} {gds : List Declaration}
     {L : List (Nat × ExprRec)} (hst : LHolds st P c) (hacc : AccOK st a gds L) :
     ∃ st' extra L', applyLine st r = .ok (.inl st') ∧ LHolds st' P c' ∧ Ext st st' ∧
       AccOK st' a' (gds ++ extra) L' ∧ st'.decls.toList = st.decls.toList ++ extra := by
@@ -503,7 +510,7 @@ theorem checkLineL_sim {P : Prior} {c c' : Ctr} {r : LineRec} {a a' : LAcc}
       have generic : ∀ {d : DeclRec} (_ : ∀ cvr vid, d ≠ .thm cvr vid)
           (_ : declBuilt P c.e d = true → ∀ x, declOfF (lkN P c.n) (lkL P c.l) (lkEB P c.e) d =
               .ok (.inl x) → declOf st.lk d = .ok (.inl x)),
-          checkLineL P c (.decl d) a = some (c', a') →
+          checkLineL P nd c (.decl d) a = some (c', a') →
           ∃ d' x, a' = a.push d' ∧ c' = c ∧ declOf st.lk d = .ok (.inl x) ∧ DRel st d' x := by
         intro d hd hbuild h
         have h' : (if declBuilt P c.e d then
@@ -538,7 +545,7 @@ theorem checkLineL_sim {P : Prior} {c c' : Ctr} {r : LineRec} {a a' : LAcc}
           · rename_i hb
             simp only [Option.some.injEq, Prod.mk.injEq] at h
             obtain ⟨rfl, rfl⟩ := h
-            obtain ⟨w, hw⟩ := hst.bound hb
+            obtain ⟨w, hw⟩ := hst.boundN' hb
             refine ⟨_, .thmDecl cv w, rfl, rfl, ?_, vid, _, rfl, hw⟩
             have hcv' := cvOfF_mono (lv' := st.level) hmn hst.monoE hcv
             simp [declOf, declOfF, StateD.lk, hcv', StateD.expr_of_get hw, bind, Except.bind,
@@ -593,10 +600,10 @@ theorem checkLineL_sim {P : Prior} {c c' : Ctr} {r : LineRec} {a a' : LAcc}
 
 /-! ## A list of lines, a flat chunk -/
 
-theorem checkListL_sim {P : Prior} :
+theorem checkListL_sim {P : Prior} {nd : ByteArray} :
     ∀ (rs : List LineRec) {c c' : Ctr} {a a' : LAcc} {st : StateD} {gds : List Declaration}
       {L : List (Nat × ExprRec)} (k : Nat),
-    checkListL P c rs a = some (c', a') → LHolds st P c → AccOK st a gds L →
+    checkListL P nd c rs a = some (c', a') → LHolds st P c → AccOK st a gds L →
     ∃ st' extra L', applyList st rs k = .ok (st', k + rs.length) ∧ LHolds st' P c' ∧
       Ext st st' ∧ AccOK st' a' (gds ++ extra) L' ∧ st'.decls.toList = st.decls.toList ++ extra
   | [], c, c', a, a', st, gds, L, k, h, hst, hacc => by
@@ -615,39 +622,39 @@ theorem checkListL_sim {P : Prior} :
       · rw [hd2, hd1]; simp
     · simp at h
 
-theorem checkFlatGoL_eq (P : Prior) (d : ByteArray) (hd : d.size < USize.size)
+theorem checkFlatGoL_eq (P : Prior) (nd : ByteArray) (d : ByteArray) (hd : d.size < USize.size)
     (L : List LineRec) :
     ∀ (c : Ctr) (a : LAcc) (p : USize) (rest : List UInt8),
     d.data.toList.drop p.toNat = Flat.encElems Flat.encLine L ++ rest →
-    checkFlatGoL P d p L.length c a = checkListL P c L a := by
+    checkFlatGoL P nd d p L.length c a = checkListL P nd c L a := by
   induction L with
   | nil => intro c a p rest _; rfl
   | cons r L ih =>
     intro c a p rest h
     simp only [Flat.encElems, List.append_assoc] at h
     obtain ⟨q, e, hq⟩ := Flat.withLineU_spec r d hd p _ h
-      (fun r q => match checkLineL P c r a with
-        | some (c', a') => checkFlatGoL P d q L.length c' a'
+      (fun r q => match checkLineL P nd c r a with
+        | some (c', a') => checkFlatGoL P nd d q L.length c' a'
         | none => none)
     have h' := Flat.drop_after h
     rw [← hq] at h'
     rw [List.length_cons, checkFlatGoL]
     refine e.trans ?_
     simp only [checkListL]
-    cases checkLineL P c r a with
+    cases checkLineL P nd c r a with
     | none => rfl
     | some p => obtain ⟨c', a'⟩ := p; exact ih _ _ q rest h'
 
 /-- **The flat check is the check of the lines the chunk holds.** -/
-theorem checkFlatL_sound {P : Prior} {fc : FlatChunk} {sc : ScannedChunk} (h : fc.Encodes sc)
-    {c : Ctr} {r : Ctr × LAcc} (hc : checkFlatL P fc c = some r) :
-    checkListL P c sc.recs.toList LAcc.init = some r := by
+theorem checkFlatL_sound {P : Prior} {nd : ByteArray} {fc : FlatChunk} {sc : ScannedChunk}
+    (h : fc.Encodes sc) {c : Ctr} {r : Ctr × LAcc} (hc : checkFlatL P nd fc c = some r) :
+    checkListL P nd c sc.recs.toList LAcc.init = some r := by
   obtain ⟨hd, hcount, _⟩ := h
   simp only [checkFlatL] at hc
   split at hc
   · rename_i hs
     rw [hcount, ← Array.length_toList,
-      checkFlatGoL_eq P fc.data hs _ c LAcc.init 0 [] (by simp [hd])] at hc
+      checkFlatGoL_eq P nd fc.data hs _ c LAcc.init 0 [] (by simp [hd])] at hc
     exact hc
   · simp at hc
 
@@ -716,7 +723,7 @@ theorem Pw.toList_append {α β : Type} {R : α → β → Prop} {a₁ : Array �
 /-- **A chunk that passes the lazy check is one more serial step.** -/
 theorem LGOK.chunk {g : LGSt} (h : LGOK g) {b : ByteArray} {fc : FlatChunk}
     (henc : fc.Encodes (scanChunk b)) (hfit : chunkFits b fc g.total = true)
-    {c' : Ctr} {a : LAcc} (hc : checkFlatL g.P fc g.c = some (c', a)) :
+    {nd : ByteArray} {c' : Ctr} {a : LAcc} (hc : checkFlatL g.P nd fc g.c = some (c', a)) :
     LGOK { g with c := c', ds := g.ds ++ a.ds, lineNo := g.lineNo + fc.count,
                   total := g.total + b.size, S := g.S.push ⟨a.cd, a.spId, a.spOff⟩ } := by
   obtain ⟨st, hr, hh, hd, hs⟩ := h
@@ -863,12 +870,19 @@ theorem LStore.find_sound {S : LStore} {j : Nat} {x : ExprRec} (h : S.find j = s
     · simp at h
   · simp at h
 
+/-- **The store and the serial state**: the same names and levels below
+the counters, and every retained expression the serial state's. -/
+structure SHolds (G : StateD) (S : LStore) : Prop where
+  name : G.name = lkN S.P S.c.n
+  level : G.level = lkL S.P S.c.l
+  monoE : Mono (rtLk S) G.expr
+
 /-- The memo's entries are the serial state's. -/
 @[expose] def MemoOK (G : StateD) (memo : Memo) : Prop :=
   ∀ k v, memo.get? k = some v → G.exprs.get? k = some v
 
 /-- One line built over the memo: its value is the serial entry. -/
-theorem memo_insert_ok {S : LStore} {G : StateD} (hh : LHolds G S.P S.c) {memo : Memo}
+theorem memo_insert_ok {S : LStore} {G : StateD} (hh : SHolds G S) {memo : Memo}
     (hm : MemoOK G memo) {j : Nat} {x : ExprRec} (hf : LazyFact G j x) {v : Expr}
     (hv : exprOfF (lkN S.P S.c.n) (lkL S.P S.c.l) (memoLk S memo j) x = .ok v) :
     MemoOK G (memo.insert j v) := by
@@ -900,7 +914,7 @@ theorem memo_insert_ok {S : LStore} {G : StateD} (hh : LHolds G S.P S.c) {memo :
     simp only [Option.some.injEq] at hk; subst hk; exact hv1
   · exact hm k u hk
 
-theorem buildGo_sound {S : LStore} {G : StateD} (hh : LHolds G S.P S.c)
+theorem buildGo_sound {S : LStore} {G : StateD} (hh : SHolds G S)
     (hs : StoreOK G S.chunks) :
     ∀ (fuel : Nat) (stack : List Nat) (memo : Memo), MemoOK G memo →
       MemoOK G (buildGo S fuel stack memo) := by
@@ -930,7 +944,7 @@ theorem buildGo_sound {S : LStore} {G : StateD} (hh : LHolds G S.P S.c)
             · exact ih _ _ hm
             · exact hm
 
-theorem regionGo_sound {S : LStore} {G : StateD} (hh : LHolds G S.P S.c)
+theorem regionGo_sound {S : LStore} {G : StateD} (hh : SHolds G S)
     (hs : StoreOK G S.chunks) {L : List (Nat × ExprRec)} (hlz : ∀ p ∈ L, LazyFact G p.1 p.2) {d : ByteArray}
     (hd : d.size < USize.size) (hcd : d.data.toList = encLz L) (vid : Nat) :
     ∀ (fuel : Nat) (p : USize) (m : Nat) (memo : Memo), m ≤ L.length →
@@ -996,7 +1010,7 @@ theorem regionGo_sound {S : LStore} {G : StateD} (hh : LHolds G S.P S.c)
             List.map_nil, Flat.encElems, List.length_append, List.append_nil]
     · exact hm
 
-theorem regionIn_sound {S : LStore} {G : StateD} (hh : LHolds G S.P S.c)
+theorem regionIn_sound {S : LStore} {G : StateD} (hh : SHolds G S)
     (hs : StoreOK G S.chunks) {C : LChunk} {L : List (Nat × ExprRec)} (hv : CValid C L)
     (hl : ∀ p ∈ L, LazyFact G p.1 p.2) (vid hint : Nat) : MemoOK G (regionIn S C vid hint) := by
   have hempty : MemoOK G {} := fun k v h => by simp at h
@@ -1017,7 +1031,7 @@ theorem regionIn_sound {S : LStore} {G : StateD} (hh : LHolds G S.P S.c)
       _ < USize.size := hcond.1
   · exact hempty
 
-theorem regionOf_sound {S : LStore} {G : StateD} (hh : LHolds G S.P S.c)
+theorem regionOf_sound {S : LStore} {G : StateD} (hh : SHolds G S)
     (hs : StoreOK G S.chunks) (vid hint : Nat) : MemoOK G (regionOf S vid hint) := by
   have hempty : MemoOK G {} := fun k v h => by simp at h
   simp only [regionOf]
@@ -1030,7 +1044,7 @@ theorem regionOf_sound {S : LStore} {G : StateD} (hh : LHolds G S.P S.c)
   · exact hempty
 
 /-- **A value built from the store is the serial table's entry.** -/
-theorem buildVal_sound {S : LStore} {G : StateD} (hh : LHolds G S.P S.c)
+theorem buildVal_sound {S : LStore} {G : StateD} (hh : SHolds G S)
     (hs : StoreOK G S.chunks) {vid hint : Nat} {v : Expr} (h : buildVal S vid hint = some v) :
     G.exprs.get? vid = some v := by
   simp only [buildVal] at h
@@ -1043,12 +1057,12 @@ theorem buildVal_sound {S : LStore} {G : StateD} (hh : LHolds G S.P S.c)
 /-! ## The store, the records, the chunks without their bytes -/
 
 theorem StoreOK.ofChunks {G : StateD} {S : Array LChunk} (hs : StoreOK G S) (P : Prior)
-    (c : Ctr) : StoreOK G (LStore.ofChunks S P c).chunks := fun C hC => by
+    (c : Ctr) (rt : RTab) : StoreOK G (LStore.ofChunks S P c rt).chunks := fun C hC => by
   simp only [LStore.ofChunks] at hC
   have := Array.mem_toList_iff.mp hC
   exact hs C (Array.mem_toList_iff.mpr (Array.mem_filter.mp this).1)
 
-theorem fillDecl_sound {S : LStore} {G : StateD} (hh : LHolds G S.P S.c)
+theorem fillDecl_sound {S : LStore} {G : StateD} (hh : SHolds G S)
     (hs : StoreOK G S.chunks) {d' d e : Declaration} (hd : DRel G d' d)
     (he : fillDecl S d' = some e) : e = d := by
   cases d with
@@ -1104,7 +1118,7 @@ theorem FillInv.append {S : LStore} {ds : Array Declaration} {a b : Array Declar
     rwa [show a.size + (k - a.size) = 0 + k by omega] at this
 
 /-- **The filled records are the serial ones.** -/
-theorem fill_eq {S : LStore} {G : StateD} (hh : LHolds G S.P S.c)
+theorem fill_eq {S : LStore} {G : StateD} (hh : SHolds G S)
     (hs : StoreOK G S.chunks) {ds e : Array Declaration} {gds : List Declaration}
     (hd : Pw (DRel G) ds.toList gds) (hsz : e.size = ds.size) (hf : FillInv S ds 0 e) :
     e.toList = gds := by
@@ -1145,5 +1159,60 @@ theorem chunkStepNB_eq {st : StateD} {lineNo total : Nat} {b : ByteArray} {fc : 
 
 theorem chunkFitsN_eq (b : ByteArray) (fc : FlatChunk) (t : Nat) :
     chunkFitsN b.size fc t = chunkFits b fc t := rfl
+
+/-! ## The retained table -/
+
+theorem bitGet_out {bm : ByteArray} {j : Nat} (h : bm.size * 8 ≤ j) : bitGet bm j = false := by
+  simp only [bitGet]
+  rw [dite_eq_right (by omega)]
+
+theorem rtValid_go_sound {R : RTab} {P : Prior} {ce : Nat} :
+    ∀ (n j : Nat), R.bits.size * 8 - j = n → rtValid.go R P ce j = true →
+    ∀ k v, j ≤ k → R.get k = some v → k < ce ∧ P.e.get k = some v ∧ isLazyE v = false := by
+  intro n
+  induction n with
+  | zero =>
+    intro j hn _ k v hk hg
+    simp only [RTab.get, bitGet_out (show R.bits.size * 8 ≤ k by omega)] at hg
+    cases hg
+  | succ n ih =>
+    intro j hn h k v hk hg
+    rw [rtValid.go, ite_eq_left (by omega)] at h
+    simp only [Bool.and_eq_true] at h
+    by_cases hkj : k = j
+    · subst hkj
+      have h1 := h.1
+      rw [hg] at h1
+      simp only at h1
+      split at h1
+      · rename_i w hw
+        simp only [Bool.and_eq_true, Bool.not_eq_true', beq_iff_eq] at h1
+        obtain ⟨hl, rfl⟩ := h1
+        split at hw
+        · rename_i hkc; exact ⟨hkc, hw, hl⟩
+        · cases hw
+      · cases h1
+    · exact ih (j + 1) (by omega) h.2 k v (by omega) hg
+
+/-- **A validated retained table answers built entries of the finished
+tables.** -/
+theorem rtValid_sound {R : RTab} {P : Prior} {ce : Nat} (h : rtValid R P ce = true) {k : Nat}
+    {v : Expr} (hg : R.get k = some v) : k < ce ∧ P.e.get k = some v ∧ isLazyE v = false :=
+  rtValid_go_sound _ 0 rfl h k v (Nat.zero_le _) hg
+
+/-- The store of a finished parse and the serial state the finished
+tables are related to. -/
+theorem SHolds.ofChunks {st : StateD} {P : Prior} {c : Ctr} (hh : LHolds st P c)
+    (S : Array LChunk) {rt : RTab} (hrt : rtValid rt P c.e = true) :
+    SHolds st (LStore.ofChunks S P c rt) := by
+  refine ⟨hh.name, hh.level, fun k v hk => ?_⟩
+  simp only [rtLk, LStore.ofChunks] at hk
+  split at hk
+  · rename_i u hu
+    simp only [pure, Except.pure, Except.ok.injEq] at hk
+    subst hk
+    obtain ⟨hkc, hP, hl⟩ := rtValid_sound hrt hu
+    exact StateD.expr_of_get (hh.eb k u hkc hP hl)
+  · simp [throw, throwThe, MonadExceptOf.throw] at hk
 
 end ConLeche.Frontend

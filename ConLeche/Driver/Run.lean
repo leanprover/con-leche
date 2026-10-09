@@ -281,7 +281,7 @@ def checkDeclsIOL (mode : ConLeche.CheckMode) (err : IO.FS.Stream)
     (S : Frontend.LStore) (ds : Array ConLeche.Declaration) :
     IO (Except (ConLeche.CheckError × Nat)
       { env : ConLeche.Env // ∀ (G : Frontend.StateD) (gds : Array ConLeche.Declaration),
-          Frontend.LHolds G S.P S.c → Frontend.StoreOK G S.chunks →
+          Frontend.SHolds G S → Frontend.StoreOK G S.chunks →
           Frontend.Pw (Frontend.DRel G) ds.toList gds.toList →
           ConLeche.Cached.checkDecls mode ConLeche.natOpPinSets gds = .ok env }) :=
   checkDeclsIOWith (Pc := fun e => ∀ k, k < e.pend.size → LazyChecked S e k) mode err stride
