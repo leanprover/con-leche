@@ -304,15 +304,17 @@ where
     bm.uset b (bm.uget b hb ||| ((1 : UInt8) <<< (i &&& 7).toUInt8)) hb
   else bm
 
-/-- The sweep's state: the marked and the needed bitmaps, each lazy
-line's referencing region (four bytes an index: `0` none yet, `r + 1`
-region `r`, `0xFFFFFFFF` more than one), and the current region (one
-more at every declaration line, read backward). -/
+/-- The sweep's state: the marked and the needed bitmaps, the bitmap of
+lines read from another region than their own (they are marked when
+their own line is reached), the current region's first expression index
+and the declarations still before it (a region is the lines up to a
+declaration line, from the one before). -/
 structure SwMarks where
   mkd : ByteArray
   nd : ByteArray
-  rr : ByteArray
-  cur : Nat
+  sh : ByteArray
+  rf : Nat
+  dk : Nat
 
 /-- The children of an expression line. -/
 @[inline] def exprKids : ExprRec → List Nat
@@ -323,37 +325,23 @@ structure SwMarks where
   | .proj _ _ s => [s]
   | _ => []
 
-/-- Four bytes at a machine-word offset written (no effect past the end). -/
-@[inline] def put32U (a : ByteArray) (o : USize) (v : UInt32) : ByteArray :=
-  if o.toNat + 3 < a.size then
-    ((((a.set! o.toNat v.toUInt8).set! (o.toNat + 1) (v >>> 8).toUInt8).set! (o.toNat + 2)
-      (v >>> 16).toUInt8).set! (o.toNat + 3) (v >>> 24).toUInt8)
-  else a
-
-/-- Index `k` referenced from region `r`. -/
-@[inline] def noteRef (rr : ByteArray) (k : USize) (r : UInt32) : ByteArray :=
-  let w := Flat.r4U rr (4 * k)
-  if w == 0 then put32U rr (4 * k) (r + 1)
-  else if w == r + 1 || w == 0xFFFFFFFF then rr
-  else put32U rr (4 * k) 0xFFFFFFFF
-
-/-- Is index `k`, a line of region `r`, referenced from another region?
-Then it is built at the parse (it is marked), so that a theorem's value
-reads lazy lines of its own region only. -/
-@[inline] def sharedRef (rr : @& ByteArray) (k : USize) (r : UInt32) : Bool :=
-  let w := Flat.r4U rr (4 * k)
-  w != 0 && w != r + 1
-
 @[inline] def SwMarks.mark (m : SwMarks) (i : Nat) : SwMarks :=
-  match m with | ⟨a, b, rr, cur⟩ => ⟨bitSet a i, b, rr, cur⟩
+  match m with | ⟨a, b, sh, rf, dk⟩ => ⟨bitSet a i, b, sh, rf, dk⟩
 
+/-- A child read by a line not built: needed, and read from another
+region when it is below the current region's first index. -/
 @[inline] def SwMarks.need (m : SwMarks) (i : Nat) : SwMarks :=
   match m with
-  | ⟨a, b, rr, cur⟩ => ⟨a, bitSet b i, noteRef rr i.toUSize cur.toUInt32, cur⟩
+  | ⟨a, b, sh, rf, dk⟩ => ⟨a, bitSet b i, if i < rf then bitSet sh i else sh, rf, dk⟩
 
-/-- A declaration line's marks (the lines before it are the next region). -/
-def markDecl (m : SwMarks) (d : DeclRec) : SwMarks :=
-  let m := match m with | ⟨a, b, rr, cur⟩ => ⟨a, b, rr, cur + 1⟩
+/-- A declaration line's marks; the lines before it are the next region,
+whose first index is the first index after the declaration before
+(`nextId`, by declaration). -/
+def markDecl (nextId : @& Array Nat) (m : SwMarks) (d : DeclRec) : SwMarks :=
+  let m := match m with
+    | ⟨a, b, sh, _, dk⟩ =>
+      let dk := dk - 1
+      ⟨a, b, sh, if dk = 0 then 0 else nextId.getD (dk - 1) 0, dk⟩
   match d with
   | .ax cv _ => m.mark cv.type
   | .defn cv v _ _ => (m.mark cv.type).mark v
@@ -363,35 +351,58 @@ def markDecl (m : SwMarks) (d : DeclRec) : SwMarks :=
   | .ind tys cts rcs => (indExprIds tys cts rcs).foldl SwMarks.mark m
 
 /-- One line of the sweep. -/
-@[inline] def sweepLine (m : SwMarks) : LineRec → SwMarks
+@[inline] def sweepLine (nextId : @& Array Nat) (m : SwMarks) : LineRec → SwMarks
   | .expr i x =>
-    if bitGet m.mkd i then (exprKids x).foldl SwMarks.mark m
-    else if sharedRef m.rr i.toUSize m.cur.toUInt32 then
-      (exprKids x).foldl SwMarks.mark (m.mark i)
+    if bitGet m.mkd i || bitGet m.sh i then (exprKids x).foldl SwMarks.mark (m.mark i)
     else (exprKids x).foldl SwMarks.need m
-  | .decl d => markDecl m d
+  | .decl d => markDecl nextId m d
   | _ => m
 
-/-- The line starts of a flat chunk (four bytes each), and its largest
-expression index. -/
-def lineStarts (fc : @& FlatChunk) : ByteArray × Nat :=
-  if fc.data.size < USize.size then go fc.data 0 fc.count (ByteArray.emptyWithCapacity (4 * fc.count)) 0
-  else (.empty, 0)
+/-- The line starts of a flat chunk (four bytes each), its largest
+expression index, and, for the region bounds, each declaration line's
+first expression index after it in the chunk (`none`: no expression
+line after it in the chunk) and the chunk's first expression index. -/
+def lineStarts (fc : @& FlatChunk) : ByteArray × Nat × Array (Option Nat) × Option Nat :=
+  if fc.data.size < USize.size then
+    go fc.data 0 fc.count (ByteArray.emptyWithCapacity (4 * fc.count)) 0 #[] none false
+  else (.empty, 0, #[], none)
 where
-  go (d : @& ByteArray) (p : USize) (k : Nat) (acc : ByteArray) (mx : Nat) : ByteArray × Nat :=
+  go (d : @& ByteArray) (p : USize) (k : Nat) (acc : ByteArray) (mx : Nat)
+      (ds : Array (Option Nat)) (fe : Option Nat) (open_ : Bool) :
+      ByteArray × Nat × Array (Option Nat) × Option Nat :=
     match k with
-    | 0 => (acc, mx)
+    | 0 => (acc, mx, ds, fe)
     | k + 1 =>
       let acc := (((acc.push p.toUInt32.toUInt8).push (p.toUInt32 >>> 8).toUInt8).push
         (p.toUInt32 >>> 16).toUInt8).push (p.toUInt32 >>> 24).toUInt8
       Flat.withLineU d p fun r q =>
         match r with
-        | .expr i _ => go d q k acc (max mx i)
-        | _ => go d q k acc mx
+        | .expr i _ =>
+          let ds := if open_ then ds.set! (ds.size - 1) (some i) else ds
+          go d q k acc (max mx i) ds (if fe.isNone then some i else fe) false
+        | .decl _ => go d q k acc mx (ds.push none) fe true
+        | _ => go d q k acc mx ds fe open_
+
+/-- Each declaration's first expression index after it, in the stream
+(`0` when none is), from the chunks' own (`lineStarts`). -/
+def nextIds (cs : @& Array (Array (Option Nat) × Option Nat)) : Array Nat := Id.run do
+  let mut out : Array Nat := #[]
+  -- the declarations still waiting for an expression line
+  let mut waiting : Array Nat := #[]
+  for (ds, fe) in cs do
+    if let some f := fe then
+      for w in waiting do out := out.set! w f
+      waiting := #[]
+    for d in ds do
+      match d with
+      | some i => out := out.push i
+      | none => waiting := waiting.push out.size; out := out.push 0
+  return out
 
 /-- One line of the sweep at byte `p`, decoded. -/
-@[noinline] def sweepSlow (d : @& ByteArray) (p : USize) (m : SwMarks) : SwMarks :=
-  Flat.withLineU d p fun r _ => sweepLine m r
+@[noinline] def sweepSlow (nextId : @& Array Nat) (d : @& ByteArray) (p : USize) (m : SwMarks) :
+    SwMarks :=
+  Flat.withLineU d p fun r _ => sweepLine nextId m r
 
 /-- **The sweep of one chunk, backward**: lines `k - 1` down to `0`, the
 state threaded apart (no record per line).  The expression lines with
@@ -399,10 +410,10 @@ children (`app`, `lam`, `forallE`, `letE`, `proj`) are read in place,
 their fields at fixed offsets; a declaration line, or a field too large
 for four bytes, is decoded.  A line no install reads is lazy unless a
 line of another region reads it: then it is marked too. -/
-def sweepGo (d : @& ByteArray) (st : @& ByteArray) (k : Nat) (mk nd rr : ByteArray)
-    (cur : Nat) : SwMarks :=
+def sweepGo (nextId : @& Array Nat) (d : @& ByteArray) (st : @& ByteArray) (k : Nat)
+    (mk nd sh : ByteArray) (rf dk : Nat) : SwMarks :=
   match k with
-  | 0 => ⟨mk, nd, rr, cur⟩
+  | 0 => ⟨mk, nd, sh, rf, dk⟩
   | k + 1 =>
     let p := (Flat.r4U st (4 * k).toUSize).toUSize
     let t := Flat.byteU d p
@@ -415,36 +426,37 @@ def sweepGo (d : @& ByteArray) (st : @& ByteArray) (k : Nat) (mk nd rr : ByteArr
       let c := if t ≤ 2 then 0 else Flat.r4U d (p + 13)
       -- a field out of place is the escape, the largest word
       if max (max i a) (max b c) == 0xFFFFFFFF then
-        match sweepSlow d p ⟨mk, nd, rr, cur⟩ with
-        | ⟨mk, nd, rr, cur⟩ => sweepGo d st k mk nd rr cur
+        match sweepSlow nextId d p ⟨mk, nd, sh, rf, dk⟩ with
+        | ⟨mk, nd, sh, rf, dk⟩ => sweepGo nextId d st k mk nd sh rf dk
       else
-        let mki := bitGetU mk i.toUSize
-        let shared := if mki then false else sharedRef rr i.toUSize cur.toUInt32
-        if mki || shared then
-          let mk := if shared then bitSetU mk i.toUSize else mk
-          if t == 9 then sweepGo d st k (bitSetU mk c.toUSize) nd rr cur
+        let built := if bitGetU mk i.toUSize then true else bitGetU sh i.toUSize
+        if built then
+          let mk := bitSetU mk i.toUSize
+          if t == 9 then sweepGo nextId d st k (bitSetU mk c.toUSize) nd sh rf dk
           else
             let mk := bitSetU (bitSetU mk a.toUSize) b.toUSize
-            sweepGo d st k (if t == 6 then bitSetU mk c.toUSize else mk) nd rr cur
+            sweepGo nextId d st k (if t == 6 then bitSetU mk c.toUSize else mk) nd sh rf dk
         else
-          let r := cur.toUInt32
-          if t == 9 then sweepGo d st k mk (bitSetU nd c.toUSize) (noteRef rr c.toUSize r) cur
+          let rfU := rf.toUSize
+          let sh := if t == 9 then (if c.toUSize < rfU then bitSetU sh c.toUSize else sh)
+            else
+              let sh := if a.toUSize < rfU then bitSetU sh a.toUSize else sh
+              let sh := if b.toUSize < rfU then bitSetU sh b.toUSize else sh
+              if t == 6 then (if c.toUSize < rfU then bitSetU sh c.toUSize else sh) else sh
+          if t == 9 then sweepGo nextId d st k mk (bitSetU nd c.toUSize) sh rf dk
           else
             let nd := bitSetU (bitSetU nd a.toUSize) b.toUSize
-            let rr := noteRef (noteRef rr a.toUSize r) b.toUSize r
-            if t == 6 then
-              sweepGo d st k mk (bitSetU nd c.toUSize) (noteRef rr c.toUSize r) cur
-            else sweepGo d st k mk nd rr cur
+            sweepGo nextId d st k mk (if t == 6 then bitSetU nd c.toUSize else nd) sh rf dk
     else if t == 16 then
-      match sweepSlow d p ⟨mk, nd, rr, cur⟩ with
-      | ⟨mk, nd, rr, cur⟩ => sweepGo d st k mk nd rr cur
-    else sweepGo d st k mk nd rr cur
+      match sweepSlow nextId d p ⟨mk, nd, sh, rf, dk⟩ with
+      | ⟨mk, nd, sh, rf, dk⟩ => sweepGo nextId d st k mk nd sh rf dk
+    else sweepGo nextId d st k mk nd sh rf dk
 
 /-- The sweep of one chunk. -/
-@[inline] def sweepChunk (d : @& ByteArray) (st : @& ByteArray) (k : Nat) (m : SwMarks) :
-    SwMarks :=
+@[inline] def sweepChunk (nextId : @& Array Nat) (d : @& ByteArray) (st : @& ByteArray) (k : Nat)
+    (m : SwMarks) : SwMarks :=
   match m with
-  | ⟨mk, nd, rr, cur⟩ => sweepGo d st k mk nd rr cur
+  | ⟨mk, nd, sh, rf, dk⟩ => sweepGo nextId d st k mk nd sh rf dk
 
 /-! ## The store and the builds
 
@@ -492,60 +504,65 @@ termination_by e - b
 @[inline] def RTab.get (R : @& RTab) (j : Nat) : Option Expr :=
   if bitGet R.bits j then R.vals[R.rank j]? else none
 
-/-- The retained table from the sweep's bitmaps (marked and needed) and
-the finished tables: byte by byte, every set bit whose index is built
-below the counter, its value pushed; a block count every eight bytes. -/
-def RTab.build (mk nd : @& ByteArray) (P : @& Prior) (ce : Nat) : RTab :=
-  go 0 (ByteArray.emptyWithCapacity (min mk.size nd.size)) .empty #[] 0
+/-- Part of the retained table, from the sweep's bitmaps (marked and
+needed) and the finished tables: the bytes `[b0, b1)` of the bitmap,
+every set bit whose index is built below the counter kept and its value
+pushed. -/
+def RTab.part (mk nd : @& ByteArray) (P : @& Prior) (ce b0 b1 : Nat) : ByteArray × Array Expr :=
+  go b0 (ByteArray.emptyWithCapacity (b1 - b0)) #[]
 where
-  go (b : Nat) (bits cnt : ByteArray) (vals : Array Expr) (n : Nat) : RTab :=
-    if b < min mk.size nd.size then
-      let cnt := if b % 8 == 0 then
-          (((cnt.push n.toUInt32.toUInt8).push (n.toUInt32 >>> 8).toUInt8).push
-            (n.toUInt32 >>> 16).toUInt8).push (n.toUInt32 >>> 24).toUInt8
-        else cnt
+  go (b : Nat) (bits : ByteArray) (vals : Array Expr) : ByteArray × Array Expr :=
+    if b < b1 then
       let x := mk.get! b &&& nd.get! b
-      if x == 0 then go (b + 1) (bits.push 0) cnt vals n
+      if x == 0 then go (b + 1) (bits.push 0) vals
       else
-        let (y, vals, n) := bitsGo b x 0 0 vals n
-        go (b + 1) (bits.push y) cnt vals n
-    else ⟨bits, cnt, vals⟩
-  termination_by min mk.size nd.size - b
+        let (y, vals) := bitsGo b x 0 0 vals
+        go (b + 1) (bits.push y) vals
+    else (bits, vals)
+  termination_by b1 - b
   /-- The bits `t..7` of byte `b` (`x`), kept when built. -/
-  bitsGo (b : Nat) (x : UInt8) (t : Nat) (y : UInt8) (vals : Array Expr) (n : Nat) :
-      UInt8 × Array Expr × Nat :=
+  bitsGo (b : Nat) (x : UInt8) (t : Nat) (y : UInt8) (vals : Array Expr) : UInt8 × Array Expr :=
     if t < 8 then
       if (x >>> t.toUInt8) &&& 1 == 1 then
         let j := 8 * b + t
         match (if j < ce then P.e.get j else none) with
         | some v =>
-          if isLazyE v then bitsGo b x (t + 1) y vals n
-          else bitsGo b x (t + 1) (y ||| ((1 : UInt8) <<< t.toUInt8)) (vals.push v) (n + 1)
-        | none => bitsGo b x (t + 1) y vals n
-      else bitsGo b x (t + 1) y vals n
-    else (y, vals, n)
+          if isLazyE v then bitsGo b x (t + 1) y vals
+          else bitsGo b x (t + 1) (y ||| ((1 : UInt8) <<< t.toUInt8)) (vals.push v)
+        | none => bitsGo b x (t + 1) y vals
+      else bitsGo b x (t + 1) y vals
+    else (y, vals)
   termination_by 8 - t
 
-/-- **The retained table, validated**: every index it answers is built
-in the finished tables below the counter, with that value (`==`, the
-pointer comparison first). -/
-def rtValid (R : @& RTab) (P : @& Prior) (ce : Nat) : Bool :=
-  go 0
+/-- The block counts of a bitmap: before every eighth byte, the bits set
+before it (four bytes each). -/
+def RTab.counts (bits : @& ByteArray) : ByteArray :=
+  go 0 (ByteArray.emptyWithCapacity (bits.size / 2 + 4)) 0
 where
-  go (j : Nat) : Bool :=
-    if j < R.bits.size * 8 then
-      -- a byte of the bitmap with no bit set is passed whole
-      if R.bits.get! (j / 8) == 0 then go (j / 8 * 8 + 8)
-      else
-        (match R.get j with
-         | some v =>
-           match (if j < ce then P.e.get j else none) with
-           | some w => !isLazyE w && v == w
-           | none => false
-         | none => true) && go (j + 1)
-    else true
-  termination_by R.bits.size * 8 - j
-  decreasing_by all_goals omega
+  go (b : Nat) (cnt : ByteArray) (n : Nat) : ByteArray :=
+    if b < bits.size then
+      let cnt := if b % 8 == 0 then push32 cnt n else cnt
+      go (b + 1) cnt (n + popc8 (bits.get! b))
+    else cnt
+  termination_by bits.size - b
+
+/-- **The retained table, validated** on the ids `[j, hi)`: every index
+it answers there is built in the finished tables below the counter,
+with that value (`==`, the pointer comparison first). -/
+def rtValidR (R : @& RTab) (P : @& Prior) (ce hi : Nat) (j : Nat) : Bool :=
+  if j < hi then
+    -- a byte of the bitmap with no bit set is passed whole
+    if R.bits.get! (j / 8) == 0 then rtValidR R P ce hi (j / 8 * 8 + 8)
+    else
+      (match R.get j with
+       | some v =>
+         match (if j < ce then P.e.get j else none) with
+         | some w => !isLazyE w && v == w
+         | none => false
+       | none => true) && rtValidR R P ce hi (j + 1)
+  else true
+termination_by hi - j
+decreasing_by all_goals omega
 
 /-- The store. -/
 structure LStore where

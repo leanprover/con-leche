@@ -1289,56 +1289,67 @@ theorem bitGet_zero {bm : ByteArray} {j : Nat} (h : bm.get! (j / 8) = 0) : bitGe
     rw [h]; simp
   · rfl
 
-theorem rtValid_go_sound {R : RTab} {P : Prior} {ce : Nat} :
-    ∀ (n j : Nat), R.bits.size * 8 - j ≤ n → rtValid.go R P ce j = true →
-    ∀ k v, j ≤ k → R.get k = some v → k < ce ∧ P.e.get k = some v ∧ isLazyE v = false := by
+/-- **What a validated retained table answers**: built entries of the
+finished tables below the counter. -/
+@[expose] def RTValid (R : RTab) (P : Prior) (ce : Nat) : Prop :=
+  ∀ k v, R.get k = some v → k < ce ∧ P.e.get k = some v ∧ isLazyE v = false
+
+theorem rtValidR_sound {R : RTab} {P : Prior} {ce hi : Nat} :
+    ∀ (n j : Nat), hi - j ≤ n → rtValidR R P ce hi j = true →
+    ∀ k v, j ≤ k → k < hi → R.get k = some v → k < ce ∧ P.e.get k = some v ∧ isLazyE v = false := by
   intro n
   induction n with
-  | zero =>
-    intro j hn _ k v hk hg
-    simp only [RTab.get, bitGet_out (show R.bits.size * 8 ≤ k by omega)] at hg
-    cases hg
+  | zero => intro j hn _ k v hk hkh _; omega
   | succ n ih =>
-    intro j hn h k v hk hg
-    by_cases hj : j < R.bits.size * 8
-    · rw [rtValid.go, ite_eq_left hj] at h
-      split at h
-      · rename_i hz
-        by_cases hk8 : k < j / 8 * 8 + 8
-        · have : k / 8 = j / 8 := by omega
-          simp only [beq_iff_eq] at hz
-          simp only [RTab.get, bitGet_zero (show R.bits.get! (k / 8) = 0 by rw [this]; exact hz)]
-            at hg
-          cases hg
-        · exact ih (j / 8 * 8 + 8) (by omega) h k v (by omega) hg
-      · simp only [Bool.and_eq_true] at h
-        by_cases hkj : k = j
-        · subst hkj
-          have h1 := h.1
-          rw [hg] at h1
-          simp only at h1
-          split at h1
-          · rename_i w hw
-            simp only [Bool.and_eq_true, Bool.not_eq_true', beq_iff_eq] at h1
-            obtain ⟨hl, rfl⟩ := h1
-            split at hw
-            · rename_i hkc; exact ⟨hkc, hw, hl⟩
-            · cases hw
-          · cases h1
-        · exact ih (j + 1) (by omega) h.2 k v (by omega) hg
-    · simp only [RTab.get, bitGet_out (show R.bits.size * 8 ≤ k by omega)] at hg
-      cases hg
+    intro j hn h k v hk hkh hg
+    rw [rtValidR, ite_eq_left (show j < hi by omega)] at h
+    split at h
+    · rename_i hz
+      by_cases hk8 : k < j / 8 * 8 + 8
+      · have : k / 8 = j / 8 := by omega
+        simp only [beq_iff_eq] at hz
+        simp only [RTab.get, bitGet_zero (show R.bits.get! (k / 8) = 0 by rw [this]; exact hz)]
+          at hg
+        cases hg
+      · exact ih (j / 8 * 8 + 8) (by omega) h k v (by omega) hkh hg
+    · simp only [Bool.and_eq_true] at h
+      by_cases hkj : k = j
+      · subst hkj
+        have h1 := h.1
+        rw [hg] at h1
+        simp only at h1
+        split at h1
+        · rename_i w hw
+          simp only [Bool.and_eq_true, Bool.not_eq_true', beq_iff_eq] at h1
+          obtain ⟨hl, rfl⟩ := h1
+          split at hw
+          · rename_i hkc; exact ⟨hkc, hw, hl⟩
+          · cases hw
+        · cases h1
+      · exact ih (j + 1) (by omega) h.2 k v (by omega) hkh hg
 
-/-- **A validated retained table answers built entries of the finished
-tables.** -/
-theorem rtValid_sound {R : RTab} {P : Prior} {ce : Nat} (h : rtValid R P ce = true) {k : Nat}
-    {v : Expr} (hg : R.get k = some v) : k < ce ∧ P.e.get k = some v ∧ isLazyE v = false :=
-  rtValid_go_sound _ 0 (Nat.le_refl _) h k v (Nat.zero_le _) hg
+/-- **The retained table validated in parts** of `s` ids each, covering
+its bitmap. -/
+theorem rtValid_parts {R : RTab} {P : Prior} {ce s m : Nat} (hs : 0 < s)
+    (hm : R.bits.size * 8 ≤ m * s)
+    (h : ∀ i, i < m → rtValidR R P ce (min (R.bits.size * 8) ((i + 1) * s)) (i * s) = true) :
+    RTValid R P ce := by
+  intro k v hg
+  by_cases hk : k < R.bits.size * 8
+  · have hi : k / s < m := Nat.div_lt_of_lt_mul (show k < s * m by rw [Nat.mul_comm]; omega)
+    refine rtValidR_sound _ _ (Nat.le_refl _) (h (k / s) hi) k v ?_ ?_ hg
+    · exact Nat.div_mul_le_self k s
+    · have := Nat.lt_div_mul_add (a := k) hs
+      simp only [Nat.lt_min]
+      refine ⟨hk, ?_⟩
+      rw [Nat.add_mul, Nat.one_mul]; exact this
+  · simp only [RTab.get, bitGet_out (show R.bits.size * 8 ≤ k by omega)] at hg
+    cases hg
 
 /-- The store of a finished parse and the serial state the finished
 tables are related to. -/
 theorem SHolds.ofChunks {st : StateD} {P : Prior} {c : Ctr} (hh : LHolds st P c)
-    (S : Array LChunk) {rt : RTab} (hrt : rtValid rt P c.e = true) :
+    (S : Array LChunk) {rt : RTab} (hrt : RTValid rt P c.e) :
     SHolds st (LStore.ofChunks S P c rt) := by
   refine ⟨hh.name, hh.level, fun k v hk => ?_⟩
   simp only [rtLk, LStore.ofChunks] at hk
@@ -1346,7 +1357,7 @@ theorem SHolds.ofChunks {st : StateD} {P : Prior} {c : Ctr} (hh : LHolds st P c)
   · rename_i u hu
     simp only [pure, Except.pure, Except.ok.injEq] at hk
     subst hk
-    obtain ⟨hkc, hP, hl⟩ := rtValid_sound hrt hu
+    obtain ⟨hkc, hP, hl⟩ := hrt _ _ hu
     exact StateD.expr_of_get (hh.eb k u hkc hP hl)
   · simp [throw, throwThe, MonadExceptOf.throw] at hk
 

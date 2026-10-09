@@ -399,6 +399,73 @@ A function of its own, so that nothing builds the state unless asked. -/
     return some ⟨chunkFinish st .empty g.lineNo, hr.finish⟩
   | none => return none
 
+/-- **The retained table**, its parts (whole blocks of the bitmap) on
+the workers. -/
+def buildRTab (pl : Pool) (jobs : Nat) (mk nd : ByteArray) (P : Prior) (ce : Nat) : IO RTab := do
+  let nb := min mk.size nd.size
+  let parts := max 1 (4 * jobs)
+  let pb := ((nb + parts - 1) / parts + 7) / 8 * 8
+  let mut ps : Array (IO.Promise (ByteArray × Array Expr)) := #[]
+  let mut b0 := 0
+  while b0 < nb do
+    let a := b0
+    let b := min nb (a + max 8 pb)
+    ps := ps.push (← pl.run .hi (IO.lazyPure fun _ => RTab.part mk nd P ce a b))
+    b0 := b
+  let mut bits : ByteArray := ByteArray.emptyWithCapacity nb
+  let mut vals : Array Expr := #[]
+  for p in ps do
+    let (bs, vs) ← await p
+    bits := bits ++ bs
+    vals := vals ++ vs
+  return ⟨bits, RTab.counts bits, vals⟩
+
+/-- A part of the retained table's validation, with its evidence. -/
+abbrev VPart (R : RTab) (P : Prior) (ce s : Nat) :=
+  { q : Nat × Bool // q.2 = rtValidR R P ce (min (R.bits.size * 8) ((q.1 + 1) * s)) (q.1 * s) }
+
+/-- The validated parts, in order: every one passing, its evidence. -/
+def allParts {R : RTab} {P : Prior} {ce s : Nat} (vs : Array (VPart R P ce s)) :
+    (i : Nat) → (∀ k, k < i → rtValidR R P ce (min (R.bits.size * 8) ((k + 1) * s)) (k * s) = true) →
+    Option (PLift (∀ k, k < vs.size →
+      rtValidR R P ce (min (R.bits.size * 8) ((k + 1) * s)) (k * s) = true))
+  | i, acc =>
+    if hi : i < vs.size then
+      let q := vs[i]
+      if h : q.val.1 = i ∧ q.val.2 = true then
+        allParts vs (i + 1) (fun k hk => by
+          by_cases hki : k < i
+          · exact acc k hki
+          · have : k = i := by omega
+            subst this
+            rw [← h.1, ← q.property]; exact h.2)
+      else none
+    else some ⟨fun k hk => acc k (by omega)⟩
+  termination_by i => vs.size - i
+
+/-- **The retained table, validated** in parts on the workers. -/
+def validRTab (pl : Pool) (jobs : Nat) (R : RTab) (P : Prior) (ce : Nat) :
+    IO (Option (PLift (RTValid R P ce))) := do
+  let n := R.bits.size * 8
+  let parts := max 1 (4 * jobs)
+  let s := max 1 ((n + parts - 1) / parts)
+  let m := (n + s - 1) / s
+  have : Nonempty (VPart R P ce s) :=
+    ⟨⟨(0, rtValidR R P ce (min (R.bits.size * 8) ((0 + 1) * s)) (0 * s)), rfl⟩⟩
+  let mut ps : Array (IO.Promise (VPart R P ce s)) := #[]
+  for i in [0:m] do
+    ps := ps.push (← pl.run .hi (IO.lazyPure fun _ =>
+      (⟨(i, rtValidR R P ce (min n ((i + 1) * s)) (i * s)), rfl⟩ : VPart R P ce s)))
+  let vs ← ps.mapM await
+  if hm : vs.size = m then
+    match allParts vs 0 (fun k hk => absurd hk (Nat.not_lt_zero k)) with
+    | some ⟨h⟩ =>
+      if hcov : n ≤ m * s then
+        return some ⟨rtValid_parts (by omega) hcov (fun i hi => h i (by omega))⟩
+      else return none
+    | none => return none
+  else return none
+
 /-- **The lazy parse of a file** on `jobs` workers, windows of `m`
 chunks of about `csz` bytes. -/
 def parseExportLazyInfo (path : System.FilePath) (jobs m : Nat) (csz : USize) (inflight : Nat)
@@ -416,20 +483,22 @@ def parseExportLazyInfo (path : System.FilePath) (jobs m : Nat) (csz : USize) (i
   let lps ← xs.mapM fun x => pl.run .hi (IO.lazyPure fun _ => lineStarts x.val.1)
   let ls ← lps.mapM await
   let t2 ← IO.monoMsNow
-  let maxId := ls.foldl (fun a l => max a l.2) 0
+  let maxId := ls.foldl (fun a l => max a l.2.1) 0
   let nLines := xs.foldl (fun a x => a + x.val.1.count) 0
   let marks ← IO.lazyPure fun _ =>
     if maxId < 16 * nLines + 67108864 then
+      let nextId := nextIds (ls.map fun l => (l.2.2.1, l.2.2.2))
+      let nd := nextId.size
       let z := zeroBytes (maxId / 8 + 1)
       (List.range xs.size).foldr (fun c (m : SwMarks) =>
         let x := xs.getD c default
-        sweepChunk x.val.1.data (ls.getD c default).1 x.val.1.count m)
-        ⟨z, z, zeroBytes (4 * (maxId + 1)), 0⟩
-    else ⟨.empty, .empty, .empty, 0⟩
+        sweepChunk nextId x.val.1.data (ls.getD c default).1 x.val.1.count m)
+        ⟨z, z, z, if nd = 0 then 0 else nextId.getD (nd - 1) 0, nd⟩
+    else ⟨.empty, .empty, .empty, 0, 0⟩
   let t3 ← IO.monoMsNow
   -- 3. the windows
-  -- the referencing regions are dropped here, the bitmaps kept
-  let (mkB, ndB) := match marks with | ⟨a, b, _, _⟩ => (a, b)
+  -- the shared lines' bitmap is dropped here, the others kept
+  let (mkB, ndB) := match marks with | ⟨a, b, _, _, _⟩ => (a, b)
   match ← winLoop pl cfg mkB ndB xs 0 (.ready LGSt.init LGOK.init) with
   | .fail g hg k why xs =>
     pl.shutdown
@@ -444,19 +513,22 @@ def parseExportLazyInfo (path : System.FilePath) (jobs m : Nat) (csz : USize) (i
     | none =>
       return (.eager (← Frontend.parseExportStreamP path inflight), ⟨1, why ++ "; reread", 0, #[]⟩)
   | .ok g hg =>
-    pl.shutdown
     let t4 ← IO.monoMsNow
     -- without the sweep's marks (a stream with huge gaps) nothing is
     -- lazy and nothing is retained
     if mkB.size == 0 then
+      pl.shutdown
       match ← eagerOf g hg with
       | some o => return (.eager o, ⟨0, "no marks", 0, #[]⟩)
       | none =>
         return (.eager (← Frontend.parseExportStreamP path inflight), ⟨1, "reread", 0, #[]⟩)
-    -- the retained table, validated; the finished expression pages
-    -- are dropped with `g.P`
-    let rt := RTab.build mkB ndB g.P g.c.e
-    if hrt : rtValid rt g.P g.c.e then
+    -- the retained table, built and validated in parts on the workers;
+    -- the finished expression pages are dropped with `g.P`
+    let rt ← buildRTab pl jobs mkB ndB g.P g.c.e
+    let hv ← validRTab pl jobs rt g.P g.c.e
+    pl.shutdown
+    match hv with
+    | some ⟨hrt⟩ =>
       let S := LStore.ofChunks g.S g.P g.c rt
       let nLazy := S.chunks.foldl (fun a C => a + C.spOff.size) 0
       let r : LazyRes := ⟨g.ds, S⟩
@@ -465,7 +537,7 @@ def parseExportLazyInfo (path : System.FilePath) (jobs m : Nat) (csz : USize) (i
         exact ⟨cs, stF, hcs, SHolds.ofChunks hh g.S hrt, hs.ofChunks g.P g.c rt, hd⟩
       let t5 ← IO.monoMsNow
       return (.lazy r hr, ⟨0, "", nLazy, #[t1 - t0, t2 - t1, t3 - t2, t4 - t3, t5 - t4]⟩)
-    else
+    | none =>
       match ← eagerOf g hg with
       | some o => return (.eager o, ⟨1, "the retained table", 0, #[]⟩)
       | none =>
