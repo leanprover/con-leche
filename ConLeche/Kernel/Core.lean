@@ -1494,8 +1494,9 @@ syntactic fast path, and the pairs whose verdict is decided on the spot
 — two sorts (level equivalence), two literals, two `∀`s and two `λ`s
 (binder congruence: domains, then bodies opened at the RIGHT domain,
 then, at the verified modes, the prop-ness annotations, task #161).
-`none` is "not an easy case".  `defeqBody` runs it after the cheap
-head normalization, and `lazyDeltaStep` after every unfolding.  (The
+`none` is "not an easy case".  `defeqBody` runs it on the unreduced
+pair and again after the cheap head normalization, and
+`lazyDeltaStep` after every unfolding.  (The
 positive `is_def_eq` cache of official's version is the cached core's
 `defeq` memo.)
 
@@ -1806,33 +1807,50 @@ def defeqStuck (r : CoreFns m) (env : Env) (depth : Nat) (a b : Expr) :
   | e₁, e₂ => stuckIrrel mode r env depth e₁ e₂
 
 /-- **The definitional-equality body** (the official kernel's
-`is_def_eq_core`, clause for clause): the syntactic fast path; the
-`Bool.true` shortcut (E2, `boolTrueShortcut`: right side `Bool.true`,
-left side fvar-free — official's `(!has_fvar(t) || m_eager_reduce) &&
-is_constant(s, Bool.true)`; the eager flag is not mirrored); the cheap
+`is_def_eq_core`, clause for clause except one deliberate reordering):
+the syntactic fast path; the `Bool.true` shortcut (E2,
+`boolTrueShortcut`: right side `Bool.true`, left side fvar-free —
+official's `(!has_fvar(t) || m_eager_reduce) && is_constant(s,
+Bool.true)`; the eager flag is not mirrored); `quickDefEq` and proof
+irrelevance (`is_def_eq_proof_irrel`) on the UNREDUCED sides; the cheap
 head normalization of both sides (`whnfCore` with `cheap_proj`);
-`quickDefEq`; proof irrelevance (`is_def_eq_proof_irrel`, before any
-delta — with theorem values delta-unfolding, task #66, a later probe
-would grind through proof bodies first); the lazy-delta loop
-(`lazyDeltaReduction`); the proj/proj check (`defeqProjPair`); the
-FULL `whnfCore` of both sides and, if either changed, a restart; and
-the stuck comparison (`defeqStuck`).  The restarts — after a literal
-acceleration in the loop and after the full `whnfCore` — are `defeq`
-calls, as official's are `is_def_eq_core` calls, so every entry runs
-the prefix (proof irrelevance included) exactly once (the divergence
-audit's D3 holds by construction); the long chains — the unfoldings —
-are iterations of the lazy loops. -/
+`quickDefEq` again; the lazy-delta loop (`lazyDeltaReduction`); the
+proj/proj check (`defeqProjPair`); the FULL `whnfCore` of both sides
+and, if either changed, a restart; and the stuck comparison
+(`defeqStuck`).
+
+**The deviation (task #333).**  The official kernel runs proof
+irrelevance after the cheap `whnfCore`; here it runs before it, so two
+proofs are never head-normalized to be compared.  Proof irrelevance
+reads only the two sides' types, which reduction preserves, so the
+verdict is the same on any pair whose reduction terminates; the
+difference is a proof with no normal form (impredicative `Prop` +
+`propext` + K-like `Eq.rec`, `tests/e2e/src/omega_kloop.lean`), which
+the official order head-normalizes forever.  `quickDefEq` stays first
+because it only fires on sorts, literals and binders, which `whnfCore`
+leaves unchanged: on those pairs the old order's verdict is kept.
+
+The restarts — after a literal acceleration in the loop and after the
+full `whnfCore` — are `defeq` calls, as official's are `is_def_eq_core`
+calls, so every entry runs the prefix (proof irrelevance included)
+exactly once (the divergence audit's D3 holds by construction); the
+long chains — the unfoldings — are iterations of the lazy loops. -/
 def defeqBody (r : CoreFns m) (env : Env) : Nat → Expr → Expr → m Bool :=
   fun depth a b => do
     if a == b then pure true else
     if ← (if b.isBoolTrue && !a.hasFvar then boolTrueShortcut r depth a
         else pure false) then pure true else
+    match ← quickDefEq mode r depth a b with
+    | some v => pure v
+    | none =>
+    -- task #333: proof irrelevance on the UNREDUCED sides, before any
+    -- head normalization (a proof is never reduced to be compared)
+    if ← propIrrel r env depth a b then pure true else
     let a' ← r.whnfCore true depth a
     let b' ← r.whnfCore true depth b
     match ← quickDefEq mode r depth a' b' with
     | some v => pure v
     | none =>
-    if ← propIrrel r env depth a' b' then pure true else
     match ← lazyDeltaReduction mode r env depth defeqLoopFuel a' b' with
     | .verdict v => pure v
     | .unknown a₁ b₁ =>
