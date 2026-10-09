@@ -286,8 +286,9 @@ Read from the outside in:
    a definition or opaque is annotated and pushed with its check
    *recorded* — the annotated header and value and the number of
    constants installed before it — a theorem is installed by its
-   statement alone (its header annotated, its value recorded raw and
-   never entered by this loop: a theorem is opaque to reduction), and
+   statement alone (its header annotated, the stored constant carrying
+   no value; the raw value is recorded for the check and never entered
+   by this loop: a theorem is opaque to reduction), and
    an axiom, an inductive or
    basis block, and the pinned `Nat`-operation and `reduce*`
    declarations are checked in full as they are installed, by the

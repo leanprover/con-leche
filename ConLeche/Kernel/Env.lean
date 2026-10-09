@@ -468,7 +468,7 @@ def ProjTable.entry (tbl : ProjTable) (i : Nat) : ProjEntry :=
 inductive ConstantInfo where
   | axiomInfo (val : ConstantVal)
   | defnInfo (val : ConstantVal) (value : Expr) (hint : ReducibilityHint)
-  | thmInfo (val : ConstantVal) (value : Expr)
+  | thmInfo (val : ConstantVal)
   /-- An inductive type former (whnf-stuck) with its capabilities. -/
   | indInfo (val : ConstantVal) (caps : IndCaps)
   /-- A basis constructor (whnf-stuck; the iota target). -/
@@ -636,7 +636,7 @@ def projTableName (T : Name) : Name := (T.str "projTable").num 0
 namespace ConstantInfo
 
 def toConstantVal : ConstantInfo → ConstantVal
-  | .axiomInfo v | .defnInfo v _ _ | .thmInfo v _ => v
+  | .axiomInfo v | .defnInfo v _ _ | .thmInfo v => v
   | .indInfo v _ | .ctorInfo v _ _ | .recInfo v _ _ _ => v
   | .projInfo tbl => ⟨projTableName tbl.structName, tbl.levelParams, .sort (.succ .zero)⟩
 

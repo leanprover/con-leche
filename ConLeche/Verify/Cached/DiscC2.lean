@@ -439,7 +439,7 @@ theorem projCertC_sim (ih : SSimC mode env f) (henv : EnvWF env) {d : Nat}
       exact iotaCertsC_sim ih hs₂ hty (Expr.WScoped.of_not_hasFvar hnf) hargs hw
     | axiomInfo _ => exact SimC.pure hs₁ rfl
     | defnInfo _ _ _ => exact SimC.pure hs₁ rfl
-    | thmInfo _ _ => exact SimC.pure hs₁ rfl
+    | thmInfo _ => exact SimC.pure hs₁ rfl
     | indInfo _ _ => exact SimC.pure hs₁ rfl
     | recInfo _ _ _ _ => exact SimC.pure hs₁ rfl
     | projInfo _ => exact SimC.pure hs₁ rfl
@@ -564,7 +564,7 @@ theorem structUnitCertC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode 
         · exact SimC.pure hs₂ rfl
       | axiomInfo cv => exact SimC.pure hs₂ rfl
       | defnInfo cv v h => exact SimC.pure hs₂ rfl
-      | thmInfo cv v => exact SimC.pure hs₂ rfl
+      | thmInfo cv => exact SimC.pure hs₂ rfl
       | ctorInfo cv nP nF => exact SimC.pure hs₂ rfl
       | recInfo cv mI rP rules => exact SimC.pure hs₂ rfl
       | projInfo entry => exact SimC.pure hs₂ rfl
@@ -734,7 +734,7 @@ theorem structEtaProjCertsC_sim (ih : SSimC mode env f) (henv : EnvWF env)
       | projInfo entry => exact SimC.pure hs rfl
       | axiomInfo cv => exact SimC.pure hs rfl
       | defnInfo cv v h => exact SimC.pure hs rfl
-      | thmInfo cv v => exact SimC.pure hs rfl
+      | thmInfo cv => exact SimC.pure hs rfl
       | indInfo cv caps => exact SimC.pure hs rfl
       | ctorInfo cv nP nF => exact SimC.pure hs rfl
 
@@ -1045,7 +1045,7 @@ theorem structEtaCertWithC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mo
                 · exact SimC.pure hs rfl
               | axiomInfo cv => exact SimC.pure hs rfl
               | defnInfo cv v h => exact SimC.pure hs rfl
-              | thmInfo cv v => exact SimC.pure hs rfl
+              | thmInfo cv => exact SimC.pure hs rfl
               | ctorInfo cv nP' nF' => exact SimC.pure hs rfl
               | recInfo cv mI rP rules => exact SimC.pure hs rfl
               | projInfo entry => exact SimC.pure hs rfl
@@ -1070,7 +1070,7 @@ theorem structEtaCertWithC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mo
         · exact SimC.pure hs rfl
       | axiomInfo cv => exact SimC.pure hs rfl
       | defnInfo cv v h => exact SimC.pure hs rfl
-      | thmInfo cv v => exact SimC.pure hs rfl
+      | thmInfo cv => exact SimC.pure hs rfl
       | indInfo cv caps => exact SimC.pure hs rfl
       | recInfo cv mI rP rules => exact SimC.pure hs rfl
       | projInfo entry => exact SimC.pure hs rfl

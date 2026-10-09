@@ -183,7 +183,7 @@ theorem structEtaProjCerts_atF (d : Nat) (F : Nat) (T : Name)
       | projInfo entry => rfl
       | axiomInfo cv => rfl
       | defnInfo cv value => rfl
-      | thmInfo cv value => rfl
+      | thmInfo cv => rfl
       | indInfo cv caps => rfl
       | ctorInfo cv nP nF => rfl
 

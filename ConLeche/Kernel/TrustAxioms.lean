@@ -14,7 +14,7 @@ public import ConLeche.Kernel.TrustPins
 declined:
 
 * `Lean.trustCompiler : True` is trivially realizable — it is
-  installed as an *opaque* (stored `thmInfo`, exactly like a checked
+  installed as an *opaque* (stored `axiomInfo`, exactly like a checked
   `opaque` declaration) with value `True.intro`, over a pinned `True`
   family.  No new meta-axiom: the model is `True.intro`'s own
   interpretation.

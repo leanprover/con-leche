@@ -201,7 +201,7 @@ def skelName : InstallSkel → Name
 def ciSkel : ConstantInfo → InstallSkel
   | .axiomInfo cv => .ax cv.name
   | .defnInfo cv _ _ => .defn cv.name
-  | .thmInfo cv _ => .thm cv.name
+  | .thmInfo cv => .thm cv.name
   | .indInfo cv _ => .ind cv.name
   | .ctorInfo cv nP nF => .ctor cv.name nP nF
   | .recInfo cv mI rP _ => .recr cv.name mI rP
@@ -1276,7 +1276,7 @@ theorem annotStepC_skels (mode : CheckMode) (i : Nat) {fe : FEnv}
     obtain ⟨cvA, jty⟩ := p
     ybind
     apply Yields.pure
-    show SkelIs (fe.push (.thmInfo cvA value)) (.thm cv.name :: sk)
+    show SkelIs (fe.push (.thmInfo cvA)) (.thm cv.name :: sk)
     rw [← hr.1]; exact h.push _
   | opaqueDecl cv value =>
     simp only []

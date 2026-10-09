@@ -298,7 +298,7 @@ theorem checkThmVal_of_facts {cv : ConstantVal} {value jv vtype stype : Expr} {u
     (hvr : jv.constsResolve env = true)
     (hvt : inferTypeCore μ env F 0 jv = .ok vtype)
     (hde : isDefEqCore μ env F 0 vtype cv.type = .ok true) :
-    checkThmVal (fueledOps μ F) env cv value = .ok ⟨.thmInfo cv value :: env.consts⟩ := by
+    checkThmVal (fueledOps μ F) env cv value = .ok ⟨.thmInfo cv :: env.consts⟩ := by
   simp only [checkThmVal, fueledOps_annotate, fueledOps_inferType, fueledOps_isDefEq,
     fueledOps_ensureSort, liftFueled, Bind.bind, Except.bind, Pure.pure, Except.pure, hst,
     hsort, heqv, hlb, hif, hann, hvp, hvr, hvt, hde, Bool.false_eq_true, ↓reduceIte]
@@ -348,7 +348,7 @@ theorem checkDecl_of_split_thm {cv : ConstantVal} {value : Expr} {vg : ValueGrou
     (hjv : vg.jv = value)
     (hC : checkValueGroup (fueledOps μ F) env vg = .ok ()) :
     checkDecl μ (fueledOps μ F) pins env (.thmDecl cv value)
-      = .ok ⟨.thmInfo vg.cvA value :: env.consts⟩ := by
+      = .ok ⟨.thmInfo vg.cvA :: env.consts⟩ := by
   obtain ⟨hfind, hres, hshape, hnd, hlb, hif, type', hann, htp, htr, hcvA⟩ :=
     installConstantVal_inv hI
   obtain ⟨stype, u, hst, hsort, hthm, jv, hiv, -, vtype, hvt, hde⟩ := checkValueGroup_inv hC

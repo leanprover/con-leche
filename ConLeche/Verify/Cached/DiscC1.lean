@@ -437,7 +437,7 @@ theorem unfoldDefinitionC_eff {s₀ : CState} (hs : CSOK mode env s₀)
         · rw [ite_eq_right hlen, ite_eq_right hlen]
           exact CEff.pure hs trivial
       | axiomInfo cv => exact CEff.pure hs trivial
-      | thmInfo cv value => exact CEff.pure hs trivial
+      | thmInfo cv => exact CEff.pure hs trivial
       | indInfo cv caps => exact CEff.pure hs trivial
       | ctorInfo cv nP nF => exact CEff.pure hs trivial
       | recInfo cv mI rP rules => exact CEff.pure hs trivial
