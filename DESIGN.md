@@ -97022,3 +97022,112 @@ indicative only).
 |---|---|
 | master `c8f5415f9` | 486 076 992 635 (a second run: 486 065 107 988) |
 | this task | 486 096 356 685 (+0.004 %, within the run-to-run spread) |
+
+## TASK #329 — THMVAL: stored theorems keep only their statement (2026-10-09, agent/thmval-master)
+
+Extracted from task #329 (the `more-parallel` campaign, record "TASK
+#329 — THMVAL", lane `agent/329-thmval`) and rebuilt on master from the
+campaign's final code. The campaign's version also touched the parallel
+install (`Verify/Cached/ParInstall.lean`'s `valueStep`) and
+`Cached/InstallSkel.lean`'s `ciSkel`, which master does not have; on
+master `ciSkel` lives in `Verify/Cached/AgreeFloor.lean` and loses its
+`_` there instead.
+
+**The decision** (maintainer, 2026-10-08, following the LAZY record's
+option (B) on `more-parallel`): the environment does not store theorem
+values. Opaques were already stored as `.axiomInfo cvA`; theorems now
+store only their statement.
+
+**The choice: the constructor loses its field.**
+`ConstantInfo.thmInfo (val : ConstantVal)` (`ConLeche/Kernel/Env.lean`)
+instead of pushing a fixed dummy value. With the field gone, nothing
+can read a theorem's proof term from an environment *by construction*;
+a dummy value would leave every proof that names the constructor
+carrying an argument it must not use, and the claim "nothing reads it"
+would stay a convention. It was also the cheaper repair: every proof
+site was a pattern or a constructor term, and dropping one argument is
+mechanical, where a dummy value would have changed `DeclThmRun`'s and
+`checkThmVal`'s equations to mention an arbitrary constant.
+
+**Survey** (every mention of a theorem constant's value). The mentions
+of `thmInfo` in `scripts/dead-census.lean` and `PinGen/Prelude.lean`
+are about Lean's own `Lean.ConstantInfo`, unaffected. The rest:
+* kernel: the constructor and `toConstantVal` (`Env.lean`),
+  `checkThmVal` (`Checker.lean`), the basis quotation and annotation
+  (`BasisGen.lean`; no basis constant is a theorem), the canonical form
+  and its fast equality (`Canon.lean`: a theorem now compares by
+  statement; `canonEq` is only ever applied to `axiomInfo` pins);
+* cached: `checkThmValC` (`ParsedC.lean`), phase A's `annotStepC`
+  (`Installed.lean`), `ciSkel` (`Verify/Cached/AgreeFloor.lean`);
+* proofs: `Semantics/DeclRun.lean` (`DeclThmRun`'s result environment),
+  `Model/{Harvest,StreamConsts,InstallRun}.lean`, and the `Verify/`
+  files (`case`/`match` arms and the `CheckerSplit` equations).
+None of them read the value: every one either matched it with `_` or a
+name it never used, or rebuilt the constructor with it.
+* `preparePrelude`'s Nat-op ground hoist reads
+  `Declaration.usedConsts` (`Frontend/NatOpGround.lean`): the parsed
+  record, which keeps its value; not affected.
+* bridge (`bridge/lean4lean-model`): only about `SetTheory`; not
+  affected. The whitepaper fragment has no theorem kind; its link gate
+  cites `Env.lean`'s `ConstantInfo` lines (re-generated; the citing
+  paragraph, "a definition carries a value; the other kinds …", stays
+  true). `TrustAxioms.lean`'s docstring said `Lean.trustCompiler` is
+  stored as `thmInfo`; it is stored as `axiomInfo` (an opaque), and now
+  says so.
+
+**Size of the repair**: 27 files, 83 insertions, 86 deletions over
+`ConLeche/`; of these 60 lines each way in `Semantics/`, `Model/` and
+`Verify/`, every one a dropped argument (no proof changed shape, no new
+lemma). Internal statements that changed text: `checkThmVal_of_facts`
+and the value-group step in `Verify/CheckerSplit.lean`,
+`annotStepC_thm_consts` (`Verify/Cached/StreamThm.lean`),
+`DeclThmRun`. `MainTheorem`'s statements are textually identical (the
+challenge gate checks `model_exists` and `no_False_declaration`), the
+main corollary is untouched, and `Axioms.lean`'s pins are unchanged.
+
+**Why the main theorem is unaffected — where a theorem constant's
+interpretation comes from.** `harvestThm` (`Model/Harvest.lean`)
+extends the model at a theorem by the leaf `A`, the `denoteMeta`
+reading of `value'`, the ANNOTATED value that `DeclThmRun`'s
+`ValueFrontRun` checked against the statement (`inferTypeCore` to a
+type defeq to `type'`); `hmemA` (the value's denotation is a member of
+the statement's) is what makes the constant an inhabitant of its type.
+That is the realizability witness of the check, exactly as for an
+opaque; the stored constant never supplied it (the stored value was the
+RAW record value, which the model never read: `hvalReads` was already
+vacuous for theorems). So the model construction is the same proof
+with one argument fewer, and the denotation of an environment does not
+depend on proof terms. Reduction was already blind to theorem values
+(`unfoldDefinition` has no `thmInfo` arm).
+
+**Trust surface and shape.** No new `unsafe`/axiom/sorry. Our
+`ConstantInfo` now differs further from lean4lean's and the official
+kernel's (`TheoremVal` has `value` and `all`); it never had their shape
+(opaques are `axiomInfo`, no `all`, own `indInfo`/`IndCaps`), and no
+bridge converts between them.
+
+**Memory.** None saved, and none expected: the raw value objects stay
+alive through the parsed records and the pending checks anyway, so
+dropping the environment's pointer frees nothing at the peak (the
+campaign measured mathlib-full's peak RSS at 8 064 876 kB before and
+8 074 196 kB after).
+
+**Measurements** (before: master `87fd5baad`, the task #332 run of the
+same code; after: this branch):
+
+| run | before | after |
+|---|---|---|
+| init-full `--jobs=1`, instructions:u | 486 096 356 685 | 486 056 134 503 (−0.008 %) |
+| mathlib-full (96 workers), records | 691 203 accepted | 691 203 accepted |
+| mathlib-full, parse / install / check | 24.4 / 64.4 / 33.0 s | 27.4 / 56.2 / 30.3 s |
+| mathlib-full, peak RSS | — | 7 304 332 kB |
+
+The instruction count is within the run-to-run spread (task #332
+measured two runs of master 11 G apart); the wall times are indicative
+only on this shared machine.
+
+Gates: `lake build`, `lake test` warning-free; `tests/arena.sh` green
+(e2e 456/456, the trusted, `--jobs=1` and `--jobs=4` sweeps, layering,
+trust surface, shake, both link gates, the fragment and challenge
+gates); `tests/quote-gate.sh` clean. Logs and the binary:
+`_tmp/amdahl/thmval-master-logs/`.
