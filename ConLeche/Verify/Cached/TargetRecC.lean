@@ -15,8 +15,8 @@ public section
 The recursor stage's class kit (`ConLeche/Kernel/Inductives/RecCheck.lean`:
 the class match, a class resolved and its pins, node agreement) at the
 cached driver: each operation's simulation by the pure fueled one, the
-scoping facts they need, and the cons at the majors (`consBlockRecsTF`,
-`envWF_consBlockRecsT`).  The generated stage itself and the cached
+scoping facts they need, and the cons at the majors
+(`pushAll_blockRecInfosTF_mkFEnv`, `envWF_consBlockRecsT`).  The generated stage itself and the cached
 uniform install are simulated in `GenRecC.lean`.
 -/
 
@@ -380,14 +380,18 @@ at ITS major (`consBlockRecsT`): at an outside major every rule fires
 and `EnvWF`'s `.nested` clause is exactly that reading's inversion
 (`nestedRuleSyn_inv`). -/
 
-theorem consBlockRecsTF_mkFEnv (find? : Name → Option ConstantInfo) (res : Expr → Bool)
+/-- The cached install's pushes of the family's records
+(`blockRecInfosTF`) onto a canonical index are the canonical index of
+the pure cons. -/
+theorem pushAll_blockRecInfosTF_mkFEnv (find? : Name → Option ConstantInfo) (res : Expr → Bool)
     (p : BlockShape) :
     ∀ (m : Nat) (out : List (ConstantVal × TargetMajor × List Expr)) (env : Env),
-      consBlockRecsTF find? res p m out (mkFEnv env) = mkFEnv (consBlockRecsT find? res p m out env)
+      FEnv.pushAll (blockRecInfosTF find? res p m out) (mkFEnv env)
+        = mkFEnv (consBlockRecsT find? res p m out env)
   | _, [], _ => rfl
   | m, (cv, M, rhss) :: rest, env => by
-    simp only [consBlockRecsTF, consBlockRecsT, push_mkFEnv]
-    exact consBlockRecsTF_mkFEnv find? res p (m + 1) rest _
+    simp only [blockRecInfosTF, FEnv.pushAll, consBlockRecsT, push_mkFEnv]
+    exact pushAll_blockRecInfosTF_mkFEnv find? res p (m + 1) rest _
 
 theorem find?_consBlockRecsT_le {find? : Name → Option ConstantInfo} {res : Expr → Bool}
     {q : BlockShape} :

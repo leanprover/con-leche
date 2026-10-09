@@ -24,7 +24,7 @@ record pins:
   (`targetMajorPins`);
 * the recursor records' pins (`targetRecPins`);
 * the stored family's formats (`tgtRs`, `tgtStoredRules`,
-  `consBlockRecsTF`) and the container bit (`blockNestedBit`).
+  `blockRecInfosTF`) and the container bit (`blockNestedBit`).
 
 Everything is written over an `FEnv`, parameterised by `ShadowOps` (the
 operations at an index, a flush, the walkers), so the pure install
@@ -34,31 +34,7 @@ operations at an index, a flush, the walkers), so the pure install
 
 namespace ConLeche
 
-/-- **The operations the shadow runs on**, per index: the checker's
-entry points at an `FEnv` (`opsAt`), their rule-annotation variant
-(`opsRuleR`: the cached one flushes at the two environment transitions
-a rule makes, `sharedOpsRuleR`), the flush at an environment change,
-and the syntactic walkers.  The pure instantiation ignores the index
-(the pure operations read the `Env` they are handed); the cached one
-is index-bound. -/
-structure ShadowOps (m : Type → Type) where
-  opsAt : FEnv → CheckerOps m
-  opsRuleR : FEnv → CheckerOps m
-  flush : m Unit
-  walkers : StructWalkers
-
 variable {m : Type → Type} [Monad m] [MonadExceptOf CheckError m]
-
-/-- A checker's operations as shadow operations: the same at every
-index, no flush, the plain walkers — how the PURE install runs the
-check (`checkBlockRec`, `BlockTail.lean`). -/
-def ShadowOps.ofOps (ops : CheckerOps m) : ShadowOps m :=
-  ⟨fun _ => ops, fun _ => ops, Pure.pure (), .plain⟩
-
-/-- The pure operations at fuel `F`, at every index (the fueled
-instantiation the model reads a run of). -/
-def ShadowOps.fueled (mode : CheckMode) (F : Nat) : ShadowOps CheckM :=
-  ShadowOps.ofOps (fueledOps mode F)
 
 /-! ## The holes: the block's members abstracted to free variables
 
@@ -273,6 +249,40 @@ structure TargetMajor where
   first), the context the class is compared in (`targetClassMatch`) -/
   pfvs : List Expr := []
   deriving Inhabited
+
+/-- The rule-less generated recursors consed onto the constructors'
+environment `fe`. -/
+def classFeR (p : BlockShape) (Ms : List TargetMajor) (cvGs : List ConstantVal)
+    (recCls : List Nat) (fe : FEnv) : FEnv :=
+  consBlockRecsBareF p 0 ((cvGs.zip recCls).map fun (cv, c) => (cv, (Ms.getD c default).nIdx)) fe
+
+/-- **The operations the shadow runs on**, per index: the checker's
+entry points at an `FEnv` (`opsAt`), their rule-annotation variant
+(`opsRuleR`: the cached one flushes at the two environment transitions
+a rule makes, `sharedOpsRuleR`), the flush at an environment change,
+the syntactic walkers, and the environment the rule stage infers the
+rules at (`ruleEnv`: the rule-less generated recursors consed onto the
+constructors' environment — pushed in the pure install, `classFeR`; an
+overlay sharing the index in the cached one, `classFeROvl`).  The pure
+instantiation ignores the index (the pure operations read the `Env`
+they are handed); the cached one is index-bound. -/
+structure ShadowOps (m : Type → Type) where
+  opsAt : FEnv → CheckerOps m
+  opsRuleR : FEnv → CheckerOps m
+  flush : m Unit
+  walkers : StructWalkers
+  ruleEnv : BlockShape → List TargetMajor → List ConstantVal → List Nat → FEnv → FEnv
+
+/-- A checker's operations as shadow operations: the same at every
+index, no flush, the plain walkers, the rule-less recursors pushed —
+how the PURE install runs the check (`checkBlockRec`, `BlockTail.lean`). -/
+def ShadowOps.ofOps (ops : CheckerOps m) : ShadowOps m :=
+  ⟨fun _ => ops, fun _ => ops, Pure.pure (), .plain, classFeR⟩
+
+/-- The pure operations at fuel `F`, at every index (the fueled
+instantiation the model reads a run of). -/
+def ShadowOps.fueled (mode : CheckMode) (F : Nat) : ShadowOps CheckM :=
+  ShadowOps.ofOps (fueledOps mode F)
 
 /-- A term with every free variable's ANNOTATION erased (the variable
 kept): the comparison K.53′ runs up to, which is exactly what the model's
@@ -604,19 +614,10 @@ family carries an auxiliary recursor).  It feeds the elimination guard
 def blockNestedBit (p : BlockShape) (kinds : List (List (List NestFieldKind))) : Bool :=
   !nestKindsFlat kinds || p.recs.any (fun rc => !(rc.tgt < p.k))
 
-/-- **The checked family consed through the index, at its majors**:
-`consBlockRecsF` with each recursor's rules at ITS major
-(`tgtStoredRules`) — the installer's recursor cons, which at member
-majors is `consBlockRecsF` itself. -/
-def consBlockRecsTF (find? : Name → Option ConstantInfo) (resolves : Expr → Bool)
-    (p : BlockShape) : Nat → List (ConstantVal × TargetMajor × List Expr) → FEnv → FEnv
-  | _, [], fe => fe
-  | m, (cv, M, rhss) :: rest, fe =>
-    consBlockRecsTF find? resolves p (m + 1) rest
-      (fe.push (.recInfo cv (p.majorIdxAt m) (p.rulePrefixAt m)
-        (tgtStoredRules find? resolves cv (p.majorIdxAt m) (p.rulePrefixAt m) M rhss)))
-
-/-- The records `consBlockRecsTF` pushes, in push order. -/
+/-- **The checked family's records, at their majors**, in push order:
+each recursor's rules at ITS major (`tgtStoredRules`).  The cached
+install pushes them (`FEnv.pushAll`, `checkBlockTailS`), every record
+built before the first push. -/
 def blockRecInfosTF (find? : Name → Option ConstantInfo) (resolves : Expr → Bool)
     (p : BlockShape) : Nat → List (ConstantVal × TargetMajor × List Expr) → List ConstantInfo
   | _, [] => []
@@ -624,27 +625,5 @@ def blockRecInfosTF (find? : Name → Option ConstantInfo) (resolves : Expr → 
     .recInfo cv (p.majorIdxAt m) (p.rulePrefixAt m)
         (tgtStoredRules find? resolves cv (p.majorIdxAt m) (p.rulePrefixAt m) M rhss)
       :: blockRecInfosTF find? resolves p (m + 1) rest
-
-/-- **`consBlockRecsTF`, every record built before the first push**
-(task #329; `consBlockRecsFFast`'s pattern).  The cached driver hands
-it `find?`/`resolves` closures over the very `FEnv` it pushes onto
-(`checkBlockTailS`); threaded through the recursion they hold the index
-at RC 2 across every push, so the first one copied the whole bucket
-array — once per inductive block.  Here the records are read first,
-the closures die, and the pushes run on a unique index.  Same value
-(`consBlockRecsTF_eq_fast`, `@[csimp]`). -/
-def consBlockRecsTFFast (find? : Name → Option ConstantInfo) (resolves : Expr → Bool)
-    (p : BlockShape) (m : Nat) (rs : List (ConstantVal × TargetMajor × List Expr))
-    (fe : FEnv) : FEnv :=
-  FEnv.pushAll (blockRecInfosTF find? resolves p m rs) fe
-
-@[csimp] theorem consBlockRecsTF_eq_fast : @consBlockRecsTF = @consBlockRecsTFFast := by
-  funext find? resolves p m rs fe
-  induction rs generalizing m fe with
-  | nil => rfl
-  | cons r rest ih =>
-    obtain ⟨cv, M, rhss⟩ := r
-    simp only [consBlockRecsTF, consBlockRecsTFFast, blockRecInfosTF, FEnv.pushAll]
-    exact ih (m + 1) _
 
 end ConLeche

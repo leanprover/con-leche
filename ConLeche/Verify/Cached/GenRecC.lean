@@ -714,8 +714,13 @@ theorem genRecCheckS_simG (hμ : mode.verifiedChecks = true) {env₂ : Env}
     fun _ => rfl
   have hpw : (ShadowOps.ofOps (fueledOpsM mode)).walkers = .plain := rfl
   have hpf : (ShadowOps.ofOps (fueledOpsM mode)).flush = (Pure.pure () : FueledM Unit) := rfl
-  simp only [hso, hsf, hsw, hsr, hpo, hpr, hpw, hpf, structWalkersC_eq_plain, mkFEnv_env,
-    classFeR, consBlockRecsBareF_mkFEnv]
+  have hse : (shadowOpsC mode).ruleEnv = classFeROvl := rfl
+  have hpe : (ShadowOps.ofOps (fueledOpsM mode)).ruleEnv = classFeR := rfl
+  simp only [hso, hsf, hsw, hsr, hse, hpo, hpr, hpw, hpf, hpe]
+  -- the cached rule stage runs at the overlay, which answers as the
+  -- pushed rule-less recursors do
+  simp only [classRecsRulesOk_classFeROvl mode (fe := mkFEnv env₂) rfl]
+  simp only [structWalkersC_eq_plain, mkFEnv_env, classFeR, consBlockRecsBareF_mkFEnv]
   have hformer : ∀ t ∈ cvTas.map (·.type), WScoped 0 t := by
     intro t ht
     obtain ⟨cv, hcv, rfl⟩ := List.mem_map.mp ht
@@ -883,8 +888,7 @@ theorem checkBlockTailS_run (hμ : mode.verifiedChecks = true)
     ∃ F, (checkBlockTail (fueledOpsM mode) block
       ⟨env₁, cvTas, p, ctorsAs, sortsss, kinds, nfs, params, rd, Ms₀, tbl⟩).val F
         = .ok feOut.env := by
-  rw [checkBlockTailS_eq_ref] at h
-  unfold checkBlockTailSRef at h
+  unfold checkBlockTailS at h
   dsimp only at h
   rw [checkBlockIdxSortsF_eqC] at h
   obtain ⟨isorts, sS, hsorts, h⟩ := bindC_ok h
@@ -905,7 +909,7 @@ theorem checkBlockTailS_run (hμ : mode.verifiedChecks = true)
   rw [show FEnv.find? (mkFEnv (consBlockCtors p.nP ctorsAs env₁))
     = (consBlockCtors p.nP ctorsAs env₁).find? from mkFEnv_find?_fun _] at h
   simp only [constsResolveF_eq] at h
-  rw [consBlockRecsTF_mkFEnv, structWalkersC_eq_plain] at h
+  rw [pushAll_blockRecInfosTF_mkFEnv, structWalkersC_eq_plain] at h
   obtain ⟨hwfO, hfeO, -, hT₆⟩ := checkBlockTablesS_run _ _ _ henv₃ hs₃ h
   obtain ⟨G, hle₀, hle₃⟩ : ∃ G, F₀ ≤ G ∧ F₃ ≤ G := ⟨max F₀ F₃, by omega, by omega⟩
   refine ⟨hwfO, hfeO, G, ?_⟩

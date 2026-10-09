@@ -394,14 +394,34 @@ theorem annotValueC_fresh (mode : CheckMode) (fe : FEnv) (cv : ConstantVal)
   ybind
   exact Yields.pure hp
 
+/-- The record a definition's value check returns is the definition
+itself, at the checked constant and hint. -/
+theorem checkDefnValCI_shape (mode : CheckMode) (fe : FEnv) (cvA : ConstantVal)
+    (jty value : Expr) (hint : ReducibilityHint) :
+    Yields (checkDefnValCI mode fe cvA jty value hint)
+      (fun ci => ∃ v, ci = .defnInfo cvA v hint) := by
+  unfold checkDefnValCI
+  yields
+  all_goals exact Yields.pure ⟨_, rfl⟩
+
+/-- The record an opaque's value check returns is the axiom at the
+checked constant. -/
+theorem checkOpaqueValCI_shape (mode : CheckMode) (fe : FEnv) (cvA : ConstantVal)
+    (jty value : Expr) :
+    Yields (checkOpaqueValCI mode fe cvA jty value) (fun ci => ci = .axiomInfo cvA) := by
+  unfold checkOpaqueValCI
+  yields
+  all_goals exact Yields.pure rfl
+
 theorem checkDefnValC_skels (mode : CheckMode) {fe : FEnv}
     {sk : List InstallSkel} (h : SkelIs fe sk) (cvA : ConstantVal)
     (jty value : Expr) (hint : ReducibilityHint) :
     Yields (checkDefnValC mode fe cvA jty value hint)
       (fun fe' => SkelIs fe' (.defn cvA.name :: sk)) := by
   unfold checkDefnValC
-  yields
-  all_goals (apply Yields.pure; exact h.push _)
+  refine Yields.bind' (checkDefnValCI_shape mode fe cvA jty value hint) fun ci hci => ?_
+  obtain ⟨v, rfl⟩ := hci
+  exact Yields.pure (h.push _)
 
 theorem checkThmValC_skels (mode : CheckMode) {fe : FEnv}
     {sk : List InstallSkel} (h : SkelIs fe sk) (cvA : ConstantVal)
@@ -418,8 +438,9 @@ theorem checkOpaqueValC_skels (mode : CheckMode) {fe : FEnv}
     Yields (checkOpaqueValC mode fe cvA jty value)
       (fun fe' => SkelIs fe' (.ax cvA.name :: sk)) := by
   unfold checkOpaqueValC
-  yields
-  all_goals (apply Yields.pure; exact h.push _)
+  refine Yields.bind' (checkOpaqueValCI_shape mode fe cvA jty value) fun ci hci => ?_
+  subst hci
+  exact Yields.pure (h.push _)
 
 /-! ## The per-member stages' skeletons
 
@@ -841,9 +862,9 @@ theorem genRecCheck_names (so : ShadowOps CheckCM) (fe : FEnv)
     Option.some.injEq] at this
   rw [this]; exact hname
 
-/-- The recursors' conses AT THEIR MAJORS (`consBlockRecsTF`) at the
+/-- The recursors' pushes AT THEIR MAJORS (`blockRecInfosTF`) at the
 skeleton level, from the recursor stage's output: each record's name. -/
-theorem consBlockRecsTF_skelsT (find? : Name → Option ConstantInfo) (resolves : Expr → Bool)
+theorem pushAll_blockRecInfosTF_skelsT (find? : Name → Option ConstantInfo) (resolves : Expr → Bool)
     (p : BlockShape) :
     ∀ (l : List RecShape) (ri : Nat)
       (out : List (ConstantVal × TargetMajor × List Expr))
@@ -851,7 +872,7 @@ theorem consBlockRecsTF_skelsT (find? : Name → Option ConstantInfo) (resolves 
       (∀ (j : Nat) o (rc : RecShape), out[j]? = some o → l[j]? = some rc →
         o.1.name = rc.cvR.name) →
       SkelIs fe sk →
-      SkelIs (consBlockRecsTF find? resolves p ri out fe) (blockRecSkels p ri l sk)
+      SkelIs (FEnv.pushAll (blockRecInfosTF find? resolves p ri out) fe) (blockRecSkels p ri l sk)
   | [], _, [], _, _, _, _, _, h => h
   | [], _, _ :: _, _, _, _, hlen, _, _ => by simp at hlen
   | _ :: _, _, [], _, _, _, hlen, _, _ => by simp at hlen
@@ -864,7 +885,7 @@ theorem consBlockRecsTF_skelsT (find? : Name → Option ConstantInfo) (resolves 
       (tgtStoredRules find? resolves cv (p.majorIdxAt ri) (p.rulePrefixAt ri) M rhss)
     have hci : ciSkel ci = .recr rc.cvR.name (p.majorIdxAt ri) (p.rulePrefixAt ri) := by
       simp only [ci, ciSkel, hname]
-    have h' := consBlockRecsTF_skelsT find? resolves p rest (ri + 1) out
+    have h' := pushAll_blockRecInfosTF_skelsT find? resolves p rest (ri + 1) out
       (fe.push ci) (ciSkel ci :: sk) hrest (by simpa using hlen)
       (fun j r rc' hj hj' => hall (j + 1) r rc' (by simpa using hj) (by simpa using hj'))
       (h.push ci)
@@ -940,28 +961,29 @@ theorem checkBlockTailS_skels (mode : CheckMode) {block : List ConstantInfo}
       = q.p.members.map (fun ms => ms.ctors.map fun c => (c.1.name, c.2)))
     (hlenS : q.sortsss.map List.length = q.p.members.map (·.ctors.length)) :
     Yields (checkBlockTailS mode block q) (fun fe' => SkelIs fe' (blockSkels q.p sk)) := by
-  rw [checkBlockTailS_eq_ref]
-  unfold checkBlockTailSRef
+  obtain ⟨env₁, cvTas, p, ctorsAs, sortsss, kinds, nfs, params, rd, cls, tbl⟩ := q
+  dsimp only at h₁ hns hlenS ⊢
+  unfold checkBlockTailS
   dsimp only
   refine Yields.bind fun _ => ?_
   refine Yields.bind fun _ => ?_
-  have hlenC : q.ctorsAs.map List.length = q.p.members.map (·.ctors.length) := by
+  have hlenC : ctorsAs.map List.length = p.members.map (·.ctors.length) := by
     have := congrArg (List.map List.length) hns
     simpa [List.map_map, Function.comp_def] using this
-  have h₂ := consBlockCtorsF_skels q.p.nP hns h₁
-  refine Yields.bind' (genRecCheck_names (shadowOpsC mode) _ q.p.toBlockShape _ _ _ _ _ q.cvTas
+  have h₂ := consBlockCtorsF_skels p.nP hns h₁
+  refine Yields.bind' (genRecCheck_names (shadowOpsC mode) _ p.toBlockShape _ _ _ _ _ cvTas
       block)
     fun out hout => ?_
-  have hrs := consBlockRecsTF_skelsT
-      (consBlockCtorsF q.p.nP q.ctorsAs q.env₁).find?
-      (·.constsResolveF (consBlockCtorsF q.p.nP q.ctorsAs q.env₁)) q.p.toBlockShape
-      q.p.recs 0 out _ _ (List.drop_zero (l := q.p.recs)).symm hout.2.1
+  have hrs := pushAll_blockRecInfosTF_skelsT
+      (consBlockCtorsF p.nP ctorsAs env₁).find?
+      (·.constsResolveF (consBlockCtorsF p.nP ctorsAs env₁)) p.toBlockShape
+      p.recs 0 out _ _ (List.drop_zero (l := p.recs)).symm hout.2.1
       (fun j o rc hoj hrc => by
         obtain ⟨o', hoj', hname, -⟩ := hout.2.2 j rc hrc
         rw [hoj] at hoj'
         obtain rfl := Option.some.inj hoj'
         exact hname) h₂
-  exact checkBlockTablesF_skels q.p.toBlockShape q.p.members q.ctorsAs q.sortsss hlenC hlenS hrs
+  exact checkBlockTablesF_skels p.toBlockShape p.members ctorsAs sortsss hlenC hlenS hrs
 
 /-- One pass at k members (task #268): the formers' skeleton, the
 record's shape (the sort read), the constructors by name and field
@@ -1100,21 +1122,22 @@ theorem checkDeclC_skels (mode : CheckMode) {fe : FEnv}
     {sk : List InstallSkel} (h : SkelIs fe sk) (pd : Declaration) :
     Yields (checkDeclC mode pins fe pd)
       (fun fe' => SkelIs fe' (declCSkels pd sk)) := by
-  rw [checkDeclC_eq_ref]; unfold checkDeclCRef declCSkels
+  unfold checkDeclC declCSkels
   cases pd with
   | defnDecl cv value hint =>
     simp only []
     refine Yields.bind' (checkConstantValC_name mode fe cv) fun p hp => ?_
     obtain ⟨cvA, jty⟩ := p
     simp only []
-    have key : Yields (checkDefnValC mode fe cvA jty value hint)
-        (fun fe' => SkelIs fe' (.defn cv.name :: sk)) := by
-      rw [← hp]; exact checkDefnValC_skels mode h cvA jty value hint
     split
-    · refine Yields.bind' key fun fe2 h2 => ?_
+    · -- the pinned arm: certified against the overlay, pushed last
+      refine Yields.bind' (checkDefnValCI_shape mode fe cvA jty value hint) fun ci hci => ?_
+      obtain ⟨v, rfl⟩ := hci
+      have h2 : SkelIs (fe.push (.defnInfo cvA v hint)) (.defn cv.name :: sk) := by
+        rw [← hp]; exact h.push _
       yields
       all_goals (apply Yields.pure; exact h2)
-    · exact key
+    · rw [← hp]; exact checkDefnValC_skels mode h cvA jty value hint
   | thmDecl cv value =>
     simp only []
     refine Yields.bind' (checkConstantValC_name mode fe cv) fun p hp => ?_
@@ -1126,14 +1149,15 @@ theorem checkDeclC_skels (mode : CheckMode) {fe : FEnv}
     refine Yields.bind' (checkConstantValC_name mode fe cv) fun p hp => ?_
     obtain ⟨cvA, jty⟩ := p
     simp only []
-    have key : Yields (checkOpaqueValC mode fe cvA jty value)
-        (fun fe' => SkelIs fe' (.ax cv.name :: sk)) := by
-      rw [← hp]; exact checkOpaqueValC_skels mode h cvA jty value
     split
-    · refine Yields.bind' key fun fe2 h2 => ?_
+    · -- the pinned arm: certified against the overlay, pushed last
+      refine Yields.bind' (checkOpaqueValCI_shape mode fe cvA jty value) fun ci hci => ?_
+      subst hci
+      have h2 : SkelIs (fe.push (.axiomInfo cvA)) (.ax cv.name :: sk) := by
+        rw [← hp]; exact h.push _
       yields
       all_goals (apply Yields.pure; exact h2)
-    · exact key
+    · rw [← hp]; exact checkOpaqueValC_skels mode h cvA jty value
   | axiomDecl cv =>
     simp only []
     -- task #293: `Quot.sound` is compared with the pin and installs

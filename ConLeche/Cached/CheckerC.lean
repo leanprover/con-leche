@@ -128,10 +128,11 @@ def sharedOpsRuleR (fe : FEnv) : CheckerOps CheckCM :=
 /-- **The shadow operations of the cached driver**: the index-bound
 operations `sharedOpsC`, the rule variant `sharedOpsRuleR` (a flush at
 each of a rule's two environment transitions), `flushC` at every
-environment change, and the memoised walkers.  The recursor stage
-(`checkBlockTailS`) runs `genRecCheck` at them. -/
+environment change, the memoised walkers, and the rule-less recursors
+as an overlay sharing the constructors' index (`classFeROvl`).  The
+recursor stage (`checkBlockTailS`) runs `genRecCheck` at them. -/
 def shadowOpsC : ShadowOps CheckCM :=
-  ⟨sharedOpsC mode, sharedOpsRuleR mode, flushC, structWalkersC⟩
+  ⟨sharedOpsC mode, sharedOpsRuleR mode, flushC, structWalkersC, classFeROvl⟩
 
 /-- **`checkBlockPass` through the index**: the k
 formers checked and consed — one flush entering the environment that
@@ -153,35 +154,16 @@ def checkBlockPassS (fe : FEnv) (p₀ : BlockParts) (isRec : Bool) :
   let st ← nestSeeds (sharedOpsC mode fe₁) fe₁.env ctx (classSeeds ctx holes Ms) pos
   pure ⟨fe₁, cvTas, pC, ctorsAs, sortsss, kinds, nfs, ctx.params, rd, Ms, st.ctorNfs⟩
 
-/-- **`checkBlockTail` through the index**: one flush
-entering the recursors' environment.  The reference form, which the
-proofs read; the driver runs `checkBlockTailS`, equal to it
-(`checkBlockTailS_eq_ref`, `ConLeche/Verify/Cached/BlockOverlay.lean`). -/
-def checkBlockTailSRef (block : List ConstantInfo) (q : BlockPass FEnv) :
-    CheckCM FEnv := do
-  let p := q.p
-  let _isorts ← checkBlockIdxSortsF (sharedOpsC mode q.env₁) q.env₁ p.toBlockShape
-    (p.members.zip q.cvTas)
-  let fe₂ := consBlockCtorsF p.nP q.ctorsAs q.env₁
-  flushC
-  let out ← genRecCheck (shadowOpsC mode) fe₂ p.toBlockShape
-    (blockNestedBit p.toBlockShape q.kinds) q.params q.tbl.toList q.rd q.cls q.cvTas block
-  let fe₃ := consBlockRecsTF fe₂.find? (·.constsResolveF fe₂) p.toBlockShape 0 out fe₂
-  checkBlockTablesF (m := CheckCM) structWalkersC p.toBlockShape
-    (p.members.zip (q.ctorsAs.zip q.sortsss)) fe₃
-
-/-- **`checkBlockTailSRef` with every push in place** (task #329).  The
-reference holds the constructors' index `fe₂` live across two pushes:
-`genRecCheck`'s rule-less recursors (`classFeR`, while the rule stage
-still reads `fe₂`) and the stored recursors (`consBlockRecsTF`, whose
-lookup closures read `fe₂`).  Each copied the whole bucket array, once
-per inductive block, a cost that grew with the environment.  Here the
-rule-less recursors are an overlay sharing the index
-(`genRecCheckOvl`), the stored recursors' records are built before the
+/-- **`checkBlockTail` through the index**: one flush entering the
+recursors' environment, every push in place.  The constructors' index
+`fe₂` is needed across two conses: the rule-less recursors (the rule
+stage reads `fe₂` and them at once) and the stored recursors (whose
+records read `fe₂`).  A push onto `fe₂` while it is alive would copy the
+whole bucket array, once per inductive block, so the rule-less
+recursors are an overlay sharing the index (`shadowOpsC`'s `ruleEnv`,
+`classFeROvl`), the stored recursors' records are built before the
 first push (`blockRecInfosTF`), and the pass record is taken apart up
-front, so the index is unique at every push.  An `fe₂` that already
-carries an overlay (never on the install path) runs the reference's
-code. -/
+front, so the index is unique at every push. -/
 def checkBlockTailS (block : List ConstantInfo) (q : BlockPass FEnv) :
     CheckCM FEnv :=
   match q with
@@ -190,18 +172,11 @@ def checkBlockTailS (block : List ConstantInfo) (q : BlockPass FEnv) :
     (p.members.zip cvTas)
   let fe₂ := consBlockCtorsF p.nP ctorsAs env₁
   flushC
-  if fe₂.ovl.isEmpty then
-    let out ← genRecCheckOvl (shadowOpsC mode) fe₂ p.toBlockShape
-      (blockNestedBit p.toBlockShape kinds) params tbl.toList rd cls cvTas block
-    let recs := blockRecInfosTF fe₂.find? (·.constsResolveF fe₂) p.toBlockShape 0 out
-    checkBlockTablesF (m := CheckCM) structWalkersC p.toBlockShape
-      (p.members.zip (ctorsAs.zip sortsss)) (FEnv.pushAll recs fe₂)
-  else
-    let out ← genRecCheck (shadowOpsC mode) fe₂ p.toBlockShape
-      (blockNestedBit p.toBlockShape kinds) params tbl.toList rd cls cvTas block
-    let fe₃ := consBlockRecsTF fe₂.find? (·.constsResolveF fe₂) p.toBlockShape 0 out fe₂
-    checkBlockTablesF (m := CheckCM) structWalkersC p.toBlockShape
-      (p.members.zip (ctorsAs.zip sortsss)) fe₃
+  let out ← genRecCheck (shadowOpsC mode) fe₂ p.toBlockShape
+    (blockNestedBit p.toBlockShape kinds) params tbl.toList rd cls cvTas block
+  let recs := blockRecInfosTF fe₂.find? (·.constsResolveF fe₂) p.toBlockShape 0 out
+  checkBlockTablesF (m := CheckCM) structWalkersC p.toBlockShape
+    (p.members.zip (ctorsAs.zip sortsss)) (FEnv.pushAll recs fe₂)
 
 /-- **`checkBlock` through the index**: the k-ary
 mirror, at any number of members. -/
