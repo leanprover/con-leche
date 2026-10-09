@@ -718,7 +718,7 @@ def buildGo (S : @& LStore) (kc : Nat) :
             else memo
 
 /-- The build's step budget: far beyond any value. -/
-def buildFuel : Nat := 1 <<< 62
+@[noinline] def buildFuel : Nat := 1 <<< 62
 
 /-- A region line whose children are not all done: the line read again
 at `p`, its children outside the region built (`buildGo`), the line

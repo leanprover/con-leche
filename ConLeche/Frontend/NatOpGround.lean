@@ -175,7 +175,7 @@ def hoistWalk (idx : Std.HashMap Name Nat) (uc : Nat → Option (Array Name)) (i
       | none => none
 
 /-- The walk's step budget: far beyond any stream. -/
-def hoistFuel : Nat := 1 <<< 62
+@[noinline] def hoistFuel : Nat := 1 <<< 62
 
 /-- The ground names of the operation at `i`, each declared after it,
 walked. -/
