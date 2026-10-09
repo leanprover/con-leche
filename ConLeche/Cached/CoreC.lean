@@ -1655,12 +1655,16 @@ def defeqBodyI (r : CoreFnsI) (fe : FEnv) : Nat → Expr → Expr → CheckCM Bo
     let af ← pure (Expr.hasFvar a)
     if ← (if bt && !af then boolTrueShortcutI r depth a
         else pure false) then pure true else
+    match ← quickDefEqI mode r depth a b with
+    | some v => pure v
+    | none =>
+    -- task #333: proof irrelevance before any head normalization
+    if ← propIrrelI r fe depth a b then pure true else
     let a' ← r.whnfCore true depth a
     let b' ← r.whnfCore true depth b
     match ← quickDefEqI mode r depth a' b' with
     | some v => pure v
     | none =>
-    if ← propIrrelI r fe depth a' b' then pure true else
     match ← lazyDeltaReductionI mode r fe depth defeqLoopFuel a' b' with
     | .verdict v => pure v
     | .unknown a₁ b₁ =>

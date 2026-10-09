@@ -19,8 +19,9 @@ CHEAPPROJ split the body into the official kernel's pieces.)
   non-firing arm takes, on the *same* pair, which is why one disjunct
   covers them all.
 * `defeqBody_inv` — the body's case tree: the syntactic fast path, the
-  `Bool.true` shortcut, the two cheap `whnfCore` reducts, and then the
-  easy cases, proof irrelevance, a lazy-delta verdict, or — on the pair
+  `Bool.true` shortcut, the easy cases and proof irrelevance on the
+  unreduced pair (task #333), and then, under the two cheap `whnfCore`
+  reducts, the easy cases again, a lazy-delta verdict, or — on the pair
   the lazy loop got stuck on — the proj/proj check, the stuck
   comparison, or the restart after the full `whnfCore`.
 
@@ -264,18 +265,21 @@ theorem isBoolTrue_iff {e : Expr} : e.isBoolTrue = true ↔ e = .const boolTrueN
   cases e <;> (try cases ‹List Level›) <;> simp [Expr.isBoolTrue]
 
 /-- **The inversion of `defeqBody`** (`Kernel/Core.lean`): the
-prefix's two exits and, under the two cheap `whnfCore` reducts, the
-easy cases, proof irrelevance, a lazy-delta verdict, or the three ways
+prefix's four exits (the syntactic fast path, the `Bool.true` shortcut,
+the easy cases and proof irrelevance, both on the unreduced pair) and,
+under the two cheap `whnfCore` reducts, the easy cases, a lazy-delta
+verdict, or the three ways
 the comparison of the pair the lazy loop got stuck on can succeed. -/
 theorem defeqBody_inv {d : Nat} {a b : Expr}
     (h : defeqBody .verified (pureFns .verified env fuel) env d a b = .ok true) :
     a = b ∨
     (b = .const boolTrueName [] ∧
       boolTrueShortcutFueled .verified env fuel d a = .ok true) ∨
+    quickDefEqFueled .verified env fuel d a b = .ok (some true) ∨
+    propIrrelFueled .verified env fuel d a b = .ok true ∨
     ∃ a' b', whnfCore .verified env fuel d a true = .ok a' ∧
       whnfCore .verified env fuel d b true = .ok b' ∧
       (quickDefEqFueled .verified env fuel d a' b' = .ok (some true) ∨
-       propIrrelFueled .verified env fuel d a' b' = .ok true ∨
        lazyDeltaReductionFueled .verified env fuel d defeqLoopFuel a' b' =
          .ok (.verdict true) ∨
        ∃ a₁ b₁, lazyDeltaReductionFueled .verified env fuel d defeqLoopFuel a' b' =
@@ -309,6 +313,27 @@ theorem defeqBody_inv {d : Nat} {a b : Expr}
     exact Or.inr (Or.inl ⟨isBoolTrue_iff.mp hbt'.2, hbt'.1⟩)
   | false =>
   simp only [Bool.false_eq_true, ↓reduceIte] at h
+  cases hq₀ : quickDefEqFueled .verified env fuel d a b with
+  | error err => rw [hq₀] at h; exact nomatch h
+  | ok oq₀ =>
+  rw [hq₀] at h
+  dsimp only at h
+  cases oq₀ with
+  | some v =>
+    simp only [pure, Except.pure, Except.ok.injEq] at h
+    subst h
+    exact Or.inr (Or.inr (Or.inl rfl))
+  | none =>
+  dsimp only at h
+  cases hir : propIrrelFueled .verified env fuel d a b with
+  | error err => rw [hir] at h; exact nomatch h
+  | ok r =>
+  rw [hir] at h
+  dsimp only at h
+  cases r with
+  | true => exact Or.inr (Or.inr (Or.inr (Or.inl rfl)))
+  | false =>
+  simp only [Bool.false_eq_true, ↓reduceIte] at h
   cases hwca : whnfCore .verified env fuel d a true with
   | error err => rw [hwca] at h; exact nomatch h
   | ok a' =>
@@ -319,7 +344,7 @@ theorem defeqBody_inv {d : Nat} {a b : Expr}
   | ok b' =>
   rw [hwcb] at h
   dsimp only at h
-  refine Or.inr (Or.inr ⟨a', b', rfl, rfl, ?_⟩)
+  refine Or.inr (Or.inr (Or.inr (Or.inr ⟨a', b', rfl, rfl, ?_⟩)))
   cases hq : quickDefEqFueled .verified env fuel d a' b' with
   | error err => rw [hq] at h; exact nomatch h
   | ok oq =>
@@ -332,15 +357,6 @@ theorem defeqBody_inv {d : Nat} {a b : Expr}
     exact Or.inl rfl
   | none =>
   dsimp only at h
-  cases hir : propIrrelFueled .verified env fuel d a' b' with
-  | error err => rw [hir] at h; exact nomatch h
-  | ok r =>
-  rw [hir] at h
-  dsimp only at h
-  cases r with
-  | true => exact Or.inr (Or.inl rfl)
-  | false =>
-  simp only [Bool.false_eq_true, ↓reduceIte] at h
   cases hl : lazyDeltaReductionFueled .verified env fuel d defeqLoopFuel a' b' with
   | error err => rw [hl] at h; exact nomatch h
   | ok lr =>
@@ -350,9 +366,9 @@ theorem defeqBody_inv {d : Nat} {a b : Expr}
   | verdict v =>
     simp only [pure, Except.pure, Except.ok.injEq] at h
     subst h
-    exact Or.inr (Or.inr (Or.inl rfl))
+    exact Or.inr (Or.inl rfl)
   | unknown a₁ b₁ =>
-  refine Or.inr (Or.inr (Or.inr ⟨a₁, b₁, rfl, ?_⟩))
+  refine Or.inr (Or.inr ⟨a₁, b₁, rfl, ?_⟩)
   dsimp only at h
   cases hpp : defeqProjPairFueled .verified env fuel d a₁ b₁ with
   | error err => rw [hpp] at h; exact nomatch h

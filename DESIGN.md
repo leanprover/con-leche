@@ -424,6 +424,11 @@ three stay declined by design under the axiom ceiling.
   structures whose soundness is feasible to verify, and the certifying
   operations are memoized alongside so proofs are not re-derived. Cache
   lifetime equals that of the corresponding unverified caches.
+  One deliberate exception to the order (task #333): definitional
+  equality tries proof irrelevance on the unreduced pair, before any
+  head normalization, so a proof is never reduced to be compared (the
+  official kernel reduces first and loops on a proof with no normal
+  form; see the TASK #333 record).
 * **No union-find defeq cache**: known unsound with a non-transitive defeq
   implementation.
 * Reference material: https://github.com/nomeata/nanodatg (a certifying, not
@@ -95986,6 +95991,7 @@ and the twins in `Cached/CoreC.lean`):
 | `defeqProjPair` | the proj/proj test in `is_def_eq_core` |
 | `defeqStuck` (string literal / `String.ofList`, fvars, consts, the spine, η on a one-sided λ, `stuckIrrel` for the rest) | the tail of `is_def_eq_core` |
 | `defeqBody`: `==`, `Bool.true` shortcut, cheap `whnfCore` ×2, `quickDefEq`, `propIrrel`, `lazyDeltaReduction`, `defeqProjPair`, full `whnfCore` ×2 and a restart if either changed, `defeqStuck` | `is_def_eq_core` |
+| *(since task #333, a deliberate deviation)* `defeqBody`: `==`, `Bool.true` shortcut, `quickDefEq` and `propIrrel` on the **unreduced** pair, cheap `whnfCore` ×2, `quickDefEq` again, then as above | official runs proof irrelevance after the cheap `whnf_core`, and so head-normalizes proofs to compare them; a proof with no normal form makes it loop (`tests/e2e/omega_demo2.ndjson`). Proof irrelevance reads only the types, so the verdict is unchanged wherever official's reduction terminates. See the TASK #333 record. |
 
 The continuation-passing `defeqStep`/`defeqLoop` and its `pi` flag are
 gone: the restarts (after a literal acceleration in the lazy loop and
@@ -96012,7 +96018,9 @@ shallow.
   mode left a projection stuck, and `whnfCore` stops there, so it is
   the spine head; elsewhere official's test finds both sides unchanged.
 * `quickDefEq` runs after the cheap `whnfCore`, not also before it:
-  `whnfCore` leaves sorts, literals and binders unchanged.
+  `whnfCore` leaves sorts, literals and binders unchanged.  (Superseded
+  by task #333: it now runs on the unreduced pair too, ahead of the
+  hoisted proof irrelevance, so that binder pairs keep their verdict.)
 * The same-head spine shortcut keeps con-leche's `sameConstHeads`
   guard (official also requires `is_app` and consults `failed_before`;
   con-leche's `defeq` memo plays the cache's role).
@@ -97207,3 +97215,193 @@ Gates: `lake build`, `lake test` warning-free; `tests/arena.sh` green
 link gates, the fragment and challenge gates, e2e 456/456, the trusted,
 `--jobs=1` and `--jobs=4` sweeps); `tests/quote-gate.sh` clean. Logs and
 the binary: `_tmp/amdahl/layer-master-logs/`.
+
+## TASK #333 — proofs are compared by proof irrelevance before any reduction (2026-10-09, agent/333-omega)
+
+**The input.** `tests/e2e/src/omega_kloop.lean` builds a proof `Ω : P`
+(`P := ∀ A : Prop, A → A`) with no weak-head normal form, from
+impredicative `Prop`, `propext` and K-like `Eq.rec` reduction. The
+theorem `demo` never needs `Ω` reduced, and the official kernel accepts
+it in 35 ms. `--verified` did not terminate on it: exit 3 on fuel before
+task #330, a stack overflow after. The β-redex argument certificate
+(`whnfAppI`/`betaPeelI`) compares the argument's type `Ω = Ω` with the
+binder domain `Ω = ι`, so the checker reaches `Ω ≟ ι`. The defeq body
+ran the cheap `whnfCore` on both sides before proof irrelevance (the
+official `is_def_eq_core` order), and `whnfCore Ω` never returns. The
+official kernel has the same order. It simply never makes this
+comparison here. When it must, it loops too: `theorem demo2 (h : Ω =
+Ω) : Ω = ι := h` gives "(kernel) deep recursion detected"
+(`tests/e2e/src/omega_demo2.lean`, exported with `debug.skipKernelTC`).
+
+**The ruling (maintainer, 2026-10-09).** We avoid reducing proofs. Proof
+irrelevance reads only the two sides' types, so it gives the same answer
+on unreduced terms. K-like `Eq.rec` reduction reads only the major's
+type. `Acc.rec` is deprecated.
+
+**The change.** `defeqBody` (`Kernel/Core.lean`) and `defeqBodyI`
+(`Cached/CoreC.lean`) now run, in order: `==`; the `Bool.true`
+shortcut; `quickDefEq` on the unreduced pair; `propIrrel` on the
+unreduced pair; the cheap `whnfCore` of both sides; `quickDefEq` on the
+reducts; then the lazy-delta loop and the rest as before.
+`quickDefEq` stays ahead of proof irrelevance because it fires only on
+sorts, literals and binders, which `whnfCore` leaves unchanged. So on
+those pairs the verdict, and the cost, are exactly the old ones, and two
+λ-proofs are still compared by congruence first. This deviates from the
+official order on purpose, and the standing "match real kernels" rule
+and the CHEAPPROJ table now say so. Proof irrelevance reads the two
+types, which reduction preserves, so wherever the official reduction
+terminates, the verdict is the same. The difference is the
+non-terminating case, where we now answer.
+
+**Proofs.** `defeqBody_inv` (`Verify/Rules/DefEqStepInv.lean`) gains two
+exits on the unreduced pair (`quickDefEq`, `propIrrel`) and loses the
+`propIrrel` exit under the reducts. `defeq_bridge_succ`
+(`DefEqBridge.lean`) discharges the two new exits with the existing
+`quickDefEq_bridge`/`propIrrel_bridge`, with no `redBoth`.
+`defeqBodyC_sim` (`Verify/Cached/DiscC5.lean`) and the shift lemma
+`defeq_step` (`Verify/Deep.lean`) apply the existing `quickDefEqC_sim`/
+`propIrrelC_sim` and `quickDefEq_shift`/`propIrrel_shift` to the
+unreduced sides. The `atF`/`PairM`/`Mono` cascades go through their
+tactics unchanged. No statement changed: no new rule, no sorry, no new
+axiom, no new `unsafe`, and the axioms of the capstones are pinned as
+before.
+
+**Fixtures.** `omega_kloop` (from `agent/omega-fixture`, 2b11000c9):
+before, 124 at the 5 s timeout; now 0 in both lanes. Its NOT RULED
+trusted-expected line is not added, because the lanes agree.
+`omega_demo2`: 0, a deliberate accept-superset of the official kernel,
+which loops. `acc_major_reduce`: the audit's remaining exception (see
+below), 0 as official, with target 0. The first two run under a 10 s
+`E2E_TIMEOUT`, because a regression would not terminate.
+
+**Measurements** (`--jobs=1`, `perf stat -e instructions:u`, one run
+each; wall times are indicative only):
+
+| stream | before (d8c723c26) | after | Δ |
+|---|---|---|---|
+| init-full | 486.51 G (check 48.5 s) | 485.75 G (check 46.5 s) | −0.16 % |
+| mathlib-prefix | 686.28 G (check 65.7 s) | 684.48 G (check 63.8 s) | −0.26 % |
+
+The prototype (proof irrelevance moved before the `whnfCore`, without
+the leading `quickDefEq`) had measured +0.1 % on mathlib-prefix. With
+`quickDefEq` first, binder pairs no longer pay proof irrelevance's
+inferences, and the proofs that are no longer head-normalized pay for
+the rest. mathlib-full (96 workers) accepts all 691 203 records: parse
+21.4 s, install 55.7 s, check 27.2 s.
+
+### The audit: where can `whnf`/`whnfCore` still meet a proof?
+
+"Proof" means a term whose type's sort is `Prop` at every valuation, as
+`propIrrel` tests it. A `Sort u`-typed term with a level parameter `u`
+is not one, in our test or in official's `is_prop`. The sites were
+read in the specification core (`Kernel/Core.lean`) and checked against
+the cached twin (`Cached/CoreC.lean`). The cached core has no `whnf`
+site that the spec lacks: `whnfAppI`/`betaPeelI` are the bulk form of
+the spec's β clause.
+
+1. **Definitional equality: covered.** Proof irrelevance now runs
+   before any reduction. After it fails, at least one side is not a
+   proof. Every caller compares two terms whose types share a sort:
+   two types; congruence arguments, whose types are instances of the
+   same binder domain, so their sort is the same level; η bodies; the
+   index lists of iota. So the other side is not a proof either, and
+   the head normalizations, the lazy-delta unfoldings, the proj/proj
+   check and the full `whnfCore` restart see only non-proofs. The
+   `Bool.true` shortcut runs earlier and `whnf`s a `Bool` term. A proof
+   met there would be a heterogeneous pair. The official kernel
+   reduces those too, and no caller produces them.
+2. **Head reduction of a non-proof reaches a proof in exactly one
+   way: an iota major premise** (`prepareMajor`), and this is the
+   exception.
+   * *K-like recursors* (`Eq`, `HEq`, …): the K rescue runs first on the
+     raw major and reads only its type (`majorToCtor`'s K branch:
+     `whnf (inferIO major)`, the fabricated `ctor params`, a type
+     comparison, `proofIrrel` called directly). If it succeeds, the
+     `whnf` that follows meets a constructor application and does
+     nothing. **If it fails, the major, a proof, is head-normalized**,
+     as in official `inductive_reduce_rec`.
+   * *Non-K inductive propositions* (`Acc`, user `Acc`-shaped props,
+     `And`/`Iff` into `Type`, and small-eliminating recursors such as
+     `Or.rec`, `Exists.rec`): the major is always head-normalized
+     first, as in official. Large elimination needs this, because the
+     recursor's value is data read off the constructor the major
+     reduces to. So **con-leche does iota-reduce `Acc`-shaped user
+     props by reducing the major**: `direct_fix_acc` (syntactic
+     majors) and the new `acc_major_reduce` (a `def`-proved major,
+     unfolded by delta, and a β-redex major) accept, as official does.
+     Theorems are opaque here (THMVAL), so a theorem-proved major stays
+     stuck: `acc_rec_opaque` rejects, as before. Inside such a major,
+     a projection out of a `Prop` structure has its scrutinee reduced
+     too. This is the same exception one level down: a projection that
+     yields a non-proof has a non-proof scrutinee, because a `Prop`
+     structure projects only to `Prop` fields.
+3. **Projections of proofs**: reached only inside item 2, as said
+   there.
+4. **The β certificate** infers the argument (no reduction) and compares
+   types through `defeq` (item 1). The redex it fires is a non-proof
+   unless it sits inside an item-2 major.
+5. **The annotate pass** `whnf`s only the type of a projection's
+   scrutinee and `ensureSort`s types. Its `let` clause substitutes the
+   value and does not reduce it.
+6. **Type inference** (`inferBody`/`inferBodyIO`, `inferSpine*`)
+   `whnf`s only types: binder domains' types, function types, a
+   projection scrutinee's type, through `ensureSort`/`ensurePi`. A type
+   is never a proof, because its own type is a sort and no sort is a
+   proposition.
+7. **`ensureSort`/`ensurePi`**: types only, as above.
+8. **Lazy delta**: reached only on non-proof pairs (item 1). A `def`
+   whose type is a proposition is unfolded only through item 2's
+   `whnf`.
+9. **Other sites**: `reduceNat` reduces `Nat` arguments; the string
+   literal expansions reduce `String` terms; `structEtaCert`,
+   `structUnitCert`, `etaCert`, `proofIrrel` and `majorToCtor` reduce
+   only types; install-time positivity and `SumInstall` reduce
+   constructor field types.
+
+**What actually happens on mathlib-full** (a counting build of the
+cached `prepareMajorI`; the counts are of memoized `whnf` calls, run
+once, not committed):
+
+| major premise | count |
+|---|---|
+| K recursor, already a constructor | 4 851 |
+| K recursor, rescued from its type | 54 057 |
+| K recursor, rescue failed, `whnf` of the proof reached a constructor | **0** |
+| K recursor, rescue failed, `whnf` of the proof stayed stuck | 15 651 (all `Eq.rec`) |
+| non-K proposition, already a constructor | 23 |
+| non-K proposition, `whnf` of the proof reached a constructor | **1** (`And.rec`) |
+| non-K proposition, `whnf` stayed stuck | 933 (880 `Acc.rec`, 43 `And.rec`, 10 `IsIndObject.rec`) |
+
+init-full and mathlib-prefix: no proof major reached a constructor
+under `whnf`. On init-full the rescue failed and `whnf` stayed stuck
+594 times; on mathlib-prefix, 972 times.
+
+**Proposals (not implemented, they need a ruling):**
+* **P1: no `whnf` after a failed K rescue.** At a K recursor whose
+  rescue fails, leave the major as it is and stay stuck. Then a K-like
+  recursor never reduces a proof. On mathlib-full the `whnf` there
+  never helped: 15 651 calls, 0 constructors. If `whnf` turned the
+  major into `refl c`, its type `c = c` would have to pass the iota
+  certificate against the recursor's major domain `a = b`. That is the
+  same index comparison the failed rescue just made, with transitivity
+  as the only difference. So we lose at most what non-transitive
+  conversion lets through, which never happened on this corpus, and we
+  stay at least as complete as official on real inputs. The change is
+  cheap: one branch of `prepareMajor` and its twin, the K branch's
+  proofs (the bridge's `prepareMajor` inversion and the simulation),
+  and one e2e fixture (a looping proof under a K-like `Eq.rec` whose
+  rescue fails).
+* **P2: `And` without `whnf`.** The single mathlib-full case that needed
+  a reduced proof major was `And.rec`. The `And`-only η rescue would
+  fire on the unreduced major there. Running the rescue before the
+  `whnf` for `And` would make `And.rec` reduction type-only too. It
+  is the same size of change as P1, but it changes the cost profile of
+  the rescue (an inference per `And.rec` redex whose major already
+  reduces). It is optional.
+* **Kept: non-K large elimination** (`Acc` and user `Acc`-shaped
+  props). Removing the `whnf` there would reject `acc_major_reduce`
+  and every input that computes with well-founded recursion through a
+  non-theorem accessibility proof, which official accepts. The corpus
+  needs it rarely (one constructor reached on mathlib-full). Since
+  `Acc.rec` is deprecated, a ruling could still choose that loss. The
+  fixture's comment names accept as today's target.

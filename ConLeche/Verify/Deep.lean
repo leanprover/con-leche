@@ -2877,6 +2877,15 @@ private theorem defeq_step (henv : EnvWF env)
   refine bind_congr_eq (boolTrueShortcutIf_shift henv ih hpd hwa _) ?_
   rintro rbt -
   refine ite_congr' (fun _ => rfl) (fun _ => ?_)
+  refine bind_congr_eq (quickDefEq_shift ih hpd hwa hwb) ?_
+  intro o₀ _
+  cases o₀ with
+  | some v => rfl
+  | none =>
+  dsimp only
+  refine bind_congr_eq (propIrrel_shift henv ih hpd hwa hwb) ?_
+  rintro rpi -
+  refine ite_congr' (fun _ => rfl) (fun _ => ?_)
   refine bind_congr _ (ih.whnfCore hpd hwa) ?_
   intro wa hwa'
   refine bind_congr _ (ih.whnfCore hpd hwb) ?_
@@ -2889,9 +2898,6 @@ private theorem defeq_step (henv : EnvWF env)
   | some v => rfl
   | none =>
   dsimp only
-  refine bind_congr_eq (propIrrel_shift henv ih hpd hwwa hwwb) ?_
-  rintro rpi -
-  refine ite_congr' (fun _ => rfl) (fun _ => ?_)
   refine bind_congr (LazyRes.mapE (shiftFrom p))
     (lazyDeltaReduction_shift henv ih _ hpd hwwa hwwb) ?_
   intro lr hlr

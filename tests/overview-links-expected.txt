@@ -263,14 +263,14 @@
     55  def annotateCore (env : Env) (fuel depth : Nat) (e : Expr) : CheckM Expr :=
     56    (pureFns mode env fuel).annotate depth e
 
-== ConLeche/Kernel/Core.lean#L2044-L2050
-  2044      (wrap : CoreFns m → CoreFns m) : Nat → CoreFns m
-  2045    | 0 =>
-  2046      { whnfCore := fun _ _ _ => throw (.internal "fuel exhausted: whnfCore")
-  2047        whnf := fun _ _ => throw (.internal "fuel exhausted: whnf")
-  2048        infer := fun _ _ => throw (.internal "fuel exhausted: infer")
-  2049        defeq := fun _ _ _ => throw (.internal "fuel exhausted: defeq")
-  2050        annotate := fun _ _ => throw (.internal "fuel exhausted: annotate")
+== ConLeche/Kernel/Core.lean#L2062-L2068
+  2062      (wrap : CoreFns m → CoreFns m) : Nat → CoreFns m
+  2063    | 0 =>
+  2064      { whnfCore := fun _ _ _ => throw (.internal "fuel exhausted: whnfCore")
+  2065        whnf := fun _ _ => throw (.internal "fuel exhausted: whnf")
+  2066        infer := fun _ _ => throw (.internal "fuel exhausted: infer")
+  2067        defeq := fun _ _ _ => throw (.internal "fuel exhausted: defeq")
+  2068        annotate := fun _ _ => throw (.internal "fuel exhausted: annotate")
 
 == ConLeche/Model/Fold.lean#L276-L283
    276  theorem no_proof_of_False_pure (V : Type w) [SetTheory V]
@@ -309,8 +309,8 @@
 == ConLeche/Kernel/Core.lean#L1148
   1148  /-- The reduction loop's body: run `whnfLoop` at its own step budget. -/
 
-== ConLeche/Kernel/Core.lean#L1922
-  1922  datum is `never`, never a typing it does not redo. -/
+== ConLeche/Kernel/Core.lean#L1940
+  1940  datum is `never`, never a typing it does not redo. -/
 
 == ConLeche/Kernel/PropWhen.lean#L1-L40
      1  module

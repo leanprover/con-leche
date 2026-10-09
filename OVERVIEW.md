@@ -364,7 +364,7 @@ Read from the outside in:
    recursion on a fuel parameter
    ([the entry points in `ConLeche/Kernel/TypeChecker.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/TypeChecker.lean#L29-L56));
    on exhaustion every operation throws
-   ([the fuel recursion's base case in `ConLeche/Kernel/Core.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Core.lean#L2044-L2050)).
+   ([the fuel recursion's base case in `ConLeche/Kernel/Core.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Core.lean#L2062-L2068)).
    Its declaration fold is what the model tier proves things about
    ([theorem `no_proof_of_False_pure` in `ConLeche/Model/Fold.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/Fold.lean#L276-L283)).
 5. **The model tier** (`ConLeche/Model/*`, the set model of the checker)
@@ -407,9 +407,17 @@ paths
 ([function `whnfBody` in `ConLeche/Kernel/Core.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Core.lean#L1148)),
 `inferType` computes a type, and `isDefEq` decides conversion in the
 order of the official `is_def_eq_core` (cheap head normalization, the
-easy cases, proof irrelevance, the lazy-delta loop, the
+easy cases, the lazy-delta loop, the
 projection-against-projection comparison by scrutinees, the full head
-normalization and a restart, then the stuck comparisons) with lazy
+normalization and a restart, then the stuck comparisons) with one
+deliberate exception: the easy cases and proof irrelevance are tried on
+the unreduced pair, before any head normalization, so two proofs are
+compared by their types and never reduced (the official kernel reduces
+them first, and loops on a proof that has no normal form). The checker
+reduces a proof only where a recursor's value depends on it: the major
+premise of a recursor over an inductive proposition, which is
+head-normalized to a constructor unless the K rule (which reads only
+the major's type) applies. Conversion uses lazy
 unfolding, η, proof irrelevance, structure η, unit-likeness and K-like
 reduction as the flags the install stored for each inductive type
 permit. One proposition, `And`, is additionally rescued when its
@@ -425,7 +433,7 @@ presentation and matter for the proof:
 
 * **Annotation.** Before a declaration's terms are checked, an
   annotation pass
-  ([function `annotateBody` in `ConLeche/Kernel/Core.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Core.lean#L1922))
+  ([function `annotateBody` in `ConLeche/Kernel/Core.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Core.lean#L1940))
   records at every binder the sort of its codomain as a "Prop-when"
   datum, a function of the level parameters
   ([the `PropWhen` module's account in `ConLeche/Kernel/PropWhen.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/PropWhen.lean#L1-L40)),

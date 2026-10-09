@@ -756,28 +756,35 @@ theorem defeqBodyC_sim (hμ : mode.verifiedChecks = true) (ih : SSimC mode env f
     exact SimC.pure hs₀b rfl
   | false =>
   simp only [Bool.false_eq_true, ↓reduceIte]
-  refine SimC.bind (ih.whnfCore hs₀b rfl hwa)
+  refine SimC.bind (quickDefEqC_sim hμ ih hs₀b rfl rfl hwa hwb)
+    (fun s₀q o₀ o₀' hs₀q hPo₀ => ?_)
+  obtain rfl : o₀ = o₀' := hPo₀
+  cases o₀ with
+  | some v => exact SimC.pure hs₀q rfl
+  | none =>
+  dsimp only
+  refine SimC.bind (propIrrelC_sim ih hs₀q rfl rfl hwa hwb)
+    (fun s₀p rp rp' hs₀p hPp => ?_)
+  obtain rfl : rp = rp' := hPp
+  cases rp with
+  | true =>
+    simp only [↓reduceIte]
+    exact SimC.pure hs₀p rfl
+  | false =>
+  simp only [Bool.false_eq_true, ↓reduceIte]
+  refine SimC.bind (ih.whnfCore hs₀p rfl hwa)
     (fun s₁ a' a'x hs₁ hPa => ?_)
   obtain ⟨rfl, hwa'⟩ := hPa
   refine SimC.bind (ih.whnfCore hs₁ rfl hwb)
     (fun s₂ b' b'x hs₂ hPb => ?_)
   obtain ⟨rfl, hwb'⟩ := hPb
   refine SimC.bind (quickDefEqC_sim hμ ih hs₂ rfl rfl hwa' hwb')
-    (fun s₃ o o' hs₃ hPo => ?_)
+    (fun s₄ o o' hs₄ hPo => ?_)
   obtain rfl : o = o' := hPo
   cases o with
-  | some v => exact SimC.pure hs₃ rfl
+  | some v => exact SimC.pure hs₄ rfl
   | none =>
   dsimp only
-  refine SimC.bind (propIrrelC_sim ih hs₃ rfl rfl hwa' hwb')
-    (fun s₄ rp rp' hs₄ hPp => ?_)
-  obtain rfl : rp = rp' := hPp
-  cases rp with
-  | true =>
-    simp only [↓reduceIte]
-    exact SimC.pure hs₄ rfl
-  | false =>
-  simp only [Bool.false_eq_true, ↓reduceIte]
   refine SimC.bind (lazyDeltaReductionC_sim hμ ih henv _ hs₄ rfl rfl hwa' hwb')
     (fun s₅ lr lr' hs₅ hPl => ?_)
   obtain ⟨rfl, hsc⟩ := hPl

@@ -478,13 +478,14 @@ theorem defeq_bridge_succ (hwc : WhnfCoreBridge env fuel) (hw : WhnfBridge env f
     DefEqBridge env (fuel + 1) := by
   intro d a b h
   rw [isDefEqCore_succ] at h
-  rcases defeqBody_inv h with rfl | ⟨rfl, hsc⟩ | ⟨a', b', hwa, hwb, hrest⟩
+  rcases defeqBody_inv h with rfl | ⟨rfl, hsc⟩ | hq₀ | hpi | ⟨a', b', hwa, hwb, hrest⟩
   · exact .refl
   · exact boolTrueShortcut_bridge hw hsc
-  refine DefEq.redBoth (hwc hwa) (hwc hwb) ?_
-  rcases hrest with hq | hpi | hl | ⟨a₁, b₁, hl, hpp | hst | ⟨a₂, b₂, hwa₂, hwb₂, hre⟩⟩
-  · exact quickDefEq_bridge hd hq
+  · exact quickDefEq_bridge hd hq₀
   · exact propIrrel_bridge hw hio hpi
+  refine DefEq.redBoth (hwc hwa) (hwc hwb) ?_
+  rcases hrest with hq | hl | ⟨a₁, b₁, hl, hpp | hst | ⟨a₂, b₂, hwa₂, hwb₂, hre⟩⟩
+  · exact quickDefEq_bridge hd hq
   · exact lazyDeltaReduction_bridge hwc hw hd _ hl rfl
   · obtain ⟨ha, hb⟩ := lazyDeltaReduction_bridge hwc hw hd _ hl
     exact .redBoth ha hb (defeqProjPair_bridge hwc hw hd hio hpp)
