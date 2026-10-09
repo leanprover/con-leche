@@ -2772,3 +2772,27 @@
 # and runs out of the lazy-delta fuel (exit 3; the first CHEAPPROJ
 # attempt, commit 48fce542, did that).  Official accepts.
 0 proj_lazy_struct.ndjson
+# OMEGA (task #333): a proof term `Ω` with no weak-head normal form
+# (impredicative Prop + propext + K-like `Eq.rec`; sources
+# `tests/e2e/src/omega_kloop.lean`, `omega_demo2.lean`).
+# omega_kloop: `demo` never needs `Ω` reduced and the official kernel
+# accepts it at once.  The verified β-redex argument certificate compares
+# `Ω = Ω` with the binder domain `Ω = ι`, so `Ω ≟ ι`; before task #333
+# the defeq body head-normalized both sides before proof irrelevance (the
+# official order) and never returned (exit 3 on fuel before task #330, a
+# stack overflow since).  Proof irrelevance now runs on the unreduced
+# pair, before any `whnfCore`: accept, in both lanes.
+0 omega_kloop.ndjson
+# omega_demo2: `theorem demo2 (h : Ω = Ω) : Ω = ι := h` makes the
+# official kernel itself compare `Ω ≟ ι`: "(kernel) deep recursion
+# detected" (exported with the kernel check skipped).  Accept — a
+# deliberate accept-superset (task #333's ruling: proofs are compared by
+# proof irrelevance before any reduction).
+0 omega_demo2.ndjson
+# acc_major_reduce (task #333 audit): the one place a proof is still
+# head-normalized — the major premise of a large eliminator over a
+# non-K inductive proposition (`Acc'.rec` into `Nat` on a `def`-proved
+# major and on a β-redex major).  Accept, as official; the target is
+# accept (the exception is needed: the recursor's value is data read
+# off the constructor the major reduces to).
+0 acc_major_reduce.ndjson
