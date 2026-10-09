@@ -58,10 +58,14 @@ current fact changed.
   or `git add .`; check the branch before committing.
 * Landing a lane on an integration branch: merge the integration branch
   into your lane branch, re-run the gates the intervening changes can
-  affect, fast-forward the integration branch from the main checkout
-  (`git -C <main checkout> merge --ff-only <lane>`, after checking
-  that `git status --short` is clean apart from the maintainer's
-  untracked files), remove your worktree. A partial lane does not land.
+  affect, then land it with a merge commit, never a fast-forward:
+  `git merge --no-ff <lane>` on the integration branch (in the main
+  checkout if it has that branch checked out, after checking that
+  `git status --short` is clean apart from the maintainer's untracked
+  files; otherwise in a worktree of the integration branch). The merge
+  message is the human-facing summary of the task — what changed, why,
+  the key numbers — so `git log --first-parent` reads one entry per
+  task. Remove your worktree. A partial lane does not land.
 * Large artifacts (reference checkouts, worktrees, logs) go in `_tmp/`
   (gitignored; `/tmp` and `/home` are tmpfs under a memory cap).
 * Builds: every worktree has its own `.lake`, so builds never conflict
