@@ -38,6 +38,9 @@
 # PERF_CONFIGS, PERF_CACHE, CON_LECHE_OFFICIAL_KERNEL.
 set -uo pipefail
 
+# No core dumps: an aborting run (exit 134) would write gigabytes.
+ulimit -c 0
+
 ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 BIN=$ROOT/.lake/build/bin/con-leche
 OFFICIAL=${CON_LECHE_OFFICIAL_KERNEL:-$ROOT/_tmp/perfcmp/arena-upstream/checkers/official-v4.33.0/.lake/build/bin/kernel}

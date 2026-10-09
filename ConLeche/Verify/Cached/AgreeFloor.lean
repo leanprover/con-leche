@@ -1,7 +1,6 @@
 module
 
 public import ConLeche.Cached.Installed
-import ConLeche.Verify.Cached.PinOverlay
 import ConLeche.Verify.EnvBound
 import ConLeche.Verify.Cached.BlockOverlay
 

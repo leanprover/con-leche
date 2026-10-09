@@ -55,7 +55,11 @@ memory`, a Lean-level `panic!` or out-of-bounds `get!`, and a copy of
 one of the arrays the checker marks linear (the install environment's
 index and the parse's tables, which must be updated in place) — prints
 its message on stderr and calls `abort()`: the process dies of
-`SIGABRT`, which a shell reports as exit status 134.
+`SIGABRT`, which a shell reports as exit status 134. An abort also
+writes a core dump where the shell's limit allows one, and at Mathlib
+scale that is gigabytes, so `tests/arena.sh` and
+`scripts/perf-tables.sh` run with `ulimit -c 0`, as should a large run
+started by hand.
 
 A run has two phases: the install phase reads the records in order
 in one thread, and the check phase checks every recorded declaration
@@ -435,7 +439,7 @@ presentation and matter for the proof:
 * **Fuel and memos.** The pure checker is fueled; the cached checker is
   not, but its memos are proved to agree with the pure functions at
   every fuel large enough to succeed
-  ([theorem `checkDecls_skels` in `ConLeche/Verify/Cached/AgreeFloor.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Cached/AgreeFloor.lean#L1287-L1289)).
+  ([theorem `checkDecls_skels` in `ConLeche/Verify/Cached/AgreeFloor.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Cached/AgreeFloor.lean#L1310-L1312)).
   Binder names and binder infos are not stored at all; `Expr` carries a
   packed hash and loose-variable bounds as computed fields, which is
   what makes traversals of shared terms (DAGs) cheap. The
@@ -644,7 +648,7 @@ inductive type at the instantiation the block uses, such as `List T`
 for the auxiliary recursor `T.rec_1`. Before the positivity check the
 installer reads the classes off the stream's recursor types and checks
 each one as a well-formed major premise
-([function `targetMajorOf` in `ConLeche/Kernel/Inductives/RecCheck.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/RecCheck.lean#L384-L386)).
+([function `targetMajorOf` in `ConLeche/Kernel/Inductives/RecCheck.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/RecCheck.lean#L394-L396)).
 
 **The positivity check** follows the official kernel's: a field's type
 is put in weak head normal form before it is classified, and again
@@ -676,10 +680,10 @@ declared fields, each inductive hypothesis over its field's normal
 form. Each generated type must be definitionally equal to the stream's
 recursor type; the stream's rules are never read, and the generated
 recursors are the ones installed
-([function `genRecCheck` in `ConLeche/Kernel/Inductives/GenRec.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/GenRec.lean#L560)).
+([function `genRecCheck` in `ConLeche/Kernel/Inductives/GenRec.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/GenRec.lean#L554)).
 The rules of a recursor for an outside class fire at the instantiation
 read off its type
-([function `tgtStoredRules` in `ConLeche/Kernel/Inductives/RecCheck.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/RecCheck.lean#L592-L593)).
+([function `tgtStoredRules` in `ConLeche/Kernel/Inductives/RecCheck.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/RecCheck.lean#L602-L603)).
 Members of the right shape additionally get primitive projections,
 structure η and unit-likeness (one constructor, no indices, not
 recursive) and K-like reduction (a proposition with one constructor

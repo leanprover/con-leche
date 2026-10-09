@@ -2,10 +2,8 @@ module
 
 public import ConLeche.Verify.Cached.AgreeFloor
 public import ConLeche.Verify.EnvBound
-import ConLeche.Verify.Cached.PinOverlay
 import ConLeche.Verify.EnvWF
 import ConLeche.Verify.CheckerF
-import ConLeche.Verify.Cached.BlockOverlay
 
 public section
 

@@ -31,6 +31,10 @@
 set -u
 cd "$(dirname "$0")/.."
 
+# No core dumps: a checker that aborts (a panic, exit 134) would write
+# one, and at Mathlib scale it is gigabytes.
+ulimit -c 0
+
 # Scratch space goes to DISK, never tmpfs (task #180).  Honour TMPDIR if
 # the caller set one; otherwise use the project's on-disk scratch
 # directory rather than the system temp, which is commonly a RAM-backed
