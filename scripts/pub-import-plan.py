@@ -54,6 +54,11 @@ DIR   = os.environ.get('PUBPLAN_DIR', '_tmp/m3')
 # a tree whose `rfl`s stop closing, so they stay public and the gate must not
 # ask for them again.
 FALLBACK = {
+    # task #329 (lazy2): the lazy parse's statements name `Mono`
+    # (`LHolds.monoE`), which the census attributes elsewhere.  Measured:
+    # demoting it breaks the file (unknown identifier `Mono`,
+    # `Verify/Frontend/Lazy.lean:58`).
+    ('ConLeche.Verify.Frontend.Lazy', 'ConLeche.Verify.Frontend.LazyMono'),
     # task #329 (pinstall): the skeleton definitions moved to
     # `Cached/InstallSkel`; AgreeFloor's statements name them
     # (`InstallSkel`, `ciSkel`), which the census attributes elsewhere.

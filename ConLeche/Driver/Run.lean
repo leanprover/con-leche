@@ -2,10 +2,9 @@ module
 
 public import ConLeche.Frontend.Prelude
 public import ConLeche.Driver.ParInstall
-public import ConLeche.Driver.CheckPool
 public import ConLeche.Driver.LazyParse
 public import ConLeche.Driver.LazyCheck
-public import ConLeche.Verify.Frontend.LazyPrepare
+import ConLeche.Verify.Frontend.LazyPrepare
 
 /-!
 # The driver: `checkDeclsIO` and the phase sequencing (task #329)

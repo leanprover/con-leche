@@ -1,6 +1,6 @@
 module
 
-public import ConLeche.Frontend.Lazy
+public import ConLeche.Frontend.ExportC
 import ConLeche.Verify.ExceptBind
 import Std.Data.HashSet.Lemmas
 

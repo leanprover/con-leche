@@ -1,6 +1,7 @@
 module
 
-public import ConLeche.Verify.Frontend.Prepare
+import ConLeche.Verify.Frontend.Prepare
+public import ConLeche.Frontend.Prepare
 public import ConLeche.Verify.Frontend.Lazy
 
 public section

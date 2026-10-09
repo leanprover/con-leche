@@ -2,7 +2,7 @@ module
 
 public import ConLeche.Driver.ParParse
 public import ConLeche.Verify.Frontend.Lazy
-public import ConLeche.Verify.Frontend.Chunks
+import ConLeche.Verify.Frontend.Chunks
 
 /-!
 # The lazy parse driver (task #329)

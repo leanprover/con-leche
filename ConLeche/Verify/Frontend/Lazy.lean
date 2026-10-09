@@ -1,8 +1,8 @@
 module
 
 public import ConLeche.Verify.Frontend.LazyMono
-public import ConLeche.Verify.Frontend.Rounds
-import ConLeche.Verify.ExceptBind
+public import ConLeche.Frontend.Lazy
+import ConLeche.Verify.Frontend.Rounds
 
 public section
 
