@@ -392,6 +392,31 @@ mode_case 3 --not-a-flag "$SPLIT_GOOD"             # unknown option: usage error
 mode_case 3 --trusted --not-a-flag "$SPLIT_BAD"    # …after a good flag too
 echo "mode flags: $mode_ok/$mode_total as expected"
 
+# THE IO-EXCEPTION GATE (task #335).  An uncaught IO exception
+# anywhere in the driver -- the input path naming a directory, a read
+# failing mid-stream, a write failing -- must not read as a REJECT:
+# the arena convention reserves exit 1 for a declaration *positively*
+# rejected as invalid.  It is an internal error, exit 3, caught once
+# at the top of `main` (Main.lean).  Before the fix, opening a
+# directory as the input threw an uncaught `IO.Error`, which the Lean
+# runtime's own top-level handler printed as "uncaught exception: …"
+# and turned into exit 1.
+ioerr_ok=0
+ioerr_total=0
+ioerr_case() { # <description> <expected-exit> <args...>
+  local desc=$1 want=$2; shift 2
+  ioerr_total=$((ioerr_total+1))
+  timeout 60 "$BIN" "$@" >/dev/null 2>&1
+  local got=$?
+  if [ "$got" = "$want" ]; then
+    ioerr_ok=$((ioerr_ok+1))
+  else
+    echo "IO-ERROR FAIL ($desc): expected exit $want, got $got"; fail=1
+  fi
+}
+ioerr_case "a directory as the input path" 3 tests/e2e
+echo "io-exception gate: $ioerr_ok/$ioerr_total as expected"
+
 # THE BUILT-IN PRELUDE'S COUNT INVARIANT (task #191; the arithmetic is
 # task #293's).  Every run installs the prelude's declarations first —
 # the stream's OWN record wherever the stream has one, a synthesised

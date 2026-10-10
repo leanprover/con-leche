@@ -353,31 +353,49 @@ def run (args : List String) : IO UInt32 := do
   catch e =>
     IO.eprintln s!"con-leche: cannot set the runtime's abort variables: {e}"
     return 3
-  if args.contains "--help" then
-    IO.println usage
-    return 0
-  -- `--verified`/`--trusted`: the mode setting, validated here once
-  -- and threaded as configuration — the graded verified core and the
-  -- unverified trusted one.
-  let a := parseArgs args {}
-  if let some msg := a.bad then
-    IO.eprintln s!"con-leche: {msg}"
-    IO.eprintln usage
-    return 3
-  match a.files.toList with
-  | [file] =>
-    -- The checker runs IN THIS PROCESS: it spawns no copy of itself,
-    -- and an out-of-memory condition is the Lean runtime's own panic
-    -- ("INTERNAL PANIC: out of memory", uncatchable in process), an
-    -- `abort()` under the `LEAN_ABORT_ON_PANIC` set above.
-    -- `--jobs=<n>`: the check phase's worker count; without the flag,
-    -- one worker per hardware thread (1 if the runtime cannot tell).
-    let jobs := a.jobs.getD
-      (let hw := (System.Platform.Internal.getHardwareConcurrency ()).toNat
-       if hw = 0 then 1 else hw)
-    checkMain file a.mode a.progress jobs a.noMark
-  | _ =>
-    IO.eprintln usage
+  -- **An uncaught IO exception is an internal error, exit 3 — never a
+  -- REJECT (task #335).** `IO.Error` can surface anywhere below: the
+  -- input path naming a directory, a read failing mid-stream, a write
+  -- to stdout/stderr failing (a closed pipe).  Left uncaught, it would
+  -- reach the Lean runtime's own top-level handler, which prints
+  -- "uncaught exception: …" and exits with status 1 — exactly the
+  -- code the arena convention reserves for a declaration *positively*
+  -- rejected as invalid.  This `try` is the one place that turns any
+  -- such exception into exit 3 instead.  A verdict that is deliberately
+  -- exit 1 (`.invalid`) or exit 2 (`.notImplemented`) is a plain
+  -- `return` out of `checkMain`, never a `throw`, so it passes through
+  -- untouched.  The catch handler's own write can itself fail (that
+  -- same closed stderr, say); that must not flip the exit code either,
+  -- so it is best-effort and its own failure is swallowed.
+  try
+    if args.contains "--help" then
+      IO.println usage
+      return 0
+    -- `--verified`/`--trusted`: the mode setting, validated here once
+    -- and threaded as configuration — the graded verified core and the
+    -- unverified trusted one.
+    let a := parseArgs args {}
+    if let some msg := a.bad then
+      IO.eprintln s!"con-leche: {msg}"
+      IO.eprintln usage
+      return 3
+    match a.files.toList with
+    | [file] =>
+      -- The checker runs IN THIS PROCESS: it spawns no copy of itself,
+      -- and an out-of-memory condition is the Lean runtime's own panic
+      -- ("INTERNAL PANIC: out of memory", uncatchable in process), an
+      -- `abort()` under the `LEAN_ABORT_ON_PANIC` set above.
+      -- `--jobs=<n>`: the check phase's worker count; without the flag,
+      -- one worker per hardware thread (1 if the runtime cannot tell).
+      let jobs := a.jobs.getD
+        (let hw := (System.Platform.Internal.getHardwareConcurrency ()).toNat
+         if hw = 0 then 1 else hw)
+      checkMain file a.mode a.progress jobs a.noMark
+    | _ =>
+      IO.eprintln usage
+      return 3
+  catch e =>
+    (try IO.eprintln s!"con-leche: internal error: {e}" catch _ => pure ())
     return 3
 
 /-- **The CLI entry point (task #336).**  `run` above computes the exit
