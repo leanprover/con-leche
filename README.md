@@ -28,7 +28,7 @@ There is an AI-written overview of the project in [OVERVIEW.md](./OVERVIEW.md).
   For practicality reasons, it silently *ignores* the [`sorryAx`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Cached/ParsedC.lean#L248-L249) axiom declarations from the standard library, but will complain it is actually used. The (deprecated) `trustCompiler`, `ofReduceBool` and `ofReduceNat` axioms are replaced with simple definitions of the same type.
 
   The checker (at the moment) will reject any other axiom.
-* The checker processes files in three phases: parsing the input stream, *installing* all declarations (including annotating) and *checking*. The last stage can be run parallel using [`--jobs`](https://github.com/leanprover/con-leche/blob/master/Main.lean#L124).
+* The checker processes files in three phases: *parsing* the input stream, *installing* all declarations (including annotating) and *checking*. All stages can use paralleism with [`--jobs`](https://github.com/leanprover/con-leche/blob/master/Main.lean#L124).
 * The parser is a fast agentic-hand-written parser over the input bytes (verified with respect to a naive one, see below).
 
 ## Design of the checker proof
@@ -55,7 +55,7 @@ theorem no_False_declaration (V : Type w) [SetTheory V]
 
 The meaning of [`False`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Basis/False.lean#L51-L52) is hard-coded, so no tricks involving odd definitions for `False` will confuse the checker. This is a meaningful theorem if you assume that worrisome kernel implementation bugs or flaws in the theory are those that can be used to prove anything, in particular `False`.
 
-The program's actual [`main`](https://github.com/leanprover/con-leche/blob/master/Main.lean#L477) function is of course more than this; in particular it performs IO (reading the input file in chunks, reporting progress, spawning threads). You are invited to read through the `main` function and convince yourself that the above theorem says something about the data flow through the actual main function.
+The program's actual [`main`](https://github.com/leanprover/con-leche/blob/master/Main.lean#L477) and `run` function is of course more than this; in particular it performs IO (reading the input file in chunks, reporting progress, spawning threads). You are invited to follow the `main` function and convince yourself that the above theorem says something about the data flow through the actual driver.
 
 ### The Main Theorem
 
@@ -78,7 +78,7 @@ This theorem only talks about [`checkDecls`](https://github.com/leanprover/con-l
 
 * The parser is faithful.
 * [`preparePrelude`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Frontend/Prepare.lean#L165-L172) only reorders declarations and adds missing prelude declarations, but does not drop any (see [`theorem Frontend.preparePrelude_perm`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Frontend/Prepare.lean#L157-L162)).
-* The definitions, theorems and axioms in the output of `checkDecls` are as they are in the input, up to annotations, zeta-reduction and dropping the `sorryAx` declaration (see [`theorem checkDecls_consts`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/StreamConsts.lean#L764-L769)).
+* The definitions, theorem statements and axioms in the output of `checkDecls` are as they are in the input, up to annotations, zeta-reduction and dropping the `sorryAx` declaration (see [`theorem checkDecls_consts`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/StreamConsts.lean#L764-L769)).
 
 ### Set theory assumption
 
