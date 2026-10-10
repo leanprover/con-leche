@@ -28,7 +28,7 @@ verdict.
 
 **NO TEMPORARY FILES.**  The checker writes
 nothing outside its own stdout/stderr, and reads its input strictly
-forward, one `getLine` at a time (`Frontend.parseExportHandleD`), so a
+forward, a chunk at a time (`Driver.parseInput`), so a
 Mathlib-scale export never materialises anywhere — not on disk, and in
 particular not in `/tmp`, which is commonly a RAM-backed tmpfs where a
 multi-gigabyte scratch file would be charged to memory.  There is
@@ -39,9 +39,10 @@ on-disk scratch convention); never default to the system temp
 directory.
 
 **This file is the CLI only**: argument parsing, I/O, exit codes.  The
-proof-carrying driver — the install and check loops, the parallel
-install and the phase sequencing — lives in `ConLeche/Driver/*`
-(`CheckPool.lean`, `ParInstall.lean`, `Run.lean`).  The driver and this file may import `ConLeche/Verify/*`
+proof-carrying driver — the parallel parse, the install and check
+loops, the parallel install and the phase sequencing — lives in
+`ConLeche/Driver/*` (`OwnerParse.lean`, `CheckPool.lean`,
+`ParInstall.lean`, `Run.lean`).  The driver and this file may import `ConLeche/Verify/*`
 (the theorems about kernel functions that need no model) and nothing
 else of the theory; `ConLeche/{Kernel,Cached,Frontend}/*` keep the full
 fence. -/
@@ -122,6 +123,10 @@ def usage : String := String.intercalate "\n" [
   "                    with certain steps omitted",
   "  --jobs=<n>        the number of worker threads (default: the",
   "                    machine's hardware thread count).",
+  "                    At <n> > 1 the PARSE runs on <n> owner threads,",
+  "                    a window of chunks of whole lines at a time;",
+  "                    its result is the one-thread parse's, and a",
+  "                    window it cannot take is parsed serially.",
   "                    The run has two phases: the INSTALL phase",
   "                    installs the records in stream order (a",
   "                    definition, theorem or opaque is annotated and",
@@ -157,8 +162,8 @@ def usage : String := String.intercalate "\n" [
   "                    lane a factor of two in wall time at the same",
   "                    instruction count.  0 or a non-numeral is a",
   "                    usage error.",
-  "                    At --jobs=1 the install phase runs in the main",
-  "                    thread alone.  ADDRESS",
+  "                    At --jobs=1 the parse and the install phase run",
+  "                    in the main thread alone.  ADDRESS",
   "                    SPACE: each worker thread reserves about 1 GiB",
   "                    of address space (its stack reservation, lazily",
   "                    committed; the resident set grows by about",
@@ -357,16 +362,18 @@ wrap the whole thing in a flush-then-`exit`: see there for why.
 workers, for `main` to run before the exit. -/
 def run (args : List String) (drain : IO.Ref (IO Unit)) : IO UInt32 := do
   -- **Linearity is enforced, in every run** (task #331).  The install
-  -- environment's index and the parse tables are marked linear
-  -- (`FEnv.markLinear`, `StateD.markLinear`); with
-  -- `LEAN_ABORT_ON_NONLINEAR` set, a copy of a marked array is a runtime
-  -- panic instead of a silent copy of a million-slot array, and with
-  -- `LEAN_ABORT_ON_PANIC` set every panic — that one, a Lean-level
-  -- `panic!`, an out-of-bounds `get!`, the runtime's out-of-memory —
-  -- is an `abort()` (exit 134, SIGABRT), never an exit code that reads
-  -- as a verdict.  The runtime reads both variables with `getenv` at the
-  -- moment it needs them, so setting them here, before any thread is
-  -- started, covers the whole run.
+  -- environment's index is marked linear (`FEnv.markLinear`, on the
+  -- serial install), and so are the parse's tables (`StateD.markLinear`,
+  -- on the serial parse's state and on the state a rounds window falls
+  -- back to; the rounds mark the arrays they push onto); with
+  -- `LEAN_ABORT_ON_NONLINEAR` set, a copy of a
+  -- marked array is a runtime panic instead of a silent copy of a
+  -- million-slot array, and with `LEAN_ABORT_ON_PANIC` set every panic —
+  -- that one, a Lean-level `panic!`, an out-of-bounds `get!`, the
+  -- runtime's out-of-memory — is an `abort()` (exit 134, SIGABRT), never
+  -- an exit code that reads as a verdict.  The runtime reads both
+  -- variables with `getenv` at the moment it needs them, so setting them
+  -- here, before any thread is started, covers the whole run.
   try
     Std.Async.System.setEnvVar "LEAN_ABORT_ON_NONLINEAR" "1"
     Std.Async.System.setEnvVar "LEAN_ABORT_ON_PANIC" "1"

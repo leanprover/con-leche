@@ -415,6 +415,11 @@ ioerr_case() { # <description> <expected-exit> <args...>
   fi
 }
 ioerr_case "a directory as the input path" 3 tests/e2e
+# At every `--jobs` (task #329): the parallel parse's owner threads are
+# stopped however it ends, else the runtime waits for them forever at
+# exit (a timeout, 124).
+ioerr_case "a directory, --jobs=1" 3 --jobs=1 tests/e2e
+ioerr_case "a directory, --jobs=4" 3 --jobs=4 tests/e2e
 echo "io-exception gate: $ioerr_ok/$ioerr_total as expected"
 
 # THE BUILT-IN PRELUDE'S COUNT INVARIANT (task #191; the arithmetic is

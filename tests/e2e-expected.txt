@@ -303,6 +303,47 @@
 # lines — malformed input is a hard error (exit 3) with the line
 # number, identically under the streaming frontend (task #57).
 3 malformed_midstream.ndjson
+# final_line_no_newline.ndjson (task #329): basis_binderinfo.ndjson
+# without its final newline.  The pipelined parse cuts each read at its
+# last newline; the bytes after the last one are the stream's last
+# chunk, and its line is the final line (`chunkFinish`).  Target verdict
+# = today's.
+0 final_line_no_newline.ndjson
+# long_line_5mib.ndjson (task #329, committed gzipped): a name entry
+# whose string is 5 MiB, longer than one 4 MiB read, so a read holds no
+# newline at all and the pipelined parse carries it whole into the next
+# read before cutting a chunk.  Target verdict = today's.
+0 long_line_5mib.ndjson
+# rounds_gappy_ids.ndjson (task #329): prop_proj.ndjson with its
+# indices spread out (name i -> 3i, level i -> 2i, expression i ->
+# 2i+1): every table binds in increasing order, with gaps.  At --jobs
+# above one the rounds parse takes it (no fallback; the gaps are
+# checked to be unbound).  Target verdict = today's.
+0 rounds_gappy_ids.ndjson
+# rounds_huge_gaps.ndjson (task #329): prop_proj.ndjson with its
+# indices 10^15 apart (name and level i -> 10^15 i, expression i ->
+# 10^15 i + 7).  At --jobs above one the rounds parse takes it (no
+# fallback): the finished tables are kept by binding order, with one run
+# of consecutive indices per entry here, so their pages hold the
+# entries only.  Target verdict = today's.
+0 rounds_huge_gaps.ndjson
+# rounds_decreasing_id.ndjson (task #329): prop_proj.ndjson with name
+# 14 bound as 100, so the next name line binds below its table's
+# counter.  The serial parse accepts (nothing is bound twice); the
+# rounds parse meets the decreasing index and falls back to the serial
+# parse.  Target verdict = today's.
+0 rounds_decreasing_id.ndjson
+# rounds_forward_ref.ndjson (task #329): prop_proj.ndjson with one
+# application reading expression 58, which the last line binds: a
+# forward reference, across chunks when the chunks are small.  The
+# serial parse's error at that line (exit 3); the rounds parse falls
+# back and gives it.  Target verdict = today's.
+3 rounds_forward_ref.ndjson
+# rounds_error_late.ndjson (task #329): prop_proj.ndjson with a line
+# near the end cut short: a malformed line in a late chunk, the serial
+# parse's error at its line (exit 3) whichever path reads it.  Target
+# verdict = today's.
+3 rounds_error_late.ndjson
 # reducenat_guard.ndjson (task #94): defeq-side Nat-literal folding is
 # guarded on both sides being fvar-free (official kernel
 # lazy_delta_reduction; lean4lean TypeChecker.lean:782).  Unguarded,

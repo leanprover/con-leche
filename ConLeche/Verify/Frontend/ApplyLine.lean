@@ -16,9 +16,9 @@ other line of the file.  This module proves what it needs of
 
 * **the frame of a declaration record** (`Frame`): the index tables
   are untouched and the record list only grows.
-  `processLineCoreD_frame` is the case analysis over the six kinds;
-  the inductive kind is `validateIndD` — which returns no state —
-  followed by `installIndD`, whose one push is `pushDecl`.
+  `processLineCoreD_frame`:
+  every kind is `declOf` — which returns no state — followed by one
+  `pushDecl`.
 * **preservation across any line** (`applyLine_keeps`): a bound index
   stays bound to its entry (a rebinding is a parse error since task
   #290) and a pushed record stays.
@@ -47,68 +47,23 @@ theorem push_frame (st : StateD) (x : Declaration) :
 theorem pushDecl_frame (st : StateD) (d : Declaration) : Frame st (pushDecl st d) :=
   push_frame _ _
 
-theorem installIndD_frame {st st' : StateD} {tys cts rcs nPd}
-    (h : installIndD st tys cts rcs nPd = .ok st') : Frame st st' := by
-  unfold installIndD at h
-  obtain ⟨_, _, h⟩ := exceptBind_ok h
-  obtain ⟨_, _, h⟩ := exceptBind_ok h
-  obtain ⟨_, _, h⟩ := exceptBind_ok h
-  simp only [pure, Except.pure, Except.ok.injEq] at h; subst h
-  exact pushDecl_frame _ _
+/-- A declaration record that succeeds pushes the record its builder
+returns, and nothing else. -/
+theorem processLineCoreD_ok {st st' : StateD} {d : DeclRec}
+    (h : processLineCoreD st d = .ok (.inl st')) :
+    ∃ x, declOf st.lk d = .ok (.inl x) ∧ st' = pushDecl st x := by
+  unfold processLineCoreD at h
+  obtain ⟨r, hr, h⟩ := exceptBind_ok h
+  cases r with
+  | inl x =>
+    simp only [pure, Except.pure, Except.ok.injEq, Sum.inl.injEq] at h
+    exact ⟨x, hr, h.symm⟩
+  | inr v => simp [pure, Except.pure] at h
 
 theorem processLineCoreD_frame {st st' : StateD} {d : DeclRec}
     (h : processLineCoreD st d = .ok (.inl st')) : Frame st st' := by
-  cases d with
-  | ax cvr isUnsafe =>
-    unfold processLineCoreD at h
-    obtain ⟨cvp, _, h⟩ := exceptBind_ok h
-    try dsimp only at h
-    split at h
-    · exact absurd h (by simp [pure, Except.pure])
-    · simp only [pure, Except.pure, Except.ok.injEq, Sum.inl.injEq] at h; subst h
-      exact pushDecl_frame _ _
-  | defn cvr value hints safety =>
-    unfold processLineCoreD at h
-    obtain ⟨cvp, _, h⟩ := exceptBind_ok h
-    try dsimp only at h
-    split at h
-    · obtain ⟨vl, _, h⟩ := exceptBind_ok h
-      try dsimp only at h
-      simp only [pure, Except.pure, Except.ok.injEq, Sum.inl.injEq] at h; subst h
-      exact pushDecl_frame _ _
-    · exact absurd h (by simp [pure, Except.pure])
-  | thm cvr value =>
-    unfold processLineCoreD at h
-    obtain ⟨cvp, _, h⟩ := exceptBind_ok h
-    obtain ⟨vl, _, h⟩ := exceptBind_ok h
-    simp only [pure, Except.pure, Except.ok.injEq, Sum.inl.injEq] at h; subst h
-    exact pushDecl_frame _ _
-  | opaq cvr value isUnsafe =>
-    unfold processLineCoreD at h
-    obtain ⟨cvp, _, h⟩ := exceptBind_ok h
-    try dsimp only at h
-    split at h
-    · exact absurd h (by simp [pure, Except.pure])
-    · obtain ⟨vl, _, h⟩ := exceptBind_ok h
-      simp only [pure, Except.pure, Except.ok.injEq, Sum.inl.injEq] at h; subst h
-      exact pushDecl_frame _ _
-  | quot cvr kind =>
-    unfold processLineCoreD at h
-    obtain ⟨cv, _, h⟩ := exceptBind_ok h
-    simp only at h
-    -- the kind: four constructors and the unknown-kind throw
-    split at h <;> (obtain ⟨qk, hqk, h⟩ := exceptBind_ok h) <;> cases hqk <;>
-      (simp only [pure, Except.pure, Except.ok.injEq, Sum.inl.injEq] at h; subst h
-       exact pushDecl_frame _ _)
-  | ind tys cts rcs =>
-    unfold processLineCoreD at h
-    obtain ⟨v, _, h⟩ := exceptBind_ok h
-    try dsimp only at h
-    split at h
-    · exact absurd h (by simp [pure, Except.pure])
-    · obtain ⟨st₁, hin, h⟩ := exceptBind_ok h
-      simp only [pure, Except.pure, Except.ok.injEq, Sum.inl.injEq] at h; subst h
-      exact installIndD_frame hin
+  obtain ⟨x, _, rfl⟩ := processLineCoreD_ok h
+  exact pushDecl_frame _ _
 
 /-- A declaration record IS its semantics (task #292: no pre-scan). -/
 theorem applyDeclD_frame {st st' : StateD} {d : DeclRec}
@@ -188,9 +143,9 @@ theorem parseLevelEntryD_spec {st st' : StateD} {i : Nat} {r : LevelRec}
     ∃ l, st' = { st with levels := st.levels.insert i l } := by
   unfold parseLevelEntryD at h
   obtain ⟨_, _, h⟩ := exceptBind_ok h
-  simp only at h
-  cases r <;> (repeat (obtain ⟨_, _, h⟩ := exceptBind_ok h)) <;>
-    simp only [pure, Except.pure, Except.ok.injEq] at h <;> exact ⟨_, h.symm⟩
+  obtain ⟨l, _, h⟩ := exceptBind_ok h
+  simp only [pure, Except.pure, Except.ok.injEq] at h
+  exact ⟨l, h.symm⟩
 
 /-- An expression entry: the expression table gains a fresh binding,
 nothing else moves. -/
@@ -199,11 +154,10 @@ theorem parseExprEntryD_spec {st st' : StateD} {i : Nat} {r : ExprRec}
     st.exprs.bound i = false ∧ ∃ e, st' = { st with exprs := st.exprs.insert i e } := by
   unfold parseExprEntryD at h
   obtain ⟨_, hf, h⟩ := exceptBind_ok h
-  simp only at h
   refine ⟨StateD.freshExpr_ok hf, ?_⟩
-  -- every kind: its reads, then the entry
-  cases r <;> (repeat (obtain ⟨_, _, h⟩ := exceptBind_ok h))
-  all_goals (injection h with h; subst h; exact ⟨_, rfl⟩)
+  obtain ⟨e, _, h⟩ := exceptBind_ok h
+  simp only [pure, Except.pure, Except.ok.injEq] at h
+  exact ⟨e, h.symm⟩
 
 theorem applyLine_keeps {st st' : StateD} {r : LineRec} (h : applyLine st r = .ok (.inl st')) :
     Keeps st st' := by
@@ -249,12 +203,12 @@ theorem applyLine_nameFalse {st st' : StateD} {i : Nat}
   obtain ⟨p, hp, hn⟩ := exceptBind_ok hn
   obtain ⟨_, _, hn⟩ := exceptBind_ok hn
   simp only [pure, Except.pure, Except.ok.injEq] at hn; subst hn
-  have hp' : p = .anonymous := by
-    unfold StateD.name at hp; rw [h0] at hp
-    simp only [pure, Except.pure, Except.ok.injEq] at hp; exact hp.symm
+  have hp' : p = falseName := by
+    simp only [nameOf, nameOfF, StateD.lk, StateD.name, h0, bind, Except.bind, pure, Except.pure,
+      Except.ok.injEq] at hp
+    exact hp.symm
   subst hp'
   simp only [IdTable.get?_insert, ↓reduceIte]
-  rfl
 
 /-- `{"ie":j,"const":{"name":i,"us":[]}}`: index `j` is the constant
 `False`. -/
@@ -267,19 +221,11 @@ theorem applyLine_constFalse {st st' : StateD} {i j : Nat}
   simp only [pure, Except.pure, Except.ok.injEq, Sum.inl.injEq] at h; subst h
   unfold parseExprEntryD at he
   obtain ⟨_, _, he⟩ := exceptBind_ok he
-  simp only at he
   -- the entry is `mkConst False []`: the name, the (empty) levels, the node
-  obtain ⟨nm, hnm, he⟩ := exceptBind_ok he
-  have hnm' : nm = falseName := by
-    unfold StateD.name at hnm; rw [hi] at hnm
-    simp only [pure, Except.pure, Except.ok.injEq] at hnm; exact hnm.symm
-  subst hnm'
-  obtain ⟨ls, hls, he⟩ := exceptBind_ok he
-  have hls' : ls = [] := by
-    simp only [List.mapM_nil, pure, Except.pure, Except.ok.injEq] at hls; exact hls.symm
-  subst hls'
   obtain ⟨e, hex, he⟩ := exceptBind_ok he
-  simp only [pure, Except.pure, Except.ok.injEq] at hex; subst hex
+  simp only [exprOf, exprOfF, StateD.lk, StateD.name, hi, List.mapM_nil, bind, Except.bind, pure,
+    Except.pure, Except.ok.injEq] at hex
+  subst hex
   simp only [pure, Except.pure, Except.ok.injEq] at he; subst he
   simp [IdTable.get?_insert]
 
