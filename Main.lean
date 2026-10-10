@@ -430,7 +430,13 @@ streams if `IO.FS.Stream.stdout`/`stderr` are backed by them, but this
 does not depend on that — `run`'s last action on every path is already
 the verdict/diagnostic print, so flushing both streams here, right
 before `exit`, is flushing exactly what that print just wrote and
-nothing more. -/
+nothing more.
+
+**Composes with task #335's own top-level `try`** (inside `run`): that
+`try` already turns every uncaught `IO.Error` into a `return 3`, so
+`run` itself never throws — `let code ← run args` below cannot
+propagate an exception, and every path, verdict or internal error
+alike, reaches this same flush-then-exit. -/
 def main (args : List String) : IO UInt32 := do
   let code ← run args
   (← IO.getStdout).flush

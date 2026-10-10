@@ -97528,3 +97528,87 @@ both lanes' last commits were the "link anchors repointed" step that
 immediately precedes a landing merge) — see `_tmp/amdahl/COMMON.md`'s
 landing protocol. They will merge `more-parallel` themselves once this
 lands on `master`.
+
+## TASK #336 — exit right after the verdict, without freeing the heap (2026-10-10, agent/336-ioexit)
+
+**Problem.** On a 105 GB export the process kept running for 200-570 s
+after printing its verdict (master: `done:` at 21 453 s, process wall
+22 027 s). Returning normally from `main` lets the generated C `main`
+wrapper (`Lean.Compiler.LCNF.EmitC.emitMainFn`) run to completion:
+`lean_finalize_task_manager()`, then the `IO` result unwinds back
+through `checkMain`'s and `run`'s `do` blocks on its way to the final
+`UInt32`, and every still-live local along the way — the parsed
+declaration array, the non-persistent parts of the installed index,
+the pending-check table, the parse's own tables — gets its reference
+count dropped, which at Mathlib scale recursively frees a
+multi-gigabyte object graph.
+
+**Fix.** `main` (`Main.lean`) is split into `run` — everything the old
+`main` did, unchanged, including task #335's own top-level `try` — and
+a thin `main` that flushes stdout and stderr and calls
+`IO.Process.exit code.toUInt8` on whatever `run` returns, instead of
+returning. `IO.Process.exit` is `lean_io_exit`
+(`src/runtime/io.cpp`), which calls the C runtime's `exit()` directly:
+`run`'s and `checkMain`'s frames are abandoned mid-unwind, so none of
+the dropped-local cascade above ever runs; `exit()` only does what
+libc's own teardown does (flush/close the C streams, run anything
+registered with `atexit` — nothing in this binary registers any).
+Because task #335's `try` already turns every uncaught `IO.Error` into
+a `return 3` inside `run`, `run` itself never throws, so `main`'s
+`let code ← run args` cannot propagate an exception either — every
+path, verdict or internal error alike, reaches the same flush-then-exit.
+Exit codes are unchanged: `UInt32.toUInt8` is the identity on 0/1/2/3.
+
+**Nothing to join first.** The check phase's worker threads
+(`checkPool`/`checkLoop`, `ConLeche/Driver/CheckPool.lean`) are all
+spawned at `.dedicated` priority and already `IO.wait`-ed (joined) by
+`checkDeclsIO` before `checkMain` can return, so
+`lean_finalize_task_manager`'s own join loop has nothing left to do by
+the time `main` would otherwise reach it — skipping it costs nothing
+functionally, only the time it takes `exit()` to notice there is
+nothing to wait for.
+
+**Measurements** (`--jobs=8`, `mathlib-full.ndjson` — 6.1 GB, 691 203
+records, under the shared `flock`; two runs each via GNU `time -v`,
+gap = elapsed wall time minus the `done:` line's own `t=`):
+
+| run | done t= | process elapsed | gap |
+|---|---|---|---|
+| before (master `596093f50`), run 1 | 216.7 s | 218.22 s | 1.52 s |
+| before, run 2 | 209.1 s | 210.53 s | 1.43 s |
+| after, run 1 | 195.7 s | 196.48 s | 0.78 s |
+| after, run 2 | 214.3 s | 215.09 s | 0.79 s |
+
+All four runs accept the same 691 203 records. The gap roughly halves
+(≈1.47 s → ≈0.78 s); the residual ≈0.78 s is not startup latency
+(`--help` on either binary: elapsed <10 ms) but the OS-level process
+teardown both binaries still pay — unmapping the ≈6.8 GB resident
+set — which happens whether the process calls `exit()` early or falls
+through `main`'s own `return`. On the 105 GB export this investigation
+was reported against, the *avoidable* Lean-level free cascade is the
+dominant term (200-570 s), so the relative saving there is much
+larger than the ≈50 % seen on mathlib-full's much smaller heap.
+
+`init-full`, `--jobs=1`, `perf stat -e instructions:u` (one run each):
+
+| | instructions:u |
+|---|---|
+| before (`596093f50`) | 485 295 753 053 |
+| after | 485 278 320 349 (−0.0036 %) |
+
+Both accept the same 57 977 declarations; the change is in the noise,
+as expected (the fix touches only how the process ends, nothing on
+the checking path).
+
+**Gates.** `lake build` and `lake test` warning-free; `tests/arena.sh`
+green end to end (arena 90/92, e2e 460/460, annot 15/15, mode flags
+8/8, the new io-exception gate 1/1, prelude/progress/worker-pool/
+DAG-tower gates, the trusted/`--jobs=1`/`--jobs=4` sweeps). One link
+anchor repointed: README.md's `main` link moved from `Main.lean#L335`
+to `Main.lean#L440` (`def main`'s new line after the split; the quoted
+text is unchanged) — `tests/overview-links-expected.txt` regenerated.
+
+**Landing note.** Branches from master's tip after task #335 landed
+(`596093f50`), which already wraps `run`'s body in the uncaught-error
+`try`; the two compose as described above. Forward-merged into
+`more-parallel` (`--no-ff`) once this landed on `master`.
