@@ -130,8 +130,8 @@
 == ConLeche/Frontend/ExportC.lean#L590
    590  def chunkStep (st : StateD) (carry : ByteArray) (lineNo total : Nat) (buf0 : ByteArray) :
 
-== ConLeche/Driver/Run.lean#L90
-    90  def installLoop (mode : ConLeche.CheckMode) (err : IO.FS.Stream)
+== ConLeche/Driver/Run.lean#L93
+    93  def installLoop (mode : ConLeche.CheckMode) (err : IO.FS.Stream)
 
 == ConLeche/Cached/Installed.lean#L148-L151
    148  def annotStepC (pins : List NatOpPinSet) (i : Nat) (fe : FEnv)
@@ -144,11 +144,11 @@
    370      (e : InstalledEnv mode pins ds) (k : Nat)
    371      (hk : k < e.pend.size) : Except (CheckError × Nat) (PLift (GroupChecked mode e k)) :=
 
-== ConLeche/Driver/CheckPool.lean#L105
-   105  def checkLoop (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride t0 : Nat)
+== ConLeche/Driver/CheckPool.lean#L122
+   122  def checkLoop (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride t0 : Nat)
 
-== ConLeche/Driver/CheckPool.lean#L180
-   180  def checkPool (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride t0 jobs : Nat)
+== ConLeche/Driver/CheckPool.lean#L213
+   213  def checkPool (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride t0 jobs : Nat)
 
 == ConLeche/Cached/Installed.lean#L403-L407
    403  def collectChecks {pins : List NatOpPinSet} {ds : List Declaration}
@@ -157,11 +157,11 @@
    406      (j : Nat) → (∀ i, i < j → GroupChecked mode e i) →
    407        Except (CheckError × Nat) (PLift (∀ i, GroupChecked mode e i))
 
-== ConLeche/Driver/Run.lean#L142-L145
-   142  def checkDeclsIO (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride total t0 tParse jobs : Nat)
-   143      (noMark : Bool) (ds : Array ConLeche.Declaration) :
-   144      IO (Except (ConLeche.CheckError × Nat)
-   145        { env : ConLeche.Env // ConLeche.Cached.checkDecls mode ConLeche.natOpPinSets ds = .ok env }) := do
+== ConLeche/Driver/Run.lean#L176-L179
+   176  def checkDeclsIO (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride total t0 tParse jobs : Nat)
+   177      (noMark : Bool) (ds : Array ConLeche.Declaration) :
+   178      IO (Except (ConLeche.CheckError × Nat)
+   179        { env : ConLeche.Env // ConLeche.Cached.checkDecls mode ConLeche.natOpPinSets ds = .ok env }) := do
 
 == ConLeche/Cached/Installed.lean#L538-L540
    538  theorem fullyChecked_checkDecls {pins : List NatOpPinSet} {ds : Array Declaration}
@@ -1265,8 +1265,8 @@
     51  /-- The pinned `False` basis block, in install order. -/
     52  def falseBasis : List ConstantInfo := [falseRaw, falseRecRaw]
 
-== Main.lean#L440
-   440  def main (args : List String) : IO UInt32 := do
+== Main.lean#L452
+   452  def main (args : List String) : IO UInt32 := do
 
 == ConLeche/MainTheorem.lean#L110-L117
    110  theorem no_False_declaration (V : Type w) [SetTheory V]
