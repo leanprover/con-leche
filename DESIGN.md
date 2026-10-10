@@ -97792,3 +97792,1419 @@ instructions:u`: master `ca75f61fc` 485 300 855 435, this branch
 485 369 708 711 (+0.014 %, within the run-to-run spread). Gates:
 `lake build`, `lake test` warning-free, `tests/arena.sh` green
 (statistics 6/6). Logs and the two binaries: `_tmp/amdahl/xstats-logs/`.
+
+## TASK #329 — the install records of the `more-parallel` campaign (2026-10-08 … 2026-10-10)
+
+The records below are copied unchanged from `more-parallel`'s DESIGN.md
+(final `c37af82de`), as history for the parallel install that the next
+record extracts onto `master`. On `more-parallel` they sit among the
+parse lanes' records and the master merges; here they are gathered in
+the campaign's order. Two of them were written there in pieces: the
+PINSTALL record's stages P2 to P4 follow the BLOCKCOPY record on
+`more-parallel` (after its "After merging with the PINSTALL lane"
+paragraph, reproduced here with them), and the "On `more-parallel`"
+paragraphs appended there to the task #331 and #332 records are
+reproduced at the end of this group. Not copied: the campaign's LAYER
+and THMVAL records (both lanes are on `master` already, with their own
+records pointing to them) and the parse lanes' records (PARSE, PRESIZE,
+ROUNDS, FLATSCAN, ROUNDS2, OWNERLAND, GOOD, PFIX, PFIX2), which come
+with the parse's extraction. The CHECKSCALE record is above, with the
+statistics' extraction. File names and line numbers in these records
+are those of the campaign's trees.
+
+## TASK #329 — PINSTALL: the parallel install (2026-10-08, agent/329-pinstall2)
+
+The lane makes phase A (the install) run on a pool of workers, behind an
+in-order commit thread that carries the serial fold's `InstallRun`. The
+design and the feasibility spike (branch `agent/329-pinstall`,
+`f9e1dd584`, not landed) are summarised where each phase lands. The
+coordinator's rulings (provisional, for the maintainer's review): the
+design's proposals 1–8 are accepted. Phase A runs every record from a
+fresh memo state; `ienv` is deleted; the find?-congruence lemmas move
+into the Cached tier under the self-contained exception; `FEnv` gets a
+frozen, task-valued base layer with slot validation by `withPtrEq`;
+workers mark their own results persistent; dedicated `--jobs` threads
+plus the commit thread; no type/value split; MainTheorem's statement
+does not change.
+
+### Stage P0 + P0′: no memo state crosses a record; `ienv` deleted
+
+* **P0.** `annotDeclStep` is now a plain `Except` step that runs
+  `annotStepC` from `{}` at every record, so `InstallRun` and
+  `InstalledEnv` lose their `CState` indices and the walks
+  (`installRun_model`, `installRun_declares`, `installRun_trace`,
+  `installRun_skels`, `installRun_thmDecl_const`) start each step from
+  `CSOKF.empty`. `checkDecls` changes its definition (its `foldlM` is in
+  `Except`, not `StateT CState`); its statement, MainTheorem and the
+  main corollary are unchanged. A record's install is now a function of
+  the index it sees and the record alone, which is what a worker that
+  installs it elsewhere needs.
+* **P0′.** `ienv` (the converted-constant cache) was a no-op: every
+  `recordCConst` call tagged an object with itself (`tyE := cvA.type`
+  with `cvA.type = jty`; the value entry `(jv, jv)`), so the
+  pointer-validated hit of `storedTyIdxM`/`storedValIdxM` returned the
+  object it was given. Deleted: `CConstE`, the field,
+  `storedTyIdxM`/`storedValIdxM`, `recordCConst`, the `CSOK`/`CSOKF`
+  clauses and their lemmas (−229 lines net); `annotValC` loses its unused
+  `jty`/`record` arguments. The level memos (`lsimpC`, `lnzC`, `eqvC`)
+  are the only components a flush keeps, and after P0 they too start
+  empty at every record.
+
+Measured (`perf stat -e instructions:u`, one run each, default worker
+count; wall times indicative):
+
+| stream | before | after | Δ |
+|---|---|---|---|
+| init-full | 485.81 G | 485.85 G | +0.01 % |
+| mathlib-prefix | 688.26 G | 688.21 G | −0.01 % |
+| mathlib-full | — | 8.386 T | (install 92.7 s, check 26.8 s, parse 21.4 s; accepts all 691 203 records) |
+
+The spike measured the fresh state alone at +0.02–0.19 % of install
+instructions; deleting `ienv` (a hash probe per `constTyAt`/`constValAt`
+miss) pays for it.
+
+### Stage P1: the base layer of `FEnv`
+
+`FEnv` gains a fourth field, `base : FBase`: a frozen name index
+`n ↦ (counter, position, Task (Array ConstantInfo))` with a visibility
+bound of its own. `FEnv.find?` falls through to it on an index miss; a
+visible entry answers the `position`-th constant its record's task
+delivers (`Task.get` is logically a projection, so `find?` stays an
+ordinary function). The layer is empty everywhere but in a parallel
+install's worker views: `mkFEnv` builds it empty, `push` and `restrictTo`
+keep it, and the empty layer answers `none` (`FBase.find?_empty`), so
+`mkFEnv_find?` and the prefix-view lemmas keep their statements. The
+bound is separate from `visibleBelow` so that a worker's own pushes
+(a block's read-back, P4) never make its own predicted slots visible to
+itself.
+
+Measured: init-full 485.81 G (P0: 485.85 G), mathlib-prefix 688.24 G
+(688.21 G), mathlib-full 8.385 T (8.386 T; install 86.7 s, accepts all
+691 203 records). The miss path's empty-map probe does not show.
+
+### (From the BLOCKCOPY record on `more-parallel`)
+
+**After merging with the PINSTALL lane** (`more-parallel` at b6578fb5e,
+whose `FEnv.base` layer now sits beside the overlay: `find?` reads the
+overlay, then the index, then the base on a miss). Tip vs merged, one run
+each:
+
+| stream | install tip → merged | instructions:u tip → merged |
+|---|---|---|
+| mathlib-full | 77.7 s → 48.5 s | 8388.1 G → 8325.4 G |
+| cslib | 29.8 s → 22.2 s | 2863.0 G → 2845.7 G |
+| NS | 15.2 s → 13.4 s | 3165.2 G → 3166.8 G |
+| mathlib-prefix | 7.0 s → 5.7 s | 689.81 G → 687.44 G |
+| init-full | 2.5 s → 2.2 s | 486.80 G → 487.29 G |
+
+All accept, and mathlib-full still accepts 691 203 records.
+
+### Stages P2 + P3: the commit step and the parallel install driver
+
+**What runs.**  At `--jobs=<n>` > 1 phase A runs on `n` dedicated
+worker threads plus the main thread as the commit thread (`parInstall`,
+`Main.lean`); `--jobs=1` is `installLoop`, unchanged.
+
+1. *Prediction* (serial): the names every record installs, in push
+   order, are read off the record — `predictSlots`, the install skeleton
+   `declCSkels` (`Cached/InstallSkel.lean`, moved out of AgreeFloor); its
+   prefix sums are every record's counter.  The base index
+   `buildBase : name ↦ (counter, record, position)` keeps a duplicate
+   name's first slot and is counter-injective (`buildBase_inj`).  It
+   holds no task, so it is marked persistent with the records before any
+   worker starts.
+2. *Slots and installs are thunks.*  Record `k`'s INSTALL is a thunk:
+   `valueStep` (`Cached/ParInstall.lean`) at `workerView B S vis_k`, with
+   its evidence — the result IS `workerRes … k`, in a subtype that is a
+   subsingleton, which is what lets the install mark its result
+   persistent inside an `unsafe` step without losing the equation (the
+   opaque value is pinned by its type).  Record `k`'s SLOT is a thunk
+   too: for a value record it forces the install; for every other record
+   it waits on a promise the commit thread resolves.  `FBase.slots`
+   (`Kernel/FEnv.lean`) is the array of slots; a view reads the base
+   below its own record's counter only, so a lookup can wait only on an
+   earlier record.  The views' slot array is reached through a promise
+   of itself (`pS`), which ties the knot without a cyclic type.
+3. *Help instead of wait* (the maintainer's request) comes from the
+   thunk semantics: a thread forcing a slot nobody started installs the
+   record on the spot; one forcing a slot another thread is installing
+   waits for it (`lean_thunk_get_core`'s yield loop).  Nothing in the
+   proof depends on who forced what.
+4. *Schedule* (performance only): a value record's dependencies are the
+   records installing the names its type mentions (and its value's, for
+   a definition or an opaque; a theorem's value is not read at install),
+   every projection's structure and table, literal support, and a fixed
+   basis list; computed in parallel, chunk per worker.  Workers take the
+   lowest ready record from a `Std.TreeSet` under one `BaseMutex`
+   (sleeping on a `Condvar`); dependency counts are one `IO.Ref Nat` per
+   record.  (A first version kept the counts and the heap as arrays in a
+   shared `IO.Ref`: an MT ref marks its value MT, so every `set!`
+   copied the 700k-entry arrays — 44 s on mathlib-prefix.  Per-record
+   refs and a persistent tree fixed it.)
+5. *Commit* (the main thread): records in order; `InstallRun` extended
+   per record.  A value record: force its install, check the predicted
+   counter equals the serial one and the slot holds the very constant
+   (`slotOk`, `withPtrEq` — a pointer comparison at run time), extend by
+   `valueStep_commit`, push.  Any other record (blocks, axioms, basis
+   blocks, the pinned `Nat` operations): the ordinary step at the serial
+   index, its new constants read off the environment (`splitNew`, a
+   pointer comparison of the old tail), published to its slot, checked
+   slot by slot, and the views kept agreeing by `ViewAgrees.frontier`
+   from the index's canonicity (`annotDeclStep_canon`).  A mismatch —
+   which no stream reaches: the skeletons are exact on every accepting
+   step — stops the pool and continues with `installLoop`; the test
+   switch `--install-fallback-at=<k>` takes that path on purpose.
+
+**The proof side** (`Cached/ParInstall.lean`, self-contained): the
+install halves' congruence in `find?` (from `coreKnotI_congr`); the
+worker view and `ViewAgrees` (the view at the serial counter answers
+as the serial index), maintained by a checked push (`ViewAgrees.push`,
+needing `IdxBelow` — every index entry below the counter, no overlay)
+and by a checked list of pushes from a canonical index
+(`ViewAgrees.frontier`); `valueStep_commit` /
+`valueStep_commit_error`.  MainTheorem, the main corollary,
+`checkDecls` and `checkDeclsIO`'s return type are unchanged.
+
+**A deviation from the plan, and why.**  The commit thread installs the
+non-value records itself at the serial index; to keep the views
+agreeing afterwards it must know the index is still canonical, which is
+AgreeFloor's `annotStepC_skels` (a Verify module).  The design had not
+accounted for this.  The conservative choice kept the layering rule and
+moved the self-contained verifications into the Cached tier under
+CLAUDE.md's exception: `KnotCongr`, `EnvBound`, `BlockOverlay`, and
+AgreeFloor's kit + stage lemmas as `Cached/InstallShape.lean` (the
+floor theorems stay in `Verify/Cached/AgreeFloor.lean`).  No file
+changes beyond imports, a paragraph on why it sits where it does, and
+`@[expose]` on three predicates.  **For the maintainer**: the
+alternative is P4's relational factorization (a step at any view whose
+lookups agree is the serial step), after which nothing runs at the
+serial index and canonicity is no longer needed; the moved files could
+then go back.
+
+**Trust surface.**  `Main.lean` gains term-level `unsafe` uses
+(`installImpl`, the slot closures' instrumentation, `frontierSlot`):
+26 escapes in the allowlisted files, was 15.  Each is either
+`Runtime.markPersistent` (as before) or an `unsafeBaseIO` whose opaque
+value is pinned by its type (the subsingleton install) or validated
+before use (a slot's contents, by `slotOk`).
+
+**Instrumentation** (the maintainer's question; `--progress` prints a
+summary line).  On mathlib-full, cslib and NS at 8 and 32 jobs: **zero
+helps, zero waits on a record another thread was installing, zero
+waits on a commit-thread slot, peak 0 waiting** — the dependency walk
+covers every lookup the installs made.  (A wait is counted by the first
+thread forcing a slot; others forcing the same slot meanwhile are not,
+so "peak" is a lower bound — but with zero first-forcer waits there is
+nothing to undercount.)  So abort-and-requeue would buy nothing on
+these corpora; it is not described further.  The commit thread's own
+waits on a worker still installing the record at the frontier:
+mathlib-full 7978 (1.26 s) at 8, 8254 (1.76 s) at 32.
+
+**Measured** (`perf stat -e instructions:u`, one run each, wall times
+indicative on a shared, loaded machine; "serial" is the same binary
+with `--install-fallback-at=0`, i.e. `installLoop` after the
+prediction, so its install time includes the prediction):
+
+| corpus | serial install | `--jobs=8` | `--jobs=32` | prediction + base | commit thread's own records |
+|---|---|---|---|---|---|
+| mathlib-full | 58.5 s | 21.5 s | 23.1 s | 2.9 s | 6747 records, 12.5 s |
+| cslib | 23.8 s | 10.2 s | 11.0 s | 1.3 s | 4050 records, 6.2 s |
+| NS | 14.6 s | 8.7 s | 8.7 s | 0.55 s | 1634 records, 6.6 s |
+
+Instructions (whole run): mathlib-full 8.447 / 8.485 / 8.461 T
+(serial / 8 / 32), cslib 2.897 / 2.905 / 2.903 T, NS 3.196 / 3.202 /
+3.201 T: +0.2–0.5 %.  All accept (mathlib-full 691 203 records).  The
+commit thread is the critical path: the blocks it installs itself
+(≈ 55–75 % of its time), then ~5 µs per record of commit work
+(slot check, push, the run's step), then the serial prediction.  No
+`lean_copy_expand_array` under the commit loop (perf, mathlib-prefix,
+32 jobs: 0.01 % of the main thread's samples, all in the prepare step
+and in array growth).  Next: P4, the blocks in the pool.
+
+### Stage P4: every record in the pool; no `unsafeBaseIO`
+
+**What changed.**  The commit thread no longer installs any record at
+the serial index.  Every record — value records, blocks, axioms, basis
+blocks, the pinned `Nat` operations — is installed by `installStep`
+(`Cached/ViewCongr.lean`) at the worker view of its predicted counter,
+by a worker or, when the commit thread reaches it unclaimed, by the
+commit thread itself (at a view that waits on nothing, since every
+earlier record is committed).  The commit is uniform: check the
+predicted counter, check every filled slot holds the very constant
+(`slotsOk`), extend the run by `installStep_commit`, push the list.
+
+**The proof: install steps read their index through `find?` alone.**
+`checkDeclStepC_twin`: from two indices that answer alike, share the
+counter and hold nothing above it (`Twin`), the step fails alike or
+pushes the same constants onto both.  Proved bottom-up through the
+install code: congruence for the stages that only read (the cached
+operations ignore the `Env` every call carries — `EnvFree` — so every
+call is normalised to `Env.empty`), and a relational walker (`RelRun`,
+the `relrun` tactic: binds, `ite`/`dite`, throws, `split`) for the
+stages that push, down to the block passes (`PassRel`), the overlay
+tail `checkBlockTailS` (through BLOCKCOPY's `checkBlockTailS_eq_ref`)
+and the recursor stage.  `installStep_commit` then needs only
+`ViewAgrees` and `IdxBelow` at the commit — no canonicity.  So the
+P3 deviation is undone: `EnvBound` and AgreeFloor's install-shape
+lemmas are back in `Verify/` (`InstallShape` merged back into
+AgreeFloor); `ParInstall`'s canonical-frontier lemmas, `splitNew` and
+`annotDeclStep_canon` are gone.  `KnotCongr`, `BlockOverlay`,
+`InstallSkel`, `ParInstall` and `ViewCongr` stay in `Cached/` under
+the self-contained exception (they import only the cached checker and
+each other).  The statements of `checkDecls`, `checkDeclsIO` and
+MainTheorem are unchanged.
+
+**No `unsafeBaseIO`** (the maintainer's P3 review).
+
+1. Slots are plain terms: `FBase.slots : Array (Thunk (Array
+   ConstantInfo))`, each `Thunk.mk fun _ => (p.result?.get).getD #[]`
+   over its record's promise.  A view validates what it reads only by
+   the commit's `slotsOk` (`withPtrEq`: a pointer comparison at run
+   time, `decide` logically), so a dropped promise (`#[]`, after a
+   fallback) is a misprediction, not unsoundness.
+2. The install is `installAndPublish`, plain IO: compute `workerRes`,
+   `Runtime.markPersistent` the result and its constants (the
+   phase-boundary shape), resolve the slot, resolve the result promise
+   with `WRes` (the subtype carrying `q.2 = workerRes … q.1`), release
+   dependents.  The commit checks the record number `k' = k`.
+3. The wait/help instrumentation and the per-record state refs are
+   gone; the commit thread's timing (plain IO) stays.
+4. **Trust surface**: `Main.lean` has 8 term-level `unsafe` uses, all
+   `Runtime.markPersistent` (2 before the lane, at the phase
+   boundary; 6 new: records, base index, predicted counters,
+   dependents, an install's result and its constants); 21 escapes in
+   6 allowlisted files (15 before the lane, 26 at P3).
+
+**Schedule tweaks.**  `release` wakes one worker per newly ready record
+(`notifyOne`) instead of all; the commit thread does not `claim` a
+record whose result is already published.  Thunk slots instead of
+task slots: a later lookup reads the thunk's cached value without
+touching the task.  mathlib-prefix install at 8 / 16 / 32 jobs:
+2.1 / 2.0 / 2.9 s before these, 1.7 / 2.1 / 2.7 s after.
+
+**Measured** (one run each, under the flock; wall times indicative on a
+shared machine; "serial" is the same binary with
+`--install-fallback-at=0`, so it includes the ~3 s prediction):
+
+| corpus | serial install | `--jobs=8` | `--jobs=32` | P3 at 8 / 32 |
+|---|---|---|---|---|
+| mathlib-full | 56.6 s | 16.9 s | 16.0 s | 21.5 / 23.1 s |
+| cslib | 23.9 s | 6.4 s | 8.1 s | 10.2 / 11.0 s |
+| NS | 14.8 s | 4.7 s | 2.8 s | 8.7 / 8.7 s |
+
+Instructions (whole run, serial / 8 / 32): mathlib-full 8.428 / 8.467 /
+8.450 T, cslib 2.889 / 2.900 / 2.902 T, NS 3.191 / 3.197 / 3.192 T —
+within +0.5 % of serial.  All accept (mathlib-full 691 203 records).
+Instrumentation before its removal (P3 driver plus the first P4 cut):
+zero helps, zero waits on a record another thread was installing, peak
+0 blocked workers, on all three corpora at 8 and 32 jobs.
+
+**Open: 32 jobs is not faster than 8 on mathlib-full and cslib.**  The
+same instructions take more task-clock at 32 (lower IPC); a profile at
+32 shows about ten threads carrying nearly all samples, no lock or
+copy hot spot (frees, `lean_dec_ref_cold`, `markPersistent` 4.5 %).  On
+mathlib-prefix the critical path (the pinned `Nat.xor` declaration,
+~1.3 s) bounds the install.  The prediction (~3 s on mathlib-full) is
+serial and could fold into PARSE's apply step; not done in this lane.
+
+## TASK #329 — SCALE: why the install pool flattened, and the lock-free schedule (2026-10-08, agent/329-scale)
+
+**Question.** On `more-parallel` (`a1a06fb46`) the parallel install took
+16.9 s at `--jobs=8` and 16.0 s at 32 on mathlib-full, against ~57 s of
+total work and a ~1.6 s dependency critical path; cslib was slower at 32
+(8.1 s) than at 8 (6.4 s). The check phase also seemed to flatten.
+
+**Diagnosis (install): the scheduler's lock.** Measured on cslib at 32
+jobs (load 5–12 on 96 hardware threads, so no competition for cores):
+- `perf record -F 999 -g` over the commit window: each of the 32 workers
+  had ~2700 samples in a 7.4 s window, i.e. it was on a CPU **~37 % of
+  the time**; on-CPU it ran the install itself (`lean_dec_ref_cold`
+  12 %, the tree `erase` 1.2 %).
+- `perf record -e context-switches -c 1 -g` (every switch, with its
+  user stack): ~13 500 switches per worker, **99 % of them in
+  `std::mutex::lock` → `__lll_lock_wait`**: in `workerLoop`'s
+  `sched.lock.lock` (≈ 75 %) and in `release` (≈ 25 %). Waits on the
+  condition variable (no ready record): 0.1 %. Waits on a slot or on
+  the task manager: ~0.
+- So the ready queue was never empty; the workers were queueing for the
+  one `BaseMutex` that guarded it — every record went through it twice
+  (pop, and the push of its dependents), and the critical section
+  touched a multi-threaded `Std.TreeSet` (atomic reference counts on
+  every path node). The commit thread spent 6.2 of its 7.4 s waiting
+  for the record at the frontier: it was starved, not the bottleneck.
+  Pool throughput was ~4.6× the serial install at 8 AND at 32 workers —
+  the signature of a serialised section.
+
+**Fix (`ConLeche/Driver/ParInstall.lean`, performance only; nothing in a
+type changes).** `Sched` keeps a shared `cursor`: workers walk the
+records in stream order, one `modifyGet` per record, no lock. A record's
+dependency count starts at its number of dependencies plus one token for
+the cursor's pass; whoever brings it to zero — the pass, when every
+dependency is already installed (the common case), or the release of the
+last dependency — has it ready. A releaser installs the lowest record it
+made ready next itself (no hand-off); only further ones go to a
+`deferred` tree under the lock (`deferredN`, read without the lock, says
+whether to look). A per-record `taken` flag (test-and-set) settles the
+race with the commit thread's own installs. Workers sleep on the
+condition variable only at the end of the stream. After the fix the
+commit thread's frontier waits on mathlib-full at 32 fall from 11.6 s to
+~1.6 s.
+
+The `--progress` line now reports the records' persistent mark
+separately from the prediction, and a `persistent mark` heartbeat line
+times the phase-boundary mark.
+
+**Measured.** Medians over 5 runs, (min–max), wall seconds; one-minute
+load at the start of each run; instructions are one run (the minimum).
+`master` = `67f04630d` (serial install); `tip` = `more-parallel`
+`a1a06fb46`; `scale` = this lane. All three binaries carry the
+`persistent mark` timer; "check" is the check phase without the
+phase-boundary mark (on master the 3–8 s mark sat inside "check").
+Every run accepts (mathlib-full 691 203 records).
+
+| corpus | jobs | binary | parse | install | phase mark | check | total | load | instr (T) |
+|---|---|---|---|---|---|---|---|---|---|
+| mathlib-full | 8 | master | 22.2 (20.4–32.7) | 83.2 (79.0–92.0) | 8.1 (7.8–8.4) | 101.6 (99.1–106.6) | 216.3 (210.7–239.7) | 14–28 | 8.387 |
+| mathlib-full | 8 | tip | 8.3 (8.1–10.8) | 15.5 (14.0–19.4) | 0.1 | 107.5 (105.7–135.4) | 131.6 (129.1–165.8) | 8–21 | 8.455 |
+| mathlib-full | 8 | scale | 8.5 (8.4–29.0) | 13.6 (12.7–19.8) | 0.1 | 107.9 (105.7–123.2) | 129.2 (127.2–172.3) | 9–83 | 8.446 |
+| mathlib-full | 32 | master | 20.8 (20.2–34.4) | 80.2 (78.2–120.0) | 7.6 (7.4–8.1) | 35.5 (32.0–36.8) | 143.0 (140.4–184.9) | 9–75 | 8.388 |
+| mathlib-full | 32 | tip | 8.6 (8.0–9.8) | 18.2 (17.9–18.7) | 0.1 | 34.6 (32.6–37.3) | 62.9 (59.9–64.4) | 14–40 | 8.445 |
+| mathlib-full | 32 | scale | 8.4 (8.1–12.3) | **7.2 (7.1–7.8)** | 0.1 | 35.1 (33.0–43.1) | **53.7 (48.6–60.1)** | 22–40 | 8.438 |
+| cslib | 8 | master | 8.6 (8.4–10.8) | 30.5 (30.0–41.4) | 3.0 (2.9–4.4) | 34.8 (34.7–47.8) | 77.2 (76.1–102.4) | 20–33 | 2.863 |
+| cslib | 8 | tip | 3.5 (3.3–4.4) | 6.8 (6.5–7.8) | 0.0 | 36.7 (35.7–37.5) | 46.8 (45.7–49.9) | 10–67 | 2.905 |
+| cslib | 8 | scale | 3.4 (3.3–4.1) | 6.1 (5.9–7.0) | 0.0 | 36.6 (35.7–37.1) | 46.7 (45.2–47.8) | 9–37 | 2.900 |
+| cslib | 32 | master | 8.6 (8.3–10.2) | 30.8 (30.4–33.8) | 3.0 (3.0–3.1) | 12.4 (12.0–13.2) | 55.2 (54.1–58.8) | 8–25 | 2.863 |
+| cslib | 32 | tip | 3.7 (3.4–4.9) | 9.5 (9.4–10.0) | 0.0 | 11.8 (11.1–12.3) | 25.5 (24.3–26.7) | 9–23 | 2.902 |
+| cslib | 32 | scale | 4.4 (3.3–6.6) | **4.2 (3.2–4.4)** | 0.0 | 11.8 (11.7–12.2) | **20.5 (18.5–22.8)** | 11–25 | 2.896 |
+| NS | 8 | master | 4.8 (4.7–5.9) | 15.4 (15.2–16.6) | 1.6 (1.6–1.8) | 40.5 (39.2–41.1) | 62.1 (61.3–65.5) | 11–30 | 3.165 |
+| NS | 8 | tip | 1.6 (1.5–2.7) | 3.8 (3.7–4.1) | 0.0 | 40.7 (40.0–41.2) | 46.1 (45.5–47.8) | 9–16 | 3.196 |
+| NS | 8 | scale | 1.6 (1.5–2.2) | 3.7 (3.6–4.0) | 0.0 | 40.8 (40.2–42.6) | 46.4 (45.6–47.9) | 9–12 | 3.195 |
+| NS | 32 | master | 4.8 (4.8–5.3) | 15.9 (15.3–16.7) | 1.7 (1.6–1.7) | 14.8 (13.6–16.2) | 37.8 (35.4–39.2) | 9–22 | 3.164 |
+| NS | 32 | tip | 1.6 (1.6–2.1) | 2.9 (2.7–3.0) | 0.0 | 13.6 (12.8–14.0) | 18.3 (17.4–18.7) | 12–24 | 3.191 |
+| NS | 32 | scale | 1.6 (1.5–2.0) | **2.3 (2.1–2.3)** | 0.0 | 12.9 (12.8–15.3) | 17.1 (16.7–19.2) | 17–27 | 3.189 |
+
+init-full at `--jobs=8` (5 runs each, load 18–37): install 0.8 → 0.7 s,
+total 7.6 (7.4–7.7) → 7.4 (7.3–7.5) s, instructions 491.3–491.6 G
+both. `--jobs=1` runs `installLoop` and does not touch the schedule;
+instructions (one run each, tip → scale): init-full 484.83 → 484.82 G,
+NS 3.1577 → 3.1578 T, cslib 2.8290 → 2.8280 T. After the merge with
+LAYER (`ConLeche/Driver/*`), the landed binary on mathlib-full, one run
+each under load 44–81: `--jobs=8` install 14.2 s, total 178.8 s;
+`--jobs=32` install 10.2 s, total 75.5 s (both accept 691 203).
+
+**The phase-boundary mark is gone.** On master it was 7.6–8.1 s on
+mathlib-full (3.0 s cslib, 1.7 s NS). With PINSTALL's workers marking
+their own results it takes 0.1 s; what remains is the mark of the
+RECORDS before the pool starts (mathlib-full 2.5 s, cslib 1.0 s, NS
+0.5 s), which is now the largest item of the install's serial prelude
+(the prediction and base: 0.36 s; the dependencies: 0.46 s, parallel;
+the slots, counts and dependents: 0.45 s).
+
+**The check phase scales as the hardware does.** Over the check phase
+alone (`perf stat -p`, attached at the `persistent mark` line; cslib,
+load 5–12): at 8 workers 305.9 s task-clock in 38.4 s wall (7.96 CPUs
+busy), IPC 1.91, 4.27 GHz user-cycle rate; at 32 workers 354.7 s in
+11.34 s (31.3 CPUs busy), IPC 1.73, 4.06 GHz. The same instructions
+take 10 % more cycles at 32 and the clock is 5 % lower, which accounts
+for 3.39× from 4× more workers (3.45× expected from those two). The
+progress timeline (`--progress=4000`) has no tail: the last 4000 of
+380 k checks finish in 0.3 s. No lock is on the check pool's path (one
+atomic claim per record). Pinning experiments (NS, `taskset` onto node
+0's physical cores vs the same count spread over the four nodes, at 4,
+8, 12 jobs, 3 runs each) were inconclusive: the machine's load was
+19–117 during them, and a pinned run competes with whatever else runs
+on those CPUs (user cycles for the same 3.19 T instructions ranged
+1.52–2.13 T). Earlier, quieter single runs on cslib: 8 jobs on node 0
+(cores 0-7 with their SMT siblings) 40.2 s check, on 16 CPUs spread over
+the 4 nodes 40.5 s, on 9 distinct physical cores 34.8 s — no NUMA
+effect; the gap is SMT sharing with other users' work.
+
+**Speedup curve, NS** (`scale`, 3 runs each, medians; load 36–78 for
+these runs, so the numbers are worse than the table above):
+
+| jobs | install | check |
+|---|---|---|
+| 8 | 3.9 | 54.0 |
+| 16 | 2.7 | 25.3 |
+| 32 | 2.3 | 14.9 |
+| 64 | 2.2 | 10.4 |
+
+The install is at its floor from 32 on: records' mark 0.53 s +
+dependencies 0.2 s + slots 0.1 s + commit 1.35 s, of which ~1.0 s is the
+commit thread waiting on a worker — the dependency critical path
+(PINSTALL measured ~1.3 s, the pinned `Nat` operations), a constant of
+the stream's prelude, not of its size. The check keeps scaling to 64
+(on 48 physical cores shared with other users, so beyond ~32 on SMT
+siblings). `--jobs=1` on NS (one run each): 390–453 s, check
+366–429 s.
+
+**Rates, and what they predict for a 10× corpus on 200 threads.**
+Mathlib-full, `scale`, 32 jobs: 691 k records, ~108 M lines.
+
+| item | thread | now | rate | 10× corpus |
+|---|---|---|---|---|
+| parse apply | 1 | 8.4 s | 78 ns/line | ~86 s |
+| records' persistent mark | 1 | 2.5 s | 3.6 µs/record | ~25 s |
+| commit thread's own work | 1 | ~1.4 s | ~2 µs/record | ≥ ~14 s |
+| slots, counts, dependents | 1 | 0.45 s | 0.65 µs/record | ~4.5 s |
+| prediction + base | 1 | 0.36 s | 0.52 µs/record | ~3.6 s |
+| dependencies (chunked) | n | 0.46 s | — | < 1 s |
+| phase-boundary mark | 1 | 0.1 s | — | ~1 s |
+| install pool work | n | ~53 thread-s | 77 µs/record | ~530 thread-s → ~3 s, below the commit thread |
+| check pool work | n | ~1100 thread-s at 32 | — | ~11 000 thread-s → ~55 s at 200 ideal, more on SMT |
+
+Ranking on the target machine: parse apply (~86 s), check pool
+(~55–90 s, hardware-bound), the records' mark (~25 s), the commit
+thread (~14 s), the slot setup and the prediction (~8 s together).
+**What could get worse at 200 threads:** every install resolves two
+promises (slot and result), each under the runtime task manager's
+ONE global mutex with a `notify_all` on its condition variable
+(`task_manager::resolve_core`) — 14 M acquisitions of one lock at the
+target, and every resolve wakes a commit thread blocked in `IO.wait`.
+At 64 jobs it does not show; at 200 it may. The cursor and the check
+pool's claim counter are single `IO.Ref`s (`modifyGet`: a take/spin
+on one cache line), ~7 M claims each at the target; fine at 64,
+unmeasured beyond.
+
+**Not done.** The records' mark could run on several threads, but a
+task's closure that captures the records makes the runtime walk them
+for multi-threaded marking first (the same serial walk), so splitting
+it needs a runtime-level entry point, not a driver change. The commit
+thread's ~2 µs per record is mostly the serial index's push (hash
+insert into a 1 M-bucket table, with doubling) and `slotsOk`; presizing
+the index would change `mkFEnv Env.empty` in the run's statement.
+Logs: `_tmp/amdahl/scale-logs/`.
+
+## TASK #329 — COMMIT: the commit thread validates, a builder pushes; the parallel prelude; one promise per record (2026-10-08, agent/329-commit)
+
+**Aim.** For the 10× / 200-thread target, SCALE ranked three serial
+costs of the install: the commit thread's own work (~2 µs per record),
+the slot setup, prediction and base index (0.65 + 0.52 µs per record),
+and two promise resolutions per record under the runtime task
+manager's one global mutex. MainTheorem, the main corollary,
+`checkDecls` and `checkDeclsIO`'s return type are unchanged. The
+escape count is still 21.
+
+**1. Where the commit thread's 2 µs went** (`perf record -g`, cslib,
+32 jobs, `more-parallel` `99cec6880`). On CPU it spent 0.77 s for
+384 k records:
+- **50 %, the slot checks (`slotsOk`).** This is the first forcing of
+  each record's slot thunk (22 %; nothing had read a slot that no later
+  record depends on), plus the base probe, `slotGet` and the pointer
+  comparison.
+- **23 %, `FEnv.push`.** Of that, 36 % is the rehash on growth and
+  16 % is `ConstantInfo.name` through `toConstantVal`.
+- **16 %, the loop itself**: waits, two clock reads and the pending
+  push.
+- **5 %, its own installs.**
+- **4 %, `andPinOk`.**
+
+**2. Running the check phase against the base view: analysed and
+measured, not landed.** With no second map, the install's base index
+plus the filled slots would answer every lookup.
+- *What would change in the statements: nothing.* The commit loop
+  carries its run over the ghost `mkFEnv env`. It can, because
+  `push_mkFEnv` is `rfl` and `installStep_commit` says that every step
+  is `pushAll`. The `FullyChecked` that `fullyChecked_checkDecls`
+  needs is then built inside the proof of `checkDecls … = .ok env`, so
+  no `InstalledEnv` exists at run time.
+- *What it needs:*
+  - the prefix invariant `∀ v ≤ c, ViewAgrees B S (fe.restrictTo v)`.
+    A checked push keeps it, by the same `BaseInj` argument as
+    `ViewAgrees.push`;
+  - `checkPending`'s congruence in the prefix view's `find?`, from
+    `coreKnotI_congr`, `opSIxC_congr` and `annotValC_congr`;
+  - the check pool generalised from an `InstalledEnv` to a Prop-valued
+    predicate on record numbers.
+- *Measured* with a prototype (A/B on one binary, `--jobs=8`, 3 runs
+  each, check phase only via `perf stat -p`):
+  - NS: instructions +2.4 %, cycles +1.6 to +4 %.
+  - cslib: instructions +2.0 %, cycles about +1.5 %.
+  - Each lookup costs an empty-index probe, the base probe, the slot
+    thunk and its array, against one probe today.
+  - Normal machines would regress, so the maintainer ruled against
+    landing it.
+- The patch is `_tmp/amdahl/commit-logs/viewhack.patch`. Its proofs
+  were `sorry`, measurement only.
+
+**What landed instead keeps the map but moves it off the commit
+thread.**
+- *The builder.* The serial index after `k` records is `prefixFe S k`,
+  the empty index with the first `k` records' slots pushed in order
+  (`ConLeche/Verify/Cached/ParInstall.lean`). A **builder thread**
+  computes it beside the commit loop: `builderLoop`, which returns its
+  index together with `fe = prefixFe S k`. It pushes only committed
+  records, which the commit loop publishes in batches of 64, and it
+  sleeps on its own condition variable when it catches up.
+- *The commit loop* carries its run over `prefixFe S k`, a term only
+  its proofs mention, and pushes nothing. Per record it takes the
+  installer's result and checks the predicted counter and the
+  installer's verdict.
+- *The installer's verdict.* After publishing its slot, the installer
+  evaluates `goodB`: the `And` pin, `slotsOk`, and `selfOk` (its slot
+  IS the list it pushed, by pointer comparisons). That verdict, with
+  `GoodAt` as its evidence, travels in the record's state. The step's
+  push is then the builder's by `prefixStep_eq`.
+- *End of the run.* The commit loop takes the builder's index at the
+  end, or at a fallback. The run returned is the serial fold's, as
+  before.
+
+**3. The parallel prelude.**
+- *Chunk tasks* compute the prediction (`predictChunk`; the counters
+  are prefix sums on the main thread), the slots (`slotChunk`), and
+  the dependencies with their counts and states. The dependencies run
+  on `jobs` threads claiming 8 × `jobs` fine chunks, because the walk's
+  cost is uneven along the stream.
+- *The dependents* are assembled one target chunk per task, from
+  per-source groups `(d, ks)`.
+- *The base index is sharded by name hash* (`FBase.idx` is an array of
+  maps, `baseGet?` in `ConLeche/Kernel/FEnv.lean`), one shard per task.
+  `buildBase_inj` is restated over the shards: every entry names its
+  own slot (`SlotsOf`, per shard), and that alone makes the base
+  counter-injective. The sharding and the order matter only for which
+  duplicate wins.
+- *The basis gate* (`basisGate`). No record past the last record that
+  installs a basis name is handed out before the records up to it are
+  installed. Without the gate every record is a dependent of the dozen
+  basis records: millions of edges into one chunk, which made the
+  dependents' assembly serial.
+- *Persistent marks.* The shards are marked persistent on their own
+  tasks, and the dependency edges in theirs, so that freeing them is
+  never one serial walk.
+- *`markMultiThreaded`.* Every task marks its result with
+  `Runtime.markMultiThreaded` before it returns. The runtime marks a
+  task's result while it holds its global lock, and a marked result
+  costs it nothing (the ALLOC study's finding).
+- *`IO.lazyPure`.* The prediction and shard tasks run their pure work
+  through it. A pure argument of the action is otherwise evaluated
+  where the action is built, on the spawning thread. A first cut ran
+  all of it on the main thread.
+- *Other changes.* The stopped workers are no longer joined: on cslib a
+  thread's exit took ~0.25 s. After a complete commit the slot walk
+  that `stopWorkers` used to make is skipped.
+
+**4. Promises (maintainer ruling (b): no new escape).**
+- *What remains.* One promise per record: the slot, because a lookup
+  is pure code and can wait on nothing else. The result promise is
+  gone: the result travels in the record's `IO.Ref` state, typed by
+  the slots and created after them.
+- *The commit thread never spins and never waits on the task manager.*
+  If the installer is not done, it sleeps on its own condition
+  variable, which the installer signals.
+- *Thunk slots would need a mark inside them.* They would remove the
+  last promise, but only with a persistent mark inside the pure
+  closure, because the result is published the moment the closure
+  returns. That would be a new escape, and the maintainer rejected it.
+- *Trying to mark the promises persistent hangs.* `lean_mark_persistent`
+  waits for every task it reaches.
+- *Task-manager mutex acquisitions*, counted with an `LD_PRELOAD`
+  counter (`_tmp/amdahl/commit-logs/mtxcount/`), cslib:
+
+| | locks | contended, 32 jobs | contended, 64 jobs |
+|---|---|---|---|
+| before | 1.54 M (4 per record: 2 resolves, 2 frees) | 182 k | 417 k |
+| after | 0.77 M (1 resolve, 1 free) | 43 k | 83 k |
+
+- *Commit waits.* Before, the commit thread called `IO.wait` on every
+  record. After, it sleeps 70–900 times per run (cslib, NS,
+  mathlib-full at 32), mostly early, on the dependency critical path.
+- *Overlaps (zero).* A worker would be forcing a slot whose record is
+  not installed. The blocked `Task.get`s, by stack, are all the main
+  thread's waits on prelude tasks, the parse and the builder join: on
+  NS and cslib at 32 and 64 jobs, no worker overlaps.
+
+**Per-record rates** (mathlib-full, 691 k records, 32 jobs, before
+and after under the same load, ~50):
+
+| item | before | after |
+|---|---|---|
+| commit thread, own work | ~2.0 µs (cslib) | 0.26 µs |
+| builder (concurrent) | — | 0.45 µs |
+| prediction + base (+ its mark) | 480 ms, 0.69 µs | 107 ms, 0.15 µs |
+| slots, counts, dependents (serial before) | 454 ms, 0.66 µs | 132 ms, 0.19 µs (tasks) |
+| dependencies (tasks) | 662 ms | 436 ms |
+| install phase | 7.8 s | 6.4 s |
+
+At 10× and 200 threads that is about 1.8 s of commit work with 3.2 s
+of builder work beside it, against a pool of ~2.7 s. The builder's
+tail is therefore the install's serial end, ~0.5 s past the pool. The
+prelude, apart from the records' mark (ROUNDS), is ~2 s: the slot
+concatenation and the counters' prefix sums are still serial.
+
+**Measured** (`more-parallel` `99cec6880` against this lane). Medians
+over 3 runs (min–max), wall seconds; instructions are the minimum of
+the runs; the load is the one-minute average across the runs.
+
+| corpus | jobs | binary | install | check | total | instr (T) | load |
+|---|---|---|---|---|---|---|---|
+| NS | 8 | before | 3.7 (3.6–3.8) | 40.8 (40.3–41.1) | 46.4 | 3.196 | 13–54 |
+| NS | 8 | after | 3.2 (3.0–3.5) | 40.6 (40.4–49.5) | 45.5 | 3.190 | 12–32 |
+| NS | 32 | before | 2.2 (2.1–2.5) | 13.7 (12.5–17.8) | 17.6 | 3.190 | 12–46 |
+| NS | 32 | after | 1.8 (1.8–1.9) | 14.8 (12.8–17.0) | 18.3 | 3.189 | 16–46 |
+| cslib | 8 | before | 6.3 (5.9–16.2) | 56.6 (36.5–72.4) | 66.2 | 2.901 | 14–96 |
+| cslib | 8 | after | 5.4 (5.1–8.4) | 36.6 (36.2–40.3) | 45.8 | 2.888 | 11–96 |
+| cslib | 32 | before | 3.3 (3.2–3.6) | 11.6 (11.2–14.2) | 18.7 | 2.897 | 11–68 |
+| cslib | 32 | after | 2.9 (2.9–3.1) | 13.0 (12.0–16.0) | 19.4 | 2.888 | 15–68 |
+
+- *The check-phase column is noise; the code is untouched.*
+  - Five paired runs on cslib at 32 jobs (`perf stat -p` from the
+    phase boundary, load 20–26): check 11.7 s against 11.8 s. Cycles
+    were 1.496 T against 1.522 T, inside the ±5 % run-to-run spread.
+    Instructions were −0.05 %.
+  - Joining the workers again does not change it.
+- *Mathlib-full* (one run each, load 46–61):
+  - 32 jobs: install 7.8 → 6.4 s, total 59.0 → 53.7 s, 8.442 → 8.421 T.
+  - 8 jobs: install 12.7 → 12.2 s, 8.450 → 8.425 T.
+  - Both accept all 691 203 records.
+- *`--jobs=1`* (init-full, one run each): 484.852 → 484.854 G
+  instructions. The base layer's empty shard array costs nothing
+  measurable on an index miss.
+- *Gates.* `lake build` and `lake test` are warning-free, and
+  `tests/arena.sh` is green. Fallbacks are checked at positions 0,
+  5000 and 30 000 of init-full.
+
+**Not done.**
+- Presizing the builder's index: it starts from `mkFEnv Env.empty`, so
+  the run's statement would change.
+- The cursor's `IO.Ref` (`lean_st_ref_take` spins: 10 % of the pool's
+  samples at 32 on cslib).
+- The serial slot concatenation in the prediction.
+
+Logs and scripts are in `_tmp/amdahl/commit-logs/`.
+
+## TASK #329 — MTCLEAN: fewer multi-threaded marks, block claims off the cursor (2026-10-08, agent/329-mtclean)
+
+**Aim.** The COMMIT lane marked every prelude task's result
+multi-threaded (`Runtime.markMultiThreaded`) on principle, without
+separating the results that live for the whole install from the ones a
+single thread consumes and drops; the shared cursor still claimed one
+record per atomic take. The maintainer's ruling (2026-10-08): mark
+persistent what is long-lived and read by all workers, don't mark what
+is short-lived and single-thread-consumed, and never mark anything new
+multi-threaded. `checkDecls`, `checkDeclsIO` and `MainTheorem` are
+unchanged; `ParInstall`'s performance-only schedule section is the only
+code that moved.
+
+**1. Why a task's result needs marking at all** (read from
+`lean4`'s runtime at this toolchain, `v4.35.0-rc3`,
+`src/runtime/object.cpp`/`io.cpp`): `alloc_task` calls `lean_mark_mt` on
+a task's CLOSURE at spawn time (so whatever it captures gets walked and
+marked before the task can even run — this is why `ds` and the base
+shards are marked persistent *before* the chunk tasks that capture
+them are spawned: a persistent object's walk is `O(1)`, an unmarked
+one is a full graph walk, serially, on the spawning thread), and
+`resolve_core` calls `mark_mt` on a task's RESULT while holding the
+task manager's one global mutex when the task finishes. Pre-marking a
+result inside its own task (on the worker's own time, unlocked) makes
+that locked call a no-op (`lean_mark_mt`/`lean_mark_persistent` both
+skip an object whose header is already in a terminal state) instead of
+a full walk under the contended lock — a real saving when several
+tasks resolve together, not merely "free" bookkeeping. `lean_mark_mt`
+skips anything already persistent OR already multi-threaded;
+`lean_mark_persistent` (`lean_has_rc`, checked on `m_rc != 0`) does
+NOT skip a multi-threaded object — it re-walks and downgrades it to
+persistent, at full cost. Marking something multi-threaded and then
+persistent shortly after is therefore not "layering two cheap marks",
+it is two full walks of the same graph, and `.set` on a *persistent*
+`IO.Ref`/promise still goes through the atomic path
+(`lean_st_ref_put`'s `ref_maybe_mt`, true for persistent refs too) but
+only walks the fresh wrapper constructors on the way in, because the
+install result stored in them was already marked persistent earlier
+(`installAndPublish`) — the walk never reaches the (large) payload
+again.
+
+**2. The audit of every `Runtime.markMultiThreaded` call the COMMIT
+lane added**, against "read by all workers for the whole install →
+persistent" vs "consumed once and dropped → flat, or kept multi-threaded
+only because it still crosses threads and must not leak":
+
+| site | before | after | why |
+|---|---|---|---|
+| `depsChunk`'s `(counts, state, edges)` | always MT | persistent (MT under `--no-mark-persistent`) | `counts` and `state` are read — `state` also written — by every worker for the whole install; freeing either normally is one serial walk at the end, same argument the lane already had for `edges`. An installer's `.set (.done q)` on the now-persistent `state` ref only walks the `.done`/tuple wrappers; the install result inside is already persistent. |
+| `dependentsChunk`'s per-chunk result | always MT | **kept**, unconditional MT | `chunks.size` of these resolve together; pre-marking keeps `resolve_core`'s locked walk a no-op. It is genuinely short-lived (the combined `dependents` below is marked persistent once, separately), so persistent here would be wrong — a short-lived, non-scalar, genuinely-concurrently-read result is exactly the one case multi-threaded is for. |
+| `slotChunk`'s `(ps, ss)` | always MT | **kept** (unchanged, re-justified) | still can't be persistent: `lean_mark_persistent` walks into an unresolved `IO.Promise`'s task and hangs. |
+| `predictChunk`'s per-chunk result | always MT | **kept**, unconditional MT | its `cs` (the `buckets`, and the `slots` it feeds) is handed to every shard-building task afterwards — real concurrent reads, not a join — then dropped; persistent would leak the names and the arrays for the rest of the run. |
+| base shard (`buildShard`) | persistent unless `noMark` | unchanged | already correct: read by every lookup for the whole install. |
+| **builder's final `fe`** (`builderLoop`) | marked MT before return | **removed** | the builder is the only task resolving at that point (no sibling task contending the lock for it), and the commit thread is `fe`'s only reader until `Run.lean` marks the installed environment persistent a few lines later — the MT mark bought nothing and cost a full walk of the whole index, done twice. |
+
+Escape count: still 21 (`tests/arena.sh`'s trust-surface line); no new
+`unsafe` call site, only an existing one's argument widened
+(`depsChunk`'s single `markPersistent` now covers three values instead
+of marking them separately).
+
+**3. Other cross-thread `IO.Ref`s checked** (item 3 of the job): every
+`IO.Ref` in `Driver/*` was read off by name. `CheckPool.lean`'s `next`,
+`limit` (`IO.Ref Nat`) and `done` (`Std.Mutex Nat`) hold scalars only —
+nothing to mark, as already noted in its own module doc. In
+`ParInstall.lean`, every `Sched`/`Shared`/`Builder` ref is a scalar
+(`Nat`, `Bool`, `Option Nat`) except `Sched.deferred`
+(`IO.Ref (Std.TreeSet Nat compare)`, mutated by `release`/`popDeferred`
+from any worker) and `Shared.state`/`Sched.counts` (now persistent,
+above). `deferred` is NOT a candidate for persistent: it is genuinely
+mutated throughout the whole install (`.insert`/`.erase`), and a
+persistent tree would leak every superseded path-copied node instead of
+freeing it. It gets marked multi-threaded automatically, for free, the
+moment the first worker task is spawned (`alloc_task`'s closure walk,
+§1) — while it is still the empty tree, so that walk is `O(1)` — and
+every later `.modify` is then an `O(log(deferred size))` walk under
+`lean_st_ref_put`'s `mark_mt`, following only the path-copied nodes a
+balanced tree insert/erase touches; `deferredN` stays tiny in practice
+(a handful of records at a time, past the basis gate). No change
+needed.
+
+**4. The cursor claims in blocks of `ParInstall.cursorBlockSize`
+(64).** `Sched.cursor` and `nextReady` now hand out `blockSize` records
+per atomic claim instead of one; a worker drains its own block (plain
+function arguments threaded through `nextReady`/`workerLoop`, not a
+second `IO.Ref` — the block is worker-local, nothing else ever reads
+it) before claiming the next, and a deferred record (from a release)
+still pre-empts both. Stream-order preference is unaffected: the
+deferred set is always drained first, and within a worker the block is
+still consumed low-to-high. Nothing above the scheduler's performance-only
+section changed; `commitLoop`'s proof-carrying code is untouched aside
+from being pushed down 6 lines by added documentation. 64 is picked
+from the suggested 32–256 range on the strength of the design argument
+in `ParInstall.lean`'s doc comment, not a sharp measured knee (see
+below) — one claim per record is a named, understood contention point,
+and claiming in blocks removes it at no real cost.
+
+**Measured.** `--jobs=8`/`32` on NS and cslib, 3 runs each, median
+(min–max) wall seconds, against `more-parallel` `46e3e14da` (the
+COMMIT lane's landed state) as "before"; load is this host's one-minute
+average across the runs (several other lanes' builds/checkers were
+running throughout — this host was far more loaded than the COMMIT
+lane's own measurement, 8–96 there against 8–57 here):
+
+| corpus | jobs | ver | install | check | load |
+|---|---|---|---|---|---|
+| NS | 8 | before | 3.20 (3.10–3.20) | 41.50 (41.30–44.80) | 12–33 |
+| NS | 8 | after | 3.40 (3.20–4.60) | 51.90 (48.30–57.40) | 20–48 |
+| NS | 32 | before | 1.90 (1.80–2.00) | 14.00 (14.00–14.20) | 18–38 |
+| NS | 32 | after | 1.90 (1.80–1.90) | 13.50 (13.40–13.70) | 19–33 |
+| cslib | 8 | before | 5.40 (5.30–5.40) | 36.80 (36.20–36.80) | 8–19 |
+| cslib | 8 | after | 5.20 (5.10–5.20) | 35.70 (35.30–36.10) | 8–19 |
+| cslib | 32 | before | 2.80 (2.80–2.80) | 11.50 (11.50–11.90) | 15–27 |
+| cslib | 32 | after | 2.70 (2.70–2.80) | 11.30 (11.30–11.40) | 19–27 |
+
+- The check phase's code is untouched (same observation the COMMIT
+  lane made): its column moves with the load, not the binary — NS at
+  `--jobs=8` (load spiked to 48 mid-sweep from a concurrent lane's
+  build) is the clearest case, and is noise, not a regression.
+- `--jobs=1` bypasses `parInstall` entirely (`checkDeclsIO` calls the
+  serial `installLoop` directly when `jobs ≤ 1`), so none of this
+  lane's code runs at `--jobs=1`; init-full instructions confirm
+  exactly that: 484.944 G → 484.992 G (+0.01 %, run-to-run noise).
+- `perf record -g`, cslib at `--jobs=32`, stopped at the "persistent
+  mark" line (parse + install combined, since no stdout line marks the
+  install phase's own start without `--progress=1`): `lean_st_ref_take`
+  self time 0.12 % → 0.05 % of samples; isolating install only (started
+  at "parse done") gave 0.13–0.21 % → 0.10–0.11 %; a same-binary,
+  claim-size-only A/B inside this lane (`cursorBlockSize` 1 vs 64, same
+  persistent marks, same gate) gave 0.13 % → 0.10 %. All of these are a
+  few hundred samples out of ~150–200 K and did not reproduce the
+  maintainer's quoted ~10 %-of-the-pool figure under today's shared-host
+  load and the wider (parse- and prelude-inclusive) window this lane's
+  stdout markers can isolate; `lean_dec_ref_cold`'s share (10–12 %
+  throughout) did not move outside that same noise either way. The
+  design argument for claiming in blocks (§4) stands on its own; the
+  measurement neither confirms nor contradicts a specific percentage
+  today.
+- mathlib-full (`--verified`, under the flock, one run each): accepted
+  691203 both times. `--jobs=32`: install 6.8 s, check 35.0 s, total
+  57.0 s. `--jobs=8`: install 11.9 s, check 108.4 s, total 131.5 s.
+- Gates: `lake build` and `lake test` warning-free; `tests/arena.sh`
+  green (e2e 461/461, arena tutorial 90/92 as expected, trust-surface
+  21/21 allowlisted, escape count unchanged).
+
+**Not done.**
+- A sharp measured knee for `cursorBlockSize`: today's shared, loaded
+  host didn't resolve one between 1/16/64/256; 64 is the design choice,
+  not a measured optimum (§4).
+- Isolating the commit loop's own CPU share from the rest of the
+  install phase needs a stdout marker at the commit loop's start (there
+  is none today, only the end-of-install summary line), or a
+  `perf --time` slice computed from it after the fact; not done here.
+
+Logs and scripts are in `_tmp/amdahl/mtclean-logs/`.
+
+## TASK #329 — LAZY: P0, theorem bodies built in their check task — the measurements, and a ruling needed (2026-10-08, agent/329-lazy)
+
+**The direction** (maintainer, 2026-10-08): scan every chunk flat, mark
+by one backward sweep the expression lines install needs, build only
+those into the persistent tables, and build each theorem's value inside
+its own check task from the flat lines, dropping it after the check.
+This record is phase P0 (measure first). Nothing of the checker
+changed; the measurements come from a stand-alone prototype
+(`_tmp/amdahl/lazy-logs/LazyP0.lean.txt`, run as an extra `lean_exe`
+of the worktree, never committed): the scan is `scanFlat`, the sweep
+reads the flat lines backward (a line-start index per chunk), the eager
+build is a serial `exprOfF` fold over the marked lines, and a theorem's
+value is built from the lines between the previous declaration line and
+its own (its region, applied forward into a dense array), with the
+lines outside the region found through a sparse per-chunk index (every
+32nd expression line) and memoised in a hash map. The builds hash the
+values; the hash is the same at every task count.
+
+### Numbers
+
+Flat bytes, theorem-only lines (marked by nothing install reads), and
+the serial backward sweep (`--jobs` does not matter; the sweep is the
+tail-recursive machine-word version, 6.6–10 ns a line):
+
+| corpus | JSON | flat | flat/JSON | theorem-only expr lines | their flat bytes | sweep |
+|---|---|---|---|---|---|---|
+| init-full | 347.7 MB | 87.6 MB | 25.2 % | 5.03 M (82.0 %) | 66.0 MB | 62 ms |
+| NS | 1.560 GB | 381 MB | 24.4 % | 22.66 M (81.7 %) | 297 MB | 170 ms |
+| cslib | 2.423 GB | 583 MB | 24.1 % | 27.87 M (69.6 %) | 368 MB | 310 ms |
+| mathlib-full | 6.069 GB | 1.462 GB | 24.1 % | 73.38 M (71.3 %) | 968 MB | 713 ms |
+
+The theorem-only counts are the C study's (`_tmp/amdahl/lazythm/`)
+exactly. A closure check after the sweep (every marked line's children
+marked, every root marked) passes on all four. The sweep also needs a
+line-start index (four bytes a line, 430 MB on mathlib-full, built in
+parallel in 73 ms, dropped after the sweep).
+
+**What the theorem-only lines cost as objects.** Built eagerly, the
+73.4 M theorem-only expressions of mathlib-full take 2.35 GB (peak RSS
+of the prototype's eager build, all lines against the marked ones:
+8.87 GB against 6.52 GB; 32 bytes a line); on init-full 115 MB (23
+bytes a line). Their flat bytes are 968 MB (66 MB), their slots in the
+id-indexed pages another 8 bytes a line (590 MB). So the saving at the
+peak is about 2.35 GB minus what stays resident for the check tasks:
+with the flat chunks resident as scanned (1.46 GB) and the pages
+unchanged, about 0.9 GB of mathlib-full's 7.8 GB; with the chunks
+compacted to their theorem-only lines (0.97 GB) and the pages
+compacted to the marked ids, about 2.0 GB. The maintainer's estimate
+of 4.6 GB assumed about twice the measured size of a node.
+
+**Building in the check task.** Lines built per theorem against
+theorem-only lines: 1.350 (init-full), 1.239 (mathlib-full), as the C
+study said; 30 % (25 %) of them lie outside the theorem's region and go
+through the sparse index. With the marked tables persistent (as the
+rounds parse leaves them): 169–172 ns a line on one task (init-full),
+233 ns a line·task at 8 tasks and 314 at 32 on mathlib-full (load 10–12).
+That is about 21 s of CPU added to mathlib-full's check pool: +0.7 s
+wall at 32 workers, +2.7 s at 8, +5 s at 4. The prototype's builder
+(hash-map memo, a list of children per node) is not tuned; the serial
+apply's 45–60 ns a line is the floor.
+
+**Re-reading from the file instead of keeping the chunks.** Lean's
+`IO.FS.Handle` has no seek or positioned read (`pread`): a check task
+cannot read its byte range of the file. Parallel reads at offsets would
+need new FFI code (trusted C), which the lane's rules exclude, so the
+re-read variant is not implementable as asked; the chunks are read
+sequentially by one thread (1.3–1.8 s for mathlib-full from the page
+cache) and scanned in parallel. Its CPU cost, measured with the JSON
+kept in memory (no I/O): re-scanning the theorems' regions on init-full
+takes 657 ms on one task against the build's 1151 ms, +57 %, and covers
+only the lines inside the regions.
+
+**Expected effect** (mathlib-full): peak RSS −0.9 to −2.0 GB; the parse
+builds 29 % of the expressions and adds a 0.7 s serial sweep; the check
+pool gains about 21 s of CPU. At `--jobs=4` the parse saving (the
+rounds parse costs about twice the serial apply's CPU, ROUNDS2) should
+exceed the check pool's +5 s; at 32 the two are about even.
+
+### The obstacle: the environment stores theorem values
+
+Phase A installs a theorem by its statement but pushes
+`.thmInfo cvA value` with the record's raw value
+(`annotStepC`, `ConLeche/Cached/Installed.lean`; the specification
+checker's `checkThmVal`, `ConLeche/Kernel/Checker.lean`, does the same),
+and the driver marks that environment persistent. So today every
+theorem value is alive to the end of the run, and in the lazy design
+the run-time environment cannot be the fold's: it holds a placeholder
+where the fold's holds the value. `MainTheorem` is about the fold's
+environment, so the driver must prove that the fold over the parsed
+records (the ghost, values included) accepts whenever the run over the
+placeholder records does. Two routes:
+
+* **(A) No statement change: congruence up to theorem values.** Prove
+  that the install steps and `checkPending` give the same results at
+  two indices whose `find?` agree except in the values of theorem
+  constants. The cached core never reads a theorem's value (every
+  `find?` match names other constructors; the docs say so), but the
+  existing congruence (`KnotCongr.lean`, `ViewCongr.lean`, the twin
+  indices of the parallel install) is stated for EQUAL `find?`. Every
+  leaf lemma (about 40 functions that match on `find?`) needs a case
+  analysis instead of `simp [hfe]`, and the kernel functions that take
+  `find?` as an argument (`checkBlockPositivity`, `blockNestCtx`,
+  `consBlockRecsTF`, `blockRecInfosTF`, `typeSortPW`, `proofPW`,
+  `isProofFast`, `projMissError`) need invariance proofs by their own
+  structure. Estimated 2500–3500 lines of proof on top of the lane's
+  own (the parse-side check of unbuilt lines, the provenance of the
+  lines a check task reads, the ghost records), about 1500.
+* **(B) A ruling: store a theorem by its statement only.** Both
+  checkers push the theorem constant with a fixed value (for example
+  `Expr.sort .zero`) instead of the record's. The run-time environment
+  and the fold's are then identical, and the lane's proof of the
+  install is one step lemma (a theorem record's value reaches only its
+  `PendingCheck`). `MainTheorem`'s statement text does not change, but
+  the environment it is about no longer carries proof terms; the 66
+  mentions of `thmInfo` in `Model/`, `Semantics/` and `Verify/` must
+  not read the value (the
+  docstring of `checkThmVal` says nothing does). That is a change to
+  `checkDecls` and the specification checker, hence a ruling.
+
+Either way `preparePrelude` needs one change: the ground hoist reads
+the constants of a theorem's VALUE when the theorem is in a pinned
+operation's ground closure (`Declaration.usedConsts`). A names-only
+pre-test (no pinned operation has a ground name declared after it) would
+make the hoist the identity without reading any value, and the lazy
+path would fall back to the eager parse on the streams where it is not.
+
+### Design notes for P1/P2 (for whoever continues)
+
+* **Validation in the parallel check, not the serial sweep.** The
+  sweep only marks; it validates nothing. The check pass that follows
+  the build (the lazy twin of `checkFlat`) checks an unmarked line's
+  references (bound, below the counters) and its binding (at or above
+  its counter, nothing bound in the gap) without building it, and a
+  marked line as today. Any failure falls back.
+* **The fallback restarts the serial parse at the stream's start**, over
+  the resident flat chunks (`chunkStepF`): tables without the unmarked
+  entries are not a state the serial parse can continue from
+  (`Prior.toState` would miss them). The verdict and the line are then
+  the serial parse's, as the maintainer asked.
+* **The finished tables hold three kinds of slot**: a built entry, a
+  "bound, not built" placeholder (the gappy-id check needs to know an
+  unmarked id is bound), and the unbound placeholder. The invariant
+  between chunks is the rounds parse's `Holds` weakened to the marked
+  ids, with the bound set agreeing; the theorem record carries a
+  placeholder naming its value's id and its region.
+* **Proving a check task's value**: the task reads lines at positions
+  it got from a checked walk (line starts with `lineEndU_spec`), so each
+  line it reads is a line of the stream; the serial fold's success
+  gives each such line's entry (`allOK_of_applyList`), and the build
+  with a task-local memo equals the ghost table's entry by induction on
+  the index.
+* **The sweep is serial**: 0.7 s on mathlib-full. Parallel local sweeps
+  per chunk, with the marks that cross into earlier chunks fed back in
+  rounds, would remove most of it if needed.
+
+Logs: `_tmp/amdahl/lazy-logs/` (`p0-*.txt`, the prototype).
+
+**Decision (maintainer, 2026-10-08): parked.** A 12–25 % peak-memory gain
+(0.9–2.0 GB on mathlib-full) and a win only at low worker counts do not
+justify either route yet; revisit if the memory saving can be made
+substantially larger.  Separately, storing a theorem's (and an opaque's)
+value in the environment at all is to be removed if the proofs allow it
+(the cleaner specification, independent of lazy parsing).
+
+## TASK #329 — IFIX: the review's findings on the parallel install (2026-10-09, agent/329-ifix)
+
+**Aim.** Apply the independent review of the parallel install
+(`_tmp/review-pinstall.md`: P1–P5, F2–F5, F8). MainTheorem, the main
+corollary, `checkDecls` and `checkDeclsIO`'s return type are unchanged;
+no sorry, no new axiom, nothing multi-threaded added. `--jobs=1` still
+runs `installLoop`.
+
+**Applied.**
+- **P1 + F2: the commit thread pushes.** The builder thread is gone
+  (`Builder`, `publish`, `finish`, `builderLoop`, `joinBuilder`). The
+  commit loop carries the real index `fe` instead of the ghost
+  `prefixFe S k` and pushes the installer's constants itself, which is
+  exactly `installStep_commit`'s `pushAll L fe`. `prefixFe`,
+  `slotList`, `prefixStep`, `foldl_push_eq_pushAll`, `ciSame`,
+  `listSame` and `selfOk` go (the installer's verdict is `andPinOk` and
+  `slotsOk` only). The index is marked linear (task #331) before the
+  loop, as on the serial path: a copy of it now panics on the parallel
+  path too. The loop is tail-recursive with `fe` and `pend` as plain
+  arguments; the full arena battery and mathlib-full ran under
+  `LEAN_ABORT_ON_NONLINEAR` without a panic. (A variant that ran the
+  commit loop on a dedicated task, tried for heap locality, did panic:
+  the task's closure held the marked index while the loop pushed. Not
+  kept.)
+- **P2: no fallback.** A misprediction (counter, slot, a missing or
+  mismatched result) is an internal error, exit 3 (`mispredicted`). A
+  failed `And` pin is rejected with the serial step's own error
+  (`annotDeclStep`, which rejects before installing anything). Removed:
+  `fallbackFrom`, `commitFallback`, `--install-fallback-at` (Main, Run,
+  ParInstall, the usage text) and the arena loop that exercised it. The
+  path is unreachable from input (F1), so it has no fixture; the
+  `corner_andpin_*_bad` fixtures, which the arena runs at `--jobs=4`,
+  now exercise the direct `And` rejection. At a rejection site the
+  commit loop checks, as a `have`, that the error is the serial step's
+  (`installStep_commit_error`); the return type still carries no proof
+  for a rejection.
+- **P4: the workers start past the gate.** The cursor starts at
+  `gate + 1`; the commit thread installs the records up to the gate
+  (inside the prelude: 319 records on NS, 1452–1453 on cslib and
+  mathlib-full) itself, and a worker that needs one of their slots
+  waits on its promise. `held`, `earlyLeft` and the gate branches are
+  gone. A/B against the same tree with the hold logic restored (NS,
+  cslib, `--jobs=4/8/32`, 3 runs each): install within noise at every
+  point (e.g. cslib 32: 2.0 against 1.8–2.0 s; NS 32: 1.35 against
+  1.30 s). Adopted.
+- **F4, F5, F8, LAYER.** The trust-surface text describes this driver's
+  six marks: what each marks, which are read-only (the counts and
+  states are written, through the runtime's atomic path), which use
+  their result and why that is harmless, and what each relies on. The
+  stale module docs (`Verify/Cached/ParInstall.lean`, `valueStep`,
+  `BuiltShard`, the driver's "pure move") are rewritten. The result's
+  `markPersistent` carries the warning: it is safe only while an
+  install result reaches no multi-threaded object another thread still
+  counts. `Main.lean`'s module doc states the LAYER rule (the CLI may
+  import `Verify/*`).
+
+**Measured, not applied.**
+- **P5 (install-only data not persistent).** Three variants on
+  `more-parallel` `408fd7ccd`:
+  - *Base shards multi-threaded:* every base hit (`baseGet?`) takes a
+    reference on a shard entry, and multi-threaded that is an atomic
+    increment on a line every worker touches. NS at `--jobs=32`:
+    dependencies 110 → 280–350 ms, dependents 16 → 57–117 ms, commit
+    1.18 → 1.35 s, install 1.3 → 1.7 s (3 runs each). The shards stay
+    persistent.
+  - *Counts, states, edges and dependents multi-threaded and freed on
+    background tasks* (shards persistent): install unchanged, but the
+    check phase on mathlib-full at `--jobs=8` took 118.1 s
+    (117.9–118.3) against 114.9 (114.0–115.7) before and 113.9
+    (113.1–114.6) for the same tree with them persistent, at the same
+    instructions (4 runs each). At `--jobs=4` the gap was ~10 s on
+    224 s. Peak RSS fell 7.17 → 6.83 GiB. Freed memory interleaved with
+    surviving objects is the likely cause (the check workers allocate
+    from it). They stay persistent; the sites say why.
+- **P3 (one record per cursor claim).** With one claim per record the
+  install at low worker counts was slower at the same instructions.
+  Against the merged base (`fc6209862`), 3 runs each: NS `--jobs=4`
+  5.30 s (5.3–10.2, one run under load 54) against 5.20, and 5.10 with
+  block claims; cslib `--jobs=4` 8.80 (8.6–9.5) against 8.10 and 8.50;
+  cslib `--jobs=8` 4.70 against 4.40 and 4.40; mathlib-full `--jobs=8`
+  10.85 (10.8–10.9) against 9.90 (9.6–10.2) (2 runs). The pool's busy
+  time on cslib at 4 rose from 26 to 30 s. Neighbouring records'
+  per-record objects alternating between workers is the plausible
+  cause. `cursorBlockSize` (64) stays, with this measurement in its
+  doc.
+
+**Net.** `ConLeche/**` and `Main.lean`: −182 lines (+262 −444, docs
+included); with the scripts, tests and documents −164.
+
+**Measured** (`more-parallel` `fc6209862` against this lane after the
+merge; medians (min–max), wall seconds from the `done:` line; NS and
+cslib 3 runs, mathlib-full 2; instructions are the minimum; the load is
+the one-minute average at the runs' starts):
+
+| corpus | jobs | binary | install | total | instr (T) | load |
+|---|---|---|---|---|---|---|
+| NS | 4 | before | 5.20 (5.1–7.1) | 91.7 (90.6–111.9) | 3.205 | 11–98 |
+| NS | 4 | after | 5.10 (5.0–5.2) | 90.7 (89.7–91.0) | 3.204 | 5–58 |
+| NS | 8 | before | 2.70 (2.7–2.8) | 47.7 (47.5–52.7) | 3.208 | 4–17 |
+| NS | 8 | after | 2.90 (2.7–3.1) | 48.2 (47.9–57.0) | 3.209 | 8–33 |
+| NS | 32 | before | 1.50 (1.3–1.5) | 16.8 (16.7–17.2) | 3.218 | 4–28 |
+| NS | 32 | after | 1.40 (1.4–1.4) | 17.1 (16.3–17.4) | 3.219 | 12–29 |
+| cslib | 4 | before | 8.10 (7.9–8.7) | 86.9 (85.2–96.4) | 2.898 | 9–37 |
+| cslib | 4 | after | 8.50 (8.0–8.8) | 87.7 (86.2–88.4) | 2.897 | 8–31 |
+| cslib | 8 | before | 4.40 (4.4–4.5) | 46.6 (46.4–46.8) | 2.900 | 4–13 |
+| cslib | 8 | after | 4.40 (4.4–6.2) | 46.6 (46.4–62.5) | 2.898 | 10–32 |
+| cslib | 32 | before | 1.90 (1.9–2.0) | 16.4 (16.2–17.0) | 2.916 | 17–30 |
+| cslib | 32 | after | 2.10 (2.0–2.1) | 16.8 (16.6–17.4) | 2.918 | 21–30 |
+| mathlib-full | 4 | before | 19.35 (18.9–19.8) | 251.9 (250.1–253.7) | 8.456 | 25 |
+| mathlib-full | 4 | after | 18.80 (18.7–18.9) | 248.5 (246.8–250.1) | 8.457 | 5–6 |
+| mathlib-full | 8 | before | 10.45 (10.0–10.9) | 131.2 (130.1–132.3) | 8.464 | 5–11 |
+| mathlib-full | 8 | after | 10.45 (10.4–10.5) | 130.8 (129.7–131.9) | 8.463 | 8–9 |
+| mathlib-full | 32 | before | 4.00 (3.8–4.2) | 43.5 (42.2–44.7) | 8.481 | 8 |
+| mathlib-full | 32 | after | 3.95 (3.8–4.1) | 42.9 (42.4–43.4) | 8.482 | 18–20 |
+
+Every run accepts (mathlib-full 691 203 records). The differences are
+within the run-to-run spread on this host; the largest, cslib at
+`--jobs=4` (+0.4 s) and at `--jobs=32` (+0.2 s), lie inside the ranges
+or under higher load. Without the builder the commit thread does the
+pushes itself; at 32 jobs on mathlib-full it now sleeps on a worker
+~550 times instead of ~3400, i.e. it is close to busy, which is the
+next serial limit at larger worker counts.
+
+**Gates.** `lake build` and `lake test` warning-free; `tests/arena.sh`
+green (e2e 468/468, install pool 6/6 after the fallback loop's removal,
+trust surface 22 escapes in 8 allowlisted files, unchanged: the
+driver's six marks are the same six sites, restated).
+
+**Not done.** F6 (multi-threaded wrappers from `.set` on persistent
+refs, read-mostly flags) and F7 beyond the comment at the workers'
+non-join: both left out as instructed.
+
+Logs, scripts and the variant patches are in `_tmp/amdahl/ifix-logs/`.
+
+## TASK #329 — IFIX2: the second review's findings on the parallel install (2026-10-10, agent/329-ifix2)
+
+**Aim.** Apply the second review of the parallel install
+(`_tmp/review2-install.md`): fix F1 and F2, restate F4, correct F5,
+document the commit handshake and the block constant (P3), and
+measure P1 and the review's commit-thread savings. MainTheorem, the
+main corollary, `checkDecls` and `checkDeclsIO`'s type are unchanged;
+no proof changed; no sorry, no new axiom, no new `unsafe`.
+
+**Applied.**
+- **F1, the hang.** `parInstall` runs the commit loop under
+  `try … catch`: on an IO exception (the only throwing calls are the
+  heartbeat writes) it stops the workers with every slot resolved
+  (`stopWorkers sh true`) and rethrows. Before, a worker past the end
+  of the stream slept on the scheduler's condition variable forever,
+  and the runtime's finalisation joined it: `--progress=1 --jobs=4
+  pinstall_ok.ndjson 2>&1 >/dev/null | head -c 1500` ran into a 30 s
+  timeout 3 times out of 3; now it exits 3 (task #335's mapping).
+  `tests/arena.sh` checks it at `--jobs=4` and `32`. The other
+  exception paths: every throwing call before the workers start (the
+  prelude tasks' `IO.ofExcept`) leaves no worker to stop; the workers
+  themselves run only reference, clock, promise, mutex and
+  condition-variable operations, none of which throws (stated at the
+  workers' non-join). After task #336 the process ends with
+  `IO.Process.exit` and no longer joins the workers anyway, so the hang
+  would not recur on today's exit path, but the stop is still needed:
+  `Main.lean`'s description of that path now says what the install
+  pool's workers are doing then.
+- **F2.** The install pool's report (`rep`) takes only the workers that
+  have returned (`IO.hasFinished`) and names the others in its title
+  (`install pool (1 still running, not counted)`). A rejection's
+  verdict no longer waits for installs still in flight past the
+  rejected record. The comments that claimed the waits were free are
+  rewritten.
+- **F4.** The trust-surface text states the invariant every mark relies
+  on precisely: every object a mark reaches is persistent already,
+  built by the marking thread, or multi-threaded but counted by no other
+  running thread while the mark runs. The two marks of the third kind
+  (the dependents reaching `dependentsChunk`'s arrays; a base shard
+  reaching the projection tables' names `predictChunk` built, shared
+  with `slots`) say why at their sites.
+- **F5.** `Cached/InstallSkel.lean` (a misprediction is exit 3, not a
+  serial continuation), `Verify/Cached/ParInstall.lean` (a duplicate's
+  install fails and is committed without a slot check), the driver's
+  module doc (the workers are stopped on an exception too) and
+  `tests/arena.sh` (every kind is installed on the workers).
+- **The commit handshake** (`installAndPublish`/`waitDone`): a comment
+  says why it is correct — each side stores, then loads the other's
+  value, and `IO.Ref`'s get/set are sequentially consistent exchanges.
+- **P3.** `cursorBlockSize` (64) unchanged; its doc now calls it a
+  performance parameter with its measurement, and labels the cache-line
+  explanation a hypothesis.
+- **P1: the workers install the prelude.** The cursor starts at 0
+  instead of `gate + 1`; `recDeps` keeps the gate cut, so the records
+  up to the gate are scheduled in their dependency order like any
+  other and the records past it carry no edges to them.
+- **The commit reads before it claims.** The commit thread reads the
+  record's state first (`peekDone`) and calls `tryTake` only when it
+  is not done: two atomic exchanges fewer per record in the common case.
+
+**Not applied.** Pre-sizing the serial index from the known total: the
+run's start value is fixed by the type (`InstallRun … (0, mkFEnv
+Env.empty, #[]) p'`, and `checkDecls` starts there), and a pre-sized
+`HashMap` is a different value from `∅`. Pre-sizing would change that
+statement or need a simulation proof between the two maps; neither is
+worth a saving PRESIZE could not measure.
+
+**Measured** (A/B on `more-parallel` `e5865df57` + this lane before the
+merge of task #335/#336: `fix` = F1–F5 only, `p1` = with P1, `p1s` =
+with P1 and the done-first read; NS and cslib at 4/8/32 jobs 3 runs,
+mathlib-full 2 runs at every count plus 2 more at 32, interleaved;
+install = the `done:` line, wall seconds; medians (min–max); load = the
+one-minute average when the run took the lock). The machine was busy
+throughout (load up to 80 at a run's start, 155 between runs), so the
+ranges are wide.
+
+| corpus | jobs | fix | p1 | p1s | instr (T, fix/p1s) | load |
+|---|---|---|---|---|---|---|
+| NS | 4 | 4.70 (4.6–5.1) | 5.10 (4.7–5.4) | 4.80 (4.7–5.0) | 3.206 / 3.206 | 4–34 |
+| NS | 8 | 2.50 (2.5–3.7) | 2.60 (2.5–2.8) | 3.00 (2.7–3.8) | 3.212 / 3.209 | 8–20 |
+| NS | 32 | 1.40 (1.3–1.4) | 1.30 (1.3–1.4) | 1.30 (1.2–1.3) | 3.219 / 3.219 | 11–24 |
+| cslib | 4 | 8.10 (7.7–8.3) | 8.10 (7.4–8.3) | 8.30 (7.4–8.5) | 2.898 / 2.899 | 7–27 |
+| cslib | 8 | 4.40 (4.2–6.1) | 4.30 (4.0–6.6) | 4.40 (4.1–4.6) | 2.902 / 2.901 | 6–28 |
+| cslib | 32 | 2.90 (2.0–3.0) | 2.00 (2.0–2.2) | 1.70 (1.7–1.9) | 2.918 / 2.915 | 17–30 |
+| mathlib-full | 32 | 5.65 (3.8–6.5) | 4.45 (3.9–7.5) | 4.65 (3.9–5.9) | 8.466 / 8.464 | 28–80 |
+
+mathlib-full at 4 and 8 jobs (2 runs, load 25–184): fix 23.2 / 12.9 s,
+p1 25.3 / 16.2 s, p1s 40.1 / 13.0 s, each range several seconds wide
+(e.g. p1s at 4: 29.4 and 50.8 s, the second at load 184); not usable
+for a comparison, and not part of the adoption rule (32 jobs).
+
+What moved, from the `parallel install` line (at 32 jobs, medians):
+- **The commit thread's own installs** fall from 250 → 70 ms (NS),
+  1246 → 34 ms (cslib), 982 → 210 ms (mathlib-full, 4 runs): the prelude now
+  runs on the pool. Without P1 these were 0.5 s at low load but up to
+  1.3 s under load (the commit thread installing 1452 prelude records
+  alone, with the workers blocked on its slots).
+- **Its sleeps on a worker** rise in part (mathlib-full 2143 → 2373 ms,
+  cslib 775 → 934 ms):
+  the prelude's critical path is still a chain, now waited for instead
+  of run. Net at 32 jobs: install shorter on all three corpora (NS
+  −0.1 s, cslib −0.9/−1.2 s, mathlib-full −1.0 s by median); at 4 and
+  8 jobs on NS and cslib within the run-to-run spread (the largest,
+  NS at 4: 5.1 against 4.7 s, with p1 ranges 4.7–5.4 against 4.6–5.1).
+- **The done-first read**: the commit phase minus sleeps minus own
+  installs (≈ the per-record commit work) is 475–508 ms against
+  533–604 (cslib, 32 jobs), 971–1149 against 1028–1623 (mathlib-full),
+  equal on NS (168–178 against 147–177). A few percent of the commit
+  work; small, but measured on two corpora, and the change is a
+  reorder.
+
+Both adopted. Instructions are unchanged (within 0.3 %).
+
+**Net.** `ConLeche/**` and `Main.lean`: +118 −62 (+56; almost all
+comments: the code is the `try`, the report's filter, `peekDone` and
+the cursor). With the tests: +157 −78.
+
+**Gates.** `lake build`, `lake test` warning-free; `tests/arena.sh`
+green (e2e 469/469, install pool 8/8 with the two new hang checks,
+io-exception gate 1/1, trust surface unchanged: the driver's six marks
+are the same sites, restated); mathlib-full at `--jobs=32` accepts
+691 203 records (the final tree after the merge: install 4.2 s, commit thread 149 ms of own installs, load 60).
+
+Logs, scripts and binaries: `_tmp/amdahl/ifix2-logs/`.
+
+
+### Appended on `more-parallel` to the task #331 record
+
+**On `more-parallel`** (the merge of master, 2026-10-09): the overlay
+arms and `checkDeclC_eq_ref` merge unchanged; `checkDeclC_twin`
+(`ConLeche/Verify/Cached/ViewCongr.lean`) rewrites both sides to the
+reference first, and PinOverlay's congruence lemmas are private (ViewCongr
+has public ones of the same names). `main` sets the two variables as on
+master. Marked here: only the serial install (`--jobs=1`,
+`ConLeche/Driver/Run.lean`). Not marked yet: the parallel install's
+builder thread and the owner-thread parse's tables (the streaming parse
+`parseExportHandleD` that master marks is gone here; `IdTable.markLinear`
+is in place for them).
+
+### Appended on `more-parallel` to the task #332 record
+
+**On `more-parallel`** (the merge of master, 2026-10-09). The worker
+views have an empty overlay too (the frozen layer is `FEnv.base`), so
+the removed fallbacks were never taken there either. `ViewCongr.lean`
+read both drivers through the references; `checkDeclC_twin` and
+`checkBlockTailS_twin` now unfold the running code: the value checks'
+unpushed halves read their index only through `find?`
+(`checkDefnValCI_congr`, `checkOpaqueValCI_congr`), the pinned arms'
+overlays on twin indices answer alike (`find?_overlay_push` and
+`Twin.push`), and so do the rule-less recursors' overlays
+(`classFeROvl_find?_twin`, used by `genRecCheck_twin`). PinOverlay's
+`find?` congruence lemmas are public again (`BridgeC` needs them), and
+ViewCongr's seven same-named copies of them are gone.
+
+## TASK #329 (install): the parallel install (2026-10-10, agent/329-xinstall)
+
+Extracted from task #329 (the `more-parallel` campaign, final
+`c37af82de`) onto `master`, rebuilt from the campaign's final code, not
+by replaying its history. The history is in the group of campaign
+records just above (PINSTALL with its stages P0 to P4, SCALE, COMMIT,
+MTCLEAN, LAZY, IFIX, IFIX2), copied from `more-parallel`'s DESIGN.md
+unchanged.
+
+**What it does.** At `--jobs=<n>` > 1 the install phase runs on `n`
+worker threads plus the main thread as the commit thread
+(`parInstall`, `ConLeche/Driver/ParInstall.lean`); `--jobs=1` runs
+`installLoop` on the main thread as before. Before any record is
+installed, the names every record will install are read off the records
+(`predictSlots`, over the install skeleton of
+`ConLeche/Cached/InstallSkel.lean`), and with them every constant's
+counter. A frozen base index (`FBase`, the new base layer of `FEnv`,
+sharded by name hash) maps each predicted name to its counter, its
+record and its position; record `k`'s constants are its slot, a thunk
+over a promise that the record's installer resolves. A worker installs
+record `k` with `installStep` at the *worker view* of its predicted
+counter: an empty index over the base, visible below that counter, so
+a lookup waits only on an earlier record. Workers walk the records off
+a shared cursor in blocks of 64 (`cursorBlockSize`), install the ready
+ones and leave the others to the worker that installs their last
+dependency; the common case takes no lock. The commit thread takes the
+records in stream order, checks the installer's verdict, pushes its
+constants into the serial index (marked linear, as on the serial path)
+and installs any record it reaches unclaimed itself.
+
+**How the result is tied to the serial fold.** The commit loop
+(`ParInstall.commitLoop`) carries the serial fold's accepting run
+(`InstallRun`) and extends it by one step per record, so `parInstall`
+returns exactly `installLoop`'s type, and `checkDeclsIO` and everything
+after it are unchanged. The step for a record a worker installed is
+`installStep_commit` (`ConLeche/Verify/Cached/ViewCongr.lean`): while
+the view answers every lookup as the serial index does
+(`ViewAgrees`), the install at the view is `annotDeclStep` at the
+serial index. That rests on three changes to the install itself, all
+part of this extraction:
+- every record is installed from a fresh memo state (the `CState`
+  threaded through phase A, and its converted-constant cache `ienv`,
+  are gone), so an install is a function of the index it sees and the
+  record alone (`InstallRun` lost its two `CState` arguments; the
+  model-side proofs `installRun_model`, `installRun_declares` and the
+  cached simulation follow);
+- every install stage reads its index through `find?` alone and writes
+  it by pushes alone (`ViewCongr`'s twin lemmas over the cached core's
+  congruence `coreKnotI_congr`), so two indices with the same lookups
+  get the same constants pushed;
+- `ViewAgrees` is kept by the commit: the installer checks, per
+  constant it pushes, that the predicted slot holds that very constant
+  (`slotsOk`, pointer comparisons) and the `And` pin (`andPinOk`), and
+  hands that verdict over with its result.
+A rejection is reported at the first failing record in fold order with
+the serial step's error (`installStep_commit_error`); a failed `And`
+pin with the serial step's error too. A misprediction (a counter or a
+slot that does not match) is an internal error, exit 3; no input
+reaches it, because every accepting step installs exactly the predicted
+skeleton (`annotStepC_skels`). MainTheorem and the main corollary are
+unchanged; no sorry, no new axiom. The new `unsafe` sites are the six
+`Runtime.markPersistent` calls in `Driver/ParInstall.lean` (the records,
+each install result and its slot array, and the install's own
+bookkeeping), allowlisted and described in `tests/trust-surface.sh`;
+`--no-mark-persistent` turns them off.
+
+**The statistics** (task #329's `stats` extraction, above) fill their
+install-pool slot: `install pool: … 32 workers + the commit thread`,
+and the install heartbeat's `busy=` suffix.
+
+**One change on top of the campaign (maintainer's ruling,
+2026-10-10).** Since task #336 the process ends with
+`IO.Process.exit`, and after a rejection at more than one worker a
+stopped install worker can still be inside the install of a record
+past the rejected one when `exit()` runs the C runtime's teardown. Now
+`parInstall` leaves the join of its workers in a ref (`drain`), which
+`main` (`Main.lean`) runs after the verdict line is printed and both
+streams are flushed, and before it exits. The rejection path need not
+be fast; after an accept the workers have long returned and the join is
+immediate. IFIX2's comments now say that the statistics count only the
+finished workers and that the exit waits for the rest.
+
+**What else differs from `more-parallel`, on purpose.**
+- The parallel parse (`Frontend/*` rounds and owner code,
+  `Driver/OwnerParse.lean`, `Verify/Frontend/*`, its fixtures, tests and
+  trust-surface entry) is left out; it is extracted separately.
+  `Driver/Run.lean`'s `parseInput`, `Main.lean`'s parse texts and
+  `MainTheorem.lean`'s docstring stay `master`'s.
+- The usage text for `--jobs` said that only definitions, theorems and
+  opaques go to the workers, which stopped being true with PINSTALL's
+  stage P4; it now says the records are installed on the workers and
+  the commit thread installs any record it reaches first.
+- `tests/e2e-expected.txt`'s comment on the install fixtures no longer
+  mentions `--install-fallback-at` (removed by IFIX).
+- OVERVIEW's link to `ParInstall.commitLoop` pointed at the wrong lines
+  on `more-parallel` (its recorded expectation was wrong too); it points
+  at the definition now.
+- `KnotCongr.lean` and `BlockOverlay.lean` lose the campaign's note
+  that they sat in the `Cached` tier for a while (they never did on
+  `master`).
+- `Main.lean`'s `progressStride`/`jobsCount` stay where `master` has
+  them (the campaign moved them below `Args`, a pure move).
+
+**Numbers from the campaign** (IFIX record, `more-parallel`
+`fc6209862` and the lane after its merge, wall seconds of the install
+phase from the `done:` line, medians): mathlib-full 18.8 s at
+`--jobs=4`, 10.45 s at 8, 3.95 s at 32; cslib 8.5 / 4.4 / 2.1 s; NS
+5.1 / 2.9 / 1.4 s. The serial install on mathlib-full is 48.5 s
+(BLOCKCOPY's merged tree; 86.7 s before the inductive blocks stopped
+copying the index). Instructions over the whole run rise by at most
+0.5 % against `--jobs=1` (mathlib-full 8.428 T serial, 8.45–8.48 T on
+the pool). IFIX2's prelude-on-the-pool and done-first read took
+mathlib-full at 32 jobs to 4.2–4.65 s under a load of 28–80.
+
+**Gates** (this tree): `lake build` and `lake test` warning-free
+(axioms pinned); `tests/arena.sh` green with every sub-gate (layering,
+shake and the public-import plan, trust surface, overview and
+whitepaper links, quote gate, challenge; e2e 463/463, statistics 6/6,
+install pool 8/8, the trusted, `--jobs=1` and `--jobs=4` sweeps).
+mathlib-full at `--jobs=32` accepts 691 203 records: parse 23.2 s,
+install 8.8 s (of which the records' persistent mark 3.7 s and the
+commit 3.8 s; the pool's report: 3.84 s wall, 95.8 % busy), check
+47.6 s, peak RSS 7.33 GiB, 79.9 s wall (one run, shared machine). The
+rejecting install fixtures at `--jobs=32` (`pinstall_reject_mid`,
+`pinstall_dup`) exit 1 in 40 runs out of 40 each, with the pool's
+report showing a worker still running at the summary. No measurement
+campaign: the maintainer takes a before/after measurement once all
+extractions have landed. Logs and the binary:
+`_tmp/amdahl/xinstall-logs/`.
