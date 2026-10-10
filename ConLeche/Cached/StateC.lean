@@ -8,8 +8,7 @@ public import ConLeche.Cached.ExprOpsC
 /-!
 # The cached checker state and its operation wrappers
 
-The per-declaration state: the converted-constant cache, the memo
-caches for the five entry points, the level-operation memos and the
+The per-declaration state: the memo caches for the five entry points, the level-operation memos and the
 persistent bulk-instantiation memo, with the linear-update discipline
 (detach a component from the state record before mutating it) each of
 them is written in.
@@ -97,23 +96,10 @@ def etaCtorShapeC (fe : FEnv) (e : Expr) : Bool :=
 
 /-! ## The state -/
 
-/-- One cached-environment entry: a stored constant's annotated type
-and (for definitions/theorems/opaques) value converted to `Expr`,
-each tagged with the very `Expr` object it came from.  A use validates
-the tag by pointer equality (`Expr.exprPtrBEq`, reused), so the
-conversion of a stored constant is paid once per declaration instead
-of once per delta step. -/
-structure CConstE where
-  tyE : Expr
-  ty : Expr
-  val : Option (Expr × Expr) := none
-
-/-- Per-declaration state: the converted-constant cache, the memo
-caches for the five entry points, the lazy caches for
+/-- Per-declaration state: the memo caches for the five entry points, the lazy caches for
 level-instantiated stored constants, the level-operation memos, and
 the persistent bulk-instantiation memo (task #145). -/
 structure CState where
-  ienv : Std.HashMap Name CConstE := {}
   constTyAt : Std.HashMap (Name × List Level) Expr := {}
   constValAt : Std.HashMap (Name × List Level) Expr := {}
   ruleRhsAt : Std.HashMap (Name × Name × List Level) Expr := {}
@@ -274,26 +260,6 @@ def isEquivListLM : List Level → List Level → CheckCM (Option Bool)
 
 /-! ## Lazy stored-constant conversions -/
 
-/-- The `Expr` of a stored constant's type: the cached entry when its
-`Expr` tag validates by pointer equality, else a fresh conversion. -/
-def storedTyIdxM (n : Name) (ty : Expr) : CheckCM Expr := do
-  let ent? : Option CConstE ← modifyGet fun s => (s.ienv[n]?, s)
-  match ent? with
-  | some ent =>
-    if Expr.exprPtrBEq ent.tyE ty then pure ent.ty
-    else pure ty
-  | none => pure ty
-
-/-- The `Expr` of a stored definition/theorem value (see
-`storedTyIdxM`). -/
-def storedValIdxM (n : Name) (v : Expr) : CheckCM Expr := do
-  let ent? : Option CConstE ← modifyGet fun s => (s.ienv[n]?, s)
-  match ent? with
-  | some ⟨_, _, some (vE, vi)⟩ =>
-    if Expr.exprPtrBEq vE v then pure vi
-    else pure v
-  | _ => pure v
-
 /-- The level-instantiated *type* of the stored constant `n`. -/
 def constTyAtM (fe : FEnv) (_nI : Name) (n : Name) (us : List Level) :
     CheckCM Expr := do
@@ -304,8 +270,7 @@ def constTyAtM (fe : FEnv) (_nI : Name) (n : Name) (us : List Level) :
     match fe.find? n with
     | some ci =>
       let cv := ci.toConstantVal
-      let raw ← storedTyIdxM n cv.type
-      let i ← instLevelParamsM cv.levelParams us raw
+      let i ← instLevelParamsM cv.levelParams us cv.type
       modify fun s =>
         let mp := s.constTyAt
         let s := { s with constTyAt := ∅ }
@@ -322,8 +287,7 @@ def constValAtM (fe : FEnv) (_nI : Name) (n : Name) (us : List Level) :
   | none =>
     match fe.find? n with
     | some (.defnInfo cv v _) =>
-      let raw ← storedValIdxM n v
-      let i ← instLevelParamsM cv.levelParams us raw
+      let i ← instLevelParamsM cv.levelParams us v
       modify fun s =>
         let mp := s.constValAt
         let s := { s with constValAt := ∅ }
@@ -353,9 +317,8 @@ def ruleRhsAtM (fe : FEnv) (_cI _jI : Name) (c j : Name) (us : List Level) :
     | _ => throw (.internal "ruleRhsAtM: not a stored recursor")
 
 /-- Drop the environment-dependent caches (an environment transition).
-The environment-independent components — the converted-constant cache
-`ienv` (self-certified by its `Expr` tags) and the level-operation
-memos — survive. -/
+The environment-independent components — the level-operation memos —
+survive. -/
 def CState.flushed (s : CState) : CState :=
   { s with
       constTyAt := {}, constValAt := {}, ruleRhsAt := {},
@@ -480,14 +443,5 @@ def constsResolveFXP (fe : @& FEnv) (memo : Expr.MemoB0 (constsResolveFP fe))
 /-- The cached `Expr.constsResolveF fe` (one memoized DAG walk). -/
 def constsResolveFC (fe : FEnv) (e : Expr) : Bool :=
   Expr.resBool (constsResolveFXP fe none e)
-
-/-- Record an accepted constant's converted type/value, tagged with the
-very `Expr` objects pushed into the environment. -/
-def recordCConst (n : Name) (tyE : Expr) (ty : Expr)
-    (val : Option (Expr × Expr)) : CheckCM Unit :=
-  modify fun s =>
-    let m := s.ienv
-    let s := { s with ienv := {} }
-    { s with ienv := m.insert n ⟨tyE, ty, val⟩ }
 
 end ConLeche.Cached

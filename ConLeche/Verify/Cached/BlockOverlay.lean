@@ -24,6 +24,10 @@ pushed by `FEnv.pushAll`).  The facts the proofs about that code need:
   as at the pushed `classFeR`;
 * `pushAll_mkFEnv` — pushing a list onto a canonical index is the
   canonical index of the extended environment.
+
+The parallel install's congruence in the index
+(`ConLeche/Verify/Cached/ViewCongr.lean`) uses them too.  It imports
+the cached checker and `KnotCongr` only.
 -/
 
 namespace ConLeche.Cached
@@ -33,37 +37,37 @@ open ConLeche
 /-! ## The overlay answers as the pushes would -/
 
 /-- The bounded index lookup, as `FEnv.find?` reads it. -/
-private def bnd (idx : Std.HashMap Name (Nat × ConstantInfo)) (b : Nat) (n : Name) :
-    Option ConstantInfo :=
+private def bnd (idx : Std.HashMap Name (Nat × ConstantInfo)) (base : FBase) (b : Nat)
+    (n : Name) : Option ConstantInfo :=
   match idx[n]? with
   | some (c, ci) => if c < b then some ci else none
-  | none => none
+  | none => base.find? n
 
 private theorem find?_of_ovl_nil {fe : FEnv} (h : fe.ovl = []) (n : Name) :
-    fe.find? n = bnd fe.idx fe.visibleBelow n := by
-  obtain ⟨env, idx, vis, ovl⟩ := fe
+    fe.find? n = bnd fe.idx fe.base fe.visibleBelow n := by
+  obtain ⟨env, idx, vis, base, ovl⟩ := fe
   subst h
   rfl
 
 private theorem find?_overlay_bnd {fe : FEnv} (h : fe.ovl = []) (new : List ConstantInfo)
     (n : Name) :
     (fe.overlay new).find? n
-      = (new.find? (·.name == n)).or (bnd fe.idx (fe.visibleBelow + new.length) n) := by
-  obtain ⟨env, idx, vis, ovl⟩ := fe
+      = (new.find? (·.name == n)).or (bnd fe.idx fe.base (fe.visibleBelow + new.length) n) := by
+  obtain ⟨env, idx, vis, base, ovl⟩ := fe
   subst h
   cases new with
   | nil => rfl
   | cons ci rest =>
     show (match (ci :: rest ++ []).find? (·.name == n) with
         | some ci => some ci
-        | none => bnd idx (vis + (ci :: rest ++ []).length) n) = _
+        | none => bnd idx base (vis + (ci :: rest ++ []).length) n) = _
     rw [List.append_nil]
     cases (ci :: rest).find? (·.name == n) <;> rfl
 
-private theorem bnd_insert (idx : Std.HashMap Name (Nat × ConstantInfo)) {vis b : Nat}
-    (hb : vis < b) (ci : ConstantInfo) (n : Name) :
-    bnd (idx.insert ci.name (vis, ci)) b n
-      = if ci.name == n then some ci else bnd idx b n := by
+private theorem bnd_insert (idx : Std.HashMap Name (Nat × ConstantInfo)) (base : FBase)
+    {vis b : Nat} (hb : vis < b) (ci : ConstantInfo) (n : Name) :
+    bnd (idx.insert ci.name (vis, ci)) base b n
+      = if ci.name == n then some ci else bnd idx base b n := by
   unfold bnd
   rw [Std.HashMap.getElem?_insert]
   by_cases hn : ci.name == n
@@ -75,7 +79,8 @@ private theorem pushAll_shape : ∀ (cis : List ConstantInfo) (fe : FEnv), fe.ov
     (FEnv.pushAll cis fe).ovl = [] ∧
     (FEnv.pushAll cis fe).env = ⟨cis.reverse ++ fe.env.consts⟩ ∧
     ∀ n, (FEnv.pushAll cis fe).find? n
-      = (cis.reverse.find? (·.name == n)).or (bnd fe.idx (fe.visibleBelow + cis.length) n)
+      = (cis.reverse.find? (·.name == n)).or
+          (bnd fe.idx fe.base (fe.visibleBelow + cis.length) n)
   | [], fe, h => by
     refine ⟨h, rfl, fun n => ?_⟩
     rw [FEnv.pushAll, find?_of_ovl_nil h]
@@ -88,9 +93,10 @@ private theorem pushAll_shape : ∀ (cis : List ConstantInfo) (fe : FEnv), fe.ov
       simp [FEnv.push]
     · rw [FEnv.pushAll, hf n]
       show (rest.reverse.find? (·.name == n)).or
-          (bnd (fe.idx.insert ci.name (fe.visibleBelow, ci)) (fe.visibleBelow + 1 + rest.length) n)
+          (bnd (fe.idx.insert ci.name (fe.visibleBelow, ci)) fe.base
+            (fe.visibleBelow + 1 + rest.length) n)
         = _
-      rw [bnd_insert _ (by omega), List.reverse_cons, List.find?_append, Option.or_assoc,
+      rw [bnd_insert _ _ (by omega), List.reverse_cons, List.find?_append, Option.or_assoc,
         List.length_cons, show fe.visibleBelow + (rest.length + 1)
           = fe.visibleBelow + 1 + rest.length by omega]
       congr 1

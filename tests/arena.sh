@@ -653,8 +653,56 @@ stats_check "--jobs=4: the pools report their tail" \
   "$(printf '%s\n' "$s_pool" | grep -q '^con-leche: stats: check pool: .* tail .* after the last start' && echo ok)"
 s_prog=$(timeout 120 "$BIN" --jobs=4 --progress=1 "$SPLIT_GOOD" 2>&1 >/dev/null)
 stats_check "--jobs=4 --progress=1: heartbeats name the busy workers" \
-  "$(printf '%s\n' "$s_prog" | grep -q '^con-leche: check [0-9].* busy=[0-9]*/[0-9]' && echo ok)"
+  "$(printf '%s\n' "$s_prog" | grep -q '^con-leche: check [0-9].* busy=[0-9]*/[0-9]' && \
+     printf '%s\n' "$s_prog" | grep -q '^con-leche: install [0-9].* busy=[0-9]*/5' && echo ok)"
 echo "statistics: $stats_ok/$stats_total as expected"
+
+# The install pool (task #329).  At --jobs=<n> > 1 the records (every
+# kind) are installed on <n> workers, each against a view
+# of the records before it, and committed in stream order by the main
+# thread, so the installed environment — and a rejection, with the
+# declaration it names — is the one-thread install's.  Checked here on
+# the parallel-install fixtures (scripts/mk_pinstall_fixtures.py): the
+# output at --jobs=8 and --jobs=32 equals --jobs=1's on a rejection in
+# the middle of the stream and on a duplicate declaration far from its
+# first occurrence.  (A misprediction, which no stream reaches, is an
+# internal error, exit 3; a failed `And` pin is the serial step's
+# rejection — the `corner_andpin_*_bad` fixtures above, run at the
+# default worker count.)
+pinst_ok=0
+pinst_total=0
+pinst_check() { # <description> <condition-result>
+  pinst_total=$((pinst_total+1))
+  if [ "$2" = ok ]; then
+    pinst_ok=$((pinst_ok+1))
+  else
+    echo "INSTALL POOL FAIL: $1"; fail=1
+  fi
+}
+pinst_run() { # <args...>: stdout+stderr, timings stripped, exit code appended
+  local out code
+  out=$(timeout 120 "$BIN" "$@" 2>&1 | nostats; exit "${PIPESTATUS[0]}"); code=$?
+  printf '%s\nexit %s\n' "$(printf '%s' "$out" | sed 's/ t=[0-9.]*s$//')" "$code"
+}
+for f in pinstall_ok pinstall_reject_mid pinstall_dup; do
+  ref=$(pinst_run --jobs=1 "tests/e2e/$f.ndjson")
+  for jn in 8 32; do
+    got=$(pinst_run --jobs=$jn "tests/e2e/$f.ndjson")
+    pinst_check "$f at --jobs=$jn is --jobs=1's" "$([ "$got" = "$ref" ] && echo ok)"
+  done
+done
+# An IO exception on the commit thread — here the heartbeat's write
+# into a pipe whose reader has gone — stops the workers and ends the
+# run as an internal error (exit 3); it once left them waiting, and the
+# process hung at its exit (the timeout's 124).
+for jn in 4 32; do
+  timeout 60 "$BIN" --progress=1 --jobs=$jn tests/e2e/pinstall_ok.ndjson 2>&1 >/dev/null \
+    | head -c 1500 >/dev/null
+  code=${PIPESTATUS[0]}
+  pinst_check "--jobs=$jn: a failing heartbeat write ends the run (exit $code)" \
+    "$([ "$code" = 3 ] && echo ok)"
+done
+echo "install pool: $pinst_ok/$pinst_total as expected"
 
 # THE DAG-TOWER GATE (tasks #215, #226).  The frontend tree-size budget
 # is gone; what stands in its place is a fixture, not a limit.

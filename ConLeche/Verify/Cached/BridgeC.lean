@@ -20,9 +20,7 @@ invariant state.
   with the `Expr`-side guards is `ConLeche/Verify/Cached/GuardsC.lean`'s
   `*_spec` family;
 * `opSIxC` has no level-readback wrapper (levels are trees), so
-  `opSIxC_sim` is `ensureSortC_sim` plus the `ensureSort_atF` rewrite;
-* `recordCConst`'s effect (`recordCConst_eff`,
-  `ConLeche/Verify/Cached/SimCEff.lean`) takes `RelC` facts.
+  `opSIxC_sim` is `ensureSortC_sim` plus the `ensureSort_atF` rewrite.
 
 `Declaration` is one type for both drivers (task #285): the two are
 given the same record.
@@ -177,12 +175,7 @@ theorem checkDefnValCI_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env)
     simp only [ite_eq_right h4]
     exact SimC.throw_bind
   simp only [ite_eq_left h4]
-  refine SimC.bind_left (recordCConst_eff hs₁ hjty
-      (fun vE' vi h => by
-        cases h
-        exact rfl))
-    (fun s₂' u hs₂' hQ' => ?_)
-  refine SimC.bind ((ssimC hμ env henv checkFuel).infer hs₂' rfl hwv)
+  refine SimC.bind ((ssimC hμ env henv checkFuel).infer hs₁ rfl hwv)
     (fun s₂ jvt wvt hs₂ hP₂ => ?_)
   obtain ⟨hjvt, hwvt⟩ := hP₂
   refine SimC.bind ((ssimC hμ env henv checkFuel).defeq hs₂ hjvt hjty hwvt htf)
@@ -274,10 +267,7 @@ theorem checkThmValC_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) {
     simp only [ite_eq_right h4]
     exact SimC.throw_bind
   simp only [ite_eq_left h4]
-  refine SimC.bind_left (recordCConst_eff hs₄ hjty
-      (fun vE' vi h => nomatch h))
-    (fun s₅' u₀ hs₅' hQ' => ?_)
-  refine SimC.bind ((ssimC hμ env henv checkFuel).infer hs₅' rfl hwv)
+  refine SimC.bind ((ssimC hμ env henv checkFuel).infer hs₄ rfl hwv)
     (fun s₅ jvt wvt hs₅ hP₅ => ?_)
   obtain ⟨hjvt, hwvt⟩ := hP₅
   refine SimC.bind ((ssimC hμ env henv checkFuel).defeq hs₅ hjvt hjty hwvt htf)
@@ -329,10 +319,7 @@ theorem checkOpaqueValCI_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF en
     simp only [ite_eq_right h4]
     exact SimC.throw_bind
   simp only [ite_eq_left h4]
-  refine SimC.bind_left (recordCConst_eff hs₁ hjty
-      (fun vE' vi h => nomatch h))
-    (fun s₁' u hs₁' hQ' => ?_)
-  refine SimC.bind ((ssimC hμ env henv checkFuel).infer hs₁' rfl hwv)
+  refine SimC.bind ((ssimC hμ env henv checkFuel).infer hs₁ rfl hwv)
     (fun s₂ jvt wvt hs₂ hP₂ => ?_)
   obtain ⟨hjvt, hwvt⟩ := hP₂
   refine SimC.bind ((ssimC hμ env henv checkFuel).defeq hs₂ hjvt hjty hwvt htf)
@@ -445,19 +432,13 @@ theorem checkDeclC_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) (hs
     simp only [stdAxiomOkF_eq, trustCompilerOkF_eq, ofReduceAxOkF_eq]
     by_cases h1 : stdAxiomOk env cvR = true
     · simp only [ite_eq_left h1]
-      refine SimC.bind_left (recordCConst_eff hs₁ hjty
-          (fun vE vi h => nomatch h))
-        (fun s₂ u hs₂ hQ => ?_)
-      exact SimC.pure hs₂ ⟨rfl, push_mkFEnv env _⟩
+      exact SimC.pure hs₁ ⟨rfl, push_mkFEnv env _⟩
     · simp only [ite_eq_right h1]
       by_cases htc : cvR.name = trustCompilerName
       · simp only [ite_eq_left htc]
         by_cases htok : trustCompilerOk env cvR = true
         · simp only [ite_eq_left htok]
-          refine SimC.bind_left (recordCConst_eff hs₁ hjty
-              (fun vE vi h => nomatch h))
-            (fun s₂ u hs₂ hQ => ?_)
-          exact SimC.pure hs₂ ⟨rfl, push_mkFEnv env _⟩
+          exact SimC.pure hs₁ ⟨rfl, push_mkFEnv env _⟩
         · simp only [ite_eq_right htok]
           exact SimC.throw
       · simp only [ite_eq_right htc]
@@ -466,10 +447,7 @@ theorem checkDeclC_sim (hμ : mode.verifiedChecks = true) (henv : EnvWF env) (hs
         · simp only [ite_eq_left hor]
           by_cases hoo : ofReduceAxOk env cvR = true
           · simp only [ite_eq_left hoo]
-            refine SimC.bind_left (recordCConst_eff hs₁ hjty
-                (fun vE vi h => nomatch h))
-              (fun s₂ u hs₂ hQ => ?_)
-            exact SimC.pure hs₂ ⟨rfl, push_mkFEnv env _⟩
+            exact SimC.pure hs₁ ⟨rfl, push_mkFEnv env _⟩
           · simp only [ite_eq_right hoo]
             exact SimC.throw
         · simp only [ite_eq_right hor]
