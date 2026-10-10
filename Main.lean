@@ -332,7 +332,10 @@ def parseArgs : List String → Args → Args
       { a with bad := some s!"unknown option {s}" }
     else parseArgs rest { a with files := a.files.push s }
 
-def main (args : List String) : IO UInt32 := do
+/-- The argument parse and dispatch — everything `main` below does, up
+to computing the exit code.  Split out (task #336) so that `main` can
+wrap the whole thing in a flush-then-`exit`: see there for why. -/
+def run (args : List String) : IO UInt32 := do
   -- **Linearity is enforced, in every run** (task #331).  The install
   -- environment's index and the parse tables are marked linear
   -- (`FEnv.markLinear`, `StateD.markLinear`); with
@@ -394,3 +397,48 @@ def main (args : List String) : IO UInt32 := do
   catch e =>
     (try IO.eprintln s!"con-leche: internal error: {e}" catch _ => pure ())
     return 3
+
+/-- **The CLI entry point (task #336).**  `run` above computes the exit
+code — the verdict line and the end-of-run summary (`--progress`) are
+the LAST things it does on every path, immediately before its own
+`return` — and this wrapper, instead of letting that code flow back
+out of `main` and returning normally, flushes both streams and ends
+the process right there with `IO.Process.exit`.
+
+**Why**: returning normally lets the generated `main` wrapper run to
+completion — `lean_finalize_task_manager` (harmless here: every
+worker this driver spawns is already joined, via `IO.wait`, before
+`checkMain` can return, so there is nothing left to join), and then,
+as the `IO` value unwinds back through `checkMain`'s and `run`'s `do`
+blocks to produce the final `UInt32`, the runtime drops every
+still-live local along the way — the parsed declaration array, the
+installed index's non-persistent parts, the pending-check table, the
+parse's own tables — which on a 105 GB export is a multi-gigabyte
+object graph and measured 200-570 s of wall time *after* the verdict
+line was already on stdout (`DESIGN.md`, task #336).  `IO.Process.exit`
+is `lean_io_exit`, which calls the C runtime's `exit()` directly:
+`checkMain`'s and `run`'s frames are simply abandoned mid-unwind, nothing
+above this call ever runs, and `exit()` only does what libc's own
+teardown does — flush/close the C streams, run anything registered
+with `atexit` (nothing in this binary registers any) — never the
+dropped-local cascade above.  The exit codes are exactly `run`'s:
+0/1/2/3, per `CheckError.exitCode` and the usage/declines above;
+`UInt32.toUInt8` is the identity on all four.
+
+**Flushing first**: `IO.Process.exit`'s own `exit()` call flushes the C
+streams if `IO.FS.Stream.stdout`/`stderr` are backed by them, but this
+does not depend on that — `run`'s last action on every path is already
+the verdict/diagnostic print, so flushing both streams here, right
+before `exit`, is flushing exactly what that print just wrote and
+nothing more.
+
+**Composes with task #335's own top-level `try`** (inside `run`): that
+`try` already turns every uncaught `IO.Error` into a `return 3`, so
+`run` itself never throws — `let code ← run args` below cannot
+propagate an exception, and every path, verdict or internal error
+alike, reaches this same flush-then-exit. -/
+def main (args : List String) : IO UInt32 := do
+  let code ← run args
+  (← IO.getStdout).flush
+  (← IO.getStderr).flush
+  IO.Process.exit code.toUInt8
