@@ -1317,6 +1317,9 @@
 == Main.lean#L477
    477  def main (args : List String) : IO UInt32 := do
 
+== Main.lean#L363
+   363  def run (args : List String) (drain : IO.Ref (IO Unit)) : IO UInt32 := do
+
 == ConLeche/MainTheorem.lean#L110-L117
    110  theorem no_False_declaration (V : Type w) [SetTheory V]
    111      (pins : List NatOpPinSet) (chunks : List ByteArray)
