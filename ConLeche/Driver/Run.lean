@@ -1,18 +1,20 @@
 module
 
 public import ConLeche.Frontend.Prelude
+public import ConLeche.Driver.ParInstall
 public import ConLeche.Driver.CheckPool
 
 /-!
-# The driver: the install loop, `checkDeclsIO` and the phase sequencing
+# The driver: `checkDeclsIO` and the phase sequencing
 
 Part of the proof-carrying driver (`ConLeche/Driver/*`; the CLI —
 argument parsing, I/O, exit codes — is `Main.lean`).
 
-`checkDeclsIO` is **the driver**: `installLoop` then the check phase —
-`checkLoop` on one dedicated worker thread at `--jobs=1`, `checkPool`
-otherwise (`Driver/CheckPool.lean`) — and what comes out is the
-environment together with the proof that the fold `checkDecls`
+`checkDeclsIO` is **the driver**: the install — `installLoop` at
+`--jobs=1`, `parInstall` otherwise (`Driver/ParInstall.lean`) — then the
+check phase — `checkLoop` on one dedicated worker thread at `--jobs=1`,
+`checkPool` otherwise (`Driver/CheckPool.lean`) — and what comes out is
+the environment together with the proof that the fold `checkDecls`
 (`ConLeche/Cached/Installed.lean`) returns it — the subject of the main
 theorem `ConLeche.model_exists` (`ConLeche/MainTheorem.lean`).
 `checkMain` sequences the built-in prelude, the stream parse and
@@ -48,91 +50,6 @@ def parseInput (file : String) :
     IO (Except (ConLeche.CheckError × Nat) Frontend.ParseResultD) :=
   Frontend.parseExportStreamD file
 
-/-- **Phase A's loop — the driver's install pass, carrying its own
-accepting run.**  Each record is installed by
-`ConLeche.Cached.annotDeclStep`: a separable value declaration is
-annotated and pushed with its check recorded, everything else is checked
-in full.  The loop carries the chain of accepting steps
-(`ConLeche.Cached.InstallRun`) of the records it has consumed — a
-proposition, so nothing at run time — and returns it with the result:
-what this loop returns IS an `InstalledEnv mode natOpPinSets ds.toList`
-(`ConLeche/Cached/Installed.lean`), phase A of the fold `checkDecls`.
-The records are the ARRAY the prepare step produced and the driver
-holds to the end anyway (a rejection names its declaration by indexing
-it), so the loop walks it BY INDEX — nothing converts a million
-records into a list — while the run it carries is over
-`ds.toList.take i`, the shape every lemma above it is stated in.
-Whatever it prints between steps is irrelevant to that type, which is
-why ONE loop serves the plain run and the `--progress` heartbeat
-alike.
-
-**Written tail-recursively, threading `p` and `s` LINEARLY**: a
-`for … in ds` loop with `let mut` accumulators desugars to code that
-`lean_inc`s both the `FEnv` and the `CState` before each step, so
-`lean_is_exclusive` is false at the index inserts and every hashmap
-copies its bucket array per declaration — quadratic at Mathlib
-scale.  Here the previous `p`/`s` are dead at the
-recursive call, so the C carries no `lean_inc` of either before the
-step, and the cost per declaration is flat.  The run is carried in the
-SNOC direction (`InstallRun.snoc`) precisely so that the call stays a
-tail call: a cons-direction proof would wrap the result on the way
-back, one frame per declaration.  (The index measure makes this a
-well-founded recursion; the compiler's recursive function is the same
-tail call, and the measure is erased.)
-
-**Stride 1 is the localisation lane.**  With `--progress` (bare, or
-`--progress=1`) every declaration is announced before it is installed,
-so a run that dies — an OOM, a timeout, a `SIGKILL` — names on its last
-line the declaration it died in.  The index is the FOLD position, not
-the stream's record index: the prepare step prepends the built-in
-prelude and drops the stream's identical copies of its records, so the
-two drift apart by a stream-dependent amount.  Calibrate by NAME.
-
-Each step is timed into `st` (`WStats`, performance-only: a ref only
-this thread touches). -/
-def installLoop (mode : ConLeche.CheckMode) (err : IO.FS.Stream)
-    (stride total t0 : Nat) (st : IO.Ref WStats)
-    (ds : Array ConLeche.Declaration)
-    (p₀ : Nat × ConLeche.FEnv × Array ConLeche.Cached.PendingCheck) (s₀ : ConLeche.Cached.CState) :
-    (i : Nat) →
-    (p : Nat × ConLeche.FEnv × Array ConLeche.Cached.PendingCheck) →
-    (s : ConLeche.Cached.CState) →
-    ConLeche.Cached.InstallRun mode ConLeche.natOpPinSets (ds.toList.take i) p₀ s₀ p s →
-      IO (Except (ConLeche.CheckError × Nat)
-        (Σ' (p' : Nat × ConLeche.FEnv × Array ConLeche.Cached.PendingCheck)
-          (s' : ConLeche.Cached.CState),
-          PLift (ConLeche.Cached.InstallRun mode ConLeche.natOpPinSets
-            ds.toList p₀ s₀ p' s')))
-  | i, p, s, hrun => do
-    if hi : i < ds.size then
-      let pd := ds[i]
-      if stride > 0 && p.1 % stride == 0 then
-        let now ← IO.monoMsNow
-        err.putStr s!"con-leche: install {p.1}/{total} \
-          {ConLeche.Cached.declCLabel pd} \
-          t={ConLeche.Cached.msSecs (now - t0)}s\n"
-        err.flush
-      let ts ← IO.monoNanosNow
-      match h : ConLeche.Cached.annotDeclStep mode ConLeche.natOpPinSets p pd s with
-      | .ok (p₁, s₁) =>
-        let te ← IO.monoNanosNow
-        st.modify (·.add i ts te)
-        installLoop mode err stride total t0 st ds p₀ s₀ (i + 1) p₁ s₁ (by
-          have hlist : ds.toList.take (i + 1) = ds.toList.take i ++ [pd] := by
-            rw [List.take_add_one]
-            simp [pd, Array.getElem?_eq_getElem hi]
-          rw [hlist]
-          exact ConLeche.Cached.InstallRun.snoc mode hrun h)
-      | .error e =>
-        let te ← IO.monoNanosNow
-        st.modify (·.add i ts te)
-        return .error e
-    else
-      return .ok ⟨p, s, ⟨by
-        rw [List.take_of_length_le (by simp; omega)] at hrun
-        exact hrun⟩⟩
-  termination_by i => ds.size - i
-
 /-- The end-of-run statistics (performance-only): the phase times, the
 install's and the check's reports (`PoolRep.line`, the slowest five of
 each), the peak resident set.  Every line starts `con-leche: stats:`. -/
@@ -151,10 +68,10 @@ def printStats (err : IO.FS.Stream) (parseMs installMs : Nat) (checkMs : Option 
   if let some r ← peakRss then line s!"peak RSS {r}"
   err.flush
 
-/-- **The driver**: `installLoop` then the check phase — `checkLoop` on
-one dedicated worker thread at `--jobs=1`, `checkPool` otherwise — and
-what comes out
-is the environment together with the proof that the fold `checkDecls`
+/-- **The driver**: the install (`installLoop` at `--jobs=1`,
+`parInstall` otherwise) then the check phase — `checkLoop` on one
+dedicated worker thread at `--jobs=1`, `checkPool` otherwise — and what
+comes out is the environment together with the proof that the fold `checkDecls`
 (`ConLeche/Cached/Installed.lean`) returns it — the subject of the main
 theorem `ConLeche.model_exists` (`ConLeche/MainTheorem.lean`).  The
 loops are the fold's two phases with the heartbeat printed between the
@@ -174,7 +91,7 @@ checks, the peak resident set.  Performance-only: printed after the
 verdict is known, from timings the loops accumulate beside their
 proofs; stdout and the exit code do not see them. -/
 def checkDeclsIO (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride total t0 tParse jobs : Nat)
-    (noMark : Bool) (ds : Array ConLeche.Declaration) :
+    (noMark : Bool) (drain : IO.Ref (IO Unit)) (ds : Array ConLeche.Declaration) :
     IO (Except (ConLeche.CheckError × Nat)
       { env : ConLeche.Env // ConLeche.Cached.checkDecls mode ConLeche.natOpPinSets ds = .ok env }) := do
   let heartbeat (line : String) : IO Unit := do
@@ -186,21 +103,30 @@ def checkDeclsIO (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride total 
     | some d => s!"{ConLeche.Cached.declCLabel d} (#{k})"
     | none => s!"record {k}"
   let serialStats ← IO.mkRef ({} : WStats)
+  let parRep ← IO.mkRef (pure none : IO (Option PoolRep))
   let tI0 ← IO.monoNanosNow
-  let installed ← installLoop mode err stride total t0 serialStats ds
-      (0, ConLeche.mkFEnv ConLeche.Env.empty, #[]) {} 0
-      -- the install environment's index marked linear (task #331): a
-      -- copy of it panics instead of silently copying (`main` sets
-      -- `LEAN_ABORT_ON_NONLINEAR`).  Marked HERE, on the value the loop
-      -- threads, not on the closed term `mkFEnv Env.empty`, which is
-      -- persistent and copied by its first insert anyway.
-      (0, (ConLeche.mkFEnv ConLeche.Env.empty).markLinear, #[]) {}
-      (ConLeche.FEnv.markLinear_eq _ ▸ .nil _ _)
+  let installed ← if jobs ≤ 1 then
+      installLoop mode err stride total t0 serialStats ds
+        (0, ConLeche.mkFEnv ConLeche.Env.empty, #[]) 0
+        -- the install environment's index marked linear (task #331): a
+        -- copy of it panics instead of silently copying (`main` sets
+        -- `LEAN_ABORT_ON_NONLINEAR`).  Marked HERE, on the value the loop
+        -- threads, not on the closed term `mkFEnv Env.empty`, which is
+        -- persistent and copied by its first insert anyway.  (The
+        -- parallel install marks its commit thread's index the same way.)
+        (0, (ConLeche.mkFEnv ConLeche.Env.empty).markLinear, #[])
+        (ConLeche.FEnv.markLinear_eq _ ▸ .nil _)
+    else
+      parInstall mode err stride total t0 jobs noMark parRep drain ds
   let tI1 ← IO.monoNanosNow
-  -- the install's report: the main thread's loop
+  -- the install's report: the pool's, or the main thread's loop
   let instRep : IO PoolRep := do
-    pure { name := "install (main thread)", workers := 1, tStart := tI0, tEnd := tI1,
-           stats := #[← serialStats.get] }
+    match ← (← parRep.get) with
+    | some r => pure r
+    | none =>
+      let st ← serialStats.get
+      pure { name := "install (main thread)", workers := 1, tStart := tI0, tEnd := tI1,
+             stats := #[st] }
   match installed with
   | .error e =>
     let now ← IO.monoMsNow
@@ -210,9 +136,9 @@ def checkDeclsIO (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride total 
       check not reached t={secs (now - t0)}s"
     printStats err (tParse - t0) (now - tParse) none (← instRep) instLabel none (fun _ => "")
     return .error e
-  | .ok ⟨(n, fe, pend), s, ⟨r⟩⟩ =>
+  | .ok ⟨(n, fe, pend), ⟨r⟩⟩ =>
     let e : ConLeche.Cached.InstalledEnv mode ConLeche.natOpPinSets ds.toList :=
-      ⟨fe, pend, ⟨n, s, r⟩⟩
+      ⟨fe, pend, ⟨n, r⟩⟩
     let tCheck ← IO.monoMsNow
     heartbeat s!"install done: {total}/{total} declarations installed, \
       {pend.size} checks pending t={secs (tCheck - t0)}s \
@@ -324,7 +250,7 @@ the verdict.  The three steps fail in ONE error type, the checker's
 chain is one `do` block up there and why the exit code below is
 `CheckError.exitCode` whichever step produced it. -/
 def checkMain (file : String) (mode : CheckMode) (stride jobs : Nat)
-    (noMark : Bool) : IO UInt32 := do
+    (noMark : Bool) (drain : IO.Ref (IO Unit)) : IO UInt32 := do
     -- The opt-in progress heartbeat (`--progress[=<stride>]`):
     -- validated by the argument parse, before any work is done, and
     -- handed down as configuration.  EVERY SWITCH THAT SHAPES A
@@ -430,7 +356,7 @@ def checkMain (file : String) (mode : CheckMode) (stride jobs : Nat)
           (parse {ConLeche.Cached.msSecs (tParse - t0)}s)"
         (← IO.getStderr).flush
       let err ← IO.getStderr
-      let verdict ← checkDeclsIO mode err stride decls.size t0 tParse jobs noMark decls
+      let verdict ← checkDeclsIO mode err stride decls.size t0 tParse jobs noMark drain decls
       match verdict with
       | .ok _ =>
         -- **The headline number is the FILE's declaration-record

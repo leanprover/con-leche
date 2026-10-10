@@ -118,10 +118,10 @@ binary runs is a further clone with memo tables, proved to #src("ConLeche/Verify
 fuelled one]. The
 subsection below says how these fit together.]
 
-#left-out[The two-phase parallel fold][#src("ConLeche/Cached/Installed.lean", 454, 459)[The fold] installs every
+#left-out[The two-phase parallel fold][#src("ConLeche/Cached/Installed.lean", 452, 457)[The fold] installs every
 declaration first and then checks the recorded declarations one by one,
 each against the prefix of the environment it was installed at\; the binary runs the
-second phase on #src("ConLeche/Cached/Installed.lean", 354, 365)[a pool of workers] whose results are reassembled in
+second phase on #src("ConLeche/Cached/Installed.lean", 352, 363)[a pool of workers] whose results are reassembled in
 record order, so its verdict is the fold's. #src("ConLeche/Verify/Cached/MainC.lean", 37, 40)[The proof reads an
 accept of the fold] as an environment in which every declaration was
 checked where it was installed, which is what the one-declaration-at-a-time

@@ -39,9 +39,9 @@ on-disk scratch convention); never default to the system temp
 directory.
 
 **This file is the CLI only**: argument parsing, I/O, exit codes.  The
-proof-carrying driver — the install and check loops and the phase
-sequencing — lives in `ConLeche/Driver/*` (`CheckPool.lean`,
-`Run.lean`).  The driver and this file may import `ConLeche/Verify/*`
+proof-carrying driver — the install and check loops, the parallel
+install and the phase sequencing — lives in `ConLeche/Driver/*`
+(`CheckPool.lean`, `ParInstall.lean`, `Run.lean`).  The driver and this file may import `ConLeche/Verify/*`
 (the theorems about kernel functions that need no model) and nothing
 else of the theory; `ConLeche/{Kernel,Cached,Frontend}/*` keep the full
 fence. -/
@@ -120,14 +120,20 @@ def usage : String := String.intercalate "\n" [
   "                    outside the theorem.  The mode is never",
   "                    optimized on its own — it is the verified mode",
   "                    with certain steps omitted",
-  "  --jobs=<n>        the number of worker threads for the check phase",
-  "                    (default: the machine's hardware thread count).",
-  "                    The run has two phases: the INSTALL phase reads",
-  "                    the records in order and installs every one of",
-  "                    them in a single thread (a definition, theorem or",
-  "                    opaque is annotated and pushed with its check",
-  "                    recorded; everything else is checked in full as it",
-  "                    is installed), and the CHECK phase checks every",
+  "  --jobs=<n>        the number of worker threads (default: the",
+  "                    machine's hardware thread count).",
+  "                    The run has two phases: the INSTALL phase",
+  "                    installs the records in stream order (a",
+  "                    definition, theorem or opaque is annotated and",
+  "                    pushed with its check recorded; everything else",
+  "                    is checked in full as it is installed).  At",
+  "                    <n> > 1 the records are installed on <n> worker",
+  "                    threads, each against a view of the records",
+  "                    before it, while the main thread commits them in",
+  "                    stream order (and installs any record it reaches",
+  "                    before a worker has): the installed environment",
+  "                    is the one-thread install's at every <n>.  The",
+  "                    CHECK phase checks every",
   "                    recorded declaration against the prefix of the",
   "                    installed environment it was installed at, from a",
   "                    fresh memo state.  The recorded checks are",
@@ -151,8 +157,8 @@ def usage : String := String.intercalate "\n" [
   "                    lane a factor of two in wall time at the same",
   "                    instruction count.  0 or a non-numeral is a",
   "                    usage error.",
-  "                    The install phase is never parallel: it is the",
-  "                    parse and the fold's serial floor.  ADDRESS",
+  "                    At --jobs=1 the install phase runs in the main",
+  "                    thread alone.  ADDRESS",
   "                    SPACE: each worker thread reserves about 1 GiB",
   "                    of address space (its stack reservation, lazily",
   "                    committed; the resident set grows by about",
@@ -205,7 +211,7 @@ def usage : String := String.intercalate "\n" [
   "                    heartbeat; a stride that is not a decimal numeral,",
   "                    or 0, is a usage error.  The flag may come before",
   "                    or after the other flags.  On more than one",
-  "                    worker a check line ends with",
+  "                    worker an install or check line ends with",
   "                    'busy=<b>/<n>, oldest <decl> <age>s': how many",
   "                    workers are on a record, and the one running",
   "                    longest.",
@@ -346,8 +352,10 @@ def parseArgs : List String → Args → Args
 
 /-- The argument parse and dispatch — everything `main` below does, up
 to computing the exit code.  Split out (task #336) so that `main` can
-wrap the whole thing in a flush-then-`exit`: see there for why. -/
-def run (args : List String) : IO UInt32 := do
+wrap the whole thing in a flush-then-`exit`: see there for why.
+`drain` is where the parallel install leaves the join of its stopped
+workers, for `main` to run before the exit. -/
+def run (args : List String) (drain : IO.Ref (IO Unit)) : IO UInt32 := do
   -- **Linearity is enforced, in every run** (task #331).  The install
   -- environment's index and the parse tables are marked linear
   -- (`FEnv.markLinear`, `StateD.markLinear`); with
@@ -402,7 +410,7 @@ def run (args : List String) : IO UInt32 := do
       let jobs := a.jobs.getD
         (let hw := (System.Platform.Internal.getHardwareConcurrency ()).toNat
          if hw = 0 then 1 else hw)
-      checkMain file a.mode a.progress jobs a.noMark
+      checkMain file a.mode a.progress jobs a.noMark drain
     | _ =>
       IO.eprintln usage
       return 3
@@ -418,9 +426,10 @@ out of `main` and returning normally, flushes both streams and ends
 the process right there with `IO.Process.exit`.
 
 **Why**: returning normally lets the generated `main` wrapper run to
-completion — `lean_finalize_task_manager` (harmless here: every
-worker this driver spawns is already joined, via `IO.wait`, before
-`checkMain` can return, so there is nothing left to join), and then,
+completion — `lean_finalize_task_manager` (which joins the runtime's
+threads: the check pool's are joined, via `IO.wait`, before
+`checkMain` returns, and the install pool's are joined by `main`
+itself, below), and then,
 as the `IO` value unwinds back through `checkMain`'s and `run`'s `do`
 blocks to produce the final `UInt32`, the runtime drops every
 still-live local along the way — the parsed declaration array, the
@@ -444,13 +453,26 @@ the verdict/diagnostic print, so flushing both streams here, right
 before `exit`, is flushing exactly what that print just wrote and
 nothing more.
 
+**Waiting for the install pool's workers** (maintainer's ruling,
+2026-10-10).  After a rejection at more than one worker, a stopped
+install worker may still be inside the install of a record past the
+rejected one (`ConLeche.Driver.parInstall`); `exit()`'s teardown must
+not run under it.  So after the flush, `main` runs `drain`, the join of
+the install pool's workers that `parInstall` left there, and only then
+exits.  The verdict line is already out; the rejection path need not be
+fast, and after an accept every worker has long returned.
+
 **Composes with task #335's own top-level `try`** (inside `run`): that
 `try` already turns every uncaught `IO.Error` into a `return 3`, so
-`run` itself never throws — `let code ← run args` below cannot
+`run` itself never throws — `let code ← run args drain` below cannot
 propagate an exception, and every path, verdict or internal error
 alike, reaches this same flush-then-exit. -/
 def main (args : List String) : IO UInt32 := do
-  let code ← run args
+  let drain ← IO.mkRef (pure () : IO Unit)
+  let code ← run args drain
   (← IO.getStdout).flush
   (← IO.getStderr).flush
+  -- the parallel install's stopped workers, joined after the verdict is
+  -- out (see above); immediate unless a rejection left one in an install
+  try (← drain.get) catch _ => pure ()
   IO.Process.exit code.toUInt8

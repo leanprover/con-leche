@@ -104,8 +104,8 @@ current fact changed.
   the theory: still never `Model/*`, `SetTheory/*`, `SetModel/*`,
   `Semantics/*`, `Term/*`, `Complete/*`. `Main.lean` is the CLI
   (argument parsing, I/O, exit codes); `ConLeche/Driver/*` is the
-  driver proper (the install and check loops and the phase
-  sequencing) and is checker code like `Kernel/*` (a
+  driver proper (the install and check loops, the parallel install,
+  the phase sequencing) and is checker code like `Kernel/*` (a
   `module` header, one `@[expose] public section`).
 * `ConLeche/Model/*` (the graded model) is imported only by itself, the
   capstone assembly (`Verify/Cached/MainC`, the `ConLeche.Verify.Cached`

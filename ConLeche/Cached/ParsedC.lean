@@ -99,12 +99,10 @@ def checkDefnValCI (fe : FEnv) (cvA : ConstantVal) (jty : Expr)
     throw (.invalid s!"undeclared universe parameter in value of {cvA.name}")
   unless constsResolveFC fe jv do
     throw (unresolvedConstsError s!"value of {cvA.name}" jv)
-  let vE := jv
-  recordCConst cvA.name cvA.type jty (some (vE, jv))
   let jvt ← (coreKnotI mode fe checkFuel).infer 0 jv
   unless ← (coreKnotI mode fe checkFuel).defeq 0 jvt jty do
     throw (.invalid s!"type mismatch in definition {cvA.name}")
-  pure (.defnInfo cvA vE hint)
+  pure (.defnInfo cvA jv hint)
 
 /-- Check and install a definition's value against its annotated type `jty`. -/
 def checkDefnValC (fe : FEnv) (cvA : ConstantVal) (jty : Expr)
@@ -128,7 +126,6 @@ def checkThmValC (fe : FEnv) (cvA : ConstantVal) (jty : Expr)
     throw (.invalid s!"undeclared universe parameter in value of {cvA.name}")
   unless constsResolveFC fe jv do
     throw (unresolvedConstsError s!"value of {cvA.name}" jv)
-  recordCConst cvA.name cvA.type jty none
   let jvt ← (coreKnotI mode fe checkFuel).infer 0 jv
   unless ← (coreKnotI mode fe checkFuel).defeq 0 jvt jty do
     throw (.invalid s!"type mismatch in theorem {cvA.name}")
@@ -148,7 +145,6 @@ def checkOpaqueValCI (fe : FEnv) (cvA : ConstantVal) (jty : Expr)
     throw (.invalid s!"undeclared universe parameter in value of {cvA.name}")
   unless constsResolveFC fe jv do
     throw (unresolvedConstsError s!"value of {cvA.name}" jv)
-  recordCConst cvA.name cvA.type jty none
   let jvt ← (coreKnotI mode fe checkFuel).infer 0 jv
   unless ← (coreKnotI mode fe checkFuel).defeq 0 jvt jty do
     throw (.invalid s!"type mismatch in opaque {cvA.name}")
@@ -234,19 +230,16 @@ def checkDeclC (pins : List NatOpPinSet) (fe : FEnv) (pd : Declaration) :
       else
         throw (.notImplemented "quotient soundness axiom mismatch"))
     else do
-      let (cvA, jty) ← checkConstantValC mode fe cv
-      if stdAxiomOkF fe cvA then do
-        recordCConst cvA.name cvA.type jty none
+      let (cvA, _) ← checkConstantValC mode fe cv
+      if stdAxiomOkF fe cvA then
         pure (fe.push (.axiomInfo cvA))
       else if cvA.name = trustCompilerName then
-        if trustCompilerOkF fe cvA then do
-          recordCConst cvA.name cvA.type jty none
+        if trustCompilerOkF fe cvA then
           pure (fe.push (.axiomInfo cvA))
         else throw (.notImplemented
           s!"unsupported Lean.trustCompiler shape ({cv.name})")
       else if cvA.name = ofReduceNatName ∨ cvA.name = ofReduceBoolName then
-        if ofReduceAxOkF fe cvA then do
-          recordCConst cvA.name cvA.type jty none
+        if ofReduceAxOkF fe cvA then
           pure (fe.push (.axiomInfo cvA))
         else throw (.notImplemented
           s!"unsupported compiler-trust axiom environment ({cv.name})")
@@ -293,8 +286,9 @@ def checkDeclC (pins : List NatOpPinSet) (fe : FEnv) (pd : Declaration) :
 arithmetic — no `Float` formatting on a message path. -/
 def msSecs (ms : Nat) : String := s!"{ms / 1000}.{(ms % 1000) / 100}"
 
-/-- A parsed declaration's display label (`Driver.declCName`, shared with
-the driver's progress callback so the two can never drift). -/
+/-- A parsed declaration's display label (`ConLeche.Driver.declCName`,
+shared with the driver's progress callback so the two can never
+drift). -/
 def declCLabel : Declaration → String
   | .defnDecl cv _ _ => s!"def {cv.name}"
   | .thmDecl cv _ => s!"theorem {cv.name}"

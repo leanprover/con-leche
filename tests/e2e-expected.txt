@@ -2806,3 +2806,14 @@
 # accept (the exception is needed: the recursor's value is data read
 # off the constructor the major reduces to).
 0 acc_major_reduce.ndjson
+# The parallel install (task #329; scripts/mk_pinstall_fixtures.py):
+# 3000 definitions whose dependencies form a tree of depth log N, so the
+# install pool installs many at once.  `pinstall_ok` accepts.
+# `pinstall_reject_mid` rejects `c1500` (an undeclared constant in its
+# type) and `pinstall_dup` rejects the second `c7`, two thousand records
+# after the first: the same verdict and the same named declaration at
+# every worker count, although the pool may have installed records past
+# the rejection.
+0 pinstall_ok.ndjson
+1 pinstall_reject_mid.ndjson
+1 pinstall_dup.ndjson
