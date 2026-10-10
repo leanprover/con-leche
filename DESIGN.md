@@ -99208,3 +99208,1201 @@ report showing a worker still running at the summary. No measurement
 campaign: the maintainer takes a before/after measurement once all
 extractions have landed. Logs and the binary:
 `_tmp/amdahl/xinstall-logs/`.
+
+## TASK #329 — the parse records of the `more-parallel` campaign (2026-10-08 … 2026-10-10)
+
+The records below are copied unchanged from `more-parallel`'s DESIGN.md
+(final `c37af82de`), as history for the parallel parse that the next
+record extracts onto `master`. On `more-parallel` they sit among the
+install lanes' records and the master merges; here they are gathered in
+the campaign's order: PARSE (the pipelined two-thread parse), PRESIZE
+(a negative result), ROUNDS (the lookup interface and the dense
+characterisation), FLATSCAN (the scan crossing threads as bytes),
+ROUNDS2 (the rounds parse at every `--jobs` above one), OWNERLAND (the
+rounds on owner threads, design (B), which deleted PARSE's pipeline and
+FLATSCAN's byte format), GOOD (good entries instead of the per-chunk
+check), PFIX and PFIX2 (the two reviews' findings; PFIX2 brought the
+finished tables by rank and the run list). The RAWOFF measurements that
+OWNERLAND cites have no record of their own; their logs are in
+`_tmp/amdahl/rawoff-logs/`. File names and line numbers in these records
+are those of the campaign's trees.
+
+## TASK #329 — PARSE: the pipelined parse (2026-10-08, agent/329-parse)
+
+**What.** The parse used to read a line and apply it, then the next,
+on the main thread (`parseExportHandleD`, `feedChunk`). The READ (the
+byte recogniser, `scanLineSpec` run as `scanLineFwd`) depends on the
+line's bytes alone; the APPLY (`applyLine`) reads and extends the
+tables every earlier line built and must stay in order. The new driver
+(`parseExportHandleP`, `ConLeche/Frontend/Pipeline.lean`) reads the
+stream 4 MiB at a time, cuts each read at its last newline, hands the
+chunk of whole lines (the previous leftover in front) to a worker task
+that copies and scans it into an `Array LineRec` with a stop marker
+(`scanChunk`), and applies the chunks' scans in order on its own thread
+(`applyScanned` inside `chunkStepS`). At most `inflight` chunks are in
+flight: `--jobs` clamped to `[2, 8]` (`parseInput`, `Main.lean`);
+`mathlib-prefix` parse at 1/2/3/4/6/8/12/16 in flight: 4.0/1.5/1.0/0.8/
+0.7/0.7/0.8/0.8 s (at one, the scan and the apply take turns; two is the
+floor). The serial driver `parseExportHandleD`/`parseExportStreamD` is
+deleted.
+
+**What is proved, and how the driver carries it.** Pure, in
+`Pipeline.lean` (implementation tier, the `checkDeclsIO` precedent):
+- `applyScanned_scanChunk`: `applyScanned st (scanChunk b) n =
+  feedChunk st b 0 n` — map then fold is the fused fold, by
+  `fun_induction` over the scan with an accumulator
+  (`applyScanned_scanChunkGo`, via `applyRecs_eq` and
+  `applyList_append`);
+- `chunkStepS_scanChunk`: handed the chunk's own scan, `chunkStepS` is
+  `chunkStep` (a carried tail, which the newline cut never leaves,
+  falls back to `chunkStep` itself);
+- `Reached st carry lineNo total`: some chunk list leads `parseChunks`
+  there; `Reached.step/error/finish`.
+The worker task's value is `(chunk, scan)`, queued as
+`{t : Task _ // t.get.2 = scanChunk t.get.1}` (`rfl` at the spawn:
+`Task.spawn f`'s `get` is `f ()`), so every applied step is
+`chunkStep` of the chunk it applied, and the driver returns
+`ParseOutcome := {r // ∃ cs, parseChunks cs = r}`. Which chunks those
+are is the cut's business; `parseChunks_ok_parseBytes` already says
+the cut does not matter. `MainTheorem`, `Challenge` and the main
+corollary are unchanged (one docstring sentence of `MainTheorem`
+re-worded at the same line count). Tests:
+`tests/ConLecheTests/PipelineTests.lean` runs the driver at chunk sizes
+1, 2, 7, 64, 1000, 4096 and 1-3 in flight on three fixtures and
+compares with `parseBytes` of the whole file (verdict, line, records);
+e2e fixtures `final_line_no_newline` (last line without a newline: the
+leftover is the last chunk) and `long_line_5mib` (a 5 MiB line, so a
+read holds no newline and is carried whole), both exit 0.
+
+**The apply thread.** With the scan off it, the apply thread's profile
+(init-full, frame-pointer stacks) was half `lean_free_object` /
+`lean_dec_ref_cold`: per line, `applyLine` wrapped its result in an
+`Except` and a `Sum` and the entry builders in another `Except`, each
+lookup allocated an `Option` and an `Except`, and the records, now
+multi-threaded objects from the task's value, were `inc`/`dec`'d
+atomically on the way into `applyLine`. Fixed without touching any
+statement: `@[inline]` on `IdTable.get?`, `StateD.name/level/expr`,
+`applyLine` and the three entry builders, and the records passed
+BORROWED (`@&` on `applyLine`, the entry builders, `applyDeclD`,
+`processLineCoreD`; `parseNameEntryD` takes its record as a named
+argument). Apply-thread samples on init-full 2319 → 1285 at the same
+rate. The records are freed by the worker of the NEXT scan (the spent
+task rides in its closure and gives the next array its capacity), so
+the apply thread frees them only for the last `inflight` chunks of a
+stream.
+
+**Measured** (`--progress`, default worker count, flock; wall times
+indicative, one run each; before = more-parallel `67f04630d`):
+
+| stream | parse before | parse after | instructions before | after |
+|---|---|---|---|---|
+| `init-full` (`--jobs=8`) | 1.1 s | 0.4 s | 486.13 G | 485.25 G |
+| `mathlib-prefix` (`--jobs=8`) | 2.1 s | 0.7 s | | |
+| `mathlib-full` | 21.2 s / 20.3 s | 9.3 s / 8.3 s | 8.386 T | 8.376 T |
+| cslib | 8.4 s (warm) | 3.4 s | 2.862 T | 2.857 T |
+| NS | 4.7 s (warm) | 1.6 s | 3.164 T | 3.160 T |
+
+(mathlib-full: two runs each, the first pair with the knob-tuned
+pre-cleanup binary at 16 in flight; cslib/NS: the first base runs read
+the file cold, 9.2 s / 10.0 s, so the warm re-runs are the ones in the
+table.) Total instructions fall slightly: the inlining saves more than
+the pipeline's task and copy overhead costs. Peak RSS on NS 2.31 →
+2.35 GiB (the bounded in-flight chunks). All runs accept with the same
+counts (691 203 on mathlib-full; after the merge with the parallel
+install lane: parse 8.2 s, install 79.5 s, 8.379 T, accepted).
+
+**What is left serial.** The apply thread, ~75-85 ns per line on
+Mathlib (table reads into arrays of 10^8 entries, the smart
+constructors' hashing); mathlib-full's 108 M lines put the floor near
+8 s, which is what the parse takes now. The reads (`h.read` into a
+fresh buffer) and the newline search are on the same thread and small.
+
+**Streaming into the install: not done, what it would need.** The
+install takes the whole `Array Declaration` after `Frontend.prepareD`
+(prelude prepended, a stream copy of a prelude record dropped, the
+Nat-operation ground hoist, which moves later records ahead of a
+pinned operation), and `installLoop`'s accepting run is stated over
+`ds.toList.take i`. Overlapping the two phases would need (1) an
+incremental `preparePrelude` proved equal to the batch one — the
+prepend and the dedupe are per-record, the hoist is not: it needs a
+bound on how far ahead it looks, or the install must wait at a pinned
+operation until its ground has been parsed; (2) the install loop over
+a list that grows at its end (`InstallRun.snoc` already has that
+shape) and a final step tying the run to the assembled array. The gain
+is at most the remaining parse time (~8 s of ~120 s on mathlib-full)
+while install is ~80 s, with both phases' memory live at once. Not
+worth the proof cost now; worth revisiting if the install lanes bring
+the install near the parse.
+
+## TASK #329 — PRESIZE: pre-sized IdTables, no measurable gain (2026-10-08, agent/329-presize)
+
+**What.** The PARSE2 study (`_tmp/amdahl/parse2-study.md`) attributed a
+secondary, cache-miss-only tail to the apply thread's three `IdTable`s
+(names, levels, exprs) doubling their dense array as they grow — at
+Mathlib-full scale (~10^8 expr entries) the doubling copies sum to
+~1.6 GB of `memmove`. Tried the same trick as `scanChunkCap`: pre-size
+the dense arrays from a capacity hint derived from the input's byte
+length (a regular file's size; a pipe or unreadable path gives `0`,
+i.e. no hint). `IdTable.emptyCap`/`singletonCap`
+(`ConLeche/Frontend/Scan/Types.lean`) and `StateD.initCap`
+(`ConLeche/Frontend/ExportC.lean`) take the three capacities as plain
+`Nat`s with no case split, so `*_eq` is `rfl` for any value — the
+capacity is not part of an `Array`'s logical value, exactly as
+`Array.emptyWithCapacity`'s own field ignores its argument. The hint
+formulas (`exprCapOfBytes`/`nameCapOfBytes`/`levelCapOfBytes`,
+`ConLeche/Frontend/Pipeline.lean`) are one division each, kept UNDER
+the `ie`/`in`/`il` record density measured on mathlib-prefix (0.0166/
+0.0012/3.2e-6 per byte), cslib (0.0165/0.0009/5.1e-6) and
+navier-stokes-euler (0.0178/0.0004/2.5e-6), with a hard ceiling so a
+file whose byte length badly mismatches its record count is not
+over-allocated. `parseExportStreamP` reads the hint via
+`System.FilePath.metadata` (`inputByteHint`) before opening the
+handle; `parseExportHandleP` gains three optional `Nat` parameters,
+default `0` (no hint, `StateD.init`'s own behaviour). No proof besides
+the two `rfl`s was touched; `MainTheorem` and the main corollary are
+unchanged.
+
+**Measured** (`--progress`, default worker count, flock, one run each;
+before = `more-parallel` at the pipelined-parse tip `1681c4308`, after
+= this patch on the same tip; `_tmp/amdahl/presize-logs/driver.log`):
+
+| stream | parse before → after | instructions:u before → after | peak RSS before → after |
+|---|---|---|---|
+| mathlib-full | 8.2 s → 8.3 s | 8314.624 G → 8313.674 G (−0.011 %) | 7 255 212 → 7 242 664 KB (−0.17 %) |
+| cslib | 3.5 s → 3.5 s | 2840.239 G → 2839.992 G (−0.009 %) | 3 201 736 → 3 169 696 KB (−1.0 %) |
+| NS | 1.5 s → 1.5 s | 3161.612 G → 3161.840 G (+0.007 %) | 2 494 936 → 2 439 164 KB (−2.2 %) |
+
+All three runs accept, same counts as before (mathlib-full: 691 203).
+No RSS regression anywhere — peak RSS is slightly LOWER on all three
+streams after pre-sizing (consistent with avoiding the moment a
+doubling copy holds both the old and the new backing array live at
+once), but the parse-phase wall time and instruction count move by
+less than run-to-run noise on a shared machine. **Not landed on
+`more-parallel`**: the PARSE2 study's own estimate ("a few hundred ms
+on mathlib-full, less on cslib/NS") does not clear the noise floor at
+one run each, and there is nothing else pre-sizing was expected to
+move — this is a negative result, recorded rather than chased further.
+The code (`ConLeche/Frontend/{Scan/Types,ExportC,Pipeline}.lean`,
+plus the `OVERVIEW.md` link-anchor re-sync the line shift required) is
+kept as `_tmp/amdahl/presize-logs/presize.patch` if a future lane wants
+to revisit it against a cheaper or less noisy measurement.
+
+## TASK #329 — ROUNDS: the lookup interface and the dense characterisation (2026-10-08, agent/329-rounds)
+
+First milestone of the rounds parse (the PARSE3 study,
+`_tmp/amdahl/parse3-study.md`: a parallel apply in rounds over windows
+of chunks). Steps 1–3 of its proof plan, landed on their own.
+
+**The builders over a lookup interface** (`ConLeche/Frontend/ExportC.lean`).
+`Lk ε` is three lookups `Nat → Except ε _` (names, levels, exprs);
+`nameOf`/`levelOf`/`exprOf` (generic in `ε`, `@[inline]`) build an
+entry's value through them and nothing else, `declOf` (with `cvOf`,
+`ruleOf`, `validateInd`, `indBlockOf`, renamed from `parseCVD`,
+`parseRuleD`, `validateIndD`, `installIndD`) a declaration record. The
+serial builders are those at `StateD.lk`: `parseExprEntryD st i r` is
+`freshExpr; exprOf st.lk r; insert` by definition, `processLineCoreD`
+is `declOf st.lk d` then one `pushDecl`. The error type is a parameter
+so that the rounds can hand the builders lookups that answer "not yet".
+The proofs that unfolded the old builders (`ApplyLine.lean`,
+`ThmLine.lean`) became shorter (`processLineCoreD_ok`). The compiled
+hot path is not byte-identical (`pwOf` is now inlined where `parsePwD`
+was a call); init-full at `--jobs=8`: 491.83 G → 491.89 G
+instructions:u (+0.01 %), parse 0.4 s both.
+
+**Dense streams never rebind** (`ConLeche/Verify/Frontend/Dense.lean`,
+counters `Ctr`/`Ctr.fits` in the new `ConLeche/Frontend/Rounds.lean`).
+On a state whose tables are dense arrays (`StateD.ofDense`), a line
+binding the next index of its table passes the rebinding test and its
+entry is pushed (`applyLine_{name,level,expr,decl}_dense`).
+
+**The characterisation.** Over a list of lines each binding the next
+index of its table (`DenseAll`), the serial fold from the state cut at
+counters `c` succeeds with final tables `na`/`la`/`ea` exactly when
+every line's builder, at those tables cut at the counts before the
+line (`cutLk`), yields the line's own entry, and every declaration
+line's builder a record (`AllOK`): `applyList_of_allOK` (the final
+state is the tables cut at the final counters, the records
+`declsAlong`) and `allOK_of_applyList`. The condition is per line, so
+the rounds can establish it in any order.
+
+Gates green (arena battery, `lake test`); mathlib-full at `--jobs=32`
+accepts 691 203 (8.486 T instructions, parse 10.3 s, load ~35).
+
+## TASK #329 — FLATSCAN: the scan crosses threads as bytes (2026-10-08, agent/329-flatscan)
+
+**What.** The pipelined parse handed each chunk's scan from its worker
+task to the applying thread as `ScannedChunk` (`recs : Array LineRec`):
+a boxed record per line plus its nested records, ~10^8 objects on
+mathlib-full. The runtime marks a task's value multi-threaded object
+by object (`resolve_core` → `lean_mark_mt`, under the task manager's
+one mutex), and the applying thread and the next scan then paid
+atomic reference counts and multi-threaded frees on them. Now the
+worker writes the scanned records into ONE `ByteArray`
+(`FlatChunk := {data, count, stop}`; the task value is the chunk and
+its `FlatChunk`, five objects whatever the chunk holds), and the
+applying thread reads each record's fields back out of the bytes where
+it applies them. `ScannedChunk` stays as the specification.
+
+**The format** (`ConLeche/Frontend/Flat.lean`, implementation tier,
+self-contained). A line is a tag byte (ordered by frequency on
+Mathlib: `app` first, four lines in five) and its fields in
+declaration order; a `Nat` is four little-endian bytes below
+`2^32 - 1`, else the marker `FF FF FF FF` and its base-128 digits
+(`natVal` literals); a string is its byte length and UTF-8 bytes; a
+list its length and members. Three layers, each proved:
+- `enc*` (the bytes, `List UInt8`), `w*` (the writer, `push`es;
+  `w*_spec`: appends exactly `enc*`), `r*` (the reader, `Nat`
+  positions; `RD r x bs`: reads `x` from any buffer whose bytes there
+  begin with `bs`; `rdLine` and friends for every record type,
+  composed field by field with an `rd_field` tactic macro);
+- the fast readers the applying thread runs: `USize` positions, one
+  bounds test per four-byte field (`r4U`), `rNatU`, `rPwU` (the
+  one-byte `never` read in place), `viaNat` for strings, lists and
+  declarations; `withLineU d p k` reads a line and hands it to the
+  continuation `k`, so that with `k` inlined the record is never
+  built. `RDU`/`withLineU_spec`: on a buffer of machine-word size they
+  read what the specification readers read;
+- `lineEndU` (where a line ends; `lineEndU_spec`), so a reader that
+  wants line `k` of a chunk can index the chunk's line starts on its
+  own task — the random access the rounds parse needs.
+
+**What is proved, and how the driver carries it** (`Pipeline.lean`).
+`FlatChunk.Encodes fc sc`: `fc`'s bytes are `sc`'s records written
+one after the other, same count, same stop.
+`scanFlat_encodes : (scanFlat cap b).Encodes (scanChunk b)` (the flat
+scan is `scanChunkGo` line for line with `wLine` for `push`,
+`fun_induction` over the record scan); `applyFlat_eq : fc.Encodes sc →
+applyFlat st fc n = applyScanned st sc n` (`applyFlat` tests once per
+chunk that the buffer's size is a machine word and runs
+`applyFlatGoU`, else the `Nat`-position `applyFlatGo`; both proved
+against `applyList` by induction over the encoded list);
+`chunkStepF_of_encodes` then gives `chunkStep` through the unchanged
+`chunkStepS_scanChunk`. The scan task's subtype is now
+`t.get.2.Encodes (scanChunk t.get.1)` (`scanFlat_encodes` at the
+spawn). `applyScanned_scanChunk`, `chunkStepS_scanChunk`,
+`ParseOutcome`, `MainTheorem` and the main corollary are unchanged.
+Tests: `PipelineTests` runs the driver on four more fixtures (escaped
+`natVal`s, string literals, non-ASCII names, an inductive block) and
+round-trips every line kind through both readers (`flatRoundTrip`).
+
+**A kernel trap.** The first `r4` combined the bytes as
+`b0 + b1 * 256 + b2 * 65536 + b3 * 16777216` over `UInt32`. Every
+equation lemma of a reader that matches on `let (n, p) := rNat d p`
+then failed with "(kernel) deep recursion": checking the lemma, the
+kernel reduces the matcher's discriminant, unfolds `rNat` into the
+`UInt32` comparison and `Nat.mul` along its literal second argument,
+sixteen million steps deep. Shifts (`<<< 24`) recurse along the shift
+count; that is what `r4`/`le4` use now.
+
+**Measured** (parse-only runs: an uncommitted patch exits after the
+parse and times the applying loop around `chunkStepF`, the waits for
+the scan excluded; patches and scripts in
+`_tmp/amdahl/flatscan-logs/`; base = more-parallel `35d07f294`, runs
+interleaved; wall times indicative, load 15–40):
+
+| stream, jobs | parse base → flat | apply ns/line base → flat | instructions:u base → flat | cycles:u base → flat | peak RSS base → flat |
+|---|---|---|---|---|---|
+| init-full, j1 (3 runs) | 0.7 → 0.6 s | 45–47 → 42–44 | 17.17 G → 18.94 G (+10 %) | 5.76–6.11 G → 5.33–5.57 G (−8 %) | 385–407 → 381–403 MB |
+| NS, j8 (3 runs) | 2.2/1.6/1.7 → 1.5/1.6/1.6 s | 52/42/46 → 41/43/43 | 76.3–82.3 G → 82.3 G | 24.1–30.2 G → 23.9 G | 1.37–1.39 → 1.34–1.37 GB |
+| NS, j32 (3 runs) | 1.7/1.7/1.6 → 1.6/1.4/1.6 s | 46/45/42 → 44/39/44 | 76.6–77.2 G → 82.3 G | 24.5–25.0 G → 23.2–23.9 G | 1.39–1.40 → 1.35–1.37 GB |
+| mathlib-full, j8 (2 runs) | 8.9/16.3* → 10.8/8.1 s | 59/112* → 75/58 | 304–305 G → 326–328 G (+7 %) | 104/179* G → 112/88 G | 4.77–4.81 → 4.87–4.88 GB |
+| mathlib-full, j32 (2 runs) | 8.9/8.2 → 8.6/8.4 s | 63/57 → 60/56 | 307–308 G → 326–328 G | 107–109 G → 90–92 G | 4.79–4.80 → 4.85–4.89 GB |
+
+(*: a load spike; the in-flight count is clamped to 8, so j32 runs the
+parse as j8 does.) Where the time went, NS at j8 (`perf record -g`,
+cycles, inclusive): `lean_mark_mt` 5.0 % → 0, `lean_dec_ref_cold`
+6.6 % → 0.65 %, `mi_free_block_mt` 2.0 % → 0.02 % (`resolve_core` is
+inlined into `run_task`; the marking is `lean_mark_mt`). Full run,
+mathlib-full at `--jobs=32`: accepted 691 203, parse 8.6 s, install
+6.6 s, check 35.7 s, 8.462 T instructions:u, peak RSS 7.9 GB.
+
+So the parse's cycles fall (8–15 %) and the cross-thread value is
+flat; the applying thread gains a little on init-full and NS and
+nothing measurable on mathlib-full, where its ~58 ns per line are the
+tables (lookups into arrays of 10^8 entries, the smart constructors'
+hashing, the inserts), not the reads. The instruction count rises
+7–10 %: the writer, on the workers. Single-threaded scan of init-full
+(a scan-only hook, 6.49 M lines): records into an array 13.66 G
+instructions / 3.04 G cycles; records dropped 13.41 G / 2.85 G; flat
+15.61 G / 3.36 G — the writer is ~340 instructions a line, ~150 of
+them the `push` calls (13 bytes on an `app` line) and the rest the
+encoding and the dispatch on the record.
+
+**Tried and dropped: a cursor writer.** Keep the buffer longer than
+what is written and store small lines in place, first with
+`ByteArray.set!` at a `Nat` cursor, then with `uset` at a `USize`
+cursor behind one room test per line (proved: `wLineAt_spec`, the
+stores as `putList`, a `slowLine` through `copySlice` for the rest).
+Instructions −0.3 G on the init-full scan, cycles unchanged
+(3.36 G → 3.38–3.49 G). Not worth the 250 lines; the code is in
+`_tmp/amdahl/flatscan-logs/Flat-cursorU.lean.txt`.
+
+**What is left.** The worker still builds a `LineRec` per line and
+frees it after writing it: a scanner that writes the bytes itself
+would save the allocation, the free and the dispatch (most of the
+writer's cost and some of the scan's), at the price of proving that
+scanner against `scanLineSpec` composed with `wLine`. For the rounds
+parse: a chunk's `FlatChunk` is what a round reads; its line starts
+come from `lineEndU`, computed on the chunk's own task.
+
+## TASK #329 — ROUNDS2: the rounds parse at every `--jobs` above one, checked line by line (2026-10-08, agent/329-rounds2)
+
+**What.** At `--jobs` above one the parse is the rounds parse
+(`ConLeche/Driver/ParParse.lean`); `--jobs=1` keeps the pipelined
+parse. The stream is read forward in chunks of whole lines (about an
+eighth of a window's share of the file, 64 KiB to 1 MiB), each chunk
+scanned flat on a worker; a window of `4 * jobs` chunks (at most 256)
+is applied in rounds (`ConLeche/Frontend/RoundsWork.lean`): round 0
+per chunk against the finished tables and the chunk's own entries,
+deferring a line that reads another chunk of the window; later rounds
+retry a deferred line once the entry it waits for is done; then the
+window's tables join the finished tables, in pages of 4096 indices.
+One pool of `jobs` dedicated workers takes jobs from three queues:
+the current window's rounds and pages, the previous window's checks,
+the scans read ahead (`jobs` chunks beyond the window).
+
+**What is trusted: the check, not the rounds** (the maintainer's
+simplification). Nothing the rounds compute is believed. The tables
+after a window are tested to agree with the tables before below the
+window's start (`Prior.keeps`: the kept pages are the old ones by
+construction, the first new page is compared slot by slot), and every
+chunk is checked line by line against the finished tables at the
+counters the serial parse has there (`checkFlat`,
+`ConLeche/Frontend/Rounds.lean`): a table line binds an index at or
+above its counter with nothing bound in the gap, and its builder,
+reading the finished tables cut at the counters, yields exactly the
+entry they hold (compared node by node, pointer first, without
+building it); a declaration line yields its record. The checks of a
+window run while the next window's rounds run, and are folded before
+that window's tables join. Proofs (`ConLeche/Verify/Frontend/Rounds.lean`):
+`checkLine_sound`/`checkList_sound` (a passing list is `AllOK` at
+the finished tables), `checkFlat_sound` (the flat check is the check
+of the lines the chunk holds), `GOK.chunk` (a passing chunk is one
+more `chunkStep`), `GOK.keep`, `GOK.finish`, `GOK.reached` (the
+fallback's starting state, `Prior.toState`). The driver returns
+`ParseOutcome` as before; `MainTheorem` and the main corollary are
+unchanged.
+
+**Gappy ids.** The landed step-2/3 theorems are restated for streams
+that bind each table in increasing order with gaps
+(`ConLeche/Verify/Frontend/Dense.lean`): `applyLine_of_lineOK`, the
+characterisation `applyList_of_allOK` and its converse
+`allOK_of_applyList` over tables as partial maps (`Tabs`, `Holds`);
+`StateEquiv.lean`: the parse sees its tables only as partial maps
+(`Reached.equiv`). The builders take three lookup functions
+(`nameOfF`/`exprOfF`/`declOfF`; `nameOf L` is `nameOfF L.name ...`).
+
+**Fallback.** A window whose chunks do not qualify (a carried tail, a
+malformed line), whose rounds meet an index below its table's counter
+(a decreasing stream), a line the serial parse fails at, a round
+without progress, gaps wider than `8 * entries + 2^23` in a table, or
+a chunk failing its check, goes to the serial parse from the state the
+chunks before it reached: the remaining chunks by `chunkStepF`, the
+rest of the stream by the pipelined parse (`loopP`). That is the
+serial verdict at the serial line. Tests: `RoundsTests` (chunks of 64
+bytes to 64 KiB, windows of one to five chunks, two and three workers,
+ten fixtures, each compared with `parseBytes` and with its fallback
+expectation); e2e fixtures `rounds_gappy_ids` (accepted on the rounds
+path), `rounds_decreasing_id` (fallback, accepted),
+`rounds_forward_ref` and `rounds_error_late` (fallback, the serial
+error at its line). The arena and e2e sweeps at `--jobs=4` and the
+default worker count now run every fixture through the rounds parse.
+
+**Memory: what is marked persistent** (the maintainer's rule: only
+what lives to the end of the run). Workers mark, element by element
+(`markEach`), the names, levels and expressions they built (round 0's
+arrays, each later round's array) and the records a check built; never
+an array or other container. Pages, round arrays, keys, positions and
+pending lines are freed when the window or the parse is done. Three
+findings on the way:
+- A placeholder written as a constructor in an instance
+  (`Sent.pend := .fvar sentP (.bvar 0)`) was rebuilt by the compiler at
+  every use: a fresh object per deferred line, persistent with its
+  array. Now one `@[noinline]` constant each (`pendExpr` etc.).
+- Persistent containers (round arrays, pages, the window's keys)
+  leaked: peak RSS cslib `--jobs=8` 4.24 GB and mathlib-full 9.88–10.1
+  GB before the fix, 3.24 and 7.66 GB after (the pipelined parse:
+  3.26 and 7.61).
+- A closure over the finished tables (`cutLk P.tabs c` in the check)
+  took a reference per line on a container every worker reads; with the
+  container not persistent that was an atomic hot spot (init-full parse
+  0.33 s → 1.3–1.7 s). The check now reads through borrowed lookups
+  (`lkN`/`lkL`/`lkE`, `levelsCheck` for a constant's levels): 0.35 s.
+- Marking cost (mathlib-full `--jobs=8`, parse-only, `perf`):
+  `lean_mark_persistent` 2.4 % of the parse's cycles (each element's
+  walk stops at its persistent children), `lean_mark_mt` 1.1 % (the
+  runtime marking the round arrays and pages as they cross; it does not
+  enter the persistent entries).
+
+**Measured** (`more-parallel` `6eaff83aa` = mp against this lane;
+`--progress` phase times, wall seconds, median (min–max) of 2 runs;
+instructions:u the minimum; load the one-minute average; all runs
+accept the expected counts, mathlib-full 691 203):
+
+| corpus | jobs | binary | parse | install | check | total | peak RSS GB | instr G (min) | load |
+|---|---|---|---|---|---|---|---|---|---|
+| cslib | 8 | mp | 3.4 (3.4–3.4) | 5.5 (5.3–5.8) | 38.7 (37.8–39.6) | 47.7 (46.5–48.9) | 3.25–3.25 | 2901.1 | 8–13 |
+| cslib | 8 | rounds | 2.7 (2.6–2.8) | 4.2 (4.0–4.4) | 36.6 (36.3–37.0) | 43.6 (43.0–44.3) | 3.24–3.27 | 2957.5 | 10–16 |
+| cslib | 32 | mp | 3.4 (3.4–3.4) | 3.1 (3.0–3.3) | 12.1 (12.0–12.1) | 18.7 (18.5–18.9) | 3.43–3.43 | 2904.2 | 12–16 |
+| cslib | 32 | rounds | 1.6 (1.6–1.6) | 2.0 (1.8–2.1) | 11.2 (11.2–11.3) | 14.8 (14.6–15.1) | 3.41–3.44 | 2978.6 | 14–17 |
+| cslib | 64 | mp | 3.5 (3.4–3.5) | 3.2 (3.2–3.2) | 7.8 (7.7–7.8) | 14.5 (14.5–14.5) | 3.57–3.60 | 2903.0 | 21–32 |
+| cslib | 64 | rounds | 1.7 (1.7–1.7) | 1.9 (1.8–2.0) | 7.8 (7.7–7.8) | 11.4 (11.4–11.5) | 4.55–4.62 | 2994.9 | 26–35 |
+| init | 1 | mp | 0.6 | 2.4 | 42.3 | 45.4 | 0.42–0.42 | 487.2 | 37–37 |
+| init | 1 | rounds | 0.6 | 2.3 | 42.4 | 45.5 | 0.42–0.42 | 487.1 | 18–18 |
+| init | 8 | mp | 0.3 (0.3–0.4) | 0.8 (0.8–0.8) | 6.3 (6.1–6.5) | 7.6 (7.4–7.7) | 0.57–0.60 | 491.8 | 5–6 |
+| init | 8 | rounds | 0.3 (0.3–0.3) | 0.7 (0.7–0.7) | 6.3 (6.3–6.3) | 7.4 (7.4–7.4) | 0.69–0.74 | 504.4 | 6–7 |
+| mlfull | 8 | mp | 8.3 (8.1–8.6) | 14.4 (14.3–14.4) | 108.0 (107.0–108.9) | 130.7 (129.6–131.8) | 7.60–7.62 | 8458.4 | 16–40 |
+| mlfull | 8 | rounds | 7.1 (6.8–7.4) | 10.7 (10.5–10.9) | 106.9 (105.6–108.2) | 124.8 (123.4–126.2) | 7.62–7.64 | 8616.4 | 13–14 |
+| mlfull | 32 | mp | 8.2 (8.1–8.4) | 8.1 (8.1–8.1) | 33.5 (33.5–33.5) | 50.0 (49.8–50.2) | 7.83–7.84 | 8458.6 | 9–25 |
+| mlfull | 32 | rounds | 3.8 (3.8–3.9) | 3.8 (3.6–4.0) | 33.0 (32.7–33.3) | 40.7 (40.6–40.8) | 7.79–7.81 | 8641.5 | 20–27 |
+| mlfull | 64 | master | 21.1 | 54.0 | 30.8 | 105.9 | 7.15–7.15 | 8329.7 | 57–57 |
+| mlfull | 64 | mp | 8.2 (8.1–8.4) | 7.9 (7.8–8.0) | 22.8 (22.5–23.1) | 39.1 (39.0–39.2) | 8.02–8.02 | 8452.1 | 28–46 |
+| mlfull | 64 | rounds | 4.6 (4.4–4.7) | 3.0 (2.9–3.0) | 23.5 (21.6–25.4) | 31.1 (29.0–33.3) | 8.01–8.04 | 8667.1 | 37–48 |
+| ns | 8 | mp | 1.5 (1.5–1.5) | 3.2 (3.1–3.2) | 41.0 (41.0–41.1) | 45.8 (45.7–45.9) | 1.97–1.98 | 3205.3 | 7–8 |
+| ns | 8 | rounds | 1.5 (1.5–1.5) | 2.5 (2.5–2.6) | 40.5 (40.2–40.9) | 44.7 (44.4–45.0) | 1.98–2.00 | 3265.5 | 8–8 |
+
+- `--jobs=1` init-full: 487.17 G → 487.07 G instructions (the same
+  pipelined parse), parse 0.6 s both.
+- `--jobs=2`/`4` on NS: parse 2.5 → 4.3 s and 1.5 → 2.6 s, totals
+  equal (154.1/153.7 s, 83.8/83.5 s): the rounds cost about twice the
+  serial apply's CPU (deferred lines: 42 % of NS's lines are deferred
+  in round 0, 18 % of mathlib-full's), which few workers do not hide;
+  the install gains back the records' mark (0.6 s on NS).
+- master-bc at mathlib-full `--jobs=64`: parse 21.1 s, total 105.9 s.
+- The parse's instructions grow 1.5–2.5 % of a run (the check is a
+  second pass over every line, the deferred lines a second apply).
+
+**Not done.** Smaller deferral (a window's chunks see only the
+finished tables in round 0); a cheaper later round (lookups into other
+chunks search the chunk starts); `lean_mark_mt` of the round arrays
+could be avoided by keeping them on their worker.
+
+Logs and scripts: `_tmp/amdahl/rounds2-logs/` (`campaign2.txt`,
+`run1.sh`, `measure.patch` with the development knobs).
+
+## TASK #329 — OWNERLAND: the rounds parse on owner threads, design (B) (2026-10-09, agent/329-ownerland)
+
+**The decision** (maintainer, 2026-10-09, after the OWNER spike
+`agent/329-owner` and the RAWOFF measurements): adopt design (B). Only
+raw chunk bytes and finished, persistent `Expr`/`Name`/`Level`
+entries and records, plus shallow containers of them, may cross
+threads; scan records never do. No hand-rolled encoding of scan
+records. One design for every `--jobs` above one, no thresholds.
+
+**What changed.**
+- `ConLeche/Driver/OwnerParse.lean` (new; replaces `ParParse.lean`):
+  `--jobs` dedicated owner threads, each with a mailbox; a window is
+  one chunk per owner, chunks of about equal bytes, read forward and
+  cut at the last newline of each read, the next window read on a
+  reader thread meanwhile (raw bytes cross). Each owner scans its chunk
+  ONCE into an ordinary `Array LineRec` (`scanChunk`), kept in its
+  loop's arguments; runs round 0 and every later round over its own
+  pending lines (`round0`/`roundR` in `RoundsWork.lean`, now over
+  records: a pending line names its record's index); marks the entries
+  it built persistent and publishes them at the end of the round. The
+  barrier is one promise per owner per step, awaited by the main
+  thread, which assembles the window. After the window each owner
+  builds a slice of the pages, then checks its chunk over its records
+  (`checkRecs`) against the finished tables and hands back the chunk's
+  bytes, the declarations, and the evidence that the result is
+  `checkRecs` of that chunk's own scan (`ChkRes`). The main thread folds
+  the checks with `GOK.chunk` (the spike's `GOK.chunkR`).
+  Chunk size clamp(size / (16 × jobs), 64 KiB, 4 MiB), the spike's
+  measured choice (1 MiB and 16 MiB were slower on mathlib-full at 8
+  and 32 jobs); 1 MiB when the size is unknown.
+- Fallback on any anomaly (a chunk that does not fit, a round that
+  fails or makes no progress, `Prior.keeps` false, a failed check): the
+  owners are stopped and the serial parse continues from `GOK.reached`
+  over every chunk read so far and the leftover bytes, then the rest of
+  the stream by `serialLoop`: the serial verdict at the serial line.
+- `--jobs=1`: `serialLoop` (`ConLeche/Frontend/Stream.lean`), each 4 MiB
+  read fed to `chunkStep` on the main thread; nothing crosses a thread.
+  The pipelined two-thread parse had no other user and is deleted.
+- Deleted: `ConLeche/Frontend/Flat.lean` (the byte format and its
+  proofs), `ConLeche/Driver/ParParse.lean` (the pool, the flat scan
+  jobs), the flat half of `Pipeline.lean` (`FlatChunk`, `scanFlat`,
+  `applyFlat`, `chunkStepF`, `ScanTask`, `loopP`,
+  `parseExportStreamP`; the rest renamed `Stream.lean`), the flat
+  rounds (`round0`/`roundRGo` over `Flat.withLineU`), `checkFlat`,
+  `checkFlat_sound`, `checkFlatGoU_eq`, the flat `GOK.chunk`, and the
+  flat round-trip tests. Net −1688 lines (ConLeche/ and Main.lean:
+  +936 −2579).
+
+**Statements.** `ParseOutcome`, `MainTheorem` and the main corollary
+are unchanged; the driver still returns `{r // ∃ cs, parseChunks cs =
+r}`. `GOK.chunk` is restated over records:
+`chunkFits b (scanChunk b) g.total` and `checkRecs g.P (scanChunk
+b).recs g.c = some (c', ds')` give `GOK` one chunk further
+(`checkRecs_eq`: `checkRecs` is `checkList` of the records). No sorry,
+no new axiom, no new `unsafe` beyond `markEach` (moved with the driver;
+`tests/trust-surface.sh` repointed).
+
+**What crosses, what is marked.** Crosses: `Src` (the raw read buffer,
+leftover bytes, a cut position), the finished tables and the window
+(shallow containers of persistent entries, keys, starts, `lpos`
+words), round-0 and late arrays of persistent entries, page slices,
+the chunk's bytes and its declarations. Never a `LineRec`, and never a
+pending-line buffer (it stays on the owner). Marked persistent, by the
+owner that built them: the entries of round 0 and of each later round,
+and the declarations of a check (`markEach`, elements only; no
+container). A window that falls back leaks what its owners marked
+(rare; the same as ROUNDS2).
+
+**What was kept as is.** `lpos` (a late entry's position, four bytes
+per entry) and the pending lines (24 bytes each) are still byte arrays
+of words: bookkeeping, not an encoding of scan records; the pending
+buffer no longer crosses threads.
+
+**Tests.** `RoundsTests` runs the owner driver on the ten fixtures at
+64-byte, 1000-byte and 64 KiB chunks and one, two, three and five
+owners, each against `parseBytes`; with the fallback expectation; at
+64-byte chunks every accepted fixture larger than three windows must
+take at least three windows through the rounds. `StreamTests` runs
+the serial loop at reads of 1 to 4096 bytes on seven fixtures. The
+e2e fixtures `rounds_gappy_ids`, `rounds_decreasing_id`,
+`rounds_forward_ref`, `rounds_error_late` are unchanged; the arena and
+e2e sweeps at `--jobs=4` and the default worker count go through the
+owner path. Gates: `lake build`, `lake test` warning-free;
+`tests/arena.sh` green (trusted, `--jobs=1` and `--jobs=4` sweeps 138
+arena + 465 e2e + 15 annot as expected); shake, layering,
+trust-surface, links, quote gate green.
+
+**Measured** (full runs, `--progress`, one run per configuration
+unless noted; parse from the `parse done` line, total wall from
+`time`; load the one-minute average at start; own = this lane, mp =
+`more-parallel` `b0d65708e`, bc = `master-bc`; at `--jobs=1` on the
+Mathlib-scale corpora the runs were stopped after the parse, since
+install and check are the same code; logs and scripts in
+`_tmp/amdahl/ownerland-logs/`):
+
+| corpus | jobs | parse own / mp / bc (s) | total own / mp / bc (s) | instr own / mp / bc (G) | peak RSS own / mp / bc (GB) | load |
+|---|---|---|---|---|---|---|
+| init-full | 1 | 1.0 / 0.6 / 1.1 | 50.0 / 48.7 / 50.0 | 483.4 / 486.8 / 486.1 | 0.41 / 0.42 / 0.41 | 3–5 |
+| init-full | 4 | 0.5 / 0.5 / 1.1 | 14.6 / 14.6 / 16.4 | 494.2 / 503.0 / 487.1 | 0.56 / 0.55 / 0.49 | 11–15 |
+| init-full | 8 | 0.3 / 0.4 / 1.2 | 8.4 / 8.3 / 12.0 | 497.0 / 504.4 / 486.9 | 0.67 / 0.69 / 0.50 | 15–20 |
+| init-full | 32 | 0.2 / 0.3 / 1.2 | 3.7 / 3.8 / 7.5 | 497.0 / 507.4 / 486.6 | 0.98 / 1.02 / 0.76 | 21–23 |
+| NS | 1 | 5.0 / 2.8 / 5.3 | — | — | — | 25–26 |
+| NS | 4 (3 runs own/mp) | 2.7, 2.5, 2.3 / 2.6, 2.5, 2.7 / 5.6 | 101.3, 94.7, 95.2 / 96.0, 96.1, 90.0 / 111.5 | 3217–3224 / 3254–3256 / 3167 | 1.92 / 1.94 / 1.79 | 14–25 |
+| NS | 8 (3 runs own/mp) | 1.6, 1.5, 1.4 / 1.6, 1.6, 1.6 / 4.9 | 50.2, 47.6, 48.1 / 48.4, 47.6, 49.8 / 66.7 | 3229–3242 / 3268–3282 / 3167 | 1.98 / 2.00–2.02 / 1.80 | 10–22 |
+| NS | 32 | 0.9 / 1.0 / 5.1 | 17.3 / 17.7 / 39.0 | 3247.5 / 3294.4 / 3166.2 | 2.69 / 2.80 / 1.97 | 17–29 |
+| cslib | 1 | 8.7 / 5.2 / 9.4 | — | — | — | 24–29 |
+| cslib | 4 | 4.0 / 4.5 / 9.5 | 87.4 / 92.1 / 111.9 | 2910.5 / 2953.4 / 2845.7 | 3.14 / 3.21 / 2.79 | 10–24 |
+| cslib | 8 | 2.6 / 2.9 / 8.9 | 47.5 / 49.9 / 74.0 | 2915.9 / 2956.9 / 2845.7 | 3.19 / 3.23 / 2.81 | 10–22 |
+| cslib | 32 | 1.6 / 1.7 / 9.1 | 16.0 / 16.9 / 50.4 | 2937.3 / 2973.5 / 2845.8 | 3.56 / 3.43 / 3.02 | 12–21 |
+| mathlib-full | 1 | 19.5 / 11.9 / 22.4 | — | — | — | 12–16 |
+| mathlib-full | 4 | 11.5 / 11.4 / 21.6 | 249.4 / 255.4 / 297.3 | 8484.7 / 8593.6 / 8324.4 | 7.40 / 7.51 / 6.72 | 7–19 |
+| mathlib-full | 8 | 6.9 / 7.0 / 22.4 | 132.0 / 135.0 / 195.5 | 8498.4 / 8612.7 / 8325.4 | 7.53 / 7.61 / 6.82 | 12–23 |
+| mathlib-full | 32 (3 runs) | 4.1, 3.7, 3.7 / 4.1, 4.3, 3.9 / 21.7 | 48.2, 43.2, 44.0 / 43.3, 48.1, 42.8 / 128.4 | 8515–8533 / 8625–8639 / 8325 | 7.78–7.79 / 7.82–7.84 / 7.06 | 12–36 |
+
+Every run accepted the expected count (mathlib-full 691 203).
+- `--jobs` above one: parse equal or faster than mp everywhere (cslib
+  −10 % at 4 and 8 jobs), instructions 1–2 % lower (no flat writer
+  and reader), peak RSS equal or slightly lower except cslib at 32
+  (+0.13 GB; each owner holds the records of the current chunk and of
+  the next one while the window's pages and checks run). Totals are within the check phase's run-to-run
+  noise (the check is the same code; mathlib-full at 32 jobs ranged
+  43–48 s on both binaries).
+- `--jobs=1`: the serial loop is slower than mp's two-thread pipelined
+  parse (init-full 1.0 vs 0.6 s, NS 5.0 vs 2.8 s, cslib 8.7 vs 5.2 s,
+  mathlib-full 19.5 vs 11.9 s) and about master-bc's serial parse
+  (1.1 / 5.3 / 9.4 / 22.4 s), as the maintainer expected; the spike
+  had 23.3 s on mathlib-full at higher load. Total instructions at
+  `--jobs=1` on init-full fall 0.7 % (no scan-to-bytes writer).
+
+**Not done / open.**
+- `agent/329-lazy2` (parked, being tested elsewhere) is built on the
+  flat code this lane deletes; it would need rebasing onto (B) — its
+  lazy theorem bodies would come from the owner's records instead of
+  the flat buffer.
+- The pending-line buffer could become an array of small structures
+  now that it never crosses; it was left as bytes (allocation-free).
+- An owner idles while the main thread assembles a window; the spike's
+  per-owner busy/idle statistics are not kept in the landed driver.
+
+## TASK #329 — GOOD: good entries instead of the per-chunk check; the window state without sentinels (2026-10-09, agent/329-good)
+
+**What.** The rounds parse (`ConLeche/Driver/OwnerParse.lean`) no longer
+checks its chunks after a window: `checkLine`, `checkList`,
+`checkRecs`, the owner's check step and their proof route
+(`checkLine_sound`, `checkList_sound`, `checkRecs_eq`, `GOK.chunk`) are
+deleted. Instead every entry the rounds store is proved GOOD
+(`ConLeche/Verify/Frontend/Good.lean`): an entry of the finished tables
+below the window's start, or the value the builder of the window line
+binding its index yields over lookups that answered good entries only,
+at indices the serial parse may read at that line. `Good` speaks of the
+window's lines only, not of how the rounds keep their tables.
+`MainTheorem`, the main corollary and `ParseOutcome` are unchanged.
+
+**Proof structure.**
+- `Good.lean`: the builders are monotone in their lookups
+  (`nameOfF_mono` and siblings: a builder that succeeds over some
+  lookups succeeds alike over lookups answering at least as much); over
+  increasing lines, a good entry is the final tables' entry
+  (`good_has`, induction along the window), and tables that keep the
+  finished tables below the window, hold good entries above it and one
+  for every line make every line right (`allOK_of_good` → `AllOK`, the
+  landed characterisation `applyList_of_allOK`).
+- `ConLeche/Verify/Frontend/RoundsWork.lean`: round 0 (`round0_spec`:
+  keys name the chunk's indices, which increase; every entry it stores
+  is good in every window the chunk is part of; its pending and
+  declaration lines are the chunk's), a later round (`roundR_spec`:
+  every late entry it computes is good, given that the entries it reads
+  are), the segment lookups (`Seg.get_holds`, on monotone starts the
+  chunk whose range holds an index answers it), the starts
+  (`startsGo_spec`), the pages (`pageGo_spec`: the window's view) and
+  the records (`chunkDecls_spec`: the serial parse's, `declsAlong`).
+- `ConLeche/Verify/Frontend/Rounds.lean`: the window invariant
+  `WinInv` (from round 0's results and `after0`, `winInv_ofRound0`;
+  kept by every later round, `WinInv.setLate`), and `GOK.window`: with
+  every late entry done, each chunk scanned to its end, the pages the
+  window's slices and the tables before kept, the window is one more
+  stretch of the serial parse.
+
+**Good as an invariant, not as a subtype.** The idea was `{e // Good id
+e}` on every stored entry. An element's index is computed from its
+slot's key, not stored with it, so a per-element subtype would have to
+carry the index at run time, and moving an array of subtypes between
+window contexts would copy it. The goodness is carried by invariants of
+the round functions (`TBI`, `LateOK`, `WinInv`), proved once; nothing
+of it runs.
+
+**The run-time changes.**
+- The window's chunk tables hold entries unboxed (`CTab`: round 0's
+  slots `d0`, a byte per slot saying whether it is late, a late slot's
+  number `ls`, and the late entries `lv`/`ldone`, copied per round by the
+  owner). No sentinel values (`missND`, `sentP`, `Sent`, `pendExpr` are
+  gone); a late slot holds a filler the bytes say not to read. The
+  finished tables are pages of unboxed entries with a byte per slot
+  (`Page`). `lpos` and its 32-bit reads are gone; pending lines are an
+  array of `Pend` structures, declaration lines of `DPend`.
+- A window ends with its pages (one slice per owner: the barrier) and
+  its records, which each owner builds over the window's view
+  (`chunkDecls`) while the next window's round 0 runs; the window's GOK
+  step is taken when they arrive.
+- An owner answers for a window only after comparing its round 0's
+  tables and counters with the message's, pointer first (`Cur.is`,
+  `sameB` over `withPtrEq`; `import all Init.Util` in the driver, its
+  reason in the file).
+- Marking: round 0's slot arrays slot by slot, skipping the fillers
+  (`markSlots`); late entries as computed; records. A filler is a
+  constant every owner pushes; marking it while others count it was a
+  rare heap corruption in the interpreted rounds tests (2 in 43 runs
+  before the fix, 0 in 40 after).
+- Frees: each owner holds its chunk's round-0 arrays and late entries
+  until its first message after the next window's round 0, and the late
+  entries a round copied from until its next round, so that it, not the
+  main thread, frees them (a free visits every entry; on the main thread
+  it cost up to 0.3 s on NS at 32 jobs).
+
+**What the cleanups cost on their own** (parse-only instructions,
+init-full, 8 jobs; measured while developing):
+- a box per entry (`Option`/an `Ent` inductive in every slot and page):
+  +16 bytes for every entry of the run — NS parse RSS 1.69 → 2.09 GB,
+  ≈2.2 GB on mathlib-full. Not kept: unboxed entries with a byte per
+  slot (comment at `CTab`).
+- a record per round-0 table builder (`TB` passed as a structure):
+  rebuilt at every line without reuse, 21.24 → 22.59 G (+6 %). Not kept:
+  plain arguments (comment at `round0Go`).
+- a late slot's number by binary search instead of the `ls` word per
+  slot: 12 % of the parse's cycles. Not kept.
+- `Pend` structures instead of the byte buffer: one allocation per
+  deferred line; not separated in the measurements (estimated well
+  under 1 %). Kept.
+
+**Measured** (parse only, `CONLECHE_PARSE_ONLY` patch
+`good-logs/measure.patch`, both binaries; 3 interleaved runs each, wall
+s of the process; instructions:u minimum; peak RSS; load 5–10; mp =
+`more-parallel` `b27a17993`, good = this lane):
+
+| corpus | jobs | mp wall | good wall | instr mp → good (G) | RSS mp → good (GB) |
+|---|---|---|---|---|---|
+| NS | 4 | 2.36 2.61 2.53 | 2.41 2.52 2.58 | 102.7 → 94.9 | 1.51 → 1.57 |
+| NS | 8 | 1.55 1.55 1.55 | 1.46 1.62 1.60 | 111.2 → 98.4 | 1.71 → 1.78 |
+| NS | 32 | 1.04 0.97 1.01 | 1.11 1.07 1.07 | 130.6 → 106.5 | 2.73 → 2.62 |
+| cslib | 4 | 3.54 3.80 3.56 | 3.66 3.70 3.43 | 142.1 → 139.3 | 2.18 → 2.25 |
+| cslib | 8 | 2.19 2.30 2.23 | 2.17 2.02 2.18 | 145.4 → 140.7 | 2.37 → 2.44 |
+| cslib | 32 | 1.48 1.39 1.41 | 1.43 1.40 1.36 | 159.9 → 147.1 | 3.50 → 3.56 |
+| mathlib-full | 4 | 10.43 8.97 9.97 | 9.89 9.60 9.49 | 360.2 → 350.7 | 5.14 → 5.22 |
+| mathlib-full | 8 | 6.09 6.15 5.83 | 5.83 6.46 6.37 | 367.4 → 353.6 | 5.27 → 5.38 |
+| mathlib-full | 32 | 4.34 4.35 4.28 | 4.32 4.41 4.33 | 388.8 → 363.0 | 6.26 → 6.41 |
+
+The parse's instructions fall 2–18 %; its wall time is within noise of
+`more-parallel` at every size (the maintainer's gate after the ruling,
+2026-10-09: no clear regression). The check was about a fifth of the
+owners' busy time, but it ran beside the next window's round 0; what
+it saved in CPU the rounds now spend in places they did not before
+(the late-entry copies, the records in the window's step), and the
+parse's critical path is the owners' rounds and the reader, as before.
+Init-full parse-only: 23.60 → 21.06 G at 8 jobs. Full runs (one each,
+before the records were pipelined; totals unchanged within noise) and
+the development measurements: `_tmp/amdahl/good-logs/`.
+
+**Lines.** Run-time code (`Frontend/Rounds*.lean`, the driver): +1157
+−1113. Proofs: `Good.lean` 720, `Verify/Frontend/RoundsWork.lean` 2132,
+`Verify/Frontend/Rounds.lean` +1102 −266. The proofs repeat themselves
+per table (name, level, expression: the round-0 step lemmas, the
+pending-line lemmas, the window's storage and starts, the cases of
+`round0Go_spec`, `roundRGo_spec`, `window_goodTabs`); a table interface
+shared by the three could save an estimated 500–700 lines. Not done.
+
+**Not done / open.**
+- The per-table repetition in the proofs (above).
+- The structural fallback of `sameB` in the owner's identity check would
+  be as slow as the tables are large if it ever ran; the driver sends
+  the very tables round 0 was sent, so it does not.
+
+## TASK #329 — PFIX: the review's clear findings on the parallel parse (2026-10-09, agent/329-pfix)
+
+Lane PFIX applies the clear-cut findings of the independent review of
+the rounds parse (`_tmp/review-parse.md`, on `more-parallel` 408fd7ccd).
+`MainTheorem`, the main corollary and `ParseOutcome` are unchanged; no
+sorry, no new axiom, no new `unsafe` (the escapes are the existing
+`markOne`).
+
+**What changed.**
+- *The proof's chunks are the bytes the main thread read* (finding 1).
+  The reader builds `ByteArray` chunks (`Src`, `blks` gone; the
+  `extract` copy moved from the owner to the reader thread), the main
+  thread keeps them (`bs`), and every owner result — round 0's too
+  (`r0ok`), not only the later rounds' and the finish — is accepted only
+  for the very bytes the main thread sent that owner (`sameB`, the
+  pointer first).  An owner without a chunk answers `ok := false` and
+  the window falls back; `sendTo` to a missing owner throws.
+- *Trust documentation* (finding 2): `tests/trust-surface.sh` no longer
+  cites the removed `checkRecs`; it states what the proof rests on (the
+  GOOD entries, `GOK.window`) and the invariant the marks rely on —
+  every object reachable from a newly built entry was built on this
+  thread since its last publication, or is already persistent — which a
+  late slot's filler breaks (hence `markSlots`), and that the
+  interpreted `RoundsTests` exercise that filler hazard (closed-term
+  fillers are ordinary shared objects there), not the binary's marks.
+- *Linearity* (finding 3): `StateD.markLinear` is back
+  (`Frontend/ExportC.lean`); the serial loop starts from
+  `StateD.init.markLinear` as on master, and the fallback marks the
+  state it continues from.  On the owners, `round0` marks the arrays it
+  pushes onto (slots, late numbers, late bytes, pending lines) and
+  `roundR` its accumulators.  Not marked: a later round's late-entry
+  arrays, which start as a deliberate copy of the window's (the other
+  owners read the round before's).
+- *`Cur.is`* (finding 4) compares the tables through a `LawfulBEq` on
+  `Page`/`Pages`/`Prior` built on the kernel's pointer-first
+  `Name.beq`/`Level.beq`/`Expr.beq` (and `memcmp` for the bytes), not the
+  derived `DecidableEq Prior`: the fallback behind the pointer test is
+  one pass over the tables.  `sameB` takes `[BEq] [LawfulBEq]`.
+- *`maxRounds` deleted* (finding 5): every round binds a pending line or
+  the window falls back (no progress), so the rounds end.
+- *Proposal A*: the records are built in the window's finish step, beside
+  the pages (`DeclRes`, `Msg.decls`, `gatherDecls`, `Open`, the settled
+  block and the three-window fallback list are gone; `WinParts` gathers
+  pages and records together).  Measured against the pipelined build
+  (below): no regression; peak RSS 0.3–0.5 GB lower at 32 jobs.
+- *Proposal C*: `DPend`, `R0.decls`, `Cur.dl` gone; `chunkDecls` walks the
+  chunk's records with `Ctr.step` from `Win.start c` (`declsAlong`'s own
+  walk; `chunkDecls_spec` is a direct induction; `DclI`, `declPos` and
+  the filterMap lemmas gone).  Cost: the walk reads every record
+  (`chunkDeclsGo` 2.7 % of the parse's cycles on NS at 8 jobs, +0.6 to
+  +1.1 G instructions on NS, +0.9 % of the parse).
+- *Proposal D*: `Pages.keeps`/`Prior.keeps` and the run-time loop gone.
+  The kept slots below a window's start follow from `pageGo_spec`
+  (`setFrom_view`); the one fact needed besides — the finished tables
+  have a page for every index below the counters' page, `Prior.Covers` —
+  is a conjunct of `GOK`, from `GOK.init` and re-established by
+  `GOK.window`.
+- *Final line without a newline*: the windows take complete lines only;
+  the bytes after the last newline go to the serial parse from the last
+  window's state (`serialRest`, also the fallback's tail).  Such a stream
+  no longer falls back; `RoundsTests` now requires the rounds path (no
+  fallback, at least three windows at 64-byte chunks) on
+  `final_line_no_newline.ndjson`.
+- *Proposal F* (without B; gappy ids stay): one table interface `Sel` in
+  the proofs — `Good` has two constructors instead of six; `GoodTabs`,
+  `good_has`, `allOK_of_good`, the window invariant's per-table facts,
+  `window_goodTabs`, the pages part of `GOK.window`, the pending-line
+  lemmas (`PendI.mono`/`PendI.defer`), round 0's and a later round's good
+  entries (`r0_good`, `rr_good`) are written once.  −168 lines, not the
+  500–700 estimated: the three arms of `round0Go_spec`/`roundRGo_spec`
+  follow the run-time code's three-way match (which stays triplicated,
+  GOOD's +6 % with a `TB` record), and a generic `vN/vL/vE_eq` came out
+  no shorter.
+- *Naming* (finding 9): the chunk's held tables of the window before are
+  `Cur.prevHold`; the owner loop's argument is `fin` (the tables of the
+  window it finished last).
+
+**Not applied.**
+- *E (fixed 4 MiB chunks)*: regresses init-full at 32 jobs (parse-only
+  22.7 → 26.4 G instructions, peak RSS 0.76 → 1.49 GB, wall 0.38–0.57 →
+  0.48–0.78 s: 348 MB make under three windows of 32 chunks), no gain on
+  NS.  The clamp formula stays.
+- *The `after0` gap guard* (`8·cnt + 2^23`): not justified exactly.  It
+  bounds the pages a window writes on a gappy stream (9 bytes per index
+  of the window's range); on lean4export's dense output the range equals
+  the entry count and it never triggers, but its two constants are a
+  resource choice, not derived.  Left as is; a ruling is needed to drop
+  or replace it (dense-only rounds, proposal B, would remove it).
+
+**Lines** (against `more-parallel` fc6209862): run-time code
+(`ConLeche/Driver`, `ConLeche/Frontend`) +387 −408 (−21); proofs
+(`ConLeche/Verify/Frontend`) +909 −1230 (−321: C and D −153, F −168).
+
+**Measured.** *Parse only* (`CONLECHE_PARSE_ONLY`, GOOD's
+`measure.patch`), wall seconds of the process per run, interleaved,
+instructions:u minimum, peak RSS; load 4–20; mp = `more-parallel`
+408fd7ccd, A = this lane (records in the finish), P = this lane with the
+pipelined record build kept (`pfix-logs/pipelined.patch`):
+
+| corpus | jobs | mp | A | P | instr mp → A (G) | RSS mp → A (GB) |
+|---|---|---|---|---|---|---|
+| NS | 4 | 2.44 2.51 2.41 | 2.41 2.33 2.49 | 2.55 2.50 2.86 | 94.9 → 95.5 | 1.59 → 1.54 |
+| NS | 8 | 1.61 1.64 1.59 | 1.76 2.10 1.77 | 1.75 1.84 1.44 | 98.4 → 99.3 | 1.78 → 1.63 |
+| NS | 32 | 1.15 1.04 1.13 | 1.13 1.04 1.01 | 1.12 1.08 1.02 | 106.5 → 107.6 | 2.60 → 2.25 |
+| cslib | 4 | 3.55 3.86 3.72 | 3.69 3.26 3.24 | 3.29 3.27 3.42 | 139.3 → 139.9 | 2.25 → 2.21 |
+| cslib | 8 | 2.34 2.18 2.40 | 2.23 2.09 2.71 | 2.30 2.29 2.22 | 140.7 → 141.5 | 2.43 → 2.33 |
+| cslib | 32 | 1.48 1.46 1.44 | 1.34 1.43 1.40 | 1.46 1.29 1.35 | 147.1 → 148.6 | 3.59 → 3.03 |
+| mathlib-full | 4 | 9.75 10.15 | 8.11 8.85 | 9.12 9.07 | 350.7 → 352.6 | 5.23 → 5.18 |
+| mathlib-full | 8 | 5.71 5.55 | 5.17 5.06 | 5.12 5.64 | 353.6 → 355.6 | 5.42 → 5.26 |
+| mathlib-full | 32 | 4.14 4.18 | 3.75 4.20 | 4.56 4.19 | 363.0 → 366.2 | 6.39 → 5.91 |
+
+A against P: no difference beyond the spread anywhere (GOOD's NS 4-job
+regression with records in the last step does not reproduce: here the
+owners scan the next window's chunk while the main thread waits for the
+finish).  Both against mp: equal or faster except NS at 8 jobs (median
++0.1 s, in a first pass 1.69 1.71 1.62 against 1.61 1.60 1.67), where
+the extra instructions are C's record walk.  E (fixed 4 MiB chunks) on
+init-full, parse only: 32 jobs 22.7 → 26.4 G, 0.76 → 1.49 GB, 0.38 0.57
+0.43 → 0.48 0.63 0.78 s; 4 and 8 jobs equal; NS no gain.
+
+*Full runs* (`--jobs`, phase times from the stats line, total wall of
+the process, one interleaved run each; before = `more-parallel`
+fc6209862, after = this lane merged with it; logs and scripts in
+`_tmp/amdahl/pfix-logs/`):
+
+| corpus | jobs | parse before / after (s) | total before / after (s) | instr before → after (G) | peak RSS before → after (GB) |
+|---|---|---|---|---|---|
+| init-full | 4 | 0.5 0.5 0.5 / 0.5 0.5 0.5 | 14.4 14.4 14.9 / 14.2 14.8 14.6 | 492.6 → 491.8 | 0.61 → 0.56 |
+| init-full | 8 | 0.3 0.3 0.3 / 0.3 0.3 0.3 | 7.9 8.0 8.0 / 7.7 8.1 7.9 | 493.5 → 493.0 | 0.65 → 0.61 |
+| init-full | 32 | 0.2 0.3 0.3 / 0.3 0.3 0.2 | 3.4 3.5 3.5 / 3.4 3.5 3.4 | 492.9 → 494.1 | 0.87 → 0.84 |
+| NS | 4 | 2.4 2.5 2.4 / 2.7 2.3 2.3 | 90.0 89.8 90.3 / 90.6 89.9 89.8 | 3203.3 → 3206.1 | 1.93 → 1.95 |
+| NS | 8 | 1.6 1.6 1.6 / 1.7 1.6 1.5 | 47.8 48.7 48.4 / 48.2 48.6 55.4 | 3211.4 → 3215.0 | 1.99 → 2.00 |
+| NS | 32 | 1.0 0.9 1.1 / 1.0 1.0 1.0 | 17.0 17.1 17.3 / 17.0 16.0 16.8 | 3221.2 → 3218.9 | 2.61 → 2.28 |
+| cslib | 4 | 4.1 3.9 4.0 / 4.0 4.0 4.2 | 86.8 86.6 86.7 / 87.5 88.0 87.8 | 2897.0 → 2897.3 | 3.15 → 3.15 |
+| cslib | 8 | 3.0 3.0 2.6 / 2.8 2.5 2.4 | 47.0 47.7 60.1 / 47.1 47.5 46.6 | 2898.8 → 2904.2 | 3.17 → 3.18 |
+| cslib | 32 | 1.7 1.8 2.8 / 1.7 1.8 2.5 | 16.3 16.6 18.0 / 16.1 16.1 24.9 | 2916.3 → 2916.8 | 3.57 → 3.42 |
+| mathlib-full | 4 | 12.6 12.0 / 13.6 10.8 | 255.9 258.8 / 258.3 279.9 | 8467.1 → 8450.3 | 7.45 → 7.39 |
+| mathlib-full | 8 | 6.1 6.3 / 6.1 6.9 | 131.0 127.6 / 132.3 131.1 | 8463.7 → 8478.3 | 7.53 → 7.53 |
+| mathlib-full | 32 | 3.9 4.1 / 4.0 4.1 | 42.8 44.0 / 44.4 44.0 | 8481.1 → 8476.1 | 7.79 → 7.80 |
+
+Every run accepted (mathlib-full 691 203).  Parse and totals are within
+the run-to-run spread (the outliers — NS 8 jobs 55.4 s, cslib 8 jobs
+60.1 s, cslib 32 jobs 24.9 s, mathlib-full 4 jobs 279.9 s — are check
+phases under load); peak RSS falls 0.3 GB on NS and 0.15 GB on cslib at
+32 jobs (no records held across windows).
+
+**Verification.** `lake build` and `lake test` warning-free;
+`tests/arena.sh` green (arena 90/92, e2e 468/468, annot 15/15, the
+trusted, `--jobs=1` and `--jobs=4` sweeps as expected; shake,
+pub-imports, layering, trust surface, quote gate; overview links after
+repointing five moved anchors, `GOK.window`'s statement having lost its
+`keeps` hypothesis).
+
+## TASK #329 — PFIX2: the second review's findings on the parallel parse; finished tables by rank (2026-10-10, agent/329-pfix2)
+
+Lane PFIX2 applies the second review of the rounds parse
+(`_tmp/review2-parse.md`, on `more-parallel` d5fc87a2a) and the
+maintainer's ruling on its gap guard.  `MainTheorem`, the main
+corollary and `ParseOutcome` are unchanged; no sorry, no new axiom, no
+new `unsafe` (the escapes are the existing `markOne`).
+
+**The ruling (maintainer, 2026-10-10): gappy input handled properly,
+by rank-indexed pages and a run list; the `after0` gap guard removed.**
+- *The finished tables by binding order.*  `Pages` holds a table's
+  entries by rank (the `r`-th entry it bound is slot `r % 4096` of page
+  `r / 4096`), a list of `Run`s — a stretch of consecutive indices
+  `[i, e)` bound at the ranks from `r` on — and its entry count `n`.
+  `Pages.get j` finds `j`'s run (one run: read directly; more: the
+  binary search `runFind`), its rank, and reads the page.  Every slot is
+  an entry: `Page` and its per-slot byte `has` are gone (pages are
+  `Array α`), and the pages take exactly the entries' memory.  Within a
+  window nothing changes (`CTab`'s late bytes say "done"/"pending").
+- *After a window* (`Pages.after`, `Prior.setFrom`): the window's
+  entries take the ranks after `n`, chunk by chunk (`rstarts`); seen by
+  rank the window is a segment of dense chunks (`Seg.byRank`), over
+  which the owners build their page slices (`pageGo` by rank, through
+  `finSlice`, which an owner computes from the window alone); the main
+  thread adds the window's runs (`winRunsGo`: a dense chunk is one run,
+  `keysRuns`; a gappy one a run per stretch, `idsRuns`), merging a run
+  into the one before when it continues it (`pushRun`), so a dense
+  stream keeps one run per table.  `Prior.toState` walks the runs, not
+  the index range.
+- *Proofs.*  `Prior.Covers` is replaced by `Pages.Inv` (runs in
+  increasing order below the counter, their ranks below `n`, an entry at
+  every rank below `n`, a page for every full page) and `Prior.Inv`, a
+  conjunct of `GOK`.  `Pages.rank_eq` (the search is the first run that
+  holds the index, `runFind_spec`), `pushRun_find`/`RunsOK.push`,
+  `keysRuns_spec`, `winRunsGo_spec`, `Pages.toTable_get?`,
+  `pageGo_spec` (by rank), `Pages.after_atRank` and `Pages.after_spec`
+  (the tables after a window keep `Pages.Inv` and answer `pageView`,
+  given `SegOK`, which `WinInv.segOK` derives from the window invariant
+  and the late entries done).  `setFrom_view`, `Pages.setFrom_get`,
+  `Page.get_eq`, `pagePush_spec` are gone.  `GOK.window`'s statement now
+  names `g.P.setFrom W …` and takes `FinOK` per chunk (pages, scan end,
+  late entries done, records).
+- *Gappy input, measured* (the review's stream: 52 000 name lines, a
+  gap of 8·10⁶ every 3 500 lines; and the same with gaps of 10¹⁵; one
+  run per stretch, peak RSS from the stats line),
+  `more-parallel` e5865df57 → this lane, peak RSS (parse wall):
+
+  | stream | `--jobs=1` | `--jobs=2` |
+  |---|---|---|
+  | gaps of 8·10⁶ (2.4 MB) | 0.02 → 0.02 GiB | 1.29 GiB (2.2 s) → 0.03 GiB (0.0 s) |
+  | gaps of 10¹⁵ (2.8 MB) | 0.02 → 0.02 GiB | 0.03 (the guard sent it to the serial parse) → 0.04 GiB |
+
+  Memory at `--jobs=2` is now the serial parse's, whatever the gaps
+  (the review had measured 1.14 GiB against 0.02 GiB).  Stream generator
+  and fixture renumbering: `_tmp/amdahl/pfix2-logs/` (`renum.py huge`).
+- *Fixture*: `rounds_huge_gaps.ndjson` (prop_proj with its indices 10¹⁵
+  apart), accepted, and in `RoundsTests` through the rounds (no
+  fallback) at every chunk size and owner count.
+
+**If the export format comes to require dense ids.**  lean4export's
+output is dense, and a future revision of the export format may require
+dense ids.  Then the runs and the gappy handling can go (the note at
+`Run`, `ConLeche/Frontend/Rounds.lean`, lists the same): `Run`,
+`Run.rank`, `runFind`, `Pages.runs` and the search in `Pages.rank` (a
+rank becomes `j - first`); `pushRun`, `idsRuns`, `keysRuns`,
+`winRunsGo`; `Keys.ids` with `keysFind`, `keysPush` and the ids
+branches of `Keys.keyOf`, `Keys.idx`, `r0Look`, `rawLk`; in the proofs
+`findRank`, `RunsOK`, `runFind_spec`, `Pages.rank_eq`, `Run.rank_fuse`,
+`pushRun_find`, `RunsOK.push`, `idsRuns_spec`, `keysRuns_spec`,
+`winClaim`, `winRunsGo_spec`, the run walk of `Pages.toTable`,
+`keysPush_rep`, `keysFind_spec`/`keysFind_eq` and the ids case of
+`Keys.Rep`.  The rounds would then require density: a window whose
+indices of a table are not exactly `[start, start + count)` falls back
+to the serial parse.
+
+**The review's other findings.**
+- *Finding 1, the hang.*  `parseExportStreamOInfo` runs the parse in a
+  `tryFinally` that stops the owners, so an IO error (a failed read, a
+  dropped promise, `sendTo`'s throw) propagates instead of leaving the
+  owners blocked and the runtime waiting for them at exit.  Regression:
+  task #335's IO-exception gate in `tests/arena.sh` gets two more
+  cases, a directory at `--jobs=1` and at `--jobs=4`, each expecting
+  exit 3 within its timeout (`more-parallel` e5865df57 timed out, 124,
+  at `--jobs=4`).
+- *Finding 3.*  `streamLoop`'s end case passes any chunks the reader
+  returned, with the trailing bytes, to the serial parse instead of
+  dropping them.
+- *Finding 4.*  `chunkStep`'s doc (ExportC) no longer says the rounds
+  parse checks each chunk; `main`'s linearity note names the parse
+  tables' `markLinear`; `tests/trust-surface.sh` and the driver's memory
+  note state the two exceptions to "lives to the end of the run" (a
+  window that falls back leaks what its owners marked; a name entry only
+  binders read is reached by no declaration).
+- *S3.*  `ORes β Q` (chunk, echoed bytes, `ok`, value, `ok → Q c b v`)
+  and one `gather` replace `R0Res`/`RRRes`/`FinRes` and their gathers
+  (`r0ok`, `r0ok_at`, `gatherRR`, `rrok_push`, `echo_eq`, `WinParts`,
+  `gatherFin`, `nr_sum`); an owner folds its own verdict into `ok` (a
+  round's anomaly; a finish's scan end, late entries done, records
+  built).  `RRok` and `FinOK` take the chunk's bytes; `FinPart` carries
+  the records (`DeclsOK` merged into `FinOK`).  −140 lines; at run time
+  a tuple per owner result.
+
+**Not applied.**  The chunk-size clamp (finding 5) and the `--jobs=2`
+break-even (finding 6) were accepted by the review; S4 (a `Std`
+channel for `Box`) was not asked for.
+
+**Lines** (against `more-parallel` e5865df57): run-time code
+(`ConLeche/Driver`, `ConLeche/Frontend`, `Main.lean`) +364 −408 (−44);
+proofs (`ConLeche/Verify/Frontend`) +958 −293 (+665: the run list —
+its search, merging, the runs of a chunk and of a window, the walk in
+`toTable`, `Pages.after_spec` and `WinInv.segOK` — against the index
+pages' `setFrom_view`/`pageGo_spec`; the review had estimated it
+neutral).
+
+**Measured.**  *Full runs* (`--jobs`, phase times from the stats line,
+total wall and peak RSS of the process, instructions:u; interleaved,
+one run of each binary per round, under the flock; before =
+`more-parallel` e5865df57, after = this lane before the merge of task
+#335/#336 and IFIX2, which change no parse code; the load is the
+one-minute average at the start and end of a run — the machine was
+shared with heavy jobs, up to load 185 in the middle of the campaign,
+and the runs went ahead at load < 40 after at most 5 minutes' wait):
+
+| corpus | jobs | parse before / after (s) | total before / after (s) | instr before → after (G, min) | peak RSS before → after (GB) | load |
+|---|---|---|---|---|---|---|
+| init-full | 4 | 0.5 0.5 0.5 / 0.5 0.4 0.7 | 14.7 14.8 14.8 / 17.3 14.9 15.7 | 491.8 → 491.9 | 0.54 → 0.55 | 8–19 |
+| init-full | 8 | 0.3 0.3 0.3 / 0.3 0.3 0.2 | 8.0 8.0 8.0 / 8.2 8.0 7.8 | 493.9 → 494.4 | 0.61 → 0.58 | 11–18 |
+| init-full | 32 | 0.2 0.2 0.3 / 0.2 0.3 0.2 | 3.6 3.5 3.5 / 3.9 3.9 3.6 | 494.5 → 494.4 | 0.76 → 0.77 | 11–19 |
+| NS | 4 | 2.2 4.8 5.0 / 2.3 4.9 3.1 | 100.4 113.4 109.6 / 104.7 113.4 113.7 | 3208.0 → 3203.7 | 1.85 → 1.86 | 17–80 |
+| NS | 8 | 3.1 1.9 2.0 / 2.0 2.1 1.8 | 64.5 54.1 51.2 / 53.7 51.6 57.6 | 3207.4 → 3210.1 | 1.89 → 1.88 | 32–53 |
+| NS | 32 | 1.0 0.9 1.0 / 1.1 1.0 1.3 | 20.1 19.7 19.1 / 25.2 18.3 19.5 | 3218.9 → 3219.3 | 2.17 → 2.13 | 36–57 |
+| cslib | 4 | 6.8 6.4 3.9 / 7.7 4.7 6.8 | 124.8 105.8 87.8 / 119.5 104.5 114.8 | 2896.5 → 2898.6 | 3.01 → 2.99 | 29–71 |
+| cslib | 8 | 10.9 3.7 3.5 / 2.7 3.6 2.8 | 63.0 52.2 50.8 / 47.4 51.0 48.0 | 2900.7 → 2902.9 | 3.02 → 3.01 | 28–39 |
+| cslib | 32 | 1.5 1.7 1.6 / 1.7 1.6 1.6 | 17.8 18.5 18.0 / 18.6 18.8 18.2 | 2917.9 → 2913.0 | 3.22 → 3.23 | 28–43 |
+| mathlib-full | 4 | 12.0 11.4 / 11.2 11.9 | 257.2 256.3 / 279.5 260.1 | 8461.1 → 8450.9 | 7.05 → 7.05 | 23–49 |
+| mathlib-full | 8 | 10.8 9.0 / 8.0 8.6 | 145.3 137.4 / 139.2 161.2 | 8469.0 → 8464.5 | 7.16 → 7.14 | 26–50 |
+| mathlib-full | 32 | 4.0 3.9 / 3.9 3.8 | 48.5 48.6 / 49.3 49.4 | 8464.2 → 8480.1 | 7.45 → 7.42 | 39–46 |
+
+Every run accepted (init-full 57 977, NS 126 468, cslib 383 976,
+mathlib-full 691 203).  Parse times and totals are within the spread of
+the interleaved pairs everywhere (the outliers, e.g. cslib 8 jobs
+before 10.9 s parse or mathlib-full 4 jobs after 279.5 s total, are
+phases under load); instructions within ±0.2 %; peak RSS equal.
+
+*Parse only* (`CONLECHE_PARSE_ONLY`, GOOD's `measure.patch`, three
+interleaved runs, wall of the process, same load conditions):
+
+| corpus | jobs | instr before → after (G, min) | wall before / after (s) | peak RSS before → after (GB) |
+|---|---|---|---|---|
+| init-full | 4 | 21.46 → 21.45 | 0.53 0.73 0.48 / 0.55 0.63 0.48 | 0.54 → 0.54 |
+| init-full | 8 | 21.99 → 21.99 | 0.44 0.60 0.49 / 0.39 0.31 0.31 | 0.57 → 0.59 |
+| init-full | 32 | 22.65 → 22.68 | 0.35 0.37 0.34 / 0.44 0.27 0.27 | 0.77 → 0.75 |
+| NS | 4 | 95.49 → 95.56 | 2.43 2.92 2.78 / 3.03 3.56 2.88 | 1.45 → 1.41 |
+| NS | 8 | 99.31 → 99.43 | 1.65 2.15 1.95 / 1.89 1.69 1.66 | 1.58 → 1.55 |
+| NS | 32 | 107.56 → 107.72 | 1.01 1.31 1.14 / 0.94 1.04 0.96 | 2.17 → 2.21 |
+
+The dense hot path: parse instructions +0.0 % on init-full, +0.1 %
+on NS (the run lookup is one comparison more than the page's byte
+read it replaces; `pushRun`, `rstarts` and `Seg.byRank` are a few
+operations per chunk and window), walls within the spread, peak RSS
+equal or lower (the byte per slot is gone).  Logs and scripts:
+`_tmp/amdahl/pfix2-logs/` (`full.sh`, `full2.sh`, `parseonly.sh`).
+
+**Verification.**  `lake build` and `lake test` warning-free;
+`tests/arena.sh` green before the merges (arena 90/92, e2e 470/470,
+annot 15/15, the trusted, `--jobs=1` and `--jobs=4` sweeps as expected;
+layering, pindump, trust surface, links, quote gate, axioms; shake and
+pub-imports re-run on their own after a comment edit during the
+battery); after merging `more-parallel` (task #335/#336, IFIX2):
+`lake build`, `lake test`, the link, quote and trust-surface gates, and
+the IO-exception cases by hand (exit 3 at `--jobs=1` and 4), per the
+maintainer's guidance; mathlib-full accepts 691 203 at every measured
+`--jobs`.
+
+## TASK #329 (parse): the parallel parse (2026-10-10, agent/329-xparse)
+
+Extracted from task #329 (the `more-parallel` campaign, final
+`c37af82de`) onto `master`, rebuilt from the campaign's final code, not
+by replaying its history. The history is in the group of campaign
+records just above (PARSE, PRESIZE, ROUNDS, FLATSCAN, ROUNDS2,
+OWNERLAND, GOOD, PFIX, PFIX2), copied from `more-parallel`'s DESIGN.md
+unchanged. Of that history only the final design is here: PARSE's
+two-thread pipeline and FLATSCAN's byte format were deleted by
+OWNERLAND, the per-chunk check by GOOD.
+
+**What it does.** `--jobs=1` runs the serial parse
+(`parseExportStreamS`, `serialLoop` in `ConLeche/Frontend/Stream.lean`):
+each 4 MiB read is fed to the pure streaming step `chunkStep` on the
+main thread, starting from `StateD.init.markLinear` (task #331). Every
+`--jobs` above one runs the rounds parse
+(`parseExportStreamO`, `ConLeche/Driver/OwnerParse.lean`) on `jobs`
+owner threads. A reader thread reads the stream ahead and cuts it at
+newlines into chunks of about equal bytes (`size / (16 × jobs)`
+clamped to 64 KiB … 4 MiB; 1 MiB when the size is unknown); a window
+is one chunk per owner. Each owner scans its chunk once into syntax
+records (`scanChunk`) that never leave its thread, then applies its
+lines in round 0 (`round0`, `ConLeche/Frontend/RoundsWork.lean`) over
+the finished tables and its own entries, deferring a line that reads an
+entry another chunk of the window binds; after each round the owners
+mark the entries they built persistent and publish them, and later
+rounds (`roundR`) apply the deferred lines until none is left. After
+the window the owners build the finished tables' page slices and their
+chunk's records, while the next window's round 0 runs. Only raw bytes,
+finished persistent entries and shallow containers of them cross
+threads (OWNERLAND's design (B)). The finished tables
+(`ConLeche/Frontend/Rounds.lean`) keep their entries by binding order,
+with a list of runs of consecutive indices saying which index has which
+entry: one run on lean4export's output, and memory proportional to the
+entries whatever gaps an exporter leaves (PFIX2). The line builders
+read their tables through a lookup interface (`Lk`, `ExportC.lean`), so
+the serial step and the rounds run the same builders over different
+lookups.
+
+**When it falls back.** A window that meets anything unusual — an index
+below its table's counter, a line the serial parse fails at, a round
+that makes no progress, a chunk that does not fit, an owner answering
+for bytes it was not sent — stops the owners and hands everything read
+so far to the serial parse, from the state the windows before reached
+(`GOK.reached`, marked linear), and the rest of the stream to
+`serialLoop`: the serial verdict at the serial line. The bytes after
+the stream's last newline go the same way. The parse runs inside a
+`tryFinally` that stops the owners, so an IO error (a directory as the
+input) propagates as exit 3 instead of leaving the owners blocked.
+
+**How the result is tied to `parseChunks`.** Both paths return
+`Frontend.ParseOutcome`, `{r // ∃ cs, parseChunks cs = r}`, the type
+`master`'s parse had; `checkMain` and everything after the parse are
+unchanged. The serial path carries the chunks it fed to `chunkStep`.
+The rounds path carries `GOK`: the state the windows so far reached is
+`parseChunks`' over the chunks the main thread read (an owner's result
+is taken only for the very bytes it was sent, `sameB`). A window
+extends it by `GOK.window` (`ConLeche/Verify/Frontend/Rounds.lean`):
+every entry the rounds store is GOOD (`Good`,
+`ConLeche/Verify/Frontend/Good.lean`: the value the builder of the line
+binding that index yields over lookups that answered good entries only,
+at indices the serial parse may read at that line), which the round
+functions are proved to keep once (`round0_spec`, `roundR_spec`,
+`chunkDecls_spec` in `ConLeche/Verify/Frontend/RoundsWork.lean`; the
+window invariant `WinInv`); tables holding good entries, one for every
+line of a window that binds each table in increasing order, make every
+line right (`allOK_of_good`), and over such lines the serial fold
+succeeds with exactly those tables and records (`applyList_of_allOK`,
+`ConLeche/Verify/Frontend/Dense.lean`). So a window whose deferred
+lines are all done is one more stretch of the serial parse, and nothing
+is checked again at run time. `MainTheorem`, the main corollary and
+`ParseOutcome` are unchanged; `MainTheorem.lean`'s docstring now says
+that the driver's parse returns its result with that proof. No sorry,
+no new axiom. The one new `unsafe` is `markOne`
+(`Runtime.markPersistent`, through `markEach` and `markSlots`) in
+`OwnerParse.lean`, allowlisted and described in
+`tests/trust-surface.sh`; `--no-mark-persistent` turns it off.
+
+**Dense ids.** lean4export's output is dense and a future export format
+may require it; then the run list and the gappy handling can go. The
+note at `Run` (`ConLeche/Frontend/Rounds.lean`) and PFIX2's record list
+what goes.
+
+**What else differs from `more-parallel`, on purpose.** The install
+extraction's deliberate items stay (its record, above: the `drain`
+before exit, the `--jobs` usage text, the comments in `CheckPool`,
+`KnotCongr`, `BlockOverlay`, `Run.lean`'s headers, the trust-surface
+paragraph on `Run.lean`, the place of `progressStride`/`jobsCount`, the
+install fixtures' comment and place in `tests/e2e-expected.txt`, the
+statistics comment in `tests/arena.sh`). On top:
+- the `--jobs` usage text now says that at `<n>` > 1 the parse runs on
+  `<n>` owner threads with the one-thread parse's result, and that at
+  `--jobs=1` the parse and the install run on the main thread (the
+  campaign's text did not mention the parse);
+- OVERVIEW keeps `master`'s text where the campaign's had drifted: the
+  arrays marked linear are the install index AND the parse's tables
+  (the campaign's text named the install index only, though the serial
+  parse marks its tables), `Main.lean` among the exposed checker code,
+  and the `ConLeche/Driver/` row (with the statistics); the row gains
+  `OwnerParse.lean`;
+- `Main.lean`'s header names `OwnerParse.lean` among the driver's files.
+
+**Numbers from the campaign** (PFIX2 and OWNERLAND records; one run per
+configuration on a shared machine, parse wall from the phase line):
+mathlib-full's parse takes 19.5–22.4 s serially, 11.2–12.0 s at
+`--jobs=4`, 8.0–10.8 s at 8 and 3.7–4.1 s at 32; cslib 8.7–9.4 s
+serially, 1.6–1.7 s at 32; NS 5.0–5.3 s serially, 0.9–1.3 s at 32;
+init-full 1.0 s serially, 0.2–0.3 s at 32. Over the whole run the
+rounds cost about 2 % more instructions than the serial parse
+(mathlib-full 8.45–8.53 T at 4 to 32 jobs, against 8.33 T with the
+serial parse) and 0.3–0.7 GB more peak RSS (7.05–7.79 GB against
+6.72–7.06 GB). A gappy stream (gaps of 8·10⁶) takes the serial
+parse's memory at `--jobs=2` (0.03 GiB; 1.29 GiB before PFIX2).
+
+**Gates** (this tree): `lake build` and `lake test` warning-free
+(axioms pinned); `tests/arena.sh` green with every sub-gate (layering,
+pindump, trust surface, overview and whitepaper links, fragment, quote
+gate, no-local-paths, challenge, shake and the public-import plan;
+arena 90/92, e2e 470/470, annot 15/15, the IO-exception gate 3/3 with a
+directory as input exiting 3 at `--jobs=1` and `--jobs=4`, worker pool,
+statistics, install pool, DAG tower, and the trusted, `--jobs=1` and
+`--jobs=4` sweeps). mathlib-full at `--jobs=32` accepts 691 203
+records: parse 5.8 s, install 5.3 s, check 44.2 s, peak RSS 7.36 GiB,
+55.6 s wall (one run, while the battery ran beside it on a shared
+machine; the parse on `master` before this extraction: 23.2 s, the
+install extraction's run). No measurement campaign: the maintainer
+takes a before/after measurement separately. Logs and the binary:
+`_tmp/amdahl/xparse-logs/`.

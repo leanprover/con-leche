@@ -216,6 +216,39 @@
 #       turns all six off at once (the
 #       bookkeeping is then multi-threaded), which is how the A/B is
 #       measured on the shipped binary.
+#   ConLeche/Driver/OwnerParse.lean    unsafe
+#       THE ROUNDS PARSE'S MARKS (task #329).  One term-level
+#       `unsafe Runtime.markPersistent` call (`markOne`, through
+#       `markEach` and `markSlots`), the same escape as above, taken by
+#       every owner thread on what it built before it hands it out: the
+#       table entries of round 0 (`markSlots`: the slots that hold an
+#       entry, not the late slots' filler) and of each later round, and
+#       the chunk's records; never on an array or any other container,
+#       which the parse drops later.  Every marked object is read-only
+#       from the mark on and, but for two small exceptions, lives to the
+#       end of the run (the tables' entries are the declarations'
+#       parts): a window that falls back leaks what its owners marked
+#       (the serial parse rebuilds those entries), and a name entry that
+#       only binders read is reached by no declaration (a parsed
+#       binder's name is anonymous), so it outlives its use.  The call
+#       is the identity on the value: nothing the parse returns, and no
+#       step of the proof that it is the serial parse's (`GOK.window`:
+#       every stored entry is GOOD, a property of the round functions),
+#       can turn on whether the mark happened.  `--no-mark-persistent`
+#       turns it off.
+#       The marks rely on one invariant: every object reachable from a
+#       newly built entry was built on this thread since its last
+#       publication, or is already persistent (entries of the finished
+#       tables and of earlier rounds, which the builders share), so the
+#       mark never walks into an object another thread is counting.  A
+#       late slot's filler breaks it — a constant every owner pushes —
+#       which is why `markSlots` skips late slots.  In the compiled
+#       binary that filler is a closed term, persistent already; in the
+#       interpreter (the `#eval` tests, `RoundsTests`, run with marking
+#       on) closed-term fillers are ordinary shared objects, and marking
+#       one while other threads counted it corrupted the heap.  So the
+#       interpreted tests exercise that hazard, which the shipped binary
+#       does not have; they do not test the binary's own marks.
 #
 #       Run.lean took its escape over from `Main.lean` when the
 #       proof-carrying driver split out of it into `ConLeche/Driver/*`;
@@ -264,6 +297,7 @@ TOKENS = {
 ALLOW = {
     'ConLeche/Driver/Run.lean':       {'unsafe'},
     'ConLeche/Driver/ParInstall.lean': {'unsafe'},
+    'ConLeche/Driver/OwnerParse.lean': {'unsafe'},
     'ConLeche/Challenge.lean':       {'sorry'},
     'ConLeche/Kernel/Expr.lean':     {'computed_field'},
     'ConLeche/Kernel/Name.lean':     {'computed_field'},

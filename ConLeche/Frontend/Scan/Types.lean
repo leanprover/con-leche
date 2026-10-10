@@ -343,7 +343,7 @@ structure IdTable (α : Type) where
   sparse : Std.HashMap Nat α := {}
 
 /-- The value at a stream index, dense array first. -/
-def IdTable.get? (t : @& IdTable α) (i : Nat) : Option α :=
+@[inline] def IdTable.get? (t : @& IdTable α) (i : Nat) : Option α :=
   if h : i < t.dense.size then some t.dense[i] else t.sparse[i]?
 
 /-- Bind a stream index.  The dense case is a push; a rebinding below
@@ -374,8 +374,9 @@ def IdTable.bound (t : @& IdTable α) (i : Nat) : Bool :=
 (`IdTable.markLinear_eq`), which at run time sets the runtime's
 linearity bit on both arrays, so that a copy of either — a push while a
 second reference to the table is alive — panics instead of silently
-copying (`FEnv.markLinear`, `ConLeche/Kernel/FEnv.lean`).  Applied to
-the parse's initial state at the parse driver, not on a closed term. -/
+copying (`FEnv.markLinear`, `ConLeche/Kernel/FEnv.lean`).  To be
+applied where a table is created at run time, never on a closed term
+(the rounds parse marks its own arrays: `round0`, `roundR`). -/
 @[never_extract, noinline]
 def IdTable.markLinear (t : IdTable α) : IdTable α :=
   { dense := t.dense.markLinear, sparse := t.sparse.markLinear }

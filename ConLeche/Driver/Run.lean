@@ -3,6 +3,7 @@ module
 public import ConLeche.Frontend.Prelude
 public import ConLeche.Driver.ParInstall
 public import ConLeche.Driver.CheckPool
+public import ConLeche.Driver.OwnerParse
 
 /-!
 # The driver: `checkDeclsIO` and the phase sequencing
@@ -44,11 +45,24 @@ two must never drift apart. -/
 def declCName : ConLeche.Declaration → String := ConLeche.Cached.declCLabel
 
 /-- The whole input side of a run: the parsed declarations, read
-straight from the file.  There is nothing else — no preprocessor
-detection, no spawn, no pipe. -/
-def parseInput (file : String) :
-    IO (Except (ConLeche.CheckError × Nat) Frontend.ParseResultD) :=
-  Frontend.parseExportStreamD file
+straight from the file, with the evidence that the streaming parse
+`Frontend.parseChunks` returns them (`Frontend.ParseOutcome`).  There
+is nothing else — no preprocessor detection, no spawn, no pipe.
+
+At `--jobs=1` the parse is the serial one
+(`Frontend.parseExportStreamS`): each 4 MiB read fed to `chunkStep` on
+the main thread.  Above one worker it is the rounds parse
+(`OwnerParse.parseExportStreamO`): `jobs` owner threads, a window of
+one chunk per owner.  A chunk is about a sixteenth of an owner's share
+of the file, between 64 KiB and 4 MiB (1 MiB when the size is
+unknown). -/
+def parseInput (file : String) (jobs : Nat) (noMark : Bool) : IO Frontend.ParseOutcome := do
+  if jobs ≤ 1 then
+    Frontend.parseExportStreamS file
+  else
+    let size ← try pure (← System.FilePath.metadata file).byteSize.toNat catch _ => pure 0
+    let csz := if size == 0 then 1048576 else max 65536 (min 4194304 (size / (16 * jobs)))
+    OwnerParse.parseExportStreamO file jobs csz.toUSize noMark
 
 /-- The end-of-run statistics (performance-only): the phase times, the
 install's and the check's reports (`PoolRep.line`, the slowest five of
@@ -224,7 +238,7 @@ checking mode, validated once by the caller and consumed here as
 configuration.
 
 **One core at two modes, one parse.**  The stream is parsed directly
-to `Expr` (`Frontend.parseExportStreamD`) and checked by the one
+to `Expr` (`parseInput`) and checked by the one
 driver — `checkDeclsIO` above — at `.verified` under `--verified` (the
 default), at `.trusted` under `--trusted`.  The driver returns the
 environment with the proof that the fold `checkDecls` returns it, the
@@ -236,10 +250,12 @@ unverified by design.
 (`ConLeche.no_False_declaration`, `ConLeche/MainTheorem.lean`: the
 built-in prelude parses, the chunks parse, `checkDecls .verified`
 accepts the parsed records prepared with the prelude).  The prelude
-step is the same function, `Frontend.builtinPreludeE`.  The parse loop
-(`Frontend.parseExportStreamD`) is `Frontend.parseChunks` of the
-chunks the handle hands out, with the reads interleaved — every step
-is the shared `chunkStep`, and the chunk boundaries are proved
+step is the same function, `Frontend.builtinPreludeE`.  The parse
+(`parseInput`) returns its result with the evidence that
+`Frontend.parseChunks` returns it on the chunks the parse cut from its
+reads: every step is `chunkStep`, run by the serial parse or, for a
+window of the rounds parse, established from the good entries its rounds
+built (`Frontend.GOK.window`), and the chunk boundaries are proved
 invisible.  `Frontend.prepareD` is `Frontend.preparePrelude` plus the
 receipts printed below.  `checkDeclsIO` returns its environment with
 the evidence `checkDecls mode natOpPinSets ds = .ok env`.  What the driver adds is
@@ -290,7 +306,7 @@ def checkMain (file : String) (mode : CheckMode) (stride jobs : Nat)
     -- Streaming frontend: the parse reads the file line by line, so
     -- neither a wholesale text buffer nor a scratch file exists in
     -- this process.
-    match ← parseInput file with
+    match (← parseInput file jobs noMark).val with
     | .error (.notImplemented what, _) =>
       IO.eprintln s!"con-leche: declined: {what} ({modeTag})"
       return 2
