@@ -5,16 +5,17 @@
 §3 and §4 check a development as one environment, one declaration
 after another. A Lean development is a graph of _modules_, each
 importing others. This section checks every module on its own, against
-an environment built from what its imports provide, with checks that
-read the module and its direct imports and nothing else. The result is
+an environment built from constants of earlier modules, with checks
+that read the module and the modules its environment draws from, and
+nothing else. The result is
 one statement about the whole development: a single model, over names
 qualified by the module they come from, in which every module's own
 environment holds. So no module proves an empty proposition.
 
 The argument uses a few abstract notions: assumptions and the
 refinement of one constant by another, qualified names and a module's
-resolution of its names to them, and the part of an import's
-environment that a module reads as the import does. How Lean's module
+resolution of its names to them, and the part of an earlier module's
+environment that a module reads as that module does. How Lean's module
 system maps onto these notions is described at the end.
 
 == Assumptions, theorems and refinement <sec:mod-refine>
@@ -60,7 +61,7 @@ level parameters and statement: two proofs of one statement are one
 #src("whitepaper/Fragment/ModularModel.lean", 150, 157)[qualified name].
 Each module _resolves_ every name it stores to a qualified name. Its
 own constants resolve to its own qualified names. A constant it reads
-from an import resolves as the import resolves it. Two constants with
+from an earlier module resolves as that module resolves it. Two constants with
 one name that are never read together in one module are two qualified
 names, and nothing ever compares them.
 
@@ -69,47 +70,49 @@ their plain names, and the checker never computes a qualified name.
 
 == The local checks <sec:mod-local>
 
-A #src("whitepaper/Fragment/ModularModel.lean", 159, 170)[module] has a
-list of imported modules and a list of declarations. Its _context_
-is the environment its declarations are checked against. For each
-name of the context, the module records the import that name is read
-from. It also records which of its own constants are proofs, and its
+A #src("whitepaper/Fragment/ModularModel.lean", 159, 169)[module] has a
+list of declarations. Its _context_ is the environment its
+declarations are checked against. For each name of the context, the
+module records the earlier module that name is read from, its _home_.
+It also records which of its own constants are proofs, and its
 resolution. Its
-#src("whitepaper/Fragment/ModularModel.lean", 172, 173)[_own
+#src("whitepaper/Fragment/ModularModel.lean", 171, 172)[_own
 environment_] is its context with its declarations stored. The part of
-an import's own environment that a module
-#src("whitepaper/Fragment/ModularModel.lean", 179, 183)[_reads as the
-import does_] consists of the constants that the module's context also
-stores and resolves as the import does.
+an earlier module's own environment that a module
+#src("whitepaper/Fragment/ModularModel.lean", 178, 182)[_reads as that
+module does_] consists of the constants that the module's context also
+stores and resolves as that module does.
 
 #definition(name: "Local checks")[
-  A module #src("whitepaper/Fragment/ModularModel.lean", 200, 230)[passes its
+  A module #src("whitepaper/Fragment/ModularModel.lean", 199, 227)[passes its
   local checks] when
   #set enum(numbering: "1.")
-  + its imports come earlier in the development, and every name of
-    its context is read from one of them;
+  + every name of its context is read from an earlier module of the
+    development, its home;
   + its declarations are accepted against its context, and every
     constant it flags as a proof is a theorem or a definition of a
     proposition;
-  + every constant of its context refines the constant of the import
-    it is read from, and the context's constant
-    #src("whitepaper/Fragment/ModularModel.lean", 185, 198)[lies within]
-    the part of the import's environment the module reads as the import
+  + every constant of its context refines the constant of its home,
+    and the context's constant
+    #src("whitepaper/Fragment/ModularModel.lean", 184, 197)[lies within]
+    the part of the home's own environment the module reads as the home
     does: its type, and where it has them, its value, its rules and
     their constructors, and its inductive block. An assumption brings
     its type only, so a value the module does not see is never
     inspected;
-  + its context resolves each name as the import it is read from does,
-    and its own constants to its own qualified names;
+  + its context resolves each name as the name's home does, and its
+    own constants to its own qualified names;
   + a type former in its context comes with its constructors.
 ] <def:local>
 
-Each check reads the module and its direct imports' own environments
-and resolutions, and nothing else. Check 3 is pointwise: it compares a
+Each check reads the module and the own environments and resolutions
+of the modules its context draws from, and nothing else. These are
+usually its imports. They need not be: a constant may reach a module's
+context from a module it does not import directly. Check 3 is pointwise: it compares a
 constant of the context with the constant of the same name it is read
 from, plus the names that constant's laws read. Hiding a definition's
 value or a theorem's proof passes it. So does a context that stores
-only some of an import's constants. A definition that typechecks
+only some of a module's constants. A definition that typechecks
 only because it unfolds a hidden one is never checked again
 downstream. It is checked once, in its home module, where the hidden
 definition has its value. That module's model is part of the model
@@ -117,27 +120,28 @@ the theorem builds.
 
 #theorem(name: "Modular checking")[
   If every module of a development passes its local checks, there is
-  #src("whitepaper/Fragment/ModularModel.lean", 522, 534)[one assignment
+  #src("whitepaper/Fragment/ModularModel.lean", 519, 531)[one assignment
   of sets to the qualified names], with every proof the point, under
   which every module's own environment has a model. Each module reads
   that assignment through its resolution. Hence every module's own
   environment
-  #src("whitepaper/Fragment/ModularModel.lean", 537, 542)[has a model], and
-  #src("whitepaper/Fragment/ModularModel.lean", 546, 554)[no closed term
+  #src("whitepaper/Fragment/ModularModel.lean", 534, 539)[has a model], and
+  #src("whitepaper/Fragment/ModularModel.lean", 543, 551)[no closed term
   inhabits an empty proposition] it stores.
 ] <thm:mod>
 
 #proof[
-  By induction along the import order, extending the assignment one
-  module at a time. Take a module whose imports all have models of
-  their own environments under the assignment so far.
+  By induction along the order of the development, extending the
+  assignment one module at a time. Take a module such that every
+  earlier module's own environment has a model under the assignment so
+  far.
 
   The module's context then has a model: read the assignment through
   the module's resolution
-  (#src("whitepaper/Fragment/ModularModel.lean", 319, 325)[the
+  (#src("whitepaper/Fragment/ModularModel.lean", 316, 322)[the
   context's model]). Each law of a context constant is the law of the
-  import constant it refines. That law mentions only names the module
-  reads as the import does, and on those names the two readings give
+  home's constant it refines. That law mentions only names the module
+  reads as the home does, and on those names the two readings give
   the same sets. An assumption that refines a definition owes only the
   typing law, which the definition satisfies.
 
@@ -147,21 +151,23 @@ the theorem builds.
   checked list]). Every stored constant keeps its set, and every proof
   gets the point. The assignment is then extended by the module's own
   ordinary constants
-  (#src("whitepaper/Fragment/ModularModel.lean", 476, 486)[one more
+  (#src("whitepaper/Fragment/ModularModel.lean", 473, 483)[one more
   module]). The qualified names of earlier modules are untouched, and a
   proof's qualified name already denotes the point.
 
   The corollary is @sec:consistency's argument, at the module's model.
 ]
 
-The induction needs an order in which every module comes after its
-imports, and it needs every module to be checked. Nothing else about
+The induction needs an order of the development in which every
+module comes after the homes of its context's names, and it needs every
+module to be checked. Nothing else about
 the development as a whole enters.
 
 *What runs in parallel.* Check 2, the type checking, reads only the
 module's context. So all modules can be type-checked at the same time,
-in any order. Checks 1 and 3–5 compare constants and names with the
-direct imports' and type-check nothing.
+in any order. Checks 1 and 3–5 compare constants and names with those
+of the earlier modules the context draws from, and type-check
+nothing.
 
 == Lean's module system in these terms <sec:mod-lean>
 
@@ -175,10 +181,11 @@ definitions the module does not expose keep their types only.
   table.header[*Lean*][*Here*],
   [the environment Lean builds to elaborate a module: each import's
     exported view, its private view under `import all`, and the modules
-    imports re-export], [the module's context, each name read from an
-    import (check 1)],
+    imports re-export], [the module's context; each name's home is the
+    module that declares it, earlier in the import order, and need not
+    be a direct import (check 1)],
   [a module's exported view], [constants that refine its own
-    environment's; the context's constants refine their imports' own
+    environment's; the context's constants refine their homes' own
     environments through it (check 3)],
   [the merge of two copies of a name on import, which is allowed
     for one theorem or one exported proposition stated twice], [one
@@ -187,21 +194,20 @@ definitions the module does not expose keep their types only.
   [two qualified names, never compared],
   [an exported term mentions only what an importer loads],
   [check 3: a context constant lies within what the module reads as
-    its import does],
+    its home does],
   [names of private declarations], [ordinary names; Lean prefixes
     them with their module's name],
 )
 
-The local checks are never stricter than Lean's merge. Copies Lean
-merges are proofs of one statement, hence one qualified name.
-Constants Lean never loads together are never compared. One check
-goes beyond what Lean's merge does: check 3 asks that the names a
-constant of the context mentions, in its type and in whatever value
-or rules the module sees, resolve in the importer as they did in the
-exporter. What the module does not see, such as the value of a
-definition it reads as an assumption, is not inspected. Lean's module
-system guarantees the rest for the modules it writes, because an
-exported term mentions only constants the importer also loads.
+The checks are designed not to reject what Lean accepts. That is an
+aim, checked by running them on real developments, not a theorem.
+Copies Lean merges are proofs of one statement, hence one qualified
+name. Constants Lean never loads together are never compared. Check 3
+goes further than Lean's merge does: it asks that the names a constant
+of the context mentions resolve in the module as they do in the
+constant's home. This covers its type and whatever value or rules the
+module sees. What the module does not see, such as the value of a
+definition it reads as an assumption, is not inspected.
 
 #real[
   Con-leche checks a development as one environment, all its modules
