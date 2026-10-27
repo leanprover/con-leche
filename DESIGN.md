@@ -107481,3 +107481,98 @@ by field with `Expr.beq` (pointer-equality first, memoized on pointer
 pairs), `declEq` in `OleanCompare.lean`; `#guard`s there pin it on
 2^200-node DAGs that are equal without being pointer-equal and on a
 difference behind such a DAG, at build time of the tool.
+
+## TASK #370 (measurement) — compatibility and summary sizes on Mathlib (2026-10-27, agent/370-measure)
+
+**Tool.** `lake exe olean-modular JOBS SEARCHPATH MODULE...`
+(`OleanModular.lean`, a development tool like `olean-compare`, not a
+default target).  It loads the closure at the private level with the
+reader's decoder (`constAt` got an optional `skipThm`: a theorem's proof
+is not decoded, the fragment stores a theorem as its statement), the
+exported part (`.olean`) alone as a second pass, and reports the three
+items below.  Fragment equality of two stored entries (`fragEq`): same
+name, level parameters, type, and the same value for definitions and
+opaque constants; theorem and axiom are both "assumption", equal when
+the statements are; inductive, constructor and recursor entries field by
+field.  Lean's acceptance: the reader's own `mergeEntry`/`subsumes`
+(`subsumesInfo`) folded over a name's entries at the exported level.  The
+local check of M is simulated exactly: the summary entry of a name is the
+first one among the imports' summaries in import order, then M's own
+(the `join`), and M fails when the own entry and the direct imports'
+summary entries for a name are not all equal.  Self-test
+(`OLEAN_MODULAR_SELFTEST=1` perturbs one duplicated name): the four
+modules resting on both copies are reported, the clash is classified.
+
+**Runs** (tag `v4.35.0` oleans, 8 workers, `perf stat -e instructions:u`
+including the loads, peak RSS):
+
+| closure | modules | constants | distinct names | names in >1 module | instructions:u | peak RSS |
+|---|---|---|---|---|---|---|
+| Init | 653 | 66 100 | 65 972 | 90 | 20.0 G | 371 MB |
+| Std | 1 012 | 112 973 | 112 803 | 114 | 39.2 G | 453 MB |
+| Lean | 2 374 | 208 149 | 207 958 | 129 | 80.5 G | 608 MB |
+| Mathlib | 10 976 | 798 311 | 797 294 | 626 | 596.4 G | 2 071 MB |
+
+**1. Names stored by several modules.**  Every one of them is a
+theorem in every module storing it (kind pair thm/thm; no definition,
+axiom, constructor or recursor is ever stored twice).  All are
+fragment-compatible (same level parameters and type) and all are
+accepted by `subsumesInfo`: Init 90/90, Std 114/114, Lean 129/129,
+Mathlib 626/626; incompatible 0, "compatible only" 0, "Lean only" 0.
+Multiplicity on Mathlib: 2 modules 421, 3: 114, 4: 52, 5: 13, 6: 12,
+7: 7, 8: 3, 9: 1, 10: 1, 11: 2.  They are generated lemmas that
+several modules re-derive for the same constant: `congr_simp`,
+`induct_unfolding`, `eq_N` equation lemmas, `hcongr_N`, `_simp_N`
+(e.g. `List.eraseIdx.eq_2`, `forall_const._simp_2`,
+`SimpleGraph.edgeDensity.congr_simp`).  So the looser case (identical
+non-theorem duplicates) and both stricter cases (a clash hidden behind a
+non-re-exported import; two definitions of one proposition) do not occur
+in any of the four closures.
+
+**2. The local check per module.**  Fails for 0 of 653 / 1 012 / 2 374 /
+10 976 modules; there is nothing to list.  (Lean accepts every module by
+construction: its oleans exist.)  On the corpora tested, the fragment's
+compatibility check never rejects a development Lean accepts.
+
+**3. Summary sizes** (names stored, private level, duplicates counted
+once; `S_M` = the names of M's whole import closure):
+
+| closure | min | median | p90 | max | sum over modules | distinct names | sum / distinct | sum over edges of `|S_B|` |
+|---|---|---|---|---|---|---|---|---|
+| Init | 5 | 18 693 | 44 406 | 65 972 | 13.9 M | 65 972 | 210 | 58.3 M |
+| Std | 5 | 26 369 | 83 593 | 112 803 | 36.8 M | 112 803 | 326 | 113.9 M |
+| Lean | 5 | 70 450 | 110 000 | 207 958 | 149.3 M | 207 958 | 718 | 511.3 M |
+| Mathlib | 5 | 244 369 | 382 375 | 797 294 | 2 546.1 M | 797 294 | 3 193 | 10 073.9 M |
+
+Mathlib: p99 441 195; 59 642 import edges; closure size in modules
+median 2 495, p90 4 013, max 10 976; own declarations per module
+median 36, p90 175, max 4 877.  A name is in 3 193 summaries on
+average, so summaries copied along import edges cost 10.1 G entries
+(4x the sum of the summaries themselves, 12 600x the distinct names);
+summaries as persistent name-to-entry maps shared along the edges
+(summary = union of the imports' maps plus own) avoid that copying; the
+duplicated names are 0.08 % of the names, so most of the join is
+disjoint union.
+
+**Exported views** (what each module's exported part turns into
+assumptions; compared constant by constant with the private part):
+
+| closure | exported / private constants | theorems -> assumption | definitions -> assumption | opaque -> assumption | private-only names | per module median / p90 / max hidden |
+|---|---|---|---|---|---|---|
+| Init | 52 140 / 66 100 | 28 905 | 3 256 | 223 | 13 960 | 11 / 96 / 2 004 |
+| Std | 91 528 / 112 973 | 51 937 | 5 607 | 327 | 21 445 | 11 / 96 / 2 004 |
+| Lean | 153 142 / 208 149 | 60 397 | 20 663 | 1 678 | 55 007 | 8 / 69 / 2 004 |
+| Mathlib | 661 703 / 798 311 | 425 821 | 30 167 | 2 149 | 136 608 | 19 / 101 / 2 004 |
+
+No other kind change occurs (a constructor, recursor or inductive is
+never altered).  On Mathlib 77 % of the theorems and 14 % of the
+definitions of the private level are assumptions in the exported
+view; 17 % of the private-level names do not appear there at all.
+
+Caveats: the check compares names at constant granularity (the fragment
+at declaration granularity: an inductive block stores several names);
+theorem and axiom of equal statement count as equal (both
+"assumption"); hints and safety of definitions are compared only for
+safety.  The Lean-acceptance column is `subsumesInfo` on the exported
+entries of the closure, not on each module's actual loaded set.
+Logs: `_tmp/370/{Init,Std,Lean,Mathlib}.log` (not committed).

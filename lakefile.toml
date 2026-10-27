@@ -182,6 +182,13 @@ root = "PinDump"
 name = "olean-compare"
 root = "OleanCompare"
 
+# Compatibility and summary sizes of modular checking over an import
+# closure (task #370 measurement).  A development tool, not a default
+# target.
+[[lean_exe]]
+name = "olean-modular"
+root = "OleanModular"
+
 # THE WHITEPAPER FRAGMENT (task #324).  `whitepaper/Fragment/*.lean` is
 # the self-contained Lean verification of the fragment the whitepaper
 # presents — its own definitions, its own library class, its own
