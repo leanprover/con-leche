@@ -1,4 +1,5 @@
 import ConLeche.Frontend.Olean.Load
+import ConLeche.Verify.Frontend.Olean.Equiv
 /- NOT a `module`, like `OleanCompare.lean`: a development tool. -/
 
 /-!
@@ -7,7 +8,7 @@ import ConLeche.Frontend.Olean.Load
     lake exe olean-modular JOBS SEARCHPATH MODULE...
 
 Loads the import closure of `MODULE...` at the private level (theorem
-proofs are not decoded: the fragment stores a theorem as its statement)
+proofs are decoded too, though the fragment stores a theorem as its statement)
 and, for the names stored by several modules, at the exported level, and
 reports (1) the duplicated names against the fragment's `Compatible`
 and Lean's `subsumesInfo`, (2) the modules whose local check (own
@@ -23,62 +24,28 @@ instance : Inhabited Loaded := ⟨{ name := .anonymous, imports := #[], constant
 
 /-! ## Loading -/
 
-def loadPriv (sp : SearchPath) (m : Name) (ds : DS) :
-    IO (Except CheckError (Loaded × DS)) := do
-  let some dir ← findModule sp m
-    | return .error (.internal s!"module {m}: no .olean on the search path")
-  let ex ← match ← readPart (modFile dir m "olean") with
-    | .ok p => pure p
-    | .error e => return .error e
-  let r0 := Region.single ex
-  let isModule ← match (do
-      let x ← r0.obj ex.root
-      x.expect 0 5 "ModuleData"
-      boolAt x 0 : Except String Bool) with
-    | .ok b => pure b
-    | .error e => return .error (.internal s!"module {m}: {e}")
-  let (r, root) ← if isModule then do
-      let sv ← readPart (modFile dir m "olean.server")
-      let pv ← readPart (modFile dir m "olean.private")
-      match sv, pv with
-      | .ok s, .ok p =>
-        match Region.ofParts #[ex, s, p] with
-        | .ok r => pure (r, p.root)
-        | .error e => return .error e
-      | .error e, _ | _, .error e => return .error e
-    else pure (r0, ex.root)
-  let ds := ds.fresh r.words
-  let act : DM Loaded := do
-    let info ← moduleAt r root
-    let cs ← info.constants.mapM fun v => constAt r v (skipThm := true)
-    pure ⟨m, info.imports, cs⟩
-  match act.run ds with
-  | .ok (l, ds) => pure (.ok (l, ds))
-  | .error e => pure (.error (.internal s!"module {m}: {e}"))
+def loadPriv (sp : SearchPath) (m : Name) (_ : Unit) :
+    IO (Except CheckError (Loaded × Unit)) := do
+  return (← loadModule decodeModuleSpec sp m).map (·, ())
 
 /-- The exported part alone (`.olean`). -/
-def loadExp (sp : SearchPath) (m : Name) (ds : DS) :
-    IO (Except CheckError (Array CEntry × DS)) := do
+def loadExp (sp : SearchPath) (m : Name) (_ : Unit) :
+    IO (Except CheckError (Array CEntry × Unit)) := do
   let some dir ← findModule sp m
     | return .error (.internal s!"module {m}: no .olean on the search path")
   let ex ← match ← readPart (modFile dir m "olean") with
     | .ok p => pure p
     | .error e => return .error e
-  let r := Region.single ex
-  let ds := ds.fresh r.words
-  let act : DM (Array CEntry) := do
-    let info ← moduleAt r ex.root
-    info.constants.mapM fun v => constAt r v (skipThm := true)
-  match act.run ds with
-  | .ok (l, ds) => pure (.ok (l, ds))
-  | .error e => pure (.error (.internal s!"module {m}: {e}"))
+  match decodeModuleSpec (Region.single ex) ex.root true with
+  | some d => pure (.ok (d.constants.map fun c => { toCEntryF := c }, ()))
+  | none => pure (.error (undecodable m))
 
 /-- Run `f 0 … f (n-1)` on `jobs` workers (round-robin), results in order. -/
-def parRun {α} (jobs n : Nat) (f : Nat → DS → IO (Except CheckError (α × DS))) :
+def parRun {α} (jobs n : Nat) (f : Nat → Unit → IO (Except CheckError (α × Unit))) :
     IO (Except CheckError (Array α)) := do
   let w := max 1 (min jobs n)
   let serial (ids : List Nat) : IO (Except CheckError (Array α)) := do
-    let mut ds : DS := {}
+    let mut ds : Unit := ()
     let mut out : Array α := #[]
     for i in ids do
       match ← f i ds with
@@ -177,7 +144,7 @@ def nameStr (n : Name) : String := toString n
 
 def run (jobs : Nat) (sp : SearchPath) (roots : Array Name) : IO UInt32 := do
   let t0 ← IO.monoMsNow
-  let .ok order ← closureOrder sp roots | IO.eprintln "closure failed"; return 3
+  let .ok order ← closureOrder decodeModuleSpec sp roots | IO.eprintln "closure failed"; return 3
   let n := order.size
   IO.println s!"modules in the closure: {n}"
   let ls ← match ← parRun jobs n (fun i ds => loadPriv sp order[i]! ds) with

@@ -107748,3 +107748,153 @@ ever added to repair an exported one, and no name is special for being
 assumption refine any constant of its type, a type former included, and
 the block-completeness condition of `ReadsFrom` applies only to type
 formers stored as such.  §7's check list and Lean paragraph updated.
+
+## TASK #371 — the olean reader specified, and its fast decoder proved to be the specification (2026-10-27, agent/371-olean-spec)
+
+**Request (maintainer, 2026-10-27).** "Define a naive parser or
+declarative spec [for the `.olean` reader] and then implement a fast
+parser proven to be correct, similar to the fast json parser."
+
+**The specification** (`ConLeche/Frontend/Olean/Spec.lean`) is a naive
+functional decoder, not a relation: a relation "the object at `g`
+denotes `v`" would be the same table of layouts written as inference
+rules, plus a proof that the decoder realises it, and the decoder is
+already that table read top to bottom.  It is a recursion on the
+position, with no memo, no sharing and no worklist: every pointer the
+reader follows must point to an object at an earlier position in the
+module's files (`Region.down`), so the recursion is well-founded, and
+it is exponential in a module's sharing — it is never executed.  Its
+shape:
+
+* **one node function per recursive type** (`nameNode`, `levelNode`,
+  `levelsNode`, `exprNode`): one object, its fields read, its
+  sub-values obtained from function arguments asked only about
+  positions below the object; the specification ties the knot with
+  itself (`nameAt` … `exprAt`), the fast decoder hands the same
+  functions its memo;
+* **skeletons** for the rest (`constSkel`, `moduleSkel`): a
+  `ConstantInfo` or `ModuleData` read with its names and expressions
+  left as pointers (`CEntryF UInt64 UInt64`), which `CEntryF.mapM`
+  reads; `decodeModuleSpec r root consts` is the module's flag, its
+  imports' names and (when `consts`) its constants.
+* The reads of the runtime's own objects (`Nat` as scalar or GMP
+  bignum, `String`, object arrays, `List`) and the region
+  (`Region.loc`: an address is a position of the module's files laid
+  end to end; `Region.fileEnd`) are shared by both sides
+  (`Region.lean`), as the escape decoder and `String.fromUTF8?` are on
+  the stream path.
+
+**Scope, and what stays trusted.**  Specified and proved: the decode of
+one module's files into the checker's values.  Not specified: the
+closure order, the `subsumesInfo` merge, the dependency walk
+`constsOf` and the emission in lean4export's order (`Load.lean`) —
+their specification is "what Lean's import and lean4export do", itself
+an algorithm over the same values, so a second formulation would be a
+copy, not a specification; they stay checked by comparison
+(`olean-compare`).  The specification's fidelity to the runtime's
+layouts is likewise review plus comparison: a theorem about two Lean
+functions cannot say that either reads what Lean wrote.  The
+`ConLecheTests.OleanTests` checks evaluate a spelled-out
+specification on the committed fixtures and compare it with the fast
+decoder (`decodeModuleSpec` itself runs as the fast decoder).
+
+**The fast decoder** (`ConLeche/Frontend/Olean/Fast.lean`) reads each
+object once, in two sweeps over the module's slots (a position divided
+by 8), with no recursion and no worklist:
+
+1. **mark, downwards**: the skeletons' name and expression roots are
+   marked with their kind; from the highest slot down, every marked
+   object's shape is checked and the objects it leads to are marked
+   (`markName` … `markExpr`) — they lie below it, so the sweep reaches
+   them later.  The marks are one byte per slot, a bit per kind; a
+   failure is bit 7 of slot 0's byte (no object starts at position 0),
+   so no step returns an `Option`;
+2. **build, upwards**: every marked object is read by its node function
+   with its sub-values from the memo, which holds them already; the
+   values are one array per kind, threaded apart from the marks.
+
+The memo ends at the highest root.  The decode needs nothing of any
+other module, so it is a pure function `Region → UInt64 → Bool →
+Option ModDecoded`.
+
+**The proof** (`ConLeche/Verify/Frontend/Olean/`, about 2 450 lines,
+no `sorry`, the standard three axioms):
+`decodeModuleSpec_eq_fast : @decodeModuleSpec = @decodeModuleFast`,
+`@[csimp]`, with no hypothesis about the bytes.  `Kids.lean` reads the
+four marking functions off one table (`kidTable`: per kind and shape,
+the fields followed and their kinds) and characterises them (`MarkOK`:
+the shape reads and every followed field is fine; `Kid`: the object
+leads to that object).  `Nodes.lean`: a node function fails where
+`MarkOK` fails, the specification's objects lead only to objects that
+read (`KindOK.kid`), and a node function asks its arguments about its
+`Kid`s only (`…Node_congr`).  `Mark.lean`: the downward sweep keeps
+`Reach A` (a marked object reads once every root does, `A`) and
+`Closed p n` (marked objects from slot `p` up are `MarkOK` with their
+`Kid`s marked); its failure refutes `A`.  `Build.lean`: by induction up
+the slots every marked object holds its specification's value
+(`Built`), by the congruence; a node that does not read refutes `A`.
+`Engine.lean` composes both from the roots (`runPasses_spec`), and
+`Equiv.lean` concludes: on success the memo answers every root with
+its specification's value, on failure some root does not read and the
+specification fails at it.
+
+**Wiring.**  The theorem lives in `Verify/*` (the implementation never
+imports it), so it cannot be `@[csimp]` where the reader is compiled.
+The reader therefore takes its decoder as an argument
+(`readOleans (dec : Decoder) …`, `Load.lean`), and the driver
+(`ConLeche/Driver/Run.lean`, which may import `Verify/*`) passes
+`decodeModuleSpec`; the compiler substitutes `decodeModuleFast` there
+(the generated `Run.c` names `decodeModuleFast` and not the
+specification).  The development tools pass the specification the same
+way and import the theorem.
+
+**What changed for the user.**
+* Cross-module hash-consing of names and levels is gone: the decode is
+  a function of one module's bytes.  It never bought much: at 32
+  workers each worker had its own tables, and the install and check of
+  the olean runs matched the ndjson runs' to 0.1 % without it.
+* A decode failure is one message per module ("malformed .olean data
+  …"); the old decoder named the address.  The header's messages are
+  sharper: a file shorter than its header and a wrong marker are told
+  apart (both exit 3, maintainer request), and a size that is not a
+  whole number of words is malformed.
+* Fields the reader does not follow (binder names, metadata,
+  `constNames`, `entries`) are no longer checked to point below their
+  object.  No accepted verdict changes: `tests/olean.sh` 25/25 (a
+  wrong-marker case added), `olean-compare` 0 differences on `Init`
+  (57 919), `Std` (96 919), `Lean` (164 016) and `Mathlib` (712 205,
+  a fresh v4.35.0 lean4export).
+
+**Numbers** (`instructions:u`, one run each; parse-only is
+`olean-compare --time`):
+
+| run | before | after | peak RSS before / after |
+|---|---|---|---|
+| `Init` parse, 1 worker | 50.1 G | 28.1 G | 0.31 / 0.33 GiB |
+| `Std` parse, 1 worker | 82.7 G | 46.0 G | 0.47 / 0.49 GiB |
+| `Lean` parse, 1 worker | 126.2 G | 68.3 G | 0.69 / 0.71 GiB |
+| `Mathlib` parse, 1 worker | 962.8 G | 523.3 G | 5.04 / 5.15 GiB |
+| `Mathlib` parse, 32 workers | 984.8 G | 560.9 G | 5.50 / 5.26 GiB |
+| `Init` check, `--jobs=1` | 410.4 G | 396.3 G (ndjson 371.5 G) | 0.33 / 0.33 GiB |
+| `Mathlib` check, `--jobs=32` | 7 979.7 G | 7 577.2 G (ndjson 7 231.5 G) | 6.30 / 6.58 GiB |
+
+The `Mathlib` check's parse phase: 24.8 s → 9.5 s wall at 32 workers.
+Measured on the way (`Init` parse): the dense sweep at 4 mark bytes
+per slot cost more than the old decoder (the per-slot test); one byte
+per slot with a quick skip of unmarked slots, a filler for the
+expression array built at run time (a closed `.bvar 0` is a shared
+multi-threaded constant, so freeing the array paid an atomic decrement
+per slot: 61.8 G → 51.1 G with the mark read kept out of line), the
+marks threaded apart from the values (−2.2 G), `Region.loc` reading no
+more than it needs (−0.6 G), the failure bit instead of an `Option` per
+marking step (−1.6 G), and `constsOf`'s sets pre-sized (−1.1 G).
+
+**Open.**
+* The build sweep still allocates an `Option` per object (the node
+  function's result); inlining the node functions into the sweep made
+  it slower (more code, the same allocations).
+* `constsOf` (the per-constant dependency walk, `Load.lean`) is now
+  about a fifth of the olean parse: a hash set of expressions per
+  constant.
+* The higher `Mathlib` peak (+0.28 GiB): names and levels are no
+  longer shared across modules.
