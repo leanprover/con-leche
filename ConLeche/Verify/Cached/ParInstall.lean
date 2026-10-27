@@ -621,7 +621,7 @@ def valueStep (W : FEnv) : Declaration →
 
 /-- The serial step at a value record, unfolded: what `installStepC`
 computes from a fresh state when `valueStep` has a verdict. -/
-private theorem installStepC_value {pins : List NatOpPinSet} {i : Nat} {fe W : FEnv}
+theorem installStepC_value {pins : List NatOpPinSet} {i : Nat} {fe W : FEnv}
     {pend : Array PendingCheck} {pd : Declaration}
     (hfe : W.find? = fe.find?) {r : Except CheckError (ConstantInfo × ValueGroup)}
     (h : valueStep W pd = some r) :

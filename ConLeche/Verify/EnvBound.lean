@@ -33,7 +33,7 @@ namespace ConLeche
 together with its installation counter — the number of *older*
 constants, i.e. the length of the tail it heads (`consts` is
 newest-first). -/
-def idxSpec : List ConstantInfo → Name → Option (Nat × ConstantInfo)
+@[expose] def idxSpec : List ConstantInfo → Name → Option (Nat × ConstantInfo)
   | [], _ => none
   | ci :: cs, n => if ci.name == n then some (cs.length, ci) else idxSpec cs n
 
