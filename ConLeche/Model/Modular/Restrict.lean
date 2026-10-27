@@ -41,6 +41,11 @@ context presents as an assumption. -/
   | .indInfo .. => true
   | _ => false
 
+/-- **A constructor's result family is a type former** of the environment. -/
+@[expose] def CtorFam (E : Env) : Prop :=
+  ∀ x cv nP nF, E.find? x = some (.ctorInfo cv nP nF) → ∀ T us,
+    cv.type.piResult.getAppFn = .const T us → ∃ cvT capsT, E.find? T = some (.indInfo cvT capsT)
+
 /-- A type former of `C`. -/
 @[expose] def FormerIn (C : Env) (n : Name) : Prop := ∃ cv caps, C.find? n = some (.indInfo cv caps)
 
@@ -61,8 +66,11 @@ structure CtxSrc (V : Type w) [SetTheory V] (μ : CheckMode) (C : Env)
   /-- a name read alike is stored alike where the context stores an
   inductive kind, the source a constructor or recursor, or it is pinned -/
   same : ∀ n d, ((R n).find? d).isSome = true →
-    ((∃ ci, C.find? d = some ci ∧ ci.isIndKind = true) ∨ d ∈ pinnedNames) →
+    (((∃ ci, C.find? d = some ci ∧ ci.isIndKind = true) ∧
+      ∃ ci, (E n).find? d = some ci ∧ ci.isIndKind = true) ∨ d ∈ pinnedNames) →
     C.find? d = (E n).find? d
+  /-- in a source, a constructor's result family is a type former -/
+  ctorFam : ∀ n, CtorFam (E n)
   /-- what an inductive kind read alike reads is read alike, where it is stored -/
   deep : ∀ n c ci, ((R n).find? c).isSome = true → C.find? c = some ci → ci.isIndKind = true →
     EntryScopedP (fun d => (C.find? d).isSome = true → ((E n).find? d).isSome = true →
@@ -520,9 +528,16 @@ theorem wf : ConLeche.EnvWF C := by
 /-- A name read alike, of an inductive kind or pinned, is stored alike
 (either side's lookup given). -/
 theorem same_of {n d : Name} (hd : ((S.R n).find? d).isSome = true)
-    (hk : (∃ ci, C.find? d = some ci ∧ ci.isIndKind = true) ∨ d ∈ pinnedNames) :
+    (hk : ((∃ ci, C.find? d = some ci ∧ ci.isIndKind = true) ∧
+      ∃ ci, (S.E n).find? d = some ci ∧ ci.isIndKind = true) ∨ d ∈ pinnedNames) :
     C.find? d = (S.E n).find? d :=
   S.same n d hd hk
+
+/-- A stored inductive kind is its source's. -/
+theorem self_same {n : Name} {ci : ConstantInfo} (hf : C.find? n = some ci)
+    (hk : ci.isIndKind = true) : C.find? n = (S.E n).find? n := by
+  obtain ⟨ci', hf', hr⟩ := S.entry n ci hf
+  rw [hf, hf', hr.eq_of_indKind hk]
 
 /-- The name itself, read alike. -/
 theorem selfR {n : Name} {ci : ConstantInfo} (hf : C.find? n = some ci) :
@@ -551,11 +566,11 @@ theorem proj_ok : ProjOkT C := by
   obtain ⟨-, -, -, htab⟩ := hind cv caps rfl
   have hcR := (htab tbl ht).1
   rw [hsnT] at hfT
-  have hsameT := S.same_of (S.selfR hfI) (Or.inl ⟨_, hfI, rfl⟩)
+  have hsameT := S.self_same hfI rfl
   rw [hctor] at hfC
   obtain ⟨-, -, -, htc⟩ := (S.blocks T _ hfI)
   obtain ⟨_, _, _, hcC⟩ := htc tbl ht
-  have hsameC := S.same_of (n := T) hcR (Or.inl ⟨_, hcC, rfl⟩)
+  have hsameC := S.same_of (n := T) hcR (Or.inl ⟨⟨_, hcC, rfl⟩, _, hfC, rfl⟩)
   refine ⟨r1, r2, r3, r4, ⟨cvT, capsT, by rw [hsnT, hsameT]; exact hfT, hlpT⟩,
     ⟨cvC, by rw [hctor, hsameC]; exact hfC, hlpC, hstrip⟩⟩
 
@@ -582,7 +597,7 @@ theorem rec_ctors : RecCtorsStored C := by
   obtain ⟨⟨cvj, cnP, cnF, hfc⟩, hK, hEta⟩ := (S.m n).base2.rec_ctors n cv mI rP rules hf' r hr
   obtain ⟨-, hcR, -⟩ := (S.scope n _ hf).2.2.1 cv mI rP rules rfl r hr
   obtain ⟨_, _, _, hcC⟩ := (S.blocks n _ hf) r hr
-  have hsame := S.same_of hcR (Or.inl ⟨_, hcC, rfl⟩)
+  have hsame := S.same_of hcR (Or.inl ⟨⟨_, hcC, rfl⟩, _, hfc, rfl⟩)
   have hfcC : C.find? r.ctor = some (.ctorInfo cvj cnP cnF) := by rw [hsame]; exact hfc
   -- both bits read the constructor and its family alike
   have hT : ∀ cvj' nP nF, (S.E n).find? r.ctor = some (.ctorInfo cvj' nP nF) →
@@ -594,7 +609,7 @@ theorem rec_ctors : RecCtorsStored C := by
     obtain rfl : cvj = cvj' := by injection hfc' with h; injection h
     have hTR := S.ctor_family hcR hfcC hh (by rw [hgT]; rfl)
     obtain ⟨_, _, hTC⟩ := (S.blocks _ _ hfcC) T us hh
-    exact S.same_of hTR (Or.inl ⟨_, hTC, rfl⟩)
+    exact S.same_of hTR (Or.inl ⟨⟨_, hTC, rfl⟩, _, hgT, rfl⟩)
   exact ⟨⟨cvj, cnP, cnF, hfcC⟩, fun hk => recRuleKOf_of hsame hT (hK hk),
     fun he => recRuleEtaOf_of hsame hT (hEta he)⟩
 
@@ -915,10 +930,11 @@ include S
 /-- **An inductive kind read alike has its type read alike**, where the
 source's entry resolves it. -/
 theorem deep_type {n c : Name} {ci : ConstantInfo} (hc : ((S.R n).find? c).isSome = true)
-    (hf : C.find? c = some ci) (hk : ci.isIndKind = true) :
+    (hf : C.find? c = some ci) (hk : ci.isIndKind = true)
+    (hE : ∃ ci', (S.E n).find? c = some ci' ∧ ci'.isIndKind = true) :
     ci.toConstantVal.type.constsResolve (S.R n) = true := by
   have hdeep := (S.deep n c ci hc hf hk).1
-  have hsame := S.same_of hc (Or.inl ⟨_, hf, hk⟩)
+  have hsame := S.same_of hc (Or.inl ⟨⟨_, hf, hk⟩, hE⟩)
   rw [hf] at hsame
   have hE := ((S.m n).base2.wf.consts _ (ConLeche.Env.find?_mem hsame.symm)).2.2.1
   have hC := (S.scope c ci hf).1
@@ -927,13 +943,15 @@ theorem deep_type {n c : Name} {ci : ConstantInfo} (hc : ((S.R n).find? c).isSom
 
 /-- ... and its instantiated type reads as at the source. -/
 theorem deep_type_eq {n c : Name} {ci : ConstantInfo} (hc : ((S.R n).find? c).isSome = true)
-    (hf : C.find? c = some ci) (hk : ci.isIndKind = true) (hn : (C.find? n).isSome = true)
+    (hf : C.find? c = some ci) (hk : ci.isIndKind = true)
+    (hE : ∃ ci', (S.E n).find? c = some ci' ∧ ci'.isIndKind = true)
+    (hn : (C.find? n).isSome = true)
     (ψ : Name → Nat) (d : Nat) (ks : List Name) (us : List Level) :
     denote aC C ψ d (ci.toConstantVal.type.instantiateLevelParams ks us)
       = denote (S.m n).base2.acval (S.E n) ψ d
           (ci.toConstantVal.type.instantiateLevelParams ks us) := by
-  have hR := S.deep_type hc hf hk
-  have hsame := S.same_of hc (Or.inl ⟨_, hf, hk⟩)
+  have hR := S.deep_type hc hf hk hE
+  have hsame := S.same_of hc (Or.inl ⟨⟨_, hf, hk⟩, hE⟩)
   rw [hf] at hsame
   refine S.denote_eq hn ?_ ?_ ?_ ?_ ψ d
   · rw [ConLeche.Expr.constsResolve_instantiateLevelParams]; exact hR
@@ -952,7 +970,7 @@ theorem etaClosed : ConLeche.EtaFamiliesClosed C := by
   have hR := hetaR he
   obtain ⟨-, -, hetaC, -⟩ := S.blocks T _ hf
   obtain ⟨_, _, _, hcC⟩ := hetaC he
-  exact ⟨cvC, by rw [S.same_of hR (Or.inl ⟨_, hcC, rfl⟩)]; exact hfC⟩
+  exact ⟨cvC, by rw [S.same_of hR (Or.inl ⟨⟨_, hcC, rfl⟩, _, hfC, rfl⟩)]; exact hfC⟩
 
 theorem caps_ok : CapsOk S.base := by
   refine ⟨fun T cvT caps hf he hr hst φ' us hus => ?_, fun T cvT caps hf hu hr φ' us hus => ?_⟩
@@ -962,7 +980,8 @@ theorem caps_ok : CapsOk S.base := by
     obtain ⟨hres, ⟨cvC, cnP, cnF, hfC⟩, hfl⟩ := hst
     obtain ⟨-, -, hetaR, -⟩ := (S.scope T _ hf).2.2.2.1 cvT caps rfl
     have hR := hetaR he
-    have hsameC := S.same_of hR (Or.inl ⟨_, hfC, rfl⟩)
+    obtain ⟨cvE, hfCE⟩ := S.eta T T cvT caps hf' he hr
+    have hsameC := S.same_of hR (Or.inl ⟨⟨_, hfC, rfl⟩, _, hfCE, rfl⟩)
     have hTn : (C.find? T).isSome = true := by rw [hf]; rfl
     have hstE : ConLeche.EtaFamilyStored (S.E T) T caps :=
       ⟨hres, ⟨cvC, cnP, cnF, by rw [← hsameC]; exact hfC⟩, hfl⟩
@@ -981,7 +1000,7 @@ theorem caps_ok : CapsOk S.base := by
       · rw [← hsameC]; exact h₂
       · have hfC' : C.find? caps.etaCtor = some (.ctorInfo cvC' nPc nFc) := by
           rw [hsameC]; exact h
-        have := S.deep_type_eq hR hfC' rfl hTn φ' 0 cvC'.levelParams us
+        have := S.deep_type_eq hR hfC' rfl ⟨_, h, rfl⟩ hTn φ' 0 cvC'.levelParams us
         exact this.trans hTCa
       · show aC T _ = _
         rw [S.leaf hTn (S.selfR hf)]
@@ -1065,7 +1084,7 @@ theorem ruleExt {φ : Name → Nat} {n : Name} {cv : ConstantVal} {mI rP : Nat}
   obtain ⟨⟨cvj₀, cnP₀, cnF₀, hfcE⟩, -, -⟩ :=
     (S.m n).base2.rec_ctors n cv mI rP rules hf' rl hrl
   obtain ⟨_, _, _, hcC⟩ := (S.blocks n _ hf) rl hrl
-  have hsameC := S.same_of hcR (Or.inl ⟨_, hcC, rfl⟩)
+  have hsameC := S.same_of hcR (Or.inl ⟨⟨_, hcC, rfl⟩, _, hfcE, rfl⟩)
   obtain ⟨hrhsP, hpinsP⟩ := (S.projs n _ hf).2.2.1 cv mI rP rules rfl rl hrl
   refine ⟨S.leaf hn (S.selfR hf), S.leaf hn hcR, fun ci h => by rw [← hsameC]; exact h,
     fun us TVa h => ?_, fun us Ra h => ?_, fun lvls pins hfr i us vpa h => ?_,
@@ -1092,7 +1111,7 @@ theorem ruleExt {φ : Name → Nat} {n : Name} {cv : ConstantVal} {mI rP : Nat}
       (S.projsE h)]
     exact h
   · have hfcC : C.find? rl.ctor = some (.ctorInfo cvj nP nF) := by rw [hsameC]; exact hfc
-    exact (S.deep_type_eq hcR hfcC rfl hn φ 0 cvj.levelParams usj).trans h
+    exact (S.deep_type_eq hcR hfcC rfl ⟨_, hfc, rfl⟩ hn φ 0 cvj.levelParams usj).trans h
   · have hfcC : C.find? rl.ctor = some (.ctorInfo cvj nP nF) := by rw [hsameC]; exact hfc
     refine iotaCtorNeverProp_congr (fun T us hh => ?_) lvs
     have hTE : ((S.E n).find? T).isSome = true := by
@@ -1100,7 +1119,8 @@ theorem ruleExt {φ : Name → Nat} {n : Name} {cv : ConstantVal} {mI rP : Nat}
       exact ConLeche.Expr.find?_isSome_of_piResult_getAppFn_const hres hh
     have hTR := S.ctor_family hcR hfcC hh hTE
     obtain ⟨_, _, hTC⟩ := (S.blocks _ _ hfcC) T us hh
-    have hsT := S.same_of hTR (Or.inl ⟨_, hTC, rfl⟩)
+    obtain ⟨_, _, hTE'⟩ := S.ctorFam n _ _ _ _ hfc T us hh
+    have hsT := S.same_of hTR (Or.inl ⟨⟨_, hTC, rfl⟩, _, hTE', rfl⟩)
     exact ⟨fun _ _ _ => hsT, fun _ _ _ => hsT⟩
 
 theorem rec_rules (φ : Name → Nat) : RecRules S.base φ := by
@@ -1120,14 +1140,14 @@ theorem tower_ok (φ : Name → Nat) : TowerOk S.base φ := by
   obtain ⟨-, -, -, hind, -⟩ := S.scope T _ hfT
   obtain ⟨-, -, -, htab⟩ := hind cvT capsT rfl
   obtain ⟨hcR, hbodies⟩ := htab tbl ht
-  have hsameT := S.same_of (S.selfR hfT) (Or.inl ⟨_, hfT, rfl⟩)
+  have hsameT := S.self_same hfT rfl
   obtain ⟨-, -, -, ⟨cvT', capsT', hfT', -⟩, -, cvC, hfCE, -, -, -⟩ :=
     (S.m T).tower_ok φ T i _ hfPE
   have hctor : (tbl.entry i).ctor = tbl.ctor := rfl
   rw [hctor] at hfCE
   obtain ⟨-, -, -, htc⟩ := (S.blocks T _ hfT)
   obtain ⟨_, _, _, hcC⟩ := htc tbl ht
-  have hsameC := S.same_of hcR (Or.inl ⟨_, hcC, rfl⟩)
+  have hsameC := S.same_of hcR (Or.inl ⟨⟨_, hcC, rfl⟩, _, hfCE, rfl⟩)
   have hsz := ((S.m T).base2.wf.table htE).2.1
   have hbmem : tbl.bodies.getD i default ∈ tbl.bodies.toList := by
     rw [Array.getD_eq_getD_getElem?, Array.getElem?_eq_getElem (by rw [hsz]; exact hi)]
@@ -1148,7 +1168,7 @@ theorem tower_ok (φ : Name → Nat) : TowerOk S.base φ := by
     · rw [projsFormer_projTele, projsFormer_instantiateLevelParams]; exact hbP
   · rw [hctor] at hfc
     have hfcC : C.find? tbl.ctor = some (.ctorInfo cvC' nP nF) := by rw [hsameC]; exact hfc
-    exact (S.deep_type_eq hcR hfcC rfl hn φ 0 cvC'.levelParams us).trans h
+    exact (S.deep_type_eq hcR hfcC rfl ⟨_, hfc, rfl⟩ hn φ 0 cvC'.levelParams us).trans h
   · have hftC : C.find? T = some (.indInfo cvT'' caps) := by rw [hsameT]; exact hft
     have := S.type_eq hftC hft (Refines.refl _ _) φ 0 us cvT''.levelParams
     exact this.trans h
@@ -1251,7 +1271,7 @@ theorem block_member {n : Name} (hn : FormerIn C n) {D : LfpDatum V}
   have hk : mm₀ < D.k := by rw [← hcov.len D hD]; exact hmm₀
   have hmem₀ : D.member mm₀ = n := by
     simp [LfpDatum.member, List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hmm₀, hn₀]
-  have hsame := S.same_of (S.selfR hfC) (Or.inl ⟨_, hfC, rfl⟩)
+  have hsame := S.self_same hfC rfl
   have hfn : (S.E n).find? n = some (.indInfo cvn capsn) := by rw [← hsame]; exact hfC
   have hall := hcov.all D hD mm₀ hk cvn capsn (by rw [hmem₀]; exact hfn)
   obtain ⟨hallR, -⟩ := (S.scope n _ hfC).2.2.2.1 cvn capsn rfl
@@ -1264,7 +1284,8 @@ theorem block_member {n : Name} (hn : FormerIn C n) {D : LfpDatum V}
   have hmR := hallR _ hin
   obtain ⟨hallC, -⟩ := S.blocks n _ hfC
   obtain ⟨cvm, capsm, hfmC⟩ := hallC _ hin
-  exact ⟨hmR, S.same_of hmR (Or.inl ⟨_, hfmC, rfl⟩), cvm, capsm, hfmC⟩
+  obtain ⟨cvE, capsE, hfmE⟩ := LfpCover.member_find hD hmm
+  exact ⟨hmR, S.same_of hmR (Or.inl ⟨⟨_, hfmC, rfl⟩, _, hfmE, rfl⟩), cvm, capsm, hfmC⟩
 
 /-- **A recorded block's constructors are read alike**, stored alike. -/
 theorem block_ctor {n : Name} (hn : FormerIn C n) {D : LfpDatum V}
@@ -1287,7 +1308,7 @@ theorem block_ctor {n : Name} (hn : FormerIn C n) {D : LfpDatum V}
   obtain ⟨-, hctC, -⟩ := S.blocks _ _ hfmC
   obtain ⟨_, _, _, hxC⟩ := hctC _ hx
   have hxR := (hdeep.2.2.2.1 cvm capsm rfl).2.1 _ hx (by rw [hxC]; rfl) (by rw [hfxE]; rfl)
-  exact ⟨hxR, S.same_of hxR (Or.inl ⟨_, hxC, rfl⟩)⟩
+  exact ⟨hxR, S.same_of hxR (Or.inl ⟨⟨_, hxC, rfl⟩, _, hfxE, rfl⟩)⟩
 
 end CtxSrc
 
@@ -1324,7 +1345,7 @@ theorem blockName_type {n d : Name} (h : S.BlockName n d)
     ci.toConstantVal.type.constsResolve (S.R n) = true := by
   obtain ⟨hR, hsame, ci', hci', hk⟩ := h
   rw [hf] at hci'; obtain rfl := Option.some.inj hci'
-  exact S.deep_type hR (by rw [hsame]; exact hf) hk
+  exact S.deep_type hR (by rw [hsame]; exact hf) hk ⟨_, hf, hk⟩
 
 theorem blockName_projs {n d : Name} (h : S.BlockName n d)
     {ci : ConstantInfo} (hf : (S.E n).find? d = some ci) :
@@ -1376,7 +1397,9 @@ theorem lfpOwn {D : LfpDatum V} (hD : D ∈ S.lfpList) : LfpOwn C D := by
       have hxR := ((S.deep n _ _ hmR hfmC rfl).2.2.2.1 cvm capsm rfl).2.1 _ hx
         (by rw [hxC]; rfl) (by rw [hci]; rfl)
       unfold ctorLook
-      rw [S.same_of hxR (Or.inl ⟨_, hxC, rfl⟩)]
+      have hk : ci.isIndKind = true := by
+        cases ci <;> simp [ctorEntry, ConstantInfo.isIndKind] at he ⊢
+      rw [S.same_of hxR (Or.inl ⟨⟨_, hxC, rfl⟩, _, hci, hk⟩)]
     refine ⟨?_, fun cv caps hf x hx => ?_⟩
     · rw [nestContainer_eq, nestContainer_eq]
       show (match C.find? (D.member c) with
