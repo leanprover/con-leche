@@ -84,54 +84,62 @@ theorem Sub.trans {a b c : ByteArray} (h1 : Sub a b) (h2 : Sub b c) : Sub a c :=
 /-! ## One kind at one slot -/
 
 /-- The marking of slot `p` as kind `k`, if it is marked so. -/
-@[expose] def markStep (r : Region) (k : UInt8) (p : Nat) (m : ByteArray) : Option ByteArray :=
-  if marked m k p then markObj r k (8 * p) m else some m
+@[expose] def markStep (r : Region) (k : UInt8) (p : Nat) (m : ByteArray) : ByteArray :=
+  if marked m k p then markObj r k (8 * p) m else m
 
-/-- What one step does: it fails only where its object is marked and not
-`MarkOK`; otherwise it adds exactly the marks of its `Kid`s, all below
-`p`, and leaves the memo's sizes and values alone. -/
-theorem markStep_spec {r : Region} {k : UInt8} {p n : Nat} {st : ByteArray}
-    (hs : st.size = n) (hp : p < n) :
-    match markStep r k p st with
-    | none => marked st k p = true ∧ ¬ MarkOK r k (8 * p)
-    | some st' => st'.size = n ∧ Sub st st' ∧
-        (∀ k'' s, IsKind k'' → marked st' k'' s = true → marked st k'' s = true ∨
+theorem size_markStep (r : Region) (k : UInt8) (p : Nat) (m : ByteArray) :
+    (markStep r k p m).size = m.size := by
+  unfold markStep; split
+  · exact size_markObj _ _ _ _
+  · rfl
+
+theorem markStep_failed {r : Region} {k : UInt8} {p : Nat} {m : ByteArray} (hs : 0 < m.size)
+    (hf : failedM m = true) : failedM (markStep r k p m) = true := by
+  unfold markStep; split
+  · exact markObj_failed _ _ _ _ hs hf
+  · exact hf
+
+/-- What one step does: from a marking that has not failed, it fails
+only where its object is marked and not `MarkOK`; otherwise it adds
+exactly the marks of its `Kid`s, all below `p`. -/
+theorem markStep_spec {r : Region} {k : UInt8} {p : Nat} {st : ByteArray}
+    (hs : 0 < st.size) (hp : p < st.size) (hf : failedM st = false) :
+    (failedM (markStep r k p st) = true → marked st k p = true ∧ ¬ MarkOK r k (8 * p)) ∧
+    (failedM (markStep r k p st) = false → Sub st (markStep r k p st) ∧
+        (∀ k'' s, IsKind k'' → marked (markStep r k p st) k'' s = true →
+          marked st k'' s = true ∨
           ∃ c, marked st k p = true ∧ Kid r k (8 * p) k'' c ∧ c / 8 = s) ∧
         (marked st k p = true → MarkOK r k (8 * p) ∧
-          ∀ k' c, Kid r k (8 * p) k' c → marked st' k' (c / 8) = true) := by
+          ∀ k' c, Kid r k (8 * p) k' c → marked (markStep r k p st) k' (c / 8) = true)) := by
   unfold markStep
   by_cases hm : marked st k p = true
   · rw [ite_eq_left_of_eq_true _ _ (eq_true hm)]
-    have h := markObj_spec r k (8 * p) st
-    split at h
-    · rename_i heq; rw [heq]; exact ⟨hm, h⟩
-    · rename_i st' heq
-      rw [heq]
-      obtain ⟨hok, hsz, hmk⟩ := h
-      refine ⟨by rw [hsz, hs], ?_, ?_, ?_⟩
-      · intro k'' s hk'' h
-        exact (hmk k'' s hk'').mpr (Or.inl h)
-      · intro k'' s hk'' h
-        rcases (hmk k'' s hk'').mp h with h | ⟨c, hc, hcs, _⟩
-        · exact Or.inl h
-        · exact Or.inr ⟨c, hm, hc, hcs⟩
-      · intro _
-        refine ⟨hok, fun k' c hc => (hmk k' (c / 8) hc.kind).mpr (Or.inr ⟨c, hc, rfl, ?_⟩)⟩
-        have := hc.lt
-        rw [hs]
-        have : c / 8 < p := by omega
-        omega
+    obtain ⟨h1, h2⟩ := markObj_spec r k (8 * p) st hs hf
+    refine ⟨fun h => ⟨hm, h1.mp h⟩, fun hnf => ⟨?_, ?_, ?_⟩⟩
+    · intro k'' s hk'' h
+      exact (h2 hnf k'' s hk'').mpr (Or.inl h)
+    · intro k'' s hk'' h
+      rcases (h2 hnf k'' s hk'').mp h with h | ⟨c, hc, hcs, _⟩
+      · exact Or.inl h
+      · exact Or.inr ⟨c, hm, hc, hcs⟩
+    · intro _
+      have hok : MarkOK r k (8 * p) := Classical.byContradiction fun hn => by
+        rw [h1.mpr hn] at hnf; cases hnf
+      refine ⟨hok, fun k' c hc => (h2 hnf k' (c / 8) hc.kind).mpr (Or.inr ⟨c, hc, rfl, ?_⟩)⟩
+      have := hc.lt
+      have : c / 8 < p := by omega
+      omega
   · rw [ite_eq_right_of_eq_false _ _ (eq_false hm)]
-    refine ⟨hs, Sub.refl st, fun _ _ _ h => Or.inl h, fun h => absurd h hm⟩
+    refine ⟨(fun h => by rw [hf] at h; cases h), fun _ => ⟨Sub.refl st, fun _ _ _ h => Or.inl h,
+      fun h => absurd h hm⟩⟩
 
 /-! ## One slot -/
 
 /-- The marking of slot `p` as each of the kinds `ks`, in order. -/
-@[expose] def markSteps (r : Region) (ks : List UInt8) (p : Nat) (st : ByteArray) :
-    Option ByteArray :=
-  ks.foldlM (fun st k => markStep r k p st) st
+@[expose] def markSteps (r : Region) (ks : List UInt8) (p : Nat) (st : ByteArray) : ByteArray :=
+  ks.foldl (fun st k => markStep r k p st) st
 
-theorem markKind_eq {r : Region} {k : UInt8} {markK : Region → Nat → ByteArray → Option ByteArray}
+theorem markKind_eq {r : Region} {k : UInt8} {markK : Region → Nat → ByteArray → ByteArray}
     (h : ∀ g st, markK r g st = markObj r k g st) (p : Nat) :
     markKind r k markK p = markStep r k p := by
   funext st; simp only [markKind, markStep, h]
@@ -139,35 +147,58 @@ theorem markKind_eq {r : Region} {k : UInt8} {markK : Region → Nat → ByteArr
 theorem markSlot_eq (r : Region) (p : Nat) (st : ByteArray) :
     markSlot r p st = markSteps r [kName, kLevel, kLevels, kExpr] p st := by
   simp only [markSlot, markKind_eq (markName_eq r), markKind_eq (markLevel_eq r),
-    markKind_eq (markLevels_eq r), markKind_eq (markExpr_eq r), markSteps,
-    List.foldlM_cons, List.foldlM_nil, bind_pure, Option.bind_eq_bind]
-  rw [Option.bind_assoc, Option.bind_assoc]
+    markKind_eq (markLevels_eq r), markKind_eq (markExpr_eq r), markSteps, List.foldl_cons,
+    List.foldl_nil]
 
-theorem markSteps_spec {r : Region} {p n : Nat} (hp : p < n) :
-    ∀ (ks : List UInt8) (st : ByteArray), (∀ k ∈ ks, IsKind k) → st.size = n →
-    match markSteps r ks p st with
-    | none => ∃ k ∈ ks, marked st k p = true ∧ ¬ MarkOK r k (8 * p)
-    | some st' => st'.size = n ∧ Sub st st' ∧
-        (∀ k'' s, IsKind k'' → marked st' k'' s = true → marked st k'' s = true ∨
+theorem size_markSteps (r : Region) (p : Nat) :
+    ∀ (ks : List UInt8) (st : ByteArray), (markSteps r ks p st).size = st.size
+  | [], _ => rfl
+  | k :: ks, st => by
+    have := size_markSteps r p ks (markStep r k p st)
+    simp only [markSteps, List.foldl_cons] at this ⊢
+    rw [this, size_markStep]
+
+theorem markSteps_failed {r : Region} {p : Nat} :
+    ∀ (ks : List UInt8) (st : ByteArray), 0 < st.size → failedM st = true →
+    failedM (markSteps r ks p st) = true
+  | [], _, _, h => h
+  | k :: ks, st, hs, h => by
+    have := markSteps_failed (r := r) (p := p) ks (markStep r k p st)
+      (by rw [size_markStep]; exact hs) (markStep_failed hs h)
+    simp only [markSteps, List.foldl_cons] at this ⊢
+    exact this
+
+theorem markSteps_spec {r : Region} {p : Nat} :
+    ∀ (ks : List UInt8) (st : ByteArray), (∀ k ∈ ks, IsKind k) → 0 < st.size → p < st.size →
+    failedM st = false →
+    (failedM (markSteps r ks p st) = true →
+        ∃ k ∈ ks, marked st k p = true ∧ ¬ MarkOK r k (8 * p)) ∧
+    (failedM (markSteps r ks p st) = false → Sub st (markSteps r ks p st) ∧
+        (∀ k'' s, IsKind k'' → marked (markSteps r ks p st) k'' s = true →
+          marked st k'' s = true ∨
           ∃ k c, IsKind k ∧ marked st k p = true ∧ Kid r k (8 * p) k'' c ∧ c / 8 = s) ∧
         (∀ k ∈ ks, marked st k p = true → MarkOK r k (8 * p) ∧
-          ∀ k' c, Kid r k (8 * p) k' c → marked st' k' (c / 8) = true)
-  | [], st, _, hs => by
-    simp only [markSteps, List.foldlM]
-    exact ⟨hs, Sub.refl st, fun _ _ _ h => Or.inl h, fun _ h => absurd h (by simp)⟩
-  | k :: ks, st, hks, hs => by
+          ∀ k' c, Kid r k (8 * p) k' c → marked (markSteps r ks p st) k' (c / 8) = true))
+  | [], st, _, _, _, hf => by
+    simp only [markSteps, List.foldl_nil]
+    exact ⟨(fun h => by rw [hf] at h; cases h),
+      fun _ => ⟨Sub.refl st, fun _ _ _ h => Or.inl h, fun _ h => absurd h (by simp)⟩⟩
+  | k :: ks, st, hks, hs, hp, hf => by
     have hk : IsKind k := hks k (by simp)
     have hks' : ∀ k ∈ ks, IsKind k := fun k' h => hks k' (List.mem_cons_of_mem _ h)
-    have h1 := markStep_spec (r := r) (k := k) hs hp
-    simp only [markSteps, List.foldlM_cons] at *
-    split at h1
-    · rename_i heq
-      simp only [heq, bind, Option.bind]
-      exact ⟨k, by simp, h1⟩
-    · rename_i st1 heq
-      simp only [heq, bind, Option.bind]
-      obtain ⟨hs1, hsub1, hnew1, hdone1⟩ := h1
-      -- the marks at slot `p` are the same in `st1`
+    have hstep : markSteps r (k :: ks) p st = markSteps r ks p (markStep r k p st) := rfl
+    rw [hstep]
+    have h1 := markStep_spec (r := r) (k := k) hs hp hf
+    generalize e1 : markStep r k p st = st1 at h1
+    have hs1 : st1.size = st.size := by rw [← e1, size_markStep]
+    cases hf1 : failedM st1 with
+    | true =>
+      obtain ⟨hkp, hnot⟩ := h1.1 hf1
+      have := markSteps_failed (r := r) (p := p) ks st1 (by omega) hf1
+      rw [this]
+      exact ⟨fun _ => ⟨k, by simp, hkp, hnot⟩, fun h => by cases h⟩
+    | false =>
+      obtain ⟨hsub1, hnew1, hdone1⟩ := h1.2 hf1
       have hsame : ∀ k', IsKind k' → marked st1 k' p = marked st k' p := by
         intro k' hk'
         cases e : marked st k' p
@@ -177,18 +208,12 @@ theorem markSteps_spec {r : Region} {p n : Nat} (hp : p < n) :
             · rw [e] at h; cases h
             · have := hc.lt; omega
         · exact hsub1 k' p hk' e
-      have ih := markSteps_spec (r := r) hp ks st1 hks' hs1
-      split at ih
-      · rename_i heq2
-        simp only [markSteps] at heq2
-        rw [heq2]
-        obtain ⟨k', hk'm, hk'p, hk'ok⟩ := ih
+      obtain ⟨ih1, ih2⟩ := markSteps_spec (r := r) (p := p) ks st1 hks' (by omega) (by omega) hf1
+      refine ⟨fun h => ?_, fun h => ?_⟩
+      · obtain ⟨k', hk'm, hk'p, hk'ok⟩ := ih1 h
         exact ⟨k', by simp [hk'm], by rw [← hsame k' (hks' k' hk'm)]; exact hk'p, hk'ok⟩
-      · rename_i st2 heq2
-        simp only [markSteps] at heq2
-        rw [heq2]
-        obtain ⟨hs2, hsub2, hnew2, hdone2⟩ := ih
-        refine ⟨hs2, hsub1.trans hsub2, ?_, ?_⟩
+      · obtain ⟨hsub2, hnew2, hdone2⟩ := ih2 h
+        refine ⟨hsub1.trans hsub2, ?_, ?_⟩
         · intro k'' s hk'' h
           rcases hnew2 k'' s hk'' h with h | ⟨k0, c, hk0, hk0p, hc, hcs⟩
           · rcases hnew1 k'' s hk'' h with h | ⟨c, hkp, hc, hcs⟩
@@ -216,29 +241,44 @@ theorem kinds_all : ∀ k ∈ [kName, kLevel, kLevels, kExpr], IsKind k := by
 theorem IsKind.mem {k : UInt8} (h : IsKind k) : k ∈ [kName, kLevel, kLevels, kExpr] := by
   unfold IsKind at h; rcases h with rfl | rfl | rfl | rfl <;> simp
 
+theorem size_markPass (r : Region) : ∀ (p : Nat) (st : ByteArray), (markPass r st p).size = st.size
+  | 0, _ => rfl
+  | p + 1, st => by
+    unfold markPass
+    split
+    · dsimp only
+      split
+      · rw [markSlot_eq, size_markSteps]
+      · rw [size_markPass r p, markSlot_eq, size_markSteps]
+    · exact size_markPass r p st
+
 /-- **The downward sweep keeps its invariants**, and fails only when
 `A` does not hold. -/
-theorem markPass_spec {r : Region} {n : Nat} {A : Prop} :
-    ∀ p st, p ≤ n → st.size = n → Reach r A st → Closed r st p n →
-    match markPass r st p with
-    | none => ¬ A
-    | some st' => st'.size = n ∧ Sub st st' ∧ Reach r A st' ∧ Closed r st' 0 n
-  | 0, st, _, hs, hr, hc => by
-    simp only [markPass]; exact ⟨hs, Sub.refl st, hr, hc⟩
-  | p + 1, st, hp, hs, hr, hc => by
+theorem markPass_spec {r : Region} {n : Nat} {A : Prop} (hn : 0 < n) :
+    ∀ p st, p ≤ n → st.size = n → failedM st = false → Reach r A st → Closed r st p n →
+    (failedM (markPass r st p) = true → ¬ A) ∧
+    (failedM (markPass r st p) = false → Sub st (markPass r st p) ∧
+      Reach r A (markPass r st p) ∧ Closed r (markPass r st p) 0 n)
+  | 0, st, _, _, hf, hr, hc => by
+    simp only [markPass]
+    exact ⟨(fun h => by rw [hf] at h; cases h), fun _ => ⟨Sub.refl st, hr, hc⟩⟩
+  | p + 1, st, hp, hs, hf, hr, hc => by
     unfold markPass
     by_cases hnz : (marksAt st p != 0) = true
     · simp only [hnz, ↓reduceIte]
       rw [markSlot_eq]
-      have h := markSteps_spec (r := r) (show p < n by omega) _ st kinds_all hs
-      split at h
-      · rename_i heq
-        simp only [heq]
-        obtain ⟨k, hkm, hkp, hnot⟩ := h
-        exact fun hA => hnot (KindOK.markOK (kinds_all k hkm) (hr k p (kinds_all k hkm) hkp hA))
-      · rename_i st1 heq
-        simp only [heq]
-        obtain ⟨hs1, hsub1, hnew1, hdone1⟩ := h
+      have h := markSteps_spec (r := r) (p := p) _ st kinds_all (by omega) (by omega) hf
+      generalize e1 : markSteps r [kName, kLevel, kLevels, kExpr] p st = st1 at h
+      have hs1 : st1.size = n := by rw [← e1, size_markSteps, hs]
+      cases hf1 : failedM st1 with
+      | true =>
+        simp only [↓reduceIte, hf1]
+        obtain ⟨k, hkm, hkp, hnot⟩ := h.1 hf1
+        refine ⟨fun _ hA => hnot (KindOK.markOK (kinds_all k hkm)
+          (hr k p (kinds_all k hkm) hkp hA)), fun h => by cases h⟩
+      | false =>
+        simp only [Bool.false_eq_true, ↓reduceIte]
+        obtain ⟨hsub1, hnew1, hdone1⟩ := h.2 hf1
         have hold : ∀ k s, IsKind k → p ≤ s → marked st1 k s = true → marked st k s = true := by
           intro k s hk hps hm
           rcases hnew1 k s hk hm with h | ⟨k0, c, _, _, hc, hcs⟩
@@ -258,17 +298,16 @@ theorem markPass_spec {r : Region} {n : Nat} {A : Prop} :
           · subst e; exact hdone1 k hk.mem hm0
           · obtain ⟨hok, hkids⟩ := hc s (by omega) hsn k hk hm0
             exact ⟨hok, fun k' c hkc => hsub1 k' (c / 8) hkc.kind (hkids k' c hkc)⟩
-        have ih := markPass_spec p st1 (by omega) hs1 hr1 hc1
-        split at ih
-        · exact ih
-        · obtain ⟨hs2, hsub2, hr2, hc2⟩ := ih
-          exact ⟨hs2, hsub1.trans hsub2, hr2, hc2⟩
+        obtain ⟨ih1, ih2⟩ := markPass_spec hn p st1 (by omega) hs1 hf1 hr1 hc1
+        refine ⟨ih1, fun h => ?_⟩
+        obtain ⟨hsub2, hr2, hc2⟩ := ih2 h
+        exact ⟨hsub1.trans hsub2, hr2, hc2⟩
     · simp only [hnz, Bool.false_eq_true, ↓reduceIte]
       have hc' : Closed r st p n := by
         intro s hps hsn k hk hm
         by_cases e : s = p
         · subst e; rw [marked_of_marksAt_zero hnz k] at hm; cases hm
         · exact hc s (by omega) hsn k hk hm
-      exact markPass_spec p st (by omega) hs hr hc'
+      exact markPass_spec hn p st (by omega) hs hf hr hc'
 
 end ConLeche.Frontend.Olean

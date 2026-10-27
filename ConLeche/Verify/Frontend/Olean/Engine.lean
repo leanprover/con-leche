@@ -55,11 +55,11 @@ theorem rootsFold {r : Region} {A : Prop} {n : Nat} {K : UInt8} (hK : IsKind K) 
       (∀ v ∈ vs, r.locGo v r.segs.size / 8 < n) → Reach r A st → (A → ∀ v ∈ vs, P v) →
       match vs.foldlM (markRoot r K nil) st with
       | none => ¬ A
-      | some st' => st'.size = n ∧ Sub st st' ∧ Reach r A st' ∧
+      | some st' => st'.size = n ∧ failedM st' = failedM st ∧ Sub st st' ∧ Reach r A st' ∧
           ∀ v ∈ vs, ¬ (nil = true ∧ v = 1) → ∃ c, r.loc v = some c ∧ marked st' K (c / 8) = true
   | [], st, hs, _, hr, _ => by
     simp only [List.foldlM_nil]
-    exact ⟨hs, Sub.refl st, hr, fun _ h => absurd h (by simp)⟩
+    exact ⟨hs, rfl, Sub.refl st, hr, fun _ h => absurd h (by simp)⟩
   | v :: vs, st, hs, hb, hr, hA => by
     simp only [List.foldlM_cons]
     have hstep : markRoot r K nil st v =
@@ -77,8 +77,8 @@ theorem rootsFold {r : Region} {A : Prop} {n : Nat} {K : UInt8} (hK : IsKind K) 
       split at ih
       · exact ih
       · rename_i st' heq
-        obtain ⟨hs', hsub, hr', hm⟩ := ih
-        refine ⟨hs', hsub, hr', ?_⟩
+        obtain ⟨hs', hf', hsub, hr', hm⟩ := ih
+        refine ⟨hs', hf', hsub, hr', ?_⟩
         intro w hw hnw
         simp only [List.mem_cons] at hw
         rcases hw with rfl | hw
@@ -113,8 +113,8 @@ theorem rootsFold {r : Region} {A : Prop} {n : Nat} {K : UInt8} (hK : IsKind K) 
         split at ih
         · exact ih
         · rename_i st' heq
-          obtain ⟨hs', hsub, hr', hm⟩ := ih
-          refine ⟨hs', hsub1.trans hsub, hr', ?_⟩
+          obtain ⟨hs', hf', hsub, hr', hm⟩ := ih
+          refine ⟨hs', by rw [hf', failedM_mark _ hK], hsub1.trans hsub, hr', ?_⟩
           intro w hw hnw
           simp only [List.mem_cons] at hw
           rcases hw with rfl | hw
@@ -179,23 +179,24 @@ theorem runPasses_spec (r : Region) (names exprs : List UInt64) :
   | some st1 =>
     rw [e1] at h1
     simp only [bind, Option.bind, e1]
-    obtain ⟨hs1, _, hr1, hm1⟩ := h1
+    obtain ⟨hs1, hf1, _, hr1, hm1⟩ := h1
     have h2 := rootsFold (A := RootsOK r names exprs) kExpr_kind hP2 hPn2 exprs st1 hs1 hbE hr1
       (fun a => a.2)
     cases e2 : exprs.foldlM (markRoot r kExpr false) st1 with
     | none => rw [e2] at h2; exact h2
     | some st2 =>
       rw [e2] at h2
-      obtain ⟨hs2, hsub2, hr2, hm2⟩ := h2
+      obtain ⟨hs2, hf2, hsub2, hr2, hm2⟩ := h2
+      have hf2' : failedM st2 = false := by rw [hf2, hf1, failedM_zeros]
       simp only
-      have h3 := markPass_spec (r := r) (A := RootsOK r names exprs) n st2 (Nat.le_refl n) hs2 hr2
-        (fun s h1 h2 => absurd h2 (by omega))
-      cases e3 : markPass r st2 n with
-      | none => rw [e3] at h3; exact h3
-      | some st3 =>
-        rw [e3] at h3
-        obtain ⟨hs3, hsub3, hr3, hc3⟩ := h3
-        simp only
+      have h3 := markPass_spec (r := r) (A := RootsOK r names exprs) (n := n) (by omega) n st2
+        (Nat.le_refl n) hs2 hf2' hr2 (fun s h1 h2 => absurd h2 (by omega))
+      generalize e3 : markPass r st2 n = st3 at h3
+      cases hf3 : failedM st3 with
+      | true => simp only [↓reduceIte]; exact h3.1 hf3
+      | false =>
+        obtain ⟨hsub3, hr3, hc3⟩ := h3.2 hf3
+        simp only [Bool.false_eq_true, ↓reduceIte]
         have h4 := buildPass_spec (r := r) (A := RootsOK r names exprs) (n := n) hc3 hr3 0
           (DS.fresh n) (DS.fresh_sized n) (fun s h => absurd h (by omega))
         cases e4 : buildPass r st3 n (DS.fresh n) 0 with

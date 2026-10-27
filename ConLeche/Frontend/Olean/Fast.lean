@@ -122,94 +122,95 @@ def DS.fresh (n : Nat) : DS :=
 @[inline] def DS.exprV (st : @& DS) (c : Nat) : Expr := st.exprs.getD (c / 8) (.bvar 0)
 @[inline] def DS.levelsV (st : @& DS) (c : Nat) : List Level := st.lists.getD (c / 8) []
 
-/-! ## Pass 1: marking -/
+/-! ## Pass 1: marking
+
+The marking fails where the specification fails to read.  The failure
+is recorded in the marks themselves, bit 7 of slot 0's byte (no object
+starts at location 0, `Region.loc`), so that no step of the pass
+returns an `Option`: an `Option` per step is an allocation per pointer. -/
+
+/-- Record a failure. -/
+@[inline] def failM (m : ByteArray) : ByteArray := m.set! 0 0x80
+
+/-- Has the marking failed? -/
+@[inline] def failedM (m : @& ByteArray) : Bool := marksAt m 0 &&& 0x80 != 0
 
 /-- Mark the object a pointer field of the object at `g` leads to, as
 kind `k`; `nil` says the kind's nullary constructor is the scalar `0`
 (`Name.anonymous`, `Level.zero`, `[]`). -/
 @[inline] def markPtr (r : @& Region) (m : ByteArray) (g : Nat) (k : UInt8) (nil : Bool)
-    (v : UInt64) : Option ByteArray :=
-  if nil && v == 1 then some m
+    (v : UInt64) : ByteArray :=
+  if nil && v == 1 then m
   else match r.down g v with
-    | some c => some (mark m k (c / 8))
-    | none => none
+    | some c => mark m k (c / 8)
+    | none => failM m
 
 /-- The fields of a `Name` object (`nameNode`). -/
-@[inline] def markName (r : @& Region) (g : Nat) (m : ByteArray) : Option ByteArray :=
+@[inline] def markName (r : @& Region) (g : Nat) (m : ByteArray) : ByteArray :=
   if r.fits g then
     match r.tag g, r.nobjs g with
     | 1, 2 => markPtr r m g kName true (r.fld g 0)
     | 2, 2 => markPtr r m g kName true (r.fld g 0)
-    | _, _ => none
-  else none
+    | _, _ => failM m
+  else failM m
 
 /-- The fields of a `Level` object (`levelNode`). -/
-@[inline] def markLevel (r : @& Region) (g : Nat) (m : ByteArray) : Option ByteArray :=
+@[inline] def markLevel (r : @& Region) (g : Nat) (m : ByteArray) : ByteArray :=
   if r.fits g then
     match r.tag g, r.nobjs g with
-    | 0, 0 => some m
+    | 0, 0 => m
     | 1, 1 => markPtr r m g kLevel true (r.fld g 0)
-    | 2, 2 => (markPtr r m g kLevel true (r.fld g 0)).bind
-        (fun m => markPtr r m g kLevel true (r.fld g 1))
-    | 3, 2 => (markPtr r m g kLevel true (r.fld g 0)).bind
-        (fun m => markPtr r m g kLevel true (r.fld g 1))
+    | 2, 2 => markPtr r (markPtr r m g kLevel true (r.fld g 0)) g kLevel true (r.fld g 1)
+    | 3, 2 => markPtr r (markPtr r m g kLevel true (r.fld g 0)) g kLevel true (r.fld g 1)
     | 4, 1 => markPtr r m g kName true (r.fld g 0)
-    | _, _ => none
-  else none
+    | _, _ => failM m
+  else failM m
 
 /-- The fields of a `List Level` cell (`levelsNode`). -/
-@[inline] def markLevels (r : @& Region) (g : Nat) (m : ByteArray) : Option ByteArray :=
+@[inline] def markLevels (r : @& Region) (g : Nat) (m : ByteArray) : ByteArray :=
   if r.fits g then
     match r.tag g, r.nobjs g with
-    | 1, 2 => (markPtr r m g kLevel true (r.fld g 0)).bind
-        (fun m => markPtr r m g kLevels true (r.fld g 1))
-    | _, _ => none
-  else none
+    | 1, 2 => markPtr r (markPtr r m g kLevel true (r.fld g 0)) g kLevels true (r.fld g 1)
+    | _, _ => failM m
+  else failM m
 
 /-- The fields of an `Expr` object (`exprNode`); the fields holding a
 `Nat` or a `Literal` are read by the build alone. -/
-@[inline] def markExpr (r : @& Region) (g : Nat) (m : ByteArray) : Option ByteArray :=
+@[inline] def markExpr (r : @& Region) (g : Nat) (m : ByteArray) : ByteArray :=
   if r.fits g then
     match r.tag g, r.nobjs g with
-    | 0, 1 => some m
+    | 0, 1 => m
     | 3, 1 => markPtr r m g kLevel true (r.fld g 0)
-    | 4, 2 => (markPtr r m g kName true (r.fld g 0)).bind
-        (fun m => markPtr r m g kLevels true (r.fld g 1))
-    | 5, 2 => (markPtr r m g kExpr false (r.fld g 0)).bind
-        (fun m => markPtr r m g kExpr false (r.fld g 1))
-    | 6, 3 => (markPtr r m g kExpr false (r.fld g 1)).bind
-        (fun m => markPtr r m g kExpr false (r.fld g 2))
-    | 7, 3 => (markPtr r m g kExpr false (r.fld g 1)).bind
-        (fun m => markPtr r m g kExpr false (r.fld g 2))
-    | 8, 4 => ((markPtr r m g kExpr false (r.fld g 1)).bind
-        (fun m => markPtr r m g kExpr false (r.fld g 2))).bind
-        (fun m => markPtr r m g kExpr false (r.fld g 3))
-    | 9, 1 => some m
+    | 4, 2 => markPtr r (markPtr r m g kName true (r.fld g 0)) g kLevels true (r.fld g 1)
+    | 5, 2 => markPtr r (markPtr r m g kExpr false (r.fld g 0)) g kExpr false (r.fld g 1)
+    | 6, 3 => markPtr r (markPtr r m g kExpr false (r.fld g 1)) g kExpr false (r.fld g 2)
+    | 7, 3 => markPtr r (markPtr r m g kExpr false (r.fld g 1)) g kExpr false (r.fld g 2)
+    | 8, 4 => markPtr r (markPtr r (markPtr r m g kExpr false (r.fld g 1)) g kExpr false
+        (r.fld g 2)) g kExpr false (r.fld g 3)
+    | 9, 1 => m
     | 10, 2 => markPtr r m g kExpr false (r.fld g 1)
-    | 11, 3 => (markPtr r m g kName true (r.fld g 0)).bind
-        (fun m => markPtr r m g kExpr false (r.fld g 2))
-    | _, _ => none
-  else none
+    | 11, 3 => markPtr r (markPtr r m g kName true (r.fld g 0)) g kExpr false (r.fld g 2)
+    | _, _ => failM m
+  else failM m
 
 /-- Slot `p`'s fields, if it is marked as kind `k`. -/
 @[inline] def markKind (r : @& Region) (k : UInt8)
-    (markK : Region → Nat → ByteArray → Option ByteArray) (p : Nat) (m : ByteArray) :
-    Option ByteArray :=
-  if marked m k p then markK r (8 * p) m else some m
+    (markK : Region → Nat → ByteArray → ByteArray) (p : Nat) (m : ByteArray) : ByteArray :=
+  if marked m k p then markK r (8 * p) m else m
 
 /-- One slot of the downward sweep: its marked kinds' fields. -/
-@[inline] def markSlot (r : @& Region) (p : Nat) (m : ByteArray) : Option ByteArray :=
-  (((markKind r kName markName p m).bind (markKind r kLevel markLevel p)).bind
-    (markKind r kLevels markLevels p)).bind (markKind r kExpr markExpr p)
+@[inline] def markSlot (r : @& Region) (p : Nat) (m : ByteArray) : ByteArray :=
+  markKind r kExpr markExpr p (markKind r kLevels markLevels p
+    (markKind r kLevel markLevel p (markKind r kName markName p m)))
 
-/-- **The downward sweep** over the slots below `p`. -/
-def markPass (r : @& Region) (m : ByteArray) : Nat → Option ByteArray
-  | 0 => some m
+/-- **The downward sweep** over the slots below `p`; it stops at the
+first failure. -/
+def markPass (r : @& Region) (m : ByteArray) : Nat → ByteArray
+  | 0 => m
   | p + 1 =>
     if marksAt m p != 0 then
-      match markSlot r p m with
-      | some m => markPass r m p
-      | none => none
+      let m := markSlot r p m
+      if failedM m then m else markPass r m p
     else markPass r m p
 
 /-! ## Pass 2: building -/
@@ -227,30 +228,27 @@ def markPass (r : @& Region) (m : ByteArray) : Nat → Option ByteArray
   exprNode r g (fun c _ => some (st.exprV c)) (fun c _ => some (st.nameV c))
     (fun c _ => some (st.levelV c)) (fun c _ => some (st.levelsV c))
 
-/-- Slot `p`'s value as kind `k`, if it is marked so. -/
+/-- Slot `p`'s value as kind `k`, if it is marked so, and whether it
+read. -/
 @[inline] def buildKind {α : Type} (r : @& Region) (m : @& ByteArray) (k : UInt8)
     (build : Region → Nat → DS → Option α) (set : DS → Nat → α → DS) (p : Nat) (st : DS) :
-    Option DS :=
+    DS × Bool :=
   if marked m k p then
     match build r (8 * p) st with
-    | some v => some (set st p v)
-    | none => none
-  else some st
+    | some v => (set st p v, true)
+    | none => (st, false)
+  else (st, true)
 
-/-- One slot of the upward sweep: its marked kinds' values. -/
-@[inline] def buildSlot (r : @& Region) (m : @& ByteArray) (p : Nat) (st : DS) : Option DS :=
-  (((buildKind r m kName buildName DS.setName p st).bind
-    (buildKind r m kLevel buildLevel DS.setLevel p)).bind
-    (buildKind r m kLevels buildLevels DS.setLevels p)).bind
-    (buildKind r m kExpr buildExpr DS.setExpr p)
-
-/-- **The upward sweep** over the slots from `p` to `n`. -/
+/-- **The upward sweep** over the slots from `p` to `n`: each slot's
+marked kinds' values. -/
 def buildPass (r : @& Region) (m : @& ByteArray) (n : Nat) (st : DS) (p : Nat) : Option DS :=
   if p < n then
     if marksAt m p != 0 then
-      match buildSlot r m p st with
-      | some st => buildPass r m n st (p + 1)
-      | none => none
+      let (st, ok1) := buildKind r m kName buildName DS.setName p st
+      let (st, ok2) := buildKind r m kLevel buildLevel DS.setLevel p st
+      let (st, ok3) := buildKind r m kLevels buildLevels DS.setLevels p st
+      let (st, ok4) := buildKind r m kExpr buildExpr DS.setExpr p st
+      if ok1 && ok2 && ok3 && ok4 then buildPass r m n st (p + 1) else none
     else buildPass r m n st (p + 1)
   else some st
 termination_by n - p
@@ -276,8 +274,8 @@ def runPasses (r : @& Region) (names exprs : List UInt64) : Option DS := do
   let n := maxLoc r exprs (maxLoc r names 0) / 8 + 1
   let m ← names.foldlM (markRoot r kName true) (zeros n)
   let m ← exprs.foldlM (markRoot r kExpr false) m
-  let m ← markPass r m n
-  buildPass r m n (DS.fresh n) 0
+  let m := markPass r m n
+  if failedM m then none else buildPass r m n (DS.fresh n) 0
 
 /-- A root's value, from the memo. -/
 @[inline] def DS.nameOf (r : @& Region) (st : @& DS) (v : UInt64) : Option Name :=

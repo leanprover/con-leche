@@ -102,6 +102,32 @@ theorem marked_mark (m : ByteArray) {k k' : UInt8} (hk : IsKind k)
     · simp [hs]
   · simp [e]
 
+/-! ## The failure bit -/
+
+theorem kind_and_fail {k : UInt8} (hk : IsKind k) : (k &&& 0x80 != 0) = false := by
+  unfold IsKind kName kLevel kExpr kLevels at hk
+  rcases hk with rfl | rfl | rfl | rfl <;> decide
+
+theorem failedM_mark (m : ByteArray) {k : UInt8} (hk : IsKind k) (s : Nat) :
+    failedM (mark m k s) = failedM m := by
+  simp only [failedM, mark, marksAt, rdU8_set!]
+  by_cases e : s = 0
+  · subst e
+    by_cases hs : 0 < m.size
+    · simp [hs, or_and_ne, kind_and_fail hk]
+    · simp [hs]
+  · simp [e]
+
+theorem failedM_failM {m : ByteArray} (h : 0 < m.size) : failedM (failM m) = true := by
+  simp only [failedM, failM, marksAt, rdU8_set!, h, and_self, ite_true]
+  decide
+
+theorem size_failM (m : ByteArray) : (failM m).size = m.size := by
+  simp [failM]
+
+theorem failedM_zeros (n : Nat) : failedM (zeros n) = false := by
+  simp [failedM, marksAt, rdU8_zeros]
+
 /-! ## The values -/
 
 /-- Every array of the memo is `n` long. -/

@@ -124,7 +124,8 @@ partial def constsGo (stack : List Expr) (seen : Std.HashSet Expr) (seenN : Std.
 the literal dependencies lean4export adds (`dumpNatDeps`,
 `dumpStrDeps`): `Nat` for a numeral, `Char.ofNat` and `String.ofList`
 for a string.  An iterative walk over the DAG, each node once. -/
-def constsOf (es : List Expr) : Array Name := constsGo es {} {} #[]
+def constsOf (es : List Expr) : Array Name :=
+  constsGo es (Std.HashSet.emptyWithCapacity 256) (Std.HashSet.emptyWithCapacity 64) #[]
 
 /-! ## One module -/
 

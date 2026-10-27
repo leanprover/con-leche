@@ -72,18 +72,18 @@ theorem kidTable_levels (t n : Nat) : kidTable kLevels t n = levelsKids t n := r
 theorem kidTable_expr (t n : Nat) : kidTable kExpr t n = exprKids t n := rfl
 
 /-- The marking of one object, read off the table. -/
-@[expose] def markObj (r : Region) (k : UInt8) (g : Nat) (m : ByteArray) : Option ByteArray :=
+@[expose] def markObj (r : Region) (k : UInt8) (g : Nat) (m : ByteArray) : ByteArray :=
   if r.fits g then
     match kidTable k (r.tag g) (r.nobjs g) with
-    | some fs => fs.foldlM (fun m f => markPtr r m g f.2.1 f.2.2 (r.fld g f.1)) m
-    | none => none
-  else none
+    | some fs => fs.foldl (fun m f => markPtr r m g f.2.1 f.2.2 (r.fld g f.1)) m
+    | none => failM m
+  else failM m
 
 theorem markName_eq (r : Region) (g : Nat) (m : ByteArray) : markName r g m = markObj r kName g m := by
   unfold markName markObj
   split
   · simp only [kidTable, ite_true]
-    split <;> simp_all [List.foldlM, Option.bind_eq_bind, nameKids]
+    split <;> simp_all [List.foldl, nameKids]
   · rfl
 
 theorem markLevel_eq (r : Region) (g : Nat) (m : ByteArray) :
@@ -91,7 +91,7 @@ theorem markLevel_eq (r : Region) (g : Nat) (m : ByteArray) :
   unfold markLevel markObj
   split
   · simp only [kidTable, show kLevel ≠ kName by decide, ite_false, ite_true]
-    split <;> simp_all [List.foldlM, Option.bind_eq_bind, levelKids]
+    split <;> simp_all [List.foldl, levelKids]
   · rfl
 
 theorem markLevels_eq (r : Region) (g : Nat) (m : ByteArray) :
@@ -100,7 +100,7 @@ theorem markLevels_eq (r : Region) (g : Nat) (m : ByteArray) :
   split
   · simp only [kidTable, show kLevels ≠ kName by decide, show kLevels ≠ kLevel by decide,
       ite_false, ite_true]
-    split <;> simp_all [List.foldlM, Option.bind_eq_bind, levelsKids]
+    split <;> simp_all [List.foldl, levelsKids]
   · rfl
 
 theorem markExpr_eq (r : Region) (g : Nat) (m : ByteArray) :
@@ -109,7 +109,7 @@ theorem markExpr_eq (r : Region) (g : Nat) (m : ByteArray) :
   split
   · simp only [kidTable, show kExpr ≠ kName by decide, show kExpr ≠ kLevel by decide,
       show kExpr ≠ kLevels by decide, ite_false]
-    split <;> simp_all [List.foldlM, Option.bind_eq_bind, exprKids, Option.bind_assoc]
+    split <;> simp_all [List.foldl, exprKids]
   · rfl
 
 /-! ## The relations -/
@@ -157,136 +157,189 @@ theorem Kid.kind {r : Region} {k : UInt8} {g : Nat} {k' : UInt8} {c : Nat} (h : 
 theorem markPtr_eq (r : Region) (g : Nat) (k : UInt8) (nil : Bool) (v : UInt64)
     (m : ByteArray) :
     markPtr r m g k nil v =
-      if nil = true ∧ v = 1 then some m else (r.down g v).map fun c => mark m k (c / 8) := by
+      if nil = true ∧ v = 1 then m else
+        match r.down g v with
+        | some c => mark m k (c / 8)
+        | none => failM m := by
   unfold markPtr
   by_cases h : nil = true ∧ v = 1
   · simp [h]
   · have : (nil && v == 1) = false := by
       cases nil <;> simp_all
     simp only [this, Bool.false_eq_true, ite_false, h]
-    split <;> simp_all
+    rfl
 
-/-- What a fold of marks does: it fails iff a field is not fine, and
-otherwise adds exactly the marks of the fields' objects. -/
-theorem foldMarks (r : Region) (g : Nat) :
+/-- A failed marking stays failed. -/
+theorem foldMarks_failed (r : Region) (g : Nat) :
     ∀ (fs : List (Nat × UInt8 × Bool)) (st : ByteArray), (∀ f ∈ fs, IsKind f.2.1) →
-    match fs.foldlM (fun m f => markPtr r m g f.2.1 f.2.2 (r.fld g f.1)) st with
-    | none => ¬ ∀ f ∈ fs, FieldOK r g f.2.2 (r.fld g f.1)
-    | some st' => (∀ f ∈ fs, FieldOK r g f.2.2 (r.fld g f.1)) ∧
-        st'.size = st.size ∧
-        ∀ k'' s, IsKind k'' → (marked st' k'' s = true ↔ marked st k'' s = true ∨
-          ∃ i k' nil, (i, k', nil) ∈ fs ∧ k' = k'' ∧ ¬(nil = true ∧ r.fld g i = 1) ∧
-            ∃ c, r.down g (r.fld g i) = some c ∧ c / 8 = s ∧ s < st.size)
-  | [], st, _ => by simp [List.foldlM]
-  | (i, k', nil) :: fs, st, hk => by
+    0 < st.size → failedM st = true →
+    failedM (fs.foldl (fun m f => markPtr r m g f.2.1 f.2.2 (r.fld g f.1)) st) = true
+  | [], _, _, _, h => h
+  | (i, k', nil) :: fs, st, hk, hs, h => by
     have hk1 : IsKind k' := hk (i, k', nil) List.mem_cons_self
     have hk2 : ∀ f ∈ fs, IsKind f.2.1 := fun f hf => hk f (List.mem_cons_of_mem _ hf)
-    simp only [List.foldlM_cons]
+    simp only [List.foldl_cons]
+    rw [markPtr_eq]
+    split
+    · exact foldMarks_failed r g fs st hk2 hs h
+    · split
+      · exact foldMarks_failed r g fs _ hk2 (by rw [size_mark]; exact hs)
+          (by rw [failedM_mark _ hk1]; exact h)
+      · exact foldMarks_failed r g fs _ hk2 (by rw [size_failM]; exact hs) (failedM_failM hs)
+
+theorem size_foldMarks (r : Region) (g : Nat) :
+    ∀ (fs : List (Nat × UInt8 × Bool)) (st : ByteArray),
+    (fs.foldl (fun m f => markPtr r m g f.2.1 f.2.2 (r.fld g f.1)) st).size = st.size
+  | [], _ => rfl
+  | (i, k', nil) :: fs, st => by
+    simp only [List.foldl_cons]
+    rw [size_foldMarks r g fs, markPtr_eq]
+    split
+    · rfl
+    · split
+      · exact size_mark _ _ _
+      · exact size_failM _
+
+/-- What a fold of marks does: from a marking that has not failed, it
+fails iff a field is not fine, and otherwise adds exactly the marks of
+the fields' objects. -/
+theorem foldMarks (r : Region) (g : Nat) :
+    ∀ (fs : List (Nat × UInt8 × Bool)) (st : ByteArray), (∀ f ∈ fs, IsKind f.2.1) →
+    0 < st.size → failedM st = false →
+    let st' := fs.foldl (fun m f => markPtr r m g f.2.1 f.2.2 (r.fld g f.1)) st
+    (failedM st' = true ↔ ¬ ∀ f ∈ fs, FieldOK r g f.2.2 (r.fld g f.1)) ∧
+    (failedM st' = false →
+        ∀ k'' s, IsKind k'' → (marked st' k'' s = true ↔ marked st k'' s = true ∨
+          ∃ i k' nil, (i, k', nil) ∈ fs ∧ k' = k'' ∧ ¬(nil = true ∧ r.fld g i = 1) ∧
+            ∃ c, r.down g (r.fld g i) = some c ∧ c / 8 = s ∧ s < st.size))
+  | [], st, _, _, h => by simp [h]
+  | (i, k', nil) :: fs, st, hk, hs, hf => by
+    have hk1 : IsKind k' := hk (i, k', nil) List.mem_cons_self
+    have hk2 : ∀ f ∈ fs, IsKind f.2.1 := fun f hf => hk f (List.mem_cons_of_mem _ hf)
+    intro st'
+    simp only [st', List.foldl_cons]
     rw [markPtr_eq]
     by_cases hn : nil = true ∧ r.fld g i = 1
     · obtain ⟨rfl, hv⟩ := hn
       simp only [hv, and_self, ite_true]
-      have ih := foldMarks r g fs st hk2
-      split at ih
-      · rename_i heq
-        simp only [bind, Option.bind, heq]
-        intro hall; exact ih (fun f hf => hall f (by simp [hf]))
-      · rename_i st' heq
-        simp only [bind, Option.bind, heq]
-        obtain ⟨hok, hs, hm⟩ := ih
-        refine ⟨?_, hs, ?_⟩
-        · intro f hf
+      obtain ⟨ih1, ih2⟩ := foldMarks r g fs st hk2 hs hf
+      refine ⟨?_, ?_⟩
+      · rw [ih1]
+        constructor
+        · intro h hall; exact h (fun f hf => hall f (List.mem_cons_of_mem _ hf))
+        · intro h hall; apply h; intro f hf
           simp only [List.mem_cons] at hf
           rcases hf with rfl | hf
           · exact Or.inl ⟨rfl, hv⟩
-          · exact hok f hf
-        · intro k'' s hk''
-          rw [hm k'' s hk'']
-          constructor
-          · rintro (h | ⟨i', k₁, nil', hm', rfl, hne, c, hc, hs', hlt⟩)
-            · exact Or.inl h
-            · exact Or.inr ⟨i', k₁, nil', by simp [hm'], rfl, hne, c, hc, hs', hlt⟩
-          · rintro (h | ⟨i', k₁, nil', hm', rfl, hne, c, hc, hs', hlt⟩)
-            · exact Or.inl h
-            · simp only [List.mem_cons, Prod.mk.injEq] at hm'
-              rcases hm' with ⟨rfl, rfl, rfl⟩ | hm'
-              · exact absurd ⟨rfl, hv⟩ hne
-              · exact Or.inr ⟨i', k₁, nil', hm', rfl, hne, c, hc, hs', hlt⟩
+          · exact hall f hf
+      · intro hnf k'' s hk''
+        rw [ih2 hnf k'' s hk'']
+        constructor
+        · rintro (h | ⟨i', k₁, nil', hm', rfl, hne, c, hc, hs', hlt⟩)
+          · exact Or.inl h
+          · exact Or.inr ⟨i', k₁, nil', List.mem_cons_of_mem _ hm', rfl, hne, c, hc, hs', hlt⟩
+        · rintro (h | ⟨i', k₁, nil', hm', rfl, hne, c, hc, hs', hlt⟩)
+          · exact Or.inl h
+          · simp only [List.mem_cons, Prod.mk.injEq] at hm'
+            rcases hm' with ⟨rfl, rfl, rfl⟩ | hm'
+            · exact absurd ⟨rfl, hv⟩ hne
+            · exact Or.inr ⟨i', k₁, nil', hm', rfl, hne, c, hc, hs', hlt⟩
     · simp only [hn, ite_false]
       cases hd : r.down g (r.fld g i) with
       | none =>
-        simp only [Option.map_none, bind, Option.bind_none]
+        simp only
+        have hfail := foldMarks_failed r g fs (failM st) hk2 (by rw [size_failM]; exact hs)
+          (failedM_failM hs)
+        refine ⟨?_, fun h => by rw [hfail] at h; cases h⟩
+        simp only [hfail, true_iff]
         intro hall
-        have := hall (i, k', nil) (by simp)
+        have := hall (i, k', nil) List.mem_cons_self
         simp [FieldOK, hd, hn] at this
       | some c =>
-        simp only [Option.map_some, bind, Option.bind_some]
-        have ih := foldMarks r g fs (mark st k' (c / 8)) hk2
-        split at ih
-        · rename_i heq
-          skip
-          intro hall; exact ih (fun f hf => hall f (by simp [hf]))
-        · rename_i st' heq
-          skip
-          obtain ⟨hok, hs, hm⟩ := ih
-          refine ⟨?_, by rw [hs, size_mark], ?_⟩
-          · intro f hf
+        simp only
+        have hs1 : 0 < (mark st k' (c / 8)).size := by rw [size_mark]; exact hs
+        have hf1 : failedM (mark st k' (c / 8)) = false := by rw [failedM_mark _ hk1]; exact hf
+        obtain ⟨ih1, ih2⟩ := foldMarks r g fs (mark st k' (c / 8)) hk2 hs1 hf1
+        refine ⟨?_, ?_⟩
+        · rw [ih1]
+          constructor
+          · intro h hall; exact h (fun f hf => hall f (List.mem_cons_of_mem _ hf))
+          · intro h hall; apply h; intro f hf
             simp only [List.mem_cons] at hf
             rcases hf with rfl | hf
             · exact Or.inr (by simp [hd])
-            · exact hok f hf
-          · intro k'' s hk''
-            rw [hm k'' s hk'', marked_mark st hk1 hk'', size_mark]
-            simp only [Bool.or_eq_true, Bool.and_eq_true, beq_iff_eq, decide_eq_true_eq]
-            constructor
-            · rintro ((h | ⟨⟨rfl, rfl⟩, hlt⟩) | ⟨i', k₁, nil', hm', rfl, hne, c', hc, hs', hlt⟩)
-              · exact Or.inl h
-              · exact Or.inr ⟨i, k', nil, by simp, rfl, hn, c, hd, rfl, hlt⟩
-              · exact Or.inr ⟨i', k₁, nil', by simp [hm'], rfl, hne, c', hc, hs', hlt⟩
-            · rintro (h | ⟨i', k₁, nil', hm', rfl, hne, c', hc, hs', hlt⟩)
-              · exact Or.inl (Or.inl h)
-              · simp only [List.mem_cons, Prod.mk.injEq] at hm'
-                rcases hm' with ⟨rfl, rfl, rfl⟩ | hm'
-                · rw [hd] at hc; cases hc
-                  exact Or.inl (Or.inr ⟨⟨hs', rfl⟩, hs' ▸ hlt⟩)
-                · exact Or.inr ⟨i', k₁, nil', hm', rfl, hne, c', hc, hs', hlt⟩
+            · exact hall f hf
+        · intro hnf k'' s hk''
+          rw [ih2 hnf k'' s hk'', marked_mark st hk1 hk'', size_mark]
+          simp only [Bool.or_eq_true, Bool.and_eq_true, beq_iff_eq, decide_eq_true_eq]
+          constructor
+          · rintro ((h | ⟨⟨rfl, rfl⟩, hlt⟩) | ⟨i', k₁, nil', hm', rfl, hne, c', hc, hs', hlt⟩)
+            · exact Or.inl h
+            · exact Or.inr ⟨i, k', nil, List.mem_cons_self, rfl, hn, c, hd, rfl, hlt⟩
+            · exact Or.inr ⟨i', k₁, nil', List.mem_cons_of_mem _ hm', rfl, hne, c', hc, hs', hlt⟩
+          · rintro (h | ⟨i', k₁, nil', hm', rfl, hne, c', hc, hs', hlt⟩)
+            · exact Or.inl (Or.inl h)
+            · simp only [List.mem_cons, Prod.mk.injEq] at hm'
+              rcases hm' with ⟨rfl, rfl, rfl⟩ | hm'
+              · rw [hd] at hc; cases hc
+                exact Or.inl (Or.inr ⟨⟨hs', rfl⟩, hs' ▸ hlt⟩)
+              · exact Or.inr ⟨i', k₁, nil', hm', rfl, hne, c', hc, hs', hlt⟩
 
-theorem markObj_spec (r : Region) (k : UInt8) (g : Nat) (st : ByteArray) :
-    match markObj r k g st with
-    | none => ¬ MarkOK r k g
-    | some st' => MarkOK r k g ∧ st'.size = st.size ∧
-        ∀ k'' s, IsKind k'' → (marked st' k'' s = true ↔ marked st k'' s = true ∨
-          ∃ c, Kid r k g k'' c ∧ c / 8 = s ∧ s < st.size) := by
+theorem size_markObj (r : Region) (k : UInt8) (g : Nat) (st : ByteArray) :
+    (markObj r k g st).size = st.size := by
   unfold markObj
-  by_cases hf : r.fits g = true
-  · simp only [hf, ite_true]
+  split
+  · split
+    · exact size_foldMarks r g _ st
+    · exact size_failM st
+  · exact size_failM st
+
+theorem markObj_failed (r : Region) (k : UInt8) (g : Nat) (st : ByteArray) (hs : 0 < st.size)
+    (hf : failedM st = true) : failedM (markObj r k g st) = true := by
+  unfold markObj
+  split
+  · split
+    · rename_i fs hfs; exact foldMarks_failed r g fs st (kidTable_kinds hfs) hs hf
+    · exact failedM_failM hs
+  · exact failedM_failM hs
+
+theorem markObj_spec (r : Region) (k : UInt8) (g : Nat) (st : ByteArray) (hs : 0 < st.size)
+    (hf : failedM st = false) :
+    (failedM (markObj r k g st) = true ↔ ¬ MarkOK r k g) ∧
+    (failedM (markObj r k g st) = false →
+        ∀ k'' s, IsKind k'' → (marked (markObj r k g st) k'' s = true ↔ marked st k'' s = true ∨
+          ∃ c, Kid r k g k'' c ∧ c / 8 = s ∧ s < st.size)) := by
+  unfold markObj
+  by_cases hfit : r.fits g = true
+  · simp only [hfit, ite_true]
     cases hfs : kidTable k (r.tag g) (r.nobjs g) with
     | some fs =>
       simp only
-      have := foldMarks r g fs st (kidTable_kinds hfs)
-      split at this
-      · rename_i heq
-        rintro ⟨_, fs', hfs', hall⟩
-        rw [hfs] at hfs'; cases hfs'; exact this hall
-      · rename_i st' heq
-        obtain ⟨hok, hs, hm⟩ := this
-        refine ⟨⟨hf, fs, hfs, hok⟩, hs, ?_⟩
-        intro k'' s hk''
-        rw [hm k'' s hk'']
+      obtain ⟨h1, h2⟩ := foldMarks r g fs st (kidTable_kinds hfs) hs hf
+      refine ⟨?_, ?_⟩
+      · rw [h1]
+        constructor
+        · intro h ⟨_, fs', hfs', hall⟩
+          rw [hfs] at hfs'; cases hfs'; exact h hall
+        · intro h hall; exact h ⟨hfit, fs, hfs, hall⟩
+      · intro hnf k'' s hk''
+        rw [h2 hnf k'' s hk'']
         constructor
         · rintro (h | ⟨i, k', nil, hm', rfl, hne, c, hc, hs', hlt⟩)
           · exact Or.inl h
-          · exact Or.inr ⟨c, ⟨hf, fs, hfs, i, nil, hm', hne, hc⟩, hs', hlt⟩
+          · exact Or.inr ⟨c, ⟨hfit, fs, hfs, i, nil, hm', hne, hc⟩, hs', hlt⟩
         · rintro (h | ⟨c, ⟨_, fs', hfs', i, nil, hm', hne, hc⟩, hs', hlt⟩)
           · exact Or.inl h
           · rw [hfs] at hfs'; cases hfs'
             exact Or.inr ⟨i, k'', nil, hm', rfl, hne, c, hc, hs', hlt⟩
     | none =>
-      simp only
+      simp only [failedM_failM hs, true_iff]
+      refine ⟨?_, fun h => by cases h⟩
       rintro ⟨_, fs', hfs', _⟩
       rw [hfs] at hfs'; cases hfs'
-  · simp only [hf, Bool.false_eq_true, ite_false]
-    rintro ⟨h, _⟩; exact hf h
+  · simp only [hfit, Bool.false_eq_true, ite_false, failedM_failM hs, true_iff]
+    refine ⟨?_, fun h => by cases h⟩
+    rintro ⟨h, _⟩; exact hfit h
 
 /-! ## The node functions -/
 
