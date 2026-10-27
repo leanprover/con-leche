@@ -544,16 +544,31 @@ info: 'Fragment.Checks.mono' depends on axioms: [propext, Classical.choice, Quot
 #guard_msgs in #print axioms Fragment.Checks.mono
 
 /--
-info: 'Fragment.Modular.accepted' depends on axioms: [propext, Classical.choice, Quot.sound]
+info: 'Fragment.install_thm' depends on axioms: [propext, Classical.choice, Quot.sound]
 -/
-#guard_msgs in #print axioms Fragment.Modular.accepted
+#guard_msgs in #print axioms Fragment.install_thm
 
 /--
-info: 'Fragment.modular_model' depends on axioms: [propext, Classical.choice, Quot.sound]
+info: 'Fragment.Checks.joined' depends on axioms: [propext, Classical.choice, Quot.sound]
 -/
-#guard_msgs in #print axioms Fragment.modular_model
+#guard_msgs in #print axioms Fragment.Checks.joined
 
 /--
-info: 'Fragment.modular_no_empty_prop_inhabitant' depends on axioms: [propext, Classical.choice, Quot.sound]
+info: 'Fragment.local_checks' depends on axioms: [propext, Classical.choice, Quot.sound]
 -/
-#guard_msgs in #print axioms Fragment.modular_no_empty_prop_inhabitant
+#guard_msgs in #print axioms Fragment.local_checks
+
+/--
+info: 'Fragment.local_accepted' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in #print axioms Fragment.local_accepted
+
+/--
+info: 'Fragment.local_model' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in #print axioms Fragment.local_model
+
+/--
+info: 'Fragment.local_no_empty_prop_inhabitant' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in #print axioms Fragment.local_no_empty_prop_inhabitant

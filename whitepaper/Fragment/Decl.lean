@@ -9,7 +9,8 @@ public import Fragment.ScopeOfInfer
 /-!
 # Declarations: what the checker accepts
 
-The environment grows by **definitions** and by **inductive blocks**.
+The environment grows by **definitions**, **theorems** and **inductive
+blocks**.
 This file says, relationally, what the checker checks before storing
 either — `DefOk` and `IndOk` — and what it stores (`Env.add`,
 `IndSpec.install`).  Nothing here is semantic; the environment section
@@ -603,6 +604,18 @@ def DefOk (env : Env) (c : Name) (ci : ConstInfo) : Prop :=
   (∃ v T, ci.kind = .defn v ∧ Infer env [] v T ∧ DefEq env [] T ci.type ∧
     v.lparamsIn ci.lparams = true) ∧
   ci.type.lparamsIn ci.lparams = true
+
+/-- **A theorem is accepted** (con-leche's theorem check): its
+statement `ci.type` and a proof `v` pass the definition check, and the
+statement is a proposition.  What is stored is the statement alone, as
+an assumption (`ConstKind.assumed`, `ci.kind`): a theorem never
+unfolds, in the checker (`Rules/Rel.lean`, only a definition unfolds)
+as in the fragment.  So two proofs of one statement store the same
+constant. -/
+def ThmOk (env : Env) (c : Name) (ci : ConstInfo) (v : Expr) : Prop :=
+  ci.kind = .assumed ∧
+  DefOk env c { ci with kind := .defn v } ∧
+  (∃ s u, Infer env [] ci.type s ∧ Red env [] s (.sort u) ∧ LevelOracle.eq u .zero = true)
 
 /-- An accepted definition's type is in scope: closed and over stored
 constants by its typing derivation, over the declared level
