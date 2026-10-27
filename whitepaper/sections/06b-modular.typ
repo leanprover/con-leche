@@ -47,7 +47,9 @@ finds to be of a proposition,
 #src("whitepaper/Fragment/ModularModel.lean", 52, 72)[is the point], at
 every list of levels. This is the semantic face of proof irrelevance,
 and it is why two proofs of one statement may be taken as one
-constant, whatever their bodies.
+constant, whatever their bodies. A module may flag as a proof every
+theorem and every definition whose type is a proposition, including
+definitions whose value its importers never see.
 
 == Qualified names <sec:mod-names>
 
@@ -81,7 +83,7 @@ import does_] consists of the constants that the module's context also
 stores and resolves as the import does.
 
 #definition(name: "Local checks")[
-  A module #src("whitepaper/Fragment/ModularModel.lean", 200, 228)[passes its
+  A module #src("whitepaper/Fragment/ModularModel.lean", 200, 230)[passes its
   local checks] when
   #set enum(numbering: "1.")
   + its imports come earlier in the development, and every name of
@@ -90,11 +92,13 @@ stores and resolves as the import does.
     constant it flags as a proof is a theorem or a definition of a
     proposition;
   + every constant of its context refines the constant of the import
-    it is read from. That constant
+    it is read from, and the context's constant
     #src("whitepaper/Fragment/ModularModel.lean", 185, 198)[lies within]
     the part of the import's environment the module reads as the import
-    does: its type, its value, its rules and their constructors, and its
-    inductive block if it has one;
+    does: its type, and where it has them, its value, its rules and
+    their constructors, and its inductive block. An assumption brings
+    its type only, so a value the module does not see is never
+    inspected;
   + its context resolves each name as the import it is read from does,
     and its own constants to its own qualified names;
   + a type former in its context comes with its constructors.
@@ -113,13 +117,13 @@ the theorem builds.
 
 #theorem(name: "Modular checking")[
   If every module of a development passes its local checks, there is
-  #src("whitepaper/Fragment/ModularModel.lean", 525, 537)[one assignment
+  #src("whitepaper/Fragment/ModularModel.lean", 522, 534)[one assignment
   of sets to the qualified names], with every proof the point, under
   which every module's own environment has a model. Each module reads
   that assignment through its resolution. Hence every module's own
   environment
-  #src("whitepaper/Fragment/ModularModel.lean", 540, 545)[has a model], and
-  #src("whitepaper/Fragment/ModularModel.lean", 549, 557)[no closed term
+  #src("whitepaper/Fragment/ModularModel.lean", 537, 542)[has a model], and
+  #src("whitepaper/Fragment/ModularModel.lean", 546, 554)[no closed term
   inhabits an empty proposition] it stores.
 ] <thm:mod>
 
@@ -130,7 +134,7 @@ the theorem builds.
 
   The module's context then has a model: read the assignment through
   the module's resolution
-  (#src("whitepaper/Fragment/ModularModel.lean", 317, 323)[the
+  (#src("whitepaper/Fragment/ModularModel.lean", 319, 325)[the
   context's model]). Each law of a context constant is the law of the
   import constant it refines. That law mentions only names the module
   reads as the import does, and on those names the two readings give
@@ -143,7 +147,7 @@ the theorem builds.
   checked list]). Every stored constant keeps its set, and every proof
   gets the point. The assignment is then extended by the module's own
   ordinary constants
-  (#src("whitepaper/Fragment/ModularModel.lean", 479, 489)[one more
+  (#src("whitepaper/Fragment/ModularModel.lean", 476, 486)[one more
   module]). The qualified names of earlier modules are untouched, and a
   proof's qualified name already denotes the point.
 
@@ -191,11 +195,13 @@ definitions the module does not expose keep their types only.
 The local checks are never stricter than Lean's merge. Copies Lean
 merges are proofs of one statement, hence one qualified name.
 Constants Lean never loads together are never compared. One check
-goes beyond what Lean's merge does: check 3 asks that the names an
-imported constant mentions resolve in the importer as they did in the
-exporter. Lean's module system guarantees this for the modules it
-writes, because an exported term mentions only constants the importer
-also loads.
+goes beyond what Lean's merge does: check 3 asks that the names a
+constant of the context mentions, in its type and in whatever value
+or rules the module sees, resolve in the importer as they did in the
+exporter. What the module does not see, such as the value of a
+definition it reads as an assumption, is not inspected. Lean's module
+system guarantees the rest for the modules it writes, because an
+exported term mentions only constants the importer also loads.
 
 #real[
   Con-leche checks a development as one environment, all its modules

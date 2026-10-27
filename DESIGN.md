@@ -107675,3 +107675,16 @@ constant refinement (monotonicity, summaries and joins removed);
 expose the installed value; `EnvModel.transport`'s law congruences
 factored out (`RecRuleLaw.congr` …); `no_empty_inductive_inhabitant_of_model`.
 §7 rewritten, §8's "Hidden name clashes" entry removed.
+
+**Addendum (2026-10-27, agent/370-scope, from the driver lane).**  Check
+3's scoping applies to the module's OWN context entry, not to the
+import's: when M reads an exported view, its context has the
+assumption, and only that assumption's type must lie within what M
+reads as the import does; a hidden value (e.g. B `public import all h`,
+M imports B: h's definition `f` is an assumption in M, its value
+mentions h's private names that M never loads) is never inspected.
+`context_model` reads the import entry's value and rules only where the
+context entry is that entry.  The proof flag may be set for every
+theorem and every definition whose type is a proposition (hidden ones
+included), as the con-leche side does.  Fragment, §7 check list and its
+"one remaining strictness" remark updated.

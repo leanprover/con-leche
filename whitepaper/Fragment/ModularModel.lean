@@ -206,8 +206,10 @@ else:
 * the declarations are accepted against the context, and a constant
   flagged a proof is a declaration of a proposition;
 * every constant of the context refines the constant of its import's
-  own environment it is read from, and lies within the part of that
-  environment the module reads as the import does;
+  own environment it is read from, and the context's constant lies
+  within the part of that environment the module reads as the import
+  does (an assumption: its type; otherwise its value, rules and block
+  too);
 * the context resolves a name as its import does, and an own name to
   its own qualified name;
 * a type former of the context comes with its constructors. -/
@@ -218,7 +220,7 @@ structure LocalOk (dev : Nat → Module) (i : Nat) : Prop where
   flags : FlagsOk (dev i).proofs (dev i).context (dev i).decls
   context_le : ∀ n ci, (dev i).context.find? n = some ci →
     ∃ ci', (dev ((dev i).src n)).own.find? n = some ci' ∧ ci.Le ci' ∧
-      EntryScoped (readsAlike dev i ((dev i).src n)) (dev i).context ci'
+      EntryScoped (readsAlike dev i ((dev i).src n)) (dev i).context ci
   res_context : ∀ n, ((dev i).context.find? n).isSome → (dev i).res n = (dev ((dev i).src n)).res n
   res_own : ∀ d ∈ (dev i).decls, ∀ n ∈ d.names, ∀ ci, (dev i).own.find? n = some ci →
     (dev i).res n = (dev i).ownKey i n ci
@@ -348,8 +350,8 @@ theorem context_model (dev : Nat → Module) (i : Nat) (h : LocalOk dev i) (G : 
     obtain ⟨ci', hf', hle, hsc⟩ := h.context_le c ci hf
     have hc := consts_agree hsc.1 (hagC c hb) ls
     have := (mb _ hb).type_ok c ci' hf' φ ρ ls (by rw [hle.lparams_eq]; exact hlen)
-    rw [WellDenoted_consts hc, interp_consts hc, hagn c ci hf hb, hle.lparams_eq, hle.type_eq] at this
-    exact this
+    rw [hle.lparams_eq, hle.type_eq] at this
+    rwa [WellDenoted_consts hc, interp_consts hc, hagn c ci hf hb] at this
   · intro c ci v hf hv φ ρ ls hlen
     have hb := h.src_mem c (by rw [hf]; rfl)
     obtain ⟨ci', hf', hle, hsc⟩ := h.context_le c ci hf
@@ -440,15 +442,10 @@ theorem LocalOk.scoped {dev : Nat → Module} {i : Nat} [LevelOracle] (h : Local
       obtain ⟨e, he⟩ := Option.isSome_iff_exists.mp hd
       exact (find?_readsAlike he).2.1
   intro c ci hf
-  obtain ⟨ci', -, hle, hsc⟩ := h.context_le c ci hf
-  refine ⟨?_, fun v hv => ?_, fun nP nM nMin nI rules hk rl hrl => ?_⟩
-  · rw [← hle.lparams_eq, ← hle.type_eq]; exact hsc.1.mono (hsub _)
-  · have hne : ci.kind ≠ .assumed := by
-      intro hk; simp [ConstInfo.value?, hk, ConstKind.value?] at hv
-    rw [hle.eq_of_ne hne] at hsc
-    exact (hsc.2.1 v hv).mono (hsub _)
-  · rw [hle.eq_of_ne (by rw [hk]; exact nofun)] at hsc
-    obtain ⟨hrhs, cij, -, hE, -⟩ := hsc.2.2.1 nP nM nMin nI rules hk rl hrl
+  obtain ⟨-, -, -, hsc⟩ := h.context_le c ci hf
+  refine ⟨hsc.1.mono (hsub _), fun v hv => (hsc.2.1 v hv).mono (hsub _),
+    fun nP nM nMin nI rules hk rl hrl => ?_⟩
+  · obtain ⟨hrhs, cij, -, hE, -⟩ := hsc.2.2.1 nP nM nMin nI rules hk rl hrl
     exact ⟨hrhs.mono (hsub _), by rw [hE]; rfl⟩
 
 /-! ## The theorem -/
