@@ -299,7 +299,7 @@ generated type a well-denoted type.
 
 The block #src("whitepaper/Fragment/Decl.lean", 531, 572)[adds three kinds of constant] to the
 environment, the ones @sec:env left to this section
-(#src("whitepaper/Fragment/Env.lean", 63, 80)[the kinds],
+(#src("whitepaper/Fragment/Env.lean", 66, 82)[the kinds],
 #src("ConLeche/Kernel/Env.lean", 165, 182)[as in con-leche]). Written
 with the notation of @sec:env, a stored declaration is one of
 
@@ -311,7 +311,7 @@ with the notation of @sec:env, a stored declaration is one of
 - $(r.\{arrow(ell)\} : T)^sans("rec") [k, 1, n, m; R_1, dots, R_n]$, a
   recursor: $k$ parameters, one motive, $n$ minors, $m$ indices, the
   major; rules $R_1, dots, R_n$, each
-  #src("whitepaper/Fragment/Env.lean", 53, 60)[flagged _K_] when the
+  #src("whitepaper/Fragment/Env.lean", 56, 63)[flagged _K_] when the
   block is K-like (@sec:iota-cases).
 
 The counts are the sizes of the argument groups (@ex:nat shows them

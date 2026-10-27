@@ -111,7 +111,7 @@ from the main proof and is parametric in the same kind of abstract set
 theory. The underlined source links lead into the real proof and into
 that development.
 
-The rest is in seven parts. §2 presents the fragment without an
+The rest is in eight parts. §2 presents the fragment without an
 environment: terms and universe levels, the three relations, the
 abstract set theory, the interpretation, the semantic invariant, and
 the three claims with their proof. The routine cases of the proof are
@@ -132,6 +132,9 @@ mention the type being defined inside another one, as in
 the model extends to them. §6 shows that two features of Lean's
 definitional equality that the fragment drops, η for structures and
 unit-likeness, follow from the extensionality of the model, with one
-proof case each. §7 lists what was left out, and how the real proof
+proof case each. §7 checks a development module by module, each
+module against what its imports export, and shows that the union of
+the modules is an environment §4 proves consistent. §8 lists what
+was left out, and how the real proof
 differs from the fragment where they share a feature. @sec:related
 relates the argument to earlier work.

@@ -72,6 +72,13 @@ accepted as pinned definitions of their own types.]
 real checker never unfolds a theorem or an opaque: #src("ConLeche/Rules/Rel.lean", 138, 141)[only a definition
 unfolds].]
 
+#left-out[Constants stored by two modules][A modular development
+(@sec:modular) stores every name once. Lean's own import keeps one of
+two copies of a constant that two modules store when the copies are
+interchangeable, two proofs of one statement in particular, and a
+module-by-module check has to apply the same rule when it assembles
+the union.]
+
 #left-out[Structure η and unit-likeness][The checker has
 #src("ConLeche/Rules/Rel.lean", 467, 470)[structure η] and
 #src("ConLeche/Rules/Rel.lean", 495, 500)[unit-likeness] as Lean has them;

@@ -618,3 +618,16 @@ comment block at the top of `lib.typ`.
     through the projections (`EtaIota.lean`) cover every remaining
     large eliminator, and no ι step checks a constructor application.
     (Lane R4, 2026-10-13.)
+
+**2026-10-27 (task #370, modular checking).** The fragment proves the
+module-by-module statement without any new model theory: monotonicity
+of the relations in the environment (an interface `I ≼ U` stores each
+constant of `U` it stores as it is there, or as an assumption of the
+same type), one mutual induction with no case that does anything, turns
+a module checked against its interface into a module checked against
+the union before it, and `accepted_model` does the rest. Con-leche's
+modular capstone could take the same route: a weakening lemma for the
+rules tier (`ConLeche/Rules/Rel.lean`) and the existing fold theorem,
+instead of a gluing argument over models that interpret the assumed
+constants.
+

@@ -2473,67 +2473,71 @@
 
 >>> whitepaper/sections/03-definitions.typ
 
-== whitepaper/Fragment/Env.lean#L109-L125
-   109  /-- **The environment**: the accepted constants, most recent first.  A
-   110  name is stored at most once; `find?` reads the first entry. -/
-   111  structure Env where
-   112    /-- The stored constants. -/
-   113    consts : List (Name × ConstInfo)
-   114    deriving DecidableEq
-   115  
-   116  namespace Env
-   117  
-   118  /-- Look a name up. -/
-   119  def find? (env : Env) (n : Name) : Option ConstInfo := env.consts.lookup n
-   120  
-   121  /-- The empty environment. -/
-   122  def empty : Env := ⟨[]⟩
-   123  
-   124  /-- Store one more constant. -/
-   125  def add (env : Env) (n : Name) (ci : ConstInfo) : Env := ⟨(n, ci) :: env.consts⟩
+== whitepaper/Fragment/Env.lean#L116-L132
+   116  /-- **The environment**: the accepted constants, most recent first.  A
+   117  name is stored at most once; `find?` reads the first entry. -/
+   118  structure Env where
+   119    /-- The stored constants. -/
+   120    consts : List (Name × ConstInfo)
+   121    deriving DecidableEq
+   122  
+   123  namespace Env
+   124  
+   125  /-- Look a name up. -/
+   126  def find? (env : Env) (n : Name) : Option ConstInfo := env.consts.lookup n
+   127  
+   128  /-- The empty environment. -/
+   129  def empty : Env := ⟨[]⟩
+   130  
+   131  /-- Store one more constant. -/
+   132  def add (env : Env) (n : Name) (ci : ConstInfo) : Env := ⟨(n, ci) :: env.consts⟩
 
 == ConLeche/Kernel/Env.lean#L536
    536  structure Env where
 
-== whitepaper/Fragment/Env.lean#L63-L100
-    63  /-- What kind of constant a name is stored as. -/
-    64  inductive ConstKind where
-    65    /-- A definition: its value unfolds (δ). -/
-    66    | defn (value : Expr)
-    67    /-- An inductive type former with `numParams` parameters,
-    68    `numIndices` indices and these constructors — and the block's
-    69    specification it was generated from (`Spec.lean`), which a later
-    70    block nesting through this one reads back (con-leche stores the
-    71    block's shape with the former likewise, `IndCaps`). -/
-    72    | induct (numParams numIndices : Nat) (ctors : List Name) (spec : IndSpec)
-    73    /-- A constructor of the inductive `induct`, with `numParams`
-    74    parameters (the inductive's) and `nfields` fields. -/
-    75    | ctor (induct : Name) (numParams nfields : Nat)
-    76    /-- A recursor with the given telescope shape — `numParams`
-    77    parameters, `numMotives` motives, `numMinors` minor premises,
-    78    `numIndices` indices, then the major premise — and its rules. -/
-    79    | recursor (numParams numMotives numMinors numIndices : Nat) (rules : List RecRule)
-    80    deriving DecidableEq
-    81  
-    82  namespace ConstKind
-    83  
-    84  /-- The value a definition unfolds to. -/
-    85  def value? : ConstKind → Option Expr
-    86    | defn v => some v
-    87    | _ => none
+== whitepaper/Fragment/Env.lean#L66-L107
+    66  /-- What kind of constant a name is stored as. -/
+    67  inductive ConstKind where
+    68    /-- A definition: its value unfolds (δ). -/
+    69    | defn (value : Expr)
+    70    /-- An inductive type former with `numParams` parameters,
+    71    `numIndices` indices and these constructors — and the block's
+    72    specification it was generated from (`Spec.lean`), which a later
+    73    block nesting through this one reads back (con-leche stores the
+    74    block's shape with the former likewise, `IndCaps`). -/
+    75    | induct (numParams numIndices : Nat) (ctors : List Name) (spec : IndSpec)
+    76    /-- A constructor of the inductive `induct`, with `numParams`
+    77    parameters (the inductive's) and `nfields` fields. -/
+    78    | ctor (induct : Name) (numParams nfields : Nat)
+    79    /-- A recursor with the given telescope shape — `numParams`
+    80    parameters, `numMotives` motives, `numMinors` minor premises,
+    81    `numIndices` indices, then the major premise — and its rules. -/
+    82    | recursor (numParams numMotives numMinors numIndices : Nat) (rules : List RecRule)
+    83    /-- **An assumption**: a constant known by its type alone — how a
+    84    module sees another module's definition whose value is not exported
+    85    (`Modular.lean`).  It never unfolds. -/
+    86    | assumed
+    87    deriving DecidableEq
     88  
-    89  end ConstKind
+    89  namespace ConstKind
     90  
-    91  /-- A stored constant: its level parameters, its type (closed, over
-    92  those parameters) and its kind. -/
-    93  structure ConstInfo where
-    94    /-- The level parameters. -/
-    95    lparams : List Name
-    96    /-- The declared type, a closed term over `lparams`. -/
-    97    type : Expr
-    98    /-- The kind. -/
-    99    kind : ConstKind
-   100    deriving DecidableEq
+    91  /-- The value a definition unfolds to. -/
+    92  def value? : ConstKind → Option Expr
+    93    | defn v => some v
+    94    | _ => none
+    95  
+    96  end ConstKind
+    97  
+    98  /-- A stored constant: its level parameters, its type (closed, over
+    99  those parameters) and its kind. -/
+   100  structure ConstInfo where
+   101    /-- The level parameters. -/
+   102    lparams : List Name
+   103    /-- The declared type, a closed term over `lparams`. -/
+   104    type : Expr
+   105    /-- The kind. -/
+   106    kind : ConstKind
+   107    deriving DecidableEq
 
 == ConLeche/Kernel/Env.lean#L354-L368
    354  inductive ConstantInfo where
@@ -3350,25 +3354,24 @@
    571    | some N => S.installN N env
    572  
 
-== whitepaper/Fragment/Env.lean#L63-L80
-    63  /-- What kind of constant a name is stored as. -/
-    64  inductive ConstKind where
-    65    /-- A definition: its value unfolds (δ). -/
-    66    | defn (value : Expr)
-    67    /-- An inductive type former with `numParams` parameters,
-    68    `numIndices` indices and these constructors — and the block's
-    69    specification it was generated from (`Spec.lean`), which a later
-    70    block nesting through this one reads back (con-leche stores the
-    71    block's shape with the former likewise, `IndCaps`). -/
-    72    | induct (numParams numIndices : Nat) (ctors : List Name) (spec : IndSpec)
-    73    /-- A constructor of the inductive `induct`, with `numParams`
-    74    parameters (the inductive's) and `nfields` fields. -/
-    75    | ctor (induct : Name) (numParams nfields : Nat)
-    76    /-- A recursor with the given telescope shape — `numParams`
-    77    parameters, `numMotives` motives, `numMinors` minor premises,
-    78    `numIndices` indices, then the major premise — and its rules. -/
-    79    | recursor (numParams numMotives numMinors numIndices : Nat) (rules : List RecRule)
-    80    deriving DecidableEq
+== whitepaper/Fragment/Env.lean#L66-L82
+    66  /-- What kind of constant a name is stored as. -/
+    67  inductive ConstKind where
+    68    /-- A definition: its value unfolds (δ). -/
+    69    | defn (value : Expr)
+    70    /-- An inductive type former with `numParams` parameters,
+    71    `numIndices` indices and these constructors — and the block's
+    72    specification it was generated from (`Spec.lean`), which a later
+    73    block nesting through this one reads back (con-leche stores the
+    74    block's shape with the former likewise, `IndCaps`). -/
+    75    | induct (numParams numIndices : Nat) (ctors : List Name) (spec : IndSpec)
+    76    /-- A constructor of the inductive `induct`, with `numParams`
+    77    parameters (the inductive's) and `nfields` fields. -/
+    78    | ctor (induct : Name) (numParams nfields : Nat)
+    79    /-- A recursor with the given telescope shape — `numParams`
+    80    parameters, `numMotives` motives, `numMinors` minor premises,
+    81    `numIndices` indices, then the major premise — and its rules. -/
+    82    | recursor (numParams numMotives numMinors numIndices : Nat) (rules : List RecRule)
 
 == ConLeche/Kernel/Env.lean#L165-L182
    165  structure RecRule where
@@ -3390,15 +3393,15 @@
    181    k : Bool := false
    182    /-- **The η-rescue bit** (install-computed, parse placeholder
 
-== whitepaper/Fragment/Env.lean#L53-L60
-    53    /-- **The K flag** (Lean's `RecursorVal.k`): the rule
-    54    belongs to a K-like family — one family (not mutual, not nested),
-    55    always a proposition, with one constructor and no fields (`Eq`,
-    56    `HEq`, `True`).  Such a rule fires on any major whose type is the
-    57    family, with no constructor in sight (`Red.iotaK`): the reduct is
-    58    the right-hand side at the recursor's parameters, motives and minors
-    59    alone. -/
-    60    k : Bool := false
+== whitepaper/Fragment/Env.lean#L56-L63
+    56    /-- **The K flag** (Lean's `RecursorVal.k`): the rule
+    57    belongs to a K-like family — one family (not mutual, not nested),
+    58    always a proposition, with one constructor and no fields (`Eq`,
+    59    `HEq`, `True`).  Such a rule fires on any major whose type is the
+    60    family, with no constructor in sight (`Red.iotaK`): the reduct is
+    61    the right-hand side at the recursor's parameters, motives and minors
+    62    alone. -/
+    63    k : Bool := false
 
 == whitepaper/Fragment/EnvModel.lean#L318-L325
    318    /-- Every plain rule of every stored recursor satisfies its ι law. -/
@@ -6194,6 +6197,238 @@
 == ConLeche/Model/Inductives/FixKit.lean#L1729-L1730
   1729  /-- **Unit-likeness at a fieldless one-constructor block's leaf**: the
   1730  fibre is the one tagged empty tuple (the point at a squash instance).
+
+>>> whitepaper/sections/06b-modular.typ
+
+== whitepaper/Fragment/Env.lean#L83-L86
+    83    /-- **An assumption**: a constant known by its type alone — how a
+    84    module sees another module's definition whose value is not exported
+    85    (`Modular.lean`).  It never unfolds. -/
+    86    | assumed
+
+== whitepaper/Fragment/Modular.lean#L53-L56
+    53  /-- **The exported view** of an environment: the definitions `H`
+    54  selects seen as assumptions. -/
+    55  def Env.hide (H : Name → Bool) (env : Env) : Env :=
+    56    ⟨env.consts.map fun p => if H p.1 then (p.1, p.2.hide) else p⟩
+
+== whitepaper/Fragment/Modular.lean#L58-L63
+    58  /-- **An interface of an environment**: each of its constants is
+    59  stored there, as it is, or — where the interface has an assumption —
+    60  with the same level parameters and type and some kind. -/
+    61  def Env.Le (E₁ E₂ : Env) : Prop :=
+    62    ∀ n ci, E₁.find? n = some ci →
+    63      E₂.find? n = some ci ∨ (ci.kind = .assumed ∧ ∃ k, E₂.find? n = some { ci with kind := k })
+
+== whitepaper/Fragment/Modular.lean#L141-L153
+   141  /-- An environment is an interface of itself with any values hidden. -/
+   142  theorem hide (H : Name → Bool) (E : Env) : (E.hide H).Le E := by
+   143    intro n ci hf
+   144    rw [Env.find?_hide] at hf
+   145    obtain ⟨cm, hcm, rfl⟩ := Option.map_eq_some_iff.mp hf
+   146    by_cases hH : H n
+   147    · simp only [hH, ite_true]
+   148      unfold ConstInfo.hide
+   149      split
+   150      · exact .inr ⟨rfl, cm.kind, hcm⟩
+   151      · exact .inl hcm
+   152    · simp only [hH]
+   153      exact .inl hcm
+
+== whitepaper/Fragment/Modular.lean#L92-L97
+    92  theorem trans (h₁ : E₁.Le E₂) (h₂ : E₂.Le E₃) : E₁.Le E₃ := by
+    93    intro n ci hf
+    94    rcases h₁ n ci hf with h' | ⟨ha, k, h'⟩
+    95    · exact h₂ n ci h'
+    96    · obtain ⟨k', hk', -⟩ := h₂.find' h'
+    97      exact .inr ⟨ha, k', hk'⟩
+
+== whitepaper/Fragment/Modular.lean#L493-L495
+   493  inductive Checks : Env → List Decl → Prop
+   494    | nil {E : Env} : Checks E []
+   495    | cons {E : Env} {d : Decl} {ds : List Decl} : d.Ok E → Checks (d.apply E) ds → Checks E (d :: ds)
+
+== whitepaper/Fragment/Modular.lean#L184-L304
+   184  /-- **Reduction is monotone** in the environment. -/
+   185  theorem Red.mono (h : E₁.Le E₂) : ∀ {Γ : List Expr} {e e' : Expr}, Red E₁ Γ e e' → Red E₂ Γ e e'
+   186    | _, _, _, .refl => .refl
+   187    | _, _, _, .trans h₁ h₂ => .trans (Red.mono h h₁) (Red.mono h h₂)
+   188    | _, _, _, .appFn h₁ => .appFn (Red.mono h h₁)
+   189    | _, _, _, .beta => .beta
+   190    | _, _, _, .zeta => .zeta
+   191    | _, _, _, .delta hfind hv hls =>
+   192      .delta (h.find_of_ne hfind (kind_ne_assumed_of_value hv)) hv hls
+   193    | _, _, _, .iota hfind hkind hus hlen hpis hmaj hmeq hrl hctor hinst hcij husj hmlen hpis' hresM
+   194        hIM hDM hdoms' htys' hI' hD' hlv hP hres hshape hrps hX => by
+   195      obtain ⟨k, hcij₂, -⟩ := h.find' hcij
+   196      exact .iota (h.find_of_ne hfind (kind_ne_assumed_of_recursor hkind)) hkind hus hlen hpis
+   197        (Red.mono h hmaj) hmeq hrl hctor hinst hcij₂ husj hmlen hpis' hresM (Infer.mono h hIM)
+   198        (DefEq.mono h hDM) hdoms' htys' (fun p hp => Infer.mono h (hI' p hp))
+   199        (fun p hp => DefEq.mono h (hD' p hp)) hlv (fun p hp => DefEq.mono h (hP p hp)) hres hshape
+   200        hrps (fun p hp => DefEq.mono h (hX p hp))
+   201    | _, _, _, .iotaProp hfind hkind hus hlen hpis hmaj hmeq hrl hctor hinst hcij husj hmlen hpis'
+   202        hresM hdoms' htys' hI' hD' hlv hP hres hshape hrps hX hI hlsI hpisI hsort hu => by
+   203      obtain ⟨k, hcij₂, -⟩ := h.find' hcij
+   204      obtain ⟨k', hI₂, -⟩ := h.find' hI
+   205      exact .iotaProp (h.find_of_ne hfind (kind_ne_assumed_of_recursor hkind)) hkind hus hlen hpis
+   206        (Red.mono h hmaj) hmeq hrl hctor hinst hcij₂ husj hmlen hpis' hresM hdoms' htys'
+   207        (fun p hp => Infer.mono h (hI' p hp)) (fun p hp => DefEq.mono h (hD' p hp)) hlv
+   208        (fun p hp => DefEq.mono h (hP p hp)) hres hshape hrps (fun p hp => DefEq.mono h (hX p hp))
+   209        hI₂ hlsI hpisI hsort hu
+   210    | _, _, _, .iotaNested hfind hkind hus hlen hpis hmaj hmeq hrl hctor hinst hcij hcijk husj hmlen
+   211        hpis' hresM hIM hDM hdoms' htys' hI' hD' hlv hpl hP hres hshape hrps hX =>
+   212      .iotaNested (h.find_of_ne hfind (kind_ne_assumed_of_recursor hkind)) hkind hus hlen hpis
+   213        (Red.mono h hmaj) hmeq hrl hctor hinst (h.find_of_ne hcij (kind_ne_assumed_of_ctor hcijk))
+   214        hcijk husj hmlen hpis' hresM (Infer.mono h hIM) (DefEq.mono h hDM) hdoms' htys'
+   215        (fun p hp => Infer.mono h (hI' p hp)) (fun p hp => DefEq.mono h (hD' p hp)) hlv hpl
+   216        (fun p hp => DefEq.mono h (hP p hp)) hres hshape hrps (fun p hp => DefEq.mono h (hX p hp))
+   217    | _, _, _, .iotaSlot hfind hkind hus hlen hpis hmaj hmeq hrl hctor hinst hcij husj hmlen hpis'
+   218        hresM hdoms' htys' hI' hD' hlv hP hres hshape hrps hX => by
+   219      obtain ⟨k, hcij₂, -⟩ := h.find' hcij
+   220      exact .iotaSlot (h.find_of_ne hfind (kind_ne_assumed_of_recursor hkind)) hkind hus hlen hpis
+   221        (Red.mono h hmaj) hmeq hrl hctor hinst hcij₂ husj hmlen hpis' hresM hdoms' htys'
+   222        (fun p hp => Infer.mono h (hI' p hp)) (fun p hp => DefEq.mono h (hD' p hp)) hlv
+   223        (fun p hp => DefEq.mono h (hP p hp)) hres hshape hrps (fun p hp => DefEq.mono h (hX p hp))
+   224    | _, _, _, .iotaNestedSlot hfind hkind hus hlen hpis hmaj hmeq hrl hctor hinst hcij hcijk husj
+   225        hmlen hpis' hresM hdoms' htys' hI' hD' hlv hpl hP hres hshape hrps hX =>
+   226      .iotaNestedSlot (h.find_of_ne hfind (kind_ne_assumed_of_recursor hkind)) hkind hus hlen hpis
+   227        (Red.mono h hmaj) hmeq hrl hctor hinst (h.find_of_ne hcij (kind_ne_assumed_of_ctor hcijk))
+   228        hcijk husj hmlen hpis' hresM hdoms' htys' (fun p hp => Infer.mono h (hI' p hp))
+   229        (fun p hp => DefEq.mono h (hD' p hp)) hlv hpl (fun p hp => DefEq.mono h (hP p hp)) hres
+   230        hshape hrps (fun p hp => DefEq.mono h (hX p hp))
+   231    | _, _, _, .iotaStrict hfind hkind hus hlen hpis hmaj hmeq hrl hctor hinst hcij husj hmlen hpis'
+   232        hresM hdM hI₀ hk₀ hls₀ hd₀ hpis₀ hlvl hlv hP hres hshape hrps hX => by
+   233      obtain ⟨k, hcij₂, -⟩ := h.find' hcij
+   234      exact .iotaStrict (h.find_of_ne hfind (kind_ne_assumed_of_recursor hkind)) hkind hus hlen hpis
+   235        (Red.mono h hmaj) hmeq hrl hctor hinst hcij₂ husj hmlen hpis' hresM hdM
+   236        (h.find_of_ne hI₀ (kind_ne_assumed_of_induct hk₀)) hk₀ hls₀ hd₀ hpis₀ hlvl hlv
+   237        (fun p hp => DefEq.mono h (hP p hp)) hres hshape hrps (fun p hp => DefEq.mono h (hX p hp))
+   238    | _, _, _, .iotaNestedStrict hfind hkind hus hlen hpis hmaj hmeq hrl hctor hinst hcij hcijk husj
+   239        hmlen hpis' hresM hdM hI₀ hk₀ hls₀ hd₀ hpis₀ hlvl hlv hpl hP hres hshape hrps hX =>
+   240      .iotaNestedStrict (h.find_of_ne hfind (kind_ne_assumed_of_recursor hkind)) hkind hus hlen hpis
+   241        (Red.mono h hmaj) hmeq hrl hctor hinst (h.find_of_ne hcij (kind_ne_assumed_of_ctor hcijk))
+   242        hcijk husj hmlen hpis' hresM hdM (h.find_of_ne hI₀ (kind_ne_assumed_of_induct hk₀)) hk₀
+   243        hls₀ hd₀ hpis₀ hlvl hlv hpl (fun p hp => DefEq.mono h (hP p hp)) hres hshape hrps
+   244        (fun p hp => DefEq.mono h (hX p hp))
+   245    | _, _, _, .iotaK hfind hkind hus hlen hpis hrl hk hI hr hF hD =>
+   246      .iotaK (h.find_of_ne hfind (kind_ne_assumed_of_recursor hkind)) hkind hus hlen hpis hrl hk
+   247        (Infer.mono h hI) (Red.mono h hr) (Infer.mono h hF) (DefEq.mono h hD)
+   248  
+   249  /-- **Definitional equality is monotone** in the environment. -/
+   250  theorem DefEq.mono (h : E₁.Le E₂) : ∀ {Γ : List Expr} {a b : Expr}, DefEq E₁ Γ a b → DefEq E₂ Γ a b
+   251    | _, _, _, .refl => .refl
+   252    | _, _, _, .symm h₁ => .symm (DefEq.mono h h₁)
+   253    | _, _, _, .redL hr h₁ => .redL (Red.mono h hr) (DefEq.mono h h₁)
+   254    | _, _, _, .sort h₁ => .sort h₁
+   255    | _, _, _, .const h₁ => .const h₁
+   256    | _, _, _, .pi hA hB => .pi (DefEq.mono h hA) (DefEq.mono h hB)
+   257    | _, _, _, .lam hA hb ht₁ ht₂ ht =>
+   258      .lam (DefEq.mono h hA) (DefEq.mono h hb) (Infer.mono h ht₁) (Infer.mono h ht₂) (DefEq.mono h ht)
+   259    | _, _, _, .lamProp hA hb hs hu hu0 =>
+   260      .lamProp (DefEq.mono h hA) (DefEq.mono h hb) (Infer.mono h hs) (Red.mono h hu) hu0
+   261    | _, _, _, .etaProp htb hr hA hbody hs hu hu0 =>
+   262      .etaProp (Infer.mono h htb) (Red.mono h hr) (DefEq.mono h hA) (DefEq.mono h hbody)
+   263        (Infer.mono h hs) (Red.mono h hu) hu0
+   264    | _, _, _, .lamConst hA hb hc₁ hc₂ => .lamConst (DefEq.mono h hA) (DefEq.mono h hb) hc₁ hc₂
+   265    | _, _, _, .appIn hf hI hr ha =>
+   266      .appIn (DefEq.mono h hf) (Infer.mono h hI) (Red.mono h hr) (DefEqIn.mono h ha)
+   267    | _, _, _, .app hf ha => .app (DefEq.mono h hf) (DefEq.mono h ha)
+   268    | _, _, _, .eta htb hr hA hbody ht₁ htB =>
+   269      .eta (Infer.mono h htb) (Red.mono h hr) (DefEq.mono h hA) (DefEq.mono h hbody)
+   270        (Infer.mono h ht₁) (DefEq.mono h htB)
+   271    | _, _, _, .proofIrrel hta htta hu hu0 htb httb hv hv0 =>
+   272      .proofIrrel (Infer.mono h hta) (Infer.mono h htta) (Red.mono h hu) hu0 (Infer.mono h htb)
+   273        (Infer.mono h httb) (Red.mono h hv) hv0
+   274    | _, _, _, .lams h₁ => .lams (DefEqLams.mono h h₁)
+   275  
+   276  theorem DefEqLams.mono (h : E₁.Le E₂) :
+   277      ∀ {Γ : List Expr} {a b : Expr}, DefEqLams E₁ Γ a b → DefEqLams E₂ Γ a b
+   278    | _, _, _, .refl => .refl
+   279    | _, _, _, .inner hA hb ht₁ ht₂ ht =>
+   280      .inner (DefEq.mono h hA) (DefEq.mono h hb) (Infer.mono h ht₁) (Infer.mono h ht₂)
+   281        (DefEq.mono h ht)
+   282    | _, _, _, .outer hA hb => .outer (DefEq.mono h hA) (DefEqLams.mono h hb)
+   283  
+   284  theorem DefEqIn.mono (h : E₁.Le E₂) :
+   285      ∀ {Γ : List Expr} {T a b : Expr}, DefEqIn E₁ Γ T a b → DefEqIn E₂ Γ T a b
+   286    | _, _, _, _, .of h₁ => .of (DefEq.mono h h₁)
+   287    | _, _, _, _, .symm h₁ => .symm (DefEqIn.mono h h₁)
+   288    | _, _, _, _, .lam hr hb => .lam (Red.mono h hr) (DefEqIn.mono h hb)
+   289    | _, _, _, _, .eta hr hb => .eta (Red.mono h hr) (DefEqIn.mono h hb)
+   290  
+   291  /-- **Inference is monotone** in the environment: an assumption is
+   292  read through its type alone, which the larger environment stores
+   293  unchanged. -/
+   294  theorem Infer.mono (h : E₁.Le E₂) : ∀ {Γ : List Expr} {e T : Expr}, Infer E₁ Γ e T → Infer E₂ Γ e T
+   295    | _, _, _, .bvar h₁ => .bvar h₁
+   296    | _, _, _, .sort => .sort
+   297    | _, _, _, .const (ci := ci) hfind hls => by
+   298      obtain ⟨k, hf₂, -⟩ := h.find' hfind
+   299      exact Infer.const (ci := { ci with kind := k }) hf₂ hls
+   300    | _, _, _, .pi hA hu hB hv => .pi (Infer.mono h hA) (Red.mono h hu) (Infer.mono h hB) (Red.mono h hv)
+   301    | _, _, _, .lam hA hu hb => .lam (Infer.mono h hA) (Red.mono h hu) (Infer.mono h hb)
+   302    | _, _, _, .app hf hr ha hd => .app (Infer.mono h hf) (Red.mono h hr) (Infer.mono h ha) (DefEq.mono h hd)
+   303    | _, _, _, .letE hT hu hv hd hb =>
+   304      .letE (Infer.mono h hT) (Red.mono h hu) (Infer.mono h hv) (DefEq.mono h hd) (Infer.mono h hb)
+
+== whitepaper/Fragment/Modular.lean#L485-L489
+   485  theorem Decl.Ok.mono {d : Decl} (h : E₁.Le E₂) (hf : ∀ n ∈ d.names, E₂.find? n = none)
+   486      (hok : d.Ok E₁) : d.Ok E₂ := by
+   487    cases d with
+   488    | defn c ci => exact DefOk.mono h (hf c (by simp [Decl.names])) hok
+   489    | ind S => exact IndSpec.IndOk.mono S h hf hok
+
+== whitepaper/Fragment/Modular.lean#L518-L531
+   518  theorem Checks.mono {E₁ : Env} {ds : List Decl} (hc : Checks E₁ ds) :
+   519      ∀ {E₂ : Env}, E₁.Le E₂ → (∀ d ∈ ds, ∀ n ∈ d.names, E₂.find? n = none) → Checks E₂ ds := by
+   520    induction hc with
+   521    | nil => intro _ _ _; exact .nil
+   522    | @cons E d ds hd hrest ih =>
+   523      intro E₂ h hf
+   524      refine .cons (hd.mono h (hf d (List.mem_cons_self ..))) (ih ?_ ?_)
+   525      · rw [Decl.apply_eq, Decl.apply_eq]
+   526        exact h.prepend _
+   527      · intro d' hd' n hn
+   528        have h₁ := hrest.fresh d' hd' n hn
+   529        rw [Decl.apply_eq] at h₁
+   530        rw [Decl.apply_eq, Env.find?_append_of_lookup (Env.find?_append_none h₁).1]
+   531        exact hf d' (List.mem_cons_of_mem _ hd') n hn
+
+== whitepaper/Fragment/Modular.lean#L410-L415
+   410  theorem apply_eq (d : Decl) (E : Env) : d.apply E = ⟨d.stores ++ E.consts⟩ := by
+   411    cases d with
+   412    | defn c ci => rfl
+   413    | ind S =>
+   414      show S.install E = ⟨(S.install Env.empty).consts ++ E.consts⟩
+   415      rw [← IndSpec.install_consts]
+
+== whitepaper/Fragment/Modular.lean#L550-L553
+   550  inductive Modular : Env → Prop
+   551    | empty : Modular Env.empty
+   552    | step {U I : Env} {ds : List Decl} : Modular U → I.Le U → Checks I ds →
+   553        (∀ d ∈ ds, ∀ n ∈ d.names, U.find? n = none) → Modular (applyAll ds U)
+
+== whitepaper/Fragment/Modular.lean#L557-L560
+   557  theorem Modular.accepted {U : Env} (h : Modular U) : Accepted U := by
+   558    induction h with
+   559    | empty => exact .empty
+   560    | step _ hI hc hf ih => exact (hc.mono hI hf).accepted ih
+
+== whitepaper/Fragment/Modular.lean#L576-L577
+   576  theorem modular_model {U : Env} (h : Modular U) : Nonempty (BlockModel V U) :=
+   577    accepted_model V h.accepted
+
+== whitepaper/Fragment/Modular.lean#L581-L584
+   581  theorem modular_no_empty_prop_inhabitant {U : Env} (h : Modular U) {name recName elim : Name}
+   582      (hrec : U.find? recName = some (IndSpec.falseSpec name recName elim).recInfo) (e : Expr) :
+   583      ¬ Infer U [] e (.const name []) :=
+   584    no_empty_prop_inhabitant V h.accepted hrec e
+
+== ConLeche/MainTheorem.lean#L96-L99
+    96  theorem model_exists (V : Type w) [SetTheory V]
+    97      (pins : List NatOpPinSet) (ds : Array Declaration) (env : Env)
+    98      (accepted : checkDecls .verified pins ds = .ok env) :
+    99      Nonempty (Model V env) := by
 
 >>> whitepaper/sections/07-left-out.typ
 

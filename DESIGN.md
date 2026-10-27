@@ -107311,3 +107311,53 @@ regenerated on a toolchain bump, like the pins.  `tests/shake.sh`:
 * The olean parse is 3.4× the stream parse in instructions on `Init`;
   what is left is allocation (one `Obj` per object visit, the `Except`
   results of the decoder monad) and the per-declaration dependency walk.
+
+## TASK #370 — modular checking: the proof idea section (2026-10-27, agent/370-paper)
+
+The maintainer asked for a section of the proof-idea document
+(`whitepaper/`) on how modular checking works, as part of the olean
+campaign (#369 reads `.olean` files; #370 is checking module by module
+against the imports' exported views).  The section is
+`whitepaper/sections/06b-modular.typ` ("Checking module by module",
+§7; "What we left out" becomes §8), backed by the fragment, per the
+whitepaper's rule that no pen-and-paper claim goes without it.
+
+**The fragment** (`whitepaper/Fragment/Modular.lean`, ~590 lines, no
+sorry, axioms pinned in `Axioms.lean`):
+
+* `ConstKind.assumed` — a constant with a type and no value; the
+  rules read it through its type only (rule const), δ never fires on
+  it.  No existing proof needed a change.
+* `Env.hide` — the exported view (definitions as assumptions);
+  `Env.Le` — `I ≼ U`, an interface: every constant `I` stores is stored
+  in `U` with the same level parameters and type, with the same kind
+  unless it is an assumption in `I`.  `Le.hide`, `Le.trans`, `Le.add`,
+  `Le.prepend`.
+* **Monotonicity** — `Red.mono`, `DefEq.mono`, `DefEqLams.mono`,
+  `DefEqIn.mono`, `Infer.mono` (one mutual structural recursion over
+  all 43 rule constructors; every case rebuilds the same rule, a lookup
+  of a constant whose kind or value the rule reads transfers unchanged,
+  one whose type only it reads transfers at some kind);
+  `DefOk.mono`, `IndSpec.IndOk.mono` (plain and nested),
+  `Decl.Ok.mono`, `Checks.mono` — at names fresh in the larger
+  environment (freshness is the one check that reads an absence).
+* **The union** — `Modular` (the empty environment; a module checked
+  against an interface of the union before it, its names fresh there)
+  and `Modular.accepted : Modular U → Accepted U`, hence
+  `modular_model` and `modular_no_empty_prop_inhabitant` by
+  `accepted_model`.  No new model theory: monotonicity turns each
+  module's check into one against the union before it.
+
+**What the fragment does not cover**, listed in §8: two modules storing
+the same name (Lean's subsumption merge); the fragment's union stores
+each name once.  The con-leche implementation of modular checking is
+described as planned, in a `#real` block, with its target statement
+(all modules accepted against their interfaces ⇒ the union of the
+private views has a model).  NOTES.md records that con-leche's
+modular capstone could take the fragment's route: a weakening lemma for
+the rules tier plus the existing fold theorem.
+
+Gates: `whitepaper/fragment-gate.sh` OK (warning-free, axioms pinned),
+`whitepaper/links-gate.sh` OK (482 links; the shifted `Env.lean`
+citations repointed, snapshot updated), `whitepaper/build.sh` OK (PDF and
+HTML, synced to `_out/whitepaper/`).
