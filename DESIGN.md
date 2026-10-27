@@ -107165,3 +107165,149 @@ universe-valued type arguments, quotients, polymorphic `F`.  Not wired:
 the install gate's capability bit and invariant and the bridge case for
 the hook (estimated 0.7–1.2 k lines; no model work).  Reports:
 `_tmp/spike-boost*-report.md` (not committed).
+
+## TASK #369 — reading `.olean` files: the import closure as one record stream (2026-10-27, agent/369-olean)
+
+**Request (maintainer, 2026-10-27).** Checking very large developments
+should not have to go through a lean4export JSON file: read the `.olean`
+files directly — not by mapping and trusting them, but by parsing every
+object — and, as a second task, make the checking module-aware (each
+module checked against its imports' exported interfaces, the module
+system's exported axioms accepted, with global bookkeeping that every
+such axiom is realised).  This task is the first half: the olean parser,
+with the closure merged into one environment before checking, as
+lean4export does.  The modular checking is the next task.
+
+**Rulings.**
+* The olean reader is trusted base for now — no file-level corollary
+  like `jsonWithTheoremFalse` — but the proof must still cover the
+  runs: whatever the files contain, the environment accepted has a
+  model.  (It does: the reader produces an `Array Declaration`, which
+  goes through `preparePrelude` and `checkDecls` like the stream
+  parse's, and `model_exists` is stated for every record array.)
+* Read the files (`IO.FS.readBinFile`), no mmap, no new `unsafe`.
+* The checker's own toolchain only (v4.35.0); other toolchains decline.
+* A run takes root modules and checks their whole import closure,
+  `Init`/`Std`/`Lean` included.
+* Same records as the stream parser: a different parser, the rest of
+  the pipeline unchanged.
+
+**The format** (v4.35.0; `src/runtime/compact.cpp`,
+`src/library/module.cpp`).  A compacted region: an 88-byte header
+(`olean`, format version 2, flags bit 0 = GMP bignums, the version
+string, the githash, the base address), the root pointer, then the
+runtime objects with absolute pointers.  A module of the module system
+has three files written by one compactor in sequence (`.olean` exported,
+`.olean.server`, `.olean.private`), one address space with increasing
+base addresses; the private part points into the exported part.  The
+compactor writes children before parents, so every pointer points
+strictly below its object — checked for every constructor object
+(`Region.obj`), which makes every walk terminate and the bottom-up
+decode possible.  The exported level stores theorems and non-exposed
+definitions as `axiomInfo` (`Lean/AddDecl.lean`); this task reads the
+PRIVATE level, as `importModules` (and so lean4export) does.
+
+**The reader** (`ConLeche/Frontend/Olean/`).
+* `Region.lean`: the header validated (a wrong marker or a truncated
+  file is malformed input, exit 3; another format version, bignum
+  encoding or toolchain a decline, exit 2); objects located and
+  validated once (inside a file, past the header, aligned, room for the
+  fields, every field a scalar or below the object), after which field
+  reads are total and allocate nothing; `Nat` (scalar or GMP
+  `mpz_object`, the limb pointer required to point at the limbs right
+  after the object), `String` (NUL-terminated, valid UTF-8), `Array`,
+  `List`.
+* `Decode.lean`: `Name`, `Level` (recursive, depth-bounded at 10000,
+  memoized, hash-consed across the run), `Expr` (an iterative bottom-up
+  walk, memoized per module; metadata transparent; binder names and
+  infos, `nonDep` dropped, as lean4export drops them; `fvar`/`mvar` an
+  error), `ConstantInfo` and `ModuleData`, by their runtime layouts
+  (constructor tags, pointer fields, then the scalar area; the computed
+  hash/data words of `Name`/`Level`/`Expr` skipped, never trusted).
+* `Load.lean`: the closure discovered from the exported files' import
+  lists (Lean's module order, a depth-first post-order); the modules
+  decoded on `min jobs modules` workers, each decoding a round-robin
+  share serially with its own hash-cons tables, each constant's
+  dependencies (`constsOf`, lean4export's `getUsedConstants` plus the
+  literal dependencies `Nat`, `Char.ofNat`, `String.ofList`) computed
+  there; merged by `finalizeImport`'s `subsumesInfo` rule (a name two
+  modules store differently is `.invalid`, exit 1 — Lean's own import
+  refuses the pair); emitted by lean4export's `dumpConstant` walk
+  (iterative: non-internal roots, dependencies first, an inductive block
+  as one record with its constructors and the recursors whose `all`
+  names the visited type, the quotient package after `Eq`, unsafe and
+  partial constants left out); built into `Declaration`s by the stream
+  reader's own `declOfF`, so the inductive-record validation and every
+  decline are the stream path's.
+* CLI: `con-leche [flags] --olean --search-path=DIR[:DIR…] MODULE…`
+  (`Main.lean`; the binary still reads no environment variable), the
+  driver's `Input` (`ConLeche/Driver/Run.lean`).
+
+**Validation against lean4export.**  `lake exe olean-compare EXPORT
+SEARCHPATH MODULE…` (classic file `OleanCompare.lean`, not a default
+target; a `module` root would collide with `Main`'s `main` in
+`tests/shake.sh`'s `lake shake`) parses both and compares the records
+as maps from a record's first name, the recursors inside a block sorted
+(lean4export takes their order from a `NameSet`).  Fresh v4.35.0
+exports: **`Init` 57 919, `Std` 96 919, `Lean` 164 016 records, 0
+differences each.**  Mathlib is not compared: the reference checkout
+(`_tmp/ref/mathlib4`) is built with v4.33.0, which the reader declines.
+
+**Numbers** (`instructions:u`, one run each; verdicts identical,
+every run accepts):
+
+| closure | jobs | olean | ndjson | peak RSS olean / ndjson |
+|---|---|---|---|---|
+| Init | 1 | 410.4 G | 371.5 G | 0.33 / 0.30 GiB |
+| Init | 96 | 424.4 G | 386.7 G | 1.43 / 0.93 GiB |
+| Std | 1 | 608.2 G | 544.6 G | 0.48 / 0.46 GiB |
+| Std | 96 | 631.3 G | 571.0 G | 1.78 / 1.17 GiB |
+| Lean | 1 | 748.9 G | 649.9 G | 0.69 / 0.55 GiB |
+| Lean | 96 | 784.5 G | 687.7 G | 2.26 / 1.49 GiB |
+
+The difference is the parse: on `Init` the olean read alone is 47.9 G
+against the stream parse's 14.1 G, the check phases are within a few G
+of each other.  Wall time of the parse phase at 96 workers: `Lean` 1.7 s
+(ndjson 0.3 s), `Init` 0.5 s (0.1 s).  The stream parse is cheaper
+because lean4export already did the sharing and ordering work, in a run
+of its own that this comparison does not count.
+
+**Performance decisions, measured.**
+* Every record update takes its table out of the record first
+  (`DS.putName` …, `Emit.name` …): `{ st with f := st.f.insert … }`
+  copied the whole table at every insert (`Init.Prelude`'s parse
+  19.7 s → under 0.1 s; `Init` 36.5 s → 14.6 s).
+* Dense per-module memos indexed by word offset (`Region.slot`)
+  instead of hash maps keyed by addresses (8-aligned keys cluster in
+  Std's buckets).
+* Validate once, read without `Except`: 79 G → 52 G on `Init`'s read;
+  one bounds check per 64-bit read and the private part searched first:
+  → 48 G.
+* No cross-module hash-consing of expressions: a run-wide table cost
+  twice the peak memory on `Init` (0.63 → 0.32 GiB at one worker) and
+  bought about 1 % of the check; names and levels stay hash-consed.
+* Parallel decode on bounded workers: `Lean`'s load 5.4 s → 0.7 s at 32
+  workers; spawning one task per module instead gave 3.8 s and 8 GB.
+  Dependencies computed in the workers: emission 2.6 s → 0.3–0.5 s.
+
+**Gates.**  `tests/olean.sh` (in `tests/arena.sh`): 24 cases on
+committed fixtures `tests/olean/lib` (a module-system module, a classic
+one, an import, two roots, a two-directory search path, two conflicting
+modules → 1; usage errors → 3) and corrupted copies made at run time
+(truncation, another githash / format / bignum encoding → 2, parts out
+of order, a root pointer outside the files or misaligned, a field at or
+above its object, a wrong constructor tag or field count, a
+`ConstantInfo` of no kind, unterminated strings → 3).  The fixtures are
+built by `tests/olean/build.sh` with the toolchain's `lean` and must be
+regenerated on a toolchain bump, like the pins.  `tests/shake.sh`:
+`OleanCompare.lean` is a classic file (`scripts/pub-import-plan.py`'s
+`CLASSIC`).
+
+**Open.**
+* Modular checking (the next task): per-module checks against the
+  imports' exported levels, the module system's `axiomInfo`s accepted
+  and realised, independent modules in parallel.
+* A Mathlib-scale run needs a v4.35.0 Mathlib build.
+* The olean parse is 3.4× the stream parse in instructions on `Init`;
+  what is left is allocation (one `Obj` per object visit, the `Except`
+  results of the decoder monad) and the per-declaration dependency walk.
