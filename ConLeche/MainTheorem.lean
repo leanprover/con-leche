@@ -4,7 +4,7 @@ import ConLeche.Verify.Cached.MainC
 public import ConLeche.Denotes
 public import ConLeche.Accepts
 public import ConLeche.Frontend.Prelude
-public import ConLeche.Cached.Installed
+import ConLeche.Cached.Installed
 public import ConLeche.Modular
 import ConLeche.Model.Denotes
 import ConLeche.Model.Capstone

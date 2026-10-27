@@ -1,7 +1,6 @@
 module
 
 public import ConLeche.Model.InstallRun
-public import ConLeche.Modular
 public import ConLeche.Model.Modular.Scope
 import ConLeche.Verify.CheckerSplit
 import ConLeche.Semantics.DeclEta

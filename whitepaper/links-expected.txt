@@ -11,11 +11,11 @@
 
 >>> whitepaper/main.typ
 
-== ConLeche/MainTheorem.lean#L96-L99
-    96  theorem model_exists (V : Type w) [SetTheory V]
-    97      (pins : List NatOpPinSet) (ds : Array Declaration) (env : Env)
-    98      (accepted : checkDecls .verified pins ds = .ok env) :
-    99      Nonempty (Model V env) := by
+== ConLeche/MainTheorem.lean#L99-L102
+    99  theorem model_exists (V : Type w) [SetTheory V]
+   100      (pins : List NatOpPinSet) (ds : Array Declaration) (env : Env)
+   101      (accepted : checkDecls .verified pins ds = .ok env) :
+   102      Nonempty (Model V env) := by
 
 == whitepaper/Fragment/Sound.lean#L2322-L2326
   2322  theorem soundness [LevelOracle] (m : EnvModel V env) (φ : Name → Nat) :
@@ -26,11 +26,11 @@
 
 >>> whitepaper/sections/01-introduction.typ
 
-== ConLeche/MainTheorem.lean#L96-L99
-    96  theorem model_exists (V : Type w) [SetTheory V]
-    97      (pins : List NatOpPinSet) (ds : Array Declaration) (env : Env)
-    98      (accepted : checkDecls .verified pins ds = .ok env) :
-    99      Nonempty (Model V env) := by
+== ConLeche/MainTheorem.lean#L99-L102
+    99  theorem model_exists (V : Type w) [SetTheory V]
+   100      (pins : List NatOpPinSet) (ds : Array Declaration) (env : Env)
+   101      (accepted : checkDecls .verified pins ds = .ok env) :
+   102      Nonempty (Model V env) := by
 
 == ConLeche/Denotes.lean#L248-L268
    248  structure Model (V : Type w) [SetTheory V] (env : Env) where
@@ -5218,11 +5218,11 @@
     78      obtain ⟨m', -, -⟩ := install_thm h.scoped m hok
     79      exact ⟨m'⟩
 
-== ConLeche/MainTheorem.lean#L96-L99
-    96  theorem model_exists (V : Type w) [SetTheory V]
-    97      (pins : List NatOpPinSet) (ds : Array Declaration) (env : Env)
-    98      (accepted : checkDecls .verified pins ds = .ok env) :
-    99      Nonempty (Model V env) := by
+== ConLeche/MainTheorem.lean#L99-L102
+    99  theorem model_exists (V : Type w) [SetTheory V]
+   100      (pins : List NatOpPinSet) (ds : Array Declaration) (env : Env)
+   101      (accepted : checkDecls .verified pins ds = .ok env) :
+   102      Nonempty (Model V env) := by
 
 == whitepaper/Fragment/Install.lean#L176-L181
    176  /-- **Installing a plain inductive block preserves having a model.**
@@ -5238,7 +5238,7 @@
     72      (mp : EnvModelM V μ env)
     73      (hE : ConLeche.EtaFamiliesClosed env) (hdp : ConLeche.blockParts? nPd block = some p₀)
     74      (hrun : ConLeche.Semantics.DeclBlockRun μ F env block p₀ env₂) (hcov : LfpCover mp []) :
-    75      ∃ mp' : EnvModelM V μ env₂, LfpCover mp' [] := by
+    75      ∃ mp' : EnvModelM V μ env₂, Agrees mp mp' ∧ LfpCover mp' [] := by
 
 == whitepaper/Fragment/Consistency.lean#L139-L149
    139  /-- **No closed term inhabits an empty inductive type.**  For a block
@@ -5260,20 +5260,20 @@
    158    no_empty_inductive_inhabitant V hacc (S := IndSpec.falseSpec name recName elim) rfl rfl rfl rfl
    159      hrec e
 
-== ConLeche/Model/Fold.lean#L268-L275
-   268  theorem no_proof_of_False_pure (V : Type w) [SetTheory V]
-   269      {μ : CheckMode} (hμ : μ.isVerified = true) {F : Nat}
-   270      {ds : List Declaration} {env' : Env}
-   271      (h : checkDeclsPure μ (fueledOps μ F) pins ds = .ok env') :
-   272      ∀ c ∈ env'.consts,
-   273        c.toConstantVal.type = .const falseName [] → False := by
-   274    obtain ⟨mp⟩ := checkDeclsPure_sound_of (V := V) hμ h
-   275    exact fun c hc hty => no_constant_of_False mp c hc hty
+== ConLeche/Model/Fold.lean#L308-L315
+   308  theorem no_proof_of_False_pure (V : Type w) [SetTheory V]
+   309      {μ : CheckMode} (hμ : μ.isVerified = true) {F : Nat}
+   310      {ds : List Declaration} {env' : Env}
+   311      (h : checkDeclsPure μ (fueledOps μ F) pins ds = .ok env') :
+   312      ∀ c ∈ env'.consts,
+   313        c.toConstantVal.type = .const falseName [] → False := by
+   314    obtain ⟨mp⟩ := checkDeclsPure_sound_of (V := V) hμ h
+   315    exact fun c hc hty => no_constant_of_False mp c hc hty
 
-== ConLeche/Model/Fold.lean#L198-L200
-   198  theorem foldPM (hμ : μ.isVerified = true) {F : Nat} :
-   199      ∀ (ds : List Declaration) (env : Env) {env' : Env},
-   200        EnvModelOk V μ env →
+== ConLeche/Model/Fold.lean#L238-L240
+   238  theorem foldPM (hμ : μ.isVerified = true) {F : Nat} :
+   239      ∀ (ds : List Declaration) (env : Env) {env' : Env},
+   240        EnvModelOk V μ env →
 
 >>> whitepaper/sections/05-nested.typ
 
@@ -6436,11 +6436,11 @@
    551        ∀ j ≤ i, ∃ m : BlockModel V (dev j).own,
    552          ∀ n, ((dev j).own.find? n).isSome → ∀ ls, m.M n ls = resAssign G (dev j) n ls := by
 
-== ConLeche/MainTheorem.lean#L96-L99
-    96  theorem model_exists (V : Type w) [SetTheory V]
-    97      (pins : List NatOpPinSet) (ds : Array Declaration) (env : Env)
-    98      (accepted : checkDecls .verified pins ds = .ok env) :
-    99      Nonempty (Model V env) := by
+== ConLeche/MainTheorem.lean#L99-L102
+    99  theorem model_exists (V : Type w) [SetTheory V]
+   100      (pins : List NatOpPinSet) (ds : Array Declaration) (env : Env)
+   101      (accepted : checkDecls .verified pins ds = .ok env) :
+   102      Nonempty (Model V env) := by
 
 >>> whitepaper/sections/07-left-out.typ
 

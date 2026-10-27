@@ -277,7 +277,7 @@ definition it reads as an assumption, is not inspected.
 #real[
   Con-leche checks a development as one environment, all its modules
   merged, and the main theorem
-  #src("ConLeche/MainTheorem.lean", 96, 99)[is stated] for that
+  #src("ConLeche/MainTheorem.lean", 99, 102)[is stated] for that
   environment. Checking module by module with the local checks above
   is planned. Its target statement is @thm:mod: one model over
   qualified names, in which every module's own environment holds.

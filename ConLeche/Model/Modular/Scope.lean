@@ -1,7 +1,6 @@
 module
 
 public import ConLeche.Modular
-public import ConLeche.Verify.EnvWF
 
 public section
 

@@ -5,7 +5,6 @@ import ConLeche.Verify.Denote.Lemmas
 import ConLeche.Verify.InferLeaves
 import ConLeche.Model.Reading.Levels
 import ConLeche.Verify.Denote.Closed
-import ConLeche.Verify.Denote.AcvalCongr
 import ConLeche.Model.CtxOkKit
 import ConLeche.Verify.InstLevels
 import ConLeche.Verify.Denote.StrLit
