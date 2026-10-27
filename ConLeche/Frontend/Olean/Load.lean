@@ -1,6 +1,6 @@
 module
 
-public import ConLeche.Frontend.Olean.Fast
+public import ConLeche.Frontend.Olean.Spec
 public import ConLeche.Frontend.ExportC
 public import Std.Data.HashSet.Basic
 

@@ -1,6 +1,9 @@
 module
 
-public import ConLeche.Verify.Frontend.Olean.Build
+public import ConLeche.Frontend.Olean.Fast
+import ConLeche.Verify.Frontend.Olean.Mark
+import ConLeche.Verify.Frontend.Olean.Build
+import ConLeche.Verify.Frontend.Olean.Nodes
 
 public section
 
@@ -47,7 +50,7 @@ theorem loc_eq {r : Region} {v : UInt64} {c : Nat} (h : r.loc v = some c) :
   · cases h; rfl
 
 /-- What marking the roots does. -/
-theorem rootsFold {r : Region} {A : Prop} {n : Nat} {K : UInt8} (hK : IsKind K) {nil : Bool}
+private theorem rootsFold {r : Region} {A : Prop} {n : Nat} {K : UInt8} (hK : IsKind K) {nil : Bool}
     {P : UInt64 → Prop}
     (hP : ∀ v, ¬ (nil = true ∧ v = 1) → P v → ∃ c, r.loc v = some c ∧ KindOK r K c)
     (hPn : ∀ v, ¬ (nil = true ∧ v = 1) → r.loc v = none → ¬ P v) :
@@ -123,8 +126,8 @@ theorem rootsFold {r : Region} {A : Prop} {n : Nat} {K : UInt8} (hK : IsKind K) 
             simp [hs, hcn]
           · exact hm w hw hnw
 
-theorem kName_kind : IsKind kName := Or.inl rfl
-theorem kExpr_kind : IsKind kExpr := Or.inr (Or.inr (Or.inl rfl))
+private theorem kName_kind : IsKind kName := Or.inl rfl
+private theorem kExpr_kind : IsKind kExpr := Or.inr (Or.inr (Or.inl rfl))
 
 /-- **Both passes, from the roots.** -/
 theorem runPasses_spec (r : Region) (names exprs : List UInt64) :

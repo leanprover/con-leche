@@ -1,6 +1,7 @@
 module
 
-public import ConLeche.Verify.Frontend.Olean.Engine
+public import ConLeche.Frontend.Olean.Fast
+import ConLeche.Verify.Frontend.Olean.Engine
 
 public section
 

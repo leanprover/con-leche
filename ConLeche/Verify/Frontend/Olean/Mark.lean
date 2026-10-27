@@ -1,6 +1,7 @@
 module
 
-public import ConLeche.Verify.Frontend.Olean.Nodes
+public import ConLeche.Verify.Frontend.Olean.Kids
+import ConLeche.Verify.Frontend.Olean.Nodes
 
 public section
 
