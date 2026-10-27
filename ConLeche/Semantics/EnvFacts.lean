@@ -59,12 +59,12 @@ structure EnvFacts (env : Env) where
   nothing else. -/
   ty_denotes : ∀ c ∈ env.consts, ∀ ψ : Name → Nat,
     ∃ t, denoteClosed cval env ψ c.toConstantVal.type = some t
-  /-- Every definition is denoted by its body — the fact that makes a
-  delta step an *identity* of denotations, hence contributes no rule to
-  the family (design §7.2, R17). -/
+  /-- Every definition's body denotes (the model's `AcvalDefnInst` says
+  what it denotes: the constant's leaf, or a proof where the leaf is the
+  canonical one). -/
   defn_eq : ∀ cv value hint,
     ConstantInfo.defnInfo cv value hint ∈ env.consts → ∀ ψ : Name → Nat,
-      denoteClosed cval env ψ value = some (cval cv.name ψ)
+      ∃ t, denoteClosed cval env ψ value = some t
   /-- **Every stored recursor rule's right-hand side denotes**,
   at every instantiation of the recursor's level parameters.
 
