@@ -68,16 +68,17 @@ the stream, with two tolerated exceptions: a declared but unused
 `sorryAx` installs nothing, and Lean's deprecated compiler-trust axioms are
 accepted as pinned definitions of their own types.]
 
-#left-out[Theorems and opaques][The fragment has definitions only. The
-real checker never unfolds a theorem or an opaque: #src("ConLeche/Rules/Rel.lean", 138, 141)[only a definition
+#left-out[Opaques][The fragment has definitions and theorems
+(@sec:modular), the latter stored as their statements. The real
+checker never unfolds a theorem or an opaque: #src("ConLeche/Rules/Rel.lean", 138, 141)[only a definition
 unfolds].]
 
-#left-out[Constants stored by two modules][A modular development
-(@sec:modular) stores every name once. Lean's own import keeps one of
-two copies of a constant that two modules store when the copies are
-interchangeable, two proofs of one statement in particular, and a
-module-by-module check has to apply the same rule when it assembles
-the union.]
+#left-out[Hidden name clashes][The local checks of @sec:modular
+reject two modules that store one name differently as soon as some
+module rests on both, even when Lean never loads them together because
+one sits behind an import that is not re-exported. Accepting such
+developments would need the clashing names to be told apart, by
+renaming the hidden ones, which the fragment does not do.]
 
 #left-out[Structure η and unit-likeness][The checker has
 #src("ConLeche/Rules/Rel.lean", 467, 470)[structure η] and

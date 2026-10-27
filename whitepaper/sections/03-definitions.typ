@@ -31,7 +31,7 @@ it is a definition with value $v$. A
 _definition_ carries a value. The other kinds (type former,
 constructor, recursor) are what an inductive block stores, and
 @sec:ind-checks introduces them. An assumption, a type without a
-value, appears only in the interfaces of @sec:modular. A name is
+value, is how @sec:modular stores a theorem and leaves a definition's value out. A name is
 stored at most once.
 
 *Constants.* The grammar of @sec:terms gains one form: a #src("whitepaper/Fragment/Syntax.lean", 35, 36)[constant $c$]
@@ -78,7 +78,7 @@ head rule of @sec:rules, an applied definition unfolds at its head.
 
 *What a definition must satisfy.* Before the checker stores a
 definition $c$ with parameters $arrow(p)$, type $T$ and value $v$, it
-#src("whitepaper/Fragment/Decl.lean", 591, 605)[checks four things]
+#src("whitepaper/Fragment/Decl.lean", 592, 606)[checks four things]
 (in con-leche: #src("ConLeche/Kernel/CheckerBase.lean", 105, 121)[the common checks]
 and #src("ConLeche/Kernel/Checker.lean", 34, 47)[the value check]):
 
@@ -86,7 +86,7 @@ and #src("ConLeche/Kernel/Checker.lean", 34, 47)[the value check]):
 - the type has a sort: $tack T => S red Sort u$;
 - the value's inferred type is definitionally equal to the declared
   type: $tack v => T'$ and $tack T' equiv T$;
-- both terms #src("whitepaper/Fragment/Decl.lean", 604, 605)[use only the level parameters] $arrow(p)$.
+- both terms #src("whitepaper/Fragment/Decl.lean", 605, 606)[use only the level parameters] $arrow(p)$.
 
 A stored term is thus closed, mentions only stored constants and
 uses only the declared level parameters. These three facts

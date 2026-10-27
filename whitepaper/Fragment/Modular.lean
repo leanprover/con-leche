@@ -7,57 +7,51 @@ public import Fragment.Consistency
 /-!
 # Modular checking
 
-A development is a collection of **modules**, each a list of
-declarations checked against what its imports export rather than
-against everything before it.  What a module exports may hide
-definitions' values: an importing module sees such a definition as an
-**assumption**, a constant with its type and no value
-(`ConstKind.assumed`).  So a module is checked against an
-**interface**: an environment each of whose constants is stored in the
-union of the modules before it, as it is there or with its value
-hidden (`Env.Le`).
+A development is a graph of **modules**.  Each module has its own
+declarations, a **base** (the environment its declarations are checked
+against; with its declarations, its **own environment**) and a
+**summary** (the declarations of everything it rests on).  Three abstract notions carry
+the argument:
 
-The soundness argument is **monotonicity**: checking against more
-constants, or against a definition where the interface had an
-assumption, accepts everything checking against the interface accepts
-(`Red.mono` … `Infer.mono`, `Checks.mono`).  An assumption is used
-only through its type, and the definition has the same type; a
-definition adds the δ step, never removes one.  So a module accepted
-against its interface is accepted against the union before it, the
-union of all modules is an environment the checker accepts declaration
-by declaration (`Modular.accepted`), and the consistency corollary of
-`Consistency.lean` applies to it (`modular_model`,
-`modular_no_empty_prop_inhabitant`).
+* **refinement** `E₁ ≼ E₂` (`Env.Le`): `E₁` is `E₂` with constants left
+  out or turned into assumptions of the same level parameters and type
+  (`ConstKind.assumed`);
+* **compatibility** of lists of declarations (`Compatible`): where two
+  declarations store a common name, they store the same entries;
+* the **join** of compatible lists (`join`).
 
-Each module's check reads its interface and nothing else, so modules
-none of which imports another are checked independently: the
-hypotheses of `Modular.step` for two modules mention only their own
-interfaces.
+**Checking is monotone** (`Red.mono` … `Infer.mono`, `Checks.mono`):
+against a refinement the checker accepts no more.  No hypothesis on
+the smaller environment is needed, not even that it is well formed.
+The checks that read an absence — a declaration's names must be fresh
+— take freshness in the larger environment as a hypothesis; the
+inductive checks (positivity, the universe conditions) are monotone
+(`IndSpec.IndOk.mono`).
 
-What is assumed of the bookkeeping that assembles the union: every name
-is declared by one module (`Modular.step`'s freshness premise); and
-each interface is related to the union before its module by `Env.Le`.
+**The local checks** at a module (`LocalOk`) read the module and its
+direct imports only: its declarations accepted against its base; every
+constant of its base a refinement of a constant of an import's own
+environment; its declarations and its imports' summaries compatible;
+its summary their join.  They give (`local_checks`): every module's
+summary is a checked list of declarations, and its own environment
+refines the environment the summary builds (`Module.world`) — an accepted
+environment (`local_accepted`) with a model (`local_model`), in which
+no closed term inhabits an empty proposition
+(`local_no_empty_prop_inhabitant`).  The statement is per module: two
+modules that never meet in one summary may store a name differently.
+
+**Theorems** are stored as their statements, assumptions (`ThmOk`), so
+two proofs of one statement store the same entries and are
+compatible.
 -/
 
 namespace Fragment
 
-/-! ## Hiding a value -/
+/-! ## Refinement -/
 
-/-- A definition seen without its value: an assumption of the same
-type; every other constant as it is. -/
-def ConstInfo.hide (ci : ConstInfo) : ConstInfo :=
-  match ci.kind with
-  | .defn _ => { ci with kind := .assumed }
-  | _ => ci
-
-/-- **The exported view** of an environment: the definitions `H`
-selects seen as assumptions. -/
-def Env.hide (H : Name → Bool) (env : Env) : Env :=
-  ⟨env.consts.map fun p => if H p.1 then (p.1, p.2.hide) else p⟩
-
-/-- **An interface of an environment**: each of its constants is
-stored there, as it is, or — where the interface has an assumption —
-with the same level parameters and type and some kind. -/
+/-- **Refinement**: `E₁` is `E₂` with constants left out or turned
+into assumptions — each constant of `E₁` is stored in `E₂` as it is,
+or, where `E₁` has an assumption, with its level parameters and type. -/
 def Env.Le (E₁ E₂ : Env) : Prop :=
   ∀ n ci, E₁.find? n = some ci →
     E₂.find? n = some ci ∨ (ci.kind = .assumed ∧ ∃ k, E₂.find? n = some { ci with kind := k })
@@ -108,51 +102,49 @@ theorem add (h : E₁.Le E₂) (c : Name) (ci : ConstInfo) : (E₁.add c ci).Le 
 
 end Env.Le
 
-/-- The lookup in the exported view: the stored constant, hidden where
-`H` selects it. -/
-theorem Env.find?_hide (H : Name → Bool) (E : Env) (n : Name) :
-    (E.hide H).find? n = (E.find? n).map fun ci => if H n then ci.hide else ci := by
-  obtain ⟨cs⟩ := E
-  induction cs with
-  | nil => rfl
-  | cons p cs ih =>
-    obtain ⟨m, cm⟩ := p
-    have ih' : List.lookup n (cs.map fun p => if H p.1 then (p.1, p.2.hide) else p) =
-        (List.lookup n cs).map fun ci => if H n then ci.hide else ci := ih
-    show List.lookup n ((if H m then (m, cm.hide) else (m, cm)) ::
-        cs.map fun p => if H p.1 then (p.1, p.2.hide) else p) =
-      (List.lookup n ((m, cm) :: cs)).map fun ci => if H n then ci.hide else ci
-    by_cases hnm : n = m
-    · subst hnm
-      have hb : (n == n) = true := beq_self_eq_true n
-      by_cases hH : H n
-      · simp only [hH, ite_true, List.lookup, hb, Option.map_some]
-      · simp only [hH, Bool.false_eq_true, ite_false, List.lookup, hb, Option.map_some]
-    · have hb : (n == m) = false := beq_eq_false_iff_ne.mpr hnm
-      by_cases hH : H m
-      · simp only [hH, ite_true, List.lookup, hb]
-        exact ih'
-      · simp only [hH, Bool.false_eq_true, ite_false, List.lookup, hb]
-        exact ih'
-
-
 namespace Env.Le
 
-/-- An environment is an interface of itself with any values hidden. -/
+/-- An environment with values hidden refines it. -/
 theorem hide (H : Name → Bool) (E : Env) : (E.hide H).Le E := by
   intro n ci hf
-  rw [Env.find?_hide] at hf
-  obtain ⟨cm, hcm, rfl⟩ := Option.map_eq_some_iff.mp hf
-  by_cases hH : H n
-  · simp only [hH, ite_true]
-    unfold ConstInfo.hide
-    split
-    · exact .inr ⟨rfl, cm.kind, hcm⟩
-    · exact .inl hcm
-  · simp only [hH]
-    exact .inl hcm
+  obtain ⟨cm, hcm, rfl⟩ := Env.find?_hide_eq_some hf
+  rcases ConstInfo.hideIf_cases (H n) cm with h | h
+  · rw [h]; exact .inl hcm
+  · rw [h]; exact .inr ⟨rfl, cm.kind, hcm⟩
+
+/-- Leaving constants out refines: every lookup of `E₁` is one of `E₂`. -/
+theorem of_sub {E₁ E₂ : Env} (h : ∀ n ci, E₁.find? n = some ci → E₂.find? n = some ci) : E₁.Le E₂ :=
+  fun n ci hf => .inl (h n ci hf)
+
+theorem empty (E : Env) : Env.empty.Le E := fun _ _ h => by simp at h
 
 end Env.Le
+
+/-- **One constant refines another**: it is the other, or an
+assumption with the other's level parameters and type. -/
+def ConstInfo.Le (ci ci' : ConstInfo) : Prop :=
+  ci = ci' ∨ (ci.kind = .assumed ∧ ∃ k, ci' = { ci with kind := k })
+
+theorem ConstInfo.Le.trans {a b c : ConstInfo} (h₁ : a.Le b) (h₂ : b.Le c) : a.Le c := by
+  rcases h₁ with rfl | ⟨ha, k, rfl⟩
+  · exact h₂
+  · rcases h₂ with rfl | ⟨-, k', rfl⟩
+    · exact .inr ⟨ha, k, rfl⟩
+    · exact .inr ⟨ha, k', rfl⟩
+
+/-- Refinement of environments, constant by constant. -/
+theorem Env.Le.iff {E₁ E₂ : Env} :
+    E₁.Le E₂ ↔ ∀ n ci, E₁.find? n = some ci → ∃ ci', E₂.find? n = some ci' ∧ ci.Le ci' := by
+  constructor
+  · intro h n ci hf
+    rcases h n ci hf with h' | ⟨ha, k, h'⟩
+    · exact ⟨ci, h', .inl rfl⟩
+    · exact ⟨_, h', .inr ⟨ha, k, rfl⟩⟩
+  · intro h n ci hf
+    obtain ⟨ci', h', hle⟩ := h n ci hf
+    rcases hle with rfl | ⟨ha, k, rfl⟩
+    · exact .inl h'
+    · exact .inr ⟨ha, k, h'⟩
 
 /-! ## Monotonicity of the relations -/
 
@@ -381,26 +373,32 @@ section Checking
 
 variable [LevelOracle]
 
-/-- **A declaration** of a module: a definition or an inductive block. -/
+/-- **A declaration** of a module: a definition, a theorem (its
+statement `ci`, an assumption, and its proof) or an inductive block. -/
 inductive Decl where
   | defn (c : Name) (ci : ConstInfo)
+  | thm (c : Name) (ci : ConstInfo) (proof : Expr)
   | ind (S : IndSpec)
+  deriving DecidableEq
 
 namespace Decl
 
 /-- What the declaration stores. -/
 def apply : Decl → Env → Env
   | defn c ci, E => E.add c ci
+  | thm c ci _, E => E.add c ci
   | ind S, E => S.install E
 
 /-- The check the declaration passes (`Decl.lean`). -/
 def Ok (E : Env) : Decl → Prop
   | defn c ci => DefOk E c ci
+  | thm c ci v => ThmOk E c ci v
   | ind S => IndOk E S
 
 /-- The names the declaration stores. -/
 def names : Decl → List Name
   | defn c _ => [c]
+  | thm c _ _ => [c]
   | ind S => S.names
 
 /-- The entries the declaration stores, whatever the environment. -/
@@ -410,6 +408,7 @@ omit [LevelOracle] in
 theorem apply_eq (d : Decl) (E : Env) : d.apply E = ⟨d.stores ++ E.consts⟩ := by
   cases d with
   | defn c ci => rfl
+  | thm c ci v => rfl
   | ind S =>
     show S.install E = ⟨(S.install Env.empty).consts ++ E.consts⟩
     rw [← IndSpec.install_consts]
@@ -418,6 +417,7 @@ theorem apply_eq (d : Decl) (E : Env) : d.apply E = ⟨d.stores ++ E.consts⟩ :
 theorem Ok.fresh {E : Env} {d : Decl} (h : d.Ok E) : ∀ n ∈ d.names, E.find? n = none := by
   cases d with
   | defn c ci => intro n hn; simp only [names, List.mem_singleton] at hn; subst hn; exact h.1
+  | thm c ci v => intro n hn; simp only [names, List.mem_singleton] at hn; subst hn; exact h.2.1.1
   | ind S =>
     simp only [Ok, IndOk] at h
     simp only [names, IndSpec.names]
@@ -486,6 +486,9 @@ theorem Decl.Ok.mono {d : Decl} (h : E₁.Le E₂) (hf : ∀ n ∈ d.names, E₂
     (hok : d.Ok E₁) : d.Ok E₂ := by
   cases d with
   | defn c ci => exact DefOk.mono h (hf c (by simp [Decl.names])) hok
+  | thm c ci v =>
+    obtain ⟨hk, hd, s, u, hT, hs, hu⟩ := hok
+    exact ⟨hk, DefOk.mono h (hf c (by simp [Decl.names])) hd, s, u, Infer.mono h hT, Red.mono h hs, hu⟩
   | ind S => exact IndSpec.IndOk.mono S h hf hok
 
 /-- **A module checks**: its declarations, each accepted on top of the
@@ -540,24 +543,457 @@ theorem Checks.accepted {E : Env} {ds : List Decl} (hc : Checks E ds) (hE : Acce
     apply ih
     cases d with
     | defn c ci => exact .defn hE hd
+    | thm c ci v => exact .thm hE hd
     | ind S => exact .ind S hE hd
 
-/-- **The union of modules checked against their interfaces**: each
-module's declarations check against an interface of the union of the
-modules before it (`Env.Le`: its constants stored in the union, as
-they are there or as assumptions of the same type), and its names are
-fresh in that union. -/
-inductive Modular : Env → Prop
-  | empty : Modular Env.empty
-  | step {U I : Env} {ds : List Decl} : Modular U → I.Le U → Checks I ds →
-      (∀ d ∈ ds, ∀ n ∈ d.names, U.find? n = none) → Modular (applyAll ds U)
+/-! ## The entries of a checked list of declarations -/
 
-/-- **The union is an accepted environment**: every module's check
-against its interface is a check against the union before it. -/
-theorem Modular.accepted {U : Env} (h : Modular U) : Accepted U := by
+/-- The entries a list of declarations stores, latest first. -/
+def storesAll : List Decl → List (Name × ConstInfo)
+  | [] => []
+  | d :: ds => storesAll ds ++ d.stores
+
+omit [LevelOracle] in
+theorem applyAll_eq : ∀ (ds : List Decl) (E : Env), applyAll ds E = ⟨storesAll ds ++ E.consts⟩
+  | [], _ => rfl
+  | d :: ds, E => by
+    rw [applyAll, applyAll_eq ds, Decl.apply_eq]
+    simp [storesAll, List.append_assoc]
+
+omit [LevelOracle] in
+theorem applyAll_append : ∀ (ds ds' : List Decl) (E : Env),
+    applyAll (ds ++ ds') E = applyAll ds' (applyAll ds E)
+  | [], _, _ => rfl
+  | d :: ds, ds', E => applyAll_append ds ds' (d.apply E)
+
+omit [LevelOracle] in
+theorem IndSpec.foldl_add_empty (S : IndSpec) : ∀ (cs : List CtorSpec) (pre : List (Name × ConstInfo)),
+    (cs.foldl (fun e c => e.add c.name (S.ctorInfo c)) (⟨pre⟩ : Env)).consts =
+      (cs.map fun c => (c.name, S.ctorInfo c)).reverse ++ pre
+  | [], _ => rfl
+  | c :: cs, pre => by
+    rw [List.foldl_cons]
+    exact (IndSpec.foldl_add_empty S cs ((c.name, S.ctorInfo c) :: pre)).trans (by simp)
+
+omit [LevelOracle] in
+/-- **The names a declaration stores are the keys of its entries.** -/
+theorem Decl.mem_names_iff (d : Decl) (n : Name) : n ∈ d.names ↔ ∃ e, (n, e) ∈ d.stores := by
+  cases d with
+  | defn c ci => simp [Decl.names, Decl.stores, Decl.apply, Env.add, Env.empty, eq_comm]
+  | thm c ci v => simp [Decl.names, Decl.stores, Decl.apply, Env.add, Env.empty, eq_comm]
+  | ind S =>
+    have hC : (S.envCtors Env.empty).consts =
+        (S.ctors.map fun c => (c.name, S.ctorInfo c)).reverse ++ [(S.name, S.indInfo)] :=
+      IndSpec.foldl_add_empty S S.ctors [(S.name, S.indInfo)]
+    simp only [Decl.names, Decl.stores, Decl.apply, IndSpec.names, IndSpec.install,
+      IndSpec.installN]
+    cases hn : S.nest <;> simp [Env.add, hC] <;> grind
+
+omit [LevelOracle] in
+theorem lookup_eq_none_of_not_key {Δ : List (Name × ConstInfo)} {n : Name}
+    (h : ∀ e, (n, e) ∉ Δ) : Δ.lookup n = none := by
+  induction Δ with
+  | nil => rfl
+  | cons p Δ ih =>
+    obtain ⟨m, cm⟩ := p
+    by_cases hnm : n = m
+    · subst hnm; exact absurd (List.mem_cons_self ..) (h cm)
+    · have hb : (n == m) = false := beq_eq_false_iff_ne.mpr hnm
+      simp only [List.lookup, hb]
+      exact ih fun e he => h e (List.mem_cons_of_mem _ he)
+
+omit [LevelOracle] in
+theorem key_of_lookup {Δ : List (Name × ConstInfo)} {n : Name} {e : ConstInfo}
+    (h : Δ.lookup n = some e) : (n, e) ∈ Δ := by
+  induction Δ with
+  | nil => simp at h
+  | cons p Δ ih =>
+    obtain ⟨m, cm⟩ := p
+    by_cases hnm : n = m
+    · subst hnm
+      simp only [List.lookup, beq_self_eq_true, Option.some.injEq] at h
+      subst h; exact List.mem_cons_self ..
+    · have hb : (n == m) = false := beq_eq_false_iff_ne.mpr hnm
+      simp only [List.lookup, hb] at h
+      exact List.mem_cons_of_mem _ (ih h)
+
+omit [LevelOracle] in
+theorem lookup_append_of_none {Δ cs : List (Name × ConstInfo)} {n : Name} (h : Δ.lookup n = none) :
+    (Δ ++ cs).lookup n = cs.lookup n :=
+  Env.find?_append_of_lookup (cs := cs) h
+
+omit [LevelOracle] in
+theorem lookup_append_of_some {Δ cs : List (Name × ConstInfo)} {n : Name} {e : ConstInfo}
+    (h : Δ.lookup n = some e) : (Δ ++ cs).lookup n = some e := by
+  induction Δ with
+  | nil => simp at h
+  | cons p Δ ih =>
+    obtain ⟨m, cm⟩ := p
+    by_cases hnm : n = m
+    · subst hnm
+      simp only [List.lookup, beq_self_eq_true, List.cons_append] at h ⊢; exact h
+    · have hb : (n == m) = false := beq_eq_false_iff_ne.mpr hnm
+      simp only [List.lookup, hb, List.cons_append] at h ⊢
+      exact ih h
+
+omit [LevelOracle] in
+/-- A name no declaration of a list stores is looked up past them. -/
+theorem storesAll_lookup_none {ds : List Decl} {n : Name} (h : ∀ d ∈ ds, n ∉ d.names) :
+    (storesAll ds).lookup n = none := by
+  apply lookup_eq_none_of_not_key
+  intro e he
+  induction ds with
+  | nil => simp [storesAll] at he
+  | cons d ds ih =>
+    simp only [storesAll, List.mem_append] at he
+    rcases he with he | he
+    · exact ih (fun d' hd' => h d' (List.mem_cons_of_mem _ hd')) he
+    · exact h d (List.mem_cons_self ..) ((d.mem_names_iff n).mpr ⟨e, he⟩)
+
+omit [LevelOracle] in
+/-- A name found among a list's entries is found in one declaration. -/
+theorem storesAll_lookup_some {ds : List Decl} {n : Name} {e : ConstInfo}
+    (h : (storesAll ds).lookup n = some e) : ∃ d ∈ ds, d.stores.lookup n = some e := by
+  induction ds with
+  | nil => simp [storesAll] at h
+  | cons d ds ih =>
+    simp only [storesAll] at h
+    cases hl : (storesAll ds).lookup n with
+    | some e' =>
+      rw [lookup_append_of_some hl] at h
+      cases h
+      obtain ⟨d', hd', h'⟩ := ih hl
+      exact ⟨d', List.mem_cons_of_mem _ hd', h'⟩
+    | none =>
+      rw [lookup_append_of_none hl] at h
+      exact ⟨d, List.mem_cons_self .., h⟩
+
+omit [LevelOracle] in
+theorem lookup_ne_none_of_mem {Δ : List (Name × ConstInfo)} {n : Name} {e : ConstInfo}
+    (h : (n, e) ∈ Δ) : Δ.lookup n ≠ none := by
+  induction Δ with
+  | nil => cases h
+  | cons p Δ ih =>
+    obtain ⟨m, cm⟩ := p
+    by_cases hnm : n = m
+    · subst hnm; simp [List.lookup]
+    · have hb : (n == m) = false := beq_eq_false_iff_ne.mpr hnm
+      simp only [List.lookup, hb]
+      rcases List.mem_cons.mp h with h | h
+      · cases h; exact absurd rfl hnm
+      · exact ih h
+
+/-- In a checked list, a later declaration's names are not stored by
+an earlier one. -/
+theorem Checks.disjoint {E : Env} {d : Decl} {ds : List Decl} (h : Checks E (d :: ds)) :
+    ∀ d' ∈ ds, ∀ n ∈ d'.names, d.stores.lookup n = none := by
+  cases h with
+  | cons _ hrest =>
+    intro d' hd' n hn
+    have := hrest.fresh d' hd' n hn
+    rw [Decl.apply_eq] at this
+    exact (Env.find?_append_none this).1
+
+/-- **Where a checked list stores a name, the lookup finds it**: the
+entry of the one declaration that stores it. -/
+theorem Checks.find?_of_lookup {E : Env} {ds : List Decl} (h : Checks E ds) {d : Decl} (hd : d ∈ ds)
+    {n : Name} {e : ConstInfo} (hl : d.stores.lookup n = some e) : (applyAll ds E).find? n = some e := by
   induction h with
-  | empty => exact .empty
-  | step _ hI hc hf ih => exact (hc.mono hI hf).accepted ih
+  | nil => cases hd
+  | @cons E d₀ ds hd₀ hrest ih =>
+    rcases List.mem_cons.mp hd with rfl | hd'
+    · have hdis := (Checks.cons hd₀ hrest).disjoint
+      have hn : n ∈ d.names := (d.mem_names_iff n).mpr ⟨e, key_of_lookup hl⟩
+      have hnone : (storesAll ds).lookup n = none :=
+        storesAll_lookup_none fun d' hd' hn' => by rw [hdis d' hd' n hn'] at hl; cases hl
+      show (applyAll ds (d.apply E)).find? n = some e
+      rw [applyAll_eq, Decl.apply_eq]
+      show (storesAll ds ++ (d.stores ++ E.consts)).lookup n = some e
+      rw [lookup_append_of_none hnone, lookup_append_of_some hl]
+    · exact ih hd'
+
+omit [LevelOracle] in
+/-- What a list of declarations stores in front of an environment. -/
+theorem find?_applyAll {ds : List Decl} {E : Env} {n : Name} {e : ConstInfo}
+    (h : (applyAll ds E).find? n = some e) :
+    (∃ d ∈ ds, d.stores.lookup n = some e) ∨ E.find? n = some e := by
+  rw [applyAll_eq] at h
+  cases hl : (storesAll ds).lookup n with
+  | some e' =>
+    have h' : (storesAll ds ++ E.consts).lookup n = some e' := lookup_append_of_some hl
+    rw [show (storesAll ds ++ E.consts).lookup n = some e from h] at h'
+    cases h'
+    exact .inl (storesAll_lookup_some hl)
+  | none =>
+    have h' := lookup_append_of_none (cs := E.consts) hl
+    rw [show (storesAll ds ++ E.consts).lookup n = some e from h] at h'
+    exact .inr h'.symm
+
+/-- **A checked list refines another** that stores, for each of its
+declarations, one storing the same entries. -/
+theorem Checks.le_of_stores {K L : List Decl} (hL : Checks Env.empty L)
+    (h : ∀ d ∈ K, ∃ d' ∈ L, d'.stores = d.stores) :
+    (applyAll K Env.empty).Le (applyAll L Env.empty) := by
+  refine Env.Le.of_sub fun n e hf => ?_
+  rcases find?_applyAll hf with ⟨d, hd, hl⟩ | hl
+  · obtain ⟨d', hd', hs⟩ := h d hd
+    exact hL.find?_of_lookup hd' (by rw [hs]; exact hl)
+  · simp at hl
+
+/-! ## Joining compatible lists -/
+
+/-- Two declarations store a common name. -/
+def Decl.overlaps (d d' : Decl) : Bool := d.names.any (d'.names.contains ·)
+
+omit [LevelOracle] in
+theorem Decl.overlaps_iff {d d' : Decl} : d.overlaps d' = true ↔ ∃ n ∈ d.names, n ∈ d'.names := by
+  simp [Decl.overlaps]
+
+/-- **Compatible lists of declarations**: where a declaration of the
+one and a declaration of the other store a common name, they store the
+same entries. -/
+def Compatible (K L : List Decl) : Prop :=
+  ∀ k ∈ K, ∀ d ∈ L, k.overlaps d = true → k.stores = d.stores
+
+/-- **The join** of two lists of declarations: the first, then the
+declarations of the second that store no name the first stores. -/
+def join (K L : List Decl) : List Decl := K ++ L.filter fun d => !K.any (·.overlaps d)
+
+omit [LevelOracle] in
+theorem mem_join {K L : List Decl} {d : Decl} (h : d ∈ join K L) : d ∈ K ∨ d ∈ L := by
+  rcases List.mem_append.mp h with h | h
+  · exact .inl h
+  · exact .inr (List.mem_filter.mp h).1
+
+omit [LevelOracle] in
+/-- A declaration of the second list is in the join, or one of the
+first stores the same entries. -/
+theorem stores_of_join {K L : List Decl} (hc : Compatible K L) {d : Decl} (hd : d ∈ L) :
+    ∃ d' ∈ join K L, d'.stores = d.stores := by
+  by_cases ho : K.any (·.overlaps d) = true
+  · obtain ⟨k, hk, hkd⟩ := List.any_eq_true.mp ho
+    exact ⟨k, List.mem_append_left _ hk, hc k hk d hd hkd⟩
+  · exact ⟨d, List.mem_append_right _ (List.mem_filter.mpr ⟨hd, by simpa using ho⟩), rfl⟩
+
+omit [LevelOracle] in
+/-- Entries in front of an environment that a larger one stores, with
+the environment refining it, refine it. -/
+theorem Env.Le.front {Δ : List (Name × ConstInfo)} {E₀ E₂ : Env}
+    (h₁ : ∀ n e, Δ.lookup n = some e → E₂.find? n = some e) (h₂ : E₀.Le E₂) :
+    (⟨Δ ++ E₀.consts⟩ : Env).Le E₂ := by
+  intro n e hf
+  cases hl : Δ.lookup n with
+  | some e' =>
+    have h' : (Δ ++ E₀.consts).lookup n = some e' := lookup_append_of_some hl
+    rw [show (Δ ++ E₀.consts).lookup n = some e from hf] at h'
+    cases h'
+    exact .inl (h₁ n e hl)
+  | none =>
+    have h' := lookup_append_of_none (cs := E₀.consts) hl
+    rw [show (Δ ++ E₀.consts).lookup n = some e from hf] at h'
+    exact h₂ n e h'.symm
+
+theorem Checks.snoc {E : Env} {K : List Decl} {d : Decl} (hK : Checks E K) (hd : d.Ok (applyAll K E)) :
+    Checks E (K ++ [d]) := by
+  induction hK with
+  | nil => exact .cons hd .nil
+  | cons h₁ _ ih => exact .cons h₁ (ih hd)
+
+/-- **Joining a checked list onto another**: a list checked against
+an environment that the first list's environment refines, and
+compatible with the first list, joins it into a checked list. -/
+theorem Checks.joined {E₀ : Env} {L : List Decl} (hL : Checks E₀ L) :
+    ∀ {K : List Decl}, Checks Env.empty K → E₀.Le (applyAll K Env.empty) → Compatible K L →
+      Checks Env.empty (join K L) := by
+  induction hL with
+  | nil => intro K hK _ _; simpa [join] using hK
+  | @cons E d ds hd hrest ih =>
+    intro K hK hle hc
+    have hdis := (Checks.cons hd hrest).disjoint
+    have hcr : Compatible K ds := fun k hk d' hd' => hc k hk d' (List.mem_cons_of_mem _ hd')
+    by_cases ho : K.any (·.overlaps d) = true
+    · -- `d` stores what a declaration of `K` stores: skipped
+      have hj : join K (d :: ds) = join K ds := by simp [join, ho]
+      rw [hj]
+      obtain ⟨k, hk, hkd⟩ := List.any_eq_true.mp ho
+      have hs := hc k hk d (List.mem_cons_self ..) hkd
+      refine ih hK ?_ hcr
+      rw [Decl.apply_eq]
+      exact Env.Le.front (fun n e hl => hK.find?_of_lookup hk (by rw [hs]; exact hl)) hle
+    · -- `d` stores nothing `K` stores: kept
+      have hno : ∀ d' ∈ ds, d.overlaps d' = false := by
+        intro d' hd'
+        cases h : d.overlaps d' with
+        | false => rfl
+        | true =>
+          obtain ⟨n, hn, hn'⟩ := Decl.overlaps_iff.mp h
+          obtain ⟨e, he⟩ := (d.mem_names_iff n).mp hn
+          exact absurd (hdis d' hd' n hn') (lookup_ne_none_of_mem he)
+      have hj : join K (d :: ds) = join (K ++ [d]) ds := by
+        simp only [join, List.filter_cons, ho, Bool.not_false, ite_true, List.append_assoc,
+          List.singleton_append]
+        congr 2
+        apply List.filter_congr
+        intro d' hd'
+        simp [List.any_append, hno d' hd']
+      rw [hj]
+      have hfresh : ∀ n ∈ d.names, (applyAll K Env.empty).find? n = none := by
+        intro n hn
+        rw [applyAll_eq]
+        show (storesAll K ++ []).lookup n = none
+        rw [List.append_nil]
+        apply storesAll_lookup_none
+        intro k hk hnk
+        exact ho (List.any_eq_true.mpr ⟨k, hk, Decl.overlaps_iff.mpr ⟨n, hnk, hn⟩⟩)
+      refine ih (hK.snoc (hd.mono hle hfresh)) ?_ ?_
+      · rw [applyAll_append, applyAll, applyAll, Decl.apply_eq, Decl.apply_eq]
+        exact hle.prepend _
+      · intro k hk d' hd' hkd
+        rcases List.mem_append.mp hk with hk | hk
+        · exact hcr k hk d' hd' hkd
+        · simp only [List.mem_singleton] at hk
+          subst hk
+          rw [hno d' hd'] at hkd
+          cases hkd
+
+/-! ## A development, checked module by module -/
+
+/-- **A module** of a development: the modules it imports, its
+declarations, the environment its declarations are checked against
+(its **base**), and its **summary**: the declarations of everything it
+rests on, itself included. -/
+structure Module where
+  imports : List Nat
+  decls : List Decl
+  base : Env
+  summary : List Decl
+
+/-- **A module's own environment**: its base with its declarations,
+what its declarations were checked in. -/
+def Module.own (m : Module) : Env := applyAll m.decls m.base
+
+/-- The joined summaries of some imported modules, in order. -/
+def importsJoin (dev : Nat → Module) (bs : List Nat) : List Decl :=
+  bs.foldl (fun K b => join K (dev b).summary) []
+
+/-- The partial environments a module's check compares: its own
+declarations and its imports' summaries. -/
+def family (dev : Nat → Module) (i : Nat) : List (List Decl) :=
+  (dev i).decls :: (dev i).imports.map fun b => (dev b).summary
+
+/-- **The local checks at module `i`.**  They read the module and its
+direct imports — their own environments and their summaries — and
+nothing else:
+
+* the imports come earlier (the import graph has no cycle);
+* the declarations are accepted against the base;
+* every constant of the base refines a constant of some import's own
+  environment;
+* its declarations and its imports' summaries are compatible;
+* its summary is their join. -/
+structure LocalOk (dev : Nat → Module) (i : Nat) : Prop where
+  below : ∀ b ∈ (dev i).imports, b < i
+  checks : Checks (dev i).base (dev i).decls
+  base_le : ∀ n ci, (dev i).base.find? n = some ci →
+    ∃ b ∈ (dev i).imports, ∃ ci', (dev b).own.find? n = some ci' ∧ ci.Le ci'
+  compatible : ∀ X ∈ family dev i, ∀ Y ∈ family dev i, Compatible X Y
+  summary_eq : (dev i).summary = join (importsJoin dev (dev i).imports) (dev i).decls
+
+/-- **The environment a module rests on**: its summary, stored in
+order. -/
+def Module.world (m : Module) : Env := applyAll m.summary Env.empty
+
+/-- The fold over the imports: checked, made of the imports'
+declarations, and storing, for each of them, the same entries. -/
+theorem importsJoin_inv (dev : Nat → Module) (i : Nat) (h : LocalOk dev i)
+    (ih : ∀ b ∈ (dev i).imports, Checks Env.empty (dev b).summary) :
+    ∀ (bs : List Nat) (K : List Decl), (∀ b ∈ bs, b ∈ (dev i).imports) →
+      Checks Env.empty K → (∀ k ∈ K, ∃ b ∈ (dev i).imports, k ∈ (dev b).summary) →
+      Checks Env.empty (bs.foldl (fun K b => join K (dev b).summary) K) ∧
+      (∀ k ∈ bs.foldl (fun K b => join K (dev b).summary) K, ∃ b ∈ (dev i).imports, k ∈ (dev b).summary) ∧
+      (∀ d ∈ K, d ∈ bs.foldl (fun K b => join K (dev b).summary) K) ∧
+      (∀ b ∈ bs, ∀ d ∈ (dev b).summary,
+        ∃ d' ∈ bs.foldl (fun K b => join K (dev b).summary) K, d'.stores = d.stores)
+  | [], K, _, hK, hm => ⟨hK, hm, fun _ hd => hd, fun _ hb => by cases hb⟩
+  | b :: bs, K, hbs, hK, hm => by
+    have hb : b ∈ (dev i).imports := hbs b (List.mem_cons_self ..)
+    have hfam : ∀ b ∈ (dev i).imports, (dev b).summary ∈ family dev i :=
+      fun b hb => List.mem_cons_of_mem _ (List.mem_map_of_mem hb)
+    have hc : Compatible K (dev b).summary := by
+      intro k hk d hd hkd
+      obtain ⟨b', hb', hk'⟩ := hm k hk
+      exact h.compatible _ (hfam b' hb') _ (hfam b hb) k hk' d hd hkd
+    have hK' : Checks Env.empty (join K (dev b).summary) :=
+      (ih b hb).joined hK (Env.Le.empty _) hc
+    have hm' : ∀ k ∈ join K (dev b).summary, ∃ b ∈ (dev i).imports, k ∈ (dev b).summary := by
+      intro k hk
+      rcases mem_join hk with hk | hk
+      · exact hm k hk
+      · exact ⟨b, hb, hk⟩
+    obtain ⟨r1, r2, r3, r4⟩ := importsJoin_inv dev i h ih bs (join K (dev b).summary)
+      (fun b' hb' => hbs b' (List.mem_cons_of_mem _ hb')) hK' hm'
+    refine ⟨r1, r2, fun d hd => r3 d (List.mem_append_left _ hd), ?_⟩
+    intro b' hb' d hd
+    rcases List.mem_cons.mp hb' with rfl | hb'
+    · obtain ⟨d', hd', hs⟩ := stores_of_join hc hd
+      exact ⟨d', r3 d' hd', hs⟩
+    · exact r4 b' hb' d hd
+
+/-- **The local checks suffice** (the theorem of modular checking):
+if every module up to `i` passes its local checks, then module `i`'s
+summary is a checked list of declarations, and the module's own
+environment refines the environment the summary builds. -/
+theorem local_checks (dev : Nat → Module) :
+    ∀ i, (∀ j ≤ i, LocalOk dev j) →
+      Checks Env.empty (dev i).summary ∧ (dev i).own.Le (dev i).world := by
+  intro i
+  induction i using Nat.strongRecOn with
+  | _ i ihi =>
+  intro hall
+  have h := hall i (Nat.le_refl i)
+  have ihb : ∀ b ∈ (dev i).imports, Checks Env.empty (dev b).summary ∧
+      (dev b).own.Le (dev b).world := fun b hb =>
+    ihi b (h.below b hb) fun j hj => hall j (Nat.le_trans hj (Nat.le_of_lt (h.below b hb)))
+  obtain ⟨hK, hKm, -, hKs⟩ := importsJoin_inv dev i h (fun b hb => (ihb b hb).1)
+    (dev i).imports [] (fun _ hb => hb) .nil (fun _ hk => by cases hk)
+  have hK' : Checks Env.empty (importsJoin dev (dev i).imports) := hK
+  -- every import's own environment refines the joined imports
+  have hoff : ∀ b ∈ (dev i).imports,
+      (dev b).own.Le (applyAll (importsJoin dev (dev i).imports) Env.empty) := fun b hb =>
+    (ihb b hb).2.trans (hK'.le_of_stores fun d hd => hKs b hb d hd)
+  -- the base refines the joined imports
+  have hbase : (dev i).base.Le (applyAll (importsJoin dev (dev i).imports) Env.empty) := by
+    rw [Env.Le.iff]
+    intro n ci hf
+    obtain ⟨b, hb, ci', hci', hle⟩ := h.base_le n ci hf
+    obtain ⟨ci'', h'', hle'⟩ := Env.Le.iff.mp (hoff b hb) n ci' hci'
+    exact ⟨ci'', h'', hle.trans hle'⟩
+  have hc : Compatible (importsJoin dev (dev i).imports) (dev i).decls := by
+    intro k hk d hd hkd
+    obtain ⟨b, hb, hk'⟩ := hKm k hk
+    exact h.compatible _ (List.mem_cons_of_mem _ (List.mem_map_of_mem hb)) _ (List.mem_cons_self ..)
+      k hk' d hd hkd
+  have hS : Checks Env.empty (dev i).summary := by
+    rw [h.summary_eq]; exact h.checks.joined hK' hbase hc
+  have hsub : (applyAll (importsJoin dev (dev i).imports) Env.empty).Le (dev i).world := by
+    rw [Module.world]
+    exact hS.le_of_stores fun d hd => ⟨d, by rw [h.summary_eq]; exact List.mem_append_left _ hd, rfl⟩
+  have hown : (dev i).own.Le (dev i).world := by
+    intro n e hf
+    rcases find?_applyAll hf with ⟨d, hd, hl⟩ | hl
+    · obtain ⟨d', hd', hs⟩ := stores_of_join hc hd
+      left
+      rw [Module.world]
+      rw [h.summary_eq] at hS ⊢
+      exact hS.find?_of_lookup hd' (by rw [hs]; exact hl)
+    · exact (hbase.trans hsub) n e hl
+  exact ⟨hS, hown⟩
+
+/-- **The environment a module rests on is accepted**, declaration
+by declaration. -/
+theorem local_accepted (dev : Nat → Module) (i : Nat) (h : ∀ j ≤ i, LocalOk dev j) :
+    Accepted (dev i).world :=
+  (local_checks dev i h).1.accepted .empty
 
 end Checking
 
@@ -572,16 +1008,24 @@ universe u
 variable (V : Type u) [IndLib V]
 
 include V in
-/-- **The union of the modules has a model.** -/
-theorem modular_model {U : Env} (h : Modular U) : Nonempty (BlockModel V U) :=
-  accepted_model V h.accepted
+/-- **The environment a module rests on has a model.** -/
+theorem local_model (dev : Nat → Module) (i : Nat) (h : ∀ j ≤ i, LocalOk dev j) :
+    Nonempty (BlockModel V (dev i).world) :=
+  accepted_model V (local_accepted dev i h)
 
 include V in
-/-- **No closed term in the union inhabits an empty proposition.** -/
-theorem modular_no_empty_prop_inhabitant {U : Env} (h : Modular U) {name recName elim : Name}
-    (hrec : U.find? recName = some (IndSpec.falseSpec name recName elim).recInfo) (e : Expr) :
-    ¬ Infer U [] e (.const name []) :=
-  no_empty_prop_inhabitant V h.accepted hrec e
+/-- **No closed term of a module inhabits an empty proposition**: in
+the environment the module's declarations were checked in — its base
+with its declarations — no closed term has the type of an empty
+proposition it stores. -/
+theorem local_no_empty_prop_inhabitant (dev : Nat → Module) (i : Nat) (h : ∀ j ≤ i, LocalOk dev j)
+    {name recName elim : Name}
+    (hrec : (dev i).own.find? recName = some (IndSpec.falseSpec name recName elim).recInfo)
+    (e : Expr) : ¬ Infer (dev i).own [] e (.const name []) := by
+  intro he
+  have hle := (local_checks dev i h).2
+  have hrec' := hle.find_of_ne hrec (by simp [IndSpec.recInfo])
+  exact no_empty_prop_inhabitant V (local_accepted dev i h) hrec' e (Infer.mono hle he)
 
 end Corollaries
 

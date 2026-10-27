@@ -2513,8 +2513,8 @@
     80    parameters, `numMotives` motives, `numMinors` minor premises,
     81    `numIndices` indices, then the major premise — and its rules. -/
     82    | recursor (numParams numMotives numMinors numIndices : Nat) (rules : List RecRule)
-    83    /-- **An assumption**: a constant known by its type alone — how a
-    84    module sees another module's definition whose value is not exported
+    83    /-- **An assumption**: a constant known by its type alone — a
+    84    theorem's statement, or a definition whose value is left out
     85    (`Modular.lean`).  It never unfolds. -/
     86    | assumed
     87    deriving DecidableEq
@@ -2647,22 +2647,22 @@
    140    | delta {d : Nat} {e e' : Expr} :
    141        unfoldDefinition env e = some e' → Red env d e e'
 
-== whitepaper/Fragment/Decl.lean#L591-L605
-   591  /-- **A definition is accepted** (con-leche's `checkDefnVal`): the
-   592  name is fresh, the declared type's type reduces to a sort, the
-   593  value's inferred type is definitionally equal to the declared type,
-   594  and both terms use only the declared level parameters.  That is the
-   595  one scope condition the typing derivations do not give (the sort rule
-   596  accepts `Sort u` at any level `u`); closedness and stored constants
-   597  they do give (`Infer.closedAt`, `Infer.consts`,
-   598  `ScopeOfInfer.lean`), so the environment section recovers the full
-   599  scope of both terms (`DefOk.type_scoped`, `DefOk.value_scoped`). -/
-   600  def DefOk (env : Env) (c : Name) (ci : ConstInfo) : Prop :=
-   601    env.find? c = none ∧
-   602    (∃ s u, Infer env [] ci.type s ∧ Red env [] s (.sort u)) ∧
-   603    (∃ v T, ci.kind = .defn v ∧ Infer env [] v T ∧ DefEq env [] T ci.type ∧
-   604      v.lparamsIn ci.lparams = true) ∧
-   605    ci.type.lparamsIn ci.lparams = true
+== whitepaper/Fragment/Decl.lean#L592-L606
+   592  /-- **A definition is accepted** (con-leche's `checkDefnVal`): the
+   593  name is fresh, the declared type's type reduces to a sort, the
+   594  value's inferred type is definitionally equal to the declared type,
+   595  and both terms use only the declared level parameters.  That is the
+   596  one scope condition the typing derivations do not give (the sort rule
+   597  accepts `Sort u` at any level `u`); closedness and stored constants
+   598  they do give (`Infer.closedAt`, `Infer.consts`,
+   599  `ScopeOfInfer.lean`), so the environment section recovers the full
+   600  scope of both terms (`DefOk.type_scoped`, `DefOk.value_scoped`). -/
+   601  def DefOk (env : Env) (c : Name) (ci : ConstInfo) : Prop :=
+   602    env.find? c = none ∧
+   603    (∃ s u, Infer env [] ci.type s ∧ Red env [] s (.sort u)) ∧
+   604    (∃ v T, ci.kind = .defn v ∧ Infer env [] v T ∧ DefEq env [] T ci.type ∧
+   605      v.lparamsIn ci.lparams = true) ∧
+   606    ci.type.lparamsIn ci.lparams = true
 
 == ConLeche/Kernel/CheckerBase.lean#L105-L121
    105  def checkConstantVal (ops : CheckerOps m) (env : Env) (cv : ConstantVal) : m Unit := do
@@ -2699,9 +2699,9 @@
     46      throw (.invalid s!"type mismatch in definition {cv.name}")
     47    pure ⟨.defnInfo cv value hint :: env.consts, env.tables⟩
 
-== whitepaper/Fragment/Decl.lean#L604-L605
-   604      v.lparamsIn ci.lparams = true) ∧
-   605    ci.type.lparamsIn ci.lparams = true
+== whitepaper/Fragment/Decl.lean#L605-L606
+   605      v.lparamsIn ci.lparams = true) ∧
+   606    ci.type.lparamsIn ci.lparams = true
 
 == whitepaper/Fragment/Hygiene.lean#L593-L595
    593  theorem interp_consts {e : Expr} (h : ∀ c ∈ e.consts, ∀ ls, M c ls = M' c ls) {ρ : Nat → V} :
@@ -3004,30 +3004,30 @@
    607    | nested (refl : Bool)
    608    deriving DecidableEq, Inhabited
 
-== whitepaper/Fragment/Decl.lean#L628-L642
-   628  /-- The scope of a field's pieces: with `k` earlier fields, an
-   629  ordinary domain is in scope under the parameters and them; a
-   630  reflexive field's telescope entries under the earlier telescope
-   631  entries as well, and its index expressions under the whole telescope
-   632  (under the parameters and the earlier fields alone when the telescope
-   633  is empty); a reflexive field's index expressions are as many as the
-   634  indices.  No piece
-   635  mentions the block (it is not stored in `env`): that is **strict
-   636  positivity** in the shape the fragment admits (con-leche's
-   637  `nestPos`, `ConLeche/Kernel/Inductives/Positivity.lean:1453`). -/
-   638  def fieldScoped (env : Env) (k : Nat) : Field → Prop
-   639    | .ordinary A => Expr.Scoped env S.lparams (S.nP + k) A
-   640    | .reflexive tele es =>
-   641      (∀ t T, tele[t]? = some T → Expr.Scoped env S.lparams (S.nP + k + (tele.length - 1 - t)) T) ∧
-   642      es.length = S.nI ∧ (∀ e ∈ es, Expr.Scoped env S.lparams (S.nP + k + tele.length) e)
+== whitepaper/Fragment/Decl.lean#L641-L655
+   641  /-- The scope of a field's pieces: with `k` earlier fields, an
+   642  ordinary domain is in scope under the parameters and them; a
+   643  reflexive field's telescope entries under the earlier telescope
+   644  entries as well, and its index expressions under the whole telescope
+   645  (under the parameters and the earlier fields alone when the telescope
+   646  is empty); a reflexive field's index expressions are as many as the
+   647  indices.  No piece
+   648  mentions the block (it is not stored in `env`): that is **strict
+   649  positivity** in the shape the fragment admits (con-leche's
+   650  `nestPos`, `ConLeche/Kernel/Inductives/Positivity.lean:1453`). -/
+   651  def fieldScoped (env : Env) (k : Nat) : Field → Prop
+   652    | .ordinary A => Expr.Scoped env S.lparams (S.nP + k) A
+   653    | .reflexive tele es =>
+   654      (∀ t T, tele[t]? = some T → Expr.Scoped env S.lparams (S.nP + k + (tele.length - 1 - t)) T) ∧
+   655      es.length = S.nI ∧ (∀ e ∈ es, Expr.Scoped env S.lparams (S.nP + k + tele.length) e)
 
-== whitepaper/Fragment/Decl.lean#L645-L650
-   645  /-- **No field reads an earlier recursive field**: an ordinary domain
-   646  and a reflexive field's telescope entries and index expressions do not
-   647  use the variable of any earlier reflexive field (con-leche's `structUsedLater`
-   648  guard, `StructParts.lean:393`, run by `nestCtors`, `Positivity.lean:1247`:
-   649  the model reads the domains at a frame with arbitrary recursive slots). -/
-   650  def fieldNoRecDep (earlier : List Field) : Field → Prop
+== whitepaper/Fragment/Decl.lean#L658-L663
+   658  /-- **No field reads an earlier recursive field**: an ordinary domain
+   659  and a reflexive field's telescope entries and index expressions do not
+   660  use the variable of any earlier reflexive field (con-leche's `structUsedLater`
+   661  guard, `StructParts.lean:393`, run by `nestCtors`, `Positivity.lean:1247`:
+   662  the model reads the domains at a frame with arbitrary recursive slots). -/
+   663  def fieldNoRecDep (earlier : List Field) : Field → Prop
 
 == ConLeche/Kernel/Inductives/Positivity.lean#L1246-L1249
   1246      if (List.range nF).any (fun i => ks.getD i .ordinary != .ordinary &&
@@ -3039,15 +3039,15 @@
   1453  def nestPos (ops : CheckerOps m) (env : Env) (ctx : NestCtx) :
   1454      Nat → List NestHole → Nat → Nat → Expr → NestState → m (NestFieldKind × Expr × NestState)
 
-== whitepaper/Fragment/Decl.lean#L209-L216
-   209  /-- **The type former's type** `∀ params indices, Sort u`; no binder is
-   210  a proposition. -/
-   211  def indType : Expr := mkPis (S.indices ++ S.params) (.sort S.sort)
-   212  
-   213  /-- **A constructor's type** `∀ params fields, I params idx`; every
-   214  binder is a proposition exactly when the family is. -/
-   215  def ctorType (c : CtorSpec) : Expr :=
-   216    mkPis (S.fieldCtx c.fields ++ S.params) (S.famAt c.fields.length c.idx)
+== whitepaper/Fragment/Decl.lean#L210-L217
+   210  /-- **The type former's type** `∀ params indices, Sort u`; no binder is
+   211  a proposition. -/
+   212  def indType : Expr := mkPis (S.indices ++ S.params) (.sort S.sort)
+   213  
+   214  /-- **A constructor's type** `∀ params fields, I params idx`; every
+   215  binder is a proposition exactly when the family is. -/
+   216  def ctorType (c : CtorSpec) : Expr :=
+   217    mkPis (S.fieldCtx c.fields ++ S.params) (S.famAt c.fields.length c.idx)
 
 == ConLeche/Kernel/Inductives/SumInstall.lean#L102-L103
    102  /-- Stage 2, one constructor's type: the ordinary constant check (the
@@ -3087,55 +3087,55 @@
    539      (cvTas : List ConstantVal) (block : List ConstantInfo) :
    540      m (List (ConstantVal × TargetMajor × List Expr)) := do
 
-== whitepaper/Fragment/Decl.lean#L218-L220
-   218  /-- The motive's type, under the parameters:
-   219  `∀ indices (t : I params indices), Sort ℓ`. -/
-   220  def motiveTy : Expr := mkPis (S.famVars 0 :: S.indices) (.sort S.ℓ)
+== whitepaper/Fragment/Decl.lean#L219-L221
+   219  /-- The motive's type, under the parameters:
+   220  `∀ indices (t : I params indices), Sort ℓ`. -/
+   221  def motiveTy : Expr := mkPis (S.famVars 0 :: S.indices) (.sort S.ℓ)
 
-== whitepaper/Fragment/Decl.lean#L231-L243
-   231  /-- **An inductive hypothesis' type** for the field with `k` earlier
-   232  fields, `l` earlier hypotheses, `o` binders between the parameters
-   233  and the fields (the motive sits `nF + l + o - 1` binders above):
-   234  `∀ tele, motive es (f tele)` at a reflexive field (`motive es f` when
-   235  the telescope is empty). -/
-   236  def ihTy (nF k l o : Nat) : Field → Expr
-   237    | .ordinary _ => .sort .zero
-   238    | .reflexive tele es =>
-   239      let m := tele.length
-   240      mkPis (liftCtx (fun t T => atCtx nF k l o t T) tele)
-   241        (mkAppN (.bvar (nF + l + o - 1 + m))
-   242          (es.map (atCtx nF k l o m) ++ [mkAppN (.bvar (nF - 1 - k + l + m)) (varsAt 0 m)]))
-   243    | .container => mkAppN (.bvar (nF + l + o - 2)) [.bvar (nF - 1 - k + l)]
+== whitepaper/Fragment/Decl.lean#L232-L244
+   232  /-- **An inductive hypothesis' type** for the field with `k` earlier
+   233  fields, `l` earlier hypotheses, `o` binders between the parameters
+   234  and the fields (the motive sits `nF + l + o - 1` binders above):
+   235  `∀ tele, motive es (f tele)` at a reflexive field (`motive es f` when
+   236  the telescope is empty). -/
+   237  def ihTy (nF k l o : Nat) : Field → Expr
+   238    | .ordinary _ => .sort .zero
+   239    | .reflexive tele es =>
+   240      let m := tele.length
+   241      mkPis (liftCtx (fun t T => atCtx nF k l o t T) tele)
+   242        (mkAppN (.bvar (nF + l + o - 1 + m))
+   243          (es.map (atCtx nF k l o m) ++ [mkAppN (.bvar (nF - 1 - k + l + m)) (varsAt 0 m)]))
+   244    | .container => mkAppN (.bvar (nF + l + o - 2)) [.bvar (nF - 1 - k + l)]
 
-== whitepaper/Fragment/Decl.lean#L256-L265
-   256  /-- **A minor premise** for constructor `j`, under the parameters, the
-   257  motive and the `j` earlier minors:
-   258  `∀ fields ihs, motive idx (C params fields)`. -/
-   259  def minorTy (c : CtorSpec) (j : Nat) : Expr :=
-   260    let nF := c.fields.length
-   261    let nIh := c.recFields.length
-   262    mkPis (IndSpec.ihCtx c j ++ S.fieldCtxAt c (j + 1))
-   263      (mkAppN (.bvar (nIh + nF + j))
-   264        (c.idx.map (atCtx nF nF nIh (j + 1) 0) ++
-   265          [mkAppN (.const c.name S.lvls) (varsAt (nIh + nF + j + 1) S.nP ++ varsAt nIh nF)]))
+== whitepaper/Fragment/Decl.lean#L257-L266
+   257  /-- **A minor premise** for constructor `j`, under the parameters, the
+   258  motive and the `j` earlier minors:
+   259  `∀ fields ihs, motive idx (C params fields)`. -/
+   260  def minorTy (c : CtorSpec) (j : Nat) : Expr :=
+   261    let nF := c.fields.length
+   262    let nIh := c.recFields.length
+   263    mkPis (IndSpec.ihCtx c j ++ S.fieldCtxAt c (j + 1))
+   264      (mkAppN (.bvar (nIh + nF + j))
+   265        (c.idx.map (atCtx nF nF nIh (j + 1) 0) ++
+   266          [mkAppN (.const c.name S.lvls) (varsAt (nIh + nF + j + 1) S.nP ++ varsAt nIh nF)]))
 
-== whitepaper/Fragment/Decl.lean#L272-L277
-   272  /-- **The recursor's type**
-   273  `∀ params (motive : motiveTy) minors indices (t : I params indices), motive indices t`
-   274  (con-leche's `classGenRecTy`, `GenRec.lean:181`). -/
-   275  def recType : Expr :=
-   276    mkPis (S.famVars (S.n + 1) :: S.indicesAt (S.n + 1) ++ S.minorsCtx ++ [S.motiveTy] ++ S.params)
-   277      (mkAppN (.bvar (1 + S.nI + S.n)) (varsAt 1 S.nI ++ [.bvar 0]))
+== whitepaper/Fragment/Decl.lean#L273-L278
+   273  /-- **The recursor's type**
+   274  `∀ params (motive : motiveTy) minors indices (t : I params indices), motive indices t`
+   275  (con-leche's `classGenRecTy`, `GenRec.lean:181`). -/
+   276  def recType : Expr :=
+   277    mkPis (S.famVars (S.n + 1) :: S.indicesAt (S.n + 1) ++ S.minorsCtx ++ [S.motiveTy] ++ S.params)
+   278      (mkAppN (.bvar (1 + S.nI + S.n)) (varsAt 1 S.nI ++ [.bvar 0]))
 
-== whitepaper/Fragment/Decl.lean#L314-L321
-   314  /-- **A rule's right-hand side** for constructor `j`:
-   315  `fun params motive minors fields => minor_j fields ihs`
-   316  (con-leche's `classGenRule`, `GenRec.lean:193`). -/
-   317  def ruleRhs (c : CtorSpec) (j : Nat) : Expr :=
-   318    let nF := c.fields.length
-   319    mkLams (S.ruleCtx c)
-   320      (mkAppN (.bvar (nF + S.n - 1 - j))
-   321        (varsAt 0 nF ++ c.recFields.map fun kf => S.ihVal nF kf.1 kf.2))
+== whitepaper/Fragment/Decl.lean#L315-L322
+   315  /-- **A rule's right-hand side** for constructor `j`:
+   316  `fun params motive minors fields => minor_j fields ihs`
+   317  (con-leche's `classGenRule`, `GenRec.lean:193`). -/
+   318  def ruleRhs (c : CtorSpec) (j : Nat) : Expr :=
+   319    let nF := c.fields.length
+   320    mkLams (S.ruleCtx c)
+   321      (mkAppN (.bvar (nF + S.n - 1 - j))
+   322        (varsAt 0 nF ++ c.recFields.map fun kf => S.ihVal nF kf.1 kf.2))
 
 == ConLeche/Kernel/Inductives/GenRec.lean#L175-L182
    175  /-- **The generated recursor type** at class `c`. -/
@@ -3169,23 +3169,23 @@
    206          (Expr.mkAppN (.const r rlvls) (pvars ++ idx ++ [Expr.mkAppN f xs]))))
    207    pure (closeLams (pre ++ fvs.map g.binder) 0 (Expr.mkAppN (g.slotVar s) (fvs ++ ihs)))
 
-== whitepaper/Fragment/Decl.lean#L710-L717
-   710  /-- **The subsingleton criterion** for a field of sort `v` at
-   711  position `i` (innermost first) of a constructor with index
-   712  expressions `idx`: the field is a proposition, or it is one of the
-   713  result's indices (official's `elim_only_at_universe_zero` at one
-   714  constructor; con-leche's `checkStructFieldSortsI`).  Required only of a
-   715  large eliminator on a block whose sort may be `Prop`. -/
-   716  def SubsingletonField (v : Level) (i : Nat) (idx : List Expr) : Prop :=
-   717    S.large = true → ¬ S.NeverProp → (LevelOracle.eq v .zero = true ∨ Expr.bvar i ∈ idx)
+== whitepaper/Fragment/Decl.lean#L723-L730
+   723  /-- **The subsingleton criterion** for a field of sort `v` at
+   724  position `i` (innermost first) of a constructor with index
+   725  expressions `idx`: the field is a proposition, or it is one of the
+   726  result's indices (official's `elim_only_at_universe_zero` at one
+   727  constructor; con-leche's `checkStructFieldSortsI`).  Required only of a
+   728  large eliminator on a block whose sort may be `Prop`. -/
+   729  def SubsingletonField (v : Level) (i : Nat) (idx : List Expr) : Prop :=
+   730    S.large = true → ¬ S.NeverProp → (LevelOracle.eq v .zero = true ∨ Expr.bvar i ∈ idx)
 
-== whitepaper/Fragment/Decl.lean#L763
-   763    (S.large = true → ¬ S.NeverProp → S.ctors.length ≤ 1) ∧
+== whitepaper/Fragment/Decl.lean#L776
+   776    (S.large = true → ¬ S.NeverProp → S.ctors.length ≤ 1) ∧
 
-== whitepaper/Fragment/Decl.lean#L706-L708
-   706  /-- "The result sort is never `Prop`": `1 ≤ u` at every valuation
-   707  (con-leche's `Level.isNeverZero`). -/
-   708  def NeverProp : Prop := LevelOracle.le (.succ .zero) S.sort = true
+== whitepaper/Fragment/Decl.lean#L719-L721
+   719  /-- "The result sort is never `Prop`": `1 ≤ u` at every valuation
+   720  (con-leche's `Level.isNeverZero`). -/
+   721  def NeverProp : Prop := LevelOracle.le (.succ .zero) S.sort = true
 
 == ConLeche/Kernel/Inductives/BlockRec.lean#L82-L84
     82  def blockLargeElimAllowed (p : BlockShape) (nested : Bool) : Bool :=
@@ -3214,61 +3214,61 @@
     98            field outside the indices")
     99      let rest ← checkStructFieldSortsI ops env isProp large s nP fvs idxArgs j
 
-== whitepaper/Fragment/Decl.lean#L699-L704
-   699  /-- The universe bound on a field of sort `v`: the family is a
-   700  proposition, or `v ≤ u` (official's "universe level of `type_of(arg)`
-   701  is too big" check, `checkStructFieldSortsI`,
-   702  `ConLeche/Kernel/Inductives/SumInstall.lean:124`). -/
-   703  def FieldBound (v : Level) : Prop :=
-   704    LevelOracle.eq S.sort .zero = true ∨ LevelOracle.le v S.sort = true
+== whitepaper/Fragment/Decl.lean#L712-L717
+   712  /-- The universe bound on a field of sort `v`: the family is a
+   713  proposition, or `v ≤ u` (official's "universe level of `type_of(arg)`
+   714  is too big" check, `checkStructFieldSortsI`,
+   715  `ConLeche/Kernel/Inductives/SumInstall.lean:124`). -/
+   716  def FieldBound (v : Level) : Prop :=
+   717    LevelOracle.eq S.sort .zero = true ∨ LevelOracle.le v S.sort = true
 
-== whitepaper/Fragment/Decl.lean#L719-L764
-   719  /-- **The block is accepted** (con-leche's `checkBlock`,
-   720  `ConLeche/Kernel/Inductives/BlockTail.lean:143`):
-   721  
-   722  * the block's names are distinct and fresh;
-   723  * the specification is in scope (closed, stored constants, declared
-   724    level parameters — positivity included);
-   725  * the generated type former's type has a sort in the current
-   726    environment;
-   727  * each generated constructor's type has a sort in the environment
-   728    holding the former, every field's domain has a sort respecting the
-   729    universe bound and, where a large eliminator asks it, the
-   730    subsingleton criterion, and so does every binder of a reflexive
-   731    field's telescope (the domain's sort implies it; the fragment lists
-   732    it, as the checker infers it);
-   733  * each rule's type (`ruleType`, the recursor's binder prefix with the
-   734    constructor's fields in place of the indices and the major) has a
-   735    sort in the environment holding the former and the constructors;
-   736  * a large eliminator on a block whose sort may be `Prop` has at most
-   737    one constructor (official's `elim_only_at_universe_zero`);
-   738  * the generated recursor's type has a sort in the environment holding
-   739    the former and the constructors.
-   740  
-   741  The recursor's rules are generated and stored, not checked: they
-   742  mention the recursor.  Con-leche does type its generated rules, in
-   743  the environment holding the recursors without their rules
-   744  (`classRuleOk`, `GenRec.lean:427`); the fragment stores them as is. -/
-   745  def Ok (env : Env) : Prop :=
-   746    (S.name :: S.recName :: S.ctors.map (·.name)).Nodup ∧
-   747    (∀ m ∈ S.name :: S.recName :: S.ctors.map (·.name), env.find? m = none) ∧
-   748    S.Scoped env ∧
-   749    (∃ T, Infer env [] S.indType T) ∧
-   750    (∀ c ∈ S.ctors,
-   751      (∃ T u, Infer (S.envInd env) [] (S.ctorType c) T ∧ Red (S.envInd env) [] T (.sort u)) ∧
-   752      (∀ i A, (S.fieldCtx c.fields)[i]? = some A →
-   753        ∃ s v, Infer (S.envInd env) ((S.fieldCtx c.fields).drop (i + 1) ++ S.params) A s ∧
-   754          Red (S.envInd env) ((S.fieldCtx c.fields).drop (i + 1) ++ S.params) s (.sort v) ∧
-   755          S.FieldBound v ∧ S.SubsingletonField v i c.idx) ∧
-   756      (∀ i tele es, c.fields[i]? = some (.reflexive tele es) → ∀ t T, tele[t]? = some T →
-   757        ∃ s w, Infer (S.envInd env)
-   758            (tele.drop (t + 1) ++ (S.fieldCtx c.fields).drop (i + 1) ++ S.params) T s ∧
-   759          Red (S.envInd env) (tele.drop (t + 1) ++ (S.fieldCtx c.fields).drop (i + 1) ++ S.params)
-   760            s (.sort w) ∧
-   761          S.FieldBound w) ∧
-   762      (∃ T, Infer (S.envCtors env) [] (S.ruleType c) T)) ∧
-   763    (S.large = true → ¬ S.NeverProp → S.ctors.length ≤ 1) ∧
-   764    (∃ T, Infer (S.envCtors env) [] S.recType T)
+== whitepaper/Fragment/Decl.lean#L732-L777
+   732  /-- **The block is accepted** (con-leche's `checkBlock`,
+   733  `ConLeche/Kernel/Inductives/BlockTail.lean:143`):
+   734  
+   735  * the block's names are distinct and fresh;
+   736  * the specification is in scope (closed, stored constants, declared
+   737    level parameters — positivity included);
+   738  * the generated type former's type has a sort in the current
+   739    environment;
+   740  * each generated constructor's type has a sort in the environment
+   741    holding the former, every field's domain has a sort respecting the
+   742    universe bound and, where a large eliminator asks it, the
+   743    subsingleton criterion, and so does every binder of a reflexive
+   744    field's telescope (the domain's sort implies it; the fragment lists
+   745    it, as the checker infers it);
+   746  * each rule's type (`ruleType`, the recursor's binder prefix with the
+   747    constructor's fields in place of the indices and the major) has a
+   748    sort in the environment holding the former and the constructors;
+   749  * a large eliminator on a block whose sort may be `Prop` has at most
+   750    one constructor (official's `elim_only_at_universe_zero`);
+   751  * the generated recursor's type has a sort in the environment holding
+   752    the former and the constructors.
+   753  
+   754  The recursor's rules are generated and stored, not checked: they
+   755  mention the recursor.  Con-leche does type its generated rules, in
+   756  the environment holding the recursors without their rules
+   757  (`classRuleOk`, `GenRec.lean:427`); the fragment stores them as is. -/
+   758  def Ok (env : Env) : Prop :=
+   759    (S.name :: S.recName :: S.ctors.map (·.name)).Nodup ∧
+   760    (∀ m ∈ S.name :: S.recName :: S.ctors.map (·.name), env.find? m = none) ∧
+   761    S.Scoped env ∧
+   762    (∃ T, Infer env [] S.indType T) ∧
+   763    (∀ c ∈ S.ctors,
+   764      (∃ T u, Infer (S.envInd env) [] (S.ctorType c) T ∧ Red (S.envInd env) [] T (.sort u)) ∧
+   765      (∀ i A, (S.fieldCtx c.fields)[i]? = some A →
+   766        ∃ s v, Infer (S.envInd env) ((S.fieldCtx c.fields).drop (i + 1) ++ S.params) A s ∧
+   767          Red (S.envInd env) ((S.fieldCtx c.fields).drop (i + 1) ++ S.params) s (.sort v) ∧
+   768          S.FieldBound v ∧ S.SubsingletonField v i c.idx) ∧
+   769      (∀ i tele es, c.fields[i]? = some (.reflexive tele es) → ∀ t T, tele[t]? = some T →
+   770        ∃ s w, Infer (S.envInd env)
+   771            (tele.drop (t + 1) ++ (S.fieldCtx c.fields).drop (i + 1) ++ S.params) T s ∧
+   772          Red (S.envInd env) (tele.drop (t + 1) ++ (S.fieldCtx c.fields).drop (i + 1) ++ S.params)
+   773            s (.sort w) ∧
+   774          S.FieldBound w) ∧
+   775      (∃ T, Infer (S.envCtors env) [] (S.ruleType c) T)) ∧
+   776    (S.large = true → ¬ S.NeverProp → S.ctors.length ≤ 1) ∧
+   777    (∃ T, Infer (S.envCtors env) [] S.recType T)
 
 == ConLeche/Kernel/Inductives/BlockTail.lean#L141-L146
    141  def checkBlock (ops : CheckerOps m) (env : Env) (block : List ConstantInfo) (p₀ : BlockParts) :
@@ -3278,13 +3278,13 @@
    145    let q ← checkBlockPass ops env p₀ (blockRawRec p₀)
    146    checkBlockTail ops block q
 
-== whitepaper/Fragment/Decl.lean#L307-L312
-   307  /-- **A rule's type**: `∀ params motive minors fields, motive idx (C params fields)`
-   308  — the recursor's binder prefix with the constructor's fields in place
-   309  of the indices and the major (con-leche generates the rule and
-   310  type-checks it, `classRuleOk`, `GenRec.lean:427`; the stream's rules
-   311  are never read; the fragment infers the rule's type likewise). -/
-   312  def ruleType (c : CtorSpec) : Expr := mkPis (S.ruleCtx c) (S.ruleBodyTy c)
+== whitepaper/Fragment/Decl.lean#L308-L313
+   308  /-- **A rule's type**: `∀ params motive minors fields, motive idx (C params fields)`
+   309  — the recursor's binder prefix with the constructor's fields in place
+   310  of the indices and the major (con-leche generates the rule and
+   311  type-checks it, `classRuleOk`, `GenRec.lean:427`; the stream's rules
+   312  are never read; the fragment infers the rule's type likewise). -/
+   313  def ruleType (c : CtorSpec) : Expr := mkPis (S.ruleCtx c) (S.ruleBodyTy c)
 
 == ConLeche/Kernel/Inductives/GenRec.lean#L412-L433
    412  /-- **One generated rule, installed** (as generated): resolved and typed
@@ -3310,49 +3310,49 @@
    432      throw (unresolvedConstsError s!"the domains of a generated rule of {cvR.name}" genA)
    433    pure genA
 
-== whitepaper/Fragment/Decl.lean#L531-L572
-   531  /-! ### What is stored -/
-   532  
-   533  /-- The type former's constant. -/
-   534  def indInfo : ConstInfo := ⟨S.lparams, S.indType, .induct S.nP S.nI (S.ctors.map (·.name)) S⟩
-   535  
-   536  /-- A constructor's constant. -/
-   537  def ctorInfo (c : CtorSpec) : ConstInfo :=
-   538    ⟨S.lparams, S.ctorType c, .ctor S.name S.nP c.fields.length⟩
-   539  
-   540  /-- The recursor's constant: `nP` parameters, one motive, `n` minors,
-   541  `nI` indices, the generated rules. -/
-   542  def recInfo : ConstInfo := ⟨S.recLparams, S.recType, .recursor S.nP 1 S.n S.nI S.rules⟩
-   543  
-   544  /-- The environment with the type former added. -/
-   545  def envInd (env : Env) : Env := env.add S.name S.indInfo
-   546  
-   547  /-- The environment with the type former and the constructors added,
-   548  in order. -/
-   549  def envCtors (env : Env) : Env :=
-   550    S.ctors.foldl (fun e c => e.add c.name (S.ctorInfo c)) (S.envInd env)
-   551  
-   552  /-- `T.rec`'s constant in a nested block: `nP` parameters, two
-   553  motives, `n + nK` minors, `nI` indices. -/
-   554  def recInfoN (N : NestInfo) : ConstInfo :=
-   555    ⟨S.recLparams, S.recTypeN N, .recursor S.nP 2 (S.n + N.nK) S.nI (S.rulesN N)⟩
-   556  
-   557  /-- `T.rec_1`'s constant: the same prefix, no indices. -/
-   558  def rec1Info (N : NestInfo) : ConstInfo :=
-   559    ⟨S.recLparams, S.rec1Type N, .recursor S.nP 2 (S.n + N.nK) 0 (S.rules1 N)⟩
-   560  
-   561  /-- **The installed nested block**: former, constructors, the two
-   562  recursors. -/
-   563  def installN (N : NestInfo) (env : Env) : Env :=
-   564    ((S.envCtors env).add S.recName (S.recInfoN N)).add N.aux (S.rec1Info N)
-   565  
-   566  /-- **The installed block**: former, constructors, recursor — and the
-   567  auxiliary recursor for a nested block. -/
-   568  def install (env : Env) : Env :=
-   569    match S.nest with
-   570    | none => (S.envCtors env).add S.recName S.recInfo
-   571    | some N => S.installN N env
-   572  
+== whitepaper/Fragment/Decl.lean#L532-L573
+   532  /-! ### What is stored -/
+   533  
+   534  /-- The type former's constant. -/
+   535  def indInfo : ConstInfo := ⟨S.lparams, S.indType, .induct S.nP S.nI (S.ctors.map (·.name)) S⟩
+   536  
+   537  /-- A constructor's constant. -/
+   538  def ctorInfo (c : CtorSpec) : ConstInfo :=
+   539    ⟨S.lparams, S.ctorType c, .ctor S.name S.nP c.fields.length⟩
+   540  
+   541  /-- The recursor's constant: `nP` parameters, one motive, `n` minors,
+   542  `nI` indices, the generated rules. -/
+   543  def recInfo : ConstInfo := ⟨S.recLparams, S.recType, .recursor S.nP 1 S.n S.nI S.rules⟩
+   544  
+   545  /-- The environment with the type former added. -/
+   546  def envInd (env : Env) : Env := env.add S.name S.indInfo
+   547  
+   548  /-- The environment with the type former and the constructors added,
+   549  in order. -/
+   550  def envCtors (env : Env) : Env :=
+   551    S.ctors.foldl (fun e c => e.add c.name (S.ctorInfo c)) (S.envInd env)
+   552  
+   553  /-- `T.rec`'s constant in a nested block: `nP` parameters, two
+   554  motives, `n + nK` minors, `nI` indices. -/
+   555  def recInfoN (N : NestInfo) : ConstInfo :=
+   556    ⟨S.recLparams, S.recTypeN N, .recursor S.nP 2 (S.n + N.nK) S.nI (S.rulesN N)⟩
+   557  
+   558  /-- `T.rec_1`'s constant: the same prefix, no indices. -/
+   559  def rec1Info (N : NestInfo) : ConstInfo :=
+   560    ⟨S.recLparams, S.rec1Type N, .recursor S.nP 2 (S.n + N.nK) 0 (S.rules1 N)⟩
+   561  
+   562  /-- **The installed nested block**: former, constructors, the two
+   563  recursors. -/
+   564  def installN (N : NestInfo) (env : Env) : Env :=
+   565    ((S.envCtors env).add S.recName (S.recInfoN N)).add N.aux (S.rec1Info N)
+   566  
+   567  /-- **The installed block**: former, constructors, recursor — and the
+   568  auxiliary recursor for a nested block. -/
+   569  def install (env : Env) : Env :=
+   570    match S.nest with
+   571    | none => (S.envCtors env).add S.recName S.recInfo
+   572    | some N => S.installN N env
+   573  
 
 == whitepaper/Fragment/Env.lean#L66-L82
     66  /-- What kind of constant a name is stored as. -/
@@ -5173,43 +5173,46 @@
    103      (us : List Level) : Bool :=
    104    !rl.k && !iotaCtorNeverProp find? cvj us
 
-== whitepaper/Fragment/Consistency.lean#L36-L47
-    36  /-- **The environments the checker accepts**: the empty environment,
-    37  a definition the definition check passes, an inductive block the
-    38  block check passes (con-leche's `addDecl`, `ConLeche/Kernel/Env.lean`,
-    39  run to completion). -/
-    40  inductive Accepted : Env → Prop
-    41    /-- Nothing is stored. -/
-    42    | empty : Accepted Env.empty
-    43    /-- A definition (`DefOk`, `Decl.lean`). -/
-    44    | defn {env : Env} {c : Name} {ci : ConstInfo} :
-    45        Accepted env → DefOk env c ci → Accepted (env.add c ci)
-    46    /-- An inductive block, plain or nested (`IndOk`, `Decl.lean`). -/
-    47    | ind {env : Env} (S : IndSpec) : Accepted env → IndOk env S → Accepted (S.install env)
+== whitepaper/Fragment/Consistency.lean#L36-L50
+    36  
+    37  /-- **The environments the checker accepts**: the empty environment,
+    38  a definition the definition check passes, an inductive block the
+    39  block check passes, a theorem the theorem check passes (con-leche's
+    40  `addDecl`, `ConLeche/Kernel/Env.lean`, run to completion). -/
+    41  inductive Accepted : Env → Prop
+    42    /-- Nothing is stored. -/
+    43    | empty : Accepted Env.empty
+    44    /-- A definition (`DefOk`, `Decl.lean`). -/
+    45    | defn {env : Env} {c : Name} {ci : ConstInfo} :
+    46        Accepted env → DefOk env c ci → Accepted (env.add c ci)
+    47    /-- An inductive block, plain or nested (`IndOk`, `Decl.lean`). -/
+    48    | ind {env : Env} (S : IndSpec) : Accepted env → IndOk env S → Accepted (S.install env)
+    49    /-- A theorem (`ThmOk`, `Decl.lean`), stored as its statement. -/
+    50    | thm {env : Env} {c : Name} {ci : ConstInfo} {v : Expr} :
 
-== whitepaper/Fragment/Consistency.lean#L50-L55
-    50  /-- An accepted environment is closed: its stored terms mention only
-    51  stored constants, at their own level parameters. -/
-    52  theorem Accepted.scoped : ∀ {env : Env}, Accepted env → Env.Scoped env
-    53    | _, .empty => Env.Scoped.empty
-    54    | _, .defn h hok => h.scoped.add_def hok
-    55    | _, .ind S h hok => h.scoped.install_any hok
+== whitepaper/Fragment/Consistency.lean#L54-L59
+    54  /-- An accepted environment is closed: its stored terms mention only
+    55  stored constants, at their own level parameters. -/
+    56  theorem Accepted.scoped : ∀ {env : Env}, Accepted env → Env.Scoped env
+    57    | _, .empty => Env.Scoped.empty
+    58    | _, .defn h hok => h.scoped.add_def hok
+    59    | _, .ind S h hok => h.scoped.install_any hok
 
-== whitepaper/Fragment/Consistency.lean#L57-L70
-    57  /-- **Every accepted environment has a model** (in any `IndLib`) — a
-    58  block model, which remembers its blocks for the nestings to come
-    59  (`BlockModel.lean`). -/
-    60  theorem accepted_model {env : Env} (h : Accepted env) : Nonempty (BlockModel V env) := by
-    61    induction h with
-    62    | empty => exact ⟨BlockModel.empty fun _ _ => pt⟩
-    63    | defn h hok ih =>
-    64      obtain ⟨m⟩ := ih
-    65      obtain ⟨m', -⟩ := install_def' h.scoped m hok
-    66      exact ⟨m'⟩
-    67    | ind S h hok ih =>
-    68      obtain ⟨m⟩ := ih
-    69      obtain ⟨m', -⟩ := install_ind_any h.scoped m hok
-    70      exact ⟨m'⟩
+== whitepaper/Fragment/Consistency.lean#L62-L75
+    62  /-- **Every accepted environment has a model** (in any `IndLib`) — a
+    63  block model, which remembers its blocks for the nestings to come
+    64  (`BlockModel.lean`). -/
+    65  theorem accepted_model {env : Env} (h : Accepted env) : Nonempty (BlockModel V env) := by
+    66    induction h with
+    67    | empty => exact ⟨BlockModel.empty fun _ _ => pt⟩
+    68    | defn h hok ih =>
+    69      obtain ⟨m⟩ := ih
+    70      obtain ⟨m', -⟩ := install_def' h.scoped m hok
+    71      exact ⟨m'⟩
+    72    | ind S h hok ih =>
+    73      obtain ⟨m⟩ := ih
+    74      obtain ⟨m', -⟩ := install_ind_any h.scoped m hok
+    75      exact ⟨m'⟩
 
 == ConLeche/MainTheorem.lean#L96-L99
     96  theorem model_exists (V : Type w) [SetTheory V]
@@ -5233,24 +5236,24 @@
     74      (hrun : ConLeche.Semantics.DeclBlockRun μ F env block p₀ env₂) (hcov : LfpCover mp []) :
     75      ∃ mp' : EnvModelM V μ env₂, LfpCover mp' [] := by
 
-== whitepaper/Fragment/Consistency.lean#L89-L98
-    89  /-- **No closed term inhabits an empty inductive type.**  For a block
-    90  without constructors, parameters, indices and level parameters whose
-    91  recursor the environment stores, no closed term has the type former's
-    92  type: in a model, the recursor's set lies in the function space over the
-    93  motives and the fibre, and at the motive with the empty fibre a
-    94  member of the type would be a member of the empty set. -/
-    95  theorem no_empty_inductive_inhabitant {env : Env} (hacc : Accepted env) {S : IndSpec}
-    96      (hctors : S.ctors = []) (hparams : S.params = []) (hidx : S.indices = [])
-    97      (hlp : S.lparams = []) (hrec : env.find? S.recName = some S.recInfo) (e : Expr) :
-    98      ¬ Infer env [] e (.const S.name []) := by
+== whitepaper/Fragment/Consistency.lean#L97-L106
+    97  /-- **No closed term inhabits an empty inductive type.**  For a block
+    98  without constructors, parameters, indices and level parameters whose
+    99  recursor the environment stores, no closed term has the type former's
+   100  type: in a model, the recursor's set lies in the function space over the
+   101  motives and the fibre, and at the motive with the empty fibre a
+   102  member of the type would be a member of the empty set. -/
+   103  theorem no_empty_inductive_inhabitant {env : Env} (hacc : Accepted env) {S : IndSpec}
+   104      (hctors : S.ctors = []) (hparams : S.params = []) (hidx : S.indices = [])
+   105      (hlp : S.lparams = []) (hrec : env.find? S.recName = some S.recInfo) (e : Expr) :
+   106      ¬ Infer env [] e (.const S.name []) := by
 
-== whitepaper/Fragment/Consistency.lean#L134-L138
-   134  theorem no_empty_prop_inhabitant {env : Env} (hacc : Accepted env) {name recName elim : Name}
-   135      (hrec : env.find? recName = some (IndSpec.falseSpec name recName elim).recInfo) (e : Expr) :
-   136      ¬ Infer env [] e (.const name []) :=
-   137    no_empty_inductive_inhabitant V hacc (S := IndSpec.falseSpec name recName elim) rfl rfl rfl rfl
-   138      hrec e
+== whitepaper/Fragment/Consistency.lean#L142-L146
+   142  theorem no_empty_prop_inhabitant {env : Env} (hacc : Accepted env) {name recName elim : Name}
+   143      (hrec : env.find? recName = some (IndSpec.falseSpec name recName elim).recInfo) (e : Expr) :
+   144      ¬ Infer env [] e (.const name []) :=
+   145    no_empty_inductive_inhabitant V hacc (S := IndSpec.falseSpec name recName elim) rfl rfl rfl rfl
+   146      hrec e
 
 == ConLeche/Model/Fold.lean#L268-L275
    268  theorem no_proof_of_False_pure (V : Type w) [SetTheory V]
@@ -6201,228 +6204,422 @@
 >>> whitepaper/sections/06b-modular.typ
 
 == whitepaper/Fragment/Env.lean#L83-L86
-    83    /-- **An assumption**: a constant known by its type alone — how a
-    84    module sees another module's definition whose value is not exported
+    83    /-- **An assumption**: a constant known by its type alone — a
+    84    theorem's statement, or a definition whose value is left out
     85    (`Modular.lean`).  It never unfolds. -/
     86    | assumed
 
-== whitepaper/Fragment/Modular.lean#L53-L56
-    53  /-- **The exported view** of an environment: the definitions `H`
-    54  selects seen as assumptions. -/
-    55  def Env.hide (H : Name → Bool) (env : Env) : Env :=
-    56    ⟨env.consts.map fun p => if H p.1 then (p.1, p.2.hide) else p⟩
+== whitepaper/Fragment/Decl.lean#L607-L618
+   607  
+   608  /-- **A theorem is accepted** (con-leche's theorem check): its
+   609  statement `ci.type` and a proof `v` pass the definition check, and the
+   610  statement is a proposition.  What is stored is the statement alone, as
+   611  an assumption (`ConstKind.assumed`, `ci.kind`): a theorem never
+   612  unfolds, in the checker (`Rules/Rel.lean`, only a definition unfolds)
+   613  as in the fragment.  So two proofs of one statement store the same
+   614  constant. -/
+   615  def ThmOk (env : Env) (c : Name) (ci : ConstInfo) (v : Expr) : Prop :=
+   616    ci.kind = .assumed ∧
+   617    DefOk env c { ci with kind := .defn v } ∧
+   618    (∃ s u, Infer env [] ci.type s ∧ Red env [] s (.sort u) ∧ LevelOracle.eq u .zero = true)
 
-== whitepaper/Fragment/Modular.lean#L58-L63
-    58  /-- **An interface of an environment**: each of its constants is
-    59  stored there, as it is, or — where the interface has an assumption —
-    60  with the same level parameters and type and some kind. -/
-    61  def Env.Le (E₁ E₂ : Env) : Prop :=
-    62    ∀ n ci, E₁.find? n = some ci →
-    63      E₂.find? n = some ci ∨ (ci.kind = .assumed ∧ ∃ k, E₂.find? n = some { ci with kind := k })
-
-== whitepaper/Fragment/Modular.lean#L141-L153
-   141  /-- An environment is an interface of itself with any values hidden. -/
-   142  theorem hide (H : Name → Bool) (E : Env) : (E.hide H).Le E := by
-   143    intro n ci hf
-   144    rw [Env.find?_hide] at hf
-   145    obtain ⟨cm, hcm, rfl⟩ := Option.map_eq_some_iff.mp hf
-   146    by_cases hH : H n
-   147    · simp only [hH, ite_true]
-   148      unfold ConstInfo.hide
-   149      split
-   150      · exact .inr ⟨rfl, cm.kind, hcm⟩
-   151      · exact .inl hcm
-   152    · simp only [hH]
-   153      exact .inl hcm
-
-== whitepaper/Fragment/Modular.lean#L92-L97
-    92  theorem trans (h₁ : E₁.Le E₂) (h₂ : E₂.Le E₃) : E₁.Le E₃ := by
-    93    intro n ci hf
-    94    rcases h₁ n ci hf with h' | ⟨ha, k, h'⟩
-    95    · exact h₂ n ci h'
-    96    · obtain ⟨k', hk', -⟩ := h₂.find' h'
-    97      exact .inr ⟨ha, k', hk'⟩
-
-== whitepaper/Fragment/Modular.lean#L493-L495
-   493  inductive Checks : Env → List Decl → Prop
-   494    | nil {E : Env} : Checks E []
-   495    | cons {E : Env} {d : Decl} {ds : List Decl} : d.Ok E → Checks (d.apply E) ds → Checks E (d :: ds)
-
-== whitepaper/Fragment/Modular.lean#L184-L304
-   184  /-- **Reduction is monotone** in the environment. -/
-   185  theorem Red.mono (h : E₁.Le E₂) : ∀ {Γ : List Expr} {e e' : Expr}, Red E₁ Γ e e' → Red E₂ Γ e e'
-   186    | _, _, _, .refl => .refl
-   187    | _, _, _, .trans h₁ h₂ => .trans (Red.mono h h₁) (Red.mono h h₂)
-   188    | _, _, _, .appFn h₁ => .appFn (Red.mono h h₁)
-   189    | _, _, _, .beta => .beta
-   190    | _, _, _, .zeta => .zeta
-   191    | _, _, _, .delta hfind hv hls =>
-   192      .delta (h.find_of_ne hfind (kind_ne_assumed_of_value hv)) hv hls
-   193    | _, _, _, .iota hfind hkind hus hlen hpis hmaj hmeq hrl hctor hinst hcij husj hmlen hpis' hresM
-   194        hIM hDM hdoms' htys' hI' hD' hlv hP hres hshape hrps hX => by
-   195      obtain ⟨k, hcij₂, -⟩ := h.find' hcij
-   196      exact .iota (h.find_of_ne hfind (kind_ne_assumed_of_recursor hkind)) hkind hus hlen hpis
-   197        (Red.mono h hmaj) hmeq hrl hctor hinst hcij₂ husj hmlen hpis' hresM (Infer.mono h hIM)
-   198        (DefEq.mono h hDM) hdoms' htys' (fun p hp => Infer.mono h (hI' p hp))
-   199        (fun p hp => DefEq.mono h (hD' p hp)) hlv (fun p hp => DefEq.mono h (hP p hp)) hres hshape
-   200        hrps (fun p hp => DefEq.mono h (hX p hp))
-   201    | _, _, _, .iotaProp hfind hkind hus hlen hpis hmaj hmeq hrl hctor hinst hcij husj hmlen hpis'
-   202        hresM hdoms' htys' hI' hD' hlv hP hres hshape hrps hX hI hlsI hpisI hsort hu => by
-   203      obtain ⟨k, hcij₂, -⟩ := h.find' hcij
-   204      obtain ⟨k', hI₂, -⟩ := h.find' hI
-   205      exact .iotaProp (h.find_of_ne hfind (kind_ne_assumed_of_recursor hkind)) hkind hus hlen hpis
-   206        (Red.mono h hmaj) hmeq hrl hctor hinst hcij₂ husj hmlen hpis' hresM hdoms' htys'
-   207        (fun p hp => Infer.mono h (hI' p hp)) (fun p hp => DefEq.mono h (hD' p hp)) hlv
-   208        (fun p hp => DefEq.mono h (hP p hp)) hres hshape hrps (fun p hp => DefEq.mono h (hX p hp))
-   209        hI₂ hlsI hpisI hsort hu
-   210    | _, _, _, .iotaNested hfind hkind hus hlen hpis hmaj hmeq hrl hctor hinst hcij hcijk husj hmlen
-   211        hpis' hresM hIM hDM hdoms' htys' hI' hD' hlv hpl hP hres hshape hrps hX =>
-   212      .iotaNested (h.find_of_ne hfind (kind_ne_assumed_of_recursor hkind)) hkind hus hlen hpis
-   213        (Red.mono h hmaj) hmeq hrl hctor hinst (h.find_of_ne hcij (kind_ne_assumed_of_ctor hcijk))
-   214        hcijk husj hmlen hpis' hresM (Infer.mono h hIM) (DefEq.mono h hDM) hdoms' htys'
-   215        (fun p hp => Infer.mono h (hI' p hp)) (fun p hp => DefEq.mono h (hD' p hp)) hlv hpl
-   216        (fun p hp => DefEq.mono h (hP p hp)) hres hshape hrps (fun p hp => DefEq.mono h (hX p hp))
-   217    | _, _, _, .iotaSlot hfind hkind hus hlen hpis hmaj hmeq hrl hctor hinst hcij husj hmlen hpis'
-   218        hresM hdoms' htys' hI' hD' hlv hP hres hshape hrps hX => by
-   219      obtain ⟨k, hcij₂, -⟩ := h.find' hcij
-   220      exact .iotaSlot (h.find_of_ne hfind (kind_ne_assumed_of_recursor hkind)) hkind hus hlen hpis
-   221        (Red.mono h hmaj) hmeq hrl hctor hinst hcij₂ husj hmlen hpis' hresM hdoms' htys'
-   222        (fun p hp => Infer.mono h (hI' p hp)) (fun p hp => DefEq.mono h (hD' p hp)) hlv
-   223        (fun p hp => DefEq.mono h (hP p hp)) hres hshape hrps (fun p hp => DefEq.mono h (hX p hp))
-   224    | _, _, _, .iotaNestedSlot hfind hkind hus hlen hpis hmaj hmeq hrl hctor hinst hcij hcijk husj
-   225        hmlen hpis' hresM hdoms' htys' hI' hD' hlv hpl hP hres hshape hrps hX =>
-   226      .iotaNestedSlot (h.find_of_ne hfind (kind_ne_assumed_of_recursor hkind)) hkind hus hlen hpis
-   227        (Red.mono h hmaj) hmeq hrl hctor hinst (h.find_of_ne hcij (kind_ne_assumed_of_ctor hcijk))
-   228        hcijk husj hmlen hpis' hresM hdoms' htys' (fun p hp => Infer.mono h (hI' p hp))
-   229        (fun p hp => DefEq.mono h (hD' p hp)) hlv hpl (fun p hp => DefEq.mono h (hP p hp)) hres
-   230        hshape hrps (fun p hp => DefEq.mono h (hX p hp))
-   231    | _, _, _, .iotaStrict hfind hkind hus hlen hpis hmaj hmeq hrl hctor hinst hcij husj hmlen hpis'
-   232        hresM hdM hI₀ hk₀ hls₀ hd₀ hpis₀ hlvl hlv hP hres hshape hrps hX => by
-   233      obtain ⟨k, hcij₂, -⟩ := h.find' hcij
-   234      exact .iotaStrict (h.find_of_ne hfind (kind_ne_assumed_of_recursor hkind)) hkind hus hlen hpis
-   235        (Red.mono h hmaj) hmeq hrl hctor hinst hcij₂ husj hmlen hpis' hresM hdM
-   236        (h.find_of_ne hI₀ (kind_ne_assumed_of_induct hk₀)) hk₀ hls₀ hd₀ hpis₀ hlvl hlv
-   237        (fun p hp => DefEq.mono h (hP p hp)) hres hshape hrps (fun p hp => DefEq.mono h (hX p hp))
-   238    | _, _, _, .iotaNestedStrict hfind hkind hus hlen hpis hmaj hmeq hrl hctor hinst hcij hcijk husj
-   239        hmlen hpis' hresM hdM hI₀ hk₀ hls₀ hd₀ hpis₀ hlvl hlv hpl hP hres hshape hrps hX =>
-   240      .iotaNestedStrict (h.find_of_ne hfind (kind_ne_assumed_of_recursor hkind)) hkind hus hlen hpis
-   241        (Red.mono h hmaj) hmeq hrl hctor hinst (h.find_of_ne hcij (kind_ne_assumed_of_ctor hcijk))
-   242        hcijk husj hmlen hpis' hresM hdM (h.find_of_ne hI₀ (kind_ne_assumed_of_induct hk₀)) hk₀
-   243        hls₀ hd₀ hpis₀ hlvl hlv hpl (fun p hp => DefEq.mono h (hP p hp)) hres hshape hrps
-   244        (fun p hp => DefEq.mono h (hX p hp))
-   245    | _, _, _, .iotaK hfind hkind hus hlen hpis hrl hk hI hr hF hD =>
-   246      .iotaK (h.find_of_ne hfind (kind_ne_assumed_of_recursor hkind)) hkind hus hlen hpis hrl hk
-   247        (Infer.mono h hI) (Red.mono h hr) (Infer.mono h hF) (DefEq.mono h hD)
+== whitepaper/Fragment/InstallThm.lean#L248-L252
    248  
-   249  /-- **Definitional equality is monotone** in the environment. -/
-   250  theorem DefEq.mono (h : E₁.Le E₂) : ∀ {Γ : List Expr} {a b : Expr}, DefEq E₁ Γ a b → DefEq E₂ Γ a b
-   251    | _, _, _, .refl => .refl
-   252    | _, _, _, .symm h₁ => .symm (DefEq.mono h h₁)
-   253    | _, _, _, .redL hr h₁ => .redL (Red.mono h hr) (DefEq.mono h h₁)
-   254    | _, _, _, .sort h₁ => .sort h₁
-   255    | _, _, _, .const h₁ => .const h₁
-   256    | _, _, _, .pi hA hB => .pi (DefEq.mono h hA) (DefEq.mono h hB)
-   257    | _, _, _, .lam hA hb ht₁ ht₂ ht =>
-   258      .lam (DefEq.mono h hA) (DefEq.mono h hb) (Infer.mono h ht₁) (Infer.mono h ht₂) (DefEq.mono h ht)
-   259    | _, _, _, .lamProp hA hb hs hu hu0 =>
-   260      .lamProp (DefEq.mono h hA) (DefEq.mono h hb) (Infer.mono h hs) (Red.mono h hu) hu0
-   261    | _, _, _, .etaProp htb hr hA hbody hs hu hu0 =>
-   262      .etaProp (Infer.mono h htb) (Red.mono h hr) (DefEq.mono h hA) (DefEq.mono h hbody)
-   263        (Infer.mono h hs) (Red.mono h hu) hu0
-   264    | _, _, _, .lamConst hA hb hc₁ hc₂ => .lamConst (DefEq.mono h hA) (DefEq.mono h hb) hc₁ hc₂
-   265    | _, _, _, .appIn hf hI hr ha =>
-   266      .appIn (DefEq.mono h hf) (Infer.mono h hI) (Red.mono h hr) (DefEqIn.mono h ha)
-   267    | _, _, _, .app hf ha => .app (DefEq.mono h hf) (DefEq.mono h ha)
-   268    | _, _, _, .eta htb hr hA hbody ht₁ htB =>
-   269      .eta (Infer.mono h htb) (Red.mono h hr) (DefEq.mono h hA) (DefEq.mono h hbody)
-   270        (Infer.mono h ht₁) (DefEq.mono h htB)
-   271    | _, _, _, .proofIrrel hta htta hu hu0 htb httb hv hv0 =>
-   272      .proofIrrel (Infer.mono h hta) (Infer.mono h htta) (Red.mono h hu) hu0 (Infer.mono h htb)
-   273        (Infer.mono h httb) (Red.mono h hv) hv0
-   274    | _, _, _, .lams h₁ => .lams (DefEqLams.mono h h₁)
-   275  
-   276  theorem DefEqLams.mono (h : E₁.Le E₂) :
-   277      ∀ {Γ : List Expr} {a b : Expr}, DefEqLams E₁ Γ a b → DefEqLams E₂ Γ a b
-   278    | _, _, _, .refl => .refl
-   279    | _, _, _, .inner hA hb ht₁ ht₂ ht =>
-   280      .inner (DefEq.mono h hA) (DefEq.mono h hb) (Infer.mono h ht₁) (Infer.mono h ht₂)
-   281        (DefEq.mono h ht)
-   282    | _, _, _, .outer hA hb => .outer (DefEq.mono h hA) (DefEqLams.mono h hb)
-   283  
-   284  theorem DefEqIn.mono (h : E₁.Le E₂) :
-   285      ∀ {Γ : List Expr} {T a b : Expr}, DefEqIn E₁ Γ T a b → DefEqIn E₂ Γ T a b
-   286    | _, _, _, _, .of h₁ => .of (DefEq.mono h h₁)
-   287    | _, _, _, _, .symm h₁ => .symm (DefEqIn.mono h h₁)
-   288    | _, _, _, _, .lam hr hb => .lam (Red.mono h hr) (DefEqIn.mono h hb)
-   289    | _, _, _, _, .eta hr hb => .eta (Red.mono h hr) (DefEqIn.mono h hb)
-   290  
-   291  /-- **Inference is monotone** in the environment: an assumption is
-   292  read through its type alone, which the larger environment stores
-   293  unchanged. -/
-   294  theorem Infer.mono (h : E₁.Le E₂) : ∀ {Γ : List Expr} {e T : Expr}, Infer E₁ Γ e T → Infer E₂ Γ e T
-   295    | _, _, _, .bvar h₁ => .bvar h₁
-   296    | _, _, _, .sort => .sort
-   297    | _, _, _, .const (ci := ci) hfind hls => by
-   298      obtain ⟨k, hf₂, -⟩ := h.find' hfind
-   299      exact Infer.const (ci := { ci with kind := k }) hf₂ hls
-   300    | _, _, _, .pi hA hu hB hv => .pi (Infer.mono h hA) (Red.mono h hu) (Infer.mono h hB) (Red.mono h hv)
-   301    | _, _, _, .lam hA hu hb => .lam (Infer.mono h hA) (Red.mono h hu) (Infer.mono h hb)
-   302    | _, _, _, .app hf hr ha hd => .app (Infer.mono h hf) (Red.mono h hr) (Infer.mono h ha) (DefEq.mono h hd)
-   303    | _, _, _, .letE hT hu hv hd hb =>
-   304      .letE (Infer.mono h hT) (Red.mono h hu) (Infer.mono h hv) (DefEq.mono h hd) (Infer.mono h hb)
+   249  /-- **Installing a theorem preserves having a model**: install its
+   250  proof as a definition, then hide the value. -/
+   251  noncomputable def install_thm {env : Env} {c : Name} {ci : ConstInfo} {v : Expr}
+   252      (hs : Env.Scoped env) (m : BlockModel V env) (hok : ThmOk env c ci v) :
 
-== whitepaper/Fragment/Modular.lean#L485-L489
+== whitepaper/Fragment/InstallThm.lean#L180-L181
+   180  /-- **A model survives hiding values**, at the same assignment. -/
+   181  def BlockModel.hide {E : Env} (m : BlockModel V E) (H : Name → Bool) : BlockModel V (E.hide H) where
+
+== whitepaper/Fragment/Modular.lean#L52-L57
+    52  /-- **Refinement**: `E₁` is `E₂` with constants left out or turned
+    53  into assumptions — each constant of `E₁` is stored in `E₂` as it is,
+    54  or, where `E₁` has an assumption, with its level parameters and type. -/
+    55  def Env.Le (E₁ E₂ : Env) : Prop :=
+    56    ∀ n ci, E₁.find? n = some ci →
+    57      E₂.find? n = some ci ∨ (ci.kind = .assumed ∧ ∃ k, E₂.find? n = some { ci with kind := k })
+
+== whitepaper/Fragment/Modular.lean#L107-L113
+   107  /-- An environment with values hidden refines it. -/
+   108  theorem hide (H : Name → Bool) (E : Env) : (E.hide H).Le E := by
+   109    intro n ci hf
+   110    obtain ⟨cm, hcm, rfl⟩ := Env.find?_hide_eq_some hf
+   111    rcases ConstInfo.hideIf_cases (H n) cm with h | h
+   112    · rw [h]; exact .inl hcm
+   113    · rw [h]; exact .inr ⟨rfl, cm.kind, hcm⟩
+
+== whitepaper/Fragment/Modular.lean#L86-L91
+    86  theorem trans (h₁ : E₁.Le E₂) (h₂ : E₂.Le E₃) : E₁.Le E₃ := by
+    87    intro n ci hf
+    88    rcases h₁ n ci hf with h' | ⟨ha, k, h'⟩
+    89    · exact h₂ n ci h'
+    90    · obtain ⟨k', hk', -⟩ := h₂.find' h'
+    91      exact .inr ⟨ha, k', hk'⟩
+
+== whitepaper/Fragment/Modular.lean#L494-L498
+   494  /-- **A module checks**: its declarations, each accepted on top of the
+   495  environment it is checked against and the declarations before it. -/
+   496  inductive Checks : Env → List Decl → Prop
+   497    | nil {E : Env} : Checks E []
+   498    | cons {E : Env} {d : Decl} {ds : List Decl} : d.Ok E → Checks (d.apply E) ds → Checks E (d :: ds)
+
+== whitepaper/Fragment/Modular.lean#L176-L296
+   176  /-- **Reduction is monotone** in the environment. -/
+   177  theorem Red.mono (h : E₁.Le E₂) : ∀ {Γ : List Expr} {e e' : Expr}, Red E₁ Γ e e' → Red E₂ Γ e e'
+   178    | _, _, _, .refl => .refl
+   179    | _, _, _, .trans h₁ h₂ => .trans (Red.mono h h₁) (Red.mono h h₂)
+   180    | _, _, _, .appFn h₁ => .appFn (Red.mono h h₁)
+   181    | _, _, _, .beta => .beta
+   182    | _, _, _, .zeta => .zeta
+   183    | _, _, _, .delta hfind hv hls =>
+   184      .delta (h.find_of_ne hfind (kind_ne_assumed_of_value hv)) hv hls
+   185    | _, _, _, .iota hfind hkind hus hlen hpis hmaj hmeq hrl hctor hinst hcij husj hmlen hpis' hresM
+   186        hIM hDM hdoms' htys' hI' hD' hlv hP hres hshape hrps hX => by
+   187      obtain ⟨k, hcij₂, -⟩ := h.find' hcij
+   188      exact .iota (h.find_of_ne hfind (kind_ne_assumed_of_recursor hkind)) hkind hus hlen hpis
+   189        (Red.mono h hmaj) hmeq hrl hctor hinst hcij₂ husj hmlen hpis' hresM (Infer.mono h hIM)
+   190        (DefEq.mono h hDM) hdoms' htys' (fun p hp => Infer.mono h (hI' p hp))
+   191        (fun p hp => DefEq.mono h (hD' p hp)) hlv (fun p hp => DefEq.mono h (hP p hp)) hres hshape
+   192        hrps (fun p hp => DefEq.mono h (hX p hp))
+   193    | _, _, _, .iotaProp hfind hkind hus hlen hpis hmaj hmeq hrl hctor hinst hcij husj hmlen hpis'
+   194        hresM hdoms' htys' hI' hD' hlv hP hres hshape hrps hX hI hlsI hpisI hsort hu => by
+   195      obtain ⟨k, hcij₂, -⟩ := h.find' hcij
+   196      obtain ⟨k', hI₂, -⟩ := h.find' hI
+   197      exact .iotaProp (h.find_of_ne hfind (kind_ne_assumed_of_recursor hkind)) hkind hus hlen hpis
+   198        (Red.mono h hmaj) hmeq hrl hctor hinst hcij₂ husj hmlen hpis' hresM hdoms' htys'
+   199        (fun p hp => Infer.mono h (hI' p hp)) (fun p hp => DefEq.mono h (hD' p hp)) hlv
+   200        (fun p hp => DefEq.mono h (hP p hp)) hres hshape hrps (fun p hp => DefEq.mono h (hX p hp))
+   201        hI₂ hlsI hpisI hsort hu
+   202    | _, _, _, .iotaNested hfind hkind hus hlen hpis hmaj hmeq hrl hctor hinst hcij hcijk husj hmlen
+   203        hpis' hresM hIM hDM hdoms' htys' hI' hD' hlv hpl hP hres hshape hrps hX =>
+   204      .iotaNested (h.find_of_ne hfind (kind_ne_assumed_of_recursor hkind)) hkind hus hlen hpis
+   205        (Red.mono h hmaj) hmeq hrl hctor hinst (h.find_of_ne hcij (kind_ne_assumed_of_ctor hcijk))
+   206        hcijk husj hmlen hpis' hresM (Infer.mono h hIM) (DefEq.mono h hDM) hdoms' htys'
+   207        (fun p hp => Infer.mono h (hI' p hp)) (fun p hp => DefEq.mono h (hD' p hp)) hlv hpl
+   208        (fun p hp => DefEq.mono h (hP p hp)) hres hshape hrps (fun p hp => DefEq.mono h (hX p hp))
+   209    | _, _, _, .iotaSlot hfind hkind hus hlen hpis hmaj hmeq hrl hctor hinst hcij husj hmlen hpis'
+   210        hresM hdoms' htys' hI' hD' hlv hP hres hshape hrps hX => by
+   211      obtain ⟨k, hcij₂, -⟩ := h.find' hcij
+   212      exact .iotaSlot (h.find_of_ne hfind (kind_ne_assumed_of_recursor hkind)) hkind hus hlen hpis
+   213        (Red.mono h hmaj) hmeq hrl hctor hinst hcij₂ husj hmlen hpis' hresM hdoms' htys'
+   214        (fun p hp => Infer.mono h (hI' p hp)) (fun p hp => DefEq.mono h (hD' p hp)) hlv
+   215        (fun p hp => DefEq.mono h (hP p hp)) hres hshape hrps (fun p hp => DefEq.mono h (hX p hp))
+   216    | _, _, _, .iotaNestedSlot hfind hkind hus hlen hpis hmaj hmeq hrl hctor hinst hcij hcijk husj
+   217        hmlen hpis' hresM hdoms' htys' hI' hD' hlv hpl hP hres hshape hrps hX =>
+   218      .iotaNestedSlot (h.find_of_ne hfind (kind_ne_assumed_of_recursor hkind)) hkind hus hlen hpis
+   219        (Red.mono h hmaj) hmeq hrl hctor hinst (h.find_of_ne hcij (kind_ne_assumed_of_ctor hcijk))
+   220        hcijk husj hmlen hpis' hresM hdoms' htys' (fun p hp => Infer.mono h (hI' p hp))
+   221        (fun p hp => DefEq.mono h (hD' p hp)) hlv hpl (fun p hp => DefEq.mono h (hP p hp)) hres
+   222        hshape hrps (fun p hp => DefEq.mono h (hX p hp))
+   223    | _, _, _, .iotaStrict hfind hkind hus hlen hpis hmaj hmeq hrl hctor hinst hcij husj hmlen hpis'
+   224        hresM hdM hI₀ hk₀ hls₀ hd₀ hpis₀ hlvl hlv hP hres hshape hrps hX => by
+   225      obtain ⟨k, hcij₂, -⟩ := h.find' hcij
+   226      exact .iotaStrict (h.find_of_ne hfind (kind_ne_assumed_of_recursor hkind)) hkind hus hlen hpis
+   227        (Red.mono h hmaj) hmeq hrl hctor hinst hcij₂ husj hmlen hpis' hresM hdM
+   228        (h.find_of_ne hI₀ (kind_ne_assumed_of_induct hk₀)) hk₀ hls₀ hd₀ hpis₀ hlvl hlv
+   229        (fun p hp => DefEq.mono h (hP p hp)) hres hshape hrps (fun p hp => DefEq.mono h (hX p hp))
+   230    | _, _, _, .iotaNestedStrict hfind hkind hus hlen hpis hmaj hmeq hrl hctor hinst hcij hcijk husj
+   231        hmlen hpis' hresM hdM hI₀ hk₀ hls₀ hd₀ hpis₀ hlvl hlv hpl hP hres hshape hrps hX =>
+   232      .iotaNestedStrict (h.find_of_ne hfind (kind_ne_assumed_of_recursor hkind)) hkind hus hlen hpis
+   233        (Red.mono h hmaj) hmeq hrl hctor hinst (h.find_of_ne hcij (kind_ne_assumed_of_ctor hcijk))
+   234        hcijk husj hmlen hpis' hresM hdM (h.find_of_ne hI₀ (kind_ne_assumed_of_induct hk₀)) hk₀
+   235        hls₀ hd₀ hpis₀ hlvl hlv hpl (fun p hp => DefEq.mono h (hP p hp)) hres hshape hrps
+   236        (fun p hp => DefEq.mono h (hX p hp))
+   237    | _, _, _, .iotaK hfind hkind hus hlen hpis hrl hk hI hr hF hD =>
+   238      .iotaK (h.find_of_ne hfind (kind_ne_assumed_of_recursor hkind)) hkind hus hlen hpis hrl hk
+   239        (Infer.mono h hI) (Red.mono h hr) (Infer.mono h hF) (DefEq.mono h hD)
+   240  
+   241  /-- **Definitional equality is monotone** in the environment. -/
+   242  theorem DefEq.mono (h : E₁.Le E₂) : ∀ {Γ : List Expr} {a b : Expr}, DefEq E₁ Γ a b → DefEq E₂ Γ a b
+   243    | _, _, _, .refl => .refl
+   244    | _, _, _, .symm h₁ => .symm (DefEq.mono h h₁)
+   245    | _, _, _, .redL hr h₁ => .redL (Red.mono h hr) (DefEq.mono h h₁)
+   246    | _, _, _, .sort h₁ => .sort h₁
+   247    | _, _, _, .const h₁ => .const h₁
+   248    | _, _, _, .pi hA hB => .pi (DefEq.mono h hA) (DefEq.mono h hB)
+   249    | _, _, _, .lam hA hb ht₁ ht₂ ht =>
+   250      .lam (DefEq.mono h hA) (DefEq.mono h hb) (Infer.mono h ht₁) (Infer.mono h ht₂) (DefEq.mono h ht)
+   251    | _, _, _, .lamProp hA hb hs hu hu0 =>
+   252      .lamProp (DefEq.mono h hA) (DefEq.mono h hb) (Infer.mono h hs) (Red.mono h hu) hu0
+   253    | _, _, _, .etaProp htb hr hA hbody hs hu hu0 =>
+   254      .etaProp (Infer.mono h htb) (Red.mono h hr) (DefEq.mono h hA) (DefEq.mono h hbody)
+   255        (Infer.mono h hs) (Red.mono h hu) hu0
+   256    | _, _, _, .lamConst hA hb hc₁ hc₂ => .lamConst (DefEq.mono h hA) (DefEq.mono h hb) hc₁ hc₂
+   257    | _, _, _, .appIn hf hI hr ha =>
+   258      .appIn (DefEq.mono h hf) (Infer.mono h hI) (Red.mono h hr) (DefEqIn.mono h ha)
+   259    | _, _, _, .app hf ha => .app (DefEq.mono h hf) (DefEq.mono h ha)
+   260    | _, _, _, .eta htb hr hA hbody ht₁ htB =>
+   261      .eta (Infer.mono h htb) (Red.mono h hr) (DefEq.mono h hA) (DefEq.mono h hbody)
+   262        (Infer.mono h ht₁) (DefEq.mono h htB)
+   263    | _, _, _, .proofIrrel hta htta hu hu0 htb httb hv hv0 =>
+   264      .proofIrrel (Infer.mono h hta) (Infer.mono h htta) (Red.mono h hu) hu0 (Infer.mono h htb)
+   265        (Infer.mono h httb) (Red.mono h hv) hv0
+   266    | _, _, _, .lams h₁ => .lams (DefEqLams.mono h h₁)
+   267  
+   268  theorem DefEqLams.mono (h : E₁.Le E₂) :
+   269      ∀ {Γ : List Expr} {a b : Expr}, DefEqLams E₁ Γ a b → DefEqLams E₂ Γ a b
+   270    | _, _, _, .refl => .refl
+   271    | _, _, _, .inner hA hb ht₁ ht₂ ht =>
+   272      .inner (DefEq.mono h hA) (DefEq.mono h hb) (Infer.mono h ht₁) (Infer.mono h ht₂)
+   273        (DefEq.mono h ht)
+   274    | _, _, _, .outer hA hb => .outer (DefEq.mono h hA) (DefEqLams.mono h hb)
+   275  
+   276  theorem DefEqIn.mono (h : E₁.Le E₂) :
+   277      ∀ {Γ : List Expr} {T a b : Expr}, DefEqIn E₁ Γ T a b → DefEqIn E₂ Γ T a b
+   278    | _, _, _, _, .of h₁ => .of (DefEq.mono h h₁)
+   279    | _, _, _, _, .symm h₁ => .symm (DefEqIn.mono h h₁)
+   280    | _, _, _, _, .lam hr hb => .lam (Red.mono h hr) (DefEqIn.mono h hb)
+   281    | _, _, _, _, .eta hr hb => .eta (Red.mono h hr) (DefEqIn.mono h hb)
+   282  
+   283  /-- **Inference is monotone** in the environment: an assumption is
+   284  read through its type alone, which the larger environment stores
+   285  unchanged. -/
+   286  theorem Infer.mono (h : E₁.Le E₂) : ∀ {Γ : List Expr} {e T : Expr}, Infer E₁ Γ e T → Infer E₂ Γ e T
+   287    | _, _, _, .bvar h₁ => .bvar h₁
+   288    | _, _, _, .sort => .sort
+   289    | _, _, _, .const (ci := ci) hfind hls => by
+   290      obtain ⟨k, hf₂, -⟩ := h.find' hfind
+   291      exact Infer.const (ci := { ci with kind := k }) hf₂ hls
+   292    | _, _, _, .pi hA hu hB hv => .pi (Infer.mono h hA) (Red.mono h hu) (Infer.mono h hB) (Red.mono h hv)
+   293    | _, _, _, .lam hA hu hb => .lam (Infer.mono h hA) (Red.mono h hu) (Infer.mono h hb)
+   294    | _, _, _, .app hf hr ha hd => .app (Infer.mono h hf) (Red.mono h hr) (Infer.mono h ha) (DefEq.mono h hd)
+   295    | _, _, _, .letE hT hu hv hd hb =>
+   296      .letE (Infer.mono h hT) (Red.mono h hu) (Infer.mono h hv) (DefEq.mono h hd) (Infer.mono h hb)
+
+== whitepaper/Fragment/Modular.lean#L483-L492
+   483  /-- **A declaration's check is monotone** in the environment, at
+   484  names fresh in the larger one. -/
    485  theorem Decl.Ok.mono {d : Decl} (h : E₁.Le E₂) (hf : ∀ n ∈ d.names, E₂.find? n = none)
    486      (hok : d.Ok E₁) : d.Ok E₂ := by
    487    cases d with
    488    | defn c ci => exact DefOk.mono h (hf c (by simp [Decl.names])) hok
-   489    | ind S => exact IndSpec.IndOk.mono S h hf hok
+   489    | thm c ci v =>
+   490      obtain ⟨hk, hd, s, u, hT, hs, hu⟩ := hok
+   491      exact ⟨hk, DefOk.mono h (hf c (by simp [Decl.names])) hd, s, u, Infer.mono h hT, Red.mono h hs, hu⟩
+   492    | ind S => exact IndSpec.IndOk.mono S h hf hok
 
-== whitepaper/Fragment/Modular.lean#L518-L531
-   518  theorem Checks.mono {E₁ : Env} {ds : List Decl} (hc : Checks E₁ ds) :
-   519      ∀ {E₂ : Env}, E₁.Le E₂ → (∀ d ∈ ds, ∀ n ∈ d.names, E₂.find? n = none) → Checks E₂ ds := by
-   520    induction hc with
-   521    | nil => intro _ _ _; exact .nil
-   522    | @cons E d ds hd hrest ih =>
-   523      intro E₂ h hf
-   524      refine .cons (hd.mono h (hf d (List.mem_cons_self ..))) (ih ?_ ?_)
-   525      · rw [Decl.apply_eq, Decl.apply_eq]
-   526        exact h.prepend _
-   527      · intro d' hd' n hn
-   528        have h₁ := hrest.fresh d' hd' n hn
-   529        rw [Decl.apply_eq] at h₁
-   530        rw [Decl.apply_eq, Env.find?_append_of_lookup (Env.find?_append_none h₁).1]
-   531        exact hf d' (List.mem_cons_of_mem _ hd') n hn
+== whitepaper/Fragment/Modular.lean#L519-L536
+   519  /-- **A module's check is monotone** in the environment it is checked
+   520  against, at names fresh in the larger one. -/
+   521  theorem Checks.mono {E₁ : Env} {ds : List Decl} (hc : Checks E₁ ds) :
+   522      ∀ {E₂ : Env}, E₁.Le E₂ → (∀ d ∈ ds, ∀ n ∈ d.names, E₂.find? n = none) → Checks E₂ ds := by
+   523    induction hc with
+   524    | nil => intro _ _ _; exact .nil
+   525    | @cons E d ds hd hrest ih =>
+   526      intro E₂ h hf
+   527      refine .cons (hd.mono h (hf d (List.mem_cons_self ..))) (ih ?_ ?_)
+   528      · rw [Decl.apply_eq, Decl.apply_eq]
+   529        exact h.prepend _
+   530      · intro d' hd' n hn
+   531        have h₁ := hrest.fresh d' hd' n hn
+   532        rw [Decl.apply_eq] at h₁
+   533        rw [Decl.apply_eq, Env.find?_append_of_lookup (Env.find?_append_none h₁).1]
+   534        exact hf d' (List.mem_cons_of_mem _ hd') n hn
+   535  
+   536  /-- A module checked against an accepted environment extends it to an
 
-== whitepaper/Fragment/Modular.lean#L410-L415
-   410  theorem apply_eq (d : Decl) (E : Env) : d.apply E = ⟨d.stores ++ E.consts⟩ := by
-   411    cases d with
-   412    | defn c ci => rfl
-   413    | ind S =>
-   414      show S.install E = ⟨(S.install Env.empty).consts ++ E.consts⟩
-   415      rw [← IndSpec.install_consts]
+== whitepaper/Fragment/Modular.lean#L446-L449
+   446  /-- **A block's check is monotone** in the environment, at names that
+   447  are fresh in the larger one. -/
+   448  theorem IndOk.mono (S : IndSpec) (h : E₁.Le E₂) (hf : ∀ n ∈ S.names, E₂.find? n = none)
+   449      (hok : IndOk E₁ S) : IndOk E₂ S := by
 
-== whitepaper/Fragment/Modular.lean#L550-L553
-   550  inductive Modular : Env → Prop
-   551    | empty : Modular Env.empty
-   552    | step {U I : Env} {ds : List Decl} : Modular U → I.Le U → Checks I ds →
-   553        (∀ d ∈ ds, ∀ n ∈ d.names, U.find? n = none) → Modular (applyAll ds U)
+== whitepaper/Fragment/Modular.lean#L408-L414
+   408  theorem apply_eq (d : Decl) (E : Env) : d.apply E = ⟨d.stores ++ E.consts⟩ := by
+   409    cases d with
+   410    | defn c ci => rfl
+   411    | thm c ci v => rfl
+   412    | ind S =>
+   413      show S.install E = ⟨(S.install Env.empty).consts ++ E.consts⟩
+   414      rw [← IndSpec.install_consts]
 
-== whitepaper/Fragment/Modular.lean#L557-L560
-   557  theorem Modular.accepted {U : Env} (h : Modular U) : Accepted U := by
-   558    induction h with
-   559    | empty => exact .empty
-   560    | step _ hI hc hf ih => exact (hc.mono hI hf).accepted ih
+== whitepaper/Fragment/Modular.lean#L752-L756
+   752  /-- **Compatible lists of declarations**: where a declaration of the
+   753  one and a declaration of the other store a common name, they store the
+   754  same entries. -/
+   755  def Compatible (K L : List Decl) : Prop :=
+   756    ∀ k ∈ K, ∀ d ∈ L, k.overlaps d = true → k.stores = d.stores
 
-== whitepaper/Fragment/Modular.lean#L576-L577
-   576  theorem modular_model {U : Env} (h : Modular U) : Nonempty (BlockModel V U) :=
-   577    accepted_model V h.accepted
+== whitepaper/Fragment/Modular.lean#L758-L760
+   758  /-- **The join** of two lists of declarations: the first, then the
+   759  declarations of the second that store no name the first stores. -/
+   760  def join (K L : List Decl) : List Decl := K ++ L.filter fun d => !K.any (·.overlaps d)
 
-== whitepaper/Fragment/Modular.lean#L581-L584
-   581  theorem modular_no_empty_prop_inhabitant {U : Env} (h : Modular U) {name recName elim : Name}
-   582      (hrec : U.find? recName = some (IndSpec.falseSpec name recName elim).recInfo) (e : Expr) :
-   583      ¬ Infer U [] e (.const name []) :=
-   584    no_empty_prop_inhabitant V h.accepted hrec e
+== whitepaper/Fragment/Modular.lean#L861-L869
+   861  /-- **A module** of a development: the modules it imports, its
+   862  declarations, the environment its declarations are checked against
+   863  (its **base**), and its **summary**: the declarations of everything it
+   864  rests on, itself included. -/
+   865  structure Module where
+   866    imports : List Nat
+   867    decls : List Decl
+   868    base : Env
+   869    summary : List Decl
+
+== whitepaper/Fragment/Modular.lean#L871-L873
+   871  /-- **A module's own environment**: its base with its declarations,
+   872  what its declarations were checked in. -/
+   873  def Module.own (m : Module) : Env := applyAll m.decls m.base
+
+== whitepaper/Fragment/Modular.lean#L884-L900
+   884  /-- **The local checks at module `i`.**  They read the module and its
+   885  direct imports — their own environments and their summaries — and
+   886  nothing else:
+   887  
+   888  * the imports come earlier (the import graph has no cycle);
+   889  * the declarations are accepted against the base;
+   890  * every constant of the base refines a constant of some import's own
+   891    environment;
+   892  * its declarations and its imports' summaries are compatible;
+   893  * its summary is their join. -/
+   894  structure LocalOk (dev : Nat → Module) (i : Nat) : Prop where
+   895    below : ∀ b ∈ (dev i).imports, b < i
+   896    checks : Checks (dev i).base (dev i).decls
+   897    base_le : ∀ n ci, (dev i).base.find? n = some ci →
+   898      ∃ b ∈ (dev i).imports, ∃ ci', (dev b).own.find? n = some ci' ∧ ci.Le ci'
+   899    compatible : ∀ X ∈ family dev i, ∀ Y ∈ family dev i, Compatible X Y
+   900    summary_eq : (dev i).summary = join (importsJoin dev (dev i).imports) (dev i).decls
+
+== whitepaper/Fragment/Modular.lean#L942-L990
+   942  /-- **The local checks suffice** (the theorem of modular checking):
+   943  if every module up to `i` passes its local checks, then module `i`'s
+   944  summary is a checked list of declarations, and the module's own
+   945  environment refines the environment the summary builds. -/
+   946  theorem local_checks (dev : Nat → Module) :
+   947      ∀ i, (∀ j ≤ i, LocalOk dev j) →
+   948        Checks Env.empty (dev i).summary ∧ (dev i).own.Le (dev i).world := by
+   949    intro i
+   950    induction i using Nat.strongRecOn with
+   951    | _ i ihi =>
+   952    intro hall
+   953    have h := hall i (Nat.le_refl i)
+   954    have ihb : ∀ b ∈ (dev i).imports, Checks Env.empty (dev b).summary ∧
+   955        (dev b).own.Le (dev b).world := fun b hb =>
+   956      ihi b (h.below b hb) fun j hj => hall j (Nat.le_trans hj (Nat.le_of_lt (h.below b hb)))
+   957    obtain ⟨hK, hKm, -, hKs⟩ := importsJoin_inv dev i h (fun b hb => (ihb b hb).1)
+   958      (dev i).imports [] (fun _ hb => hb) .nil (fun _ hk => by cases hk)
+   959    have hK' : Checks Env.empty (importsJoin dev (dev i).imports) := hK
+   960    -- every import's own environment refines the joined imports
+   961    have hoff : ∀ b ∈ (dev i).imports,
+   962        (dev b).own.Le (applyAll (importsJoin dev (dev i).imports) Env.empty) := fun b hb =>
+   963      (ihb b hb).2.trans (hK'.le_of_stores fun d hd => hKs b hb d hd)
+   964    -- the base refines the joined imports
+   965    have hbase : (dev i).base.Le (applyAll (importsJoin dev (dev i).imports) Env.empty) := by
+   966      rw [Env.Le.iff]
+   967      intro n ci hf
+   968      obtain ⟨b, hb, ci', hci', hle⟩ := h.base_le n ci hf
+   969      obtain ⟨ci'', h'', hle'⟩ := Env.Le.iff.mp (hoff b hb) n ci' hci'
+   970      exact ⟨ci'', h'', hle.trans hle'⟩
+   971    have hc : Compatible (importsJoin dev (dev i).imports) (dev i).decls := by
+   972      intro k hk d hd hkd
+   973      obtain ⟨b, hb, hk'⟩ := hKm k hk
+   974      exact h.compatible _ (List.mem_cons_of_mem _ (List.mem_map_of_mem hb)) _ (List.mem_cons_self ..)
+   975        k hk' d hd hkd
+   976    have hS : Checks Env.empty (dev i).summary := by
+   977      rw [h.summary_eq]; exact h.checks.joined hK' hbase hc
+   978    have hsub : (applyAll (importsJoin dev (dev i).imports) Env.empty).Le (dev i).world := by
+   979      rw [Module.world]
+   980      exact hS.le_of_stores fun d hd => ⟨d, by rw [h.summary_eq]; exact List.mem_append_left _ hd, rfl⟩
+   981    have hown : (dev i).own.Le (dev i).world := by
+   982      intro n e hf
+   983      rcases find?_applyAll hf with ⟨d, hd, hl⟩ | hl
+   984      · obtain ⟨d', hd', hs⟩ := stores_of_join hc hd
+   985        left
+   986        rw [Module.world]
+   987        rw [h.summary_eq] at hS ⊢
+   988        exact hS.find?_of_lookup hd' (by rw [hs]; exact hl)
+   989      · exact (hbase.trans hsub) n e hl
+   990    exact ⟨hS, hown⟩
+
+== whitepaper/Fragment/Modular.lean#L992-L996
+   992  /-- **The environment a module rests on is accepted**, declaration
+   993  by declaration. -/
+   994  theorem local_accepted (dev : Nat → Module) (i : Nat) (h : ∀ j ≤ i, LocalOk dev j) :
+   995      Accepted (dev i).world :=
+   996    (local_checks dev i h).1.accepted .empty
+
+== whitepaper/Fragment/Modular.lean#L1010-L1014
+  1010  include V in
+  1011  /-- **The environment a module rests on has a model.** -/
+  1012  theorem local_model (dev : Nat → Module) (i : Nat) (h : ∀ j ≤ i, LocalOk dev j) :
+  1013      Nonempty (BlockModel V (dev i).world) :=
+  1014    accepted_model V (local_accepted dev i h)
+
+== whitepaper/Fragment/Modular.lean#L1016-L1028
+  1016  include V in
+  1017  /-- **No closed term of a module inhabits an empty proposition**: in
+  1018  the environment the module's declarations were checked in — its base
+  1019  with its declarations — no closed term has the type of an empty
+  1020  proposition it stores. -/
+  1021  theorem local_no_empty_prop_inhabitant (dev : Nat → Module) (i : Nat) (h : ∀ j ≤ i, LocalOk dev j)
+  1022      {name recName elim : Name}
+  1023      (hrec : (dev i).own.find? recName = some (IndSpec.falseSpec name recName elim).recInfo)
+  1024      (e : Expr) : ¬ Infer (dev i).own [] e (.const name []) := by
+  1025    intro he
+  1026    have hle := (local_checks dev i h).2
+  1027    have hrec' := hle.find_of_ne hrec (by simp [IndSpec.recInfo])
+  1028    exact no_empty_prop_inhabitant V (local_accepted dev i h) hrec' e (Infer.mono hle he)
+
+== whitepaper/Fragment/Modular.lean#L802-L857
+   802  /-- **Joining a checked list onto another**: a list checked against
+   803  an environment that the first list's environment refines, and
+   804  compatible with the first list, joins it into a checked list. -/
+   805  theorem Checks.joined {E₀ : Env} {L : List Decl} (hL : Checks E₀ L) :
+   806      ∀ {K : List Decl}, Checks Env.empty K → E₀.Le (applyAll K Env.empty) → Compatible K L →
+   807        Checks Env.empty (join K L) := by
+   808    induction hL with
+   809    | nil => intro K hK _ _; simpa [join] using hK
+   810    | @cons E d ds hd hrest ih =>
+   811      intro K hK hle hc
+   812      have hdis := (Checks.cons hd hrest).disjoint
+   813      have hcr : Compatible K ds := fun k hk d' hd' => hc k hk d' (List.mem_cons_of_mem _ hd')
+   814      by_cases ho : K.any (·.overlaps d) = true
+   815      · -- `d` stores what a declaration of `K` stores: skipped
+   816        have hj : join K (d :: ds) = join K ds := by simp [join, ho]
+   817        rw [hj]
+   818        obtain ⟨k, hk, hkd⟩ := List.any_eq_true.mp ho
+   819        have hs := hc k hk d (List.mem_cons_self ..) hkd
+   820        refine ih hK ?_ hcr
+   821        rw [Decl.apply_eq]
+   822        exact Env.Le.front (fun n e hl => hK.find?_of_lookup hk (by rw [hs]; exact hl)) hle
+   823      · -- `d` stores nothing `K` stores: kept
+   824        have hno : ∀ d' ∈ ds, d.overlaps d' = false := by
+   825          intro d' hd'
+   826          cases h : d.overlaps d' with
+   827          | false => rfl
+   828          | true =>
+   829            obtain ⟨n, hn, hn'⟩ := Decl.overlaps_iff.mp h
+   830            obtain ⟨e, he⟩ := (d.mem_names_iff n).mp hn
+   831            exact absurd (hdis d' hd' n hn') (lookup_ne_none_of_mem he)
+   832        have hj : join K (d :: ds) = join (K ++ [d]) ds := by
+   833          simp only [join, List.filter_cons, ho, Bool.not_false, ite_true, List.append_assoc,
+   834            List.singleton_append]
+   835          congr 2
+   836          apply List.filter_congr
+   837          intro d' hd'
+   838          simp [List.any_append, hno d' hd']
+   839        rw [hj]
+   840        have hfresh : ∀ n ∈ d.names, (applyAll K Env.empty).find? n = none := by
+   841          intro n hn
+   842          rw [applyAll_eq]
+   843          show (storesAll K ++ []).lookup n = none
+   844          rw [List.append_nil]
+   845          apply storesAll_lookup_none
+   846          intro k hk hnk
+   847          exact ho (List.any_eq_true.mpr ⟨k, hk, Decl.overlaps_iff.mpr ⟨n, hnk, hn⟩⟩)
+   848        refine ih (hK.snoc (hd.mono hle hfresh)) ?_ ?_
+   849        · rw [applyAll_append, applyAll, applyAll, Decl.apply_eq, Decl.apply_eq]
+   850          exact hle.prepend _
+   851        · intro k hk d' hd' hkd
+   852          rcases List.mem_append.mp hk with hk | hk
+   853          · exact hcr k hk d' hd' hkd
+   854          · simp only [List.mem_singleton] at hk
+   855            subst hk
+   856            rw [hno d' hd'] at hkd
+   857            cases hkd
 
 == ConLeche/MainTheorem.lean#L96-L99
     96  theorem model_exists (V : Type w) [SetTheory V]
