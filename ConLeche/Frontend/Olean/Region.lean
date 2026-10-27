@@ -103,14 +103,17 @@ def padded (b : ByteArray) (lo hi : Nat) : String :=
   let bs := (b.extract lo hi).toList.takeWhile (· != 0)
   String.fromUTF8? ⟨bs.toArray⟩ |>.getD "?"
 
-/-- **The header, validated.**  A wrong marker, a truncated file or a
+/-- **The header, validated.**  A truncated file, a wrong marker or a
 size that is not a whole number of words is malformed input
 (`.internal`, exit 3); a well-formed header of another format version,
 bignum encoding or toolchain is a positive decline (`.notImplemented`):
 the file is an `.olean`, of a kind this reader does not read. -/
 def Part.ofBytes (path : String) (b : ByteArray) : Except CheckError Part := do
-  unless b.size ≥ dataStart && b.extract 0 5 == "olean".toUTF8 do
-    throw (.internal s!"{path}: not an .olean file")
+  unless b.size ≥ dataStart do
+    throw (.internal s!"{path}: truncated: {b.size} bytes, an .olean header is {dataStart}")
+  unless b.extract 0 5 == "olean".toUTF8 do
+    throw (.internal s!"{path}: not an .olean file: the first bytes are \
+      {Display.str (String.fromUTF8? (b.extract 0 5) |>.getD "?")}, expected `olean`")
   let ver := rdU8 b 5
   unless ver == 2 do
     throw (.notImplemented s!"{path}: .olean format version {ver} (this reader reads version 2)")
