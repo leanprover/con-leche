@@ -107898,3 +107898,90 @@ marking step (−1.6 G), and `constsOf`'s sets pre-sized (−1.1 G).
   constant.
 * The higher `Mathlib` peak (+0.28 GiB): names and levels are no
   longer shared across modules.
+
+## TASK #370 — the modular theorem, proved over the model tier (2026-10-27, agent/370-theory)
+
+**What is proved.** `ConLeche.modular_model_exists` and
+`ConLeche.modular_no_False` (`ConLeche/MainTheorem.lean`, stated in
+`ConLeche/Challenge.lean`, axioms pinned in
+`tests/ConLecheTests/Axioms.lean`: propext, Classical.choice,
+Quot.sound). If every module `j ≤ i` of a development satisfies
+`Modular.LocalOk .verified pins dev j`, there is one
+`G : Modular.Key → (LevelParam → Nat) → V`, `G` of every proof key the
+point, and for every `j ≤ i` a `Model V (dev j).own` whose `cval n` is
+`G ((dev j).res n)` at every stored `n`. The corollary: no
+`(dev j).own` stores a constant of type `False`. This is route B of the
+fragment's `modular` (one world leaf assignment). The internal form is
+`Model.Modular.modular_envModels`, at the leaves (`Term`s), with the
+`Model` read off by `Model.ofEnvModelM`.
+
+**The vocabulary** (`ConLeche/Modular.lean`, base tier, definitions
+only): `Key`, `Module` (imports, decls, context, own, src, proofs, res,
+compared), `pinnedNames`/`pinFootprint`, `Refines` (equal, or an
+assumption with the same constant value at a name not pinned),
+`EntryScoped`/`readsAlike`, `EntryProjs`, `BlockIn`, `ProofDecl`,
+`AcceptedFrom` (check 2: one canonical `installDeclStep` at
+`mkFEnv E` plus the records' `checkPending` per declaration), and
+`LocalOk`. The checks read the home modules' units: a context entry is
+compared with the constant of the source module's OWN environment
+(`src n`, any earlier module), private constants included, and
+resolved as that module resolves it. They never read an exported view.
+
+**The proof** (`ConLeche/Model/Modular/`):
+* `Scope.lean`: the footprint of a constant's laws as a predicate
+  (`Expr.constsAll`, `EntryScopedP`).
+* `Restrict.lean`: `CtxSrc` packages a context read from source
+  environments with covered models (agreement on what both store and
+  resolve alike, `ReadAgree`/`denote_agree` in
+  `Verify/Denote/Agree.lean`; refinement; scoping; the kind facts).
+  `CtxSrc.ctxModel` builds the context's `EnvModelM` at the given
+  leaves, with `LfpCover` and η-closure. Each law is transported by
+  `denote_agree`; recursor rules and tower entries go through
+  `RuleExt`/`TowerExt` (`Model/RecRulesCons.lean`), and the lfp blocks
+  through `lfpOne_transport`.
+* `Step.lean`: `acceptedFrom_model` installs an `AcceptedFrom` chain
+  on a covered model. It keeps every context leaf (`Agrees`), extends
+  the environment (`Extends`), and gives every flagged new name the
+  canonical proof leaf `.prf`.
+* `Main.lean`: `Fits` (every own constant fits its qualified name:
+  the home's constant refined, the home's table, inductive kinds' reads
+  resolved as at the home), `Stage` (modules below `i` done under world
+  `W`), `ctxSrcOf`, `step` (the world grows by `extendAt`, module
+  `i`'s ordinary constants only), `stages` (the induction from the
+  world of `.prf` leaves) and `modular_envModels`.
+
+**Changes below the modular files**, made so the shared world can
+exist:
+* Every proof's leaf is the canonical `.prf`
+  (`Model/Harvest.lean`: theorems always; definitions and opaques when
+  flagged and their type is a proposition, `PropTypeRun`). So two
+  proofs of one statement share a leaf. `AcvalDefnInst` is relaxed to
+  `LeafReads` (the value reads to something whose interpretation is the
+  leaf's), and δ-soundness goes through `wd_interp_mkAppN`
+  (`Model/Rules/RedSound*.lean`).
+* `CoverTo` carries `Agrees`: every step keeps the stored names'
+  leaves (`Model/Cover.lean` and the inductive covers).
+
+**Definition changes announced to the driver lane** (each its own
+commit, `DEFINITION CHANGE` in the title): readsAlike, `src_lt` (any
+earlier module), compared modules, assumed type formers with
+`projs`/`blocks`/`tables`, any non-pinned constant presentable as an
+assumption with `BlockIn`, `recFam`.
+
+**What the driver must establish**: every field of `LocalOk` per
+module; for a compared module, `own = context`.
+
+**Open, possibly stricter than Lean** (to be confirmed by runs):
+* A pinned name (basis, certified `Nat` operations, `reduce*`) is
+  never an assumption. A context that hides one must store it.
+* `scoping` requires everything a kept entry's laws read to be stored
+  in the source and the context and resolved alike. A value mentioning
+  a constant the context leaves out forces the entry down to an
+  assumption.
+* `blocks`, `projs`, `recFam`: an inductive kind kept as stored needs
+  its block's members kept as inductive kinds.
+* Typeless (name-only) assumptions, as the maintainer suggests, are not
+  supported. Estimate sent to the coordinator: a reserved type marker
+  plus one `inferConst` guard, the `type_reads`/`mem_type` laws
+  guarded, and the public `Model.mem` restricted to typed constants
+  (a ruling); about 1–1.5k lines, as its own task.

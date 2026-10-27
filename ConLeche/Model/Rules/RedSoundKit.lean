@@ -5,7 +5,6 @@ import ConLeche.Verify.Denote.Lemmas
 import ConLeche.Verify.InferLeaves
 import ConLeche.Model.Reading.Levels
 import ConLeche.Verify.Denote.Closed
-import ConLeche.Verify.Denote.AcvalCongr
 import ConLeche.Model.CtxOkKit
 import ConLeche.Verify.InstLevels
 import ConLeche.Verify.Denote.StrLit
@@ -693,30 +692,47 @@ theorem denoteDefnInst {m : EnvModel V env} (hdi : AcvalDefnInst m)
     (φ : Name → Nat) {cv : ConstantVal} {value : Expr} {us : List Level}
     (hmem : ∃ hint : ConLeche.ReducibilityHint,
       ConstantInfo.defnInfo cv value hint ∈ env.consts) :
-    denote m.acval env φ 0
-        (value.instantiateLevelParams cv.levelParams us)
-      = some (m.acval cv.name (Level.substFn φ cv.levelParams us)) := by
+    ∃ t, denote m.acval env φ 0 (value.instantiateLevelParams cv.levelParams us) = some t ∧
+      LeafReads V (m.acval cv.name (Level.substFn φ cv.levelParams us)) t := by
   rw [denotePInstLevels m φ cv.levelParams us 0 value]
   exact hdi _ cv value hmem
 
+/-- **Two heads that interpret alike, the grading carried, carry both
+along a spine.** -/
+theorem wd_interp_mkAppN {ρ : Nat → V} :
+    ∀ (vs : List Term) {f g : Term},
+      (WellDenoted V ρ f → WellDenoted V ρ g) → interp V ρ f = interp V ρ g →
+      (WellDenoted V ρ (Term.mkAppN f vs) → WellDenoted V ρ (Term.mkAppN g vs)) ∧
+        interp V ρ (Term.mkAppN f vs) = interp V ρ (Term.mkAppN g vs)
+  | [], _, _, hw, hi => ⟨hw, hi⟩
+  | a :: vs, f, g, hw, hi => by
+    refine wd_interp_mkAppN vs (f := .app f a) (g := .app g a) (fun h => ?_) ?_
+    · rw [WellDenoted_app] at h ⊢
+      obtain ⟨hf, ha, v, A, B, hm, rest⟩ := h
+      exact ⟨hw hf, ha, v, A, B, hi ▸ hm, rest⟩
+    · rw [interp_app, interp_app, hi]
+
 /-- The δ identity's core: the unfolded head, applied to the subject's
-arguments, reads as the subject. -/
+arguments, reads as the subject, or — at a proof's canonical leaf — as a
+graded proof that interprets as the subject does. -/
 private theorem deltaCore (m : EnvModel V env)
     {d : Nat} {e : Expr} {n : Name} {us : List Level}
     {ci : ConstantInfo} {cv : ConstantVal} {value : Expr}
-    {ea : Term}
+    {ea t : Term}
     (hfn : e.getAppFn = .const n us)
     (hfind : env.find? n = some ci)
     (hcvt : ci.toConstantVal = cv)
     (hlen : us.length = cv.levelParams.length)
     (hnofv : value.hasFvar = false)
+    (hcl : ∀ k : Nat, t.liftN 1 k = t)
     (hval : denote m.acval env φ 0
-        (value.instantiateLevelParams cv.levelParams us)
-      = some (m.acval ci.name (Level.substFn φ cv.levelParams us)))
+        (value.instantiateLevelParams cv.levelParams us) = some t)
+    (hlr : LeafReads V (m.acval ci.name (Level.substFn φ cv.levelParams us)) t)
     (hea : denote m.acval env φ d e = some ea) :
-    denote m.acval env φ d
+    ∃ ea', denote m.acval env φ d
         (Expr.mkAppN (value.instantiateLevelParams cv.levelParams us)
-          e.getAppArgs) = some ea := by
+          e.getAppArgs) = some ea' ∧
+      ∀ ρ : Nat → V, WellDenoted V ρ ea → WellDenoted V ρ ea' ∧ interp V ρ ea = interp V ρ ea' := by
   obtain rfl : ci.name = n := by
     rw [ConLeche.Env.find?] at hfind
     have := List.find?_some hfind
@@ -724,24 +740,32 @@ private theorem deltaCore (m : EnvModel V env)
   have he : Expr.mkAppN e.getAppFn e.getAppArgs = e :=
     ConLeche.Expr.mkAppN_getApp e
   rw [← he] at hea
-  refine denote_mkAppN_swap e.getAppArgs ?_ hea
-  intro fa hfa
+  obtain ⟨fa, vs, hfa, hsp, rfl⟩ := denote_mkAppN_inv hea
   rw [hfn, denote, hfind] at hfa
   simp only [hcvt] at hfa
   rw [ite_eq_left hlen] at hfa
   obtain rfl : fa = m.acval ci.name
       (Level.substFn φ cv.levelParams us) := (Option.some.inj hfa).symm
-  exact denote_depth_of_closed m.acval_closed
-    (by rw [ConLeche.Expr.hasFvar_instantiateLevelParams]; exact hnofv)
-    (fun k => m.acval_closed _ _ k) hval d
+  have hvd : denote m.acval env φ d (value.instantiateLevelParams cv.levelParams us) = some t :=
+    denote_depth_of_closed m.acval_closed
+      (by rw [ConLeche.Expr.hasFvar_instantiateLevelParams]; exact hnofv) hcl hval d
+  refine ⟨Term.mkAppN t vs, denote_mkAppN hsp hvd, fun ρ hw => ?_⟩
+  rcases hlr with rfl | ⟨hprf, ht⟩
+  · exact ⟨hw, rfl⟩
+  · have hr := wd_interp_mkAppN (ρ := ρ) vs
+      (f := m.acval ci.name (Level.substFn φ cv.levelParams us)) (g := t)
+      (fun _ => (ht ρ).1) (by rw [hprf, (ht ρ).2]; rfl)
+    exact ⟨hr.1 hw, hr.2⟩
 
-/-- **The δ step is invisible to the reading**: the unfolding has the
-subject's own reading. -/
+/-- **The δ step is invisible to the reading**: the unfolding reads,
+and where the subject is graded the unfolding is graded and interprets
+as the subject does. -/
 theorem denote_unfoldDefinition {m : EnvModel V env} (hdi : AcvalDefnInst m)
     {d : Nat} {e e' : Expr} {ea : Term}
     (hud : ConLeche.unfoldDefinition env e = some e')
     (hea : denote m.acval env φ d e = some ea) :
-    denote m.acval env φ d e' = some ea := by
+    ∃ ea', denote m.acval env φ d e' = some ea' ∧
+      ∀ ρ : Nat → V, WellDenoted V ρ ea → WellDenoted V ρ ea' ∧ interp V ρ ea = interp V ρ ea' := by
   unfold ConLeche.unfoldDefinition at hud
   split at hud
   · next n us hfn =>
@@ -752,11 +776,17 @@ theorem denote_unfoldDefinition {m : EnvModel V env} (hdi : AcvalDefnInst m)
         obtain rfl : e' = Expr.mkAppN
             (value.instantiateLevelParams cv.levelParams us)
             e.getAppArgs := (Option.some.inj hud).symm
-        exact deltaCore m hfn hfind rfl hlen
-          (by obtain ⟨-, -, -, -, hd, -⟩ :=
-                m.wf.consts _ (ConLeche.Env.find?_mem hfind)
-              exact (hd cv value hint rfl).1)
-          (denoteDefnInst hdi φ ⟨hint, ConLeche.Env.find?_mem hfind⟩) hea
+        obtain ⟨-, -, -, -, hd, -⟩ := m.wf.consts _ (ConLeche.Env.find?_mem hfind)
+        obtain ⟨hnf, -, -, hlb⟩ := hd cv value hint rfl
+        have hmem : ∃ hint', ConstantInfo.defnInfo cv value hint' ∈ env.consts :=
+          ⟨hint, ConLeche.Env.find?_mem hfind⟩
+        obtain ⟨t, ht, hlr⟩ := denoteDefnInst (us := us) hdi φ hmem
+        obtain ⟨t₀, ht₀, -⟩ := hdi (Level.substFn φ cv.levelParams us) cv value hmem
+        have hcl : ∀ k : Nat, t.liftN 1 k = t := by
+          rw [denotePInstLevels m φ cv.levelParams us 0 value, ht₀] at ht
+          obtain rfl := Option.some.inj ht
+          exact fun k => denote_liftN_eq_self m.cval_closed hnf hlb ht₀ 1 k
+        exact deltaCore m hfn hfind rfl hlen hnf hcl ht hlr hea
       · exact nomatch hud
     · exact nomatch hud
   · exact nomatch hud

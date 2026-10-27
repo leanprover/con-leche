@@ -177,7 +177,7 @@ The statement is two theorems: one about the declaration fold
 `checkDecls`, the function whose result the `con-leche` binary's
 driver returns for a parsed export stream, and one about the chunks
 the binary reads. The main theorem,
-[`model_exists` in `ConLeche/MainTheorem.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/MainTheorem.lean#L96-L99):
+[`model_exists` in `ConLeche/MainTheorem.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/MainTheorem.lean#L99-L102):
 
 > For every model `V` of the `SetTheory` interface, every
 > `Nat.div`/`Nat.mod` pin list `pins` and every list of declarations
@@ -219,7 +219,7 @@ and a truth value with a member is `{pt}`. So the two sides of every
 accepted equation denote the same set.
 
 The main corollary,
-[`no_False_declaration` in the same file](https://github.com/leanprover/con-leche/blob/master/ConLeche/MainTheorem.lean#L110-L117):
+[`no_False_declaration` in the same file](https://github.com/leanprover/con-leche/blob/master/ConLeche/MainTheorem.lean#L113-L120):
 
 > … if the chunks are a `jsonWithTheoremFalse` file — a name entry for
 > `False`, an expression entry for the constant `False`, a name entry
@@ -343,6 +343,46 @@ same preparation and the same
 theory, and no theorem of type `False` is accepted. A defect in the
 reader can make the checker check something other than what the files
 say; it cannot make it accept an environment without a model.
+
+**The modular theorem** is about checking a development module by
+module rather than as one stream. A development is a family of modules
+(`Modular.Module` in
+[`ConLeche/Modular.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Modular.lean#L218-L253),
+definitions only, no proof tier imported). Each module has its
+declarations, its *context* (the environment they are checked against),
+its *own environment* (the context with the declarations installed),
+and a *resolution* of every name it stores to a *qualified name*: the
+home module and the name for an ordinary constant, and the name, level
+parameters and statement for a proof, so two proofs of one statement
+are one constant whatever their bodies. The local checks `LocalOk` read
+the module and the own environments of the earlier modules its context
+is read from, and nothing else. The declarations are accepted from the
+context by the fold's own install step and record check, one at a
+time. Every context constant is the constant of the module it is read
+from, or an assumption with the same name, level parameters and type
+(never at a pinned name). What its laws read is stored in both and
+resolved alike. A context name resolves as its source does.
+A *compared* module is not checked but validated by refinement: its
+own environment is its context, read name by name from earlier
+modules. The theorem,
+[`modular_model_exists` in `ConLeche/MainTheorem.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/MainTheorem.lean#L131-L137):
+
+> If every module up to `i` passes its local checks, there is ONE
+> assignment of sets to the qualified names, every proof the proof
+> point, under which every such module's own environment, read through
+> its resolution, has a model.
+
+Its corollary
+[`modular_no_False`](https://github.com/leanprover/con-leche/blob/master/ConLeche/MainTheorem.lean#L148-L152)
+says no such module's own environment stores a constant of type
+`False`. The proof goes by induction over the modules. The context's
+model is read from the earlier modules' models at the shared
+assignment. The declarations are installed on it, keeping every context
+constant's set and giving every flagged proof the proof point. A proof
+is a theorem, or a definition or opaque constant whose type the theorem
+check finds to be a proposition. The assignment then grows by the
+module's own ordinary constants
+(`ConLeche/Model/Modular/`).
 
 `False` is not read off the stream: the checker installs it from a
 built-in pin, and a stream that declares `False` or `False.rec`
@@ -1433,11 +1473,12 @@ and every such line carries its reason.
 | `ConLeche/Semantics/` | The interpretation, the semantic invariant, the semantics of inductive blocks, the declaration-level facts. |
 | `ConLeche/Rules/` | The relational description of the core checker: seven mutually inductive relations over the checker's own `Expr` — reduction, definitional equality, type inference (checking and infer-only), and four certificate checks — with fuel, unfolding heuristics and dispatch order out of sight (`Rel.lean`), and the derived rules (`Derived.lean`). Imports the fuel-free helpers of the kernel and nothing else of it. |
 | `ConLeche/Verify/Rules/` | The bridge: an accepting run of a kernel function, at any fuel, yields a derivation (`Bridge.lean`, from one step theorem per entry point and the certificate bridges). |
-| `ConLeche/Model/` | The graded set model of the checker: the environment invariant and its laws (`Env/`), the facts about the stored-term reading `denote` that read the environment invariant (`Reading/`), the claims, the soundness of the rules tier's derivations (`Rules/`: the motives, the environment inputs, one lemma per rule over shared kits, the master induction, and the recomposition of the claims from the bridge), the run-stated remainder the declaration fold reads (`Tiers.lean`), the declaration step, the inductive installs (`Inductives/`, `Ind*`), the Nat-op certification, the final theorems (`Capstone.lean`), and the model read through the statement's relation (`Denotes.lean`). |
+| `ConLeche/Model/` | The graded set model of the checker: the environment invariant and its laws (`Env/`), the facts about the stored-term reading `denote` that read the environment invariant (`Reading/`), the claims, the soundness of the rules tier's derivations (`Rules/`: the motives, the environment inputs, one lemma per rule over shared kits, the master induction, and the recomposition of the claims from the bridge), the run-stated remainder the declaration fold reads (`Tiers.lean`), the declaration step, the inductive installs (`Inductives/`, `Ind*`), the Nat-op certification, the final theorems (`Capstone.lean`), the model read through the statement's relation (`Denotes.lean`), and the modular theorem's proof (`Modular/`: what a context constant's laws read, the context's model read from its sources, the installation step, the induction). |
 | `ConLeche/Verify/` | Proofs about kernel functions that need no model: well-formedness, scoping, the stored-term reading `denote` and its metatheory (`Denote.lean`, `Denote/`: inversions, depth shift, instantiation, closedness, environment extension), the cached-to-pure simulation (`Cached/`: the core's congruence in the lookup (`KnotCongr.lean`), the block tail's in-place pushes (`BlockOverlay.lean`), every install stage's and the parallel install's commit step (`ViewCongr.lean`, `ParInstall.lean`), which `ConLeche/Driver/ParInstall.lean` imports), the inductive installer's kernel-side invariants (`Inductives/`), and the parser's (`Frontend/`: line locality, the parse as a line fold, chunk independence, what a line does to the parse state, the template's lines, the characterisation of the serial fold over a stream that binds in increasing order, good entries and the tables they make (`Good.lean`), and that the rounds keep good entries and a window is one more stretch of the serial parse (`RoundsWork.lean`, `Rounds.lean`); the `.olean` decoder is its specification (`Frontend/Olean/`: the marks and values `Memo.lean`, the table of what an object leads to `Kids.lean`, the node functions against it `Nodes.lean`, the two sweeps `Mark.lean`, `Build.lean`, both from the roots `Engine.lean`, the theorem `Equiv.lean`, which `ConLeche/Driver/Run.lean` imports)). |
 | `ConLeche/Accepts.lean` | The file-level vocabulary of the statement: `jsonWithTheoremFalse`, the whole-file template of one JSON file that declares a theorem of type `False`. |
 | `ConLeche/Denotes.lean` | The statement's semantics: what a term denotes (`Denotes`) and what a model of an environment is (`Model`); imports nothing from the proof tiers. |
-| `ConLeche/MainTheorem.lean`, `ConLeche/Challenge.lean` | The main theorem and the main corollary — about the environment the fold returns and about the chunks the binary reads — and the challenge module stating both with `sorry`, kept as its own library and compared with the solution by `tests/challenge.sh`. |
+| `ConLeche/Modular.lean` | The modular theorem's vocabulary: modules, qualified names, refinement and the local checks; imports the checker and nothing of the proof tiers. |
+| `ConLeche/MainTheorem.lean`, `ConLeche/Challenge.lean` | The main theorem and the main corollary — about the environment the fold returns and about the chunks the binary reads — the modular theorem and its corollary, and the challenge module stating both with `sorry`, kept as its own library and compared with the solution by `tests/challenge.sh`. |
 | `bridge/lean4lean-model/` | The Mathlib bridge instantiating the interface. |
 | `tests/` | The Lean test library (the axiom pin), the arena and end-to-end fixtures with their expectation files, and the gate scripts. |
 | `scripts/` | Fixture generators, the PERF battery, stream tools. |

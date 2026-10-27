@@ -362,7 +362,7 @@ theorem lfpCover_formers (mp : EnvModelM V μ env) {envI : Env} {q : BlockShape}
   intro h0
   obtain ⟨newI, hnewI, hnewIall⟩ := consBlockInds_consts (p₁ := q) (isRec := isRec) cvTas 0 env
   have henv : envI.consts = newI ++ env.consts := by rw [hcons]; exact hnewI
-  obtain ⟨mk, hbk, hlk, hcov⟩ := lfpCover_append (ex := []) (ex' := names) mp mpX (new := newI) henv
+  obtain ⟨mk, hbk, hlk, -, hcov⟩ := lfpCover_append (ex := []) (ex' := names) mp mpX (new := newI) henv
     (by rw [hcons]; exact consBlockInds_tables cvTas 0 env)
     (fun n ci hf => by
       have hfr : ∀ c ∈ newI, env.find? c.name = none := by

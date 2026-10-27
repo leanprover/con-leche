@@ -14,7 +14,7 @@
     an inductive description of checking, and a set theory given
     axiomatically. The real proof lives in the repository, and
     phrases underlined like
-    #src("ConLeche/MainTheorem.lean", 96, 99)[this one] link to it on
+    #src("ConLeche/MainTheorem.lean", 99, 102)[this one] link to it on
     `master`, at the definition or theorem being described; phrases
     underlined like #src("whitepaper/Fragment/Sound.lean", 2322, 2326)[this one]
     link to the paper's own Lean fragment. In the web version, hovering
