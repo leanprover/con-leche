@@ -81,12 +81,8 @@ def isPinned (n : Name) : Bool := ConLeche.Modular.pinnedNames.contains n
 def asAxiom (ci : ConstantInfo) : ConstantInfo := .axiomInfo ci.toConstantVal
 
 /-- Can `ci` be presented as the assumption of its statement
-(`Modular.Refines`): a definition, theorem or assumption at a name that
-is not pinned. -/
-def hideable (ci : ConstantInfo) : Bool :=
-  !isPinned ci.name && match ci with
-    | .defnInfo .. | .thmInfo _ | .axiomInfo _ => true
-    | _ => false
+(`Modular.Refines`): any constant at a name that is not pinned. -/
+def hideable (ci : ConstantInfo) : Bool := !isPinned ci.name
 
 /-- **The exported presentation of a constant**: nothing, the constant
 with its value hidden (`some false`), or the constant (`some true`). -/
@@ -238,9 +234,7 @@ def shapeOk (fe : FEnv) (flagged : Name → Bool) (s : ModSlot) : Bool :=
       (match a with
         | none => true
         | some a => a == ci || (a == asAxiom ci && hideable ci)) &&
-      (v.isEmpty || (a == some ci && hideable ci && (match ci with
-        | .defnInfo .. => true
-        | _ => false))) &&
+      (v.isEmpty || (a == some ci && hideable ci)) &&
       p == flagged ci.name &&
       t == fe.env.tables.find? (·.structName == ci.name)
     | _, _, _, _, _ => false

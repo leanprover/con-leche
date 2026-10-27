@@ -357,6 +357,9 @@ structure Args where
   /-- `--modular` (with `--olean`): check module by module, each module
   against its own context (task #370). -/
   modular : Bool := false
+  /-- `--keep-going` (with `--modular`): install every module whose imports
+  installed, report every failure. -/
+  keepGoing : Bool := false
   /-- `--search-path=DIR:DIR…`: where `--olean` looks for the files. -/
   searchPath : List System.FilePath := []
   bad : Option String := none
@@ -377,6 +380,7 @@ def parseArgs : List String → Args → Args
   | "--no-mark-persistent" :: rest, a => parseArgs rest { a with noMark := true }
   | "--olean" :: rest, a => parseArgs rest { a with olean := true }
   | "--modular" :: rest, a => parseArgs rest { a with modular := true }
+  | "--keep-going" :: rest, a => parseArgs rest { a with keepGoing := true }
   | s :: rest, a =>
     if s.startsWith "--progress=" then
       match progressStride ((s.drop "--progress=".length).toString) with
@@ -462,6 +466,7 @@ def run (args : List String) (drain : IO.Ref (IO Unit)) : IO UInt32 := do
         (m.splitOn ".").foldl ConLeche.Name.str ConLeche.Name.anonymous
       if a.modular then
         return ← ConLeche.Driver.Modular.checkModular a.searchPath roots a.mode a.progress jobs
+          a.keepGoing
       return ← checkMain (.oleans a.searchPath roots) a.mode a.progress jobs a.noMark drain
     else if a.modular then
       IO.eprintln "con-leche: --modular is only meaningful with --olean"

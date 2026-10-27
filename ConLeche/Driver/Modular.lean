@@ -178,162 +178,196 @@ def pubReachOf (g : Array ModIn) (k : Nat) : ByteArray := Id.run do
           if im.isExported then work := work.push j
   return r
 
-/-- Counts of the exported view's repairs (performance and diagnostics
-only): constants pulled into the presentation (by kind), constants with a
-gate, definitions with a value gate; a few examples of each. -/
+/-- Counts of what the exported presentations leave out (diagnostics
+only): exported constants presented as an assumption or absent because
+what they read is not there (by kind), constants with a gate, constants
+with a full gate; a few examples. -/
 structure Diag where
-  pulled : Array (String × Nat) := #[]
+  assumed : Array (String × Nat) := #[]
+  absent : Array (String × Nat) := #[]
   gated : Nat := 0
   vgated : Nat := 0
   ex : Array String := #[]
-  /-- of those, read by (resp. being) a constant whose name is not private -/
-  pubPulled : Nat := 0
-  pubGated : Nat := 0
-  pubEx : Array String := #[]
+  /-- every type former presented as an assumption -/
+  indEx : Array String := #[]
   deriving Inhabited
 
-def Diag.merge (a b : Diag) : Diag :=
-  let pulled := b.pulled.foldl (fun acc (k, c) =>
-    match acc.findIdx? (·.1 == k) with
-    | some i => acc.modify i fun (k', c') => (k', c' + c)
-    | none => acc.push (k, c)) a.pulled
-  { pulled, gated := a.gated + b.gated, vgated := a.vgated + b.vgated,
-    ex := if a.ex.size ≥ 12 then a.ex else a.ex ++ b.ex.extract 0 (12 - a.ex.size),
-    pubPulled := a.pubPulled + b.pubPulled, pubGated := a.pubGated + b.pubGated,
-    pubEx := if a.pubEx.size ≥ 12 then a.pubEx else a.pubEx ++ b.pubEx.extract 0 (12 - a.pubEx.size) }
+def Diag.addKind (a : Array (String × Nat)) (k : String) (c : Nat) : Array (String × Nat) :=
+  match a.findIdx? (·.1 == k) with
+  | some i => a.modify i fun (k', c') => (k', c' + c)
+  | none => a.push (k, c)
 
-/-- A private name (`_private.…`). -/
-def isPrivateName : Name → Bool
-  | .str .anonymous s => s == "_private"
-  | .str p _ | .num p _ => isPrivateName p
-  | .anonymous => false
+def Diag.merge (a b : Diag) : Diag :=
+  { assumed := b.assumed.foldl (fun acc (k, c) => Diag.addKind acc k c) a.assumed,
+    absent := b.absent.foldl (fun acc (k, c) => Diag.addKind acc k c) a.absent,
+    gated := a.gated + b.gated, vgated := a.vgated + b.vgated,
+    ex := if a.ex.size ≥ 16 then a.ex else a.ex ++ b.ex.extract 0 (16 - a.ex.size),
+    indEx := a.indEx ++ b.indEx }
 
 def kindOf : ConstantInfo → String
   | .axiomInfo _ => "axiom/opaque" | .defnInfo .. => "definition" | .thmInfo _ => "theorem"
   | .indInfo .. => "inductive" | .ctorInfo .. => "constructor" | .recInfo .. => "recursor"
 
-/-- **Module `k`'s unit** from its installed view `fe` and its proofs
-(`flagged`), with the reads `unitOk` verifies it against.  An oracle:
-nothing here is trusted, `unitOk` checks what it returns.
+/-- **Module `k`'s unit** from its installed view `fe`, its records `ds`
+and its proofs (`flagged`), with the reads `unitOk` verifies it against.
+An oracle: nothing here is trusted, `unitOk` checks what it returns.
 
-* The exported presentation (`at1`).  Lean's exported views are not
-  closed — an `@[inline]` definition's value, or a generated equation
-  lemma's statement, may read the module's private `let rec` helper, and
-  a public structure's private constructor is not stored at all — so the
-  presentation is the exported part closed under what the presented
-  constants' laws read within the module (a constant pulled in so is
-  presented with its value hidden, if a definition: Lean's importers do
-  not see it either; a pinned name is never presented as an assumption:
-  the checker's fast paths read its kind, and Lean's kernel computes the
-  `Nat` operations by name whatever the exported view says).
-* The gates (`g1`, `v1`): a presented constant may read a name of
-  another module that not every importer at the exported level loads (a
-  realised equation lemma's statement reads the private matcher of a
-  module the importer imports with `import all`).  Such a constant is
-  presented only to a viewer that loads what it reads (`g1`), a
-  definition's value only to one that loads what the value reads
-  (`v1`), transitively. -/
-def unitOf (g : Array ModIn) (S : Mod.Store) (flagged : Std.HashSet Name) (k : Nat) (fe : FEnv) :
-    Except String (Mod.Unit' × Mod.Reads × Diag) := do
+**The exported presentation** (maintainer's ruling, 2026-10-27: remove,
+never add).  An exported constant is presented to an importer at the
+exported level as stored if its type and its value (a definition's
+value; for an inductive type former, its block: every constructor's and
+recursor's type and rules, its table) mention only names present in the
+importer's context; as the assumption of its statement if its type does
+but its value does not; and not at all if its type does not.  A
+constructor or recursor is presented exactly when its block is complete.
+A name of the module itself is present when the exported part stores it
+and it is presented (a fixed point over the module's constants, in the
+unit: Lean's exported views are not closed — a generated equation
+lemma's statement may read the module's private `let rec` helper, a
+public structure's constructor may be private); a member of an inductive
+block is stored only if the whole block is complete, and otherwise
+presented as the assumption of its type, if that is complete; a name of another module
+is present when the importer loads that module at a level that presents
+it — which the importer decides against its own levels through the
+constant's **gates** (`g1`: what its presence needs, `v1`: what its full
+presentation needs beyond that), transitively.  A pinned name is never
+presented as an assumption or left out: one whose presentation would be
+is an error. -/
+def unitOf (g : Array ModIn) (S : Mod.Store) (flagged : Std.HashSet Name) (k : Nat)
+    (ds : Array Declaration) (fe : FEnv) : Except String (Mod.Unit' × Mod.Reads × Diag) := do
   let some m := g[k]? | throw "no module"
   let priv := fe.env.consts.reverse.toArray
   let n := priv.size
   let reach := pubReachOf g k
   let guaranteed (p : Nat × UInt8) : Bool := p.2 == 1 && reach.get! p.1 == 1
   let tblOf (ci : ConstantInfo) : Option ProjTable := fe.env.tables.find? (·.structName == ci.name)
-  let typeLaws (ci : ConstantInfo) : List Expr × List Name :=
-    Mod.lawsOf (tblOf ci) (match ci with | .defnInfo .. => Mod.asAxiom ci | _ => ci)
   let resolve (d : Name) : Except String (Nat × Nat) :=
     match Mod.target k fe d with
     | some t => pure t
     | none => throw s!"{d} does not resolve in its module"
+  -- the record of every constant, and the blocks (a record installing a type former)
+  let mut recOf : Array Nat := Array.mkEmpty n
+  for h : r in [0:ds.size] do
+    for _ in predictSlots ds[r] do recOf := recOf.push r
+  if recOf.size != n then throw "the installed constants are not the predicted ones"
+  let isFormer (j : Nat) : Bool := match priv[j]! with | .indInfo .. => true | _ => false
+  let mut members : Std.HashMap Nat (Array Nat) := {}
+  for j in [0:n] do
+    members := members.alter recOf[j]! fun | none => some #[j] | some a => some (a.push j)
+  let blockOf (j : Nat) : Array Nat :=
+    let ms := members.getD recOf[j]! #[]
+    if ms.any isFormer then ms else #[j]
+  let inBlock (j : Nat) : Bool := (blockOf j).size > 1 || isFormer j
+  -- every constant's reads: of its statement, and of the rest of its laws
   let mut tReads : Array (Array (Name × Nat × Nat)) := Array.mkEmpty n
   let mut vReads : Array (Array (Name × Nat × Nat)) := Array.mkEmpty n
   for ci in priv do
-    let (es, ns) := typeLaws ci
+    let (es, ns) := Mod.lawsOf none (Mod.asAxiom ci)
     let dt := Mod.collectGo es {} (ns.foldl (·.insert ·) {})
-    let dv := match ci with
-      | .defnInfo _ v _ => (Mod.collectGo [v] {} {}).toArray.filter (!dt.contains ·)
-      | _ => #[]
+    let (es', ns') := Mod.lawsOf (tblOf ci) ci
+    let dv := (Mod.collectGo es' {} (ns'.foldl (·.insert ·) {})).toArray.filter (!dt.contains ·)
     tReads := tReads.push (← dt.toArray.mapM fun d => return (d, ← resolve d))
     vReads := vReads.push (← dv.mapM fun d => return (d, ← resolve d))
   let isOwn (t : Nat × Nat) : Bool := t.1 == k
-  -- the exported presentation: the exported part, closed within the module
-  let mut pres : Array (Option Bool) := priv.map fun ci => match (m.expo[ci.name]? : Option Expo) with
-    | some .same => some true
-    | some .hidden => some (!Mod.hideable ci)
-    | _ => none
-  let mut work : Array Nat := (Array.range n).filter fun j => (pres[j]!).isSome
-  let mut diag : Diag := {}
-  let mut fuel := n + 1
-  while fuel > 0 do
-    match work.back? with
-    | none => fuel := 0
-    | some j =>
-      work := work.pop
-      fuel := fuel - 1
-      let full := pres[j]!.getD false
-      for (_, t) in tReads[j]! ++ (if full then vReads[j]! else #[]) do
-        if isOwn t && t.2 < n && (pres[t.2]!).isNone then
-          pres := pres.set! t.2 (some (match priv[t.2]! with
-            | .defnInfo .. => !Mod.hideable priv[t.2]!
-            | _ => true))
-          work := work.push t.2
-          let c := priv[t.2]!
-          let rd := priv[j]!
-          let msg := s!"pulled: {c.name} ({kindOf c}), read by {rd.name} ({kindOf rd}) of {m.name}"
-          diag := diag.merge { pulled := #[(kindOf c, 1)], ex := #[msg] }
-          if !isPrivateName rd.name then
-            diag := diag.merge { pubPulled := 1, pubEx := #[msg] }
-  -- the gates, to a fixed point (own gates only grow)
-  let pairOf (t : Nat × Nat) : Nat × UInt8 := if isOwn t then (k, 1) else (t.1, S.needAt t.1 t.2)
-  let tgtGate (g1 : Array (Array (Nat × UInt8))) (t : Nat × Nat) : Array (Nat × UInt8) :=
-    if isOwn t then g1[t.2]?.getD #[]
-    else if S.needAt t.1 t.2 == 1 then S.gateAt t.1 t.2 else #[]
-  let gateOver (g1 : Array (Array (Nat × UInt8))) (rs : Array (Name × Nat × Nat)) :
-      Array (Nat × UInt8) := Id.run do
-    let mut out : Std.HashSet (Nat × UInt8) := {}
-    for (_, t) in rs do
-      let p := pairOf t
-      unless guaranteed p do out := out.insert p
-      for q in tgtGate g1 t do
-        unless guaranteed q do out := out.insert q
-    return out.toArray.qsort (fun a b => a.1 < b.1 || (a.1 == b.1 && a.2 < b.2))
-  -- a definition presented with its value, whose value reads must not be
-  -- gated apart (a pinned name: all or nothing)
-  let valueApart (j : Nat) : Bool := pres[j]! == some true && Mod.hideable priv[j]! &&
-    (match priv[j]! with | .defnInfo .. => true | _ => false)
-  let mut g1 : Array (Array (Nat × UInt8)) := Array.replicate n #[]
+  -- the presentation independent of the importer: 2 as stored, 1 as an
+  -- assumption, 0 absent; a fixed point (states only drop)
+  let init : Array Nat := priv.map fun ci => match (m.expo[ci.name]? : Option Expo) with
+    | some .same => 2
+    | some .hidden => if Mod.isPinned ci.name then 2 else 1
+    | _ => 0
+  let mut st := init
   let mut changed := true
   let mut rounds := n + 1
   while changed && rounds > 0 do
     changed := false
     rounds := rounds - 1
     for j in [0:n] do
-      if (pres[j]!).isSome then
-        let rs := if pres[j]! == some true && !valueApart j then tReads[j]! ++ vReads[j]!
-          else tReads[j]!
-        let gt := gateOver g1 rs
-        if gt != g1[j]! then
-          g1 := g1.set! j gt
+      if st[j]! > 0 then
+        let typeOk := tReads[j]!.all fun (_, t) => !isOwn t || st[t.2]! > 0
+        let fullOk := vReads[j]!.all fun (_, t) => !isOwn t || st[t.2]! > 0
+        let mut s' := st[j]!
+        if !typeOk then s' := 0
+        else if s' == 2 && !fullOk then s' := 1
+        if inBlock j then
+          let blk := blockOf j
+          let blkFull := blk.all fun x => st[x]! == 2 &&
+            (tReads[x]! ++ vReads[x]!).all fun (_, t) => !isOwn t || st[t.2]! > 0
+          if !blkFull then s' := min s' 1
+        if s' != st[j]! then
+          st := st.set! j s'
           changed := true
+  for j in [0:n] do
+    if Mod.isPinned priv[j]!.name && init[j]! > 0 && st[j]! != 2 then
+      throw s!"the pinned constant {priv[j]!.name} is exported but reads what its importers lack"
+  -- the gates, to a fixed point (gates only grow)
+  let pairOf (t : Nat × Nat) : Nat × UInt8 := if isOwn t then (k, 1) else (t.1, S.needAt t.1 t.2)
+  let tgtGate (g1 : Array (Array (Nat × UInt8))) (t : Nat × Nat) : Array (Nat × UInt8) :=
+    if isOwn t then g1[t.2]?.getD #[]
+    else if S.needAt t.1 t.2 == 1 then S.gateAt t.1 t.2 else #[]
+  let gateOver (g1 : Array (Array (Nat × UInt8))) (rs : Array (Name × Nat × Nat)) :
+      Std.HashSet (Nat × UInt8) := Id.run do
+    let mut out : Std.HashSet (Nat × UInt8) := {}
+    for (_, t) in rs do
+      let p := pairOf t
+      unless guaranteed p do out := out.insert p
+      for q in tgtGate g1 t do
+        unless guaranteed q do out := out.insert q
+    return out
+  let sortG (s : Std.HashSet (Nat × UInt8)) : Array (Nat × UInt8) :=
+    s.toArray.qsort (fun a b => a.1 < b.1 || (a.1 == b.1 && a.2 < b.2))
+  let mut g1 : Array (Array (Nat × UInt8)) := Array.replicate n #[]
   let mut v1 : Array (Array (Nat × UInt8)) := Array.replicate n #[]
+  changed := true
+  rounds := n + 1
+  while changed && rounds > 0 do
+    changed := false
+    rounds := rounds - 1
+    for j in [0:n] do
+      if st[j]! > 0 then
+        let gt := gateOver g1 tReads[j]!
+        let full : Std.HashSet (Nat × UInt8) :=
+          if inBlock j then
+            (blockOf j).foldl (fun acc x => (gateOver g1 (tReads[x]! ++ vReads[x]!)).fold
+              (·.insert ·) acc) {}
+          else if st[j]! == 2 then gateOver g1 vReads[j]!
+          else {}
+        let (pg, fg) : Std.HashSet (Nat × UInt8) × Std.HashSet (Nat × UInt8) :=
+          (gt, if st[j]! == 2 then full else {})
+        let pgA := sortG pg
+        let fgA := (sortG fg).filter (!pgA.contains ·)
+        if pgA != g1[j]! || fgA != v1[j]! then
+          g1 := g1.set! j pgA
+          v1 := v1.set! j fgA
+          changed := true
   for j in [0:n] do
-    if valueApart j then
-      v1 := v1.set! j ((gateOver g1 vReads[j]!).filter (!g1[j]!.contains ·))
+    if Mod.isPinned priv[j]!.name && st[j]! > 0 && (!g1[j]!.isEmpty || !v1[j]!.isEmpty) then
+      throw s!"the pinned constant {priv[j]!.name} reads a module its importers need not load"
+  -- what is left out, for the statistics
+  let mut diag : Diag := {}
   for j in [0:n] do
-    if !g1[j]!.isEmpty then
+    let c := priv[j]!
+    let kc := kindOf c
+    let entry : Array (String × Nat) := #[(kc, 1)]
+    if init[j]! > 0 && st[j]! == 0 then
+      let msg := s!"absent: {c.name} ({kc}) of {m.name}"
+      diag := diag.merge { absent := entry, ex := #[msg] }
+    else if init[j]! == 2 && st[j]! == 1 then
+      let msg := s!"assumption: {c.name} ({kc}) of {m.name}"
+      let ie : Array String := #[msg]
+      diag := diag.merge { assumed := entry, ex := #[msg], indEx := ie }
+    if st[j]! > 0 && !g1[j]!.isEmpty then
       let why := g1[j]!.toList.take 3 |>.map fun (x, l) =>
         s!"{((g[x]?).map ModIn.name).getD Name.anonymous}@{l}"
-      let msg := s!"gated: {priv[j]!.name} ({kindOf priv[j]!}) of {m.name} needs {why}"
+      let msg := s!"gated: {c.name} ({kc}) of {m.name} needs {why}"
       diag := diag.merge { gated := 1, ex := #[msg] }
-      if !isPrivateName priv[j]!.name then
-        diag := diag.merge { pubGated := 1, pubEx := #[msg] }
-    if !v1[j]!.isEmpty then
-      diag := diag.merge { vgated := 1, ex := #[s!"value-gated: {priv[j]!.name} of {m.name}"] }
-  -- what the importers check
+    if st[j]! > 0 && !v1[j]!.isEmpty then
+      let msg := s!"full-gated: {c.name} ({kc}) of {m.name}"
+      diag := diag.merge { vgated := 1, ex := #[msg] }
+  -- the unit
   let slot : ModSlot := {
-    priv, at1 := (Array.range n).map fun j => Mod.at1Of pres[j]! priv[j]!,
+    priv, at1 := (Array.range n).map fun j =>
+      if st[j]! == 2 then some priv[j]! else if st[j]! == 1 then some (Mod.asAxiom priv[j]!)
+      else none,
     tbls := priv.map tblOf, g1, v1,
     prf := priv.map fun ci => flagged.contains ci.name }
   let mut fp1 : Std.HashSet (Nat × UInt8) := {}
@@ -343,7 +377,8 @@ def unitOf (g : Array ModIn) (S : Mod.Store) (flagged : Std.HashSet Name) (k : N
   for j in [0:n] do
     for (d, _) in tReads[j]! ++ vReads[j]! do
       all2 := all2.insert d
-    if let some full := pres[j]! then
+    if st[j]! > 0 then
+      let full := st[j]! == 2
       let rs := tReads[j]! ++ (if full then vReads[j]! else #[])
       for (_, t) in rs do
         let p := pairOf t
@@ -465,9 +500,11 @@ off the queue, install each at its view, publish its unit, release its
 dependents.  The first failure stops the run (every unpublished unit is
 resolved empty, so nobody stays waiting). -/
 def installAll (mode : CheckMode) (err : IO.FS.Stream) (jobs : Nat) (g : Array ModIn)
-    (S : Mod.Store) (dups : Std.HashSet Name) (proms : Array (IO.Promise ModSlot)) :
+    (S : Mod.Store) (dups : Std.HashSet Name) (proms : Array (IO.Promise ModSlot))
+    (keepGoing : Bool := false) :
     IO (Array (Option (ModRes mode g S))) := do
   let n := g.size
+  let failed ← (Array.range n).mapM fun _ => IO.mkRef false
   let counts ← g.mapM fun m => IO.mkRef m.imports.size
   let mut dependents : Array (Array Nat) := Array.replicate n #[]
   for h : i in [0:n] do
@@ -489,12 +526,19 @@ def installAll (mode : CheckMode) (err : IO.FS.Stream) (jobs : Nat) (g : Array M
         match ← sc.next with
         | none => pure ()
         | some k =>
-          let r ← installModule mode err (declsAt g k) (S.view k)
+          -- `--keep-going`: a module importing a failed one is skipped
+          let skip ← ((g[k]?.map (·.imports)).getD #[]).anyM fun (j, _) =>
+            match failed[j]? with
+            | some r => r.get
+            | none => pure false
+          let r ← if skip then
+              pure (.error (.internal "skipped: it imports a module that failed", 0))
+            else installModule mode err (declsAt g k) (S.view k)
           let flags := match r with
             | .ok e => proofsOf mode dups e.fe e.pend
             | .error _ => {}
           let (r, u, dg) := match r with
-            | .ok e => match unitOf g S flags k e.fe with
+            | .ok e => match unitOf g S flags k (declsAt g k) e.fe with
               | .ok (u, rd, dg) =>
                 if Mod.unitOk S k e.fe flags.contains u rd then (r, u, dg)
                 else (.error (.internal "the unit of the module fails its check", 0), default, {})
@@ -515,7 +559,11 @@ def installAll (mode : CheckMode) (err : IO.FS.Stream) (jobs : Nat) (g : Array M
           if let some ref := results[k]? then
             ref.set (some ⟨k, u, dg, r⟩)
           match r with
-          | .error _ => sc.halt
+          | .error _ =>
+            if keepGoing then
+              if let some f := failed[k]? then f.set true
+              sc.finish k
+            else sc.halt
           | .ok _ => sc.finish k
           loop fuel
     loop (n + 1)
@@ -588,8 +636,8 @@ def parMap {α : Type} [Inhabited α] (jobs n : Nat) (f : Nat → α) : IO (Arra
 /-- **The modular run**: read, build the graph and the store, install
 every module, compute the requirements, run the local checks and every
 record's check; the verdict line and the exit code. -/
-def checkModular (sp : SearchPath) (roots : Array Name) (mode : CheckMode) (stride jobs : Nat) :
-    IO UInt32 := do
+def checkModular (sp : SearchPath) (roots : Array Name) (mode : CheckMode) (stride jobs : Nat)
+    (keepGoing : Bool := false) : IO UInt32 := do
   let t0 ← IO.monoMsNow
   let err ← IO.getStderr
   let modeTag : String := match mode with
@@ -637,7 +685,23 @@ def checkModular (sp : SearchPath) (roots : Array Name) (mode : CheckMode) (stri
   let proms ← g.mapM fun _ => IO.Promise.new
   let slots : Array (Thunk ModSlot) := proms.map fun p => Thunk.mk fun _ => (p.result?.get).getD {}
   let S : Mod.Store := { idx, dups := dupArr, slots, lvls }
-  let results ← installAll mode err jobs g S dups proms
+  let results ← installAll mode err jobs g S dups proms keepGoing
+  if keepGoing then
+    let mut nFail := 0
+    let mut nSkip := 0
+    for h : k in [0:results.size] do
+      if let some r := results[k] then
+        if let .error (e, pos) := r.res then
+          if (toString e).startsWith "skipped" then nSkip := nSkip + 1
+          else
+            nFail := nFail + 1
+            let d := match (declsAt g k)[pos]? with
+              | some d => s!"{ConLeche.Cached.declCLabel d}, record {pos} of "
+              | none => ""
+            IO.eprintln s!"con-leche: FAILED {e} [at {d}module {nameOf g k}]"
+    if nFail > 0 then
+      IO.eprintln s!"con-leche: {nFail} modules failed, {nSkip} skipped ({modeTag})"
+      return 1
   -- the first failing module in module order (a module after a failure
   -- may never have been installed: the run stopped)
   let mut ins : Array (Option (ModRes mode g S)) := results
@@ -664,13 +728,10 @@ def checkModular (sp : SearchPath) (roots : Array Name) (mode : CheckMode) (stri
   phase "install done"
   if stride > 0 then
     let dg : Diag := results.foldl (fun (d : Diag) r? => d.merge ((r?.map (·.diag)).getD {})) {}
-    err.putStr s!"con-leche: exported views: pulled in {dg.pulled}, gated {dg.gated}, \
-      value-gated {dg.vgated}\n"
+    err.putStr s!"con-leche: exported presentations: assumption {dg.assumed}, absent {dg.absent}, \
+      gated {dg.gated}, full-gated {dg.vgated}\n"
     for x in dg.ex do err.putStr s!"con-leche:   {x}\n"
-    err.putStr s!"con-leche: of those, with a public reader: pulled {dg.pubPulled}, gated \
-      {dg.pubGated}\n"
-    for x in dg.pubEx do err.putStr s!"con-leche:   {x}\n"
-
+    for x in dg.indEx do err.putStr s!"con-leche:   {x}\n"
   let units : Array Mod.Unit' := ins.map fun r? => (r?.map (·.unit)).getD default
   let fes : Array FEnv := ins.map fun r? => match r? with
     | some ⟨_, _, _, .ok e⟩ => e.fe
@@ -701,8 +762,10 @@ def checkModular (sp : SearchPath) (roots : Array Name) (mode : CheckMode) (stri
         | .error e => some (e, i)
       | _, _ => some (.internal "no such record", i)
     | none => some (.internal "no such check", 0)
+  let mut nBad := 0
   for h : q in [0:chk.size] do
     if let some (e, i) := chk[q] then
+      nBad := nBad + 1
       let k := (jobsList[q]?.map (·.2)).getD 0
       let pc? := (pends[i]?).bind (·[k]?)
       let nm := pc?.map (·.vg.cv.name) |>.getD .anonymous
@@ -713,7 +776,13 @@ def checkModular (sp : SearchPath) (roots : Array Name) (mode : CheckMode) (stri
             fun d => ((fe.restrictTo pc.vis).find? d).isNone
           if bad.isEmpty then "" else s!" (not in the module's context: {bad.take 5})"
         | _, _ => ""
-      return ← fail e s!"{nm}, module {nameOf g i}{extra}"
+      if keepGoing then
+        IO.eprintln s!"con-leche: FAILED {e} [at {nm}, module {nameOf g i}{extra}]"
+      else
+        return ← fail e s!"{nm}, module {nameOf g i}{extra}"
+  if nBad > 0 then
+    IO.eprintln s!"con-leche: {nBad} checks failed ({modeTag})"
+    return 1
   phase "checks done"
   IO.println s!"con-leche: accepted {nDecls} declarations in {g.size} modules ({modeTag})"
   return 0
