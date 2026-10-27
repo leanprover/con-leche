@@ -1,6 +1,7 @@
 module
 
 public import ConLeche.Verify.Denote.EnvExtend
+public import ConLeche.Modular
 
 public section
 
@@ -42,7 +43,7 @@ structure ReadAgree (R C E : Env) (aC aE : Name → (Name → Nat) → Term) : P
     ∃ ciC ciE, C.find? d = some ciC ∧ E.find? d = some ciE ∧
       ciC.toConstantVal = ciE.toConstantVal ∧ aC d = aE d
   proj : ∀ T i, (R.find? T).isSome = true → (E.find? T).isSome = true →
-    C.findProj? T i = E.findProj? T i
+    (∃ cv caps, C.find? T = some (.indInfo cv caps)) → C.findProj? T i = E.findProj? T i
   nat : (∀ n ∈ natLitNames, (R.find? n).isSome = true ∧ (E.find? n).isSome = true) →
     natLitSupported C = natLitSupported E
   str : (∀ n ∈ strLitNames, (R.find? n).isSome = true ∧ (E.find? n).isSome = true) →
@@ -57,62 +58,89 @@ theorem ReadAgree.levelParamsAt {R C E : Env} {aC aE : Name → (Name → Nat) �
   dsimp only
   rw [hcv]
 
+/-- Binder opening keeps the projections' formers. -/
+theorem Expr.projsFormer_instantiate1 {C : Env} {d : Nat} {ty : Expr}
+    (hty : ConLeche.Modular.Expr.projsFormer C ty = true) :
+    ∀ {e : Expr} (k : Nat), ConLeche.Modular.Expr.projsFormer C e = true →
+      ConLeche.Modular.Expr.projsFormer C (e.instantiate1 (.fvar d ty) k) = true := by
+  intro e
+  induction e <;> intro k h <;>
+    simp_all [ConLeche.Expr.instantiate1, ConLeche.Modular.Expr.projsFormer]
+  case bvar i =>
+    split
+    · simpa [ConLeche.Modular.Expr.projsFormer] using hty
+    · split <;> simp [ConLeche.Modular.Expr.projsFormer]
+
 /-- **An expression read alike at two environments**: its constants
-stored in `R` (the part of `C` read as `E` reads it) and in `E`. -/
+stored in `R` (the part of `C` read as `E` reads it) and in `E`, its
+projections of type formers of `C`. -/
 theorem denote_agree {R C E : Env} {aC aE : Name → (Name → Nat) → Term} {φ : Name → Nat}
     (h : ReadAgree R C E aC aE) :
     ∀ (d : Nat) (e : Expr), e.constsResolve R = true → e.constsResolve E = true →
+      ConLeche.Modular.Expr.projsFormer C e = true →
       denote aC C φ d e = denote aE E φ d e := by
   intro d e
   induction d, e using denote.induct (env := E) with
-  | case1 d u => intro _ _; rw [denote, denote]
-  | case2 d idx ty => intro _ _; rw [denote, denote]
+  | case1 d u => intro _ _ _; rw [denote, denote]
+  | case2 d idx ty => intro _ _ _; rw [denote, denote]
   | case3 d n us ci hf hlen =>
-    intro hR hE
+    intro hR hE _
     simp only [Expr.constsResolve] at hR hE
     obtain ⟨ciC, ciE, hC, hE', hcv, hl⟩ := h.find n hR hE
     rw [hf] at hE'; obtain rfl := Option.some.inj hE'
     rw [denote, hC, denote, hf]
     simp only [hcv, hl]
   | case4 d n us ci hf hlen =>
-    intro hR hE
+    intro hR hE _
     simp only [Expr.constsResolve] at hR hE
     obtain ⟨ciC, ciE, hC, hE', hcv, hl⟩ := h.find n hR hE
     rw [hf] at hE'; obtain rfl := Option.some.inj hE'
     rw [denote, hC, denote, hf]
     simp only [hcv, hl]
   | case5 d n us hf =>
-    intro _ hE
+    intro _ hE _
     simp only [Expr.constsResolve, hf] at hE
     exact nomatch hE
   | case6 d ty body ihty ihbody =>
-    intro hR hE
+    intro hR hE hP
     simp only [Expr.constsResolve, Bool.and_eq_true] at hR hE
-    rw [denote, denote, ihty hR.1 hE.1,
+    simp only [ConLeche.Modular.Expr.projsFormer, Bool.and_eq_true] at hP
+    rw [denote, denote, ihty hR.1 hE.1 hP.1,
       ihbody (Expr.constsResolve_instantiate1 hR.1 0 hR.2)
-        (Expr.constsResolve_instantiate1 hE.1 0 hE.2)]
+        (Expr.constsResolve_instantiate1 hE.1 0 hE.2) (Expr.projsFormer_instantiate1 hP.1 0 hP.2)]
   | case7 d ty body ihty ihbody =>
-    intro hR hE
+    intro hR hE hP
     simp only [Expr.constsResolve, Bool.and_eq_true] at hR hE
-    rw [denote, denote, ihty hR.1 hE.1,
+    simp only [ConLeche.Modular.Expr.projsFormer, Bool.and_eq_true] at hP
+    rw [denote, denote, ihty hR.1 hE.1 hP.1,
       ihbody (Expr.constsResolve_instantiate1 hR.1 0 hR.2)
-        (Expr.constsResolve_instantiate1 hE.1 0 hE.2)]
+        (Expr.constsResolve_instantiate1 hE.1 0 hE.2) (Expr.projsFormer_instantiate1 hP.1 0 hP.2)]
   | case8 d f a ihf iha =>
-    intro hR hE
+    intro hR hE hP
     simp only [Expr.constsResolve, Bool.and_eq_true] at hR hE
-    rw [denote, denote, ihf hR.1 hE.1, iha hR.2 hE.2]
+    simp only [ConLeche.Modular.Expr.projsFormer, Bool.and_eq_true] at hP
+    rw [denote, denote, ihf hR.1 hE.1 hP.1, iha hR.2 hE.2 hP.2]
   | case9 d ty val body ihty ihv ihbody =>
-    intro hR hE
+    intro hR hE hP
     simp only [Expr.constsResolve, Bool.and_eq_true] at hR hE
-    rw [denote, denote, ihty hR.1.1 hE.1.1, ihv hR.1.2 hE.1.2,
+    simp only [ConLeche.Modular.Expr.projsFormer, Bool.and_eq_true] at hP
+    rw [denote, denote, ihty hR.1.1 hE.1.1 hP.1.1, ihv hR.1.2 hE.1.2 hP.1.2,
       ihbody (Expr.constsResolve_instantiate1 hR.1.1 0 hR.2)
-        (Expr.constsResolve_instantiate1 hE.1.1 0 hE.2)]
+        (Expr.constsResolve_instantiate1 hE.1.1 0 hE.2)
+        (Expr.projsFormer_instantiate1 hP.1.1 0 hP.2)]
   | case10 d sn i e ihe =>
-    intro hR hE
+    intro hR hE hP
     simp only [Expr.constsResolve, Bool.and_eq_true] at hR hE
-    rw [denote, denote, ihe hR.2 hE.2, h.proj sn i hR.1 hE.1]
+    simp only [ConLeche.Modular.Expr.projsFormer, Bool.and_eq_true] at hP
+    have hT : ∃ cv caps, C.find? sn = some (.indInfo cv caps) := by
+      obtain ⟨hP1, -⟩ := hP
+      revert hP1
+      cases hc : C.find? sn with
+      | none => intro h; simp at h
+      | some ci => cases ci <;> intro h <;> first | (simp at h; done) | exact ⟨_, _, rfl⟩
+    rw [denote, denote, ihe hR.2 hE.2 hP.2, h.proj sn i hR.1 hE.1 hT]
   | case11 d n hsup =>
-    intro hR hE
+    intro hR hE _
     simp only [Expr.constsResolve, Bool.and_eq_true] at hR hE
     have hg := h.nat (by
       intro m hm
@@ -126,7 +154,7 @@ theorem denote_agree {R C E : Env} {aC aE : Name → (Name → Nat) → Term} {�
     obtain ⟨-, -, -, -, -, hs⟩ := h.find natSuccName hR.2 hE.2
     rw [hz, hs]
   | case12 d n hsup =>
-    intro hR hE
+    intro hR hE _
     simp only [Expr.constsResolve, Bool.and_eq_true] at hR hE
     have hg := h.nat (by
       intro m hm
@@ -137,7 +165,7 @@ theorem denote_agree {R C E : Env} {aC aE : Name → (Name → Nat) → Term} {�
       · exact ⟨hR.2, hE.2⟩)
     rw [denote, ite_eq_right (fun h' => hsup (hg ▸ h')), denote, ite_eq_right hsup]
   | case13 d s hsup =>
-    intro hR hE
+    intro hR hE _
     simp only [Expr.constsResolve, Bool.and_eq_true] at hR hE
     obtain ⟨⟨⟨⟨⟨⟨⟨⟨⟨r1, r2⟩, r3⟩, r4⟩, r5⟩, r6⟩, r7⟩, r8⟩, r9⟩, r10⟩ := hR
     obtain ⟨⟨⟨⟨⟨⟨⟨⟨⟨e1, e2⟩, e3⟩, e4⟩, e5⟩, e6⟩, e7⟩, e8⟩, e9⟩, e10⟩ := hE
@@ -166,7 +194,7 @@ theorem denote_agree {R C E : Env} {aC aE : Name → (Name → Nat) → Term} {�
     obtain ⟨-, -, -, -, -, h10⟩ := h.find charOfNatName r10 e10
     rw [h2, h3, h5, h7, h8, h9, h10]
   | case14 d s hsup =>
-    intro hR hE
+    intro hR hE _
     simp only [Expr.constsResolve, Bool.and_eq_true] at hR hE
     obtain ⟨⟨⟨⟨⟨⟨⟨⟨⟨r1, r2⟩, r3⟩, r4⟩, r5⟩, r6⟩, r7⟩, r8⟩, r9⟩, r10⟩ := hR
     obtain ⟨⟨⟨⟨⟨⟨⟨⟨⟨e1, e2⟩, e3⟩, e4⟩, e5⟩, e6⟩, e7⟩, e8⟩, e9⟩, e10⟩ := hE
@@ -186,7 +214,7 @@ theorem denote_agree {R C E : Env} {aC aE : Name → (Name → Nat) → Term} {�
       · exact ⟨r10, e10⟩)
     rw [denote, ite_eq_right (fun h' => hsup (hg ▸ h')), denote, ite_eq_right hsup]
   | case15 d x hs hfv hc hpi hlam happ hlet hproj hnat hstr =>
-    intro _ _
+    intro _ _ _
     cases x with
     | bvar i => rw [denote.eq_def, denote.eq_def]
     | sort u => exact absurd rfl (hs u)

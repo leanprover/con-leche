@@ -36,6 +36,20 @@ context presents as an assumption. -/
   | .indInfo .. | .ctorInfo .. | .recInfo .. => true
   | _ => false
 
+/-- A constructor or recursor: the kinds no context presents as an
+assumption at all. -/
+@[expose] def _root_.ConLeche.ConstantInfo.isCtorRec : ConstantInfo → Bool
+  | .ctorInfo .. | .recInfo .. => true
+  | _ => false
+
+/-- An inductive type former. -/
+@[expose] def _root_.ConLeche.ConstantInfo.isFormer : ConstantInfo → Bool
+  | .indInfo .. => true
+  | _ => false
+
+/-- A type former of `C`. -/
+@[expose] def FormerIn (C : Env) (n : Name) : Prop := ∃ cv caps, C.find? n = some (.indInfo cv caps)
+
 /-- **A context, read from its sources** (see the module docstring). -/
 structure CtxSrc (V : Type w) [SetTheory V] (μ : CheckMode) (C : Env)
     (aC : Name → (Name → Nat) → Term) where
@@ -50,17 +64,23 @@ structure CtxSrc (V : Type w) [SetTheory V] (μ : CheckMode) (C : Env)
   entry : ∀ n ci, C.find? n = some ci → ∃ ci', (E n).find? n = some ci' ∧ Refines n ci ci'
   self : ∀ n, (C.find? n).isSome = true → ((R n).find? n).isSome = true
   scope : ∀ n ci, C.find? n = some ci → EntryScoped (R n) C n ci
-  /-- a name read alike is stored alike where it is an inductive kind or pinned -/
-  same : ∀ n d ci, ((R n).find? d).isSome = true →
-    (C.find? d = some ci ∨ (E n).find? d = some ci) →
-    (ci.isIndKind = true ∨ d ∈ pinnedNames) → C.find? d = (E n).find? d
+  /-- a name read alike is stored alike where the context stores an
+  inductive kind, the source a constructor or recursor, or it is pinned -/
+  same : ∀ n d, ((R n).find? d).isSome = true →
+    ((∃ ci, C.find? d = some ci ∧ ci.isIndKind = true) ∨ d ∈ pinnedNames) →
+    C.find? d = (E n).find? d
   /-- what an inductive kind read alike reads is read alike, where it is stored -/
   deep : ∀ n c ci, ((R n).find? c).isSome = true → C.find? c = some ci → ci.isIndKind = true →
     EntryScopedP (fun d => (C.find? d).isSome = true → ((E n).find? d).isSome = true →
       ((R n).find? d).isSome = true) C c ci
   cover : ∀ n, LfpCover (m n) []
   eta : ∀ n, ConLeche.EtaFamiliesClosed (E n)
-  tables : ∀ T, (C.find? T).isSome = true → C.findTable? T = (E T).findTable? T
+  tables : ∀ T ci, C.find? T = some ci → C.findTable? T =
+    match ci with
+    | .indInfo .. => (E T).findTable? T
+    | _ => none
+  projs : ∀ n ci, C.find? n = some ci → EntryProjs C n ci
+  blocks : ∀ n ci, C.find? n = some ci → BlockIn C n ci
   tables_mem : ∀ t ∈ C.tables, C.findTable? t.structName = some t
   nodup : NodupNames C
   closed : ∀ n ψ, Term.Closed (aC n ψ)
@@ -73,36 +93,29 @@ variable {V : Type w} [SetTheory V] {μ : CheckMode} {C : Env}
 
 theorem _root_.ConLeche.Modular.Refines.cv {n : Name} {ci ci' : ConstantInfo} (h : Refines n ci ci') :
     ci.toConstantVal = ci'.toConstantVal := by
-  rcases h with rfl | ⟨-, rfl, -⟩ <;> rfl
+  rcases h with rfl | ⟨-, rfl⟩ <;> rfl
 
 theorem _root_.ConLeche.Modular.Refines.eq_of_not_axiom {n : Name} {ci ci' : ConstantInfo} (h : Refines n ci ci')
     (hn : ∀ cv, ci ≠ .axiomInfo cv) : ci = ci' := by
-  rcases h with h | ⟨-, rfl, -⟩
+  rcases h with h | ⟨-, rfl⟩
   · exact h
   · exact absurd rfl (hn _)
 
 theorem _root_.ConLeche.Modular.Refines.eq_of_indKind {n : Name} {ci ci' : ConstantInfo} (h : Refines n ci ci')
-    (hk : ci.isIndKind = true ∨ ci'.isIndKind = true) : ci = ci' := by
-  rcases h with h | ⟨-, rfl, h3⟩
-  · exact h
-  · rcases hk with hk | hk
-    · simp [ConstantInfo.isIndKind] at hk
-    · rcases h3 with ⟨v, hh, he⟩ | he | he <;> rw [he] at hk <;>
-        simp [ConstantInfo.isIndKind] at hk
+    (hk : ci.isIndKind = true) : ci = ci' :=
+  h.eq_of_not_axiom fun _ he => by rw [he] at hk; simp [ConstantInfo.isIndKind] at hk
 
 theorem _root_.ConLeche.Modular.Refines.eq_of_pinned {n : Name} {ci ci' : ConstantInfo} (h : Refines n ci ci')
     (hp : n ∈ pinnedNames) : ci = ci' := by
-  rcases h with h | ⟨hn, -, -⟩
+  rcases h with h | ⟨hn, -⟩
   · exact h
   · exact absurd hp hn
 
 theorem _root_.ConLeche.Modular.Refines.trans {n : Name} {a b c : ConstantInfo}
     (h₁ : Refines n a b) (h₂ : Refines n b c) : Refines n a c := by
-  rcases h₁ with rfl | ⟨hn, rfl, hb⟩
+  rcases h₁ with rfl | ⟨hn, rfl⟩
   · exact h₂
-  · rcases h₂ with rfl | ⟨-, rfl, hc⟩
-    · exact Or.inr ⟨hn, rfl, hb⟩
-    · exact Or.inr ⟨hn, rfl, hc⟩
+  · exact Or.inr ⟨hn, by rw [h₂.cv]⟩
 
 theorem _root_.ConLeche.Modular.Refines.refl (n : Name) (ci : ConstantInfo) : Refines n ci ci := Or.inl rfl
 
@@ -126,6 +139,132 @@ theorem find?_of_mem {env : Env} (hnd : NodupNames env) {c : ConstantInfo}
       rw [List.find?_cons_of_neg (by simpa using hne)]
       exact ih hnd.2 hc'
 
+
+/-! ## Projections of formers, kept by the term operations -/
+
+theorem projsFormer_instantiate1_any {E : Env} {a : Expr}
+    (ha : Expr.projsFormer E a = true) :
+    ∀ (e : Expr) (k : Nat), Expr.projsFormer E e = true →
+      Expr.projsFormer E (e.instantiate1 a k) = true := by
+  intro e
+  induction e <;> intro k h <;> simp_all [ConLeche.Expr.instantiate1, Expr.projsFormer]
+  case bvar i =>
+    split
+    · exact ha
+    · split <;> simp [Expr.projsFormer]
+
+theorem projsFormer_instantiateLevelParams {E : Env} (ks : List Name) (us : List Level) :
+    ∀ (e : Expr), Expr.projsFormer E (e.instantiateLevelParams ks us) = Expr.projsFormer E e := by
+  intro e
+  induction e <;> simp_all [ConLeche.Expr.instantiateLevelParams, Expr.projsFormer]
+
+theorem projsFormer_projTele {E : Env} :
+    ∀ (k : Nat) (body : Expr), Expr.projsFormer E (ConLeche.projTele k body) = Expr.projsFormer E body
+  | 0, _ => rfl
+  | k + 1, body => by
+    simp [ConLeche.projTele, Expr.projsFormer, projsFormer_projTele k body]
+
+theorem projsFormer_openRev {E : Env} {e : Expr} (h : Expr.projsFormer E e = true) :
+    ∀ d n : Nat, Expr.projsFormer E (ConLeche.Verify.openRev d n e) = true := by
+  intro d n
+  induction n with
+  | zero => exact h
+  | succ n ih =>
+    show Expr.projsFormer E ((ConLeche.Verify.openRev d n e).instantiate1 (.fvar (d + n) (.sort .zero)) 0)
+      = true
+    exact projsFormer_instantiate1_any (by simp [Expr.projsFormer]) _ 0 ih
+
+theorem projsFormer_instPisWith {E : Env} :
+    ∀ {as : List Expr} {e r : Expr}, (∀ a ∈ as, Expr.projsFormer E a = true) →
+      Expr.projsFormer E e = true → ConLeche.instPisWith as e = some r →
+      Expr.projsFormer E r = true
+  | [], e, r, _, he, h => by
+    simp only [ConLeche.instPisWith, Option.some.injEq] at h; subst h; exact he
+  | a :: as, e, r, has, he, h => by
+    match e, h with
+    | .forallE t b, h =>
+      have h' : ConLeche.instPisWith as (b.instantiate1 a) = some r := h
+      simp only [Expr.projsFormer, Bool.and_eq_true] at he
+      exact projsFormer_instPisWith (fun x hx => has x (List.mem_cons_of_mem _ hx))
+        (projsFormer_instantiate1_any (has a List.mem_cons_self) b 0 he.2) h'
+
+theorem projsFormer_replaceApps {E : Env} {f : Name → List Level → Option Expr} {b n : Nat}
+    (hf : ∀ c us e, f c us = some e → Expr.projsFormer E e = true) :
+    ∀ (e : Expr), Expr.projsFormer E e = true →
+      Expr.projsFormer E (e.replaceApps f b n) = true := by
+  intro e
+  induction e with
+  | bvar i => intro _; simp [ConLeche.Expr.replaceApps, Expr.projsFormer]
+  | fvar i ty ih => intro h; simpa [ConLeche.Expr.replaceApps] using h
+  | sort u => intro _; simp [ConLeche.Expr.replaceApps, Expr.projsFormer]
+  | const c us =>
+    intro h
+    rw [ConLeche.Expr.replaceApps_const]
+    split
+    · rename_i r hr
+      obtain ⟨c', us', hc⟩ := ConLeche.Expr.appHole?_some hr
+      exact hf _ _ _ hc
+    · exact h
+  | lit l => intro h; simpa [ConLeche.Expr.replaceApps] using h
+  | app a x iha ihx =>
+    intro h
+    rw [ConLeche.Expr.replaceApps_app]
+    split
+    · rename_i r hr
+      obtain ⟨c', us', hc⟩ := ConLeche.Expr.appHole?_some hr
+      exact hf _ _ _ hc
+    · simp only [Expr.projsFormer, Bool.and_eq_true] at h ⊢
+      exact ⟨iha h.1, ihx h.2⟩
+  | lam ty b iht ihb =>
+    intro h
+    simp only [ConLeche.Expr.replaceApps, Expr.projsFormer, Bool.and_eq_true] at h ⊢
+    exact ⟨iht h.1, ihb h.2⟩
+  | forallE ty b iht ihb =>
+    intro h
+    simp only [ConLeche.Expr.replaceApps, Expr.projsFormer, Bool.and_eq_true] at h ⊢
+    exact ⟨iht h.1, ihb h.2⟩
+  | letE ty v b iht ihv ihb =>
+    intro h
+    simp only [ConLeche.Expr.replaceApps, Expr.projsFormer, Bool.and_eq_true] at h ⊢
+    exact ⟨⟨iht h.1.1, ihv h.1.2⟩, ihb h.2⟩
+  | proj s i e ih =>
+    intro h
+    simp only [ConLeche.Expr.replaceApps, Expr.projsFormer, Bool.and_eq_true] at h ⊢
+    exact ⟨h.1, ih h.2⟩
+
+theorem projsFormer_canonOf {E : Env} {ty A : Expr} (he : Expr.projsFormer E ty = true)
+    (hA : CanonOf ty A) : Expr.projsFormer E A = true := by
+  have hp : ∀ n, ∀ x ∈ canonParams n, Expr.projsFormer E x = true := fun _ x hx => by
+    obtain ⟨i, -, rfl⟩ := mem_canonParams hx
+    simp [Expr.projsFormer]
+  rcases hA with ⟨names, us, n, hA⟩ | ⟨n, hA⟩
+  · unfold ConLeche.nestCanonCrest at hA
+    obtain ⟨t, ht, rfl⟩ := Option.map_eq_some_iff.mp hA
+    refine projsFormer_replaceApps (fun c us' r hr => ?_) _ (projsFormer_instPisWith (hp _) he ht)
+    obtain ⟨m, -, -, -, rfl⟩ := ConLeche.nestCanonSub_some hr
+    simp [Expr.projsFormer]
+  · exact projsFormer_instPisWith (hp _) he hA
+
+/-- A fragment term has no projections. -/
+theorem projsFormer_of_natFragOk {E E' : Env} {c : Name} :
+    ∀ {e : Expr}, ConLeche.Verify.natFragOk E' c e = true → Expr.projsFormer E e = true := by
+  intro e
+  induction e with
+  | app f a ihf iha =>
+    intro h
+    simp only [ConLeche.Verify.natFragOk, Bool.and_eq_true] at h
+    simp only [Expr.projsFormer, Bool.and_eq_true]
+    exact ⟨ihf h.1, iha h.2⟩
+  | fvar idx ty =>
+    intro h
+    simp only [ConLeche.Verify.natFragOk, Bool.and_eq_true, beq_iff_eq] at h
+    simp [Expr.projsFormer, h.2]
+  | proj _ _ _ => intro h; simp [ConLeche.Verify.natFragOk] at h
+  | lam _ _ => intro h; simp [ConLeche.Verify.natFragOk] at h
+  | forallE _ _ => intro h; simp [ConLeche.Verify.natFragOk] at h
+  | letE _ _ _ => intro h; simp [ConLeche.Verify.natFragOk] at h
+  | _ => intro _; simp [Expr.projsFormer]
+
 namespace CtxSrc
 
 variable (S : CtxSrc V μ C aC)
@@ -148,9 +287,10 @@ theorem leaf {n d : Name} (hn : (C.find? n).isSome = true)
 /-- An expression read alike reads alike. -/
 theorem denote_eq {n : Name} (hn : (C.find? n).isSome = true) {e : Expr}
     (hR : e.constsResolve (S.R n) = true) (hE : e.constsResolve (S.E n) = true)
+    (hP : Expr.projsFormer C e = true)
     (ψ : Name → Nat) (d : Nat) :
     denote aC C ψ d e = denote (S.m n).base2.acval (S.E n) ψ d e :=
-  denote_agree (S.agree n hn) d e hR hE
+  denote_agree (S.agree n hn) d e hR hE hP
 
 /-- A resolution in the context, from one in the part read alike. -/
 theorem resolveC {n : Name} {e : Expr} (hR : e.constsResolve (S.R n) = true) :
@@ -180,9 +320,10 @@ theorem type_eq {n : Name} {ci ci' : ConstantInfo} (hf : C.find? n = some ci)
   have hn : (C.find? n).isSome = true := by rw [hf]; rfl
   have hwf := (S.m n).base2.wf.consts _ (ConLeche.Env.find?_mem hf')
   rw [← hr.cv]
-  refine S.denote_eq hn ?_ ?_ ψ d
+  refine S.denote_eq hn ?_ ?_ ?_ ψ d
   · rw [ConLeche.Expr.constsResolve_instantiateLevelParams]; exact (S.scope n ci hf).1
   · rw [ConLeche.Expr.constsResolve_instantiateLevelParams, hr.cv]; exact hwf.2.2.1
+  · rw [projsFormer_instantiateLevelParams]; exact (S.projs n ci hf).1
 
 end CtxSrc
 
@@ -323,21 +464,17 @@ namespace CtxSrc
 variable (S : CtxSrc V μ C aC)
 include S
 
-/-- A stored table's structure is an inductive type former of its
-source, hence of the context, unless the table has no fields. -/
-theorem table_ind {T : Name} {t : ConLeche.ProjTable} (ht : C.findTable? T = some t)
-    (hpos : 0 < t.numFields) :
-    ∃ cv caps, C.find? T = some (.indInfo cv caps) := by
-  obtain ⟨-, hsn, hT⟩ := ConLeche.Env.findTable?_mem ht
-  have htE : (S.E T).findTable? T = some t := by rw [← S.tables T hT]; exact ht
-  obtain ⟨-, -, -, -, ⟨cvT, capsT, hfT, -⟩, -⟩ := (S.m T).base2.proj_ok T t htE 0 hpos
+/-- A stored table's structure is an inductive type former of the
+context, and the table its source's. -/
+theorem table_of {T : Name} {t : ConLeche.ProjTable} (ht : C.findTable? T = some t) :
+    ∃ cv caps, C.find? T = some (.indInfo cv caps) ∧ (S.E T).findTable? T = some t := by
+  obtain ⟨-, -, hT⟩ := ConLeche.Env.findTable?_mem ht
   obtain ⟨ci, hci⟩ := Option.isSome_iff_exists.mp hT
-  obtain ⟨ci', hf', hr⟩ := S.entry T ci hci
-  have hsn' : (t.entry 0).structName = T := hsn
-  rw [hsn', hf'] at hfT
-  obtain rfl := Option.some.inj hfT
-  rw [hr.eq_of_indKind (Or.inr rfl)] at hci
-  exact ⟨cvT, capsT, hci⟩
+  have h := S.tables T ci hci
+  rw [ht] at h
+  cases ci with
+  | indInfo cv caps => exact ⟨cv, caps, hci, h.symm⟩
+  | _ => exact nomatch h
 
 /-- **The context is well formed.** -/
 theorem wf : ConLeche.EnvWF C := by
@@ -354,26 +491,20 @@ theorem wf : ConLeche.EnvWF C := by
       obtain ⟨a, b, -, d⟩ := hdef cv v hint he'
       exact ⟨a, b, S.resolveC (hsc.2.1 cv v hint he), d⟩
     · have he' : ci' = .recInfo cv mI rP rules :=
-        (hr.eq_of_indKind (Or.inl (by rw [he]; rfl))).symm.trans he
+        (hr.eq_of_indKind (by rw [he]; rfl)).symm.trans he
       obtain ⟨a, b, -, d, e⟩ := hrec cv mI rP rules he' r hrr
       obtain ⟨hrh, -, hpins⟩ := hsc.2.2.1 cv mI rP rules he r hrr
       exact ⟨a, b, S.resolveC hrh, d, fun lvls pins hn =>
         (e lvls pins hn).mono_resolves fun pin hp => S.resolveC (hpins lvls pins hn pin hp)⟩
     · have he' : ci' = .indInfo cv caps :=
-        (hr.eq_of_indKind (Or.inl (by rw [he]; rfl))).symm.trans he
+        (hr.eq_of_indKind (by rw [he]; rfl)).symm.trans he
       exact hcaps cv caps he'
   · have hft := S.tables_mem t ht
     obtain ⟨-, -, hT⟩ := ConLeche.Env.findTable?_mem hft
-    have htE : (S.E t.structName).findTable? t.structName = some t := by
-      rw [← S.tables _ hT]; exact hft
+    obtain ⟨cv, caps, hfT, htE⟩ := S.table_of hft
     obtain ⟨-, hsize, hbodies⟩ := (S.m t.structName).base2.wf.table htE
     refine ⟨hT, hsize, fun i b hb => ?_⟩
     obtain ⟨a, b', -, d⟩ := hbodies i b hb
-    have hpos : 0 < t.numFields := by
-      rw [← hsize]
-      exact Nat.lt_of_lt_of_le (Nat.zero_lt_succ i)
-        (Nat.succ_le_of_lt (Array.getElem?_eq_some_iff.mp hb).1)
-    obtain ⟨cv, caps, hfT⟩ := S.table_ind hft hpos
     obtain ⟨-, -, -, hind, -⟩ := S.scope _ _ hfT
     obtain ⟨-, -, -, htab⟩ := hind cv caps rfl
     exact ⟨a, b', S.resolveC ((htab t hft).2 b (Array.mem_toList_iff.mpr
@@ -381,10 +512,10 @@ theorem wf : ConLeche.EnvWF C := by
 
 /-- A name read alike, of an inductive kind or pinned, is stored alike
 (either side's lookup given). -/
-theorem same_of {n d : Name} {ci : ConstantInfo} (hd : ((S.R n).find? d).isSome = true)
-    (hf : C.find? d = some ci ∨ (S.E n).find? d = some ci)
-    (hk : ci.isIndKind = true ∨ d ∈ pinnedNames) : C.find? d = (S.E n).find? d :=
-  S.same n d ci hd hf hk
+theorem same_of {n d : Name} (hd : ((S.R n).find? d).isSome = true)
+    (hk : (∃ ci, C.find? d = some ci ∧ ci.isIndKind = true) ∨ d ∈ pinnedNames) :
+    C.find? d = (S.E n).find? d :=
+  S.same n d hd hk
 
 /-- The name itself, read alike. -/
 theorem selfR {n : Name} {ci : ConstantInfo} (hf : C.find? n = some ci) :
@@ -393,7 +524,7 @@ theorem selfR {n : Name} {ci : ConstantInfo} (hf : C.find? n = some ci) :
 /-- **The basis pins hold in the context.** -/
 theorem basis_pinned : BasisPinnedTT C aC := by
   intro n ci hf hres
-  have hsame := S.same_of (S.selfR hf) (Or.inl hf) (Or.inr (mem_pinned_of_reserved hres))
+  have hsame := S.same_of (S.selfR hf) (Or.inr ((mem_pinned_of_reserved hres)))
   rw [hf] at hsame
   obtain ⟨h1, h2⟩ := (S.m n).base2.basis_pinned n ci hsame.symm hres
   refine ⟨h1, fun t ψ hp => ?_⟩
@@ -404,19 +535,20 @@ theorem basis_pinned : BasisPinnedTT C aC := by
 theorem proj_ok : ProjOkT C := by
   intro T tbl ht i hi
   obtain ⟨-, hsn, hT⟩ := ConLeche.Env.findTable?_mem ht
-  have htE : (S.E T).findTable? T = some tbl := by rw [← S.tables T hT]; exact ht
+  obtain ⟨cv, caps, hfI, htE⟩ := S.table_of ht
   obtain ⟨r1, r2, r3, r4, ⟨cvT, capsT, hfT, hlpT⟩, ⟨cvC, hfC, hlpC, hstrip⟩⟩ :=
     (S.m T).base2.proj_ok T tbl htE i hi
-  obtain ⟨cv, caps, hfI⟩ := S.table_ind ht (Nat.lt_of_le_of_lt (Nat.zero_le i) hi)
   have hsnT : (tbl.entry i).structName = T := hsn
   have hctor : (tbl.entry i).ctor = tbl.ctor := rfl
   obtain ⟨-, -, -, hind, -⟩ := S.scope _ _ hfI
   obtain ⟨-, -, -, htab⟩ := hind cv caps rfl
   have hcR := (htab tbl ht).1
   rw [hsnT] at hfT
-  have hsameT := S.same_of (S.selfR hfI) (Or.inl hfI) (Or.inl rfl)
+  have hsameT := S.same_of (S.selfR hfI) (Or.inl ⟨_, hfI, rfl⟩)
   rw [hctor] at hfC
-  have hsameC := S.same_of (n := T) hcR (Or.inr hfC) (Or.inl rfl)
+  obtain ⟨-, -, -, htc⟩ := (S.blocks T _ hfI)
+  obtain ⟨_, _, _, hcC⟩ := htc tbl ht
+  have hsameC := S.same_of (n := T) hcR (Or.inl ⟨_, hcC, rfl⟩)
   refine ⟨r1, r2, r3, r4, ⟨cvT, capsT, by rw [hsnT, hsameT]; exact hfT, hlpT⟩,
     ⟨cvC, by rw [hctor, hsameC]; exact hfC, hlpC, hstrip⟩⟩
 
@@ -438,11 +570,12 @@ bits. -/
 theorem rec_ctors : RecCtorsStored C := by
   intro n cv mI rP rules hf r hr
   obtain ⟨ci', hf', hrf, -⟩ := S.src_entry hf
-  have he' : ci' = .recInfo cv mI rP rules := (hrf.eq_of_indKind (Or.inl rfl)).symm
+  have he' : ci' = .recInfo cv mI rP rules := (hrf.eq_of_indKind rfl).symm
   rw [he'] at hf'
   obtain ⟨⟨cvj, cnP, cnF, hfc⟩, hK, hEta⟩ := (S.m n).base2.rec_ctors n cv mI rP rules hf' r hr
   obtain ⟨-, hcR, -⟩ := (S.scope n _ hf).2.2.1 cv mI rP rules rfl r hr
-  have hsame := S.same_of hcR (Or.inr hfc) (Or.inl rfl)
+  obtain ⟨_, _, _, hcC⟩ := (S.blocks n _ hf) r hr
+  have hsame := S.same_of hcR (Or.inl ⟨_, hcC, rfl⟩)
   have hfcC : C.find? r.ctor = some (.ctorInfo cvj cnP cnF) := by rw [hsame]; exact hfc
   -- both bits read the constructor and its family alike
   have hT : ∀ cvj' nP nF, (S.E n).find? r.ctor = some (.ctorInfo cvj' nP nF) →
@@ -453,7 +586,8 @@ theorem rec_ctors : RecCtorsStored C := by
     rw [hfc] at hfc'
     obtain rfl : cvj = cvj' := by injection hfc' with h; injection h
     have hTR := S.ctor_family hcR hfcC hh (by rw [hgT]; rfl)
-    exact S.same_of hTR (Or.inr hgT) (Or.inl rfl)
+    obtain ⟨_, _, hTC⟩ := (S.blocks _ _ hfcC) T us hh
+    exact S.same_of hTR (Or.inl ⟨_, hTC, rfl⟩)
   exact ⟨⟨cvj, cnP, cnF, hfcC⟩, fun hk => recRuleKOf_of hsame hT (hK hk),
     fun he => recRuleEtaOf_of hsame hT (hEta he)⟩
 
@@ -488,7 +622,8 @@ theorem type_eq0 {n : Name} {ci ci' : ConstantInfo} (hf : C.find? n = some ci)
   have hn : (C.find? n).isSome = true := by rw [hf]; rfl
   have hwf := (S.m n).base2.wf.consts _ (ConLeche.Env.find?_mem hf')
   rw [← hr.cv]
-  exact S.denote_eq hn (S.scope n ci hf).1 (by rw [hr.cv]; exact hwf.2.2.1) ψ d
+  exact S.denote_eq hn (S.scope n ci hf).1 (by rw [hr.cv]; exact hwf.2.2.1)
+    (S.projs n ci hf).1 ψ d
 
 theorem type_reads : ∀ c ∈ C.consts, ∀ ψ : Name → Nat,
     ∃ ta : Term, denote aC C ψ 0 c.toConstantVal.type = some ta := by
@@ -531,7 +666,7 @@ theorem defn_reads : AcvalDefnInst S.base := by
   refine ⟨t, ?_, ?_⟩
   · show denote aC C ψ 0 value = some t
     rw [S.denote_eq (n := cv.name) (by rw [hf]; rfl) ((S.scope _ _ hf).2.1 cv value hint rfl)
-      (hwf'.2.2.2.2.1 cv value hint rfl).2.2.1]
+      (hwf'.2.2.2.2.1 cv value hint rfl).2.2.1 ((S.projs _ _ hf).2.1 cv value hint rfl)]
     exact ht
   · show LeafReads V (aC cv.name ψ) t
     rw [S.leaf (by rw [hf]; rfl) (S.selfR hf)]
@@ -540,7 +675,7 @@ theorem defn_reads : AcvalDefnInst S.base := by
 theorem ind_strict : IndStrictOk (V := V) S.base := by
   intro I cv caps hf ψ ab n hread hn ρ vs hsp
   obtain ⟨ci', hf', hr, -⟩ := S.src_entry hf
-  have he : ci' = .indInfo cv caps := (hr.eq_of_indKind (Or.inl rfl)).symm
+  have he : ci' = .indInfo cv caps := (hr.eq_of_indKind rfl).symm
   subst he
   have hread' := hread
   change denote aC C ψ 0 cv.type = _ at hread'
@@ -552,8 +687,8 @@ theorem ind_strict : IndStrictOk (V := V) S.base := by
 
 theorem eq_law : EqLaw S.base := by
   intro hf ψ
-  have hsame := S.same_of (S.selfR hf) (Or.inl hf)
-    (Or.inr (mem_pinned_of_reserved (by decide)))
+  have hsame := S.same_of (S.selfR hf)
+    (Or.inr ((mem_pinned_of_reserved (by decide))))
   rw [hf] at hsame
   have h := (S.m eqName).eq_law hsame.symm ψ
   have hl : ∀ ψ', (S.base).acval eqName ψ' = (S.m eqName).base2.acval eqName ψ' := fun ψ' => by
@@ -565,7 +700,7 @@ theorem reduce_ops : ReduceOps S.base := by
   intro c hc cv hf hpin
   have hpc : c ∈ pinnedNames := by
     unfold pinnedNames; simp only [List.mem_append]; exact Or.inr hc
-  have hsame := S.same_of (S.selfR hf) (Or.inl hf) (Or.inr hpc)
+  have hsame := S.same_of (S.selfR hf) (Or.inr (hpc))
   rw [hf] at hsame
   obtain ⟨hel, hlaw⟩ := (S.m c).reduce_ops c hc cv hsame.symm hpin
   have helR : ((S.R c).find? (ConLeche.reduceElemName c)).isSome = true :=
@@ -654,7 +789,7 @@ theorem natOp_read {c : Name} {ci : ConstantInfo} (hf : C.find? c = some ci)
   · obtain ⟨hp, hfpd⟩ := hdeps d hd
     have hR := hfp d hfpd
     obtain ⟨ci', hci'⟩ := Option.isSome_iff_exists.mp hR
-    exact ⟨hR, S.same_of hR (Or.inr (S.R_sub c d ci' hci').1) (Or.inr hp), hRE d hR⟩
+    exact ⟨hR, S.same_of hR (Or.inr (hp)), hRE d hR⟩
   · have hR := hfp d (hbool hcond d hd)
     obtain ⟨ciC, ciE, hC, hE, hcv, -⟩ := (S.agree c (by rw [hf]; rfl)).find d hR (S.storedE hR)
     exact ⟨hR, by rw [hC, hE]; simp [hcv], hRE d hR⟩
@@ -677,7 +812,7 @@ theorem nat_ops (φ : Name → Nat) : NatOps S.base φ := by
   intro c hcN cv v hint hf
   have hc : c ∈ natOpNames ∨ c ∈ natDivModNames := Or.inl hcN
   obtain ⟨hpc, -, -⟩ := natOp_facts hc
-  have hsame := S.same_of (S.selfR hf) (Or.inl hf) (Or.inr hpc)
+  have hsame := S.same_of (S.selfR hf) (Or.inr (hpc))
   rw [hf] at hsame
   obtain ⟨hg, hpin, hlaws⟩ := (S.m c).nat_ops φ c hcN cv v hint hsame.symm
   obtain ⟨h1, h2⟩ := S.natOp_read hf hc
@@ -713,9 +848,11 @@ theorem nat_ops (φ : Name → Nat) : NatOps S.base φ := by
   obtain ⟨f1, f2⟩ := hfrag eq hq
   refine ⟨L, R, ?_, ?_, fun ρ x y hx hy => ?_⟩
   · show denote aC C φ 2 eq.1 = some L
-    rw [S.denote_eq hcn (hres _ f1) (S.resolveE (hres _ f1))]; exact hL
+    rw [S.denote_eq hcn (hres _ f1) (S.resolveE (hres _ f1)) (projsFormer_of_natFragOk f1)]
+    exact hL
   · show denote aC C φ 2 eq.2 = some R
-    rw [S.denote_eq hcn (hres _ f2) (S.resolveE (hres _ f2))]; exact hR
+    rw [S.denote_eq hcn (hres _ f2) (S.resolveE (hres _ f2)) (projsFormer_of_natFragOk f2)]
+    exact hR
   · change x ∈ˢ interp V ρ (aC natName φ) at hx
     change y ∈ˢ interp V ρ (aC natName φ) at hy
     rw [S.leaf hcn hnatR] at hx hy
@@ -725,7 +862,7 @@ theorem div_mod (φ : Name → Nat) : DivMod S.base φ := by
   intro c hcN cv v hint hf
   have hc : c ∈ natOpNames ∨ c ∈ natDivModNames := Or.inr hcN
   obtain ⟨hpc, -, -⟩ := natOp_facts hc
-  have hsame := S.same_of (S.selfR hf) (Or.inl hf) (Or.inr hpc)
+  have hsame := S.same_of (S.selfR hf) (Or.inr (hpc))
   rw [hf] at hsame
   obtain ⟨hg, hpin, hlaw⟩ := (S.m c).div_mod φ c hcN cv v hint hsame.symm
   obtain ⟨h1, h2⟩ := S.natOp_read hf hc
@@ -771,7 +908,7 @@ theorem deep_type {n c : Name} {ci : ConstantInfo} (hc : ((S.R n).find? c).isSom
     (hf : C.find? c = some ci) (hk : ci.isIndKind = true) :
     ci.toConstantVal.type.constsResolve (S.R n) = true := by
   have hdeep := (S.deep n c ci hc hf hk).1
-  have hsame := S.same_of hc (Or.inl hf) (Or.inl hk)
+  have hsame := S.same_of hc (Or.inl ⟨_, hf, hk⟩)
   rw [hf] at hsame
   have hE := ((S.m n).base2.wf.consts _ (ConLeche.Env.find?_mem hsame.symm)).2.2.1
   have hC := (S.scope c ci hf).1
@@ -786,30 +923,33 @@ theorem deep_type_eq {n c : Name} {ci : ConstantInfo} (hc : ((S.R n).find? c).is
       = denote (S.m n).base2.acval (S.E n) ψ d
           (ci.toConstantVal.type.instantiateLevelParams ks us) := by
   have hR := S.deep_type hc hf hk
-  refine S.denote_eq hn ?_ ?_ ψ d
+  refine S.denote_eq hn ?_ ?_ ?_ ψ d
   · rw [ConLeche.Expr.constsResolve_instantiateLevelParams]; exact hR
   · rw [ConLeche.Expr.constsResolve_instantiateLevelParams]; exact S.resolveE hR
+  · rw [projsFormer_instantiateLevelParams]; exact (S.projs c ci hf).1
 
 /-- **The context's η families are closed.** -/
 theorem etaClosed : ConLeche.EtaFamiliesClosed C := by
   intro T cvT caps hf he hr
   obtain ⟨ci', hf', hrf, -⟩ := S.src_entry hf
-  have hci : ci' = .indInfo cvT caps := (hrf.eq_of_indKind (Or.inl rfl)).symm
+  have hci : ci' = .indInfo cvT caps := (hrf.eq_of_indKind rfl).symm
   rw [hci] at hf'
   obtain ⟨cvC, hfC⟩ := S.eta T T cvT caps hf' he hr
   obtain ⟨-, -, hetaR, -⟩ := (S.scope T _ hf).2.2.2.1 cvT caps rfl
   have hR := hetaR he
-  exact ⟨cvC, by rw [S.same_of hR (Or.inr hfC) (Or.inl rfl)]; exact hfC⟩
+  obtain ⟨-, -, hetaC, -⟩ := S.blocks T _ hf
+  obtain ⟨_, _, _, hcC⟩ := hetaC he
+  exact ⟨cvC, by rw [S.same_of hR (Or.inl ⟨_, hcC, rfl⟩)]; exact hfC⟩
 
 theorem caps_ok : CapsOk S.base := by
   refine ⟨fun T cvT caps hf he hr hst φ' us hus => ?_, fun T cvT caps hf hu hr φ' us hus => ?_⟩
   · obtain ⟨ci', hf', hrf, -⟩ := S.src_entry hf
-    have hci : ci' = .indInfo cvT caps := (hrf.eq_of_indKind (Or.inl rfl)).symm
+    have hci : ci' = .indInfo cvT caps := (hrf.eq_of_indKind rfl).symm
     rw [hci] at hf'
     obtain ⟨hres, ⟨cvC, cnP, cnF, hfC⟩, hfl⟩ := hst
     obtain ⟨-, -, hetaR, -⟩ := (S.scope T _ hf).2.2.2.1 cvT caps rfl
     have hR := hetaR he
-    have hsameC := S.same_of hR (Or.inl hfC) (Or.inl rfl)
+    have hsameC := S.same_of hR (Or.inl ⟨_, hfC, rfl⟩)
     have hTn : (C.find? T).isSome = true := by rw [hf]; rfl
     have hstE : ConLeche.EtaFamilyStored (S.E T) T caps :=
       ⟨hres, ⟨cvC, cnP, cnF, by rw [← hsameC]; exact hfC⟩, hfl⟩
@@ -833,7 +973,7 @@ theorem caps_ok : CapsOk S.base := by
       · show aC T _ = _
         rw [S.leaf hTn (S.selfR hf)]
   · obtain ⟨ci', hf', hrf, -⟩ := S.src_entry hf
-    have hci : ci' = .indInfo cvT caps := (hrf.eq_of_indKind (Or.inl rfl)).symm
+    have hci : ci' = .indInfo cvT caps := (hrf.eq_of_indKind rfl).symm
     rw [hci] at hf'
     have hTn : (C.find? T).isSome = true := by rw [hf]; rfl
     obtain ⟨TVa, hTVa, hwd, hlaw⟩ := (S.m T).caps_ok.2 T cvT caps hf' hu hr φ' us hus
@@ -904,30 +1044,38 @@ theorem ruleExt {φ : Name → Nat} {n : Name} {cv : ConstantVal} {mI rP : Nat}
     RuleExt (S.m n) C aC φ cv rP rl n := by
   have hn : (C.find? n).isSome = true := by rw [hf]; rfl
   obtain ⟨ci', hf', hr, hwf'⟩ := S.src_entry hf
-  have he : ci' = .recInfo cv mI rP rules := (hr.eq_of_indKind (Or.inl rfl)).symm
+  have he : ci' = .recInfo cv mI rP rules := (hr.eq_of_indKind rfl).symm
   rw [he] at hf' hwf'
   obtain ⟨hrhsR, hcR, hpinsR⟩ := (S.scope n _ hf).2.2.1 cv mI rP rules rfl rl hrl
   obtain ⟨-, -, -, -, -, hrecE, -⟩ := hwf'
   obtain ⟨-, -, hrhsE, -, hnest⟩ := hrecE cv mI rP rules rfl rl hrl
   obtain ⟨⟨cvj₀, cnP₀, cnF₀, hfcE⟩, -, -⟩ :=
     (S.m n).base2.rec_ctors n cv mI rP rules hf' rl hrl
-  have hsameC := S.same_of hcR (Or.inr hfcE) (Or.inl rfl)
+  obtain ⟨_, _, _, hcC⟩ := (S.blocks n _ hf) rl hrl
+  have hsameC := S.same_of hcR (Or.inl ⟨_, hcC, rfl⟩)
+  obtain ⟨hrhsP, hpinsP⟩ := (S.projs n _ hf).2.2.1 cv mI rP rules rfl rl hrl
   refine ⟨S.leaf hn (S.selfR hf), S.leaf hn hcR, fun ci h => by rw [← hsameC]; exact h,
     fun us TVa h => ?_, fun us Ra h => ?_, fun lvls pins hfr i us vpa h => ?_,
     fun cvj nP nF hfc usj TVja h => ?_, fun cvj nP nF hfc lvs => ?_⟩
   · have := S.type_eq hf hf' (Refines.refl _ _) φ 0 us cv.levelParams
     exact this.trans h
   · rw [S.denote_eq hn (by rw [ConLeche.Expr.constsResolve_instantiateLevelParams]; exact hrhsR)
-      (by rw [ConLeche.Expr.constsResolve_instantiateLevelParams]; exact hrhsE)]
+      (by rw [ConLeche.Expr.constsResolve_instantiateLevelParams]; exact hrhsE)
+      (by rw [projsFormer_instantiateLevelParams]; exact hrhsP)]
     exact h
   · have hpR : (pins.getD i default).constsResolve (S.R n) = true := by
       by_cases hilt : i < pins.length
       · exact hpinsR lvls pins hfr _ (ConLeche.getD_mem hilt)
       · rw [List.getD_eq_getElem?_getD, List.getElem?_eq_none (by omega)]; rfl
+    have hpP : Expr.projsFormer C (pins.getD i default) = true := by
+      by_cases hilt : i < pins.length
+      · exact hpinsP lvls pins hfr _ (ConLeche.getD_mem hilt)
+      · rw [List.getD_eq_getElem?_getD, List.getElem?_eq_none (by omega)]; rfl
     rw [S.denote_eq hn (constsResolve_openRev
         (by rw [ConLeche.Expr.constsResolve_instantiateLevelParams]; exact hpR) 0 rP)
       (constsResolve_openRev
-        (by rw [ConLeche.Expr.constsResolve_instantiateLevelParams]; exact S.resolveE hpR) 0 rP)]
+        (by rw [ConLeche.Expr.constsResolve_instantiateLevelParams]; exact S.resolveE hpR) 0 rP)
+      (projsFormer_openRev (by rw [projsFormer_instantiateLevelParams]; exact hpP) 0 rP)]
     exact h
   · have hfcC : C.find? rl.ctor = some (.ctorInfo cvj nP nF) := by rw [hsameC]; exact hfc
     exact (S.deep_type_eq hcR hfcC rfl hn φ 0 cvj.levelParams usj).trans h
@@ -937,50 +1085,53 @@ theorem ruleExt {φ : Name → Nat} {n : Name} {cv : ConstantVal} {mI rP : Nat}
       have hres := ((S.m n).base2.wf.consts _ (ConLeche.Env.find?_mem hfc)).2.2.1
       exact ConLeche.Expr.find?_isSome_of_piResult_getAppFn_const hres hh
     have hTR := S.ctor_family hcR hfcC hh hTE
-    exact ⟨fun cvT caps h => S.same_of hTR (Or.inl h) (Or.inl rfl),
-      fun cvT caps h => S.same_of hTR (Or.inr h) (Or.inl rfl)⟩
+    obtain ⟨_, _, hTC⟩ := (S.blocks _ _ hfcC) T us hh
+    have hsT := S.same_of hTR (Or.inl ⟨_, hTC, rfl⟩)
+    exact ⟨fun _ _ _ => hsT, fun _ _ _ => hsT⟩
 
 theorem rec_rules (φ : Name → Nat) : RecRules S.base φ := by
   intro n cv mI rP rules hf rl hrl
   obtain ⟨ci', hf', hr, -⟩ := S.src_entry hf
-  have he : ci' = .recInfo cv mI rP rules := (hr.eq_of_indKind (Or.inl rfl)).symm
+  have he : ci' = .recInfo cv mI rP rules := (hr.eq_of_indKind rfl).symm
   rw [he] at hf'
   exact recRuleLaw_transport (S.m n) (m₂ := S.base) φ hf' hrl (S.ruleExt hf hrl)
 
 theorem tower_ok (φ : Name → Nat) : TowerOk S.base φ := by
   intro T i entry hfP
   obtain ⟨tbl, ht, hi, rfl⟩ := ConLeche.Env.findProj?_some hfP
-  obtain ⟨-, -, hT⟩ := ConLeche.Env.findTable?_mem ht
-  have htE : (S.E T).findTable? T = some tbl := by rw [← S.tables T hT]; exact ht
+  obtain ⟨cvT, capsT, hfT, htE⟩ := S.table_of ht
   have hfPE : (S.E T).findProj? T i = some (tbl.entry i) := by
     unfold Env.findProj?; rw [htE]; simp [hi]
-  obtain ⟨cvT, capsT, hfT⟩ := S.table_ind ht (Nat.lt_of_le_of_lt (Nat.zero_le i) hi)
   have hn : (C.find? T).isSome = true := by rw [hfT]; rfl
   obtain ⟨-, -, -, hind, -⟩ := S.scope T _ hfT
   obtain ⟨-, -, -, htab⟩ := hind cvT capsT rfl
   obtain ⟨hcR, hbodies⟩ := htab tbl ht
-  have hsameT := S.same_of (S.selfR hfT) (Or.inl hfT) (Or.inl rfl)
+  have hsameT := S.same_of (S.selfR hfT) (Or.inl ⟨_, hfT, rfl⟩)
   obtain ⟨-, -, -, ⟨cvT', capsT', hfT', -⟩, -, cvC, hfCE, -, -, -⟩ :=
     (S.m T).tower_ok φ T i _ hfPE
   have hctor : (tbl.entry i).ctor = tbl.ctor := rfl
   rw [hctor] at hfCE
-  have hsameC := S.same_of hcR (Or.inr hfCE) (Or.inl rfl)
-  have hbR : (tbl.entry i).body.constsResolve (S.R T) = true := by
-    show (tbl.bodies.getD i default).constsResolve (S.R T) = true
-    have hsz := ((S.m T).base2.wf.table htE).2.1
-    refine hbodies _ ?_
+  obtain ⟨-, -, -, htc⟩ := (S.blocks T _ hfT)
+  obtain ⟨_, _, _, hcC⟩ := htc tbl ht
+  have hsameC := S.same_of hcR (Or.inl ⟨_, hcC, rfl⟩)
+  have hsz := ((S.m T).base2.wf.table htE).2.1
+  have hbmem : tbl.bodies.getD i default ∈ tbl.bodies.toList := by
     rw [Array.getD_eq_getD_getElem?, Array.getElem?_eq_getElem (by rw [hsz]; exact hi)]
     exact Array.mem_toList_iff.mpr (Array.getElem_mem _)
+  have hbR : (tbl.entry i).body.constsResolve (S.R T) = true := hbodies _ hbmem
+  have hbP : Expr.projsFormer C (tbl.entry i).body = true :=
+    (S.projs T _ hfT).2.2.2 cvT capsT rfl tbl ht _ hbmem
   refine towerEntryLaw_transport (S.m T) (m₂ := S.base) φ hfPE
     ⟨S.leaf hn (S.selfR hfT), by rw [hctor]; exact S.leaf hn hcR,
       fun ci h => by rw [hsameT]; exact h, fun ci h => by rw [hctor, hsameC]; exact h,
       fun ci h => by rw [← hsameT]; exact h, fun ci h => by rw [hctor, ← hsameC]; exact h,
       fun us Ta h => ?_, fun cvC' nP nF hfc us TCa h => ?_, fun cvT'' caps hft us TVa h => ?_⟩
-  · refine (S.denote_eq hn ?_ ?_ φ 0).trans h
+  · refine (S.denote_eq hn ?_ ?_ ?_ φ 0).trans h
     · rw [ConLeche.projTele_constsResolve, ConLeche.Expr.constsResolve_instantiateLevelParams]
       exact hbR
     · rw [ConLeche.projTele_constsResolve, ConLeche.Expr.constsResolve_instantiateLevelParams]
       exact S.resolveE hbR
+    · rw [projsFormer_projTele, projsFormer_instantiateLevelParams]; exact hbP
   · rw [hctor] at hfc
     have hfcC : C.find? tbl.ctor = some (.ctorInfo cvC' nP nF) := by rw [hsameC]; exact hfc
     exact (S.deep_type_eq hcR hfcC rfl hn φ 0 cvC'.levelParams us).trans h
@@ -1047,59 +1198,68 @@ namespace CtxSrc
 variable (S : CtxSrc V μ C aC)
 include S
 
-/-- **The context's recorded blocks**: each stored name's source's
-blocks that list it. -/
+/-- **The context's recorded blocks**: each stored type former's
+source's blocks that list it. -/
 @[expose] noncomputable def lfpList : List (LfpDatum V) :=
-  C.consts.flatMap fun c => (S.m c.name).lfpBlocks.filter fun D => D.names.contains c.name
+  C.consts.flatMap fun c =>
+    (S.m c.name).lfpBlocks.filter fun D => c.isFormer && D.names.contains c.name
 
 theorem mem_lfpList {D : LfpDatum V} (h : D ∈ S.lfpList) :
-    ∃ n, (C.find? n).isSome = true ∧ D ∈ (S.m n).lfpBlocks ∧ n ∈ D.names := by
+    ∃ n, FormerIn C n ∧ D ∈ (S.m n).lfpBlocks ∧ n ∈ D.names := by
   obtain ⟨c, hc, hD⟩ := List.mem_flatMap.mp h
   obtain ⟨hD, hn⟩ := List.mem_filter.mp hD
-  exact ⟨c.name, by rw [find?_of_mem S.nodup hc]; rfl, hD, List.contains_iff_mem.mp hn⟩
+  simp only [Bool.and_eq_true] at hn
+  have hf := find?_of_mem S.nodup hc
+  refine ⟨c.name, ?_, hD, List.contains_iff_mem.mp hn.2⟩
+  have hk := hn.1
+  cases c with
+  | indInfo cv caps => exact ⟨cv, caps, hf⟩
+  | _ => simp [ConstantInfo.isFormer] at hk
 
-theorem lfpList_of {D : LfpDatum V} {n : Name} (hn : (C.find? n).isSome = true)
+theorem lfpList_of {D : LfpDatum V} {n : Name} {cv : ConstantVal} {caps : ConLeche.IndCaps}
+    (hn : C.find? n = some (.indInfo cv caps))
     (hD : D ∈ (S.m n).lfpBlocks) (hmem : n ∈ D.names) : D ∈ S.lfpList := by
-  obtain ⟨ci, hci⟩ := Option.isSome_iff_exists.mp hn
-  have hname : ci.name = n := ConLeche.Env.find?_name hci
-  refine List.mem_flatMap.mpr ⟨ci, ConLeche.Env.find?_mem hci, List.mem_filter.mpr ⟨?_, ?_⟩⟩
+  have hname : (ConstantInfo.indInfo cv caps).name = n := ConLeche.Env.find?_name hn
+  refine List.mem_flatMap.mpr ⟨_, ConLeche.Env.find?_mem hn, List.mem_filter.mpr ⟨?_, ?_⟩⟩
   · rw [hname]; exact hD
-  · rw [hname]; exact List.contains_iff_mem.mpr hmem
+  · simp only [Bool.and_eq_true]
+    exact ⟨rfl, by rw [hname]; exact List.contains_iff_mem.mpr hmem⟩
 
-/-- **A recorded block's members are read alike**, stored alike. -/
-theorem block_member {n : Name} (hn : (C.find? n).isSome = true) {D : LfpDatum V}
+/-- **A recorded block's members are read alike**, stored alike, type
+formers of the context. -/
+theorem block_member {n : Name} (hn : FormerIn C n) {D : LfpDatum V}
     (hD : D ∈ (S.m n).lfpBlocks) (hmem : n ∈ D.names) {mm : Nat} (hmm : mm < D.k) :
     ((S.R n).find? (D.member mm)).isSome = true ∧
-      C.find? (D.member mm) = (S.E n).find? (D.member mm) := by
+      C.find? (D.member mm) = (S.E n).find? (D.member mm) ∧ FormerIn C (D.member mm) := by
   have hcov := S.cover n
+  obtain ⟨cvn, capsn, hfC⟩ := hn
   obtain ⟨mm₀, hmm₀, hn₀⟩ := List.getElem_of_mem hmem
   have hk : mm₀ < D.k := by rw [← hcov.len D hD]; exact hmm₀
   have hmem₀ : D.member mm₀ = n := by
     simp [LfpDatum.member, List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hmm₀, hn₀]
-  obtain ⟨cvn, capsn, hfn⟩ := LfpCover.member_find hD hk
-  rw [hmem₀] at hfn
+  have hsame := S.same_of (S.selfR hfC) (Or.inl ⟨_, hfC, rfl⟩)
+  have hfn : (S.E n).find? n = some (.indInfo cvn capsn) := by rw [← hsame]; exact hfC
   have hall := hcov.all D hD mm₀ hk cvn capsn (by rw [hmem₀]; exact hfn)
-  have hsame := S.same_of (S.self n hn) (Or.inr hfn) (Or.inl rfl)
-  have hfC : C.find? n = some (.indInfo cvn capsn) := by rw [hsame]; exact hfn
   obtain ⟨hallR, -⟩ := (S.scope n _ hfC).2.2.2.1 cvn capsn rfl
-  have hmR : ((S.R n).find? (D.member mm)).isSome = true := by
-    refine hallR _ ?_
+  have hin : D.member mm ∈ capsn.all := by
     rw [hall]
     simp only [LfpDatum.member, List.getD_eq_getElem?_getD,
       List.getElem?_eq_getElem (show mm < D.names.length by rw [hcov.len D hD]; exact hmm),
       Option.getD_some]
     exact List.getElem_mem _
-  obtain ⟨cvm, capsm, hfm⟩ := LfpCover.member_find hD hmm
-  exact ⟨hmR, S.same_of hmR (Or.inr hfm) (Or.inl rfl)⟩
+  have hmR := hallR _ hin
+  obtain ⟨hallC, -⟩ := S.blocks n _ hfC
+  obtain ⟨cvm, capsm, hfmC⟩ := hallC _ hin
+  exact ⟨hmR, S.same_of hmR (Or.inl ⟨_, hfmC, rfl⟩), cvm, capsm, hfmC⟩
 
 /-- **A recorded block's constructors are read alike**, stored alike. -/
-theorem block_ctor {n : Name} (hn : (C.find? n).isSome = true) {D : LfpDatum V}
+theorem block_ctor {n : Name} (hn : FormerIn C n) {D : LfpDatum V}
     (hD : D ∈ (S.m n).lfpBlocks) (hmem : n ∈ D.names) {c : Nat} (hc : c < D.k)
     {j : Nat} (hj : j < D.nctors c) :
     ((S.R n).find? (D.ctorName c j)).isSome = true ∧
       C.find? (D.ctorName c j) = (S.E n).find? (D.ctorName c j) := by
   have hcov := S.cover n
-  obtain ⟨hmR, hmsame⟩ := S.block_member hn hD hmem hc
+  obtain ⟨hmR, hmsame, -⟩ := S.block_member hn hD hmem hc
   obtain ⟨nP', L, hL, hlen, hfj⟩ := (hcov.own D hD).ctors c hc
   have hjL : j < L.length := by rw [hlen]; exact hj
   have hfx := hfj j hjL
@@ -1110,12 +1270,10 @@ theorem block_ctor {n : Name} (hn : (C.find? n).isSome = true) {D : LfpDatum V}
   subst hxn
   have hfmC : C.find? (D.member c) = some (.indInfo cvm capsm) := by rw [hmsame]; exact hfm
   have hdeep := S.deep n _ _ hmR hfmC rfl
-  -- the constructor is stored in the context: its member's own scope lists it
-  have hxC : (C.find? (D.ctorName c j)).isSome = true := by
-    obtain ⟨-, hctR, -⟩ := (S.scope _ _ hfmC).2.2.2.1 cvm capsm rfl
-    exact S.storedC (hctR _ hx)
-  have hxR := (hdeep.2.2.2.1 cvm capsm rfl).2.1 _ hx hxC (by rw [hfxE]; rfl)
-  exact ⟨hxR, S.same_of hxR (Or.inr hfxE) (Or.inl rfl)⟩
+  obtain ⟨-, hctC, -⟩ := S.blocks _ _ hfmC
+  obtain ⟨_, _, _, hxC⟩ := hctC _ hx
+  have hxR := (hdeep.2.2.2.1 cvm capsm rfl).2.1 _ hx (by rw [hxC]; rfl) (by rw [hfxE]; rfl)
+  exact ⟨hxR, S.same_of hxR (Or.inl ⟨_, hxC, rfl⟩)⟩
 
 end CtxSrc
 
@@ -1131,7 +1289,7 @@ inductive kinds. -/
   ((S.R n).find? d).isSome = true ∧ C.find? d = (S.E n).find? d ∧
     ∃ ci, (S.E n).find? d = some ci ∧ ci.isIndKind = true
 
-theorem blockName_of {n : Name} (hn : (C.find? n).isSome = true) {D : LfpDatum V}
+theorem blockName_of {n : Name} (hn : FormerIn C n) {D : LfpDatum V}
     (hD : D ∈ (S.m n).lfpBlocks) (hmem : n ∈ D.names) :
     (∀ mm, mm < D.k → S.BlockName n (D.member mm)) ∧
       ∀ c, c < D.k ∨ c < D.N → ∀ j, j < D.nctors c → S.BlockName n (D.ctorName c j) := by
@@ -1139,7 +1297,7 @@ theorem blockName_of {n : Name} (hn : (C.find? n).isSome = true) {D : LfpDatum V
   have hwid := hcov.wid D hD
   obtain ⟨hst, hstC⟩ := ((S.m n).lfp_ok D hD).2.1
   refine ⟨fun mm hmm => ?_, fun c hc j hj => ?_⟩
-  · obtain ⟨h1, h2⟩ := S.block_member hn hD hmem hmm
+  · obtain ⟨h1, h2, -⟩ := S.block_member hn hD hmem hmm
     obtain ⟨cv, caps, hf⟩ := hst mm hmm
     exact ⟨h1, h2, _, hf, rfl⟩
   · have hck : c < D.k := by rcases hc with hc | hc; exact hc; rw [← hwid]; exact hc
@@ -1154,22 +1312,30 @@ theorem blockName_type {n d : Name} (h : S.BlockName n d)
   rw [hf] at hci'; obtain rfl := Option.some.inj hci'
   exact S.deep_type hR (by rw [hsame]; exact hf) hk
 
+theorem blockName_projs {n d : Name} (h : S.BlockName n d)
+    {ci : ConstantInfo} (hf : (S.E n).find? d = some ci) :
+    Expr.projsFormer C ci.toConstantVal.type = true :=
+  (S.projs d ci (by rw [h.2.1]; exact hf)).1
+
 theorem lfp_ok : ∀ D ∈ S.lfpList, LfpClause aC D ∧ LfpStored C D ∧ LfpReads aC C D ∧
     LfpCtorReads aC C D ∧ LfpCaps C D := by
   intro D hD
-  obtain ⟨n, hn, hDn, hmem⟩ := S.mem_lfpList hD
-  refine EnvModelM.lfpOne_transport (S.BlockName n) (S.blockName_of hn hDn hmem) ((S.m n).lfp_ok D hDn)
+  obtain ⟨n, hnF, hDn, hmem⟩ := S.mem_lfpList hD
+  have hn : (C.find? n).isSome = true := by obtain ⟨_, _, h⟩ := hnF; rw [h]; rfl
+  refine EnvModelM.lfpOne_transport (S.BlockName n) (S.blockName_of hnF hDn hmem)
+    ((S.m n).lfp_ok D hDn)
     (fun d cv nPc nF _ hf ψ => (S.m n).type_reads _ (List.mem_of_find?_eq_some hf) ψ)
     (fun d ci hp hf => by rw [hp.2.1]; exact hf)
     (fun d ci hp hf => S.leaf hn hp.1)
     (fun d cv caps hp hf ψ ta h => ?_) (fun d cv nPc nF hp hf ψ ta h => ?_)
     (fun d ci hp hf A hA ψ k ta h => ?_)
   · have hR := S.blockName_type hp hf
-    exact (S.denote_eq hn hR (S.resolveE hR) ψ 0).trans h
+    exact (S.denote_eq hn hR (S.resolveE hR) (S.blockName_projs hp hf) ψ 0).trans h
   · have hR := S.blockName_type hp hf
-    exact (S.denote_eq hn hR (S.resolveE hR) ψ 0).trans h
+    exact (S.denote_eq hn hR (S.resolveE hR) (S.blockName_projs hp hf) ψ 0).trans h
   · have hR := canonOf_constsResolve (S.blockName_type hp hf) hA
-    exact (S.denote_eq hn hR (S.resolveE hR) ψ k).trans h
+    exact (S.denote_eq hn hR (S.resolveE hR)
+      (projsFormer_canonOf (S.blockName_projs hp hf) hA) ψ k).trans h
 
 /-- **The context owns its recorded blocks' constructors**, as the
 source does. -/
@@ -1191,15 +1357,12 @@ theorem lfpOwn {D : LfpDatum V} (hD : D ∈ S.lfpList) : LfpOwn C D := by
         ctorLook C.find? (D.member c) x = ctorLook (S.E n).find? (D.member c) x := by
       intro x hx
       obtain ⟨ci, hci, he⟩ := ctorLook_isSome (hown.ctorsAll c hc cvm capsm hfm x hx)
-      have hk : ci.isIndKind = true := by
-        cases ci <;> simp [ctorEntry, ConstantInfo.isIndKind] at he ⊢
-      have hxC : (C.find? x).isSome = true := by
-        obtain ⟨-, hctR, -⟩ := (S.scope _ _ hfmC).2.2.2.1 cvm capsm rfl
-        exact S.storedC (hctR _ hx)
-      have hxR := ((S.deep n _ _ hmR hfmC rfl).2.2.2.1 cvm capsm rfl).2.1 _ hx hxC
-        (by rw [hci]; rfl)
+      obtain ⟨-, hctC, -⟩ := S.blocks _ _ hfmC
+      obtain ⟨_, _, _, hxC⟩ := hctC _ hx
+      have hxR := ((S.deep n _ _ hmR hfmC rfl).2.2.2.1 cvm capsm rfl).2.1 _ hx
+        (by rw [hxC]; rfl) (by rw [hci]; rfl)
       unfold ctorLook
-      rw [S.same_of hxR (Or.inr hci) (Or.inl hk)]
+      rw [S.same_of hxR (Or.inl ⟨_, hxC, rfl⟩)]
     refine ⟨?_, fun cv caps hf x hx => ?_⟩
     · rw [nestContainer_eq, nestContainer_eq]
       show (match C.find? (D.member c) with
@@ -1269,9 +1432,8 @@ theorem model_acval : S.model.base2.acval = aC := rfl
 /-- **The context's model is covered.** -/
 theorem model_cover : LfpCover S.model [] where
   cover := fun n cv caps hf _ hq => by
-    have hn : (C.find? n).isSome = true := by rw [hf]; rfl
     obtain ⟨ci', hf', hr, -⟩ := S.src_entry hf
-    have he : ci' = .indInfo cv caps := (hr.eq_of_indKind (Or.inl rfl)).symm
+    have he : ci' = .indInfo cv caps := (hr.eq_of_indKind rfl).symm
     rw [he] at hf'
     obtain ⟨D, hD, mm, hmm, hmn⟩ := (S.cover n).cover n cv caps hf' (List.not_mem_nil) hq
     have hmem : n ∈ D.names := by
@@ -1280,7 +1442,7 @@ theorem model_cover : LfpCover S.model [] where
         List.getElem?_eq_getElem (show mm < D.names.length by
           rw [(S.cover n).len D hD]; exact hmm), Option.getD_some]
       exact List.getElem_mem _
-    exact ⟨D, S.lfpList_of hn hD hmem, mm, hmm, hmn⟩
+    exact ⟨D, S.lfpList_of hf hD hmem, mm, hmm, hmn⟩
   nodup := fun D hD => by
     obtain ⟨n, -, hDn, -⟩ := S.mem_lfpList hD; exact (S.cover n).nodup D hDn
   len := fun D hD => by
