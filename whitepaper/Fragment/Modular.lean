@@ -9,8 +9,8 @@ public import Fragment.Consistency
 
 A development is a graph of **modules**.  Each module has its own
 declarations, a **base** (the environment its declarations are checked
-against), what it **offers** its importers, and a **summary** (the
-declarations of everything it rests on).  Three abstract notions carry
+against; with its declarations, its **own environment**) and a
+**summary** (the declarations of everything it rests on).  Three abstract notions carry
 the argument:
 
 * **refinement** `E₁ ≼ E₂` (`Env.Le`): `E₁` is `E₂` with constants left
@@ -29,13 +29,12 @@ inductive checks (positivity, the universe conditions) are monotone
 (`IndSpec.IndOk.mono`).
 
 **The local checks** at a module (`LocalOk`) read the module and its
-direct imports only: its declarations accepted against its base; its
-base a refinement of what its imports offer; what it offers a
-refinement of its base with its declarations; its declarations and its
-imports' summaries compatible; its summary their join.  They give
-(`local_checks`): every module's summary is a checked list of
-declarations, and its base with its declarations refines the
-environment the summary builds (`Module.world`) — an accepted
+direct imports only: its declarations accepted against its base; every
+constant of its base a refinement of a constant of an import's own
+environment; its declarations and its imports' summaries compatible;
+its summary their join.  They give (`local_checks`): every module's
+summary is a checked list of declarations, and its own environment
+refines the environment the summary builds (`Module.world`) — an accepted
 environment (`local_accepted`) with a model (`local_model`), in which
 no closed term inhabits an empty proposition
 (`local_no_empty_prop_inhabitant`).  The statement is per module: two
@@ -860,15 +859,18 @@ theorem Checks.joined {E₀ : Env} {L : List Decl} (hL : Checks E₀ L) :
 /-! ## A development, checked module by module -/
 
 /-- **A module** of a development: the modules it imports, its
-declarations, the environment its declarations are checked against,
-the environment it offers its importers, and its **summary**: the
-declarations of everything it rests on, itself included. -/
+declarations, the environment its declarations are checked against
+(its **base**), and its **summary**: the declarations of everything it
+rests on, itself included. -/
 structure Module where
   imports : List Nat
   decls : List Decl
   base : Env
-  offers : Env
   summary : List Decl
+
+/-- **A module's own environment**: its base with its declarations,
+what its declarations were checked in. -/
+def Module.own (m : Module) : Env := applyAll m.decls m.base
 
 /-- The joined summaries of some imported modules, in order. -/
 def importsJoin (dev : Nat → Module) (bs : List Nat) : List Decl :=
@@ -880,22 +882,20 @@ def family (dev : Nat → Module) (i : Nat) : List (List Decl) :=
   (dev i).decls :: (dev i).imports.map fun b => (dev b).summary
 
 /-- **The local checks at module `i`.**  They read the module and its
-direct imports — their offers and their summaries — and nothing
-else:
+direct imports — their own environments and their summaries — and
+nothing else:
 
 * the imports come earlier (the import graph has no cycle);
 * the declarations are accepted against the base;
-* every constant of the base refines a constant one of the imports
-  offers;
-* what the module offers refines its base with its declarations;
+* every constant of the base refines a constant of some import's own
+  environment;
 * its declarations and its imports' summaries are compatible;
 * its summary is their join. -/
 structure LocalOk (dev : Nat → Module) (i : Nat) : Prop where
   below : ∀ b ∈ (dev i).imports, b < i
   checks : Checks (dev i).base (dev i).decls
   base_le : ∀ n ci, (dev i).base.find? n = some ci →
-    ∃ b ∈ (dev i).imports, ∃ ci', (dev b).offers.find? n = some ci' ∧ ci.Le ci'
-  offers_le : (dev i).offers.Le (applyAll (dev i).decls (dev i).base)
+    ∃ b ∈ (dev i).imports, ∃ ci', (dev b).own.find? n = some ci' ∧ ci.Le ci'
   compatible : ∀ X ∈ family dev i, ∀ Y ∈ family dev i, Compatible X Y
   summary_eq : (dev i).summary = join (importsJoin dev (dev i).imports) (dev i).decls
 
@@ -941,29 +941,26 @@ theorem importsJoin_inv (dev : Nat → Module) (i : Nat) (h : LocalOk dev i)
 
 /-- **The local checks suffice** (the theorem of modular checking):
 if every module up to `i` passes its local checks, then module `i`'s
-summary is a checked list of declarations, what it offers refines the
-environment it rests on, and so does its base with its declarations —
-the environment its declarations were checked in. -/
+summary is a checked list of declarations, and the module's own
+environment refines the environment the summary builds. -/
 theorem local_checks (dev : Nat → Module) :
     ∀ i, (∀ j ≤ i, LocalOk dev j) →
-      Checks Env.empty (dev i).summary ∧ (dev i).offers.Le (dev i).world ∧
-      (applyAll (dev i).decls (dev i).base).Le (dev i).world := by
+      Checks Env.empty (dev i).summary ∧ (dev i).own.Le (dev i).world := by
   intro i
   induction i using Nat.strongRecOn with
   | _ i ihi =>
   intro hall
   have h := hall i (Nat.le_refl i)
   have ihb : ∀ b ∈ (dev i).imports, Checks Env.empty (dev b).summary ∧
-      (dev b).offers.Le (dev b).world ∧
-      (applyAll (dev b).decls (dev b).base).Le (dev b).world := fun b hb =>
+      (dev b).own.Le (dev b).world := fun b hb =>
     ihi b (h.below b hb) fun j hj => hall j (Nat.le_trans hj (Nat.le_of_lt (h.below b hb)))
   obtain ⟨hK, hKm, -, hKs⟩ := importsJoin_inv dev i h (fun b hb => (ihb b hb).1)
     (dev i).imports [] (fun _ hb => hb) .nil (fun _ hk => by cases hk)
   have hK' : Checks Env.empty (importsJoin dev (dev i).imports) := hK
-  -- every import's offers refine the joined imports
+  -- every import's own environment refines the joined imports
   have hoff : ∀ b ∈ (dev i).imports,
-      (dev b).offers.Le (applyAll (importsJoin dev (dev i).imports) Env.empty) := fun b hb =>
-    (ihb b hb).2.1.trans (hK'.le_of_stores fun d hd => hKs b hb d hd)
+      (dev b).own.Le (applyAll (importsJoin dev (dev i).imports) Env.empty) := fun b hb =>
+    (ihb b hb).2.trans (hK'.le_of_stores fun d hd => hKs b hb d hd)
   -- the base refines the joined imports
   have hbase : (dev i).base.Le (applyAll (importsJoin dev (dev i).imports) Env.empty) := by
     rw [Env.Le.iff]
@@ -981,7 +978,7 @@ theorem local_checks (dev : Nat → Module) :
   have hsub : (applyAll (importsJoin dev (dev i).imports) Env.empty).Le (dev i).world := by
     rw [Module.world]
     exact hS.le_of_stores fun d hd => ⟨d, by rw [h.summary_eq]; exact List.mem_append_left _ hd, rfl⟩
-  have hown : (applyAll (dev i).decls (dev i).base).Le (dev i).world := by
+  have hown : (dev i).own.Le (dev i).world := by
     intro n e hf
     rcases find?_applyAll hf with ⟨d, hd, hl⟩ | hl
     · obtain ⟨d', hd', hs⟩ := stores_of_join hc hd
@@ -990,7 +987,7 @@ theorem local_checks (dev : Nat → Module) :
       rw [h.summary_eq] at hS ⊢
       exact hS.find?_of_lookup hd' (by rw [hs]; exact hl)
     · exact (hbase.trans hsub) n e hl
-  exact ⟨hS, h.offers_le.trans hown, hown⟩
+  exact ⟨hS, hown⟩
 
 /-- **The environment a module rests on is accepted**, declaration
 by declaration. -/
@@ -1023,11 +1020,10 @@ with its declarations — no closed term has the type of an empty
 proposition it stores. -/
 theorem local_no_empty_prop_inhabitant (dev : Nat → Module) (i : Nat) (h : ∀ j ≤ i, LocalOk dev j)
     {name recName elim : Name}
-    (hrec : (applyAll (dev i).decls (dev i).base).find? recName =
-      some (IndSpec.falseSpec name recName elim).recInfo) (e : Expr) :
-    ¬ Infer (applyAll (dev i).decls (dev i).base) [] e (.const name []) := by
+    (hrec : (dev i).own.find? recName = some (IndSpec.falseSpec name recName elim).recInfo)
+    (e : Expr) : ¬ Infer (dev i).own [] e (.const name []) := by
   intro he
-  have hle := (local_checks dev i h).2.2
+  have hle := (local_checks dev i h).2
   have hrec' := hle.find_of_ne hrec (by simp [IndSpec.recInfo])
   exact no_empty_prop_inhabitant V (local_accepted dev i h) hrec' e (Infer.mono hle he)
 
