@@ -1434,47 +1434,4 @@ theorem RunOk.full1 (hR : RunOk mode S M) {i h : Nat} (hi : i < M.size) (hh : h 
         have hl := u8_two hl2 (hR.lvl_le2 hi t1)
         exact ⟨ci, hR.pick_of_vis hi hxa ht1 (at?_of_lvl2 hli1 (hs _ ht1) hl hpc) hn hpc hk, hw⟩
 
-/-! ## The local checks -/
-
-/-- **A modular run's checks are the local checks.** -/
-theorem RunOk.localOk (hR : RunOk mode S M) (i : Nat) :
-    LocalOk mode natOpPinSets (devOf S M) i := by
-  by_cases hi : i < M.size
-  case neg =>
-    have hd := devOf_of_ge (S := S) hi
-    refine { below := ?_, src_lt := ?_, nodup := ?_, accepted := ?_, compared_own := ?_,
-             context_le := ?_, scoping := ?_, tables := ?_, projs := ?_, blocks := ?_,
-             recFam := ?_, tables_mem := ?_, res_context := ?_, res_own := ?_ } <;>
-      simp [hd, emptyModule, Env.find?, AcceptedFrom.nil]
-  have hd := devOf_of_lt (S := S) hi
-  refine { below := ?_, src_lt := hR.src_lt hi, nodup := ?_, accepted := fun _ => hR.accepted hi,
-           compared_own := ?_, context_le := hR.context_le hi, scoping := ?_,
-           tables := hR.tables hi, projs := ?_,
-           blocks := ?_, recFam := hR.recFam hi, tables_mem := ?_,
-           res_context := hR.res_context hi, res_own := ?_ }
-  · rw [hd]; exact hR.below i hi
-  · rw [hd]; exact ctxOf_nodup _
-  · rw [hd]; intro h; cases h
-  · sorry
-  · sorry
-  · sorry
-  · rw [hd]; exact ctxOf_tables_mem _
-  · rw [hd]
-    intro n ci hown hctx
-    change (envAt M[i].fe (ctxOf (S.mb i))).find? n = some ci at hown
-    change (ctxOf (S.mb i)).find? n = none at hctx
-    show resOf S i M[i] n = _
-    unfold resOf
-    rw [ctxOf_find?] at hctx
-    have hp : (S.mb i).pick? n = none := by
-      cases hp : (S.mb i).pick? n with
-      | none => rfl
-      | some x =>
-        obtain ⟨h, j, ci'⟩ := x
-        unfold MBase.find? at hctx; rw [hp] at hctx; cases hctx
-    rw [hp]
-    simp only [hown]
-    show _ = (if M[i].flags.contains n = true then _ else _)
-    rfl
-
 end ConLeche.Cached.Mod
