@@ -758,4 +758,93 @@ theorem div_mod (φ : Name → Nat) : DivMod S.base φ := by
 end CtxSrc
 
 
+
+namespace CtxSrc
+
+variable (S : CtxSrc V μ C aC)
+include S
+
+/-- **An inductive kind read alike has its type read alike**, where the
+source's entry resolves it. -/
+theorem deep_type {n c : Name} {ci : ConstantInfo} (hc : ((S.R n).find? c).isSome = true)
+    (hf : C.find? c = some ci) (hk : ci.isIndKind = true) :
+    ci.toConstantVal.type.constsResolve (S.R n) = true := by
+  have hdeep := (S.deep n c ci hc hf hk).1
+  have hsame := S.same_of hc (Or.inl hf) (Or.inl hk)
+  rw [hf] at hsame
+  have hE := ((S.m n).base2.wf.consts _ (ConLeche.Env.find?_mem hsame.symm)).2.2.1
+  have hC := (S.scope c ci hf).1
+  rw [Expr.constsResolve_iff] at hE hC ⊢
+  exact Expr.constsAll_and3 (fun d h1 h2 h3 => h1 (S.storedC h2) h3) hdeep hC hE
+
+/-- ... and its instantiated type reads as at the source. -/
+theorem deep_type_eq {n c : Name} {ci : ConstantInfo} (hc : ((S.R n).find? c).isSome = true)
+    (hf : C.find? c = some ci) (hk : ci.isIndKind = true) (hn : (C.find? n).isSome = true)
+    (ψ : Name → Nat) (d : Nat) (ks : List Name) (us : List Level) :
+    denote aC C ψ d (ci.toConstantVal.type.instantiateLevelParams ks us)
+      = denote (S.m n).base2.acval (S.E n) ψ d
+          (ci.toConstantVal.type.instantiateLevelParams ks us) := by
+  have hR := S.deep_type hc hf hk
+  refine S.denote_eq hn ?_ ?_ ψ d
+  · rw [ConLeche.Expr.constsResolve_instantiateLevelParams]; exact hR
+  · rw [ConLeche.Expr.constsResolve_instantiateLevelParams]; exact S.resolveE hR
+
+/-- **The context's η families are closed.** -/
+theorem etaClosed : ConLeche.EtaFamiliesClosed C := by
+  intro T cvT caps hf he hr
+  obtain ⟨ci', hf', hrf, -⟩ := S.src_entry hf
+  have hci : ci' = .indInfo cvT caps := (hrf.eq_of_indKind (Or.inl rfl)).symm
+  rw [hci] at hf'
+  obtain ⟨cvC, hfC⟩ := S.eta T T cvT caps hf' he hr
+  obtain ⟨-, -, hetaR, -⟩ := (S.scope T _ hf).2.2.2.1 cvT caps rfl
+  have hR := hetaR he
+  exact ⟨cvC, by rw [S.same_of hR (Or.inr hfC) (Or.inl rfl)]; exact hfC⟩
+
+theorem caps_ok : CapsOk S.base := by
+  refine ⟨fun T cvT caps hf he hr hst φ' us hus => ?_, fun T cvT caps hf hu hr φ' us hus => ?_⟩
+  · obtain ⟨ci', hf', hrf, -⟩ := S.src_entry hf
+    have hci : ci' = .indInfo cvT caps := (hrf.eq_of_indKind (Or.inl rfl)).symm
+    rw [hci] at hf'
+    obtain ⟨hres, ⟨cvC, cnP, cnF, hfC⟩, hfl⟩ := hst
+    obtain ⟨-, -, hetaR, -⟩ := (S.scope T _ hf).2.2.2.1 cvT caps rfl
+    have hR := hetaR he
+    have hsameC := S.same_of hR (Or.inl hfC) (Or.inl rfl)
+    have hTn : (C.find? T).isSome = true := by rw [hf]; rfl
+    have hstE : ConLeche.EtaFamilyStored (S.E T) T caps :=
+      ⟨hres, ⟨cvC, cnP, cnF, by rw [← hsameC]; exact hfC⟩, hfl⟩
+    obtain ⟨TVa, hTVa, hwd, hlaw, hcoh⟩ := (S.m T).caps_ok.1 T cvT caps hf' he hr hstE φ' us hus
+    have htyeq := S.type_eq hf hf' (Refines.refl _ _) φ' 0 us cvT.levelParams
+    have hTVa' : denote aC C φ' 0 (cvT.type.instantiateLevelParams cvT.levelParams us)
+        = some TVa := (htyeq.trans hTVa)
+    refine ⟨TVa, hTVa', hwd, fun ρ ts rest x hlen hfit hmem => ?_, ?_⟩
+    · change x = ts.foldl SetTheory.app (interp V ρ (aC caps.etaCtor _))
+      change x ∈ˢ ts.foldl SetTheory.app (interp V ρ (aC T _)) at hmem
+      rw [S.leaf hTn (S.selfR hf)] at hmem
+      rw [S.leaf hTn hR]
+      exact hlaw ρ ts rest x hlen hfit hmem
+    · refine hcoh.transport (m₂ := S.base) (fun cvC' nPc nFc h₂ => ?_)
+        (fun cvC' nPc nFc TCa h hTCa => ?_) ?_ (fun _ _ _ => rfl)
+      · rw [← hsameC]; exact h₂
+      · have hfC' : C.find? caps.etaCtor = some (.ctorInfo cvC' nPc nFc) := by
+          rw [hsameC]; exact h
+        have := S.deep_type_eq hR hfC' rfl hTn φ' 0 cvC'.levelParams us
+        exact this.trans hTCa
+      · show aC T _ = _
+        rw [S.leaf hTn (S.selfR hf)]
+  · obtain ⟨ci', hf', hrf, -⟩ := S.src_entry hf
+    have hci : ci' = .indInfo cvT caps := (hrf.eq_of_indKind (Or.inl rfl)).symm
+    rw [hci] at hf'
+    have hTn : (C.find? T).isSome = true := by rw [hf]; rfl
+    obtain ⟨TVa, hTVa, hwd, hlaw⟩ := (S.m T).caps_ok.2 T cvT caps hf' hu hr φ' us hus
+    have htyeq := S.type_eq hf hf' (Refines.refl _ _) φ' 0 us cvT.levelParams
+    have hTVa' : denote aC C φ' 0 (cvT.type.instantiateLevelParams cvT.levelParams us)
+        = some TVa := (htyeq.trans hTVa)
+    refine ⟨TVa, hTVa', hwd, fun ρ ts rest x y hlen hfit hx hy => ?_⟩
+    change x ∈ˢ ts.foldl SetTheory.app (interp V ρ (aC T _)) at hx
+    change y ∈ˢ ts.foldl SetTheory.app (interp V ρ (aC T _)) at hy
+    rw [S.leaf hTn (S.selfR hf)] at hx hy
+    exact hlaw ρ ts rest x y hlen hfit hx hy
+
+end CtxSrc
+
 end ConLeche.Model.Modular
