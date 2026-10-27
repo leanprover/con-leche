@@ -628,6 +628,147 @@ theorem RunOk.tables (hR : RunOk mode S M) {i : Nat} (hi : i < M.size) :
     unfold MBase.findTable?
     rw [hp]
 
+/-! ## The first visible alternate, and qualified names -/
+
+/-- The visible alternates of a name, in order. -/
+def visAlts (mb : MBase) (n : Name) (l : List (Nat × Nat)) : List (Nat × Nat) :=
+  l.filter fun (h, j) => match mb.at? h j with
+    | some ci => ci.name == n
+    | none => false
+
+theorem pickIn_head {mb : MBase} {n : Name} :
+    ∀ {l : List (Nat × Nat)} {h j : Nat} {ci : ConstantInfo}, mb.pickIn n l = some (h, j, ci) →
+      (visAlts mb n l).head? = some (h, j)
+  | [], _, _, _, hp => by simp [MBase.pickIn] at hp
+  | (h', j') :: rest, h, j, ci, hp => by
+    unfold MBase.pickIn at hp
+    unfold visAlts
+    rw [List.filter_cons]
+    cases hat : mb.at? h' j' with
+    | none =>
+      rw [hat] at hp
+      simp only [hat]
+      exact pickIn_head hp
+    | some c =>
+      rw [hat] at hp
+      simp only [hat]
+      by_cases hn : (c.name == n) = true
+      · simp only [hn, ↓reduceIte] at hp
+        cases hp
+        simp [hn]
+      · simp only [hn, Bool.false_eq_true, ↓reduceIte] at hp
+        simp only [hn, Bool.false_eq_true, ↓reduceIte]
+        exact pickIn_head hp
+
+theorem pickIn_isSome {mb : MBase} {n : Name} :
+    ∀ {l : List (Nat × Nat)} {x : Nat × Nat} {c : ConstantInfo}, x ∈ l → mb.at? x.1 x.2 = some c →
+      c.name = n → (mb.pickIn n l).isSome = true
+  | [], _, _, hx, _, _ => by cases hx
+  | (h', j') :: rest, x, c, hx, hat, hn => by
+    unfold MBase.pickIn
+    cases hat' : mb.at? h' j' with
+    | some c' =>
+      simp only
+      by_cases hn' : (c'.name == n) = true
+      · rw [if_pos hn']; rfl
+      · rw [if_neg hn']
+        rcases List.mem_cons.mp hx with rfl | hx
+        · rw [hat'] at hat; cases hat; exact absurd (beq_iff_eq.mpr hn) hn'
+        · exact pickIn_isSome hx hat hn
+    | none =>
+      simp only
+      rcases List.mem_cons.mp hx with rfl | hx
+      · rw [hat'] at hat; cases hat
+      · exact pickIn_isSome hx hat hn
+
+theorem mem_visAlts {mb : MBase} {n : Name} {l : List (Nat × Nat)} {x : Nat × Nat}
+    {c : ConstantInfo} (hx : x ∈ l) (hat : mb.at? x.1 x.2 = some c) (hn : c.name = n) :
+    x ∈ visAlts mb n l := by
+  unfold visAlts
+  refine List.mem_filter.mpr ⟨hx, ?_⟩
+  obtain ⟨h, j⟩ := x
+  simp only at hat
+  simp [hat, hn]
+
+theorem Store.alts_mb (S : Store) (i : Nat) (n : Name) : (S.mb i).alts n = S.alts n := rfl
+
+/-- **Two visible alternates of a name that meets in a context have one
+qualified name** (`oneKey`, `dupsOk`): the first visible one's and any
+other's. -/
+theorem RunOk.key_pick (hR : RunOk mode S M) {i : Nat} (hi : i < M.size) {n : Name}
+    {h j : Nat} {ci : ConstantInfo} (hp : (S.mb i).pick? n = some (h, j, ci))
+    {x : Nat × Nat} {c : ConstantInfo} (hx : x ∈ S.alts n) (hat : (S.mb i).at? x.1 x.2 = some c)
+    (hn : c.name = n) : S.keyAt x.1 x.2 n = S.keyAt h j n := by
+  have hhead := pickIn_head hp
+  have hvis := mem_visAlts (mb := S.mb i) (l := (S.mb i).alts n)
+    (by rw [Store.alts_mb]; exact hx) hat hn
+  by_cases hlen : (S.alts n).length < 2
+  · -- one alternate: the visible one is the first
+    have hone : S.alts n = [x] := by
+      match hl : S.alts n with
+      | [] => rw [hl] at hx; cases hx
+      | [y] => rw [hl] at hx; rw [List.mem_singleton.mp hx]
+      | _ :: _ :: _ => rw [hl] at hlen; exact absurd hlen (by simp)
+    have hp' : (S.mb i).pickIn n [x] = some (h, j, ci) := by
+      unfold MBase.pick? at hp; rw [Store.alts_mb, hone] at hp; exact hp
+    unfold MBase.pickIn at hp'
+    obtain ⟨xh, xj⟩ := x
+    simp only at hat
+    rw [hat] at hp'
+    simp only [hn, beq_self_eq_true, ↓reduceIte, Option.some.injEq, Prod.mk.injEq] at hp'
+    obtain ⟨rfl, rfl, -⟩ := hp'
+    rfl
+  · -- several: the name is listed, and its copies have one qualified name
+    have hdup : n ∈ S.dups := by
+      have hd := hR.dups
+      unfold dupsOk at hd
+      rw [Array.all_eq_true] at hd
+      have hl : S.alts n ≠ [] := by intro h; rw [h] at hx; cases hx
+      unfold Store.alts MBase.alts at hl hlen
+      rw [Store.mb_idx] at hl hlen
+      split at hl
+      · rename_i m hm
+        rw [hm] at hlen
+        have hs : baseShard n S.idx.size < S.idx.size := by
+          rcases Nat.lt_or_ge (baseShard n S.idx.size) S.idx.size with h' | h'
+          · exact h'
+          · rw [Array.getElem?_eq_none h'] at hm; cases hm
+        have hm' : S.idx[baseShard n S.idx.size] = m := by
+          rw [Array.getElem?_eq_getElem hs] at hm; exact Option.some.inj hm
+        have := hd _ hs
+        rw [hm', List.all_eq_true] at this
+        have hc : m.contains n = true := by
+          cases hc : m.contains n with
+          | true => rfl
+          | false => rw [Std.HashMap.getD_eq_fallback_of_contains_eq_false hc] at hl; exact absurd rfl hl
+        have hmem : (n, m.getD n []) ∈ m.toList := by
+          rw [Std.HashMap.mem_toList_iff_getElem?_eq_some]
+          rw [Std.HashMap.getElem?_eq_some_getD_of_contains hc]
+        have := this _ hmem
+        simp only [Bool.or_eq_true, decide_eq_true_eq] at this
+        rcases this with h' | h'
+        · exact absurd h' hlen
+        · exact Array.mem_of_contains_eq_true h'
+      · exact absurd rfl hl
+    have hok := localOk_oneKey (hR.locals i hi) n hdup
+    unfold oneKey at hok
+    simp only at hok
+    have hhead' : (visAlts (S.mb i) n ((S.mb i).alts n)).head? = some (h, j) := hhead
+    have hok' : (match visAlts (S.mb i) n ((S.mb i).alts n) with
+        | [] => true
+        | (h₀, j₀) :: rest => rest.all fun x => S.keyAt x.1 x.2 n == S.keyAt h₀ j₀ n) = true :=
+      hok
+    generalize visAlts (S.mb i) n ((S.mb i).alts n) = vis at hok' hhead' hvis
+    cases vis with
+    | nil => cases hvis
+    | cons y rest =>
+      simp only [List.head?_cons, Option.some.injEq] at hhead'
+      subst hhead'
+      rcases List.mem_cons.mp hvis with rfl | hrest
+      · rfl
+      · simp only [List.all_eq_true] at hok'
+        exact beq_iff_eq.mp (hok' x hrest)
+
 /-! ## The local checks -/
 
 /-- **A modular run's checks are the local checks.** -/
