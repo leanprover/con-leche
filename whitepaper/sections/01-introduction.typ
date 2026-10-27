@@ -134,8 +134,8 @@ definitional equality that the fragment drops, η for structures and
 unit-likeness, follow from the extensionality of the model, with one
 proof case each. §7 checks a development module by module, with
 checks that compare each module only with its direct imports, and
-shows that every module's environment is part of one §4 proves
-consistent. §8 lists what
+builds one model, over names qualified by their home module, in which
+every module's environment holds. §8 lists what
 was left out, and how the real proof
 differs from the fragment where they share a feature. @sec:related
 relates the argument to earlier work.
