@@ -4,6 +4,7 @@ public import ConLeche.Model.Modular.Scope
 public import ConLeche.Model.Fold
 public import ConLeche.Verify.Denote.Agree
 public import ConLeche.Verify.EnvBound
+import ConLeche.Model.Env.CanonCrest
 
 public section
 
@@ -986,6 +987,319 @@ theorem tower_ok (φ : Name → Nat) : TowerOk S.base φ := by
   · have hftC : C.find? T = some (.indInfo cvT'' caps) := by rw [hsameT]; exact hft
     have := S.type_eq hftC hft (Refines.refl _ _) φ 0 us cvT''.levelParams
     exact this.trans h
+
+end CtxSrc
+
+
+theorem ctorEntry_some {C : Name} {ci : ConstantInfo} {t : ConstantVal × Nat × Nat}
+    (h : ctorEntry C ci = some t) : ci = .ctorInfo t.1 t.2.1 t.2.2 := by
+  unfold ctorEntry at h
+  split at h
+  · split at h
+    · split at h
+      · split at h
+        · obtain rfl := Option.some.inj h; rfl
+        · exact nomatch h
+      · exact nomatch h
+    · exact nomatch h
+  · exact nomatch h
+
+/-- **A container's constructor list comes from its member's record.** -/
+theorem nestContainer_some {E : Env} {T : Name} {nP' : Nat} {L : List (ConstantVal × Nat)}
+    (h : ConLeche.nestContainer (envCtx E) T = some (nP', L)) :
+    ∃ cv caps, E.find? T = some (.indInfo cv caps) ∧
+      ∀ e ∈ L, ∃ x ∈ caps.ctors, ∃ nPc, E.find? x = some (.ctorInfo e.1 nPc e.2) := by
+  rw [nestContainer_eq] at h
+  change (match E.find? T with
+    | some (.indInfo _ caps) => nestPick caps (caps.ctors.filterMap (ctorLook E.find? T))
+    | _ => none) = _ at h
+  split at h
+  · rename_i cv caps hf
+    refine ⟨cv, caps, hf, fun e he => ?_⟩
+    have key : ∀ c ∈ caps.ctors.filterMap (ctorLook E.find? T), ∃ x ∈ caps.ctors,
+        E.find? x = some (.ctorInfo c.1 c.2.1 c.2.2) := by
+      intro c hc
+      obtain ⟨x, hx, hl⟩ := List.mem_filterMap.mp hc
+      unfold ctorLook at hl
+      cases hfx : E.find? x with
+      | none => rw [hfx] at hl; exact nomatch hl
+      | some ci =>
+        rw [hfx] at hl
+        have hci := ctorEntry_some hl
+        exact ⟨x, hx, by rw [hfx, hci]⟩
+    revert h
+    generalize caps.ctors.filterMap (ctorLook E.find? T) = cs at key
+    intro h
+    cases cs with
+    | nil =>
+      simp only [nestPick, Option.some.injEq, Prod.mk.injEq] at h
+      rw [← h.2] at he; exact absurd he (List.not_mem_nil)
+    | cons c cs' =>
+      simp only [nestPick, Option.some.injEq, Prod.mk.injEq] at h
+      rw [← h.2] at he
+      obtain ⟨c', hc', rfl⟩ := List.mem_map.mp he
+      obtain ⟨x, hx, hfx⟩ := key c' hc'
+      exact ⟨x, hx, c'.2.1, hfx⟩
+  · exact nomatch h
+
+namespace CtxSrc
+
+variable (S : CtxSrc V μ C aC)
+include S
+
+/-- **The context's recorded blocks**: each stored name's source's
+blocks that list it. -/
+@[expose] noncomputable def lfpList : List (LfpDatum V) :=
+  C.consts.flatMap fun c => (S.m c.name).lfpBlocks.filter fun D => D.names.contains c.name
+
+theorem mem_lfpList {D : LfpDatum V} (h : D ∈ S.lfpList) :
+    ∃ n, (C.find? n).isSome = true ∧ D ∈ (S.m n).lfpBlocks ∧ n ∈ D.names := by
+  obtain ⟨c, hc, hD⟩ := List.mem_flatMap.mp h
+  obtain ⟨hD, hn⟩ := List.mem_filter.mp hD
+  exact ⟨c.name, by rw [find?_of_mem S.nodup hc]; rfl, hD, List.contains_iff_mem.mp hn⟩
+
+theorem lfpList_of {D : LfpDatum V} {n : Name} (hn : (C.find? n).isSome = true)
+    (hD : D ∈ (S.m n).lfpBlocks) (hmem : n ∈ D.names) : D ∈ S.lfpList := by
+  obtain ⟨ci, hci⟩ := Option.isSome_iff_exists.mp hn
+  have hname : ci.name = n := ConLeche.Env.find?_name hci
+  refine List.mem_flatMap.mpr ⟨ci, ConLeche.Env.find?_mem hci, List.mem_filter.mpr ⟨?_, ?_⟩⟩
+  · rw [hname]; exact hD
+  · rw [hname]; exact List.contains_iff_mem.mpr hmem
+
+/-- **A recorded block's members are read alike**, stored alike. -/
+theorem block_member {n : Name} (hn : (C.find? n).isSome = true) {D : LfpDatum V}
+    (hD : D ∈ (S.m n).lfpBlocks) (hmem : n ∈ D.names) {mm : Nat} (hmm : mm < D.k) :
+    ((S.R n).find? (D.member mm)).isSome = true ∧
+      C.find? (D.member mm) = (S.E n).find? (D.member mm) := by
+  have hcov := S.cover n
+  obtain ⟨mm₀, hmm₀, hn₀⟩ := List.getElem_of_mem hmem
+  have hk : mm₀ < D.k := by rw [← hcov.len D hD]; exact hmm₀
+  have hmem₀ : D.member mm₀ = n := by
+    simp [LfpDatum.member, List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hmm₀, hn₀]
+  obtain ⟨cvn, capsn, hfn⟩ := LfpCover.member_find hD hk
+  rw [hmem₀] at hfn
+  have hall := hcov.all D hD mm₀ hk cvn capsn (by rw [hmem₀]; exact hfn)
+  have hsame := S.same_of (S.self n hn) (Or.inr hfn) (Or.inl rfl)
+  have hfC : C.find? n = some (.indInfo cvn capsn) := by rw [hsame]; exact hfn
+  obtain ⟨hallR, -⟩ := (S.scope n _ hfC).2.2.2.1 cvn capsn rfl
+  have hmR : ((S.R n).find? (D.member mm)).isSome = true := by
+    refine hallR _ ?_
+    rw [hall]
+    simp only [LfpDatum.member, List.getD_eq_getElem?_getD,
+      List.getElem?_eq_getElem (show mm < D.names.length by rw [hcov.len D hD]; exact hmm),
+      Option.getD_some]
+    exact List.getElem_mem _
+  obtain ⟨cvm, capsm, hfm⟩ := LfpCover.member_find hD hmm
+  exact ⟨hmR, S.same_of hmR (Or.inr hfm) (Or.inl rfl)⟩
+
+/-- **A recorded block's constructors are read alike**, stored alike. -/
+theorem block_ctor {n : Name} (hn : (C.find? n).isSome = true) {D : LfpDatum V}
+    (hD : D ∈ (S.m n).lfpBlocks) (hmem : n ∈ D.names) {c : Nat} (hc : c < D.k)
+    {j : Nat} (hj : j < D.nctors c) :
+    ((S.R n).find? (D.ctorName c j)).isSome = true ∧
+      C.find? (D.ctorName c j) = (S.E n).find? (D.ctorName c j) := by
+  have hcov := S.cover n
+  obtain ⟨hmR, hmsame⟩ := S.block_member hn hD hmem hc
+  obtain ⟨nP', L, hL, hlen, hfj⟩ := (hcov.own D hD).ctors c hc
+  have hjL : j < L.length := by rw [hlen]; exact hj
+  have hfx := hfj j hjL
+  obtain ⟨cvm, capsm, hfm, hents⟩ := nestContainer_some hL
+  obtain ⟨x, hx, nPc, hfxE⟩ := hents L[j] (List.getElem_mem _)
+  have hxn : x = D.ctorName c j := by
+    rw [← ConLeche.Env.find?_name hfxE, ← ConLeche.Env.find?_name hfx]; rfl
+  subst hxn
+  have hfmC : C.find? (D.member c) = some (.indInfo cvm capsm) := by rw [hmsame]; exact hfm
+  have hdeep := S.deep n _ _ hmR hfmC rfl
+  -- the constructor is stored in the context: its member's own scope lists it
+  have hxC : (C.find? (D.ctorName c j)).isSome = true := by
+    obtain ⟨-, hctR, -⟩ := (S.scope _ _ hfmC).2.2.2.1 cvm capsm rfl
+    exact S.storedC (hctR _ hx)
+  have hxR := (hdeep.2.2.2.1 cvm capsm rfl).2.1 _ hx hxC (by rw [hfxE]; rfl)
+  exact ⟨hxR, S.same_of hxR (Or.inr hfxE) (Or.inl rfl)⟩
+
+end CtxSrc
+
+
+namespace CtxSrc
+
+variable (S : CtxSrc V μ C aC)
+include S
+
+/-- The names of a recorded block, read alike and stored alike as
+inductive kinds. -/
+@[expose] def BlockName (n d : Name) : Prop :=
+  ((S.R n).find? d).isSome = true ∧ C.find? d = (S.E n).find? d ∧
+    ∃ ci, (S.E n).find? d = some ci ∧ ci.isIndKind = true
+
+theorem blockName_of {n : Name} (hn : (C.find? n).isSome = true) {D : LfpDatum V}
+    (hD : D ∈ (S.m n).lfpBlocks) (hmem : n ∈ D.names) :
+    (∀ mm, mm < D.k → S.BlockName n (D.member mm)) ∧
+      ∀ c, c < D.k ∨ c < D.N → ∀ j, j < D.nctors c → S.BlockName n (D.ctorName c j) := by
+  have hcov := S.cover n
+  have hwid := hcov.wid D hD
+  obtain ⟨hst, hstC⟩ := ((S.m n).lfp_ok D hD).2.1
+  refine ⟨fun mm hmm => ?_, fun c hc j hj => ?_⟩
+  · obtain ⟨h1, h2⟩ := S.block_member hn hD hmem hmm
+    obtain ⟨cv, caps, hf⟩ := hst mm hmm
+    exact ⟨h1, h2, _, hf, rfl⟩
+  · have hck : c < D.k := by rcases hc with hc | hc; exact hc; rw [← hwid]; exact hc
+    obtain ⟨h1, h2⟩ := S.block_ctor hn hD hmem hck hj
+    obtain ⟨cv, a, b, hf⟩ := hstC c (by rw [hwid]; exact hck) j hj
+    exact ⟨h1, h2, _, hf, rfl⟩
+
+theorem blockName_type {n d : Name} (h : S.BlockName n d)
+    {ci : ConstantInfo} (hf : (S.E n).find? d = some ci) :
+    ci.toConstantVal.type.constsResolve (S.R n) = true := by
+  obtain ⟨hR, hsame, ci', hci', hk⟩ := h
+  rw [hf] at hci'; obtain rfl := Option.some.inj hci'
+  exact S.deep_type hR (by rw [hsame]; exact hf) hk
+
+theorem lfp_ok : ∀ D ∈ S.lfpList, LfpClause aC D ∧ LfpStored C D ∧ LfpReads aC C D ∧
+    LfpCtorReads aC C D ∧ LfpCaps C D := by
+  intro D hD
+  obtain ⟨n, hn, hDn, hmem⟩ := S.mem_lfpList hD
+  refine EnvModelM.lfpOne_transport (S.BlockName n) (S.blockName_of hn hDn hmem) ((S.m n).lfp_ok D hDn)
+    (fun d cv nPc nF _ hf ψ => (S.m n).type_reads _ (List.mem_of_find?_eq_some hf) ψ)
+    (fun d ci hp hf => by rw [hp.2.1]; exact hf)
+    (fun d ci hp hf => S.leaf hn hp.1)
+    (fun d cv caps hp hf ψ ta h => ?_) (fun d cv nPc nF hp hf ψ ta h => ?_)
+    (fun d ci hp hf A hA ψ k ta h => ?_)
+  · have hR := S.blockName_type hp hf
+    exact (S.denote_eq hn hR (S.resolveE hR) ψ 0).trans h
+  · have hR := S.blockName_type hp hf
+    exact (S.denote_eq hn hR (S.resolveE hR) ψ 0).trans h
+  · have hR := canonOf_constsResolve (S.blockName_type hp hf) hA
+    exact (S.denote_eq hn hR (S.resolveE hR) ψ k).trans h
+
+/-- **The context owns its recorded blocks' constructors**, as the
+source does. -/
+theorem lfpOwn {D : LfpDatum V} (hD : D ∈ S.lfpList) : LfpOwn C D := by
+  obtain ⟨n, hn, hDn, hmem⟩ := S.mem_lfpList hD
+  have hcov := S.cover n
+  have hown := hcov.own D hDn
+  obtain ⟨hbm, hbc⟩ := S.blockName_of hn hDn hmem
+  -- a member's container reads alike
+  have hnc : ∀ c, c < D.k → ConLeche.nestContainer (envCtx C) (D.member c)
+      = ConLeche.nestContainer (envCtx (S.E n)) (D.member c) ∧
+      ∀ cv caps, (S.E n).find? (D.member c) = some (.indInfo cv caps) → ∀ x ∈ caps.ctors,
+        ctorLook C.find? (D.member c) x = ctorLook (S.E n).find? (D.member c) x := by
+    intro c hc
+    obtain ⟨hmR, hmsame, -⟩ := hbm c hc
+    obtain ⟨cvm, capsm, hfm⟩ := LfpCover.member_find hDn hc
+    have hfmC : C.find? (D.member c) = some (.indInfo cvm capsm) := by rw [hmsame]; exact hfm
+    have hpt : ∀ x ∈ capsm.ctors,
+        ctorLook C.find? (D.member c) x = ctorLook (S.E n).find? (D.member c) x := by
+      intro x hx
+      obtain ⟨ci, hci, he⟩ := ctorLook_isSome (hown.ctorsAll c hc cvm capsm hfm x hx)
+      have hk : ci.isIndKind = true := by
+        cases ci <;> simp [ctorEntry, ConstantInfo.isIndKind] at he ⊢
+      have hxC : (C.find? x).isSome = true := by
+        obtain ⟨-, hctR, -⟩ := (S.scope _ _ hfmC).2.2.2.1 cvm capsm rfl
+        exact S.storedC (hctR _ hx)
+      have hxR := ((S.deep n _ _ hmR hfmC rfl).2.2.2.1 cvm capsm rfl).2.1 _ hx hxC
+        (by rw [hci]; rfl)
+      unfold ctorLook
+      rw [S.same_of hxR (Or.inr hci) (Or.inl hk)]
+    refine ⟨?_, fun cv caps hf x hx => ?_⟩
+    · rw [nestContainer_eq, nestContainer_eq]
+      show (match C.find? (D.member c) with
+          | some (.indInfo _ caps) =>
+            nestPick caps (caps.ctors.filterMap (ctorLook C.find? (D.member c)))
+          | _ => none) = (match (S.E n).find? (D.member c) with
+          | some (.indInfo _ caps) =>
+            nestPick caps (caps.ctors.filterMap (ctorLook (S.E n).find? (D.member c)))
+          | _ => none)
+      rw [hfmC, hfm]
+      show nestPick capsm (capsm.ctors.filterMap (ctorLook C.find? (D.member c)))
+        = nestPick capsm (capsm.ctors.filterMap (ctorLook (S.E n).find? (D.member c)))
+      congr 1
+      clear hfmC hfm hmsame hmR
+      revert hpt
+      generalize capsm.ctors = l
+      intro hpt
+      induction l with
+      | nil => rfl
+      | cons x xs ih =>
+        rw [List.filterMap_cons, List.filterMap_cons, hpt x List.mem_cons_self,
+          ih fun y hy => hpt y (List.mem_cons_of_mem _ hy)]
+    · rw [hfm] at hf
+      obtain rfl : capsm = caps := by injection hf with h1; injection h1
+      exact hpt x hx
+  have hfwd : ∀ d, S.BlockName n d → ∀ ci, (S.E n).find? d = some ci → C.find? d = some ci :=
+    fun d hd ci hf => by rw [hd.2.1]; exact hf
+  refine ⟨fun c hc => ?_, fun c hc nP' hL => ?_, fun c hc => ?_, fun c hc j hj => ?_,
+    fun c hc cv caps hf x hx => ?_⟩
+  · obtain ⟨nP', L, hL, hlen, hj⟩ := hown.ctors c hc
+    refine ⟨nP', L, by rw [(hnc c hc).1]; exact hL, hlen, fun j hjL => ?_⟩
+    exact hfwd _ (hbc c (Or.inl hc) j (by rw [← hlen]; exact hjL)) _ (hj j hjL)
+  · obtain ⟨cv, caps, hf, hnd, hlen, hall⟩ := hown.noCtors c hc nP' (by rw [← (hnc c hc).1]; exact hL)
+    refine ⟨cv, caps, hfwd _ (hbm c hc) _ hf, hnd, hlen, fun mm hmm => ?_⟩
+    obtain ⟨cvm, capsm, hfm, hl⟩ := hall mm hmm
+    exact ⟨cvm, capsm, hfwd _ (hbm mm hmm) _ hfm, hl⟩
+  · obtain ⟨cv, caps, hf, hnd⟩ := hown.lvlNodup c hc
+    exact ⟨cv, caps, hfwd _ (hbm c hc) _ hf, hnd⟩
+  · obtain ⟨cv, nPc, nF, hf, hsh⟩ := hown.ctorConcl c hc j hj
+    exact ⟨cv, nPc, nF, hfwd _ (hbc c (Or.inl hc) j hj) _ hf, hsh⟩
+  · have hfE : (S.E n).find? (D.member c) = some (.indInfo cv caps) := by
+      rw [← (hbm c hc).2.1]; exact hf
+    rw [(hnc c hc).2 cv caps hfE x hx]
+    exact hown.ctorsAll c hc cv caps hfE x hx
+
+/-- **The context's model.** -/
+@[expose] noncomputable def model : EnvModelM V μ C where
+  base2 := S.base
+  type_reads := S.type_reads
+  type_wellDenotedTy := S.type_wellDenotedTy
+  mem_type := S.mem_type
+  defn_reads := S.defn_reads
+  nat_heads := S.nat_heads
+  nat_ops := S.nat_ops
+  div_mod := S.div_mod
+  eq_law := S.eq_law
+  caps_ok := S.caps_ok
+  rec_rules := S.rec_rules
+  reduce_ops := S.reduce_ops
+  tower_ok := S.tower_ok
+  ind_strict := S.ind_strict
+  lfpBlocks := S.lfpList
+  lfp_ok := S.lfp_ok
+
+theorem model_acval : S.model.base2.acval = aC := rfl
+
+/-- **The context's model is covered.** -/
+theorem model_cover : LfpCover S.model [] where
+  cover := fun n cv caps hf _ hq => by
+    have hn : (C.find? n).isSome = true := by rw [hf]; rfl
+    obtain ⟨ci', hf', hr, -⟩ := S.src_entry hf
+    have he : ci' = .indInfo cv caps := (hr.eq_of_indKind (Or.inl rfl)).symm
+    rw [he] at hf'
+    obtain ⟨D, hD, mm, hmm, hmn⟩ := (S.cover n).cover n cv caps hf' (List.not_mem_nil) hq
+    have hmem : n ∈ D.names := by
+      rw [← hmn]
+      simp only [LfpDatum.member, List.getD_eq_getElem?_getD,
+        List.getElem?_eq_getElem (show mm < D.names.length by
+          rw [(S.cover n).len D hD]; exact hmm), Option.getD_some]
+      exact List.getElem_mem _
+    exact ⟨D, S.lfpList_of hn hD hmem, mm, hmm, hmn⟩
+  nodup := fun D hD => by
+    obtain ⟨n, -, hDn, -⟩ := S.mem_lfpList hD; exact (S.cover n).nodup D hDn
+  len := fun D hD => by
+    obtain ⟨n, -, hDn, -⟩ := S.mem_lfpList hD; exact (S.cover n).len D hDn
+  all := fun D hD mm hmm cv caps hf => by
+    obtain ⟨n, hn, hDn, hmem⟩ := S.mem_lfpList hD
+    obtain ⟨-, hsame, -⟩ := (S.blockName_of hn hDn hmem).1 mm hmm
+    exact (S.cover n).all D hDn mm hmm cv caps (by rw [← hsame]; exact hf)
+  fresh := fun _ _ _ _ h => List.not_mem_nil h
+  own := fun D hD => S.lfpOwn hD
+  wid := fun D hD => by
+    obtain ⟨n, -, hDn, -⟩ := S.mem_lfpList hD; exact (S.cover n).wid D hDn
+
+/-- **THE CONTEXT'S MODEL**: a context read from its sources' covered
+models has a covered model at the leaves `aC`, and its η families are
+closed. -/
+theorem ctxModel : ∃ mc : EnvModelM V μ C, mc.base2.acval = aC ∧ LfpCover mc [] ∧
+    ConLeche.EtaFamiliesClosed C :=
+  ⟨S.model, rfl, S.model_cover, S.etaClosed⟩
 
 end CtxSrc
 
