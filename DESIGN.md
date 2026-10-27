@@ -107576,3 +107576,102 @@ theorem and axiom of equal statement count as equal (both
 safety.  The Lean-acceptance column is `subsumesInfo` on the exported
 entries of the closure, not on each module's actual loaded set.
 Logs: `_tmp/370/{Init,Std,Lean,Mathlib}.log` (not committed).
+
+## TASK #370 revision — qualified names, no summaries: the algorithm to implement (2026-10-27, agent/370-qual)
+
+Maintainer rulings: the local checks must never be stricter than
+Lean — theorems with different bodies are fine (proof irrelevance), and
+name clashes that never meet are fine; qualify names in the proof; one
+global statement; summaries were an artifact of unqualified names.
+**This revision supersedes the summary/join algorithm of the previous
+entry; implementation lanes should follow this one.**
+
+**The theory** (`whitepaper/Fragment/ModularModel.lean`, with the
+syntactic part in `Modular.lean`; standard axioms only):
+* *Qualified names* (`Key`): an ordinary constant is (home module,
+  name); a proof — a theorem, or a definition whose type the checker
+  finds to be a proposition — is (name, level params, statement).
+  Every proof denotes the point at every level list (`defVal_eq_pt`),
+  so two proofs of one statement are one qualified name, whatever their
+  bodies.  Qualified names exist in the proof only.
+* *A module* has its imports, its declarations, its **context** (the
+  environment its declarations are checked against), for each context
+  name the import it is read from, the set of its own constants that are
+  proofs, and its **resolution** (name → qualified name).
+* *Refinement of a constant*: equal, or an assumption with the same
+  level params and type.
+
+**The local checks at module M** (`LocalOk`; they read M and its
+direct imports' own environments and resolution tables, nothing else):
+1. imports come earlier (acyclic), every context name is read from a
+   direct import;
+2. M's declarations are accepted against M's context, in order; every
+   constant flagged a proof is a theorem, or a definition whose type
+   the checker infers to be a proposition at its position;
+3. each context constant refines the constant of the import it is read
+   from, and that constant lies within the part of the import's own
+   environment that M stores and resolves as the import does: its
+   type's and value's constants, its rules' right-hand sides and
+   constructors (stored in M's context as in the import, types
+   included), its inductive block (spec, type former, constructors);
+4. M resolves each context name as the import it is read from does,
+   and its own constants to (M, n), or to (n, lparams, type) when
+   flagged a proof;
+5. a type former in M's context comes with its constructors (as in the
+   import).
+
+**The theorem** (`modular`, `modular_model`,
+`modular_no_empty_prop_inhabitant`): if every module up to i passes
+its local checks, there is ONE assignment of sets to the qualified
+names (every proof the point) under which every module's own
+environment (context + declarations), read through its resolution, has
+a model; hence no module's own environment stores a closed proof of an
+empty proposition.  Global facts used: coverage (every module checked)
+and the import order (acyclicity), nothing else.
+
+**Proof route = the implementation's route ("B", restriction and
+extension of models)**: at module M, the world's assignment read
+through M's resolution is a model of M's context (`context_model`: each
+law is the import constant's law, at names M reads as the import does);
+M's declarations are installed on it by the ordinary install theorems
+(`Checks.blockModel`; proofs get the point); the world's assignment is
+extended by M's own ordinary constants (`modular_step`).  No
+monotonicity of derivations is used — the previous entry's warning
+about admission checks through whnf is withdrawn: M's checks are
+ordinary checks against M's context, sound at any model of it.
+
+**For the implementation**:
+* Build M's context exactly as Lean does (its loaded set; exported
+  levels, private under `import all`, plus re-exports), merging copies
+  of a name as Lean does.  Record for each context name its source
+  import and its qualified name (from the source's resolution table).
+* Check 2 is the expensive part and depends on no other module's
+  result: all modules in parallel.
+* Check 3 in practice: each module's exported view refines its own
+  environment (check once at the exporter); the importer's context
+  constant is then an exported constant of its source, and the
+  "reads as the import does" condition is a comparison of qualified
+  names for the constants that constant mentions (Lean's module system
+  guarantees it for modules it writes: exported terms mention only what
+  importers load).
+* A module's resolution table is name → qualified name for every name
+  of its own environment; check 4 compares it with the direct imports'.
+* Merged copies of a name in the context (Lean's thm/thm, thm/exported
+  axiom, Prop axiom/axiom) must have one qualified name: flag every
+  theorem and every definition of a proposition as a proof, so their
+  qualified name is the statement.
+
+**Compared with Lean**: never stricter on the merge (copies Lean merges
+are proofs of one statement, one qualified name) and never compares
+constants that are not read together.  Stricter only where an imported
+constant mentions a name the importer resolves differently from the
+exporter, which Lean's module system rules out for the modules it
+writes.  Looser: identical non-theorem duplicates in a context
+(harmless).
+
+Fragment changes: `Modular.lean` reduced to declarations, checking and
+constant refinement (monotonicity, summaries and joins removed);
+`ModularModel.lean` new; `install_def`/`install_def'`/`install_thm`
+expose the installed value; `EnvModel.transport`'s law congruences
+factored out (`RecRuleLaw.congr` …); `no_empty_inductive_inhabitant_of_model`.
+§7 rewritten, §8's "Hidden name clashes" entry removed.

@@ -118,14 +118,13 @@ are recorded here so every lane works from the same spec. Task #324.
    projections), large elimination; the consistency corollary.
 5. Nested inductive types (the full check, the model as a sketch).
 6. Extensionality corollaries (η for structures, unit-like).
-7. Checking module by module (task #370): assumptions and theorems
-   stored as statements, refinement, monotonicity of checking, the
-   local checks (compatible summaries joined along the import graph)
-   and the per-module theorem; Lean's module system only as a mapping
-   at the end (maintainer ruling 2026-10-27: the theory stays abstract
-   — refinement, joins, compatibility — and Lean's levels, `import
-   all`, re-exports and merge rule are mapped onto it, never stated in
-   definitions or theorems); the con-leche implementation as planned,
+7. Checking module by module (task #370): assumptions, theorems
+   stored as statements, refinement of constants, qualified names and
+   a module's resolution, the local checks, and the one model over
+   qualified names in which every module's own environment holds; the
+   theory stays abstract (maintainer rulings 2026-10-27), and Lean's
+   levels, `import all`, re-exports and merge rule appear only in a
+   mapping table at the end; the con-leche implementation as planned,
    in a `#real` block.
 8. What we left out, and how the real proof differs from the fragment
    (fvar, `Term` layer, bridge, ...), with links.

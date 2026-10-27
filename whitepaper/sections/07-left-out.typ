@@ -73,13 +73,6 @@ accepted as pinned definitions of their own types.]
 checker never unfolds a theorem or an opaque: #src("ConLeche/Rules/Rel.lean", 138, 141)[only a definition
 unfolds].]
 
-#left-out[Hidden name clashes][The local checks of @sec:modular
-reject two modules that store one name differently as soon as some
-module rests on both, even when Lean never loads them together because
-one sits behind an import that is not re-exported. Accepting such
-developments would need the clashing names to be told apart, by
-renaming the hidden ones, which the fragment does not do.]
-
 #left-out[Structure η and unit-likeness][The checker has
 #src("ConLeche/Rules/Rel.lean", 467, 470)[structure η] and
 #src("ConLeche/Rules/Rel.lean", 495, 500)[unit-likeness] as Lean has them;
