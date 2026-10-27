@@ -58,9 +58,9 @@ emitted in `lean4export`'s order — every constant after the constants
 it mentions, unsafe and partial constants left out
 ([function `readOleans` in `ConLeche/Frontend/Olean/Load.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Frontend/Olean/Load.lean#L474-L475)).
 The records are built by the stream reader's own builder, so on the
-same modules the two inputs give the same records: on `Init`, `Std`
-and `Lean` they are equal, record for record (`lake exe olean-compare`,
-not a default target). With more than one worker the modules are
+same modules the two inputs give the same records: on `Init`, `Std`,
+`Lean` and `Mathlib` they are equal, record for record (`lake exe
+olean-compare`, not a default target). With more than one worker the modules are
 decoded in parallel.
 
 The exit code follows the lean kernel arena convention

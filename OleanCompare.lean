@@ -36,6 +36,75 @@ def normalize : Declaration → Declaration
     .indDecl (rest ++ (recs.toArray.qsort (key · < key ·)).toList) np
   | d => d
 
+/-! The records are compared field by field with every `Expr` compared
+by its `BEq` instance (`Expr.beq`: pointer-equality first, memoized on
+pointer pairs), never by the derived `DecidableEq Declaration`, whose
+`Expr` comparison is the derived tree walk: exponential on the sharing
+in Mathlib's proof terms (a full-Mathlib compare spent more than 20
+minutes in `instDecidableEqExpr` without finishing a record pass). -/
+
+def valEq (a b : ConstantVal) : Bool :=
+  a.name == b.name && a.levelParams == b.levelParams && a.type == b.type
+
+/-- The right-hand side by `Expr.beq`, the other (scalar) fields by
+their decidable equality. -/
+def ruleEq (a b : RecRule) : Bool :=
+  a.rhs == b.rhs && decide ({ a with rhs := .bvar 0 } = { b with rhs := .bvar 0 })
+
+def listEq {α} (f : α → α → Bool) : List α → List α → Bool
+  | [], [] => true
+  | a :: as, b :: bs => f a b && listEq f as bs
+  | _, _ => false
+
+def infoEq : ConstantInfo → ConstantInfo → Bool
+  | .axiomInfo v, .axiomInfo w => valEq v w
+  | .defnInfo v e h, .defnInfo w e' h' => valEq v w && e == e' && decide (h = h')
+  | .thmInfo v, .thmInfo w => valEq v w
+  | .indInfo v c, .indInfo w c' => valEq v w && decide (c = c')
+  | .ctorInfo v p f, .ctorInfo w p' f' => valEq v w && p == p' && f == f'
+  | .recInfo v m r rs, .recInfo w m' r' rs' =>
+    valEq v w && m == m' && r == r' && listEq ruleEq rs rs'
+  | _, _ => false
+
+def declEq : Declaration → Declaration → Bool
+  | .axiomDecl v, .axiomDecl w => valEq v w
+  | .defnDecl v e h, .defnDecl w e' h' => valEq v w && e == e' && decide (h = h')
+  | .thmDecl v e, .thmDecl w e' => valEq v w && e == e'
+  | .opaqueDecl v e, .opaqueDecl w e' => valEq v w && e == e'
+  | .basisDecl k, .basisDecl k' => decide (k = k')
+  | .indDecl b n, .indDecl b' n' => listEq infoEq b b' && n == n'
+  | .quotDecl k v, .quotDecl k' w => decide (k = k') && valEq v w
+  | _, _ => false
+
+/-- A one-component name. -/
+def nm (s : String) : Name := .str .anonymous s
+
+/-- A term of tree size `2^n` and DAG size `n`: `x ↦ x x`, iterated
+`n` times on the constant `c`. -/
+def dag (c : Name) : Nat → Expr
+  | 0 => .const c []
+  | n + 1 => let x := dag c n; .app x x
+
+/-- `dag` again, so that the two sides of a comparison are equal
+without being pointer-equal. -/
+def dag' (c : Name) : Nat → Expr
+  | 0 => .const c []
+  | n + 1 => let x := dag' c n; .app x x
+
+/- Regression (the Mathlib compare): records whose `Expr`s share like
+proof terms do.  Under the derived `DecidableEq` each would walk 2^200
+nodes. -/
+#guard declEq (.thmDecl ⟨nm "t", [], .sort .zero⟩ (dag (nm "a") 200))
+              (.thmDecl ⟨nm "t", [], .sort .zero⟩ (dag' (nm "a") 200))
+#guard !declEq (.thmDecl ⟨nm "t", [], .sort .zero⟩ (.app (dag (nm "a") 200) (.const (nm "a") [])))
+               (.thmDecl ⟨nm "t", [], .sort .zero⟩ (.app (dag' (nm "a") 200) (.const (nm "b") [])))
+#guard !declEq (.indDecl [.recInfo ⟨nm "r", [], .sort .zero⟩ 0 0
+                  [{ ctor := nm "c", nfields := 0, ctorParams := 0, fire := .plain,
+                     rhs := dag (nm "a") 200 }]] 0)
+               (.indDecl [.recInfo ⟨nm "r", [], .sort .zero⟩ 0 0
+                  [{ ctor := nm "c", nfields := 0, ctorParams := 0, fire := .plain,
+                     rhs := dag' (nm "a") 200, k := true }]] 0)
+
 def toMap (ds : Array Declaration) : Std.HashMap Name Declaration × Nat :=
   ds.foldl (fun (m, dup) d =>
     let k := (d.names.head?).getD .anonymous
@@ -90,7 +159,7 @@ def main (args : List String) : IO UInt32 := do
         bad := bad + 1
         if shown < 20 then IO.println s!"only in the stream: {k}"; shown := shown + 1
       | some d' =>
-        unless d == d' do
+        unless declEq d d' do
           bad := bad + 1
           if shown < 20 then
             IO.println s!"differs: {k}\n  stream: {(repr d).pretty 200 |>.take 600}\n  oleans: {(repr d').pretty 200 |>.take 600}"
