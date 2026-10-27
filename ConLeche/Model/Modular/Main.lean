@@ -255,12 +255,6 @@ structure Stage (V : Type w) [SetTheory V] (μ : CheckMode) (dev : Nat → Modul
 section
 variable {dev : Nat → Module} {W : Key → (Name → Nat) → Term} {i : Nat}
 
-/-- The context's stored names, read through its own environment. -/
-theorem ctx_find_own (hst : Stage V μ dev W (i + 1)) (hj : i < i + 1)
-    (hnd : NodupNames (dev i).own) {n : Name} {ci : ConstantInfo}
-    (hf : (dev i).context.find? n = some ci) : (dev i).own.find? n = some ci :=
-  (hst.ext i hj).find? hnd hf
-
 /-- A module's chosen model. -/
 noncomputable def Stage.mod (hst : Stage V μ dev W i) (j : Nat) (hj : j < i) :
     EnvModelM V μ (dev j).own :=
@@ -520,5 +514,203 @@ noncomputable def ctxSrcOf (hst : Stage V μ dev W i) (h : LocalOk μ pins dev i
   wd n ψ ρ := hW.2.1 _ ψ ρ
 
 end
+
+section
+variable {dev : Nat → Module}
+
+/-- **A stored name resolves to a home no later than its module.** -/
+theorem key_le {j : Nat} (hj : Fits dev j) {n : Name} (hn : ((dev j).own.find? n).isSome = true)
+    {P : Nat} {n' : Name} (hk : (dev j).res n = .qual P n') : P ≤ j := by
+  obtain ⟨ci, hci⟩ := Option.isSome_iff_exists.mp hn
+  have := hj n ci hci
+  rw [hk] at this
+  exact this.2.1
+
+/-- **The world, grown by module `i`'s ordinary constants**: the
+qualified names of home `i` read `f`, every other key as before. -/
+@[expose] def extendAt (W : Key → (Name → Nat) → Term) (i : Nat) (f : Name → (Name → Nat) → Term) :
+    Key → (Name → Nat) → Term
+  | .qual j n => if j = i then f n else W (.qual j n)
+  | k => W k
+
+theorem extendAt_old {W : Key → (Name → Nat) → Term} {i : Nat}
+    {f : Name → (Name → Nat) → Term} {k : Key} (hk : ∀ P n', k = .qual P n' → P < i) :
+    extendAt W i f k = W k := by
+  cases k with
+  | qual P n' =>
+    have := hk P n' rfl
+    simp only [extendAt, Nat.ne_of_lt this, ↓reduceIte]
+  | proof _ _ _ => rfl
+
+/-- A stored name of a module done keeps its leaf as the world grows. -/
+theorem extendAt_stored {W : Key → (Name → Nat) → Term} {i j : Nat}
+    {f : Name → (Name → Nat) → Term} (hj : Fits dev j) (hji : j < i) {n : Name}
+    (hn : ((dev j).own.find? n).isSome = true) :
+    extendAt W i f ((dev j).res n) = W ((dev j).res n) :=
+  extendAt_old fun _ _ hk => Nat.lt_of_le_of_lt (key_le hj hn hk) hji
+
+end
+
+section
+variable {dev : Nat → Module} {W : Key → (Name → Nat) → Term} {i : Nat}
+
+/-- **A context constant fits its qualified name** in the module's own
+environment, read from the source module's fit. -/
+theorem fits_context (hst : Stage V μ dev W i) (h : LocalOk μ pins dev i)
+    (hext : Extends (dev i).context (dev i).own) (hnd : NodupNames (dev i).own)
+    {n : Name} {cc : ConstantInfo} (hcn : (dev i).context.find? n = some cc) :
+    KeyFits dev i n cc ((dev i).res n) := by
+  have hcs : ((dev i).context.find? n).isSome = true := by rw [hcn]; rfl
+  have hs := h.src_lt n hcs
+  obtain ⟨cs, hfs, hr⟩ := h.context_le n cc hcn
+  have hF := hst.fits _ hs n cs hfs
+  rw [← h.res_context n hcs] at hF
+  have htabC : (dev i).own.findTable? n = (dev i).context.findTable? n :=
+    hext.findTable? hnd hcs
+  revert hF
+  cases (dev i).res n with
+  | qual P n' =>
+    rintro ⟨hn', hP, cp, hcp, hr2, htab, hind⟩
+    refine ⟨hn', Nat.le_trans hP (Nat.le_of_lt hs), cp, hcp, hr.trans hr2, fun hfm => ?_,
+      fun hki => ?_⟩
+    · obtain rfl := hr.eq_of_indKind (isIndKind_of_isFormer hfm)
+      rw [htabC, h.tables n cc hcn, ← htab hfm]
+      cases cc with
+      | indInfo _ _ => rfl
+      | _ => simp [ConstantInfo.isFormer] at hfm
+    · obtain rfl := hr.eq_of_indKind hki
+      have hsc := (entryScoped_iff.mp (h.scoping n cc hcn)).table' (C' := (dev i).own)
+        fun cv caps he => htabC
+      have hin := (hind hki).table' (C' := (dev i).own) fun cv caps he => by
+        subst he; rw [htabC, h.tables n _ hcn]
+      refine EntryScopedP.and3 (fun d h1 h2 _ _ => ?_) hsc hin
+        (EntryScopedP.of_forall (p := fun _ => True) (fun _ => trivial) _ n _)
+      obtain ⟨ce, hce⟩ := Option.isSome_iff_exists.mp h1
+      obtain ⟨he, -, hk⟩ := find?_readsAlike dev hce
+      exact hk.trans (h2 (by rw [he]; rfl))
+  | proof n' lps T =>
+    rintro ⟨hn', hl, ht, hki, hp⟩
+    refine ⟨hn', by rw [hr.cv]; exact hl, by rw [hr.cv]; exact ht, ?_, hp⟩
+    cases hcc : cc.isIndKind with
+    | false => rfl
+    | true => obtain rfl := hr.eq_of_indKind hcc; rw [hki] at hcc; exact nomatch hcc
+
+/-- A context name's leaf key is of a module done. -/
+theorem key_context (hst : Stage V μ dev W i) (h : LocalOk μ pins dev i) {n : Name}
+    (hcs : ((dev i).context.find? n).isSome = true) :
+    ∀ P n', (dev i).res n = .qual P n' → P < i := by
+  intro P n' hk
+  have hs := h.src_lt n hcs
+  obtain ⟨cc, hcc⟩ := Option.isSome_iff_exists.mp hcs
+  obtain ⟨cs, hfs, -⟩ := h.context_le n cc hcc
+  rw [h.res_context n hcs] at hk
+  exact Nat.lt_of_le_of_lt (key_le (hst.fits _ hs) (by rw [hfs]; rfl) hk) hs
+
+/-- **THE STEP**: the modules below `i` done and module `i`'s local
+checks give a world, grown by module `i`'s ordinary constants, under
+which the modules below `i + 1` are done. -/
+theorem step (hμ : μ.isVerified = true) (hW : WorldOk V W) (hst : Stage V μ dev W i)
+    (h : LocalOk μ pins dev i) : ∃ W', WorldOk V W' ∧ Stage V μ dev W' (i + 1) := by
+  obtain ⟨mc, hmc, hcov, heta⟩ := (ctxSrcOf hst h hW).ctxModel
+  have hndC : NodupNames (dev i).context := h.nodup
+  have hown : ∃ mp : EnvModelM V μ (dev i).own, Agrees mc mp ∧ LfpCover mp [] ∧
+      ConLeche.EtaFamiliesClosed (dev i).own ∧ NodupNames (dev i).own ∧
+      Extends (dev i).context (dev i).own ∧
+      ∀ n, (dev i).proofs n = true → (dev i).context.find? n = none →
+        ((dev i).own.find? n).isSome = true →
+        mp.base2.acval n = (fun _ => .prf) ∧
+        ∃ ci, (dev i).own.find? n = some ci ∧ ci.isIndKind = false ∧ n ∉ pinnedNames := by
+    cases hc : (dev i).compared with
+    | false => exact acceptedFrom_model hμ (h.accepted hc) mc hcov heta hndC
+    | true =>
+      have he := h.compared_own hc
+      rw [he]
+      exact ⟨mc, Agrees.refl _, hcov, heta, hndC, Extends.refl _,
+        fun n _ h1 h2 => by rw [h1] at h2; exact nomatch h2⟩
+  obtain ⟨mp, hag, hcov', heta', hnd', hext, hfl⟩ := hown
+  have hfits : Fits dev i := by
+    intro n ci hf
+    cases hcn : (dev i).context.find? n with
+    | some cc =>
+      have hcc := hext.find? hnd' hcn
+      rw [hf] at hcc; obtain rfl := Option.some.inj hcc
+      exact fits_context hst h hext hnd' hcn
+    | none =>
+      rw [h.res_own n ci hf hcn]
+      unfold Module.ownKey
+      cases hp : (dev i).proofs n with
+      | true =>
+        obtain ⟨-, ci', hf', hki, hpn⟩ := hfl n hp hcn (by rw [hf]; rfl)
+        rw [hf] at hf'; obtain rfl := Option.some.inj hf'
+        exact ⟨rfl, rfl, rfl, hki, hpn⟩
+      | false =>
+        exact ⟨rfl, Nat.le_refl i, ci, hf, Refines.refl n ci, fun _ => rfl,
+          fun _ => EntryScopedP.of_forall (fun _ _ => rfl) _ n ci⟩
+  refine ⟨extendAt W i mp.base2.acval, ⟨fun k ψ => ?_, fun k ψ ρ => ?_, fun _ _ _ => hW.2.2 _ _ _⟩,
+    ⟨fun j hj => ?_, fun j hj => ?_, fun j hj => ?_⟩⟩
+  · cases k with
+    | qual P n =>
+      by_cases hP : P = i <;> simp only [extendAt, hP, ↓reduceIte]
+      · exact mp.base2.cval_closed n ψ
+      · exact hW.1 _ ψ
+    | proof _ _ _ => exact hW.1 _ ψ
+  · cases k with
+    | qual P n =>
+      by_cases hP : P = i <;> simp only [extendAt, hP, ↓reduceIte]
+      · exact mp.base2.acval_wellDenoted n ψ ρ
+      · exact hW.2.1 _ ψ ρ
+    | proof _ _ _ => exact hW.2.1 _ ψ ρ
+  · rcases Nat.lt_succ_iff_lt_or_eq.mp hj with hj | hj
+    · exact hst.fits j hj
+    · rw [hj]; exact hfits
+  · rcases Nat.lt_succ_iff_lt_or_eq.mp hj with hj | hj
+    · exact hst.ext j hj
+    · rw [hj]; exact hext
+  · rcases Nat.lt_succ_iff_lt_or_eq.mp hj with hj | hj
+    · obtain ⟨mj, h1, h2, h3, h4⟩ := hst.model j hj
+      exact ⟨mj, h1, h2, h3, fun n hn => by
+        rw [h4 n hn, extendAt_stored (hst.fits j hj) hj hn]⟩
+    · rw [hj]
+      refine ⟨mp, hcov', heta', hnd', fun n hn => ?_⟩
+      cases hcn : (dev i).context.find? n with
+      | some cc =>
+        have hcs : ((dev i).context.find? n).isSome = true := by rw [hcn]; rfl
+        rw [(hag n hcs).2, hmc, extendAt_old (key_context hst h hcs)]
+      | none =>
+        obtain ⟨ci, hf⟩ := Option.isSome_iff_exists.mp hn
+        rw [h.res_own n ci hf hcn]
+        unfold Module.ownKey
+        cases hp : (dev i).proofs n with
+        | true =>
+          simp only [↓reduceIte]
+          rw [(hfl n hp hcn hn).1]
+          exact (hW.2.2 _ _ _).symm
+        | false =>
+          simp only [Bool.false_eq_true, ↓reduceIte, extendAt]
+
+/-- **Every module up to `i` done**, under one world. -/
+theorem stages (hμ : μ.isVerified = true) :
+    ∀ i, (∀ j < i, LocalOk μ pins dev j) → ∃ W, WorldOk V W ∧ Stage V μ dev W i
+  | 0, _ =>
+    ⟨fun _ _ => .prf, ⟨fun _ _ => by simp [Term.Closed, Term.bvarsBelow], fun _ _ _ => by simp,
+      fun _ _ _ => rfl⟩, ⟨fun _ h => absurd h (Nat.not_lt_zero _),
+      fun _ h => absurd h (Nat.not_lt_zero _), fun _ h => absurd h (Nat.not_lt_zero _)⟩⟩
+  | i + 1, hok => by
+    obtain ⟨W, hW, hst⟩ := stages hμ i fun j hj => hok j (Nat.lt_succ_of_lt hj)
+    exact step hμ hW hst (hok i (Nat.lt_succ_self i))
+
+end
+
+/-- **The modular theorem, at the leaves**: one world under which every
+module up to `i` has a model of its own environment, read through its
+resolution. -/
+theorem modular_envModels (hμ : μ.isVerified = true) (dev : Nat → Module) (i : Nat)
+    (hok : ∀ j ≤ i, LocalOk μ pins dev j) :
+    ∃ W, WorldOk V W ∧ ∀ j ≤ i, ∃ mp : EnvModelM V μ (dev j).own,
+      ∀ n, ((dev j).own.find? n).isSome = true → mp.base2.acval n = W ((dev j).res n) := by
+  obtain ⟨W, hW, hst⟩ := stages (V := V) hμ (i + 1) fun j hj => hok j (Nat.lt_succ_iff.mp hj)
+  refine ⟨W, hW, fun j hj => ?_⟩
+  obtain ⟨mp, -, -, -, hl⟩ := hst.model j (Nat.lt_succ_iff.mpr hj)
+  exact ⟨mp, hl⟩
 
 end ConLeche.Model.Modular
