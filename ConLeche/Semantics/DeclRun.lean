@@ -184,7 +184,12 @@ def DeclAxiomRun (μ : CheckMode) (F : Nat) (env : Env)
         cv.name ≠ ofReduceNatName ∧ cv.name ≠ ofReduceBoolName ∧
         cv.name ≠ propextName ∧ cv.name ≠ choiceName ∧
         cv.name = sorryAxName ∧
-        env₂ = env))
+        env₂ = env) ∨
+     -- Task #368: a native `bv_decide` axiom,
+     -- stored as a `True` stub whose own type is checked
+     (bvStubOk env cv = true ∧
+        ConstantValRun μ F env (bvStubCv cv) (bvStubCv cv).type ∧
+        env₂ = ⟨.axiomInfo (bvStubCv cv) :: env.consts, env.tables⟩))
 
 /-! ## The assembly -/
 

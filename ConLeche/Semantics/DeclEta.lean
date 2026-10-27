@@ -102,7 +102,7 @@ theorem declEtaStepRun {μ : CheckMode} {F : Nat}
     have hfresh : env.find? cv.name = none :=
       Option.isNone_iff_eq_none.mp hcv.1
     rcases harm with ⟨-, rfl⟩ | ⟨-, -, rfl⟩ | ⟨-, -, rfl⟩ |
-      ⟨-, -, -, -, -, -, -, rfl⟩
+      ⟨-, -, -, -, -, -, -, rfl⟩ | ⟨-, -, rfl⟩
     · exact EtaFamiliesClosed.cons_nonind hE hfresh
         (fun _ _ heq => nomatch heq)
     · exact EtaFamiliesClosed.cons_nonind hE hfresh
@@ -110,6 +110,8 @@ theorem declEtaStepRun {μ : CheckMode} {F : Nat}
     · exact EtaFamiliesClosed.cons_nonind hE hfresh
         (fun _ _ heq => nomatch heq)
     · exact hE
+    · exact EtaFamiliesClosed.cons_nonind hE hfresh
+        (fun _ _ heq => nomatch heq)
   | basisDecl kind =>
     exact basisInstallRun_etaClosed kind.declsA h.2
       (basisIndOk_declsA kind) hE

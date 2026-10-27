@@ -3,6 +3,7 @@ module
 import ConLeche.Model.Install
 public import ConLeche.Model.Tiers
 import ConLeche.Model.NatStep
+import ConLeche.Model.BVUnsat
 
 public section
 
@@ -155,6 +156,6 @@ numeral transports and so cannot be projections down there. -/
 theorem Rules.RulesInputs.ofSem (mp : EnvModelM V μ env) (φ : Name → Nat) :
     Rules.RulesInputs V mp.base2 φ :=
   Rules.RulesInputs.ofEnvModelM mp (natSuccRow_of mp φ) (natOpRow_of mp φ)
-    (natOpHead_of mp φ)
+    (natOpHead_of mp φ) (bvUnsatSemLaw_of mp φ (natOpRow_of mp φ))
 
 end ConLeche.Model

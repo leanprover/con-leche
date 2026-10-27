@@ -39,7 +39,26 @@ namespace ConLeche
 
 variable {mode : CheckMode}
 
+
 open Expr
+
+/-- The skip of `U E C a` (task #368) reads only
+fvar-free terms, so shifting does not change it. -/
+theorem bvUnsatSkip_shiftFrom {find? : Name → Option ConstantInfo} {findProj? : Name → Nat → Option ProjEntry} {p : Nat} {f a body : Expr} :
+    bvUnsatSkip find? findProj? (shiftFrom p f) (shiftFrom p a) (shiftFrom p body) =
+      bvUnsatSkip find? findProj? f a body := by
+  by_cases hf : f.hasFvar = false
+  · by_cases ha : a.hasFvar = false
+    · by_cases hb : body.hasFvar = false
+      · rw [shiftFrom_eq_self_of_not_hasFvar hf, shiftFrom_eq_self_of_not_hasFvar ha,
+          shiftFrom_eq_self_of_not_hasFvar hb]
+      · simp only [Bool.not_eq_false] at hb
+        simp [bvUnsatSkip, hasFvar_shiftFrom, hb]
+    · simp only [Bool.not_eq_false] at ha
+      simp [bvUnsatSkip, hasFvar_shiftFrom, ha]
+  · simp only [Bool.not_eq_false] at hf
+    simp [bvUnsatSkip, hasFvar_shiftFrom, hf]
+
 
 /-! ## `Except` bind relators -/
 
@@ -1723,6 +1742,14 @@ private theorem infer_step (henv : EnvWF env)
     have hwPi : WScoped d (Expr.forallE ty' body') :=
       whnf_WScoped henv fuel hww (inferTypeCore_WScoped henv fuel htf hw.1)
     simp only [WScoped] at hwPi
+    -- Task #368: the skip reads fvar-free terms
+    simp only [shiftFrom]
+    rw [bvUnsatSkip_shiftFrom]
+    by_cases hsk : bvUnsatSkip env.find? env.findProj? f a body' = true
+    · simp only [hsk, ite_true]
+      show pure _ = Except.map _ (pure _)
+      rw [← shiftFrom_instantiate1_gen]; rfl
+    simp only [hsk]
     refine bind_rel _ _ (ih.infer hpd hw.2) ?_
     intro ta hta
     -- the argument check at the argument's mode (task #353): the

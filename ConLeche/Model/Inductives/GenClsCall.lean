@@ -17,6 +17,7 @@ import ConLeche.Verify.Inductives.GenDepth
 import ConLeche.Verify.Inductives.ClassGenScope
 import ConLeche.Verify.Shift
 import ConLeche.Semantics.Tower.TowerKit
+import ConLeche.Verify.Denote.IndFrame
 
 public section
 

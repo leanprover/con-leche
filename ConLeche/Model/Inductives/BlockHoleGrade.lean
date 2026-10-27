@@ -8,6 +8,7 @@ import ConLeche.Model.IndDomGrade
 import ConLeche.Model.Inductives.BlockData
 import ConLeche.Verify.Denote.ErasedEq
 public import ConLeche.Verify.Inductives.NfMemberFree
+import ConLeche.Verify.Denote.IndFrame
 public section
 
 /-!

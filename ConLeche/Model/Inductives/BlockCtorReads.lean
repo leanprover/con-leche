@@ -6,6 +6,7 @@ import ConLeche.Verify.Denote.Inst
 import ConLeche.Verify.EnvWF
 import ConLeche.Model.Env.CanonCrest
 import ConLeche.Verify.Denote.ErasedEq
+import ConLeche.Verify.Denote.IndFrame
 
 public section
 

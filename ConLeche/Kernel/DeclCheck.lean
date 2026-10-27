@@ -272,6 +272,16 @@ def trustCompilerOkF (fe : FEnv) (cv : ConstantVal) : Bool :=
    | _ => false) &&
   ConstantVal.matchesPin cv trustCompilerA
 
+/-- `bvStubOk` through the index (task #368). -/
+def bvStubOkF (fe : FEnv) (cv : ConstantVal) : Bool :=
+  (match fe.find? trueName with
+   | some (.indInfo cvT _) => ConstantVal.matchesPin cvT trueCvA
+   | _ => false) &&
+  (match fe.find? trueIntroName with
+   | some (.ctorInfo cvTi 0 0) => ConstantVal.matchesPin cvTi trueIntroCvA
+   | _ => false) &&
+  cv.levelParams.isEmpty && isBVNativeAxName cv.name
+
 /-- `reduceStoredOk` through the index. -/
 def reduceStoredOkF (fe : FEnv) (c : Name) : Bool :=
   match fe.find? c with

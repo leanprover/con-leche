@@ -33,6 +33,7 @@ import ConLeche.Verify.Inductives.NestCallSyn
 import ConLeche.Verify.Subst
 import ConLeche.Semantics.Tower.FixTower
 import ConLeche.Semantics.Tower.TowerKit
+import ConLeche.Verify.Denote.IndFrame
 
 public section
 

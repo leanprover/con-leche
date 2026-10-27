@@ -13,6 +13,7 @@ import ConLeche.Model.Inductives.ContCtor
 import ConLeche.Model.Inductives.ContFrame
 import ConLeche.Model.Rules.Inputs
 import ConLeche.Model.Inductives.TypeStep
+import ConLeche.Verify.Denote.IndFrame
 
 public section
 

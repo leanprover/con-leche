@@ -4,6 +4,7 @@ public import ConLeche.Model.Inductives.StructRecKit
 import ConLeche.Model.Rules.RedSoundKit
 import ConLeche.Verify.Inductives.DirectGen
 import ConLeche.Model.Rules.InferSoundKit
+import ConLeche.Verify.Denote.IndFrame
 
 public section
 

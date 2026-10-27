@@ -78,11 +78,12 @@ theorem axiomStepPB_of (hμ : μ.isVerified = true) : AxiomStepPB V μ := by
   · exact CoverTo.refl mp []
   obtain ⟨type', hcv, hbranch⟩ := hR
   rcases hbranch with ⟨hok, rfl⟩ | ⟨hname, hok, rfl⟩ |
-    ⟨hor, hok, rfl⟩ | ⟨-, -, -, -, -, -, -, rfl⟩
+    ⟨hor, hok, rfl⟩ | ⟨-, -, -, -, -, -, -, rfl⟩ | ⟨hok, hcvs, rfl⟩
   · exact axiomStd hμ mp hcv hok
   · exact axiomTrustCompiler hμ mp hcv hname hok
   · exact axiomOfReduce hμ mp hcv hor hok
   · exact axiomSkip mp
+  · exact axiomBVStub hμ mp hcvs hok
 
 /-- The basis kind's whole step, routed (basis tier). -/
 def BasisStepPB (V : Type w) [SetTheory V] (μ : CheckMode) : Prop :=

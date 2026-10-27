@@ -1083,6 +1083,10 @@ theorem checkDecl_datF (env : Env) (d : Declaration) (F : Nat) :
       congr 1
       funext cv
       simp only [FueledM.atF_ite, FueledM.atF_pure, FueledM.atF_throw]
+      -- Task #368: the stub branch's own check
+      repeat' split
+      all_goals first | rfl |
+        (rw [FueledM.atF_bind, checkConstantVal_datF]; congr 1)
   | basisDecl kind => exact checkBasisDecl_datF env kind F
   | quotDecl k cv =>
     dsimp only

@@ -93,6 +93,39 @@ not the point, so neither is the head, whose graph fixes its domain
           (fun _ => piR b₂ (interp V ρ (m.acval natName (Level.substFn φ [] [])))
             (fun _ => X))
 
+/-- **The semantic content of `Infer.bvUnsat`** (task #368): where the `bv_decide` closure is the pinned one,
+at a closed formula `E` whose reading lies in `⟦BVLogicalExpr⟧` and
+evaluates to `⟦false⟧` at every quoted assignment, the theorem
+`unsat_of_verifyBVExpr_eq_true` reads as the point and `Unsat E` holds
+it.  Proved from the fold's invariant in `Model/BVUnsat.lean` (the
+least fixpoint of the stored `RArray` block, the `Eq` law, the stored
+types and definitions); a field here because the rules tier's master
+induction reads the environment through `RulesInputs` alone. -/
+@[expose] def BVUnsatSemLaw {env : Env} (m : EnvModel V env) (φ : Name → Nat) :
+    Prop :=
+  ConLeche.BVUnsat.pinsOk env.find? env.findProj? = true →
+  ∀ {d : Nat} {E : Expr} {eT : Term} (ρ : Nat → V),
+    E.looseBVarsBounded 0 = true → E.hasFvar = false →
+    denote m.acval env φ d E = some eT → WellDenoted V ρ eT →
+    (∀ BA, denote m.acval env φ d (.const bvLogicalExprName []) = some BA →
+      interp V ρ eT ∈ˢ interp V ρ BA) →
+    (∀ (x : Std.Tactic.BVDecide.BVExpr.Assignment) (rx fa : Term),
+      denote m.acval env φ d (.app (.app (.const bvEvalName []) (quoteAssign x)) E)
+        = some rx →
+      WellDenoted V ρ rx → interp V ρ rx ≠ pt →
+      denote m.acval env φ d (.const ConLeche.boolFalseName []) = some fa →
+      interp V ρ rx = interp V ρ fa) →
+    (∀ (k : Nat) (pk lk : Term),
+      denote m.acval env φ d (pow2E (.lit (.natVal k))) = some pk →
+      WellDenoted V ρ pk → interp V ρ pk ≠ pt →
+      denote m.acval env φ d (.lit (.natVal (2 ^ k))) = some lk →
+      interp V ρ pk = interp V ρ lk) →
+    ∃ uT unsT,
+      denote m.acval env φ d (.const ConLeche.unsatThmName []) = some uT ∧
+      denote m.acval env φ d (.const ConLeche.bvUnsatName []) = some unsT ∧
+      WellDenoted V ρ uT ∧ interp V ρ uT = pt ∧
+      WellDenotedTy V ρ (.app unsT eT) ∧ (pt : V) ∈ˢ interp V ρ (.app unsT eT)
+
 /-- **The environment-level inputs of the rules soundness**, at one
 `(env, m, φ)`, sorted by discharging tier. -/
 structure RulesInputs (V : Type w) [SetTheory V] {env : Env}
@@ -119,6 +152,8 @@ structure RulesInputs (V : Type w) [SetTheory V] {env : Env}
   nat_op : NatOpRow m φ
   /-- literal tier: the binary operations' heads, over `Nat` -/
   nat_op_head : NatOpHead m φ
+  /-- bv_decide tier: the semantic content of `Infer.bvUnsat` -/
+  bv_unsat : BVUnsatSemLaw m φ
 
 /-- **The env-tier inputs, from the fold's invariant**: every field but
 the three literal rows is an `EnvModelM` projection; the rows stay
@@ -128,7 +163,7 @@ supplies them. -/
 theorem RulesInputs.ofEnvModelM {env : Env} {φ : Name → Nat}
     (mp : EnvModelM V μ env)
     (hsucc : NatSuccRow mp.base2 φ) (hop : NatOpRow mp.base2 φ)
-    (hhead : NatOpHead mp.base2 φ) :
+    (hhead : NatOpHead mp.base2 φ) (hq : BVUnsatSemLaw mp.base2 φ) :
     RulesInputs V mp.base2 φ where
   const_ty := mp.constType
   nat_heads := mp.nat_heads φ
@@ -140,5 +175,6 @@ theorem RulesInputs.ofEnvModelM {env : Env} {φ : Name → Nat}
   nat_succ := hsucc
   nat_op := hop
   nat_op_head := hhead
+  bv_unsat := hq
 
 end ConLeche.Model.Rules

@@ -22,6 +22,7 @@ import ConLeche.Semantics.Tower.TowerKit
 import ConLeche.Verify.Inductives.ClassMatchRun
 import ConLeche.Verify.Inductives.RecCheckScope
 import ConLeche.Verify.Inductives.PositivityInv
+import ConLeche.Verify.Denote.IndFrame
 
 public section
 

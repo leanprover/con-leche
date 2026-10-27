@@ -11,6 +11,7 @@ import ConLeche.Semantics.Frame
 import ConLeche.Model.Rules.IotaSoundKit
 import ConLeche.Verify.Denote.ErasedEq
 import ConLeche.Model.Inductives.TypeStep
+import ConLeche.Verify.Denote.IndFrame
 
 public section
 

@@ -8,6 +8,7 @@ import ConLeche.Model.Inductives.PosDerivTie
 public import ConLeche.Model.Inductives.TargetNodeCover
 import ConLeche.Model.Inductives.LfpCover
 import ConLeche.Verify.Inductives.PosAnn
+import ConLeche.Verify.Denote.IndFrame
 
 public section
 
