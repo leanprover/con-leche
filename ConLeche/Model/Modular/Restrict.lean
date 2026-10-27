@@ -36,12 +36,6 @@ context presents as an assumption. -/
   | .indInfo .. | .ctorInfo .. | .recInfo .. => true
   | _ => false
 
-/-- A constructor or recursor: the kinds no context presents as an
-assumption at all. -/
-@[expose] def _root_.ConLeche.ConstantInfo.isCtorRec : ConstantInfo → Bool
-  | .ctorInfo .. | .recInfo .. => true
-  | _ => false
-
 /-- An inductive type former. -/
 @[expose] def _root_.ConLeche.ConstantInfo.isFormer : ConstantInfo → Bool
   | .indInfo .. => true
@@ -287,10 +281,22 @@ theorem leaf {n d : Name} (hn : (C.find? n).isSome = true)
 /-- An expression read alike reads alike. -/
 theorem denote_eq {n : Name} (hn : (C.find? n).isSome = true) {e : Expr}
     (hR : e.constsResolve (S.R n) = true) (hE : e.constsResolve (S.E n) = true)
-    (hP : Expr.projsFormer C e = true)
+    (hP : Expr.projsFormer C e = true) (hQ : Expr.projsFormer (S.E n) e = true)
     (ψ : Name → Nat) (d : Nat) :
     denote aC C ψ d e = denote (S.m n).base2.acval (S.E n) ψ d e :=
-  denote_agree (S.agree n hn) d e hR hE hP
+  denote_agree (S.agree n hn) d e hR hE hP hQ
+
+/-- The source's reading names projections of its formers only. -/
+theorem projsE {n : Name} {e : Expr} {ψ : Name → Nat} {d : Nat} {t : Term}
+    (h : denote (S.m n).base2.acval (S.E n) ψ d e = some t) :
+    Expr.projsFormer (S.E n) e = true :=
+  projsFormer_of_denote (S.m n).base2.proj_ok d e h
+
+/-- A source constant's type names projections of its formers only. -/
+theorem typeE_projs {n d : Name} {ci : ConstantInfo} (hf : (S.E n).find? d = some ci) :
+    Expr.projsFormer (S.E n) ci.toConstantVal.type = true := by
+  obtain ⟨ta, hta⟩ := (S.m n).type_reads ci (ConLeche.Env.find?_mem hf) (fun _ => 0)
+  exact S.projsE hta
 
 /-- A resolution in the context, from one in the part read alike. -/
 theorem resolveC {n : Name} {e : Expr} (hR : e.constsResolve (S.R n) = true) :
@@ -320,10 +326,11 @@ theorem type_eq {n : Name} {ci ci' : ConstantInfo} (hf : C.find? n = some ci)
   have hn : (C.find? n).isSome = true := by rw [hf]; rfl
   have hwf := (S.m n).base2.wf.consts _ (ConLeche.Env.find?_mem hf')
   rw [← hr.cv]
-  refine S.denote_eq hn ?_ ?_ ?_ ψ d
+  refine S.denote_eq hn ?_ ?_ ?_ ?_ ψ d
   · rw [ConLeche.Expr.constsResolve_instantiateLevelParams]; exact (S.scope n ci hf).1
   · rw [ConLeche.Expr.constsResolve_instantiateLevelParams, hr.cv]; exact hwf.2.2.1
   · rw [projsFormer_instantiateLevelParams]; exact (S.projs n ci hf).1
+  · rw [projsFormer_instantiateLevelParams, hr.cv]; exact S.typeE_projs hf'
 
 end CtxSrc
 
@@ -623,7 +630,7 @@ theorem type_eq0 {n : Name} {ci ci' : ConstantInfo} (hf : C.find? n = some ci)
   have hwf := (S.m n).base2.wf.consts _ (ConLeche.Env.find?_mem hf')
   rw [← hr.cv]
   exact S.denote_eq hn (S.scope n ci hf).1 (by rw [hr.cv]; exact hwf.2.2.1)
-    (S.projs n ci hf).1 ψ d
+    (S.projs n ci hf).1 (by rw [hr.cv]; exact S.typeE_projs hf') ψ d
 
 theorem type_reads : ∀ c ∈ C.consts, ∀ ψ : Name → Nat,
     ∃ ta : Term, denote aC C ψ 0 c.toConstantVal.type = some ta := by
@@ -666,7 +673,8 @@ theorem defn_reads : AcvalDefnInst S.base := by
   refine ⟨t, ?_, ?_⟩
   · show denote aC C ψ 0 value = some t
     rw [S.denote_eq (n := cv.name) (by rw [hf]; rfl) ((S.scope _ _ hf).2.1 cv value hint rfl)
-      (hwf'.2.2.2.2.1 cv value hint rfl).2.2.1 ((S.projs _ _ hf).2.1 cv value hint rfl)]
+      (hwf'.2.2.2.2.1 cv value hint rfl).2.2.1 ((S.projs _ _ hf).2.1 cv value hint rfl)
+      (S.projsE ht)]
     exact ht
   · show LeafReads V (aC cv.name ψ) t
     rw [S.leaf (by rw [hf]; rfl) (S.selfR hf)]
@@ -848,10 +856,12 @@ theorem nat_ops (φ : Name → Nat) : NatOps S.base φ := by
   obtain ⟨f1, f2⟩ := hfrag eq hq
   refine ⟨L, R, ?_, ?_, fun ρ x y hx hy => ?_⟩
   · show denote aC C φ 2 eq.1 = some L
-    rw [S.denote_eq hcn (hres _ f1) (S.resolveE (hres _ f1)) (projsFormer_of_natFragOk f1)]
+    rw [S.denote_eq hcn (hres _ f1) (S.resolveE (hres _ f1)) (projsFormer_of_natFragOk f1)
+      (S.projsE hL)]
     exact hL
   · show denote aC C φ 2 eq.2 = some R
-    rw [S.denote_eq hcn (hres _ f2) (S.resolveE (hres _ f2)) (projsFormer_of_natFragOk f2)]
+    rw [S.denote_eq hcn (hres _ f2) (S.resolveE (hres _ f2)) (projsFormer_of_natFragOk f2)
+      (S.projsE hR)]
     exact hR
   · change x ∈ˢ interp V ρ (aC natName φ) at hx
     change y ∈ˢ interp V ρ (aC natName φ) at hy
@@ -923,10 +933,13 @@ theorem deep_type_eq {n c : Name} {ci : ConstantInfo} (hc : ((S.R n).find? c).is
       = denote (S.m n).base2.acval (S.E n) ψ d
           (ci.toConstantVal.type.instantiateLevelParams ks us) := by
   have hR := S.deep_type hc hf hk
-  refine S.denote_eq hn ?_ ?_ ?_ ψ d
+  have hsame := S.same_of hc (Or.inl ⟨_, hf, hk⟩)
+  rw [hf] at hsame
+  refine S.denote_eq hn ?_ ?_ ?_ ?_ ψ d
   · rw [ConLeche.Expr.constsResolve_instantiateLevelParams]; exact hR
   · rw [ConLeche.Expr.constsResolve_instantiateLevelParams]; exact S.resolveE hR
   · rw [projsFormer_instantiateLevelParams]; exact (S.projs c ci hf).1
+  · rw [projsFormer_instantiateLevelParams]; exact S.typeE_projs hsame.symm
 
 /-- **The context's η families are closed.** -/
 theorem etaClosed : ConLeche.EtaFamiliesClosed C := by
@@ -1061,7 +1074,7 @@ theorem ruleExt {φ : Name → Nat} {n : Name} {cv : ConstantVal} {mI rP : Nat}
     exact this.trans h
   · rw [S.denote_eq hn (by rw [ConLeche.Expr.constsResolve_instantiateLevelParams]; exact hrhsR)
       (by rw [ConLeche.Expr.constsResolve_instantiateLevelParams]; exact hrhsE)
-      (by rw [projsFormer_instantiateLevelParams]; exact hrhsP)]
+      (by rw [projsFormer_instantiateLevelParams]; exact hrhsP) (S.projsE h)]
     exact h
   · have hpR : (pins.getD i default).constsResolve (S.R n) = true := by
       by_cases hilt : i < pins.length
@@ -1075,7 +1088,8 @@ theorem ruleExt {φ : Name → Nat} {n : Name} {cv : ConstantVal} {mI rP : Nat}
         (by rw [ConLeche.Expr.constsResolve_instantiateLevelParams]; exact hpR) 0 rP)
       (constsResolve_openRev
         (by rw [ConLeche.Expr.constsResolve_instantiateLevelParams]; exact S.resolveE hpR) 0 rP)
-      (projsFormer_openRev (by rw [projsFormer_instantiateLevelParams]; exact hpP) 0 rP)]
+      (projsFormer_openRev (by rw [projsFormer_instantiateLevelParams]; exact hpP) 0 rP)
+      (S.projsE h)]
     exact h
   · have hfcC : C.find? rl.ctor = some (.ctorInfo cvj nP nF) := by rw [hsameC]; exact hfc
     exact (S.deep_type_eq hcR hfcC rfl hn φ 0 cvj.levelParams usj).trans h
@@ -1126,7 +1140,7 @@ theorem tower_ok (φ : Name → Nat) : TowerOk S.base φ := by
       fun ci h => by rw [hsameT]; exact h, fun ci h => by rw [hctor, hsameC]; exact h,
       fun ci h => by rw [← hsameT]; exact h, fun ci h => by rw [hctor, ← hsameC]; exact h,
       fun us Ta h => ?_, fun cvC' nP nF hfc us TCa h => ?_, fun cvT'' caps hft us TVa h => ?_⟩
-  · refine (S.denote_eq hn ?_ ?_ ?_ φ 0).trans h
+  · refine (S.denote_eq hn ?_ ?_ ?_ (S.projsE h) φ 0).trans h
     · rw [ConLeche.projTele_constsResolve, ConLeche.Expr.constsResolve_instantiateLevelParams]
       exact hbR
     · rw [ConLeche.projTele_constsResolve, ConLeche.Expr.constsResolve_instantiateLevelParams]
@@ -1330,12 +1344,12 @@ theorem lfp_ok : ∀ D ∈ S.lfpList, LfpClause aC D ∧ LfpStored C D ∧ LfpRe
     (fun d cv caps hp hf ψ ta h => ?_) (fun d cv nPc nF hp hf ψ ta h => ?_)
     (fun d ci hp hf A hA ψ k ta h => ?_)
   · have hR := S.blockName_type hp hf
-    exact (S.denote_eq hn hR (S.resolveE hR) (S.blockName_projs hp hf) ψ 0).trans h
+    exact (S.denote_eq hn hR (S.resolveE hR) (S.blockName_projs hp hf) (S.projsE h) ψ 0).trans h
   · have hR := S.blockName_type hp hf
-    exact (S.denote_eq hn hR (S.resolveE hR) (S.blockName_projs hp hf) ψ 0).trans h
+    exact (S.denote_eq hn hR (S.resolveE hR) (S.blockName_projs hp hf) (S.projsE h) ψ 0).trans h
   · have hR := canonOf_constsResolve (S.blockName_type hp hf) hA
     exact (S.denote_eq hn hR (S.resolveE hR)
-      (projsFormer_canonOf (S.blockName_projs hp hf) hA) ψ k).trans h
+      (projsFormer_canonOf (S.blockName_projs hp hf) hA) (S.projsE h) ψ k).trans h
 
 /-- **The context owns its recorded blocks' constructors**, as the
 source does. -/

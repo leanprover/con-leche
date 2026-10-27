@@ -125,7 +125,6 @@ def Expr.projsFormer (C : Env) : Expr → Bool
   | .app f a => Expr.projsFormer C f && Expr.projsFormer C a
   | .lam ty b | .forallE ty b => Expr.projsFormer C ty && Expr.projsFormer C b
   | .letE ty v b => Expr.projsFormer C ty && Expr.projsFormer C v && Expr.projsFormer C b
-  | .fvar _ ty => Expr.projsFormer C ty
   | _ => true
 
 /-- **The projections a context constant's data read are of type formers
