@@ -379,7 +379,7 @@ def cvAt (r : @& Region) (v : UInt64) : DM (Name × List Name × Expr) := do
   pure (n, lps, ← exprAt r (← liftE (x.field 2)))
 
 /-- **One `ConstantInfo`.** -/
-def constAt (r : @& Region) (v : UInt64) : DM CEntry := do
+def constAt (r : @& Region) (v : UInt64) (skipThm : Bool := false) : DM CEntry := do
   let ci ← liftE (r.obj v)
   unless ci.other == 1 && ci.tag ≤ 7 do
     throw s!"object {v}: expected a ConstantInfo, found tag {ci.tag} with {ci.other} fields"
@@ -407,7 +407,8 @@ def constAt (r : @& Region) (v : UInt64) : DM CEntry := do
       pure (CKind.defn value hints safety)
     | 2 => do
       shape 3 "TheoremVal"
-      let value ← exprAt r (← f 1)
+      -- `skipThm` (measurement tools): the proof is not decoded
+      let value ← if skipThm then pure (Expr.bvar 0) else exprAt r (← f 1)
       pure (CKind.thm value (← namesAt r (← f 2)))
     | 3 => do
       shape 3 "OpaqueVal"
