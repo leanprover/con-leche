@@ -107688,3 +107688,15 @@ context entry is that entry.  The proof flag may be set for every
 theorem and every definition whose type is a proposition (hidden ones
 included), as the con-leche side does.  Fragment, §7 check list and its
 "one remaining strictness" remark updated.
+
+**Addendum (2026-10-27, agent/370-earlier, from the driver lane on
+Init).**  Check 1 relaxed: a context name is read from an EARLIER
+module (its home), not necessarily a direct import — Lean's exported
+views are not closed and depend on the importer (e.g. an `eq_1` lemma
+of `Init.WFExtrinsicFix` exported with a statement that reads a name
+visible only under `import all`; `Init.Data.String.Pattern.Basic` sees
+the lemma, none of its direct imports does).  Check 3 compares with the
+home's own constant and resolution.  The step proof needs only models
+of earlier modules; `Module.imports` is gone from the fragment.  The
+section presents "not stricter than Lean" as an aim validated by runs,
+not as a theorem.
