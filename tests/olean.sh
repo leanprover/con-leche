@@ -69,6 +69,7 @@ corrupt() { # <description> <expected-exit> <file> <expr> [<root module>]
   rm -rf "$d"
 }
 corrupt "a truncated file: malformed input" 3 Tiny.olean.private TRUNCATE
+corrupt "a wrong marker: malformed input" 3 Tiny.olean "b[0:5] = b'oleam'"
 corrupt "another toolchain's githash: a decline" 2 Tiny.olean "b[40:48] = b'00000000'"
 corrupt "another format version: a decline" 2 Tiny.olean "b[5] = 3"
 corrupt "non-GMP bignums: a decline" 2 Tiny.olean.private "b[6] = 0"

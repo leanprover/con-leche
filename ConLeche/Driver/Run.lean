@@ -5,6 +5,9 @@ public import ConLeche.Driver.ParInstall
 public import ConLeche.Driver.CheckPool
 public import ConLeche.Driver.OwnerParse
 public import ConLeche.Frontend.Olean.Load
+/- `decodeModuleSpec_eq_fast` (`@[csimp]`): the reader below is passed the
+specification `decodeModuleSpec`, and the compiler runs the fast decoder. -/
+import ConLeche.Verify.Frontend.Olean.Equiv
 
 /-!
 # The driver: `checkDeclsIO` and the phase sequencing
@@ -84,7 +87,7 @@ def readInput (inp : Input) (jobs : Nat) (noMark : Bool) :
     IO (Except (ConLeche.CheckError × Nat) (Array ConLeche.Declaration)) := do
   match inp with
   | .ndjson file => pure ((← parseInput file jobs noMark).val.map (·.decls))
-  | .oleans sp roots => Frontend.Olean.readOleans sp roots jobs
+  | .oleans sp roots => Frontend.Olean.readOleans Frontend.Olean.decodeModuleSpec sp roots jobs
 
 /-- The end-of-run statistics (performance-only): the phase times, the
 install's and the check's reports (`PoolRep.line`, the slowest five of

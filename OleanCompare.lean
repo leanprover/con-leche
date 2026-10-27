@@ -1,5 +1,6 @@
 import ConLeche.Frontend.Stream
 import ConLeche.Frontend.Olean.Load
+import ConLeche.Verify.Frontend.Olean.Equiv
 /- NOT a `module`, like `PinDump.lean`: a development tool, not part of
 the checker.  As a `module` it would have to be a root of
 `tests/shake.sh`, whose `lake shake` loads every root into one
@@ -121,10 +122,10 @@ def main (args : List String) : IO UInt32 := do
     let roots := #[(m.splitOn ".").foldl Name.str Name.anonymous]
     let sp := (sp.splitOn ":").map System.FilePath.mk
     let t00 ← IO.monoMsNow
-    let .ok order ← Frontend.Olean.closureOrder sp roots | IO.eprintln "closure failed"; return 3
+    let .ok order ← Frontend.Olean.closureOrder Frontend.Olean.decodeModuleSpec sp roots | IO.eprintln "closure failed"; return 3
     let t0 ← IO.monoMsNow
     IO.println s!"closure {t0 - t00} ms ({order.size} modules)"
-    let .ok ls ← Frontend.Olean.loadClosure sp roots jobs.toNat! | IO.eprintln "load failed"; return 3
+    let .ok ls ← Frontend.Olean.loadClosure Frontend.Olean.decodeModuleSpec sp roots jobs.toNat! | IO.eprintln "load failed"; return 3
     let t1 ← IO.monoMsNow
     let .ok mg := Frontend.Olean.mergeAll ls | IO.eprintln "merge failed"; return 3
     let t2 ← IO.monoMsNow
@@ -143,7 +144,7 @@ def main (args : List String) : IO UInt32 := do
       | .error (e, l) => IO.eprintln s!"stream: {e} at line {l}"; return 3
     let t1 ← IO.monoMsNow
     let roots := mods.toArray.map fun m => (m.splitOn ".").foldl Name.str Name.anonymous
-    let os ← match ← Frontend.Olean.readOleans ((sp.splitOn ":").map System.FilePath.mk) roots 8 with
+    let os ← match ← Frontend.Olean.readOleans Frontend.Olean.decodeModuleSpec ((sp.splitOn ":").map System.FilePath.mk) roots 8 with
       | .ok ds => pure ds
       | .error (e, l) => IO.eprintln s!"oleans: {e} at record {l}"; return 3
     let t2 ← IO.monoMsNow

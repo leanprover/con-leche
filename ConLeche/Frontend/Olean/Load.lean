@@ -1,6 +1,6 @@
 module
 
-public import ConLeche.Frontend.Olean.Decode
+public import ConLeche.Frontend.Olean.Spec
 public import ConLeche.Frontend.ExportC
 public import Std.Data.HashSet.Basic
 
@@ -26,7 +26,10 @@ and exported in lean4export's order:
 1. **Loading** (`loadClosure`): the modules in import order, each
    module after its imports (a depth-first post-order from the roots, as
    `importModules` builds its module array), each module's files read,
-   validated and decoded once.
+   validated and decoded once by the decoder the caller passes — the
+   driver passes the specification `decodeModuleSpec`
+   (`ConLeche/Frontend/Olean/Spec.lean`), which the compiler replaces by
+   the fast decoder.
 2. **Merging** (`mergeEntry`): a name stored by two modules is kept once,
    by `subsumesInfo`'s rule (`Lean/Environment.lean`): the later copy
    replaces the earlier one when it subsumes it, the earlier one stays
@@ -78,22 +81,32 @@ def readPart (p : System.FilePath) : IO (Except CheckError Part) := do
 /-- A name from its components. -/
 def mkN (cs : List String) : Name := cs.foldl .str .anonymous
 
-/-- The DAG walk of `constsOf`. -/
+/-- The DAG walk of `constsOf`.  A name is added by `addN`, written out
+at each leaf so that no pair is allocated per node. -/
 partial def constsGo (stack : List Expr) (seen : Std.HashSet Expr) (seenN : Std.HashSet Name)
     (out : Array Name) : Array Name :=
-  let add (n : Name) (s : Std.HashSet Name) (o : Array Name) :=
-    if s.contains n then (s, o) else (s.insert n, o.push n)
   match stack with
   | [] => out
   | e :: rest =>
     -- leaves need no visited entry: only compound nodes are shared work
     match e with
-    | .const n _ => let (s, o) := add n seenN out; constsGo rest seen s o
-    | .lit (.natVal _) => let (s, o) := add (mkN ["Nat"]) seenN out; constsGo rest seen s o
+    | .const n _ =>
+      if seenN.contains n then constsGo rest seen seenN out
+      else constsGo rest seen (seenN.insert n) (out.push n)
+    | .lit (.natVal _) =>
+      let n := mkN ["Nat"]
+      if seenN.contains n then constsGo rest seen seenN out
+      else constsGo rest seen (seenN.insert n) (out.push n)
     | .lit (.strVal _) =>
-      let (s, o) := add (mkN ["Char", "ofNat"]) seenN out
-      let (s, o) := add (mkN ["String", "ofList"]) s o
-      constsGo rest seen s o
+      let n₁ := mkN ["Char", "ofNat"]
+      let n₂ := mkN ["String", "ofList"]
+      if seenN.contains n₁ && seenN.contains n₂ then constsGo rest seen seenN out
+      else
+        let (seenN, out) := if seenN.contains n₁ then (seenN, out)
+          else (seenN.insert n₁, out.push n₁)
+        let (seenN, out) := if seenN.contains n₂ then (seenN, out)
+          else (seenN.insert n₂, out.push n₂)
+        constsGo rest seen seenN out
     | .bvar _ | .sort _ => constsGo rest seen seenN out
     | _ =>
       if seen.contains e then constsGo rest seen seenN out
@@ -111,7 +124,25 @@ partial def constsGo (stack : List Expr) (seen : Std.HashSet Expr) (seenN : Std.
 the literal dependencies lean4export adds (`dumpNatDeps`,
 `dumpStrDeps`): `Nat` for a numeral, `Char.ofNat` and `String.ofList`
 for a string.  An iterative walk over the DAG, each node once. -/
-def constsOf (es : List Expr) : Array Name := constsGo es {} {} #[]
+def constsOf (es : List Expr) : Array Name :=
+  constsGo es (Std.HashSet.emptyWithCapacity 256) (Std.HashSet.emptyWithCapacity 64) #[]
+
+/-! ## One module -/
+
+/-- **One stored constant**, as the merge and the emitter need it: the
+decoded `ConstantInfo` and the constants its type and values mention,
+in first-visit order (`constsOf`, computed by the module's decode
+worker). -/
+structure CEntry extends CEntryF Name Expr where
+  uses : Array Name := #[]
+
+/-- lean4export's filter (`dumpConstant`): unsafe and partial constants
+are not exported. -/
+def CEntry.skipped (c : CEntry) : Bool :=
+  match c.kind with
+  | .ax u | .opaq _ u | .induct _ _ _ _ _ _ u _ | .ctor _ _ _ _ u | .recur _ _ _ _ _ _ _ u => u
+  | .defn _ _ s => s != "safe"
+  | .thm .. | .quot _ => false
 
 /-- The constants a record depends on. -/
 def CEntry.deps (c : CEntry) : List Expr :=
@@ -120,7 +151,10 @@ def CEntry.deps (c : CEntry) : List Expr :=
   | .recur _ _ _ _ _ rules _ _ => c.type :: rules.map (·.2.2)
   | _ => [c.type]
 
-/-! ## One module -/
+/-- A module decoder: the module stored in a region from its root
+pointer, with its constants or its imports alone
+(`decodeModuleSpec`). -/
+abbrev Decoder := Region → UInt64 → Bool → Option ModDecoded
 
 /-- A loaded module: its imports and its decoded constants. -/
 structure Loaded where
@@ -128,28 +162,27 @@ structure Loaded where
   imports : Array Name
   constants : Array CEntry
 
+/-- The module's files do not decode. -/
+def undecodable (m : Name) : CheckError :=
+  .internal s!"module {m}: malformed .olean data (an object of the wrong shape, or a \
+    pointer that does not point below its object)"
+
 /-- **Load one module**: its `.olean`, and for a module of the module
 system its `.olean.server` and `.olean.private`, decoded from the
-private part's root.  The decoder state's address memos are per module
-and are made fresh here; its hash-cons tables are kept. -/
-def loadModule (sp : SearchPath) (m : Name) (ds : DS) :
-    IO (Except CheckError (Loaded × DS)) := do
+private part's root. -/
+def loadModule (dec : Decoder) (sp : SearchPath) (m : Name) :
+    IO (Except CheckError Loaded) := do
   let some dir ← findModule sp m
     | return .error (.internal s!"module {m}: no .olean on the search path")
   let ex ← readPart (modFile dir m "olean")
   let ex ← match ex with
     | .ok p => pure p
     | .error e => return .error e
-  let r0 := Region.single ex
   -- the exported part's root says whether the module is a module-system
-  -- one (the `isModule` byte of its `ModuleData`), read without the memos
-  let isModule ← match (do
-      let x ← r0.obj ex.root
-      x.expect 0 5 "ModuleData"
-      boolAt x 0 : Except String Bool) with
-    | .ok b => pure b
-    | .error e => return .error (.internal s!"module {m}: {e}")
-  let (r, root) ← if isModule then do
+  -- one (the `isModule` byte of its `ModuleData`)
+  let some sk := moduleSkel (Region.single ex) ex.root
+    | return .error (undecodable m)
+  let (r, root) ← if sk.isModule then do
       let sv ← readPart (modFile dir m "olean.server")
       let pv ← readPart (modFile dir m "olean.private")
       match sv, pv with
@@ -158,82 +191,80 @@ def loadModule (sp : SearchPath) (m : Name) (ds : DS) :
         | .ok r => pure (r, p.root)
         | .error e => return .error e
       | .error e, _ | _, .error e => return .error e
-    else pure (r0, ex.root)
-  let ds := ds.fresh r.words
-  let act : DM Loaded := do
-    let info ← moduleAt r root
-    let cs ← info.constants.mapM (constAt r)
-    pure ⟨m, info.imports, cs.map fun c => { c with uses := constsOf c.deps }⟩
-  match act.run ds with
-  | .ok (l, ds) => pure (.ok (l, ds))
-  | .error e => pure (.error (.internal s!"module {m}: {e}"))
+    else pure (Region.single ex, ex.root)
+  match dec r root true with
+  | some d =>
+    pure (.ok ⟨m, d.imports, d.constants.map fun c =>
+      let c : CEntry := { toCEntryF := c }
+      { c with uses := constsOf c.deps }⟩)
+  | none => pure (.error (undecodable m))
 
 /-! ## The closure -/
 
 /-- A module's imports, read off its exported `.olean` alone. -/
-def moduleImports (sp : SearchPath) (m : Name) : IO (Except CheckError (Array Name)) := do
+def moduleImports (dec : Decoder) (sp : SearchPath) (m : Name) :
+    IO (Except CheckError (Array Name)) := do
   let some dir ← findModule sp m
     | return .error (.internal s!"module {m}: no .olean on the search path")
   match ← readPart (modFile dir m "olean") with
   | .error e => pure (.error e)
   | .ok ex =>
-    let r := Region.single ex
-    match (moduleAt r ex.root).run ((({} : DS)).fresh r.words) with
-    | .ok (info, _) => pure (.ok info.imports)
-    | .error e => pure (.error (.internal s!"module {m}: {e}"))
+    match dec (Region.single ex) ex.root false with
+    | some d => pure (.ok d.imports)
+    | none => pure (.error (undecodable m))
 
 /-- **The import closure, in Lean's module order**: a module after
 everything it imports, the roots and each module's imports in their
 order (a depth-first post-order, as `importModules` builds its module
 array).  An explicit stack (`(module, imports expanded?)`) instead of
 recursion. -/
-partial def closureGo (sp : SearchPath) (stack : List (Name × Bool)) (seen : Std.HashSet Name)
-    (out : Array Name) : IO (Except CheckError (Array Name)) := do
+partial def closureGo (dec : Decoder) (sp : SearchPath) (stack : List (Name × Bool))
+    (seen : Std.HashSet Name) (out : Array Name) : IO (Except CheckError (Array Name)) := do
   match stack with
   | [] => pure (.ok out)
-  | (m, true) :: rest => closureGo sp rest seen (out.push m)
+  | (m, true) :: rest => closureGo dec sp rest seen (out.push m)
   | (m, false) :: rest =>
-    if seen.contains m then closureGo sp rest seen out
+    if seen.contains m then closureGo dec sp rest seen out
     else
-      match ← moduleImports sp m with
+      match ← moduleImports dec sp m with
       | .error e => pure (.error e)
       | .ok imps =>
         let kids := imps.toList.filter (!seen.contains ·) |>.map (·, false)
-        closureGo sp (kids ++ (m, true) :: rest) (seen.insert m) out
+        closureGo dec sp (kids ++ (m, true) :: rest) (seen.insert m) out
 
-def closureOrder (sp : SearchPath) (roots : Array Name) : IO (Except CheckError (Array Name)) :=
-  closureGo sp (roots.toList.map (·, false)) {} #[]
+def closureOrder (dec : Decoder) (sp : SearchPath) (roots : Array Name) :
+    IO (Except CheckError (Array Name)) :=
+  closureGo dec sp (roots.toList.map (·, false)) {} #[]
 
-/-- The modules decoded one after the other, the name and level
-hash-cons tables threaded through. -/
-partial def loadSerial (sp : SearchPath) (ms : List Name) (ds : DS) (out : Array Loaded) :
+/-- The modules decoded one after the other. -/
+partial def loadSerial (dec : Decoder) (sp : SearchPath) (ms : List Name) (out : Array Loaded) :
     IO (Except CheckError (Array Loaded)) := do
   match ms with
   | [] => pure (.ok out)
   | m :: rest =>
-    match ← loadModule sp m ds with
+    match ← loadModule dec sp m with
     | .error e => pure (.error e)
-    | .ok (l, ds) => loadSerial sp rest ds (out.push l)
+    | .ok l => loadSerial dec sp rest (out.push l)
 
 /-- **The closure, loaded**: its modules in Lean's order, decoded.  The
 decode of a module needs nothing of any other module, so above one
 worker the modules are dealt round-robin to `jobs` workers, each
-decoding its share one after the other with its own hash-cons tables
-(so at most `jobs` modules are in flight, and their memos are the only
-per-module memory alive), and the results are put back in module
-order; the first failure in that order is the one reported. -/
-def loadClosure (sp : SearchPath) (roots : Array Name) (jobs : Nat := 1) :
+decoding its share one after the other (so at most `jobs` modules are
+in flight, and their memos are the only per-module memory alive), and
+the results are put back in module order; the first failure in that
+order is the one reported. -/
+def loadClosure (dec : Decoder) (sp : SearchPath) (roots : Array Name) (jobs : Nat := 1) :
     IO (Except CheckError (Array Loaded)) := do
-  match ← closureOrder sp roots with
+  match ← closureOrder dec sp roots with
   | .error e => pure (.error e)
   | .ok order =>
-    if jobs ≤ 1 then loadSerial sp order.toList {} #[]
+    if jobs ≤ 1 then loadSerial dec sp order.toList #[]
     else
       let w := min jobs order.size
       let shares := (List.range w).map fun k =>
         (List.range order.size).filter (· % w == k) |>.filterMap (order[·]?)
       let tasks ← shares.toArray.mapM fun ms =>
-        IO.asTask (prio := .dedicated) (loadSerial sp ms {} #[])
+        IO.asTask (prio := .dedicated) (loadSerial dec sp ms #[])
       let mut parts : Array (Array Loaded) := #[]
       for t in tasks do
         match ← IO.wait t with
@@ -326,7 +357,7 @@ structure Emit where
 
 /-! The updates below take the field out of the record before changing
 it, so that the array or set is changed at reference count 1 (the
-decoder's `DS.putName` says why). -/
+`DS.mark` in `ConLeche/Frontend/Olean/Fast.lean` says why). -/
 
 def Emit.name (st : Emit) (n : Name) : Emit × Nat :=
   let { visited, names, exprs, out } := st
@@ -443,8 +474,8 @@ partial def emitLoop (mg : Merged) (recMap : Std.HashMap Name (Array Name))
 /-- **The record stream of the merged closure.** -/
 def emitAll (mg : Merged) : Emit :=
   let recMap := mg.order.foldl (fun (m : Std.HashMap Name (Array Name)) n =>
-    match (mg.map[n]?).map CEntry.kind with
-    | some (CKind.recur all ..) =>
+    match (mg.map[n]?).map (·.kind) with
+    | some (CKindF.recur all ..) =>
       all.foldl (fun m i => m.alter i fun
         | none => some #[n]
         | some a => some (if a.contains n then a else a.push n)) m
@@ -471,9 +502,9 @@ def declsOf (em : Emit) : Except (CheckError × Nat) (Array Declaration) :=
     | .error msg => throw (.internal msg, k)
 
 /-- **The whole read**: load, merge, emit, build. -/
-def readOleans (sp : SearchPath) (roots : Array Name) (jobs : Nat := 1) :
+def readOleans (dec : Decoder) (sp : SearchPath) (roots : Array Name) (jobs : Nat := 1) :
     IO (Except (CheckError × Nat) (Array Declaration)) := do
-  match ← loadClosure sp roots jobs with
+  match ← loadClosure dec sp roots jobs with
   | .error e => pure (.error (e, 0))
   | .ok ls =>
     match mergeAll ls with
