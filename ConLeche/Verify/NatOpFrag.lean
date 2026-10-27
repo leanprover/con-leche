@@ -62,7 +62,7 @@ WF-recursive family, so their obligation is vacuous), and each mentions
 exactly the constants the guard pins. -/
 
 /-- A constant is stored at empty level parameters. -/
-def storedNoLevels (env : Env) (n : Name) : Prop :=
+@[expose] def storedNoLevels (env : Env) (n : Name) : Prop :=
   (match env.find? n with
    | some ci => ci.toConstantVal.levelParams.isEmpty
    | none => false) = true

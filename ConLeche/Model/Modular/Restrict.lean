@@ -237,6 +237,86 @@ theorem recRuleEtaOf_of {f g : Name → Option ConstantInfo} {ctor : Name}
       | some (.indInfo cvT caps), h =>
         rw [hT cvj nP nF hg T us hh cvT caps hgT, hgT]; exact h
 
+
+/-- **The `Nat`-op guard reads the `Nat` basis and the dependencies'
+lookups, and the `Bool` constructors' values.** -/
+theorem natOpGuard_congr {E E' : Env} {c : Name}
+    (h3 : ∀ n ∈ [natName, natZeroName, natSuccName] ++ natOpDeps c, E.find? n = E'.find? n)
+    (hb : (decide (c = natBeqName) || decide (c = natBleName) ||
+        natDivModNames.contains c) = true → ∀ n ∈ [boolTrueName, boolFalseName],
+      (E.find? n).map (·.toConstantVal) = (E'.find? n).map (·.toConstantVal)) :
+    natOpGuard E c = natOpGuard E' c := by
+  have hN := h3 natName (by simp)
+  have hZ := h3 natZeroName (by simp)
+  have hS := h3 natSuccName (by simp)
+  have hdep : ∀ n ∈ natOpDeps c, E.find? n = E'.find? n :=
+    fun n hn => h3 n (List.mem_append_right _ hn)
+  unfold natOpGuard natLitSupported
+  rw [hN, hZ, hS]
+  congr 1
+  · congr 1
+    apply Bool.eq_iff_iff.mpr
+    simp only [List.all_eq_true]
+    exact ⟨fun h n hn => by rw [← hdep n hn]; exact h n hn,
+      fun h n hn => by rw [hdep n hn]; exact h n hn⟩
+  · split
+    · rename_i hcond
+      have hT := hb hcond boolTrueName (by simp)
+      have hF := hb hcond boolFalseName (by simp)
+      cases hE1 : E.find? boolTrueName <;> cases hE1' : E'.find? boolTrueName <;>
+        rw [hE1, hE1'] at hT <;> simp only [Option.map_none, Option.map_some, reduceCtorEq,
+          Option.some.injEq] at hT <;>
+      cases hE2 : E.find? boolFalseName <;> cases hE2' : E'.find? boolFalseName <;>
+        rw [hE2, hE2'] at hF <;> simp only [Option.map_none, Option.map_some, reduceCtorEq,
+          Option.some.injEq] at hF <;> simp only [hT, hF]
+    · rfl
+
+/-- `natOpTyPinned` reads `Bool`'s value only. -/
+theorem natOpTyPinned_congr {E E' : Env} {c : Name} {ty : Expr}
+    (hb : (decide (c = natBeqName) || decide (c = natBleName)) = true →
+      (E.find? boolName).map (·.toConstantVal) = (E'.find? boolName).map (·.toConstantVal)) :
+    ConLeche.natOpTyPinned E c ty = ConLeche.natOpTyPinned E' c ty := by
+  have hcod : ∀ e, ConLeche.natOpCod E c e = ConLeche.natOpCod E' c e := by
+    intro e
+    unfold ConLeche.natOpCod
+    split
+    · rename_i hcond
+      have hb' := hb hcond
+      cases hE : E.find? boolName <;> cases hE' : E'.find? boolName <;> rw [hE, hE'] at hb' <;>
+        simp at hb' <;> simp [hb']
+    · rfl
+  unfold ConLeche.natOpTyPinned
+  split
+  · split <;> simp [hcod]
+  · split <;> simp [hcod]
+
+/-- A fragment term resolves wherever the operation and `Nat` are stored. -/
+theorem constsResolve_of_natFragOk {E : Env} {c : Name} (hc : (E.find? c).isSome = true)
+    (hnat : (E.find? natName).isSome = true) :
+    ∀ {e : Expr}, ConLeche.Verify.natFragOk E c e = true → e.constsResolve E = true := by
+  intro e
+  induction e with
+  | sort u => intro _; rfl
+  | fvar idx ty =>
+    intro h
+    simp only [ConLeche.Verify.natFragOk, Bool.and_eq_true, beq_iff_eq] at h
+    simp only [ConLeche.Expr.constsResolve, h.2]
+    exact hnat
+  | const n us =>
+    intro h
+    simp only [ConLeche.Verify.natFragOk, Bool.or_eq_true, Bool.and_eq_true,
+      decide_eq_true_eq] at h
+    simp only [ConLeche.Expr.constsResolve]
+    rcases h with ⟨rfl, -⟩ | h
+    · exact hc
+    · revert h; cases E.find? n <;> simp
+  | app f a ihf iha =>
+    intro h
+    simp only [ConLeche.Verify.natFragOk, Bool.and_eq_true] at h
+    simp only [ConLeche.Expr.constsResolve, Bool.and_eq_true]
+    exact ⟨ihf h.1, iha h.2⟩
+  | _ => intro h; simp [ConLeche.Verify.natFragOk] at h
+
 namespace CtxSrc
 
 variable (S : CtxSrc V μ C aC)
@@ -535,5 +615,147 @@ theorem nat_heads (φ : Name → Nat) : NatHeads S.base φ := by
   exact h
 
 end CtxSrc
+
+/-- The certified `Nat` operations, their dependencies and the `Nat`
+basis are pinned names; their footprint lists what their guard reads. -/
+theorem natOp_facts {c : Name} (hc : c ∈ natOpNames ∨ c ∈ natDivModNames) :
+    c ∈ pinnedNames ∧
+    (∀ d ∈ [natName, natZeroName, natSuccName] ++ natOpDeps c,
+      d ∈ pinnedNames ∧ d ∈ pinFootprint c) ∧
+    ((decide (c = natBeqName) || decide (c = natBleName) || natDivModNames.contains c) = true →
+      ∀ d ∈ [boolName, boolTrueName, boolFalseName], d ∈ pinFootprint c) := by
+  simp only [natOpNames, natDivModNames, List.mem_cons, List.not_mem_nil, or_false] at hc
+  rcases hc with (rfl | rfl | rfl | rfl | rfl | rfl | rfl) |
+    (rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl) <;> decide
+
+namespace CtxSrc
+
+variable (S : CtxSrc V μ C aC)
+include S
+
+/-- What a certified operation's guard reads is read alike. -/
+theorem natOp_read {c : Name} {ci : ConstantInfo} (hf : C.find? c = some ci)
+    (hc : c ∈ natOpNames ∨ c ∈ natDivModNames) :
+    (∀ d ∈ [natName, natZeroName, natSuccName] ++ natOpDeps c,
+      ((S.R c).find? d).isSome = true ∧ C.find? d = (S.E c).find? d ∧
+        (S.R c).find? d = (S.E c).find? d) ∧
+    ((decide (c = natBeqName) || decide (c = natBleName) || natDivModNames.contains c) = true →
+      ∀ d ∈ [boolName, boolTrueName, boolFalseName], ((S.R c).find? d).isSome = true ∧
+        (C.find? d).map (·.toConstantVal) = ((S.E c).find? d).map (·.toConstantVal) ∧
+        (S.R c).find? d = (S.E c).find? d) := by
+  obtain ⟨-, hdeps, hbool⟩ := natOp_facts hc
+  have hfp := (S.scope c _ hf).2.2.2.2
+  have hRE : ∀ d, ((S.R c).find? d).isSome = true → (S.R c).find? d = (S.E c).find? d := by
+    intro d hd
+    obtain ⟨ci', hci'⟩ := Option.isSome_iff_exists.mp hd
+    rw [hci', (S.R_sub c d ci' hci').1]
+  refine ⟨fun d hd => ?_, fun hcond d hd => ?_⟩
+  · obtain ⟨hp, hfpd⟩ := hdeps d hd
+    have hR := hfp d hfpd
+    obtain ⟨ci', hci'⟩ := Option.isSome_iff_exists.mp hR
+    exact ⟨hR, S.same_of hR (Or.inr (S.R_sub c d ci' hci').1) (Or.inr hp), hRE d hR⟩
+  · have hR := hfp d (hbool hcond d hd)
+    obtain ⟨ciC, ciE, hC, hE, hcv, -⟩ := (S.agree c (by rw [hf]; rfl)).find d hR (S.storedE hR)
+    exact ⟨hR, by rw [hC, hE]; simp [hcv], hRE d hR⟩
+
+theorem natOpGuard_eq {c : Name} {ci : ConstantInfo} (hf : C.find? c = some ci)
+    (hc : c ∈ natOpNames ∨ c ∈ natDivModNames) :
+    natOpGuard C c = natOpGuard (S.E c) c := by
+  obtain ⟨h1, h2⟩ := S.natOp_read hf hc
+  exact natOpGuard_congr (fun d hd => (h1 d hd).2.1)
+    (fun hcond d hd => (h2 hcond d (by simp at hd ⊢; rcases hd with rfl | rfl <;> simp)).2.1)
+
+theorem natOpTyPinned_eq {c : Name} {ci : ConstantInfo} (hf : C.find? c = some ci)
+    (hc : c ∈ natOpNames ∨ c ∈ natDivModNames) (ty : Expr) :
+    ConLeche.natOpTyPinned C c ty = ConLeche.natOpTyPinned (S.E c) c ty := by
+  obtain ⟨-, h2⟩ := S.natOp_read hf hc
+  refine natOpTyPinned_congr (fun hcond => (h2 ?_ boolName (by simp)).2.1)
+  revert hcond; simp only [Bool.or_eq_true]; exact fun h => Or.inl h
+
+theorem nat_ops (φ : Name → Nat) : NatOps S.base φ := by
+  intro c hcN cv v hint hf
+  have hc : c ∈ natOpNames ∨ c ∈ natDivModNames := Or.inl hcN
+  obtain ⟨hpc, -, -⟩ := natOp_facts hc
+  have hsame := S.same_of (S.selfR hf) (Or.inl hf) (Or.inr hpc)
+  rw [hf] at hsame
+  obtain ⟨hg, hpin, hlaws⟩ := (S.m c).nat_ops φ c hcN cv v hint hsame.symm
+  obtain ⟨h1, h2⟩ := S.natOp_read hf hc
+  have hcn : (C.find? c).isSome = true := by rw [hf]; rfl
+  have hnatR := (h1 natName (by simp)).1
+  -- the recurrences' terms resolve in the part read alike
+  obtain ⟨hsN, hsZ, hsS, hsD, hsB⟩ := ConLeche.Verify.natOpGuard_stored hg
+  have hst : ∀ d, ((S.R c).find? d).isSome = true → (S.R c).find? d = (S.E c).find? d →
+      ConLeche.Verify.storedNoLevels (S.E c) d → ConLeche.Verify.storedNoLevels (S.R c) d := by
+    intro d _ he h; unfold ConLeche.Verify.storedNoLevels at h ⊢; rw [he]; exact h
+  have hfrag := ConLeche.Verify.natOpEquations_frag (env := S.R c) (c := c)
+    (hst _ (h1 natZeroName (by simp)).1 (h1 natZeroName (by simp)).2.2 hsZ)
+    (hst _ (h1 natSuccName (by simp)).1 (h1 natSuccName (by simp)).2.2 hsS)
+    (fun n hn _ => hst _ (h1 n (List.mem_append_right _ hn)).1
+      (h1 n (List.mem_append_right _ hn)).2.2 (hsD n hn))
+    (fun hbq => by
+      have hcond : (decide (c = natBeqName) || decide (c = natBleName) ||
+          natDivModNames.contains c) = true := by
+        rcases hbq with rfl | rfl <;> simp
+      exact hst _ (h2 hcond boolTrueName (by simp)).1 (h2 hcond boolTrueName (by simp)).2.2
+        (hsB hcond).1)
+    (fun hbq => by
+      have hcond : (decide (c = natBeqName) || decide (c = natBleName) ||
+          natDivModNames.contains c) = true := by
+        rcases hbq with rfl | rfl <;> simp
+      exact hst _ (h2 hcond boolFalseName (by simp)).1 (h2 hcond boolFalseName (by simp)).2.2
+        (hsB hcond).2)
+  have hres : ∀ e, ConLeche.Verify.natFragOk (S.R c) c e = true → e.constsResolve (S.R c) = true :=
+    fun e he => constsResolve_of_natFragOk (S.selfR hf) hnatR he
+  refine ⟨by rw [S.natOpGuard_eq hf hc]; exact hg, by rw [S.natOpTyPinned_eq hf hc]; exact hpin,
+    fun eq hq => ?_⟩
+  obtain ⟨L, R, hL, hR, hlaw⟩ := hlaws eq hq
+  obtain ⟨f1, f2⟩ := hfrag eq hq
+  refine ⟨L, R, ?_, ?_, fun ρ x y hx hy => ?_⟩
+  · show denote aC C φ 2 eq.1 = some L
+    rw [S.denote_eq hcn (hres _ f1) (S.resolveE (hres _ f1))]; exact hL
+  · show denote aC C φ 2 eq.2 = some R
+    rw [S.denote_eq hcn (hres _ f2) (S.resolveE (hres _ f2))]; exact hR
+  · change x ∈ˢ interp V ρ (aC natName φ) at hx
+    change y ∈ˢ interp V ρ (aC natName φ) at hy
+    rw [S.leaf hcn hnatR] at hx hy
+    exact hlaw ρ x y hx hy
+
+theorem div_mod (φ : Name → Nat) : DivMod S.base φ := by
+  intro c hcN cv v hint hf
+  have hc : c ∈ natOpNames ∨ c ∈ natDivModNames := Or.inr hcN
+  obtain ⟨hpc, -, -⟩ := natOp_facts hc
+  have hsame := S.same_of (S.selfR hf) (Or.inl hf) (Or.inr hpc)
+  rw [hf] at hsame
+  obtain ⟨hg, hpin, hlaw⟩ := (S.m c).div_mod φ c hcN cv v hint hsame.symm
+  obtain ⟨h1, h2⟩ := S.natOp_read hf hc
+  have hcn : (C.find? c).isSome = true := by rw [hf]; rfl
+  have hcond : (decide (c = natBeqName) || decide (c = natBleName) ||
+      natDivModNames.contains c) = true := by
+    simp only [Bool.or_eq_true]; exact Or.inr (List.contains_iff_mem.mpr hcN)
+  refine ⟨by rw [S.natOpGuard_eq hf hc]; exact hg, by rw [S.natOpTyPinned_eq hf hc]; exact hpin,
+    fun ρ x y hx hy => ?_⟩
+  have hleaf : ∀ n ∈ dmValNames c, interp V ρ (aC n φ) = interp V ρ ((S.m c).base2.acval n φ) := by
+    intro n hn
+    have hR : ((S.R c).find? n).isSome = true := by
+      simp only [dmValNames, List.mem_cons] at hn
+      rcases hn with rfl | rfl | rfl | rfl | rfl | rfl | rfl | hn
+      · exact (h1 natName (by simp)).1
+      · exact (h2 hcond boolTrueName (by simp)).1
+      · exact (h2 hcond boolFalseName (by simp)).1
+      · exact (h1 natZeroName (by simp)).1
+      · exact (h1 natSuccName (by simp)).1
+      · exact (h1 natBleName (List.mem_append_right _ (by
+          simp only [natDivModNames, List.mem_cons, List.not_mem_nil, or_false] at hcN
+          rcases hcN with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl <;> decide))).1
+      · exact S.selfR hf
+      · exact (h1 n (List.mem_append_right _ hn)).1
+    rw [S.leaf hcn hR]
+  change x ∈ˢ interp V ρ (aC natName φ) at hx
+  change y ∈ˢ interp V ρ (aC natName φ) at hy
+  rw [hleaf natName (by simp [dmValNames])] at hx hy
+  exact (divModClausesV_congr hcN (fun n hn => (hleaf n hn).symm)).mp (hlaw ρ x y hx hy)
+
+end CtxSrc
+
 
 end ConLeche.Model.Modular
