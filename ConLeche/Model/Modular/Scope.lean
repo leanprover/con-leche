@@ -78,6 +78,28 @@ theorem Expr.constsResolve_iff (R : Env) :
   | proj _ _ _ ih =>
     simp only [ConLeche.Expr.constsResolve, Expr.constsAll, Bool.and_eq_true]; rw [ih]
 
+/-- The head constant of an application spine is one it reads. -/
+theorem Expr.constsAll_getAppFn {p : Name → Prop} :
+    ∀ {e : Expr} {T : Name} {us : List Level}, Expr.constsAll p e →
+      e.getAppFn = .const T us → p T := by
+  intro e
+  induction e with
+  | app f a ihf _ => exact fun h he => ihf h.1 he
+  | const n _ =>
+    intro T us h he
+    simp only [ConLeche.Expr.getAppFn, Expr.const.injEq] at he
+    exact he.1 ▸ h
+  | _ => intro T us _ he; simp [ConLeche.Expr.getAppFn] at he
+
+/-- The head constant of an expression's `∀`-residual is one it reads. -/
+theorem Expr.constsAll_piResult_head {p : Name → Prop} :
+    ∀ {e : Expr} {T : Name} {us : List Level}, Expr.constsAll p e →
+      e.piResult.getAppFn = .const T us → p T := by
+  intro e
+  induction e with
+  | forallE ty b _ ihb => exact fun h he => ihb h.2 he
+  | _ => exact fun h he => Expr.constsAll_getAppFn h he
+
 /-- **`EntryScoped` over a predicate.** -/
 @[expose] def EntryScopedP (p : Name → Prop) (C : Env) (n : Name) (ci : ConstantInfo) : Prop :=
   Expr.constsAll p ci.toConstantVal.type ∧
