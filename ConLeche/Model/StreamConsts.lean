@@ -94,7 +94,10 @@ kind of record claims a name and a type for:
   | .defnDecl cv _ _, cv' => cv' = cv
   | .thmDecl cv _, cv' => cv' = cv
   | .opaqueDecl cv _, cv' => cv' = cv
-  | .axiomDecl cv, cv' => cv' = cv ∧ cv.name ≠ sorryAxName ∧ cv.name ≠ quotSoundName
+  | .axiomDecl cv, cv' => cv' = cv ∧ cv.name ≠ sorryAxName ∧ cv.name ≠ quotSoundName ∧
+      -- Task #368: a native `bv_decide` axiom is
+      -- stored as a `True` stub, not with its declared type
+      ConLeche.isBVNativeAxName cv.name = false
   | .basisDecl _, _ => False
   | .indDecl _ _, _ => False
   | .quotDecl _ _, _ => False
@@ -165,7 +168,7 @@ theorem checkDecl_declares {μ : CheckMode} {env env₂ : Env} {F : Nat}
     · rw [henv₂]; exact List.mem_cons_self
     · exact hann
   | axiomDecl cv₀ =>
-    obtain ⟨rfl, htol, hqs⟩ := hcv
+    obtain ⟨rfl, htol, hqs, hbvn⟩ := hcv
     simp only [ConLeche.Semantics.DeclRun, ConLeche.Semantics.DeclAxiomRun] at hrun
     -- the `Quot.sound` arm (task #293) is excluded by `Declares`
     rcases hrun with ⟨hq, -⟩ | hrun
@@ -174,11 +177,13 @@ theorem checkDecl_declares {μ : CheckMode} {env env₂ : Env} {F : Nat}
     obtain ⟨-, -, -, -, -, hann, -, -, -⟩ := hcvr
     have henv₂ : env₂ = ⟨.axiomInfo ⟨cv.name, cv.levelParams, type'⟩ :: env.consts, env.tables⟩ := by
       rcases hdisj with ⟨-, he⟩ | ⟨-, -, he⟩ | ⟨-, -, he⟩ |
-        ⟨-, -, -, -, -, -, htol', -⟩
+        ⟨-, -, -, -, -, -, htol', -⟩ | ⟨hbv, -, -⟩
       · exact he
       · exact he
       · exact he
       · exact absurd htol' htol
+      · simp only [ConLeche.bvStubOk, Bool.and_eq_true] at hbv
+        exact absurd hbv.2 (by simp [hbvn])
     refine ⟨.axiomInfo ⟨cv.name, cv.levelParams, type'⟩, ?_, rfl, rfl, ?_⟩
     · rw [henv₂]; exact List.mem_cons_self
     · exact hann

@@ -3,6 +3,7 @@ module
 import ConLeche.Verify.Denote.OpenRevDenote
 public import ConLeche.Model.IndPointKit
 public import ConLeche.Model.BasisEq
+import ConLeche.Verify.Denote.IndFrame
 public section
 
 /-!

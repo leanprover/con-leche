@@ -7,6 +7,7 @@ import ConLeche.Verify.Denote.Inst
 import ConLeche.Verify.Subst
 import ConLeche.Model.Inductives.BlockRecRead
 public import ConLeche.Model.Inductives.BlockRecData
+import ConLeche.Verify.Denote.IndFrame
 
 public section
 

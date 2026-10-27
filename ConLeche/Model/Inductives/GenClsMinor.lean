@@ -21,6 +21,7 @@ import ConLeche.Model.Inductives.BlockRuleGrading
 import ConLeche.Model.Inductives.BlockRecPreRun
 import ConLeche.Semantics.Tower.FixTower
 import ConLeche.Model.Inductives.GenCallKit
+import ConLeche.Verify.Denote.IndFrame
 
 public section
 

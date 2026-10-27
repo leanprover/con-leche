@@ -563,4 +563,15 @@ def findProj? (env : Env) (T : Name) (i : Nat) : Option ProjEntry :=
 
 end Env
 
+/-- A recursor's stored rules (`[]` at any other kind): the pinned data of
+a basis recursor (task #368's boost checks). -/
+def ConstantInfo.recRulesOf : ConstantInfo → List RecRule
+  | .recInfo _ _ _ rs => rs
+  | _ => []
+
+/-- A raw pin's rule with the fields the installation computes
+(constructor parameters, the K bit; no η at a basis recursor). -/
+def RecRule.withBits (nP : Nat) (k : Bool) (r : RecRule) : RecRule :=
+  { r with ctorParams := nP, k := k, eta := false }
+
 end ConLeche

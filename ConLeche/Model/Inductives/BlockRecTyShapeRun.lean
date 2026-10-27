@@ -5,6 +5,7 @@ import ConLeche.Verify.Inductives.RecStage
 public import ConLeche.Model.Inductives.BlockRecMem
 import ConLeche.Model.Inductives.BlockRecPreRun
 public import ConLeche.Model.Inductives.BlockRecTyping
+import ConLeche.Verify.Denote.IndFrame
 
 public section
 

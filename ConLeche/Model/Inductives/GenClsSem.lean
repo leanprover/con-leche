@@ -35,6 +35,7 @@ import ConLeche.Model.Inductives.GenRecParams
 import ConLeche.Model.Inductives.BlockDeclRun
 import ConLeche.Model.Inductives.BlockStageCtors
 import ConLeche.Verify.InstLevels
+import ConLeche.Verify.Denote.IndFrame
 
 public section
 

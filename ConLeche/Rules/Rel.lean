@@ -1,6 +1,6 @@
 module
 
-public import ConLeche.Kernel.CoreDefs
+public import ConLeche.Rules.BVQuote
 
 @[expose] public section
 
@@ -330,6 +330,26 @@ inductive Red (env : Env) : Nat → Expr → Expr → Prop where
       Infer env .io d major tp → Infer env .io d tp ttp →
       Red env d ttp (.sort v) → Level.isEquiv v .zero = some true →
       Red env d major fab
+  /-- **Relaxed K-like recursion** (tasks #367, #368; no
+  checker site: the checker reaches the same reduct only through the K
+  rescue's certificates, `rescueK` then `iota`).  A K-like recursor (one
+  rule, flagged K, no fields: `Eq.rec`, `HEq.rec`) fires WITHOUT reducing
+  its major: the reduct is the rule's right-hand side at the parameters,
+  the motive and the minor.  Sound by the model's K law, the one the ι
+  step's K branch already reads (`RecRuleExtra`: at a K rule the law
+  holds at the recursor's own parameters for any major value);
+  `Red.kRec_sound`. -/
+  | kRec {d : Nat} {e : Expr} {c : Name} {us : List Level} {cv : ConstantVal}
+      {mI rP : Nat} {rl : RecRule} :
+      e.getAppFn = .const c us →
+      env.find? c = some (.recInfo cv mI rP [rl]) →
+      rl.k = true → rl.nfields = 0 →
+      e.getAppArgs.length = mI + 1 →
+      us.length = cv.levelParams.length →
+      (Expr.peelPis e.getAppArgs.length
+        (cv.type.instantiateLevelParams cv.levelParams us)).isSome = true →
+      Red env d e
+        (Expr.mkAppN (rl.rhs.instantiateLevelParams cv.levelParams us) (e.getAppArgs.take rP))
 
 /-- **Definitional equality**: the verdict `true` of `isDefEq`.
 
@@ -620,6 +640,29 @@ inductive Infer (env : Env) : Grade → Nat → Expr → Expr → Prop where
       (g = .full → Infer env .full d a ta) →
       (g = .full → DefEq env d ta ty) →
       Infer env g d (.app f a) (body.instantiate1 a)
+  /-- **A natively checked `bv_decide` certificate** (task #368;
+  `inferBody`'s `bvUnsatSkip` branch, `Kernel/Core.lean`, and
+  `Cached/CoreC.lean`'s `bvUnsatSpine`): `U E C a`, with `E` and `C` inferred and
+  `E`'s type the formula type, is `Unsat E` when the gate (`bvUnsatHit`:
+  the pinned closure, the reading of `E` and `C`, the native
+  `verifyBVExpr` run) accepts; `a` is not inferred.  The last premise is
+  what the gate *means* in the rules tier: at every quoted assignment
+  the formula evaluates to `false` — the bridge derives it from the
+  boost theorem of `BVLogicalExpr.eval` and Std's
+  `unsat_of_verifyBVExpr_eq_true`; it is a premise here (not an
+  environment law) so that the master induction reaches these
+  derivations structurally. -/
+  | bvUnsat {d : Nat} {E C a tf ty body tE tC : Expr} :
+      Infer env .full d (.app (.app (.const unsatThmName []) E) C) tf →
+      Red env d tf (.forallE ty body) →
+      bvUnsatSkip env.find? env.findProj? (.app (.app (.const unsatThmName []) E) C) a body = true →
+      Infer env .full d E tE → DefEq env d tE (.const bvLogicalExprName []) →
+      Infer env .full d C tC →
+      (∀ x : Std.Tactic.BVDecide.BVExpr.Assignment,
+        Red env d (.app (.app (.const bvEvalName []) (quoteAssign x)) E)
+          (.const boolFalseName [])) →
+      (∀ k : Nat, Red env d (pow2E (.lit (.natVal k))) (.lit (.natVal (2 ^ k)))) →
+      Infer env .full d (.app (.app (.app (.const unsatThmName []) E) C) a) (body.instantiate1 a)
   /-- **Projection** (`Kernel/Core.lean` / `:1373-1409`): the
   scrutinee's type reduces to an application of the node's own
   structure with a table entry at the right arities, the `Prop`

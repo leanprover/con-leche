@@ -17,6 +17,7 @@ import ConLeche.Model.Cover
 import ConLeche.Verify.Inductives.NestScope
 import ConLeche.Model.Inductives.TargetClass
 import ConLeche.Verify.Inductives.PosNodes
+import ConLeche.Verify.Denote.IndFrame
 
 public section
 

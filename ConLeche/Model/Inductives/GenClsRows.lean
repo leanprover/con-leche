@@ -17,6 +17,7 @@ import ConLeche.Model.Inductives.BlockRecPreRun
 import ConLeche.Model.Inductives.DeclNative
 import ConLeche.Semantics.Tower.FixTower
 import ConLeche.Verify.Inductives.ClassGenScope
+import ConLeche.Verify.Denote.IndFrame
 
 public section
 

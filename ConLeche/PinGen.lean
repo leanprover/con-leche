@@ -171,6 +171,19 @@ partial def toConLeche : Lean.Expr → Except String ConLeche.Expr
   | .fvar _ => .error "fvar in closed term"
   | .mvar _ => .error "mvar in closed term"
 
+/-- `toConLeche` with `letE` kept (task #368): the
+installation stores a definition's value as declared, `let`s included,
+so a pin compared SYNTACTICALLY with the stored value keeps them. -/
+partial def toConLecheKeepLet : Lean.Expr → Except String ConLeche.Expr
+  | .letE _ ty v b _ => do
+    .ok (.letE (← toConLecheKeepLet ty) (← toConLecheKeepLet v) (← toConLecheKeepLet b))
+  | .app f a => ConLeche.Expr.app <$> toConLecheKeepLet f <*> toConLecheKeepLet a
+  | .lam _ ty b _ => do .ok (.lam (← toConLecheKeepLet ty) (← toConLecheKeepLet b))
+  | .forallE _ ty b _ => do .ok (.forallE (← toConLecheKeepLet ty) (← toConLecheKeepLet b))
+  | .mdata _ e => toConLecheKeepLet e
+  | .proj s i e => (ConLeche.Expr.proj (toConLecheName s) i ·) <$> toConLecheKeepLet e
+  | e => toConLeche e
+
 /-! ## Helper unfolding and prefix-closure inlining -/
 
 /-- One pass of delta-expansion of the constants selected by `p`. -/

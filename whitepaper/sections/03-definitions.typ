@@ -51,8 +51,8 @@ of constants
 #src("whitepaper/Fragment/Rules.lean", 749, 753)[has its declared type] at the
 levels it is used at, and two constants of the same name
 #src("whitepaper/Fragment/Rules.lean", 563, 566)[are compared] through the level oracle
-(in con-leche: #src("ConLeche/Rules/Rel.lean", 560, 566)[inference]
-and #src("ConLeche/Rules/Rel.lean", 381, 386)[equality]).
+(in con-leche: #src("ConLeche/Rules/Rel.lean", 580, 586)[inference]
+and #src("ConLeche/Rules/Rel.lean", 401, 406)[equality]).
 
 #rules(
   rule(name: "const",

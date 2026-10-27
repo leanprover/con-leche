@@ -22,6 +22,7 @@ import ConLeche.Model.Inductives.BlockRuleParams
 import ConLeche.Model.Inductives.NestPosOut
 import ConLeche.Verify.Inductives.NestCallSyn
 import ConLeche.Model.Inductives.BlockRecPreRun
+import ConLeche.Verify.Denote.IndFrame
 
 public section
 

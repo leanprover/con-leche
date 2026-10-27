@@ -6,6 +6,7 @@ public import ConLeche.Model.Inductives.StructFrameKit
 public import ConLeche.Model.IndPinGrade
 public import ConLeche.Verify.Inductives.DirectGen
 import ConLeche.Verify.Denote.ErasedEq
+import ConLeche.Verify.Denote.IndFrame
 
 public section
 

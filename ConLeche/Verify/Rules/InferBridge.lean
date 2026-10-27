@@ -3,6 +3,7 @@ module
 public import ConLeche.Verify.Rules.Defs
 import ConLeche.Verify.InferLemmas
 import ConLeche.Verify.InferIOLemmas
+import ConLeche.Verify.Rules.BVUnsatBridge
 
 public section
 
@@ -160,8 +161,11 @@ theorem infer_bridge_succ (hw : WhnfBridge μ env fuel) (hd : DefEqBridge μ env
       inferTypeCore_forall_inv h
     exact .forallE (hi hty) (hw hwt) (hi hbt) (hw (ensureSortCore_inv hes))
   | .app f a, h =>
-    obtain ⟨tf, ty', body', htf, hwf, rfl, ta, hta, hde⟩ :=
+    obtain ⟨tf, ty', body', htf, hwf, rfl, hrest⟩ :=
       inferTypeCore_app_inv h
+    rcases hrest with hsk | ⟨ta, hta, hde⟩
+    · -- Task #368: the skipped argument check
+      exact bvUnsat_bridge (hi htf) (hw hwf) hsk
     -- an `eagerReduce _ _` argument was compared in the eager tower
     -- (task #353): the same rule, from that tower's bridge
     have hD : DefEq env d ta ty' := by

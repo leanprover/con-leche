@@ -107165,3 +107165,91 @@ universe-valued type arguments, quotients, polymorphic `F`.  Not wired:
 the install gate's capability bit and invariant and the bridge case for
 the hook (estimated 0.7–1.2 k lines; no model work).  Reports:
 `_tmp/spike-boost*-report.md` (not committed).
+
+## TASK #368 — natively checked `bv_decide` certificates (2026-10-27, agent/bv-decide)
+
+**Landed on the integration branch `bv-decide`**, not on master: the
+maintainer decides the feature's fate there.  The prototype record is
+branch `agent/spike-boost-unsat` (kept as is).
+
+**What it does.**  A `bv_decide` proof is
+`Std.Tactic.BVDecide.Reflect.unsat_of_verifyBVExpr_eq_true E C ax` with
+`ax : verifyBVExpr E C = true` the tactic's native axiom
+(`<decl>._native.bv_decide.ax_…`).  The checker now types such an
+application `BVLogicalExpr.Unsat E` *without inferring `ax`*, where the
+gate `bvUnsatOk` (`Kernel/BVUnsat.lean`) accepts: the stored closure of
+`BVLogicalExpr.Unsat` and the constants the model reads are the
+checker's own toolchain's (`pinsOk`: 42 model pins, 471 boost checks,
+one syntactic comparison each), `E` reads as a shallow `BVLogicalExpr`
+(constructors, numerals, argument-free closed definitions), `C` as a
+string literal, and the checker's own compiled `verifyBVExpr e c`
+returns `true`.  Both cores carry the skip (`inferBody`'s
+`bvUnsatSkip` branch, `inferBodyI`'s `bvUnsatSpine`); the cached
+simulation covers it (`DiscC4`).
+
+**Rulings (maintainer).**
+* Recognition only at `unsat_of_verifyBVExpr_eq_true`'s application;
+  nothing else of the tactic's output is special.
+* The native axiom is stored as a stub of type `True` under its own
+  name (`bvStubOk`, `TrustAxioms.lean`); every other use declines
+  (`bvNativeUseMsg`), so the axiom's declared statement is never in the
+  environment.  `Declaration.Declares` (`Model/StreamConsts.lean`)
+  excludes it accordingly.
+* Streams from the checker's own toolchain only: the pins are that
+  toolchain's declarations, and the shallow `eval`/`Unsat` the model
+  relates to must be the pinned ones.  Other toolchains decline as
+  before.
+* The accepting stream (80 MB) is not committed; `scripts/bv-decide-check.sh`
+  regenerates and checks it.
+
+**The soundness argument** (no new axiom, no `sorry`; the capstones'
+axiom pins are unchanged at `[propext, Classical.choice, Quot.sound]`).
+* Rules tier: `Infer.bvUnsat` (`Rules/Rel.lean`) carries, as premises,
+  what the gate *means*: at every quoted assignment `quoteAssign x` the
+  deep `eval (quoteAssign x) E` reduces to `false`, and `2 ^ k` reduces to
+  its literal.  They are premises (not an environment law) so the
+  master induction reaches the `Red` derivations structurally.
+* The bridge (`Verify/Rules/BVUnsatBridge.lean`,
+  `Verify/BoostRed/BVBridge.lean`) derives them: the reader's every step
+  is a constructor of the generated boost relation, a δ or a numeral
+  (`readLogical_rel`); the `#boost` translation of `BVLogicalExpr.eval`
+  (task #367's generator, `Verify/BoostRed/Boost.lean`) relates the deep
+  `eval` to the shallow one, its pins discharged from the gate
+  (`#boost_assemble`, `BVGate.lean`); Std's
+  `unsat_of_verifyBVExpr_eq_true` at the native result gives `false`.
+* The model law `BVUnsatSemLaw` (`Model/BVUnsat.lean`,
+  `Model/BVQuoteSem.lean`): `⟦Unsat E⟧` is `∀ X ∈ ⟦Assignment⟧,
+  eqv ⟦eval X E⟧ ⟦false⟧`, and every member of `⟦Assignment⟧` is a quoted
+  assignment (`assignQuote_of`): the stored recursors `RArray.rec`,
+  `PackedBitVec.rec`, `BitVec.rec`, `Fin.rec` inhabit their pinned types,
+  so at the motive `truthVal ∘ Q` they give induction principles; `2 ^ k`
+  reads to its numeral by the rule's premise; a member of `⟦j < M⟧` forces
+  `j < M` by the pinned `Nat.le_of_ble_eq_true`/`Nat.not_lt_of_le`, the
+  literal row and `⟦False⟧ = ∅`.  The stored shapes the model computes
+  with are spliced from the toolchain's declarations
+  (`PinGen/BVShapes.lean`) and checked against the pins by `rfl`.
+* Of task #367's pilot only what the path uses came along: the `#boost`
+  generator and its kits, and `Red.kRec` (the `Eq.rec` casts in `eval`'s
+  closure; `Model/Rules/KRecSound.lean`).  `Red.accRec`, `Acc.rec`'s
+  generator case, the runtime boost table, the demos and the pilot's
+  test functions are not here.
+
+**Numbers.**
+* Lines: 80 files under `ConLeche/`, +6 920/−92; the largest are
+  `Verify/BoostRed/Boost.lean` (1 605, the generator),
+  `Model/BVQuoteSem.lean` (1 238), `Verify/BoostRed/BVBridge.lean` (556),
+  `Kernel/BVUnsat.lean` (465).
+* The `bv_decide` stream (`bvAndOr`, 8 719 declarations): master
+  declines at the axiom; the lane accepts at 97.9 G instructions:u
+  (the native check itself is ~30 M).  A direct use of the axiom and a
+  corrupted certificate decline.
+* Standard streams, master → lane, instructions:u, one run each:
+  `init-full` 393.96 G → 394.15 G (+0.05 %), `grind-ring-5` 15.97 G →
+  15.99 G (+0.17 %), `app-lam` +0.12 %, `let-ladder` +0.26 %,
+  `beta-ladder` +0.11 %, `init-prelude` +0.22 %; the small arena perf
+  streams (0.06–0.33 G) move by +1 to +12 M, the start-up cost of the
+  linked Std code (+4.2 M at `--help`) plus the worker pool's
+  run-to-run spread.
+* Tests: `tests/ConLecheTests/BVUnsatTests.lean` (reader, recognition,
+  refusal without the pins); e2e `bv_native_axiom_use` and
+  `bv_fake_unsat` (decline, 2); e2e 498/498.

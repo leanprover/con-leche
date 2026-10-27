@@ -12,6 +12,7 @@ import ConLeche.Model.Inductives.TargetGraph
 import ConLeche.Model.Inductives.BlockRecTyShapeRun
 import ConLeche.Verify.CheckerF
 import ConLeche.Verify.Extend.Inversions
+import ConLeche.Verify.Denote.IndFrame
 
 public section
 

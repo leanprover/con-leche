@@ -161,6 +161,12 @@ def checkDecl (_mode : CheckMode) (ops : CheckerOps m) (pins : List NatOpPinSet)
         throw (.notImplemented s!"standard axiom shape mismatch ({cv.name})")
       else if cv.name = sorryAxName then
         pure env
+      else if bvStubOk env cv then
+        -- Task #368: a native `bv_decide` axiom is
+        -- stored as a `True` stub (`Kernel/TrustAxioms.lean`)
+        do
+          checkConstantVal ops env (bvStubCv cv)
+          pure ⟨.axiomInfo (bvStubCv cv) :: env.consts, env.tables⟩
       else
         throw (.notImplemented (nonStdAxiomMsg cv.name))
   | .basisDecl kind => checkBasisDecl env kind

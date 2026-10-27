@@ -70,8 +70,14 @@ theorem inferTypeCore_mkAppN_args {env : Env} {F d : Nat} :
   | b :: as, f, t, h, a, ha => by
     rcases List.mem_cons.mp ha with rfl | ha
     · obtain ⟨tfa, hfa⟩ := Model.inferTypeCore_mkAppN_fn_inv as (f := .app f a) h
-      obtain ⟨-, -, -, -, -, -, ta, hta, -⟩ := inferTypeCore_app_inv' hfa
-      exact ⟨ta, hta⟩
+      obtain ⟨_tf, _ty, body', _h1, _h2, _h3, hrest⟩ := inferTypeCore_app_inv' hfa
+      rcases hrest with hsk | ⟨ta, hta, -⟩
+      · obtain ⟨F₀, rfl⟩ : ∃ F₀, F = F₀ + 1 := by
+          cases F with
+          | zero => rw [inferTypeCore_zero] at hfa; exact nomatch hfa
+          | succ F₀ => exact ⟨F₀, rfl⟩
+        exact inferTypeCore_bvSkip_arg hsk
+      · exact ⟨ta, hta⟩
     · exact inferTypeCore_mkAppN_args as (f := .app f b) h a ha
 
 /-- **An inferred `∀` infers its domain.** -/

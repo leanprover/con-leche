@@ -271,6 +271,10 @@ theorem infer_bvarClosed_of_full {env : Env} :
     simp only [looseBVarsBounded, Bool.and_eq_true]
     exact ⟨infer_bvarClosed_of_full hs hg,
       looseBVarsBounded_of_instantiate1_fvar _ 0 (infer_bvarClosed_of_full hbs hg)⟩
+  | _, _, _, _, .bvUnsat _ _ hskip hE _ hC _ _, hg => by
+    have hhit := bvUnsatSkip_hit hskip
+    obtain ⟨n, ci, rfl, -, -⟩ := bvUnsatArgOk_const (bvUnsatHit_parts hhit).1
+    simp [looseBVarsBounded, infer_bvarClosed_of_full hE rfl, infer_bvarClosed_of_full hC rfl]
   | _, _, _, _, .lam hs _ hbt, hg => by
     simp only [looseBVarsBounded, Bool.and_eq_true]
     exact ⟨infer_bvarClosed_of_full (hs hg) rfl,

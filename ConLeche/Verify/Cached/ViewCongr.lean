@@ -193,6 +193,10 @@ theorem trustCompilerOkF_congr {fe₁ fe₂ : FEnv} (hfe : fe₁.find? = fe₂.f
     (cv : ConstantVal) : trustCompilerOkF fe₁ cv = trustCompilerOkF fe₂ cv := by
   simp only [trustCompilerOkF, hfe]
 
+theorem bvStubOkF_congr {fe₁ fe₂ : FEnv} (hfe : fe₁.find? = fe₂.find?)
+    (cv : ConstantVal) : bvStubOkF fe₁ cv = bvStubOkF fe₂ cv := by
+  simp only [bvStubOkF, hfe]
+
 theorem reduceElemOkF_congr {fe₁ fe₂ : FEnv} (hfe : fe₁.find? = fe₂.find?) (c : Name) :
     reduceElemOkF fe₁ c = reduceElemOkF fe₂ c := by
   simp only [reduceElemOkF, hfe]
@@ -1273,7 +1277,7 @@ theorem checkDeclC_twin (pins : List NatOpPinSet) {fe₁ fe₂ : FEnv} (ht : Twi
   | axiomDecl cv =>
     unfold checkDeclC
     simp only [checkConstantValC_congr hfe htb, stdAxiomOkF_congr hfe, trustCompilerOkF_congr hfe,
-      ofReduceAxOkF_congr hfe]
+      ofReduceAxOkF_congr hfe, bvStubOkF_congr hfe]
     relrun
     all_goals first
       | exact RelRun.pure (PushedFrom.refl _ _)

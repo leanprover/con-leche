@@ -3032,3 +3032,9 @@
 # "application type mismatch" and the variant-fallback combinator
 # caught it).  No variant matches: DECLINE, today and as the target.
 2 natop_typepin_foreign.ndjson
+# bv_native_axiom_use.ndjson: a native `bv_decide` axiom (stored as a `True`
+# stub) used directly declines (task #368)
+2 bv_native_axiom_use.ndjson
+# bv_fake_unsat.ndjson: `unsat_of_verifyBVExpr_eq_true` over a closure that is
+# not the pinned one: the gate does not accept, the stub's use declines
+2 bv_fake_unsat.ndjson

@@ -8,6 +8,7 @@ import ConLeche.Verify.Rules.Bridge
 import ConLeche.Model.Rules.Recompose
 import ConLeche.Model.Tiers
 import ConLeche.Model.Inductives.BlockRecIdxConv
+import ConLeche.Verify.Denote.IndFrame
 
 public section
 
