@@ -334,6 +334,12 @@ def Store.needAt (S : Store) (h j : Nat) : UInt8 :=
 def Store.gateAt (S : Store) (h j : Nat) : Array (Nat × UInt8) :=
   ((S.slot h).exp.g1[j]?).getD #[]
 
+/-- Is a constant of a kind that can be a proof (a theorem, a definition,
+an assumption). -/
+def proofKind : ConstantInfo → Bool
+  | .defnInfo .. | .thmInfo _ | .axiomInfo _ => true
+  | _ => false
+
 /-- **The unit's shape**: the arrays aligned with the installed constants;
 each exported presentation the constant, or its assumption where that
 refines it; a value gate only on a presented definition; the proofs the
@@ -352,9 +358,7 @@ def shapeOk (fe : FEnv) (flagged : Name → Bool) (s : ModSlot) : Bool :=
         | some a => a == ci || (a == asAxiom ci && hideable ci)) &&
       st == (a == some ci) &&
       (v.isEmpty || (st && hideable ci)) &&
-      pf == flagged ci.name && (!pf || (match ci with
-        | .defnInfo .. | .thmInfo _ | .axiomInfo _ => true
-        | _ => false)) &&
+      pf == flagged ci.name && (!pf || proofKind ci) &&
       t == fe.env.tables.find? (·.structName == ci.name) &&
       et == (if st then t else none)
     | _, _, _, _, _, _, _ => false

@@ -233,9 +233,7 @@ theorem shapeOk_spec {fe : FEnv} {flagged : Name → Bool} {s : ModSlot}
       (∀ v : Array (Nat × UInt8), s.exp.v1[j]? = some v → v.isEmpty = true ∨
         (st = true ∧ hideable ci = true)) ∧
       s.exp.prf[j]? = some (flagged ci.name) ∧
-      (flagged ci.name = true → (match ci with
-        | .defnInfo .. | .thmInfo _ | .axiomInfo _ => true
-        | _ => false) = true) ∧
+      (flagged ci.name = true → proofKind ci = true) ∧
       s.prv.tbls[j]? = some (fe.env.tables.find? (·.structName == ci.name)) ∧
       s.exp.tbls[j]? = some (if st then fe.env.tables.find? (·.structName == ci.name) else none) := by
   unfold shapeOk at h
@@ -1213,6 +1211,228 @@ theorem RunOk.good1 (hR : RunOk mode S M) {i h : Nat} (hi : i < M.size) (hh : h 
           split <;> exact hna'
         · cases hna
       · exact hR.good_of_vis hi hh ht hxa (at?_of_lvl2 hli1 (hs _ ht1) hl2 hc) (hcn.trans hn)
+
+/-! ## Full reads -/
+
+/-- Two installed constants of one module with one name are one. -/
+theorem RunOk.priv_inj (hR : RunOk mode S M) {h : Nat} (hh : h < M.size) {j j' : Nat}
+    {c c' : ConstantInfo} (hc : (S.slot h).prv.priv[j]? = some c)
+    (hc' : (S.slot h).prv.priv[j']? = some c') (hn : c.name = c'.name) : j = j' := by
+  rw [hR.slot h hh, hR.priv h hh] at hc hc'
+  simp only [List.getElem?_toArray] at hc hc'
+  have hnd := hR.nodupOwn hh
+  unfold NodupNames envAt at hnd
+  simp only [List.map_append] at hnd
+  have hnd' : (M[h].fe.env.consts.reverse.map (·.name)).Nodup := by
+    rw [List.map_reverse]
+    exact List.pairwise_reverse.mpr ((List.nodup_append.mp hnd).1.imp fun h => Ne.symm h)
+  have hj : j < (M[h].fe.env.consts.reverse.map (·.name)).length := by
+    rcases Nat.lt_or_ge j M[h].fe.env.consts.reverse.length with h' | h'
+    · simpa using h'
+    · rw [List.getElem?_eq_none h'] at hc; cases hc
+  refine (hnd'.getElem?_inj hj).mp ?_
+  rw [List.getElem?_map, List.getElem?_map, hc, hc']
+  simp [hn]
+
+/-- A constant that is not a proof has the qualified name of its home. -/
+theorem RunOk.keyAt_qual (hR : RunOk mode S M) {h j : Nat} (hh : h < M.size) {c : ConstantInfo}
+    (hc : (S.slot h).prv.priv[j]? = some c)
+    (hk : proofKind c = false) (n : Name) : S.keyAt h j n = .qual h n := by
+  obtain ⟨-, -, -, -, -, -, -, hj⟩ := shapeOk_spec (hR.shape hh)
+  obtain ⟨-, -, -, -, -, hpf, hpk, -⟩ := hj j c hc
+  unfold Store.keyAt keyOfSlot
+  rw [hpf, hc]
+  cases hf : M[h].flags.contains c.name with
+  | false => rfl
+  | true => rw [hpk hf] at hk; cases hk
+
+/-- **A visible alternate that is not a proof is the first visible one.** -/
+theorem RunOk.pick_of_vis (hR : RunOk mode S M) {i : Nat} (hi : i < M.size) {d : Name}
+    {t : Nat × Nat} (hx : t ∈ S.alts d) (ht : t.1 < M.size) {c : ConstantInfo}
+    (hat : (S.mb i).at? t.1 t.2 = some c) (hn : c.name = d)
+    (hpc : (S.slot t.1).prv.priv[t.2]? = some c) (hk : proofKind c = false) :
+    (ctxOf (S.mb i)).find? d = some c := by
+  have hctx := ctx_isSome_of_vis hx hat hn
+  rw [ctxOf_find?] at hctx ⊢
+  obtain ⟨y, hy⟩ := Option.isSome_iff_exists.mp hctx
+  obtain ⟨h₀, j₀, hp⟩ := MBase.find?_some hy
+  have hkey := hR.key_pick hi hp hx hat hn
+  rw [hR.keyAt_qual ht hpc hk] at hkey
+  obtain ⟨hyn, -, hyat⟩ := MBase.pick?_some hp
+  obtain ⟨-, hlv⟩ := lvl_of_at? hyat
+  have h0 : h₀ < M.size := Nat.lt_trans (hR.lvl_lt hi
+    (by rcases hlv with h' | h' <;> rw [h'] <;> decide)) hi
+  obtain ⟨c₀, hc₀, hc₀n⟩ := hR.at?_name hyat h0
+  -- its qualified name is the home's and the name: the same module
+  have hh0 : h₀ = t.1 := by
+    unfold Store.keyAt keyOfSlot at hkey
+    rw [hc₀] at hkey
+    revert hkey
+    cases (S.slot h₀).exp.prf[j₀]? with
+    | none => intro hk; cases hk; rfl
+    | some b =>
+      cases b with
+      | true => intro hk; cases hk
+      | false => intro hk; cases hk; rfl
+  subst hh0
+  have hj : j₀ = t.2 := hR.priv_inj ht hc₀ hpc (by rw [hc₀n, hyn, hn])
+  subst hj
+  rw [hat] at hyat
+  have : y = c := (Option.some.inj hyat).symm
+  subst this
+  unfold MBase.find?
+  rw [hp]
+
+theorem Want.ok_proofKind {w : Want} {c : ConstantInfo} (h : w.ok c = true) :
+    proofKind c = false := by
+  cases w <;> cases c <;> simp_all [Want.ok, proofKind]
+
+theorem Want.ok_asAxiom {w : Want} {c : ConstantInfo} : w.ok (asAxiom c) = false := by
+  cases w <;> rfl
+
+/-- A visible alternate of a wanted kind is the installed constant. -/
+theorem RunOk.at?_want (hR : RunOk mode S M) {i h j : Nat} {ci : ConstantInfo} {w : Want}
+    (hat : (S.mb i).at? h j = some ci) (hh : h < M.size) (hw : w.ok ci = true) :
+    (S.slot h).prv.priv[j]? = some ci := by
+  obtain ⟨c, hc, hci⟩ := hR.at?_home hat hh
+  rcases hci with rfl | ⟨rfl, -⟩
+  · exact hc
+  · rw [Want.ok_asAxiom] at hw; cases hw
+
+theorem RunOk.full2 (hR : RunOk mode S M) {i h : Nat} (hi : i < M.size) (hh : h < M.size)
+    (h2 : lvlAt (S.lvl i) h = 2) {w : Want} {d : Name}
+    (hr : full2Ok S h M[h].fe M[h].unit w d = true) :
+    ∃ x, (ctxOf (S.mb i)).find? d = some x ∧ w.ok x = true := by
+  have hs : ∀ x, x < M.size → x < S.slots.size := fun x hx => by rw [hR.slots]; exact hx
+  have hli : h < (S.lvl i).size := lt_size_of_lvl (by rw [h2]; decide)
+  unfold full2Ok at hr
+  cases ht : target h M[h].fe d with
+  | none => rw [ht] at hr; cases hr
+  | some t =>
+    rw [ht] at hr
+    obtain ⟨t1, t2⟩ := t
+    simp only at hr
+    rcases hR.target_cases hh ht with ⟨ht1, p, hp, hpn, -⟩ | ⟨hne, ci, hph, -⟩
+    · simp only at ht1 hp
+      subst ht1
+      simp only [beq_self_eq_true, ↓reduceIte, Bool.and_eq_true] at hr
+      obtain ⟨hxa, hk⟩ := hr
+      rw [← hR.slot t1 hh, hp] at hk
+      simp only [Option.map_some, Option.getD_some] at hk
+      exact ⟨p, hR.pick_of_vis hi (List.contains_iff_mem.mp hxa) hh
+        (at?_of_lvl2 hli (hs _ hh) h2 hp) hpn hp (Want.ok_proofKind hk), hk⟩
+    · simp only at hne hph
+      simp only [beq_false_of_ne hne, Bool.false_eq_true, ↓reduceIte] at hr
+      rw [(hR.finalCanon hh).base] at hr
+      simp only at hr
+      rw [hph] at hr
+      simp only at hr
+      obtain ⟨hn, hxa, hatH⟩ := MBase.pick?_some hph
+      have hlt : t1 < h := by
+        obtain ⟨-, hlv⟩ := lvl_of_at? hatH
+        exact hR.lvl_lt hh (by rcases hlv with h' | h' <;> rw [h'] <;> decide)
+      have ht1 : t1 < M.size := Nat.lt_trans hlt hh
+      have hpc := hR.at?_want hatH ht1 hr
+      have hle : ∀ x, lvlAt (S.lvl h) x ≤ lvlAt (S.lvl i) x := by
+        intro x
+        by_cases hx : x < (S.lvl h).size
+        · exact (localOk_lvl (hR.locals i hi) hli (by rw [h2]; decide)).2.2.choose_spec.2.1 h2 x hx
+        · have : lvlAt (S.lvl h) x = 0 := by unfold lvlAt; simp [hx]
+          rw [this]; exact UInt8.zero_le
+      obtain ⟨ci', hat', -, hfull⟩ := hR.at?_mono hatH ht1 hle (hR.lvl_le2 hi t1)
+        (by rw [hR.lvls h hh, hR.lvls i hi]; exact Nat.le_refl _)
+      have := hfull hpc
+      subst this
+      rw [Store.alts_mb] at hxa
+      exact ⟨ci', hR.pick_of_vis hi hxa ht1 hat' hn hpc (Want.ok_proofKind hr), hr⟩
+
+theorem RunOk.full1 (hR : RunOk mode S M) {i h : Nat} (hi : i < M.size) (hh : h < M.size)
+    (h1 : lvlAt (S.lvl i) h = 1) {G : Array (Nat × UInt8)}
+    (hG : ∀ p ∈ G, lvlAt (S.lvl i) p.1 ≥ p.2) {w : Want} {d : Name}
+    (hr : full1Ok S h M[h].fe M[h].unit G w d = true) :
+    ∃ x, (ctxOf (S.mb i)).find? d = some x ∧ w.ok x = true := by
+  have hli : h < (S.lvl i).size := lt_size_of_lvl (by rw [h1]; decide)
+  obtain ⟨-, -, u, hu, -, hfp⟩ := localOk_lvl (hR.locals i hi) hli (by rw [h1]; decide)
+  have hu' : u = M[h].unit := by
+    simp only [Array.getElem?_map, Array.getElem?_eq_getElem hh, Option.map_some,
+      Option.some.injEq] at hu
+    exact hu.symm
+  subst hu'
+  have hfp' := hfp (by rw [h1]; decide)
+  have hinG : ∀ p, (M[h].unit.fp1.contains p || G.contains p) = true → lvlAt (S.lvl i) p.1 ≥ p.2 := by
+    intro p hp
+    rcases Bool.or_eq_true_iff.mp hp with h' | h'
+    · exact hfp' p (Array.mem_of_contains_eq_true h')
+    · exact hG p (Array.mem_of_contains_eq_true h')
+  have hs : ∀ x, x < M.size → x < S.slots.size := fun x hx => by rw [hR.slots]; exact hx
+  unfold full1Ok at hr
+  cases ht : target h M[h].fe d with
+  | none => rw [ht] at hr; cases hr
+  | some t =>
+    rw [ht] at hr
+    obtain ⟨t1, t2⟩ := t
+    simp only at hr
+    rcases hR.target_cases hh ht with ⟨ht1, p, hp, hpn, -⟩ | ⟨hne, ci, hph, -⟩
+    · simp only at ht1 hp
+      subst ht1
+      simp only [beq_self_eq_true, ↓reduceIte, Bool.and_eq_true] at hr
+      obtain ⟨⟨⟨hxa, hst⟩, hk⟩, hg⟩ := hr
+      rw [← hR.slot t1 hh] at hst hk hg
+      rw [hp] at hk
+      simp only [Option.map_some, Option.getD_some] at hk
+      obtain ⟨-, -, -, -, -, -, -, hj⟩ := shapeOk_spec (hR.shape hh)
+      obtain ⟨st, hst', -, hstiff, -⟩ := hj t2 p hp
+      rw [hst'] at hst
+      simp only [Option.getD_some] at hst
+      have ha := hstiff.mp hst
+      rw [Array.all_eq_true'] at hg
+      have hat := at?_of_lvl1 hli (hs _ hh) h1 ha (fun q hq => hinG q (hg q
+        (Array.mem_append_left _ hq)))
+      rw [ite_eq_left (gateOk_iff.mpr fun q hq => hinG q (hg q (Array.mem_append_right _ hq)))]
+        at hat
+      exact ⟨p, hR.pick_of_vis hi (List.contains_iff_mem.mp hxa) hh hat hpn hp
+        (Want.ok_proofKind hk), hk⟩
+    · simp only at hne hph
+      simp only [beq_false_of_ne hne, Bool.false_eq_true, ↓reduceIte] at hr
+      rw [(hR.finalCanon hh).base] at hr
+      simp only at hr
+      rw [hph] at hr
+      simp only [Bool.and_eq_true] at hr
+      obtain ⟨hw, hrest⟩ := hr
+      obtain ⟨hn, hxa, hatH⟩ := MBase.pick?_some hph
+      have hlt : t1 < h := by
+        obtain ⟨-, hlv⟩ := lvl_of_at? hatH
+        exact hR.lvl_lt hh (by rcases hlv with h' | h' <;> rw [h'] <;> decide)
+      have ht1 : t1 < M.size := Nat.lt_trans hlt hh
+      have hpc := hR.at?_want hatH ht1 hw
+      have hli1 : t1 < (S.lvl i).size := by rw [hR.lvls i hi]; exact ht1
+      rw [Store.alts_mb] at hxa
+      have hk := Want.ok_proofKind hw
+      split at hrest
+      · rename_i hsto
+        simp only [Bool.and_eq_true] at hrest
+        obtain ⟨hin1, hgate⟩ := hrest
+        have hl1 := hinG _ hin1
+        simp only at hl1
+        rcases u8_one_two hl1 (hR.lvl_le2 hi t1) with hl | hl
+        · obtain ⟨-, -, -, -, -, -, -, hj⟩ := shapeOk_spec (hR.shape ht1)
+          obtain ⟨st, hst', -, hstiff, -⟩ := hj t2 ci hpc
+          unfold Store.storedAt at hsto
+          rw [hst'] at hsto
+          simp only [Option.getD_some] at hsto
+          have ha := hstiff.mp hsto
+          rw [Array.all_eq_true'] at hgate
+          unfold Store.fullGateAt at hgate
+          have hat := at?_of_lvl1 hli1 (hs _ ht1) hl ha (fun q hq => hinG q (hgate q
+            (Array.mem_append_left _ hq)))
+          rw [ite_eq_left (gateOk_iff.mpr fun q hq => hinG q (hgate q
+            (Array.mem_append_right _ hq)))] at hat
+          exact ⟨ci, hR.pick_of_vis hi hxa ht1 hat hn hpc hk, hw⟩
+        · exact ⟨ci, hR.pick_of_vis hi hxa ht1 (at?_of_lvl2 hli1 (hs _ ht1) hl hpc) hn hpc hk, hw⟩
+      · have hl2 := hinG _ hrest
+        simp only at hl2
+        have hl := u8_two hl2 (hR.lvl_le2 hi t1)
+        exact ⟨ci, hR.pick_of_vis hi hxa ht1 (at?_of_lvl2 hli1 (hs _ ht1) hl hpc) hn hpc hk, hw⟩
 
 /-! ## The local checks -/
 
