@@ -298,6 +298,9 @@ def CEntryF.mapM {m : Type → Type} [Monad m] {N E N' E' : Type} (fn : N → m 
   let kind ← c.kind.mapM fn fe
   pure ⟨name, lps, type, kind⟩
 
+/-- A `Nat` field. -/
+@[inline] def Region.natF (r : Region) (g i : Nat) : Option Nat := r.natP g (r.fld g i)
+
 /-- A `List Name` field: its elements' pointers. -/
 @[inline] def Region.nameList (r : Region) (g i : Nat) : Option (List UInt64) :=
   (r.list g (r.fld g i)).map (·.toList)
@@ -312,15 +315,12 @@ def constSkel (r : Region) (c : Nat) : Option (CEntryF UInt64 UInt64) := do
   let name ← r.ptrFld cv 0
   let lps ← r.nameList cv 1
   let type ← r.ptrFld cv 2
-  let shape (n : Nat) : Option Unit := if r.isCtor x 0 n then some () else none
-  let nat (i : Nat) : Option Nat := r.natP x (r.fld x i)
-  let b (k : Nat) : Option Bool := r.bool x k
   let kind ← match r.tag c with
     | 0 => do
-      shape 1
-      pure (CKindF.ax (← b 0))
+      unless r.isCtor x 0 1 do none
+      pure (CKindF.ax (← r.bool x 0))
     | 1 => do
-      shape 4
+      unless r.isCtor x 0 4 do none
       let value ← r.ptrFld x 1
       let hv := r.fld x 2
       let hints ← if hv == 1 then pure HintsRec.«opaque»
@@ -334,33 +334,35 @@ def constSkel (r : Region) (c : Nat) : Option (CEntryF UInt64 UInt64) := do
         | _ => none
       pure (CKindF.defn value hints safety)
     | 2 => do
-      shape 3
+      unless r.isCtor x 0 3 do none
       pure (CKindF.thm (← r.ptrFld x 1) (← r.nameList x 2))
     | 3 => do
-      shape 3
-      pure (CKindF.opaq (← r.ptrFld x 1) (← b 0))
+      unless r.isCtor x 0 3 do none
+      pure (CKindF.opaq (← r.ptrFld x 1) (← r.bool x 0))
     | 4 => do
-      shape 1
+      unless r.isCtor x 0 1 do none
       let k ← match ← r.u8 x 0 with
         | 0 => pure "type" | 1 => pure "ctor" | 2 => pure "lift" | 3 => pure "ind"
         | _ => none
       pure (CKindF.quot k)
     | 5 => do
-      shape 6
-      pure (CKindF.induct (← nat 1) (← nat 2) (← r.nameList x 3) (← r.nameList x 4)
-        (← nat 5) (← b 0) (← b 1) (← b 2))
+      unless r.isCtor x 0 6 do none
+      pure (CKindF.induct (← r.natF x 1) (← r.natF x 2) (← r.nameList x 3)
+        (← r.nameList x 4) (← r.natF x 5) (← r.bool x 0) (← r.bool x 1) (← r.bool x 2))
     | 6 => do
-      shape 5
-      pure (CKindF.ctor (← r.ptrFld x 1) (← nat 2) (← nat 3) (← nat 4) (← b 0))
+      unless r.isCtor x 0 5 do none
+      pure (CKindF.ctor (← r.ptrFld x 1) (← r.natF x 2) (← r.natF x 3) (← r.natF x 4)
+        (← r.bool x 0))
     | _ => do
-      shape 7
+      unless r.isCtor x 0 7 do none
       let all ← r.nameList x 1
       let cells ← r.list x (r.fld x 6)
       let rules ← cells.toList.mapM fun v => do
         let y ← r.loc v
         unless r.isCtor y 0 3 do none
         pure ((← r.ptrFld y 0), (← r.natP y (r.fld y 1)), (← r.ptrFld y 2))
-      pure (CKindF.recur all (← nat 2) (← nat 3) (← nat 4) (← nat 5) rules (← b 0) (← b 1))
+      pure (CKindF.recur all (← r.natF x 2) (← r.natF x 3) (← r.natF x 4) (← r.natF x 5) rules
+        (← r.bool x 0) (← r.bool x 1))
   pure { name, levelParams := lps, type, kind }
 
 /-! ## The module data -/

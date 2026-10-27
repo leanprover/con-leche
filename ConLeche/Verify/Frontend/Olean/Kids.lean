@@ -72,30 +72,30 @@ theorem kidTable_levels (t n : Nat) : kidTable kLevels t n = levelsKids t n := r
 theorem kidTable_expr (t n : Nat) : kidTable kExpr t n = exprKids t n := rfl
 
 /-- The marking of one object, read off the table. -/
-@[expose] def markObj (r : Region) (k : UInt8) (g : Nat) (st : DS) : Option DS :=
+@[expose] def markObj (r : Region) (k : UInt8) (g : Nat) (m : ByteArray) : Option ByteArray :=
   if r.fits g then
     match kidTable k (r.tag g) (r.nobjs g) with
-    | some fs => fs.foldlM (fun st f => st.markPtr r g f.2.1 f.2.2 (r.fld g f.1)) st
+    | some fs => fs.foldlM (fun m f => markPtr r m g f.2.1 f.2.2 (r.fld g f.1)) m
     | none => none
   else none
 
-theorem markName_eq (r : Region) (g : Nat) (st : DS) : markName r g st = markObj r kName g st := by
+theorem markName_eq (r : Region) (g : Nat) (m : ByteArray) : markName r g m = markObj r kName g m := by
   unfold markName markObj
   split
   · simp only [kidTable, ite_true]
     split <;> simp_all [List.foldlM, Option.bind_eq_bind, nameKids]
   · rfl
 
-theorem markLevel_eq (r : Region) (g : Nat) (st : DS) :
-    markLevel r g st = markObj r kLevel g st := by
+theorem markLevel_eq (r : Region) (g : Nat) (m : ByteArray) :
+    markLevel r g m = markObj r kLevel g m := by
   unfold markLevel markObj
   split
   · simp only [kidTable, show kLevel ≠ kName by decide, ite_false, ite_true]
     split <;> simp_all [List.foldlM, Option.bind_eq_bind, levelKids]
   · rfl
 
-theorem markLevels_eq (r : Region) (g : Nat) (st : DS) :
-    markLevels r g st = markObj r kLevels g st := by
+theorem markLevels_eq (r : Region) (g : Nat) (m : ByteArray) :
+    markLevels r g m = markObj r kLevels g m := by
   unfold markLevels markObj
   split
   · simp only [kidTable, show kLevels ≠ kName by decide, show kLevels ≠ kLevel by decide,
@@ -103,8 +103,8 @@ theorem markLevels_eq (r : Region) (g : Nat) (st : DS) :
     split <;> simp_all [List.foldlM, Option.bind_eq_bind, levelsKids]
   · rfl
 
-theorem markExpr_eq (r : Region) (g : Nat) (st : DS) :
-    markExpr r g st = markObj r kExpr g st := by
+theorem markExpr_eq (r : Region) (g : Nat) (m : ByteArray) :
+    markExpr r g m = markObj r kExpr g m := by
   unfold markExpr markObj
   split
   · simp only [kidTable, show kExpr ≠ kName by decide, show kExpr ≠ kLevel by decide,
@@ -154,10 +154,11 @@ theorem Kid.kind {r : Region} {k : UInt8} {g : Nat} {k' : UInt8} {c : Nat} (h : 
 
 /-! ## Marking -/
 
-theorem markPtr_eq (r : Region) (g : Nat) (k : UInt8) (nil : Bool) (v : UInt64) (st : DS) :
-    st.markPtr r g k nil v =
-      if nil = true ∧ v = 1 then some st else (r.down g v).map fun c => st.mark k (c / 8) := by
-  unfold DS.markPtr
+theorem markPtr_eq (r : Region) (g : Nat) (k : UInt8) (nil : Bool) (v : UInt64)
+    (m : ByteArray) :
+    markPtr r m g k nil v =
+      if nil = true ∧ v = 1 then some m else (r.down g v).map fun c => mark m k (c / 8) := by
+  unfold markPtr
   by_cases h : nil = true ∧ v = 1
   · simp [h]
   · have : (nil && v == 1) = false := by
@@ -168,16 +169,14 @@ theorem markPtr_eq (r : Region) (g : Nat) (k : UInt8) (nil : Bool) (v : UInt64) 
 /-- What a fold of marks does: it fails iff a field is not fine, and
 otherwise adds exactly the marks of the fields' objects. -/
 theorem foldMarks (r : Region) (g : Nat) :
-    ∀ (fs : List (Nat × UInt8 × Bool)) (st : DS), (∀ f ∈ fs, IsKind f.2.1) →
-    match fs.foldlM (fun st f => st.markPtr r g f.2.1 f.2.2 (r.fld g f.1)) st with
+    ∀ (fs : List (Nat × UInt8 × Bool)) (st : ByteArray), (∀ f ∈ fs, IsKind f.2.1) →
+    match fs.foldlM (fun m f => markPtr r m g f.2.1 f.2.2 (r.fld g f.1)) st with
     | none => ¬ ∀ f ∈ fs, FieldOK r g f.2.2 (r.fld g f.1)
     | some st' => (∀ f ∈ fs, FieldOK r g f.2.2 (r.fld g f.1)) ∧
-        st'.marks.size = st.marks.size ∧
-        st'.names = st.names ∧ st'.levels = st.levels ∧ st'.exprs = st.exprs ∧
-        st'.lists = st.lists ∧
-        ∀ k'' s, IsKind k'' → (st'.marked k'' s = true ↔ st.marked k'' s = true ∨
+        st'.size = st.size ∧
+        ∀ k'' s, IsKind k'' → (marked st' k'' s = true ↔ marked st k'' s = true ∨
           ∃ i k' nil, (i, k', nil) ∈ fs ∧ k' = k'' ∧ ¬(nil = true ∧ r.fld g i = 1) ∧
-            ∃ c, r.down g (r.fld g i) = some c ∧ c / 8 = s ∧ s < st.marks.size)
+            ∃ c, r.down g (r.fld g i) = some c ∧ c / 8 = s ∧ s < st.size)
   | [], st, _ => by simp [List.foldlM]
   | (i, k', nil) :: fs, st, hk => by
     have hk1 : IsKind k' := hk (i, k', nil) List.mem_cons_self
@@ -194,8 +193,8 @@ theorem foldMarks (r : Region) (g : Nat) :
         intro hall; exact ih (fun f hf => hall f (by simp [hf]))
       · rename_i st' heq
         simp only [bind, Option.bind, heq]
-        obtain ⟨hok, hs, h1, h2, h3, h4, hm⟩ := ih
-        refine ⟨?_, hs, h1, h2, h3, h4, ?_⟩
+        obtain ⟨hok, hs, hm⟩ := ih
+        refine ⟨?_, hs, ?_⟩
         · intro f hf
           simp only [List.mem_cons] at hf
           rcases hf with rfl | hf
@@ -222,24 +221,22 @@ theorem foldMarks (r : Region) (g : Nat) :
         simp [FieldOK, hd, hn] at this
       | some c =>
         simp only [Option.map_some, bind, Option.bind_some]
-        have ih := foldMarks r g fs (st.mark k' (c / 8)) hk2
+        have ih := foldMarks r g fs (mark st k' (c / 8)) hk2
         split at ih
         · rename_i heq
           skip
           intro hall; exact ih (fun f hf => hall f (by simp [hf]))
         · rename_i st' heq
           skip
-          obtain ⟨hok, hs, h1, h2, h3, h4, hm⟩ := ih
-          have hv := DS.mark_values st k' (c / 8)
-          refine ⟨?_, by rw [hs, DS.marks_mark_size], by rw [h1, hv.1], by rw [h2, hv.2.1],
-            by rw [h3, hv.2.2.1], by rw [h4, hv.2.2.2], ?_⟩
+          obtain ⟨hok, hs, hm⟩ := ih
+          refine ⟨?_, by rw [hs, size_mark], ?_⟩
           · intro f hf
             simp only [List.mem_cons] at hf
             rcases hf with rfl | hf
             · exact Or.inr (by simp [hd])
             · exact hok f hf
           · intro k'' s hk''
-            rw [hm k'' s hk'', DS.marked_mark st hk1 hk'', DS.marks_mark_size]
+            rw [hm k'' s hk'', marked_mark st hk1 hk'', size_mark]
             simp only [Bool.or_eq_true, Bool.and_eq_true, beq_iff_eq, decide_eq_true_eq]
             constructor
             · rintro ((h | ⟨⟨rfl, rfl⟩, hlt⟩) | ⟨i', k₁, nil', hm', rfl, hne, c', hc, hs', hlt⟩)
@@ -254,14 +251,12 @@ theorem foldMarks (r : Region) (g : Nat) :
                   exact Or.inl (Or.inr ⟨⟨hs', rfl⟩, hs' ▸ hlt⟩)
                 · exact Or.inr ⟨i', k₁, nil', hm', rfl, hne, c', hc, hs', hlt⟩
 
-theorem markObj_spec (r : Region) (k : UInt8) (g : Nat) (st : DS) :
+theorem markObj_spec (r : Region) (k : UInt8) (g : Nat) (st : ByteArray) :
     match markObj r k g st with
     | none => ¬ MarkOK r k g
-    | some st' => MarkOK r k g ∧ st'.marks.size = st.marks.size ∧
-        st'.names = st.names ∧ st'.levels = st.levels ∧ st'.exprs = st.exprs ∧
-        st'.lists = st.lists ∧
-        ∀ k'' s, IsKind k'' → (st'.marked k'' s = true ↔ st.marked k'' s = true ∨
-          ∃ c, Kid r k g k'' c ∧ c / 8 = s ∧ s < st.marks.size) := by
+    | some st' => MarkOK r k g ∧ st'.size = st.size ∧
+        ∀ k'' s, IsKind k'' → (marked st' k'' s = true ↔ marked st k'' s = true ∨
+          ∃ c, Kid r k g k'' c ∧ c / 8 = s ∧ s < st.size) := by
   unfold markObj
   by_cases hf : r.fits g = true
   · simp only [hf, ite_true]
@@ -274,8 +269,8 @@ theorem markObj_spec (r : Region) (k : UInt8) (g : Nat) (st : DS) :
         rintro ⟨_, fs', hfs', hall⟩
         rw [hfs] at hfs'; cases hfs'; exact this hall
       · rename_i st' heq
-        obtain ⟨hok, hs, h1, h2, h3, h4, hm⟩ := this
-        refine ⟨⟨hf, fs, hfs, hok⟩, hs, h1, h2, h3, h4, ?_⟩
+        obtain ⟨hok, hs, hm⟩ := this
+        refine ⟨⟨hf, fs, hfs, hok⟩, hs, ?_⟩
         intro k'' s hk''
         rw [hm k'' s hk'']
         constructor

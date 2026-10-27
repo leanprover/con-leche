@@ -68,52 +68,53 @@ def kLevel : UInt8 := 2
 def kExpr : UInt8 := 4
 def kLevels : UInt8 := 8
 
-/-- The decoder's memo: per slot `s`, bit `k` of mark byte `s` says the
-object at location `8 s` is read as kind `k`; the arrays hold the
-values. -/
+/-! The marks: per slot `s`, bit `k` of byte `s` says the object at
+location `8 s` is read as kind `k`.  The marking pass threads the mark
+bytes alone; the building pass reads them and threads the values. -/
+
+/-- The mark byte of slot `s`.  Not inlined: a read of the marks that
+the compiler sank past the next update would hold the array at
+reference count 2 and make that update copy it. -/
+@[noinline] def marksAt (m : @& ByteArray) (s : Nat) : UInt8 := rdU8 m s
+
+/-- Is the object at slot `s` read as kind `k`? -/
+@[inline] def marked (m : @& ByteArray) (k : UInt8) (s : Nat) : Bool := marksAt m s &&& k != 0
+
+/-- Mark the object at slot `s` as kind `k`. -/
+@[inline] def mark (m : ByteArray) (k : UInt8) (s : Nat) : ByteArray :=
+  let x := marksAt m s
+  m.set! s (x ||| k)
+
+/-- The decoder's values, per slot, one array per kind. -/
 structure DS where
-  marks : ByteArray
   names : Array Name
   levels : Array Level
   exprs : Array Expr
   lists : Array (List Level)
 
-/-- A fresh memo for `n` slots.  The expressions' filler is `.bvar n`,
+/-- Fresh values for `n` slots.  The expressions' filler is `.bvar n`,
 built here: a closed term would be a shared constant of the runtime,
 marked multi-threaded, and freeing the array would pay an atomic
 decrement per slot. -/
 def DS.fresh (n : Nat) : DS :=
-  ⟨zeros n, Array.replicate n .anonymous, Array.replicate n .zero,
-   Array.replicate n (.bvar n), Array.replicate n []⟩
-
-/-- The mark byte of slot `s`.  Not inlined: a read of `marks` that the
-compiler sank past the next update would hold the array at reference
-count 2 and make that update copy it. -/
-@[noinline] def DS.marksAt (st : @& DS) (s : Nat) : UInt8 := rdU8 st.marks s
-
-/-- Is the object at slot `s` read as kind `k`? -/
-@[inline] def DS.marked (st : @& DS) (k : UInt8) (s : Nat) : Bool := st.marksAt s &&& k != 0
-
-@[inline] def DS.mark (st : DS) (k : UInt8) (s : Nat) : DS :=
-  let m := st.marksAt s
-  let { marks, names, levels, exprs, lists } := st
-  { marks := marks.set! s (m ||| k), names, levels, exprs, lists }
+  ⟨Array.replicate n .anonymous, Array.replicate n .zero, Array.replicate n (.bvar n),
+   Array.replicate n []⟩
 
 @[inline] def DS.setName (st : DS) (s : Nat) (v : Name) : DS :=
-  let { marks, names, levels, exprs, lists } := st
-  { marks, names := names.set! s v, levels, exprs, lists }
+  let { names, levels, exprs, lists } := st
+  { names := names.set! s v, levels, exprs, lists }
 
 @[inline] def DS.setLevel (st : DS) (s : Nat) (v : Level) : DS :=
-  let { marks, names, levels, exprs, lists } := st
-  { marks, names, levels := levels.set! s v, exprs, lists }
+  let { names, levels, exprs, lists } := st
+  { names, levels := levels.set! s v, exprs, lists }
 
 @[inline] def DS.setExpr (st : DS) (s : Nat) (v : Expr) : DS :=
-  let { marks, names, levels, exprs, lists } := st
-  { marks, names, levels, exprs := exprs.set! s v, lists }
+  let { names, levels, exprs, lists } := st
+  { names, levels, exprs := exprs.set! s v, lists }
 
 @[inline] def DS.setLevels (st : DS) (s : Nat) (v : List Level) : DS :=
-  let { marks, names, levels, exprs, lists } := st
-  { marks, names, levels, exprs, lists := lists.set! s v }
+  let { names, levels, exprs, lists } := st
+  { names, levels, exprs, lists := lists.set! s v }
 
 /-- The memoized values of the object at location `c`. -/
 @[inline] def DS.nameV (st : @& DS) (c : Nat) : Name := st.names.getD (c / 8) .anonymous
@@ -126,80 +127,90 @@ count 2 and make that update copy it. -/
 /-- Mark the object a pointer field of the object at `g` leads to, as
 kind `k`; `nil` says the kind's nullary constructor is the scalar `0`
 (`Name.anonymous`, `Level.zero`, `[]`). -/
-@[inline] def DS.markPtr (r : @& Region) (g : Nat) (k : UInt8) (nil : Bool) (v : UInt64)
-    (st : DS) : Option DS :=
-  if nil && v == 1 then some st
+@[inline] def markPtr (r : @& Region) (m : ByteArray) (g : Nat) (k : UInt8) (nil : Bool)
+    (v : UInt64) : Option ByteArray :=
+  if nil && v == 1 then some m
   else match r.down g v with
-    | some c => some (st.mark k (c / 8))
+    | some c => some (mark m k (c / 8))
     | none => none
 
 /-- The fields of a `Name` object (`nameNode`). -/
-@[inline] def markName (r : @& Region) (g : Nat) (st : DS) : Option DS :=
+@[inline] def markName (r : @& Region) (g : Nat) (m : ByteArray) : Option ByteArray :=
   if r.fits g then
     match r.tag g, r.nobjs g with
-    | 1, 2 => st.markPtr r g kName true (r.fld g 0)
-    | 2, 2 => st.markPtr r g kName true (r.fld g 0)
+    | 1, 2 => markPtr r m g kName true (r.fld g 0)
+    | 2, 2 => markPtr r m g kName true (r.fld g 0)
     | _, _ => none
   else none
 
 /-- The fields of a `Level` object (`levelNode`). -/
-@[inline] def markLevel (r : @& Region) (g : Nat) (st : DS) : Option DS :=
+@[inline] def markLevel (r : @& Region) (g : Nat) (m : ByteArray) : Option ByteArray :=
   if r.fits g then
     match r.tag g, r.nobjs g with
-    | 0, 0 => some st
-    | 1, 1 => st.markPtr r g kLevel true (r.fld g 0)
-    | 2, 2 => (st.markPtr r g kLevel true (r.fld g 0)).bind (·.markPtr r g kLevel true (r.fld g 1))
-    | 3, 2 => (st.markPtr r g kLevel true (r.fld g 0)).bind (·.markPtr r g kLevel true (r.fld g 1))
-    | 4, 1 => st.markPtr r g kName true (r.fld g 0)
+    | 0, 0 => some m
+    | 1, 1 => markPtr r m g kLevel true (r.fld g 0)
+    | 2, 2 => (markPtr r m g kLevel true (r.fld g 0)).bind
+        (fun m => markPtr r m g kLevel true (r.fld g 1))
+    | 3, 2 => (markPtr r m g kLevel true (r.fld g 0)).bind
+        (fun m => markPtr r m g kLevel true (r.fld g 1))
+    | 4, 1 => markPtr r m g kName true (r.fld g 0)
     | _, _ => none
   else none
 
 /-- The fields of a `List Level` cell (`levelsNode`). -/
-@[inline] def markLevels (r : @& Region) (g : Nat) (st : DS) : Option DS :=
+@[inline] def markLevels (r : @& Region) (g : Nat) (m : ByteArray) : Option ByteArray :=
   if r.fits g then
     match r.tag g, r.nobjs g with
-    | 1, 2 => (st.markPtr r g kLevel true (r.fld g 0)).bind (·.markPtr r g kLevels true (r.fld g 1))
+    | 1, 2 => (markPtr r m g kLevel true (r.fld g 0)).bind
+        (fun m => markPtr r m g kLevels true (r.fld g 1))
     | _, _ => none
   else none
 
 /-- The fields of an `Expr` object (`exprNode`); the fields holding a
 `Nat` or a `Literal` are read by the build alone. -/
-@[inline] def markExpr (r : @& Region) (g : Nat) (st : DS) : Option DS :=
+@[inline] def markExpr (r : @& Region) (g : Nat) (m : ByteArray) : Option ByteArray :=
   if r.fits g then
     match r.tag g, r.nobjs g with
-    | 0, 1 => some st
-    | 3, 1 => st.markPtr r g kLevel true (r.fld g 0)
-    | 4, 2 => (st.markPtr r g kName true (r.fld g 0)).bind (·.markPtr r g kLevels true (r.fld g 1))
-    | 5, 2 => (st.markPtr r g kExpr false (r.fld g 0)).bind (·.markPtr r g kExpr false (r.fld g 1))
-    | 6, 3 => (st.markPtr r g kExpr false (r.fld g 1)).bind (·.markPtr r g kExpr false (r.fld g 2))
-    | 7, 3 => (st.markPtr r g kExpr false (r.fld g 1)).bind (·.markPtr r g kExpr false (r.fld g 2))
-    | 8, 4 => ((st.markPtr r g kExpr false (r.fld g 1)).bind
-        (·.markPtr r g kExpr false (r.fld g 2))).bind (·.markPtr r g kExpr false (r.fld g 3))
-    | 9, 1 => some st
-    | 10, 2 => st.markPtr r g kExpr false (r.fld g 1)
-    | 11, 3 => (st.markPtr r g kName true (r.fld g 0)).bind (·.markPtr r g kExpr false (r.fld g 2))
+    | 0, 1 => some m
+    | 3, 1 => markPtr r m g kLevel true (r.fld g 0)
+    | 4, 2 => (markPtr r m g kName true (r.fld g 0)).bind
+        (fun m => markPtr r m g kLevels true (r.fld g 1))
+    | 5, 2 => (markPtr r m g kExpr false (r.fld g 0)).bind
+        (fun m => markPtr r m g kExpr false (r.fld g 1))
+    | 6, 3 => (markPtr r m g kExpr false (r.fld g 1)).bind
+        (fun m => markPtr r m g kExpr false (r.fld g 2))
+    | 7, 3 => (markPtr r m g kExpr false (r.fld g 1)).bind
+        (fun m => markPtr r m g kExpr false (r.fld g 2))
+    | 8, 4 => ((markPtr r m g kExpr false (r.fld g 1)).bind
+        (fun m => markPtr r m g kExpr false (r.fld g 2))).bind
+        (fun m => markPtr r m g kExpr false (r.fld g 3))
+    | 9, 1 => some m
+    | 10, 2 => markPtr r m g kExpr false (r.fld g 1)
+    | 11, 3 => (markPtr r m g kName true (r.fld g 0)).bind
+        (fun m => markPtr r m g kExpr false (r.fld g 2))
     | _, _ => none
   else none
 
 /-- Slot `p`'s fields, if it is marked as kind `k`. -/
-@[inline] def markKind (r : @& Region) (k : UInt8) (mark : Region → Nat → DS → Option DS)
-    (p : Nat) (st : DS) : Option DS :=
-  if st.marked k p then mark r (8 * p) st else some st
+@[inline] def markKind (r : @& Region) (k : UInt8)
+    (markK : Region → Nat → ByteArray → Option ByteArray) (p : Nat) (m : ByteArray) :
+    Option ByteArray :=
+  if marked m k p then markK r (8 * p) m else some m
 
 /-- One slot of the downward sweep: its marked kinds' fields. -/
-@[inline] def markSlot (r : @& Region) (p : Nat) (st : DS) : Option DS :=
-  (((markKind r kName markName p st).bind (markKind r kLevel markLevel p)).bind
+@[inline] def markSlot (r : @& Region) (p : Nat) (m : ByteArray) : Option ByteArray :=
+  (((markKind r kName markName p m).bind (markKind r kLevel markLevel p)).bind
     (markKind r kLevels markLevels p)).bind (markKind r kExpr markExpr p)
 
 /-- **The downward sweep** over the slots below `p`. -/
-def markPass (r : @& Region) (st : DS) : Nat → Option DS
-  | 0 => some st
+def markPass (r : @& Region) (m : ByteArray) : Nat → Option ByteArray
+  | 0 => some m
   | p + 1 =>
-    if st.marksAt p != 0 then
-      match markSlot r p st with
-      | some st => markPass r st p
+    if marksAt m p != 0 then
+      match markSlot r p m with
+      | some m => markPass r m p
       | none => none
-    else markPass r st p
+    else markPass r m p
 
 /-! ## Pass 2: building -/
 
@@ -217,41 +228,41 @@ def markPass (r : @& Region) (st : DS) : Nat → Option DS
     (fun c _ => some (st.levelV c)) (fun c _ => some (st.levelsV c))
 
 /-- Slot `p`'s value as kind `k`, if it is marked so. -/
-@[inline] def buildKind {α : Type} (r : @& Region) (k : UInt8)
+@[inline] def buildKind {α : Type} (r : @& Region) (m : @& ByteArray) (k : UInt8)
     (build : Region → Nat → DS → Option α) (set : DS → Nat → α → DS) (p : Nat) (st : DS) :
     Option DS :=
-  if st.marked k p then
+  if marked m k p then
     match build r (8 * p) st with
     | some v => some (set st p v)
     | none => none
   else some st
 
 /-- One slot of the upward sweep: its marked kinds' values. -/
-@[inline] def buildSlot (r : @& Region) (p : Nat) (st : DS) : Option DS :=
-  (((buildKind r kName buildName DS.setName p st).bind
-    (buildKind r kLevel buildLevel DS.setLevel p)).bind
-    (buildKind r kLevels buildLevels DS.setLevels p)).bind
-    (buildKind r kExpr buildExpr DS.setExpr p)
+@[inline] def buildSlot (r : @& Region) (m : @& ByteArray) (p : Nat) (st : DS) : Option DS :=
+  (((buildKind r m kName buildName DS.setName p st).bind
+    (buildKind r m kLevel buildLevel DS.setLevel p)).bind
+    (buildKind r m kLevels buildLevels DS.setLevels p)).bind
+    (buildKind r m kExpr buildExpr DS.setExpr p)
 
 /-- **The upward sweep** over the slots from `p` to `n`. -/
-def buildPass (r : @& Region) (n : Nat) (st : DS) (p : Nat) : Option DS :=
+def buildPass (r : @& Region) (m : @& ByteArray) (n : Nat) (st : DS) (p : Nat) : Option DS :=
   if p < n then
-    if st.marksAt p != 0 then
-      match buildSlot r p st with
-      | some st => buildPass r n st (p + 1)
+    if marksAt m p != 0 then
+      match buildSlot r m p st with
+      | some st => buildPass r m n st (p + 1)
       | none => none
-    else buildPass r n st (p + 1)
+    else buildPass r m n st (p + 1)
   else some st
 termination_by n - p
 
 /-! ## The roots -/
 
 /-- Mark a root: a name (`nil`) or an expression the skeletons hold. -/
-@[inline] def DS.markRoot (r : @& Region) (k : UInt8) (nil : Bool) (st : DS) (v : UInt64) :
-    Option DS :=
-  if nil && v == 1 then some st
+@[inline] def markRoot (r : @& Region) (k : UInt8) (nil : Bool) (m : ByteArray) (v : UInt64) :
+    Option ByteArray :=
+  if nil && v == 1 then some m
   else match r.loc v with
-    | some c => some (st.mark k (c / 8))
+    | some c => some (mark m k (c / 8))
     | none => none
 
 /-- The highest location of a root. -/
@@ -263,10 +274,10 @@ object they reach lies at or below the highest root, so the memo ends
 there. -/
 def runPasses (r : @& Region) (names exprs : List UInt64) : Option DS := do
   let n := maxLoc r exprs (maxLoc r names 0) / 8 + 1
-  let st ← names.foldlM (DS.markRoot r kName true) (DS.fresh n)
-  let st ← exprs.foldlM (DS.markRoot r kExpr false) st
-  let st ← markPass r st n
-  buildPass r n st 0
+  let m ← names.foldlM (markRoot r kName true) (zeros n)
+  let m ← exprs.foldlM (markRoot r kExpr false) m
+  let m ← markPass r m n
+  buildPass r m n (DS.fresh n) 0
 
 /-- A root's value, from the memo. -/
 @[inline] def DS.nameOf (r : @& Region) (st : @& DS) (v : UInt64) : Option Name :=

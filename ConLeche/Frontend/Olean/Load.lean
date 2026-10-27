@@ -81,22 +81,32 @@ def readPart (p : System.FilePath) : IO (Except CheckError Part) := do
 /-- A name from its components. -/
 def mkN (cs : List String) : Name := cs.foldl .str .anonymous
 
-/-- The DAG walk of `constsOf`. -/
+/-- The DAG walk of `constsOf`.  A name is added by `addN`, written out
+at each leaf so that no pair is allocated per node. -/
 partial def constsGo (stack : List Expr) (seen : Std.HashSet Expr) (seenN : Std.HashSet Name)
     (out : Array Name) : Array Name :=
-  let add (n : Name) (s : Std.HashSet Name) (o : Array Name) :=
-    if s.contains n then (s, o) else (s.insert n, o.push n)
   match stack with
   | [] => out
   | e :: rest =>
     -- leaves need no visited entry: only compound nodes are shared work
     match e with
-    | .const n _ => let (s, o) := add n seenN out; constsGo rest seen s o
-    | .lit (.natVal _) => let (s, o) := add (mkN ["Nat"]) seenN out; constsGo rest seen s o
+    | .const n _ =>
+      if seenN.contains n then constsGo rest seen seenN out
+      else constsGo rest seen (seenN.insert n) (out.push n)
+    | .lit (.natVal _) =>
+      let n := mkN ["Nat"]
+      if seenN.contains n then constsGo rest seen seenN out
+      else constsGo rest seen (seenN.insert n) (out.push n)
     | .lit (.strVal _) =>
-      let (s, o) := add (mkN ["Char", "ofNat"]) seenN out
-      let (s, o) := add (mkN ["String", "ofList"]) s o
-      constsGo rest seen s o
+      let n₁ := mkN ["Char", "ofNat"]
+      let n₂ := mkN ["String", "ofList"]
+      if seenN.contains n₁ && seenN.contains n₂ then constsGo rest seen seenN out
+      else
+        let (seenN, out) := if seenN.contains n₁ then (seenN, out)
+          else (seenN.insert n₁, out.push n₁)
+        let (seenN, out) := if seenN.contains n₂ then (seenN, out)
+          else (seenN.insert n₂, out.push n₂)
+        constsGo rest seen seenN out
     | .bvar _ | .sort _ => constsGo rest seen seenN out
     | _ =>
       if seen.contains e then constsGo rest seen seenN out

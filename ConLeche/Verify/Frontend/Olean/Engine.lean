@@ -51,21 +51,21 @@ theorem rootsFold {r : Region} {A : Prop} {n : Nat} {K : UInt8} (hK : IsKind K) 
     {P : UInt64 → Prop}
     (hP : ∀ v, ¬ (nil = true ∧ v = 1) → P v → ∃ c, r.loc v = some c ∧ KindOK r K c)
     (hPn : ∀ v, ¬ (nil = true ∧ v = 1) → r.loc v = none → ¬ P v) :
-    ∀ (vs : List UInt64) (st : DS), st.Sized n →
+    ∀ (vs : List UInt64) (st : ByteArray), st.size = n →
       (∀ v ∈ vs, r.locGo v r.segs.size / 8 < n) → Reach r A st → (A → ∀ v ∈ vs, P v) →
-      match vs.foldlM (DS.markRoot r K nil) st with
+      match vs.foldlM (markRoot r K nil) st with
       | none => ¬ A
-      | some st' => st'.Sized n ∧ Sub st st' ∧ Reach r A st' ∧
-          ∀ v ∈ vs, ¬ (nil = true ∧ v = 1) → ∃ c, r.loc v = some c ∧ st'.marked K (c / 8) = true
+      | some st' => st'.size = n ∧ Sub st st' ∧ Reach r A st' ∧
+          ∀ v ∈ vs, ¬ (nil = true ∧ v = 1) → ∃ c, r.loc v = some c ∧ marked st' K (c / 8) = true
   | [], st, hs, _, hr, _ => by
     simp only [List.foldlM_nil]
     exact ⟨hs, Sub.refl st, hr, fun _ h => absurd h (by simp)⟩
   | v :: vs, st, hs, hb, hr, hA => by
     simp only [List.foldlM_cons]
-    have hstep : DS.markRoot r K nil st v =
+    have hstep : markRoot r K nil st v =
         if (nil && v == 1) = true then some st
         else match r.loc v with
-          | some c => some (st.mark K (c / 8))
+          | some c => some (mark st K (c / 8))
           | none => none := rfl
     rw [hstep]
     by_cases hn : nil = true ∧ v = 1
@@ -94,20 +94,20 @@ theorem rootsFold {r : Region} {A : Prop} {n : Nat} {K : UInt8} (hK : IsKind K) 
       | some c =>
         simp only [bind, Option.bind]
         have hcn : c / 8 < n := by have := hb v (by simp); rw [loc_eq hl] at this; exact this
-        have hs1 := DS.mark_sized hs K (c / 8)
-        have hr1 : Reach r A (st.mark K (c / 8)) := by
+        have hs1 : (mark st K (c / 8)).size = n := by rw [size_mark, hs]
+        have hr1 : Reach r A (mark st K (c / 8)) := by
           intro k s hk hm a
-          rw [DS.marked_mark st hK hk] at hm
+          rw [marked_mark st hK hk] at hm
           simp only [Bool.or_eq_true, Bool.and_eq_true, beq_iff_eq, decide_eq_true_eq] at hm
           rcases hm with hm | ⟨⟨rfl, rfl⟩, _⟩
           · exact hr k _ hk hm a
           · obtain ⟨c', hc', hok⟩ := hP v hn (hA a v (by simp))
             rw [hl] at hc'; cases hc'
             rw [eight_div (loc_mod hl)]; exact hok
-        have hsub1 : Sub st (st.mark K (c / 8)) := by
+        have hsub1 : Sub st (mark st K (c / 8)) := by
           intro k s hk hm
-          rw [DS.marked_mark st hK hk]; simp [hm]
-        have ih := rootsFold hK hP hPn vs (st.mark K (c / 8)) hs1
+          rw [marked_mark st hK hk]; simp [hm]
+        have ih := rootsFold hK hP hPn vs (mark st K (c / 8)) hs1
           (fun w hw => hb w (List.mem_cons_of_mem _ hw)) hr1
           (fun a w hw => hA a w (List.mem_cons_of_mem _ hw))
         split at ih
@@ -119,8 +119,8 @@ theorem rootsFold {r : Region} {A : Prop} {n : Nat} {K : UInt8} (hK : IsKind K) 
           simp only [List.mem_cons] at hw
           rcases hw with rfl | hw
           · refine ⟨c, hl, hsub K (c / 8) hK ?_⟩
-            rw [DS.marked_mark st hK hK]
-            simp [hs.marks, hcn]
+            rw [marked_mark st hK hK]
+            simp [hs, hcn]
           · exact hm w hw hnw
 
 theorem kName_kind : IsKind kName := Or.inl rfl
@@ -170,11 +170,11 @@ theorem runPasses_spec (r : Region) (names exprs : List UInt64) :
     unfold exprP at h
     simp only [hl] at h
     cases h
-  have hr0 : Reach r (RootsOK r names exprs) (DS.fresh n) := by
-    intro k s _ hm; rw [DS.fresh_marked] at hm; cases hm
-  have h1 := rootsFold (A := RootsOK r names exprs) kName_kind hP1 hPn1 names (DS.fresh n)
-    (DS.fresh_sized n) hbN hr0 (fun a => a.1)
-  cases e1 : names.foldlM (DS.markRoot r kName true) (DS.fresh n) with
+  have hr0 : Reach r (RootsOK r names exprs) (zeros n) := by
+    intro k s _ hm; rw [marked_zeros] at hm; cases hm
+  have h1 := rootsFold (A := RootsOK r names exprs) kName_kind hP1 hPn1 names (zeros n)
+    (size_zeros n) hbN hr0 (fun a => a.1)
+  cases e1 : names.foldlM (markRoot r kName true) (zeros n) with
   | none => rw [e1] at h1; simp only [bind, Option.bind, e1]; exact h1
   | some st1 =>
     rw [e1] at h1
@@ -182,7 +182,7 @@ theorem runPasses_spec (r : Region) (names exprs : List UInt64) :
     obtain ⟨hs1, _, hr1, hm1⟩ := h1
     have h2 := rootsFold (A := RootsOK r names exprs) kExpr_kind hP2 hPn2 exprs st1 hs1 hbE hr1
       (fun a => a.2)
-    cases e2 : exprs.foldlM (DS.markRoot r kExpr false) st1 with
+    cases e2 : exprs.foldlM (markRoot r kExpr false) st1 with
     | none => rw [e2] at h2; exact h2
     | some st2 =>
       rw [e2] at h2
@@ -196,16 +196,15 @@ theorem runPasses_spec (r : Region) (names exprs : List UInt64) :
         rw [e3] at h3
         obtain ⟨hs3, hsub3, hr3, hc3⟩ := h3
         simp only
-        have h4 := buildPass_spec (r := r) (A := RootsOK r names exprs) (n := n) 0 st3 hs3 hc3 hr3
-          (fun s h => absurd h (by omega))
-        cases e4 : buildPass r n st3 0 with
+        have h4 := buildPass_spec (r := r) (A := RootsOK r names exprs) (n := n) hc3 hr3 0
+          (DS.fresh n) (DS.fresh_sized n) (fun s h => absurd h (by omega))
+        cases e4 : buildPass r st3 n (DS.fresh n) 0 with
         | none => rw [e4] at h4; exact h4
         | some st4 =>
           rw [e4] at h4
-          obtain ⟨_, hm4, hb4⟩ := h4
-          have hmark : ∀ k s, IsKind k → st2.marked k s = true → st4.marked k s = true := by
-            intro k s hk h
-            rw [DS.marked_of_marks hm4]; exact hsub3 k s hk h
+          obtain ⟨_, hb4⟩ := h4
+          have hmark : ∀ k s, IsKind k → marked st2 k s = true → marked st3 k s = true :=
+            fun k s hk h => hsub3 k s hk h
           refine ⟨?_, ?_⟩
           · intro v hv
             by_cases e : v = 1

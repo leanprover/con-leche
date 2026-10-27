@@ -29,27 +29,12 @@ open ConLeche
   (k = kExpr → exprAt r (8 * s) = some (st.exprV (8 * s)))
 
 /-- Every marked object below slot `p` holds its value. -/
-@[expose] def Built (r : Region) (st : DS) (p : Nat) : Prop :=
-  ∀ s, s < p → ∀ k, IsKind k → st.marked k s = true → ValOK r st k s
-
-theorem DS.marked_of_marks {st st' : DS} (h : st'.marks = st.marks) (k : UInt8) (s : Nat) :
-    st'.marked k s = st.marked k s := by
-  simp [DS.marked, DS.marksAt, h]
-
-theorem Reach.of_marks {r : Region} {A : Prop} {st st' : DS} (h : st'.marks = st.marks)
-    (hr : Reach r A st) : Reach r A st' :=
-  fun k s hk hm => hr k s hk (by rw [← DS.marked_of_marks h]; exact hm)
-
-theorem Closed.of_marks {r : Region} {st st' : DS} {p n : Nat} (h : st'.marks = st.marks)
-    (hc : Closed r st p n) : Closed r st' p n := by
-  intro s h1 h2 k hk hm
-  rw [DS.marked_of_marks h] at hm
-  obtain ⟨hok, hkids⟩ := hc s h1 h2 k hk hm
-  exact ⟨hok, fun k' c hkc => by rw [DS.marked_of_marks h]; exact hkids k' c hkc⟩
+@[expose] def Built (r : Region) (m : ByteArray) (st : DS) (p : Nat) : Prop :=
+  ∀ s, s < p → ∀ k, IsKind k → marked m k s = true → ValOK r st k s
 
 /-- A kid below the sweep holds its value, read through the memo. -/
-theorem kid_val {r : Region} {st : DS} {p n : Nat} (hc : Closed r st 0 n) (hb : Built r st p)
-    (hpn : p < n) {k : UInt8} (hk : IsKind k) (hm : st.marked k p = true)
+theorem kid_val {r : Region} {m : ByteArray} {st : DS} {p n : Nat} (hc : Closed r m 0 n)
+    (hb : Built r m st p) (hpn : p < n) {k : UInt8} (hk : IsKind k) (hm : marked m k p = true)
     {k' : UInt8} {c : Nat} (hkid : Kid r k (8 * p) k' c) : ValOK r st k' (c / 8) := by
   have hlt := hkid.lt
   have hmod := hkid.mod
@@ -59,8 +44,8 @@ theorem eight_div {c : Nat} (h : c % 8 = 0) : 8 * (c / 8) = c := by omega
 
 /-! ## One kind at one slot -/
 
-theorem kid_spec {r : Region} {st : DS} {p n : Nat} (hc : Closed r st 0 n) (hb : Built r st p)
-    (hpn : p < n) {k : UInt8} (hk : IsKind k) (hm : st.marked k p = true)
+theorem kid_spec {r : Region} {m : ByteArray} {st : DS} {p n : Nat} (hc : Closed r m 0 n)
+    (hb : Built r m st p) (hpn : p < n) {k : UInt8} (hk : IsKind k) (hm : marked m k p = true)
     {k' : UInt8} {c : Nat} (hkid : Kid r k (8 * p) k' c) :
     (k' = kName → nameAt r c = some (st.nameV c)) ∧ (k' = kLevel → levelAt r c = some (st.levelV c)) ∧
     (k' = kLevels → levelsAt r c = some (st.levelsV c)) ∧ (k' = kExpr → exprAt r c = some (st.exprV c)) := by
@@ -83,11 +68,11 @@ theorem DS.exprV_set (st : DS) (p c : Nat) (v : Expr) :
   simp only [DS.exprV, DS.setExpr, getD_set!]
 
 /-- The slot's kinds `ks` are done, and every slot below it. -/
-@[expose] def DoneAt (r : Region) (st : DS) (p : Nat) (ks : List UInt8) : Prop :=
-  Built r st p ∧ ∀ k ∈ ks, IsKind k → st.marked k p = true → ValOK r st k p
+@[expose] def DoneAt (r : Region) (m : ByteArray) (st : DS) (p : Nat) (ks : List UInt8) : Prop :=
+  Built r m st p ∧ ∀ k ∈ ks, IsKind k → marked m k p = true → ValOK r st k p
 
-theorem buildName_eq {r : Region} {st : DS} {p n : Nat} (hc0 : Closed r st 0 n)
-    (hb : Built r st p) (hpn : p < n) (hm : st.marked kName p = true) :
+theorem buildName_eq {r : Region} {m : ByteArray} {st : DS} {p n : Nat} (hc0 : Closed r m 0 n)
+    (hb : Built r m st p) (hpn : p < n) (hm : marked m kName p = true) :
     buildName r (8 * p) st = nameAt r (8 * p) := by
   have hk : IsKind kName := by unfold IsKind; simp
   rw [nameAt]
@@ -119,8 +104,8 @@ theorem ValOK_setName {r : Region} {st : DS} {p : Nat} {v : Name} {k : UInt8} {s
     · exact h3 e'
     · exact h4 e'
 
-theorem buildLevel_eq {r : Region} {st : DS} {p n : Nat} (hc0 : Closed r st 0 n)
-    (hb : Built r st p) (hpn : p < n) (hm : st.marked kLevel p = true) :
+theorem buildLevel_eq {r : Region} {m : ByteArray} {st : DS} {p n : Nat} (hc0 : Closed r m 0 n)
+    (hb : Built r m st p) (hpn : p < n) (hm : marked m kLevel p = true) :
     buildLevel r (8 * p) st = levelAt r (8 * p) := by
   have hk : IsKind kLevel := by unfold IsKind; simp
   rw [levelAt]
@@ -152,8 +137,8 @@ theorem ValOK_setLevel {r : Region} {st : DS} {p : Nat} {v : Level} {k : UInt8} 
     · exact h3 e'
     · exact h4 e'
 
-theorem buildLevels_eq {r : Region} {st : DS} {p n : Nat} (hc0 : Closed r st 0 n)
-    (hb : Built r st p) (hpn : p < n) (hm : st.marked kLevels p = true) :
+theorem buildLevels_eq {r : Region} {m : ByteArray} {st : DS} {p n : Nat} (hc0 : Closed r m 0 n)
+    (hb : Built r m st p) (hpn : p < n) (hm : marked m kLevels p = true) :
     buildLevels r (8 * p) st = levelsAt r (8 * p) := by
   have hk : IsKind kLevels := by unfold IsKind; simp
   rw [levelsAt]
@@ -185,8 +170,8 @@ theorem ValOK_setLevels {r : Region} {st : DS} {p : Nat} {v : List Level} {k : U
       · rw [h3 e', e h]
     · exact h4 e'
 
-theorem buildExpr_eq {r : Region} {st : DS} {p n : Nat} (hc0 : Closed r st 0 n)
-    (hb : Built r st p) (hpn : p < n) (hm : st.marked kExpr p = true) :
+theorem buildExpr_eq {r : Region} {m : ByteArray} {st : DS} {p n : Nat} (hc0 : Closed r m 0 n)
+    (hb : Built r m st p) (hpn : p < n) (hm : marked m kExpr p = true) :
     buildExpr r (8 * p) st = exprAt r (8 * p) := by
   have hk : IsKind kExpr := by unfold IsKind; simp
   rw [exprAt]
@@ -218,15 +203,15 @@ theorem ValOK_setExpr {r : Region} {st : DS} {p : Nat} {v : Expr} {k : UInt8} {s
       · exact absurd e' h
       · rw [h4 e', e h]
 
-theorem buildKind_name_spec {r : Region} {A : Prop} {st : DS} {p n : Nat} {ks : List UInt8}
-    (hs : st.Sized n) (hpn : p < n) (hc : Closed r st 0 n) (hr : Reach r A st)
-    (hd : DoneAt r st p ks) :
-    match buildKind r kName buildName DS.setName p st with
+theorem buildKind_name_spec {r : Region} {A : Prop} {m : ByteArray} {st : DS} {p n : Nat}
+    {ks : List UInt8} (hs : st.Sized n) (hpn : p < n) (hc : Closed r m 0 n) (hr : Reach r A m)
+    (hd : DoneAt r m st p ks) :
+    match buildKind r m kName buildName DS.setName p st with
     | none => ¬ A
-    | some st' => st'.Sized n ∧ st'.marks = st.marks ∧ DoneAt r st' p (kName :: ks) := by
+    | some st' => st'.Sized n ∧ DoneAt r m st' p (kName :: ks) := by
   have hk : IsKind kName := by unfold IsKind; simp
   unfold buildKind
-  by_cases hm : st.marked kName p = true
+  by_cases hm : marked m kName p = true
   · rw [ite_eq_left_of_eq_true _ _ (eq_true hm), buildName_eq hc hd.1 hpn hm]
     cases hv : nameAt r (8 * p) with
     | none =>
@@ -234,7 +219,7 @@ theorem buildKind_name_spec {r : Region} {A : Prop} {st : DS} {p n : Nat} {ks : 
       have := (hr kName p hk hm hA).1 rfl
       rw [hv] at this; cases this
     | some v =>
-      refine ⟨DS.setName_sized hs p v, rfl, ?_, ?_⟩
+      refine ⟨DS.setName_sized hs p v, ?_, ?_⟩
       · intro s hsp k' hk' hmk
         exact (ValOK_setName (Or.inr (by omega))).mpr (hd.1 s hsp k' hk' hmk)
       · intro k' hk'm hk' hmk
@@ -249,22 +234,22 @@ theorem buildKind_name_spec {r : Region} {A : Prop} {st : DS} {p n : Nat} {ks : 
             exact hk'm.resolve_left ek
           exact (ValOK_setName (Or.inl ek)).mpr (hd.2 k' hk'm' hk' hmk)
   · rw [ite_eq_right_of_eq_false _ _ (eq_false hm)]
-    refine ⟨hs, rfl, hd.1, ?_⟩
+    refine ⟨hs, hd.1, ?_⟩
     intro k' hk'm hk' hmk
     by_cases ek : k' = kName
     · subst ek; exact absurd hmk hm
     · simp only [List.mem_cons] at hk'm
       exact hd.2 k' (hk'm.resolve_left ek) hk' hmk
 
-theorem buildKind_level_spec {r : Region} {A : Prop} {st : DS} {p n : Nat} {ks : List UInt8}
-    (hs : st.Sized n) (hpn : p < n) (hc : Closed r st 0 n) (hr : Reach r A st)
-    (hd : DoneAt r st p ks) :
-    match buildKind r kLevel buildLevel DS.setLevel p st with
+theorem buildKind_level_spec {r : Region} {A : Prop} {m : ByteArray} {st : DS} {p n : Nat}
+    {ks : List UInt8} (hs : st.Sized n) (hpn : p < n) (hc : Closed r m 0 n) (hr : Reach r A m)
+    (hd : DoneAt r m st p ks) :
+    match buildKind r m kLevel buildLevel DS.setLevel p st with
     | none => ¬ A
-    | some st' => st'.Sized n ∧ st'.marks = st.marks ∧ DoneAt r st' p (kLevel :: ks) := by
+    | some st' => st'.Sized n ∧ DoneAt r m st' p (kLevel :: ks) := by
   have hk : IsKind kLevel := by unfold IsKind; simp
   unfold buildKind
-  by_cases hm : st.marked kLevel p = true
+  by_cases hm : marked m kLevel p = true
   · rw [ite_eq_left_of_eq_true _ _ (eq_true hm), buildLevel_eq hc hd.1 hpn hm]
     cases hv : levelAt r (8 * p) with
     | none =>
@@ -272,7 +257,7 @@ theorem buildKind_level_spec {r : Region} {A : Prop} {st : DS} {p n : Nat} {ks :
       have := (hr kLevel p hk hm hA).2.1 rfl
       rw [hv] at this; cases this
     | some v =>
-      refine ⟨DS.setLevel_sized hs p v, rfl, ?_, ?_⟩
+      refine ⟨DS.setLevel_sized hs p v, ?_, ?_⟩
       · intro s hsp k' hk' hmk
         exact (ValOK_setLevel (Or.inr (by omega))).mpr (hd.1 s hsp k' hk' hmk)
       · intro k' hk'm hk' hmk
@@ -287,22 +272,22 @@ theorem buildKind_level_spec {r : Region} {A : Prop} {st : DS} {p n : Nat} {ks :
             exact hk'm.resolve_left ek
           exact (ValOK_setLevel (Or.inl ek)).mpr (hd.2 k' hk'm' hk' hmk)
   · rw [ite_eq_right_of_eq_false _ _ (eq_false hm)]
-    refine ⟨hs, rfl, hd.1, ?_⟩
+    refine ⟨hs, hd.1, ?_⟩
     intro k' hk'm hk' hmk
     by_cases ek : k' = kLevel
     · subst ek; exact absurd hmk hm
     · simp only [List.mem_cons] at hk'm
       exact hd.2 k' (hk'm.resolve_left ek) hk' hmk
 
-theorem buildKind_levels_spec {r : Region} {A : Prop} {st : DS} {p n : Nat} {ks : List UInt8}
-    (hs : st.Sized n) (hpn : p < n) (hc : Closed r st 0 n) (hr : Reach r A st)
-    (hd : DoneAt r st p ks) :
-    match buildKind r kLevels buildLevels DS.setLevels p st with
+theorem buildKind_levels_spec {r : Region} {A : Prop} {m : ByteArray} {st : DS} {p n : Nat}
+    {ks : List UInt8} (hs : st.Sized n) (hpn : p < n) (hc : Closed r m 0 n) (hr : Reach r A m)
+    (hd : DoneAt r m st p ks) :
+    match buildKind r m kLevels buildLevels DS.setLevels p st with
     | none => ¬ A
-    | some st' => st'.Sized n ∧ st'.marks = st.marks ∧ DoneAt r st' p (kLevels :: ks) := by
+    | some st' => st'.Sized n ∧ DoneAt r m st' p (kLevels :: ks) := by
   have hk : IsKind kLevels := by unfold IsKind; simp
   unfold buildKind
-  by_cases hm : st.marked kLevels p = true
+  by_cases hm : marked m kLevels p = true
   · rw [ite_eq_left_of_eq_true _ _ (eq_true hm), buildLevels_eq hc hd.1 hpn hm]
     cases hv : levelsAt r (8 * p) with
     | none =>
@@ -310,7 +295,7 @@ theorem buildKind_levels_spec {r : Region} {A : Prop} {st : DS} {p n : Nat} {ks 
       have := (hr kLevels p hk hm hA).2.2.1 rfl
       rw [hv] at this; cases this
     | some v =>
-      refine ⟨DS.setLevels_sized hs p v, rfl, ?_, ?_⟩
+      refine ⟨DS.setLevels_sized hs p v, ?_, ?_⟩
       · intro s hsp k' hk' hmk
         exact (ValOK_setLevels (Or.inr (by omega))).mpr (hd.1 s hsp k' hk' hmk)
       · intro k' hk'm hk' hmk
@@ -325,22 +310,22 @@ theorem buildKind_levels_spec {r : Region} {A : Prop} {st : DS} {p n : Nat} {ks 
             exact hk'm.resolve_left ek
           exact (ValOK_setLevels (Or.inl ek)).mpr (hd.2 k' hk'm' hk' hmk)
   · rw [ite_eq_right_of_eq_false _ _ (eq_false hm)]
-    refine ⟨hs, rfl, hd.1, ?_⟩
+    refine ⟨hs, hd.1, ?_⟩
     intro k' hk'm hk' hmk
     by_cases ek : k' = kLevels
     · subst ek; exact absurd hmk hm
     · simp only [List.mem_cons] at hk'm
       exact hd.2 k' (hk'm.resolve_left ek) hk' hmk
 
-theorem buildKind_expr_spec {r : Region} {A : Prop} {st : DS} {p n : Nat} {ks : List UInt8}
-    (hs : st.Sized n) (hpn : p < n) (hc : Closed r st 0 n) (hr : Reach r A st)
-    (hd : DoneAt r st p ks) :
-    match buildKind r kExpr buildExpr DS.setExpr p st with
+theorem buildKind_expr_spec {r : Region} {A : Prop} {m : ByteArray} {st : DS} {p n : Nat}
+    {ks : List UInt8} (hs : st.Sized n) (hpn : p < n) (hc : Closed r m 0 n) (hr : Reach r A m)
+    (hd : DoneAt r m st p ks) :
+    match buildKind r m kExpr buildExpr DS.setExpr p st with
     | none => ¬ A
-    | some st' => st'.Sized n ∧ st'.marks = st.marks ∧ DoneAt r st' p (kExpr :: ks) := by
+    | some st' => st'.Sized n ∧ DoneAt r m st' p (kExpr :: ks) := by
   have hk : IsKind kExpr := by unfold IsKind; simp
   unfold buildKind
-  by_cases hm : st.marked kExpr p = true
+  by_cases hm : marked m kExpr p = true
   · rw [ite_eq_left_of_eq_true _ _ (eq_true hm), buildExpr_eq hc hd.1 hpn hm]
     cases hv : exprAt r (8 * p) with
     | none =>
@@ -348,7 +333,7 @@ theorem buildKind_expr_spec {r : Region} {A : Prop} {st : DS} {p n : Nat} {ks : 
       have := (hr kExpr p hk hm hA).2.2.2 rfl
       rw [hv] at this; cases this
     | some v =>
-      refine ⟨DS.setExpr_sized hs p v, rfl, ?_, ?_⟩
+      refine ⟨DS.setExpr_sized hs p v, ?_, ?_⟩
       · intro s hsp k' hk' hmk
         exact (ValOK_setExpr (Or.inr (by omega))).mpr (hd.1 s hsp k' hk' hmk)
       · intro k' hk'm hk' hmk
@@ -363,7 +348,7 @@ theorem buildKind_expr_spec {r : Region} {A : Prop} {st : DS} {p n : Nat} {ks : 
             exact hk'm.resolve_left ek
           exact (ValOK_setExpr (Or.inl ek)).mpr (hd.2 k' hk'm' hk' hmk)
   · rw [ite_eq_right_of_eq_false _ _ (eq_false hm)]
-    refine ⟨hs, rfl, hd.1, ?_⟩
+    refine ⟨hs, hd.1, ?_⟩
     intro k' hk'm hk' hmk
     by_cases ek : k' = kExpr
     · subst ek; exact absurd hmk hm
@@ -372,87 +357,83 @@ theorem buildKind_expr_spec {r : Region} {A : Prop} {st : DS} {p n : Nat} {ks : 
 
 /-! ## One slot, and the sweep -/
 
-theorem buildSlot_spec {r : Region} {A : Prop} {st : DS} {p n : Nat}
-    (hs : st.Sized n) (hpn : p < n) (hc : Closed r st 0 n) (hr : Reach r A st)
-    (hb : Built r st p) :
-    match buildSlot r p st with
+theorem buildSlot_spec {r : Region} {A : Prop} {m : ByteArray} {st : DS} {p n : Nat}
+    (hs : st.Sized n) (hpn : p < n) (hc : Closed r m 0 n) (hr : Reach r A m)
+    (hb : Built r m st p) :
+    match buildSlot r m p st with
     | none => ¬ A
-    | some st' => st'.Sized n ∧ st'.marks = st.marks ∧ Built r st' (p + 1) := by
-  have hd0 : DoneAt r st p [] := ⟨hb, fun _ h => absurd h (by simp)⟩
+    | some st' => st'.Sized n ∧ Built r m st' (p + 1) := by
+  have hd0 : DoneAt r m st p [] := ⟨hb, fun _ h => absurd h (by simp)⟩
   unfold buildSlot
   have h1 := buildKind_name_spec hs hpn hc hr hd0
-  cases e1 : buildKind r kName buildName DS.setName p st with
+  cases e1 : buildKind r m kName buildName DS.setName p st with
   | none => rw [e1] at h1; exact h1
   | some st1 =>
     rw [e1] at h1
-    obtain ⟨hs1, hm1, hd1⟩ := h1
-    have h2 := buildKind_level_spec hs1 hpn (hc.of_marks hm1) (hr.of_marks hm1) hd1
+    obtain ⟨hs1, hd1⟩ := h1
+    have h2 := buildKind_level_spec hs1 hpn hc hr hd1
     simp only [Option.bind_some]
-    cases e2 : buildKind r kLevel buildLevel DS.setLevel p st1 with
+    cases e2 : buildKind r m kLevel buildLevel DS.setLevel p st1 with
     | none => rw [e2] at h2; exact h2
     | some st2 =>
       rw [e2] at h2
-      obtain ⟨hs2, hm2, hd2⟩ := h2
-      have hm2' : st2.marks = st.marks := hm2.trans hm1
-      have h3 := buildKind_levels_spec hs2 hpn (hc.of_marks hm2') (hr.of_marks hm2') hd2
+      obtain ⟨hs2, hd2⟩ := h2
+      have h3 := buildKind_levels_spec hs2 hpn hc hr hd2
       simp only [Option.bind_some]
-      cases e3 : buildKind r kLevels buildLevels DS.setLevels p st2 with
+      cases e3 : buildKind r m kLevels buildLevels DS.setLevels p st2 with
       | none => rw [e3] at h3; exact h3
       | some st3 =>
         rw [e3] at h3
-        obtain ⟨hs3, hm3, hd3⟩ := h3
-        have hm3' : st3.marks = st.marks := hm3.trans hm2'
-        have h4 := buildKind_expr_spec hs3 hpn (hc.of_marks hm3') (hr.of_marks hm3') hd3
+        obtain ⟨hs3, hd3⟩ := h3
+        have h4 := buildKind_expr_spec hs3 hpn hc hr hd3
         simp only [Option.bind_some]
-        cases e4 : buildKind r kExpr buildExpr DS.setExpr p st3 with
+        cases e4 : buildKind r m kExpr buildExpr DS.setExpr p st3 with
         | none => rw [e4] at h4; exact h4
         | some st4 =>
           rw [e4] at h4
-          obtain ⟨hs4, hm4, hd4⟩ := h4
-          refine ⟨hs4, hm4.trans hm3', ?_⟩
+          obtain ⟨hs4, hd4⟩ := h4
+          refine ⟨hs4, ?_⟩
           intro s hsp k hk hmk
           by_cases e : s = p
-          · subst e; exact hd4.2 k (by unfold IsKind at hk; rcases hk with rfl | rfl | rfl | rfl <;> simp) hk hmk
+          · subst e
+            exact hd4.2 k (by unfold IsKind at hk; rcases hk with rfl | rfl | rfl | rfl <;> simp)
+              hk hmk
           · exact hd4.1 s (by omega) k hk hmk
 
 /-- **The upward sweep**: every marked object ends up holding its
 value, or the sweep fails and `A` does not hold. -/
-theorem buildPass_spec {r : Region} {A : Prop} {n : Nat} :
-    ∀ (p : Nat) (st : DS), st.Sized n → Closed r st 0 n → Reach r A st → Built r st p →
-    match buildPass r n st p with
+theorem buildPass_spec {r : Region} {A : Prop} {m : ByteArray} {n : Nat}
+    (hc : Closed r m 0 n) (hr : Reach r A m) :
+    ∀ (p : Nat) (st : DS), st.Sized n → Built r m st p →
+    match buildPass r m n st p with
     | none => ¬ A
-    | some st' => st'.Sized n ∧ st'.marks = st.marks ∧ Built r st' n := by
+    | some st' => st'.Sized n ∧ Built r m st' n := by
   intro p
   induction h : n - p generalizing p with
   | zero =>
-    intro st hs hc hr hb
+    intro st hs hb
     unfold buildPass
     rw [ite_eq_right_of_eq_false _ _ (eq_false (by omega))]
-    exact ⟨hs, rfl, fun s hsn => hb s (by omega)⟩
-  | succ m ih =>
-    intro st hs hc hr hb
+    exact ⟨hs, fun s hsn => hb s (by omega)⟩
+  | succ k ih =>
+    intro st hs hb
     unfold buildPass
     rw [ite_eq_left_of_eq_true _ _ (eq_true (by omega))]
-    by_cases hnz : (st.marksAt p != 0) = true
+    by_cases hnz : (marksAt m p != 0) = true
     · simp only [hnz, ↓reduceIte]
       have h1 := buildSlot_spec hs (by omega) hc hr hb
-      cases e1 : buildSlot r p st with
+      cases e1 : buildSlot r m p st with
       | none => rw [e1] at h1; exact h1
       | some st1 =>
         rw [e1] at h1
-        obtain ⟨hs1, hm1, hb1⟩ := h1
-        have h2 := ih (p + 1) (by omega) st1 hs1 (hc.of_marks hm1) (hr.of_marks hm1) hb1
-        simp only
-        split at h2
-        · exact h2
-        · obtain ⟨hs2, hm2, hb2⟩ := h2
-          exact ⟨hs2, hm2.trans hm1, hb2⟩
+        obtain ⟨hs1, hb1⟩ := h1
+        exact ih (p + 1) (by omega) st1 hs1 hb1
     · simp only [hnz, Bool.false_eq_true, ↓reduceIte]
-      have hb' : Built r st (p + 1) := by
-        intro s hsp k hk hmk
+      have hb' : Built r m st (p + 1) := by
+        intro s hsp k' hk hmk
         by_cases e : s = p
-        · subst e; rw [marked_of_marksAt_zero hnz k] at hmk; cases hmk
-        · exact hb s (by omega) k hk hmk
-      exact ih (p + 1) (by omega) st hs hc hr hb'
+        · subst e; rw [marked_of_marksAt_zero hnz k'] at hmk; cases hmk
+        · exact hb s (by omega) k' hk hmk
+      exact ih (p + 1) (by omega) st hs hb'
 
 end ConLeche.Frontend.Olean

@@ -7,10 +7,10 @@ public section
 /-!
 # The fast olean decoder's memo (task #371)
 
-The laws of `DS` (`ConLeche/Frontend/Olean/Fast.lean`): a fresh memo
-marks nothing; a mark adds exactly its slot and kind; a value update
-changes its own slot of its own array and no mark.  `Sized st n` is
-the invariant both passes keep: every array of the memo is `n` long.
+The laws of the marks and of `DS` (`ConLeche/Frontend/Olean/Fast.lean`):
+fresh marks mark nothing; a mark adds exactly its slot and kind; a value
+update changes its own slot of its own array.  `Sized st n` is the
+invariant the building pass keeps: every array of the memo is `n` long.
 -/
 
 namespace ConLeche.Frontend.Olean
@@ -79,71 +79,53 @@ theorem or_and_ne (m a b : UInt8) :
   rw [this]
   cases h1 : (m &&& b != 0) <;> cases h2 : (a &&& b != 0) <;> simp_all
 
-/-! ## The memo -/
+/-! ## The marks -/
+
+theorem marked_eq (m : ByteArray) (k : UInt8) (s : Nat) :
+    marked m k s = (rdU8 m s &&& k != 0) := rfl
+
+theorem marked_zeros (n : Nat) (k : UInt8) (s : Nat) : marked (zeros n) k s = false := by
+  simp [marked_eq, rdU8_zeros]
+
+theorem size_mark (m : ByteArray) (k : UInt8) (s : Nat) : (mark m k s).size = m.size := by
+  simp [mark]
+
+theorem marked_mark (m : ByteArray) {k k' : UInt8} (hk : IsKind k)
+    (hk' : IsKind k') (s s' : Nat) :
+    marked (mark m k s) k' s' =
+      (marked m k' s' || (s == s' && k == k' && decide (s < m.size))) := by
+  simp only [marked_eq, mark, marksAt, rdU8_set!]
+  by_cases e : s = s'
+  · subst e
+    by_cases hs : s < m.size
+    · simp [hs, or_and_ne, kind_and hk' hk]
+    · simp [hs]
+  · simp [e]
+
+/-! ## The values -/
 
 /-- Every array of the memo is `n` long. -/
 structure DS.Sized (st : DS) (n : Nat) : Prop where
-  marks : st.marks.size = n
   names : st.names.size = n
   levels : st.levels.size = n
   exprs : st.exprs.size = n
   lists : st.lists.size = n
 
-theorem DS.marked_eq (st : DS) (k : UInt8) (s : Nat) :
-    st.marked k s = (rdU8 st.marks s &&& k != 0) := rfl
-
 theorem DS.fresh_sized (n : Nat) : (DS.fresh n).Sized n :=
-  ⟨size_zeros n, by simp [DS.fresh], by simp [DS.fresh], by simp [DS.fresh], by simp [DS.fresh]⟩
-
-theorem DS.fresh_marked (n : Nat) (k : UInt8) (s : Nat) : (DS.fresh n).marked k s = false := by
-  simp [DS.marked_eq, DS.fresh, rdU8_zeros]
-
-theorem DS.mark_sized {st : DS} {n : Nat} (h : st.Sized n) (k : UInt8) (s : Nat) :
-    (st.mark k s).Sized n := by
-  obtain ⟨h1, h2, h3, h4, h5⟩ := h
-  exact ⟨by simp [DS.mark, h1], h2, h3, h4, h5⟩
-
-theorem DS.marked_mark (st : DS) {k k' : UInt8} (hk : IsKind k)
-    (hk' : IsKind k') (s s' : Nat) :
-    (st.mark k s).marked k' s' =
-      (st.marked k' s' || (s == s' && k == k' && decide (s < st.marks.size))) := by
-  simp only [DS.marked_eq, DS.mark, DS.marksAt, rdU8_set!]
-  by_cases e : s = s'
-  · subst e
-    by_cases hs : s < st.marks.size
-    · simp [hs, or_and_ne, kind_and hk' hk]
-    · simp [hs]
-  · simp [e]
-
-theorem DS.mark_values (st : DS) (k : UInt8) (s : Nat) :
-    (st.mark k s).names = st.names ∧ (st.mark k s).levels = st.levels ∧
-    (st.mark k s).exprs = st.exprs ∧ (st.mark k s).lists = st.lists := by
-  simp [DS.mark]
-
-theorem DS.marks_mark_size (st : DS) (k : UInt8) (s : Nat) :
-    (st.mark k s).marks.size = st.marks.size := by
-  simp [DS.mark]
-
-/-! ## Values -/
-
-theorem DS.setName_marks (st : DS) (s : Nat) (v : Name) : (st.setName s v).marks = st.marks := rfl
-theorem DS.setLevel_marks (st : DS) (s : Nat) (v : Level) : (st.setLevel s v).marks = st.marks := rfl
-theorem DS.setExpr_marks (st : DS) (s : Nat) (v : Expr) : (st.setExpr s v).marks = st.marks := rfl
-theorem DS.setLevels_marks (st : DS) (s : Nat) (v : List Level) :
-    (st.setLevels s v).marks = st.marks := rfl
+  ⟨by simp [DS.fresh], by simp [DS.fresh], by simp [DS.fresh], by simp [DS.fresh]⟩
 
 theorem DS.setName_sized {st : DS} {n : Nat} (h : st.Sized n) (s : Nat) (v : Name) :
     (st.setName s v).Sized n :=
-  ⟨h.marks, by simp [DS.setName, h.names], h.levels, h.exprs, h.lists⟩
+  ⟨by simp [DS.setName, h.names], h.levels, h.exprs, h.lists⟩
 theorem DS.setLevel_sized {st : DS} {n : Nat} (h : st.Sized n) (s : Nat) (v : Level) :
     (st.setLevel s v).Sized n :=
-  ⟨h.marks, h.names, by simp [DS.setLevel, h.levels], h.exprs, h.lists⟩
+  ⟨h.names, by simp [DS.setLevel, h.levels], h.exprs, h.lists⟩
 theorem DS.setExpr_sized {st : DS} {n : Nat} (h : st.Sized n) (s : Nat) (v : Expr) :
     (st.setExpr s v).Sized n :=
-  ⟨h.marks, h.names, h.levels, by simp [DS.setExpr, h.exprs], h.lists⟩
+  ⟨h.names, h.levels, by simp [DS.setExpr, h.exprs], h.lists⟩
 theorem DS.setLevels_sized {st : DS} {n : Nat} (h : st.Sized n) (s : Nat) (v : List Level) :
     (st.setLevels s v).Sized n :=
-  ⟨h.marks, h.names, h.levels, h.exprs, by simp [DS.setLevels, h.lists]⟩
+  ⟨h.names, h.levels, h.exprs, by simp [DS.setLevels, h.lists]⟩
 
 theorem getD_set! {α : Type} (a : Array α) (s i : Nat) (v d : α) :
     (a.set! s v).getD i d = if s = i ∧ s < a.size then v else a.getD i d := by
