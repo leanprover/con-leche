@@ -30,6 +30,65 @@ universe w
 
 variable {V : Type w} [SetTheory V] {μ : CheckMode} {pins : List NatOpPinSet}
 
+
+/-- A stored constant of a name-unique environment is its name's lookup. -/
+theorem find?_of_mem' {env : Env} (hnd : NodupNames env) {c : ConstantInfo}
+    (hc : c ∈ env.consts) : env.find? c.name = some c := by
+  unfold NodupNames at hnd
+  unfold Env.find?
+  obtain ⟨cs⟩ := env
+  simp only at hc hnd ⊢
+  induction cs with
+  | nil => exact absurd hc (List.not_mem_nil)
+  | cons x xs ih =>
+    simp only [List.map_cons, List.nodup_cons] at hnd
+    rcases List.mem_cons.mp hc with rfl | hc'
+    · simp
+    · have hne : x.name ≠ c.name := fun h =>
+        hnd.1 (h ▸ List.mem_map_of_mem hc')
+      rw [List.find?_cons_of_neg (by simpa using hne)]
+      exact ih hnd.2 hc'
+
+/-- **An environment extending another**: constants pushed in front, the
+names unique, tables pushed in front for structures the base does not
+store. -/
+@[expose] def Extends (E E' : Env) : Prop :=
+  (∃ new, E'.consts = new ++ E.consts) ∧ (NodupNames E → NodupNames E') ∧
+    ∃ newQ, E'.tables = newQ ++ E.tables ∧ ∀ t ∈ newQ, E.find? t.structName = none
+
+theorem Extends.refl (E : Env) : Extends E E :=
+  ⟨⟨[], rfl⟩, id, [], rfl, fun _ h => nomatch h⟩
+
+theorem Extends.of_pushChain {E : Env} {fe : FEnv} (h : PushChain E fe) : Extends E fe.env :=
+  ⟨h.2.1, h.2.2.1, h.2.2.2⟩
+
+theorem Extends.find?_none {E E' : Env} (h : Extends E E') {n : Name}
+    (hn : E'.find? n = none) : E.find? n = none := by
+  obtain ⟨new, hnew⟩ := h.1
+  unfold Env.find? at hn ⊢
+  rw [hnew, List.find?_append] at hn
+  cases h' : E.consts.find? (·.name == n) with
+  | none => rfl
+  | some c => rw [h'] at hn; cases new.find? (·.name == n) <;> simp at hn
+
+theorem Extends.trans {E E₁ E₂ : Env} (h₁ : Extends E E₁) (h₂ : Extends E₁ E₂) :
+    Extends E E₂ := by
+  obtain ⟨⟨n₁, h1⟩, d₁, q₁, hq₁, hf₁⟩ := h₁
+  obtain ⟨⟨n₂, h2⟩, d₂, q₂, hq₂, hf₂⟩ := h₂
+  refine ⟨⟨n₂ ++ n₁, by rw [h2, h1, List.append_assoc]⟩, d₂ ∘ d₁, q₂ ++ q₁,
+    by rw [hq₂, hq₁, List.append_assoc], fun t ht => ?_⟩
+  rcases List.mem_append.mp ht with ht | ht
+  · exact Extends.find?_none ⟨⟨n₁, h1⟩, d₁, q₁, hq₁, hf₁⟩ (hf₂ t ht)
+  · exact hf₁ t ht
+
+/-- A name-unique extension keeps every stored lookup. -/
+theorem Extends.find? {E E' : Env} (h : Extends E E') (hnd : NodupNames E')
+    {n : Name} {ci : ConstantInfo} (hf : E.find? n = some ci) : E'.find? n = some ci := by
+  obtain ⟨new, hnew⟩ := h.1
+  have hmem : ci ∈ E'.consts := by rw [hnew]; exact List.mem_append_right _ (ConLeche.Env.find?_mem hf)
+  have := ConLeche.Model.Modular.find?_of_mem' hnd hmem
+  rwa [ConLeche.Env.find?_name hf] at this
+
 /-- **One accepted step is a `checkDecl` run**, onto a name-unique
 environment the canonical index chains to. -/
 theorem acceptStep_checkDecl (hμ : μ.isVerified = true) {E : Env} {d : Declaration}
