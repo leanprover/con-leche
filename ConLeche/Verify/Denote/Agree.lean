@@ -35,25 +35,18 @@ open ConLeche (Env Expr Name Level natLitSupported strLitSupported natName natZe
 
 /-- **Two environments read alike at the names of `R`**: a name stored in
 `R` and in `E` is stored in `C` and `E` with the same constant value and
-the same leaf, and its projection table is the same; and the literal
+the same leaf, and its projection entries are the same; and the literal
 guards agree wherever their names are. -/
 structure ReadAgree (R C E : Env) (aC aE : Name → (Name → Nat) → Term) : Prop where
   find : ∀ d, (R.find? d).isSome = true → (E.find? d).isSome = true →
     ∃ ciC ciE, C.find? d = some ciC ∧ E.find? d = some ciE ∧
       ciC.toConstantVal = ciE.toConstantVal ∧ aC d = aE d
-  table : ∀ T, (R.find? T).isSome = true → (E.find? T).isSome = true →
-    C.findTable? T = E.findTable? T
+  proj : ∀ T i, (R.find? T).isSome = true → (E.find? T).isSome = true →
+    C.findProj? T i = E.findProj? T i
   nat : (∀ n ∈ natLitNames, (R.find? n).isSome = true ∧ (E.find? n).isSome = true) →
     natLitSupported C = natLitSupported E
   str : (∀ n ∈ strLitNames, (R.find? n).isSome = true ∧ (E.find? n).isSome = true) →
     strLitSupported C = strLitSupported E
-
-theorem ReadAgree.findProj {R C E : Env} {aC aE : Name → (Name → Nat) → Term}
-    (h : ReadAgree R C E aC aE) {T : Name} (hR : (R.find? T).isSome = true)
-    (hE : (E.find? T).isSome = true) (i : Nat) :
-    C.findProj? T i = E.findProj? T i := by
-  unfold Env.findProj?
-  rw [h.table T hR hE]
 
 theorem ReadAgree.levelParamsAt {R C E : Env} {aC aE : Name → (Name → Nat) → Term}
     (h : ReadAgree R C E aC aE) {n : Name} (hR : (R.find? n).isSome = true)
@@ -117,7 +110,7 @@ theorem denote_agree {R C E : Env} {aC aE : Name → (Name → Nat) → Term} {�
   | case10 d sn i e ihe =>
     intro hR hE
     simp only [Expr.constsResolve, Bool.and_eq_true] at hR hE
-    rw [denote, denote, ihe hR.2 hE.2, h.findProj hR.1 hE.1]
+    rw [denote, denote, ihe hR.2 hE.2, h.proj sn i hR.1 hE.1]
   | case11 d n hsup =>
     intro hR hE
     simp only [Expr.constsResolve, Bool.and_eq_true] at hR hE

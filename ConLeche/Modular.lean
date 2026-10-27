@@ -17,40 +17,41 @@ both read it.
   module's imports earlier than it.  A module has its declarations
   (`decls`), its **context** (the environment its declarations are
   checked against), its **own environment** (`own`: the context with its
-  declarations installed), for each context name the import it is read
-  from (`src`), which of its own constants are proofs (`proofs`), and its
+  declarations installed), for each context name the earlier module it
+  is read from (`src`), which of its own constants are proofs (`proofs`), and its
   **resolution** of names to qualified names (`res`).
 * A **qualified name** (`Key`) is a module and a name for an ordinary
   constant, and a name, level parameters and statement for a proof:
   two proofs of one statement are one constant (the model gives every
   proof the point), whatever their bodies or homes.
-* **The local checks** (`LocalOk`) read the module and its direct
-  imports' own environments and resolutions, nothing else:
-  1. the imports come earlier, every context name is read from one of
-     them, the context stores each name once (`below`, `src_mem`,
-     `nodup`);
+* **The local checks** (`LocalOk`) read the module and the own
+  environments and resolutions of the earlier modules its context is
+  read from, nothing else:
+  1. the imports come earlier, every context name is read from an
+     earlier module (its source: in practice the constant's home), the
+     context stores each name once (`below`, `src_lt`, `nodup`);
   2. the declarations are accepted from the context, one at a time,
      each by the fold's own install step and record check at the
      canonical index of the environment so far, and a constant flagged
      a proof is a theorem, or a definition or opaque constant that also
      passes the theorem check (its type is a proposition)
      (`accepted`, `AcceptedFrom`);
-  3. every context constant refines the constant of its import's own
-     environment it is read from (`context_le`, `Refines`: equal, or an
+  3. every context constant refines the constant of the own
+     environment of the earlier module it is read from (`context_le`, `Refines`: equal, or an
      assumption with the same level parameters and type, never at a
      pinned name), and what its laws read — the constants of its type
      and value, its rules' right-hand sides and constructors, its
      block's members and constructors, its projection table, the
-     pinned names its fast path reads — is stored in the import's own
+     pinned names its fast path reads — is stored in that module's own
      environment and in the context, and resolved by both alike
      (`scoping`, `EntryScoped`,
-     `readsAlike`); a stored structure's table is its import's
+     `readsAlike`); a stored structure's table is that module's
      (`tables`, `tables_mem`);
-  4. a context name resolves as its import resolves it, an own name to
+  4. a context name resolves as the module it is read from resolves it, an own name to
      the module and the name, or, flagged a proof, to its name, level
      parameters and statement (`res_context`, `res_own`).
-  The context's constant is the one scoped, not the import's: an
-  importer that sees a definition as an assumption reads only its type.
+  The context's constant is the one scoped, not the source's: a
+  module that sees a definition as an assumption reads only its type.
 -/
 
 namespace ConLeche.Modular
@@ -107,16 +108,16 @@ def Refines (n : Name) (ci ci' : ConstantInfo) : Prop :=
       ((∃ v h, ci' = .defnInfo ci'.toConstantVal v h) ∨ ci' = .thmInfo ci'.toConstantVal ∨
         ci' = .axiomInfo ci'.toConstantVal))
 
-/-- **The part of import `b`'s own environment that module `i` reads as
+/-- **The part of module `b`'s own environment that module `i` reads as
 `b` does**: its constants whose names `i`'s context stores and `i` and
-`b` resolve alike. -/
+`b` resolve alike (`b` the module a context constant is read from). -/
 def readsAlike (dev : Nat → Module) (i b : Nat) : Env :=
   ⟨(dev b).own.consts.filter fun c =>
     ((dev i).context.find? c.name).isSome && (dev i).res c.name == (dev b).res c.name, []⟩
 
 /-- **What a context constant's laws read is stored and read alike**
-(check 3): `R` is the part of the constant's import's own environment
-the context stores and reads as the import does (`readsAlike`), `C` the
+(check 3): `R` is the part of the own environment of the module the constant is
+read from that the context stores and reads as that module does (`readsAlike`), `C` the
 context.  The constants of the
 type (and of a definition's value), a recursor's rules (right-hand
 sides, nested pins, constructors), an inductive type's block members,
@@ -170,7 +171,7 @@ inductive AcceptedFrom (mode : CheckMode) (pins : List NatOpPinSet) (proofs : Na
 structure LocalOk (mode : CheckMode) (pins : List NatOpPinSet) (dev : Nat → Module) (i : Nat) :
     Prop where
   below : ∀ b ∈ (dev i).imports, b < i
-  src_mem : ∀ n, ((dev i).context.find? n).isSome = true → (dev i).src n ∈ (dev i).imports
+  src_lt : ∀ n, ((dev i).context.find? n).isSome = true → (dev i).src n < i
   nodup : ((dev i).context.consts.map (·.name)).Nodup
   accepted : AcceptedFrom mode pins (dev i).proofs (dev i).context (dev i).decls (dev i).own
   context_le : ∀ n ci, (dev i).context.find? n = some ci →
