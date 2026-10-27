@@ -107700,3 +107700,37 @@ home's own constant and resolution.  The step proof needs only models
 of earlier modules; `Module.imports` is gone from the fragment.  The
 section presents "not stricter than Lean" as an aim validated by runs,
 not as a theorem.
+
+**Addendum (2026-10-27, agent/370-compare): subsuming Comparator.**  A
+module is *validated* either by its local checks or by **comparison**
+(`Compared`): its whole own environment reads from earlier modules —
+each constant refines the constant of its home (equal, or an assumption
+of the same type), lies within what it reads as the home does, and
+resolves as the home resolves it.  The compared module adds no
+qualified name; its model is the restriction of the world's
+(`reads_model`, the same lemma that gives a checked module's context
+its model, formerly `context_model`).  Theorem (`modular`,
+`modular_model`, `modular_no_empty_prop_inhabitant`,
+`modular_statements_hold`): if every module is validated, one assignment
+of the qualified names gives every module — checked or compared — a
+model; no closed term proves an empty proposition it stores; every
+statement it stores, in particular every hole, holds there.
+
+For the implementation (Challenge vs Solution, Comparator's job):
+* read the CHALLENGE's private level (full definitions), not its
+  exported view — otherwise a non-exposed `def isPrime` would be an
+  assumption and the solution could redefine it;
+* holes = axioms of the challenge and constants whose value is
+  `sorryAx …` (definitions and theorems), treated as assumptions;
+* every other challenge constant must equal the solution's constant of
+  the same name (refinement: identical, values included); every hole
+  must have the solution's constant's type and level params;
+* the challenge's names resolve to the solution's qualified names, and
+  each compared constant lies within what the challenge reads as the
+  solution does (check 3 of `ReadsFrom`);
+* the solution is validated as usual (local checks, axioms limited as
+  today); the user must look at the challenge's list of holes —
+  definition holes let the solution choose their values.
+Comparator's `theorem_names`/`definition_names` lists and its `landrun`
+build sandbox have no counterpart: the comparison runs over the whole
+challenge environment read from the built oleans.

@@ -31,6 +31,13 @@ extended by the module's own ordinary constants (`modular_step`).
 Two constants with one name that never meet in one context are two
 qualified names, and nothing compares them; two proofs of one statement
 are one qualified name, and the model gives every proof the point.
+
+**A module may instead be validated by comparison** (`Compared`): its
+whole own environment reads from earlier modules — every constant is
+an earlier module's constant, or an assumption of its type (a hole).
+Its model is then the restriction of the world's (`reads_model`), and
+every statement it stores holds there (`modular_statements_hold`).  A
+challenge compared with its solution is such a module.
 -/
 
 namespace Fragment
@@ -176,10 +183,10 @@ def Module.ownKey (m : Module) (i : Nat) (n : Name) (ci : ConstInfo) : Key :=
   if m.proofs n then .proof n ci.lparams ci.type else .qual i n
 
 /-- **The part of module `b`'s own environment that module `i` reads
-as `b` does**: the names `i`'s context stores and resolves as `b`
-resolves them. -/
-def readsAlike (dev : Nat → Module) (i b : Nat) : Env :=
-  ⟨(dev b).own.consts.filter fun p => ((dev i).context.find? p.1).isSome && (dev i).res p.1 == (dev b).res p.1⟩
+as `b` does**, for an environment `E` of `i`: the names `E` stores and
+`i` resolves as `b` resolves them. -/
+def readsAlike (dev : Nat → Module) (i : Nat) (E : Env) (b : Nat) : Env :=
+  ⟨(dev b).own.consts.filter fun p => (E.find? p.1).isSome && (dev i).res p.1 == (dev b).res p.1⟩
 
 /-- **A constant within an environment**: what its laws read — its
 type, its value, its rules with their constructors, its block — is in
@@ -196,35 +203,43 @@ def EntryScoped (C E' : Env) (ci : ConstInfo) : Prop :=
     S.Scoped C ∧ (C.find? S.name).isSome ∧
       ∀ (j : Nat) (c : CtorSpec), S.ctors[j]? = some c → (C.find? c.name).isSome)
 
-/-- **The local checks at module `i`.**  They read the module and its
-the earlier modules its context draws from — their own environments and resolutions — and nothing
-else:
+/-- **An environment of module `i` reads from earlier modules**: every
+constant it stores is read from an earlier module, its home; it
+refines the home's own constant and lies within the part of the home's
+own environment `i` reads as the home does; `i` resolves it as the
+home does; and a type former comes with its constructors. -/
+structure ReadsFrom (dev : Nat → Module) (i : Nat) (E : Env) : Prop where
+  src_lt : ∀ n, (E.find? n).isSome → (dev i).src n < i
+  le : ∀ n ci, E.find? n = some ci →
+    ∃ ci', (dev ((dev i).src n)).own.find? n = some ci' ∧ ci.Le ci' ∧
+      EntryScoped (readsAlike dev i E ((dev i).src n)) E ci
+  res : ∀ n, (E.find? n).isSome → (dev i).res n = (dev ((dev i).src n)).res n
+  blocks : ∀ n ci nP nI cs S, E.find? n = some ci → ci.kind = .induct nP nI cs S →
+    S.nest = none → E.find? S.name = some S.indInfo ∧
+      ∀ (j : Nat) (c : CtorSpec), S.ctors[j]? = some c → E.find? c.name = some (S.ctorInfo c)
 
-* every name of the context is read from an earlier module;
+/-- **The local checks at module `i`.**  They read the module and the
+earlier modules its context draws from — their own environments and
+resolutions — and nothing else:
+
+* the context reads from earlier modules (`ReadsFrom`);
 * the declarations are accepted against the context, and a constant
   flagged a proof is a declaration of a proposition;
-* every constant of the context refines the constant of its import's
-  own environment it is read from, and the context's constant lies
-  within the part of that environment the module reads as the import
-  does (an assumption: its type; otherwise its value, rules and block
-  too);
-* the context resolves a name as its import does, and an own name to
-  its own qualified name;
-* a type former of the context comes with its constructors. -/
+* an own name resolves to its own qualified name. -/
 structure LocalOk (dev : Nat → Module) (i : Nat) : Prop where
-  src_lt : ∀ n, ((dev i).context.find? n).isSome → (dev i).src n < i
+  reads : ReadsFrom dev i (dev i).context
   checks : Checks (dev i).context (dev i).decls
   flags : FlagsOk (dev i).proofs (dev i).context (dev i).decls
-  context_le : ∀ n ci, (dev i).context.find? n = some ci →
-    ∃ ci', (dev ((dev i).src n)).own.find? n = some ci' ∧ ci.Le ci' ∧
-      EntryScoped (readsAlike dev i ((dev i).src n)) (dev i).context ci
-  res_context : ∀ n, ((dev i).context.find? n).isSome → (dev i).res n = (dev ((dev i).src n)).res n
   res_own : ∀ d ∈ (dev i).decls, ∀ n ∈ d.names, ∀ ci, (dev i).own.find? n = some ci →
     (dev i).res n = (dev i).ownKey i n ci
-  blocks : ∀ n ci nP nI cs S, (dev i).context.find? n = some ci → ci.kind = .induct nP nI cs S →
-    S.nest = none → (dev i).context.find? S.name = some S.indInfo ∧
-      ∀ (j : Nat) (c : CtorSpec), S.ctors[j]? = some c →
-        (dev i).context.find? c.name = some (S.ctorInfo c)
+
+/-- **Validation by comparison**: module `i`'s whole own environment,
+its declarations included, reads from earlier modules — every constant
+is an earlier module's, or an assumption of its type. -/
+def Compared (dev : Nat → Module) (i : Nat) : Prop := ReadsFrom dev i (dev i).own
+
+/-- **A validated module**: checked, or compared. -/
+def Valid (dev : Nat → Module) (i : Nat) : Prop := LocalOk dev i ∨ Compared dev i
 
 /-! ## Lookups -/
 
@@ -255,11 +270,11 @@ theorem find?_filter {E : Env} {p : Name → Bool} {n : Name} :
         exact ih'
 
 omit [IndLib V] [LevelOracle] in
-theorem find?_readsAlike {dev : Nat → Module} {i b : Nat} {n : Name} {ci : ConstInfo}
-    (h : (readsAlike dev i b).find? n = some ci) :
-    (dev b).own.find? n = some ci ∧ ((dev i).context.find? n).isSome ∧ (dev i).res n = (dev b).res n := by
+theorem find?_readsAlike {dev : Nat → Module} {i b : Nat} {E : Env} {n : Name} {ci : ConstInfo}
+    (h : (readsAlike dev i E b).find? n = some ci) :
+    (dev b).own.find? n = some ci ∧ (E.find? n).isSome ∧ (dev i).res n = (dev b).res n := by
   unfold readsAlike at h
-  rw [find?_filter (p := fun n => ((dev i).context.find? n).isSome && (dev i).res n == (dev b).res n)] at h
+  rw [find?_filter (p := fun n => (E.find? n).isSome && (dev i).res n == (dev b).res n)] at h
   split at h
   · rename_i hp
     simp only [Bool.and_eq_true, beq_iff_eq] at hp
@@ -279,24 +294,20 @@ def Key.Fits (dev : Nat → Module) (j : Nat) (n : Name) (ci : ConstInfo) : Key 
 /-- **Every constant of a module's own environment fits its qualified
 name.** -/
 theorem fits (dev : Nat → Module) :
-    ∀ i, (∀ j ≤ i, LocalOk dev j) → ∀ n ci, (dev i).own.find? n = some ci →
+    ∀ i, (∀ j ≤ i, Valid dev j) → ∀ n ci, (dev i).own.find? n = some ci →
       ((dev i).res n).Fits dev i n ci := by
   intro i
   induction i using Nat.strongRecOn with
   | _ i ih =>
   intro hall n ci hf
-  have h := hall i (Nat.le_refl i)
-  rcases find?_applyAll hf with ⟨d, hd, hl⟩ | hl
-  · have hn : n ∈ d.names := (d.mem_names_iff n).mpr ⟨ci, key_of_lookup hl⟩
-    rw [h.res_own d hd n hn ci hf]
-    unfold Module.ownKey
-    split
-    · exact ⟨rfl, rfl, rfl⟩
-    · exact ⟨rfl, Nat.le_refl i, ci, hf, .inl rfl⟩
-  · obtain ⟨ci', hci', hle, -⟩ := h.context_le n ci hl
-    have hb := h.src_lt n (by rw [hl]; rfl)
+  -- a constant read from an earlier module fits that module's qualified name
+  have hread : ∀ {E : Env}, ReadsFrom dev i E → E.find? n = some ci →
+      ((dev i).res n).Fits dev i n ci := by
+    intro E hE hl
+    obtain ⟨ci', hci', hle, -⟩ := hE.le n ci hl
+    have hb := hE.src_lt n (by rw [hl]; rfl)
     have hfit := ih _ hb (fun j hj => hall j (Nat.le_trans hj (Nat.le_of_lt hb))) n ci' hci'
-    rw [h.res_context n (by rw [hl]; rfl)]
+    rw [hE.res n (by rw [hl]; rfl)]
     revert hfit
     cases (dev ((dev i).src n)).res n with
     | qual P n' =>
@@ -305,6 +316,16 @@ theorem fits (dev : Nat → Module) :
     | proof n' lps T =>
       rintro ⟨rfl, hl', ht'⟩
       exact ⟨rfl, hle.lparams_eq.symm.trans hl', hle.type_eq.symm.trans ht'⟩
+  rcases hall i (Nat.le_refl i) with h | hc
+  · rcases find?_applyAll hf with ⟨d, hd, hl⟩ | hl
+    · have hn : n ∈ d.names := (d.mem_names_iff n).mpr ⟨ci, key_of_lookup hl⟩
+      rw [h.res_own d hd n hn ci hf]
+      unfold Module.ownKey
+      split
+      · exact ⟨rfl, rfl, rfl⟩
+      · exact ⟨rfl, Nat.le_refl i, ci, hf, .inl rfl⟩
+    · exact hread h.reads hl
+  · exact hread hc hf
 
 /-! ## The context's model -/
 
@@ -313,45 +334,48 @@ assignment of the qualified names. -/
 def resAssign (G : Key → List Nat → V) (m : Module) : Name → List Nat → V :=
   fun n ls => G (m.res n) ls
 
-/-- **The context has a model**, read through the resolution from
-models of the earlier modules' own environments that read the qualified
-names the same way. -/
-theorem context_model (dev : Nat → Module) (i : Nat) (h : LocalOk dev i) (G : Key → List Nat → V)
+omit [LevelOracle] in
+/-- **An environment that reads from earlier modules has a model**,
+read through the resolution from models of the earlier modules' own
+environments that read the qualified names the same way: the
+restriction of their models. -/
+theorem reads_model (dev : Nat → Module) (i : Nat) {E : Env} (h : ReadsFrom dev i E)
+    (G : Key → List Nat → V)
     (hmb : ∀ b < i, ∃ m : BlockModel V (dev b).own,
       ∀ n, ((dev b).own.find? n).isSome → ∀ ls, m.M n ls = resAssign G (dev b) n ls) :
-    ∃ m : BlockModel V (dev i).context, m.M = resAssign G (dev i) := by
+    ∃ m : BlockModel V E, m.M = resAssign G (dev i) := by
   let mb : ∀ b, b < i → BlockModel V (dev b).own :=
     fun b hb => Classical.choose (hmb b hb)
   have hmb' : ∀ b (hb : b < i) n, ((dev b).own.find? n).isSome →
       ∀ ls, (mb b hb).M n ls = resAssign G (dev b) n ls :=
     fun b hb => Classical.choose_spec (hmb b hb)
   have hagC : ∀ n (hb : (dev i).src n < i) d,
-      ((readsAlike dev i ((dev i).src n)).find? d).isSome →
+      ((readsAlike dev i E ((dev i).src n)).find? d).isSome →
       ∀ ls, (mb _ hb).M d ls = resAssign G (dev i) d ls := by
     intro n hb d hd ls
     obtain ⟨e, he⟩ := Option.isSome_iff_exists.mp hd
     obtain ⟨h1, -, h3⟩ := find?_readsAlike he
     rw [hmb' _ hb d (by rw [h1]; rfl) ls]
     simp only [resAssign, h3]
-  have hagn : ∀ n ci, (dev i).context.find? n = some ci → ∀ (hb : (dev i).src n < i) ls,
+  have hagn : ∀ n ci, E.find? n = some ci → ∀ (hb : (dev i).src n < i) ls,
       (mb _ hb).M n ls = resAssign G (dev i) n ls := by
     intro n ci hf hb ls
-    obtain ⟨ci', hf', -, -⟩ := h.context_le n ci hf
+    obtain ⟨ci', hf', -, -⟩ := h.le n ci hf
     rw [hmb' _ hb n (by rw [hf']; rfl) ls]
-    simp only [resAssign, h.res_context n (by rw [hf]; rfl)]
+    simp only [resAssign, h.res n (by rw [hf]; rfl)]
   refine ⟨{ M := resAssign G (dev i), type_ok := ?_, unfold := ?_, rec_rules := ?_,
             rec_rules_nested := ?_, ind_fib := ?_, rec_rules_slot := ?_, rec_rules_k := ?_,
             blocks := ?_ }, rfl⟩
   · intro c ci hf φ ρ ls hlen
     have hb := h.src_lt c (by rw [hf]; rfl)
-    obtain ⟨ci', hf', hle, hsc⟩ := h.context_le c ci hf
+    obtain ⟨ci', hf', hle, hsc⟩ := h.le c ci hf
     have hc := consts_agree hsc.1 (hagC c hb) ls
     have := (mb _ hb).type_ok c ci' hf' φ ρ ls (by rw [hle.lparams_eq]; exact hlen)
     rw [hle.lparams_eq, hle.type_eq] at this
     rwa [WellDenoted_consts hc, interp_consts hc, hagn c ci hf hb] at this
   · intro c ci v hf hv φ ρ ls hlen
     have hb := h.src_lt c (by rw [hf]; rfl)
-    obtain ⟨ci', hf', hle, hsc⟩ := h.context_le c ci hf
+    obtain ⟨ci', hf', hle, hsc⟩ := h.le c ci hf
     have hne : ci.kind ≠ .assumed := by
       intro hk; simp [ConstInfo.value?, hk, ConstKind.value?] at hv
     have heq := hle.eq_of_ne hne
@@ -361,7 +385,7 @@ theorem context_model (dev : Nat → Module) (i : Nat) (h : LocalOk dev i) (G : 
     rwa [WellDenoted_consts hc, interp_consts hc, hagn c ci' hf hb] at this
   · intro c ci nP nM nMin nI rules hf hkind rl hrl hinst cij hcij
     have hb := h.src_lt c (by rw [hf]; rfl)
-    obtain ⟨ci', hf', hle, hsc⟩ := h.context_le c ci hf
+    obtain ⟨ci', hf', hle, hsc⟩ := h.le c ci hf
     have heq := hle.eq_of_ne (by rw [hkind]; exact nofun)
     subst heq
     obtain ⟨hrhs, cij₀, hC, hE, hcty⟩ := hsc.2.2.1 nP nM nMin nI rules hkind rl hrl
@@ -373,7 +397,7 @@ theorem context_model (dev : Nat → Module) (i : Nat) (h : LocalOk dev i) (G : 
       (hagC c hb rl.ctor (by rw [hC]; rfl))
   · intro c ci nP nM nMin nI rules hf hkind rl hrl lvs pinst hinst cij I nPc nf hcij hcijk
     have hb := h.src_lt c (by rw [hf]; rfl)
-    obtain ⟨ci', hf', hle, hsc⟩ := h.context_le c ci hf
+    obtain ⟨ci', hf', hle, hsc⟩ := h.le c ci hf
     have heq := hle.eq_of_ne (by rw [hkind]; exact nofun)
     subst heq
     obtain ⟨hrhs, cij₀, hC, hE, hcty⟩ := hsc.2.2.1 nP nM nMin nI rules hkind rl hrl
@@ -385,14 +409,14 @@ theorem context_model (dev : Nat → Module) (i : Nat) (h : LocalOk dev i) (G : 
       (hagC c hb rl.ctor (by rw [hC]; rfl))
   · intro I ci nP nI cs S hf hk
     have hb := h.src_lt I (by rw [hf]; rfl)
-    obtain ⟨ci', hf', hle, hsc⟩ := h.context_le I ci hf
+    obtain ⟨ci', hf', hle, hsc⟩ := h.le I ci hf
     have heq := hle.eq_of_ne (by rw [hk]; exact nofun)
     subst heq
     exact ((mb _ hb).ind_fib I ci' nP nI cs S hf' hk).congr (consts_agree hsc.1 (hagC I hb))
       (hagn I ci' hf hb)
   · intro c ci nP nM nMin nI rules hf hkind rl hrl cij hcij
     have hb := h.src_lt c (by rw [hf]; rfl)
-    obtain ⟨ci', hf', hle, hsc⟩ := h.context_le c ci hf
+    obtain ⟨ci', hf', hle, hsc⟩ := h.le c ci hf
     have heq := hle.eq_of_ne (by rw [hkind]; exact nofun)
     subst heq
     obtain ⟨-, cij₀, hC, hE, -⟩ := hsc.2.2.1 nP nM nMin nI rules hkind rl hrl
@@ -403,7 +427,7 @@ theorem context_model (dev : Nat → Module) (i : Nat) (h : LocalOk dev i) (G : 
       (hagC c hb rl.ctor (by rw [hC]; rfl))
   · intro c ci nP nM nMin nI rules hf hkind rl hrl hk
     have hb := h.src_lt c (by rw [hf]; rfl)
-    obtain ⟨ci', hf', hle, hsc⟩ := h.context_le c ci hf
+    obtain ⟨ci', hf', hle, hsc⟩ := h.le c ci hf
     have heq := hle.eq_of_ne (by rw [hkind]; exact nofun)
     subst heq
     obtain ⟨hrhs, -⟩ := hsc.2.2.1 nP nM nMin nI rules hkind rl hrl
@@ -411,15 +435,15 @@ theorem context_model (dev : Nat → Module) (i : Nat) (h : LocalOk dev i) (G : 
       (consts_agree hsc.1 (hagC c hb)) (consts_agree hrhs (hagC c hb)) (hagn c ci' hf hb)
   · intro K ci nP nI cs S hf hk hpl
     have hb := h.src_lt K (by rw [hf]; rfl)
-    obtain ⟨ci', hf', hle, hsc⟩ := h.context_le K ci hf
+    obtain ⟨ci', hf', hle, hsc⟩ := h.le K ci hf
     have heq := hle.eq_of_ne (by rw [hk]; exact nofun)
     subst heq
     obtain ⟨-, hnc, -, -, hfam, hcs, hdoms⟩ := (mb _ hb).blocks K ci' nP nI cs S hf' hk hpl
     obtain ⟨hSC, hnameC, hctorsC⟩ := hsc.2.2.2 nP nI cs S hk hpl
     obtain ⟨hfindc, hctorsc⟩ := h.blocks K ci' nP nI cs S hf hk hpl
-    have hAg : AgreeOn (readsAlike dev i ((dev i).src K)) (mb _ hb).M (resAssign G (dev i)) :=
+    have hAg : AgreeOn (readsAlike dev i E ((dev i).src K)) (mb _ hb).M (resAssign G (dev i)) :=
       hagC K hb
-    have hKs := S.contScoped_of_plain (env := readsAlike dev i ((dev i).src K)) hpl
+    have hKs := S.contScoped_of_plain (env := readsAlike dev i E ((dev i).src K)) hpl
     refine ⟨hSC.mono fun d hd => ?_, hnc, hfindc, hctorsc, fun ls => ?_, fun j c hc ls => ?_,
       fun ls ps hp => ?_⟩
     · obtain ⟨e, he⟩ := Option.isSome_iff_exists.mp hd
@@ -431,15 +455,15 @@ theorem context_model (dev : Nat → Module) (i : Nat) (h : LocalOk dev i) (G : 
         (hdoms ls ps ((S.FitsVals_params_congr hSC hAg ls ps).mpr hp))
 
 omit [IndLib V] [LevelOracle] in
-/-- **A context passing the local checks is closed.** -/
-theorem LocalOk.scoped {dev : Nat → Module} {i : Nat} [LevelOracle] (h : LocalOk dev i) :
-    Env.Scoped (dev i).context := by
-  have hsub : ∀ b d, ((readsAlike dev i b).find? d).isSome → ((dev i).context.find? d).isSome :=
+/-- **An environment that reads from earlier modules is closed.** -/
+theorem ReadsFrom.scoped {dev : Nat → Module} {i : Nat} {E : Env} (h : ReadsFrom dev i E) :
+    Env.Scoped E := by
+  have hsub : ∀ b d, ((readsAlike dev i E b).find? d).isSome → (E.find? d).isSome :=
     fun b d hd => by
       obtain ⟨e, he⟩ := Option.isSome_iff_exists.mp hd
       exact (find?_readsAlike he).2.1
   intro c ci hf
-  obtain ⟨-, -, -, hsc⟩ := h.context_le c ci hf
+  obtain ⟨-, -, -, hsc⟩ := h.le c ci hf
   refine ⟨hsc.1.mono (hsub _), fun v hv => (hsc.2.1 v hv).mono (hsub _),
     fun nP nM nMin nI rules hk rl hrl => ?_⟩
   · obtain ⟨hrhs, cij, -, hE, -⟩ := hsc.2.2.1 nP nM nMin nI rules hk rl hrl
@@ -470,22 +494,19 @@ theorem Key.Fits.ne_of_lt {dev : Nat → Module} {j i : Nat} {n : Name} {ci : Co
   obtain ⟨-, hP, -⟩ := hf
   omega
 
-/-- **One more module**: from an assignment of the qualified names
-under which every earlier module's own environment has a model, one
-under which module `i`'s has one too, every earlier one still has
-one, and every proof is still the point. -/
-theorem modular_step (dev : Nat → Module) (i : Nat) (hall : ∀ j ≤ i, LocalOk dev j)
+/-- One more module, checked. -/
+theorem modular_step_checked (dev : Nat → Module) (i : Nat) (hall : ∀ j ≤ i, Valid dev j)
+    (h : LocalOk dev i)
     (G₀ : Key → List Nat → V) (hpt : ∀ n lps T ls, G₀ (.proof n lps T) ls = pt)
     (hprev : ∀ j < i, ∃ m : BlockModel V (dev j).own,
-      ∀ n, ((dev j).own.find? n).isSome → ∀ ls, m.M n ls = resAssign G₀ (dev j) n ls) :
+      ∀ n, ((dev j).own.find? n).isSome → ∀ ls, m.M n ls = resAssign G₀ (dev j) n ls)
+    (hfits : ∀ j ≤ i, ∀ n ci, (dev j).own.find? n = some ci → ((dev j).res n).Fits dev j n ci) :
     ∃ G : Key → List Nat → V, (∀ n lps T ls, G (.proof n lps T) ls = pt) ∧
       ∀ j ≤ i, ∃ m : BlockModel V (dev j).own,
         ∀ n, ((dev j).own.find? n).isSome → ∀ ls, m.M n ls = resAssign G (dev j) n ls := by
-  have h := hall i (Nat.le_refl i)
-  have hfits : ∀ j ≤ i, ∀ n ci, (dev j).own.find? n = some ci → ((dev j).res n).Fits dev j n ci :=
-    fun j hj => fits dev j fun k hk => hall k (Nat.le_trans hk hj)
-  obtain ⟨mc, hmc⟩ := context_model dev i h G₀ hprev
-  obtain ⟨m', hag, hpt'⟩ := h.checks.blockModel (dev i).proofs h.flags h.scoped mc
+  obtain ⟨mc, hmc⟩ := reads_model dev i h.reads G₀ hprev
+
+  obtain ⟨m', hag, hpt'⟩ := h.checks.blockModel (dev i).proofs h.flags h.reads.scoped mc
   refine ⟨extendAt G₀ i m'.M, fun n lps T ls => hpt n lps T ls, fun j hj => ?_⟩
   rcases Nat.lt_or_eq_of_le hj with hj | rfl
   · obtain ⟨m, hm⟩ := hprev j hj
@@ -508,12 +529,35 @@ theorem modular_step (dev : Nat → Module) (i : Nat) (hall : ∀ j ≤ i, Local
         exact (hpt n _ _ ls).symm
       · simp [extendAt]
     · -- a constant of the context, read from an import
-      have hb := h.src_lt n (by rw [hl]; rfl)
-      obtain ⟨ci', hci', -, -⟩ := h.context_le n ci hl
+      have hb := h.reads.src_lt n (by rw [hl]; rfl)
+      obtain ⟨ci', hci', -, -⟩ := h.reads.le n ci hl
       rw [hag n (by rw [hl]; rfl) ls, hmc]
       simp only [resAssign]
-      rw [h.res_context n (by rw [hl]; rfl),
+      rw [h.reads.res n (by rw [hl]; rfl),
         extendAt_of_ne ((hfits _ (Nat.le_of_lt hb) n ci' hci').ne_of_lt hb)]
+
+
+/-- **One more module**: from an assignment of the qualified names
+under which every earlier module's own environment has a model, one
+under which module `i`'s has one too, every earlier one still has
+one, and every proof is still the point. -/
+theorem modular_step (dev : Nat → Module) (i : Nat) (hall : ∀ j ≤ i, Valid dev j)
+    (G₀ : Key → List Nat → V) (hpt : ∀ n lps T ls, G₀ (.proof n lps T) ls = pt)
+    (hprev : ∀ j < i, ∃ m : BlockModel V (dev j).own,
+      ∀ n, ((dev j).own.find? n).isSome → ∀ ls, m.M n ls = resAssign G₀ (dev j) n ls) :
+    ∃ G : Key → List Nat → V, (∀ n lps T ls, G (.proof n lps T) ls = pt) ∧
+      ∀ j ≤ i, ∃ m : BlockModel V (dev j).own,
+        ∀ n, ((dev j).own.find? n).isSome → ∀ ls, m.M n ls = resAssign G (dev j) n ls := by
+  have hfits : ∀ j ≤ i, ∀ n ci, (dev j).own.find? n = some ci → ((dev j).res n).Fits dev j n ci :=
+    fun j hj => fits dev j fun k hk => hall k (Nat.le_trans hk hj)
+  rcases hall i (Nat.le_refl i) with h | hc
+  · exact modular_step_checked dev i hall h G₀ hpt hprev hfits
+  · -- a compared module: its model is the restriction, and adds no qualified name
+    obtain ⟨m, hm⟩ := reads_model dev i hc G₀ hprev
+    refine ⟨G₀, hpt, fun j hj => ?_⟩
+    rcases Nat.lt_or_eq_of_le hj with hj | rfl
+    · exact hprev j hj
+    · exact ⟨m, fun n _ ls => by rw [hm]⟩
 
 variable (V) in
 /-- **Modular checking** (the theorem): if every module up to `i`
@@ -521,7 +565,7 @@ passes its local checks, there is one assignment of sets to the
 qualified names — every proof the point — under which every module's
 own environment, read through its resolution, has a model. -/
 theorem modular (dev : Nat → Module) :
-    ∀ i, (∀ j ≤ i, LocalOk dev j) →
+    ∀ i, (∀ j ≤ i, Valid dev j) →
       ∃ G : Key → List Nat → V, (∀ n lps T ls, G (.proof n lps T) ls = pt) ∧
         ∀ j ≤ i, ∃ m : BlockModel V (dev j).own,
           ∀ n, ((dev j).own.find? n).isSome → ∀ ls, m.M n ls = resAssign G (dev j) n ls
@@ -532,7 +576,7 @@ theorem modular (dev : Nat → Module) :
 
 variable (V) in
 /-- **Every module's own environment has a model.** -/
-theorem modular_model (dev : Nat → Module) (i : Nat) (h : ∀ j ≤ i, LocalOk dev j) :
+theorem modular_model (dev : Nat → Module) (i : Nat) (h : ∀ j ≤ i, Valid dev j) :
     Nonempty (BlockModel V (dev i).own) := by
   obtain ⟨G, -, hall⟩ := modular V dev i h
   obtain ⟨m, -⟩ := hall i (Nat.le_refl i)
@@ -542,12 +586,24 @@ variable (V) in
 include V in
 /-- **No closed term of a module inhabits an empty proposition** that
 its own environment stores. -/
-theorem modular_no_empty_prop_inhabitant (dev : Nat → Module) (i : Nat) (h : ∀ j ≤ i, LocalOk dev j)
+theorem modular_no_empty_prop_inhabitant (dev : Nat → Module) (i : Nat) (h : ∀ j ≤ i, Valid dev j)
     {name recName elim : Name}
     (hrec : (dev i).own.find? recName = some (IndSpec.falseSpec name recName elim).recInfo)
     (e : Expr) : ¬ Infer (dev i).own [] e (.const name []) := by
   obtain ⟨m⟩ := modular_model V dev i h
   exact no_empty_inductive_inhabitant_of_model V m.toEnvModel
     (S := IndSpec.falseSpec name recName elim) rfl rfl rfl rfl hrec e
+
+variable (V) in
+/-- **Every statement a module stores holds in its model** — in
+particular every assumption of a compared module (a hole): its type,
+at every instantiation, has a member. -/
+theorem modular_statements_hold (dev : Nat → Module) (i : Nat) (h : ∀ j ≤ i, Valid dev j) :
+    ∃ m : BlockModel V (dev i).own, ∀ c ci, (dev i).own.find? c = some ci →
+      ∀ (φ : Name → Nat) (ρ : Nat → V) (ls : List Level), ls.length = ci.lparams.length →
+        ∃ x, x ∈ˢ interp m.M φ ρ (ci.type.instL ci.lparams ls) := by
+  obtain ⟨G, -, hall⟩ := modular V dev i h
+  obtain ⟨m, -⟩ := hall i (Nat.le_refl i)
+  exact ⟨m, fun c ci hf φ ρ ls hls => ⟨_, (m.type_ok c ci hf φ ρ ls hls).2.2⟩⟩
 
 end Fragment

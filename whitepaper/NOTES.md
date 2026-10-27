@@ -636,3 +636,16 @@ monotonicity of the checker in its environment is needed. Every module
 can be type-checked in parallel against its context; the remaining
 local checks compare constants and resolutions with the direct imports
 and type-check nothing.
+
+**2026-10-27 (task #370, comparison).** Comparator's contract fits the
+modular theorem as a second way to validate a module: a module whose
+whole own environment reads from earlier modules (every constant an
+earlier module's, or an assumption of its type) needs no type checking,
+and its model is the restriction of the world's, by the same lemma that
+gives a checked module's context its model (`reads_model`). So
+con-leche can subsume Comparator without a second soundness argument:
+compare the challenge's private environment (definitions with their
+values) constant by constant with the solution's, treat axioms and
+`sorryAx`-valued constants as holes, and read the result off the
+modular theorem.
+
