@@ -410,7 +410,7 @@ def toEnvFacts {V : Type w} [SetTheory V] {μ : CheckMode}
     obtain ⟨ta, hta⟩ := m.type_reads c hc ψ
     exact ⟨ta, hta⟩
   defn_eq := fun cv value hint hmem ψ =>
-    (m.defn_reads ψ cv value ⟨hint, hmem⟩)
+    (m.defn_reads ψ cv value ⟨hint, hmem⟩).elim fun t ht => ⟨t, ht.1⟩
   rec_rhs_denotes := fun n cv mI rP rules hf r hr us ψ hlen => by
     obtain ⟨-, hus, -⟩ := m.rec_rules ψ n cv mI rP rules hf r hr
     obtain ⟨Ra, hRa, -, -⟩ := hus us hlen

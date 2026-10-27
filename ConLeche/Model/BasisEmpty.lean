@@ -55,7 +55,7 @@ theorem extendEmpty (mp : EnvModelM V μ env)
     (hwf : EnvWF ⟨emptyA :: env.consts, env.tables⟩) :
     CoverStep mp ⟨emptyA :: env.consts, env.tables⟩ := by
   -- the pinned block's lfp clause is recorded at its former
-  refine coverTo_addLfp (D := emptyLfp emptyName 1)
+  refine coverTo_addLfp (D := emptyLfp emptyName 1) (hag := fun _ h => Agrees.cons hfresh h)
     (hL := emptyLfp_clause 1 (fun _ _ => by unfold acvalWith; split; rfl; exact absurd rfl ‹_›)) (hst := lfp0_stored)
     (hrd := lfp0_reads (by rw [ConLeche.Env.find?_cons]; exact ite_eq_left rfl)
       (fun ψ => by show denote _ _ _ 0 (.sort _) = _; rw [denote_sort]; rfl))

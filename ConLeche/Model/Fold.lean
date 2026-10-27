@@ -118,7 +118,13 @@ step and coverage is unconditional. -/
 theorem CoverTo.covered {env env' : Env} {mp : EnvModelM V μ env}
     (h : CoverStep mp env') (hcov : LfpCover mp []) :
     ∃ mp' : EnvModelM V μ env', LfpCover mp' [] :=
-  h.elim fun mp' h' => ⟨mp', h' hcov⟩
+  h.elim fun mp' h' => ⟨mp', h'.2 hcov⟩
+
+/-- A step's carrier, covered and agreeing with the input. -/
+theorem CoverTo.coveredA {env env' : Env} {mp : EnvModelM V μ env}
+    (h : CoverStep mp env') (hcov : LfpCover mp []) :
+    ∃ mp' : EnvModelM V μ env', Agrees mp mp' ∧ LfpCover mp' [] :=
+  h.elim fun mp' h' => ⟨mp', h'.1, h'.2 hcov⟩
 
 /-- **The P fold invariant**: a covered P carrier plus the η-family
 closure. -/
@@ -135,52 +141,72 @@ theorem EnvModelOk.nonempty {env : Env} (h : EnvModelOk V μ env) :
 theorem EnvModelOk.empty : EnvModelOk V μ Env.empty :=
   ⟨⟨EnvModelM.empty V μ, lfpCover_empty⟩, EtaFamiliesClosed.empty⟩
 
-/-- **The per-declaration P step, by dispatch.**  The premise is the
-RUN record (`DeclRun`, valuation-free; the `ind` kind arrives through
-its `Ind` parameter), so this step consumes exactly what it reads. -/
-theorem declStep_preserves (hμ : μ.isVerified = true)
+/-- **What a step says of its proof's leaf**: a theorem's leaf is the
+canonical proof, and so is a definition's or opaque constant's whose type
+the checker finds to be a proposition, at a name with no fast path. -/
+@[expose] def DeclProofLeaf (μ : CheckMode) (env : Env) :
+    Declaration → (Name → (Name → Nat) → Term) → Prop
+  | .thmDecl cv _, acval => acval cv.name = fun _ => .prf
+  | .defnDecl cv _ _, acval =>
+    (ConLeche.natOpNames.contains cv.name || ConLeche.natDivModNames.contains cv.name) = false ∧
+      PropTypeRun μ env cv.type → acval cv.name = fun _ => .prf
+  | .opaqueDecl cv _, acval =>
+    ConLeche.reduceOpNames.contains cv.name = false ∧ PropTypeRun μ env cv.type →
+      acval cv.name = fun _ => .prf
+  | _, _ => True
+
+/-- **The per-declaration P step, by dispatch, keeping the input's
+leaves.**  The premise is the RUN record (`DeclRun`, valuation-free; the
+`ind` kind arrives through its `Ind` parameter), so this step consumes
+exactly what it reads. -/
+theorem declStep_agrees (hμ : μ.isVerified = true)
     {F : Nat} {env env₂ : Env} {d : Declaration}
     (mp : EnvModelM V μ env) (hcov : LfpCover mp [])
     (hE : EtaFamiliesClosed env)
     (hrun : DeclRun μ F (ConLeche.Semantics.DeclIndRunDispatchK μ F env)
       env d env₂) :
-    EnvModelOk V μ env₂ := by
-  -- the η half: `declEtaStepRun`, model-free at every kind; at `.indDecl`
-  -- through the dispatch's own case split (`declIndRunDispatchKEtaClosed`)
-  refine ⟨?_, ConLeche.Semantics.declEtaStepRun
-    (fun h' => ConLeche.Semantics.declIndRunDispatchKEtaClosed hE h') hE hrun⟩
+    ∃ mp' : EnvModelM V μ env₂, Agrees mp mp' ∧ LfpCover mp' [] ∧
+      DeclProofLeaf μ env d mp'.base2.acval := by
+  have triv : ∀ {e : Env}, (∃ mp' : EnvModelM V μ e, Agrees mp mp' ∧ LfpCover mp' []) →
+      ∀ {d' : Declaration}, (∀ a, DeclProofLeaf μ env d' a) →
+      ∃ mp' : EnvModelM V μ e, Agrees mp mp' ∧ LfpCover mp' [] ∧
+        DeclProofLeaf μ env d' mp'.base2.acval :=
+    fun h _ hp => h.elim fun mp' h' => ⟨mp', h'.1, h'.2, hp _⟩
   cases d with
   | defnDecl cv value hint =>
     have hsh := hrun
     obtain ⟨type', value', hcv, -, henv2, -, -⟩ := hsh
     subst henv2
-    exact (harvestDefn hμ mp hrun).covered hcov
+    obtain ⟨mp', hag, hleaf, hc⟩ := harvestDefn hμ mp hrun
+    exact ⟨mp', hag, hc hcov, hleaf⟩
   | thmDecl cv value =>
     have hsh := hrun
-    -- the run record has no is-a-proposition derivation row
     obtain ⟨type', value', hcv, -, -, henv2⟩ := hsh
     subst henv2
-    exact (harvestThm hμ mp hrun).covered hcov
+    obtain ⟨mp', hag, hleaf, hc⟩ := harvestThm hμ mp hrun
+    exact ⟨mp', hag, hc hcov, hleaf trivial⟩
   | opaqueDecl cv value =>
     have hsh := hrun
     obtain ⟨type', value', hcv, -, henv2, -⟩ := hsh
     subst henv2
-    exact (harvestOpaque hμ mp hrun).covered hcov
-  | axiomDecl cv => exact (axiomStepPB_of hμ mp hrun).covered hcov
-  | basisDecl kind => exact (basisStepPB_of mp hrun).covered hcov
+    obtain ⟨mp', hag, hleaf, hc⟩ := harvestOpaque hμ mp hrun
+    exact ⟨mp', hag, hc hcov, hleaf⟩
+  | axiomDecl cv => exact triv ((axiomStepPB_of hμ mp hrun).coveredA hcov) fun _ => trivial
+  | basisDecl kind => exact triv ((basisStepPB_of mp hrun).coveredA hcov) fun _ => trivial
   | quotDecl k cv =>
     -- task #293: the quotient package's `type` record installs the
     -- pinned block; its other records install nothing
     cases k with
-    | type => exact (basisStepPB_of mp hrun).covered hcov
-    | _ => exact (CoverTo.of_eq (show env₂ = env from hrun)).covered hcov
+    | type => exact triv ((basisStepPB_of mp hrun).coveredA hcov) fun _ => trivial
+    | _ =>
+      exact triv ((CoverTo.of_eq (show env₂ = env from hrun)).coveredA hcov) fun _ => trivial
   | indDecl block nP =>
     -- task #293: a block the fold recognises as one of the five pinned
     -- ones installs the PIN; everything else takes the `.indDecl`
     -- dispatch
     simp only [ConLeche.Semantics.DeclRun] at hrun
     split at hrun
-    · exact (basisStepPB_of mp hrun).covered hcov
+    · exact triv ((basisStepPB_of mp hrun).coveredA hcov) fun _ => trivial
     · have hrun' : ConLeche.Semantics.DeclIndRunDispatchK μ F env block nP env₂ := hrun
       unfold ConLeche.Semantics.DeclIndRunDispatchK at hrun'
       cases hdf : ConLeche.blockParts? nP block with
@@ -188,11 +214,25 @@ theorem declStep_preserves (hμ : μ.isVerified = true)
         rw [hdf] at hrun'
         -- the uniform install, at any number of members, nested blocks
         -- included (`declBlock`)
-        exact declBlock hμ mp hE hdf hrun' hcov
+        exact triv (declBlock hμ mp hE hdf hrun' hcov) fun _ => trivial
       | none =>
         -- a block the recogniser does not read never installs
         rw [hdf] at hrun'
         exact hrun'.elim
+
+/-- **The per-declaration P step**: `declStep_agrees`, with the η half
+(`declEtaStepRun`, model-free at every kind; at `.indDecl` through the
+dispatch's own case split, `declIndRunDispatchKEtaClosed`). -/
+theorem declStep_preserves (hμ : μ.isVerified = true)
+    {F : Nat} {env env₂ : Env} {d : Declaration}
+    (mp : EnvModelM V μ env) (hcov : LfpCover mp [])
+    (hE : EtaFamiliesClosed env)
+    (hrun : DeclRun μ F (ConLeche.Semantics.DeclIndRunDispatchK μ F env)
+      env d env₂) :
+    EnvModelOk V μ env₂ :=
+  ⟨(declStep_agrees hμ mp hcov hE hrun).elim fun mp' h => ⟨mp', h.2.1⟩,
+    ConLeche.Semantics.declEtaStepRun
+      (fun h' => ConLeche.Semantics.declIndRunDispatchKEtaClosed hE h') hE hrun⟩
 
 /-- **The P fold**: the declaration fold's recursion at the P invariant. -/
 theorem foldPM (hμ : μ.isVerified = true) {F : Nat} :

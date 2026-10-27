@@ -141,7 +141,8 @@ theorem declStep_preserves_of_pushTable (mp : EnvModelM V μ env) {t : ProjTable
       mp.mem_type c hc ψ ta (hreadT c hc ψ ta hta)
     defn_reads := fun ψ cv value hmem => by
       obtain ⟨hint, hdt⟩ := hmem
-      exact hx.denote ((hbound _ hdt).2 cv value hint rfl) (mp.defn_reads ψ cv value ⟨hint, hdt⟩)
+      obtain ⟨t, ht, hlr⟩ := mp.defn_reads ψ cv value ⟨hint, hdt⟩
+      exact ⟨t, hx.denote ((hbound _ hdt).2 cv value hint rfl) ht, hlr⟩
     nat_heads := mp.nat_heads
     nat_ops := natOps_pushTable mp hT hac
     div_mod := mp.div_mod

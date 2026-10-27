@@ -41,8 +41,9 @@ both read it.
      pinned name), and what its laws read — the constants of its type
      and value, its rules' right-hand sides and constructors, its
      block's members and constructors, its projection table, the
-     pinned names its fast path reads — is stored in the context and
-     resolved there as the import resolves it (`scoping`, `EntryScoped`,
+     pinned names its fast path reads — is stored in the import's own
+     environment and in the context, and resolved by both alike
+     (`scoping`, `EntryScoped`,
      `readsAlike`); a stored structure's table is its import's
      (`tables`, `tables_mem`);
   4. a context name resolves as its import resolves it, an own name to
@@ -106,14 +107,17 @@ def Refines (n : Name) (ci ci' : ConstantInfo) : Prop :=
       ((∃ v h, ci' = .defnInfo ci'.toConstantVal v h) ∨ ci' = .thmInfo ci'.toConstantVal ∨
         ci' = .axiomInfo ci'.toConstantVal))
 
-/-- **The part of module `i`'s context that it reads as import `b`
-does**: the context's constants whose names `i` and `b` resolve alike. -/
+/-- **The part of import `b`'s own environment that module `i` reads as
+`b` does**: its constants whose names `i`'s context stores and `i` and
+`b` resolve alike. -/
 def readsAlike (dev : Nat → Module) (i b : Nat) : Env :=
-  ⟨(dev i).context.consts.filter fun c => (dev i).res c.name == (dev b).res c.name, []⟩
+  ⟨(dev b).own.consts.filter fun c =>
+    ((dev i).context.find? c.name).isSome && (dev i).res c.name == (dev b).res c.name, []⟩
 
 /-- **What a context constant's laws read is stored and read alike**
-(check 3): `R` is the part of the context read as the constant's
-import reads it (`readsAlike`), `C` the context.  The constants of the
+(check 3): `R` is the part of the constant's import's own environment
+the context stores and reads as the import does (`readsAlike`), `C` the
+context.  The constants of the
 type (and of a definition's value), a recursor's rules (right-hand
 sides, nested pins, constructors), an inductive type's block members,
 constructors, η constructor and projection table, and the names a
@@ -147,7 +151,8 @@ def ProofDecl (mode : CheckMode) (E : Env) : Declaration → Prop
 /-- **A declaration list accepted from an environment** (check 2): each
 declaration installed by the fold's step (`installDeclStep`) at the
 canonical index of the environment so far, its record (if any) checked
-(`checkPending`), a flagged name's declaration a proof (`ProofDecl`);
+(`checkPending`), and a flagged name the step stores is stored by a
+proof (`ProofDecl`);
 the next declaration starts at the environment the step produced. -/
 inductive AcceptedFrom (mode : CheckMode) (pins : List NatOpPinSet) (proofs : Name → Bool) :
     Env → List Declaration → Env → Prop where
@@ -156,7 +161,8 @@ inductive AcceptedFrom (mode : CheckMode) (pins : List NatOpPinSet) (proofs : Na
       {pend : Array PendingCheck}
       (hstep : installDeclStep mode pins (i, mkFEnv E, #[]) d = .ok (i + 1, fe, pend))
       (hrec : ∀ pc ∈ pend.toList, ∃ s, checkPending mode fe pc {} = .ok ((), s))
-      (hflag : ∀ n ∈ d.names, proofs n = true → ProofDecl mode E d)
+      (hflag : ∀ n, proofs n = true → E.find? n = none → (fe.env.find? n).isSome = true →
+        ProofDecl mode E d)
       (rest : AcceptedFrom mode pins proofs fe.env ds E') :
       AcceptedFrom mode pins proofs E (d :: ds) E'
 

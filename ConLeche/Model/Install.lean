@@ -358,8 +358,8 @@ theorem declStep_preserves_of_cons (mp : EnvModelM V μ env)
       (value : Expr),
       (∃ hint : ReducibilityHint,
         ConstantInfo.defnInfo cv value hint = c₀) →
-      denote (acvalWith mp.base2.acval c₀.name A)
-          ⟨c₀ :: env.consts, env.tables⟩ ψ 0 value = some (A ψ))
+      ∃ t, denote (acvalWith mp.base2.acval c₀.name A)
+          ⟨c₀ :: env.consts, env.tables⟩ ψ 0 value = some t ∧ LeafReads V (A ψ) t)
     (hnh : ∀ φ : Name → Nat,
       NatHeads (V := V)
         (coreCons mp.base2 A hfresh hh hAparams hAok) φ)
@@ -445,9 +445,9 @@ theorem declStep_preserves_of_cons (mp : EnvModelM V μ env)
       (∃ hint : ReducibilityHint,
         ConstantInfo.defnInfo cv value hint
           ∈ (⟨c₀ :: env.consts, env.tables⟩ : Env).consts) →
-      denote (acvalWith mp.base2.acval c₀.name A)
-          ⟨c₀ :: env.consts, env.tables⟩ ψ 0 value
-        = some (acvalWith mp.base2.acval c₀.name A cv.name ψ) := by
+      ∃ t, denote (acvalWith mp.base2.acval c₀.name A)
+          ⟨c₀ :: env.consts, env.tables⟩ ψ 0 value = some t ∧
+        LeafReads V (acvalWith mp.base2.acval c₀.name A cv.name ψ) t := by
     intro ψ cv value hmem
     obtain ⟨hint, hdt⟩ := hmem
     rcases List.mem_cons.mp hdt with h | h
@@ -459,8 +459,8 @@ theorem declStep_preserves_of_cons (mp : EnvModelM V μ env)
     · rw [show acvalWith mp.base2.acval c₀.name A cv.name
           = mp.base2.acval cv.name from
           acvalWith_ne (show cv.name ≠ c₀.name from hne _ h)]
-      exact hcompM ψ value ((hbound _ h).2 cv value hint rfl)
-        (mp.defn_reads ψ cv value ⟨hint, h⟩)
+      obtain ⟨t, ht, hlr⟩ := mp.defn_reads ψ cv value ⟨hint, h⟩
+      exact ⟨t, hcompM ψ value ((hbound _ h).2 cv value hint rfl) ht, hlr⟩
   -- the stored formers' strict fibres: the head's is `hind`; a prefix
   -- former keeps its leaf and its type's reading
   have hind' : IndStrictOk (V := V) (coreCons mp.base2 A hfresh hh hAparams hAok) := by

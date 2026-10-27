@@ -351,7 +351,7 @@ theorem extendNatSucc (mp : EnvModelM V μ env)
     fun ψ => EnvModel.acval_pinned mp.base2 hN (by decide) rfl
   have hZl0 : ∀ ψ : Name → Nat, mp.base2.acval natZeroName ψ = Term.const .natZero [] :=
     fun ψ => EnvModel.acval_pinned mp.base2 hZ (by decide) rfl
-  refine coverTo_addLfp (D := natLfp natName natZeroName natSuccName)
+  refine coverTo_addLfp (D := natLfp natName natZeroName natSuccName) (hag := fun _ h => Agrees.cons hfresh h)
     (hL := natLfp_clause
       (fun ψ ρ => by rw [acvalWith_ne (by decide), hNl0]; rfl)
       (fun ψ ρ => by rw [acvalWith_ne (by decide), hZl0]; simp [interp_const, bval, natzero])

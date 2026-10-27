@@ -1015,9 +1015,19 @@ membership and the successor's, at the leaf valuation's own
           (m.acval natName (Level.substFn φ [] []))) ∧
     IsTy (interp V ρ (m.acval natName (Level.substFn φ [] [])))
 
+/-- **A definition's leaf against its value's reading**: the reading
+itself, or — for a definition of a proposition — the canonical proof
+`.prf`, where the reading is a graded proof at every valuation.  The
+second arm is what makes every proof's leaf the same term, so that two
+proofs of one statement in two modules are one constant of the modular
+theorem's world (`ConLeche/Modular.lean`). -/
+@[expose] def LeafReads (V : Type w) [SetTheory V] (leaf t : Term) : Prop :=
+  t = leaf ∨ (leaf = .prf ∧ ∀ ρ : Nat → V, WellDenoted V ρ t ∧ interp V ρ t = pt)
+
 /-- **The unfolding supplier the P-tier delta exit consumes**: a stored
-definition's value reading *is* the constant's own leaf, at
-every level assignment.  Definitions only: a theorem is opaque to
+definition's value reads, at every level assignment, and the reading
+is the constant's own leaf or, for a proof, interprets as the leaf
+does (`LeafReads`).  Definitions only: a theorem is opaque to
 reduction (`unfoldDefinition` has no `thmInfo` arm), so the invariant
 keeps no equation between a theorem's value and its leaf — the leaf is
 an inhabitant of the statement, and that is all the install
@@ -1028,6 +1038,6 @@ The install tier discharges it. -/
   ∀ (ψ : Name → Nat) (cv : ConstantVal) (value : Expr),
     (∃ hint : ReducibilityHint,
       ConstantInfo.defnInfo cv value hint ∈ env.consts) →
-    denote m.acval env ψ 0 value = some (m.acval cv.name ψ)
+    ∃ t, denote m.acval env ψ 0 value = some t ∧ LeafReads V (m.acval cv.name ψ) t
 
 end ConLeche.Model
