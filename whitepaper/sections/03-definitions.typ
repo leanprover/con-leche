@@ -21,16 +21,17 @@ definitions; inductive types, the rule $iota$ and the consistency
 corollary follow in @sec:ind.
 
 *The environment* $E$, fixed throughout like the valuation, is a
-#src("whitepaper/Fragment/Env.lean", 109, 125)[list of the constants] accepted so far,
+#src("whitepaper/Fragment/Env.lean", 116, 132)[list of the constants] accepted so far,
 #src("ConLeche/Kernel/Env.lean", 536)[most recent first]. A
-#src("whitepaper/Fragment/Env.lean", 63, 100)[stored constant] has its level parameters $arrow(p)$, its type (a closed
+#src("whitepaper/Fragment/Env.lean", 66, 107)[stored constant] has its level parameters $arrow(p)$, its type (a closed
 term over $arrow(p)$) and #src("ConLeche/Kernel/Env.lean", 354, 368)[its _kind_]. We write
 $(c.\{arrow(p)\} : T) in E$ for "$c$ is stored with parameters
 $arrow(p)$ and type $T$", and $(c.\{arrow(p)\} : T := v) in E$ when
 it is a definition with value $v$. A
 _definition_ carries a value. The other kinds (type former,
 constructor, recursor) are what an inductive block stores, and
-@sec:ind-checks introduces them. A name is
+@sec:ind-checks introduces them. An assumption, a type without a
+value, appears only in the interfaces of @sec:modular. A name is
 stored at most once.
 
 *Constants.* The grammar of @sec:terms gains one form: a #src("whitepaper/Fragment/Syntax.lean", 35, 36)[constant $c$]

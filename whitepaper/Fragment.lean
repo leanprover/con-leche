@@ -51,4 +51,5 @@ public import Fragment.EtaIota
 public import Fragment.IOGrade
 public import Fragment.IOWitness
 public import Fragment.Consistency
+public import Fragment.Modular
 public import Fragment.Axioms

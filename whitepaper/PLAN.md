@@ -118,7 +118,10 @@ are recorded here so every lane works from the same spec. Task #324.
    projections), large elimination; the consistency corollary.
 5. Nested inductive types (the full check, the model as a sketch).
 6. Extensionality corollaries (η for structures, unit-like).
-7. What we left out, and how the real proof differs from the fragment
+7. Checking module by module (task #370): assumptions, interfaces,
+   monotonicity of checking, the union of the modules accepted; the
+   con-leche implementation as planned, in a `#real` block.
+8. What we left out, and how the real proof differs from the fragment
    (fvar, `Term` layer, bridge, ...), with links.
 
 Links: unobtrusive, `blob/master/...#L..-L..` into the real proof AND into
