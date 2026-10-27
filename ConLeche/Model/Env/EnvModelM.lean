@@ -501,6 +501,73 @@ theorem lfpClause_of_mem (mp : EnvModelM V μ env) {D : LfpDatum V} (hD : D ∈ 
     LfpClause mp.base2.acval D :=
   (mp.lfp_ok D hD).1
 
+/-- **One recorded clause crosses a change of environment** that keeps,
+at the block's members and constructors (the names `P` holds of), the
+lookup and the leaf, and every successful reading of a member's or
+constructor's type and of their canonical abstractions. -/
+theorem lfpOne_transport {acval acval' : Name → (Name → Nat) → Term} {env env' : Env}
+    {D : LfpDatum V} (P : Name → Prop)
+    (hP : (∀ mm, mm < D.k → P (D.member mm)) ∧
+      ∀ c, c < D.k ∨ c < D.N → ∀ j, j < D.nctors c → P (D.ctorName c j))
+    (hD : LfpClause acval D ∧ LfpStored env D ∧ LfpReads acval env D ∧
+      LfpCtorReads acval env D ∧ LfpCaps env D)
+    (htr : ∀ n cv nPc nF, P n → env.find? n = some (.ctorInfo cv nPc nF) → ∀ ψ,
+      ∃ ta, denote acval env ψ 0 cv.type = some ta)
+    (hfind : ∀ n ci, P n → env.find? n = some ci → env'.find? n = some ci)
+    (hag : ∀ n ci, P n → env.find? n = some ci → acval' n = acval n)
+    (hread : ∀ n cv caps, P n → env.find? n = some (.indInfo cv caps) → ∀ (ψ : Name → Nat)
+      (ta : Term), denote acval env ψ 0 cv.type = some ta →
+      denote acval' env' ψ 0 cv.type = some ta)
+    (hreadT : ∀ n cv nPc nF, P n → env.find? n = some (.ctorInfo cv nPc nF) → ∀ (ψ : Name → Nat)
+      (ta : Term), denote acval env ψ 0 cv.type = some ta →
+      denote acval' env' ψ 0 cv.type = some ta)
+    (hreadC : ∀ n ci, P n → env.find? n = some ci →
+      ∀ A, CanonOf ci.toConstantVal.type A →
+      ∀ (ψ : Name → Nat) (d : Nat) (ta : Term),
+      denote acval env ψ d A = some ta →
+      denote acval' env' ψ d A = some ta) :
+    LfpClause acval' D ∧ LfpStored env' D ∧ LfpReads acval' env' D ∧
+      LfpCtorReads acval' env' D ∧ LfpCaps env' D := by
+  obtain ⟨hPm, hPc⟩ := hP
+  obtain ⟨hL, ⟨hst, hstC⟩, hrd, ⟨hnk, hrdC⟩, ⟨hcK, hcC⟩⟩ := hD
+  refine ⟨hL.congr (fun mm hmm => ?_) (fun c hc j hj => ?_),
+    ⟨fun mm hmm => ?_, fun c hc j hj => ?_⟩, fun mm hmm => ?_, ⟨hnk, fun c hc j hj => ?_⟩,
+    ⟨fun mm hmm => ?_, fun c hc j hj => ?_⟩⟩
+  · obtain ⟨cv, caps, hf⟩ := hst mm hmm
+    exact hag _ _ (hPm mm hmm) hf
+  · obtain ⟨cv, a, b, hf⟩ := hstC c hc j hj
+    exact hag _ _ (hPc c (Or.inr hc) j hj) hf
+  · obtain ⟨cv, caps, hf⟩ := hst mm hmm
+    exact ⟨cv, caps, hfind _ _ (hPm mm hmm) hf⟩
+  · obtain ⟨cv, a, b, hf⟩ := hstC c hc j hj
+    exact ⟨cv, a, b, hfind _ _ (hPc c (Or.inr hc) j hj) hf⟩
+  · obtain ⟨cv, caps, hf, hab⟩ := hrd mm hmm
+    refine ⟨cv, caps, hfind _ _ (hPm mm hmm) hf, fun ψ => ?_⟩
+    obtain ⟨ab, hta, h1⟩ := hab ψ
+    exact ⟨ab, hread _ _ _ (hPm mm hmm) hf ψ _ hta, h1⟩
+  · obtain ⟨cv, nPc, nF, hf, hcf, hlps, hpars, A, hA, hocc, hrdA⟩ := hrdC c hc j hj
+    have hPn := hPc c (Or.inl hc) j hj
+    refine ⟨cv, nPc, nF, hfind _ _ hPn hf, hcf,
+      fun mm hmm => ?_, fun ψ dsC bodyC hrd' hle => ?_, A, hA, hocc, fun ψ => ?_⟩
+    · obtain ⟨cvm, caps, hfm, hl⟩ := hlps mm hmm
+      exact ⟨cvm, caps, hfind _ _ (hPm mm hmm) hfm, hl⟩
+    · -- the new reading is the old one (the old one exists, and crosses)
+      obtain ⟨ta, hta⟩ := htr _ _ _ _ hPn hf ψ
+      have hta' := hreadT _ _ _ _ hPn hf ψ _ hta
+      rw [hrd'] at hta'
+      obtain rfl := Option.some.inj hta'
+      exact hpars ψ dsC bodyC hta hle
+    · obtain ⟨h1, h2, ab, Tys, hta, hlab, hlT, hTys, hab⟩ := hrdA ψ
+      refine ⟨h1, h2, ab, Tys, hreadC _ _ hPn hf A (.inl ⟨_, _, _, hA⟩) ψ _ _ hta, hlab, hlT,
+        fun mm hmm => ?_, hab⟩
+      obtain ⟨cvm, caps, ty, hfm, hty, hr⟩ := hTys mm hmm
+      exact ⟨cvm, caps, ty, hfind _ _ (hPm mm hmm) hfm, hty,
+        hreadC _ _ (hPm mm hmm) hfm ty (.inr ⟨_, hty⟩) ψ _ _ hr⟩
+  · obtain ⟨cv, caps, hf, hz, hk⟩ := hcK mm hmm
+    exact ⟨cv, caps, hfind _ _ (hPm mm hmm) hf, hz, hk⟩
+  · obtain ⟨cv, nPc, nF, hf, hsh⟩ := hcC c hc j hj
+    exact ⟨cv, nPc, nF, hfind _ _ (hPc c (Or.inl hc) j hj) hf, hsh⟩
+
 /-- **The recorded clauses cross an environment extension** that keeps
 every stored inductive former and its leaf, and every successful reading
 of a stored former's type — the transport every construction site of
@@ -525,44 +592,25 @@ theorem lfp_ok_transport (mp : EnvModelM V μ env) {env' : Env}
     ∀ D ∈ mp.lfpBlocks, LfpClause acval' D ∧ LfpStored env' D ∧ LfpReads acval' env' D ∧
       LfpCtorReads acval' env' D ∧ LfpCaps env' D := by
   intro D hD
-  obtain ⟨hL, ⟨hst, hstC⟩, hrd, ⟨hnk, hrdC⟩, ⟨hcK, hcC⟩⟩ := mp.lfp_ok D hD
-  refine ⟨hL.congr (fun mm hmm => ?_) (fun c hc j hj => ?_),
-    ⟨fun mm hmm => ?_, fun c hc j hj => ?_⟩, fun mm hmm => ?_, ⟨hnk, fun c hc j hj => ?_⟩,
-    ⟨fun mm hmm => ?_, fun c hc j hj => ?_⟩⟩
-  · obtain ⟨cv, caps, hf⟩ := hst mm hmm
-    exact hag _ _ hf fun _ _ _ _ h => ConstantInfo.noConfusion h
-  · obtain ⟨cv, a, b, hf⟩ := hstC c hc j hj
-    exact hag _ _ hf fun _ _ _ _ h => ConstantInfo.noConfusion h
-  · obtain ⟨cv, caps, hf⟩ := hst mm hmm
-    exact ⟨cv, caps, hfind _ _ hf fun _ _ _ _ h => ConstantInfo.noConfusion h⟩
-  · obtain ⟨cv, a, b, hf⟩ := hstC c hc j hj
-    exact ⟨cv, a, b, hfind _ _ hf fun _ _ _ _ h => ConstantInfo.noConfusion h⟩
-  · obtain ⟨cv, caps, hf, hab⟩ := hrd mm hmm
-    refine ⟨cv, caps, hfind _ _ hf fun _ _ _ _ h => ConstantInfo.noConfusion h, fun ψ => ?_⟩
-    obtain ⟨ab, hta, h1⟩ := hab ψ
-    exact ⟨ab, hread _ _ _ hf ψ _ hta, h1⟩
-  · obtain ⟨cv, nPc, nF, hf, hcf, hlps, hpars, A, hA, hocc, hrdA⟩ := hrdC c hc j hj
-    refine ⟨cv, nPc, nF, hfind _ _ hf fun _ _ _ _ h => ConstantInfo.noConfusion h, hcf,
-      fun mm hmm => ?_, fun ψ dsC bodyC hrd' hle => ?_, A, hA, hocc, fun ψ => ?_⟩
-    · obtain ⟨cvm, caps, hfm, hl⟩ := hlps mm hmm
-      exact ⟨cvm, caps, hfind _ _ hfm fun _ _ _ _ h => ConstantInfo.noConfusion h, hl⟩
-    · -- the new reading is the old one (the old one exists, and crosses)
-      obtain ⟨ta, hta⟩ := mp.type_reads _ (List.mem_of_find?_eq_some hf) ψ
-      change denote mp.base2.acval env ψ 0 cv.type = some ta at hta
-      have hta' := hreadT _ _ _ _ hf ψ _ hta
-      rw [hrd'] at hta'
-      obtain rfl := Option.some.inj hta'
-      exact hpars ψ dsC bodyC hta hle
-    · obtain ⟨h1, h2, ab, Tys, hta, hlab, hlT, hTys, hab⟩ := hrdA ψ
-      refine ⟨h1, h2, ab, Tys, hreadC _ _ hf (fun _ _ _ _ h => ConstantInfo.noConfusion h) A
-        (.inl ⟨_, _, _, hA⟩) ψ _ _ hta, hlab, hlT, fun mm hmm => ?_, hab⟩
-      obtain ⟨cvm, caps, ty, hfm, hty, hr⟩ := hTys mm hmm
-      exact ⟨cvm, caps, ty, hfind _ _ hfm fun _ _ _ _ h => ConstantInfo.noConfusion h, hty,
-        hreadC _ _ hfm (fun _ _ _ _ h => ConstantInfo.noConfusion h) ty (.inr ⟨_, hty⟩) ψ _ _ hr⟩
-  · obtain ⟨cv, caps, hf, hz, hk⟩ := hcK mm hmm
-    exact ⟨cv, caps, hfind _ _ hf fun _ _ _ _ h => ConstantInfo.noConfusion h, hz, hk⟩
-  · obtain ⟨cv, nPc, nF, hf, hsh⟩ := hcC c hc j hj
-    exact ⟨cv, nPc, nF, hfind _ _ hf fun _ _ _ _ h => ConstantInfo.noConfusion h, hsh⟩
+  have hok := mp.lfp_ok D hD
+  -- the block's names are stored formers and constructors, never recursors
+  let P : Name → Prop := fun n => ∃ ci, env.find? n = some ci ∧
+    ∀ cv mI rP rules, ci ≠ .recInfo cv mI rP rules
+  have hnr : ∀ n ci, P n → env.find? n = some ci → ∀ cv mI rP rules, ci ≠ .recInfo cv mI rP rules :=
+    fun n ci ⟨ci', h1, h2⟩ hf => by rw [hf] at h1; obtain rfl := Option.some.inj h1; exact h2
+  refine lfpOne_transport P ⟨fun mm hmm => ?_, fun c hc j hj => ?_⟩ hok
+    (fun n cv nPc nF _ hf ψ => mp.type_reads _ (List.mem_of_find?_eq_some hf) ψ)
+    (fun n ci hp hf => hfind n ci hf (hnr n ci hp hf))
+    (fun n ci hp hf => hag n ci hf (hnr n ci hp hf))
+    (fun n cv caps _ hf => hread n cv caps hf) (fun n cv nPc nF _ hf => hreadT n cv nPc nF hf)
+    (fun n ci hp hf => hreadC n ci hf (hnr n ci hp hf))
+  · obtain ⟨cv, caps, hf⟩ := hok.2.1.1 mm hmm
+    exact ⟨_, hf, fun _ _ _ _ h => ConstantInfo.noConfusion h⟩
+  · rcases hc with hc | hc
+    · obtain ⟨cv, a, b, hf, -⟩ := hok.2.2.2.1.2 c hc j hj
+      exact ⟨_, hf, fun _ _ _ _ h => ConstantInfo.noConfusion h⟩
+    · obtain ⟨cv, a, b, hf⟩ := hok.2.1.2 c hc j hj
+      exact ⟨_, hf, fun _ _ _ _ h => ConstantInfo.noConfusion h⟩
 
 end EnvModelM
 

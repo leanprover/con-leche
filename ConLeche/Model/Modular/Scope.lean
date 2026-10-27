@@ -78,6 +78,54 @@ theorem Expr.constsResolve_iff (R : Env) :
   | proj _ _ _ ih =>
     simp only [ConLeche.Expr.constsResolve, Expr.constsAll, Bool.and_eq_true]; rw [ih]
 
+/-- The head constant of an application spine is one it reads. -/
+theorem Expr.constsAll_getAppFn {p : Name → Prop} :
+    ∀ {e : Expr} {T : Name} {us : List Level}, Expr.constsAll p e →
+      e.getAppFn = .const T us → p T := by
+  intro e
+  induction e with
+  | app f a ihf _ => exact fun h he => ihf h.1 he
+  | const n _ =>
+    intro T us h he
+    simp only [ConLeche.Expr.getAppFn, Expr.const.injEq] at he
+    exact he.1 ▸ h
+  | _ => intro T us _ he; simp [ConLeche.Expr.getAppFn] at he
+
+/-- The head constant of an expression's `∀`-residual is one it reads. -/
+theorem Expr.constsAll_piResult_head {p : Name → Prop} :
+    ∀ {e : Expr} {T : Name} {us : List Level}, Expr.constsAll p e →
+      e.piResult.getAppFn = .const T us → p T := by
+  intro e
+  induction e with
+  | forallE ty b _ ihb => exact fun h he => ihb h.2 he
+  | _ => exact fun h he => Expr.constsAll_getAppFn h he
+
+/-- Three predicates on an expression's names combine. -/
+theorem Expr.constsAll_and3 {p q r s : Name → Prop} (h : ∀ n, p n → q n → r n → s n) :
+    ∀ {e : Expr}, Expr.constsAll p e → Expr.constsAll q e → Expr.constsAll r e →
+      Expr.constsAll s e := by
+  intro e
+  induction e with
+  | bvar _ => exact fun _ _ _ => trivial
+  | sort _ => exact fun _ _ _ => trivial
+  | const n _ => exact h n
+  | lit l =>
+    cases l with
+    | natVal _ =>
+      exact fun ⟨a1, a2, a3⟩ ⟨b1, b2, b3⟩ ⟨c1, c2, c3⟩ => ⟨h _ a1 b1 c1, h _ a2 b2 c2, h _ a3 b3 c3⟩
+    | strVal _ =>
+      exact fun ⟨a1, a2, a3, a4, a5, a6, a7, a8, a9, a10⟩ ⟨b1, b2, b3, b4, b5, b6, b7, b8, b9, b10⟩
+        ⟨c1, c2, c3, c4, c5, c6, c7, c8, c9, c10⟩ =>
+        ⟨h _ a1 b1 c1, h _ a2 b2 c2, h _ a3 b3 c3, h _ a4 b4 c4, h _ a5 b5 c5, h _ a6 b6 c6,
+          h _ a7 b7 c7, h _ a8 b8 c8, h _ a9 b9 c9, h _ a10 b10 c10⟩
+  | fvar _ _ ih => exact ih
+  | app _ _ ihf iha => exact fun ⟨a, b⟩ ⟨c, d⟩ ⟨e, f⟩ => ⟨ihf a c e, iha b d f⟩
+  | lam _ _ ih1 ih2 => exact fun ⟨a, b⟩ ⟨c, d⟩ ⟨e, f⟩ => ⟨ih1 a c e, ih2 b d f⟩
+  | forallE _ _ ih1 ih2 => exact fun ⟨a, b⟩ ⟨c, d⟩ ⟨e, f⟩ => ⟨ih1 a c e, ih2 b d f⟩
+  | letE _ _ _ ih1 ih2 ih3 =>
+    exact fun ⟨a, b, c⟩ ⟨d, e, f⟩ ⟨g, i, j⟩ => ⟨ih1 a d g, ih2 b e i, ih3 c f j⟩
+  | proj _ _ _ ih => exact fun ⟨a, b⟩ ⟨c, d⟩ ⟨e, f⟩ => ⟨h _ a c e, ih b d f⟩
+
 /-- **`EntryScoped` over a predicate.** -/
 @[expose] def EntryScopedP (p : Name → Prop) (C : Env) (n : Name) (ci : ConstantInfo) : Prop :=
   Expr.constsAll p ci.toConstantVal.type ∧

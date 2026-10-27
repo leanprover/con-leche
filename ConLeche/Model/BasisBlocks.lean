@@ -415,7 +415,7 @@ theorem extendNatSucc (mp : EnvModelM V μ env)
           ConLeche.Env.find?_cons_self, Option.bind_some,
           ctorEntry_self (c₀ := natSuccA) (T := natName) rfl rfl rfl,
           ctorEntry_self (c₀ := natZeroA) (T := natName) rfl rfl rfl]
-        rfl)
+        rfl) rfl
       ⟨0, [(natZeroA.toConstantVal, 0), (natSuccA.toConstantVal, 1)], rfl, rfl, fun j hj => by
         rcases (show j = 0 ∨ j = 1 by simp at hj; omega) with rfl | rfl
         · show (⟨natSuccA :: env.consts, env.tables⟩ : ConLeche.Env).find? natZeroName = _

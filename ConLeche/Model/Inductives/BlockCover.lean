@@ -342,7 +342,20 @@ theorem blockLfpOwn {envC : Env} {d : BlockData V}
     intro caps l hl
     obtain ⟨a, l', rfl⟩ := List.exists_cons_of_ne_nil hl
     simp [nestPick, List.map_map, Function.comp_def]
-  refine ⟨fun c hc => ?_, fun c hc nP' hL => ?_, fun c hc => ?_, fun c hc j hj => ?_⟩
+  refine ⟨fun c hc => ?_, fun c hc nP' hL => ?_, fun c hc => ?_, fun c hc j hj => ?_,
+    fun c hc cv' caps' hf' x hx => ?_⟩
+  rotate_right
+  · obtain ⟨cv0, caps0, hf0, -, -, hcs⟩ := hfindT c hc
+    have hf'' : envC.find? (d.memberName c) = some (.indInfo cv' caps') := hf'
+    rw [hf0] at hf''
+    obtain rfl : caps0 = caps' := by injection hf'' with h1; injection h1
+    rw [hcs] at hx
+    obtain ⟨a, ha, rfl⟩ := List.mem_map.mp hx
+    obtain ⟨bs, body, us, hs, hg⟩ := hhead c hc a ha
+    have ha' : a ∈ d.ctorsM c := by rw [hctorsM]; exact ha
+    obtain ⟨j, hj⟩ := List.getElem?_of_mem ha'
+    exact ctorLook_of (hfindC c hc j a hj)
+      (by show (ctorEntry (d.memberName c) _).isSome = true; rw [ctorEntry_self rfl hs hg]; rfl)
   · obtain ⟨cv, caps, -, hnp, -, hN⟩ := hnc c hc
     show ∃ nP' L, ConLeche.nestContainer (envCtx envC) (d.memberName c) = some (nP', L) ∧ _
     rw [hN]

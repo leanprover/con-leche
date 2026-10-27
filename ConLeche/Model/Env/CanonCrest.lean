@@ -116,4 +116,88 @@ theorem canonParams_getElem? {nP i : Nat} {x : Expr} (h : (canonParams nP)[i]? =
 theorem canonParams_length (nP : Nat) : (canonParams nP).length = nP := by
   simp [canonParams, ConLeche.nestPhs]
 
+/-! ## The same, for resolution -/
+
+theorem constsResolve_instantiate1_any {env : Env} {a : Expr}
+    (ha : a.constsResolve env = true) :
+    ∀ (e : Expr) (k : Nat), e.constsResolve env = true →
+      (e.instantiate1 a k).constsResolve env = true := by
+  intro e
+  induction e <;> intro k h <;> simp_all [ConLeche.Expr.instantiate1, ConLeche.Expr.constsResolve]
+  case bvar i =>
+    split
+    · exact ha
+    · split <;> simp [ConLeche.Expr.constsResolve]
+
+theorem constsResolve_instPisWith {env₀ : Env} :
+    ∀ {as : List Expr} {e r : Expr}, (∀ a ∈ as, a.constsResolve env₀ = true) →
+      e.constsResolve env₀ = true → instPisWith as e = some r → r.constsResolve env₀ = true
+  | [], e, r, _, he, h => by
+    simp only [instPisWith, Option.some.injEq] at h; subst h; exact he
+  | a :: as, e, r, has, he, h => by
+    match e, h with
+    | .forallE t b, h =>
+      have h' : instPisWith as (b.instantiate1 a) = some r := h
+      simp only [ConLeche.Expr.constsResolve, Bool.and_eq_true] at he
+      refine constsResolve_instPisWith (fun x hx => has x (List.mem_cons_of_mem _ hx)) ?_ h'
+      have ha := has a List.mem_cons_self
+      exact constsResolve_instantiate1_any ha b 0 he.2
+
+theorem constsResolve_replaceApps {env₀ : Env} {f : Name → List Level → Option Expr} {b n : Nat}
+    (hf : ∀ c us e, f c us = some e → e.constsResolve env₀ = true) :
+    ∀ (e : Expr), e.constsResolve env₀ = true → (e.replaceApps f b n).constsResolve env₀ = true := by
+  intro e
+  induction e with
+  | bvar i => intro _; simp [ConLeche.Expr.replaceApps, ConLeche.Expr.constsResolve]
+  | fvar i ty ih => intro h; simpa [ConLeche.Expr.replaceApps] using h
+  | sort u => intro _; simp [ConLeche.Expr.replaceApps, ConLeche.Expr.constsResolve]
+  | const c us =>
+    intro h
+    rw [ConLeche.Expr.replaceApps_const]
+    split
+    · rename_i r hr
+      obtain ⟨c', us', hc⟩ := ConLeche.Expr.appHole?_some hr
+      exact hf _ _ _ hc
+    · exact h
+  | lit l => intro h; simpa [ConLeche.Expr.replaceApps] using h
+  | app a x iha ihx =>
+    intro h
+    rw [ConLeche.Expr.replaceApps_app]
+    split
+    · rename_i r hr
+      obtain ⟨c', us', hc⟩ := ConLeche.Expr.appHole?_some hr
+      exact hf _ _ _ hc
+    · simp only [ConLeche.Expr.constsResolve, Bool.and_eq_true] at h ⊢
+      exact ⟨iha h.1, ihx h.2⟩
+  | lam ty b iht ihb =>
+    intro h
+    simp only [ConLeche.Expr.replaceApps, ConLeche.Expr.constsResolve, Bool.and_eq_true] at h ⊢
+    exact ⟨iht h.1, ihb h.2⟩
+  | forallE ty b iht ihb =>
+    intro h
+    simp only [ConLeche.Expr.replaceApps, ConLeche.Expr.constsResolve, Bool.and_eq_true] at h ⊢
+    exact ⟨iht h.1, ihb h.2⟩
+  | letE ty v b iht ihv ihb =>
+    intro h
+    simp only [ConLeche.Expr.replaceApps, ConLeche.Expr.constsResolve, Bool.and_eq_true] at h ⊢
+    exact ⟨⟨iht h.1.1, ihv h.1.2⟩, ihb h.2⟩
+  | proj s i e ih =>
+    intro h
+    simp only [ConLeche.Expr.replaceApps, ConLeche.Expr.constsResolve, Bool.and_eq_true] at h ⊢
+    exact ⟨h.1, ih h.2⟩
+
+/-- A canonical abstraction resolves wherever the type does. -/
+theorem canonOf_constsResolve {env₀ : Env} {ty A : Expr} (he : ty.constsResolve env₀ = true)
+    (hA : CanonOf ty A) : A.constsResolve env₀ = true := by
+  have hp : ∀ n, ∀ x ∈ canonParams n, x.constsResolve env₀ = true := fun _ x hx => by
+    obtain ⟨i, -, rfl⟩ := mem_canonParams hx
+    simp [ConLeche.Expr.constsResolve]
+  rcases hA with ⟨names, us, n, hA⟩ | ⟨n, hA⟩
+  · unfold ConLeche.nestCanonCrest at hA
+    obtain ⟨t, ht, rfl⟩ := Option.map_eq_some_iff.mp hA
+    refine constsResolve_replaceApps (fun c us' r hr => ?_) _ (constsResolve_instPisWith (hp _) he ht)
+    obtain ⟨m, -, -, -, rfl⟩ := ConLeche.nestCanonSub_some hr
+    simp [ConLeche.Expr.constsResolve]
+  · exact constsResolve_instPisWith (hp _) he hA
+
 end ConLeche.Model

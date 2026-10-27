@@ -47,7 +47,7 @@ and its two constructors, the two `Bool` constructors, the guard's
 `Nat.ble`, the operation itself, and its recurrence dependencies.
 (`natBleName` is in `natOpDeps c` for every WF-recursive `c`, but it is
 listed here too so the congruence's users need not know that.) -/
-def dmValNames (c : Name) : List Name :=
+@[expose] def dmValNames (c : Name) : List Name :=
   ConLeche.natName :: ConLeche.boolTrueName :: ConLeche.boolFalseName ::
     ConLeche.natZeroName :: ConLeche.natSuccName :: ConLeche.natBleName ::
     c :: ConLeche.natOpDeps c

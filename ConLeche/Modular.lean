@@ -40,16 +40,18 @@ both read it.
      passes the theorem check (its type is a proposition)
      (`accepted`, `AcceptedFrom`);
   3. every context constant refines the constant of the own
-     environment of the earlier module it is read from (`context_le`, `Refines`: equal, or an
-     assumption with the same level parameters and type, never at a
-     pinned name), and what its laws read — the constants of its type
-     and value, its rules' right-hand sides and constructors, its
-     block's members and constructors, its projection table, the
-     pinned names its fast path reads — is stored in that module's own
-     environment and in the context, and resolved by both alike
-     (`scoping`, `EntryScoped`,
-     `readsAlike`); a stored structure's table is that module's
-     (`tables`, `tables_mem`);
+     environment of the earlier module it is read from (`context_le`,
+     `Refines`: equal, or an assumption with the same level parameters
+     and type, never at a pinned name), and what its laws read — the
+     constants of its type and value, its rules' right-hand sides and
+     constructors, its block's members and constructors, its
+     projection table, the pinned names its fast path reads — is stored
+     in that module's own environment and in the context, and resolved
+     by both alike (`scoping`, `EntryScoped`, `readsAlike`); the
+     projections it reads are of type formers of the context
+     (`projs`); an inductive kind comes with its block as the context
+     presents it (`blocks`); a type former's table is
+     that module's, and nothing else has one (`tables`, `tables_mem`);
   4. a context name resolves as the module it is read from resolves it, an own name to
      the module and the name, or, flagged a proof, to its name, level
      parameters and statement (`res_context`, `res_own`).
@@ -108,13 +110,51 @@ def pinFootprint (n : Name) : List Name :=
   (if reduceOpNames.contains n then [reduceElemName n] else [])
 
 /-- **Refinement of a constant** stored under `n`: the same constant,
-or an assumption with the same name, level parameters and type standing
-for a definition, theorem or assumption, at a name that is not pinned. -/
+or, at a name that is not pinned, an assumption with the same name,
+level parameters and type (read through its type only: a constructor,
+recursor or type former presented so needs nothing of its block). -/
 def Refines (n : Name) (ci ci' : ConstantInfo) : Prop :=
-  ci = ci' ∨
-    (n ∉ pinnedNames ∧ ci = .axiomInfo ci'.toConstantVal ∧
-      ((∃ v h, ci' = .defnInfo ci'.toConstantVal v h) ∨ ci' = .thmInfo ci'.toConstantVal ∨
-        ci' = .axiomInfo ci'.toConstantVal))
+  ci = ci' ∨ (n ∉ pinnedNames ∧ ci = .axiomInfo ci'.toConstantVal)
+
+/-- **Every projection an expression reads is of a type former stored in
+`C`** (a projection is read through its structure's table, which only
+an inductive type former carries). -/
+def Expr.projsFormer (C : Env) : Expr → Bool
+  | .proj s _ e =>
+    (match C.find? s with | some (.indInfo ..) => true | _ => false) && Expr.projsFormer C e
+  | .app f a => Expr.projsFormer C f && Expr.projsFormer C a
+  | .lam ty b | .forallE ty b => Expr.projsFormer C ty && Expr.projsFormer C b
+  | .letE ty v b => Expr.projsFormer C ty && Expr.projsFormer C v && Expr.projsFormer C b
+  | .fvar _ ty => Expr.projsFormer C ty
+  | _ => true
+
+/-- **The projections a context constant's data read are of type formers
+of the context**: its type, a definition's value, a recursor's rules,
+an inductive type's projection table. -/
+def EntryProjs (C : Env) (n : Name) (ci : ConstantInfo) : Prop :=
+  Expr.projsFormer C ci.toConstantVal.type = true ∧
+  (∀ cv v h, ci = .defnInfo cv v h → Expr.projsFormer C v = true) ∧
+  (∀ cv mI rP rules, ci = .recInfo cv mI rP rules → ∀ r ∈ rules,
+    Expr.projsFormer C r.rhs = true ∧
+    ∀ lvls pins, r.fire = .nested lvls pins → ∀ p ∈ pins, Expr.projsFormer C p = true) ∧
+  ∀ cv caps, ci = .indInfo cv caps → ∀ t, C.findTable? n = some t →
+    ∀ b ∈ t.bodies.toList, Expr.projsFormer C b = true
+
+/-- **An inductive kind comes with its block**, as the context presents
+it: a type former with its block's members as type formers, its
+constructors, η constructor and table constructor as constructors; a
+constructor with its result family as a type former; a recursor with
+its rules' constructors as constructors. -/
+def BlockIn (C : Env) (n : Name) : ConstantInfo → Prop
+  | .indInfo _ caps =>
+    (∀ m ∈ caps.all, ∃ cv caps', C.find? m = some (.indInfo cv caps')) ∧
+    (∀ c ∈ caps.ctors, ∃ cv nP nF, C.find? c = some (.ctorInfo cv nP nF)) ∧
+    (caps.eta = true → ∃ cv nP nF, C.find? caps.etaCtor = some (.ctorInfo cv nP nF)) ∧
+    ∀ t, C.findTable? n = some t → ∃ cv nP nF, C.find? t.ctor = some (.ctorInfo cv nP nF)
+  | .ctorInfo cv _ _ => ∀ T us, cv.type.piResult.getAppFn = .const T us →
+    ∃ cvT capsT, C.find? T = some (.indInfo cvT capsT)
+  | .recInfo _ _ _ rules => ∀ r ∈ rules, ∃ cv nP nF, C.find? r.ctor = some (.ctorInfo cv nP nF)
+  | _ => True
 
 /-- **The part of module `b`'s own environment that module `i` reads as
 `b` does**: its constants whose names `i`'s context stores and `i` and
@@ -191,8 +231,15 @@ structure LocalOk (mode : CheckMode) (pins : List NatOpPinSet) (dev : Nat → Mo
     ∃ ci', (dev ((dev i).src n)).own.find? n = some ci' ∧ Refines n ci ci'
   scoping : ∀ n ci, (dev i).context.find? n = some ci →
     EntryScoped (readsAlike dev i ((dev i).src n)) (dev i).context n ci
-  tables : ∀ T, ((dev i).context.find? T).isSome = true →
-    (dev i).context.findTable? T = (dev ((dev i).src T)).own.findTable? T
+  /-- a type former's table is its source's; nothing else has one (an
+  assumed former included) -/
+  tables : ∀ T ci, (dev i).context.find? T = some ci →
+    (dev i).context.findTable? T =
+      match ci with
+      | .indInfo .. => (dev ((dev i).src T)).own.findTable? T
+      | _ => none
+  projs : ∀ n ci, (dev i).context.find? n = some ci → EntryProjs (dev i).context n ci
+  blocks : ∀ n ci, (dev i).context.find? n = some ci → BlockIn (dev i).context n ci
   tables_mem : ∀ t ∈ (dev i).context.tables, (dev i).context.findTable? t.structName = some t
   res_context : ∀ n, ((dev i).context.find? n).isSome = true →
     (dev i).res n = (dev ((dev i).src n)).res n

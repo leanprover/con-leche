@@ -1391,7 +1391,7 @@ theorem declBasisPB_eqK {env₁ : Env} (mp : EnvModelM V μ env)
       (by
         show List.filterMap (ctorLook (ConLeche.Env.find? ⟨eqReflA :: eqA :: env.consts, env.tables⟩) eqName)
           [eqReflA.name] = _
-        rfl)
+        rfl) rfl
       ⟨2, [(eqReflA.toConstantVal, 0)], rfl, rfl, fun j hj => by
         obtain rfl : j = 0 := Nat.lt_one_iff.mp hj
         exact hR2⟩
