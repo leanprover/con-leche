@@ -125,7 +125,6 @@ def Expr.projsFormer (C : Env) : Expr → Bool
   | .app f a => Expr.projsFormer C f && Expr.projsFormer C a
   | .lam ty b | .forallE ty b => Expr.projsFormer C ty && Expr.projsFormer C b
   | .letE ty v b => Expr.projsFormer C ty && Expr.projsFormer C v && Expr.projsFormer C b
-  | .fvar _ ty => Expr.projsFormer C ty
   | _ => true
 
 /-- **The projections a context constant's data read are of type formers
@@ -240,6 +239,13 @@ structure LocalOk (mode : CheckMode) (pins : List NatOpPinSet) (dev : Nat → Mo
       | _ => none
   projs : ∀ n ci, (dev i).context.find? n = some ci → EntryProjs (dev i).context n ci
   blocks : ∀ n ci, (dev i).context.find? n = some ci → BlockIn (dev i).context n ci
+  /-- a recursor's source module stores its rules' constructors'
+  families as type formers -/
+  recFam : ∀ n cv mI rP rules, (dev i).context.find? n = some (.recInfo cv mI rP rules) →
+    ∀ r ∈ rules, ∀ cvj nP nF,
+      (dev ((dev i).src n)).own.find? r.ctor = some (.ctorInfo cvj nP nF) →
+      ∀ T us, cvj.type.piResult.getAppFn = .const T us →
+      ∃ cvT capsT, (dev ((dev i).src n)).own.find? T = some (.indInfo cvT capsT)
   tables_mem : ∀ t ∈ (dev i).context.tables, (dev i).context.findTable? t.structName = some t
   res_context : ∀ n, ((dev i).context.find? n).isSome = true →
     (dev i).res n = (dev ((dev i).src n)).res n
