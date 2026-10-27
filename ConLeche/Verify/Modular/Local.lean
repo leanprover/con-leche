@@ -1001,6 +1001,219 @@ theorem RunOk.at?_mono (hR : RunOk mode S M) {a b h j : Nat} {ci : ConstantInfo}
     refine ⟨c, at?_of_lvl2 hlb hs hb hc, hcn, fun hcc => ?_⟩
     rw [hc] at hcc; exact Option.some.inj hcc
 
+/-! ## Reads, read alike -/
+
+/-- **A name module `i` reads as its home `h` does**: `h` stores it, `i`'s
+context stores it, and both resolve it alike. -/
+def GoodAt (S : Store) (M : Array ModData) (i h : Nat) (d : Name) : Prop :=
+  ((devOf S M h).own.find? d).isSome = true ∧ ((devOf S M i).context.find? d).isSome = true ∧
+  (devOf S M i).res d = (devOf S M h).res d
+
+theorem readsAlike_find? {i h : Nat} {d : Name} (hg : GoodAt S M i h d) :
+    ((readsAlike (devOf S M) i h).find? d).isSome = true := by
+  obtain ⟨h1, h2, h3⟩ := hg
+  obtain ⟨c, hc⟩ := Option.isSome_iff_exists.mp h1
+  have hcn : c.name = d := by
+    unfold Env.find? at hc
+    have := List.find?_some hc
+    exact beq_iff_eq.mp this
+  have hmem : c ∈ (devOf S M h).own.consts := by
+    unfold Env.find? at hc; exact List.mem_of_find?_eq_some hc
+  unfold readsAlike Env.find?
+  simp only
+  rw [List.find?_filter, List.find?_isSome]
+  refine ⟨c, hmem, ?_⟩
+  rw [hcn]
+  have h2' := h2
+  unfold Env.find? at h2'
+  rw [List.find?_isSome] at h2'
+  obtain ⟨x, hx, hxn⟩ := h2'
+  simp [h3]
+  exact ⟨x, hx, by simpa using hxn⟩
+
+theorem lt_size_of_lvl {l : ByteArray} {x : Nat} (hx : lvlAt l x ≠ 0) : x < l.size := by
+  rcases Nat.lt_or_ge x l.size with h | h
+  · exact h
+  · unfold lvlAt at hx; simp [Nat.not_lt.mpr h] at hx
+
+/-- A module's levels: every loaded module is loaded at level 1 or 2. -/
+theorem RunOk.lvl_le2 (hR : RunOk mode S M) {i : Nat} (hi : i < M.size) (x : Nat) :
+    lvlAt (S.lvl i) x ≤ 2 := by
+  by_cases hx : x < (S.lvl i).size
+  · by_cases hz : lvlAt (S.lvl i) x = 0
+    · rw [hz]; decide
+    · exact (localOk_lvl (hR.locals i hi) hx hz).2.1
+  · unfold lvlAt; simp [hx]
+
+theorem RunOk.lvl_lt (hR : RunOk mode S M) {i : Nat} (hi : i < M.size) {x : Nat}
+    (hx : lvlAt (S.lvl i) x ≠ 0) : x < i := by
+  have hxs : x < (S.lvl i).size := lt_size_of_lvl hx
+  exact (localOk_lvl (hR.locals i hi) hxs hx).1
+
+/-- A visible alternate gives the name a constant in the context. -/
+theorem ctx_isSome_of_vis {i : Nat} {d : Name} {x : Nat × Nat} {c : ConstantInfo}
+    (hx : x ∈ S.alts d) (hat : (S.mb i).at? x.1 x.2 = some c) (hn : c.name = d) :
+    ((ctxOf (S.mb i)).find? d).isSome = true := by
+  rw [ctxOf_find?]
+  have := pickIn_isSome (mb := S.mb i) (l := (S.mb i).alts d) (by rw [Store.alts_mb]; exact hx)
+    hat hn
+  unfold MBase.find?
+  obtain ⟨p, hp⟩ := Option.isSome_iff_exists.mp this
+  unfold MBase.pick?
+  rw [hp]
+  obtain ⟨_, _, _⟩ := p
+  rfl
+
+/-- **The common end of a good read**: a target the home resolves the name
+to, visible in the reading module. -/
+theorem RunOk.good_of_vis (hR : RunOk mode S M) {i h : Nat} (hi : i < M.size) (hh : h < M.size)
+    {d : Name} {t : Nat × Nat} (ht : target h M[h].fe d = some t) (hx : t ∈ S.alts d)
+    {c : ConstantInfo} (hat : (S.mb i).at? t.1 t.2 = some c) (hn : c.name = d) :
+    GoodAt S M i h d := by
+  have hctx := ctx_isSome_of_vis hx hat hn
+  refine ⟨?_, ?_, ?_⟩
+  · rw [devOf_of_lt hh]
+    show ((envAt M[h].fe (ctxOf (S.mb h))).find? d).isSome = true
+    rw [← hR.fe_find? hh]
+    rcases hR.target_cases hh ht with ⟨-, p, -, -, hf⟩ | ⟨-, ci, -, hf⟩ <;> rw [hf] <;> rfl
+  · rw [devOf_of_lt hi]; exact hctx
+  · rw [devOf_of_lt hi, devOf_of_lt hh]
+    show resOf S i M[i] d = resOf S h M[h] d
+    obtain ⟨y, hy⟩ := Option.isSome_iff_exists.mp (by rw [ctxOf_find?] at hctx; exact hctx)
+    obtain ⟨h₀, j₀, hp⟩ := MBase.find?_some hy
+    have hki := hR.key_pick hi hp hx hat hn
+    have hli : resOf S i M[i] d = S.keyAt h₀ j₀ d := by unfold resOf; rw [hp]
+    rw [hli, ← hki]
+    rcases hR.target_cases hh ht with ⟨ht1, p, hp', hpn, -⟩ | ⟨-, ci, hph, -⟩
+    · obtain ⟨t1, t2⟩ := t
+      simp only at ht1 hp' ⊢
+      subst ht1
+      rw [← hpn, hR.res_home hh hp']
+    · unfold resOf; rw [hph]
+
+theorem RunOk.good2 (hR : RunOk mode S M) {i h : Nat} (hi : i < M.size) (hh : h < M.size)
+    (h2 : lvlAt (S.lvl i) h = 2) {d : Name} (hr : read2Ok S h M[h].fe d = true) :
+    GoodAt S M i h d := by
+  unfold read2Ok at hr
+  cases ht : target h M[h].fe d with
+  | none => rw [ht] at hr; cases hr
+  | some t =>
+    rw [ht] at hr
+    obtain ⟨t1, t2⟩ := t
+    simp only [Bool.or_eq_true, bne_iff_ne, ne_eq] at hr
+    have hs : ∀ x, x < M.size → x < S.slots.size := fun x hx => by rw [hR.slots]; exact hx
+    have hli : h < (S.lvl i).size := lt_size_of_lvl (by rw [h2]; decide)
+    rcases hR.target_cases hh ht with ⟨ht1, p, hp, hpn, -⟩ | ⟨hne, ci, hph, -⟩
+    · simp only at ht1 hp
+      subst ht1
+      have hx : (t1, t2) ∈ S.alts d := by
+        rcases hr with h' | h'
+        · exact absurd rfl h'
+        · exact List.contains_iff_mem.mp h'
+      exact hR.good_of_vis hi hh ht hx (at?_of_lvl2 hli (hs _ hh) h2 hp) hpn
+    · simp only at hne hph
+      obtain ⟨hn, hxa, hat⟩ := MBase.pick?_some hph
+      have hlt : t1 < h := by
+        obtain ⟨-, hlv⟩ := lvl_of_at? hat
+        exact hR.lvl_lt hh (by rcases hlv with h' | h' <;> rw [h'] <;> decide)
+      have ht1 : t1 < M.size := Nat.lt_trans hlt hh
+      have hle : ∀ x, lvlAt (S.lvl h) x ≤ lvlAt (S.lvl i) x := by
+        intro x
+        by_cases hx : x < (S.lvl h).size
+        · exact (localOk_lvl (hR.locals i hi) hli (by rw [h2]; decide)).2.2.choose_spec.2.1 h2 x hx
+        · have : lvlAt (S.lvl h) x = 0 := by unfold lvlAt; simp [hx]
+          rw [this]; exact UInt8.zero_le
+      obtain ⟨ci', hat', hn', -⟩ := hR.at?_mono hat ht1 hle (hR.lvl_le2 hi t1)
+        (by rw [hR.lvls h hh, hR.lvls i hi]; exact Nat.le_refl _)
+      rw [Store.alts_mb] at hxa
+      exact hR.good_of_vis hi hh ht hxa hat' (hn'.trans hn)
+
+theorem RunOk.good1 (hR : RunOk mode S M) {i h : Nat} (hi : i < M.size) (hh : h < M.size)
+    (h1 : lvlAt (S.lvl i) h = 1) {G : Array (Nat × UInt8)}
+    (hG : ∀ p ∈ G, lvlAt (S.lvl i) p.1 ≥ p.2) {d : Name}
+    (hr : read1Ok S h M[h].fe M[h].unit G d = true) : GoodAt S M i h d := by
+  have hli : h < (S.lvl i).size := lt_size_of_lvl (by rw [h1]; decide)
+  obtain ⟨-, -, u, hu, -, hfp⟩ := localOk_lvl (hR.locals i hi) hli (by rw [h1]; decide)
+  have hu' : u = M[h].unit := by
+    simp only [Array.getElem?_map, Array.getElem?_eq_getElem hh, Option.map_some,
+      Option.some.injEq] at hu
+    exact hu.symm
+  subst hu'
+  have hfp' := hfp (by rw [h1]; decide)
+  have hinG : ∀ p, (M[h].unit.fp1.contains p || G.contains p) = true → lvlAt (S.lvl i) p.1 ≥ p.2 := by
+    intro p hp
+    rcases Bool.or_eq_true_iff.mp hp with h' | h'
+    · exact hfp' p (Array.mem_of_contains_eq_true h')
+    · exact hG p (Array.mem_of_contains_eq_true h')
+  have hs : ∀ x, x < M.size → x < S.slots.size := fun x hx => by rw [hR.slots]; exact hx
+  unfold read1Ok at hr
+  cases ht : target h M[h].fe d with
+  | none => rw [ht] at hr; cases hr
+  | some t =>
+    rw [ht] at hr
+    obtain ⟨t1, t2⟩ := t
+    simp only at hr
+    rcases hR.target_cases hh ht with ⟨ht1, p, hp, hpn, -⟩ | ⟨hne, ci, hph, -⟩
+    · simp only at ht1 hp
+      subst ht1
+      simp only [beq_self_eq_true, ↓reduceIte, Bool.and_eq_true] at hr
+      obtain ⟨⟨hxa, hat1⟩, hg⟩ := hr
+      rw [← hR.slot t1 hh] at hat1 hg
+      obtain ⟨a, ha⟩ := Option.isSome_iff_exists.mp hat1
+      have ha' : (S.slot t1).exp.at1[t2]? = some (some a) := by
+        cases hq : (S.slot t1).exp.at1[t2]? with
+        | none => rw [hq] at ha; cases ha
+        | some x => rw [hq] at ha; cases x <;> simp_all
+      have hat := at?_of_lvl1 hli (hs _ hh) h1 ha' (fun q hq => hinG q
+        (by rw [Array.all_eq_true'] at hg; exact hg q hq))
+      obtain ⟨-, -, -, -, -, -, -, hj⟩ := shapeOk_spec (hR.shape hh)
+      obtain ⟨-, -, hat1', -⟩ := hj t2 p hp
+      have hna : a.name = d := by
+        rcases hat1' with h0 | h0 | ⟨h0, -⟩ <;> rw [ha'] at h0 <;> cases h0
+        · exact hpn
+        · exact hpn
+      refine hR.good_of_vis hi hh ht (List.contains_iff_mem.mp hxa) hat ?_
+      split <;> exact hna
+    · simp only at hne hph
+      simp only [beq_false_of_ne hne, Bool.false_eq_true, ↓reduceIte, Bool.and_eq_true,
+        Bool.or_eq_true, bne_iff_ne, ne_eq] at hr
+      obtain ⟨hin, hgate⟩ := hr
+      obtain ⟨hn, hxa, hatH⟩ := MBase.pick?_some hph
+      have hlt : t1 < h := by
+        obtain ⟨-, hlv⟩ := lvl_of_at? hatH
+        exact hR.lvl_lt hh (by rcases hlv with h' | h' <;> rw [h'] <;> decide)
+      have ht1 : t1 < M.size := Nat.lt_trans hlt hh
+      obtain ⟨c, hc, hcn⟩ := hR.at?_name hatH ht1
+      have hneed := hinG _ (Bool.or_eq_true_iff.mpr hin)
+      simp only at hneed
+      rw [Store.alts_mb] at hxa
+      have hli1 : t1 < (S.lvl i).size := by
+        rw [hR.lvls i hi]; exact ht1
+      rcases u8_one_two (Nat.le_trans (by unfold Store.needAt; split <;> decide) hneed)
+          (hR.lvl_le2 hi t1) with hl1 | hl2
+      · -- loaded at the exported level: then the target is presented there
+        have hna : S.needAt t1 t2 = 1 := by
+          have := hneed; rw [hl1] at this
+          unfold Store.needAt at this ⊢
+          split at this <;> first | rfl | simp at this
+        unfold Store.needAt at hna
+        split at hna
+        · rename_i a ha
+          have hat := at?_of_lvl1 hli1 (hs _ ht1) hl1 ha (fun q hq => hinG q (by
+            rcases hgate with h' | h'
+            · unfold Store.needAt at h'; rw [ha] at h'; exact absurd rfl h'
+            · rw [Array.all_eq_true'] at h'; exact h' q hq))
+          obtain ⟨-, -, -, -, -, -, -, hj⟩ := shapeOk_spec (hR.shape ht1)
+          obtain ⟨-, -, hat1', -⟩ := hj t2 c hc
+          have hna' : a.name = d := by
+            rcases hat1' with h0 | h0 | ⟨h0, -⟩ <;> rw [ha] at h0 <;> cases h0
+            · rw [hcn, hn]
+            · show c.name = d; rw [hcn, hn]
+          refine hR.good_of_vis hi hh ht hxa hat ?_
+          split <;> exact hna'
+        · cases hna
+      · exact hR.good_of_vis hi hh ht hxa (at?_of_lvl2 hli1 (hs _ ht1) hl2 hc) (hcn.trans hn)
+
 /-! ## The local checks -/
 
 /-- **A modular run's checks are the local checks.** -/
