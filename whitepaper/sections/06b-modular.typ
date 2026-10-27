@@ -86,7 +86,7 @@ that module does.
 
 #definition(name: "Reading from earlier modules")[
   An environment of a module
-  #src("whitepaper/Fragment/ModularModel.lean", 206, 219)[reads from
+  #src("whitepaper/Fragment/ModularModel.lean", 206, 221)[reads from
   earlier modules] when
   #set enum(numbering: "1.")
   + every name it stores is read from an earlier module of the
@@ -99,11 +99,13 @@ that module does.
     its type only, so a value the module does not see is never
     inspected;
   + the module resolves each of its names as the name's home does;
-  + a type former in it comes with its constructors.
+  + a type former it stores as such comes with its constructors. A
+    type former may also be read as an assumption of its type, and then
+    brings no constructors and no recursor.
 ] <def:reads>
 
 #definition(name: "Local checks")[
-  A module #src("whitepaper/Fragment/ModularModel.lean", 221, 234)[passes its
+  A module #src("whitepaper/Fragment/ModularModel.lean", 223, 236)[passes its
   local checks] when its context reads from earlier modules, its
   declarations are accepted against its context, every constant it
   flags as a proof is a theorem or a definition of a proposition, and
@@ -126,7 +128,7 @@ its home module, where the hidden definition has its value.
 
 A module can also be validated without checking its declarations, by
 _comparison_. A module is
-#src("whitepaper/Fragment/ModularModel.lean", 236, 239)[compared] when
+#src("whitepaper/Fragment/ModularModel.lean", 238, 241)[compared] when
 its whole own environment, its declarations included, reads from
 earlier modules. Every constant it stores is then an earlier module's
 constant, or an assumption of that constant's type. Its assumptions
@@ -146,23 +148,23 @@ challenge says nothing about it. A reader of a challenge therefore
 has to look at its list of holes.
 
 A
-#src("whitepaper/Fragment/ModularModel.lean", 241, 242)[_validated_]
+#src("whitepaper/Fragment/ModularModel.lean", 243, 244)[_validated_]
 module is one that passes its local checks or is compared.
 
 == The theorem <sec:mod-thm>
 
 #theorem(name: "Modular checking")[
   If every module of a development is validated, there is
-  #src("whitepaper/Fragment/ModularModel.lean", 563, 575)[one assignment
+  #src("whitepaper/Fragment/ModularModel.lean", 565, 577)[one assignment
   of sets to the qualified names], with every proof the point, under
   which every module's own environment has a model. Each module reads
   that assignment through its resolution. Hence for every module:
   #set enum(numbering: "1.")
   + its own environment
-    #src("whitepaper/Fragment/ModularModel.lean", 578, 583)[has a model];
-  + #src("whitepaper/Fragment/ModularModel.lean", 587, 595)[no closed term
+    #src("whitepaper/Fragment/ModularModel.lean", 580, 585)[has a model];
+  + #src("whitepaper/Fragment/ModularModel.lean", 589, 597)[no closed term
     inhabits an empty proposition] it stores;
-  + #src("whitepaper/Fragment/ModularModel.lean", 598, 607)[every
+  + #src("whitepaper/Fragment/ModularModel.lean", 600, 609)[every
     statement it stores holds] in that model. For a compared module
     this covers every hole: a propositional hole is true there.
 ] <thm:mod>
@@ -175,7 +177,7 @@ module is one that passes its local checks or is compared.
 
   An environment of the module that reads from earlier modules has a
   model: read the assignment through the module's resolution
-  (#src("whitepaper/Fragment/ModularModel.lean", 338, 345)[the
+  (#src("whitepaper/Fragment/ModularModel.lean", 340, 347)[the
   restricted model]). Each law of one of its constants is the law of
   the home's constant it refines. That law mentions only names the
   module reads as the home does, and on those names the two readings
@@ -190,7 +192,7 @@ module is one that passes its local checks or is compared.
   checked list]). Every stored constant keeps its set, and every proof
   gets the point. The assignment is then extended by the module's own
   ordinary constants
-  (#src("whitepaper/Fragment/ModularModel.lean", 540, 550)[one more
+  (#src("whitepaper/Fragment/ModularModel.lean", 542, 552)[one more
   module]). The qualified names of earlier modules are untouched, and a
   proof's qualified name already denotes the point.
 
@@ -236,11 +238,9 @@ definitions the module does not expose keep their types only.
     qualified name: a proof's qualified name is its statement],
   [two modules defining one name that Lean never loads together],
   [two qualified names, never compared],
-  [an exported term mentions only what an importer loads],
-  [check 3: a context constant lies within what the module reads as
-    its home does],
-  [names of private declarations], [ordinary names; Lean prefixes
-    them with their module's name],
+  [an exported constant whose terms mention a name the importer does
+    not see], [hidden or absent: in the context as an assumption of its
+    type if its type is complete there, otherwise not at all (check 3)],
   [Comparator's challenge and solution], [a compared module and the
     module it reads from],
   [a hole of the challenge: an axiom, or a constant whose value is
@@ -252,6 +252,17 @@ definitions the module does not expose keep their types only.
     `landrun` sandbox it builds them in], [nothing: the comparison runs
     over the whole environment, read from the built files],
 )
+
+Lean's exported views are not self-contained: an exported constant may
+mention a name its importer does not see. The context of a module
+holds each constant it reads as stored if everything its type and
+value mention is present, as an assumption of its type if only its
+type is complete, and not at all otherwise. An inductive block with an
+incomplete constructor or recursor type enters as an assumed type
+former, with no constructors and no recursor. These choices are made
+for each module, until nothing changes. Nothing from another module's
+private part is added to repair an exported constant, and no name is
+treated specially for its spelling.
 
 The checks are designed not to reject what Lean accepts. That is an
 aim, checked by running them on real developments, not a theorem.

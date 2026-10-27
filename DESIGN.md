@@ -107734,3 +107734,17 @@ For the implementation (Challenge vs Solution, Comparator's job):
 Comparator's `theorem_names`/`definition_names` lists and its `landrun`
 build sandbox have no counterpart: the comparison runs over the whole
 challenge environment read from the built oleans.
+
+**Addendum (2026-10-27, agent/370-hide; maintainer ruling "better to
+remove stuff than add stuff").**  How an imported constant enters a
+module's context: as stored if everything its type and value mention
+is present there; as an assumption of its type if only its type is
+complete; not at all if its type is incomplete.  An inductive block
+with an incomplete constructor or recursor type enters as an ASSUMED
+type former, with no constructors or recursors.  Computed as a
+fixpoint per module.  No constant of another module's private part is
+ever added to repair an exported one, and no name is special for being
+`_private`.  The fragment already allows this: refinement lets an
+assumption refine any constant of its type, a type former included, and
+the block-completeness condition of `ReadsFrom` applies only to type
+formers stored as such.  §7's check list and Lean paragraph updated.
