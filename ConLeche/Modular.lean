@@ -147,7 +147,8 @@ def ProofDecl (mode : CheckMode) (E : Env) : Declaration → Prop
 /-- **A declaration list accepted from an environment** (check 2): each
 declaration installed by the fold's step (`installDeclStep`) at the
 canonical index of the environment so far, its record (if any) checked
-(`checkPending`), a flagged name's declaration a proof (`ProofDecl`);
+(`checkPending`), and a flagged name the step stores is stored by a
+proof (`ProofDecl`);
 the next declaration starts at the environment the step produced. -/
 inductive AcceptedFrom (mode : CheckMode) (pins : List NatOpPinSet) (proofs : Name → Bool) :
     Env → List Declaration → Env → Prop where
@@ -156,7 +157,8 @@ inductive AcceptedFrom (mode : CheckMode) (pins : List NatOpPinSet) (proofs : Na
       {pend : Array PendingCheck}
       (hstep : installDeclStep mode pins (i, mkFEnv E, #[]) d = .ok (i + 1, fe, pend))
       (hrec : ∀ pc ∈ pend.toList, ∃ s, checkPending mode fe pc {} = .ok ((), s))
-      (hflag : ∀ n ∈ d.names, proofs n = true → ProofDecl mode E d)
+      (hflag : ∀ n, proofs n = true → E.find? n = none → (fe.env.find? n).isSome = true →
+        ProofDecl mode E d)
       (rest : AcceptedFrom mode pins proofs fe.env ds E') :
       AcceptedFrom mode pins proofs E (d :: ds) E'
 

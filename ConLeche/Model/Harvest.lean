@@ -137,6 +137,33 @@ theorem natHeads_cons_fresh (mp : EnvModelM V μ env)
   have := mp.nat_heads φ hgold ρ
   simpa only [e1, e2, e3] using this
 
+/-- **A value-kind step, with its new leaf**: a covered, agreeing carrier
+at the result whose leaf at `n` is the canonical proof wherever `P`
+holds (the modular theorem reads it: a constant a module flags as a
+proof has the canonical proof as its leaf). -/
+@[expose] def CoverStepLeaf {env : Env} (mp : EnvModelM V μ env) (env' : Env) (n : Name)
+    (P : Prop) : Prop :=
+  ∃ mp' : EnvModelM V μ env', Agrees mp mp' ∧ (P → mp'.base2.acval n = fun _ => .prf) ∧
+    (LfpCover mp [] → LfpCover mp' [])
+
+theorem CoverStepLeaf.step {env env' : Env} {mp : EnvModelM V μ env} {n : Name} {P : Prop}
+    (h : CoverStepLeaf mp env' n P) : CoverStep mp env' :=
+  h.elim fun mp' h' => ⟨mp', h'.1, h'.2.2⟩
+
+/-- A fresh non-inductive cons through the funnel, with its new leaf. -/
+theorem coverStepLeaf_cons {mp : EnvModelM V μ env} {c₀ : ConstantInfo}
+    {L : (Name → Nat) → Term} {P : Prop}
+    (hfresh : env.find? c₀.name = none)
+    (hni : ∀ cv caps, c₀ ≠ .indInfo cv caps) (hnc : ∀ cv a b, c₀ ≠ .ctorInfo cv a b)
+    (hL : P → L = fun _ => .prf)
+    (h : ∃ mp' : EnvModelM V μ ⟨c₀ :: env.consts, env.tables⟩,
+      mp'.base2.acval = acvalWith mp.base2.acval c₀.name L) :
+    CoverStepLeaf mp ⟨c₀ :: env.consts, env.tables⟩ c₀.name P := by
+  obtain ⟨mp', hac, hc⟩ := coverA_cons (ex := []) (ex' := []) hfresh (fun _ h => h)
+    (fun cv caps h => absurd h (hni cv caps)) h (fun _ h => Or.inl h)
+    (fun cv a b h => absurd h (hnc cv a b))
+  exact ⟨mp', Agrees.cons hfresh hac, fun hp => by rw [hac, acvalWith_self, hL hp], hc⟩
+
 /-- **A type the checker finds to be a proposition reads as a truth
 value** (`PropTypeRun`): the sort fact at the run's fuel, at level zero. -/
 theorem propTypeRun_mem_univZero (hμ : μ.isVerified = true) (mp : EnvModelM V μ env)
@@ -158,7 +185,8 @@ theorem harvestDefn (hμ : μ.isVerified = true)
     {cv : ConstantVal} {value : Expr} {hint : ReducibilityHint}
     {env₂ : Env}
     (hR : DeclDefnRun μ F env cv value hint env₂) :
-    CoverStep mp env₂ := by
+    CoverStepLeaf mp env₂ cv.name ((ConLeche.natOpNames.contains cv.name ||
+      ConLeche.natDivModNames.contains cv.name) = false ∧ PropTypeRun μ env cv.type) := by
   obtain ⟨type', value', hcv, hvfr, rfl, hnatc, hdmc⟩ := hR
   obtain ⟨hfind, hnres, hnd, hlbt, hitf, hann, htp, htr,
     hrunT⟩ := hcv
@@ -350,7 +378,8 @@ theorem harvestDefn (hμ : μ.isVerified = true)
         (A := L) hfresh
         ψ 0 hcb h
   -- assemble
-  refine coverTo_cons hfresh (fun _ _ h => nomatch h) (declStep_preserves_of_cons mp
+  refine coverStepLeaf_cons hfresh (fun _ _ h => nomatch h) (fun _ _ _ h => nomatch h)
+    (fun hp => hLP ⟨hp.1, by rw [hann]; exact hp.2⟩) (declStep_preserves_of_cons mp
     (c₀ := .defnInfo ⟨cv.name, cv.levelParams, type'⟩ value' hint)
     (A := L) hfresh
     (ConsHead.ofFresh
@@ -578,7 +607,7 @@ theorem harvestThm (hμ : μ.isVerified = true)
     (mp : EnvModelM V μ env)
     {cv : ConstantVal} {value : Expr} {env₂ : Env}
     (hR : DeclThmRun μ F env cv value env₂) :
-    CoverStep mp env₂ := by
+    CoverStepLeaf mp env₂ cv.name True := by
   obtain ⟨type', value', hcv, hprop, hvfr, rfl⟩ := hR
   obtain ⟨hfind, hnres, hnd, hlbt, hitf, hann, htp, htr,
     hrunT⟩ := hcv
@@ -741,7 +770,8 @@ theorem harvestThm (hμ : μ.isVerified = true)
         (A := L) hfresh
         ψ 0 hcb h
   -- assemble
-  refine coverTo_cons hfresh (fun _ _ h => nomatch h) (declStep_preserves_of_cons mp
+  refine coverStepLeaf_cons hfresh (fun _ _ h => nomatch h) (fun _ _ _ h => nomatch h)
+    (fun _ => rfl) (declStep_preserves_of_cons mp
     (c₀ := .thmInfo ⟨cv.name, cv.levelParams, type'⟩)
     (A := L) hfresh
     (ConsHead.ofFresh
@@ -1024,7 +1054,8 @@ theorem harvestOpaque (hμ : μ.isVerified = true)
     (mp : EnvModelM V μ env)
     {cv : ConstantVal} {value : Expr} {env₂ : Env}
     (hR : DeclOpaqueRun μ F env cv value env₂) :
-    CoverStep mp env₂ := by
+    CoverStepLeaf mp env₂ cv.name
+      (ConLeche.reduceOpNames.contains cv.name = false ∧ PropTypeRun μ env cv.type) := by
   obtain ⟨type', value', hcv, hvfr, rfl, hred⟩ := hR
   obtain ⟨hfind, hnres, hnd, hlbt, hitf, hann, htp, htr,
     hrunT⟩ := hcv
@@ -1208,7 +1239,8 @@ theorem harvestOpaque (hμ : μ.isVerified = true)
         (A := L) hfresh
         ψ 0 hcb h
   -- assemble
-  refine coverTo_cons hfresh (fun _ _ h => nomatch h) (declStep_preserves_of_cons mp
+  refine coverStepLeaf_cons hfresh (fun _ _ h => nomatch h) (fun _ _ _ h => nomatch h)
+    (fun hp => hLP ⟨hp.1, by rw [hann]; exact hp.2⟩) (declStep_preserves_of_cons mp
     (c₀ := .axiomInfo ⟨cv.name, cv.levelParams, type'⟩)
     (A := L) hfresh
     (ConsHead.ofFresh

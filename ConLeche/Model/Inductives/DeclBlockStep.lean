@@ -72,7 +72,7 @@ theorem declBlock (hμ : μ.isVerified = true) {F : Nat} {env env₂ : Env}
     (mp : EnvModelM V μ env)
     (hE : ConLeche.EtaFamiliesClosed env) (hdp : ConLeche.blockParts? nPd block = some p₀)
     (hrun : ConLeche.Semantics.DeclBlockRun μ F env block p₀ env₂) (hcov : LfpCover mp []) :
-    ∃ mp' : EnvModelM V μ env₂, LfpCover mp' [] := by
+    ∃ mp' : EnvModelM V μ env₂, Agrees mp mp' ∧ LfpCover mp' [] := by
   classical
   obtain ⟨hndC₀, hndM₀, isRec, env₁, cvTas, p₁, p, ctorsAs, sortsss, ctx, holes, rd, Ms, kinds,
     nfs, nodes, st, isorts, outR, hInd, hp, hCtors, hctxR, hcls, hPos, hst, -, hsorts, hRec,
@@ -256,7 +256,7 @@ theorem declBlock (hμ : μ.isVerified = true) {F : Nat} {env env₂ : Env}
     refine ⟨m, cA, by rw [← hlenCtorsAs]; exact hm, ?_, rfl⟩
     rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hm]
     exact hcAl
-  obtain ⟨mpC₀, hbC, hlC, hcovC⟩ := lfpCover_append (ex := []) (ex' := cvTas.map (·.name)) mp mpC₀'
+  obtain ⟨mpC₀, hbC, hlC, hagC₀, hcovC⟩ := lfpCover_append (ex := []) (ex' := cvTas.map (·.name)) mp mpC₀'
     (new := (ctorsAs.flatten.map fun cA => ConstantInfo.ctorInfo cA.1 p₁.nP cA.2).reverse ++ newI)
     (by rw [consBlockCtors_consts, henv₁, List.append_assoc]; rfl)
     (by rw [consBlockCtors_tables, hcons]; exact consBlockInds_tables cvTas 0 env)
@@ -640,7 +640,7 @@ theorem declBlock (hμ : μ.isVerified = true) {F : Nat} {env env₂ : Env}
     (find? := (ConLeche.consBlockCtors p₁.nP ctorsAs env₁).find?)
     (q := (p₀.complete p₁).toBlockShape) 0 outR
     (ConLeche.consBlockCtors p₁.nP ctorsAs env₁)
-  obtain ⟨mpR, hbR, -, hcovR⟩ := lfpCover_append (ex := []) (ex' := []) mpC mpR₀ hnewR
+  obtain ⟨mpR, hbR, -, hagR, hcovR⟩ := lfpCover_append (ex := []) (ex' := []) mpC mpR₀ hnewR
     (consBlockRecsT_tables 0 outR _) hfindMono
     hag (fun _ h => h) (fun _ h => Or.inl h)
     (fun c hc cv caps h => by obtain ⟨r, -, mI, rP, rules, rfl⟩ := hnewRall c hc; exact nomatch h)
@@ -650,8 +650,9 @@ theorem declBlock (hμ : μ.isVerified = true) {F : Nat} {env env₂ : Env}
   rw [← hbR] at hcoreT
   -- ## the tables
   suffices hT : CoverTo mpR [] env₂ [] by
-    obtain ⟨mpF, hF'⟩ := hT
-    exact ⟨mpF, hF' (hcovR hcovMpC)⟩
+    obtain ⟨mpF, hagF, hF'⟩ := hT
+    exact ⟨mpF, hagC₀.trans ((Agrees.of_acval (mp := mpC₀) (mp' := mpC) rfl).trans
+      (hagR.trans hagF)), hF' (hcovR hcovMpC)⟩
   refine stageBlockTables hN hS rfl rfl rfl (p₁.members.zip (ctorsAs.zip sortsss)) 0 _ env₂
     mpR ?_ hTbl hcoreT
   intro c e hce
