@@ -161,6 +161,37 @@ theorem nestContainer_cons {env : Env} {c₀ : ConstantInfo} {C : Name}
   · next heq => subst heq; rw [hfresh]; simp [hent]
   · rfl
 
+/-- A `filterMap` that drops nothing hits everywhere. -/
+theorem isSome_of_length_filterMap {α β : Type} {f : α → Option β} :
+    ∀ {l : List α}, (l.filterMap f).length = l.length → ∀ x ∈ l, (f x).isSome = true
+  | [], _, _, hx => absurd hx (List.not_mem_nil)
+  | a :: l, h, x, hx => by
+    rw [List.filterMap_cons] at h
+    cases hfa : f a with
+    | none =>
+      rw [hfa] at h
+      have := List.length_filterMap_le f l
+      simp at h; omega
+    | some b =>
+      rw [hfa] at h
+      simp only [List.length_cons, Nat.add_right_cancel_iff] at h
+      rcases List.mem_cons.mp hx with rfl | hx
+      · rw [hfa]; rfl
+      · exact isSome_of_length_filterMap h x hx
+
+theorem ctorLook_isSome {f : Name → Option ConstantInfo} {C x : Name}
+    (h : (ctorLook f C x).isSome = true) :
+    ∃ ci, f x = some ci ∧ (ctorEntry C ci).isSome = true := by
+  unfold ctorLook at h
+  cases hf : f x with
+  | none => rw [hf] at h; exact nomatch h
+  | some ci => rw [hf] at h; exact ⟨ci, rfl, h⟩
+
+theorem ctorLook_of {f : Name → Option ConstantInfo} {C x : Name} {ci : ConstantInfo}
+    (hf : f x = some ci) (he : (ctorEntry C ci).isSome = true) :
+    (ctorLook f C x).isSome = true := by
+  unfold ctorLook; rw [hf]; exact he
+
 /-- **A recorded block's constructor ownership** (`ContBlockOk.ctors`/
 `noCtors`, at the environment's own context). -/
 structure LfpOwn (env : Env) (D : LfpDatum V) : Prop where
@@ -191,6 +222,12 @@ structure LfpOwn (env : Env) (D : LfpDatum V) : Prop where
     ∃ bs args, cv.type.stripPis (nPc + nF)
         = some (bs, Expr.mkAppN (.const (D.member c) (cv.levelParams.map .param)) args) ∧
       ∀ ψ, args.length = nPc + (D.ids c ψ).length
+  /-- **every constructor a member's record lists is stored, concluding
+  in it** (the block installs its constructors with its formers) — what
+  lets a context that stores a member read its constructor list as the
+  member's source does -/
+  ctorsAll : ∀ c, c < D.k → ∀ cv caps, env.find? (D.member c) = some (.indInfo cv caps) →
+    ∀ x ∈ caps.ctors, (ctorLook env.find? (D.member c) x).isSome = true
 
 omit [SetTheory V] in
 /-- Ownership across an extension that keeps every lookup and every
@@ -213,6 +250,12 @@ theorem LfpOwn.mono {env env' : Env} {D : LfpDatum V} (h : LfpOwn env D)
   ctorConcl := fun c hc j hj => by
     obtain ⟨cv, nPc, nF, hf, hsh⟩ := h.ctorConcl c hc j hj
     exact ⟨cv, nPc, nF, hfwd _ _ hf, hsh⟩
+  ctorsAll := fun c hc cv caps hf x hx => by
+    obtain ⟨cv0, caps0, hf0, -⟩ := h.lvlNodup c hc
+    rw [hfwd _ _ hf0] at hf
+    obtain rfl : caps0 = caps := by injection hf with h1; injection h1
+    obtain ⟨ci, hci, he⟩ := ctorLook_isSome (h.ctorsAll c hc cv0 caps0 hf0 x hx)
+    exact ctorLook_of (hfwd _ _ hci) he
 
 /-! ### Constructor entries, computed -/
 
@@ -257,6 +300,7 @@ theorem lfpOwn_one {env : Env} {D : LfpDatum V} {T : Name} {cv : ConstantVal}
     {caps : ConLeche.IndCaps} {cs : List (ConstantVal × Nat × Nat)}
     (hk : D.k = 1) (hm : D.member 0 = T) (hf : env.find? T = some (.indInfo cv caps))
     (hcs : caps.ctors.filterMap (ctorLook env.find? T) = cs)
+    (hlenCs : cs.length = caps.ctors.length)
     (hctors : ∃ nP' L, nestPick caps cs = some (nP', L) ∧ L.length = D.nctors 0 ∧
       ∀ j (hj : j < L.length), env.find? (D.ctorName 0 j) = some (.ctorInfo L[j].1 nP' L[j].2))
     (hno : ∀ nP', nestPick caps cs = some (nP', []) →
@@ -274,7 +318,8 @@ theorem lfpOwn_one {env : Env} {D : LfpDatum V} {T : Name} {cv : ConstantVal}
     rw [hf]
     show nestPick caps (caps.ctors.filterMap (ctorLook env.find? T)) = _
     rw [hcs]
-  refine ⟨fun c hc => ?_, fun c hc nP' hL => ?_, fun c hc => ?_, fun c hc j hj => ?_⟩
+  refine ⟨fun c hc => ?_, fun c hc nP' hL => ?_, fun c hc => ?_, fun c hc j hj => ?_,
+    fun c hc cv' caps' hf' x hx => ?_⟩
   · obtain rfl : c = 0 := by omega
     rw [hm, hnc]; exact hctors
   · obtain rfl : c = 0 := by omega
@@ -291,6 +336,11 @@ theorem lfpOwn_one {env : Env} {D : LfpDatum V} {T : Name} {cv : ConstantVal}
     refine ⟨L[j].1, nP', L[j].2, hfj j hjL, ?_⟩
     rw [hm]
     exact hconcl nP' L hL j hjL
+  · obtain rfl : c = 0 := by omega
+    rw [hm] at hf' ⊢
+    rw [hf] at hf'
+    obtain rfl : caps = caps' := by injection hf' with h1; injection h1
+    exact isSome_of_length_filterMap (by rw [hcs, hlenCs]) x hx
 
 omit [SetTheory V] in
 /-- **Ownership at a one-member block without constructors**, recorded
@@ -301,7 +351,7 @@ theorem lfpOwn_former0 {env : Env} {c₀ : ConstantInfo}
     (hm : D.member 0 = c₀.name) (hn : D.nctors 0 = 0) (hnd : cv.levelParams.Nodup)
     (hp : ∀ ψ, (D.params ψ).length = caps.nparams) : LfpOwn ⟨c₀ :: env.consts, env.tables⟩ D := by
   subst hc
-  refine lfpOwn_one (cs := []) hk hm (ConLeche.Env.find?_cons_self _ _) ?_
+  refine lfpOwn_one (cs := []) hk hm (ConLeche.Env.find?_cons_self _ _) ?_ (by rw [hcn]; rfl)
     ⟨caps.nparams, [], rfl, hn.symm, fun j hj => absurd hj (Nat.not_lt_zero j)⟩
     (fun nP' h => by
       obtain rfl : caps.nparams = nP' := by
