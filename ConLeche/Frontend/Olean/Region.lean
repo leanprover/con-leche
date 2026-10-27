@@ -5,7 +5,7 @@ public import ConLeche.Kernel.Core
 @[expose] public section
 
 /-!
-# Reading `.olean` files: the byte region (task #369)
+# Reading `.olean` files: the byte region (tasks #369, #371)
 
 An `.olean` file is a *compacted region*: the Lean runtime's object
 graph of the module's `ModuleData`, written by `CompactedRegion.save`
@@ -18,14 +18,15 @@ each file starts at its header's `base_addr`, the later files at higher
 addresses, and an object of a later file may point into an earlier one.
 
 **Nothing in the files is trusted.**  The files are read into memory
-(`IO.FS.readBinFile`; no mapping, no unsafe cast), and every object the
-decoder (`ConLeche/Frontend/Olean/Decode.lean`) visits is located, bounds-checked and
-read field by field from the bytes; a cached field the runtime keeps
-beside the data (`Name`'s hash, `Level`'s and `Expr`'s data words) is
-never read.  What comes out is the checker's own `Declaration` records,
-which the fold checks like any other — the main theorem
-`ConLeche.model_exists` is stated for every record array, so it holds
-whatever the files contain.
+(`IO.FS.readBinFile`; no mapping, no unsafe cast) and laid end to end
+in one byte array, the module's *region*; an address stands for a
+*location* in it (`Region.loc`), and every object the reader visits is
+located, bounds-checked and read field by field from the bytes; a
+cached field the runtime keeps beside the data (`Name`'s hash, `Level`'s
+and `Expr`'s data words) is never read.  What comes out is the checker's
+own values, then its own `Declaration` records, which the fold checks
+like any other — the main theorem `ConLeche.model_exists` is stated for
+every record array, so it holds whatever the files contain.
 
 The layout this file reads (v4.35.0, `olean_header` in
 `src/library/module.cpp`):
@@ -38,14 +39,20 @@ The layout this file reads (v4.35.0, `olean_header` in
   reserves the root slot first), then the objects;
 * an object is the 8-byte header `lean_object` (`m_rc : int32`,
   `m_cs_sz : uint16`, `m_other : uint8`, `m_tag : uint8`) followed by
-  its payload.
+  its payload; a constructor object (tag at most 243) has `m_other`
+  pointer fields, then its scalar area.
 
 **The compactor writes children before parents** (`insert_constructor`
 computes its fields' offsets before copying the object itself, and a
-max-sharing hit reuses an earlier copy), so every pointer of a well-formed
-region points strictly *below* the object holding it.  The reader
-insists on it (`Obj.field`): it is what makes every walk over the graph
-terminate and lets the decoder build bottom-up.
+max-sharing hit reuses an earlier copy), so every pointer of a
+well-formed region points to an object at an *earlier location*.  The
+reader insists on it for every pointer it follows (`Region.down`): it is
+what makes the reading a well-founded recursion
+(`ConLeche/Frontend/Olean/Spec.lean`) and lets the fast decoder build
+bottom-up (`ConLeche/Frontend/Olean/Fast.lean`).
+
+Everything here is shared by the specification and the fast decoder:
+both read objects through these functions.
 -/
 
 namespace ConLeche.Frontend.Olean
@@ -53,9 +60,8 @@ namespace ConLeche.Frontend.Olean
 /-! ## Little-endian reads
 
 Total: past the end they read `0`.  Every caller checks the extent of
-what it reads first (`Region.obj`, `Obj.field`, `Obj.u8`), so the
-default is never observed; it keeps the reads free of a panic path
-(`LEAN_ABORT_ON_PANIC` is set in every run). -/
+what it reads first, so the default is never observed; it keeps the
+reads free of a panic path (`LEAN_ABORT_ON_PANIC` is set in every run). -/
 
 @[inline] def rdU8 (b : @& ByteArray) (i : Nat) : UInt8 :=
   if h : i < b.size then b[i] else 0
@@ -97,11 +103,11 @@ def padded (b : ByteArray) (lo hi : Nat) : String :=
   let bs := (b.extract lo hi).toList.takeWhile (· != 0)
   String.fromUTF8? ⟨bs.toArray⟩ |>.getD "?"
 
-/-- **The header, validated.**  A wrong marker or a truncated file is
-malformed input (`.internal`, exit 3); a well-formed header of another
-format version, bignum encoding or toolchain is a positive decline
-(`.notImplemented`): the file is an `.olean`, of a kind this reader
-does not read. -/
+/-- **The header, validated.**  A wrong marker, a truncated file or a
+size that is not a whole number of words is malformed input
+(`.internal`, exit 3); a well-formed header of another format version,
+bignum encoding or toolchain is a positive decline (`.notImplemented`):
+the file is an `.olean`, of a kind this reader does not read. -/
 def Part.ofBytes (path : String) (b : ByteArray) : Except CheckError Part := do
   unless b.size ≥ dataStart && b.extract 0 5 == "olean".toUTF8 do
     throw (.internal s!"{path}: not an .olean file")
@@ -116,6 +122,8 @@ def Part.ofBytes (path : String) (b : ByteArray) : Except CheckError Part := do
     throw (.notImplemented s!"{path}: .olean written by Lean {Display.str v} \
       ({Display.str g}); this checker reads the oleans of Lean {toolchainVersion} \
       ({toolchainGithash}) only")
+  unless b.size % 8 == 0 do
+    throw (.internal s!"{path}: not a whole number of words")
   let base := rdU64 b 80
   unless base % 8 == 0 && base.toNat + b.size < 2 ^ 64 do
     throw (.internal s!"{path}: bad base address")
@@ -124,28 +132,38 @@ def Part.ofBytes (path : String) (b : ByteArray) : Except CheckError Part := do
 /-- The root pointer of a file (the root slot after the header). -/
 def Part.root (p : @& Part) : UInt64 := rdU64 p.bytes headerSize
 
-/-- The address space of one module: its files, in the order they were
-written (increasing base addresses, checked by `Region.ofParts`). -/
+/-! ## The region -/
+
+/-- One file inside the region: the address its byte `0` stands for,
+the location of its byte `0` in the region, its size. -/
+structure Seg where
+  base : UInt64
+  off : Nat
+  size : Nat
+
+/-- **The address space of one module**: its files laid end to end in
+`bytes`, in the order they were written, and where each one is. -/
 structure Region where
-  parts : Array Part
-  /-- each part's first memo slot (`Region.slot`) -/
-  starts : Array Nat
-  /-- the number of memo slots -/
-  words : Nat
+  bytes : ByteArray
+  segs : Array Seg
 
 /-- The region of one file. -/
-def Region.single (p : Part) : Region := ⟨#[p], #[0], p.bytes.size / 8 + 1⟩
+def Region.single (p : Part) : Region := ⟨p.bytes, #[⟨p.base, 0, p.bytes.size⟩]⟩
 
-/-- The parts must not overlap and must come in increasing address
-order, as one compactor writes them. -/
+/-- The region of a module's files.  The files must not overlap and
+must come in increasing address order, as one compactor writes them. -/
 def Region.ofParts (ps : Array Part) : Except CheckError Region := do
   for i in [1:ps.size] do
     if h : i < ps.size then
       let p := ps[i - 1]
       unless p.base.toNat + p.bytes.size ≤ ps[i].base.toNat do
         throw (.internal "the .olean files of a module overlap")
-  let (starts, words) := ps.foldl (fun (st, n) p => (st.push n, n + p.bytes.size / 8 + 1)) (#[], 0)
-  pure ⟨ps, starts, words⟩
+  if h : ps.size = 1 then return Region.single ps[0]
+  let total := ps.foldl (fun n p => n + p.bytes.size) 0
+  let (bytes, segs) := ps.foldl (fun (b, ss) p =>
+    (b ++ p.bytes, ss.push ⟨p.base, b.size, p.bytes.size⟩))
+    (ByteArray.emptyWithCapacity total, #[])
+  pure ⟨bytes, segs⟩
 
 /-- **The scalar test**: a Lean value that is not a pointer (a small
 `Nat`, a nullary constructor) is stored as `(n <<< 1) ||| 1`. -/
@@ -154,175 +172,201 @@ def Region.ofParts (ps : Array Part) : Except CheckError Region := do
 /-- The value of a boxed scalar. -/
 @[inline] def unbox (v : UInt64) : Nat := (v >>> 1).toNat
 
-/-- **The part holding an address**: its index, or the number of parts
-when no part holds it.  A plain number, so that locating allocates
-nothing.  The search starts at the LAST part, the private one, where
-most objects of a module-system module are. -/
-def Region.partOf (r : @& Region) (a : UInt64) : Nat :=
-  go r.parts.size
-where
-  go : Nat → Nat
-    | 0 => r.parts.size
-    | i + 1 =>
-      if h : i < r.parts.size then
-        let p := r.parts[i]
-        if p.base ≤ a && (a - p.base).toNat < p.bytes.size then i else go i
-      else r.parts.size
+/-- `Region.loc`'s search, from the last file (most objects of a
+module-system module are in its private part, the last one); `0` when
+no file holds an object at the address. -/
+def Region.locGo (r : @& Region) (a : UInt64) : Nat → Nat
+  | 0 => 0
+  | i + 1 =>
+    if h : i < r.segs.size then
+      let s := r.segs[i]
+      if s.base ≤ a && (a - s.base).toNat < s.size then
+        let o := (a - s.base).toNat
+        if a % 8 == 0 && (s.off + o) % 8 == 0 && dataStart ≤ o && o + 8 ≤ s.size &&
+            s.off + s.size ≤ r.bytes.size then s.off + o
+        else 0
+      else r.locGo a i
+    else 0
 
-/-- **The memo slot of an address**: its word index in the module's files
-laid end to end (each file taking its size in words plus one), or
-`r.words` — no slot — outside them.  The decoder memoizes by slot in
-dense arrays (`DS`). -/
-@[inline] def Region.slot (r : @& Region) (a : UInt64) : Nat :=
-  let i := r.partOf a
-  if h : i < r.parts.size then
-    (r.starts[i]?.getD r.words) + (a - r.parts[i].base).toNat / 8
-  else r.words
+/-- **The location of the object at an address**: the address must fall
+in one of the module's files, past its header, 8-aligned, with room for
+the object header.  Locations are multiples of 8 and never `0` (the
+header comes first). -/
+@[inline] def Region.loc (r : @& Region) (a : UInt64) : Option Nat :=
+  let g := r.locGo a r.segs.size
+  if g == 0 then none else some g
 
-/-- A located and VALIDATED object: its file's bytes, its offset in
-them, its address, its memo slot and its header's tag and `m_other`
-byte (a constructor's pointer-field count). -/
-structure Obj where
-  bytes : ByteArray
-  off : Nat
-  addr : UInt64
-  slot : Nat
-  tag : UInt8
-  other : UInt8
+/-- `Region.fileEnd`'s search. -/
+def Region.endGo (r : @& Region) (g : Nat) : Nat → Nat
+  | 0 => 0
+  | i + 1 =>
+    if h : i < r.segs.size then
+      let s := r.segs[i]
+      if s.off ≤ g && g < s.off + s.size then s.off + s.size else r.endGo g i
+    else 0
 
-/-- Every pointer field of a constructor object is a scalar or points
-strictly below the object. -/
-def fieldsBelow (b : @& ByteArray) (off : Nat) (a : UInt64) (n : Nat) : Bool :=
-  go 0
-where
-  go (i : Nat) : Bool :=
-    if i < n then
-      let v := rdU64 b (off + 8 + 8 * i)
-      (v &&& 1 == 1 || v < a) && go (i + 1)
-    else true
-  termination_by n - i
+/-- **The end of the file a location is in**: an object's bytes must lie
+inside its file. -/
+@[inline] def Region.fileEnd (r : @& Region) (g : Nat) : Nat := r.endGo g r.segs.size
 
-/-- **Locate and validate an object**: the address must fall in one of
-the module's files, past its header, 8-aligned, with room for the
-object header; a constructor object (tag at most 243) must have room
-for its pointer fields, and every one of them must be a scalar or point
-strictly below the object.  After this, `Obj.f` reads a field without
-a check. -/
-def Region.obj (r : @& Region) (a : UInt64) : Except String Obj :=
-  let i := r.partOf a
-  if h : i < r.parts.size then
-    let p := r.parts[i]
-    let b := p.bytes
-    let o := (a - p.base).toNat
-    if o % 8 != 0 || o < dataStart || o + 8 > b.size then
-      throw s!"pointer {a} is not an object start"
-    else
-      let tag := rdU8 b (o + 7)
-      let other := rdU8 b (o + 6)
-      if tag ≤ 243 && (o + 8 + 8 * other.toNat > b.size || !fieldsBelow b o a other.toNat) then
-        throw s!"object {a}: a field outside the file or not below its object"
-      else
-        pure ⟨b, o, a, (r.starts[i]?.getD r.words) + o / 8, tag, other⟩
-  else throw s!"pointer {a} outside the module's files"
+/-- **A pointer the object at `g` holds**, followed: the location of the
+object it points to, which must lie below `g`. -/
+@[inline] def Region.down (r : @& Region) (g : Nat) (v : UInt64) : Option Nat :=
+  match r.loc v with
+  | some c => if c < g then some c else none
+  | none => none
 
-/-- **A constructor's pointer field** `i` of a validated object (scalar
-`0` past the field count). -/
-@[inline] def Obj.f (x : @& Obj) (i : Nat) : UInt64 :=
-  if i < x.other.toNat then rdU64 x.bytes (x.off + 8 + 8 * i) else 1
+theorem Region.down_lt {r : Region} {g c : Nat} {v : UInt64} (h : r.down g v = some c) :
+    c < g := by
+  unfold Region.down at h
+  split at h
+  · split at h
+    · cases h; assumption
+    · cases h
+  · cases h
 
-/-- The field, in the error monad (for the decoders written in it). -/
-@[inline] def Obj.field (x : @& Obj) (i : Nat) : Except String UInt64 :=
-  if i < x.other.toNat then pure (x.f i)
-  else throw s!"object {x.addr}: no field {i}"
+/-- A pointer field the reader does not follow yet: a scalar, or a
+pointer to an object below `g`. -/
+@[inline] def Region.okPtr (r : @& Region) (g : Nat) (v : UInt64) : Bool :=
+  isScalar v || (r.down g v).isSome
+
+/-! ## Objects -/
+
+/-- The header's tag byte. -/
+@[inline] def Region.tag (r : @& Region) (g : Nat) : Nat := (rdU8 r.bytes (g + 7)).toNat
+
+/-- The header's `m_other` byte: a constructor object's pointer-field count. -/
+@[inline] def Region.nobjs (r : @& Region) (g : Nat) : Nat := (rdU8 r.bytes (g + 6)).toNat
+
+/-- A constructor object's pointer fields lie inside its file. -/
+@[inline] def Region.fits (r : @& Region) (g : Nat) : Bool :=
+  g + 8 + 8 * r.nobjs g ≤ r.fileEnd g
+
+/-- **A constructor's pointer field** `i`. -/
+@[inline] def Region.fld (r : @& Region) (g i : Nat) : UInt64 := rdU64 r.bytes (g + 8 + 8 * i)
+
+/-- A pointer field, checked (`okPtr`) and returned as it is. -/
+@[inline] def Region.ptrFld (r : @& Region) (g i : Nat) : Option UInt64 :=
+  let v := r.fld g i
+  if r.okPtr g v then some v else none
 
 /-- A one-byte scalar field of a constructor: byte `k` of the scalar
 area after the pointer fields (word-size scalars first, then the
 narrower ones in declaration order — the compiler's layout). -/
-def Obj.u8 (x : @& Obj) (k : Nat) : Except String UInt8 :=
-  let i := x.off + 8 + 8 * x.other.toNat + k
-  if i < x.bytes.size then pure (rdU8 x.bytes i)
-  else throw s!"object {x.addr}: no scalar byte {k}"
+@[inline] def Region.u8 (r : @& Region) (g k : Nat) : Option UInt8 :=
+  let i := g + 8 + 8 * r.nobjs g + k
+  if i < r.fileEnd g then some (rdU8 r.bytes i) else none
 
 /-- A four-byte scalar field at byte `k` of the scalar area. -/
-def Obj.u32 (x : @& Obj) (k : Nat) : Except String UInt32 :=
-  let i := x.off + 8 + 8 * x.other.toNat + k
-  if i + 4 ≤ x.bytes.size then pure (rdU32 x.bytes i)
-  else throw s!"object {x.addr}: no scalar word at {k}"
+@[inline] def Region.u32 (r : @& Region) (g k : Nat) : Option UInt32 :=
+  let i := g + 8 + 8 * r.nobjs g + k
+  if i + 4 ≤ r.fileEnd g then some (rdU32 r.bytes i) else none
 
-/-- The constructor shape a decoder expects: tag and field count. -/
-def Obj.expect (x : @& Obj) (tag nobjs : Nat) (what : String) : Except String Unit :=
-  if x.tag.toNat == tag && x.other.toNat == nobjs then pure ()
-  else throw s!"object {x.addr}: expected {what} (tag {tag}, {nobjs} fields), \
-    found tag {x.tag} with {x.other} fields"
+/-- A one-byte `Bool` scalar. -/
+@[inline] def Region.bool (r : @& Region) (g k : Nat) : Option Bool :=
+  match r.u8 g k with
+  | some 0 => some false
+  | some 1 => some true
+  | _ => none
+
+/-- A constructor of tag `t` with `n` pointer fields, inside its file. -/
+@[inline] def Region.isCtor (r : @& Region) (g t n : Nat) : Bool :=
+  r.tag g == t && r.nobjs g == n && r.fits g
 
 /-! ## The runtime's own object kinds -/
 
-def tagArray : UInt8 := 246
-def tagString : UInt8 := 249
-def tagMPZ : UInt8 := 250
+def tagArray : Nat := 246
+def tagString : Nat := 249
+def tagMPZ : Nat := 250
 
-/-- **A `Nat`**: a boxed scalar, or a GMP bignum object (`mpz_object`:
-the header, `int _mp_alloc`, `int _mp_size`, the limb pointer — which
-the compactor points at the limbs right after the object — then the
-64-bit limbs, least significant first). -/
-def Region.nat (r : @& Region) (v : UInt64) : Except String Nat := do
-  if isScalar v then return unbox v
-  let x ← r.obj v
-  unless x.tag == tagMPZ do throw s!"object {v}: expected a Nat"
-  let size := rdU32 x.bytes (x.off + 12)
-  if size ≥ 2 ^ 31 then throw s!"object {v}: negative Nat"
-  let n := size.toNat
-  unless rdU64 x.bytes (x.off + 16) == v + 24 && x.off + 24 + 8 * n ≤ x.bytes.size do
-    throw s!"object {v}: malformed bignum"
-  let rec limbs (i : Nat) (acc : Nat) : Nat :=
-    match i with
-    | 0 => acc
-    | i + 1 => limbs i (acc * 2 ^ 64 + (rdU64 x.bytes (x.off + 24 + 8 * i)).toNat)
-  pure (limbs n 0)
+/-- The limbs of a bignum, most significant first into the accumulator. -/
+def limbs (b : @& ByteArray) (lo : Nat) : Nat → Nat → Nat
+  | 0, acc => acc
+  | i + 1, acc => limbs b lo i (acc * 2 ^ 64 + (rdU64 b (lo + 8 * i)).toNat)
 
-/-- **A `String`** (`lean_string_object`: the header, `m_size` — the
-byte length with the terminating NUL — `m_capacity`, `m_length`, the
-bytes), which must be valid UTF-8. -/
-def Region.str (r : @& Region) (v : UInt64) : Except String String := do
-  let x ← r.obj v
-  unless x.tag == tagString do throw s!"object {v}: expected a string"
-  let sz := (rdU64 x.bytes (x.off + 8)).toNat
-  unless sz ≥ 1 && x.off + 32 + sz ≤ x.bytes.size && rdU8 x.bytes (x.off + 32 + sz - 1) == 0 do
-    throw s!"object {v}: malformed string"
-  match String.fromUTF8? (x.bytes.extract (x.off + 32) (x.off + 32 + sz - 1)) with
-  | some s => pure s
-  | none => throw s!"object {v}: string is not valid UTF-8"
+/-- **A bignum object** at location `c`, the address `v` pointing at it
+(`mpz_object`: the header, `int _mp_alloc`, `int _mp_size`, the limb
+pointer — which the compactor points at the limbs right after the
+object — then the 64-bit limbs, least significant first). -/
+def Region.mpzAt (r : @& Region) (c : Nat) (v : UInt64) : Option Nat :=
+  if r.tag c == tagMPZ then
+    let size := rdU32 r.bytes (c + 12)
+    let n := size.toNat
+    if size < 2 ^ 31 && rdU64 r.bytes (c + 16) == v + 24 && c + 24 + 8 * n ≤ r.fileEnd c then
+      some (limbs r.bytes (c + 24) n 0)
+    else none
+  else none
 
-/-- **An `Array`'s elements** (`lean_array_object`: the header,
-`m_size`, `m_capacity`, the element pointers), each below the array. -/
-def Region.array (r : @& Region) (v : UInt64) : Except String (Array UInt64) := do
-  let x ← r.obj v
-  unless x.tag == tagArray do throw s!"object {v}: expected an array"
-  let n := (rdU64 x.bytes (x.off + 8)).toNat
-  unless x.off + 24 + 8 * n ≤ x.bytes.size do throw s!"object {v}: malformed array"
-  let rec go (i : Nat) (acc : Array UInt64) : Except String (Array UInt64) :=
-    if i < n then
-      let e := rdU64 x.bytes (x.off + 24 + 8 * i)
-      if isScalar e || e < v then go (i + 1) (acc.push e)
-      else throw s!"object {v}: element {i} does not point below the array"
-    else pure acc
-  termination_by n - i
-  go 0 (Array.mkEmpty n)
+/-- **A `Nat` the object at `g` holds**: a boxed scalar, or a bignum
+object below `g`. -/
+@[inline] def Region.natP (r : @& Region) (g : Nat) (v : UInt64) : Option Nat :=
+  if isScalar v then some (unbox v)
+  else match r.down g v with
+    | some c => r.mpzAt c v
+    | none => none
 
-/-- **A `List`'s elements**: `[]` is the scalar `0`, `a :: as` the
-constructor `1` with two fields.  Each cell's tail points below it, so
-the walk terminates; the fuel is the region's size in words. -/
-def Region.list (r : @& Region) (v : UInt64) : Except String (Array UInt64) :=
-  go v r.words #[]
-where
-  go (v : UInt64) (fuel : Nat) (acc : Array UInt64) : Except String (Array UInt64) :=
-    match fuel with
-    | 0 => throw "list longer than its region"
-    | fuel + 1 =>
-      if v == 1 then pure acc
-      else do
-        let x ← r.obj v
-        x.expect 1 2 "a list cell"
-        go (← x.field 1) fuel (acc.push (← x.field 0))
+/-- **A string object** at location `c` (`lean_string_object`: the
+header, `m_size` — the byte length with the terminating NUL —
+`m_capacity`, `m_length`, the bytes), which must be valid UTF-8. -/
+def Region.strAt (r : @& Region) (c : Nat) : Option String :=
+  if r.tag c == tagString then
+    let sz := (rdU64 r.bytes (c + 8)).toNat
+    if 1 ≤ sz && c + 32 + sz ≤ r.fileEnd c && rdU8 r.bytes (c + 32 + sz - 1) == 0 then
+      String.fromUTF8? (r.bytes.extract (c + 32) (c + 32 + sz - 1))
+    else none
+  else none
+
+/-- **A `String` the object at `g` holds.** -/
+@[inline] def Region.strP (r : @& Region) (g : Nat) (v : UInt64) : Option String :=
+  match r.down g v with
+  | some c => r.strAt c
+  | none => none
+
+/-- `Region.objArray`'s loop over the elements. -/
+def Region.objArrayGo (r : @& Region) (c lo n : Nat) (i : Nat) (acc : Array Nat) :
+    Option (Array Nat) :=
+  if i < n then
+    match r.down c (rdU64 r.bytes (lo + 8 * i)) with
+    | some e => r.objArrayGo c lo n (i + 1) (acc.push e)
+    | none => none
+  else some acc
+termination_by n - i
+
+/-- **An `Array` of objects the object at `g` holds**
+(`lean_array_object`: the header, `m_size`, `m_capacity`, the element
+pointers): the elements' locations, each below the array. -/
+def Region.objArray (r : @& Region) (g : Nat) (v : UInt64) : Option (Array Nat) :=
+  match r.down g v with
+  | some c =>
+    if r.tag c == tagArray then
+      let n := (rdU64 r.bytes (c + 8)).toNat
+      if c + 24 + 8 * n ≤ r.fileEnd c then r.objArrayGo c (c + 24) n 0 (Array.mkEmpty n)
+      else none
+    else none
+  | none => none
+
+/-- `Region.list`'s walk over the cells: `[]` is the scalar `0`,
+`a :: as` the constructor `1` with two fields. -/
+def Region.listGo (r : @& Region) (c : Nat) (acc : Array UInt64) : Option (Array UInt64) :=
+  if r.isCtor c 1 2 then
+    match r.ptrFld c 0 with
+    | some hd =>
+      let tl := r.fld c 1
+      if tl == 1 then some (acc.push hd)
+      else match _h : r.down c tl with
+        | some c' => r.listGo c' (acc.push hd)
+        | none => none
+    | none => none
+  else none
+termination_by c
+decreasing_by exact Region.down_lt _h
+
+/-- **A `List` the object at `g` holds**: its elements, each a scalar
+or a pointer below its cell (`okPtr`). -/
+def Region.list (r : @& Region) (g : Nat) (v : UInt64) : Option (Array UInt64) :=
+  if v == 1 then some #[]
+  else match r.down g v with
+    | some c => r.listGo c #[]
+    | none => none
 
 end ConLeche.Frontend.Olean

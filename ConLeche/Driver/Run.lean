@@ -84,7 +84,7 @@ def readInput (inp : Input) (jobs : Nat) (noMark : Bool) :
     IO (Except (ConLeche.CheckError × Nat) (Array ConLeche.Declaration)) := do
   match inp with
   | .ndjson file => pure ((← parseInput file jobs noMark).val.map (·.decls))
-  | .oleans sp roots => Frontend.Olean.readOleans sp roots jobs
+  | .oleans sp roots => Frontend.Olean.readOleans Frontend.Olean.decodeModuleFast sp roots jobs
 
 /-- The end-of-run statistics (performance-only): the phase times, the
 install's and the check's reports (`PoolRep.line`, the slowest five of
