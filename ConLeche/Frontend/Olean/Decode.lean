@@ -1,6 +1,7 @@
 module
 
 public import ConLeche.Frontend.Olean.Region
+public import ConLeche.Frontend.Scan.Types
 
 @[expose] public section
 

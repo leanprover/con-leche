@@ -1,6 +1,6 @@
 module
 
-public import ConLeche.Frontend.ExportC
+public import ConLeche.Kernel.Core
 
 @[expose] public section
 

@@ -1,7 +1,8 @@
 module
 
 public import ConLeche.Frontend.Olean.Decode
-public import Std.Data.HashSet
+public import ConLeche.Frontend.ExportC
+public import Std.Data.HashSet.Basic
 
 @[expose] public section
 

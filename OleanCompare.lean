@@ -1,7 +1,9 @@
-module
-
-public import ConLeche.Frontend.Stream
-public import ConLeche.Frontend.Olean.Load
+import ConLeche.Frontend.Stream
+import ConLeche.Frontend.Olean.Load
+/- NOT a `module`, like `PinDump.lean`: a development tool, not part of
+the checker.  As a `module` it would have to be a root of
+`tests/shake.sh`, whose `lake shake` loads every root into one
+environment, and its `main` collides with `Main.lean`'s. -/
 
 /-!
 # `olean-compare` — the olean reader against lean4export (task #369)
@@ -39,7 +41,7 @@ def toMap (ds : Array Declaration) : Std.HashMap Name Declaration × Nat :=
     let k := (d.names.head?).getD .anonymous
     if m.contains k then (m, dup + 1) else (m.insert k (normalize d), dup)) ({}, 0)
 
-public def main (args : List String) : IO UInt32 := do
+def main (args : List String) : IO UInt32 := do
   match args with
   | ["--time-stream", file] =>
     match (← Frontend.parseExportStreamS file).val with
