@@ -41,11 +41,6 @@ context presents as an assumption. -/
   | .indInfo .. => true
   | _ => false
 
-/-- **A constructor's result family is a type former** of the environment. -/
-@[expose] def CtorFam (E : Env) : Prop :=
-  ∀ x cv nP nF, E.find? x = some (.ctorInfo cv nP nF) → ∀ T us,
-    cv.type.piResult.getAppFn = .const T us → ∃ cvT capsT, E.find? T = some (.indInfo cvT capsT)
-
 /-- A type former of `C`. -/
 @[expose] def FormerIn (C : Env) (n : Name) : Prop := ∃ cv caps, C.find? n = some (.indInfo cv caps)
 
@@ -69,8 +64,12 @@ structure CtxSrc (V : Type w) [SetTheory V] (μ : CheckMode) (C : Env)
     (((∃ ci, C.find? d = some ci ∧ ci.isIndKind = true) ∧
       ∃ ci, (E n).find? d = some ci ∧ ci.isIndKind = true) ∨ d ∈ pinnedNames) →
     C.find? d = (E n).find? d
-  /-- in a source, a constructor's result family is a type former -/
-  ctorFam : ∀ n, CtorFam (E n)
+  /-- a recursor's source stores its rules' constructors' families as
+  type formers -/
+  recFam : ∀ n cv mI rP rules, C.find? n = some (.recInfo cv mI rP rules) → ∀ r ∈ rules,
+    ∀ cvj nP nF, (E n).find? r.ctor = some (.ctorInfo cvj nP nF) → ∀ T us,
+      cvj.type.piResult.getAppFn = .const T us →
+      ∃ cvT capsT, (E n).find? T = some (.indInfo cvT capsT)
   /-- what an inductive kind read alike reads is read alike, where it is stored -/
   deep : ∀ n c ci, ((R n).find? c).isSome = true → C.find? c = some ci → ci.isIndKind = true →
     EntryScopedP (fun d => (C.find? d).isSome = true → ((E n).find? d).isSome = true →
@@ -1119,7 +1118,7 @@ theorem ruleExt {φ : Name → Nat} {n : Name} {cv : ConstantVal} {mI rP : Nat}
       exact ConLeche.Expr.find?_isSome_of_piResult_getAppFn_const hres hh
     have hTR := S.ctor_family hcR hfcC hh hTE
     obtain ⟨_, _, hTC⟩ := (S.blocks _ _ hfcC) T us hh
-    obtain ⟨_, _, hTE'⟩ := S.ctorFam n _ _ _ _ hfc T us hh
+    obtain ⟨_, _, hTE'⟩ := S.recFam n cv mI rP rules hf rl hrl _ _ _ hfc T us hh
     have hsT := S.same_of hTR (Or.inl ⟨⟨_, hTC, rfl⟩, _, hTE', rfl⟩)
     exact ⟨fun _ _ _ => hsT, fun _ _ _ => hsT⟩
 
