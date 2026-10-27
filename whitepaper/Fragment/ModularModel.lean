@@ -207,7 +207,9 @@ def EntryScoped (C E' : Env) (ci : ConstInfo) : Prop :=
 constant it stores is read from an earlier module, its home; it
 refines the home's own constant and lies within the part of the home's
 own environment `i` reads as the home does; `i` resolves it as the
-home does; and a type former comes with its constructors. -/
+home does; and a type former stored as such comes with its
+constructors.  A type former may be read as an assumption of its type
+(it refines the type former), and then brings no constructors. -/
 structure ReadsFrom (dev : Nat → Module) (i : Nat) (E : Env) : Prop where
   src_lt : ∀ n, (E.find? n).isSome → (dev i).src n < i
   le : ∀ n ci, E.find? n = some ci →
