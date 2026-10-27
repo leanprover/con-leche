@@ -6,6 +6,7 @@ public import ConLeche.Driver.OwnerParse
 public import ConLeche.Frontend.Olean.Modules
 public import ConLeche.Modular
 public import ConLeche.Cached.ModStore
+public import ConLeche.Verify.Modular.Scope
 public import Std.Data.TreeSet.Basic
 /- `decodeModuleSpec_eq_fast` (`@[csimp]`): the reader is passed the
 specification `decodeModuleSpec`, and the compiler runs the fast decoder. -/
@@ -269,9 +270,6 @@ def unitOf (g : Array ModIn) (S : Mod.Store) (flagged : Std.HashSet Name) (k : N
     tReads := tReads.push (← readsOf (Mod.lawsOf none (Mod.asAxiom ci)))
     fReads := fReads.push (← readsOf (Mod.lawsOf (tblOf ci) ci))
   let isOwn (t : Nat × Nat) : Bool := t.1 == k
-  let wantOk (w : Option Mod.Want) (ci : ConstantInfo) : Bool := match w with
-    | some w => w.ok ci
-    | none => true
   -- the presentation independent of the importer: 2 as stored, 1 as an
   -- assumption, 0 absent; a fixed point (states only drop).  A read of an
   -- own constant is met when that constant is presented (as stored, of
@@ -522,34 +520,126 @@ def Sched.halt (sc : Sched) : IO Unit := do
 
 /-! ## The proofs of a module -/
 
+/-- A name added to a module's proofs: a recorded declaration's, not
+pinned, a theorem or passing the theorem record's check. -/
+theorem attested_insert {mode : CheckMode} {fe : FEnv} {pend : Array PendingCheck}
+    {s : Std.HashSet Name} (h : Mod.ProofsAttested mode s.contains fe pend) {pc : PendingCheck}
+    (hm : pc ∈ pend.toList) (hpin : pc.vg.cv.name ∉ ConLeche.Modular.pinnedNames)
+    (hk : pc.vg.kind = .thm ∨ (pc.vg.kind ≠ .thm ∧
+      ∃ st, checkPending mode fe { pc with vg := { pc.vg with kind := .thm } } {} = .ok ((), st))) :
+    Mod.ProofsAttested mode (s.insert pc.vg.cv.name).contains fe pend := by
+  intro n hn
+  rw [Std.HashSet.contains_insert] at hn
+  rcases Bool.or_eq_true_iff.mp hn with h1 | h1
+  · have := eq_of_beq h1
+    subst this
+    exact ⟨pc, hm, rfl, hpin, hk⟩
+  · exact h n h1
+
+/-- The walk of `proofsOf` over the records left. -/
+def proofsGo (mode : CheckMode) (dups : Std.HashSet Name) (fe : FEnv) (pend : Array PendingCheck) :
+    (l : List PendingCheck) → (∀ pc ∈ l, pc ∈ pend.toList) → (s : Std.HashSet Name) →
+      Mod.ProofsAttested mode s.contains fe pend →
+      { s : Std.HashSet Name // Mod.ProofsAttested mode s.contains fe pend }
+  | [], _, s, h => ⟨s, h⟩
+  | pc :: l, hl, s, h =>
+    have hm : pc ∈ pend.toList := hl pc (List.mem_cons_self ..)
+    have hl' : ∀ x ∈ l, x ∈ pend.toList := fun x hx => hl x (List.mem_cons_of_mem _ hx)
+    if hp : Mod.isPinned pc.vg.cv.name = true then proofsGo mode dups fe pend l hl' s h
+    else
+      have hpin : pc.vg.cv.name ∉ ConLeche.Modular.pinnedNames := fun hn => by
+        simp [Mod.isPinned, hn] at hp
+      if hk : pc.vg.kind = .thm then
+        proofsGo mode dups fe pend l hl' _ (attested_insert h hm hpin (.inl hk))
+      else if dups.contains pc.vg.cv.name then
+        match hc : checkPending mode fe { pc with vg := { pc.vg with kind := .thm } } {} with
+        | .ok ((), st) =>
+          proofsGo mode dups fe pend l hl' _ (attested_insert h hm hpin (.inr ⟨hk, st, hc⟩))
+        | .error _ => proofsGo mode dups fe pend l hl' s h
+      else proofsGo mode dups fe pend l hl' s h
+
 /-- **A module's proofs**: its theorems, and every definition or opaque
 constant whose name another module stores too and whose value passes
 the theorem record's check (its type a proposition) — never a pinned
 name.  Read off the module's recorded checks: a theorem's record and a
-value record are what its declarations leave. -/
+value record are what its declarations leave.  With the evidence that
+every name in it is attested (`ProofsAttested`). -/
 def proofsOf (mode : CheckMode) (dups : Std.HashSet Name) (fe : FEnv)
-    (pend : Array PendingCheck) : Std.HashSet Name := Id.run do
-  let mut out : Std.HashSet Name := {}
-  for pc in pend do
-    if !Mod.isPinned pc.vg.cv.name then
-      if pc.vg.kind == .thm then out := out.insert pc.vg.cv.name
-      else if dups.contains pc.vg.cv.name then
-        match checkPending mode fe { pc with vg := { pc.vg with kind := .thm } } {} with
-        | .ok _ => out := out.insert pc.vg.cv.name
-        | .error _ => pure ()
-  return out
+    (pend : Array PendingCheck) : { s : Std.HashSet Name // Mod.ProofsAttested mode s.contains fe pend } :=
+  proofsGo mode dups fe pend pend.toList (fun _ h => h) {} (fun n hn => by
+    simp at hn)
+
+/-! ## Facts below a bound -/
+
+/-- A fact about one index, tagged with it (an element of a parallel
+map's result, whose type cannot depend on the index). -/
+structure At {ι : Type} (P : ι → Prop) where
+  i : ι
+  h : P i
+
+/-- The walk of `allBelow` from `j`. -/
+def allBelow.go {E : Type} {P : Nat → Prop} (n : Nat) (f : (j : Nat) → j < n → Except E (PLift (P j))) :
+    (j : Nat) → (∀ x, x < j → P x) → Except E (PLift (∀ x, x < n → P x))
+  | j, acc =>
+    if hj : j < n then
+      match f j hj with
+      | .ok ⟨h⟩ => allBelow.go n f (j + 1) (fun x hx => by
+          rcases Nat.lt_or_ge x j with hxj | hxj
+          · exact acc x hxj
+          · have : x = j := by omega
+            subst this; exact h)
+      | .error e => .error e
+    else .ok ⟨fun x hx => acc x (by omega)⟩
+  termination_by j => n - j
+
+/-- **A fact at every index below `n`**, decided index by index. -/
+def allBelow {E : Type} {P : Nat → Prop} (n : Nat) (f : (j : Nat) → j < n → Except E (PLift (P j))) :
+    Except E (PLift (∀ x, x < n → P x)) :=
+  allBelow.go n f 0 (fun _ h => absurd h (Nat.not_lt_zero _))
+
+/-- A tagged fact, if it is the one at `i`. -/
+def At.get? {ι : Type} [DecidableEq ι] {P : ι → Prop} (a : Option (At P)) (i : ι) :
+    Option (PLift (P i)) :=
+  match a with
+  | some c => if h : c.i = i then some ⟨h ▸ c.h⟩ else none
+  | none => none
+
+/-- Two arrays equal, entry by entry, each the pointer first. -/
+def sameArr {α : Type} [DecidableEq α] (a b : Array α) : Option (PLift (a = b)) :=
+  if hs : a.size = b.size then
+    let r : Except Unit (PLift (∀ x, x < a.size → ∀ (h₁ : x < a.size) (h₂ : x < b.size),
+        a[x] = b[x])) :=
+      allBelow a.size (fun j hj => if h : OwnerParse.sameB a[j] (b[j]'(hs ▸ hj)) = true then
+          .ok ⟨fun _ _ => OwnerParse.sameB_iff.mp h⟩
+        else .error ())
+    match r with
+    | .ok ⟨h⟩ => some ⟨Array.ext hs fun j h₁ h₂ => h j h₁ h₁ h₂⟩
+    | .error () => none
+  else none
 
 /-! ## The run -/
 
 /-- Module `i`'s records. -/
 def declsAt (g : Array ModIn) (i : Nat) : Array Declaration := (g[i]?.map (·.decls)).getD #[]
 
+/-- **A module installed and its unit checked**, with the evidence the
+run's theorem needs of it (`Mod.RunOk`): its records are the graph's,
+installed at its view with the accepting run, its proofs attested, its
+unit checked. -/
+structure ModOk (mode : CheckMode) (g : Array ModIn) (S : Mod.Store) where
+  i : Nat
+  d : Mod.ModData
+  ds : d.ds = declsAt g i
+  run : ∃ n, InstallRun mode natOpPinSets d.ds.toList (0, S.view i, #[]) (n, d.fe, d.pend)
+  prf : Mod.ProofsAttested mode d.flags.contains d.fe d.pend
+  unit : Mod.unitOk S i d.fe d.flags.contains d.unit d.reads = true
+
 /-- A module's install, tagged with its index. -/
 structure ModRes (mode : CheckMode) (g : Array ModIn) (S : Mod.Store) where
   i : Nat
   unit : Mod.Unit'
   diag : Diag
-  res : Except (CheckError × Nat) (ModInstalled mode (declsAt g i) (S.view i))
+  res : Except (CheckError × Nat) (ModOk mode g S)
 
 /-- **The install of every module**: `jobs` workers take ready modules
 off the queue, install each at its view, publish its unit, release its
@@ -590,26 +680,30 @@ def installAll (mode : CheckMode) (err : IO.FS.Stream) (jobs : Nat) (g : Array M
           let r ← if skip then
               pure (.error (.internal "skipped: it imports a module that failed", 0))
             else installModule mode err (declsAt g k) (S.view k)
-          let flags := match r with
-            | .ok e => proofsOf mode dups e.fe e.pend
-            | .error _ => {}
-          let (r, u, dg) := match r with
-            | .ok e => match unitOf g S flags k (declsAt g k) e.fe with
+          let (r, u, dg) : Except (CheckError × Nat) (ModOk mode g S) × Mod.Unit' × Diag :=
+            match r with
+            | .ok e =>
+              let ⟨flags, hprf⟩ := proofsOf mode dups e.fe e.pend
+              match unitOf g S flags k (declsAt g k) e.fe with
               | .ok (u, rd, dg) =>
-                if Mod.unitOk S k e.fe flags.contains u rd then (r, u, dg)
+                let d : Mod.ModData :=
+                  { imports := ((g[k]?.map (·.imports)).getD #[]).toList.map (·.1)
+                    ds := declsAt g k, fe := e.fe, pend := e.pend, unit := u, flags, reads := rd }
+                if hu : Mod.unitOk S k d.fe d.flags.contains d.unit d.reads = true then
+                  (.ok ⟨k, d, rfl, e.run, hprf, hu⟩, u, dg)
                 else (.error (.internal "the unit of the module fails its check", 0), default, {})
               | .error msg => (.error (.internal s!"the unit of the module: {msg}", 0), default, {})
-            | .error _ => (r, default, {})
+            | .error err => (.error err, default, {})
           let unit := u.slot
           OwnerParse.markOne unit
           match r with
           | .ok e =>
             -- the module's own part of its view (its base reaches the
             -- units' thunks, which the mark would wait for)
-            OwnerParse.markOne e.fe.env
-            OwnerParse.markOne e.fe.idx
-            OwnerParse.markOne e.fe.tbls
-            OwnerParse.markOne e.pend
+            OwnerParse.markOne e.d.fe.env
+            OwnerParse.markOne e.d.fe.idx
+            OwnerParse.markOne e.d.fe.tbls
+            OwnerParse.markOne e.d.pend
           | .error _ => pure ()
           if let some p := proms[k]? then p.resolve unit
           if let some ref := results[k]? then
@@ -686,6 +780,123 @@ def parMap {α : Type} [Inhabited α] (jobs n : Nat) (f : Nat → α) : IO (Arra
     | .ok rs => for (k, a) in rs do out := out.set! k a
     | .error ioe => throw ioe
   return out
+
+/-! ## The run's theorem -/
+
+/-- What a record's check establishes: record `k` of module `i` passes. -/
+def ChkP (mode : CheckMode) (M : Array Mod.ModData) (q : Nat × Nat) : Prop :=
+  ∀ (hi : q.1 < M.size) (hk : q.2 < M[q.1].pend.size),
+    ∃ s, checkPending mode M[q.1].fe M[q.1].pend[q.2] {} = .ok ((), s)
+
+/-- The facts a module's `ModOk` carries, read at its position. -/
+theorem modOk_facts {mode : CheckMode} {g : Array ModIn} {S : Mod.Store}
+    {A : Array (ModOk mode g S)} (hA : ∀ k, k < A.size → ∀ h : k < A.size, A[k].i = k)
+    (i : Nat) (h : i < (A.map ModOk.d).size) :
+    (∃ n, InstallRun mode natOpPinSets (A.map ModOk.d)[i].ds.toList (0, S.view i, #[])
+        (n, (A.map ModOk.d)[i].fe, (A.map ModOk.d)[i].pend)) ∧
+    Mod.ProofsAttested mode (A.map ModOk.d)[i].flags.contains (A.map ModOk.d)[i].fe
+      (A.map ModOk.d)[i].pend ∧
+    Mod.unitOk S i (A.map ModOk.d)[i].fe (A.map ModOk.d)[i].flags.contains (A.map ModOk.d)[i].unit
+      (A.map ModOk.d)[i].reads = true ∧
+    (A.map ModOk.d)[i].ds = declsAt g i := by
+  have h' : i < A.size := by simpa using h
+  simp only [Array.getElem_map]
+  have hi := hA i h' h'
+  have r := A[i].run
+  have p := A[i].prf
+  have u := A[i].unit
+  have dd := A[i].ds
+  rw [hi] at r u dd
+  exact ⟨r, p, u, dd⟩
+
+/-- **The run's evidence, assembled**: from the modules' `ModOk`s (one
+per module, in module order), the local checks' and the records'
+checks' tagged results (`off[i]` the position of module `i`'s first
+record check), the facts of `Mod.RunOk` that are decided here — the
+sizes, the imports below, the published units the store's, the units'
+constants the installs', the list of names stored twice. -/
+def runOk (mode : CheckMode) (g : Array ModIn) (S : Mod.Store) (A : Array (ModOk mode g S))
+    (locs : Array (Option (At fun i => Mod.localOk S ((A.map ModOk.d).map Mod.ModData.unit) i = true)))
+    (chks : Array (Option (At (ChkP mode (A.map ModOk.d))))) (off : Array Nat) :
+    Except String (PLift (Mod.RunOk mode S (A.map ModOk.d) ∧
+      ∀ i (h : i < (A.map ModOk.d).size), (A.map ModOk.d)[i].ds = declsAt g i)) := do
+  let M := A.map ModOk.d
+  let ⟨hA⟩ ← (allBelow A.size fun k hk =>
+      if h : A[k].i = k then .ok ⟨fun _ => h⟩ else .error s!"slot {k} holds module {A[k].i}" :
+    Except String (PLift (∀ k, k < A.size → ∀ h : k < A.size, (A[k]'h).i = k)))
+  let hslots ← if h : S.slots.size = M.size then pure (PLift.up h)
+    else .error "the store has a unit per module"
+  let ⟨hlvls⟩ ← (allBelow M.size fun i _ =>
+      if h : (S.lvl i).size = M.size then .ok ⟨h⟩ else .error s!"module {i}'s levels" :
+    Except String (PLift (∀ i, i < M.size → (S.lvl i).size = M.size)))
+  let ⟨hbelow⟩ ← (allBelow M.size fun i hi =>
+      if h : M[i].imports.all (· < i) = true then
+        .ok ⟨fun _ b hb => by simpa using List.all_eq_true.mp h b hb⟩
+      else .error s!"module {i}'s imports" :
+    Except String (PLift (∀ i, i < M.size → ∀ h : i < M.size, ∀ b ∈ (M[i]'h).imports, b < i)))
+  let ⟨hslot⟩ ← (allBelow M.size fun i hi =>
+      if h : OwnerParse.sameB (S.slot i) M[i].unit.slot = true then
+        .ok ⟨fun _ => OwnerParse.sameB_iff.mp h⟩
+      else .error s!"module {i}'s published unit" :
+    Except String (PLift (∀ i, i < M.size → ∀ h : i < M.size, S.slot i = (M[i]'h).unit.slot)))
+  let ⟨hpriv⟩ ← (allBelow M.size fun i hi =>
+      let r : Option (PLift (M[i].unit.slot.prv.priv = M[i].fe.env.consts.reverse.toArray)) :=
+        sameArr M[i].unit.slot.prv.priv M[i].fe.env.consts.reverse.toArray
+      match r with
+      | some ⟨h⟩ => .ok ⟨fun _ => h⟩
+      | none => .error s!"module {i}'s unit's constants" :
+    Except String (PLift (∀ i, i < M.size → ∀ h : i < M.size,
+      (M[i]'h).unit.slot.prv.priv = (M[i]'h).fe.env.consts.reverse.toArray)))
+  let ⟨hloc⟩ ← (allBelow M.size fun i _ =>
+      match At.get? (locs[i]?.join) i with
+      | some h => .ok h
+      | none => .error s!"module {i}'s local checks" :
+    Except String (PLift (∀ i, i < M.size → Mod.localOk S (M.map Mod.ModData.unit) i = true)))
+  let ⟨hchk⟩ ← (allBelow M.size fun i hi =>
+      let r : Except String (PLift (∀ k, k < (M[i]'hi).pend.size → ChkP mode M (i, k))) :=
+        allBelow (M[i]'hi).pend.size fun k _ =>
+          match At.get? (chks[(off[i]?.getD 0) + k]?.join) (i, k) with
+          | some h => .ok h
+          | none => .error s!"record {k} of module {i}"
+      match r with
+      | .ok ⟨h⟩ => .ok ⟨fun _ => h⟩
+      | .error e => .error e :
+    Except String (PLift (∀ i, i < M.size → ∀ h : i < M.size, ∀ k, k < (M[i]'h).pend.size →
+      ChkP mode M (i, k))))
+  let hdups ← if h : Mod.dupsOk S = true then pure (PLift.up h)
+    else .error "the store's list of names stored twice"
+  return ⟨{
+    slots := hslots.down
+    lvls := hlvls
+    below := fun i h => hbelow i h h
+    run := fun i h => (modOk_facts hA i h).1
+    chk := fun i h pc hpc => by
+      obtain ⟨k, hk, rfl⟩ := Array.mem_iff_getElem.mp (Array.mem_toList_iff.mp hpc)
+      exact hchk i h h k hk h hk
+    prf := fun i h => (modOk_facts hA i h).2.1
+    slot := fun i h => hslot i h h
+    priv := fun i h => hpriv i h h
+    unit := fun i h => (modOk_facts hA i h).2.2.1
+    locals := hloc
+    dups := hdups.down }, fun i h => (modOk_facts hA i h).2.2.2⟩
+
+/-- **A modular accept**: the store and the modules' data of a run with
+its evidence (`Mod.RunOk`), one module per graph module, each one's
+records the graph's.  By `Mod.RunOk.localOk` every module of the
+development it stands for (`Mod.devOf`) passes its local checks — the
+hypothesis of the capstones `ConLeche.modular_model_exists` and
+`ConLeche.modular_no_False` (`ConLeche/MainTheorem.lean`). -/
+structure Accepted (mode : CheckMode) (g : Array ModIn) where
+  S : Mod.Store
+  M : Array Mod.ModData
+  ok : Mod.RunOk mode S M
+  size : M.size = g.size
+  decls : ∀ i (h : i < M.size), M[i].ds = declsAt g i
+
+/-- Every module of an accept passes its local checks. -/
+theorem Accepted.localOk {mode : CheckMode} {g : Array ModIn} (a : Accepted mode g) (i : Nat) :
+    ConLeche.Modular.LocalOk mode natOpPinSets (Mod.devOf a.S a.M) i :=
+  a.ok.localOk i
 
 /-! ## The run -/
 
@@ -788,48 +999,57 @@ def checkModular (sp : SearchPath) (roots : Array Name) (mode : CheckMode) (stri
       gated {dg.gated}, full-gated {dg.vgated}, private entered as assumption {dg.lifted}\n"
     for x in dg.ex do err.putStr s!"con-leche:   {x}\n"
     for x in dg.indEx do err.putStr s!"con-leche:   {x}\n"
-  let units : Array Mod.Unit' := ins.map fun r? => (r?.map (·.unit)).getD default
-  let fes : Array FEnv := ins.map fun r? => match r? with
-    | some ⟨_, _, _, .ok e⟩ => e.fe
-    | _ => mkFEnv Env.empty
+  -- the modules' data in module order, each with its evidence
+  let mut A : Array (ModOk mode g S) := #[]
+  for h : k in [0:results.size] do
+    match results[k] with
+    | some ⟨_, _, _, .ok e⟩ => A := A.push e
+    | _ => return ← fail (.internal "the module was never installed") s!"module {nameOf g k}"
   ins := #[]
+  let M : Array Mod.ModData := A.map ModOk.d
+  let units : Array Mod.Unit' := M.map Mod.ModData.unit
   unless Mod.dupsOk S do
     return ← fail (.internal "the store's list of names stored twice is incomplete") "the store"
-  let locals ← parMap jobs g.size (Mod.localOk S units)
+  let locals ← parMap jobs M.size fun i =>
+    if h : Mod.localOk S units i = true then
+      some (⟨i, h⟩ : At fun i => Mod.localOk S (M.map Mod.ModData.unit) i = true)
+    else none
   for h : k in [0:locals.size] do
-    unless locals[k] do
+    if locals[k].isNone then
       return ← fail (.invalid (localWhy g S units k)) s!"module {nameOf g k}"
   phase "local checks done"
   -- every record of every module, checked at its module's final view
-  let pends : Array (Array PendingCheck) := results.map fun r? => match r? with
-    | some ⟨_, _, _, .ok e⟩ => e.pend
-    | _ => #[]
-  let jobsList : Array (Nat × Nat) := Id.run do
+  let (jobsList, off) : Array (Nat × Nat) × Array Nat := Id.run do
     let mut a := #[]
-    for h : i in [0:pends.size] do
-      for k in [0:pends[i].size] do a := a.push (i, k)
-    return a
+    let mut off := #[]
+    for h : i in [0:M.size] do
+      off := off.push a.size
+      for k in [0:M[i].pend.size] do a := a.push (i, k)
+    return (a, off)
   phase s!"{jobsList.size} checks"
   let chk ← parMap jobs jobsList.size fun q =>
-    match jobsList[q]? with
-    | some (i, k) => match pends[i]?.bind (·[k]?), fes[i]? with
-      | some pc, some fe => match checkPending mode fe pc {} with
-        | .ok _ => (none : Option (CheckError × Nat))
-        | .error e => some (e, i)
-      | _, _ => some (.internal "no such record", i)
-    | none => some (.internal "no such check", 0)
+    (some <| match jobsList[q]? with
+      | some (i, k) =>
+        if hi : i < M.size then
+          if hk : k < M[i].pend.size then
+            match hc : checkPending mode M[i].fe M[i].pend[k] {} with
+            | .ok ((), st) => .ok (⟨(i, k), fun _ _ => ⟨st, hc⟩⟩ : At (ChkP mode M))
+            | .error e => .error (e, i, k)
+          else .error (.internal "no such record", i, k)
+        else .error (.internal "no such module", i, k)
+      | none => .error (.internal "no such check", 0, 0) :
+      Option (Except (CheckError × Nat × Nat) (At (ChkP mode M))))
   let mut nBad := 0
   for h : q in [0:chk.size] do
-    if let some (e, i) := chk[q] then
+    if let some (.error (e, i, k)) := chk[q] then
       nBad := nBad + 1
-      let k := (jobsList[q]?.map (·.2)).getD 0
-      let pc? := (pends[i]?).bind (·[k]?)
+      let pc? := (M[i]?).bind (·.pend[k]?)
       let nm := pc?.map (·.vg.cv.name) |>.getD .anonymous
       -- the names that do not resolve, for an unknown-constant rejection
-      let extra := match pc?, fes[i]? with
-        | some pc, some fe =>
+      let extra := match pc?, M[i]? with
+        | some pc, some d =>
           let bad := (Mod.collectGo [pc.vg.cv.type, pc.vg.jv] {} {}).toList.filter
-            fun d => ((fe.restrictTo pc.vis).find? d).isNone
+            fun x => ((d.fe.restrictTo pc.vis).find? x).isNone
           if bad.isEmpty then "" else s!" (not in the module's context: {bad.take 5})"
         | _, _ => ""
       if keepGoing then
@@ -840,7 +1060,19 @@ def checkModular (sp : SearchPath) (roots : Array Name) (mode : CheckMode) (stri
     IO.eprintln s!"con-leche: {nBad} checks failed ({modeTag})"
     return 1
   phase "checks done"
-  IO.println s!"con-leche: accepted {nDecls} declarations in {g.size} modules ({modeTag})"
-  return 0
+  let chks : Array (Option (At (ChkP mode M))) := chk.map fun r => match r with
+    | some (.ok c) => some c
+    | _ => none
+  -- **the accept is printed from the run's evidence and from nothing
+  -- else**: `runOk` assembles `Mod.RunOk`, whose theorem
+  -- `Mod.RunOk.localOk` is the capstones' hypothesis
+  match runOk mode g S A locals chks off with
+  | .error msg => fail (.internal s!"the run's evidence: {msg}") "the run"
+  | .ok ⟨⟨hR, hds⟩⟩ =>
+    if hs : M.size = g.size then
+      let acc : Accepted mode g := ⟨S, M, hR, hs, hds⟩
+      IO.println s!"con-leche: accepted {nDecls} declarations in {acc.M.size} modules ({modeTag})"
+      return 0
+    else fail (.internal "the run lost a module") "the run"
 
 end ConLeche.Driver.Modular
