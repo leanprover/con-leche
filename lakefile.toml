@@ -175,6 +175,13 @@ root = "Main"
 name = "natop-pins-export"
 root = "PinDump"
 
+# The olean reader's comparison against lean4export (task #369): parses
+# an export stream and the same modules' oleans and compares the
+# records.  A development tool, not a default target.
+[[lean_exe]]
+name = "olean-compare"
+root = "OleanCompare"
+
 # THE WHITEPAPER FRAGMENT (task #324).  `whitepaper/Fragment/*.lean` is
 # the self-contained Lean verification of the fragment the whitepaper
 # presents — its own definitions, its own library class, its own
