@@ -193,6 +193,8 @@ structure Diag where
   ex : Array String := #[]
   /-- every type former presented as an assumption -/
   indEx : Array String := #[]
+  /-- constants the exported part does not store, entered as assumptions -/
+  lifted : Nat := 0
   deriving Inhabited
 
 def Diag.addKind (a : Array (String × Nat)) (k : String) (c : Nat) : Array (String × Nat) :=
@@ -205,7 +207,7 @@ def Diag.merge (a b : Diag) : Diag :=
     absent := b.absent.foldl (fun acc (k, c) => Diag.addKind acc k c) a.absent,
     gated := a.gated + b.gated, vgated := a.vgated + b.vgated,
     ex := if a.ex.size ≥ 16 then a.ex else a.ex ++ b.ex.extract 0 (16 - a.ex.size),
-    indEx := a.indEx ++ b.indEx }
+    indEx := a.indEx ++ b.indEx, lifted := a.lifted + b.lifted }
 
 def kindOf : ConstantInfo → String
   | .axiomInfo _ => "axiom/opaque" | .defnInfo .. => "definition" | .thmInfo _ => "theorem"
@@ -238,6 +240,7 @@ presented as an assumption or left out: one whose presentation would be
 is an error. -/
 def unitOf (g : Array ModIn) (S : Mod.Store) (flagged : Std.HashSet Name) (k : Nat)
     (ds : Array Declaration) (fe : FEnv) : Except String (Mod.Unit' × Mod.Reads × Diag) := do
+  let _ := ds
   let some m := g[k]? | throw "no module"
   let priv := fe.env.consts.reverse.toArray
   let n := priv.size
@@ -248,36 +251,55 @@ def unitOf (g : Array ModIn) (S : Mod.Store) (flagged : Std.HashSet Name) (k : N
     match Mod.target k fe d with
     | some t => pure t
     | none => throw s!"{d} does not resolve in its module"
-  -- the record of every constant, and the blocks (a record installing a type former)
-  let mut recOf : Array Nat := Array.mkEmpty n
-  for h : r in [0:ds.size] do
-    for _ in predictSlots ds[r] do recOf := recOf.push r
-  if recOf.size != n then throw "the installed constants are not the predicted ones"
-  let isFormer (j : Nat) : Bool := match priv[j]! with | .indInfo .. => true | _ => false
-  let mut members : Std.HashMap Nat (Array Nat) := {}
-  for j in [0:n] do
-    members := members.alter recOf[j]! fun | none => some #[j] | some a => some (a.push j)
-  let blockOf (j : Nat) : Array Nat :=
-    let ms := members.getD recOf[j]! #[]
-    if ms.any isFormer then ms else #[j]
-  let inBlock (j : Nat) : Bool := (blockOf j).size > 1 || isFormer j
-  -- every constant's reads: of its statement, and of the rest of its laws
-  let mut tReads : Array (Array (Name × Nat × Nat)) := Array.mkEmpty n
-  let mut vReads : Array (Array (Name × Nat × Nat)) := Array.mkEmpty n
+  -- a read: a name, its target, and the kind it must be stored as (`none`:
+  -- present at all)
+  let readsOf (l : Mod.Laws) : Except String (Array (Name × (Nat × Nat) × Option Mod.Want)) := do
+    let pres := Mod.collectGo l.es {} (l.ns.foldl (·.insert ·) {})
+    let projs := Mod.collectProjs l.es {} {}
+    let fis := l.fi.foldl (·.insert ·) projs
+    let fcs : Std.HashSet Name := l.fc.foldl (·.insert ·) {}
+    let mut out : Array (Name × (Nat × Nat) × Option Mod.Want) := #[]
+    for d in pres.toArray do out := out.push (d, ← resolve d, none)
+    for d in fis.toArray do out := out.push (d, ← resolve d, some .ind)
+    for d in fcs.toArray do out := out.push (d, ← resolve d, some .ctor)
+    return out
+  let mut tReads : Array (Array (Name × (Nat × Nat) × Option Mod.Want)) := Array.mkEmpty n
+  let mut fReads : Array (Array (Name × (Nat × Nat) × Option Mod.Want)) := Array.mkEmpty n
   for ci in priv do
-    let (es, ns) := Mod.lawsOf none (Mod.asAxiom ci)
-    let dt := Mod.collectGo es {} (ns.foldl (·.insert ·) {})
-    let (es', ns') := Mod.lawsOf (tblOf ci) ci
-    let dv := (Mod.collectGo es' {} (ns'.foldl (·.insert ·) {})).toArray.filter (!dt.contains ·)
-    tReads := tReads.push (← dt.toArray.mapM fun d => return (d, ← resolve d))
-    vReads := vReads.push (← dv.mapM fun d => return (d, ← resolve d))
+    tReads := tReads.push (← readsOf (Mod.lawsOf none (Mod.asAxiom ci)))
+    fReads := fReads.push (← readsOf (Mod.lawsOf (tblOf ci) ci))
   let isOwn (t : Nat × Nat) : Bool := t.1 == k
+  let wantOk (w : Option Mod.Want) (ci : ConstantInfo) : Bool := match w with
+    | some w => w.ok ci
+    | none => true
   -- the presentation independent of the importer: 2 as stored, 1 as an
-  -- assumption, 0 absent; a fixed point (states only drop)
+  -- assumption, 0 absent; a fixed point (states only drop).  A read of an
+  -- own constant is met when that constant is presented (as stored, of
+  -- the wanted kind, for a full read).
   let init : Array Nat := priv.map fun ci => match (m.expo[ci.name]? : Option Expo) with
     | some .same => 2
     | some .hidden => if Mod.isPinned ci.name then 2 else 1
     | _ => 0
+  let met (st : Array Nat) (r : Name × (Nat × Nat) × Option Mod.Want) : Bool :=
+    let (_, t, w) := r
+    if isOwn t then
+      match w with
+      | none => st[t.2]! > 0
+      | some w => st[t.2]! == 2 && w.ok priv[t.2]!
+    else
+      match w with
+      | none => true
+      | some w => (((S.slot t.1).priv[t.2]?).map w.ok).getD false
+  -- a constant the exported part does not store may enter as the
+  -- assumption of its statement when a presented value reads it and its
+  -- statement is complete (maintainer's ruling: only ever adds
+  -- assumptions, never a value)
+  let liftable (st : Array Nat) (t : Nat) : Bool :=
+    init[t]! == 0 && !Mod.isPinned priv[t]!.name && tReads[t]!.all (met st)
+  let metV (st : Array Nat) (r : Name × (Nat × Nat) × Option Mod.Want) : Bool :=
+    met st r || (match r with
+      | (_, t, none) => isOwn t && st[t.2]! == 0 && liftable st t.2
+      | _ => false)
   let mut st := init
   let mut changed := true
   let mut rounds := n + 1
@@ -286,34 +308,50 @@ def unitOf (g : Array ModIn) (S : Mod.Store) (flagged : Std.HashSet Name) (k : N
     rounds := rounds - 1
     for j in [0:n] do
       if st[j]! > 0 then
-        let typeOk := tReads[j]!.all fun (_, t) => !isOwn t || st[t.2]! > 0
-        let fullOk := vReads[j]!.all fun (_, t) => !isOwn t || st[t.2]! > 0
-        let mut s' := st[j]!
-        if !typeOk then s' := 0
-        else if s' == 2 && !fullOk then s' := 1
-        if inBlock j then
-          let blk := blockOf j
-          let blkFull := blk.all fun x => st[x]! == 2 &&
-            (tReads[x]! ++ vReads[x]!).all fun (_, t) => !isOwn t || st[t.2]! > 0
-          if !blkFull then s' := min s' 1
+        let s' := if !(tReads[j]!.all (met st)) then 0
+          else if st[j]! == 2 && !(fReads[j]!.all (metV st)) then 1
+          else st[j]!
         if s' != st[j]! then
           st := st.set! j s'
           changed := true
+  -- the lifted constants: read by a value presented as stored
+  let mut lifted : Array Nat := #[]
+  for j in [0:n] do
+    if st[j]! == 2 then
+      for (_, t, w) in fReads[j]! do
+        if w.isNone && isOwn t && st[t.2]! == 0 && liftable st t.2 && !lifted.contains t.2 then
+          lifted := lifted.push t.2
+  for t in lifted do st := st.set! t 1
   for j in [0:n] do
     if Mod.isPinned priv[j]!.name && init[j]! > 0 && st[j]! != 2 then
       throw s!"the pinned constant {priv[j]!.name} is exported but reads what its importers lack"
   -- the gates, to a fixed point (gates only grow)
-  let pairOf (t : Nat × Nat) : Nat × UInt8 := if isOwn t then (k, 1) else (t.1, S.needAt t.1 t.2)
-  let tgtGate (g1 : Array (Array (Nat × UInt8))) (t : Nat × Nat) : Array (Nat × UInt8) :=
-    if isOwn t then g1[t.2]?.getD #[]
-    else if S.needAt t.1 t.2 == 1 then S.gateAt t.1 t.2 else #[]
-  let gateOver (g1 : Array (Array (Nat × UInt8))) (rs : Array (Name × Nat × Nat)) :
-      Std.HashSet (Nat × UInt8) := Id.run do
+  let pairOf (r : Name × (Nat × Nat) × Option Mod.Want) : Nat × UInt8 :=
+    let (_, t, w) := r
+    if isOwn t then (k, 1)
+    else match w with
+      | none => (t.1, S.needAt t.1 t.2)
+      | some _ =>
+        if (S.slot t.1).at1[t.2]? == some ((S.slot t.1).priv[t.2]?) then (t.1, 1) else (t.1, 2)
+  let tgtGate (g1 v1 : Array (Array (Nat × UInt8))) (r : Name × (Nat × Nat) × Option Mod.Want) :
+      Array (Nat × UInt8) :=
+    let (_, t, w) := r
+    if isOwn t then
+      match w with
+      | none => g1[t.2]?.getD #[]
+      | some _ => g1[t.2]?.getD #[] ++ v1[t.2]?.getD #[]
+    else match w with
+      | none => if S.needAt t.1 t.2 == 1 then S.gateAt t.1 t.2 else #[]
+      | some _ =>
+        if (S.slot t.1).at1[t.2]? == some ((S.slot t.1).priv[t.2]?) then S.fullGateAt t.1 t.2
+        else #[]
+  let gateOver (g1 v1 : Array (Array (Nat × UInt8)))
+      (rs : Array (Name × (Nat × Nat) × Option Mod.Want)) : Std.HashSet (Nat × UInt8) := Id.run do
     let mut out : Std.HashSet (Nat × UInt8) := {}
-    for (_, t) in rs do
-      let p := pairOf t
+    for r in rs do
+      let p := pairOf r
       unless guaranteed p do out := out.insert p
-      for q in tgtGate g1 t do
+      for q in tgtGate g1 v1 r do
         unless guaranteed q do out := out.insert q
     return out
   let sortG (s : Std.HashSet (Nat × UInt8)) : Array (Nat × UInt8) :=
@@ -321,32 +359,28 @@ def unitOf (g : Array ModIn) (S : Mod.Store) (flagged : Std.HashSet Name) (k : N
   let mut g1 : Array (Array (Nat × UInt8)) := Array.replicate n #[]
   let mut v1 : Array (Array (Nat × UInt8)) := Array.replicate n #[]
   changed := true
-  rounds := n + 1
+  rounds := 2 * n + 2
   while changed && rounds > 0 do
     changed := false
     rounds := rounds - 1
     for j in [0:n] do
       if st[j]! > 0 then
-        let gt := gateOver g1 tReads[j]!
-        let full : Std.HashSet (Nat × UInt8) :=
-          if inBlock j then
-            (blockOf j).foldl (fun acc x => (gateOver g1 (tReads[x]! ++ vReads[x]!)).fold
-              (·.insert ·) acc) {}
-          else if st[j]! == 2 then gateOver g1 vReads[j]!
-          else {}
-        let (pg, fg) : Std.HashSet (Nat × UInt8) × Std.HashSet (Nat × UInt8) :=
-          (gt, if st[j]! == 2 then full else {})
-        let pgA := sortG pg
-        let fgA := (sortG fg).filter (!pgA.contains ·)
-        if pgA != g1[j]! || fgA != v1[j]! then
-          g1 := g1.set! j pgA
-          v1 := v1.set! j fgA
+        let gt := sortG (gateOver g1 v1 tReads[j]!)
+        let gf := if st[j]! == 2 then
+            (sortG (gateOver g1 v1 fReads[j]!)).filter (!gt.contains ·) else #[]
+        -- a pinned constant is all or nothing
+        let (gt, gf) := if Mod.isPinned priv[j]!.name then
+            (sortG ((gt ++ gf).foldl (·.insert ·) {}), #[]) else (gt, gf)
+        if gt != g1[j]! || gf != v1[j]! then
+          g1 := g1.set! j gt
+          v1 := v1.set! j gf
           changed := true
+  if changed then throw "the gates do not settle"
   for j in [0:n] do
-    if Mod.isPinned priv[j]!.name && st[j]! > 0 && (!g1[j]!.isEmpty || !v1[j]!.isEmpty) then
+    if Mod.isPinned priv[j]!.name && st[j]! > 0 && !g1[j]!.isEmpty then
       throw s!"the pinned constant {priv[j]!.name} reads a module its importers need not load"
   -- what is left out, for the statistics
-  let mut diag : Diag := {}
+  let mut diag : Diag := { lifted := lifted.size }
   for j in [0:n] do
     let c := priv[j]!
     let kc := kindOf c
@@ -373,28 +407,36 @@ def unitOf (g : Array ModIn) (S : Mod.Store) (flagged : Std.HashSet Name) (k : N
       else none,
     tbls := priv.map tblOf, g1, v1,
     prf := priv.map fun ci => flagged.contains ci.name }
+  let dummy (d : Name) : Nat × ConstantInfo := (0, .axiomInfo ⟨d, [], .sort .zero⟩)
+  let addReads (r : Mod.ReadSet) (rs : Array (Name × (Nat × Nat) × Option Mod.Want)) :
+      Mod.ReadSet :=
+    rs.foldl (fun r (d, _, w) =>
+      let r := { r with d := r.d.insert d (dummy d) }
+      match w with
+      | some .ind => { r with fi := r.fi.insert d }
+      | some .ctor => { r with fc := r.fc.insert d }
+      | none => r) r
   let mut fp1 : Std.HashSet (Nat × UInt8) := {}
-  let mut all2 : Std.HashSet Name := {}
-  let mut all1 : Std.HashSet Name := {}
-  let mut gated : Array (Nat × Array Name × Array Name) := #[]
+  let mut all2 : Mod.ReadSet := {}
+  let mut all1 : Mod.ReadSet := {}
+  let mut gated : Array (Nat × Mod.ReadSet × Mod.ReadSet) := #[]
   for j in [0:n] do
-    for (d, _) in tReads[j]! ++ vReads[j]! do
-      all2 := all2.insert d
+    all2 := addReads all2 fReads[j]!
     if st[j]! > 0 then
       let full := st[j]! == 2
-      let rs := tReads[j]! ++ (if full then vReads[j]! else #[])
-      for (_, t) in rs do
-        let p := pairOf t
+      let rs := if full then fReads[j]! else tReads[j]!
+      for r in rs do
+        let p := pairOf r
         if guaranteed p then fp1 := fp1.insert p
-        for q in tgtGate g1 t do
+        for q in tgtGate g1 v1 r do
           if guaranteed q then fp1 := fp1.insert q
       if g1[j]!.isEmpty && v1[j]!.isEmpty then
-        for (d, _) in rs do all1 := all1.insert d
+        all1 := addReads all1 rs
       else
-        let tn := if v1[j]!.isEmpty then rs else tReads[j]!
-        gated := gated.push (j, tn.map (·.1), if v1[j]!.isEmpty then #[] else vReads[j]!.map (·.1))
-  return ({ slot, fp1 := fp1.toArray },
-    { all2 := all2.toArray, all1 := all1.toArray, gated }, diag)
+        let rt := if v1[j]!.isEmpty then addReads {} rs else addReads {} tReads[j]!
+        let rf := if v1[j]!.isEmpty then {} else addReads {} fReads[j]!
+        gated := gated.push (j, rt, rf)
+  return ({ slot, fp1 := fp1.toArray }, { all2, all1, gated }, diag)
 
 /-! ## The install -/
 
@@ -732,7 +774,7 @@ def checkModular (sp : SearchPath) (roots : Array Name) (mode : CheckMode) (stri
   if stride > 0 then
     let dg : Diag := results.foldl (fun (d : Diag) r? => d.merge ((r?.map (·.diag)).getD {})) {}
     err.putStr s!"con-leche: exported presentations: assumption {dg.assumed}, absent {dg.absent}, \
-      gated {dg.gated}, full-gated {dg.vgated}\n"
+      gated {dg.gated}, full-gated {dg.vgated}, private entered as assumption {dg.lifted}\n"
     for x in dg.ex do err.putStr s!"con-leche:   {x}\n"
     for x in dg.indEx do err.putStr s!"con-leche:   {x}\n"
   let units : Array Mod.Unit' := ins.map fun r? => (r?.map (·.unit)).getD default

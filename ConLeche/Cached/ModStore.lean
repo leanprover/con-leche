@@ -124,28 +124,44 @@ partial def collectGo (stack : List Expr) (seen : Std.HashSet Expr) (out : Std.H
         | .fvar _ t => collectGo (t :: rest) seen out
         | _ => collectGo rest seen out
 
-/-- **What a presented constant's laws read** (`Modular.EntryScoped`):
-its expressions and its names — its type, a definition's value, a
-recursor's rules (right-hand sides, nested pins, constructors), an
+/-- **What a presented constant's laws read** (`Modular.EntryScoped`,
+`EntryProjs`, `BlockIn`): expressions whose constants must be present and
+whose projections' structures stored type formers (`es`), names that
+must be present (`ns`), stored as type formers (`fi`) or as constructors
+(`fc`). -/
+structure Laws where
+  es : List Expr := []
+  ns : List Name := []
+  fi : List Name := []
+  fc : List Name := []
+  deriving Inhabited
+
+/-- **The laws of a presented constant**: its type; a definition's value;
+a recursor's rules (right-hand sides, nested pins, constructors); an
 inductive type's members, constructors, η constructor and projection
-table (`tbl`), the names a pinned constant's fast path reads. -/
-def lawsOf (tbl : Option ProjTable) (ci : ConstantInfo) : List Expr × List Name :=
+table (`tbl`); a constructor's result family; and the names a pinned
+constant's fast path reads. -/
+def lawsOf (tbl : Option ProjTable) (ci : ConstantInfo) : Laws :=
   let pinN := ConLeche.Modular.pinFootprint ci.name
-  let tblPart : List Expr × List Name := match ci with
-    | .indInfo .. => match tbl with
-      | some t => (t.bodies.toList, [t.ctor])
-      | none => ([], [])
-    | _ => ([], [])
-  let (es, ns) : List Expr × List Name := match ci with
-    | .defnInfo cv v _ => ([cv.type, v], [])
-    | .recInfo cv _ _ rules =>
-      (cv.type :: rules.flatMap (fun r => r.rhs :: match r.fire with
+  match ci with
+  | .defnInfo cv v _ => { es := [cv.type, v], ns := pinN }
+  | .recInfo cv _ _ rules =>
+    { es := cv.type :: rules.flatMap (fun r => r.rhs :: match r.fire with
         | .nested _ pins => pins
-        | .plain => []), rules.map (·.ctor))
-    | .indInfo cv caps =>
-      ([cv.type], caps.all ++ caps.ctors ++ (if caps.eta then [caps.etaCtor] else []))
-    | ci => ([ci.toConstantVal.type], [])
-  (es ++ tblPart.1, ns ++ tblPart.2 ++ pinN)
+        | .plain => []),
+      ns := rules.map (·.ctor) ++ pinN, fc := rules.map (·.ctor) }
+  | .indInfo cv caps =>
+    let cs := caps.ctors ++ (if caps.eta then [caps.etaCtor] else [])
+    match tbl with
+    | some t => { es := cv.type :: t.bodies.toList, ns := caps.all ++ cs ++ [t.ctor] ++ pinN,
+                  fi := caps.all, fc := cs ++ [t.ctor] }
+    | none => { es := [cv.type], ns := caps.all ++ cs ++ pinN, fi := caps.all, fc := cs }
+  | .ctorInfo cv _ _ =>
+    { es := [cv.type], ns := pinN,
+      fi := match cv.type.piResult.getAppFn with
+        | .const T _ => [T]
+        | _ => [] }
+  | ci => { es := [ci.toConstantVal.type], ns := pinN }
 
 /-- **Every projection an expression reads is of a structure `P`
 admits** (the specification; `projsInC` is its memoized walk). -/
@@ -233,17 +249,28 @@ partial def collectProjs (stack : List Expr) (seen : Std.HashSet Expr) (out : St
       | .fvar _ t => collectProjs (t :: rest) seen out
       | _ => collectProjs rest seen out
 
-/-- The names of a list, as a lookup index (a constant of no meaning
-under each): `(dvOf D).find? n` is some exactly at the names of `D`. -/
-def dvOf (D : Array Name) : FEnv :=
-  ⟨⟨[], []⟩, D.foldl (fun m n => m.insert n (0, .axiomInfo ⟨n, [], .sort .zero⟩)) {}, 1, {}, [],
-    {}⟩
+/-- **A claimed set of reads** (an oracle's answer, verified by
+`lawsOk` and the read checks): the names that must be present, as a
+lookup index (`dvOf`: a name maps to a constant of no meaning at counter
+`0`), and the names that must be stored type formers (`fi`) and stored
+constructors (`fc`). -/
+structure ReadSet where
+  d : Std.HashMap Name (Nat × ConstantInfo) := {}
+  fi : Std.HashSet Name := {}
+  fc : Std.HashSet Name := {}
+  deriving Inhabited
 
-/-- **Every name the laws read is in `D`**: the checker's own resolution
-walk over each expression, a lookup for each name. -/
-def lawsOk (D : Array Name) (l : List Expr × List Name) : Bool :=
-  let dv := dvOf D
-  l.1.all (constsResolveFC dv) && l.2.all fun n => (dv.find? n).isSome
+/-- The present names of a read set as an index: `(dvOf r).find? n` is
+some only at its names. -/
+def dvOf (r : ReadSet) : FEnv := ⟨⟨[], []⟩, r.d, 1, {}, [], {}⟩
+
+/-- **Every name the laws read is in the read set**: the checker's own
+resolution walk and the projection walk over each expression, a lookup
+for each name. -/
+def lawsOk (r : ReadSet) (l : Laws) : Bool :=
+  let dv := dvOf r
+  l.es.all (constsResolveFC dv) && l.es.all (projsInC r.fi.contains) &&
+  l.ns.all (fun n => (dv.find? n).isSome) && l.fi.all r.fi.contains && l.fc.all r.fc.contains
 
 /-! ## Qualified names -/
 
@@ -278,14 +305,14 @@ structure Unit' where
   fp1 : Array (Nat × UInt8) := #[]
   deriving Inhabited
 
-/-- The names a unit's presentations read, claimed (an oracle that
-`unitOk` verifies): all names the installed constants read (`all2`),
-the names the ungated exported constants read (`all1`), and for each
-gated constant its type-level and its value reads. -/
+/-- The reads a unit's presentations claim (verified by `unitOk`): of the
+installed constants (`all2`), of the ungated exported presentations
+(`all1`), and for each gated constant, of its presentation when its full
+gate is closed and when it is open. -/
 structure Reads where
-  all2 : Array Name := #[]
-  all1 : Array Name := #[]
-  gated : Array (Nat × Array Name × Array Name) := #[]
+  all2 : ReadSet := {}
+  all1 : ReadSet := {}
+  gated : Array (Nat × ReadSet × ReadSet) := #[]
   deriving Inhabited
 
 /-- A read's target as module `h` resolves it: its own constant at its
@@ -321,15 +348,39 @@ def shapeOk (fe : FEnv) (flagged : Name → Bool) (s : ModSlot) : Bool :=
         | none => true
         | some a => a == ci || (a == asAxiom ci && hideable ci)) &&
       (v.isEmpty || (a == some ci && hideable ci)) &&
-      p == flagged ci.name &&
+      p == flagged ci.name && (!p || (match ci with
+        | .defnInfo .. | .thmInfo _ | .axiomInfo _ => true
+        | _ => false)) &&
       t == fe.env.tables.find? (·.structName == ci.name)
     | _, _, _, _, _ => false
+
+/-- The kind a full read requires. -/
+inductive Want where
+  | ind | ctor
+
+def Want.ok : Want → ConstantInfo → Bool
+  | .ind, .indInfo .. => true
+  | .ctor, .ctorInfo .. => true
+  | _, _ => false
 
 /-- A read at the private level: it resolves in the module, and the
 module's own constant is the store's alternate there. -/
 def read2Ok (S : Store) (h : Nat) (fe : FEnv) (d : Name) : Bool :=
   match target h fe d with
   | some (h', j') => h' != h || (S.alts d).contains (h', j')
+  | none => false
+
+/-- A full read at the private level: as `read2Ok`, and the target is
+presented as stored, of the wanted kind. -/
+def full2Ok (S : Store) (h : Nat) (fe : FEnv) (u : Unit') (w : Want) (d : Name) : Bool :=
+  match target h fe d with
+  | some (h', j') =>
+    if h' == h then (S.alts d).contains (h', j') && ((u.slot.priv[j']?).map w.ok).getD false
+    else match fe.base.mb with
+      | some mb => match mb.pick? d with
+        | some (_, _, ci) => some ci == (S.slot h').priv[j']? && w.ok ci
+        | none => false
+      | none => false
   | none => false
 
 /-- A read at the exported level of a constant whose gate is `G`: it
@@ -349,33 +400,82 @@ def read1Ok (S : Store) (h : Nat) (fe : FEnv) (u : Unit') (G : Array (Nat × UIn
       inG (h', S.needAt h' j') && (S.needAt h' j' != 1 || (S.gateAt h' j').all inG)
   | none => false
 
+/-- The full gate of module `h`'s exported constant `j`. -/
+def Store.fullGateAt (S : Store) (h j : Nat) : Array (Nat × UInt8) :=
+  ((S.slot h).g1[j]?).getD #[] ++ ((S.slot h).v1[j]?).getD #[]
+
+/-- A full read at the exported level: the target is presented as stored,
+of the wanted kind, to every viewer that loads `fp1` and `G`. -/
+def full1Ok (S : Store) (h : Nat) (fe : FEnv) (u : Unit') (G : Array (Nat × UInt8)) (w : Want)
+    (d : Name) : Bool :=
+  let inG (p : Nat × UInt8) : Bool := u.fp1.contains p || G.contains p
+  match target h fe d with
+  | some (h', j') =>
+    if h' == h then
+      (S.alts d).contains (h', j') &&
+        (match u.slot.priv[j']? with
+          | some ci => (u.slot.at1[j']?) == some (some ci) && w.ok ci
+          | none => false) &&
+        (((u.slot.g1[j']?).getD #[]) ++ ((u.slot.v1[j']?).getD #[])).all inG
+    else
+      match (S.slot h').priv[j']? with
+      | some ci =>
+        w.ok ci &&
+        (if (S.slot h').at1[j']? == some (some ci) then
+          inG (h', 1) && (S.fullGateAt h' j').all inG
+        else inG (h', 2))
+      | none => false
+  | none => false
+
+/-- The read checks of a read set, with gate `G` at the exported level
+(`lvl2`: at the private level). -/
+def readsOk (S : Store) (h : Nat) (fe : FEnv) (u : Unit') (lvl2 : Bool) (G : Array (Nat × UInt8))
+    (r : ReadSet) : Bool :=
+  r.d.toList.all (fun (d, _) => if lvl2 then read2Ok S h fe d else read1Ok S h fe u G d) &&
+  r.fi.toList.all (fun d => if lvl2 then full2Ok S h fe u .ind d else full1Ok S h fe u G .ind d) &&
+  r.fc.toList.all (fun d => if lvl2 then full2Ok S h fe u .ctor d else full1Ok S h fe u G .ctor d)
+
+/-- **A recursor's rules are of constructors of stored type formers**, in
+the module's own environment (`Modular.LocalOk.recFam`). -/
+def recFamOk (fe : FEnv) (ci : ConstantInfo) : Bool :=
+  match ci with
+  | .recInfo _ _ _ rules => rules.all fun r => match fe.find? r.ctor with
+    | some (.ctorInfo cvj _ _) => match cvj.type.piResult.getAppFn with
+      | .const T _ => match fe.find? T with
+        | some (.indInfo ..) => true
+        | _ => false
+      | _ => true
+    | _ => true
+  | _ => true
+
 /-- **The check of a unit** against its module's final view `fe`: its
-shape, and every name its presentations' laws read, as `Reads` claims
-them (verified: `lawsOk`), read as `read2Ok`/`read1Ok` require. -/
+shape; its recursors' families; every name its presentations' laws read,
+as `Reads` claims them (verified: `lawsOk`), read as the read checks
+require. -/
 def unitOk (S : Store) (h : Nat) (fe : FEnv) (flagged : Name → Bool) (u : Unit') (r : Reads) :
     Bool :=
   let s := u.slot
   shapeOk fe flagged s &&
+  s.priv.all (recFamOk fe) &&
   -- the private level
   (List.range s.priv.size).all (fun j => match s.priv[j]?, s.tbls[j]? with
     | some ci, some t => lawsOk r.all2 (lawsOf t ci)
     | _, _ => false) &&
-  r.all2.all (read2Ok S h fe) &&
+  readsOk S h fe u true #[] r.all2 &&
   -- the exported level, ungated
   (List.range s.priv.size).all (fun j => match s.at1[j]?, s.g1[j]?, s.v1[j]?, s.tbls[j]? with
     | some (some ci), some g, some v, some t =>
       !(g.isEmpty && v.isEmpty) || lawsOk r.all1 (lawsOf t ci)
     | _, _, _, _ => true) &&
-  r.all1.all (read1Ok S h fe u #[]) &&
+  readsOk S h fe u false #[] r.all1 &&
   -- the exported level, gated: every gated constant listed, with its reads
   (List.range s.priv.size).all (fun j => match s.at1[j]?, s.g1[j]?, s.v1[j]?, s.tbls[j]? with
     | some (some ci), some g, some v, some t =>
-      (g.isEmpty && v.isEmpty) || r.gated.any fun (j', dt, dv) =>
+      (g.isEmpty && v.isEmpty) || r.gated.any fun (j', rt, rf) =>
         j' == j &&
-        lawsOk dt (lawsOf t (if v.isEmpty then ci else asAxiom ci)) &&
-        dt.all (read1Ok S h fe u g) &&
-        (v.isEmpty || (lawsOk (dt ++ dv) (lawsOf t ci) &&
-          dv.all (read1Ok S h fe u (g ++ v))))
+        lawsOk rt (lawsOf t (if v.isEmpty then ci else asAxiom ci)) &&
+        readsOk S h fe u false g rt &&
+        (v.isEmpty || (lawsOk rf (lawsOf t ci) && readsOk S h fe u false (g ++ v) rf))
     | _, _, _, _ => true)
 
 /-! ## The local checks -/
