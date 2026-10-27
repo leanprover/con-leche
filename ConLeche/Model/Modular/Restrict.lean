@@ -30,17 +30,6 @@ open ConLeche.Term ConLeche.Verify SetTheory
 
 universe w
 
-/-- An inductive type former, constructor or recursor: the kinds no
-context presents as an assumption. -/
-@[expose] def _root_.ConLeche.ConstantInfo.isIndKind : ConstantInfo → Bool
-  | .indInfo .. | .ctorInfo .. | .recInfo .. => true
-  | _ => false
-
-/-- An inductive type former. -/
-@[expose] def _root_.ConLeche.ConstantInfo.isFormer : ConstantInfo → Bool
-  | .indInfo .. => true
-  | _ => false
-
 /-- A type former of `C`. -/
 @[expose] def FormerIn (C : Env) (n : Name) : Prop := ∃ cv caps, C.find? n = some (.indInfo cv caps)
 
@@ -72,6 +61,7 @@ structure CtxSrc (V : Type w) [SetTheory V] (μ : CheckMode) (C : Env)
       ∃ cvT capsT, (E n).find? T = some (.indInfo cvT capsT)
   /-- what an inductive kind read alike reads is read alike, where it is stored -/
   deep : ∀ n c ci, ((R n).find? c).isSome = true → C.find? c = some ci → ci.isIndKind = true →
+    (∃ ci', (E n).find? c = some ci' ∧ ci'.isIndKind = true) →
     EntryScopedP (fun d => (C.find? d).isSome = true → ((E n).find? d).isSome = true →
       ((R n).find? d).isSome = true) C c ci
   cover : ∀ n, LfpCover (m n) []
@@ -256,10 +246,6 @@ theorem projsFormer_of_natFragOk {E E' : Env} {c : Name} :
     simp only [ConLeche.Verify.natFragOk, Bool.and_eq_true] at h
     simp only [Expr.projsFormer, Bool.and_eq_true]
     exact ⟨ihf h.1, iha h.2⟩
-  | fvar idx ty =>
-    intro h
-    simp only [ConLeche.Verify.natFragOk, Bool.and_eq_true, beq_iff_eq] at h
-    simp [Expr.projsFormer, h.2]
   | proj _ _ _ => intro h; simp [ConLeche.Verify.natFragOk] at h
   | lam _ _ => intro h; simp [ConLeche.Verify.natFragOk] at h
   | forallE _ _ => intro h; simp [ConLeche.Verify.natFragOk] at h
@@ -577,9 +563,10 @@ theorem proj_ok : ProjOkT C := by
 the source stores it. -/
 theorem ctor_family {n c : Name} {cvj : ConstantVal} {nP nF : Nat}
     (hc : ((S.R n).find? c).isSome = true) (hfc : C.find? c = some (.ctorInfo cvj nP nF))
+    (hcE : ∃ ci', (S.E n).find? c = some ci' ∧ ci'.isIndKind = true)
     {T : Name} {us : List Level} (hh : cvj.type.piResult.getAppFn = .const T us)
     (hTE : ((S.E n).find? T).isSome = true) : ((S.R n).find? T).isSome = true := by
-  have hdeep := S.deep n c _ hc hfc rfl
+  have hdeep := S.deep n c _ hc hfc rfl hcE
   have hTC : (C.find? T).isSome = true := by
     have := (S.scope c _ hfc).1
     rw [Expr.constsResolve_iff] at this
@@ -606,7 +593,7 @@ theorem rec_ctors : RecCtorsStored C := by
     intro cvj' nP nF hfc' T us hh cvT caps hgT
     rw [hfc] at hfc'
     obtain rfl : cvj = cvj' := by injection hfc' with h; injection h
-    have hTR := S.ctor_family hcR hfcC hh (by rw [hgT]; rfl)
+    have hTR := S.ctor_family hcR hfcC ⟨_, hfc, rfl⟩ hh (by rw [hgT]; rfl)
     obtain ⟨_, _, hTC⟩ := (S.blocks _ _ hfcC) T us hh
     exact S.same_of hTR (Or.inl ⟨⟨_, hTC, rfl⟩, _, hgT, rfl⟩)
   exact ⟨⟨cvj, cnP, cnF, hfcC⟩, fun hk => recRuleKOf_of hsame hT (hK hk),
@@ -932,7 +919,7 @@ theorem deep_type {n c : Name} {ci : ConstantInfo} (hc : ((S.R n).find? c).isSom
     (hf : C.find? c = some ci) (hk : ci.isIndKind = true)
     (hE : ∃ ci', (S.E n).find? c = some ci' ∧ ci'.isIndKind = true) :
     ci.toConstantVal.type.constsResolve (S.R n) = true := by
-  have hdeep := (S.deep n c ci hc hf hk).1
+  have hdeep := (S.deep n c ci hc hf hk hE).1
   have hsame := S.same_of hc (Or.inl ⟨⟨_, hf, hk⟩, hE⟩)
   rw [hf] at hsame
   have hE := ((S.m n).base2.wf.consts _ (ConLeche.Env.find?_mem hsame.symm)).2.2.1
@@ -1116,7 +1103,7 @@ theorem ruleExt {φ : Name → Nat} {n : Name} {cv : ConstantVal} {mI rP : Nat}
     have hTE : ((S.E n).find? T).isSome = true := by
       have hres := ((S.m n).base2.wf.consts _ (ConLeche.Env.find?_mem hfc)).2.2.1
       exact ConLeche.Expr.find?_isSome_of_piResult_getAppFn_const hres hh
-    have hTR := S.ctor_family hcR hfcC hh hTE
+    have hTR := S.ctor_family hcR hfcC ⟨_, hfc, rfl⟩ hh hTE
     obtain ⟨_, _, hTC⟩ := (S.blocks _ _ hfcC) T us hh
     obtain ⟨_, _, hTE'⟩ := S.recFam n cv mI rP rules hf rl hrl _ _ _ hfc T us hh
     have hsT := S.same_of hTR (Or.inl ⟨⟨_, hTC, rfl⟩, _, hTE', rfl⟩)
@@ -1303,7 +1290,7 @@ theorem block_ctor {n : Name} (hn : FormerIn C n) {D : LfpDatum V}
     rw [← ConLeche.Env.find?_name hfxE, ← ConLeche.Env.find?_name hfx]; rfl
   subst hxn
   have hfmC : C.find? (D.member c) = some (.indInfo cvm capsm) := by rw [hmsame]; exact hfm
-  have hdeep := S.deep n _ _ hmR hfmC rfl
+  have hdeep := S.deep n _ _ hmR hfmC rfl ⟨_, hfm, rfl⟩
   obtain ⟨-, hctC, -⟩ := S.blocks _ _ hfmC
   obtain ⟨_, _, _, hxC⟩ := hctC _ hx
   have hxR := (hdeep.2.2.2.1 cvm capsm rfl).2.1 _ hx (by rw [hxC]; rfl) (by rw [hfxE]; rfl)
@@ -1393,7 +1380,7 @@ theorem lfpOwn {D : LfpDatum V} (hD : D ∈ S.lfpList) : LfpOwn C D := by
       obtain ⟨ci, hci, he⟩ := ctorLook_isSome (hown.ctorsAll c hc cvm capsm hfm x hx)
       obtain ⟨-, hctC, -⟩ := S.blocks _ _ hfmC
       obtain ⟨_, _, _, hxC⟩ := hctC _ hx
-      have hxR := ((S.deep n _ _ hmR hfmC rfl).2.2.2.1 cvm capsm rfl).2.1 _ hx
+      have hxR := ((S.deep n _ _ hmR hfmC rfl ⟨_, hfm, rfl⟩).2.2.2.1 cvm capsm rfl).2.1 _ hx
         (by rw [hxC]; rfl) (by rw [hci]; rfl)
       unfold ctorLook
       have hk : ci.isIndKind = true := by

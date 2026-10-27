@@ -19,6 +19,18 @@ namespace ConLeche.Model.Modular
 
 open ConLeche ConLeche.Modular
 
+/-- An inductive type former, constructor or recursor: the kinds no
+context presents as an assumption. -/
+@[expose] def _root_.ConLeche.ConstantInfo.isIndKind : ConstantInfo → Bool
+  | .indInfo .. | .ctorInfo .. | .recInfo .. => true
+  | _ => false
+
+/-- An inductive type former. -/
+@[expose] def _root_.ConLeche.ConstantInfo.isFormer : ConstantInfo → Bool
+  | .indInfo .. => true
+  | _ => false
+
+
 /-- **Every name an expression reads satisfies `p`**: `constsResolve`
 with a predicate in place of the lookup (a literal reads its support
 names, a projection its structure). -/
