@@ -347,7 +347,8 @@ constant's set is its value's (`defVal`); every stored constant keeps
 its set. -/
 theorem install_def {env : Env} {c : Name} {ci : ConstInfo} (hs : Env.Scoped env)
     (m : EnvModel V env) (hok : DefOk env c ci) :
-    ∃ m' : EnvModel V (env.add c ci), ∀ n, (env.find? n).isSome → ∀ ls, m'.M n ls = m.M n ls := by
+    ∃ m' : EnvModel V (env.add c ci), (∀ n, (env.find? n).isSome → ∀ ls, m'.M n ls = m.M n ls) ∧
+      ∀ v, ci.kind = .defn v → ∀ ls, m'.M c ls = defVal m.M ci v ls := by
   have hvs' := hok.value_scoped
   obtain ⟨hfresh, ⟨s, u, hT, hsu⟩, ⟨v, T, hkind, hv, hd, _⟩, _⟩ := hok
   have hvs := hvs' v hkind
@@ -381,7 +382,8 @@ theorem install_def {env : Env} {c : Name} {ci : ConstInfo} (hs : Env.Scoped env
     exact ⟨hTw, heq ▸ hTty, hvsem.1, hvsem.2.2.2⟩
   refine ⟨{ M := M', type_ok := ?_, unfold := ?_, rec_rules := ?_,
               rec_rules_nested := ?_, ind_fib := ?_, rec_rules_slot := ?_, rec_rules_k := ?_ },
-    fun n hn ls => hM'n n (Env.ne_of_isSome_find? hn hfresh) ls⟩
+    fun n hn ls => hM'n n (Env.ne_of_isSome_find? hn hfresh) ls,
+    fun v' hv' ls => by rw [hkind] at hv'; cases hv'; exact hM'c ls⟩
   · -- `type_ok`
     intro n ci' hfind φ ρ ls hlen
     rw [Env.find?_add] at hfind

@@ -247,23 +247,25 @@ theorem Env.Scoped.add_thm {env : Env} {c : Name} {ci : ConstInfo} {v : Expr} (h
   · rw [hk] at hk'; cases hk'
 
 /-- **Installing a theorem preserves having a model**: install its
-proof as a definition, then hide the value. -/
-noncomputable def install_thm {env : Env} {c : Name} {ci : ConstInfo} {v : Expr}
+proof as a definition, then hide the value.  Every stored constant
+keeps its set, and the theorem's is its proof's (`defVal`). -/
+theorem install_thm {env : Env} {c : Name} {ci : ConstInfo} {v : Expr}
     (hs : Env.Scoped env) (m : BlockModel V env) (hok : ThmOk env c ci v) :
-    BlockModel V (env.add c ci) :=
-  have hex := install_def' hs m hok.2.1
-  (Classical.choose hex).hide (· == c) |>.congr fun n => by
-    rw [Env.find?_hide, Env.find?_add, Env.find?_add]
-    by_cases hn : n = c
-    · subst hn
-      have hci : ci = { ci with kind := .assumed } := by
-        obtain ⟨l, t, k⟩ := ci
-        have hk : k = .assumed := hok.1
-        subst hk; rfl
-      simp only [ite_true, Option.map_some, beq_self_eq_true]
-      rw [hci]; rfl
-    · have hb : (n == c) = false := beq_eq_false_iff_ne.mpr hn
-      simp only [hn, ite_false, hb]
-      cases env.find? n <;> rfl
+    ∃ m' : BlockModel V (env.add c ci), (∀ n, (env.find? n).isSome → ∀ ls, m'.M n ls = m.M n ls) ∧
+      ∀ ls, m'.M c ls = defVal m.M { ci with kind := .defn v } v ls := by
+  obtain ⟨m₁, hagree, hval⟩ := install_def' hs m hok.2.1
+  refine ⟨(m₁.hide (· == c)).congr fun n => ?_, hagree, hval v rfl⟩
+  rw [Env.find?_hide, Env.find?_add, Env.find?_add]
+  by_cases hn : n = c
+  · subst hn
+    have hci : ci = { ci with kind := .assumed } := by
+      obtain ⟨l, t, k⟩ := ci
+      have hk : k = .assumed := hok.1
+      subst hk; rfl
+    simp only [ite_true, Option.map_some, beq_self_eq_true]
+    rw [hci]; rfl
+  · have hb : (n == c) = false := beq_eq_false_iff_ne.mpr hn
+    simp only [hn, ite_false, hb]
+    cases env.find? n <;> rfl
 
 end Fragment

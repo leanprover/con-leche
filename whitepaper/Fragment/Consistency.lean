@@ -67,7 +67,7 @@ theorem accepted_model {env : Env} (h : Accepted env) : Nonempty (BlockModel V e
   | empty => exact ⟨BlockModel.empty fun _ _ => pt⟩
   | defn h hok ih =>
     obtain ⟨m⟩ := ih
-    obtain ⟨m', -⟩ := install_def' h.scoped m hok
+    obtain ⟨m', -, -⟩ := install_def' h.scoped m hok
     exact ⟨m'⟩
   | ind S h hok ih =>
     obtain ⟨m⟩ := ih
@@ -75,7 +75,8 @@ theorem accepted_model {env : Env} (h : Accepted env) : Nonempty (BlockModel V e
     exact ⟨m'⟩
   | thm h hok ih =>
     obtain ⟨m⟩ := ih
-    exact ⟨install_thm h.scoped m hok⟩
+    obtain ⟨m', -, -⟩ := install_thm h.scoped m hok
+    exact ⟨m'⟩
 
 namespace IndSpec
 
