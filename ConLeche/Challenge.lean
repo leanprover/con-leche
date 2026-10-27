@@ -1,6 +1,7 @@
 module
 
 public import ConLeche.Cached.Installed
+public import ConLeche.Modular
 public import ConLeche.Denotes
 public import ConLeche.Accepts
 public import ConLeche.Frontend.Prelude
@@ -137,6 +138,28 @@ theorem no_False_declaration (V : Type w) [SetTheory V]
       let r ← parseChunks chunks
       let ds := preparePrelude pre r.decls
       checkDecls .verified pins ds) = .error e :=
+  sorry
+
+/-- **The modular theorem.**  If every module of a development up to
+`i` passes its local checks, there is ONE assignment of sets to the
+qualified names — every proof the point — under which every such
+module's own environment, read through its resolution, has a model. -/
+theorem modular_model_exists (V : Type w) [SetTheory V]
+    (pins : List NatOpPinSet) (dev : Nat → Modular.Module) (i : Nat)
+    (hok : ∀ j ≤ i, Modular.LocalOk .verified pins dev j) :
+    ∃ G : Modular.Key → (LevelParam → Nat) → V,
+      (∀ n lps T φ, G (.proof n lps T) φ = pt) ∧
+      ∀ j ≤ i, ∃ m : Model V (dev j).own,
+        ∀ n, ((dev j).own.find? n).isSome = true → m.cval n = G ((dev j).res n) :=
+  sorry
+
+/-- **The modular corollary.**  No module of such a development stores
+a constant of type `False` in its own environment. -/
+theorem modular_no_False (V : Type w) [SetTheory V]
+    (pins : List NatOpPinSet) (dev : Nat → Modular.Module) (i : Nat)
+    (hok : ∀ j ≤ i, Modular.LocalOk .verified pins dev j) :
+    ∀ j ≤ i, ∀ c ∈ (dev j).own.consts,
+      c.toConstantVal.type = .const falseName [] → False :=
   sorry
 
 end ConLeche

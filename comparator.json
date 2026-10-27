@@ -1,8 +1,17 @@
 {
   "challenge_module": "ConLeche.Challenge",
   "solution_module": "ConLeche.MainTheorem",
-  "theorem_names": ["ConLeche.model_exists", "ConLeche.no_False_declaration"],
+  "theorem_names": [
+    "ConLeche.model_exists",
+    "ConLeche.no_False_declaration",
+    "ConLeche.modular_model_exists",
+    "ConLeche.modular_no_False"
+  ],
   "definition_names": [],
-  "permitted_axioms": ["propext", "Classical.choice", "Quot.sound"],
+  "permitted_axioms": [
+    "propext",
+    "Classical.choice",
+    "Quot.sound"
+  ],
   "enable_nanoda": true
 }
