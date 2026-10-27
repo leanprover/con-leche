@@ -30,7 +30,10 @@ both read it.
   1. the imports come earlier, every context name is read from an
      earlier module (its source: in practice the constant's home), the
      context stores each name once (`below`, `src_lt`, `nodup`);
-  2. the declarations are accepted from the context, one at a time,
+  2. the declarations are accepted from the context (a compared
+     module's own environment is its context instead: it is validated
+     by refinement alone, its own names read from its solution), one
+     at a time,
      each by the fold's own install step and record check at the
      canonical index of the environment so far, and a constant flagged
      a proof is a theorem, or a definition or opaque constant that also
@@ -75,6 +78,11 @@ structure Module where
   src : Name → Nat
   proofs : Name → Bool
   res : Name → Key
+  /-- **a compared module** (a challenge): validated not by checking its
+  declarations but by refinement — its own environment is read, name by
+  name, from earlier modules (its own names from its solution), as a
+  context is -/
+  compared : Bool := false
 
 /-- The qualified name of an own constant of module `i`. -/
 def Module.ownKey (m : Module) (i : Nat) (n : Name) (ci : ConstantInfo) : Key :=
@@ -173,7 +181,12 @@ structure LocalOk (mode : CheckMode) (pins : List NatOpPinSet) (dev : Nat → Mo
   below : ∀ b ∈ (dev i).imports, b < i
   src_lt : ∀ n, ((dev i).context.find? n).isSome = true → (dev i).src n < i
   nodup : ((dev i).context.consts.map (·.name)).Nodup
-  accepted : AcceptedFrom mode pins (dev i).proofs (dev i).context (dev i).decls (dev i).own
+  accepted : (dev i).compared = false →
+    AcceptedFrom mode pins (dev i).proofs (dev i).context (dev i).decls (dev i).own
+  /-- a compared module's own environment is its context: every name of
+  it, its own included, refines the constant of the earlier module it is
+  read from (its solution, for its own names) -/
+  compared_own : (dev i).compared = true → (dev i).own = (dev i).context
   context_le : ∀ n ci, (dev i).context.find? n = some ci →
     ∃ ci', (dev ((dev i).src n)).own.find? n = some ci' ∧ Refines n ci ci'
   scoping : ∀ n ci, (dev i).context.find? n = some ci →
