@@ -29,14 +29,29 @@ shard's map). -/
 @[inline] def baseShard (n : Name) (m : Nat) : Nat := (n.hashData >>> 32).toNat % m
 
 /-- **One module's installed constants, published** (task #370): the
-constants its install pushed, in push order (`priv`), each one's
-exported variant (`pub`: the same constant, its value hidden, or `none`
-when the module's exported part does not store it), and its projection
-tables by structure name. -/
+constants its install pushed, in push order (`priv`); what a module
+loading it at its private level sees of each (`at2`: the constant
+itself, or — for a proof whose name another module stores too — the
+assumption of its statement, so that every copy of one statement reads
+alike); what a module loading it at its exported level sees (`at1`:
+`at2`, the constant with its value hidden, or `none` when the exported
+part does not store it); the projection table of each constant that
+is a structure (`tbls`, aligned with `priv`); and the **gates** of the
+exported presentation (`g1`, `v1`): the modules, with a level at each,
+that a viewer must load for the constant to be presented at all, and
+for a definition to be presented with its value — what its laws read
+beyond what every importer at the exported level loads. -/
 structure ModSlot where
   priv : Array ConstantInfo := #[]
-  pub : Array (Option ConstantInfo) := #[]
-  tbls : Std.HashMap Name ProjTable := {}
+  at2 : Array ConstantInfo := #[]
+  at1 : Array (Option ConstantInfo) := #[]
+  tbls : Array (Option ProjTable) := #[]
+  g1 : Array (Array (Nat × UInt8)) := #[]
+  v1 : Array (Array (Nat × UInt8)) := #[]
+  /-- which constants are proofs (their qualified name is their
+  statement) -/
+  prf : Array Bool := #[]
+  deriving DecidableEq, Inhabited
 
 /-- **The module store, as one module sees it** (task #370): the store's
 name index — every name with the modules storing it and its position
@@ -51,15 +66,29 @@ structure MBase where
   slots : Array (Thunk ModSlot) := #[]
   lvl : ByteArray := ByteArray.empty
 
+/-- A gate is open for the viewer: it loads every listed module at least
+at the listed level. -/
+@[inline] def MBase.gateOk (b : @& MBase) (g : Array (Nat × UInt8)) : Bool :=
+  g.all fun (h, l) => if hl : h < b.lvl.size then b.lvl[h]'hl ≥ l else false
+
 /-- The constant module `h` stores at position `j`, at the viewer's level
-of `h`. -/
+of `h` (at the exported level, through its gates). -/
 @[inline] def MBase.at? (b : @& MBase) (h j : Nat) : Option ConstantInfo :=
   if hl : h < b.lvl.size then
     let l := b.lvl[h]'hl
     if l == 2 then
-      if hh : h < b.slots.size then (b.slots[h]).get.priv[j]? else none
+      if hh : h < b.slots.size then (b.slots[h]).get.at2[j]? else none
     else if l == 1 then
-      if hh : h < b.slots.size then ((b.slots[h]).get.pub[j]?).join else none
+      if hh : h < b.slots.size then
+        let s := (b.slots[h]).get
+        match (s.at1[j]?).join with
+        | some ci =>
+          if b.gateOk ((s.g1[j]?).getD #[]) then
+            if b.gateOk ((s.v1[j]?).getD #[]) then some ci
+            else some (.axiomInfo ci.toConstantVal)
+          else none
+        | none => none
+      else none
     else none
   else none
 
@@ -93,9 +122,9 @@ def MBase.find? (b : @& MBase) (n : Name) : Option ConstantInfo :=
 module installed. -/
 def MBase.findTable? (b : @& MBase) (T : Name) : Option ProjTable :=
   match b.pick? T with
-  | some (h, _, _) =>
+  | some (h, j, _) =>
     if hh : h < b.slots.size then
-      match (b.slots[h]).get.tbls[T]? with
+      match ((b.slots[h]).get.tbls[j]?).join with
       | some t => if t.structName == T then some t else none
       | none => none
     else none

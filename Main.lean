@@ -1,6 +1,7 @@
 module
 
 public import ConLeche.Driver.Run
+public import ConLeche.Driver.Modular
 public import Std.Async.System
 
 @[expose] public section
@@ -245,6 +246,13 @@ def usage : String := String.intercalate "\n" [
   "                    this checker was built with are read; every",
   "                    object is decoded and validated, nothing in the",
   "                    files is trusted.",
+  "  --modular         with --olean: check every module of the closure on",
+  "                    its own, against the context Lean elaborated it in",
+  "                    (its imports' exported parts, private parts under",
+  "                    `import all`, and what they re-export), with the",
+  "                    local checks that tie each module's context to its",
+  "                    imports.  One process, one store of installed",
+  "                    constants, parallel along the import graph.",
   "  --search-path=DIR[:DIR...]",
   "                    the directories holding .olean trees, as",
   "                    LEAN_PATH lists them (the toolchain's lib/lean,",
@@ -346,6 +354,9 @@ structure Args where
   /-- `--olean`: the positional arguments are root MODULE names, read
   with their import closure from `.olean` files (task #369). -/
   olean : Bool := false
+  /-- `--modular` (with `--olean`): check module by module, each module
+  against its own context (task #370). -/
+  modular : Bool := false
   /-- `--search-path=DIR:DIR…`: where `--olean` looks for the files. -/
   searchPath : List System.FilePath := []
   bad : Option String := none
@@ -365,6 +376,7 @@ def parseArgs : List String → Args → Args
   -- The persistent mark is on by default on the pool; this turns it off.
   | "--no-mark-persistent" :: rest, a => parseArgs rest { a with noMark := true }
   | "--olean" :: rest, a => parseArgs rest { a with olean := true }
+  | "--modular" :: rest, a => parseArgs rest { a with modular := true }
   | s :: rest, a =>
     if s.startsWith "--progress=" then
       match progressStride ((s.drop "--progress=".length).toString) with
@@ -448,7 +460,12 @@ def run (args : List String) (drain : IO.Ref (IO Unit)) : IO UInt32 := do
         return 3
       let roots := a.files.map fun m =>
         (m.splitOn ".").foldl ConLeche.Name.str ConLeche.Name.anonymous
+      if a.modular then
+        return ← ConLeche.Driver.Modular.checkModular a.searchPath roots a.mode a.progress jobs
       return ← checkMain (.oleans a.searchPath roots) a.mode a.progress jobs a.noMark drain
+    else if a.modular then
+      IO.eprintln "con-leche: --modular is only meaningful with --olean"
+      return 3
     else if !a.searchPath.isEmpty then
       IO.eprintln "con-leche: --search-path is only meaningful with --olean"
       return 3

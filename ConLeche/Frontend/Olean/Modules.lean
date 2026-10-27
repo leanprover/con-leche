@@ -114,6 +114,17 @@ def CEntry.same (a b : CEntry) : Bool :=
     a == a' && b == b' && c == c' && d == d' && e == e' && rulesEq f f' && g == g' && h == h'
   | _, _ => false
 
+/-- A stored constant's kind, for messages. -/
+def kindWord : CKind → String
+  | .ax u => s!"axiom{if u then " (unsafe)" else ""}"
+  | .defn _ _ s => s!"definition ({s})"
+  | .thm .. => "theorem"
+  | .opaq _ u => s!"opaque{if u then " (unsafe)" else ""}"
+  | .quot _ => "quotient"
+  | .induct .. => "inductive"
+  | .ctor .. => "constructor"
+  | .recur .. => "recursor"
+
 /-- **The exported level of one private constant**, given the exported
 part's constant of that name: the same constant, or the private one
 with its value hidden; `none` is a constant the exported part does not
@@ -122,7 +133,7 @@ def expoOf (priv ex : CEntry) : Option Expo :=
   if priv.same ex then some .same
   else if priv.name == ex.name && priv.levelParams == ex.levelParams && priv.type == ex.type then
     match priv.kind, ex.kind with
-    | .defn .., .ax false | .thm .., .ax false | .opaq _ false, .ax false => some .hidden
+    | .defn .., .ax _ | .thm .., .ax _ | .opaq .., .ax _ => some .hidden
     | _, _ => none
   else none
 
@@ -195,7 +206,7 @@ def readModule (sp : SearchPath) (m : Name) (ds : DS) :
         | some i =>
           match expoOf cs[i]! e with
           | some x => expo := expo.set! i x
-          | none => return (default, some s!"the exported view of {e.name} is not a refinement of its private constant")
+          | none => return (default, some s!"the exported view of {e.name} is not a refinement of its private constant ({kindWord cs[i]!.kind} / {kindWord e.kind})")
     pure (⟨m, true, imports, cs, expo⟩, none)
   match act.run ds with
   | .ok ((l, none), ds) => pure (.ok (l, ds))
