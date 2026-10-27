@@ -86,6 +86,41 @@ theorem lvl_of_at? {i h j : Nat} {ci : ConstantInfo} (hat : (S.mb i).at? h j = s
   · exact .inr h2
   · exact .inl h1
 
+theorem lvlAt_eq {l : ByteArray} {h : Nat} (hl : h < l.size) : lvlAt l h = l[h] := by
+  unfold lvlAt; simp only [hl, ↓reduceDIte]
+
+/-- At the private level a visible alternate is the installed constant. -/
+theorem at?_lvl2 {i h j : Nat} {ci : ConstantInfo} (hat : (S.mb i).at? h j = some ci)
+    (h2 : lvlAt (S.lvl i) h = 2) : (S.slot h).prv.priv[j]? = some ci := by
+  obtain ⟨hl, hs, hc⟩ := MBase.at?_some hat
+  have hsl : (S.mb i).slots[h].get = S.slot h := Store.slot_eq S hs
+  have hlv : (S.mb i).lvl[h] = lvlAt (S.lvl i) h := (lvlAt_eq (l := S.lvl i) hl).symm
+  rcases hc with ⟨-, hp⟩ | ⟨h1, -⟩
+  · rw [hsl] at hp; exact hp
+  · rw [hlv, h2] at h1; cases h1
+
+/-- At the exported level a visible alternate is its presentation, its
+value hidden when the full gate is closed. -/
+theorem at?_lvl1 {i h j : Nat} {ci : ConstantInfo} (hat : (S.mb i).at? h j = some ci)
+    (h1 : lvlAt (S.lvl i) h = 1) :
+    ∃ a, (S.slot h).exp.at1[j]? = some (some a) ∧
+      (S.mb i).gateOk (((S.slot h).exp.g1[j]?).getD #[]) = true ∧
+      ((S.mb i).gateOk (((S.slot h).exp.v1[j]?).getD #[]) = true ∧ ci = a ∨
+       (S.mb i).gateOk (((S.slot h).exp.v1[j]?).getD #[]) = false ∧
+         ci = .axiomInfo a.toConstantVal) := by
+  obtain ⟨hl, hs, hc⟩ := MBase.at?_some hat
+  have hsl : (S.mb i).slots[h].get = S.slot h := Store.slot_eq S hs
+  have hlv : (S.mb i).lvl[h] = lvlAt (S.lvl i) h := (lvlAt_eq (l := S.lvl i) hl).symm
+  rcases hc with ⟨h2, -⟩ | ⟨-, a, ha, hg, hv⟩
+  · rw [hlv, h1] at h2; cases h2
+  · rw [hsl] at ha hg hv
+    refine ⟨a, ?_, hg, hv⟩
+    cases hq : (S.slot h).exp.at1[j]? with
+    | none => rw [hq] at ha; cases ha
+    | some x => rw [hq] at ha; cases x with
+      | none => cases ha
+      | some a' => cases ha; rfl
+
 /-! ## The local checks, unfolded -/
 
 theorem localOk_lvl {units : Array Unit'} {m : Nat} (hl : localOk S units m = true) {h : Nat}
@@ -496,6 +531,103 @@ theorem RunOk.recFam (hR : RunOk mode S M) {i : Nat} (hi : i < M.size) :
       rw [← hR.fe_find? hh]; exact hfT
     | _ => cases h'
 
+/-! ## Tables -/
+
+/-- **A home's own table is its environment's.** -/
+theorem RunOk.own_findTable? (hR : RunOk mode S M) {h : Nat} (hh : h < M.size) {j : Nat}
+    {c : ConstantInfo} (hc : (S.slot h).prv.priv[j]? = some c) :
+    (envAt M[h].fe (ctxOf (S.mb h))).findTable? c.name =
+      M[h].fe.env.tables.find? (·.structName == c.name) := by
+  unfold Env.findTable?
+  rw [hR.own_find? hh hc]
+  simp only [Option.isSome_some, ↓reduceIte]
+  unfold envAt
+  simp only
+  rw [List.find?_append]
+  cases hq : M[h].fe.env.tables.find? (·.structName == c.name) with
+  | some t => rfl
+  | none =>
+    simp only [Option.none_or]
+    rw [ctxOf_tables_find?]
+    cases ht : (S.mb h).findTable? c.name with
+    | none => rfl
+    | some t =>
+      have := (MBase.findTable?_some ht).2
+      rw [← ctxOf_find?, hR.own_not_ctx hh hc] at this
+      cases this
+
+theorem RunOk.tables (hR : RunOk mode S M) {i : Nat} (hi : i < M.size) :
+    ∀ T ci, (devOf S M i).context.find? T = some ci →
+    (devOf S M i).context.findTable? T =
+      match ci with
+      | .indInfo .. => (devOf S M ((devOf S M i).src T)).own.findTable? T
+      | _ => none := by
+  intro T ci hf
+  rw [devOf_of_lt hi] at hf ⊢
+  obtain ⟨h, j, hp, hat, hcn, hlt, hl, hlv⟩ := hR.ctx_entry hi hf
+  have hh : h < M.size := Nat.lt_trans hlt hi
+  have hsrc : (moduleOf S i M[i]).src T = h := by
+    show (match (S.mb i).pick? T with
+      | some (h, _, _) => h
+      | none => 0) = h
+    rw [hp]
+  rw [hsrc, devOf_of_lt hh]
+  show (ctxOf (S.mb i)).findTable? T = _
+  rw [ctxOf_findTable?]
+  obtain ⟨c, hc, hci'⟩ := hR.at?_home hat hh
+  cases ci with
+  | indInfo cvI capsI =>
+    have hci : c = .indInfo cvI capsI := by
+      rcases hci' with rfl | ⟨h', -⟩
+      · rfl
+      · unfold asAxiom at h'; cases h'
+    subst hci
+    show _ = (envAt M[h].fe (ctxOf (S.mb h))).findTable? T
+    rw [← hcn, hR.own_findTable? hh hc]
+    obtain ⟨-, -, -, -, -, -, -, hj⟩ := shapeOk_spec (hR.shape hh)
+    obtain ⟨st, hst, -, hstiff, -, -, -, hpt, het⟩ := hj j _ hc
+    unfold MBase.findTable?
+    rw [hcn, hp]
+    simp only
+    have hs : h < (S.mb i).slots.size := by
+      have := (MBase.at?_some hat).2.1; exact this
+    simp only [hs, ↓reduceDIte]
+    have hsl : (S.mb i).slots[h].get = S.slot h := Store.slot_eq S hs
+    have hl' : h < (S.mb i).lvl.size := hl
+    simp only [hl', ↓reduceDIte, hsl]
+    have hlv' : (S.mb i).lvl[h] = lvlAt (S.lvl i) h := by
+      unfold lvlAt; simp only [hl, ↓reduceDIte]; rfl
+    rw [hlv']
+    -- the table found, whichever level
+    have hsel : ((if lvlAt (S.lvl i) h == 2 then (S.slot h).prv.tbls[j]?
+        else (S.slot h).exp.tbls[j]?)).join =
+        M[h].fe.env.tables.find? (·.structName == (ConstantInfo.indInfo cvI capsI).name) := by
+      rcases hlv with h1 | h2
+      · rw [h1]
+        simp only [show ((1 : UInt8) == 2) = false from rfl, Bool.false_eq_true, ↓reduceIte]
+        -- at the exported level the former is presented as stored
+        obtain ⟨a, ha1, -, hv⟩ := at?_lvl1 hat h1
+        have hst' : st = true := by
+          rw [hstiff, ha1]
+          rcases hv with ⟨-, rfl⟩ | ⟨-, h'⟩
+          · rfl
+          · cases h'
+        rw [het, hst']
+        rfl
+      · rw [h2]
+        simp only [show ((2 : UInt8) == 2) = true from rfl, ↓reduceIte]
+        rw [hpt]
+        rfl
+    rw [hsel, hcn]
+    cases hq : M[h].fe.env.tables.find? (·.structName == T) with
+    | none => rfl
+    | some t =>
+      have := List.find?_some hq
+      simp [this]
+  | _ =>
+    unfold MBase.findTable?
+    rw [hp]
+
 /-! ## The local checks -/
 
 /-- **A modular run's checks are the local checks.** -/
@@ -510,13 +642,13 @@ theorem RunOk.localOk (hR : RunOk mode S M) (i : Nat) :
       simp [hd, emptyModule, Env.find?, AcceptedFrom.nil]
   have hd := devOf_of_lt (S := S) hi
   refine { below := ?_, src_lt := hR.src_lt hi, nodup := ?_, accepted := fun _ => hR.accepted hi,
-           compared_own := ?_, context_le := hR.context_le hi, scoping := ?_, tables := ?_, projs := ?_,
+           compared_own := ?_, context_le := hR.context_le hi, scoping := ?_,
+           tables := hR.tables hi, projs := ?_,
            blocks := ?_, recFam := hR.recFam hi, tables_mem := ?_,
            res_context := hR.res_context hi, res_own := ?_ }
   · rw [hd]; exact hR.below i hi
   · rw [hd]; exact ctxOf_nodup _
   · rw [hd]; intro h; cases h
-  · sorry
   · sorry
   · sorry
   · sorry
