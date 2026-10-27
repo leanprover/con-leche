@@ -5,6 +5,7 @@ public import ConLeche.Driver.CheckPool
 public import ConLeche.Driver.OwnerParse
 public import ConLeche.Frontend.Olean.Modules
 public import ConLeche.Modular
+public import ConLeche.Cached.ModStore
 public import Std.Data.TreeSet.Basic
 
 /-!
@@ -158,107 +159,6 @@ def buildIdx (g : Array ModIn) : Array (Std.HashMap Name (List (Nat × Nat))) ×
         j := j + 1
   return (sh, dups.toArray)
 
-/-- **A module's view**: no constants of its own yet, the store at the
-module's levels below. -/
-def viewOf (idx : Array (Std.HashMap Name (List (Nat × Nat)))) (slots : Array (Thunk ModSlot))
-    (lvl : ByteArray) : FEnv :=
-  ⟨⟨[], []⟩, {}, 0, { mb := some ⟨idx, slots, lvl⟩ }, [], {}⟩
-
-/-- Is `n` a pinned name (`ConLeche.Modular.pinnedNames`): a name whose stored
-kind the checker's fast paths read, never presented as an assumption. -/
-def isPinned (n : Name) : Bool := ConLeche.Modular.pinnedNames.contains n
-
-/-- The assumption of a constant's statement. -/
-def asAxiom (ci : ConstantInfo) : ConstantInfo := .axiomInfo ci.toConstantVal
-
-/-- **What a module loading `ci`'s home at its private level sees**: the
-constant itself, or the assumption of its statement for a proof whose
-name another module stores too (`dup`), so that the copies Lean merges
-read alike; a definition stays itself (Lean merges no definition at the
-private level). -/
-def at2Of (dup flagged : Bool) (ci : ConstantInfo) : ConstantInfo :=
-  if dup && flagged then
-    match ci with
-    | .defnInfo .. => ci
-    | _ => asAxiom ci
-  else ci
-
-/-- **What a module loading `ci`'s home at its exported level sees**,
-given how the exported view presents it (`pres`, `presentOf`): nothing,
-the constant with its value hidden (`some false`), or the constant
-(`some true`) — at its private-level presentation, and with its value
-hidden for a proof another module stores too. -/
-def at1Of (pres : Option Bool) (dup flagged : Bool) (ci : ConstantInfo) : Option ConstantInfo :=
-  match pres with
-  | none => none
-  | some full =>
-    match ci with
-    | .defnInfo .. => if !full || (dup && flagged) then some (asAxiom ci) else some ci
-    | _ => some (at2Of dup flagged ci)
-
-/-! ## What a constant's laws read -/
-
-/-- The names a literal's checks read. -/
-def natLitDeps : List Name := [natName, natZeroName, natSuccName]
-def strLitDeps : List Name :=
-  natLitDeps ++ [stringName, stringOfListName, listName, listNilName, listConsName, charName,
-    charOfNatName]
-
-/-- The constants of a list of expressions (and the literal
-dependencies `Expr.constsResolve` reads), each node visited once. -/
-partial def collectGo (stack : List Expr) (seen : Std.HashSet Expr) (out : Std.HashSet Name) :
-    Std.HashSet Name :=
-  match stack with
-  | [] => out
-  | e :: rest =>
-    match e with
-    | .const n _ => collectGo rest seen (out.insert n)
-    | .lit (.natVal _) => collectGo rest seen (natLitDeps.foldl (·.insert ·) out)
-    | .lit (.strVal _) => collectGo rest seen (strLitDeps.foldl (·.insert ·) out)
-    | .bvar _ | .sort _ => collectGo rest seen out
-    | _ =>
-      if seen.contains e then collectGo rest seen out
-      else
-        let seen := seen.insert e
-        match e with
-        | .app f a => collectGo (f :: a :: rest) seen out
-        | .lam t b | .forallE t b => collectGo (t :: b :: rest) seen out
-        | .letE t v b => collectGo (t :: v :: b :: rest) seen out
-        | .proj sn _ x => collectGo (x :: rest) seen (out.insert sn)
-        | .fvar _ t => collectGo (t :: rest) seen out
-        | _ => collectGo rest seen out
-
-/-- **What a presented constant's laws read** (`Modular.EntryScoped`):
-its expressions and its names — its type, a definition's value, a
-recursor's rules (right-hand sides, nested pins, constructors), an
-inductive type's members, constructors, η constructor and projection
-table, the names a pinned constant's fast path reads. -/
-def lawsOf (tbl : Option ProjTable) (ci : ConstantInfo) : List Expr × List Name :=
-  let pinN := ConLeche.Modular.pinFootprint ci.name
-  let tblPart : List Expr × List Name := match ci with
-    | .indInfo .. => match tbl with
-      | some t => (t.bodies.toList, [t.ctor])
-      | none => ([], [])
-    | _ => ([], [])
-  let (es, ns) : List Expr × List Name := match ci with
-    | .defnInfo cv v _ => ([cv.type, v], [])
-    | .recInfo cv _ _ rules =>
-      (cv.type :: rules.flatMap (fun r => r.rhs :: match r.fire with
-        | .nested _ pins => pins
-        | .plain => []), rules.map (·.ctor))
-    | .indInfo cv caps =>
-      ([cv.type], caps.all ++ caps.ctors ++ (if caps.eta then [caps.etaCtor] else []))
-    | ci => ([ci.toConstantVal.type], [])
-  (es ++ tblPart.1, ns ++ tblPart.2 ++ pinN)
-
-/-- The level an importer needs at module `h` to see its constant `j`. -/
-def needAt (slots : Array (Thunk ModSlot)) (h j : Nat) : UInt8 :=
-  match slots[h]? with
-  | some t => match t.get.at1[j]? with
-    | some (some _) => 1
-    | _ => 2
-  | none => 2
-
 /-- **What every importer of module `k` at the exported level loads**: `k`
 and the modules its `public import`s reach (Lean's rule `A ≥ private ∧
 A public import B → B ≥ private`), at the exported level at least. -/
@@ -278,90 +178,56 @@ def pubReachOf (g : Array ModIn) (k : Nat) : ByteArray := Id.run do
           if im.isExported then work := work.push j
   return r
 
-/-! ## A module's unit -/
+/-- **Module `k`'s unit** from its installed view `fe` and its proofs
+(`flagged`), with the reads `unitOk` verifies it against.  An oracle:
+nothing here is trusted, `unitOk` checks what it returns.
 
-/-- **A module's unit, with what its importers must check** (`unitOf`).
-`dups1`/`dups2`: the names several modules store that the constants
-presented at the exported / private level read, each with the
-qualified name the module resolves it to; `fp1`: the modules, with
-levels, that the constants presented at the exported level read and
-every importer at that level loads (Lean's rules guarantee them; the
-importer checks them). -/
-structure Unit' where
-  slot : ModSlot
-  fp1 : Array (Nat × UInt8) := #[]
-  dups1 : Array (Name × ConLeche.Modular.Key) := #[]
-  dups2 : Array (Name × ConLeche.Modular.Key) := #[]
-  /-- the positions of the constants with a gate -/
-  gated : Array Nat := #[]
-  deriving Inhabited
-
-/-- A constant read by another: its home module and position. -/
-abbrev Target := Nat × Nat
-
-/-- **Module `k`'s unit** from its installed view `fe`, its proofs
-(`flagged`) and the names several modules store (`dups`).
-
-* `at2`: the constants, a proof whose name another module stores too
-  presented as the assumption of its statement (`at2Of`).
-* `at1`, the exported presentation.  Lean's exported views are not
+* The exported presentation (`at1`).  Lean's exported views are not
   closed — an `@[inline]` definition's value, or a generated equation
   lemma's statement, may read the module's private `let rec` helper, and
   a public structure's private constructor is not stored at all — so the
   presentation is the exported part closed under what the presented
   constants' laws read within the module (a constant pulled in so is
   presented with its value hidden, if a definition: Lean's importers do
-  not see it either; a pinned name is never presented as an
-  assumption: the checker's fast paths read its kind, and Lean's kernel
-  computes the `Nat` operations by name whatever the view says).
-* `g1`/`v1`, the gates: a presented constant may read a name of another
-  module that not every importer at the exported level loads (a realised
-  equation lemma's statement reads the private matcher of a module the
-  importer imports with `import all`).  Such a constant is presented
-  only to a viewer that loads what it reads (`g1`), a definition's value
-  only to one that loads what the value reads (`v1`), transitively. -/
-def unitOf (g : Array ModIn) (slots : Array (Thunk ModSlot)) (dups : Std.HashSet Name)
-    (flagged : Std.HashSet Name) (k : Nat) (fe : FEnv) : Except String Unit' := do
+  not see it either; a pinned name is never presented as an assumption:
+  the checker's fast paths read its kind, and Lean's kernel computes the
+  `Nat` operations by name whatever the exported view says).
+* The gates (`g1`, `v1`): a presented constant may read a name of
+  another module that not every importer at the exported level loads (a
+  realised equation lemma's statement reads the private matcher of a
+  module the importer imports with `import all`).  Such a constant is
+  presented only to a viewer that loads what it reads (`g1`), a
+  definition's value only to one that loads what the value reads
+  (`v1`), transitively. -/
+def unitOf (g : Array ModIn) (S : Mod.Store) (flagged : Std.HashSet Name) (k : Nat) (fe : FEnv) :
+    Except String (Mod.Unit' × Mod.Reads) := do
   let some m := g[k]? | throw "no module"
   let priv := fe.env.consts.reverse.toArray
   let n := priv.size
   let reach := pubReachOf g k
   let guaranteed (p : Nat × UInt8) : Bool := p.2 == 1 && reach.get! p.1 == 1
-  let tblOf (ci : ConstantInfo) : Option ProjTable := fe.tbls[ci.name]?
-  -- every constant's reads: of its type-level laws, and of a value
+  let tblOf (ci : ConstantInfo) : Option ProjTable := fe.env.tables.find? (·.structName == ci.name)
   let typeLaws (ci : ConstantInfo) : List Expr × List Name :=
-    lawsOf (tblOf ci) (match ci with | .defnInfo .. => asAxiom ci | _ => ci)
-  let resolve (d : Name) : Except String Target :=
-    match fe.idx[d]? with
-    | some (c, _) => if c < fe.visibleBelow then pure (k, c) else throw s!"{d} is not visible"
-    | none => match fe.base.mb with
-      | some mb => match mb.pick? d with
-        | some (h', j', _) => pure (h', j')
-        | none => throw s!"{d} does not resolve in its module"
-      | none => throw "no store"
-  let mut tReads : Array (Array (Name × Target)) := Array.mkEmpty n
-  let mut vReads : Array (Array (Name × Target)) := Array.mkEmpty n
+    Mod.lawsOf (tblOf ci) (match ci with | .defnInfo .. => Mod.asAxiom ci | _ => ci)
+  let resolve (d : Name) : Except String (Nat × Nat) :=
+    match Mod.target k fe d with
+    | some t => pure t
+    | none => throw s!"{d} does not resolve in its module"
+  let mut tReads : Array (Array (Name × Nat × Nat)) := Array.mkEmpty n
+  let mut vReads : Array (Array (Name × Nat × Nat)) := Array.mkEmpty n
   for ci in priv do
     let (es, ns) := typeLaws ci
-    let dt := collectGo es {} (ns.foldl (·.insert ·) {})
+    let dt := Mod.collectGo es {} (ns.foldl (·.insert ·) {})
     let dv := match ci with
-      | .defnInfo _ v _ => (collectGo [v] {} {}).toArray.filter (!dt.contains ·)
+      | .defnInfo _ v _ => (Mod.collectGo [v] {} {}).toArray.filter (!dt.contains ·)
       | _ => #[]
     tReads := tReads.push (← dt.toArray.mapM fun d => return (d, ← resolve d))
     vReads := vReads.push (← dv.mapM fun d => return (d, ← resolve d))
-  let isOwn (t : Target) : Bool := t.1 == k
-  let keyOf (t : Target) (d : Name) : ConLeche.Modular.Key :=
-    let (h', j') := t
-    let prf := if h' == k then flagged.contains d
-      else ((slots[h']?).bind fun s => s.get.prf[j']?).getD false
-    let ci? := if h' == k then priv[j']? else (slots[h']?).bind fun s => s.get.priv[j']?
-    match prf, ci? with
-    | true, some ci => .proof d ci.toConstantVal.levelParams ci.toConstantVal.type
-    | _, _ => .qual h' d
+  let isOwn (t : Nat × Nat) : Bool := t.1 == k
   -- the exported presentation: the exported part, closed within the module
-  let mut pres : Array (Option Bool) := priv.map fun ci => match m.expo[ci.name]? with
+  let mut pres : Array (Option Bool) := priv.map fun ci => match (m.expo[ci.name]? : Option Expo) with
     | some .same => some true
-    | some .hidden => some (isPinned ci.name)
+    | some .hidden => some (!Mod.hideable ci)
     | _ => none
   let mut work : Array Nat := (Array.range n).filter fun j => (pres[j]!).isSome
   let mut fuel := n + 1
@@ -375,27 +241,28 @@ def unitOf (g : Array ModIn) (slots : Array (Thunk ModSlot)) (dups : Std.HashSet
       for (_, t) in tReads[j]! ++ (if full then vReads[j]! else #[]) do
         if isOwn t && t.2 < n && (pres[t.2]!).isNone then
           pres := pres.set! t.2 (some (match priv[t.2]! with
-            | .defnInfo .. => isPinned priv[t.2]!.name
+            | .defnInfo .. => !Mod.hideable priv[t.2]!
             | _ => true))
           work := work.push t.2
   -- the gates, to a fixed point (own gates only grow)
-  let pairOf (t : Target) : Nat × UInt8 :=
-    if isOwn t then (k, 1) else (t.1, needAt slots t.1 t.2)
-  let foreignGate (t : Target) : Array (Nat × UInt8) :=
-    if needAt slots t.1 t.2 == 1 then
-      ((slots[t.1]?).bind fun s => s.get.g1[t.2]?).getD #[]
-    else #[]
-  let mut g1 : Array (Array (Nat × UInt8)) := Array.replicate n #[]
-  let mut v1 : Array (Array (Nat × UInt8)) := Array.replicate n #[]
-  let gateOver (g1 : Array (Array (Nat × UInt8))) (rs : Array (Name × Target)) :
+  let pairOf (t : Nat × Nat) : Nat × UInt8 := if isOwn t then (k, 1) else (t.1, S.needAt t.1 t.2)
+  let tgtGate (g1 : Array (Array (Nat × UInt8))) (t : Nat × Nat) : Array (Nat × UInt8) :=
+    if isOwn t then g1[t.2]?.getD #[]
+    else if S.needAt t.1 t.2 == 1 then S.gateAt t.1 t.2 else #[]
+  let gateOver (g1 : Array (Array (Nat × UInt8))) (rs : Array (Name × Nat × Nat)) :
       Array (Nat × UInt8) := Id.run do
     let mut out : Std.HashSet (Nat × UInt8) := {}
     for (_, t) in rs do
       let p := pairOf t
       unless guaranteed p do out := out.insert p
-      for q in (if isOwn t then g1[t.2]?.getD #[] else foreignGate t) do
+      for q in tgtGate g1 t do
         unless guaranteed q do out := out.insert q
     return out.toArray.qsort (fun a b => a.1 < b.1 || (a.1 == b.1 && a.2 < b.2))
+  -- a definition presented with its value, whose value reads must not be
+  -- gated apart (a pinned name: all or nothing)
+  let valueApart (j : Nat) : Bool := pres[j]! == some true && Mod.hideable priv[j]! &&
+    (match priv[j]! with | .defnInfo .. => true | _ => false)
+  let mut g1 : Array (Array (Nat × UInt8)) := Array.replicate n #[]
   let mut changed := true
   let mut rounds := n + 1
   while changed && rounds > 0 do
@@ -403,36 +270,53 @@ def unitOf (g : Array ModIn) (slots : Array (Thunk ModSlot)) (dups : Std.HashSet
     rounds := rounds - 1
     for j in [0:n] do
       if (pres[j]!).isSome then
-        let gt := gateOver g1 tReads[j]!
+        let rs := if pres[j]! == some true && !valueApart j then tReads[j]! ++ vReads[j]!
+          else tReads[j]!
+        let gt := gateOver g1 rs
         if gt != g1[j]! then
           g1 := g1.set! j gt
           changed := true
+  let mut v1 : Array (Array (Nat × UInt8)) := Array.replicate n #[]
   for j in [0:n] do
-    if pres[j]! == some true then
-      if let .defnInfo .. := priv[j]! then
-        v1 := v1.set! j ((gateOver g1 vReads[j]!).filter (!g1[j]!.contains ·))
+    if valueApart j then
+      v1 := v1.set! j ((gateOver g1 vReads[j]!).filter (!g1[j]!.contains ·))
   -- what the importers check
+  let slot : ModSlot := {
+    priv, at1 := (Array.range n).map fun j => Mod.at1Of pres[j]! priv[j]!,
+    tbls := priv.map tblOf, g1, v1,
+    prf := priv.map fun ci => flagged.contains ci.name }
+  let keyOf (t : Nat × Nat) (d : Name) : ConLeche.Modular.Key :=
+    if isOwn t then Mod.keyOfSlot slot k t.2 d else S.keyAt t.1 t.2 d
+  let dupName (d : Name) : Bool := (S.alts d).length ≥ 2
   let mut fp1 : Std.HashSet (Nat × UInt8) := {}
   let mut d1 : Array (Name × ConLeche.Modular.Key) := #[]
   let mut d2 : Array (Name × ConLeche.Modular.Key) := #[]
+  let mut all2 : Std.HashSet Name := {}
+  let mut all1 : Std.HashSet Name := {}
+  let mut gated : Array (Nat × Array Name × Array Name) := #[]
   for j in [0:n] do
-    let full := pres[j]! == some true
     for (d, t) in tReads[j]! ++ vReads[j]! do
-      if dups.contains d then d2 := d2.push (d, keyOf t d)
-    if (pres[j]!).isSome then
-      for (d, t) in tReads[j]! ++ (if full then vReads[j]! else #[]) do
+      all2 := all2.insert d
+      if dupName d then
+        let x := (d, keyOf t d)
+        unless d2.contains x do d2 := d2.push x
+    if let some full := pres[j]! then
+      let rs := tReads[j]! ++ (if full then vReads[j]! else #[])
+      for (d, t) in rs do
         let p := pairOf t
         if guaranteed p then fp1 := fp1.insert p
-        if dups.contains d then d1 := d1.push (d, keyOf t d)
-  let at2 := priv.map fun ci => at2Of (dups.contains ci.name) (flagged.contains ci.name) ci
-  let slot : ModSlot := {
-    priv, at2,
-    at1 := (Array.range n).map fun j =>
-      at1Of pres[j]! (dups.contains priv[j]!.name) (flagged.contains priv[j]!.name) priv[j]!,
-    tbls := priv.map tblOf, g1, v1,
-    prf := priv.map fun ci => flagged.contains ci.name }
-  let gated := (Array.range n).filter fun j => !g1[j]!.isEmpty || !v1[j]!.isEmpty
-  return { slot, fp1 := fp1.toArray, dups1 := d1, dups2 := d2, gated }
+        for q in tgtGate g1 t do
+          if guaranteed q then fp1 := fp1.insert q
+        if dupName d then
+          let x := (d, keyOf t d)
+          unless d1.contains x do d1 := d1.push x
+      if g1[j]!.isEmpty && v1[j]!.isEmpty then
+        for (d, _) in rs do all1 := all1.insert d
+      else
+        let tn := if v1[j]!.isEmpty then rs else tReads[j]!
+        gated := gated.push (j, tn.map (·.1), if v1[j]!.isEmpty then #[] else vReads[j]!.map (·.1))
+  return ({ slot, fp1 := fp1.toArray, dups1 := d1, dups2 := d2 },
+    { all2 := all2.toArray, all1 := all1.toArray, gated })
 
 /-! ## The install -/
 
@@ -510,43 +394,29 @@ def Sched.halt (sc : Sched) : IO Unit := do
 /-- **A module's proofs**: its theorems, and every definition or opaque
 constant whose name another module stores too and whose value passes
 the theorem record's check (its type a proposition) — never a pinned
-name.  `none` with the failing message is an internal failure. -/
+name.  Read off the module's recorded checks: a theorem's record and a
+value record are what its declarations leave. -/
 def proofsOf (mode : CheckMode) (dups : Std.HashSet Name) (fe : FEnv)
     (pend : Array PendingCheck) : Std.HashSet Name := Id.run do
   let mut out : Std.HashSet Name := {}
-  for ci in fe.env.consts do
-    match ci with
-    | .thmInfo cv => if !isPinned cv.name then out := out.insert cv.name
-    | _ => pure ()
   for pc in pend do
-    if pc.vg.kind != .thm && dups.contains pc.vg.cv.name && !isPinned pc.vg.cv.name then
-      match checkPending mode fe { pc with vg := { pc.vg with kind := .thm } } {} with
-      | .ok _ => out := out.insert pc.vg.cv.name
-      | .error _ => pure ()
+    if !Mod.isPinned pc.vg.cv.name then
+      if pc.vg.kind == .thm then out := out.insert pc.vg.cv.name
+      else if dups.contains pc.vg.cv.name then
+        match checkPending mode fe { pc with vg := { pc.vg with kind := .thm } } {} with
+        | .ok _ => out := out.insert pc.vg.cv.name
+        | .error _ => pure ()
   return out
 
 /-! ## The run -/
-
-/-- **The store**: the name index, the names with several alternates,
-the units (deferred: a thunk over the promise the module's install
-resolves) and every module's levels. -/
-structure Store where
-  idx : Array (Std.HashMap Name (List (Nat × Nat)))
-  dups : Array Name
-  slots : Array (Thunk ModSlot)
-  lvls : Array ByteArray
-
-/-- Module `i`'s view of the store. -/
-def Store.view (S : Store) (i : Nat) : FEnv :=
-  viewOf S.idx S.slots ((S.lvls[i]?).getD .empty)
 
 /-- Module `i`'s records. -/
 def declsAt (g : Array ModIn) (i : Nat) : Array Declaration := (g[i]?.map (·.decls)).getD #[]
 
 /-- A module's install, tagged with its index. -/
-structure ModRes (mode : CheckMode) (g : Array ModIn) (S : Store) where
+structure ModRes (mode : CheckMode) (g : Array ModIn) (S : Mod.Store) where
   i : Nat
-  unit : Unit'
+  unit : Mod.Unit'
   res : Except (CheckError × Nat) (ModInstalled mode (declsAt g i) (S.view i))
 
 /-- **The install of every module**: `jobs` workers take ready modules
@@ -554,7 +424,7 @@ off the queue, install each at its view, publish its unit, release its
 dependents.  The first failure stops the run (every unpublished unit is
 resolved empty, so nobody stays waiting). -/
 def installAll (mode : CheckMode) (err : IO.FS.Stream) (jobs : Nat) (g : Array ModIn)
-    (S : Store) (dups : Std.HashSet Name) (proms : Array (IO.Promise ModSlot)) :
+    (S : Mod.Store) (dups : Std.HashSet Name) (proms : Array (IO.Promise ModSlot)) :
     IO (Array (Option (ModRes mode g S))) := do
   let n := g.size
   let counts ← g.mapM fun m => IO.mkRef m.imports.size
@@ -583,8 +453,10 @@ def installAll (mode : CheckMode) (err : IO.FS.Stream) (jobs : Nat) (g : Array M
             | .ok e => proofsOf mode dups e.fe e.pend
             | .error _ => {}
           let (r, u) := match r with
-            | .ok e => match unitOf g S.slots dups flags k e.fe with
-              | .ok u => (r, u)
+            | .ok e => match unitOf g S flags k e.fe with
+              | .ok (u, rd) =>
+                if Mod.unitOk S k e.fe flags.contains u rd then (r, u)
+                else (.error (.internal "the unit of the module fails its check", 0), default)
               | .error msg => (.error (.internal s!"the unit of the module: {msg}", 0), default)
             | .error _ => (r, default)
           let unit := u.slot
@@ -622,61 +494,30 @@ def installAll (mode : CheckMode) (err : IO.FS.Stream) (jobs : Nat) (g : Array M
 /-- A module's name, for messages. -/
 def nameOf (g : Array ModIn) (h : Nat) : Name := (g[h]?.map (·.name)).getD .anonymous
 
-/-- The level at `h` of a level array. -/
-@[inline] def lvlAt (l : ByteArray) (h : Nat) : UInt8 := if hh : h < l.size then l[h] else 0
-
-/-- **Module `m`'s local checks** that type-check nothing:
-
-* a module loaded at its private level brings its whole context: `m`
-  loads every module of it at least as high;
-* a module loaded at its exported level brings what its presented
-  constants read (`fp1`);
-* a name several modules store, read by a loaded module's presented
-  constants, resolves in `m` to the qualified name it has there;
-* the copies of a name that meet in `m`'s context are proofs presented
-  alike. -/
-def localChecks (g : Array ModIn) (S : Store) (units : Array Unit') (m : Nat) :
-    Except String Unit := do
-  let some M := g[m]? | throw "no module"
-  let lv := (S.lvls[m]?).getD .empty
-  let some mb := (S.view m).base.mb | throw "no store"
-  let keyM (d : Name) : Option ConLeche.Modular.Key :=
-    match mb.pick? d with
-    | some (h', j', ci) =>
-      let prf := ((units[h']?).bind fun u => u.slot.prf[j']?).getD false
-      some (if prf then .proof d ci.toConstantVal.levelParams ci.toConstantVal.type else .qual h' d)
-    | none => none
+/-- Why module `m`'s local checks fail, for the message. -/
+def localWhy (g : Array ModIn) (S : Mod.Store) (units : Array Mod.Unit') (m : Nat) : String := Id.run do
+  let lv := S.lvl m
   for h in [0:lv.size] do
-    let l := lvlAt lv h
-    if l > 0 then
-      let some u := units[h]? | throw "no unit"
+    let l := Mod.lvlAt lv h
+    if l != 0 then
+      if !(h < m && l ≤ 2) then return s!"{nameOf g m} loads the later module {nameOf g h}"
+      let some u := units[h]? | return "no unit"
       if l == 2 then
-        let lh := (S.lvls[h]?).getD .empty
+        let lh := S.lvl h
         for x in [0:lh.size] do
-          unless lvlAt lh x ≤ lvlAt lv x do
-            throw s!"{M.name} loads {nameOf g h} at its private level but not {nameOf g x}, \
+          unless Mod.lvlAt lh x ≤ Mod.lvlAt lv x do
+            return s!"{nameOf g m} loads {nameOf g h} at its private level but not {nameOf g x}, \
               which {nameOf g h}'s context holds"
       else
-        for (h', need) in u.fp1 do
-          unless lvlAt lv h' ≥ need do
-            throw s!"{nameOf g h}'s exported constants read {nameOf g h'}, which {M.name} \
+        for (x, need) in u.fp1 do
+          unless Mod.lvlAt lv x ≥ need do
+            return s!"{nameOf g h}'s exported constants read {nameOf g x}, which {nameOf g m} \
               does not load"
       for (d, k) in (if l == 2 then u.dups2 else u.dups1) do
-        unless keyM d == some k do
-          throw s!"{d} is read by a constant of {nameOf g h} and resolved differently in {M.name}"
-  for n in S.dups do
-    let vis := (mb.alts n).filterMap fun (h, j) => match mb.at? h j with
-      | some ci => if ci.name == n then some (h, j, ci) else none
-      | none => none
-    if vis.length ≥ 2 then
-      for (h, j, ci) in vis do
-        unless ((units[h]?).bind fun u => u.slot.prf[j]?).getD false do
-          throw s!"two modules store constants named {n} that are not proofs, and both are in \
-            the context of {M.name}"
-        unless some ci == (vis.head?.map (·.2.2)) do
-          throw s!"two modules store different constants named {n}, and both are in the \
-            context of {M.name}"
-  return ()
+        unless S.keyIn m d == some k do
+          return s!"{d} is read by a constant of {nameOf g h} and resolved differently in \
+            {nameOf g m}"
+  return "the local checks fail"
 
 /-! ## Parallel maps -/
 
@@ -754,7 +595,7 @@ def checkModular (sp : SearchPath) (roots : Array Name) (mode : CheckMode) (stri
   OwnerParse.markOne lvls
   let proms ← g.mapM fun _ => IO.Promise.new
   let slots : Array (Thunk ModSlot) := proms.map fun p => Thunk.mk fun _ => (p.result?.get).getD {}
-  let S : Store := { idx, dups := dupArr, slots, lvls }
+  let S : Mod.Store := { idx, dups := dupArr, slots, lvls }
   let results ← installAll mode err jobs g S dups proms
   -- the first failing module in module order (a module after a failure
   -- may never have been installed: the run stopped)
@@ -771,7 +612,7 @@ def checkModular (sp : SearchPath) (roots : Array Name) (mode : CheckMode) (stri
           (declsAt g k).foldl (fun s d => d.names.foldl (·.insert ·) s) {}
         let extra := match (declsAt g k)[pos]? with
           | some (.thmDecl cv v) | some (.defnDecl cv v _) | some (.opaqueDecl cv v) =>
-            let bad := (collectGo [cv.type, v] {} {}).toList.filter fun n =>
+            let bad := (Mod.collectGo [cv.type, v] {} {}).toList.filter fun n =>
               ((S.view k).find? n).isNone && !ownNames.contains n
             if bad.isEmpty then "" else s!" (not in the module's context: {bad.take 5})"
           | _ => ""
@@ -780,16 +621,15 @@ def checkModular (sp : SearchPath) (roots : Array Name) (mode : CheckMode) (stri
     if results[k].isNone then
       return ← fail (.internal "the module was never installed") s!"module {nameOf g k}"
   phase "install done"
-  let units : Array Unit' := ins.map fun r? => (r?.map (·.unit)).getD default
+  let units : Array Mod.Unit' := ins.map fun r? => (r?.map (·.unit)).getD default
   let fes : Array FEnv := ins.map fun r? => match r? with
     | some ⟨_, _, .ok e⟩ => e.fe
     | _ => mkFEnv Env.empty
   ins := #[]
-  let locals ← parMap jobs g.size (localChecks g S units)
+  let locals ← parMap jobs g.size (Mod.localOk S units)
   for h : k in [0:locals.size] do
-    match locals[k] with
-    | .ok () => pure ()
-    | .error e => return ← fail (.invalid e) s!"module {nameOf g k}"
+    unless locals[k] do
+      return ← fail (.invalid (localWhy g S units k)) s!"module {nameOf g k}"
   phase "local checks done"
   -- every record of every module, checked at its module's final view
   let pends : Array (Array PendingCheck) := results.map fun r? => match r? with
@@ -817,7 +657,7 @@ def checkModular (sp : SearchPath) (roots : Array Name) (mode : CheckMode) (stri
       -- the names that do not resolve, for an unknown-constant rejection
       let extra := match pc?, fes[i]? with
         | some pc, some fe =>
-          let bad := (collectGo [pc.vg.cv.type, pc.vg.jv] {} {}).toList.filter
+          let bad := (Mod.collectGo [pc.vg.cv.type, pc.vg.jv] {} {}).toList.filter
             fun d => ((fe.restrictTo pc.vis).find? d).isNone
           if bad.isEmpty then "" else s!" (not in the module's context: {bad.take 5})"
         | _, _ => ""

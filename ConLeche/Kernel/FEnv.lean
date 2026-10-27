@@ -29,27 +29,21 @@ shard's map). -/
 @[inline] def baseShard (n : Name) (m : Nat) : Nat := (n.hashData >>> 32).toNat % m
 
 /-- **One module's installed constants, published** (task #370): the
-constants its install pushed, in push order (`priv`); what a module
-loading it at its private level sees of each (`at2`: the constant
-itself, or — for a proof whose name another module stores too — the
-assumption of its statement, so that every copy of one statement reads
-alike); what a module loading it at its exported level sees (`at1`:
-`at2`, the constant with its value hidden, or `none` when the exported
-part does not store it); the projection table of each constant that
-is a structure (`tbls`, aligned with `priv`); and the **gates** of the
-exported presentation (`g1`, `v1`): the modules, with a level at each,
-that a viewer must load for the constant to be presented at all, and
-for a definition to be presented with its value — what its laws read
-beyond what every importer at the exported level loads. -/
+constants its install pushed, in push order (`priv`, what a module
+loading it at its private level sees); what a module loading it at its
+exported level sees of each (`at1`: the constant, the constant with its
+value hidden, or `none`); the projection table of each constant that is
+a structure (`tbls`); the **gates** of the exported presentation (`g1`,
+`v1`): the modules, with a level at each, that a viewer must load for
+the constant to be presented at all, and for a definition to be
+presented with its value; and which constants are proofs (`prf`: their
+qualified name is their statement). -/
 structure ModSlot where
   priv : Array ConstantInfo := #[]
-  at2 : Array ConstantInfo := #[]
   at1 : Array (Option ConstantInfo) := #[]
   tbls : Array (Option ProjTable) := #[]
   g1 : Array (Array (Nat × UInt8)) := #[]
   v1 : Array (Array (Nat × UInt8)) := #[]
-  /-- which constants are proofs (their qualified name is their
-  statement) -/
   prf : Array Bool := #[]
   deriving DecidableEq, Inhabited
 
@@ -77,7 +71,7 @@ of `h` (at the exported level, through its gates). -/
   if hl : h < b.lvl.size then
     let l := b.lvl[h]'hl
     if l == 2 then
-      if hh : h < b.slots.size then (b.slots[h]).get.at2[j]? else none
+      if hh : h < b.slots.size then (b.slots[h]).get.priv[j]? else none
     else if l == 1 then
       if hh : h < b.slots.size then
         let s := (b.slots[h]).get
