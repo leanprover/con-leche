@@ -15,12 +15,12 @@ field of a structure value. For every inductive type with one
 constructor and no index the checker stores #src("ConLeche/Kernel/Inductives/BlockTail.lean", 106, 109)[a
 projection table], the fields' types read off the constructor. The
 real checker #src("ConLeche/Rules/Rel.lean", 169, 185)[reduces a projection of a
-constructor application to that field] and #src("ConLeche/Rules/Rel.lean", 628, 638)[infers its type from
+constructor application to that field] and #src("ConLeche/Rules/Rel.lean", 671, 681)[infers its type from
 the table]\; in the model a structure value is the tagged tuple of
 @sec:ext-eta and a projection reads a component, which
 #src("ConLeche/Model/Inductives/BlockStageTables.lean", 10, 12)[the
 install of the table] establishes
-(#src("ConLeche/Model/Inductives/FixKit.lean", 713, 718)[its typing
+(#src("ConLeche/Model/Inductives/FixKit.lean", 714, 719)[its typing
 and ι laws]).]
 
 #left-out[Mutual inductive types][Several types declared together,
@@ -73,8 +73,8 @@ real checker never unfolds a theorem or an opaque: #src("ConLeche/Rules/Rel.lean
 unfolds].]
 
 #left-out[Structure η and unit-likeness][The checker has
-#src("ConLeche/Rules/Rel.lean", 467, 470)[structure η] and
-#src("ConLeche/Rules/Rel.lean", 495, 500)[unit-likeness] as Lean has them;
+#src("ConLeche/Rules/Rel.lean", 487, 490)[structure η] and
+#src("ConLeche/Rules/Rel.lean", 515, 520)[unit-likeness] as Lean has them;
 @sec:ext-eta and @sec:ext-unit derive both from extensionality.]
 
 #left-out[Recursors on stuck proofs of `A ∧ B`][The checker never
@@ -105,7 +105,7 @@ context. The real checker keeps no context at all. When it opens a binder it
 substitutes a free variable that carries its own type,
 #src("ConLeche/Kernel/Expr.lean", 315, 317)[`fvar idx type`], identified by the depth at which it was opened\; so a variable is never
 looked up, the relations are indexed by the opening depth in place of a
-context, and two free variables are #src("ConLeche/Rules/Rel.lean", 380, 381)[compared by depth alone]. Stored types are closed
+context, and two free variables are #src("ConLeche/Rules/Rel.lean", 400, 401)[compared by depth alone]. Stored types are closed
 terms, and `Denotes`, the relation the main theorem is stated over
 (below), reads them with de Bruijn indices under binders, with no
 opening at all.
@@ -125,10 +125,10 @@ denotation on the terms themselves.
 
 *Six relations, and a mode index.* Beside reduction,
 definitional equality and inference the real description has three
-more: #src("ConLeche/Rules/Rel.lean", 640, 649)[the certification of an argument spine against
+more: #src("ConLeche/Rules/Rel.lean", 683, 692)[the certification of an argument spine against
 a binder telescope] (the certified case of $iota$),
-#src("ConLeche/Rules/Rel.lean", 651, 656)[pairwise definitional equality], and
-#src("ConLeche/Rules/Rel.lean", 508, 547)[the congruence of two lambda telescopes]
+#src("ConLeche/Rules/Rel.lean", 694, 699)[pairwise definitional equality], and
+#src("ConLeche/Rules/Rel.lean", 528, 567)[the congruence of two lambda telescopes]
 (@sec:tax). A rule with a premise about a list or a telescope needs a
 relation of its own in a mutual block; the paper inlines them into the
 rules that use them. Inference also carries a
@@ -138,7 +138,7 @@ states as a relation of its own.
 *The bridge and the recomposition.* Because the real checker is a
 program, its proof has three parts where the paper has one. #src("ConLeche/Verify/Rules/Bridge.lean", 30, 33)[The bridge] turns an accepting
 run at any fuel into a derivation, by one induction on fuel in which
-each checker site lands on one rule. #src("ConLeche/Model/Rules/Sound.lean", 49, 50)[The soundness] is the paper's
+each checker site lands on one rule. #src("ConLeche/Model/Rules/Sound.lean", 51, 52)[The soundness] is the paper's
 induction: one structural induction over the six relations, each case a
 lemma about one rule, never mentioning the implementation. #src("ConLeche/Model/Rules/Recompose.lean", 50, 55)[The
 recomposition] puts them together, claim by claim. It bridges the run,
