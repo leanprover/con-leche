@@ -847,4 +847,146 @@ theorem caps_ok : CapsOk S.base := by
 
 end CtxSrc
 
+
+/-- The reverse opening keeps resolution. -/
+theorem constsResolve_openRev {E : Env} {e : Expr} (h : e.constsResolve E = true) :
+    ∀ d n : Nat, (ConLeche.Verify.openRev d n e).constsResolve E = true := by
+  intro d n
+  induction n with
+  | zero => exact h
+  | succ n ih =>
+    show ((ConLeche.Verify.openRev d n e).instantiate1 (.fvar (d + n) (.sort .zero)) 0).constsResolve E
+      = true
+    exact ConLeche.Expr.constsResolve_instantiate1 (by simp [ConLeche.Expr.constsResolve]) 0 ih
+
+/-- The case split's guard reads the constructor's result family only
+where it is an inductive. -/
+theorem iotaCtorNeverProp_congr {f g : Name → Option ConstantInfo} {cvj : ConstantVal}
+    (hT : ∀ T us, cvj.type.piResult.getAppFn = .const T us →
+      (∀ cvT caps, f T = some (.indInfo cvT caps) → f T = g T) ∧
+      (∀ cvT caps, g T = some (.indInfo cvT caps) → f T = g T)) (lvs : List Level) :
+    ConLeche.iotaCtorNeverProp f cvj lvs = ConLeche.iotaCtorNeverProp g cvj lvs := by
+  unfold ConLeche.iotaCtorNeverProp
+  match hh : cvj.type.piResult.getAppFn with
+  | .const T us =>
+    dsimp only
+    obtain ⟨h1, h2⟩ := hT T us hh
+    by_cases hfi : ∃ cvT caps, f T = some (.indInfo cvT caps)
+    · obtain ⟨cvT, caps, hf⟩ := hfi; rw [h1 cvT caps hf]
+    · by_cases hgi : ∃ cvT caps, g T = some (.indInfo cvT caps)
+      · obtain ⟨cvT, caps, hg⟩ := hgi; rw [h2 cvT caps hg]
+      · have hfn : ∀ cvT caps, f T ≠ some (.indInfo cvT caps) := fun a b h => hfi ⟨a, b, h⟩
+        have hgn : ∀ cvT caps, g T ≠ some (.indInfo cvT caps) := fun a b h => hgi ⟨a, b, h⟩
+        cases hfa : f T with
+        | none =>
+          cases hga : g T with
+          | none => rfl
+          | some c => cases c <;> first | rfl | exact absurd hga (hgn _ _)
+        | some c =>
+          cases c <;> first
+            | exact absurd hfa (hfn _ _)
+            | (cases hga : g T with
+               | none => rfl
+               | some c' => cases c' <;> first | rfl | exact absurd hga (hgn _ _))
+  | .bvar _ | .fvar _ _ | .sort _ | .app _ _ | .lam _ _ | .forallE _ _ | .letE _ _ _
+  | .lit _ | .proj _ _ _ => rfl
+
+namespace CtxSrc
+
+variable (S : CtxSrc V μ C aC)
+include S
+
+/-- **A recursor's rules are read alike** (`RuleExt` from the source). -/
+theorem ruleExt {φ : Name → Nat} {n : Name} {cv : ConstantVal} {mI rP : Nat}
+    {rules : List RecRule} (hf : C.find? n = some (.recInfo cv mI rP rules))
+    {rl : RecRule} (hrl : rl ∈ rules) :
+    RuleExt (S.m n) C aC φ cv rP rl n := by
+  have hn : (C.find? n).isSome = true := by rw [hf]; rfl
+  obtain ⟨ci', hf', hr, hwf'⟩ := S.src_entry hf
+  have he : ci' = .recInfo cv mI rP rules := (hr.eq_of_indKind (Or.inl rfl)).symm
+  rw [he] at hf' hwf'
+  obtain ⟨hrhsR, hcR, hpinsR⟩ := (S.scope n _ hf).2.2.1 cv mI rP rules rfl rl hrl
+  obtain ⟨-, -, -, -, -, hrecE, -⟩ := hwf'
+  obtain ⟨-, -, hrhsE, -, hnest⟩ := hrecE cv mI rP rules rfl rl hrl
+  obtain ⟨⟨cvj₀, cnP₀, cnF₀, hfcE⟩, -, -⟩ :=
+    (S.m n).base2.rec_ctors n cv mI rP rules hf' rl hrl
+  have hsameC := S.same_of hcR (Or.inr hfcE) (Or.inl rfl)
+  refine ⟨S.leaf hn (S.selfR hf), S.leaf hn hcR, fun ci h => by rw [← hsameC]; exact h,
+    fun us TVa h => ?_, fun us Ra h => ?_, fun lvls pins hfr i us vpa h => ?_,
+    fun cvj nP nF hfc usj TVja h => ?_, fun cvj nP nF hfc lvs => ?_⟩
+  · have := S.type_eq hf hf' (Refines.refl _ _) φ 0 us cv.levelParams
+    exact this.trans h
+  · rw [S.denote_eq hn (by rw [ConLeche.Expr.constsResolve_instantiateLevelParams]; exact hrhsR)
+      (by rw [ConLeche.Expr.constsResolve_instantiateLevelParams]; exact hrhsE)]
+    exact h
+  · have hpR : (pins.getD i default).constsResolve (S.R n) = true := by
+      by_cases hilt : i < pins.length
+      · exact hpinsR lvls pins hfr _ (ConLeche.getD_mem hilt)
+      · rw [List.getD_eq_getElem?_getD, List.getElem?_eq_none (by omega)]; rfl
+    rw [S.denote_eq hn (constsResolve_openRev
+        (by rw [ConLeche.Expr.constsResolve_instantiateLevelParams]; exact hpR) 0 rP)
+      (constsResolve_openRev
+        (by rw [ConLeche.Expr.constsResolve_instantiateLevelParams]; exact S.resolveE hpR) 0 rP)]
+    exact h
+  · have hfcC : C.find? rl.ctor = some (.ctorInfo cvj nP nF) := by rw [hsameC]; exact hfc
+    exact (S.deep_type_eq hcR hfcC rfl hn φ 0 cvj.levelParams usj).trans h
+  · have hfcC : C.find? rl.ctor = some (.ctorInfo cvj nP nF) := by rw [hsameC]; exact hfc
+    refine iotaCtorNeverProp_congr (fun T us hh => ?_) lvs
+    have hTE : ((S.E n).find? T).isSome = true := by
+      have hres := ((S.m n).base2.wf.consts _ (ConLeche.Env.find?_mem hfc)).2.2.1
+      exact ConLeche.Expr.find?_isSome_of_piResult_getAppFn_const hres hh
+    have hTR := S.ctor_family hcR hfcC hh hTE
+    exact ⟨fun cvT caps h => S.same_of hTR (Or.inl h) (Or.inl rfl),
+      fun cvT caps h => S.same_of hTR (Or.inr h) (Or.inl rfl)⟩
+
+theorem rec_rules (φ : Name → Nat) : RecRules S.base φ := by
+  intro n cv mI rP rules hf rl hrl
+  obtain ⟨ci', hf', hr, -⟩ := S.src_entry hf
+  have he : ci' = .recInfo cv mI rP rules := (hr.eq_of_indKind (Or.inl rfl)).symm
+  rw [he] at hf'
+  exact recRuleLaw_transport (S.m n) (m₂ := S.base) φ hf' hrl (S.ruleExt hf hrl)
+
+theorem tower_ok (φ : Name → Nat) : TowerOk S.base φ := by
+  intro T i entry hfP
+  obtain ⟨tbl, ht, hi, rfl⟩ := ConLeche.Env.findProj?_some hfP
+  obtain ⟨-, -, hT⟩ := ConLeche.Env.findTable?_mem ht
+  have htE : (S.E T).findTable? T = some tbl := by rw [← S.tables T hT]; exact ht
+  have hfPE : (S.E T).findProj? T i = some (tbl.entry i) := by
+    unfold Env.findProj?; rw [htE]; simp [hi]
+  obtain ⟨cvT, capsT, hfT⟩ := S.table_ind ht (Nat.lt_of_le_of_lt (Nat.zero_le i) hi)
+  have hn : (C.find? T).isSome = true := by rw [hfT]; rfl
+  obtain ⟨-, -, -, hind, -⟩ := S.scope T _ hfT
+  obtain ⟨-, -, -, htab⟩ := hind cvT capsT rfl
+  obtain ⟨hcR, hbodies⟩ := htab tbl ht
+  have hsameT := S.same_of (S.selfR hfT) (Or.inl hfT) (Or.inl rfl)
+  obtain ⟨-, -, -, ⟨cvT', capsT', hfT', -⟩, -, cvC, hfCE, -, -, -⟩ :=
+    (S.m T).tower_ok φ T i _ hfPE
+  have hctor : (tbl.entry i).ctor = tbl.ctor := rfl
+  rw [hctor] at hfCE
+  have hsameC := S.same_of hcR (Or.inr hfCE) (Or.inl rfl)
+  have hbR : (tbl.entry i).body.constsResolve (S.R T) = true := by
+    show (tbl.bodies.getD i default).constsResolve (S.R T) = true
+    have hsz := ((S.m T).base2.wf.table htE).2.1
+    refine hbodies _ ?_
+    rw [Array.getD_eq_getD_getElem?, Array.getElem?_eq_getElem (by rw [hsz]; exact hi)]
+    exact Array.mem_toList_iff.mpr (Array.getElem_mem _)
+  refine towerEntryLaw_transport (S.m T) (m₂ := S.base) φ hfPE
+    ⟨S.leaf hn (S.selfR hfT), by rw [hctor]; exact S.leaf hn hcR,
+      fun ci h => by rw [hsameT]; exact h, fun ci h => by rw [hctor, hsameC]; exact h,
+      fun ci h => by rw [← hsameT]; exact h, fun ci h => by rw [hctor, ← hsameC]; exact h,
+      fun us Ta h => ?_, fun cvC' nP nF hfc us TCa h => ?_, fun cvT'' caps hft us TVa h => ?_⟩
+  · refine (S.denote_eq hn ?_ ?_ φ 0).trans h
+    · rw [ConLeche.projTele_constsResolve, ConLeche.Expr.constsResolve_instantiateLevelParams]
+      exact hbR
+    · rw [ConLeche.projTele_constsResolve, ConLeche.Expr.constsResolve_instantiateLevelParams]
+      exact S.resolveE hbR
+  · rw [hctor] at hfc
+    have hfcC : C.find? tbl.ctor = some (.ctorInfo cvC' nP nF) := by rw [hsameC]; exact hfc
+    exact (S.deep_type_eq hcR hfcC rfl hn φ 0 cvC'.levelParams us).trans h
+  · have hftC : C.find? T = some (.indInfo cvT'' caps) := by rw [hsameT]; exact hft
+    have := S.type_eq hftC hft (Refines.refl _ _) φ 0 us cvT''.levelParams
+    exact this.trans h
+
+end CtxSrc
+
 end ConLeche.Model.Modular
