@@ -56,7 +56,7 @@ every definition's body), merged across modules as Lean's own import
 merges them (a name two modules store differently is a reject), and
 emitted in `lean4export`'s order — every constant after the constants
 it mentions, unsafe and partial constants left out
-([function `readOleans` in `ConLeche/Frontend/Olean/Load.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Frontend/Olean/Load.lean#L473-L474)).
+([function `readOleans` in `ConLeche/Frontend/Olean/Load.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Frontend/Olean/Load.lean#L474-L475)).
 The records are built by the stream reader's own builder, so on the
 same modules the two inputs give the same records: on `Init`, `Std`
 and `Lean` they are equal, record for record (`lake exe olean-compare`,

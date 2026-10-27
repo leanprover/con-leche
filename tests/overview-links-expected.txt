@@ -13,9 +13,9 @@
 == ConLeche/Frontend/Olean/Region.lean#L211
    211  def Region.obj (r : @& Region) (a : UInt64) : Except String Obj :=
 
-== ConLeche/Frontend/Olean/Load.lean#L473-L474
-   473  def readOleans (sp : SearchPath) (roots : Array Name) (jobs : Nat := 1) :
-   474      IO (Except (CheckError × Nat) (Array Declaration)) := do
+== ConLeche/Frontend/Olean/Load.lean#L474-L475
+   474  def readOleans (sp : SearchPath) (roots : Array Name) (jobs : Nat := 1) :
+   475      IO (Except (CheckError × Nat) (Array Declaration)) := do
 
 == ConLeche/Driver/Run.lean#L35
     35  def ConLeche.CheckError.exitCode : CheckError → UInt32
