@@ -279,7 +279,7 @@ def Store.alts (S : Store) (n : Name) : List (Nat × Nat) := (S.mb 0).alts n
 
 /-- The qualified name a unit's constant `j` of module `h` has. -/
 def keyOfSlot (s : ModSlot) (h j : Nat) (n : Name) : ConLeche.Modular.Key :=
-  match s.prf[j]?, s.priv[j]? with
+  match s.exp.prf[j]?, s.prv.priv[j]? with
   | some true, some ci => .proof n ci.toConstantVal.levelParams ci.toConstantVal.type
   | _, _ => .qual h n
 
@@ -326,33 +326,38 @@ def target (h : Nat) (fe : FEnv) (d : Name) : Option (Nat × Nat) :=
 
 /-- The level an importer needs at module `h` to see its constant `j`. -/
 def Store.needAt (S : Store) (h j : Nat) : UInt8 :=
-  match (S.slot h).at1[j]? with
+  match (S.slot h).exp.at1[j]? with
   | some (some _) => 1
   | _ => 2
 
 /-- The gate of module `h`'s exported constant `j`. -/
 def Store.gateAt (S : Store) (h j : Nat) : Array (Nat × UInt8) :=
-  ((S.slot h).g1[j]?).getD #[]
+  ((S.slot h).exp.g1[j]?).getD #[]
 
 /-- **The unit's shape**: the arrays aligned with the installed constants;
 each exported presentation the constant, or its assumption where that
 refines it; a value gate only on a presented definition; the proofs the
 module's; a structure's table its own. -/
 def shapeOk (fe : FEnv) (flagged : Name → Bool) (s : ModSlot) : Bool :=
-  s.priv.size == s.at1.size && s.priv.size == s.tbls.size && s.priv.size == s.g1.size &&
-  s.priv.size == s.v1.size && s.priv.size == s.prf.size &&
-  (List.range s.priv.size).all fun j =>
-    match s.priv[j]?, s.at1[j]?, s.v1[j]?, s.prf[j]?, s.tbls[j]? with
-    | some ci, some a, some v, some p, some t =>
+  let e := s.exp
+  let p := s.prv
+  p.priv.size == e.at1.size && p.priv.size == p.tbls.size && p.priv.size == e.g1.size &&
+  p.priv.size == e.v1.size && p.priv.size == e.prf.size && p.priv.size == e.stored.size &&
+  p.priv.size == e.tbls.size &&
+  (List.range p.priv.size).all fun j =>
+    match p.priv[j]?, e.at1[j]?, e.v1[j]?, e.prf[j]?, p.tbls[j]?, e.stored[j]?, e.tbls[j]? with
+    | some ci, some a, some v, some pf, some t, some st, some et =>
       (match a with
         | none => true
         | some a => a == ci || (a == asAxiom ci && hideable ci)) &&
-      (v.isEmpty || (a == some ci && hideable ci)) &&
-      p == flagged ci.name && (!p || (match ci with
+      (!st || a == some ci) &&
+      (v.isEmpty || (st && hideable ci)) &&
+      pf == flagged ci.name && (!pf || (match ci with
         | .defnInfo .. | .thmInfo _ | .axiomInfo _ => true
         | _ => false)) &&
-      t == fe.env.tables.find? (·.structName == ci.name)
-    | _, _, _, _, _ => false
+      t == fe.env.tables.find? (·.structName == ci.name) &&
+      et == (if st then t else none)
+    | _, _, _, _, _, _, _ => false
 
 /-- The kind a full read requires. -/
 inductive Want where
@@ -375,10 +380,10 @@ presented as stored, of the wanted kind. -/
 def full2Ok (S : Store) (h : Nat) (fe : FEnv) (u : Unit') (w : Want) (d : Name) : Bool :=
   match target h fe d with
   | some (h', j') =>
-    if h' == h then (S.alts d).contains (h', j') && ((u.slot.priv[j']?).map w.ok).getD false
+    if h' == h then (S.alts d).contains (h', j') && ((u.slot.prv.priv[j']?).map w.ok).getD false
     else match fe.base.mb with
       | some mb => match mb.pick? d with
-        | some (_, _, ci) => some ci == (S.slot h').priv[j']? && w.ok ci
+        | some (_, _, ci) => w.ok ci
         | none => false
       | none => false
   | none => false
@@ -394,15 +399,19 @@ def read1Ok (S : Store) (h : Nat) (fe : FEnv) (u : Unit') (G : Array (Nat × UIn
   match target h fe d with
   | some (h', j') =>
     if h' == h then
-      (S.alts d).contains (h', j') && ((u.slot.at1[j']?).join).isSome &&
-        ((u.slot.g1[j']?).getD #[]).all inG
+      (S.alts d).contains (h', j') && ((u.slot.exp.at1[j']?).join).isSome &&
+        ((u.slot.exp.g1[j']?).getD #[]).all inG
     else
       inG (h', S.needAt h' j') && (S.needAt h' j' != 1 || (S.gateAt h' j').all inG)
   | none => false
 
 /-- The full gate of module `h`'s exported constant `j`. -/
 def Store.fullGateAt (S : Store) (h j : Nat) : Array (Nat × UInt8) :=
-  ((S.slot h).g1[j]?).getD #[] ++ ((S.slot h).v1[j]?).getD #[]
+  ((S.slot h).exp.g1[j]?).getD #[] ++ ((S.slot h).exp.v1[j]?).getD #[]
+
+/-- Is module `h`'s constant `j` presented as stored at the exported
+level. -/
+def Store.storedAt (S : Store) (h j : Nat) : Bool := ((S.slot h).exp.stored[j]?).getD false
 
 /-- A full read at the exported level: the target is presented as stored,
 of the wanted kind, to every viewer that loads `fp1` and `G`. -/
@@ -412,18 +421,17 @@ def full1Ok (S : Store) (h : Nat) (fe : FEnv) (u : Unit') (G : Array (Nat × UIn
   match target h fe d with
   | some (h', j') =>
     if h' == h then
-      (S.alts d).contains (h', j') &&
-        (match u.slot.priv[j']? with
-          | some ci => (u.slot.at1[j']?) == some (some ci) && w.ok ci
-          | none => false) &&
-        (((u.slot.g1[j']?).getD #[]) ++ ((u.slot.v1[j']?).getD #[])).all inG
+      (S.alts d).contains (h', j') && ((u.slot.exp.stored[j']?).getD false) &&
+        ((u.slot.prv.priv[j']?).map w.ok).getD false &&
+        (((u.slot.exp.g1[j']?).getD #[]) ++ ((u.slot.exp.v1[j']?).getD #[])).all inG
     else
-      match (S.slot h').priv[j']? with
-      | some ci =>
-        w.ok ci &&
-        (if (S.slot h').at1[j']? == some (some ci) then
-          inG (h', 1) && (S.fullGateAt h' j').all inG
-        else inG (h', 2))
+      match fe.base.mb with
+      | some mb => match mb.pick? d with
+        | some (_, _, ci) =>
+          w.ok ci &&
+          (if S.storedAt h' j' then inG (h', 1) && (S.fullGateAt h' j').all inG
+           else inG (h', 2))
+        | none => false
       | none => false
   | none => false
 
@@ -456,20 +464,22 @@ def unitOk (S : Store) (h : Nat) (fe : FEnv) (flagged : Name → Bool) (u : Unit
     Bool :=
   let s := u.slot
   shapeOk fe flagged s &&
-  s.priv.all (recFamOk fe) &&
+  s.prv.priv.all (recFamOk fe) &&
   -- the private level
-  (List.range s.priv.size).all (fun j => match s.priv[j]?, s.tbls[j]? with
+  (List.range s.prv.priv.size).all (fun j => match s.prv.priv[j]?, s.prv.tbls[j]? with
     | some ci, some t => lawsOk r.all2 (lawsOf t ci)
     | _, _ => false) &&
   readsOk S h fe u true #[] r.all2 &&
   -- the exported level, ungated
-  (List.range s.priv.size).all (fun j => match s.at1[j]?, s.g1[j]?, s.v1[j]?, s.tbls[j]? with
+  (List.range s.prv.priv.size).all (fun j =>
+    match s.exp.at1[j]?, s.exp.g1[j]?, s.exp.v1[j]?, s.exp.tbls[j]? with
     | some (some ci), some g, some v, some t =>
       !(g.isEmpty && v.isEmpty) || lawsOk r.all1 (lawsOf t ci)
     | _, _, _, _ => true) &&
   readsOk S h fe u false #[] r.all1 &&
   -- the exported level, gated: every gated constant listed, with its reads
-  (List.range s.priv.size).all (fun j => match s.at1[j]?, s.g1[j]?, s.v1[j]?, s.tbls[j]? with
+  (List.range s.prv.priv.size).all (fun j =>
+    match s.exp.at1[j]?, s.exp.g1[j]?, s.exp.v1[j]?, s.exp.tbls[j]? with
     | some (some ci), some g, some v, some t =>
       (g.isEmpty && v.isEmpty) || r.gated.any fun (j', rt, rf) =>
         j' == j &&
@@ -521,5 +531,19 @@ def localOk (S : Store) (units : Array Unit') (m : Nat) : Bool :=
           u.fp1.all (fun (x, need) => lvlAt lv x ≥ need)
       | none => false)) &&
   S.dups.all (oneKey S m)
+
+/-! ## A module, checked -/
+
+/-- **What a modular run keeps of a module**: its imports, its records,
+its view at the end of its install with the records' checks, its unit
+and proofs, and the reads its unit was checked against. -/
+structure ModData where
+  imports : List Nat := []
+  ds : Array Declaration := #[]
+  fe : FEnv := mkFEnv Env.empty
+  pend : Array PendingCheck := #[]
+  unit : Unit' := {}
+  flags : Std.HashSet Name := {}
+  reads : Reads := {}
 
 end ConLeche.Cached.Mod

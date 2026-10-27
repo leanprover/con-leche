@@ -28,23 +28,38 @@ half of its hash, modulo `m` (the low bits choose the bucket inside a
 shard's map). -/
 @[inline] def baseShard (n : Name) (m : Nat) : Nat := (n.hashData >>> 32).toNat % m
 
-/-- **One module's installed constants, published** (task #370): the
-constants its install pushed, in push order (`priv`, what a module
-loading it at its private level sees); what a module loading it at its
-exported level sees of each (`at1`: the constant, the constant with its
-value hidden, or `none`); the projection table of each constant that is
-a structure (`tbls`); the **gates** of the exported presentation (`g1`,
-`v1`): the modules, with a level at each, that a viewer must load for
-the constant to be presented at all, and for a definition to be
-presented with its value; and which constants are proofs (`prf`: their
-qualified name is their statement). -/
-structure ModSlot where
-  priv : Array ConstantInfo := #[]
+/-- **A module's interface** (task #370): what a module loading it at its
+exported level reads, and nothing else — for each of the module's
+installed constants, in push order: its presentation (`at1`: the
+constant, the assumption of its statement, or `none`), whether that is
+the constant as stored (`stored`), the projection table of a structure
+presented as stored (`tbls`), the **gates** (`g1`: the modules, with a
+level at each, that a viewer must load for the constant to be presented
+at all; `v1`: for it to be presented as stored, beyond that), and
+whether it is a proof (`prf`: its qualified name is its statement). -/
+structure ModIface where
   at1 : Array (Option ConstantInfo) := #[]
+  stored : Array Bool := #[]
   tbls : Array (Option ProjTable) := #[]
   g1 : Array (Array (Nat × UInt8)) := #[]
   v1 : Array (Array (Nat × UInt8)) := #[]
   prf : Array Bool := #[]
+  deriving DecidableEq, Inhabited
+
+/-- **A module's private record** (task #370): the constants its install
+pushed, in push order, with their projection tables — what a module
+loading it with `import all` reads. -/
+structure ModPriv where
+  priv : Array ConstantInfo := #[]
+  tbls : Array (Option ProjTable) := #[]
+  deriving DecidableEq, Inhabited
+
+/-- **One module's unit, published**: its interface and its private
+record, two separate objects (the boundary between what an ordinary
+importer and an `import all` importer reads is a property of the data). -/
+structure ModSlot where
+  exp : ModIface := {}
+  prv : ModPriv := {}
   deriving DecidableEq, Inhabited
 
 /-- **The module store, as one module sees it** (task #370): the store's
@@ -71,10 +86,10 @@ of `h` (at the exported level, through its gates). -/
   if hl : h < b.lvl.size then
     let l := b.lvl[h]'hl
     if l == 2 then
-      if hh : h < b.slots.size then (b.slots[h]).get.priv[j]? else none
+      if hh : h < b.slots.size then (b.slots[h]).get.prv.priv[j]? else none
     else if l == 1 then
       if hh : h < b.slots.size then
-        let s := (b.slots[h]).get
+        let s := (b.slots[h]).get.exp
         match (s.at1[j]?).join with
         | some ci =>
           if b.gateOk ((s.g1[j]?).getD #[]) then
@@ -119,7 +134,10 @@ def MBase.findTable? (b : @& MBase) (T : Name) : Option ProjTable :=
   match b.pick? T with
   | some (h, j, .indInfo ..) =>
     if hh : h < b.slots.size then
-      match ((b.slots[h]).get.tbls[j]?).join with
+      let t? := if hl : h < b.lvl.size then
+          if b.lvl[h]'hl == 2 then (b.slots[h]).get.prv.tbls[j]? else (b.slots[h]).get.exp.tbls[j]?
+        else none
+      match t?.join with
       | some t => if t.structName == T then some t else none
       | none => none
     else none

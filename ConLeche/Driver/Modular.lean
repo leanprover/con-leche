@@ -193,6 +193,8 @@ structure Diag where
   ex : Array String := #[]
   /-- every type former presented as an assumption -/
   indEx : Array String := #[]
+  /-- constants the exported part does not store, entered as assumptions -/
+  lifted : Nat := 0
   deriving Inhabited
 
 def Diag.addKind (a : Array (String × Nat)) (k : String) (c : Nat) : Array (String × Nat) :=
@@ -205,7 +207,7 @@ def Diag.merge (a b : Diag) : Diag :=
     absent := b.absent.foldl (fun acc (k, c) => Diag.addKind acc k c) a.absent,
     gated := a.gated + b.gated, vgated := a.vgated + b.vgated,
     ex := if a.ex.size ≥ 16 then a.ex else a.ex ++ b.ex.extract 0 (16 - a.ex.size),
-    indEx := a.indEx ++ b.indEx }
+    indEx := a.indEx ++ b.indEx, lifted := a.lifted + b.lifted }
 
 def kindOf : ConstantInfo → String
   | .axiomInfo _ => "axiom/opaque" | .defnInfo .. => "definition" | .thmInfo _ => "theorem"
@@ -279,7 +281,7 @@ def unitOf (g : Array ModIn) (S : Mod.Store) (flagged : Std.HashSet Name) (k : N
     | some .hidden => if Mod.isPinned ci.name then 2 else 1
     | _ => 0
   let met (st : Array Nat) (r : Name × (Nat × Nat) × Option Mod.Want) : Bool :=
-    let (_, t, w) := r
+    let (d, t, w) := r
     if isOwn t then
       match w with
       | none => st[t.2]! > 0
@@ -287,7 +289,21 @@ def unitOf (g : Array ModIn) (S : Mod.Store) (flagged : Std.HashSet Name) (k : N
     else
       match w with
       | none => true
-      | some w => (((S.slot t.1).priv[t.2]?).map w.ok).getD false
+      | some w => match fe.base.mb with
+        | some mb => ((mb.pick? d).map fun (_, _, ci) => w.ok ci).getD false
+        | none => false
+  -- STOP-GAP until Lean stops exporting values that mention private-only
+  -- constants, or until typeless assumptions — see DESIGN #370.  A
+  -- constant of this module that the exported part does not store enters
+  -- the module's interface as the assumption of its statement when a
+  -- presented value reads it and its statement is complete (computed
+  -- here, when the home is checked; importers read only the interface)
+  let liftable (st : Array Nat) (t : Nat) : Bool :=
+    init[t]! == 0 && !Mod.isPinned priv[t]!.name && tReads[t]!.all (met st)
+  let metV (st : Array Nat) (r : Name × (Nat × Nat) × Option Mod.Want) : Bool :=
+    met st r || (match r with
+      | (_, t, none) => isOwn t && st[t.2]! == 0 && liftable st t.2
+      | _ => false)
   let mut st := init
   let mut changed := true
   let mut rounds := n + 1
@@ -297,11 +313,19 @@ def unitOf (g : Array ModIn) (S : Mod.Store) (flagged : Std.HashSet Name) (k : N
     for j in [0:n] do
       if st[j]! > 0 then
         let s' := if !(tReads[j]!.all (met st)) then 0
-          else if st[j]! == 2 && !(fReads[j]!.all (met st)) then 1
+          else if st[j]! == 2 && !(fReads[j]!.all (metV st)) then 1
           else st[j]!
         if s' != st[j]! then
           st := st.set! j s'
           changed := true
+  -- the lifted constants: read by a value presented as stored
+  let mut lifted : Array Nat := #[]
+  for j in [0:n] do
+    if st[j]! == 2 then
+      for (_, t, w) in fReads[j]! do
+        if w.isNone && isOwn t && st[t.2]! == 0 && liftable st t.2 && !lifted.contains t.2 then
+          lifted := lifted.push t.2
+  for t in lifted do st := st.set! t 1
   for j in [0:n] do
     if Mod.isPinned priv[j]!.name && init[j]! > 0 && st[j]! != 2 then
       throw s!"the pinned constant {priv[j]!.name} is exported but reads what its importers lack"
@@ -312,7 +336,7 @@ def unitOf (g : Array ModIn) (S : Mod.Store) (flagged : Std.HashSet Name) (k : N
     else match w with
       | none => (t.1, S.needAt t.1 t.2)
       | some _ =>
-        if (S.slot t.1).at1[t.2]? == some ((S.slot t.1).priv[t.2]?) then (t.1, 1) else (t.1, 2)
+        if S.storedAt t.1 t.2 then (t.1, 1) else (t.1, 2)
   let tgtGate (g1 v1 : Array (Array (Nat × UInt8))) (r : Name × (Nat × Nat) × Option Mod.Want) :
       Array (Nat × UInt8) :=
     let (_, t, w) := r
@@ -323,7 +347,7 @@ def unitOf (g : Array ModIn) (S : Mod.Store) (flagged : Std.HashSet Name) (k : N
     else match w with
       | none => if S.needAt t.1 t.2 == 1 then S.gateAt t.1 t.2 else #[]
       | some _ =>
-        if (S.slot t.1).at1[t.2]? == some ((S.slot t.1).priv[t.2]?) then S.fullGateAt t.1 t.2
+        if S.storedAt t.1 t.2 then S.fullGateAt t.1 t.2
         else #[]
   let gateOver (g1 v1 : Array (Array (Nat × UInt8)))
       (rs : Array (Name × (Nat × Nat) × Option Mod.Want)) : Std.HashSet (Nat × UInt8) := Id.run do
@@ -360,7 +384,7 @@ def unitOf (g : Array ModIn) (S : Mod.Store) (flagged : Std.HashSet Name) (k : N
     if Mod.isPinned priv[j]!.name && st[j]! > 0 && !g1[j]!.isEmpty then
       throw s!"the pinned constant {priv[j]!.name} reads a module its importers need not load"
   -- what is left out, for the statistics
-  let mut diag : Diag := {}
+  let mut diag : Diag := { lifted := lifted.size }
   for j in [0:n] do
     let c := priv[j]!
     let kc := kindOf c
@@ -381,12 +405,16 @@ def unitOf (g : Array ModIn) (S : Mod.Store) (flagged : Std.HashSet Name) (k : N
       let msg := s!"full-gated: {c.name} ({kc}) of {m.name}"
       diag := diag.merge { vgated := 1, ex := #[msg] }
   -- the unit
+  let tbls := priv.map tblOf
   let slot : ModSlot := {
-    priv, at1 := (Array.range n).map fun j =>
-      if st[j]! == 2 then some priv[j]! else if st[j]! == 1 then some (Mod.asAxiom priv[j]!)
-      else none,
-    tbls := priv.map tblOf, g1, v1,
-    prf := priv.map fun ci => flagged.contains ci.name }
+    exp := {
+      at1 := (Array.range n).map fun j =>
+        if st[j]! == 2 then some priv[j]! else if st[j]! == 1 then some (Mod.asAxiom priv[j]!)
+        else none,
+      stored := st.map (· == 2),
+      tbls := (Array.range n).map fun j => if st[j]! == 2 then tbls[j]! else none,
+      g1, v1, prf := priv.map fun ci => flagged.contains ci.name }
+    prv := { priv, tbls } }
   let dummy (d : Name) : Nat × ConstantInfo := (0, .axiomInfo ⟨d, [], .sort .zero⟩)
   let addReads (r : Mod.ReadSet) (rs : Array (Name × (Nat × Nat) × Option Mod.Want)) :
       Mod.ReadSet :=
@@ -754,7 +782,7 @@ def checkModular (sp : SearchPath) (roots : Array Name) (mode : CheckMode) (stri
   if stride > 0 then
     let dg : Diag := results.foldl (fun (d : Diag) r? => d.merge ((r?.map (·.diag)).getD {})) {}
     err.putStr s!"con-leche: exported presentations: assumption {dg.assumed}, absent {dg.absent}, \
-      gated {dg.gated}, full-gated {dg.vgated}\n"
+      gated {dg.gated}, full-gated {dg.vgated}, private entered as assumption {dg.lifted}\n"
     for x in dg.ex do err.putStr s!"con-leche:   {x}\n"
     for x in dg.indEx do err.putStr s!"con-leche:   {x}\n"
   let units : Array Mod.Unit' := ins.map fun r? => (r?.map (·.unit)).getD default
