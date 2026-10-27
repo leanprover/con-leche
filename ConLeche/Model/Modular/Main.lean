@@ -417,4 +417,108 @@ theorem deep_of (hst : Stage V μ dev W i) (h : LocalOk μ pins dev i) {b : Nat}
 
 end
 
+section
+variable {dev : Nat → Module} {W : Key → (Name → Nat) → Term} {i : Nat}
+
+/-- Each name's source environment with its model (the empty one beyond
+the modules done). -/
+noncomputable def srcOf (hst : Stage V μ dev W i) (n : Name) : Σ E : Env, EnvModelM V μ E :=
+  if h : (dev i).src n < i then ⟨(dev ((dev i).src n)).own, hst.mod _ h⟩
+  else ⟨Env.empty, EnvModelM.empty V μ⟩
+
+theorem srcOf_pos (hst : Stage V μ dev W i) {n : Name} (h : (dev i).src n < i) :
+    srcOf hst n = ⟨(dev ((dev i).src n)).own, hst.mod _ h⟩ := by
+  simp only [srcOf, h, ↓reduceDIte]
+
+theorem srcOf_neg (hst : Stage V μ dev W i) {n : Name} (h : ¬ (dev i).src n < i) :
+    srcOf hst n = ⟨Env.empty, EnvModelM.empty V μ⟩ := by
+  simp only [srcOf, h, ↓reduceDIte]
+
+/-- The part each source is read alike in. -/
+noncomputable def readOf (dev : Nat → Module) (i : Nat) (n : Name) : Env :=
+  if (dev i).src n < i then readsAlike dev i ((dev i).src n) else Env.empty
+
+theorem readOf_pos {n : Name} (h : (dev i).src n < i) :
+    readOf dev i n = readsAlike dev i ((dev i).src n) := by
+  simp only [readOf, h, ↓reduceIte]
+
+/-- **The context, read from its sources** (`CtxSrc`), from the local
+checks and the modules done. -/
+noncomputable def ctxSrcOf (hst : Stage V μ dev W i) (h : LocalOk μ pins dev i)
+    (hW : WorldOk V W) : CtxSrc V μ (dev i).context (fun n => W ((dev i).res n)) where
+  E n := (srcOf hst n).1
+  m n := (srcOf hst n).2
+  R n := readOf dev i n
+  R_sub n d ci hR := by
+    by_cases hs : (dev i).src n < i
+    · rw [readOf_pos hs] at hR
+      rw [srcOf_pos hst hs]
+      obtain ⟨h1, h2, -⟩ := find?_readsAlike dev hR
+      exact ⟨h1, h2⟩
+    · simp only [readOf, hs, ↓reduceIte] at hR
+      exact nomatch hR
+  agree n hn := by
+    have hs := h.src_lt n hn
+    rw [readOf_pos hs, srcOf_pos hst hs]
+    exact readAgree_of hst h hs
+  entry n ci hf := by
+    have hs := h.src_lt n (by rw [hf]; rfl)
+    rw [srcOf_pos hst hs]
+    exact h.context_le n ci hf
+  self n hn := by
+    have hs := h.src_lt n hn
+    rw [readOf_pos hs]
+    obtain ⟨ci, hci⟩ := Option.isSome_iff_exists.mp hn
+    obtain ⟨ci', hf', -⟩ := h.context_le n ci hci
+    exact readsAlike_of hf' hn (h.res_context n hn)
+  scope n ci hf := by
+    have hs := h.src_lt n (by rw [hf]; rfl)
+    rw [readOf_pos hs]
+    exact h.scoping n ci hf
+  same n d hR hk := by
+    by_cases hs : (dev i).src n < i
+    · rw [readOf_pos hs] at hR
+      rw [srcOf_pos hst hs] at hk ⊢
+      obtain ⟨cc, ce, hc, he, hkd⟩ := ctx_entries hR
+      obtain ⟨-, hind, hpin, -⟩ := ctx_same hst h hs hc he hkd
+      rw [hc, he]
+      rcases hk with ⟨⟨c1, hc1, hk1⟩, c2, hc2, hk2⟩ | hp
+      · rw [hc] at hc1; obtain rfl := Option.some.inj hc1
+        rw [he] at hc2; obtain rfl := Option.some.inj hc2
+        rw [hind hk1 hk2]
+      · rw [hpin hp]
+    · simp only [readOf, hs, ↓reduceIte] at hR
+      exact nomatch hR
+  deep n c ci hR hfc hk hE := by
+    by_cases hs : (dev i).src n < i
+    · simp only [readOf_pos hs] at hR ⊢
+      rw [srcOf_pos hst hs] at hE ⊢
+      exact deep_of hst h hs hR hfc hk hE
+    · simp only [readOf, hs, ↓reduceIte] at hR
+      exact nomatch hR
+  cover n := by
+    by_cases hs : (dev i).src n < i
+    · rw [srcOf_pos hst hs]; exact (hst.mod_spec _ hs).1
+    · rw [srcOf_neg hst hs]; exact lfpCover_empty
+  eta n := by
+    by_cases hs : (dev i).src n < i
+    · rw [srcOf_pos hst hs]; exact (hst.mod_spec _ hs).2.1
+    · rw [srcOf_neg hst hs]; exact ConLeche.EtaFamiliesClosed.empty
+  recFam n cv mI rP rules hf r hr cvj nP nF hfc T us hh := by
+    have hs := h.src_lt n (by rw [hf]; rfl)
+    rw [srcOf_pos hst hs] at hfc ⊢
+    exact h.recFam n cv mI rP rules hf r hr cvj nP nF hfc T us hh
+  tables T ci hf := by
+    have hs := h.src_lt T (by rw [hf]; rfl)
+    rw [srcOf_pos hst hs]
+    exact h.tables T ci hf
+  projs := h.projs
+  blocks := h.blocks
+  tables_mem := h.tables_mem
+  nodup := h.nodup
+  closed n ψ := hW.1 _ ψ
+  wd n ψ ρ := hW.2.1 _ ψ ρ
+
+end
+
 end ConLeche.Model.Modular
