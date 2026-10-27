@@ -986,7 +986,7 @@ assumed of the environment they extend.
 
 #theorem(name: "Every accepted environment has a model")[
   For every model of the extended theory, every accepted environment
-  #src("whitepaper/Fragment/Consistency.lean", 62, 75)[has a model in it]
+  #src("whitepaper/Fragment/Consistency.lean", 62, 79)[has a model in it]
   (#src("ConLeche/MainTheorem.lean", 96, 99)[con-leche's main theorem]).
 ] <thm:accepted-model>
 
@@ -1007,9 +1007,9 @@ assumed of the environment they extend.
 #corollary(name: "No proof of an empty proposition")[
   Let $I$ be an inductive type with no constructors, no parameters,
   no indices and no level parameters, installed in an accepted
-  environment. Then #src("whitepaper/Fragment/Consistency.lean", 97, 106)[no closed term $e$ has] $tack e => I$; in
+  environment. Then #src("whitepaper/Fragment/Consistency.lean", 139, 149)[no closed term $e$ has] $tack e => I$; in
   particular no stored constant has type $I$
-  (#src("whitepaper/Fragment/Consistency.lean", 142, 146)[at the block `inductive False : Prop`]\;
+  (#src("whitepaper/Fragment/Consistency.lean", 155, 159)[at the block `inductive False : Prop`]\;
   #src("ConLeche/Model/Fold.lean", 268, 275)[as in con-leche]).
 ] <cor:consistency>
 

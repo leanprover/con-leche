@@ -619,33 +619,33 @@ comment block at the top of `lib.typ`.
     large eliminator, and no ι step checks a constructor application.
     (Lane R4, 2026-10-13.)
 
-**2026-10-27 (task #370, modular checking).** The fragment proves the
-module-by-module statement without any new model theory: monotonicity
-of the relations in the environment (an interface `I ≼ U` stores each
-constant of `U` it stores as it is there, or as an assumption of the
-same type), one mutual induction with no case that does anything, turns
-a module checked against its interface into a module checked against
-the union before it, and `accepted_model` does the rest. Con-leche's
-modular capstone could take the same route: a weakening lemma for the
-rules tier (`ConLeche/Rules/Rel.lean`) and the existing fold theorem,
-instead of a gluing argument over models that interpret the assumed
-constants.
+**2026-10-27 (task #370, modular checking).** The module-by-module
+theorem needs no global name table and no weakening of derivations.
+Qualified names (home module and name; a proof by its statement) make
+every module's own environment a reading of one assignment, and the
+proof goes by restriction and extension of models: the world's model,
+read through a module's resolution, is a model of the module's context
+(`context_model`), the ordinary installation theorems extend it over
+the module's declarations (`Checks.blockModel`), and the module's own
+ordinary constants extend the world's assignment (`modular_step`).
+Con-leche's implementation should follow the same route: its soundness
+consumes checker runs, not derivations, so restricting the world's
+model to a module's context, applying the existing step theorem of the
+fold there, and extending back is the argument that fits, and no
+monotonicity of the checker in its environment is needed. Every module
+can be type-checked in parallel against its context; the remaining
+local checks compare constants and resolutions with the direct imports
+and type-check nothing.
 
-**2026-10-27 (task #370, local checks).** The module-by-module
-statement needs no global name table and no gluing of models: the
-local checks at a module (its declarations accepted against its base;
-its base refining its direct imports' own environments; its
-declarations and its imports' summaries compatible; its summary their
-join) give, by induction along the import graph and `Checks.joined`,
-that every module's own environment refines an accepted environment
-(`local_checks`). Theorems stored as their statements make duplicate
-theorems compatible without any special rule. For con-leche this
-suggests: type-check every module against its base in parallel (no
-dependency between those checks), and run the cheap summary pass along
-the import graph separately; the summary can be a persistent map from
-name to (stored entry, or its hash) shared along the edges. The one
-point the implementation must re-establish is monotonicity of its
-inductive admission checks through `whnf` (positivity, universe
-conditions): no check may pass on a term stuck on a hidden value that
-would fail on its unfolding.
+**2026-10-27 (task #370, comparison).** Comparator's contract fits the
+modular theorem as a second way to validate a module: a module whose
+whole own environment reads from earlier modules (every constant an
+earlier module's, or an assumption of its type) needs no type checking,
+and its model is the restriction of the world's, by the same lemma that
+gives a checked module's context its model (`reads_model`). So
+con-leche can subsume Comparator without a second soundness argument:
+compare the challenge's private environment (definitions with their
+values) constant by constant with the solution's, treat axioms and
+`sorryAx`-valued constants as holes, and read the result off the
+modular theorem.
 

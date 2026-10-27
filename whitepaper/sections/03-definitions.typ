@@ -185,7 +185,7 @@ gains three cases, one per rule.
 #theorem(name: "Installing a definition")[
   If the environment has a model and the definition $c$ passes the
   checks above, then the environment
-  #src("whitepaper/Fragment/InstallDef.lean", 345, 350)[extended with $c$ has a model]
+  #src("whitepaper/Fragment/InstallDef.lean", 351, 356)[extended with $c$ has a model]
   (#src("ConLeche/Model/Install.lean", 337, 340)[as in con-leche]).
 ] <thm:install-def>
 
@@ -195,7 +195,7 @@ gains three cases, one per rule.
   valuation that sends $arrow(p)$ to $arrow(n)$. Since $v$ is closed and
   uses no other parameter, no $rho$ and no other part of $phi$
   enters. The old laws hold for $M'$ because
-  #src("whitepaper/Fragment/InstallDef.lean", 158, 161)[no stored term mentions $c$]. For the new constant we use @cor:closed and the second claim of
+  #src("whitepaper/Fragment/InstallDef.lean", 267, 270)[no stored term mentions $c$]. For the new constant we use @cor:closed and the second claim of
   @thm:sound. From $tack v => T'$ the value and $T'$ are
   well-denoted and $lden v rden in lden T' rden$, a type; from
   $tack T => S red Sort u$ the type $T$ is well-denoted and a type;
