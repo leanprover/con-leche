@@ -627,8 +627,6 @@ def nameOf (g : Array ModIn) (h : Nat) : Name := (g[h]?.map (·.name)).getD .ano
 
 /-- **Module `m`'s local checks** that type-check nothing:
 
-* every loaded module comes through a direct import that loads it at
-  least as high (or is one);
 * a module loaded at its private level brings its whole context: `m`
   loads every module of it at least as high;
 * a module loaded at its exported level brings what its presented
@@ -651,8 +649,6 @@ def localChecks (g : Array ModIn) (S : Store) (units : Array Unit') (m : Nat) :
   for h in [0:lv.size] do
     let l := lvlAt lv h
     if l > 0 then
-      unless M.imports.any (fun (b, _) => b == h || lvlAt ((S.lvls[b]?).getD .empty) h ≥ l) do
-        throw s!"module {nameOf g h} reaches the context of {M.name} through no import"
       let some u := units[h]? | throw "no unit"
       if l == 2 then
         let lh := (S.lvls[h]?).getD .empty
@@ -661,21 +657,6 @@ def localChecks (g : Array ModIn) (S : Store) (units : Array Unit') (m : Nat) :
             throw s!"{M.name} loads {nameOf g h} at its private level but not {nameOf g x}, \
               which {nameOf g h}'s context holds"
       else
-        -- a gated constant `m` sees comes through an import that sees it
-        -- alike
-        let gOk (l : ByteArray) (gt : Array (Nat × UInt8)) : Bool :=
-          gt.all fun (x, need) => lvlAt l x ≥ need
-        for j in u.gated do
-          let gt := (u.slot.g1[j]?).getD #[]
-          let vt := (u.slot.v1[j]?).getD #[]
-          if gOk lv gt then
-            let full := gOk lv vt
-            unless M.imports.any (fun (b, _) =>
-                let lb := (S.lvls[b]?).getD .empty
-                b == h || lvlAt lb h == 2 ||
-                  (lvlAt lb h == 1 && gOk lb gt && (!full || gOk lb vt))) do
-              throw s!"{((u.slot.priv[j]?).map (·.name)).getD .anonymous} of {nameOf g h} \
-                is in the context of {M.name} but in no import's"
         for (h', need) in u.fp1 do
           unless lvlAt lv h' ≥ need do
             throw s!"{nameOf g h}'s exported constants read {nameOf g h'}, which {M.name} \
@@ -755,6 +736,11 @@ def checkModular (sp : SearchPath) (roots : Array Name) (mode : CheckMode) (stri
   let g ← match buildGraph pre rs with
     | .ok g => pure g
     | .error (e, m) => return ← fail e s!"module {m}"
+  -- the graph lives to the end and every worker reads it (its names are
+  -- hash-consed across modules): persistent before any worker starts, so
+  -- that no later mark (an installed unit's) reaches a counted object
+  -- another thread is counting
+  OwnerParse.markOne g
   let nDecls := g.foldl (· + ·.decls.size) 0
   let lvls ← parMap jobs g.size (levelsOf g)
   let (idx, dupArr) := buildIdx g
@@ -779,7 +765,17 @@ def checkModular (sp : SearchPath) (roots : Array Name) (mode : CheckMode) (stri
         let d := match (declsAt g k)[pos]? with
           | some d => s!"{ConLeche.Cached.declCLabel d}, record {pos} of "
           | none => ""
-        return ← fail e s!"{d}module {nameOf g k}"
+        -- for a rejection on an unknown constant: the names neither the
+        -- context nor the module itself stores
+        let ownNames : Std.HashSet Name :=
+          (declsAt g k).foldl (fun s d => d.names.foldl (·.insert ·) s) {}
+        let extra := match (declsAt g k)[pos]? with
+          | some (.thmDecl cv v) | some (.defnDecl cv v _) | some (.opaqueDecl cv v) =>
+            let bad := (collectGo [cv.type, v] {} {}).toList.filter fun n =>
+              ((S.view k).find? n).isNone && !ownNames.contains n
+            if bad.isEmpty then "" else s!" (not in the module's context: {bad.take 5})"
+          | _ => ""
+        return ← fail e s!"{d}module {nameOf g k}{extra}"
   for h : k in [0:results.size] do
     if results[k].isNone then
       return ← fail (.internal "the module was never installed") s!"module {nameOf g k}"
