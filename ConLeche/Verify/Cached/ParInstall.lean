@@ -166,14 +166,14 @@ own, the base visible below `v`.  A worker installs record `r` at
 `workerView B S vis_r`, where `vis_r` is the counter the prediction
 gives it. -/
 def workerView (B : BaseIdx) (S : Slots) (v : Nat) : FEnv :=
-  ⟨⟨[], []⟩, {}, v, ⟨B, S, v⟩, [], {}⟩
+  ⟨⟨[], []⟩, {}, v, ⟨B, S, v, none⟩, [], {}⟩
 
 theorem workerView_find? (B : BaseIdx) (S : Slots) (v : Nat) (n : Name) :
-    (workerView B S v).find? n = FBase.find? ⟨B, S, v⟩ n := by
+    (workerView B S v).find? n = FBase.find? ⟨B, S, v, none⟩ n := by
   simp [workerView, FEnv.find?]
 
 theorem workerView_rawTable? (B : BaseIdx) (S : Slots) (v : Nat) (T : Name) :
-    (workerView B S v).rawTable? T = FBase.findTable? ⟨B, S, v⟩ T := by
+    (workerView B S v).rawTable? T = FBase.findTable? ⟨B, S, v, none⟩ T := by
   simp [workerView, FEnv.rawTable?]
 
 /-- No two names share a counter in the base: what the builder
@@ -271,7 +271,7 @@ theorem slotOk_spec {B : BaseIdx} {S : Slots} {Q : List ProjTable} {v : Nat}
   · exact absurd h Bool.false_ne_true
 
 theorem FBase.find?_eq (B : BaseIdx) (S : Slots) (v : Nat) (n : Name) :
-    FBase.find? ⟨B, S, v⟩ n =
+    FBase.find? ⟨B, S, v, none⟩ n =
       match baseGet? B n with
       | some (c, k, j) => if c < v then slotGet S k j else none
       | none => none := by
@@ -281,7 +281,7 @@ theorem FBase.find?_eq (B : BaseIdx) (S : Slots) (v : Nat) (n : Name) :
   | some p => obtain ⟨c, k, j⟩ := p; rfl
 
 theorem FBase.findTable?_eq (B : BaseIdx) (S : Slots) (v : Nat) (T : Name) :
-    FBase.findTable? ⟨B, S, v⟩ T =
+    FBase.findTable? ⟨B, S, v, none⟩ T =
       match baseGet? B T with
       | some (c, k, _) =>
         if c < v then (slotTables S k).bind (ProjTable.lastOf? T) else none

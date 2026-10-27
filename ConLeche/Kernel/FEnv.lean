@@ -23,6 +23,84 @@ agreement (`ConLeche/Verify/EnvBound.lean`) is stated about it.  The
 namespace ConLeche
 /-! ## The frozen base layer -/
 
+/-- The shard a name's base entry lives in, among `m` shards: the high
+half of its hash, modulo `m` (the low bits choose the bucket inside a
+shard's map). -/
+@[inline] def baseShard (n : Name) (m : Nat) : Nat := (n.hashData >>> 32).toNat % m
+
+/-- **One module's installed constants, published** (task #370): the
+constants its install pushed, in push order (`priv`), each one's
+exported variant (`pub`: the same constant, its value hidden, or `none`
+when the module's exported part does not store it), and its projection
+tables by structure name. -/
+structure ModSlot where
+  priv : Array ConstantInfo := #[]
+  pub : Array (Option ConstantInfo) := #[]
+  tbls : Std.HashMap Name ProjTable := {}
+
+/-- **The module store, as one module sees it** (task #370): the store's
+name index — every name with the modules storing it and its position
+among each one's installed constants, sharded by name hash
+(`baseShard`) — the modules' published slots, and the VIEWING module's
+level of every module: `0` not loaded, `1` its exported part, `2` its
+private part.  A lookup answers the first alternate the viewer loads at
+a level that stores it; the name index and the slots are shared by
+every view, the level array is the view's own. -/
+structure MBase where
+  idx : Array (Std.HashMap Name (List (Nat × Nat))) := #[]
+  slots : Array (Thunk ModSlot) := #[]
+  lvl : ByteArray := ByteArray.empty
+
+/-- The constant module `h` stores at position `j`, at the viewer's level
+of `h`. -/
+@[inline] def MBase.at? (b : @& MBase) (h j : Nat) : Option ConstantInfo :=
+  if hl : h < b.lvl.size then
+    let l := b.lvl[h]'hl
+    if l == 2 then
+      if hh : h < b.slots.size then (b.slots[h]).get.priv[j]? else none
+    else if l == 1 then
+      if hh : h < b.slots.size then ((b.slots[h]).get.pub[j]?).join else none
+    else none
+  else none
+
+/-- The first visible alternate of a name: its home module, its position
+there and its constant.  A constant answers for `n` only if it is named
+`n`. -/
+def MBase.pickIn (b : @& MBase) (n : Name) :
+    List (Nat × Nat) → Option (Nat × Nat × ConstantInfo)
+  | [] => none
+  | (h, j) :: rest =>
+    match b.at? h j with
+    | some ci => if ci.name == n then some (h, j, ci) else b.pickIn n rest
+    | none => b.pickIn n rest
+
+/-- The alternates of a name in the store's index. -/
+@[inline] def MBase.alts (b : @& MBase) (n : Name) : List (Nat × Nat) :=
+  match b.idx[baseShard n b.idx.size]? with
+  | some m => m.getD n []
+  | none => []
+
+/-- **The view's lookup**: the first alternate the viewer sees. -/
+def MBase.pick? (b : @& MBase) (n : Name) : Option (Nat × Nat × ConstantInfo) :=
+  b.pickIn n (b.alts n)
+
+def MBase.find? (b : @& MBase) (n : Name) : Option ConstantInfo :=
+  match b.pick? n with
+  | some (_, _, ci) => some ci
+  | none => none
+
+/-- The view's table lookup: the table of `T` its visible alternate's
+module installed. -/
+def MBase.findTable? (b : @& MBase) (T : Name) : Option ProjTable :=
+  match b.pick? T with
+  | some (h, _, _) =>
+    if hh : h < b.slots.size then
+      match (b.slots[h]).get.tbls[T]? with
+      | some t => if t.structName == T then some t else none
+      | none => none
+    else none
+  | none => none
+
 /-- **A frozen lookup layer of deferred slots** (task #329): the name
 index of a parallel install's predicted slots, built once before the
 workers start and never written again.  An entry `n ↦ (c, k, j)` says
@@ -45,11 +123,10 @@ structure FBase where
   idx : Array (Std.HashMap Name (Nat × Nat × Nat)) := #[]
   slots : Array (Thunk (Array ConstantInfo × List ProjTable)) := #[]
   below : Nat := 0
+  /-- The module store a modular run's views read (`MBase`, task #370):
+  when present, it answers instead of the three fields above. -/
+  mb : Option MBase := none
 
-/-- The shard a name's base entry lives in, among `m` shards: the high
-half of its hash, modulo `m` (the low bits choose the bucket inside a
-shard's map). -/
-@[inline] def baseShard (n : Name) (m : Nat) : Nat := (n.hashData >>> 32).toNat % m
 
 /-- **The sharded base index's lookup**: the entry for `n` in its
 shard.  The base is built one shard per task (task #329, COMMIT); no
@@ -65,6 +142,9 @@ def baseGet? (idx : Array (Std.HashMap Name (Nat × Nat × Nat))) (n : Name) :
 /-- The base layer's lookup: a visible entry's constant, from its
 record's slot. -/
 def FBase.find? (b : FBase) (n : Name) : Option ConstantInfo :=
+  match b.mb with
+  | some m => m.find? n
+  | none =>
   match baseGet? b.idx n with
   | some (c, k, j) =>
     if c < b.below then
@@ -86,6 +166,9 @@ def ProjTable.lastOf? (T : Name) : List ProjTable → Option ProjTable
 the tables of the record that installs `T` — a table is installed by
 its structure's record — visible where `T` is. -/
 def FBase.findTable? (b : FBase) (T : Name) : Option ProjTable :=
+  match b.mb with
+  | some m => m.findTable? T
+  | none =>
   match baseGet? b.idx T with
   | some (c, k, _) =>
     if c < b.below then
