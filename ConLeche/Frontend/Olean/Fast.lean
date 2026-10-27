@@ -181,13 +181,15 @@ kind `k`; `nil` says the kind's nullary constructor is the scalar `0`
     | _, _ => none
   else none
 
+/-- Slot `p`'s fields, if it is marked as kind `k`. -/
+@[inline] def markKind (r : @& Region) (k : UInt8) (mark : Region → Nat → DS → Option DS)
+    (p : Nat) (st : DS) : Option DS :=
+  if st.marked k p then mark r (8 * p) st else some st
+
 /-- One slot of the downward sweep: its marked kinds' fields. -/
-@[inline] def markSlot (r : @& Region) (p : Nat) (st : DS) : Option DS := do
-  let g := 8 * p
-  let st ← if st.marked kName p then markName r g st else some st
-  let st ← if st.marked kLevel p then markLevel r g st else some st
-  let st ← if st.marked kLevels p then markLevels r g st else some st
-  if st.marked kExpr p then markExpr r g st else some st
+@[inline] def markSlot (r : @& Region) (p : Nat) (st : DS) : Option DS :=
+  (((markKind r kName markName p st).bind (markKind r kLevel markLevel p)).bind
+    (markKind r kLevels markLevels p)).bind (markKind r kExpr markExpr p)
 
 /-- **The downward sweep** over the slots below `p`. -/
 def markPass (r : @& Region) (st : DS) : Nat → Option DS
@@ -214,29 +216,22 @@ def markPass (r : @& Region) (st : DS) : Nat → Option DS
   exprNode r g (fun c _ => some (st.exprV c)) (fun c _ => some (st.nameV c))
     (fun c _ => some (st.levelV c)) (fun c _ => some (st.levelsV c))
 
-/-- One slot of the upward sweep: its marked kinds' values. -/
-@[inline] def buildSlot (r : @& Region) (p : Nat) (st : DS) : Option DS := do
-  let g := 8 * p
-  let st ← if st.marked kName p then
-      match buildName r g st with
-      | some v => some (st.setName p v)
-      | none => none
-    else some st
-  let st ← if st.marked kLevel p then
-      match buildLevel r g st with
-      | some v => some (st.setLevel p v)
-      | none => none
-    else some st
-  let st ← if st.marked kLevels p then
-      match buildLevels r g st with
-      | some v => some (st.setLevels p v)
-      | none => none
-    else some st
-  if st.marked kExpr p then
-    match buildExpr r g st with
-    | some v => some (st.setExpr p v)
+/-- Slot `p`'s value as kind `k`, if it is marked so. -/
+@[inline] def buildKind {α : Type} (r : @& Region) (k : UInt8)
+    (build : Region → Nat → DS → Option α) (set : DS → Nat → α → DS) (p : Nat) (st : DS) :
+    Option DS :=
+  if st.marked k p then
+    match build r (8 * p) st with
+    | some v => some (set st p v)
     | none => none
   else some st
+
+/-- One slot of the upward sweep: its marked kinds' values. -/
+@[inline] def buildSlot (r : @& Region) (p : Nat) (st : DS) : Option DS :=
+  (((buildKind r kName buildName DS.setName p st).bind
+    (buildKind r kLevel buildLevel DS.setLevel p)).bind
+    (buildKind r kLevels buildLevels DS.setLevels p)).bind
+    (buildKind r kExpr buildExpr DS.setExpr p)
 
 /-- **The upward sweep** over the slots from `p` to `n`. -/
 def buildPass (r : @& Region) (n : Nat) (st : DS) (p : Nat) : Option DS :=
