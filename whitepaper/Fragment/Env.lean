@@ -11,11 +11,11 @@ What the checker has accepted so far: a list of named constants, each
 with its level parameters and its type, and with what kind of thing it
 is — a definition (with a value, unfolded by the δ step), an inductive
 type former, a constructor, a recursor (with its rules, fired by
-the ι step), or an assumption (a type and no value: another module's
-definition as an importing module sees it, `Modular.lean`).  The
-checker never stores an assumption of its own accord: there are no
-axioms, no `theorem`/`opaque` distinction and no quotients in the
-fragment.
+the ι step), or an assumption (a type and no value: a theorem's
+statement, `ThmOk`, or a definition whose value is left out,
+`Modular.lean`).  There are no axioms, no opaques and no quotients
+in the fragment; a theorem is stored as its statement and never
+unfolds.
 
 The env-free part of the proof (`Sound.lean`) treats the environment
 **abstractly**: it reads only the syntactic facts below and the
@@ -80,8 +80,8 @@ inductive ConstKind where
   parameters, `numMotives` motives, `numMinors` minor premises,
   `numIndices` indices, then the major premise — and its rules. -/
   | recursor (numParams numMotives numMinors numIndices : Nat) (rules : List RecRule)
-  /-- **An assumption**: a constant known by its type alone — how a
-  module sees another module's definition whose value is not exported
+  /-- **An assumption**: a constant known by its type alone — a
+  theorem's statement, or a definition whose value is left out
   (`Modular.lean`).  It never unfolds. -/
   | assumed
   deriving DecidableEq

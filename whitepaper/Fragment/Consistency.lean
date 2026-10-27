@@ -36,8 +36,8 @@ variable (V : Type u) [IndLib V] [LevelOracle]
 
 /-- **The environments the checker accepts**: the empty environment,
 a definition the definition check passes, an inductive block the
-block check passes, a theorem the theorem check passes (con-leche's `addDecl`, `ConLeche/Kernel/Env.lean`,
-run to completion). -/
+block check passes, a theorem the theorem check passes (con-leche's
+`addDecl`, `ConLeche/Kernel/Env.lean`, run to completion). -/
 inductive Accepted : Env → Prop
   /-- Nothing is stored. -/
   | empty : Accepted Env.empty

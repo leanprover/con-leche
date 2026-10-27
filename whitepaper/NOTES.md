@@ -631,3 +631,21 @@ rules tier (`ConLeche/Rules/Rel.lean`) and the existing fold theorem,
 instead of a gluing argument over models that interpret the assumed
 constants.
 
+**2026-10-27 (task #370, local checks).** The module-by-module
+statement needs no global name table and no gluing of models: the
+local checks at a module (its declarations accepted against its base;
+its base refining its direct imports' own environments; its
+declarations and its imports' summaries compatible; its summary their
+join) give, by induction along the import graph and `Checks.joined`,
+that every module's own environment refines an accepted environment
+(`local_checks`). Theorems stored as their statements make duplicate
+theorems compatible without any special rule. For con-leche this
+suggests: type-check every module against its base in parallel (no
+dependency between those checks), and run the cheap summary pass along
+the import graph separately; the summary can be a persistent map from
+name to (stored entry, or its hash) shared along the edges. The one
+point the implementation must re-establish is monotonicity of its
+inductive admission checks through `whnf` (positivity, universe
+conditions): no check may pass on a term stuck on a hidden value that
+would fail on its unfolding.
+

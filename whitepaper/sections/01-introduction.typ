@@ -101,8 +101,8 @@ no number or string literals, no mutual inductive types, nesting only
 one container deep and not under a binder (@sec:nested describes the
 full check, without proof), no quotients, no axioms, no built-in
 copies of `False`, `Eq`, `Nat` and their kin (the real checker pins
-these rather than reading them from the stream), no distinction
-between a theorem and a definition, and none of the checker's
+these rather than reading them from the stream), no opaques, and
+none of the checker's
 performance devices (memo tables, fuel, the parallel check phase).
 @sec:left-out lists every omission with one sentence on what the real
 proof does about it. The fragment is verified in Lean in a small
@@ -132,9 +132,10 @@ mention the type being defined inside another one, as in
 the model extends to them. §6 shows that two features of Lean's
 definitional equality that the fragment drops, η for structures and
 unit-likeness, follow from the extensionality of the model, with one
-proof case each. §7 checks a development module by module, each
-module against what its imports export, and shows that the union of
-the modules is an environment §4 proves consistent. §8 lists what
+proof case each. §7 checks a development module by module, with
+checks that compare each module only with its direct imports, and
+shows that every module's environment is part of one §4 proves
+consistent. §8 lists what
 was left out, and how the real proof
 differs from the fragment where they share a feature. @sec:related
 relates the argument to earlier work.

@@ -107361,3 +107361,92 @@ Gates: `whitepaper/fragment-gate.sh` OK (warning-free, axioms pinned),
 `whitepaper/links-gate.sh` OK (482 links; the shifted `Env.lean`
 citations repointed, snapshot updated), `whitepaper/build.sh` OK (PDF and
 HTML, synced to `_out/whitepaper/`).
+
+### #370 follow-up: names stored by several modules, and the local checks (2026-10-27, agent/370-dup)
+
+Maintainer requests: model the same name in several modules, with an
+algorithm whose checks are local (no global name table); the theory
+abstract (refinement, joins, compatibility), Lean's module system only
+mapped onto it.  §7 of the whitepaper is rewritten accordingly; the
+fragment (`whitepaper/Fragment/Modular.lean`, `InstallThm.lean`, ~1300
+lines, standard axioms only) backs it.
+
+**Abstract notions.**  *Assumption*: a constant with a type and no
+value.  *Theorem*: checked as a definition with its statement a
+proposition (`ThmOk`), stored as its statement — an assumption — so two
+proofs of one statement store the same entry (`Accepted.thm`,
+`install_thm` = install the proof as a definition, then hide the value;
+`BlockModel.hide`: hiding values keeps a model at the same assignment).
+*Refinement* `E₁ ≼ E₂` (`Env.Le`): constants left out or turned into
+assumptions of the same level parameters and type; pointwise.
+*Compatibility* of declaration lists (`Compatible`): two declarations
+storing a common name store the same entries.  *Join* (`join`): the
+first list, then the second's declarations that store no name the first
+stores.
+
+**Monotonicity** (`Red/DefEq/DefEqLams/DefEqIn/Infer.mono`, `DefOk`,
+`ThmOk`, `IndOk.mono`, `Decl.Ok.mono`, `Checks.mono`): against a
+refinement nothing more is accepted; no hypothesis on the smaller
+environment.  The only check reading an absence is freshness (a
+hypothesis).  Positivity and the universe conditions are syntactic in
+the fragment and monotone; **an implementation reading them through
+whnf must keep them monotone: no admission check may pass on a term
+stuck on a hidden value that its unfolding would fail.**
+
+**The algorithm (per module M; reads M and its direct imports only).**
+Data per module: its declarations `decls_M` (private level, theorems as
+statements), its base `B_M` (the environment its declarations are
+checked against), its own environment `own_M = B_M + decls_M`, and its
+summary `S_M` (a declaration list).
+1. *Type check*: `decls_M` checked in order against `B_M` (`Checks`).
+   Reads nothing of other modules' results — all modules in parallel.
+2. *Base refinement*: every constant of `B_M` refines a constant of
+   `own_B` for some direct import `B` (same entry, or `B_M`'s is an
+   assumption with the same level parameters and type).  Lean's base
+   satisfies it when each module's exported view refines its own
+   environment — checked once per module at the producer; the consumer
+   then only identifies each base constant with its source.
+3. *Compatibility*: `decls_M` and the summaries `S_B` of the direct
+   imports, pairwise compatible (names stored in two of them: identical
+   entries).
+4. *Summary*: `S_M = join(join(… join([], S_B₁) …, S_Bₖ), decls_M)`.
+   Checks 2–4 follow the import graph but type-check nothing; the
+   summary can be a persistent name → (entry or entry hash) map shared
+   along the edges.
+
+**Theorem** (`local_checks`, `local_accepted`, `local_model`,
+`local_no_empty_prop_inhabitant`): if every module passes 1–4, every
+module's summary is a checked list from the empty environment, its world
+`applyAll S_M ∅` is accepted declaration by declaration and has a
+model, `own_M ≼ world_M`, and no closed term of `own_M` inhabits an
+empty proposition.  Per module by necessity: modules never in one
+summary may store a name differently, and nothing compares them.
+Proof: induction along the import graph; `Checks.joined` (a list
+checked against an environment refining a compatible checked list joins
+onto it) and `Checks.le_of_stores`.
+
+**Lean, and how the checks compare.**  Lean's `finalizeImport`
+(Lean/Environment.lean ~2309) merges, for the module being elaborated,
+the constants of the modules it LOADS: each direct import at its
+exported level (private under `import all`), plus the modules reached
+through `public import` (and, under `import all B`, all of B's
+imports), each at one level (the max over paths); duplicates pass
+`subsumesInfo` (thm/thm with equal type, level params and `all`; a
+theorem over its exported axiom; axiom/axiom only of a proposition) or
+the import fails.  Private names are `_private.<Module>.0.…`, so they
+never collide across modules.  Mapping: exported view ≼ own
+environment; Lean's elaboration environment = the base; theorem =
+assumption-entry; `subsumesInfo` = compatibility (thm/thm) plus
+refinement (theorem over its exported view).  Stricter than Lean:
+compatibility covers whole summaries, including internals behind
+non-re-exported imports that Lean never loads (a hidden clash is
+rejected as soon as one module rests on both sides), and two
+definitions of one proposition with different values (Lean's
+axiom/axiom case on exported views).  Looser: identical non-theorem
+declarations in two modules are compatible (Lean refuses them when it
+loads both) — harmless, identical entries.  Not covered: accepting
+hidden clashes (would need renaming the hidden names).  To measure in
+the implementation lane: how often compatibility rejects real
+developments (Mathlib) that Lean accepts.
+
+Gates: fragment gate OK, links gate OK (491 links), whitepaper build OK.

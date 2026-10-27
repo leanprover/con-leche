@@ -49,9 +49,9 @@ namespace Fragment
 
 /-! ## Refinement -/
 
-/-- **An interface of an environment**: each of its constants is
-stored there, as it is, or — where the interface has an assumption —
-with the same level parameters and type and some kind. -/
+/-- **Refinement**: `E₁` is `E₂` with constants left out or turned
+into assumptions — each constant of `E₁` is stored in `E₂` as it is,
+or, where `E₁` has an assumption, with its level parameters and type. -/
 def Env.Le (E₁ E₂ : Env) : Prop :=
   ∀ n ci, E₁.find? n = some ci →
     E₂.find? n = some ci ∨ (ci.kind = .assumed ∧ ∃ k, E₂.find? n = some { ci with kind := k })
