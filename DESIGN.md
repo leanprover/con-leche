@@ -107450,3 +107450,34 @@ the implementation lane: how often compatibility rejects real
 developments (Mathlib) that Lean accepts.
 
 Gates: fragment gate OK, links gate OK (491 links), whitepaper build OK.
+
+## TASK #369 (cont.) — the olean reader on Mathlib (2026-10-27, agent/369-mathlib)
+
+**Run.** Mathlib tag `v4.35.0` (commit `56a005855ea1`, "chore: bump
+toolchain to v4.35.0 (#44806)"), oleans from `lake exe cache get`, every
+header's githash `eb6cafb7290e`.  Search path: the toolchain's
+`lib/lean`, Mathlib's and each of the eight packages' `.lake/build/lib/lean`;
+10 976 modules in the closure.  lean4export v4.35.0 of `Mathlib`: 6.26 GB,
+110.9 M lines.  `--jobs=32 --progress`, one run each, verified mode:
+
+| input | verdict | instructions:u | parse-only instructions:u | phases (parse / install / check) | peak RSS |
+|---|---|---|---|---|---|
+| `--olean` | accepted 712 205 | 7 979.7 G | 984.8 G (32 workers), 962.8 G (1) | 24.8 / 11.3 / 55.2 s | 6.30 GiB |
+| ndjson | accepted 712 205 | 7 231.5 G | 244.6 G (serial stream parse) | 6.1 / 5.4 / 42.2 s | 5.48 GiB |
+
+Parse-only is `olean-compare --time` / `--time-stream`.  Total minus
+parse: 6 995 G against 6 987 G, so install and check do the same work;
+the whole difference is the parse (4× the stream parse, as on `Init`'s
+3.4×).  The olean run's install marks its records persistent in 4.4 s
+(ndjson 7 ms): the per-module expression DAGs are not shared across
+modules, so there are more objects to mark.
+
+**`olean-compare` on Mathlib: 712 205 records each side, 0 differences**
+(1 391 G instructions, 8.9 GiB peak).  The first attempt did not finish:
+`Declaration`'s derived `DecidableEq` compares `Expr`s by the derived tree
+walk, exponential in the sharing of Mathlib's proof terms (more than 20
+minutes in `instDecidableEqExpr`).  The tool now compares records field
+by field with `Expr.beq` (pointer-equality first, memoized on pointer
+pairs), `declEq` in `OleanCompare.lean`; `#guard`s there pin it on
+2^200-node DAGs that are equal without being pointer-equal and on a
+difference behind such a DAG, at build time of the tool.
