@@ -1,6 +1,7 @@
 module
 
 public import ConLeche.Model.Inductives.ContN2
+import ConLeche.Verify.Rules.RedVal
 import ConLeche.Model.Inductives.ContFrame
 import ConLeche.Model.Rules.IotaSoundKit
 import ConLeche.Model.Rules.Sound
@@ -202,49 +203,6 @@ the head type's domain, and a stored former's type is a literal
 full-grade certificate of the arguments against that telescope
 (`certsF_of_infer_spine`), whose soundness is the fit (`certsF_sound`). -/
 
-/-- A Π-type or a sort: a value no reduction step moves. -/
-@[expose] def RedVal : Expr → Prop
-  | .forallE .. => True
-  | .sort _ => True
-  | _ => False
-
-/-- **A Π-type or a sort reduces only to itself.** -/
-theorem Red.eq_of_redVal {env : Env} {d : Nat} :
-    ∀ {e e' : Expr}, ConLeche.Rules.Red env d e e' → RedVal e → e' = e
-  | _, _, .refl, _ => rfl
-  | _, _, .trans h₁ h₂, hv =>
-    have h1 := Red.eq_of_redVal h₁ hv
-    have h2 := Red.eq_of_redVal h₂ (h1 ▸ hv)
-    h2.trans h1
-  | e, _, .delta hu, hv => by
-    cases e <;> simp [RedVal] at hv <;> simp [ConLeche.unfoldDefinition, Expr.getAppFn] at hu
-  | e, _, .iota hfn .., hv => by
-    cases e <;> simp [RedVal] at hv <;> simp [Expr.getAppFn] at hfn
-  | e, _, .rescueK _ _ _ _ _ hinf hred hfn .., hv =>
-    have key := fun h => Red.eq_of_redVal hred h
-    by
-    cases e <;> simp [RedVal] at hv <;> cases hinf <;>
-      (rw [key (by simp [RedVal])] at hfn; simp [Expr.getAppFn] at hfn)
-  | e, _, .rescueEta _ _ _ _ _ hinf hred hfn .., hv =>
-    have key := fun h => Red.eq_of_redVal hred h
-    by
-    cases e <;> simp [RedVal] at hv <;> cases hinf <;>
-      (rw [key (by simp [RedVal])] at hfn; simp [Expr.getAppFn] at hfn)
-  | e, _, .rescueAnd _ _ _ _ hinf hred hfn .., hv =>
-    have key := fun h => Red.eq_of_redVal hred h
-    by
-    cases e <;> simp [RedVal] at hv <;> cases hinf <;>
-      (rw [key (by simp [RedVal])] at hfn; simp [Expr.getAppFn] at hfn)
-  | _, _, .appFn _, hv => hv.elim
-  | _, _, .projArg _, hv => hv.elim
-  | _, _, .beta, hv => hv.elim
-  | _, _, .zeta, hv => hv.elim
-  | _, _, .natLit _, hv => hv.elim
-  | _, _, .strLit _, hv => hv.elim
-  | _, _, .natSucc .., hv => hv.elim
-  | _, _, .natOp .., hv => hv.elim
-  | _, _, .proj .., hv => hv.elim
-
 /-- Peeling an application spine down to its head: the head is inferred. -/
 theorem infer_mkAppN_head {env : Env} {g : ConLeche.Rules.Grade} {d : Nat} :
     ∀ (as : List Expr) {f T : Expr}, ConLeche.Rules.Infer env g d (Expr.mkAppN f as) T →
@@ -254,6 +212,7 @@ theorem infer_mkAppN_head {env : Env} {g : ConLeche.Rules.Grade} {d : Nat} :
     obtain ⟨_, h1⟩ := infer_mkAppN_head as (f := .app f a) h
     cases h1 with
     | app hf _ _ _ => exact ⟨_, hf⟩
+    | bvUnsat hf _ _ _ _ _ _ _ => exact ⟨_, hf⟩
 
 /-- **An inferred spine over a literal Π-telescope is a full-grade
 certificate**: the head's type is determined (`hf`), a Π reduces only to
@@ -261,12 +220,20 @@ itself (`Red.eq_of_redVal`), so each argument was inferred and compared
 with the telescope's own domain. -/
 theorem certsF_of_infer_spine {env : Env} {d : Nat} :
     ∀ (ds : List Expr) {f T0 r : Expr},
+      -- Task #368: the head is a stored inductive
+      -- former, so no application in the spine is `Infer.bvUnsat`'s
+      (∀ c us', f.getAppFn = .const c us' → ∃ cv caps, env.find? c = some (.indInfo cv caps)) →
       (∀ T', ConLeche.Rules.Infer env .full d f T' → T' = T0) →
       ConLeche.instPisWith ds T0 = some r →
       (∃ T, ConLeche.Rules.Infer env .full d (Expr.mkAppN f ds) T) →
       ConLeche.Rules.CertsF env d T0 ds
-  | [], _, _, _, _, _, _ => .nil
-  | a :: as, f, T0, r, hf, hpi, ⟨T, hT⟩ => by
+  | [], _, _, _, _, _, _, _ => .nil
+  | a :: as, f, T0, r, hhd, hf, hpi, ⟨T, hT⟩ => by
+    have hU : ∀ {E C : Expr}, f = .app (.app (.const unsatThmName []) E) C → ∀ {a' : Expr},
+        bvUnsatHit env.find? env.findProj? (.app (.app (.const unsatThmName []) E) C) a' = true → False := by
+      intro E C hfe a' hhit
+      obtain ⟨cv, caps, hfi⟩ := hhd unsatThmName [] (by rw [hfe]; rfl)
+      exact bvUnsatHit_U_notInd hhit cv caps hfi
     match T0, hpi with
     | .forallE A B, hpi =>
       have hpi' : ConLeche.instPisWith as (B.instantiate1 a) = some r := hpi
@@ -274,16 +241,19 @@ theorem certsF_of_infer_spine {env : Env} {d : Nat} :
       cases h1 with
       | app htf hred hta hdef =>
         obtain rfl := hf _ htf
-        have heq := Red.eq_of_redVal hred trivial
+        have heq := ConLeche.Rules.Red.eq_of_redVal hred trivial
         cases heq
-        refine .cert (hta rfl) (hdef rfl) (certsF_of_infer_spine as (f := .app f a) ?_ hpi' ⟨T, hT⟩)
+        refine .cert (hta rfl) (hdef rfl)
+          (certsF_of_infer_spine as (f := .app f a) (fun c us' h => hhd c us' h) ?_ hpi' ⟨T, hT⟩)
         intro T' hT'
         cases hT' with
         | app htf' hred' _ _ =>
           obtain rfl := hf _ htf'
-          have heq' := Red.eq_of_redVal hred' trivial
+          have heq' := ConLeche.Rules.Red.eq_of_redVal hred' trivial
           cases heq'
           rfl
+        | bvUnsat _ _ hskip _ _ _ _ _ => exact (hU rfl (bvUnsatSkip_hit hskip)).elim
+      | bvUnsat _ _ hskip _ _ _ _ _ => exact (hU rfl (bvUnsatSkip_hit hskip)).elim
 
 /-- **The key's parameters fit the container's parameter telescope**, at
 every valuation of the key's context: the key `C.{us} ds` was inferred
@@ -319,7 +289,8 @@ theorem keyParamsFit {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env)
       rw [hf] at hf'
       cases hf'
       rfl
-  have hcerts := certsF_of_infer_spine ds hhead hpi ⟨ty, hI⟩
+  have hcerts := certsF_of_infer_spine ds
+    (fun c us' h => by cases h; exact ⟨cv, caps, hf⟩) hhead hpi ⟨ty, hI⟩
   have hsem := Rules.certsF_sound hin hcerts
   -- the former's stored type, read
   obtain ⟨Ta, hTaD, hokTa, -, hnf, hbd⟩ := Rules.constTy_pkg hin.const_ty hf hul

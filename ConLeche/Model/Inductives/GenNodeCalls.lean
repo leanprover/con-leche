@@ -37,6 +37,7 @@ public import ConLeche.Model.Inductives.GenCallData
 import ConLeche.Model.Inductives.GenOutFacts
 public import ConLeche.Model.Inductives.TargetNodeDynOf
 import ConLeche.Verify.Inductives.ClassMatchRun
+import ConLeche.Verify.Denote.IndFrame
 
 public section
 

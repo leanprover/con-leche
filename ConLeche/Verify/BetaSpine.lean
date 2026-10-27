@@ -1125,12 +1125,54 @@ def inferStep (r : CoreFns m) (depth : Nat) (tf a : Expr) : m Expr := do
     pure (body.instantiate1 a)
   | _ => throw (.invalid "function expected")
 
+/-- `inferStep` with the bv_decide skip (task #368):
+`inferBody`'s own continuation. -/
+def inferStepS (r : CoreFns m) (env : Env) (depth : Nat) (f tf a : Expr) : m Expr := do
+  match ← r.whnf depth tf with
+  | .forallE ty body => do
+    if bvUnsatSkip env.find? env.findProj? f a body then pure (body.instantiate1 a) else
+    let ta ← r.infer depth a
+    unless ← defeqArg r depth a ta ty do
+      throw (.invalid "application type mismatch")
+    pure (body.instantiate1 a)
+  | _ => throw (.invalid "function expected")
+
 /-- `inferBody`'s app case at the pure knot is one inference followed
-by `inferStep` (stated at `CheckM`, where the do-notation reduces). -/
+by `inferStepS` (stated at `CheckM`, where the do-notation reduces). -/
 theorem inferBody_app_pure (env : Env) (F depth : Nat) (f a : Expr) :
     inferBody (pureFns mode env F) env depth (.app f a)
       = (pureFns mode env F).infer depth f >>= fun tf =>
-          inferStep (pureFns mode env F) depth tf a := by rfl
+          inferStepS (pureFns mode env F) env depth f tf a := by rfl
+
+/-- A checked step's answer is the skipping step's: the skip returns the
+same type without the argument check. -/
+theorem inferStepS_of_inferStep {env : Env} {F d : Nat} {f tf a v : Expr}
+    (h : inferStep (pureFns mode env F) d tf a = .ok v) :
+    inferStepS (pureFns mode env F) env d f tf a = .ok v := by
+  unfold inferStep at h
+  unfold inferStepS
+  cases hw : (pureFns mode env F).whnf d tf with
+  | error e => rw [hw] at h; exact nomatch h
+  | ok w =>
+    rw [hw] at h
+    simp only [bind, Except.bind] at h ⊢
+    cases w with
+    | forallE ty body =>
+      dsimp only at h ⊢
+      by_cases hsk : bvUnsatSkip env.find? env.findProj? f a body = true
+      · rw [ite_eq_left hsk]
+        cases hta : (pureFns mode env F).infer d a with
+        | error e => rw [hta] at h; exact nomatch h
+        | ok ta =>
+          rw [hta] at h
+          dsimp only at h
+          cases hb : defeqArg (pureFns mode env F) d a ta ty with
+          | error e => rw [hb] at h; exact nomatch h
+          | ok b =>
+            rw [hb] at h
+            cases b <;> simp_all [throw, throwThe, MonadExceptOf.throw, pure, Except.pure]
+      · rw [ite_eq_right hsk]; exact h
+    | _ => exact h
 
 /-- Pure mirror of the cached inference spine loop `inferSpineI`:
 `ty` is the raw Π-telescope after the binders consumed so far, `acc`
@@ -1448,7 +1490,7 @@ private theorem inferSpine_sound_rev {d : Nat} :
     rw [List.reverse_cons, Expr.mkAppN_append_one, inferTypeCore_succ,
       inferBody_app_pure, infer_def,
       inferTypeCore_mono (Nat.le_max_left F₂ F₁) hP, ok_bind]
-    exact inferStep_mono (Nat.le_max_right F₂ F₁) hstep
+    exact inferStepS_of_inferStep (inferStep_mono (Nat.le_max_right F₂ F₁) hstep)
 
 /-- A successful inference-spine run over the head's inferred type is
 reproduced by the chained inference on the whole application, at some
@@ -1484,6 +1526,30 @@ theorem inferSpine_sound_body (d : Nat) (fx ax : Expr) (vres : Expr)
     refine ⟨G, ?_⟩
     rw [inferBody_atF, ← inferTypeCore_succ]
     exact hP
+
+/-- **The skipped `U E C a` spine** (task #368):
+the cached walk's bv branch — `U E C`'s type by the spine, its
+whnf, the skip, the rest of the spine — is the chained inference. -/
+theorem inferBody_bvUnsat_sound (d : Nat) {E C a tf t1 ty body v : Expr} {rest : List Expr}
+    {F1 F2 F3 F4 : Nat}
+    (h1 : inferTypeCore mode env F1 d (.const unsatThmName []) = .ok tf)
+    (h2 : inferSpine (pureFns mode env F2) d tf [] [E, C] = .ok t1)
+    (h3 : whnf mode env F3 d t1 = .ok (.forallE ty body))
+    (hsk : bvUnsatSkip env.find? env.findProj? (.app (.app (.const unsatThmName []) E) C) a body = true)
+    (h4 : inferSpine (pureFns mode env F4) d (body.instantiate1 a) [] rest = .ok v) :
+    ∃ F', inferTypeCore mode env F' d
+      (Expr.mkAppN (.const unsatThmName []) (E :: C :: a :: rest)) = .ok v := by
+  obtain ⟨Fa, ha⟩ := inferSpine_sound [E, C] _ tf t1 F1 F2 h1 h2
+  change inferTypeCore mode env Fa d (.app (.app (.const unsatThmName []) E) C) = .ok t1 at ha
+  have hg : inferTypeCore mode env (max Fa F3 + 1) d
+      (.app (.app (.app (.const unsatThmName []) E) C) a) = .ok (body.instantiate1 a) := by
+    rw [inferTypeCore_succ, inferBody_app_pure, infer_def,
+      inferTypeCore_mono (Nat.le_max_left Fa F3) ha, ok_bind]
+    unfold inferStepS
+    rw [whnf_def, whnf_mono (Nat.le_max_right Fa F3) h3, ok_bind]
+    simp only [hsk, ite_true]
+    rfl
+  exact inferSpine_sound rest _ _ v _ F4 hg h4
 
 end InferSnoc
 

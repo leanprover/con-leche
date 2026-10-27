@@ -376,6 +376,83 @@ grind_pattern [conleche_grind] Runs.inferBody_app =>
   Runs (inferSpine (fueledFns mode env) d tf [] (Expr.app g a).getAppArgs) v,
   inferBody (fueledFns mode env) env d (.app g a)
 
+/-- The pieces of a `U E C a rest` spine shape. -/
+theorem bvUnsatSpine_args {h E C a : Expr} {args rest : List Expr}
+    (hsp : bvUnsatSpine h args = some (E, C, a, rest)) : args = E :: C :: a :: rest := by
+  unfold bvUnsatSpine at hsp
+  split at hsp
+  · split at hsp
+    · simp only [Option.some.injEq, Prod.mk.injEq] at hsp
+      obtain ⟨rfl, rfl, rfl, rfl⟩ := hsp; rfl
+    · exact nomatch hsp
+  · exact nomatch hsp
+
+/-- The skipped argument and the rest of the spine are scoped. -/
+theorem wscoped_bvSpine {d : Nat} {i E C a cod : Expr} {rest : List Expr}
+    (hsp : bvUnsatSpine i.getAppFn i.getAppArgs = some (E, C, a, rest)) (hw : Expr.WScoped d i)
+    (hc : Expr.WScoped d cod) :
+    Expr.WScoped d (cod.instantiate1 a) ∧ AllWS d rest ∧ AllWS d [E, C] := by
+  have ha := allWS_getAppArgs hw
+  rw [bvUnsatSpine_args hsp] at ha
+  refine ⟨Expr.WScoped.instantiate1_gen (ha a (by simp)) 0 hc, fun x hx => ha x (by simp [hx]),
+    fun x hx => ha x (by simp at hx; rcases hx with rfl | rfl <;> simp)⟩
+grind_pattern [conleche_grind] wscoped_bvSpine =>
+  bvUnsatSpine i.getAppFn i.getAppArgs, some (E, C, a, rest), Expr.WScoped d i, cod.instantiate1 a
+
+theorem allWS_bvSpine {d : Nat} {i E C a : Expr} {rest : List Expr}
+    (hsp : bvUnsatSpine i.getAppFn i.getAppArgs = some (E, C, a, rest)) (hw : Expr.WScoped d i) :
+    AllWS d rest ∧ AllWS d [E, C] := by
+  have ha := allWS_getAppArgs hw
+  rw [bvUnsatSpine_args hsp] at ha
+  exact ⟨fun x hx => ha x (by simp [hx]),
+    fun x hx => ha x (by simp at hx; rcases hx with rfl | rfl <;> simp)⟩
+grind_pattern [conleche_grind] allWS_bvSpine =>
+  bvUnsatSpine i.getAppFn i.getAppArgs, some (E, C, a, rest), Expr.WScoped d i
+
+/-- The cached walk's skipped `U E C a` spine (task #368)
+is the chained application clause's (`inferBody_bvUnsat_sound`). -/
+theorem Runs.inferBody_bvUnsat {d : Nat} {g x E C a tf t1 ty body v : Expr} {rest : List Expr}
+    (hsp : bvUnsatSpine (Expr.app g x).getAppFn (Expr.app g x).getAppArgs = some (E, C, a, rest))
+    (h1 : Runs ((fueledFns mode env).infer d (Expr.app g x).getAppFn) tf)
+    (h2 : Runs (inferSpine (fueledFns mode env) d tf [] [E, C]) t1)
+    (h3 : Runs ((fueledFns mode env).whnf d t1) (.forallE ty body))
+    (hsk : bvUnsatSkip (mkFEnv env).find? (mkFEnv env).findProj?
+      (.app (.app (Expr.app g x).getAppFn E) C) a body = true)
+    (h4 : Runs (inferSpine (fueledFns mode env) d (body.instantiate1 a) [] rest) v) :
+    Runs (inferBody (fueledFns mode env) env d (.app g x)) v := by
+  have happ := Expr.mkAppN_getApp (Expr.app g x)
+  unfold bvUnsatSpine at hsp
+  split at hsp
+  · rename_i c E' C' a' rest' hfn hargs
+    by_cases hc : (c == unsatThmName) = true
+    · rw [ite_eq_left hc] at hsp
+      obtain ⟨rfl, rfl, rfl, rfl⟩ : E' = E ∧ C' = C ∧ a' = a ∧ rest' = rest := by
+        simp only [Option.some.injEq, Prod.mk.injEq] at hsp; exact ⟨hsp.1, hsp.2.1, hsp.2.2.1, hsp.2.2.2⟩
+      simp only [beq_iff_eq] at hc
+      subst hc
+      rw [hfn] at h1 hsk
+      rw [hfn, hargs] at happ
+      rw [show (mkFEnv env).find? = env.find? from funext (mkFEnv_find? env),
+        show (mkFEnv env).findProj? = env.findProj? from
+          funext fun T => funext fun i => mkFEnv_findProj? env T i] at hsk
+      obtain ⟨F1, h1⟩ := h1
+      obtain ⟨F2, h2⟩ := h2
+      obtain ⟨F3, h3⟩ := h3
+      obtain ⟨F4, h4⟩ := h4
+      rw [inferSpine_atF] at h2 h4
+      obtain ⟨F', hF'⟩ := inferBody_bvUnsat_sound d h1 h2 h3 hsk h4
+      rw [happ] at hF'
+      cases F' with
+      | zero => rw [inferTypeCore_zero] at hF'; exact nomatch hF'
+      | succ G => exact ⟨G, by rw [inferBody_atF, ← inferTypeCore_succ]; exact hF'⟩
+    · rw [ite_eq_right hc] at hsp; exact nomatch hsp
+  · exact nomatch hsp
+grind_pattern [conleche_grind] Runs.inferBody_bvUnsat =>
+  bvUnsatSpine (Expr.app g x).getAppFn (Expr.app g x).getAppArgs,
+  Runs (inferSpine (fueledFns mode env) d tf [] [E, C]) t1,
+  Runs ((fueledFns mode env).whnf d t1) (.forallE ty body),
+  Runs (inferSpine (fueledFns mode env) d (body.instantiate1 a) [] rest) v
+
 /-- The ∀-telescope loop against `inferBody`'s ∀ tail, as a triple. -/
 theorem inferPisC_tail_spec (ih : SSimC mode env f) {d fuel : Nat} {b ty : Expr} {u : Level}
     {s₀ : CState} (hs : CSOK mode env s₀) (hwty : Expr.WScoped d ty)

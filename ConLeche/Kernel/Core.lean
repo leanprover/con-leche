@@ -2,7 +2,7 @@ module
 
 import ConLeche.Kernel.Level
 import ConLeche.Kernel.ExprOps
-public import ConLeche.Kernel.CoreDefs
+public import ConLeche.Kernel.BVUnsat
 
 @[expose] public section
 
@@ -1129,6 +1129,10 @@ def inferBody (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
       let tf ← r.infer depth f
       match ← r.whnf depth tf with
       | .forallE ty body => do
+        -- Task #368: `U E C a` with a natively
+        -- accepted certificate, typed `Unsat E` without inferring `a`
+        -- (`Rules.Infer.bvUnsat`)
+        if bvUnsatSkip env.find? env.findProj? f a body then pure (body.instantiate1 a) else
         -- The per-argument check, unconditional at this grade (the
         -- soundness proof needs `⟦a⟧ ∈ ⟦ty⟧`).
         let ta ← r.infer depth a

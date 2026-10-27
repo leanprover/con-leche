@@ -19,6 +19,7 @@ import ConLeche.Model.Inductives.BlockCtorReads
 import ConLeche.Model.Env.CanonCrest
 import ConLeche.Model.Env.LfpFormer
 import ConLeche.Model.NatEqs
+import ConLeche.Verify.Denote.IndFrame
 
 public section
 

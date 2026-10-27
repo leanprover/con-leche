@@ -6,6 +6,7 @@ public import ConLeche.Model.Inductives.BlockRecTyShapeRun
 import ConLeche.Model.Inductives.ClassGenRead
 import ConLeche.Verify.Denote.ErasedEq
 import ConLeche.Verify.Rules.InferBridge
+import ConLeche.Verify.Denote.IndFrame
 
 public section
 
@@ -89,16 +90,26 @@ typed at a telescope with (at least) `m` leading `∀`s, compares every
 argument `aₗ` (`l < m`) with the telescope's `l`-th domain at the
 earlier arguments. -/
 theorem inferTypeCore_spine_defeq {envK : Env} {F d : Nat} :
-    ∀ (as : List Expr) {f tf t : Expr} {m : Nat}, m ≤ as.length → SameDoms m tf tf →
+    ∀ (as : List Expr) {f tf t : Expr} {m : Nat},
+      -- Task #368: the head is a stored inductive
+      -- former, so no application of the spine skips its check
+      (∀ c us, f.getAppFn = .const c us → ∃ cv caps, envK.find? c = some (.indInfo cv caps)) →
+      m ≤ as.length → SameDoms m tf tf →
       inferTypeCore μ envK F d f = .ok tf →
       inferTypeCore μ envK F d (Expr.mkAppN f as) = .ok t →
       ∀ l, l < m → ∃ D b ta, instPisWith (as.take l) tf = some (.forallE D b) ∧
         inferTypeCore μ envK F d (as.getD l default) = .ok ta ∧
         isDefEqCore (μ.argMode (as.getD l default)) envK F d ta D = .ok true
-  | [], _, _, _, m, hm, _, _, _, l, hl => absurd hl (by simp at hm; omega)
-  | a :: as, f, tf, t, m, hm, hsd, hf, h, l, hl => by
+  | [], _, _, _, m, _, hm, _, _, _, l, hl => absurd hl (by simp at hm; omega)
+  | a :: as, f, tf, t, m, hhd, hm, hsd, hf, h, l, hl => by
     obtain ⟨tfa, hfa⟩ := Model.inferTypeCore_mkAppN_fn_inv as (f := .app f a) h
-    obtain ⟨tf', ty', body', hf', hw, rfl, ta, hta, hde⟩ := inferTypeCore_app_inv' hfa
+    obtain ⟨tf', ty', body', hf', hw, rfl, hrest⟩ := inferTypeCore_app_inv' hfa
+    obtain ⟨ta, hta, hde⟩ : ∃ ta, inferTypeCore μ envK F d a = .ok ta ∧
+        isDefEqCore (μ.argMode a) envK F d ta ty' = .ok true := by
+      rcases hrest with hsk | h'
+      · obtain ⟨cv, caps, hfi⟩ := hhd unsatThmName [] (bvUnsatSkip_head hsk)
+        exact absurd hfi (bvUnsatSkip_U_notInd hsk cv caps)
+      · exact h'
     rw [show tf' = tf from Except.ok.inj (hf'.symm.trans hf)] at hw
     obtain ⟨m₀, rfl⟩ : ∃ m₀, m = m₀ + 1 := ⟨m - 1, by omega⟩
     match tf, hsd, hw with
@@ -108,7 +119,8 @@ theorem inferTypeCore_spine_defeq {envK : Env} {F d : Nat} :
       | zero => exact ⟨ty', body', ta, rfl, hta, hde⟩
       | succ l =>
         obtain ⟨D, b', ta', hi, hta', hde'⟩ := inferTypeCore_spine_defeq as
-          (f := .app f a) (tf := body'.instantiate1 a) (m := m₀) (by simp at hm; omega)
+          (f := .app f a) (tf := body'.instantiate1 a) (m := m₀)
+          (fun c us h => hhd c us (by simpa [Expr.getAppFn] using h)) (by simp at hm; omega)
           (SameDoms.instantiate1 m₀ 0 hsd.2) hfa h l (by omega)
         exact ⟨D, b', ta', hi, hta', hde'⟩
 
@@ -343,7 +355,8 @@ theorem genMemberRec_paramDefeq (hμ : μ.isVerified = true) (hwf : ConLeche.Env
   obtain ⟨o', hopP⟩ := ConLeche.openPisAtFvars_prefix p.nP (N₁ + 1 + 1) type 0 (by omega) hop
   refine ⟨xs.take p.nP, o', F₀, by rw [htype]; exact hopP, fun l hl => ?_⟩
   obtain ⟨D, b, ta, hinst, hta, hde⟩ := ConLeche.inferTypeCore_spine_defeq as'
-    (m := p.nP) (by omega) hsdT hconst htty l hl
+    (m := p.nP) (fun c us h => by
+      cases h; exact ⟨_, _, hfind⟩) (by omega) hsdT hconst htty l hl
   -- the argument: the `l`-th opener
   obtain ⟨xl, hxl⟩ : ∃ x, xs[l]? = some x := ⟨_, List.getElem?_eq_getElem (by omega)⟩
   obtain ⟨Al, hAl⟩ := hidx l xl hxl

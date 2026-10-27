@@ -1,6 +1,7 @@
 module
 
 public import ConLeche.Verify.Mono
+import ConLeche.Rules.BVQuote
 import ConLeche.Kernel.TypeChecker
 import ConLeche.Verify.Shift
 import ConLeche.Verify.InstLevels
@@ -175,8 +176,9 @@ theorem inferTypeCore_app_inv {env : Env} {fuel d : Nat} {f a t : Expr}
     ∃ tf ty' body', inferTypeCore mode env fuel d f = .ok tf ∧
       whnf mode env fuel d tf = .ok (.forallE ty' body') ∧
       t = body'.instantiate1 a ∧
-      ∃ ta, inferTypeCore mode env fuel d a = .ok ta ∧
-        isDefEqCore (mode.argMode a) env fuel d ta ty' = .ok true := by
+      (bvUnsatSkip env.find? env.findProj? f a body' = true ∨
+        ∃ ta, inferTypeCore mode env fuel d a = .ok ta ∧
+          isDefEqCore (mode.argMode a) env fuel d ta ty' = .ok true) := by
   rw [inferTypeCore_succ] at h
   simp only [inferBody, pure, Except.pure, Bind.bind, Except.bind] at h
   simp only [infer_def, whnf_def, defeqArg_def] at h
@@ -202,6 +204,10 @@ theorem inferTypeCore_app_inv {env : Env} {fuel d : Nat} {f a t : Expr}
   | .lit l2, h => exact nomatch h
   | .proj s2 i2 e2, h => exact nomatch h
   dsimp only at h
+  by_cases hsk : bvUnsatSkip env.find? env.findProj? f a body' = true
+  · rw [ite_eq_left hsk] at h
+    exact ⟨tf, ty', body', rfl, hw, (Except.ok.inj h).symm, Or.inl hsk⟩
+  rw [ite_eq_right hsk] at h
   cases hta : inferTypeCore mode env fuel d a with
   | error err => rw [hta] at h; exact nomatch h
   | ok ta =>
@@ -215,7 +221,7 @@ theorem inferTypeCore_app_inv {env : Env} {fuel d : Nat} {f a t : Expr}
   | false => simp [throw, throwThe, MonadExceptOf.throw] at h
   | true =>
     simp only [ite_true, pure, Except.pure, Except.ok.injEq] at h
-    exact ⟨tf, ty', body', rfl, hw, h.symm, ta, rfl, hde⟩
+    exact ⟨tf, ty', body', rfl, hw, h.symm, Or.inr ⟨ta, rfl, hde⟩⟩
 
 /-- Inversion for the ∀-rule of `inferTypeCore` (task #100 stage 6:
 the codomain sort is inferred from the opened body). -/
@@ -367,17 +373,29 @@ theorem inferTypeCore_app_inv' {env : Env} {fuel d : Nat}
     ∃ tf ty' body', inferTypeCore mode env fuel d f = .ok tf ∧
       whnf mode env fuel d tf = .ok (.forallE ty' body') ∧
       t = body'.instantiate1 a ∧
-      ∃ ta, inferTypeCore mode env fuel d a = .ok ta ∧
-        isDefEqCore (mode.argMode a) env fuel d ta ty' = .ok true := by
+      (bvUnsatSkip env.find? env.findProj? f a body' = true ∨
+        ∃ ta, inferTypeCore mode env fuel d a = .ok ta ∧
+          isDefEqCore (mode.argMode a) env fuel d ta ty' = .ok true) := by
   match fuel, h with
   | 0, h => rw [inferTypeCore_zero] at h; exact nomatch h
   | fuel + 1, h =>
-    obtain ⟨tf, ty', body', h1, h2, h3, ta, h4, h5⟩ :=
+    obtain ⟨tf, ty', body', h1, h2, h3, h45⟩ :=
       inferTypeCore_app_inv h
-    exact ⟨tf, ty', body', inferTypeCore_mono (Nat.le_succ _) h1,
-      whnf_mono (Nat.le_succ _) h2, h3, ta,
-      inferTypeCore_mono (Nat.le_succ _) h4,
-      isDefEqCore_mono (Nat.le_succ _) h5⟩
+    refine ⟨tf, ty', body', inferTypeCore_mono (Nat.le_succ _) h1,
+      whnf_mono (Nat.le_succ _) h2, h3, ?_⟩
+    rcases h45 with hsk | ⟨ta, h4, h5⟩
+    · exact Or.inl hsk
+    · exact Or.inr ⟨ta, inferTypeCore_mono (Nat.le_succ _) h4,
+        isDefEqCore_mono (Nat.le_succ _) h5⟩
+
+/-- A skipped argument (task #368) infers: it is a
+stored constant without levels. -/
+theorem inferTypeCore_bvSkip_arg {env : Env} {fuel d : Nat} {f a body : Expr}
+    (h : bvUnsatSkip env.find? env.findProj? f a body = true) :
+    ∃ ta, inferTypeCore mode env (fuel + 1) d a = .ok ta := by
+  obtain ⟨n, ci, rfl, hci, hlp⟩ := bvUnsatSkip_arg h
+  rw [inferTypeCore_succ]
+  simp [inferBody, hci, hlp, pure, Except.pure]
 
 theorem inferTypeCore_const_inv {env : Env} {fuel d : Nat}
     {n : Name} {us : List Level} {t : Expr}

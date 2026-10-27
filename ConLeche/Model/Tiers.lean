@@ -261,14 +261,25 @@ private theorem acceptedReads_aux (m : EnvModel V env) (φ : Name → Nat) :
         exact nomatch hd
       · exact ⟨ea, rfl⟩
     | .app f a =>
-      obtain ⟨tf, _, _, htf, -, -, ta, hta, -⟩ :=
+      obtain ⟨tf, _, _, htf, -, -, hrest⟩ :=
         ConLeche.inferTypeCore_app_inv h
       simp only [Expr.WScoped] at hws
       simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hb
       obtain ⟨fa, hfa⟩ := ih htf hws.1 hb.1 (fun l hl =>
         hL l (by simp [Expr.fvarLeaves, hl]))
-      obtain ⟨aa, haa⟩ := ih hta hws.2 hb.2 (fun l hl =>
-        hL l (by simp [Expr.fvarLeaves, hl]))
+      obtain ⟨aa, haa⟩ : ∃ aa, denote m.acval env φ d a = some aa := by
+        rcases hrest with hsk | ⟨ta, hta, -⟩
+        · -- Task #368: the skipped argument is a
+          -- stored constant without levels, so it reads
+          have hhit := ConLeche.bvUnsatSkip_hit hsk
+          unfold ConLeche.bvUnsatHit at hhit
+          split at hhit
+          · simp only [Bool.and_eq_true] at hhit
+            obtain ⟨n, ci, rfl, hci, hlp⟩ := ConLeche.bvUnsatArgOk_const hhit.1.2
+            exact ⟨_, denote_const hci (by simp [hlp])⟩
+          · exact nomatch hhit
+        · exact ih hta hws.2 hb.2 (fun l hl =>
+            hL l (by simp [Expr.fvarLeaves, hl]))
       exact ⟨_, by rw [denote_app, hfa, haa]; rfl⟩
     | .forallE ty body =>
       obtain ⟨tty, u, bt, v, htty, -, hbt, -, -, -⟩ :=

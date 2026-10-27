@@ -1047,6 +1047,8 @@ def inferBodyI (r : CoreFnsI) (fe : FEnv) : Nat → Expr → CheckCM Expr :=
       match fe.find? nm with
       | none => throw (unknownConstError nm)
       | some ci =>
+        -- Task #368: `inferBody`'s twin
+        if bvNativeStub ci then throw (.notImplemented (bvNativeUseMsg nm))
         let cv := ci.toConstantVal
         unless us.length = cv.levelParams.length do
           throw (.invalid s!"incorrect number of universe levels for {nm}")
@@ -1089,7 +1091,21 @@ def inferBodyI (r : CoreFnsI) (fe : FEnv) : Nat → Expr → CheckCM Expr :=
       -- once and walk its Π-telescope against the whole spine.
       let h ← pure (Expr.getAppFn e)
       let args ← pure (Expr.getAppArgsC e)
+      -- Task #368: `inferBody`'s `U E C a` case
       let tf ← r.infer depth h
+      match bvUnsatSpine h args with
+      | some (E, C, a, rest) => do
+        -- `U E C`'s type as the spec infers it, then `a`'s check skipped
+        -- where the gate accepts (the spec's `bvUnsatSkip`)
+        let t1 ← inferSpineI r fe depth tf #[] [E, C]
+        let w ← r.whnf depth t1
+        match w with
+        | .forallE _ body =>
+          if bvUnsatSkip fe.find? fe.findProj? (.app (.app h E) C) a body then
+            inferSpineI r fe depth (body.instantiate1 a) #[] rest
+          else inferSpineI r fe depth tf #[] args
+        | _ => inferSpineI r fe depth tf #[] args
+      | none =>
       inferSpineI r fe depth tf #[] args
     | .proj sn i pe => do
       let tpe ← r.infer depth pe

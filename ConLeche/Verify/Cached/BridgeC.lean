@@ -213,8 +213,8 @@ theorem checkDeclC_spec (hμ : mode.verifiedChecks = true) (henv : EnvWF env)
         vcgen [checkDeclC, checkBasisDeclC_spec hs] <;> finish
   | axiomDecl cv =>
     sym only [conleche_grind, checkDecl, stdAxiomOkF_eq, trustCompilerOkF_eq, ofReduceAxOkF_eq,
-        push_mkFEnv, mkFEnv_env] =>
-      vcgen [checkDeclC, checkConstantValC_spec hμ henv hs] <;> finish
+        bvStubOkF_eq, push_mkFEnv, mkFEnv_env] =>
+      vcgen [checkDeclC, checkConstantValC_spec hμ henv] <;> finish
   | thmDecl cv value =>
     sym only [conleche_grind] => vcgen [checkDeclC] <;> finish
   | opaqueDecl cv value =>

@@ -151,6 +151,21 @@ def trustCompilerOk (env : Env) (cv : ConstantVal) : Bool :=
    | _ => false) &&
   ConstantVal.matchesPin cv trustCompilerA
 
+/-- Task #368: a native `bv_decide` axiom is
+installed as a stub of type `True` (`bvStubCv`), interpreted, like
+`Lean.trustCompiler`, by `True.intro`; its declared type is not
+installed. -/
+def bvStubOk (env : Env) (cv : ConstantVal) : Bool :=
+  (match env.find? trueName with
+   | some (.indInfo cvT _) => ConstantVal.matchesPin cvT trueCvA
+   | _ => false) &&
+  (match env.find? trueIntroName with
+   | some (.ctorInfo cvTi 0 0) => ConstantVal.matchesPin cvTi trueIntroCvA
+   | _ => false) &&
+  cv.levelParams.isEmpty && isBVNativeAxName cv.name
+
+def bvStubCv (cv : ConstantVal) : ConstantVal := { cv with type := .const trueName [] }
+
 /-- Is the reduce operation `c` stored as a checked opaque
 (`axiomInfo`, the storage kind of every checked `opaque`) of the
 pinned type? -/

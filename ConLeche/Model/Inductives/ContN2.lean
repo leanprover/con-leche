@@ -12,6 +12,7 @@ import ConLeche.Model.Inductives.StructFrameKit
 import ConLeche.Model.Inductives.StructRecKit
 import ConLeche.Verify.Denote.ErasedEq
 import ConLeche.Model.Reading.Levels
+import ConLeche.Verify.Denote.IndFrame
 
 public section
 

@@ -2,6 +2,7 @@ module
 
 public import ConLeche.Model.Inductives.ContInst
 public import ConLeche.Model.Inductives.BlockRecData
+import ConLeche.Verify.Denote.IndFrame
 
 public section
 

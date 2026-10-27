@@ -8,6 +8,7 @@ import ConLeche.Verify.Denote.Inst
 import ConLeche.Model.Inductives.NestPosMono
 import ConLeche.Model.Reading.Levels
 import ConLeche.Model.IndPointKit
+import ConLeche.Verify.Denote.IndFrame
 
 public section
 

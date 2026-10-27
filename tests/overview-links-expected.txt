@@ -87,23 +87,26 @@
 == ConLeche/Verify/Frontend/Prepare.lean#L174
    174  theorem mem_preparePrelude {pre : PreludeIx} {ds : Array Declaration}
 
-== ConLeche/Model/StreamConsts.lean#L237-L242
-   237  theorem checkDecls_consts (V : Type w) [SetTheory V]
-   238      {ds : Array Declaration} {env : Env} (accepted : checkDecls .verified pins ds = .ok env)
-   239      {pd : Declaration} (hmem : pd ∈ ds) {cv : ConstantVal} (hcv : Declaration.Declares pd cv) :
-   240      ∃ c, env.find? cv.name = some c ∧
-   241        c.toConstantVal.levelParams = cv.levelParams ∧
-   242        c.toConstantVal.type = cv.type := by
+== ConLeche/Model/StreamConsts.lean#L242-L247
+   242  theorem checkDecls_consts (V : Type w) [SetTheory V]
+   243      {ds : Array Declaration} {env : Env} (accepted : checkDecls .verified pins ds = .ok env)
+   244      {pd : Declaration} (hmem : pd ∈ ds) {cv : ConstantVal} (hcv : Declaration.Declares pd cv) :
+   245      ∃ c, env.find? cv.name = some c ∧
+   246        c.toConstantVal.levelParams = cv.levelParams ∧
+   247        c.toConstantVal.type = cv.type := by
 
-== ConLeche/Model/StreamConsts.lean#L93-L100
+== ConLeche/Model/StreamConsts.lean#L93-L103
     93  @[expose] def Declaration.Declares : Declaration → ConstantVal → Prop
     94    | .defnDecl cv _ _, cv' => cv' = cv
     95    | .thmDecl cv _, cv' => cv' = cv
     96    | .opaqueDecl cv _, cv' => cv' = cv
-    97    | .axiomDecl cv, cv' => cv' = cv ∧ cv.name ≠ sorryAxName ∧ cv.name ≠ quotSoundName
-    98    | .basisDecl _, _ => False
-    99    | .indDecl _ _, _ => False
-   100    | .quotDecl _ _, _ => False
+    97    | .axiomDecl cv, cv' => cv' = cv ∧ cv.name ≠ sorryAxName ∧ cv.name ≠ quotSoundName ∧
+    98        -- Task #368: a native `bv_decide` axiom is
+    99        -- stored as a `True` stub, not with its declared type
+   100        ConLeche.isBVNativeAxName cv.name = false
+   101    | .basisDecl _, _ => False
+   102    | .indDecl _ _, _ => False
+   103    | .quotDecl _ _, _ => False
 
 == ConLeche/Cached/Installed.lean#L441-L446
    441  def checkDecls (mode : CheckMode) (pins : List NatOpPinSet)
@@ -178,14 +181,14 @@
    757          (Σ' (p' : Nat × FEnv × Array PendingCheck),
    758            PLift (InstallRun mode natOpPinSets ds.toList p₀ p')))
 
-== ConLeche/Verify/Cached/ViewCongr.lean#L1405-L1411
-  1405  theorem installStep_commit {pins : List NatOpPinSet} {B : BaseIdx} {S : Slots} {i : Nat}
-  1406      {fe : FEnv} {pend : Array PendingCheck} {pd : Declaration} {L : List ConstantInfo}
-  1407      {Q : List ProjTable} {vg? : Option ValueGroup} (hag : ViewAgrees B S fe) (hidx : IdxBelow fe)
-  1408      (hand : andPinOk pd = true)
-  1409      (h : installStep mode pins (workerView B S fe.visibleBelow) pd = .ok (L, Q, vg?)) :
-  1410      installDeclStep mode pins (i, fe, pend) pd =
-  1411        .ok (i + 1, FEnv.pushDelta L Q fe, pushPending pend i fe.visibleBelow vg?) := by
+== ConLeche/Verify/Cached/ViewCongr.lean#L1409-L1415
+  1409  theorem installStep_commit {pins : List NatOpPinSet} {B : BaseIdx} {S : Slots} {i : Nat}
+  1410      {fe : FEnv} {pend : Array PendingCheck} {pd : Declaration} {L : List ConstantInfo}
+  1411      {Q : List ProjTable} {vg? : Option ValueGroup} (hag : ViewAgrees B S fe) (hidx : IdxBelow fe)
+  1412      (hand : andPinOk pd = true)
+  1413      (h : installStep mode pins (workerView B S fe.visibleBelow) pd = .ok (L, Q, vg?)) :
+  1414      installDeclStep mode pins (i, fe, pend) pd =
+  1415        .ok (i + 1, FEnv.pushDelta L Q fe, pushPending pend i fe.visibleBelow vg?) := by
 
 == ConLeche/Cached/Installed.lean#L356-L358
    356  def checkRecord {pins : List NatOpPinSet} {ds : List Declaration}
@@ -310,35 +313,35 @@
     53  def ensureSortCore (env : Env) (fuel depth : Nat) (e : Expr) : CheckM Level :=
     54    ensureSort (pureFns mode env fuel) env depth e
 
-== ConLeche/Kernel/Core.lean#L1736-L1741
-  1736      (wrap : CoreFns m → CoreFns m) : Nat → CoreFns m
-  1737    | 0 =>
-  1738      { whnfCore := fun _ _ _ => throw (.internal "fuel exhausted: whnfCore")
-  1739        whnf := fun _ _ => throw (.internal "fuel exhausted: whnf")
-  1740        infer := fun _ _ => throw (.internal "fuel exhausted: infer")
-  1741        defeq := fun _ _ _ => throw (.internal "fuel exhausted: defeq")
+== ConLeche/Kernel/Core.lean#L1740-L1745
+  1740      (wrap : CoreFns m → CoreFns m) : Nat → CoreFns m
+  1741    | 0 =>
+  1742      { whnfCore := fun _ _ _ => throw (.internal "fuel exhausted: whnfCore")
+  1743        whnf := fun _ _ => throw (.internal "fuel exhausted: whnf")
+  1744        infer := fun _ _ => throw (.internal "fuel exhausted: infer")
+  1745        defeq := fun _ _ _ => throw (.internal "fuel exhausted: defeq")
 
-== ConLeche/Model/Fold.lean#L268-L275
-   268  theorem no_proof_of_False_pure (V : Type w) [SetTheory V]
-   269      {μ : CheckMode} (hμ : μ.isVerified = true) {F : Nat}
-   270      {ds : List Declaration} {env' : Env}
-   271      (h : checkDeclsPure μ (fueledOps μ F) pins ds = .ok env') :
-   272      ∀ c ∈ env'.consts,
-   273        c.toConstantVal.type = .const falseName [] → False := by
-   274    obtain ⟨mp⟩ := checkDeclsPure_sound_of (V := V) hμ h
-   275    exact fun c hc hty => no_constant_of_False mp c hc hty
+== ConLeche/Model/Fold.lean#L269-L276
+   269  theorem no_proof_of_False_pure (V : Type w) [SetTheory V]
+   270      {μ : CheckMode} (hμ : μ.isVerified = true) {F : Nat}
+   271      {ds : List Declaration} {env' : Env}
+   272      (h : checkDeclsPure μ (fueledOps μ F) pins ds = .ok env') :
+   273      ∀ c ∈ env'.consts,
+   274        c.toConstantVal.type = .const falseName [] → False := by
+   275    obtain ⟨mp⟩ := checkDeclsPure_sound_of (V := V) hμ h
+   276    exact fun c hc hty => no_constant_of_False mp c hc hty
 
-== ConLeche/Model/Fold.lean#L141
-   141  theorem declStep_preserves (hμ : μ.isVerified = true)
+== ConLeche/Model/Fold.lean#L142
+   142  theorem declStep_preserves (hμ : μ.isVerified = true)
 
-== ConLeche/Model/Capstone.lean#L137-L143
-   137  theorem no_constant_of_False (mp : EnvModelM V μ env)
-   138      (c : ConstantInfo) (hc : c ∈ env.consts)
-   139      (hty : c.toConstantVal.type = .const falseName []) : False :=
-   140    no_constant_of_emptyPin mp (u := 0) (by decide)
-   141      (fun ψ => by simp +decide [ConLeche.Verify.pinnedStructT, ConLeche.Term.emptyT])
-   142      c hc hty
-   143  
+== ConLeche/Model/Capstone.lean#L138-L144
+   138  theorem no_constant_of_False (mp : EnvModelM V μ env)
+   139      (c : ConstantInfo) (hc : c ∈ env.consts)
+   140      (hty : c.toConstantVal.type = .const falseName []) : False :=
+   141    no_constant_of_emptyPin mp (u := 0) (by decide)
+   142      (fun ψ => by simp +decide [ConLeche.Verify.pinnedStructT, ConLeche.Term.emptyT])
+   143      c hc hty
+   144  
 
 == ConLeche/Model/Denotes.lean#L329-L330
    329  `EnvModelM V μ env`. -/
@@ -358,22 +361,22 @@
 == ConLeche/Kernel/Core.lean#L1053
   1053  /-- The reduction loop's body: run `whnfLoop` at its own step budget. -/
 
-== ConLeche/Kernel/Core.lean#L1309
-  1309  def defeqSpine (r : CoreFns m) (env : Env) (depth : Nat) (a b : Expr) :
+== ConLeche/Kernel/Core.lean#L1313
+  1313  def defeqSpine (r : CoreFns m) (env : Env) (depth : Nat) (a b : Expr) :
 
-== ConLeche/Kernel/Core.lean#L1198
-  1198  def inferBodyIO (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
+== ConLeche/Kernel/Core.lean#L1202
+  1202  def inferBodyIO (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
 
-== ConLeche/Kernel/Core.lean#L1347
-  1347  def defeqLams (r : CoreFns m) :
+== ConLeche/Kernel/Core.lean#L1351
+  1351  def defeqLams (r : CoreFns m) :
 
 == ConLeche/Verify/Cached/AgreeFloor.lean#L1075-L1077
   1075  theorem checkDecls_skels {mode : CheckMode} {ds : Array Declaration}
   1076      {env : Env} (h : checkDecls mode pins ds = .ok env) :
   1077      envSkels env = streamSkels ds.toList := by
 
-== ConLeche/Kernel/Core.lean#L1785
-  1785  @[irreducible, noinline] def checkFuel : Nat := 4611686018427387904  -- 2^62
+== ConLeche/Kernel/Core.lean#L1789
+  1789  @[irreducible, noinline] def checkFuel : Nat := 4611686018427387904  -- 2^62
 
 == ConLeche/Kernel/Exclusive.lean#L6-L42
      6  # `withExclusive`: the reference-count read behind the walk memo
@@ -800,31 +803,31 @@
    100  chained. -/
    101  inductive Red (env : Env) : Nat → Expr → Expr → Prop where
 
-== ConLeche/Rules/Rel.lean#L334-L357
-   334  /-- **Definitional equality**: the verdict `true` of `isDefEq`.
-   335  
-   336  **There is no `trans` rule, deliberately, and none can be added**
-   337  (task #309, the experiment recorded in DESIGN.md).  The relation is
-   338  not an equivalence on terms: it is the checker's verdict, and the
-   339  checker only ever compares terms that are well-formed *together* — a
-   340  fact the rules never state, because well-formedness (scoping, the
-   341  readability of the terms, the grading of the reading) is semantic
-   342  and may not enter this inductive.  Every rule respects one syntactic
-   343  discipline instead: **the subject of each `DefEq` premise is either a
-   344  subterm of the conclusion or is produced by an existence-form `Red` /
-   345  `Infer` premise** (a reduct, an inferred type), so the soundness proof
-   346  (`ConLeche/Model/Rules/Sound.lean`) always has the premise's terms in
-   347  hand.  `trans` is the unique rule that would break it: its middle
-   348  term comes from nowhere, and with it two rules that are each sound
-   349  alone meet — `fvar` compares free variables by index only (their
-   350  types are not compared, as the checker does not), while
-   351  `proofFast` *reads* a head's stored data to decide "definitely a
-   352  proof" — and derive `DefEq env d (.fvar i ty) (.fvar i' ty')` for
-   353  every `i`, `i'`, which no model satisfies.  The recursive-structure rules
-   354  (`redL`, `natSucc`, `eta`, `structUnit`) are therefore not a
-   355  proof-engineering convenience but what keeps the relation sound; the
-   356  one chaining that is sound, "reduce, then continue", is `redL`, and
-   357  its right-hand and δ variants are derived in `Derived.lean`. -/
+== ConLeche/Rules/Rel.lean#L354-L377
+   354  /-- **Definitional equality**: the verdict `true` of `isDefEq`.
+   355  
+   356  **There is no `trans` rule, deliberately, and none can be added**
+   357  (task #309, the experiment recorded in DESIGN.md).  The relation is
+   358  not an equivalence on terms: it is the checker's verdict, and the
+   359  checker only ever compares terms that are well-formed *together* — a
+   360  fact the rules never state, because well-formedness (scoping, the
+   361  readability of the terms, the grading of the reading) is semantic
+   362  and may not enter this inductive.  Every rule respects one syntactic
+   363  discipline instead: **the subject of each `DefEq` premise is either a
+   364  subterm of the conclusion or is produced by an existence-form `Red` /
+   365  `Infer` premise** (a reduct, an inferred type), so the soundness proof
+   366  (`ConLeche/Model/Rules/Sound.lean`) always has the premise's terms in
+   367  hand.  `trans` is the unique rule that would break it: its middle
+   368  term comes from nowhere, and with it two rules that are each sound
+   369  alone meet — `fvar` compares free variables by index only (their
+   370  types are not compared, as the checker does not), while
+   371  `proofFast` *reads* a head's stored data to decide "definitely a
+   372  proof" — and derive `DefEq env d (.fvar i ty) (.fvar i' ty')` for
+   373  every `i`, `i'`, which no model satisfies.  The recursive-structure rules
+   374  (`redL`, `natSucc`, `eta`, `structUnit`) are therefore not a
+   375  proof-engineering convenience but what keeps the relation sound; the
+   376  one chaining that is sound, "reduce, then continue", is `redL`, and
+   377  its right-hand and δ variants are derived in `Derived.lean`. -/
 
 == ConLeche/Verify/Rules/Bridge.lean#L30-L33
     30  theorem bridgeAt (env : Env) :
@@ -832,11 +835,11 @@
     32        WhnfCoreBridge μ env fuel ∧ WhnfBridge μ env fuel ∧ DefEqBridge μ env fuel ∧
     33          InferBridge μ env fuel ∧ InferIOBridge μ env fuel := by
 
-== ConLeche/Model/Rules/Sound.lean#L47-L50
-    47  mutual
-    48  
-    49  theorem red_sound (hin : RulesInputs V m φ) :
-    50      ∀ {d : Nat} {e e' : Expr}, Red env d e e' → RedSem m φ d e e'
+== ConLeche/Model/Rules/Sound.lean#L49-L52
+    49  mutual
+    50  
+    51  theorem red_sound (hin : RulesInputs V m φ) :
+    52      ∀ {d : Nat} {e e' : Expr}, Red env d e e' → RedSem m φ d e e'
 
 == ConLeche/Model/Rules/Recompose.lean#L50-L55
     50  theorem checkSoundAtP5 (hμ : μ.isVerified = true)
@@ -1248,6 +1251,14 @@
     37  record installs nothing and any use of it declines
     38  (`sorryAxName`, `ConLeche/Kernel/Basis/Names.lean`).
 
+== ConLeche/Kernel/BVUnsat.lean#L393-L398
+   393  def bvUnsatOk (find? : Name → Option ConstantInfo)
+   394      (findProj? : Name → Nat → Option ProjEntry) (E C : Expr) : Bool :=
+   395    E.looseBVarsBounded 0 && !E.hasFvar && C.looseBVarsBounded 0 && pinsOk find? findProj? &&
+   396    match readLogical find? readFuel E, readStr find? readFuel C with
+   397    | some e, some c => Std.Tactic.BVDecide.Reflect.verifyBVExpr e c
+   398    | _, _ => false
+
 >>> README.md
 
 == ConLeche/Cached/ParsedC.lean#L213-L214
@@ -1330,13 +1341,13 @@
    161      ∃ extra : List Declaration, (∀ d ∈ extra, d ∈ pre.decls.toList) ∧
    162        (preparePrelude pre ds).toList.Perm (ds.toList ++ extra) := by
 
-== ConLeche/Model/StreamConsts.lean#L237-L242
-   237  theorem checkDecls_consts (V : Type w) [SetTheory V]
-   238      {ds : Array Declaration} {env : Env} (accepted : checkDecls .verified pins ds = .ok env)
-   239      {pd : Declaration} (hmem : pd ∈ ds) {cv : ConstantVal} (hcv : Declaration.Declares pd cv) :
-   240      ∃ c, env.find? cv.name = some c ∧
-   241        c.toConstantVal.levelParams = cv.levelParams ∧
-   242        c.toConstantVal.type = cv.type := by
+== ConLeche/Model/StreamConsts.lean#L242-L247
+   242  theorem checkDecls_consts (V : Type w) [SetTheory V]
+   243      {ds : Array Declaration} {env : Env} (accepted : checkDecls .verified pins ds = .ok env)
+   244      {pd : Declaration} (hmem : pd ∈ ds) {cv : ConstantVal} (hcv : Declaration.Declares pd cv) :
+   245      ∃ c, env.find? cv.name = some c ∧
+   246        c.toConstantVal.levelParams = cv.levelParams ∧
+   247        c.toConstantVal.type = cv.type := by
 
 == ConLeche/SetTheory/Core.lean#L95-L133
     95  /-- A model of set theory of exactly the strength the checker needs:

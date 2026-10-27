@@ -212,6 +212,9 @@ def checkDeclC (pins : List NatOpPinSet) (fe : FEnv) (pd : Declaration) :
         throw (.notImplemented s!"standard axiom shape mismatch ({cv.name})")
       else if cv.name = sorryAxName then
         pure fe
+      else if bvStubOkF fe cv then do
+        checkConstantValC mode fe (bvStubCv cv)
+        pure (fe.push (.axiomInfo (bvStubCv cv)))
       else
         throw (.notImplemented (nonStdAxiomMsg cv.name))
   | .basisDecl kind => checkBasisDeclC fe kind

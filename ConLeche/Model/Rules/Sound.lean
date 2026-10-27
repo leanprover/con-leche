@@ -3,9 +3,11 @@ module
 public import ConLeche.Model.Rules.Inputs
 import ConLeche.Model.Rules.RedSound
 import ConLeche.Model.Rules.IotaSound
+import ConLeche.Model.Rules.KRecSound
 import ConLeche.Model.Rules.DefEqSound
 import ConLeche.Model.Rules.InferSound
 import ConLeche.Model.Rules.CertsSound
+import ConLeche.Model.Rules.BVUnsatSound
 import ConLeche.Model.Rules.DefEqSoundKit
 import ConLeche.Model.CtxOkKit
 
@@ -89,6 +91,8 @@ theorem red_sound (hin : RulesInputs V m φ) :
     Red.rescueEta_sound hin hrec heta hctor hres hind (infer_sound hin htm)
       (red_sound hin htmaj) htmaj hthead hlen hlv hnz hfab hws hb hlv' hresT hresC
       htow
+  | _, _, _, .kRec h1 h2 h3 h4 h5 h6 h7 =>
+    Red.kRec_sound hin h1 h2 h3 h4 h5 h6 (teleArity_sound h7)
 
 theorem defeq_sound (hin : RulesInputs V m φ) :
     ∀ {d : Nat} {a b : Expr}, DefEq env d a b → DefEqSem m φ d a b
@@ -154,6 +158,9 @@ theorem infer_sound (hin : RulesInputs V m φ) :
   | _, _, _, _, .proj htpe hte hhead hent hlen hus hprop =>
     Infer.proj_sound hin (infer_sound hin htpe) (red_sound hin hte) (fun _ => hte) hhead hent
       hlen hus hprop
+  | _, _, _, _, .bvUnsat hf _ hskip hE hd hC hred hpow =>
+    Infer.bvUnsat_soundSkip hin (infer_sound hin hf) (infer_sound hin hE) (defeq_sound hin hd)
+      (infer_sound hin hC) hskip (fun x => red_sound hin (hred x)) (fun k => red_sound hin (hpow k))
 
 /-- **Proof irrelevance at the io grade** (task #342 L18): a type whose
 io-inferred sort reduces to a sort evaluating to zero holds only the
@@ -186,6 +193,7 @@ theorem prop_pt_io (hin : RulesInputs V m φ) :
     propPt_of_not_forallE hsem hrs hr hw0 (fun _ _ h => nomatch h)
   | _, _, _, _, .proj _ _ _ _ _ _ _, rfl, hsem, _, hr, hrs, hw0 =>
     propPt_of_not_forallE hsem hrs hr hw0 (fun _ _ h => nomatch h)
+  | _, _, _, _, .bvUnsat _ _ _ _ _ _ _ _, h, _, _, _, _, _ => nomatch h
 
 theorem certsF_sound (hin : RulesInputs V m φ) :
     ∀ {d : Nat} {ty : Expr} {args : List Expr},

@@ -220,14 +220,24 @@ theorem declAxiomRun_of {env env₂ : Env} {μ : CheckMode} {F : Nat}
   by_cases htol : cv.name = sorryAxName
   · rw [ite_eq_left htol] at h
     simp only [pure, Except.pure, Except.ok.injEq] at h
-    refine Or.inr (Or.inr (Or.inr ⟨hstdF, htc, ?_, ?_, ?_, ?_, htol,
-      h.symm⟩))
+    refine Or.inr (Or.inr (Or.inr (Or.inl ⟨hstdF, htc, ?_, ?_, ?_, ?_, htol,
+      h.symm⟩)))
     · exact fun hh => hofr (Or.inl hh)
     · exact fun hh => hofr (Or.inr hh)
     · exact fun hh => hpc (Or.inl hh)
     · exact fun hh => hpc (Or.inr hh)
   · rw [ite_eq_right htol] at h
-    simp [throw, throwThe, MonadExceptOf.throw] at h
+    by_cases hbv : bvStubOk env { cv with type := cv.type } = true
+    · rw [ite_eq_left hbv] at h
+      cases hccs : checkConstantVal (fueledOps μ F) env (bvStubCv { cv with type := cv.type }) with
+      | error e => rw [hccs] at h; exact nomatch h
+      | ok _ =>
+      rw [hccs] at h
+      simp only [pure, Except.pure, Except.ok.injEq] at h
+      obtain ⟨-, -, hcvs⟩ := constantValRun_of hccs
+      exact Or.inr (Or.inr (Or.inr (Or.inr ⟨hbv, hcvs, h.symm⟩)))
+    · rw [ite_eq_right hbv] at h
+      simp [throw, throwThe, MonadExceptOf.throw] at h
 
 /-- **`opaqueDecl`, run half**, with the compiler-trust pin's run
 inversion in place of the pin bridge. -/

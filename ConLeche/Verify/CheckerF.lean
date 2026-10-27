@@ -83,6 +83,10 @@ theorem trustCompilerOkF_eq (env : Env) (cv : ConstantVal) :
     trustCompilerOkF (mkFEnv env) cv = trustCompilerOk env cv := by
   simp only [trustCompilerOkF, trustCompilerOk, mkFEnv_find?] <;> rfl
 
+theorem bvStubOkF_eq (env : Env) (cv : ConstantVal) :
+    bvStubOkF (mkFEnv env) cv = bvStubOk env cv := by
+  simp only [bvStubOkF, bvStubOk, mkFEnv_find?] <;> rfl
+
 theorem reduceStoredOkF_eq (env : Env) (c : Name) :
     reduceStoredOkF (mkFEnv env) c = reduceStoredOk env c := by
   simp only [reduceStoredOkF, reduceStoredOk, mkFEnv_find?] <;> rfl

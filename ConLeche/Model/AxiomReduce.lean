@@ -1,6 +1,8 @@
 module
 
 public import ConLeche.Model.AxiomPin
+import ConLeche.Verify.OfReducePin
+import ConLeche.Model.AxiomMem
 
 public section
 
