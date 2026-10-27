@@ -784,7 +784,7 @@ UMBRELLA={'ConLeche.lean','ConLeche/Term.lean','ConLeche/SetModel.lean','ConLech
           'ConLeche/Kernel/Basis.lean','ConLeche/Complete.lean'}
 # frozen: the umbrellas exist to re-export, the classic roots have no `public`
 # keyword, `tests/*` and the PinGen generator are outside the census roots.
-CLASSIC={'tests/ProofDeps.lean','PinDump.lean'}
+CLASSIC={'tests/ProofDeps.lean','PinDump.lean','OleanCompare.lean'}
 FROZEN_PREFIX=('tests/','ConLeche/PinGen/','ConLeche/Challenge.lean','ConLeche/PinGen.lean')
 EXT=('Std','Lean','Init')
 

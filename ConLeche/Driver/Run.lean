@@ -4,6 +4,7 @@ public import ConLeche.Frontend.Prelude
 public import ConLeche.Driver.ParInstall
 public import ConLeche.Driver.CheckPool
 public import ConLeche.Driver.OwnerParse
+public import ConLeche.Frontend.Olean.Load
 
 /-!
 # The driver: `checkDeclsIO` and the phase sequencing
@@ -63,6 +64,27 @@ def parseInput (file : String) (jobs : Nat) (noMark : Bool) : IO Frontend.ParseO
     let size ← try pure (← System.FilePath.metadata file).byteSize.toNat catch _ => pure 0
     let csz := if size == 0 then 1048576 else max 65536 (min 4194304 (size / (16 * jobs)))
     OwnerParse.parseExportStreamO file jobs csz.toUSize noMark
+
+/-- **What a run reads** (task #369): one lean4export stream, or the
+import closure of root modules read from their `.olean` files along a
+search path (`ConLeche/Frontend/Olean/Load.lean`).  Either way the
+parse ends in the file's `Declaration` records, and everything after it
+is the same. -/
+inductive Input where
+  | ndjson (file : String)
+  | oleans (searchPath : List System.FilePath) (roots : Array ConLeche.Name)
+
+/-- The input's name in a diagnostic. -/
+def Input.label : Input → String
+  | .ndjson f => f
+  | .oleans _ rs => String.intercalate " " (rs.toList.map toString)
+
+/-- The input's declaration records. -/
+def readInput (inp : Input) (jobs : Nat) (noMark : Bool) :
+    IO (Except (ConLeche.CheckError × Nat) (Array ConLeche.Declaration)) := do
+  match inp with
+  | .ndjson file => pure ((← parseInput file jobs noMark).val.map (·.decls))
+  | .oleans sp roots => Frontend.Olean.readOleans sp roots jobs
 
 /-- The end-of-run statistics (performance-only): the phase times, the
 install's and the check's reports (`PoolRep.line`, the slowest five of
@@ -265,7 +287,7 @@ the verdict.  The three steps fail in ONE error type, the checker's
 `CheckError` with the failure's position, which is why the
 chain is one `do` block up there and why the exit code below is
 `CheckError.exitCode` whichever step produced it. -/
-def checkMain (file : String) (mode : CheckMode) (stride jobs : Nat)
+def checkMain (input : Input) (mode : CheckMode) (stride jobs : Nat)
     (noMark : Bool) (drain : IO.Ref (IO Unit)) : IO UInt32 := do
     -- The opt-in progress heartbeat (`--progress[=<stride>]`):
     -- validated by the argument parse, before any work is done, and
@@ -306,7 +328,7 @@ def checkMain (file : String) (mode : CheckMode) (stride jobs : Nat)
     -- Streaming frontend: the parse reads the file line by line, so
     -- neither a wholesale text buffer nor a scratch file exists in
     -- this process.
-    match (← parseInput file jobs noMark).val with
+    match ← readInput input jobs noMark with
     | .error (.notImplemented what, _) =>
       IO.eprintln s!"con-leche: declined: {what} ({modeTag})"
       return 2
@@ -318,9 +340,9 @@ def checkMain (file : String) (mode : CheckMode) (stride jobs : Nat)
       IO.eprintln s!"con-leche: invalid: {what} ({modeTag})"
       return 1
     | .error (.internal msg, line) =>
-      IO.eprintln s!"con-leche: {file}:{line}: {msg}"
+      IO.eprintln s!"con-leche: {input.label}:{line}: {msg}"
       return 3
-    | .ok ⟨parsed⟩ =>
+    | .ok parsed =>
       -- **PREPARE** (`ConLeche/Frontend/Prepare.lean`): the
       -- parsed array is the FILE's records; what the fold runs over is `preparePrelude` of it —
       -- the built-in prelude's records, then the stream's, recognised,

@@ -90,6 +90,7 @@ def jobsCount (v : String) : Except String Nat :=
 
 def usage : String := String.intercalate "\n" [
   "usage: con-leche [--verified|--trusted] [--jobs=<n>] [--progress[=<stride>]] FILE.ndjson",
+  "       con-leche [flags] --olean --search-path=DIR[:DIR...] MODULE...",
   "       con-leche --help",
   "",
   "  --verified        the default, and the mode the main theorem is",
@@ -232,6 +233,23 @@ def usage : String := String.intercalate "\n" [
   "                    what it prints in between does not touch that",
   "                    type, so a run with the flag is covered exactly",
   "                    as a run without it, and so is a run on the pool.",
+  "  --olean           read the input from .olean files instead of a",
+  "                    lean4export stream: the arguments are root",
+  "                    modules (Init, Std, Mathlib, ...), checked with",
+  "                    their whole import closure.  The closure is read",
+  "                    at the private level (theorems with proofs,",
+  "                    definitions with bodies), merged as Lean's own",
+  "                    import merges it, and emitted as the records",
+  "                    lean4export would write, so the same checker",
+  "                    checks them.  Only .olean files of the toolchain",
+  "                    this checker was built with are read; every",
+  "                    object is decoded and validated, nothing in the",
+  "                    files is trusted.",
+  "  --search-path=DIR[:DIR...]",
+  "                    the directories holding .olean trees, as",
+  "                    LEAN_PATH lists them (the toolchain's lib/lean,",
+  "                    a package's .lake/build/lib/lean).  May be",
+  "                    given more than once.",
   "  --help            print this text on STDOUT and exit 0, in any",
   "                    argument position; no input is read.",
   "",
@@ -325,6 +343,11 @@ structure Args where
   measures its effect on the shipped binary. -/
   noMark : Bool := false
   files : Array String := #[]
+  /-- `--olean`: the positional arguments are root MODULE names, read
+  with their import closure from `.olean` files (task #369). -/
+  olean : Bool := false
+  /-- `--search-path=DIR:DIR…`: where `--olean` looks for the files. -/
+  searchPath : List System.FilePath := []
   bad : Option String := none
 
 def parseArgs : List String → Args → Args
@@ -341,6 +364,7 @@ def parseArgs : List String → Args → Args
   | "--progress" :: rest, a => parseArgs rest { a with progress := 1 }
   -- The persistent mark is on by default on the pool; this turns it off.
   | "--no-mark-persistent" :: rest, a => parseArgs rest { a with noMark := true }
+  | "--olean" :: rest, a => parseArgs rest { a with olean := true }
   | s :: rest, a =>
     if s.startsWith "--progress=" then
       match progressStride ((s.drop "--progress=".length).toString) with
@@ -350,6 +374,9 @@ def parseArgs : List String → Args → Args
       match jobsCount ((s.drop "--jobs=".length).toString) with
       | .ok n => parseArgs rest { a with jobs := some n }
       | .error msg => { a with bad := some msg }
+    else if s.startsWith "--search-path=" then
+      let dirs := ((s.drop "--search-path=".length).toString.splitOn ":").filter (· != "")
+      parseArgs rest { a with searchPath := a.searchPath ++ dirs.map System.FilePath.mk }
     else if s == "--jobs" then
       { a with bad := some "--jobs takes a worker count: --jobs=<n>; omit the \
           flag for one worker per hardware thread" }
@@ -408,6 +435,23 @@ def run (args : List String) (drain : IO.Ref (IO Unit)) : IO UInt32 := do
       IO.eprintln s!"con-leche: {msg}"
       IO.eprintln usage
       return 3
+    let jobs := a.jobs.getD
+      (let hw := (System.Platform.Internal.getHardwareConcurrency ()).toNat
+       if hw = 0 then 1 else hw)
+    if a.olean then
+      -- `--olean`: the arguments are root modules (`Init`, `Mathlib`),
+      -- read with their import closure along the search path.
+      if a.files.isEmpty || a.searchPath.isEmpty then
+        IO.eprintln "con-leche: --olean takes one or more module names and a \
+          --search-path=DIR[:DIR…]"
+        IO.eprintln usage
+        return 3
+      let roots := a.files.map fun m =>
+        (m.splitOn ".").foldl ConLeche.Name.str ConLeche.Name.anonymous
+      return ← checkMain (.oleans a.searchPath roots) a.mode a.progress jobs a.noMark drain
+    else if !a.searchPath.isEmpty then
+      IO.eprintln "con-leche: --search-path is only meaningful with --olean"
+      return 3
     match a.files.toList with
     | [file] =>
       -- The checker runs IN THIS PROCESS: it spawns no copy of itself,
@@ -416,10 +460,7 @@ def run (args : List String) (drain : IO.Ref (IO Unit)) : IO UInt32 := do
       -- `abort()` under the `LEAN_ABORT_ON_PANIC` set above.
       -- `--jobs=<n>`: the check phase's worker count; without the flag,
       -- one worker per hardware thread (1 if the runtime cannot tell).
-      let jobs := a.jobs.getD
-        (let hw := (System.Platform.Internal.getHardwareConcurrency ()).toNat
-         if hw = 0 then 1 else hw)
-      checkMain file a.mode a.progress jobs a.noMark drain
+      checkMain (.ndjson file) a.mode a.progress jobs a.noMark drain
     | _ =>
       IO.eprintln usage
       return 3

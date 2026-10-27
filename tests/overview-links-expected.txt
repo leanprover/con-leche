@@ -10,8 +10,15 @@
 == Main.lean#L91
     91  def usage : String := String.intercalate "\n" [
 
-== ConLeche/Driver/Run.lean#L34
-    34  def ConLeche.CheckError.exitCode : CheckError → UInt32
+== ConLeche/Frontend/Olean/Region.lean#L211
+   211  def Region.obj (r : @& Region) (a : UInt64) : Except String Obj :=
+
+== ConLeche/Frontend/Olean/Load.lean#L474-L475
+   474  def readOleans (sp : SearchPath) (roots : Array Name) (jobs : Nat := 1) :
+   475      IO (Except (CheckError × Nat) (Array Declaration)) := do
+
+== ConLeche/Driver/Run.lean#L35
+    35  def ConLeche.CheckError.exitCode : CheckError → UInt32
 
 == ConLeche/Kernel/Name.lean#L207
    207  def render (n : Name) : String :=
@@ -120,8 +127,8 @@
     94  #guard_msgs in
     95  #print axioms ConLeche.model_exists
 
-== ConLeche/Driver/Run.lean#L59
-    59  def parseInput (file : String) (jobs : Nat) (noMark : Bool) : IO Frontend.ParseOutcome := do
+== ConLeche/Driver/Run.lean#L60
+    60  def parseInput (file : String) (jobs : Nat) (noMark : Bool) : IO Frontend.ParseOutcome := do
 
 == ConLeche/Frontend/Scan/Equiv.lean#L1002
   1002  @[csimp] theorem scanLineSpec_eq_scanLineFwd : @scanLineSpec = @scanLineFwd := by
@@ -205,11 +212,11 @@
    393      (j : Nat) → (∀ i, i < j → GroupChecked mode e i) →
    394        Except (CheckError × Nat) (PLift (∀ i, GroupChecked mode e i))
 
-== ConLeche/Driver/Run.lean#L107-L110
-   107  def checkDeclsIO (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride total t0 tParse jobs : Nat)
-   108      (noMark : Bool) (drain : IO.Ref (IO Unit)) (ds : Array ConLeche.Declaration) :
-   109      IO (Except (ConLeche.CheckError × Nat)
-   110        { env : ConLeche.Env // ConLeche.Cached.checkDecls mode ConLeche.natOpPinSets ds = .ok env }) := do
+== ConLeche/Driver/Run.lean#L129-L132
+   129  def checkDeclsIO (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride total t0 tParse jobs : Nat)
+   130      (noMark : Bool) (drain : IO.Ref (IO Unit)) (ds : Array ConLeche.Declaration) :
+   131      IO (Except (ConLeche.CheckError × Nat)
+   132        { env : ConLeche.Env // ConLeche.Cached.checkDecls mode ConLeche.natOpPinSets ds = .ok env }) := do
 
 == ConLeche/Cached/Installed.lean#L523-L525
    523  theorem fullyChecked_checkDecls {pins : List NatOpPinSet} {ds : Array Declaration}
@@ -1254,18 +1261,18 @@
    213        else if cv.name = sorryAxName then
    214          pure fe
 
-== Main.lean#L124
-   124    "  --jobs=<n>        the number of worker threads (default: the",
+== Main.lean#L125
+   125    "  --jobs=<n>        the number of worker threads (default: the",
 
 == ConLeche/Kernel/Basis/False.lean#L50-L51
     50  /-- The pinned `False` basis block, in install order. -/
     51  def falseBasis : List ConstantInfo := [falseRaw, falseRecRaw]
 
-== Main.lean#L479
-   479  def main (args : List String) : IO UInt32 := do
+== Main.lean#L520
+   520  def main (args : List String) : IO UInt32 := do
 
-== Main.lean#L365
-   365  def run (args : List String) (drain : IO.Ref (IO Unit)) : IO UInt32 := do
+== Main.lean#L392
+   392  def run (args : List String) (drain : IO.Ref (IO Unit)) : IO UInt32 := do
 
 == ConLeche/MainTheorem.lean#L110-L117
    110  theorem no_False_declaration (V : Type w) [SetTheory V]
@@ -1384,6 +1391,6 @@
    201      OmegaInaccessibles.{u} → Nonempty (Σ V : Type (u + 1), ConLeche.SetTheory V) :=
    202    fun h => ⟨⟨ZFSet.{u}, setTheoryOfCarneiro h⟩⟩
 
-== Main.lean#L107
-   107    "  --trusted         the unverified mode: the SAME checker bodies as",
+== Main.lean#L108
+   108    "  --trusted         the unverified mode: the SAME checker bodies as",
 
