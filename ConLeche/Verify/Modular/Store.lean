@@ -29,13 +29,13 @@ open ConLeche
 
 /-- The names of the store's index, each in the shard its hash names,
 each once. -/
-def shardNames (idx : Shards) : List Name :=
+@[expose] def shardNames (idx : Shards) : List Name :=
   (List.range idx.size).flatMap fun s =>
     ((idx[s]?.map (·.keys)).getD []).filter (fun n => baseShard n idx.size == s)
 
 /-- **The context a store presents to a viewer**: the visible constant of
 every name of the index, and the visible table of every name. -/
-def ctxOf (mb : MBase) : Env :=
+@[expose] def ctxOf (mb : MBase) : Env :=
   ⟨(shardNames mb.idx).filterMap mb.find?, (shardNames mb.idx).filterMap mb.findTable?⟩
 
 /-! ## The lookups -/
@@ -82,25 +82,55 @@ theorem MBase.find?_eq_none_of_pick? {mb : MBase} {n : Name} (hp : mb.pick? n = 
   unfold MBase.find?
   rw [hp]
 
+theorem tableSel_some {T : Name} {t : ProjTable} :
+    ∀ {o : Option (Option ProjTable)},
+      (match o.join with
+        | some t => if (t.structName == T) = true then some t else none
+        | none => none) = some t → t.structName = T ∧ o.join = some t
+  | none, h => by cases h
+  | some none, h => by cases h
+  | some (some t'), h => by
+    have h' : (if (t'.structName == T) = true then some t' else none) = some t := h
+    by_cases hT : (t'.structName == T) = true
+    · rw [ite_eq_left hT] at h'
+      cases h'
+      exact ⟨beq_iff_eq.mp hT, rfl⟩
+    · rw [ite_eq_right hT] at h'; cases h'
+
+/-- **A table lookup**: the visible alternate is a type former of its
+module, whose table at the viewer's level of that module it is. -/
+theorem MBase.findTable?_some' {mb : MBase} {T : Name} {t : ProjTable}
+    (hf : mb.findTable? T = some t) :
+    ∃ h j cv caps, mb.pick? T = some (h, j, .indInfo cv caps) ∧ t.structName = T ∧
+      ∃ (hs : h < mb.slots.size) (hl : h < mb.lvl.size),
+        (if mb.lvl[h] == 2 then (mb.slots[h]).get.prv.tbls[j]?
+          else (mb.slots[h]).get.exp.tbls[j]?).join = some t := by
+  unfold MBase.findTable? at hf
+  cases hp : mb.pick? T with
+  | none => rw [hp] at hf; cases hf
+  | some x =>
+    obtain ⟨h, j, ci⟩ := x
+    rw [hp] at hf
+    cases ci with
+    | indInfo cv caps =>
+      simp only at hf
+      by_cases hs : h < mb.slots.size
+      · simp only [hs, ↓reduceDIte] at hf
+        by_cases hl : h < mb.lvl.size
+        · simp only [hl, ↓reduceDIte] at hf
+          obtain ⟨hT, hj⟩ := tableSel_some hf
+          exact ⟨h, j, cv, caps, rfl, hT, hs, hl, hj⟩
+        · simp only [hl, ↓reduceDIte] at hf; cases hf
+      · simp only [hs, ↓reduceDIte] at hf; cases hf
+    | _ => simp at hf
+
 theorem MBase.findTable?_some {mb : MBase} {T : Name} {t : ProjTable}
     (hf : mb.findTable? T = some t) : t.structName = T ∧ (mb.find? T).isSome = true := by
-  unfold MBase.findTable? at hf
-  split at hf
-  · rename_i h j ci hp
-    split at hf
-    · split at hf
-      · rename_i t' _
-        split at hf
-        · rename_i hT
-          cases hf
-          refine ⟨beq_iff_eq.mp hT, ?_⟩
-          unfold MBase.find?
-          rw [hp]
-          rfl
-        · cases hf
-      · cases hf
-    · cases hf
-  · cases hf
+  obtain ⟨h, j, cv, caps, hp, hT, -⟩ := MBase.findTable?_some' hf
+  refine ⟨hT, ?_⟩
+  unfold MBase.find?
+  rw [hp]
+  rfl
 
 /-! ## The names -/
 

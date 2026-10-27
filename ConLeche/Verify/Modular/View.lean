@@ -42,12 +42,12 @@ variable {mode : CheckMode} {pins : List NatOpPinSet}
 
 /-- The environment a view stands for over a context `C`: its own
 constants and tables, then the context's. -/
-def envAt (fe : FEnv) (C : Env) : Env :=
+@[expose] def envAt (fe : FEnv) (C : Env) : Env :=
   ⟨fe.env.consts ++ C.consts, fe.env.tables ++ C.tables⟩
 
 /-- **A view is canonical over its own constants**, with the base `B`
 below. -/
-def CanonB (fe : FEnv) (B : FBase) : Prop := fe = { mkFEnv fe.env with base := B }
+@[expose] def CanonB (fe : FEnv) (B : FBase) : Prop := fe = { mkFEnv fe.env with base := B }
 
 theorem canonB_viewOf (mb : MBase) : CanonB (viewOf mb) { mb := some mb } := by
   unfold CanonB; rfl
@@ -520,7 +520,7 @@ theorem find?_isSome_append {E : Env} {l : List ConstantInfo} {T : List ProjTabl
 record at the end of the run — a theorem's, or a definition's or opaque
 constant's whose value also passes the theorem record's check there — at
 a name that is not pinned. -/
-def ProofsAttested (mode : CheckMode) (proofs : Name → Bool) (feF : FEnv)
+@[expose] def ProofsAttested (mode : CheckMode) (proofs : Name → Bool) (feF : FEnv)
     (pendF : Array PendingCheck) : Prop :=
   ∀ n, proofs n = true → ∃ pc ∈ pendF.toList, pc.vg.cv.name = n ∧ n ∉ ConLeche.Modular.pinnedNames ∧
     (pc.vg.kind = .thm ∨ (pc.vg.kind ≠ .thm ∧
