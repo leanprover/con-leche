@@ -4,9 +4,11 @@ import ConLeche.Verify.Cached.MainC
 public import ConLeche.Denotes
 public import ConLeche.Accepts
 public import ConLeche.Frontend.Prelude
-public import ConLeche.Cached.Installed
+import ConLeche.Cached.Installed
 public import ConLeche.Modular
 import ConLeche.Model.Denotes
+import ConLeche.Model.Capstone
+import ConLeche.Model.Modular.Main
 import ConLeche.Verify.Cached.StreamThm
 import ConLeche.Verify.Frontend.Prepare
 import ConLeche.Verify.Frontend.FileFalse
@@ -132,8 +134,14 @@ theorem modular_model_exists (V : Type w) [SetTheory V]
     ∃ G : Modular.Key → (LevelParam → Nat) → V,
       (∀ n lps T φ, G (.proof n lps T) φ = pt) ∧
       ∀ j ≤ i, ∃ m : Model V (dev j).own,
-        ∀ n, ((dev j).own.find? n).isSome = true → m.cval n = G ((dev j).res n) :=
-  sorry
+        ∀ n, ((dev j).own.find? n).isSome = true → m.cval n = G ((dev j).res n) := by
+  obtain ⟨W, hW, hm⟩ := Model.Modular.modular_envModels (V := V) rfl dev i hok
+  refine ⟨fun k φ => Semantics.interp V (fun _ => empty) (W k φ), fun n lps T φ => ?_, fun j hj => ?_⟩
+  · show Semantics.interp V _ (W _ φ) = pt
+    rw [hW.2.2 n lps T]; exact Semantics.interp_prf (V := V) _
+  · obtain ⟨mp, hl⟩ := hm j hj
+    exact ⟨Model.Model.ofEnvModelM mp, fun n hn => funext fun φ => by
+      rw [Model.Model.ofEnvModelM_cval, hl n hn]⟩
 
 /-- **The modular corollary.**  No module of such a development stores
 a constant of type `False` in its own environment. -/
@@ -141,7 +149,10 @@ theorem modular_no_False (V : Type w) [SetTheory V]
     (pins : List NatOpPinSet) (dev : Nat → Modular.Module) (i : Nat)
     (hok : ∀ j ≤ i, Modular.LocalOk .verified pins dev j) :
     ∀ j ≤ i, ∀ c ∈ (dev j).own.consts,
-      c.toConstantVal.type = .const falseName [] → False :=
-  sorry
+      c.toConstantVal.type = .const falseName [] → False := by
+  obtain ⟨_, _, hm⟩ := Model.Modular.modular_envModels (V := V) rfl dev i hok
+  intro j hj c hc hty
+  obtain ⟨mp, -⟩ := hm j hj
+  exact Model.no_constant_of_False mp c hc hty
 
 end ConLeche

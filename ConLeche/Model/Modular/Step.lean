@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.Model.InstallRun
-public import ConLeche.Modular
+public import ConLeche.Model.Modular.Scope
 import ConLeche.Verify.CheckerSplit
 import ConLeche.Semantics.DeclEta
 import ConLeche.Semantics.Bridge.Sound
@@ -144,28 +144,33 @@ theorem acceptedFrom_model (hμ : μ.isVerified = true) {proofs : Name → Bool}
     ∀ {E : Env} {ds : List Declaration} {E' : Env}, AcceptedFrom μ pins proofs E ds E' →
     ∀ mp : EnvModelM V μ E, LfpCover mp [] → EtaFamiliesClosed E → NodupNames E →
     ∃ mp' : EnvModelM V μ E', Agrees mp mp' ∧ LfpCover mp' [] ∧ EtaFamiliesClosed E' ∧
-      NodupNames E' ∧
+      NodupNames E' ∧ Extends E E' ∧
       ∀ n, proofs n = true → E.find? n = none → (E'.find? n).isSome = true →
-        mp'.base2.acval n = fun _ => .prf := by
+        mp'.base2.acval n = (fun _ => .prf) ∧
+        ∃ ci, E'.find? n = some ci ∧ ci.isIndKind = false ∧ n ∉ pinnedNames := by
   intro E ds E' h
   induction h with
   | nil E =>
     intro mp hcov hE hnd
-    exact ⟨mp, Agrees.refl mp, hcov, hE, hnd, fun n _ h1 h2 => by rw [h1] at h2; exact nomatch h2⟩
+    exact ⟨mp, Agrees.refl mp, hcov, hE, hnd, Extends.refl E,
+      fun n _ h1 h2 => by rw [h1] at h2; exact nomatch h2⟩
   | @cons E E' d ds i fe pend hstep hrec hflag rest ih =>
     intro mp hcov hE hnd
-    obtain ⟨hnd₁, -, F, hF⟩ := acceptStep_checkDecl (V := V) hμ ⟨⟨mp, hcov⟩, hE⟩ hnd hstep hrec
+    obtain ⟨hnd₁, hch, F, hF⟩ := acceptStep_checkDecl (V := V) hμ ⟨⟨mp, hcov⟩, hE⟩ hnd hstep hrec
     have hrunD := ConLeche.Semantics.checkDeclRun_ofEnvFactsK hF
     obtain ⟨mp₁, hag₁, hcov₁, hleaf₁⟩ := declStep_agrees hμ mp hcov hE hrunD
     have hE₁ : EtaFamiliesClosed fe.env := ConLeche.Semantics.declEtaStepRun
       (fun h' => ConLeche.Semantics.declIndRunDispatchKEtaClosed hE h') hE hrunD
-    obtain ⟨mp', hag', hcov', hE', hnd', hfl'⟩ := ih mp₁ hcov₁ hE₁ hnd₁
-    refine ⟨mp', hag₁.trans hag', hcov', hE', hnd', fun n hp hn hs => ?_⟩
+    obtain ⟨mp', hag', hcov', hE', hnd', hext', hfl'⟩ := ih mp₁ hcov₁ hE₁ hnd₁
+    have hext₁ := Extends.of_pushChain hch
+    refine ⟨mp', hag₁.trans hag', hcov', hE', hnd', hext₁.trans hext', fun n hp hn hs => ?_⟩
     cases hn₁ : fe.env.find? n with
     | none => exact hfl' n hp hn₁ hs
     | some ci =>
       have hs₁ : (fe.env.find? n).isSome = true := by rw [hn₁]; rfl
       rw [(hag' n hs₁).2]
+      have hfE' : E'.find? n = some ci := hext'.find? hnd' hn₁
+      rw [hfE']
       have hpd := hflag n hp hn hs₁
       -- the step's one new name is the declaration's own
       have hnew : ∀ c₀ : ConstantInfo, fe.env = ⟨c₀ :: E.consts, E.tables⟩ → n = c₀.name := by
@@ -177,23 +182,32 @@ theorem acceptedFrom_model (hμ : μ.isVerified = true) {proofs : Name → Bool}
       cases d with
       | thmDecl cv v =>
         obtain ⟨type', value', -, -, -, henv2⟩ := hrunD
-        rw [hnew _ henv2]
-        exact hleaf₁
+        have hn' := hnew _ henv2
+        rw [henv2, hn', ConLeche.Env.find?_cons_self] at hn₁
+        obtain rfl := Option.some.inj hn₁
+        rw [hn']
+        exact ⟨hleaf₁, _, rfl, rfl, hpd⟩
       | defnDecl cv v hint =>
         obtain ⟨type', value', hcv, -, henv2, -, -⟩ := hrunD
-        rw [hnew _ henv2]
+        have hn' := hnew _ henv2
+        rw [henv2, hn', ConLeche.Env.find?_cons_self] at hn₁
+        obtain rfl := Option.some.inj hn₁
+        rw [hn']
         obtain ⟨hpin, s, hck⟩ := hpd
         have hwty : Expr.WScoped 0 cv.type := Expr.WScoped.of_not_hasFvar hcv.2.2.2.2.1
-        refine hleaf₁ ⟨?_, propTypeRun_of_thmCheck hμ mp hnd hwty hck⟩
+        refine ⟨hleaf₁ ⟨?_, propTypeRun_of_thmCheck hμ mp hnd hwty hck⟩, _, rfl, rfl, hpin⟩
         cases h1 : ConLeche.natOpNames.contains cv.name <;>
           cases h2 : ConLeche.natDivModNames.contains cv.name <;> simp
         all_goals exact absurd (by simp [pinnedNames, List.contains_iff_mem.mp ‹_›]) hpin
       | opaqueDecl cv v =>
         obtain ⟨type', value', hcv, -, henv2, -⟩ := hrunD
-        rw [hnew _ henv2]
+        have hn' := hnew _ henv2
+        rw [henv2, hn', ConLeche.Env.find?_cons_self] at hn₁
+        obtain rfl := Option.some.inj hn₁
+        rw [hn']
         obtain ⟨hpin, s, hck⟩ := hpd
         have hwty : Expr.WScoped 0 cv.type := Expr.WScoped.of_not_hasFvar hcv.2.2.2.2.1
-        refine hleaf₁ ⟨?_, propTypeRun_of_thmCheck hμ mp hnd hwty hck⟩
+        refine ⟨hleaf₁ ⟨?_, propTypeRun_of_thmCheck hμ mp hnd hwty hck⟩, _, rfl, rfl, hpin⟩
         cases h1 : ConLeche.reduceOpNames.contains cv.name
         · rfl
         · exact absurd (by simp [pinnedNames, List.contains_iff_mem.mp h1]) hpin

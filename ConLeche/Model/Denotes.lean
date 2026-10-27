@@ -374,4 +374,10 @@ noncomputable def Model.ofEnvModelM {μ : ConLeche.CheckMode} {env : Env}
       rw [interp_cvalOf m.base2.cval_closed] at hlaw
       exact hlaw
 
+/-- The model's constant values are the leaves' readings. -/
+theorem Model.ofEnvModelM_cval {μ : ConLeche.CheckMode} {env : Env} (m : EnvModelM V μ env)
+    (n : Name) (φ : Name → Nat) :
+    (Model.ofEnvModelM m).cval n φ = interp V (fun _ => SetTheory.empty) (m.base2.acval n φ) := by
+  rfl
+
 end ConLeche.Model
