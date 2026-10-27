@@ -406,13 +406,16 @@ def unitOf (g : Array ModIn) (S : Mod.Store) (flagged : Std.HashSet Name) (k : N
       diag := diag.merge { vgated := 1, ex := #[msg] }
   -- the unit
   let tbls := priv.map tblOf
+  let at1 : Array (Option ConstantInfo) := (Array.range n).map fun j =>
+    if st[j]! == 2 then some priv[j]! else if st[j]! == 1 then some (Mod.asAxiom priv[j]!)
+    else none
+  -- presented as stored: the presentation is the constant (an assumption
+  -- presented as an assumption included)
+  let stored : Array Bool := (Array.range n).map fun j => at1[j]! == some priv[j]!
   let slot : ModSlot := {
     exp := {
-      at1 := (Array.range n).map fun j =>
-        if st[j]! == 2 then some priv[j]! else if st[j]! == 1 then some (Mod.asAxiom priv[j]!)
-        else none,
-      stored := st.map (· == 2),
-      tbls := (Array.range n).map fun j => if st[j]! == 2 then tbls[j]! else none,
+      at1, stored,
+      tbls := (Array.range n).map fun j => if stored[j]! then tbls[j]! else none,
       g1, v1, prf := priv.map fun ci => flagged.contains ci.name }
     prv := { priv, tbls } }
   let dummy (d : Name) : Nat × ConstantInfo := (0, .axiomInfo ⟨d, [], .sort .zero⟩)

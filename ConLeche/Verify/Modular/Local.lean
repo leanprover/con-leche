@@ -194,7 +194,7 @@ theorem shapeOk_spec {fe : FEnv} {flagged : Name → Bool} {s : ModSlot}
       s.exp.stored[j]? = some st ∧
       (s.exp.at1[j]? = some none ∨ s.exp.at1[j]? = some (some ci) ∨
         (s.exp.at1[j]? = some (some (asAxiom ci)) ∧ hideable ci = true)) ∧
-      (st = true → s.exp.at1[j]? = some (some ci)) ∧
+      (st = true ↔ s.exp.at1[j]? = some (some ci)) ∧
       (∀ v : Array (Nat × UInt8), s.exp.v1[j]? = some v → v.isEmpty = true ∨
         (st = true ∧ hideable ci = true)) ∧
       s.exp.prf[j]? = some (flagged ci.name) ∧
@@ -234,11 +234,8 @@ theorem shapeOk_spec {fe : FEnv} {flagged : Name → Bool} {s : ModSlot}
       rcases ha with rfl | ⟨rfl, hh⟩
       · exact .inr (.inl rfl)
       · exact .inr (.inr ⟨rfl, hh⟩)
-  · intro hs
-    rw [Array.getElem?_eq_getElem hj1]
-    rcases hst with h | h
-    · rw [hs] at h; cases h
-    · rw [h]
+  · rw [Array.getElem?_eq_getElem hj1, hst]
+    simp
   · intro v hv'
     rw [Array.getElem?_eq_getElem hj4] at hv'
     cases hv'
@@ -291,6 +288,214 @@ theorem RunOk.own_find? (hR : RunOk mode S M) {h : Nat} (hh : h < M.size) {j : N
   rw [List.find?_append, find?_of_mem_nodup (List.nodup_append.mp hnd).1 hmem]
   rfl
 
+/-! ## Entries and their homes -/
+
+theorem gateOk_nil (b : MBase) : b.gateOk #[] = true := by
+  unfold MBase.gateOk; simp
+
+theorem RunOk.shape (hR : RunOk mode S M) {h : Nat} (hh : h < M.size) :
+    shapeOk M[h].fe M[h].flags.contains (S.slot h) = true := by
+  rw [hR.slot h hh]; exact unitOk_shape (hR.unit h hh)
+
+/-- **A visible alternate stands for its home's installed constant**: the
+constant itself or the assumption of its statement, at a name that is not
+pinned. -/
+theorem RunOk.at?_home (hR : RunOk mode S M) {i h j : Nat} {ci : ConstantInfo}
+    (hat : (S.mb i).at? h j = some ci) (hh : h < M.size) :
+    ∃ c, (S.slot h).prv.priv[j]? = some c ∧
+      (ci = c ∨ (ci = asAxiom c ∧ hideable c = true)) := by
+  obtain ⟨hl, hs, hc⟩ := MBase.at?_some hat
+  have hsl : (S.mb i).slots[h].get = S.slot h := Store.slot_eq S hs
+  rw [hsl] at hc
+  obtain ⟨h1, -, -, h4, -, h6, -, hj⟩ := shapeOk_spec (hR.shape hh)
+  rcases hc with ⟨-, hp⟩ | ⟨-, a, ha, hg, hv⟩
+  · exact ⟨ci, hp, .inl rfl⟩
+  · have hjl : j < (S.slot h).exp.at1.size := by
+      rcases Nat.lt_or_ge j (S.slot h).exp.at1.size with h' | h'
+      · exact h'
+      · rw [Array.getElem?_eq_none h'] at ha; cases ha
+    have hjp : j < (S.slot h).prv.priv.size := by rw [h1]; exact hjl
+    obtain ⟨st, hst, hat1, hstored, hv1, -⟩ :=
+      hj j _ (Array.getElem?_eq_getElem hjp)
+    refine ⟨_, Array.getElem?_eq_getElem hjp, ?_⟩
+    rcases hat1 with h0 | h0 | ⟨h0, hhide⟩
+    · rw [h0] at ha; cases ha
+    · rw [h0] at ha
+      cases ha
+      rcases hv with ⟨-, rfl⟩ | ⟨hvf, rfl⟩
+      · exact .inl rfl
+      · -- a closed value gate is a non-empty one: the constant is stored and hideable
+        have hjv : j < (S.slot h).exp.v1.size := by rw [← h4]; exact hjp
+        rcases hv1 _ (Array.getElem?_eq_getElem hjv) with he | ⟨-, hhide⟩
+        · rw [Array.getElem?_eq_getElem hjv] at hvf
+          simp only [Option.getD_some] at hvf
+          rw [Array.isEmpty_iff.mp he] at hvf
+          exact absurd hvf (by rw [gateOk_nil]; decide)
+        · exact .inr ⟨rfl, hhide⟩
+    · rw [h0] at ha
+      cases ha
+      rcases hv with ⟨-, rfl⟩ | ⟨-, rfl⟩
+      · exact .inr ⟨rfl, hhide⟩
+      · exact .inr ⟨rfl, hhide⟩
+
+theorem not_pinned_of_hideable {c : ConstantInfo} (h : hideable c = true) :
+    c.name ∉ pinnedNames := by
+  unfold hideable isPinned at h
+  intro hm
+  simp [hm] at h
+
+theorem RunOk.context_le (hR : RunOk mode S M) {i : Nat} (hi : i < M.size) (n : Name)
+    (ci : ConstantInfo) (hf : (devOf S M i).context.find? n = some ci) :
+    ∃ ci', (devOf S M ((devOf S M i).src n)).own.find? n = some ci' ∧ Refines n ci ci' := by
+  rw [devOf_of_lt hi] at hf ⊢
+  obtain ⟨h, j, hp, hat, hn, hlt, -⟩ := hR.ctx_entry hi hf
+  have hh : h < M.size := Nat.lt_trans hlt hi
+  have hsrc : (moduleOf S i M[i]).src n = h := by
+    show (match (S.mb i).pick? n with
+      | some (h, _, _) => h
+      | none => 0) = h
+    rw [hp]
+  rw [hsrc, devOf_of_lt hh]
+  obtain ⟨c, hc, hci⟩ := hR.at?_home hat hh
+  have hcn : c.name = n := by
+    rcases hci with rfl | ⟨rfl, -⟩
+    · exact hn
+    · exact hn
+  refine ⟨c, ?_, ?_⟩
+  · rw [← hcn]; exact hR.own_find? hh hc
+  · rcases hci with rfl | ⟨rfl, hhide⟩
+    · exact .inl rfl
+    · exact .inr ⟨hcn ▸ not_pinned_of_hideable hhide, rfl⟩
+
+/-! ## The home's own lookups -/
+
+/-- A home's own constant is not in its context. -/
+theorem RunOk.own_not_ctx (hR : RunOk mode S M) {h : Nat} (hh : h < M.size) {j : Nat}
+    {c : ConstantInfo} (hc : (S.slot h).prv.priv[j]? = some c) :
+    (ctxOf (S.mb h)).find? c.name = none := by
+  rw [hR.slot h hh, hR.priv h hh] at hc
+  have hmem : c ∈ M[h].fe.env.consts := by
+    have := List.mem_of_getElem? (by simpa using hc)
+    exact List.mem_reverse.mp this
+  have hnd := hR.nodupOwn hh
+  unfold NodupNames envAt at hnd
+  simp only [List.map_append] at hnd
+  apply find?_none_of_not_mem
+  intro hm
+  exact (List.nodup_append.mp hnd).2.2 c.name (List.mem_map.mpr ⟨c, hmem, rfl⟩) c.name hm rfl
+
+theorem RunOk.pick_none_own (hR : RunOk mode S M) {h : Nat} (hh : h < M.size) {j : Nat}
+    {c : ConstantInfo} (hc : (S.slot h).prv.priv[j]? = some c) :
+    (S.mb h).pick? c.name = none := by
+  have := hR.own_not_ctx hh hc
+  rw [ctxOf_find?] at this
+  cases hp : (S.mb h).pick? c.name with
+  | none => rfl
+  | some x =>
+    obtain ⟨h', j', ci⟩ := x
+    unfold MBase.find? at this; rw [hp] at this; cases this
+
+/-- **A home resolves its own constant to the qualified name the store
+gives it.** -/
+theorem RunOk.res_home (hR : RunOk mode S M) {h : Nat} (hh : h < M.size) {j : Nat}
+    {c : ConstantInfo} (hc : (S.slot h).prv.priv[j]? = some c) :
+    resOf S h M[h] c.name = S.keyAt h j c.name := by
+  unfold resOf
+  rw [hR.pick_none_own hh hc]
+  simp only [hR.own_find? hh hc]
+  unfold Store.keyAt keyOfSlot
+  obtain ⟨-, -, -, -, -, -, -, hj⟩ := shapeOk_spec (hR.shape hh)
+  obtain ⟨-, -, -, -, -, hpf, -⟩ := hj j c hc
+  rw [hpf, hc]
+  cases M[h].flags.contains c.name <;> rfl
+
+theorem RunOk.res_context (hR : RunOk mode S M) {i : Nat} (hi : i < M.size) (n : Name)
+    (hn : ((devOf S M i).context.find? n).isSome = true) :
+    (devOf S M i).res n = (devOf S M ((devOf S M i).src n)).res n := by
+  rw [devOf_of_lt hi] at hn ⊢
+  obtain ⟨ci, hci⟩ := Option.isSome_iff_exists.mp hn
+  obtain ⟨h, j, hp, hat, hcn, hlt, -⟩ := hR.ctx_entry hi hci
+  have hh : h < M.size := Nat.lt_trans hlt hi
+  have hsrc : (moduleOf S i M[i]).src n = h := by
+    show (match (S.mb i).pick? n with
+      | some (h, _, _) => h
+      | none => 0) = h
+    rw [hp]
+  rw [hsrc, devOf_of_lt hh]
+  obtain ⟨c, hc, hci'⟩ := hR.at?_home hat hh
+  have hname : c.name = n := by rcases hci' with rfl | ⟨rfl, -⟩ <;> exact hcn
+  show resOf S i M[i] n = resOf S h M[h] n
+  rw [← hname, hR.res_home hh hc]
+  unfold resOf
+  rw [hname, hp]
+
+/-- A view at the end of its install looks up what the environment it
+stands for stores. -/
+theorem RunOk.fe_find? (hR : RunOk mode S M) {h : Nat} (hh : h < M.size) (n : Name) :
+    M[h].fe.find? n = (envAt M[h].fe (ctxOf (S.mb h))).find? n := by
+  obtain ⟨k, hrun⟩ := hR.run h hh
+  obtain ⟨hc, -, -⟩ := viewRun_trace hrun (canonB_viewOf (S.mb h))
+  exact congrFun hc.twin.find n |>.trans (mkFEnv_find? _ n)
+
+theorem RunOk.recFam (hR : RunOk mode S M) {i : Nat} (hi : i < M.size) :
+    ∀ n cv mI rP rules, (devOf S M i).context.find? n = some (.recInfo cv mI rP rules) →
+      ∀ r ∈ rules, ∀ cvj nP nF,
+        (devOf S M ((devOf S M i).src n)).own.find? r.ctor = some (.ctorInfo cvj nP nF) →
+        ∀ T us, cvj.type.piResult.getAppFn = .const T us →
+          ∃ cvT capsT, (devOf S M ((devOf S M i).src n)).own.find? T = some (.indInfo cvT capsT) := by
+  intro n cv mI rP rules hf r hr cvj nP nF hcj T us hT
+  rw [devOf_of_lt hi] at hf hcj ⊢
+  obtain ⟨h, j, hp, hat, hcn, hlt, -⟩ := hR.ctx_entry hi hf
+  have hh : h < M.size := Nat.lt_trans hlt hi
+  have hsrc : (moduleOf S i M[i]).src n = h := by
+    show (match (S.mb i).pick? n with
+      | some (h, _, _) => h
+      | none => 0) = h
+    rw [hp]
+  rw [hsrc, devOf_of_lt hh] at hcj ⊢
+  obtain ⟨c, hc, hci'⟩ := hR.at?_home hat hh
+  have hcrec : c = .recInfo cv mI rP rules := by
+    rcases hci' with rfl | ⟨h', -⟩
+    · rfl
+    · unfold asAxiom at h'; cases h'
+  subst hcrec
+  -- the unit's recursor check
+  have hu := hR.unit h hh
+  unfold unitOk at hu
+  simp only [Bool.and_eq_true] at hu
+  have hrf := hu.1.1.1.1.1.2
+  rw [← hR.slot h hh, Array.all_eq_true] at hrf
+  have hjs : j < (S.slot h).prv.priv.size := by
+    rcases Nat.lt_or_ge j (S.slot h).prv.priv.size with h' | h'
+    · exact h'
+    · rw [Array.getElem?_eq_none h'] at hc; cases hc
+  have := hrf j hjs
+  have hpj : (S.slot h).prv.priv[j] = .recInfo cv mI rP rules := by
+    rw [Array.getElem?_eq_getElem hjs] at hc
+    exact Option.some.inj hc
+  rw [hpj] at this
+  unfold recFamOk at this
+  simp only [List.all_eq_true] at this
+  have hr' := this r hr
+  have hcj' : M[h].fe.find? r.ctor = some (.ctorInfo cvj nP nF) := by
+    rw [hR.fe_find? hh]; exact hcj
+  clear hcj
+  rw [hcj'] at hr'
+  simp only at hr'
+  rw [hT] at hr'
+  simp only at hr'
+  revert hr'
+  cases hfT : M[h].fe.find? T with
+  | none => intro h'; cases h'
+  | some cT =>
+    intro h'
+    cases cT with
+    | indInfo cvT capsT =>
+      refine ⟨cvT, capsT, ?_⟩
+      show (envAt M[h].fe (ctxOf (S.mb h))).find? T = _
+      rw [← hR.fe_find? hh]; exact hfT
+    | _ => cases h'
+
 /-! ## The local checks -/
 
 /-- **A modular run's checks are the local checks.** -/
@@ -305,8 +510,9 @@ theorem RunOk.localOk (hR : RunOk mode S M) (i : Nat) :
       simp [hd, emptyModule, Env.find?, AcceptedFrom.nil]
   have hd := devOf_of_lt (S := S) hi
   refine { below := ?_, src_lt := hR.src_lt hi, nodup := ?_, accepted := fun _ => hR.accepted hi,
-           compared_own := ?_, context_le := ?_, scoping := ?_, tables := ?_, projs := ?_,
-           blocks := ?_, recFam := ?_, tables_mem := ?_, res_context := ?_, res_own := ?_ }
+           compared_own := ?_, context_le := hR.context_le hi, scoping := ?_, tables := ?_, projs := ?_,
+           blocks := ?_, recFam := hR.recFam hi, tables_mem := ?_,
+           res_context := hR.res_context hi, res_own := ?_ }
   · rw [hd]; exact hR.below i hi
   · rw [hd]; exact ctxOf_nodup _
   · rw [hd]; intro h; cases h
@@ -314,10 +520,7 @@ theorem RunOk.localOk (hR : RunOk mode S M) (i : Nat) :
   · sorry
   · sorry
   · sorry
-  · sorry
-  · sorry
   · rw [hd]; exact ctxOf_tables_mem _
-  · sorry
   · rw [hd]
     intro n ci hown hctx
     change (envAt M[i].fe (ctxOf (S.mb i))).find? n = some ci at hown

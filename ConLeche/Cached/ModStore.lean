@@ -350,7 +350,7 @@ def shapeOk (fe : FEnv) (flagged : Name → Bool) (s : ModSlot) : Bool :=
       (match a with
         | none => true
         | some a => a == ci || (a == asAxiom ci && hideable ci)) &&
-      (!st || a == some ci) &&
+      st == (a == some ci) &&
       (v.isEmpty || (st && hideable ci)) &&
       pf == flagged ci.name && (!pf || (match ci with
         | .defnInfo .. | .thmInfo _ | .axiomInfo _ => true
