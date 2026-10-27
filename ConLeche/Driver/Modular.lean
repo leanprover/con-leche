@@ -178,6 +178,40 @@ def pubReachOf (g : Array ModIn) (k : Nat) : ByteArray := Id.run do
           if im.isExported then work := work.push j
   return r
 
+/-- Counts of the exported view's repairs (performance and diagnostics
+only): constants pulled into the presentation (by kind), constants with a
+gate, definitions with a value gate; a few examples of each. -/
+structure Diag where
+  pulled : Array (String × Nat) := #[]
+  gated : Nat := 0
+  vgated : Nat := 0
+  ex : Array String := #[]
+  /-- of those, read by (resp. being) a constant whose name is not private -/
+  pubPulled : Nat := 0
+  pubGated : Nat := 0
+  pubEx : Array String := #[]
+  deriving Inhabited
+
+def Diag.merge (a b : Diag) : Diag :=
+  let pulled := b.pulled.foldl (fun acc (k, c) =>
+    match acc.findIdx? (·.1 == k) with
+    | some i => acc.modify i fun (k', c') => (k', c' + c)
+    | none => acc.push (k, c)) a.pulled
+  { pulled, gated := a.gated + b.gated, vgated := a.vgated + b.vgated,
+    ex := if a.ex.size ≥ 12 then a.ex else a.ex ++ b.ex.extract 0 (12 - a.ex.size),
+    pubPulled := a.pubPulled + b.pubPulled, pubGated := a.pubGated + b.pubGated,
+    pubEx := if a.pubEx.size ≥ 12 then a.pubEx else a.pubEx ++ b.pubEx.extract 0 (12 - a.pubEx.size) }
+
+/-- A private name (`_private.…`). -/
+def isPrivateName : Name → Bool
+  | .str .anonymous s => s == "_private"
+  | .str p _ | .num p _ => isPrivateName p
+  | .anonymous => false
+
+def kindOf : ConstantInfo → String
+  | .axiomInfo _ => "axiom/opaque" | .defnInfo .. => "definition" | .thmInfo _ => "theorem"
+  | .indInfo .. => "inductive" | .ctorInfo .. => "constructor" | .recInfo .. => "recursor"
+
 /-- **Module `k`'s unit** from its installed view `fe` and its proofs
 (`flagged`), with the reads `unitOk` verifies it against.  An oracle:
 nothing here is trusted, `unitOk` checks what it returns.
@@ -200,7 +234,7 @@ nothing here is trusted, `unitOk` checks what it returns.
   definition's value only to one that loads what the value reads
   (`v1`), transitively. -/
 def unitOf (g : Array ModIn) (S : Mod.Store) (flagged : Std.HashSet Name) (k : Nat) (fe : FEnv) :
-    Except String (Mod.Unit' × Mod.Reads) := do
+    Except String (Mod.Unit' × Mod.Reads × Diag) := do
   let some m := g[k]? | throw "no module"
   let priv := fe.env.consts.reverse.toArray
   let n := priv.size
@@ -230,6 +264,7 @@ def unitOf (g : Array ModIn) (S : Mod.Store) (flagged : Std.HashSet Name) (k : N
     | some .hidden => some (!Mod.hideable ci)
     | _ => none
   let mut work : Array Nat := (Array.range n).filter fun j => (pres[j]!).isSome
+  let mut diag : Diag := {}
   let mut fuel := n + 1
   while fuel > 0 do
     match work.back? with
@@ -244,6 +279,12 @@ def unitOf (g : Array ModIn) (S : Mod.Store) (flagged : Std.HashSet Name) (k : N
             | .defnInfo .. => !Mod.hideable priv[t.2]!
             | _ => true))
           work := work.push t.2
+          let c := priv[t.2]!
+          let rd := priv[j]!
+          let msg := s!"pulled: {c.name} ({kindOf c}), read by {rd.name} ({kindOf rd}) of {m.name}"
+          diag := diag.merge { pulled := #[(kindOf c, 1)], ex := #[msg] }
+          if !isPrivateName rd.name then
+            diag := diag.merge { pubPulled := 1, pubEx := #[msg] }
   -- the gates, to a fixed point (own gates only grow)
   let pairOf (t : Nat × Nat) : Nat × UInt8 := if isOwn t then (k, 1) else (t.1, S.needAt t.1 t.2)
   let tgtGate (g1 : Array (Array (Nat × UInt8))) (t : Nat × Nat) : Array (Nat × UInt8) :=
@@ -280,43 +321,42 @@ def unitOf (g : Array ModIn) (S : Mod.Store) (flagged : Std.HashSet Name) (k : N
   for j in [0:n] do
     if valueApart j then
       v1 := v1.set! j ((gateOver g1 vReads[j]!).filter (!g1[j]!.contains ·))
+  for j in [0:n] do
+    if !g1[j]!.isEmpty then
+      let why := g1[j]!.toList.take 3 |>.map fun (x, l) =>
+        s!"{((g[x]?).map ModIn.name).getD Name.anonymous}@{l}"
+      let msg := s!"gated: {priv[j]!.name} ({kindOf priv[j]!}) of {m.name} needs {why}"
+      diag := diag.merge { gated := 1, ex := #[msg] }
+      if !isPrivateName priv[j]!.name then
+        diag := diag.merge { pubGated := 1, pubEx := #[msg] }
+    if !v1[j]!.isEmpty then
+      diag := diag.merge { vgated := 1, ex := #[s!"value-gated: {priv[j]!.name} of {m.name}"] }
   -- what the importers check
   let slot : ModSlot := {
     priv, at1 := (Array.range n).map fun j => Mod.at1Of pres[j]! priv[j]!,
     tbls := priv.map tblOf, g1, v1,
     prf := priv.map fun ci => flagged.contains ci.name }
-  let keyOf (t : Nat × Nat) (d : Name) : ConLeche.Modular.Key :=
-    if isOwn t then Mod.keyOfSlot slot k t.2 d else S.keyAt t.1 t.2 d
-  let dupName (d : Name) : Bool := (S.alts d).length ≥ 2
   let mut fp1 : Std.HashSet (Nat × UInt8) := {}
-  let mut d1 : Array (Name × ConLeche.Modular.Key) := #[]
-  let mut d2 : Array (Name × ConLeche.Modular.Key) := #[]
   let mut all2 : Std.HashSet Name := {}
   let mut all1 : Std.HashSet Name := {}
   let mut gated : Array (Nat × Array Name × Array Name) := #[]
   for j in [0:n] do
-    for (d, t) in tReads[j]! ++ vReads[j]! do
+    for (d, _) in tReads[j]! ++ vReads[j]! do
       all2 := all2.insert d
-      if dupName d then
-        let x := (d, keyOf t d)
-        unless d2.contains x do d2 := d2.push x
     if let some full := pres[j]! then
       let rs := tReads[j]! ++ (if full then vReads[j]! else #[])
-      for (d, t) in rs do
+      for (_, t) in rs do
         let p := pairOf t
         if guaranteed p then fp1 := fp1.insert p
         for q in tgtGate g1 t do
           if guaranteed q then fp1 := fp1.insert q
-        if dupName d then
-          let x := (d, keyOf t d)
-          unless d1.contains x do d1 := d1.push x
       if g1[j]!.isEmpty && v1[j]!.isEmpty then
         for (d, _) in rs do all1 := all1.insert d
       else
         let tn := if v1[j]!.isEmpty then rs else tReads[j]!
         gated := gated.push (j, tn.map (·.1), if v1[j]!.isEmpty then #[] else vReads[j]!.map (·.1))
-  return ({ slot, fp1 := fp1.toArray, dups1 := d1, dups2 := d2 },
-    { all2 := all2.toArray, all1 := all1.toArray, gated })
+  return ({ slot, fp1 := fp1.toArray },
+    { all2 := all2.toArray, all1 := all1.toArray, gated }, diag)
 
 /-! ## The install -/
 
@@ -417,6 +457,7 @@ def declsAt (g : Array ModIn) (i : Nat) : Array Declaration := (g[i]?.map (·.de
 structure ModRes (mode : CheckMode) (g : Array ModIn) (S : Mod.Store) where
   i : Nat
   unit : Mod.Unit'
+  diag : Diag
   res : Except (CheckError × Nat) (ModInstalled mode (declsAt g i) (S.view i))
 
 /-- **The install of every module**: `jobs` workers take ready modules
@@ -452,13 +493,13 @@ def installAll (mode : CheckMode) (err : IO.FS.Stream) (jobs : Nat) (g : Array M
           let flags := match r with
             | .ok e => proofsOf mode dups e.fe e.pend
             | .error _ => {}
-          let (r, u) := match r with
+          let (r, u, dg) := match r with
             | .ok e => match unitOf g S flags k e.fe with
-              | .ok (u, rd) =>
-                if Mod.unitOk S k e.fe flags.contains u rd then (r, u)
-                else (.error (.internal "the unit of the module fails its check", 0), default)
-              | .error msg => (.error (.internal s!"the unit of the module: {msg}", 0), default)
-            | .error _ => (r, default)
+              | .ok (u, rd, dg) =>
+                if Mod.unitOk S k e.fe flags.contains u rd then (r, u, dg)
+                else (.error (.internal "the unit of the module fails its check", 0), default, {})
+              | .error msg => (.error (.internal s!"the unit of the module: {msg}", 0), default, {})
+            | .error _ => (r, default, {})
           let unit := u.slot
           OwnerParse.markOne unit
           match r with
@@ -472,7 +513,7 @@ def installAll (mode : CheckMode) (err : IO.FS.Stream) (jobs : Nat) (g : Array M
           | .error _ => pure ()
           if let some p := proms[k]? then p.resolve unit
           if let some ref := results[k]? then
-            ref.set (some ⟨k, u, r⟩)
+            ref.set (some ⟨k, u, dg, r⟩)
           match r with
           | .error _ => sc.halt
           | .ok _ => sc.finish k
@@ -513,10 +554,10 @@ def localWhy (g : Array ModIn) (S : Mod.Store) (units : Array Mod.Unit') (m : Na
           unless Mod.lvlAt lv x ≥ need do
             return s!"{nameOf g h}'s exported constants read {nameOf g x}, which {nameOf g m} \
               does not load"
-      for (d, k) in (if l == 2 then u.dups2 else u.dups1) do
-        unless S.keyIn m d == some k do
-          return s!"{d} is read by a constant of {nameOf g h} and resolved differently in \
-            {nameOf g m}"
+  for n in S.dups do
+    unless Mod.oneKey S m n do
+      return s!"two modules store constants named {n} under different qualified names (not \
+        proofs of one statement), and both are in the context of {nameOf g m}"
   return "the local checks fail"
 
 /-! ## Parallel maps -/
@@ -621,11 +662,22 @@ def checkModular (sp : SearchPath) (roots : Array Name) (mode : CheckMode) (stri
     if results[k].isNone then
       return ← fail (.internal "the module was never installed") s!"module {nameOf g k}"
   phase "install done"
+  if stride > 0 then
+    let dg : Diag := results.foldl (fun (d : Diag) r? => d.merge ((r?.map (·.diag)).getD {})) {}
+    err.putStr s!"con-leche: exported views: pulled in {dg.pulled}, gated {dg.gated}, \
+      value-gated {dg.vgated}\n"
+    for x in dg.ex do err.putStr s!"con-leche:   {x}\n"
+    err.putStr s!"con-leche: of those, with a public reader: pulled {dg.pubPulled}, gated \
+      {dg.pubGated}\n"
+    for x in dg.pubEx do err.putStr s!"con-leche:   {x}\n"
+
   let units : Array Mod.Unit' := ins.map fun r? => (r?.map (·.unit)).getD default
   let fes : Array FEnv := ins.map fun r? => match r? with
-    | some ⟨_, _, .ok e⟩ => e.fe
+    | some ⟨_, _, _, .ok e⟩ => e.fe
     | _ => mkFEnv Env.empty
   ins := #[]
+  unless Mod.dupsOk S do
+    return ← fail (.internal "the store's list of names stored twice is incomplete") "the store"
   let locals ← parMap jobs g.size (Mod.localOk S units)
   for h : k in [0:locals.size] do
     unless locals[k] do
@@ -633,7 +685,7 @@ def checkModular (sp : SearchPath) (roots : Array Name) (mode : CheckMode) (stri
   phase "local checks done"
   -- every record of every module, checked at its module's final view
   let pends : Array (Array PendingCheck) := results.map fun r? => match r? with
-    | some ⟨_, _, .ok e⟩ => e.pend
+    | some ⟨_, _, _, .ok e⟩ => e.pend
     | _ => #[]
   let jobsList : Array (Nat × Nat) := Id.run do
     let mut a := #[]

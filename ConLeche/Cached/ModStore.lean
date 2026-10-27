@@ -21,19 +21,17 @@ the proofs are about:
   oracle: everything the proofs need of it is re-established by
   `unitOk`), with what its importers must check (`Unit'`: `fp1`, the
   modules its exported presentation reads that every importer at that
-  level loads; `dups1`/`dups2`, the names several modules store that its
-  presentations read, with the qualified name it resolves each to);
+  level loads);
 * `unitOk` — the check of a unit against its module's view: the
   presentations refine the installed constants, and every name their
   laws read (`lawsOf`, verified with the checker's own resolution walk
-  `constsResolveFC` against the claimed set) resolves in the module, its
-  module and level are in `fp1` or the constant's gate, and a name
-  several modules store is listed with its qualified name;
+  `constsResolveFC` against the claimed set) resolves in the module, and
+  its module and level are in `fp1` or the constant's gate;
 * `localOk` — module `m`'s local checks against the units of its
   context: every module of it is earlier, a module loaded privately
   brings its whole context, one loaded at the exported level brings
-  `fp1`, and the listed names resolve in `m` to the listed qualified
-  names.
+  `fp1`, and the copies of a name that meet in `m`'s context have one
+  qualified name.
 
 Nothing here type-checks: the declarations' checks are the fold's own
 (`installDeclStep`, `checkPending`), run at the views.
@@ -189,17 +187,13 @@ def Store.keyIn (S : Store) (i : Nat) (n : Name) : Option ConLeche.Modular.Key :
 
 /-! ## A module's unit -/
 
-/-- **A module's unit, with what its importers must check.** `fp1`: the
+/-- **A module's unit, with what its importers must check**: `fp1`, the
 modules, with levels, that the constants presented at the exported level
 read and every importer at that level loads (Lean's rules guarantee
-them, the importer checks them); `dups1`/`dups2`: the names several
-modules store that the presentations at the exported / private level
-read, each with the qualified name the module resolves it to. -/
+them, the importer checks them). -/
 structure Unit' where
   slot : ModSlot := {}
   fp1 : Array (Nat × UInt8) := #[]
-  dups1 : Array (Name × ConLeche.Modular.Key) := #[]
-  dups2 : Array (Name × ConLeche.Modular.Key) := #[]
   deriving Inhabited
 
 /-- The names a unit's presentations read, claimed (an oracle that
@@ -251,35 +245,28 @@ def shapeOk (fe : FEnv) (flagged : Name → Bool) (s : ModSlot) : Bool :=
       t == fe.env.tables.find? (·.structName == ci.name)
     | _, _, _, _, _ => false
 
-/-- A read at the private level: it resolves in the module; the module's
-own constant is the store's alternate there; a name several modules
-store is listed with its qualified name. -/
-def read2Ok (S : Store) (h : Nat) (fe : FEnv) (u : Unit') (d : Name) :
-    Bool :=
+/-- A read at the private level: it resolves in the module, and the
+module's own constant is the store's alternate there. -/
+def read2Ok (S : Store) (h : Nat) (fe : FEnv) (d : Name) : Bool :=
   match target h fe d with
-  | some (h', j') =>
-    (h' != h || (S.alts d).contains (h', j')) &&
-    (decide ((S.alts d).length < 2) ||
-      u.dups2.contains (d, if h' == h then keyOfSlot u.slot h j' d else S.keyAt h' j' d))
+  | some (h', j') => h' != h || (S.alts d).contains (h', j')
   | none => false
 
-/-- A read at the exported level of a constant whose gate is `G`: as at
-the private level, and its target is presented at the exported level to
-every viewer that loads `fp1` and `G` — its module and level are in
-them, and so is its gate; an own target is itself presented. -/
-def read1Ok (S : Store) (h : Nat) (fe : FEnv) (u : Unit')
-    (G : Array (Nat × UInt8)) (d : Name) : Bool :=
+/-- A read at the exported level of a constant whose gate is `G`: it
+resolves in the module, and its target is presented at the exported
+level to every viewer that loads `fp1` and `G` — its module and level are
+in them, and so is its gate; an own target is the store's alternate,
+itself presented. -/
+def read1Ok (S : Store) (h : Nat) (fe : FEnv) (u : Unit') (G : Array (Nat × UInt8))
+    (d : Name) : Bool :=
   let inG (p : Nat × UInt8) : Bool := u.fp1.contains p || G.contains p
   match target h fe d with
   | some (h', j') =>
-    (if h' == h then
+    if h' == h then
       (S.alts d).contains (h', j') && ((u.slot.at1[j']?).join).isSome &&
         ((u.slot.g1[j']?).getD #[]).all inG
     else
-      inG (h', S.needAt h' j') &&
-        (S.needAt h' j' != 1 || (S.gateAt h' j').all inG)) &&
-    (decide ((S.alts d).length < 2) ||
-      u.dups1.contains (d, if h' == h then keyOfSlot u.slot h j' d else S.keyAt h' j' d))
+      inG (h', S.needAt h' j') && (S.needAt h' j' != 1 || (S.gateAt h' j').all inG)
   | none => false
 
 /-- **The check of a unit** against its module's final view `fe`: its
@@ -293,7 +280,7 @@ def unitOk (S : Store) (h : Nat) (fe : FEnv) (flagged : Name → Bool) (u : Unit
   (List.range s.priv.size).all (fun j => match s.priv[j]?, s.tbls[j]? with
     | some ci, some t => lawsOk r.all2 (lawsOf t ci)
     | _, _ => false) &&
-  r.all2.all (read2Ok S h fe u) &&
+  r.all2.all (read2Ok S h fe) &&
   -- the exported level, ungated
   (List.range s.priv.size).all (fun j => match s.at1[j]?, s.g1[j]?, s.v1[j]?, s.tbls[j]? with
     | some (some ci), some g, some v, some t =>
@@ -316,27 +303,43 @@ def unitOk (S : Store) (h : Nat) (fe : FEnv) (flagged : Name → Bool) (u : Unit
 /-- The level at `h` of a level array. -/
 @[inline] def lvlAt (l : ByteArray) (h : Nat) : UInt8 := if hh : h < l.size then l[h] else 0
 
+/-- **The copies of a name that meet in module `m`'s context have one
+qualified name**: every alternate `m` sees has the qualified name of the
+first.  (Lean merges such copies only when they are proofs of one
+statement, whose qualified name is the statement.) -/
+def oneKey (S : Store) (m : Nat) (n : Name) : Bool :=
+  let mb := S.mb m
+  let vis := (mb.alts n).filter fun (h, j) => match mb.at? h j with
+    | some ci => ci.name == n
+    | none => false
+  match vis with
+  | [] => true
+  | (h₀, j₀) :: rest => rest.all fun (h, j) => S.keyAt h j n == S.keyAt h₀ j₀ n
+
+/-- **The names with several alternates are listed** (`Store.dups`): a
+name the store's index gives two alternates is in the list. -/
+def dupsOk (S : Store) : Bool :=
+  S.idx.all fun m => m.toList.all fun (n, l) => l.length < 2 || S.dups.contains n
+
 /-- **Module `m`'s local checks** against the units of its context: every
 module it loads is earlier and loaded at level 1 or 2; a module loaded
 at its private level brings its whole context (`m` loads every module of
 that context at least as high); one loaded at its exported level brings
-the modules its presentation reads (`fp1`); and every name several
-modules store that a loaded module's presentation reads resolves in `m`
-to the qualified name it has there. -/
+the modules its presentation reads (`fp1`); and the copies of a name that
+meet in `m`'s context have one qualified name (`oneKey`). -/
 def localOk (S : Store) (units : Array Unit') (m : Nat) : Bool :=
   let lv := S.lvl m
-  (List.range lv.size).all fun h =>
+  ((List.range lv.size).all fun h =>
     let l := lvlAt lv h
     l == 0 || (h < m && l ≤ 2 &&
       match units[h]? with
       | some u =>
-        (if l == 2 then
+        if l == 2 then
           let lh := S.lvl h
-          (List.range lh.size).all (fun x => lvlAt lh x ≤ lvlAt lv x) &&
-          u.dups2.all fun (d, k) => S.keyIn m d == some k
+          (List.range lh.size).all (fun x => lvlAt lh x ≤ lvlAt lv x)
         else
-          u.fp1.all (fun (x, need) => lvlAt lv x ≥ need) &&
-          u.dups1.all fun (d, k) => S.keyIn m d == some k)
-      | none => false)
+          u.fp1.all (fun (x, need) => lvlAt lv x ≥ need)
+      | none => false)) &&
+  S.dups.all (oneKey S m)
 
 end ConLeche.Cached.Mod
