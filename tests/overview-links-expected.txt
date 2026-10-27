@@ -10,15 +10,28 @@
 == Main.lean#L91
     91  def usage : String := String.intercalate "\n" [
 
-== ConLeche/Frontend/Olean/Region.lean#L211
-   211  def Region.obj (r : @& Region) (a : UInt64) : Except String Obj :=
+== ConLeche/Frontend/Olean/Region.lean#L217-L220
+   217  @[inline] def Region.down (r : @& Region) (g : Nat) (v : UInt64) : Option Nat :=
+   218    match r.loc v with
+   219    | some c => if c < g then some c else none
+   220    | none => none
 
-== ConLeche/Frontend/Olean/Load.lean#L474-L475
-   474  def readOleans (sp : SearchPath) (roots : Array Name) (jobs : Nat := 1) :
-   475      IO (Except (CheckError × Nat) (Array Declaration)) := do
+== ConLeche/Frontend/Olean/Spec.lean#L404-L408
+   404  def decodeModuleSpec (r : Region) (root : UInt64) (consts : Bool) : Option ModDecoded := do
+   405    let sk ← moduleSkel r root
+   406    let imports ← sk.imports.mapM (nameP r)
+   407    let constants ← if consts then sk.consts.mapM (constSpec r) else pure []
+   408    pure ⟨sk.isModule, imports.toArray, constants.toArray⟩
 
-== ConLeche/Driver/Run.lean#L35
-    35  def ConLeche.CheckError.exitCode : CheckError → UInt32
+== ConLeche/Verify/Frontend/Olean/Equiv.lean#L330
+   330  @[csimp] theorem decodeModuleSpec_eq_fast : @decodeModuleSpec = @decodeModuleFast := by
+
+== ConLeche/Frontend/Olean/Load.lean#L505-L506
+   505  def readOleans (dec : Decoder) (sp : SearchPath) (roots : Array Name) (jobs : Nat := 1) :
+   506      IO (Except (CheckError × Nat) (Array Declaration)) := do
+
+== ConLeche/Driver/Run.lean#L38
+    38  def ConLeche.CheckError.exitCode : CheckError → UInt32
 
 == ConLeche/Kernel/Name.lean#L207
    207  def render (n : Name) : String :=
@@ -127,8 +140,8 @@
     94  #guard_msgs in
     95  #print axioms ConLeche.model_exists
 
-== ConLeche/Driver/Run.lean#L60
-    60  def parseInput (file : String) (jobs : Nat) (noMark : Bool) : IO Frontend.ParseOutcome := do
+== ConLeche/Driver/Run.lean#L63
+    63  def parseInput (file : String) (jobs : Nat) (noMark : Bool) : IO Frontend.ParseOutcome := do
 
 == ConLeche/Frontend/Scan/Equiv.lean#L1002
   1002  @[csimp] theorem scanLineSpec_eq_scanLineFwd : @scanLineSpec = @scanLineFwd := by
@@ -163,6 +176,13 @@
   1743        g.lineNo + (bs.map fun b => (recsOf b).size).sum,
   1744        g.total + (bs.map ByteArray.size).sum⟩ := by
   1745    obtain ⟨st0, hr0, hh0, hd0, hcov⟩ := hg
+
+== ConLeche/Frontend/Olean/Load.lean#L505-L506
+   505  def readOleans (dec : Decoder) (sp : SearchPath) (roots : Array Name) (jobs : Nat := 1) :
+   506      IO (Except (CheckError × Nat) (Array Declaration)) := do
+
+== ConLeche/Driver/Run.lean#L90
+    90    | .oleans sp roots => Frontend.Olean.readOleans Frontend.Olean.decodeModuleSpec sp roots jobs
 
 == ConLeche/Driver/ParInstall.lean#L155
    155  def installLoop (mode : ConLeche.CheckMode) (err : IO.FS.Stream)
@@ -212,11 +232,11 @@
    393      (j : Nat) → (∀ i, i < j → GroupChecked mode e i) →
    394        Except (CheckError × Nat) (PLift (∀ i, GroupChecked mode e i))
 
-== ConLeche/Driver/Run.lean#L129-L132
-   129  def checkDeclsIO (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride total t0 tParse jobs : Nat)
-   130      (noMark : Bool) (drain : IO.Ref (IO Unit)) (ds : Array ConLeche.Declaration) :
-   131      IO (Except (ConLeche.CheckError × Nat)
-   132        { env : ConLeche.Env // ConLeche.Cached.checkDecls mode ConLeche.natOpPinSets ds = .ok env }) := do
+== ConLeche/Driver/Run.lean#L132-L135
+   132  def checkDeclsIO (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride total t0 tParse jobs : Nat)
+   133      (noMark : Bool) (drain : IO.Ref (IO Unit)) (ds : Array ConLeche.Declaration) :
+   134      IO (Except (ConLeche.CheckError × Nat)
+   135        { env : ConLeche.Env // ConLeche.Cached.checkDecls mode ConLeche.natOpPinSets ds = .ok env }) := do
 
 == ConLeche/Cached/Installed.lean#L523-L525
    523  theorem fullyChecked_checkDecls {pins : List NatOpPinSet} {ds : Array Declaration}

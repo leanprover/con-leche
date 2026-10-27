@@ -39,9 +39,11 @@ decoder; DESIGN.md, task #371).
 says they are equal, and is the `@[csimp]` lemma that makes the
 compiler run this one where the driver calls the specification.
 
-**The memo** (`DS`) is dense, by slot (a location divided by 8): one
-array per kind, as long as the region in words, and four mark bytes per
-slot.  Each update takes the array it changes OUT of the record first
+**The memo** is dense, by slot (a location divided by 8), and ends at
+the highest root: one mark byte per slot (a bit per kind), and the
+values (`DS`), one array per kind.  The downward sweep threads the mark
+bytes alone, the upward sweep reads them and threads the values.  Each
+update of the values takes the array it changes OUT of the record first
 (the destructuring `let`), so that the array is changed at reference
 count 1 (the linearity rules of the `lean-rc-linearity` skill).
 -/
