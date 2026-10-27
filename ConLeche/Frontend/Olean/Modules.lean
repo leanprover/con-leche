@@ -61,17 +61,18 @@ structure ImportRec where
   isMeta : Bool
   deriving Inhabited, Repr
 
-/-- The root `ModuleData`'s imports with their flags. -/
-def importsAt (r : @& Region) (v : UInt64) : DM (Array ImportRec) := do
-  let x ← liftE (r.obj v)
-  liftE (x.expect 0 5 "ModuleData")
-  let imps ← liftE (r.array (← liftE (x.field 0)))
+/-- The root `ModuleData`'s imports with their flags (the `Import`
+structure: the module's name, then three one-byte scalars in declaration
+order). -/
+def importsAt (r : Region) (root : UInt64) : Option (Array ImportRec) := do
+  let g ← r.loc root
+  unless r.isCtor g 0 5 do none
+  let imps ← r.objArray g (r.fld g 0)
   imps.mapM fun i => do
-    let y ← liftE (r.obj i)
-    liftE (y.expect 0 1 "Import")
-    let m ← nameAt r (← liftE (y.field 0)) shallowFuel
-    pure { module := m, importAll := ← liftE (boolAt y 0), isExported := ← liftE (boolAt y 1),
-           isMeta := ← liftE (boolAt y 2) }
+    unless r.isCtor i 0 1 do none
+    let m ← nameP r (← r.ptrFld i 0)
+    pure { module := m, importAll := ← r.bool i 0, isExported := ← r.bool i 1,
+           isMeta := ← r.bool i 2 }
 
 /-! ## The exported level -/
 
@@ -98,7 +99,7 @@ def rulesEq : List (Name × Nat × Expr) → List (Name × Nat × Expr) → Bool
 
 /-- Structural equality of two stored constants (expressions by the
 checker's equality, pointer-equal first). -/
-def CEntry.same (a b : CEntry) : Bool :=
+def entrySame (a b : CEntryF Name Expr) : Bool :=
   a.name == b.name && a.levelParams == b.levelParams && a.type == b.type &&
   match a.kind, b.kind with
   | .ax u, .ax u' => u == u'
@@ -129,8 +130,8 @@ def kindWord : CKind → String
 part's constant of that name: the same constant, or the private one
 with its value hidden; `none` is a constant the exported part does not
 refine. -/
-def expoOf (priv ex : CEntry) : Option Expo :=
-  if priv.same ex then some .same
+def expoOf (priv ex : CEntryF Name Expr) : Option Expo :=
+  if entrySame priv ex then some .same
   else if priv.name == ex.name && priv.levelParams == ex.levelParams && priv.type == ex.type then
     match priv.kind, ex.kind with
     | .defn .., .ax _ | .thm .., .ax _ | .opaq .., .ax _ => some .hidden
@@ -139,7 +140,9 @@ def expoOf (priv ex : CEntry) : Option Expo :=
 
 /-! ## One module -/
 
-instance : Inhabited CEntry := ⟨{ name := .anonymous, levelParams := [], type := .bvar 0, kind := .ax false }⟩
+instance : Inhabited CEntry :=
+  ⟨{ name := .anonymous, levelParams := [], type := .bvar 0, kind := .ax false }⟩
+
 
 /-- **One module, read**: its imports with their flags, whether it is a
 module of the module system, its private-level constants and each
@@ -152,24 +155,58 @@ structure ModRead where
   expo : Array Expo
   deriving Inhabited
 
+/-- **The exported level of a module's private constants**: for each
+exported constant, the private constant it stands for — the same object
+(the private part points into the exported part), the same skeleton
+(names and expressions as pointers), the same constant decoded, or an
+axiom of the same name, level parameters and type (by pointer, else
+decoded) where the private one is a definition, theorem or opaque
+constant.  `none` with the reason: an exported view that is not a
+refinement of the private one. -/
+def expoOfParts (r : Region) (privRoot expRoot : UInt64) (cs : Array CEntry) :
+    Except String (Array Expo) := do
+  let some skP := moduleSkel r privRoot | throw "malformed private part"
+  let some skE := moduleSkel r expRoot | throw "malformed exported part"
+  let privLoc : Std.HashMap Nat Nat :=
+    skP.consts.foldl (fun (m, i) c => (m.insert c i, i + 1)) ({}, 0) |>.1
+  let privLocs := skP.consts.toArray
+  let privIdx : Std.HashMap Name Nat :=
+    cs.size.fold (init := {}) fun i _ acc => acc.insert cs[i].name i
+  let mut expo : Array Expo := cs.map fun _ => .absent
+  for c in skE.consts do
+    if let some i := privLoc[c]? then
+      expo := expo.set! i .same
+    else
+      let some se := constSkel r c | throw "malformed exported constant"
+      let some en := nameP r se.name | throw "malformed exported constant"
+      let some i := privIdx[en]? | throw s!"the exported constant {en} is not stored at the private level"
+      let some sp := (privLocs[i]?).bind (constSkel r) | throw "malformed private constant"
+      let samePtrs : Bool := se.type == sp.type && se.levelParams == sp.levelParams
+      let hiddenKind : Bool := match se.kind, sp.kind with
+        | .ax _, .defn .. | .ax _, .thm .. | .ax _, .opaq .. => true
+        | _, _ => false
+      if hiddenKind && samePtrs then expo := expo.set! i .hidden
+      else
+        -- the fallback: decode the exported constant
+        let some e := constSpec r c | throw "malformed exported constant"
+        match expoOf cs[i]!.toCEntryF e with
+        | some x => expo := expo.set! i x
+        | none => throw s!"the exported view of {en} is not a refinement of its private \
+            constant ({kindWord cs[i]!.kind} / {kindWord e.kind})"
+  return expo
+
 /-- **Read one module**: the private level as `loadModule` reads it, the
 imports with their flags, and for a module of the module system the
 exported part's constants compared with the private ones. -/
-def readModule (sp : SearchPath) (m : Name) (ds : DS) :
-    IO (Except CheckError (ModRead × DS)) := do
+def readModule (dec : Decoder) (sp : SearchPath) (m : Name) : IO (Except CheckError ModRead) := do
   let some dir ← findModule sp m
     | return .error (.internal s!"module {m}: no .olean on the search path")
   let ex ← match ← readPart (modFile dir m "olean") with
     | .ok p => pure p
     | .error e => return .error e
-  let r0 := Region.single ex
-  let isModule ← match (do
-      let x ← r0.obj ex.root
-      x.expect 0 5 "ModuleData"
-      boolAt x 0 : Except String Bool) with
-    | .ok b => pure b
-    | .error e => return .error (.internal s!"module {m}: {e}")
-  let (r, root) ← if isModule then do
+  let some sk := moduleSkel (Region.single ex) ex.root
+    | return .error (undecodable m)
+  let (r, root) ← if sk.isModule then do
       let sv ← readPart (modFile dir m "olean.server")
       let pv ← readPart (modFile dir m "olean.private")
       match sv, pv with
@@ -178,66 +215,42 @@ def readModule (sp : SearchPath) (m : Name) (ds : DS) :
         | .ok r => pure (r, p.root)
         | .error e => return .error e
       | .error e, _ | _, .error e => return .error e
-    else pure (r0, ex.root)
-  let ds := ds.fresh r.words
-  let act : DM (ModRead × Option String) := do
-    let info ← moduleAt r root
-    let imports ← importsAt r root
-    let cs ← info.constants.mapM (constAt r)
-    let cs := cs.map fun c => { c with uses := constsOf c.deps }
-    if !isModule then
-      return (⟨m, false, imports, cs, cs.map fun _ => .same⟩, none)
-    -- the exported part: its constants by name, compared with the
-    -- private ones (by address first)
-    let einfo ← moduleAt r ex.root
-    let privIdx : Std.HashMap Name Nat :=
-      cs.size.fold (init := {}) fun i _ acc => acc.insert cs[i].name i
-    let privAddr : Std.HashMap UInt64 Nat :=
-      info.constants.size.fold (init := {}) fun i _ acc => acc.insert info.constants[i] i
-    let mut expo : Array Expo := cs.map fun _ => .absent
-    for a in einfo.constants do
-      if let some i := privAddr[a]? then
-        -- the same object as private constant `i`
-        expo := expo.set! i .same
-      else
-        let e ← constAt r a
-        match privIdx[e.name]? with
-        | none => return (default, some s!"the exported constant {e.name} is not stored at the private level")
-        | some i =>
-          match expoOf cs[i]! e with
-          | some x => expo := expo.set! i x
-          | none => return (default, some s!"the exported view of {e.name} is not a refinement of its private constant ({kindWord cs[i]!.kind} / {kindWord e.kind})")
-    pure (⟨m, true, imports, cs, expo⟩, none)
-  match act.run ds with
-  | .ok ((l, none), ds) => pure (.ok (l, ds))
-  | .ok ((_, some msg), _) => pure (.error (.invalid s!"module {m}: {msg}"))
-  | .error e => pure (.error (.internal s!"module {m}: {e}"))
+    else pure (Region.single ex, ex.root)
+  let some d := dec r root true | return .error (undecodable m)
+  let some imports := importsAt r root | return .error (undecodable m)
+  let cs : Array CEntry := d.constants.map fun c =>
+    let c : CEntry := { toCEntryF := c }
+    { c with uses := constsOf c.deps }
+  if !sk.isModule then
+    return .ok ⟨m, false, imports, cs, cs.map fun _ => .same⟩
+  match expoOfParts r root ex.root cs with
+  | .ok expo => return .ok ⟨m, true, imports, cs, expo⟩
+  | .error msg => return .error (.invalid s!"module {m}: {msg}")
 
-/-- The modules read one after the other, the hash-cons tables
-threaded through. -/
-partial def readSerial (sp : SearchPath) (ms : List Name) (ds : DS) (out : Array ModRead) :
+/-- The modules read one after the other. -/
+partial def readSerial (dec : Decoder) (sp : SearchPath) (ms : List Name) (out : Array ModRead) :
     IO (Except CheckError (Array ModRead)) := do
   match ms with
   | [] => pure (.ok out)
   | m :: rest =>
-    match ← readModule sp m ds with
+    match ← readModule dec sp m with
     | .error e => pure (.error e)
-    | .ok (l, ds) => readSerial sp rest ds (out.push l)
+    | .ok l => readSerial dec sp rest (out.push l)
 
 /-- **The closure, read module by module**, in Lean's module order,
 on `jobs` workers (round-robin shares, as `loadClosure`). -/
-def readClosure (sp : SearchPath) (roots : Array Name) (jobs : Nat := 1) :
+def readClosure (dec : Decoder) (sp : SearchPath) (roots : Array Name) (jobs : Nat := 1) :
     IO (Except CheckError (Array ModRead)) := do
-  match ← closureOrder sp roots with
+  match ← closureOrder dec sp roots with
   | .error e => pure (.error e)
   | .ok order =>
-    if jobs ≤ 1 then readSerial sp order.toList {} #[]
+    if jobs ≤ 1 then readSerial dec sp order.toList #[]
     else
       let w := min jobs order.size
       let shares := (List.range w).map fun k =>
         (List.range order.size).filter (· % w == k) |>.filterMap (order[·]?)
       let tasks ← shares.toArray.mapM fun ms =>
-        IO.asTask (prio := .dedicated) (readSerial sp ms {} #[])
+        IO.asTask (prio := .dedicated) (readSerial dec sp ms #[])
       let mut parts : Array (Array ModRead) := #[]
       for t in tasks do
         match ← IO.wait t with
@@ -258,8 +271,8 @@ def moduleDecls (cs : Array CEntry) : Except (CheckError × Nat) (Array Declarat
     let { map, order } := mg
     { map := map.insert c.name c, order := order.push c.name }) {}
   let recMap := mg.order.foldl (fun (m : Std.HashMap Name (Array Name)) n =>
-    match (mg.map[n]?).map CEntry.kind with
-    | some (CKind.recur all ..) =>
+    match (mg.map[n]?).map (·.kind) with
+    | some (CKindF.recur all ..) =>
       all.foldl (fun m i => m.alter i fun
         | none => some #[n]
         | some a => some (if a.contains n then a else a.push n)) m

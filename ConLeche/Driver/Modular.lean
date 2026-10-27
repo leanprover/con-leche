@@ -7,6 +7,9 @@ public import ConLeche.Frontend.Olean.Modules
 public import ConLeche.Modular
 public import ConLeche.Cached.ModStore
 public import Std.Data.TreeSet.Basic
+/- `decodeModuleSpec_eq_fast` (`@[csimp]`): the reader is passed the
+specification `decodeModuleSpec`, and the compiler runs the fast decoder. -/
+import ConLeche.Verify.Frontend.Olean.Equiv
 
 /-!
 # The modular driver: module by module, over one store (task #370)
@@ -659,7 +662,7 @@ def checkModular (sp : SearchPath) (roots : Array Name) (mode : CheckMode) (stri
     | .error _ =>
       IO.eprintln s!"con-leche: the built-in prelude does not parse ({modeTag})"
       return 3
-  let rs ← match ← readClosure sp roots jobs with
+  let rs ← match ← readClosure decodeModuleSpec sp roots jobs with
     | .ok rs => pure rs
     | .error e => return ← fail e "reading the oleans"
   phase s!"read {rs.size} modules"
