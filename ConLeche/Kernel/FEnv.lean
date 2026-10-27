@@ -113,16 +113,17 @@ def MBase.find? (b : @& MBase) (n : Name) : Option ConstantInfo :=
   | none => none
 
 /-- The view's table lookup: the table of `T` its visible alternate's
-module installed. -/
+module installed, when the alternate is presented as the type former it
+is (an assumed former has no table). -/
 def MBase.findTable? (b : @& MBase) (T : Name) : Option ProjTable :=
   match b.pick? T with
-  | some (h, j, _) =>
+  | some (h, j, .indInfo ..) =>
     if hh : h < b.slots.size then
       match ((b.slots[h]).get.tbls[j]?).join with
       | some t => if t.structName == T then some t else none
       | none => none
     else none
-  | none => none
+  | _ => none
 
 /-- **A frozen lookup layer of deferred slots** (task #329): the name
 index of a parallel install's predicted slots, built once before the

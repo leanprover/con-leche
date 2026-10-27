@@ -147,6 +147,92 @@ def lawsOf (tbl : Option ProjTable) (ci : ConstantInfo) : List Expr × List Name
     | ci => ([ci.toConstantVal.type], [])
   (es ++ tblPart.1, ns ++ tblPart.2 ++ pinN)
 
+/-- **Every projection an expression reads is of a structure `P`
+admits** (the specification; `projsInC` is its memoized walk). -/
+def Expr.projsIn (P : Name → Bool) : Expr → Bool
+  | .proj s _ e => P s && Expr.projsIn P e
+  | .app f a => Expr.projsIn P f && Expr.projsIn P a
+  | .lam ty b | .forallE ty b => Expr.projsIn P ty && Expr.projsIn P b
+  | .letE ty v b => Expr.projsIn P ty && Expr.projsIn P v && Expr.projsIn P b
+  | .fvar _ ty => Expr.projsIn P ty
+  | _ => true
+
+/-- The child step of `projsInXP`: the compound test, then the
+exclusivity read (as `enterCRF`). -/
+@[inline] def enterPI (P : Name → Bool) (e : @& Expr) (memo : Expr.MemoB0 (Expr.projsIn P))
+    (rec : Unit → Squash (Expr.ResB0 (Expr.projsIn P) e)) :
+    Squash (Expr.ResB0 (Expr.projsIn P) e) :=
+  if !Expr.isCompoundF e then rec () else
+  withExcl e fun excl =>
+    if excl then rec () else memo.shared e fun _ => rec ()
+
+/-- The walk of `projsInC`: one memoized DAG walk. -/
+def projsInXP (P : Name → Bool) (memo : Expr.MemoB0 (Expr.projsIn P)) (e : @& Expr) :
+    Squash (Expr.ResB0 (Expr.projsIn P) e) :=
+  match e with
+  | .bvar .. => Squash.mk (⟨true, by simp [Expr.projsIn]⟩, memo)
+  | .sort .. => Squash.mk (⟨true, by simp [Expr.projsIn]⟩, memo)
+  | .const .. => Squash.mk (⟨true, by simp [Expr.projsIn]⟩, memo)
+  | .lit .. => Squash.mk (⟨true, by simp [Expr.projsIn]⟩, memo)
+  | .fvar _ ty =>
+    enterPI P ty memo (fun _ => projsInXP P memo ty) |>.lift fun (⟨rt, ht⟩, memo) =>
+    Squash.mk (⟨rt, by rw [Expr.projsIn, ← ht]⟩, memo)
+  | .app f a =>
+    enterPI P f memo (fun _ => projsInXP P memo f) |>.lift fun (⟨rf, hf⟩, memo) =>
+    match rf, hf with
+    | true, hf =>
+      enterPI P a memo (fun _ => projsInXP P memo a) |>.lift fun (⟨ra, ha⟩, memo) =>
+      Squash.mk (⟨ra, by rw [Expr.projsIn, ← hf, ← ha, Bool.true_and]⟩, memo)
+    | false, hf => Squash.mk (⟨false, by rw [Expr.projsIn, ← hf, Bool.false_and]⟩, memo)
+  | .lam ty body | .forallE ty body =>
+    enterPI P ty memo (fun _ => projsInXP P memo ty) |>.lift fun (⟨rt, ht⟩, memo) =>
+    match rt, ht with
+    | true, ht =>
+      enterPI P body memo (fun _ => projsInXP P memo body) |>.lift fun (⟨rb, hb⟩, memo) =>
+      Squash.mk (⟨rb, by rw [Expr.projsIn, ← ht, ← hb, Bool.true_and]⟩, memo)
+    | false, ht => Squash.mk (⟨false, by rw [Expr.projsIn, ← ht, Bool.false_and]⟩, memo)
+  | .letE ty val body =>
+    enterPI P ty memo (fun _ => projsInXP P memo ty) |>.lift fun (⟨rt, ht⟩, memo) =>
+    match rt, ht with
+    | true, ht =>
+      enterPI P val memo (fun _ => projsInXP P memo val) |>.lift fun (⟨rv, hv⟩, memo) =>
+      match rv, hv with
+      | true, hv =>
+        enterPI P body memo (fun _ => projsInXP P memo body) |>.lift fun (⟨rb, hb⟩, memo) =>
+        Squash.mk (⟨rb, by rw [Expr.projsIn, ← ht, ← hv, ← hb]; simp⟩, memo)
+      | false, hv => Squash.mk (⟨false, by rw [Expr.projsIn, ← ht, ← hv]; simp⟩, memo)
+    | false, ht => Squash.mk (⟨false, by rw [Expr.projsIn, ← ht]; simp⟩, memo)
+  | .proj sn _ sub =>
+    if hP : P sn = true then
+      enterPI P sub memo (fun _ => projsInXP P memo sub) |>.lift fun (⟨rs, hs⟩, memo) =>
+      Squash.mk (⟨rs, by rw [Expr.projsIn, ← hs, hP, Bool.true_and]⟩, memo)
+    else Squash.mk (⟨false, by rw [Expr.projsIn]; simp [hP]⟩, memo)
+
+/-- The memoized `Expr.projsIn P`. -/
+def projsInC (P : Name → Bool) (e : Expr) : Bool := Expr.resBool (projsInXP P none e)
+
+theorem projsInC_eq (P : Name → Bool) (e : Expr) : projsInC P e = Expr.projsIn P e :=
+  Expr.resBool_eq _
+
+/-- The structure names of a list of expressions' projections (an
+oracle, verified by `projsInC`). -/
+partial def collectProjs (stack : List Expr) (seen : Std.HashSet Expr) (out : Std.HashSet Name) :
+    Std.HashSet Name :=
+  match stack with
+  | [] => out
+  | e :: rest =>
+    if !Expr.isCompoundF e then collectProjs rest seen out
+    else if seen.contains e then collectProjs rest seen out
+    else
+      let seen := seen.insert e
+      match e with
+      | .app f a => collectProjs (f :: a :: rest) seen out
+      | .lam t b | .forallE t b => collectProjs (t :: b :: rest) seen out
+      | .letE t v b => collectProjs (t :: v :: b :: rest) seen out
+      | .proj sn _ x => collectProjs (x :: rest) seen (out.insert sn)
+      | .fvar _ t => collectProjs (t :: rest) seen out
+      | _ => collectProjs rest seen out
+
 /-- The names of a list, as a lookup index (a constant of no meaning
 under each): `(dvOf D).find? n` is some exactly at the names of `D`. -/
 def dvOf (D : Array Name) : FEnv :=
