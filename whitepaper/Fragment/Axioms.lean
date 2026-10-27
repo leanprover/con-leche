@@ -2,6 +2,7 @@ module
 
 public import Fragment.Consistency
 public import Fragment.Modular
+public import Fragment.ModularModel
 public import Fragment.Install
 public import Fragment.Access
 public import Fragment.UniformBeta
@@ -533,22 +534,34 @@ info: 'Fragment.IndSpec.rec_rule_slot1N' depends on axioms: [propext, Classical.
 -/
 #guard_msgs in #print axioms Fragment.IndSpec.rec_rule_slot1N
 
-/--
-info: 'Fragment.Infer.mono' depends on axioms: [propext]
--/
-#guard_msgs in #print axioms Fragment.Infer.mono
 
-/--
-info: 'Fragment.Checks.mono' depends on axioms: [propext, Classical.choice, Quot.sound]
--/
-#guard_msgs in #print axioms Fragment.Checks.mono
 
 /--
 info: 'Fragment.install_thm' depends on axioms: [propext, Classical.choice, Quot.sound]
 -/
 #guard_msgs in #print axioms Fragment.install_thm
 
+/--
+info: 'Fragment.Checks.blockModel' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in #print axioms Fragment.Checks.blockModel
 
+/--
+info: 'Fragment.context_model' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in #print axioms Fragment.context_model
 
+/--
+info: 'Fragment.modular' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in #print axioms Fragment.modular
 
+/--
+info: 'Fragment.modular_model' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in #print axioms Fragment.modular_model
 
+/--
+info: 'Fragment.modular_no_empty_prop_inhabitant' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in #print axioms Fragment.modular_no_empty_prop_inhabitant
