@@ -547,9 +547,9 @@ info: 'Fragment.Checks.blockModel' depends on axioms: [propext, Classical.choice
 #guard_msgs in #print axioms Fragment.Checks.blockModel
 
 /--
-info: 'Fragment.context_model' depends on axioms: [propext, Classical.choice, Quot.sound]
+info: 'Fragment.reads_model' depends on axioms: [propext, Classical.choice, Quot.sound]
 -/
-#guard_msgs in #print axioms Fragment.context_model
+#guard_msgs in #print axioms Fragment.reads_model
 
 /--
 info: 'Fragment.modular' depends on axioms: [propext, Classical.choice, Quot.sound]
@@ -565,3 +565,8 @@ info: 'Fragment.modular_model' depends on axioms: [propext, Classical.choice, Qu
 info: 'Fragment.modular_no_empty_prop_inhabitant' depends on axioms: [propext, Classical.choice, Quot.sound]
 -/
 #guard_msgs in #print axioms Fragment.modular_no_empty_prop_inhabitant
+
+/--
+info: 'Fragment.modular_statements_hold' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in #print axioms Fragment.modular_statements_hold

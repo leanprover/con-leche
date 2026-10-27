@@ -135,7 +135,8 @@ unit-likeness, follow from the extensionality of the model, with one
 proof case each. §7 checks a development module by module, with
 checks that compare each module only with its direct imports, and
 builds one model, over names qualified by their home module, in which
-every module's environment holds. §8 lists what
+every module's environment holds. A module may also be validated by
+comparison with another, as a challenge is with its solution. §8 lists what
 was left out, and how the real proof
 differs from the fragment where they share a feature. @sec:related
 relates the argument to earlier work.
