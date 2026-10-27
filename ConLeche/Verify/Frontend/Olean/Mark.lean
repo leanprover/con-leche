@@ -35,7 +35,7 @@ theorem locGo_mod (r : Region) (a : UInt64) : ∀ i, r.locGo a i % 8 = 0
     · split
       · split
         · rename_i h; simp only [Bool.and_eq_true, beq_iff_eq, decide_eq_true_eq] at h
-          exact h.1.1.1.2
+          exact h.1.1
         · rfl
       · exact locGo_mod r a i
     · rfl

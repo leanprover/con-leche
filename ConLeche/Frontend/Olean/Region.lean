@@ -185,16 +185,16 @@ def Region.locGo (r : @& Region) (a : UInt64) : Nat → Nat
       let s := r.segs[i]
       if s.base ≤ a && (a - s.base).toNat < s.size then
         let o := (a - s.base).toNat
-        if a % 8 == 0 && (s.off + o) % 8 == 0 && dataStart ≤ o && o + 8 ≤ s.size &&
-            s.off + s.size ≤ r.bytes.size then s.off + o
+        if (s.off + o) % 8 == 0 && dataStart ≤ o && o + 8 ≤ s.size then s.off + o
         else 0
       else r.locGo a i
     else 0
 
 /-- **The location of the object at an address**: the address must fall
-in one of the module's files, past its header, 8-aligned, with room for
-the object header.  Locations are multiples of 8 and never `0` (the
-header comes first). -/
+in one of the module's files, past its header, with room for the object
+header, at a location that is a multiple of 8 (every file's base address
+and size are, `Part.ofBytes`, so this is the address's alignment).
+Locations are never `0` (the header comes first). -/
 @[inline] def Region.loc (r : @& Region) (a : UInt64) : Option Nat :=
   let g := r.locGo a r.segs.size
   if g == 0 then none else some g
