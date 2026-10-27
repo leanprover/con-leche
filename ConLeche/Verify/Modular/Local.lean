@@ -328,6 +328,34 @@ theorem RunOk.own_find? (hR : RunOk mode S M) {h : Nat} (hh : h < M.size) {j : N
 theorem gateOk_nil (b : MBase) : b.gateOk #[] = true := by
   unfold MBase.gateOk; simp
 
+theorem gateOk_iff {i : Nat} {g : Array (Nat × UInt8)} :
+    (S.mb i).gateOk g = true ↔ ∀ p ∈ g, lvlAt (S.lvl i) p.1 ≥ p.2 := by
+  unfold MBase.gateOk lvlAt
+  rw [Store.mb_lvl, Array.all_eq_true']
+  constructor
+  · intro h p hp
+    have := h p hp
+    obtain ⟨x, l⟩ := p
+    simpa using this
+  · intro h p hp
+    have := h p hp
+    obtain ⟨x, l⟩ := p
+    simpa using this
+
+theorem u8_one_two {x : UInt8} (h1 : 1 ≤ x) (h2 : x ≤ 2) : x = 1 ∨ x = 2 := by
+  have a := UInt8.le_iff_toNat_le.mp h1
+  have b := UInt8.le_iff_toNat_le.mp h2
+  simp at a b
+  rcases (show x.toNat = 1 ∨ x.toNat = 2 by omega) with h | h
+  · left; exact UInt8.toNat_inj.mp (by simpa using h)
+  · right; exact UInt8.toNat_inj.mp (by simpa using h)
+
+theorem u8_two {x : UInt8} (h1 : 2 ≤ x) (h2 : x ≤ 2) : x = 2 := by
+  have a := UInt8.le_iff_toNat_le.mp h1
+  have b := UInt8.le_iff_toNat_le.mp h2
+  simp at a b
+  exact UInt8.toNat_inj.mp (by simp; omega)
+
 theorem RunOk.shape (hR : RunOk mode S M) {h : Nat} (hh : h < M.size) :
     shapeOk M[h].fe M[h].flags.contains (S.slot h) = true := by
   rw [hR.slot h hh]; exact unitOk_shape (hR.unit h hh)
@@ -670,8 +698,8 @@ theorem pickIn_isSome {mb : MBase} {n : Name} :
     | some c' =>
       simp only
       by_cases hn' : (c'.name == n) = true
-      · rw [if_pos hn']; rfl
-      · rw [if_neg hn']
+      · rw [ite_eq_left hn']; rfl
+      · rw [ite_eq_right hn']
         rcases List.mem_cons.mp hx with rfl | hx
         · rw [hat'] at hat; cases hat; exact absurd (beq_iff_eq.mpr hn) hn'
         · exact pickIn_isSome hx hat hn
@@ -768,6 +796,210 @@ theorem RunOk.key_pick (hR : RunOk mode S M) {i : Nat} (hi : i < M.size) {n : Na
       · rfl
       · simp only [List.all_eq_true] at hok'
         exact beq_iff_eq.mp (hok' x hrest)
+
+/-! ## Targets -/
+
+theorem RunOk.finalCanon (hR : RunOk mode S M) {h : Nat} (hh : h < M.size) :
+    CanonB M[h].fe { mb := some (S.mb h) } := by
+  obtain ⟨k, hrun⟩ := hR.run h hh
+  exact (viewRun_trace hrun (canonB_viewOf (S.mb h))).1
+
+theorem idxSpec_rev {d : Name} :
+    ∀ {l : List ConstantInfo} {c : Nat} {ci : ConstantInfo}, idxSpec l d = some (c, ci) →
+      l.reverse[c]? = some ci ∧ ci.name = d
+  | [], _, _, h => by simp [idxSpec] at h
+  | x :: l, c, ci, h => by
+    rw [idxSpec] at h
+    by_cases hx : x.name == d
+    · rw [ite_eq_left hx] at h
+      simp only [Option.some.injEq, Prod.mk.injEq] at h
+      obtain ⟨rfl, rfl⟩ := h
+      refine ⟨?_, beq_iff_eq.mp hx⟩
+      rw [List.reverse_cons, List.getElem?_append_right (by simp)]
+      simp
+    · rw [ite_eq_right hx] at h
+      obtain ⟨h1, h2⟩ := idxSpec_rev h
+      refine ⟨?_, h2⟩
+      rw [List.reverse_cons, List.getElem?_append_left]
+      · exact h1
+      · have := idxSpec_lt h; simpa using this
+
+/-- A module does not load itself. -/
+theorem RunOk.lvl_self (hR : RunOk mode S M) {h : Nat} (hh : h < M.size) :
+    lvlAt (S.lvl h) h = 0 := by
+  by_cases hl : h < (S.lvl h).size
+  · rcases Nat.eq_zero_or_pos (lvlAt (S.lvl h) h).toNat with h0 | h0
+    · exact UInt8.toNat_inj.mp (by simpa using h0)
+    · have hnz : lvlAt (S.lvl h) h ≠ 0 := by
+        intro he; rw [he] at h0; simp at h0
+      exact absurd (localOk_lvl (hR.locals h hh) hl hnz).1 (Nat.lt_irrefl h)
+  · unfold lvlAt; simp [hl]
+
+/-- **What a module resolves a name to**: its own constant at the
+counter, or the store's visible alternate (of another module). -/
+theorem RunOk.target_cases (hR : RunOk mode S M) {h : Nat} (hh : h < M.size) {d : Name}
+    {t : Nat × Nat} (ht : target h M[h].fe d = some t) :
+    (t.1 = h ∧ ∃ p, (S.slot h).prv.priv[t.2]? = some p ∧ p.name = d ∧
+      M[h].fe.find? d = some p) ∨
+    (t.1 ≠ h ∧ ∃ ci, (S.mb h).pick? d = some (t.1, t.2, ci) ∧ M[h].fe.find? d = some ci) := by
+  have hc := hR.finalCanon hh
+  unfold target at ht
+  cases hi : M[h].fe.idx[d]? with
+  | some x =>
+    obtain ⟨c, ci⟩ := x
+    rw [hi] at ht
+    simp only at ht
+    split at ht
+    · rename_i hlt
+      cases ht
+      rw [hc.idx d] at hi
+      obtain ⟨h1, h2⟩ := idxSpec_rev hi
+      refine .inl ⟨rfl, ci, ?_, h2, ?_⟩
+      · rw [hR.slot h hh, hR.priv h hh]
+        simpa using h1
+      · rw [hc.find? d]
+        unfold Env.find?
+        rw [idxSpec_some hi]
+        rfl
+    · cases ht
+  | none =>
+    rw [hi] at ht
+    simp only at ht
+    rw [hc.base] at ht
+    simp only at ht
+    cases hp' : (S.mb h).pick? d with
+    | none => rw [hp'] at ht; cases ht
+    | some x =>
+      obtain ⟨h', j', ci⟩ := x
+      have hp := hp'
+      rw [hp'] at ht
+      simp only [Option.map_some, Option.some.injEq] at ht
+      subst ht
+      have hat := (MBase.pick?_some hp).2.2
+      obtain ⟨hl, hlv⟩ := lvl_of_at? hat
+      have hne : h' ≠ h := by
+        intro he; subst he
+        rw [hR.lvl_self hh] at hlv
+        rcases hlv with h1 | h1 <;> cases h1
+      refine .inr ⟨hne, ci, rfl, ?_⟩
+      rw [hc.find? d]
+      have hnone : M[h].fe.env.find? d = none := by
+        unfold Env.find?
+        rw [hc.idx d] at hi
+        exact idxSpec_none hi
+      rw [hnone]
+      show (({ mb := some (S.mb h) } : FBase).find? d) = _
+      show (S.mb h).find? d = _
+      unfold MBase.find?
+      rw [hp]
+
+/-! ## Visibility -/
+
+theorem at?_of_lvl2 {i h j : Nat} {p : ConstantInfo} (hl : h < (S.lvl i).size)
+    (hs : h < S.slots.size) (h2 : lvlAt (S.lvl i) h = 2) (hp : (S.slot h).prv.priv[j]? = some p) :
+    (S.mb i).at? h j = some p := by
+  unfold MBase.at?
+  have hl' : h < (S.mb i).lvl.size := hl
+  have hs' : h < (S.mb i).slots.size := hs
+  have hlv : (S.mb i).lvl[h] = 2 := by rw [← h2, lvlAt_eq hl]; rfl
+  simp only [hl', ↓reduceDIte, hlv, beq_self_eq_true, ↓reduceIte, hs']
+  have hsl : (S.mb i).slots[h].get = S.slot h := Store.slot_eq S hs
+  rw [hsl]; exact hp
+
+theorem at?_of_lvl1 {i h j : Nat} {a : ConstantInfo} (hl : h < (S.lvl i).size)
+    (hs : h < S.slots.size) (h1 : lvlAt (S.lvl i) h = 1)
+    (ha : (S.slot h).exp.at1[j]? = some (some a))
+    (hg : ∀ p ∈ ((S.slot h).exp.g1[j]?).getD #[], lvlAt (S.lvl i) p.1 ≥ p.2) :
+    (S.mb i).at? h j =
+      some (if (S.mb i).gateOk (((S.slot h).exp.v1[j]?).getD #[]) then a
+        else .axiomInfo a.toConstantVal) := by
+  unfold MBase.at?
+  have hl' : h < (S.mb i).lvl.size := hl
+  have hs' : h < (S.mb i).slots.size := hs
+  have hlv : (S.mb i).lvl[h] = 1 := by rw [← h1, lvlAt_eq hl]; rfl
+  simp only [hl', ↓reduceDIte, hlv, show ((1 : UInt8) == 2) = false from rfl,
+    Bool.false_eq_true, ↓reduceIte, beq_self_eq_true, hs']
+  have hsl : (S.mb i).slots[h].get = S.slot h := Store.slot_eq S hs
+  rw [hsl, ha]
+  simp only [Option.join_some]
+  rw [ite_eq_left (gateOk_iff.mpr hg)]
+  split <;> rfl
+
+/-- A visible alternate's name is its installed constant's. -/
+theorem RunOk.at?_name (hR : RunOk mode S M) {i h j : Nat} {ci : ConstantInfo}
+    (hat : (S.mb i).at? h j = some ci) (hh : h < M.size) :
+    ∃ c, (S.slot h).prv.priv[j]? = some c ∧ c.name = ci.name := by
+  obtain ⟨c, hc, hci⟩ := hR.at?_home hat hh
+  refine ⟨c, hc, ?_⟩
+  rcases hci with rfl | ⟨rfl, -⟩
+  · rfl
+  · rfl
+
+/-- **Loading more keeps an alternate visible**, with its name; one
+presented as stored stays so. -/
+theorem RunOk.at?_mono (hR : RunOk mode S M) {a b h j : Nat} {ci : ConstantInfo}
+    (hat : (S.mb a).at? h j = some ci) (hh : h < M.size)
+    (hle : ∀ x, lvlAt (S.lvl a) x ≤ lvlAt (S.lvl b) x) (hb2 : lvlAt (S.lvl b) h ≤ 2)
+    (hbs : (S.lvl a).size ≤ (S.lvl b).size) :
+    ∃ ci', (S.mb b).at? h j = some ci' ∧ ci'.name = ci.name ∧
+      ((S.slot h).prv.priv[j]? = some ci → ci' = ci) := by
+  obtain ⟨hl, hlv⟩ := lvl_of_at? hat
+  have hs : h < S.slots.size := by rw [hR.slots]; exact hh
+  have hlb : h < (S.lvl b).size := Nat.lt_of_lt_of_le hl hbs
+  obtain ⟨c, hc, hcn⟩ := hR.at?_name hat hh
+  obtain ⟨h1, -, -, -, -, -, -, hj⟩ := shapeOk_spec (hR.shape hh)
+  obtain ⟨st, -, hat1, hstiff, hv1, -⟩ := hj j c hc
+  have hgmono : ∀ g : Array (Nat × UInt8), (S.mb a).gateOk g = true → (S.mb b).gateOk g = true :=
+    fun g hg => gateOk_iff.mpr fun p hp => Nat.le_trans (gateOk_iff.mp hg p hp) (hle p.1)
+  rcases hlv with ha1 | ha2
+  · obtain ⟨x, hx, hg, hv⟩ := at?_lvl1 hat ha1
+    have hb : lvlAt (S.lvl b) h = 1 ∨ lvlAt (S.lvl b) h = 2 := by
+      have := hle h; rw [ha1] at this
+      exact u8_one_two this hb2
+    -- the presentation `x` is the constant or its assumption
+    have hxc : x = c ∨ x = asAxiom c := by
+      rcases hat1 with h0 | h0 | ⟨h0, -⟩ <;> rw [hx] at h0 <;> cases h0
+      · exact .inl rfl
+      · exact .inr rfl
+    rcases hb with hb1 | hb2'
+    · refine ⟨_, at?_of_lvl1 hlb hs hb1 hx (fun p hp => ?_), ?_, ?_⟩
+      · exact Nat.le_trans (gateOk_iff.mp hg p hp) (hle p.1)
+      · rcases hv with ⟨-, rfl⟩ | ⟨-, rfl⟩ <;> split <;> rfl
+      · intro hcc
+        rw [hc] at hcc
+        have hcc' : c = ci := Option.some.inj hcc
+        subst hcc'
+        rcases hv with ⟨hvo, hci⟩ | ⟨hvc, hci⟩
+        · rw [ite_eq_left (hgmono _ hvo), hci]
+        · -- a closed full gate is a non-empty one: the constant is stored, and an assumption
+          have hjv : j < (S.slot h).exp.v1.size := by
+            obtain ⟨-, -, -, h4, -⟩ := shapeOk_spec (hR.shape hh)
+            have hjp : j < (S.slot h).prv.priv.size := by
+              rcases Nat.lt_or_ge j (S.slot h).prv.priv.size with h' | h'
+              · exact h'
+              · rw [Array.getElem?_eq_none h'] at hc; cases hc
+            rw [← h4]; exact hjp
+          rcases hv1 _ (Array.getElem?_eq_getElem hjv) with he | ⟨hst, -⟩
+          · rw [Array.getElem?_eq_getElem hjv] at hvc
+            simp only [Option.getD_some] at hvc
+            rw [Array.isEmpty_iff.mp he, gateOk_nil] at hvc
+            cases hvc
+          · have hxc : x = c := by
+              have := hstiff.mp hst
+              rw [hx] at this
+              exact Option.some.inj (Option.some.inj this)
+            subst hxc
+            split
+            · rfl
+            · exact hci.symm
+    · refine ⟨c, at?_of_lvl2 hlb hs hb2' hc, ?_, fun hcc => ?_⟩
+      · rw [hcn]
+      · rw [hc] at hcc; exact Option.some.inj hcc
+  · have hb : lvlAt (S.lvl b) h = 2 := by
+      have := hle h; rw [ha2] at this
+      exact u8_two this hb2
+    refine ⟨c, at?_of_lvl2 hlb hs hb hc, hcn, fun hcc => ?_⟩
+    rw [hc] at hcc; exact Option.some.inj hcc
 
 /-! ## The local checks -/
 

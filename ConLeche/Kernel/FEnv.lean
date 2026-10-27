@@ -78,7 +78,7 @@ structure MBase where
 /-- A gate is open for the viewer: it loads every listed module at least
 at the listed level. -/
 @[inline] def MBase.gateOk (b : @& MBase) (g : Array (Nat × UInt8)) : Bool :=
-  g.all fun (h, l) => if hl : h < b.lvl.size then b.lvl[h]'hl ≥ l else false
+  g.all fun (h, l) => (if hl : h < b.lvl.size then b.lvl[h]'hl else 0) ≥ l
 
 /-- The constant module `h` stores at position `j`, at the viewer's level
 of `h` (at the exported level, through its gates). -/
