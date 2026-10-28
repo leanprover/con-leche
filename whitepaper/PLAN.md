@@ -118,14 +118,16 @@ are recorded here so every lane works from the same spec. Task #324.
    projections), large elimination; the consistency corollary.
 5. Nested inductive types (the full check, the model as a sketch).
 6. Extensionality corollaries (η for structures, unit-like).
-7. Checking module by module (task #370): assumptions, theorems
-   stored as statements, refinement of constants, qualified names and
-   a module's resolution, the local checks, and the one model over
-   qualified names in which every module's own environment holds; the
-   theory stays abstract (maintainer rulings 2026-10-27), and Lean's
-   levels, `import all`, re-exports and merge rule appear only in a
-   mapping table at the end; the con-leche implementation as planned,
-   in a `#real` block.
+7. Checking module by module (tasks #370, #375): abstract first —
+   what any consistency proof must provide (models with values,
+   assembly and amalgamation of a compatible family, the conservative
+   step; refinement and restriction derived); then modules, refinement
+   and keys (home module, or a proof's statement), the local checks per
+   home and per importer, the per-module theorem (a compatible family
+   of models, one per module; corollary: every module has a model),
+   parallelism, comparison; NO global environment and NO renaming;
+   Lean's levels, `import all`, re-exports and merge rule appear only
+   in a mapping table at the end; con-leche in a `#real` block.
 8. What we left out, and how the real proof differs from the fragment
    (fvar, `Term` layer, bridge, ...), with links.
 
@@ -317,3 +319,19 @@ pen-and-paper claim without the fragment behind it".
   domain", "$lambda$-telescopes", "$lambda$-congruence"); λ stays where
   it is notation: inside formulas and rules, binder notation such as
   `$lambda x : A. b$`, rule names inside formulas, and code identifiers.
+
+## Rulings of 2026-10-28 (task #375): §7 per module
+
+* No global world, no renaming. Every module uses its own names; what
+  identifies a constant across modules is its key (home module, or a
+  proof's statement). The theorem is per module: a compatible family
+  of models (same key, same value; every proof the point); the
+  corollary drops compatibility. The proof glues only over a module's
+  imports.
+* §7 starts with the abstract view on environment models: what any
+  consistency proof must provide, stated before any Lean or fragment
+  detail.
+* Writing (maintainer, on §7): careful mathematical prose. State what a
+  notion is (a definition), then why it is needed; one claim and its
+  justification per paragraph; no slogans, no "X is a Y, not a Z"
+  constructions, no aphorisms.

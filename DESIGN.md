@@ -108384,3 +108384,83 @@ isolated run was 1 000 G.
 isolated unit computation would need `unitOf`/`unitOk` over the context's
 own provenance (`isoEntries` carries it). README suggestion (not
 written): README does not mention modular checking yet.
+
+## TASK #375 — §7 per module: compatible families, no global environment, no renaming (2026-10-28, agent/375-paper)
+
+**Why.** Maintainer feedback on §7 of the proof-idea paper: the
+interface ("what any consistency proof must provide") belongs first;
+and the renaming plus the global world over qualified names is doubtful
+(what if the theory is not up to renaming, e.g. special names such as
+`Quot`?). What users need is that each module has a model; the global
+model was only a proof device.
+
+**The theory** (`whitepaper/Fragment/ModularSemantics.lean`, imports
+nothing). Interface `ModularSemantics`: `Env`, `Name`, `Stores`;
+models `Mod E` with a value per name (`Val`, `val`) and the proofs'
+value `proofVal`; `Assembled C E same` (an environment made of
+constants of a family, `same n i` designating which members have
+`C`'s `n`) with `assembled_src`; `amalgamate` (a family compatible for
+`C` — designated members storing `n` agree on its value — gives a
+model of `C` with the members' values); `Decls`, `Flagged`, `Accepts`,
+`step` (every model of `Γ` extends to `Γ'` with the same values on
+`Γ`, flagged proofs at `proofVal`). Refinement (`Refines`: assembly
+from one member, all designated) and `restrict` are derived; the base
+is amalgamation of the empty family. No renaming anywhere; the keys
+(`Key`: `home module` or `proof stmt`) live in the development.
+`Development` (per module: `ctx`, `decls`, `own`, `views`, `imports`,
+`key`); `Valid` = views refine the own environment, imports earlier,
+and checked (context assembled from the imports' views, designated by
+equal keys; accepted; new names keyed by the module or flagged proofs)
+or compared (own environment assembled from the imports' views).
+`Development.modular : (∀ i < k, Valid i) → ∃ m, Compatible k m`
+(same key ⇒ same value; proof keys ⇒ `proofVal`), by induction: the
+imports' models restricted to their views are compatible, amalgamate,
+step; new names carry the module's key (`home_le`: keys name the module
+or earlier ones) or are proofs. `own_model` is the corollary.
+
+**The fragment's instance** (`ModularModel.lean`, `ModularInstance.lean`).
+`Assembled` = the old reading (`ConstInfo.Le` + `EntryScoped` over
+`common C (E i) (same · i)` + blocks), generalised from "pieces with
+resolutions" to a family with a designation; `Assembled.model` is the
+old `PReads.model` with the glued assignment `glueM` (proof unchanged
+in structure). `Module` gains `imports`, `views` and `key` and loses
+`src`/`res`. Local checks: `InterfaceOk` (per home: each view refines
+the own environment), `ImportOk` (per importer: imports earlier,
+context assembled from the imports' views), `LocalOk` (both, plus
+acceptance, flags, own keys), `Compared`; `toDev_valid`; theorems
+`modular` (compatible family), `modular_model`,
+`modular_no_empty_prop_inhabitant`, `modular_statements_hold`.
+Removed: `Key.Fits`/`fits`, `readsAlike`, `ReadsFrom`, `Piece`,
+`PReads`, `resAssign`, `WMod`, `Ref`, `Keys`, `normalize`, `KeyMap`,
+`FFresh`, `fglue`, `famalgamate`, the world lemmas (`world_pieces`,
+`below_ref`, `self_reads`), `Checks.keep`, `Decl.Ok.fresh`. The
+syntactic instance (`ModularSyntactic.lean`) follows the new interface:
+realisations, union as amalgamation, no renaming, nothing flagged
+(renaming laws of `SubstSystem` dropped). Axioms pinned (standard
+three; `Development.modular` now uses choice, `Classical.axiomOfChoice`
+for the views' models).
+
+**The paper.** §7 rewritten: environment models in the abstract
+(definition of what a consistency proof provides; refinement,
+restriction, base derived; the `c := 5`/axiom `c = 0` example for why
+the step must extend every model; institutions; the syntactic
+instance), environments of modules (assumptions, theorems, refinement
+of constants, proofs the point, modules, keys, the fragment's
+assembly and amalgamation), the local checks (per home, per importer,
+own), the theorem (compatible family, the example of two importers of
+a hidden `c` for why compatibility, theorem, corollary, proof), what
+runs in parallel, comparing a module, Lean's module system (table),
+and an "In con-leche" block. §1's overview sentence and §8's "how the
+real proof differs" updated. PLAN.md records the rulings and the
+writing rule.
+
+**For con-leche's proof (to follow after #374).** `Modular/Generic.lean`
+should become this interface and theorem: drop `world`, `ren`,
+`Fresh`, `glue`, `glue_left/right`, `refines_comp`/`restrict_comp`;
+state amalgamation over a family with a designation; the instance's
+"assembly" is `ImportOk`'s reading of units (a unit presents views of
+its module: per name the stored constant or the assumption of its
+statement, with footprints), keys are the qualified names without the
+name component (home module, or `.prf` statement); `modular_model_exists`
+then gives each module's model directly (or a compatible family), and
+the Challenge statement can drop the global assignment `G`.

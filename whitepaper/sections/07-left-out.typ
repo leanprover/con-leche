@@ -161,6 +161,15 @@ pure fuelled core at some fuel, with the memo tables' invariant
 preserved\; the main
 theorem #src("ConLeche/Verify/Cached/MainC.lean", 37, 40)[composes it with the fold's soundness].
 
+*Modular checking.* In the fragment, a module's context, views and
+keys are given, and the local checks of @sec:mod-local say what they
+must satisfy. Con-leche computes them from the `.olean` files: the
+context of a module from its imports' exported levels (private levels
+under `import all`) by the rule of @sec:mod-lean, and the key of each
+name from the module that declares it. Its modular theorem is stated
+and proved with one assignment of sets to names qualified by their
+home module, as described at the end of @sec:mod-lean.
+
 *The frontend.* Between the export file and the declaration fold sit
 a decoder and one transformation of the decoded list,
 #src("ConLeche/Frontend/Prepare.lean", 171, 172)[`preparePrelude`].
