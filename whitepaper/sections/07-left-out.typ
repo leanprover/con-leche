@@ -166,9 +166,11 @@ keys are given, and the local checks of @sec:mod-local say what they
 must satisfy. Con-leche computes them from the `.olean` files: the
 context of a module from its imports' exported levels (private levels
 under `import all`) by the rule of @sec:mod-lean, and the key of each
-name from the module that declares it. Its modular theorem is stated
-and proved with one assignment of sets to names qualified by their
-home module, as described at the end of @sec:mod-lean.
+name from the module that declares it. Its modular theorem has the
+statement of @sec:mod-thm, a compatible family of models, and its
+proof is the theorem over the interface of @sec:mod-iface with
+con-leche's models as the instance, as described at the end of
+@sec:mod-lean.
 
 *The frontend.* Between the export file and the declaration fold sit
 a decoder and one transformation of the decoded list,
