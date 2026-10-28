@@ -374,7 +374,7 @@ say; it cannot make it accept an environment without a model.
 **The modular theorem** is about checking a development module by
 module rather than as one stream. A development is a family of modules
 (`Modular.Module` in
-[`ConLeche/Modular.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Modular.lean#L218-L253),
+[`ConLeche/Modular.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Modular.lean#L245-L280),
 definitions only, no proof tier imported). Each module has its
 declarations, its *context* (the environment they are checked against),
 its *own environment* (the context with the declarations installed),
@@ -389,6 +389,17 @@ time. Every context constant is the constant of the module it is read
 from, or an assumption with the same name, level parameters and type
 (never at a pinned name). What its laws read is stored in both and
 resolved alike. A context name resolves as its source does.
+These checks split into one per home and one per importer, and
+`LocalOk` is derived from the two
+([theorem `LocalOk.of_interface` in `ConLeche/Verify/Modular/Interface.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Modular/Interface.lean#L150-L151)).
+A module's *interface* lists, per name, the presentations an importer
+may see (the constant or the assumption of its statement, its table,
+the names its laws read); `InterfaceOk` is checked once for the module:
+every presentation refines its own constant and what its laws read is
+stored there. `ImportOk` is checked per importer: every context
+constant is a presentation from its source's interface, and the names
+that presentation reads are in the context, resolved as the source
+resolves them.
 A *compared* module is not checked but validated by refinement: its
 own environment is its context, read name by name from earlier
 modules. The theorem,
@@ -434,7 +445,10 @@ checks make every module valid (`ConLeche/Model/Modular/Main.lean`).
 `--modular` (§0) establishes that hypothesis: a run's store and
 per-module data with their evidence give every module of the
 development they stand for its local checks
-([theorem `RunOk.localOk` in `ConLeche/Verify/Modular/Scope.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Modular/Scope.lean#L476-L477)),
+([theorem `RunOk.localOk` in `ConLeche/Verify/Modular/Scope.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Modular/Scope.lean#L892-L893)):
+the interface check from the unit check at the home alone
+(`RunOk.interfaceOk`), the importer's from its levels, gates and the
+one-qualified-name check (`RunOk.importOk`),
 and the driver prints its accept from that evidence alone
 ([function `runOk` in `ConLeche/Driver/Modular.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/Modular.lean#L841-L843)).
 
