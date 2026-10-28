@@ -108838,3 +108838,39 @@ follow from the interface (assembly is the proof's own relation); the
 text now says that amalgamation gives a model to every environment
 assembled from the empty family. The rule is recorded in
 `whitepaper/PLAN.md`.
+
+## TASK #379 — §7 reviewed and rewritten with Codex (2026-10-28, agent/379-codex)
+
+Maintainer request: have Codex (gpt-6.1-sol) review §7 of the proof-idea
+paper for content (complete and valid against the fragment) and for
+exposition and writing, rewrite it, and iterate with Claude's review.
+Three rounds in one Codex session; Claude built and read the PDF after
+each round and wrote the next round's review. Reviews kept under
+`_tmp/379/review{1,2,3}.md` (not committed).
+
+**Content fixes (round 1, Codex's review against the fragment):** the
+generic interface gives model existence only; consistency is stated for
+the set-theoretic instance with the exact recursor hypothesis
+(`falseSpec`); the models are `BlockModel`s and keep the block facts
+(scope, generated entries, family and constructor sets, field universe
+bound), which amalgamation must preserve; the full specification-scope
+check of §4 is part of entry scope; theorem installation extends a
+model and preserves old values; the stored-statement corollary needs
+`|ℓ⃗| = |p⃗|` and an explicit model; keys identify occurrences of one
+name (the pair name–key); closure is derived from assembly (acceptance
+needs it); construction of a module's model uses only its imports'
+models, while the compatibility proof also compares with earlier
+modules; the institution analogy is removed.
+
+**Exposition (rounds 2–3, Claude's review of the rendered PDF):** a
+Typst rendering bug (`m_C(c)` etc. put the parentheses into the
+subscript) fixed throughout; motivation in the opening; connected prose;
+the axiom example (why the step must extend every model) restored as an
+illustration; inductive-block conditions refer to §4 instead of
+re-deriving them; the set-theoretic instance is its own subsection
+(7.3); one display for entry scope; concrete checks named `Pass_i`
+(vs the abstract `Valid_i`); the syntactic instance moved to Remark 30;
+con-leche jargon replaced by plain words.
+
+Gates: whitepaper links and fragment gates, build without warnings.
+No Lean file changed.
