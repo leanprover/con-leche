@@ -344,10 +344,11 @@ module sees. What the module does not see, such as the value of a
 definition it reads as an assumption, is not inspected.
 
 #real[
-  Con-leche checks a development as one environment, all its modules
-  merged, and the main theorem
-  #src("ConLeche/MainTheorem.lean", 99, 102)[is stated] for that
-  environment. Checking module by module with the local checks above
-  is planned. Its target statement is @thm:mod: one model over
-  qualified names, in which every module's own environment holds.
+  Con-leche checks a development module by module with the local checks
+  above, and the modular theorem
+  #src("ConLeche/MainTheorem.lean", 131, 137)[is stated] as
+  @thm:mod: one model over qualified names, in which every module's own
+  environment holds. Its proof is the theorem over the interface
+  #src("ConLeche/Modular/Generic.lean", 141, 143)[proved once], at
+  con-leche's own models.
 ]

@@ -6514,11 +6514,19 @@
    488  /-- **A syntactic consistency proof as a modular semantics.** -/
    489  noncomputable def syntacticSemantics : ModularSemantics.{u, u} where
 
-== ConLeche/MainTheorem.lean#L99-L102
-    99  theorem model_exists (V : Type w) [SetTheory V]
-   100      (pins : List NatOpPinSet) (ds : Array Declaration) (env : Env)
-   101      (accepted : checkDecls .verified pins ds = .ok env) :
-   102      Nonempty (Model V env) := by
+== ConLeche/MainTheorem.lean#L131-L137
+   131  theorem modular_model_exists (V : Type w) [SetTheory V]
+   132      (pins : List NatOpPinSet) (dev : Nat → Modular.Module) (i : Nat)
+   133      (hok : ∀ j ≤ i, Modular.LocalOk .verified pins dev j) :
+   134      ∃ G : Modular.Key → (LevelParam → Nat) → V,
+   135        (∀ n lps T φ, G (.proof n lps T) φ = pt) ∧
+   136        ∀ j ≤ i, ∃ m : Model V (dev j).own,
+   137          ∀ n, ((dev j).own.find? n).isSome = true → m.cval n = G ((dev j).res n) := by
+
+== ConLeche/Modular/Generic.lean#L141-L143
+   141  theorem Development.modular (dev : Development S) :
+   142      ∀ k, (∀ i < k, dev.Valid i) →
+   143        Nonempty (S.Mod (dev.world k)) ∧ ∀ i < k, S.Refines (dev.own i) (dev.ren i) (dev.world k)
 
 >>> whitepaper/sections/07-left-out.typ
 
