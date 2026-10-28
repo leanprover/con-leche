@@ -108639,3 +108639,179 @@ as before (Lean merges Prop axioms).  (2) `--compare` still runs after
 all modules (it could run in the challenge's own work).  (3) Store mode
 keeps its global index by design.  README suggestion (not written):
 README does not mention modular checking yet.
+
+## TASK #376 — con-leche's modular theory per module: compatible families, no world, no renaming; proofs by the theorem check; `--compare` in the challenge's own work (2026-10-28, agent/376-permodule)
+
+**Why.** Maintainer ruling (2026-10-28), after #375 moved the paper's
+§7 to the per-module form: con-leche's own modular theory follows it —
+no global world and no renaming (names the theory treats specially,
+such as `Quot`, `Nat` or the pins, keep their meaning; nothing needs a
+renaming invariance).  Each module knows the key of every name it uses;
+the theorem is a compatible family of models, one per module's own
+environment; the proof goes module by module, amalgamating the imports'
+models into a model of the context and extending it by the step.  Plus
+three of #374's open issues where small.
+
+**The interface** (`ConLeche/Modular/Generic.lean`, imports nothing):
+the fragment's `ModularSemantics` and theorem verbatim
+(`whitepaper/Fragment/ModularSemantics.lean`, namespace
+`ConLeche.Modular`): `Stores`, models `Mod E` with values `val` and the
+proofs' value `proofVal`, assembly `Assembled C E same` with
+`assembled_src`, amalgamation of a compatible family, `Decls`/`Flagged`/
+`Accepts` and the conservative step; `Refines`/`restrict` derived;
+`Key Stmt` (`home module` | `proof stmt`, now `deriving DecidableEq,
+Repr`); `Development` (`ctx`, `decls`, `own`, `views`, `imports`,
+`key`), `Valid`, `Compatible`, `Development.modular : (∀ i < k, Valid i)
+→ ∃ m, Compatible k m`, `own_model`.
+
+**Con-leche's instance** (`ConLeche/Model/Modular/Instance.lean`,
+564 → 255 lines).  An environment is a con-leche `Env`, a name stored
+when `find?` finds it.  A model (`MMod V μ E`) is a leaf assignment,
+closed and graded, with a covered `EnvModelM` of `E` reading it; a
+value is a leaf, `proofVal` the leaf `.prf`.  Assembly (`AssembledC`):
+`self` (the environment is a member, counted as having all its names:
+what a module's one view, its own environment, needs to refine it) or
+`reads` (a source per name, the part of it read under one key, and
+`CtxRead` of `Restrict.lean`).  Amalgamation (`amalgamateC`) gives each
+name the leaf of its source and builds the model with `CtxSrc.ctxModel`
+(the leaves a constant's laws read are its source's by compatibility).
+Acceptance (`AcceptsC`) is `AcceptedFrom` with every flagged name new
+in the context; the step is `acceptedFrom_model`.  `toDev`
+(`Model/Modular/Main.lean`): a module's context, declarations (flagged:
+its proofs new in its context), own environment, its own environment
+as its one view, the earlier modules as imports (con-leche's `src` may
+name any earlier module, not only a direct import), its keys.
+`valid_of`: assembly by `ctx_reads`/`ctx_assembled` (the old `ctx_reads`
+with the source pieces replaced by `srcE`/`srcR`), new keys from
+`key_own`.  `modular_envModels` now returns the compatible family of
+leaves.
+
+**Removed** (no use left): the world (`Development.world`, `worldL`,
+`mem_world`, `world_sub`, `before`, `before_ref`), renaming (`ren`,
+`KeyMap`, `Piece.rename`, `refines_comp`/`restrict_comp`), the pieces
+with resolutions (`Piece`, `PEnv`, `PEnv.HasKey`, `PieceReads`,
+`readsAlikeP`, `Ref`, `Ref.keys`, `Ref.pieces`, `PMod`, `WorldOk`,
+`PiecesOk`, `normalize`, `Normalized`, `restrictP`, `stepP`,
+`FreshP`, `glueP`, `amalgamateP`, `baseModelP`, `ext_reads`,
+`key_le`, the injectivity `hinj`), the old `Key` (`qual module name`,
+`proof name lps type`).  Keys lose the name: `Key.home h`,
+`Key.proof (lps, type)` (`Modular.Stmt`); `keyOfSlot`/`Store.keyAt` no
+longer take the name.  `Module.res` is `Module.key`, `res_context`/
+`res_own` are `key_context`/`key_own`, `resOf` is `keyOf`.  The
+runtime compares keys only for one name, so no verdict changes.
+
+**The capstones.**  Old (`ConLeche/MainTheorem.lean`, `Challenge.lean`):
+
+```lean
+theorem modular_model_exists (V : Type w) [SetTheory V]
+    (pins : List NatOpPinSet) (dev : Nat → Modular.Module) (i : Nat)
+    (hok : ∀ j ≤ i, Modular.LocalOk .verified pins dev j) :
+    ∃ G : Modular.Key → (LevelParam → Nat) → V,
+      (∀ n lps T φ, G (.proof n lps T) φ = pt) ∧
+      ∀ j ≤ i, ∃ m : Model V (dev j).own,
+        ∀ n, ((dev j).own.find? n).isSome = true → m.cval n = G ((dev j).res n)
+```
+
+New:
+
+```lean
+theorem modular_model_exists (V : Type w) [SetTheory V]
+    (pins : List NatOpPinSet) (dev : Nat → Modular.Module) (i : Nat)
+    (hok : ∀ j ≤ i, Modular.LocalOk .verified pins dev j) :
+    ∃ m : ∀ j ≤ i, Model V (dev j).own,
+      (∀ j hj j' hj' n, ((dev j).own.find? n).isSome = true →
+        ((dev j').own.find? n).isSome = true → (dev j).key n = (dev j').key n →
+        (m j hj).cval n = (m j' hj').cval n) ∧
+      ∀ j hj n s, ((dev j).own.find? n).isSome = true → (dev j).key n = .proof s →
+        (m j hj).cval n = fun _ => pt
+```
+
+`modular_no_False` keeps its statement (`∀ j ≤ i, ∀ c ∈ (dev
+j).own.consts, c.toConstantVal.type = .const falseName [] → False`).
+The Challenge states both and gains a plain-words paragraph on keys and
+compatibility; `tests/challenge.sh` green; axioms pinned at the
+standard three (`Axioms.lean`, `ModIso.lean`).  The isolated-mode and
+store-mode evidence feed them unchanged (`IsoRunOk.localOk`,
+`RunOk.localOk`; the `example` in `tests/ConLecheTests/ModIso.lean`
+restated).
+
+**(a) Proofs by the checker's test.**  A module's proofs are its
+theorems and every definition or opaque constant that passes the
+theorem record's check (`checkPending` with the kind set to theorem:
+its type inferred to be a proposition, its value of that type), run at
+the module that installs it (`proofsOf`).  Lean's `isPropCheap` filter
+is gone from the modular path (`Mod.isPropCheap`, `propAfter` removed;
+the merged mode keeps its own copy, which mirrors Lean's merge).  The
+check is skipped only where it would fail: `Mod.isTypeCheap` (under the
+binders a sort, or a constant or bound variable applied to as many
+arguments as its type takes to a sort of a level that is never zero).
+It is a filter only: the evidence is the theorem check, as before.
+Fixture `PdM` (`tests/olean/src/Pd*.lean`): PdA's `def pd : id True`
+(exported as the assumption of its statement), PdB's `theorem pd : id
+True`, PdM loads PdA and `import all PdB`; Lean merges the two (a
+theorem stands for an assumption of its statement, without a
+proposition test), and before this change the modular check rejected
+PdM (`isPropCheap (id True)` is false, so the definition was keyed by
+its home); now accepted in both modes.  (Two theorems of `id True` at
+the exported level are not merged by Lean, which tests `isPropCheap`
+for two assumptions; no fixture.)
+
+**(b) Units by module name: not done.**  The units' module references
+(gates `g1`/`v1`, `fp1`, the levels `lvl`, a byte per run position)
+are positions in the run's module order throughout the store, the
+mask, the level checks and their proofs (`Verify/Modular/*`).  Changing
+the in-memory representation buys nothing until units are written out;
+the plan stays #374's: a serialised unit carries the names of the
+modules it mentions (or positions in the closure's module order, which
+every process computes from the roots) and is translated on reading.
+Reported, not built.
+
+**(c) `--compare` in the challenge's own work.**  The comparison runs in
+the challenge's work after its unit is published (`storeWork`,
+`isoWork`): `compareOne` at the store's view, `compareOneIso` from the
+units the challenge loads at its levels without its solution (`sideLv`)
+and with it (its own levels).  `ModOk`/`IsoModOk` carry the claim
+(`CmpClaim mode S i chal`, `IsoCmpClaim mode slots lvC chal`, neither
+mentions the run's other modules any more) and the filled holes; the
+report is printed in module order after the accept; `compareAll` is
+gone.  A failing comparison is the challenge's failure, reported like
+any module's (same message).  Fixture: `--keep-going --compare CmpChal
+CmpSolDef CmpSolSorry` reports the comparison's failure beside the
+unrelated failing module (exit 1, the output names the comparison);
+before, the comparison ran only after every module and record passed.
+
+**Measurements** (instructions:u, one run each, 96 workers; peak RSS
+from the 1 s watchdog; base = #374's binary, rerun today for
+Init/Std/Lean, #374's Mathlib runs; every run accepted, counts
+unchanged):
+
+| closure | store base → new | isolated base → new | peak RSS store / isolated (new) |
+|---|---|---|---|
+| Init (653 modules) | 495 G → 497 G | 442 G → 444 G | 1.04 / 0.97 GiB |
+| Std (1 012) | 730 G → 732 G | 671 G → 673 G | 1.64 / 1.46 GiB |
+| Lean (2 374) | 935 G → 943 G | 922 G → 929 G | 1.58 / 1.75 GiB |
+| Mathlib, patched (10 976) | 9 625 G → 9 658 G | 10 730 G → 10 761 G | 7.15 / 8.80 GiB [#374: 6.92–7.51 / 8.30–8.90] |
+
+The cost is (a): the theorem check's type inference for every
+definition the shortcut does not settle (universe-polymorphic
+statements over `Sort u`, for instance).  Without the shortcut it was
++1.4 % on Lean and +1.0 % on Mathlib; with it +0.8 % and +0.3 %.  The
+theory change costs nothing at run time.
+
+**Gates.** `lake build`, `lake test` warning-free; `tests/olean.sh`
+80/80 (the two new cases in both modes); `tests/challenge.sh`;
+`tests/shake.sh`; `tests/layering.sh`; the OVERVIEW and whitepaper link
+gates; `tests/arena.sh` on the final tree.
+
+**Docs.**  OVERVIEW: keys, the per-module theorem, the interface and
+instance as they are, proofs by the theorem check, the comparison in
+the challenge's work.  Whitepaper §7's "In con-leche" block and §8's
+paragraph now state what is true (the per-module theorem, the instance,
+keys, no renaming); `_out/whitepaper/` rebuilt.  README suggestion (not
+written): README does not mention modular checking yet.
+
+**Open.**  (b) above.  The proof flags cost +0.3 % on Mathlib; a flag
+recorded by the definition's own record check (its type's sort is
+already inferred there) would cost nothing, but in isolated mode the
+flags are needed in the unit before the record checks run, and the
+proof would have to relate the two checks.

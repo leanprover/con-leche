@@ -90,7 +90,7 @@ importer's context, as the assumption of its type if only its type
 does, and not at all otherwise (an inductive block as a whole). Modules
 whose imports are installed are installed in parallel; then every
 module's local checks and every record's check run in one pool
-([function `checkModular` in `ConLeche/Driver/Modular.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/Modular.lean#L1523-L1524)).
+([function `checkModular` in `ConLeche/Driver/Modular.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/Modular.lean#L1526-L1527)).
 With `--modular=isolated` there is no store. When a module is checked
 it publishes its *unit*: what its importers may read of it, the
 counterpart of Lean's interface files. A unit says, for each of the
@@ -103,7 +103,7 @@ context, installing and checking its records, computing its unit and
 checking it, and M's local checks — reads M's own files and the units
 of exactly the modules Lean loads for M, and of those only the
 interface unless M loads them with `import all`
-([function `isoWork` in `ConLeche/Driver/Modular.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/Modular.lean#L1019-L1020)).
+([function `isoWork` in `ConLeche/Driver/Modular.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/Modular.lean#L1022-L1023)).
 Every such step takes the units through one function that keeps
 exactly that and drops the rest
 ([function `mask` in `ConLeche/Cached/ModIso.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Cached/ModIso.lean#L150-L151)),
@@ -138,7 +138,7 @@ permitted there and nowhere else, and the run lists the holes and the
 modules that fill them. The comparison is part of the challenge's own
 work, after its unit is published, and in isolated mode it reads only
 the units the challenge loads
-([function `compareOne` in `ConLeche/Driver/Modular.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/Modular.lean#L711-L713)).
+([function `compareOne` in `ConLeche/Driver/Modular.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/Modular.lean#L714-L716)).
 
 The exit code follows the lean kernel arena convention
 ([the exit-code mapping in `ConLeche/Driver/Run.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/Run.lean#L38)):
@@ -496,7 +496,7 @@ the interface check from the unit check at the home alone
 (`RunOk.interfaceOk`), the importer's from its levels, gates and the
 one-key check (`RunOk.importOk`),
 and the driver prints its accept from that evidence alone
-([function `runOk` in `ConLeche/Driver/Modular.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/Modular.lean#L1285-L1287)).
+([function `runOk` in `ConLeche/Driver/Modular.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/Modular.lean#L1288-L1290)).
 `--modular=isolated` establishes it for the development whose contexts
 are built from the units each module reads and whose own environments
 are the modules' constants over them
