@@ -125,6 +125,44 @@ def isoCtx (slot : Nat → ModSlot) (lv : ByteArray) : Env :=
   let es := firstNamed (isoEntries slot lv)
   ⟨es.map (·.ci), es.filterMap (·.tbl)⟩
 
+/-- **The canonical index of module `M`'s context** (the specification:
+`mkFEnv` of `isoCtx`).  It runs as `isoIndexFast`, one pass over the
+units with no intermediate lists (`Mod.isoIndex_eq_fast`, `@[csimp]`,
+`ConLeche/Verify/Modular/IsoFast.lean`). -/
+def isoIndex (slot : Nat → ModSlot) (lv : ByteArray) : FEnv := mkFEnv (isoCtx slot lv)
+
+/-- The state of `isoIndexFast`: the context so far (its constants
+newest first, its tables), its name index and table map, and its size. -/
+structure IsoAcc where
+  n : Nat
+  consts : List ConstantInfo
+  tables : List ProjTable
+  idx : Std.HashMap Name (Nat × ConstantInfo)
+  tbls : Std.HashMap Name ProjTable
+
+/-- One presented constant added, unless its name is there already. -/
+@[inline] def IsoAcc.add (a : IsoAcc) (ci : ConstantInfo) (t : Option ProjTable) : IsoAcc :=
+  if a.idx.contains ci.name then a else
+  match t with
+  | some t => ⟨a.n + 1, ci :: a.consts, t :: a.tables, a.idx.insert ci.name (a.n, ci),
+      a.tbls.insert t.structName t⟩
+  | none => ⟨a.n + 1, ci :: a.consts, a.tables, a.idx.insert ci.name (a.n, ci), a.tbls⟩
+
+/-- Module `h`'s presented constants added (none of a module the viewer
+does not load, whose unit is not read). -/
+def isoAccModule (lv : ByteArray) (slot : Nat → ModSlot) (a : IsoAcc) (h : Nat) : IsoAcc :=
+  if lvlAt lv h == 0 then a else
+  (List.range (posCount (slot h) (lvlAt lv h))).foldl (fun a j =>
+    match presentAt lv (slot h) (lvlAt lv h) j with
+    | some ci => a.add ci (entryTbl ci (presentTbl (slot h) (lvlAt lv h) j))
+    | none => a) a
+
+/-- **The canonical index of a module's context, in one pass**: what
+`isoIndex` computes. -/
+def isoIndexFast (slot : Nat → ModSlot) (lv : ByteArray) : FEnv :=
+  let a := (List.range lv.size).foldl (isoAccModule lv slot) ⟨0, [], [], {}, {}⟩
+  ⟨⟨a.consts, a.tables⟩, a.idx, a.n, {}, [], a.tbls⟩
+
 /-! ## The checks -/
 
 /-- **The declaration fold from an index**: every record installed by
@@ -147,7 +185,7 @@ built from its imports' units (`isoCtx`); the result is its own
 environment (its constants and tables, then the context's). -/
 def checkModuleIsolated (mode : CheckMode) (pins : List NatOpPinSet) (slot : Nat → ModSlot)
     (lv : ByteArray) (ds : Array Declaration) : Except (CheckError × Nat) Env :=
-  checkDeclsAt mode pins (mkFEnv (isoCtx slot lv)) ds
+  checkDeclsAt mode pins (isoIndex slot lv) ds
 
 /-- **A module checked at a view of the store** (what the store run
 does): the same fold from the view; the result is the module's own

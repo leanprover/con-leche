@@ -2,6 +2,7 @@ module
 
 public import ConLeche.Verify.Modular.Dev
 public import ConLeche.Verify.Modular.IsoCtx
+public import ConLeche.Verify.Modular.IsoFast
 import ConLeche.Verify.Modular.Congr
 import ConLeche.Verify.Modular.Scope
 
@@ -87,7 +88,7 @@ theorem IsoRunOk.checks (h : IsoRunOk mode S M) (i : Nat) (hi : i < M.size) :
     checkModuleIsolated mode natOpPinSets S.slot (S.lvl i) M[i].ds =
       .ok (Env.over M[i].fe.env (isoCtx S.slot (S.lvl i))) := by
   obtain ⟨n, feI, pendI, hrun, hchk, -, henv⟩ := h.iso i hi
-  unfold checkModuleIsolated checkDeclsAt
+  unfold checkModuleIsolated checkDeclsAt isoIndex
   rw [← Array.foldlM_toList, hrun.foldlM]
   show (checkPendingList mode feI pendI.toList >>= fun _ => pure feI.env) = _
   rw [checkPendingList_ok mode feI pendI.toList hchk, henv]

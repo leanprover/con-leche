@@ -805,8 +805,11 @@ published; then every record checked in the module's environment, which
 is dropped after. -/
 def isoWork (mode : CheckMode) (err : IO.FS.Stream) (g : Array ModIn) (S : Mod.Store)
     (dups : Std.HashSet Name) : Work (IsoModOk mode g S) := fun k => do
-  let C := Mod.isoCtx S.slot (S.lvl k)
-  match ← installModule mode err (declsAt g k) (mkFEnv C) with
+  -- the context's canonical index, built in one pass (`Mod.isoIndex_eq_fast`);
+  -- the context itself is its environment
+  let fe₀ := Mod.isoIndex S.slot (S.lvl k)
+  let C := fe₀.env
+  match ← installModule mode err (declsAt g k) fe₀ with
   | .error e => return .error e
   | .ok e =>
     let ⟨flags, hprf⟩ := proofsOf mode dups e.fe e.pend

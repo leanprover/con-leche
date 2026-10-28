@@ -18,6 +18,7 @@ import ConLecheTests.RoundsTests
 import ConLecheTests.DisplayTests
 import ConLecheTests.OleanTests
 import ConLecheTests.ModBoundary
+import ConLecheTests.ModIso
 /- The suite's `#guard`s are EVALUATED, so every constant they name must be
 reachable from meta code too; a module needed at both levels is imported
 twice (`public import` for the `example`s' statements, `meta import` for
