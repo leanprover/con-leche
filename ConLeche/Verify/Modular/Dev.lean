@@ -12,7 +12,7 @@ keeps (`Mod.ModData`).  This file names the development they stand for —
 `devOf`, a `ConLeche.Modular.Module` per module: its context is what its
 view reads off the store (`ctxOf`), its own environment the context with
 its install's constants (`envAt`), every context name read from its home
-module, its proofs the run's, its resolution the home's qualified name, and its
+module, its proofs the run's, its keys the homes' keys, and its
 interface the presentations of its unit (`ifaceOf`) — and the facts the run establishes (`RunOk`).  `RunOk.localOk`
 (`ConLeche/Verify/Modular/Local.lean`) is the theorem that they are the
 local checks.
@@ -25,19 +25,19 @@ open ConLeche
 /-- The trivial module (beyond the run's modules). -/
 @[expose] def emptyModule : ConLeche.Modular.Module :=
   { imports := [], decls := [], context := ⟨[], []⟩, own := ⟨[], []⟩, src := fun _ => 0,
-    proofs := fun _ => false, res := fun n => .qual 0 n }
+    proofs := fun _ => false, key := fun _ => .home 0 }
 
-/-- The qualified name module `i` resolves `n` to: through its context
-the home's, else its own. -/
-@[expose] def resOf (S : Store) (i : Nat) (d : ModData) (n : Name) : ConLeche.Modular.Key :=
+/-- The key module `i` gives `n`: through its context the home's, else
+its own. -/
+@[expose] def keyOf (S : Store) (i : Nat) (d : ModData) (n : Name) : ConLeche.Modular.Key ConLeche.Modular.Stmt :=
   match (S.mb i).pick? n with
-  | some (h, j, _) => S.keyAt h j n
+  | some (h, j, _) => S.keyAt h j
   | none =>
     match (envAt d.fe (ctxOf (S.mb i))).find? n with
     | some ci =>
-      if d.flags.contains n then .proof n ci.toConstantVal.levelParams ci.toConstantVal.type
-      else .qual i n
-    | none => .qual i n
+      if d.flags.contains n then .proof (ci.toConstantVal.levelParams, ci.toConstantVal.type)
+      else .home i
+    | none => .home i
 
 /-- The gated read sets of module `h`'s constant `j` the unit check
 accepts (`unitOk`): `a` its exported presentation, `g`/`v` its gates,
@@ -87,7 +87,7 @@ name. -/
       | some (h, _, _) => h
       | none => 0
     proofs := d.flags.contains
-    res := resOf S i d
+    key := keyOf S i d
     iface := ifaceOf S i d }
 
 /-- **The development a run stands for.** -/

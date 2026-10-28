@@ -38,7 +38,7 @@ the pure part of the run that the proofs are about:
   brings `fp1`; in the store mode with the store's duplicates' check
   (`oneKey`; the isolated mode's is `keysOk`);
 * `isPropCheap` — Lean's test for a statement that is a proposition,
-  which decides the proofs of a module (their qualified name is their
+  which decides the proofs of a module (their key is their
   statement).
 
 Nothing here type-checks: the declarations' checks are the fold's own
@@ -280,7 +280,7 @@ def lawsOk (r : ReadSet) (l : Laws) : Bool :=
   l.es.all (constsResolveFC dv) && l.es.all (projsInC r.fi.contains) &&
   l.ns.all (fun n => (dv.find? n).isSome) && l.fi.all r.fi.contains && l.fc.all r.fc.contains
 
-/-! ## Qualified names -/
+/-! ## Keys -/
 
 /-- The alternates of a name in the store. -/
 def Store.alts (S : Store) (n : Name) : List (Nat × Nat) := (S.mb 0).alts n
@@ -306,26 +306,26 @@ def idxOk (S : Store) : Bool :=
       | some c => (S.alts c.name).contains (h, j)
       | none => true)
 
-/-- **The qualified name a unit's constant `j` of module `h` has**: a
+/-- **The key a unit's constant `j` of module `h` has**: a
 proof's is its statement, read off its exported presentation (the
 constant or the assumption of its statement: the same statement); only
 a proof the exported part does not present — which only a viewer
 loading `h` with `import all` sees — reads the private record. -/
-def keyOfSlot (s : ModSlot) (h j : Nat) (n : Name) : ConLeche.Modular.Key :=
+def keyOfSlot (s : ModSlot) (h j : Nat) : ConLeche.Modular.Key ConLeche.Modular.Stmt :=
   match s.exp.prf[j]? with
   | some true =>
     match (s.exp.at1[j]?).join with
-    | some ci => .proof n ci.toConstantVal.levelParams ci.toConstantVal.type
+    | some ci => .proof (ci.toConstantVal.levelParams, ci.toConstantVal.type)
     | none =>
       match s.prv.priv[j]? with
-      | some ci => .proof n ci.toConstantVal.levelParams ci.toConstantVal.type
-      | none => .qual h n
-  | _ => .qual h n
+      | some ci => .proof (ci.toConstantVal.levelParams, ci.toConstantVal.type)
+      | none => .home h
+  | _ => .home h
 
-/-- **The qualified name of module `h`'s constant `j`**, stored under `n`:
-its statement for a proof, its home and name otherwise. -/
-def Store.keyAt (S : Store) (h j : Nat) (n : Name) : ConLeche.Modular.Key :=
-  keyOfSlot (S.slot h) h j n
+/-- **The key of module `h`'s constant `j`**: its statement for a
+proof, its home otherwise. -/
+def Store.keyAt (S : Store) (h j : Nat) : ConLeche.Modular.Key ConLeche.Modular.Stmt :=
+  keyOfSlot (S.slot h) h j
 
 /-! ## What a module's bookkeeping reads of its context -/
 
@@ -550,9 +550,9 @@ def levelsOk (m : Nat) (lv : ByteArray) (unit : Nat → ModSlot) : Bool :=
         (unit h).exp.fp1.all (fun (x, need) => lvlAt lv x ≥ need))
 
 /-- **The copies of a name that meet in module `m`'s context have one
-qualified name**: every alternate `m` sees has the qualified name of the
+key**: every alternate `m` sees has the key of the
 first.  (Lean merges such copies only when they are proofs of one
-statement, whose qualified name is the statement.) -/
+statement, whose key is the statement.) -/
 def oneKey (S : Store) (m : Nat) (n : Name) : Bool :=
   let mb := S.mb m
   let vis := (mb.alts n).filter fun (h, j) => match mb.at? h j with
@@ -560,7 +560,7 @@ def oneKey (S : Store) (m : Nat) (n : Name) : Bool :=
     | none => false
   match vis with
   | [] => true
-  | (h₀, j₀) :: rest => rest.all fun (h, j) => S.keyAt h j n == S.keyAt h₀ j₀ n
+  | (h₀, j₀) :: rest => rest.all fun (h, j) => S.keyAt h j == S.keyAt h₀ j₀
 
 /-- **The names with several alternates are listed** (`Store.dups`): a
 name the store's index gives two alternates is in the list. -/
@@ -570,7 +570,7 @@ def dupsOk (S : Store) : Bool :=
 /-- **Module `m`'s local checks in a store run**: its levels against the
 units of what it loads (`levelsOk`, every module's own levels the
 store's), and the copies of a name that meet in `m`'s context have one
-qualified name (`oneKey`, over the store's names stored twice). -/
+key (`oneKey`, over the store's names stored twice). -/
 def localOk (S : Store) (m : Nat) : Bool :=
   levelsOk m (S.lvl m) S.slot && S.dups.all (oneKey S m)
 

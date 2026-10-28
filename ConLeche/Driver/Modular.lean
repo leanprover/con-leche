@@ -923,12 +923,12 @@ def isoWork (mode : CheckMode) (err : IO.FS.Stream) (g : Array ModIn) (slots : A
         -- (a failure: the one-pass state built again, for the message)
         let a' := Mod.isoBuild units lv
         let bad := a'.dropped.find? fun (h, j, n) => match a'.look n with
-          | some (h₀, j₀, _) => Mod.keyOfSlot (units h) h j n != Mod.keyOfSlot (units h₀) h₀ j₀ n
+          | some (h₀, j₀, _) => Mod.keyOfSlot (units h) h j != Mod.keyOfSlot (units h₀) h₀ j₀
           | none => true
         let why := match levelsWhy g k lv units with
           | some w => w
           | none => s!"two modules store constants named {(bad.map (·.2.2)).getD .anonymous} \
-              under different qualified names (not proofs of one statement), and both are in \
+              under different keys (not proofs of one statement), and both are in \
               the context of {(g[k]?.map (·.name)).getD .anonymous}"
         -- a position past the records: the failure is the module's, not a record's
         return .error (.invalid why, (declsAt g k).size)
@@ -945,7 +945,7 @@ def localWhy (g : Array ModIn) (S : Mod.Store) (m : Nat) : String := Id.run do
   if let some w := levelsWhy g m (S.lvl m) S.slot then return w
   for n in S.dups do
     unless Mod.oneKey S m n do
-      return s!"two modules store constants named {n} under different qualified names (not \
+      return s!"two modules store constants named {n} under different keys (not \
         proofs of one statement), and both are in the context of {nameOf g m}"
   return "the local checks fail"
 

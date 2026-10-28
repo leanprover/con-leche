@@ -351,10 +351,10 @@ theorem find?_filter_name (l : List ConstantInfo) (q : Name → Bool) (m : Name)
 
 theorem readsAlike_lookup (dev : Nat → Module) (i b : Nat) (m : Name) :
     (readsAlike dev i b).find? m =
-      if ((dev i).context.find? m).isSome && (dev i).res m == (dev b).res m then
+      if ((dev i).context.find? m).isSome && (dev i).key m == (dev b).key m then
         (dev b).own.find? m else none := by
   unfold readsAlike
-  exact find?_filter_name _ (fun m => ((dev i).context.find? m).isSome && (dev i).res m == (dev b).res m) m
+  exact find?_filter_name _ (fun m => ((dev i).context.find? m).isSome && (dev i).key m == (dev b).key m) m
 
 /-! ## The local checks -/
 
@@ -377,7 +377,7 @@ theorem LocalOk.congr {dev₁ dev₂ : Nat → Module} {i : Nat} (Cx Ow : Nat �
   have e_dec : ∀ k, (dev₂ k).decls = (dev₁ k).decls := fun k => by rw [hdev]
   have e_src : ∀ k, (dev₂ k).src = (dev₁ k).src := fun k => by rw [hdev]
   have e_prf : ∀ k, (dev₂ k).proofs = (dev₁ k).proofs := fun k => by rw [hdev]
-  have e_res : ∀ k, (dev₂ k).res = (dev₁ k).res := fun k => by rw [hdev]
+  have e_res : ∀ k, (dev₂ k).key = (dev₁ k).key := fun k => by rw [hdev]
   have e_cmp : ∀ k, (dev₂ k).compared = (dev₁ k).compared := fun k => by rw [hdev]
   have e_ok : ∀ k n, (dev₂ k).ownKey k n = (dev₁ k).ownKey k n := fun k n => by
     funext ci; unfold Module.ownKey; rw [e_prf]
@@ -418,10 +418,10 @@ theorem LocalOk.congr {dev₁ dev₂ : Nat → Module} {i : Nat} (Cx Ow : Nat �
     exact h.recFam n cv mI rP rules hf r hr cvj nP nF hc T us hT
   · intro n hn
     rw [← (hctx i).find] at hn
-    rw [e_res, e_res, e_src]; exact h.res_context n hn
+    rw [e_res, e_res, e_src]; exact h.key_context n hn
   · intro n ci ho hc
     rw [← (hown i).find] at ho
     rw [← (hctx i).find] at hc
-    rw [e_res, e_ok]; exact h.res_own n ci ho hc
+    rw [e_res, e_ok]; exact h.key_own n ci ho hc
 
 end ConLeche.Cached.Mod

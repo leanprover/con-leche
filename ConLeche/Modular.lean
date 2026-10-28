@@ -1,11 +1,12 @@
 module
 
 public import ConLeche.Cached.Installed
+public import ConLeche.Modular.Generic
 
 @[expose] public section
 
 /-!
-# Modular checking: modules, qualified names, the local checks
+# Modular checking: modules, keys, the local checks
 
 The statement half of the modular theorem (`ConLeche.modular_model_exists`,
 `ConLeche/MainTheorem.lean`), in the style of `ConLeche/Denotes.lean`:
@@ -18,14 +19,16 @@ both read it.
   (`decls`), its **context** (the environment its declarations are
   checked against), its **own environment** (`own`: the context with its
   declarations installed), for each context name the earlier module it
-  is read from (`src`), which of its own constants are proofs (`proofs`), and its
-  **resolution** of names to qualified names (`res`).
-* A **qualified name** (`Key`) is a module and a name for an ordinary
-  constant, and a name, level parameters and statement for a proof:
-  two proofs of one statement are one constant (the model gives every
-  proof the point), whatever their bodies or homes.
+  is read from (`src`), which of its own constants are proofs (`proofs`), and the
+  **key** of every name it stores (`key`).
+* A **key** (`Key Stmt`, `ConLeche/Modular/Generic.lean`) is what
+  identifies a constant across modules, beside its name: for an ordinary
+  constant its **home**, the module that declares it; for a proof its
+  statement, level parameters and type (`Stmt`): two proofs of one
+  name and statement are one constant (the model gives every proof the
+  point), whatever their bodies or homes.  No name is ever renamed.
 * **The local checks** (`LocalOk`) read the module and the own
-  environments and resolutions of the earlier modules its context is
+  environments and keys of the earlier modules its context is
   read from, nothing else:
   1. the imports come earlier, every context name is read from an
      earlier module (its source: in practice the constant's home), the
@@ -46,15 +49,15 @@ both read it.
      constants of its type and value, its rules' right-hand sides and
      constructors, its block's members and constructors, its
      projection table, the pinned names its fast path reads — is stored
-     in that module's own environment and in the context, and resolved
-     by both alike (`scoping`, `EntryScoped`, `readsAlike`); the
+     in that module's own environment and in the context, under one
+     key in both (`scoping`, `EntryScoped`, `readsAlike`); the
      projections it reads are of type formers of the context
      (`projs`); an inductive kind comes with its block as the context
      presents it (`blocks`); a type former's table is
      that module's, and nothing else has one (`tables`, `tables_mem`);
-  4. a context name resolves as the module it is read from resolves it, an own name to
-     the module and the name, or, flagged a proof, to its name, level
-     parameters and statement (`res_context`, `res_own`).
+  4. a context name has the key the module it is read from gives it, a
+     new own name the module itself, or, flagged a proof, its level
+     parameters and statement (`key_context`, `key_own`).
   The context's constant is the one scoped, not the source's: a
   module that sees a definition as an assumption reads only its type.
 
@@ -66,9 +69,8 @@ table, its footprint) done once at the module (`InterfaceOk`: the
 presentations refine its own constants, and what their laws read is
 stored in its own environment and listed in the footprint) and the
 checks of each **importer** (`ImportOk`: its context consists of its
-sources' presentations, each footprint stored in the context and
-resolved as by the source; plus 1, 2, 4 and the context-internal parts
-of 3).  In the Lean mapping a presentation is a constant at a level of
+sources' presentations, each footprint stored in the context under the
+source's keys; plus 1, 2, 4 and the context-internal parts of 3).  In the Lean mapping a presentation is a constant at a level of
 its home (private: the installed constant; exported: its exported
 presentation, the value hidden when its value gate is closed), and the
 importer's footprint check is evaluating the presentation's gates.
@@ -78,13 +80,8 @@ namespace ConLeche.Modular
 
 open ConLeche.Cached
 
-/-- **A qualified name**: an ordinary constant is named by its home
-module and its name; a proof by its name, level parameters and
-statement. -/
-inductive Key where
-  | qual (module : Nat) (n : Name)
-  | proof (n : Name) (lparams : List Name) (type : Expr)
-  deriving DecidableEq, Repr, Inhabited
+/-- **A proof's statement**: its level parameters and type. -/
+abbrev Stmt := List Name × Expr
 
 /-- **A presented constant**: one way a module's interface presents one
 of its constants to importers — the constant (the module's own, or the
@@ -103,7 +100,7 @@ structure Module where
   own : Env
   src : Name → Nat
   proofs : Name → Bool
-  res : Name → Key
+  key : Name → Key Stmt
   /-- **a compared module** (a challenge): validated not by checking its
   declarations but by refinement — its own environment is read, name by
   name, from earlier modules (its own names from its solution), as a
@@ -113,9 +110,10 @@ structure Module where
   read the constant stored under it as -/
   iface : Name → List Presented := fun _ => []
 
-/-- The qualified name of an own constant of module `i`. -/
-def Module.ownKey (m : Module) (i : Nat) (n : Name) (ci : ConstantInfo) : Key :=
-  if m.proofs n then .proof n ci.toConstantVal.levelParams ci.toConstantVal.type else .qual i n
+/-- The key of a new own constant of module `i`: its statement if it is
+flagged a proof, the module otherwise. -/
+def Module.ownKey (m : Module) (i : Nat) (n : Name) (ci : ConstantInfo) : Key Stmt :=
+  if m.proofs n then .proof (ci.toConstantVal.levelParams, ci.toConstantVal.type) else .home i
 
 /-- **The pinned names**: names whose stored kind the checker's fast
 paths and the model's laws read (the reserved basis, the certified
@@ -184,14 +182,14 @@ def BlockIn (C : Env) (n : Name) : ConstantInfo → Prop
 
 /-- **The part of module `b`'s own environment that module `i` reads as
 `b` does**: its constants whose names `i`'s context stores and `i` and
-`b` resolve alike (`b` the module a context constant is read from). -/
+`b` give one key (`b` the module a context constant is read from). -/
 def readsAlike (dev : Nat → Module) (i b : Nat) : Env :=
   ⟨(dev b).own.consts.filter fun c =>
-    ((dev i).context.find? c.name).isSome && (dev i).res c.name == (dev b).res c.name, []⟩
+    ((dev i).context.find? c.name).isSome && (dev i).key c.name == (dev b).key c.name, []⟩
 
 /-- **What a context constant's laws read is stored and read alike**
 (check 3): `R` is the part of the own environment of the module the constant is
-read from that the context stores and reads as that module does (`readsAlike`), `C` the
+read from that the context stores under that module's keys (`readsAlike`), `C` the
 context.  The constants of the
 type (and of a definition's value), a recursor's rules (right-hand
 sides, nested pins, constructors), an inductive type's block members,
@@ -274,10 +272,10 @@ structure LocalOk (mode : CheckMode) (pins : List NatOpPinSet) (dev : Nat → Mo
       ∀ T us, cvj.type.piResult.getAppFn = .const T us →
       ∃ cvT capsT, (dev ((dev i).src n)).own.find? T = some (.indInfo cvT capsT)
   tables_mem : ∀ t ∈ (dev i).context.tables, (dev i).context.findTable? t.structName = some t
-  res_context : ∀ n, ((dev i).context.find? n).isSome = true →
-    (dev i).res n = (dev ((dev i).src n)).res n
-  res_own : ∀ n ci, (dev i).own.find? n = some ci → (dev i).context.find? n = none →
-    (dev i).res n = (dev i).ownKey i n ci
+  key_context : ∀ n, ((dev i).context.find? n).isSome = true →
+    (dev i).key n = (dev ((dev i).src n)).key n
+  key_own : ∀ n ci, (dev i).own.find? n = some ci → (dev i).context.find? n = none →
+    (dev i).key n = (dev i).ownKey i n ci
 
 /-! ## The local checks, split: once per interface, then per importer -/
 
@@ -313,12 +311,12 @@ structure InterfaceOk (dev : Nat → Module) (b : Nat) : Prop where
 presentations from its sources' interfaces — every context constant is
 a presentation of the interface of the module it is read from, a type
 former with that presentation's table and nothing else with one, and every name of its footprint is stored in the
-context and resolved as by that module — together with the checks that
+context under that module's keys — together with the checks that
 concern the importer alone: its imports and sources are earlier, its
 names unique, its declarations accepted (or, compared, its own
 environment its context), its context's projections and blocks within
-it, its tables listed once, and its resolution that of its sources for
-context names and its own for its own names. -/
+it, its tables listed once, and its keys its sources' for context names
+and its own for its own names. -/
 structure ImportOk (mode : CheckMode) (pins : List NatOpPinSet) (dev : Nat → Module) (i : Nat) :
     Prop where
   below : ∀ b ∈ (dev i).imports, b < i
@@ -331,13 +329,13 @@ structure ImportOk (mode : CheckMode) (pins : List NatOpPinSet) (dev : Nat → M
     ∃ e ∈ (dev ((dev i).src n)).iface n, e.ci = ci ∧
       (dev i).context.findTable? n = formerTable ci e.table ∧
       ∀ d ∈ e.reads, ((dev i).context.find? d).isSome = true ∧
-        (dev i).res d = (dev ((dev i).src n)).res d
+        (dev i).key d = (dev ((dev i).src n)).key d
   projs : ∀ n ci, (dev i).context.find? n = some ci → EntryProjs (dev i).context n ci
   blocks : ∀ n ci, (dev i).context.find? n = some ci → BlockIn (dev i).context n ci
   tables_mem : ∀ t ∈ (dev i).context.tables, (dev i).context.findTable? t.structName = some t
-  res_context : ∀ n, ((dev i).context.find? n).isSome = true →
-    (dev i).res n = (dev ((dev i).src n)).res n
-  res_own : ∀ n ci, (dev i).own.find? n = some ci → (dev i).context.find? n = none →
-    (dev i).res n = (dev i).ownKey i n ci
+  key_context : ∀ n, ((dev i).context.find? n).isSome = true →
+    (dev i).key n = (dev ((dev i).src n)).key n
+  key_own : ∀ n ci, (dev i).own.find? n = some ci → (dev i).context.find? n = none →
+    (dev i).key n = (dev i).ownKey i n ci
 
 end ConLeche.Modular

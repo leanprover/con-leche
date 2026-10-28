@@ -36,7 +36,7 @@ the constant as stored (`stored`), the projection table of a structure
 presented as stored (`tbls`), the **gates** (`g1`: the modules, with a
 level at each, that a viewer must load for the constant to be presented
 at all; `v1`: for it to be presented as stored, beyond that), and
-whether it is a proof (`prf`: its qualified name is its statement); and
+whether it is a proof (`prf`: its key is its statement); and
 the modules, with a level at each, that its presentations read and that
 every importer at the exported level loads by Lean's rules (`fp1`: the
 importer checks that it does, task #374). -/

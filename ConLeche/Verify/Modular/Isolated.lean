@@ -18,7 +18,7 @@ loads privately): its context (`isoCtx`), the install and check of its
 records from it, the check of its unit (`unitOk` at `isoUView`, the
 context's lookup and the loaded interfaces) and its local checks
 (`localOkIso`: its levels, and the copies of a name that meet in its
-context have one qualified name).  `IsoRunOk` is what such a run
+context have one key).  `IsoRunOk` is what such a run
 establishes, module by module, about the published units.
 
 The local checks follow through the store run's theorems at the store
@@ -202,15 +202,15 @@ theorem unitOk_store {S : Store} (hI : IdxOk S) (i : Nat) (own : Env)
     | some x => obtain ⟨_, _, _⟩ := x; rfl
 
 /-- **The isolated duplicates' check gives the store's**: every copy of a
-name a module sees has the qualified name of the first. -/
+name a module sees has the key of the first. -/
 theorem keysOk_oneKey (S : Store) (i : Nat) (h : keysOk S.slot (S.lvl i) = true) (n : Name) :
     oneKey S i n = true := by
   unfold keysOk at h
   rw [List.all_eq_true] at h
-  -- every visible alternate has the qualified name of the first presentation
+  -- every visible alternate has the key of the first presentation
   have hk : ∀ x ∈ (S.mb i).alts n, ∀ c, (S.mb i).at? x.1 x.2 = some c → c.name = n →
       ∃ h₀ j₀ c₀, isoLook S.slot (S.lvl i) n = some (h₀, j₀, c₀) ∧
-        S.keyAt x.1 x.2 n = S.keyAt h₀ j₀ n := by
+        S.keyAt x.1 x.2 = S.keyAt h₀ j₀ := by
     intro x _ c hat hcn
     have he := entry_of_at? hat
     have := h _ he
@@ -228,7 +228,7 @@ theorem keysOk_oneKey (S : Store) (i : Nat) (h : keysOk S.slot (S.lvl i) = true)
   · rfl
   · rename_i h₀ j₀ rest hv
     have hmem : ∀ x ∈ (h₀, j₀) :: rest, ∃ h₁ j₁ c₁,
-        isoLook S.slot (S.lvl i) n = some (h₁, j₁, c₁) ∧ S.keyAt x.1 x.2 n = S.keyAt h₁ j₁ n := by
+        isoLook S.slot (S.lvl i) n = some (h₁, j₁, c₁) ∧ S.keyAt x.1 x.2 = S.keyAt h₁ j₁ := by
       intro x hx
       rw [← hv, List.mem_filter] at hx
       obtain ⟨hxa, hxv⟩ := hx
@@ -324,7 +324,7 @@ theorem IsoRunOk.storeOk {slots : Array (Thunk ModSlot)} {M : Array ModData}
 
 /-- **The development an isolated run stands for**: every module's
 context built from the units it reads, its own environment its constants
-over it; its sources, proofs, qualified names and interface read off its
+over it; its sources, proofs, keys and interface read off its
 unit and the units it reads (at the store of the units). -/
 @[expose] def isoRunDev (slots : Array (Thunk ModSlot)) (M : Array ModData) : Nat → Module :=
   isoDevOf (ghostStore slots) (ghostData slots M)
