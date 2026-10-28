@@ -2,44 +2,44 @@ module
 
 public import Fragment.Modular
 public import Fragment.InstallThm
+public import Fragment.ModularSemantics
 
 @[expose] public section
 
 /-!
-# Modular checking: one model for every module
+# Modular checking: the fragment's modules and their local checks
 
 A development is a graph of modules (`Module`).  Each module checks
-its own declarations against its **context**, an environment made of
-constants read from earlier modules, and **resolves** every name it stores
-to a **qualified name** (`Key`): an ordinary constant is named by its
-home module and its name, a proof by its name and statement.  The
-**local checks** (`LocalOk`) read the module and the modules its context draws from
-only.  The theorem (`modular`, `ModularInstance.lean`): if every module passes them, one
-assignment of sets to the qualified names — the world's model, every
-proof the point — gives every module's own environment a model through
-its resolution (`modular_model`), so no module proves an empty
-proposition (`modular_no_empty_prop_inhabitant`).
+its own declarations against its **context**, an environment it
+assembles from the **views** its imports present, and records for every
+name it uses a **key** (`Key`, `ModularSemantics.lean`): the name's
+home module, or, for a proof, its statement.  There is no global
+environment and no renaming: every module uses its own names.
 
-The theorem is the generic one (`ModularSemantics.lean`) at the
-fragment's semantics (`ModularInstance.lean`).  This file holds what
-that instance is made of: a context's model is read from the models of
-the modules it reads from through the resolution (`PReads.model`) —
-the laws of each context constant are those of the import's constant
-it refines, at the qualified names it reads as the import does; the
-module's declarations are installed on it (`Checks.blockModel`, the
-theorems of `Install.lean`), every proof its point (`defVal_eq_pt`);
-and every constant fits its qualified name (`fits`), so a module's own
-ordinary constants are new qualified names.  Two constants with one
-name that never meet in one context are two qualified names, and
-nothing compares them; two proofs of one statement are one qualified
-name, and the model gives every proof the point.
+This file holds what the fragment's instance of the modular interface
+(`ModularInstance.lean`) is made of:
+
+* **assembly** (`Assembled C E same`): every constant of `C` is, at the
+  same name, a constant of a member of the family `E` that `C` counts
+  as the same (`same`), or an assumption of its type, and lies within
+  the part of that member `C` reads as the member does (`common`);
+* **amalgamation** (`Assembled.model`): models of the family that agree
+  wherever `C` counts two members as the same give a model of `C` —
+  the laws of each constant are those of the member's constant it
+  refines, at names `C` reads as the member does;
+* **the step**: the module's declarations are installed on the
+  context's model (`Checks.blockModel`, the theorems of
+  `Install.lean`), every proof its point (`defVal_eq_pt`);
+* **the local checks**, split by who runs them: per home
+  (`InterfaceOk`: each view refines the module's own environment), per
+  importer (`ImportOk`: the context is assembled from the imports'
+  views), and the module's own (`LocalOk`: acceptance, proof flags, the
+  keys of its own constants).
 
 **A module may instead be validated by comparison** (`Compared`): its
-whole own environment reads from earlier modules — every constant is
-an earlier module's constant, or an assumption of its type (a hole).
-Its model is then the restriction of the world's (`PReads.model`), and
-every statement it stores holds there (`modular_statements_hold`).  A
-challenge compared with its solution is such a module.
+whole own environment is assembled from its imports' views — every
+constant is an import's constant, or an assumption of its type (a
+hole).  A challenge compared with its solution is such a module.
 -/
 
 namespace Fragment
@@ -154,98 +154,11 @@ theorem Checks.blockModel {E : Env} {ds : List Decl} (hc : Checks E ds) :
       exact hpt₁ n hn hpn ls
     · exact hpt' d' hd' n hn hpn ls
 
-/-! ## Modules, names and their resolution -/
+/-! ## Assembling an environment from others -/
 
-/-- **A qualified name**: an ordinary constant is named by its home
-module and its name; a proof by its name and statement (two proofs of
-one statement are one constant: the model gives every proof the
-point). -/
-inductive Key where
-  | qual (module : Nat) (n : Name)
-  | proof (n : Name) (lparams : List Name) (type : Expr)
-  deriving DecidableEq
-
-/-- **A module**: its declarations; its **context**, the environment
-they are checked against; for each name of the context, the earlier
-module it is read from, its home (`src`); which of its own
-constants are proofs (`proofs`); and its **resolution** of names to
-qualified names (`res`). -/
-structure Module where
-  decls : List Decl
-  context : Env
-  src : Name → Nat
-  proofs : Name → Bool
-  res : Name → Key
-
-/-- **A module's own environment**: its context with its declarations. -/
-def Module.own (m : Module) : Env := applyAll m.decls m.context
-
-/-- The qualified name of an own constant of module `i`. -/
-def Module.ownKey (m : Module) (i : Nat) (n : Name) (ci : ConstInfo) : Key :=
-  if m.proofs n then .proof n ci.lparams ci.type else .qual i n
-
-/-- **The part of module `b`'s own environment that module `i` reads
-as `b` does**, for an environment `E` of `i`: the names `E` stores and
-`i` resolves as `b` resolves them. -/
-def readsAlike (dev : Nat → Module) (i : Nat) (E : Env) (b : Nat) : Env :=
-  ⟨(dev b).own.consts.filter fun p => (E.find? p.1).isSome && (dev i).res p.1 == (dev b).res p.1⟩
-
-/-- **A constant within an environment**: what its laws read — its
-type, its value, its rules with their constructors, its block — is in
-scope there, and the constructors a recursor's rules name are stored
-there as in `E'`. -/
-def EntryScoped (C E' : Env) (ci : ConstInfo) : Prop :=
-  Expr.Scoped C ci.lparams 0 ci.type ∧
-  (∀ v, ci.value? = some v → Expr.Scoped C ci.lparams 0 v) ∧
-  (∀ nP nM nMin nI rules, ci.kind = .recursor nP nM nMin nI rules → ∀ rl ∈ rules,
-    Expr.Scoped C ci.lparams 0 rl.rhs ∧
-    ∃ cij, C.find? rl.ctor = some cij ∧ E'.find? rl.ctor = some cij ∧
-      Expr.Scoped C cij.lparams 0 cij.type) ∧
-  (∀ nP nI cs S, ci.kind = .induct nP nI cs S → S.nest = none →
-    S.Scoped C ∧ (C.find? S.name).isSome ∧
-      ∀ (j : Nat) (c : CtorSpec), S.ctors[j]? = some c → (C.find? c.name).isSome)
-
-/-- **An environment of module `i` reads from earlier modules**: every
-constant it stores is read from an earlier module, its home; it
-refines the home's own constant and lies within the part of the home's
-own environment `i` reads as the home does; `i` resolves it as the
-home does; and a type former stored as such comes with its
-constructors.  A type former may be read as an assumption of its type
-(it refines the type former), and then brings no constructors. -/
-structure ReadsFrom (dev : Nat → Module) (i : Nat) (E : Env) : Prop where
-  src_lt : ∀ n, (E.find? n).isSome → (dev i).src n < i
-  le : ∀ n ci, E.find? n = some ci →
-    ∃ ci', (dev ((dev i).src n)).own.find? n = some ci' ∧ ci.Le ci' ∧
-      EntryScoped (readsAlike dev i E ((dev i).src n)) E ci
-  res : ∀ n, (E.find? n).isSome → (dev i).res n = (dev ((dev i).src n)).res n
-  blocks : ∀ n ci nP nI cs S, E.find? n = some ci → ci.kind = .induct nP nI cs S →
-    S.nest = none → E.find? S.name = some S.indInfo ∧
-      ∀ (j : Nat) (c : CtorSpec), S.ctors[j]? = some c → E.find? c.name = some (S.ctorInfo c)
-
-/-- **The local checks at module `i`.**  They read the module and the
-earlier modules its context draws from — their own environments and
-resolutions — and nothing else:
-
-* the context reads from earlier modules (`ReadsFrom`);
-* the declarations are accepted against the context, and a constant
-  flagged a proof is a declaration of a proposition;
-* an own name resolves to its own qualified name. -/
-structure LocalOk (dev : Nat → Module) (i : Nat) : Prop where
-  reads : ReadsFrom dev i (dev i).context
-  checks : Checks (dev i).context (dev i).decls
-  flags : FlagsOk (dev i).proofs (dev i).context (dev i).decls
-  res_own : ∀ d ∈ (dev i).decls, ∀ n ∈ d.names, ∀ ci, (dev i).own.find? n = some ci →
-    (dev i).res n = (dev i).ownKey i n ci
-
-/-- **Validation by comparison**: module `i`'s whole own environment,
-its declarations included, reads from earlier modules — every constant
-is an earlier module's, or an assumption of its type. -/
-def Compared (dev : Nat → Module) (i : Nat) : Prop := ReadsFrom dev i (dev i).own
-
-/-- **A validated module**: checked, or compared. -/
-def Valid (dev : Nat → Module) (i : Nat) : Prop := LocalOk dev i ∨ Compared dev i
-
-/-! ## Lookups -/
+/-- **A constant's statement**: its level parameters and its type, what
+a proof's key records. -/
+abbrev Stmt := List Name × Expr
 
 omit [IndLib V] [LevelOracle] in
 /-- An environment filtered by names: a kept name is looked up as
@@ -273,264 +186,271 @@ theorem find?_filter {E : Env} {p : Name → Bool} {n : Name} :
         simp only [Env.find?, List.filter_cons, hpf, List.lookup, hb]
         exact ih'
 
+open Classical in
+/-- **The part of `E` that `C` reads as `E` does**: `E`'s constants at
+the names `C` stores and counts as `E`'s (`same`). -/
+noncomputable def common (C E : Env) (same : Name → Prop) : Env :=
+  ⟨E.consts.filter fun x => decide ((C.find? x.1).isSome = true ∧ same x.1)⟩
+
 omit [IndLib V] [LevelOracle] in
-theorem find?_readsAlike {dev : Nat → Module} {i b : Nat} {E : Env} {n : Name} {ci : ConstInfo}
-    (h : (readsAlike dev i E b).find? n = some ci) :
-    (dev b).own.find? n = some ci ∧ (E.find? n).isSome ∧ (dev i).res n = (dev b).res n := by
-  unfold readsAlike at h
-  rw [find?_filter (p := fun n => (E.find? n).isSome && (dev i).res n == (dev b).res n)] at h
+open Classical in
+theorem find?_common {C E : Env} {same : Name → Prop} {n : Name} {ci : ConstInfo}
+    (h : (common C E same).find? n = some ci) :
+    E.find? n = some ci ∧ (C.find? n).isSome ∧ same n := by
+  unfold common at h
+  rw [find?_filter (p := fun n => decide ((C.find? n).isSome = true ∧ same n))] at h
   split at h
   · rename_i hp
-    simp only [Bool.and_eq_true, beq_iff_eq] at hp
+    simp only [decide_eq_true_eq] at hp
     exact ⟨h, hp.1, hp.2⟩
   · cases h
 
-/-! ## Resolution -/
+/-- **A constant within an environment**: what its laws read — its
+type, its value, its rules with their constructors, its block — is in
+scope there, and the constructors a recursor's rules name are stored
+there as in `E'`. -/
+def EntryScoped (C E' : Env) (ci : ConstInfo) : Prop :=
+  Expr.Scoped C ci.lparams 0 ci.type ∧
+  (∀ v, ci.value? = some v → Expr.Scoped C ci.lparams 0 v) ∧
+  (∀ nP nM nMin nI rules, ci.kind = .recursor nP nM nMin nI rules → ∀ rl ∈ rules,
+    Expr.Scoped C ci.lparams 0 rl.rhs ∧
+    ∃ cij, C.find? rl.ctor = some cij ∧ E'.find? rl.ctor = some cij ∧
+      Expr.Scoped C cij.lparams 0 cij.type) ∧
+  (∀ nP nI cs S, ci.kind = .induct nP nI cs S → S.nest = none →
+    S.Scoped C ∧ (C.find? S.name).isSome ∧
+      ∀ (j : Nat) (c : CtorSpec), S.ctors[j]? = some c → (C.find? c.name).isSome)
 
-/-- **What a qualified name says of a constant** of module `j`
-stored under `n`: an ordinary name points to the constant's home
-module, no later than `j`, whose own constant it refines; a proof's
-name carries its statement. -/
-def Key.Fits (dev : Nat → Module) (j : Nat) (n : Name) (ci : ConstInfo) : Key → Prop
-  | .qual P n' => n' = n ∧ P ≤ j ∧ ∃ cp, (dev P).own.find? n = some cp ∧ ci.Le cp
-  | .proof n' lps T => n' = n ∧ ci.lparams = lps ∧ ci.type = T
+/-- **`C` is assembled from the family `E`**, member `i` counting as
+having `C`'s constant `n` when `same n i`: every constant of `C` is, at
+the same name, the constant of such a member or an assumption of its
+type, and lies within the part of that member `C` reads as the member
+does; a type former stored as such comes with its constructors.  A
+type former may be read as an assumption of its type, and then brings
+no constructors. -/
+structure Assembled (C : Env) {ι : Type} (E : ι → Env) (same : Name → ι → Prop) : Prop where
+  le : ∀ n ci, C.find? n = some ci → ∃ i, same n i ∧
+    ∃ ci', (E i).find? n = some ci' ∧ ci.Le ci' ∧ EntryScoped (common C (E i) (same · i)) C ci
+  blocks : ∀ n ci nP nI cs S, C.find? n = some ci → ci.kind = .induct nP nI cs S →
+    S.nest = none → C.find? S.name = some S.indInfo ∧
+      ∀ (j : Nat) (c : CtorSpec), S.ctors[j]? = some c → C.find? c.name = some (S.ctorInfo c)
 
-/-- **Every constant of a module's own environment fits its qualified
-name.** -/
-theorem fits (dev : Nat → Module) :
-    ∀ i, (∀ j ≤ i, Valid dev j) → ∀ n ci, (dev i).own.find? n = some ci →
-      ((dev i).res n).Fits dev i n ci := by
-  intro i
-  induction i using Nat.strongRecOn with
-  | _ i ih =>
-  intro hall n ci hf
-  -- a constant read from an earlier module fits that module's qualified name
-  have hread : ∀ {E : Env}, ReadsFrom dev i E → E.find? n = some ci →
-      ((dev i).res n).Fits dev i n ci := by
-    intro E hE hl
-    obtain ⟨ci', hci', hle, -⟩ := hE.le n ci hl
-    have hb := hE.src_lt n (by rw [hl]; rfl)
-    have hfit := ih _ hb (fun j hj => hall j (Nat.le_trans hj (Nat.le_of_lt hb))) n ci' hci'
-    rw [hE.res n (by rw [hl]; rfl)]
-    revert hfit
-    cases (dev ((dev i).src n)).res n with
-    | qual P n' =>
-      rintro ⟨rfl, hP, cp, hcp, hle'⟩
-      exact ⟨rfl, Nat.le_trans hP (Nat.le_of_lt hb), cp, hcp, hle.trans hle'⟩
-    | proof n' lps T =>
-      rintro ⟨rfl, hl', ht'⟩
-      exact ⟨rfl, hle.lparams_eq.symm.trans hl', hle.type_eq.symm.trans ht'⟩
-  rcases hall i (Nat.le_refl i) with h | hc
-  · rcases find?_applyAll hf with ⟨d, hd, hl⟩ | hl
-    · have hn : n ∈ d.names := (d.mem_names_iff n).mpr ⟨ci, key_of_lookup hl⟩
-      rw [h.res_own d hd n hn ci hf]
-      unfold Module.ownKey
-      split
-      · exact ⟨rfl, rfl, rfl⟩
-      · exact ⟨rfl, Nat.le_refl i, ci, hf, .inl rfl⟩
-    · exact hread h.reads hl
-  · exact hread hc hf
+/-- **Refinement**: `Γ` assembled from `E` alone, every name counted as
+`E`'s — every constant of `Γ` is `E`'s or an assumption of its type. -/
+def Refines (Γ E : Env) : Prop := Assembled Γ (fun _ : Unit => E) fun _ _ => True
 
-/-! ## The context's model -/
+/-- A proof's set, and the value off the family: the point. -/
+def dflt : List Nat → V := fun _ => pt
 
-/-- A module's assignment read through its resolution from an
-assignment of the qualified names. -/
-def resAssign (G : Key → List Nat → V) (m : Module) : Name → List Nat → V :=
-  fun n ls => G (m.res n) ls
-
-/-! ## Pieces: an environment with its resolution -/
-
-/-- **A piece**: an environment with its resolution of names to
-qualified names — a module's context or own environment as the world
-reads it. -/
-structure Piece where
-  env : Env
-  res : Name → Key
-
-/-- The piece with its qualified names renamed. -/
-def Piece.rename (ρ : Key → Key) (p : Piece) : Piece := ⟨p.env, ρ ∘ p.res⟩
-
-/-- **The part of piece `q` that piece `p` reads as `q` does**: the
-names `p` stores and resolves as `q` resolves them. -/
-def readsAlikeP (p q : Piece) : Env :=
-  ⟨q.env.consts.filter fun x => (p.env.find? x.1).isSome && p.res x.1 == q.res x.1⟩
-
-omit [IndLib V] [LevelOracle] in
-theorem readsAlike_eq (dev : Nat → Module) (i : Nat) (E : Env) (b : Nat) :
-    readsAlike dev i E b = readsAlikeP ⟨E, (dev i).res⟩ ⟨(dev b).own, (dev b).res⟩ := rfl
-
-omit [IndLib V] [LevelOracle] in
-theorem find?_readsAlikeP {p q : Piece} {n : Name} {ci : ConstInfo}
-    (h : (readsAlikeP p q).find? n = some ci) :
-    q.env.find? n = some ci ∧ (p.env.find? n).isSome ∧ p.res n = q.res n := by
-  unfold readsAlikeP at h
-  rw [find?_filter (p := fun n => (p.env.find? n).isSome && p.res n == q.res n)] at h
-  split at h
-  · rename_i hp
-    simp only [Bool.and_eq_true, beq_iff_eq] at hp
-    exact ⟨h, hp.1, hp.2⟩
-  · cases h
-
-omit [IndLib V] [LevelOracle] in
-theorem find?_readsAlikeP_of {p q : Piece} {n : Name} {ci : ConstInfo}
-    (h : q.env.find? n = some ci) (hp : (p.env.find? n).isSome) (hr : p.res n = q.res n) :
-    (readsAlikeP p q).find? n = some ci := by
-  unfold readsAlikeP
-  rw [find?_filter (p := fun n => (p.env.find? n).isSome && p.res n == q.res n)]
-  simp [hp, hr, h]
-
-/-- **A piece reads from a list of pieces**: every constant it stores
-refines the constant of one of them (its source) under the same
-qualified name, and lies within the part of the source it reads as the
-source does; a type former stored as such comes with its
-constructors. -/
-structure PReads (p : Piece) (Q : List Piece) : Prop where
-  le : ∀ n ci, p.env.find? n = some ci → ∃ q ∈ Q, q.res n = p.res n ∧
-    ∃ ci', q.env.find? n = some ci' ∧ ci.Le ci' ∧ EntryScoped (readsAlikeP p q) p.env ci
-  blocks : ∀ n ci nP nI cs S, p.env.find? n = some ci → ci.kind = .induct nP nI cs S →
-    S.nest = none → p.env.find? S.name = some S.indInfo ∧
-      ∀ (j : Nat) (c : CtorSpec), S.ctors[j]? = some c → p.env.find? c.name = some (S.ctorInfo c)
-
-omit [IndLib V] [LevelOracle] in
-/-- **The local reading is a reading from the earlier modules' own
-environments.** -/
-theorem ReadsFrom.preads {dev : Nat → Module} {i : Nat} {E : Env} (h : ReadsFrom dev i E)
-    {Q : List Piece} (hQ : ∀ b < i, (⟨(dev b).own, (dev b).res⟩ : Piece) ∈ Q) :
-    PReads ⟨E, (dev i).res⟩ Q where
-  le n ci hf := by
-    have hs : (E.find? n).isSome := by rw [hf]; rfl
-    obtain ⟨ci', hf', hle, hsc⟩ := h.le n ci hf
-    exact ⟨_, hQ _ (h.src_lt n hs), (h.res n hs).symm, ci', hf', hle, hsc⟩
-  blocks := h.blocks
+open Classical in
+/-- **The amalgamated assignment**: at a name some member has and counts
+as the same, that member's set. -/
+noncomputable def glueM {ι : Type} {E : ι → Env} (same : Name → ι → Prop)
+    (m : (i : ι) → BlockModel V (E i)) : Name → List Nat → V :=
+  fun n => if h : ∃ i, same n i ∧ ((E i).find? n).isSome then (m (Classical.choose h)).M n else dflt
 
 omit [LevelOracle] in
-/-- **A piece that reads from a list of pieces has a model**, read
-through its resolution from models of the pieces that read the
-qualified names the same way: the restriction of their models. -/
-theorem PReads.model {p : Piece} {Q : List Piece} (h : PReads p Q)
-    (G : Key → List Nat → V)
-    (hmb : ∀ q ∈ Q, ∃ m : BlockModel V q.env,
-      ∀ n, (q.env.find? n).isSome → ∀ ls, m.M n ls = G (q.res n) ls) :
-    ∃ m : BlockModel V p.env, m.M = fun n ls => G (p.res n) ls := by
-  let M : Name → List Nat → V := fun n ls => G (p.res n) ls
-  let mb : ∀ q, q ∈ Q → BlockModel V q.env := fun q hq => Classical.choose (hmb q hq)
-  have hmb' : ∀ q (hq : q ∈ Q) n, (q.env.find? n).isSome →
-      ∀ ls, (mb q hq).M n ls = G (q.res n) ls :=
-    fun q hq => Classical.choose_spec (hmb q hq)
-  have hagC : ∀ q (hq : q ∈ Q), AgreeOn (readsAlikeP p q) (mb q hq).M M := by
-    intro q hq d hd ls
+/-- **Amalgamation**: models of the family that agree wherever `C`
+counts two members as the same give a model of `C`, with each member's
+sets. -/
+theorem Assembled.model {C : Env} {ι : Type} {E : ι → Env} {same : Name → ι → Prop}
+    (h : Assembled C E same) (m : (i : ι) → BlockModel V (E i))
+    (hcomp : ∀ n i i', (C.find? n).isSome → same n i → same n i' →
+      ((E i).find? n).isSome → ((E i').find? n).isSome → (m i).M n = (m i').M n) :
+    ∃ mC : BlockModel V C, ∀ n i, (C.find? n).isSome → same n i → ((E i).find? n).isSome →
+      mC.M n = (m i).M n := by
+  let M : Name → List Nat → V := glueM same m
+  have hagn : ∀ q c, same c q → ((E q).find? c).isSome → (C.find? c).isSome →
+      ∀ ls, (m q).M c ls = M c ls := by
+    intro q c hs hE hC ls
+    have hx : ∃ i, same c i ∧ ((E i).find? c).isSome := ⟨q, hs, hE⟩
+    simp only [M, glueM, dite_eq_left hx]
+    obtain ⟨h1, h2⟩ := Classical.choose_spec hx
+    rw [hcomp c q _ hC hs h1 hE h2]
+  have hagC : ∀ q, AgreeOn (common C (E q) (same · q)) (m q).M M := by
+    intro q d hd ls
     obtain ⟨e, he⟩ := Option.isSome_iff_exists.mp hd
-    obtain ⟨h1, -, h3⟩ := find?_readsAlikeP he
-    rw [hmb' q hq d (by rw [h1]; rfl) ls]
-    simp only [M, h3]
-  have hagn : ∀ q (hq : q ∈ Q) c, q.res c = p.res c → (q.env.find? c).isSome →
-      ∀ ls, (mb q hq).M c ls = M c ls := by
-    intro q hq c hres hs ls
-    rw [hmb' q hq c hs ls]
-    simp only [M, hres]
+    obtain ⟨h1, h2, h3⟩ := find?_common he
+    exact hagn q d h3 (by rw [h1]; rfl) h2 ls
   refine ⟨{ M := M, type_ok := ?_, unfold := ?_, rec_rules := ?_,
             rec_rules_nested := ?_, ind_fib := ?_, rec_rules_slot := ?_, rec_rules_k := ?_,
-            blocks := ?_ }, rfl⟩
+            blocks := ?_ }, fun n q hn hs hE => funext fun ls => (hagn q n hs hE hn ls).symm⟩
   · intro c ci hf φ ρ ls hlen
-    obtain ⟨q, hq, hres, ci', hf', hle, hsc⟩ := h.le c ci hf
-    have hqs : (q.env.find? c).isSome := by rw [hf']; rfl
-    have hc := consts_agree hsc.1 (hagC q hq) ls
-    have := (mb q hq).type_ok c ci' hf' φ ρ ls (by rw [hle.lparams_eq]; exact hlen)
+    obtain ⟨q, hres, ci', hf', hle, hsc⟩ := h.le c ci hf
+    have hCs : (C.find? c).isSome := by rw [hf]; rfl
+    have hqs : ((E q).find? c).isSome := by rw [hf']; rfl
+    have hc := consts_agree hsc.1 (hagC q) ls
+    have := (m q).type_ok c ci' hf' φ ρ ls (by rw [hle.lparams_eq]; exact hlen)
     rw [hle.lparams_eq, hle.type_eq] at this
-    rwa [WellDenoted_consts hc, interp_consts hc, hagn q hq c hres hqs] at this
+    rwa [WellDenoted_consts hc, interp_consts hc, hagn q c hres hqs hCs] at this
   · intro c ci v hf hv φ ρ ls hlen
-    obtain ⟨q, hq, hres, ci', hf', hle, hsc⟩ := h.le c ci hf
-    have hqs : (q.env.find? c).isSome := by rw [hf']; rfl
+    obtain ⟨q, hres, ci', hf', hle, hsc⟩ := h.le c ci hf
+    have hCs : (C.find? c).isSome := by rw [hf]; rfl
+    have hqs : ((E q).find? c).isSome := by rw [hf']; rfl
     have hne : ci.kind ≠ .assumed := by
       intro hk; simp [ConstInfo.value?, hk, ConstKind.value?] at hv
     have heq := hle.eq_of_ne hne
     subst heq
-    have hc := consts_agree (hsc.2.1 v hv) (hagC q hq) ls
-    have := (mb q hq).unfold c ci' v hf' hv φ ρ ls hlen
-    rwa [WellDenoted_consts hc, interp_consts hc, hagn q hq c hres hqs] at this
+    have hc := consts_agree (hsc.2.1 v hv) (hagC q) ls
+    have := (m q).unfold c ci' v hf' hv φ ρ ls hlen
+    rwa [WellDenoted_consts hc, interp_consts hc, hagn q c hres hqs hCs] at this
   · intro c ci nP nM nMin nI rules hf hkind rl hrl hinst cij hcij
-    obtain ⟨q, hq, hres, ci', hf', hle, hsc⟩ := h.le c ci hf
-    have hqs : (q.env.find? c).isSome := by rw [hf']; rfl
+    obtain ⟨q, hres, ci', hf', hle, hsc⟩ := h.le c ci hf
+    have hCs : (C.find? c).isSome := by rw [hf]; rfl
+    have hqs : ((E q).find? c).isSome := by rw [hf']; rfl
     have heq := hle.eq_of_ne (by rw [hkind]; exact nofun)
     subst heq
     obtain ⟨hrhs, cij₀, hC, hE, hcty⟩ := hsc.2.2.1 nP nM nMin nI rules hkind rl hrl
     have h0 : cij₀ = cij := Option.some.inj (hE.symm.trans hcij)
     subst h0
-    exact ((mb q hq).rec_rules c ci' nP nM nMin nI rules hf' hkind rl hrl hinst cij₀
-      (find?_readsAlikeP hC).1).congr (consts_agree hsc.1 (hagC q hq))
-      (consts_agree hcty (hagC q hq)) (consts_agree hrhs (hagC q hq)) (hagn q hq c hres hqs)
-      (hagC q hq rl.ctor (by rw [hC]; rfl))
+    exact ((m q).rec_rules c ci' nP nM nMin nI rules hf' hkind rl hrl hinst cij₀
+      (find?_common hC).1).congr (consts_agree hsc.1 (hagC q))
+      (consts_agree hcty (hagC q)) (consts_agree hrhs (hagC q)) (hagn q c hres hqs hCs)
+      (hagC q rl.ctor (by rw [hC]; rfl))
   · intro c ci nP nM nMin nI rules hf hkind rl hrl lvs pinst hinst cij I nPc nf hcij hcijk
-    obtain ⟨q, hq, hres, ci', hf', hle, hsc⟩ := h.le c ci hf
-    have hqs : (q.env.find? c).isSome := by rw [hf']; rfl
+    obtain ⟨q, hres, ci', hf', hle, hsc⟩ := h.le c ci hf
+    have hCs : (C.find? c).isSome := by rw [hf]; rfl
+    have hqs : ((E q).find? c).isSome := by rw [hf']; rfl
     have heq := hle.eq_of_ne (by rw [hkind]; exact nofun)
     subst heq
     obtain ⟨hrhs, cij₀, hC, hE, hcty⟩ := hsc.2.2.1 nP nM nMin nI rules hkind rl hrl
     have h0 : cij₀ = cij := Option.some.inj (hE.symm.trans hcij)
     subst h0
-    exact ((mb q hq).rec_rules_nested c ci' nP nM nMin nI rules hf' hkind rl hrl lvs pinst hinst cij₀
-      I nPc nf (find?_readsAlikeP hC).1 hcijk).congr (consts_agree hsc.1 (hagC q hq))
-      (consts_agree hcty (hagC q hq)) (consts_agree hrhs (hagC q hq)) (hagn q hq c hres hqs)
-      (hagC q hq rl.ctor (by rw [hC]; rfl))
+    exact ((m q).rec_rules_nested c ci' nP nM nMin nI rules hf' hkind rl hrl lvs pinst hinst cij₀
+      I nPc nf (find?_common hC).1 hcijk).congr (consts_agree hsc.1 (hagC q))
+      (consts_agree hcty (hagC q)) (consts_agree hrhs (hagC q)) (hagn q c hres hqs hCs)
+      (hagC q rl.ctor (by rw [hC]; rfl))
   · intro I ci nP nI cs S hf hk
-    obtain ⟨q, hq, hres, ci', hf', hle, hsc⟩ := h.le I ci hf
-    have hqs : (q.env.find? I).isSome := by rw [hf']; rfl
+    obtain ⟨q, hres, ci', hf', hle, hsc⟩ := h.le I ci hf
+    have hCs : (C.find? I).isSome := by rw [hf]; rfl
+    have hqs : ((E q).find? I).isSome := by rw [hf']; rfl
     have heq := hle.eq_of_ne (by rw [hk]; exact nofun)
     subst heq
-    exact ((mb q hq).ind_fib I ci' nP nI cs S hf' hk).congr (consts_agree hsc.1 (hagC q hq))
-      (hagn q hq I hres hqs)
+    exact ((m q).ind_fib I ci' nP nI cs S hf' hk).congr (consts_agree hsc.1 (hagC q))
+      (hagn q I hres hqs hCs)
   · intro c ci nP nM nMin nI rules hf hkind rl hrl cij hcij
-    obtain ⟨q, hq, hres, ci', hf', hle, hsc⟩ := h.le c ci hf
-    have hqs : (q.env.find? c).isSome := by rw [hf']; rfl
+    obtain ⟨q, hres, ci', hf', hle, hsc⟩ := h.le c ci hf
+    have hCs : (C.find? c).isSome := by rw [hf]; rfl
+    have hqs : ((E q).find? c).isSome := by rw [hf']; rfl
     have heq := hle.eq_of_ne (by rw [hkind]; exact nofun)
     subst heq
     obtain ⟨-, cij₀, hC, hE, -⟩ := hsc.2.2.1 nP nM nMin nI rules hkind rl hrl
     have h0 : cij₀ = cij := Option.some.inj (hE.symm.trans hcij)
     subst h0
-    exact ((mb q hq).rec_rules_slot c ci' nP nM nMin nI rules hf' hkind rl hrl cij₀
-      (find?_readsAlikeP hC).1).congr (consts_agree hsc.1 (hagC q hq)) (hagn q hq c hres hqs)
-      (hagC q hq rl.ctor (by rw [hC]; rfl))
+    exact ((m q).rec_rules_slot c ci' nP nM nMin nI rules hf' hkind rl hrl cij₀
+      (find?_common hC).1).congr (consts_agree hsc.1 (hagC q)) (hagn q c hres hqs hCs)
+      (hagC q rl.ctor (by rw [hC]; rfl))
   · intro c ci nP nM nMin nI rules hf hkind rl hrl hk
-    obtain ⟨q, hq, hres, ci', hf', hle, hsc⟩ := h.le c ci hf
-    have hqs : (q.env.find? c).isSome := by rw [hf']; rfl
+    obtain ⟨q, hres, ci', hf', hle, hsc⟩ := h.le c ci hf
+    have hCs : (C.find? c).isSome := by rw [hf]; rfl
+    have hqs : ((E q).find? c).isSome := by rw [hf']; rfl
     have heq := hle.eq_of_ne (by rw [hkind]; exact nofun)
     subst heq
     obtain ⟨hrhs, -⟩ := hsc.2.2.1 nP nM nMin nI rules hkind rl hrl
-    exact ((mb q hq).rec_rules_k c ci' nP nM nMin nI rules hf' hkind rl hrl hk).congr
-      (consts_agree hsc.1 (hagC q hq)) (consts_agree hrhs (hagC q hq)) (hagn q hq c hres hqs)
+    exact ((m q).rec_rules_k c ci' nP nM nMin nI rules hf' hkind rl hrl hk).congr
+      (consts_agree hsc.1 (hagC q)) (consts_agree hrhs (hagC q)) (hagn q c hres hqs hCs)
   · intro K ci nP nI cs S hf hk hpl
-    obtain ⟨q, hq, hres, ci', hf', hle, hsc⟩ := h.le K ci hf
-    have hqs : (q.env.find? K).isSome := by rw [hf']; rfl
+    obtain ⟨q, hres, ci', hf', hle, hsc⟩ := h.le K ci hf
+    have hCs : (C.find? K).isSome := by rw [hf]; rfl
+    have hqs : ((E q).find? K).isSome := by rw [hf']; rfl
     have heq := hle.eq_of_ne (by rw [hk]; exact nofun)
     subst heq
-    obtain ⟨-, hnc, -, -, hfam, hcs, hdoms⟩ := (mb q hq).blocks K ci' nP nI cs S hf' hk hpl
+    obtain ⟨-, hnc, -, -, hfam, hcs, hdoms⟩ := (m q).blocks K ci' nP nI cs S hf' hk hpl
     obtain ⟨hSC, hnameC, hctorsC⟩ := hsc.2.2.2 nP nI cs S hk hpl
     obtain ⟨hfindc, hctorsc⟩ := h.blocks K ci' nP nI cs S hf hk hpl
-    have hAg : AgreeOn (readsAlikeP p q) (mb q hq).M M :=
-      hagC q hq
-    have hKs := S.contScoped_of_plain (env := readsAlikeP p q) hpl
+    have hAg : AgreeOn (common C (E q) (same · q)) (m q).M M :=
+      hagC q
+    have hKs := S.contScoped_of_plain (env := common C (E q) (same · q)) hpl
     refine ⟨hSC.mono fun d hd => ?_, hnc, hfindc, hctorsc, fun ls => ?_, fun j c hc ls => ?_,
       fun ls ps hp => ?_⟩
     · obtain ⟨e, he⟩ := Option.isSome_iff_exists.mp hd
-      exact (find?_readsAlikeP he).2.1
-    · rw [← hagC q hq S.name hnameC ls, hfam ls, S.famSet_congr hSC hKs hAg ls]
-    · rw [← hagC q hq c.name (hctorsC j c hc) ls, hcs j c hc ls,
+      exact (find?_common he).2.1
+    · rw [← hagC q S.name hnameC ls, hfam ls, S.famSet_congr hSC hKs hAg ls]
+    · rw [← hagC q c.name (hctorsC j c hc) ls, hcs j c hc ls,
         S.ctorSet_congr hSC hKs hAg ls j (List.mem_of_getElem? hc)]
     · exact (S.DomsBounded_congr hSC hKs hAg ls ps).mp
         (hdoms ls ps ((S.FitsVals_params_congr hSC hAg ls ps).mpr hp))
 
+
 omit [IndLib V] [LevelOracle] in
-/-- **A piece that reads from a list is closed.** -/
-theorem PReads.scoped {p : Piece} {Q : List Piece} (h : PReads p Q) : Env.Scoped p.env := by
-  have hsub : ∀ q d, ((readsAlikeP p q).find? d).isSome → (p.env.find? d).isSome :=
+/-- **An assembled environment is closed.** -/
+theorem Assembled.scoped {C : Env} {ι : Type} {E : ι → Env} {same : Name → ι → Prop}
+    (h : Assembled C E same) : Env.Scoped C := by
+  have hsub : ∀ q d, ((common C (E q) (same · q)).find? d).isSome → (C.find? d).isSome :=
     fun q d hd => by
       obtain ⟨e, he⟩ := Option.isSome_iff_exists.mp hd
-      exact (find?_readsAlikeP he).2.1
+      exact (find?_common he).2.1
   intro c ci hf
-  obtain ⟨q, -, -, -, -, -, hsc⟩ := h.le c ci hf
+  obtain ⟨q, -, -, -, -, hsc⟩ := h.le c ci hf
   refine ⟨hsc.1.mono (hsub _), fun v hv => (hsc.2.1 v hv).mono (hsub _),
     fun nP nM nMin nI rules hk rl hrl => ?_⟩
   · obtain ⟨hrhs, cij, -, hE, -⟩ := hsc.2.2.1 nP nM nMin nI rules hk rl hrl
     exact ⟨hrhs.mono (hsub _), by rw [hE]; rfl⟩
+
+/-! ## Modules and their local checks -/
+
+/-- **A module**: its declarations; its **context**, the environment
+they are checked against; the modules it imports; the **views** it
+presents to its importers; the **key** of each name it uses (its home
+module, or a proof's statement); and which of its own constants it
+flags as proofs. -/
+structure Module where
+  decls : List Decl
+  context : Env
+  imports : List Nat
+  views : List Env
+  key : Name → Key Stmt
+  proofs : Name → Bool
+
+/-- **A module's own environment**: its context with its declarations. -/
+def Module.own (m : Module) : Env := applyAll m.decls m.context
+
+/-- The key of an own constant of module `i`: its statement for a
+proof, the module itself otherwise. -/
+def Module.ownKey (m : Module) (i : Nat) (n : Name) (ci : ConstInfo) : Key Stmt :=
+  if m.proofs n then .proof (ci.lparams, ci.type) else .home i
+
+/-- The views module `i` reads: a view of one of its imports. -/
+def Src (dev : Nat → Module) (i : Nat) : Type :=
+  {x : Nat × Env // x.1 ∈ (dev i).imports ∧ x.2 ∈ (dev x.1).views}
+
+/-- **Assembled from the imports' views**: a constant counts as a
+view's when module `i` and the view's module give its name one key. -/
+def FromViews (dev : Nat → Module) (i : Nat) (E : Env) : Prop :=
+  Assembled E (fun x : Src dev i => x.1.2) fun n x => (dev i).key n = (dev x.1.1).key n
+
+/-- **The check per home**: every view a module presents refines its
+own environment.  It reads the module alone, and runs once, however
+many modules import it. -/
+def InterfaceOk (dev : Nat → Module) (j : Nat) : Prop := ∀ E ∈ (dev j).views, Refines E (dev j).own
+
+/-- **The check per importer**: the module imports earlier modules, and
+its context is assembled from their views.  It reads the module and its
+imports' views, never an import's own environment. -/
+structure ImportOk (dev : Nat → Module) (i : Nat) : Prop where
+  imports : ∀ j ∈ (dev i).imports, j < i
+  reads : FromViews dev i (dev i).context
+
+/-- **The local checks at module `i`**: its interface, its imports, its
+declarations accepted against its context, a constant flagged a proof
+a declaration of a proposition, and every own constant keyed by the
+module (or by its statement, if a proof). -/
+structure LocalOk (dev : Nat → Module) (i : Nat) : Prop where
+  iface : InterfaceOk dev i
+  importOk : ImportOk dev i
+  checks : Checks (dev i).context (dev i).decls
+  flags : FlagsOk (dev i).proofs (dev i).context (dev i).decls
+  key_own : ∀ d ∈ (dev i).decls, ∀ n ∈ d.names, ∀ ci, (dev i).own.find? n = some ci →
+    (dev i).key n = (dev i).ownKey i n ci
+
+/-- **Validation by comparison**: module `i`'s whole own environment,
+its declarations included, is assembled from its imports' views —
+every constant is an import's, or an assumption of its type. -/
+structure Compared (dev : Nat → Module) (i : Nat) : Prop where
+  iface : InterfaceOk dev i
+  imports : ∀ j ∈ (dev i).imports, j < i
+  reads : FromViews dev i (dev i).own
+
+/-- **A validated module**: checked, or compared. -/
+def Valid (dev : Nat → Module) (i : Nat) : Prop := LocalOk dev i ∨ Compared dev i
 
 end Fragment

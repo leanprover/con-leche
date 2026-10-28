@@ -3,352 +3,519 @@
 = Checking module by module <sec:modular>
 
 §3 and §4 check a development as one environment, one declaration
-after another. A Lean development is a graph of _modules_, each
-importing others. This section checks every module on its own, against
-an environment built from constants of earlier modules, with checks
-that read the module and the modules its environment draws from, and
-nothing else. The result is
-one statement about the whole development: a single model, over names
-qualified by the module they come from, in which every module's own
-environment holds. So no module proves an empty proposition.
+after another. A Lean development is divided into _modules_. A module
+imports earlier modules and adds declarations of its own. This
+section checks every module separately, against an environment built
+from the modules it imports, and proves that if every module passes
+its checks, then the environment of every module has a model. In
+particular, no module proves an empty proposition.
 
-The argument uses a few abstract notions: assumptions and the
-refinement of one constant by another, qualified names and a module's
-resolution of its names to them, and the part of an earlier module's
-environment that a module reads as that module does. How Lean's module
-system maps onto these notions is described at the end.
+The argument is first stated for an arbitrary notion of model
+(@sec:mod-iface). It applies to any consistency proof that provides
+the constructions listed there. @sec:mod-env and @sec:mod-local
+define the environments of a module and the checks it passes.
+@sec:mod-thm states and proves the theorem, @sec:mod-par describes
+which checks can run in parallel, and @sec:mod-compare treats a module
+that is compared with another one instead of being checked.
+@sec:mod-lean relates these notions to Lean's module system.
 
-== Assumptions, theorems and refinement <sec:mod-refine>
+== Environment models in the abstract <sec:mod-iface>
 
-An #src("whitepaper/Fragment/Env.lean", 83, 86)[_assumption_] is a stored
+By @def:model and the laws of §4, a model of an environment $E$ is an
+assignment $M$ of a set $M(c, arrow(n))$ to every constant $c$ and
+every list $arrow(n)$ of level values, subject to one law per stored
+constant. We call the function $arrow(n) |-> M(c, arrow(n))$ the
+_value_ of $c$ in the model. The argument of this section uses models
+only through the constructions below. We state them for an arbitrary
+notion of environment, of model and of value, because nothing in the
+argument depends on sets.
+
+*Families and assembly.* Let $(E_i)_(i in I)$ be a family of
+environments and let $C$ be an environment. For every name $n$ that
+$C$ stores, some members of the family are _designated_ as having
+$C$'s constant $n$. In the application, the designation compares
+which constant the name denotes in $C$ and in $E_i$ (@sec:mod-env).
+What it means for $C$ to be _assembled_ from the family under a
+designation is defined by each consistency proof for itself
+(@def:assembled is the fragment's definition). The argument uses only
+one property of it: every constant of an assembled environment has at
+least one designated member that stores its name.
+
+A family of models $(m_i)_(i in I)$, with $m_i$ a model of $E_i$, is
+_compatible_ for $C$ when for every name $n$ of $C$, all members that
+are designated as having $n$ and store it give $n$ the same value.
+
+#definition(name: "What a consistency proof provides")[
+  #set enum(numbering: "1.")
+  + *Models and values.*
+    #src("whitepaper/Fragment/ModularSemantics.lean", 95, 102)[For every
+    environment, a type of models], each model giving every name a
+    value, and one value $pi$, the value of a proof.
+  + *Amalgamation.* If $C$ is assembled from $(E_i)$ and $(m_i)$ is
+    compatible for $C$, then $C$
+    #src("whitepaper/Fragment/ModularSemantics.lean", 110, 115)[has a
+    model] that gives every name $n$ of $C$ the value of $n$ in every
+    member designated as having $n$ and storing it.
+  + *The conservative step.* If the checker accepts declarations $D$
+    over $Gamma$, giving $Gamma'$, then every model of $Gamma$
+    #src("whitepaper/Fragment/ModularSemantics.lean", 122, 125)[extends]
+    to a model of $Gamma'$ that gives every name of $Gamma$ the same
+    value, and gives every name that $D$ flags as a proof the value
+    $pi$.
+] <def:mod-iface>
+
+A declaration may be _flagged_ as a proof. The checks of
+@sec:mod-local accept the flag only on a theorem or on a definition
+whose type is a proposition.
+
+*Refinement and restriction.* An environment $Gamma$
+#src("whitepaper/Fragment/ModularSemantics.lean", 131, 133)[_refines_]
+an environment $E$ when $Gamma$ is assembled from the family whose only
+member is $E$, with every name designated. A family with one member is
+compatible for any environment. Amalgamation therefore turns every
+model of $E$ into a model of $Gamma$ with the same values, the
+#src("whitepaper/Fragment/ModularSemantics.lean", 142, 147)[_restriction_]
+of the model to $Gamma$. The empty environment is assembled from the
+empty family, which is compatible, so amalgamation also gives the
+empty environment a model.
+
+*Why the step must extend every model.* The step requires that every
+model of $Gamma$ extends to $Gamma'$, and the proof of @sec:mod-thm
+applies it to a model of $Gamma$ obtained by amalgamation. The weaker
+requirement that $Gamma'$ has a model whenever $Gamma$ has one does
+not suffice. Let a module $W$ define $c : "Nat" := 5$. Let a module
+$M$ import $c$ from $W$ with its value hidden, so that $M$'s
+environment $Gamma$ contains the assumption $c : "Nat"$, and let $M$
+add the axiom $h : c = 0$. Then $Gamma$ extended by $h$ has a model,
+in which $c$ is $0$, and $W$ has a model. A module that imports both
+$W$ and $M$ contains $c := 5$ and $h : c = 0$, and has no model. The
+step as stated excludes the axiom $h$: it would have to extend the
+model of $Gamma$ in which $c$ is $5$, the restriction of $W$'s model,
+and no model of $Gamma$ extended by $h$ gives $c$ the value $5$. The
+fragment has no axioms, and the example only concerns the form of the
+step.
+
+In the terminology of institutions @goguen1992, environments and
+refinements play the role of signatures and their morphisms,
+restriction is the reduct of a model along a morphism, and
+amalgamation combines models of the parts of a diagram that agree
+where the parts overlap.
+
+*A syntactic proof provides the same.* Nothing in @def:mod-iface is
+about sets. Consider a type system with constants and a fixed theory
+of closed terms, with a
+#src("whitepaper/Fragment/ModularSyntactic.lean", 53, 56)[substitution
+lemma]: a derivation over an environment remains a derivation in the
+fixed theory when a closed term is substituted for every constant,
+provided each substituted term has the substituted type and equals
+the substituted value of a definition. Take as a model of an
+environment such a
+#src("whitepaper/Fragment/ModularSyntactic.lean", 76, 84)[_realisation_],
+and as the value of a constant its realising term. An environment is
+#src("whitepaper/Fragment/ModularSyntactic.lean", 163, 170)[assembled]
+when each of its entries is the entry of a designated member, with the
+value kept or dropped, and every constant the entry mentions is
+designated as that member's. Amalgamation is the
+#src("whitepaper/Fragment/ModularSyntactic.lean", 172, 179)[union of
+the realisations], and the step
+#src("whitepaper/Fragment/ModularSyntactic.lean", 123, 126)[realises a
+new definition by its realised value], which has the realised type by
+the substitution lemma. This system flags no declaration as a proof. So a proof
+by syntax
+#src("whitepaper/Fragment/ModularSyntactic.lean", 208, 229)[provides]
+@def:mod-iface, and @thm:mod holds for it.
+
+== Environments of modules <sec:mod-env>
+
+*Assumptions and theorems.* An
+#src("whitepaper/Fragment/Env.lean", 83, 86)[_assumption_] is a stored
 constant with level parameters and a type and no value. The rule const
 of @sec:env gives it its type. It never unfolds, because $delta$ needs
 a value. The only law a model owes an assumption is the typing law of
-@def:model: its set is a member of its type.
+@def:model: its value is a member of its type.
 
-A _theorem_ is checked like a definition, its statement as the type
-and its proof as the value, and its statement must be a proposition.
-What is stored is the
+A _theorem_ is checked like a definition, with its statement as the
+type and its proof as the value, and its statement must be a
+proposition. What is stored is the
 #src("whitepaper/Fragment/Decl.lean", 608, 618)[statement alone, as an
 assumption]. The checker never unfolds a theorem, so nothing is lost.
 Installing a theorem keeps the environment's model:
 #src("whitepaper/Fragment/InstallThm.lean", 249, 254)[install the
 proof as a definition, then forget the value].
 
-One constant
+*Refinement of constants.* One constant
 #src("whitepaper/Fragment/Modular.lean", 23, 26)[_refines_] another
 when it is the other, or an assumption with the other's level
 parameters and type. A definition seen without its value refines the
-definition.
+definition, and so does a type former seen as an assumption of its
+type.
 
-*Proofs denote the point.* A constant whose type is a proposition
-denotes the point in every model, because its type is a truth value.
-So the set the checker gives a theorem, or a definition the checker
-finds to be of a proposition,
-#src("whitepaper/Fragment/ModularModel.lean", 61, 81)[is the point], at
-every list of levels. This is the semantic face of proof irrelevance,
-and it is why two proofs of one statement may be taken as one
-constant, whatever their bodies. A module may flag as a proof every
-theorem and every definition whose type is a proposition, including
-definitions whose value its importers never see.
+*Proofs denote the point.* If the type of a constant is a
+proposition, then in every model its set at every instantiation of its
+level parameters is the point, because that set is a member of the
+type and the type is a truth value. In particular the value the installation of §3 gives a theorem,
+or a definition that the checker finds to be of a proposition,
+#src("whitepaper/Fragment/ModularModel.lean", 61, 81)[is the point]
+at every list of levels. This is the value $pi$ of @def:mod-iface.
 
-== Qualified names <sec:mod-names>
+*Modules.* A
+#src("whitepaper/Fragment/ModularModel.lean", 391, 402)[module] $M$
+consists of
+#set enum(numbering: "(i)")
++ the list of modules it _imports_;
++ its _context_ $Gamma_M$, the environment its declarations are
+  checked against;
++ its list of declarations $D_M$, some flagged as proofs;
++ its _own environment_ $E_M$, the context with the declarations
+  stored;
++ the _views_ it presents to the modules that import it: the
+  environments these modules read in place of $E_M$;
++ for every name $n$ it uses, the _key_ $kappa_M (n)$ of the constant
+  $n$ denotes in $M$.
 
-Two modules may store the same name with different meanings. In the
-proof, every name is therefore _qualified_. An ordinary constant is
-named by its home module and its name. A proof is named by its name,
-level parameters and statement: two proofs of one statement are one
-#src("whitepaper/Fragment/ModularModel.lean", 159, 166)[qualified name].
-Each module _resolves_ every name it stores to a qualified name. Its
-own constants resolve to its own qualified names. A constant it reads
-from an earlier module resolves as that module resolves it. Two constants with
-one name that are never read together in one module are two qualified
-names, and nothing ever compares them.
+A #src("whitepaper/Fragment/ModularSemantics.lean", 78, 84)[key] is
+either a module, the _home_ of the constant, which is the module that
+declares it, or, for a proof, the proof's statement: its level
+parameters and its type. Two modules mean the same constant by a name
+$n$ exactly when they give $n$ the same key. Two modules may declare
+different constants under one name. Their keys then differ, and no
+check compares the two constants. A proof is identified by its
+statement rather than by its home because every proof of a statement
+denotes the point, whatever its home and its body.
 
-The qualified names exist in the proof only. A module's terms keep
-their plain names, and the checker never computes a qualified name.
+Every module uses its own names. No name is ever renamed, and no
+environment holds constants of several modules except a module's own
+context. A name that the theory treats specially keeps its meaning in
+every module, and nothing in the argument requires the theory to be
+invariant under a renaming of constants.
+
+*Assembly in the fragment.* For the models of §3 and §4, assembly is
+defined as follows.
+
+#definition(name: "Assembly")[
+  Let $(E_i)_(i in I)$ be a family of environments, with a designation
+  of members for every name of an environment $C$. Then $C$
+  #src("whitepaper/Fragment/ModularModel.lean", 223, 235)[is assembled]
+  from the family when, for every constant $c$ that $C$ stores, there
+  is a member $E_i$ designated as having $c$ such that
+  #set enum(numbering: "1.")
+  + $E_i$ stores $c$, and the constant $C$ stores under $c$ refines
+    the constant $E_i$ stores;
+  + every name that the law of $C$'s constant reads is stored in $C$
+    and designated as $E_i$'s: the names in its type, and in its
+    value, its rules and their constructors, and its inductive block,
+    where $C$ keeps these;
+  + if $C$ stores a type former as a type former, $C$ also stores
+    its constructors.
+] <def:assembled>
+
+An assumption brings only its type into $C$, so a value hidden in $C$
+is never inspected. A type former stored as an assumption of its type
+brings no constructors and no recursor.
+
+#theorem(name: "Amalgamation")[
+  If $C$ is assembled from $(E_i)$ and the models $m_i$ of the $E_i$
+  are compatible for $C$, then the assignment that gives every constant
+  $c$ of $C$ its value in a member designated as having $c$
+  #src("whitepaper/Fragment/ModularModel.lean", 252, 260)[is a model of
+  $C$].
+] <thm:amalg>
+
+#proof[
+  The assignment is well defined because the family is compatible.
+  Take a constant $c$ of $C$ and the member $E_i$ of
+  @def:assembled. If $C$ stores the constant of $E_i$, its law in $C$
+  is its law in $E_i$. If $C$ stores an assumption, its law is the
+  typing law, which the constant of $E_i$ satisfies. The law reads the
+  assignment only at the names listed in item 2 of @def:assembled,
+  because the interpretation of a term
+  #src("whitepaper/Fragment/Hygiene.lean", 593, 595)[depends only on
+  the constants it mentions], and the block laws of §4 read the
+  assignment only through such interpretations. At each such name $d$, $d$ is
+  designated as $E_i$'s and stored in both, so by compatibility the
+  assignment gives $d$ the value $m_i$ gives it. The law therefore
+  holds in $C$ because it holds in $m_i$.
+]
+
+The models of §3 and §4 thus
+#src("whitepaper/Fragment/ModularInstance.lean", 61, 80)[provide]
+@def:mod-iface: the value of a constant is its set at every list of
+levels, $pi$ is the point, amalgamation is @thm:amalg, and the step is
+the installation of §3 and §4 together with that of a theorem, which
+#src("whitepaper/Fragment/ModularModel.lean", 100, 106)[keeps the
+values of the context and gives every flagged proof the point].
 
 == The local checks <sec:mod-local>
 
-A #src("whitepaper/Fragment/ModularModel.lean", 168, 178)[module] has a
-list of declarations. Its _context_ is the environment its
-declarations are checked against. For each name of the context, the
-module records the earlier module that name is read from, its _home_.
-It also records which of its own constants are proofs, and its
-resolution. Its
-#src("whitepaper/Fragment/ModularModel.lean", 180, 181)[_own
-environment_] is its context with its declarations stored. The part of
-an earlier module's own environment that a module
-#src("whitepaper/Fragment/ModularModel.lean", 187, 191)[_reads as that
-module does_], for one of the module's environments, consists of the
-constants that environment also stores and that the module resolves as
-that module does.
-
-#definition(name: "Reading from earlier modules")[
-  An environment of a module
-  #src("whitepaper/Fragment/ModularModel.lean", 208, 223)[reads from
-  earlier modules] when
-  #set enum(numbering: "1.")
-  + every name it stores is read from an earlier module of the
-    development, its home;
-  + every constant it stores refines the constant of its home, and
-    #src("whitepaper/Fragment/ModularModel.lean", 193, 206)[lies within]
-    the part of the home's own environment the module reads as the
-    home does: its type, and where it has them, its value, its rules and
-    their constructors, and its inductive block. An assumption brings
-    its type only, so a value the module does not see is never
-    inspected;
-  + the module resolves each of its names as the name's home does;
-  + a type former it stores as such comes with its constructors. A
-    type former may also be read as an assumption of its type, and then
-    brings no constructors and no recursor.
-] <def:reads>
+The checks of a module $M$ fall into three groups, according to the
+data they read.
 
 #definition(name: "Local checks")[
-  A module #src("whitepaper/Fragment/ModularModel.lean", 225, 238)[passes its
-  local checks] when its context reads from earlier modules, its
-  declarations are accepted against its context, every constant it
-  flags as a proof is a theorem or a definition of a proposition, and
-  its own constants resolve to its own qualified names.
+  #set enum(numbering: "1.")
+  + #src("whitepaper/Fragment/ModularModel.lean", 421, 424)[*Per home.*]
+    Every view of $M$ refines $E_M$.
+  + #src("whitepaper/Fragment/ModularModel.lean", 426, 431)[*Per importer.*]
+    Every module $M$ imports is earlier than $M$, and $Gamma_M$ is
+    #src("whitepaper/Fragment/ModularModel.lean", 416, 419)[assembled
+    from the views of $M$'s imports], a view of an import $N$ being
+    designated as having $M$'s constant $n$ when
+    $kappa_M (n) = kappa_N (n)$.
+  + *The module's own.* The declarations $D_M$ are accepted against
+    $Gamma_M$; a declaration flagged as a proof is a theorem or a
+    definition whose type is a proposition; and every name $n$ that
+    $D_M$ declares has the key $M$, or its statement if $n$ is
+    flagged as a proof
+    (#src("whitepaper/Fragment/ModularModel.lean", 407, 410)[the own
+    key]).
 ] <def:local>
 
-These checks read the module and the own environments and resolutions
-of the modules its context draws from, and nothing else. These are
-usually its imports. They need not be: a constant may reach a module's
-context from a module it does not import directly. The comparison of
-@def:reads is pointwise: a constant of the context is compared with
-the constant of the same name in its home, plus the names that
-constant's laws read. Hiding a definition's value or a theorem's proof
-passes it. So does a context that stores only some of a module's
-constants. A definition that typechecks only because it unfolds a
-hidden one is never checked again downstream. It is checked once, in
-its home module, where the hidden definition has its value.
+A module that passes all three
+#src("whitepaper/Fragment/ModularModel.lean", 433, 443)[passes its
+local checks]. A module is _validated_ when it passes its local checks
+or is compared with another module (@sec:mod-compare).
+
+The check per home reads $M$ alone, and it runs once for $M$, however
+many modules import $M$. The check per importer reads $M$'s context
+and keys and its imports' views and keys. It never reads the own
+environment of an import, and the views may be much smaller. The
+check is made constant by constant: a constant of the context is
+compared with the constant of the same name in one view, together
+with the names its law reads. Hiding a definition's value or a
+theorem's proof in a view therefore passes it, and so does a context
+that takes only some of a view's constants. A definition that
+typechecks only because it unfolds a hidden one is never checked again
+by an importer. It is checked once, in its home, where the hidden
+definition has its value.
+
+== The theorem <sec:mod-thm>
+
+The theorem gives every module a model, and the models it gives agree
+with each other.
+
+#definition(name: "Compatible family")[
+  A family of models $(m_M)$, with $m_M$ a model of $E_M$ for every
+  module $M$, is
+  #src("whitepaper/Fragment/ModularSemantics.lean", 198, 205)[compatible]
+  when
+  #set enum(numbering: "1.")
+  + whenever $E_M$ and $E_N$ both store a name $n$ and
+    $kappa_M (n) = kappa_N (n)$, the models $m_M$ and $m_N$ give $n$
+    the same value; and
+  + every name whose key is a proof's statement has the value $pi$.
+] <def:compatible>
+
+Compatibility is needed for the induction to go through. Let a
+module $H$ define $c : "Nat" := 0$ and present $c$ in its view with
+its value hidden. Let modules $A$ and $B$ import $H$; their contexts
+contain the assumption $c : "Nat"$, $A$ defines $a := c$ and $B$
+defines $b := c$. The own environment of $A$ has a model in which $c$
+is $1$, and that of $B$ one in which $c$ is $0$, since neither sees
+$c$'s value. A module that imports $A$ and $B$ has $a := c$ and
+$b := c$ in its context, with one $c$, and the two models give no
+model of that context: the unfolding laws of $a$ and $b$ would need
+$c$ to be $1$ and $0$. The induction therefore builds the models of
+$A$ and $B$ from $H$'s model, so that they agree at $c$. The
+corollary, which is what a user of the checker relies on, mentions
+only the existence of models.
+
+#theorem(name: "Modular checking")[
+  If every module of a development is validated, then there is a
+  compatible family of models, one model of the own environment of
+  every module
+  (#src("whitepaper/Fragment/ModularSemantics.lean", 252, 256)[for any
+  consistency proof],
+  #src("whitepaper/Fragment/ModularInstance.lean", 115, 128)[for the
+  fragment's]).
+] <thm:mod>
+
+#corollary(name: "Every module has a model")[
+  If every module of a development is validated, then for every
+  module $M$:
+  #set enum(numbering: "1.")
+  + $E_M$ #src("whitepaper/Fragment/ModularInstance.lean", 132, 137)[has
+    a model];
+  + #src("whitepaper/Fragment/ModularInstance.lean", 139, 149)[no closed
+    term inhabits an empty proposition] that $E_M$ stores;
+  + #src("whitepaper/Fragment/ModularInstance.lean", 151, 160)[every
+    statement $E_M$ stores holds] in that model.
+] <cor:mod>
+
+Item 2 is @sec:consistency's argument at the model of item 1. Item 3
+is the typing law of the model, which puts every constant in its
+statement.
+
+#proof[
+  By induction along a numbering of the modules in which every module
+  comes after the modules it imports. Suppose the models $m_N$ of the
+  modules before $M$ form a compatible family. The model of $M$ is
+  built in three steps.
+
+  _Restriction to the views._ Every view of an import $N$ refines
+  $E_N$, by the check per home, so $m_N$ restricts to a model of the
+  view with the same values. Two of these views that are designated
+  as having $M$'s constant $n$ give it the same value: their modules
+  $N$ and $N'$ satisfy $kappa_N (n) = kappa_M (n) = kappa_(N') (n)$,
+  and the family is compatible. So the restricted models are a
+  compatible family for $Gamma_M$.
+
+  _Amalgamation and the step._ By the check per importer, $Gamma_M$ is
+  assembled from the views, and amalgamation gives a model of
+  $Gamma_M$. By the module's own checks, the checker accepts $D_M$
+  over $Gamma_M$, and the step extends this model to a model $m_M$ of
+  $E_M$ that keeps the values of $Gamma_M$ and gives every flagged
+  proof the value $pi$.
+
+  _Compatibility._ Let $E_M$ and an earlier $E_N$ both store $n$ with
+  $kappa_M (n) = kappa_N (n)$. If $Gamma_M$ stores $n$, the value of
+  $n$ in $m_M$ is its value in a view of an import $N_0$ with
+  $kappa_(N_0) (n) = kappa_M (n)$, which is its value in $m_(N_0)$,
+  which by compatibility is its value in $m_N$. If $n$ is declared by
+  $M$, its key is $M$ or a statement. No earlier module stores a name
+  with the key $M$, since
+  #src("whitepaper/Fragment/ModularSemantics.lean", 223, 225)[the keys
+  of every module name that module or earlier ones]. A statement key
+  gives the value $pi$ in both models. The same case analysis shows
+  that every name of $E_M$ with a statement key has the value $pi$.
+
+  A compared module's own environment is itself assembled from its
+  imports' views, so amalgamation gives its model directly, and the
+  step is not used.
+]
+
+The induction needs a numbering of the modules in which every module
+comes after its imports, and it needs every module to be validated.
+Nothing else about the development as a whole enters the argument.
+
+== What runs in parallel <sec:mod-par>
+
+The checks of a module $M$ read $M$ and the views of its imports. A
+view of a module is available as soon as its own environment is, so
+the checks can proceed along the import graph: a module can be checked
+as soon as the views of its imports exist, and modules that do not
+depend on each other can be checked at the same time. Each step of the
+proof of @thm:mod has the same dependencies. The model of $M$ is made
+from the models of its imports, by restriction, amalgamation and one
+step, and no part of the argument for $M$ refers to a module that $M$
+does not import. The numbering in the induction only fixes one order
+in which the modules can be treated.
 
 == Comparing a module <sec:mod-compare>
 
 A module can also be validated without checking its declarations, by
-_comparison_. A module is
-#src("whitepaper/Fragment/ModularModel.lean", 240, 243)[compared] when
-its whole own environment, its declarations included, reads from
-earlier modules. Every constant it stores is then an earlier module's
-constant, or an assumption of that constant's type. Its assumptions
-are its _holes_. Each of its names resolves to the qualified name of a
-constant of an earlier module, the _solution_. So the compared module
-is the solution's environment with constants left out and some
-replaced by assumptions.
+comparison. A module $M$ is
+#src("whitepaper/Fragment/ModularModel.lean", 445, 451)[_compared_]
+when its views refine its own environment, it imports only earlier
+modules, and its whole own environment $E_M$, its declarations
+included, is assembled from the views of its imports. Every constant
+$M$ stores is then a constant of one of its imports, or an assumption
+of that constant's type. The assumptions that replace a constant with
+a value are $M$'s _holes_.
 
-This is the shape of a _challenge_. A challenge states what is to be
-proved, with holes where the proofs go. Its solution is a module that
-fills the holes and is checked. The comparison runs over the
-challenge's full environment, definitions with their values. A
-definition the challenge spells out must be the solution's, value
-included, and only the holes are free. A hole may also be a
-definition's value. Then the solution chooses that value, and the
-challenge says nothing about it. A reader of a challenge therefore
-has to look at its list of holes.
+This is the situation of a _challenge_ and its _solution_. A
+challenge states what is to be proved, with holes where the proofs go.
+Its solution is a checked module that declares the same names and
+fills the holes. For the comparison, the solution counts among the
+challenge's imports, and the challenge's names are the solution's: a
+constant of the challenge is keyed like the solution's constant of the
+same name. The comparison reads the challenge's own environment in
+full, definitions with their values. A definition the challenge states
+with a value must be the solution's, value included, and only the
+holes are free. A hole may also stand for a definition's value. Then
+the solution chooses that value, and the challenge says nothing about
+it. A reader of a challenge therefore has to look at its list of
+holes.
 
-A
-#src("whitepaper/Fragment/ModularModel.lean", 245, 246)[_validated_]
-module is one that passes its local checks or is compared.
-
-== The theorem <sec:mod-thm>
-
-#theorem(name: "Modular checking")[
-  If every module of a development is validated, there is
-  #src("whitepaper/Fragment/ModularInstance.lean", 674, 682)[one assignment
-  of sets to the qualified names], with every proof the point, under
-  which every module's own environment has a model. Each module reads
-  that assignment through its resolution. Hence for every module:
-  #set enum(numbering: "1.")
-  + its own environment
-    #src("whitepaper/Fragment/ModularInstance.lean", 695, 697)[has a model];
-  + #src("whitepaper/Fragment/ModularInstance.lean", 704, 709)[no closed term
-    inhabits an empty proposition] it stores;
-  + #src("whitepaper/Fragment/ModularInstance.lean", 715, 721)[every
-    statement it stores holds] in that model. For a compared module
-    this covers every hole: a propositional hole is true there.
-] <thm:mod>
-
-#proof[
-  By induction along the order of the development, keeping a model of
-  the _world_: the own environments of the checked modules so far,
-  each with its resolution, with one assignment of sets to their
-  qualified names under which each has a model. The induction is
-  #src("whitepaper/Fragment/ModularSemantics.lean", 141, 146)[proved
-  once], over what @sec:mod-iface lists; the fragment's model
-  #src("whitepaper/Fragment/ModularInstance.lean", 448, 449)[provides
-  it]. Take a module, and a model of the world before it.
-
-  An environment of the module that reads from earlier modules has a
-  model: read the assignment through the module's resolution
-  (#src("whitepaper/Fragment/ModularModel.lean", 407, 414)[the
-  restricted model]). Each law of one of its constants is the law of
-  the home's constant it refines. That law mentions only names the
-  module reads as the home does, and on those names the two readings
-  give the same sets. An assumption that refines a definition owes
-  only the typing law, which the definition satisfies.
-
-  A compared module's own environment reads from earlier modules, so
-  this is its model, and the world does not change. A checked module's
-  context reads from earlier modules. Its declarations are installed
-  on the context's model by the theorems of §3, §4 and @sec:mod-refine
-  (#src("whitepaper/Fragment/ModularModel.lean", 100, 106)[installing a
-  checked list]). Every stored constant keeps its set, and every proof
-  gets the point. The world then grows by the module's own environment,
-  and the assignment by the module's own ordinary constants
-  (#src("whitepaper/Fragment/ModularInstance.lean", 238, 245)[the two
-  models combined]). The qualified names of earlier modules are
-  untouched, and a proof's qualified name already denotes the point.
-  Every module's own environment refines the final world, so its model
-  is the world's, restricted.
-
-  Item 2 is @sec:consistency's argument, at the module's model. Item
-  3 is the typing law of the model, which puts every constant in its
-  statement.
-]
-
-A challenge whose hole states an empty proposition cannot be compared
-with any validated solution. The theorem would give it a model, and a
-model holds no proof of an empty proposition.
-
-The induction needs an order of the development in which every
-module comes after the homes of its names, and it needs every module
-to be validated. Nothing else about the development as a whole enters.
-
-*What runs in parallel.* Type checking reads only a module's context,
-so all modules can be type-checked at the same time, in any order.
-The other checks, and comparisons, compare constants and names with
-those of the earlier modules the context draws from, and type-check
-nothing. The comparison also splits by module: a module's interface, the
-constants it presents to its importers, is checked once, against its
-own environment; an importer only checks that its context is made of
-its imports' interfaces.
-
-== What any consistency proof must provide <sec:mod-iface>
-
-The proof of @thm:mod uses the models of §3 and §4 in four places,
-and the induction itself uses nothing else. Stated as an
-#src("whitepaper/Fragment/ModularSemantics.lean", 69, 112)[interface], the four places are what any
-consistency proof must provide for the modular argument to apply to
-it. Environments come with _refinement with renaming_, written
-$Gamma prec.eq_rho E$: every constant of $Gamma$, its names renamed by
-$rho$, is a constant of $E$ or an assumption of that constant's type,
-and $E$ may store more. Refinement is reflexive and transitive. Then:
-
-#set enum(numbering: "1.")
-+ *Restriction.* A model of $E$ is an object, not a fact, and it
-  restricts along $Gamma prec.eq_rho E$ to a model of $Gamma$.
-  Restricting along the identity changes nothing, and restricting along
-  a composite is restricting twice.
-+ *The conservative step.* If the checker accepts declarations $D$
-  over $Gamma$, every model of $Gamma$ extends to a model of
-  $Gamma + D$ that restricts back to it.
-+ *Amalgamation.* If $Gamma prec.eq_rho W$, the names $D$ adds are,
-  renamed by $rho$, new in $W$, and a model of $W$ and a model of
-  $Gamma + D$ restrict to the same model of $Gamma$, then $W$ with
-  $D$ added under $rho$ has a model that restricts to both.
-+ *A base.* The empty environment has a model.
-
-This is the structure of an institution with amalgamation
-@goguen1992: environments and refinements are the signatures and
-their morphisms, models are a contravariant functor on them, and
-models of the parts of a pushout that agree combine to one of the
-whole. In the fragment, an environment of the interface is a list of
-module environments, each with its resolution, and a model of it is
-an assignment of sets to their qualified names under which each has a
-model (#src("whitepaper/Fragment/ModularInstance.lean", 104, 111)[the
-world's models]). Restriction reads the assignment through the
-renaming, the step is the installation of a checked list, and
-amalgamation adds a module's own qualified names to the assignment.
-
-*Models, not consistency.* The interface cannot ask only that an
-environment have some model. Let $Gamma$ assume $c : "Nat"$, let $W$
-define $c := 5$, and let $D$ add the axiom $c = 0$. Then $Gamma + D$
-has a model and $W$ has one, but $W + D$ has none. Amalgamation of
-mere consistency is false. With models as objects the step excludes
-this $D$: it must extend every model of $Gamma$, among them the one
-the model of $W$ restricts to, where $c$ is $5$. Amalgamation then only
-ever combines models that agree on $Gamma$.
-
-*A syntactic proof fits.* Nothing in the interface is about sets. For
-a type system with constants and a fixed theory of closed terms,
-#src("whitepaper/Fragment/ModularSyntactic.lean", 116, 121)[a model is a _realisation_]: a closed term for
-every constant, of the realised type, equal to the realised value of a
-definition. Restriction reads it through the renaming. The step
-realises a new definition by its realised value, which has the
-realised type by the system's
-#src("whitepaper/Fragment/ModularSyntactic.lean", 60, 63)[substitution lemma]: a derivation over an
-environment stays a derivation when a realisation of the environment
-is substituted in. Amalgamation is the
-#src("whitepaper/Fragment/ModularSyntactic.lean", 413, 418)[union of the two realisations]. So a proof by
-syntax #src("whitepaper/Fragment/ModularSyntactic.lean", 488, 489)[provides the interface] as well, and
-@thm:mod holds for it unchanged.
+By @def:compatible, the model @thm:mod gives the challenge agrees with
+the solution's model on every constant they share under one key. By @cor:mod, item
+3, every statement of the challenge, every hole included, holds in it.
+A challenge whose hole states an empty proposition therefore cannot be
+compared with any validated solution.
 
 == Lean's module system in these terms <sec:mod-lean>
 
-A module of Lean's module system has a _private_ view (all its
-declarations) and an _exported_ view, in which theorems and the
-definitions the module does not expose keep their types only.
+A module of Lean's module system has an _exported_ level and a
+_private_ level. The private level holds all of the module's
+declarations. In the exported level, theorems and the definitions the
+module does not expose keep their types only. A third level holds data
+for the language server.
 
 #table(
   columns: (1fr, 1fr),
   stroke: none,
   table.header[*Lean*][*Here*],
-  [the environment Lean builds to elaborate a module: each import's
-    exported view, its private view under `import all`, and the modules
-    imports re-export], [the module's context; each name's home is the
-    module that declares it, earlier in the import order, and need not
-    be a direct import (check 1)],
-  [a module's exported view], [constants that refine its own
-    environment's; the context's constants refine their homes' own
-    environments through it (check 3)],
-  [the merge of two copies of a name on import, which is allowed
-    for one theorem or one exported proposition stated twice], [one
-    qualified name: a proof's qualified name is its statement],
-  [two modules defining one name that Lean never loads together],
-  [two qualified names, never compared],
-  [an exported constant whose terms mention a name the importer does
-    not see], [hidden or absent: in the context as an assumption of its
-    type if its type is complete there, otherwise not at all (check 3)],
-  [Comparator's challenge and solution], [a compared module and the
-    module it reads from],
-  [a hole of the challenge: an axiom, or a constant whose value is
-    `sorryAx …`], [an assumption of the compared module],
-  [the challenge's private view, with its definitions' values], [the
-    compared module's own environment, which the comparison reads in
-    full],
-  [Comparator's lists of theorems and definitions to compare, and the
-    `landrun` sandbox it builds them in], [nothing: the comparison runs
-    over the whole environment, read from the built files],
+  [a module's exported level, with the constants of its context that
+    the exported constants mention], [a view],
+  [the private level, which an importer reads under `import all`],
+  [a view equal to the module's own environment],
+  [the language server's level], [not used],
+  [the modules Lean loads to elaborate a module: its imports, and
+    transitively the modules they re-export by `public import`],
+  [the module's imports],
+  [the environment Lean builds from those modules' levels], [the
+    module's context],
+  [a theorem, and in the exported level a definition that is not
+    exposed], [an assumption of its type; a theorem is flagged as a
+    proof],
+  [the merge of two copies of one name on import, which Lean allows
+    for two theorems with one statement], [one key, since a proof's
+    key is its statement],
+  [two modules declaring one name that Lean never loads together],
+  [two keys, never compared],
+  [a private name (`_private.…`)], [an ordinary name, keyed by its
+    home],
+  [an exported constant whose value mentions a constant that is not
+    exported], [an assumption of its type if its type is complete,
+    otherwise absent],
+  [`backward.privateInPublic`, which exports a private constant], [a
+    constant of the view, so that exported values mentioning it stay
+    complete],
 )
 
-Lean's exported views are not self-contained: an exported constant may
-mention a name its importer does not see. The context of a module
-holds each constant it reads as stored if everything its type and
-value mention is present, as an assumption of its type if only its
-type is complete, and not at all otherwise. An inductive block with an
-incomplete constructor or recursor type enters as an assumed type
-former, with no constructors and no recursor. These choices are made
-for each module, until nothing changes. Nothing from another module's
-private part is added to repair an exported constant, and no name is
-treated specially for its spelling.
+The exported level of a module need not be self-contained: an exported
+value may mention a constant that is not exported, such as a private
+one. Under @def:assembled, a constant taken from a view can be held in
+one of three forms: as stored, if every name its law reads is present
+under the same key; as an assumption of its type, if every name in its
+type is; or not at all. The context of a module, as con-leche builds
+it, takes each constant in the first form that applies, decided for
+all constants of the module together until nothing changes. An
+inductive block with an incomplete
+constructor or recursor type enters as an assumed type former, with no
+constructors and no recursor. Nothing from an import's private level is
+added to complete an exported constant, and no name is treated
+specially because of its spelling.
 
 The checks are designed not to reject what Lean accepts. That is an
 aim, checked by running them on real developments, not a theorem.
-Copies Lean merges are proofs of one statement, hence one qualified
-name. Constants Lean never loads together are never compared. Check 3
-goes further than Lean's merge does: it asks that the names a constant
-of the context mentions resolve in the module as they do in the
-constant's home. This covers its type and whatever value or rules the
-module sees. What the module does not see, such as the value of a
-definition it reads as an assumption, is not inspected.
+Copies that Lean merges are proofs of one statement and share a key.
+Constants that Lean never loads together are never compared. The check
+per importer goes further than Lean's merge: it asks that the names a
+constant of the context reads have the same keys in the module as in
+the view the constant comes from. This covers the constant's type and
+whatever value or rules the module keeps. What the module does not
+keep, such as the value of a definition it holds as an assumption, is
+not inspected.
 
 #real[
-  Con-leche checks a development module by module with the local checks
-  above, and the modular theorem
-  #src("ConLeche/MainTheorem.lean", 131, 137)[is stated] as
-  @thm:mod: one model over qualified names, in which every module's own
-  environment holds. Its proof is the theorem over the interface
-  #src("ConLeche/Modular/Generic.lean", 141, 143)[proved once], at
-  con-leche's own models.
+  Con-leche checks a development module by module with local checks of
+  the kind above, in two modes. In the first, every module is checked at its
+  view of one store of installed constants; in the second
+  (`--modular=isolated`), every module is checked in
+  #src("ConLeche/Cached/ModIso.lean", 182, 188)[an environment of its
+  own], built from its imports' exported levels (private levels under
+  `import all`) alone, and the two modes are
+  #src("ConLeche/Verify/Modular/IsoCtx.lean", 674, 681)[proved to give
+  the same verdicts]. With `--compare CHALLENGE SOLUTION` a challenge
+  is compared with its solution as in @sec:mod-compare, and its holes
+  are listed. The modular theorem
+  #src("ConLeche/MainTheorem.lean", 127, 137)[is stated] with one
+  assignment of sets to qualified names (a home module and a name, or
+  a proof's statement), under which every module's own environment,
+  read through its resolution of names to qualified names, has a
+  model. Its proof goes through a global environment over the
+  qualified names, by
+  #src("ConLeche/Modular/Generic.lean", 141, 143)[a theorem over an
+  interface] with renaming. It is being moved to the per-module form
+  of this section, with compatible families in place of the global
+  environment and no renaming.
 ]
