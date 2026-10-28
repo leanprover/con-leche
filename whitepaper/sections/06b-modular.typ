@@ -588,6 +588,23 @@ The first clause provides agreement between imports. The second
 allows two modules to introduce a proof of the same statement under
 the same name, without comparing their proof bodies.
 
+Compatibility constrains the values that models give a name. It could
+not constrain the definition bodies instead: a single environment
+containing a module's context together with the bodies hidden from it
+need not exist, because two modules may store one name with different
+meanings that never meet. For example, let $j$ define $d := 0$ and
+$c := d$, presenting only $c : sans("Nat")$ as an assumption. Let $k$
+read all of $j$, prove $e : c = 0$ by unfolding, and present $c$ and $e$
+as assumptions. Independently, let $m$ define $d := 1$. A module $i$
+importing $k$ and $m$ has the context
+$ Gamma_i = {c : sans("Nat"), quad e : c = 0, quad d := 1}, $
+and all local checks pass, since the two definitions of $d$ never meet in
+one context. Restoring $c := d$ in one environment for $i$ would make $c$
+unfold to $1$, while $e$ states $c = 0$. In the set-theoretic instance a
+value is a set at each level instantiation and mentions no constant
+names, so the model of $i$ takes the value of $c$ from the model of $j$
+and the value of $d$ from the model of $m$, without renaming anything.
+
 #lemma(name: "Homes are earlier")[
   #src("whitepaper/Fragment/ModularSemantics.lean", 225, 227)[Validity bounds home keys]:
   $
