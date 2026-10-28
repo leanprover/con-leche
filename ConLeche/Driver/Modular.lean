@@ -896,11 +896,14 @@ def isoWork (mode : CheckMode) (err : IO.FS.Stream) (g : Array ModIn) (slots : A
               rfl, by rw [hlv, ← hU]; exact hu, by rw [hlv]; exact hloc⟩)
           | .error (x, pos) => pure (.error (x, pos)))
       else
+        let bad := a.dropped.find? fun (h, j, n) => match a.look n with
+          | some (h₀, j₀, _) => Mod.keyOfSlot (units h) h j n != Mod.keyOfSlot (units h₀) h₀ j₀ n
+          | none => true
         let why := match levelsWhy g k lv units with
           | some w => w
-          | none => s!"two modules store constants of one name under different qualified \
-              names (not proofs of one statement), and both are in the context of \
-              {(g[k]?.map (·.name)).getD .anonymous}"
+          | none => s!"two modules store constants named {(bad.map (·.2.2)).getD .anonymous} \
+              under different qualified names (not proofs of one statement), and both are in \
+              the context of {(g[k]?.map (·.name)).getD .anonymous}"
         -- a position past the records: the failure is the module's, not a record's
         return .error (.invalid why, (declsAt g k).size)
       else return .error (.internal "the unit of the module fails its check", 0)
