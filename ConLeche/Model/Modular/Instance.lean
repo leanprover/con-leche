@@ -106,9 +106,6 @@ theorem find?_filter_name {l : List ConstantInfo} {p : Name → Bool} {n : Name}
     by_cases hp : p c.name = true <;> by_cases hc : c.name = n <;>
       simp_all
 
-theorem Piece.empty_readsAlike (p : Piece) (d : Name) :
-    (readsAlikeP p Piece.empty).find? d = none := rfl
-
 theorem readsAlikeP_find? {p q : Piece} {d : Name} {ci : ConstantInfo}
     (h : (readsAlikeP p q).find? d = some ci) :
     q.env.find? d = some ci ∧ (p.env.find? d).isSome = true ∧ p.res d = q.res d := by
@@ -340,10 +337,7 @@ theorem Ref.pieces {P Q : PEnv} {ρ : Key → Key} (h : Ref P ρ Q) :
     (m : PMod V μ Q) : PMod V μ P :=
   ⟨normalize P (m.1 ∘ ρ), normalize_normalized _ _,
     WorldOk.normalize m.2.2.1 ρ fun k hk => (h.keys k hk).2,
-    PiecesOk.congr (h.pieces _ (WorldOk.leaves m.2.2.1) m.2.2.2) fun k hk => (normalize_pos hk).symm⟩
-
-theorem restrictP_val {P Q : PEnv} {ρ : Key → Key} (h : Ref P ρ Q) (m : PMod V μ Q) :
-    (restrictP h m).1 = normalize P (m.1 ∘ ρ) := rfl
+    PiecesOk.congr (h.pieces _ (WorldOk.leaves m.2.2.1) m.2.2.2) fun _ hk => (normalize_pos hk).symm⟩
 
 theorem restrictP_id {E : PEnv} (m : PMod V μ E) : restrictP (Ref.sub fun _ h => h) m = m :=
   Subtype.ext (normalize_of_normalized m.2.1)
