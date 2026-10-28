@@ -1,6 +1,6 @@
 module
 
-public import ConLeche.Modular.Generic
+import ConLeche.Modular.Generic
 public import ConLeche.Model.Modular.Restrict
 import ConLeche.Model.Modular.Step
 

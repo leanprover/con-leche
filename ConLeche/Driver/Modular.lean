@@ -8,7 +8,6 @@ import ConLeche.Cached.ModStore
 import ConLeche.Verify.Modular.Dev
 public import ConLeche.Verify.Modular.Isolated
 import ConLeche.Verify.Modular.Scope
-import ConLeche.Verify.Modular.Local
 public import Std.Data.TreeSet.Basic
 /- `decodeModuleSpec_eq_fast` (`@[csimp]`): the reader is passed the
 specification `decodeModuleSpec`, and the compiler runs the fast decoder. -/
@@ -580,7 +579,8 @@ theorem attested_insert {mode : CheckMode} {fe : FEnv} {pend : Array PendingChec
   · exact h n h1
 
 /-- The walk of `proofsOf` over the records left. -/
-def proofsGo (mode : CheckMode) (fe : FEnv) (pend : Array PendingCheck) :
+def proofsGo (mode : CheckMode) (find : Name → Option ConstantInfo) (fe : FEnv)
+    (pend : Array PendingCheck) :
     (l : List PendingCheck) → (∀ pc ∈ l, pc ∈ pend.toList) → (s : Std.HashSet Name) →
       Mod.ProofsAttested mode s.contains fe pend →
       { s : Std.HashSet Name // Mod.ProofsAttested mode s.contains fe pend }
@@ -588,31 +588,34 @@ def proofsGo (mode : CheckMode) (fe : FEnv) (pend : Array PendingCheck) :
   | pc :: l, hl, s, h =>
     have hm : pc ∈ pend.toList := hl pc (List.mem_cons_self ..)
     have hl' : ∀ x ∈ l, x ∈ pend.toList := fun x hx => hl x (List.mem_cons_of_mem _ hx)
-    if hp : Mod.isPinned pc.vg.cv.name = true then proofsGo mode fe pend l hl' s h
+    if hp : Mod.isPinned pc.vg.cv.name = true then proofsGo mode find fe pend l hl' s h
     else
       have hpin : pc.vg.cv.name ∉ ConLeche.Modular.pinnedNames := fun hn => by
         simp [Mod.isPinned, hn] at hp
       if hk : pc.vg.kind = .thm then
-        proofsGo mode fe pend l hl' _ (attested_insert h hm hpin (.inl hk))
+        proofsGo mode find fe pend l hl' _ (attested_insert h hm hpin (.inl hk))
+      else if Mod.isTypeCheap find pc.vg.cv.type then proofsGo mode find fe pend l hl' s h
       else
         match hc : checkPending mode fe { pc with vg := { pc.vg with kind := .thm } } {} with
         | .ok ((), st) =>
-          proofsGo mode fe pend l hl' _ (attested_insert h hm hpin (.inr ⟨hk, st, hc⟩))
-        | .error _ => proofsGo mode fe pend l hl' s h
+          proofsGo mode find fe pend l hl' _ (attested_insert h hm hpin (.inr ⟨hk, st, hc⟩))
+        | .error _ => proofsGo mode find fe pend l hl' s h
 
 /-- **A module's proofs**: its theorems, and every definition or opaque
 constant that passes the theorem record's check — its type inferred to
 be a proposition, its value of that type — never a pinned name.  The
 check is the checker's own (`checkPending` with the record's kind set to
 theorem), run once at the module that installs the constant, over its
-environment; for a definition whose type is not a proposition it stops
-after inferring the type's sort.  Read off the module's recorded
+environment, and skipped for a definition whose statement is cheaply
+seen to be a type (`Mod.isTypeCheap`: it would fail); for any other
+definition whose type is not a proposition it stops after inferring the
+type's sort.  Read off the module's recorded
 checks: a theorem's record and a value record are what its declarations
 leave.  A function of the module and its context alone.  With the
 evidence that every name in it is attested (`ProofsAttested`). -/
-def proofsOf (mode : CheckMode) (fe : FEnv)
+def proofsOf (mode : CheckMode) (find : Name → Option ConstantInfo) (fe : FEnv)
     (pend : Array PendingCheck) : { s : Std.HashSet Name // Mod.ProofsAttested mode s.contains fe pend } :=
-  proofsGo mode fe pend pend.toList (fun _ h => h) {} (fun n hn => by
+  proofsGo mode find fe pend pend.toList (fun _ h => h) {} (fun n hn => by
     simp at hn)
 
 /-! ## Facts below a bound -/
@@ -961,7 +964,7 @@ def storeWork (mode : CheckMode) (err : IO.FS.Stream) (g : Array ModIn) (S : Mod
   match ← installModule mode err (declsAt g k) (S.view k) with
   | .error e => return .error e
   | .ok e =>
-    let ⟨flags, hprf⟩ := proofsOf mode e.fe e.pend
+    let ⟨flags, hprf⟩ := proofsOf mode e.fe.find? e.fe e.pend
     match unitOf g (S.uview k) flags k (S.lvl k) e.fe with
     | .error msg => return .error (.internal s!"the unit of the module: {msg}", 0)
     | .ok (u, rd, dg) =>
@@ -1035,7 +1038,7 @@ def isoWork (mode : CheckMode) (err : IO.FS.Stream) (g : Array ModIn) (slots : A
   match ← installModule mode err (declsAt g k) fe₀ with
   | .error e => return .error e
   | .ok e =>
-    let ⟨flags, hprf⟩ := proofsOf mode e.fe e.pend
+    let ⟨flags, hprf⟩ := proofsOf mode e.fe.find? e.fe e.pend
     let own := Mod.ownPart C e.fe.env
     -- the context's lookup, answered by the install's own index
     let U : Mod.UView := ⟨fun h => (units h).exp, Mod.lookAfter e.fe srcH srcJ nC⟩

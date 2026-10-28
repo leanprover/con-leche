@@ -571,6 +571,49 @@ key (`oneKey`, over the store's names stored twice). -/
 def localOk (S : Store) (m : Nat) : Bool :=
   levelsOk m (S.lvl m) S.slot && S.dups.all (oneKey S m)
 
+/-! ## The proofs of a module: a shortcut -/
+
+/-- The body of a statement under its `∀` binders, with the binders'
+types, innermost first. -/
+def forallBody : Expr → List Expr → Expr × List Expr
+  | .forallE t b, bs => forallBody b (t :: bs)
+  | e, bs => (e, bs)
+
+/-- A level that is not zero whatever its parameters are. -/
+def neverZero : Level → Bool
+  | .succ _ => true
+  | .max a b => neverZero a || neverZero b
+  | .imax _ b => neverZero b
+  | _ => false
+
+/-- A type with `k` more `∀` binders whose body is a sort of a level
+that is never zero. -/
+def typeAfter : Nat → Expr → Bool
+  | 0, .sort l => neverZero l
+  | k + 1, .forallE _ b => typeAfter k b
+  | _, _ => false
+
+/-- **A statement that is cheaply seen not to be a proposition**: under
+its `∀` binders, a sort, or an application of a constant (or of a bound
+variable) whose type takes exactly that many arguments to a sort whose
+level is never zero — so its type is that sort, not `Prop`.  `find` is
+the module's own environment's lookup.  Used only to skip the theorem
+check of a definition (`Driver.Modular.proofsOf`), which would reject
+it: a statement it misses is decided by the check itself. -/
+def isTypeCheap (find : Name → Option ConstantInfo) (ty : Expr) : Bool :=
+  let (body, bs) := forallBody ty []
+  match body with
+  | .sort _ => true
+  | _ =>
+    match body.getAppFn with
+    | .const n _ => match find n with
+      | some ci => typeAfter body.numArgs ci.toConstantVal.type
+      | none => false
+    | .bvar k => match bs[k]? with
+      | some t => typeAfter body.numArgs t
+      | none => false
+    | _ => false
+
 /-! ## A module, checked -/
 
 /-- **What a modular run keeps of a module**: its imports, its records,
