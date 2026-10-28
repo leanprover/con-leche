@@ -49,7 +49,8 @@ open ConLeche
 first) and `dr` dropped. -/
 private def stateOf (acc : List IsoEntry) (dr : List (Nat × Nat × Name)) : IsoAcc :=
   ⟨acc.length, acc.map (·.ci), acc.filterMap (·.tbl), (mkFEnvGo (acc.map (·.ci))).2,
-    mkTblsGo (acc.filterMap (·.tbl)), (acc.reverse.map fun e => (e.h, e.j)).toArray, dr⟩
+    mkTblsGo (acc.filterMap (·.tbl)), (acc.reverse.map (·.h)).toArray,
+    (acc.reverse.map (·.j)).toArray, dr⟩
 
 private theorem idxSpec_isSome {n : Name} : ∀ l : List ConstantInfo,
     (idxSpec l n).isSome = true ↔ ∃ c ∈ l, c.name = n
@@ -140,7 +141,7 @@ private theorem isoBuild_eq (slot : Nat → ModSlot) (lv : ByteArray) :
     isoBuild slot lv =
       stateOf (firstNamed (isoEntries slot lv)) (droppedGo (isoEntries slot lv) {} []) := by
   unfold isoBuild firstNamed
-  have h0 : (⟨0, [], [], {}, {}, #[], []⟩ : IsoAcc) = stateOf [] [] := rfl
+  have h0 : (⟨0, [], [], {}, {}, #[], #[], []⟩ : IsoAcc) = stateOf [] [] := rfl
   rw [h0, ← foldl_add (isoEntries slot lv) {} [] [] (fun m => by simp)]
   unfold isoEntries
   rw [List.foldl_flatMap]
@@ -285,5 +286,59 @@ theorem isoBuild_keysOk (slot : Nat → ModSlot) (lv : ByteArray) :
     rcases mem_droppedGo _ _ _ x hx with h | ⟨e, he', rfl⟩
     · cases h
     · exact he e he'
+
+/-! ## The lookup after the install -/
+
+/-- **The lookup from the install's own index is the context's**: an
+install from the context's canonical index only conses constants of new
+names onto it, so a context name keeps its counter there, below the
+context's size, and an own name's counter is not below it. -/
+theorem lookAfter_iso {slot : Nat → ModSlot} {lv : ByteArray} {mode : CheckMode}
+    {pins : List NatOpPinSet} {ds : List Declaration} {n : Nat} {fe : FEnv}
+    {pend : Array PendingCheck}
+    (hrun : InstallRun mode pins ds (0, mkFEnv (isoCtx slot lv), #[]) (n, fe, pend)) :
+    lookAfter fe (isoBuild slot lv).srcH (isoBuild slot lv).srcJ (isoBuild slot lv).n =
+      isoLook slot lv := by
+  rw [← isoBuild_look]
+  funext d
+  have hfenv : (isoBuild slot lv).fenv = mkFEnv (isoCtx slot lv) := isoBuild_fenv slot lv
+  have hidx : (isoBuild slot lv).idx = (mkFEnv (isoCtx slot lv)).idx := by
+    rw [← hfenv]; rfl
+  have hn : (isoBuild slot lv).n = (isoCtx slot lv).consts.length := by
+    have : (isoBuild slot lv).n = (mkFEnv (isoCtx slot lv)).visibleBelow := by rw [← hfenv]; rfl
+    rw [this, mkFEnv_visibleBelow]
+  have htr := (installRun_trace mode hrun (PushChain.refl _)).1
+  obtain ⟨hcanon, ⟨new, hnew⟩, hnd, -⟩ := htr
+  simp only at hcanon hnew hnd
+  have hnd' := hnd (isoCtx_nodup slot lv)
+  unfold NodupNames at hnd'
+  rw [hnew, List.map_append] at hnd'
+  have hfi : fe.idx[d]? = idxSpec (new ++ (isoCtx slot lv).consts) d := by
+    rw [hcanon, mkFEnv_idx, ← hnew]
+  unfold lookAfter IsoAcc.look
+  rw [hfi, hidx, mkFEnv_idx, hn]
+  by_cases hd : d ∈ new.map (·.name)
+  · obtain ⟨c, ci, hs, hc⟩ := idxSpec_append_mem new _ hd
+    rw [hs]
+    have hnot : d ∉ (isoCtx slot lv).consts.map (·.name) := fun h =>
+      (List.nodup_append.mp hnd').2.2 d hd d h rfl
+    have hnone : idxSpec (isoCtx slot lv).consts d = none := by
+      cases h : idxSpec (isoCtx slot lv).consts d with
+      | none => rfl
+      | some x =>
+        exfalso
+        obtain ⟨c', ci'⟩ := x
+        have hf := idxSpec_some h
+        have hci := List.find?_some hf
+        simp only [beq_iff_eq] at hci
+        exact hnot (List.mem_map.mpr ⟨ci', List.mem_of_find?_eq_some hf, hci⟩)
+    rw [hnone]
+    simp only [show ¬ c < (isoCtx slot lv).consts.length from Nat.not_lt.mpr hc, ↓reduceIte]
+  · rw [idxSpec_append_not_mem new _ hd]
+    cases hs : idxSpec (isoCtx slot lv).consts d with
+    | none => rfl
+    | some x =>
+      obtain ⟨c, ci⟩ := x
+      simp only [idxSpec_lt hs, ↓reduceIte]
 
 end ConLeche.Cached.Mod

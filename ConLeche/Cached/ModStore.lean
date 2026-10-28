@@ -7,34 +7,42 @@ public import Std.Data.HashSet.Basic
 @[expose] public section
 
 /-!
-# The module store and the local checks of a modular run (task #370)
+# The module store and the bookkeeping of a modular run (tasks #370, #374)
 
-A modular run (`ConLeche/Driver/Modular.lean`) installs every module at
-a **view** of one store partitioned by home module (`MBase`,
-`ConLeche/Kernel/FEnv.lean`): module `h`'s **unit** (`ModSlot`) holds the
-constants its install pushed, their exported presentation, its tables,
-its gates and its proofs.  This file holds the pure part of the run that
-the proofs are about:
+A modular run (`ConLeche/Driver/Modular.lean`) checks every module on its
+own.  Module `h`'s **unit** (`ModSlot`, `ConLeche/Kernel/FEnv.lean`) is
+what it publishes for its importers, the counterpart of Lean's interface
+files: its interface `exp` (each installed constant as an importer at the
+exported level sees it — the constant, the assumption of its statement,
+or nothing — with the **gates**: the modules, with levels, an importer
+must load for that presentation; and `fp1`, what every importer loads by
+Lean's rules) and its private record `prv` (the installed constants, for
+`import all` importers, and the module's own levels).  This file holds
+the pure part of the run that the proofs are about:
 
-* `Store`, `Store.view` — the store and a module's view of it;
-* `unitOf` — a module's unit, computed from its installed view (an
-  oracle: everything the proofs need of it is re-established by
-  `unitOk`), with what its importers must check (`Unit'`: `fp1`, the
-  modules its exported presentation reads that every importer at that
-  level loads);
-* `unitOk` — the check of a unit against its module's view: the
-  presentations refine the installed constants, and every name their
-  laws read (`lawsOf`, verified with the checker's own resolution walk
-  `constsResolveFC` against the claimed set) resolves in the module, and
-  its module and level are in `fp1` or the constant's gate;
-* `localOk` — module `m`'s local checks against the units of its
-  context: every module of it is earlier, a module loaded privately
-  brings its whole context, one loaded at the exported level brings
-  `fp1`, and the copies of a name that meet in `m`'s context have one
-  qualified name.
+* `Store`, `Store.view` — the store mode's one store of all units with a
+  name index, and a module's view of it;
+* `UView` — what a module's bookkeeping reads of its context: the
+  interfaces of the modules it loads and its context's lookup (from the
+  store, `Store.uview`; from the units alone, `isoUView`,
+  `ConLeche/Cached/ModIso.lean`);
+* `unitOk` — the check of a unit against its module's own constants and
+  its context: the presentations refine the installed constants, and
+  every name their laws read (`lawsOf`, verified with the checker's own
+  resolution walk `constsResolveFC` against the claimed set) resolves in
+  the module, and its module and level are in `fp1` or the constant's
+  gate;
+* `levelsOk`, `localOk` — module `m`'s local checks against the units of
+  what it loads: every module it loads is earlier, a module loaded
+  privately brings its whole context, one loaded at the exported level
+  brings `fp1`; in the store mode with the store's duplicates' check
+  (`oneKey`; the isolated mode's is `keysOk`);
+* `isPropCheap` — Lean's test for a statement that is a proposition,
+  which decides the proofs of a module (their qualified name is their
+  statement).
 
 Nothing here type-checks: the declarations' checks are the fold's own
-(`installDeclStep`, `checkPending`), run at the views.
+(`installDeclStep`, `checkPending`).
 -/
 
 namespace ConLeche.Cached.Mod
@@ -318,12 +326,6 @@ def keyOfSlot (s : ModSlot) (h j : Nat) (n : Name) : ConLeche.Modular.Key :=
 its statement for a proof, its home and name otherwise. -/
 def Store.keyAt (S : Store) (h j : Nat) (n : Name) : ConLeche.Modular.Key :=
   keyOfSlot (S.slot h) h j n
-
-/-- The qualified name module `i` resolves `n` to through its context. -/
-def Store.keyIn (S : Store) (i : Nat) (n : Name) : Option ConLeche.Modular.Key :=
-  match (S.mb i).pick? n with
-  | some (h, j, _) => some (S.keyAt h j n)
-  | none => none
 
 /-! ## What a module's bookkeeping reads of its context -/
 

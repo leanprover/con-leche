@@ -5,39 +5,40 @@ public import ConLeche.Cached.ModStore
 @[expose] public section
 
 /-!
-# The isolated check of a module (task #373)
+# The isolated check of a module (tasks #373, #374)
 
-A modular run (`ConLeche/Driver/Modular.lean`) installs and checks every
-module at a **view** of one store (`Store.view`): the store's name index
-and every module's unit, gated by the viewing module's levels.  This file
-holds the specification that view stands for, a module checked **in
-isolation**:
+A module checked **in isolation** reads its own records and the units of
+the modules Lean loads for it, and nothing else (`mask`: the interface of
+every module it loads, the private record of those it loads with
+`import all`; `ConLeche/Verify/Modular/Mask.lean` proves that the mask
+changes none of the computations below).  This file holds what such a
+module computes from them:
 
-* `isoCtx` — module `M`'s context built from `M`'s imports' units alone:
-  for every module `M` loads, in module order, every constant of its
-  unit as `M`'s level presents it (`presentAt`: at the private level the
-  installed constant, read from the private record `prv`; at the
-  exported level its exported presentation, read from the interface
-  `exp` alone, through its gates), with its projection table if it is
-  presented as a type former; each name once, the first presentation
-  (`firstNamed`);
+* `isoCtx` — module `M`'s context: for every module `M` loads, in module
+  order, every constant of its unit as `M`'s level presents it
+  (`presentAt`: at the private level the installed constant, read from
+  the private record `prv`; at the exported level its exported
+  presentation, read from the interface `exp` alone, through its gates),
+  with its projection table if it is presented as a type former; each
+  name once, the first presentation (`firstNamed`);
+* `isoLook`, `isoUView` — the context's lookup (a name's first
+  presentation with its module and position) and what the unit's
+  bookkeeping reads of the context;
+* `keysOk`, `localOkIso` — the copies of a name that meet in the context
+  have one qualified name; with the levels' check, `M`'s local checks;
+* `isoBuild` — the context's index, lookup and duplicates in one pass
+  (`ConLeche/Verify/Modular/IsoFast.lean` proves it computes the three);
 * `checkModuleIsolated` — the checker's own declaration fold (the
   install step `installDeclStep` over the records, then every recorded
   check `checkPendingList`, as `checkDecls`) started at the canonical
-  index of that context, `mkFEnv (isoCtx …)`: no store, no view.
+  index of the context, `mkFEnv (isoCtx …)`: no store, no view.
 
-The store run is the same fold started at the module's view
-(`checkAtView`).  `Mod.checkAtView_isolated`
-(`ConLeche/Verify/Modular/Iso.lean`) proves the two equal — the same
-verdict, the same error at the same position, the same installed
-constants — whenever the store's name index lists every unit constant
-under its name, each name's alternates in module order (`idxOk`, checked
-by every modular run).
-
-`ownView` is a module's own constants over its view's base: the store
-run's final view, rebuilt from an isolated run's constants (the unit's
-bookkeeping — exported presentations, gates, qualified names — reads
-the name index through it, in both modes).
+The store mode's per-module check is the same fold started at the
+module's view (`checkAtView`); `Mod.checkAtView_isolated`
+(`ConLeche/Verify/Modular/IsoCtx.lean`) proves the two equal whenever
+the store's name index lists every unit constant under its name, each
+name's alternates in module order (`idxOk`).  `ownView` is a module's own
+constants over a store's lookup: the store mode's final view.
 -/
 
 namespace ConLeche.Cached.Mod
@@ -181,15 +182,17 @@ def localOkIso (m : Nat) (slot : Nat → ModSlot) (lv : ByteArray) : Bool :=
 
 /-- The state of `isoBuild`: the context so far (its constants newest
 first, its tables), its name index and table map, its size, the module
-and position of each of its constants (`src`, by counter), and the
-presentations dropped because their name was there already. -/
+and position of each of its constants (`srcH`, `srcJ`, by counter: two
+arrays of numbers, no object per constant), and the presentations
+dropped because their name was there already. -/
 structure IsoAcc where
   n : Nat
   consts : List ConstantInfo
   tables : List ProjTable
   idx : Std.HashMap Name (Nat × ConstantInfo)
   tbls : Std.HashMap Name ProjTable
-  src : Array (Nat × Nat)
+  srcH : Array Nat
+  srcJ : Array Nat
   dropped : List (Nat × Nat × Name)
 
 /-- One presented constant (module `h`, position `j`) added, unless its
@@ -199,9 +202,9 @@ name is there already (then it is noted as dropped). -/
   if a.idx.contains ci.name then { a with dropped := (h, j, ci.name) :: a.dropped } else
   match t with
   | some t => ⟨a.n + 1, ci :: a.consts, t :: a.tables, a.idx.insert ci.name (a.n, ci),
-      a.tbls.insert t.structName t, a.src.push (h, j), a.dropped⟩
+      a.tbls.insert t.structName t, a.srcH.push h, a.srcJ.push j, a.dropped⟩
   | none => ⟨a.n + 1, ci :: a.consts, a.tables, a.idx.insert ci.name (a.n, ci), a.tbls,
-      a.src.push (h, j), a.dropped⟩
+      a.srcH.push h, a.srcJ.push j, a.dropped⟩
 
 /-- Module `h`'s presented constants added (none of a module the viewer
 does not load, whose unit is not read). -/
@@ -219,7 +222,7 @@ index (`IsoAcc.fenv`, which is `isoIndex`), its lookup (`IsoAcc.look`,
 which is `isoLook`) and its duplicates (`IsoAcc.keysOk`, which decides
 `keysOk`), `ConLeche/Verify/Modular/IsoFast.lean`. -/
 def isoBuild (slot : Nat → ModSlot) (lv : ByteArray) : IsoAcc :=
-  (List.range lv.size).foldl (isoAccModule lv slot) ⟨0, [], [], {}, {}, #[], []⟩
+  (List.range lv.size).foldl (isoAccModule lv slot) ⟨0, [], [], {}, {}, #[], #[], []⟩
 
 /-- The context's canonical index. -/
 def IsoAcc.fenv (a : IsoAcc) : FEnv := ⟨⟨a.consts, a.tables⟩, a.idx, a.n, {}, [], a.tbls⟩
@@ -228,7 +231,9 @@ def IsoAcc.fenv (a : IsoAcc) : FEnv := ⟨⟨a.consts, a.tables⟩, a.idx, a.n, 
 position. -/
 def IsoAcc.look (a : IsoAcc) (n : Name) : Option (Nat × Nat × ConstantInfo) :=
   match a.idx[n]? with
-  | some (c, ci) => (a.src[c]?).map fun (h, j) => (h, j, ci)
+  | some (c, ci) => match a.srcH[c]?, a.srcJ[c]? with
+    | some h, some j => some (h, j, ci)
+    | _, _ => none
   | none => none
 
 /-- The duplicates' check: every dropped presentation has the qualified
@@ -237,6 +242,24 @@ def IsoAcc.keysOk (slot : Nat → ModSlot) (a : IsoAcc) : Bool :=
   a.dropped.all fun (h, j, n) => match a.look n with
     | some (h₀, j₀, _) => keyOfSlot (slot h) h j n == keyOfSlot (slot h₀) h₀ j₀ n
     | none => false
+
+/-- **The context's lookup, from the install's own index**: after module
+`M`'s records are installed from its context's index, that index answers
+for a context constant with its counter, below the context's size `nC`,
+and `srcH`/`srcJ` give its module and position (`isoBuild`'s).  So the
+one-pass state need not live through the install, and the install's
+index is never shared (`lookAfter_iso`,
+`ConLeche/Verify/Modular/IsoFast.lean`: it is `isoLook`). -/
+def lookAfter (fe : FEnv) (srcH srcJ : Array Nat) (nC : Nat) (n : Name) :
+    Option (Nat × Nat × ConstantInfo) :=
+  match fe.idx[n]? with
+  | some (c, ci) =>
+    if c < nC then
+      match srcH[c]?, srcJ[c]? with
+      | some h, some j => some (h, j, ci)
+      | _, _ => none
+    else none
+  | none => none
 
 /-! ## The checks -/
 

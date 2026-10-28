@@ -8,27 +8,26 @@ import ConLeche.Verify.Modular.Scope
 public section
 
 /-!
-# The isolated run and the store run establish the same (task #373)
+# Isolated installs over a store's bookkeeping (task #373)
 
 A modular run in **store mode** installs and checks every module at its
-view of one store and establishes `RunOk`.  A run in **isolated mode**
-checks every module in an environment of its own, built from its
-imports' units alone (`isoCtx`), and establishes `IsoStoreOk`: the same
-facts with the install, the record checks and the proofs' checks done
-in that environment.  The bookkeeping of the two (the units, their
-checks `unitOk`, the local checks `localOk`, the list of names stored
-twice) is the same, and so are the units: in isolated mode a module's
-view is rebuilt from its own constants (`ownView`).
+view of one store and establishes `RunOk`.  `IsoStoreOk` is the same
+facts with every module's install, record checks and proofs' checks done
+in an environment of its own built from the units it reads (`isoCtx`),
+the bookkeeping (the units' checks `unitOk`, the local checks `localOk`)
+still the store's.  It is the step between the two modes: an isolated
+run (`IsoRunOk`, `ConLeche/Verify/Modular/Isolated.lean`) is one over the
+store of its units, and a store run is one over its own store.
 
 * `IsoStoreOk.runOk` and `RunOk.isoStoreOk` — each establishes the other
   (for the same store and units; the store run's records' check list,
   whose bounds count from the view's zero, is recovered by the
   equivalence of the folds), given that the name index lists every unit
-  constant (`IdxOk`, part of `IsoStoreOk`, decided by every run);
-* `isoDevOf` — the development an isolated run stands for: every
-  module's context is the one built from its imports' units, its own
-  environment its constants over that context; the rest (sources,
-  proofs, qualified names, interfaces) as the store run's (`devOf`);
+  constant (`IdxOk`);
+* `isoDevOf` — the development such a run stands for: every module's
+  context is the one built from the units it reads, its own environment
+  its constants over that context; the rest (sources, proofs, qualified
+  names, interfaces) as the store run's (`devOf`);
 * **`IsoStoreOk.localOk`** — every module of it passes the local checks,
   the hypothesis of the modular capstones `ConLeche.modular_model_exists`
   and `ConLeche.modular_no_False`; and `RunOk.localOk_iso`, the same for

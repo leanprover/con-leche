@@ -47,6 +47,14 @@ ready queue over the import graph on `jobs` worker threads).  Its unit
 is published when it is done.  **The checks** of every recorded
 declaration of every module run in one pool afterwards, each at its
 module's final view, restricted to its prefix as usual.
+
+**The isolated mode** (`--modular=isolated`, task #374) builds no store:
+module `M`'s work (`isoWork`) reads `M`'s own records and the units of
+the modules Lean loads for `M` (`Mod.mask`: their interfaces, the private
+records of those loaded with `import all`), and nothing else — its
+context, the install and checks of its records, its unit and the unit's
+check, its local checks.  What is decided about the whole run is only
+the coverage (`isoRunOk`: a unit per module, published as checked).
 -/
 
 @[expose] public section
@@ -850,14 +858,24 @@ def isoWork (mode : CheckMode) (err : IO.FS.Stream) (g : Array ModIn) (slots : A
   let lv := (lvls[k]?).getD .empty
   -- the units module `k` reads: what Lean loads for it, and nothing else
   let units := Mod.mask (Mod.slotOf slots) lv
+  -- the context in one pass; what the bookkeeping needs of it is taken out
+  -- before the install, so that the install's index is never shared (its
+  -- first insertion would copy it): the provenance arrays, the size, the
+  -- duplicates' check, the environment
   let a := Mod.isoBuild units lv
+  let srcH := a.srcH
+  let srcJ := a.srcJ
+  let nC := a.n
+  let dupOk := a.keysOk units
   let fe₀ := a.fenv
+  let C := fe₀.env
   match ← installModule mode err (declsAt g k) fe₀ with
   | .error e => return .error e
   | .ok e =>
     let ⟨flags, hprf⟩ := proofsOf mode e.fe.find? e.fe e.pend
-    let own := Mod.ownPart fe₀.env e.fe.env
-    let U : Mod.UView := ⟨fun h => (units h).exp, a.look⟩
+    let own := Mod.ownPart C e.fe.env
+    -- the context's lookup, answered by the install's own index
+    let U : Mod.UView := ⟨fun h => (units h).exp, Mod.lookAfter e.fe srcH srcJ nC⟩
     match unitOf g U flags k lv (mkFEnv own) with
     | .error msg => return .error (.internal s!"the unit of the module: {msg}", 0)
     | .ok (u, rd, dg) =>
@@ -866,21 +884,24 @@ def isoWork (mode : CheckMode) (err : IO.FS.Stream) (g : Array ModIn) (slots : A
           ds := declsAt g k, fe := mkFEnv own, pend := #[], unit := u, flags, reads := rd }
       if hlv : OwnerParse.sameB d.unit.prv.lvl lv = true then
       if hu : Mod.unitOk U k d.fe d.flags.contains d.unit d.reads = true then
-      if hl : (Mod.levelsOk k lv units && a.keysOk units) = true then
+      if hl : (Mod.levelsOk k lv units && dupOk) = true then
         have hlv : d.unit.prv.lvl = lv := OwnerParse.sameB_iff.mp hlv
         have hfe : fe₀ = mkFEnv (Mod.isoCtx units lv) := Mod.isoBuild_fenv units lv
-        have hU : U = Mod.isoUView units lv := by
-          show (⟨_, (Mod.isoBuild units lv).look⟩ : Mod.UView) = ⟨_, _⟩
-          rw [Mod.isoBuild_look]
         have hrun₀ : ∃ n, InstallRun mode natOpPinSets (declsAt g k).toList
             (0, mkFEnv (Mod.isoCtx units lv), #[]) (n, e.fe, e.pend) := by
           rw [← hfe]; exact e.run
         have hrun := hrun₀.choose_spec
-        have hC : fe₀.env = Mod.isoCtx units lv := by rw [hfe]; rfl
+        have hU : U = Mod.isoUView units lv := by
+          show (⟨_, Mod.lookAfter e.fe (Mod.isoBuild units lv).srcH (Mod.isoBuild units lv).srcJ
+            (Mod.isoBuild units lv).n⟩ : Mod.UView) = ⟨_, _⟩
+          rw [Mod.lookAfter_iso hrun]
+        have hC : C = Mod.isoCtx units lv := by
+          show fe₀.env = _
+          rw [hfe]; rfl
         have henv : e.fe.env = Mod.Env.over d.fe.env (Mod.isoCtx units lv) := by
           have h1 := hrun.over_ctx
           have h2 : (mkFEnv own).env = Mod.ownPart (Mod.isoCtx units lv) e.fe.env := by
-            show Mod.ownPart fe₀.env e.fe.env = _
+            show Mod.ownPart C e.fe.env = _
             rw [hC]
           show e.fe.env = Mod.Env.over (mkFEnv own).env _
           rw [h2]; exact h1
@@ -896,7 +917,9 @@ def isoWork (mode : CheckMode) (err : IO.FS.Stream) (g : Array ModIn) (slots : A
               rfl, by rw [hlv, ← hU]; exact hu, by rw [hlv]; exact hloc⟩)
           | .error (x, pos) => pure (.error (x, pos)))
       else
-        let bad := a.dropped.find? fun (h, j, n) => match a.look n with
+        -- (a failure: the one-pass state built again, for the message)
+        let a' := Mod.isoBuild units lv
+        let bad := a'.dropped.find? fun (h, j, n) => match a'.look n with
           | some (h₀, j₀, _) => Mod.keyOfSlot (units h) h j n != Mod.keyOfSlot (units h₀) h₀ j₀ n
           | none => true
         let why := match levelsWhy g k lv units with
@@ -1258,7 +1281,9 @@ def compareOneIso (mode : CheckMode) (err : IO.FS.Stream) (slots : Array (Thunk 
     (M : Array Mod.ModData) (i : Nat) (chal : Array Declaration) (lv : ByteArray) :
     IO (Except String (PLift (IsoCmpClaim mode slots M i chal) × Array (Name × Nat))) := do
   let aS := Mod.isoBuild (Mod.mask (Mod.slotOf slots) lv) lv
-  match ← installModule mode err chal aS.fenv with
+  let feS := aS.fenv
+  let CS := feS.env
+  match ← installModule mode err chal feS with
   | .error (e, pos) =>
     let d := match chal[pos]? with
       | some d => s!"{ConLeche.Cached.declCLabel d}: "
@@ -1268,7 +1293,7 @@ def compareOneIso (mode : CheckMode) (err : IO.FS.Stream) (slots : Array (Thunk 
     let holes := holesOf chal
     let lvC := (M[i]?.map (·.unit.prv.lvl)).getD .empty
     let aC := Mod.isoBuild (Mod.mask (Mod.slotOf slots) lvC) lvC
-    let own := (Mod.ownPart aS.fenv.env e.fe.env).consts
+    let own := (Mod.ownPart CS e.fe.env).consts
     if h : own.all (fun ci => cmpOk holes (aC.fenv.find? ci.name) ci) = true then
       let filled := own.filterMap fun ci =>
         if holes.contains ci.name then
@@ -1276,16 +1301,17 @@ def compareOneIso (mode : CheckMode) (err : IO.FS.Stream) (slots : Array (Thunk 
             | some (h, _, _) => h
             | none => 0)
         else none
-      have hfS : aS.fenv = mkFEnv (Mod.isoCtx (Mod.mask (Mod.slotOf slots) lv) lv) :=
+      have hfS : feS = mkFEnv (Mod.isoCtx (Mod.mask (Mod.slotOf slots) lv) lv) :=
         Mod.isoBuild_fenv _ lv
       have hrun₀ : ∃ n, InstallRun mode natOpPinSets chal.toList
           (0, mkFEnv (Mod.isoCtx (Mod.mask (Mod.slotOf slots) lv) lv), #[]) (n, e.fe, e.pend) := by
         rw [← hfS]; exact e.run
       have hrun := hrun₀.choose_spec
       return .ok (⟨⟨lv, _, e.fe, e.pend, hrun, fun ci hci => by
-        have hC : aS.fenv.env = Mod.isoCtx (Mod.mask (Mod.slotOf slots) lv) lv := by
+        have hC : CS = Mod.isoCtx (Mod.mask (Mod.slotOf slots) lv) lv := by
+          show feS.env = _
           rw [hfS]; rfl
-        have hci' : ci ∈ (Mod.ownPart aS.fenv.env e.fe.env).consts := by rw [hC]; exact hci
+        have hci' : ci ∈ (Mod.ownPart CS e.fe.env).consts := by rw [hC]; exact hci
         have := List.all_eq_true.mp h ci hci'
         rw [Mod.isoBuild_fenv, Mod.isoIndex, mkFEnv_find?, Mod.isoCtx_mask] at this
         exact this⟩⟩, filled.reverse.toArray)
