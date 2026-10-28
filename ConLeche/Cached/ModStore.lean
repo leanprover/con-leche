@@ -277,11 +277,21 @@ def lawsOk (r : ReadSet) (l : Laws) : Bool :=
 /-- The alternates of a name in the store. -/
 def Store.alts (S : Store) (n : Name) : List (Nat × Nat) := (S.mb 0).alts n
 
-/-- The qualified name a unit's constant `j` of module `h` has. -/
+/-- **The qualified name a unit's constant `j` of module `h` has**: a
+proof's is its statement, read off its exported presentation (the
+constant or the assumption of its statement: the same statement); only
+a proof the exported part does not present — which only a viewer
+loading `h` with `import all` sees — reads the private record. -/
 def keyOfSlot (s : ModSlot) (h j : Nat) (n : Name) : ConLeche.Modular.Key :=
-  match s.exp.prf[j]?, s.prv.priv[j]? with
-  | some true, some ci => .proof n ci.toConstantVal.levelParams ci.toConstantVal.type
-  | _, _ => .qual h n
+  match s.exp.prf[j]? with
+  | some true =>
+    match (s.exp.at1[j]?).join with
+    | some ci => .proof n ci.toConstantVal.levelParams ci.toConstantVal.type
+    | none =>
+      match s.prv.priv[j]? with
+      | some ci => .proof n ci.toConstantVal.levelParams ci.toConstantVal.type
+      | none => .qual h n
+  | _ => .qual h n
 
 /-- **The qualified name of module `h`'s constant `j`**, stored under `n`:
 its statement for a proof, its home and name otherwise. -/
